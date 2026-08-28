@@ -5,6 +5,8 @@ MyAPI 是这套自建实例与部署工具的发行名称，基于 New API
 `f116414284162ad15d8925f7bca494c109b83e93`）。本发行版继续保留 New API、
 QuantumNous、AGPL、NOTICE、About 页面和可见原项目链接。
 
+MyAPI 源码仓库：<https://github.com/ForceMind/MyAPI>（私有仓库）。
+
 ## 品牌与兼容性边界
 
 MyAPI 是面向部署者和最终用户的发行品牌，适用于站点名称、Logo、CLI 命令和
