@@ -31,6 +31,7 @@ import type {
   ModelOption,
   GroupOption,
   ParameterEnabled,
+  PlaygroundParameterKey,
   PlaygroundConfig,
 } from '../../types'
 import { PlaygroundInputControls } from './playground-input-controls'
@@ -60,6 +61,8 @@ interface PlaygroundInputProps {
     value: boolean
   ) => void
   parameterEnabled: ParameterEnabled
+  unsupportedParameters?: PlaygroundParameterKey[]
+  unsupportedProvider?: string
 }
 
 export function PlaygroundInput({
@@ -80,6 +83,8 @@ export function PlaygroundInput({
   onClearMessages,
   onParameterEnabledChange,
   parameterEnabled,
+  unsupportedParameters,
+  unsupportedProvider,
 }: PlaygroundInputProps) {
   const { t } = useTranslation()
   const [text, setText] = useState('')
@@ -133,6 +138,8 @@ export function PlaygroundInput({
                 onClearMessages={onClearMessages}
                 onParameterEnabledChange={onParameterEnabledChange}
                 parameterEnabled={parameterEnabled}
+                unsupportedParameters={unsupportedParameters}
+                unsupportedProvider={unsupportedProvider}
               />
             }
           />

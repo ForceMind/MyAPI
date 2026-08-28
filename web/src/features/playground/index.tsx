@@ -16,6 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
+
 import { PlaygroundChat } from './components/chat/playground-chat'
 import { PlaygroundInput } from './components/input/playground-input'
 import {
@@ -24,8 +28,13 @@ import {
   usePlaygroundOptions,
   usePlaygroundState,
 } from './hooks'
+import {
+  applyUnsupportedParameterRestrictions,
+  PLAYGROUND_PARAMETER_CONTROLS,
+} from './lib/parameters/playground-parameters'
 
 export function Playground() {
+  const { t } = useTranslation()
   const {
     config,
     parameterEnabled,
@@ -41,9 +50,56 @@ export function Playground() {
     clearMessages,
   } = usePlaygroundState()
 
+  const { isLoadingModels } = usePlaygroundOptions({
+    currentGroup: config.group,
+    currentModel: config.model,
+    setGroups,
+    setModels,
+    updateConfig,
+  })
+
+  const selectedModel = useMemo(
+    () => models.find((model) => model.value === config.model),
+    [config.model, models]
+  )
+  const unsupportedParameters = useMemo(
+    () => selectedModel?.unsupportedParameters ?? [],
+    [selectedModel]
+  )
+  const effectiveParameterEnabled = useMemo(
+    () =>
+      applyUnsupportedParameterRestrictions(
+        parameterEnabled,
+        unsupportedParameters
+      ),
+    [parameterEnabled, unsupportedParameters]
+  )
+  const autoDisabledLabels = useMemo(
+    () =>
+      PLAYGROUND_PARAMETER_CONTROLS.filter(
+        (control) =>
+          unsupportedParameters.includes(control.key) &&
+          parameterEnabled[control.key]
+      ).map((control) => t(control.labelKey)),
+    [parameterEnabled, t, unsupportedParameters]
+  )
+
+  useEffect(() => {
+    if (autoDisabledLabels.length === 0) {
+      return
+    }
+
+    toast.info(t('Unsupported parameters were turned off'), {
+      description: t('{{provider}} does not support: {{parameters}}', {
+        provider: selectedModel?.provider || t('Current provider'),
+        parameters: autoDisabledLabels.join(', '),
+      }),
+    })
+  }, [autoDisabledLabels, config.model, selectedModel?.provider, t])
+
   const { sendChat, stopGeneration, isGenerating } = useChatHandler({
     config,
-    parameterEnabled,
+    parameterEnabled: effectiveParameterEnabled,
     onMessageUpdate: updateMessages,
   })
 
@@ -65,14 +121,6 @@ export function Playground() {
     handleEditOpenChange(false)
     clearMessages()
   }
-
-  const { isLoadingModels } = usePlaygroundOptions({
-    currentGroup: config.group,
-    currentModel: config.model,
-    setGroups,
-    setModels,
-    updateConfig,
-  })
 
   return (
     <div className='relative flex size-full min-h-0 flex-col overflow-hidden'>
@@ -111,7 +159,9 @@ export function Playground() {
           onParameterEnabledChange={updateParameterEnabled}
           onStop={stopGeneration}
           onSubmit={handleSendMessage}
-          parameterEnabled={parameterEnabled}
+          parameterEnabled={effectiveParameterEnabled}
+          unsupportedParameters={unsupportedParameters}
+          unsupportedProvider={selectedModel?.provider}
           hasMessages={messages.length > 0}
         />
       </div>

@@ -43,7 +43,11 @@ import {
   getAttachmentActionNotice,
   getSearchActionNotice,
 } from '../../lib'
-import type { ParameterEnabled, PlaygroundConfig } from '../../types'
+import type {
+  ParameterEnabled,
+  PlaygroundConfig,
+  PlaygroundParameterKey,
+} from '../../types'
 import { PlaygroundParameterPanel } from './playground-parameter-panel'
 
 type PlaygroundInputToolsProps = {
@@ -60,6 +64,8 @@ type PlaygroundInputToolsProps = {
     value: boolean
   ) => void
   parameterEnabled: ParameterEnabled
+  unsupportedParameters?: PlaygroundParameterKey[]
+  unsupportedProvider?: string
 }
 
 export function PlaygroundInputTools({
@@ -70,6 +76,8 @@ export function PlaygroundInputTools({
   onConfigChange,
   onParameterEnabledChange,
   parameterEnabled,
+  unsupportedParameters,
+  unsupportedProvider,
 }: PlaygroundInputToolsProps) {
   const { t } = useTranslation()
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
@@ -155,6 +163,8 @@ export function PlaygroundInputTools({
           onConfigChange={onConfigChange}
           onParameterEnabledChange={onParameterEnabledChange}
           parameterEnabled={parameterEnabled}
+          unsupportedParameters={unsupportedParameters}
+          unsupportedProvider={unsupportedProvider}
         />
 
         <Tooltip>

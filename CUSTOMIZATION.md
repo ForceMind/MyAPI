@@ -59,6 +59,17 @@
 
 对应补丁：`patches/04-codex-oauth-minimal-ui.patch`。
 
+### 6. 游乐场按通道显示参数能力
+
+- 用户模型接口返回当前分组中模型优先通道的游乐场参数限制；
+- Codex 模型会自动将 `temperature`、`top_p`、`max_tokens`、`frequency_penalty` 和 `presence_penalty` 显示为关闭并禁用；
+- 切换到受限模型时弹出一次提示，参数面板内持续显示 Codex 不支持的参数列表；
+- 切回支持这些参数的模型后恢复用户原有开关偏好；
+- 请求构建使用界面显示的有效参数状态，不会继续发送已禁用参数；
+- 后端 Codex 适配器仍保留参数过滤，作为外部客户端和旧前端的安全兜底。
+
+对应补丁：`patches/06-playground-codex-parameter-capabilities.patch`。
+
 ## 两种使用方式
 
 ### 直接使用完整源码（推荐）
@@ -81,9 +92,10 @@ patch -p1 < patches/02-chat-attachment-compat.patch
 patch -p1 < patches/03-full-content-log-explorer.patch
 patch -p1 < patches/04-codex-oauth-minimal-ui.patch
 patch -p1 < patches/05-codex-strip-unsupported-top-p.patch
+patch -p1 < patches/06-playground-codex-parameter-capabilities.patch
 ```
 
-上游文件发生变化后补丁可能产生冲突。升级 New API 时，推荐把这五个补丁作为迁移清单逐项移植，并重新运行全部测试，而不是强制应用失败的补丁。
+上游文件发生变化后补丁可能产生冲突。升级 New API 时，推荐把这六个补丁作为迁移清单逐项移植，并重新运行全部测试，而不是强制应用失败的补丁。
 
 ## 主要测试
 

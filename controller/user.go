@@ -628,6 +628,38 @@ func generateDefaultSidebarConfig(userRole int) string {
 	return string(configBytes)
 }
 
+type playgroundModelCapability struct {
+	Provider              string   `json:"provider"`
+	UnsupportedParameters []string `json:"unsupported_parameters"`
+}
+
+var codexUnsupportedPlaygroundParameters = []string{
+	"temperature",
+	"top_p",
+	"max_tokens",
+	"frequency_penalty",
+	"presence_penalty",
+}
+
+func getPlaygroundModelCapabilities(modelNames []string, groups []string) (map[string]playgroundModelCapability, error) {
+	channelTypes, err := model.GetPreferredModelOwnerChannelTypes(modelNames, groups)
+	if err != nil {
+		return nil, err
+	}
+
+	capabilities := make(map[string]playgroundModelCapability)
+	for modelName, channelType := range channelTypes {
+		if channelType != constant.ChannelTypeCodex {
+			continue
+		}
+		capabilities[modelName] = playgroundModelCapability{
+			Provider:              "Codex",
+			UnsupportedParameters: codexUnsupportedPlaygroundParameters,
+		}
+	}
+	return capabilities, nil
+}
+
 func GetUserModels(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -655,10 +687,17 @@ func GetUserModels(c *gin.Context) {
 			groupsToQuery = []string{group}
 		}
 	}
+	modelNames := service.GetGroupsEnabledModels(groupsToQuery)
+	capabilities, capabilityErr := getPlaygroundModelCapabilities(modelNames, groupsToQuery)
+	if capabilityErr != nil {
+		common.SysLog(fmt.Sprintf("get playground model capabilities failed: %v", capabilityErr))
+		capabilities = map[string]playgroundModelCapability{}
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    service.GetGroupsEnabledModels(groupsToQuery),
+		"success":      true,
+		"message":      "",
+		"data":         modelNames,
+		"capabilities": capabilities,
 	})
 }
 

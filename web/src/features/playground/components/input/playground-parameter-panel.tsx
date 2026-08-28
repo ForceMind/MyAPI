@@ -16,10 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { SlidersHorizontalIcon } from 'lucide-react'
+import { CircleAlertIcon, SlidersHorizontalIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { PromptInputButton } from '@/components/ai-elements/prompt-input'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import {
@@ -49,9 +50,12 @@ import {
   normalizeParameterNumberValue,
   PLAYGROUND_PARAMETER_CONTROLS,
   PLAYGROUND_PARAMETER_PANEL_SCROLL_CLASS,
-  type PlaygroundParameterKey,
 } from '../../lib/parameters/playground-parameters'
-import type { ParameterEnabled, PlaygroundConfig } from '../../types'
+import type {
+  ParameterEnabled,
+  PlaygroundConfig,
+  PlaygroundParameterKey,
+} from '../../types'
 
 type PlaygroundParameterPanelProps = {
   config: PlaygroundConfig
@@ -65,6 +69,8 @@ type PlaygroundParameterPanelProps = {
     value: boolean
   ) => void
   parameterEnabled: ParameterEnabled
+  unsupportedParameters?: PlaygroundParameterKey[]
+  unsupportedProvider?: string
 }
 
 type PlaygroundParameterContentProps = PlaygroundParameterPanelProps & {
@@ -78,8 +84,16 @@ function PlaygroundParameterContent({
   onConfigChange,
   onParameterEnabledChange,
   parameterEnabled,
+  unsupportedParameters = [],
+  unsupportedProvider,
 }: PlaygroundParameterContentProps) {
   const { t } = useTranslation()
+  const unsupportedSet = new Set(unsupportedParameters)
+  const unsupportedLabels = PLAYGROUND_PARAMETER_CONTROLS.filter((control) =>
+    unsupportedSet.has(control.key)
+  )
+    .map((control) => t(control.labelKey))
+    .join(', ')
 
   const updateParameterConfig = (
     key: PlaygroundParameterKey,
@@ -101,8 +115,23 @@ function PlaygroundParameterContent({
         compact ? 'px-4 pb-4' : 'p-1'
       )}
     >
+      {unsupportedParameters.length > 0 && (
+        <Alert className='border-amber-500/35 bg-amber-500/8 py-2.5 text-amber-950 dark:text-amber-100'>
+          <CircleAlertIcon />
+          <AlertDescription className='text-xs leading-5'>
+            {t(
+              '{{provider}} does not support these parameters. They have been turned off: {{parameters}}',
+              {
+                provider: unsupportedProvider || t('Current provider'),
+                parameters: unsupportedLabels,
+              }
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
       {PLAYGROUND_PARAMETER_CONTROLS.map((control) => {
-        const enabled = parameterEnabled[control.key]
+        const unsupported = unsupportedSet.has(control.key)
+        const enabled = unsupported ? false : parameterEnabled[control.key]
         const value = config[control.key]
         const controlId = `playground-${control.key}`
 
@@ -110,7 +139,7 @@ function PlaygroundParameterContent({
           <div
             className={cn(
               'border-border/70 bg-background/60 grid gap-2 rounded-lg border p-3 transition-opacity',
-              (!enabled || disabled) && 'opacity-55'
+              (!enabled || disabled || unsupported) && 'opacity-55'
             )}
             key={control.key}
           >
@@ -129,6 +158,14 @@ function PlaygroundParameterContent({
                   >
                     {t(getParameterControlValueText(control.key, value))}
                   </Badge>
+                  {unsupported && (
+                    <Badge
+                      className='h-5 shrink-0 px-1.5 text-[10px]'
+                      variant='secondary'
+                    >
+                      {t('Unsupported')}
+                    </Badge>
+                  )}
                 </div>
                 <p className='text-muted-foreground text-xs leading-4'>
                   {t(control.descriptionKey)}
@@ -140,7 +177,7 @@ function PlaygroundParameterContent({
                   parameter: t(control.labelKey),
                 })}
                 checked={enabled}
-                disabled={disabled}
+                disabled={disabled || unsupported}
                 onCheckedChange={(checked) =>
                   onParameterEnabledChange(control.key, checked)
                 }
@@ -151,7 +188,7 @@ function PlaygroundParameterContent({
             {control.valueType === 'slider' ? (
               <Slider
                 className='py-1.5'
-                disabled={disabled || !enabled}
+                disabled={disabled || unsupported || !enabled}
                 id={controlId}
                 max={control.max}
                 min={control.min}
@@ -169,7 +206,7 @@ function PlaygroundParameterContent({
               />
             ) : (
               <Input
-                disabled={disabled || !enabled}
+                disabled={disabled || unsupported || !enabled}
                 id={controlId}
                 inputMode='numeric'
                 max={control.max}
@@ -198,8 +235,10 @@ function PlaygroundParameterContent({
 export function PlaygroundParameterPanel(props: PlaygroundParameterPanelProps) {
   const { t } = useTranslation()
   const isMobile = useIsMobile()
+  const unsupportedSet = new Set(props.unsupportedParameters ?? [])
   const activeCount = PLAYGROUND_PARAMETER_CONTROLS.filter(
-    (control) => props.parameterEnabled[control.key]
+    (control) =>
+      props.parameterEnabled[control.key] && !unsupportedSet.has(control.key)
   ).length
 
   const trigger = (

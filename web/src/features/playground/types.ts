@@ -137,10 +137,14 @@ export interface ParameterEnabled {
   seed: boolean
 }
 
+export type PlaygroundParameterKey = keyof ParameterEnabled
+
 // Model and group options
 export interface ModelOption {
   label: string
   value: string
+  provider?: string
+  unsupportedParameters?: PlaygroundParameterKey[]
 }
 
 export interface GroupOption {

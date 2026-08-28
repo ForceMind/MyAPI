@@ -1,0 +1,821 @@
+diff --git a/controller/model_list_test.go b/controller/model_list_test.go
+index 812207b..35870f9 100644
+--- a/controller/model_list_test.go
++++ b/controller/model_list_test.go
+@@ -30,8 +30,9 @@ type listModelsResponse struct {
+ }
+ 
+ type userModelsResponse struct {
+-	Success bool     `json:"success"`
+-	Data    []string `json:"data"`
++	Success      bool                                 `json:"success"`
++	Data         []string                             `json:"data"`
++	Capabilities map[string]playgroundModelCapability `json:"capabilities"`
+ }
+ 
+ func setupModelListControllerTestDB(t *testing.T) *gorm.DB {
+@@ -215,6 +216,53 @@ func TestGetUserModelsFiltersByRequestedGroup(t *testing.T) {
+ 	require.Empty(t, decodeUserModelsResponse(t, vipRecorder))
+ }
+ 
++func TestGetUserModelsReturnsCodexPlaygroundRestrictions(t *testing.T) {
++	db := setupModelListControllerTestDB(t)
++	require.NoError(t, db.Create(&model.User{
++		Id:       1004,
++		Username: "playground-codex-user",
++		Password: "password",
++		Group:    "default",
++		Status:   common.UserStatusEnabled,
++	}).Error)
++	require.NoError(t, db.Create(&model.Channel{
++		Id:     57,
++		Name:   "codex-playground-channel",
++		Type:   constant.ChannelTypeCodex,
++		Key:    "test-key",
++		Status: common.ChannelStatusEnabled,
++	}).Error)
++	require.NoError(t, db.Create(&model.Ability{
++		Group:     "default",
++		Model:     "zz-codex-playground-model",
++		ChannelId: 57,
++		Enabled:   true,
++	}).Error)
++
++	recorder := httptest.NewRecorder()
++	context, _ := gin.CreateTestContext(recorder)
++	context.Request = httptest.NewRequest(http.MethodGet, "/api/user/models?group=default", nil)
++	context.Set("id", 1004)
++
++	GetUserModels(context)
++
++	require.Equal(t, http.StatusOK, recorder.Code)
++	var payload userModelsResponse
++	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &payload))
++	require.True(t, payload.Success)
++	require.Contains(t, payload.Data, "zz-codex-playground-model")
++	require.Equal(t, playgroundModelCapability{
++		Provider: "Codex",
++		UnsupportedParameters: []string{
++			"temperature",
++			"top_p",
++			"max_tokens",
++			"frequency_penalty",
++			"presence_penalty",
++		},
++	}, payload.Capabilities["zz-codex-playground-model"])
++}
++
+ func TestGetUserModelsExpandsAutoGroupsInConfiguredOrder(t *testing.T) {
+ 	originalAutoGroups := setting.AutoGroups2JsonString()
+ 	originalUsableGroups := setting.UserUsableGroups2JSONString()
+diff --git a/controller/user.go b/controller/user.go
+index 9b8d931..1bb70b9 100644
+--- a/controller/user.go
++++ b/controller/user.go
+@@ -628,6 +628,38 @@ func generateDefaultSidebarConfig(userRole int) string {
+ 	return string(configBytes)
+ }
+ 
++type playgroundModelCapability struct {
++	Provider              string   `json:"provider"`
++	UnsupportedParameters []string `json:"unsupported_parameters"`
++}
++
++var codexUnsupportedPlaygroundParameters = []string{
++	"temperature",
++	"top_p",
++	"max_tokens",
++	"frequency_penalty",
++	"presence_penalty",
++}
++
++func getPlaygroundModelCapabilities(modelNames []string, groups []string) (map[string]playgroundModelCapability, error) {
++	channelTypes, err := model.GetPreferredModelOwnerChannelTypes(modelNames, groups)
++	if err != nil {
++		return nil, err
++	}
++
++	capabilities := make(map[string]playgroundModelCapability)
++	for modelName, channelType := range channelTypes {
++		if channelType != constant.ChannelTypeCodex {
++			continue
++		}
++		capabilities[modelName] = playgroundModelCapability{
++			Provider:              "Codex",
++			UnsupportedParameters: codexUnsupportedPlaygroundParameters,
++		}
++	}
++	return capabilities, nil
++}
++
+ func GetUserModels(c *gin.Context) {
+ 	id, err := strconv.Atoi(c.Param("id"))
+ 	if err != nil {
+@@ -655,10 +687,17 @@ func GetUserModels(c *gin.Context) {
+ 			groupsToQuery = []string{group}
+ 		}
+ 	}
++	modelNames := service.GetGroupsEnabledModels(groupsToQuery)
++	capabilities, capabilityErr := getPlaygroundModelCapabilities(modelNames, groupsToQuery)
++	if capabilityErr != nil {
++		common.SysLog(fmt.Sprintf("get playground model capabilities failed: %v", capabilityErr))
++		capabilities = map[string]playgroundModelCapability{}
++	}
+ 	c.JSON(http.StatusOK, gin.H{
+-		"success": true,
+-		"message": "",
+-		"data":    service.GetGroupsEnabledModels(groupsToQuery),
++		"success":      true,
++		"message":      "",
++		"data":         modelNames,
++		"capabilities": capabilities,
+ 	})
+ }
+ 
+diff --git a/web/src/features/playground/api.test.ts b/web/src/features/playground/api.test.ts
+new file mode 100644
+index 0000000..1516daf
+--- /dev/null
++++ b/web/src/features/playground/api.test.ts
+@@ -0,0 +1,56 @@
++/*
++Copyright (C) 2023-2026 QuantumNous
++
++This program is free software: you can redistribute it and/or modify
++it under the terms of the GNU Affero General Public License as
++published by the Free Software Foundation, either version 3 of the
++License, or (at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++GNU Affero General Public License for more details.
++
++You should have received a copy of the GNU Affero General Public License
++along with this program. If not, see <https://www.gnu.org/licenses/>.
++
++For commercial licensing, please contact support@quantumnous.com
++*/
++import { describe, expect, test } from 'vitest'
++
++import { parseUserModelOptions } from './api'
++
++describe('parseUserModelOptions', () => {
++  test('attaches validated Codex parameter restrictions to the model', () => {
++    expect(
++      parseUserModelOptions({
++        success: true,
++        data: ['gpt-5.6', 'other-model'],
++        capabilities: {
++          'gpt-5.6': {
++            provider: 'Codex',
++            unsupported_parameters: [
++              'temperature',
++              'top_p',
++              'unknown_parameter',
++            ],
++          },
++        },
++      })
++    ).toEqual([
++      {
++        label: 'gpt-5.6',
++        value: 'gpt-5.6',
++        provider: 'Codex',
++        unsupportedParameters: ['temperature', 'top_p'],
++      },
++      { label: 'other-model', value: 'other-model' },
++    ])
++  })
++
++  test('returns an empty list for an invalid response', () => {
++    expect(
++      parseUserModelOptions({ success: false, data: ['gpt-5.6'] })
++    ).toEqual([])
++  })
++})
+diff --git a/web/src/features/playground/api.ts b/web/src/features/playground/api.ts
+index 4f6e205..1e1b98b 100644
+--- a/web/src/features/playground/api.ts
++++ b/web/src/features/playground/api.ts
+@@ -24,8 +24,67 @@ import type {
+   ChatCompletionResponse,
+   ModelOption,
+   GroupOption,
++  PlaygroundParameterKey,
+ } from './types'
+ 
++const PLAYGROUND_PARAMETER_KEYS = new Set<PlaygroundParameterKey>([
++  'temperature',
++  'top_p',
++  'max_tokens',
++  'frequency_penalty',
++  'presence_penalty',
++  'seed',
++])
++
++type UserModelCapability = {
++  provider?: unknown
++  unsupported_parameters?: unknown
++}
++
++export function parseUserModelOptions(payload: unknown): ModelOption[] {
++  if (!payload || typeof payload !== 'object') {
++    return []
++  }
++
++  const response = payload as {
++    success?: unknown
++    data?: unknown
++    capabilities?: unknown
++  }
++  if (response.success !== true || !Array.isArray(response.data)) {
++    return []
++  }
++
++  const capabilities =
++    response.capabilities && typeof response.capabilities === 'object'
++      ? (response.capabilities as Record<string, UserModelCapability>)
++      : {}
++
++  return response.data
++    .filter((model): model is string => typeof model === 'string')
++    .map((model) => {
++      const capability = capabilities[model]
++      const unsupportedParameters = Array.isArray(
++        capability?.unsupported_parameters
++      )
++        ? capability.unsupported_parameters.filter(
++            (key): key is PlaygroundParameterKey =>
++              typeof key === 'string' &&
++              PLAYGROUND_PARAMETER_KEYS.has(key as PlaygroundParameterKey)
++          )
++        : []
++
++      return {
++        label: model,
++        value: model,
++        ...(typeof capability?.provider === 'string'
++          ? { provider: capability.provider }
++          : {}),
++        ...(unsupportedParameters.length > 0 ? { unsupportedParameters } : {}),
++      }
++    })
++}
++
+ /**
+  * Send chat completion request (non-streaming)
+  */
+@@ -49,14 +108,7 @@ export async function getUserModels(group: string): Promise<ModelOption[]> {
+   })
+   const { data } = res
+ 
+-  if (!data.success || !Array.isArray(data.data)) {
+-    return []
+-  }
+-
+-  return data.data.map((model: string) => ({
+-    label: model,
+-    value: model,
+-  }))
++  return parseUserModelOptions(data)
+ }
+ 
+ /**
+diff --git a/web/src/features/playground/components/input/playground-input-tools.tsx b/web/src/features/playground/components/input/playground-input-tools.tsx
+index c4b436b..2740957 100644
+--- a/web/src/features/playground/components/input/playground-input-tools.tsx
++++ b/web/src/features/playground/components/input/playground-input-tools.tsx
+@@ -43,7 +43,11 @@ import {
+   getAttachmentActionNotice,
+   getSearchActionNotice,
+ } from '../../lib'
+-import type { ParameterEnabled, PlaygroundConfig } from '../../types'
++import type {
++  ParameterEnabled,
++  PlaygroundConfig,
++  PlaygroundParameterKey,
++} from '../../types'
+ import { PlaygroundParameterPanel } from './playground-parameter-panel'
+ 
+ type PlaygroundInputToolsProps = {
+@@ -60,6 +64,8 @@ type PlaygroundInputToolsProps = {
+     value: boolean
+   ) => void
+   parameterEnabled: ParameterEnabled
++  unsupportedParameters?: PlaygroundParameterKey[]
++  unsupportedProvider?: string
+ }
+ 
+ export function PlaygroundInputTools({
+@@ -70,6 +76,8 @@ export function PlaygroundInputTools({
+   onConfigChange,
+   onParameterEnabledChange,
+   parameterEnabled,
++  unsupportedParameters,
++  unsupportedProvider,
+ }: PlaygroundInputToolsProps) {
+   const { t } = useTranslation()
+   const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
+@@ -155,6 +163,8 @@ export function PlaygroundInputTools({
+           onConfigChange={onConfigChange}
+           onParameterEnabledChange={onParameterEnabledChange}
+           parameterEnabled={parameterEnabled}
++          unsupportedParameters={unsupportedParameters}
++          unsupportedProvider={unsupportedProvider}
+         />
+ 
+         <Tooltip>
+diff --git a/web/src/features/playground/components/input/playground-input.tsx b/web/src/features/playground/components/input/playground-input.tsx
+index b06d7cb..bdb622f 100644
+--- a/web/src/features/playground/components/input/playground-input.tsx
++++ b/web/src/features/playground/components/input/playground-input.tsx
+@@ -31,6 +31,7 @@ import type {
+   ModelOption,
+   GroupOption,
+   ParameterEnabled,
++  PlaygroundParameterKey,
+   PlaygroundConfig,
+ } from '../../types'
+ import { PlaygroundInputControls } from './playground-input-controls'
+@@ -60,6 +61,8 @@ interface PlaygroundInputProps {
+     value: boolean
+   ) => void
+   parameterEnabled: ParameterEnabled
++  unsupportedParameters?: PlaygroundParameterKey[]
++  unsupportedProvider?: string
+ }
+ 
+ export function PlaygroundInput({
+@@ -80,6 +83,8 @@ export function PlaygroundInput({
+   onClearMessages,
+   onParameterEnabledChange,
+   parameterEnabled,
++  unsupportedParameters,
++  unsupportedProvider,
+ }: PlaygroundInputProps) {
+   const { t } = useTranslation()
+   const [text, setText] = useState('')
+@@ -133,6 +138,8 @@ export function PlaygroundInput({
+                 onClearMessages={onClearMessages}
+                 onParameterEnabledChange={onParameterEnabledChange}
+                 parameterEnabled={parameterEnabled}
++                unsupportedParameters={unsupportedParameters}
++                unsupportedProvider={unsupportedProvider}
+               />
+             }
+           />
+diff --git a/web/src/features/playground/components/input/playground-parameter-panel.tsx b/web/src/features/playground/components/input/playground-parameter-panel.tsx
+index 7cfd0a9..7eb185a 100644
+--- a/web/src/features/playground/components/input/playground-parameter-panel.tsx
++++ b/web/src/features/playground/components/input/playground-parameter-panel.tsx
+@@ -16,10 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
+ 
+ For commercial licensing, please contact support@quantumnous.com
+ */
+-import { SlidersHorizontalIcon } from 'lucide-react'
++import { CircleAlertIcon, SlidersHorizontalIcon } from 'lucide-react'
+ import { useTranslation } from 'react-i18next'
+ 
+ import { PromptInputButton } from '@/components/ai-elements/prompt-input'
++import { Alert, AlertDescription } from '@/components/ui/alert'
+ import { Badge } from '@/components/ui/badge'
+ import { Input } from '@/components/ui/input'
+ import {
+@@ -49,9 +50,12 @@ import {
+   normalizeParameterNumberValue,
+   PLAYGROUND_PARAMETER_CONTROLS,
+   PLAYGROUND_PARAMETER_PANEL_SCROLL_CLASS,
+-  type PlaygroundParameterKey,
+ } from '../../lib/parameters/playground-parameters'
+-import type { ParameterEnabled, PlaygroundConfig } from '../../types'
++import type {
++  ParameterEnabled,
++  PlaygroundConfig,
++  PlaygroundParameterKey,
++} from '../../types'
+ 
+ type PlaygroundParameterPanelProps = {
+   config: PlaygroundConfig
+@@ -65,6 +69,8 @@ type PlaygroundParameterPanelProps = {
+     value: boolean
+   ) => void
+   parameterEnabled: ParameterEnabled
++  unsupportedParameters?: PlaygroundParameterKey[]
++  unsupportedProvider?: string
+ }
+ 
+ type PlaygroundParameterContentProps = PlaygroundParameterPanelProps & {
+@@ -78,8 +84,16 @@ function PlaygroundParameterContent({
+   onConfigChange,
+   onParameterEnabledChange,
+   parameterEnabled,
++  unsupportedParameters = [],
++  unsupportedProvider,
+ }: PlaygroundParameterContentProps) {
+   const { t } = useTranslation()
++  const unsupportedSet = new Set(unsupportedParameters)
++  const unsupportedLabels = PLAYGROUND_PARAMETER_CONTROLS.filter((control) =>
++    unsupportedSet.has(control.key)
++  )
++    .map((control) => t(control.labelKey))
++    .join(', ')
+ 
+   const updateParameterConfig = (
+     key: PlaygroundParameterKey,
+@@ -101,8 +115,23 @@ function PlaygroundParameterContent({
+         compact ? 'px-4 pb-4' : 'p-1'
+       )}
+     >
++      {unsupportedParameters.length > 0 && (
++        <Alert className='border-amber-500/35 bg-amber-500/8 py-2.5 text-amber-950 dark:text-amber-100'>
++          <CircleAlertIcon />
++          <AlertDescription className='text-xs leading-5'>
++            {t(
++              '{{provider}} does not support these parameters. They have been turned off: {{parameters}}',
++              {
++                provider: unsupportedProvider || t('Current provider'),
++                parameters: unsupportedLabels,
++              }
++            )}
++          </AlertDescription>
++        </Alert>
++      )}
+       {PLAYGROUND_PARAMETER_CONTROLS.map((control) => {
+-        const enabled = parameterEnabled[control.key]
++        const unsupported = unsupportedSet.has(control.key)
++        const enabled = unsupported ? false : parameterEnabled[control.key]
+         const value = config[control.key]
+         const controlId = `playground-${control.key}`
+ 
+@@ -110,7 +139,7 @@ function PlaygroundParameterContent({
+           <div
+             className={cn(
+               'border-border/70 bg-background/60 grid gap-2 rounded-lg border p-3 transition-opacity',
+-              (!enabled || disabled) && 'opacity-55'
++              (!enabled || disabled || unsupported) && 'opacity-55'
+             )}
+             key={control.key}
+           >
+@@ -129,6 +158,14 @@ function PlaygroundParameterContent({
+                   >
+                     {t(getParameterControlValueText(control.key, value))}
+                   </Badge>
++                  {unsupported && (
++                    <Badge
++                      className='h-5 shrink-0 px-1.5 text-[10px]'
++                      variant='secondary'
++                    >
++                      {t('Unsupported')}
++                    </Badge>
++                  )}
+                 </div>
+                 <p className='text-muted-foreground text-xs leading-4'>
+                   {t(control.descriptionKey)}
+@@ -140,7 +177,7 @@ function PlaygroundParameterContent({
+                   parameter: t(control.labelKey),
+                 })}
+                 checked={enabled}
+-                disabled={disabled}
++                disabled={disabled || unsupported}
+                 onCheckedChange={(checked) =>
+                   onParameterEnabledChange(control.key, checked)
+                 }
+@@ -151,7 +188,7 @@ function PlaygroundParameterContent({
+             {control.valueType === 'slider' ? (
+               <Slider
+                 className='py-1.5'
+-                disabled={disabled || !enabled}
++                disabled={disabled || unsupported || !enabled}
+                 id={controlId}
+                 max={control.max}
+                 min={control.min}
+@@ -169,7 +206,7 @@ function PlaygroundParameterContent({
+               />
+             ) : (
+               <Input
+-                disabled={disabled || !enabled}
++                disabled={disabled || unsupported || !enabled}
+                 id={controlId}
+                 inputMode='numeric'
+                 max={control.max}
+@@ -198,8 +235,10 @@ function PlaygroundParameterContent({
+ export function PlaygroundParameterPanel(props: PlaygroundParameterPanelProps) {
+   const { t } = useTranslation()
+   const isMobile = useIsMobile()
++  const unsupportedSet = new Set(props.unsupportedParameters ?? [])
+   const activeCount = PLAYGROUND_PARAMETER_CONTROLS.filter(
+-    (control) => props.parameterEnabled[control.key]
++    (control) =>
++      props.parameterEnabled[control.key] && !unsupportedSet.has(control.key)
+   ).length
+ 
+   const trigger = (
+diff --git a/web/src/features/playground/index.tsx b/web/src/features/playground/index.tsx
+index 4f22557..d621594 100644
+--- a/web/src/features/playground/index.tsx
++++ b/web/src/features/playground/index.tsx
+@@ -16,6 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
+ 
+ For commercial licensing, please contact support@quantumnous.com
+ */
++import { useEffect, useMemo } from 'react'
++import { useTranslation } from 'react-i18next'
++import { toast } from 'sonner'
++
+ import { PlaygroundChat } from './components/chat/playground-chat'
+ import { PlaygroundInput } from './components/input/playground-input'
+ import {
+@@ -24,8 +28,13 @@ import {
+   usePlaygroundOptions,
+   usePlaygroundState,
+ } from './hooks'
++import {
++  applyUnsupportedParameterRestrictions,
++  PLAYGROUND_PARAMETER_CONTROLS,
++} from './lib/parameters/playground-parameters'
+ 
+ export function Playground() {
++  const { t } = useTranslation()
+   const {
+     config,
+     parameterEnabled,
+@@ -41,9 +50,56 @@ export function Playground() {
+     clearMessages,
+   } = usePlaygroundState()
+ 
++  const { isLoadingModels } = usePlaygroundOptions({
++    currentGroup: config.group,
++    currentModel: config.model,
++    setGroups,
++    setModels,
++    updateConfig,
++  })
++
++  const selectedModel = useMemo(
++    () => models.find((model) => model.value === config.model),
++    [config.model, models]
++  )
++  const unsupportedParameters = useMemo(
++    () => selectedModel?.unsupportedParameters ?? [],
++    [selectedModel]
++  )
++  const effectiveParameterEnabled = useMemo(
++    () =>
++      applyUnsupportedParameterRestrictions(
++        parameterEnabled,
++        unsupportedParameters
++      ),
++    [parameterEnabled, unsupportedParameters]
++  )
++  const autoDisabledLabels = useMemo(
++    () =>
++      PLAYGROUND_PARAMETER_CONTROLS.filter(
++        (control) =>
++          unsupportedParameters.includes(control.key) &&
++          parameterEnabled[control.key]
++      ).map((control) => t(control.labelKey)),
++    [parameterEnabled, t, unsupportedParameters]
++  )
++
++  useEffect(() => {
++    if (autoDisabledLabels.length === 0) {
++      return
++    }
++
++    toast.info(t('Unsupported parameters were turned off'), {
++      description: t('{{provider}} does not support: {{parameters}}', {
++        provider: selectedModel?.provider || t('Current provider'),
++        parameters: autoDisabledLabels.join(', '),
++      }),
++    })
++  }, [autoDisabledLabels, config.model, selectedModel?.provider, t])
++
+   const { sendChat, stopGeneration, isGenerating } = useChatHandler({
+     config,
+-    parameterEnabled,
++    parameterEnabled: effectiveParameterEnabled,
+     onMessageUpdate: updateMessages,
+   })
+ 
+@@ -66,14 +122,6 @@ export function Playground() {
+     clearMessages()
+   }
+ 
+-  const { isLoadingModels } = usePlaygroundOptions({
+-    currentGroup: config.group,
+-    currentModel: config.model,
+-    setGroups,
+-    setModels,
+-    updateConfig,
+-  })
+-
+   return (
+     <div className='relative flex size-full min-h-0 flex-col overflow-hidden'>
+       {/* Full-width scroll container: scrolling works even over side whitespace */}
+@@ -111,7 +159,9 @@ export function Playground() {
+           onParameterEnabledChange={updateParameterEnabled}
+           onStop={stopGeneration}
+           onSubmit={handleSendMessage}
+-          parameterEnabled={parameterEnabled}
++          parameterEnabled={effectiveParameterEnabled}
++          unsupportedParameters={unsupportedParameters}
++          unsupportedProvider={selectedModel?.provider}
+           hasMessages={messages.length > 0}
+         />
+       </div>
+diff --git a/web/src/features/playground/lib/parameters/playground-parameters.test.ts b/web/src/features/playground/lib/parameters/playground-parameters.test.ts
+new file mode 100644
+index 0000000..3624b65
+--- /dev/null
++++ b/web/src/features/playground/lib/parameters/playground-parameters.test.ts
+@@ -0,0 +1,57 @@
++/*
++Copyright (C) 2023-2026 QuantumNous
++
++This program is free software: you can redistribute it and/or modify
++it under the terms of the GNU Affero General Public License as
++published by the Free Software Foundation, either version 3 of the
++License, or (at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++GNU Affero General Public License for more details.
++
++You should have received a copy of the GNU Affero General Public License
++along with this program. If not, see <https://www.gnu.org/licenses/>.
++
++For commercial licensing, please contact support@quantumnous.com
++*/
++import { describe, expect, test } from 'vitest'
++
++import type { ParameterEnabled } from '../../types'
++import { applyUnsupportedParameterRestrictions } from './playground-parameters'
++
++const enabledParameters: ParameterEnabled = {
++  temperature: true,
++  top_p: true,
++  max_tokens: false,
++  frequency_penalty: true,
++  presence_penalty: true,
++  seed: true,
++}
++
++describe('applyUnsupportedParameterRestrictions', () => {
++  test('turns off unsupported parameters without mutating saved preferences', () => {
++    const restricted = applyUnsupportedParameterRestrictions(
++      enabledParameters,
++      ['temperature', 'top_p', 'frequency_penalty', 'presence_penalty']
++    )
++
++    expect(restricted).toEqual({
++      temperature: false,
++      top_p: false,
++      max_tokens: false,
++      frequency_penalty: false,
++      presence_penalty: false,
++      seed: true,
++    })
++    expect(enabledParameters.temperature).toBe(true)
++    expect(enabledParameters.top_p).toBe(true)
++  })
++
++  test('reuses the original object when no restrictions apply', () => {
++    expect(applyUnsupportedParameterRestrictions(enabledParameters, [])).toBe(
++      enabledParameters
++    )
++  })
++})
+diff --git a/web/src/features/playground/lib/parameters/playground-parameters.ts b/web/src/features/playground/lib/parameters/playground-parameters.ts
+index 181cbcb..d6ab947 100644
+--- a/web/src/features/playground/lib/parameters/playground-parameters.ts
++++ b/web/src/features/playground/lib/parameters/playground-parameters.ts
+@@ -16,11 +16,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
+ 
+ For commercial licensing, please contact support@quantumnous.com
+ */
+-import type { PlaygroundConfig, ParameterEnabled } from '../../types'
++import type {
++  PlaygroundConfig,
++  ParameterEnabled,
++  PlaygroundParameterKey,
++} from '../../types'
+ 
+ type ParameterValue = PlaygroundConfig[keyof PlaygroundConfig]
+ 
+-export type PlaygroundParameterKey = keyof ParameterEnabled
++export type { PlaygroundParameterKey } from '../../types'
+ 
+ export type PlaygroundParameterControl = {
+   key: PlaygroundParameterKey
+@@ -92,6 +96,21 @@ export const PLAYGROUND_PARAMETER_CONTROLS = [
+ export const PLAYGROUND_PARAMETER_PANEL_SCROLL_CLASS =
+   'max-h-[min(28rem,calc(100vh-10rem))] overflow-y-auto pr-1'
+ 
++export function applyUnsupportedParameterRestrictions(
++  parameterEnabled: ParameterEnabled,
++  unsupportedParameters: readonly PlaygroundParameterKey[]
++): ParameterEnabled {
++  if (unsupportedParameters.length === 0) {
++    return parameterEnabled
++  }
++
++  const restricted = { ...parameterEnabled }
++  for (const key of unsupportedParameters) {
++    restricted[key] = false
++  }
++  return restricted
++}
++
+ export function normalizeParameterNumberValue(
+   key: PlaygroundParameterKey,
+   value: string | number
+diff --git a/web/src/features/playground/types.ts b/web/src/features/playground/types.ts
+index 855b483..80537c2 100644
+--- a/web/src/features/playground/types.ts
++++ b/web/src/features/playground/types.ts
+@@ -137,10 +137,14 @@ export interface ParameterEnabled {
+   seed: boolean
+ }
+ 
++export type PlaygroundParameterKey = keyof ParameterEnabled
++
+ // Model and group options
+ export interface ModelOption {
+   label: string
+   value: string
++  provider?: string
++  unsupportedParameters?: PlaygroundParameterKey[]
+ }
+ 
+ export interface GroupOption {
+diff --git a/web/src/i18n/locales/en.json b/web/src/i18n/locales/en.json
+index 3e25362..7b6d7f1 100644
+--- a/web/src/i18n/locales/en.json
++++ b/web/src/i18n/locales/en.json
+@@ -15,6 +15,7 @@
+     "Clean mode shows only conversational text and is enabled by default.": "Clean mode shows only conversational text and is enabled by default.",
+     "Clean text": "Clean text",
+     "Complete response body": "Complete response body",
++    "Current provider": "Current provider",
+     "Delete All": "Delete All",
+     "Delete all full content logs": "Delete all full content logs",
+     "Delete log file": "Delete log file",
+@@ -37,6 +38,10 @@
+     "Log Files": "Log Files",
+     "Matching Requests": "Matching Requests",
+     "Model / Endpoint": "Model / Endpoint",
++    "Unsupported": "Unsupported",
++    "Unsupported parameters were turned off": "Unsupported parameters were turned off",
++    "{{provider}} does not support: {{parameters}}": "{{provider}} does not support: {{parameters}}",
++    "{{provider}} does not support these parameters. They have been turned off: {{parameters}}": "{{provider}} does not support these parameters. They have been turned off: {{parameters}}",
+     "No full content log files": "No full content log files",
+     "No matching full content logs": "No matching full content logs",
+     "No query parameters": "No query parameters",
+diff --git a/web/src/i18n/locales/zh-TW.json b/web/src/i18n/locales/zh-TW.json
+index 580e379..ea16e26 100644
+--- a/web/src/i18n/locales/zh-TW.json
++++ b/web/src/i18n/locales/zh-TW.json
+@@ -15,6 +15,7 @@
+     "Clean mode shows only conversational text and is enabled by default.": "Clean mode shows only conversational text and is enabled by default.",
+     "Clean text": "Clean text",
+     "Complete response body": "Complete response body",
++    "Current provider": "目前通道",
+     "Delete All": "Delete All",
+     "Delete all full content logs": "Delete all full content logs",
+     "Delete log file": "Delete log file",
+@@ -37,6 +38,10 @@
+     "Log Files": "Log Files",
+     "Matching Requests": "Matching Requests",
+     "Model / Endpoint": "Model / Endpoint",
++    "Unsupported": "不支援",
++    "Unsupported parameters were turned off": "已關閉不支援的參數",
++    "{{provider}} does not support: {{parameters}}": "{{provider}} 不支援：{{parameters}}",
++    "{{provider}} does not support these parameters. They have been turned off: {{parameters}}": "{{provider}} 不支援這些參數，已在本次請求中自動關閉：{{parameters}}",
+     "No full content log files": "No full content log files",
+     "No matching full content logs": "No matching full content logs",
+     "No query parameters": "No query parameters",
+diff --git a/web/src/i18n/locales/zh.json b/web/src/i18n/locales/zh.json
+index 6ecf3d6..329469e 100644
+--- a/web/src/i18n/locales/zh.json
++++ b/web/src/i18n/locales/zh.json
+@@ -15,6 +15,7 @@
+     "Clean mode shows only conversational text and is enabled by default.": "纯文本模式只显示对话文本，并且默认启用。",
+     "Clean text": "纯文本",
+     "Complete response body": "完整返回正文",
++    "Current provider": "当前通道",
+     "Delete All": "全部删除",
+     "Delete all full content logs": "删除全部完整内容日志",
+     "Delete log file": "删除日志文件",
+@@ -37,6 +38,10 @@
+     "Log Files": "日志文件",
+     "Matching Requests": "匹配请求数",
+     "Model / Endpoint": "模型 / 接口",
++    "Unsupported": "不支持",
++    "Unsupported parameters were turned off": "已关闭不支持的参数",
++    "{{provider}} does not support: {{parameters}}": "{{provider}} 不支持：{{parameters}}",
++    "{{provider}} does not support these parameters. They have been turned off: {{parameters}}": "{{provider}} 不支持这些参数，已在本次请求中自动关闭：{{parameters}}",
+     "No full content log files": "暂无完整内容日志文件",
+     "No matching full content logs": "没有匹配的完整内容日志",
+     "No query parameters": "没有查询参数",

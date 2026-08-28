@@ -24,7 +24,66 @@ import type {
   ChatCompletionResponse,
   ModelOption,
   GroupOption,
+  PlaygroundParameterKey,
 } from './types'
+
+const PLAYGROUND_PARAMETER_KEYS = new Set<PlaygroundParameterKey>([
+  'temperature',
+  'top_p',
+  'max_tokens',
+  'frequency_penalty',
+  'presence_penalty',
+  'seed',
+])
+
+type UserModelCapability = {
+  provider?: unknown
+  unsupported_parameters?: unknown
+}
+
+export function parseUserModelOptions(payload: unknown): ModelOption[] {
+  if (!payload || typeof payload !== 'object') {
+    return []
+  }
+
+  const response = payload as {
+    success?: unknown
+    data?: unknown
+    capabilities?: unknown
+  }
+  if (response.success !== true || !Array.isArray(response.data)) {
+    return []
+  }
+
+  const capabilities =
+    response.capabilities && typeof response.capabilities === 'object'
+      ? (response.capabilities as Record<string, UserModelCapability>)
+      : {}
+
+  return response.data
+    .filter((model): model is string => typeof model === 'string')
+    .map((model) => {
+      const capability = capabilities[model]
+      const unsupportedParameters = Array.isArray(
+        capability?.unsupported_parameters
+      )
+        ? capability.unsupported_parameters.filter(
+            (key): key is PlaygroundParameterKey =>
+              typeof key === 'string' &&
+              PLAYGROUND_PARAMETER_KEYS.has(key as PlaygroundParameterKey)
+          )
+        : []
+
+      return {
+        label: model,
+        value: model,
+        ...(typeof capability?.provider === 'string'
+          ? { provider: capability.provider }
+          : {}),
+        ...(unsupportedParameters.length > 0 ? { unsupportedParameters } : {}),
+      }
+    })
+}
 
 /**
  * Send chat completion request (non-streaming)
@@ -49,14 +108,7 @@ export async function getUserModels(group: string): Promise<ModelOption[]> {
   })
   const { data } = res
 
-  if (!data.success || !Array.isArray(data.data)) {
-    return []
-  }
-
-  return data.data.map((model: string) => ({
-    label: model,
-    value: model,
-  }))
+  return parseUserModelOptions(data)
 }
 
 /**

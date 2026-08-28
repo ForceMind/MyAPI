@@ -30,8 +30,9 @@ type listModelsResponse struct {
 }
 
 type userModelsResponse struct {
-	Success bool     `json:"success"`
-	Data    []string `json:"data"`
+	Success      bool                                 `json:"success"`
+	Data         []string                             `json:"data"`
+	Capabilities map[string]playgroundModelCapability `json:"capabilities"`
 }
 
 func setupModelListControllerTestDB(t *testing.T) *gorm.DB {
@@ -213,6 +214,53 @@ func TestGetUserModelsFiltersByRequestedGroup(t *testing.T) {
 	GetUserModels(vipContext)
 
 	require.Empty(t, decodeUserModelsResponse(t, vipRecorder))
+}
+
+func TestGetUserModelsReturnsCodexPlaygroundRestrictions(t *testing.T) {
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&model.User{
+		Id:       1004,
+		Username: "playground-codex-user",
+		Password: "password",
+		Group:    "default",
+		Status:   common.UserStatusEnabled,
+	}).Error)
+	require.NoError(t, db.Create(&model.Channel{
+		Id:     57,
+		Name:   "codex-playground-channel",
+		Type:   constant.ChannelTypeCodex,
+		Key:    "test-key",
+		Status: common.ChannelStatusEnabled,
+	}).Error)
+	require.NoError(t, db.Create(&model.Ability{
+		Group:     "default",
+		Model:     "zz-codex-playground-model",
+		ChannelId: 57,
+		Enabled:   true,
+	}).Error)
+
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/api/user/models?group=default", nil)
+	context.Set("id", 1004)
+
+	GetUserModels(context)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var payload userModelsResponse
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &payload))
+	require.True(t, payload.Success)
+	require.Contains(t, payload.Data, "zz-codex-playground-model")
+	require.Equal(t, playgroundModelCapability{
+		Provider: "Codex",
+		UnsupportedParameters: []string{
+			"temperature",
+			"top_p",
+			"max_tokens",
+			"frequency_penalty",
+			"presence_penalty",
+		},
+	}, payload.Capabilities["zz-codex-playground-model"])
 }
 
 func TestGetUserModelsExpandsAutoGroupsInConfiguredOrder(t *testing.T) {

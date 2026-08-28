@@ -16,11 +16,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { PlaygroundConfig, ParameterEnabled } from '../../types'
+import type {
+  PlaygroundConfig,
+  ParameterEnabled,
+  PlaygroundParameterKey,
+} from '../../types'
 
 type ParameterValue = PlaygroundConfig[keyof PlaygroundConfig]
 
-export type PlaygroundParameterKey = keyof ParameterEnabled
+export type { PlaygroundParameterKey } from '../../types'
 
 export type PlaygroundParameterControl = {
   key: PlaygroundParameterKey
@@ -91,6 +95,21 @@ export const PLAYGROUND_PARAMETER_CONTROLS = [
 
 export const PLAYGROUND_PARAMETER_PANEL_SCROLL_CLASS =
   'max-h-[min(28rem,calc(100vh-10rem))] overflow-y-auto pr-1'
+
+export function applyUnsupportedParameterRestrictions(
+  parameterEnabled: ParameterEnabled,
+  unsupportedParameters: readonly PlaygroundParameterKey[]
+): ParameterEnabled {
+  if (unsupportedParameters.length === 0) {
+    return parameterEnabled
+  }
+
+  const restricted = { ...parameterEnabled }
+  for (const key of unsupportedParameters) {
+    restricted[key] = false
+  }
+  return restricted
+}
 
 export function normalizeParameterNumberValue(
   key: PlaygroundParameterKey,
