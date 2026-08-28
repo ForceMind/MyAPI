@@ -1,0 +1,4188 @@
+--- baseline/controller/full_content_log.go	1970-01-01 08:00:00.000000000 +0800
++++ custom/controller/full_content_log.go	2026-08-28 01:37:49.035469421 +0800
+@@ -0,0 +1,556 @@
++package controller
++
++import (
++	"bufio"
++	"bytes"
++	"encoding/base64"
++	"fmt"
++	"io"
++	"net/http"
++	"os"
++	"path/filepath"
++	"sort"
++	"strconv"
++	"strings"
++	"time"
++
++	"github.com/QuantumNous/new-api/common"
++	"github.com/QuantumNous/new-api/middleware"
++
++	"github.com/gin-gonic/gin"
++)
++
++type fullContentLogRecord struct {
++	Timestamp   string              `json:"timestamp"`
++	RequestID   string              `json:"request_id"`
++	Phase       string              `json:"phase"`
++	Sequence    int64               `json:"sequence,omitempty"`
++	Method      string              `json:"method"`
++	Path        string              `json:"path"`
++	ContentType string              `json:"content_type,omitempty"`
++	Encoding    string              `json:"encoding,omitempty"`
++	Body        string              `json:"body,omitempty"`
++	BodyBytes   int64               `json:"body_bytes,omitempty"`
++	Status      int                 `json:"status,omitempty"`
++	DurationMS  int64               `json:"duration_ms,omitempty"`
++	UserID      int                 `json:"user_id,omitempty"`
++	TokenID     int                 `json:"token_id,omitempty"`
++	TokenName   string              `json:"token_name,omitempty"`
++	ClientIP    string              `json:"client_ip,omitempty"`
++	Headers     map[string][]string `json:"headers,omitempty"`
++	Query       map[string][]string `json:"query,omitempty"`
++	Error       string              `json:"error,omitempty"`
++}
++
++type FullContentLogSummary struct {
++	Timestamp     string `json:"timestamp"`
++	RequestID     string `json:"request_id"`
++	Method        string `json:"method"`
++	Path          string `json:"path"`
++	Model         string `json:"model,omitempty"`
++	Status        int    `json:"status"`
++	DurationMS    int64  `json:"duration_ms"`
++	RequestBytes  int64  `json:"request_bytes"`
++	ResponseBytes int64  `json:"response_bytes"`
++	ChunkCount    int64  `json:"chunk_count"`
++	UserID        int    `json:"user_id,omitempty"`
++	TokenID       int    `json:"token_id,omitempty"`
++	TokenName     string `json:"token_name,omitempty"`
++	ClientIP      string `json:"client_ip,omitempty"`
++	Error         string `json:"error,omitempty"`
++}
++
++type FullContentLogFileInfo struct {
++	Name       string    `json:"name"`
++	Size       int64     `json:"size"`
++	ModifiedAt time.Time `json:"modified_at"`
++}
++
++type FullContentLogFileStats struct {
++	Count     int                      `json:"count"`
++	TotalSize int64                    `json:"total_size"`
++	Files     []FullContentLogFileInfo `json:"files"`
++}
++
++type FullContentLogTokenOption struct {
++	ID   int    `json:"id"`
++	Name string `json:"name"`
++}
++
++type FullContentLogFacets struct {
++	Models []string                    `json:"models"`
++	Tokens []FullContentLogTokenOption `json:"tokens"`
++}
++
++type FullContentLogListResponse struct {
++	Enabled  bool                    `json:"enabled"`
++	Page     int                     `json:"page"`
++	PageSize int                     `json:"page_size"`
++	Total    int                     `json:"total"`
++	Items    []FullContentLogSummary `json:"items"`
++	Files    FullContentLogFileStats `json:"files"`
++	Facets   FullContentLogFacets    `json:"facets"`
++}
++
++type FullContentLogDetail struct {
++	FullContentLogSummary
++	RequestContentType  string              `json:"request_content_type,omitempty"`
++	RequestEncoding     string              `json:"request_encoding,omitempty"`
++	RequestBody         string              `json:"request_body"`
++	ResponseContentType string              `json:"response_content_type,omitempty"`
++	ResponseEncoding    string              `json:"response_encoding,omitempty"`
++	ResponseBody        string              `json:"response_body"`
++	RequestHeaders      map[string][]string `json:"request_headers"`
++	ResponseHeaders     map[string][]string `json:"response_headers"`
++	Query               map[string][]string `json:"query"`
++}
++
++type fullContentLogQuery struct {
++	Page           int
++	PageSize       int
++	StartTimestamp int64
++	EndTimestamp   int64
++	Model          string
++	Token          string
++	RequestID      string
++}
++
++type fullContentLogAggregate struct {
++	Summary    FullContentLogSummary
++	HasRequest bool
++}
++
++func ListFullContentLogs(c *gin.Context) {
++	pageInfo := common.GetPageQuery(c)
++	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
++	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
++	query := fullContentLogQuery{
++		Page:           pageInfo.GetPage(),
++		PageSize:       pageInfo.GetPageSize(),
++		StartTimestamp: startTimestamp,
++		EndTimestamp:   endTimestamp,
++		Model:          c.Query("model"),
++		Token:          c.Query("token"),
++		RequestID:      c.Query("request_id"),
++	}
++
++	response, err := queryFullContentLogs(middleware.FullContentLogDirectory(), query)
++	if err != nil {
++		common.ApiError(c, err)
++		return
++	}
++	response.Enabled = middleware.FullContentLogEnabled()
++	common.ApiSuccess(c, response)
++}
++
++func GetFullContentLogDetail(c *gin.Context) {
++	requestID := strings.TrimSpace(c.Param("request_id"))
++	if requestID == "" {
++		common.ApiErrorMsg(c, "request id is required")
++		return
++	}
++	detail, found, err := loadFullContentLogDetail(middleware.FullContentLogDirectory(), requestID)
++	if err != nil {
++		common.ApiError(c, err)
++		return
++	}
++	if !found {
++		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "full content log not found"})
++		return
++	}
++	common.ApiSuccess(c, detail)
++}
++
++func ListFullContentLogFiles(c *gin.Context) {
++	stats, err := listFullContentLogFiles(middleware.FullContentLogDirectory())
++	if err != nil {
++		common.ApiError(c, err)
++		return
++	}
++	common.ApiSuccess(c, stats)
++}
++
++func DownloadFullContentLogFile(c *gin.Context) {
++	filename := c.Param("filename")
++	path, err := middleware.FullContentLogFilePath(filename)
++	if err != nil {
++		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
++		return
++	}
++	info, err := os.Lstat(path)
++	if os.IsNotExist(err) {
++		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "full content log file not found"})
++		return
++	}
++	if err != nil || !info.Mode().IsRegular() {
++		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid full content log file"})
++		return
++	}
++	c.Header("Cache-Control", "no-store")
++	c.FileAttachment(path, filename)
++}
++
++func DeleteFullContentLogFile(c *gin.Context) {
++	deletedBytes, err := middleware.DeleteFullContentLogFile(c.Param("filename"))
++	if os.IsNotExist(err) {
++		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "full content log file not found"})
++		return
++	}
++	if err != nil {
++		common.ApiError(c, err)
++		return
++	}
++	common.ApiSuccess(c, gin.H{"deleted_bytes": deletedBytes})
++}
++
++func DeleteAllFullContentLogFiles(c *gin.Context) {
++	deletedCount, freedBytes, err := middleware.DeleteAllFullContentLogFiles()
++	if err != nil {
++		common.ApiError(c, err)
++		return
++	}
++	common.ApiSuccess(c, gin.H{
++		"deleted_count": deletedCount,
++		"freed_bytes":   freedBytes,
++	})
++}
++
++func queryFullContentLogs(dir string, query fullContentLogQuery) (FullContentLogListResponse, error) {
++	aggregates := make(map[string]*fullContentLogAggregate)
++	err := visitFullContentLogRecords(dir, func(record fullContentLogRecord) error {
++		aggregate := aggregates[record.RequestID]
++		if aggregate == nil {
++			aggregate = &fullContentLogAggregate{}
++			aggregates[record.RequestID] = aggregate
++		}
++		switch record.Phase {
++		case "request":
++			aggregate.HasRequest = true
++			aggregate.Summary = FullContentLogSummary{
++				Timestamp:    record.Timestamp,
++				RequestID:    record.RequestID,
++				Method:       record.Method,
++				Path:         record.Path,
++				Model:        fullContentLogModel(record.Body, record.Encoding),
++				RequestBytes: record.BodyBytes,
++				UserID:       record.UserID,
++				TokenID:      record.TokenID,
++				TokenName:    record.TokenName,
++				ClientIP:     record.ClientIP,
++				Error:        record.Error,
++			}
++		case "response_chunk":
++			if aggregate.Summary.Error == "" && record.Error != "" {
++				aggregate.Summary.Error = record.Error
++			}
++		case "response_end":
++			aggregate.Summary.Status = record.Status
++			aggregate.Summary.DurationMS = record.DurationMS
++			aggregate.Summary.ResponseBytes = record.BodyBytes
++			aggregate.Summary.ChunkCount = record.Sequence
++			if record.Error != "" {
++				aggregate.Summary.Error = record.Error
++			}
++		}
++		return nil
++	})
++	if err != nil {
++		return FullContentLogListResponse{}, err
++	}
++
++	items := make([]FullContentLogSummary, 0, len(aggregates))
++	modelSet := make(map[string]struct{})
++	tokenSet := make(map[string]FullContentLogTokenOption)
++	for _, aggregate := range aggregates {
++		if !aggregate.HasRequest {
++			continue
++		}
++		if aggregate.Summary.Model != "" {
++			modelSet[aggregate.Summary.Model] = struct{}{}
++		}
++		if aggregate.Summary.TokenID != 0 || aggregate.Summary.TokenName != "" {
++			key := fmt.Sprintf("%010d:%s", aggregate.Summary.TokenID, aggregate.Summary.TokenName)
++			tokenSet[key] = FullContentLogTokenOption{ID: aggregate.Summary.TokenID, Name: aggregate.Summary.TokenName}
++		}
++		if !matchesFullContentLogQuery(aggregate.Summary, query) {
++			continue
++		}
++		items = append(items, aggregate.Summary)
++	}
++	sort.Slice(items, func(i, j int) bool {
++		return items[i].Timestamp > items[j].Timestamp
++	})
++
++	total := len(items)
++	start := (query.Page - 1) * query.PageSize
++	if start < 0 {
++		start = 0
++	}
++	if start > total {
++		start = total
++	}
++	end := start + query.PageSize
++	if end > total {
++		end = total
++	}
++	items = items[start:end]
++
++	files, err := listFullContentLogFiles(dir)
++	if err != nil {
++		return FullContentLogListResponse{}, err
++	}
++	models := make([]string, 0, len(modelSet))
++	for model := range modelSet {
++		models = append(models, model)
++	}
++	sort.Strings(models)
++	tokens := make([]FullContentLogTokenOption, 0, len(tokenSet))
++	for _, token := range tokenSet {
++		tokens = append(tokens, token)
++	}
++	sort.Slice(tokens, func(i, j int) bool {
++		left := strings.ToLower(tokens[i].Name)
++		right := strings.ToLower(tokens[j].Name)
++		if left == right {
++			return tokens[i].ID < tokens[j].ID
++		}
++		return left < right
++	})
++	return FullContentLogListResponse{
++		Page:     query.Page,
++		PageSize: query.PageSize,
++		Total:    total,
++		Items:    items,
++		Files:    files,
++		Facets:   FullContentLogFacets{Models: models, Tokens: tokens},
++	}, nil
++}
++
++func loadFullContentLogDetail(dir string, requestID string) (FullContentLogDetail, bool, error) {
++	var requestRecord *fullContentLogRecord
++	var endRecord *fullContentLogRecord
++	chunks := make([]fullContentLogRecord, 0)
++	err := visitFullContentLogRecords(dir, func(record fullContentLogRecord) error {
++		if record.RequestID != requestID {
++			return nil
++		}
++		switch record.Phase {
++		case "request":
++			copy := record
++			requestRecord = &copy
++		case "response_chunk":
++			chunks = append(chunks, record)
++		case "response_end":
++			copy := record
++			endRecord = &copy
++		}
++		return nil
++	})
++	if err != nil {
++		return FullContentLogDetail{}, false, err
++	}
++	if requestRecord == nil {
++		return FullContentLogDetail{}, false, nil
++	}
++
++	sort.SliceStable(chunks, func(i, j int) bool {
++		return chunks[i].Sequence < chunks[j].Sequence
++	})
++	responseBody, responseEncoding, responseContentType, err := joinFullContentLogChunks(chunks)
++	if err != nil {
++		return FullContentLogDetail{}, false, err
++	}
++
++	summary := FullContentLogSummary{
++		Timestamp:    requestRecord.Timestamp,
++		RequestID:    requestRecord.RequestID,
++		Method:       requestRecord.Method,
++		Path:         requestRecord.Path,
++		Model:        fullContentLogModel(requestRecord.Body, requestRecord.Encoding),
++		RequestBytes: requestRecord.BodyBytes,
++		UserID:       requestRecord.UserID,
++		TokenID:      requestRecord.TokenID,
++		TokenName:    requestRecord.TokenName,
++		ClientIP:     requestRecord.ClientIP,
++		Error:        requestRecord.Error,
++	}
++	if endRecord != nil {
++		summary.Status = endRecord.Status
++		summary.DurationMS = endRecord.DurationMS
++		summary.ResponseBytes = endRecord.BodyBytes
++		summary.ChunkCount = endRecord.Sequence
++		if endRecord.Error != "" {
++			summary.Error = endRecord.Error
++		}
++	}
++
++	var responseHeaders map[string][]string
++	if endRecord != nil {
++		responseHeaders = endRecord.Headers
++	}
++	return FullContentLogDetail{
++		FullContentLogSummary: summary,
++		RequestContentType:    requestRecord.ContentType,
++		RequestEncoding:       requestRecord.Encoding,
++		RequestBody:           requestRecord.Body,
++		ResponseContentType:   responseContentType,
++		ResponseEncoding:      responseEncoding,
++		ResponseBody:          responseBody,
++		RequestHeaders:        requestRecord.Headers,
++		ResponseHeaders:       responseHeaders,
++		Query:                 requestRecord.Query,
++	}, true, nil
++}
++
++func visitFullContentLogRecords(dir string, visit func(fullContentLogRecord) error) error {
++	files, err := fullContentLogFilePaths(dir)
++	if err != nil {
++		return err
++	}
++	for _, path := range files {
++		file, openErr := os.Open(path)
++		if openErr != nil {
++			if os.IsNotExist(openErr) {
++				continue
++			}
++			return openErr
++		}
++		reader := bufio.NewReader(file)
++		for {
++			line, readErr := reader.ReadBytes('\n')
++			if len(bytes.TrimSpace(line)) > 0 {
++				var record fullContentLogRecord
++				if unmarshalErr := common.Unmarshal(bytes.TrimSpace(line), &record); unmarshalErr == nil && record.RequestID != "" {
++					if visitErr := visit(record); visitErr != nil {
++						_ = file.Close()
++						return visitErr
++					}
++				}
++			}
++			if readErr != nil {
++				if readErr != io.EOF {
++					_ = file.Close()
++					return readErr
++				}
++				break
++			}
++		}
++		if closeErr := file.Close(); closeErr != nil {
++			return closeErr
++		}
++	}
++	return nil
++}
++
++func fullContentLogFilePaths(dir string) ([]string, error) {
++	entries, err := os.ReadDir(dir)
++	if os.IsNotExist(err) {
++		return []string{}, nil
++	}
++	if err != nil {
++		return nil, err
++	}
++	paths := make([]string, 0, len(entries))
++	for _, entry := range entries {
++		if entry.Type().IsRegular() && isFullContentLogFilename(entry.Name()) {
++			paths = append(paths, filepath.Join(dir, entry.Name()))
++		}
++	}
++	sort.Strings(paths)
++	return paths, nil
++}
++
++func listFullContentLogFiles(dir string) (FullContentLogFileStats, error) {
++	paths, err := fullContentLogFilePaths(dir)
++	if err != nil {
++		return FullContentLogFileStats{}, err
++	}
++	files := make([]FullContentLogFileInfo, 0, len(paths))
++	var totalSize int64
++	for _, path := range paths {
++		info, statErr := os.Stat(path)
++		if statErr != nil {
++			if os.IsNotExist(statErr) {
++				continue
++			}
++			return FullContentLogFileStats{}, statErr
++		}
++		files = append(files, FullContentLogFileInfo{
++			Name:       filepath.Base(path),
++			Size:       info.Size(),
++			ModifiedAt: info.ModTime(),
++		})
++		totalSize += info.Size()
++	}
++	sort.Slice(files, func(i, j int) bool {
++		return files[i].Name > files[j].Name
++	})
++	return FullContentLogFileStats{Count: len(files), TotalSize: totalSize, Files: files}, nil
++}
++
++func matchesFullContentLogQuery(summary FullContentLogSummary, query fullContentLogQuery) bool {
++	if !containsFold(summary.Model, query.Model) || !containsFold(summary.RequestID, query.RequestID) {
++		return false
++	}
++	if query.Token != "" {
++		tokenID := strconv.Itoa(summary.TokenID)
++		if !containsFold(summary.TokenName, query.Token) && tokenID != strings.TrimSpace(query.Token) {
++			return false
++		}
++	}
++	if query.StartTimestamp == 0 && query.EndTimestamp == 0 {
++		return true
++	}
++	timestamp, err := time.Parse(time.RFC3339Nano, summary.Timestamp)
++	if err != nil {
++		return false
++	}
++	unix := timestamp.Unix()
++	return (query.StartTimestamp == 0 || unix >= query.StartTimestamp) && (query.EndTimestamp == 0 || unix <= query.EndTimestamp)
++}
++
++func fullContentLogModel(body string, encoding string) string {
++	if encoding != "json" || strings.TrimSpace(body) == "" {
++		return ""
++	}
++	var payload map[string]any
++	if err := common.Unmarshal([]byte(body), &payload); err != nil {
++		return ""
++	}
++	model, _ := payload["model"].(string)
++	return model
++}
++
++func joinFullContentLogChunks(chunks []fullContentLogRecord) (string, string, string, error) {
++	var combined bytes.Buffer
++	allUTF8 := true
++	contentType := ""
++	for _, chunk := range chunks {
++		if contentType == "" {
++			contentType = chunk.ContentType
++		}
++		if chunk.Encoding == "base64" {
++			decoded, err := base64.StdEncoding.DecodeString(chunk.Body)
++			if err != nil {
++				return "", "", "", fmt.Errorf("invalid base64 response chunk: %w", err)
++			}
++			combined.Write(decoded)
++			allUTF8 = false
++			continue
++		}
++		combined.WriteString(chunk.Body)
++	}
++	if allUTF8 {
++		return combined.String(), "utf-8", contentType, nil
++	}
++	return base64.StdEncoding.EncodeToString(combined.Bytes()), "base64", contentType, nil
++}
++
++func containsFold(value string, filter string) bool {
++	filter = strings.TrimSpace(filter)
++	return filter == "" || strings.Contains(strings.ToLower(value), strings.ToLower(filter))
++}
++
++func isFullContentLogFilename(filename string) bool {
++	return filepath.Base(filename) == filename && strings.HasPrefix(filename, "full-content-") && strings.HasSuffix(filename, ".jsonl")
++}
+--- baseline/controller/full_content_log_test.go	1970-01-01 08:00:00.000000000 +0800
++++ custom/controller/full_content_log_test.go	2026-08-28 01:34:28.124899409 +0800
+@@ -0,0 +1,118 @@
++package controller
++
++import (
++	"encoding/base64"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++
++	"github.com/QuantumNous/new-api/common"
++
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
++)
++
++func writeFullContentLogTestFile(t *testing.T, dir string, records []fullContentLogRecord) string {
++	t.Helper()
++	lines := make([]string, 0, len(records))
++	for _, record := range records {
++		encoded, err := common.Marshal(record)
++		require.NoError(t, err)
++		lines = append(lines, string(encoded))
++	}
++	path := filepath.Join(dir, "full-content-20260827T120000.000000000Z.jsonl")
++	require.NoError(t, os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0600))
++	return path
++}
++
++func TestQueryFullContentLogsFiltersAndPaginates(t *testing.T) {
++	dir := t.TempDir()
++	writeFullContentLogTestFile(t, dir, []fullContentLogRecord{
++		{
++			Timestamp: "2026-08-27T10:00:00Z", RequestID: "older-request", Phase: "request",
++			Method: "POST", Path: "/v1/responses", Encoding: "json",
++			Body: `{"model":"gpt-5.6-sol","input":"old"}`, BodyBytes: 42,
++			TokenID: 3, TokenName: "secondary",
++		},
++		{Timestamp: "2026-08-27T10:00:01Z", RequestID: "older-request", Phase: "response_end", Status: 200, Sequence: 1, BodyBytes: 5, DurationMS: 120},
++		{
++			Timestamp: "2026-08-27T11:00:00Z", RequestID: "newer-request", Phase: "request",
++			Method: "POST", Path: "/v1/chat/completions", Encoding: "json",
++			Body: `{"model":"gpt-5.6-luna","messages":[]}`, BodyBytes: 45,
++			TokenID: 5, TokenName: "primary-test",
++		},
++		{Timestamp: "2026-08-27T11:00:01Z", RequestID: "newer-request", Phase: "response_end", Status: 200, Sequence: 4, BodyBytes: 321, DurationMS: 456},
++	})
++
++	response, err := queryFullContentLogs(dir, fullContentLogQuery{Page: 1, PageSize: 1})
++	require.NoError(t, err)
++	assert.Equal(t, 2, response.Total)
++	require.Len(t, response.Items, 1)
++	assert.Equal(t, "newer-request", response.Items[0].RequestID)
++	assert.Equal(t, "gpt-5.6-luna", response.Items[0].Model)
++	assert.Equal(t, int64(4), response.Items[0].ChunkCount)
++	assert.Equal(t, 1, response.Files.Count)
++	require.Equal(t, []string{"gpt-5.6-luna", "gpt-5.6-sol"}, response.Facets.Models)
++	require.Len(t, response.Facets.Tokens, 2)
++	assert.Equal(t, FullContentLogTokenOption{ID: 5, Name: "primary-test"}, response.Facets.Tokens[0])
++
++	response, err = queryFullContentLogs(dir, fullContentLogQuery{
++		Page: 1, PageSize: 20, Model: "LUNA", Token: "primary", RequestID: "newer",
++	})
++	require.NoError(t, err)
++	assert.Equal(t, 1, response.Total)
++	require.Len(t, response.Items, 1)
++	assert.Equal(t, 5, response.Items[0].TokenID)
++
++	response, err = queryFullContentLogs(dir, fullContentLogQuery{
++		Page: 1, PageSize: 20, StartTimestamp: 1787826600,
++	})
++	require.NoError(t, err)
++	assert.Equal(t, 1, response.Total)
++	assert.Equal(t, "newer-request", response.Items[0].RequestID)
++}
++
++func TestLoadFullContentLogDetailReconstructsStreamingResponse(t *testing.T) {
++	dir := t.TempDir()
++	writeFullContentLogTestFile(t, dir, []fullContentLogRecord{
++		{
++			Timestamp: "2026-08-27T11:00:00Z", RequestID: "request-123", Phase: "request",
++			Method: "POST", Path: "/v1/responses", ContentType: "application/json", Encoding: "json",
++			Body: `{"model":"gpt-5.6-luna","input":"hello"}`, BodyBytes: 46,
++			Headers: map[string][]string{"User-Agent": {"OpenClaw-AI/1.0"}},
++			Query:   map[string][]string{"trace": {"enabled"}},
++		},
++		{Timestamp: "2026-08-27T11:00:01Z", RequestID: "request-123", Phase: "response_chunk", Sequence: 2, ContentType: "text/event-stream", Encoding: "utf-8", Body: "second"},
++		{Timestamp: "2026-08-27T11:00:01Z", RequestID: "request-123", Phase: "response_chunk", Sequence: 1, ContentType: "text/event-stream", Encoding: "utf-8", Body: "first-"},
++		{
++			Timestamp: "2026-08-27T11:00:02Z", RequestID: "request-123", Phase: "response_end",
++			Sequence: 2, Status: 200, BodyBytes: 12, DurationMS: 900,
++			Headers: map[string][]string{"Content-Type": {"text/event-stream"}, "X-Upstream-Request-Id": {"upstream-123"}},
++		},
++	})
++
++	detail, found, err := loadFullContentLogDetail(dir, "request-123")
++	require.NoError(t, err)
++	require.True(t, found)
++	assert.Equal(t, "gpt-5.6-luna", detail.Model)
++	assert.Equal(t, "first-second", detail.ResponseBody)
++	assert.Equal(t, "utf-8", detail.ResponseEncoding)
++	assert.Equal(t, "text/event-stream", detail.ResponseContentType)
++	assert.Equal(t, int64(2), detail.ChunkCount)
++	assert.Equal(t, []string{"OpenClaw-AI/1.0"}, detail.RequestHeaders["User-Agent"])
++	assert.Equal(t, []string{"enabled"}, detail.Query["trace"])
++	assert.Equal(t, []string{"upstream-123"}, detail.ResponseHeaders["X-Upstream-Request-Id"])
++}
++
++func TestJoinFullContentLogChunksEncodesBinaryResponse(t *testing.T) {
++	binary := []byte{0xff, 0x00, 0x01}
++	body, encoding, contentType, err := joinFullContentLogChunks([]fullContentLogRecord{
++		{Sequence: 1, Encoding: "base64", Body: base64.StdEncoding.EncodeToString(binary), ContentType: "application/octet-stream"},
++	})
++
++	require.NoError(t, err)
++	assert.Equal(t, "base64", encoding)
++	assert.Equal(t, "application/octet-stream", contentType)
++	assert.Equal(t, base64.StdEncoding.EncodeToString(binary), body)
++}
+--- baseline/middleware/full_content_logger.go	1970-01-01 08:00:00.000000000 +0800
++++ custom/middleware/full_content_logger.go	2026-08-28 01:37:49.022469577 +0800
+@@ -0,0 +1,466 @@
++package middleware
++
++import (
++	"encoding/base64"
++	"fmt"
++	"os"
++	"path/filepath"
++	"sort"
++	"strconv"
++	"strings"
++	"sync"
++	"sync/atomic"
++	"time"
++	"unicode/utf8"
++
++	"github.com/QuantumNous/new-api/common"
++
++	"github.com/gin-gonic/gin"
++)
++
++const (
++	fullContentLogEnabledEnv  = "FULL_CONTENT_LOG_ENABLED"
++	fullContentLogDirEnv      = "FULL_CONTENT_LOG_DIR"
++	fullContentLogMaxMBEnv    = "FULL_CONTENT_LOG_MAX_MB"
++	fullContentLogMaxFilesEnv = "FULL_CONTENT_LOG_MAX_FILES"
++	defaultFullContentLogMB   = 100
++)
++
++type fullContentLogEntry struct {
++	Timestamp   string              `json:"timestamp"`
++	RequestID   string              `json:"request_id"`
++	Phase       string              `json:"phase"`
++	Sequence    int64               `json:"sequence,omitempty"`
++	Method      string              `json:"method"`
++	Path        string              `json:"path"`
++	ContentType string              `json:"content_type,omitempty"`
++	Encoding    string              `json:"encoding,omitempty"`
++	Body        string              `json:"body,omitempty"`
++	BodyBytes   int64               `json:"body_bytes,omitempty"`
++	Status      int                 `json:"status,omitempty"`
++	DurationMS  int64               `json:"duration_ms,omitempty"`
++	UserID      int                 `json:"user_id,omitempty"`
++	TokenID     int                 `json:"token_id,omitempty"`
++	TokenName   string              `json:"token_name,omitempty"`
++	ClientIP    string              `json:"client_ip,omitempty"`
++	Headers     map[string][]string `json:"headers,omitempty"`
++	Query       map[string][]string `json:"query,omitempty"`
++	Error       string              `json:"error,omitempty"`
++}
++
++type fullContentFileWriter struct {
++	mu       sync.Mutex
++	dir      string
++	maxBytes int64
++	maxFiles int
++	file     *os.File
++	size     int64
++}
++
++type fullContentResponseWriter struct {
++	gin.ResponseWriter
++	context    *gin.Context
++	logWriter  *fullContentFileWriter
++	startedAt  time.Time
++	sequence   int64
++	bodyBytes  int64
++	writeError atomic.Bool
++}
++
++var (
++	fullContentLogLifecycleMu sync.RWMutex
++	fullContentLogWriters     sync.Map
++)
++
++func FullContentLogger() gin.HandlerFunc {
++	if !fullContentLogEnabled() {
++		return func(c *gin.Context) {
++			c.Next()
++		}
++	}
++
++	writer := &fullContentFileWriter{
++		dir:      FullContentLogDirectory(),
++		maxBytes: int64(fullContentLogEnvInt(fullContentLogMaxMBEnv, defaultFullContentLogMB)) << 20,
++		maxFiles: fullContentLogEnvInt(fullContentLogMaxFilesEnv, 0),
++	}
++	fullContentLogWriters.Store(writer, struct{}{})
++
++	return func(c *gin.Context) {
++		startedAt := time.Now()
++		responseWriter := &fullContentResponseWriter{
++			ResponseWriter: c.Writer,
++			context:        c,
++			logWriter:      writer,
++			startedAt:      startedAt,
++		}
++		c.Writer = responseWriter
++
++		requestEntry := newFullContentLogEntry(c, "request")
++		requestEntry.ContentType = c.GetHeader("Content-Type")
++		requestEntry.Headers = redactFullContentLogValues(c.Request.Header)
++		requestEntry.Query = redactFullContentLogValues(c.Request.URL.Query())
++		if c.Request.Body != nil {
++			storage, err := common.GetBodyStorage(c)
++			if err != nil {
++				requestEntry.Error = err.Error()
++			} else if body, err := storage.Bytes(); err != nil {
++				requestEntry.Error = err.Error()
++			} else {
++				requestEntry.BodyBytes = int64(len(body))
++				requestEntry.Body, requestEntry.Encoding = encodeFullContentLogBody(requestEntry.ContentType, body, true)
++
++				// GetBodyStorage consumes and closes the original request body. Restore a
++				// fresh reader so handlers that read c.Request.Body directly still work.
++				reader, replayErr := storage.NewReader()
++				if replayErr != nil {
++					requestEntry.Error = replayErr.Error()
++				} else {
++					c.Request.Body = reader
++					c.Request.GetBody = storage.NewReader
++					c.Request.ContentLength = storage.Size()
++					defer reader.Close()
++				}
++			}
++		}
++		writeFullContentLogEntry(writer, requestEntry)
++
++		c.Next()
++
++		endEntry := newFullContentLogEntry(c, "response_end")
++		endEntry.Status = c.Writer.Status()
++		endEntry.Headers = redactFullContentLogValues(c.Writer.Header())
++		endEntry.Sequence = atomic.LoadInt64(&responseWriter.sequence)
++		endEntry.BodyBytes = atomic.LoadInt64(&responseWriter.bodyBytes)
++		endEntry.DurationMS = time.Since(startedAt).Milliseconds()
++		if responseWriter.writeError.Load() {
++			endEntry.Error = "one or more response chunks could not be written to the content log"
++		}
++		writeFullContentLogEntry(writer, endEntry)
++	}
++}
++
++func (w *fullContentResponseWriter) Write(body []byte) (int, error) {
++	n, err := w.ResponseWriter.Write(body)
++	if n > 0 {
++		w.logResponseChunk(body[:n])
++	}
++	return n, err
++}
++
++func (w *fullContentResponseWriter) WriteString(body string) (int, error) {
++	n, err := w.ResponseWriter.WriteString(body)
++	if n > 0 {
++		w.logResponseChunk([]byte(body[:n]))
++	}
++	return n, err
++}
++
++func (w *fullContentResponseWriter) logResponseChunk(body []byte) {
++	entry := newFullContentLogEntry(w.context, "response_chunk")
++	entry.Sequence = atomic.AddInt64(&w.sequence, 1)
++	entry.Status = w.ResponseWriter.Status()
++	entry.ContentType = w.ResponseWriter.Header().Get("Content-Type")
++	entry.BodyBytes = int64(len(body))
++	entry.Body, entry.Encoding = encodeFullContentLogBody(entry.ContentType, body, false)
++	atomic.AddInt64(&w.bodyBytes, int64(len(body)))
++	if err := w.logWriter.write(entry); err != nil {
++		w.writeError.Store(true)
++		common.SysError(fmt.Sprintf("failed to write full content response log: %v", err))
++	}
++}
++
++func newFullContentLogEntry(c *gin.Context, phase string) fullContentLogEntry {
++	return fullContentLogEntry{
++		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
++		RequestID: c.GetString(common.RequestIdKey),
++		Phase:     phase,
++		Method:    c.Request.Method,
++		Path:      c.Request.URL.Path,
++		UserID:    c.GetInt("id"),
++		TokenID:   c.GetInt("token_id"),
++		TokenName: c.GetString("token_name"),
++		ClientIP:  c.ClientIP(),
++	}
++}
++
++func writeFullContentLogEntry(writer *fullContentFileWriter, entry fullContentLogEntry) {
++	if err := writer.write(entry); err != nil {
++		common.SysError(fmt.Sprintf("failed to write full content log: %v", err))
++	}
++}
++
++func (w *fullContentFileWriter) write(entry fullContentLogEntry) error {
++	encoded, err := common.Marshal(entry)
++	if err != nil {
++		return err
++	}
++	encoded = append(encoded, '\n')
++
++	fullContentLogLifecycleMu.RLock()
++	defer fullContentLogLifecycleMu.RUnlock()
++
++	w.mu.Lock()
++	defer w.mu.Unlock()
++
++	if err := w.ensureFile(int64(len(encoded))); err != nil {
++		return err
++	}
++	n, err := w.file.Write(encoded)
++	w.size += int64(n)
++	return err
++}
++
++func (w *fullContentFileWriter) ensureFile(nextBytes int64) error {
++	rotate := w.file == nil
++	if !rotate && w.maxBytes > 0 && w.size > 0 && w.size+nextBytes > w.maxBytes {
++		rotate = true
++	}
++	if !rotate {
++		return nil
++	}
++
++	if w.file != nil {
++		if err := w.file.Close(); err != nil {
++			return err
++		}
++		w.file = nil
++	}
++
++	if err := os.MkdirAll(w.dir, 0700); err != nil {
++		return err
++	}
++	if err := os.Chmod(w.dir, 0700); err != nil {
++		return err
++	}
++
++	filename := fmt.Sprintf("full-content-%s.jsonl", time.Now().UTC().Format("20060102T150405.000000000Z"))
++	path := filepath.Join(w.dir, filename)
++	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
++	if err != nil {
++		return err
++	}
++	if err := file.Chmod(0600); err != nil {
++		_ = file.Close()
++		return err
++	}
++	w.file = file
++	w.size = 0
++
++	if w.maxFiles > 0 {
++		w.removeExpiredFiles()
++	}
++	return nil
++}
++
++func (w *fullContentFileWriter) removeExpiredFiles() {
++	entries, err := os.ReadDir(w.dir)
++	if err != nil {
++		return
++	}
++	files := make([]string, 0, len(entries))
++	for _, entry := range entries {
++		name := entry.Name()
++		if entry.Type().IsRegular() && strings.HasPrefix(name, "full-content-") && strings.HasSuffix(name, ".jsonl") {
++			files = append(files, name)
++		}
++	}
++	sort.Strings(files)
++	for len(files) > w.maxFiles {
++		_ = os.Remove(filepath.Join(w.dir, files[0]))
++		files = files[1:]
++	}
++}
++
++func fullContentLogEnabled() bool {
++	enabled, err := strconv.ParseBool(strings.TrimSpace(os.Getenv(fullContentLogEnabledEnv)))
++	return err == nil && enabled
++}
++
++// FullContentLogEnabled reports whether complete relay content logging is on.
++func FullContentLogEnabled() bool {
++	return fullContentLogEnabled()
++}
++
++// FullContentLogDirectory returns the directory shared by the logger and the
++// administrator log viewer.
++func FullContentLogDirectory() string {
++	logDir := strings.TrimSpace(os.Getenv(fullContentLogDirEnv))
++	if logDir != "" {
++		return filepath.Clean(logDir)
++	}
++	baseDir := "logs"
++	if common.LogDir != nil && strings.TrimSpace(*common.LogDir) != "" {
++		baseDir = strings.TrimSpace(*common.LogDir)
++	}
++	return filepath.Join(baseDir, "full-content")
++}
++
++// FullContentLogFilePath resolves a managed JSONL file without allowing path
++// traversal or non-log files.
++func FullContentLogFilePath(filename string) (string, error) {
++	filename = strings.TrimSpace(filename)
++	if filename == "" || filepath.Base(filename) != filename || !strings.HasPrefix(filename, "full-content-") || !strings.HasSuffix(filename, ".jsonl") {
++		return "", fmt.Errorf("invalid full content log filename")
++	}
++	return filepath.Join(FullContentLogDirectory(), filename), nil
++}
++
++// DeleteFullContentLogFile safely closes a matching active writer before the
++// file is removed. Future writes automatically open a new file.
++func DeleteFullContentLogFile(filename string) (int64, error) {
++	path, err := FullContentLogFilePath(filename)
++	if err != nil {
++		return 0, err
++	}
++
++	fullContentLogLifecycleMu.Lock()
++	defer fullContentLogLifecycleMu.Unlock()
++	closeFullContentLogWriters(filename)
++
++	info, err := os.Lstat(path)
++	if err != nil {
++		return 0, err
++	}
++	if !info.Mode().IsRegular() {
++		return 0, fmt.Errorf("full content log is not a regular file")
++	}
++	if err := os.Remove(path); err != nil {
++		return 0, err
++	}
++	return info.Size(), nil
++}
++
++// DeleteAllFullContentLogFiles closes every active writer and removes all
++// managed JSONL files while holding the lifecycle lock.
++func DeleteAllFullContentLogFiles() (int, int64, error) {
++	fullContentLogLifecycleMu.Lock()
++	defer fullContentLogLifecycleMu.Unlock()
++	closeFullContentLogWriters("")
++
++	entries, err := os.ReadDir(FullContentLogDirectory())
++	if os.IsNotExist(err) {
++		return 0, 0, nil
++	}
++	if err != nil {
++		return 0, 0, err
++	}
++
++	deleted := 0
++	var freedBytes int64
++	for _, entry := range entries {
++		path, resolveErr := FullContentLogFilePath(entry.Name())
++		if resolveErr != nil {
++			continue
++		}
++		info, infoErr := os.Lstat(path)
++		if infoErr != nil || !info.Mode().IsRegular() {
++			continue
++		}
++		if removeErr := os.Remove(path); removeErr != nil {
++			return deleted, freedBytes, removeErr
++		}
++		deleted++
++		freedBytes += info.Size()
++	}
++	return deleted, freedBytes, nil
++}
++
++func closeFullContentLogWriters(filename string) {
++	fullContentLogWriters.Range(func(key, _ any) bool {
++		writer, ok := key.(*fullContentFileWriter)
++		if !ok {
++			return true
++		}
++		writer.mu.Lock()
++		defer writer.mu.Unlock()
++		if writer.file == nil {
++			return true
++		}
++		if filename != "" && filepath.Base(writer.file.Name()) != filename {
++			return true
++		}
++		_ = writer.file.Close()
++		writer.file = nil
++		writer.size = 0
++		return true
++	})
++}
++
++func fullContentLogEnvInt(name string, fallback int) int {
++	value := strings.TrimSpace(os.Getenv(name))
++	if value == "" {
++		return fallback
++	}
++	parsed, err := strconv.Atoi(value)
++	if err != nil || parsed < 0 {
++		return fallback
++	}
++	return parsed
++}
++
++func encodeFullContentLogBody(contentType string, body []byte, redactJSON bool) (string, string) {
++	if redactJSON && (strings.Contains(strings.ToLower(contentType), "json") || looksLikeJSON(body)) {
++		var value any
++		if err := common.Unmarshal(body, &value); err == nil {
++			redactFullContentLogSecrets(value)
++			if encoded, err := common.Marshal(value); err == nil {
++				return string(encoded), "json"
++			}
++		}
++	}
++	if utf8.Valid(body) {
++		return string(body), "utf-8"
++	}
++	return base64.StdEncoding.EncodeToString(body), "base64"
++}
++
++func looksLikeJSON(body []byte) bool {
++	trimmed := strings.TrimSpace(string(body))
++	if trimmed == "" {
++		return false
++	}
++	return strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[")
++}
++
++func redactFullContentLogSecrets(value any) {
++	switch typed := value.(type) {
++	case map[string]any:
++		for key, child := range typed {
++			if isFullContentLogSecretKey(key) {
++				typed[key] = "[REDACTED]"
++				continue
++			}
++			redactFullContentLogSecrets(child)
++		}
++	case []any:
++		for _, child := range typed {
++			redactFullContentLogSecrets(child)
++		}
++	}
++}
++
++func isFullContentLogSecretKey(key string) bool {
++	normalized := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(key), "-", "_"))
++	switch normalized {
++	case "api_key", "x_api_key", "key", "authorization", "proxy_authorization", "x_auth_token", "cookie", "set_cookie", "token", "access_token", "refresh_token", "password", "secret", "client_secret", "session_secret", "jwt":
++		return true
++	default:
++		return false
++	}
++}
++
++func redactFullContentLogValues(values map[string][]string) map[string][]string {
++	if len(values) == 0 {
++		return nil
++	}
++	redacted := make(map[string][]string, len(values))
++	for key, entries := range values {
++		if isFullContentLogSecretKey(key) {
++			redacted[key] = []string{"[REDACTED]"}
++			continue
++		}
++		redacted[key] = append([]string(nil), entries...)
++	}
++	return redacted
++}
+--- baseline/middleware/full_content_logger_test.go	1970-01-01 08:00:00.000000000 +0800
++++ custom/middleware/full_content_logger_test.go	2026-08-28 01:34:27.994900984 +0800
+@@ -0,0 +1,201 @@
++package middleware
++
++import (
++	"encoding/base64"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++
++	"github.com/QuantumNous/new-api/common"
++
++	"github.com/gin-gonic/gin"
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
++)
++
++func TestFullContentLoggerCapturesRequestAndStreamingResponse(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	logDir := t.TempDir()
++	t.Setenv(fullContentLogEnabledEnv, "true")
++	t.Setenv(fullContentLogDirEnv, logDir)
++	t.Setenv(fullContentLogMaxMBEnv, "1")
++	t.Setenv(fullContentLogMaxFilesEnv, "0")
++
++	engine := gin.New()
++	engine.Use(BodyStorageCleanup())
++	group := engine.Group("/v1")
++	group.Use(func(c *gin.Context) {
++		c.Set(common.RequestIdKey, "request-123")
++		c.Set("id", 7)
++		c.Set("token_id", 9)
++		c.Set("token_name", "integration-test")
++		c.Next()
++	})
++	group.Use(FullContentLogger())
++
++	var handlerBody string
++	group.POST("/responses", func(c *gin.Context) {
++		body, err := io.ReadAll(c.Request.Body)
++		require.NoError(t, err)
++		handlerBody = string(body)
++		c.Header("Content-Type", "text/event-stream")
++		_, err = c.Writer.WriteString("data: first\n\n")
++		require.NoError(t, err)
++		c.Writer.Flush()
++		_, err = c.Writer.Write([]byte("data: second\n\n"))
++		require.NoError(t, err)
++	})
++
++	requestJSON := `{"messages":[{"role":"user","content":"hello"}],"api_key":"should-hide","nested":{"password":"also-hide"}}`
++	request := httptest.NewRequest(http.MethodPost, "/v1/responses?api_key=query-secret", strings.NewReader(requestJSON))
++	request.Header.Set("Content-Type", "application/json")
++	request.Header.Set("Authorization", "Bearer header-secret")
++	request.Header.Set("Cookie", "session=cookie-secret")
++	request.Header.Set("User-Agent", "OpenClaw-AI/1.0")
++	request.Header.Set("X-Request-Source", "openclaw")
++	recorder := httptest.NewRecorder()
++	engine.ServeHTTP(recorder, request)
++
++	require.Equal(t, http.StatusOK, recorder.Code)
++	assert.Equal(t, requestJSON, handlerBody, "logging must leave a replayable request body for downstream handlers")
++	assert.Equal(t, "data: first\n\ndata: second\n\n", recorder.Body.String())
++
++	files, err := filepath.Glob(filepath.Join(logDir, "full-content-*.jsonl"))
++	require.NoError(t, err)
++	require.Len(t, files, 1)
++
++	dirInfo, err := os.Stat(logDir)
++	require.NoError(t, err)
++	assert.Equal(t, os.FileMode(0700), dirInfo.Mode().Perm())
++	fileInfo, err := os.Stat(files[0])
++	require.NoError(t, err)
++	assert.Equal(t, os.FileMode(0600), fileInfo.Mode().Perm())
++
++	logBytes, err := os.ReadFile(files[0])
++	require.NoError(t, err)
++	logText := string(logBytes)
++	assert.NotContains(t, logText, "should-hide")
++	assert.NotContains(t, logText, "also-hide")
++	assert.NotContains(t, logText, "header-secret")
++	assert.NotContains(t, logText, "cookie-secret")
++	assert.NotContains(t, logText, "query-secret")
++
++	lines := strings.Split(strings.TrimSpace(logText), "\n")
++	require.Len(t, lines, 4)
++	entries := make([]fullContentLogEntry, 0, len(lines))
++	for _, line := range lines {
++		var entry fullContentLogEntry
++		require.NoError(t, common.Unmarshal([]byte(line), &entry))
++		entries = append(entries, entry)
++	}
++
++	requestEntry := entries[0]
++	assert.Equal(t, "request", requestEntry.Phase)
++	assert.Equal(t, "request-123", requestEntry.RequestID)
++	assert.Equal(t, http.MethodPost, requestEntry.Method)
++	assert.Equal(t, "/v1/responses", requestEntry.Path)
++	assert.Equal(t, "json", requestEntry.Encoding)
++	assert.Equal(t, int64(len(requestJSON)), requestEntry.BodyBytes)
++	assert.Contains(t, requestEntry.Body, `"content":"hello"`)
++	assert.Contains(t, requestEntry.Body, `"api_key":"[REDACTED]"`)
++	assert.Contains(t, requestEntry.Body, `"password":"[REDACTED]"`)
++	assert.Equal(t, 7, requestEntry.UserID)
++	assert.Equal(t, 9, requestEntry.TokenID)
++	assert.Equal(t, "integration-test", requestEntry.TokenName)
++	assert.Equal(t, []string{"OpenClaw-AI/1.0"}, requestEntry.Headers["User-Agent"])
++	assert.Equal(t, []string{"openclaw"}, requestEntry.Headers["X-Request-Source"])
++	assert.Equal(t, []string{"[REDACTED]"}, requestEntry.Headers["Authorization"])
++	assert.Equal(t, []string{"[REDACTED]"}, requestEntry.Headers["Cookie"])
++	assert.Equal(t, []string{"[REDACTED]"}, requestEntry.Query["api_key"])
++
++	assert.Equal(t, "response_chunk", entries[1].Phase)
++	assert.Equal(t, int64(1), entries[1].Sequence)
++	assert.Equal(t, "data: first\n\n", entries[1].Body)
++	assert.Equal(t, "response_chunk", entries[2].Phase)
++	assert.Equal(t, int64(2), entries[2].Sequence)
++	assert.Equal(t, "data: second\n\n", entries[2].Body)
++
++	endEntry := entries[3]
++	assert.Equal(t, "response_end", endEntry.Phase)
++	assert.Equal(t, http.StatusOK, endEntry.Status)
++	assert.Equal(t, int64(2), endEntry.Sequence)
++	assert.Equal(t, int64(len("data: first\n\ndata: second\n\n")), endEntry.BodyBytes)
++	assert.Equal(t, []string{"text/event-stream"}, endEntry.Headers["Content-Type"])
++}
++
++func TestFullContentLoggerDisabled(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	logDir := filepath.Join(t.TempDir(), "disabled")
++	t.Setenv(fullContentLogEnabledEnv, "false")
++	t.Setenv(fullContentLogDirEnv, logDir)
++
++	engine := gin.New()
++	engine.Use(FullContentLogger())
++	engine.POST("/v1/responses", func(c *gin.Context) {
++		c.String(http.StatusOK, "OK")
++	})
++
++	request := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"input":"hello"}`))
++	recorder := httptest.NewRecorder()
++	engine.ServeHTTP(recorder, request)
++
++	assert.Equal(t, http.StatusOK, recorder.Code)
++	_, err := os.Stat(logDir)
++	assert.ErrorIs(t, err, os.ErrNotExist)
++}
++
++func TestEncodeFullContentLogBodyUsesBase64ForBinaryData(t *testing.T) {
++	body := []byte{0xff, 0x00, 0x01}
++	encoded, encoding := encodeFullContentLogBody("application/octet-stream", body, false)
++
++	assert.Equal(t, "base64", encoding)
++	assert.Equal(t, base64.StdEncoding.EncodeToString(body), encoded)
++}
++
++func TestDeleteFullContentLogFileRotatesActiveWriter(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	logDir := t.TempDir()
++	t.Setenv(fullContentLogEnabledEnv, "true")
++	t.Setenv(fullContentLogDirEnv, logDir)
++
++	engine := gin.New()
++	engine.Use(BodyStorageCleanup(), FullContentLogger())
++	engine.POST("/v1/responses", func(c *gin.Context) {
++		c.String(http.StatusOK, "OK")
++	})
++
++	request := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"input":"first"}`))
++	recorder := httptest.NewRecorder()
++	engine.ServeHTTP(recorder, request)
++	require.Equal(t, http.StatusOK, recorder.Code)
++
++	files, err := filepath.Glob(filepath.Join(logDir, "full-content-*.jsonl"))
++	require.NoError(t, err)
++	require.Len(t, files, 1)
++	deletedBytes, err := DeleteFullContentLogFile(filepath.Base(files[0]))
++	require.NoError(t, err)
++	assert.Positive(t, deletedBytes)
++	_, err = os.Stat(files[0])
++	assert.ErrorIs(t, err, os.ErrNotExist)
++
++	request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"input":"second"}`))
++	recorder = httptest.NewRecorder()
++	engine.ServeHTTP(recorder, request)
++	require.Equal(t, http.StatusOK, recorder.Code)
++	files, err = filepath.Glob(filepath.Join(logDir, "full-content-*.jsonl"))
++	require.NoError(t, err)
++	require.Len(t, files, 1)
++}
++
++func TestFullContentLogFilePathRejectsTraversal(t *testing.T) {
++	t.Setenv(fullContentLogDirEnv, t.TempDir())
++
++	_, err := FullContentLogFilePath("../full-content-stolen.jsonl")
++	assert.Error(t, err)
++	_, err = FullContentLogFilePath("oneapi.log")
++	assert.Error(t, err)
++}
+--- baseline/router/api-router.go	2026-08-18 18:24:43.000000000 +0800
++++ custom/router/api-router.go	2026-08-27 18:43:05.958976135 +0800
+@@ -278,6 +278,17 @@
+ 		logRoute.GET("/self", middleware.UserAuth(), controller.GetUserLogs)
+ 		logRoute.GET("/self/search", middleware.UserAuth(), middleware.SearchRateLimit(), controller.SearchUserLogs)
+ 
++		fullContentLogRoute := apiRouter.Group("/full-content-logs")
++		fullContentLogRoute.Use(middleware.AdminAuth(), middleware.DisableCache())
++		{
++			fullContentLogRoute.GET("", controller.ListFullContentLogs)
++			fullContentLogRoute.GET("/files", controller.ListFullContentLogFiles)
++			fullContentLogRoute.GET("/files/:filename", controller.DownloadFullContentLogFile)
++			fullContentLogRoute.DELETE("/files/:filename", controller.DeleteFullContentLogFile)
++			fullContentLogRoute.DELETE("/files", controller.DeleteAllFullContentLogFiles)
++			fullContentLogRoute.GET("/:request_id", controller.GetFullContentLogDetail)
++		}
++
+ 		systemTaskRoute := apiRouter.Group("/system-task")
+ 		systemTaskRoute.Use(middleware.RootAuth())
+ 		{
+--- baseline/router/relay-router.go	2026-08-18 18:24:43.000000000 +0800
++++ custom/router/relay-router.go	2026-08-27 18:17:53.280280039 +0800
+@@ -19,6 +19,7 @@
+ 	modelsRouter := router.Group("/v1/models")
+ 	modelsRouter.Use(middleware.RouteTag("relay"))
+ 	modelsRouter.Use(middleware.TokenAuth())
++	modelsRouter.Use(middleware.FullContentLogger())
+ 	{
+ 		modelsRouter.GET("", func(c *gin.Context) {
+ 			switch {
+@@ -44,6 +45,7 @@
+ 	geminiRouter := router.Group("/v1beta/models")
+ 	geminiRouter.Use(middleware.RouteTag("relay"))
+ 	geminiRouter.Use(middleware.TokenAuth())
++	geminiRouter.Use(middleware.FullContentLogger())
+ 	{
+ 		geminiRouter.GET("", func(c *gin.Context) {
+ 			controller.ListModels(c, constant.ChannelTypeGemini)
+@@ -53,6 +55,7 @@
+ 	geminiCompatibleRouter := router.Group("/v1beta/openai/models")
+ 	geminiCompatibleRouter.Use(middleware.RouteTag("relay"))
+ 	geminiCompatibleRouter.Use(middleware.TokenAuth())
++	geminiCompatibleRouter.Use(middleware.FullContentLogger())
+ 	{
+ 		geminiCompatibleRouter.GET("", func(c *gin.Context) {
+ 			controller.ListModels(c, constant.ChannelTypeOpenAI)
+@@ -62,7 +65,7 @@
+ 	playgroundRouter := router.Group("/pg")
+ 	playgroundRouter.Use(middleware.RouteTag("relay"))
+ 	playgroundRouter.Use(middleware.SystemPerformanceCheck())
+-	playgroundRouter.Use(middleware.UserAuth(), middleware.Distribute())
++	playgroundRouter.Use(middleware.UserAuth(), middleware.FullContentLogger(), middleware.Distribute())
+ 	{
+ 		playgroundRouter.POST("/chat/completions", controller.Playground)
+ 	}
+@@ -70,6 +73,7 @@
+ 	relayV1Router.Use(middleware.RouteTag("relay"))
+ 	relayV1Router.Use(middleware.SystemPerformanceCheck())
+ 	relayV1Router.Use(middleware.TokenAuth())
++	relayV1Router.Use(middleware.FullContentLogger())
+ 	relayV1Router.Use(middleware.ModelRequestRateLimit())
+ 	{
+ 		// WebSocket 路由（统一到 Relay）
+@@ -184,7 +188,7 @@
+ 	relaySunoRouter := router.Group("/suno")
+ 	relaySunoRouter.Use(middleware.RouteTag("relay"))
+ 	relaySunoRouter.Use(middleware.SystemPerformanceCheck())
+-	relaySunoRouter.Use(middleware.TokenAuth(), middleware.Distribute())
++	relaySunoRouter.Use(middleware.TokenAuth(), middleware.FullContentLogger(), middleware.Distribute())
+ 	{
+ 		relaySunoRouter.POST("/submit/:action", controller.RelayTask)
+ 		relaySunoRouter.POST("/fetch", controller.RelayTaskFetch)
+@@ -195,6 +199,7 @@
+ 	relayGeminiRouter.Use(middleware.RouteTag("relay"))
+ 	relayGeminiRouter.Use(middleware.SystemPerformanceCheck())
+ 	relayGeminiRouter.Use(middleware.TokenAuth())
++	relayGeminiRouter.Use(middleware.FullContentLogger())
+ 	relayGeminiRouter.Use(middleware.ModelRequestRateLimit())
+ 	relayGeminiRouter.Use(middleware.Distribute())
+ 	{
+@@ -207,7 +212,7 @@
+ 
+ func registerMjRouterGroup(relayMjRouter *gin.RouterGroup) {
+ 	relayMjRouter.GET("/image/:id", relay.RelayMidjourneyImage)
+-	relayMjRouter.Use(middleware.TokenAuth(), middleware.Distribute())
++	relayMjRouter.Use(middleware.TokenAuth(), middleware.FullContentLogger(), middleware.Distribute())
+ 	{
+ 		relayMjRouter.POST("/submit/action", controller.RelayMidjourney)
+ 		relayMjRouter.POST("/submit/shorten", controller.RelayMidjourney)
+--- baseline/router/video-router.go	2026-08-18 18:24:43.000000000 +0800
++++ custom/router/video-router.go	2026-08-27 18:11:37.796693344 +0800
+@@ -12,13 +12,14 @@
+ 	videoProxyRouter := router.Group("/v1")
+ 	videoProxyRouter.Use(middleware.RouteTag("relay"))
+ 	videoProxyRouter.Use(middleware.TokenOrUserAuth())
++	videoProxyRouter.Use(middleware.FullContentLogger())
+ 	{
+ 		videoProxyRouter.GET("/videos/:task_id/content", controller.VideoProxy)
+ 	}
+ 
+ 	videoV1Router := router.Group("/v1")
+ 	videoV1Router.Use(middleware.RouteTag("relay"))
+-	videoV1Router.Use(middleware.TokenAuth(), middleware.Distribute())
++	videoV1Router.Use(middleware.TokenAuth(), middleware.FullContentLogger(), middleware.Distribute())
+ 	{
+ 		videoV1Router.POST("/video/generations", controller.RelayTask)
+ 		videoV1Router.GET("/video/generations/:task_id", controller.RelayTaskFetch)
+@@ -33,7 +34,7 @@
+ 
+ 	klingV1Router := router.Group("/kling/v1")
+ 	klingV1Router.Use(middleware.RouteTag("relay"))
+-	klingV1Router.Use(middleware.KlingRequestConvert(), middleware.TokenAuth(), middleware.Distribute())
++	klingV1Router.Use(middleware.KlingRequestConvert(), middleware.TokenAuth(), middleware.FullContentLogger(), middleware.Distribute())
+ 	{
+ 		klingV1Router.POST("/videos/text2video", controller.RelayTask)
+ 		klingV1Router.POST("/videos/image2video", controller.RelayTask)
+@@ -44,7 +45,7 @@
+ 	// Jimeng official API routes - direct mapping to official API format
+ 	jimengOfficialGroup := router.Group("jimeng")
+ 	jimengOfficialGroup.Use(middleware.RouteTag("relay"))
+-	jimengOfficialGroup.Use(middleware.JimengRequestConvert(), middleware.TokenAuth(), middleware.Distribute())
++	jimengOfficialGroup.Use(middleware.JimengRequestConvert(), middleware.TokenAuth(), middleware.FullContentLogger(), middleware.Distribute())
+ 	{
+ 		// Maps to: /?Action=CVSync2AsyncSubmitTask&Version=2022-08-31 and /?Action=CVSync2AsyncGetResult&Version=2022-08-31
+ 		jimengOfficialGroup.POST("/", controller.RelayTask)
+diff -ruN baseline/web/src/features/full-content-logs/api.ts custom/web/src/features/full-content-logs/api.ts
+--- baseline/web/src/features/full-content-logs/api.ts	1970-01-01 08:00:00.000000000 +0800
++++ custom/web/src/features/full-content-logs/api.ts	2026-08-28 10:55:32.734088585 +0800
+@@ -0,0 +1,104 @@
++/*
++Copyright (C) 2023-2026 QuantumNous
++
++This program is free software: you can redistribute it and/or modify
++it under the terms of the GNU Affero General Public License as
++published by the Free Software Foundation, either version 3 of the
++License, or (at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++GNU Affero General Public License for more details.
++
++You should have received a copy of the GNU Affero General Public License
++along with this program. If not, see <https://www.gnu.org/licenses/>.
++
++For commercial licensing, please contact support@quantumnous.com
++*/
++
++import { api } from '@/lib/api'
++
++import type {
++  ApiEnvelope,
++  FullContentLogDetail,
++  FullContentLogFileStats,
++  FullContentLogList,
++  FullContentLogListParams,
++} from './types'
++
++function localTimeToUnix(value: string): number | undefined {
++  if (!value) return undefined
++  const timestamp = new Date(value).getTime()
++  if (!Number.isFinite(timestamp)) return undefined
++  return Math.floor(timestamp / 1000)
++}
++
++export async function getFullContentLogs(
++  params: FullContentLogListParams
++): Promise<ApiEnvelope<FullContentLogList>> {
++  const response = await api.get('/api/full-content-logs', {
++    params: {
++      p: params.page,
++      page_size: params.pageSize,
++      model: params.filters.model || undefined,
++      token: params.filters.token || undefined,
++      request_id: params.filters.requestId || undefined,
++      start_timestamp: localTimeToUnix(params.filters.startTime),
++      end_timestamp: localTimeToUnix(params.filters.endTime),
++    },
++  })
++  return response.data as ApiEnvelope<FullContentLogList>
++}
++
++export async function getFullContentLogDetail(
++  requestId: string
++): Promise<ApiEnvelope<FullContentLogDetail>> {
++  const response = await api.get(
++    `/api/full-content-logs/${encodeURIComponent(requestId)}`
++  )
++  return response.data as ApiEnvelope<FullContentLogDetail>
++}
++
++export async function getFullContentLogFiles(): Promise<
++  ApiEnvelope<FullContentLogFileStats>
++> {
++  const response = await api.get('/api/full-content-logs/files')
++  return response.data as ApiEnvelope<FullContentLogFileStats>
++}
++
++export async function downloadFullContentLogFile(
++  filename: string
++): Promise<void> {
++  const response = await api.get(
++    `/api/full-content-logs/files/${encodeURIComponent(filename)}`,
++    { responseType: 'blob' }
++  )
++  const url = URL.createObjectURL(response.data as Blob)
++  const anchor = document.createElement('a')
++  anchor.href = url
++  anchor.download = filename
++  document.body.appendChild(anchor)
++  anchor.click()
++  anchor.remove()
++  URL.revokeObjectURL(url)
++}
++
++export async function deleteFullContentLogFile(
++  filename: string
++): Promise<ApiEnvelope<{ deleted_bytes: number }>> {
++  const response = await api.delete(
++    `/api/full-content-logs/files/${encodeURIComponent(filename)}`
++  )
++  return response.data as ApiEnvelope<{ deleted_bytes: number }>
++}
++
++export async function deleteAllFullContentLogFiles(): Promise<
++  ApiEnvelope<{ deleted_count: number; freed_bytes: number }>
++> {
++  const response = await api.delete('/api/full-content-logs/files')
++  return response.data as ApiEnvelope<{
++    deleted_count: number
++    freed_bytes: number
++  }>
++}
+diff -ruN baseline/web/src/features/full-content-logs/components/full-content-log-details-dialog.tsx custom/web/src/features/full-content-logs/components/full-content-log-details-dialog.tsx
+--- baseline/web/src/features/full-content-logs/components/full-content-log-details-dialog.tsx	1970-01-01 08:00:00.000000000 +0800
++++ custom/web/src/features/full-content-logs/components/full-content-log-details-dialog.tsx	2026-08-28 10:55:32.735088573 +0800
+@@ -0,0 +1,321 @@
++/*
++Copyright (C) 2023-2026 QuantumNous
++
++This program is free software: you can redistribute it and/or modify
++it under the terms of the GNU Affero General Public License as
++published by the Free Software Foundation, either version 3 of the
++License, or (at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++GNU Affero General Public License for more details.
++
++You should have received a copy of the GNU Affero General Public License
++along with this program. If not, see <https://www.gnu.org/licenses/>.
++
++For commercial licensing, please contact support@quantumnous.com
++*/
++
++import { useQuery } from '@tanstack/react-query'
++import { Check, Copy } from 'lucide-react'
++import { useMemo, useState } from 'react'
++import { useTranslation } from 'react-i18next'
++
++import { Dialog } from '@/components/dialog'
++import { Badge } from '@/components/ui/badge'
++import { Button } from '@/components/ui/button'
++import { Skeleton } from '@/components/ui/skeleton'
++import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
++import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
++import { cn } from '@/lib/utils'
++
++import { getFullContentLogDetail } from '../api'
++import {
++  extractLogRequestText,
++  extractLogResponseText,
++  formatLogBody,
++  formatLogBytes,
++} from '../lib/format'
++import { FullContentLogViewModeToggle } from './full-content-log-view-mode-toggle'
++
++interface FullContentLogDetailsDialogProps {
++  requestId: string | null
++  open: boolean
++  onOpenChange: (open: boolean) => void
++}
++
++function ContentPanel(props: {
++  body: string
++  encoding?: string
++  contentType?: string
++  emptyText: string
++  title: string
++  compact?: boolean
++}) {
++  const { t } = useTranslation()
++  const { copiedText, copyToClipboard } = useCopyToClipboard()
++  const formattedBody = useMemo(
++    () => formatLogBody(props.body, props.encoding, props.contentType),
++    [props.body, props.contentType, props.encoding]
++  )
++
++  return (
++    <div className='space-y-2'>
++      <div className='flex flex-wrap items-center justify-between gap-2'>
++        <div className='flex flex-wrap items-center gap-1.5'>
++          <span className='font-medium'>{props.title}</span>
++          <Badge variant='outline'>{props.encoding || 'utf-8'}</Badge>
++          {props.contentType && (
++            <Badge variant='secondary'>{props.contentType}</Badge>
++          )}
++        </div>
++        <Button
++          size='sm'
++          variant='outline'
++          disabled={!formattedBody}
++          onClick={() => void copyToClipboard(formattedBody)}
++        >
++          {copiedText === formattedBody ? <Check /> : <Copy />}
++          {t('Copy')}
++        </Button>
++      </div>
++      <pre
++        className={cn(
++          'bg-muted/40 overflow-auto rounded-lg border p-3 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap',
++          props.compact ? 'max-h-48 min-h-24' : 'max-h-[48vh] min-h-48'
++        )}
++      >
++        {formattedBody || props.emptyText}
++      </pre>
++    </div>
++  )
++}
++
++export function FullContentLogDetailsDialog(
++  props: FullContentLogDetailsDialogProps
++) {
++  const { t } = useTranslation()
++  const [showRaw, setShowRaw] = useState(false)
++  const detailQuery = useQuery({
++    queryKey: ['full-content-logs', 'detail', props.requestId],
++    queryFn: async () => {
++      const response = await getFullContentLogDetail(props.requestId || '')
++      if (!response.success || !response.data) {
++        throw new Error(response.message || t('Failed to load log detail'))
++      }
++      return response.data
++    },
++    enabled: props.open && Boolean(props.requestId),
++    retry: false,
++  })
++  const detail = detailQuery.data
++  const requestText = useMemo(
++    () =>
++      detail
++        ? extractLogRequestText(
++            detail.request_body,
++            detail.request_encoding,
++            detail.request_content_type
++          )
++        : '',
++    [detail]
++  )
++  const responseText = useMemo(
++    () =>
++      detail
++        ? extractLogResponseText(
++            detail.response_body,
++            detail.response_encoding,
++            detail.response_content_type
++          )
++        : '',
++    [detail]
++  )
++
++  return (
++    <Dialog
++      open={props.open}
++      onOpenChange={props.onOpenChange}
++      title={t('Full Content Log Detail')}
++      description={props.requestId || undefined}
++      contentClassName='sm:max-w-6xl'
++      contentHeight='min(82vh, 900px)'
++    >
++      {detailQuery.isLoading && (
++        <div className='space-y-3' aria-label={t('Loading')}>
++          <Skeleton className='h-16 w-full' />
++          <Skeleton className='h-80 w-full' />
++        </div>
++      )}
++
++      {detailQuery.isError && (
++        <div className='border-destructive/30 bg-destructive/5 text-destructive rounded-lg border p-4 text-sm'>
++          {detailQuery.error instanceof Error
++            ? detailQuery.error.message
++            : t('Failed to load log detail')}
++        </div>
++      )}
++
++      {detail && (
++        <div className='space-y-4'>
++          <div className='grid gap-2 rounded-lg border p-3 text-xs sm:grid-cols-2 lg:grid-cols-4'>
++            <div>
++              <span className='text-muted-foreground'>{t('Model')}</span>
++              <div className='mt-1 font-medium'>{detail.model || '-'}</div>
++            </div>
++            <div>
++              <span className='text-muted-foreground'>{t('Status')}</span>
++              <div className='mt-1 font-medium'>{detail.status || '-'}</div>
++            </div>
++            <div>
++              <span className='text-muted-foreground'>{t('Duration')}</span>
++              <div className='mt-1 font-medium'>{detail.duration_ms} ms</div>
++            </div>
++            <div>
++              <span className='text-muted-foreground'>{t('Size')}</span>
++              <div className='mt-1 font-medium'>
++                {formatLogBytes(detail.request_bytes)} →{' '}
++                {formatLogBytes(detail.response_bytes)}
++              </div>
++            </div>
++            <div className='sm:col-span-2'>
++              <span className='text-muted-foreground'>{t('Endpoint')}</span>
++              <div className='mt-1 font-mono break-all'>
++                {detail.method} {detail.path}
++              </div>
++            </div>
++            <div>
++              <span className='text-muted-foreground'>{t('API Key')}</span>
++              <div className='mt-1 break-all'>
++                {detail.token_name || '-'}
++                {detail.token_id ? ` (#${detail.token_id})` : ''}
++              </div>
++            </div>
++            <div>
++              <span className='text-muted-foreground'>{t('Client IP')}</span>
++              <div className='mt-1 font-mono'>{detail.client_ip || '-'}</div>
++            </div>
++          </div>
++
++          {detail.error && (
++            <div className='border-destructive/30 bg-destructive/5 text-destructive rounded-lg border p-3 text-sm break-all'>
++              {detail.error}
++            </div>
++          )}
++
++          <div className='bg-muted/30 flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between'>
++            <div className='text-muted-foreground text-xs'>
++              {showRaw
++                ? t(
++                    'Raw mode shows headers, parameters and protocol envelopes. Sensitive credentials remain redacted.'
++                  )
++                : t(
++                    'Clean mode shows only conversational text and is enabled by default.'
++                  )}
++            </div>
++            <FullContentLogViewModeToggle
++              raw={showRaw}
++              onRawChange={setShowRaw}
++            />
++          </div>
++
++          <Tabs defaultValue='request'>
++            <TabsList>
++              <TabsTrigger value='request'>{t('Request')}</TabsTrigger>
++              <TabsTrigger value='response'>
++                {t('Response')} ({detail.chunk_count})
++              </TabsTrigger>
++            </TabsList>
++            <TabsContent value='request' className='mt-3 space-y-4'>
++              {showRaw ? (
++                <>
++                  <div className='space-y-1 rounded-lg border p-3 text-xs'>
++                    <div className='text-muted-foreground'>
++                      {t('Request URL')}
++                    </div>
++                    <div className='font-mono break-all'>
++                      {detail.method} {detail.path}
++                    </div>
++                  </div>
++                  <ContentPanel
++                    title={t('Query parameters')}
++                    body={
++                      Object.keys(detail.query || {}).length
++                        ? JSON.stringify(detail.query, null, 2)
++                        : ''
++                    }
++                    encoding='json'
++                    contentType='application/json'
++                    emptyText={t('No query parameters')}
++                    compact
++                  />
++                  <ContentPanel
++                    title={t('Request headers')}
++                    body={
++                      Object.keys(detail.request_headers || {}).length
++                        ? JSON.stringify(detail.request_headers, null, 2)
++                        : ''
++                    }
++                    encoding='json'
++                    contentType='application/json'
++                    emptyText={t('No request headers were recorded')}
++                    compact
++                  />
++                  <ContentPanel
++                    title={t('Raw request body')}
++                    body={detail.request_body}
++                    encoding={detail.request_encoding}
++                    contentType={detail.request_content_type}
++                    emptyText={t('Empty request body')}
++                  />
++                </>
++              ) : (
++                <ContentPanel
++                  title={t('Request text')}
++                  body={requestText}
++                  encoding='utf-8'
++                  contentType='text/plain'
++                  emptyText={t('No readable request text found')}
++                />
++              )}
++            </TabsContent>
++            <TabsContent value='response' className='mt-3 space-y-4'>
++              {showRaw ? (
++                <>
++                  <ContentPanel
++                    title={t('Response headers')}
++                    body={
++                      Object.keys(detail.response_headers || {}).length
++                        ? JSON.stringify(detail.response_headers, null, 2)
++                        : ''
++                    }
++                    encoding='json'
++                    contentType='application/json'
++                    emptyText={t('No response headers were recorded')}
++                    compact
++                  />
++                  <ContentPanel
++                    title={t('Raw response body')}
++                    body={detail.response_body}
++                    encoding={detail.response_encoding}
++                    contentType={detail.response_content_type}
++                    emptyText={t('Empty response body')}
++                  />
++                </>
++              ) : (
++                <ContentPanel
++                  title={t('Model response text')}
++                  body={responseText}
++                  encoding='utf-8'
++                  contentType='text/plain'
++                  emptyText={t('No readable response text found')}
++                />
++              )}
++            </TabsContent>
++          </Tabs>
++        </div>
++      )}
++    </Dialog>
++  )
++}
+diff -ruN baseline/web/src/features/full-content-logs/components/full-content-log-files-dialog.tsx custom/web/src/features/full-content-logs/components/full-content-log-files-dialog.tsx
+--- baseline/web/src/features/full-content-logs/components/full-content-log-files-dialog.tsx	1970-01-01 08:00:00.000000000 +0800
++++ custom/web/src/features/full-content-logs/components/full-content-log-files-dialog.tsx	2026-08-28 10:55:32.735088573 +0800
+@@ -0,0 +1,268 @@
++/*
++Copyright (C) 2023-2026 QuantumNous
++
++This program is free software: you can redistribute it and/or modify
++it under the terms of the GNU Affero General Public License as
++published by the Free Software Foundation, either version 3 of the
++License, or (at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++GNU Affero General Public License for more details.
++
++You should have received a copy of the GNU Affero General Public License
++along with this program. If not, see <https://www.gnu.org/licenses/>.
++
++For commercial licensing, please contact support@quantumnous.com
++*/
++
++import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
++import { Download, FileJson, RefreshCw, Trash2 } from 'lucide-react'
++import { useState } from 'react'
++import { useTranslation } from 'react-i18next'
++import { toast } from 'sonner'
++
++import { ConfirmDialog } from '@/components/confirm-dialog'
++import { Dialog } from '@/components/dialog'
++import { Button } from '@/components/ui/button'
++import { Skeleton } from '@/components/ui/skeleton'
++
++import {
++  deleteAllFullContentLogFiles,
++  deleteFullContentLogFile,
++  downloadFullContentLogFile,
++  getFullContentLogFiles,
++} from '../api'
++import { formatLogBytes } from '../lib/format'
++
++interface FullContentLogFilesDialogProps {
++  open: boolean
++  onOpenChange: (open: boolean) => void
++}
++
++export function FullContentLogFilesDialog(
++  props: FullContentLogFilesDialogProps
++) {
++  const { t } = useTranslation()
++  const queryClient = useQueryClient()
++  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
++  const [clearAllOpen, setClearAllOpen] = useState(false)
++  const [downloadingFile, setDownloadingFile] = useState<string | null>(null)
++
++  const filesQuery = useQuery({
++    queryKey: ['full-content-logs', 'files'],
++    queryFn: async () => {
++      const response = await getFullContentLogFiles()
++      if (!response.success || !response.data) {
++        throw new Error(response.message || t('Failed to load log files'))
++      }
++      return response.data
++    },
++    enabled: props.open,
++    retry: false,
++  })
++
++  const refreshAllLogQueries = async () => {
++    await queryClient.invalidateQueries({ queryKey: ['full-content-logs'] })
++  }
++
++  const deleteMutation = useMutation({
++    mutationFn: async (filename: string) => {
++      const response = await deleteFullContentLogFile(filename)
++      if (!response.success) {
++        throw new Error(response.message || t('Failed to delete log file'))
++      }
++      return response
++    },
++    onSuccess: async () => {
++      toast.success(t('Log file deleted'))
++      setDeleteTarget(null)
++      await refreshAllLogQueries()
++    },
++    onError: (error) => {
++      toast.error(
++        error instanceof Error ? error.message : t('Failed to delete log file')
++      )
++    },
++  })
++
++  const clearMutation = useMutation({
++    mutationFn: async () => {
++      const response = await deleteAllFullContentLogFiles()
++      if (!response.success) {
++        throw new Error(response.message || t('Failed to clear log files'))
++      }
++      return response
++    },
++    onSuccess: async (response) => {
++      toast.success(
++        t('Deleted {{count}} log files and freed {{size}}.', {
++          count: response.data?.deleted_count ?? 0,
++          size: formatLogBytes(response.data?.freed_bytes ?? 0),
++        })
++      )
++      setClearAllOpen(false)
++      await refreshAllLogQueries()
++    },
++    onError: (error) => {
++      toast.error(
++        error instanceof Error ? error.message : t('Failed to clear log files')
++      )
++    },
++  })
++
++  const handleDownload = async (filename: string) => {
++    setDownloadingFile(filename)
++    try {
++      await downloadFullContentLogFile(filename)
++    } catch (error) {
++      toast.error(
++        error instanceof Error
++          ? error.message
++          : t('Failed to download log file')
++      )
++    } finally {
++      setDownloadingFile(null)
++    }
++  }
++
++  const files = filesQuery.data?.files ?? []
++
++  return (
++    <>
++      <Dialog
++        open={props.open}
++        onOpenChange={props.onOpenChange}
++        title={t('Full Content Log Files')}
++        description={t(
++          'Download raw JSONL files or remove records that are no longer needed.'
++        )}
++        contentClassName='sm:max-w-3xl'
++        contentHeight='min(65vh, 620px)'
++        footer={
++          <div className='flex w-full items-center justify-between gap-2'>
++            <span className='text-muted-foreground text-xs'>
++              {t('{{count}} files, {{size}} total', {
++                count: filesQuery.data?.count ?? 0,
++                size: formatLogBytes(filesQuery.data?.total_size ?? 0),
++              })}
++            </span>
++            <Button
++              variant='destructive'
++              disabled={files.length === 0}
++              onClick={() => setClearAllOpen(true)}
++            >
++              <Trash2 />
++              {t('Delete All')}
++            </Button>
++          </div>
++        }
++      >
++        <div className='mb-3 flex justify-end'>
++          <Button
++            size='sm'
++            variant='outline'
++            disabled={filesQuery.isFetching}
++            onClick={() => void filesQuery.refetch()}
++          >
++            <RefreshCw
++              className={filesQuery.isFetching ? 'animate-spin' : ''}
++            />
++            {t('Refresh')}
++          </Button>
++        </div>
++
++        {filesQuery.isLoading && (
++          <div className='space-y-2' aria-label={t('Loading')}>
++            <Skeleton className='h-14 w-full' />
++            <Skeleton className='h-14 w-full' />
++          </div>
++        )}
++
++        {filesQuery.isError && (
++          <div className='border-destructive/30 bg-destructive/5 text-destructive rounded-lg border p-4 text-sm'>
++            {filesQuery.error instanceof Error
++              ? filesQuery.error.message
++              : t('Failed to load log files')}
++          </div>
++        )}
++
++        {!filesQuery.isLoading && !filesQuery.isError && files.length === 0 && (
++          <div className='text-muted-foreground rounded-lg border border-dashed p-10 text-center text-sm'>
++            {t('No full content log files')}
++          </div>
++        )}
++
++        <div className='space-y-2'>
++          {files.map((file) => (
++            <div
++              key={file.name}
++              className='flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between'
++            >
++              <div className='flex min-w-0 items-center gap-3'>
++                <span className='bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg'>
++                  <FileJson className='size-4' aria-hidden='true' />
++                </span>
++                <div className='min-w-0'>
++                  <div className='truncate font-mono text-xs'>{file.name}</div>
++                  <div className='text-muted-foreground mt-1 text-xs'>
++                    {formatLogBytes(file.size)} ·{' '}
++                    {new Date(file.modified_at).toLocaleString()}
++                  </div>
++                </div>
++              </div>
++              <div className='flex shrink-0 gap-2 self-end sm:self-auto'>
++                <Button
++                  size='sm'
++                  variant='outline'
++                  disabled={downloadingFile === file.name}
++                  onClick={() => void handleDownload(file.name)}
++                >
++                  <Download />
++                  {t('Download')}
++                </Button>
++                <Button
++                  size='sm'
++                  variant='destructive'
++                  onClick={() => setDeleteTarget(file.name)}
++                >
++                  <Trash2 />
++                  {t('Delete')}
++                </Button>
++              </div>
++            </div>
++          ))}
++        </div>
++      </Dialog>
++
++      <ConfirmDialog
++        open={Boolean(deleteTarget)}
++        onOpenChange={(open) => !open && setDeleteTarget(null)}
++        title={t('Delete log file')}
++        desc={t(
++          'This permanently deletes the selected full request and response records. This action cannot be undone.'
++        )}
++        destructive
++        confirmText={t('Delete')}
++        isLoading={deleteMutation.isPending}
++        handleConfirm={() => {
++          if (deleteTarget) deleteMutation.mutate(deleteTarget)
++        }}
++      />
++
++      <ConfirmDialog
++        open={clearAllOpen}
++        onOpenChange={setClearAllOpen}
++        title={t('Delete all full content logs')}
++        desc={t(
++          'This permanently deletes every full request and response log file. New requests will start a new file.'
++        )}
++        destructive
++        confirmText={t('Delete All')}
++        isLoading={clearMutation.isPending}
++        handleConfirm={() => clearMutation.mutate()}
++      />
++    </>
++  )
++}
+diff -ruN baseline/web/src/features/full-content-logs/components/full-content-log-filter-bar.tsx custom/web/src/features/full-content-logs/components/full-content-log-filter-bar.tsx
+--- baseline/web/src/features/full-content-logs/components/full-content-log-filter-bar.tsx	1970-01-01 08:00:00.000000000 +0800
++++ custom/web/src/features/full-content-logs/components/full-content-log-filter-bar.tsx	2026-08-28 10:55:32.735088573 +0800
+@@ -0,0 +1,131 @@
++/*
++Copyright (C) 2023-2026 QuantumNous
++
++This program is free software: you can redistribute it and/or modify
++it under the terms of the GNU Affero General Public License as
++published by the Free Software Foundation, either version 3 of the
++License, or (at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++GNU Affero General Public License for more details.
++
++You should have received a copy of the GNU Affero General Public License
++along with this program. If not, see <https://www.gnu.org/licenses/>.
++
++For commercial licensing, please contact support@quantumnous.com
++*/
++
++import { RotateCcw, Search } from 'lucide-react'
++import { useTranslation } from 'react-i18next'
++
++import { Button } from '@/components/ui/button'
++import { Input } from '@/components/ui/input'
++import { Label } from '@/components/ui/label'
++
++import type { FullContentLogFilters, FullContentLogTokenOption } from '../types'
++
++interface FullContentLogFilterBarProps {
++  filters: FullContentLogFilters
++  onChange: (filters: FullContentLogFilters) => void
++  onApply: () => void
++  onReset: () => void
++  modelOptions: string[]
++  tokenOptions: FullContentLogTokenOption[]
++}
++
++export function FullContentLogFilterBar(props: FullContentLogFilterBarProps) {
++  const { t } = useTranslation()
++
++  const updateField = (field: keyof FullContentLogFilters, value: string) => {
++    props.onChange({ ...props.filters, [field]: value })
++  }
++
++  return (
++    <form
++      className='grid gap-3 rounded-lg border p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6'
++      onSubmit={(event) => {
++        event.preventDefault()
++        props.onApply()
++      }}
++    >
++      <div className='space-y-1.5'>
++        <Label htmlFor='full-log-model'>{t('Model')}</Label>
++        <Input
++          id='full-log-model'
++          list='full-log-model-options'
++          value={props.filters.model}
++          placeholder={t('All models')}
++          onChange={(event) => updateField('model', event.target.value)}
++        />
++        <datalist id='full-log-model-options'>
++          {props.modelOptions.map((model) => (
++            <option key={model} value={model} />
++          ))}
++        </datalist>
++      </div>
++      <div className='space-y-1.5'>
++        <Label htmlFor='full-log-token'>{t('API Key name or ID')}</Label>
++        <Input
++          id='full-log-token'
++          list='full-log-token-options'
++          value={props.filters.token}
++          placeholder={t('All API keys')}
++          onChange={(event) => updateField('token', event.target.value)}
++        />
++        <datalist id='full-log-token-options'>
++          {props.tokenOptions.map((token) => (
++            <option
++              key={`${token.id}:${token.name}`}
++              value={token.id ? String(token.id) : token.name}
++            >
++              {token.name || `#${token.id}`}
++            </option>
++          ))}
++        </datalist>
++      </div>
++      <div className='space-y-1.5'>
++        <Label htmlFor='full-log-request-id'>{t('Request ID')}</Label>
++        <Input
++          id='full-log-request-id'
++          value={props.filters.requestId}
++          className='font-mono'
++          onChange={(event) => updateField('requestId', event.target.value)}
++        />
++      </div>
++      <div className='space-y-1.5'>
++        <Label htmlFor='full-log-start-time'>{t('Start Time')}</Label>
++        <Input
++          id='full-log-start-time'
++          type='datetime-local'
++          value={props.filters.startTime}
++          onChange={(event) => updateField('startTime', event.target.value)}
++        />
++      </div>
++      <div className='space-y-1.5'>
++        <Label htmlFor='full-log-end-time'>{t('End Time')}</Label>
++        <Input
++          id='full-log-end-time'
++          type='datetime-local'
++          value={props.filters.endTime}
++          onChange={(event) => updateField('endTime', event.target.value)}
++        />
++      </div>
++      <div className='flex items-end gap-2'>
++        <Button type='submit' className='flex-1'>
++          <Search />
++          {t('Search')}
++        </Button>
++        <Button
++          type='button'
++          variant='outline'
++          aria-label={t('Reset filters')}
++          onClick={props.onReset}
++        >
++          <RotateCcw />
++        </Button>
++      </div>
++    </form>
++  )
++}
+diff -ruN baseline/web/src/features/full-content-logs/components/full-content-log-row.tsx custom/web/src/features/full-content-logs/components/full-content-log-row.tsx
+--- baseline/web/src/features/full-content-logs/components/full-content-log-row.tsx	1970-01-01 08:00:00.000000000 +0800
++++ custom/web/src/features/full-content-logs/components/full-content-log-row.tsx	2026-08-28 10:55:32.735088573 +0800
+@@ -0,0 +1,99 @@
++/*
++Copyright (C) 2023-2026 QuantumNous
++
++This program is free software: you can redistribute it and/or modify
++it under the terms of the GNU Affero General Public License as
++published by the Free Software Foundation, either version 3 of the
++License, or (at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++GNU Affero General Public License for more details.
++
++You should have received a copy of the GNU Affero General Public License
++along with this program. If not, see <https://www.gnu.org/licenses/>.
++
++For commercial licensing, please contact support@quantumnous.com
++*/
++
++import { Eye } from 'lucide-react'
++import { useTranslation } from 'react-i18next'
++
++import { Badge } from '@/components/ui/badge'
++import { Button } from '@/components/ui/button'
++import { TableCell, TableRow } from '@/components/ui/table'
++
++import { formatLogBytes } from '../lib/format'
++import type { FullContentLogSummary } from '../types'
++
++interface FullContentLogRowProps {
++  log: FullContentLogSummary
++  onView: (requestId: string) => void
++}
++
++function statusVariant(
++  status: number
++): 'secondary' | 'destructive' | 'outline' {
++  if (status >= 200 && status < 400) return 'secondary'
++  if (status >= 400) return 'destructive'
++  return 'outline'
++}
++
++export function FullContentLogRow(props: FullContentLogRowProps) {
++  const { t } = useTranslation()
++
++  return (
++    <TableRow
++      className='cursor-pointer'
++      onClick={() => props.onView(props.log.request_id)}
++    >
++      <TableCell className='whitespace-nowrap'>
++        {new Date(props.log.timestamp).toLocaleString()}
++      </TableCell>
++      <TableCell>
++        <div className='font-medium'>{props.log.model || '-'}</div>
++        <div className='text-muted-foreground mt-0.5 font-mono text-xs'>
++          {props.log.method} {props.log.path}
++        </div>
++      </TableCell>
++      <TableCell>
++        <div>{props.log.token_name || '-'}</div>
++        <div className='text-muted-foreground text-xs'>
++          {props.log.token_id ? `#${props.log.token_id}` : '-'}
++        </div>
++      </TableCell>
++      <TableCell>
++        <Badge variant={statusVariant(props.log.status)}>
++          {props.log.status || t('Pending')}
++        </Badge>
++      </TableCell>
++      <TableCell className='font-mono text-xs whitespace-nowrap'>
++        {formatLogBytes(props.log.request_bytes)} →{' '}
++        {formatLogBytes(props.log.response_bytes)}
++        <div className='text-muted-foreground mt-0.5'>
++          {t('{{count}} chunks', { count: props.log.chunk_count })}
++        </div>
++      </TableCell>
++      <TableCell className='whitespace-nowrap'>
++        {props.log.duration_ms} ms
++      </TableCell>
++      <TableCell className='max-w-64 truncate font-mono text-xs'>
++        {props.log.request_id}
++      </TableCell>
++      <TableCell className='bg-background sticky right-0 text-right group-hover:bg-[color-mix(in_oklch,var(--muted)_50%,var(--background))]'>
++        <Button
++          size='sm'
++          variant='outline'
++          onClick={(event) => {
++            event.stopPropagation()
++            props.onView(props.log.request_id)
++          }}
++        >
++          <Eye />
++          {t('View content')}
++        </Button>
++      </TableCell>
++    </TableRow>
++  )
++}
+diff -ruN baseline/web/src/features/full-content-logs/components/full-content-log-view-mode-toggle.tsx custom/web/src/features/full-content-logs/components/full-content-log-view-mode-toggle.tsx
+--- baseline/web/src/features/full-content-logs/components/full-content-log-view-mode-toggle.tsx	1970-01-01 08:00:00.000000000 +0800
++++ custom/web/src/features/full-content-logs/components/full-content-log-view-mode-toggle.tsx	2026-08-28 10:55:32.735088573 +0800
+@@ -0,0 +1,60 @@
++/*
++Copyright (C) 2023-2026 QuantumNous
++
++This program is free software: you can redistribute it and/or modify
++it under the terms of the GNU Affero General Public License as
++published by the Free Software Foundation, either version 3 of the
++License, or (at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++GNU Affero General Public License for more details.
++
++You should have received a copy of the GNU Affero General Public License
++along with this program. If not, see <https://www.gnu.org/licenses/>.
++
++For commercial licensing, please contact support@quantumnous.com
++*/
++
++import { useTranslation } from 'react-i18next'
++
++import { Switch } from '@/components/ui/switch'
++import { cn } from '@/lib/utils'
++
++interface FullContentLogViewModeToggleProps {
++  raw: boolean
++  onRawChange: (raw: boolean) => void
++}
++
++export function FullContentLogViewModeToggle(
++  props: FullContentLogViewModeToggleProps
++) {
++  const { t } = useTranslation()
++
++  return (
++    <div className='bg-background flex items-center gap-2 rounded-lg border px-3 py-2'>
++      <span
++        className={cn(
++          'text-xs',
++          props.raw ? 'text-muted-foreground' : 'font-medium'
++        )}
++      >
++        {t('Clean text')}
++      </span>
++      <Switch
++        checked={props.raw}
++        aria-label={t('Show raw protocol data')}
++        onCheckedChange={(checked) => props.onRawChange(Boolean(checked))}
++      />
++      <span
++        className={cn(
++          'text-xs',
++          props.raw ? 'font-medium' : 'text-muted-foreground'
++        )}
++      >
++        {t('Raw data')}
++      </span>
++    </div>
++  )
++}
+diff -ruN baseline/web/src/features/full-content-logs/components/__tests__/filters.test.tsx custom/web/src/features/full-content-logs/components/__tests__/filters.test.tsx
+--- baseline/web/src/features/full-content-logs/components/__tests__/filters.test.tsx	1970-01-01 08:00:00.000000000 +0800
++++ custom/web/src/features/full-content-logs/components/__tests__/filters.test.tsx	2026-08-28 10:55:32.734088585 +0800
+@@ -0,0 +1,80 @@
++/*
++Copyright (C) 2023-2026 QuantumNous
++
++This program is free software: you can redistribute it and/or modify
++it under the terms of the GNU Affero General Public License as
++published by the Free Software Foundation, either version 3 of the
++License, or (at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++GNU Affero General Public License for more details.
++
++You should have received a copy of the GNU Affero General Public License
++along with this program. If not, see <https://www.gnu.org/licenses/>.
++
++For commercial licensing, please contact support@quantumnous.com
++*/
++
++import { render, screen } from '@testing-library/react'
++import userEvent from '@testing-library/user-event'
++import { useState } from 'react'
++import { describe, expect, test, vi } from 'vitest'
++
++import type { FullContentLogFilters } from '../../types'
++import { FullContentLogFilterBar } from '../full-content-log-filter-bar'
++
++const EMPTY_FILTERS: FullContentLogFilters = {
++  model: '',
++  token: '',
++  requestId: '',
++  startTime: '',
++  endTime: '',
++}
++
++function FilterHarness(props: { onApply: () => void; onReset: () => void }) {
++  const [filters, setFilters] = useState(EMPTY_FILTERS)
++  return (
++    <FullContentLogFilterBar
++      filters={filters}
++      modelOptions={['gpt-5.6-luna']}
++      tokenOptions={[{ id: 7, name: 'test-key' }]}
++      onChange={setFilters}
++      onApply={props.onApply}
++      onReset={props.onReset}
++    />
++  )
++}
++
++describe('full content log filters', () => {
++  test('submits model, token and request filters from the keyboard', async () => {
++    const user = userEvent.setup()
++    const onApply = vi.fn()
++
++    render(<FilterHarness onApply={onApply} onReset={() => undefined} />)
++    await user.type(screen.getByLabelText('Model'), 'gpt-5.6-luna')
++    await user.type(screen.getByLabelText('API Key name or ID'), 'test')
++    await user.type(screen.getByLabelText('Request ID'), 'request-123')
++    await user.keyboard('{Enter}')
++
++    expect(onApply).toHaveBeenCalledTimes(1)
++    expect(screen.getByLabelText('Model')).toHaveValue('gpt-5.6-luna')
++    expect(screen.getByLabelText('API Key name or ID')).toHaveValue('test')
++    expect(screen.getByLabelText('Request ID')).toHaveValue('request-123')
++    expect(screen.getByDisplayValue('gpt-5.6-luna')).toHaveAttribute(
++      'list',
++      'full-log-model-options'
++    )
++  })
++
++  test('exposes a named reset control', async () => {
++    const user = userEvent.setup()
++    const onReset = vi.fn()
++
++    render(<FilterHarness onApply={() => undefined} onReset={onReset} />)
++    await user.click(screen.getByRole('button', { name: 'Reset filters' }))
++
++    expect(onReset).toHaveBeenCalledTimes(1)
++  })
++})
+diff -ruN baseline/web/src/features/full-content-logs/components/__tests__/row-interaction.test.tsx custom/web/src/features/full-content-logs/components/__tests__/row-interaction.test.tsx
+--- baseline/web/src/features/full-content-logs/components/__tests__/row-interaction.test.tsx	1970-01-01 08:00:00.000000000 +0800
++++ custom/web/src/features/full-content-logs/components/__tests__/row-interaction.test.tsx	2026-08-28 10:55:32.734088585 +0800
+@@ -0,0 +1,60 @@
++/*
++Copyright (C) 2023-2026 QuantumNous
++
++This program is free software: you can redistribute it and/or modify
++it under the terms of the GNU Affero General Public License as
++published by the Free Software Foundation, either version 3 of the
++License, or (at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++GNU Affero General Public License for more details.
++
++You should have received a copy of the GNU Affero General Public License
++along with this program. If not, see <https://www.gnu.org/licenses/>.
++
++For commercial licensing, please contact support@quantumnous.com
++*/
++
++import { render, screen } from '@testing-library/react'
++import userEvent from '@testing-library/user-event'
++import { describe, expect, test, vi } from 'vitest'
++
++import { FullContentLogRow } from '../full-content-log-row'
++
++const LOG = {
++  timestamp: '2026-08-28T01:00:00Z',
++  request_id: 'request-123',
++  method: 'POST',
++  path: '/v1/responses',
++  model: 'gpt-5.6-luna',
++  status: 200,
++  duration_ms: 321,
++  request_bytes: 100,
++  response_bytes: 200,
++  chunk_count: 2,
++  token_id: 7,
++  token_name: 'test-key',
++}
++
++describe('full content log row', () => {
++  test('opens online detail from the row or the fixed action', async () => {
++    const user = userEvent.setup()
++    const onView = vi.fn()
++
++    render(
++      <table>
++        <tbody>
++          <FullContentLogRow log={LOG} onView={onView} />
++        </tbody>
++      </table>
++    )
++
++    await user.click(screen.getByText('gpt-5.6-luna'))
++    expect(onView).toHaveBeenLastCalledWith('request-123')
++
++    await user.click(screen.getByRole('button', { name: 'View content' }))
++    expect(onView).toHaveBeenCalledTimes(2)
++  })
++})
+diff -ruN baseline/web/src/features/full-content-logs/components/__tests__/view-mode-toggle.test.tsx custom/web/src/features/full-content-logs/components/__tests__/view-mode-toggle.test.tsx
+--- baseline/web/src/features/full-content-logs/components/__tests__/view-mode-toggle.test.tsx	1970-01-01 08:00:00.000000000 +0800
++++ custom/web/src/features/full-content-logs/components/__tests__/view-mode-toggle.test.tsx	2026-08-28 10:55:32.735088573 +0800
+@@ -0,0 +1,45 @@
++/*
++Copyright (C) 2023-2026 QuantumNous
++
++This program is free software: you can redistribute it and/or modify
++it under the terms of the GNU Affero General Public License as
++published by the Free Software Foundation, either version 3 of the
++License, or (at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++GNU Affero General Public License for more details.
++
++You should have received a copy of the GNU Affero General Public License
++along with this program. If not, see <https://www.gnu.org/licenses/>.
++
++For commercial licensing, please contact support@quantumnous.com
++*/
++
++import { render, screen } from '@testing-library/react'
++import userEvent from '@testing-library/user-event'
++import { useState } from 'react'
++import { describe, expect, test } from 'vitest'
++
++import { FullContentLogViewModeToggle } from '../full-content-log-view-mode-toggle'
++
++function ToggleHarness() {
++  const [raw, setRaw] = useState(false)
++  return <FullContentLogViewModeToggle raw={raw} onRawChange={setRaw} />
++}
++
++describe('full content log view mode', () => {
++  test('starts in clean text mode and switches to raw protocol data', async () => {
++    const user = userEvent.setup()
++    render(<ToggleHarness />)
++
++    const toggle = screen.getByRole('switch', {
++      name: 'Show raw protocol data',
++    })
++    expect(toggle).not.toBeChecked()
++
++    await user.click(toggle)
++    expect(toggle).toBeChecked()
++  })
++})
+diff -ruN baseline/web/src/features/full-content-logs/index.tsx custom/web/src/features/full-content-logs/index.tsx
+--- baseline/web/src/features/full-content-logs/index.tsx	1970-01-01 08:00:00.000000000 +0800
++++ custom/web/src/features/full-content-logs/index.tsx	2026-08-28 10:55:32.735088573 +0800
+@@ -0,0 +1,279 @@
++/*
++Copyright (C) 2023-2026 QuantumNous
++
++This program is free software: you can redistribute it and/or modify
++it under the terms of the GNU Affero General Public License as
++published by the Free Software Foundation, either version 3 of the
++License, or (at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++GNU Affero General Public License for more details.
++
++You should have received a copy of the GNU Affero General Public License
++along with this program. If not, see <https://www.gnu.org/licenses/>.
++
++For commercial licensing, please contact support@quantumnous.com
++*/
++
++import { useQuery } from '@tanstack/react-query'
++import { Database, RefreshCw } from 'lucide-react'
++import { useState } from 'react'
++import { useTranslation } from 'react-i18next'
++
++import { SectionPageLayout } from '@/components/layout'
++import { Button } from '@/components/ui/button'
++import { Skeleton } from '@/components/ui/skeleton'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
++
++import { getFullContentLogs } from './api'
++import { FullContentLogDetailsDialog } from './components/full-content-log-details-dialog'
++import { FullContentLogFilesDialog } from './components/full-content-log-files-dialog'
++import { FullContentLogFilterBar } from './components/full-content-log-filter-bar'
++import { FullContentLogRow } from './components/full-content-log-row'
++import { formatLogBytes } from './lib/format'
++import type { FullContentLogFilters } from './types'
++
++const PAGE_SIZE = 20
++const SKELETON_ROWS = [
++  'skeleton-1',
++  'skeleton-2',
++  'skeleton-3',
++  'skeleton-4',
++  'skeleton-5',
++  'skeleton-6',
++] as const
++const EMPTY_FILTERS: FullContentLogFilters = {
++  model: '',
++  token: '',
++  requestId: '',
++  startTime: '',
++  endTime: '',
++}
++
++export function FullContentLogs() {
++  const { t } = useTranslation()
++  const [page, setPage] = useState(1)
++  const [draftFilters, setDraftFilters] =
++    useState<FullContentLogFilters>(EMPTY_FILTERS)
++  const [appliedFilters, setAppliedFilters] =
++    useState<FullContentLogFilters>(EMPTY_FILTERS)
++  const [detailRequestId, setDetailRequestId] = useState<string | null>(null)
++  const [filesOpen, setFilesOpen] = useState(false)
++
++  const logsQuery = useQuery({
++    queryKey: ['full-content-logs', 'list', page, appliedFilters],
++    queryFn: async () => {
++      const response = await getFullContentLogs({
++        page,
++        pageSize: PAGE_SIZE,
++        filters: appliedFilters,
++      })
++      if (!response.success || !response.data) {
++        throw new Error(
++          response.message || t('Failed to load full content logs')
++        )
++      }
++      return response.data
++    },
++    placeholderData: (previousData) => previousData,
++    retry: false,
++  })
++
++  const data = logsQuery.data
++  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE))
++
++  const applyFilters = () => {
++    setPage(1)
++    setAppliedFilters({ ...draftFilters })
++  }
++
++  const resetFilters = () => {
++    setPage(1)
++    setDraftFilters(EMPTY_FILTERS)
++    setAppliedFilters(EMPTY_FILTERS)
++  }
++
++  return (
++    <>
++      <SectionPageLayout fixedContent>
++        <SectionPageLayout.Title>
++          {t('API Request Logs')}
++        </SectionPageLayout.Title>
++        <SectionPageLayout.Actions>
++          <Button variant='outline' onClick={() => setFilesOpen(true)}>
++            <Database />
++            {t('Raw log storage')}
++          </Button>
++          <Button
++            variant='outline'
++            disabled={logsQuery.isFetching}
++            onClick={() => void logsQuery.refetch()}
++          >
++            <RefreshCw className={logsQuery.isFetching ? 'animate-spin' : ''} />
++            {t('Refresh')}
++          </Button>
++        </SectionPageLayout.Actions>
++        <SectionPageLayout.Content>
++          <div className='flex h-full min-h-0 flex-col gap-4'>
++            <div className='bg-muted/30 rounded-lg border p-3 text-sm'>
++              <div className='font-medium'>{t('Online request explorer')}</div>
++              <div className='text-muted-foreground mt-1'>
++                {t(
++                  'Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online.'
++                )}
++              </div>
++            </div>
++
++            {data && !data.enabled && (
++              <div className='border-warning/40 bg-warning/10 text-warning rounded-lg border p-3 text-sm'>
++                {t(
++                  'Full content logging is disabled. Existing files remain available.'
++                )}
++              </div>
++            )}
++
++            <div className='grid gap-3 sm:grid-cols-3'>
++              <div className='rounded-lg border p-3'>
++                <div className='text-muted-foreground text-xs'>
++                  {t('Matching Requests')}
++                </div>
++                <div className='mt-1 text-xl font-semibold tabular-nums'>
++                  {data?.total ?? 0}
++                </div>
++              </div>
++              <div className='rounded-lg border p-3'>
++                <div className='text-muted-foreground text-xs'>
++                  {t('Log Files')}
++                </div>
++                <div className='mt-1 text-xl font-semibold tabular-nums'>
++                  {data?.files.count ?? 0}
++                </div>
++              </div>
++              <div className='rounded-lg border p-3'>
++                <div className='text-muted-foreground text-xs'>
++                  {t('Disk Usage')}
++                </div>
++                <div className='mt-1 text-xl font-semibold tabular-nums'>
++                  {formatLogBytes(data?.files.total_size ?? 0)}
++                </div>
++              </div>
++            </div>
++
++            <FullContentLogFilterBar
++              filters={draftFilters}
++              onChange={setDraftFilters}
++              onApply={applyFilters}
++              onReset={resetFilters}
++              modelOptions={data?.facets.models ?? []}
++              tokenOptions={data?.facets.tokens ?? []}
++            />
++
++            <div className='min-h-0 flex-1 overflow-auto rounded-lg border'>
++              <Table className='min-w-[1120px]'>
++                <TableHeader className='bg-muted/40 sticky top-0 z-10'>
++                  <TableRow>
++                    <TableHead>{t('Time')}</TableHead>
++                    <TableHead>{t('Model / Endpoint')}</TableHead>
++                    <TableHead>{t('API Key')}</TableHead>
++                    <TableHead>{t('Status')}</TableHead>
++                    <TableHead>{t('Request / Response')}</TableHead>
++                    <TableHead>{t('Duration')}</TableHead>
++                    <TableHead>{t('Request ID')}</TableHead>
++                    <TableHead className='text-right'>{t('Actions')}</TableHead>
++                  </TableRow>
++                </TableHeader>
++                <TableBody>
++                  {logsQuery.isLoading &&
++                    SKELETON_ROWS.map((row) => (
++                      <TableRow key={row}>
++                        <TableCell colSpan={8}>
++                          <Skeleton className='h-8 w-full' />
++                        </TableCell>
++                      </TableRow>
++                    ))}
++
++                  {logsQuery.isError && (
++                    <TableRow>
++                      <TableCell
++                        colSpan={8}
++                        className='text-destructive h-32 text-center'
++                      >
++                        {logsQuery.error instanceof Error
++                          ? logsQuery.error.message
++                          : t('Failed to load full content logs')}
++                      </TableCell>
++                    </TableRow>
++                  )}
++
++                  {!logsQuery.isLoading &&
++                    !logsQuery.isError &&
++                    (data?.items.length ?? 0) === 0 && (
++                      <TableRow>
++                        <TableCell
++                          colSpan={8}
++                          className='text-muted-foreground h-32 text-center'
++                        >
++                          {t('No matching full content logs')}
++                        </TableCell>
++                      </TableRow>
++                    )}
++
++                  {data?.items.map((log) => (
++                    <FullContentLogRow
++                      key={log.request_id}
++                      log={log}
++                      onView={setDetailRequestId}
++                    />
++                  ))}
++                </TableBody>
++              </Table>
++            </div>
++
++            <div className='flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between'>
++              <span className='text-muted-foreground'>
++                {t('Page {{page}} of {{totalPages}} · {{total}} requests', {
++                  page,
++                  totalPages,
++                  total: data?.total ?? 0,
++                })}
++              </span>
++              <div className='flex gap-2'>
++                <Button
++                  variant='outline'
++                  disabled={page <= 1 || logsQuery.isFetching}
++                  onClick={() => setPage((current) => Math.max(1, current - 1))}
++                >
++                  {t('Previous')}
++                </Button>
++                <Button
++                  variant='outline'
++                  disabled={page >= totalPages || logsQuery.isFetching}
++                  onClick={() => setPage((current) => current + 1)}
++                >
++                  {t('Next')}
++                </Button>
++              </div>
++            </div>
++          </div>
++        </SectionPageLayout.Content>
++      </SectionPageLayout>
++
++      <FullContentLogDetailsDialog
++        key={detailRequestId ?? 'closed'}
++        requestId={detailRequestId}
++        open={Boolean(detailRequestId)}
++        onOpenChange={(open) => !open && setDetailRequestId(null)}
++      />
++      <FullContentLogFilesDialog open={filesOpen} onOpenChange={setFilesOpen} />
++    </>
++  )
++}
+diff -ruN baseline/web/src/features/full-content-logs/lib/format.ts custom/web/src/features/full-content-logs/lib/format.ts
+--- baseline/web/src/features/full-content-logs/lib/format.ts	1970-01-01 08:00:00.000000000 +0800
++++ custom/web/src/features/full-content-logs/lib/format.ts	2026-08-28 10:55:32.736088561 +0800
+@@ -0,0 +1,233 @@
++/*
++Copyright (C) 2023-2026 QuantumNous
++
++This program is free software: you can redistribute it and/or modify
++it under the terms of the GNU Affero General Public License as
++published by the Free Software Foundation, either version 3 of the
++License, or (at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++GNU Affero General Public License for more details.
++
++You should have received a copy of the GNU Affero General Public License
++along with this program. If not, see <https://www.gnu.org/licenses/>.
++
++For commercial licensing, please contact support@quantumnous.com
++*/
++
++export function formatLogBytes(bytes: number): string {
++  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
++  const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB']
++  const unitIndex = Math.min(
++    units.length - 1,
++    Math.floor(Math.log(bytes) / Math.log(1024))
++  )
++  const value = bytes / 1024 ** unitIndex
++  return `${value.toFixed(unitIndex === 0 ? 0 : 2)} ${units[unitIndex]}`
++}
++
++export function formatLogBody(
++  body: string,
++  encoding?: string,
++  contentType?: string
++): string {
++  if (!body) return ''
++  if (encoding === 'base64') return body
++  if (encoding !== 'json' && !contentType?.toLowerCase().includes('json')) {
++    return body
++  }
++  try {
++    return JSON.stringify(JSON.parse(body) as unknown, null, 2)
++  } catch {
++    return body
++  }
++}
++
++type LogJsonObject = Record<string, unknown>
++
++function isLogJsonObject(value: unknown): value is LogJsonObject {
++  return typeof value === 'object' && value !== null && !Array.isArray(value)
++}
++
++function parseLogJson(body: string, encoding?: string): unknown | undefined {
++  if (!body || encoding === 'base64') return undefined
++  try {
++    return JSON.parse(body) as unknown
++  } catch {
++    return undefined
++  }
++}
++
++function logContentText(value: unknown): string[] {
++  if (typeof value === 'string') return value.trim() ? [value] : []
++  if (Array.isArray(value)) return value.flatMap(logContentText)
++  if (!isLogJsonObject(value)) return []
++
++  for (const key of ['text', 'input_text', 'output_text'] as const) {
++    const candidate = value[key]
++    if (typeof candidate === 'string' && candidate.trim()) return [candidate]
++    if (isLogJsonObject(candidate)) {
++      const nested = candidate.value
++      if (typeof nested === 'string' && nested.trim()) return [nested]
++    }
++  }
++
++  if (value.content !== undefined) return logContentText(value.content)
++  if (value.parts !== undefined) return logContentText(value.parts)
++  return []
++}
++
++function roleSections(value: unknown): string[] {
++  if (!Array.isArray(value)) return []
++  const sections: string[] = []
++  for (const item of value) {
++    if (!isLogJsonObject(item)) {
++      sections.push(...logContentText(item))
++      continue
++    }
++    const text = logContentText(item.content ?? item.parts ?? item.text)
++      .join('\n')
++      .trim()
++    if (!text) continue
++    const role = typeof item.role === 'string' ? item.role.toUpperCase() : ''
++    sections.push(role ? `${role}\n${text}` : text)
++  }
++  return sections
++}
++
++export function extractLogRequestText(
++  body: string,
++  encoding?: string,
++  contentType?: string
++): string {
++  const payload = parseLogJson(body, encoding)
++  if (!isLogJsonObject(payload)) {
++    if (encoding === 'base64') return ''
++    return formatLogBody(body, encoding, contentType).trim()
++  }
++
++  const sections: string[] = []
++  const appendSection = (label: string, value: unknown) => {
++    const text = logContentText(value).join('\n').trim()
++    if (text) sections.push(`${label}\n${text}`)
++  }
++
++  appendSection('INSTRUCTIONS', payload.instructions)
++  appendSection('SYSTEM', payload.system)
++  sections.push(...roleSections(payload.messages))
++
++  if (typeof payload.input === 'string') {
++    appendSection('USER', payload.input)
++  } else {
++    const inputSections = roleSections(payload.input)
++    if (inputSections.length > 0) sections.push(...inputSections)
++    else appendSection('USER', payload.input)
++  }
++
++  sections.push(...roleSections(payload.contents))
++  appendSection('PROMPT', payload.prompt)
++  if (sections.length > 0) return sections.join('\n\n')
++
++  return logContentText(payload).join('\n').trim()
++}
++
++function responsePayloadText(value: unknown): string[] {
++  if (!isLogJsonObject(value)) return logContentText(value)
++
++  if (typeof value.output_text === 'string' && value.output_text.trim()) {
++    return [value.output_text]
++  }
++
++  const pieces: string[] = []
++  if (Array.isArray(value.choices)) {
++    for (const choice of value.choices) {
++      if (!isLogJsonObject(choice)) continue
++      pieces.push(
++        ...logContentText(choice.message ?? choice.delta ?? choice.text)
++      )
++    }
++  }
++  pieces.push(...logContentText(value.output))
++  pieces.push(...logContentText(value.content))
++
++  if (Array.isArray(value.candidates)) {
++    for (const candidate of value.candidates) {
++      if (!isLogJsonObject(candidate)) continue
++      pieces.push(...logContentText(candidate.content))
++    }
++  }
++  if (pieces.length === 0 && value.response !== undefined) {
++    pieces.push(...responsePayloadText(value.response))
++  }
++  return pieces
++}
++
++function responseDeltaText(value: unknown): string[] {
++  if (!isLogJsonObject(value)) return []
++  const pieces: string[] = []
++  const eventType = typeof value.type === 'string' ? value.type : ''
++
++  if (
++    eventType.includes('output_text.delta') &&
++    typeof value.delta === 'string'
++  ) {
++    pieces.push(value.delta)
++  }
++  if (
++    eventType.includes('content_block_delta') &&
++    isLogJsonObject(value.delta)
++  ) {
++    const text = value.delta.text
++    if (typeof text === 'string') pieces.push(text)
++  }
++  if (Array.isArray(value.choices)) {
++    for (const choice of value.choices) {
++      if (!isLogJsonObject(choice) || !isLogJsonObject(choice.delta)) continue
++      pieces.push(...logContentText(choice.delta.content))
++    }
++  }
++  if (Array.isArray(value.candidates)) {
++    for (const candidate of value.candidates) {
++      if (!isLogJsonObject(candidate)) continue
++      pieces.push(...logContentText(candidate.content))
++    }
++  }
++  return pieces
++}
++
++export function extractLogResponseText(
++  body: string,
++  encoding?: string,
++  contentType?: string
++): string {
++  if (!body || encoding === 'base64') return ''
++  const isEventStream =
++    contentType?.toLowerCase().includes('text/event-stream') ||
++    /(^|\n)data:\s/.test(body)
++
++  if (isEventStream) {
++    const deltas: string[] = []
++    const completed: string[] = []
++    for (const line of body.split(/\r?\n/)) {
++      if (!line.startsWith('data:')) continue
++      const data = line.slice(5).trimStart()
++      if (!data || data.trim() === '[DONE]') continue
++      const payload = parseLogJson(data)
++      if (payload === undefined) continue
++      deltas.push(...responseDeltaText(payload))
++      const fullText = responsePayloadText(payload).join('')
++      if (fullText.trim()) completed.push(fullText)
++    }
++    if (deltas.length > 0) return deltas.join('').trim()
++    if (completed.length > 0) return completed.at(-1)?.trim() ?? ''
++  }
++
++  const payload = parseLogJson(body, encoding)
++  if (payload !== undefined) {
++    const text = responsePayloadText(payload).join('\n').trim()
++    if (text) return text
++  }
++  return formatLogBody(body, encoding, contentType).trim()
++}
+diff -ruN baseline/web/src/features/full-content-logs/lib/__tests__/format.test.ts custom/web/src/features/full-content-logs/lib/__tests__/format.test.ts
+--- baseline/web/src/features/full-content-logs/lib/__tests__/format.test.ts	1970-01-01 08:00:00.000000000 +0800
++++ custom/web/src/features/full-content-logs/lib/__tests__/format.test.ts	2026-08-28 10:55:32.736088561 +0800
+@@ -0,0 +1,136 @@
++/*
++Copyright (C) 2023-2026 QuantumNous
++
++This program is free software: you can redistribute it and/or modify
++it under the terms of the GNU Affero General Public License as
++published by the Free Software Foundation, either version 3 of the
++License, or (at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++GNU Affero General Public License for more details.
++
++You should have received a copy of the GNU Affero General Public License
++along with this program. If not, see <https://www.gnu.org/licenses/>.
++
++For commercial licensing, please contact support@quantumnous.com
++*/
++
++import { describe, expect, test } from 'vitest'
++
++import {
++  extractLogRequestText,
++  extractLogResponseText,
++  formatLogBody,
++  formatLogBytes,
++} from '../format'
++
++describe('full content log formatting', () => {
++  test('formats JSON request bodies without changing their values', () => {
++    expect(
++      formatLogBody('{"model":"gpt-5.6-luna","stream":true}', 'json')
++    ).toBe('{\n  "model": "gpt-5.6-luna",\n  "stream": true\n}')
++  })
++
++  test('keeps base64 attachment bodies unchanged', () => {
++    expect(formatLogBody('/wAB', 'base64', 'application/octet-stream')).toBe(
++      '/wAB'
++    )
++  })
++
++  test('formats byte totals with binary units', () => {
++    expect(formatLogBytes(0)).toBe('0 B')
++    expect(formatLogBytes(1536)).toBe('1.50 KiB')
++  })
++
++  test('extracts only instructions and conversational text from a Responses request', () => {
++    const body = JSON.stringify({
++      model: 'gpt-5.6-terra',
++      instructions: 'Answer briefly.',
++      input: [
++        {
++          role: 'user',
++          content: [
++            { type: 'input_text', text: 'Describe this image.' },
++            { type: 'input_image', image_url: 'data:image/png;base64,secret' },
++          ],
++        },
++      ],
++      stream: true,
++      store: false,
++    })
++
++    expect(extractLogRequestText(body, 'json')).toBe(
++      'INSTRUCTIONS\nAnswer briefly.\n\nUSER\nDescribe this image.'
++    )
++  })
++
++  test('extracts message text from Chat Completions without protocol fields', () => {
++    const body = JSON.stringify({
++      model: 'gpt-5.6-luna',
++      messages: [
++        { role: 'system', content: 'You are helpful.' },
++        {
++          role: 'user',
++          content: [{ type: 'text', text: 'Hello' }],
++        },
++      ],
++      temperature: 0.3,
++    })
++
++    expect(extractLogRequestText(body, 'json')).toBe(
++      'SYSTEM\nYou are helpful.\n\nUSER\nHello'
++    )
++  })
++
++  test('joins Responses SSE deltas and ignores completed event duplication', () => {
++    const body = [
++      'event: response.output_text.delta',
++      'data: {"type":"response.output_text.delta","delta":"Hello"}',
++      '',
++      'event: response.output_text.delta',
++      'data: {"type":"response.output_text.delta","delta":" world"}',
++      '',
++      'event: response.completed',
++      'data: {"type":"response.completed","response":{"output_text":"Hello world"}}',
++      '',
++      'data: [DONE]',
++    ].join('\n')
++
++    expect(extractLogResponseText(body, 'utf-8', 'text/event-stream')).toBe(
++      'Hello world'
++    )
++  })
++
++  test('joins Chat Completions SSE content deltas', () => {
++    const body = [
++      'data: {"choices":[{"delta":{"content":"A"}}]}',
++      '',
++      'data: {"choices":[{"delta":{"content":" B"}}]}',
++      '',
++      'data: [DONE]',
++    ].join('\n')
++
++    expect(extractLogResponseText(body, 'utf-8', 'text/event-stream')).toBe(
++      'A B'
++    )
++  })
++
++  test('extracts text from a non-streaming response envelope', () => {
++    const body = JSON.stringify({
++      id: 'resp_123',
++      output: [
++        {
++          type: 'message',
++          content: [{ type: 'output_text', text: 'Finished.' }],
++        },
++      ],
++      usage: { input_tokens: 10, output_tokens: 2 },
++    })
++
++    expect(extractLogResponseText(body, 'json', 'application/json')).toBe(
++      'Finished.'
++    )
++  })
++})
+diff -ruN baseline/web/src/features/full-content-logs/types.ts custom/web/src/features/full-content-logs/types.ts
+--- baseline/web/src/features/full-content-logs/types.ts	1970-01-01 08:00:00.000000000 +0800
++++ custom/web/src/features/full-content-logs/types.ts	2026-08-28 10:55:32.736088561 +0800
+@@ -0,0 +1,100 @@
++/*
++Copyright (C) 2023-2026 QuantumNous
++
++This program is free software: you can redistribute it and/or modify
++it under the terms of the GNU Affero General Public License as
++published by the Free Software Foundation, either version 3 of the
++License, or (at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++GNU Affero General Public License for more details.
++
++You should have received a copy of the GNU Affero General Public License
++along with this program. If not, see <https://www.gnu.org/licenses/>.
++
++For commercial licensing, please contact support@quantumnous.com
++*/
++
++export interface FullContentLogSummary {
++  timestamp: string
++  request_id: string
++  method: string
++  path: string
++  model?: string
++  status: number
++  duration_ms: number
++  request_bytes: number
++  response_bytes: number
++  chunk_count: number
++  user_id?: number
++  token_id?: number
++  token_name?: string
++  client_ip?: string
++  error?: string
++}
++
++export interface FullContentLogFile {
++  name: string
++  size: number
++  modified_at: string
++}
++
++export interface FullContentLogFileStats {
++  count: number
++  total_size: number
++  files: FullContentLogFile[]
++}
++
++export interface FullContentLogTokenOption {
++  id: number
++  name: string
++}
++
++export interface FullContentLogFacets {
++  models: string[]
++  tokens: FullContentLogTokenOption[]
++}
++
++export interface FullContentLogList {
++  enabled: boolean
++  page: number
++  page_size: number
++  total: number
++  items: FullContentLogSummary[]
++  files: FullContentLogFileStats
++  facets: FullContentLogFacets
++}
++
++export interface FullContentLogDetail extends FullContentLogSummary {
++  request_content_type?: string
++  request_encoding?: string
++  request_body: string
++  response_content_type?: string
++  response_encoding?: string
++  response_body: string
++  request_headers: Record<string, string[]>
++  response_headers: Record<string, string[]>
++  query: Record<string, string[]>
++}
++
++export interface FullContentLogFilters {
++  model: string
++  token: string
++  requestId: string
++  startTime: string
++  endTime: string
++}
++
++export interface FullContentLogListParams {
++  page: number
++  pageSize: number
++  filters: FullContentLogFilters
++}
++
++export interface ApiEnvelope<T> {
++  success: boolean
++  message?: string
++  data?: T
++}
+--- baseline/web/src/hooks/use-sidebar-data.ts	2026-08-18 18:24:43.000000000 +0800
++++ custom/web/src/hooks/use-sidebar-data.ts	2026-08-28 10:55:32.813087620 +0800
+@@ -21,6 +21,7 @@
+   Box,
+   CreditCard,
+   FileText,
++  FileSearch,
+   FlaskConical,
+   Key,
+   LayoutDashboard,
+@@ -36,7 +37,7 @@
+ } from 'lucide-react'
+ import { useTranslation } from 'react-i18next'
+ 
+-import { type SidebarData } from '@/components/layout/types'
++import type { SidebarData } from '@/components/layout/types'
+ import { ROLE } from '@/lib/roles'
+ 
+ /**
+@@ -145,6 +146,12 @@
+             icon: CreditCard,
+           },
+           {
++            title: t('API Request Logs'),
++            url: '/full-content-logs',
++            icon: FileSearch,
++            requiredRole: ROLE.ADMIN,
++          },
++          {
+             title: t('System Info'),
+             url: '/system-info',
+             icon: ServerCog,
+--- baseline/web/src/hooks/use-sidebar-config.ts	2026-08-18 18:24:43.000000000 +0800
++++ custom/web/src/hooks/use-sidebar-config.ts	2026-08-28 10:55:32.813087620 +0800
+@@ -114,6 +114,7 @@
+   '/users': { section: 'admin', module: 'user' },
+   '/redemption-codes': { section: 'admin', module: 'redemption' },
+   '/subscriptions': { section: 'admin', module: 'subscription' },
++  '/full-content-logs': { section: 'admin', module: 'setting' },
+   '/system-settings': { section: 'admin', module: 'setting' },
+   '/system-settings/site': { section: 'admin', module: 'setting' },
+ }
+diff -ruN baseline/web/src/routes/_authenticated/full-content-logs/index.tsx custom/web/src/routes/_authenticated/full-content-logs/index.tsx
+--- baseline/web/src/routes/_authenticated/full-content-logs/index.tsx	1970-01-01 08:00:00.000000000 +0800
++++ custom/web/src/routes/_authenticated/full-content-logs/index.tsx	2026-08-28 10:55:32.823087498 +0800
+@@ -0,0 +1,34 @@
++/*
++Copyright (C) 2023-2026 QuantumNous
++
++This program is free software: you can redistribute it and/or modify
++it under the terms of the GNU Affero General Public License as
++published by the Free Software Foundation, either version 3 of the
++License, or (at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++GNU Affero General Public License for more details.
++
++You should have received a copy of the GNU Affero General Public License
++along with this program. If not, see <https://www.gnu.org/licenses/>.
++
++For commercial licensing, please contact support@quantumnous.com
++*/
++
++import { createFileRoute, redirect } from '@tanstack/react-router'
++
++import { FullContentLogs } from '@/features/full-content-logs'
++import { ROLE } from '@/lib/roles'
++import { useAuthStore } from '@/stores/auth-store'
++
++export const Route = createFileRoute('/_authenticated/full-content-logs/')({
++  beforeLoad: () => {
++    const { auth } = useAuthStore.getState()
++    if ((auth.user?.role ?? ROLE.GUEST) < ROLE.ADMIN) {
++      throw redirect({ to: '/403' })
++    }
++  },
++  component: FullContentLogs,
++})
+--- baseline/web/src/routeTree.gen.ts	2026-08-18 18:24:43.000000000 +0800
++++ custom/web/src/routeTree.gen.ts	2026-08-28 01:54:52.587347628 +0800
+@@ -39,6 +39,7 @@
+ import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard/index'
+ import { Route as AuthenticatedDashboardSectionRouteImport } from './routes/_authenticated/dashboard/$section'
+ import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
++import { Route as AuthenticatedFullContentLogsIndexRouteImport } from './routes/_authenticated/full-content-logs/index'
+ import { Route as AuthenticatedKeysIndexRouteImport } from './routes/_authenticated/keys/index'
+ import { Route as AuthenticatedModelsIndexRouteImport } from './routes/_authenticated/models/index'
+ import { Route as AuthenticatedModelsSectionRouteImport } from './routes/_authenticated/models/$section'
+@@ -221,6 +222,12 @@
+     path: '/errors/$error',
+     getParentRoute: () => AuthenticatedRouteRoute,
+   } as any)
++const AuthenticatedFullContentLogsIndexRoute =
++  AuthenticatedFullContentLogsIndexRouteImport.update({
++    id: '/full-content-logs/',
++    path: '/full-content-logs/',
++    getParentRoute: () => AuthenticatedRouteRoute,
++  } as any)
+ const AuthenticatedKeysIndexRoute = AuthenticatedKeysIndexRouteImport.update({
+   id: '/keys/',
+   path: '/keys/',
+@@ -418,6 +425,7 @@
+   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
+   '/channels/': typeof AuthenticatedChannelsIndexRoute
+   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
++  '/full-content-logs/': typeof AuthenticatedFullContentLogsIndexRoute
+   '/keys/': typeof AuthenticatedKeysIndexRoute
+   '/models/': typeof AuthenticatedModelsIndexRoute
+   '/playground/': typeof AuthenticatedPlaygroundIndexRoute
+@@ -475,6 +483,7 @@
+   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
+   '/channels': typeof AuthenticatedChannelsIndexRoute
+   '/dashboard': typeof AuthenticatedDashboardIndexRoute
++  '/full-content-logs': typeof AuthenticatedFullContentLogsIndexRoute
+   '/keys': typeof AuthenticatedKeysIndexRoute
+   '/models': typeof AuthenticatedModelsIndexRoute
+   '/playground': typeof AuthenticatedPlaygroundIndexRoute
+@@ -536,6 +545,7 @@
+   '/_authenticated/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
+   '/_authenticated/channels/': typeof AuthenticatedChannelsIndexRoute
+   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
++  '/_authenticated/full-content-logs/': typeof AuthenticatedFullContentLogsIndexRoute
+   '/_authenticated/keys/': typeof AuthenticatedKeysIndexRoute
+   '/_authenticated/models/': typeof AuthenticatedModelsIndexRoute
+   '/_authenticated/playground/': typeof AuthenticatedPlaygroundIndexRoute
+@@ -596,6 +606,7 @@
+     | '/usage-logs/$section'
+     | '/channels/'
+     | '/dashboard/'
++    | '/full-content-logs/'
+     | '/keys/'
+     | '/models/'
+     | '/playground/'
+@@ -653,6 +664,7 @@
+     | '/usage-logs/$section'
+     | '/channels'
+     | '/dashboard'
++    | '/full-content-logs'
+     | '/keys'
+     | '/models'
+     | '/playground'
+@@ -713,6 +725,7 @@
+     | '/_authenticated/usage-logs/$section'
+     | '/_authenticated/channels/'
+     | '/_authenticated/dashboard/'
++    | '/_authenticated/full-content-logs/'
+     | '/_authenticated/keys/'
+     | '/_authenticated/models/'
+     | '/_authenticated/playground/'
+@@ -972,6 +985,13 @@
+       preLoaderRoute: typeof AuthenticatedErrorsErrorRouteImport
+       parentRoute: typeof AuthenticatedRouteRoute
+     }
++    '/_authenticated/full-content-logs/': {
++      id: '/_authenticated/full-content-logs/'
++      path: '/full-content-logs'
++      fullPath: '/full-content-logs/'
++      preLoaderRoute: typeof AuthenticatedFullContentLogsIndexRouteImport
++      parentRoute: typeof AuthenticatedRouteRoute
++    }
+     '/_authenticated/keys/': {
+       id: '/_authenticated/keys/'
+       path: '/keys'
+@@ -1264,6 +1284,7 @@
+   AuthenticatedUsageLogsSectionRoute: typeof AuthenticatedUsageLogsSectionRoute
+   AuthenticatedChannelsIndexRoute: typeof AuthenticatedChannelsIndexRoute
+   AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
++  AuthenticatedFullContentLogsIndexRoute: typeof AuthenticatedFullContentLogsIndexRoute
+   AuthenticatedKeysIndexRoute: typeof AuthenticatedKeysIndexRoute
+   AuthenticatedModelsIndexRoute: typeof AuthenticatedModelsIndexRoute
+   AuthenticatedPlaygroundIndexRoute: typeof AuthenticatedPlaygroundIndexRoute
+@@ -1287,6 +1308,8 @@
+   AuthenticatedUsageLogsSectionRoute: AuthenticatedUsageLogsSectionRoute,
+   AuthenticatedChannelsIndexRoute: AuthenticatedChannelsIndexRoute,
+   AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
++  AuthenticatedFullContentLogsIndexRoute:
++    AuthenticatedFullContentLogsIndexRoute,
+   AuthenticatedKeysIndexRoute: AuthenticatedKeysIndexRoute,
+   AuthenticatedModelsIndexRoute: AuthenticatedModelsIndexRoute,
+   AuthenticatedPlaygroundIndexRoute: AuthenticatedPlaygroundIndexRoute,
+--- baseline/web/src/i18n/locales/en.json	2026-08-18 18:24:43.000000000 +0800
++++ custom/web/src/i18n/locales/en.json	2026-08-28 10:54:46.469652258 +0800
+@@ -4,6 +4,69 @@
+     "1000": "1000",
+     "10000": "10000",
+     "_copy": "_copy",
++    "All API keys": "All API keys",
++    "All models": "All models",
++    "API Key": "API Key",
++    "API Key name or ID": "API Key name or ID",
++    "API Request Logs": "API Request Logs",
++    "{{count}} chunks": "{{count}} chunks",
++    "{{count}} files, {{size}} total": "{{count}} files, {{size}} total",
++    "Client IP": "Client IP",
++    "Clean mode shows only conversational text and is enabled by default.": "Clean mode shows only conversational text and is enabled by default.",
++    "Clean text": "Clean text",
++    "Complete response body": "Complete response body",
++    "Delete All": "Delete All",
++    "Delete all full content logs": "Delete all full content logs",
++    "Delete log file": "Delete log file",
++    "Deleted {{count}} log files and freed {{size}}.": "Deleted {{count}} log files and freed {{size}}.",
++    "Disk Usage": "Disk Usage",
++    "Download raw JSONL files or remove records that are no longer needed.": "Download raw JSONL files or remove records that are no longer needed.",
++    "Empty request body": "Empty request body",
++    "Empty response body": "Empty response body",
++    "Failed to clear log files": "Failed to clear log files",
++    "Failed to delete log file": "Failed to delete log file",
++    "Failed to download log file": "Failed to download log file",
++    "Failed to load full content logs": "Failed to load full content logs",
++    "Failed to load log detail": "Failed to load log detail",
++    "Failed to load log files": "Failed to load log files",
++    "Full Content Log Detail": "Full Content Log Detail",
++    "Full Content Log Files": "Full Content Log Files",
++    "Full Content Logs": "Full Content Logs",
++    "Full content logging is disabled. Existing files remain available.": "Full content logging is disabled. Existing files remain available.",
++    "Log file deleted": "Log file deleted",
++    "Log Files": "Log Files",
++    "Matching Requests": "Matching Requests",
++    "Model / Endpoint": "Model / Endpoint",
++    "No full content log files": "No full content log files",
++    "No matching full content logs": "No matching full content logs",
++    "No query parameters": "No query parameters",
++    "No readable request text found": "No readable request text found",
++    "No readable response text found": "No readable response text found",
++    "No request headers were recorded": "No request headers were recorded",
++    "No response headers were recorded": "No response headers were recorded",
++    "Online request explorer": "Online request explorer",
++    "Model response text": "Model response text",
++    "Page {{page}} of {{totalPages}} · {{total}} requests": "Page {{page}} of {{totalPages}} · {{total}} requests",
++    "Request / Response": "Request / Response",
++    "Request URL": "Request URL",
++    "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.": "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.",
++    "Request body": "Request body",
++    "Request headers": "Request headers",
++    "Query parameters": "Query parameters",
++    "Raw log storage": "Raw log storage",
++    "Raw data": "Raw data",
++    "Raw mode shows headers, parameters and protocol envelopes. Sensitive credentials remain redacted.": "Raw mode shows headers, parameters and protocol envelopes. Sensitive credentials remain redacted.",
++    "Raw request body": "Raw request body",
++    "Raw response body": "Raw response body",
++    "Reset filters": "Reset filters",
++    "This permanently deletes every full request and response log file. New requests will start a new file.": "This permanently deletes every full request and response log file. New requests will start a new file.",
++    "This permanently deletes the selected full request and response records. This action cannot be undone.": "This permanently deletes the selected full request and response records. This action cannot be undone.",
++    "Token name or ID": "Token name or ID",
++    "Response headers": "Response headers",
++    "Request text": "Request text",
++    "Show raw protocol data": "Show raw protocol data",
++    "Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online.": "Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online.",
++    "View content": "View content",
+     "，": ", ",
+     ", and": ", and",
+     "，and ": ", and ",
+@@ -392,7 +455,6 @@
+     "API info saved successfully": "API info saved successfully",
+     "API info updated. Click \"Save Settings\" to apply.": "API info updated. Click \"Save Settings\" to apply.",
+     "API key": "API key",
+-    "API Key": "API Key",
+     "API Key (one per line for batch mode)": "API Key (one per line for batch mode)",
+     "API Key (Production)": "API Key (Production)",
+     "API Key (Sandbox)": "API Key (Sandbox)",
+--- baseline/web/src/i18n/locales/zh.json	2026-08-18 18:24:43.000000000 +0800
++++ custom/web/src/i18n/locales/zh.json	2026-08-28 10:54:46.560651153 +0800
+@@ -4,6 +4,69 @@
+     "1000": "1000",
+     "10000": "10000",
+     "_copy": "_复制",
++    "All API keys": "全部 API Key",
++    "All models": "全部模型",
++    "API Key": "API 密钥",
++    "API Key name or ID": "API Key 名称或 ID",
++    "API Request Logs": "API 请求日志",
++    "{{count}} chunks": "{{count}} 个分片",
++    "{{count}} files, {{size}} total": "{{count}} 个文件，共 {{size}}",
++    "Client IP": "客户端 IP",
++    "Clean mode shows only conversational text and is enabled by default.": "纯文本模式只显示对话文本，并且默认启用。",
++    "Clean text": "纯文本",
++    "Complete response body": "完整返回正文",
++    "Delete All": "全部删除",
++    "Delete all full content logs": "删除全部完整内容日志",
++    "Delete log file": "删除日志文件",
++    "Deleted {{count}} log files and freed {{size}}.": "已删除 {{count}} 个日志文件，释放 {{size}}。",
++    "Disk Usage": "磁盘占用",
++    "Download raw JSONL files or remove records that are no longer needed.": "下载原始 JSONL 文件，或删除不再需要的记录。",
++    "Empty request body": "请求正文为空",
++    "Empty response body": "返回正文为空",
++    "Failed to clear log files": "清空日志文件失败",
++    "Failed to delete log file": "删除日志文件失败",
++    "Failed to download log file": "下载日志文件失败",
++    "Failed to load full content logs": "加载完整内容日志失败",
++    "Failed to load log detail": "加载日志详情失败",
++    "Failed to load log files": "加载日志文件失败",
++    "Full Content Log Detail": "完整内容日志详情",
++    "Full Content Log Files": "完整内容日志文件",
++    "Full Content Logs": "完整内容日志",
++    "Full content logging is disabled. Existing files remain available.": "完整内容日志记录已关闭，已有文件仍可查看。",
++    "Log file deleted": "日志文件已删除",
++    "Log Files": "日志文件",
++    "Matching Requests": "匹配请求数",
++    "Model / Endpoint": "模型 / 接口",
++    "No full content log files": "暂无完整内容日志文件",
++    "No matching full content logs": "没有匹配的完整内容日志",
++    "No query parameters": "没有查询参数",
++    "No readable request text found": "未找到可读的请求文本",
++    "No readable response text found": "未找到可读的返回文本",
++    "No request headers were recorded": "未记录请求头",
++    "No response headers were recorded": "未记录响应头",
++    "Online request explorer": "在线请求浏览器",
++    "Model response text": "模型返回文本",
++    "Page {{page}} of {{totalPages}} · {{total}} requests": "第 {{page}} / {{totalPages}} 页，共 {{total}} 个请求",
++    "Request / Response": "请求 / 返回",
++    "Request URL": "请求 URL",
++    "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.": "请求和返回正文会完整展示；Authorization、Cookie 和 API Key 的值始终脱敏。",
++    "Request body": "请求正文",
++    "Request headers": "请求头",
++    "Query parameters": "查询参数",
++    "Raw log storage": "原始日志存储",
++    "Raw data": "原始数据",
++    "Raw mode shows headers, parameters and protocol envelopes. Sensitive credentials remain redacted.": "原始模式显示请求头、参数和协议封装，敏感凭据仍会保持脱敏。",
++    "Raw request body": "原始请求正文",
++    "Raw response body": "原始返回正文",
++    "Reset filters": "重置筛选条件",
++    "This permanently deletes every full request and response log file. New requests will start a new file.": "这会永久删除全部完整请求和返回日志。后续新请求会创建新文件。",
++    "This permanently deletes the selected full request and response records. This action cannot be undone.": "这会永久删除选中文件中的完整请求和返回记录，且无法恢复。",
++    "Token name or ID": "令牌名称或 ID",
++    "Response headers": "响应头",
++    "Request text": "请求文本",
++    "Show raw protocol data": "显示原始协议数据",
++    "Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online.": "可按 API Key、时间、模型或请求 ID 筛选，点击任意一行即可在线查看完整请求和返回。",
++    "View content": "查看内容",
+     "，": "，",
+     ", and": "，和",
+     "，and ": "，并",
+@@ -392,7 +455,6 @@
+     "API info saved successfully": "API 信息保存成功",
+     "API info updated. Click \"Save Settings\" to apply.": "API 信息已更新。点击 \"保存设置\" 以应用。",
+     "API key": "API 密钥",
+-    "API Key": "API 密钥",
+     "API Key (one per line for batch mode)": "API 密钥（批量模式下每行一个）",
+     "API Key (Production)": "API 密钥（生产）",
+     "API Key (Sandbox)": "API 密钥（沙盒）",
+--- baseline/web/src/i18n/locales/zh-TW.json	2026-08-18 18:24:43.000000000 +0800
++++ custom/web/src/i18n/locales/zh-TW.json	2026-08-28 10:54:46.548651299 +0800
+@@ -4,6 +4,69 @@
+     "1000": "1000",
+     "10000": "10000",
+     "_copy": "_複製",
++    "All API keys": "All API keys",
++    "All models": "All models",
++    "API Key": "API 金鑰",
++    "API Key name or ID": "API Key name or ID",
++    "API Request Logs": "API Request Logs",
++    "{{count}} chunks": "{{count}} chunks",
++    "{{count}} files, {{size}} total": "{{count}} files, {{size}} total",
++    "Client IP": "Client IP",
++    "Clean mode shows only conversational text and is enabled by default.": "Clean mode shows only conversational text and is enabled by default.",
++    "Clean text": "Clean text",
++    "Complete response body": "Complete response body",
++    "Delete All": "Delete All",
++    "Delete all full content logs": "Delete all full content logs",
++    "Delete log file": "Delete log file",
++    "Deleted {{count}} log files and freed {{size}}.": "Deleted {{count}} log files and freed {{size}}.",
++    "Disk Usage": "Disk Usage",
++    "Download raw JSONL files or remove records that are no longer needed.": "Download raw JSONL files or remove records that are no longer needed.",
++    "Empty request body": "Empty request body",
++    "Empty response body": "Empty response body",
++    "Failed to clear log files": "Failed to clear log files",
++    "Failed to delete log file": "Failed to delete log file",
++    "Failed to download log file": "Failed to download log file",
++    "Failed to load full content logs": "Failed to load full content logs",
++    "Failed to load log detail": "Failed to load log detail",
++    "Failed to load log files": "Failed to load log files",
++    "Full Content Log Detail": "Full Content Log Detail",
++    "Full Content Log Files": "Full Content Log Files",
++    "Full Content Logs": "Full Content Logs",
++    "Full content logging is disabled. Existing files remain available.": "Full content logging is disabled. Existing files remain available.",
++    "Log file deleted": "Log file deleted",
++    "Log Files": "Log Files",
++    "Matching Requests": "Matching Requests",
++    "Model / Endpoint": "Model / Endpoint",
++    "No full content log files": "No full content log files",
++    "No matching full content logs": "No matching full content logs",
++    "No query parameters": "No query parameters",
++    "No readable request text found": "No readable request text found",
++    "No readable response text found": "No readable response text found",
++    "No request headers were recorded": "No request headers were recorded",
++    "No response headers were recorded": "No response headers were recorded",
++    "Online request explorer": "Online request explorer",
++    "Model response text": "Model response text",
++    "Page {{page}} of {{totalPages}} · {{total}} requests": "Page {{page}} of {{totalPages}} · {{total}} requests",
++    "Request / Response": "Request / Response",
++    "Request URL": "Request URL",
++    "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.": "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.",
++    "Request body": "Request body",
++    "Request headers": "Request headers",
++    "Query parameters": "Query parameters",
++    "Raw log storage": "Raw log storage",
++    "Raw data": "Raw data",
++    "Raw mode shows headers, parameters and protocol envelopes. Sensitive credentials remain redacted.": "Raw mode shows headers, parameters and protocol envelopes. Sensitive credentials remain redacted.",
++    "Raw request body": "Raw request body",
++    "Raw response body": "Raw response body",
++    "Reset filters": "Reset filters",
++    "This permanently deletes every full request and response log file. New requests will start a new file.": "This permanently deletes every full request and response log file. New requests will start a new file.",
++    "This permanently deletes the selected full request and response records. This action cannot be undone.": "This permanently deletes the selected full request and response records. This action cannot be undone.",
++    "Token name or ID": "Token name or ID",
++    "Response headers": "Response headers",
++    "Request text": "Request text",
++    "Show raw protocol data": "Show raw protocol data",
++    "Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online.": "Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online.",
++    "View content": "View content",
+     "，": "，",
+     ", and": "，和",
+     "，and ": "，並",
+@@ -392,7 +455,6 @@
+     "API info saved successfully": "API 資訊儲存成功",
+     "API info updated. Click \"Save Settings\" to apply.": "API 資訊已更新。點擊「儲存設定」以套用。",
+     "API key": "API 金鑰",
+-    "API Key": "API 金鑰",
+     "API Key (one per line for batch mode)": "API 金鑰（大量模式下每行一個）",
+     "API Key (Production)": "API 金鑰（生產）",
+     "API Key (Sandbox)": "API 金鑰（沙盒）",
+--- baseline/web/src/i18n/locales/fr.json	2026-08-18 18:24:43.000000000 +0800
++++ custom/web/src/i18n/locales/fr.json	2026-08-28 10:54:46.489652015 +0800
+@@ -4,6 +4,69 @@
+     "1000": "1000",
+     "10000": "10000",
+     "_copy": "_copie",
++    "All API keys": "All API keys",
++    "All models": "All models",
++    "API Key": "Clé API",
++    "API Key name or ID": "API Key name or ID",
++    "API Request Logs": "API Request Logs",
++    "{{count}} chunks": "{{count}} chunks",
++    "{{count}} files, {{size}} total": "{{count}} files, {{size}} total",
++    "Client IP": "Client IP",
++    "Clean mode shows only conversational text and is enabled by default.": "Clean mode shows only conversational text and is enabled by default.",
++    "Clean text": "Clean text",
++    "Complete response body": "Complete response body",
++    "Delete All": "Delete All",
++    "Delete all full content logs": "Delete all full content logs",
++    "Delete log file": "Delete log file",
++    "Deleted {{count}} log files and freed {{size}}.": "Deleted {{count}} log files and freed {{size}}.",
++    "Disk Usage": "Disk Usage",
++    "Download raw JSONL files or remove records that are no longer needed.": "Download raw JSONL files or remove records that are no longer needed.",
++    "Empty request body": "Empty request body",
++    "Empty response body": "Empty response body",
++    "Failed to clear log files": "Failed to clear log files",
++    "Failed to delete log file": "Failed to delete log file",
++    "Failed to download log file": "Failed to download log file",
++    "Failed to load full content logs": "Failed to load full content logs",
++    "Failed to load log detail": "Failed to load log detail",
++    "Failed to load log files": "Failed to load log files",
++    "Full Content Log Detail": "Full Content Log Detail",
++    "Full Content Log Files": "Full Content Log Files",
++    "Full Content Logs": "Full Content Logs",
++    "Full content logging is disabled. Existing files remain available.": "Full content logging is disabled. Existing files remain available.",
++    "Log file deleted": "Log file deleted",
++    "Log Files": "Log Files",
++    "Matching Requests": "Matching Requests",
++    "Model / Endpoint": "Model / Endpoint",
++    "No full content log files": "No full content log files",
++    "No matching full content logs": "No matching full content logs",
++    "No query parameters": "No query parameters",
++    "No readable request text found": "No readable request text found",
++    "No readable response text found": "No readable response text found",
++    "No request headers were recorded": "No request headers were recorded",
++    "No response headers were recorded": "No response headers were recorded",
++    "Online request explorer": "Online request explorer",
++    "Model response text": "Model response text",
++    "Page {{page}} of {{totalPages}} · {{total}} requests": "Page {{page}} of {{totalPages}} · {{total}} requests",
++    "Request / Response": "Request / Response",
++    "Request URL": "Request URL",
++    "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.": "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.",
++    "Request body": "Request body",
++    "Request headers": "Request headers",
++    "Query parameters": "Query parameters",
++    "Raw log storage": "Raw log storage",
++    "Raw data": "Raw data",
++    "Raw mode shows headers, parameters and protocol envelopes. Sensitive credentials remain redacted.": "Raw mode shows headers, parameters and protocol envelopes. Sensitive credentials remain redacted.",
++    "Raw request body": "Raw request body",
++    "Raw response body": "Raw response body",
++    "Reset filters": "Reset filters",
++    "This permanently deletes every full request and response log file. New requests will start a new file.": "This permanently deletes every full request and response log file. New requests will start a new file.",
++    "This permanently deletes the selected full request and response records. This action cannot be undone.": "This permanently deletes the selected full request and response records. This action cannot be undone.",
++    "Token name or ID": "Token name or ID",
++    "Response headers": "Response headers",
++    "Request text": "Request text",
++    "Show raw protocol data": "Show raw protocol data",
++    "Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online.": "Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online.",
++    "View content": "View content",
+     "，": ", ",
+     ", and": ", et",
+     "，and ": " et ",
+@@ -392,7 +455,6 @@
+     "API info saved successfully": "Informations API enregistrées avec succès",
+     "API info updated. Click \"Save Settings\" to apply.": "Informations API mises à jour. Cliquez sur \"Enregistrer les paramètres\" pour appliquer.",
+     "API key": "Clé API",
+-    "API Key": "Clé API",
+     "API Key (one per line for batch mode)": "Clé API (une par ligne pour le mode batch)",
+     "API Key (Production)": "Clé API (Production)",
+     "API Key (Sandbox)": "Clé API (Sandbox)",
+--- baseline/web/src/i18n/locales/ru.json	2026-08-18 18:24:43.000000000 +0800
++++ custom/web/src/i18n/locales/ru.json	2026-08-28 10:54:46.521651627 +0800
+@@ -4,6 +4,69 @@
+     "1000": "1000",
+     "10000": "10000",
+     "_copy": "_копировать",
++    "All API keys": "All API keys",
++    "All models": "All models",
++    "API Key": "Ключ API",
++    "API Key name or ID": "API Key name or ID",
++    "API Request Logs": "API Request Logs",
++    "{{count}} chunks": "{{count}} chunks",
++    "{{count}} files, {{size}} total": "{{count}} files, {{size}} total",
++    "Client IP": "Client IP",
++    "Clean mode shows only conversational text and is enabled by default.": "Clean mode shows only conversational text and is enabled by default.",
++    "Clean text": "Clean text",
++    "Complete response body": "Complete response body",
++    "Delete All": "Delete All",
++    "Delete all full content logs": "Delete all full content logs",
++    "Delete log file": "Delete log file",
++    "Deleted {{count}} log files and freed {{size}}.": "Deleted {{count}} log files and freed {{size}}.",
++    "Disk Usage": "Disk Usage",
++    "Download raw JSONL files or remove records that are no longer needed.": "Download raw JSONL files or remove records that are no longer needed.",
++    "Empty request body": "Empty request body",
++    "Empty response body": "Empty response body",
++    "Failed to clear log files": "Failed to clear log files",
++    "Failed to delete log file": "Failed to delete log file",
++    "Failed to download log file": "Failed to download log file",
++    "Failed to load full content logs": "Failed to load full content logs",
++    "Failed to load log detail": "Failed to load log detail",
++    "Failed to load log files": "Failed to load log files",
++    "Full Content Log Detail": "Full Content Log Detail",
++    "Full Content Log Files": "Full Content Log Files",
++    "Full Content Logs": "Full Content Logs",
++    "Full content logging is disabled. Existing files remain available.": "Full content logging is disabled. Existing files remain available.",
++    "Log file deleted": "Log file deleted",
++    "Log Files": "Log Files",
++    "Matching Requests": "Matching Requests",
++    "Model / Endpoint": "Model / Endpoint",
++    "No full content log files": "No full content log files",
++    "No matching full content logs": "No matching full content logs",
++    "No query parameters": "No query parameters",
++    "No readable request text found": "No readable request text found",
++    "No readable response text found": "No readable response text found",
++    "No request headers were recorded": "No request headers were recorded",
++    "No response headers were recorded": "No response headers were recorded",
++    "Online request explorer": "Online request explorer",
++    "Model response text": "Model response text",
++    "Page {{page}} of {{totalPages}} · {{total}} requests": "Page {{page}} of {{totalPages}} · {{total}} requests",
++    "Request / Response": "Request / Response",
++    "Request URL": "Request URL",
++    "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.": "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.",
++    "Request body": "Request body",
++    "Request headers": "Request headers",
++    "Query parameters": "Query parameters",
++    "Raw log storage": "Raw log storage",
++    "Raw data": "Raw data",
++    "Raw mode shows headers, parameters and protocol envelopes. Sensitive credentials remain redacted.": "Raw mode shows headers, parameters and protocol envelopes. Sensitive credentials remain redacted.",
++    "Raw request body": "Raw request body",
++    "Raw response body": "Raw response body",
++    "Reset filters": "Reset filters",
++    "This permanently deletes every full request and response log file. New requests will start a new file.": "This permanently deletes every full request and response log file. New requests will start a new file.",
++    "This permanently deletes the selected full request and response records. This action cannot be undone.": "This permanently deletes the selected full request and response records. This action cannot be undone.",
++    "Token name or ID": "Token name or ID",
++    "Response headers": "Response headers",
++    "Request text": "Request text",
++    "Show raw protocol data": "Show raw protocol data",
++    "Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online.": "Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online.",
++    "View content": "View content",
+     "，": ", ",
+     ", and": ", и",
+     "，and ": " и ",
+@@ -392,7 +455,6 @@
+     "API info saved successfully": "Информация API успешно сохранена",
+     "API info updated. Click \"Save Settings\" to apply.": "Информация API обновлена. Нажмите «Сохранить настройки», чтобы применить.",
+     "API key": "Ключ API",
+-    "API Key": "Ключ API",
+     "API Key (one per line for batch mode)": "Ключ API (по одному на строку для пакетного режима)",
+     "API Key (Production)": "API-ключ (Продакшн)",
+     "API Key (Sandbox)": "API-ключ (Песочница)",
+--- baseline/web/src/i18n/locales/ja.json	2026-08-18 18:24:43.000000000 +0800
++++ custom/web/src/i18n/locales/ja.json	2026-08-28 10:54:46.505651821 +0800
+@@ -4,6 +4,69 @@
+     "1000": "1000",
+     "10000": "10000",
+     "_copy": "_copy",
++    "All API keys": "All API keys",
++    "All models": "All models",
++    "API Key": "APIキー",
++    "API Key name or ID": "API Key name or ID",
++    "API Request Logs": "API Request Logs",
++    "{{count}} chunks": "{{count}} chunks",
++    "{{count}} files, {{size}} total": "{{count}} files, {{size}} total",
++    "Client IP": "Client IP",
++    "Clean mode shows only conversational text and is enabled by default.": "Clean mode shows only conversational text and is enabled by default.",
++    "Clean text": "Clean text",
++    "Complete response body": "Complete response body",
++    "Delete All": "Delete All",
++    "Delete all full content logs": "Delete all full content logs",
++    "Delete log file": "Delete log file",
++    "Deleted {{count}} log files and freed {{size}}.": "Deleted {{count}} log files and freed {{size}}.",
++    "Disk Usage": "Disk Usage",
++    "Download raw JSONL files or remove records that are no longer needed.": "Download raw JSONL files or remove records that are no longer needed.",
++    "Empty request body": "Empty request body",
++    "Empty response body": "Empty response body",
++    "Failed to clear log files": "Failed to clear log files",
++    "Failed to delete log file": "Failed to delete log file",
++    "Failed to download log file": "Failed to download log file",
++    "Failed to load full content logs": "Failed to load full content logs",
++    "Failed to load log detail": "Failed to load log detail",
++    "Failed to load log files": "Failed to load log files",
++    "Full Content Log Detail": "Full Content Log Detail",
++    "Full Content Log Files": "Full Content Log Files",
++    "Full Content Logs": "Full Content Logs",
++    "Full content logging is disabled. Existing files remain available.": "Full content logging is disabled. Existing files remain available.",
++    "Log file deleted": "Log file deleted",
++    "Log Files": "Log Files",
++    "Matching Requests": "Matching Requests",
++    "Model / Endpoint": "Model / Endpoint",
++    "No full content log files": "No full content log files",
++    "No matching full content logs": "No matching full content logs",
++    "No query parameters": "No query parameters",
++    "No readable request text found": "No readable request text found",
++    "No readable response text found": "No readable response text found",
++    "No request headers were recorded": "No request headers were recorded",
++    "No response headers were recorded": "No response headers were recorded",
++    "Online request explorer": "Online request explorer",
++    "Model response text": "Model response text",
++    "Page {{page}} of {{totalPages}} · {{total}} requests": "Page {{page}} of {{totalPages}} · {{total}} requests",
++    "Request / Response": "Request / Response",
++    "Request URL": "Request URL",
++    "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.": "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.",
++    "Request body": "Request body",
++    "Request headers": "Request headers",
++    "Query parameters": "Query parameters",
++    "Raw log storage": "Raw log storage",
++    "Raw data": "Raw data",
++    "Raw mode shows headers, parameters and protocol envelopes. Sensitive credentials remain redacted.": "Raw mode shows headers, parameters and protocol envelopes. Sensitive credentials remain redacted.",
++    "Raw request body": "Raw request body",
++    "Raw response body": "Raw response body",
++    "Reset filters": "Reset filters",
++    "This permanently deletes every full request and response log file. New requests will start a new file.": "This permanently deletes every full request and response log file. New requests will start a new file.",
++    "This permanently deletes the selected full request and response records. This action cannot be undone.": "This permanently deletes the selected full request and response records. This action cannot be undone.",
++    "Token name or ID": "Token name or ID",
++    "Response headers": "Response headers",
++    "Request text": "Request text",
++    "Show raw protocol data": "Show raw protocol data",
++    "Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online.": "Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online.",
++    "View content": "View content",
+     "，": "、",
+     ", and": "、および",
+     "，and ": "、",
+@@ -392,7 +455,6 @@
+     "API info saved successfully": "API情報が正常に保存されました",
+     "API info updated. Click \"Save Settings\" to apply.": "API情報が更新されました。「Save Settings」をクリックして適用してください。",
+     "API key": "APIキー",
+-    "API Key": "APIキー",
+     "API Key (one per line for batch mode)": "API キー (バッチモード時は1行に1つ)",
+     "API Key (Production)": "APIキー（本番）",
+     "API Key (Sandbox)": "APIキー（サンドボックス）",
+--- baseline/web/src/i18n/locales/vi.json	2026-08-18 18:24:43.000000000 +0800
++++ custom/web/src/i18n/locales/vi.json	2026-08-28 10:54:46.534651469 +0800
+@@ -4,6 +4,69 @@
+     "1000": "1000",
+     "10000": "10000",
+     "_copy": "_bản sao",
++    "All API keys": "All API keys",
++    "All models": "All models",
++    "API Key": "Khóa API",
++    "API Key name or ID": "API Key name or ID",
++    "API Request Logs": "API Request Logs",
++    "{{count}} chunks": "{{count}} chunks",
++    "{{count}} files, {{size}} total": "{{count}} files, {{size}} total",
++    "Client IP": "Client IP",
++    "Clean mode shows only conversational text and is enabled by default.": "Clean mode shows only conversational text and is enabled by default.",
++    "Clean text": "Clean text",
++    "Complete response body": "Complete response body",
++    "Delete All": "Delete All",
++    "Delete all full content logs": "Delete all full content logs",
++    "Delete log file": "Delete log file",
++    "Deleted {{count}} log files and freed {{size}}.": "Deleted {{count}} log files and freed {{size}}.",
++    "Disk Usage": "Disk Usage",
++    "Download raw JSONL files or remove records that are no longer needed.": "Download raw JSONL files or remove records that are no longer needed.",
++    "Empty request body": "Empty request body",
++    "Empty response body": "Empty response body",
++    "Failed to clear log files": "Failed to clear log files",
++    "Failed to delete log file": "Failed to delete log file",
++    "Failed to download log file": "Failed to download log file",
++    "Failed to load full content logs": "Failed to load full content logs",
++    "Failed to load log detail": "Failed to load log detail",
++    "Failed to load log files": "Failed to load log files",
++    "Full Content Log Detail": "Full Content Log Detail",
++    "Full Content Log Files": "Full Content Log Files",
++    "Full Content Logs": "Full Content Logs",
++    "Full content logging is disabled. Existing files remain available.": "Full content logging is disabled. Existing files remain available.",
++    "Log file deleted": "Log file deleted",
++    "Log Files": "Log Files",
++    "Matching Requests": "Matching Requests",
++    "Model / Endpoint": "Model / Endpoint",
++    "No full content log files": "No full content log files",
++    "No matching full content logs": "No matching full content logs",
++    "No query parameters": "No query parameters",
++    "No readable request text found": "No readable request text found",
++    "No readable response text found": "No readable response text found",
++    "No request headers were recorded": "No request headers were recorded",
++    "No response headers were recorded": "No response headers were recorded",
++    "Online request explorer": "Online request explorer",
++    "Model response text": "Model response text",
++    "Page {{page}} of {{totalPages}} · {{total}} requests": "Page {{page}} of {{totalPages}} · {{total}} requests",
++    "Request / Response": "Request / Response",
++    "Request URL": "Request URL",
++    "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.": "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.",
++    "Request body": "Request body",
++    "Request headers": "Request headers",
++    "Query parameters": "Query parameters",
++    "Raw log storage": "Raw log storage",
++    "Raw data": "Raw data",
++    "Raw mode shows headers, parameters and protocol envelopes. Sensitive credentials remain redacted.": "Raw mode shows headers, parameters and protocol envelopes. Sensitive credentials remain redacted.",
++    "Raw request body": "Raw request body",
++    "Raw response body": "Raw response body",
++    "Reset filters": "Reset filters",
++    "This permanently deletes every full request and response log file. New requests will start a new file.": "This permanently deletes every full request and response log file. New requests will start a new file.",
++    "This permanently deletes the selected full request and response records. This action cannot be undone.": "This permanently deletes the selected full request and response records. This action cannot be undone.",
++    "Token name or ID": "Token name or ID",
++    "Response headers": "Response headers",
++    "Request text": "Request text",
++    "Show raw protocol data": "Show raw protocol data",
++    "Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online.": "Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online.",
++    "View content": "View content",
+     "，": ", ",
+     ", and": ", và",
+     "，and ": " và ",
+@@ -392,7 +455,6 @@
+     "API info saved successfully": "Đã lưu thông tin API thành công",
+     "API info updated. Click \"Save Settings\" to apply.": "Thông tin API đã được cập nhật. Nhấp vào \"Lưu Cài đặt\" để áp dụng.",
+     "API key": "Khóa API",
+-    "API Key": "Khóa API",
+     "API Key (one per line for batch mode)": "Khóa API (mỗi khóa một dòng cho chế độ hàng loạt)",
+     "API Key (Production)": "API Key (Sản xuất)",
+     "API Key (Sandbox)": "Khóa API (Sandbox)",

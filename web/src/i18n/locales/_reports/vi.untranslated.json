@@ -1,0 +1,18 @@
+{
+  "API Key name or ID": "API Key name or ID",
+  "Clean mode shows only conversational text and is enabled by default.": "Clean mode shows only conversational text and is enabled by default.",
+  "Deleted {{count}} log files and freed {{size}}.": "Deleted {{count}} log files and freed {{size}}.",
+  "Download raw JSONL files or remove records that are no longer needed.": "Download raw JSONL files or remove records that are no longer needed.",
+  "Failed to clear log files": "Failed to clear log files",
+  "Failed to delete log file": "Failed to delete log file",
+  "Failed to download log file": "Failed to download log file",
+  "Failed to load full content logs": "Failed to load full content logs",
+  "Failed to load log detail": "Failed to load log detail",
+  "Failed to load log files": "Failed to load log files",
+  "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.": "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.",
+  "Raw mode shows headers, parameters and protocol envelopes. Sensitive credentials remain redacted.": "Raw mode shows headers, parameters and protocol envelopes. Sensitive credentials remain redacted.",
+  "This permanently deletes every full request and response log file. New requests will start a new file.": "This permanently deletes every full request and response log file. New requests will start a new file.",
+  "This permanently deletes the selected full request and response records. This action cannot be undone.": "This permanently deletes the selected full request and response records. This action cannot be undone.",
+  "Token name or ID": "Token name or ID",
+  "Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online.": "Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online."
+}

@@ -1,0 +1,99 @@
+--- a/relaykit/dto/openai_request.go
++++ b/relaykit/dto/openai_request.go
+@@ -363,8 +363,12 @@
+ 			return m.File.(*MessageFile)
+ 		}
+ 		if itemMap, ok := m.File.(map[string]any); ok {
++			fileName := kitutil.Interface2String(itemMap["filename"])
++			if fileName == "" {
++				fileName = kitutil.Interface2String(itemMap["file_name"])
++			}
+ 			out := &MessageFile{
+-				FileName: kitutil.Interface2String(itemMap["file_name"]),
++				FileName: fileName,
+ 				FileData: kitutil.Interface2String(itemMap["file_data"]),
+ 				FileId:   kitutil.Interface2String(itemMap["file_id"]),
+ 			}
+--- a/relaykit/relayconvert/internal/oai_chat/to_oai_responses_req.go
++++ b/relaykit/relayconvert/internal/oai_chat/to_oai_responses_req.go
+@@ -234,10 +234,19 @@
+ 					"input_audio": part.InputAudio,
+ 				})
+ 			case dto.ContentTypeFile:
+-				contentParts = append(contentParts, map[string]any{
+-					"type": "input_file",
+-					"file": part.File,
+-				})
++				filePart := map[string]any{"type": "input_file"}
++				if file := part.GetFile(); file != nil {
++					if file.FileName != "" {
++						filePart["filename"] = file.FileName
++					}
++					if file.FileData != "" {
++						filePart["file_data"] = file.FileData
++					}
++					if file.FileId != "" {
++						filePart["file_id"] = file.FileId
++					}
++				}
++				contentParts = append(contentParts, filePart)
+ 			case dto.ContentTypeVideoUrl:
+ 				contentParts = append(contentParts, map[string]any{
+ 					"type":      "input_video",
+--- a/relaykit/relayconvert/internal/oai_chat/to_oai_responses_req_test.go
++++ b/relaykit/relayconvert/internal/oai_chat/to_oai_responses_req_test.go
+@@ -161,6 +161,54 @@
+ 	}
+ }
+ 
++func TestChatCompletionsRequestToResponsesRequestFlattensFileContent(t *testing.T) {
++	tests := []struct {
++		name     string
++		file     map[string]any
++		filename string
++		fileData string
++		fileID   string
++	}{
++		{
++			name: "inline file data",
++			file: map[string]any{
++				"filename":  "notes.txt",
++				"file_data": "data:text/plain;base64,SGVsbG8=",
++			},
++			filename: "notes.txt",
++			fileData: "data:text/plain;base64,SGVsbG8=",
++		},
++		{
++			name:   "uploaded file id",
++			file:   map[string]any{"file_id": "file_123"},
++			fileID: "file_123",
++		},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			got, err := ChatCompletionsRequestToResponsesRequest(&dto.GeneralOpenAIRequest{
++				Model: "gpt-test",
++				Messages: []dto.Message{{
++					Role: "user",
++					Content: []any{
++						map[string]any{"type": dto.ContentTypeFile, "file": tt.file},
++						map[string]any{"type": dto.ContentTypeText, "text": "read this file"},
++					},
++				}},
++			})
++			require.NoError(t, err)
++
++			filePart := gjson.GetBytes(got.Input, "0.content.0")
++			assert.Equal(t, "input_file", filePart.Get("type").String())
++			assert.Equal(t, tt.filename, filePart.Get("filename").String())
++			assert.Equal(t, tt.fileData, filePart.Get("file_data").String())
++			assert.Equal(t, tt.fileID, filePart.Get("file_id").String())
++			assert.False(t, filePart.Get("file").Exists())
++		})
++	}
++}
++
+ func assistantMessageWithTool(content string, id string, name string, args string) dto.Message {
+ 	msg := dto.Message{Role: "assistant", Content: content}
+ 	msg.SetToolCalls([]dto.ToolCallRequest{

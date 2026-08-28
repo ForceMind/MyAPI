@@ -1,0 +1,79 @@
+--- a/relay/chat_completions_via_responses.go
++++ b/relay/chat_completions_via_responses.go
+@@ -1,6 +1,8 @@
+ package relay
+ 
+ import (
++	"bufio"
++	"bytes"
+ 	"fmt"
+ 	"io"
+ 	"net/http"
+@@ -101,6 +103,12 @@
+ 	if !ok {
+ 		return nil, types.NewError(fmt.Errorf("expected OpenAI responses request, got %T", result.Value), types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+ 	}
++	// The Codex upstream only accepts streaming Responses requests. Keep
++	// info.IsStream unchanged so non-streaming Chat Completions clients still
++	// receive a buffered JSON response below.
++	if info.ChannelType == constant.ChannelTypeCodex {
++		responsesReq.Stream = common.GetPointer(true)
++	}
+ 
+ 	savedRelayMode := info.RelayMode
+ 	savedRequestURLPath := info.RequestURLPath
+@@ -149,7 +157,7 @@
+ 
+ 	httpResp = resp.(*http.Response)
+ 	clientStream := info.IsStream
+-	upstreamStream := isResponsesEventStreamContentType(httpResp.Header.Get("Content-Type"))
++	upstreamStream := responsesUpstreamIsStream(httpResp)
+ 	info.IsStream = clientStream || upstreamStream
+ 	if httpResp.StatusCode != http.StatusOK {
+ 		newApiErr := service.RelayErrorHandler(c.Request.Context(), httpResp, false)
+@@ -186,3 +194,45 @@
+ func isResponsesEventStreamContentType(contentType string) bool {
+ 	return strings.Contains(strings.ToLower(contentType), "text/event-stream")
+ }
++
++type bufferedReadCloser struct {
++	io.Reader
++	io.Closer
++}
++
++// responsesUpstreamIsStream handles Responses backends (notably Codex) that
++// return SSE without a Content-Type header. Peeking never consumes bytes, and
++// the original body closer remains attached to the replacement body.
++func responsesUpstreamIsStream(resp *http.Response) bool {
++	if resp == nil {
++		return false
++	}
++	if isResponsesEventStreamContentType(resp.Header.Get("Content-Type")) {
++		return true
++	}
++	if resp.Body == nil {
++		return false
++	}
++
++	originalBody := resp.Body
++	reader := bufio.NewReader(originalBody)
++	resp.Body = &bufferedReadCloser{Reader: reader, Closer: originalBody}
++
++	for size := 1; size <= 64; size++ {
++		prefix, err := reader.Peek(size)
++		trimmed := bytes.TrimPrefix(prefix, []byte{0xef, 0xbb, 0xbf})
++		trimmed = bytes.TrimLeft(trimmed, " \t\r\n")
++
++		if bytes.HasPrefix(trimmed, []byte("event:")) || bytes.HasPrefix(trimmed, []byte("data:")) {
++			return true
++		}
++		if len(trimmed) > 0 && (trimmed[0] == '{' || trimmed[0] == '[' || trimmed[0] == '"') {
++			return false
++		}
++		if err != nil {
++			return false
++		}
++	}
++
++	return false
++}
