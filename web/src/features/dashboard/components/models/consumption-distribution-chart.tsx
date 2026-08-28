@@ -27,6 +27,7 @@ import { useTheme } from '@/context/theme-provider'
 import {
   CONSUMPTION_DISTRIBUTION_CHART_OPTIONS,
   DEFAULT_TIME_GRANULARITY,
+  TIME_GRANULARITY_OPTIONS,
 } from '@/features/dashboard/constants'
 import { processChartData } from '@/features/dashboard/lib'
 import type {
@@ -45,6 +46,8 @@ interface ConsumptionDistributionChartProps {
   data: QuotaDataItem[]
   loading?: boolean
   timeGranularity?: TimeGranularity
+  timezoneOffsetMinutes?: number
+  onTimeGranularityChange?: (value: TimeGranularity) => void
   defaultChartType?: ConsumptionDistributionChartType
 }
 
@@ -104,9 +107,17 @@ export function ConsumptionDistributionChart(
         props.loading ? [] : props.data,
         timeGranularity,
         t,
-        chartRadius
+        chartRadius,
+        props.timezoneOffsetMinutes
       ),
-    [props.data, props.loading, timeGranularity, t, chartRadius]
+    [
+      props.data,
+      props.loading,
+      props.timezoneOffsetMinutes,
+      timeGranularity,
+      t,
+      chartRadius,
+    ]
   )
   const spec = chartType === 'bar' ? chartData.spec_line : chartData.spec_area
   const specType = typeof spec?.type === 'string' ? spec.type : chartType
@@ -132,25 +143,50 @@ export function ConsumptionDistributionChart(
           </span>
         </div>
 
-        <div className='bg-muted/60 inline-flex h-7 w-full overflow-x-auto rounded-lg border p-0.5 sm:h-8 sm:w-auto'>
-          {CONSUMPTION_DISTRIBUTION_CHART_OPTIONS.map((item) => {
-            const Icon = CHART_TYPE_ICONS[item.value]
-            return (
-              <button
-                key={item.value}
-                type='button'
-                onClick={() => setChartType(item.value)}
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors ${
-                  chartType === item.value
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Icon className='size-3.5' />
-                {t(item.labelKey)}
-              </button>
-            )
-          })}
+        <div className='flex w-full flex-wrap items-center gap-1.5 sm:w-auto sm:gap-2'>
+          {props.onTimeGranularityChange && (
+            <div
+              className='bg-muted/60 inline-flex h-7 max-w-full overflow-x-auto rounded-lg border p-0.5 sm:h-8'
+              aria-label={t('Time Granularity')}
+            >
+              {TIME_GRANULARITY_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type='button'
+                  aria-pressed={timeGranularity === option.value}
+                  onClick={() => props.onTimeGranularityChange?.(option.value)}
+                  className={`shrink-0 rounded-md px-2.5 text-xs font-medium transition-colors ${
+                    timeGranularity === option.value
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {t(option.label)}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className='bg-muted/60 inline-flex h-7 max-w-full overflow-x-auto rounded-lg border p-0.5 sm:h-8'>
+            {CONSUMPTION_DISTRIBUTION_CHART_OPTIONS.map((item) => {
+              const Icon = CHART_TYPE_ICONS[item.value]
+              return (
+                <button
+                  key={item.value}
+                  type='button'
+                  onClick={() => setChartType(item.value)}
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors ${
+                    chartType === item.value
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Icon className='size-3.5' />
+                  {t(item.labelKey)}
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 

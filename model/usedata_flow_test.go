@@ -174,13 +174,25 @@ func TestLogQuotaDataSplitsRowsByUseGroupTokenChannelAndNode(t *testing.T) {
 		Quota:     25,
 		TokenUsed: 10,
 	})
+	LogQuotaData(QuotaDataLogParams{
+		UserID:    1,
+		Username:  "alice",
+		ModelName: "gpt-a",
+		CreatedAt: 3721,
+		UseGroup:  "vip",
+		TokenID:   11,
+		ChannelID: 1,
+		NodeName:  "node-a",
+		Quota:     10,
+		TokenUsed: 5,
+	})
 
 	SaveQuotaDataCache()
 
 	var rows []QuotaData
-	require.NoError(t, DB.Order("quota DESC").Find(&rows).Error)
-	require.Len(t, rows, 2)
-	require.Equal(t, int64(3600), rows[0].CreatedAt)
+	require.NoError(t, DB.Order("created_at ASC, quota DESC").Find(&rows).Error)
+	require.Len(t, rows, 3)
+	require.Equal(t, int64(3660), rows[0].CreatedAt)
 	require.Equal(t, "vip", rows[0].UseGroup)
 	require.Equal(t, 11, rows[0].TokenID)
 	require.Equal(t, 1, rows[0].ChannelID)
@@ -190,4 +202,7 @@ func TestLogQuotaDataSplitsRowsByUseGroupTokenChannelAndNode(t *testing.T) {
 	require.Equal(t, 60, rows[0].TokenUsed)
 	require.Equal(t, "default", rows[1].UseGroup)
 	require.Equal(t, 25, rows[1].Quota)
+	require.Equal(t, int64(3720), rows[2].CreatedAt)
+	require.Equal(t, "vip", rows[2].UseGroup)
+	require.Equal(t, 10, rows[2].Quota)
 }

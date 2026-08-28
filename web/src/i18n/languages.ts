@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
+
 export const INTERFACE_LANGUAGE_OPTIONS = [
   { code: 'zhCN', label: '简体中文' },
   { code: 'en', label: 'English' },
@@ -28,6 +30,12 @@ export const INTERFACE_LANGUAGE_OPTIONS = [
 
 export type InterfaceLanguageCode =
   (typeof INTERFACE_LANGUAGE_OPTIONS)[number]['code']
+
+export const AVAILABLE_INTERFACE_LANGUAGE_OPTIONS = SELF_USE_MINIMAL
+  ? INTERFACE_LANGUAGE_OPTIONS.filter(
+      (language) => language.code === 'zhCN' || language.code === 'en'
+    )
+  : INTERFACE_LANGUAGE_OPTIONS
 
 export function normalizeInterfaceLanguage(value?: string | null): string {
   if (!value) return 'en'

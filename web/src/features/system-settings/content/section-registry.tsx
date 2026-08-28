@@ -29,8 +29,15 @@ import { UptimeKumaSection } from './uptime-kuma-section'
 /**
  * Validate and coerce DataExportDefaultTime to a safe value
  */
-function validateDataExportDefaultTime(value: string): 'week' | 'hour' | 'day' {
-  if (value === 'week' || value === 'hour' || value === 'day') {
+function validateDataExportDefaultTime(
+  value: string
+): 'minute' | 'week' | 'hour' | 'day' {
+  if (
+    value === 'minute' ||
+    value === 'week' ||
+    value === 'hour' ||
+    value === 'day'
+  ) {
     return value
   }
   // Default to 'hour' if value is unexpected

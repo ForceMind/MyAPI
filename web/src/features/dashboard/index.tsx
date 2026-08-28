@@ -20,6 +20,7 @@ import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { Eye, EyeOff } from 'lucide-react'
 import { useState, useCallback, useMemo, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 import { SectionPageLayout } from '@/components/layout'
 import { FadeIn } from '@/components/page-transition'
@@ -32,6 +33,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { ROLE } from '@/lib/roles'
+import { getRollingDateRange, type TimeGranularity } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -44,7 +46,9 @@ import {
   getDefaultDays,
   getSavedChartPreferences,
   getSavedGranularity,
+  isQuotaRangeSupported,
   saveChartPreferences,
+  saveGranularity,
 } from './lib'
 import {
   type DashboardSectionId,
@@ -201,6 +205,9 @@ export function Dashboard() {
 
   const [modelData, setModelData] = useState<QuotaDataItem[]>([])
   const [dataLoading, setDataLoading] = useState(false)
+  const [modelTimezoneOffset, setModelTimezoneOffset] = useState(
+    () => -new Date().getTimezoneOffset()
+  )
   const [chartPreferences, setChartPreferences] =
     useState<DashboardChartPreferences>(() => getSavedChartPreferences())
   const [modelFilters, setModelFilters] = useState<DashboardFilters>(() =>
@@ -227,9 +234,16 @@ export function Dashboard() {
   }, [chartPreferences])
 
   const handleDataUpdate = useCallback(
-    (data: QuotaDataItem[], loading: boolean) => {
+    (
+      data: QuotaDataItem[],
+      loading: boolean,
+      timezoneOffsetMinutes?: number
+    ) => {
       setModelData(data)
       setDataLoading(loading)
+      if (timezoneOffsetMinutes != null) {
+        setModelTimezoneOffset(timezoneOffsetMinutes)
+      }
     },
     []
   )
@@ -241,6 +255,44 @@ export function Dashboard() {
       saveChartPreferences(preferences)
     },
     []
+  )
+  const handleModelGranularityChange = useCallback(
+    (granularity: TimeGranularity) => {
+      saveGranularity(granularity)
+      setChartPreferences((previous) => ({
+        ...previous,
+        defaultTimeRangeDays:
+          granularity === 'minute' && previous.defaultTimeRangeDays > 1
+            ? 1
+            : previous.defaultTimeRangeDays,
+        defaultTimeGranularity: granularity,
+      }))
+      setModelFilters((previous) => ({
+        ...previous,
+        ...(() => {
+          if (
+            isQuotaRangeSupported(
+              previous.start_timestamp,
+              previous.end_timestamp,
+              granularity
+            )
+          ) {
+            return {}
+          }
+          const { start, end } = getRollingDateRange(
+            getDefaultDays(granularity)
+          )
+          toast.info(
+            granularity === 'minute'
+              ? t('Minute granularity is limited to the last 24 hours.')
+              : t('The selected range is too large for this granularity.')
+          )
+          return { start_timestamp: start, end_timestamp: end }
+        })(),
+        time_granularity: granularity,
+      }))
+    },
+    [t]
   )
 
   const meta = SECTION_META[activeSection] ?? SECTION_META.overview
@@ -373,6 +425,8 @@ export function Dashboard() {
                     timeGranularity={
                       modelFilters.time_granularity || DEFAULT_TIME_GRANULARITY
                     }
+                    timezoneOffsetMinutes={modelTimezoneOffset}
+                    onTimeGranularityChange={handleModelGranularityChange}
                   />
                 </Suspense>
               </FadeIn>
@@ -385,6 +439,7 @@ export function Dashboard() {
                     timeGranularity={
                       modelFilters.time_granularity || DEFAULT_TIME_GRANULARITY
                     }
+                    timezoneOffsetMinutes={modelTimezoneOffset}
                   />
                 </Suspense>
               </FadeIn>

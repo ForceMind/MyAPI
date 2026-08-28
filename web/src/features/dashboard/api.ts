@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
+import type { TimeGranularity } from '@/lib/time'
 
 import type {
   FlowQuotaDataItem,
@@ -38,16 +39,22 @@ export async function getUserQuotaDates(
   params: {
     start_timestamp: number
     end_timestamp: number
-    default_time?: string
+    granularity?: TimeGranularity
+    default_time?: TimeGranularity
+    timezone_offset?: number
     username?: string
   },
   isAdmin = false
 ) {
   const endpoint = isAdmin ? '/api/data' : '/api/data/self'
-  const res = await api.get<{ success: boolean; data: QuotaDataItem[] }>(
-    endpoint,
-    { params }
-  )
+  const res = await api.get<{
+    success: boolean
+    data?: QuotaDataItem[]
+    message?: string
+  }>(endpoint, { params })
+  if (!res.data.success) {
+    throw new Error(res.data.message || 'Failed to load dashboard data')
+  }
   return res.data
 }
 
@@ -58,11 +65,18 @@ export async function getUserQuotaDates(
 export async function getUserQuotaDataByUsers(params: {
   start_timestamp: number
   end_timestamp: number
+  granularity?: TimeGranularity
+  default_time?: TimeGranularity
+  timezone_offset?: number
 }) {
-  const res = await api.get<{ success: boolean; data: QuotaDataItem[] }>(
-    '/api/data/users',
-    { params }
-  )
+  const res = await api.get<{
+    success: boolean
+    data?: QuotaDataItem[]
+    message?: string
+  }>('/api/data/users', { params })
+  if (!res.data.success) {
+    throw new Error(res.data.message || 'Failed to load dashboard data')
+  }
   return res.data
 }
 
@@ -70,7 +84,9 @@ export async function getFlowQuotaDates(
   params: {
     start_timestamp: number
     end_timestamp: number
-    default_time?: string
+    granularity?: TimeGranularity
+    default_time?: TimeGranularity
+    timezone_offset?: number
     username?: string
   },
   isAdmin = false

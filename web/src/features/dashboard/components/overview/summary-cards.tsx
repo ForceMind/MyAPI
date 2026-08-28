@@ -26,10 +26,12 @@ import { StaggerContainer, StaggerItem } from '@/components/page-transition'
 import { Button } from '@/components/ui/button'
 import { getUserQuotaDates } from '@/features/dashboard/api'
 import { useSummaryCardsConfig } from '@/features/dashboard/hooks/use-dashboard-config'
+import { buildQueryParams } from '@/features/dashboard/lib/filters'
 import type { QuotaDataItem } from '@/features/dashboard/types'
 import { useStatus } from '@/hooks/use-status'
 import { getCurrencyLabel, isCurrencyDisplayEnabled } from '@/lib/currency'
 import { formatNumber, formatQuota } from '@/lib/format'
+import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
 import { computeTimeRange } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
@@ -142,6 +144,13 @@ export function SummaryCards() {
   const { status, loading } = useStatus()
 
   const summaryTimeRange = useMemo(() => computeTimeRange(1), [])
+  const summaryQueryParams = useMemo(
+    () =>
+      buildQueryParams(summaryTimeRange, {
+        time_granularity: 'hour',
+      }),
+    [summaryTimeRange]
+  )
   const remainQuota = Number(user?.quota ?? 0)
   const usedQuota = Number(user?.used_quota ?? 0)
   const requestCount = Number(user?.request_count ?? 0)
@@ -153,13 +162,9 @@ export function SummaryCards() {
       'summary-sparklines',
       summaryTimeRange.start_timestamp,
       summaryTimeRange.end_timestamp,
+      summaryQueryParams.timezone_offset,
     ],
-    queryFn: async () =>
-      getUserQuotaDates({
-        start_timestamp: summaryTimeRange.start_timestamp,
-        end_timestamp: summaryTimeRange.end_timestamp,
-        default_time: 'hour',
-      }),
+    queryFn: async () => getUserQuotaDates(summaryQueryParams),
     staleTime: 60 * 1000,
   })
 
@@ -180,6 +185,7 @@ export function SummaryCards() {
       ? statusCurrencyFlag
       : currencyEnabledFromStore
   const currencyLabel = currencyEnabled ? getCurrencyLabel() : 'Tokens'
+  const usageTrendUnavailable = usageTrendQuery.isError
 
   const sparklineData = useMemo(
     () =>
@@ -210,9 +216,13 @@ export function SummaryCards() {
   const healthCfg = HEALTH_CONFIG[healthLevel]
   const runwayDays = getRunwayDays(remainQuota, recentUsage)
 
-  const todayUsageDisplay = formatQuota(recentUsage)
+  const todayUsageDisplay = usageTrendUnavailable
+    ? t('Unavailable')
+    : formatQuota(recentUsage)
   let runwayDisplay: string
-  if (runwayDays !== null) {
+  if (usageTrendUnavailable) {
+    runwayDisplay = t('Unavailable')
+  } else if (runwayDays !== null) {
     if (runwayDays < 1) {
       runwayDisplay = t('Less than 1 day left')
     } else if (runwayDays > 999) {
@@ -261,6 +271,11 @@ export function SummaryCards() {
               <p className='text-muted-foreground text-xs sm:text-sm'>
                 {t('Monitor balance, usage, and request volume')}
               </p>
+              {usageTrendUnavailable ? (
+                <p className='text-destructive text-xs' role='alert'>
+                  {t('Usage data is temporarily unavailable.')}
+                </p>
+              ) : null}
             </div>
           </div>
           <StaggerContainer className='grid grid-cols-3 gap-1.5 sm:gap-3'>
@@ -293,11 +308,18 @@ export function SummaryCards() {
               </span>
               <span className='flex items-center gap-1.5'>
                 <span
-                  className={cn('size-1.5 rounded-full', healthCfg.dotClass)}
+                  className={cn(
+                    'size-1.5 rounded-full',
+                    usageTrendUnavailable
+                      ? 'bg-muted-foreground'
+                      : healthCfg.dotClass
+                  )}
                   aria-hidden='true'
                 />
                 <span className='text-muted-foreground text-[11px] font-medium'>
-                  {t(healthCfg.labelKey)}
+                  {usageTrendUnavailable
+                    ? t('Usage unavailable')
+                    : t(healthCfg.labelKey)}
                 </span>
               </span>
             </div>
@@ -313,7 +335,9 @@ export function SummaryCards() {
                   <span className='truncate'>{t('Last 24h usage')}</span>
                 </div>
                 <div className='text-foreground mt-1.5 truncate text-xs font-semibold tabular-nums'>
-                  {formatQuota(recentUsage)}
+                  {usageTrendUnavailable
+                    ? t('Unavailable')
+                    : formatQuota(recentUsage)}
                 </div>
               </div>
               <div className='bg-background/60 rounded-lg px-2.5 py-2'>
@@ -344,8 +368,13 @@ export function SummaryCards() {
             </div>
           </div>
 
-          <Button className='justify-between' render={<Link to='/wallet' />}>
-            <span>{t('Wallet')}</span>
+          <Button
+            className='justify-between'
+            render={
+              SELF_USE_MINIMAL ? <Link to='/keys' /> : <Link to='/wallet' />
+            }
+          >
+            <span>{SELF_USE_MINIMAL ? t('API Keys') : t('Wallet')}</span>
             <ArrowRight data-icon='inline-end' />
           </Button>
         </div>

@@ -19,8 +19,16 @@ For commercial licensing, please contact support@quantumnous.com
 import { useQuery } from '@tanstack/react-query'
 import { VChart } from '@visactor/react-vchart'
 import { Users, Loader2 } from 'lucide-react'
-import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+  useCallback,
+  type ReactNode,
+} from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -32,7 +40,9 @@ import {
   TIME_RANGE_PRESETS,
 } from '@/features/dashboard/constants'
 import {
+  buildQueryParams,
   getDefaultDays,
+  isQuotaRangeSupported,
   saveGranularity,
   processUserChartData,
 } from '@/features/dashboard/lib'
@@ -93,24 +103,48 @@ export function UserCharts(props: UserChartsProps) {
       end_timestamp: Math.floor(end.getTime() / 1000),
     }
   }, [selectedRange])
+  const queryParams = useMemo(
+    () =>
+      buildQueryParams(timeRange, {
+        time_granularity: timeGranularity,
+      }),
+    [timeGranularity, timeRange]
+  )
 
   const handleRangeChange = useCallback(
     (days: number) => {
+      if (timeGranularity === 'minute' && days > 1) {
+        toast.info(t('Minute granularity is limited to the last 24 hours.'))
+        return
+      }
       onFiltersChange({ ...props.filters, selectedRange: days })
     },
-    [onFiltersChange, props.filters]
+    [onFiltersChange, props.filters, t, timeGranularity]
   )
 
   const handleGranularityChange = useCallback(
     (g: TimeGranularity) => {
       saveGranularity(g)
+      const currentRange = getRollingDateRange(selectedRange)
+      const keepRange = isQuotaRangeSupported(
+        currentRange.start,
+        currentRange.end,
+        g
+      )
+      if (!keepRange) {
+        toast.info(
+          g === 'minute'
+            ? t('Minute granularity is limited to the last 24 hours.')
+            : t('The selected range is too large for this granularity.')
+        )
+      }
       onFiltersChange({
         ...props.filters,
         timeGranularity: g,
-        selectedRange: getDefaultDays(g),
+        selectedRange: keepRange ? selectedRange : getDefaultDays(g),
       })
     },
-    [onFiltersChange, props.filters]
+    [onFiltersChange, props.filters, selectedRange, t]
   )
 
   const handleTopUserLimitChange = useCallback(
@@ -136,10 +170,15 @@ export function UserCharts(props: UserChartsProps) {
     updateTheme()
   }, [resolvedTheme])
 
-  const { data: userData, isLoading } = useQuery({
-    queryKey: ['dashboard', 'user-quota', timeRange],
-    queryFn: () => getUserQuotaDataByUsers(timeRange),
-    select: (res) => (res.success ? res.data : []),
+  const {
+    data: userData,
+    isError,
+    error,
+    isLoading,
+  } = useQuery({
+    queryKey: ['dashboard', 'user-quota', queryParams],
+    queryFn: () => getUserQuotaDataByUsers(queryParams),
+    select: (res) => res.data ?? [],
     staleTime: 60_000,
   })
 
@@ -149,9 +188,17 @@ export function UserCharts(props: UserChartsProps) {
         isLoading ? [] : (userData ?? []),
         timeGranularity,
         t,
-        topUserLimit
+        topUserLimit,
+        queryParams.timezone_offset
       ),
-    [userData, isLoading, timeGranularity, t, topUserLimit]
+    [
+      userData,
+      isLoading,
+      timeGranularity,
+      t,
+      topUserLimit,
+      queryParams.timezone_offset,
+    ]
   )
 
   return (
@@ -167,6 +214,7 @@ export function UserCharts(props: UserChartsProps) {
               <TabsTrigger
                 key={preset.days}
                 value={String(preset.days)}
+                disabled={timeGranularity === 'minute' && preset.days > 1}
                 className='px-2.5 text-xs'
               >
                 {t(preset.label)}
@@ -224,6 +272,32 @@ export function UserCharts(props: UserChartsProps) {
       <div className='grid gap-3'>
         {USER_CHARTS.map((chart) => {
           const spec = chartData[chart.specKey]
+          let chartContent: ReactNode = <Skeleton className='h-full w-full' />
+          if (!isLoading) {
+            if (isError) {
+              chartContent = (
+                <div className='text-muted-foreground flex h-full items-center justify-center px-4 text-center text-sm'>
+                  {error instanceof Error && error.message
+                    ? error.message
+                    : t('Failed to load')}
+                </div>
+              )
+            } else if (themeReady && spec) {
+              chartContent = (
+                <VChart
+                  key={`user-${chart.value}-${topUserLimit}-${resolvedTheme}`}
+                  spec={{
+                    ...spec,
+                    theme: resolvedTheme === 'dark' ? 'dark' : 'light',
+                    background: 'transparent',
+                  }}
+                  option={VCHART_OPTION}
+                />
+              )
+            } else {
+              chartContent = null
+            }
+          }
 
           return (
             <div
@@ -238,22 +312,7 @@ export function UserCharts(props: UserChartsProps) {
               </div>
 
               <div className='h-[300px] p-1.5 sm:h-96 sm:p-2'>
-                {isLoading ? (
-                  <Skeleton className='h-full w-full' />
-                ) : (
-                  themeReady &&
-                  spec && (
-                    <VChart
-                      key={`user-${chart.value}-${topUserLimit}-${resolvedTheme}`}
-                      spec={{
-                        ...spec,
-                        theme: resolvedTheme === 'dark' ? 'dark' : 'light',
-                        background: 'transparent',
-                      }}
-                      option={VCHART_OPTION}
-                    />
-                  )
-                )}
+                {chartContent}
               </div>
             </div>
           )

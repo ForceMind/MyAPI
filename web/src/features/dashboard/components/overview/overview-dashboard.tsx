@@ -53,6 +53,7 @@ import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { getUserModels } from '@/lib/api'
 import { MOTION_TRANSITION } from '@/lib/motion'
 import { ROLE } from '@/lib/roles'
+import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -506,13 +507,17 @@ export function OverviewDashboard() {
         icon: KeyRound,
         completed: Boolean(preferredKey),
       },
-      {
-        title: t('Add credits'),
-        description: t('Keep enough balance before production traffic'),
-        to: '/wallet',
-        icon: CreditCard,
-        completed: remainQuota > 0 || usedQuota > 0,
-      },
+      ...(SELF_USE_MINIMAL
+        ? []
+        : [
+            {
+              title: t('Add credits'),
+              description: t('Keep enough balance before production traffic'),
+              to: '/wallet' as const,
+              icon: CreditCard,
+              completed: remainQuota > 0 || usedQuota > 0,
+            },
+          ]),
       {
         title: t('Send a request'),
         description: t('Verify routing with Playground or your client'),
@@ -545,12 +550,16 @@ export function OverviewDashboard() {
         to: '/usage-logs',
         icon: FileText,
       },
-      {
-        title: t('Pricing'),
-        description: t('Review model rates before scaling traffic'),
-        to: '/pricing',
-        icon: BookOpen,
-      },
+      ...(SELF_USE_MINIMAL
+        ? []
+        : [
+            {
+              title: t('Pricing'),
+              description: t('Review model rates before scaling traffic'),
+              to: '/pricing' as const,
+              icon: BookOpen,
+            },
+          ]),
     ],
     [t]
   )

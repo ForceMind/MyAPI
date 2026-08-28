@@ -21,6 +21,8 @@ import {
   DEFAULT_DASHBOARD_CHART_PREFERENCES,
   DEFAULT_TIME_GRANULARITY,
   EMPTY_DASHBOARD_FILTERS,
+  MAX_QUOTA_DATA_BUCKETS,
+  TIME_GRANULARITY_SECONDS,
   TIME_GRANULARITY_STORAGE_KEY,
   TIME_RANGE_PRESETS,
   TIME_RANGE_BY_GRANULARITY,
@@ -31,10 +33,20 @@ import type {
   DashboardFilters,
   ModelAnalyticsChartTab,
 } from '@/features/dashboard/types'
-import { getRollingDateRange, type TimeGranularity } from '@/lib/time'
+import {
+  dateToUnixTimestamp,
+  getChartBucketTimestamp,
+  getRollingDateRange,
+  type TimeGranularity,
+} from '@/lib/time'
 
 function isTimeGranularity(value: unknown): value is TimeGranularity {
-  return value === 'hour' || value === 'day' || value === 'week'
+  return (
+    value === 'minute' ||
+    value === 'hour' ||
+    value === 'day' ||
+    value === 'week'
+  )
 }
 
 function getLegacySavedGranularity(): TimeGranularity {
@@ -84,8 +96,13 @@ export function getSavedGranularity(
 
 export function saveGranularity(granularity: TimeGranularity): void {
   if (typeof window === 'undefined') return
+  const preferences = getSavedChartPreferences()
   saveChartPreferences({
-    ...getSavedChartPreferences(),
+    ...preferences,
+    defaultTimeRangeDays:
+      granularity === 'minute' && preferences.defaultTimeRangeDays > 1
+        ? 1
+        : preferences.defaultTimeRangeDays,
     defaultTimeGranularity: granularity,
   })
   localStorage.setItem(TIME_GRANULARITY_STORAGE_KEY, granularity)
@@ -104,6 +121,14 @@ export function getSavedChartPreferences(): DashboardChartPreferences {
     if (!raw) return fallbackPreferences
 
     const parsed = JSON.parse(raw) as Partial<DashboardChartPreferences>
+    const defaultTimeGranularity = isTimeGranularity(
+      parsed.defaultTimeGranularity
+    )
+      ? parsed.defaultTimeGranularity
+      : fallbackPreferences.defaultTimeGranularity
+    const parsedRange = isTimeRangePresetDays(parsed.defaultTimeRangeDays)
+      ? parsed.defaultTimeRangeDays
+      : fallbackPreferences.defaultTimeRangeDays
     return {
       consumptionDistributionChart: isConsumptionDistributionChartType(
         parsed.consumptionDistributionChart
@@ -113,12 +138,11 @@ export function getSavedChartPreferences(): DashboardChartPreferences {
       modelAnalyticsChart: isModelAnalyticsChartTab(parsed.modelAnalyticsChart)
         ? parsed.modelAnalyticsChart
         : fallbackPreferences.modelAnalyticsChart,
-      defaultTimeRangeDays: isTimeRangePresetDays(parsed.defaultTimeRangeDays)
-        ? parsed.defaultTimeRangeDays
-        : fallbackPreferences.defaultTimeRangeDays,
-      defaultTimeGranularity: isTimeGranularity(parsed.defaultTimeGranularity)
-        ? parsed.defaultTimeGranularity
-        : fallbackPreferences.defaultTimeGranularity,
+      defaultTimeRangeDays:
+        defaultTimeGranularity === 'minute' && parsedRange > 1
+          ? 1
+          : parsedRange,
+      defaultTimeGranularity,
     }
   } catch {
     return fallbackPreferences
@@ -143,7 +167,12 @@ export function getDefaultDays(granularity?: TimeGranularity): number {
 export function buildDefaultDashboardFilters(
   preferences: DashboardChartPreferences = getSavedChartPreferences()
 ): DashboardFilters {
-  const { start, end } = getRollingDateRange(preferences.defaultTimeRangeDays)
+  const defaultDays =
+    preferences.defaultTimeGranularity === 'minute' &&
+    preferences.defaultTimeRangeDays > 1
+      ? 1
+      : preferences.defaultTimeRangeDays
+  const { start, end } = getRollingDateRange(defaultDays)
   return {
     ...EMPTY_DASHBOARD_FILTERS,
     start_timestamp: start,
@@ -152,18 +181,52 @@ export function buildDefaultDashboardFilters(
   }
 }
 
+export function getTimezoneOffsetMinutes(timestampSeconds: number): number {
+  return -new Date(timestampSeconds * 1000).getTimezoneOffset()
+}
+
+export function isQuotaRangeSupported(
+  start: Date | undefined,
+  end: Date | undefined,
+  granularity: TimeGranularity
+): boolean {
+  if (!start || !end) return true
+  if (end.getTime() < start.getTime()) return false
+  const startTimestamp = dateToUnixTimestamp(start)
+  const endTimestamp = dateToUnixTimestamp(end)
+  const timezoneOffset = getTimezoneOffsetMinutes(endTimestamp)
+  const firstBucket = getChartBucketTimestamp(
+    startTimestamp,
+    granularity,
+    timezoneOffset
+  )
+  const lastBucket = getChartBucketTimestamp(
+    endTimestamp,
+    granularity,
+    timezoneOffset
+  )
+  const bucketCount =
+    (lastBucket - firstBucket) / TIME_GRANULARITY_SECONDS[granularity] + 1
+  return bucketCount <= MAX_QUOTA_DATA_BUCKETS
+}
+
 export function buildQueryParams(
   timeRange: { start_timestamp: number; end_timestamp: number },
   filters?: { time_granularity?: TimeGranularity; username?: string }
 ): {
   start_timestamp: number
   end_timestamp: number
-  default_time: string
+  granularity: TimeGranularity
+  default_time: TimeGranularity
+  timezone_offset: number
   username?: string
 } {
+  const granularity = getSavedGranularity(filters?.time_granularity)
   return {
     ...timeRange,
-    default_time: getSavedGranularity(filters?.time_granularity),
+    granularity,
+    default_time: granularity,
+    timezone_offset: getTimezoneOffsetMinutes(timeRange.end_timestamp),
     ...(filters?.username && { username: filters.username }),
   }
 }

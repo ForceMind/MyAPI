@@ -39,6 +39,7 @@ import { useTranslation } from 'react-i18next'
 
 import type { SidebarData } from '@/components/layout/types'
 import { ROLE } from '@/lib/roles'
+import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
 
 /**
  * Root navigation groups for the application sidebar.
@@ -49,122 +50,144 @@ import { ROLE } from '@/lib/roles'
 export function useSidebarData(): SidebarData {
   const { t } = useTranslation()
 
+  const hiddenSelfUseItems = new Set([
+    '/wallet',
+    '/users',
+    '/redemption-codes',
+    '/subscriptions',
+  ])
+
+  const navGroups: SidebarData['navGroups'] = [
+    {
+      id: 'chat',
+      title: t('Chat'),
+      items: [
+        {
+          title: t('Playground'),
+          url: '/playground',
+          icon: FlaskConical,
+        },
+        {
+          title: t('Chat'),
+          icon: MessageSquare,
+          type: 'chat-presets',
+        },
+      ],
+    },
+    {
+      id: 'general',
+      title: t('General'),
+      items: [
+        {
+          title: t('Overview'),
+          url: '/dashboard/overview',
+          icon: Activity,
+        },
+        {
+          title: t('Dashboard'),
+          url: '/dashboard/models',
+          icon: LayoutDashboard,
+        },
+        {
+          title: t('API Keys'),
+          url: '/keys',
+          icon: Key,
+        },
+        {
+          title: t('Usage Logs'),
+          url: '/usage-logs/common',
+          icon: FileText,
+        },
+        {
+          title: t('Task Logs'),
+          url: '/usage-logs/task',
+          activeUrls: ['/usage-logs/drawing'],
+          configUrls: ['/usage-logs/drawing', '/usage-logs/task'],
+          icon: ListTodo,
+        },
+      ],
+    },
+    {
+      id: 'personal',
+      title: t('Personal'),
+      items: [
+        {
+          title: t('Wallet'),
+          url: '/wallet',
+          icon: Wallet,
+        },
+        {
+          title: t('Profile'),
+          url: '/profile',
+          icon: User,
+        },
+      ],
+    },
+    {
+      id: 'admin',
+      title: t('Admin'),
+      items: [
+        {
+          title: t('Channels'),
+          url: '/channels',
+          icon: Radio,
+        },
+        {
+          title: t('Models'),
+          url: '/models/metadata',
+          icon: Box,
+        },
+        {
+          title: t('Users'),
+          url: '/users',
+          icon: Users,
+        },
+        {
+          title: t('Redemption Codes'),
+          url: '/redemption-codes',
+          icon: Ticket,
+        },
+        {
+          title: t('Subscriptions'),
+          url: '/subscriptions',
+          icon: CreditCard,
+        },
+        {
+          title: t('API Request Logs'),
+          url: '/full-content-logs',
+          icon: FileSearch,
+          requiredRole: ROLE.ADMIN,
+        },
+        {
+          title: t('System Info'),
+          url: '/system-info',
+          icon: ServerCog,
+          requiredRole: ROLE.SUPER_ADMIN,
+        },
+        {
+          title: t('System Settings'),
+          url: '/system-settings/site',
+          activeUrls: ['/system-settings'],
+          icon: Settings,
+        },
+      ],
+    },
+  ]
+
+  if (!SELF_USE_MINIMAL) {
+    return { navGroups }
+  }
+
   return {
-    navGroups: [
-      {
-        id: 'chat',
-        title: t('Chat'),
-        items: [
-          {
-            title: t('Playground'),
-            url: '/playground',
-            icon: FlaskConical,
-          },
-          {
-            title: t('Chat'),
-            icon: MessageSquare,
-            type: 'chat-presets',
-          },
-        ],
-      },
-      {
-        id: 'general',
-        title: t('General'),
-        items: [
-          {
-            title: t('Overview'),
-            url: '/dashboard/overview',
-            icon: Activity,
-          },
-          {
-            title: t('Dashboard'),
-            url: '/dashboard/models',
-            icon: LayoutDashboard,
-          },
-          {
-            title: t('API Keys'),
-            url: '/keys',
-            icon: Key,
-          },
-          {
-            title: t('Usage Logs'),
-            url: '/usage-logs/common',
-            icon: FileText,
-          },
-          {
-            title: t('Task Logs'),
-            url: '/usage-logs/task',
-            activeUrls: ['/usage-logs/drawing'],
-            configUrls: ['/usage-logs/drawing', '/usage-logs/task'],
-            icon: ListTodo,
-          },
-        ],
-      },
-      {
-        id: 'personal',
-        title: t('Personal'),
-        items: [
-          {
-            title: t('Wallet'),
-            url: '/wallet',
-            icon: Wallet,
-          },
-          {
-            title: t('Profile'),
-            url: '/profile',
-            icon: User,
-          },
-        ],
-      },
-      {
-        id: 'admin',
-        title: t('Admin'),
-        items: [
-          {
-            title: t('Channels'),
-            url: '/channels',
-            icon: Radio,
-          },
-          {
-            title: t('Models'),
-            url: '/models/metadata',
-            icon: Box,
-          },
-          {
-            title: t('Users'),
-            url: '/users',
-            icon: Users,
-          },
-          {
-            title: t('Redemption Codes'),
-            url: '/redemption-codes',
-            icon: Ticket,
-          },
-          {
-            title: t('Subscriptions'),
-            url: '/subscriptions',
-            icon: CreditCard,
-          },
-          {
-            title: t('API Request Logs'),
-            url: '/full-content-logs',
-            icon: FileSearch,
-            requiredRole: ROLE.ADMIN,
-          },
-          {
-            title: t('System Info'),
-            url: '/system-info',
-            icon: ServerCog,
-            requiredRole: ROLE.SUPER_ADMIN,
-          },
-          {
-            title: t('System Settings'),
-            url: '/system-settings/site',
-            activeUrls: ['/system-settings'],
-            icon: Settings,
-          },
-        ],
-      },
-    ],
+    navGroups: navGroups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => {
+          if ('type' in item && item.type === 'chat-presets') return false
+          if (!('url' in item) || !item.url) return true
+          return !hiddenSelfUseItems.has(item.url)
+        }),
+      }))
+      .filter((group) => group.items.length > 0),
   }
 }

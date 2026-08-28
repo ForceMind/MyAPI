@@ -70,6 +70,17 @@
 
 对应补丁：`patches/06-playground-codex-parameter-capabilities.patch`。
 
+### 7. 自用精简构建与有限日志轮转
+
+- Docker 构建默认启用 `VITE_SELF_USE_MINIMAL=true`；
+- 保留渠道、模型、Key、游乐场、用量日志、完整内容日志、系统设置、登录/OAuth、初始化和 About；
+- 不构建充值、订阅、兑换码、公开定价、排行榜、用户管理和内置聊天路由；
+- 前端只打包简体中文和英文；
+- 移除会连带打包 Ant Design、Mermaid 等组件的完整 Provider 图标依赖，以及未使用的图表、画布、轮播和可调整面板组件；
+- 运行层从 Debian 改为 Alpine，同时保留许可证与第三方声明；
+- 所有 Relay 路由复用同一个完整内容日志 writer，安全启用 10 文件轮转；
+- Docker 标准输出日志限制为 10 MiB × 3 文件。
+
 ## 两种使用方式
 
 ### 直接使用完整源码（推荐）
@@ -116,7 +127,7 @@ bun run build
 ## 重要安全说明
 
 - 不要提交 `.env`、数据库、API Key、OAuth JSON 或生产日志；
-- `FULL_CONTENT_LOG_MAX_FILES=0` 表示日志永久保留，磁盘占用会持续增长；
+- 默认 `FULL_CONTENT_LOG_MAX_FILES=10`，配合 100 MiB 单文件形成约 1 GiB 软上限；设为 `0` 才表示永久保留；
 - 日志正文仍可能包含用户输入、模型输出和附件，仅允许管理员访问；
 - 完整 API Key 不会显示在日志界面，界面只按 Key 名称和数据库 ID 分类。
 - Codex OAuth 登录只支持真实的浏览器管理员会话，不接受 PAT 代替登录会话；

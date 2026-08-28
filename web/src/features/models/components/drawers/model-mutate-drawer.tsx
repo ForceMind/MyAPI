@@ -806,9 +806,6 @@ export function ModelMutateDrawer({
                         {...field}
                       />
                     </FormControl>
-                    <FormDescription className='text-xs'>
-                      {t('@lobehub/icons key')}
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

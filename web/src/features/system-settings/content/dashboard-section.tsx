@@ -55,7 +55,7 @@ import { safeNumberFieldProps } from '../utils/numeric-field'
 const dataDashboardSchema = z.object({
   DataExportEnabled: z.boolean(),
   DataExportInterval: z.number().int().min(1).max(1440),
-  DataExportDefaultTime: z.enum(['hour', 'day', 'week']),
+  DataExportDefaultTime: z.enum(['minute', 'hour', 'day', 'week']),
 })
 
 type DataDashboardFormValues = z.infer<typeof dataDashboardSchema>
@@ -65,6 +65,7 @@ type DashboardSectionProps = {
 }
 
 const granularityOptions = [
+  { label: 'Minute', value: 'minute' },
   { label: 'Hour', value: 'hour' },
   { label: 'Day', value: 'day' },
   { label: 'Week', value: 'week' },
@@ -154,12 +155,10 @@ export function DashboardSection({ defaultValues }: DashboardSectionProps) {
                 <FormItem>
                   <FormLabel>{t('Default time granularity')}</FormLabel>
                   <Select
-                    items={[
-                      ...granularityOptions.map((option) => ({
-                        value: option.value,
-                        label: t(option.label),
-                      })),
-                    ]}
+                    items={granularityOptions.map((option) => ({
+                      value: option.value,
+                      label: t(option.label),
+                    }))}
                     onValueChange={field.onChange}
                     value={field.value}
                     disabled={!isEnabled}
@@ -181,7 +180,7 @@ export function DashboardSection({ defaultValues }: DashboardSectionProps) {
                   </Select>
                   <FormDescription>
                     {t(
-                      'UI granularity only &mdash; data is still aggregated hourly'
+                      'Minute-level data is accurate for requests recorded after this upgrade; older data remains hourly.'
                     )}
                   </FormDescription>
                   <FormMessage />

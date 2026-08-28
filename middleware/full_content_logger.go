@@ -57,6 +57,12 @@ type fullContentFileWriter struct {
 	size     int64
 }
 
+type fullContentFileWriterConfig struct {
+	dir      string
+	maxBytes int64
+	maxFiles int
+}
+
 type fullContentResponseWriter struct {
 	gin.ResponseWriter
 	context    *gin.Context
@@ -70,6 +76,7 @@ type fullContentResponseWriter struct {
 var (
 	fullContentLogLifecycleMu sync.RWMutex
 	fullContentLogWriters     sync.Map
+	fullContentLogWriterPool  sync.Map
 )
 
 func FullContentLogger() gin.HandlerFunc {
@@ -79,12 +86,7 @@ func FullContentLogger() gin.HandlerFunc {
 		}
 	}
 
-	writer := &fullContentFileWriter{
-		dir:      FullContentLogDirectory(),
-		maxBytes: int64(fullContentLogEnvInt(fullContentLogMaxMBEnv, defaultFullContentLogMB)) << 20,
-		maxFiles: fullContentLogEnvInt(fullContentLogMaxFilesEnv, 0),
-	}
-	fullContentLogWriters.Store(writer, struct{}{})
+	writer := getFullContentLogWriter()
 
 	return func(c *gin.Context) {
 		startedAt := time.Now()
@@ -138,6 +140,27 @@ func FullContentLogger() gin.HandlerFunc {
 		}
 		writeFullContentLogEntry(writer, endEntry)
 	}
+}
+
+// getFullContentLogWriter returns one process-wide writer for each effective
+// logging configuration. FullContentLogger is installed on several relay route
+// groups; sharing the writer keeps rotation global and prevents one middleware
+// instance from pruning a file that another instance still has open.
+func getFullContentLogWriter() *fullContentFileWriter {
+	config := fullContentFileWriterConfig{
+		dir:      FullContentLogDirectory(),
+		maxBytes: int64(fullContentLogEnvInt(fullContentLogMaxMBEnv, defaultFullContentLogMB)) << 20,
+		maxFiles: fullContentLogEnvInt(fullContentLogMaxFilesEnv, 0),
+	}
+	candidate := &fullContentFileWriter{
+		dir:      config.dir,
+		maxBytes: config.maxBytes,
+		maxFiles: config.maxFiles,
+	}
+	actual, _ := fullContentLogWriterPool.LoadOrStore(config, candidate)
+	writer := actual.(*fullContentFileWriter)
+	fullContentLogWriters.Store(writer, struct{}{})
+	return writer
 }
 
 func (w *fullContentResponseWriter) Write(body []byte) (int, error) {

@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -40,7 +41,11 @@ import { useAuthStore } from '@/stores/auth-store'
 
 interface LogStatCardsProps {
   filters?: DashboardFilters
-  onDataUpdate?: (data: QuotaDataItem[], loading: boolean) => void
+  onDataUpdate?: (
+    data: QuotaDataItem[],
+    loading: boolean,
+    timezoneOffsetMinutes?: number
+  ) => void
 }
 
 const MAX_INLINE_STAT_CHARS = 9
@@ -59,7 +64,7 @@ function formatStatNumber(value: number, locale: Intl.LocalesArgument) {
 }
 
 export function LogStatCards(props: LogStatCardsProps) {
-  const { i18n } = useTranslation()
+  const { i18n, t } = useTranslation()
   const statCardsConfig = useModelStatCardsConfig()
   const user = useAuthStore((state) => state.auth.user)
   const isAdmin = !!(user?.role && user.role >= 10)
@@ -81,8 +86,6 @@ export function LogStatCards(props: LogStatCardsProps) {
     setLoading(true)
 
     setError(false)
-    onDataUpdate?.([], true)
-
     const timeRange = computeTimeRange(
       getDefaultDays(filters?.time_granularity),
       filters?.start_timestamp,
@@ -90,19 +93,26 @@ export function LogStatCards(props: LogStatCardsProps) {
     )
     const timeDiff = (timeRange.end_timestamp - timeRange.start_timestamp) / 60
     setTimeRangeMinutes(timeDiff)
+    const queryParams = buildQueryParams(timeRange, filters)
+    onDataUpdate?.([], true, queryParams.timezone_offset)
 
-    void getUserQuotaDates(buildQueryParams(timeRange, filters), isAdmin)
+    void getUserQuotaDates(queryParams, isAdmin)
       .then((res) => {
         if (abortController.signal.aborted) return
         const data = res?.data || []
         setStats(calculateDashboardStats(data))
-        onDataUpdate?.(data, false)
+        onDataUpdate?.(data, false, queryParams.timezone_offset)
       })
-      .catch(() => {
+      .catch((reason: unknown) => {
         if (abortController.signal.aborted) return
         setStats(null)
         setError(true)
-        onDataUpdate?.([], false)
+        onDataUpdate?.([], false, queryParams.timezone_offset)
+        toast.error(
+          reason instanceof Error && reason.message
+            ? reason.message
+            : t('Failed to load')
+        )
       })
       .finally(() => {
         if (!abortController.signal.aborted) {
@@ -113,7 +123,7 @@ export function LogStatCards(props: LogStatCardsProps) {
     return () => {
       abortController.abort()
     }
-  }, [filters, isAdmin, onDataUpdate])
+  }, [filters, isAdmin, onDataUpdate, t])
 
   const adaptedStats = {
     rpm: stats?.totalCount ?? 0,

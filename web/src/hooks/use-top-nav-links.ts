@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next'
 
 import { useStatus } from '@/hooks/use-status'
 import { parseHeaderNavModulesFromStatus } from '@/lib/nav-modules'
+import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
 import { useAuthStore } from '@/stores/auth-store'
 
 export type TopNavLink = {
@@ -74,14 +75,24 @@ export function useTopNavLinks(): TopNavLink[] {
 
   // Pricing
   const pricing = modules?.pricing
-  if (pricing && typeof pricing === 'object' && pricing.enabled) {
+  if (
+    !SELF_USE_MINIMAL &&
+    pricing &&
+    typeof pricing === 'object' &&
+    pricing.enabled
+  ) {
     const requiresAuth = pricing.requireAuth && !isAuthed
     links.push({ title: t('Model Square'), href: '/pricing', requiresAuth })
   }
 
   // Rankings
   const rankings = modules?.rankings
-  if (rankings && typeof rankings === 'object' && rankings.enabled) {
+  if (
+    !SELF_USE_MINIMAL &&
+    rankings &&
+    typeof rankings === 'object' &&
+    rankings.enabled
+  ) {
     const requiresAuth = rankings.requireAuth && !isAuthed
     links.push({ title: t('Rankings'), href: '/rankings', requiresAuth })
   }

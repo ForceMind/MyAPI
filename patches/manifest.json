@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "status": "historical-partial",
+  "notice": "These ordered patches document the first six customization stages. The complete npm distribution contains additional changes and should be treated as the reproducible source of truth.",
+  "upstream": {
+    "repository": "https://github.com/QuantumNous/new-api",
+    "tag": "v1.0.0-rc.25",
+    "commit": "f116414284162ad15d8925f7bca494c109b83e93"
+  },
+  "patches": [
+    {
+      "order": 1,
+      "file": "01-codex-chat-compat.patch",
+      "sha256": "64161ce58cdcd7490c9d9fafdf430239449f6c1f8bf616317ba32383c5f7d71e"
+    },
+    {
+      "order": 2,
+      "file": "02-chat-attachment-compat.patch",
+      "sha256": "6e2d4daaaeda6018a230d1c114df108962112d0177996bbdc04e34be360ca770"
+    },
+    {
+      "order": 3,
+      "file": "03-full-content-log-explorer.patch",
+      "sha256": "e63098e7c54bc3595b0d80466461c847eb870ace051f9cee270994b27e58dc2c"
+    },
+    {
+      "order": 4,
+      "file": "04-codex-oauth-minimal-ui.patch",
+      "sha256": "d77e84667351cb3aecd238fed2f811d64445018b0282e768d7f7e59db73d57ca"
+    },
+    {
+      "order": 5,
+      "file": "05-codex-strip-unsupported-top-p.patch",
+      "sha256": "850b9529258441288f8aae9cd4e05d8dd79ebb05c2aecf10332f3092adc2bc54"
+    },
+    {
+      "order": 6,
+      "file": "06-playground-codex-parameter-capabilities.patch",
+      "sha256": "4b1289d17ca9d935b2bfd536a9f68ce29f5bb65022e3b8c8ecf5dfb8bc1035a6"
+    }
+  ],
+  "verification": [
+    "go test ./model ./controller ./middleware",
+    "cd relaykit && GOWORK=off go test ./... && GOWORK=off go build ./...",
+    "cd web && bun run typecheck && bun run test && bun run build"
+  ]
+}

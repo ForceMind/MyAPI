@@ -1,0 +1,95 @@
+{
+  "name": "@forcemind/myapi",
+  "version": "0.1.0",
+  "description": "MyAPI self-hosting CLI and complete source distribution, based on New API rc.25.",
+  "type": "module",
+  "bin": {
+    "myapi": "cli/myapi.mjs"
+  },
+  "files": [
+    "cli/",
+    "tools/npm/",
+    ".dockerignore",
+    ".env.example",
+    "Dockerfile",
+    "Dockerfile.dev",
+    "docker-compose.yml",
+    "docker-compose.dev.yml",
+    "new-api.service",
+    "makefile",
+    "VERSION",
+    "main.go",
+    "go.mod",
+    "go.sum",
+    "bin/",
+    "common/",
+    "constant/",
+    "controller/",
+    "docs/",
+    "dto/",
+    "electron/",
+    "i18n/",
+    "logger/",
+    "middleware/",
+    "model/",
+    "oauth/",
+    "patches/",
+    "pkg/",
+    "relay/",
+    "relaykit/",
+    "router/",
+    "service/",
+    "setting/",
+    "types/",
+    "web/",
+    "deploy/.env.example",
+    "deploy/docker-compose.yml",
+    "deploy/install.sh",
+    "CUSTOMIZATION.md",
+    "DEPLOYMENT_CUSTOM.md",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "LICENSE",
+    "NOTICE",
+    "README.md",
+    "README.en.md",
+    "README.fr.md",
+    "README.ja.md",
+    "README.zh_CN.md",
+    "README.zh_TW.md",
+    "THIRD-PARTY-LICENSES.md",
+    "SOURCE_MANIFEST.json"
+  ],
+  "scripts": {
+    "test": "node --test cli/test/*.test.mjs",
+    "source:manifest": "node tools/npm/generate-source-manifest.mjs",
+    "pack:check": "node tools/npm/check-pack.mjs",
+    "release:state": "node tools/npm/check-release-state.mjs",
+    "release:check": "npm test && npm run source:manifest && npm run pack:check",
+    "prepublishOnly": "npm run release:state && npm run release:check"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ForceMind/new-api-custom-rc25.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ForceMind/new-api-custom-rc25/issues"
+  },
+  "homepage": "https://github.com/ForceMind/new-api-custom-rc25#readme",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "keywords": [
+    "myapi",
+    "ai-gateway",
+    "self-hosted",
+    "openai",
+    "docker",
+    "new-api"
+  ]
+}

@@ -16,6 +16,9 @@ export default defineConfig(({ envMode }) => {
     'http://localhost:3000'
 
   const isProd = envMode === 'production'
+  const isSelfUseMinimal =
+    process.env.VITE_SELF_USE_MINIMAL === 'true' ||
+    env.rawPublicVars.VITE_SELF_USE_MINIMAL === 'true'
   const devProxy = Object.fromEntries(
     (['/api', '/mj', '/pg'] as const).map((key) => [
       key,
@@ -53,12 +56,19 @@ export default defineConfig(({ envMode }) => {
       },
     },
     source: {
+      define: env.publicVars,
       entry: {
         index: './src/main.tsx',
       },
     },
     resolve: {
       alias: {
+        '@/i18n/runtime-config': path.resolve(
+          __dirname,
+          isSelfUseMinimal
+            ? './src/i18n/config.minimal.ts'
+            : './src/i18n/runtime-config.ts'
+        ),
         '@': path.resolve(__dirname, './src'),
       },
     },
@@ -94,6 +104,9 @@ export default defineConfig(({ envMode }) => {
             // Dev: avoid per-route async chunks (reduces white flash on navigation + faster HMR feedback).
             // Prod: keep route-based code splitting.
             autoCodeSplitting: isProd,
+            routeFileIgnorePattern: isSelfUseMinimal
+              ? '^(wallet|subscriptions|redemption-codes|pricing|rankings|users|chat|content)$|^chat2link\\.tsx$'
+              : undefined,
           }),
         ],
       },

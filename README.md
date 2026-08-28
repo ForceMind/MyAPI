@@ -53,6 +53,25 @@
 
 </div>
 
+## MyAPI self-hosted distribution
+
+<img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
+
+This repository also ships the **MyAPI** self-hosting CLI and complete source
+distribution, based on New API `v1.0.0-rc.25`. It keeps the original New API,
+QuantumNous, AGPL, NOTICE, About-page attribution, and project links intact.
+
+```bash
+npx @forcemind/myapi init ./myapi-source
+npx @forcemind/myapi configure \
+  --project-dir ./myapi-source \
+  --public-url https://api.your-domain.com
+npx @forcemind/myapi doctor --project-dir ./myapi-source
+```
+
+See [the MyAPI distribution guide](./docs/MYAPI_DISTRIBUTION.md) for deployment,
+data adoption, validation, and publishing instructions.
+
 ## 📝 Project Description
 
 > [!IMPORTANT]

@@ -24,7 +24,14 @@ import dayjs from '@/lib/dayjs'
 /**
  * Time granularity type
  */
-export type TimeGranularity = 'hour' | 'day' | 'week'
+export type TimeGranularity = 'minute' | 'hour' | 'day' | 'week'
+
+const TIME_GRANULARITY_SECONDS: Record<TimeGranularity, number> = {
+  minute: 60,
+  hour: 3600,
+  day: 86400,
+  week: 604800,
+}
 
 /**
  * Convert Date object to Unix timestamp (seconds)
@@ -161,19 +168,53 @@ export function formatDateTimeObject(date: Date): string {
  */
 export function formatChartTime(
   timestamp: number,
-  granularity: TimeGranularity = 'day'
+  granularity: TimeGranularity = 'day',
+  timezoneOffsetMinutes?: number
 ): string {
-  const d = dayjs(timestamp * 1000)
+  // When the API aggregates with a fixed offset, format with that exact same
+  // offset. Letting the browser reinterpret historical buckets with DST rules
+  // can otherwise move a midnight bucket to the previous day.
+  const d =
+    timezoneOffsetMinutes == null
+      ? dayjs(timestamp * 1000)
+      : dayjs.utc((timestamp + timezoneOffsetMinutes * 60) * 1000)
   let result = d.format('MM-DD')
 
-  if (granularity === 'hour') {
+  if (granularity === 'minute') {
+    result += ` ${d.format('HH:mm')}`
+  } else if (granularity === 'hour') {
     result += ` ${d.format('HH')}:00`
   } else if (granularity === 'week') {
-    const weekEnd = d.add(6, 'day')
-    result += ` - ${weekEnd.format('MM-DD')}`
+    const daysSinceMonday = (d.day() + 6) % 7
+    const weekStart = d.subtract(daysSinceMonday, 'day').startOf('day')
+    const weekEnd = weekStart.add(6, 'day')
+    result = `${weekStart.format('MM-DD')} - ${weekEnd.format('MM-DD')}`
   }
 
   return result
+}
+
+export function getChartBucketTimestamp(
+  timestamp: number,
+  granularity: TimeGranularity,
+  timezoneOffsetMinutes?: number
+): number {
+  if (timezoneOffsetMinutes != null) {
+    const offsetSeconds = timezoneOffsetMinutes * 60
+    const weekAnchorSeconds = granularity === 'week' ? 4 * 86400 : 0
+    const bucketSeconds = TIME_GRANULARITY_SECONDS[granularity]
+    const value = timestamp + offsetSeconds - weekAnchorSeconds
+    const remainder = ((value % bucketSeconds) + bucketSeconds) % bucketSeconds
+    return timestamp - remainder
+  }
+
+  const d = dayjs(timestamp * 1000)
+  if (granularity === 'minute') return d.startOf('minute').unix()
+  if (granularity === 'hour') return d.startOf('hour').unix()
+  if (granularity === 'day') return d.startOf('day').unix()
+
+  const daysSinceMonday = (d.day() + 6) % 7
+  return d.subtract(daysSinceMonday, 'day').startOf('day').unix()
 }
 
 /**

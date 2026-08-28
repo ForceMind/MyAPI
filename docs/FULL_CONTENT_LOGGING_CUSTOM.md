@@ -75,7 +75,7 @@ https://mytoken.out-wall.net/full-content-logs
 environment:
   FULL_CONTENT_LOG_ENABLED: "true"
   FULL_CONTENT_LOG_MAX_MB: "100"
-  FULL_CONTENT_LOG_MAX_FILES: "0"
+  FULL_CONTENT_LOG_MAX_FILES: "10"
 ```
 
 变量含义：
@@ -83,9 +83,9 @@ environment:
 - `FULL_CONTENT_LOG_ENABLED`：是否启用，设为 `true` 才记录；
 - `FULL_CONTENT_LOG_DIR`：可选，容器内日志路径；未设置时使用 `/app/logs/full-content`；
 - `FULL_CONTENT_LOG_MAX_MB`：单个 JSONL 文件最大容量；当前为 100 MiB，达到后创建新文件；设为 `0` 表示单文件不限大小；
-- `FULL_CONTENT_LOG_MAX_FILES`：最多保留的日志文件数；当前为 `0`，表示不自动删除任何旧文件。
+- `FULL_CONTENT_LOG_MAX_FILES`：最多保留的日志文件数；当前为 `10`，设为 `0` 才表示不自动删除任何旧文件。
 
-因为当前要求保留所有内容，`FULL_CONTENT_LOG_MAX_FILES=0` 会让磁盘占用持续增长，需要定期检查磁盘空间。
+所有 Relay 路由会复用同一个进程级 writer，因此轮转是全局的，不会误删其他路由仍在写入的文件。当前配置约为 1 GiB 软上限；单条超大记录可能暂时超过该值。
 
 ## 常用检查命令
 

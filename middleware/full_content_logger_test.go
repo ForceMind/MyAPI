@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 
@@ -146,6 +147,44 @@ func TestFullContentLoggerDisabled(t *testing.T) {
 	assert.Equal(t, http.StatusOK, recorder.Code)
 	_, err := os.Stat(logDir)
 	assert.ErrorIs(t, err, os.ErrNotExist)
+}
+
+func TestFullContentLoggerReusesWriterForMatchingConfiguration(t *testing.T) {
+	logDir := t.TempDir()
+	t.Setenv(fullContentLogEnabledEnv, "true")
+	t.Setenv(fullContentLogDirEnv, logDir)
+	t.Setenv(fullContentLogMaxMBEnv, "7")
+	t.Setenv(fullContentLogMaxFilesEnv, "3")
+
+	first := getFullContentLogWriter()
+	second := getFullContentLogWriter()
+
+	assert.Same(t, first, second)
+	assert.Equal(t, logDir, first.dir)
+	assert.Equal(t, int64(7<<20), first.maxBytes)
+	assert.Equal(t, 3, first.maxFiles)
+}
+
+func TestFullContentWriterRotationKeepsConfiguredFileLimit(t *testing.T) {
+	writer := &fullContentFileWriter{
+		dir:      t.TempDir(),
+		maxBytes: 1,
+		maxFiles: 2,
+	}
+
+	for sequence := int64(1); sequence <= 4; sequence++ {
+		require.NoError(t, writer.write(fullContentLogEntry{
+			Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
+			RequestID: "rotation-test",
+			Phase:     "response_chunk",
+			Sequence:  sequence,
+			Body:      "x",
+		}))
+	}
+
+	files, err := filepath.Glob(filepath.Join(writer.dir, "full-content-*.jsonl"))
+	require.NoError(t, err)
+	assert.Len(t, files, 2)
 }
 
 func TestEncodeFullContentLogBodyUsesBase64ForBinaryData(t *testing.T) {

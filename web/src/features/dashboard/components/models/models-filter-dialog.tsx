@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { Filter, RotateCcw, Calendar, Search } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 import { DateTimePicker } from '@/components/datetime-picker'
 import { Dialog } from '@/components/dialog'
@@ -41,6 +42,8 @@ import {
 import {
   buildDefaultDashboardFilters,
   cleanFilters,
+  getDefaultDays,
+  isQuotaRangeSupported,
 } from '@/features/dashboard/lib'
 import type {
   DashboardChartPreferences,
@@ -124,6 +127,21 @@ export function ModelsFilter(props: ModelsFilterProps) {
   }
 
   const handleApply = () => {
+    const granularity = filters.time_granularity ?? 'hour'
+    if (
+      !isQuotaRangeSupported(
+        filters.start_timestamp,
+        filters.end_timestamp,
+        granularity
+      )
+    ) {
+      toast.error(
+        granularity === 'minute'
+          ? t('Minute granularity is limited to the last 24 hours.')
+          : t('Invalid time range')
+      )
+      return
+    }
     props.onFilterChange(
       cleanFilters(
         filters as unknown as Record<string, unknown>
@@ -150,8 +168,9 @@ export function ModelsFilter(props: ModelsFilterProps) {
     value: Date | string | undefined
   ) => {
     setFilters((prev) => ({ ...prev, [field]: value }))
-    if (field === 'start_timestamp' || field === 'end_timestamp')
+    if (field === 'start_timestamp' || field === 'end_timestamp') {
       setSelectedRange(null)
+    }
   }
 
   const handleQuickRange = (days: number) => {
@@ -164,6 +183,22 @@ export function ModelsFilter(props: ModelsFilterProps) {
       time_granularity: granularityForRangeDays(days),
     }))
     setSelectedRange(days)
+  }
+
+  const handleGranularityChange = (granularity: TimeGranularity) => {
+    if (granularity !== 'minute') {
+      handleChange('time_granularity', granularity)
+      return
+    }
+
+    const { start, end } = getRollingDateRange(getDefaultDays(granularity))
+    setFilters((previous) => ({
+      ...previous,
+      start_timestamp: start,
+      end_timestamp: end,
+      time_granularity: granularity,
+    }))
+    setSelectedRange(null)
   }
 
   return (
@@ -257,15 +292,13 @@ export function ModelsFilter(props: ModelsFilterProps) {
           <div className='grid gap-2'>
             <Label htmlFor='time_granularity'>{t('Time Granularity')}</Label>
             <Select
-              items={[
-                ...TIME_GRANULARITY_OPTIONS.map((option) => ({
-                  value: option.value,
-                  label: t(option.label),
-                })),
-              ]}
+              items={TIME_GRANULARITY_OPTIONS.map((option) => ({
+                value: option.value,
+                label: t(option.label),
+              }))}
               value={filters.time_granularity}
               onValueChange={(value) =>
-                handleChange('time_granularity', value as TimeGranularity)
+                handleGranularityChange(value as TimeGranularity)
               }
             >
               <SelectTrigger>

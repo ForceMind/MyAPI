@@ -38,6 +38,80 @@ type QuotaDataLogParams struct {
 	NodeName  string
 }
 
+type QuotaDataGranularity string
+
+const (
+	QuotaDataGranularityMinute QuotaDataGranularity = "minute"
+	QuotaDataGranularityHour   QuotaDataGranularity = "hour"
+	QuotaDataGranularityDay    QuotaDataGranularity = "day"
+	QuotaDataGranularityWeek   QuotaDataGranularity = "week"
+)
+
+func ParseQuotaDataGranularity(value string) (QuotaDataGranularity, bool) {
+	granularity := QuotaDataGranularity(value)
+	switch granularity {
+	case QuotaDataGranularityMinute,
+		QuotaDataGranularityHour,
+		QuotaDataGranularityDay,
+		QuotaDataGranularityWeek:
+		return granularity, true
+	default:
+		return "", false
+	}
+}
+
+func (granularity QuotaDataGranularity) BucketSeconds() int64 {
+	switch granularity {
+	case QuotaDataGranularityMinute:
+		return 60
+	case QuotaDataGranularityDay:
+		return 86400
+	case QuotaDataGranularityWeek:
+		return 604800
+	default:
+		return 3600
+	}
+}
+
+// QuotaDataBucketStart returns the UTC timestamp of the bucket boundary for a
+// fixed timezone offset. The offset uses the same convention as the dashboard
+// API: minutes east of UTC (for example, Asia/Shanghai is +480).
+func QuotaDataBucketStart(
+	timestamp int64,
+	granularity QuotaDataGranularity,
+	timezoneOffsetMinutes int,
+) int64 {
+	weekAnchorSeconds := int64(0)
+	if granularity == QuotaDataGranularityWeek {
+		// 1970-01-05 00:00:00 UTC was the first Monday after Unix epoch.
+		weekAnchorSeconds = 4 * 86400
+	}
+	timezoneOffsetSeconds := int64(timezoneOffsetMinutes) * 60
+	remainder := (timestamp + timezoneOffsetSeconds - weekAnchorSeconds) % granularity.BucketSeconds()
+	if remainder < 0 {
+		remainder += granularity.BucketSeconds()
+	}
+	return timestamp - remainder
+}
+
+func quotaDataBucketExpression(granularity QuotaDataGranularity, timezoneOffsetMinutes int) string {
+	weekAnchorSeconds := int64(0)
+	if granularity == QuotaDataGranularityWeek {
+		// Unix epoch began on Thursday. Anchoring at the following Monday
+		// keeps weekly buckets aligned to Monday in the requested timezone.
+		weekAnchorSeconds = 4 * 86400
+	}
+	timezoneOffsetSeconds := int64(timezoneOffsetMinutes) * 60
+	return fmt.Sprintf(
+		"(created_at - ((((created_at + %d - %d) %% %d) + %d) %% %d))",
+		timezoneOffsetSeconds,
+		weekAnchorSeconds,
+		granularity.BucketSeconds(),
+		granularity.BucketSeconds(),
+		granularity.BucketSeconds(),
+	)
+}
+
 func UpdateQuotaData() {
 	for {
 		if common.DataExportEnabled {
@@ -76,8 +150,9 @@ func logQuotaDataCache(quotaData *QuotaData) {
 }
 
 func LogQuotaData(params QuotaDataLogParams) {
-	// 只精确到小时
-	createdAt := params.CreatedAt - (params.CreatedAt % 3600)
+	// Keep minute-level source data. Query endpoints aggregate these rows into
+	// minute, hour, day, or week buckets as requested by the dashboard.
+	createdAt := params.CreatedAt - (params.CreatedAt % 60)
 	quotaData := &QuotaData{
 		UserID:    params.UserID,
 		Username:  params.Username,
@@ -139,45 +214,125 @@ func increaseQuotaData(quotaData *QuotaData) {
 }
 
 func GetQuotaDataByUsername(username string, startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
+	return GetQuotaDataByUsernameWithGranularity(
+		username,
+		startTime,
+		endTime,
+		QuotaDataGranularityHour,
+		0,
+	)
+}
+
+func GetQuotaDataByUsernameWithGranularity(
+	username string,
+	startTime int64,
+	endTime int64,
+	granularity QuotaDataGranularity,
+	timezoneOffsetMinutes int,
+) (quotaData []*QuotaData, err error) {
 	var quotaDatas []*QuotaData
+	bucketExpression := quotaDataBucketExpression(granularity, timezoneOffsetMinutes)
 	// 从quota_data表中查询数据
 	err = DB.Table("quota_data").
-		Select("user_id, username, model_name, created_at, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used").
+		Select(fmt.Sprintf("user_id, username, model_name, %s as created_at, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used", bucketExpression)).
 		Where("username = ? and created_at >= ? and created_at <= ?", username, startTime, endTime).
-		Group("user_id, username, model_name, created_at").
+		Group(fmt.Sprintf("user_id, username, model_name, %s", bucketExpression)).
+		Order("created_at ASC, model_name ASC").
 		Find(&quotaDatas).Error
 	return quotaDatas, err
 }
 
 func GetQuotaDataByUserId(userId int, startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
+	return GetQuotaDataByUserIdWithGranularity(
+		userId,
+		startTime,
+		endTime,
+		QuotaDataGranularityHour,
+		0,
+	)
+}
+
+func GetQuotaDataByUserIdWithGranularity(
+	userId int,
+	startTime int64,
+	endTime int64,
+	granularity QuotaDataGranularity,
+	timezoneOffsetMinutes int,
+) (quotaData []*QuotaData, err error) {
 	var quotaDatas []*QuotaData
+	bucketExpression := quotaDataBucketExpression(granularity, timezoneOffsetMinutes)
 	// 从quota_data表中查询数据
 	err = DB.Table("quota_data").
-		Select("user_id, username, model_name, created_at, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used").
+		Select(fmt.Sprintf("user_id, username, model_name, %s as created_at, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used", bucketExpression)).
 		Where("user_id = ? and created_at >= ? and created_at <= ?", userId, startTime, endTime).
-		Group("user_id, username, model_name, created_at").
+		Group(fmt.Sprintf("user_id, username, model_name, %s", bucketExpression)).
+		Order("created_at ASC, model_name ASC").
 		Find(&quotaDatas).Error
 	return quotaDatas, err
 }
 
 func GetQuotaDataGroupByUser(startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
+	return GetQuotaDataGroupByUserWithGranularity(
+		startTime,
+		endTime,
+		QuotaDataGranularityHour,
+		0,
+	)
+}
+
+func GetQuotaDataGroupByUserWithGranularity(
+	startTime int64,
+	endTime int64,
+	granularity QuotaDataGranularity,
+	timezoneOffsetMinutes int,
+) (quotaData []*QuotaData, err error) {
 	var quotaDatas []*QuotaData
+	bucketExpression := quotaDataBucketExpression(granularity, timezoneOffsetMinutes)
 	err = DB.Table("quota_data").
-		Select("username, created_at, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used").
+		Select(fmt.Sprintf("username, %s as created_at, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used", bucketExpression)).
 		Where("created_at >= ? and created_at <= ?", startTime, endTime).
-		Group("username, created_at").
+		Group(fmt.Sprintf("username, %s", bucketExpression)).
+		Order("created_at ASC, username ASC").
 		Find(&quotaDatas).Error
 	return quotaDatas, err
 }
 
 func GetAllQuotaDates(startTime int64, endTime int64, username string) (quotaData []*QuotaData, err error) {
+	return GetAllQuotaDatesWithGranularity(
+		startTime,
+		endTime,
+		username,
+		QuotaDataGranularityHour,
+		0,
+	)
+}
+
+func GetAllQuotaDatesWithGranularity(
+	startTime int64,
+	endTime int64,
+	username string,
+	granularity QuotaDataGranularity,
+	timezoneOffsetMinutes int,
+) (quotaData []*QuotaData, err error) {
 	if username != "" {
-		return GetQuotaDataByUsername(username, startTime, endTime)
+		return GetQuotaDataByUsernameWithGranularity(
+			username,
+			startTime,
+			endTime,
+			granularity,
+			timezoneOffsetMinutes,
+		)
 	}
 	var quotaDatas []*QuotaData
+	bucketExpression := quotaDataBucketExpression(granularity, timezoneOffsetMinutes)
 	// 从quota_data表中查询数据
 	// only select model_name, sum(count) as count, sum(quota) as quota, model_name, created_at from quota_data group by model_name, created_at;
 	//err = DB.Table("quota_data").Where("created_at >= ? and created_at <= ?", startTime, endTime).Find(&quotaDatas).Error
-	err = DB.Table("quota_data").Select("model_name, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used, created_at").Where("created_at >= ? and created_at <= ?", startTime, endTime).Group("model_name, created_at").Find(&quotaDatas).Error
+	err = DB.Table("quota_data").
+		Select(fmt.Sprintf("model_name, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used, %s as created_at", bucketExpression)).
+		Where("created_at >= ? and created_at <= ?", startTime, endTime).
+		Group(fmt.Sprintf("model_name, %s", bucketExpression)).
+		Order("created_at ASC, model_name ASC").
+		Find(&quotaDatas).Error
 	return quotaDatas, err
 }

@@ -28,7 +28,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
-  INTERFACE_LANGUAGE_OPTIONS,
+  AVAILABLE_INTERFACE_LANGUAGE_OPTIONS,
   normalizeInterfaceLanguage,
 } from '@/i18n/languages'
 import { api } from '@/lib/api'
@@ -62,7 +62,7 @@ export function LanguageSwitcher() {
         <span className='sr-only'>{t('Change language')}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end'>
-        {INTERFACE_LANGUAGE_OPTIONS.map((lang) => (
+        {AVAILABLE_INTERFACE_LANGUAGE_OPTIONS.map((lang) => (
           <DropdownMenuItem
             key={lang.code}
             onClick={() => handleChangeLanguage(lang.code)}

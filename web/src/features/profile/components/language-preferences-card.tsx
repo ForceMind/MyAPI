@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/select'
 import { TitledCard } from '@/components/ui/titled-card'
 import {
-  INTERFACE_LANGUAGE_OPTIONS,
+  AVAILABLE_INTERFACE_LANGUAGE_OPTIONS,
   normalizeInterfaceLanguage,
 } from '@/i18n/languages'
 import { useAuthStore } from '@/stores/auth-store'
@@ -121,7 +121,7 @@ export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
         </div>
         <div className='flex items-center gap-2 sm:min-w-48'>
           <Select
-            items={INTERFACE_LANGUAGE_OPTIONS.map((language) => ({
+            items={AVAILABLE_INTERFACE_LANGUAGE_OPTIONS.map((language) => ({
               value: language.code,
               label: language.label,
             }))}
@@ -134,7 +134,7 @@ export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
             </SelectTrigger>
             <SelectContent alignItemWithTrigger={false}>
               <SelectGroup>
-                {INTERFACE_LANGUAGE_OPTIONS.map((language) => (
+                {AVAILABLE_INTERFACE_LANGUAGE_OPTIONS.map((language) => (
                   <SelectItem key={language.code} value={language.code}>
                     {language.label}
                   </SelectItem>

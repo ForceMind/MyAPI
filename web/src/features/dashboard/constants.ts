@@ -23,6 +23,14 @@ export const DASHBOARD_CHART_PREFERENCES_STORAGE_KEY =
   'dashboard_models_chart_preferences'
 export const DEFAULT_TIME_GRANULARITY = 'hour' as const
 export const MAX_CHART_TREND_POINTS = 7
+export const MAX_QUOTA_DATA_BUCKETS = 1500
+
+export const TIME_GRANULARITY_SECONDS = {
+  minute: 60,
+  hour: 3600,
+  day: 86400,
+  week: 604800,
+} as const
 
 export const DEFAULT_DASHBOARD_CHART_PREFERENCES: DashboardChartPreferences = {
   consumptionDistributionChart: 'bar',
@@ -32,12 +40,14 @@ export const DEFAULT_DASHBOARD_CHART_PREFERENCES: DashboardChartPreferences = {
 }
 
 export const TIME_RANGE_BY_GRANULARITY = {
+  minute: 1,
   hour: 1,
   day: 7,
   week: 30,
 } as const
 
 export const TIME_GRANULARITY_OPTIONS = [
+  { label: 'Minute', value: 'minute' },
   { label: 'Hour', value: 'hour' },
   { label: 'Day', value: 'day' },
   { label: 'Week', value: 'week' },

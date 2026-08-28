@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
+
 const legacyOrigin = 'https://legacy-route.invalid'
 
 const legacyConsoleRoutes: Record<string, string> = {
@@ -55,7 +57,26 @@ function normalizeLegacyPath(pathname: string): string {
 }
 
 function buildTargetHref(targetPath: string, source: URL): string {
-  const target = new URL(targetPath, legacyOrigin)
+  let availableTargetPath = targetPath
+  if (SELF_USE_MINIMAL) {
+    const removedPrefixes = [
+      '/wallet',
+      '/subscriptions',
+      '/redemption-codes',
+      '/users',
+      '/chat',
+      '/system-settings/content',
+    ]
+    if (
+      removedPrefixes.some(
+        (prefix) => targetPath === prefix || targetPath.startsWith(`${prefix}/`)
+      )
+    ) {
+      availableTargetPath = '/dashboard'
+    }
+  }
+
+  const target = new URL(availableTargetPath, legacyOrigin)
   source.searchParams.forEach((value, key) => {
     target.searchParams.append(key, value)
   })

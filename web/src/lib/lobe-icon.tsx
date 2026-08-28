@@ -16,16 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-/**
- * LobeHub Icon Loader
- * Dynamically load and render icons from @lobehub/icons
- *
- * Supports:
- * - Basic: "OpenAI", "OpenAI.Color"
- * - Chained properties: "OpenAI.Avatar.type={'platform'}"
- * - Size parameter: getLobeIcon("OpenAI", 20)
- */
-import * as LobeIcons from '@lobehub/icons'
 import type React from 'react'
 
 import { IconSub2api } from '@/assets/custom/icon-sub2api'
@@ -34,43 +24,18 @@ const CUSTOM_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
   Sub2API: IconSub2api,
 }
 
-/**
- * Parse a property value from string to appropriate type
- * @param raw - Raw string value
- * @returns Parsed value (boolean, number, or string)
- */
-function parseValue(raw: string | undefined | null): string | number | boolean {
-  if (raw == null) return true
-
-  let v = String(raw).trim()
-
-  // Remove curly braces
-  if (v.startsWith('{') && v.endsWith('}')) {
-    v = v.slice(1, -1).trim()
-  }
-
-  // Remove quotes
-  if (
-    (v.startsWith('"') && v.endsWith('"')) ||
-    (v.startsWith("'") && v.endsWith("'"))
-  ) {
-    return v.slice(1, -1)
-  }
-
-  // Boolean
-  if (v === 'true') return true
-  if (v === 'false') return false
-
-  // Number
-  if (/^-?\d+(?:\.\d+)?$/.test(v)) return Number(v)
-
-  // Return as string
-  return v
+function getFallbackLabel(iconName: string): string {
+  const baseName = iconName.split('.')[0]?.trim()
+  return baseName?.charAt(0).toUpperCase() || '?'
 }
 
 /**
- * Get LobeHub icon component by name
- * @param iconName - Icon name/description (e.g., "OpenAI", "OpenAI.Color", "Claude.Avatar")
+ * Render a compact provider marker without loading a full third-party icon UI
+ * system. Existing icon descriptor strings remain accepted so stored model and
+ * vendor metadata stays compatible; custom project icons are preserved and all
+ * other providers use a deterministic initial fallback.
+ *
+ * @param iconName - Existing icon descriptor (e.g. "OpenAI.Color")
  * @param size - Icon size (default: 20)
  * @returns Icon component or fallback
  *
@@ -106,70 +71,20 @@ export function getLobeIcon(
     )
   }
 
-  // Parse component path and chained properties
-  const segments = trimmedName.split('.')
-  const baseKey = segments[0]
+  const baseKey = trimmedName.split('.')[0]
   const CustomIcon = CUSTOM_ICONS[baseKey]
   if (CustomIcon) {
     return <CustomIcon size={size} />
   }
-  const BaseIcon = (LobeIcons as Record<string, unknown>)[baseKey] as
-    | Record<string, unknown>
-    | undefined
 
-  let IconComponent: React.ComponentType<Record<string, unknown>> | undefined
-  let propStartIndex: number
-
-  if (BaseIcon && segments.length > 1 && BaseIcon[segments[1]]) {
-    IconComponent = BaseIcon[segments[1]] as React.ComponentType<
-      Record<string, unknown>
+  return (
+    <div
+      aria-label={baseKey}
+      title={baseKey}
+      className='bg-muted text-muted-foreground flex items-center justify-center rounded-full text-xs font-medium'
+      style={{ width: size, height: size }}
     >
-    propStartIndex = 2
-  } else {
-    IconComponent = (LobeIcons as Record<string, unknown>)[baseKey] as
-      | React.ComponentType<Record<string, unknown>>
-      | undefined
-    propStartIndex = segments.length > 1 && /^[A-Z]/.test(segments[1]) ? 2 : 1
-  }
-
-  // Fallback if icon not found
-  if (
-    !IconComponent ||
-    (typeof IconComponent !== 'function' && typeof IconComponent !== 'object')
-  ) {
-    const firstLetter = trimmedName.charAt(0).toUpperCase()
-    return (
-      <div
-        className='bg-muted text-muted-foreground flex items-center justify-center rounded-full text-xs font-medium'
-        style={{ width: size, height: size }}
-      >
-        {firstLetter}
-      </div>
-    )
-  }
-
-  // Parse chained properties (e.g., "type={'platform'}", "shape='square'")
-  const props: Record<string, string | number | boolean> = {}
-
-  for (let i = propStartIndex; i < segments.length; i++) {
-    const seg = segments[i]
-    if (!seg) continue
-
-    const eqIdx = seg.indexOf('=')
-    if (eqIdx === -1) {
-      props[seg.trim()] = true
-      continue
-    }
-
-    const key = seg.slice(0, eqIdx).trim()
-    const valRaw = seg.slice(eqIdx + 1).trim()
-    props[key] = parseValue(valRaw)
-  }
-
-  // Set size if not explicitly specified in the string
-  if (props.size == null && size != null) {
-    props.size = size
-  }
-
-  return <IconComponent {...props} />
+      {getFallbackLabel(trimmedName)}
+    </div>
+  )
 }
