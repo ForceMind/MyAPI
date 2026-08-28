@@ -123,6 +123,8 @@ test('init copies source without runtime data and configure protects secrets', (
   const envPath = path.join(project, 'deploy/.env')
   const env = readFileSync(envPath, 'utf8')
   assert.match(env, /^NEW_API_PUBLIC_URL=https:\/\/myapi\.example\.test$/m)
+  assert.match(env, /^MYAPI_BRAND_NAME=MyAPI$/m)
+  assert.match(env, /^MYAPI_BRAND_LOGO=\/myapi-logo-v1\.png$/m)
   assert.match(env, /^SESSION_SECRET=[a-f0-9]{64}$/m)
   assert.equal(statSync(envPath).mode & 0o777, 0o600)
 })

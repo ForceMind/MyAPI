@@ -371,9 +371,20 @@ function deploymentCommand(command, args) {
   const values = parseEnvFile(paths.envFile)
 
   if (command === 'build') {
-    run('docker', ['build', '-t', values.NEW_API_IMAGE || 'local/new-api:custom-rc25', '.'], {
-      cwd: paths.projectRoot,
-    })
+    run(
+      'docker',
+      [
+        'build',
+        '--build-arg',
+        `MYAPI_BRAND_NAME=${values.MYAPI_BRAND_NAME || 'MyAPI'}`,
+        '--build-arg',
+        `MYAPI_BRAND_LOGO=${values.MYAPI_BRAND_LOGO || '/myapi-logo-v1.png'}`,
+        '-t',
+        values.NEW_API_IMAGE || 'local/new-api:custom-rc25',
+        '.',
+      ],
+      { cwd: paths.projectRoot }
+    )
     return
   }
 

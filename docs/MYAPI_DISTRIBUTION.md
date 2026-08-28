@@ -93,6 +93,8 @@ npx @forcemind/myapi up --project-dir ./myapi-source
 
 `myapi up` 会先检查：公网地址必须是非占位的 HTTPS origin、会话密钥长度至少
 48 字符、端口合法且 `docker compose config --quiet` 通过。检查失败时不会启动。
+`myapi build` 会从 `deploy/.env` 读取 `MYAPI_BRAND_NAME` 和 `MYAPI_BRAND_LOGO`
+并传给 Docker 构建参数。
 
 ### 接管已有数据
 
