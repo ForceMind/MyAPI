@@ -1,0 +1,32 @@
+diff --git a/relay/channel/codex/adaptor.go b/relay/channel/codex/adaptor.go
+index 46a5f3b..0bd6823 100644
+--- a/relay/channel/codex/adaptor.go
++++ b/relay/channel/codex/adaptor.go
+@@ -104,6 +104,7 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommon
+ 	// rm max_output_tokens
+ 	request.MaxOutputTokens = nil
+ 	request.Temperature = nil
++	request.TopP = nil
+ 	request.FrequencyPenalty = nil
+ 	request.PresencePenalty = nil
+ 	return request, nil
+diff --git a/relay/channel/codex/adaptor_test.go b/relay/channel/codex/adaptor_test.go
+index 2c4add2..5109ffd 100644
+--- a/relay/channel/codex/adaptor_test.go
++++ b/relay/channel/codex/adaptor_test.go
+@@ -42,6 +42,7 @@ func TestConvertOpenAIResponsesRequestDropsPenalties(t *testing.T) {
+ 		Input:            json.RawMessage(`"hello"`),
+ 		MaxOutputTokens:  lo.ToPtr(uint(128)),
+ 		Temperature:      lo.ToPtr(1.0),
++		TopP:             lo.ToPtr(0.9),
+ 		FrequencyPenalty: json.RawMessage(`1.5`),
+ 		PresencePenalty:  json.RawMessage(`1.5`),
+ 	})
+@@ -51,6 +52,7 @@ func TestConvertOpenAIResponsesRequestDropsPenalties(t *testing.T) {
+ 	require.True(t, ok)
+ 	assert.Nil(t, request.MaxOutputTokens)
+ 	assert.Nil(t, request.Temperature)
++	assert.Nil(t, request.TopP)
+ 	assert.Nil(t, request.FrequencyPenalty)
+ 	assert.Nil(t, request.PresencePenalty)
+ }

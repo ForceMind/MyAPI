@@ -11,9 +11,10 @@
 - Chat Completions 非流式请求可以转为 Codex Responses SSE 上游请求；
 - 自动识别缺少 `Content-Type` 的 SSE；
 - 将上游流式结果缓冲为标准 Chat Completions 非流式 JSON；
-- Chat 流式请求继续返回标准 Chat delta SSE。
+- Chat 流式请求继续返回标准 Chat delta SSE；
+- 转发到 Codex 前自动移除不受支持的 `max_output_tokens`、`temperature`、`top_p`、`frequency_penalty` 和 `presence_penalty`，避免游乐场默认参数导致 400。
 
-对应历史补丁：`patches/01-codex-chat-compat.patch`。
+对应历史补丁：`patches/01-codex-chat-compat.patch` 和 `patches/05-codex-strip-unsupported-top-p.patch`。
 
 ### 2. Chat 附件兼容
 
@@ -79,9 +80,10 @@ patch -p1 < patches/01-codex-chat-compat.patch
 patch -p1 < patches/02-chat-attachment-compat.patch
 patch -p1 < patches/03-full-content-log-explorer.patch
 patch -p1 < patches/04-codex-oauth-minimal-ui.patch
+patch -p1 < patches/05-codex-strip-unsupported-top-p.patch
 ```
 
-上游文件发生变化后补丁可能产生冲突。升级 New API 时，推荐把这四个补丁作为迁移清单逐项移植，并重新运行全部测试，而不是强制应用失败的补丁。
+上游文件发生变化后补丁可能产生冲突。升级 New API 时，推荐把这五个补丁作为迁移清单逐项移植，并重新运行全部测试，而不是强制应用失败的补丁。
 
 ## 主要测试
 
