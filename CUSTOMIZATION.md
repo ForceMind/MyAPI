@@ -36,6 +36,28 @@
 
 对应补丁：`patches/03-full-content-log-explorer.patch`。
 
+### 4. Codex 网页登录
+
+- 在 Codex 渠道的“凭据”区域提供“使用 ChatGPT 登录”按钮；
+- 登录流程在浏览器完成，不需要在服务器执行 `codex login`；
+- 使用 OpenAI Codex CLI 同款 OAuth 客户端、授权端点、PKCE 和 localhost 回调；
+- 浏览器跳转到 `http://localhost:1455/auth/callback` 后，即使页面打不开，也只需复制地址栏中的完整 URL 并粘贴回对话框；
+- 新建渠道时，生成的 OAuth JSON 会自动填入 Key 字段；
+- 编辑已有渠道时，新凭据会由后端直接写入渠道，不在响应中返回完整 JSON；
+- OAuth state 与 PKCE verifier 存储在服务端 `auth_flows` 表，绑定当前管理员登录会话，10 分钟过期且只能消费一次；
+- 登录、完成和刷新接口均受管理员渠道敏感写权限保护；
+- access token、refresh token 和 OAuth JSON 不写入应用日志。
+
+### 5. 精简默认推广内容
+
+- 移除默认主页中的 Cherry Studio、CC Switch 和“更多应用”推广卡片；
+- 演示模式页脚不再内置社区、文档和相关项目导流列；
+- 默认第三方客户端一键导入列表为空；
+- 管理员仍可在系统设置中按需配置自己的页脚列和客户端入口；
+- 保留 New API、QuantumNous、AGPL 许可证、版权和项目署名。
+
+对应补丁：`patches/04-codex-oauth-minimal-ui.patch`。
+
 ## 两种使用方式
 
 ### 直接使用完整源码（推荐）
@@ -56,14 +78,15 @@ docker build -t local/new-api:custom-rc25 .
 patch -p1 < patches/01-codex-chat-compat.patch
 patch -p1 < patches/02-chat-attachment-compat.patch
 patch -p1 < patches/03-full-content-log-explorer.patch
+patch -p1 < patches/04-codex-oauth-minimal-ui.patch
 ```
 
-上游文件发生变化后补丁可能产生冲突。升级 New API 时，推荐把这三个补丁作为迁移清单逐项移植，并重新运行全部测试，而不是强制应用失败的补丁。
+上游文件发生变化后补丁可能产生冲突。升级 New API 时，推荐把这四个补丁作为迁移清单逐项移植，并重新运行全部测试，而不是强制应用失败的补丁。
 
 ## 主要测试
 
 ```bash
-go test ./middleware ./controller ./router ./relay ./relay/channel/openai ./relay/channel/codex
+go test ./service ./middleware ./controller ./model ./router ./relay ./relay/channel/openai ./relay/channel/codex
 
 cd relaykit
 GOWORK=off go test ./relayconvert/internal/oai_chat ./dto
@@ -82,3 +105,6 @@ bun run build
 - `FULL_CONTENT_LOG_MAX_FILES=0` 表示日志永久保留，磁盘占用会持续增长；
 - 日志正文仍可能包含用户输入、模型输出和附件，仅允许管理员访问；
 - 完整 API Key 不会显示在日志界面，界面只按 Key 名称和数据库 ID 分类。
+- Codex OAuth 登录只支持真实的浏览器管理员会话，不接受 PAT 代替登录会话；
+- OAuth 回调 URL 含短期授权码和 state，不要发送给其他人；
+- ChatGPT 订阅、工作区权限和数据处理规则仍由 OpenAI 账户策略决定。

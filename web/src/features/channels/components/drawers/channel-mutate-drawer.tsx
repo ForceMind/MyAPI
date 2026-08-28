@@ -27,6 +27,7 @@ import {
   ClipboardPaste,
   HelpCircle,
   KeyRound,
+  Link2,
   Loader2,
   Server,
   Sparkles,
@@ -177,6 +178,7 @@ import {
 import type { Channel } from '../../types'
 import { useChannels } from '../channels-provider'
 import { AdvancedCustomEditorDialog } from '../dialogs/advanced-custom-editor-dialog'
+import { CodexOAuthDialog } from '../dialogs/codex-oauth-dialog'
 import { FetchModelsDialog } from '../dialogs/fetch-models-dialog'
 import {
   MissingModelsConfirmationDialog,
@@ -624,6 +626,7 @@ export function ChannelMutateDrawer({
   const [fetchModelsDialogOpen, setFetchModelsDialogOpen] = useState(false)
   const [channelKey, setChannelKey] = useState<string | null>(null)
   const [isChannelKeyLoading, setIsChannelKeyLoading] = useState(false)
+  const [codexOAuthDialogOpen, setCodexOAuthDialogOpen] = useState(false)
   const [isCodexCredentialRefreshing, setIsCodexCredentialRefreshing] =
     useState(false)
   const initialModelsRef = useRef<string[]>([])
@@ -3092,6 +3095,18 @@ export function ChannelMutateDrawer({
                                       )}
                                     </div>
                                     <div className='flex flex-wrap items-center gap-2'>
+                                      <Button
+                                        type='button'
+                                        variant='default'
+                                        size='sm'
+                                        onClick={() =>
+                                          setCodexOAuthDialogOpen(true)
+                                        }
+                                        disabled={sensitiveLocked}
+                                      >
+                                        <Link2 className='mr-2 h-4 w-4' />
+                                        {t('Sign in with ChatGPT')}
+                                      </Button>
                                       {isEditing && channelId && (
                                         <Button
                                           type='button'
@@ -3124,6 +3139,27 @@ export function ChannelMutateDrawer({
                                   </Alert>
                                 </div>
                               )}
+
+                              <CodexOAuthDialog
+                                open={codexOAuthDialogOpen}
+                                onOpenChange={setCodexOAuthDialogOpen}
+                                channelId={
+                                  isEditing ? channelId || undefined : undefined
+                                }
+                                onKeyGenerated={(key) => {
+                                  form.setValue('key', key, {
+                                    shouldDirty: true,
+                                    shouldValidate: true,
+                                  })
+                                }}
+                                onCredentialSaved={() => {
+                                  if (!channelId) return
+                                  void queryClient.invalidateQueries({
+                                    queryKey:
+                                      channelsQueryKeys.detail(channelId),
+                                  })
+                                }}
+                              />
 
                               {isEditing && isMultiKeyChannel && (
                                 <FormField

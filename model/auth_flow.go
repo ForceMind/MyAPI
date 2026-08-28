@@ -20,6 +20,7 @@ const (
 	AuthFlowPurposePasskeyLogin      = "passkey_login"
 	AuthFlowPurposePasskeyRegister   = "passkey_register"
 	AuthFlowPurposePasskeyStepUp     = "passkey_step_up"
+	AuthFlowPurposeCodexOAuth        = "codex_oauth"
 	AuthFlowPurposeTelegramBind      = "telegram_bind"
 	AuthFlowPurposeTelegramAssertion = "telegram_assertion"
 	AuthFlowIntentLogin              = "login"

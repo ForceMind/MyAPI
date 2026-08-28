@@ -55,6 +55,27 @@ export type CodexUsageResponse = {
   data?: Record<string, unknown>
 }
 
+export type CodexOAuthStartResponse = {
+  success: boolean
+  message?: string
+  data?: {
+    authorize_url?: string
+  }
+}
+
+export type CodexOAuthCompleteResponse = {
+  success: boolean
+  message?: string
+  data?: {
+    key?: string
+    channel_id?: number
+    account_id?: string
+    email?: string
+    expires_at?: string
+    last_refresh?: string
+  }
+}
+
 export type CodexResetCreditsResponse = CodexUsageResponse
 
 export type CodexUsageResetResponse = CodexUsageResponse
@@ -310,6 +331,27 @@ export async function getChannelKey(
 // ============================================================================
 // Codex Channel Operations
 // ============================================================================
+
+export async function startCodexOAuth(
+  channelId?: number
+): Promise<CodexOAuthStartResponse> {
+  const path = channelId
+    ? `/api/channel/${channelId}/codex/oauth/start`
+    : '/api/channel/codex/oauth/start'
+  const res = await api.post(path, {}, channelActionConfig())
+  return res.data
+}
+
+export async function completeCodexOAuth(
+  input: string,
+  channelId?: number
+): Promise<CodexOAuthCompleteResponse> {
+  const path = channelId
+    ? `/api/channel/${channelId}/codex/oauth/complete`
+    : '/api/channel/codex/oauth/complete'
+  const res = await api.post(path, { input }, channelActionConfig())
+  return res.data
+}
 
 export async function refreshCodexCredential(
   channelId: number
