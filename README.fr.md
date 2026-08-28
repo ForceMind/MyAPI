@@ -53,6 +53,27 @@
 
 </div>
 
+## Distribution auto-hébergée MyAPI
+
+<img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
+
+Ce dépôt fournit également le CLI d'auto-hébergement **MyAPI** et une
+distribution complète du code source. MyAPI est le nom de distribution de cette
+version personnalisée basée sur New API `v1.0.0-rc.25` ; les mentions originales
+New API, QuantumNous, AGPL, NOTICE, l'attribution de la page About et les liens
+du projet restent conservés.
+
+```bash
+npx @forcemind/myapi init ./myapi-source
+npx @forcemind/myapi configure \
+  --project-dir ./myapi-source \
+  --public-url https://api.your-domain.com
+npx @forcemind/myapi doctor --project-dir ./myapi-source
+```
+
+Consultez le [guide de distribution MyAPI](./docs/MYAPI_DISTRIBUTION.md) pour le
+déploiement, l'adoption des données, la validation et la publication.
+
 ## 📝 Description du projet
 
 > [!IMPORTANT]

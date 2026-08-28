@@ -1,5 +1,9 @@
 # 定制版部署说明
 
+> 本文同时适用于 **MyAPI** 自建发行版（基于 New API rc.25）。MyAPI CLI 的初始化、
+> 配置、数据接管与安全检查请参阅 [`docs/MYAPI_DISTRIBUTION.md`](docs/MYAPI_DISTRIBUTION.md)。
+> 文中的历史目录名和环境变量保持兼容，以便接管已有部署。
+
 ## 环境要求
 
 - Linux；
@@ -21,6 +25,8 @@ cp deploy/.env.example deploy/.env
 - 设置随机的 `SESSION_SECRET`；
 - 将 `NEW_API_PUBLIC_URL` 改为实际 HTTPS 域名；
 - 如需修改宿主机端口，修改 `NEW_API_PORT`。
+- `MYAPI_BRAND_NAME` 和 `MYAPI_BRAND_LOGO` 为可选的构建默认品牌，默认分别为
+  `MyAPI` 和 `/myapi-logo-v1.png`；运行时站点设置中的自定义值优先。
 
 然后执行：
 

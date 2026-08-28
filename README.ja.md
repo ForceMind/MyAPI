@@ -53,6 +53,26 @@
 
 </div>
 
+## MyAPI セルフホスト配布版
+
+<img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
+
+このリポジトリには **MyAPI** のセルフホスト CLI と完全なソース配布版も含まれます。
+MyAPI は New API `v1.0.0-rc.25` を基にしたカスタム配布名です。元の New API、
+QuantumNous、AGPL、NOTICE、About ページの帰属表示およびプロジェクトリンクは
+そのまま保持されています。
+
+```bash
+npx @forcemind/myapi init ./myapi-source
+npx @forcemind/myapi configure \
+  --project-dir ./myapi-source \
+  --public-url https://api.your-domain.com
+npx @forcemind/myapi doctor --project-dir ./myapi-source
+```
+
+デプロイ、既存データの引き継ぎ、検証、公開手順については
+[MyAPI 配布ガイド](./docs/MYAPI_DISTRIBUTION.md)を参照してください。
+
 ## 📝 プロジェクト説明
 
 > [!IMPORTANT]

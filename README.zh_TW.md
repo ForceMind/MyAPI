@@ -52,6 +52,25 @@
 
 </div>
 
+## MyAPI 自建發行版
+
+<img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
+
+本倉庫亦提供 **MyAPI** 自建 CLI 與完整原始碼發行包。MyAPI 是這個基於 New API
+`v1.0.0-rc.25` 的客製發行名稱；原 New API、QuantumNous、AGPL、NOTICE、About
+頁面署名與專案連結均予以保留。
+
+```bash
+npx @forcemind/myapi init ./myapi-source
+npx @forcemind/myapi configure \
+  --project-dir ./myapi-source \
+  --public-url https://api.your-domain.com
+npx @forcemind/myapi doctor --project-dir ./myapi-source
+```
+
+部署、既有資料接管、驗證與發布步驟請參閱
+[MyAPI 發行說明](./docs/MYAPI_DISTRIBUTION.md)。
+
 ## 📝 項目說明
 
 > [!IMPORTANT]

@@ -19,6 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+import {
+  getBuildBrandLogo,
+  getBuildBrandName,
+  resolveBrandLogo,
+  resolveBrandName,
+} from '@/lib/build-branding'
 import { DEFAULT_SYSTEM_NAME, DEFAULT_LOGO } from '@/lib/constants'
 
 export type CurrencyDisplayType = 'USD' | 'CNY' | 'TOKENS' | 'CUSTOM'
@@ -47,6 +53,33 @@ export interface SystemConfig {
   currency: CurrencyConfig
 }
 
+function mergePersistedConfig(
+  persisted: unknown,
+  current: SystemConfigState
+): SystemConfigState {
+  const saved = (persisted ?? {}) as Partial<SystemConfigState>
+  const savedConfig = saved.config
+  const currency = savedConfig?.currency
+    ? { ...current.config.currency, ...savedConfig.currency }
+    : current.config.currency
+
+  return {
+    ...current,
+    ...saved,
+    config: {
+      ...current.config,
+      ...savedConfig,
+      systemName: resolveBrandName(
+        savedConfig?.systemName,
+        DEFAULT_SYSTEM_NAME
+      ),
+      logo: resolveBrandLogo(savedConfig?.logo, DEFAULT_LOGO),
+      currency,
+    },
+    loadedLogoUrl: resolveBrandLogo(saved.loadedLogoUrl, DEFAULT_LOGO),
+  }
+}
+
 export const DEFAULT_CURRENCY_CONFIG: CurrencyConfig = {
   displayInCurrency: true,
   quotaDisplayType: 'USD',
@@ -73,12 +106,12 @@ export const useSystemConfigStore = create<SystemConfigState>()(
   persist(
     (set) => ({
       config: {
-        systemName: DEFAULT_SYSTEM_NAME,
-        logo: DEFAULT_LOGO,
+        systemName: getBuildBrandName(DEFAULT_SYSTEM_NAME),
+        logo: getBuildBrandLogo(DEFAULT_LOGO),
         currency: { ...DEFAULT_CURRENCY_CONFIG },
       },
       loading: true,
-      loadedLogoUrl: DEFAULT_LOGO,
+      loadedLogoUrl: getBuildBrandLogo(DEFAULT_LOGO),
       setConfig: (newConfig) =>
         set((state) => ({
           config: {
@@ -95,6 +128,7 @@ export const useSystemConfigStore = create<SystemConfigState>()(
     }),
     {
       name: 'system-config-storage',
+      merge: mergePersistedConfig,
       partialize: (state) => ({
         config: state.config,
         loadedLogoUrl: state.loadedLogoUrl,

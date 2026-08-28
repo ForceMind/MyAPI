@@ -5,8 +5,12 @@ COPY web/package.json web/bun.lock ./
 RUN bun install --frozen-lockfile
 COPY ./web ./
 COPY ./VERSION /build/VERSION
+ARG MYAPI_BRAND_NAME=MyAPI
+ARG MYAPI_BRAND_LOGO=/myapi-logo-v1.png
 RUN DISABLE_ESLINT_PLUGIN='true' \
     VITE_SELF_USE_MINIMAL='true' \
+    VITE_BRAND_NAME="${MYAPI_BRAND_NAME}" \
+    VITE_BRAND_LOGO="${MYAPI_BRAND_LOGO}" \
     VITE_REACT_APP_VERSION=$(cat /build/VERSION) \
     bun run build
 

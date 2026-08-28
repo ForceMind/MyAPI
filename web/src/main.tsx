@@ -29,7 +29,14 @@ import ReactDOM from 'react-dom/client'
 import { toast } from 'sonner'
 
 import { getStatus } from '@/lib/api'
+import {
+  getBuildBrandLogo,
+  getBuildBrandName,
+  resolveBrandLogo,
+  resolveBrandName,
+} from '@/lib/build-branding'
 import { installBuildMetadata } from '@/lib/build-metadata'
+import { DEFAULT_LOGO, DEFAULT_SYSTEM_NAME } from '@/lib/constants'
 import { applyFaviconToDom } from '@/lib/dom-utils'
 import '@/lib/dayjs'
 import { initializeFrontendCache } from '@/lib/frontend-cache'
@@ -125,13 +132,23 @@ if (!rootElement) {
       ) as HTMLMetaElement | null
       if (metaTitle) metaTitle.setAttribute('content', name)
     }
+    // Apply the optional distribution brand immediately. A saved administrator
+    // name/logo overrides it; an untouched upstream default is treated as
+    // unset for the distribution. With no build-time values, the original
+    // defaults remain unchanged.
+    apply(getBuildBrandName(DEFAULT_SYSTEM_NAME))
+    applyFaviconToDom(getBuildBrandLogo(DEFAULT_LOGO))
     // Cache-first
     try {
       const saved = localStorage.getItem('status')
       if (saved) {
         const s = JSON.parse(saved)
-        if (s?.system_name) apply(s.system_name)
-        if (s?.logo) applyFaviconToDom(s.logo)
+        if (s?.system_name) {
+          apply(resolveBrandName(s.system_name, DEFAULT_SYSTEM_NAME))
+        }
+        if (s?.logo) {
+          applyFaviconToDom(resolveBrandLogo(s.logo, DEFAULT_LOGO))
+        }
       }
     } catch {
       /* empty */
@@ -140,14 +157,16 @@ if (!rootElement) {
     getStatus()
       .then((s) => {
         if (s?.system_name) {
-          apply(s.system_name as string)
+          apply(resolveBrandName(s.system_name, DEFAULT_SYSTEM_NAME))
           try {
             localStorage.setItem('status', JSON.stringify(s))
           } catch {
             /* empty */
           }
         }
-        if (s?.logo) applyFaviconToDom(s.logo as string)
+        if (s?.logo) {
+          applyFaviconToDom(resolveBrandLogo(s.logo, DEFAULT_LOGO))
+        }
       })
       .catch(() => {
         /* empty */

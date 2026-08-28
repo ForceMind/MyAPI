@@ -29,6 +29,9 @@ fi
 mkdir -p "$script_dir/data" "$script_dir/logs"
 
 cd "$repo_dir"
-docker build -t "${NEW_API_IMAGE:-local/new-api:custom-rc25}" .
+docker build \
+  --build-arg "MYAPI_BRAND_NAME=${MYAPI_BRAND_NAME:-MyAPI}" \
+  --build-arg "MYAPI_BRAND_LOGO=${MYAPI_BRAND_LOGO:-/myapi-logo-v1.png}" \
+  -t "${NEW_API_IMAGE:-local/new-api:custom-rc25}" .
 docker compose --env-file "$env_file" -f "$script_dir/docker-compose.yml" up -d --force-recreate
 docker compose --env-file "$env_file" -f "$script_dir/docker-compose.yml" ps

@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { getBuildBrandLogo, getBuildBrandName } from '@/lib/build-branding'
 
 import { FormDirtyIndicator } from '../components/form-dirty-indicator'
 import { FormNavigationGuard } from '../components/form-navigation-guard'
@@ -145,7 +146,10 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                   <FormItem>
                     <FormLabel>{t('System Name')}</FormLabel>
                     <FormControl>
-                      <Input placeholder={t('New API')} {...field} />
+                      <Input
+                        placeholder={getBuildBrandName(t('New API'))}
+                        {...field}
+                      />
                     </FormControl>
                     <FormDescription>
                       {t('The name displayed across the application')}
@@ -182,7 +186,9 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                     <FormLabel>{t('Logo URL')}</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder={t('https://example.com/logo.png')}
+                        placeholder={getBuildBrandLogo(
+                          t('https://example.com/logo.png')
+                        )}
                         {...field}
                       />
                     </FormControl>
