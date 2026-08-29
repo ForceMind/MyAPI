@@ -61,6 +61,7 @@ import {
   useApiInfo,
   useDashboardContentVisibility,
 } from '../../hooks/use-status-data'
+import { resolveSetupGuideExpanded } from '../../lib/setup-guide'
 import { AnnouncementsPanel } from './announcements-panel'
 import { ApiInfoPanel } from './api-info-panel'
 import { FAQPanel } from './faq-panel'
@@ -633,12 +634,11 @@ export function OverviewDashboard() {
   const completedStepCount = startSteps.filter((step) => step.completed).length
   const setupComplete = completedStepCount === startSteps.length
   const setupStatusReady = apiKeysQuery.isFetched && Boolean(user)
-  // Completion is terminal for the current guide version: a stale persisted
-  // expanded flag must never resurrect the guide after every step is done.
-  const setupGuideExpanded =
-    setupStatusReady &&
-    !setupComplete &&
-    (manualSetupGuideExpanded ?? true)
+  const setupGuideExpanded = resolveSetupGuideExpanded(
+    setupStatusReady,
+    setupComplete,
+    manualSetupGuideExpanded
+  )
   const showLeftContentPanels =
     isAdmin || showApiInfoPanel || showAnnouncementsPanel || showFAQPanel
   const showContentPanels = showLeftContentPanels || showUptimePanel
