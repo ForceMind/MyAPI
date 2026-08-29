@@ -824,6 +824,43 @@ function normalizeReleaseVersion(value) {
   return tag
 }
 
+function shouldVerifyImageSignature(args, values) {
+  return args.includes('--verify-signature') || values.MYAPI_VERIFY_IMAGE_SIGNATURE === 'true'
+}
+
+function verifyImageSignature(image, values) {
+  const identity = values.MYAPI_COSIGN_CERTIFICATE_IDENTITY || ''
+  const issuer = values.MYAPI_COSIGN_CERTIFICATE_OIDC_ISSUER || 'https://token.actions.githubusercontent.com'
+  if (!identity) {
+    throw new Error(
+      'signature verification requires MYAPI_COSIGN_CERTIFICATE_IDENTITY in deploy/.env'
+    )
+  }
+  let result
+  try {
+    result = run(
+      'cosign',
+      [
+        'verify',
+        '--certificate-identity',
+        identity,
+        '--certificate-oidc-issuer',
+        issuer,
+        image,
+      ],
+      { cwd: packageRoot, capture: true }
+    )
+  } catch (error) {
+    throw new Error(`signature verification could not run cosign: ${error.message}`)
+  }
+  if (result.error) {
+    throw new Error(`signature verification could not run cosign: ${result.error.message}`)
+  }
+  if (result.status !== 0) {
+    throw new Error('signature verification failed; deployment was not changed')
+  }
+}
+
 function upgradeDeployment(args) {
   const paths = deploymentPaths(projectRootFromArgs(args))
   assertDeploymentSource(paths)
@@ -835,6 +872,7 @@ function upgradeDeployment(args) {
   const values = parseEnvFileContents(originalContents)
   const edition = values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION
   const image = `${imageRepositoryForEdition(edition)}:${version}`
+  if (shouldVerifyImageSignature(args, values)) verifyImageSignature(image, values)
   const backupDir = path.join(paths.projectRoot, 'backups')
   const backupPath = path.join(
     backupDir,
@@ -907,7 +945,7 @@ Usage:
   myapi configure [--project-dir DIR] [--public-url URL] [--data-dir DIR] [--logs-dir DIR]
   myapi migrate [--project-dir DIR]
   myapi doctor [--project-dir DIR]
-  myapi upgrade --version VERSION [--project-dir DIR]
+  myapi upgrade --version VERSION [--project-dir DIR] [--verify-signature]
   myapi adopt --project-dir DIR --data-dir DIR --logs-dir DIR
   myapi lan init [directory] [--bind-address ADDRESS] [--port PORT] [--allow-lan]
   myapi lan start|status|stop --project-dir DIR [--bind-address ADDRESS] [--port PORT] [--allow-lan]
@@ -947,7 +985,10 @@ try {
     validateArguments(args, { values: ['--project-dir'] })
     doctor(args)
   } else if (command === 'upgrade') {
-    validateArguments(args, { values: ['--project-dir', '--version'] })
+    validateArguments(args, {
+      values: ['--project-dir', '--version'],
+      flags: ['--verify-signature'],
+    })
     upgradeDeployment(args)
   } else if (command === 'adopt') {
     validateArguments(args, {

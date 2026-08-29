@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"time"
 
 	"gorm.io/gorm"
@@ -12,7 +13,7 @@ import (
 type ChannelQuotaSnapshot struct {
 	Id           int       `json:"id" gorm:"primaryKey"`
 	ChannelId    int       `json:"channel_id" gorm:"index:idx_channel_quota_observed,priority:1;index:idx_channel_quota_metric,priority:1"`
-	ObservedAt   int64     `json:"observed_at" gorm:"bigint;index:idx_channel_quota_observed,priority:2;index:idx_channel_quota_metric,priority:4"`
+	ObservedAt   int64     `json:"observed_at" gorm:"bigint;index:idx_channel_quota_observed,priority:2;index:idx_channel_quota_metric,priority:4;index:idx_channel_quota_retention"`
 	Available    float64   `json:"available"`
 	Used         *float64  `json:"used,omitempty"`
 	Total        *float64  `json:"total,omitempty"`
@@ -26,6 +27,39 @@ type ChannelQuotaSnapshot struct {
 	ErrorCode    string    `json:"error_code,omitempty" gorm:"size:64"`
 	ErrorMessage string    `json:"error_message,omitempty" gorm:"size:255"`
 	CreatedAt    time.Time `json:"created_at"`
+}
+
+// DeleteOldChannelQuotaSnapshotBatch deletes at most limit snapshots observed
+// before cutoff. IDs are selected first so the limit is honored consistently
+// across SQLite, MySQL, and PostgreSQL dialects.
+func DeleteOldChannelQuotaSnapshotBatch(ctx context.Context, cutoff int64, limit int) (int64, error) {
+	if DB == nil {
+		return 0, gorm.ErrInvalidDB
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if cutoff <= 0 {
+		return 0, nil
+	}
+	if limit <= 0 {
+		limit = 500
+	}
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	var ids []int
+	if err := DB.WithContext(ctx).Model(&ChannelQuotaSnapshot{}).
+		Where("observed_at < ?", cutoff).
+		Order("observed_at ASC, id ASC").
+		Limit(limit).Pluck("id", &ids).Error; err != nil {
+		return 0, err
+	}
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	result := DB.WithContext(ctx).Where("id IN ?", ids).Delete(&ChannelQuotaSnapshot{})
+	return result.RowsAffected, result.Error
 }
 
 func (ChannelQuotaSnapshot) TableName() string {

@@ -38,10 +38,10 @@ import type {
   ChannelQuotaHistoryPoint,
 } from '../../types'
 
-type Range = '24h' | '7d' | '30d' | '90d'
+type Range = '24h' | '7d' | '30d' | '90d' | 'custom'
 type Granularity = 'auto' | 'raw' | 'hour' | 'day' | 'week'
 
-const ranges: Range[] = ['24h', '7d', '30d', '90d']
+const ranges: Range[] = ['24h', '7d', '30d', '90d', 'custom']
 const granularities: Granularity[] = ['auto', 'raw', 'hour', 'day', 'week']
 
 function formatValue(
@@ -73,6 +73,12 @@ export function ChannelQuotaHistory({
 }) {
   const { t } = useTranslation()
   const [range, setRange] = useState<Range>('30d')
+  const [customStart, setCustomStart] = useState('')
+  const [customEnd, setCustomEnd] = useState('')
+  const [appliedCustomRange, setAppliedCustomRange] = useState<{
+    start: string
+    end: string
+  } | null>(null)
   const [granularity, setGranularity] = useState<Granularity>('auto')
   const multiKey = isMultiKeyChannel(channel)
   const timezoneOffset = -new Date().getTimezoneOffset()
@@ -81,17 +87,24 @@ export function ChannelQuotaHistory({
       'channel-quota-history',
       channel.id,
       range,
+      appliedCustomRange?.start,
+      appliedCustomRange?.end,
       granularity,
       timezoneOffset,
     ],
     queryFn: () =>
       getChannelQuotaHistory(channel.id, {
-        range,
+        ...(range === 'custom' && appliedCustomRange
+          ? {
+              start: new Date(`${appliedCustomRange.start}T00:00:00`).toISOString(),
+              end: new Date(`${appliedCustomRange.end}T23:59:59.999`).toISOString(),
+            }
+          : { range: range as Exclude<Range, 'custom'> }),
         granularity,
         timezone_offset: timezoneOffset,
         limit: 500,
       }),
-    enabled: open && !multiKey,
+    enabled: open && !multiKey && (range !== 'custom' || appliedCustomRange !== null),
     retry: false,
     staleTime: 60 * 1000,
   })
@@ -139,7 +152,7 @@ export function ChannelQuotaHistory({
                 className='h-7 shrink-0 px-2 text-xs'
                 onClick={() => setRange(item)}
               >
-                {item}
+                {item === 'custom' ? t('Custom') : item}
               </Button>
             ))}
           </div>
@@ -166,6 +179,46 @@ export function ChannelQuotaHistory({
             </Button>
           ))}
         </div>
+        {range === 'custom' && (
+          <div className='flex flex-wrap items-end gap-2 rounded-md border p-2'>
+            <label className='grid min-w-[9rem] flex-1 gap-1 text-xs'>
+              <span className='text-muted-foreground'>{t('Start')}</span>
+              <input
+                type='date'
+                value={customStart}
+                max={customEnd || undefined}
+                onChange={(event) => setCustomStart(event.target.value)}
+                className='bg-background h-8 rounded-md border px-2 text-sm'
+              />
+            </label>
+            <label className='grid min-w-[9rem] flex-1 gap-1 text-xs'>
+              <span className='text-muted-foreground'>{t('End')}</span>
+              <input
+                type='date'
+                value={customEnd}
+                min={customStart || undefined}
+                onChange={(event) => setCustomEnd(event.target.value)}
+                className='bg-background h-8 rounded-md border px-2 text-sm'
+              />
+            </label>
+            <Button
+              type='button'
+              size='sm'
+              className='h-8'
+              disabled={!customStart || !customEnd || customStart > customEnd}
+              onClick={() =>
+                setAppliedCustomRange({ start: customStart, end: customEnd })
+              }
+            >
+              {t('Apply Filters')}
+            </Button>
+            {customStart && customEnd && customStart > customEnd && (
+              <p className='basis-full text-xs text-destructive'>
+                {t('Start date must be before end date')}
+              </p>
+            )}
+          </div>
+        )}
       </CardHeader>
       <CardContent className='min-w-0 space-y-3'>
         {query.isLoading ? (

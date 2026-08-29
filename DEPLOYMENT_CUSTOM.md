@@ -96,6 +96,13 @@ https://你的域名/v1
 FULL_CONTENT_LOG_ENABLED=true
 FULL_CONTENT_LOG_MAX_MB=100
 FULL_CONTENT_LOG_MAX_FILES=10
+# Keep normalized channel quota snapshots for this many days. 0 disables
+# automatic cleanup; cleanup runs daily in bounded batches.
+CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS=0
+# Optional keyless cosign verification for `myapi upgrade` (requires cosign).
+# MYAPI_VERIFY_IMAGE_SIGNATURE=false
+# MYAPI_COSIGN_CERTIFICATE_IDENTITY=https://github.com/ForceMind/MyAPI/.github/workflows/docker-build.yml@refs/tags/v0.1.1
+# MYAPI_COSIGN_CERTIFICATE_OIDC_ISSUER=https://token.actions.githubusercontent.com
 ```
 
 同一进程内的 Relay 路由共享一个日志写入器，默认最多保留 10 个
@@ -188,6 +195,20 @@ docker image inspect "${MYAPI_IMAGE:-ghcr.io/forcemind/myapi:v0.1.1}"
 ```bash
 npx @forcemind/myapi upgrade --project-dir . --version v0.2.0
 ```
+
+GitHub Actions signs release images with keyless cosign. Operators who have
+installed `cosign` can require verification before the environment file is
+changed:
+
+```bash
+npx @forcemind/myapi upgrade --project-dir . --version v0.2.0 --verify-signature
+```
+
+Set `MYAPI_COSIGN_CERTIFICATE_IDENTITY` in `deploy/.env` to the exact trusted
+workflow identity (and optionally override
+`MYAPI_COSIGN_CERTIFICATE_OIDC_ISSUER`). Verification is opt-in; a missing
+identity, missing cosign binary, or failed signature stops the upgrade before
+any deployment state is changed.
 
 CLI 会按 `MYAPI_EDITION` 选择 `ghcr.io/forcemind/myapi` 或
 `ghcr.io/forcemind/myapi-lan`，拉取目标镜像并等待 Compose 健康检查。拉取、启动或

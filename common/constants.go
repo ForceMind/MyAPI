@@ -46,14 +46,18 @@ const (
 	DefaultUserSessionIssuanceWindowSeconds = 24 * 60 * 60
 	DefaultUserSessionRevokedRetentionDays  = 7
 	DefaultUserSessionHourlyAlertThreshold  = 5000
+	// DefaultChannelQuotaSnapshotRetentionDays disables automatic cleanup. Set
+	// CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS to a positive value to bound history.
+	DefaultChannelQuotaSnapshotRetentionDays = 0
 )
 
 var (
-	UserSessionActiveLimit           = DefaultUserSessionActiveLimit
-	UserSessionIssuanceLimit         = DefaultUserSessionIssuanceLimit
-	UserSessionIssuanceWindowSeconds = int64(DefaultUserSessionIssuanceWindowSeconds)
-	UserSessionRevokedRetentionDays  = DefaultUserSessionRevokedRetentionDays
-	UserSessionHourlyAlertThreshold  = DefaultUserSessionHourlyAlertThreshold
+	UserSessionActiveLimit            = DefaultUserSessionActiveLimit
+	UserSessionIssuanceLimit          = DefaultUserSessionIssuanceLimit
+	UserSessionIssuanceWindowSeconds  = int64(DefaultUserSessionIssuanceWindowSeconds)
+	UserSessionRevokedRetentionDays   = DefaultUserSessionRevokedRetentionDays
+	UserSessionHourlyAlertThreshold   = DefaultUserSessionHourlyAlertThreshold
+	ChannelQuotaSnapshotRetentionDays = DefaultChannelQuotaSnapshotRetentionDays
 )
 
 var OptionMap map[string]string

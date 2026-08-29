@@ -166,6 +166,21 @@ test('upgrade validates the release version before touching deployment state', (
   assert.equal(existsSync(path.join(project, 'backups')), false)
 })
 
+test('signature verification fails closed before changing deployment state', () => {
+  const root = temporaryRoot()
+  const project = path.join(root, 'source')
+  runCli('init', project)
+  runCli('configure', '--project-dir', project, '--public-url', 'https://myapi.example.test')
+
+  assert.throws(
+    () => runCli('upgrade', '--project-dir', project, '--version', 'v0.2.0', '--verify-signature'),
+    /requires MYAPI_COSIGN_CERTIFICATE_IDENTITY/
+  )
+  const env = readFileSync(path.join(project, 'deploy/.env'), 'utf8')
+  assert.match(env, /^MYAPI_IMAGE=ghcr\.io\/forcemind\/myapi:v0\.1\.1$/m)
+  assert.equal(existsSync(path.join(project, 'backups')), false)
+})
+
 test('adopt records existing absolute data paths without moving them', () => {
   const root = temporaryRoot()
   const project = path.join(root, 'source')

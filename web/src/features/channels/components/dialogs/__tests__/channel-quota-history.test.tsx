@@ -7,7 +7,7 @@ the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { getChannelQuotaHistory } from '../../../api'
@@ -120,5 +120,36 @@ describe('channel quota history', () => {
     expect(
       screen.getByText('The upstream did not return a usable quota value.')
     ).toBeInTheDocument()
+  })
+
+  test('supports an explicit custom date range', async () => {
+    vi.mocked(getChannelQuotaHistory).mockResolvedValue({
+      success: true,
+      data: {
+        channel_id: baseChannel.id,
+        start: 0,
+        end: 1,
+        limit: 500,
+        points: [],
+      },
+    })
+
+    renderQuota()
+    vi.clearAllMocks()
+    fireEvent.click(screen.getByRole('button', { name: 'Custom' }))
+    fireEvent.change(screen.getAllByLabelText('Start')[0], {
+      target: { value: '2026-08-01' },
+    })
+    fireEvent.change(screen.getAllByLabelText('End')[0], {
+      target: { value: '2026-08-15' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Apply Filters' }))
+
+    await waitFor(() => expect(getChannelQuotaHistory).toHaveBeenCalledTimes(1))
+    const params = vi.mocked(getChannelQuotaHistory).mock.calls[0]?.[1]
+    if (!params) throw new Error('custom range query was not issued')
+    expect(params.start).toBe(new Date('2026-08-01T00:00:00').toISOString())
+    expect(params.end).toBe(new Date('2026-08-15T23:59:59.999').toISOString())
+    expect(params.range).toBeUndefined()
   })
 })

@@ -65,6 +65,7 @@ func InitEnv() {
 		log.Fatal(err)
 	}
 	initUserSessionSettings()
+	ChannelQuotaSnapshotRetentionDays = channelQuotaSnapshotRetentionDaysEnv()
 	SQLitePath = ResolveSQLitePath(os.Getenv("SQLITE_PATH"))
 	if *LogDir != "" {
 		var err error
@@ -131,6 +132,18 @@ func InitEnv() {
 	SearchRateLimitNum = GetEnvOrDefault("SEARCH_RATE_LIMIT", 10)
 	SearchRateLimitDuration = int64(GetEnvOrDefault("SEARCH_RATE_LIMIT_DURATION", 60))
 	initConstantEnv()
+}
+
+// channelQuotaSnapshotRetentionDaysEnv accepts zero to explicitly disable
+// cleanup while rejecting negative values and overflow-prone durations.
+func channelQuotaSnapshotRetentionDaysEnv() int {
+	const maxRetentionDays = 36500 // 100 years; prevents duration overflow/typos
+	value := GetEnvOrDefault("CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS", DefaultChannelQuotaSnapshotRetentionDays)
+	if value < 0 || value > maxRetentionDays {
+		SysError(fmt.Sprintf("CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS must be between 0 and %d, using default value: %d", maxRetentionDays, DefaultChannelQuotaSnapshotRetentionDays))
+		return DefaultChannelQuotaSnapshotRetentionDays
+	}
+	return value
 }
 
 func initUserSessionSettings() {

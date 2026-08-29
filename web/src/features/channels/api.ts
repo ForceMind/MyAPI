@@ -261,6 +261,8 @@ export async function getChannelQuotaHistory(
   id: number,
   params: {
     range?: '24h' | '7d' | '30d' | '90d'
+    start?: string
+    end?: string
     metric_type?: string
     window_type?: string
     granularity?: 'raw' | 'hour' | 'day' | 'week' | 'auto'
