@@ -1,7 +1,4 @@
-name: Build MyAPI Docker image (manual)
-
-env:
-  IMAGE_REPOSITORY: ghcr.io/forcemind/myapi
+name: Build MyAPI release images
 
 on:
   push:
@@ -20,7 +17,7 @@ concurrency:
 
 jobs:
   build_single_arch:
-    name: Build & push (${{ matrix.arch }})
+    name: Build & push (${{ matrix.edition }}, ${{ matrix.arch }})
     strategy:
       fail-fast: false
       matrix:
@@ -28,14 +25,24 @@ jobs:
           - arch: amd64
             platform: linux/amd64
             runner: ubuntu-latest
+            edition: full
+            image_repository: ghcr.io/forcemind/myapi
           - arch: arm64
             platform: linux/arm64
             runner: ubuntu-24.04-arm
+            edition: full
+            image_repository: ghcr.io/forcemind/myapi
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+            edition: lan
+            image_repository: ghcr.io/forcemind/myapi-lan
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            edition: lan
+            image_repository: ghcr.io/forcemind/myapi-lan
     runs-on: ${{ matrix.runner }}
-    outputs:
-      tag: ${{ steps.version.outputs.tag }}
-      image_repository: ${{ steps.version.outputs.image_repository }}
-
     permissions:
       contents: read
       packages: write
@@ -53,6 +60,7 @@ jobs:
         id: version
         env:
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          IMAGE_REPOSITORY: ${{ matrix.image_repository }}
         run: |
           TAG="$RELEASE_TAG"
           if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
@@ -86,7 +94,7 @@ jobs:
           echo "image_repository=${IMAGE_REPOSITORY}" >> $GITHUB_OUTPUT
           echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
           echo "${TAG}" > VERSION
-          echo "Building MyAPI tag: ${TAG} for ${{ matrix.arch }}"
+          echo "Building MyAPI ${{ matrix.edition }} tag: ${TAG} for ${{ matrix.arch }}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
@@ -115,6 +123,10 @@ jobs:
             ${{ steps.version.outputs.image_repository }}:${{ env.TAG }}-${{ matrix.arch }}
             ${{ steps.version.outputs.latest_tag }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            MYAPI_EDITION=${{ matrix.edition }}
+            MYAPI_BRAND_NAME=MyAPI
+            MYAPI_BRAND_LOGO=/myapi-logo-v1.png
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: mode=max
@@ -135,8 +147,16 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
 
   create_manifests:
-    name: Create multi-arch manifests
+    name: Create multi-arch manifests (${{ matrix.edition }})
     needs: [build_single_arch]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - edition: full
+            image_repository: ghcr.io/forcemind/myapi
+          - edition: lan
+            image_repository: ghcr.io/forcemind/myapi-lan
     runs-on: ubuntu-latest
 
     permissions:
@@ -146,8 +166,8 @@ jobs:
     steps:
       - name: Set version
         run: |
-          echo "TAG=${{ needs.build_single_arch.outputs.tag }}" >> $GITHUB_ENV
-          echo "IMAGE_REPOSITORY=${{ needs.build_single_arch.outputs.image_repository }}" >> $GITHUB_ENV
+          echo "TAG=${{ inputs.tag || github.ref_name }}" >> $GITHUB_ENV
+          echo "IMAGE_REPOSITORY=${{ matrix.image_repository }}" >> $GITHUB_ENV
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@c99871dec2022cc055c062a10cc1a1310835ceb4 # v4.3.0
@@ -164,7 +184,7 @@ jobs:
             "${IMAGE_REPOSITORY}:${TAG}-arm64"
 
       - name: Create & push manifest (latest stable)
-        if: ${{ !contains(needs.build_single_arch.outputs.tag, '-') }}
+        if: ${{ !contains(inputs.tag || github.ref_name, '-') }}
         run: |
           docker buildx imagetools create \
             -t "${IMAGE_REPOSITORY}:latest" \

@@ -1,0 +1,8 @@
+const header = document.querySelector('[data-header]')
+const menuToggle = document.querySelector('[data-menu-toggle]')
+const mobileMenu = document.querySelector('[data-mobile-menu]')
+const themeToggle = document.querySelector('[data-theme-toggle]')
+window.addEventListener('scroll', () => header?.classList.toggle('scrolled', window.scrollY > 18), { passive: true })
+menuToggle?.addEventListener('click', () => { const open = mobileMenu?.classList.toggle('open') ?? false; menuToggle.setAttribute('aria-expanded', String(open)) })
+mobileMenu?.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => { mobileMenu.classList.remove('open'); menuToggle?.setAttribute('aria-expanded', 'false') }))
+themeToggle?.addEventListener('click', () => document.documentElement.classList.toggle('light-preview'))

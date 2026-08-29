@@ -14,9 +14,9 @@ MyAPI 是面向自建部署的发行品牌，提供可审计的完整源码、�
 | --- | --- | --- |
 | 人类可见品牌 | `MyAPI` | 用于站点名称、Logo、CLI 帮助、文档和发行说明。 |
 | 机器安全 slug | `my-api` | 用于服务名、容器名、默认镜像名和部署目录。 |
-| 部署变量 | `MYAPI_IMAGE`、`MYAPI_PORT`、`MYAPI_PUBLIC_URL`、`MYAPI_DATA_DIR`、`MYAPI_LOGS_DIR` | 新配置只写这些变量；旧部署变量只在一次性迁移时读取，完成迁移后应删除。 |
+| 部署变量 | `MYAPI_IMAGE`、`MYAPI_EDITION`、`MYAPI_BIND_ADDRESS`、`MYAPI_PORT`、`MYAPI_PUBLIC_URL`、`MYAPI_DATA_DIR`、`MYAPI_LOGS_DIR` | 新配置只写这些变量；旧部署变量只在一次性迁移时读取，完成迁移后应删除。 |
 | 服务与容器 | `my-api` | 重命名容器前先备份并确认 compose 项目，避免误删卷。 |
-| 官方镜像 | `ghcr.io/forcemind/myapi:v0.1.1` | 由本仓库 GitHub Actions 生成；升级时修改 `MYAPI_IMAGE` 为目标版本 tag。 |
+| 官方镜像 | `ghcr.io/forcemind/myapi:vX.Y.Z`（Full）或 `ghcr.io/forcemind/myapi-lan:vX.Y.Z`（LAN Lite） | 由本仓库 GitHub Actions 生成；升级时固定目标版本 tag，不强制移动旧 tag。 |
 | 容器挂载点 | `/data`、`/app/logs` | 这是数据格式兼容边界，容器内挂载点暂不变；宿主机目录可迁移到新的 `my-api` 项目目录。 |
 | API、SSE 和数据库协议 | 现有 OpenAI-compatible、Responses、Claude、Gemini 路由及表结构 | 本发行版不因品牌重命名改变线协议、路由、字段或数据库结构；客户端可继续使用原协议。 |
 
@@ -61,8 +61,21 @@ echo "$GHCR_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin
 
 ```text
 MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.1.1
+MYAPI_EDITION=full
+MYAPI_BIND_ADDRESS=127.0.0.1
 MYAPI_BUILD_LOCAL=false
 ```
+
+局域网极简版使用同一套源码但不同的镜像和后端发行策略：
+
+```text
+MYAPI_IMAGE=ghcr.io/forcemind/myapi-lan:v0.1.1
+MYAPI_EDITION=lan
+MYAPI_BIND_ADDRESS=127.0.0.1
+```
+
+LAN 版默认只绑定本机；确认局域网访问范围后，再将 `MYAPI_BIND_ADDRESS` 设置为
+私网接口地址，并为每位同事创建独立的下游 API Key。上游凭据不会显示给下游用户。
 
 执行 `myapi up` 或 `deploy/install.sh` 时会先拉取该镜像。只有明确设置
 `MYAPI_BUILD_LOCAL=true`（或使用 `local/...` 镜像名）才会从源码构建。
@@ -73,6 +86,7 @@ MYAPI_BUILD_LOCAL=false
 docker build \
   --build-arg MYAPI_BRAND_NAME=MyAPI \
   --build-arg MYAPI_BRAND_LOGO=/myapi-logo-v1.png \
+  --build-arg MYAPI_EDITION=full \
   -t local/my-api:custom-rc25 .
 ```
 
@@ -137,8 +151,8 @@ npm pack --dry-run --json
 npm publish --dry-run --access public --registry=https://registry.npmjs.org/
 ```
 
-Docker 镜像 workflow 会在推送符合 `vX.Y.Z` 的版本 tag 后自动运行，构建并推送
-多架构镜像到 `ghcr.io/forcemind/myapi`；稳定版本同时更新 `latest`，预发布 tag
+Docker 镜像 workflow 会在推送符合 `vX.Y.Z` 的版本 tag 后自动运行，矩阵构建并推送
+Full 与 LAN Lite 两个多架构镜像；稳定版本分别更新各自的 `latest`，预发布 tag
 不会覆盖 `latest`。也可以通过 `workflow_dispatch` 指定已有 tag 手动重跑。workflow
 会校验 tag、`VERSION` 和 `package.json.version` 完全一致，不会移动既有 tag。
 GitHub Actions 只负责生成镜像，不直接连接或重启生产主机；部署端更新
@@ -155,6 +169,19 @@ GitHub Actions 只负责生成镜像，不直接连接或重启生产主机；�
 
 `SOURCE_MANIFEST.json` 是生成文件，发布前重新生成并检查内容即可，不要把它或
 生产数据加入 Git。
+
+## MyAPI 静态官网
+
+`website/` 是独立的无依赖静态产品官网，借鉴 TokenHub 的产品叙事方式，使用 MyAPI
+自己的文案、图形和发行版说明。它不依赖后台或运行时密钥，可直接用静态文件服务器
+预览：
+
+```bash
+python3 -m http.server 4173 --directory website
+```
+
+官网发布暂不绑定生产部署或 Docker 镜像流程；确定域名和托管目标后，再增加单独、
+经过审阅的静态站点发布 workflow。
 
 ## 法律与第三方通知
 

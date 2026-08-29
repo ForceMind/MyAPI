@@ -33,12 +33,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { useMediaQuery } from '@/hooks'
 
 import { getFullContentLogs } from './api'
 import { FullContentLogDetailsDialog } from './components/full-content-log-details-dialog'
 import { FullContentLogFilesDialog } from './components/full-content-log-files-dialog'
 import { FullContentLogFilterBar } from './components/full-content-log-filter-bar'
-import { FullContentLogRow } from './components/full-content-log-row'
+import {
+  FullContentLogMobileCard,
+  FullContentLogRow,
+} from './components/full-content-log-row'
 import { formatLogBytes } from './lib/format'
 import type { FullContentLogFilters } from './types'
 
@@ -61,6 +65,7 @@ const EMPTY_FILTERS: FullContentLogFilters = {
 
 export function FullContentLogs() {
   const { t } = useTranslation()
+  const isMobile = useMediaQuery('(max-width: 640px)')
   const [page, setPage] = useState(1)
   const [draftFilters, setDraftFilters] =
     useState<FullContentLogFilters>(EMPTY_FILTERS)
@@ -104,7 +109,7 @@ export function FullContentLogs() {
 
   return (
     <>
-      <SectionPageLayout fixedContent>
+      <SectionPageLayout fixedContent={!isMobile}>
         <SectionPageLayout.Title>
           {t('API Request Logs')}
         </SectionPageLayout.Title>
@@ -123,7 +128,13 @@ export function FullContentLogs() {
           </Button>
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
-          <div className='flex h-full min-h-0 flex-col gap-4'>
+          <div
+            className={
+              isMobile
+                ? 'flex min-h-full flex-col gap-3'
+                : 'flex h-full min-h-0 flex-col gap-4'
+            }
+          >
             <div className='bg-muted/30 rounded-lg border p-3 text-sm'>
               <div className='font-medium'>{t('Online request explorer')}</div>
               <div className='text-muted-foreground mt-1'>
@@ -177,66 +188,104 @@ export function FullContentLogs() {
               tokenOptions={data?.facets.tokens ?? []}
             />
 
-            <div className='min-h-0 flex-1 overflow-auto rounded-lg border'>
-              <Table className='min-w-[1120px]'>
-                <TableHeader className='bg-muted/40 sticky top-0 z-10'>
-                  <TableRow>
-                    <TableHead>{t('Time')}</TableHead>
-                    <TableHead>{t('Model / Endpoint')}</TableHead>
-                    <TableHead>{t('API Key')}</TableHead>
-                    <TableHead>{t('Status')}</TableHead>
-                    <TableHead>{t('Request / Response')}</TableHead>
-                    <TableHead>{t('Duration')}</TableHead>
-                    <TableHead>{t('Request ID')}</TableHead>
-                    <TableHead className='text-right'>{t('Actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {logsQuery.isLoading &&
-                    SKELETON_ROWS.map((row) => (
-                      <TableRow key={row}>
-                        <TableCell colSpan={8}>
-                          <Skeleton className='h-8 w-full' />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-
-                  {logsQuery.isError && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={8}
-                        className='text-destructive h-32 text-center'
-                      >
-                        {logsQuery.error instanceof Error
-                          ? logsQuery.error.message
-                          : t('Failed to load full content logs')}
-                      </TableCell>
-                    </TableRow>
+            {isMobile ? (
+              <div className='space-y-3'>
+                {logsQuery.isLoading &&
+                  SKELETON_ROWS.slice(0, 3).map((row) => (
+                    <div
+                      key={row}
+                      className='rounded-lg border p-3'
+                      aria-label={t('Loading')}
+                    >
+                      <Skeleton className='h-24 w-full' />
+                    </div>
+                  ))}
+                {logsQuery.isError && (
+                  <div className='text-destructive rounded-lg border p-6 text-center text-sm'>
+                    {logsQuery.error instanceof Error
+                      ? logsQuery.error.message
+                      : t('Failed to load full content logs')}
+                  </div>
+                )}
+                {!logsQuery.isLoading &&
+                  !logsQuery.isError &&
+                  (data?.items.length ?? 0) === 0 && (
+                    <div className='text-muted-foreground rounded-lg border p-8 text-center text-sm'>
+                      {t('No matching full content logs')}
+                    </div>
                   )}
+                {data?.items.map((log) => (
+                  <FullContentLogMobileCard
+                    key={log.request_id}
+                    log={log}
+                    onView={setDetailRequestId}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className='min-h-0 flex-1 overflow-auto rounded-lg border'>
+                <Table className='min-w-[1120px]'>
+                  <TableHeader className='bg-muted/40 sticky top-0 z-10'>
+                    <TableRow>
+                      <TableHead>{t('Time')}</TableHead>
+                      <TableHead>{t('Model / Endpoint')}</TableHead>
+                      <TableHead>{t('API Key')}</TableHead>
+                      <TableHead>{t('Status')}</TableHead>
+                      <TableHead>{t('Request / Response')}</TableHead>
+                      <TableHead>{t('Duration')}</TableHead>
+                      <TableHead>{t('Request ID')}</TableHead>
+                      <TableHead className='text-right'>
+                        {t('Actions')}
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {logsQuery.isLoading &&
+                      SKELETON_ROWS.map((row) => (
+                        <TableRow key={row}>
+                          <TableCell colSpan={8}>
+                            <Skeleton className='h-8 w-full' />
+                          </TableCell>
+                        </TableRow>
+                      ))}
 
-                  {!logsQuery.isLoading &&
-                    !logsQuery.isError &&
-                    (data?.items.length ?? 0) === 0 && (
+                    {logsQuery.isError && (
                       <TableRow>
                         <TableCell
                           colSpan={8}
-                          className='text-muted-foreground h-32 text-center'
+                          className='text-destructive h-32 text-center'
                         >
-                          {t('No matching full content logs')}
+                          {logsQuery.error instanceof Error
+                            ? logsQuery.error.message
+                            : t('Failed to load full content logs')}
                         </TableCell>
                       </TableRow>
                     )}
 
-                  {data?.items.map((log) => (
-                    <FullContentLogRow
-                      key={log.request_id}
-                      log={log}
-                      onView={setDetailRequestId}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                    {!logsQuery.isLoading &&
+                      !logsQuery.isError &&
+                      (data?.items.length ?? 0) === 0 && (
+                        <TableRow>
+                          <TableCell
+                            colSpan={8}
+                            className='text-muted-foreground h-32 text-center'
+                          >
+                            {t('No matching full content logs')}
+                          </TableCell>
+                        </TableRow>
+                      )}
+
+                    {data?.items.map((log) => (
+                      <FullContentLogRow
+                        key={log.request_id}
+                        log={log}
+                        onView={setDetailRequestId}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
 
             <div className='flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between'>
               <span className='text-muted-foreground'>

@@ -9,7 +9,7 @@ services:
     restart: always
     command: --log-dir /app/logs
     ports:
-      - "127.0.0.1:${MYAPI_PORT:-${NEW_API_PORT:-3000}}:3000"
+      - "${MYAPI_BIND_ADDRESS:-127.0.0.1}:${MYAPI_PORT:-${NEW_API_PORT:-3000}}:3000"
     volumes:
       # The container mount points are stable runtime/data contracts. Host
       # paths may be changed with MYAPI_DATA_DIR/MYAPI_LOGS_DIR (or legacy
@@ -18,8 +18,9 @@ services:
       - ${MYAPI_LOGS_DIR:-${NEW_API_LOGS_DIR:-./logs}}:/app/logs
     environment:
       TZ: Asia/Shanghai
+      MYAPI_EDITION: ${MYAPI_EDITION:-full}
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
-      SESSION_COOKIE_SECURE: "true"
+      SESSION_COOKIE_SECURE: "${MYAPI_SESSION_COOKIE_SECURE:-true}"
       # install.sh and the CLI normalize a legacy NEW_API_PUBLIC_URL into the
       # canonical environment before invoking Compose. Keep a required check
       # here so direct Compose runs cannot start with an empty public origin.

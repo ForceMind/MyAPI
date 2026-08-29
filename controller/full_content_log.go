@@ -12,7 +12,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/middleware"
@@ -94,15 +96,17 @@ type FullContentLogListResponse struct {
 
 type FullContentLogDetail struct {
 	FullContentLogSummary
-	RequestContentType  string              `json:"request_content_type,omitempty"`
-	RequestEncoding     string              `json:"request_encoding,omitempty"`
-	RequestBody         string              `json:"request_body"`
-	ResponseContentType string              `json:"response_content_type,omitempty"`
-	ResponseEncoding    string              `json:"response_encoding,omitempty"`
-	ResponseBody        string              `json:"response_body"`
-	RequestHeaders      map[string][]string `json:"request_headers"`
-	ResponseHeaders     map[string][]string `json:"response_headers"`
-	Query               map[string][]string `json:"query"`
+	RequestContentType    string              `json:"request_content_type,omitempty"`
+	RequestEncoding       string              `json:"request_encoding,omitempty"`
+	RequestBody           string              `json:"request_body"`
+	ResponseContentType   string              `json:"response_content_type,omitempty"`
+	ResponseEncoding      string              `json:"response_encoding,omitempty"`
+	ResponseBody          string              `json:"response_body"`
+	ResponseBodyTotalBytes int64              `json:"response_body_total_bytes,omitempty"`
+	ResponseBodyTruncated  bool               `json:"response_body_truncated,omitempty"`
+	RequestHeaders        map[string][]string `json:"request_headers"`
+	ResponseHeaders       map[string][]string `json:"response_headers"`
+	Query                 map[string][]string `json:"query"`
 }
 
 type fullContentLogQuery struct {
@@ -119,6 +123,20 @@ type fullContentLogAggregate struct {
 	Summary    FullContentLogSummary
 	HasRequest bool
 }
+
+// Full-content logs are append-only JSONL files. Keep a small in-process index
+// of request summaries so mobile refreshes do not rescan every body and SSE
+// chunk on each request. The snapshot is invalidated when a file's size or
+// modification time changes.
+type fullContentLogSummaryCacheEntry struct {
+	signature string
+	items     []FullContentLogSummary
+}
+
+var fullContentLogSummaryCache = struct {
+	sync.RWMutex
+	entries map[string]fullContentLogSummaryCacheEntry
+}{entries: make(map[string]fullContentLogSummaryCacheEntry)}
 
 func ListFullContentLogs(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
@@ -149,7 +167,19 @@ func GetFullContentLogDetail(c *gin.Context) {
 		common.ApiErrorMsg(c, "request id is required")
 		return
 	}
-	detail, found, err := loadFullContentLogDetail(middleware.FullContentLogDirectory(), requestID)
+	maxResponseBytes := int64(1024 * 1024)
+	if value := strings.TrimSpace(c.Query("max_response_bytes")); value != "" {
+		if parsed, parseErr := strconv.ParseInt(value, 10, 64); parseErr == nil {
+			maxResponseBytes = parsed
+		}
+	}
+	if maxResponseBytes < 0 {
+		maxResponseBytes = 0
+	}
+	if maxResponseBytes > 16*1024*1024 {
+		maxResponseBytes = 16 * 1024 * 1024
+	}
+	detail, found, err := loadFullContentLogDetailWithLimit(middleware.FullContentLogDirectory(), requestID, maxResponseBytes)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -216,66 +246,78 @@ func DeleteAllFullContentLogFiles(c *gin.Context) {
 }
 
 func queryFullContentLogs(dir string, query fullContentLogQuery) (FullContentLogListResponse, error) {
-	aggregates := make(map[string]*fullContentLogAggregate)
-	err := visitFullContentLogRecords(dir, func(record fullContentLogRecord) error {
-		aggregate := aggregates[record.RequestID]
-		if aggregate == nil {
-			aggregate = &fullContentLogAggregate{}
-			aggregates[record.RequestID] = aggregate
-		}
-		switch record.Phase {
-		case "request":
-			aggregate.HasRequest = true
-			aggregate.Summary = FullContentLogSummary{
-				Timestamp:    record.Timestamp,
-				RequestID:    record.RequestID,
-				Method:       record.Method,
-				Path:         record.Path,
-				Model:        fullContentLogModel(record.Body, record.Encoding),
-				RequestBytes: record.BodyBytes,
-				UserID:       record.UserID,
-				TokenID:      record.TokenID,
-				TokenName:    record.TokenName,
-				ClientIP:     record.ClientIP,
-				Error:        record.Error,
-			}
-		case "response_chunk":
-			if aggregate.Summary.Error == "" && record.Error != "" {
-				aggregate.Summary.Error = record.Error
-			}
-		case "response_end":
-			aggregate.Summary.Status = record.Status
-			aggregate.Summary.DurationMS = record.DurationMS
-			aggregate.Summary.ResponseBytes = record.BodyBytes
-			aggregate.Summary.ChunkCount = record.Sequence
-			if record.Error != "" {
-				aggregate.Summary.Error = record.Error
-			}
-		}
-		return nil
-	})
+	files, err := listFullContentLogFiles(dir)
 	if err != nil {
 		return FullContentLogListResponse{}, err
 	}
+	signature := fullContentLogFilesSignature(files)
+	summaries, found := getCachedFullContentLogSummaries(dir, signature)
+	if !found {
+		aggregates := make(map[string]*fullContentLogAggregate)
+		err = visitFullContentLogRecords(dir, func(record fullContentLogRecord) error {
+			aggregate := aggregates[record.RequestID]
+			if aggregate == nil {
+				aggregate = &fullContentLogAggregate{}
+				aggregates[record.RequestID] = aggregate
+			}
+			switch record.Phase {
+			case "request":
+				aggregate.HasRequest = true
+				aggregate.Summary = FullContentLogSummary{
+					Timestamp:    record.Timestamp,
+					RequestID:    record.RequestID,
+					Method:       record.Method,
+					Path:         record.Path,
+					Model:        fullContentLogModel(record.Body, record.Encoding),
+					RequestBytes: record.BodyBytes,
+					UserID:       record.UserID,
+					TokenID:      record.TokenID,
+					TokenName:    record.TokenName,
+					ClientIP:     record.ClientIP,
+					Error:        record.Error,
+				}
+			case "response_chunk":
+				if aggregate.Summary.Error == "" && record.Error != "" {
+					aggregate.Summary.Error = record.Error
+				}
+			case "response_end":
+				aggregate.Summary.Status = record.Status
+				aggregate.Summary.DurationMS = record.DurationMS
+				aggregate.Summary.ResponseBytes = record.BodyBytes
+				aggregate.Summary.ChunkCount = record.Sequence
+				if record.Error != "" {
+					aggregate.Summary.Error = record.Error
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return FullContentLogListResponse{}, err
+		}
+		summaries = make([]FullContentLogSummary, 0, len(aggregates))
+		for _, aggregate := range aggregates {
+			if aggregate.HasRequest {
+				summaries = append(summaries, aggregate.Summary)
+			}
+		}
+		setCachedFullContentLogSummaries(dir, signature, summaries)
+	}
 
-	items := make([]FullContentLogSummary, 0, len(aggregates))
+	items := make([]FullContentLogSummary, 0, len(summaries))
 	modelSet := make(map[string]struct{})
 	tokenSet := make(map[string]FullContentLogTokenOption)
-	for _, aggregate := range aggregates {
-		if !aggregate.HasRequest {
+	for _, summary := range summaries {
+		if summary.Model != "" {
+			modelSet[summary.Model] = struct{}{}
+		}
+		if summary.TokenID != 0 || summary.TokenName != "" {
+			key := fmt.Sprintf("%010d:%s", summary.TokenID, summary.TokenName)
+			tokenSet[key] = FullContentLogTokenOption{ID: summary.TokenID, Name: summary.TokenName}
+		}
+		if !matchesFullContentLogQuery(summary, query) {
 			continue
 		}
-		if aggregate.Summary.Model != "" {
-			modelSet[aggregate.Summary.Model] = struct{}{}
-		}
-		if aggregate.Summary.TokenID != 0 || aggregate.Summary.TokenName != "" {
-			key := fmt.Sprintf("%010d:%s", aggregate.Summary.TokenID, aggregate.Summary.TokenName)
-			tokenSet[key] = FullContentLogTokenOption{ID: aggregate.Summary.TokenID, Name: aggregate.Summary.TokenName}
-		}
-		if !matchesFullContentLogQuery(aggregate.Summary, query) {
-			continue
-		}
-		items = append(items, aggregate.Summary)
+		items = append(items, summary)
 	}
 	sort.Slice(items, func(i, j int) bool {
 		return items[i].Timestamp > items[j].Timestamp
@@ -295,10 +337,6 @@ func queryFullContentLogs(dir string, query fullContentLogQuery) (FullContentLog
 	}
 	items = items[start:end]
 
-	files, err := listFullContentLogFiles(dir)
-	if err != nil {
-		return FullContentLogListResponse{}, err
-	}
 	models := make([]string, 0, len(modelSet))
 	for model := range modelSet {
 		models = append(models, model)
@@ -326,7 +364,44 @@ func queryFullContentLogs(dir string, query fullContentLogQuery) (FullContentLog
 	}, nil
 }
 
+func fullContentLogFilesSignature(stats FullContentLogFileStats) string {
+	var builder strings.Builder
+	for _, file := range stats.Files {
+		builder.WriteString(file.Name)
+		builder.WriteByte(':')
+		builder.WriteString(strconv.FormatInt(file.Size, 10))
+		builder.WriteByte(':')
+		builder.WriteString(strconv.FormatInt(file.ModifiedAt.UnixNano(), 10))
+		builder.WriteByte(';')
+	}
+	return builder.String()
+}
+
+func getCachedFullContentLogSummaries(dir string, signature string) ([]FullContentLogSummary, bool) {
+	fullContentLogSummaryCache.RLock()
+	entry, ok := fullContentLogSummaryCache.entries[dir]
+	fullContentLogSummaryCache.RUnlock()
+	if !ok || entry.signature != signature {
+		return nil, false
+	}
+	items := append([]FullContentLogSummary(nil), entry.items...)
+	return items, true
+}
+
+func setCachedFullContentLogSummaries(dir string, signature string, items []FullContentLogSummary) {
+	fullContentLogSummaryCache.Lock()
+	fullContentLogSummaryCache.entries[dir] = fullContentLogSummaryCacheEntry{
+		signature: signature,
+		items:     append([]FullContentLogSummary(nil), items...),
+	}
+	fullContentLogSummaryCache.Unlock()
+}
+
 func loadFullContentLogDetail(dir string, requestID string) (FullContentLogDetail, bool, error) {
+	return loadFullContentLogDetailWithLimit(dir, requestID, 0)
+}
+
+func loadFullContentLogDetailWithLimit(dir string, requestID string, maxResponseBytes int64) (FullContentLogDetail, bool, error) {
 	var requestRecord *fullContentLogRecord
 	var endRecord *fullContentLogRecord
 	chunks := make([]fullContentLogRecord, 0)
@@ -388,6 +463,11 @@ func loadFullContentLogDetail(dir string, requestID string) (FullContentLogDetai
 	if endRecord != nil {
 		responseHeaders = endRecord.Headers
 	}
+	responseTotalBytes := int64(len(responseBody))
+	if endRecord != nil && endRecord.BodyBytes > 0 {
+		responseTotalBytes = endRecord.BodyBytes
+	}
+	responseBody, responseBodyTruncated := truncateFullContentLogBody(responseBody, responseEncoding, maxResponseBytes)
 	return FullContentLogDetail{
 		FullContentLogSummary: summary,
 		RequestContentType:    requestRecord.ContentType,
@@ -396,10 +476,39 @@ func loadFullContentLogDetail(dir string, requestID string) (FullContentLogDetai
 		ResponseContentType:   responseContentType,
 		ResponseEncoding:      responseEncoding,
 		ResponseBody:          responseBody,
+		ResponseBodyTotalBytes: responseTotalBytes,
+		ResponseBodyTruncated:  responseBodyTruncated,
 		RequestHeaders:        requestRecord.Headers,
 		ResponseHeaders:       responseHeaders,
 		Query:                 requestRecord.Query,
 	}, true, nil
+}
+
+func truncateFullContentLogBody(body string, encoding string, maxBytes int64) (string, bool) {
+	if maxBytes <= 0 {
+		return body, false
+	}
+	if encoding == "base64" {
+		decoded, err := base64.StdEncoding.DecodeString(body)
+		if err != nil || int64(len(decoded)) <= maxBytes {
+			return body, false
+		}
+		return base64.StdEncoding.EncodeToString(decoded[:int(maxBytes)]), true
+	}
+	if int64(len(body)) <= maxBytes {
+		return body, false
+	}
+	limit := int(maxBytes)
+	if !utf8.ValidString(body[:limit]) {
+		for limit > 0 && !utf8.ValidString(body[:limit]) {
+			_, size := utf8.DecodeLastRuneInString(body[:limit])
+			if size <= 0 || size > limit {
+				break
+			}
+			limit -= size
+		}
+	}
+	return body[:limit], true
 }
 
 func visitFullContentLogRecords(dir string, visit func(fullContentLogRecord) error) error {

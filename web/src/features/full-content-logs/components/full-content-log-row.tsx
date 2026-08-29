@@ -97,3 +97,71 @@ export function FullContentLogRow(props: FullContentLogRowProps) {
     </TableRow>
   )
 }
+
+/** A compact, action-first representation for narrow viewports. */
+export function FullContentLogMobileCard(props: FullContentLogRowProps) {
+  const { t } = useTranslation()
+  const { log } = props
+
+  return (
+    <article className='bg-card space-y-3 rounded-lg border p-3 shadow-xs'>
+      <div className='flex min-w-0 items-start justify-between gap-3'>
+        <div className='min-w-0'>
+          <div className='truncate font-medium'>{log.model || '-'}</div>
+          <div className='text-muted-foreground mt-1 truncate font-mono text-xs'>
+            {log.method} {log.path}
+          </div>
+        </div>
+        <Badge className='shrink-0' variant={statusVariant(log.status)}>
+          {log.status || t('Pending')}
+        </Badge>
+      </div>
+
+      <div className='grid min-w-0 grid-cols-2 gap-2 text-xs'>
+        <div className='bg-muted/30 min-w-0 rounded-md p-2'>
+          <div className='text-muted-foreground'>{t('Time')}</div>
+          <div className='mt-1 truncate font-mono tabular-nums'>
+            {new Date(log.timestamp).toLocaleString()}
+          </div>
+        </div>
+        <div className='bg-muted/30 min-w-0 rounded-md p-2'>
+          <div className='text-muted-foreground'>{t('API Key')}</div>
+          <div className='mt-1 truncate'>
+            {log.token_name || (log.token_id ? `#${log.token_id}` : '-')}
+          </div>
+        </div>
+        <div className='bg-muted/30 min-w-0 rounded-md p-2'>
+          <div className='text-muted-foreground'>{t('Request / Response')}</div>
+          <div className='mt-1 truncate font-mono'>
+            {formatLogBytes(log.request_bytes)} →{' '}
+            {formatLogBytes(log.response_bytes)}
+          </div>
+          <div className='text-muted-foreground mt-0.5'>
+            {t('{{count}} chunks', { count: log.chunk_count })}
+          </div>
+        </div>
+        <div className='bg-muted/30 min-w-0 rounded-md p-2'>
+          <div className='text-muted-foreground'>{t('Duration')}</div>
+          <div className='mt-1 truncate font-mono tabular-nums'>
+            {log.duration_ms} ms
+          </div>
+        </div>
+      </div>
+
+      <div
+        className='text-muted-foreground truncate font-mono text-[11px]'
+        title={log.request_id}
+      >
+        {log.request_id}
+      </div>
+      <Button
+        type='button'
+        className='w-full'
+        onClick={() => props.onView(log.request_id)}
+      >
+        <Eye />
+        {t('View content')}
+      </Button>
+    </article>
+  )
+}

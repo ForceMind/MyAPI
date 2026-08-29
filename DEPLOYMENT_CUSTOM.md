@@ -129,19 +129,27 @@ https://你的域名/full-content-logs
 “系统设置 → 控制台内容 → 聊天设置”中自行添加。许可证、NOTICE、版权和法律要求的
 第三方通知仍按原文件保留，发行层页面统一使用 MyAPI。
 
-## 自用精简构建
+## Full 与 LAN Lite 构建
 
-仓库 Dockerfile 默认设置 `VITE_SELF_USE_MINIMAL=true`，构建单管理员自用界面：
+Dockerfile 通过 `MYAPI_EDITION` 选择发行版，默认是完整的 Full 版。两版都保留渠道、
+模型、API Key、用量、日志、游乐场、系统设置和 MyAPI 品牌；LAN Lite 另外启用精简
+前端与后端路由边界，不构建充值、订阅、兑换码、公开定价、排行榜、用户管理和内置
+聊天路由。两版都保留许可证、NOTICE、版权和法律要求的第三方通知。
 
-- 保留渠道、模型、API Key、用量与完整内容日志、游乐场、个人设置、系统设置、登录/OAuth/初始化流程；
-- 保留 About、AGPL 许可证、版权和法律要求的第三方通知；站点默认品牌为 MyAPI；
-- 不构建充值、订阅、兑换码、公开定价、排行榜、用户管理和内置聊天路由；
-- 前端仅打包简体中文和英文；
-- 使用轻量 Provider 标记和项目内置品牌图标，不再打包完整第三方图标 UI 系统；
-- Alpine 仅作为静态 Go 二进制的运行层。
+Full 版构建：
 
-如需恢复完整上游业务界面，请删除 Dockerfile 构建命令中的
-`VITE_SELF_USE_MINIMAL='true'`，并根据需要恢复本仓库已删除的未使用组件和依赖。
+```bash
+docker build --build-arg MYAPI_EDITION=full -t local/myapi:full .
+```
+
+LAN Lite 构建：
+
+```bash
+docker build --build-arg MYAPI_EDITION=lan -t local/myapi:lan .
+```
+
+LAN 版的公开注册、支付、订阅、兑换和外部 OAuth 路由由后端拒绝，不能只依赖前端
+隐藏菜单。局域网部署默认绑定回环地址，确认网络边界后再显式开放私网接口。
 
 ## 消耗分布粒度
 

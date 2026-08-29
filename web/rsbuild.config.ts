@@ -74,6 +74,9 @@ export default defineConfig(({ envMode }) => {
     },
     html: {
       template: './index.html',
+      // Override Rsbuild's public/favicon.ico auto-detection so the default
+      // tab icon stays on the MyAPI asset instead of the legacy fallback.
+      favicon: './public/myapi-logo-v1.png',
     },
     server: {
       host: '0.0.0.0',

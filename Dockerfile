@@ -7,8 +7,9 @@ COPY ./web ./
 COPY ./VERSION /build/VERSION
 ARG MYAPI_BRAND_NAME=MyAPI
 ARG MYAPI_BRAND_LOGO=/myapi-logo-v1.png
+ARG MYAPI_EDITION=full
 RUN DISABLE_ESLINT_PLUGIN='true' \
-    VITE_SELF_USE_MINIMAL='true' \
+    VITE_SELF_USE_MINIMAL="$([ "${MYAPI_EDITION}" = lan ] && echo true || echo false)" \
     VITE_BRAND_NAME="${MYAPI_BRAND_NAME}" \
     VITE_BRAND_LOGO="${MYAPI_BRAND_LOGO}" \
     VITE_REACT_APP_VERSION=$(cat /build/VERSION) \
@@ -36,6 +37,12 @@ RUN module_path="$(go list -m)" && \
     go build -ldflags "-s -w -X ${module_path}/common.Version=$(cat VERSION)" -o my-api
 
 FROM alpine:3.22@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce
+
+ARG MYAPI_EDITION=full
+ENV MYAPI_EDITION=${MYAPI_EDITION}
+LABEL org.opencontainers.image.title="MyAPI" \
+      org.opencontainers.image.vendor="ForceMind" \
+      io.myapi.edition="${MYAPI_EDITION}"
 
 RUN apk add --no-cache ca-certificates tzdata
 

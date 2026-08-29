@@ -47,7 +47,9 @@ const deploymentEnvAliases = Object.freeze({
 
 const deploymentDefaults = Object.freeze({
   MYAPI_IMAGE: 'ghcr.io/forcemind/myapi:v0.1.1',
+  MYAPI_EDITION: 'full',
   MYAPI_PORT: '3000',
+  MYAPI_BIND_ADDRESS: '127.0.0.1',
   MYAPI_PUBLIC_URL: 'https://my-api.example.com',
   MYAPI_DATA_DIR: './data',
   MYAPI_LOGS_DIR: './logs',
@@ -160,6 +162,13 @@ function composeEnvironment(values) {
     const value = deploymentValue(values, canonicalKey)
     if (value !== undefined) environment[canonicalKey] = value
   }
+  for (const key of [
+    'MYAPI_EDITION',
+    'MYAPI_BIND_ADDRESS',
+    'MYAPI_SESSION_COOKIE_SECURE',
+  ]) {
+    if (values[key] !== undefined && values[key] !== '') environment[key] = values[key]
+  }
   return environment
 }
 
@@ -173,9 +182,23 @@ function shouldBuildLocalImage(values) {
 
 function validateRuntimeConfiguration(values) {
   const errors = []
+  const edition = values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION
+  if (!['full', 'lan'].includes(edition)) {
+    errors.push('MYAPI_EDITION must be full or lan')
+  }
   const publicUrl = deploymentValue(values, 'MYAPI_PUBLIC_URL') || ''
-  if (!validatePublicOrigin(publicUrl)) {
-    errors.push('MYAPI_PUBLIC_URL must be an exact non-placeholder HTTPS origin')
+  const lanPlaceholder =
+    edition === 'lan' &&
+    (publicUrl === '' ||
+      publicUrl === 'https://my-api.example.com' ||
+      publicUrl === 'https://new-api.example.com')
+  const lanOrigin = edition === 'lan' && validateLanOrigin(publicUrl)
+  if (!lanPlaceholder && !lanOrigin && !validatePublicOrigin(publicUrl)) {
+    errors.push(
+      edition === 'lan'
+        ? 'MYAPI_PUBLIC_URL must be a localhost or private-network origin in LAN edition'
+        : 'MYAPI_PUBLIC_URL must be an exact non-placeholder HTTPS origin'
+    )
   }
   const sessionSecret = values.SESSION_SECRET || ''
   if (sessionSecret.length < 48 || sessionSecret.includes('replace-with')) {
@@ -187,7 +210,56 @@ function validateRuntimeConfiguration(values) {
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     errors.push('MYAPI_PORT must be an integer between 1 and 65535')
   }
+  const bindAddress = values.MYAPI_BIND_ADDRESS || deploymentDefaults.MYAPI_BIND_ADDRESS
+  if (!validateBindAddress(bindAddress)) {
+    errors.push('MYAPI_BIND_ADDRESS must be a valid host address')
+  }
   return errors
+}
+
+function normalizeLANRuntimeValues(values) {
+  if ((values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION) !== 'lan') return
+  const publicUrl = deploymentValue(values, 'MYAPI_PUBLIC_URL') || ''
+  if (
+    publicUrl === '' ||
+    publicUrl === 'https://my-api.example.com' ||
+    publicUrl === 'https://new-api.example.com'
+  ) {
+    const port = deploymentValue(values, 'MYAPI_PORT') || deploymentDefaults.MYAPI_PORT
+    values.MYAPI_PUBLIC_URL = `http://localhost:${port}`
+  }
+  if (values.MYAPI_PUBLIC_URL.startsWith('http://') && values.MYAPI_SESSION_COOKIE_SECURE === 'true') {
+    values.MYAPI_SESSION_COOKIE_SECURE = 'false'
+  }
+}
+
+function validateLanOrigin(value) {
+  try {
+    const url = new URL(value)
+    if (!['http:', 'https:'].includes(url.protocol)) return false
+    if (url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+      return false
+    }
+    const hostname = url.hostname.toLowerCase()
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' || hostname === '[::1]' ||
+      /^192\.168\./.test(hostname) ||
+      /^10\./.test(hostname) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
+    )
+  } catch {
+    return false
+  }
+}
+
+function validateBindAddress(value) {
+  const address = String(value || '').trim().toLowerCase()
+  return address === 'localhost' || address === '0.0.0.0' ||
+    address === '127.0.0.1' ||
+    /^192\.168\./.test(address) || /^10\./.test(address) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(address)
 }
 
 function projectRootFromArgs(args) {
@@ -468,11 +540,13 @@ function doctor(args) {
   record('Environment file', existsSync(paths.envFile), paths.envFile)
 
   const values = parseEnvFile(paths.envFile)
+  normalizeLANRuntimeValues(values)
   warnLegacyDeploymentKeys(values)
   const publicUrl = deploymentValue(values, 'MYAPI_PUBLIC_URL') || ''
+  const edition = values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION
   record(
-    'Public HTTPS URL',
-    validatePublicOrigin(publicUrl),
+    edition === 'lan' ? 'LAN origin' : 'Public HTTPS URL',
+    edition === 'lan' ? validateLanOrigin(publicUrl) : validatePublicOrigin(publicUrl),
     publicUrl ? 'configured' : 'missing'
   )
   const sessionSecret = values.SESSION_SECRET || ''
@@ -513,6 +587,7 @@ function deploymentCommand(command, args) {
     throw new Error('run "myapi configure" before Docker commands')
   }
   const values = parseEnvFile(paths.envFile)
+  normalizeLANRuntimeValues(values)
   warnLegacyDeploymentKeys(values)
 
   if (command === 'build') {
@@ -524,6 +599,8 @@ function deploymentCommand(command, args) {
         `MYAPI_BRAND_NAME=${values.MYAPI_BRAND_NAME || 'MyAPI'}`,
         '--build-arg',
         `MYAPI_BRAND_LOGO=${values.MYAPI_BRAND_LOGO || '/myapi-logo-v1.png'}`,
+        '--build-arg',
+        `MYAPI_EDITION=${values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION}`,
         '-t',
         deploymentImage(values),
         '.',
@@ -603,7 +680,9 @@ The CLI never deploys during npm install, never removes Docker volumes, and
 never prints SESSION_SECRET or API credentials. 'myapi up' pulls the pinned
 MyAPI image from GHCR; set MYAPI_BUILD_LOCAL=true (or use a local/* image) to
 build locally instead. Existing NEW_API_* deployment variables are read as
-compatibility aliases; migrate writes MYAPI_* settings.`)
+compatibility aliases; migrate writes MYAPI_* settings. Set MYAPI_EDITION=lan
+for the private LAN edition (it keeps the host binding at 127.0.0.1 unless
+MYAPI_BIND_ADDRESS is explicitly changed).`)
 }
 
 const [command = 'help', ...args] = process.argv.slice(2)

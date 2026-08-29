@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import { cn } from '@/lib/utils'
 
 import { getFullContentLogDetail } from '../api'
@@ -45,6 +46,8 @@ interface FullContentLogDetailsDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
+const MAX_DISPLAY_LENGTH = 1024 * 1024
+
 function ContentPanel(props: {
   body: string
   encoding?: string
@@ -52,12 +55,21 @@ function ContentPanel(props: {
   emptyText: string
   title: string
   compact?: boolean
+  truncated?: boolean
+  totalBytes?: number
 }) {
   const { t } = useTranslation()
   const { copiedText, copyToClipboard } = useCopyToClipboard()
   const formattedBody = useMemo(
     () => formatLogBody(props.body, props.encoding, props.contentType),
     [props.body, props.contentType, props.encoding]
+  )
+  const displayBody = useMemo(
+    () =>
+      formattedBody.length > MAX_DISPLAY_LENGTH
+        ? `${formattedBody.slice(0, MAX_DISPLAY_LENGTH)}\n\n… ${t('Content preview truncated to 1 MB')}`
+        : formattedBody,
+    [formattedBody, t]
   )
 
   return (
@@ -86,8 +98,16 @@ function ContentPanel(props: {
           props.compact ? 'max-h-48 min-h-24' : 'max-h-[48vh] min-h-48'
         )}
       >
-        {formattedBody || props.emptyText}
+        {displayBody || props.emptyText}
       </pre>
+      {(props.truncated || formattedBody.length > MAX_DISPLAY_LENGTH) && (
+        <div className='text-muted-foreground text-xs'>
+          {t(
+            'This is a preview of a large response. Download the raw log file to inspect the complete content.'
+          )}
+          {props.totalBytes ? ` (${formatLogBytes(props.totalBytes)})` : ''}
+        </div>
+      )}
     </div>
   )
 }
@@ -96,6 +116,7 @@ export function FullContentLogDetailsDialog(
   props: FullContentLogDetailsDialogProps
 ) {
   const { t } = useTranslation()
+  const isMobile = useMediaQuery('(max-width: 640px)')
   const [showRaw, setShowRaw] = useState(false)
   const detailQuery = useQuery({
     queryKey: ['full-content-logs', 'detail', props.requestId],
@@ -139,8 +160,9 @@ export function FullContentLogDetailsDialog(
       onOpenChange={props.onOpenChange}
       title={t('Full Content Log Detail')}
       description={props.requestId || undefined}
-      contentClassName='sm:max-w-6xl'
-      contentHeight='min(82vh, 900px)'
+      contentClassName='w-[calc(100vw-1rem)] max-w-none sm:max-w-6xl'
+      contentHeight={isMobile ? 'min(88dvh, 900px)' : 'min(82vh, 900px)'}
+      bodyClassName='pb-[env(safe-area-inset-bottom,0px)]'
     >
       {detailQuery.isLoading && (
         <div className='space-y-3' aria-label={t('Loading')}>
@@ -221,7 +243,7 @@ export function FullContentLogDetailsDialog(
           </div>
 
           <Tabs defaultValue='request'>
-            <TabsList>
+            <TabsList className='max-w-full overflow-x-auto'>
               <TabsTrigger value='request'>{t('Request')}</TabsTrigger>
               <TabsTrigger value='response'>
                 {t('Response')} ({detail.chunk_count})
@@ -301,6 +323,8 @@ export function FullContentLogDetailsDialog(
                     encoding={detail.response_encoding}
                     contentType={detail.response_content_type}
                     emptyText={t('Empty response body')}
+                    truncated={detail.response_body_truncated}
+                    totalBytes={detail.response_body_total_bytes}
                   />
                 </>
               ) : (
@@ -310,6 +334,8 @@ export function FullContentLogDetailsDialog(
                   encoding='utf-8'
                   contentType='text/plain'
                   emptyText={t('No readable response text found')}
+                  truncated={detail.response_body_truncated}
+                  totalBytes={detail.response_body_total_bytes}
                 />
               )}
             </TabsContent>

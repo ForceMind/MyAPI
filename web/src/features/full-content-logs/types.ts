@@ -74,6 +74,8 @@ export interface FullContentLogDetail extends FullContentLogSummary {
   response_content_type?: string
   response_encoding?: string
   response_body: string
+  response_body_total_bytes?: number
+  response_body_truncated?: boolean
   request_headers: Record<string, string[]>
   response_headers: Record<string, string[]>
   query: Record<string, string[]>

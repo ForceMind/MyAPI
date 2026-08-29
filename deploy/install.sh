@@ -43,21 +43,46 @@ if (( ${#legacy_keys[@]} > 0 )); then
 fi
 
 MYAPI_IMAGE="${MYAPI_IMAGE:-ghcr.io/forcemind/myapi:v0.1.1}"
+MYAPI_EDITION="${MYAPI_EDITION:-full}"
 MYAPI_BUILD_LOCAL="${MYAPI_BUILD_LOCAL:-false}"
 MYAPI_PORT="${MYAPI_PORT:-3000}"
+MYAPI_BIND_ADDRESS="${MYAPI_BIND_ADDRESS:-127.0.0.1}"
+MYAPI_SESSION_COOKIE_SECURE="${MYAPI_SESSION_COOKIE_SECURE:-}"
 MYAPI_PUBLIC_URL="${MYAPI_PUBLIC_URL:-}"
 MYAPI_DATA_DIR="${MYAPI_DATA_DIR:-./data}"
 MYAPI_LOGS_DIR="${MYAPI_LOGS_DIR:-./logs}"
-export MYAPI_IMAGE MYAPI_BUILD_LOCAL MYAPI_PORT MYAPI_PUBLIC_URL MYAPI_DATA_DIR MYAPI_LOGS_DIR
+if [[ "$MYAPI_EDITION" != "full" && "$MYAPI_EDITION" != "lan" ]]; then
+  echo "MYAPI_EDITION must be full or lan." >&2
+  exit 1
+fi
+if [[ "$MYAPI_EDITION" == "lan" && "$MYAPI_IMAGE" == "ghcr.io/forcemind/myapi:"* ]]; then
+  MYAPI_IMAGE="${MYAPI_IMAGE/ghcr.io\/forcemind\/myapi:/ghcr.io\/forcemind\/myapi-lan:}"
+fi
+if [[ "$MYAPI_EDITION" == "lan" ]]; then
+  MYAPI_SESSION_COOKIE_SECURE="${MYAPI_SESSION_COOKIE_SECURE:-false}"
+else
+  MYAPI_SESSION_COOKIE_SECURE="${MYAPI_SESSION_COOKIE_SECURE:-true}"
+fi
+export MYAPI_IMAGE MYAPI_EDITION MYAPI_BUILD_LOCAL MYAPI_PORT MYAPI_BIND_ADDRESS MYAPI_SESSION_COOKIE_SECURE MYAPI_PUBLIC_URL MYAPI_DATA_DIR MYAPI_LOGS_DIR
 
 if [[ -z "${SESSION_SECRET:-}" || "$SESSION_SECRET" == "replace-with-a-long-random-secret" ]]; then
   echo "Set a strong SESSION_SECRET in $env_file before deployment." >&2
   exit 1
 fi
 
-if [[ -z "${MYAPI_PUBLIC_URL:-}" || "$MYAPI_PUBLIC_URL" == "https://my-api.example.com" || "$MYAPI_PUBLIC_URL" == "https://new-api.example.com" ]]; then
+if [[ "$MYAPI_EDITION" == "full" && ( -z "${MYAPI_PUBLIC_URL:-}" || "$MYAPI_PUBLIC_URL" == "https://my-api.example.com" || "$MYAPI_PUBLIC_URL" == "https://new-api.example.com" ) ]]; then
   echo "Set MYAPI_PUBLIC_URL in $env_file before deployment." >&2
   exit 1
+fi
+if [[ "$MYAPI_EDITION" == "lan" && ( -z "${MYAPI_PUBLIC_URL:-}" || "$MYAPI_PUBLIC_URL" == "https://my-api.example.com" || "$MYAPI_PUBLIC_URL" == "https://new-api.example.com" ) ]]; then
+  MYAPI_PUBLIC_URL="http://localhost:${MYAPI_PORT}"
+  export MYAPI_PUBLIC_URL
+fi
+if [[ "$MYAPI_EDITION" == "lan" && "$MYAPI_PUBLIC_URL" == http://* && "$MYAPI_SESSION_COOKIE_SECURE" == "true" ]]; then
+  # The example file targets the HTTPS full edition. LAN's default local
+  # origin is HTTP, so avoid issuing cookies browsers will never send.
+  MYAPI_SESSION_COOKIE_SECURE=false
+  export MYAPI_SESSION_COOKIE_SECURE
 fi
 
 resolve_deploy_path() {
@@ -74,6 +99,7 @@ if [[ "$MYAPI_BUILD_LOCAL" == "true" || "$MYAPI_IMAGE" == local/* ]]; then
   docker build \
     --build-arg "MYAPI_BRAND_NAME=${MYAPI_BRAND_NAME:-MyAPI}" \
     --build-arg "MYAPI_BRAND_LOGO=${MYAPI_BRAND_LOGO:-/myapi-logo-v1.png}" \
+    --build-arg "MYAPI_EDITION=${MYAPI_EDITION}" \
     -t "$MYAPI_IMAGE" .
 else
   echo "Pulling MyAPI image from ${MYAPI_IMAGE}." >&2

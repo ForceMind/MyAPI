@@ -30,6 +30,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useNotifications } from '@/hooks/use-notifications'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { useTopNavLinks } from '@/hooks/use-top-nav-links'
+import { resolveBrandLogo, resolveBrandName } from '@/lib/build-branding'
+import { DEFAULT_LOGO, DEFAULT_SYSTEM_NAME } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -95,7 +97,11 @@ export function PublicHeader(props: PublicHeaderProps) {
 
   const user = auth.user
   const isAuthenticated = !!user
-  const displaySiteName = customSiteName || systemName
+  const displaySiteName = resolveBrandName(
+    customSiteName || systemName,
+    DEFAULT_SYSTEM_NAME
+  )
+  const displayLogo = resolveBrandLogo(systemLogo, DEFAULT_LOGO)
   const links = dynamicLinks.length > 0 ? dynamicLinks : navLinks
 
   useEffect(() => {
@@ -202,7 +208,7 @@ export function PublicHeader(props: PublicHeaderProps) {
                   customLogo
                 ) : (
                   <HeaderLogo
-                    src={systemLogo}
+                    src={displayLogo}
                     loading={loading}
                     logoLoaded={logoLoaded}
                     className='size-full rounded-lg object-contain'

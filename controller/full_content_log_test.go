@@ -73,6 +73,31 @@ func TestQueryFullContentLogsFiltersAndPaginates(t *testing.T) {
 	assert.Equal(t, "newer-request", response.Items[0].RequestID)
 }
 
+func TestQueryFullContentLogsRefreshesSummaryCacheWhenFileChanges(t *testing.T) {
+	dir := t.TempDir()
+	path := writeFullContentLogTestFile(t, dir, []fullContentLogRecord{
+		{Timestamp: "2026-08-27T10:00:00Z", RequestID: "cached-request", Phase: "request", Method: "POST", Path: "/v1/responses", Encoding: "json", Body: `{"model":"gpt-5.6-sol"}`},
+	})
+
+	first, err := queryFullContentLogs(dir, fullContentLogQuery{Page: 1, PageSize: 20})
+	require.NoError(t, err)
+	assert.Equal(t, 1, first.Total)
+
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0600)
+	require.NoError(t, err)
+	encoded, err := common.Marshal(fullContentLogRecord{
+		Timestamp: "2026-08-27T10:00:01Z", RequestID: "new-request", Phase: "request", Method: "POST", Path: "/v1/chat/completions", Encoding: "json", Body: `{"model":"gpt-5.6-luna"}`,
+	})
+	require.NoError(t, err)
+	_, err = file.Write(append([]byte("\n"), append(encoded, '\n')...))
+	require.NoError(t, err)
+	require.NoError(t, file.Close())
+
+	second, err := queryFullContentLogs(dir, fullContentLogQuery{Page: 1, PageSize: 20})
+	require.NoError(t, err)
+	assert.Equal(t, 2, second.Total)
+}
+
 func TestLoadFullContentLogDetailReconstructsStreamingResponse(t *testing.T) {
 	dir := t.TempDir()
 	writeFullContentLogTestFile(t, dir, []fullContentLogRecord{
@@ -115,4 +140,13 @@ func TestJoinFullContentLogChunksEncodesBinaryResponse(t *testing.T) {
 	assert.Equal(t, "base64", encoding)
 	assert.Equal(t, "application/octet-stream", contentType)
 	assert.Equal(t, base64.StdEncoding.EncodeToString(binary), body)
+}
+
+func TestTruncateFullContentLogBodyPreservesBinaryEncoding(t *testing.T) {
+	encoded := base64.StdEncoding.EncodeToString([]byte{0x01, 0x02, 0x03})
+	truncated, wasTruncated := truncateFullContentLogBody(encoded, "base64", 2)
+	require.True(t, wasTruncated)
+	decoded, err := base64.StdEncoding.DecodeString(truncated)
+	require.NoError(t, err)
+	assert.Equal(t, []byte{0x01, 0x02}, decoded)
 }

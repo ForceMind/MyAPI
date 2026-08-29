@@ -43,6 +43,7 @@
     "setting/",
     "types/",
     "web/",
+    "website/",
     "deploy/.env.example",
     "deploy/docker-compose.yml",
     "deploy/install.sh",
