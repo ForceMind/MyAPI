@@ -33,7 +33,9 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 - 上游凭据只在 MyAPI 服务端配置；LAN 客户端不读取本机 Codex、Claude 或其他凭据文件。
 - 局域网版默认本机回环监听，扩大到局域网必须显式确认。
 - Full、LAN Lite、桌面版共享可靠的请求转发、日志、权限和安全边界，但不强行共享不适用的功能。
-- 参考 TokenHub 的架构思维和信息表达方式，不复制其代码、品牌、页面或协议。
+- TokenHub 和原 New API 都只是参考样本：可以研究其架构取舍、用户流程、信息层级和产品表达，但不得复制其代码、页面结构、视觉资产、文案、品牌、链接、容器/环境约定或内部协议。
+- MyAPI 的领域模型、接口契约、UI 信息架构、视觉系统、静态官网和运行时行为必须独立设计与实现；“借鉴”只表示吸收可验证的设计思路，不表示逐项仿制。
+- 许可证和法定通知另行进行合规审查，不把参考项目的署名或产品归属混入 MyAPI 的品牌展示。
 
 ## 2. 不可违反的边界
 
@@ -81,7 +83,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 
 ### TokenHub、Antigravity 和发行基础
 
-- TokenHub 有独立边界文档和 provider-neutral 适配边界。
+- TokenHub 有独立边界文档和 provider-neutral 适配边界；后续 UI 和官网只借鉴其产品叙事与信息组织，不复制实现或页面。
 - Google Antigravity 当前只建立了官方 Gemini Interactions API 的兼容边界，不应宣传为完整 Antigravity 账户或额度支持。
 - LAN Lite CLI、SQLite-first 项目初始化和局域网安全边界已存在。
 - GitHub Actions 已支持 SemVer tag 构建并推送 Full/LAN GHCR 镜像。
@@ -293,7 +295,7 @@ CI 自动构建不等于自动重启生产服务。生产自动升级需要单�
 
 ### P4：独立产品体验
 
-- TokenHub 思路启发下的 MyAPI 独立管理 UI。
+- 在 TokenHub 和原 New API 的参考研究基础上，完成 MyAPI 独立管理 UI；不复制任一项目的代码、页面、资产、文案或品牌。
 - 静态官网和发行版选择页。
 - LAN Lite macOS/Windows 安装、升级、状态和回滚。
 - GHCR 版本拉取自动化。
