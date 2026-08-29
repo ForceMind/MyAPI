@@ -214,7 +214,7 @@ export function ChannelQuotaHistory({
             </Button>
             {customStart && customEnd && customStart > customEnd && (
               <p className='basis-full text-xs text-destructive'>
-                {t('Start date must be before end date')}
+                {t('Invalid time range')}
               </p>
             )}
           </div>
