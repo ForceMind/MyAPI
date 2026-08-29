@@ -264,6 +264,9 @@ docker run --name my-api -d --restart always \
 > [!TIP]
 > **Default Docker image:** `ghcr.io/forcemind/myapi:v0.1.1` (built by GitHub Actions; set `MYAPI_IMAGE` to upgrade). Set `MYAPI_BUILD_LOCAL=true` to build locally.
 
+Pushing a new `vX.Y.Z` release tag automatically builds and pushes the multi-architecture
+GHCR image; update `MYAPI_IMAGE` to the new tag before running the deployment update.
+
 ### 📋 Deployment Requirements
 
 | Component | Requirement |

@@ -137,13 +137,12 @@ npm pack --dry-run --json
 npm publish --dry-run --access public --registry=https://registry.npmjs.org/
 ```
 
-仓库中的 Docker、GitHub Release、Electron 和 NPM workflow 默认不响应 tag push，
-也不会因为创建 GitHub Release 而自动发布 NPM。正式执行必须由维护者手动
-`workflow_dispatch`，输入精确的版本/tag 和确认词，并在仓库受保护 environment
-中通过审核；同时启用对应的 `MYAPI_ENABLE_*` 发布门禁变量。未配置门禁时 job
-应保持跳过状态。Docker 发布 workflow 固定推送到
-`ghcr.io/forcemind/myapi`，预发布 tag 不会覆盖 `latest`。不要通过移动既有 tag
-或绕过环境审核来发布。
+Docker 镜像 workflow 会在推送符合 `vX.Y.Z` 的版本 tag 后自动运行，构建并推送
+多架构镜像到 `ghcr.io/forcemind/myapi`；稳定版本同时更新 `latest`，预发布 tag
+不会覆盖 `latest`。也可以通过 `workflow_dispatch` 指定已有 tag 手动重跑。workflow
+会校验 tag、`VERSION` 和 `package.json.version` 完全一致，不会移动既有 tag。
+GitHub Actions 只负责生成镜像，不直接连接或重启生产主机；部署端更新
+`MYAPI_IMAGE` 后由 `myapi up` 或 `deploy/install.sh` 拉取新版本。
 
 正式发布前还必须确认：
 

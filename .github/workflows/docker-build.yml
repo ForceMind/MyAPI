@@ -4,26 +4,23 @@ env:
   IMAGE_REPOSITORY: ghcr.io/forcemind/myapi
 
 on:
+  push:
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       tag:
         description: 'Existing tag to build (for example, v0.1.1)'
         required: true
         type: string
-      confirm:
-        description: 'Type PUBLISH only after maintainer approval and GHCR review'
-        required: true
-        type: string
 
 concurrency:
-  group: myapi-ghcr-publish-${{ inputs.tag }}
+  group: myapi-ghcr-publish-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   build_single_arch:
     name: Build & push (${{ matrix.arch }})
-    if: ${{ inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_DOCKER_PUBLISH == 'true' }}
-    environment: docker-publish
     strategy:
       fail-fast: false
       matrix:
@@ -49,13 +46,13 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
-          ref: refs/tags/${{ inputs.tag }}
+          ref: ${{ inputs.tag != '' && format('refs/tags/{0}', inputs.tag) || github.ref }}
           persist-credentials: false
 
       - name: Resolve tag & write VERSION
         id: version
         env:
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           TAG="$RELEASE_TAG"
           if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
@@ -72,6 +69,13 @@ jobs:
             echo "::error::Checked out commit does not match tag $TAG"
             exit 1
           fi
+          EXPECTED_VERSION="${TAG#v}"
+          FILE_VERSION="$(tr -d '[:space:]' < VERSION)"
+          PACKAGE_VERSION="$(node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).version")"
+          if [[ "$FILE_VERSION" != "$EXPECTED_VERSION" || "$PACKAGE_VERSION" != "$EXPECTED_VERSION" ]]; then
+            echo "::error::VERSION and package.json must match ${EXPECTED_VERSION}"
+            exit 1
+          fi
           LATEST_TAG=""
           if [[ "$TAG" != *-* ]]; then
             LATEST_TAG="${IMAGE_REPOSITORY}:latest-${{ matrix.arch }}"
@@ -83,17 +87,6 @@ jobs:
           echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
           echo "${TAG}" > VERSION
           echo "Building MyAPI tag: ${TAG} for ${{ matrix.arch }}"
-
-      - name: Verify publish gate
-        run: |
-          if [[ "${{ vars.MYAPI_ENABLE_DOCKER_PUBLISH }}" != "true" ]]; then
-            echo "::error::Docker publishing is disabled; set MYAPI_ENABLE_DOCKER_PUBLISH=true only after approval"
-            exit 1
-          fi
-          if [[ "${{ inputs.confirm }}" != "PUBLISH" ]]; then
-            echo "::error::The confirmation input must be exactly PUBLISH"
-            exit 1
-          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
@@ -145,8 +138,6 @@ jobs:
     name: Create multi-arch manifests
     needs: [build_single_arch]
     runs-on: ubuntu-latest
-    if: ${{ inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_DOCKER_PUBLISH == 'true' }}
-    environment: docker-publish
 
     permissions:
       packages: write
@@ -173,7 +164,7 @@ jobs:
             "${IMAGE_REPOSITORY}:${TAG}-arm64"
 
       - name: Create & push manifest (latest stable)
-        if: ${{ !contains(inputs.tag, '-') }}
+        if: ${{ !contains(needs.build_single_arch.outputs.tag, '-') }}
         run: |
           docker buildx imagetools create \
             -t "${IMAGE_REPOSITORY}:latest" \
