@@ -161,13 +161,18 @@ jobs:
       - name: Generate artifact checksums
         run: |
           cd electron/dist
-          shopt -s nullglob
-          files=( *.dmg *.zip *.exe )
-          if (( ${#files[@]} == 0 )); then
-            echo "No desktop artifacts were produced" >&2
-            exit 1
-          fi
-          sha256sum "${files[@]}" > SHA256SUMS-${{ runner.os }}.txt
+          node <<'NODE'
+          const crypto = require('crypto');
+          const fs = require('fs');
+          const path = require('path');
+          const files = fs.readdirSync('.').filter((name) => /\.(?:dmg|zip|exe)$/i.test(name)).sort();
+          if (files.length === 0) throw new Error('No desktop artifacts were produced');
+          const lines = files.map((name) => {
+            const digest = crypto.createHash('sha256').update(fs.readFileSync(name)).digest('hex');
+            return `${digest}  ${name}`;
+          });
+          fs.writeFileSync(`SHA256SUMS-${process.env.RUNNER_OS}.txt`, `${lines.join('\n')}\n`);
+          NODE
 
       - name: Upload artifacts (macOS)
         if: runner.os == 'macOS'

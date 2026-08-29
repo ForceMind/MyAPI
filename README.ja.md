@@ -155,7 +155,7 @@ docker run --name my-api -d --restart always \
 |------|------|
 | 🎨 新しいUI | モダンなユーザーインターフェースデザイン |
 | 🌍 多言語 | 簡体字中国語、繁体字中国語、英語、フランス語、日本語をサポート |
-| 🔄 データ互換性 | オリジナルのOne APIデータベースと完全に互換性あり |
+| 🔄 データ互換性 | 既存データの移行と互換性をサポート |
 | 📈 データダッシュボード | ビジュアルコンソールと統計分析 |
 | 🔒 権限管理 | トークングループ化、モデル制限、ユーザー管理 |
 
@@ -402,7 +402,6 @@ Token、Origin 検証、PAT の契約については[ユーザー認証とログ
 
 | プロジェクト | 説明 |
 |------|------|
-| [One API](https://github.com/songquanpeng/one-api) | オリジナルプロジェクトベース |
 | [Midjourney-Proxy](https://github.com/novicezk/midjourney-proxy) | Midjourneyインターフェースサポート |
 
 ### 補助ツール
@@ -438,7 +437,7 @@ Key のクォータ照会と監査ログは MyAPI 管理パネルで確認でき
 
 このプロジェクトは [GNU Affero General Public License v3.0 (AGPLv3)](./LICENSE) の下でライセンスされています。
 
-本プロジェクトは、[One API](https://github.com/songquanpeng/one-api)（MITライセンス）をベースに開発されたオープンソースプロジェクトです。
+MyAPI は独立したディストリビューションであり、既存のデータと API 契約には互換アダプターで対応します。
 
 AGPLv3 第7条の義務と帰属表示は LICENSE および NOTICE に記載されています。変更版を
 再配布する前に確認してください。組織で AGPLv3 を受け入れられない場合は、利用前に

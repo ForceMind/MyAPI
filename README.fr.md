@@ -156,7 +156,7 @@ docker run --name my-api -d --restart always \
 |------|------|
 | 🎨 Nouvelle interface utilisateur | Conception d'interface utilisateur moderne |
 | 🌍 Multilingue | Prend en charge le chinois simplifié, le chinois traditionnel, l'anglais, le français et le japonais |
-| 🔄 Compatibilité des données | Complètement compatible avec la base de données originale de One API |
+| 🔄 Compatibilité des données | Compatible avec les migrations de données existantes |
 | 📈 Tableau de bord des données | Console visuelle et analyse statistique |
 | 🔒 Gestion des permissions | Regroupement de jetons, restrictions de modèles, gestion des utilisateurs |
 
@@ -403,7 +403,6 @@ Consultez [Authentification utilisateur et sessions de connexion](./docs/authent
 
 | Projet | Description |
 |------|------|
-| [One API](https://github.com/songquanpeng/one-api) | Base du projet original |
 | [Midjourney-Proxy](https://github.com/novicezk/midjourney-proxy) | Prise en charge de l'interface Midjourney |
 
 ### Outils d'accompagnement
@@ -439,7 +438,7 @@ Bienvenue à toutes les formes de contribution!
 
 Ce projet est sous licence [GNU Affero General Public License v3.0 (AGPLv3)](./LICENSE).
 
-Il s'agit d'un projet open-source développé sur la base de [One API](https://github.com/songquanpeng/one-api) (licence MIT).
+MyAPI est une distribution indépendante, avec des adaptateurs de compatibilité pour les données et contrats d’API existants.
 
 Les obligations d'attribution et de l'article 7 de l'AGPLv3 sont documentées
 dans LICENSE et NOTICE; consultez-les avant de redistribuer une version modifiée.

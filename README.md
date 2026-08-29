@@ -157,7 +157,7 @@ docker run --name my-api -d --restart always \
 |------|------|
 | 🎨 New UI | Modern user interface design |
 | 🌍 Multi-language | Supports Simplified Chinese, Traditional Chinese, English, French, Japanese |
-| 🔄 Data Compatibility | Fully compatible with the original One API database |
+| 🔄 Data Compatibility | Compatible with existing data migrations |
 | 📈 Data Dashboard | Visual console and statistical analysis |
 | 🔒 Permission Management | Token grouping, model restrictions, user management |
 
@@ -405,7 +405,6 @@ See [User authentication and login sessions](./docs/authentication.md) for the t
 
 | Project | Description |
 |------|------|
-| [One API](https://github.com/songquanpeng/one-api) | Original project base |
 | [Midjourney-Proxy](https://github.com/novicezk/midjourney-proxy) | Midjourney interface support |
 
 ### Supporting Tools
@@ -447,7 +446,7 @@ required notices in the appropriate legal files and in any prominent About,
 legal, footer, or attribution location presented by the user interface. Review
 those files before redistributing a modified build.
 
-This is an open-source project developed based on [One API](https://github.com/songquanpeng/one-api) (MIT License).
+MyAPI is an independent distribution with compatibility adapters for established data and API contracts.
 
 If your organization's policies do not permit the use of AGPLv3-licensed
 software, review the license obligations with your legal team before use.

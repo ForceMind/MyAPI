@@ -56,7 +56,7 @@ data adoption, validation, and publishing instructions.
 ## 📝 Project Description
 
 > [!NOTE]  
-> This is an open-source project developed based on [One API](https://github.com/songquanpeng/one-api)
+> MyAPI is an independent distribution with compatibility adapters for established data and API contracts.
 
 > [!IMPORTANT]  
 > - This project is intended solely for lawful and authorized AI API gateway, organization-level authentication, multi-model management, usage analytics, cost accounting, and private deployment scenarios.
@@ -158,7 +158,7 @@ docker run --name my-api -d --restart always \
 |------|------|
 | 🎨 New UI | Modern user interface design |
 | 🌍 Multi-language | Supports Chinese, English, French, Japanese |
-| 🔄 Data Compatibility | Fully compatible with the original One API database |
+| 🔄 Data Compatibility | Compatible with existing data migrations |
 | 📈 Data Dashboard | Visual console and statistical analysis |
 | 🔒 Permission Management | Token grouping, model restrictions, user management |
 
@@ -404,7 +404,6 @@ See [User authentication and login sessions](./docs/authentication.md) for the t
 
 | Project | Description |
 |------|------|
-| [One API](https://github.com/songquanpeng/one-api) | Original project base |
 | [Midjourney-Proxy](https://github.com/novicezk/midjourney-proxy) | Midjourney interface support |
 
 ### Supporting Tools
