@@ -52,6 +52,7 @@ const LEGACY_LOGO_FALLBACKS = ['/logo.png', '/favicon.ico'] as const
 export const MYAPI_REPOSITORY_URL = 'https://github.com/ForceMind/MyAPI'
 export const MYAPI_ISSUES_URL = `${MYAPI_REPOSITORY_URL}/issues`
 export const MYAPI_LICENSE_URL = `${MYAPI_REPOSITORY_URL}/blob/main/LICENSE`
+export const MYAPI_NOTICES_URL = `${MYAPI_REPOSITORY_URL}/blob/main/NOTICE`
 export const MYAPI_DOCS_URL = `${MYAPI_REPOSITORY_URL}#readme`
 
 function equalsBrandValue(value: string, candidate: string): boolean {

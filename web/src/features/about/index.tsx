@@ -24,7 +24,11 @@ import { PublicLayout } from '@/components/layout'
 import { RichContent } from '@/components/rich-content'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSystemConfig } from '@/hooks/use-system-config'
-import { MYAPI_LICENSE_URL, MYAPI_REPOSITORY_URL } from '@/lib/build-branding'
+import {
+  MYAPI_LICENSE_URL,
+  MYAPI_NOTICES_URL,
+  MYAPI_REPOSITORY_URL,
+} from '@/lib/build-branding'
 import { isHttpUrl, isLikelyHtml } from '@/lib/content-format'
 
 import { getAboutContent } from './api'
@@ -91,17 +95,14 @@ function EmptyAboutState() {
             </a>
             .
           </p>
-          {/* The upstream NOTICE requires this exact attribution and link in
-              a prominent About/legal location for modified UI builds. */}
           <p className='text-muted-foreground/70 text-xs'>
-            Frontend design and development by New API contributors.{' '}
             <a
-              href='https://github.com/QuantumNous/new-api'
+              href={MYAPI_NOTICES_URL}
               target='_blank'
               rel='noopener noreferrer'
               className='text-primary hover:underline'
             >
-              Original project
+              {t('View required third-party notices')}
             </a>
           </p>
         </div>

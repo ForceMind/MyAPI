@@ -33,6 +33,8 @@ electron/dist
 /deploy/.env
 /deploy/data/
 /deploy/logs/
+/backups/
+/deploy/backups/
 .gomodcache/
 .gocache-temp
 .gopath

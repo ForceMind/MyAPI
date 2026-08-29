@@ -92,7 +92,7 @@ jobs:
         run: |
           cd web
           bun install --frozen-lockfile
-          DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(git describe --tags --always) bun run build
+          DISABLE_ESLINT_PLUGIN='true' VITE_SELF_USE_MINIMAL='true' VITE_BRAND_NAME='MyAPI' VITE_BRAND_LOGO='/myapi-logo-v1.png' VITE_REACT_APP_VERSION=$(git describe --tags --always) bun run build
           cd ..
 
       - name: Build Go binary (macOS)
@@ -158,6 +158,17 @@ jobs:
           cd electron
           npm run build:win
 
+      - name: Generate artifact checksums
+        run: |
+          cd electron/dist
+          shopt -s nullglob
+          files=( *.dmg *.zip *.exe )
+          if (( ${#files[@]} == 0 )); then
+            echo "No desktop artifacts were produced" >&2
+            exit 1
+          fi
+          sha256sum "${files[@]}" > SHA256SUMS-${{ runner.os }}.txt
+
       - name: Upload artifacts (macOS)
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -166,13 +177,16 @@ jobs:
           path: |
             electron/dist/*.dmg
             electron/dist/*.zip
+            electron/dist/SHA256SUMS-${{ runner.os }}.txt
 
       - name: Upload artifacts (Windows)
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-build
-          path: electron/dist/*.exe
+          path: |
+            electron/dist/*.exe
+            electron/dist/SHA256SUMS-${{ runner.os }}.txt
 
   release:
     needs: build

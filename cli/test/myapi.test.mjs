@@ -151,6 +151,21 @@ test('argument validation and deployment preflight reject unsafe input', () => {
   )
 })
 
+test('upgrade validates the release version before touching deployment state', () => {
+  const root = temporaryRoot()
+  const project = path.join(root, 'source')
+  runCli('init', project)
+  runCli('configure', '--project-dir', project, '--public-url', 'https://myapi.example.test')
+
+  assert.throws(
+    () => runCli('upgrade', '--project-dir', project, '--version', 'nightly'),
+    /semantic version/
+  )
+  const env = readFileSync(path.join(project, 'deploy/.env'), 'utf8')
+  assert.match(env, /^MYAPI_IMAGE=ghcr\.io\/forcemind\/myapi:v0\.1\.1$/m)
+  assert.equal(existsSync(path.join(project, 'backups')), false)
+})
+
 test('adopt records existing absolute data paths without moving them', () => {
   const root = temporaryRoot()
   const project = path.join(root, 'source')

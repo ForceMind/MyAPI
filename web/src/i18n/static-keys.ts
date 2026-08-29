@@ -103,6 +103,7 @@ export const STATIC_I18N_KEYS = [
   'Successfully created {{count}} API Key(s)',
   'Successfully deleted {{count}} API key(s)',
   'Enter API key for this channel',
+  'View required third-party notices',
   'Codex OAuth channel with usage inspection. Credentials are for Codex CLI-compatible requests only; this is not a general ChatGPT account proxy.',
   'Anthropic Messages API channel for Claude models. Claude subscription account login and subscription quota inspection are not available here.',
   'Gemini API channel. Google Antigravity managed-agent account integration is not available as a standard channel; use a documented Gemini API endpoint.',

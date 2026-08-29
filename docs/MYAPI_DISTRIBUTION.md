@@ -80,6 +80,15 @@ LAN 版默认只绑定本机；确认局域网访问范围后，再将 `MYAPI_BI
 执行 `myapi up` 或 `deploy/install.sh` 时会先拉取该镜像。只有明确设置
 `MYAPI_BUILD_LOCAL=true`（或使用 `local/...` 镜像名）才会从源码构建。
 
+需要切换到新版本时，推荐显式执行：
+
+```bash
+npx @forcemind/myapi upgrade --project-dir ./my-api --version v0.2.0
+```
+
+该命令按 Full/LAN 发行版选择 GHCR 仓库，备份部署环境文件，等待健康检查，并在
+失败时恢复旧镜像配置。它不会在安装包时自动运行，也不会替换或删除数据卷。
+
 本地构建示例（不会发布任何远端镜像）：
 
 ```bash

@@ -1,5 +1,6 @@
 const { app, BrowserWindow, dialog, Tray, Menu, shell } = require('electron');
 const { spawn } = require('child_process');
+const crypto = require('crypto');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
@@ -30,6 +31,22 @@ if (!hasSingleInstanceLock) {
     mainWindow.show();
     mainWindow.focus();
   });
+}
+
+function ensureSessionSecret(userDataPath) {
+  const secretPath = path.join(userDataPath, 'myapi-session-secret');
+  try {
+    if (fs.existsSync(secretPath)) {
+      const existing = fs.readFileSync(secretPath, 'utf8').trim();
+      if (/^[a-f0-9]{64}$/i.test(existing)) return existing;
+    }
+    const generated = crypto.randomBytes(32).toString('hex');
+    fs.writeFileSync(secretPath, `${generated}\n`, { mode: 0o600 });
+    try { fs.chmodSync(secretPath, 0o600); } catch (_) { /* Windows ACLs apply */ }
+    return generated;
+  } catch (error) {
+    throw new Error(`无法保存 MyAPI 会话密钥: ${error.message}`);
+  }
 }
 
 // 保存日志到文件并打开
@@ -269,11 +286,13 @@ function startServer() {
       PORT: PORT.toString(),
       MYAPI_BIND_ADDRESS: BIND_ADDRESS,
       MYAPI_EDITION: 'lan',
+      SESSION_COOKIE_SECURE: 'false',
     };
 
     if (!fs.existsSync(dataDir)) {
       fs.mkdirSync(dataDir, { recursive: true });
     }
+    env.SESSION_SECRET = process.env.SESSION_SECRET || ensureSessionSecret(userDataPath);
 
     const canonicalDatabasePath = path.join(dataDir, CANONICAL_DATABASE_NAME);
     const legacyDatabasePath = LEGACY_DATABASE_NAMES

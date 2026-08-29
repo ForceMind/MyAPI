@@ -797,7 +797,9 @@ function deploymentCommand(command, args) {
   }
 
   let composeCommand
-  if (command === 'up') composeCommand = ['up', '-d', '--force-recreate']
+  if (command === 'up') {
+    composeCommand = ['up', '-d', '--force-recreate', '--wait', '--wait-timeout', '120']
+  }
   else if (command === 'down') composeCommand = ['down']
   else if (command === 'status') composeCommand = ['ps']
   else composeCommand = ['logs', '--tail', '100', ...(args.includes('--follow') ? ['--follow'] : [])]
@@ -805,6 +807,80 @@ function deploymentCommand(command, args) {
     cwd: paths.projectRoot,
     env: composeEnvironment(values),
   })
+}
+
+function imageRepositoryForEdition(edition) {
+  return edition === 'lan'
+    ? 'ghcr.io/forcemind/myapi-lan'
+    : 'ghcr.io/forcemind/myapi'
+}
+
+function normalizeReleaseVersion(value) {
+  const version = String(value || '').trim()
+  const tag = version.startsWith('v') ? version : `v${version}`
+  if (!/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(tag)) {
+    throw new Error('--version must be a semantic version such as v0.2.0')
+  }
+  return tag
+}
+
+function upgradeDeployment(args) {
+  const paths = deploymentPaths(projectRootFromArgs(args))
+  assertDeploymentSource(paths)
+  if (!existsSync(paths.envFile)) {
+    throw new Error('run "myapi configure" before upgrading')
+  }
+  const version = normalizeReleaseVersion(argumentValue(args, '--version'))
+  const originalContents = readFileSync(paths.envFile, 'utf8')
+  const values = parseEnvFileContents(originalContents)
+  const edition = values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION
+  const image = `${imageRepositoryForEdition(edition)}:${version}`
+  const backupDir = path.join(paths.projectRoot, 'backups')
+  const backupPath = path.join(
+    backupDir,
+    `myapi-upgrade-${new Date().toISOString().replace(/[:.]/g, '-')}.env`
+  )
+  mkdirSync(backupDir, { recursive: true, mode: 0o700 })
+  writeFileSync(backupPath, originalContents, { mode: 0o600 })
+  chmodSync(backupPath, 0o600)
+
+  try {
+    const updatedContents = setEnvValue(originalContents, 'MYAPI_IMAGE', image)
+    writeFileSync(paths.envFile, updatedContents, { mode: 0o600 })
+    chmodSync(paths.envFile, 0o600)
+    const updatedValues = parseEnvFile(paths.envFile)
+    const errors = validateRuntimeConfiguration(updatedValues)
+    if (errors.length > 0) {
+      throw new Error(`upgrade preflight failed: ${errors.join('; ')}`)
+    }
+    run('docker', composeArguments(paths, ['pull', 'my-api']), {
+      cwd: paths.projectRoot,
+      env: composeEnvironment(updatedValues),
+    })
+    run('docker', composeArguments(paths, ['up', '-d', '--force-recreate', '--wait', '--wait-timeout', '120']), {
+      cwd: paths.projectRoot,
+      env: composeEnvironment(updatedValues),
+    })
+    console.log(`MyAPI upgraded to ${image}. Environment backup: ${backupPath}`)
+  } catch (error) {
+    writeFileSync(paths.envFile, originalContents, { mode: 0o600 })
+    chmodSync(paths.envFile, 0o600)
+    let rollbackError
+    try {
+      const restoredValues = parseEnvFile(paths.envFile)
+      run('docker', composeArguments(paths, ['up', '-d', '--force-recreate', '--wait', '--wait-timeout', '120']), {
+        cwd: paths.projectRoot,
+        env: composeEnvironment(restoredValues),
+      })
+    } catch (rollbackFailure) {
+      rollbackError = rollbackFailure
+    }
+    const message = error instanceof Error ? error.message : String(error)
+    if (rollbackError) {
+      throw new Error(`${message}; automatic rollback failed: ${rollbackError.message}`)
+    }
+    throw new Error(`${message}; previous image restored and health-checked`)
+  }
 }
 
 function printVersion(args) {
@@ -831,6 +907,7 @@ Usage:
   myapi configure [--project-dir DIR] [--public-url URL] [--data-dir DIR] [--logs-dir DIR]
   myapi migrate [--project-dir DIR]
   myapi doctor [--project-dir DIR]
+  myapi upgrade --version VERSION [--project-dir DIR]
   myapi adopt --project-dir DIR --data-dir DIR --logs-dir DIR
   myapi lan init [directory] [--bind-address ADDRESS] [--port PORT] [--allow-lan]
   myapi lan start|status|stop --project-dir DIR [--bind-address ADDRESS] [--port PORT] [--allow-lan]
@@ -869,6 +946,9 @@ try {
   } else if (command === 'doctor') {
     validateArguments(args, { values: ['--project-dir'] })
     doctor(args)
+  } else if (command === 'upgrade') {
+    validateArguments(args, { values: ['--project-dir', '--version'] })
+    upgradeDeployment(args)
   } else if (command === 'adopt') {
     validateArguments(args, {
       values: ['--project-dir', '--data-dir', '--logs-dir'],

@@ -181,6 +181,19 @@ docker image inspect "${MYAPI_IMAGE:-ghcr.io/forcemind/myapi:v0.1.1}"
 ./deploy/install.sh
 ```
 
+也可以使用 CLI 执行带健康等待和自动回滚的版本升级。命令只更新部署目录的
+`MYAPI_IMAGE`，不会移动数据目录；升级前会在项目 `backups/` 下以 0600 权限保存
+原环境文件：
+
+```bash
+npx @forcemind/myapi upgrade --project-dir . --version v0.2.0
+```
+
+CLI 会按 `MYAPI_EDITION` 选择 `ghcr.io/forcemind/myapi` 或
+`ghcr.io/forcemind/myapi-lan`，拉取目标镜像并等待 Compose 健康检查。拉取、启动或
+健康检查失败时自动恢复旧环境并重新启动旧镜像；若回滚也失败，应保留现场并按输出
+中的错误进行人工处理。生产环境仍应先在副本上演练，不会因为安装 NPM 包而自动升级。
+
 若确实需要本地构建，请在 `deploy/.env` 中设置 `MYAPI_BUILD_LOCAL=true`。
 
 如新镜像异常，将 `deploy/.env` 中的 `MYAPI_IMAGE` 改回已验证的旧镜像标签，然后重新执行：
