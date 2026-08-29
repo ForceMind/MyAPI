@@ -53,7 +53,7 @@ test('version exposes the MyAPI distribution identity', () => {
   const version = JSON.parse(runCli('version', '--json'))
 
   assert.equal(version.package, '@forcemind/myapi')
-  assert.equal(version.version, '0.1.0')
+  assert.equal(version.version, '0.1.1')
   assert.equal(version.distribution, 'MyAPI')
   assert.equal(version.machineSlug, 'my-api')
   assert.doesNotMatch(JSON.stringify(version), /New API|QuantumNous/)
