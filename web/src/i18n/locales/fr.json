@@ -4318,7 +4318,6 @@
     "Setup guide": "Guide de configuration",
     "Setup guide complete": "Guide de configuration terminé",
     "Setup guide is collapsed. Expand it anytime.": "Le guide de configuration est réduit. Vous pouvez le rouvrir à tout moment.",
-    "Open setup guide": "Ouvrir le guide de configuration",
     "Setup Instructions": "Instructions de configuration",
     "Setup progress: {{completed}}/{{total}}": "Progression : {{completed}}/{{total}}",
     "Setup Two-Factor Authentication": "Configurer l'authentification à deux facteurs",

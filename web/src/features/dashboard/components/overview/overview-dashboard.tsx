@@ -771,20 +771,6 @@ export function OverviewDashboard() {
           </CardStaggerItem>
         </CardStaggerContainer>
       )}
-      {!setupGuideExpanded && setupStatusReady && setupComplete && (
-        <div className='flex justify-end'>
-          <Button
-            variant='ghost'
-            size='sm'
-            className='text-muted-foreground hover:text-foreground'
-            onClick={handleSetupGuideToggle}
-          >
-            <ListChecks data-icon='inline-start' />
-            {t('Open setup guide')}
-          </Button>
-        </div>
-      )}
-
       <SummaryCards />
 
       {showContentPanels && (

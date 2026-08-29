@@ -36,6 +36,7 @@ import { formatTimestampToDate } from '@/lib/format'
 import { getCodexUsage, updateChannelBalance } from '../../api'
 import { channelsQueryKeys } from '../../lib'
 import { useChannels } from '../channels-provider'
+import { ChannelQuotaHistory } from './channel-quota-history'
 import {
   CodexUsageDialog,
   type CodexUsageDialogData,
@@ -114,6 +115,9 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
         // Invalidate queries to refresh the table
         await queryClient.invalidateQueries({
           queryKey: channelsQueryKeys.lists(),
+        })
+        await queryClient.invalidateQueries({
+          queryKey: ['channel-quota-history', currentRow.id],
         })
         setRawResponse(null)
       } else if (response.success && response.raw_response !== undefined) {
@@ -228,6 +232,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                 )}
               </div>
             </div>
+            <ChannelQuotaHistory channel={currentRow} open={props.open} />
           </>
         )}
 

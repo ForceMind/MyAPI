@@ -200,6 +200,51 @@ export interface ChannelBalanceResponse {
   raw_response?: string
 }
 
+export interface ChannelQuotaHistoryPoint {
+  timestamp: number
+  status: string
+  available?: number
+  used?: number
+  total?: number
+  reset_at?: number
+  error_code?: string
+}
+
+export interface ChannelQuotaHistorySummary {
+  start_available: number
+  end_available: number
+  change: number
+  change_percent: number
+  minimum: number
+  maximum: number
+}
+
+export interface ChannelQuotaHistoryData {
+  channel_id: number
+  start: number
+  end: number
+  limit: number
+  points: ChannelQuotaHistoryPoint[]
+  summary?: ChannelQuotaHistorySummary
+  current?: {
+    available?: number
+    observed_at: number
+    status: string
+    error_code?: string
+  }
+  unit?: string
+  currency?: string
+  metric_type?: string
+  window_type?: string
+  source?: string
+}
+
+export interface ChannelQuotaHistoryResponse {
+  success: boolean
+  message?: string
+  data?: ChannelQuotaHistoryData
+}
+
 export interface FetchModelsResponse {
   success: boolean
   message?: string

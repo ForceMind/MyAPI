@@ -26,6 +26,7 @@ import type {
   Channel,
   ChannelBalanceResponse,
   ChannelOpsResponse,
+  ChannelQuotaHistoryResponse,
   ChannelTestResponse,
   CopyChannelParams,
   CopyChannelResponse,
@@ -252,6 +253,23 @@ export async function updateChannelBalance(
     `/api/channel/update_balance/${id}`,
     channelActionConfig()
   )
+  return res.data
+}
+
+/** Fetch bounded historical quota observations for a channel. */
+export async function getChannelQuotaHistory(
+  id: number,
+  params: {
+    range?: '24h' | '7d' | '30d' | '90d'
+    metric_type?: string
+    window_type?: string
+    limit?: number
+  } = {}
+): Promise<ChannelQuotaHistoryResponse> {
+  const res = await api.get(`/api/channel/${id}/quota/history`, {
+    ...channelActionConfig(),
+    params,
+  })
   return res.data
 }
 

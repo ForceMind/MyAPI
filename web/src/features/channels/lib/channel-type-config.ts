@@ -30,6 +30,8 @@ export interface ChannelTypeConfig {
   requiresOrganization?: boolean
   requiresRegion?: boolean
   supportedModels?: string[]
+  /** Honest capability guidance shown next to the provider selector. */
+  capabilityNote?: string
   hints?: {
     baseUrl?: string
     key?: string
@@ -78,6 +80,8 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
     name: CHANNEL_TYPES[14],
     icon: 'anthropic',
     defaultBaseUrl: 'https://api.anthropic.com',
+    capabilityNote:
+      'Anthropic Messages API channel for Claude models. Claude subscription account login and subscription quota inspection are not available here.',
     hints: {
       key: 'Format: sk-ant-...',
       models: 'claude-3-opus,claude-3-sonnet,claude-3-haiku',
@@ -87,9 +91,22 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
     id: 24,
     name: CHANNEL_TYPES[24],
     icon: 'google',
+    capabilityNote:
+      'Gemini API channel. Google Antigravity managed-agent account integration is not available as a standard channel; use a documented Gemini API endpoint.',
     hints: {
       key: 'Google API Key',
       models: 'gemini-pro,gemini-pro-vision',
+    },
+  },
+  57: {
+    id: 57,
+    name: CHANNEL_TYPES[57],
+    icon: 'openai',
+    capabilityNote:
+      'Codex OAuth channel with usage inspection. Credentials are for Codex CLI-compatible requests only; this is not a general ChatGPT account proxy.',
+    hints: {
+      key: 'Paste Codex OAuth JSON credential (access_token / refresh_token / account_id)',
+      models: 'Codex-compatible model IDs',
     },
   },
   41: {

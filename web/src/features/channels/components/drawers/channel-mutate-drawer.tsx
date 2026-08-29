@@ -171,6 +171,7 @@ import {
   validateModelMappingJson,
   hasAdvancedSettingsErrors,
 } from '../../lib'
+import { getChannelTypeConfig } from '../../lib/channel-type-config'
 import {
   collectInvalidStatusCodeEntries,
   collectNewDisallowedStatusCodeRedirects,
@@ -948,6 +949,8 @@ export function ChannelMutateDrawer({
     }
     return options
   }, [currentType, t])
+
+  const channelCapabilityNote = getChannelTypeConfig(currentType).capabilityNote
 
   const formErrors = form.formState.errors
   const identityHasErrors = Boolean(
@@ -2019,6 +2022,15 @@ export function ChannelMutateDrawer({
                                       />
                                     </div>
                                   </FormControl>
+                                  {channelCapabilityNote && (
+                                    <FormDescription className='mt-2 flex items-start gap-2'>
+                                      <HelpCircle
+                                        className='mt-0.5 size-3.5 shrink-0'
+                                        aria-hidden='true'
+                                      />
+                                      <span>{t(channelCapabilityNote)}</span>
+                                    </FormDescription>
+                                  )}
                                   {sensitiveLocked && (
                                     <FormDescription>
                                       {t(

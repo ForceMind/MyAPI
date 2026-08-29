@@ -75,6 +75,23 @@ describe('MyAPI channel', () => {
     )
   })
 
+  test('puts Codex first and explains provider support boundaries', () => {
+    expect(CHANNEL_TYPE_OPTIONS[0]).toEqual({
+      value: 57,
+      label: 'ChatGPT Subscription (Codex)',
+    })
+
+    expect(getChannelTypeConfig(57).capabilityNote).toContain(
+      'Codex OAuth channel'
+    )
+    expect(getChannelTypeConfig(14).capabilityNote).toContain(
+      'subscription account login'
+    )
+    expect(getChannelTypeConfig(24).capabilityNote).toContain(
+      'Google Antigravity'
+    )
+  })
+
   test('requires a non-blank Base URL', () => {
     const blankResult = channelFormSchema.safeParse(myAPIForm('  '))
 

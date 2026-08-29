@@ -103,6 +103,9 @@ export const STATIC_I18N_KEYS = [
   'Successfully created {{count}} API Key(s)',
   'Successfully deleted {{count}} API key(s)',
   'Enter API key for this channel',
+  'Codex OAuth channel with usage inspection. Credentials are for Codex CLI-compatible requests only; this is not a general ChatGPT account proxy.',
+  'Anthropic Messages API channel for Claude models. Claude subscription account login and subscription quota inspection are not available here.',
+  'Gemini API channel. Google Antigravity managed-agent account integration is not available as a standard channel; use a documented Gemini API endpoint.',
 
   // Users
   'Root',
@@ -209,9 +212,6 @@ export const STATIC_I18N_KEYS = [
   'Existing account will be reused',
   'Not set yet',
 
-  // Dashboard setup guide
-  'Open setup guide',
-
   // Models section-registry nav (dynamic titleKey)
   'Grok',
 
@@ -299,6 +299,24 @@ export const STATIC_I18N_KEYS = [
   'Reset Period',
   'Quota Reset',
   'Raw Quota',
+  'Quota history',
+  'Quota history unavailable',
+  'Multi-key channels do not expose one combined account quota.',
+  'Unable to load quota history',
+  'No quota history data yet',
+  'The upstream did not return a usable quota value.',
+  'Quota history chart',
+  'Available quota',
+  'Start',
+  'Current',
+  'Change',
+  'Change %',
+  'Range',
+  'Latest',
+  'Samples',
+  'Last sample',
+  'Some samples failed and are shown as gaps.',
+  'Failed samples are never treated as zero.',
   'Amount Due',
   'Purchase Limit',
   'Purchase limit reached',
