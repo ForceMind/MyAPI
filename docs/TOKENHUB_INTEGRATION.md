@@ -56,3 +56,14 @@ Router → Controller → Service → Model layers.
   requires Apache-2.0 and NOTICE review.
 - Region, routing weights, billing reconciliation and UI management remain
   follow-up work built on this boundary.
+
+## Google Antigravity is a separate protocol
+
+Google Antigravity's managed agent uses the preview Gemini Interactions API,
+not the normal Generate Content routes that a TokenHub OpenAI/Anthropic
+gateway can proxy. MyAPI therefore does not advertise an Antigravity model in
+the TokenHub channel or silently route it through the Gemini adaptor. The
+validated request boundary and the explicit implementation gate are documented
+in [ANTIGRAVITY_INTEGRATION.md](./ANTIGRAVITY_INTEGRATION.md). This keeps
+TokenHub's provider-neutral routing contract honest while leaving room for a
+future dedicated interaction lifecycle.

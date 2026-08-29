@@ -49,6 +49,16 @@ func EditionGuard() gin.HandlerFunc {
 
 func isLANRestrictedPath(path string) bool {
 	path = strings.TrimSuffix(path, "/")
+	// Admin OAuth binding routes include a user id segment
+	// (`/api/user/:id/oauth/...`) and therefore cannot be represented by a
+	// simple static prefix without disabling every user endpoint.
+	if strings.HasPrefix(path, "/api/user/") {
+		userPath := strings.TrimPrefix(path, "/api/user/")
+		userSegments := strings.Split(userPath, "/")
+		if len(userSegments) >= 2 && userSegments[1] == "oauth" {
+			return true
+		}
+	}
 	for _, prefix := range []string{
 		"/api/pricing",
 		"/api/perf-metrics",
@@ -69,12 +79,15 @@ func isLANRestrictedPath(path string) bool {
 		"/api/user/waffo",
 		"/api/user/epay",
 		"/api/user/aff",
+		"/api/user/aff_transfer",
 		"/api/user/checkin",
+		"/api/user/oauth",
 		"/api/option/payment_compliance",
 		"/api/option/rest_model_ratio",
 		"/api/option/waffo-pancake",
 		"/api/custom-oauth-provider",
 		"/dashboard/billing",
+		"/v1/dashboard/billing",
 	} {
 		if path == prefix || strings.HasPrefix(path, prefix+"/") {
 			return true

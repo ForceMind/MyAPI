@@ -20,6 +20,10 @@ func TestEditionGuardBlocksLANCommercialRoutes(t *testing.T) {
 		"/api/ratio_config",
 		"/api/option/payment_compliance",
 		"/api/custom-oauth-provider",
+		"/v1/dashboard/billing/subscription",
+		"/api/user/aff_transfer",
+		"/api/user/oauth/bindings",
+		"/api/user/42/oauth/bindings",
 	} {
 		router.Any(route, func(c *gin.Context) { c.Status(http.StatusOK) })
 		recorder := httptest.NewRecorder()

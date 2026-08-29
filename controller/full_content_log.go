@@ -405,6 +405,7 @@ func loadFullContentLogDetailWithLimit(dir string, requestID string, maxResponse
 	var requestRecord *fullContentLogRecord
 	var endRecord *fullContentLogRecord
 	chunks := make([]fullContentLogRecord, 0)
+	var collectedResponseBytes int64
 	err := visitFullContentLogRecords(dir, func(record fullContentLogRecord) error {
 		if record.RequestID != requestID {
 			return nil
@@ -414,6 +415,32 @@ func loadFullContentLogDetailWithLimit(dir string, requestID string, maxResponse
 			copy := record
 			requestRecord = &copy
 		case "response_chunk":
+			if maxResponseBytes > 0 {
+				remaining := maxResponseBytes - collectedResponseBytes
+				if remaining <= 0 {
+					record.Body = ""
+				} else if record.Encoding == "base64" {
+					// Keep a valid base64 prefix while bounding retained input.
+					maxEncoded := int((remaining+2)/3) * 4
+					if maxEncoded < len(record.Body) {
+						maxEncoded -= maxEncoded % 4
+						if maxEncoded < 0 {
+							maxEncoded = 0
+						}
+						record.Body = record.Body[:maxEncoded]
+					}
+					decodedEstimate := int64(len(record.Body) / 4 * 3)
+					if decodedEstimate > remaining {
+						decodedEstimate = remaining
+					}
+					collectedResponseBytes += decodedEstimate
+				} else {
+					if int64(len(record.Body)) > remaining {
+						record.Body = truncateUTF8Prefix(record.Body, remaining)
+					}
+					collectedResponseBytes += int64(len(record.Body))
+				}
+			}
 			chunks = append(chunks, record)
 		case "response_end":
 			copy := record
@@ -431,7 +458,7 @@ func loadFullContentLogDetailWithLimit(dir string, requestID string, maxResponse
 	sort.SliceStable(chunks, func(i, j int) bool {
 		return chunks[i].Sequence < chunks[j].Sequence
 	})
-	responseBody, responseEncoding, responseContentType, err := joinFullContentLogChunks(chunks)
+	responseBody, responseEncoding, responseContentType, responseBodyTruncated, err := joinFullContentLogChunksWithLimit(chunks, maxResponseBytes)
 	if err != nil {
 		return FullContentLogDetail{}, false, err
 	}
@@ -467,7 +494,6 @@ func loadFullContentLogDetailWithLimit(dir string, requestID string, maxResponse
 	if endRecord != nil && endRecord.BodyBytes > 0 {
 		responseTotalBytes = endRecord.BodyBytes
 	}
-	responseBody, responseBodyTruncated := truncateFullContentLogBody(responseBody, responseEncoding, maxResponseBytes)
 	return FullContentLogDetail{
 		FullContentLogSummary: summary,
 		RequestContentType:    requestRecord.ContentType,
@@ -482,6 +508,24 @@ func loadFullContentLogDetailWithLimit(dir string, requestID string, maxResponse
 		ResponseHeaders:       responseHeaders,
 		Query:                 requestRecord.Query,
 	}, true, nil
+}
+
+func truncateUTF8Prefix(value string, maxBytes int64) string {
+	if maxBytes <= 0 {
+		return ""
+	}
+	if int64(len(value)) <= maxBytes {
+		return value
+	}
+	limit := int(maxBytes)
+	for limit > 0 && !utf8.ValidString(value[:limit]) {
+		_, size := utf8.DecodeLastRuneInString(value[:limit])
+		if size <= 0 || size > limit {
+			break
+		}
+		limit -= size
+	}
+	return value[:limit]
 }
 
 func truncateFullContentLogBody(body string, encoding string, maxBytes int64) (string, bool) {
@@ -631,9 +675,20 @@ func fullContentLogModel(body string, encoding string) string {
 }
 
 func joinFullContentLogChunks(chunks []fullContentLogRecord) (string, string, string, error) {
+	body, encoding, contentType, _, err := joinFullContentLogChunksWithLimit(chunks, 0)
+	return body, encoding, contentType, err
+}
+
+// joinFullContentLogChunksWithLimit combines response chunks while enforcing
+// a decoded-byte limit. This keeps detail requests bounded even when a single
+// request contains a very large SSE stream; the summary still reports the
+// complete byte count from the response_end record.
+func joinFullContentLogChunksWithLimit(chunks []fullContentLogRecord, maxBytes int64) (string, string, string, bool, error) {
 	var combined bytes.Buffer
 	allUTF8 := true
 	contentType := ""
+	var written int64
+	truncated := false
 	for _, chunk := range chunks {
 		if contentType == "" {
 			contentType = chunk.ContentType
@@ -641,18 +696,44 @@ func joinFullContentLogChunks(chunks []fullContentLogRecord) (string, string, st
 		if chunk.Encoding == "base64" {
 			decoded, err := base64.StdEncoding.DecodeString(chunk.Body)
 			if err != nil {
-				return "", "", "", fmt.Errorf("invalid base64 response chunk: %w", err)
+				return "", "", "", false, fmt.Errorf("invalid base64 response chunk: %w", err)
+			}
+			allUTF8 = false
+			if maxBytes > 0 && written+int64(len(decoded)) > maxBytes {
+				remaining := maxBytes - written
+				if remaining > 0 {
+					combined.Write(decoded[:remaining])
+					written += remaining
+				}
+				truncated = true
+				continue
 			}
 			combined.Write(decoded)
-			allUTF8 = false
+			written += int64(len(decoded))
 			continue
 		}
-		combined.WriteString(chunk.Body)
+		body := chunk.Body
+		if maxBytes > 0 && written+int64(len(body)) > maxBytes {
+			remaining := maxBytes - written
+			if remaining > 0 {
+				body = body[:remaining]
+				for !utf8.ValidString(body) && len(body) > 0 {
+					_, size := utf8.DecodeLastRuneInString(body)
+					body = body[:len(body)-size]
+				}
+				combined.WriteString(body)
+			}
+			written = maxBytes
+			truncated = true
+			continue
+		}
+		combined.WriteString(body)
+		written += int64(len(body))
 	}
 	if allUTF8 {
-		return combined.String(), "utf-8", contentType, nil
+		return combined.String(), "utf-8", contentType, truncated, nil
 	}
-	return base64.StdEncoding.EncodeToString(combined.Bytes()), "base64", contentType, nil
+	return base64.StdEncoding.EncodeToString(combined.Bytes()), "base64", contentType, truncated, nil
 }
 
 func containsFold(value string, filter string) bool {

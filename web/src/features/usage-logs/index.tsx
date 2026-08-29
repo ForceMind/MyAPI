@@ -24,6 +24,7 @@ import { SectionPageLayout } from '@/components/layout'
 import type { NavGroup } from '@/components/layout/types'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CacheStatsDialog } from '@/features/system-settings/general/channel-affinity/cache-stats-dialog'
+import { useMediaQuery } from '@/hooks'
 import { useSidebarConfig } from '@/hooks/use-sidebar-config'
 
 import { UserInfoDialog } from './components/dialogs/user-info-dialog'
@@ -57,6 +58,7 @@ const SECTION_META: Record<UsageLogsSectionId, { titleKey: string }> = {
 
 function UsageLogsContent() {
   const { t } = useTranslation()
+  const isMobile = useMediaQuery('(max-width: 640px)')
   const navigate = useNavigate()
   const params = route.useParams()
   const activeCategory: UsageLogsSectionId =
@@ -124,7 +126,7 @@ function UsageLogsContent() {
 
   return (
     <>
-      <SectionPageLayout fixedContent>
+      <SectionPageLayout fixedContent={!isMobile}>
         <SectionPageLayout.Title>
           {t(pageMeta.titleKey)}
         </SectionPageLayout.Title>

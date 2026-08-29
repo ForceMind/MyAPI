@@ -489,6 +489,15 @@ export function UsageLogsMobileList<TData>({
         const cells = new Map(
           row.getVisibleCells().map((cell) => [cell.column.id, cell])
         )
+        // Details are the primary payload of an API log. Keep that action
+        // available on mobile even when a desktop column-visibility choice
+        // hid the Details column; all other fields still respect visibility.
+        if (!cells.has('content')) {
+          const detailsCell = row
+            .getAllCells()
+            .find((cell) => cell.column.id === 'content')
+          if (detailsCell) cells.set('content', detailsCell)
+        }
 
         const logType = (row.original as Record<string, unknown>).type as
           | number

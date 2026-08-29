@@ -21,7 +21,10 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 
-import { FullContentLogRow } from '../full-content-log-row'
+import {
+  FullContentLogMobileCard,
+  FullContentLogRow,
+} from '../full-content-log-row'
 
 const LOG = {
   timestamp: '2026-08-28T01:00:00Z',
@@ -56,5 +59,17 @@ describe('full content log row', () => {
 
     await user.click(screen.getByRole('button', { name: 'View content' }))
     expect(onView).toHaveBeenCalledTimes(2)
+  })
+
+  test('keeps the detail action reachable in the mobile card layout', async () => {
+    const user = userEvent.setup()
+    const onView = vi.fn()
+
+    render(<FullContentLogMobileCard log={LOG} onView={onView} />)
+
+    expect(screen.getByText('POST /v1/responses')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'View content' }))
+
+    expect(onView).toHaveBeenCalledWith('request-123')
   })
 })

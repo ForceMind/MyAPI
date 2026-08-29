@@ -38,6 +38,16 @@ myapi lan start \
 
 `--allow-lan` is required whenever the listener is not loopback. Public addresses are rejected. `0.0.0.0` is accepted only with `--allow-lan`; prefer the workstation's concrete private address when possible.
 
+PowerShell uses the same flags (use a backtick for line continuation):
+
+```powershell
+myapi lan start `
+  --project-dir "$env:LOCALAPPDATA\MyAPI\lan-project" `
+  --bind-address 192.168.1.20 `
+  --port 3000 `
+  --allow-lan
+```
+
 Check the configured endpoint without exposing secrets:
 
 ```bash

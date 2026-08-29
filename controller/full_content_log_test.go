@@ -142,6 +142,18 @@ func TestJoinFullContentLogChunksEncodesBinaryResponse(t *testing.T) {
 	assert.Equal(t, base64.StdEncoding.EncodeToString(binary), body)
 }
 
+func TestJoinFullContentLogChunksWithLimitBoundsLargeResponse(t *testing.T) {
+	body, encoding, _, truncated, err := joinFullContentLogChunksWithLimit([]fullContentLogRecord{
+		{Sequence: 1, Encoding: "utf-8", Body: "你好"},
+		{Sequence: 2, Encoding: "utf-8", Body: " world"},
+	}, 5)
+
+	require.NoError(t, err)
+	assert.Equal(t, "utf-8", encoding)
+	assert.True(t, truncated)
+	assert.Equal(t, "你", body)
+}
+
 func TestTruncateFullContentLogBodyPreservesBinaryEncoding(t *testing.T) {
 	encoded := base64.StdEncoding.EncodeToString([]byte{0x01, 0x02, 0x03})
 	truncated, wasTruncated := truncateFullContentLogBody(encoded, "base64", 2)
