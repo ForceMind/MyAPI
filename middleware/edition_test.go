@@ -14,12 +14,19 @@ func TestEditionGuardBlocksLANCommercialRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	router.Use(EditionGuard())
-	router.GET("/api/subscription/plans", func(c *gin.Context) { c.Status(http.StatusOK) })
-
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/subscription/plans", nil))
-	if recorder.Code != http.StatusForbidden {
-		t.Fatalf("expected LAN commercial route to be forbidden, got %d", recorder.Code)
+	for _, route := range []string{
+		"/api/subscription/plans",
+		"/api/perf-metrics/summary",
+		"/api/ratio_config",
+		"/api/option/payment_compliance",
+		"/api/custom-oauth-provider",
+	} {
+		router.Any(route, func(c *gin.Context) { c.Status(http.StatusOK) })
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, route, nil))
+		if recorder.Code != http.StatusForbidden {
+			t.Fatalf("expected LAN commercial route %s to be forbidden, got %d", route, recorder.Code)
+		}
 	}
 }
 

@@ -84,6 +84,19 @@ For commercial licensing, please contact support@quantumnous.com
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
+  /* MyAPI product tokens. Keep the product identity separate from the
+   * provider/preset palette so new screens do not inherit a third-party
+   * visual language by accident. Components should prefer these aliases for
+   * product chrome, status rails and data surfaces. */
+  --color-brand: var(--myapi-brand);
+  --color-brand-strong: var(--myapi-brand-strong);
+  --color-brand-soft: var(--myapi-brand-soft);
+  --color-brand-foreground: var(--myapi-brand-foreground);
+  --color-surface-raised: var(--myapi-surface-raised);
+  --color-surface-sunken: var(--myapi-surface-sunken);
+  --color-surface-tint: var(--myapi-surface-tint);
+  --color-grid: var(--myapi-grid);
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -98,6 +111,17 @@ For commercial licensing, please contact support@quantumnous.com
   --app-header-height: 3rem;
   /* Static build-channel fallback consumed when JS hasn't booted yet. */
   --app-rev: '2k6e8r7p';
+  /* MyAPI identity: electric blue for action, cyan for telemetry, and a
+   * quiet ink surface for infrastructure-oriented UI. These remain stable
+   * when users switch color presets. */
+  --myapi-brand: oklch(0.66 0.17 245);
+  --myapi-brand-strong: oklch(0.56 0.19 250);
+  --myapi-brand-soft: oklch(0.94 0.045 245);
+  --myapi-brand-foreground: oklch(0.99 0.01 245);
+  --myapi-surface-raised: oklch(0.995 0.003 250);
+  --myapi-surface-sunken: oklch(0.965 0.008 250);
+  --myapi-surface-tint: oklch(0.975 0.025 245);
+  --myapi-grid: oklch(0.91 0.012 250);
   /* Currently active body font. The font axis swaps this between
    * `--font-sans` and `--font-serif` via `[data-theme-font='...']` blocks
    * in theme-presets.css. Default mirrors `--font-sans` so behavior is
@@ -179,7 +203,18 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 .dark {
-  /* OpenAI-like dark mode with a crisp charcoal canvas. */
+  /* MyAPI dark mode uses a neutral graphite canvas so provider colors and
+   * telemetry status remain legible without turning the shell into a brand
+   * clone of any upstream provider. */
+  --myapi-brand: oklch(0.74 0.15 242);
+  --myapi-brand-strong: oklch(0.8 0.13 238);
+  --myapi-brand-soft: oklch(0.31 0.045 245);
+  --myapi-brand-foreground: oklch(0.16 0.02 250);
+  --myapi-surface-raised: oklch(0.285 0.008 250);
+  --myapi-surface-sunken: oklch(0.205 0.008 250);
+  --myapi-surface-tint: oklch(0.255 0.025 245);
+  --myapi-grid: oklch(0.37 0.012 250);
+
   --background: oklch(0.235 0 0);
   --foreground: oklch(0.965 0 0);
   --card: oklch(0.285 0 0);

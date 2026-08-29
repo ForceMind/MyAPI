@@ -51,6 +51,8 @@ func isLANRestrictedPath(path string) bool {
 	path = strings.TrimSuffix(path, "/")
 	for _, prefix := range []string{
 		"/api/pricing",
+		"/api/perf-metrics",
+		"/api/ratio_config",
 		"/api/rankings",
 		"/api/subscription",
 		"/api/oauth",
@@ -68,6 +70,10 @@ func isLANRestrictedPath(path string) bool {
 		"/api/user/epay",
 		"/api/user/aff",
 		"/api/user/checkin",
+		"/api/option/payment_compliance",
+		"/api/option/rest_model_ratio",
+		"/api/option/waffo-pancake",
+		"/api/custom-oauth-provider",
 		"/dashboard/billing",
 	} {
 		if path == prefix || strings.HasPrefix(path, prefix+"/") {

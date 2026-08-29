@@ -23,6 +23,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { spawnSync } from 'node:child_process'
+import { homedir, platform } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
@@ -262,6 +263,40 @@ function validateBindAddress(value) {
     /^172\.(1[6-9]|2\d|3[01])\./.test(address)
 }
 
+function isLoopbackBindAddress(value) {
+  const address = String(value || '').trim().toLowerCase()
+  return address === 'localhost' || address === '127.0.0.1' || address === '::1' || address === '[::1]'
+}
+
+function isPrivateBindAddress(value) {
+  const address = String(value || '').trim().toLowerCase()
+  return address === '0.0.0.0' || /^192\.168\./.test(address) || /^10\./.test(address) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(address)
+}
+
+function validateLANBinding(value, allowLAN = false) {
+  if (!validateBindAddress(value)) return 'MYAPI_BIND_ADDRESS must be localhost, loopback, 0.0.0.0, or a private IPv4 address'
+  if (!isLoopbackBindAddress(value) && !allowLAN) {
+    return 'LAN binding is disabled by default; pass --allow-lan to share on a private network'
+  }
+  if (!isLoopbackBindAddress(value) && !isPrivateBindAddress(value)) {
+    return 'LAN binding must use a private IPv4 address or 0.0.0.0'
+  }
+  return undefined
+}
+
+function defaultLANProjectDirectory() {
+  // Keep the default predictable and local. The data directory remains inside
+  // the project rather than reading any platform credential directory.
+  return path.resolve('myapi-lan')
+}
+
+function defaultLANDataHint() {
+  if (platform() === 'win32') return path.join(homedir(), 'AppData', 'Local', 'MyAPI', 'lan')
+  if (platform() === 'darwin') return path.join(homedir(), 'Library', 'Application Support', 'MyAPI', 'lan')
+  return path.join(homedir(), '.local', 'share', 'myapi', 'lan')
+}
+
 function projectRootFromArgs(args) {
   const explicit = argumentValue(args, '--project-dir')
   return path.resolve(explicit || process.cwd())
@@ -412,7 +447,7 @@ function shouldCopySource(sourcePath) {
   return !/\.(?:db(?:-.*)?|sqlite3?|log|tgz)$/i.test(basename)
 }
 
-function initProject(args) {
+function initProject(args, showNextStep = true) {
   const positional = args.find((arg) => !arg.startsWith('-'))
   const destination = path.resolve(positional || 'myapi-source')
   if (existsSync(destination) && readdirSync(destination).length > 0) {
@@ -450,7 +485,7 @@ function initProject(args) {
   if (existsSync(destination)) rmSync(destination, { recursive: true })
   renameSync(staging, destination)
   console.log(`MyAPI source initialized at ${destination}`)
-  console.log(`Next: myapi configure --project-dir ${destination}`)
+  if (showNextStep) console.log(`Next: myapi configure --project-dir ${destination}`)
 }
 
 function configureProject(args) {
@@ -492,6 +527,130 @@ function configureProject(args) {
   if (!publicUrl) {
     console.log('Set MYAPI_PUBLIC_URL in that file before running myapi up.')
   }
+}
+
+function lanImageForVersion() {
+  return `ghcr.io/forcemind/myapi-lan:v${packageMetadata.version}`
+}
+
+function lanProjectDirectory(args) {
+  const explicit = argumentValue(args, '--project-dir')
+  let positional
+  const valueOptions = new Set(['--project-dir', '--bind-address', '--port'])
+  for (let index = 0; index < args.length; index++) {
+    const argument = args[index]
+    if (valueOptions.has(argument)) {
+      index += 1
+      continue
+    }
+    if (!argument.startsWith('-')) {
+      positional = argument
+      break
+    }
+  }
+  return path.resolve(explicit || positional || defaultLANProjectDirectory())
+}
+
+function lanOptions(args) {
+  const bindAddress = argumentValue(args, '--bind-address') || deploymentDefaults.MYAPI_BIND_ADDRESS
+  const portValue = argumentValue(args, '--port') || deploymentDefaults.MYAPI_PORT
+  const port = Number(portValue)
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('--port must be an integer between 1 and 65535')
+  }
+  const bindingError = validateLANBinding(bindAddress, args.includes('--allow-lan'))
+  if (bindingError) throw new Error(bindingError)
+  return { bindAddress, port }
+}
+
+function writeLANEnvironment(projectRoot, options) {
+  const paths = deploymentPaths(projectRoot)
+  assertDeploymentSource(paths)
+  if (!existsSync(paths.envFile)) {
+    throw new Error('run "myapi lan init" or "myapi configure" before LAN commands')
+  }
+  let contents = readFileSync(paths.envFile, 'utf8')
+  contents = setEnvValue(contents, 'MYAPI_EDITION', 'lan')
+  contents = setEnvValue(contents, 'MYAPI_IMAGE', lanImageForVersion())
+  contents = setEnvValue(contents, 'MYAPI_BIND_ADDRESS', options.bindAddress)
+  contents = setEnvValue(contents, 'MYAPI_PORT', options.port)
+  contents = setEnvValue(contents, 'MYAPI_SESSION_COOKIE_SECURE', 'false')
+  const publicHost = isLoopbackBindAddress(options.bindAddress) ? 'localhost' : options.bindAddress
+  contents = setEnvValue(contents, 'MYAPI_PUBLIC_URL', `http://${publicHost}:${options.port}`)
+  writeFileSync(paths.envFile, contents, { mode: 0o600 })
+  chmodSync(paths.envFile, 0o600)
+  return paths
+}
+
+function printLANEndpoint(values) {
+  const bindAddress = values.MYAPI_BIND_ADDRESS || deploymentDefaults.MYAPI_BIND_ADDRESS
+  const port = deploymentValue(values, 'MYAPI_PORT') || deploymentDefaults.MYAPI_PORT
+  const loopback = isLoopbackBindAddress(bindAddress)
+  const displayHost = bindAddress === '0.0.0.0' ? '<private-LAN-IP>' : bindAddress
+  console.log(`MyAPI LAN endpoint: http://${displayHost}:${port}`)
+  console.log(loopback
+    ? 'Loopback-only mode; use --allow-lan with a private bind address to share with colleagues.'
+    : 'Private-network mode; create one downstream API Key per colleague in the MyAPI admin UI.')
+  console.log('Upstream credentials stay in MyAPI; this command never reads local credential files.')
+}
+
+function lanInit(args) {
+  const options = lanOptions(args)
+  const destination = lanProjectDirectory(args)
+  if (existsSync(destination) && readdirSync(destination).length > 0) {
+    throw new Error(`refusing to overwrite non-empty directory ${destination}`)
+  }
+  initProject([destination], false)
+  configureProject([
+    '--project-dir',
+    destination,
+    '--public-url',
+    `http://${isLoopbackBindAddress(options.bindAddress) ? 'localhost' : options.bindAddress}:${options.port}`,
+  ])
+  const paths = writeLANEnvironment(destination, options)
+  console.log(`LAN edition configured at ${paths.envFile}.`)
+  console.log(`Data hint for ${platform()}: ${defaultLANDataHint()}`)
+  printLANEndpoint(parseEnvFile(paths.envFile))
+}
+
+function lanCommand(command, args) {
+  const projectRoot = lanProjectDirectory(args)
+  if (command === 'init') {
+    lanInit(args)
+    return
+  }
+  const paths = deploymentPaths(projectRoot)
+  assertDeploymentSource(paths)
+  if (!existsSync(paths.envFile)) {
+    throw new Error('run "myapi lan init" or "myapi configure" before LAN commands')
+  }
+  const values = parseEnvFile(paths.envFile)
+  if ((values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION) !== 'lan') {
+    throw new Error(`${paths.envFile} is not configured for MYAPI_EDITION=lan`)
+  }
+  const configuredBind = values.MYAPI_BIND_ADDRESS || deploymentDefaults.MYAPI_BIND_ADDRESS
+  const configuredPort = Number(deploymentValue(values, 'MYAPI_PORT') || deploymentDefaults.MYAPI_PORT)
+  const options = {
+    bindAddress: argumentValue(args, '--bind-address') || configuredBind,
+    port: argumentValue(args, '--port') ? Number(argumentValue(args, '--port')) : configuredPort,
+  }
+  if (!Number.isInteger(options.port) || options.port < 1 || options.port > 65535) {
+    throw new Error('--port must be an integer between 1 and 65535')
+  }
+  const configuredError = validateLANBinding(
+    options.bindAddress,
+    args.includes('--allow-lan') || command !== 'start'
+  )
+  if (configuredError) throw new Error(configuredError)
+  if (args.includes('--bind-address') || args.includes('--port')) {
+    writeLANEnvironment(projectRoot, options)
+    Object.assign(values, parseEnvFile(paths.envFile))
+  }
+  printLANEndpoint(values)
+  if (command === 'start') deploymentCommand('up', args)
+  else if (command === 'stop') deploymentCommand('down', args)
+  else if (command === 'status') deploymentCommand('status', args)
+  else throw new Error(`unknown LAN command "${command}"`)
 }
 
 function adoptDataPaths(args) {
@@ -673,6 +832,8 @@ Usage:
   myapi migrate [--project-dir DIR]
   myapi doctor [--project-dir DIR]
   myapi adopt --project-dir DIR --data-dir DIR --logs-dir DIR
+  myapi lan init [directory] [--bind-address ADDRESS] [--port PORT] [--allow-lan]
+  myapi lan start|status|stop --project-dir DIR [--bind-address ADDRESS] [--port PORT] [--allow-lan]
   myapi build|up|down|status|logs [--project-dir DIR] [--follow]
   myapi version [--json]
 
@@ -713,8 +874,22 @@ try {
       values: ['--project-dir', '--data-dir', '--logs-dir'],
     })
     adoptDataPaths(args)
-  }
-  else if (['build', 'up', 'down', 'status', 'logs'].includes(command)) {
+  } else if (command === 'lan') {
+    const [lanSubcommand = 'help', ...lanArgs] = args
+    if (lanSubcommand === 'help' || lanSubcommand === '--help' || lanSubcommand === '-h') {
+      printHelp()
+    } else {
+      if (!['init', 'start', 'status', 'stop'].includes(lanSubcommand)) {
+        throw new Error('LAN command must be init, start, status, or stop')
+      }
+      validateArguments(lanArgs, {
+        positional: lanSubcommand === 'init' ? 1 : 0,
+        values: ['--project-dir', '--bind-address', '--port'],
+        flags: ['--allow-lan'],
+      })
+      lanCommand(lanSubcommand, lanArgs)
+    }
+  } else if (['build', 'up', 'down', 'status', 'logs'].includes(command)) {
     validateArguments(args, {
       values: ['--project-dir'],
       flags: command === 'logs' ? ['--follow'] : [],

@@ -85,6 +85,24 @@ type ChannelOtherSettings struct {
 	UpstreamModelUpdateLastRemovedModels  []string              `json:"upstream_model_update_last_removed_models,omitempty"`  // 上次检测到的可删除模型
 	UpstreamModelUpdateIgnoredModels      []string              `json:"upstream_model_update_ignored_models,omitempty"`       // 手动忽略的模型
 	AdvancedCustom                        *AdvancedCustomConfig `json:"advanced_custom,omitempty"`
+	// TokenHub configures an explicit TokenHub-compatible upstream. It is
+	// intentionally provider-neutral; credentials remain in Channel.Key and
+	// are never part of this settings object.
+	TokenHub                             *TokenHubSettings      `json:"tokenhub,omitempty"`
+}
+
+// TokenHubSettings describes the non-secret connection contract for a
+// TokenHub-compatible gateway. Enabled must be set explicitly; an absent
+// value preserves legacy channel behaviour.
+type TokenHubSettings struct {
+	Enabled              bool              `json:"enabled,omitempty"`
+	BaseURL              string            `json:"base_url,omitempty"`
+	Region               string            `json:"region,omitempty"`
+	Protocol             string            `json:"protocol,omitempty"`
+	ModelListPath        string            `json:"model_list_path,omitempty"`
+	HealthPath           string            `json:"health_path,omitempty"`
+	AllowModelDiscovery  bool              `json:"allow_model_discovery,omitempty"`
+	ModelAliases         map[string]string `json:"model_aliases,omitempty"`
 }
 
 func (s *ChannelOtherSettings) IsOpenRouterEnterprise() bool {

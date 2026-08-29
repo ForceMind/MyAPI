@@ -12,6 +12,7 @@ import (
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/logger"
+	"github.com/ForceMind/MyAPI/relay/channel/tokenhub"
 	"github.com/ForceMind/MyAPI/relaykit/dto"
 	"github.com/ForceMind/MyAPI/relaykit/types"
 
@@ -982,6 +983,14 @@ func (channel *Channel) ValidateSettings() error {
 	}
 	if channelOtherSettings.AdvancedCustom != nil {
 		if err := channelOtherSettings.AdvancedCustom.Validate(); err != nil {
+			return err
+		}
+	}
+	if channelOtherSettings.TokenHub != nil && channelOtherSettings.TokenHub.Enabled {
+		if channel.Type != constant.ChannelTypeTencent {
+			return fmt.Errorf("tokenhub settings are only supported for Tencent-compatible channels")
+		}
+		if _, err := tokenhub.FromSettings(channelOtherSettings.TokenHub); err != nil {
 			return err
 		}
 	}

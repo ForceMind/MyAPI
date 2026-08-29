@@ -211,3 +211,62 @@ test('legacy deployment variables are accepted and can be migrated explicitly', 
   assert.match(migrated, /^# Legacy NEW_API_IMAGE migrated to MYAPI_IMAGE:/m)
   assert.match(migrated, /^# Legacy NEW_API_PUBLIC_URL migrated to MYAPI_PUBLIC_URL:/m)
 })
+
+test('lan init creates a loopback-only LAN deployment without exposing credentials', () => {
+  const root = temporaryRoot()
+  const project = path.join(root, 'lan')
+
+  const output = runCli('lan', 'init', project)
+  const env = readFileSync(path.join(project, 'deploy/.env'), 'utf8')
+
+  assert.match(env, /^MYAPI_IMAGE=ghcr\.io\/forcemind\/myapi-lan:v0\.1\.1$/m)
+  assert.match(env, /^MYAPI_EDITION=lan$/m)
+  assert.match(env, /^MYAPI_BIND_ADDRESS=127\.0\.0\.1$/m)
+  assert.match(env, /^MYAPI_PUBLIC_URL=http:\/\/localhost:3000$/m)
+  assert.match(output, /Loopback-only mode/)
+  assert.match(output, /never reads local credential files/)
+  assert.doesNotMatch(output, /SESSION_SECRET|sk-[A-Za-z0-9]|oauth/i)
+})
+
+test('lan init requires explicit opt-in for a private network address', () => {
+  const root = temporaryRoot()
+  const refused = path.join(root, 'refused')
+  assert.throws(
+    () => runCli('lan', 'init', refused, '--bind-address', '192.168.1.20'),
+    /pass --allow-lan/
+  )
+  assert.equal(existsSync(refused), false)
+
+  const project = path.join(root, 'shared')
+  const output = runCli(
+    'lan',
+    'init',
+    project,
+    '--bind-address',
+    '192.168.1.20',
+    '--port',
+    '4317',
+    '--allow-lan'
+  )
+  const env = readFileSync(path.join(project, 'deploy/.env'), 'utf8')
+  assert.match(env, /^MYAPI_BIND_ADDRESS=192\.168\.1\.20$/m)
+  assert.match(env, /^MYAPI_PORT=4317$/m)
+  assert.match(env, /^MYAPI_PUBLIC_URL=http:\/\/192\.168\.1\.20:4317$/m)
+  assert.match(output, /Private-network mode/)
+  assert.throws(
+    () => runCli('lan', 'start', '--project-dir', project),
+    /pass --allow-lan/
+  )
+})
+
+test('lan init rejects public and invalid listener addresses', () => {
+  const root = temporaryRoot()
+  assert.throws(
+    () => runCli('lan', 'init', path.join(root, 'public'), '--bind-address', '8.8.8.8', '--allow-lan'),
+    /private IPv4 address/
+  )
+  assert.throws(
+    () => runCli('lan', 'init', path.join(root, 'invalid'), '--port', '70000'),
+    /between 1 and 65535/
+  )
+})

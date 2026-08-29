@@ -4,7 +4,9 @@ import (
 	"testing"
 
 	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/relay/channel/claude"
 	"github.com/ForceMind/MyAPI/relay/channel/openai"
+	"github.com/ForceMind/MyAPI/relaykit/dto"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 
 	"github.com/stretchr/testify/assert"
@@ -69,4 +71,21 @@ func TestDispatchAdaptorInit(t *testing.T) {
 			assert.Equal(t, tt.wantBaseURL, info.ChannelBaseUrl)
 		})
 	}
+}
+
+func TestDispatchAdaptorExplicitTokenHubProtocolOverridesKeyShape(t *testing.T) {
+	info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{
+		ChannelType:    constant.ChannelTypeTencent,
+		ApiKey:         "legacy|shaped|credential",
+		ChannelBaseUrl: "https://gateway.example.test",
+		ChannelOtherSettings: dto.ChannelOtherSettings{TokenHub: &dto.TokenHubSettings{
+			Enabled:  true,
+			BaseURL:  "https://gateway.example.test",
+			Protocol: "anthropic",
+		}},
+	}}
+	dispatch := &DispatchAdaptor{}
+	dispatch.Init(info)
+	assert.IsType(t, &claude.Adaptor{}, dispatch.Adaptor)
+	assert.Equal(t, "https://gateway.example.test", info.ChannelBaseUrl)
 }
