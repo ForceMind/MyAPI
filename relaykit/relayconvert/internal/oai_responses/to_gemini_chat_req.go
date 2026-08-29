@@ -5,11 +5,11 @@ import (
 	"strings"
 
 	"context"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
-	relaymedia "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/media"
-	sharedgemini "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/shared/gemini"
-	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
+	"github.com/ForceMind/MyAPI/relaykit/dto"
+	"github.com/ForceMind/MyAPI/relaykit/relayconvert/convmeta"
+	relaymedia "github.com/ForceMind/MyAPI/relaykit/relayconvert/internal/media"
+	sharedgemini "github.com/ForceMind/MyAPI/relaykit/relayconvert/internal/shared/gemini"
+	kitutil "github.com/ForceMind/MyAPI/relaykit/relayconvert/kitutil"
 )
 
 func convertOpenAIResponsesRequestToGeminiChat(c context.Context, info convmeta.Meta, request any) (any, error) {

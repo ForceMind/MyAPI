@@ -9,16 +9,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/i18n"
-	"github.com/QuantumNous/new-api/model"
-	relaychannel "github.com/QuantumNous/new-api/relay/channel"
-	"github.com/QuantumNous/new-api/relay/channel/ollama"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/service"
-	"github.com/QuantumNous/new-api/service/authz"
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/i18n"
+	"github.com/ForceMind/MyAPI/model"
+	relaychannel "github.com/ForceMind/MyAPI/relay/channel"
+	"github.com/ForceMind/MyAPI/relay/channel/ollama"
+	relaycommon "github.com/ForceMind/MyAPI/relay/common"
+	"github.com/ForceMind/MyAPI/relaykit/dto"
+	"github.com/ForceMind/MyAPI/service"
+	"github.com/ForceMind/MyAPI/service/authz"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -482,7 +482,7 @@ func validateChannel(channel *model.Channel, isAdd bool) error {
 	}
 
 	if channel.Type == constant.ChannelTypeNewAPI && strings.TrimSpace(channel.GetBaseURL()) == "" {
-		return fmt.Errorf("New API channel base URL cannot be empty")
+		return fmt.Errorf("MyAPI channel base URL cannot be empty")
 	}
 
 	// 如果是添加操作，检查 channel 和 key 是否为空

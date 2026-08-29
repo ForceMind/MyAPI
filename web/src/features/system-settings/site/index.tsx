@@ -28,7 +28,7 @@ import {
 
 const defaultSiteSettings: SiteSettings = {
   Notice: '',
-  SystemName: getBuildBrandName('New API'),
+  SystemName: getBuildBrandName('MyAPI'),
   Logo: '',
   Footer: '',
   About: '',

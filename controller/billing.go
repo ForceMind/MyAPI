@@ -1,10 +1,10 @@
 package controller
 
 import (
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/relaykit/types"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/model"
+	"github.com/ForceMind/MyAPI/relaykit/types"
+	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 )
 

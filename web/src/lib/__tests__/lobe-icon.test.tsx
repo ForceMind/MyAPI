@@ -37,6 +37,14 @@ describe('getLobeIcon', () => {
     expect(view.container.querySelector('svg')).toHaveAttribute('height', '24')
   })
 
+  test('renders the local MyAPI channel icon', () => {
+    const view = render(<>{getLobeIcon('MyAPI', 22)}</>)
+
+    expect(view.container.querySelector('svg')).toHaveAttribute('width', '22')
+    expect(view.container.querySelector('svg')).toHaveAttribute('height', '22')
+    expect(view.container.querySelector('svg')).toHaveAttribute('aria-label', 'MyAPI')
+  })
+
   test('shows a question mark for an empty icon descriptor', () => {
     render(<>{getLobeIcon('', 20)}</>)
 

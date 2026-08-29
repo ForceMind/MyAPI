@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/setting/system_setting"
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/relaykit/dto"
+	"github.com/ForceMind/MyAPI/setting/system_setting"
 )
 
 // WebhookPayload webhook 通知的负载数据

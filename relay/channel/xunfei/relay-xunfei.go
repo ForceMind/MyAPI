@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/relay/helper"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/relay/helper"
+	"github.com/ForceMind/MyAPI/relaykit/dto"
+	"github.com/ForceMind/MyAPI/relaykit/types"
 	"github.com/samber/lo"
 
 	"github.com/gin-gonic/gin"

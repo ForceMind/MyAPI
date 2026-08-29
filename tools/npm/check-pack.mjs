@@ -1,5 +1,5 @@
 /*
-MyAPI distribution tooling for the New API based custom source release.
+MyAPI distribution and package validation tooling.
 Copyright (C) 2026 ForceMind
 
 Licensed under the GNU Affero General Public License version 3 or later.
@@ -28,6 +28,12 @@ const report = reports[0]
 const paths = report.files.map((file) => file.path)
 const manifest = JSON.parse(readFileSync('SOURCE_MANIFEST.json', 'utf8'))
 const metadata = JSON.parse(readFileSync('package.json', 'utf8'))
+if (metadata.name !== '@forcemind/myapi') {
+  throw new Error(`unexpected package name: ${metadata.name}`)
+}
+if (metadata.repository?.url !== 'git+https://github.com/ForceMind/MyAPI.git') {
+  throw new Error('package repository metadata must point to ForceMind/MyAPI')
+}
 if (
   manifest.distribution !== metadata.name ||
   manifest.version !== metadata.version
@@ -38,6 +44,7 @@ const required = [
   'package.json',
   'cli/myapi.mjs',
   'Dockerfile',
+  'my-api.service',
   'deploy/docker-compose.yml',
   'AGENTS.md',
   'LICENSE',

@@ -6,13 +6,13 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/QuantumNous/new-api/relay/channel"
-	"github.com/QuantumNous/new-api/relay/channel/openai"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/ForceMind/MyAPI/relay/channel"
+	"github.com/ForceMind/MyAPI/relay/channel/openai"
+	relaycommon "github.com/ForceMind/MyAPI/relay/common"
+	"github.com/ForceMind/MyAPI/relaykit/dto"
+	"github.com/ForceMind/MyAPI/relaykit/types"
 
-	"github.com/QuantumNous/new-api/relay/constant"
+	"github.com/ForceMind/MyAPI/relay/constant"
 
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/QuantumNous/new-api/common"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/ForceMind/MyAPI/common"
+	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/stretchr/testify/require"
 )
 

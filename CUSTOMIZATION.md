@@ -1,13 +1,15 @@
-# New API rc.25 定制版
+# MyAPI rc.25 定制发行版
 
 > **MyAPI 发行提示：** 本仓库同时提供以 MyAPI 为发行名称的自建 CLI、Logo 和
-> 完整源码包。下面的功能说明与补丁清单适用于 MyAPI 发行版；原始 New API、
-> QuantumNous、许可证和归属信息按项目规则保留。新机器部署可先阅读
+> 完整源码包。下面的功能说明与补丁清单适用于 MyAPI 发行版；许可证、NOTICE、
+> 依赖许可证和法律要求的第三方通知按项目规则保留。新机器部署可先阅读
 > [`docs/MYAPI_DISTRIBUTION.md`](docs/MYAPI_DISTRIBUTION.md)。
 
 本仓库保存当前生产环境实际运行的完整源码，同时保留按顺序应用的补丁文件，便于在新机器重新构建或迁移。
 
-上游项目、许可证、版权和署名均保持原样。本仓库中的定制代码继续遵守仓库根目录中的 AGPL-3.0 许可证及原项目许可要求。
+本仓库中的定制代码继续遵守仓库根目录中的 AGPL-3.0 许可证及适用的第三方许可要求。
+MyAPI 是用户可见的发行品牌；机器安全 slug 使用 `my-api`。API、SSE、数据库表和
+字段等技术协议保持兼容，品牌迁移不会改变客户端请求契约。
 
 ## 已集成功能
 
@@ -60,7 +62,7 @@
 - 演示模式页脚不再内置社区、文档和相关项目导流列；
 - 默认第三方客户端一键导入列表为空；
 - 管理员仍可在系统设置中按需配置自己的页脚列和客户端入口；
-- 保留 New API、QuantumNous、AGPL 许可证、版权和项目署名。
+- 保留 AGPL 许可证、版权和法律要求的第三方通知；发行层页面统一使用 MyAPI。
 
 对应补丁：`patches/04-codex-oauth-minimal-ui.patch`。
 
@@ -93,7 +95,7 @@
 本仓库根目录就是可构建的完整源码，无需再应用补丁：
 
 ```bash
-docker build -t local/new-api:custom-rc25 .
+docker build -t local/my-api:custom-rc25 .
 ```
 
 完整部署步骤见 `DEPLOYMENT_CUSTOM.md`。
@@ -111,7 +113,8 @@ patch -p1 < patches/05-codex-strip-unsupported-top-p.patch
 patch -p1 < patches/06-playground-codex-parameter-capabilities.patch
 ```
 
-上游文件发生变化后补丁可能产生冲突。升级 New API 时，推荐把这六个补丁作为迁移清单逐项移植，并重新运行全部测试，而不是强制应用失败的补丁。
+兼容基线文件发生变化后补丁可能产生冲突。升级时，推荐把这六个补丁作为迁移清单
+逐项移植，并重新运行全部测试，而不是强制应用失败的补丁。
 
 ## 主要测试
 

@@ -1,10 +1,10 @@
 package openai
 
 import (
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
+	relaycommon "github.com/ForceMind/MyAPI/relay/common"
+	"github.com/ForceMind/MyAPI/relaykit/dto"
 )
 
 func applyUsagePostProcessing(info *relaycommon.RelayInfo, usage *dto.Usage, responseBody []byte) {

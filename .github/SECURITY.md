@@ -1,7 +1,7 @@
 # Security Policy
 
 > [!IMPORTANT]
-> **Bulk Reporting Policy:** If you need to submit multiple vulnerability reports in bulk, **you must contact us first** ([support@quantumnous.com](mailto:support@quantumnous.com)) to coordinate the submission process. Uncoordinated bulk submissions have caused significant disruption to our team, and we will take the following actions:
+> **Bulk Reporting Policy:** If you need to submit multiple vulnerability reports in bulk, please open a single private GitHub Security Advisory first so the maintainers can coordinate the submission process. Uncoordinated bulk submissions may be closed without review.
 >
 > 1. **All uncoordinated bulk reports will be closed without review.**
 > 2. **Repeated offenders may be blocked** from further submissions.
@@ -29,12 +29,10 @@ We take security vulnerability reports very seriously. If you discover a securit
 
 **Do NOT** report security vulnerabilities in public GitHub Issues.
 
-To report a security issue, please use the GitHub Security Advisories tab to "[Open a draft security advisory](https://github.com/QuantumNous/new-api/security/advisories/new)". This is the preferred method as it provides a built-in private communication channel.
-
-Alternatively, you can report via email:
-
-- **Email:** [support@quantumnous.com](mailto:support@quantumnous.com)
-- **Subject:** `[SECURITY] Security Vulnerability Report`
+To report a security issue, please use the GitHub Security Advisories tab to
+"[Open a draft security advisory](https://github.com/ForceMind/MyAPI/security/advisories/new)".
+This is the preferred method because it provides a built-in private communication
+channel. Do not include credentials, tokens, or production data in a public issue.
 
 ### What to Include
 
@@ -58,7 +56,7 @@ To help us understand and resolve the issue more quickly, please include the fol
 
 ## Security Best Practices
 
-When deploying and using New API, we recommend following these security best practices:
+When deploying and using MyAPI, we recommend following these security best practices:
 
 ### Deployment Security
 
@@ -89,7 +87,7 @@ Please ensure the following security-related environment variables and settings 
 - `SQL_DSN` - Ensure database connection uses secure configuration
 - `REDIS_CONN_STRING` - If using Redis, ensure secure connection
 
-For detailed configuration instructions, please refer to the project documentation.
+For detailed configuration instructions, please refer to the [MyAPI deployment guide](../DEPLOYMENT_CUSTOM.md).
 
 ## Disclaimer
 

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/ForceMind/MyAPI/common"
 	"github.com/go-redis/redis/v8"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/stretchr/testify/assert"

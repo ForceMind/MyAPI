@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/QuantumNous/new-api/middleware"
-	"github.com/QuantumNous/new-api/model"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/ForceMind/MyAPI/middleware"
+	"github.com/ForceMind/MyAPI/model"
+	relaycommon "github.com/ForceMind/MyAPI/relay/common"
+	"github.com/ForceMind/MyAPI/relaykit/types"
 
 	"github.com/gin-gonic/gin"
 )

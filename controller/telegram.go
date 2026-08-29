@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/middleware"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/service"
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/middleware"
+	"github.com/ForceMind/MyAPI/model"
+	"github.com/ForceMind/MyAPI/service"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"

@@ -147,7 +147,7 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                     <FormLabel>{t('System Name')}</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder={getBuildBrandName(t('New API'))}
+                        placeholder={getBuildBrandName(t('MyAPI'))}
                         {...field}
                       />
                     </FormControl>
@@ -257,7 +257,7 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                       <FormLabel>{t('Home Page Content')}</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder={t('Welcome to our New API...')}
+                          placeholder={t('Welcome to MyAPI...')}
                           rows={6}
                           {...field}
                         />

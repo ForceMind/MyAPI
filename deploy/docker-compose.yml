@@ -1,20 +1,30 @@
 services:
-  new-api:
-    image: ${NEW_API_IMAGE:-local/new-api:custom-rc25}
-    container_name: new-api
+  my-api:
+    # MYAPI_* is canonical. Image/port/path values accept NEW_API_* as a
+    # read-only fallback; the CLI and install script normalize the legacy
+    # public URL before invoking this file, then the required check below
+    # prevents an empty origin.
+    image: ${MYAPI_IMAGE:-${NEW_API_IMAGE:-local/my-api:custom-rc25}}
+    container_name: my-api
     restart: always
     command: --log-dir /app/logs
     ports:
-      - "127.0.0.1:${NEW_API_PORT:-3000}:3000"
+      - "127.0.0.1:${MYAPI_PORT:-${NEW_API_PORT:-3000}}:3000"
     volumes:
-      - ${NEW_API_DATA_DIR:-./data}:/data
-      - ${NEW_API_LOGS_DIR:-./logs}:/app/logs
+      # The container mount points are stable runtime/data contracts. Host
+      # paths may be changed with MYAPI_DATA_DIR/MYAPI_LOGS_DIR (or legacy
+      # NEW_API_DATA_DIR/NEW_API_LOGS_DIR) without moving existing files.
+      - ${MYAPI_DATA_DIR:-${NEW_API_DATA_DIR:-./data}}:/data
+      - ${MYAPI_LOGS_DIR:-${NEW_API_LOGS_DIR:-./logs}}:/app/logs
     environment:
       TZ: Asia/Shanghai
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
       SESSION_COOKIE_SECURE: "true"
-      SESSION_COOKIE_TRUSTED_URL: ${NEW_API_PUBLIC_URL:?NEW_API_PUBLIC_URL is required}
-      FRONTEND_BASE_URL: ${NEW_API_PUBLIC_URL:?NEW_API_PUBLIC_URL is required}
+      # install.sh and the CLI normalize a legacy NEW_API_PUBLIC_URL into the
+      # canonical environment before invoking Compose. Keep a required check
+      # here so direct Compose runs cannot start with an empty public origin.
+      SESSION_COOKIE_TRUSTED_URL: ${MYAPI_PUBLIC_URL:?MYAPI_PUBLIC_URL is required; run myapi migrate for legacy settings}
+      FRONTEND_BASE_URL: ${MYAPI_PUBLIC_URL:?MYAPI_PUBLIC_URL is required; run myapi migrate for legacy settings}
       TRUSTED_PROXIES: 172.16.0.0/12
       ERROR_LOG_ENABLED: "true"
       BATCH_UPDATE_ENABLED: "true"

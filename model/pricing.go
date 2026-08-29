@@ -7,12 +7,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/setting/billing_setting"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
-	"github.com/QuantumNous/new-api/types"
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/relaykit/dto"
+	"github.com/ForceMind/MyAPI/setting/billing_setting"
+	"github.com/ForceMind/MyAPI/setting/ratio_setting"
+	"github.com/ForceMind/MyAPI/types"
 )
 
 type Pricing struct {

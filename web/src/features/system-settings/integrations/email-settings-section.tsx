@@ -375,7 +375,7 @@ export function EmailSettingsSection({
                     placeholder={
                       buildBrandName
                         ? `${buildBrandName} &lt;noreply@example.com&gt;`
-                        : t('New API &lt;noreply@example.com&gt;')
+                        : t('MyAPI &lt;noreply@example.com&gt;')
                     }
                     {...field}
                     onChange={(event) => field.onChange(event.target.value)}

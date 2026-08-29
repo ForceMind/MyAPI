@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/types"
+	relaycommon "github.com/ForceMind/MyAPI/relay/common"
+	"github.com/ForceMind/MyAPI/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

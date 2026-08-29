@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/setting/system_setting"
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/setting/system_setting"
 )
 
 type ssrfResolver interface {

@@ -1,26 +1,63 @@
-name: Publish MyAPI npm distribution
+name: Publish MyAPI npm distribution (manual)
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag matching VERSION and package.json (for example, v0.1.1)'
+        required: true
+        type: string
+      confirm:
+        description: 'Type PUBLISH only after maintainer approval and npm review'
+        required: true
+        type: string
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
-  group: myapi-npm-publish
+  group: myapi-npm-publish-${{ inputs.tag }}
   cancel-in-progress: false
 
 jobs:
   publish:
+    if: ${{ inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_NPM_PUBLISH == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: npm
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+      - name: Verify manual publish gate
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          PUBLISH_GATE: ${{ vars.MYAPI_ENABLE_NPM_PUBLISH }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          if [[ "$PUBLISH_GATE" != "true" || "$CONFIRM" != "PUBLISH" ]]; then
+            echo "::error::NPM publishing is disabled or not explicitly confirmed"
+            exit 1
+          fi
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::tag must be an exact semantic version beginning with v"
+            exit 1
+          fi
+          if ! git rev-parse "refs/tags/$RELEASE_TAG^{commit}" >/dev/null 2>&1; then
+            echo "::error::tag '$RELEASE_TAG' does not exist"
+            exit 1
+          fi
+          TAG_SHA="$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          HEAD_SHA="$(git rev-parse HEAD)"
+          if [[ "$HEAD_SHA" != "$TAG_SHA" ]]; then
+            echo "::error::checked out commit does not match tag $RELEASE_TAG"
+            exit 1
+          fi
       - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -38,6 +75,10 @@ jobs:
       - name: Use trusted-publishing-compatible npm
         run: npm install --global npm@11.5.1
       - name: Verify version and clean source state
+        env:
+          MYAPI_RELEASE_TAG: ${{ inputs.tag }}
+          GITHUB_REF_TYPE: tag
+          GITHUB_REF_NAME: ${{ inputs.tag }}
         run: npm run release:state
       - name: Test backend
         run: |
@@ -52,7 +93,7 @@ jobs:
           bun run build
           VITE_SELF_USE_MINIMAL=true bun run build
       - name: Build release container
-        run: docker build --tag myapi-release-check:${{ github.sha }} .
+        run: docker build --tag local/my-api:release-check-${{ github.sha }} .
       - name: Verify CLI, manifest, and package contents
         run: npm run release:check
       - name: Show runtime versions

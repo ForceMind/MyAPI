@@ -9,15 +9,15 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/pkg/billingexpr"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/service"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
-	"github.com/QuantumNous/new-api/types"
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/model"
+	"github.com/ForceMind/MyAPI/pkg/billingexpr"
+	relaycommon "github.com/ForceMind/MyAPI/relay/common"
+	"github.com/ForceMind/MyAPI/relaykit/dto"
+	"github.com/ForceMind/MyAPI/service"
+	"github.com/ForceMind/MyAPI/setting/operation_setting"
+	"github.com/ForceMind/MyAPI/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -79,7 +79,7 @@ func TestValidateChannelRequiresNewAPIBaseURL(t *testing.T) {
 			err := validateChannel(channel, false)
 
 			if test.wantErr {
-				require.ErrorContains(t, err, "New API channel base URL cannot be empty")
+				require.ErrorContains(t, err, "MyAPI channel base URL cannot be empty")
 				return
 			}
 			require.NoError(t, err)
@@ -92,7 +92,7 @@ func TestNewAPIChannelRegistration(t *testing.T) {
 
 	require.True(t, ok)
 	assert.Equal(t, constant.APITypeNewAPI, apiType)
-	assert.Equal(t, "New API", constant.GetChannelTypeName(constant.ChannelTypeNewAPI))
+	assert.Equal(t, "MyAPI", constant.GetChannelTypeName(constant.ChannelTypeNewAPI))
 	require.Greater(t, len(constant.ChannelBaseURLs), constant.ChannelTypeNewAPI)
 	assert.Empty(t, constant.ChannelBaseURLs[constant.ChannelTypeNewAPI])
 }
@@ -109,7 +109,7 @@ func TestResponsesCompactChannelSupport(t *testing.T) {
 		{name: "Codex", channelType: constant.ChannelTypeCodex, apiType: constant.APITypeCodex, want: true},
 		{name: "Advanced Custom", channelType: constant.ChannelTypeAdvancedCustom, apiType: constant.APITypeAdvancedCustom, want: true},
 		{name: "Sub2API", channelType: constant.ChannelTypeSub2API, apiType: constant.APITypeSub2API, want: true},
-		{name: "New API", channelType: constant.ChannelTypeNewAPI, apiType: constant.APITypeNewAPI, want: true},
+		{name: "MyAPI", channelType: constant.ChannelTypeNewAPI, apiType: constant.APITypeNewAPI, want: true},
 		{name: "Anthropic", channelType: constant.ChannelTypeAnthropic, apiType: constant.APITypeAnthropic, want: false},
 	}
 

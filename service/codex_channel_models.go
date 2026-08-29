@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/model"
+	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/model"
 )
 
 func FetchCodexChannelModels(channel *model.Channel) ([]string, error) {

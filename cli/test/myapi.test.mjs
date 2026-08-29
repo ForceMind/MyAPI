@@ -1,5 +1,5 @@
 /*
-MyAPI distribution tooling for the New API based custom source release.
+MyAPI distribution and self-hosting tooling.
 Copyright (C) 2026 ForceMind
 
 This program is free software: you can redistribute it and/or modify
@@ -16,6 +16,7 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -48,12 +49,14 @@ afterEach(() => {
   }
 })
 
-test('version exposes the distribution and upstream identity', () => {
+test('version exposes the MyAPI distribution identity', () => {
   const version = JSON.parse(runCli('version', '--json'))
 
   assert.equal(version.package, '@forcemind/myapi')
   assert.equal(version.version, '0.1.0')
-  assert.match(version.upstream, /New API/)
+  assert.equal(version.distribution, 'MyAPI')
+  assert.equal(version.machineSlug, 'my-api')
+  assert.doesNotMatch(JSON.stringify(version), /New API|QuantumNous/)
 })
 
 test('init copies source without runtime data and configure protects secrets', () => {
@@ -122,7 +125,7 @@ test('init copies source without runtime data and configure protects secrets', (
 
   const envPath = path.join(project, 'deploy/.env')
   const env = readFileSync(envPath, 'utf8')
-  assert.match(env, /^NEW_API_PUBLIC_URL=https:\/\/myapi\.example\.test$/m)
+  assert.match(env, /^MYAPI_PUBLIC_URL=https:\/\/myapi\.example\.test$/m)
   assert.match(env, /^MYAPI_BRAND_NAME=MyAPI$/m)
   assert.match(env, /^MYAPI_BRAND_LOGO=\/myapi-logo-v1\.png$/m)
   assert.match(env, /^SESSION_SECRET=[a-f0-9]{64}$/m)
@@ -173,8 +176,36 @@ test('adopt records existing absolute data paths without moving them', () => {
   )
 
   const env = readFileSync(path.join(project, 'deploy/.env'), 'utf8')
-  assert.match(env, new RegExp(`^NEW_API_DATA_DIR=${data}$`, 'm'))
-  assert.match(env, new RegExp(`^NEW_API_LOGS_DIR=${logs}$`, 'm'))
+  assert.match(env, new RegExp(`^MYAPI_DATA_DIR=${data}$`, 'm'))
+  assert.match(env, new RegExp(`^MYAPI_LOGS_DIR=${logs}$`, 'm'))
   assert.equal(existsSync(data), true)
   assert.equal(existsSync(logs), true)
+})
+
+test('legacy deployment variables are accepted and can be migrated explicitly', () => {
+  const root = temporaryRoot()
+  const project = path.join(root, 'source')
+  runCli('init', project)
+  runCli('configure', '--project-dir', project, '--public-url', 'https://myapi.example.test')
+
+  const envPath = path.join(project, 'deploy/.env')
+  let env = readFileSync(envPath, 'utf8')
+  env = env
+    .replace(/^MYAPI_IMAGE=.*$/m, 'NEW_API_IMAGE=local/legacy-api:test')
+    .replace(/^MYAPI_PORT=.*$/m, 'NEW_API_PORT=3456')
+    .replace(/^MYAPI_PUBLIC_URL=.*$/m, 'NEW_API_PUBLIC_URL=https://legacy.example.test')
+    .replace(/^MYAPI_DATA_DIR=.*$/m, 'NEW_API_DATA_DIR=./legacy-data')
+    .replace(/^MYAPI_LOGS_DIR=.*$/m, 'NEW_API_LOGS_DIR=./legacy-logs')
+  writeFileSync(envPath, env, { mode: 0o600 })
+
+  runCli('migrate', '--project-dir', project)
+
+  const migrated = readFileSync(envPath, 'utf8')
+  assert.match(migrated, /^MYAPI_IMAGE=local\/legacy-api:test$/m)
+  assert.match(migrated, /^MYAPI_PORT=3456$/m)
+  assert.match(migrated, /^MYAPI_PUBLIC_URL=https:\/\/legacy\.example\.test$/m)
+  assert.match(migrated, /^MYAPI_DATA_DIR=\.\/legacy-data$/m)
+  assert.match(migrated, /^MYAPI_LOGS_DIR=\.\/legacy-logs$/m)
+  assert.match(migrated, /^# Legacy NEW_API_IMAGE migrated to MYAPI_IMAGE:/m)
+  assert.match(migrated, /^# Legacy NEW_API_PUBLIC_URL migrated to MYAPI_PUBLIC_URL:/m)
 })

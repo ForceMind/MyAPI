@@ -22,4 +22,8 @@
 node_modules/
 dist/
 coverage/
+# Generated runtime binaries. Keep legacy names ignored during migration.
+my-api
+new-api
+one-api
 SOURCE_MANIFEST.json

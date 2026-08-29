@@ -1,8 +1,8 @@
 {
-  "name": "new-api-electron",
+  "name": "my-api-electron",
   "version": "1.0.0",
   "private": true,
-  "description": "New API - AI Model Gateway Desktop Application",
+  "description": "MyAPI - AI Model Gateway Desktop Application",
   "main": "main.js",
   "scripts": {
     "start-app": "electron .",
@@ -19,10 +19,10 @@
     "openai",
     "claude"
   ],
-  "author": "QuantumNous",
+  "author": "ForceMind",
   "repository": {
     "type": "git",
-    "url": "https://github.com/QuantumNous/new-api"
+    "url": "https://github.com/ForceMind/MyAPI"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
@@ -30,8 +30,8 @@
     "electron-builder": "^26.15.3"
   },
   "build": {
-    "appId": "com.newapi.desktop",
-    "productName": "New-API-App",
+    "appId": "com.forcemind.myapi",
+    "productName": "MyAPI",
     "publish": null,
     "directories": {
       "output": "dist"
@@ -58,8 +58,8 @@
       ],
       "extraResources": [
         {
-          "from": "../new-api",
-          "to": "bin/new-api"
+          "from": "../my-api",
+          "to": "bin/my-api"
         },
         {
           "from": "../LICENSE",
@@ -91,8 +91,8 @@
       ],
       "extraResources": [
         {
-          "from": "../new-api.exe",
-          "to": "bin/new-api.exe"
+          "from": "../my-api.exe",
+          "to": "bin/my-api.exe"
         },
         {
           "from": "../LICENSE",
@@ -125,8 +125,8 @@
       "category": "Development",
       "extraResources": [
         {
-          "from": "../new-api",
-          "to": "bin/new-api"
+          "from": "../my-api",
+          "to": "bin/my-api"
         },
         {
           "from": "../LICENSE",

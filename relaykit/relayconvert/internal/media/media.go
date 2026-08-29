@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"context"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/ForceMind/MyAPI/relaykit/types"
 )
 
 type MediaResolver struct {

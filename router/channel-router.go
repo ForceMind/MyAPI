@@ -3,9 +3,9 @@ package router
 import (
 	"net/http"
 
-	"github.com/QuantumNous/new-api/controller"
-	"github.com/QuantumNous/new-api/middleware"
-	"github.com/QuantumNous/new-api/service/authz"
+	"github.com/ForceMind/MyAPI/controller"
+	"github.com/ForceMind/MyAPI/middleware"
+	"github.com/ForceMind/MyAPI/service/authz"
 	"github.com/gin-gonic/gin"
 )
 

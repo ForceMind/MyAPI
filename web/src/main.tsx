@@ -133,9 +133,8 @@ if (!rootElement) {
       if (metaTitle) metaTitle.setAttribute('content', name)
     }
     // Apply the optional distribution brand immediately. A saved administrator
-    // name/logo overrides it; an untouched upstream default is treated as
-    // unset for the distribution. With no build-time values, the original
-    // defaults remain unchanged.
+    // name/logo overrides it; legacy default values from existing installs are
+    // treated as unset so the MyAPI distribution defaults remain visible.
     apply(getBuildBrandName(DEFAULT_SYSTEM_NAME))
     applyFaviconToDom(getBuildBrandLogo(DEFAULT_LOGO))
     // Cache-first

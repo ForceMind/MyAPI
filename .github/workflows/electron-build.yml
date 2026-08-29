@@ -1,15 +1,29 @@
-name: Build Electron App
+name: Build MyAPI Electron App (manual)
+permissions:
+  contents: read
 
 on:
-  push:
-    tags:
-      - '*'  # Triggers on version tags like v1.0.0
-      - '!*-*'  # Ignore pre-release tags like v1.0.0-beta
-      - '!*-alpha*' # Ignore alpha tags like v1.0.0-alpha
-  workflow_dispatch:  # Allows manual triggering
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Optional existing tag to build (leave blank for the selected branch)'
+        required: false
+        type: string
+      confirm:
+        description: 'Type PUBLISH only when attaching artifacts to a release'
+        required: false
+        default: ''
+        type: string
+
+concurrency:
+  group: myapi-electron-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
+    name: Build MyAPI desktop package
+    outputs:
+      source_sha: ${{ steps.source.outputs.sha }}
     strategy:
       matrix:
         # os: [macos-latest, windows-latest]
@@ -25,11 +39,39 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          ref: ${{ inputs.tag != '' && format('refs/tags/{0}', inputs.tag) || github.ref }}
+          persist-credentials: false
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: latest
+
+      - name: Resolve source commit
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Validate requested tag
+        env:
+          BUILD_TAG: ${{ inputs.tag }}
+        run: |
+          if [[ -z "$BUILD_TAG" ]]; then
+            exit 0
+          fi
+          if [[ ! "$BUILD_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::tag must be an exact semantic version beginning with v"
+            exit 1
+          fi
+          if ! git rev-parse "refs/tags/$BUILD_TAG^{commit}" >/dev/null 2>&1; then
+            echo "::error::tag '$BUILD_TAG' does not exist"
+            exit 1
+          fi
+          TAG_SHA="$(git rev-parse "refs/tags/$BUILD_TAG^{commit}")"
+          HEAD_SHA="$(git rev-parse HEAD)"
+          if [[ "$HEAD_SHA" != "$TAG_SHA" ]]; then
+            echo "::error::checked out commit does not match tag $BUILD_TAG"
+            exit 1
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
@@ -48,25 +90,27 @@ jobs:
         run: |
           cd web
           bun install --frozen-lockfile
-          DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(git describe --tags) bun run build
+          DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(git describe --tags --always) bun run build
           cd ..
 
-      # - name: Build Go binary (macos/Linux)
+      # - name: Build Go binary (macOS/Linux)
       #   if: runner.os != 'Windows'
       #   run: |
       #     go mod download
-      #     go build -ldflags "-s -w -X 'new-api/common.Version=$(git describe --tags)' -extldflags '-static'" -o new-api
+      #     MODULE_PATH="$(go list -m)"; go build -ldflags "-s -w -X '${MODULE_PATH}/common.Version=$(git describe --tags)' -extldflags '-static'" -o my-api
 
       - name: Build Go binary (Windows)
         if: runner.os == 'Windows'
         run: |
           go mod download
-          go build -ldflags "-s -w -X 'new-api/common.Version=$(git describe --tags)'" -o new-api.exe
+          MODULE_PATH="$(go list -m)"
+          [[ "$MODULE_PATH" == "github.com/ForceMind/MyAPI" ]] || { echo "::error::unexpected Go module path: $MODULE_PATH"; exit 1; }
+          go build -ldflags "-s -w -X '${MODULE_PATH}/common.Version=$(git describe --tags --always)'" -o my-api.exe
 
       - name: Update Electron version
         run: |
           cd electron
-          VERSION=$(git describe --tags)
+          VERSION=$(git describe --tags --always)
           VERSION=${VERSION#v}  # Remove 'v' prefix if present
           # Convert to valid semver: take first 3 components and convert rest to prerelease format
           # e.g., 0.9.3-patch.1 -> 0.9.3-patch.1
@@ -82,13 +126,19 @@ jobs:
             if [[ -n "$REST" ]]; then
               VERSION="$VERSION$REST"
             fi
+          else
+            # A branch without a reachable semver tag yields a raw commit SHA;
+            # npm version rejects that value. Use the distribution version as
+            # a stable base and add a CI-only prerelease suffix.
+            BASE_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('../package.json', 'utf8')).version")
+            VERSION="$BASE_VERSION-dev.${GITHUB_RUN_NUMBER:-0}"
           fi
-          npm version $VERSION --no-git-tag-version --allow-same-version
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
 
       - name: Install Electron dependencies
         run: |
           cd electron
-          npm install
+          npm ci
 
       # - name: Build Electron app (macOS)
       #   if: runner.os == 'macOS'
@@ -124,7 +174,8 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: ${{ inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_RELEASE == 'true' && inputs.tag != '' }}
+    environment: github-release
     permissions:
       contents: write
 
@@ -135,6 +186,8 @@ jobs:
       - name: Upload to Release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
+          tag_name: ${{ inputs.tag }}
+          target_commitish: ${{ needs.build.outputs.source_sha }}
           files: |
             windows-build/*
         env:

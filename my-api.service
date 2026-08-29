@@ -1,0 +1,23 @@
+# File path: /etc/systemd/system/my-api.service
+#
+# MyAPI canonical systemd unit. Replace the example user and paths before
+# enabling it. Existing installations can keep using new-api.service while
+# they migrate their unit name and executable path.
+#
+# sudo systemctl daemon-reload
+# sudo systemctl start my-api
+# sudo systemctl enable my-api
+# sudo systemctl status my-api
+[Unit]
+Description=MyAPI Service
+After=network.target
+
+[Service]
+User=ubuntu  # 注意修改用户名
+WorkingDirectory=/path/to/my-api  # 注意修改路径
+ExecStart=/path/to/my-api/my-api --port 3000 --log-dir /path/to/my-api/logs  # 注意修改路径和端口号
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

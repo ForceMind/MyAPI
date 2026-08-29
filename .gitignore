@@ -12,6 +12,9 @@ web/dist
 web/node_modules
 .env
 one-api
+# Canonical MyAPI runtime binary (legacy names above remain ignored so an
+# existing checkout cannot accidentally add an old generated executable).
+my-api
 new-api
 /__debug_bin*
 .DS_Store

@@ -3,12 +3,12 @@ package controller
 import (
 	"strconv"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/dto"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/relay"
-	"github.com/QuantumNous/new-api/types"
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/dto"
+	"github.com/ForceMind/MyAPI/model"
+	"github.com/ForceMind/MyAPI/relay"
+	"github.com/ForceMind/MyAPI/types"
 
 	"github.com/gin-gonic/gin"
 )

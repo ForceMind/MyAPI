@@ -3,7 +3,7 @@ package setting
 import (
 	"encoding/json"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/ForceMind/MyAPI/common"
 )
 
 // Keep third-party client links opt-in. Administrators can add only the

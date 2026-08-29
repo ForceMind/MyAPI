@@ -4,6 +4,12 @@ const path = require('path');
 const http = require('http');
 const fs = require('fs');
 
+const APP_NAME = 'MyAPI';
+const CANONICAL_BINARY_NAME = process.platform === 'win32' ? 'my-api.exe' : 'my-api';
+const LEGACY_BINARY_NAME = process.platform === 'win32' ? 'new-api.exe' : 'new-api';
+const CANONICAL_DATABASE_NAME = 'my-api.db';
+const LEGACY_DATABASE_NAMES = ['new-api.db', 'one-api.db'];
+
 let mainWindow;
 let serverProcess;
 let tray = null;
@@ -15,7 +21,7 @@ const DEV_FRONTEND_PORT = 5173; // Rsbuild dev server port
 function saveAndOpenErrorLog() {
   try {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const logFileName = `new-api-crash-${timestamp}.log`;
+    const logFileName = `my-api-crash-${timestamp}.log`;
     const logDir = app.getPath('logs');
     const logFilePath = path.join(logDir, logFileName);
     
@@ -25,7 +31,7 @@ function saveAndOpenErrorLog() {
     }
     
     // 写入日志
-    const logContent = `New API 崩溃日志
+    const logContent = `${APP_NAME} 崩溃日志
 生成时间: ${new Date().toLocaleString('zh-CN')}
 平台: ${process.platform}
 架构: ${process.arch}
@@ -72,7 +78,7 @@ function analyzeError(errorLogs) {
       type: '端口被占用',
       title: '端口 ' + PORT + ' 被占用',
       message: '无法启动服务器，端口已被其他程序占用',
-      solution: `可能的解决方案：\n\n1. 关闭占用端口 ${PORT} 的其他程序\n2. 检查是否已经运行了另一个 New API 实例\n3. 使用以下命令查找占用端口的进程：\n   Mac/Linux: lsof -i :${PORT}\n   Windows: netstat -ano | findstr :${PORT}\n4. 重启电脑以释放端口`
+      solution: `可能的解决方案：\n\n1. 关闭占用端口 ${PORT} 的其他程序\n2. 检查是否已经运行了另一个 ${APP_NAME} 实例\n3. 使用以下命令查找占用端口的进程：\n   Mac/Linux: lsof -i :${PORT}\n   Windows: netstat -ano | findstr :${PORT}\n4. 重启电脑以释放端口`
     };
   }
   
@@ -83,7 +89,7 @@ function analyzeError(errorLogs) {
       type: '数据文件被占用',
       title: '无法访问数据文件',
       message: '应用的数据文件正被其他程序占用',
-      solution: '可能的解决方案：\n\n1. 检查是否已经打开了另一个 New API 窗口\n   - 查看任务栏/Dock 中是否有其他 New API 图标\n   - 查看系统托盘（Windows）或菜单栏（Mac）中是否有 New API 图标\n\n2. 如果刚刚关闭过应用，请等待 10 秒后再试\n\n3. 重启电脑以释放被占用的文件\n\n4. 如果问题持续，可以尝试：\n   - 退出所有 New API 实例\n   - 删除数据目录中的临时文件（.db-shm 和 .db-wal）\n   - 重新启动应用'
+      solution: `可能的解决方案：\n\n1. 检查是否已经打开了另一个 ${APP_NAME} 窗口\n   - 查看任务栏/Dock 中是否有其他 ${APP_NAME} 图标\n   - 查看系统托盘（Windows）或菜单栏（Mac）中是否有 ${APP_NAME} 图标\n\n2. 如果刚刚关闭过应用，请等待 10 秒后再试\n\n3. 重启电脑以释放被占用的文件\n\n4. 如果问题持续，可以尝试：\n   - 退出所有 ${APP_NAME} 实例\n   - 删除数据目录中的临时文件（.db-shm 和 .db-wal）\n   - 重新启动应用`
     };
   }
   
@@ -152,26 +158,14 @@ function getBinaryPath() {
   const platform = process.platform;
 
   if (isDev) {
-    const binaryName = platform === 'win32' ? 'new-api.exe' : 'new-api';
-    return path.join(__dirname, '..', binaryName);
+    const canonicalPath = path.join(__dirname, '..', CANONICAL_BINARY_NAME);
+    const legacyPath = path.join(__dirname, '..', LEGACY_BINARY_NAME);
+    return fs.existsSync(canonicalPath) ? canonicalPath : legacyPath;
   }
 
-  let binaryName;
-  switch (platform) {
-    case 'win32':
-      binaryName = 'new-api.exe';
-      break;
-    case 'darwin':
-      binaryName = 'new-api';
-      break;
-    case 'linux':
-      binaryName = 'new-api';
-      break;
-    default:
-      binaryName = 'new-api';
-  }
-
-  return path.join(process.resourcesPath, 'bin', binaryName);
+  const canonicalPath = path.join(process.resourcesPath, 'bin', CANONICAL_BINARY_NAME);
+  const legacyPath = path.join(process.resourcesPath, 'bin', LEGACY_BINARY_NAME);
+  return fs.existsSync(canonicalPath) ? canonicalPath : legacyPath;
 }
 
 // Check if a server is available with retry logic
@@ -261,7 +255,15 @@ function startServer() {
       fs.mkdirSync(dataDir, { recursive: true });
     }
 
-    env.SQLITE_PATH = path.join(dataDir, 'new-api.db');
+    const canonicalDatabasePath = path.join(dataDir, CANONICAL_DATABASE_NAME);
+    const legacyDatabasePath = LEGACY_DATABASE_NAMES
+      .map((name) => path.join(dataDir, name))
+      .find((candidate) => fs.existsSync(candidate));
+    // Keep an explicitly configured path authoritative. Otherwise new data is
+    // written to my-api.db, while an existing legacy database is adopted in
+    // place rather than silently creating an empty account.
+    env.SQLITE_PATH = process.env.MYAPI_SQLITE_PATH || process.env.SQLITE_PATH ||
+      legacyDatabasePath || canonicalDatabasePath;
     
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('📁 您的数据存储位置：');
@@ -397,7 +399,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true
     },
-    title: 'New API',
+    title: APP_NAME,
     icon: path.join(__dirname, 'icon.png')
   });
 
@@ -436,7 +438,7 @@ function createTray() {
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Show New API',
+      label: `Show ${APP_NAME}`,
       click: () => {
         if (mainWindow === null) {
           createWindow();
@@ -458,7 +460,7 @@ function createTray() {
     }
   ]);
 
-  tray.setToolTip('New API');
+  tray.setToolTip(APP_NAME);
   tray.setContextMenu(contextMenu);
 
   // On macOS, clicking the tray icon shows the window

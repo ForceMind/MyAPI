@@ -10,9 +10,9 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/QuantumNous/new-api/common"
-	relayconstant "github.com/QuantumNous/new-api/relay/constant"
-	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/ForceMind/MyAPI/common"
+	relayconstant "github.com/ForceMind/MyAPI/relay/constant"
+	"github.com/ForceMind/MyAPI/relaykit/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )

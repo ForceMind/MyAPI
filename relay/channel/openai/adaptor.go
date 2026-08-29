@@ -13,24 +13,24 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/logger"
-	"github.com/QuantumNous/new-api/relay/channel"
-	"github.com/QuantumNous/new-api/relay/channel/ai360"
-	"github.com/QuantumNous/new-api/relay/channel/lingyiwanwu"
-	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/logger"
+	"github.com/ForceMind/MyAPI/relay/channel"
+	"github.com/ForceMind/MyAPI/relay/channel/ai360"
+	"github.com/ForceMind/MyAPI/relay/channel/lingyiwanwu"
+	"github.com/ForceMind/MyAPI/relaykit/dto"
 
-	//"github.com/QuantumNous/new-api/relay/channel/minimax"
-	"github.com/QuantumNous/new-api/relay/channel/openrouter"
-	"github.com/QuantumNous/new-api/relay/channel/xinference"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relay/common_handler"
-	relayconstant "github.com/QuantumNous/new-api/relay/constant"
-	"github.com/QuantumNous/new-api/relaykit/types"
-	"github.com/QuantumNous/new-api/service"
-	"github.com/QuantumNous/new-api/setting/model_setting"
-	"github.com/QuantumNous/new-api/setting/reasoning"
+	//"github.com/ForceMind/MyAPI/relay/channel/minimax"
+	"github.com/ForceMind/MyAPI/relay/channel/openrouter"
+	"github.com/ForceMind/MyAPI/relay/channel/xinference"
+	relaycommon "github.com/ForceMind/MyAPI/relay/common"
+	"github.com/ForceMind/MyAPI/relay/common_handler"
+	relayconstant "github.com/ForceMind/MyAPI/relay/constant"
+	"github.com/ForceMind/MyAPI/relaykit/types"
+	"github.com/ForceMind/MyAPI/service"
+	"github.com/ForceMind/MyAPI/setting/model_setting"
+	"github.com/ForceMind/MyAPI/setting/reasoning"
 	"github.com/samber/lo"
 
 	"github.com/gin-gonic/gin"
@@ -158,7 +158,7 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 		if info.ChannelCreateTime < constant.AzureNoRemoveDotTime {
 			model_ = strings.Replace(model_, ".", "", -1)
 		}
-		// https://github.com/songquanpeng/one-api/issues/67
+		// Preserve the established Azure deployment URL behavior for compatibility.
 		requestURL = fmt.Sprintf("/openai/deployments/%s/%s", model_, task)
 		if info.RelayMode == relayconstant.RelayModeRealtime {
 			requestURL = fmt.Sprintf("/openai/realtime?deployment=%s&api-version=%s", model_, apiVersion)
@@ -232,10 +232,10 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, header *http.Header, info *
 	}
 	if info.ChannelType == constant.ChannelTypeOpenRouter {
 		if header.Get("HTTP-Referer") == "" {
-			header.Set("HTTP-Referer", "https://www.newapi.ai")
+			header.Set("HTTP-Referer", "https://github.com/ForceMind/MyAPI")
 		}
 		if header.Get("X-OpenRouter-Title") == "" {
-			header.Set("X-OpenRouter-Title", "New API")
+			header.Set("X-OpenRouter-Title", "MyAPI")
 		}
 	}
 	return nil

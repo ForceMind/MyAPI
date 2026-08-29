@@ -21,16 +21,18 @@ import { describe, expect, test } from 'vitest'
 import {
   CHANNEL_TYPE_NEW_API,
   CHANNEL_TYPE_OPTIONS,
+  CHANNEL_TYPE_WARNINGS,
   MODEL_FETCHABLE_TYPES,
+  TYPE_TO_KEY_PROMPT,
 } from '../../constants'
 import { CHANNEL_FORM_DEFAULT_VALUES, channelFormSchema } from '../channel-form'
 import { getChannelTypeConfig } from '../channel-type-config'
 import { getChannelTypeIcon, getKeyPromptForType } from '../channel-utils'
 
-function newAPIForm(baseUrl: string) {
+function myAPIForm(baseUrl: string) {
   return {
     ...CHANNEL_FORM_DEFAULT_VALUES,
-    name: 'New API upstream',
+    name: 'MyAPI upstream',
     type: CHANNEL_TYPE_NEW_API,
     base_url: baseUrl,
     key: 'test-key',
@@ -38,7 +40,7 @@ function newAPIForm(baseUrl: string) {
   }
 }
 
-describe('New API channel', () => {
+describe('MyAPI channel', () => {
   test('registers selection, ordering, model discovery, and icon metadata', () => {
     const option = CHANNEL_TYPE_OPTIONS.find(
       (item) => item.value === CHANNEL_TYPE_NEW_API
@@ -46,7 +48,7 @@ describe('New API channel', () => {
 
     expect(option).toEqual({
       value: CHANNEL_TYPE_NEW_API,
-      label: 'New API',
+      label: 'MyAPI',
     })
     expect(
       CHANNEL_TYPE_OPTIONS.findIndex(
@@ -54,15 +56,27 @@ describe('New API channel', () => {
       ) + 1
     ).toBe(CHANNEL_TYPE_OPTIONS.findIndex((item) => item.value === 58))
     expect(MODEL_FETCHABLE_TYPES.has(CHANNEL_TYPE_NEW_API)).toBe(true)
-    expect(getChannelTypeIcon(CHANNEL_TYPE_NEW_API)).toBe('NewAPI')
+    expect(getChannelTypeIcon(CHANNEL_TYPE_NEW_API)).toBe('MyAPI')
     expect(getKeyPromptForType(CHANNEL_TYPE_NEW_API)).toBe(
       'Enter API key for this channel'
     )
-    expect(getChannelTypeConfig(CHANNEL_TYPE_NEW_API).icon).toBe('NewAPI')
+    expect(getChannelTypeConfig(CHANNEL_TYPE_NEW_API).icon).toBe('MyAPI')
+
+    // Advanced Custom remains type 58, but should not display a legacy
+    // upstream product icon; it is a neutral compatibility route.
+    expect(getChannelTypeIcon(58)).toBe('Custom')
+    expect(getChannelTypeConfig(58).icon).toBe('Custom')
+
+    expect(TYPE_TO_KEY_PROMPT[50]).toBe(
+      'Format: AccessKey|SecretKey (or just ApiKey for compatible upstream relays)'
+    )
+    expect(CHANNEL_TYPE_WARNINGS[8]).toBe(
+      'If connecting to compatible upstream relay projects, use OpenAI type unless you know what you are doing'
+    )
   })
 
   test('requires a non-blank Base URL', () => {
-    const blankResult = channelFormSchema.safeParse(newAPIForm('  '))
+    const blankResult = channelFormSchema.safeParse(myAPIForm('  '))
 
     expect(blankResult.success).toBe(false)
     if (!blankResult.success) {
@@ -76,13 +90,13 @@ describe('New API channel', () => {
     }
 
     expect(
-      channelFormSchema.safeParse(newAPIForm('https://new-api.example')).success
+      channelFormSchema.safeParse(myAPIForm('https://my-api.example')).success
     ).toBe(true)
   })
 
   test('keeps Sub2API Base URL validation unchanged', () => {
     const result = channelFormSchema.safeParse({
-      ...newAPIForm(''),
+      ...myAPIForm(''),
       type: 59,
     })
 

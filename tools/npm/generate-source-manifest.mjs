@@ -1,5 +1,5 @@
 /*
-MyAPI distribution tooling for the New API based custom source release.
+MyAPI distribution source-manifest tooling.
 Copyright (C) 2026 ForceMind
 
 Licensed under the GNU Affero General Public License version 3 or later.
@@ -52,8 +52,10 @@ const manifest = {
   distribution: metadata.name,
   version: metadata.version,
   basedOn: {
-    project: 'New API',
-    repository: 'https://github.com/QuantumNous/new-api',
+    // Keep the manifest schema stable without presenting the compatibility
+    // baseline as a separate product or publishing an old repository URL.
+    project: 'MyAPI rc.25 compatibility baseline',
+    repository: 'https://github.com/ForceMind/MyAPI',
     release: 'v1.0.0-rc.25',
     commit: 'f116414284162ad15d8925f7bca494c109b83e93',
   },

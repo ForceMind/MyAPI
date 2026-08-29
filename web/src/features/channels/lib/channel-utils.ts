@@ -51,9 +51,9 @@ export function getChannelTypeIcon(type: number): string {
     6: 'OpenAI', // OpenAIMax
     7: 'OpenAI', // OhMyGPT
     8: 'OpenAI', // Custom
-    58: 'NewAPI', // Advanced Custom
+    58: 'Custom', // Advanced Custom compatibility route
     59: 'Sub2API', // Sub2API
-    60: 'NewAPI', // New API
+    60: 'MyAPI', // MyAPI (wire type remains ChannelTypeNewAPI)
     3: 'Azure', // Azure
 
     // Anthropic

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/constant"
+	"github.com/ForceMind/MyAPI/constant"
 )
 
 var (
@@ -23,10 +23,9 @@ var (
 )
 
 func printHelp() {
-	fmt.Println("NewAPI(Based OneAPI) " + Version + " - The next-generation LLM gateway and AI asset management system supports multiple languages.")
-	fmt.Println("Original Project: OneAPI by JustSong - https://github.com/songquanpeng/one-api")
-	fmt.Println("Maintainer: QuantumNous - https://github.com/QuantumNous/new-api")
-	fmt.Println("Usage: newapi [--port <port>] [--log-dir <log directory>] [--version] [--help]")
+	fmt.Println("MyAPI " + Version + " - The next-generation LLM gateway and AI asset management system supports multiple languages.")
+	fmt.Println("Project: MyAPI - https://github.com/ForceMind/MyAPI")
+	fmt.Println("Usage: my-api [--port <port>] [--log-dir <log directory>] [--version] [--help]")
 }
 
 func InitEnv() {
@@ -66,9 +65,7 @@ func InitEnv() {
 		log.Fatal(err)
 	}
 	initUserSessionSettings()
-	if os.Getenv("SQLITE_PATH") != "" {
-		SQLitePath = os.Getenv("SQLITE_PATH")
-	}
+	SQLitePath = ResolveSQLitePath(os.Getenv("SQLITE_PATH"))
 	if *LogDir != "" {
 		var err error
 		*LogDir, err = filepath.Abs(*LogDir)

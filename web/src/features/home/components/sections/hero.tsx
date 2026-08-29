@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { useStatus } from '@/hooks/use-status'
+import { MYAPI_DOCS_URL } from '@/lib/build-branding'
 import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
 
 import { HeroTerminalDemo } from '../hero-terminal-demo'
@@ -34,8 +35,7 @@ interface HeroProps {
 export function Hero(props: HeroProps) {
   const { t } = useTranslation()
   const { status } = useStatus()
-  const docsUrl =
-    (status?.docs_link as string | undefined) || 'https://docs.newapi.pro'
+  const docsUrl = (status?.docs_link as string | undefined) || MYAPI_DOCS_URL
 
   const renderDocsButton = () => {
     const isExternal = docsUrl.startsWith('http')

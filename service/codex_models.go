@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/ForceMind/MyAPI/common"
 )
 
 const (
@@ -62,7 +62,9 @@ func fetchLatestCodexClientVersion(ctx context.Context, client *http.Client, rel
 		return "", err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "new-api")
+	// Use the distribution's machine slug for provider telemetry; the
+	// user-visible product name remains MyAPI.
+	req.Header.Set("User-Agent", "my-api")
 
 	resp, err := client.Do(req)
 	if err != nil {

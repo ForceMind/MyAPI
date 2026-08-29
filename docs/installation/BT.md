@@ -1,8 +1,8 @@
 # 宝塔面板部署教程
 
-本文档提供使用宝塔面板 Docker 功能部署 New API 的图文教程。
+本文档提供使用宝塔面板 Docker 功能部署 MyAPI 的图文教程。
 
-> 📖 官方文档：[宝塔面板部署](https://docs.newapi.pro/zh/docs/installation/deployment-methods/bt-docker-installation)
+> 📖 发行说明：[MyAPI 部署说明](../../DEPLOYMENT_CUSTOM.md)
 
 ***
 
@@ -32,15 +32,15 @@
 
 ***
 
-## 步骤三：安装 New API
+## 步骤三：安装 MyAPI
 
 ### 方法一：使用宝塔应用商店（推荐）
 
 1. 在宝塔面板 Docker 功能中，点击 **应用商店**
-2. 搜索并找到 **New-API**
+2. 搜索并找到 **MyAPI**（或选择“自定义 Docker Compose”）
 3. 点击 **安装**
 4. 配置以下基本选项：
-   - **容器名称**：可自定义，默认为 `new-api`
+   - **容器名称**：建议使用 `my-api`
    - **端口映射**：默认为 `3000:3000`
    - **环境变量**：
      - `SESSION_SECRET`：会话密钥（**必填**，多机部署时必须一致）
@@ -50,15 +50,15 @@
 
 ### 方法二：使用 Docker Compose
 
-1. 在宝塔面板中创建网站目录，如 `/www/wwwroot/new-api`
+1. 在宝塔面板中创建网站目录，如 `/www/wwwroot/my-api`
 2. 创建 `docker-compose.yml` 文件：
 
 ```yaml
 version: '3'
 services:
-  new-api:
-    image: calciumion/new-api:latest
-    container_name: new-api
+  my-api:
+    image: local/my-api:custom-rc25
+    container_name: my-api
     restart: always
     ports:
       - "3000:3000"
@@ -72,7 +72,7 @@ services:
 1. 在终端中进入目录并启动：
 
 ```bash
-cd /www/wwwroot/new-api
+cd /www/wwwroot/my-api
 docker-compose up -d
 ```
 
@@ -125,8 +125,8 @@ volumes:
 ### Q4：如何更新版本？
 
 ```bash
-# 拉取最新镜像
-docker pull calciumion/new-api:latest
+# 在源码目录构建并检查本地镜像；远端 registry 由维护者另行确认
+docker build -t local/my-api:custom-rc25 .
 
 # 重启容器
 docker-compose down && docker-compose up -d
@@ -136,10 +136,10 @@ docker-compose down && docker-compose up -d
 
 ## 相关链接
 
-- [官方文档](https://docs.newapi.pro/zh/docs/installation)
-- [环境变量配置](https://docs.newapi.pro/zh/docs/installation/config-maintenance/environment-variables)
-- [常见问题](https://docs.newapi.pro/zh/docs/support/faq)
-- [GitHub 仓库](https://github.com/QuantumNous/new-api)
+- [MyAPI 部署说明](../../DEPLOYMENT_CUSTOM.md)
+- [MyAPI 发行说明](../MYAPI_DISTRIBUTION.md)
+- [环境变量配置](../../README.zh_CN.md#环境变量配置)
+- [GitHub 仓库](https://github.com/ForceMind/MyAPI)
 
 ***
 
@@ -148,4 +148,3 @@ docker-compose down && docker-compose up -d
 ![宝塔面板 Docker 安装](https://github.com/user-attachments/assets/7a6fc03e-c457-45e4-b8f9-184508fc26b0)
 
 > ⚠️ 注意：密钥为环境变量 `SESSION_SECRET`，请务必设置！
-

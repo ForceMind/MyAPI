@@ -1,31 +1,99 @@
-name: Release (Linux, macOS, Windows)
+name: Build MyAPI release artifacts (manual)
 permissions:
-  contents: write
+  contents: read
 
 on:
   workflow_dispatch:
     inputs:
-      name:
-        description: 'reason'
-        required: false
-  push:
-    tags:
-      - '*'
-      - '!*-alpha*'
+      tag:
+        description: 'Existing semantic version tag (for example, v0.1.1)'
+        required: true
+        type: string
+      confirm:
+        description: 'Type PUBLISH only after maintainer approval and release review'
+        required: true
+        type: string
+
+concurrency:
+  group: myapi-release-${{ inputs.tag }}
+  cancel-in-progress: false
 
 jobs:
+  prepare:
+    name: Validate MyAPI release input
+    if: ${{ inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_RELEASE == 'true' }}
+    environment: github-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.validate.outputs.tag }}
+      sha: ${{ steps.validate.outputs.sha }}
+      version: ${{ steps.validate.outputs.version }}
+    steps:
+      - name: Checkout requested tag
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+      - name: Validate tag, version, and publish gate
+        id: validate
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          PUBLISH_GATE: ${{ vars.MYAPI_ENABLE_RELEASE }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          if [[ "$PUBLISH_GATE" != "true" || "$CONFIRM" != "PUBLISH" ]]; then
+            echo "::error::Release is disabled or not explicitly confirmed. Set MYAPI_ENABLE_RELEASE=true and enter PUBLISH only after approval."
+            exit 1
+          fi
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag must be an exact semantic version beginning with v"
+            exit 1
+          fi
+          if ! git rev-parse "refs/tags/$RELEASE_TAG^{commit}" >/dev/null 2>&1; then
+            echo "::error::Tag '$RELEASE_TAG' does not exist"
+            exit 1
+          fi
+          TAG_VERSION="${RELEASE_TAG#v}"
+          FILE_VERSION="$(tr -d '[:space:]' < VERSION)"
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$FILE_VERSION" != "$TAG_VERSION" && "$FILE_VERSION" != "$RELEASE_TAG" ]]; then
+            echo "::error::VERSION ($FILE_VERSION) does not match $RELEASE_TAG"
+            exit 1
+          fi
+          if [[ "$PACKAGE_VERSION" != "$TAG_VERSION" ]]; then
+            echo "::error::package.json version ($PACKAGE_VERSION) does not match $RELEASE_TAG"
+            exit 1
+          fi
+          TAG_SHA="$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          HEAD_SHA="$(git rev-parse HEAD)"
+          if [[ "$HEAD_SHA" != "$TAG_SHA" ]]; then
+            echo "::error::Checked out commit does not match tag $RELEASE_TAG"
+            exit 1
+          fi
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$TAG_SHA" >> "$GITHUB_OUTPUT"
+          echo "version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
+
   linux:
     name: Linux Release
+    needs: prepare
+    if: ${{ needs.prepare.result == 'success' && inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_RELEASE == 'true' }}
+    environment: github-release
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
       - name: Determine Version
-        run: |
-          VERSION=$(git describe --tags)
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+        run: echo "VERSION=${{ needs.prepare.outputs.version }}" >> "$GITHUB_ENV"
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: latest
@@ -44,37 +112,47 @@ jobs:
       - name: Build Backend (amd64)
         run: |
           go mod download
-          go build -ldflags "-s -w -X 'new-api/common.Version=$VERSION' -extldflags '-static'" -o new-api-$VERSION
+          MODULE_PATH="$(go list -m)"
+          [[ "$MODULE_PATH" == "github.com/ForceMind/MyAPI" ]] || { echo "::error::unexpected Go module path: $MODULE_PATH"; exit 1; }
+          go build -ldflags "-s -w -X '${MODULE_PATH}/common.Version=$VERSION' -extldflags '-static'" -o my-api-$VERSION
       - name: Build Backend (arm64)
         run: |
           sudo apt-get update
           DEBIAN_FRONTEND=noninteractive sudo apt-get install -y gcc-aarch64-linux-gnu
-          CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -ldflags "-s -w -X 'new-api/common.Version=$VERSION' -extldflags '-static'" -o new-api-arm64-$VERSION
+          MODULE_PATH="$(go list -m)"
+          [[ "$MODULE_PATH" == "github.com/ForceMind/MyAPI" ]] || { echo "::error::unexpected Go module path: $MODULE_PATH"; exit 1; }
+          CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -ldflags "-s -w -X '${MODULE_PATH}/common.Version=$VERSION' -extldflags '-static'" -o my-api-arm64-$VERSION
       - name: Generate checksums
-        run: sha256sum new-api-* > checksums-linux.txt
+        run: sha256sum my-api-* > checksums-linux.txt
 
       - name: Release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ needs.prepare.outputs.sha }}
           files: |
-            new-api-*
+            my-api-*
             checksums-linux.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   macos:
     name: macOS Release
+    needs: prepare
+    if: ${{ needs.prepare.result == 'success' && inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_RELEASE == 'true' }}
+    environment: github-release
+    permissions:
+      contents: write
     runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
       - name: Determine Version
-        run: |
-          VERSION=$(git describe --tags)
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+        run: echo "VERSION=${{ needs.prepare.outputs.version }}" >> "$GITHUB_ENV"
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: latest
@@ -94,22 +172,30 @@ jobs:
       - name: Build Backend
         run: |
           go mod download
-          go build -ldflags "-X 'new-api/common.Version=$VERSION'" -o new-api-macos-$VERSION
+          MODULE_PATH="$(go list -m)"
+          [[ "$MODULE_PATH" == "github.com/ForceMind/MyAPI" ]] || { echo "::error::unexpected Go module path: $MODULE_PATH"; exit 1; }
+          go build -ldflags "-X '${MODULE_PATH}/common.Version=$VERSION'" -o my-api-macos-$VERSION
       - name: Generate checksums
-        run: shasum -a 256 new-api-macos-* > checksums-macos.txt
+        run: shasum -a 256 my-api-macos-* > checksums-macos.txt
 
       - name: Release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ needs.prepare.outputs.sha }}
           files: |
-            new-api-macos-*
+            my-api-macos-*
             checksums-macos.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   windows:
     name: Windows Release
+    needs: prepare
+    if: ${{ needs.prepare.result == 'success' && inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_RELEASE == 'true' }}
+    environment: github-release
+    permissions:
+      contents: write
     runs-on: windows-latest
     defaults:
       run:
@@ -119,10 +205,10 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
       - name: Determine Version
-        run: |
-          VERSION=$(git describe --tags)
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+        run: echo "VERSION=${{ needs.prepare.outputs.version }}" >> "$GITHUB_ENV"
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: latest
@@ -141,16 +227,19 @@ jobs:
       - name: Build Backend
         run: |
           go mod download
-          go build -ldflags "-s -w -X 'new-api/common.Version=$VERSION'" -o new-api-$VERSION.exe
+          MODULE_PATH="$(go list -m)"
+          [[ "$MODULE_PATH" == "github.com/ForceMind/MyAPI" ]] || { echo "::error::unexpected Go module path: $MODULE_PATH"; exit 1; }
+          go build -ldflags "-s -w -X '${MODULE_PATH}/common.Version=$VERSION'" -o my-api-$VERSION.exe
       - name: Generate checksums
-        run: sha256sum new-api-*.exe > checksums-windows.txt
+        run: sha256sum my-api-*.exe > checksums-windows.txt
 
       - name: Release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ needs.prepare.outputs.sha }}
           files: |
-            new-api-*.exe
+            my-api-*.exe
             checksums-windows.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

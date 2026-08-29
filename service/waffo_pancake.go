@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/setting"
+	"github.com/ForceMind/MyAPI/model"
+	"github.com/ForceMind/MyAPI/setting"
 	pancake "github.com/waffo-com/waffo-pancake-sdk-go"
 )
 
@@ -30,7 +30,7 @@ type WaffoPancakeCreateSessionParams struct {
 
 // WaffoPancakeCheckoutSession is the response of CreateWaffoPancakeCheckoutSession.
 // CheckoutURL already carries the `#token=...` fragment; Token / TokenExpiresAt
-// are exposed separately for self-service flows driven from new-api's own UI.
+// are exposed separately for self-service flows driven from MyAPI's own UI.
 type WaffoPancakeCheckoutSession struct {
 	SessionID      string
 	CheckoutURL    string
@@ -152,11 +152,27 @@ func optionalString(s string) *string {
 	return &v
 }
 
+const (
+	waffoPancakeBuyerIdentityPrefix       = "my-api-user"
+	legacyWaffoPancakeBuyerIdentityPrefix = "new-api-user"
+)
+
 // WaffoPancakeBuyerIdentityFromUserID renders the canonical buyer identity
-// for checkout. Webhook handlers compare against the value rendered here to
-// reject identity mismatches, so both call sites must use this function.
+// for new checkouts. Webhook handlers accept both this value and the legacy
+// value below so in-flight orders created before the branding migration keep
+// working.
 func WaffoPancakeBuyerIdentityFromUserID(userID int) string {
-	return fmt.Sprintf("new-api-user-%d", userID)
+	return fmt.Sprintf("%s-%d", waffoPancakeBuyerIdentityPrefix, userID)
+}
+
+func legacyWaffoPancakeBuyerIdentityFromUserID(userID int) string {
+	return fmt.Sprintf("%s-%d", legacyWaffoPancakeBuyerIdentityPrefix, userID)
+}
+
+func waffoPancakeBuyerIdentityMatchesUserID(identity string, userID int) bool {
+	identity = strings.TrimSpace(identity)
+	return identity != "" && (identity == WaffoPancakeBuyerIdentityFromUserID(userID) ||
+		identity == legacyWaffoPancakeBuyerIdentityFromUserID(userID))
 }
 
 // VerifyConfiguredWaffoPancakeWebhook verifies the signature header. The SDK
@@ -210,7 +226,7 @@ func ResolveWaffoPancakeTradeNo(event *WaffoPancakeWebhookEvent) (string, error)
 	}
 	expectedIdentity := WaffoPancakeBuyerIdentityFromUserID(topUp.UserId)
 	actualIdentity := strings.TrimSpace(event.Data.MerchantProvidedBuyerIdentity)
-	if actualIdentity != expectedIdentity {
+	if !waffoPancakeBuyerIdentityMatchesUserID(actualIdentity, topUp.UserId) {
 		return "", fmt.Errorf(
 			"waffo pancake buyer identity mismatch for tradeNo=%s: expected=%q actual=%q",
 			tradeNo,
@@ -237,7 +253,7 @@ func ResolveWaffoPancakeSubscriptionTradeNo(event *WaffoPancakeWebhookEvent) (st
 	}
 	expectedIdentity := WaffoPancakeBuyerIdentityFromUserID(order.UserId)
 	actualIdentity := strings.TrimSpace(event.Data.MerchantProvidedBuyerIdentity)
-	if actualIdentity != expectedIdentity {
+	if !waffoPancakeBuyerIdentityMatchesUserID(actualIdentity, order.UserId) {
 		return "", fmt.Errorf(
 			"waffo pancake buyer identity mismatch for subscription tradeNo=%s: expected=%q actual=%q",
 			tradeNo,
@@ -251,8 +267,8 @@ func ResolveWaffoPancakeSubscriptionTradeNo(event *WaffoPancakeWebhookEvent) (st
 // Deterministic default names for "+ Create": stable bodies mean stable
 // X-Idempotency-Key, which lets Pancake dedupe retries server-side.
 const (
-	defaultWaffoPancakeStoreName   = "new-api-store"
-	defaultWaffoPancakeProductName = "new-api-charge-product"
+	defaultWaffoPancakeStoreName   = "my-api-store"
+	defaultWaffoPancakeProductName = "my-api-charge-product"
 )
 
 // CreateWaffoPancakePrimaryStore creates a Pancake Store using in-flight
@@ -275,8 +291,8 @@ func CreateWaffoPancakePrimaryStore(ctx context.Context, merchantID, privateKey 
 // OnetimeProduct priced at `amount` USD, used as a subscription plan's
 // SubscriptionPlan.WaffoPancakeProductId.
 //
-// OnetimeProduct (not SubscriptionProduct) because new-api has no renewal-
-// event handling; Pancake auto-renewing without new-api extending user
+// OnetimeProduct (not SubscriptionProduct) because MyAPI has no renewal-
+// event handling; Pancake auto-renewing without MyAPI extending user
 // access would be a UX divergence. Revisit if renewal handling is added.
 func CreateWaffoPancakeProductForPlan(ctx context.Context, merchantID, privateKey, storeID, name, amount, returnURL string) (string, error) {
 	storeID = strings.TrimSpace(storeID)

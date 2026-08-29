@@ -11,23 +11,23 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/relay/channel/advancedcustom"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	relayconstant "github.com/QuantumNous/new-api/relay/constant"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/types"
-	"github.com/QuantumNous/new-api/service"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/model"
+	"github.com/ForceMind/MyAPI/relay/channel/advancedcustom"
+	relaycommon "github.com/ForceMind/MyAPI/relay/common"
+	relayconstant "github.com/ForceMind/MyAPI/relay/constant"
+	"github.com/ForceMind/MyAPI/relaykit/dto"
+	"github.com/ForceMind/MyAPI/relaykit/types"
+	"github.com/ForceMind/MyAPI/service"
+	"github.com/ForceMind/MyAPI/setting/operation_setting"
 
 	"github.com/shopspring/decimal"
 
 	"github.com/gin-gonic/gin"
 )
 
-// https://github.com/songquanpeng/one-api/issues/79
+// Preserve the established channel-balance billing behavior for compatibility.
 
 type OpenAISubscriptionResponse struct {
 	Object             string  `json:"object"`

@@ -1,8 +1,8 @@
 <div align="center">
 
-![new-api](/web/public/logo.png)
+![MyAPI](/web/public/myapi-logo-v1.png)
 
-# New API
+# MyAPI
 
 🍥 **Next-Generation Large Model Gateway and AI Asset Management System**
 
@@ -14,33 +14,11 @@
 </p>
 
 <p align="center">
-  <a href="https://raw.githubusercontent.com/Calcium-Ion/new-api/main/LICENSE">
-    <img src="https://img.shields.io/github/license/Calcium-Ion/new-api?color=brightgreen" alt="license">
-  </a>
-  <a href="https://github.com/Calcium-Ion/new-api/releases/latest">
-    <img src="https://img.shields.io/github/v/release/Calcium-Ion/new-api?color=brightgreen&include_prereleases" alt="release">
-  </a>
-  <a href="https://github.com/users/Calcium-Ion/packages/container/package/new-api">
-    <img src="https://img.shields.io/badge/docker-ghcr.io-blue" alt="docker">
-  </a>
-  <a href="https://hub.docker.com/r/CalciumIon/new-api">
-    <img src="https://img.shields.io/badge/docker-dockerHub-blue" alt="docker">
-  </a>
-  <a href="https://atomgit.com/QuantumNous/new-api" target="_blank">
-    <img alt="AtomGit G-Star" src="https://atomgit.com/QuantumNous/new-api/star/badge.svg"/>
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://trendshift.io/repositories/20180" target="_blank">
-    <img src="https://trendshift.io/api/badge/repositories/20180" alt="QuantumNous%2Fnew-api | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/>
-  </a>
-  <br>
-  <a href="https://hellogithub.com/repository/QuantumNous/new-api" target="_blank">
-    <img src="https://api.hellogithub.com/v1/widgets/recommend.svg?rid=539ac4217e69431684ad4a0bab768811&claim_uid=tbFPfKIDHpc4TzR" alt="Featured｜HelloGitHub" style="width: 250px; height: 54px;" width="250" height="54" />
-  </a>
-  <a href="https://atomgit.com/QuantumNous/new-api" target="_blank">
-    <img alt="AtomGit G-Star" src="https://atomgit.com/QuantumNous/new-api/star/new_badge.svg" width="250" height="55" />
+  <a href="https://raw.githubusercontent.com/ForceMind/MyAPI/main/LICENSE">
+    <img src="https://img.shields.io/github/license/ForceMind/MyAPI?color=brightgreen" alt="license">
+  </a><!--
+  --><a href="https://github.com/ForceMind/MyAPI/releases/latest">
+    <img src="https://img.shields.io/github/v/release/ForceMind/MyAPI?color=brightgreen&include_prereleases" alt="release">
   </a>
 </p>
 
@@ -58,10 +36,11 @@
 
 <img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
 
-This repository also ships the **MyAPI** self-hosting CLI and complete source
-distribution. MyAPI is the distribution name for this customized build based on
-New API `v1.0.0-rc.25`; the original New API, QuantumNous, AGPL, NOTICE,
-About-page attribution, and project links remain intact.
+This repository ships the **MyAPI** self-hosting CLI and complete source
+distribution for the rc.25 compatibility baseline. The distribution layer uses
+the my-api machine slug; API, SSE, database, and provider protocol contracts
+remain compatible. Required license, NOTICE, and third-party attribution text
+is kept in the repository's legal files.
 
 ```bash
 npx @forcemind/myapi init ./myapi-source
@@ -87,43 +66,11 @@ data adoption, validation, and publishing instructions.
 
 ---
 
-## 🤝 Trusted Partners
+## 🙏 Acknowledgements
 
-<p align="center">
-  <em>No particular order</em>
-</p>
-
-<p align="center">
-  <a href="https://www.cherry-ai.com/" target="_blank">
-    <img src="./docs/images/cherry-studio.png" alt="Cherry Studio" height="80" />
-  </a>
-  <a href="https://bda.pku.edu.cn/" target="_blank">
-    <img src="./docs/images/pku.png" alt="Peking University" height="80" />
-  </a>
-  <a href="https://www.compshare.cn/?ytag=GPU_yy_gh_newapi" target="_blank">
-    <img src="./docs/images/ucloud.png" alt="UCloud" height="80" />
-  </a>
-  <a href="https://www.aliyun.com/" target="_blank">
-    <img src="./docs/images/aliyun.png" alt="Alibaba Cloud" height="80" />
-  </a>
-  <a href="https://io.net/" target="_blank">
-    <img src="./docs/images/io-net.png" alt="IO.NET" height="80" />
-  </a>
-</p>
-
----
-
-## 🙏 Special Thanks
-
-<p align="center">
-  <a href="https://www.jetbrains.com/?from=new-api" target="_blank">
-    <img src="https://resources.jetbrains.com/storage/products/company/brand/logos/jb_beam.png" alt="JetBrains Logo" width="120" />
-  </a>
-</p>
-
-<p align="center">
-  <strong>Thanks to <a href="https://www.jetbrains.com/?from=new-api">JetBrains</a> for providing free open-source development license for this project</strong>
-</p>
+MyAPI keeps third-party references only where their APIs or licenses require
+it. See LICENSE, NOTICE, and dependency metadata for the complete notices. No
+third-party client or sponsorship promotion is enabled by default.
 
 ---
 
@@ -133,8 +80,8 @@ data adoption, validation, and publishing instructions.
 
 ```bash
 # Clone the project
-git clone https://github.com/QuantumNous/new-api.git
-cd new-api
+git clone https://github.com/ForceMind/MyAPI.git my-api
+cd my-api
 
 # Edit docker-compose.yml configuration
 nano docker-compose.yml
@@ -147,23 +94,23 @@ docker-compose up -d
 <summary><strong>Using Docker Commands</strong></summary>
 
 ```bash
-# Pull the latest image
-docker pull calciumion/new-api:latest
+# Build the local image (use a remote registry only after maintainer approval)
+docker build -t local/my-api:custom-rc25 .
 
 # Using SQLite (default)
-docker run --name new-api -d --restart always \
+docker run --name my-api -d --restart always \
   -p 3000:3000 \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  local/my-api:custom-rc25
 
 # Using MySQL
-docker run --name new-api -d --restart always \
+docker run --name my-api -d --restart always \
   -p 3000:3000 \
   -e SQL_DSN="root:123456@tcp(localhost:3306)/oneapi" \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  local/my-api:custom-rc25
 ```
 
 > **💡 Tip:** `-v ./data:/data` will save data in the `data` folder of the current directory, you can also change it to an absolute path like `-v /your/custom/path:/data`
@@ -177,7 +124,7 @@ docker run --name new-api -d --restart always \
 > [!WARNING]
 > When operating this project as a public generative AI service or API resale service, users should first complete all required filing, licensing, content safety, real-name verification, log retention, tax, payment, and upstream authorization obligations.
 
-📖 For more deployment methods, please refer to [Deployment Guide](https://docs.newapi.pro/en/docs/installation)
+📖 For more deployment methods, please refer to [Deployment Guide](./DEPLOYMENT_CUSTOM.md)
 
 ---
 
@@ -185,7 +132,7 @@ docker run --name new-api -d --restart always \
 
 <div align="center">
 
-### 📖 [Official Documentation](https://docs.newapi.pro/en/docs) | [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/QuantumNous/new-api)
+### 📖 [Official Documentation](https://github.com/ForceMind/MyAPI/tree/main/docs) | [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://github.com/ForceMind/MyAPI/discussions)
 
 </div>
 
@@ -193,17 +140,17 @@ docker run --name new-api -d --restart always \
 
 | Category | Link |
 |------|------|
-| 🚀 Deployment Guide | [Installation Documentation](https://docs.newapi.pro/en/docs/installation) |
-| ⚙️ Environment Configuration | [Environment Variables](https://docs.newapi.pro/en/docs/installation/config-maintenance/environment-variables) |
-| 📡 API Documentation | [API Documentation](https://docs.newapi.pro/en/docs/api) |
-| ❓ FAQ | [FAQ](https://docs.newapi.pro/en/docs/support/faq) |
-| 💬 Community Interaction | [Communication Channels](https://docs.newapi.pro/en/docs/support/community-interaction) |
+| 🚀 Deployment Guide | [Installation Documentation](./DEPLOYMENT_CUSTOM.md) |
+| ⚙️ Environment Configuration | [Environment Variables](./DEPLOYMENT_CUSTOM.md) |
+| 📡 API Documentation | [API Documentation](./docs/openapi/relay.json) |
+| ❓ FAQ | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
+| 💬 Community Interaction | [Communication Channels](https://github.com/ForceMind/MyAPI/discussions) |
 
 ---
 
 ## ✨ Key Features
 
-> For detailed features, please refer to [Features Introduction](https://docs.newapi.pro/en/docs/guide/wiki/basic-concepts/features-introduction)
+> For detailed features, please refer to [Features Introduction](https://github.com/ForceMind/MyAPI/tree/main/docs)
 
 ### 🎨 Core Functions
 
@@ -232,11 +179,11 @@ docker run --name new-api -d --restart always \
 ### 🚀 Advanced Features
 
 **API Format Support:**
-- ⚡ [OpenAI Responses](https://docs.newapi.pro/en/docs/api/ai-model/chat/openai/create-response)
-- ⚡ [OpenAI Realtime API](https://docs.newapi.pro/en/docs/api/ai-model/realtime/create-realtime-session) (including Azure)
-- ⚡ [Claude Messages](https://docs.newapi.pro/en/docs/api/ai-model/chat/create-message)
-- ⚡ [Google Gemini](https://doc.newapi.pro/en/api/google-gemini-chat)
-- 🔄 [Rerank Models](https://docs.newapi.pro/en/docs/api/ai-model/rerank/create-rerank) (Cohere, Jina)
+- ⚡ [OpenAI Responses](./docs/openapi/relay.json)
+- ⚡ [OpenAI Realtime API](./docs/openapi/relay.json) (including Azure)
+- ⚡ [Claude Messages](./docs/openapi/relay.json)
+- ⚡ [Google Gemini](./docs/openapi/relay.json)
+- 🔄 [Rerank Models](./docs/openapi/relay.json) (Cohere, Jina)
 
 **Intelligent Routing:**
 - ⚖️ Channel weighted random
@@ -279,16 +226,16 @@ docker run --name new-api -d --restart always \
 
 ## 🤖 Model Support
 
-> For details, please refer to [API Documentation - Gateway Interface](https://docs.newapi.pro/en/docs/api)
+> For details, please refer to [API Documentation - Gateway Interface](./docs/openapi/relay.json)
 
 | Model Type | Description | Documentation |
 |---------|------|------|
 | 🤖 OpenAI GPTs | gpt-4-gizmo-* series | - |
-| 🎨 Midjourney-Proxy | [Midjourney-Proxy(Plus)](https://github.com/novicezk/midjourney-proxy) | [Documentation](https://doc.newapi.pro/en/api/midjourney-proxy-image) |
-| 🎵 Suno-API | [Suno API](https://github.com/Suno-API/Suno-API) | [Documentation](https://doc.newapi.pro/en/api/suno-music) |
-| 🔄 Rerank | Cohere, Jina | [Documentation](https://docs.newapi.pro/en/docs/api/ai-model/rerank/create-rerank) |
-| 💬 Claude | Messages format | [Documentation](https://docs.newapi.pro/en/docs/api/ai-model/chat/create-message) |
-| 🌐 Gemini | Google Gemini format | [Documentation](https://doc.newapi.pro/en/api/google-gemini-chat) |
+| 🎨 Midjourney-Proxy | [Midjourney-Proxy(Plus)](https://github.com/novicezk/midjourney-proxy) | [Documentation](./docs/openapi/relay.json) |
+| 🎵 Suno-API | [Suno API](https://github.com/Suno-API/Suno-API) | [Documentation](./docs/openapi/relay.json) |
+| 🔄 Rerank | Cohere, Jina | [Documentation](./docs/openapi/relay.json) |
+| 💬 Claude | Messages format | [Documentation](./docs/openapi/relay.json) |
+| 🌐 Gemini | Google Gemini format | [Documentation](./docs/openapi/relay.json) |
 | 🔧 Dify | ChatFlow mode | - |
 | 🎯 Custom upstream | Supports configuring legally authorized upstream endpoints | - |
 
@@ -297,16 +244,16 @@ docker run --name new-api -d --restart always \
 <details>
 <summary>View complete interface list</summary>
 
-- [Chat Interface (Chat Completions)](https://docs.newapi.pro/en/docs/api/ai-model/chat/openai/create-chat-completion)
-- [Response Interface (Responses)](https://docs.newapi.pro/en/docs/api/ai-model/chat/openai/create-response)
-- [Image Interface (Image)](https://docs.newapi.pro/en/docs/api/ai-model/images/openai/v1-images-generations--post)
-- [Audio Interface (Audio)](https://docs.newapi.pro/en/docs/api/ai-model/audio/openai/create-transcription)
-- [Video Interface (Video)](https://docs.newapi.pro/en/docs/api/ai-model/videos/create-video-generation)
-- [Embedding Interface (Embeddings)](https://docs.newapi.pro/en/docs/api/ai-model/embeddings/create-embedding)
-- [Rerank Interface (Rerank)](https://docs.newapi.pro/en/docs/api/ai-model/rerank/create-rerank)
-- [Realtime Conversation (Realtime)](https://docs.newapi.pro/en/docs/api/ai-model/realtime/create-realtime-session)
-- [Claude Chat](https://docs.newapi.pro/en/docs/api/ai-model/chat/create-message)
-- [Google Gemini Chat](https://doc.newapi.pro/en/api/google-gemini-chat)
+- [Chat Interface (Chat Completions)](./docs/openapi/relay.json)
+- [Response Interface (Responses)](./docs/openapi/relay.json)
+- [Image Interface (Image)](./docs/openapi/relay.json)
+- [Audio Interface (Audio)](./docs/openapi/relay.json)
+- [Video Interface (Video)](./docs/openapi/relay.json)
+- [Embedding Interface (Embeddings)](./docs/openapi/relay.json)
+- [Rerank Interface (Rerank)](./docs/openapi/relay.json)
+- [Realtime Conversation (Realtime)](./docs/openapi/relay.json)
+- [Claude Chat](./docs/openapi/relay.json)
+- [Google Gemini Chat](./docs/openapi/relay.json)
 
 </details>
 
@@ -315,7 +262,7 @@ docker run --name new-api -d --restart always \
 ## 🚢 Deployment
 
 > [!TIP]
-> **Latest Docker image:** `calciumion/new-api:latest`
+> **Local Docker image:** `local/my-api:custom-rc25` (build it from this repository)
 
 ### 📋 Deployment Requirements
 
@@ -351,14 +298,14 @@ docker run --name new-api -d --restart always \
 | `AZURE_DEFAULT_API_VERSION` | Azure API version | `2025-04-01-preview` |
 | `ERROR_LOG_ENABLED` | Error log switch | `false` |
 | `PYROSCOPE_URL` | Pyroscope server address | - |
-| `PYROSCOPE_APP_NAME` | Pyroscope application name | `new-api` |
+| `PYROSCOPE_APP_NAME` | Pyroscope application name | `my-api` |
 | `PYROSCOPE_BASIC_AUTH_USER` | Pyroscope basic auth user | - |
 | `PYROSCOPE_BASIC_AUTH_PASSWORD` | Pyroscope basic auth password | - |
 | `PYROSCOPE_MUTEX_RATE` | Pyroscope mutex sampling rate | `5` |
 | `PYROSCOPE_BLOCK_RATE` | Pyroscope block sampling rate | `5` |
-| `HOSTNAME` | Hostname tag for Pyroscope | `new-api` |
+| `HOSTNAME` | Hostname tag for Pyroscope | `my-api` |
 
-📖 **Complete configuration:** [Environment Variables Documentation](https://docs.newapi.pro/en/docs/installation/config-maintenance/environment-variables)
+📖 **Complete configuration:** [Environment Variables Documentation](./DEPLOYMENT_CUSTOM.md)
 
 </details>
 
@@ -369,8 +316,8 @@ docker run --name new-api -d --restart always \
 
 ```bash
 # Clone the project
-git clone https://github.com/QuantumNous/new-api.git
-cd new-api
+git clone https://github.com/ForceMind/MyAPI.git my-api
+cd my-api
 
 # Edit configuration
 nano docker-compose.yml
@@ -386,21 +333,21 @@ docker-compose up -d
 
 **Using SQLite:**
 ```bash
-docker run --name new-api -d --restart always \
+docker run --name my-api -d --restart always \
   -p 3000:3000 \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  local/my-api:custom-rc25
 ```
 
 **Using MySQL:**
 ```bash
-docker run --name new-api -d --restart always \
+docker run --name my-api -d --restart always \
   -p 3000:3000 \
   -e SQL_DSN="root:123456@tcp(localhost:3306)/oneapi" \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  local/my-api:custom-rc25
 ```
 
 > **💡 Path explanation:** 
@@ -413,7 +360,7 @@ docker run --name new-api -d --restart always \
 <summary><strong>Method 3: BaoTa Panel</strong></summary>
 
 1. Install BaoTa Panel (≥ 9.2.0 version)
-2. Search for **New-API** in the application store
+2. Search for **MyAPI** in the application store
 3. One-click installation
 
 📖 [Tutorial with images](./docs/BT.md)
@@ -459,10 +406,8 @@ See [User authentication and login sessions](./docs/authentication.md) for the t
 
 ### Supporting Tools
 
-| Project | Description |
-|------|------|
-| [new-api-key-tool](https://github.com/Calcium-Ion/new-api-key-tool) | Key quota query tool |
-| [new-api-horizon](https://github.com/Calcium-Ion/new-api-horizon) | New API high-performance optimized version |
+Use the built-in MyAPI administration panel for key quota queries and audit
+logs. Third-party tools are intentionally not promoted by the default build.
 
 ---
 
@@ -472,10 +417,10 @@ See [User authentication and login sessions](./docs/authentication.md) for the t
 
 | Resource | Link |
 |------|------|
-| 📘 FAQ | [FAQ](https://docs.newapi.pro/en/docs/support/faq) |
-| 💬 Community Interaction | [Communication Channels](https://docs.newapi.pro/en/docs/support/community-interaction) |
-| 🐛 Issue Feedback | [Issue Feedback](https://docs.newapi.pro/en/docs/support/feedback-issues) |
-| 📚 Complete Documentation | [Official Documentation](https://docs.newapi.pro/en/docs) |
+| 📘 FAQ | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
+| 💬 Community Interaction | [Communication Channels](https://github.com/ForceMind/MyAPI/discussions) |
+| 🐛 Issue Feedback | [Issue Feedback](https://github.com/ForceMind/MyAPI/issues) |
+| 📚 Complete Documentation | [Official Documentation](https://github.com/ForceMind/MyAPI/tree/main/docs) |
 
 ### 🤝 Contribution Guide
 
@@ -486,26 +431,17 @@ Welcome all forms of contribution!
 - 📝 Improve Documentation
 - 🔧 Submit Code
 
----
-
-## 🌟 Star History
-
-<div align="center">
-
-[![Star History Chart](https://api.star-history.com/svg?repos=Calcium-Ion/new-api&type=Date)](https://star-history.com/#Calcium-Ion/new-api&Date)
-
-</div>
 
 ---
 
 <div align="center">
 
-### 💖 Thank you for using New API
+### 💖 Thank you for using MyAPI
 
 If this project is helpful to you, welcome to give us a ⭐️ Star！
 
-**[Official Documentation](https://docs.newapi.pro/en/docs)** • **[Issue Feedback](https://github.com/Calcium-Ion/new-api/issues)** • **[Latest Release](https://github.com/Calcium-Ion/new-api/releases)**
+**[Official Documentation](https://github.com/ForceMind/MyAPI/tree/main/docs)** • **[Issue Feedback](https://github.com/ForceMind/MyAPI/issues)** • **[Latest Release](https://github.com/ForceMind/MyAPI/releases)**
 
-<sub>Built with ❤️ by QuantumNous</sub>
+<sub>Built with ❤️ by ForceMind</sub>
 
 </div>

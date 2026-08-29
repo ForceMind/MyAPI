@@ -1,8 +1,8 @@
 <div align="center">
 
-![new-api](/web/public/logo.png)
+![MyAPI](/web/public/myapi-logo-v1.png)
 
-# New API
+# MyAPI
 
 🍥 **次世代大規模モデルゲートウェイとAI資産管理システム**
 
@@ -15,31 +15,11 @@
 </p>
 
 <p align="center">
-  <a href="https://raw.githubusercontent.com/Calcium-Ion/new-api/main/LICENSE">
-    <img src="https://img.shields.io/github/license/Calcium-Ion/new-api?color=brightgreen" alt="license">
+  <a href="https://raw.githubusercontent.com/ForceMind/MyAPI/main/LICENSE">
+    <img src="https://img.shields.io/github/license/ForceMind/MyAPI?color=brightgreen" alt="license">
   </a><!--
-  --><a href="https://github.com/Calcium-Ion/new-api/releases/latest">
-    <img src="https://img.shields.io/github/v/release/Calcium-Ion/new-api?color=brightgreen&include_prereleases" alt="release">
-  </a><!--
-  --><a href="https://hub.docker.com/r/CalciumIon/new-api">
-    <img src="https://img.shields.io/badge/docker-dockerHub-blue" alt="docker">
-  </a>
-  <a href="https://atomgit.com/QuantumNous/new-api" target="_blank">
-    <img alt="AtomGit G-Star" src="https://atomgit.com/QuantumNous/new-api/star/badge.svg"/>
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://trendshift.io/repositories/20180" target="_blank">
-    <img src="https://trendshift.io/api/badge/repositories/20180" alt="QuantumNous%2Fnew-api | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/>
-  </a>
-  <br>
-  <a href="https://hellogithub.com/repository/QuantumNous/new-api" target="_blank">
-    <img src="https://api.hellogithub.com/v1/widgets/recommend.svg?rid=539ac4217e69431684ad4a0bab768811&claim_uid=tbFPfKIDHpc4TzR" alt="Featured｜HelloGitHub" style="width: 250px; height: 54px;" width="250" height="54" />
-  </a><!--
-  -->
-  <a href="https://atomgit.com/QuantumNous/new-api" target="_blank">
-    <img alt="AtomGit G-Star" src="https://atomgit.com/QuantumNous/new-api/star/new_badge.svg" width="250" height="55" />
+  --><a href="https://github.com/ForceMind/MyAPI/releases/latest">
+    <img src="https://img.shields.io/github/v/release/ForceMind/MyAPI?color=brightgreen&include_prereleases" alt="release">
   </a>
 </p>
 
@@ -57,10 +37,10 @@
 
 <img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
 
-このリポジトリには **MyAPI** のセルフホスト CLI と完全なソース配布版も含まれます。
-MyAPI は New API `v1.0.0-rc.25` を基にしたカスタム配布名です。元の New API、
-QuantumNous、AGPL、NOTICE、About ページの帰属表示およびプロジェクトリンクは
-そのまま保持されています。
+このリポジトリには **MyAPI** のセルフホスト CLI と完全なソース配布版が含まれます。
+rc.25 互換ベースラインを採用し、配布層のマシンスラッグは my-api に統一しています。
+API、SSE、データベース、上流プロトコルの契約は互換性を維持し、必要なライセンス、
+NOTICE、第三者帰属表示はリポジトリの法的ファイルに収録しています。
 
 ```bash
 npx @forcemind/myapi init ./myapi-source
@@ -83,46 +63,11 @@ npx @forcemind/myapi doctor --project-dir ./myapi-source
 
 ---
 
-## 🤝 信頼できるパートナー
+## 🙏 謝辞
 
-<p align="center">
-  <em>順不同</em>
-</p>
-
-<p align="center">
-  <a href="https://www.cherry-ai.com/" target="_blank">
-    <img src="./docs/images/cherry-studio.png" alt="Cherry Studio" height="80" />
-  </a><!--
-  --><a href="https://github.com/iOfficeAI/AionUi/" target="_blank">
-    <img src="./docs/images/aionui.png" alt="Aion UI" height="80" />
-  </a><!--
-  --><a href="https://bda.pku.edu.cn/" target="_blank">
-    <img src="./docs/images/pku.png" alt="北京大学" height="80" />
-  </a><!--
-  --><a href="https://www.compshare.cn/?ytag=GPU_yy_gh_newapi" target="_blank">
-    <img src="./docs/images/ucloud.png" alt="UCloud 優刻得" height="80" />
-  </a><!--
-  --><a href="https://www.aliyun.com/" target="_blank">
-    <img src="./docs/images/aliyun.png" alt="Alibaba Cloud" height="80" />
-  </a><!--
-  --><a href="https://io.net/" target="_blank">
-    <img src="./docs/images/io-net.png" alt="IO.NET" height="80" />
-  </a>
-</p>
-
----
-
-## 🙏 特別な感謝
-
-<p align="center">
-  <a href="https://www.jetbrains.com/?from=new-api" target="_blank">
-    <img src="https://resources.jetbrains.com/storage/products/company/brand/logos/jb_beam.png" alt="JetBrains Logo" width="120" />
-  </a>
-</p>
-
-<p align="center">
-  <strong>感謝 <a href="https://www.jetbrains.com/?from=new-api">JetBrains</a> が本プロジェクトに無料のオープンソース開発ライセンスを提供してくれたことに感謝します</strong>
-</p>
+MyAPI は API やライセンスで必要な場合に限り第三者への参照を保持します。
+完全な通知は LICENSE、NOTICE、依存関係メタデータを確認してください。既定の配布版では
+第三者クライアントやスポンサー宣伝を有効にしていません。
 
 ---
 
@@ -132,8 +77,8 @@ npx @forcemind/myapi doctor --project-dir ./myapi-source
 
 ```bash
 # プロジェクトをクローン
-git clone https://github.com/QuantumNous/new-api.git
-cd new-api
+git clone https://github.com/ForceMind/MyAPI.git my-api
+cd my-api
 
 # docker-compose.yml 設定を編集
 nano docker-compose.yml
@@ -146,23 +91,23 @@ docker-compose up -d
 <summary><strong>Dockerコマンドを使用</strong></summary>
 
 ```bash
-# 最新のイメージをプル
-docker pull calciumion/new-api:latest
+# Build the local image (use a remote registry only after maintainer approval)
+docker build -t local/my-api:custom-rc25 .
 
 # SQLiteを使用（デフォルト）
-docker run --name new-api -d --restart always \
+docker run --name my-api -d --restart always \
   -p 3000:3000 \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  local/my-api:custom-rc25
 
 # MySQLを使用
-docker run --name new-api -d --restart always \
+docker run --name my-api -d --restart always \
   -p 3000:3000 \
   -e SQL_DSN="root:123456@tcp(localhost:3306)/oneapi" \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  local/my-api:custom-rc25
 ```
 
 > **💡 ヒント:** `-v ./data:/data` は現在のディレクトリの `data` フォルダにデータを保存します。絶対パスに変更することもできます：`-v /your/custom/path:/data`
@@ -176,7 +121,7 @@ docker run --name new-api -d --restart always \
 > [!WARNING]
 > 本プロジェクトを公衆向け生成 AI サービスまたは API 再販サービスとして運営する場合、ユーザーは届出、コンテンツセキュリティ、本人確認、ログ保持、税務、決済、上流認可などの必要なコンプライアンス義務を先に完了してください。
 
-📖 その他のデプロイ方法については[デプロイガイド](https://docs.newapi.pro/ja/docs/installation)を参照してください。
+📖 その他のデプロイ方法については[デプロイガイド](./DEPLOYMENT_CUSTOM.md)を参照してください。
 
 ---
 
@@ -184,7 +129,7 @@ docker run --name new-api -d --restart always \
 
 <div align="center">
 
-### 📖 [公式ドキュメント](https://docs.newapi.pro/ja/docs) | [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/QuantumNous/new-api)
+### 📖 [公式ドキュメント](https://github.com/ForceMind/MyAPI/tree/main/docs) | [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://github.com/ForceMind/MyAPI/discussions)
 
 </div>
 
@@ -192,17 +137,17 @@ docker run --name new-api -d --restart always \
 
 | カテゴリ | リンク |
 |------|------|
-| 🚀 デプロイガイド | [インストールドキュメント](https://docs.newapi.pro/ja/docs/installation) |
-| ⚙️ 環境設定 | [環境変数](https://docs.newapi.pro/ja/docs/installation/config-maintenance/environment-variables) |
-| 📡 APIドキュメント | [APIドキュメント](https://docs.newapi.pro/ja/docs/api) |
-| ❓ よくある質問 | [FAQ](https://docs.newapi.pro/ja/docs/support/faq) |
-| 💬 コミュニティ交流 | [交流チャネル](https://docs.newapi.pro/ja/docs/support/community-interaction) |
+| 🚀 デプロイガイド | [インストールドキュメント](./DEPLOYMENT_CUSTOM.md) |
+| ⚙️ 環境設定 | [環境変数](./DEPLOYMENT_CUSTOM.md) |
+| 📡 APIドキュメント | [APIドキュメント](./docs/openapi/relay.json) |
+| ❓ よくある質問 | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
+| 💬 コミュニティ交流 | [交流チャネル](https://github.com/ForceMind/MyAPI/discussions) |
 
 ---
 
 ## ✨ 主な機能
 
-> 詳細な機能については[機能説明](https://docs.newapi.pro/ja/docs/guide/wiki/basic-concepts/features-introduction)を参照してください。
+> 詳細な機能については[機能説明](https://github.com/ForceMind/MyAPI/tree/main/docs)を参照してください。
 
 ### 🎨 コア機能
 
@@ -227,18 +172,17 @@ docker run --name new-api -d --restart always \
 - 🤖 LinuxDO認証ログイン
 - 📱 Telegram認証ログイン
 - 🔑 OIDC統一認証
-- 🔍 Key使用量クォータ照会（[new-api-key-tool](https://github.com/Calcium-Ion/new-api-key-tool)と併用）
 
 
 
 ### 🚀 高度な機能
 
 **APIフォーマットサポート:**
-- ⚡ [OpenAI Responses](https://docs.newapi.pro/ja/docs/api/ai-model/chat/openai/create-response)
-- ⚡ [OpenAI Realtime API](https://docs.newapi.pro/ja/docs/api/ai-model/realtime/create-realtime-session)（Azureを含む）
-- ⚡ [Claude Messages](https://docs.newapi.pro/ja/docs/api/ai-model/chat/create-message)
-- ⚡ [Google Gemini](https://doc.newapi.pro/ja/api/google-gemini-chat)
-- 🔄 [Rerankモデル](https://docs.newapi.pro/ja/docs/api/ai-model/rerank/create-rerank)（Cohere、Jina）
+- ⚡ [OpenAI Responses](./docs/openapi/relay.json)
+- ⚡ [OpenAI Realtime API](./docs/openapi/relay.json)（Azureを含む）
+- ⚡ [Claude Messages](./docs/openapi/relay.json)
+- ⚡ [Google Gemini](./docs/openapi/relay.json)
+- 🔄 [Rerankモデル](./docs/openapi/relay.json)（Cohere、Jina）
 
 **インテリジェントルーティング:**
 - ⚖️ チャネル重み付けランダム
@@ -281,17 +225,17 @@ docker run --name new-api -d --restart always \
 
 ## 🤖 モデルサポート
 
-> 詳細については[APIドキュメント - ゲートウェイインターフェース](https://docs.newapi.pro/ja/docs/api)
+> 詳細については[APIドキュメント - ゲートウェイインターフェース](./docs/openapi/relay.json)
 
 | モデルタイプ | 説明 | ドキュメント |
 |---------|------|------|
-| 🤖 OpenAI-Compatible | OpenAI互換モデル | [ドキュメント](https://docs.newapi.pro/ja/docs/api/ai-model/chat/openai/createchatcompletion) |
-| 🤖 OpenAI Responses | OpenAI Responsesフォーマット | [ドキュメント](https://docs.newapi.pro/ja/docs/api/ai-model/chat/openai/createresponse) |
-| 🎨 Midjourney-Proxy | [Midjourney-Proxy(Plus)](https://github.com/novicezk/midjourney-proxy) | [ドキュメント](https://doc.newapi.pro/api/midjourney-proxy-image) |
-| 🎵 Suno-API | [Suno API](https://github.com/Suno-API/Suno-API) | [ドキュメント](https://doc.newapi.pro/api/suno-music) |
-| 🔄 Rerank | Cohere、Jina | [ドキュメント](https://docs.newapi.pro/ja/docs/api/ai-model/rerank/creatererank) |
-| 💬 Claude | Messagesフォーマット | [ドキュメント](https://docs.newapi.pro/ja/docs/api/ai-model/chat/createmessage) |
-| 🌐 Gemini | Google Geminiフォーマット | [ドキュメント](https://docs.newapi.pro/ja/docs/api/ai-model/chat/gemini/geminirelayv1beta) |
+| 🤖 OpenAI-Compatible | OpenAI互換モデル | [ドキュメント](./docs/openapi/relay.json) |
+| 🤖 OpenAI Responses | OpenAI Responsesフォーマット | [ドキュメント](./docs/openapi/relay.json) |
+| 🎨 Midjourney-Proxy | [Midjourney-Proxy(Plus)](https://github.com/novicezk/midjourney-proxy) | [ドキュメント](./docs/openapi/relay.json) |
+| 🎵 Suno-API | [Suno API](https://github.com/Suno-API/Suno-API) | [ドキュメント](./docs/openapi/relay.json) |
+| 🔄 Rerank | Cohere、Jina | [ドキュメント](./docs/openapi/relay.json) |
+| 💬 Claude | Messagesフォーマット | [ドキュメント](./docs/openapi/relay.json) |
+| 🌐 Gemini | Google Geminiフォーマット | [ドキュメント](./docs/openapi/relay.json) |
 | 🔧 Dify | ChatFlowモード | - |
 | 🎯 カスタム上流 | 合法的に許可された上流エンドポイントの設定をサポート | - |
 
@@ -300,16 +244,16 @@ docker run --name new-api -d --restart always \
 <details>
 <summary>完全なインターフェースリストを表示</summary>
 
-- [チャットインターフェース (Chat Completions)](https://docs.newapi.pro/ja/docs/api/ai-model/chat/openai/createchatcompletion)
-- [レスポンスインターフェース (Responses)](https://docs.newapi.pro/ja/docs/api/ai-model/chat/openai/createresponse)
-- [イメージインターフェース (Image)](https://docs.newapi.pro/ja/docs/api/ai-model/images/openai/post-v1-images-generations)
-- [オーディオインターフェース (Audio)](https://docs.newapi.pro/ja/docs/api/ai-model/audio/openai/create-transcription)
-- [ビデオインターフェース (Video)](https://docs.newapi.pro/ja/docs/api/ai-model/audio/openai/createspeech)
-- [エンベッドインターフェース (Embeddings)](https://docs.newapi.pro/ja/docs/api/ai-model/embeddings/createembedding)
-- [再ランク付けインターフェース (Rerank)](https://docs.newapi.pro/ja/docs/api/ai-model/rerank/creatererank)
-- [リアルタイム対話インターフェース (Realtime)](https://docs.newapi.pro/ja/docs/api/ai-model/realtime/createrealtimesession)
-- [Claudeチャット](https://docs.newapi.pro/ja/docs/api/ai-model/chat/createmessage)
-- [Google Geminiチャット](https://docs.newapi.pro/ja/docs/api/ai-model/chat/gemini/geminirelayv1beta)
+- [チャットインターフェース (Chat Completions)](./docs/openapi/relay.json)
+- [レスポンスインターフェース (Responses)](./docs/openapi/relay.json)
+- [イメージインターフェース (Image)](./docs/openapi/relay.json)
+- [オーディオインターフェース (Audio)](./docs/openapi/relay.json)
+- [ビデオインターフェース (Video)](./docs/openapi/relay.json)
+- [エンベッドインターフェース (Embeddings)](./docs/openapi/relay.json)
+- [再ランク付けインターフェース (Rerank)](./docs/openapi/relay.json)
+- [リアルタイム対話インターフェース (Realtime)](./docs/openapi/relay.json)
+- [Claudeチャット](./docs/openapi/relay.json)
+- [Google Geminiチャット](./docs/openapi/relay.json)
 
 </details>
 
@@ -318,7 +262,7 @@ docker run --name new-api -d --restart always \
 ## 🚢 デプロイ
 
 > [!TIP]
-> **最新のDockerイメージ:** `calciumion/new-api:latest`
+> **ローカルDockerイメージ:** `local/my-api:custom-rc25`（このリポジトリからビルド）
 
 ### 📋 デプロイ要件
 
@@ -354,14 +298,14 @@ docker run --name new-api -d --restart always \
 | `AZURE_DEFAULT_API_VERSION` | Azure APIバージョン | `2025-04-01-preview` |
 | `ERROR_LOG_ENABLED` | エラーログスイッチ | `false` |
 | `PYROSCOPE_URL` | Pyroscopeサーバーのアドレス | - |
-| `PYROSCOPE_APP_NAME` | Pyroscopeアプリ名 | `new-api` |
+| `PYROSCOPE_APP_NAME` | Pyroscopeアプリ名 | `my-api` |
 | `PYROSCOPE_BASIC_AUTH_USER` | Pyroscope Basic Authユーザー | - |
 | `PYROSCOPE_BASIC_AUTH_PASSWORD` | Pyroscope Basic Authパスワード | - |
 | `PYROSCOPE_MUTEX_RATE` | Pyroscope mutexサンプリング率 | `5` |
 | `PYROSCOPE_BLOCK_RATE` | Pyroscope blockサンプリング率 | `5` |
-| `HOSTNAME` | Pyroscope用のホスト名タグ | `new-api` |
+| `HOSTNAME` | Pyroscope用のホスト名タグ | `my-api` |
 
-📖 **完全な設定:** [環境変数ドキュメント](https://docs.newapi.pro/ja/docs/installation/config-maintenance/environment-variables)
+📖 **完全な設定:** [環境変数ドキュメント](./DEPLOYMENT_CUSTOM.md)
 
 </details>
 
@@ -372,8 +316,8 @@ docker run --name new-api -d --restart always \
 
 ```bash
 # プロジェクトをクローン
-git clone https://github.com/QuantumNous/new-api.git
-cd new-api
+git clone https://github.com/ForceMind/MyAPI.git my-api
+cd my-api
 
 # 設定を編集
 nano docker-compose.yml
@@ -389,21 +333,21 @@ docker-compose up -d
 
 **SQLiteを使用:**
 ```bash
-docker run --name new-api -d --restart always \
+docker run --name my-api -d --restart always \
   -p 3000:3000 \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  local/my-api:custom-rc25
 ```
 
 **MySQLを使用:**
 ```bash
-docker run --name new-api -d --restart always \
+docker run --name my-api -d --restart always \
   -p 3000:3000 \
   -e SQL_DSN="root:123456@tcp(localhost:3306)/oneapi" \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  local/my-api:custom-rc25
 ```
 
 > **💡 パス説明:**
@@ -415,7 +359,7 @@ docker run --name new-api -d --restart always \
 <details>
 <summary><strong>方法 3: 宝塔パネル</strong></summary>
 
-1. 宝塔パネル（**9.2.0バージョン**以上）をインストールし、アプリケーションストアで**New-API**を検索してインストールします。
+1. 宝塔パネル（**9.2.0バージョン**以上）をインストールし、アプリケーションストアで**MyAPI**を検索してインストールします。
 
 📖 [画像付きチュートリアル](./docs/BT.md)
 
@@ -460,10 +404,8 @@ Token、Origin 検証、PAT の契約については[ユーザー認証とログ
 
 ### 補助ツール
 
-| プロジェクト | 説明 |
-|------|------|
-| [new-api-key-tool](https://github.com/Calcium-Ion/new-api-key-tool) | キー使用量クォータ照会ツール |
-| [new-api-horizon](https://github.com/Calcium-Ion/new-api-horizon) | New API高性能最適化版 |
+Key のクォータ照会と監査ログは MyAPI 管理パネルで確認できます。既定の配布版では
+第三者ツールの宣伝を行いません。
 
 ---
 
@@ -473,10 +415,10 @@ Token、Origin 検証、PAT の契約については[ユーザー認証とログ
 
 | リソース | リンク |
 |------|------|
-| 📘 よくある質問 | [FAQ](https://docs.newapi.pro/ja/docs/support/faq) |
-| 💬 コミュニティ交流 | [交流チャネル](https://docs.newapi.pro/ja/docs/support/community-interaction) |
-| 🐛 問題のフィードバック | [問題フィードバック](https://docs.newapi.pro/ja/docs/support/feedback-issues) |
-| 📚 完全なドキュメント | [公式ドキュメント](https://docs.newapi.pro/ja/docs) |
+| 📘 よくある質問 | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
+| 💬 コミュニティ交流 | [交流チャネル](https://github.com/ForceMind/MyAPI/discussions) |
+| 🐛 問題のフィードバック | [問題フィードバック](https://github.com/ForceMind/MyAPI/issues) |
+| 📚 完全なドキュメント | [公式ドキュメント](https://github.com/ForceMind/MyAPI/tree/main/docs) |
 
 ### 🤝 貢献ガイド
 
@@ -495,28 +437,21 @@ Token、Origin 検証、PAT の契約については[ユーザー認証とログ
 
 本プロジェクトは、[One API](https://github.com/songquanpeng/one-api)（MITライセンス）をベースに開発されたオープンソースプロジェクトです。
 
-お客様の組織のポリシーがAGPLv3ライセンスのソフトウェアの使用を許可していない場合、またはAGPLv3のオープンソース義務を回避したい場合は、こちらまでお問い合わせください：[support@quantumnous.com](mailto:support@quantumnous.com)
+AGPLv3 第7条の義務と帰属表示は LICENSE および NOTICE に記載されています。変更版を
+再配布する前に確認してください。組織で AGPLv3 を受け入れられない場合は、利用前に
+法務担当者へ相談してください。
 
----
-
-## 🌟 スター履歴
-
-<div align="center">
-
-[![スター履歴チャート](https://api.star-history.com/svg?repos=Calcium-Ion/new-api&type=Date)](https://star-history.com/#Calcium-Ion/new-api&Date)
-
-</div>
 
 ---
 
 <div align="center">
 
-### 💖 New APIをご利用いただきありがとうございます
+### 💖 MyAPIをご利用いただきありがとうございます
 
 このプロジェクトがあなたのお役に立てたなら、ぜひ ⭐️ スターをください！
 
-**[公式ドキュメント](https://docs.newapi.pro/ja/docs)** • **[問題フィードバック](https://github.com/Calcium-Ion/new-api/issues)** • **[最新リリース](https://github.com/Calcium-Ion/new-api/releases)**
+**[公式ドキュメント](https://github.com/ForceMind/MyAPI/tree/main/docs)** • **[問題フィードバック](https://github.com/ForceMind/MyAPI/issues)** • **[最新リリース](https://github.com/ForceMind/MyAPI/releases)**
 
-<sub>❤️ で構築された QuantumNous</sub>
+<sub>❤️ で構築された ForceMind</sub>
 
 </div>

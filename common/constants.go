@@ -12,7 +12,10 @@ import (
 
 var StartTime = time.Now().Unix() // unit: second
 var Version = "v0.0.0"            // this hard coding will be replaced automatically when building, no need to manually change
-var SystemName = "New API"
+// SystemName is the default user-visible runtime brand.  Site settings may
+// override it at startup, but a fresh installation should always identify as
+// MyAPI rather than inheriting the upstream project's name.
+var SystemName = "MyAPI"
 var Footer = ""
 var Logo = ""
 var TopUpLink = ""

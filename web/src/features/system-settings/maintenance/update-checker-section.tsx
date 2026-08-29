@@ -24,6 +24,7 @@ import { toast } from 'sonner'
 import { Dialog } from '@/components/dialog'
 import { Button } from '@/components/ui/button'
 import { Markdown } from '@/components/ui/markdown'
+import { MYAPI_REPOSITORY_URL } from '@/lib/build-branding'
 import { formatTimestamp, formatTimestampToDate } from '@/lib/format'
 
 import { SettingsSection } from '../components/settings-section'
@@ -57,11 +58,11 @@ export function UpdateCheckerSection({
     setChecking(true)
     try {
       const response = await fetch(
-        'https://api.github.com/repos/Calcium-Ion/new-api/releases/latest',
+        `${MYAPI_REPOSITORY_URL.replace('https://github.com/', 'https://api.github.com/repos/')}/releases/latest`,
         {
           headers: {
             Accept: 'application/vnd.github+json',
-            'User-Agent': 'new-api-dashboard',
+            'User-Agent': 'myapi-dashboard',
           },
         }
       )

@@ -230,7 +230,7 @@ export function PasskeySection(props: PasskeySectionProps) {
                     placeholder={
                       buildBrandName
                         ? `e.g. ${buildBrandName} Console`
-                        : t('e.g. New API Console')
+                        : t('e.g. MyAPI Console')
                     }
                     value={field.value ?? ''}
                     onChange={(event) => field.onChange(event.target.value)}

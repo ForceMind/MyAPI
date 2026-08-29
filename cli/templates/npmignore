@@ -18,4 +18,7 @@
 **/node_modules/
 **/dist/
 **/coverage/
+**/my-api
+**/new-api
+**/one-api
 /SOURCE_MANIFEST.json

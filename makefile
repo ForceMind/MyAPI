@@ -3,10 +3,15 @@ API_DIR = .
 DEV_WEB_PORT ?= 5173
 DEV_COMPOSE_FILE = docker-compose.dev.yml
 DEV_POSTGRES_SERVICE = postgres
-DEV_API_SERVICE = new-api
+# MyAPI's compose service uses the machine slug; database names remain the
+# legacy values so existing SQLite/PostgreSQL data can be adopted in place.
+DEV_API_SERVICE = my-api
 DEV_POSTGRES_DB = new-api
 DEV_POSTGRES_USER = root
-DEV_SQLITE_PATH ?= one-api.db
+# my-api.db is the canonical SQLite filename for new development instances.
+# Existing one-api.db files remain readable through the runtime fallback; set
+# SQLITE_PATH/DEV_SQLITE_PATH to select a specific database explicitly.
+DEV_SQLITE_PATH ?= my-api.db
 
 .PHONY: all build-web build-all-web start-api dev dev-api dev-api-rebuild dev-web reset-setup test
 
@@ -20,15 +25,15 @@ build-web:
 build-all-web: build-web
 
 start-api:
-	@echo "Starting api dev server..."
+	@echo "Starting MyAPI dev server..."
 	@cd $(API_DIR) && go run main.go &
 
 dev-api:
-	@echo "Starting api services (docker)..."
+	@echo "Starting MyAPI services (docker)..."
 	@docker compose -f $(DEV_COMPOSE_FILE) up -d
 
 dev-api-rebuild:
-	@echo "Rebuilding and starting api service (docker)..."
+	@echo "Rebuilding and starting MyAPI service (docker)..."
 	@docker compose -f $(DEV_COMPOSE_FILE) up -d --build $(DEV_API_SERVICE)
 
 dev-web:
@@ -57,17 +62,20 @@ reset-setup:
 			-c 'DELETE FROM setups;' \
 			-c 'DELETE FROM users WHERE role = 100;' \
 			-c "DELETE FROM options WHERE key IN ('SelfUseModeEnabled', 'DemoSiteEnabled');"; \
-		echo "Restarting docker dev api so setup status is recalculated..."; \
+		echo "Restarting docker dev MyAPI so setup status is recalculated..."; \
 		docker compose -f $(DEV_COMPOSE_FILE) restart $(DEV_API_SERVICE); \
-	elif db_path="$${SQLITE_PATH:-$(DEV_SQLITE_PATH)}"; db_path="$${db_path%%\?*}"; [ -f "$$db_path" ]; then \
+	else \
 		db_path="$${SQLITE_PATH:-$(DEV_SQLITE_PATH)}"; \
 		db_path="$${db_path%%\?*}"; \
+		if [ ! -f "$$db_path" ] && [ -z "$${SQLITE_PATH:-}" ] && [ -f one-api.db ]; then db_path=one-api.db; fi; \
+		if [ -f "$$db_path" ]; then \
 		echo "Detected local SQLite database: $$db_path"; \
 		sqlite3 "$$db_path" \
 			"DELETE FROM setups; DELETE FROM users WHERE role = 100; DELETE FROM options WHERE key IN ('SelfUseModeEnabled', 'DemoSiteEnabled');"; \
-		echo "SQLite setup state reset. Restart the local api process before testing the setup wizard."; \
-	else \
+		echo "SQLite setup state reset. Restart the local MyAPI process before testing the setup wizard."; \
+		else \
 		echo "No running docker dev PostgreSQL or local SQLite database found."; \
 		echo "Start the dev stack with 'make dev-api', or set SQLITE_PATH/DEV_SQLITE_PATH to your local SQLite database."; \
 		exit 1; \
+		fi; \
 	fi

@@ -1,20 +1,30 @@
-name: Publish Docker image (Multi-arch)
+name: Build MyAPI Docker image (manual)
 
 on:
-  push:
-    tags:
-      - '*'
-      - '!nightly*'
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag name to build (e.g., v0.10.8-alpha.3)'
+        description: 'Existing tag to build (for example, v0.1.1)'
         required: true
         type: string
+      image_repository:
+        description: 'Approved Docker Hub repository path (for example, forcemind/my-api)'
+        required: true
+        type: string
+      confirm:
+        description: 'Type PUBLISH only after maintainer approval and registry review'
+        required: true
+        type: string
+
+concurrency:
+  group: myapi-docker-publish-${{ inputs.tag }}-${{ inputs.image_repository }}
+  cancel-in-progress: false
 
 jobs:
   build_single_arch:
     name: Build & push (${{ matrix.arch }})
+    if: ${{ inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_DOCKER_PUBLISH == 'true' }}
+    environment: docker-publish
     strategy:
       fail-fast: false
       matrix:
@@ -28,9 +38,9 @@ jobs:
     runs-on: ${{ matrix.runner }}
     outputs:
       tag: ${{ steps.version.outputs.tag }}
+      image_repository: ${{ steps.version.outputs.image_repository }}
 
     permissions:
-      packages: write
       contents: read
       id-token: write
 
@@ -38,30 +48,62 @@ jobs:
       - name: Check out
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          fetch-depth: ${{ github.event_name == 'workflow_dispatch' && 0 || 1 }}
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
 
       - name: Resolve tag & write VERSION
         id: version
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          IMAGE_REPOSITORY: ${{ inputs.image_repository }}
         run: |
-          if [ -n "${{ github.event.inputs.tag }}" ]; then
-            TAG="${{ github.event.inputs.tag }}"
-            if ! git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
-              echo "::error::Tag '$TAG' does not exist"
-              exit 1
-            fi
-          else
-            TAG=${GITHUB_REF#refs/tags/}
+          TAG="$RELEASE_TAG"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag must be an exact semantic version beginning with v"
+            exit 1
+          fi
+          if ! git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag '$TAG' does not exist"
+            exit 1
+          fi
+          TAG_SHA="$(git rev-parse "refs/tags/$TAG^{commit}")"
+          HEAD_SHA="$(git rev-parse HEAD)"
+          if [[ "$HEAD_SHA" != "$TAG_SHA" ]]; then
+            echo "::error::Checked out commit does not match tag $TAG"
+            exit 1
+          fi
+          if [[ ! "$IMAGE_REPOSITORY" =~ ^[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*$ ]]; then
+            echo "::error::image_repository must be a lower-case Docker Hub namespace/repository path"
+            exit 1
+          fi
+          LATEST_TAG=""
+          if [[ "$TAG" != *-* ]]; then
+            LATEST_TAG="${IMAGE_REPOSITORY}:latest-${{ matrix.arch }}"
           fi
           echo "TAG=${TAG}" >> $GITHUB_ENV
+          echo "IMAGE_REPOSITORY=${IMAGE_REPOSITORY}" >> $GITHUB_ENV
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "image_repository=${IMAGE_REPOSITORY}" >> $GITHUB_OUTPUT
+          echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
           echo "${TAG}" > VERSION
-          echo "Building tag: ${TAG} for ${{ matrix.arch }}"
+          echo "Building MyAPI tag: ${TAG} for ${{ matrix.arch }}"
+
+      - name: Verify publish gate
+        run: |
+          if [[ "${{ vars.MYAPI_ENABLE_DOCKER_PUBLISH }}" != "true" ]]; then
+            echo "::error::Docker publishing is disabled; set MYAPI_ENABLE_DOCKER_PUBLISH=true only after approval"
+            exit 1
+          fi
+          if [[ "${{ inputs.confirm }}" != "PUBLISH" ]]; then
+            echo "::error::The confirmation input must be exactly PUBLISH"
+            exit 1
+          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
-      - name: Log in to Docker Hub
+      - name: Log in to approved Docker registry
         uses: docker/login-action@c99871dec2022cc055c062a10cc1a1310835ceb4 # v4.3.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -71,7 +113,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: calciumion/new-api
+          images: ${{ steps.version.outputs.image_repository }}
 
       - name: Build & push
         id: build
@@ -81,8 +123,8 @@ jobs:
           platforms: ${{ matrix.platform }}
           push: true
           tags: |
-            calciumion/new-api:${{ env.TAG }}-${{ matrix.arch }}
-            calciumion/new-api:latest-${{ matrix.arch }}
+            ${{ steps.version.outputs.image_repository }}:${{ env.TAG }}-${{ matrix.arch }}
+            ${{ steps.version.outputs.latest_tag }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -93,13 +135,13 @@ jobs:
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Sign image with cosign
-        run: cosign sign --yes calciumion/new-api@${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE_REPOSITORY}@${{ steps.build.outputs.digest }}"
 
       - name: Image summary
         run: |
           echo "### Docker Image Digest (${{ matrix.arch }})" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "calciumion/new-api:${TAG}-${{ matrix.arch }}" >> $GITHUB_STEP_SUMMARY
+          echo "${IMAGE_REPOSITORY}:${TAG}-${{ matrix.arch }}" >> $GITHUB_STEP_SUMMARY
           echo "${{ steps.build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
@@ -107,16 +149,19 @@ jobs:
     name: Create multi-arch manifests
     needs: [build_single_arch]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    if: ${{ inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_DOCKER_PUBLISH == 'true' }}
+    environment: docker-publish
 
     permissions:
       id-token: write
 
     steps:
       - name: Set version
-        run: echo "TAG=${{ needs.build_single_arch.outputs.tag }}" >> $GITHUB_ENV
+        run: |
+          echo "TAG=${{ needs.build_single_arch.outputs.tag }}" >> $GITHUB_ENV
+          echo "IMAGE_REPOSITORY=${{ needs.build_single_arch.outputs.image_repository }}" >> $GITHUB_ENV
 
-      - name: Log in to Docker Hub
+      - name: Log in to approved Docker registry
         uses: docker/login-action@c99871dec2022cc055c062a10cc1a1310835ceb4 # v4.3.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -125,28 +170,31 @@ jobs:
       - name: Create & push manifest (version)
         run: |
           docker buildx imagetools create \
-            -t calciumion/new-api:${TAG} \
-            calciumion/new-api:${TAG}-amd64 \
-            calciumion/new-api:${TAG}-arm64
+            -t "${IMAGE_REPOSITORY}:${TAG}" \
+            "${IMAGE_REPOSITORY}:${TAG}-amd64" \
+            "${IMAGE_REPOSITORY}:${TAG}-arm64"
 
-      - name: Create & push manifest (latest)
+      - name: Create & push manifest (latest stable)
+        if: ${{ !contains(inputs.tag, '-') }}
         run: |
           docker buildx imagetools create \
-            -t calciumion/new-api:latest \
-            calciumion/new-api:latest-amd64 \
-            calciumion/new-api:latest-arm64
+            -t "${IMAGE_REPOSITORY}:latest" \
+            "${IMAGE_REPOSITORY}:latest-amd64" \
+            "${IMAGE_REPOSITORY}:latest-arm64"
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Sign manifests with cosign
         run: |
-          cosign sign --yes calciumion/new-api:${TAG}
-          cosign sign --yes calciumion/new-api:latest
+          cosign sign --yes "${IMAGE_REPOSITORY}:${TAG}"
+          if [[ "$TAG" != *-* ]]; then
+            cosign sign --yes "${IMAGE_REPOSITORY}:latest"
+          fi
 
       - name: Manifest summary
         run: |
           echo "### Multi-arch Manifest" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          docker buildx imagetools inspect calciumion/new-api:${TAG} >> $GITHUB_STEP_SUMMARY
+          docker buildx imagetools inspect "${IMAGE_REPOSITORY}:${TAG}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

@@ -1,4 +1,4 @@
-name: Sync Release to GitCode
+name: Sync MyAPI release to GitCode (manual)
 
 permissions:
   actions: read
@@ -16,6 +16,10 @@ on:
         required: false
         default: false
         type: boolean
+      confirm:
+        description: Type PUBLISH only after maintainer approval
+        required: true
+        type: string
 
 concurrency:
   group: gitcode-release-${{ inputs.tag_name }}
@@ -24,7 +28,8 @@ concurrency:
 jobs:
   prepare-release:
     name: Create or update GitCode release
-    if: ${{ vars.GITCODE_REPOSITORY != '' }}
+    if: ${{ vars.GITCODE_REPOSITORY != '' && vars.MYAPI_ENABLE_GITCODE_SYNC == 'true' && inputs.confirm == 'PUBLISH' }}
+    environment: gitcode-release
     runs-on: ubuntu-latest
     timeout-minutes: 90
     outputs:
@@ -34,6 +39,20 @@ jobs:
       release_asset_matrix: ${{ steps.assets.outputs.matrix }}
       has_release_assets: ${{ steps.assets.outputs.has_assets }}
     steps:
+      - name: Validate manual sync gate and tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag_name }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          if [[ "$CONFIRM" != "PUBLISH" || "${{ vars.MYAPI_ENABLE_GITCODE_SYNC }}" != "true" ]]; then
+            echo "::error::GitCode synchronization is disabled or not explicitly confirmed"
+            exit 1
+          fi
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::tag_name must be an exact semantic version beginning with v"
+            exit 1
+          fi
+
       - name: Create or update GitCode release
         id: release
         env:
@@ -125,11 +144,15 @@ jobs:
               --data-binary "@$request_json" \
               "$request_url"
           )"
-          if [[ "$request_status" != "200" ]]; then
-            echo "::error::Failed to $request_action GitCode release. Response code: $request_status"
-            cat "$gitcode_response_json"
-            exit 1
-          fi
+          case "$request_status" in
+            200|201)
+              ;;
+            *)
+              echo "::error::Failed to $request_action GitCode release. Response code: $request_status"
+              cat "$gitcode_response_json"
+              exit 1
+              ;;
+          esac
           echo "GitCode release $success_action successfully"
 
           delimiter="release-body-$(openssl rand -hex 16)"

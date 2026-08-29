@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/QuantumNous/new-api/controller"
-	"github.com/QuantumNous/new-api/service/authz"
+	"github.com/ForceMind/MyAPI/controller"
+	"github.com/ForceMind/MyAPI/service/authz"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

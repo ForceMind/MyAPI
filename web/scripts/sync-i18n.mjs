@@ -22,12 +22,7 @@ import path from 'node:path'
 // This script is executed from the web/ package root (see package.json script).
 const LOCALES_DIR = path.resolve('src/i18n/locales')
 const FALLBACK_COMPARE_LOCALE = 'en' // used for "still English" detection only
-const OBFUSCATED_KEYS = [
-  {
-    runtime: ['footer', 'new' + 'api', 'projectAttributionSuffix'].join('.'),
-    serialized: 'footer.new\\u0061pi.projectAttributionSuffix',
-  },
-]
+const OBFUSCATED_KEYS = []
 
 const BRAND_AND_LITERAL_KEYS = new Set([
   'AI Proxy',
@@ -64,9 +59,9 @@ const BRAND_AND_LITERAL_KEYS = new Set([
   'Mistral',
   'MokaAI',
   'Moonshot',
-  'New API',
-  'New API &lt;noreply@example.com&gt;',
-  'NewAPI',
+  'MyAPI',
+  'MyAPI &lt;noreply@example.com&gt;',
+  'MyAPI Project Repository:',
   'OAuth Client Secret',
   'OhMyGPT',
   'Ollama',
@@ -77,7 +72,6 @@ const BRAND_AND_LITERAL_KEYS = new Set([
   'Pancake',
   'Passkey',
   'Perplexity',
-  'QuantumNous',
   'Quota:',
   'Replicate',
   'SiliconFlow',
@@ -108,6 +102,7 @@ const BRAND_AND_LITERAL_KEYS = new Set([
   'edit_this',
   'footer.columns.related.links.midjourney',
   'footer.columns.related.links.newApiKeyTool',
+  'footer.myapi.projectAttributionSuffix',
   'my-status',
   'new-api-key-tool',
   'price_xxx',
@@ -229,8 +224,9 @@ function isLikelyUntranslated({ locale, baseValue, value }) {
   if (locale === 'ru') return true
 
   // For fr/vi: still useful but noisier; keep it conservative.
-  if (locale === 'fr' || locale === 'vi')
+  if (locale === 'fr' || locale === 'vi') {
     return /\b(the|and|or|to|with|please)\b/i.test(s)
+  }
 
   return false
 }

@@ -1,5 +1,5 @@
 /*
-MyAPI distribution tooling for the New API based custom source release.
+MyAPI distribution release-state validation tooling.
 Copyright (C) 2026 ForceMind
 
 Licensed under the GNU Affero General Public License version 3 or later.
@@ -15,6 +15,17 @@ function git(args) {
 
 const metadata = JSON.parse(readFileSync('package.json', 'utf8'))
 const version = readFileSync('VERSION', 'utf8').trim()
+const moduleDeclaration = readFileSync('go.mod', 'utf8').match(/^module\s+([^\s]+)/m)?.[1]
+const expectedModule = 'github.com/ForceMind/MyAPI'
+if (moduleDeclaration !== expectedModule) {
+  throw new Error(`go.mod must declare the MyAPI module (${expectedModule})`)
+}
+if (
+  metadata.name !== '@forcemind/myapi' ||
+  metadata.repository?.url !== 'git+https://github.com/ForceMind/MyAPI.git'
+) {
+  throw new Error('package metadata does not identify the MyAPI distribution')
+}
 if (version !== metadata.version) {
   throw new Error(
     `VERSION (${version || 'empty'}) does not match package.json (${metadata.version})`
@@ -27,17 +38,31 @@ if (dirty) {
 }
 
 const expectedTag = `v${metadata.version}`
-const releaseTag = git(['tag', '--points-at', 'HEAD', '--list', expectedTag])
-if (releaseTag !== expectedTag) {
-  throw new Error(`HEAD must be tagged exactly with ${expectedTag}`)
+// v0.1.0 was an earlier distribution tag. It is intentionally immutable and
+// must never be republished from a later tree, even if a caller checks out the
+// old tag before running this script.
+const protectedLegacyTags = new Set(['v0.1.0'])
+if (protectedLegacyTags.has(expectedTag)) {
+  throw new Error(`${expectedTag} is a protected legacy tag; release a new version instead`)
+}
+
+const requestedTag = process.env.MYAPI_RELEASE_TAG?.trim() || expectedTag
+if (requestedTag !== expectedTag) {
+  throw new Error(`requested release tag ${requestedTag} does not match ${expectedTag}`)
+}
+const head = git(['rev-parse', 'HEAD'])
+const releaseTagCommit = git(['rev-parse', `refs/tags/${requestedTag}^{commit}`])
+if (releaseTagCommit !== head) {
+  throw new Error(`HEAD must equal the commit tagged ${requestedTag}`)
 }
 if (
-  (process.env.GITHUB_REF_TYPE && process.env.GITHUB_REF_TYPE !== 'tag') ||
-  (process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME !== expectedTag)
+  !process.env.MYAPI_RELEASE_TAG &&
+  ((process.env.GITHUB_REF_TYPE && process.env.GITHUB_REF_TYPE !== 'tag') ||
+    (process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME !== expectedTag))
 ) {
   throw new Error(
     `release ref ${process.env.GITHUB_REF_NAME || 'unknown'} is not ${expectedTag}`
   )
 }
 
-console.log(`Release state is clean for ${metadata.name} ${metadata.version}.`)
+console.log(`Release state is clean for ${metadata.name} ${metadata.version} (${requestedTag}).`)

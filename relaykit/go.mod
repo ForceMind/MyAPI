@@ -1,4 +1,4 @@
-module github.com/QuantumNous/new-api/relaykit
+module github.com/ForceMind/MyAPI/relaykit
 
 go 1.25.1
 

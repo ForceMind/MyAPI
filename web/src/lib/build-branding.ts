@@ -22,7 +22,7 @@ For commercial licensing, please contact support@quantumnous.com
  *
  * An administrator-provided system name/logo wins. These values provide a
  * distribution default during first paint, setup, and degraded /api/status
- * responses. Leaving the variables unset preserves the upstream defaults.
+ * responses. Leaving the variables unset uses the MyAPI defaults.
  */
 
 function nonEmptyString(value: unknown): string | undefined {
@@ -31,43 +31,67 @@ function nonEmptyString(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
-const buildBrandName = nonEmptyString(import.meta.env.VITE_BRAND_NAME)
-const buildBrandLogo = nonEmptyString(import.meta.env.VITE_BRAND_LOGO)
+const buildBrandName = nonEmptyString(
+  import.meta.env.VITE_BRAND_NAME ??
+    (import.meta.env as ImportMetaEnv & { MYAPI_BRAND_NAME?: unknown })
+      .MYAPI_BRAND_NAME
+)
+const buildBrandLogo = nonEmptyString(
+  import.meta.env.VITE_BRAND_LOGO ??
+    (import.meta.env as ImportMetaEnv & { MYAPI_BRAND_LOGO?: unknown })
+      .MYAPI_BRAND_LOGO
+)
 
-function isUpstreamFallback(value: string, upstreamFallback: string): boolean {
+// Existing installations can still return these values from `/api/status`.
+// They are treated as unset so a branded build does not regress to the legacy
+// product name/logo. A deliberately configured non-legacy runtime value always
+// remains authoritative.
+const LEGACY_SYSTEM_NAME_FALLBACKS = ['New API', 'NewAPI'] as const
+const LEGACY_LOGO_FALLBACKS = ['/logo.png', '/favicon.ico'] as const
+
+export const MYAPI_REPOSITORY_URL = 'https://github.com/ForceMind/MyAPI'
+export const MYAPI_ISSUES_URL = `${MYAPI_REPOSITORY_URL}/issues`
+export const MYAPI_LICENSE_URL = `${MYAPI_REPOSITORY_URL}/blob/main/LICENSE`
+export const MYAPI_DOCS_URL = `${MYAPI_REPOSITORY_URL}#readme`
+
+function equalsBrandValue(value: string, candidate: string): boolean {
   return (
-    value.localeCompare(upstreamFallback, undefined, {
+    value.localeCompare(candidate, undefined, {
       sensitivity: 'accent',
     }) === 0
   )
 }
 
-/** Resolve a runtime name, then build override, then the supplied upstream fallback. */
+function isKnownNameFallback(value: string, upstreamFallback: string): boolean {
+  return [upstreamFallback, ...LEGACY_SYSTEM_NAME_FALLBACKS].some((candidate) =>
+    equalsBrandValue(value, candidate)
+  )
+}
+
+function isKnownLogoFallback(value: string, upstreamFallback: string): boolean {
+  return [upstreamFallback, ...LEGACY_LOGO_FALLBACKS].some((candidate) =>
+    equalsBrandValue(value, candidate)
+  )
+}
+
+/** Resolve an administrator name, then build override, then the distribution fallback. */
 export function resolveBrandName(
   runtimeName: unknown,
   upstreamFallback: string
 ): string {
   const runtime = nonEmptyString(runtimeName)
-  if (runtime && !buildBrandName) return runtime
-
-  // A fresh installation reports the upstream default until an administrator
-  // saves a site name. Treat that one value as an unset distribution setting so
-  // a build-time MyAPI name is visible immediately. Any other runtime name is
-  // an intentional administrator override and remains authoritative.
-  if (runtime && !isUpstreamFallback(runtime, upstreamFallback)) return runtime
-
-  return buildBrandName ?? runtime ?? upstreamFallback
+  if (runtime && !isKnownNameFallback(runtime, upstreamFallback)) return runtime
+  return buildBrandName ?? upstreamFallback
 }
 
-/** Resolve a runtime logo, then build override, then the supplied upstream fallback. */
+/** Resolve an administrator logo, then build override, then the distribution fallback. */
 export function resolveBrandLogo(
   runtimeLogo: unknown,
   upstreamFallback: string
 ): string {
   const runtime = nonEmptyString(runtimeLogo)
-  if (runtime && !buildBrandLogo) return runtime
-  if (runtime && !isUpstreamFallback(runtime, upstreamFallback)) return runtime
-  return buildBrandLogo ?? runtime ?? upstreamFallback
+  if (runtime && !isKnownLogoFallback(runtime, upstreamFallback)) return runtime
+  return buildBrandLogo ?? upstreamFallback
 }
 
 /** Build-time name, useful for placeholders and initial forms. */

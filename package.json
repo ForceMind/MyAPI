@@ -1,7 +1,7 @@
 {
   "name": "@forcemind/myapi",
   "version": "0.1.0",
-  "description": "MyAPI self-hosting CLI and complete source distribution, based on New API rc.25.",
+  "description": "MyAPI self-hosting CLI and complete source distribution.",
   "type": "module",
   "bin": {
     "myapi": "cli/myapi.mjs"
@@ -15,6 +15,7 @@
     "Dockerfile.dev",
     "docker-compose.yml",
     "docker-compose.dev.yml",
+    "my-api.service",
     "new-api.service",
     "makefile",
     "VERSION",
@@ -74,12 +75,12 @@
   "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ForceMind/new-api-custom-rc25.git"
+    "url": "git+https://github.com/ForceMind/MyAPI.git"
   },
   "bugs": {
-    "url": "https://github.com/ForceMind/new-api-custom-rc25/issues"
+    "url": "https://github.com/ForceMind/MyAPI/issues"
   },
-  "homepage": "https://github.com/ForceMind/new-api-custom-rc25#readme",
+  "homepage": "https://github.com/ForceMind/MyAPI#readme",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
     "access": "public"
@@ -90,6 +91,6 @@
     "self-hosted",
     "openai",
     "docker",
-    "new-api"
+    "my-api"
   ]
 }

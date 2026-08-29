@@ -4,8 +4,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/setting/config"
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/setting/config"
 )
 
 type PasskeySettings struct {
@@ -35,7 +35,7 @@ func init() {
 func GetPasskeySettings() *PasskeySettings {
 	if defaultPasskeySettings.RPID == "" && ServerAddress != "" {
 		// 从ServerAddress提取域名作为RPID
-		// ServerAddress可能是 "https://newapi.pro" 这种格式
+		// ServerAddress 可能是 "https://myapi.example.com" 这种格式
 		serverAddr := strings.TrimSpace(ServerAddress)
 		if parsed, err := url.Parse(serverAddr); err == nil && parsed.Host != "" {
 			defaultPasskeySettings.RPID = parsed.Host

@@ -44,6 +44,12 @@ describe('build-time branding', () => {
     expect(resolveBrandName('New API', 'New API')).toBe(buildName ?? 'New API')
   })
 
+  it('migrates a legacy runtime name to the MyAPI distribution fallback', () => {
+    const buildName = getBuildBrandNameOverride()
+    expect(resolveBrandName('New API', 'MyAPI')).toBe(buildName ?? 'MyAPI')
+    expect(resolveBrandName('NewAPI', 'MyAPI')).toBe(buildName ?? 'MyAPI')
+  })
+
   it('applies the same precedence rules to logos', () => {
     expect(resolveBrandLogo(' /runtime-logo.svg ', '/upstream-logo.svg')).toBe(
       '/runtime-logo.svg'
@@ -60,5 +66,11 @@ describe('build-time branding', () => {
     expect(
       resolveBrandLogo('https://example.com/custom.svg', '/logo.png')
     ).toBe('https://example.com/custom.svg')
+  })
+
+  it('migrates a legacy runtime logo to the distribution fallback', () => {
+    expect(resolveBrandLogo('/logo.png', '/myapi-logo-v1.png')).toBe(
+      getBuildBrandLogo('/myapi-logo-v1.png')
+    )
   })
 })

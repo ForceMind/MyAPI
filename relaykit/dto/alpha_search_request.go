@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/ForceMind/MyAPI/relaykit/types"
 )
 
 // AlphaSearchRequest is the Codex standalone web search request.

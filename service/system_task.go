@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/logger"
-	"github.com/QuantumNous/new-api/model"
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/logger"
+	"github.com/ForceMind/MyAPI/model"
 
 	"github.com/bytedance/gopkg/util/gopool"
 )

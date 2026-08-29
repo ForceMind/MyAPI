@@ -3,12 +3,12 @@ package ratio_setting
 import (
 	"strings"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
-	"github.com/QuantumNous/new-api/types"
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/setting/operation_setting"
+	"github.com/ForceMind/MyAPI/types"
 )
 
-// from songquanpeng/one-api
+// Compatibility pricing defaults retained from the upstream data set.
 const (
 	USD2RMB = 7.3 // 暂定 1 USD = 7.3 RMB
 	USD     = 500 // $0.002 = 1 -> $1 = 500

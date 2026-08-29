@@ -23,12 +23,15 @@ import { useTranslation } from 'react-i18next'
 import { PublicLayout } from '@/components/layout'
 import { RichContent } from '@/components/rich-content'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useSystemConfig } from '@/hooks/use-system-config'
+import { MYAPI_LICENSE_URL, MYAPI_REPOSITORY_URL } from '@/lib/build-branding'
 import { isHttpUrl, isLikelyHtml } from '@/lib/content-format'
 
 import { getAboutContent } from './api'
 
 function EmptyAboutState() {
   const { t } = useTranslation()
+  const { systemName } = useSystemConfig()
   const currentYear = new Date().getFullYear()
 
   return (
@@ -47,57 +50,39 @@ function EmptyAboutState() {
         </div>
         <div className='space-y-4 text-sm'>
           <p>
-            {t('New API Project Repository:')}{' '}
+            {t('MyAPI Project Repository:')}{' '}
             <a
-              href='https://github.com/QuantumNous/new-api'
+              href={MYAPI_REPOSITORY_URL}
               target='_blank'
               rel='noopener noreferrer'
               className='text-primary hover:underline'
             >
-              {t('https://github.com/QuantumNous/new-api')}
+              {MYAPI_REPOSITORY_URL}
             </a>
           </p>
           <p className='text-muted-foreground'>
             <a
-              href='https://github.com/QuantumNous/new-api'
+              href={MYAPI_REPOSITORY_URL}
               target='_blank'
               rel='noopener noreferrer'
               className='text-primary hover:underline'
             >
-              {t('NewAPI')}
+              {systemName || t('MyAPI')}
             </a>{' '}
-            © {currentYear}{' '}
+            © {currentYear} · {t('Maintained by')}{' '}
             <a
-              href='https://github.com/QuantumNous'
+              href='https://github.com/ForceMind'
               target='_blank'
               rel='noopener noreferrer'
               className='text-primary hover:underline'
             >
-              {t('QuantumNous')}
-            </a>{' '}
-            {t('| Based on')}{' '}
-            <a
-              href='https://github.com/songquanpeng/one-api'
-              target='_blank'
-              rel='noopener noreferrer'
-              className='text-primary hover:underline'
-            >
-              {t('One API')}
-            </a>{' '}
-            © 2023{' '}
-            <a
-              href='https://github.com/songquanpeng'
-              target='_blank'
-              rel='noopener noreferrer'
-              className='text-primary hover:underline'
-            >
-              {t('JustSong')}
+              ForceMind
             </a>
           </p>
           <p className='text-muted-foreground'>
             {t('This project must be used in compliance with the')}{' '}
             <a
-              href='https://github.com/QuantumNous/new-api/blob/main/LICENSE'
+              href={MYAPI_LICENSE_URL}
               target='_blank'
               rel='noopener noreferrer'
               className='text-primary hover:underline'
@@ -105,6 +90,19 @@ function EmptyAboutState() {
               {t('AGPL v3.0 License')}
             </a>
             .
+          </p>
+          {/* The upstream NOTICE requires this exact attribution and link in
+              a prominent About/legal location for modified UI builds. */}
+          <p className='text-muted-foreground/70 text-xs'>
+            Frontend design and development by New API contributors.{' '}
+            <a
+              href='https://github.com/QuantumNous/new-api'
+              target='_blank'
+              rel='noopener noreferrer'
+              className='text-primary hover:underline'
+            >
+              Original project
+            </a>
           </p>
         </div>
       </div>

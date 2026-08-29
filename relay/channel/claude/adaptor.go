@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/QuantumNous/new-api/relay/channel"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/relayconvert"
-	"github.com/QuantumNous/new-api/relaykit/types"
-	"github.com/QuantumNous/new-api/setting/model_setting"
+	"github.com/ForceMind/MyAPI/relay/channel"
+	relaycommon "github.com/ForceMind/MyAPI/relay/common"
+	"github.com/ForceMind/MyAPI/relaykit/dto"
+	"github.com/ForceMind/MyAPI/relaykit/relayconvert"
+	"github.com/ForceMind/MyAPI/relaykit/types"
+	"github.com/ForceMind/MyAPI/setting/model_setting"
 
 	"github.com/gin-gonic/gin"
 )

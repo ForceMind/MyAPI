@@ -6,7 +6,7 @@
 #   3. Open http://localhost:5173 (Rsbuild dev server, API auto-proxied to :3000)
 #
 # Rebuild backend after Go code changes:
-#   docker compose -f docker-compose.dev.yml up -d --build new-api
+#   docker compose -f docker-compose.dev.yml up -d --build my-api
 #
 # Stop:
 #   docker compose -f docker-compose.dev.yml down
@@ -15,18 +15,20 @@
 #   docker compose -f docker-compose.dev.yml down -v
 
 services:
-  new-api:
+  my-api:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    image: new-api-dev:local
-    container_name: new-api-dev
+    image: my-api-dev:local
+    container_name: my-api-dev
     restart: unless-stopped
     ports:
       - "3000:3000"
     volumes:
       - dev_data:/data
     environment:
+      # Keep the established database name for compatible local data; the
+      # service and container identifiers use the MyAPI machine slug.
       - SQL_DSN=postgresql://root:123456@postgres:5432/new-api
       - REDIS_CONN_STRING=redis://redis
       - TZ=Asia/Shanghai
@@ -46,14 +48,14 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: new-api-dev-redis
+    container_name: my-api-dev-redis
     restart: unless-stopped
     networks:
       - dev-network
 
   postgres:
     image: postgres:15-alpine
-    container_name: new-api-dev-pg
+    container_name: my-api-dev-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: root

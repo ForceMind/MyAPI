@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/logger"
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/logger"
 	"github.com/gin-gonic/gin"
 )
 
@@ -208,7 +208,7 @@ func getLogFiles() ([]LogFileInfo, error) {
 			continue
 		}
 		name := entry.Name()
-		if !strings.HasPrefix(name, "oneapi-") || !strings.HasSuffix(name, ".log") {
+		if (!strings.HasPrefix(name, "myapi-") && !strings.HasPrefix(name, "oneapi-")) || !strings.HasSuffix(name, ".log") {
 			continue
 		}
 		info, err := entry.Info()

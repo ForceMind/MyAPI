@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/ForceMind/MyAPI/common"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )

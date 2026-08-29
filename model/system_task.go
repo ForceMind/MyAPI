@@ -3,7 +3,7 @@ package model
 import (
 	"errors"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/ForceMind/MyAPI/common"
 
 	"gorm.io/gorm"
 )

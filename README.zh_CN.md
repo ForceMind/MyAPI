@@ -1,8 +1,8 @@
 <div align="center">
 
-![new-api](/web/public/logo.png)
+![MyAPI](/web/public/myapi-logo-v1.png)
 
-# New API
+# MyAPI
 
 🍥 **新一代大模型网关与AI资产管理系统**
 
@@ -15,31 +15,11 @@
 </p>
 
 <p align="center">
-  <a href="https://raw.githubusercontent.com/Calcium-Ion/new-api/main/LICENSE">
-    <img src="https://img.shields.io/github/license/Calcium-Ion/new-api?color=brightgreen" alt="license">
+  <a href="https://raw.githubusercontent.com/ForceMind/MyAPI/main/LICENSE">
+    <img src="https://img.shields.io/github/license/ForceMind/MyAPI?color=brightgreen" alt="license">
   </a><!--
-  --><a href="https://github.com/Calcium-Ion/new-api/releases/latest">
-    <img src="https://img.shields.io/github/v/release/Calcium-Ion/new-api?color=brightgreen&include_prereleases" alt="release">
-  </a><!--
-  --><a href="https://hub.docker.com/r/CalciumIon/new-api">
-    <img src="https://img.shields.io/badge/docker-dockerHub-blue" alt="docker">
-  </a>
-  <a href="https://atomgit.com/QuantumNous/new-api" target="_blank">
-    <img alt="AtomGit G-Star" src="https://atomgit.com/QuantumNous/new-api/star/badge.svg"/>
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://trendshift.io/repositories/20180" target="_blank">
-    <img src="https://trendshift.io/api/badge/repositories/20180" alt="QuantumNous%2Fnew-api | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/>
-  </a>
-  <br>
-  <a href="https://hellogithub.com/repository/QuantumNous/new-api" target="_blank">
-    <img src="https://api.hellogithub.com/v1/widgets/recommend.svg?rid=539ac4217e69431684ad4a0bab768811&claim_uid=tbFPfKIDHpc4TzR" alt="Featured｜HelloGitHub" style="width: 250px; height: 54px;" width="250" height="54" />
-  </a><!--
-  -->
-  <a href="https://atomgit.com/QuantumNous/new-api" target="_blank">
-    <img alt="AtomGit G-Star" src="https://atomgit.com/QuantumNous/new-api/star/new_badge.svg" width="250" height="55" />
+  --><a href="https://github.com/ForceMind/MyAPI/releases/latest">
+    <img src="https://img.shields.io/github/v/release/ForceMind/MyAPI?color=brightgreen&include_prereleases" alt="release">
   </a>
 </p>
 
@@ -57,9 +37,9 @@
 
 <img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
 
-本仓库同时提供 **MyAPI** 自建 CLI 与完整源码发行包，基于 New API
-`v1.0.0-rc.25`。原 New API、QuantumNous、AGPL、NOTICE、About 页面署名和项目
-链接均会保留。
+本仓库提供 **MyAPI** 自建 CLI 与完整源码发行包，面向 rc.25 兼容基线。
+发行层统一使用 my-api 机器标识；API、SSE、数据库和上游协议契约保持兼容。
+所需的许可证、NOTICE 与第三方归属文本保存在仓库法律文件中。
 
 ```bash
 npx @forcemind/myapi init ./myapi-source
@@ -82,46 +62,10 @@ npx @forcemind/myapi doctor --project-dir ./myapi-source
 
 ---
 
-## 🤝 我们信任的合作伙伴
+## 🙏 致谢
 
-<p align="center">
-  <em>排名不分先后</em>
-</p>
-
-<p align="center">
-  <a href="https://www.cherry-ai.com/" target="_blank">
-    <img src="./docs/images/cherry-studio.png" alt="Cherry Studio" height="80" />
-  </a><!--
-  --><a href="https://github.com/iOfficeAI/AionUi/" target="_blank">
-    <img src="./docs/images/aionui.png" alt="Aion UI" height="80" />
-  </a><!--
-  --><a href="https://bda.pku.edu.cn/" target="_blank">
-    <img src="./docs/images/pku.png" alt="北京大学" height="80" />
-  </a><!--
-  --><a href="https://www.compshare.cn/?ytag=GPU_yy_gh_newapi" target="_blank">
-    <img src="./docs/images/ucloud.png" alt="UCloud 优刻得" height="80" />
-  </a><!--
-  --><a href="https://www.aliyun.com/" target="_blank">
-    <img src="./docs/images/aliyun.png" alt="阿里云" height="80" />
-  </a><!--
-  --><a href="https://io.net/" target="_blank">
-    <img src="./docs/images/io-net.png" alt="IO.NET" height="80" />
-  </a>
-</p>
-
----
-
-## 🙏 特别鸣谢
-
-<p align="center">
-  <a href="https://www.jetbrains.com/?from=new-api" target="_blank">
-    <img src="https://resources.jetbrains.com/storage/products/company/brand/logos/jb_beam.png" alt="JetBrains Logo" width="120" />
-  </a>
-</p>
-
-<p align="center">
-  <strong>感谢 <a href="https://www.jetbrains.com/?from=new-api">JetBrains</a> 为本项目提供免费的开源开发许可证</strong>
-</p>
+MyAPI 仅在接口或许可证要求时保留第三方引用。完整通知请查看 LICENSE、NOTICE
+和依赖元数据；默认发行版不启用第三方客户端或赞助推广。
 
 ---
 
@@ -131,8 +75,8 @@ npx @forcemind/myapi doctor --project-dir ./myapi-source
 
 ```bash
 # 克隆项目
-git clone https://github.com/QuantumNous/new-api.git
-cd new-api
+git clone https://github.com/ForceMind/MyAPI.git my-api
+cd my-api
 
 # 编辑 docker-compose.yml 配置
 nano docker-compose.yml
@@ -145,23 +89,23 @@ docker-compose up -d
 <summary><strong>使用 Docker 命令</strong></summary>
 
 ```bash
-# 拉取最新镜像
-docker pull calciumion/new-api:latest
+# Build the local image (use a remote registry only after maintainer approval)
+docker build -t local/my-api:custom-rc25 .
 
 # 使用 SQLite（默认）
-docker run --name new-api -d --restart always \
+docker run --name my-api -d --restart always \
   -p 3000:3000 \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  local/my-api:custom-rc25
 
 # 使用 MySQL
-docker run --name new-api -d --restart always \
+docker run --name my-api -d --restart always \
   -p 3000:3000 \
   -e SQL_DSN="root:123456@tcp(localhost:3306)/oneapi" \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  local/my-api:custom-rc25
 ```
 
 > **💡 提示：** `-v ./data:/data` 会将数据保存在当前目录的 `data` 文件夹中，你也可以改为绝对路径如 `-v /your/custom/path:/data`
@@ -175,7 +119,7 @@ docker run --name new-api -d --restart always \
 > [!WARNING]
 > 将本项目作为面向公众的生成式 AI 服务或 API 转售服务运营时，使用者应先完成备案、内容安全、实名、日志留存、税务、支付和上游授权等合规义务。
 
-📖 更多部署方式请参考 [部署指南](https://docs.newapi.pro/zh/docs/installation)
+📖 更多部署方式请参考 [部署指南](./DEPLOYMENT_CUSTOM.md)
 
 ---
 
@@ -183,7 +127,7 @@ docker run --name new-api -d --restart always \
 
 <div align="center">
 
-### 📖 [官方文档](https://docs.newapi.pro/zh/docs) | [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/QuantumNous/new-api)
+### 📖 [官方文档](https://github.com/ForceMind/MyAPI/tree/main/docs) | [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://github.com/ForceMind/MyAPI/discussions)
 
 </div>
 
@@ -191,17 +135,17 @@ docker run --name new-api -d --restart always \
 
 | 分类 | 链接 |
 |------|------|
-| 🚀 部署指南 | [安装文档](https://docs.newapi.pro/zh/docs/installation) |
-| ⚙️ 环境配置 | [环境变量](https://docs.newapi.pro/zh/docs/installation/config-maintenance/environment-variables) |
-| 📡 接口文档 | [API 文档](https://docs.newapi.pro/zh/docs/api) |
-| ❓ 常见问题 | [FAQ](https://docs.newapi.pro/zh/docs/support/faq) |
-| 💬 社区交流 | [交流渠道](https://docs.newapi.pro/zh/docs/support/community-interaction) |
+| 🚀 部署指南 | [安装文档](./DEPLOYMENT_CUSTOM.md) |
+| ⚙️ 环境配置 | [环境变量](./DEPLOYMENT_CUSTOM.md) |
+| 📡 接口文档 | [API 文档](./docs/openapi/relay.json) |
+| ❓ 常见问题 | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
+| 💬 社区交流 | [交流渠道](https://github.com/ForceMind/MyAPI/discussions) |
 
 ---
 
 ## ✨ 主要特性
 
-> 详细特性请参考 [特性说明](https://docs.newapi.pro/zh/docs/guide/wiki/basic-concepts/features-introduction)
+> 详细特性请参考 [特性说明](https://github.com/ForceMind/MyAPI/tree/main/docs)
 
 ### 🎨 核心功能
 
@@ -226,16 +170,15 @@ docker run --name new-api -d --restart always \
 - 🤖 LinuxDO 授权登录
 - 📱 Telegram 授权登录
 - 🔑 OIDC 统一认证
-- 🔍 Key 查询使用额度（配合 [new-api-key-tool](https://github.com/Calcium-Ion/new-api-key-tool)）
 
 ### 🚀 高级功能
 
 **API 格式支持：**
-- ⚡ [OpenAI Responses](https://docs.newapi.pro/zh/docs/api/ai-model/chat/openai/create-response)
-- ⚡ [OpenAI Realtime API](https://docs.newapi.pro/zh/docs/api/ai-model/realtime/create-realtime-session)（含 Azure）
-- ⚡ [Claude Messages](https://docs.newapi.pro/zh/docs/api/ai-model/chat/create-message)
-- ⚡ [Google Gemini](https://doc.newapi.pro/api/google-gemini-chat)
-- 🔄 [Rerank 模型](https://docs.newapi.pro/zh/docs/api/ai-model/rerank/create-rerank)（Cohere、Jina）
+- ⚡ [OpenAI Responses](./docs/openapi/relay.json)
+- ⚡ [OpenAI Realtime API](./docs/openapi/relay.json)（含 Azure）
+- ⚡ [Claude Messages](./docs/openapi/relay.json)
+- ⚡ [Google Gemini](./docs/openapi/relay.json)
+- 🔄 [Rerank 模型](./docs/openapi/relay.json)（Cohere、Jina）
 
 **智能路由：**
 - ⚖️ 渠道加权随机
@@ -278,17 +221,17 @@ docker run --name new-api -d --restart always \
 
 ## 🤖 模型支持
 
-> 详情请参考 [接口文档 - 网关接口](https://docs.newapi.pro/zh/docs/api)
+> 详情请参考 [接口文档 - 网关接口](./docs/openapi/relay.json)
 
 | 模型类型 | 说明 | 文档 |
 |---------|------|------|
-| 🤖 OpenAI-Compatible | OpenAI 兼容模型 | [文档](https://docs.newapi.pro/zh/docs/api/ai-model/chat/openai/createchatcompletion) |
-| 🤖 OpenAI Responses | OpenAI Responses 格式 | [文档](https://docs.newapi.pro/zh/docs/api/ai-model/chat/openai/createresponse) |
-| 🎨 Midjourney-Proxy | [Midjourney-Proxy(Plus)](https://github.com/novicezk/midjourney-proxy) | [文档](https://doc.newapi.pro/api/midjourney-proxy-image) |
-| 🎵 Suno-API | [Suno API](https://github.com/Suno-API/Suno-API) | [文档](https://doc.newapi.pro/api/suno-music) |
-| 🔄 Rerank | Cohere、Jina | [文档](https://docs.newapi.pro/zh/docs/api/ai-model/rerank/create-rerank) |
-| 💬 Claude | Messages 格式 | [文档](https://docs.newapi.pro/zh/docs/api/ai-model/chat/createmessage) |
-| 🌐 Gemini | Google Gemini 格式 | [文档](https://docs.newapi.pro/zh/docs/api/ai-model/chat/gemini/geminirelayv1beta) |
+| 🤖 OpenAI-Compatible | OpenAI 兼容模型 | [文档](./docs/openapi/relay.json) |
+| 🤖 OpenAI Responses | OpenAI Responses 格式 | [文档](./docs/openapi/relay.json) |
+| 🎨 Midjourney-Proxy | [Midjourney-Proxy(Plus)](https://github.com/novicezk/midjourney-proxy) | [文档](./docs/openapi/relay.json) |
+| 🎵 Suno-API | [Suno API](https://github.com/Suno-API/Suno-API) | [文档](./docs/openapi/relay.json) |
+| 🔄 Rerank | Cohere、Jina | [文档](./docs/openapi/relay.json) |
+| 💬 Claude | Messages 格式 | [文档](./docs/openapi/relay.json) |
+| 🌐 Gemini | Google Gemini 格式 | [文档](./docs/openapi/relay.json) |
 | 🔧 Dify | ChatFlow 模式 | - |
 | 🎯 自定义上游 | 支持配置合法授权的上游接口地址 | - |
 
@@ -297,16 +240,16 @@ docker run --name new-api -d --restart always \
 <details>
 <summary>查看完整接口列表</summary>
 
-- [聊天接口 (Chat Completions)](https://docs.newapi.pro/zh/docs/api/ai-model/chat/openai/createchatcompletion)
-- [响应接口 (Responses)](https://docs.newapi.pro/zh/docs/api/ai-model/chat/openai/createresponse)
-- [图像接口 (Image)](https://docs.newapi.pro/zh/docs/api/ai-model/images/openai/post-v1-images-generations)
-- [音频接口 (Audio)](https://docs.newapi.pro/zh/docs/api/ai-model/audio/openai/create-transcription)
-- [视频接口 (Video)](https://docs.newapi.pro/zh/docs/api/ai-model/audio/openai/createspeech)
-- [嵌入接口 (Embeddings)](https://docs.newapi.pro/zh/docs/api/ai-model/embeddings/createembedding)
-- [重排序接口 (Rerank)](https://docs.newapi.pro/zh/docs/api/ai-model/rerank/creatererank)
-- [实时对话 (Realtime)](https://docs.newapi.pro/zh/docs/api/ai-model/realtime/createrealtimesession)
-- [Claude 聊天](https://docs.newapi.pro/zh/docs/api/ai-model/chat/createmessage)
-- [Google Gemini 聊天](https://docs.newapi.pro/zh/docs/api/ai-model/chat/gemini/geminirelayv1beta)
+- [聊天接口 (Chat Completions)](./docs/openapi/relay.json)
+- [响应接口 (Responses)](./docs/openapi/relay.json)
+- [图像接口 (Image)](./docs/openapi/relay.json)
+- [音频接口 (Audio)](./docs/openapi/relay.json)
+- [视频接口 (Video)](./docs/openapi/relay.json)
+- [嵌入接口 (Embeddings)](./docs/openapi/relay.json)
+- [重排序接口 (Rerank)](./docs/openapi/relay.json)
+- [实时对话 (Realtime)](./docs/openapi/relay.json)
+- [Claude 聊天](./docs/openapi/relay.json)
+- [Google Gemini 聊天](./docs/openapi/relay.json)
 
 </details>
 
@@ -315,7 +258,7 @@ docker run --name new-api -d --restart always \
 ## 🚢 部署
 
 > [!TIP]
-> **最新版 Docker 镜像：** `calciumion/new-api:latest`
+> **本地 Docker 镜像：** `local/my-api:custom-rc25`（请从本仓库构建）
 
 ### 📋 部署要求
 
@@ -351,14 +294,14 @@ docker run --name new-api -d --restart always \
 | `AZURE_DEFAULT_API_VERSION` | Azure API 版本                                                 | `2025-04-01-preview` |
 | `ERROR_LOG_ENABLED` | 错误日志开关                                                       | `false` |
 | `PYROSCOPE_URL` | Pyroscope 服务地址                                            | - |
-| `PYROSCOPE_APP_NAME` | Pyroscope 应用名                                        | `new-api` |
+| `PYROSCOPE_APP_NAME` | Pyroscope 应用名                                        | `my-api` |
 | `PYROSCOPE_BASIC_AUTH_USER` | Pyroscope Basic Auth 用户名                        | - |
 | `PYROSCOPE_BASIC_AUTH_PASSWORD` | Pyroscope Basic Auth 密码                  | - |
 | `PYROSCOPE_MUTEX_RATE` | Pyroscope mutex 采样率                               | `5` |
 | `PYROSCOPE_BLOCK_RATE` | Pyroscope block 采样率                               | `5` |
-| `HOSTNAME` | Pyroscope 标签里的主机名                                          | `new-api` |
+| `HOSTNAME` | Pyroscope 标签里的主机名                                          | `my-api` |
 
-📖 **完整配置：** [环境变量文档](https://docs.newapi.pro/zh/docs/installation/config-maintenance/environment-variables)
+📖 **完整配置：** [环境变量文档](./DEPLOYMENT_CUSTOM.md)
 
 </details>
 
@@ -369,8 +312,8 @@ docker run --name new-api -d --restart always \
 
 ```bash
 # 克隆项目
-git clone https://github.com/QuantumNous/new-api.git
-cd new-api
+git clone https://github.com/ForceMind/MyAPI.git my-api
+cd my-api
 
 # 编辑配置
 nano docker-compose.yml
@@ -386,21 +329,21 @@ docker-compose up -d
 
 **使用 SQLite：**
 ```bash
-docker run --name new-api -d --restart always \
+docker run --name my-api -d --restart always \
   -p 3000:3000 \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  local/my-api:custom-rc25
 ```
 
 **使用 MySQL：**
 ```bash
-docker run --name new-api -d --restart always \
+docker run --name my-api -d --restart always \
   -p 3000:3000 \
   -e SQL_DSN="root:123456@tcp(localhost:3306)/oneapi" \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
-  calciumion/new-api:latest
+  local/my-api:custom-rc25
 ```
 
 > **💡 路径说明：**
@@ -413,7 +356,7 @@ docker run --name new-api -d --restart always \
 <summary><strong>方式 3：宝塔面板</strong></summary>
 
 1. 安装宝塔面板（≥ 9.2.0 版本）
-2. 在应用商店搜索 **New-API**
+2. 在应用商店搜索 **MyAPI**
 3. 一键安装
 
 📖 [图文教程](./docs/installation/BT.md)
@@ -459,10 +402,7 @@ Token、Origin 校验和 PAT 契约见[用户鉴权与登录会话](./docs/authe
 
 ### 配套工具
 
-| 项目 | 说明 |
-|------|------|
-| [new-api-key-tool](https://github.com/Calcium-Ion/new-api-key-tool) | Key 额度查询工具 |
-| [new-api-horizon](https://github.com/Calcium-Ion/new-api-horizon) | New API 高性能优化版 |
+可直接使用 MyAPI 管理后台查询 Key 额度和审计日志；默认发行版不推广第三方工具。
 
 ---
 
@@ -472,10 +412,10 @@ Token、Origin 校验和 PAT 契约见[用户鉴权与登录会话](./docs/authe
 
 | 资源 | 链接 |
 |------|------|
-| 📘 常见问题 | [FAQ](https://docs.newapi.pro/zh/docs/support/faq) |
-| 💬 社区交流 | [交流渠道](https://docs.newapi.pro/zh/docs/support/community-interaction) |
-| 🐛 反馈问题 | [问题反馈](https://docs.newapi.pro/zh/docs/support/feedback-issues) |
-| 📚 完整文档 | [官方文档](https://docs.newapi.pro/zh/docs) |
+| 📘 常见问题 | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
+| 💬 社区交流 | [交流渠道](https://github.com/ForceMind/MyAPI/discussions) |
+| 🐛 反馈问题 | [问题反馈](https://github.com/ForceMind/MyAPI/issues) |
+| 📚 完整文档 | [官方文档](https://github.com/ForceMind/MyAPI/tree/main/docs) |
 
 ### 🤝 贡献指南
 
@@ -494,28 +434,20 @@ Token、Origin 校验和 PAT 契约见[用户鉴权与登录会话](./docs/authe
 
 本项目为开源项目，在 [One API](https://github.com/songquanpeng/one-api)（MIT 许可证）的基础上进行二次开发。
 
-如果您所在的组织政策不允许使用 AGPLv3 许可的软件，或您希望规避 AGPLv3 的开源义务，请发送邮件至：[support@quantumnous.com](mailto:support@quantumnous.com)
+AGPLv3 第 7 节及归属义务记录在 LICENSE 和 NOTICE 中；重新发布修改版本前请先阅读。
+如果您的组织无法接受 AGPLv3 义务，请在使用前咨询法律顾问。
 
----
-
-## 🌟 Star History
-
-<div align="center">
-
-[![Star History Chart](https://api.star-history.com/svg?repos=Calcium-Ion/new-api&type=Date)](https://star-history.com/#Calcium-Ion/new-api&Date)
-
-</div>
 
 ---
 
 <div align="center">
 
-### 💖 感谢使用 New API
+### 💖 感谢使用 MyAPI
 
 如果这个项目对你有帮助，欢迎给我们一个 ⭐️ Star！
 
-**[官方文档](https://docs.newapi.pro/zh/docs)** • **[问题反馈](https://github.com/Calcium-Ion/new-api/issues)** • **[最新发布](https://github.com/Calcium-Ion/new-api/releases)**
+**[官方文档](https://github.com/ForceMind/MyAPI/tree/main/docs)** • **[问题反馈](https://github.com/ForceMind/MyAPI/issues)** • **[最新发布](https://github.com/ForceMind/MyAPI/releases)**
 
-<sub>Built with ❤️ by QuantumNous</sub>
+<sub>Built with ❤️ by ForceMind</sub>
 
 </div>

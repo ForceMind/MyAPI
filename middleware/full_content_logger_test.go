@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/ForceMind/MyAPI/common"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"

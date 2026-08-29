@@ -1,21 +1,22 @@
 # 定制版部署说明
 
-> 本文同时适用于 **MyAPI** 自建发行版（基于 New API rc.25）。MyAPI CLI 的初始化、
-> 配置、数据接管与安全检查请参阅 [`docs/MYAPI_DISTRIBUTION.md`](docs/MYAPI_DISTRIBUTION.md)。
-> 文中的历史目录名和环境变量保持兼容，以便接管已有部署。
+> 本文适用于 **MyAPI** 自建发行版（rc.25 兼容基线）。MyAPI CLI 的初始化、配置、
+> 数据接管与安全检查请参阅 [`docs/MYAPI_DISTRIBUTION.md`](docs/MYAPI_DISTRIBUTION.md)。
+> 新部署使用 `my-api` 与 `MYAPI_*` 命名；旧部署的目录、变量和挂载点只作为迁移输入，
+> 不应继续写入新的配置。
 
 ## 环境要求
 
 - Linux；
 - Docker 与 Docker Compose v2；
 - 一个反向代理或 Cloudflare Tunnel（可选）；
-- 只需要对外代理 New API 的 `3000` 端口。
+- 只需要对外代理 MyAPI 的 `3000` 端口。
 
 ## 新机器安装
 
 ```bash
-git clone <你的仓库地址>
-cd new-api-custom-rc25
+git clone https://github.com/ForceMind/MyAPI.git my-api
+cd my-api
 
 cp deploy/.env.example deploy/.env
 ```
@@ -23,8 +24,8 @@ cp deploy/.env.example deploy/.env
 编辑 `deploy/.env`：
 
 - 设置随机的 `SESSION_SECRET`；
-- 将 `NEW_API_PUBLIC_URL` 改为实际 HTTPS 域名；
-- 如需修改宿主机端口，修改 `NEW_API_PORT`。
+- 将 `MYAPI_PUBLIC_URL` 改为实际 HTTPS 域名；
+- 如需修改宿主机端口，修改 `MYAPI_PORT`。
 - `MYAPI_BRAND_NAME` 和 `MYAPI_BRAND_LOGO` 为可选的构建默认品牌，默认分别为
   `MyAPI` 和 `/myapi-logo-v1.png`；运行时站点设置中的自定义值优先。
 
@@ -37,16 +38,31 @@ chmod +x deploy/install.sh
 
 脚本会构建本地镜像、创建数据与日志目录、启动容器并显示健康状态。
 
+### 命名迁移边界
+
+发行层命名迁移只涉及宿主机目录、compose 服务/容器名和部署变量：
+
+| 旧部署概念 | 新部署写法 | 说明 |
+| --- | --- | --- |
+| 旧镜像/服务名 | `local/my-api:custom-rc25` / `my-api` | 先构建并检查新镜像，再按需重建容器。 |
+| 公开地址变量 | `MYAPI_PUBLIC_URL` | 新配置不再新增旧前缀变量；迁移脚本可暂时读取旧值。 |
+| 镜像、端口、数据、日志变量 | `MYAPI_IMAGE`、`MYAPI_PORT`、`MYAPI_DATA_DIR`、`MYAPI_LOGS_DIR` | 逐项复制值后删除旧变量，避免两个变量来源不一致。 |
+| 容器内挂载点 | `/data`、`/app/logs` | 为保护现有数据库和日志格式暂不更改；只迁移宿主机目录。 |
+
+OpenAI-compatible、Responses、Claude、Gemini 的路由、SSE 事件、请求字段和数据库
+表结构属于技术协议，品牌迁移不会改变它们。升级客户端时只需确认公开地址和认证
+配置；不要把 `my-api` 当作新的 API 协议或模型名称。
+
 ## 从旧机器迁移
 
-旧机器停止写入后，复制以下内容：
+旧实例停止写入并完成备份后，复制以下内容（路径仅为示例）：
 
 ```text
-旧机器 /root/new-api/data/one-api.db
-    -> 新仓库 deploy/data/one-api.db
+旧实例 /srv/previous-instance/data/my-api.db 或 one-api.db
+    -> 新项目 deploy/data/ 中保留原文件名
 
-旧机器 /root/new-api/logs/
-    -> 新仓库 deploy/logs/
+旧实例 /srv/previous-instance/logs/
+    -> 新项目 deploy/logs/
 ```
 
 不要把数据库和日志提交到 Git。完成复制后执行：
@@ -108,14 +124,16 @@ https://你的域名/full-content-logs
 
 ## 默认推广精简
 
-本定制版默认不展示第三方客户端推广或一键导入入口。如需恢复可信客户端入口，可在“系统设置 → 控制台内容 → 聊天设置”中自行添加。项目版权、许可证和 New API/QuantumNous 署名仍按上游要求保留。
+本发行版默认不展示第三方客户端推广或一键导入入口。如需恢复可信客户端入口，可在
+“系统设置 → 控制台内容 → 聊天设置”中自行添加。许可证、NOTICE、版权和法律要求的
+第三方通知仍按原文件保留，发行层页面统一使用 MyAPI。
 
 ## 自用精简构建
 
 仓库 Dockerfile 默认设置 `VITE_SELF_USE_MINIMAL=true`，构建单管理员自用界面：
 
 - 保留渠道、模型、API Key、用量与完整内容日志、游乐场、个人设置、系统设置、登录/OAuth/初始化流程；
-- 保留 About、New API、QuantumNous、AGPL 许可证、版权和项目署名；
+- 保留 About、AGPL 许可证、版权和法律要求的第三方通知；站点默认品牌为 MyAPI；
 - 不构建充值、订阅、兑换码、公开定价、排行榜、用户管理和内置聊天路由；
 - 前端仅打包简体中文和英文；
 - 使用轻量 Provider 标记和项目内置品牌图标，不再打包完整第三方图标 UI 系统；
@@ -138,9 +156,15 @@ https://你的域名/full-content-logs
 更新前备份：
 
 ```bash
-cp deploy/data/one-api.db deploy/data/one-api.db.before-update
-docker image inspect local/new-api:custom-rc25
+for db in deploy/data/my-api.db deploy/data/one-api.db; do
+  if [ -f "$db" ]; then cp "$db" "$db.before-update"; fi
+done
+docker image inspect local/my-api:custom-rc25
 ```
+
+新安装默认使用 `my-api.db`；接管旧实例时，CLI/运行时会在未显式设置
+`SQLITE_PATH` 的情况下继续使用已有的 `one-api.db`。备份时保留实际存在的文件名，
+不要同时创建一个空的同名数据库。
 
 重新构建：
 
@@ -148,7 +172,7 @@ docker image inspect local/new-api:custom-rc25
 ./deploy/install.sh
 ```
 
-如新镜像异常，将 `deploy/.env` 中的 `NEW_API_IMAGE` 改回旧镜像标签，然后重新执行：
+如新镜像异常，将 `deploy/.env` 中的 `MYAPI_IMAGE` 改回已验证的旧镜像标签，然后重新执行：
 
 ```bash
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d --force-recreate

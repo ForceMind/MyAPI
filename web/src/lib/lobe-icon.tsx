@@ -18,9 +18,11 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type React from 'react'
 
+import { IconMyapi } from '@/assets/custom/icon-myapi'
 import { IconSub2api } from '@/assets/custom/icon-sub2api'
 
 const CUSTOM_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
+  MyAPI: IconMyapi,
   Sub2API: IconSub2api,
 }
 

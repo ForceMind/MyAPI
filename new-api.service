@@ -1,16 +1,21 @@
+# Compatibility unit for installations that still invoke the legacy
+# new-api.service name. New deployments should install my-api.service.
+# The data and log mount paths remain unchanged so an existing installation
+# can migrate the unit name without moving its files.
+#
 # File path: /etc/systemd/system/new-api.service
 # sudo systemctl daemon-reload
 # sudo systemctl start new-api
 # sudo systemctl enable new-api
 # sudo systemctl status new-api
 [Unit]
-Description=One API Service
+Description=MyAPI compatibility service (legacy unit name)
 After=network.target
 
 [Service]
 User=ubuntu  # 注意修改用户名
-WorkingDirectory=/path/to/new-api  # 注意修改路径
-ExecStart=/path/to/new-api/new-api --port 3000 --log-dir /path/to/new-api/logs  # 注意修改路径和端口号
+WorkingDirectory=/path/to/my-api  # 注意修改路径
+ExecStart=/path/to/my-api/my-api --port 3000 --log-dir /path/to/my-api/logs  # 注意修改路径和端口号
 Restart=always
 RestartSec=5
 

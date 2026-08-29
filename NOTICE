@@ -1,6 +1,9 @@
-new-api Notices
+MyAPI Notices
 
-new-api
+MyAPI is a modified distribution of the upstream code identified below.
+Copyright (c) 2026 ForceMind for MyAPI distribution changes.
+
+Original portions
 Copyright (c) QuantumNous and contributors.
 
 This project is licensed under the GNU Affero General Public License v3.0.

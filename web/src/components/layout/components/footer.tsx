@@ -22,7 +22,12 @@ import { useTranslation } from 'react-i18next'
 
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
-import { resolveBrandLogo, resolveBrandName } from '@/lib/build-branding'
+import {
+  MYAPI_REPOSITORY_URL,
+  resolveBrandLogo,
+  resolveBrandName,
+} from '@/lib/build-branding'
+import { DEFAULT_LOGO, DEFAULT_SYSTEM_NAME } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 
 interface FooterLink {
@@ -43,9 +48,9 @@ interface FooterProps {
   className?: string
 }
 
-const NEW_API_FOOTER_ATTRIBUTION_KEY = [
+const MYAPI_FOOTER_ATTRIBUTION_KEY = [
   'footer',
-  'new' + 'api',
+  'myapi',
   'projectAttributionSuffix',
 ].join('.')
 
@@ -130,14 +135,14 @@ function ProjectAttribution(props: { currentYear: number; inline?: boolean }) {
     <span className='text-muted-foreground/45'>
       &copy; {props.currentYear}{' '}
       <a
-        href='https://github.com/QuantumNous/new-api'
+        href={MYAPI_REPOSITORY_URL}
         target='_blank'
         rel='noopener noreferrer'
         className='text-foreground/70 hover:text-foreground font-medium transition-colors'
       >
-        {t('New API')}
+        {t('MyAPI')}
       </a>
-      . {t(NEW_API_FOOTER_ATTRIBUTION_KEY)}
+      . {t(MYAPI_FOOTER_ATTRIBUTION_KEY)}
     </span>
   )
   if (props.inline) {
@@ -159,8 +164,11 @@ export function Footer(props: FooterProps) {
     demoSiteEnabled,
   } = useSystemConfig()
 
-  const displayLogo = resolveBrandLogo(systemLogo || props.logo, '/logo.png')
-  const displayName = resolveBrandName(systemName || props.name, 'New API')
+  const displayLogo = resolveBrandLogo(systemLogo || props.logo, DEFAULT_LOGO)
+  const displayName = resolveBrandName(
+    systemName || props.name,
+    DEFAULT_SYSTEM_NAME
+  )
   const isDemoSiteMode = Boolean(demoSiteEnabled)
   const currentYear = new Date().getFullYear()
 
