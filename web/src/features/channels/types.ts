@@ -224,6 +224,8 @@ export interface ChannelQuotaHistoryData {
   start: number
   end: number
   limit: number
+  granularity?: 'raw' | 'hour' | 'day' | 'week' | 'auto'
+  timezone_offset?: number
   points: ChannelQuotaHistoryPoint[]
   summary?: ChannelQuotaHistorySummary
   current?: {

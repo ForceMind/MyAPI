@@ -39,8 +39,10 @@ import type {
 } from '../../types'
 
 type Range = '24h' | '7d' | '30d' | '90d'
+type Granularity = 'auto' | 'raw' | 'hour' | 'day' | 'week'
 
 const ranges: Range[] = ['24h', '7d', '30d', '90d']
+const granularities: Granularity[] = ['auto', 'raw', 'hour', 'day', 'week']
 
 function formatValue(
   value: number | undefined,
@@ -71,10 +73,24 @@ export function ChannelQuotaHistory({
 }) {
   const { t } = useTranslation()
   const [range, setRange] = useState<Range>('30d')
+  const [granularity, setGranularity] = useState<Granularity>('auto')
   const multiKey = isMultiKeyChannel(channel)
+  const timezoneOffset = -new Date().getTimezoneOffset()
   const query = useQuery({
-    queryKey: ['channel-quota-history', channel.id, range],
-    queryFn: () => getChannelQuotaHistory(channel.id, { range, limit: 500 }),
+    queryKey: [
+      'channel-quota-history',
+      channel.id,
+      range,
+      granularity,
+      timezoneOffset,
+    ],
+    queryFn: () =>
+      getChannelQuotaHistory(channel.id, {
+        range,
+        granularity,
+        timezone_offset: timezoneOffset,
+        limit: 500,
+      }),
     enabled: open && !multiKey,
     retry: false,
     staleTime: 60 * 1000,
@@ -127,6 +143,28 @@ export function ChannelQuotaHistory({
               </Button>
             ))}
           </div>
+        </div>
+        <div
+          className='flex flex-wrap items-center gap-1'
+          aria-label={t('Chart granularity')}
+        >
+          <span className='text-muted-foreground mr-1 text-xs'>
+            {t('Bucket')}
+          </span>
+          {granularities.map((item) => (
+            <Button
+              key={item}
+              type='button'
+              variant={granularity === item ? 'secondary' : 'ghost'}
+              size='xs'
+              className='h-7 px-2 text-xs'
+              onClick={() => setGranularity(item)}
+            >
+              {t(
+                item === 'auto' ? 'Auto' : item[0].toUpperCase() + item.slice(1)
+              )}
+            </Button>
+          ))}
         </div>
       </CardHeader>
       <CardContent className='min-w-0 space-y-3'>

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -204,9 +205,13 @@ func main() {
 	if port == "" {
 		port = strconv.Itoa(*common.Port)
 	}
+	listenAddress := ":" + port
+	if bindAddress := strings.TrimSpace(os.Getenv("MYAPI_BIND_ADDRESS")); bindAddress != "" {
+		listenAddress = net.JoinHostPort(bindAddress, port)
+	}
 
 	srv := &http.Server{
-		Addr:    ":" + port,
+		Addr:    listenAddress,
 		Handler: server,
 	}
 

@@ -603,6 +603,96 @@ func UpdateChannelBalance(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+type quotaHistoryGranularity string
+
+const (
+	quotaHistoryRaw  quotaHistoryGranularity = "raw"
+	quotaHistoryHour quotaHistoryGranularity = "hour"
+	quotaHistoryDay  quotaHistoryGranularity = "day"
+	quotaHistoryWeek quotaHistoryGranularity = "week"
+	quotaHistoryAuto quotaHistoryGranularity = "auto"
+)
+
+func parseQuotaHistoryGranularity(value string, start, end int64) (quotaHistoryGranularity, error) {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return quotaHistoryRaw, nil
+	}
+	if value == string(quotaHistoryAuto) {
+		switch {
+		case end-start <= 48*60*60:
+			return quotaHistoryHour, nil
+		case end-start <= 14*24*60*60:
+			return quotaHistoryDay, nil
+		default:
+			return quotaHistoryWeek, nil
+		}
+	}
+	granularity := quotaHistoryGranularity(value)
+	switch granularity {
+	case quotaHistoryRaw, quotaHistoryHour, quotaHistoryDay, quotaHistoryWeek:
+		return granularity, nil
+	default:
+		return "", errors.New("invalid granularity; use raw, hour, day, week, or auto")
+	}
+}
+
+func parseQuotaHistoryTimezoneOffset(value string) (int, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, nil
+	}
+	offset, err := strconv.Atoi(value)
+	if err != nil || offset < -840 || offset > 840 {
+		return 0, errors.New("timezone_offset must be minutes between -840 and 840")
+	}
+	return offset, nil
+}
+
+func quotaHistoryBucketStart(timestamp int64, granularity quotaHistoryGranularity, timezoneOffset int) int64 {
+	local := time.Unix(timestamp, 0).UTC().Add(time.Duration(timezoneOffset) * time.Minute)
+	var bucket time.Time
+	switch granularity {
+	case quotaHistoryHour:
+		bucket = local.Truncate(time.Hour)
+	case quotaHistoryDay:
+		bucket = time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC)
+	case quotaHistoryWeek:
+		day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC)
+		daysSinceMonday := (int(day.Weekday()) + 6) % 7
+		bucket = day.AddDate(0, 0, -daysSinceMonday)
+	default:
+		return timestamp
+	}
+	return bucket.Add(-time.Duration(timezoneOffset) * time.Minute).Unix()
+}
+
+// aggregateQuotaHistorySnapshots keeps the latest observation in each bucket.
+// Failed observations remain visible when a bucket has no successful sample;
+// a failure never becomes a numeric zero.
+func aggregateQuotaHistorySnapshots(snapshots []model.ChannelQuotaSnapshot, granularity quotaHistoryGranularity, timezoneOffset int) []model.ChannelQuotaSnapshot {
+	if granularity == quotaHistoryRaw || len(snapshots) < 2 {
+		return snapshots
+	}
+	aggregated := make([]model.ChannelQuotaSnapshot, 0, len(snapshots))
+	indices := make(map[int64]int, len(snapshots))
+	for _, snapshot := range snapshots {
+		bucket := quotaHistoryBucketStart(snapshot.ObservedAt, granularity, timezoneOffset)
+		snapshot.ObservedAt = bucket
+		if index, ok := indices[bucket]; ok {
+			previous := aggregated[index]
+			if previous.Status == "success" && snapshot.Status != "success" {
+				continue
+			}
+			aggregated[index] = snapshot
+			continue
+		}
+		indices[bucket] = len(aggregated)
+		aggregated = append(aggregated, snapshot)
+	}
+	return aggregated
+}
+
 // GetChannelQuotaHistory returns normalized quota observations for a channel.
 // It deliberately excludes any raw upstream response data.
 func GetChannelQuotaHistory(c *gin.Context) {
@@ -679,11 +769,22 @@ func GetChannelQuotaHistory(c *gin.Context) {
 	if limit > 2000 {
 		limit = 2000
 	}
+	granularity, err := parseQuotaHistoryGranularity(c.Query("granularity"), start, end)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	timezoneOffset, err := parseQuotaHistoryTimezoneOffset(c.Query("timezone_offset"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	snapshots, err := model.ListChannelQuotaSnapshots(id, start, end, c.Query("metric_type"), c.Query("window_type"), limit)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
+	snapshots = aggregateQuotaHistorySnapshots(snapshots, granularity, timezoneOffset)
 	points := make([]gin.H, 0, len(snapshots))
 	for _, snapshot := range snapshots {
 		point := gin.H{
@@ -708,11 +809,13 @@ func GetChannelQuotaHistory(c *gin.Context) {
 		points = append(points, point)
 	}
 	response := gin.H{
-		"channel_id": id,
-		"start":      start,
-		"end":        end,
-		"limit":      limit,
-		"points":     points,
+		"channel_id":      id,
+		"start":           start,
+		"end":             end,
+		"limit":           limit,
+		"granularity":     string(granularity),
+		"timezone_offset": timezoneOffset,
+		"points":          points,
 	}
 	var firstSuccess, lastSuccess *model.ChannelQuotaSnapshot
 	var minimum, maximum float64

@@ -16,6 +16,21 @@ let tray = null;
 let serverErrorLogs = [];
 const PORT = 3000;
 const DEV_FRONTEND_PORT = 5173; // Rsbuild dev server port
+// Desktop/LAN is loopback-only by default. A future reviewed setting may opt
+// into a private-network bind; the backend receives the explicit address.
+const BIND_ADDRESS = process.env.MYAPI_BIND_ADDRESS || '127.0.0.1';
+
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  });
+}
 
 // 保存日志到文件并打开
 function saveAndOpenErrorLog() {
@@ -249,7 +264,12 @@ function startServer() {
     }
 
     // 生产模式：启动二进制服务器
-    const env = { ...process.env, PORT: PORT.toString() };
+    const env = {
+      ...process.env,
+      PORT: PORT.toString(),
+      MYAPI_BIND_ADDRESS: BIND_ADDRESS,
+      MYAPI_EDITION: 'lan',
+    };
 
     if (!fs.existsSync(dataDir)) {
       fs.mkdirSync(dataDir, { recursive: true });
@@ -477,6 +497,7 @@ function createTray() {
 }
 
 app.whenReady().then(async () => {
+  if (!hasSingleInstanceLock) return;
   try {
     await startServer();
     createTray();

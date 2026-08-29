@@ -263,6 +263,8 @@ export async function getChannelQuotaHistory(
     range?: '24h' | '7d' | '30d' | '90d'
     metric_type?: string
     window_type?: string
+    granularity?: 'raw' | 'hour' | 'day' | 'week' | 'auto'
+    timezone_offset?: number
     limit?: number
   } = {}
 ): Promise<ChannelQuotaHistoryResponse> {
