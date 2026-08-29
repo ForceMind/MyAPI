@@ -85,7 +85,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 - Full/LAN 构建参数和 Logo 配置已接入 Docker 与部署脚本。
 - API Key 已开始返回兼容旧 `group` 的访问方案元数据，创建和列表 UI 已显示“Access profile”及用途说明。
 - 设置引导已按用户和版本隔离；完成后自动移除引导卡片，不再显示“设置引导已完成”或重复打开入口。
-- 渠道余额对话框已接入额度历史折线图，支持 24h/7d/30d/90d、自动/raw/hour/day/week 聚合、浏览器时区偏移、加载/失败/空数据、多 Key 解释和失败采样断点；手动刷新会使趋势查询失效并重新读取。
+- 渠道余额对话框已接入额度历史折线图，支持 24h/7d/30d/90d、自定义日期范围、自动/raw/hour/day/week 聚合、浏览器时区偏移、加载/失败/空数据、多 Key 解释和失败采样断点；手动刷新会使趋势查询失效并重新读取。快照可通过 `CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS` 启用每日限批清理。
 - 渠道类型选择已将 Codex 置首，并在 Codex、Claude、Gemini/Antigravity 入口显示实际能力边界。
 
 ### TokenHub、Antigravity 和发行基础
