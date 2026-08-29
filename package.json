@@ -64,6 +64,7 @@
   ],
   "scripts": {
     "test": "node --test cli/test/*.test.mjs",
+    "website:check": "node tools/website/check-static.mjs",
     "source:manifest": "node tools/npm/generate-source-manifest.mjs",
     "pack:check": "node tools/npm/check-pack.mjs",
     "release:state": "node tools/npm/check-release-state.mjs",
