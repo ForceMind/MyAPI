@@ -68,10 +68,19 @@ npm run build:linux  # Creates .AppImage and .deb
 ## Configuration
 
 ### Port
-Default port is 3000. To change, edit `main.js`:
-```javascript
-const PORT = 3000; // Change to desired port
+Default port is 3000. Pass `--port 4317` when launching the desktop app to
+override it. The process binds to `127.0.0.1` by default.
+
+To share with colleagues, explicitly pass a private bind address and opt in:
+
+```text
+MyAPI --allow-lan --bind-address 192.168.1.20 --port 4317
 ```
+
+Public addresses are rejected, and `--allow-lan` is required for any
+non-loopback listener. The tray menu shows the effective endpoint. The desktop
+process runs the LAN edition and never imports local Codex, Claude, or other
+provider credential files.
 
 ### Database Location
 - **Development**: `../data/my-api.db` (project directory; legacy database names are read for migration)

@@ -11,15 +11,32 @@ const LEGACY_BINARY_NAME = process.platform === 'win32' ? 'new-api.exe' : 'new-a
 const CANONICAL_DATABASE_NAME = 'my-api.db';
 const LEGACY_DATABASE_NAMES = ['new-api.db', 'one-api.db'];
 
+const DESKTOP_ARGS = process.argv.slice(1);
+function argumentValue(name) {
+  const index = DESKTOP_ARGS.indexOf(name);
+  return index >= 0 ? DESKTOP_ARGS[index + 1] : undefined;
+}
+
+function isLoopbackAddress(address) {
+  return ['localhost', '127.0.0.1', '::1', '[::1]'].includes(String(address).toLowerCase());
+}
+
+function isPrivateAddress(address) {
+  const value = String(address).toLowerCase();
+  return value === '0.0.0.0' || /^10\./.test(value) || /^192\.168\./.test(value) || /^172\.(1[6-9]|2\d|3[01])\./.test(value);
+}
+
 let mainWindow;
 let serverProcess;
 let tray = null;
 let serverErrorLogs = [];
-const PORT = 3000;
+const requestedPort = Number(argumentValue('--port') || process.env.MYAPI_PORT || 3000);
+const PORT = Number.isInteger(requestedPort) && requestedPort > 0 && requestedPort <= 65535 ? requestedPort : 3000;
 const DEV_FRONTEND_PORT = 5173; // Rsbuild dev server port
 // Desktop/LAN is loopback-only by default. A future reviewed setting may opt
 // into a private-network bind; the backend receives the explicit address.
-const BIND_ADDRESS = process.env.MYAPI_BIND_ADDRESS || '127.0.0.1';
+const BIND_ADDRESS = argumentValue('--bind-address') || process.env.MYAPI_BIND_ADDRESS || '127.0.0.1';
+const ALLOW_LAN = DESKTOP_ARGS.includes('--allow-lan');
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
@@ -248,6 +265,15 @@ function checkServerAvailability(port, maxRetries = 30, retryDelay = 1000) {
 function startServer() {
   return new Promise((resolve, reject) => {
     const isDev = process.env.NODE_ENV === 'development';
+
+    if (!isLoopbackAddress(BIND_ADDRESS) && !ALLOW_LAN) {
+      reject(new Error('LAN sharing is disabled by default; restart with --allow-lan and a private bind address.'));
+      return;
+    }
+    if (!isLoopbackAddress(BIND_ADDRESS) && !isPrivateAddress(BIND_ADDRESS)) {
+      reject(new Error('Desktop LAN binding must use a private IPv4 address or 0.0.0.0.'));
+      return;
+    }
 
     const userDataPath = app.getPath('userData');
     const dataDir = path.join(userDataPath, 'data');
@@ -488,6 +514,10 @@ function createTray() {
           }
         }
       }
+    },
+    {
+      label: `Endpoint: http://${BIND_ADDRESS === '0.0.0.0' ? '<private-LAN-IP>' : BIND_ADDRESS}:${PORT}`,
+      enabled: false,
     },
     { type: 'separator' },
     {
