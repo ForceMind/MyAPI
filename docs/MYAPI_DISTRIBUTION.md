@@ -158,6 +158,10 @@ Full 与 LAN Lite 两个多架构镜像；稳定版本分别更新各自的 `lat
 GitHub Actions 只负责生成镜像，不直接连接或重启生产主机；部署端更新
 `MYAPI_IMAGE` 后由 `myapi up` 或 `deploy/install.sh` 拉取新版本。
 
+同一版本 tag 也会自动触发 Electron macOS/Windows 构建并上传 Actions artifacts；
+只有在维护者显式填写 `PUBLISH` 且开启 release 环境变量时，才会附加到 GitHub
+Release，不会因为推送 tag 自动发布桌面安装包。
+
 正式发布前还必须确认：
 
 - 工作树干净，tag、`VERSION` 与 `package.json.version` 一致；

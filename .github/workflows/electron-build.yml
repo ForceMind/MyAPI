@@ -1,8 +1,11 @@
-name: Build MyAPI Electron App (manual)
+name: Build MyAPI Electron App
 permissions:
   contents: read
 
 on:
+  push:
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       tag:
@@ -26,8 +29,7 @@ jobs:
       source_sha: ${{ steps.source.outputs.sha }}
     strategy:
       matrix:
-        # os: [macos-latest, windows-latest]
-        os: [windows-latest]
+        os: [macos-latest, windows-latest]
 
     runs-on: ${{ matrix.os }}
     defaults:
@@ -93,11 +95,13 @@ jobs:
           DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(git describe --tags --always) bun run build
           cd ..
 
-      # - name: Build Go binary (macOS/Linux)
-      #   if: runner.os != 'Windows'
-      #   run: |
-      #     go mod download
-      #     MODULE_PATH="$(go list -m)"; go build -ldflags "-s -w -X '${MODULE_PATH}/common.Version=$(git describe --tags)' -extldflags '-static'" -o my-api
+      - name: Build Go binary (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          go mod download
+          MODULE_PATH="$(go list -m)"
+          [[ "$MODULE_PATH" == "github.com/ForceMind/MyAPI" ]] || { echo "::error::unexpected Go module path: $MODULE_PATH"; exit 1; }
+          go build -ldflags "-s -w -X '${MODULE_PATH}/common.Version=$(git describe --tags --always)'" -o my-api
 
       - name: Build Go binary (Windows)
         if: runner.os == 'Windows'
@@ -140,13 +144,13 @@ jobs:
           cd electron
           npm ci
 
-      # - name: Build Electron app (macOS)
-      #   if: runner.os == 'macOS'
-      #   run: |
-      #     cd electron
-      #     npm run build:mac
-      #   env:
-      #     CSC_IDENTITY_AUTO_DISCOVERY: false  # Skip code signing
+      - name: Build Electron app (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cd electron
+          npm run build:mac
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - name: Build Electron app (Windows)
         if: runner.os == 'Windows'
@@ -154,22 +158,21 @@ jobs:
           cd electron
           npm run build:win
 
-      # - name: Upload artifacts (macOS)
-      #   if: runner.os == 'macOS'
-      #   uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-      #   with:
-      #     name: macos-build
-      #     path: |
-      #       electron/dist/*.dmg
-      #       electron/dist/*.zip
+      - name: Upload artifacts (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: macos-build
+          path: |
+            electron/dist/*.dmg
+            electron/dist/*.zip
 
       - name: Upload artifacts (Windows)
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-build
-          path: |
-            electron/dist/*.exe
+          path: electron/dist/*.exe
 
   release:
     needs: build
@@ -190,5 +193,6 @@ jobs:
           target_commitish: ${{ needs.build.outputs.source_sha }}
           files: |
             windows-build/*
+            macos-build/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
