@@ -9,6 +9,7 @@
   "files": [
     "cli/",
     "tools/npm/",
+    "tools/website/",
     ".dockerignore",
     ".env.example",
     "Dockerfile",
