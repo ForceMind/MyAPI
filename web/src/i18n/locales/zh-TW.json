@@ -4318,6 +4318,7 @@
     "Setup guide": "設定引導",
     "Setup guide complete": "設定引導已完成",
     "Setup guide is collapsed. Expand it anytime.": "設定引導已收起，可隨時展開。",
+    "Open setup guide": "開啟設定引導",
     "Setup Instructions": "設定說明",
     "Setup progress: {{completed}}/{{total}}": "設定進度：{{completed}}/{{total}}",
     "Setup Two-Factor Authentication": "設定雙重身份驗證",

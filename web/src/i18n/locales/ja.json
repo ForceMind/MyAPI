@@ -4318,6 +4318,7 @@
     "Setup guide": "セットアップガイド",
     "Setup guide complete": "セットアップガイド完了",
     "Setup guide is collapsed. Expand it anytime.": "セットアップガイドは折りたたまれています。いつでも展開できます。",
+    "Open setup guide": "セットアップガイドを開く",
     "Setup Instructions": "セットアップ手順",
     "Setup progress: {{completed}}/{{total}}": "セットアップ進捗: {{completed}}/{{total}}",
     "Setup Two-Factor Authentication": "2要素認証を設定",

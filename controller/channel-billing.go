@@ -462,6 +462,46 @@ func updateChannelBalance(channel *model.Channel) (channelBalanceResult, error) 
 	return channelBalanceResult{Balance: balance}, err
 }
 
+// recordChannelBalanceSnapshot persists only the normalized result of a
+// balance query. Upstream response bodies and credentials are never written
+// to the quota history table.
+func recordChannelBalanceSnapshot(channel *model.Channel, result channelBalanceResult, queryErr error) {
+	if channel == nil {
+		return
+	}
+	snapshot := &model.ChannelQuotaSnapshot{
+		ChannelId:  channel.Id,
+		ObservedAt: time.Now().Unix(),
+		Unit:       "usd",
+		MetricType: "balance",
+		WindowType: "none",
+		Source:     fmt.Sprintf("channel_type_%d", channel.Type),
+	}
+	if queryErr != nil {
+		snapshot.Status = "error"
+		snapshot.ErrorCode = "query_failed"
+		snapshot.ErrorMessage = "balance query failed"
+		_ = model.RecordChannelQuotaSnapshot(snapshot)
+		return
+	}
+	if result.RawResponse != "" {
+		snapshot.Status = "unsupported"
+		snapshot.ErrorCode = "unstructured_response"
+		snapshot.ErrorMessage = "upstream did not return a numeric balance"
+		_ = model.RecordChannelQuotaSnapshot(snapshot)
+		return
+	}
+	if math.IsNaN(result.Balance) || math.IsInf(result.Balance, 0) {
+		snapshot.Status = "error"
+		snapshot.ErrorCode = "invalid_balance"
+		snapshot.ErrorMessage = "upstream returned an invalid balance"
+		_ = model.RecordChannelQuotaSnapshot(snapshot)
+		return
+	}
+	snapshot.Available = result.Balance
+	_ = model.RecordChannelQuotaSnapshot(snapshot)
+}
+
 func updateStandardChannelBalance(channel *model.Channel) (float64, error) {
 	baseURL := constant.ChannelBaseURLs[channel.Type]
 	if channel.GetBaseURL() == "" {
@@ -546,6 +586,7 @@ func UpdateChannelBalance(c *gin.Context) {
 		return
 	}
 	result, err := updateChannelBalance(channel)
+	recordChannelBalanceSnapshot(channel, result, err)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -560,6 +601,166 @@ func UpdateChannelBalance(c *gin.Context) {
 		response["raw_response"] = result.RawResponse
 	}
 	c.JSON(http.StatusOK, response)
+}
+
+// GetChannelQuotaHistory returns normalized quota observations for a channel.
+// It deliberately excludes any raw upstream response data.
+func GetChannelQuotaHistory(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if _, err = model.CacheGetChannel(id); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	now := time.Now().Unix()
+	end := now
+	start := now - 30*24*60*60
+	if value := strings.TrimSpace(c.Query("range")); value != "" {
+		var seconds int64
+		switch strings.ToLower(value) {
+		case "24h", "1d":
+			seconds = 24 * 60 * 60
+		case "7d":
+			seconds = 7 * 24 * 60 * 60
+		case "30d":
+			seconds = 30 * 24 * 60 * 60
+		case "90d":
+			seconds = 90 * 24 * 60 * 60
+		default:
+			common.ApiError(c, errors.New("invalid range; use 24h, 7d, 30d, or 90d"))
+			return
+		}
+		start = end - seconds
+	}
+	if value := strings.TrimSpace(c.Query("start")); value != "" {
+		parsed, parseErr := strconv.ParseInt(value, 10, 64)
+		if parseErr != nil {
+			if timestamp, timeErr := time.Parse(time.RFC3339, value); timeErr == nil {
+				parsed = timestamp.Unix()
+			} else {
+				common.ApiError(c, errors.New("invalid start timestamp"))
+				return
+			}
+		}
+		start = parsed
+	}
+	if value := strings.TrimSpace(c.Query("end")); value != "" {
+		parsed, parseErr := strconv.ParseInt(value, 10, 64)
+		if parseErr != nil {
+			if timestamp, timeErr := time.Parse(time.RFC3339, value); timeErr == nil {
+				parsed = timestamp.Unix()
+			} else {
+				common.ApiError(c, errors.New("invalid end timestamp"))
+				return
+			}
+		}
+		end = parsed
+	}
+	if start < 0 || end < start {
+		common.ApiError(c, errors.New("invalid quota history time range"))
+		return
+	}
+	if end-start > 180*24*60*60 {
+		common.ApiError(c, errors.New("quota history range cannot exceed 180 days"))
+		return
+	}
+	limit := 500
+	if value := strings.TrimSpace(c.Query("limit")); value != "" {
+		parsed, parseErr := strconv.Atoi(value)
+		if parseErr != nil || parsed <= 0 {
+			common.ApiError(c, errors.New("invalid quota history limit"))
+			return
+		}
+		limit = parsed
+	}
+	if limit > 2000 {
+		limit = 2000
+	}
+	snapshots, err := model.ListChannelQuotaSnapshots(id, start, end, c.Query("metric_type"), c.Query("window_type"), limit)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	points := make([]gin.H, 0, len(snapshots))
+	for _, snapshot := range snapshots {
+		point := gin.H{
+			"timestamp": snapshot.ObservedAt,
+			"status":    snapshot.Status,
+		}
+		if snapshot.Status == "success" {
+			point["available"] = snapshot.Available
+			if snapshot.Used != nil {
+				point["used"] = *snapshot.Used
+			}
+			if snapshot.Total != nil {
+				point["total"] = *snapshot.Total
+			}
+		}
+		if snapshot.ResetAt > 0 {
+			point["reset_at"] = snapshot.ResetAt
+		}
+		if snapshot.ErrorCode != "" {
+			point["error_code"] = snapshot.ErrorCode
+		}
+		points = append(points, point)
+	}
+	response := gin.H{
+		"channel_id": id,
+		"start":      start,
+		"end":        end,
+		"limit":      limit,
+		"points":     points,
+	}
+	var firstSuccess, lastSuccess *model.ChannelQuotaSnapshot
+	var minimum, maximum float64
+	for index := range snapshots {
+		if snapshots[index].Status != "success" {
+			continue
+		}
+		if firstSuccess == nil {
+			firstSuccess = &snapshots[index]
+			minimum, maximum = snapshots[index].Available, snapshots[index].Available
+		}
+		lastSuccess = &snapshots[index]
+		if snapshots[index].Available < minimum {
+			minimum = snapshots[index].Available
+		}
+		if snapshots[index].Available > maximum {
+			maximum = snapshots[index].Available
+		}
+	}
+	if firstSuccess != nil && lastSuccess != nil {
+		change := lastSuccess.Available - firstSuccess.Available
+		changePercent := float64(0)
+		if firstSuccess.Available != 0 {
+			changePercent = change / firstSuccess.Available * 100
+		}
+		response["summary"] = gin.H{
+			"start_available": firstSuccess.Available,
+			"end_available":   lastSuccess.Available,
+			"change":          change,
+			"change_percent":  changePercent,
+			"minimum":         minimum,
+			"maximum":         maximum,
+		}
+	}
+	if len(snapshots) > 0 {
+		last := snapshots[len(snapshots)-1]
+		response["unit"] = last.Unit
+		response["currency"] = last.Currency
+		response["metric_type"] = last.MetricType
+		response["window_type"] = last.WindowType
+		response["source"] = last.Source
+		if last.Status == "success" {
+			response["current"] = gin.H{"available": last.Available, "observed_at": last.ObservedAt, "status": last.Status}
+		} else {
+			response["current"] = gin.H{"observed_at": last.ObservedAt, "status": last.Status, "error_code": last.ErrorCode}
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": response})
 }
 
 func updateAllChannelsBalance() error {
@@ -579,6 +780,7 @@ func updateAllChannelsBalance() error {
 		//	continue
 		//}
 		result, err := updateChannelBalance(channel)
+		recordChannelBalanceSnapshot(channel, result, err)
 		if err != nil {
 			continue
 		} else if result.RawResponse == "" {

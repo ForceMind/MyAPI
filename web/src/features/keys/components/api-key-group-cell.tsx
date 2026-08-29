@@ -27,6 +27,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 
+import { getAccessProfileLabel } from '../lib/access-profile'
 import {
   // AutoGroupBadge,
   GroupRatioBadge,
@@ -48,10 +49,14 @@ export function ApiKeyGroupCell(props: ApiKeyGroupCellProps) {
     return (
       <TruncatedCell
         className='-ml-1.5'
-        tooltipContent={props.group || '-'}
+        tooltipContent={`${getAccessProfileLabel(props.group, undefined, t)} (${props.group || 'default'})`}
         tooltipClassName='break-all'
       >
-        <GroupBadge group={props.group} ratio={ratio} />
+        <GroupBadge
+          group={props.group}
+          label={getAccessProfileLabel(props.group, undefined, t)}
+          ratio={ratio}
+        />
       </TruncatedCell>
     )
   }

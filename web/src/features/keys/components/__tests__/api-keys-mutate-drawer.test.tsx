@@ -152,7 +152,7 @@ function findButton(text: string, required = true): HTMLButtonElement | null {
 }
 
 function getControlByLabel(labelText: 'Name' | 'Quantity'): HTMLInputElement
-function getControlByLabel(labelText: 'Group'): HTMLButtonElement
+function getControlByLabel(labelText: 'Access profile'): HTMLButtonElement
 function getControlByLabel(labelText: 'Auto group order'): HTMLElement
 function getControlByLabel(labelText: string): HTMLElement {
   const label = [...document.querySelectorAll<HTMLLabelElement>('label')].find(
@@ -209,7 +209,7 @@ describe('API keys mutate drawer Auto group integration', () => {
     installApiFixtures(createdPayloads)
     await renderCreateDrawer()
 
-    const groupTrigger = getControlByLabel('Group')
+    const groupTrigger = getControlByLabel('Access profile')
     expect(groupTrigger.textContent?.includes('auto')).toBe(true)
     expect(
       document.body.textContent?.includes(
@@ -259,7 +259,7 @@ describe('API keys mutate drawer Auto group integration', () => {
     )
     expect(findButton('Restore global Auto', true).disabled).toBe(false)
 
-    const groupTrigger = getControlByLabel('Group')
+    const groupTrigger = getControlByLabel('Access profile')
     selectComboboxOption(groupTrigger, 'Standard access')
     expect(document.querySelector('button[aria-label="Remove vip"]')).toBe(null)
     selectComboboxOption(groupTrigger, 'Automatic routing')

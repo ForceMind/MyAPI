@@ -81,6 +81,10 @@ import {
   transformFormDataToPayload,
   transformApiKeyToFormDefaults,
 } from '../lib'
+import {
+  getAccessProfileDescription,
+  getAccessProfileLabel,
+} from '../lib/access-profile'
 import type { ApiKey } from '../types'
 import {
   ApiKeyGroupCombobox,
@@ -159,11 +163,12 @@ export function ApiKeysMutateDrawer({
     () =>
       Object.entries(groupsData?.data || {}).map(([key, info]) => ({
         value: key,
-        label: key,
-        desc: info.desc || key,
+        label: getAccessProfileLabel(key, info.profile, t),
+        desc: getAccessProfileDescription(key, info.profile, t),
         ratio: info.ratio,
+        profileId: info.profile?.id,
       })),
-    [groupsData]
+    [groupsData, t]
   )
   const backendHasAuto = groups.some((g) => g.value === 'auto')
   const availableAutoGroupNames = useMemo(
@@ -180,7 +185,9 @@ export function ApiKeysMutateDrawer({
     const groupsByValue = new Map(groups.map((group) => [group.value, group]))
     return globalAutoGroups.flatMap((group) => {
       const option = groupsByValue.get(group)
-      return option ? [option] : []
+      // Keep the persisted group identifiers in the inherited order preview;
+      // the picker itself uses the explanatory access-profile labels.
+      return option ? [{ ...option, label: option.value }] : []
     })
   }, [globalAutoGroups, groups])
   const maxAutoGroups =
@@ -417,7 +424,12 @@ export function ApiKeysMutateDrawer({
                 name='group'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('Group')}</FormLabel>
+                    <FormLabel>{t('Access profile')}</FormLabel>
+                    <FormDescription>
+                      {t(
+                        'This is the API key access profile, not your account level. It controls routing, eligible channels, and billing rules for this key.'
+                      )}
+                    </FormDescription>
                     <FormControl>
                       <ApiKeyGroupCombobox
                         options={groups}

@@ -37,7 +37,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -68,8 +68,12 @@ import { PerformanceHealthPanel } from './performance-health-panel'
 import { SummaryCards } from './summary-cards'
 import { UptimePanel } from './uptime-panel'
 
+// Keep guide visibility scoped to both the signed-in user and the guide
+// version.  The previous global key caused one user's dismissal to leak into
+// another account (and made future guide revisions impossible to roll out).
 const SETUP_GUIDE_VISIBILITY_STORAGE_KEY =
   'dashboard_overview_setup_guide_expanded'
+const SETUP_GUIDE_VERSION = 'v2'
 
 const SETUP_GUIDE_CODE_PATTERN = [
   'const request = await client.responses.create({',
@@ -122,20 +126,29 @@ interface HeroSignal {
   tone: IconBadgeTone
 }
 
-function getSavedSetupGuideExpanded(): boolean | null {
+function getSetupGuideStorageKey(userId?: number): string | null {
+  if (!userId || !Number.isFinite(userId)) return null
+  return `${SETUP_GUIDE_VISIBILITY_STORAGE_KEY}.${SETUP_GUIDE_VERSION}.user-${userId}`
+}
+
+function getSavedSetupGuideExpanded(userId?: number): boolean | null {
   if (typeof window === 'undefined') return null
-  const saved = window.localStorage.getItem(SETUP_GUIDE_VISIBILITY_STORAGE_KEY)
+  const storageKey = getSetupGuideStorageKey(userId)
+  if (!storageKey) return null
+  const saved = window.localStorage.getItem(storageKey)
   if (saved === 'expanded') return true
   if (saved === 'collapsed') return false
   return null
 }
 
-function saveSetupGuideExpanded(expanded: boolean): void {
+function saveSetupGuideExpanded(
+  userId: number | undefined,
+  expanded: boolean
+): void {
   if (typeof window === 'undefined') return
-  window.localStorage.setItem(
-    SETUP_GUIDE_VISIBILITY_STORAGE_KEY,
-    expanded ? 'expanded' : 'collapsed'
-  )
+  const storageKey = getSetupGuideStorageKey(userId)
+  if (!storageKey) return
+  window.localStorage.setItem(storageKey, expanded ? 'expanded' : 'collapsed')
 }
 
 function getCurrentOrigin(): string {
@@ -468,7 +481,13 @@ export function OverviewDashboard() {
   } = useDashboardContentVisibility()
   const [manualSetupGuideExpanded, setManualSetupGuideExpanded] = useState<
     boolean | null
-  >(() => getSavedSetupGuideExpanded())
+  >(null)
+
+  // Re-read the scoped preference when authentication finishes or the active
+  // account changes without forcing a dashboard remount.
+  useEffect(() => {
+    setManualSetupGuideExpanded(getSavedSetupGuideExpanded(user?.id))
+  }, [user?.id])
 
   const requestCount = Number(user?.request_count ?? 0)
   const remainQuota = Number(user?.quota ?? 0)
@@ -623,12 +642,12 @@ export function OverviewDashboard() {
   const handleSetupGuideToggle = () => {
     const nextExpanded = !setupGuideExpanded
     setManualSetupGuideExpanded(nextExpanded)
-    saveSetupGuideExpanded(nextExpanded)
+    saveSetupGuideExpanded(user?.id, nextExpanded)
   }
 
   return (
     <div className='flex flex-col gap-4'>
-      {setupGuideExpanded ? (
+      {setupGuideExpanded && (
         <CardStaggerContainer className='grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
           <CardStaggerItem className='bg-card h-full overflow-hidden rounded-2xl border shadow-xs'>
             <div className='relative h-full overflow-hidden p-4 sm:p-5'>
@@ -704,7 +723,8 @@ export function OverviewDashboard() {
             </div>
           </CardStaggerItem>
         </CardStaggerContainer>
-      ) : (
+      )}
+      {!setupGuideExpanded && setupStatusReady && !setupComplete && (
         <CardStaggerContainer>
           <CardStaggerItem className='bg-card overflow-hidden rounded-2xl border shadow-xs'>
             <div className='relative overflow-hidden px-4 py-3 sm:px-5'>
@@ -717,9 +737,7 @@ export function OverviewDashboard() {
                   <div className='min-w-0'>
                     <div className='flex items-center gap-2'>
                       <h3 className='truncate text-sm font-semibold'>
-                        {setupComplete
-                          ? t('Setup guide complete')
-                          : t('Setup guide')}
+                        {t('Setup guide')}
                       </h3>
                       <span className='text-muted-foreground bg-background/60 rounded-md border px-2 py-0.5 text-xs'>
                         {t('Setup progress: {{completed}}/{{total}}', {
@@ -729,11 +747,7 @@ export function OverviewDashboard() {
                       </span>
                     </div>
                     <p className='text-muted-foreground line-clamp-1 text-xs'>
-                      {setupComplete
-                        ? t(
-                            'Your setup guide is collapsed so usage stays in focus.'
-                          )
-                        : t('Setup guide is collapsed. Expand it anytime.')}
+                      {t('Setup guide is collapsed. Expand it anytime.')}
                     </p>
                   </div>
                 </div>
@@ -756,6 +770,19 @@ export function OverviewDashboard() {
             </div>
           </CardStaggerItem>
         </CardStaggerContainer>
+      )}
+      {!setupGuideExpanded && setupStatusReady && setupComplete && (
+        <div className='flex justify-end'>
+          <Button
+            variant='ghost'
+            size='sm'
+            className='text-muted-foreground hover:text-foreground'
+            onClick={handleSetupGuideToggle}
+          >
+            <ListChecks data-icon='inline-start' />
+            {t('Open setup guide')}
+          </Button>
+        </div>
       )}
 
       <SummaryCards />

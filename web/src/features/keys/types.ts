@@ -43,6 +43,14 @@ export const apiKeySchema = z.object({
     }, z.boolean())
     .optional()
     .default(false),
+  access_profile: z
+    .object({
+      id: z.string(),
+      kind: z.string().optional(),
+      label: z.string().optional(),
+      description: z.string().optional(),
+    })
+    .nullish(),
   model_limits_enabled: z.boolean(),
   model_limits: z.string().nullish().default(''),
   allow_ips: z.string().nullish().default(''),
@@ -58,6 +66,13 @@ export interface ApiResponse<T = unknown> {
   success: boolean
   message?: string
   data?: T
+}
+
+export interface AccessProfileMetadata {
+  id: string
+  kind?: string
+  label?: string
+  description?: string
 }
 
 export interface GetApiKeysParams {

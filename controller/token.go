@@ -39,6 +39,9 @@ type tokenRequest struct {
 type tokenResponse struct {
 	*model.Token
 	AutoGroups []string `json:"auto_groups"`
+	// AccessProfile explains the legacy Group value without changing the
+	// persisted token schema or routing contract.
+	AccessProfile accessProfileMetadata `json:"access_profile"`
 }
 
 func buildMaskedTokenResponse(token *model.Token) *tokenResponse {
@@ -55,7 +58,11 @@ func buildMaskedTokenResponse(token *model.Token) *tokenResponse {
 	if len(autoGroups) == 0 {
 		autoGroups = nil
 	}
-	return &tokenResponse{Token: &maskedToken, AutoGroups: autoGroups}
+	return &tokenResponse{
+		Token:         &maskedToken,
+		AutoGroups:    autoGroups,
+		AccessProfile: getAccessProfileMetadata(token.Group, ""),
+	}
 }
 
 func buildMaskedTokenResponses(tokens []*model.Token) []*tokenResponse {

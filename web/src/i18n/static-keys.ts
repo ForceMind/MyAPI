@@ -209,6 +209,9 @@ export const STATIC_I18N_KEYS = [
   'Existing account will be reused',
   'Not set yet',
 
+  // Dashboard setup guide
+  'Open setup guide',
+
   // Models section-registry nav (dynamic titleKey)
   'Grok',
 
