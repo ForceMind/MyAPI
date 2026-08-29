@@ -89,7 +89,7 @@ docker-compose up -d
 <summary><strong>使用 Docker 命令</strong></summary>
 
 ```bash
-# Build the local image (use a remote registry only after maintainer approval)
+# Build the local image (for local development only)
 docker build -t local/my-api:custom-rc25 .
 
 # 使用 SQLite（預設）
@@ -258,7 +258,7 @@ docker run --name my-api -d --restart always \
 ## 🚢 部署
 
 > [!TIP]
-> **本地 Docker 映像：** `local/my-api:custom-rc25`（請從本倉庫建置）
+> **預設 Docker 映像：** `ghcr.io/forcemind/myapi:v0.1.1`（由 GitHub Actions 產生，升級時修改 `MYAPI_IMAGE`）。如需本地建置，請設定 `MYAPI_BUILD_LOCAL=true`。
 
 ### 📋 部署要求
 

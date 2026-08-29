@@ -57,7 +57,7 @@
 version: '3'
 services:
   my-api:
-    image: local/my-api:custom-rc25
+    image: ghcr.io/forcemind/myapi:v0.1.1
     container_name: my-api
     restart: always
     ports:
@@ -125,12 +125,14 @@ volumes:
 ### Q4：如何更新版本？
 
 ```bash
-# 在源码目录构建并检查本地镜像；远端 registry 由维护者另行确认
-docker build -t local/my-api:custom-rc25 .
+# 拉取 GitHub Actions 发布到 GHCR 的指定版本
+docker pull ghcr.io/forcemind/myapi:v0.1.1
 
 # 重启容器
 docker-compose down && docker-compose up -d
 ```
+
+如需从源码构建，请改用 `local/my-api:custom-rc25` 并在 Compose 中替换镜像名。
 
 ***
 

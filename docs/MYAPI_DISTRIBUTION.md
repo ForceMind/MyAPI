@@ -13,9 +13,10 @@ MyAPI 是面向自建部署的发行品牌，提供可审计的完整源码、�
 | 范围 | MyAPI 规范 | 迁移与兼容说明 |
 | --- | --- | --- |
 | 人类可见品牌 | `MyAPI` | 用于站点名称、Logo、CLI 帮助、文档和发行说明。 |
-| 机器安全 slug | `my-api` | 用于服务名、容器名、默认本地镜像和部署目录。 |
+| 机器安全 slug | `my-api` | 用于服务名、容器名、默认镜像名和部署目录。 |
 | 部署变量 | `MYAPI_IMAGE`、`MYAPI_PORT`、`MYAPI_PUBLIC_URL`、`MYAPI_DATA_DIR`、`MYAPI_LOGS_DIR` | 新配置只写这些变量；旧部署变量只在一次性迁移时读取，完成迁移后应删除。 |
 | 服务与容器 | `my-api` | 重命名容器前先备份并确认 compose 项目，避免误删卷。 |
+| 官方镜像 | `ghcr.io/forcemind/myapi:v0.1.1` | 由本仓库 GitHub Actions 生成；升级时修改 `MYAPI_IMAGE` 为目标版本 tag。 |
 | 容器挂载点 | `/data`、`/app/logs` | 这是数据格式兼容边界，容器内挂载点暂不变；宿主机目录可迁移到新的 `my-api` 项目目录。 |
 | API、SSE 和数据库协议 | 现有 OpenAI-compatible、Responses、Claude、Gemini 路由及表结构 | 本发行版不因品牌重命名改变线协议、路由、字段或数据库结构；客户端可继续使用原协议。 |
 
@@ -50,7 +51,23 @@ Footer = 留空
 About = 留空
 ```
 
-Docker 本地构建示例（不会访问或发布任何远端镜像）：
+默认部署会拉取 GitHub Actions 生成的 GHCR 镜像。私有 GHCR 包需要先登录：
+
+```bash
+echo "$GHCR_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin
+```
+
+然后在 `deploy/.env` 中固定要运行的版本，例如：
+
+```text
+MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.1.1
+MYAPI_BUILD_LOCAL=false
+```
+
+执行 `myapi up` 或 `deploy/install.sh` 时会先拉取该镜像。只有明确设置
+`MYAPI_BUILD_LOCAL=true`（或使用 `local/...` 镜像名）才会从源码构建。
+
+本地构建示例（不会发布任何远端镜像）：
 
 ```bash
 docker build \
@@ -124,8 +141,8 @@ npm publish --dry-run --access public --registry=https://registry.npmjs.org/
 也不会因为创建 GitHub Release 而自动发布 NPM。正式执行必须由维护者手动
 `workflow_dispatch`，输入精确的版本/tag 和确认词，并在仓库受保护 environment
 中通过审核；同时启用对应的 `MYAPI_ENABLE_*` 发布门禁变量。未配置门禁时 job
-应保持跳过状态。Docker 发布 workflow 只接受已审核的 Docker Hub
-`namespace/repository` 路径，预发布 tag 不会覆盖 `latest`。不要通过移动既有 tag
+应保持跳过状态。Docker 发布 workflow 固定推送到
+`ghcr.io/forcemind/myapi`，预发布 tag 不会覆盖 `latest`。不要通过移动既有 tag
 或绕过环境审核来发布。
 
 正式发布前还必须确认：

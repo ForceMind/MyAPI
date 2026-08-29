@@ -125,6 +125,8 @@ test('init copies source without runtime data and configure protects secrets', (
 
   const envPath = path.join(project, 'deploy/.env')
   const env = readFileSync(envPath, 'utf8')
+  assert.match(env, /^MYAPI_IMAGE=ghcr\.io\/forcemind\/myapi:v0\.1\.1$/m)
+  assert.match(env, /^MYAPI_BUILD_LOCAL=false$/m)
   assert.match(env, /^MYAPI_PUBLIC_URL=https:\/\/myapi\.example\.test$/m)
   assert.match(env, /^MYAPI_BRAND_NAME=MyAPI$/m)
   assert.match(env, /^MYAPI_BRAND_LOGO=\/myapi-logo-v1\.png$/m)

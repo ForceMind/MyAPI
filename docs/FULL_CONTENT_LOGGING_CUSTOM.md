@@ -9,7 +9,7 @@
 当前生产容器已经启用完整内容日志：
 
 ```text
-镜像：local/my-api:custom-rc25
+镜像：ghcr.io/forcemind/myapi:v0.1.1
 容器：my-api
 日志目录：<my-api-project>/logs/full-content/
 日志格式：JSON Lines（每行一个 JSON 对象）

@@ -4,7 +4,7 @@ services:
     # read-only fallback; the CLI and install script normalize the legacy
     # public URL before invoking this file, then the required check below
     # prevents an empty origin.
-    image: ${MYAPI_IMAGE:-${NEW_API_IMAGE:-local/my-api:custom-rc25}}
+    image: ${MYAPI_IMAGE:-${NEW_API_IMAGE:-ghcr.io/forcemind/myapi:v0.1.1}}
     container_name: my-api
     restart: always
     command: --log-dir /app/logs

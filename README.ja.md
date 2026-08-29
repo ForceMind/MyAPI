@@ -91,7 +91,7 @@ docker-compose up -d
 <summary><strong>Dockerコマンドを使用</strong></summary>
 
 ```bash
-# Build the local image (use a remote registry only after maintainer approval)
+# Build the local image (for local development only)
 docker build -t local/my-api:custom-rc25 .
 
 # SQLiteを使用（デフォルト）
@@ -262,7 +262,7 @@ docker run --name my-api -d --restart always \
 ## 🚢 デプロイ
 
 > [!TIP]
-> **ローカルDockerイメージ:** `local/my-api:custom-rc25`（このリポジトリからビルド）
+> **既定のDockerイメージ:** `ghcr.io/forcemind/myapi:v0.1.1`（GitHub Actionsで生成。更新時は`MYAPI_IMAGE`を変更）。ローカルビルドには`MYAPI_BUILD_LOCAL=true`を設定してください。
 
 ### 📋 デプロイ要件
 

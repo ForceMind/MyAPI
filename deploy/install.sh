@@ -42,12 +42,13 @@ if (( ${#legacy_keys[@]} > 0 )); then
   echo "Compatibility fallback for ${legacy_keys[*]}; run 'myapi migrate --project-dir $repo_dir' to write MYAPI_* settings." >&2
 fi
 
-MYAPI_IMAGE="${MYAPI_IMAGE:-local/my-api:custom-rc25}"
+MYAPI_IMAGE="${MYAPI_IMAGE:-ghcr.io/forcemind/myapi:v0.1.1}"
+MYAPI_BUILD_LOCAL="${MYAPI_BUILD_LOCAL:-false}"
 MYAPI_PORT="${MYAPI_PORT:-3000}"
 MYAPI_PUBLIC_URL="${MYAPI_PUBLIC_URL:-}"
 MYAPI_DATA_DIR="${MYAPI_DATA_DIR:-./data}"
 MYAPI_LOGS_DIR="${MYAPI_LOGS_DIR:-./logs}"
-export MYAPI_IMAGE MYAPI_PORT MYAPI_PUBLIC_URL MYAPI_DATA_DIR MYAPI_LOGS_DIR
+export MYAPI_IMAGE MYAPI_BUILD_LOCAL MYAPI_PORT MYAPI_PUBLIC_URL MYAPI_DATA_DIR MYAPI_LOGS_DIR
 
 if [[ -z "${SESSION_SECRET:-}" || "$SESSION_SECRET" == "replace-with-a-long-random-secret" ]]; then
   echo "Set a strong SESSION_SECRET in $env_file before deployment." >&2
@@ -69,9 +70,14 @@ resolve_deploy_path() {
 mkdir -p "$(resolve_deploy_path "$MYAPI_DATA_DIR")" "$(resolve_deploy_path "$MYAPI_LOGS_DIR")"
 
 cd "$repo_dir"
-docker build \
-  --build-arg "MYAPI_BRAND_NAME=${MYAPI_BRAND_NAME:-MyAPI}" \
-  --build-arg "MYAPI_BRAND_LOGO=${MYAPI_BRAND_LOGO:-/myapi-logo-v1.png}" \
-  -t "$MYAPI_IMAGE" .
+if [[ "$MYAPI_BUILD_LOCAL" == "true" || "$MYAPI_IMAGE" == local/* ]]; then
+  docker build \
+    --build-arg "MYAPI_BRAND_NAME=${MYAPI_BRAND_NAME:-MyAPI}" \
+    --build-arg "MYAPI_BRAND_LOGO=${MYAPI_BRAND_LOGO:-/myapi-logo-v1.png}" \
+    -t "$MYAPI_IMAGE" .
+else
+  echo "Pulling MyAPI image from ${MYAPI_IMAGE}." >&2
+  docker compose --env-file "$env_file" -f "$script_dir/docker-compose.yml" pull my-api
+fi
 docker compose --env-file "$env_file" -f "$script_dir/docker-compose.yml" up -d --force-recreate
 docker compose --env-file "$env_file" -f "$script_dir/docker-compose.yml" ps

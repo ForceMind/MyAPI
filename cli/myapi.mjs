@@ -46,7 +46,7 @@ const deploymentEnvAliases = Object.freeze({
 })
 
 const deploymentDefaults = Object.freeze({
-  MYAPI_IMAGE: 'local/my-api:custom-rc25',
+  MYAPI_IMAGE: 'ghcr.io/forcemind/myapi:v0.1.1',
   MYAPI_PORT: '3000',
   MYAPI_PUBLIC_URL: 'https://my-api.example.com',
   MYAPI_DATA_DIR: './data',
@@ -161,6 +161,14 @@ function composeEnvironment(values) {
     if (value !== undefined) environment[canonicalKey] = value
   }
   return environment
+}
+
+function deploymentImage(values) {
+  return deploymentValue(values, 'MYAPI_IMAGE') || deploymentDefaults.MYAPI_IMAGE
+}
+
+function shouldBuildLocalImage(values) {
+  return values.MYAPI_BUILD_LOCAL === 'true' || deploymentImage(values).startsWith('local/')
 }
 
 function validateRuntimeConfiguration(values) {
@@ -517,7 +525,7 @@ function deploymentCommand(command, args) {
         '--build-arg',
         `MYAPI_BRAND_LOGO=${values.MYAPI_BRAND_LOGO || '/myapi-logo-v1.png'}`,
         '-t',
-        deploymentValue(values, 'MYAPI_IMAGE') || deploymentDefaults.MYAPI_IMAGE,
+        deploymentImage(values),
         '.',
       ],
       { cwd: paths.projectRoot }
@@ -543,6 +551,12 @@ function deploymentCommand(command, args) {
       throw new Error(
         `Docker Compose configuration is invalid: ${(composeConfig.stderr || '').trim()}`
       )
+    }
+    if (!shouldBuildLocalImage(values)) {
+      run('docker', composeArguments(paths, ['pull', 'my-api']), {
+        cwd: paths.projectRoot,
+        env: composeEnvironment(values),
+      })
     }
   }
 
@@ -586,8 +600,10 @@ Usage:
   myapi version [--json]
 
 The CLI never deploys during npm install, never removes Docker volumes, and
-never prints SESSION_SECRET or API credentials. Existing NEW_API_* deployment
-variables are read as compatibility aliases; migrate writes MYAPI_* settings.`)
+never prints SESSION_SECRET or API credentials. 'myapi up' pulls the pinned
+MyAPI image from GHCR; set MYAPI_BUILD_LOCAL=true (or use a local/* image) to
+build locally instead. Existing NEW_API_* deployment variables are read as
+compatibility aliases; migrate writes MYAPI_* settings.`)
 }
 
 const [command = 'help', ...args] = process.argv.slice(2)

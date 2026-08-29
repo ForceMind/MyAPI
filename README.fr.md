@@ -92,7 +92,7 @@ docker-compose up -d
 <summary><strong>Utilisation des commandes Docker</strong></summary>
 
 ```bash
-# Build the local image (use a remote registry only after maintainer approval)
+# Build the local image (for local development only)
 docker build -t local/my-api:custom-rc25 .
 
 # Utilisation de SQLite (par défaut)
@@ -261,7 +261,7 @@ docker run --name my-api -d --restart always \
 ## 🚢 Déploiement
 
 > [!TIP]
-> **Image Docker locale:** `local/my-api:custom-rc25` (à construire depuis ce dépôt)
+> **Image Docker par défaut :** `ghcr.io/forcemind/myapi:v0.1.1` (construite par GitHub Actions ; modifiez `MYAPI_IMAGE` pour mettre à niveau). Définissez `MYAPI_BUILD_LOCAL=true` pour construire localement.
 
 ### 📋 Exigences de déploiement
 
