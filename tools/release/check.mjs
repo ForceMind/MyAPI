@@ -16,6 +16,10 @@ const workflowPath = path.join(root, '.github/workflows/release.yml')
 const workflow = existsSync(workflowPath) ? readFileSync(workflowPath, 'utf8') : ''
 const dockerWorkflowPath = path.join(root, '.github/workflows/docker-build.yml')
 const dockerWorkflow = existsSync(dockerWorkflowPath) ? readFileSync(dockerWorkflowPath, 'utf8') : ''
+const branchDockerWorkflowPath = path.join(root, '.github/workflows/docker-image-branch.yml')
+const branchDockerWorkflow = existsSync(branchDockerWorkflowPath)
+  ? readFileSync(branchDockerWorkflowPath, 'utf8')
+  : ''
 const checks = []
 
 function record(name, ok, detail = '') {
@@ -55,6 +59,17 @@ record(
     'IMAGE_REPOSITORY}@${amd64}',
     'IMAGE_REPOSITORY}@${arm64}',
   ].every((fragment) => dockerWorkflow.includes(fragment)),
+)
+record(
+  'manual branch GHCR manifests are assembled from validated immutable digests',
+  [
+    'Upload immutable image digest',
+    'Download immutable image digests',
+    'Validate immutable image digests',
+    ' =~ ^sha256:[0-9a-f]{64}$',
+    'IMAGE_REPOSITORY}@${amd64}',
+    'IMAGE_REPOSITORY}@${arm64}',
+  ].every((fragment) => branchDockerWorkflow.includes(fragment)),
 )
 
 const failed = checks.filter((check) => !check.ok)

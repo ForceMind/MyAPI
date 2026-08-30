@@ -158,12 +158,25 @@ jobs:
 
       - name: Output digest
         run: |
+          mkdir -p image-digest
+          printf '%s\n' "${{ steps.build.outputs.digest }}" > image-digest/digest
+          printf '%s\n' "${IMAGE_REPOSITORY}" > image-digest/repository
+          printf '%s\n' "${{ needs.prepare.outputs.tag_prefix }}" > image-digest/branch-tag
+          printf '%s\n' "${{ needs.prepare.outputs.version }}" > image-digest/version-tag
           echo "### Docker Image Digest (${{ matrix.arch }})" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "${IMAGE_REPOSITORY}:${{ needs.prepare.outputs.tag_prefix }}-${{ matrix.arch }}" >> $GITHUB_STEP_SUMMARY
           echo "${IMAGE_REPOSITORY}:${{ needs.prepare.outputs.version }}-${{ matrix.arch }}" >> $GITHUB_STEP_SUMMARY
           echo "${{ steps.build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload immutable image digest
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-branch-image-digest-${{ matrix.arch }}
+          path: image-digest/
+          if-no-files-found: error
+          retention-days: 7
 
   create_manifests:
     name: Create multi-arch manifests (approved registry)
@@ -190,19 +203,52 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Download immutable image digests
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: myapi-branch-image-digest-*
+          path: image-digests
+          merge-multiple: false
+
+      - name: Validate immutable image digests
+        env:
+          EXPECTED_BRANCH_TAG: ${{ needs.prepare.outputs.tag_prefix }}
+          EXPECTED_VERSION_TAG: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          for arch in amd64 arm64; do
+            digest_file="image-digests/myapi-branch-image-digest-${arch}/digest"
+            repository_file="image-digests/myapi-branch-image-digest-${arch}/repository"
+            branch_tag_file="image-digests/myapi-branch-image-digest-${arch}/branch-tag"
+            version_tag_file="image-digests/myapi-branch-image-digest-${arch}/version-tag"
+            test -s "$digest_file"
+            test -s "$repository_file"
+            test -s "$branch_tag_file"
+            test -s "$version_tag_file"
+            digest="$(tr -d '[:space:]' < "$digest_file")"
+            repository="$(tr -d '[:space:]' < "$repository_file")"
+            branch_tag="$(tr -d '[:space:]' < "$branch_tag_file")"
+            version_tag="$(tr -d '[:space:]' < "$version_tag_file")"
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+            [[ "$repository" == "${IMAGE_REPOSITORY}" ]]
+            [[ "$branch_tag" == "$EXPECTED_BRANCH_TAG" ]]
+            [[ "$version_tag" == "$EXPECTED_VERSION_TAG" ]]
+            printf '%s=%s\n' "${arch}" "${digest}" >> "$GITHUB_ENV"
+          done
+
       - name: Create & push manifest (GHCR - branch)
         run: |
           docker buildx imagetools create \
             -t "${IMAGE_REPOSITORY}:${{ needs.prepare.outputs.tag_prefix }}" \
-            "${IMAGE_REPOSITORY}:${{ needs.prepare.outputs.tag_prefix }}-amd64" \
-            "${IMAGE_REPOSITORY}:${{ needs.prepare.outputs.tag_prefix }}-arm64"
+            "${IMAGE_REPOSITORY}@${amd64}" \
+            "${IMAGE_REPOSITORY}@${arm64}"
 
       - name: Create & push manifest (GHCR - versioned)
         run: |
           docker buildx imagetools create \
             -t "${IMAGE_REPOSITORY}:${{ needs.prepare.outputs.version }}" \
-            "${IMAGE_REPOSITORY}:${{ needs.prepare.outputs.version }}-amd64" \
-            "${IMAGE_REPOSITORY}:${{ needs.prepare.outputs.version }}-arm64"
+            "${IMAGE_REPOSITORY}@${amd64}" \
+            "${IMAGE_REPOSITORY}@${arm64}"
 
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
