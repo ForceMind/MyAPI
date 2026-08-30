@@ -17,6 +17,7 @@
 - [TokenHub 集成边界](./TOKENHUB_INTEGRATION.md)
 - [Google Antigravity 边界](./ANTIGRAVITY_INTEGRATION.md)
 - [完整内容日志](./FULL_CONTENT_LOGGING_CUSTOM.md)
+- [Claude 组织用量观测边界](./CLAUDE_USAGE_REPORT.md)
 - [认证和 Cookie 安全](./authentication.md)
 - [实机与副本验收清单](./REAL_DEVICE_ACCEPTANCE.md)
 - [定制说明](../CUSTOMIZATION.md)
