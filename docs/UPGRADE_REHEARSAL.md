@@ -2,6 +2,11 @@
 
 `myapi upgrade` 是显式操作：它会校验版本、备份 `deploy/.env`、拉取固定 GHCR 镜像、等待健康检查，并在失败时恢复环境文件和旧镜像。它不会替管理员猜测数据库类型，也不会自动复制生产数据库。
 
+> 当前 `@forcemind/myapi` 尚未正式发布到 NPM。以下命令中的 `npx
+> @forcemind/myapi` 在正式发行前请替换为源码检出的
+> `node cli/myapi.mjs`，或使用已经由维护者审核的本地 tarball；不要让
+> `npx` 从未知的公共包解析同名命令。
+
 源码发行合同可在没有 Docker、GHCR 或部署凭据的环境中先做只读检查：
 
 ```bash
@@ -18,7 +23,7 @@ npm run upgrade:check -- --json
 4. 先运行只读预检，不会写入环境文件、创建备份、调用 Docker 或访问 GHCR：
 
    ```bash
-   npx @forcemind/myapi upgrade \
+   node cli/myapi.mjs upgrade \
      --project-dir <副本目录> --version <新版本> --dry-run --json
    ```
 

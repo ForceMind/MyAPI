@@ -183,6 +183,10 @@ LAN 版的公开注册、支付、订阅、兑换和外部 OAuth 路由由后端
 
 ## 更新与回滚
 
+> **NPM 发行状态：** 当前 `@forcemind/myapi` 尚未正式发布。源码检出时请使用
+> `node cli/myapi.mjs ...`（或审核过的本地 tarball）替代下面示例中的
+> `npx @forcemind/myapi ...`；不要从未知公共包解析同名命令。
+
 更新前备份：
 
 ```bash

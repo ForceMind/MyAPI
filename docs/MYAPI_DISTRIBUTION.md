@@ -6,6 +6,10 @@ MyAPI 是面向自建部署的发行品牌，提供可审计的完整源码、�
 的命名和迁移边界；OpenAI、Anthropic、Google 等第三方协议名称仍按其官方
 名称保留。
 
+**发行状态：** `@forcemind/myapi` 当前尚未正式发布到 NPM。源码检出状态下请将
+文中的 `npx @forcemind/myapi ...` 替换为 `node cli/myapi.mjs ...`，或使用维护者
+审核过的本地 tarball；正式发布后再按版本和 registry 复核 `npx` 示例。
+
 ## 品牌与兼容性边界
 
 新部署统一使用以下发行层标识：

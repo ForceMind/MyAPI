@@ -8,6 +8,11 @@ LAN Lite is a single-process, SQLite-first deployment for a trusted local networ
 
 The CLI never scans `~/.codex`, Claude credential files, Keychain, Windows Credential Manager, or any other local credential store. Configure an upstream channel explicitly in the MyAPI administrator interface or point it at an already-authorized local API endpoint.
 
+**CLI availability:** `@forcemind/myapi` is not yet published to NPM. Until the
+maintainer publishes a reviewed release, run the examples from a source checkout
+as `node cli/myapi.mjs ...` (or use a reviewed local tarball); do not let `npx`
+resolve an unknown public package with the same name.
+
 ## Docker Desktop (recommended on macOS and Windows)
 
 Install Docker Desktop, then run the CLI from the MyAPI source distribution:
