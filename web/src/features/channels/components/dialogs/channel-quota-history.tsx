@@ -274,6 +274,51 @@ export function ChannelQuotaHistory({
                 ))}
               </div>
             )}
+            {(data?.summary?.drop_rate_per_day != null ||
+              data?.summary?.forecast_zero_at != null ||
+              data?.data_quality) && (
+              <div className='bg-muted/30 space-y-1 rounded-md border p-2 text-xs'>
+                <div className='font-medium'>{t('Quota health')}</div>
+                <div className='text-muted-foreground flex flex-wrap gap-x-4 gap-y-1'>
+                  {data.summary?.drop_rate_per_day != null && (
+                    <span>
+                      {t('Daily change')}:{' '}
+                      {formatValue(data.summary.drop_rate_per_day, data)}{' '}
+                      / {t('day')}
+                    </span>
+                  )}
+                  {data.summary?.forecast_zero_at != null && (
+                    <span>
+                      {t('Estimated depletion')}:{' '}
+                      {pointLabel(data.summary.forecast_zero_at)}
+                    </span>
+                  )}
+                  {data.summary?.forecast_zero_at == null &&
+                    data.summary?.drop_rate_per_day != null && (
+                      <span>{t('No depletion forecast available')}</span>
+                    )}
+                  {data.summary?.forecast_confidence &&
+                    data.summary.forecast_confidence !== 'insufficient' && (
+                      <span>
+                        {t('Forecast confidence')}:{' '}
+                        {t(data.summary.forecast_confidence)}
+                      </span>
+                    )}
+                  {data.data_quality && (
+                    <span>
+                      {t('Data quality')}:{' '}
+                      {t('{{success}} successful / {{total}} observed', {
+                        success: data.data_quality.success_count,
+                        total:
+                          data.data_quality.success_count +
+                          data.data_quality.error_count +
+                          data.data_quality.invalid_count,
+                      })}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
             <div
               className='h-56 w-full min-w-0 touch-pan-y'
               aria-label={t('Quota history chart')}

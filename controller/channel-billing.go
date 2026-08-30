@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -693,6 +694,106 @@ func aggregateQuotaHistorySnapshots(snapshots []model.ChannelQuotaSnapshot, gran
 	return aggregated
 }
 
+const (
+	quotaHistoryMinimumRateSpanSeconds = int64(time.Hour / time.Second)
+	quotaHistoryForecastMaximumDays    = 365 * 100
+)
+
+// quotaHistoryDataQuality describes the observations used by the derived
+// metrics. Invalid numeric values are counted separately and never participate
+// in rate or forecast calculations.
+type quotaHistoryDataQuality struct {
+	SuccessCount    int   `json:"success_count"`
+	ErrorCount      int   `json:"error_count"`
+	InvalidCount    int   `json:"invalid_count"`
+	ResetBoundaries int   `json:"reset_boundaries"`
+	SpanSeconds     int64 `json:"span_seconds"`
+}
+
+type quotaHistoryDerivedMetrics struct {
+	DropRatePerDay     *float64                `json:"drop_rate_per_day"`
+	ForecastZeroAt     *int64                  `json:"forecast_zero_at"`
+	ForecastConfidence string                  `json:"forecast_confidence"`
+	DataQuality        quotaHistoryDataQuality `json:"data_quality"`
+}
+
+func finiteQuotaValue(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0)
+}
+
+// deriveQuotaHistoryMetrics computes conservative, read-only trend indicators.
+// A non-zero reset_at change starts a new segment so a provider quota reset is
+// never interpreted as consumption. Failed observations are ignored for the
+// slope but remain visible in data quality counts.
+func deriveQuotaHistoryMetrics(snapshots []model.ChannelQuotaSnapshot) quotaHistoryDerivedMetrics {
+	metrics := quotaHistoryDerivedMetrics{ForecastConfidence: "insufficient"}
+	quality := &metrics.DataQuality
+	valid := make([]model.ChannelQuotaSnapshot, 0, len(snapshots))
+	for _, snapshot := range snapshots {
+		if snapshot.Status != "success" {
+			quality.ErrorCount++
+			continue
+		}
+		if !finiteQuotaValue(snapshot.Available) {
+			quality.InvalidCount++
+			continue
+		}
+		quality.SuccessCount++
+		valid = append(valid, snapshot)
+	}
+	if len(valid) == 0 {
+		return metrics
+	}
+	sort.SliceStable(valid, func(i, j int) bool {
+		return valid[i].ObservedAt < valid[j].ObservedAt
+	})
+	segment := make([]model.ChannelQuotaSnapshot, 0, len(valid))
+	for _, snapshot := range valid {
+		if len(segment) > 0 && snapshot.ResetAt != segment[len(segment)-1].ResetAt &&
+			(snapshot.ResetAt != 0 || segment[len(segment)-1].ResetAt != 0) {
+			quality.ResetBoundaries++
+			segment = segment[:0]
+		}
+		segment = append(segment, snapshot)
+	}
+	if len(segment) < 2 {
+		return metrics
+	}
+	first, last := segment[0], segment[len(segment)-1]
+	span := last.ObservedAt - first.ObservedAt
+	if span <= 0 {
+		return metrics
+	}
+	quality.SpanSeconds = span
+	if span < quotaHistoryMinimumRateSpanSeconds {
+		return metrics
+	}
+	rate := (last.Available - first.Available) / (float64(span) / (24 * 60 * 60))
+	if !finiteQuotaValue(rate) {
+		return metrics
+	}
+	metrics.DropRatePerDay = &rate
+	if len(segment) >= 3 && span >= 24*60*60 {
+		metrics.ForecastConfidence = "high"
+	} else {
+		metrics.ForecastConfidence = "low"
+	}
+	if rate >= 0 || last.Available <= 0 {
+		return metrics
+	}
+	daysUntilZero := last.Available / -rate
+	if !finiteQuotaValue(daysUntilZero) || daysUntilZero <= 0 || daysUntilZero > quotaHistoryForecastMaximumDays {
+		return metrics
+	}
+	secondsUntilZero := daysUntilZero * 24 * 60 * 60
+	if secondsUntilZero > float64(quotaHistoryForecastMaximumDays*24*60*60) {
+		return metrics
+	}
+	forecast := last.ObservedAt + int64(secondsUntilZero)
+	metrics.ForecastZeroAt = &forecast
+	return metrics
+}
+
 // GetChannelQuotaHistory returns normalized quota observations for a channel.
 // It deliberately excludes any raw upstream response data.
 func GetChannelQuotaHistory(c *gin.Context) {
@@ -792,12 +893,23 @@ func GetChannelQuotaHistory(c *gin.Context) {
 			"status":    snapshot.Status,
 		}
 		if snapshot.Status == "success" {
-			point["available"] = snapshot.Available
+			if finiteQuotaValue(snapshot.Available) {
+				point["available"] = snapshot.Available
+			} else {
+				// A corrupt/legacy row must not make JSON encoding fail with NaN
+				// or Infinity, and must never be shown as a numeric zero.
+				point["status"] = "error"
+				point["error_code"] = "invalid_balance"
+			}
 			if snapshot.Used != nil {
-				point["used"] = *snapshot.Used
+				if finiteQuotaValue(*snapshot.Used) {
+					point["used"] = *snapshot.Used
+				}
 			}
 			if snapshot.Total != nil {
-				point["total"] = *snapshot.Total
+				if finiteQuotaValue(*snapshot.Total) {
+					point["total"] = *snapshot.Total
+				}
 			}
 		}
 		if snapshot.ResetAt > 0 {
@@ -817,10 +929,12 @@ func GetChannelQuotaHistory(c *gin.Context) {
 		"timezone_offset": timezoneOffset,
 		"points":          points,
 	}
+	metrics := deriveQuotaHistoryMetrics(snapshots)
+	response["data_quality"] = metrics.DataQuality
 	var firstSuccess, lastSuccess *model.ChannelQuotaSnapshot
 	var minimum, maximum float64
 	for index := range snapshots {
-		if snapshots[index].Status != "success" {
+		if snapshots[index].Status != "success" || !finiteQuotaValue(snapshots[index].Available) {
 			continue
 		}
 		if firstSuccess == nil {
@@ -842,12 +956,16 @@ func GetChannelQuotaHistory(c *gin.Context) {
 			changePercent = change / firstSuccess.Available * 100
 		}
 		response["summary"] = gin.H{
-			"start_available": firstSuccess.Available,
-			"end_available":   lastSuccess.Available,
-			"change":          change,
-			"change_percent":  changePercent,
-			"minimum":         minimum,
-			"maximum":         maximum,
+			"start_available":     firstSuccess.Available,
+			"end_available":       lastSuccess.Available,
+			"change":              change,
+			"change_percent":      changePercent,
+			"minimum":             minimum,
+			"maximum":             maximum,
+			"drop_rate_per_day":   metrics.DropRatePerDay,
+			"forecast_zero_at":    metrics.ForecastZeroAt,
+			"forecast_confidence": metrics.ForecastConfidence,
+			"data_quality":        metrics.DataQuality,
 		}
 	}
 	if len(snapshots) > 0 {
@@ -857,10 +975,16 @@ func GetChannelQuotaHistory(c *gin.Context) {
 		response["metric_type"] = last.MetricType
 		response["window_type"] = last.WindowType
 		response["source"] = last.Source
-		if last.Status == "success" {
+		if last.Status == "success" && finiteQuotaValue(last.Available) {
 			response["current"] = gin.H{"available": last.Available, "observed_at": last.ObservedAt, "status": last.Status}
 		} else {
-			response["current"] = gin.H{"observed_at": last.ObservedAt, "status": last.Status, "error_code": last.ErrorCode}
+			errorCode := last.ErrorCode
+			status := last.Status
+			if status == "success" {
+				status = "error"
+				errorCode = "invalid_balance"
+			}
+			response["current"] = gin.H{"observed_at": last.ObservedAt, "status": status, "error_code": errorCode}
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": response})

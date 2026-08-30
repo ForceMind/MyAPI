@@ -2,6 +2,8 @@ package model
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"time"
 
 	"gorm.io/gorm"
@@ -72,6 +74,15 @@ func (ChannelQuotaSnapshot) TableName() string {
 func RecordChannelQuotaSnapshot(snapshot *ChannelQuotaSnapshot) error {
 	if snapshot == nil || DB == nil {
 		return nil
+	}
+	if math.IsNaN(snapshot.Available) || math.IsInf(snapshot.Available, 0) {
+		return fmt.Errorf("invalid quota snapshot available value")
+	}
+	if snapshot.Used != nil && (math.IsNaN(*snapshot.Used) || math.IsInf(*snapshot.Used, 0)) {
+		return fmt.Errorf("invalid quota snapshot used value")
+	}
+	if snapshot.Total != nil && (math.IsNaN(*snapshot.Total) || math.IsInf(*snapshot.Total, 0)) {
+		return fmt.Errorf("invalid quota snapshot total value")
 	}
 	if snapshot.ObservedAt == 0 {
 		snapshot.ObservedAt = time.Now().Unix()

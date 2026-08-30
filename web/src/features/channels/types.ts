@@ -217,6 +217,18 @@ export interface ChannelQuotaHistorySummary {
   change_percent: number
   minimum: number
   maximum: number
+  drop_rate_per_day?: number | null
+  forecast_zero_at?: number | null
+  forecast_confidence?: 'high' | 'low' | 'insufficient'
+  data_quality?: ChannelQuotaHistoryDataQuality
+}
+
+export interface ChannelQuotaHistoryDataQuality {
+  success_count: number
+  error_count: number
+  invalid_count: number
+  reset_boundaries: number
+  span_seconds: number
 }
 
 export interface ChannelQuotaHistoryData {
@@ -228,6 +240,7 @@ export interface ChannelQuotaHistoryData {
   timezone_offset?: number
   points: ChannelQuotaHistoryPoint[]
   summary?: ChannelQuotaHistorySummary
+  data_quality?: ChannelQuotaHistoryDataQuality
   current?: {
     available?: number
     observed_at: number

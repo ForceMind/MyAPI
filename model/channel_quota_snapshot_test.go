@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 
@@ -77,4 +78,20 @@ func TestDeleteOldChannelQuotaSnapshotBatchHonorsCutoffAndLimit(t *testing.T) {
 	require.NoError(t, DB.Where("channel_id = ?", 902).Order("observed_at ASC").Find(&remaining).Error)
 	require.Len(t, remaining, 1)
 	require.Equal(t, float64(99), remaining[0].Available)
+}
+
+func TestRecordChannelQuotaSnapshotRejectsNonFiniteValues(t *testing.T) {
+	require.NotNil(t, DB)
+	for _, snapshot := range []*ChannelQuotaSnapshot{
+		{Available: math.NaN()},
+		{Available: math.Inf(1)},
+		{Available: 1, Used: pointerToFloat64(math.Inf(-1))},
+		{Available: 1, Total: pointerToFloat64(math.NaN())},
+	} {
+		require.Error(t, RecordChannelQuotaSnapshot(snapshot))
+	}
+}
+
+func pointerToFloat64(value float64) *float64 {
+	return &value
 }
