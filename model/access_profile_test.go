@@ -29,7 +29,7 @@ func TestResolveAccountTierIsSeparateFromAccessProfile(t *testing.T) {
 		t.Fatalf("vip account tier = %#v", tier)
 	}
 	profile := ResolveAccessProfile("vip", "")
-	if profile.ID == tier.ID || profile.Label == tier.Label {
-		t.Fatalf("account tier and access profile unexpectedly share identity: tier=%#v profile=%#v", tier, profile)
+	if profile.Label == tier.Label || profile.Description == tier.Description {
+		t.Fatalf("account tier and access profile unexpectedly share presentation semantics: tier=%#v profile=%#v", tier, profile)
 	}
 }
