@@ -110,7 +110,7 @@ CHANNEL_QUOTA_ALERT_WARNING_PERCENT=20
 CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT=10
 # Optional keyless cosign verification for `myapi upgrade` (requires cosign).
 # MYAPI_VERIFY_IMAGE_SIGNATURE=false
-# MYAPI_COSIGN_CERTIFICATE_IDENTITY=https://github.com/ForceMind/MyAPI/.github/workflows/docker-build.yml@refs/tags/v0.1.1
+# MYAPI_COSIGN_CERTIFICATE_IDENTITY=https://github.com/ForceMind/MyAPI/.github/workflows/docker-build.yml@refs/tags/v<version>
 # MYAPI_COSIGN_CERTIFICATE_OIDC_ISSUER=https://token.actions.githubusercontent.com
 ```
 
