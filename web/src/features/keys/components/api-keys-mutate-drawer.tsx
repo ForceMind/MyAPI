@@ -170,7 +170,9 @@ export function ApiKeysMutateDrawer({
     : undefined
   const groups = useMemo<ApiKeyGroupOption[]>(
     () => {
-      const options = Object.entries(groupsData?.data || {}).map(
+      const options: ApiKeyGroupOption[] = Object.entries(
+        groupsData?.data || {}
+      ).map(
         ([key, info]) => ({
           value: key,
           label: getAccessProfileLabel(key, info.profile, t),
