@@ -210,6 +210,26 @@ test('upgrade dry-run rejects JSON output without dry-run mode', () => {
   )
 })
 
+test('upgrade dry-run fails closed on invalid runtime configuration', () => {
+  const root = temporaryRoot()
+  const project = path.join(root, 'source')
+  runCli('init', project)
+  runCli('configure', '--project-dir', project, '--public-url', 'https://myapi.example.test')
+
+  const envPath = path.join(project, 'deploy/.env')
+  const before = readFileSync(envPath, 'utf8')
+  writeFileSync(envPath, before.replace(/^MYAPI_CPU_LIMIT=.*$/m, 'MYAPI_CPU_LIMIT=0'), {
+    mode: 0o600,
+  })
+
+  assert.throws(
+    () => runCli('upgrade', '--project-dir', project, '--version', 'v0.2.0', '--dry-run'),
+    /upgrade preflight failed.*MYAPI_CPU_LIMIT/
+  )
+  assert.equal(existsSync(path.join(project, 'backups')), false)
+  assert.equal(readFileSync(envPath, 'utf8'), before.replace(/^MYAPI_CPU_LIMIT=.*$/m, 'MYAPI_CPU_LIMIT=0'))
+})
+
 test('up rejects unsafe Docker resource limits before invoking Compose', () => {
   const root = temporaryRoot()
   const project = path.join(root, 'source')
