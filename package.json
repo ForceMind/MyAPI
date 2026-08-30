@@ -8,6 +8,7 @@
   },
   "files": [
     "cli/",
+    "tools/branding/",
     "tools/npm/",
     "tools/lan/",
     "tools/website/",
@@ -67,11 +68,12 @@
   "scripts": {
     "test": "node --test cli/test/*.test.mjs",
     "lan:check": "node tools/lan/check.mjs",
+    "brand:check": "node tools/branding/check.mjs",
     "website:check": "node tools/website/check-static.mjs",
     "source:manifest": "node tools/npm/generate-source-manifest.mjs",
     "pack:check": "node tools/npm/check-pack.mjs",
     "release:state": "node tools/npm/check-release-state.mjs",
-    "release:check": "npm test && npm run source:manifest && npm run pack:check",
+    "release:check": "npm test && npm run brand:check && npm run website:check && npm run source:manifest && npm run pack:check",
     "prepublishOnly": "npm run release:state && npm run release:check"
   },
   "engines": {

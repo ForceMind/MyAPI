@@ -18,6 +18,17 @@ rg -n -i 'new api|quantumnous|new_api|new-api' \
 - **法律保留**：`LICENSE`、`NOTICE`、源码版权头及其链接。未经法务确认不得删除或改写；发行说明应明确这些内容的来源和适用范围。
 - **审计标记**：内部错误码、历史迁移标识和补丁文件中的上游路径。它们不应出现在用户界面或默认日志中。
 
+自动化审计（只读取 Git 已跟踪文件，不读取 `.env`、数据库、日志、依赖或构建产物）：
+
+```bash
+npm run brand:check
+npm run brand:check -- --json
+```
+
+检查器只对公开发行面中的未解释旧品牌阻断；`LICENSE`、`NOTICE`、源码头、补丁、
+兼容 wire header 和审计文档会输出分类信息但不会被误报为品牌泄漏。输出只包含
+文件路径、分类和规则名称，不包含文件内容。
+
 ## 已实现边界
 
 - 新部署默认使用 `MyAPI`、`my-api` 和 `ghcr.io/forcemind/myapi`；LAN Lite 使用独立的 `myapi-lan` 镜像。

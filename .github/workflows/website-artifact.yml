@@ -7,6 +7,8 @@ on:
     paths:
       - 'website/**'
       - 'tools/website/**'
+      - 'tools/branding/**'
+      - 'package.json'
       - '.github/workflows/website-artifact.yml'
   workflow_dispatch:
     inputs:
@@ -41,6 +43,9 @@ jobs:
 
       - name: Validate website
         run: npm run website:check
+
+      - name: Audit public brand references
+        run: npm run brand:check
 
       - name: Package deterministic artifact
         id: package
