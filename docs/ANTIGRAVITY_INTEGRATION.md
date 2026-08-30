@@ -5,6 +5,7 @@ endpoint. The managed Antigravity agent is exposed through Google's preview
 Interactions API at `POST /v1beta/interactions`, with an `agent` (for example
 `antigravity-preview-05-2026`) and an optional `agent_config`. See the
 [official Antigravity agent documentation](https://ai.google.dev/gemini-api/docs/antigravity-agent)
+and the [official Interactions API reference](https://ai.google.dev/api/interactions-api-v1)
 for the current schema and availability.
 
 ## What MyAPI supports today
@@ -15,9 +16,12 @@ MyAPI keeps the existing Gemini, Claude Messages, and Codex channels unchanged:
 - Claude uses the Anthropic Messages API and its existing adaptor.
 - Codex uses the existing Responses-compatible adaptor and OAuth channel flow.
 - The Gemini package contains a tested Antigravity configuration boundary in
-  `relay/channel/gemini/antigravity.go`. It validates the HTTPS endpoint,
-  preview agent, remote environment, documented model allow-list, prompt size,
-  and token budget, and builds a minimal Interactions request.
+  `relay/channel/gemini/antigravity.go` and a dedicated, non-persistent
+  `AntigravityClient` in `relay/channel/gemini/antigravity_client.go`. The
+  client validates the HTTPS endpoint and preview agent, sends only an
+  explicit Interactions payload, and supports create, bounded status polling,
+  cancellation, and deletion. It extracts the provider's typed `usage`
+  counters without storing the upstream body.
 
 The boundary is deliberately not registered as a new channel type or silently
 routed through Generate Content. Wire IDs remain unchanged. It also does not
@@ -28,12 +32,12 @@ channel secret when a future adapter is enabled.
 ## Current limitation and integration gate
 
 The normal MyAPI relay lifecycle expects one request/response exchange and
-provider-specific usage accounting. Antigravity interactions can run an
-agentic tool loop, persist an environment, continue with a previous
-interaction, stream events, and consume a separate token budget. Therefore the
-current boundary is validation and request construction only. It is **not** a
-claim that OpenAI Chat, Claude Messages, or Gemini Generate Content traffic can
-already execute an Antigravity agent.
+provider-specific billing. The standalone client is deliberately not wired to
+that lifecycle or to a public channel yet. It is a safe transport building
+block, not a claim that OpenAI Chat, Claude Messages, or Gemini Generate
+Content traffic can already execute an Antigravity agent. A future adapter may
+use the client only after it has an explicit route/channel policy and billing
+contract.
 
 A production adapter must be added only after all of the following are
 implemented and tested:
@@ -49,11 +53,20 @@ implemented and tested:
    allowed by default.
 5. A compatibility test suite against a documented mock Interactions endpoint.
 
-The Interactions API currently rejects `temperature`, `top_p`, `top_k`,
-`stop_sequences`, and `max_output_tokens`; the helper rejects these options so
-a future adapter cannot accidentally forward incompatible generation settings.
-Preview agent names and model availability can change, so they are
-configuration data rather than a new stable wire identifier.
+The first-phase client already covers the transport portion of these gates in
+`antigravity_client_test.go`: create/get/cancel lifecycle, bounded polling,
+usage extraction, strict input/ID validation, HTTPS/auth requirements, and
+error-body redaction. It does not grant ordinary Gemini traffic access to the
+client.
+
+The preview agent's `agent_config` accepts a much narrower contract than a
+normal Gemini generation config. MyAPI's compatibility boundary uses the
+documented `type: "dynamic"` marker and the client therefore rejects arbitrary
+`temperature`, `top_p`, `top_k`, `stop_sequences`, and `max_output_tokens`
+fields rather than silently forwarding them. (Those options may be valid for a
+model interaction's separate `generation_config`; they are not implied for the
+Antigravity agent.) Preview agent names and model availability can change, so
+they are configuration data rather than a new stable wire identifier.
 
 The official documentation currently describes this as a preview agent and
 documents the Interactions API request shape, but it does not define a

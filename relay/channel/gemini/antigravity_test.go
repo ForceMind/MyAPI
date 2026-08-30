@@ -25,7 +25,7 @@ func TestAntigravityConfigBuildsBoundedInteractionRequest(t *testing.T) {
 	if got.Agent != AntigravityAgentPreview || got.Input != "inspect this repository" || got.Environment != AntigravityEnvironmentRemote {
 		t.Fatalf("unexpected request: %+v", got)
 	}
-	if got.AgentConfig == nil || got.AgentConfig.Type != "antigravity" || got.AgentConfig.MaxTotalTokens != 4096 {
+	if got.AgentConfig == nil || got.AgentConfig.Type != "dynamic" || got.AgentConfig.MaxTotalTokens != 4096 {
 		t.Fatalf("unexpected agent config: %+v", got.AgentConfig)
 	}
 }

@@ -143,7 +143,7 @@ func (c AntigravityConfig) BuildInteractionRequest(input string) ([]byte, error)
 	}
 	if model := strings.TrimSpace(c.Model); model != "" || c.MaxTotalTokens > 0 {
 		request.AgentConfig = &AntigravityAgentConfig{
-			Type:           "antigravity",
+			Type:           "dynamic",
 			Model:          strings.TrimSpace(c.Model),
 			MaxTotalTokens: c.MaxTotalTokens,
 		}

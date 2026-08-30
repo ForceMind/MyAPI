@@ -65,7 +65,9 @@ Google Antigravity's managed agent uses the preview Gemini Interactions API,
 not the normal Generate Content routes that a TokenHub OpenAI/Anthropic
 gateway can proxy. MyAPI therefore does not advertise an Antigravity model in
 the TokenHub channel or silently route it through the Gemini adaptor. The
-validated request boundary and the explicit implementation gate are documented
-in [ANTIGRAVITY_INTEGRATION.md](./ANTIGRAVITY_INTEGRATION.md). This keeps
-TokenHub's provider-neutral routing contract honest while leaving room for a
-future dedicated interaction lifecycle.
+dedicated, non-persistent Interactions transport (`AntigravityClient`) and its
+explicit relay/channel integration gate are documented in
+[ANTIGRAVITY_INTEGRATION.md](./ANTIGRAVITY_INTEGRATION.md). This keeps
+TokenHub's provider-neutral routing contract honest while leaving public
+channel wiring, policy and billing for a separately reviewed interaction
+lifecycle.
