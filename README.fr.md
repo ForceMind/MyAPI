@@ -192,7 +192,7 @@ docker run --name my-api -d --restart always \
 **Conversion de format:**
 - 🔄 **OpenAI Compatible ⇄ Claude Messages**
 - 🔄 **OpenAI Compatible → Google Gemini**
-- 🔄 **Google Gemini → OpenAI Compatible** - Texte uniquement, les appels de fonction ne sont pas encore pris en charge
+- 🔄 **Google Gemini → OpenAI Compatible**
 - 🔄 **OpenAI Compatible ⇄ OpenAI Responses** - Pris en charge via l'adaptateur de compatibilité Responses
 - 🔄 **Fonctionnalité de la pensée au contenu**
 

@@ -193,7 +193,7 @@ docker run --name my-api -d --restart always \
 **フォーマット変換:**
 - 🔄 **OpenAI Compatible ⇄ Claude Messages**
 - 🔄 **OpenAI Compatible → Google Gemini**
-- 🔄 **Google Gemini → OpenAI Compatible** - テキストのみ、関数呼び出しはまだサポートされていません
+- 🔄 **Google Gemini → OpenAI Compatible**
 - 🔄 **OpenAI Compatible ⇄ OpenAI Responses** - Responses 互換アダプターでサポート
 - 🔄 **思考からコンテンツへの機能**
 

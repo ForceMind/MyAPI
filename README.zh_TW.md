@@ -189,7 +189,7 @@ docker run --name my-api -d --restart always \
 **格式轉換：**
 - 🔄 **OpenAI Compatible ⇄ Claude Messages**
 - 🔄 **OpenAI Compatible → Google Gemini**
-- 🔄 **Google Gemini → OpenAI Compatible** - 僅支援文本，暫不支援函數調用
+- 🔄 **Google Gemini → OpenAI Compatible**
 - 🔄 **OpenAI Compatible ⇄ OpenAI Responses** - 透過 Responses 相容轉接器支援
 - 🔄 **思考轉內容功能**
 
