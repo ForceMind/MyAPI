@@ -15,6 +15,8 @@ func TestChannelQuotaAlertSettingsOptionPersistsAndAppliesAtomically(t *testing.
 	previousEnabled := common.ChannelQuotaAlertEnabled
 	previousWarning := common.ChannelQuotaAlertWarningPercent
 	previousCritical := common.ChannelQuotaAlertCriticalPercent
+	previousCooldown := common.ChannelQuotaAlertCooldownSeconds
+	previousRecovery := common.ChannelQuotaAlertNotifyOnRecovery
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&Option{}))
@@ -26,9 +28,11 @@ func TestChannelQuotaAlertSettingsOptionPersistsAndAppliesAtomically(t *testing.
 		common.ChannelQuotaAlertEnabled = previousEnabled
 		common.ChannelQuotaAlertWarningPercent = previousWarning
 		common.ChannelQuotaAlertCriticalPercent = previousCritical
+		common.ChannelQuotaAlertCooldownSeconds = previousCooldown
+		common.ChannelQuotaAlertNotifyOnRecovery = previousRecovery
 	})
 
-	raw := `{"enabled":true,"warning_percent":25.5,"critical_percent":5}`
+	raw := `{"enabled":true,"warning_percent":25.5,"critical_percent":5,"cooldown_seconds":1800,"notify_on_recovery":true}`
 	require.NoError(t, UpdateOption(common.ChannelQuotaAlertSettingsOptionKey, raw))
 	var saved Option
 	require.NoError(t, db.First(&saved, "key = ?", common.ChannelQuotaAlertSettingsOptionKey).Error)
@@ -37,6 +41,8 @@ func TestChannelQuotaAlertSettingsOptionPersistsAndAppliesAtomically(t *testing.
 	require.True(t, common.ChannelQuotaAlertEnabled)
 	require.Equal(t, 25.5, common.ChannelQuotaAlertWarningPercent)
 	require.Equal(t, 5.0, common.ChannelQuotaAlertCriticalPercent)
+	require.Equal(t, int64(1800), common.ChannelQuotaAlertCooldownSeconds)
+	require.True(t, common.ChannelQuotaAlertNotifyOnRecovery)
 }
 
 func TestChannelQuotaAlertSettingsOptionRejectsInvalidBeforeDatabaseWrite(t *testing.T) {

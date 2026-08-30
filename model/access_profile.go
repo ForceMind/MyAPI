@@ -3,6 +3,7 @@ package model
 import (
 	"strings"
 
+	"github.com/ForceMind/MyAPI/setting"
 	"gorm.io/gorm"
 )
 
@@ -11,10 +12,14 @@ import (
 // identifier is persisted additively; old clients and routing continue to use
 // group until a future policy migration is explicitly approved.
 type AccessProfileMetadata struct {
-	ID          string `json:"id"`
-	Kind        string `json:"kind"`
-	Label       string `json:"label"`
-	Description string `json:"description"`
+	ID               string   `json:"id"`
+	Kind             string   `json:"kind"`
+	Label            string   `json:"label"`
+	Description      string   `json:"description"`
+	RouteGroups      []string `json:"route_groups,omitempty"`
+	ModelAllowlist   []string `json:"model_allowlist,omitempty"`
+	FallbackProfiles []string `json:"fallback_profiles,omitempty"`
+	Enabled          bool     `json:"enabled"`
 }
 
 // AccountTierMetadata gives the legacy user group a separate account-level
@@ -108,6 +113,7 @@ func ResolveAccessProfile(groupName, configuredDescription string) AccessProfile
 		Kind:        "custom",
 		Label:       groupName,
 		Description: configuredDescription,
+		Enabled:     true,
 	}
 	switch groupName {
 	case "", "default":
@@ -125,6 +131,20 @@ func ResolveAccessProfile(groupName, configuredDescription string) AccessProfile
 		profile.Kind = "automatic"
 		profile.Label = "Automatic routing"
 		profile.Description = "Tries eligible channel groups in order and can fail over when enabled."
+	}
+	if configured, ok := setting.GetAccessProfileDefinition(profile.ID); ok {
+		if strings.TrimSpace(configured.Label) != "" {
+			profile.Label = configured.Label
+		}
+		if strings.TrimSpace(configured.Description) != "" {
+			profile.Description = configured.Description
+		}
+		profile.RouteGroups = append([]string(nil), configured.RouteGroups...)
+		profile.ModelAllowlist = append([]string(nil), configured.ModelAllowlist...)
+		profile.FallbackProfiles = append([]string(nil), configured.FallbackProfiles...)
+		if configured.Enabled != nil {
+			profile.Enabled = *configured.Enabled
+		}
 	}
 	return profile
 }

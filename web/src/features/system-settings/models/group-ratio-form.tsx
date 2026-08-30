@@ -73,6 +73,7 @@ type GroupFormValues = {
   MaxTokenAutoGroups: number
   DefaultUseAutoGroup: boolean
   GroupSpecialUsableGroup: string
+  AccessProfileProfiles: string
 }
 
 type GroupRatioFormProps = {
@@ -204,6 +205,32 @@ export const GroupRatioForm = memo(function GroupRatioForm({
               onChange={(field, value) =>
                 handleFieldChange(field as keyof GroupFormValues, value)
               }
+            />
+
+            <FormField
+              control={form.control}
+              name='AccessProfileProfiles'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Key access profile policies')}</FormLabel>
+                  <FormControl>
+                    <JsonCodeEditor
+                      value={field.value}
+                      onChange={field.onChange}
+                      name={field.name}
+                      onBlur={field.onBlur}
+                      textareaRef={field.ref}
+                      heightClassName='h-48 min-h-48 max-h-64'
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'JSON map of stable access profile IDs to labels, descriptions, route groups, model allowlists, fallback profiles, and enabled state. This controls Key guidance; legacy group IDs remain compatible.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
 
             <GroupSpecialUsableRulesEditor
@@ -413,6 +440,32 @@ export const GroupRatioForm = memo(function GroupRatioForm({
                   <FormDescription>
                     {t(
                       'Nested JSON defining per-group rules for adding (+:), removing (-:), or appending usable groups.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='AccessProfileProfiles'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Key access profile policies')}</FormLabel>
+                  <FormControl>
+                    <JsonCodeEditor
+                      value={field.value}
+                      onChange={field.onChange}
+                      name={field.name}
+                      onBlur={field.onBlur}
+                      textareaRef={field.ref}
+                      heightClassName='h-48 min-h-48 max-h-64'
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Stable profile IDs are separate from account tiers. Legacy default, vip, and auto values continue to work.'
                     )}
                   </FormDescription>
                   <FormMessage />

@@ -34,6 +34,14 @@ const publicWebsite = `${html}\n${css}\n${script}`
 for (const name of ['index.html', 'styles.css', 'script.js', 'myapi-logo-v1.png']) {
   requireFile(name)
 }
+const browserSmoke = resolve(root, 'tools', 'website', 'browser-smoke.mjs')
+const browserWorkflow = resolve(root, '.github', 'workflows', 'website-browser.yml')
+if (!statSync(browserSmoke, { throwIfNoEntry: false })?.isFile()) {
+  throw new Error('website browser smoke script is missing')
+}
+if (!statSync(browserWorkflow, { throwIfNoEntry: false })?.isFile()) {
+  throw new Error('website browser smoke workflow is missing')
+}
 
 const maintainedLogo = resolve(root, 'web', 'public', 'myapi-logo-v1.png')
 if (!statSync(maintainedLogo, { throwIfNoEntry: false })?.isFile()) {

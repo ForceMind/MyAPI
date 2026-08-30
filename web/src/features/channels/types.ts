@@ -237,6 +237,8 @@ export interface ChannelQuotaHistoryAlert {
   ratio_percent?: number
   warning_percent: number
   critical_percent: number
+  cooldown_seconds?: number
+  notify_on_recovery?: boolean
 }
 
 export interface ChannelQuotaHistoryData {

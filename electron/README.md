@@ -69,6 +69,19 @@ npm run build:linux  # Creates .AppImage and .deb
 - Windows: `.exe` (installer) and portable exe
 - Linux: `.AppImage` and `.deb`
 
+Before a platform owner runs a build, the repository-level contract check can
+be run without Electron or Go:
+
+```bash
+npm run desktop:check
+```
+
+The check covers the macOS/Windows targets, bundled native binary and license
+resources, versioned tag validation, SHA256 checksum generation, and explicit
+release approval gates in GitHub Actions. It is deterministic and does not
+start Docker, contact GHCR, or publish artifacts. Installer launch, firewall
+prompt, and LAN request acceptance still require real macOS and Windows hosts.
+
 ## Configuration
 
 ### Port

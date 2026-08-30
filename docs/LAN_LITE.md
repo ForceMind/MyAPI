@@ -127,6 +127,17 @@ acceptance harness from the source distribution:
 npm run lan:check
 ```
 
+The desktop packaging contract can be checked independently (also on Linux):
+
+```bash
+npm run desktop:check
+```
+
+This verifies that the Electron manifest still exposes MyAPI macOS DMG/ZIP and
+Windows NSIS/portable targets, bundles the platform binary and license files,
+and that the tag-driven GitHub Actions workflow keeps its checksum and release
+approval gates. It does not download Electron or build an installer.
+
 The harness creates a temporary project, runs `myapi lan init`, checks the
 loopback default, version-pinned `myapi-lan` GHCR image, generated secret file
 permissions, CPU/memory guardrails, credential-file exclusion, and the

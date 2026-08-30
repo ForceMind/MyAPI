@@ -122,6 +122,14 @@ export const STATIC_I18N_KEYS = [
   'Codex OAuth channel with usage inspection. Credentials are for Codex CLI-compatible requests only; this is not a general ChatGPT account proxy.',
   'Anthropic Messages API channel for Claude models. Claude subscription account login and subscription quota inspection are not available here.',
   'Gemini API channel. Google Antigravity managed-agent account integration is not available as a standard channel; use a documented Gemini API endpoint.',
+  'Key access profile policies',
+  'JSON map of stable access profile IDs to labels, descriptions, route groups, model allowlists, fallback profiles, and enabled state. This controls Key guidance; legacy group IDs remain compatible.',
+  'Stable profile IDs are separate from account tiers. Legacy default, vip, and auto values continue to work.',
+  'Standard account',
+  'Priority account',
+  'This is separate from the access profile selected for each API key.',
+  'Routes',
+  'Fallback',
 
   // Users
   'Root',

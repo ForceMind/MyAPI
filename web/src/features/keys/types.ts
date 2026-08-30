@@ -74,6 +74,10 @@ export interface AccessProfileMetadata {
   kind?: string
   label?: string
   description?: string
+  route_groups?: string[]
+  model_allowlist?: string[]
+  fallback_profiles?: string[]
+  enabled?: boolean
 }
 
 export interface GetApiKeysParams {

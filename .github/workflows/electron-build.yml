@@ -53,6 +53,9 @@ jobs:
         id: source
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+      - name: Validate desktop distribution contract
+        run: node tools/desktop/check.mjs --json
+
       - name: Validate requested tag
         env:
           BUILD_TAG: ${{ inputs.tag }}

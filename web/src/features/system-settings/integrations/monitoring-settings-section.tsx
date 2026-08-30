@@ -67,6 +67,8 @@ const monitoringSchema = z.object({
       enabled: z.boolean(),
       warning_percent: z.coerce.number().finite().gt(0).lte(100),
       critical_percent: z.coerce.number().finite().gte(0),
+      cooldown_seconds: z.coerce.number().int().gte(0).lte(604800),
+      notify_on_recovery: z.boolean(),
     })
     .superRefine((value, ctx) => {
       if (value.critical_percent >= value.warning_percent) {
@@ -101,6 +103,8 @@ const defaultQuotaAlertSettings = {
   enabled: false,
   warning_percent: 20,
   critical_percent: 10,
+  cooldown_seconds: 3600,
+  notify_on_recovery: false,
 }
 
 function parseQuotaAlertSettings(raw: string | undefined) {
@@ -117,6 +121,12 @@ function parseQuotaAlertSettings(raw: string | undefined) {
         typeof parsed.critical_percent === 'number'
           ? parsed.critical_percent
           : defaultQuotaAlertSettings.critical_percent,
+      cooldown_seconds:
+        typeof parsed.cooldown_seconds === 'number'
+          ? parsed.cooldown_seconds
+          : defaultQuotaAlertSettings.cooldown_seconds,
+      notify_on_recovery:
+        parsed.notify_on_recovery === true,
     }
     if (
       Number.isFinite(settings.warning_percent) &&
@@ -124,7 +134,10 @@ function parseQuotaAlertSettings(raw: string | undefined) {
       settings.warning_percent <= 100 &&
       Number.isFinite(settings.critical_percent) &&
       settings.critical_percent >= 0 &&
-      settings.critical_percent < settings.warning_percent
+      settings.critical_percent < settings.warning_percent &&
+      Number.isInteger(settings.cooldown_seconds) &&
+      settings.cooldown_seconds >= 0 &&
+      settings.cooldown_seconds <= 604800
     ) {
       return settings
     }
@@ -350,6 +363,52 @@ export function MonitoringSettingsSection({
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
+                )}
+              />
+            </div>
+            <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+              <FormField
+                control={form.control}
+                name='channel_quota_alert.cooldown_seconds'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Notification cooldown (seconds)')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={0}
+                        max={604800}
+                        step={60}
+                        {...safeNumberFieldProps(field)}
+                        disabled={!quotaAlertEnabled}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('Deduplicate repeated warning or critical notifications for this period. No notification is sent until a notifier is configured.')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='channel_quota_alert.notify_on_recovery'
+                render={({ field }) => (
+                  <SettingsSwitchItem>
+                    <SettingsSwitchContent>
+                      <FormLabel>{t('Notify when quota recovers')}</FormLabel>
+                      <FormDescription>
+                        {t('Record a healthy transition after warning or critical status; outbound delivery remains disabled.')}
+                      </FormDescription>
+                    </SettingsSwitchContent>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={!quotaAlertEnabled}
+                      />
+                    </FormControl>
+                  </SettingsSwitchItem>
                 )}
               />
             </div>

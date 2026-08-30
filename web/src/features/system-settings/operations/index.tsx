@@ -32,7 +32,7 @@ const defaultOperationsSettings: OperationsSettings = {
   SelfUseModeEnabled: false,
   QuotaRemindThreshold: '',
   ChannelQuotaAlertSettings:
-    '{"enabled":false,"warning_percent":20,"critical_percent":10}',
+    '{"enabled":false,"warning_percent":20,"critical_percent":10,"cooldown_seconds":3600,"notify_on_recovery":false}',
   SMTPServer: '',
   SMTPPort: '',
   SMTPAccount: '',

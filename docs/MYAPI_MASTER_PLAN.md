@@ -8,6 +8,8 @@
 
 这份文档把 MyAPI 的产品目标、已完成能力、未完成工作、发行方式、UI 方向、自动化和验收规则统一起来。它是路线图和交付索引，不把设计目标误写成已经实现的功能。
 
+相关专题：[账户等级与 Key 访问方案](./ACCOUNT_ACCESS_PROFILES.md)。
+
 关联规范：
 
 - [发行版说明](./MYAPI_DISTRIBUTION.md)
@@ -99,7 +101,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 - GitHub Actions 已支持 SemVer tag 构建并推送 Full/LAN GHCR 镜像。
 - `myapi upgrade` CLI 已支持按发行版拉取 GHCR 镜像、可选 cosign 签名校验、环境文件备份、健康等待和失败回滚；生产启用仍需人工审批与数据备份演练。
 - SemVer tag 可触发 macOS/Windows Electron 构建产物并生成 SHA256 校验和；发布上传需显式开启。
-- 静态官网已补齐移动菜单关闭、outside-click、Escape、焦点回归与 Tab 约束、主题偏好持久化等基础交互，并加入资源/结构自动校验 workflow；真实浏览器/移动视觉审查与独立发布 workflow 仍待完成。
+- 静态官网已补齐移动菜单关闭、outside-click、Escape、焦点回归与 Tab 约束、主题偏好持久化等基础交互，并加入资源/结构自动校验与 Chromium 移动 smoke workflow；GitHub Actions 的真实浏览器结果、真实设备/移动视觉审查与独立发布 workflow 仍待完成。
 
 ## 4. 当前未完成或仅有边界设计的工作
 
@@ -107,14 +109,14 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 | --- | --- | --- |
 | 品牌和旧元数据清理 | 审计清单已建立 | About 默认态、PNG/ICO 资产已切换；`docs/BRAND_AUDIT.md` 区分必须替换、兼容保留和法律保留项，NOTICE/源码头部仍需合规审查 |
 | 独立 UI 系统 | 部分完成 | 不依赖旧 New API 信息架构，Full/LAN/移动端完成真实画面审查 |
-| TokenHub 风格静态官网 | 交互与审阅制品已实现 | 形成独立产品叙事、安装入口、发行版选择、安全说明、响应式菜单无障碍/主题交互、静态资源自动校验和 main 变更自动生成的确定性 artifact workflow；真实浏览器/移动视觉审查与绑定域名的独立发布仍待完成 |
-| 渠道额度历史 | 后端和前端初版已实现 | 普通渠道与 Codex OAuth 渠道均已有历史查询、折线图、失败状态、可选保留清理和只读健康指标；普通渠道与 Codex OAuth 均支持可选、有界后台采样；告警阈值已支持默认关闭、原子持久化和只读状态展示，通知/去重仍待业务决策 |
+| TokenHub 风格静态官网 | 交互与审阅制品已实现 | 形成独立产品叙事、安装入口、发行版选择、安全说明、响应式菜单无障碍/主题交互、静态资源自动校验、Chromium 移动 smoke 和 main 变更自动生成的确定性 artifact workflow；GitHub Actions 结果、真实移动视觉审查与绑定域名的独立发布仍待完成 |
+| 渠道额度历史 | 后端和前端初版已实现 | 普通渠道与 Codex OAuth 渠道均已有历史查询、折线图、失败状态、可选保留清理和只读健康指标；普通渠道与 Codex OAuth 均支持可选、有界后台采样；告警阈值和 notifier-neutral 去重策略已支持默认关闭、原子持久化和只读状态展示，外部通知通道仍待业务决策 |
 | 账户额度变化聚合 | 初版已实现 | 概览和管理员渠道页均可查看每分钟变化及最大变化排序；普通渠道与 Codex OAuth 后台采样已接入系统任务并避免与旧轮询重复，跨账户订阅账单同步和通知仍待后续迭代 |
-| 账户等级/Key 访问方案 | 显式兼容字段已实现 | 管理员界面与 `model.ResolveAccessProfile/ResolveAccountTier` 已明确两者语义；`users.account_tier_id` 与 `tokens.access_profile_id` 已增量迁移并由旧 `group` 派生，旧路由保持兼容；独立可配置策略仍待后续阶段 |
+| 账户等级/Key 访问方案 | 独立策略注册表已实现 | 管理员可在计费设置的“Key access profile policies”编辑稳定 profile ID 的显示名、说明、路由组、模型白名单、回退方案和启用状态；`users.account_tier_id` 与 `tokens.access_profile_id` 仍由旧 `group` 幂等回填，旧路由保持兼容。路由/模型强制执行仍需单独迁移评审 |
 | 设置引导生命周期 | 初版已实现 | 完成后自动消失、按用户和版本保存；真实多设备视觉审查仍待完成 |
 | Claude 支持 | 需按官方接口推进 | 只实现有明确官方协议的能力，不读取本地凭据 |
 | Google Antigravity 完整能力 | 未完成 | 只有官方稳定接口存在时才实现；无接口时明确显示不支持 |
-| LAN Lite 桌面体验 | 安全状态体验已实现 | Electron 默认回环、单实例、持久会话密钥、显式 `--allow-lan` 私网绑定、只读 LAN 状态/防火墙提示、有效地址健康检查和托盘确认后重启切换已补齐；跨平台安装演练和系统防火墙自动配置仍待完成 |
+| LAN Lite 桌面体验 | 安全状态体验与确定性发行合同检查已实现 | Electron 默认回环、单实例、持久会话密钥、显式 `--allow-lan` 私网绑定、只读 LAN 状态/防火墙提示、有效地址健康检查和托盘确认后重启切换已补齐；`npm run desktop:check` 与 CI 会验证 macOS/Windows 目标、资源、校验和与发布闸门；真实跨平台安装/局域网请求演练和系统防火墙自动配置仍待完成 |
 | GHCR 自动升级 | CLI 预检与执行流程已实现 | 生产端显式拉取、可选签名验证、健康检查、环境备份和失败回滚已有；`upgrade --dry-run --json` 可在副本上无写入预检，`docs/UPGRADE_REHEARSAL.md` 已补充恢复演练清单，真实数据库恢复和人工审批仍待完成 |
 | NPM 正式发布 | 未完成 | 版本、Tag、清单、测试和用户确认齐备后发布 |
 
@@ -132,10 +134,27 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 迁移策略：
 
 1. 第一阶段只改 UI、说明和返回的展示元数据，保留旧 `group` 字段兼容（已完成）。
-2. 第二阶段增加访问方案显示名、描述、倍率、可选范围和稳定标识（当前内置方案已完成，管理员可配置策略仍待后续阶段）。
-3. 第三阶段已增加 `users.account_tier_id` 与 `tokens.access_profile_id` 独立字段，并在启动迁移中从旧 `group` 幂等回填；旧 `group` 继续作为兼容回退。下一阶段再将独立策略配置接入路由与管理 UI。
+2. 第二阶段增加访问方案显示名、描述、倍率、可选范围和稳定标识（内置方案及管理员注册表配置已完成）。
+3. 第三阶段已增加 `users.account_tier_id` 与 `tokens.access_profile_id` 独立字段，并在启动迁移中从旧 `group` 幂等回填；旧 `group` 继续作为兼容回退。当前已增加 `access_profile_setting.profiles` 注册表及计费设置管理编辑器，供管理员配置稳定 profile 的说明和候选约束；路由/模型强制执行需在兼容策略评审后再启用。
 
 创建 Key 的界面不再只显示 `Group`，而显示“Key 访问方案”，每个选项必须展示用途、计费倍率、路由范围和是否可用。
+
+管理员可在「计费设置 → Group Pricing → Key access profile policies」维护注册表。例如：
+
+```json
+{
+  "standard": {
+    "label": "团队标准",
+    "description": "共享标准渠道池",
+    "route_groups": ["default"],
+    "model_allowlist": ["gpt-5"],
+    "fallback_profiles": ["priority"],
+    "enabled": true
+  }
+}
+```
+
+该注册表先用于 Key 创建/列表的可解释展示；`Token.Group` 和既有分组路由仍是兼容事实来源。启用路由或模型白名单强制前，必须完成迁移评审，避免已有 Key 被静默拒绝。
 
 ### 5.2 渠道额度历史
 
@@ -170,6 +189,10 @@ CHANNEL_QUOTA_MAX_POINTS=2000
 CHANNEL_QUOTA_ALERT_ENABLED=false
 CHANNEL_QUOTA_ALERT_WARNING_PERCENT=20
 CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT=10
+# Policy metadata for a future notifier. No outbound delivery is enabled by
+# these values; repeated states are deduplicated by this cooldown.
+CHANNEL_QUOTA_ALERT_COOLDOWN_SECONDS=3600
+CHANNEL_QUOTA_ALERT_NOTIFY_ON_RECOVERY=false
 ```
 
 ## 6. UI 与交互路线
@@ -295,7 +318,7 @@ CI 自动构建不等于自动重启生产服务。生产自动升级需要单�
 ### P1：账户和管理体验
 
 - 账户等级与 Key 访问方案拆分（显式兼容字段、回填迁移和语义测试已完成；独立可配置策略待后续阶段）。
-- 访问方案配置和清晰说明（初版元数据和 Key 创建说明已完成）。
+- 访问方案配置和清晰说明（注册表、校验、管理 UI 和 Key 创建说明已完成；强制路由策略迁移待评审）。
 - 创建 Key 表单重做（初版已完成，仍需完整角色/权限体验审查）。
 - 设置引导完成后自动消失（已完成）。
 - 引导状态按用户和版本隔离（已完成）。
@@ -308,7 +331,7 @@ CI 自动构建不等于自动重启生产服务。生产自动升级需要单�
 - 历史查询 API、基础 summary 和权限（初版已完成；已补聚合/时区参数）。
 - 渠道详情折线图、移动端降级视图和只读额度健康指标（代码初版已完成；真实设备审查与通知策略待完成）。
 - 采集失败、重置和不支持状态。
-- 额度告警配置（默认关闭；警告/严重阈值原子持久化、校验和只读展示已完成；通知外发与去重待决策）。
+- 额度告警配置（默认关闭；警告/严重阈值、重复通知冷却时间和恢复通知偏好均原子持久化、校验并只读展示；策略评估已实现但不发送外部通知，具体通道和凭据仍待业务决策）。
 
 ### P3：Provider 和预警
 

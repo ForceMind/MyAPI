@@ -84,6 +84,7 @@ import {
 import {
   getAccessProfileDescription,
   getAccessProfileLabel,
+  getAccessProfilePolicyHint,
 } from '../lib/access-profile'
 import type { ApiKey } from '../types'
 import {
@@ -165,7 +166,12 @@ export function ApiKeysMutateDrawer({
       Object.entries(groupsData?.data || {}).map(([key, info]) => ({
         value: key,
         label: getAccessProfileLabel(key, info.profile, t),
-        desc: getAccessProfileDescription(key, info.profile, t),
+        desc: [
+          getAccessProfileDescription(key, info.profile, t),
+          getAccessProfilePolicyHint(info.profile, t),
+        ]
+          .filter(Boolean)
+          .join(' · '),
         ratio: info.ratio,
         profileId: info.profile?.id,
       })),

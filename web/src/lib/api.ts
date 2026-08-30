@@ -73,6 +73,10 @@ export async function getUserGroups(): Promise<{
         kind?: string
         label?: string
         description?: string
+        route_groups?: string[]
+        model_allowlist?: string[]
+        fallback_profiles?: string[]
+        enabled?: boolean
       }
     }
   >

@@ -134,6 +134,7 @@ const createGroupSchema = (t: Translate) =>
     MaxTokenAutoGroups: positiveIntegerSchema(t('Enter a positive integer')),
     DefaultUseAutoGroup: z.boolean(),
     GroupSpecialUsableGroup: createJsonStringField(t),
+    AccessProfileProfiles: createJsonStringField(t),
   })
 
 type ModelFormValues = z.infer<ReturnType<typeof createModelSchema>>
@@ -211,6 +212,9 @@ export function RatioSettingsCard({
     GroupSpecialUsableGroup: normalizeJsonString(
       groupDefaults.GroupSpecialUsableGroup
     ),
+    AccessProfileProfiles: normalizeJsonString(
+      groupDefaults.AccessProfileProfiles
+    ),
   })
   const modelSchema = useMemo(() => createModelSchema(t), [t])
   const groupSchema = useMemo(() => createGroupSchema(t), [t])
@@ -247,6 +251,9 @@ export function RatioSettingsCard({
       AutoGroups: formatJsonForTextarea(groupDefaults.AutoGroups),
       GroupSpecialUsableGroup: formatJsonForTextarea(
         groupDefaults.GroupSpecialUsableGroup
+      ),
+      AccessProfileProfiles: formatJsonForTextarea(
+        groupDefaults.AccessProfileProfiles
       ),
     },
   })
@@ -298,6 +305,9 @@ export function RatioSettingsCard({
       GroupSpecialUsableGroup: normalizeJsonString(
         groupDefaults.GroupSpecialUsableGroup
       ),
+      AccessProfileProfiles: normalizeJsonString(
+        groupDefaults.AccessProfileProfiles
+      ),
     }
 
     groupForm.reset({
@@ -309,6 +319,9 @@ export function RatioSettingsCard({
       AutoGroups: formatJsonForTextarea(groupDefaults.AutoGroups),
       GroupSpecialUsableGroup: formatJsonForTextarea(
         groupDefaults.GroupSpecialUsableGroup
+      ),
+      AccessProfileProfiles: formatJsonForTextarea(
+        groupDefaults.AccessProfileProfiles
       ),
     })
   }, [groupDefaults, groupForm])
@@ -369,12 +382,16 @@ export function RatioSettingsCard({
         GroupSpecialUsableGroup: normalizeJsonString(
           values.GroupSpecialUsableGroup
         ),
+        AccessProfileProfiles: normalizeJsonString(
+          values.AccessProfileProfiles
+        ),
       }
 
       // Map form field names to API keys (most are 1:1, except GroupSpecialUsableGroup)
       const apiKeyMap: Record<string, string> = {
         GroupSpecialUsableGroup:
           'group_ratio_setting.group_special_usable_group',
+        AccessProfileProfiles: 'access_profile_setting.profiles',
       }
 
       const updates = (

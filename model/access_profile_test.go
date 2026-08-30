@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ForceMind/MyAPI/setting"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,6 +28,20 @@ func TestResolveAccessProfileKeepsLegacyGroupsReadable(t *testing.T) {
 	if got := ResolveAccessProfile("team-a", "configured").Description; got != "configured" {
 		t.Fatalf("custom profile description = %q", got)
 	}
+}
+
+func TestAccessProfilePolicyDefinitionsAreValidatedAndApplied(t *testing.T) {
+	raw := `{"standard":{"label":"Team standard","description":"Shared pool","route_groups":["default"],"model_allowlist":["gpt-5"],"fallback_profiles":["priority"],"enabled":true}}`
+	require.NoError(t, setting.ValidateAccessProfileDefinitionsJSON(raw))
+	require.NoError(t, setting.UpdateAccessProfileDefinitionsByJSONString(raw))
+	t.Cleanup(func() {
+		_ = setting.UpdateAccessProfileDefinitionsByJSONString(`{"standard":{"label":"Standard access","description":"Uses the standard channel pool and billing rules.","enabled":true},"priority":{"label":"Priority access","description":"Uses the priority channel pool when your account allows it.","enabled":true},"automatic":{"label":"Automatic routing","description":"Tries eligible channel groups in order and can fail over when enabled.","enabled":true}}`)
+	})
+	profile := ResolveAccessProfile("default", "")
+	require.Equal(t, "Team standard", profile.Label)
+	require.Equal(t, []string{"default"}, profile.RouteGroups)
+	require.Equal(t, []string{"gpt-5"}, profile.ModelAllowlist)
+	require.Error(t, setting.ValidateAccessProfileDefinitionsJSON(`{"":{"label":"invalid"}}`))
 }
 
 func TestResolveAccountTierIsSeparateFromAccessProfile(t *testing.T) {

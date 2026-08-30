@@ -52,9 +52,11 @@ const (
 	// Channel quota alerts are opt-in. Thresholds are percentages of the
 	// provider-reported total quota and are only used for read-only status
 	// reporting; no notifications or routing changes are triggered.
-	DefaultChannelQuotaAlertEnabled         = false
-	DefaultChannelQuotaAlertWarningPercent  = 20.0
-	DefaultChannelQuotaAlertCriticalPercent = 10.0
+	DefaultChannelQuotaAlertEnabled          = false
+	DefaultChannelQuotaAlertWarningPercent   = 20.0
+	DefaultChannelQuotaAlertCriticalPercent  = 10.0
+	DefaultChannelQuotaAlertCooldownSeconds  = int64(60 * 60)
+	DefaultChannelQuotaAlertNotifyOnRecovery = false
 )
 
 var (
@@ -67,6 +69,8 @@ var (
 	ChannelQuotaAlertEnabled          = DefaultChannelQuotaAlertEnabled
 	ChannelQuotaAlertWarningPercent   = DefaultChannelQuotaAlertWarningPercent
 	ChannelQuotaAlertCriticalPercent  = DefaultChannelQuotaAlertCriticalPercent
+	ChannelQuotaAlertCooldownSeconds  = DefaultChannelQuotaAlertCooldownSeconds
+	ChannelQuotaAlertNotifyOnRecovery = DefaultChannelQuotaAlertNotifyOnRecovery
 )
 
 var OptionMap map[string]string

@@ -46,6 +46,7 @@ const baseApiKey: ApiKey = {
   created_time: 1,
   accessed_time: 0,
   group: 'auto',
+  access_profile_id: 'automatic',
   auto_groups: null,
   cross_group_retry: true,
   model_limits_enabled: false,

@@ -34,6 +34,8 @@ export function getAccessProfileDescription(
   t: TFunction
 ): string {
   const id = normalizeAccessProfileId(group, profile)
+  const configuredDescription = profile?.description?.trim()
+  if (configuredDescription) return configuredDescription
   switch (id) {
     case 'standard':
       return t('Uses the standard channel pool and billing rules.')
@@ -49,6 +51,25 @@ export function getAccessProfileDescription(
         profile?.description || t('Uses the channels assigned to this profile.')
       )
   }
+}
+
+export function getAccessProfilePolicyHint(
+  profile: AccessProfileMetadata | undefined,
+  t: TFunction
+): string {
+  if (!profile) return ''
+  const parts: string[] = []
+  if (profile.route_groups?.length) {
+    parts.push(`${t('Routes')}: ${profile.route_groups.join(', ')}`)
+  }
+  if (profile.model_allowlist?.length) {
+    parts.push(`${t('Models')}: ${profile.model_allowlist.join(', ')}`)
+  }
+  if (profile.fallback_profiles?.length) {
+    parts.push(`${t('Fallback')}: ${profile.fallback_profiles.join(', ')}`)
+  }
+  if (profile.enabled === false) parts.push(t('Disabled'))
+  return parts.join(' · ')
 }
 
 function normalizeAccessProfileId(

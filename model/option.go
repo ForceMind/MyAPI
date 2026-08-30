@@ -137,9 +137,11 @@ func InitOptionMap() {
 	common.OptionMap["QuotaRemindThreshold"] = strconv.Itoa(common.QuotaRemindThreshold)
 	common.OptionMap["PreConsumedQuota"] = strconv.Itoa(common.PreConsumedQuota)
 	if quotaAlertJSON, err := common.MarshalChannelQuotaAlertSettings(common.ChannelQuotaAlertSettings{
-		Enabled:         common.ChannelQuotaAlertEnabled,
-		WarningPercent:  common.ChannelQuotaAlertWarningPercent,
-		CriticalPercent: common.ChannelQuotaAlertCriticalPercent,
+		Enabled:          common.ChannelQuotaAlertEnabled,
+		WarningPercent:   common.ChannelQuotaAlertWarningPercent,
+		CriticalPercent:  common.ChannelQuotaAlertCriticalPercent,
+		CooldownSeconds:  common.ChannelQuotaAlertCooldownSeconds,
+		NotifyOnRecovery: common.ChannelQuotaAlertNotifyOnRecovery,
 	}); err == nil {
 		common.OptionMap[common.ChannelQuotaAlertSettingsOptionKey] = quotaAlertJSON
 	}
@@ -224,6 +226,9 @@ func validateOptionValue(key string, value string) error {
 	}
 	if key == "MaxTokenAutoGroups" {
 		return setting.ValidateMaxTokenAutoGroups(value)
+	}
+	if key == "access_profile_setting.profiles" {
+		return setting.ValidateAccessProfileDefinitionsJSON(value)
 	}
 	return nil
 }
@@ -416,6 +421,8 @@ func updateOptionMap(key string, value string) (err error) {
 		common.ChannelQuotaAlertEnabled = settings.Enabled
 		common.ChannelQuotaAlertWarningPercent = settings.WarningPercent
 		common.ChannelQuotaAlertCriticalPercent = settings.CriticalPercent
+		common.ChannelQuotaAlertCooldownSeconds = settings.CooldownSeconds
+		common.ChannelQuotaAlertNotifyOnRecovery = settings.NotifyOnRecovery
 	case common.ChannelQuotaAlertEnabledOptionKey:
 		common.ChannelQuotaAlertEnabled, err = strconv.ParseBool(strings.TrimSpace(value))
 	case common.ChannelQuotaAlertWarningPercentOptionKey:
@@ -632,9 +639,11 @@ func updateOptionMap(key string, value string) (err error) {
 	}
 	if key == common.ChannelQuotaAlertEnabledOptionKey || key == common.ChannelQuotaAlertWarningPercentOptionKey || key == common.ChannelQuotaAlertCriticalPercentOptionKey {
 		if settingsJSON, marshalErr := common.MarshalChannelQuotaAlertSettings(common.ChannelQuotaAlertSettings{
-			Enabled:         common.ChannelQuotaAlertEnabled,
-			WarningPercent:  common.ChannelQuotaAlertWarningPercent,
-			CriticalPercent: common.ChannelQuotaAlertCriticalPercent,
+			Enabled:          common.ChannelQuotaAlertEnabled,
+			WarningPercent:   common.ChannelQuotaAlertWarningPercent,
+			CriticalPercent:  common.ChannelQuotaAlertCriticalPercent,
+			CooldownSeconds:  common.ChannelQuotaAlertCooldownSeconds,
+			NotifyOnRecovery: common.ChannelQuotaAlertNotifyOnRecovery,
 		}); marshalErr == nil {
 			common.OptionMap[common.ChannelQuotaAlertSettingsOptionKey] = settingsJSON
 		}
@@ -668,6 +677,12 @@ func handleConfigUpdate(key, value string) bool {
 		configKey: value,
 	}
 	config.UpdateConfigFromMap(cfg, configMap)
+	if configName == "access_profile_setting" && configKey == "profiles" {
+		// Apply through the setting package as well so concurrent readers use the
+		// same lock as explicit updates; the reflective config update above keeps
+		// ConfigManager's persistence/export view in sync.
+		_ = setting.UpdateAccessProfileDefinitionsByJSONString(value)
+	}
 
 	// 特定配置的后处理
 	if configName == "performance_setting" {

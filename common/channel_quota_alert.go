@@ -26,13 +26,24 @@ type ChannelQuotaAlertSettings struct {
 	Enabled         bool    `json:"enabled"`
 	WarningPercent  float64 `json:"warning_percent"`
 	CriticalPercent float64 `json:"critical_percent"`
+	// CooldownSeconds controls how often a repeated alert for the same
+	// channel/status may be emitted by a future notifier. A zero value is
+	// accepted for backwards-compatible JSON options and uses the safe default
+	// during policy evaluation.
+	CooldownSeconds int64 `json:"cooldown_seconds"`
+	// NotifyOnRecovery opts in to a single healthy transition after a warning
+	// or critical state. It is metadata only until an outbound notifier is
+	// explicitly configured; this package never sends network requests.
+	NotifyOnRecovery bool `json:"notify_on_recovery"`
 }
 
 func DefaultChannelQuotaAlertSettings() ChannelQuotaAlertSettings {
 	return ChannelQuotaAlertSettings{
-		Enabled:         DefaultChannelQuotaAlertEnabled,
-		WarningPercent:  DefaultChannelQuotaAlertWarningPercent,
-		CriticalPercent: DefaultChannelQuotaAlertCriticalPercent,
+		Enabled:          DefaultChannelQuotaAlertEnabled,
+		WarningPercent:   DefaultChannelQuotaAlertWarningPercent,
+		CriticalPercent:  DefaultChannelQuotaAlertCriticalPercent,
+		CooldownSeconds:  DefaultChannelQuotaAlertCooldownSeconds,
+		NotifyOnRecovery: DefaultChannelQuotaAlertNotifyOnRecovery,
 	}
 }
 
@@ -47,6 +58,9 @@ func ValidateChannelQuotaAlertSettings(settings ChannelQuotaAlertSettings) error
 	if !finiteChannelQuotaAlertPercent(settings.CriticalPercent) ||
 		settings.CriticalPercent < 0 || settings.CriticalPercent >= settings.WarningPercent {
 		return errors.New("channel quota critical_percent must be finite, non-negative, and lower than warning_percent")
+	}
+	if settings.CooldownSeconds < 0 || settings.CooldownSeconds > 7*24*60*60 {
+		return errors.New("channel quota alert cooldown_seconds must be between 0 and 604800")
 	}
 	return nil
 }
@@ -80,6 +94,56 @@ func MarshalChannelQuotaAlertSettings(settings ChannelQuotaAlertSettings) (strin
 		return "", fmt.Errorf("marshal channel quota alert settings: %w", err)
 	}
 	return string(encoded), nil
+}
+
+// ChannelQuotaAlertEvent is the notifier-neutral result of applying an alert
+// policy to two consecutive observations. Keeping this decision pure allows
+// the API/UI to preview state and lets a later notifier persist delivery state
+// without coupling quota sampling to email/webhook credentials.
+type ChannelQuotaAlertEvent struct {
+	Status       string `json:"status"`
+	Kind         string `json:"kind"`
+	DedupKey     string `json:"dedup_key"`
+	Suppressed   bool   `json:"suppressed"`
+	NextEligible int64  `json:"next_eligible_at,omitempty"`
+}
+
+// EvaluateChannelQuotaAlertTransition decides whether a transition is
+// eligible for notification. Empty/unknown statuses never emit events.
+// repeated warning/critical states are deduplicated by cooldown; recovery is
+// opt-in. No notification is sent by this helper.
+func EvaluateChannelQuotaAlertTransition(subject, previousStatus, currentStatus string, observedAt, lastNotifiedAt int64, settings ChannelQuotaAlertSettings) ChannelQuotaAlertEvent {
+	subject = strings.TrimSpace(subject)
+	event := ChannelQuotaAlertEvent{Status: currentStatus}
+	if subject != "" {
+		event.DedupKey = subject + ":" + currentStatus
+	}
+	if subject == "" || !settings.Enabled || observedAt <= 0 || (currentStatus != "warning" && currentStatus != "critical" && currentStatus != "healthy") {
+		return event
+	}
+	if settings.CooldownSeconds <= 0 {
+		settings.CooldownSeconds = DefaultChannelQuotaAlertCooldownSeconds
+	}
+	if currentStatus == "healthy" {
+		if settings.NotifyOnRecovery && (previousStatus == "warning" || previousStatus == "critical") {
+			event.Kind = "recovery"
+		} else {
+			return event
+		}
+	} else if previousStatus != currentStatus {
+		event.Kind = "threshold"
+	} else if lastNotifiedAt <= 0 || observedAt-lastNotifiedAt >= settings.CooldownSeconds {
+		event.Kind = "reminder"
+	} else {
+		event.Suppressed = true
+		event.NextEligible = lastNotifiedAt + settings.CooldownSeconds
+		return event
+	}
+	if lastNotifiedAt > 0 && observedAt-lastNotifiedAt < settings.CooldownSeconds && event.Kind != "recovery" && previousStatus == currentStatus {
+		event.Suppressed = true
+		event.NextEligible = lastNotifiedAt + settings.CooldownSeconds
+	}
+	return event
 }
 
 func finiteChannelQuotaAlertPercent(value float64) bool {

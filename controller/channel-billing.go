@@ -728,11 +728,13 @@ type quotaHistoryDerivedMetrics struct {
 }
 
 type quotaHistoryAlert struct {
-	Enabled         bool     `json:"enabled"`
-	Status          string   `json:"status"`
-	RatioPercent    *float64 `json:"ratio_percent,omitempty"`
-	WarningPercent  float64  `json:"warning_percent"`
-	CriticalPercent float64  `json:"critical_percent"`
+	Enabled          bool     `json:"enabled"`
+	Status           string   `json:"status"`
+	RatioPercent     *float64 `json:"ratio_percent,omitempty"`
+	WarningPercent   float64  `json:"warning_percent"`
+	CriticalPercent  float64  `json:"critical_percent"`
+	CooldownSeconds  int64    `json:"cooldown_seconds"`
+	NotifyOnRecovery bool     `json:"notify_on_recovery"`
 }
 
 // deriveQuotaHistoryAlert exposes an opt-in, read-only threshold status. It
@@ -742,10 +744,12 @@ type quotaHistoryAlert struct {
 // absolute thresholds.
 func deriveQuotaHistoryAlert(snapshot *model.ChannelQuotaSnapshot) quotaHistoryAlert {
 	alert := quotaHistoryAlert{
-		Enabled:         common.ChannelQuotaAlertEnabled,
-		WarningPercent:  common.ChannelQuotaAlertWarningPercent,
-		CriticalPercent: common.ChannelQuotaAlertCriticalPercent,
-		Status:          "disabled",
+		Enabled:          common.ChannelQuotaAlertEnabled,
+		WarningPercent:   common.ChannelQuotaAlertWarningPercent,
+		CriticalPercent:  common.ChannelQuotaAlertCriticalPercent,
+		CooldownSeconds:  common.ChannelQuotaAlertCooldownSeconds,
+		NotifyOnRecovery: common.ChannelQuotaAlertNotifyOnRecovery,
+		Status:           "disabled",
 	}
 	if !alert.Enabled {
 		return alert
