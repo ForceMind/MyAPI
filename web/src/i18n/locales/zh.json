@@ -1291,6 +1291,8 @@
     "Create an API key to unlock the real request": "创建 API 密钥以解锁真实请求",
     "Create and review invite or credit codes.": "创建和审查邀请或信用代码。",
     "Create API Key": "创建 API 密钥",
+    "Configure upstream channels": "配置上游渠道",
+    "Add at least one provider channel for team traffic": "至少添加一个供团队流量使用的上游渠道",
     "Create cache": "创建缓存",
     "Create cache ratio": "创建缓存倍率",
     "Create Channel": "创建渠道",

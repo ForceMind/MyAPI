@@ -47,9 +47,11 @@ import {
 } from '@/components/page-transition'
 import { Button } from '@/components/ui/button'
 import { IconBadge, type IconBadgeTone } from '@/components/ui/icon-badge'
+import { getChannels } from '@/features/channels/api'
 import { fetchTokenKey, getApiKeys } from '@/features/keys/api'
 import type { ApiKey } from '@/features/keys/types'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
+import { hasPermission } from '@/lib/admin-permissions'
 import { getUserModels } from '@/lib/api'
 import { MOTION_TRANSITION } from '@/lib/motion'
 import { ROLE } from '@/lib/roles'
@@ -495,6 +497,7 @@ export function OverviewDashboard() {
   const remainQuota = Number(user?.quota ?? 0)
   const usedQuota = Number(user?.used_quota ?? 0)
   const isAdmin = Boolean(user?.role && user.role >= ROLE.ADMIN)
+  const canReadChannels = hasPermission(user, 'channel', 'read')
 
   const apiKeysQuery = useQuery({
     queryKey: ['dashboard', 'overview', 'api-keys'],
@@ -514,6 +517,17 @@ export function OverviewDashboard() {
     staleTime: 5 * 60 * 1000,
   })
 
+  // Only a full-build administrator needs the upstream-channel setup step.
+  // The query is bounded to one row and never runs for regular users or the
+  // LAN Lite build, keeping the guide lightweight and permission-safe.
+  const channelsQuery = useQuery({
+    queryKey: ['dashboard', 'overview', 'channels-count'],
+    queryFn: () => getChannels({ p: 1, page_size: 1 }),
+    enabled: isAdmin && canReadChannels && !SELF_USE_MINIMAL,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  })
+
   const preferredKey = useMemo(
     () => getPreferredKey(apiKeysQuery.data ?? []),
     [apiKeysQuery.data]
@@ -528,6 +542,17 @@ export function OverviewDashboard() {
         icon: KeyRound,
         completed: Boolean(preferredKey),
       },
+      ...(isAdmin && canReadChannels && !SELF_USE_MINIMAL
+        ? [
+            {
+              title: t('Configure upstream channels'),
+              description: t('Add at least one provider channel for team traffic'),
+              to: '/channels' as const,
+              icon: RadioTower,
+              completed: (channelsQuery.data?.data?.total ?? 0) > 0,
+            },
+          ]
+        : []),
       ...(SELF_USE_MINIMAL
         ? []
         : [
@@ -547,7 +572,16 @@ export function OverviewDashboard() {
         completed: requestCount > 0,
       },
     ],
-    [preferredKey, remainQuota, requestCount, t, usedQuota]
+    [
+      canReadChannels,
+      channelsQuery.data?.data?.total,
+      isAdmin,
+      preferredKey,
+      remainQuota,
+      requestCount,
+      t,
+      usedQuota,
+    ]
   )
 
   const quickActions = useMemo<QuickAction[]>(
