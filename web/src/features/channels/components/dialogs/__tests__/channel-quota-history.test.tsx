@@ -122,6 +122,31 @@ describe('channel quota history', () => {
     ).toBeInTheDocument()
   })
 
+  test('shows opt-in quota alert status and thresholds', async () => {
+    vi.mocked(getChannelQuotaHistory).mockResolvedValueOnce({
+      success: true,
+      data: {
+        channel_id: baseChannel.id,
+        start: 0,
+        end: 1,
+        limit: 500,
+        points: [{ timestamp: 1, status: 'success', available: 5, total: 100 }],
+        alert: {
+          enabled: true,
+          status: 'critical',
+          ratio_percent: 5,
+          warning_percent: 20,
+          critical_percent: 10,
+        },
+      },
+    })
+
+    renderQuota()
+    expect(await screen.findByText('Quota alert')).toBeInTheDocument()
+    expect(screen.getByText('Critical')).toBeInTheDocument()
+    expect(screen.getByText('Remaining: 5.0%')).toBeInTheDocument()
+  })
+
   test('supports an explicit custom date range', async () => {
     vi.mocked(getChannelQuotaHistory).mockResolvedValue({
       success: true,
