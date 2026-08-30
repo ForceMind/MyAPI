@@ -117,3 +117,37 @@ GitHub Actions builds and signs the `ghcr.io/forcemind/myapi-lan:<version>` imag
 - Use a VPN/Tailscale or an authenticated reverse proxy for networks you do not fully trust.
 - Never expose the LAN listener directly to the public Internet.
 - Never put `deploy/.env`, SQLite files, logs, or API keys in Git.
+
+## Cross-platform acceptance (no service start)
+
+Before handing a LAN Lite project to a colleague, run the dependency-free
+acceptance harness from the source distribution:
+
+```bash
+npm run lan:check
+```
+
+The harness creates a temporary project, runs `myapi lan init`, checks the
+loopback default, version-pinned `myapi-lan` GHCR image, generated secret file
+permissions, CPU/memory guardrails, credential-file exclusion, and the
+Electron/CI contract. When Docker Compose is available it runs
+`docker compose config --quiet` only; this is a parser check and does not pull,
+start, stop, or rebuild a container. Use `--skip-docker` on a machine without
+Docker Desktop. `--json` emits machine-readable results, and `--keep-temp`
+keeps the temporary project for local debugging; do not use the latter on a
+shared workstation unless the directory is removed afterwards.
+
+For an already-initialized project, inspect it without changing any files:
+
+```bash
+node tools/lan/check.mjs --project-dir ./myapi-lan --skip-docker
+```
+
+This check is intentionally platform-neutral and can run in GitHub Actions or
+on Linux. It does not prove that macOS/Windows firewall rules, Docker Desktop
+file sharing, installer signing, or a real colleague request work. Those
+items require a real macOS and Windows rehearsal: launch the packaged app,
+allow the process on the **private** network only, call `/api/status` from a
+second machine, verify a downstream key, then stop and repeat after an upgrade.
+Record the OS version, app version, bind address, port, image digest, and
+resulting health status without recording any key or secret.

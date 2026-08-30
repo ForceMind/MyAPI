@@ -9,6 +9,7 @@
   "files": [
     "cli/",
     "tools/npm/",
+    "tools/lan/",
     "tools/website/",
     ".dockerignore",
     ".env.example",
@@ -65,6 +66,7 @@
   ],
   "scripts": {
     "test": "node --test cli/test/*.test.mjs",
+    "lan:check": "node tools/lan/check.mjs",
     "website:check": "node tools/website/check-static.mjs",
     "source:manifest": "node tools/npm/generate-source-manifest.mjs",
     "pack:check": "node tools/npm/check-pack.mjs",
