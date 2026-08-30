@@ -116,6 +116,9 @@ cd "$repo_dir"
 docker compose --env-file "$env_file" -f "$script_dir/docker-compose.yml" config --quiet
 if [[ "$MYAPI_BUILD_LOCAL" == "true" || "$MYAPI_IMAGE" == local/* ]]; then
   docker build \
+    --cpus "${MYAPI_CPU_LIMIT}" \
+    --memory "${MYAPI_MEMORY_LIMIT}" \
+    --memory-swap "${MYAPI_MEMORY_LIMIT}" \
     --build-arg "MYAPI_BRAND_NAME=${MYAPI_BRAND_NAME:-MyAPI}" \
     --build-arg "MYAPI_BRAND_LOGO=${MYAPI_BRAND_LOGO:-/myapi-logo-v1.png}" \
     --build-arg "MYAPI_EDITION=${MYAPI_EDITION}" \

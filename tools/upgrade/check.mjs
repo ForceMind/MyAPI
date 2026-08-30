@@ -69,6 +69,10 @@ record(
   includes(installer, ['docker compose', 'config --quiet', 'MYAPI_CPU_LIMIT', 'MYAPI_MEMORY_LIMIT']),
 )
 record(
+  'local image builds inherit CPU and memory guardrails',
+  includes(installer, ['docker build', '--cpus', '--memory', '--memory-swap']),
+)
+record(
   'installer waits for health and does not remove volumes',
   includes(installer, ['--force-recreate', '--wait', '--wait-timeout', '120']) &&
     !/docker compose[^\n]*down[^\n]*-v/.test(installer),
