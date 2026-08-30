@@ -11,12 +11,15 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import { isIP } from 'node:net'
 import {
+  chmodSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -238,6 +241,49 @@ function checkPrivateLANOptIn(checks) {
   }
 }
 
+function checkInstallerEnvParsing(checks) {
+  if (!commandAvailable('bash')) {
+    record(checks, 'installer env parser smoke test', true, 'skipped (bash unavailable)')
+    return
+  }
+  const project = mkdtempSync(path.join(tmpdir(), 'myapi-installer-check-'))
+  try {
+    const deployDir = path.join(project, 'deploy')
+    const binDir = path.join(project, 'bin')
+    mkdirSync(deployDir)
+    mkdirSync(binDir)
+    for (const relative of ['install.sh', '.env.example', 'docker-compose.yml']) {
+      writeFileSync(
+        path.join(deployDir, relative),
+        readFileSync(path.join(repositoryRoot, 'deploy', relative)),
+      )
+    }
+    const marker = path.join(project, 'shell-evaluated')
+    const envPath = path.join(deployDir, '.env')
+    let env = readFileSync(path.join(deployDir, '.env.example'), 'utf8')
+    env = env
+      .replace(/^MYAPI_PUBLIC_URL=.*$/m, 'MYAPI_PUBLIC_URL=https://myapi.example.test')
+      .replace(/^SESSION_SECRET=.*$/m, 'SESSION_SECRET=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+      .replace(/^MYAPI_BRAND_NAME=.*$/m, `MYAPI_BRAND_NAME=$(touch ${marker})`)
+      .replace(/^MYAPI_ALLOW_LAN=.*$/m, 'MYAPI_ALLOW_LAN=false')
+    writeFileSync(envPath, env, { mode: 0o600 })
+    const fakeDocker = path.join(binDir, 'docker')
+    writeFileSync(fakeDocker, '#!/usr/bin/env bash\nexit 0\n', { mode: 0o700 })
+    chmodSync(fakeDocker, 0o700)
+    const result = spawnSync('bash', [path.join(deployDir, 'install.sh')], {
+      cwd: project,
+      encoding: 'utf8',
+      env: { ...process.env, PATH: `${binDir}:${process.env.PATH || ''}` },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: false,
+    })
+    record(checks, 'installer env parser smoke test', result.status === 0, 'temporary fake Docker only')
+    record(checks, 'installer does not evaluate env shell syntax', !existsSync(marker))
+  } finally {
+    if (!keepTemporary) rmSync(project, { recursive: true, force: true })
+  }
+}
+
 function main() {
   const checks = []
   checkStaticContracts(checks)
@@ -264,6 +310,7 @@ function main() {
       expectFresh: !requestedProject,
     })
     if (!requestedProject) checkPrivateLANOptIn(checks)
+    if (!requestedProject) checkInstallerEnvParsing(checks)
   } finally {
     if (temporaryProject && !keepTemporary) rmSync(temporaryProject, { recursive: true, force: true })
   }
