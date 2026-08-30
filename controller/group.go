@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/service"
@@ -41,7 +42,7 @@ func GetUserGroups(c *gin.Context) {
 	// The legacy group remains the routing/eligibility source during migration,
 	// while clients can explain what the user's account level means without
 	// guessing from names such as "default" or "vip".
-	accountTier := model.ResolveAccountTier(userGroup, "")
+	accountTier := resolveUserAccountTier(userId, userGroup)
 	for groupName, _ := range ratio_setting.GetGroupRatioCopy() {
 		// UserUsableGroups contains the groups that the user can use
 		if desc, ok := userUsableGroups[groupName]; ok {
@@ -67,4 +68,19 @@ func GetUserGroups(c *gin.Context) {
 		"data":         usableGroups,
 		"account_tier": accountTier,
 	})
+}
+
+// resolveUserAccountTier keeps the explicit account-level identity visible to
+// clients while retaining the legacy group as a safe fallback for old rows.
+// A read failure must not make the groups endpoint unavailable; it simply uses
+// the compatibility mapping already used before account tiers were added.
+func resolveUserAccountTier(userID int, legacyGroup string) model.AccountTierMetadata {
+	if userID > 0 {
+		if user, err := model.GetUserById(userID, false); err == nil && user != nil {
+			if id := strings.TrimSpace(user.AccountTierID); id != "" {
+				return model.ResolveAccountTierID(id, "")
+			}
+		}
+	}
+	return model.ResolveAccountTier(legacyGroup, "")
 }

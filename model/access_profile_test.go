@@ -55,6 +55,21 @@ func TestResolveAccountTierIsSeparateFromAccessProfile(t *testing.T) {
 	}
 }
 
+func TestResolveAccountTierIDPreservesStableAndCustomIdentity(t *testing.T) {
+	standard := ResolveAccountTierID("standard", "")
+	require.Equal(t, "standard", standard.ID)
+	require.Equal(t, "standard", standard.Kind)
+
+	priority := ResolveAccountTierID("priority", "")
+	require.Equal(t, "priority", priority.ID)
+	require.Equal(t, "priority", priority.Kind)
+
+	custom := ResolveAccountTierID("team-enterprise", "Custom team tier")
+	require.Equal(t, "team-enterprise", custom.ID)
+	require.Equal(t, "custom", custom.Kind)
+	require.Equal(t, "Custom team tier", custom.Description)
+}
+
 func TestResolveAccessProfileIDUsesExplicitStableIdentity(t *testing.T) {
 	profile := ResolveAccessProfileID("standard", "vip", "")
 	require.Equal(t, "standard", profile.ID)

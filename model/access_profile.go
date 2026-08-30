@@ -191,3 +191,19 @@ func ResolveAccountTier(groupName, configuredDescription string) AccountTierMeta
 	}
 	return tier
 }
+
+// ResolveAccountTierID resolves a persisted stable account-tier identifier
+// without inferring it from the legacy routing group. Built-in identifiers are
+// mapped to their canonical labels; custom identifiers remain visible as
+// custom tiers so administrators can explain them consistently across APIs.
+func ResolveAccountTierID(id, configuredDescription string) AccountTierMetadata {
+	id = strings.TrimSpace(id)
+	switch id {
+	case "", "standard":
+		return ResolveAccountTier("default", configuredDescription)
+	case "priority":
+		return ResolveAccountTier("vip", configuredDescription)
+	default:
+		return ResolveAccountTier(id, configuredDescription)
+	}
+}
