@@ -32,6 +32,9 @@
 - `33341868806`（提交 `f4fc17e`）仍是同一外部故障：Desktop、Backend、Frontend、
   Distribution 四个作业均在启动后立即失败且 `steps: []`，不能据此判定代码失败；
   本轮已用受限本机/Docker 回归替代验证，待 runner 恢复后仍应重跑远端 CI。
+- `33342523430`（提交 `4c2267c`）及同期官网运行 `33339379741` 的检查注释已明确
+  为账户付款失败或 spending limit 阻断；四个作业均 `steps: []`、无 runner，根因在
+  GitHub Billing & plans，不是 workflow 或代码。额度恢复后只重跑最新提交，避免重跑历史。
 - `33335484167`：完成度矩阵一致性修正后的完整 CI，Backend、Frontend、Desktop
   和 Distribution 四个作业全部成功。
 - `33335299578`：本机部署旧镜像诊断证据提交后的完整 CI，Backend、Frontend、
@@ -65,6 +68,8 @@
   interaction 响应大小、支持 `requires_action` 终态并保持错误正文脱敏。Go 回归已在
   有界 Docker 容器中执行：`GOWORK=off go test ./relay/channel/gemini ./relay/channel/claude`
   通过（gemini 0.140s、claude 0.018s）。
+- `8a7741a`：PR 质量检查补齐 anti-slop 所需的最小 PR/issue 写权限，并监听
+  `pull_request_target.synchronize`，确保后续提交重新审查；未授予 contents 写权限。
 
 CI 运行号会随新提交变化；发布前应重新查询当前提交对应的运行结果，不应永久依赖
 上述历史编号。
