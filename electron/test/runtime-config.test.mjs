@@ -81,6 +81,12 @@ test('describes an opted-in private LAN endpoint and restart requirement', () =>
   assert.match(status.restartHint, /重新启动/)
 })
 
+test('probes wildcard listeners through loopback and private listeners directly', () => {
+  assert.equal(config.getHealthCheckAddress('0.0.0.0'), '127.0.0.1')
+  assert.equal(config.getHealthCheckAddress('192.168.1.20'), '192.168.1.20')
+  assert.equal(config.getHealthCheckAddress(), '127.0.0.1')
+})
+
 test('electron-builder packages the shared preflight module', async () => {
   const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
   assert.ok(packageJson.build.files.includes('runtime-config.js'))

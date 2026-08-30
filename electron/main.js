@@ -9,6 +9,7 @@ const {
   isPrivateAddress,
   resolveRuntimeConfig,
   describeRuntimeConfig,
+  getHealthCheckAddress,
 } = require('./runtime-config');
 
 const APP_NAME = 'MyAPI';
@@ -234,7 +235,7 @@ function checkServerAvailability(port, maxRetries = 30, retryDelay = 1000, hostn
         // Probe the effective listener.  A private LAN bind is not necessarily
         // reachable through loopback, while 0.0.0.0 remains probeable via IPv4
         // loopback on supported platforms.
-        hostname: hostname === '0.0.0.0' ? '127.0.0.1' : hostname,
+        hostname: getHealthCheckAddress(hostname),
         port: port,
         timeout: 10000
       }, (res) => {
@@ -444,7 +445,7 @@ function startServer() {
       }
     });
 
-    const healthCheckHost = BIND_ADDRESS === '0.0.0.0' ? '127.0.0.1' : BIND_ADDRESS;
+    const healthCheckHost = getHealthCheckAddress(BIND_ADDRESS);
     checkServerAvailability(PORT, 30, 1000, healthCheckHost)
       .then(() => {
         console.log(`✓ Backend server is accessible at ${healthCheckHost}:${PORT}`);
