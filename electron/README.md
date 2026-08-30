@@ -14,7 +14,18 @@ cp ../my-api-macos ../my-api
 ```
 
 **Option B: Build from source (requires Go)**
-TODO
+From the repository root, build the frontend and the platform-specific
+backend/package with the bounded helper (the default is two parallel workers):
+
+```bash
+cd electron
+MYAPI_BUILD_PARALLELISM=2 ./build.sh
+```
+
+On Windows, run the same script from Git Bash (or build the Go binary with
+`go build -o my-api.exe` and then run `npm run build:win`). The helper never
+starts Docker or publishes artifacts; it only writes `my-api[.exe]` and the
+installer files under `electron/dist/`.
 
 ### 2. Electron Dependencies
 ```bash

@@ -293,7 +293,7 @@ ghcr.io/forcemind/myapi-lan:<version>
 CI 自动构建不等于自动重启生产服务。生产自动升级需要单独实现明确的拉取、审批、健康检查、备份和回滚策略。
 
 当前 `.github/workflows/ci.yml` 已在 `main` push、Pull Request 和手动触发时运行
-后端 vet/build/test、前端 typecheck/test 以及桌面发行合同检查；`.github/workflows/docker-build.yml`
+后端 vet/build/test、前端 typecheck/test、桌面发行合同以及 CLI/品牌/官网/LAN/打包合同检查；`.github/workflows/docker-build.yml`
 仍只在 SemVer tag（或显式手动输入既有 tag）时推送 GHCR，因此普通提交不会意外发布镜像。
 
 ## 10. NPM 和版本策略

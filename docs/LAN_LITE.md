@@ -53,6 +53,9 @@ The Electron desktop wrapper performs the same preflight before spawning the
 bundled server. An invalid port or a public/non-IPv4 bind address is shown as
 an error and the server is not started. The default remains loopback-only at
 `127.0.0.1:3000`; changing the bind address is an explicit operator action.
+When a packaged app is launched with a concrete private bind address, its UI
+loads from that same address (and maps `0.0.0.0` to loopback for local probing),
+so LAN mode does not depend on an unreachable hard-coded loopback URL.
 
 Electron 的托盘菜单提供 **LAN status and connection help…** 只读入口，显示当前
 监听端点、回环/LAN 模式和 macOS/Windows/Linux 防火墙提示。监听地址和端口在启动时

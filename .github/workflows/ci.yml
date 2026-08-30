@@ -108,3 +108,27 @@ jobs:
 
       - name: Validate macOS and Windows desktop contract
         run: node tools/desktop/check.mjs --json
+
+  distribution-contract:
+    name: Distribution and release contracts
+    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.repo.full_name || github.repository }}
+          persist-credentials: false
+          ref: ${{ github.event.action == 'closed' && github.event.pull_request.base.ref || github.ref }}
+
+      - name: Validate CLI and distribution contracts
+        run: |
+          npm test
+          npm run brand:check
+          npm run website:check
+          npm run lan:check -- --skip-docker
+          npm run desktop:check
+          npm run source:manifest
+          npm run pack:check

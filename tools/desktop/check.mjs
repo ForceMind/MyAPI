@@ -71,6 +71,15 @@ function checkWorkflow() {
   record('release upload has explicit approval gates', includes(workflow, ["inputs.confirm == 'PUBLISH'", "vars.MYAPI_ENABLE_RELEASE == 'true'", "inputs.tag != ''"]))
 }
 
+function checkRuntime() {
+  const main = read('electron/main.js')
+  record(
+    'packaged UI follows the effective LAN bind host',
+    main.includes('getHealthCheckAddress(BIND_ADDRESS)') &&
+      main.includes('mainWindow.loadURL(`http://${loadHost}:${loadPort}`)'),
+  )
+}
+
 function checkDocs() {
   const lan = read('docs/LAN_LITE.md')
   const master = read('docs/MYAPI_MASTER_PLAN.md')
@@ -85,6 +94,7 @@ function checkDocs() {
 
 checkPackage()
 checkWorkflow()
+checkRuntime()
 checkDocs()
 
 const failed = checks.filter((check) => !check.ok)

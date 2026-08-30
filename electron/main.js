@@ -464,6 +464,13 @@ function startServer() {
 function createWindow() {
   const isDev = process.env.NODE_ENV === 'development';
   const loadPort = isDev ? DEV_FRONTEND_PORT : PORT;
+  // In a LAN launch the backend may bind only to its concrete private IPv4
+  // address. Loading the packaged UI through hard-coded loopback would then
+  // fail on both macOS and Windows, even though the health check succeeded.
+  // Development keeps loopback because the separate dev server normally
+  // listens there; packaged builds probe the same effective host as the
+  // backend (with 0.0.0.0 safely mapped to loopback).
+  const loadHost = isDev ? '127.0.0.1' : getHealthCheckAddress(BIND_ADDRESS);
   
   mainWindow = new BrowserWindow({
     width: 1080,
@@ -477,9 +484,9 @@ function createWindow() {
     icon: path.join(__dirname, 'icon.png')
   });
 
-  mainWindow.loadURL(`http://127.0.0.1:${loadPort}`);
+  mainWindow.loadURL(`http://${loadHost}:${loadPort}`);
   
-  console.log(`Loading from: http://127.0.0.1:${loadPort}`);
+  console.log(`Loading from: http://${loadHost}:${loadPort}`);
 
   if (isDev) {
     mainWindow.webContents.openDevTools();
