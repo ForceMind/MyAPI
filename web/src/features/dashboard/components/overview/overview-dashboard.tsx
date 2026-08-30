@@ -592,13 +592,17 @@ export function OverviewDashboard() {
         to: '/keys',
         icon: KeyRound,
       },
-      {
-        title: t('Channels'),
-        description: t('Configure upstream providers and routing.'),
-        to: '/channels',
-        icon: RadioTower,
-        adminOnly: true,
-      },
+      ...(SELF_USE_MINIMAL
+        ? []
+        : [
+            {
+              title: t('Channels'),
+              description: t('Configure upstream providers and routing.'),
+              to: '/channels' as const,
+              icon: RadioTower,
+              adminOnly: true,
+            },
+          ]),
       {
         title: t('Usage Logs'),
         description: t('Inspect requests, errors, and billing details'),

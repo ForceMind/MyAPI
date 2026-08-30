@@ -136,6 +136,7 @@ describe('overview setup guide edition and role gating', () => {
 
     if (SELF_USE_MINIMAL) {
       expect(screen.queryByText('Configure upstream channels')).not.toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: 'Channels' })).not.toBeInTheDocument()
       expect(getChannels).not.toHaveBeenCalled()
       return
     }
