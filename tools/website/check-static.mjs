@@ -36,18 +36,26 @@ for (const name of ['index.html', 'styles.css', 'script.js', 'myapi-logo-v1.png'
 }
 const browserSmoke = resolve(root, 'tools', 'website', 'browser-smoke.mjs')
 const browserWorkflow = resolve(root, '.github', 'workflows', 'website-browser.yml')
+const artifactWorkflow = resolve(root, '.github', 'workflows', 'website-artifact.yml')
 if (!statSync(browserSmoke, { throwIfNoEntry: false })?.isFile()) {
   throw new Error('website browser smoke script is missing')
 }
 if (!statSync(browserWorkflow, { throwIfNoEntry: false })?.isFile()) {
   throw new Error('website browser smoke workflow is missing')
 }
+if (!statSync(artifactWorkflow, { throwIfNoEntry: false })?.isFile()) {
+  throw new Error('website artifact workflow is missing')
+}
 const browserSmokeSource = readFileSync(browserSmoke, 'utf8')
+const artifactWorkflowSource = readFileSync(artifactWorkflow, 'utf8')
 if (!/resolve\(root,/.test(browserSmokeSource) || !/startsWith\(`\$\{root\}\$\{sep\}`\)/.test(browserSmokeSource)) {
   throw new Error('website browser smoke path guard must enforce a directory boundary')
 }
 if (!browserSmokeSource.includes(".replace(/[\\\\/]+$/, '')")) {
   throw new Error('website browser smoke root must not retain a trailing separator')
+}
+if (!/push:\s+[\s\S]*?branches:\s*- main/.test(artifactWorkflowSource) || !/workflow_dispatch:/.test(artifactWorkflowSource)) {
+  throw new Error('website artifact workflow must support main pushes and manual dispatch')
 }
 if (!/decodeURIComponent[\s\S]*catch/.test(browserSmokeSource)) {
   throw new Error('website browser smoke must reject malformed URL encoding')
