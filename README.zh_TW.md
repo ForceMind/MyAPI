@@ -106,7 +106,7 @@ docker run --name my-api -d --restart always \
 # 使用 MySQL
 docker run --name my-api -d --restart always \
   -p 3000:3000 \
-  -e SQL_DSN="root:123456@tcp(localhost:3306)/oneapi" \
+  -e SQL_DSN="root:123456@tcp(localhost:3306)/myapi" \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
   local/my-api:custom-rc25
@@ -351,7 +351,7 @@ docker run --name my-api -d --restart always \
 ```bash
 docker run --name my-api -d --restart always \
   -p 3000:3000 \
-  -e SQL_DSN="root:123456@tcp(localhost:3306)/oneapi" \
+  -e SQL_DSN="root:123456@tcp(localhost:3306)/myapi" \
   -e TZ=Asia/Shanghai \
   -v ./data:/data \
   local/my-api:custom-rc25

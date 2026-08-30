@@ -27,9 +27,9 @@ services:
     volumes:
       - dev_data:/data
     environment:
-      # Keep the established database name for compatible local data; the
-      # service and container identifiers use the MyAPI machine slug.
-      - SQL_DSN=postgresql://root:123456@postgres:5432/new-api
+      # New development instances use the MyAPI database name. Override
+      # MYAPI_DEV_POSTGRES_DB explicitly when adopting an existing database.
+      - SQL_DSN=postgresql://root:123456@postgres:5432/${MYAPI_DEV_POSTGRES_DB:-myapi}
       - REDIS_CONN_STRING=redis://redis
       - TZ=Asia/Shanghai
       - BATCH_UPDATE_ENABLED=true
@@ -60,13 +60,13 @@ services:
     environment:
       POSTGRES_USER: root
       POSTGRES_PASSWORD: 123456
-      POSTGRES_DB: new-api
+      POSTGRES_DB: ${MYAPI_DEV_POSTGRES_DB:-myapi}
     volumes:
       - dev_pg_data:/var/lib/postgresql/data
     networks:
       - dev-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U root -d new-api"]
+      test: ["CMD-SHELL", "pg_isready -U root -d ${MYAPI_DEV_POSTGRES_DB:-myapi}"]
       interval: 5s
       timeout: 3s
       retries: 5

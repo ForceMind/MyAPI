@@ -3,10 +3,12 @@ API_DIR = .
 DEV_WEB_PORT ?= 5173
 DEV_COMPOSE_FILE = docker-compose.dev.yml
 DEV_POSTGRES_SERVICE = postgres
-# MyAPI's compose service uses the machine slug; database names remain the
-# legacy values so existing SQLite/PostgreSQL data can be adopted in place.
+# MyAPI's compose service and new development database use the MyAPI slug.
+# Existing SQLite/PostgreSQL data can be adopted by explicit overrides below.
 DEV_API_SERVICE = my-api
-DEV_POSTGRES_DB = new-api
+# New development instances use the MyAPI database name. Existing data can
+# still be selected explicitly by overriding DEV_POSTGRES_DB when needed.
+DEV_POSTGRES_DB ?= myapi
 DEV_POSTGRES_USER = root
 # my-api.db is the canonical SQLite filename for new development instances.
 # Existing one-api.db files remain readable through the runtime fallback; set
@@ -30,11 +32,11 @@ start-api:
 
 dev-api:
 	@echo "Starting MyAPI services (docker)..."
-	@docker compose -f $(DEV_COMPOSE_FILE) up -d
+	@MYAPI_DEV_POSTGRES_DB=$(DEV_POSTGRES_DB) docker compose -f $(DEV_COMPOSE_FILE) up -d
 
 dev-api-rebuild:
 	@echo "Rebuilding and starting MyAPI service (docker)..."
-	@docker compose -f $(DEV_COMPOSE_FILE) up -d --build $(DEV_API_SERVICE)
+	@MYAPI_DEV_POSTGRES_DB=$(DEV_POSTGRES_DB) docker compose -f $(DEV_COMPOSE_FILE) up -d --build $(DEV_API_SERVICE)
 
 dev-web:
 	@echo "Starting web frontend dev server..."
