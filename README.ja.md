@@ -141,6 +141,9 @@ docker run --name my-api -d --restart always \
 | ⚙️ 環境設定 | [環境変数](./DEPLOYMENT_CUSTOM.md) |
 | 📡 APIドキュメント | [APIドキュメント](./docs/openapi/relay.json) |
 | 📊 Claude 組織使用量 | [公式 API の境界](./docs/CLAUDE_USAGE_REPORT.md) |
+| 🧭 製品・開発計画 | [MyAPI マスタープラン](./docs/MYAPI_MASTER_PLAN.md) |
+| ✅ 完了エビデンス | [完了監査](./docs/COMPLETION_AUDIT.md) |
+| 🖥️ LAN Lite とデスクトップ | [LAN Lite ガイド](./docs/LAN_LITE.md) |
 | ❓ よくある質問 | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
 | 💬 コミュニティ交流 | [交流チャネル](https://github.com/ForceMind/MyAPI/discussions) |
 

@@ -143,6 +143,9 @@ docker run --name my-api -d --restart always \
 | ⚙️ Environment Configuration | [Deployment configuration](./DEPLOYMENT_CUSTOM.md) |
 | 📡 API Documentation | [OpenAPI specifications](./docs/openapi) |
 | 📊 Claude organization usage | [Official API boundary](./docs/CLAUDE_USAGE_REPORT.md) |
+| 🧭 Product and engineering plan | [MyAPI master plan](./docs/MYAPI_MASTER_PLAN.md) |
+| ✅ Completion evidence | [Completion audit](./docs/COMPLETION_AUDIT.md) |
+| 🖥️ LAN Lite and desktop | [LAN Lite guide](./docs/LAN_LITE.md) |
 | ❓ FAQ | [GitHub Discussions](https://github.com/ForceMind/MyAPI/discussions) |
 | 💬 Community Interaction | [GitHub Discussions](https://github.com/ForceMind/MyAPI/discussions) |
 

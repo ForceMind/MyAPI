@@ -139,6 +139,9 @@ docker run --name my-api -d --restart always \
 | ⚙️ 环境配置 | [环境变量](./DEPLOYMENT_CUSTOM.md) |
 | 📡 接口文档 | [API 文档](./docs/openapi/relay.json) |
 | 📊 Claude 组织用量 | [官方接口边界](./docs/CLAUDE_USAGE_REPORT.md) |
+| 🧭 产品与工程计划 | [MyAPI 总体计划](./docs/MYAPI_MASTER_PLAN.md) |
+| ✅ 完成度证据 | [完成度审计](./docs/COMPLETION_AUDIT.md) |
+| 🖥️ LAN Lite 与桌面版 | [LAN Lite 指南](./docs/LAN_LITE.md) |
 | ❓ 常见问题 | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
 | 💬 社区交流 | [交流渠道](https://github.com/ForceMind/MyAPI/discussions) |
 

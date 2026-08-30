@@ -142,6 +142,9 @@ docker run --name my-api -d --restart always \
 | ⚙️ Configuration de l'environnement | [Variables d'environnement](./DEPLOYMENT_CUSTOM.md) |
 | 📡 Documentation de l'API | [Documentation de l'API](./docs/openapi/relay.json) |
 | 📊 Utilisation de l'organisation Claude | [Limites de l'API officielle](./docs/CLAUDE_USAGE_REPORT.md) |
+| 🧭 Plan produit et technique | [Plan directeur MyAPI](./docs/MYAPI_MASTER_PLAN.md) |
+| ✅ Preuves d'achèvement | [Audit d'achèvement](./docs/COMPLETION_AUDIT.md) |
+| 🖥️ LAN Lite et bureau | [Guide LAN Lite](./docs/LAN_LITE.md) |
 | ❓ FAQ | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
 | 💬 Interaction avec la communauté | [Canaux de communication](https://github.com/ForceMind/MyAPI/discussions) |
 
