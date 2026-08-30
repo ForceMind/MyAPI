@@ -11,41 +11,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// accessProfileMetadata gives the API/UI a stable, user-facing meaning for
-// the legacy token group field. The group value remains the source of truth
-// for routing compatibility; this metadata is presentation-only.
-type accessProfileMetadata struct {
-	ID          string `json:"id"`
-	Kind        string `json:"kind"`
-	Label       string `json:"label"`
-	Description string `json:"description"`
-}
+// accessProfileMetadata is kept as an alias for controller compatibility;
+// resolution now lives in the model domain layer.
+type accessProfileMetadata = model.AccessProfileMetadata
 
 func getAccessProfileMetadata(groupName, configuredDescription string) accessProfileMetadata {
-	profile := accessProfileMetadata{
-		ID:          groupName,
-		Kind:        "custom",
-		Label:       groupName,
-		Description: configuredDescription,
-	}
-	switch groupName {
-	case "", "default":
-		profile.ID = "standard"
-		profile.Kind = "standard"
-		profile.Label = "Standard access"
-		profile.Description = "Uses the standard channel pool and billing rules."
-	case "vip":
-		profile.ID = "priority"
-		profile.Kind = "priority"
-		profile.Label = "Priority access"
-		profile.Description = "Uses the priority channel pool when your account allows it."
-	case "auto":
-		profile.ID = "automatic"
-		profile.Kind = "automatic"
-		profile.Label = "Automatic routing"
-		profile.Description = "Tries eligible channel groups in order and can fail over when enabled."
-	}
-	return profile
+	return model.ResolveAccessProfile(groupName, configuredDescription)
 }
 
 func GetGroups(c *gin.Context) {
