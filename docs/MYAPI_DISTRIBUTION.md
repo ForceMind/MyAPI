@@ -14,7 +14,7 @@ MyAPI 是面向自建部署的发行品牌，提供可审计的完整源码、�
 | --- | --- | --- |
 | 人类可见品牌 | `MyAPI` | 用于站点名称、Logo、CLI 帮助、文档和发行说明。 |
 | 机器安全 slug | `my-api` | 用于服务名、容器名、默认镜像名和部署目录。 |
-| 部署变量 | `MYAPI_IMAGE`、`MYAPI_EDITION`、`MYAPI_BIND_ADDRESS`、`MYAPI_PORT`、`MYAPI_PUBLIC_URL`、`MYAPI_DATA_DIR`、`MYAPI_LOGS_DIR` | 新配置只写这些变量；旧部署变量只在一次性迁移时读取，完成迁移后应删除。 |
+| 部署变量 | `MYAPI_IMAGE`、`MYAPI_EDITION`、`MYAPI_BIND_ADDRESS`、`MYAPI_ALLOW_LAN`、`MYAPI_PORT`、`MYAPI_PUBLIC_URL`、`MYAPI_DATA_DIR`、`MYAPI_LOGS_DIR` | 新配置只写这些变量；旧部署变量只在一次性迁移时读取，完成迁移后应删除。非回环绑定还必须显式设置 `MYAPI_ALLOW_LAN=true`。 |
 | 服务与容器 | `my-api` | 重命名容器前先备份并确认 compose 项目，避免误删卷。 |
 | 官方镜像 | `ghcr.io/forcemind/myapi:vX.Y.Z`（Full）或 `ghcr.io/forcemind/myapi-lan:vX.Y.Z`（LAN Lite） | 由本仓库 GitHub Actions 生成；升级时固定目标版本 tag，不强制移动旧 tag。 |
 | 容器挂载点 | `/data`、`/app/logs` | 这是数据格式兼容边界，容器内挂载点暂不变；宿主机目录可迁移到新的 `my-api` 项目目录。 |
@@ -72,10 +72,12 @@ MYAPI_BUILD_LOCAL=false
 MYAPI_IMAGE=ghcr.io/forcemind/myapi-lan:<version>
 MYAPI_EDITION=lan
 MYAPI_BIND_ADDRESS=127.0.0.1
+MYAPI_ALLOW_LAN=false
 ```
 
 LAN 版默认只绑定本机；确认局域网访问范围后，再将 `MYAPI_BIND_ADDRESS` 设置为
-私网接口地址，并为每位同事创建独立的下游 API Key。上游凭据不会显示给下游用户。
+私网接口地址并将 `MYAPI_ALLOW_LAN=true`，然后为每位同事创建独立的下游 API Key。
+`deploy/install.sh` 会拒绝公网/格式错误的地址，也会在缺少显式 opt-in 时停止；上游凭据不会显示给下游用户。
 
 执行 `myapi up` 或 `deploy/install.sh` 时会先拉取该镜像。只有明确设置
 `MYAPI_BUILD_LOCAL=true`（或使用 `local/...` 镜像名）才会从源码构建。

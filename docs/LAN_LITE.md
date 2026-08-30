@@ -49,6 +49,11 @@ myapi lan start \
 
 `--allow-lan` is required whenever the listener is not loopback. Public addresses are rejected. `0.0.0.0` is accepted only with `--allow-lan`; prefer the workstation's concrete private address when possible.
 
+If you deploy the generated `deploy/install.sh` directly instead of using the CLI,
+the equivalent guard is `MYAPI_ALLOW_LAN=true` in `deploy/.env`. The installer
+accepts only loopback, `0.0.0.0`, or RFC1918 private IPv4 addresses and refuses
+non-loopback binds unless that flag is explicitly enabled.
+
 The Electron desktop wrapper performs the same preflight before spawning the
 bundled server. An invalid port or a public/non-IPv4 bind address is shown as
 an error and the server is not started. The default remains loopback-only at

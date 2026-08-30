@@ -89,6 +89,7 @@ function checkStaticContracts(checks) {
   const requiredFiles = [
     'cli/myapi.mjs',
     'deploy/docker-compose.yml',
+    'deploy/install.sh',
     'deploy/.env.example',
     'electron/main.js',
     'electron/runtime-config.js',
@@ -115,6 +116,10 @@ function checkStaticContracts(checks) {
   const images = readFileSync(path.join(repositoryRoot, '.github/workflows/docker-build.yml'), 'utf8')
   record(checks, 'CI builds the LAN GHCR image', /ghcr\.io\/forcemind\/myapi-lan/.test(images))
   record(checks, 'manual GHCR publish requires explicit confirmation', /confirm:[\s\S]*PUBLISH/.test(images) && /inputs\.confirm == 'PUBLISH'/.test(images))
+
+  const installer = readFileSync(path.join(repositoryRoot, 'deploy/install.sh'), 'utf8')
+  record(checks, 'installer validates bind addresses strictly', /is_private_ipv4\(\)/.test(installer) && /MYAPI_BIND_ADDRESS must be localhost/.test(installer))
+  record(checks, 'installer requires explicit LAN opt-in', /MYAPI_ALLOW_LAN/.test(installer) && /LAN binding is disabled by default/.test(installer))
 }
 
 function validateGeneratedProject(
@@ -130,6 +135,7 @@ function validateGeneratedProject(
   const envContents = readFileSync(envPath, 'utf8')
   const values = parseEnv(envContents)
   record(checks, 'LAN edition is selected', values.MYAPI_EDITION === 'lan')
+  record(checks, 'LAN sharing opt-in is explicit', values.MYAPI_ALLOW_LAN === (expectLoopback ? 'false' : 'true'))
   record(checks, 'LAN image is version-pinned GHCR', /^ghcr\.io\/forcemind\/myapi-lan:v\d+\.\d+\.\d+/.test(values.MYAPI_IMAGE || ''))
   record(
     checks,

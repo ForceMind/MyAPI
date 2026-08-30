@@ -47,6 +47,7 @@ MYAPI_EDITION="${MYAPI_EDITION:-full}"
 MYAPI_BUILD_LOCAL="${MYAPI_BUILD_LOCAL:-false}"
 MYAPI_PORT="${MYAPI_PORT:-3000}"
 MYAPI_BIND_ADDRESS="${MYAPI_BIND_ADDRESS:-127.0.0.1}"
+MYAPI_ALLOW_LAN="${MYAPI_ALLOW_LAN:-false}"
 MYAPI_SESSION_COOKIE_SECURE="${MYAPI_SESSION_COOKIE_SECURE:-}"
 MYAPI_PUBLIC_URL="${MYAPI_PUBLIC_URL:-}"
 MYAPI_DATA_DIR="${MYAPI_DATA_DIR:-./data}"
@@ -66,7 +67,32 @@ if [[ "$MYAPI_EDITION" == "lan" ]]; then
 else
   MYAPI_SESSION_COOKIE_SECURE="${MYAPI_SESSION_COOKIE_SECURE:-true}"
 fi
-export MYAPI_IMAGE MYAPI_EDITION MYAPI_BUILD_LOCAL MYAPI_PORT MYAPI_BIND_ADDRESS MYAPI_SESSION_COOKIE_SECURE MYAPI_PUBLIC_URL MYAPI_DATA_DIR MYAPI_LOGS_DIR MYAPI_CPU_LIMIT MYAPI_MEMORY_LIMIT MYAPI_BUILD_PARALLELISM
+export MYAPI_IMAGE MYAPI_EDITION MYAPI_BUILD_LOCAL MYAPI_PORT MYAPI_BIND_ADDRESS MYAPI_ALLOW_LAN MYAPI_SESSION_COOKIE_SECURE MYAPI_PUBLIC_URL MYAPI_DATA_DIR MYAPI_LOGS_DIR MYAPI_CPU_LIMIT MYAPI_MEMORY_LIMIT MYAPI_BUILD_PARALLELISM
+
+is_loopback_bind_address() {
+  [[ "$1" == "localhost" || "$1" == "127.0.0.1" ]]
+}
+
+is_private_ipv4() {
+  local address="$1" a b c d extra
+  IFS=. read -r a b c d extra <<< "$address"
+  [[ -z "${extra:-}" && "$a" =~ ^[0-9]+$ && "$b" =~ ^[0-9]+$ && "$c" =~ ^[0-9]+$ && "$d" =~ ^[0-9]+$ ]] || return 1
+  (( a >= 0 && a <= 255 && b >= 0 && b <= 255 && c >= 0 && c <= 255 && d >= 0 && d <= 255 )) || return 1
+  (( a == 10 || (a == 172 && b >= 16 && b <= 31) || (a == 192 && b == 168) ))
+}
+
+if [[ "$MYAPI_ALLOW_LAN" != "true" && "$MYAPI_ALLOW_LAN" != "false" ]]; then
+  echo "MYAPI_ALLOW_LAN must be true or false." >&2
+  exit 1
+fi
+if ! is_loopback_bind_address "${MYAPI_BIND_ADDRESS,,}" && [[ "$MYAPI_BIND_ADDRESS" != "0.0.0.0" ]] && ! is_private_ipv4 "$MYAPI_BIND_ADDRESS"; then
+  echo "MYAPI_BIND_ADDRESS must be localhost, 127.0.0.1, 0.0.0.0, or a private IPv4 address." >&2
+  exit 1
+fi
+if ! is_loopback_bind_address "${MYAPI_BIND_ADDRESS,,}" && [[ "$MYAPI_ALLOW_LAN" != "true" ]]; then
+  echo "LAN binding is disabled by default; set MYAPI_ALLOW_LAN=true to share on a private network." >&2
+  exit 1
+fi
 
 if [[ ! "$MYAPI_BUILD_PARALLELISM" =~ ^[1-9][0-9]*$ || "$MYAPI_BUILD_PARALLELISM" -gt 64 ]]; then
   echo "MYAPI_BUILD_PARALLELISM must be a positive integer no more than 64." >&2

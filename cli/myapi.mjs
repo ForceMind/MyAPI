@@ -601,6 +601,7 @@ function writeLANEnvironment(projectRoot, options) {
   contents = setEnvValue(contents, 'MYAPI_EDITION', 'lan')
   contents = setEnvValue(contents, 'MYAPI_IMAGE', lanImageForVersion())
   contents = setEnvValue(contents, 'MYAPI_BIND_ADDRESS', options.bindAddress)
+  contents = setEnvValue(contents, 'MYAPI_ALLOW_LAN', isLoopbackBindAddress(options.bindAddress) ? 'false' : 'true')
   contents = setEnvValue(contents, 'MYAPI_PORT', options.port)
   contents = setEnvValue(contents, 'MYAPI_SESSION_COOKIE_SECURE', 'false')
   const publicHost = isLoopbackBindAddress(options.bindAddress) ? 'localhost' : options.bindAddress
