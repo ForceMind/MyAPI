@@ -18,7 +18,7 @@
 | GHCR/升级 | `release:workflow:check`、`upgrade:check`、不可变 digest 合同 | 自动化已验证 | 脱敏副本升级、数据库恢复、人工审批 |
 | 新开发环境数据库默认值 | `48abce6`、`docker-compose.dev.yml`、`makefile` | 代码与模板已验证（新开发默认数据库为 `myapi`） | 接管既有数据库必须显式设置 `MYAPI_DEV_POSTGRES_DB`/`DEV_POSTGRES_DB` 并在副本验证；该变更不执行重命名或迁移 |
 | Claude 组织用量 | `docs/CLAUDE_USAGE_REPORT.md`，官方 Usage Report 边界 | 设计已验证 | Admin 凭据、权限、保留策略和实际接入 |
-| Google Antigravity | `relay/channel/gemini/antigravity_client.go`、`antigravity_client_test.go`、`docs/ANTIGRAVITY_INTEGRATION.md`、`docs/ANTIGRAVITY_PUBLIC_RELAY_GATE.md`；`1827358` | 专用 transport 代码与边界测试已交付，运行验证待完成（create/get/poll/cancel/delete、usage、动态 agent/continuation 约束、大小上限、终态和脱敏） | Go 测试需在可用本机工具链或恢复后的 CI runner 执行；随后仍需完成公共 Relay 闸门中的持久化、权限、计费、工具策略和完整测试评审；稳定官方余额接口不存在时保持 `unsupported` |
+| Google Antigravity | `relay/channel/gemini/antigravity_client.go`、`antigravity_client_test.go`、`docs/ANTIGRAVITY_INTEGRATION.md`、`docs/ANTIGRAVITY_PUBLIC_RELAY_GATE.md`；`1827358` | 专用 transport 代码、边界测试及有界 Docker Go 回归已交付（create/get/poll/cancel/delete、usage、动态 agent/continuation 约束、大小上限、终态和脱敏） | 仍需完成公共 Relay 闸门中的持久化、权限、计费、工具策略和完整测试评审；稳定官方余额接口不存在时保持 `unsupported` |
 | NPM 正式发布 | CLI/打包/版本合同检查 | 发布前检查已验证 | 版本确认、tag、清单、用户明确确认与 `npm publish` |
 
 ## 最近 CI 证据
@@ -52,8 +52,9 @@
   同一标签页复用上一会话的额度数据。该修复不绕过服务端权限检查。
 - `1827358`：Claude adaptor 增加 nil/base URL 防护和默认 JSON/Anthropic 版本头
   测试；Antigravity transport 固定 dynamic agent/continuation 字段边界、限制
-  interaction 响应大小、支持 `requires_action` 终态并保持错误正文脱敏。由于本机
-  缺少 Go 工具链且近期 runner 在启动前失败，这些 Go 测试仍待执行。
+  interaction 响应大小、支持 `requires_action` 终态并保持错误正文脱敏。Go 回归已在
+  有界 Docker 容器中执行：`GOWORK=off go test ./relay/channel/gemini ./relay/channel/claude`
+  通过（gemini 0.140s、claude 0.018s）。
 
 CI 运行号会随新提交变化；发布前应重新查询当前提交对应的运行结果，不应永久依赖
 上述历史编号。
@@ -63,8 +64,10 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - `npm run release:check` 在提交 `c8cd228` 上通过：CLI 19/19、品牌 2/2（115 条分类
   引用、0 blocking）、Website、LAN Lite 60/60、Desktop 28/28、Upgrade 18/18、
   Release workflow 11/11，以及 SOURCE_MANIFEST/package check 均通过。
-- 本轮完整合同复核未执行 Go 单元测试或前端 Vitest/typecheck；当前环境缺少 Go 与
-  Web 依赖，相关范围仍以恢复后的 CI runner 或具备依赖的本机环境补验为准。
+- 本轮有界复核：Go `gemini`/`claude` 测试通过；前端 `tsgo -b` 通过，Vitest
+  通过 59 个测试文件、265 个测试。测试容器限制为 `--cpus=1.5 --memory=3g
+  --memory-swap=4g`；图表零尺寸和 React 非布尔属性仅为既有测试环境警告，不影响
+  断言结果。真实手机/桌面设备仍按外部验收顺序执行。
 
 ## 版本与远端 tag 只读核对（2026-08-31）
 
