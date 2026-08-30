@@ -140,6 +140,7 @@ docker run --name my-api -d --restart always \
 | 🚀 デプロイガイド | [インストールドキュメント](./DEPLOYMENT_CUSTOM.md) |
 | ⚙️ 環境設定 | [環境変数](./DEPLOYMENT_CUSTOM.md) |
 | 📡 APIドキュメント | [APIドキュメント](./docs/openapi/relay.json) |
+| 📊 Claude 組織使用量 | [公式 API の境界](./docs/CLAUDE_USAGE_REPORT.md) |
 | ❓ よくある質問 | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
 | 💬 コミュニティ交流 | [交流チャネル](https://github.com/ForceMind/MyAPI/discussions) |
 

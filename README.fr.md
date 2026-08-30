@@ -141,6 +141,7 @@ docker run --name my-api -d --restart always \
 | 🚀 Guide de déploiement | [Documentation d'installation](./DEPLOYMENT_CUSTOM.md) |
 | ⚙️ Configuration de l'environnement | [Variables d'environnement](./DEPLOYMENT_CUSTOM.md) |
 | 📡 Documentation de l'API | [Documentation de l'API](./docs/openapi/relay.json) |
+| 📊 Utilisation de l'organisation Claude | [Limites de l'API officielle](./docs/CLAUDE_USAGE_REPORT.md) |
 | ❓ FAQ | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
 | 💬 Interaction avec la communauté | [Canaux de communication](https://github.com/ForceMind/MyAPI/discussions) |
 

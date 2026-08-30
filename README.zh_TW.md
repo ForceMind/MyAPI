@@ -138,6 +138,7 @@ docker run --name my-api -d --restart always \
 | 🚀 部署指南 | [安裝文件](./DEPLOYMENT_CUSTOM.md) |
 | ⚙️ 環境配置 | [環境變數](./DEPLOYMENT_CUSTOM.md) |
 | 📡 接口文件 | [API 文件](./docs/openapi/relay.json) |
+| 📊 Claude 組織用量 | [官方 API 邊界](./docs/CLAUDE_USAGE_REPORT.md) |
 | ❓ 常見問題 | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
 | 💬 社群交流 | [交流管道](https://github.com/ForceMind/MyAPI/discussions) |
 
