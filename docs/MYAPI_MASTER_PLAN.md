@@ -100,6 +100,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 - Google Antigravity 当前只建立了官方 Gemini Interactions API 的兼容边界，不应宣传为完整 Antigravity 账户或额度支持。
 - LAN Lite CLI、SQLite-first 项目初始化和局域网安全边界已存在。
 - Electron 桌面版默认回环监听、单实例和持久会话密钥已加固；`--allow-lan` 加私网绑定地址才可共享，并在托盘菜单显示生效端点。
+- `deploy/install.sh` 与 CLI 使用相同的回环/RFC1918 绑定边界；安装脚本拒绝格式错误或公网地址，非回环监听必须显式设置 `MYAPI_ALLOW_LAN=true`，并以非执行方式读取 `.env`。
 - GitHub Actions 已支持 SemVer tag 构建并推送 Full/LAN GHCR 镜像。
 - `myapi upgrade` CLI 已支持按发行版拉取 GHCR 镜像、可选 cosign 签名校验、环境文件备份、健康等待和失败回滚；生产启用仍需人工审批与数据备份演练。
 - SemVer tag 可触发 macOS/Windows Electron 构建产物并生成 SHA256 校验和；发布上传需显式开启。
@@ -118,7 +119,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 | 设置引导生命周期 | 初版已实现 | 完成后自动消失、按用户和版本保存；真实多设备视觉审查仍待完成 |
 | Claude 支持 | Messages 原生转发与 Responses→Messages 兼容转换已实现 | 只实现有明确官方协议的能力；账户订阅登录和普通渠道额度查询仍不支持，不读取本地凭据 |
 | Google Antigravity 完整能力 | 未完成 | 只有官方稳定接口存在时才实现；无接口时明确显示不支持 |
-| LAN Lite 桌面体验 | 安全状态体验与确定性发行合同检查已实现 | Electron 默认回环、单实例、持久会话密钥、显式 `--allow-lan` 私网绑定、只读 LAN 状态/防火墙提示、有效地址健康检查和托盘确认后重启切换已补齐；`npm run desktop:check` 与 CI 会验证 macOS/Windows 目标、资源、校验和与发布闸门；真实跨平台安装/局域网请求演练和系统防火墙自动配置仍待完成 |
+| LAN Lite 桌面体验 | 安全状态体验与确定性发行合同检查已实现 | Electron 默认回环、单实例、持久会话密钥、显式 `--allow-lan` 私网绑定、安装脚本 `MYAPI_ALLOW_LAN` 安全门、只读 LAN 状态/防火墙提示、有效地址健康检查和托盘确认后重启切换已补齐；`npm run desktop:check` 与 CI 会验证 macOS/Windows 目标、资源、校验和与发布闸门；真实跨平台安装/局域网请求演练和系统防火墙自动配置仍待完成 |
 | GHCR 自动升级 | CLI 预检与执行流程已实现 | 生产端显式拉取、可选签名验证、健康检查、环境备份和失败回滚已有；`upgrade --dry-run --json` 可在副本上无写入预检，`docs/UPGRADE_REHEARSAL.md` 已补充恢复演练清单，真实数据库恢复和人工审批仍待完成 |
 | NPM 正式发布 | 未完成 | 版本、Tag、清单、测试和用户确认齐备后发布 |
 
