@@ -93,9 +93,14 @@ function checkStaticContracts(checks) {
   record(checks, 'CI builds the LAN GHCR image', /ghcr\.io\/forcemind\/myapi-lan/.test(images))
 }
 
-function validateGeneratedProject(checks, project, output, { expectLoopback = true } = {}) {
+function validateGeneratedProject(
+  checks,
+  project,
+  output,
+  { expectLoopback = true, expectFresh = true } = {},
+) {
   const envPath = path.join(project, 'deploy', '.env')
-  record(checks, 'LAN init creates deploy/.env', existsSync(envPath))
+  record(checks, expectFresh ? 'LAN init creates deploy/.env' : 'LAN project contains deploy/.env', existsSync(envPath))
   if (!existsSync(envPath)) return
 
   const envContents = readFileSync(envPath, 'utf8')
@@ -119,8 +124,12 @@ function validateGeneratedProject(checks, project, output, { expectLoopback = tr
   record(checks, 'resource guardrails are bounded', values.MYAPI_CPU_LIMIT === '2.0' && values.MYAPI_MEMORY_LIMIT === '2g')
   record(checks, 'session secret is generated without exposing it', /^[a-f0-9]{64}$/i.test(values.SESSION_SECRET || '') && !output.includes(values.SESSION_SECRET || '__missing__'))
   record(checks, 'generated environment is private', process.platform === 'win32' || (statSync(envPath).mode & 0o777) === 0o600)
-  const runtimeData = path.join(project, 'deploy', 'data')
-  record(checks, 'runtime data is not copied into initializer', !existsSync(path.join(project, '.codex')) && (!existsSync(runtimeData) || readdirSync(runtimeData).length === 0))
+  if (expectFresh) {
+    const runtimeData = path.join(project, 'deploy', 'data')
+    record(checks, 'runtime data is not copied into initializer', !existsSync(path.join(project, '.codex')) && (!existsSync(runtimeData) || readdirSync(runtimeData).length === 0))
+  } else {
+    record(checks, 'LAN project contains no local credential directory', !existsSync(path.join(project, '.codex')))
+  }
 
   if (!skipDocker && commandAvailable('docker', ['compose', 'version', '--short'])) {
     const result = spawnSync('docker', ['compose', '--env-file', envPath, '-f', path.join(project, 'deploy', 'docker-compose.yml'), 'config', '--quiet'], {
@@ -157,7 +166,10 @@ function main() {
     } else {
       output = runCli('lan', 'init', project)
     }
-    validateGeneratedProject(checks, project, output, { expectLoopback: !requestedProject })
+    validateGeneratedProject(checks, project, output, {
+      expectLoopback: !requestedProject,
+      expectFresh: !requestedProject,
+    })
   } finally {
     if (temporaryProject && !keepTemporary) rmSync(temporaryProject, { recursive: true, force: true })
   }
