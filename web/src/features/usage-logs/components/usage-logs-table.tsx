@@ -27,6 +27,8 @@ import {
   DataTableRow,
   useDataTable,
 } from '@/components/data-table'
+import { ErrorState } from '@/components/error-state'
+import { Button } from '@/components/ui/button'
 import { useMediaQuery } from '@/hooks'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { cn } from '@/lib/utils'
@@ -116,7 +118,7 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
     ],
   })
 
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, error, isError, isLoading, isFetching, refetch } = useQuery({
     queryKey: [
       'logs',
       logCategory,
@@ -138,8 +140,9 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
       })
 
       if (!result?.success) {
-        toast.error(result?.message || t('Failed to load logs'))
-        return DEFAULT_LOGS_DATA
+        const message = result?.message || t('Failed to load logs')
+        toast.error(message)
+        throw new Error(message)
       }
 
       return result.data || DEFAULT_LOGS_DATA
@@ -155,6 +158,8 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   const logs = data?.items || []
   const columns = useColumnsByCategory(logCategory, isAdmin)
   const isLoadingData = isLoading || (isFetching && !data)
+  const errorMessage =
+    error instanceof Error ? error.message : t('Failed to load logs')
 
   const { table } = useDataTable({
     data: logs as Record<string, unknown>[],
@@ -187,21 +192,40 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
       // height inside the scrollable page, leaving only the filter toolbar
       // visible. Keep the bounded flex viewport for desktop only.
       fixedHeight={!isMobile}
-      emptyTitle={t('No Logs Found')}
-      emptyDescription={t(
-        'No usage logs available. Logs will appear here once API calls are made.'
-      )}
+      emptyTitle={isError ? t('Failed to load logs') : t('No Logs Found')}
+      emptyDescription={
+        isError
+          ? errorMessage
+          : t(
+              'No usage logs available. Logs will appear here once API calls are made.'
+            )
+      }
+      emptyAction={
+        isError ? (
+          <Button variant='outline' size='sm' onClick={() => void refetch()}>
+            {t('Retry')}
+          </Button>
+        ) : undefined
+      }
       skeletonKeyPrefix='usage-log-skeleton'
       applyHeaderSize
       tableClassName={cn(
         '[&_[data-slot=table]]:text-[13px] [&_[data-slot=table]_td]:text-[13px] [&_[data-slot=table]_td_*]:text-[13px] [&_[data-slot=table]_th]:text-[13px] [&_[data-slot=table]_th_*]:text-[13px]'
       )}
       mobile={
-        <UsageLogsMobileList
-          table={table}
-          isLoading={isLoadingData}
-          logCategory={logCategory}
-        />
+        isError ? (
+          <ErrorState
+            title={t('Failed to load logs')}
+            description={errorMessage}
+            onRetry={() => void refetch()}
+          />
+        ) : (
+          <UsageLogsMobileList
+            table={table}
+            isLoading={isLoadingData}
+            logCategory={logCategory}
+          />
+        )
       }
       toolbar={
         isCommon ? (
