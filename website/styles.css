@@ -6,3 +6,19 @@
 :where(a,button):focus-visible{outline:2px solid var(--mint);outline-offset:3px;border-radius:4px}
 @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}.button:hover,.provider-card:hover{transform:none}}
 @media(max-width:560px){.hero-visual{overflow:hidden}.orbit-one{width:320px;height:190px}.orbit-two{width:340px;height:250px}}
+
+/* Keep fixed-header anchors visible and make the preview theme readable on
+   every surface instead of leaving dark presentation colors behind. */
+section[id]{scroll-margin-top:104px}
+.light-preview{--surface-strong:#fff;--surface-soft:#f8f9fc;--line-strong:#cbd4e5;--ink-soft:#263451}
+.light-preview .site-header.scrolled{border-color:var(--line-strong);box-shadow:0 10px 30px #53627a1f}
+.light-preview .mobile-menu,.light-preview .console-card,.light-preview .code-window{background:var(--surface-strong);border-color:var(--line-strong);box-shadow:0 18px 45px #53627a1f}
+.light-preview .console-top,.light-preview .chart,.light-preview .log-preview,.light-preview .site-footer{border-color:var(--line-strong)}
+.light-preview .console-top,.light-preview .chart-label span:last-child,.light-preview .metric-row small,.light-preview .provider-line small,.light-preview .code-title,.light-preview .code-muted{color:#61708b}
+.light-preview .console-body,.light-preview .code-window pre{color:var(--ink-soft)}
+.light-preview .problem-grid article,.light-preview .capability-card,.light-preview .provider-card,.light-preview .full-edition{background:var(--surface-soft);border-color:var(--line-strong)}
+.light-preview .capability-primary{background:linear-gradient(140deg,#eef0ff,#f8f9fc 70%);border-color:#b9b4ed}
+.light-preview .security-section{background:#edf2f8;border-color:var(--line-strong)}
+.light-preview .docs-panel{background:linear-gradient(110deg,#eef0ff,#e8f5f2);border-color:#b9c7e3}
+.light-preview .button-dark{background:#dbe2ef;color:#16213a}
+.light-preview .provider-bar{background:#dce3ef}

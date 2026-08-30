@@ -82,5 +82,11 @@ if (css.trim().length < 200) {
 if (!/:focus-visible/.test(css)) {
   throw new Error('website/styles.css must define a visible keyboard focus state')
 }
+if (!/scroll-margin-top/.test(css)) {
+  throw new Error('website/styles.css must offset fixed-header anchor targets')
+}
+if (!/\.light-preview[^}]*--surface-strong/s.test(css) || !/\.light-preview \.problem-grid article/.test(css)) {
+  throw new Error('website/styles.css must cover light-theme surface variables and cards')
+}
 
 console.log('Website static check passed: structure, responsive metadata, assets, and interactions.')
