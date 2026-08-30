@@ -102,7 +102,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 - LAN Lite CLI、SQLite-first 项目初始化和局域网安全边界已存在。
 - Electron 桌面版默认回环监听、单实例和持久会话密钥已加固；`--allow-lan` 加私网绑定地址才可共享，并在托盘菜单显示生效端点。
 - `deploy/install.sh` 与 CLI 使用相同的回环/RFC1918 绑定边界；安装脚本拒绝格式错误或公网地址，非回环监听必须显式设置 `MYAPI_ALLOW_LAN=true`，并以非执行方式读取 `.env`。
-- GitHub Actions 已支持 SemVer tag 构建并推送 Full/LAN GHCR 镜像。
+- GitHub Actions 已支持 SemVer tag 构建并推送 Full/LAN GHCR 镜像；多架构 manifest 使用构建任务产出的、经过格式和仓库校验的架构 digest 组装，不再以可变架构 tag 作为 manifest 输入。
 - `myapi upgrade` CLI 已支持按发行版拉取 GHCR 镜像、可选 cosign 签名校验、可选拉取后 digest 固定、环境文件备份、健康等待和失败回滚；生产启用仍需人工审批与数据备份演练。
 - SemVer tag 可触发 macOS/Windows Electron 构建产物并生成 SHA256 校验和；发布上传需显式开启。
 - 静态官网已补齐移动菜单关闭、outside-click、Escape、焦点回归与 Tab 约束、主题偏好持久化等基础交互，并加入资源/结构自动校验与 390px/320px Chromium 移动 smoke workflow；GitHub Actions 已有成功的真实 Chromium smoke 运行（最近一次 workflow run `33328966303`），真实设备/移动视觉审查与独立发布 workflow 仍待完成。
@@ -336,7 +336,7 @@ CI 自动构建不等于自动重启生产服务。生产自动升级需要单�
 
 - 渠道额度快照表和迁移（初版已完成）。
 - 手动/自动采集接入（初版已完成，失败状态已记录；新增可选、有界系统任务采样，并与旧轮询互斥）。
-- 历史查询 API、基础 summary 和权限（初版已完成；已补聚合/时区参数）。
+- 历史查询 API、基础 summary 和权限（初版已完成；已补聚合/时区参数及 handler 参数拒绝测试）。
 - 渠道详情折线图、移动端降级视图和只读额度健康指标（代码初版已完成；真实设备审查与通知策略待完成）。
 - 采集失败、重置和不支持状态。
 - 额度告警配置（默认关闭；警告/严重阈值、重复通知冷却时间和恢复通知偏好均原子持久化、校验并只读展示；策略评估已实现但不发送外部通知，具体通道和凭据仍待业务决策）。
