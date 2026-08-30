@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/ForceMind/MyAPI/relay/channel"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
@@ -43,7 +44,14 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 }
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
-	requestURL := fmt.Sprintf("%s/v1/messages", info.ChannelBaseUrl)
+	if info == nil {
+		return "", errors.New("claude: relay info is required")
+	}
+	baseURL := strings.TrimRight(info.ChannelBaseUrl, "/")
+	if baseURL == "" {
+		return "", errors.New("claude: channel base URL is required")
+	}
+	requestURL := fmt.Sprintf("%s/v1/messages", baseURL)
 	if !shouldAppendClaudeBetaQuery(info) {
 		return requestURL, nil
 	}
@@ -73,15 +81,22 @@ func shouldAppendClaudeBetaQuery(info *relaycommon.RelayInfo) bool {
 
 func CommonClaudeHeadersOperation(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) {
 	// common headers operation
-	anthropicBeta := c.Request.Header.Get("anthropic-beta")
-	if anthropicBeta != "" {
-		req.Set("anthropic-beta", anthropicBeta)
+	if c != nil && c.Request != nil {
+		anthropicBeta := c.Request.Header.Get("anthropic-beta")
+		if anthropicBeta != "" {
+			req.Set("anthropic-beta", anthropicBeta)
+		}
 	}
-	model_setting.GetClaudeSettings().WriteHeaders(info.OriginModelName, req)
+	if info != nil {
+		model_setting.GetClaudeSettings().WriteHeaders(info.OriginModelName, req)
+	}
 }
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
 	channel.SetupApiRequestHeader(info, c, req)
+	if req.Get("Content-Type") == "" {
+		req.Set("Content-Type", "application/json")
+	}
 	req.Set("x-api-key", info.ApiKey)
 	anthropicVersion := c.Request.Header.Get("anthropic-version")
 	if anthropicVersion == "" {

@@ -72,6 +72,17 @@ model interaction's separate `generation_config`; they are not implied for the
 Antigravity agent.) Preview agent names and model availability can change, so
 they are configuration data rather than a new stable wire identifier.
 
+The two current Google references expose a schema-version detail that must stay
+visible during future runtime verification: the Antigravity guide shows
+`agent_config.type: "antigravity"` in its provider-specific examples, while the
+current Interactions OpenAPI definition models dynamic agents with a required
+`type: "dynamic"` marker. MyAPI follows the latter typed API definition for
+this transport boundary and does not silently switch between the two values.
+The provider-specific example must be confirmed against a live, authorized
+preview request before either value is changed. Likewise, continuation uses
+the documented `environment` field with the prior `environment_id`; the
+transport never emits an invented `environment_id` request property.
+
 The official documentation currently describes this as a preview agent and
 documents the Interactions API request shape, but it does not define a
 provider-neutral account-balance endpoint for MyAPI to poll. Until Google

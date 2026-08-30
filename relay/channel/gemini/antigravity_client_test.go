@@ -33,9 +33,16 @@ func TestAntigravityClientLifecycleAndUsage(t *testing.T) {
 			if err := common.Unmarshal(body, &request); err != nil {
 				t.Fatalf("decode create body: %v", err)
 			}
+			var fields map[string]any
+			if err := common.Unmarshal(body, &fields); err != nil {
+				t.Fatalf("decode create fields: %v", err)
+			}
+			if _, exists := fields["environment_id"]; exists {
+				t.Errorf("request emitted response-only environment_id field: %s", body)
+			}
 			if request.Agent != AntigravityAgentPreview || request.Input != "run a bounded task" ||
-				!request.Background || request.Environment != AntigravityEnvironmentRemote ||
-				request.EnvironmentID != "env_remote_1" || request.PreviousInteractionID != "interaction-prev" {
+				!request.Background || request.Environment != "env_remote_1" ||
+				request.PreviousInteractionID != "interaction-prev" {
 				t.Errorf("unexpected create request: %+v", request)
 			}
 			if request.AgentConfig == nil || request.AgentConfig.Type != "dynamic" ||
@@ -65,8 +72,7 @@ func TestAntigravityClientLifecycleAndUsage(t *testing.T) {
 	created, err := client.Create(context.Background(), AntigravityLifecycleRequest{
 		Agent:                 AntigravityAgentPreview,
 		Input:                 "run a bounded task",
-		Environment:           AntigravityEnvironmentRemote,
-		EnvironmentID:         "env_remote_1",
+		Environment:           "env_remote_1",
 		Background:            true,
 		PreviousInteractionID: "interaction-prev",
 		AgentConfig: &AntigravityLifecycleAgentConfig{
@@ -122,6 +128,14 @@ func TestAntigravityClientRejectsUnsafeConfigurationAndIDs(t *testing.T) {
 			t.Errorf("Get(%q) unexpectedly succeeded", id)
 		}
 	}
+	if err := (AntigravityLifecycleRequest{
+		Agent:                 AntigravityAgentPreview,
+		Input:                 "hello",
+		Environment:           AntigravityEnvironmentRemote,
+		PreviousInteractionID: "interaction-previous",
+	}).Validate(); err == nil {
+		t.Fatal("expected continuation without an environment id to be rejected")
+	}
 	if err := (AntigravityLifecycleRequest{Agent: AntigravityAgentPreview, Input: "hello", AgentConfig: &AntigravityLifecycleAgentConfig{Type: "static"}}).Validate(); err == nil {
 		t.Fatal("expected unsupported agent config type to be rejected")
 	}
@@ -160,5 +174,42 @@ func TestAntigravityClientPollHonorsContext(t *testing.T) {
 	cancel()
 	if _, err := client.Poll(ctx, "interaction-1", time.Second, 2); err == nil {
 		t.Fatal("expected cancelled context to stop polling")
+	}
+}
+
+func TestAntigravityClientPollStopsAtRequiresAction(t *testing.T) {
+	requests := 0
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		_, _ = w.Write([]byte(`{"id":"interaction-1","status":"requires_action"}`))
+	}))
+	defer server.Close()
+	client, err := NewAntigravityClient(AntigravityClientConfig{BaseURL: server.URL, APIKey: "secret", HTTPClient: server.Client()})
+	if err != nil {
+		t.Fatalf("NewAntigravityClient() error = %v", err)
+	}
+	interaction, err := client.Poll(nil, "interaction-1", time.Hour, 10)
+	if err != nil {
+		t.Fatalf("Poll() error = %v", err)
+	}
+	if interaction.Status != "requires_action" || requests != 1 {
+		t.Fatalf("Poll() returned %+v after %d requests, want one requires_action response", interaction, requests)
+	}
+}
+
+func TestAntigravityClientRejectsOversizedResponse(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"id":"interaction-1","status":"completed","output_text":"`)
+		_, _ = io.WriteString(w, strings.Repeat("x", AntigravityMaxResponseBytes))
+		_, _ = io.WriteString(w, `"}`)
+	}))
+	defer server.Close()
+	client, err := NewAntigravityClient(AntigravityClientConfig{BaseURL: server.URL, APIKey: "secret", HTTPClient: server.Client()})
+	if err != nil {
+		t.Fatalf("NewAntigravityClient() error = %v", err)
+	}
+	if _, err := client.Get(context.Background(), "interaction-1"); err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("Get() error = %v, want oversized response error", err)
 	}
 }

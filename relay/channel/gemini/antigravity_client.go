@@ -40,25 +40,22 @@ type AntigravityClientConfig struct {
 type AntigravityLifecycleAgentConfig struct {
 	Type                 string `json:"type,omitempty"`
 	MaxTotalTokens       int    `json:"max_total_tokens,omitempty"`
-	PreviousInteractionID string `json:"previous_interaction_id,omitempty"`
 }
 
 // AntigravityLifecycleRequest is the first-phase create payload. It is kept
 // separate from the normal Gemini request DTO so this endpoint cannot silently
 // inherit GenerateContent fields or route through the regular Gemini path.
 //
-// EnvironmentID is retained as an optional forward-compatible field for
-// providers exposing a named environment. The current Google preview uses the
-// "remote" environment; local files, credentials, and process state are never
-// mounted by this client.
+// Environment accepts the documented "remote" value or a provider environment
+// ID when continuing a prior interaction. Local files, credentials, and
+// process state are never mounted by this client.
 type AntigravityLifecycleRequest struct {
-	Agent                 string                              `json:"agent"`
-	Input                 string                              `json:"input"`
-	Environment           string                              `json:"environment,omitempty"`
-	EnvironmentID         string                              `json:"environment_id,omitempty"`
-	Background            bool                                `json:"background,omitempty"`
-	PreviousInteractionID string                              `json:"previous_interaction_id,omitempty"`
-	AgentConfig           *AntigravityLifecycleAgentConfig    `json:"agent_config,omitempty"`
+	Agent                 string                           `json:"agent"`
+	Input                 string                           `json:"input"`
+	Environment           string                           `json:"environment,omitempty"`
+	Background            bool                             `json:"background,omitempty"`
+	PreviousInteractionID string                           `json:"previous_interaction_id,omitempty"`
+	AgentConfig           *AntigravityLifecycleAgentConfig `json:"agent_config,omitempty"`
 }
 
 // AntigravityModalityTokens and AntigravityGroundingToolCount model the
@@ -163,29 +160,25 @@ func (r AntigravityLifecycleRequest) Validate() error {
 	if len([]byte(input)) > AntigravityMaxInputBytes {
 		return fmt.Errorf("antigravity: input exceeds %d bytes", AntigravityMaxInputBytes)
 	}
-	if environment := strings.TrimSpace(r.Environment); environment != "" && environment != AntigravityEnvironmentRemote {
-		return errors.New("antigravity: only the remote environment is supported")
-	}
-	if err := validateInteractionID(r.EnvironmentID, "environment_id"); err != nil {
-		return err
+	environment := strings.TrimSpace(r.Environment)
+	if environment != "" && environment != AntigravityEnvironmentRemote {
+		if err := validateInteractionID(environment, "environment"); err != nil {
+			return err
+		}
 	}
 	if err := validateInteractionID(r.PreviousInteractionID, "previous_interaction_id"); err != nil {
 		return err
+	}
+	if r.PreviousInteractionID != "" && (environment == "" || environment == AntigravityEnvironmentRemote) {
+		return errors.New("antigravity: a continuation requires environment to contain the prior environment id")
 	}
 	if r.AgentConfig != nil {
 		if r.AgentConfig.Type != "" && r.AgentConfig.Type != "dynamic" {
 			return errors.New("antigravity: agent_config.type must be dynamic")
 		}
-		if r.AgentConfig.MaxTotalTokens < 0 || r.AgentConfig.MaxTotalTokens > AntigravityMaxTotalTokens {
-			return fmt.Errorf("antigravity: max_total_tokens must be between 0 and %d", AntigravityMaxTotalTokens)
-		}
-		if err := validateInteractionID(r.AgentConfig.PreviousInteractionID, "agent_config.previous_interaction_id"); err != nil {
-			return err
-		}
-		if r.PreviousInteractionID != "" && r.AgentConfig.PreviousInteractionID != "" &&
-			r.PreviousInteractionID != r.AgentConfig.PreviousInteractionID {
-			return errors.New("antigravity: previous_interaction_id is specified more than once with different values")
-		}
+	}
+	if r.AgentConfig != nil && (r.AgentConfig.MaxTotalTokens < 0 || r.AgentConfig.MaxTotalTokens > AntigravityMaxTotalTokens) {
+		return fmt.Errorf("antigravity: max_total_tokens must be between 0 and %d", AntigravityMaxTotalTokens)
 	}
 	return nil
 }
@@ -218,6 +211,9 @@ func (c *AntigravityClient) Get(ctx context.Context, interactionID string) (*Ant
 // Poll waits for a terminal state with bounded attempts. It is intentionally
 // opt-in so a background request never consumes a worker indefinitely.
 func (c *AntigravityClient) Poll(ctx context.Context, interactionID string, interval time.Duration, attempts int) (*AntigravityInteraction, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if attempts <= 0 {
 		return nil, errors.New("antigravity: poll attempts must be positive")
 	}
@@ -299,13 +295,16 @@ func (c *AntigravityClient) doJSON(ctx context.Context, method, path string, pay
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return nil, newAntigravityHTTPError(resp)
 	}
-	limited := io.LimitReader(resp.Body, AntigravityMaxResponseBytes)
+	limited := io.LimitReader(resp.Body, AntigravityMaxResponseBytes+1)
 	data, err := io.ReadAll(limited)
 	if err != nil {
 		return nil, errors.New("antigravity: read upstream response")
 	}
 	if len(data) == 0 && allowEmpty {
 		return nil, nil
+	}
+	if len(data) > AntigravityMaxResponseBytes {
+		return nil, fmt.Errorf("antigravity: upstream response exceeds %d bytes", AntigravityMaxResponseBytes)
 	}
 	if len(data) == 0 {
 		return nil, errors.New("antigravity: upstream returned an empty response")
@@ -351,7 +350,7 @@ func validateInteractionID(value, field string) error {
 
 func isAntigravityTerminalStatus(status string) bool {
 	switch strings.ToLower(strings.TrimSpace(status)) {
-	case "completed", "failed", "cancelled", "incomplete":
+	case "completed", "failed", "cancelled", "incomplete", "requires_action":
 		return true
 	default:
 		return false
