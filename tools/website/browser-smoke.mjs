@@ -12,7 +12,9 @@ import { existsSync, mkdirSync } from 'node:fs'
 import { extname, join, normalize, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const root = normalize(join(fileURLToPath(new URL('../../website/', import.meta.url))))
+// Keep the root without a trailing separator so the boundary check below
+// distinguishes `/website` from sibling paths such as `/website-evil`.
+const root = normalize(join(fileURLToPath(new URL('../../website/', import.meta.url)))).replace(/[\\/]+$/, '')
 const contentTypes = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',

@@ -46,6 +46,9 @@ const browserSmokeSource = readFileSync(browserSmoke, 'utf8')
 if (!/resolve\(root,/.test(browserSmokeSource) || !/startsWith\(`\$\{root\}\$\{sep\}`\)/.test(browserSmokeSource)) {
   throw new Error('website browser smoke path guard must enforce a directory boundary')
 }
+if (!browserSmokeSource.includes(".replace(/[\\\\/]+$/, '')")) {
+  throw new Error('website browser smoke root must not retain a trailing separator')
+}
 if (!/decodeURIComponent[\s\S]*catch/.test(browserSmokeSource)) {
   throw new Error('website browser smoke must reject malformed URL encoding')
 }
