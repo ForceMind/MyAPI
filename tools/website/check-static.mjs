@@ -4,6 +4,7 @@
  *
  * Licensed under the GNU Affero General Public License version 3 or later.
  */
+import { createHash } from 'node:crypto'
 import { readFileSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -21,6 +22,10 @@ function requireFile(name) {
   }
 }
 
+function sha256(path) {
+  return createHash('sha256').update(readFileSync(path)).digest('hex')
+}
+
 const html = read('index.html')
 const css = read('styles.css')
 const script = read('script.js')
@@ -28,6 +33,14 @@ const publicWebsite = `${html}\n${css}\n${script}`
 
 for (const name of ['index.html', 'styles.css', 'script.js', 'myapi-logo-v1.png']) {
   requireFile(name)
+}
+
+const maintainedLogo = resolve(root, 'web', 'public', 'myapi-logo-v1.png')
+if (!statSync(maintainedLogo, { throwIfNoEntry: false })?.isFile()) {
+  throw new Error('web/public/myapi-logo-v1.png is missing')
+}
+if (sha256(resolve(website, 'myapi-logo-v1.png')) !== sha256(maintainedLogo)) {
+  throw new Error('website/myapi-logo-v1.png must match web/public/myapi-logo-v1.png')
 }
 
 if (!/<html[^>]+lang=["'](?:zh-CN|en)["']/i.test(html)) {
