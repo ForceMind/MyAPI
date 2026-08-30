@@ -10,9 +10,11 @@ by the Free Software Foundation, either version 3 of the License, or
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   statSync,
@@ -34,6 +36,14 @@ function runCli(...args) {
   return execFileSync(process.execPath, [cli, ...args], {
     cwd: repositoryRoot,
     encoding: 'utf8',
+  })
+}
+
+function runCliWithEnv(env, ...args) {
+  return execFileSync(process.execPath, [cli, ...args], {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
   })
 }
 
@@ -228,6 +238,68 @@ test('upgrade dry-run fails closed on invalid runtime configuration', () => {
   )
   assert.equal(existsSync(path.join(project, 'backups')), false)
   assert.equal(readFileSync(envPath, 'utf8'), before.replace(/^MYAPI_CPU_LIMIT=.*$/m, 'MYAPI_CPU_LIMIT=0'))
+})
+
+test('upgrade restores the environment and reruns the old deployment after a pull failure', () => {
+  const root = temporaryRoot()
+  const project = path.join(root, 'source')
+  const fakeBin = path.join(root, 'bin')
+  const dockerLog = path.join(root, 'docker.log')
+  const dockerState = path.join(root, 'docker.failed-once')
+  mkdirSync(fakeBin)
+  const fakeDocker = path.join(fakeBin, 'docker')
+  writeFileSync(
+    fakeDocker,
+    '#!/bin/sh\n' +
+      'set -eu\n' +
+      'printf "%s\\n" "$*" >> "$MYAPI_FAKE_DOCKER_LOG"\n' +
+      'case " $* " in\n' +
+      '  *" pull my-api "*)\n' +
+      '    if [ ! -e "$MYAPI_FAKE_DOCKER_STATE" ]; then\n' +
+      '      : > "$MYAPI_FAKE_DOCKER_STATE"\n' +
+      '      exit 42\n' +
+      '    fi\n' +
+      '    ;;\n' +
+      'esac\n',
+    { mode: 0o700 },
+  )
+  chmodSync(fakeDocker, 0o700)
+
+  runCli('init', project)
+  runCli('configure', '--project-dir', project, '--public-url', 'https://myapi.example.test')
+  const envPath = path.join(project, 'deploy/.env')
+  const before = readFileSync(envPath, 'utf8')
+
+  assert.throws(
+    () =>
+      runCliWithEnv(
+        {
+          PATH: `${fakeBin}:${process.env.PATH || ''}`,
+          MYAPI_FAKE_DOCKER_LOG: dockerLog,
+          MYAPI_FAKE_DOCKER_STATE: dockerState,
+        },
+        'upgrade',
+        '--project-dir',
+        project,
+        '--version',
+        'v0.2.0',
+      ),
+    (error) =>
+      Boolean(
+        error &&
+          typeof error === 'object' &&
+          'stderr' in error &&
+          /previous image restored and health-checked/.test(String(error.stderr)),
+      ),
+  )
+  assert.equal(readFileSync(envPath, 'utf8'), before)
+  const backups = readdirSync(path.join(project, 'backups'))
+  assert.equal(backups.length, 1)
+  assert.equal(statSync(path.join(project, 'backups', backups[0])).mode & 0o777, 0o600)
+  const dockerCalls = readFileSync(dockerLog, 'utf8').trim().split(/\r?\n/)
+  assert.equal(dockerCalls.length, 2)
+  assert.match(dockerCalls[0], /pull my-api/)
+  assert.match(dockerCalls[1], /up -d --force-recreate --wait --wait-timeout 120/)
 })
 
 test('up rejects unsafe Docker resource limits before invoking Compose', () => {

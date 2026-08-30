@@ -8,7 +8,6 @@
  * generated deployment contract, and optionally checks Docker Compose's
  * configuration parser. It never starts, stops, pulls, or rebuilds a service.
  */
-import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
 import {
   existsSync,

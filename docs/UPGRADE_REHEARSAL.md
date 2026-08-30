@@ -23,6 +23,21 @@
 `--dry-run` 是升级前的安全门，不等同于数据库恢复测试。恢复测试必须使用复制出的 SQLite 文件或经批准的
 PostgreSQL 逻辑备份；原始生产路径和卷永远不能作为 CLI 自动操作目标。
 
+## 本机失败回滚测试
+
+CLI 的环境文件和旧部署回滚路径可以在没有 Docker daemon、GHCR 或生产数据的本机上验证。测试会在临时目录
+创建一个一次性失败的 `docker` 替身：第一次 `compose pull my-api` 返回失败，随后 CLI 恢复原来的
+`deploy/.env` 并重新执行旧部署的 `compose up`。它不会读取当前项目的 `.env`、Docker volume 或凭据。
+
+在源码仓库执行：
+
+```bash
+node --test --test-name-pattern="upgrade restores the environment" cli/test/myapi.test.mjs
+```
+
+这个测试只证明 CLI 的失败处理和文件权限（环境备份为 `0600`）；它不能替代副本上的真实镜像健康检查或数据库
+恢复演练。真实副本升级仍应先执行上面的 `--dry-run`，再按组织批准的备份流程验证数据恢复。
+
 ## 生产前检查
 
 - 备份文件不在 Git 工作树、Docker 镜像层或公开制品中，并设置最小权限。
