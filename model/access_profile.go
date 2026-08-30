@@ -149,6 +149,27 @@ func ResolveAccessProfile(groupName, configuredDescription string) AccessProfile
 	return profile
 }
 
+// ResolveAccessProfileID resolves an explicitly persisted profile identity.
+// Stable built-in IDs are mapped through their legacy groups so configured
+// labels and policy metadata remain consistent; unknown IDs remain readable as
+// custom profiles during the compatibility period.
+func ResolveAccessProfileID(profileID, fallbackGroup, configuredDescription string) AccessProfileMetadata {
+	id := strings.TrimSpace(profileID)
+	if id == "" {
+		return ResolveAccessProfile(fallbackGroup, configuredDescription)
+	}
+	switch id {
+	case "standard":
+		return ResolveAccessProfile("default", configuredDescription)
+	case "priority":
+		return ResolveAccessProfile("vip", configuredDescription)
+	case "automatic":
+		return ResolveAccessProfile("auto", configuredDescription)
+	default:
+		return ResolveAccessProfile(id, configuredDescription)
+	}
+}
+
 func ResolveAccountTier(groupName, configuredDescription string) AccountTierMetadata {
 	tier := AccountTierMetadata{
 		ID:          groupName,

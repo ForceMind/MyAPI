@@ -55,6 +55,16 @@ func TestResolveAccountTierIsSeparateFromAccessProfile(t *testing.T) {
 	}
 }
 
+func TestResolveAccessProfileIDUsesExplicitStableIdentity(t *testing.T) {
+	profile := ResolveAccessProfileID("standard", "vip", "")
+	require.Equal(t, "standard", profile.ID)
+	require.Equal(t, "Standard access", profile.Label)
+
+	custom := ResolveAccessProfileID("team-enterprise", "vip", "Configured custom profile")
+	require.Equal(t, "team-enterprise", custom.ID)
+	require.Equal(t, "Configured custom profile", custom.Description)
+}
+
 func TestMigrateAccessProfileIdentifiersBackfillsLegacyRows(t *testing.T) {
 	require.NotNil(t, DB)
 	require.NoError(t, DB.AutoMigrate(&User{}, &Token{}))

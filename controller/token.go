@@ -61,7 +61,7 @@ func buildMaskedTokenResponse(token *model.Token) *tokenResponse {
 	return &tokenResponse{
 		Token:         &maskedToken,
 		AutoGroups:    autoGroups,
-		AccessProfile: getAccessProfileMetadata(token.Group, ""),
+		AccessProfile: model.ResolveAccessProfileID(token.AccessProfileID, token.Group, ""),
 	}
 }
 
