@@ -20,6 +20,12 @@ const branchDockerWorkflowPath = path.join(root, '.github/workflows/docker-image
 const branchDockerWorkflow = existsSync(branchDockerWorkflowPath)
   ? readFileSync(branchDockerWorkflowPath, 'utf8')
   : ''
+const dockerfilePath = path.join(root, 'Dockerfile')
+const dockerfile = existsSync(dockerfilePath) ? readFileSync(dockerfilePath, 'utf8') : ''
+const electronWorkflowPath = path.join(root, '.github/workflows/electron-build.yml')
+const electronWorkflow = existsSync(electronWorkflowPath)
+  ? readFileSync(electronWorkflowPath, 'utf8')
+  : ''
 const checks = []
 
 function record(name, ok, detail = '') {
@@ -70,6 +76,22 @@ record(
     'IMAGE_REPOSITORY}@${amd64}',
     'IMAGE_REPOSITORY}@${arm64}',
   ].every((fragment) => branchDockerWorkflow.includes(fragment)),
+)
+record(
+  'frontend build identity is injected from an immutable commit',
+  [
+    'ARG MYAPI_BUILD_ID=local',
+    'VITE_BUILD_ID="${MYAPI_BUILD_ID}"',
+    'MYAPI_BUILD_ID=${{ github.sha }}',
+    'VITE_BUILD_ID=${{ needs.prepare.outputs.sha }}',
+    'VITE_BUILD_ID=${{ github.sha }}',
+  ].every(
+    (fragment) =>
+      dockerfile.includes(fragment) ||
+      dockerWorkflow.includes(fragment) ||
+      workflow.includes(fragment) ||
+      electronWorkflow.includes(fragment),
+  ),
 )
 
 const failed = checks.filter((check) => !check.ok)
