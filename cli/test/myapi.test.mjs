@@ -168,6 +168,48 @@ test('upgrade validates the release version before touching deployment state', (
   assert.equal(existsSync(path.join(project, 'backups')), false)
 })
 
+test('upgrade dry-run validates a copy without writing files or invoking Docker', () => {
+  const root = temporaryRoot()
+  const project = path.join(root, 'source')
+  runCli('init', project)
+  runCli('configure', '--project-dir', project, '--public-url', 'https://myapi.example.test')
+
+  const envPath = path.join(project, 'deploy/.env')
+  const before = readFileSync(envPath, 'utf8')
+  const result = JSON.parse(
+    runCli(
+      'upgrade',
+      '--project-dir',
+      project,
+      '--version',
+      'v0.2.0',
+      '--dry-run',
+      '--json'
+    )
+  )
+
+  assert.equal(result.mode, 'dry-run')
+  assert.equal(result.edition, 'full')
+  assert.equal(result.targetImage, 'ghcr.io/forcemind/myapi:v0.2.0')
+  assert.equal(result.imageSource, 'ghcr-pull')
+  assert.deepEqual(result.writes, [])
+  assert.deepEqual(result.dockerOperations, [])
+  assert.equal(readFileSync(envPath, 'utf8'), before)
+  assert.equal(existsSync(path.join(project, 'backups')), false)
+})
+
+test('upgrade dry-run rejects JSON output without dry-run mode', () => {
+  const root = temporaryRoot()
+  const project = path.join(root, 'source')
+  runCli('init', project)
+  runCli('configure', '--project-dir', project, '--public-url', 'https://myapi.example.test')
+
+  assert.throws(
+    () => runCli('upgrade', '--project-dir', project, '--version', 'v0.2.0', '--json'),
+    /only supported with --dry-run/
+  )
+})
+
 test('up rejects unsafe Docker resource limits before invoking Compose', () => {
   const root = temporaryRoot()
   const project = path.join(root, 'source')

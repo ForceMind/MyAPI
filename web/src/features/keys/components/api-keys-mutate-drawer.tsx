@@ -159,6 +159,7 @@ export function ApiKeysMutateDrawer({
   })
 
   const models = modelsData?.data || []
+  const accountTier = groupsData?.account_tier
   const groups = useMemo<ApiKeyGroupOption[]>(
     () =>
       Object.entries(groupsData?.data || {}).map(([key, info]) => ({
@@ -430,6 +431,18 @@ export function ApiKeysMutateDrawer({
                         'This is the API key access profile, not your account level. It controls routing, eligible channels, and billing rules for this key.'
                       )}
                     </FormDescription>
+                    {accountTier && (
+                      <div className='bg-muted/45 text-muted-foreground mt-2 rounded-lg border px-3 py-2 text-xs'>
+                        <span className='text-foreground font-medium'>
+                          {t('Your account tier')}: {accountTier.label}
+                        </span>
+                        {accountTier.description && (
+                          <span className='mt-0.5 block'>
+                            {accountTier.description}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     <FormControl>
                       <ApiKeyGroupCombobox
                         options={groups}

@@ -2309,6 +2309,7 @@
     "Priority account tier with the channel eligibility and billing rules configured for vip.": "Priority account tier with the channel eligibility and billing rules configured for vip.",
     "Custom account tier; its channel eligibility and billing rules come from administrator settings.": "Custom account tier; its channel eligibility and billing rules come from administrator settings.",
     "This is separate from the access profile selected for each API key.": "This is separate from the access profile selected for each API key.",
+    "Your account tier": "Your account tier",
     "Group added. Click \"Save Settings\" to apply.": "Group added. Click \"Save Settings\" to apply.",
     "Group channels by tag for batch operations": "Group channels by tag for batch operations",
     "Group config overrides global limits, shares the same period": "Group config overrides global limits, shares the same period",

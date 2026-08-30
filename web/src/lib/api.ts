@@ -57,6 +57,12 @@ export async function getUserModels(): Promise<{
 export async function getUserGroups(): Promise<{
   success: boolean
   message?: string
+  account_tier?: {
+    id: string
+    kind?: string
+    label?: string
+    description?: string
+  }
   data?: Record<
     string,
     {

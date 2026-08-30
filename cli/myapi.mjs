@@ -882,7 +882,7 @@ function verifyImageSignature(image, values) {
   }
 }
 
-function upgradeDeployment(args) {
+function buildUpgradePlan(args) {
   const paths = deploymentPaths(projectRootFromArgs(args))
   assertDeploymentSource(paths)
   if (!existsSync(paths.envFile)) {
@@ -892,8 +892,70 @@ function upgradeDeployment(args) {
   const originalContents = readFileSync(paths.envFile, 'utf8')
   const values = parseEnvFileContents(originalContents)
   const edition = values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION
+  if (!['full', 'lan'].includes(edition)) {
+    throw new Error('upgrade preflight failed: MYAPI_EDITION must be full or lan')
+  }
   const image = `${imageRepositoryForEdition(edition)}:${version}`
-  if (shouldVerifyImageSignature(args, values)) verifyImageSignature(image, values)
+  const targetValues = { ...values, MYAPI_IMAGE: image }
+  normalizeLANRuntimeValues(targetValues)
+  const errors = validateRuntimeConfiguration(targetValues)
+  if (errors.length > 0) {
+    throw new Error(`upgrade preflight failed: ${errors.join('; ')}`)
+  }
+  return {
+    paths,
+    version,
+    originalContents,
+    values,
+    targetValues,
+    edition,
+    image,
+    currentImage: deploymentImage(values),
+    verifySignature: shouldVerifyImageSignature(args, values),
+    buildsLocally: shouldBuildLocalImage(values),
+  }
+}
+
+function printUpgradeDryRun(plan, args) {
+  const result = {
+    mode: 'dry-run',
+    projectDir: plan.paths.projectRoot,
+    edition: plan.edition,
+    currentImage: plan.currentImage,
+    targetImage: plan.image,
+    version: plan.version,
+    imageSource: plan.buildsLocally ? 'local-build' : 'ghcr-pull',
+    signatureVerification: plan.verifySignature ? 'requested-not-executed' : 'not-requested',
+    checks: ['deployment-files', 'environment', 'runtime-configuration'],
+    writes: [],
+    dockerOperations: [],
+  }
+  if (args.includes('--json')) {
+    console.log(JSON.stringify(result, null, 2))
+    return
+  }
+  console.log('MyAPI upgrade dry-run: no files, containers, images, or data were changed.')
+  console.log(`Project: ${result.projectDir}`)
+  console.log(`Edition: ${result.edition}`)
+  console.log(`Current image: ${result.currentImage}`)
+  console.log(`Target image: ${result.targetImage}`)
+  console.log(`Image action: ${result.imageSource === 'ghcr-pull' ? 'pull from GHCR' : 'build local image'}`)
+  console.log(
+    `Signature verification: ${result.signatureVerification === 'requested-not-executed' ? 'requested (not executed in dry-run)' : 'not requested'}`
+  )
+  console.log('Preflight: deployment files, environment, and runtime configuration passed.')
+  console.log('Next step: run the same command without --dry-run only on an approved copy.')
+}
+
+function upgradeDeployment(args) {
+  const plan = buildUpgradePlan(args)
+  const {
+    paths,
+    originalContents,
+    values,
+    image,
+  } = plan
+  if (plan.verifySignature) verifyImageSignature(image, values)
   const backupDir = path.join(paths.projectRoot, 'backups')
   const backupPath = path.join(
     backupDir,
@@ -907,11 +969,7 @@ function upgradeDeployment(args) {
     const updatedContents = setEnvValue(originalContents, 'MYAPI_IMAGE', image)
     writeFileSync(paths.envFile, updatedContents, { mode: 0o600 })
     chmodSync(paths.envFile, 0o600)
-    const updatedValues = parseEnvFile(paths.envFile)
-    const errors = validateRuntimeConfiguration(updatedValues)
-    if (errors.length > 0) {
-      throw new Error(`upgrade preflight failed: ${errors.join('; ')}`)
-    }
+    const updatedValues = plan.targetValues
     run('docker', composeArguments(paths, ['pull', 'my-api']), {
       cwd: paths.projectRoot,
       env: composeEnvironment(updatedValues),
@@ -966,7 +1024,7 @@ Usage:
   myapi configure [--project-dir DIR] [--public-url URL] [--data-dir DIR] [--logs-dir DIR]
   myapi migrate [--project-dir DIR]
   myapi doctor [--project-dir DIR]
-  myapi upgrade --version VERSION [--project-dir DIR] [--verify-signature]
+  myapi upgrade --version VERSION [--project-dir DIR] [--verify-signature] [--dry-run] [--json]
   myapi adopt --project-dir DIR --data-dir DIR --logs-dir DIR
   myapi lan init [directory] [--bind-address ADDRESS] [--port PORT] [--allow-lan]
   myapi lan start|status|stop --project-dir DIR [--bind-address ADDRESS] [--port PORT] [--allow-lan]
@@ -1008,9 +1066,13 @@ try {
   } else if (command === 'upgrade') {
     validateArguments(args, {
       values: ['--project-dir', '--version'],
-      flags: ['--verify-signature'],
+      flags: ['--verify-signature', '--dry-run', '--json'],
     })
-    upgradeDeployment(args)
+    if (args.includes('--json') && !args.includes('--dry-run')) {
+      throw new Error('--json is only supported with --dry-run')
+    }
+    if (args.includes('--dry-run')) printUpgradeDryRun(buildUpgradePlan(args), args)
+    else upgradeDeployment(args)
   } else if (command === 'adopt') {
     validateArguments(args, {
       values: ['--project-dir', '--data-dir', '--logs-dir'],

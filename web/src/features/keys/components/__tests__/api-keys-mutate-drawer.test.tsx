@@ -63,6 +63,12 @@ function installApiFixtures(createdPayloads: Array<Record<string, unknown>>) {
               default: { desc: 'Standard access', ratio: 1 },
               vip: { desc: 'Priority access', ratio: 2 },
             },
+            account_tier: {
+              id: 'priority',
+              kind: 'priority',
+              label: 'Priority account',
+              description: 'Account-level eligibility and billing rules.',
+            },
           },
         }
       case '/api/token/auto-groups':
@@ -107,6 +113,12 @@ async function renderCreateDrawer(): Promise<void> {
         auto: { desc: 'Automatic routing', ratio: 'auto' },
         default: { desc: 'Standard access', ratio: 1 },
         vip: { desc: 'Priority access', ratio: 2 },
+      },
+      account_tier: {
+        id: 'priority',
+        kind: 'priority',
+        label: 'Priority account',
+        description: 'Account-level eligibility and billing rules.',
       },
     },
     { updatedAt: freshAt }
@@ -208,6 +220,10 @@ describe('API keys mutate drawer Auto group integration', () => {
     const createdPayloads: Array<Record<string, unknown>> = []
     installApiFixtures(createdPayloads)
     await renderCreateDrawer()
+
+    expect(document.body.textContent).toContain(
+      'Your account tier: Priority account'
+    )
 
     const groupTrigger = getControlByLabel('Access profile')
     expect(groupTrigger.textContent?.includes('auto')).toBe(true)
