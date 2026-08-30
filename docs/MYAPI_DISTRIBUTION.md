@@ -179,8 +179,10 @@ Full 与 LAN Lite 两个多架构镜像；稳定版本分别更新各自的 `lat
 `confirm` 输入中选择 `PUBLISH`；默认的 `NO` 会跳过所有推送 job。workflow 会校验
 tag、`VERSION` 和 `package.json.version` 完全一致，不会移动既有 tag。
 CLI 会从 `package.json.version` 生成新项目的 Full 默认镜像，安装脚本会从根目录
-`VERSION` 生成默认 tag；发行检查还会拒绝 compose 模板中的过期默认版本，避免版本
-升级后初始化流程意外拉取旧镜像。
+`VERSION` 生成默认 tag；发布工作流会校验 tag、`VERSION` 与
+`package.json.version` 的一致性，避免版本升级后初始化流程意外拉取旧镜像。当前
+源码尚未创建对应的新 release tag 时，不要把 `v0.1.1` 当作当前源码镜像：该旧 tag
+仍指向历史提交，开发验证应使用本地构建镜像或负责人确认后的新版本 tag。
 GitHub Actions 只负责生成镜像，不直接连接或重启生产主机；部署端更新
 `MYAPI_IMAGE` 后由 `myapi up` 或 `deploy/install.sh` 拉取新版本。
 
