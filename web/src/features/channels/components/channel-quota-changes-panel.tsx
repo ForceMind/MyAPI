@@ -234,7 +234,7 @@ export function ChannelQuotaChangesPanel() {
           </Alert>
         ) : null}
         {!query.isLoading && !query.isError && query.data?.success !== false && filteredItems.length === 0 ? (
-          <div className='rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground'>{t('No account quota changes yet')}</div>
+          <div className='rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground'>{t('No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.')}</div>
         ) : null}
         {!query.isLoading && !query.isError && query.data?.success !== false && filteredItems.length > 0 ? (
           <>

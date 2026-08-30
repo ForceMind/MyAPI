@@ -1152,8 +1152,18 @@ func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, repor
 			}
 			continue
 		}
-		result, queryErr := updateChannelBalance(channel)
-		persistErr := recordChannelBalanceSnapshot(channel, result, queryErr)
+		var queryErr error
+		var persistErr error
+		if channel.Type == constant.ChannelTypeCodex {
+			// Codex OAuth exposes subscription windows through the official WHAM
+			// usage endpoint rather than the generic balance endpoint. Keep this
+			// branch inside the same bounded polling lock and sampler budget.
+			queryErr = sampleCodexChannelUsage(ctx, channel)
+		} else {
+			result, balanceErr := updateChannelBalance(channel)
+			queryErr = balanceErr
+			persistErr = recordChannelBalanceSnapshot(channel, result, balanceErr)
+		}
 		lock.Unlock()
 		if queryErr != nil {
 			summary.Failed++

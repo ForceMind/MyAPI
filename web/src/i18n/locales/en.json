@@ -24,6 +24,7 @@
     "All windows": "All windows",
     "All statuses": "All statuses",
     "No account quota changes yet": "No account quota changes yet",
+    "No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.": "No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.",
     "Unable to load account quota changes": "Unable to load account quota changes",
     "Your session is missing or expired. Sign in again to load provider account quota.": "Your session is missing or expired. Sign in again to load provider account quota.",
     "Your account does not have permission to read channels.": "Your account does not have permission to read channels.",

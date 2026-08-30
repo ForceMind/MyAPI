@@ -366,11 +366,79 @@ type codexUsageRateLimitWindow struct {
 	LimitWindowSeconds int64   `json:"limit_window_seconds"`
 }
 
-func recordCodexUsageSnapshots(channelID, statusCode int, body []byte) {
+func recordCodexUsageSnapshots(channelID, statusCode int, body []byte) error {
 	snapshots := normalizeCodexUsageSnapshots(channelID, time.Now().Unix(), statusCode, body)
+	var firstErr error
 	for index := range snapshots {
-		_ = model.RecordChannelQuotaSnapshot(&snapshots[index])
+		if err := model.RecordChannelQuotaSnapshot(&snapshots[index]); err != nil && firstErr == nil {
+			firstErr = err
+		}
 	}
+	return firstErr
+}
+
+// sampleCodexChannelUsage records one normalized official WHAM usage sample for
+// the bounded background quota sampler. It deliberately shares the same
+// endpoint and normalization contract as the admin usage view, but never
+// returns or persists the OAuth credential or raw provider response.
+func sampleCodexChannelUsage(ctx context.Context, ch *model.Channel) error {
+	if ch == nil {
+		return fmt.Errorf("nil Codex channel")
+	}
+	oauthKey, err := codex.ParseOAuthKey(strings.TrimSpace(ch.Key))
+	if err != nil {
+		_ = recordCodexUsageSnapshots(ch.Id, 0, nil)
+		return fmt.Errorf("parse Codex OAuth key: %w", err)
+	}
+	accessToken := strings.TrimSpace(oauthKey.AccessToken)
+	accountID := strings.TrimSpace(oauthKey.AccountID)
+	if accessToken == "" || accountID == "" {
+		_ = recordCodexUsageSnapshots(ch.Id, 0, nil)
+		return fmt.Errorf("Codex OAuth key is missing access_token or account_id")
+	}
+	client, err := service.GetHttpClientWithProxy(ch.GetSetting().Proxy)
+	if err != nil {
+		_ = recordCodexUsageSnapshots(ch.Id, 0, nil)
+		return err
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	statusCode, body, err := service.FetchCodexWhamUsage(ctx, client, ch.GetBaseURL(), accessToken, accountID)
+	if err == nil && (statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden) && strings.TrimSpace(oauthKey.RefreshToken) != "" {
+		refreshCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		res, refreshErr := service.RefreshCodexOAuthTokenWithProxy(refreshCtx, oauthKey.RefreshToken, ch.GetSetting().Proxy)
+		cancel()
+		if refreshErr == nil {
+			oauthKey.AccessToken = res.AccessToken
+			oauthKey.RefreshToken = res.RefreshToken
+			oauthKey.LastRefresh = time.Now().Format(time.RFC3339)
+			oauthKey.Expired = res.ExpiresAt.Format(time.RFC3339)
+			if strings.TrimSpace(oauthKey.Type) == "" {
+				oauthKey.Type = "codex"
+			}
+			if encoded, encErr := common.Marshal(oauthKey); encErr == nil {
+				if updateErr := model.DB.Model(&model.Channel{}).Where("id = ?", ch.Id).Update("key", string(encoded)).Error; updateErr == nil {
+					model.InitChannelCache()
+				}
+			}
+			statusCode, body, err = service.FetchCodexWhamUsage(ctx, client, ch.GetBaseURL(), oauthKey.AccessToken, accountID)
+		}
+	}
+	if err != nil {
+		if persistErr := recordCodexUsageSnapshots(ch.Id, 0, nil); persistErr != nil {
+			return fmt.Errorf("Codex usage request failed: %v; persist failure: %w", err, persistErr)
+		}
+		return err
+	}
+	persistErr := recordCodexUsageSnapshots(ch.Id, statusCode, body)
+	if statusCode < 200 || statusCode >= 300 {
+		if persistErr != nil {
+			return fmt.Errorf("Codex usage upstream status %d; persist failure: %w", statusCode, persistErr)
+		}
+		return fmt.Errorf("Codex usage upstream status %d", statusCode)
+	}
+	return persistErr
 }
 
 func normalizeCodexUsageSnapshots(channelID int, observedAt int64, statusCode int, body []byte) []model.ChannelQuotaSnapshot {

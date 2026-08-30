@@ -6,12 +6,12 @@
 
 ## 当前状态
 
-当前生产容器已经启用完整内容日志：
+以下是启用完整内容日志时的部署示例；本仓库本轮未执行生产重建，实际状态需由部署方按副本演练后确认：
 
 ```text
-镜像：ghcr.io/forcemind/myapi:v0.1.1
-容器：my-api
-日志目录：<my-api-project>/logs/full-content/
+镜像：ghcr.io/forcemind/myapi:<version>
+容器：my-api（示例）
+日志目录：<my-api-project>/logs/full-content/（示例）
 日志格式：JSON Lines（每行一个 JSON 对象）
 ```
 

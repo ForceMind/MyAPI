@@ -24,6 +24,7 @@
     "All windows": "全部窗口",
     "All statuses": "全部状态",
     "No account quota changes yet": "暂无账户额度变化",
+    "No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.": "暂时没有账户额度变化。启用额度采样或先查询一次上游账户后，这里才会产生趋势记录。",
     "Unable to load account quota changes": "无法加载账户额度变化",
     "Your session is missing or expired. Sign in again to load provider account quota.": "登录会话缺失或已过期，请重新登录后加载上游账户额度。",
     "Your account does not have permission to read channels.": "当前账户没有读取渠道的权限。",

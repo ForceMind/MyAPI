@@ -273,7 +273,7 @@ export function AccountQuotaChangesPanel() {
       description={t('Largest provider account quota movements per minute')}
       loading={query.isLoading}
       empty={!query.isLoading && items.length === 0}
-      emptyMessage={t('No account quota changes recorded yet')}
+      emptyMessage={t('No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.')}
       height='h-64'
       contentClassName='space-y-3'
       headerActions={
