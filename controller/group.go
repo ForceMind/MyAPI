@@ -75,7 +75,7 @@ func GetUserGroups(c *gin.Context) {
 // A read failure must not make the groups endpoint unavailable; it simply uses
 // the compatibility mapping already used before account tiers were added.
 func resolveUserAccountTier(userID int, legacyGroup string) model.AccountTierMetadata {
-	if userID > 0 {
+	if userID > 0 && model.DB != nil {
 		if user, err := model.GetUserById(userID, false); err == nil && user != nil {
 			if id := strings.TrimSpace(user.AccountTierID); id != "" {
 				return model.ResolveAccountTierID(id, "")
