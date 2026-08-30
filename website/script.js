@@ -17,8 +17,12 @@ window.addEventListener(
 )
 
 function setMenu(open) {
+  const wasOpen = mobileMenu?.classList.contains('open') === true
   mobileMenu?.classList.toggle('open', open)
   menuToggle?.setAttribute('aria-expanded', String(open))
+  if (!open && wasOpen && document.activeElement instanceof HTMLElement) {
+    menuToggle?.focus({ preventScroll: true })
+  }
 }
 
 menuToggle?.addEventListener('click', () => {
@@ -31,6 +35,26 @@ mobileMenu?.querySelectorAll('a').forEach((link) =>
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') setMenu(false)
+  if (event.key !== 'Tab' || !mobileMenu?.classList.contains('open')) return
+  const focusable = [menuToggle, ...mobileMenu.querySelectorAll('a')].filter(
+    (element) => element instanceof HTMLElement && !element.hasAttribute('disabled'),
+  )
+  if (focusable.length === 0) return
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
+  }
+})
+
+document.addEventListener('pointerdown', (event) => {
+  if (mobileMenu?.classList.contains('open') && header && !header.contains(event.target)) {
+    setMenu(false)
+  }
 })
 
 function readSavedTheme() {

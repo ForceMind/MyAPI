@@ -58,13 +58,16 @@ if (!/<button[^>]+data-theme-toggle[^>]+aria-label=/i.test(html)) {
 if (!/<button[^>]+data-menu-toggle[^>]+aria-expanded=["'](?:true|false)["']/i.test(html)) {
   throw new Error('mobile menu toggle must expose aria-expanded')
 }
+if (!/<button[^>]+data-menu-toggle[^>]+aria-haspopup=["']true["']/i.test(html)) {
+  throw new Error('mobile menu toggle must expose aria-haspopup')
+}
 if (!/myapi-logo-v1\.png/.test(html)) {
   throw new Error('website/index.html must reference the MyAPI logo asset')
 }
 if (/QuantumNous|New API|NewAPI|github\.com\/QuantumNous\/new-api/i.test(publicWebsite)) {
   throw new Error('public website contains a legacy product or attribution reference')
 }
-if (!/theme|menu|install|release/i.test(script)) {
+if (!/theme|menu|install|release/i.test(script) || !/pointerdown/.test(script) || !/event.key !== 'Tab'/.test(script)) {
   throw new Error('website/script.js does not contain the expected website interactions')
 }
 if (!/aria-pressed/.test(script) || !/matchMedia/.test(script)) {
