@@ -97,15 +97,20 @@ export function ChannelQuotaHistory({
       getChannelQuotaHistory(channel.id, {
         ...(range === 'custom' && appliedCustomRange
           ? {
-              start: new Date(`${appliedCustomRange.start}T00:00:00`).toISOString(),
-              end: new Date(`${appliedCustomRange.end}T23:59:59.999`).toISOString(),
+              start: new Date(
+                `${appliedCustomRange.start}T00:00:00`
+              ).toISOString(),
+              end: new Date(
+                `${appliedCustomRange.end}T23:59:59.999`
+              ).toISOString(),
             }
           : { range: range as Exclude<Range, 'custom'> }),
         granularity,
         timezone_offset: timezoneOffset,
         limit: 500,
       }),
-    enabled: open && !multiKey && (range !== 'custom' || appliedCustomRange !== null),
+    enabled:
+      open && !multiKey && (range !== 'custom' || appliedCustomRange !== null),
     retry: false,
     staleTime: 60 * 1000,
   })
@@ -214,7 +219,7 @@ export function ChannelQuotaHistory({
               {t('Apply Filters')}
             </Button>
             {customStart && customEnd && customStart > customEnd && (
-              <p className='basis-full text-xs text-destructive'>
+              <p className='text-destructive basis-full text-xs'>
                 {t('Invalid time range')}
               </p>
             )}
@@ -284,8 +289,8 @@ export function ChannelQuotaHistory({
                   {data.summary?.drop_rate_per_day != null && (
                     <span>
                       {t('Daily change')}:{' '}
-                      {formatValue(data.summary.drop_rate_per_day, data)}{' '}
-                      / {t('day')}
+                      {formatValue(data.summary.drop_rate_per_day, data)} /{' '}
+                      {t('day')}
                     </span>
                   )}
                   {data.summary?.forecast_zero_at != null && (
@@ -333,15 +338,24 @@ export function ChannelQuotaHistory({
                           : 'outline'
                     }
                   >
-                    {t(data.alert.status[0].toUpperCase() + data.alert.status.slice(1))}
+                    {t(
+                      data.alert.status[0].toUpperCase() +
+                        data.alert.status.slice(1)
+                    )}
                   </Badge>
                 </div>
                 <div className='text-muted-foreground flex flex-wrap gap-x-3 gap-y-1'>
                   {data.alert.ratio_percent != null && (
-                    <span>{t('Remaining')}: {data.alert.ratio_percent.toFixed(1)}%</span>
+                    <span>
+                      {t('Remaining')}: {data.alert.ratio_percent.toFixed(1)}%
+                    </span>
                   )}
-                  <span>{t('Warning')}: {data.alert.warning_percent}%</span>
-                  <span>{t('Critical')}: {data.alert.critical_percent}%</span>
+                  <span>
+                    {t('Warning')}: {data.alert.warning_percent}%
+                  </span>
+                  <span>
+                    {t('Critical')}: {data.alert.critical_percent}%
+                  </span>
                 </div>
               </div>
             )}

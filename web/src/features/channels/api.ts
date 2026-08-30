@@ -56,6 +56,34 @@ export type CodexUsageResponse = {
   data?: Record<string, unknown>
 }
 
+/** A persisted Codex rate-limit observation. Percentages are usage (0-100). */
+export type CodexUsageHistoryPoint = {
+  timestamp: number
+  primary_used_percent?: number | null
+  secondary_used_percent?: number | null
+  primary_reset_at?: number | null
+  secondary_reset_at?: number | null
+  status?: string
+}
+
+export type CodexUsageHistoryData = {
+  channel_id?: number
+  start?: number
+  end?: number
+  points: CodexUsageHistoryPoint[]
+  current?: CodexUsageHistoryPoint | null
+  summary?: {
+    primary_change_percent?: number | null
+    secondary_change_percent?: number | null
+  }
+}
+
+export type CodexUsageHistoryResponse = {
+  success: boolean
+  message?: string
+  data?: CodexUsageHistoryData
+}
+
 export type CodexOAuthStartResponse = {
   success: boolean
   message?: string
@@ -392,6 +420,24 @@ export async function getCodexUsage(
   const res = await api.get(
     `/api/channel/${channelId}/codex/usage`,
     channelActionConfig({ disableDuplicate: true })
+  )
+  return res.data
+}
+
+/** Fetch persisted Codex usage observations; this endpoint is read-only. */
+export async function getCodexUsageHistory(
+  channelId: number,
+  params: {
+    range?: '24h' | '7d' | '30d' | '90d'
+    limit?: number
+  } = {}
+): Promise<CodexUsageHistoryResponse> {
+  const res = await api.get(
+    `/api/channel/${channelId}/codex/usage/history`,
+    channelActionConfig({
+      disableDuplicate: true,
+      params: { range: '30d', limit: 500, ...params },
+    })
   )
   return res.data
 }

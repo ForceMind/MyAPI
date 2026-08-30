@@ -13,22 +13,27 @@ import (
 // channel account's available quota. Raw upstream responses and credentials
 // are intentionally not persisted here.
 type ChannelQuotaSnapshot struct {
-	Id           int       `json:"id" gorm:"primaryKey"`
-	ChannelId    int       `json:"channel_id" gorm:"index:idx_channel_quota_observed,priority:1;index:idx_channel_quota_metric,priority:1"`
-	ObservedAt   int64     `json:"observed_at" gorm:"bigint;index:idx_channel_quota_observed,priority:2;index:idx_channel_quota_metric,priority:4;index:idx_channel_quota_retention"`
-	Available    float64   `json:"available"`
-	Used         *float64  `json:"used,omitempty"`
-	Total        *float64  `json:"total,omitempty"`
-	Unit         string    `json:"unit" gorm:"size:32;default:'usd'"`
-	Currency     string    `json:"currency,omitempty" gorm:"size:8"`
-	MetricType   string    `json:"metric_type" gorm:"size:32;default:'balance';index:idx_channel_quota_metric,priority:2"`
-	WindowType   string    `json:"window_type,omitempty" gorm:"size:32;default:'none';index:idx_channel_quota_metric,priority:3"`
-	ResetAt      int64     `json:"reset_at,omitempty" gorm:"bigint"`
-	Source       string    `json:"source,omitempty" gorm:"size:64"`
-	Status       string    `json:"status" gorm:"size:16;default:'success';index"`
-	ErrorCode    string    `json:"error_code,omitempty" gorm:"size:64"`
-	ErrorMessage string    `json:"error_message,omitempty" gorm:"size:255"`
-	CreatedAt    time.Time `json:"created_at"`
+	Id         int      `json:"id" gorm:"primaryKey"`
+	ChannelId  int      `json:"channel_id" gorm:"index:idx_channel_quota_observed,priority:1;index:idx_channel_quota_metric,priority:1"`
+	ObservedAt int64    `json:"observed_at" gorm:"bigint;index:idx_channel_quota_observed,priority:2;index:idx_channel_quota_metric,priority:4;index:idx_channel_quota_retention"`
+	Available  float64  `json:"available"`
+	Used       *float64 `json:"used,omitempty"`
+	Total      *float64 `json:"total,omitempty"`
+	Unit       string   `json:"unit" gorm:"size:32;default:'usd'"`
+	Currency   string   `json:"currency,omitempty" gorm:"size:8"`
+	MetricType string   `json:"metric_type" gorm:"size:32;default:'balance';index:idx_channel_quota_metric,priority:2"`
+	WindowType string   `json:"window_type,omitempty" gorm:"size:32;default:'none';index:idx_channel_quota_metric,priority:3"`
+	// PlanType and WindowSeconds are populated for provider-specific rate-limit
+	// observations (for example Codex OAuth). They remain empty/zero for the
+	// generic balance snapshots.
+	PlanType      string    `json:"plan_type,omitempty" gorm:"size:32"`
+	WindowSeconds int64     `json:"window_seconds,omitempty" gorm:"bigint"`
+	ResetAt       int64     `json:"reset_at,omitempty" gorm:"bigint"`
+	Source        string    `json:"source,omitempty" gorm:"size:64"`
+	Status        string    `json:"status" gorm:"size:16;default:'success';index"`
+	ErrorCode     string    `json:"error_code,omitempty" gorm:"size:64"`
+	ErrorMessage  string    `json:"error_message,omitempty" gorm:"size:255"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 // DeleteOldChannelQuotaSnapshotBatch deletes at most limit snapshots observed

@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Copy,
   Check,
@@ -25,26 +26,9 @@ import {
   RotateCcw,
   AlertTriangle,
 } from 'lucide-react'
-/*
-Copyright (C) 2023-2026 QuantumNous
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-For commercial licensing, please contact support@quantumnous.com
-*/
 import { type ReactNode, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Dialog } from '@/components/dialog'
@@ -59,6 +43,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { ChartContainer } from '@/components/ui/chart'
 import {
   Collapsible,
   CollapsibleContent,
@@ -73,6 +58,7 @@ import {
 import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import dayjs from '@/lib/dayjs'
 import { formatDateTimeStr, formatTimestampToDate } from '@/lib/format'
@@ -80,8 +66,10 @@ import { cn } from '@/lib/utils'
 
 import {
   getCodexResetCredits,
+  getCodexUsageHistory,
   resetCodexUsage,
   type CodexResetCreditsResponse,
+  type CodexUsageHistoryPoint,
 } from '../../api'
 
 type CodexRateLimitWindow = {
@@ -900,6 +888,220 @@ function ResetCreditsPanel(props: {
   )
 }
 
+function historyPercent(value: unknown): number | undefined {
+  const numeric = Number(value)
+  return Number.isFinite(numeric)
+    ? Math.max(0, Math.min(100, numeric))
+    : undefined
+}
+
+export function CodexUsageHistoryPanel(props: {
+  channelId?: number
+  open: boolean
+}) {
+  const { t } = useTranslation()
+  const query = useQuery({
+    queryKey: ['codex-usage-history', props.channelId],
+    queryFn: () => getCodexUsageHistory(props.channelId as number),
+    enabled: props.open && Boolean(props.channelId),
+    retry: false,
+    staleTime: 60 * 1000,
+  })
+  const data = query.data?.data
+  const points = (data?.points ?? []).filter(
+    (point): point is CodexUsageHistoryPoint =>
+      point != null && Number.isFinite(Number(point.timestamp))
+  )
+  const chartPoints = points.map((point) => ({
+    ...point,
+    label: formatUnixSeconds(point.timestamp),
+    primary: historyPercent(point.primary_used_percent),
+    secondary: historyPercent(point.secondary_used_percent),
+  }))
+  const hasPrimary = chartPoints.some((point) => point.primary != null)
+  const hasSecondary = chartPoints.some((point) => point.secondary != null)
+  const validPoints = chartPoints.filter(
+    (point) => point.primary != null || point.secondary != null
+  )
+
+  if (!props.channelId) {
+    return (
+      <Alert>
+        <AlertTitle>{t('Codex usage history unavailable')}</AlertTitle>
+        <AlertDescription>{t('Channel ID is required')}</AlertDescription>
+      </Alert>
+    )
+  }
+  if (query.isLoading) {
+    return (
+      <div className='space-y-3' aria-label={t('Loading')}>
+        <Skeleton className='h-56 w-full' />
+        <Skeleton className='h-4 w-2/3' />
+      </div>
+    )
+  }
+  if (query.isError || query.data?.success === false) {
+    return (
+      <Alert variant='destructive'>
+        <AlertTriangle />
+        <AlertTitle>{t('Unable to load Codex usage history')}</AlertTitle>
+        <AlertDescription>
+          {query.error instanceof Error
+            ? query.error.message
+            : query.data?.message || t('Please try again later.')}
+        </AlertDescription>
+      </Alert>
+    )
+  }
+  if (points.length === 0) {
+    return (
+      <Empty className='min-h-40 border border-dashed'>
+        <EmptyHeader>
+          <EmptyTitle>{t('No Codex usage history yet')}</EmptyTitle>
+          <EmptyDescription>
+            {t('Usage history appears after the first successful usage query.')}
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    )
+  }
+  if (validPoints.length === 0) {
+    return (
+      <Alert>
+        <AlertTriangle />
+        <AlertTitle>{t('Codex usage history is unavailable')}</AlertTitle>
+        <AlertDescription>
+          {t('The upstream did not return usable usage percentages.')}
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
+  const latest = validPoints.at(-1)
+  return (
+    <Card size='sm' className='min-w-0'>
+      <CardHeader className='gap-1 p-4 pb-2'>
+        <CardTitle className='text-sm'>{t('Usage trend')}</CardTitle>
+        <CardDescription className='text-xs leading-5'>
+          {t('Historical Codex rate-limit usage. Missing samples remain gaps.')}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className='min-w-0 space-y-3 p-4 pt-2'>
+        <div className='flex flex-wrap gap-3 text-xs'>
+          {hasPrimary ? (
+            <span className='text-chart-1'>● {t('Primary window')}</span>
+          ) : null}
+          {hasSecondary ? (
+            <span className='text-chart-2'>● {t('Secondary window')}</span>
+          ) : null}
+          <span className='text-muted-foreground'>
+            {t('Samples')}: {validPoints.length}
+          </span>
+        </div>
+        <div
+          className='h-56 w-full min-w-0 touch-pan-y'
+          aria-label={t('Codex usage history chart')}
+        >
+          <ChartContainer
+            className='aspect-auto h-full w-full'
+            config={{
+              primary: { label: t('Primary window'), color: 'var(--chart-1)' },
+              secondary: {
+                label: t('Secondary window'),
+                color: 'var(--chart-2)',
+              },
+            }}
+            initialDimension={{ width: 320, height: 224 }}
+          >
+            <LineChart
+              data={chartPoints}
+              margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
+            >
+              <CartesianGrid vertical={false} strokeDasharray='3 3' />
+              <XAxis
+                dataKey='label'
+                tickLine={false}
+                axisLine={false}
+                minTickGap={32}
+                tick={{ fontSize: 10 }}
+              />
+              <YAxis
+                domain={[0, 100]}
+                tickLine={false}
+                axisLine={false}
+                width={42}
+                tick={{ fontSize: 10 }}
+                tickFormatter={(value: number) => `${value}%`}
+              />
+              <Tooltip
+                formatter={(value, name) => [
+                  `${Number(value).toFixed(1)}%`,
+                  name === 'primary'
+                    ? t('Primary window')
+                    : t('Secondary window'),
+                ]}
+                labelFormatter={(label) => String(label)}
+              />
+              {hasPrimary ? (
+                <Line
+                  type='monotone'
+                  dataKey='primary'
+                  connectNulls={false}
+                  stroke='var(--color-primary)'
+                  strokeWidth={2}
+                  dot={chartPoints.length < 80}
+                  activeDot={{ r: 4 }}
+                  isAnimationActive={false}
+                />
+              ) : null}
+              {hasSecondary ? (
+                <Line
+                  type='monotone'
+                  dataKey='secondary'
+                  connectNulls={false}
+                  stroke='var(--color-secondary)'
+                  strokeWidth={2}
+                  dot={chartPoints.length < 80}
+                  activeDot={{ r: 4 }}
+                  isAnimationActive={false}
+                />
+              ) : null}
+            </LineChart>
+          </ChartContainer>
+        </div>
+        <div className='text-muted-foreground flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs'>
+          <span>
+            {t('Latest')}:{' '}
+            {latest?.primary != null ? `${latest.primary.toFixed(1)}%` : '-'} /{' '}
+            {latest?.secondary != null
+              ? `${latest.secondary.toFixed(1)}%`
+              : '-'}
+          </span>
+          <span>
+            {t('Last sample')}: {latest?.label ?? '-'}
+          </span>
+        </div>
+        {data?.summary ? (
+          <div className='bg-muted/30 flex flex-wrap gap-x-4 gap-y-1 rounded-md border p-2 text-xs'>
+            {data.summary.primary_change_percent != null ? (
+              <span>
+                {t('Primary change')}:{' '}
+                {data.summary.primary_change_percent.toFixed(1)}%
+              </span>
+            ) : null}
+            {data.summary.secondary_change_percent != null ? (
+              <span>
+                {t('Secondary change')}:{' '}
+                {data.summary.secondary_change_percent.toFixed(1)}%
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  )
+}
+
 export function CodexUsageDialog({
   open,
   onOpenChange,
@@ -912,6 +1114,7 @@ export function CodexUsageDialog({
   isRefreshing,
 }: CodexUsageDialogProps) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
   const [showRawJson, setShowRawJson] = useState(false)
   const [showResetCredits, setShowResetCredits] = useState(false)
@@ -923,6 +1126,7 @@ export function CodexUsageDialog({
   const [isResetting, setIsResetting] = useState(false)
   const [resetActionError, setResetActionError] = useState('')
   const [resetActionMessage, setResetActionMessage] = useState('')
+  const [usageTab, setUsageTab] = useState<'current' | 'history'>('current')
 
   const payload: CodexUsagePayload | null = useMemo(() => {
     const raw = response?.data
@@ -1019,6 +1223,7 @@ export function CodexUsageDialog({
       setIsResetting(false)
       setResetActionError('')
       setResetActionMessage('')
+      setUsageTab('current')
     }
     onOpenChange(nextOpen)
   }
@@ -1117,7 +1322,14 @@ export function CodexUsageDialog({
                   type='button'
                   variant='outline'
                   size='sm'
-                  onClick={onRefresh}
+                  onClick={async () => {
+                    await Promise.resolve(onRefresh())
+                    if (channelId) {
+                      await queryClient.invalidateQueries({
+                        queryKey: ['codex-usage-history', channelId],
+                      })
+                    }
+                  }}
                   disabled={Boolean(isRefreshing)}
                 >
                   <RefreshCw data-icon='inline-start' />
@@ -1231,94 +1443,117 @@ export function CodexUsageDialog({
           </CollapsibleContent>
         </Collapsible>
 
-        <div className='flex flex-col gap-3'>
-          <SectionHeading
-            title={t('Base Limits')}
-            description={t('Base rate limit windows for this account.')}
-          >
-            {getUsageStatusBadge(rateLimit, t)}
-          </SectionHeading>
-          <RateLimitWindowGrid
-            fiveHourWindow={fiveHourWindow}
-            weeklyWindow={weeklyWindow}
-          />
-        </div>
-
-        {additionalRateLimits.length > 0 ? (
-          <div className='flex flex-col gap-3'>
-            <SectionHeading
-              title={t('Additional Limits')}
-              description={t(
-                'Per-feature metered windows split by model or capability.'
-              )}
-            />
-            <div className='flex flex-col gap-3'>
-              {additionalRateLimits.map((item) => {
-                const limitName =
-                  item.limit_name ||
-                  item.metered_feature ||
-                  t('Additional Limit')
-                return (
-                  <RateLimitGroupSection
-                    key={`${limitName}-${item.metered_feature ?? ''}-${item.plan_type ?? ''}`}
-                    title={limitName}
-                    description={t('Additional metered capability')}
-                    source={item}
-                    meteredFeature={item.metered_feature}
-                  />
-                )
-              })}
-            </div>
-          </div>
-        ) : null}
-
-        <Collapsible
-          open={showRawJson}
-          onOpenChange={setShowRawJson}
-          className='rounded-lg border'
+        <Tabs
+          value={usageTab}
+          onValueChange={(value) =>
+            setUsageTab(value === 'history' ? 'history' : 'current')
+          }
+          className='min-w-0 gap-3'
         >
-          <CollapsibleTrigger
-            render={
-              <button
-                type='button'
-                className='hover:bg-muted/40 flex w-full items-center justify-between gap-2 p-3 transition-colors'
-                aria-expanded={showRawJson}
+          <TabsList className='grid h-auto w-full grid-cols-2'>
+            <TabsTrigger value='current'>{t('Current windows')}</TabsTrigger>
+            <TabsTrigger value='history'>{t('History trend')}</TabsTrigger>
+          </TabsList>
+          <TabsContent value='current' className='flex min-w-0 flex-col gap-3'>
+            <div className='flex flex-col gap-3'>
+              <SectionHeading
+                title={t('Base Limits')}
+                description={t('Base rate limit windows for this account.')}
+              >
+                {getUsageStatusBadge(rateLimit, t)}
+              </SectionHeading>
+              <RateLimitWindowGrid
+                fiveHourWindow={fiveHourWindow}
+                weeklyWindow={weeklyWindow}
               />
-            }
-          >
-            <div className='text-sm font-medium'>{t('Raw JSON')}</div>
-            {showRawJson ? (
-              <ChevronUp className='text-muted-foreground h-4 w-4' />
-            ) : (
-              <ChevronDown className='text-muted-foreground h-4 w-4' />
-            )}
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <>
-              <div className='flex justify-end border-t px-3 py-2'>
-                <Button
-                  type='button'
-                  variant='outline'
-                  size='sm'
-                  onClick={() => copyToClipboard(rawJsonText)}
-                  disabled={!rawJsonText}
-                >
-                  {copiedText === rawJsonText ? (
-                    <Check data-icon='inline-start' className='text-success' />
-                  ) : (
-                    <Copy data-icon='inline-start' />
+            </div>
+
+            {additionalRateLimits.length > 0 ? (
+              <div className='flex flex-col gap-3'>
+                <SectionHeading
+                  title={t('Additional Limits')}
+                  description={t(
+                    'Per-feature metered windows split by model or capability.'
                   )}
-                  {t('Copy')}
-                </Button>
+                />
+                <div className='flex flex-col gap-3'>
+                  {additionalRateLimits.map((item) => {
+                    const limitName =
+                      item.limit_name ||
+                      item.metered_feature ||
+                      t('Additional Limit')
+                    return (
+                      <RateLimitGroupSection
+                        key={`${limitName}-${item.metered_feature ?? ''}-${item.plan_type ?? ''}`}
+                        title={limitName}
+                        description={t('Additional metered capability')}
+                        source={item}
+                        meteredFeature={item.metered_feature}
+                      />
+                    )
+                  })}
+                </div>
               </div>
-              <ScrollArea className='max-h-[50vh]'>
-                <pre className='bg-muted/30 m-0 p-3 text-xs break-words whitespace-pre-wrap'>
-                  {rawJsonText || '-'}
-                </pre>
-              </ScrollArea>
-            </>
-          </CollapsibleContent>
-        </Collapsible>
+            ) : null}
+
+            <Collapsible
+              open={showRawJson}
+              onOpenChange={setShowRawJson}
+              className='rounded-lg border'
+            >
+              <CollapsibleTrigger
+                render={
+                  <button
+                    type='button'
+                    className='hover:bg-muted/40 flex w-full items-center justify-between gap-2 p-3 transition-colors'
+                    aria-expanded={showRawJson}
+                  />
+                }
+              >
+                <div className='text-sm font-medium'>{t('Raw JSON')}</div>
+                {showRawJson ? (
+                  <ChevronUp className='text-muted-foreground h-4 w-4' />
+                ) : (
+                  <ChevronDown className='text-muted-foreground h-4 w-4' />
+                )}
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <>
+                  <div className='flex justify-end border-t px-3 py-2'>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='sm'
+                      onClick={() => copyToClipboard(rawJsonText)}
+                      disabled={!rawJsonText}
+                    >
+                      {copiedText === rawJsonText ? (
+                        <Check
+                          data-icon='inline-start'
+                          className='text-success'
+                        />
+                      ) : (
+                        <Copy data-icon='inline-start' />
+                      )}
+                      {t('Copy')}
+                    </Button>
+                  </div>
+                  <ScrollArea className='max-h-[50vh]'>
+                    <pre className='bg-muted/30 m-0 p-3 text-xs break-words whitespace-pre-wrap'>
+                      {rawJsonText || '-'}
+                    </pre>
+                  </ScrollArea>
+                </>
+              </CollapsibleContent>
+            </Collapsible>
+          </TabsContent>
+          <TabsContent value='history' className='min-w-0'>
+            <CodexUsageHistoryPanel
+              channelId={channelId}
+              open={open && usageTab === 'history'}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
       <ConfirmDialog
         open={resetConfirmOpen}
