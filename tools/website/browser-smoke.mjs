@@ -76,7 +76,18 @@ try {
   if ((await themeToggle.getAttribute('aria-pressed')) !== 'true') throw new Error('theme toggle state did not update')
   mkdirSync('artifacts', { recursive: true })
   await page.screenshot({ path: 'artifacts/myapi-website-mobile.png', fullPage: true })
-  console.log('website browser smoke passed (mobile menu, anchor navigation, theme toggle)')
+
+  // Exercise the narrowest supported phone layout as well. This catches
+  // accidental horizontal overflow that a 390px viewport can hide while
+  // keeping the real-device acceptance gate explicit in the documentation.
+  await page.setViewportSize({ width: 320, height: 844 })
+  await page.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: 'networkidle' })
+  const hasHorizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth + 1
+  )
+  if (hasHorizontalOverflow) throw new Error('320px viewport has horizontal overflow')
+  await page.screenshot({ path: 'artifacts/myapi-website-mobile-320.png', fullPage: true })
+  console.log('website browser smoke passed (390px/320px menu, anchor navigation, theme toggle, overflow)')
 } finally {
   await browser.close()
   server.close()

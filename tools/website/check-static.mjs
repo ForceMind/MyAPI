@@ -52,6 +52,12 @@ if (!browserSmokeSource.includes(".replace(/[\\\\/]+$/, '')")) {
 if (!/decodeURIComponent[\s\S]*catch/.test(browserSmokeSource)) {
   throw new Error('website browser smoke must reject malformed URL encoding')
 }
+if (!browserSmokeSource.includes('width: 320') || !browserSmokeSource.includes('horizontal overflow')) {
+  throw new Error('website browser smoke must cover the narrow 320px viewport')
+}
+if (!readFileSync(browserWorkflow, 'utf8').includes('artifacts/myapi-website-mobile*.png')) {
+  throw new Error('website browser workflow must upload all mobile screenshots')
+}
 
 const maintainedLogo = resolve(root, 'web', 'public', 'myapi-logo-v1.png')
 if (!statSync(maintainedLogo, { throwIfNoEntry: false })?.isFile()) {

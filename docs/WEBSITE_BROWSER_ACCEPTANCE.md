@@ -8,11 +8,12 @@ mobile-width workflow that previously could only be reviewed statically:
 - the mobile menu starts closed, opens from the Menu button, and closes after an
   anchor navigation;
 - the light-theme toggle updates the document state;
-- a full-page mobile screenshot is emitted for review.
+- full-page mobile screenshots are emitted at 390px and 320px widths for review;
+- the 320px run rejects horizontal overflow before capturing the screenshot.
 
 The check runs from `.github/workflows/website-browser.yml` on website changes
 and can also be started with `workflow_dispatch`. GitHub Actions installs the
-pinned Playwright runner and Chromium, then uploads the screenshot as a short
+pinned Playwright runner and Chromium, then uploads both screenshots as a short
 retention artifact. This workflow does not publish the website or change a
 deployment.
 
