@@ -24,6 +24,10 @@ rg -n -i 'new api|quantumnous|new_api|new-api' \
 - 自定义站点名称与 Logo 由管理员设置优先，构建参数只提供默认值。
 - NPM 包、Docker 镜像、静态官网和 Electron 工作流均使用 MyAPI 发行标识。
 - 原项目法律归属不在本阶段擅自删除；后续若要改变 `NOTICE` 或源码头部，必须先完成法律审查并单独提交。
+- 根 Docker Compose 的新安装默认数据库名为 `myapi`、`myapi-log` 和
+  `myapi_logs`，分别可通过 `MYAPI_DB_NAME`、`MYAPI_LOG_DB_NAME` 和
+  `MYAPI_CLICKHOUSE_DB` 覆盖。已有旧数据卷迁移时必须显式设置当前库名；
+  Compose 不会隐式重命名或迁移数据库。
 
 ## 验收标准
 
