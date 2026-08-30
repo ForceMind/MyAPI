@@ -122,6 +122,9 @@ function checkStaticContracts(checks) {
 
   const installer = readFileSync(path.join(repositoryRoot, 'deploy/install.sh'), 'utf8')
   record(checks, 'installer validates bind addresses strictly', /is_private_ipv4\(\)/.test(installer) && /MYAPI_BIND_ADDRESS must be localhost/.test(installer))
+  record(checks, 'installer validates LAN origins strictly', /is_valid_lan_origin\(\)/.test(installer) && /MYAPI_PUBLIC_URL must be a localhost/.test(installer))
+  record(checks, 'installer validates full HTTPS origins strictly', /is_valid_public_origin\(\)/.test(installer) && /exact non-placeholder HTTPS origin/.test(installer))
+  record(checks, 'installer requires a strong session secret', /SESSION_SECRET.*48|\{#SESSION_SECRET\}.*48/.test(installer))
   record(checks, 'installer derives the default image from VERSION', /distribution_version=/.test(installer) && /myapi:v\$\{distribution_version\}/.test(installer))
   record(checks, 'installer requires explicit LAN opt-in', /MYAPI_ALLOW_LAN/.test(installer) && /LAN binding is disabled by default/.test(installer))
   record(checks, 'installer parses env without shell evaluation', /load_env_file\(\)/.test(installer) && !/source\s+"\$env_file"/.test(installer))
@@ -302,6 +305,23 @@ function checkInstallerEnvParsing(checks) {
     record(checks, 'installer rejects malformed bind addresses', runInstaller().status !== 0)
     writeFileSync(envPath, env.replace(/^MYAPI_BIND_ADDRESS=.*$/m, 'MYAPI_BIND_ADDRESS=192.168.1.20'))
     record(checks, 'installer requires LAN opt-in for private binds', runInstaller().status !== 0)
+    writeFileSync(
+      envPath,
+      env
+        .replace(/^MYAPI_EDITION=.*$/m, 'MYAPI_EDITION=lan')
+        .replace(/^MYAPI_PUBLIC_URL=.*$/m, 'MYAPI_PUBLIC_URL=https://evil.example.com'),
+    )
+    record(checks, 'installer rejects non-private LAN origins', runInstaller().status !== 0)
+    writeFileSync(
+      envPath,
+      env.replace(/^SESSION_SECRET=.*$/m, 'SESSION_SECRET=short'),
+    )
+    record(checks, 'installer rejects weak session secrets', runInstaller().status !== 0)
+    writeFileSync(
+      envPath,
+      env.replace(/^MYAPI_PUBLIC_URL=.*$/m, 'MYAPI_PUBLIC_URL=http://foo.example.com'),
+    )
+    record(checks, 'installer rejects non-HTTPS full origins', runInstaller().status !== 0)
   } finally {
     if (!keepTemporary) rmSync(project, { recursive: true, force: true })
   }

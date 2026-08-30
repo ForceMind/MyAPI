@@ -171,6 +171,7 @@ function composeEnvironment(values) {
   for (const key of [
     'MYAPI_EDITION',
     'MYAPI_BIND_ADDRESS',
+    'MYAPI_ALLOW_LAN',
     'MYAPI_SESSION_COOKIE_SECURE',
     'MYAPI_CPU_LIMIT',
     'MYAPI_MEMORY_LIMIT',
@@ -222,6 +223,13 @@ function validateRuntimeConfiguration(values) {
   const bindAddress = values.MYAPI_BIND_ADDRESS || deploymentDefaults.MYAPI_BIND_ADDRESS
   if (!validateBindAddress(bindAddress)) {
     errors.push('MYAPI_BIND_ADDRESS must be a valid host address')
+  }
+  const allowLAN = values.MYAPI_ALLOW_LAN || 'false'
+  if (!['true', 'false'].includes(allowLAN)) {
+    errors.push('MYAPI_ALLOW_LAN must be true or false')
+  } else {
+    const bindingError = validateLANBinding(bindAddress, allowLAN === 'true')
+    if (bindingError) errors.push(bindingError)
   }
   const cpuLimit = values.MYAPI_CPU_LIMIT || deploymentDefaults.MYAPI_CPU_LIMIT
   if (!/^\d+(?:\.\d+)?$/.test(String(cpuLimit)) || Number(cpuLimit) <= 0 || Number(cpuLimit) > 64) {
@@ -732,6 +740,14 @@ function doctor(args) {
   warnLegacyDeploymentKeys(values)
   const publicUrl = deploymentValue(values, 'MYAPI_PUBLIC_URL') || ''
   const edition = values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION
+  const bindAddress = values.MYAPI_BIND_ADDRESS || deploymentDefaults.MYAPI_BIND_ADDRESS
+  const allowLAN = values.MYAPI_ALLOW_LAN || 'false'
+  const bindingError = validateLANBinding(bindAddress, allowLAN === 'true')
+  record(
+    'LAN binding',
+    ['true', 'false'].includes(allowLAN) && !bindingError,
+    bindingError || `bind=${bindAddress}, allow-lan=${allowLAN}`
+  )
   record(
     edition === 'lan' ? 'LAN origin' : 'Public HTTPS URL',
     edition === 'lan' ? validateLanOrigin(publicUrl) : validatePublicOrigin(publicUrl),

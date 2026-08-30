@@ -265,6 +265,50 @@ describe('account quota changes dashboard panel', () => {
     expect(within(increaseCard as HTMLElement).getByText('5 USD')).toBeInTheDocument()
   })
 
+  test('does not mix provider sources in the summary movement cards', async () => {
+    vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
+      success: true,
+      data: {
+        items: [
+          {
+            channel_id: 31,
+            name: 'Codex account',
+            change_per_minute: 7,
+            abs_change_per_minute: 7,
+            current_available: 70,
+            direction: 'increase',
+            unit: 'USD',
+            metric_type: 'balance',
+            window_type: 'none',
+            source: 'codex',
+          },
+          {
+            channel_id: 32,
+            name: 'Claude account',
+            change_per_minute: 12,
+            abs_change_per_minute: 12,
+            current_available: 60,
+            direction: 'increase',
+            unit: 'USD',
+            metric_type: 'balance',
+            window_type: 'none',
+            source: 'claude',
+          },
+        ],
+      },
+    })
+    vi.mocked(getChannelQuotaSamplingStatus).mockResolvedValueOnce({
+      success: true,
+      data: { enabled: true, interval_seconds: 900, max_channels: 20 },
+    })
+
+    renderPanel()
+
+    const increaseCard = (await screen.findByText('Max increase / minute')).parentElement
+    expect(increaseCard).toBeTruthy()
+    expect(within(increaseCard as HTMLElement).getByText('7 USD')).toBeInTheDocument()
+  })
+
   test('keeps loading state visible while requests are pending', () => {
     vi.mocked(getChannelQuotaChanges).mockImplementationOnce(
       () => new Promise(() => undefined)

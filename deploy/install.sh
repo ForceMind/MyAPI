@@ -130,6 +130,32 @@ is_private_ipv4() {
   (( a == 10 || (a == 172 && b >= 16 && b <= 31) || (a == 192 && b == 168) ))
 }
 
+is_valid_lan_origin() {
+  local value="$1" host port
+  if [[ ! "$value" =~ ^https?://([^/:?#]+)(:([0-9]+))?/?$ ]]; then
+    return 1
+  fi
+  host="${BASH_REMATCH[1],,}"
+  port="${BASH_REMATCH[3]:-}"
+  if [[ -n "$port" ]] && (( port < 1 || port > 65535 )); then
+    return 1
+  fi
+  is_loopback_bind_address "$host" || is_private_ipv4 "$host"
+}
+
+is_valid_public_origin() {
+  local value="$1" host port
+  if [[ ! "$value" =~ ^https://([^/:?#]+)(:([0-9]+))?/?$ ]]; then
+    return 1
+  fi
+  host="${BASH_REMATCH[1],,}"
+  port="${BASH_REMATCH[3]:-}"
+  if [[ -n "$port" ]] && (( port < 1 || port > 65535 )); then
+    return 1
+  fi
+  [[ "$host" != "localhost" && "$host" != *.localhost && "$host" != "example.com" && "$host" != *.example.com ]]
+}
+
 if [[ "$MYAPI_ALLOW_LAN" != "true" && "$MYAPI_ALLOW_LAN" != "false" ]]; then
   echo "MYAPI_ALLOW_LAN must be true or false." >&2
   exit 1
@@ -160,14 +186,28 @@ if [[ -z "${SESSION_SECRET:-}" || "$SESSION_SECRET" == "replace-with-a-long-rand
   echo "Set a strong SESSION_SECRET in $env_file before deployment." >&2
   exit 1
 fi
+if [[ "${#SESSION_SECRET}" -lt 48 ]]; then
+  echo "SESSION_SECRET must be at least 48 characters before deployment." >&2
+  exit 1
+fi
 
 if [[ "$MYAPI_EDITION" == "full" && ( -z "${MYAPI_PUBLIC_URL:-}" || "$MYAPI_PUBLIC_URL" == "https://my-api.example.com" || "$MYAPI_PUBLIC_URL" == "https://new-api.example.com" ) ]]; then
   echo "Set MYAPI_PUBLIC_URL in $env_file before deployment." >&2
   exit 1
 fi
+if [[ "$MYAPI_EDITION" == "full" ]] && ! is_valid_public_origin "$MYAPI_PUBLIC_URL"; then
+  echo "MYAPI_PUBLIC_URL must be an exact non-placeholder HTTPS origin in full edition." >&2
+  exit 1
+fi
 if [[ "$MYAPI_EDITION" == "lan" && ( -z "${MYAPI_PUBLIC_URL:-}" || "$MYAPI_PUBLIC_URL" == "https://my-api.example.com" || "$MYAPI_PUBLIC_URL" == "https://new-api.example.com" ) ]]; then
   MYAPI_PUBLIC_URL="http://localhost:${MYAPI_PORT}"
   export MYAPI_PUBLIC_URL
+fi
+if [[ "$MYAPI_EDITION" == "lan" ]]; then
+  if ! is_valid_lan_origin "$MYAPI_PUBLIC_URL"; then
+    echo "MYAPI_PUBLIC_URL must be a localhost, loopback, or private-network origin in LAN edition." >&2
+    exit 1
+  fi
 fi
 if [[ "$MYAPI_EDITION" == "lan" && "$MYAPI_PUBLIC_URL" == http://* && "$MYAPI_SESSION_COOKIE_SECURE" == "true" ]]; then
   # The example file targets the HTTPS full edition. LAN's default local

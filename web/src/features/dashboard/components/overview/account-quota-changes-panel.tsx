@@ -57,7 +57,14 @@ function finite(value: unknown): value is number {
 }
 
 function metricIdentity(item: ChannelQuotaChangeItem): string {
-  return [item.metric_type, item.unit, item.currency, item.window_type]
+  return [
+    item.metric_type,
+    item.unit,
+    item.currency,
+    item.window_type,
+    item.source,
+    item.plan_type,
+  ]
     .map((value) => value || '')
     .join('|')
 }
