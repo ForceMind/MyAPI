@@ -298,6 +298,8 @@ export interface ChannelQuotaChangeItem {
   observed_at?: number
   previous_observed_at?: number | null
   status?: 'success' | 'unavailable' | 'unsupported' | 'error' | string
+  /** Read-only threshold state derived from the latest normalized snapshot. */
+  alert?: ChannelQuotaHistoryAlert
   data_quality?: ChannelQuotaHistoryDataQuality
 }
 

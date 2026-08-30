@@ -76,9 +76,17 @@ function directionLabel(direction: ChannelQuotaChangeItem['direction'], t: (key:
 }
 
 function statusVariant(status: string | undefined) {
-  if (status === 'error') return 'destructive' as const
-  if (status === 'unavailable' || status === 'unsupported') return 'warning' as const
+  if (status === 'error' || status === 'critical') return 'destructive' as const
+  if (status === 'unavailable' || status === 'unsupported' || status === 'warning') return 'warning' as const
   return 'outline' as const
+}
+
+function alertLabel(status: string, t: (key: string) => string) {
+  if (status === 'critical') return t('Critical')
+  if (status === 'warning') return t('Warning')
+  if (status === 'healthy') return t('Healthy')
+  if (status === 'unavailable') return t('Unavailable')
+  return t('Unknown')
 }
 
 function DirectionIcon({ direction }: { direction: ChannelQuotaChangeItem['direction'] }) {
@@ -123,6 +131,11 @@ function ChangeRow({ item, t }: { item: ChannelQuotaChangeItem; t: (key: string)
       </div>
       <div className='text-left text-xs text-muted-foreground sm:text-right'>
         {item.status ? <Badge variant={statusVariant(item.status)}>{item.status}</Badge> : null}
+        {item.alert?.status && item.alert.status !== 'disabled' ? (
+          <Badge className='mt-1 sm:ml-1' variant={statusVariant(item.alert.status)}>
+            {t('Quota alert')}: {alertLabel(item.alert.status, t)}
+          </Badge>
+        ) : null}
         {item.observed_at ? <div className='mt-1'>{formatTimestampToDate(item.observed_at)}</div> : null}
       </div>
     </div>

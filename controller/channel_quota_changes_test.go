@@ -3,6 +3,7 @@ package controller
 import (
 	"testing"
 
+	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/stretchr/testify/require"
 )
@@ -52,6 +53,34 @@ func TestBuildQuotaChangeItemsSeparatesUnsupportedFromErrors(t *testing.T) {
 	require.Equal(t, 1, items[0].DataQuality.ErrorCount)
 	require.Equal(t, 1, quality.UnsupportedCount)
 	require.Equal(t, 1, quality.ErrorCount)
+}
+
+func TestBuildQuotaChangeItemsExposesReadOnlyAlertState(t *testing.T) {
+	previousEnabled := common.ChannelQuotaAlertEnabled
+	previousWarning := common.ChannelQuotaAlertWarningPercent
+	previousCritical := common.ChannelQuotaAlertCriticalPercent
+	defer func() {
+		common.ChannelQuotaAlertEnabled = previousEnabled
+		common.ChannelQuotaAlertWarningPercent = previousWarning
+		common.ChannelQuotaAlertCriticalPercent = previousCritical
+	}()
+	common.ChannelQuotaAlertEnabled = true
+	common.ChannelQuotaAlertWarningPercent = 20
+	common.ChannelQuotaAlertCriticalPercent = 10
+
+	items, _ := buildQuotaChangeItems([]model.ChannelQuotaAggregateRow{
+		{ID: 1, ChannelID: 11, ChannelName: "Codex", ObservedAt: 100, Available: 15, Total: ptrChangeFloat(100), Status: "success", MetricType: "balance", WindowType: "none"},
+	})
+	require.Len(t, items, 1)
+	require.NotNil(t, items[0].Alert)
+	require.Equal(t, "warning", items[0].Alert.Status)
+	require.InDelta(t, 15, *items[0].Alert.RatioPercent, 0.0001)
+
+	items, _ = buildQuotaChangeItems([]model.ChannelQuotaAggregateRow{
+		{ID: 2, ChannelID: 12, ChannelName: "Claude", ObservedAt: 100, Available: 15, Status: "unsupported", MetricType: "balance", WindowType: "none"},
+	})
+	require.NotNil(t, items[0].Alert)
+	require.Equal(t, "unavailable", items[0].Alert.Status)
 }
 
 func TestSortQuotaChangeItemsDefaultsToLargestAbsoluteRate(t *testing.T) {

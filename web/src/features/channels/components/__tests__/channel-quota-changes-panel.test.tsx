@@ -58,6 +58,13 @@ describe('channel quota changes panel', () => {
             abs_change_per_minute: 8,
             direction: 'decrease',
             status: 'success',
+            alert: {
+              enabled: true,
+              status: 'warning',
+              ratio_percent: 15,
+              warning_percent: 20,
+              critical_percent: 10,
+            },
             unit: 'percent',
             window_type: 'primary',
             observed_at: 1_700_000_000,
@@ -78,6 +85,7 @@ describe('channel quota changes panel', () => {
     expect(screen.getByLabelText('Refresh')).toBeInTheDocument()
     expect(screen.getByLabelText('Quota window type')).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Unsupported' })).toBeInTheDocument()
+    expect(screen.getByText('Quota alert: Warning')).toBeInTheDocument()
   })
 
   test('exposes unsupported provider quota samples as a distinct status', async () => {

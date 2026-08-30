@@ -61,6 +61,10 @@ type quotaChangeItem struct {
 	SampleSpanSeconds  int64                  `json:"sample_span_seconds"`
 	ObservedAt         int64                  `json:"observed_at"`
 	Status             string                 `json:"status"`
+	// Alert is a read-only snapshot of the configured quota threshold state.
+	// It is deliberately derived from the latest normalized observation and
+	// never triggers notification, routing, or channel state changes.
+	Alert              *quotaHistoryAlert     `json:"alert,omitempty"`
 	DataQuality        quotaChangeDataQuality `json:"data_quality"`
 }
 
@@ -232,6 +236,10 @@ func buildQuotaChangeItem(rows []model.ChannelQuotaAggregateRow) quotaChangeItem
 		Unit: latest.Unit, Currency: latest.Currency, PlanType: latest.PlanType,
 		ObservedAt: latest.ObservedAt, Status: latest.Status, Direction: "unavailable",
 	}
+	// Keep the global quota-change view consistent with the channel history
+	// endpoint: failed, unsupported, or total-less observations report an
+	// unavailable/disabled alert rather than carrying forward stale state.
+	item.Alert = quotaChangeAlertForRow(latest)
 	if item.Status == "" {
 		item.Status = "unknown"
 	}
@@ -299,6 +307,15 @@ func buildQuotaChangeItem(rows []model.ChannelQuotaAggregateRow) quotaChangeItem
 		item.Direction = "unknown"
 	}
 	return item
+}
+
+func quotaChangeAlertForRow(row model.ChannelQuotaAggregateRow) *quotaHistoryAlert {
+	alert := deriveQuotaHistoryAlert(&model.ChannelQuotaSnapshot{
+		Available: row.Available,
+		Total:     row.Total,
+		Status:    row.Status,
+	})
+	return &alert
 }
 
 func quotaChangeFloatPtr(value float64) *float64 { return &value }
