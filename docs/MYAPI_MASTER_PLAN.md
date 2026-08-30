@@ -106,7 +106,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 - GitHub Actions 已支持 SemVer tag 构建并推送 Full/LAN GHCR 镜像；多架构 manifest 使用构建任务产出的、经过格式和仓库校验的架构 digest 组装，不再以可变架构 tag 作为 manifest 输入。
 - `myapi upgrade` CLI 已支持按发行版拉取 GHCR 镜像、可选 cosign 签名校验、可选拉取后 digest 固定、环境文件备份、健康等待和失败回滚；生产启用仍需人工审批与数据备份演练。
 - SemVer tag 可触发 macOS/Windows Electron 构建产物并生成 SHA256 校验和；发布上传需显式开启。
-- 静态官网已补齐移动菜单关闭、outside-click、Escape、焦点回归与 Tab 约束、主题偏好持久化等基础交互，并加入资源/结构自动校验与 390px/320px Chromium 移动 smoke workflow；GitHub Actions 已有成功的真实 Chromium smoke 运行（最近一次 workflow run `33328966303`），真实设备/移动视觉审查与独立发布 workflow 仍待完成。
+- 静态官网已补齐移动菜单关闭、outside-click、Escape、焦点回归与 Tab 约束、主题偏好持久化等基础交互，并加入资源/结构自动校验与 390px/320px Chromium 移动 smoke workflow；GitHub Actions 最近一次成功的 Chromium smoke run 为 `33332856633`，真实设备/移动视觉审查与独立发布 workflow 仍待完成。
 
 ## 4. 当前未完成或仅有边界设计的工作
 
