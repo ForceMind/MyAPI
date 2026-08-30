@@ -9,7 +9,10 @@ License, or (at your option) any later version.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { describe, expect, test, vi } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
+
+import { ROLE } from '@/lib/roles'
+import { useAuthStore } from '@/stores/auth-store'
 
 import {
   getChannelQuotaChanges,
@@ -43,6 +46,40 @@ function renderPanel() {
 }
 
 describe('channel quota changes panel', () => {
+  afterEach(() => {
+    useAuthStore.getState().auth.reset()
+  })
+
+  test('does not reuse quota rows after the authenticated user changes', async () => {
+    useAuthStore.getState().auth.setUser({ id: 101, username: 'first-admin', role: ROLE.ADMIN })
+    vi.mocked(getChannelQuotaChanges)
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          items: [{ channel_id: 1, name: 'First account', status: 'success', direction: 'stable', current_available: 90 }],
+        },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          items: [{ channel_id: 2, name: 'Second account', status: 'success', direction: 'stable', current_available: 80 }],
+        },
+      })
+    vi.mocked(getChannelQuotaSamplingStatus).mockResolvedValue({
+      success: true,
+      data: { enabled: false, interval_seconds: 300, max_channels: 20 },
+    })
+
+    renderPanel()
+    expect(await screen.findByText('First account')).toBeInTheDocument()
+
+    useAuthStore.getState().auth.setUser({ id: 202, username: 'second-admin', role: ROLE.ADMIN })
+
+    expect(await screen.findByText('Second account')).toBeInTheDocument()
+    expect(screen.queryByText('First account')).not.toBeInTheDocument()
+    expect(getChannelQuotaChanges).toHaveBeenCalledTimes(2)
+  })
+
   test('shows mobile-safe rows and the largest movement summary', async () => {
     vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
       success: true,
