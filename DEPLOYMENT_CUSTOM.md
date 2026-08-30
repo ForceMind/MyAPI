@@ -229,6 +229,17 @@ CLI 会按 `MYAPI_EDITION` 选择 `ghcr.io/forcemind/myapi` 或
 健康检查失败时自动恢复旧环境并重新启动旧镜像；若回滚也失败，应保留现场并按输出
 中的错误进行人工处理。生产环境仍应先在副本上演练，不会因为安装 NPM 包而自动升级。
 
+升级副本前可先执行只读预检。它检查版本、发行版镜像映射、环境文件、URL、会话密钥和
+资源限制，不会创建备份、修改 `deploy/.env`、调用 Docker、拉取 GHCR 或执行 `cosign`：
+
+```bash
+npx @forcemind/myapi upgrade \
+  --project-dir ./copy --version v0.2.0 --dry-run --json
+```
+
+只有副本预检通过后，才执行不带 `--dry-run` 的升级命令；SQLite/PostgreSQL 数据库恢复
+仍须使用独立的脱敏副本和组织批准的备份工具。
+
 部署模板默认设置 `MYAPI_CPU_LIMIT=2.0` 和 `MYAPI_MEMORY_LIMIT=2g`，用于限制
 Docker Desktop 或小型服务器的资源占用。`myapi up` 与 `deploy/install.sh` 会先执行
 Compose 配置校验，再拉取镜像，并等待最多 120 秒的健康检查；限制值无效或容器未健康
