@@ -7,7 +7,7 @@
 | --- | --- | --- | --- |
 | API 兼容 | `relay/` 转换器与后端 CI | 已验证 | 上游版本变化时继续回归 |
 | API/响应日志 | `web/src/features/usage-logs/`、移动集成测试、脱敏测试 | 代码已验证 | 真实手机视觉验收 |
-| 运行构建可见性 | 管理员「系统信息」中的只读 Runtime build 标识、`build-metadata.ts` DOM/global 元数据；Docker/Release/Electron 构建注入 commit SHA | 已验证 | 更新测试镜像后由现场核对实际运行 revision |
+| 运行构建可见性 | 管理员「系统信息」中的只读 Runtime build 标识、`build-metadata.ts` DOM/global 元数据及 `build-metadata.test.ts`；Docker/Release/Electron 构建注入 commit SHA | 代码与合同已验证 | 更新测试镜像后由现场核对实际运行 revision |
 | 渠道额度历史 | `controller/channel-billing.go`、历史/聚合测试、权限路由测试 | 已验证 | 真实登录账号和采样数据演练 |
 | 概览额度变化 | `account-quota-changes-panel.tsx`、60 秒前台刷新、错误/plan type 测试 | 已验证 | 具备 `channel.read` 的真实管理员验收 |
 | 账户等级/Key 访问方案 | `model/access_profile.go`、Key/UI/API 测试与策略注册表 | 兼容层已验证 | 强制路由迁移评审 |
