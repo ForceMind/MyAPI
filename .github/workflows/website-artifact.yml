@@ -1,6 +1,13 @@
 name: Package MyAPI static website
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'website/**'
+      - 'tools/website/**'
+      - '.github/workflows/website-artifact.yml'
   workflow_dispatch:
     inputs:
       retention_days:
