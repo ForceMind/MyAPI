@@ -49,7 +49,17 @@ record(
 )
 record(
   'upgrade verifies an optional signature before changing deployment state',
-  includes(cli, ['if (plan.verifySignature) verifyImageSignature(image, values)', 'MYAPI_COSIGN_CERTIFICATE_IDENTITY']),
+  includes(cli, ['plan.verifySignature', 'verifyImageSignature', 'MYAPI_COSIGN_CERTIFICATE_IDENTITY']),
+)
+record(
+  'upgrade can pin the pulled image to a validated repository digest',
+  includes(cli, [
+    'shouldPinImageDigest',
+    "['image', 'inspect', '--format', '{{json .RepoDigests}}', image]",
+    'pulled image did not expose a valid repository digest',
+    'imagePinning: plan.pinDigest ?',
+    'MYAPI_PIN_IMAGE_DIGEST',
+  ]) && includes(docs, ['--pin-digest', 'RepoDigests', 'repo@sha256:<64 hex>']),
 )
 record(
   'upgrade stores a private environment backup',

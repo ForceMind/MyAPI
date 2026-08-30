@@ -28,6 +28,12 @@ npm run upgrade:check -- --json
 5. 预检通过后，才在副本中执行 `myapi upgrade --project-dir <副本目录> --version <新版本>`，确认容器健康、登录、API 请求、日志查询和额度面板均可用。
 6. 在副本中停止服务并从备份恢复，再验证用户、Key、渠道配置、日志索引和快照趋势；记录恢复耗时和缺失项。
 
+如需避免版本 tag 在拉取后被重新指向，可在副本升级时增加 `--pin-digest`，或在
+`deploy/.env` 设置 `MYAPI_PIN_IMAGE_DIGEST=true`。CLI 会先拉取版本 tag，再读取本机
+`RepoDigests`，严格校验 `repo@sha256:<64 hex>` 后把该 digest 写回环境文件；若同时
+使用 `--verify-signature`，cosign 会验证最终 digest。解析失败会触发原环境回滚。
+该选项不是 dry-run 的一部分，dry-run 不访问 Docker 或 GHCR。
+
 `--dry-run` 是升级前的安全门，不等同于数据库恢复测试。恢复测试必须使用复制出的 SQLite 文件或经批准的
 PostgreSQL 逻辑备份；原始生产路径和卷永远不能作为 CLI 自动操作目标。
 

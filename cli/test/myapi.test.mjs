@@ -351,6 +351,91 @@ test('upgrade restores the environment and reruns the old deployment after a pul
   assert.match(dockerCalls[1], /up -d --force-recreate --wait --wait-timeout 120/)
 })
 
+test('upgrade can pin the pulled image to its repository digest', () => {
+  const root = temporaryRoot()
+  const project = path.join(root, 'source')
+  const fakeBin = path.join(root, 'bin')
+  const dockerLog = path.join(root, 'docker.log')
+  mkdirSync(fakeBin)
+  const fakeDocker = path.join(fakeBin, 'docker')
+  const digest = 'a'.repeat(64)
+  writeFileSync(
+    fakeDocker,
+    '#!/bin/sh\n' +
+      'set -eu\n' +
+      'printf "%s\\n" "$*" >> "$MYAPI_FAKE_DOCKER_LOG"\n' +
+      'case " $* " in\n' +
+      '  *" image inspect "*) printf \'["ghcr.io/forcemind/myapi@sha256:' + digest + '"]\\n\' ;;\n' +
+      'esac\n',
+    { mode: 0o700 },
+  )
+  chmodSync(fakeDocker, 0o700)
+
+  runCli('init', project)
+  runCli('configure', '--project-dir', project, '--public-url', 'https://myapi.example.test')
+  runCliWithEnv(
+    {
+      PATH: `${fakeBin}:${process.env.PATH || ''}`,
+      MYAPI_FAKE_DOCKER_LOG: dockerLog,
+    },
+    'upgrade',
+    '--project-dir',
+    project,
+    '--version',
+    'v0.2.0',
+    '--pin-digest',
+  )
+
+  const env = readFileSync(path.join(project, 'deploy/.env'), 'utf8')
+  assert.match(env, new RegExp(`^MYAPI_IMAGE=ghcr\\.io/forcemind/myapi@sha256:${digest}$`, 'm'))
+  const dockerCalls = readFileSync(dockerLog, 'utf8').trim().split(/\r?\n/)
+  assert.equal(dockerCalls.length, 3)
+  assert.match(dockerCalls[0], /pull my-api/)
+  assert.match(dockerCalls[1], /image inspect --format/)
+  assert.match(dockerCalls[2], /up -d --force-recreate --wait --wait-timeout 120/)
+})
+
+test('upgrade rejects a missing or malformed pulled image digest and rolls back', () => {
+  const root = temporaryRoot()
+  const project = path.join(root, 'source')
+  const fakeBin = path.join(root, 'bin')
+  const dockerLog = path.join(root, 'docker.log')
+  mkdirSync(fakeBin)
+  const fakeDocker = path.join(fakeBin, 'docker')
+  writeFileSync(
+    fakeDocker,
+    '#!/bin/sh\n' +
+      'set -eu\n' +
+      'printf "%s\\n" "$*" >> "$MYAPI_FAKE_DOCKER_LOG"\n' +
+      'case " $* " in\n' +
+      '  *" image inspect "*) printf \'["ghcr.io/forcemind/myapi@sha256:not-a-digest"]\\n\' ;;\n' +
+      'esac\n',
+    { mode: 0o700 },
+  )
+  chmodSync(fakeDocker, 0o700)
+
+  runCli('init', project)
+  runCli('configure', '--project-dir', project, '--public-url', 'https://myapi.example.test')
+  const envPath = path.join(project, 'deploy/.env')
+  const before = readFileSync(envPath, 'utf8')
+  assert.throws(
+    () => runCliWithEnv(
+      {
+        PATH: `${fakeBin}:${process.env.PATH || ''}`,
+        MYAPI_FAKE_DOCKER_LOG: dockerLog,
+      },
+      'upgrade', '--project-dir', project, '--version', 'v0.2.0', '--pin-digest',
+    ),
+    (error) => Boolean(error && typeof error === 'object' && 'stderr' in error && /valid repository digest/.test(String(error.stderr))),
+  )
+  assert.equal(readFileSync(envPath, 'utf8'), before)
+  const dockerCalls = readFileSync(dockerLog, 'utf8').trim().split(/\r?\n/)
+  assert.equal(dockerCalls.length, 3)
+  assert.match(dockerCalls[0], /pull my-api/)
+  assert.match(dockerCalls[1], /image inspect --format/)
+  assert.match(dockerCalls[2], /up -d --force-recreate --wait --wait-timeout 120/)
+})
+
 test('up rejects unsafe Docker resource limits before invoking Compose', () => {
   const root = temporaryRoot()
   const project = path.join(root, 'source')

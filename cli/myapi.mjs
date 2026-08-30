@@ -876,6 +876,10 @@ function shouldVerifyImageSignature(args, values) {
   return args.includes('--verify-signature') || values.MYAPI_VERIFY_IMAGE_SIGNATURE === 'true'
 }
 
+function shouldPinImageDigest(args, values) {
+  return args.includes('--pin-digest') || values.MYAPI_PIN_IMAGE_DIGEST === 'true'
+}
+
 function verifyImageSignature(image, values) {
   const identity = values.MYAPI_COSIGN_CERTIFICATE_IDENTITY || ''
   const issuer = values.MYAPI_COSIGN_CERTIFICATE_OIDC_ISSUER || 'https://token.actions.githubusercontent.com'
@@ -909,6 +913,31 @@ function verifyImageSignature(image, values) {
   }
 }
 
+function resolveImageDigest(image) {
+  const repository = image.replace(/:[^/:]+$/, '')
+  const result = run(
+    'docker',
+    ['image', 'inspect', '--format', '{{json .RepoDigests}}', image],
+    { cwd: packageRoot, capture: true },
+  )
+  if (result.error || result.status !== 0) {
+    throw new Error('unable to resolve the pulled image digest')
+  }
+  let references
+  try {
+    references = JSON.parse(String(result.stdout || '').trim())
+  } catch {
+    throw new Error('Docker returned an invalid image digest list')
+  }
+  if (!Array.isArray(references)) {
+    throw new Error('Docker returned an invalid image digest list')
+  }
+  const digestPattern = new RegExp(`^${repository.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}@sha256:[a-f0-9]{64}$`)
+  const digest = references.find((reference) => digestPattern.test(String(reference)))
+  if (!digest) throw new Error('pulled image did not expose a valid repository digest')
+  return digest
+}
+
 function buildUpgradePlan(args) {
   const paths = deploymentPaths(projectRootFromArgs(args))
   assertDeploymentSource(paths)
@@ -939,6 +968,7 @@ function buildUpgradePlan(args) {
     image,
     currentImage: deploymentImage(values),
     verifySignature: shouldVerifyImageSignature(args, values),
+    pinDigest: shouldPinImageDigest(args, values),
   }
 }
 
@@ -955,6 +985,8 @@ function printUpgradeDryRun(plan, args) {
     // change the source of a release upgrade.
     imageSource: 'ghcr-pull',
     signatureVerification: plan.verifySignature ? 'requested-not-executed' : 'not-requested',
+    imagePinning: plan.pinDigest ? 'requested-not-executed' : 'not-requested',
+    imageResolution: plan.pinDigest ? 'digest-after-pull' : 'tag',
     checks: ['deployment-files', 'environment', 'runtime-configuration'],
     writes: [],
     dockerOperations: [],
@@ -972,6 +1004,7 @@ function printUpgradeDryRun(plan, args) {
   console.log(
     `Signature verification: ${result.signatureVerification === 'requested-not-executed' ? 'requested (not executed in dry-run)' : 'not requested'}`
   )
+  console.log(`Digest pinning: ${result.imagePinning === 'requested-not-executed' ? 'requested (resolved after pull)' : 'not requested'}`)
   console.log('Preflight: deployment files, environment, and runtime configuration passed.')
   console.log('Next step: run the same command without --dry-run only on an approved copy.')
 }
@@ -984,7 +1017,7 @@ function upgradeDeployment(args) {
     values,
     image,
   } = plan
-  if (plan.verifySignature) verifyImageSignature(image, values)
+  if (plan.verifySignature && !plan.pinDigest) verifyImageSignature(image, values)
   const backupDir = path.join(paths.projectRoot, 'backups')
   const backupPath = path.join(
     backupDir,
@@ -998,16 +1031,25 @@ function upgradeDeployment(args) {
     const updatedContents = setEnvValue(originalContents, 'MYAPI_IMAGE', image)
     writeFileSync(paths.envFile, updatedContents, { mode: 0o600 })
     chmodSync(paths.envFile, 0o600)
-    const updatedValues = plan.targetValues
+    let deployedImage = image
+    let updatedValues = plan.targetValues
     run('docker', composeArguments(paths, ['pull', 'my-api']), {
       cwd: paths.projectRoot,
       env: composeEnvironment(updatedValues),
     })
+    if (plan.pinDigest) {
+      deployedImage = resolveImageDigest(image)
+      if (plan.verifySignature) verifyImageSignature(deployedImage, values)
+      const pinnedContents = setEnvValue(updatedContents, 'MYAPI_IMAGE', deployedImage)
+      writeFileSync(paths.envFile, pinnedContents, { mode: 0o600 })
+      chmodSync(paths.envFile, 0o600)
+    }
+    updatedValues = { ...plan.targetValues, MYAPI_IMAGE: deployedImage }
     run('docker', composeArguments(paths, ['up', '-d', '--force-recreate', '--wait', '--wait-timeout', '120']), {
       cwd: paths.projectRoot,
       env: composeEnvironment(updatedValues),
     })
-    console.log(`MyAPI upgraded to ${image}. Environment backup: ${backupPath}`)
+    console.log(`MyAPI upgraded to ${deployedImage}. Environment backup: ${backupPath}`)
   } catch (error) {
     writeFileSync(paths.envFile, originalContents, { mode: 0o600 })
     chmodSync(paths.envFile, 0o600)
@@ -1053,7 +1095,7 @@ Usage:
   myapi configure [--project-dir DIR] [--public-url URL] [--data-dir DIR] [--logs-dir DIR]
   myapi migrate [--project-dir DIR]
   myapi doctor [--project-dir DIR]
-  myapi upgrade --version VERSION [--project-dir DIR] [--verify-signature] [--dry-run] [--json]
+  myapi upgrade --version VERSION [--project-dir DIR] [--verify-signature] [--pin-digest] [--dry-run] [--json]
   myapi adopt --project-dir DIR --data-dir DIR --logs-dir DIR
   myapi lan init [directory] [--bind-address ADDRESS] [--port PORT] [--allow-lan]
   myapi lan start|status|stop --project-dir DIR [--bind-address ADDRESS] [--port PORT] [--allow-lan]
@@ -1095,7 +1137,7 @@ try {
   } else if (command === 'upgrade') {
     validateArguments(args, {
       values: ['--project-dir', '--version'],
-      flags: ['--verify-signature', '--dry-run', '--json'],
+      flags: ['--verify-signature', '--pin-digest', '--dry-run', '--json'],
     })
     if (args.includes('--json') && !args.includes('--dry-run')) {
       throw new Error('--json is only supported with --dry-run')
