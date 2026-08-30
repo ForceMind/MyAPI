@@ -193,7 +193,7 @@ docker run --name my-api -d --restart always \
 - 🔄 **OpenAI Compatible ⇄ Claude Messages**
 - 🔄 **OpenAI Compatible → Google Gemini**
 - 🔄 **Google Gemini → OpenAI Compatible** - Texte uniquement, les appels de fonction ne sont pas encore pris en charge
-- 🚧 **OpenAI Compatible ⇄ OpenAI Responses** - En développement
+- 🔄 **OpenAI Compatible ⇄ OpenAI Responses** - Pris en charge via l'adaptateur de compatibilité Responses
 - 🔄 **Fonctionnalité de la pensée au contenu**
 
 **Prise en charge de l'effort de raisonnement:**
@@ -366,7 +366,7 @@ docker run --name my-api -d --restart always \
 2. Recherchez **MyAPI** dans le magasin d'applications
 3. Installation en un clic
 
-📖 [Tutoriel avec des images](./docs/BT.md)
+📖 [Tutoriel avec des images](./docs/installation/BT.md)
 
 </details>
 

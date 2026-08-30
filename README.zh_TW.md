@@ -190,7 +190,7 @@ docker run --name my-api -d --restart always \
 - 🔄 **OpenAI Compatible ⇄ Claude Messages**
 - 🔄 **OpenAI Compatible → Google Gemini**
 - 🔄 **Google Gemini → OpenAI Compatible** - 僅支援文本，暫不支援函數調用
-- 🚧 **OpenAI Compatible ⇄ OpenAI Responses** - 開發中
+- 🔄 **OpenAI Compatible ⇄ OpenAI Responses** - 透過 Responses 相容轉接器支援
 - 🔄 **思考轉內容功能**
 
 **Reasoning Effort 支援：**
@@ -363,7 +363,7 @@ docker run --name my-api -d --restart always \
 2. 在應用商店搜尋 **MyAPI**
 3. 一鍵安裝
 
-📖 [圖文教學](./docs/BT.md)
+📖 [圖文教學](./docs/installation/BT.md)
 
 </details>
 

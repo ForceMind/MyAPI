@@ -15,7 +15,8 @@ MyAPI keeps the existing Gemini, Claude Messages, and Codex channels unchanged:
 - Gemini uses the official Generate Content API and `x-goog-api-key`.
 - Claude uses the Anthropic Messages API and its existing adaptor.
 - Codex uses the existing Responses-compatible adaptor and OAuth channel flow.
-- The Gemini package contains a tested Antigravity configuration boundary in
+- The Gemini package contains an Antigravity configuration boundary with a
+  corresponding test suite in
   `relay/channel/gemini/antigravity.go` and a dedicated, non-persistent
   `AntigravityClient` in `relay/channel/gemini/antigravity_client.go`. The
   client validates the HTTPS endpoint and preview agent, sends only an
@@ -53,10 +54,13 @@ implemented and tested:
    allowed by default.
 5. A compatibility test suite against a documented mock Interactions endpoint.
 
-The first-phase client already covers the transport portion of these gates in
-`antigravity_client_test.go`: create/get/cancel lifecycle, bounded polling,
+The first-phase client test suite covers the transport portion of these gates
+in `antigravity_client_test.go`: create/get/cancel lifecycle, bounded polling,
 usage extraction, strict input/ID validation, HTTPS/auth requirements, and
-error-body redaction. It does not grant ordinary Gemini traffic access to the
+error-body redaction. The suite is checked into the repository, but this
+workspace currently lacks the Go toolchain and recent CI runs failed before
+starting a runner; treat execution as pending until a Go-capable local or CI
+environment runs it. It does not grant ordinary Gemini traffic access to the
 client.
 
 The preview agent's `agent_config` accepts a much narrower contract than a

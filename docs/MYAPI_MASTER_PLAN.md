@@ -2,7 +2,7 @@
 
 > 文档状态：执行基线与路线图
 >
-> 基线日期：2026-08-30
+> 基线日期：2026-08-31
 >
 > 当前源码基线：本分支 `main` 最新提交（后续阶段性提交以 Git 历史为准）
 
@@ -108,7 +108,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 - GitHub Actions 已支持 SemVer tag 构建并推送 Full/LAN GHCR 镜像；多架构 manifest 使用构建任务产出的、经过格式和仓库校验的架构 digest 组装，不再以可变架构 tag 作为 manifest 输入。
 - `myapi upgrade` CLI 已支持按发行版拉取 GHCR 镜像、可选 cosign 签名校验、可选拉取后 digest 固定、环境文件备份、健康等待和失败回滚；生产启用仍需人工审批与数据备份演练。
 - SemVer tag 可触发 macOS/Windows Electron 构建产物并生成 SHA256 校验和；发布上传需显式开启。
-- 静态官网已补齐移动菜单关闭、outside-click、Escape、焦点回归与 Tab 约束、主题偏好持久化等基础交互，并加入资源/结构自动校验与 390px/320px Chromium 移动 smoke workflow；GitHub Actions 最近一次成功的 Chromium smoke run 为 `33332856633`，真实设备/移动视觉审查与独立发布 workflow 仍待完成。
+- 静态官网已补齐移动菜单关闭、outside-click、Escape、焦点回归与 Tab 约束、主题偏好持久化等基础交互，并加入资源/结构自动校验与 390px/320px Chromium 移动 smoke workflow；完成度记录中的最近一次成功 Chromium smoke run 为 `33334940499`，真实设备/移动视觉审查与独立发布 workflow 仍待完成。
 - 管理员「系统信息」新增只读 Runtime build 标识，可复制构建 revision；Docker、Release 和 Electron 构建会注入 commit SHA，避免同一版本不同提交显示相同标识；更新测试镜像后的现场核对仍待完成。
 
 ## 4. 当前未完成或仅有边界设计的工作
@@ -123,7 +123,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 | 账户等级/Key 访问方案 | 独立策略注册表已实现 | 管理员可在计费设置的“Key access profile policies”编辑稳定 profile ID 的显示名、说明、路由组、模型白名单、回退方案和启用状态；显式 `account_tier_id`/`access_profile_id` 会持久化，旧客户端省略时按现有记录或变更后的 `group` 兼容回退，旧路由保持兼容。路由/模型强制执行仍需单独迁移评审 |
 | 设置引导生命周期 | 初版已实现 | 完成后自动消失、按用户和版本保存；真实多设备视觉审查仍待完成 |
 | Claude 支持 | Messages 原生转发与 Responses→Messages 兼容转换已实现；官方组织用量报告已确认存在 | 只实现有明确官方协议的能力；普通 Claude 渠道仍不读取账户余额，组织 Usage Report 只有在管理员显式配置受保护的 Admin 凭据并完成权限/保留策略后才接入 |
-| Google Antigravity 专用 relay | 第一阶段 transport 已完成 | `AntigravityClient` 已覆盖官方 preview 的创建、状态读取、有限轮询、取消、删除和 usage 提取；公开 relay/channel 接入按 [公共 Relay 闸门](./ANTIGRAVITY_PUBLIC_RELAY_GATE.md) 进行持久化、权限、计费和工具策略评审，余额端点不存在时显示 `unsupported` |
+| Google Antigravity 专用 relay | 第一阶段 transport 代码与测试已交付，运行验证待完成 | `AntigravityClient` 已覆盖官方 preview 的创建、状态读取、有限轮询、取消、删除和 usage 提取；当前 Go 测试尚未在本机或成功的 CI runner 上执行，不能将其写成已验证的完整 relay；公开 relay/channel 接入按 [公共 Relay 闸门](./ANTIGRAVITY_PUBLIC_RELAY_GATE.md) 进行持久化、权限、计费和工具策略评审，余额端点不存在时显示 `unsupported` |
 | LAN Lite 桌面体验 | 安全状态体验与确定性发行合同检查已实现 | Electron 默认回环、单实例、持久会话密钥、显式 `--allow-lan` 私网绑定、安装脚本 `MYAPI_ALLOW_LAN` 安全门、只读 LAN 状态/防火墙提示、有效地址健康检查和托盘确认后重启切换已补齐；`npm run desktop:check` 与 CI 会验证 macOS/Windows 目标、资源、校验和与发布闸门；真实跨平台安装/局域网请求演练和系统防火墙自动配置仍待完成 |
 | GHCR 自动升级 | CLI 预检与执行流程已实现 | 生产端显式拉取、可选签名验证、可选 digest 固定、健康检查、环境备份和失败回滚已有；`upgrade --dry-run --json` 可在副本上无写入预检，`docs/UPGRADE_REHEARSAL.md` 已补充恢复演练清单，真实数据库恢复和人工审批仍待完成 |
 | NPM 正式发布 | 未完成 | 版本、Tag、清单、测试和用户确认齐备后发布 |

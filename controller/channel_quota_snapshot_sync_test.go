@@ -17,6 +17,86 @@ import (
 	"gorm.io/gorm"
 )
 
+func TestUpdateChannelBalanceWithPollingLockSerializesSameChannel(t *testing.T) {
+	// Use an unsupported channel type so the call returns without touching a
+	// database or provider. Holding the shared lock first proves that manual
+	// balance requests wait for the sampler's in-flight operation instead of
+	// issuing a concurrent query.
+	channel := &model.Channel{Id: 996, Type: constant.ChannelTypeAzure}
+	lock := model.GetChannelPollingLock(channel.Id)
+	lock.Lock()
+	released := false
+	defer func() {
+		if !released {
+			lock.Unlock()
+		}
+	}()
+
+	done := make(chan error, 1)
+	go func() {
+		_, err, _ := updateChannelBalanceWithPollingLock(channel)
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		t.Fatalf("balance request bypassed the polling lock: %v", err)
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	lock.Unlock()
+	released = true
+	select {
+	case err := <-done:
+		require.ErrorIs(t, err, errChannelQuotaUnsupported)
+	case <-time.After(time.Second):
+		t.Fatal("balance request did not proceed after polling lock was released")
+	}
+}
+
+func TestWithChannelPollingLockKeepsSnapshotWorkInCriticalSection(t *testing.T) {
+	channelID := 997
+	lock := model.GetChannelPollingLock(channelID)
+	lock.Lock()
+	released := false
+	defer func() {
+		if !released {
+			lock.Unlock()
+		}
+	}()
+
+	started := make(chan struct{})
+	finished := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		withChannelPollingLock(channelID, func() {
+			close(started)
+			<-finished // stand in for provider query + snapshot persistence
+		})
+	}()
+
+	select {
+	case <-started:
+		t.Fatal("channel operation entered while its polling lock was held")
+	case <-time.After(20 * time.Millisecond):
+	}
+	lock.Unlock()
+	released = true
+
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("channel operation did not enter after polling lock was released")
+	}
+	close(finished)
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("channel operation did not finish after snapshot work was released")
+	}
+}
+
 func TestChannelQuotaSnapshotSyncSamplesStandardChannelAndRecordsFailure(t *testing.T) {
 	previousDB := model.DB
 	previousRequestInterval := common.RequestInterval

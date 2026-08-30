@@ -479,6 +479,35 @@ func updateChannelBalance(channel *model.Channel) (channelBalanceResult, error) 
 	return channelBalanceResult{Balance: balance}, err
 }
 
+// withChannelPollingLock runs one channel operation while holding the same
+// non-reentrant lock used by the scheduled sampler and multi-key state flow.
+// Keeping the operation as a callback makes it explicit that all related work
+// (provider query and normalized snapshot persistence) shares one critical
+// section.
+func withChannelPollingLock(channelID int, operation func()) {
+	lock := model.GetChannelPollingLock(channelID)
+	lock.Lock()
+	defer lock.Unlock()
+	operation()
+}
+
+// updateChannelBalanceWithPollingLock serializes balance requests initiated
+// outside the scheduled sampler and persists their normalized observation
+// before releasing the lock. The sampler already owns the channel lock while
+// it invokes updateChannelBalance and recordChannelBalanceSnapshot, so it must
+// continue to call those raw helpers directly rather than this wrapper
+// (otherwise a non-reentrant mutex would deadlock).
+func updateChannelBalanceWithPollingLock(channel *model.Channel) (result channelBalanceResult, queryErr, persistErr error) {
+	if channel == nil {
+		return channelBalanceResult{}, errors.New("nil channel"), nil
+	}
+	withChannelPollingLock(channel.Id, func() {
+		result, queryErr = updateChannelBalance(channel)
+		persistErr = recordChannelBalanceSnapshot(channel, result, queryErr)
+	})
+	return result, queryErr, persistErr
+}
+
 // recordChannelBalanceSnapshot persists only the normalized result of a
 // balance query. Upstream response bodies and credentials are never written
 // to the quota history table. The persistence error is returned so scheduled
@@ -607,8 +636,7 @@ func UpdateChannelBalance(c *gin.Context) {
 		})
 		return
 	}
-	result, err := updateChannelBalance(channel)
-	recordChannelBalanceSnapshot(channel, result, err)
+	result, err, _ := updateChannelBalanceWithPollingLock(channel)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -1091,8 +1119,7 @@ func updateAllChannelsBalance() error {
 		//if channel.Type != common.ChannelTypeOpenAI && channel.Type != common.ChannelTypeCustom {
 		//	continue
 		//}
-		result, err := updateChannelBalance(channel)
-		recordChannelBalanceSnapshot(channel, result, err)
+		result, err, _ := updateChannelBalanceWithPollingLock(channel)
 		if err != nil {
 			continue
 		} else if result.RawResponse == "" {

@@ -194,7 +194,7 @@ docker run --name my-api -d --restart always \
 - 🔄 **OpenAI Compatible ⇄ Claude Messages**
 - 🔄 **OpenAI Compatible → Google Gemini**
 - 🔄 **Google Gemini → OpenAI Compatible** - テキストのみ、関数呼び出しはまだサポートされていません
-- 🚧 **OpenAI Compatible ⇄ OpenAI Responses** - 開発中
+- 🔄 **OpenAI Compatible ⇄ OpenAI Responses** - Responses 互換アダプターでサポート
 - 🔄 **思考からコンテンツへの機能**
 
 **Reasoning Effort サポート:**
@@ -365,7 +365,7 @@ docker run --name my-api -d --restart always \
 
 1. 宝塔パネル（**9.2.0バージョン**以上）をインストールし、アプリケーションストアで**MyAPI**を検索してインストールします。
 
-📖 [画像付きチュートリアル](./docs/BT.md)
+📖 [画像付きチュートリアル](./docs/installation/BT.md)
 
 </details>
 

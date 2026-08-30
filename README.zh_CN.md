@@ -190,7 +190,7 @@ docker run --name my-api -d --restart always \
 - 🔄 **OpenAI Compatible ⇄ Claude Messages**
 - 🔄 **OpenAI Compatible → Google Gemini**
 - 🔄 **Google Gemini → OpenAI Compatible** - 仅支持文本，暂不支持函数调用
-- 🚧 **OpenAI Compatible ⇄ OpenAI Responses** - 开发中
+- 🔄 **OpenAI Compatible ⇄ OpenAI Responses** - 通过 Responses 兼容适配器支持
 - 🔄 **思考转内容功能**
 
 **Reasoning Effort 支持：**
