@@ -14,8 +14,9 @@
 | 设置引导 | Full/LAN Lite/权限条件、生命周期测试 | 已验证 | 多设备视觉检查 |
 | 品牌与旧元数据 | `tools/branding/check.mjs`，最近运行 `blocking_count: 0` | 阻断项已清零 | NOTICE、源码头和兼容标识法律审查 |
 | 静态官网 | `tools/website/check-static.mjs`、Chromium smoke、artifact workflow | 自动化已验证 | 真实移动视觉与独立域名发布决策 |
-| LAN Lite/桌面 | `lan:check`、`desktop:check`、Electron 安全边界 | 合同已验证 | macOS/Windows 实机安装、LAN 请求、防火墙 |
+| LAN Lite/桌面 | `lan:check`、`desktop:check`、Electron 安全边界；`957d4ca` 的 `electron/test/desktop-probe-contract.test.mjs`、`runtime-config.js` 和 `tools/desktop/check.mjs` | 合同已验证（生产探针为 `/api/status`，仅 2xx 视为就绪） | macOS/Windows 实机安装、LAN 请求、防火墙；真实设备运行结果不得由合同测试代替 |
 | GHCR/升级 | `release:workflow:check`、`upgrade:check`、不可变 digest 合同 | 自动化已验证 | 脱敏副本升级、数据库恢复、人工审批 |
+| 新开发环境数据库默认值 | `48abce6`、`docker-compose.dev.yml`、`makefile` | 代码与模板已验证（新开发默认数据库为 `myapi`） | 接管既有数据库必须显式设置 `MYAPI_DEV_POSTGRES_DB`/`DEV_POSTGRES_DB` 并在副本验证；该变更不执行重命名或迁移 |
 | Claude 组织用量 | `docs/CLAUDE_USAGE_REPORT.md`，官方 Usage Report 边界 | 设计已验证 | Admin 凭据、权限、保留策略和实际接入 |
 | Google Antigravity | `relay/channel/gemini/antigravity_client.go`、`antigravity_client_test.go`、`docs/ANTIGRAVITY_INTEGRATION.md`、`docs/ANTIGRAVITY_PUBLIC_RELAY_GATE.md` | 专用 transport 代码与测试已交付，运行验证待完成（create/get/poll/cancel/delete、usage、脱敏） | Go 测试需在可用本机工具链或恢复后的 CI runner 执行；随后仍需完成公共 Relay 闸门中的持久化、权限、计费、工具策略和完整测试评审；稳定官方余额接口不存在时保持 `unsupported` |
 | NPM 正式发布 | CLI/打包/版本合同检查 | 发布前检查已验证 | 版本确认、tag、清单、用户明确确认与 `npm publish` |
@@ -35,6 +36,12 @@
 - `33333993651`：README 多语言导航更新后的完整 CI，全部成功。
 - `33333825592`：README 导航与合同更新后的完整 CI，全部成功。
 - `33332856633`：静态官网 Chromium smoke，成功。
+
+- `48abce6`：新开发环境的 compose 与 make 默认 PostgreSQL 数据库标识切换为
+  `myapi`；保留显式变量覆盖旧数据库的路径，不代表既有生产数据库已迁移或重命名。
+- `957d4ca`：Electron 生产后端探针改为请求 `/api/status`，并仅接受 2xx
+  HTTP 状态；对应 runtime-config、探针合同测试和 desktop check 已纳入源码证据。
+  这些合同证据不等同于 macOS/Windows 实机安装、局域网请求或生产运行验证。
 
 CI 运行号会随新提交变化；发布前应重新查询当前提交对应的运行结果，不应永久依赖
 上述历史编号。
