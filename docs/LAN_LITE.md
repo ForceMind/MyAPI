@@ -54,6 +54,10 @@ bundled server. An invalid port or a public/non-IPv4 bind address is shown as
 an error and the server is not started. The default remains loopback-only at
 `127.0.0.1:3000`; changing the bind address is an explicit operator action.
 
+Electron 的托盘菜单提供 **LAN status and connection help…** 只读入口，显示当前
+监听端点、回环/LAN 模式和 macOS/Windows/Linux 防火墙提示。监听地址和端口在启动时
+确定，状态页不会执行不安全的热切换；修改配置后退出并用新参数重新启动。
+
 PowerShell uses the same flags (use a backtick for line continuation):
 
 ```powershell
