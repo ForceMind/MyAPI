@@ -32,6 +32,36 @@ const rules = [
   { name: 'legacy machine identifier', pattern: /\bnew-api\b/i },
 ]
 
+// Compatibility identifiers may remain in migration paths, but a new
+// development instance must never silently select an old product database.
+// Keep these checks explicit because docker-compose.dev.yml and makefile are
+// otherwise classified as compatibility surfaces by the generic scanner.
+const legacyDevelopmentDatabaseDefaults = [
+  {
+    file: 'docker-compose.dev.yml',
+    patterns: [
+      /SQL_DSN=.*\/new-api(?:\s|$)/m,
+      /^\s*POSTGRES_DB:\s*new-api\s*$/m,
+      /pg_isready[^\n]*-d\s+new-api(?:['"\s]|$)/m,
+    ],
+  },
+  {
+    file: 'makefile',
+    patterns: [/^DEV_POSTGRES_DB\s*\?=\s*new-api\s*$/m],
+  },
+  {
+    files: [
+      'README.md',
+      'README.en.md',
+      'README.fr.md',
+      'README.ja.md',
+      'README.zh_CN.md',
+      'README.zh_TW.md',
+    ],
+    patterns: [/SQL_DSN=.*\/oneapi(?:["'\s]|$)/m],
+  },
+]
+
 function categoryFor(relative) {
   if (legalPath.test(relative)) return 'legal'
   if (compatibilityPath.test(relative) || compatibilityWirePath.test(relative)) return 'compatibility'
@@ -54,7 +84,8 @@ function stripSourceHeader(contents, category) {
 
 function audit() {
   const findings = []
-  for (const relative of trackedFiles()) {
+  const tracked = new Set(trackedFiles())
+  for (const relative of tracked) {
     const category = categoryFor(relative)
     const contents = stripSourceHeader(readFileSync(path.join(root, relative), 'utf8'), category)
     for (const rule of rules) {
@@ -63,6 +94,21 @@ function audit() {
         ? rule.name !== 'legacy machine identifier'
         : false
       findings.push({ file: relative, category, rule: rule.name, blocking })
+    }
+  }
+  for (const check of legacyDevelopmentDatabaseDefaults) {
+    const files = check.files ?? [check.file]
+    for (const relative of files) {
+      if (!tracked.has(relative)) continue
+      const contents = readFileSync(path.join(root, relative), 'utf8')
+      if (check.patterns.some((pattern) => pattern.test(contents))) {
+        findings.push({
+          file: relative,
+          category: 'public-default',
+          rule: 'legacy development database default',
+          blocking: true,
+        })
+      }
     }
   }
   return findings
