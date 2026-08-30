@@ -7,7 +7,7 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -112,6 +112,75 @@ describe('account quota changes dashboard panel', () => {
     expect(
       await screen.findByText('No account quota changes recorded yet. Background sampling is enabled and will populate this panel after the next interval.')
     ).toBeInTheDocument()
+  })
+
+  test('labels unsupported provider quota instead of showing stable movement', async () => {
+    vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
+      success: true,
+      data: {
+        items: [{
+          channel_id: 18,
+          name: 'Claude subscription',
+          account_label: 'Anthropic account',
+          status: 'unsupported',
+          direction: 'stable',
+          change_per_minute: null,
+          abs_change_per_minute: null,
+          current_available: null,
+        }],
+      },
+    })
+    vi.mocked(getChannelQuotaSamplingStatus).mockResolvedValueOnce({
+      success: true,
+      data: { enabled: true, interval_seconds: 900, max_channels: 20 },
+    })
+
+    renderPanel()
+
+    expect(await screen.findByText('Unsupported')).toBeInTheDocument()
+    expect(screen.queryByText('Stable')).not.toBeInTheDocument()
+  })
+
+  test('does not mix units in the summary movement cards', async () => {
+    vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
+      success: true,
+      data: {
+        items: [
+          {
+            channel_id: 21,
+            name: 'Dollar account',
+            change_per_minute: 5,
+            abs_change_per_minute: 5,
+            current_available: 90,
+            direction: 'increase',
+            unit: 'USD',
+            metric_type: 'balance',
+            window_type: 'none',
+          },
+          {
+            channel_id: 22,
+            name: 'Percent account',
+            change_per_minute: 100,
+            abs_change_per_minute: 100,
+            current_available: 80,
+            direction: 'increase',
+            unit: 'percent',
+            metric_type: 'codex_rate_limit',
+            window_type: 'five_hour',
+          },
+        ],
+      },
+    })
+    vi.mocked(getChannelQuotaSamplingStatus).mockResolvedValueOnce({
+      success: true,
+      data: { enabled: true, interval_seconds: 900, max_channels: 20 },
+    })
+
+    renderPanel()
+
+    const increaseCard = (await screen.findByText('Max increase / minute')).parentElement
+    expect(increaseCard).toBeTruthy()
+    expect(within(increaseCard as HTMLElement).getByText('5 USD')).toBeInTheDocument()
   })
 
   test('keeps loading state visible while requests are pending', () => {

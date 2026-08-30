@@ -55,6 +55,12 @@ function finite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
+function metricIdentity(item: ChannelQuotaChangeItem): string {
+  return [item.metric_type, item.unit, item.currency, item.window_type]
+    .map((value) => value || '')
+    .join('|')
+}
+
 function formatAmount(
   value: number | null | undefined,
   unit?: string,
@@ -84,6 +90,22 @@ function movementTone(item: ChannelQuotaChangeItem): {
   className: string
   label: string
 } {
+  if (item.status === 'unsupported') {
+    return {
+      icon: Minus,
+      badge: 'warning',
+      className: 'text-warning',
+      label: 'Unsupported',
+    }
+  }
+  if (item.status === 'unavailable') {
+    return {
+      icon: Minus,
+      badge: 'secondary',
+      className: 'text-muted-foreground',
+      label: 'Unavailable',
+    }
+  }
   if (item.direction === 'decrease') {
     return {
       icon: ArrowDownRight,
@@ -152,7 +174,11 @@ function MovementRow(props: { item: ChannelQuotaChangeItem; maxMovement: number 
           <div
             className={cn(
               'h-full rounded-full transition-[width]',
-              item.direction === 'decrease' ? 'bg-destructive/70' : 'bg-warning/70'
+              item.status === 'unsupported' || item.status === 'unavailable'
+                ? 'bg-muted-foreground/40'
+                : item.direction === 'decrease'
+                  ? 'bg-destructive/70'
+                  : 'bg-warning/70'
             )}
             style={{ width: `${width}%` }}
             aria-hidden='true'
@@ -205,24 +231,36 @@ export function AccountQuotaChangesPanel() {
     () => query.data?.data?.items?.filter((item) => item.status !== 'error') ?? [],
     [query.data?.data?.items]
   )
+  const firstMetric = items.find((item) => finite(item.change_per_minute))
+  // Do not compare raw numbers from different units (for example USD and
+  // percent). The movement list remains complete; summary cards use the
+  // first metric's homogeneous series only, preventing a wrong suffix/value.
+  const summaryItems = useMemo(
+    () =>
+      firstMetric
+        ? items.filter(
+            (item) => metricIdentity(item) === metricIdentity(firstMetric)
+          )
+        : [],
+    [items, firstMetric]
+  )
   const maxDrop = useMemo(
     () =>
-      items.reduce<number | null>((max, item) => {
+      summaryItems.reduce<number | null>((max, item) => {
         if (!finite(item.change_per_minute) || item.change_per_minute >= 0) return max
         const value = Math.abs(item.change_per_minute)
         return max == null ? value : Math.max(max, value)
       }, null),
-    [items]
+    [summaryItems]
   )
   const maxIncrease = useMemo(
     () =>
-      items.reduce<number | null>((max, item) => {
+      summaryItems.reduce<number | null>((max, item) => {
         if (!finite(item.change_per_minute) || item.change_per_minute <= 0) return max
         return max == null ? item.change_per_minute : Math.max(max, item.change_per_minute)
       }, null),
-    [items]
+    [summaryItems]
   )
-  const firstMetric = items.find((item) => finite(item.change_per_minute))
   const maxMovement = items.reduce((max, item) => {
     if (finite(item.abs_change_per_minute)) {
       return Math.max(max, item.abs_change_per_minute)
