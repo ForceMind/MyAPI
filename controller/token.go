@@ -39,8 +39,8 @@ type tokenRequest struct {
 type tokenResponse struct {
 	*model.Token
 	AutoGroups []string `json:"auto_groups"`
-	// AccessProfile explains the legacy Group value without changing the
-	// persisted token schema or routing contract.
+	// AccessProfile explains the legacy Group value while the additive
+	// access_profile_id field and routing compatibility remain in place.
 	AccessProfile accessProfileMetadata `json:"access_profile"`
 }
 
