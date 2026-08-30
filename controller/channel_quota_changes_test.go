@@ -41,6 +41,19 @@ func TestBuildQuotaChangeItemsDoesNotCrossResetOrFailure(t *testing.T) {
 	require.Equal(t, 1, items[0].DataQuality.ResetBoundaries)
 }
 
+func TestBuildQuotaChangeItemsSeparatesUnsupportedFromErrors(t *testing.T) {
+	rows := []model.ChannelQuotaAggregateRow{
+		{ID: 1, ChannelID: 9, ChannelName: "Claude", ObservedAt: 100, Status: "unsupported", MetricType: "balance", WindowType: "none"},
+		{ID: 2, ChannelID: 9, ChannelName: "Claude", ObservedAt: 200, Status: "error", MetricType: "balance", WindowType: "none"},
+	}
+	items, quality := buildQuotaChangeItems(rows)
+	require.Len(t, items, 1)
+	require.Equal(t, 1, items[0].DataQuality.UnsupportedCount)
+	require.Equal(t, 1, items[0].DataQuality.ErrorCount)
+	require.Equal(t, 1, quality.UnsupportedCount)
+	require.Equal(t, 1, quality.ErrorCount)
+}
+
 func TestSortQuotaChangeItemsDefaultsToLargestAbsoluteRate(t *testing.T) {
 	items := []quotaChangeItem{
 		{ChannelID: 1, Name: "one", AbsChangePerMinute: ptrChangeFloat(2)},

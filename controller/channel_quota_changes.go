@@ -36,6 +36,7 @@ func GetChannelQuotaSamplingStatus(c *gin.Context) {
 type quotaChangeDataQuality struct {
 	SuccessCount    int   `json:"success_count"`
 	ErrorCount      int   `json:"error_count"`
+	UnsupportedCount int   `json:"unsupported_count,omitempty"`
 	InvalidCount    int   `json:"invalid_count"`
 	ResetBoundaries int   `json:"reset_boundaries"`
 	SpanSeconds     int64 `json:"span_seconds"`
@@ -209,6 +210,7 @@ func buildQuotaChangeItems(rows []model.ChannelQuotaAggregateRow) ([]quotaChange
 		items = append(items, item)
 		global.SuccessCount += item.DataQuality.SuccessCount
 		global.ErrorCount += item.DataQuality.ErrorCount
+		global.UnsupportedCount += item.DataQuality.UnsupportedCount
 		global.InvalidCount += item.DataQuality.InvalidCount
 		global.ResetBoundaries += item.DataQuality.ResetBoundaries
 		if item.DataQuality.SpanSeconds > global.SpanSeconds {
@@ -249,6 +251,8 @@ func buildQuotaChangeItem(rows []model.ChannelQuotaAggregateRow) quotaChangeItem
 			}
 			lastValidResetAt = row.ResetAt
 			hasValidReset = true
+		} else if row.Status == "unsupported" {
+			quality.UnsupportedCount++
 		} else {
 			quality.ErrorCount++
 		}

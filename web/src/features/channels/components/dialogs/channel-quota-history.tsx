@@ -318,6 +318,7 @@ export function ChannelQuotaHistory({
                         total:
                           data.data_quality.success_count +
                           data.data_quality.error_count +
+                          (data.data_quality.unsupported_count || 0) +
                           data.data_quality.invalid_count,
                       })}
                     </span>

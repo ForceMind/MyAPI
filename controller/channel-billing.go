@@ -726,6 +726,7 @@ const (
 type quotaHistoryDataQuality struct {
 	SuccessCount    int   `json:"success_count"`
 	ErrorCount      int   `json:"error_count"`
+	UnsupportedCount int  `json:"unsupported_count,omitempty"`
 	InvalidCount    int   `json:"invalid_count"`
 	ResetBoundaries int   `json:"reset_boundaries"`
 	SpanSeconds     int64 `json:"span_seconds"`
@@ -799,6 +800,10 @@ func deriveQuotaHistoryMetrics(snapshots []model.ChannelQuotaSnapshot) quotaHist
 	quality := &metrics.DataQuality
 	valid := make([]model.ChannelQuotaSnapshot, 0, len(snapshots))
 	for _, snapshot := range snapshots {
+		if snapshot.Status == "unsupported" {
+			quality.UnsupportedCount++
+			continue
+		}
 		if snapshot.Status != "success" {
 			quality.ErrorCount++
 			continue

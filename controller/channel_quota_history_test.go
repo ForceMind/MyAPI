@@ -68,6 +68,16 @@ func TestDeriveQuotaHistoryMetricsHandlesFailuresInvalidValuesAndShortSpan(t *te
 	require.Equal(t, int64(0), metrics.DataQuality.SpanSeconds)
 }
 
+func TestDeriveQuotaHistoryMetricsSeparatesUnsupportedSamples(t *testing.T) {
+	now := time.Now().Unix()
+	metrics := deriveQuotaHistoryMetrics([]model.ChannelQuotaSnapshot{
+		{ObservedAt: now - 30*60, Status: "unsupported"},
+		{ObservedAt: now, Status: "error", ErrorCode: "query_failed"},
+	})
+	require.Equal(t, 1, metrics.DataQuality.UnsupportedCount)
+	require.Equal(t, 1, metrics.DataQuality.ErrorCount)
+}
+
 func TestDeriveQuotaHistoryMetricsDoesNotCrossQuotaReset(t *testing.T) {
 	now := time.Now().Unix()
 	metrics := deriveQuotaHistoryMetrics([]model.ChannelQuotaSnapshot{

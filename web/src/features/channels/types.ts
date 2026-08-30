@@ -226,6 +226,7 @@ export interface ChannelQuotaHistorySummary {
 export interface ChannelQuotaHistoryDataQuality {
   success_count: number
   error_count: number
+  unsupported_count?: number
   invalid_count: number
   reset_boundaries: number
   span_seconds: number
