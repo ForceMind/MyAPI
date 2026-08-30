@@ -50,6 +50,10 @@ export const apiKeySchema = z.object({
       kind: z.string().optional(),
       label: z.string().optional(),
       description: z.string().optional(),
+      route_groups: z.array(z.string()).optional(),
+      model_allowlist: z.array(z.string()).optional(),
+      fallback_profiles: z.array(z.string()).optional(),
+      enabled: z.boolean().optional(),
     })
     .nullish(),
   model_limits_enabled: z.boolean(),
