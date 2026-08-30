@@ -87,7 +87,6 @@ export const STATIC_I18N_KEYS = [
   'Disabled',
   'Quota alert',
   'Critical',
-  'Remaining',
   'Expired',
   'Exhausted',
   'API Key created successfully',
