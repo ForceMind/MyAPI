@@ -55,6 +55,26 @@ const baseApiKey: ApiKey = {
 }
 
 describe('API key Auto group form mapping', () => {
+  test('preserves access profile policy metadata from the API', () => {
+    const parsed = apiKeySchema.parse({
+      ...baseApiKey,
+      access_profile: {
+        id: 'automatic',
+        label: 'Team routing',
+        description: 'Fail over across the approved pool',
+        route_groups: ['team-a', 'team-b'],
+        model_allowlist: ['gpt-5'],
+        fallback_profiles: ['standard'],
+        enabled: true,
+      },
+    })
+
+    expect(parsed.access_profile?.route_groups).toEqual(['team-a', 'team-b'])
+    expect(parsed.access_profile?.model_allowlist).toEqual(['gpt-5'])
+    expect(parsed.access_profile?.fallback_profiles).toEqual(['standard'])
+    expect(parsed.access_profile?.enabled).toBe(true)
+  })
+
   test('treats legacy token responses without auto_groups as inheritance', () => {
     const legacyApiKey: Record<string, unknown> = { ...baseApiKey }
     delete legacyApiKey.auto_groups
