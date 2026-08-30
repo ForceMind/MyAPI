@@ -53,6 +53,11 @@
 - `a2528a2`：额度概览和渠道额度面板恢复统一的 `401` 认证刷新路径，并将用户
   ID、session SID 与权限能力纳入查询缓存 key；新增跨登录身份回归测试，避免
   同一标签页复用上一会话的额度数据。该修复不绕过服务端权限检查。
+- `cb419c1`：CLI `up`/`upgrade`/`doctor` 与 installer 统一拒绝未显式允许的
+  非回环 LAN 监听；installer 同时严格校验 Full edition HTTPS origin、LAN 私网
+  origin 和至少 48 字符的 `SESSION_SECRET`。新增 CLI 回归 21/21、LAN Lite
+  合同 66/66，并为 NPM workflow 增加旧 `v0.1.0` tag 保护；概览额度汇总按
+  provider `source`/`plan_type` 隔离，避免不同账户语义混算。
 - `1827358`：Claude adaptor 增加 nil/base URL 防护和默认 JSON/Anthropic 版本头
   测试；Antigravity transport 固定 dynamic agent/continuation 字段边界、限制
   interaction 响应大小、支持 `requires_action` 终态并保持错误正文脱敏。Go 回归已在
