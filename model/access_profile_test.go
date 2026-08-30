@@ -89,3 +89,52 @@ func TestMigrateAccessProfileIdentifiersBackfillsLegacyRows(t *testing.T) {
 	require.Equal(t, "priority", migratedUser.AccountTierID)
 	require.Equal(t, "automatic", migratedToken.AccessProfileID)
 }
+
+func TestTokenUpdatePreservesExplicitAccessProfileID(t *testing.T) {
+	require.NotNil(t, DB)
+	require.NoError(t, DB.AutoMigrate(&Token{}))
+	suffix := time.Now().UnixNano()
+	token := &Token{
+		UserId: 7,
+		Key:    fmt.Sprintf("explicit-profile-key-%d", suffix),
+		Name:   "explicit-profile",
+		Group:  "vip",
+	}
+	require.NoError(t, token.Insert())
+	t.Cleanup(func() { _ = DB.Unscoped().Delete(&Token{}, token.Id).Error })
+
+	token.AccessProfileID = "team-priority"
+	token.Name = "updated-profile"
+	require.NoError(t, token.Update())
+
+	var got Token
+	require.NoError(t, DB.First(&got, token.Id).Error)
+	require.Equal(t, "team-priority", got.AccessProfileID)
+}
+
+func TestUserEditPreservesExplicitAccountTierID(t *testing.T) {
+	require.NotNil(t, DB)
+	require.NoError(t, DB.AutoMigrate(&User{}))
+	suffix := time.Now().UnixNano()
+	user := &User{
+		Username:      fmt.Sprintf("explicit-tier-%d", suffix),
+		Password:      "explicit-tier-password",
+		Group:         "default",
+		AccountTierID: "standard",
+	}
+	require.NoError(t, DB.Create(user).Error)
+	t.Cleanup(func() { _ = DB.Unscoped().Delete(&User{}, user.Id).Error })
+
+	edit := &User{
+		Id:            user.Id,
+		Username:      user.Username,
+		DisplayName:   "Explicit tier",
+		Group:         user.Group,
+		AccountTierID: "team-enterprise",
+	}
+	require.NoError(t, edit.Edit(false))
+
+	var got User
+	require.NoError(t, DB.First(&got, user.Id).Error)
+	require.Equal(t, "team-enterprise", got.AccountTierID)
+}

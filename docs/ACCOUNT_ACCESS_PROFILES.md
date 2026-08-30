@@ -13,6 +13,14 @@ the stable profile/tier IDs by `model.ResolveAccessProfile` and
 `model.ResolveAccountTier`. Existing routing still uses the legacy group until
 an explicit migration enables policy enforcement.
 
+When an API client explicitly sends `access_profile_id` or
+`account_tier_id`, MyAPI preserves that stable identifier on create/update and
+returns it in the resource. If the field is omitted, the service keeps the
+existing identifier; when a legacy client changes `group`, the identifier is
+derived from the new group as a compatibility fallback. New clients can name
+the domain object without changing routing before policy enforcement is
+approved.
+
 ## Configure profile guidance
 
 Root administrators can open **Billing → Group Pricing → Key access profile
@@ -36,4 +44,3 @@ empty IDs/labels and self-referential fallbacks are rejected atomically. The
 configured metadata is returned by `/api/user/self/groups` and shown in Key
 creation/list views; it does not expose credentials and does not silently
 reject existing Keys.
-

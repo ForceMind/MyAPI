@@ -314,8 +314,11 @@ func (token *Token) Insert() error {
 
 // Update Make sure your token's fields is completed, because this will update non-zero values
 func (token *Token) Update() (err error) {
-	// The legacy group remains authoritative during the additive migration.
-	token.AccessProfileID = EffectiveAccessProfileID(token.Group)
+	// Legacy callers may omit the additive identity; explicit profile IDs must
+	// survive updates so the domain field is not silently overwritten by group.
+	if strings.TrimSpace(token.AccessProfileID) == "" {
+		token.AccessProfileID = EffectiveAccessProfileID(token.Group)
+	}
 	// 写库前失效缓存并设置 fence，防止并发读者把过期快照重新写回缓存。
 	if cacheErr := invalidateTokenCacheForMutation(token.Key); cacheErr != nil {
 		common.SysLog("failed to invalidate token cache before update: " + cacheErr.Error())

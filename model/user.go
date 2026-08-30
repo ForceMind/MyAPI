@@ -787,13 +787,22 @@ func (user *User) UpdateWithTx(tx *gorm.DB, updatePassword bool) error {
 	if err = tx.First(&current, user.Id).Error; err != nil {
 		return err
 	}
-	if newUser.AccountTierID == "" || newUser.Group != "" {
-		group := newUser.Group
-		if group == "" {
-			group = current.Group
-		}
-		newUser.AccountTierID = EffectiveAccountTierID(group)
+	persistedGroup := newUser.Group
+	if persistedGroup == "" {
+		persistedGroup = current.Group
 	}
+	requestedTier := strings.TrimSpace(newUser.AccountTierID)
+	if requestedTier == "" {
+		if newUser.Group != "" && newUser.Group != current.Group {
+			// Legacy clients changing group still get the historical derived tier.
+			requestedTier = EffectiveAccountTierID(persistedGroup)
+		} else if strings.TrimSpace(current.AccountTierID) != "" {
+			requestedTier = current.AccountTierID
+		} else {
+			requestedTier = EffectiveAccountTierID(persistedGroup)
+		}
+	}
+	newUser.AccountTierID = requestedTier
 	// Updates(struct) ignores zero values. Match that behavior when deciding
 	// whether this request actually changes authentication-sensitive state;
 	// partial self-profile updates intentionally leave role/status/group empty.
@@ -852,28 +861,38 @@ func (user *User) EditWithTx(tx *gorm.DB, updatePassword bool) error {
 	}
 
 	newUser := *user
+	current := User{}
+	if err = tx.First(&current, user.Id).Error; err != nil {
+		return err
+	}
+	persistedGroup := newUser.Group
+	if persistedGroup == "" {
+		persistedGroup = current.Group
+	}
+	requestedTier := strings.TrimSpace(newUser.AccountTierID)
+	if requestedTier == "" {
+		if newUser.Group != "" && newUser.Group != current.Group {
+			requestedTier = EffectiveAccountTierID(persistedGroup)
+		} else if strings.TrimSpace(current.AccountTierID) != "" {
+			requestedTier = current.AccountTierID
+		} else {
+			requestedTier = EffectiveAccountTierID(persistedGroup)
+		}
+	}
 	updates := map[string]interface{}{
 		"username":        newUser.Username,
 		"display_name":    newUser.DisplayName,
 		"group":           newUser.Group,
-		"account_tier_id": EffectiveAccountTierID(newUser.Group),
+		"account_tier_id": requestedTier,
 		"remark":          newUser.Remark,
 	}
 	if updatePassword {
 		updates["password"] = newUser.Password
 	}
 
-	current := User{}
-	if err = tx.First(&current, user.Id).Error; err != nil {
-		return err
-	}
 	if newUser.Group == "" {
 		updates["group"] = current.Group
-		updates["account_tier_id"] = EffectiveAccountTierID(current.Group)
-	}
-	persistedGroup := newUser.Group
-	if persistedGroup == "" {
-		persistedGroup = current.Group
+		updates["account_tier_id"] = requestedTier
 	}
 	authChanged := (updatePassword && current.Password != newUser.Password) || current.Group != persistedGroup
 	if authChanged {

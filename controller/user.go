@@ -522,7 +522,12 @@ func buildSelfUserData(user *model.User) map[string]interface{} {
 		"wechat_id":         user.WeChatId,
 		"telegram_id":       user.TelegramId,
 		"group":             user.Group,
-		"account_tier_id":   model.EffectiveAccountTierID(user.Group),
+		"account_tier_id":   func() string {
+			if strings.TrimSpace(user.AccountTierID) != "" {
+				return user.AccountTierID
+			}
+			return model.EffectiveAccountTierID(user.Group)
+		}(),
 		"quota":             user.Quota,
 		"used_quota":        user.UsedQuota,
 		"request_count":     user.RequestCount,

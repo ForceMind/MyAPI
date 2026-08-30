@@ -333,6 +333,7 @@ func AddToken(c *gin.Context) {
 		ModelLimits:        token.ModelLimits,
 		AllowIps:           token.AllowIps,
 		Group:              token.Group,
+		AccessProfileID:    strings.TrimSpace(token.AccessProfileID),
 		CrossGroupRetry:    token.CrossGroupRetry,
 		AutoGroups:         token.AutoGroups,
 	}
@@ -412,6 +413,13 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.ModelLimitsEnabled = token.ModelLimitsEnabled
 		cleanToken.ModelLimits = token.ModelLimits
 		cleanToken.AllowIps = token.AllowIps
+		if strings.TrimSpace(token.AccessProfileID) != "" {
+			cleanToken.AccessProfileID = strings.TrimSpace(token.AccessProfileID)
+		} else if token.Group != cleanToken.Group {
+			// Legacy clients only know group. Preserve their historical behavior
+			// when changing groups, while allowing explicit profile IDs to win.
+			cleanToken.AccessProfileID = model.EffectiveAccessProfileID(token.Group)
+		}
 		cleanToken.Group = token.Group
 		cleanToken.CrossGroupRetry = token.CrossGroupRetry
 		if token.Group != "auto" {
