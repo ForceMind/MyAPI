@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,6 +13,51 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
+
+func TestSampleCodexChannelUsageSeparatesQueryAndPersistenceFailures(t *testing.T) {
+	previousDB := model.DB
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	// Deliberately do not migrate the snapshots table. A malformed credential
+	// still emits a normalized failure marker, and the sampler must expose both
+	// the provider/credential error and the write error to its caller.
+	model.DB = db
+	t.Cleanup(func() { model.DB = previousDB })
+
+	err = sampleCodexChannelUsage(context.Background(), &model.Channel{Id: 993, Type: constant.ChannelTypeCodex, Key: "not-json"})
+	require.Error(t, err)
+	var classified *channelQuotaSamplingError
+	require.True(t, errors.As(err, &classified))
+	require.Error(t, classified.QueryErr)
+	require.Error(t, classified.PersistErr)
+}
+
+func TestSampleCodexChannelUsageReportsPersistenceOnlyFailureSeparately(t *testing.T) {
+	previousDB := model.DB
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	model.DB = db
+	t.Cleanup(func() { model.DB = previousDB })
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":10,"reset_at":1900000000,"limit_window_seconds":18000}}}`))
+	}))
+	defer server.Close()
+	channel := &model.Channel{
+		Id:      994,
+		Type:    constant.ChannelTypeCodex,
+		Key:     `{"access_token":"test-access","account_id":"account-1","type":"codex"}`,
+		BaseURL: func() *string { value := server.URL; return &value }(),
+	}
+
+	err = sampleCodexChannelUsage(context.Background(), channel)
+	require.Error(t, err)
+	var classified *channelQuotaSamplingError
+	require.True(t, errors.As(err, &classified))
+	require.NoError(t, classified.QueryErr)
+	require.Error(t, classified.PersistErr)
+}
 
 func TestSampleCodexChannelUsagePersistsNormalizedWindows(t *testing.T) {
 	previousDB := model.DB

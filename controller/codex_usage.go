@@ -366,6 +366,48 @@ type codexUsageRateLimitWindow struct {
 	LimitWindowSeconds int64   `json:"limit_window_seconds"`
 }
 
+// channelQuotaSamplingError keeps an upstream query failure separate from a
+// history persistence failure.  The background sampler uses this distinction
+// to report provider outages as Failed and database/write problems as
+// PersistFailed; callers still receive one error value from the sampler.
+type channelQuotaSamplingError struct {
+	QueryErr   error
+	PersistErr error
+}
+
+func (err *channelQuotaSamplingError) Error() string {
+	if err == nil {
+		return ""
+	}
+	var parts []string
+	if err.QueryErr != nil {
+		parts = append(parts, fmt.Sprintf("Codex usage request failed: %v", err.QueryErr))
+	}
+	if err.PersistErr != nil {
+		parts = append(parts, fmt.Sprintf("quota snapshot persistence failed: %v", err.PersistErr))
+	}
+	return strings.Join(parts, "; ")
+}
+
+// Unwrap preserves errors.Is/errors.As behavior for the primary failure while
+// the typed fields retain both failure classes for the sampler summary.
+func (err *channelQuotaSamplingError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	if err.QueryErr != nil {
+		return err.QueryErr
+	}
+	return err.PersistErr
+}
+
+func newChannelQuotaSamplingError(queryErr, persistErr error) error {
+	if queryErr == nil && persistErr == nil {
+		return nil
+	}
+	return &channelQuotaSamplingError{QueryErr: queryErr, PersistErr: persistErr}
+}
+
 func recordCodexUsageSnapshots(channelID, statusCode int, body []byte) error {
 	snapshots := normalizeCodexUsageSnapshots(channelID, time.Now().Unix(), statusCode, body)
 	var firstErr error
@@ -387,19 +429,19 @@ func sampleCodexChannelUsage(ctx context.Context, ch *model.Channel) error {
 	}
 	oauthKey, err := codex.ParseOAuthKey(strings.TrimSpace(ch.Key))
 	if err != nil {
-		_ = recordCodexUsageSnapshots(ch.Id, 0, nil)
-		return fmt.Errorf("parse Codex OAuth key: %w", err)
+		persistErr := recordCodexUsageSnapshots(ch.Id, 0, nil)
+		return newChannelQuotaSamplingError(fmt.Errorf("parse Codex OAuth key: %w", err), persistErr)
 	}
 	accessToken := strings.TrimSpace(oauthKey.AccessToken)
 	accountID := strings.TrimSpace(oauthKey.AccountID)
 	if accessToken == "" || accountID == "" {
-		_ = recordCodexUsageSnapshots(ch.Id, 0, nil)
-		return fmt.Errorf("Codex OAuth key is missing access_token or account_id")
+		persistErr := recordCodexUsageSnapshots(ch.Id, 0, nil)
+		return newChannelQuotaSamplingError(fmt.Errorf("Codex OAuth key is missing access_token or account_id"), persistErr)
 	}
 	client, err := service.GetHttpClientWithProxy(ch.GetSetting().Proxy)
 	if err != nil {
-		_ = recordCodexUsageSnapshots(ch.Id, 0, nil)
-		return err
+		persistErr := recordCodexUsageSnapshots(ch.Id, 0, nil)
+		return newChannelQuotaSamplingError(err, persistErr)
 	}
 	if ctx == nil {
 		ctx = context.Background()
@@ -426,19 +468,14 @@ func sampleCodexChannelUsage(ctx context.Context, ch *model.Channel) error {
 		}
 	}
 	if err != nil {
-		if persistErr := recordCodexUsageSnapshots(ch.Id, 0, nil); persistErr != nil {
-			return fmt.Errorf("Codex usage request failed: %v; persist failure: %w", err, persistErr)
-		}
-		return err
+		persistErr := recordCodexUsageSnapshots(ch.Id, 0, nil)
+		return newChannelQuotaSamplingError(err, persistErr)
 	}
 	persistErr := recordCodexUsageSnapshots(ch.Id, statusCode, body)
 	if statusCode < 200 || statusCode >= 300 {
-		if persistErr != nil {
-			return fmt.Errorf("Codex usage upstream status %d; persist failure: %w", statusCode, persistErr)
-		}
-		return fmt.Errorf("Codex usage upstream status %d", statusCode)
+		return newChannelQuotaSamplingError(fmt.Errorf("Codex usage upstream status %d", statusCode), persistErr)
 	}
-	return persistErr
+	return newChannelQuotaSamplingError(nil, persistErr)
 }
 
 func normalizeCodexUsageSnapshots(channelID int, observedAt int64, statusCode int, body []byte) []model.ChannelQuotaSnapshot {

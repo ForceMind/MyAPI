@@ -1,14 +1,99 @@
 package controller
 
 import (
+	"context"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/model"
 	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
+
+func TestChannelQuotaSnapshotSyncSamplesStandardChannelAndRecordsFailure(t *testing.T) {
+	previousDB := model.DB
+	previousRequestInterval := common.RequestInterval
+	common.RequestInterval = 0
+	t.Cleanup(func() {
+		model.DB = previousDB
+		common.RequestInterval = previousRequestInterval
+	})
+
+	for _, test := range []struct {
+		name       string
+		statusCode int
+	}{
+		{name: "success", statusCode: http.StatusOK},
+		{name: "upstream failure", statusCode: http.StatusBadGateway},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+			require.NoError(t, err)
+			require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}))
+			model.DB = db
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if test.statusCode != http.StatusOK {
+					w.WriteHeader(test.statusCode)
+					return
+				}
+				switch r.URL.Path {
+				case "/v1/dashboard/billing/subscription":
+					_, _ = w.Write([]byte(`{"object":"billing_subscription","has_payment_method":true,"hard_limit_usd":10}`))
+				case "/v1/dashboard/billing/usage":
+					_, _ = w.Write([]byte(`{"object":"list","total_usage":100}`))
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer server.Close()
+
+			baseURL := server.URL
+			channel := &model.Channel{
+				Type:    constant.ChannelTypeCustom,
+				Status:  common.ChannelStatusEnabled,
+				Name:    "standard-subscription",
+				Key:     "test-key",
+				BaseURL: &baseURL,
+			}
+			require.NoError(t, db.Create(channel).Error)
+
+			summary, err := runChannelQuotaSnapshotSyncOnce(context.Background(), 1, nil)
+			if test.statusCode == http.StatusOK {
+				require.NoError(t, err)
+				require.Equal(t, 1, summary.Sampled)
+				require.Zero(t, summary.Failed)
+			} else {
+				// Provider failures are represented by an error snapshot and a
+				// Failed count; the bounded task itself still completes so one
+				// unavailable channel does not abort the remaining batch.
+				require.NoError(t, err)
+				require.Zero(t, summary.Sampled)
+				require.Equal(t, 1, summary.Failed)
+			}
+
+			var snapshot model.ChannelQuotaSnapshot
+			require.NoError(t, db.Where("channel_id = ?", channel.Id).First(&snapshot).Error)
+			require.Equal(t, "balance", snapshot.MetricType)
+			require.Equal(t, "none", snapshot.WindowType)
+			require.Equal(t, "channel_type_8", snapshot.Source)
+			if test.statusCode == http.StatusOK {
+				require.Equal(t, "success", snapshot.Status)
+				require.Equal(t, 9.0, snapshot.Available)
+			} else {
+				require.Equal(t, "error", snapshot.Status)
+				require.Equal(t, "query_failed", snapshot.ErrorCode)
+			}
+		})
+	}
+}
 
 func TestChannelQuotaSamplingStatusIsReadOnlyAndReflectsConfiguration(t *testing.T) {
 	t.Setenv("CHANNEL_QUOTA_SYNC_ENABLED", "true")
