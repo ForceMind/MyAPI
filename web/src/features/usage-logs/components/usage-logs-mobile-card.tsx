@@ -322,7 +322,10 @@ function CommonLogsCard<TData>({
   return (
     <div className='space-y-2.5'>
       <div className='flex min-w-0 items-center justify-between gap-3'>
-        <CompactCell cell={modelCell} className='flex-1' />
+        <CompactCell
+          cell={modelCell}
+          className='min-w-0 flex-1 [&_.flex-col]:min-w-0 [&_.flex-col]:max-w-full'
+        />
         <CompactCell
           cell={quotaCell}
           className='shrink-0 text-right [&_.flex-col]:items-end'
