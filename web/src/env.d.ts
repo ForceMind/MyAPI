@@ -21,6 +21,8 @@ For commercial licensing, please contact support@quantumnous.com
 interface ImportMetaEnv {
   readonly VITE_BRAND_NAME?: string
   readonly VITE_BRAND_LOGO?: string
+  /** Commit or immutable build identifier injected by release tooling. */
+  readonly VITE_BUILD_ID?: string
   /** Optional aliases used by MyAPI distribution build tooling. */
   readonly MYAPI_BRAND_NAME?: string
   readonly MYAPI_BRAND_LOGO?: string
