@@ -29,7 +29,7 @@ import { formatCurrencyFromUSD } from '@/lib/currency'
 import { formatNumber, formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-import { getChannelQuotaChanges } from '../api'
+import { getChannelQuotaChanges, getChannelQuotaSamplingStatus } from '../api'
 import type { ChannelQuotaChangeItem } from '../types'
 
 type Range = '24h' | '7d' | '30d' | '90d'
@@ -142,6 +142,12 @@ export function ChannelQuotaChangesPanel() {
     retry: false,
     staleTime: 60 * 1000,
   })
+  const samplingStatusQuery = useQuery({
+    queryKey: ['channel-quota-sampling-status'],
+    queryFn: () => getChannelQuotaSamplingStatus({ skipAuthRefresh: true }),
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  })
 
   const items = useMemo(
     () => query.data?.data?.items ?? [],
@@ -234,7 +240,16 @@ export function ChannelQuotaChangesPanel() {
           </Alert>
         ) : null}
         {!query.isLoading && !query.isError && query.data?.success !== false && filteredItems.length === 0 ? (
-          <div className='rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground'>{t('No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.')}</div>
+          <div className='space-y-2 rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground'>
+            <div>{t('No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.')}</div>
+            {samplingStatusQuery.data?.data ? (
+              <div className='text-xs'>
+                {samplingStatusQuery.data.data.enabled
+                  ? t('Background quota sampling is enabled (every {{minutes}} minutes).', { minutes: Math.max(1, Math.round(samplingStatusQuery.data.data.interval_seconds / 60)) })
+                  : t('Background quota sampling is disabled; query a provider account to create the first sample.')}
+              </div>
+            ) : null}
+          </div>
         ) : null}
         {!query.isLoading && !query.isError && query.data?.success !== false && filteredItems.length > 0 ? (
           <>

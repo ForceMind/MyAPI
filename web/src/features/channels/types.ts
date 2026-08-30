@@ -310,6 +310,18 @@ export interface ChannelQuotaChangesResponse {
   data?: ChannelQuotaChangesData
 }
 
+export interface ChannelQuotaSamplingStatusData {
+  enabled: boolean
+  interval_seconds: number
+  max_channels: number
+}
+
+export interface ChannelQuotaSamplingStatusResponse {
+  success: boolean
+  message?: string
+  data?: ChannelQuotaSamplingStatusData
+}
+
 export interface FetchModelsResponse {
   success: boolean
   message?: string

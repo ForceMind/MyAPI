@@ -32,7 +32,7 @@ import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { IconBadge } from '@/components/ui/icon-badge'
-import { getChannelQuotaChanges } from '@/features/channels/api'
+import { getChannelQuotaChanges, getChannelQuotaSamplingStatus } from '@/features/channels/api'
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
 import { hasPermission } from '@/lib/admin-permissions'
 import { cn } from '@/lib/utils'
@@ -193,6 +193,13 @@ export function AccountQuotaChangesPanel() {
     staleTime: 60 * 1000,
     retry: false,
   })
+  const samplingStatusQuery = useQuery({
+    queryKey: ['dashboard', 'channel-quota-sampling-status'],
+    queryFn: () => getChannelQuotaSamplingStatus({ skipAuthRefresh: true }),
+    enabled: canReadChannels,
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  })
 
   const items = useMemo(
     () => query.data?.data?.items?.filter((item) => item.status !== 'error') ?? [],
@@ -274,7 +281,9 @@ export function AccountQuotaChangesPanel() {
       description={t('Largest provider account quota movements per minute')}
       loading={query.isLoading}
       empty={!query.isLoading && items.length === 0}
-      emptyMessage={t('No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.')}
+      emptyMessage={samplingStatusQuery.data?.data?.enabled
+        ? t('No account quota changes recorded yet. Background sampling is enabled and will populate this panel after the next interval.')
+        : t('No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.')}
       height='h-64'
       contentClassName='space-y-3'
       headerActions={

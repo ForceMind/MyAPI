@@ -26,6 +26,7 @@ import type {
   Channel,
   ChannelBalanceResponse,
   ChannelQuotaChangesResponse,
+  ChannelQuotaSamplingStatusResponse,
   ChannelOpsResponse,
   ChannelQuotaHistoryResponse,
   ChannelTestResponse,
@@ -328,6 +329,16 @@ export async function getChannelQuotaChanges(
       sort: 'abs_change_per_minute',
       ...params,
     },
+  })
+  return res.data
+}
+
+/** Read the effective background quota sampler settings. */
+export async function getChannelQuotaSamplingStatus(
+  requestConfig: ApiRequestConfig = {}
+): Promise<ChannelQuotaSamplingStatusResponse> {
+  const res = await api.get('/api/channel/quota/status', {
+    ...channelActionConfig(requestConfig),
   })
   return res.data
 }

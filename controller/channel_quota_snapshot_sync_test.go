@@ -1,11 +1,38 @@
 package controller
 
 import (
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
+
+func TestChannelQuotaSamplingStatusIsReadOnlyAndReflectsConfiguration(t *testing.T) {
+	t.Setenv("CHANNEL_QUOTA_SYNC_ENABLED", "true")
+	t.Setenv("CHANNEL_QUOTA_SYNC_INTERVAL", "30m")
+	t.Setenv("CHANNEL_QUOTA_SYNC_MAX_CHANNELS", "12")
+
+	gin.SetMode(gin.TestMode)
+	req := httptest.NewRequest("GET", "/api/channel/quota/status", nil)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = req
+	GetChannelQuotaSamplingStatus(ctx)
+
+	if recorder.Code != 200 {
+		t.Fatalf("status code = %d, want 200", recorder.Code)
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `"enabled":true`) || !strings.Contains(body, `"interval_seconds":1800`) || !strings.Contains(body, `"max_channels":12`) {
+		t.Fatalf("unexpected status response: %s", body)
+	}
+	if strings.Contains(body, "secret") || strings.Contains(body, "token") {
+		t.Fatalf("sampling status leaked sensitive fields: %s", body)
+	}
+}
 
 func TestChannelQuotaSnapshotSyncIsOptInAndUsesSafeDefaults(t *testing.T) {
 	t.Setenv("CHANNEL_QUOTA_SYNC_ENABLED", "")

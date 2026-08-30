@@ -18,6 +18,21 @@ import (
 
 const maxQuotaChangesLimit = 2000
 
+// GetChannelQuotaSamplingStatus exposes only the effective sampler settings so
+// administrators can understand an empty trend panel without inspecting the
+// deployment environment. It never starts a task or returns credentials.
+func GetChannelQuotaSamplingStatus(c *gin.Context) {
+	handler := channelQuotaSnapshotSyncHandler{}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"enabled":          handler.Enabled(),
+			"interval_seconds": int64(handler.Interval() / time.Second),
+			"max_channels":     channelQuotaSnapshotSyncMaxChannelsConfigured(),
+		},
+	})
+}
+
 type quotaChangeDataQuality struct {
 	SuccessCount    int   `json:"success_count"`
 	ErrorCount      int   `json:"error_count"`
