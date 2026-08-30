@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -10,6 +11,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestConvertOpenAIResponsesRequestUsesClaudeMessagesConverter(t *testing.T) {
+	adaptor := &Adaptor{}
+	converted, err := adaptor.ConvertOpenAIResponsesRequest(nil, nil, dto.OpenAIResponsesRequest{
+		Model: "claude-test",
+		Input: json.RawMessage(`"hello"`),
+	})
+	require.NoError(t, err)
+
+	request, ok := converted.(*dto.ClaudeRequest)
+	require.True(t, ok)
+	assert.Equal(t, "claude-test", request.Model)
+	require.Len(t, request.Messages, 1)
+	assert.Equal(t, "user", request.Messages[0].Role)
+}
 
 func commonPointer[T any](value T) *T {
 	return &value
