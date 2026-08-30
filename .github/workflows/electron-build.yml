@@ -104,7 +104,7 @@ jobs:
           go mod download
           MODULE_PATH="$(go list -m)"
           [[ "$MODULE_PATH" == "github.com/ForceMind/MyAPI" ]] || { echo "::error::unexpected Go module path: $MODULE_PATH"; exit 1; }
-          go build -ldflags "-s -w -X '${MODULE_PATH}/common.Version=$(git describe --tags --always)'" -o my-api
+          GOMAXPROCS=2 go build -p 2 -ldflags "-s -w -X '${MODULE_PATH}/common.Version=$(git describe --tags --always)'" -o my-api
 
       - name: Build Go binary (Windows)
         if: runner.os == 'Windows'
@@ -112,7 +112,7 @@ jobs:
           go mod download
           MODULE_PATH="$(go list -m)"
           [[ "$MODULE_PATH" == "github.com/ForceMind/MyAPI" ]] || { echo "::error::unexpected Go module path: $MODULE_PATH"; exit 1; }
-          go build -ldflags "-s -w -X '${MODULE_PATH}/common.Version=$(git describe --tags --always)'" -o my-api.exe
+          GOMAXPROCS=2 go build -p 2 -ldflags "-s -w -X '${MODULE_PATH}/common.Version=$(git describe --tags --always)'" -o my-api.exe
 
       - name: Update Electron version
         run: |

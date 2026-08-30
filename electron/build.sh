@@ -10,6 +10,7 @@ if [[ ! "$BUILD_PARALLELISM" =~ ^[1-9][0-9]*$ ]]; then
     exit 1
 fi
 export npm_config_jobs="$BUILD_PARALLELISM"
+export GOMAXPROCS="$BUILD_PARALLELISM"
 
 echo "Building MyAPI Electron App..."
 
@@ -24,25 +25,25 @@ cd ..
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
     echo "Building for macOS..."
-    CGO_ENABLED=1 go build -p "$BUILD_PARALLELISM" -ldflags="-s -w" -o my-api
+    CGO_ENABLED=1 GOMAXPROCS="$BUILD_PARALLELISM" go build -p "$BUILD_PARALLELISM" -ldflags="-s -w" -o my-api
     cd electron
     npm ci
     npm run build:mac
 elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
     echo "Building for Linux..."
-    CGO_ENABLED=1 go build -p "$BUILD_PARALLELISM" -ldflags="-s -w" -o my-api
+    CGO_ENABLED=1 GOMAXPROCS="$BUILD_PARALLELISM" go build -p "$BUILD_PARALLELISM" -ldflags="-s -w" -o my-api
     cd electron
     npm ci
     npm run build:linux
 elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]]; then
     echo "Building for Windows..."
-    CGO_ENABLED=1 go build -p "$BUILD_PARALLELISM" -ldflags="-s -w" -o my-api.exe
+    CGO_ENABLED=1 GOMAXPROCS="$BUILD_PARALLELISM" go build -p "$BUILD_PARALLELISM" -ldflags="-s -w" -o my-api.exe
     cd electron
     npm ci
     npm run build:win
 else
     echo "Unknown OS, building for current platform..."
-    CGO_ENABLED=1 go build -p "$BUILD_PARALLELISM" -ldflags="-s -w" -o my-api
+    CGO_ENABLED=1 GOMAXPROCS="$BUILD_PARALLELISM" go build -p "$BUILD_PARALLELISM" -ldflags="-s -w" -o my-api
     cd electron
     npm ci
     npm run build
