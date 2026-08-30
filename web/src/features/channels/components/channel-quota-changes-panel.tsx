@@ -28,6 +28,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrencyFromUSD } from '@/lib/currency'
 import { formatNumber, formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { getChannelQuotaChanges, getChannelQuotaSamplingStatus } from '../api'
 import type { ChannelQuotaChangeItem } from '../types'
@@ -144,21 +145,24 @@ function ChangeRow({ item, t }: { item: ChannelQuotaChangeItem; t: (key: string)
 
 export function ChannelQuotaChangesPanel() {
   const { t } = useTranslation()
+  // Avoid carrying a previous administrator's cached account movements into
+  // a different login session when the route remains mounted during logout.
+  const userId = useAuthStore((state) => state.auth.user?.id ?? null)
+  const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   const [range, setRange] = useState<Range>('24h')
   const [windowFilter, setWindowFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const query = useQuery({
-    queryKey: ['channel-quota-changes', range],
+    queryKey: ['channel-quota-changes', userId, sessionId, range],
     queryFn: () => getChannelQuotaChanges(
-      { range, limit: 2000, sort: 'abs_change_per_minute' },
-      { skipAuthRefresh: true }
+      { range, limit: 2000, sort: 'abs_change_per_minute' }
     ),
     retry: false,
     staleTime: 60 * 1000,
   })
   const samplingStatusQuery = useQuery({
-    queryKey: ['channel-quota-sampling-status'],
-    queryFn: () => getChannelQuotaSamplingStatus({ skipAuthRefresh: true }),
+    queryKey: ['channel-quota-sampling-status', userId, sessionId],
+    queryFn: () => getChannelQuotaSamplingStatus(),
     retry: false,
     staleTime: 5 * 60 * 1000,
   })

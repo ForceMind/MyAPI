@@ -39,9 +39,9 @@ function renderPanel() {
   )
 }
 
-function setUser(canReadChannels: boolean) {
+function setUser(canReadChannels: boolean, id = 1) {
   useAuthStore.getState().auth.setUser({
-    id: 1,
+    id,
     username: 'admin',
     role: ROLE.ADMIN,
     permissions: {
@@ -67,6 +67,52 @@ describe('account quota changes dashboard panel', () => {
     expect(screen.queryByText('Account quota changes')).not.toBeInTheDocument()
     expect(getChannelQuotaChanges).not.toHaveBeenCalled()
     expect(getChannelQuotaSamplingStatus).not.toHaveBeenCalled()
+  })
+
+  test('does not reuse quota data across login identities', async () => {
+    vi.mocked(getChannelQuotaChanges)
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          items: [{
+            channel_id: 41,
+            name: 'First session account',
+            status: 'success',
+            direction: 'stable',
+            current_available: 90,
+          }],
+        },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: {
+          items: [{
+            channel_id: 42,
+            name: 'Second session account',
+            status: 'success',
+            direction: 'stable',
+            current_available: 80,
+          }],
+        },
+      })
+    vi.mocked(getChannelQuotaSamplingStatus)
+      .mockResolvedValueOnce({
+        success: true,
+        data: { enabled: true, interval_seconds: 300, max_channels: 20 },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: { enabled: true, interval_seconds: 300, max_channels: 20 },
+      })
+
+    renderPanel()
+    expect(await screen.findByText('First session account')).toBeInTheDocument()
+
+    setUser(true, 2)
+
+    expect(await screen.findByText('Second session account')).toBeInTheDocument()
+    expect(screen.queryByText('First session account')).not.toBeInTheDocument()
+    expect(getChannelQuotaChanges).toHaveBeenCalledTimes(2)
   })
 
   test('keeps movement details and channel navigation visible on narrow layouts', async () => {

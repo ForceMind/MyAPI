@@ -211,6 +211,11 @@ function MovementRow(props: { item: ChannelQuotaChangeItem; maxMovement: number 
 export function AccountQuotaChangesPanel() {
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
+  // Keep dashboard query caches isolated across login sessions. Without the
+  // identity in the key, a successful admin response could remain in the
+  // TanStack cache and be rendered immediately when another session with the
+  // same permission is opened in the same tab.
+  const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   // The API route is protected by the same resolved permission matrix as the
   // rest of the admin channel surface. Using the capability payload here
   // avoids showing a panel to users who would be rejected by an explicit
@@ -218,13 +223,21 @@ export function AccountQuotaChangesPanel() {
   const canReadChannels = hasPermission(user, 'channel', 'read')
 
   const query = useQuery({
-    queryKey: ['dashboard', 'account-quota-changes', RANGE, LIMIT],
+    queryKey: [
+      'dashboard',
+      'account-quota-changes',
+      RANGE,
+      LIMIT,
+      user?.id ?? null,
+      sessionId,
+      canReadChannels,
+    ],
     queryFn: () =>
       getChannelQuotaChanges({
         range: RANGE,
         limit: LIMIT,
         sort: 'abs_change_per_minute',
-      }, { skipAuthRefresh: true }),
+      }),
     enabled: canReadChannels,
     staleTime: 60 * 1000,
     // Keep the overview useful while it remains open after a background
@@ -234,8 +247,14 @@ export function AccountQuotaChangesPanel() {
     retry: false,
   })
   const samplingStatusQuery = useQuery({
-    queryKey: ['dashboard', 'channel-quota-sampling-status'],
-    queryFn: () => getChannelQuotaSamplingStatus({ skipAuthRefresh: true }),
+    queryKey: [
+      'dashboard',
+      'channel-quota-sampling-status',
+      user?.id ?? null,
+      sessionId,
+      canReadChannels,
+    ],
+    queryFn: () => getChannelQuotaSamplingStatus(),
     enabled: canReadChannels,
     retry: false,
     staleTime: 5 * 60 * 1000,
