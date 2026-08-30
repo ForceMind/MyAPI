@@ -191,6 +191,26 @@ describe('API key group combobox Auto effect', () => {
     expect(trigger.querySelector('[data-auto-group-flow-border]')).toBe(null)
   })
 
+  test('keeps access-profile guidance readable on narrow triggers and menus', () => {
+    setReducedMotion(false)
+    render(<Harness initialValue='vip' />)
+
+    const trigger = getTrigger()
+    const selectedDescription = trigger.querySelector<HTMLElement>(
+      '.line-clamp-2'
+    )
+    expect(selectedDescription).toHaveTextContent('Priority group')
+    expect(selectedDescription).toHaveClass('break-words')
+
+    fireEvent.click(trigger)
+    const vipOption = getCommandItem('Priority group')
+    const optionDescription = vipOption.querySelector<HTMLElement>(
+      '.line-clamp-2'
+    )
+    expect(optionDescription).toHaveTextContent('Priority group')
+    expect(optionDescription).toHaveClass('break-words')
+  })
+
   test('preserves the static Auto treatment but omits moving layers for reduced motion', async () => {
     setReducedMotion(true)
     render(<Harness initialValue='auto' />)

@@ -4,12 +4,14 @@
 
 ## 每次发布前检查
 
-在仓库根目录执行：
+在仓库根目录执行（仅用于人工快速定位）：
 
 ```bash
-rg -n -i 'new api|quantumnous|new_api|new-api' \
-  --glob '!docs/**' --glob '!patches/**' --glob '!NOTICE' --glob '!LICENSE*'
+git grep -n -I -i -e 'new api' -e 'quantumnous' -e 'new_api' -e 'new-api' -- \
+  ':(exclude)docs/**' ':(exclude)patches/**' ':(exclude)NOTICE' ':(exclude)LICENSE*'
 ```
+
+`git grep` 只检查已跟踪文件；它不能代替下面的分类审计。
 
 命中项必须逐项归类：
 
@@ -21,13 +23,20 @@ rg -n -i 'new api|quantumnous|new_api|new-api' \
 自动化审计（只读取 Git 已跟踪文件，不读取 `.env`、数据库、日志、依赖或构建产物）：
 
 ```bash
-npm run brand:check
-npm run brand:check -- --json
+node tools/branding/check.mjs
+node tools/branding/check.mjs --json > brand-audit.json
+# 也可以通过 npm（使用 --silent 以保持 JSON 输出可解析）
+npm run --silent brand:check -- --json > brand-audit.json
 ```
 
 检查器只对公开发行面中的未解释旧品牌阻断；`LICENSE`、`NOTICE`、源码头、补丁、
 兼容 wire header 和审计文档会输出分类信息但不会被误报为品牌泄漏。输出只包含
 文件路径、分类和规则名称，不包含文件内容。
+
+CI 应把 `blocking_count` 作为唯一失败条件；`findings` 中的 `legal`、
+`compatibility`、`source-header`、`audit-document` 和 `audit-tool` 项是有意保留的
+审计记录，不代表运行时品牌泄漏。发布前若新增 `public` 阻断项，应先检查其是否为
+新安装默认值或用户可见文案，再决定替换或补充分类规则。
 
 ## 已实现边界
 

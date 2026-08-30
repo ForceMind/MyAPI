@@ -62,6 +62,19 @@ function runCli(...args) {
   })
 }
 
+function runCliFailure(...args) {
+  const result = spawnSync(process.execPath, [cli, ...args], {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    shell: false,
+  })
+  return {
+    status: result.status,
+    output: `${result.stdout || ''}${result.stderr || ''}`,
+  }
+}
+
 function checkStaticContracts(checks) {
   const requiredFiles = [
     'cli/myapi.mjs',
@@ -145,6 +158,50 @@ function validateGeneratedProject(
   }
 }
 
+function checkPrivateLANOptIn(checks) {
+  const project = mkdtempSync(path.join(tmpdir(), 'myapi-lan-opt-in-check-'))
+  try {
+    const output = runCli(
+      'lan',
+      'init',
+      project,
+      '--bind-address',
+      '192.168.1.20',
+      '--port',
+      '4317',
+      '--allow-lan',
+    )
+    validateGeneratedProject(checks, project, output, {
+      expectLoopback: false,
+      expectFresh: true,
+    })
+
+    // A non-loopback bind without the explicit opt-in must fail before the
+    // destination is created or any environment is written.
+    const rejectedProject = path.join(project, 'missing-opt-in')
+    const rejectedResult = runCliFailure(
+      'lan',
+      'init',
+      rejectedProject,
+      '--bind-address',
+      '192.168.1.20',
+    )
+    record(
+      checks,
+      'private LAN binding requires explicit opt-in',
+      rejectedResult.status !== 0,
+      'CLI exits before writing the project',
+    )
+    record(
+      checks,
+      'rejected LAN bind does not create a project',
+      !existsSync(rejectedProject),
+    )
+  } finally {
+    if (!keepTemporary) rmSync(project, { recursive: true, force: true })
+  }
+}
+
 function main() {
   const checks = []
   checkStaticContracts(checks)
@@ -170,6 +227,7 @@ function main() {
       expectLoopback: !requestedProject,
       expectFresh: !requestedProject,
     })
+    if (!requestedProject) checkPrivateLANOptIn(checks)
   } finally {
     if (temporaryProject && !keepTemporary) rmSync(temporaryProject, { recursive: true, force: true })
   }
