@@ -1,6 +1,10 @@
 # MyAPI website
 
-This directory contains the independent, dependency-free MyAPI product site. It is intentionally separate from the React administration console so the marketing page never increases the LAN image footprint.
+This directory contains the independent MyAPI product site. It has no build
+dependencies and can be served as plain static files; the optional web font
+falls back to system fonts when external font loading is unavailable. It is
+intentionally separate from the React administration console so the marketing
+page never increases the LAN image footprint.
 
 ## Preview
 

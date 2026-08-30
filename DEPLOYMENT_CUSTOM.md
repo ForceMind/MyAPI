@@ -114,6 +114,11 @@ CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT=10
 # MYAPI_COSIGN_CERTIFICATE_OIDC_ISSUER=https://token.actions.githubusercontent.com
 ```
 
+后台采样默认关闭；需要持续记录普通渠道余额时，管理员必须显式设置
+`CHANNEL_QUOTA_SYNC_ENABLED=true`，并使用有界的采样间隔和渠道数量。额度告警在
+“设置 → 运维 → 监控与告警”中配置，默认关闭，只影响额度历史中的只读状态，不发送
+通知、不停用渠道，也不改变路由。
+
 同一进程内的 Relay 路由共享一个日志写入器，默认最多保留 10 个
 100 MiB 文件，约为 1 GiB 软上限。单条超大记录可能暂时超过该值。
 

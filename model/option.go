@@ -136,6 +136,13 @@ func InitOptionMap() {
 	common.OptionMap["QuotaForInvitee"] = strconv.Itoa(common.QuotaForInvitee)
 	common.OptionMap["QuotaRemindThreshold"] = strconv.Itoa(common.QuotaRemindThreshold)
 	common.OptionMap["PreConsumedQuota"] = strconv.Itoa(common.PreConsumedQuota)
+	if quotaAlertJSON, err := common.MarshalChannelQuotaAlertSettings(common.ChannelQuotaAlertSettings{
+		Enabled:         common.ChannelQuotaAlertEnabled,
+		WarningPercent:  common.ChannelQuotaAlertWarningPercent,
+		CriticalPercent: common.ChannelQuotaAlertCriticalPercent,
+	}); err == nil {
+		common.OptionMap[common.ChannelQuotaAlertSettingsOptionKey] = quotaAlertJSON
+	}
 	common.OptionMap["ModelRequestRateLimitCount"] = strconv.Itoa(setting.ModelRequestRateLimitCount)
 	common.OptionMap["ModelRequestRateLimitDurationMinutes"] = strconv.Itoa(setting.ModelRequestRateLimitDurationMinutes)
 	common.OptionMap["ModelRequestRateLimitSuccessCount"] = strconv.Itoa(setting.ModelRequestRateLimitSuccessCount)
@@ -206,6 +213,9 @@ func SyncOptions(frequency int) {
 }
 
 func validateOptionValue(key string, value string) error {
+	if err := common.ValidateChannelQuotaAlertOptionValue(key, value); err != nil {
+		return err
+	}
 	if key == operation_setting.ToolPriceOptionKey {
 		return operation_setting.ValidateToolPricesJSON(value)
 	}
@@ -276,6 +286,9 @@ func UpdateOptionsBulk(values map[string]string) error {
 }
 
 func updateOptionMap(key string, value string) (err error) {
+	if err = common.ValidateChannelQuotaAlertOptionValue(key, value); err != nil {
+		return err
+	}
 	if key == retiredThemeOptionKey {
 		common.OptionMapRWMutex.Lock()
 		delete(common.OptionMap, key)
@@ -395,6 +408,20 @@ func updateOptionMap(key string, value string) (err error) {
 		}
 	}
 	switch key {
+	case common.ChannelQuotaAlertSettingsOptionKey:
+		settings, parseErr := common.ParseChannelQuotaAlertSettings(value)
+		if parseErr != nil {
+			return parseErr
+		}
+		common.ChannelQuotaAlertEnabled = settings.Enabled
+		common.ChannelQuotaAlertWarningPercent = settings.WarningPercent
+		common.ChannelQuotaAlertCriticalPercent = settings.CriticalPercent
+	case common.ChannelQuotaAlertEnabledOptionKey:
+		common.ChannelQuotaAlertEnabled, err = strconv.ParseBool(strings.TrimSpace(value))
+	case common.ChannelQuotaAlertWarningPercentOptionKey:
+		common.ChannelQuotaAlertWarningPercent, err = strconv.ParseFloat(strings.TrimSpace(value), 64)
+	case common.ChannelQuotaAlertCriticalPercentOptionKey:
+		common.ChannelQuotaAlertCriticalPercent, err = strconv.ParseFloat(strings.TrimSpace(value), 64)
 	case "EmailDomainWhitelist":
 		common.EmailDomainWhitelist = strings.Split(value, ",")
 	case "SMTPServer":
@@ -602,6 +629,15 @@ func updateOptionMap(key string, value string) (err error) {
 		// WaffoPayMethods is read directly from OptionMap via setting.GetWaffoPayMethods().
 		// The value is already stored in OptionMap at the top of this function (line: common.OptionMap[key] = value).
 		// No additional in-memory variable to update.
+	}
+	if key == common.ChannelQuotaAlertEnabledOptionKey || key == common.ChannelQuotaAlertWarningPercentOptionKey || key == common.ChannelQuotaAlertCriticalPercentOptionKey {
+		if settingsJSON, marshalErr := common.MarshalChannelQuotaAlertSettings(common.ChannelQuotaAlertSettings{
+			Enabled:         common.ChannelQuotaAlertEnabled,
+			WarningPercent:  common.ChannelQuotaAlertWarningPercent,
+			CriticalPercent: common.ChannelQuotaAlertCriticalPercent,
+		}); marshalErr == nil {
+			common.OptionMap[common.ChannelQuotaAlertSettingsOptionKey] = settingsJSON
+		}
 	}
 	return err
 }

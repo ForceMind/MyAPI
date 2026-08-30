@@ -3,6 +3,13 @@ const menuToggle = document.querySelector('[data-menu-toggle]')
 const mobileMenu = document.querySelector('[data-mobile-menu]')
 const themeToggle = document.querySelector('[data-theme-toggle]')
 
+// Keep the LAN edition CTA useful even when the page is mirrored without a
+// build step; the guide contains the safe, pinned-image setup path.
+document.querySelector('.lan-edition .button-light')?.setAttribute(
+  'href',
+  'https://github.com/ForceMind/MyAPI/blob/main/docs/LAN_LITE.md',
+)
+
 window.addEventListener(
   'scroll',
   () => header?.classList.toggle('scrolled', window.scrollY > 18),

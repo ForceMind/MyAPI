@@ -70,6 +70,12 @@ if (!/theme|menu|install|release/i.test(script)) {
 if (!/aria-pressed/.test(script) || !/matchMedia/.test(script)) {
   throw new Error('website theme interaction must expose state and respect system preference')
 }
+if (!/docs\/LAN_LITE\.md/.test(script)) {
+  throw new Error('LAN Lite CTA must link to the maintained LAN guide')
+}
+if (/\bdocker\s+run\b|:\s*latest\b/i.test(publicWebsite)) {
+  throw new Error('public website must not advertise unpinned or bare Docker commands')
+}
 if (css.trim().length < 200) {
   throw new Error('website/styles.css is unexpectedly small')
 }

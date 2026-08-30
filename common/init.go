@@ -139,13 +139,18 @@ func initChannelQuotaAlertSettings() {
 	ChannelQuotaAlertEnabled = GetEnvOrDefaultBool("CHANNEL_QUOTA_ALERT_ENABLED", DefaultChannelQuotaAlertEnabled)
 	warning := getEnvOrDefaultFloat("CHANNEL_QUOTA_ALERT_WARNING_PERCENT", DefaultChannelQuotaAlertWarningPercent)
 	critical := getEnvOrDefaultFloat("CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT", DefaultChannelQuotaAlertCriticalPercent)
-	if warning <= 0 || warning > 100 || critical < 0 || critical >= warning {
-		SysError(fmt.Sprintf("invalid channel quota alert thresholds (warning=%v critical=%v); using defaults", warning, critical))
-		warning = DefaultChannelQuotaAlertWarningPercent
-		critical = DefaultChannelQuotaAlertCriticalPercent
+	settings := ChannelQuotaAlertSettings{
+		Enabled:         ChannelQuotaAlertEnabled,
+		WarningPercent:  warning,
+		CriticalPercent: critical,
 	}
-	ChannelQuotaAlertWarningPercent = warning
-	ChannelQuotaAlertCriticalPercent = critical
+	if err := ValidateChannelQuotaAlertSettings(settings); err != nil {
+		SysError(fmt.Sprintf("invalid channel quota alert thresholds (warning=%v critical=%v): %s; using defaults", warning, critical, err))
+		settings = DefaultChannelQuotaAlertSettings()
+	}
+	ChannelQuotaAlertEnabled = settings.Enabled
+	ChannelQuotaAlertWarningPercent = settings.WarningPercent
+	ChannelQuotaAlertCriticalPercent = settings.CriticalPercent
 }
 
 func getEnvOrDefaultFloat(name string, fallback float64) float64 {

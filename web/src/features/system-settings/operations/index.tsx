@@ -31,6 +31,8 @@ const defaultOperationsSettings: OperationsSettings = {
   DemoSiteEnabled: false,
   SelfUseModeEnabled: false,
   QuotaRemindThreshold: '',
+  ChannelQuotaAlertSettings:
+    '{"enabled":false,"warning_percent":20,"critical_percent":10}',
   SMTPServer: '',
   SMTPPort: '',
   SMTPAccount: '',

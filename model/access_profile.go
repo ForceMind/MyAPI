@@ -1,9 +1,15 @@
 package model
 
+import (
+	"strings"
+
+	"gorm.io/gorm"
+)
+
 // AccessProfileMetadata gives the legacy token group a stable domain meaning
-// without changing the persisted Token schema or routing contract. The
-// identifier remains presentation metadata until a future access_profile_id
-// migration is explicitly approved.
+// while retaining the legacy Token group and routing contract. The stable
+// identifier is persisted additively; old clients and routing continue to use
+// group until a future policy migration is explicitly approved.
 type AccessProfileMetadata struct {
 	ID          string `json:"id"`
 	Kind        string `json:"kind"`
@@ -19,6 +25,81 @@ type AccountTierMetadata struct {
 	Kind        string `json:"kind"`
 	Label       string `json:"label"`
 	Description string `json:"description"`
+}
+
+// EffectiveAccessProfileID returns the stable identity for a token while
+// keeping the legacy group as the source of truth during the compatibility
+// period. An empty group is the standard profile.
+func EffectiveAccessProfileID(groupName string) string {
+	return ResolveAccessProfile(strings.TrimSpace(groupName), "").ID
+}
+
+// EffectiveAccountTierID returns the stable account-tier identity for a user.
+// It deliberately does not influence channel routing; that remains the job of
+// the token access profile and the legacy group compatibility path.
+func EffectiveAccountTierID(groupName string) string {
+	return ResolveAccountTier(strings.TrimSpace(groupName), "").ID
+}
+
+// MigrateAccessProfileIdentifiers backfills the additive identity columns on
+// existing installations. It is idempotent and derives values from legacy
+// group fields; no credentials or request data are touched.
+func MigrateAccessProfileIdentifiers() error {
+	if DB == nil {
+		return nil
+	}
+	groupColumn := commonGroupCol
+	if strings.TrimSpace(groupColumn) == "" {
+		// Lightweight model tests may set DB directly without running InitDB.
+		groupColumn = "`group`"
+	}
+	return DB.Transaction(func(tx *gorm.DB) error {
+		const batchSize = 500
+		var users []struct {
+			Id            int
+			LegacyGroup   string `gorm:"column:legacy_group"`
+			AccountTierID string `gorm:"column:account_tier_id"`
+		}
+		if err := tx.Model(&User{}).
+			Select("id, "+groupColumn+" AS legacy_group, account_tier_id").
+			FindInBatches(&users, batchSize, func(batchTx *gorm.DB, _ int) error {
+				for _, user := range users {
+					want := EffectiveAccountTierID(user.LegacyGroup)
+					if strings.TrimSpace(user.AccountTierID) == want {
+						continue
+					}
+					if err := tx.Model(&User{}).Where("id = ?", user.Id).Update("account_tier_id", want).Error; err != nil {
+						return err
+					}
+				}
+				return nil
+			}).Error; err != nil {
+			return err
+		}
+
+		var tokens []struct {
+			Id              int
+			LegacyGroup     string `gorm:"column:legacy_group"`
+			AccessProfileID string `gorm:"column:access_profile_id"`
+		}
+		if err := tx.Model(&Token{}).
+			Select("id, "+groupColumn+" AS legacy_group, access_profile_id").
+			FindInBatches(&tokens, batchSize, func(batchTx *gorm.DB, _ int) error {
+				for _, token := range tokens {
+					want := EffectiveAccessProfileID(token.LegacyGroup)
+					if strings.TrimSpace(token.AccessProfileID) == want {
+						continue
+					}
+					if err := tx.Model(&Token{}).Where("id = ?", token.Id).Update("access_profile_id", want).Error; err != nil {
+						return err
+					}
+				}
+				return nil
+			}).Error; err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 func ResolveAccessProfile(groupName, configuredDescription string) AccessProfileMetadata {

@@ -62,6 +62,21 @@ const numericString = z.string().refine((value) => {
 
 const monitoringSchema = z.object({
   QuotaRemindThreshold: numericString,
+  channel_quota_alert: z
+    .object({
+      enabled: z.boolean(),
+      warning_percent: z.coerce.number().finite().gt(0).lte(100),
+      critical_percent: z.coerce.number().finite().gte(0),
+    })
+    .superRefine((value, ctx) => {
+      if (value.critical_percent >= value.warning_percent) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['critical_percent'],
+          message: 'Critical threshold must be lower than warning threshold',
+        })
+      }
+    }),
   perf_metrics_setting: z.object({
     enabled: z.boolean(),
     flush_interval: z.coerce.number().min(1),
@@ -75,10 +90,55 @@ type MonitoringFormValues = z.output<typeof monitoringSchema>
 
 type FlatMonitoringDefaults = {
   QuotaRemindThreshold: string
+  ChannelQuotaAlertSettings: string
   'perf_metrics_setting.enabled': boolean
   'perf_metrics_setting.flush_interval': number
   'perf_metrics_setting.bucket_time': 'minute' | '5min' | 'hour'
   'perf_metrics_setting.retention_days': number
+}
+
+const defaultQuotaAlertSettings = {
+  enabled: false,
+  warning_percent: 20,
+  critical_percent: 10,
+}
+
+function parseQuotaAlertSettings(raw: string | undefined) {
+  if (!raw) return defaultQuotaAlertSettings
+  try {
+    const parsed = JSON.parse(raw) as Partial<typeof defaultQuotaAlertSettings>
+    const settings = {
+      enabled: parsed.enabled === true,
+      warning_percent:
+        typeof parsed.warning_percent === 'number'
+          ? parsed.warning_percent
+          : defaultQuotaAlertSettings.warning_percent,
+      critical_percent:
+        typeof parsed.critical_percent === 'number'
+          ? parsed.critical_percent
+          : defaultQuotaAlertSettings.critical_percent,
+    }
+    if (
+      Number.isFinite(settings.warning_percent) &&
+      settings.warning_percent > 0 &&
+      settings.warning_percent <= 100 &&
+      Number.isFinite(settings.critical_percent) &&
+      settings.critical_percent >= 0 &&
+      settings.critical_percent < settings.warning_percent
+    ) {
+      return settings
+    }
+  } catch {
+    // Fall back to safe, disabled defaults when an old installation has no
+    // canonical JSON option yet.
+  }
+  return defaultQuotaAlertSettings
+}
+
+function serializeQuotaAlertSettings(
+  settings: typeof defaultQuotaAlertSettings
+) {
+  return JSON.stringify(settings)
 }
 
 type MonitoringSettingsSectionProps = {
@@ -89,6 +149,9 @@ const buildFormDefaults = (
   defaults: MonitoringSettingsSectionProps['defaultValues']
 ): MonitoringFormInput => ({
   QuotaRemindThreshold: defaults.QuotaRemindThreshold ?? '',
+  channel_quota_alert: parseQuotaAlertSettings(
+    defaults.ChannelQuotaAlertSettings
+  ),
   perf_metrics_setting: {
     enabled: defaults['perf_metrics_setting.enabled'],
     flush_interval: defaults['perf_metrics_setting.flush_interval'],
@@ -101,6 +164,9 @@ const normalizeDefaults = (
   defaults: MonitoringSettingsSectionProps['defaultValues']
 ): FlatMonitoringDefaults => ({
   QuotaRemindThreshold: (defaults.QuotaRemindThreshold ?? '').trim(),
+  ChannelQuotaAlertSettings: serializeQuotaAlertSettings(
+    parseQuotaAlertSettings(defaults.ChannelQuotaAlertSettings)
+  ),
   'perf_metrics_setting.enabled': defaults['perf_metrics_setting.enabled'],
   'perf_metrics_setting.flush_interval':
     defaults['perf_metrics_setting.flush_interval'],
@@ -114,6 +180,9 @@ const normalizeFormValues = (
   values: MonitoringFormValues
 ): FlatMonitoringDefaults => ({
   QuotaRemindThreshold: values.QuotaRemindThreshold.trim(),
+  ChannelQuotaAlertSettings: serializeQuotaAlertSettings(
+    values.channel_quota_alert
+  ),
   'perf_metrics_setting.enabled': values.perf_metrics_setting.enabled,
   'perf_metrics_setting.flush_interval':
     values.perf_metrics_setting.flush_interval,
@@ -155,6 +224,7 @@ export function MonitoringSettingsSection({
   }, [defaultValues])
 
   const perfMetricsEnabled = form.watch('perf_metrics_setting.enabled')
+  const quotaAlertEnabled = form.watch('channel_quota_alert.enabled')
 
   const onSubmit = async (values: MonitoringFormValues) => {
     const normalized = normalizeFormValues(values)
@@ -208,6 +278,82 @@ export function MonitoringSettingsSection({
               </FormItem>
             )}
           />
+
+          <div className='grid gap-3 rounded-lg border bg-muted/20 p-4'>
+            <div>
+              <h4 className='font-medium'>{t('Provider quota alerts')}</h4>
+              <p className='text-muted-foreground mt-1 text-xs'>
+                {t(
+                  'Show warning and critical states on provider account quota history. This is read-only and does not send notifications.'
+                )}
+              </p>
+            </div>
+            <FormField
+              control={form.control}
+              name='channel_quota_alert.enabled'
+              render={({ field }) => (
+                <SettingsSwitchItem>
+                  <SettingsSwitchContent>
+                    <FormLabel>{t('Enable provider quota alerts')}</FormLabel>
+                  </SettingsSwitchContent>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </SettingsSwitchItem>
+              )}
+            />
+            <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+              <FormField
+                control={form.control}
+                name='channel_quota_alert.warning_percent'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Warning threshold (%)')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={0.01}
+                        max={100}
+                        step={0.1}
+                        {...safeNumberFieldProps(field)}
+                        disabled={!quotaAlertEnabled}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('Show a warning when available quota falls below this percentage of total.')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='channel_quota_alert.critical_percent'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Critical threshold (%)')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={0}
+                        max={100}
+                        step={0.1}
+                        {...safeNumberFieldProps(field)}
+                        disabled={!quotaAlertEnabled}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('Show a critical state below this percentage; it must be lower than the warning threshold.')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
 
           <div>
             <h4 className='font-medium'>{t('Model performance metrics')}</h4>

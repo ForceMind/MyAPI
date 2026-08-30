@@ -1,6 +1,12 @@
 package model
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestResolveAccessProfileKeepsLegacyGroupsReadable(t *testing.T) {
 	tests := []struct {
@@ -32,4 +38,39 @@ func TestResolveAccountTierIsSeparateFromAccessProfile(t *testing.T) {
 	if profile.Label == tier.Label || profile.Description == tier.Description {
 		t.Fatalf("account tier and access profile unexpectedly share presentation semantics: tier=%#v profile=%#v", tier, profile)
 	}
+}
+
+func TestMigrateAccessProfileIdentifiersBackfillsLegacyRows(t *testing.T) {
+	require.NotNil(t, DB)
+	require.NoError(t, DB.AutoMigrate(&User{}, &Token{}))
+	suffix := time.Now().UnixNano()
+	user := &User{
+		Username: fmt.Sprintf("profile-migration-%d", suffix),
+		Password: "migration-test-password",
+		Group:    "vip",
+	}
+	require.NoError(t, DB.Create(user).Error)
+	token := &Token{
+		UserId: user.Id,
+		Key:    fmt.Sprintf("migration-test-key-%d", suffix),
+		Group:  "auto",
+	}
+	require.NoError(t, DB.Create(token).Error)
+	t.Cleanup(func() {
+		_ = DB.Unscoped().Delete(&Token{}, token.Id).Error
+		_ = DB.Unscoped().Delete(&User{}, user.Id).Error
+	})
+
+	// Simulate a row written by a pre-identity version after AutoMigrate added
+	// the columns with their default values.
+	require.NoError(t, DB.Model(&User{}).Where("id = ?", user.Id).Update("account_tier_id", "").Error)
+	require.NoError(t, DB.Model(&Token{}).Where("id = ?", token.Id).Update("access_profile_id", "").Error)
+	require.NoError(t, MigrateAccessProfileIdentifiers())
+
+	var migratedUser User
+	var migratedToken Token
+	require.NoError(t, DB.First(&migratedUser, user.Id).Error)
+	require.NoError(t, DB.First(&migratedToken, token.Id).Error)
+	require.Equal(t, "priority", migratedUser.AccountTierID)
+	require.Equal(t, "automatic", migratedToken.AccessProfileID)
 }
