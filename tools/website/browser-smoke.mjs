@@ -52,8 +52,13 @@ try {
   if (!(await menu.isVisible())) throw new Error('mobile menu did not open')
   await menu.getByRole('link', { name: 'Platform' }).click()
   if (await menu.isVisible()) throw new Error('mobile menu did not close after navigation')
-  await page.getByRole('button', { name: 'Use light theme' }).click()
+  // The accessible label intentionally changes with the active theme. Use
+  // the stable data contract to click, then assert both user-visible state
+  // signals so localization or copy changes do not make this smoke flaky.
+  const themeToggle = page.locator('[data-theme-toggle]')
+  await themeToggle.click()
   if (!(await page.locator('html.light-preview').count())) throw new Error('light theme did not apply')
+  if ((await themeToggle.getAttribute('aria-pressed')) !== 'true') throw new Error('theme toggle state did not update')
   mkdirSync('artifacts', { recursive: true })
   await page.screenshot({ path: 'artifacts/myapi-website-mobile.png', fullPage: true })
   console.log('website browser smoke passed (mobile menu, anchor navigation, theme toggle)')
