@@ -78,6 +78,41 @@ if (sha256(resolve(website, 'myapi-logo-v1.png')) !== sha256(maintainedLogo)) {
 if (!/<html[^>]+lang=["'](?:zh-CN|en)["']/i.test(html)) {
   throw new Error('website/index.html must declare a supported document language')
 }
+const language = html.match(/<html[^>]+lang=["']([^"']+)["']/i)?.[1]
+const title = html.match(/<title>([^<]+)<\/title>/i)?.[1]
+const description = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i)?.[1]
+const canonical = html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i)?.[1]
+if (language !== 'en') {
+  throw new Error(`website/index.html language must match the English static copy: ${JSON.stringify(language)}`)
+}
+if (!title || !description || !canonical || !/^https:\/\//.test(canonical)) {
+  throw new Error('website/index.html must include a shareable title, description, and absolute canonical URL')
+}
+const shareMeta = {
+  'og:title': title,
+  'og:description': description,
+  'og:url': canonical,
+  'og:image': 'https://raw.githubusercontent.com/ForceMind/MyAPI/main/website/myapi-logo-v1.png',
+  'og:image:alt': 'MyAPI logo',
+  'twitter:title': title,
+  'twitter:description': description,
+  'twitter:image': 'https://raw.githubusercontent.com/ForceMind/MyAPI/main/website/myapi-logo-v1.png',
+  'twitter:image:alt': 'MyAPI logo',
+}
+for (const [property, expected] of Object.entries(shareMeta)) {
+  const escapedProperty = property.replace(':', '\\:')
+  const pattern = new RegExp(`<meta[^>]+(?:property|name)=["']${escapedProperty}["'][^>]+content=["']([^"']+)["']`, 'i')
+  const value = html.match(pattern)?.[1]
+  if (value !== expected) {
+    throw new Error(`website/index.html share metadata ${property} must match the canonical copy`)
+  }
+}
+if (!/<meta[^>]+property=["']og:type["'][^>]+content=["']website["']/i.test(html)) {
+  throw new Error('website/index.html must identify the Open Graph object as a website')
+}
+if (!/<meta[^>]+name=["']twitter:card["'][^>]+content=["']summary["']/i.test(html)) {
+  throw new Error('website/index.html must declare a Twitter summary card')
+}
 if (!/<meta[^>]+name=["']viewport["']/i.test(html)) {
   throw new Error('website/index.html must include a mobile viewport')
 }

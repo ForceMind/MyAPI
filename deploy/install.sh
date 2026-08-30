@@ -14,8 +14,26 @@ fi
 
 # Read KEY=VALUE entries without evaluating the deployment file as shell code.
 # Values may be quoted, but command substitutions, functions, and other shell
-# syntax are never executed. Docker Compose still receives the original file
-# through --env-file below.
+# syntax are never executed. Only deployment keys are exported to this shell;
+# Docker Compose still receives the original file through --env-file below.
+# Keeping an allowlist here is important because exporting arbitrary names from
+# a user-controlled `.env` could replace PATH/loader settings for the helper
+# commands that follow (or alter shell startup behaviour via BASH_ENV).
+is_allowed_env_key() {
+  case "$1" in
+    MYAPI_*|CHANNEL_QUOTA_*|FULL_CONTENT_LOG_*|SESSION_SECRET|TZ|ERROR_LOG_ENABLED|BATCH_UPDATE_ENABLED|TRUSTED_PROXIES)
+      return 0
+      ;;
+    NEW_API_IMAGE|NEW_API_PORT|NEW_API_PUBLIC_URL|NEW_API_DATA_DIR|NEW_API_LOGS_DIR)
+      # Legacy deployment aliases remain accepted for one-time migration.
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 load_env_file() {
   local line key value
   while IFS= read -r line || [[ -n "$line" ]]; do
@@ -27,6 +45,10 @@ load_env_file() {
     fi
     key="${BASH_REMATCH[1]}"
     value="${BASH_REMATCH[2]}"
+    if ! is_allowed_env_key "$key"; then
+      echo "Ignoring unknown deployment env key '$key'." >&2
+      continue
+    fi
     if [[ "$value" == \"*\" && "$value" == *\" ]]; then
       value="${value:1:${#value}-2}"
     elif [[ "$value" == \'*\' && "$value" == *\' ]]; then

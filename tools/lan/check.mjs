@@ -285,6 +285,19 @@ function checkInstallerEnvParsing(checks) {
     record(checks, 'installer env parser smoke test', result.status === 0, 'temporary fake Docker only')
     record(checks, 'installer does not evaluate env shell syntax', !existsSync(marker))
 
+    // A deployment file is user-controlled input. Shell/process-control names
+    // must not be exported by the installer: PATH could redirect `docker`,
+    // LD_PRELOAD could inject a library into helper commands, and BASH_ENV
+    // could execute a file for every non-interactive Bash child. These values
+    // are intentionally unknown deployment keys and should be ignored while
+    // the otherwise-valid fixture still completes.
+    const injectionMarker = path.join(project, 'env-injection-executed')
+    const hardenedEnv = `${env}\nPATH=/definitely-not-a-command-path\nLD_PRELOAD=/definitely-not-a-library.so\nBASH_ENV=${injectionMarker}\n`
+    writeFileSync(envPath, hardenedEnv, { mode: 0o600 })
+    const hardenedResult = runInstaller()
+    record(checks, 'installer ignores dangerous/unknown env keys', hardenedResult.status === 0)
+    record(checks, 'dangerous env injection does not execute', !existsSync(injectionMarker))
+
     writeFileSync(envPath, env.replace(/^MYAPI_BIND_ADDRESS=.*$/m, 'MYAPI_BIND_ADDRESS=192.168.999.1'))
     record(checks, 'installer rejects malformed bind addresses', runInstaller().status !== 0)
     writeFileSync(envPath, env.replace(/^MYAPI_BIND_ADDRESS=.*$/m, 'MYAPI_BIND_ADDRESS=192.168.1.20'))

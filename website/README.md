@@ -16,6 +16,15 @@ python3 -m http.server 4173 --directory website
 
 Open <http://localhost:4173>. The page only needs a static file server; no secrets, backend, or build service is required.
 
+## Share metadata
+
+`index.html` declares an English document language, one canonical URL, and
+matching Open Graph/Twitter title, description, URL, and logo metadata. Until a
+public hosting domain is explicitly approved, the canonical URL intentionally
+points to the maintained website source on GitHub rather than inventing a
+deployment hostname. If hosting moves to an approved domain, update the
+canonical, Open Graph, and Twitter URLs together and rerun `npm run website:check`.
+
 The logo is a checked-in copy of the maintained asset in `web/public/myapi-logo-v1.png`. Keeping a regular PNG (rather than a symlink) makes Windows checkouts and GitHub Pages publishing reliable; update both files when the brand asset changes.
 
 ## Validation
