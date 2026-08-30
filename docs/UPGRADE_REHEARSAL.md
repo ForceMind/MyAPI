@@ -31,6 +31,15 @@ npm run upgrade:check -- --json
 `--dry-run` 是升级前的安全门，不等同于数据库恢复测试。恢复测试必须使用复制出的 SQLite 文件或经批准的
 PostgreSQL 逻辑备份；原始生产路径和卷永远不能作为 CLI 自动操作目标。
 
+## 本地镜像构建资源
+
+当需要在工作站验证本地 Docker 镜像时，`deploy/install.sh` 会把
+`MYAPI_CPU_LIMIT`、`MYAPI_MEMORY_LIMIT` 同时应用到 `docker build` 的构建容器，
+并通过 `MYAPI_BUILD_PARALLELISM`/`GOMAXPROCS` 限制 Go 编译并发。资源参数应保持在
+工作站可承受范围内；验证镜像必须使用临时数据目录和非生产端口。若 Docker 仅提供已弃用的
+legacy builder，可额外指定 `--cpu-period`、`--cpu-quota`、`--memory` 和
+`--memory-swap`；BuildKit/buildx 缺失属于主机工具链问题，不应通过重启生产服务绕过。
+
 ## 本机失败回滚测试
 
 CLI 的环境文件和旧部署回滚路径可以在没有 Docker daemon、GHCR 或生产数据的本机上验证。测试会在临时目录
