@@ -76,7 +76,7 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   Release workflow 12/12，以及 SOURCE_MANIFEST/package check 均通过。该命令在
   外部受限执行环境中运行，避免 CLI 子进程被沙箱拒绝。
 - 本轮有界复核：Go `gemini`/`claude` 测试通过；前端 `tsgo -b` 通过，Vitest
-  通过 59 个测试文件、265 个测试。测试容器限制为 `--cpus=1.5 --memory=3g
+  通过 59 个测试文件、266 个测试。测试容器限制为 `--cpus=1.5 --memory=3g
   --memory-swap=4g`；图表零尺寸和 React 非布尔属性仅为既有测试环境警告，不影响
   断言结果。真实手机/桌面设备仍按外部验收顺序执行。
 

@@ -15,10 +15,10 @@ MyAPI keeps the existing Gemini, Claude Messages, and Codex channels unchanged:
 - Gemini uses the official Generate Content API and `x-goog-api-key`.
 - Claude uses the Anthropic Messages API and its existing adaptor.
 - Codex uses the existing Responses-compatible adaptor and OAuth channel flow.
-- The Gemini package contains an Antigravity configuration boundary with a
-  corresponding test suite in
-  `relay/channel/gemini/antigravity.go` and a dedicated, non-persistent
-  `AntigravityClient` in `relay/channel/gemini/antigravity_client.go`. The
+- The Gemini package contains an Antigravity configuration boundary with tests in
+  `relay/channel/gemini/antigravity_test.go`, plus a dedicated, non-persistent
+  client lifecycle suite in `relay/channel/gemini/antigravity_client_test.go`
+  and client in `relay/channel/gemini/antigravity_client.go`. The
   client validates the HTTPS endpoint and preview agent, sends only an
   explicit Interactions payload, and supports create, bounded status polling,
   cancellation, and deletion. It extracts the provider's typed `usage`
@@ -57,11 +57,11 @@ implemented and tested:
 The first-phase client test suite covers the transport portion of these gates
 in `antigravity_client_test.go`: create/get/cancel lifecycle, bounded polling,
 usage extraction, strict input/ID validation, HTTPS/auth requirements, and
-error-body redaction. The suite is checked into the repository, but this
-workspace currently lacks the Go toolchain and recent CI runs failed before
-starting a runner; treat execution as pending until a Go-capable local or CI
-environment runs it. It does not grant ordinary Gemini traffic access to the
-client.
+error-body redaction. The host workspace lacks a native Go toolchain, but the
+suite has passed in a bounded Docker run with
+`GOWORK=off go test ./relay/channel/gemini ./relay/channel/claude`; the full
+remote CI matrix is still pending because recent runs failed before starting a
+runner. It does not grant ordinary Gemini traffic access to the client.
 
 The preview agent's `agent_config` accepts a much narrower contract than a
 normal Gemini generation config. MyAPI's compatibility boundary uses the
