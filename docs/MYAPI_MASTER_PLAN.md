@@ -94,14 +94,16 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 - Codex OAuth 渠道的 Account Info 对话框已增加“当前窗口 / 历史趋势”切换；历史只保存官方 WHAM usage 响应中规范化的 primary/secondary 使用百分比、窗口和重置时间，不保存原始响应或凭据。启用 `CHANNEL_QUOTA_SYNC_ENABLED` 后，后台有界采样任务会按渠道锁调用同一官方 usage 接口并记录成功/失败状态；未启用时仍可由管理员查询当前 Codex 用量产生首个样本。
 - 概览页和管理员渠道页已增加“账户额度变化”面板，共用 `GET /api/channel/quota/changes` 聚合接口；按渠道/上游账户、指标和窗口分组，以相邻有效快照计算带符号的每分钟变化，并默认按绝对变化最大值排序。`GET /api/channel/quota/status` 只读返回采样开关、间隔和每轮上限，帮助空态解释部署配置。跨重置边界、失败或不足样本不会伪造变化值；面板只显示脱敏后的渠道名称和额度数值，不包含凭据或原始响应，移动端使用纵向卡片布局。
 - 额度变化聚合项同时返回与渠道历史一致的只读 `alert` 状态（`disabled`、`unavailable`、`healthy`、`warning`、`critical`）和阈值元数据；失败、无总量或不支持的渠道不会继承旧状态，也不会触发通知、停用渠道或改变路由。
+- 额度概览和渠道详情的查询会使用正常认证刷新流程（不再跳过 `401` 后的 session refresh）；TanStack Query key 同时包含用户 ID、session SID 和能力状态，避免同一标签页切换登录身份后短暂复用上一位管理员的额度或采样状态。`a2528a2` 增加了跨登录身份回归测试；它不改变后端权限边界，也不缓存凭据。
 - 额度采样状态区分 `success`、`error`、`unsupported` 和 `unavailable`：没有官方余额端点的 Claude/Azure 等渠道记录为 `unsupported`，不会被误报为可修复的网络故障；管理员渠道面板可独立筛选该状态。
 - 当前“账户”展示语义是脱敏后的渠道/指标序列：`Accounts tracked` 统计分组序列数量，不保证等于真实上游订阅账户数；多 Key 渠道在 MVP 中不合并或拆分各 Key 的余额。后续若要区分同一渠道的多个订阅账户，必须先取得 provider 返回的稳定非敏感账户标识（或由管理员显式配置别名），再扩展快照主键、聚合 API、权限和迁移，不得使用 API Key 原文或未经验证的响应字段。
 - 渠道类型选择已将 Codex 置首，并在 Codex、Claude、Gemini/Antigravity 入口显示实际能力边界。
+- Claude adaptor 的边界防护已在 `1827358` 固化：缺失 `RelayInfo` 或空 base URL 会被拒绝，尾部斜杠会规范化，出站请求默认补齐 JSON `Content-Type` 与 `anthropic-version`；这些保护只影响请求构造，不改变 Claude Messages/Responses 兼容范围，也不提供账户余额读取。
 
 ### TokenHub、Antigravity 和发行基础
 
 - TokenHub 有独立边界文档和 provider-neutral 适配边界；后续 UI 和官网只借鉴其产品叙事与信息组织，不复制实现或页面。
-- Google Antigravity 已按官方 Gemini Interactions API 建立独立的非持久化客户端边界（创建、有限轮询、取消、删除和 usage 提取），但尚未接入普通 relay/channel 或账户额度；不应宣传为完整 Antigravity 账户或额度支持。
+- Google Antigravity 已按官方 Gemini Interactions API 建立独立的非持久化客户端边界（创建、有限轮询、取消、删除和 usage 提取）。`1827358` 进一步固定 dynamic agent 类型、仅通过 `environment` 承载 continuation 的环境标识、限制 interaction ID/输入/响应大小、将 `requires_action` 视为轮询终态并在错误中去除上游响应正文；但尚未接入普通 relay/channel 或账户额度，不应宣传为完整 Antigravity 账户或额度支持。
 - LAN Lite CLI、SQLite-first 项目初始化和局域网安全边界已存在。
 - Electron 桌面版默认回环监听、单实例和持久会话密钥已加固；`--allow-lan` 加私网绑定地址才可共享，并在托盘菜单显示生效端点。
 - Electron 生产后端就绪探针请求 `/api/status`，只把 2xx 响应视为可用；开发前端探针仍使用 `/`。该行为由 runtime-config、探针合同测试和 desktop check 固化，尚未替代真实 macOS/Windows 安装与局域网演练。
@@ -125,7 +127,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 | 账户等级/Key 访问方案 | 独立策略注册表已实现 | 管理员可在计费设置的“Key access profile policies”编辑稳定 profile ID 的显示名、说明、路由组、模型白名单、回退方案和启用状态；显式 `account_tier_id`/`access_profile_id` 会持久化，旧客户端省略时按现有记录或变更后的 `group` 兼容回退，旧路由保持兼容。路由/模型强制执行仍需单独迁移评审 |
 | 设置引导生命周期 | 初版已实现 | 完成后自动消失、按用户和版本保存；真实多设备视觉审查仍待完成 |
 | Claude 支持 | Messages 原生转发与 Responses→Messages 兼容转换已实现；官方组织用量报告已确认存在 | 只实现有明确官方协议的能力；普通 Claude 渠道仍不读取账户余额，组织 Usage Report 只有在管理员显式配置受保护的 Admin 凭据并完成权限/保留策略后才接入 |
-| Google Antigravity 专用 relay | 第一阶段 transport 代码与测试已交付，运行验证待完成 | `AntigravityClient` 已覆盖官方 preview 的创建、状态读取、有限轮询、取消、删除和 usage 提取；当前 Go 测试尚未在本机或成功的 CI runner 上执行，不能将其写成已验证的完整 relay；公开 relay/channel 接入按 [公共 Relay 闸门](./ANTIGRAVITY_PUBLIC_RELAY_GATE.md) 进行持久化、权限、计费和工具策略评审，余额端点不存在时显示 `unsupported` |
+| Google Antigravity 专用 relay | 第一阶段 transport 代码与边界测试已交付，运行验证待完成 | `AntigravityClient` 已覆盖官方 preview 的创建、状态读取、有限轮询、取消、删除和 usage 提取；`1827358` 增加 dynamic agent/continuation 字段约束、请求/响应大小上限、`requires_action` 终态、nil context 兜底和错误正文脱敏测试。当前 Go 测试尚未在本机或成功的 CI runner 上执行，不能将其写成已验证的完整 relay；公开 relay/channel 接入按 [公共 Relay 闸门](./ANTIGRAVITY_PUBLIC_RELAY_GATE.md) 进行持久化、权限、计费和工具策略评审，余额端点不存在时显示 `unsupported` |
 | LAN Lite 桌面体验 | 安全状态体验与确定性发行合同检查已实现 | Electron 默认回环、单实例、持久会话密钥、显式 `--allow-lan` 私网绑定、安装脚本 `MYAPI_ALLOW_LAN` 安全门、只读 LAN 状态/防火墙提示、请求 `/api/status` 且仅接受 2xx 的生产探针、有效地址健康检查和托盘确认后重启切换已补齐；`npm run desktop:check` 与 CI 会验证 macOS/Windows 目标、资源、校验和与发布闸门；真实跨平台安装/局域网请求演练和系统防火墙自动配置仍待完成 |
 | 新开发环境数据库默认值 | 代码与模板已验证 | `docker-compose.dev.yml`、`makefile` 及多语言 README 的新开发示例默认使用 `myapi`；显式 `MYAPI_DEV_POSTGRES_DB`/`DEV_POSTGRES_DB` 可接管既有数据库，未执行自动迁移或生产改名 |
 | GHCR 自动升级 | CLI 预检与执行流程已实现 | 生产端显式拉取、可选签名验证、可选 digest 固定、健康检查、环境备份和失败回滚已有；`upgrade --dry-run --json` 可在副本上无写入预检，`docs/UPGRADE_REHEARSAL.md` 已补充恢复演练清单，真实数据库恢复和人工审批仍待完成 |

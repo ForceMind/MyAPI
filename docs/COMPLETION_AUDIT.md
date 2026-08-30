@@ -9,7 +9,7 @@
 | API/响应日志 | `web/src/features/usage-logs/`、移动集成测试、脱敏测试、移动内容高度修复（`2eae754`） | 代码已验证 | 真实手机视觉验收 |
 | 运行构建可见性 | 管理员「系统信息」中的只读 Runtime build 标识、`build-metadata.ts` DOM/global 元数据及 `build-metadata.test.ts`；Docker/Release/Electron 构建注入 commit SHA | 代码与合同已验证 | 更新测试镜像后由现场核对实际运行 revision |
 | 渠道额度历史 | `controller/channel-billing.go`、历史/聚合测试、权限路由测试 | 已验证 | 真实登录账号和采样数据演练 |
-| 概览额度变化 | `account-quota-changes-panel.tsx`、60 秒前台刷新、错误/plan type/只读告警状态测试 | 已验证 | 具备 `channel.read` 的真实管理员验收 |
+| 概览额度变化 | `account-quota-changes-panel.tsx`、60 秒前台刷新、错误/plan type/只读告警状态测试；`a2528a2` 的跨登录身份查询缓存隔离与认证刷新回归测试 | 已验证 | 具备 `channel.read` 的真实管理员验收；真实手机视觉仍待完成 |
 | 账户等级/Key 访问方案 | `model/access_profile.go`、Key/UI/API 测试、策略注册表及旧 Key profile 保留测试 | 兼容层已验证 | 强制路由迁移评审 |
 | 设置引导 | Full/LAN Lite/权限条件、生命周期测试 | 已验证 | 多设备视觉检查 |
 | 品牌与旧元数据 | `tools/branding/check.mjs`，最近运行 `blocking_count: 0` | 阻断项已清零 | NOTICE、源码头和兼容标识法律审查 |
@@ -18,7 +18,7 @@
 | GHCR/升级 | `release:workflow:check`、`upgrade:check`、不可变 digest 合同 | 自动化已验证 | 脱敏副本升级、数据库恢复、人工审批 |
 | 新开发环境数据库默认值 | `48abce6`、`docker-compose.dev.yml`、`makefile` | 代码与模板已验证（新开发默认数据库为 `myapi`） | 接管既有数据库必须显式设置 `MYAPI_DEV_POSTGRES_DB`/`DEV_POSTGRES_DB` 并在副本验证；该变更不执行重命名或迁移 |
 | Claude 组织用量 | `docs/CLAUDE_USAGE_REPORT.md`，官方 Usage Report 边界 | 设计已验证 | Admin 凭据、权限、保留策略和实际接入 |
-| Google Antigravity | `relay/channel/gemini/antigravity_client.go`、`antigravity_client_test.go`、`docs/ANTIGRAVITY_INTEGRATION.md`、`docs/ANTIGRAVITY_PUBLIC_RELAY_GATE.md` | 专用 transport 代码与测试已交付，运行验证待完成（create/get/poll/cancel/delete、usage、脱敏） | Go 测试需在可用本机工具链或恢复后的 CI runner 执行；随后仍需完成公共 Relay 闸门中的持久化、权限、计费、工具策略和完整测试评审；稳定官方余额接口不存在时保持 `unsupported` |
+| Google Antigravity | `relay/channel/gemini/antigravity_client.go`、`antigravity_client_test.go`、`docs/ANTIGRAVITY_INTEGRATION.md`、`docs/ANTIGRAVITY_PUBLIC_RELAY_GATE.md`；`1827358` | 专用 transport 代码与边界测试已交付，运行验证待完成（create/get/poll/cancel/delete、usage、动态 agent/continuation 约束、大小上限、终态和脱敏） | Go 测试需在可用本机工具链或恢复后的 CI runner 执行；随后仍需完成公共 Relay 闸门中的持久化、权限、计费、工具策略和完整测试评审；稳定官方余额接口不存在时保持 `unsupported` |
 | NPM 正式发布 | CLI/打包/版本合同检查 | 发布前检查已验证 | 版本确认、tag、清单、用户明确确认与 `npm publish` |
 
 ## 最近 CI 证据
@@ -47,6 +47,13 @@
 - `957d4ca`：Electron 生产后端探针改为请求 `/api/status`，并仅接受 2xx
   HTTP 状态；对应 runtime-config、探针合同测试和 desktop check 已纳入源码证据。
   这些合同证据不等同于 macOS/Windows 实机安装、局域网请求或生产运行验证。
+- `a2528a2`：额度概览和渠道额度面板恢复统一的 `401` 认证刷新路径，并将用户
+  ID、session SID 与权限能力纳入查询缓存 key；新增跨登录身份回归测试，避免
+  同一标签页复用上一会话的额度数据。该修复不绕过服务端权限检查。
+- `1827358`：Claude adaptor 增加 nil/base URL 防护和默认 JSON/Anthropic 版本头
+  测试；Antigravity transport 固定 dynamic agent/continuation 字段边界、限制
+  interaction 响应大小、支持 `requires_action` 终态并保持错误正文脱敏。由于本机
+  缺少 Go 工具链且近期 runner 在启动前失败，这些 Go 测试仍待执行。
 
 CI 运行号会随新提交变化；发布前应重新查询当前提交对应的运行结果，不应永久依赖
 上述历史编号。
