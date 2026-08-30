@@ -77,6 +77,31 @@ describe('channel quota changes panel', () => {
     expect(screen.getByText('Accounts tracked')).toBeInTheDocument()
     expect(screen.getByLabelText('Refresh')).toBeInTheDocument()
     expect(screen.getByLabelText('Quota window type')).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Unsupported' })).toBeInTheDocument()
+  })
+
+  test('exposes unsupported provider quota samples as a distinct status', async () => {
+    vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
+      success: true,
+      data: {
+        items: [{
+          channel_id: 14,
+          name: 'Claude',
+          status: 'unsupported',
+          direction: 'unknown',
+          observed_at: 1_700_000_100,
+        }],
+      },
+    })
+    vi.mocked(getChannelQuotaSamplingStatus).mockResolvedValueOnce({
+      success: true,
+      data: { enabled: false, interval_seconds: 900, max_channels: 100 },
+    })
+
+    renderPanel()
+
+    expect(await screen.findByText('unsupported')).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Unsupported' })).toBeInTheDocument()
   })
 
   test('shows sampling guidance in the empty state', async () => {

@@ -57,6 +57,11 @@ type OpenAICreditGrants struct {
 
 const maxAdvancedCustomBalanceResponseBytes = 256 << 10
 
+// errChannelQuotaUnsupported distinguishes a provider that has no supported
+// balance endpoint from a transient query failure. Unsupported is persisted as
+// a first-class status so operators are not told to repair a healthy channel.
+var errChannelQuotaUnsupported = errors.New("channel quota unsupported")
+
 // Balance endpoints are provider-controlled and some providers do not close
 // stalled connections promptly.  A bounded request context keeps the
 // scheduled sampler from accumulating goroutines while preserving the
@@ -492,9 +497,15 @@ func recordChannelBalanceSnapshot(channel *model.Channel, result channelBalanceR
 		Source:     fmt.Sprintf("channel_type_%d", channel.Type),
 	}
 	if queryErr != nil {
-		snapshot.Status = "error"
-		snapshot.ErrorCode = "query_failed"
-		snapshot.ErrorMessage = "balance query failed"
+		if errors.Is(queryErr, errChannelQuotaUnsupported) {
+			snapshot.Status = "unsupported"
+			snapshot.ErrorCode = "quota_unsupported"
+			snapshot.ErrorMessage = "provider does not expose a supported balance endpoint"
+		} else {
+			snapshot.Status = "error"
+			snapshot.ErrorCode = "query_failed"
+			snapshot.ErrorMessage = "balance query failed"
+		}
 		return model.RecordChannelQuotaSnapshot(snapshot)
 	}
 	if result.RawResponse != "" {
@@ -524,7 +535,7 @@ func updateStandardChannelBalance(channel *model.Channel) (float64, error) {
 			baseURL = channel.GetBaseURL()
 		}
 	case constant.ChannelTypeAzure:
-		return 0, errors.New("尚未实现")
+		return 0, errChannelQuotaUnsupported
 	case constant.ChannelTypeCustom:
 		baseURL = channel.GetBaseURL()
 	//case common.ChannelTypeOpenAISB:
@@ -544,7 +555,7 @@ func updateStandardChannelBalance(channel *model.Channel) (float64, error) {
 	case constant.ChannelTypeMoonshot:
 		return updateChannelMoonshotBalance(channel)
 	default:
-		return 0, errors.New("尚未实现")
+		return 0, errChannelQuotaUnsupported
 	}
 	url := fmt.Sprintf("%s/v1/dashboard/billing/subscription", baseURL)
 

@@ -9,7 +9,7 @@ option) any later version.
 import { createServer } from 'node:http'
 import { createReadStream } from 'node:fs'
 import { existsSync, mkdirSync } from 'node:fs'
-import { extname, join, normalize } from 'node:path'
+import { extname, join, normalize, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = normalize(join(fileURLToPath(new URL('../../website/', import.meta.url))))
@@ -21,9 +21,17 @@ const contentTypes = {
 }
 
 const server = createServer((request, response) => {
-  const relative = decodeURIComponent((request.url ?? '/').split('?')[0])
-  const requested = normalize(join(root, relative === '/' ? 'index.html' : relative))
-  if (!requested.startsWith(root) || !existsSync(requested)) {
+  let relative
+  try {
+    relative = decodeURIComponent((request.url ?? '/').split('?')[0])
+  } catch {
+    response.writeHead(400)
+    response.end('bad request')
+    return
+  }
+  const requested = resolve(root, `.${relative === '/' ? '/index.html' : relative}`)
+  const insideRoot = requested === root || requested.startsWith(`${root}${sep}`)
+  if (!insideRoot || !existsSync(requested)) {
     response.writeHead(404)
     response.end('not found')
     return

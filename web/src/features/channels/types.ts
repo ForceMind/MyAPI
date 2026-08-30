@@ -295,7 +295,7 @@ export interface ChannelQuotaChangeItem {
   sample_span_seconds?: number | null
   observed_at?: number
   previous_observed_at?: number | null
-  status?: 'success' | 'unavailable' | 'error' | string
+  status?: 'success' | 'unavailable' | 'unsupported' | 'error' | string
   data_quality?: ChannelQuotaHistoryDataQuality
 }
 

@@ -42,6 +42,13 @@ if (!statSync(browserSmoke, { throwIfNoEntry: false })?.isFile()) {
 if (!statSync(browserWorkflow, { throwIfNoEntry: false })?.isFile()) {
   throw new Error('website browser smoke workflow is missing')
 }
+const browserSmokeSource = readFileSync(browserSmoke, 'utf8')
+if (!/resolve\(root,/.test(browserSmokeSource) || !/startsWith\(`\$\{root\}\$\{sep\}`\)/.test(browserSmokeSource)) {
+  throw new Error('website browser smoke path guard must enforce a directory boundary')
+}
+if (!/decodeURIComponent[\s\S]*catch/.test(browserSmokeSource)) {
+  throw new Error('website browser smoke must reject malformed URL encoding')
+}
 
 const maintainedLogo = resolve(root, 'web', 'public', 'myapi-logo-v1.png')
 if (!statSync(maintainedLogo, { throwIfNoEntry: false })?.isFile()) {

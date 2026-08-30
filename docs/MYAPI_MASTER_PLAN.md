@@ -91,6 +91,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 - 渠道余额对话框已接入额度历史折线图，支持 24h/7d/30d/90d、自定义日期范围、自动/raw/hour/day/week 聚合、浏览器时区偏移、加载/失败/空数据、多 Key 解释和失败采样断点；手动刷新会使趋势查询失效并重新读取。快照可通过 `CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS` 启用每日限批清理。
 - Codex OAuth 渠道的 Account Info 对话框已增加“当前窗口 / 历史趋势”切换；历史只保存官方 WHAM usage 响应中规范化的 primary/secondary 使用百分比、窗口和重置时间，不保存原始响应或凭据。启用 `CHANNEL_QUOTA_SYNC_ENABLED` 后，后台有界采样任务会按渠道锁调用同一官方 usage 接口并记录成功/失败状态；未启用时仍可由管理员查询当前 Codex 用量产生首个样本。
 - 概览页和管理员渠道页已增加“账户额度变化”面板，共用 `GET /api/channel/quota/changes` 聚合接口；按渠道/上游账户、指标和窗口分组，以相邻有效快照计算带符号的每分钟变化，并默认按绝对变化最大值排序。`GET /api/channel/quota/status` 只读返回采样开关、间隔和每轮上限，帮助空态解释部署配置。跨重置边界、失败或不足样本不会伪造变化值；面板只显示脱敏后的渠道名称和额度数值，不包含凭据或原始响应，移动端使用纵向卡片布局。
+- 额度采样状态区分 `success`、`error`、`unsupported` 和 `unavailable`：没有官方余额端点的 Claude/Azure 等渠道记录为 `unsupported`，不会被误报为可修复的网络故障；管理员渠道面板可独立筛选该状态。
 - 当前“账户”展示语义是脱敏后的渠道/指标序列：`Accounts tracked` 统计分组序列数量，不保证等于真实上游订阅账户数；多 Key 渠道在 MVP 中不合并或拆分各 Key 的余额。后续若要区分同一渠道的多个订阅账户，必须先取得 provider 返回的稳定非敏感账户标识（或由管理员显式配置别名），再扩展快照主键、聚合 API、权限和迁移，不得使用 API Key 原文或未经验证的响应字段。
 - 渠道类型选择已将 Codex 置首，并在 Codex、Claude、Gemini/Antigravity 入口显示实际能力边界。
 

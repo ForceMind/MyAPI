@@ -33,7 +33,7 @@ import { getChannelQuotaChanges, getChannelQuotaSamplingStatus } from '../api'
 import type { ChannelQuotaChangeItem } from '../types'
 
 type Range = '24h' | '7d' | '30d' | '90d'
-type StatusFilter = 'all' | 'success' | 'unavailable' | 'error'
+type StatusFilter = 'all' | 'success' | 'unavailable' | 'unsupported' | 'error'
 
 function getHttpStatus(error: unknown): number | undefined {
   if (!error || typeof error !== 'object') return undefined
@@ -77,7 +77,7 @@ function directionLabel(direction: ChannelQuotaChangeItem['direction'], t: (key:
 
 function statusVariant(status: string | undefined) {
   if (status === 'error') return 'destructive' as const
-  if (status === 'unavailable') return 'warning' as const
+  if (status === 'unavailable' || status === 'unsupported') return 'warning' as const
   return 'outline' as const
 }
 
@@ -204,6 +204,7 @@ export function ChannelQuotaChangesPanel() {
               <option value='all'>{t('All statuses')}</option>
               <option value='success'>{t('Success')}</option>
               <option value='unavailable'>{t('Unavailable')}</option>
+              <option value='unsupported'>{t('Unsupported')}</option>
               <option value='error'>{t('Error')}</option>
             </select>
           </div>

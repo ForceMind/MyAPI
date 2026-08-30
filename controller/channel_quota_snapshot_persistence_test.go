@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
@@ -54,4 +55,25 @@ func TestRecordChannelBalanceSnapshotRecordsProviderFailure(t *testing.T) {
 	require.NoError(t, db.Where("channel_id = ?", 914).First(&snapshot).Error)
 	require.Equal(t, "error", snapshot.Status)
 	require.Equal(t, "query_failed", snapshot.ErrorCode)
+}
+
+func TestRecordChannelBalanceSnapshotRecordsUnsupportedProvider(t *testing.T) {
+	previousDB := model.DB
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.ChannelQuotaSnapshot{}))
+	model.DB = db
+	t.Cleanup(func() { model.DB = previousDB })
+
+	err = recordChannelBalanceSnapshot(
+		&model.Channel{Id: 915, Type: constant.ChannelTypeAnthropic},
+		channelBalanceResult{},
+		errChannelQuotaUnsupported,
+	)
+	require.NoError(t, err)
+
+	var snapshot model.ChannelQuotaSnapshot
+	require.NoError(t, db.Where("channel_id = ?", 915).First(&snapshot).Error)
+	require.Equal(t, "unsupported", snapshot.Status)
+	require.Equal(t, "quota_unsupported", snapshot.ErrorCode)
 }
