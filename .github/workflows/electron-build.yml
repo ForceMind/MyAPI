@@ -59,7 +59,11 @@ jobs:
       - name: Validate requested tag
         env:
           BUILD_TAG: ${{ inputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            BUILD_TAG="$GITHUB_REF_NAME"
+          fi
           if [[ -z "$BUILD_TAG" ]]; then
             exit 0
           fi
@@ -75,6 +79,13 @@ jobs:
           HEAD_SHA="$(git rev-parse HEAD)"
           if [[ "$HEAD_SHA" != "$TAG_SHA" ]]; then
             echo "::error::checked out commit does not match tag $BUILD_TAG"
+            exit 1
+          fi
+          EXPECTED_VERSION="${BUILD_TAG#v}"
+          FILE_VERSION="$(tr -d '[:space:]' < VERSION)"
+          PACKAGE_VERSION="$(node -p 'JSON.parse(require("fs").readFileSync("package.json", "utf8")).version')"
+          if [[ "$FILE_VERSION" != "$EXPECTED_VERSION" || "$PACKAGE_VERSION" != "$EXPECTED_VERSION" ]]; then
+            echo "::error::VERSION and package.json must match $EXPECTED_VERSION"
             exit 1
           fi
 

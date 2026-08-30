@@ -63,7 +63,19 @@ function checkWorkflow() {
   if (!workflow) return
   record('Electron workflow is tag/manual gated', workflow.includes("tags:\n      - 'v*.*.*'") && workflow.includes('workflow_dispatch:'))
   record('workflow matrix covers macOS and Windows', workflow.includes('macos-latest') && workflow.includes('windows-latest'))
-  record('workflow validates exact SemVer tag commit', includes(workflow, ['Validate requested tag', 'refs/tags/$BUILD_TAG^{commit}', 'checked out commit does not match tag']))
+  record(
+    'workflow validates exact SemVer tag commit and version files',
+    includes(workflow, [
+      'Validate requested tag',
+      'EVENT_NAME: ${{ github.event_name }}',
+      'GITHUB_REF_NAME',
+      'refs/tags/$BUILD_TAG^{commit}',
+      'checked out commit does not match tag',
+      'FILE_VERSION',
+      'PACKAGE_VERSION',
+      'VERSION and package.json must match',
+    ]),
+  )
   record('workflow builds frontend and native binary per platform', includes(workflow, ['Build frontend', 'Build Go binary (macOS)', 'Build Go binary (Windows)', 'GOMAXPROCS=2 go build -p 2']))
   record('workflow builds platform installers', includes(workflow, ['npm run build:mac', 'npm run build:win']))
   record('workflow emits SHA256 checksums', workflow.includes('SHA256SUMS-${process.env.RUNNER_OS}.txt') && workflow.includes("createHash('sha256')"))

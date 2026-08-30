@@ -173,6 +173,8 @@ GitHub Actions 只负责生成镜像，不直接连接或重启生产主机；�
 `MYAPI_IMAGE` 后由 `myapi up` 或 `deploy/install.sh` 拉取新版本。
 
 同一版本 tag 也会自动触发 Electron macOS/Windows 构建并上传 Actions artifacts；
+Electron workflow 同样校验 push/manual tag 对应的提交以及 `VERSION`、
+`package.json.version`，避免桌面安装包与发行版本错配；
 只有在维护者显式填写 `PUBLISH` 且开启 release 环境变量时，才会附加到 GitHub
 Release，不会因为推送 tag 自动发布桌面安装包。
 
