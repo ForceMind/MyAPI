@@ -7,7 +7,7 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { describe, expect, test, vi } from 'vitest'
 
@@ -151,5 +151,43 @@ describe('channel quota changes panel', () => {
 
     expect(await screen.findByText('Unable to load account quota changes')).toBeInTheDocument()
     expect(screen.getByText('quota endpoint unavailable')).toBeInTheDocument()
+  })
+
+  test('filters rows by quota status without refetching', async () => {
+    vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
+      success: true,
+      data: {
+        items: [
+          { channel_id: 1, name: 'Codex', account_label: 'Codex account', status: 'success', direction: 'stable', current_available: 80, unit: 'percent' },
+          { channel_id: 2, name: 'Claude', account_label: 'Claude account', status: 'unsupported', direction: 'unknown' },
+        ],
+      },
+    })
+    vi.mocked(getChannelQuotaSamplingStatus).mockResolvedValueOnce({
+      success: true,
+      data: { enabled: false, interval_seconds: 900, max_channels: 20 },
+    })
+
+    renderPanel()
+    expect(await screen.findByText('Codex account')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'unsupported' } })
+    expect(screen.queryByText('Codex account')).not.toBeInTheDocument()
+    expect(screen.getByText('Claude account')).toBeInTheDocument()
+    expect(getChannelQuotaChanges).toHaveBeenCalledTimes(1)
+  })
+
+  test('refreshes the quota query on demand', async () => {
+    vi.mocked(getChannelQuotaChanges)
+      .mockResolvedValueOnce({ success: true, data: { items: [] } })
+      .mockResolvedValueOnce({ success: true, data: { items: [] } })
+    vi.mocked(getChannelQuotaSamplingStatus).mockResolvedValueOnce({
+      success: true,
+      data: { enabled: false, interval_seconds: 900, max_channels: 20 },
+    })
+
+    renderPanel()
+    await screen.findByText('No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.')
+    fireEvent.click(screen.getByLabelText('Refresh'))
+    await waitFor(() => expect(getChannelQuotaChanges).toHaveBeenCalledTimes(2))
   })
 })
