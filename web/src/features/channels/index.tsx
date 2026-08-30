@@ -28,6 +28,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { useMediaQuery } from '@/hooks'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -40,6 +41,7 @@ import { ChannelQuotaChangesPanel } from './components/channel-quota-changes-pan
 
 export function Channels() {
   const { t } = useTranslation()
+  const isMobile = useMediaQuery('(max-width: 640px)')
   const isRoot = useAuthStore(
     (state) => state.auth.user?.role === ROLE.SUPER_ADMIN
   )
@@ -87,7 +89,11 @@ export function Channels() {
 
   return (
     <ChannelsProvider>
-      <SectionPageLayout fixedContent>
+      {/* The quota overview sits above the channel table. On phones the
+          content must participate in the page scroll; a fixed, overflow-hidden
+          viewport would clip the table after the overview card. Desktop keeps
+          the bounded table viewport for dense channel management. */}
+      <SectionPageLayout fixedContent={!isMobile}>
         <SectionPageLayout.Title>
           <span className='flex min-w-0 items-center gap-2'>
             <span className='truncate'>{t('Channels')}</span>
