@@ -93,6 +93,13 @@ release approval gates in GitHub Actions. It is deterministic and does not
 start Docker, contact GHCR, or publish artifacts. Installer launch, firewall
 prompt, and LAN request acceptance still require real macOS and Windows hosts.
 
+The current workflow produces unsigned desktop artifacts unless the release
+environment supplies platform signing credentials. macOS users may see
+Gatekeeper warnings (DMG/ZIP), and Windows users may see SmartScreen warnings
+for NSIS/portable packages. Apple Developer ID signing/notarization and
+Windows code-signing certificates are external release prerequisites; do not
+treat a successful build or checksum as proof that an installer is trusted.
+
 ## Configuration
 
 ### Port

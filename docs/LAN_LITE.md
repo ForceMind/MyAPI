@@ -110,6 +110,12 @@ myapi lan start --project-dir ./myapi-lan
 
 GitHub Actions builds and signs the `ghcr.io/forcemind/myapi-lan:<version>` image, but does not restart your workstation. Keep the image pinned to a version and retain the previous image until the new health check succeeds.
 
+桌面安装包的构建合同与实际签名是两件事：当前 workflow 可以生成 macOS DMG/ZIP 和
+Windows NSIS/portable 制品，但是否签名取决于维护者提供的 Apple Developer ID、
+notarization 凭据或 Windows 代码签名证书。未签名的 macOS 包可能触发 Gatekeeper，
+Windows 包可能触发 SmartScreen；在证书和发布审批准备好前，应把 Actions artifact
+视为测试制品，不要宣称为受信任的正式安装包。
+
 ## Security checklist
 
 - Keep the listener on loopback unless a private-network share is intentional.
