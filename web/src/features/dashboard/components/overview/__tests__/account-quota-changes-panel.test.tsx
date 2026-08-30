@@ -141,6 +141,42 @@ describe('account quota changes dashboard panel', () => {
     expect(screen.queryByText('Stable')).not.toBeInTheDocument()
   })
 
+  test('shows provider plan type and keeps sampling errors visible', async () => {
+    vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
+      success: true,
+      data: {
+        items: [
+          {
+            channel_id: 31,
+            name: 'Codex team account',
+            account_label: 'Codex account',
+            plan_type: 'team',
+            status: 'success',
+            direction: 'unknown',
+            current_available: 80,
+          },
+          {
+            channel_id: 32,
+            name: 'Unavailable account',
+            status: 'error',
+            direction: 'unknown',
+            current_available: null,
+          },
+        ],
+      },
+    })
+    vi.mocked(getChannelQuotaSamplingStatus).mockResolvedValueOnce({
+      success: true,
+      data: { enabled: true, interval_seconds: 900, max_channels: 20 },
+    })
+
+    renderPanel()
+
+    expect(await screen.findByText('· team')).toBeInTheDocument()
+    expect(screen.getByText('Error')).toBeInTheDocument()
+    expect(screen.getByText('Unavailable account')).toBeInTheDocument()
+  })
+
   test('does not mix units in the summary movement cards', async () => {
     vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
       success: true,

@@ -30,6 +30,7 @@ record('release workflow requires explicit publish gates', [
   'environment: github-release',
 ].every((fragment) => workflow.includes(fragment)))
 record('release workflow protects the legacy v0.1.0 tag', workflow.includes('v0.1.0 is a protected legacy tag'))
+record('Docker workflow protects the legacy v0.1.0 tag', dockerWorkflow.includes('v0.1.0 is a protected legacy tag'))
 record('release workflow requires VERSION without a v prefix', workflow.includes('if [[ "$FILE_VERSION" != "$TAG_VERSION" ]]'))
 record('prepare and platform jobs have bounded timeouts', [
   'timeout-minutes: 10',

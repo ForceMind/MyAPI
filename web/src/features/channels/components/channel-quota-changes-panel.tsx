@@ -103,6 +103,7 @@ function ChangeRow({ item, t }: { item: ChannelQuotaChangeItem; t: (key: string)
           {item.account_label && item.name !== item.account_label ? <span className='truncate'>{item.name}</span> : null}
           {item.source ? <Badge variant='outline'>{item.source}</Badge> : null}
           {item.window_type ? <Badge variant='secondary'>{item.window_type}</Badge> : null}
+          {item.plan_type ? <Badge variant='secondary'>{item.plan_type}</Badge> : null}
           {item.metric_type ? <span>{item.metric_type}</span> : null}
         </div>
       </div>

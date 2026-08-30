@@ -265,6 +265,7 @@ export interface ChannelQuotaHistoryData {
   metric_type?: string
   window_type?: string
   source?: string
+  plan_type?: string
 }
 
 export interface ChannelQuotaHistoryResponse {

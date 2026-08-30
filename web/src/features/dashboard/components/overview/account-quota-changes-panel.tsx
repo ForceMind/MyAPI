@@ -22,6 +22,7 @@ import {
   Activity,
   ArrowDownRight,
   ArrowUpRight,
+  CircleAlert,
   ExternalLink,
   Minus,
   RotateCw,
@@ -90,6 +91,14 @@ function movementTone(item: ChannelQuotaChangeItem): {
   className: string
   label: string
 } {
+  if (item.status === 'error') {
+    return {
+      icon: CircleAlert,
+      badge: 'destructive',
+      className: 'text-destructive',
+      label: 'Error',
+    }
+  }
   if (item.status === 'unsupported') {
     return {
       icon: Minus,
@@ -169,6 +178,7 @@ function MovementRow(props: { item: ChannelQuotaChangeItem; maxMovement: number 
         <div className='text-muted-foreground mt-1 flex min-w-0 items-center gap-2 text-[11px]'>
           <span className='truncate'>{item.account_label || t('Provider account')}</span>
           {item.window_type && <span className='shrink-0'>· {item.window_type}</span>}
+          {item.plan_type && <span className='shrink-0'>· {item.plan_type}</span>}
         </div>
         <div className='bg-muted/50 mt-2 h-1.5 overflow-hidden rounded-full'>
           <div
@@ -217,6 +227,10 @@ export function AccountQuotaChangesPanel() {
       }, { skipAuthRefresh: true }),
     enabled: canReadChannels,
     staleTime: 60 * 1000,
+    // Keep the overview useful while it remains open after a background
+    // sampler run. TanStack Query pauses interval work in hidden tabs by
+    // default, so this does not create background polling for idle clients.
+    refetchInterval: 60 * 1000,
     retry: false,
   })
   const samplingStatusQuery = useQuery({
@@ -228,7 +242,7 @@ export function AccountQuotaChangesPanel() {
   })
 
   const items = useMemo(
-    () => query.data?.data?.items?.filter((item) => item.status !== 'error') ?? [],
+    () => query.data?.data?.items ?? [],
     [query.data?.data?.items]
   )
   const firstMetric = items.find((item) => finite(item.change_per_minute))
