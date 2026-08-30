@@ -21,6 +21,9 @@
 
 ## 最近 CI 证据
 
+- `33334940514`：安装环境导出安全修复、官网 metadata 和 LAN 注入回归后的完整 CI，
+  Backend、Frontend、Desktop 和 Distribution 四个作业全部成功。
+- `33334940499`：同一提交对应的静态官网 Chromium smoke，成功。
 - `33334175656`：完成度证据矩阵提交后的完整 CI，Backend、Frontend、Desktop
   和 Distribution 四个作业全部成功。
 - `33333993651`：README 多语言导航更新后的完整 CI，全部成功。
@@ -32,7 +35,7 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 
 ## 版本与远端 tag 只读核对（2026-08-31）
 
-- 当前 `main` 与 `origin/main` 均指向 `6c934ed`。
+- 当前 `main` 与 `origin/main` 均指向 `9dfe64b`。
 - `origin` 的 `v0.1.1` 仍指向历史提交 `5007c6c`；本次工作没有移动或覆盖该 tag。
 - 本地历史 `v0.1.0` 仍保留在旧提交；正式发布前仍需由负责人决定新版本号并创建
   指向目标提交的新 tag。
