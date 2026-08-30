@@ -78,6 +78,8 @@ MYAPI_ALLOW_LAN=false
 LAN 版默认只绑定本机；确认局域网访问范围后，再将 `MYAPI_BIND_ADDRESS` 设置为
 私网接口地址并将 `MYAPI_ALLOW_LAN=true`，然后为每位同事创建独立的下游 API Key。
 `deploy/install.sh` 会拒绝公网/格式错误的地址，也会在缺少显式 opt-in 时停止；上游凭据不会显示给下游用户。
+该脚本按 `KEY=VALUE` 读取 `.env`，不会执行其中的 shell 命令替换或函数；请不要依赖
+变量展开语法，敏感值应直接写入并将文件保持为 `0600`。
 
 执行 `myapi up` 或 `deploy/install.sh` 时会先拉取该镜像。只有明确设置
 `MYAPI_BUILD_LOCAL=true`（或使用 `local/...` 镜像名）才会从源码构建。

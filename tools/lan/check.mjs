@@ -120,6 +120,7 @@ function checkStaticContracts(checks) {
   const installer = readFileSync(path.join(repositoryRoot, 'deploy/install.sh'), 'utf8')
   record(checks, 'installer validates bind addresses strictly', /is_private_ipv4\(\)/.test(installer) && /MYAPI_BIND_ADDRESS must be localhost/.test(installer))
   record(checks, 'installer requires explicit LAN opt-in', /MYAPI_ALLOW_LAN/.test(installer) && /LAN binding is disabled by default/.test(installer))
+  record(checks, 'installer parses env without shell evaluation', /load_env_file\(\)/.test(installer) && !/source\s+"\$env_file"/.test(installer))
 }
 
 function validateGeneratedProject(

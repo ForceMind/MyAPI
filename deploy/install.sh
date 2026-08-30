@@ -12,9 +12,31 @@ if [[ ! -f "$env_file" ]]; then
   exit 1
 fi
 
-set -a
-source "$env_file"
-set +a
+# Read KEY=VALUE entries without evaluating the deployment file as shell code.
+# Values may be quoted, but command substitutions, functions, and other shell
+# syntax are never executed. Docker Compose still receives the original file
+# through --env-file below.
+load_env_file() {
+  local line key value
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%$'\r'}"
+    [[ -z "${line//[[:space:]]/}" || "$line" =~ ^[[:space:]]*# ]] && continue
+    if [[ ! "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+      echo "Invalid deployment env line; expected KEY=VALUE." >&2
+      exit 1
+    fi
+    key="${BASH_REMATCH[1]}"
+    value="${BASH_REMATCH[2]}"
+    if [[ "$value" == \"*\" && "$value" == *\" ]]; then
+      value="${value:1:${#value}-2}"
+    elif [[ "$value" == \'*\' && "$value" == *\' ]]; then
+      value="${value:1:${#value}-2}"
+    fi
+    printf -v "$key" '%s' "$value"
+    export "$key"
+  done < "$env_file"
+}
+load_env_file
 
 legacy_keys=()
 if [[ -z "${MYAPI_IMAGE:-}" && -n "${NEW_API_IMAGE:-}" ]]; then
