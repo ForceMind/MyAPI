@@ -270,15 +270,21 @@ function checkInstallerEnvParsing(checks) {
     const fakeDocker = path.join(binDir, 'docker')
     writeFileSync(fakeDocker, '#!/usr/bin/env bash\nexit 0\n', { mode: 0o700 })
     chmodSync(fakeDocker, 0o700)
-    const result = spawnSync('bash', [path.join(deployDir, 'install.sh')], {
+    const runInstaller = () => spawnSync('bash', [path.join(deployDir, 'install.sh')], {
       cwd: project,
       encoding: 'utf8',
       env: { ...process.env, PATH: `${binDir}:${process.env.PATH || ''}` },
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
     })
+    const result = runInstaller()
     record(checks, 'installer env parser smoke test', result.status === 0, 'temporary fake Docker only')
     record(checks, 'installer does not evaluate env shell syntax', !existsSync(marker))
+
+    writeFileSync(envPath, env.replace(/^MYAPI_BIND_ADDRESS=.*$/m, 'MYAPI_BIND_ADDRESS=192.168.999.1'))
+    record(checks, 'installer rejects malformed bind addresses', runInstaller().status !== 0)
+    writeFileSync(envPath, env.replace(/^MYAPI_BIND_ADDRESS=.*$/m, 'MYAPI_BIND_ADDRESS=192.168.1.20'))
+    record(checks, 'installer requires LAN opt-in for private binds', runInstaller().status !== 0)
   } finally {
     if (!keepTemporary) rmSync(project, { recursive: true, force: true })
   }
