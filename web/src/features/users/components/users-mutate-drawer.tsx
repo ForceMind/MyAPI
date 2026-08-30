@@ -377,7 +377,7 @@ export function UsersMutateDrawer({
                           ]}
                           onValueChange={(value) => {
                             field.onChange(value)
-                            form.setValue('account_tier_id', getAccountTierId(value), { shouldDirty: true })
+                            form.setValue('account_tier_id', getAccountTierId(value ?? undefined), { shouldDirty: true })
                           }}
                           value={field.value}
                         >
