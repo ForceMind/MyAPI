@@ -1,4 +1,5 @@
 const net = require('net');
+const os = require('os');
 
 const DEFAULT_PORT = 3000;
 const DEFAULT_BIND_ADDRESS = '127.0.0.1';
@@ -21,6 +22,57 @@ function isPrivateAddress(address) {
   return octets[0] === 10 ||
     (octets[0] === 192 && octets[1] === 168) ||
     (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31);
+}
+
+/**
+ * Return usable RFC1918 IPv4 addresses exposed by the host network stack.
+ *
+ * The optional argument keeps this helper deterministic in tests and avoids
+ * making the desktop UI depend on any provider or credential files.  Loopback,
+ * internal, wildcard, IPv6 and public addresses are intentionally excluded.
+ */
+function getPrivateIPv4Candidates(networkInterfaces = os.networkInterfaces()) {
+  const candidates = [];
+  for (const entries of Object.values(networkInterfaces || {})) {
+    if (!Array.isArray(entries)) continue;
+    for (const entry of entries) {
+      if (!entry || entry.internal) continue;
+      const address = String(entry.address || '').trim();
+      if (!address || address === '0.0.0.0' || net.isIP(address) !== 4 || !isPrivateAddress(address)) continue;
+      if (!candidates.includes(address)) candidates.push(address);
+    }
+  }
+  return candidates;
+}
+
+function replaceArgument(args, name, value) {
+  const result = [];
+  for (let index = 0; index < args.length; index += 1) {
+    if (args[index] === name) {
+      index += 1;
+      continue;
+    }
+    result.push(args[index]);
+  }
+  if (value !== undefined) result.push(name, String(value));
+  return result;
+}
+
+/**
+ * Build a safe Electron relaunch argument list.  The returned list is suitable
+ * for app.relaunch({ args }) and always carries an explicit bind address, so
+ * environment variables cannot silently widen a loopback-only restart.
+ */
+function buildRelaunchArgs(args = [], { bindAddress = DEFAULT_BIND_ADDRESS, port, allowLan = false } = {}) {
+  if (!isLoopbackAddress(bindAddress) && (!allowLan || !isPrivateAddress(bindAddress))) {
+    throw new Error('Relaunch LAN binding must use a private IPv4 address and explicit LAN opt-in.');
+  }
+  let result = Array.from(args);
+  result = replaceArgument(result, '--bind-address', bindAddress);
+  result = replaceArgument(result, '--port', port);
+  result = result.filter((argument) => argument !== '--allow-lan');
+  if (allowLan) result.push('--allow-lan');
+  return result;
 }
 
 function parsePort(value, fallback = DEFAULT_PORT) {
@@ -101,6 +153,8 @@ module.exports = {
   DEFAULT_PORT,
   isLoopbackAddress,
   isPrivateAddress,
+  getPrivateIPv4Candidates,
+  buildRelaunchArgs,
   parsePort,
   resolveRuntimeConfig,
   describeRuntimeConfig,

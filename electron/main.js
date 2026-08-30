@@ -5,8 +5,11 @@ const path = require('path');
 const http = require('http');
 const fs = require('fs');
 const {
+  DEFAULT_BIND_ADDRESS,
   isLoopbackAddress,
   isPrivateAddress,
+  getPrivateIPv4Candidates,
+  buildRelaunchArgs,
   resolveRuntimeConfig,
   describeRuntimeConfig,
   getHealthCheckAddress,
@@ -498,6 +501,78 @@ function createWindow() {
   });
 }
 
+async function confirmAndRelaunch({ bindAddress, allowLan, title, message, detail }) {
+  // Validate the exact argument set that will be passed to the next process.
+  // The current process is never rebound in place.
+  const relaunchArgs = buildRelaunchArgs(DESKTOP_ARGS, {
+    bindAddress,
+    port: PORT,
+    allowLan,
+  });
+  resolveRuntimeConfig({ args: relaunchArgs, env: {} });
+
+  const result = await dialog.showMessageBox({
+    type: 'question',
+    title,
+    message,
+    detail,
+    buttons: ['取消', '退出并重启'],
+    defaultId: 1,
+    cancelId: 0,
+    noLink: true,
+  });
+  if (result.response !== 1) return;
+
+  // Electron relaunch starts a fresh process; quitting then lets the existing
+  // before-quit handler terminate the bundled backend cleanly.
+  app.isQuitting = true;
+  app.relaunch({ args: relaunchArgs });
+  app.quit();
+}
+
+function restartWithLan() {
+  const candidates = getPrivateIPv4Candidates();
+  if (candidates.length === 0) {
+    dialog.showMessageBox({
+      type: 'warning',
+      title: '未找到可用的局域网地址',
+      message: 'MyAPI 没有发现可用的私有 IPv4 地址。',
+      detail: '请先连接到 10.x、172.16–31.x 或 192.168.x 的局域网，再重试。不会读取或导入任何本地凭据。',
+      buttons: ['关闭'],
+      defaultId: 0,
+    });
+    return;
+  }
+
+  const selectedAddress = candidates[0];
+  const addressSummary = candidates.length > 1
+    ? `发现的地址：${candidates.join('、')}\n将使用：${selectedAddress}`
+    : `局域网地址：${selectedAddress}`;
+  confirmAndRelaunch({
+    bindAddress: selectedAddress,
+    allowLan: true,
+    title: '重启并启用局域网共享？',
+    message: 'MyAPI 将退出并重启，然后仅绑定到一个私有局域网 IPv4 地址。',
+    detail: `${addressSummary}\n端口：${PORT}\n\n局域网中的同事需要使用 API Key 访问。监听地址只在启动时确定，不会动态重绑定。`,
+  }).catch((error) => {
+    console.error('Failed to prepare LAN relaunch:', error);
+    dialog.showErrorBox('无法启用局域网共享', error.message);
+  });
+}
+
+function restartLoopbackOnly() {
+  confirmAndRelaunch({
+    bindAddress: DEFAULT_BIND_ADDRESS,
+    allowLan: false,
+    title: '恢复仅本机访问？',
+    message: 'MyAPI 将退出并重启，然后仅监听本机回环地址。',
+    detail: `地址：${DEFAULT_BIND_ADDRESS}\n端口：${PORT}\n\n局域网中的其他设备将无法访问此实例。`,
+  }).catch((error) => {
+    console.error('Failed to prepare loopback relaunch:', error);
+    dialog.showErrorBox('无法恢复仅本机访问', error.message);
+  });
+}
+
 function createTray() {
   // Use template icon for macOS (black with transparency, auto-adapts to theme)
   // Use colored icon for Windows
@@ -553,6 +628,15 @@ function createTray() {
           defaultId: 0,
         });
       },
+    },
+    { type: 'separator' },
+    {
+      label: '重启并启用 LAN…',
+      click: restartWithLan,
+    },
+    {
+      label: '重启并恢复仅本机',
+      click: restartLoopbackOnly,
     },
     { type: 'separator' },
     {

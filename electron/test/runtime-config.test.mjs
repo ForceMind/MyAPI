@@ -36,6 +36,54 @@ test('rejects public and non-IPv4 addresses', () => {
   )
 })
 
+test('discovers only unique non-internal RFC1918 IPv4 candidates', () => {
+  assert.deepEqual(
+    config.getPrivateIPv4Candidates({
+      ethernet: [
+        { address: '192.168.1.20', family: 'IPv4', internal: false },
+        { address: '192.168.1.20', family: 4, internal: false },
+        { address: '8.8.8.8', family: 'IPv4', internal: false },
+      ],
+      wifi: [
+        { address: '10.0.0.7', family: 'IPv4', internal: false },
+        { address: '127.0.0.1', family: 'IPv4', internal: true },
+        { address: '172.16.4.2', family: 'IPv4', internal: false },
+        { address: '::1', family: 'IPv6', internal: true },
+        { address: '0.0.0.0', family: 'IPv4', internal: false },
+      ],
+    }),
+    ['192.168.1.20', '10.0.0.7', '172.16.4.2'],
+  )
+})
+
+test('builds explicit safe relaunch arguments without retaining stale LAN flags', () => {
+  assert.deepEqual(
+    config.buildRelaunchArgs(
+      ['app.asar', '--allow-lan', '--bind-address', '192.168.1.10', '--port', '4317', '--safe-mode'],
+      { bindAddress: '10.0.0.7', port: 4317, allowLan: true },
+    ),
+    ['app.asar', '--safe-mode', '--bind-address', '10.0.0.7', '--port', '4317', '--allow-lan'],
+  )
+  assert.deepEqual(
+    config.buildRelaunchArgs(
+      ['app.asar', '--allow-lan', '--bind-address', '10.0.0.7'],
+      { bindAddress: '127.0.0.1', port: 3000, allowLan: false },
+    ),
+    ['app.asar', '--bind-address', '127.0.0.1', '--port', '3000'],
+  )
+})
+
+test('rejects unsafe relaunch targets before Electron is invoked', () => {
+  assert.throws(
+    () => config.buildRelaunchArgs(['app.asar'], { bindAddress: '8.8.8.8', allowLan: true }),
+    /private IPv4/,
+  )
+  assert.throws(
+    () => config.buildRelaunchArgs(['app.asar'], { bindAddress: '192.168.1.20', allowLan: false }),
+    /explicit LAN opt-in/,
+  )
+})
+
 test('rejects an explicitly invalid port instead of silently falling back', () => {
   assert.throws(
     () => config.resolveRuntimeConfig({ args: ['--port', '70000'] }),
