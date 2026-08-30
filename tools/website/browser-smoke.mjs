@@ -82,6 +82,11 @@ try {
   // keeping the real-device acceptance gate explicit in the documentation.
   await page.setViewportSize({ width: 320, height: 844 })
   await page.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: 'networkidle' })
+  if (await menu.isVisible()) throw new Error('320px mobile menu should start closed')
+  await page.getByRole('button', { name: 'Menu' }).click()
+  if (!(await menu.isVisible())) throw new Error('320px mobile menu did not open')
+  await page.keyboard.press('Escape')
+  if (await menu.isVisible()) throw new Error('320px mobile menu did not close on Escape')
   const hasHorizontalOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth + 1
   )
