@@ -58,6 +58,14 @@
 CI 运行号会随新提交变化；发布前应重新查询当前提交对应的运行结果，不应永久依赖
 上述历史编号。
 
+## 当前源码合同复核（2026-08-31）
+
+- `npm run release:check` 在提交 `c8cd228` 上通过：CLI 19/19、品牌 2/2（115 条分类
+  引用、0 blocking）、Website、LAN Lite 60/60、Desktop 28/28、Upgrade 18/18、
+  Release workflow 11/11，以及 SOURCE_MANIFEST/package check 均通过。
+- 本轮完整合同复核未执行 Go 单元测试或前端 Vitest/typecheck；当前环境缺少 Go 与
+  Web 依赖，相关范围仍以恢复后的 CI runner 或具备依赖的本机环境补验为准。
+
 ## 版本与远端 tag 只读核对（2026-08-31）
 
 - 本轮只读核对确认 `main` 与 `origin/main` 指向同一提交；精确提交值应以
