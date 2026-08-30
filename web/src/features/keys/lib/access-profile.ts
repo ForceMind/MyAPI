@@ -3,6 +3,54 @@ import type { TFunction } from 'i18next'
 import type { AccessProfileMetadata } from '../types'
 
 /**
+ * Shape used by the key profile picker when it needs to retain an existing
+ * profile which is no longer returned by the current user's selectable-group
+ * endpoint.  This is deliberately a read-only compatibility affordance: it
+ * never makes the profile available during key creation.
+ */
+export type PreservedAccessProfileOption = {
+  value: string
+  label: string
+  desc: string
+  profileId?: string
+}
+
+/**
+ * Build an option for an already persisted profile that is temporarily absent
+ * from the selectable profile list.  Editing an old key must not silently
+ * replace its routing group merely because policy metadata or eligibility has
+ * changed.  Returning null for empty/already-present values keeps creation and
+ * normal update behaviour unchanged.
+ */
+export function getPreservedAccessProfileOption(
+  options: Array<{ value: string }>,
+  group: string | null | undefined,
+  profile: AccessProfileMetadata | null | undefined,
+  t: TFunction
+): PreservedAccessProfileOption | null {
+  const value = group ?? ''
+  if (!value.trim() || options.some((option) => option.value === value)) {
+    return null
+  }
+
+  return {
+    value,
+    label: `${getAccessProfileLabel(value, profile ?? undefined, t)} · ${t(
+      'Existing key'
+    )}`,
+    desc: [
+      getAccessProfileDescription(value, profile ?? undefined, t),
+      t(
+        'Retained for compatibility; choose another profile only if you intend to change this key.'
+      ),
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    profileId: profile?.id,
+  }
+}
+
+/**
  * Translate the stable access-profile identity while keeping legacy group
  * values usable. The backend deliberately exposes metadata as a compatibility
  * layer; unknown/custom groups remain readable instead of being hidden.

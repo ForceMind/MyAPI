@@ -26,6 +26,7 @@ import {
   transformApiKeyToFormDefaults,
   transformFormDataToPayload,
 } from '../api-key-form'
+import { getPreservedAccessProfileOption } from '../access-profile'
 
 const t = ((key: string, options?: Record<string, unknown>) => {
   if (options?.max !== undefined) {
@@ -55,6 +56,34 @@ const baseApiKey: ApiKey = {
 }
 
 describe('API key Auto group form mapping', () => {
+  test('preserves an existing profile when it is absent from selectable groups', () => {
+    const preserved = getPreservedAccessProfileOption(
+      [{ value: 'default' }],
+      'team-legacy',
+      {
+        id: 'team-legacy',
+        label: 'Legacy team pool',
+        description: 'Existing team routing policy',
+      },
+      t
+    )
+
+    expect(preserved).toEqual({
+      value: 'team-legacy',
+      label: 'Legacy team pool · Existing key',
+      desc: 'Existing team routing policy · Retained for compatibility; choose another profile only if you intend to change this key.',
+      profileId: 'team-legacy',
+    })
+  })
+
+  test('does not add a duplicate or empty profile option', () => {
+    const options = [{ value: 'team-legacy' }]
+    expect(
+      getPreservedAccessProfileOption(options, 'team-legacy', undefined, t)
+    ).toBeNull()
+    expect(getPreservedAccessProfileOption(options, '', undefined, t)).toBeNull()
+  })
+
   test('preserves access profile policy metadata from the API', () => {
     const parsed = apiKeySchema.parse({
       ...baseApiKey,

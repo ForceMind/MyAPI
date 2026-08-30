@@ -44,3 +44,9 @@ empty IDs/labels and self-referential fallbacks are rejected atomically. The
 configured metadata is returned by `/api/user/self/groups` and shown in Key
 creation/list views; it does not expose credentials and does not silently
 reject existing Keys.
+
+When editing an existing Key, the form retains its persisted legacy `group`
+and access-profile identity even if that value is no longer returned by the
+current selectable-group endpoint. The retained option is marked “Existing
+key” and can be deliberately changed, while new Key creation only shows
+currently selectable profiles.

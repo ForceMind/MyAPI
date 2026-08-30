@@ -85,6 +85,7 @@ import {
   getAccessProfileDescription,
   getAccessProfileLabel,
   getAccessProfilePolicyHint,
+  getPreservedAccessProfileOption,
 } from '../lib/access-profile'
 import type { ApiKey } from '../types'
 import {
@@ -161,21 +162,38 @@ export function ApiKeysMutateDrawer({
 
   const models = modelsData?.data || []
   const accountTier = groupsData?.account_tier
+  const persistedGroup = isUpdate
+    ? (apiKeyData?.data?.group ?? currentRow?.group)
+    : undefined
+  const persistedAccessProfile = isUpdate
+    ? (apiKeyData?.data?.access_profile ?? currentRow?.access_profile)
+    : undefined
   const groups = useMemo<ApiKeyGroupOption[]>(
-    () =>
-      Object.entries(groupsData?.data || {}).map(([key, info]) => ({
-        value: key,
-        label: getAccessProfileLabel(key, info.profile, t),
-        desc: [
-          getAccessProfileDescription(key, info.profile, t),
-          getAccessProfilePolicyHint(info.profile, t),
-        ]
-          .filter(Boolean)
-          .join(' · '),
-        ratio: info.ratio,
-        profileId: info.profile?.id,
-      })),
-    [groupsData, t]
+    () => {
+      const options = Object.entries(groupsData?.data || {}).map(
+        ([key, info]) => ({
+          value: key,
+          label: getAccessProfileLabel(key, info.profile, t),
+          desc: [
+            getAccessProfileDescription(key, info.profile, t),
+            getAccessProfilePolicyHint(info.profile, t),
+          ]
+            .filter(Boolean)
+            .join(' · '),
+          ratio: info.ratio,
+          profileId: info.profile?.id,
+        })
+      )
+      const preserved = getPreservedAccessProfileOption(
+        options,
+        persistedGroup,
+        persistedAccessProfile,
+        t
+      )
+      if (preserved) options.push(preserved)
+      return options
+    },
+    [groupsData, persistedAccessProfile, persistedGroup, t]
   )
   const backendHasAuto = groups.some((g) => g.value === 'auto')
   const availableAutoGroupNames = useMemo(

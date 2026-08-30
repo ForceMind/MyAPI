@@ -130,6 +130,8 @@ export const STATIC_I18N_KEYS = [
   'This is separate from the access profile selected for each API key.',
   'Routes',
   'Fallback',
+  'Existing key',
+  'Retained for compatibility; choose another profile only if you intend to change this key.',
 
   // Users
   'Root',
