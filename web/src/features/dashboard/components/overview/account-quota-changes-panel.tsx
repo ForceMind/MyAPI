@@ -35,7 +35,6 @@ import { IconBadge } from '@/components/ui/icon-badge'
 import { getChannelQuotaChanges } from '@/features/channels/api'
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
 import { hasPermission } from '@/lib/admin-permissions'
-import { ROLE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -176,9 +175,11 @@ function MovementRow(props: { item: ChannelQuotaChangeItem; maxMovement: number 
 export function AccountQuotaChangesPanel() {
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
-  const canReadChannels =
-    (user?.role ?? ROLE.GUEST) >= ROLE.ADMIN ||
-    hasPermission(user, 'channel', 'read')
+  // The API route is protected by the same resolved permission matrix as the
+  // rest of the admin channel surface. Using the capability payload here
+  // avoids showing a panel to users who would be rejected by an explicit
+  // Casbin deny or by the outer AdminAuth middleware.
+  const canReadChannels = hasPermission(user, 'channel', 'read')
 
   const query = useQuery({
     queryKey: ['dashboard', 'account-quota-changes', RANGE, LIMIT],
