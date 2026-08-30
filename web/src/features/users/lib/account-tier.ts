@@ -44,3 +44,17 @@ export function getAccountTierDescription(group: string | undefined, t: TFunctio
       return t('Custom account tier; its channel eligibility and billing rules come from administrator settings.')
   }
 }
+
+/** Resolve the stable account-tier identity used by the API payload. */
+export function getAccountTierId(group: string | undefined, explicitId?: string): string {
+  const persisted = explicitId?.trim()
+  if (persisted) return persisted
+  switch ((group || 'default').trim().toLowerCase()) {
+    case 'default':
+      return 'standard'
+    case 'vip':
+      return 'priority'
+    default:
+      return group?.trim() || 'standard'
+  }
+}

@@ -90,6 +90,7 @@ import {
   transformUserToFormDefaults,
   getAccountTierDescription,
   getAccountTierLabel,
+  getAccountTierId,
 } from '../lib'
 import { type User } from '../types'
 import { UserQuotaDialog } from './user-quota-dialog'
@@ -374,7 +375,10 @@ export function UsersMutateDrawer({
                               label: getAccountTierLabel(group, t),
                             })),
                           ]}
-                          onValueChange={field.onChange}
+                          onValueChange={(value) => {
+                            field.onChange(value)
+                            form.setValue('account_tier_id', getAccountTierId(value), { shouldDirty: true })
+                          }}
                           value={field.value}
                         >
                           <FormControl>
@@ -392,6 +396,9 @@ export function UsersMutateDrawer({
                             </SelectGroup>
                           </SelectContent>
                         </Select>
+                        <div className='text-xs text-muted-foreground'>
+                          {t('Stable account tier ID')}: {form.watch('account_tier_id') || getAccountTierId(field.value)}
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}

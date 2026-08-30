@@ -125,6 +125,7 @@ export interface UserFormData {
   role?: number // Only used when creating user
   quota?: number // Only used when updating user
   group?: string // Only used when updating user
+  account_tier_id?: string // Stable account-tier identity; group remains compatibility field
   remark?: string // Only used when updating user
   admin_permissions?: AdminPermissionMatrix
 }

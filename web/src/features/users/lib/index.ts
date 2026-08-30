@@ -35,4 +35,5 @@ export {
 export {
   getAccountTierDescription,
   getAccountTierLabel,
+  getAccountTierId,
 } from './account-tier'
