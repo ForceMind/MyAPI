@@ -476,10 +476,12 @@ func updateChannelBalance(channel *model.Channel) (channelBalanceResult, error) 
 
 // recordChannelBalanceSnapshot persists only the normalized result of a
 // balance query. Upstream response bodies and credentials are never written
-// to the quota history table.
-func recordChannelBalanceSnapshot(channel *model.Channel, result channelBalanceResult, queryErr error) {
+// to the quota history table. The persistence error is returned so scheduled
+// sampling can report a history write failure without changing the existing
+// manual balance response semantics (manual callers intentionally ignore it).
+func recordChannelBalanceSnapshot(channel *model.Channel, result channelBalanceResult, queryErr error) error {
 	if channel == nil {
-		return
+		return nil
 	}
 	snapshot := &model.ChannelQuotaSnapshot{
 		ChannelId:  channel.Id,
@@ -493,25 +495,22 @@ func recordChannelBalanceSnapshot(channel *model.Channel, result channelBalanceR
 		snapshot.Status = "error"
 		snapshot.ErrorCode = "query_failed"
 		snapshot.ErrorMessage = "balance query failed"
-		_ = model.RecordChannelQuotaSnapshot(snapshot)
-		return
+		return model.RecordChannelQuotaSnapshot(snapshot)
 	}
 	if result.RawResponse != "" {
 		snapshot.Status = "unsupported"
 		snapshot.ErrorCode = "unstructured_response"
 		snapshot.ErrorMessage = "upstream did not return a numeric balance"
-		_ = model.RecordChannelQuotaSnapshot(snapshot)
-		return
+		return model.RecordChannelQuotaSnapshot(snapshot)
 	}
 	if math.IsNaN(result.Balance) || math.IsInf(result.Balance, 0) {
 		snapshot.Status = "error"
 		snapshot.ErrorCode = "invalid_balance"
 		snapshot.ErrorMessage = "upstream returned an invalid balance"
-		_ = model.RecordChannelQuotaSnapshot(snapshot)
-		return
+		return model.RecordChannelQuotaSnapshot(snapshot)
 	}
 	snapshot.Available = result.Balance
-	_ = model.RecordChannelQuotaSnapshot(snapshot)
+	return model.RecordChannelQuotaSnapshot(snapshot)
 }
 
 func updateStandardChannelBalance(channel *model.Channel) (float64, error) {
@@ -1130,6 +1129,7 @@ func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, repor
 	if report != nil {
 		report(0, summary.Considered)
 	}
+	var firstPersistErr error
 	for index, channel := range channels {
 		if summary.Sampled+summary.Failed >= maxChannels {
 			break
@@ -1153,12 +1153,18 @@ func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, repor
 			continue
 		}
 		result, queryErr := updateChannelBalance(channel)
-		recordChannelBalanceSnapshot(channel, result, queryErr)
+		persistErr := recordChannelBalanceSnapshot(channel, result, queryErr)
 		lock.Unlock()
 		if queryErr != nil {
 			summary.Failed++
 		} else {
 			summary.Sampled++
+		}
+		if persistErr != nil {
+			summary.PersistFailed++
+			if firstPersistErr == nil {
+				firstPersistErr = persistErr
+			}
 		}
 		if report != nil {
 			report(index+1, summary.Considered)
@@ -1179,6 +1185,9 @@ func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, repor
 			case <-timer.C:
 			}
 		}
+	}
+	if firstPersistErr != nil {
+		return summary, fmt.Errorf("quota snapshot persistence failed: %w", firstPersistErr)
 	}
 	return summary, nil
 }

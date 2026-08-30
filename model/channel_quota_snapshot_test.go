@@ -42,6 +42,25 @@ func TestChannelQuotaSnapshotsAreNormalizedAndBounded(t *testing.T) {
 	require.Equal(t, "none", rows[0].WindowType)
 }
 
+func TestListChannelQuotaSnapshotsKeepsMostRecentPoints(t *testing.T) {
+	require.NoError(t, DB.AutoMigrate(&ChannelQuotaSnapshot{}))
+	require.NoError(t, DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&ChannelQuotaSnapshot{}).Error)
+	now := time.Now().Unix()
+	for index := int64(0); index < 3; index++ {
+		require.NoError(t, RecordChannelQuotaSnapshot(&ChannelQuotaSnapshot{
+			ChannelId:  902,
+			ObservedAt: now + index,
+			Available:  100 - float64(index),
+			Status:     "success",
+		}))
+	}
+	rows, err := ListChannelQuotaSnapshots(902, now, now+3, "", "", 2)
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+	require.Equal(t, now+1, rows[0].ObservedAt)
+	require.Equal(t, now+2, rows[1].ObservedAt)
+}
+
 func TestDeleteOldChannelQuotaSnapshotBatchHonorsCutoffAndLimit(t *testing.T) {
 	require.NotNil(t, DB)
 	require.NoError(t, DB.AutoMigrate(&ChannelQuotaSnapshot{}))

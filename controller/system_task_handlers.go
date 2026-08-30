@@ -75,6 +75,10 @@ type channelQuotaSnapshotSyncSummary struct {
 	Sampled    int `json:"sampled"`
 	Failed     int `json:"failed"`
 	Skipped    int `json:"skipped"`
+	// PersistFailed counts successful/failed provider observations that could
+	// not be appended to the history table. It is kept separate from Failed,
+	// which only describes an upstream balance query failure.
+	PersistFailed int `json:"persist_failed"`
 }
 
 func (channelQuotaSnapshotSyncHandler) NewPayload() any {

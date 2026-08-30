@@ -178,9 +178,10 @@ func RecordChannelQuotaSnapshot(snapshot *ChannelQuotaSnapshot) error {
 	return DB.Create(snapshot).Error
 }
 
-// ListChannelQuotaSnapshots returns bounded, oldest-first observations. The
-// caller is expected to provide a sensible time range; this method enforces a
-// hard upper bound to prevent accidental unbounded history responses.
+// ListChannelQuotaSnapshots returns the most recent bounded observations in
+// oldest-first order. Selecting the newest rows before reversing prevents a
+// high-frequency sampler from filling the limit with only the beginning of a
+// long 30/90-day window and dropping the current trend endpoint.
 func ListChannelQuotaSnapshots(channelID int, start, end int64, metricType, windowType string, limit int) ([]ChannelQuotaSnapshot, error) {
 	if DB == nil {
 		return nil, gorm.ErrInvalidDB
@@ -202,6 +203,12 @@ func ListChannelQuotaSnapshots(channelID int, start, end int64, metricType, wind
 		query = query.Where("window_type = ?", windowType)
 	}
 	var snapshots []ChannelQuotaSnapshot
-	err := query.Order("observed_at ASC").Limit(limit).Find(&snapshots).Error
+	err := query.Order("observed_at DESC, id DESC").Limit(limit).Find(&snapshots).Error
+	if err != nil {
+		return nil, err
+	}
+	for left, right := 0, len(snapshots)-1; left < right; left, right = left+1, right-1 {
+		snapshots[left], snapshots[right] = snapshots[right], snapshots[left]
+	}
 	return snapshots, err
 }
