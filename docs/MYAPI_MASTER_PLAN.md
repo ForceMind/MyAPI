@@ -114,7 +114,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 | 账户额度变化聚合 | 初版已实现 | 概览和管理员渠道页均可查看每分钟变化及最大变化排序；普通渠道与 Codex OAuth 后台采样已接入系统任务并避免与旧轮询重复，跨账户订阅账单同步和通知仍待后续迭代 |
 | 账户等级/Key 访问方案 | 独立策略注册表已实现 | 管理员可在计费设置的“Key access profile policies”编辑稳定 profile ID 的显示名、说明、路由组、模型白名单、回退方案和启用状态；`users.account_tier_id` 与 `tokens.access_profile_id` 仍由旧 `group` 幂等回填，旧路由保持兼容。路由/模型强制执行仍需单独迁移评审 |
 | 设置引导生命周期 | 初版已实现 | 完成后自动消失、按用户和版本保存；真实多设备视觉审查仍待完成 |
-| Claude 支持 | 需按官方接口推进 | 只实现有明确官方协议的能力，不读取本地凭据 |
+| Claude 支持 | Messages 原生转发与 Responses→Messages 兼容转换已实现 | 只实现有明确官方协议的能力；账户订阅登录和普通渠道额度查询仍不支持，不读取本地凭据 |
 | Google Antigravity 完整能力 | 未完成 | 只有官方稳定接口存在时才实现；无接口时明确显示不支持 |
 | LAN Lite 桌面体验 | 安全状态体验与确定性发行合同检查已实现 | Electron 默认回环、单实例、持久会话密钥、显式 `--allow-lan` 私网绑定、只读 LAN 状态/防火墙提示、有效地址健康检查和托盘确认后重启切换已补齐；`npm run desktop:check` 与 CI 会验证 macOS/Windows 目标、资源、校验和与发布闸门；真实跨平台安装/局域网请求演练和系统防火墙自动配置仍待完成 |
 | GHCR 自动升级 | CLI 预检与执行流程已实现 | 生产端显式拉取、可选签名验证、健康检查、环境备份和失败回滚已有；`upgrade --dry-run --json` 可在副本上无写入预检，`docs/UPGRADE_REHEARSAL.md` 已补充恢复演练清单，真实数据库恢复和人工审批仍待完成 |
@@ -340,7 +340,7 @@ CI 自动构建不等于自动重启生产服务。生产自动升级需要单�
 ### P3：Provider 和预警
 
 - Codex 官方 usage/quota 适配。
-- Claude 官方接口评估和适配。
+- Claude 官方接口评估和适配（Messages 原生与 Responses→Messages 兼容转换已完成；组织级 Usage Report 仍需显式 Admin 凭据与业务授权）。
 - Antigravity 官方接口出现后再实现。
 - 额度阈值、下降速度和预计耗尽预警。
 

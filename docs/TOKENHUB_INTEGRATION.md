@@ -31,9 +31,11 @@ included in settings, model metadata, errors or health responses.
 Supported protocol values are `openai`, `responses`, and `anthropic`. An
 explicit TokenHub setting is currently supported on the legacy Tencent-
 compatible channel (wire ID 23) so existing channel records remain valid. The
-`anthropic` option selects the existing Claude Messages adaptor; use the Claude
-Messages API for that route until a dedicated Responses-to-Claude converter is
-added. A missing setting preserves the legacy Tencent key-shape dispatch;
+`anthropic` option selects the existing Claude Messages adaptor. Native
+Anthropic traffic uses the Messages API; OpenAI Responses requests may use
+MyAPI's tested Responses-to-Claude Messages converter when the routing policy
+selects that compatibility path. This does not add Claude account login or
+quota access. A missing setting preserves the legacy Tencent key-shape dispatch;
 invalid settings are rejected when the channel is saved.
 
 ## Model and health probes
