@@ -49,6 +49,12 @@ const (
 	// DefaultChannelQuotaSnapshotRetentionDays disables automatic cleanup. Set
 	// CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS to a positive value to bound history.
 	DefaultChannelQuotaSnapshotRetentionDays = 0
+	// Channel quota alerts are opt-in. Thresholds are percentages of the
+	// provider-reported total quota and are only used for read-only status
+	// reporting; no notifications or routing changes are triggered.
+	DefaultChannelQuotaAlertEnabled         = false
+	DefaultChannelQuotaAlertWarningPercent  = 20.0
+	DefaultChannelQuotaAlertCriticalPercent = 10.0
 )
 
 var (
@@ -58,6 +64,9 @@ var (
 	UserSessionRevokedRetentionDays   = DefaultUserSessionRevokedRetentionDays
 	UserSessionHourlyAlertThreshold   = DefaultUserSessionHourlyAlertThreshold
 	ChannelQuotaSnapshotRetentionDays = DefaultChannelQuotaSnapshotRetentionDays
+	ChannelQuotaAlertEnabled          = DefaultChannelQuotaAlertEnabled
+	ChannelQuotaAlertWarningPercent   = DefaultChannelQuotaAlertWarningPercent
+	ChannelQuotaAlertCriticalPercent  = DefaultChannelQuotaAlertCriticalPercent
 )
 
 var OptionMap map[string]string

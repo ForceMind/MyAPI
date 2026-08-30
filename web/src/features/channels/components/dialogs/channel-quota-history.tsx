@@ -22,6 +22,7 @@ import {
 } from 'recharts'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer } from '@/components/ui/chart'
@@ -316,6 +317,31 @@ export function ChannelQuotaHistory({
                       })}
                     </span>
                   )}
+                </div>
+              </div>
+            )}
+            {data?.alert?.enabled && (
+              <div className='bg-muted/30 flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-xs'>
+                <div className='flex items-center gap-2'>
+                  <span className='font-medium'>{t('Quota alert')}</span>
+                  <Badge
+                    variant={
+                      data.alert.status === 'critical'
+                        ? 'destructive'
+                        : data.alert.status === 'warning'
+                          ? 'secondary'
+                          : 'outline'
+                    }
+                  >
+                    {t(data.alert.status[0].toUpperCase() + data.alert.status.slice(1))}
+                  </Badge>
+                </div>
+                <div className='text-muted-foreground flex flex-wrap gap-x-3 gap-y-1'>
+                  {data.alert.ratio_percent != null && (
+                    <span>{t('Remaining')}: {data.alert.ratio_percent.toFixed(1)}%</span>
+                  )}
+                  <span>{t('Warning')}: {data.alert.warning_percent}%</span>
+                  <span>{t('Critical')}: {data.alert.critical_percent}%</span>
                 </div>
               </div>
             )}

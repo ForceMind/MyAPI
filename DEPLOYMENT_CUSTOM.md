@@ -99,6 +99,11 @@ FULL_CONTENT_LOG_MAX_FILES=10
 # Keep normalized channel quota snapshots for this many days. 0 disables
 # automatic cleanup; cleanup runs daily in bounded batches.
 CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS=0
+# Read-only quota threshold status (disabled by default; no notifications or
+# routing changes are triggered). Percentages are relative to provider total.
+CHANNEL_QUOTA_ALERT_ENABLED=false
+CHANNEL_QUOTA_ALERT_WARNING_PERCENT=20
+CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT=10
 # Optional keyless cosign verification for `myapi upgrade` (requires cosign).
 # MYAPI_VERIFY_IMAGE_SIGNATURE=false
 # MYAPI_COSIGN_CERTIFICATE_IDENTITY=https://github.com/ForceMind/MyAPI/.github/workflows/docker-build.yml@refs/tags/v0.1.1

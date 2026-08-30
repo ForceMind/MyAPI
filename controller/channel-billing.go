@@ -717,6 +717,50 @@ type quotaHistoryDerivedMetrics struct {
 	DataQuality        quotaHistoryDataQuality `json:"data_quality"`
 }
 
+type quotaHistoryAlert struct {
+	Enabled         bool     `json:"enabled"`
+	Status          string   `json:"status"`
+	RatioPercent    *float64 `json:"ratio_percent,omitempty"`
+	WarningPercent  float64  `json:"warning_percent"`
+	CriticalPercent float64  `json:"critical_percent"`
+}
+
+// deriveQuotaHistoryAlert exposes an opt-in, read-only threshold status. It
+// intentionally does not send notifications, disable channels, or alter
+// routing. Without a provider-reported total quota the ratio is undefined and
+// the status remains unavailable, avoiding misleading currency-specific
+// absolute thresholds.
+func deriveQuotaHistoryAlert(snapshot *model.ChannelQuotaSnapshot) quotaHistoryAlert {
+	alert := quotaHistoryAlert{
+		Enabled:         common.ChannelQuotaAlertEnabled,
+		WarningPercent:  common.ChannelQuotaAlertWarningPercent,
+		CriticalPercent: common.ChannelQuotaAlertCriticalPercent,
+		Status:          "disabled",
+	}
+	if !alert.Enabled {
+		return alert
+	}
+	alert.Status = "unavailable"
+	if snapshot == nil || snapshot.Status != "success" || snapshot.Total == nil ||
+		!finiteQuotaValue(snapshot.Available) || !finiteQuotaValue(*snapshot.Total) || *snapshot.Total <= 0 {
+		return alert
+	}
+	ratio := snapshot.Available / *snapshot.Total * 100
+	if !finiteQuotaValue(ratio) {
+		return alert
+	}
+	alert.RatioPercent = &ratio
+	switch {
+	case ratio <= alert.CriticalPercent:
+		alert.Status = "critical"
+	case ratio <= alert.WarningPercent:
+		alert.Status = "warning"
+	default:
+		alert.Status = "healthy"
+	}
+	return alert
+}
+
 func finiteQuotaValue(value float64) bool {
 	return !math.IsNaN(value) && !math.IsInf(value, 0)
 }
@@ -931,6 +975,13 @@ func GetChannelQuotaHistory(c *gin.Context) {
 	}
 	metrics := deriveQuotaHistoryMetrics(snapshots)
 	response["data_quality"] = metrics.DataQuality
+	var latestSnapshot *model.ChannelQuotaSnapshot
+	if len(snapshots) > 0 {
+		latestSnapshot = &snapshots[len(snapshots)-1]
+	}
+	// Use the newest observation, including a failed one, so a stale balance
+	// cannot be presented as a current alert state after an upstream failure.
+	response["alert"] = deriveQuotaHistoryAlert(latestSnapshot)
 	var firstSuccess, lastSuccess *model.ChannelQuotaSnapshot
 	var minimum, maximum float64
 	for index := range snapshots {
@@ -976,7 +1027,11 @@ func GetChannelQuotaHistory(c *gin.Context) {
 		response["window_type"] = last.WindowType
 		response["source"] = last.Source
 		if last.Status == "success" && finiteQuotaValue(last.Available) {
-			response["current"] = gin.H{"available": last.Available, "observed_at": last.ObservedAt, "status": last.Status}
+			current := gin.H{"available": last.Available, "observed_at": last.ObservedAt, "status": last.Status}
+			if last.Total != nil && finiteQuotaValue(*last.Total) {
+				current["total"] = *last.Total
+			}
+			response["current"] = current
 		} else {
 			errorCode := last.ErrorCode
 			status := last.Status

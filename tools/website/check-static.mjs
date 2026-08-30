@@ -52,6 +52,12 @@ if (!/<meta[^>]+name=["']viewport["']/i.test(html)) {
 if (!/<script[^>]+src=["']\.\/script\.js["']/i.test(html)) {
   throw new Error('website/index.html must load the website interaction script')
 }
+if (!/<button[^>]+data-theme-toggle[^>]+aria-label=/i.test(html)) {
+  throw new Error('theme toggle must expose an accessible label')
+}
+if (!/<button[^>]+data-menu-toggle[^>]+aria-expanded=["'](?:true|false)["']/i.test(html)) {
+  throw new Error('mobile menu toggle must expose aria-expanded')
+}
 if (!/myapi-logo-v1\.png/.test(html)) {
   throw new Error('website/index.html must reference the MyAPI logo asset')
 }
@@ -61,8 +67,14 @@ if (/QuantumNous|New API|NewAPI|github\.com\/QuantumNous\/new-api/i.test(publicW
 if (!/theme|menu|install|release/i.test(script)) {
   throw new Error('website/script.js does not contain the expected website interactions')
 }
+if (!/aria-pressed/.test(script) || !/matchMedia/.test(script)) {
+  throw new Error('website theme interaction must expose state and respect system preference')
+}
 if (css.trim().length < 200) {
   throw new Error('website/styles.css is unexpectedly small')
+}
+if (!/:focus-visible/.test(css)) {
+  throw new Error('website/styles.css must define a visible keyboard focus state')
 }
 
 console.log('Website static check passed: structure, responsive metadata, assets, and interactions.')

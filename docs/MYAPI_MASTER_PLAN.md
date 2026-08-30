@@ -106,7 +106,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 | 品牌和旧元数据清理 | 进行中 | About 默认态、PNG/ICO 资产已切换；法律 NOTICE、源码头部和兼容元数据仍需合规审查 |
 | 独立 UI 系统 | 部分完成 | 不依赖旧 New API 信息架构，Full/LAN/移动端完成真实画面审查 |
 | TokenHub 风格静态官网 | 交互初版已实现 | 形成独立产品叙事、安装入口、发行版选择、安全说明、基础菜单/主题交互和静态资源自动校验；真实浏览器/移动视觉审查与独立发布工作流仍待完成 |
-| 渠道额度历史 | 后端和前端初版已实现 | 自动采集、历史查询、折线图、服务端聚合/时区、失败状态、自定义范围、可配置保留清理和只读趋势/耗尽预测已有；通知、阈值持久化和去重仍待业务决策 |
+| 渠道额度历史 | 后端和前端初版已实现 | 自动采集、历史查询、折线图、服务端聚合/时区、失败状态、自定义范围、可配置保留清理、只读趋势/耗尽预测和默认关闭的百分比阈值状态已有；通知、阈值持久化和去重仍待业务决策 |
 | 账户等级/Key 访问方案 | 兼容层初版已实现 | 旧 `group` 仍是事实来源；访问方案 UI/元数据已有，独立领域模型仍待完成 |
 | 设置引导生命周期 | 初版已实现 | 完成后自动消失、按用户和版本保存；真实多设备视觉审查仍待完成 |
 | Claude 支持 | 需按官方接口推进 | 只实现有明确官方协议的能力，不读取本地凭据 |
@@ -160,6 +160,12 @@ CHANNEL_QUOTA_SYNC_ENABLED=true
 CHANNEL_QUOTA_SYNC_INTERVAL=15m
 CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS=180
 CHANNEL_QUOTA_MAX_POINTS=2000
+# Optional read-only threshold status (disabled by default). This only adds
+# `data.alert` to quota history responses when the provider reports a total;
+# it never sends notifications, disables channels, or changes routing.
+CHANNEL_QUOTA_ALERT_ENABLED=false
+CHANNEL_QUOTA_ALERT_WARNING_PERCENT=20
+CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT=10
 ```
 
 ## 6. UI 与交互路线

@@ -82,6 +82,12 @@ non-loopback listener. The tray menu shows the effective endpoint. The desktop
 process runs the LAN edition and never imports local Codex, Claude, or other
 provider credential files.
 
+Before a server process is spawned, Electron performs a platform-independent
+configuration preflight. Invalid/public addresses fail with a visible error;
+the default remains `127.0.0.1:3000`. The checks are covered by
+`npm test` in this directory and intentionally do not inspect or import any
+local provider credential files.
+
 ### Database Location
 - **Development**: `../data/my-api.db` (project directory; legacy database names are read for migration)
 - **Production**:

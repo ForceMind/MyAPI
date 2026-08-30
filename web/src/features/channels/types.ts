@@ -231,6 +231,14 @@ export interface ChannelQuotaHistoryDataQuality {
   span_seconds: number
 }
 
+export interface ChannelQuotaHistoryAlert {
+  enabled: boolean
+  status: 'disabled' | 'unavailable' | 'healthy' | 'warning' | 'critical'
+  ratio_percent?: number
+  warning_percent: number
+  critical_percent: number
+}
+
 export interface ChannelQuotaHistoryData {
   channel_id: number
   start: number
@@ -241,8 +249,10 @@ export interface ChannelQuotaHistoryData {
   points: ChannelQuotaHistoryPoint[]
   summary?: ChannelQuotaHistorySummary
   data_quality?: ChannelQuotaHistoryDataQuality
+  alert?: ChannelQuotaHistoryAlert
   current?: {
     available?: number
+    total?: number
     observed_at: number
     status: string
     error_code?: string

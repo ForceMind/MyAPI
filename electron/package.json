@@ -7,6 +7,7 @@
   "scripts": {
     "start-app": "electron .",
     "dev-app": "cross-env NODE_ENV=development electron .",
+    "test": "node --test test/*.test.mjs",
     "build": "electron-builder",
     "build:mac": "electron-builder --mac",
     "build:win": "electron-builder --win",
@@ -38,6 +39,7 @@
     },
     "files": [
       "main.js",
+      "runtime-config.js",
       "preload.js",
       "icon.png",
       "tray-iconTemplate.png",

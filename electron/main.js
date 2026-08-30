@@ -4,6 +4,11 @@ const crypto = require('crypto');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
+const {
+  isLoopbackAddress,
+  isPrivateAddress,
+  resolveRuntimeConfig,
+} = require('./runtime-config');
 
 const APP_NAME = 'MyAPI';
 const CANONICAL_BINARY_NAME = process.platform === 'win32' ? 'my-api.exe' : 'my-api';
@@ -12,31 +17,26 @@ const CANONICAL_DATABASE_NAME = 'my-api.db';
 const LEGACY_DATABASE_NAMES = ['new-api.db', 'one-api.db'];
 
 const DESKTOP_ARGS = process.argv.slice(1);
-function argumentValue(name) {
-  const index = DESKTOP_ARGS.indexOf(name);
-  return index >= 0 ? DESKTOP_ARGS[index + 1] : undefined;
-}
-
-function isLoopbackAddress(address) {
-  return ['localhost', '127.0.0.1', '::1', '[::1]'].includes(String(address).toLowerCase());
-}
-
-function isPrivateAddress(address) {
-  const value = String(address).toLowerCase();
-  return value === '0.0.0.0' || /^10\./.test(value) || /^192\.168\./.test(value) || /^172\.(1[6-9]|2\d|3[01])\./.test(value);
-}
 
 let mainWindow;
 let serverProcess;
 let tray = null;
 let serverErrorLogs = [];
-const requestedPort = Number(argumentValue('--port') || process.env.MYAPI_PORT || 3000);
-const PORT = Number.isInteger(requestedPort) && requestedPort > 0 && requestedPort <= 65535 ? requestedPort : 3000;
 const DEV_FRONTEND_PORT = 5173; // Rsbuild dev server port
-// Desktop/LAN is loopback-only by default. A future reviewed setting may opt
-// into a private-network bind; the backend receives the explicit address.
-const BIND_ADDRESS = argumentValue('--bind-address') || process.env.MYAPI_BIND_ADDRESS || '127.0.0.1';
-const ALLOW_LAN = DESKTOP_ARGS.includes('--allow-lan');
+// Desktop/LAN is loopback-only by default. An explicit --allow-lan launch may
+// opt into a private-network bind; the backend receives the validated address.
+let runtimeConfig;
+try {
+  runtimeConfig = resolveRuntimeConfig({ args: DESKTOP_ARGS, env: process.env });
+} catch (error) {
+  // Fail before creating a window or spawning a server, making unsafe launch
+  // parameters visible to users and automation alike.
+  console.error(`Invalid MyAPI desktop configuration: ${error.message}`);
+  runtimeConfig = { bindAddress: '127.0.0.1', port: 3000, allowLan: false, isLan: false, error };
+}
+const PORT = runtimeConfig.port;
+const BIND_ADDRESS = runtimeConfig.bindAddress;
+const ALLOW_LAN = runtimeConfig.allowLan;
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
@@ -519,6 +519,12 @@ function createTray() {
       label: `Endpoint: http://${BIND_ADDRESS === '0.0.0.0' ? '<private-LAN-IP>' : BIND_ADDRESS}:${PORT}`,
       enabled: false,
     },
+    {
+      label: runtimeConfig.isLan
+        ? 'LAN sharing enabled (private network)'
+        : 'LAN sharing disabled (loopback only)',
+      enabled: false,
+    },
     { type: 'separator' },
     {
       label: 'Quit',
@@ -547,6 +553,17 @@ function createTray() {
 
 app.whenReady().then(async () => {
   if (!hasSingleInstanceLock) return;
+  if (runtimeConfig.error) {
+    await dialog.showMessageBox({
+      type: 'error',
+      title: '启动参数无效',
+      message: runtimeConfig.error.message,
+      detail: '默认只监听本机回环地址。若要共享给同事，请使用 --allow-lan 并指定私有 IPv4 地址。',
+      buttons: ['退出'],
+    });
+    app.quit();
+    return;
+  }
   try {
     await startServer();
     createTray();

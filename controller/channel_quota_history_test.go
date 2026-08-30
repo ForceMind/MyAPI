@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/stretchr/testify/require"
 )
@@ -93,3 +94,44 @@ func TestDeriveQuotaHistoryMetricsDoesNotForecastGrowthOrDepletedBalance(t *test
 		require.Nil(t, metrics.ForecastZeroAt)
 	}
 }
+
+func TestDeriveQuotaHistoryAlertIsDisabledByDefault(t *testing.T) {
+	originalEnabled := common.ChannelQuotaAlertEnabled
+	defer func() { common.ChannelQuotaAlertEnabled = originalEnabled }()
+	common.ChannelQuotaAlertEnabled = false
+	alert := deriveQuotaHistoryAlert(&model.ChannelQuotaSnapshot{Available: 5, Total: ptrFloat(100), Status: "success"})
+	require.False(t, alert.Enabled)
+	require.Equal(t, "disabled", alert.Status)
+	require.Nil(t, alert.RatioPercent)
+}
+
+func TestDeriveQuotaHistoryAlertThresholdsAndUnavailable(t *testing.T) {
+	originalEnabled := common.ChannelQuotaAlertEnabled
+	originalWarning := common.ChannelQuotaAlertWarningPercent
+	originalCritical := common.ChannelQuotaAlertCriticalPercent
+	defer func() {
+		common.ChannelQuotaAlertEnabled = originalEnabled
+		common.ChannelQuotaAlertWarningPercent = originalWarning
+		common.ChannelQuotaAlertCriticalPercent = originalCritical
+	}()
+	common.ChannelQuotaAlertEnabled = true
+	common.ChannelQuotaAlertWarningPercent = 20
+	common.ChannelQuotaAlertCriticalPercent = 10
+	for _, test := range []struct {
+		available float64
+		status    string
+		want      string
+	}{
+		{available: 5, status: "success", want: "critical"},
+		{available: 15, status: "success", want: "warning"},
+		{available: 50, status: "success", want: "healthy"},
+		{available: 50, status: "error", want: "unavailable"},
+	} {
+		alert := deriveQuotaHistoryAlert(&model.ChannelQuotaSnapshot{Available: test.available, Total: ptrFloat(100), Status: test.status})
+		require.Equal(t, test.want, alert.Status)
+	}
+	alert := deriveQuotaHistoryAlert(&model.ChannelQuotaSnapshot{Available: 5, Status: "success"})
+	require.Equal(t, "unavailable", alert.Status)
+}
+
+func ptrFloat(value float64) *float64 { return &value }

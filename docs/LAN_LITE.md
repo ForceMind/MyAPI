@@ -38,6 +38,11 @@ myapi lan start \
 
 `--allow-lan` is required whenever the listener is not loopback. Public addresses are rejected. `0.0.0.0` is accepted only with `--allow-lan`; prefer the workstation's concrete private address when possible.
 
+The Electron desktop wrapper performs the same preflight before spawning the
+bundled server. An invalid port or a public/non-IPv4 bind address is shown as
+an error and the server is not started. The default remains loopback-only at
+`127.0.0.1:3000`; changing the bind address is an explicit operator action.
+
 PowerShell uses the same flags (use a backtick for line continuation):
 
 ```powershell

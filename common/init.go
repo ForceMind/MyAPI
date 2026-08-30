@@ -66,6 +66,7 @@ func InitEnv() {
 	}
 	initUserSessionSettings()
 	ChannelQuotaSnapshotRetentionDays = channelQuotaSnapshotRetentionDaysEnv()
+	initChannelQuotaAlertSettings()
 	SQLitePath = ResolveSQLitePath(os.Getenv("SQLITE_PATH"))
 	if *LogDir != "" {
 		var err error
@@ -132,6 +133,32 @@ func InitEnv() {
 	SearchRateLimitNum = GetEnvOrDefault("SEARCH_RATE_LIMIT", 10)
 	SearchRateLimitDuration = int64(GetEnvOrDefault("SEARCH_RATE_LIMIT_DURATION", 60))
 	initConstantEnv()
+}
+
+func initChannelQuotaAlertSettings() {
+	ChannelQuotaAlertEnabled = GetEnvOrDefaultBool("CHANNEL_QUOTA_ALERT_ENABLED", DefaultChannelQuotaAlertEnabled)
+	warning := getEnvOrDefaultFloat("CHANNEL_QUOTA_ALERT_WARNING_PERCENT", DefaultChannelQuotaAlertWarningPercent)
+	critical := getEnvOrDefaultFloat("CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT", DefaultChannelQuotaAlertCriticalPercent)
+	if warning <= 0 || warning > 100 || critical < 0 || critical >= warning {
+		SysError(fmt.Sprintf("invalid channel quota alert thresholds (warning=%v critical=%v); using defaults", warning, critical))
+		warning = DefaultChannelQuotaAlertWarningPercent
+		critical = DefaultChannelQuotaAlertCriticalPercent
+	}
+	ChannelQuotaAlertWarningPercent = warning
+	ChannelQuotaAlertCriticalPercent = critical
+}
+
+func getEnvOrDefaultFloat(name string, fallback float64) float64 {
+	value := strings.TrimSpace(os.Getenv(name))
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseFloat(value, 64)
+	if err != nil || math.IsNaN(parsed) || math.IsInf(parsed, 0) {
+		SysError(fmt.Sprintf("failed to parse %s, using default value: %v", name, fallback))
+		return fallback
+	}
+	return parsed
 }
 
 // channelQuotaSnapshotRetentionDaysEnv accepts zero to explicitly disable
