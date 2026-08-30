@@ -178,6 +178,39 @@ test('upgrade validates the release version before touching deployment state', (
   assert.equal(existsSync(path.join(project, 'backups')), false)
 })
 
+test('build forwards bounded CPU and memory limits to Docker', () => {
+  const root = temporaryRoot()
+  const project = path.join(root, 'source')
+  const fakeBin = path.join(root, 'bin')
+  const dockerLog = path.join(root, 'docker.log')
+  mkdirSync(fakeBin)
+  const fakeDocker = path.join(fakeBin, 'docker')
+  writeFileSync(
+    fakeDocker,
+    '#!/bin/sh\n' +
+      'set -eu\n' +
+      'printf "%s\\n" "$*" >> "$MYAPI_FAKE_DOCKER_LOG"\n',
+  )
+  chmodSync(fakeDocker, 0o700)
+  runCli('init', project)
+  runCli('configure', '--project-dir', project, '--public-url', 'https://myapi.example.test')
+  const envPath = path.join(project, 'deploy/.env')
+  let env = readFileSync(envPath, 'utf8')
+  env = env.replace(/^MYAPI_IMAGE=.*$/m, 'MYAPI_IMAGE=local/myapi:test')
+    .replace(/^MYAPI_CPU_LIMIT=.*$/m, 'MYAPI_CPU_LIMIT=1.5')
+    .replace(/^MYAPI_MEMORY_LIMIT=.*$/m, 'MYAPI_MEMORY_LIMIT=768m')
+  writeFileSync(envPath, env, { mode: 0o600 })
+
+  runCliWithEnv(
+    { PATH: `${fakeBin}:${process.env.PATH || ''}`, MYAPI_FAKE_DOCKER_LOG: dockerLog },
+    'build', '--project-dir', project,
+  )
+
+  const dockerCall = readFileSync(dockerLog, 'utf8')
+  assert.match(dockerCall, /build --cpu-period 100000 --cpu-quota 150000 --memory 768m --memory-swap 768m/)
+  assert.match(dockerCall, /--build-arg MYAPI_BUILD_PARALLELISM=2/)
+})
+
 test('upgrade dry-run validates a copy without writing files or invoking Docker', () => {
   const root = temporaryRoot()
   const project = path.join(root, 'source')
@@ -453,4 +486,10 @@ test('lan init rejects public and invalid listener addresses', () => {
     () => runCli('lan', 'init', path.join(root, 'invalid'), '--port', '70000'),
     /between 1 and 65535/
   )
+  for (const address of ['10.bad', '192.168.999.1', '172.16.bad', '172.15.1.1', '172.32.1.1']) {
+    assert.throws(
+      () => runCli('lan', 'init', path.join(root, `invalid-${address.replaceAll('.', '-')}`), '--bind-address', address, '--allow-lan'),
+      /private IPv4 address/
+    )
+  }
 })

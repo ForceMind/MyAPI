@@ -24,6 +24,7 @@ import {
 } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { homedir, platform } from 'node:os'
+import { isIP } from 'node:net'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
@@ -263,11 +264,9 @@ function validateLanOrigin(value) {
     const hostname = url.hostname.toLowerCase()
     return (
       hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
+      isLoopbackIPv4(hostname) ||
       hostname === '::1' || hostname === '[::1]' ||
-      /^192\.168\./.test(hostname) ||
-      /^10\./.test(hostname) ||
-      /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
+      isPrivateIPv4(hostname)
     )
   } catch {
     return false
@@ -277,9 +276,20 @@ function validateLanOrigin(value) {
 function validateBindAddress(value) {
   const address = String(value || '').trim().toLowerCase()
   return address === 'localhost' || address === '0.0.0.0' ||
-    address === '127.0.0.1' ||
-    /^192\.168\./.test(address) || /^10\./.test(address) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(address)
+    isLoopbackIPv4(address) || isPrivateIPv4(address)
+}
+
+function isLoopbackIPv4(value) {
+  return isIP(value) === 4 && value === '127.0.0.1'
+}
+
+function isPrivateIPv4(value) {
+  if (isIP(value) !== 4) return false
+  const octets = value.split('.').map(Number)
+  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) return false
+  return octets[0] === 10 ||
+    (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
+    (octets[0] === 192 && octets[1] === 168)
 }
 
 function isLoopbackBindAddress(value) {
@@ -289,8 +299,7 @@ function isLoopbackBindAddress(value) {
 
 function isPrivateBindAddress(value) {
   const address = String(value || '').trim().toLowerCase()
-  return address === '0.0.0.0' || /^192\.168\./.test(address) || /^10\./.test(address) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(address)
+  return address === '0.0.0.0' || isPrivateIPv4(address)
 }
 
 function validateLANBinding(value, allowLAN = false) {
@@ -769,10 +778,27 @@ function deploymentCommand(command, args) {
   warnLegacyDeploymentKeys(values)
 
   if (command === 'build') {
+    const cpuLimit = values.MYAPI_CPU_LIMIT || deploymentDefaults.MYAPI_CPU_LIMIT
+    const memoryLimit = values.MYAPI_MEMORY_LIMIT || deploymentDefaults.MYAPI_MEMORY_LIMIT
+    if (!/^\d+(?:\.\d+)?$/.test(String(cpuLimit)) || Number(cpuLimit) <= 0 || Number(cpuLimit) > 64) {
+      throw new Error('MYAPI_CPU_LIMIT must be a number greater than 0 and no more than 64')
+    }
+    if (!/^\d+(?:\.\d+)?(?:b|k|kb|m|mb|g|gb|t|tb)$/i.test(String(memoryLimit)) || Number.parseFloat(memoryLimit) <= 0) {
+      throw new Error('MYAPI_MEMORY_LIMIT must be a positive Docker size such as 512m or 2g')
+    }
+    const cpuQuota = String(Math.round(Number(cpuLimit) * 100000))
     run(
       'docker',
       [
         'build',
+        '--cpu-period',
+        '100000',
+        '--cpu-quota',
+        cpuQuota,
+        '--memory',
+        String(memoryLimit),
+        '--memory-swap',
+        String(memoryLimit),
         '--build-arg',
         `MYAPI_BRAND_NAME=${values.MYAPI_BRAND_NAME || 'MyAPI'}`,
         '--build-arg',

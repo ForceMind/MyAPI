@@ -162,8 +162,9 @@ npm publish --dry-run --access public --registry=https://registry.npmjs.org/
 
 Docker 镜像 workflow 会在推送符合 `vX.Y.Z` 的版本 tag 后自动运行，矩阵构建并推送
 Full 与 LAN Lite 两个多架构镜像；稳定版本分别更新各自的 `latest`，预发布 tag
-不会覆盖 `latest`。也可以通过 `workflow_dispatch` 指定已有 tag 手动重跑。workflow
-会校验 tag、`VERSION` 和 `package.json.version` 完全一致，不会移动既有 tag。
+不会覆盖 `latest`。也可以通过 `workflow_dispatch` 指定已有 tag 手动重跑，但必须在
+`confirm` 输入中选择 `PUBLISH`；默认的 `NO` 会跳过所有推送 job。workflow 会校验
+tag、`VERSION` 和 `package.json.version` 完全一致，不会移动既有 tag。
 GitHub Actions 只负责生成镜像，不直接连接或重启生产主机；部署端更新
 `MYAPI_IMAGE` 后由 `myapi up` 或 `deploy/install.sh` 拉取新版本。
 

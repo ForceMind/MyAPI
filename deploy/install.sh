@@ -115,8 +115,10 @@ cd "$repo_dir"
 # before pulling any remote image or changing a running container.
 docker compose --env-file "$env_file" -f "$script_dir/docker-compose.yml" config --quiet
 if [[ "$MYAPI_BUILD_LOCAL" == "true" || "$MYAPI_IMAGE" == local/* ]]; then
+  cpu_quota=$(awk "BEGIN { printf \"%d\", ($MYAPI_CPU_LIMIT * 100000) }")
   docker build \
-    --cpus "${MYAPI_CPU_LIMIT}" \
+    --cpu-period 100000 \
+    --cpu-quota "${cpu_quota}" \
     --memory "${MYAPI_MEMORY_LIMIT}" \
     --memory-swap "${MYAPI_MEMORY_LIMIT}" \
     --build-arg "MYAPI_BRAND_NAME=${MYAPI_BRAND_NAME:-MyAPI}" \

@@ -10,6 +10,14 @@ on:
         description: 'Existing tag to build (for example, v0.1.1)'
         required: true
         type: string
+      confirm:
+        description: 'Type PUBLISH to explicitly authorize pushing GHCR images'
+        required: true
+        default: 'NO'
+        type: choice
+        options:
+          - 'NO'
+          - 'PUBLISH'
 
 concurrency:
   group: myapi-ghcr-publish-${{ inputs.tag || github.ref_name }}
@@ -17,6 +25,7 @@ concurrency:
 
 jobs:
   build_single_arch:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.confirm == 'PUBLISH' }}
     name: Build & push (${{ matrix.edition }}, ${{ matrix.arch }})
     strategy:
       fail-fast: false
@@ -149,6 +158,7 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
 
   create_manifests:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.confirm == 'PUBLISH' }}
     name: Create multi-arch manifests (${{ matrix.edition }})
     needs: [build_single_arch]
     strategy:

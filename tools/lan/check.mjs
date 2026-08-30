@@ -9,6 +9,7 @@
  * configuration parser. It never starts, stops, pulls, or rebuilds a service.
  */
 import { execFileSync, spawnSync } from 'node:child_process'
+import { isIP } from 'node:net'
 import {
   existsSync,
   mkdtempSync,
@@ -75,6 +76,15 @@ function runCliFailure(...args) {
   }
 }
 
+function isPrivateIPv4(value) {
+  if (isIP(value) !== 4) return false
+  const octets = value.split('.').map(Number)
+  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) return false
+  return octets[0] === 10 ||
+    (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
+    (octets[0] === 192 && octets[1] === 168)
+}
+
 function checkStaticContracts(checks) {
   const requiredFiles = [
     'cli/myapi.mjs',
@@ -104,6 +114,7 @@ function checkStaticContracts(checks) {
   record(checks, 'CI builds macOS and Windows artifacts', /macos-latest/.test(workflow) && /windows-latest/.test(workflow))
   const images = readFileSync(path.join(repositoryRoot, '.github/workflows/docker-build.yml'), 'utf8')
   record(checks, 'CI builds the LAN GHCR image', /ghcr\.io\/forcemind\/myapi-lan/.test(images))
+  record(checks, 'manual GHCR publish requires explicit confirmation', /confirm:[\s\S]*PUBLISH/.test(images) && /inputs\.confirm == 'PUBLISH'/.test(images))
 }
 
 function validateGeneratedProject(
@@ -132,7 +143,16 @@ function validateGeneratedProject(
     expectLoopback ? 'default public URL is local HTTP' : 'public URL stays local/private HTTP(S)',
     expectLoopback
       ? /^http:\/\/localhost:\d+$/.test(values.MYAPI_PUBLIC_URL || '')
-      : /^(?:https?:\/\/)(?:localhost|127\.0\.0\.1|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.)[^\s]*$/.test(values.MYAPI_PUBLIC_URL || ''),
+      : (() => {
+          try {
+            const url = new URL(values.MYAPI_PUBLIC_URL || '')
+            const hostname = url.hostname.toLowerCase()
+            return ['http:', 'https:'].includes(url.protocol) &&
+              (hostname === 'localhost' || hostname === '127.0.0.1' || isPrivateIPv4(hostname))
+          } catch {
+            return false
+          }
+        })(),
   )
   record(checks, 'resource guardrails are bounded', values.MYAPI_CPU_LIMIT === '2.0' && values.MYAPI_MEMORY_LIMIT === '2g')
   record(checks, 'session secret is generated without exposing it', /^[a-f0-9]{64}$/i.test(values.SESSION_SECRET || '') && !output.includes(values.SESSION_SECRET || '__missing__'))
@@ -197,6 +217,15 @@ function checkPrivateLANOptIn(checks) {
       'rejected LAN bind does not create a project',
       !existsSync(rejectedProject),
     )
+
+    for (const address of ['10.bad', '192.168.999.1', '172.15.1.1', '172.32.1.1']) {
+      const malformedProject = path.join(project, `malformed-${address.replaceAll('.', '-')}`)
+      const malformedResult = runCliFailure(
+        'lan', 'init', malformedProject, '--bind-address', address, '--allow-lan',
+      )
+      record(checks, `malformed private IPv4 is rejected (${address})`, !isPrivateIPv4(address) && malformedResult.status !== 0)
+      record(checks, `malformed private IPv4 leaves no project (${address})`, !existsSync(malformedProject))
+    }
   } finally {
     if (!keepTemporary) rmSync(project, { recursive: true, force: true })
   }

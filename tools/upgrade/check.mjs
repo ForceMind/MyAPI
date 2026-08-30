@@ -70,7 +70,7 @@ record(
 )
 record(
   'local image builds inherit CPU and memory guardrails',
-  includes(installer, ['docker build', '--cpus', '--memory', '--memory-swap']),
+  includes(installer, ['docker build', '--cpu-period', '--cpu-quota', '--memory', '--memory-swap']),
 )
 record(
   'installer waits for health and does not remove volumes',
