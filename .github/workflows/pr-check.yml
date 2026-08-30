@@ -2,12 +2,14 @@ name: PR Check
 
 permissions:
   contents: read
-  issues: read
-  pull-requests: read
+  # anti-slop writes the failure label/comment and may close a rejected PR.
+  # Keep the scope limited to PR/issue metadata; repository contents remain read-only.
+  issues: write
+  pull-requests: write
 
 on:
   pull_request_target:
-    types: [opened, reopened]
+    types: [opened, reopened, synchronize]
 
 jobs:
   pr-quality:
