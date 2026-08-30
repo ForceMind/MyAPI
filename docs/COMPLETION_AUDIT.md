@@ -7,7 +7,7 @@
 | --- | --- | --- | --- |
 | API 兼容 | `relay/` 转换器与后端 CI | 已验证 | 上游版本变化时继续回归 |
 | API/响应日志 | `web/src/features/usage-logs/`、移动集成测试、脱敏测试、移动内容高度修复（`2eae754`） | 代码已验证 | 真实手机视觉验收 |
-| 运行构建可见性 | 管理员「系统信息」中的只读 Runtime build 标识、`build-metadata.ts` DOM/global 元数据及 `build-metadata.test.ts`；Docker/Release/Electron 构建注入 commit SHA | 代码与合同已验证 | 更新测试镜像后由现场核对实际运行 revision |
+| 运行构建可见性 | 管理员「系统信息」中的只读 Runtime build 标识、`build-metadata.ts` DOM/global 元数据及 `build-metadata.test.ts`；Docker/Release/Electron 构建注入 commit SHA；本机容器已切换到 `local/new-api:myapi-9dc11d4` 并健康 | 代码与本机副本已验证 | 真实管理员手机视觉验收仍待完成 |
 | 渠道额度历史 | `controller/channel-billing.go`、历史/聚合测试、权限路由测试 | 已验证 | 真实登录账号和采样数据演练 |
 | 概览额度变化 | `account-quota-changes-panel.tsx`、60 秒前台刷新、错误/plan type/只读告警状态测试；`a2528a2` 的跨登录身份查询缓存隔离与认证刷新回归测试 | 已验证 | 具备 `channel.read` 的真实管理员验收；真实手机视觉仍待完成 |
 | 账户等级/Key 访问方案 | `model/access_profile.go`、Key/UI/API 测试、策略注册表及旧 Key profile 保留测试 | 兼容层已验证 | 强制路由迁移评审 |
@@ -73,17 +73,18 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 3. 分别在 macOS 和 Windows 验证默认回环、显式 LAN 绑定、API Key 请求和回滚。
 4. 完成副本升级/恢复后，再由负责人决定是否进行生产变更、版本 tag、NPM 或其他发布。
 
-## 本机部署只读诊断（2026-08-31）
+## 本机部署更新与诊断（2026-08-31）
 
 - `/root/new-api/docker-compose.yml` 当前配置的是本地镜像
-  `local/new-api:myapi-0684ee3`，容器名为 `new-api`，监听回环地址。
-- 该容器当前为 healthy，但并非本仓库 `main` 的最新构建；本轮没有重建、重启、
-  拉取镜像或读取生产环境密钥。
-- 本轮只读请求确认 `/api/status` 返回 `system_name=MyAPI`、`version=0.1.1`；当前
-  首页 bundle 已包含 `Account quota changes` 文案和 `/api/channel/quota/changes`
-  路由字符串，说明该运行副本至少包含额度面板前端资源。
+  `local/new-api:myapi-9dc11d4`，容器名为 `new-api`，监听回环地址。
+- 本轮在既有一次本机更新授权下完成受限构建与切换；构建使用
+  `MYAPI_BUILD_PARALLELISM=1`，未拉取或发布外部镜像，也未读取生产环境密钥。
+- 镜像摘要为 `sha256:a8b222d494cad235ef5d1b0c31addad5e42a050c65ae6cc5696b49c8b5d72662`，
+  容器健康检查通过，`/api/status` 返回 HTTP 200、`version=0.1.1`。
+- 前端主 bundle 已确认包含 `Account quota changes`、`/api/channel/quota/changes`
+  和 `Runtime build`，说明最新额度面板代码已进入本机运行副本。
 - 未携带凭据请求额度接口返回 HTTP 401（`AUTH_UNAUTHORIZED`），权限门禁正常；本轮
   没有使用真实登录凭据，因此仍不能证明管理员账户在手机上已看到数据或样本。
-- 因此，若登录本机看不到额度变化面板或移动端日志，必须先确认实际运行镜像已
-  更新到包含当前 `main` 构建的镜像，并在管理员「系统信息」核对 Runtime build
-  revision 后，再进行权限和浏览器验收。
+- 仍需使用具备 `channel.read` 的管理员账号在手机浏览器登录，核对 Runtime build
+  revision、额度面板和 API 日志正文；本轮没有使用真实登录凭据，因此未替代该项
+  真实视觉/权限验收。
