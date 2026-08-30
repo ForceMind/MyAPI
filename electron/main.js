@@ -13,6 +13,7 @@ const {
   resolveRuntimeConfig,
   describeRuntimeConfig,
   getHealthCheckAddress,
+  isSuccessfulHttpStatus,
 } = require('./runtime-config');
 
 const APP_NAME = 'MyAPI';
@@ -223,7 +224,7 @@ function getBinaryPath() {
 }
 
 // Check if a server is available with retry logic
-function checkServerAvailability(port, maxRetries = 30, retryDelay = 1000, hostname = '127.0.0.1') {
+function checkServerAvailability(port, maxRetries = 30, retryDelay = 1000, hostname = '127.0.0.1', requestPath = '/') {
   return new Promise((resolve, reject) => {
     let currentAttempt = 0;
     
@@ -239,13 +240,25 @@ function checkServerAvailability(port, maxRetries = 30, retryDelay = 1000, hostn
         // reachable through loopback, while 0.0.0.0 remains probeable via IPv4
         // loopback on supported platforms.
         hostname: getHealthCheckAddress(hostname),
-        port: port,
+        port,
+        path: requestPath,
         timeout: 10000
       }, (res) => {
-        // Server responded, connection successful
+        const statusCode = Number(res.statusCode || 0);
+        // Drain the response before retrying so a slow/unrelated listener does
+        // not keep sockets open across attempts.
+        res.resume();
         req.destroy();
-        console.log(`✓ Successfully connected to port ${port} (status: ${res.statusCode})`);
-        resolve();
+        if (isSuccessfulHttpStatus(statusCode)) {
+          console.log(`✓ Successfully connected to ${requestPath} on port ${port} (status: ${statusCode})`);
+          resolve();
+          return;
+        }
+        if (currentAttempt >= maxRetries) {
+          reject(new Error(`Unexpected HTTP status ${statusCode} from ${requestPath} on port ${port} after ${maxRetries} attempts`));
+        } else {
+          setTimeout(tryConnect, retryDelay);
+        }
       });
 
       req.on('error', (err) => {
@@ -300,7 +313,8 @@ function startServer() {
       console.log('Checking if servers are running...');
       
       // First check if both servers are accessible
-      checkServerAvailability(DEV_FRONTEND_PORT)
+      // The dev server owns `/`; it may not proxy the backend status endpoint.
+      checkServerAvailability(DEV_FRONTEND_PORT, 30, 1000, '127.0.0.1', '/')
         .then(() => {
           console.log('✓ Frontend dev server is accessible on port 5173');
           resolve();
@@ -449,7 +463,9 @@ function startServer() {
     });
 
     const healthCheckHost = getHealthCheckAddress(BIND_ADDRESS);
-    checkServerAvailability(PORT, 30, 1000, healthCheckHost)
+    // Probe the backend's public status endpoint, not merely an arbitrary
+    // process that happens to occupy the configured port.
+    checkServerAvailability(PORT, 30, 1000, healthCheckHost, '/api/status')
       .then(() => {
         console.log(`✓ Backend server is accessible at ${healthCheckHost}:${PORT}`);
         resolve();

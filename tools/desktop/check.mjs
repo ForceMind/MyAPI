@@ -85,10 +85,17 @@ function checkWorkflow() {
 
 function checkRuntime() {
   const main = read('electron/main.js')
+  const runtime = read('electron/runtime-config.js')
   record(
     'packaged UI follows the effective LAN bind host',
     main.includes('getHealthCheckAddress(BIND_ADDRESS)') &&
       main.includes('mainWindow.loadURL(`http://${loadHost}:${loadPort}`)'),
+  )
+  record(
+    'production startup probes the backend status endpoint and rejects non-2xx',
+    main.includes("checkServerAvailability(PORT, 30, 1000, healthCheckHost, '/api/status')") &&
+      main.includes('isSuccessfulHttpStatus(statusCode)') &&
+      runtime.includes('function isSuccessfulHttpStatus(statusCode)'),
   )
 }
 

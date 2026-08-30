@@ -135,6 +135,16 @@ test('probes wildcard listeners through loopback and private listeners directly'
   assert.equal(config.getHealthCheckAddress(), '127.0.0.1')
 })
 
+test('accepts only successful HTTP statuses for the startup probe', () => {
+  assert.equal(config.isSuccessfulHttpStatus(199), false)
+  assert.equal(config.isSuccessfulHttpStatus(200), true)
+  assert.equal(config.isSuccessfulHttpStatus(204), true)
+  assert.equal(config.isSuccessfulHttpStatus(299), true)
+  assert.equal(config.isSuccessfulHttpStatus(300), false)
+  assert.equal(config.isSuccessfulHttpStatus('200'), true)
+  assert.equal(config.isSuccessfulHttpStatus(Number.NaN), false)
+})
+
 test('electron-builder packages the shared preflight module', async () => {
   const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
   assert.ok(packageJson.build.files.includes('runtime-config.js'))

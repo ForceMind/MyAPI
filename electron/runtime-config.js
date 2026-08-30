@@ -148,6 +148,16 @@ function getHealthCheckAddress(bindAddress) {
     : String(bindAddress || DEFAULT_BIND_ADDRESS);
 }
 
+/**
+ * Only successful HTTP responses prove that a listener is the expected
+ * service.  A 404/redirect from an unrelated process on the configured port
+ * must keep the desktop startup probe in its retry path.
+ */
+function isSuccessfulHttpStatus(statusCode) {
+  const value = Number(statusCode);
+  return Number.isInteger(value) && value >= 200 && value < 300;
+}
+
 module.exports = {
   DEFAULT_BIND_ADDRESS,
   DEFAULT_PORT,
@@ -159,4 +169,5 @@ module.exports = {
   resolveRuntimeConfig,
   describeRuntimeConfig,
   getHealthCheckAddress,
+  isSuccessfulHttpStatus,
 };
