@@ -49,6 +49,10 @@ npx @forcemind/myapi configure \
 npx @forcemind/myapi doctor --project-dir ./myapi-source
 ```
 
+> **当前发布状态：** NPM 包尚未正式发布。在维护者发布前，请在源码检出目录中将上述
+> 命令替换为 `node cli/myapi.mjs ...`，或使用本地打包的 tarball；私有仓库不能由
+> `npx` 自动获取。
+
 完整部署、已有数据接管、验证和发布步骤见
 [MyAPI 发行说明](./docs/MYAPI_DISTRIBUTION.md)。
 

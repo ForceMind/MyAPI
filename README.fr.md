@@ -51,6 +51,11 @@ npx @forcemind/myapi configure \
 npx @forcemind/myapi doctor --project-dir ./myapi-source
 ```
 
+> **État de publication :** le paquet NPM n'est pas encore publié officiellement.
+> En attendant, exécutez les mêmes commandes avec `node cli/myapi.mjs ...` depuis
+> une copie du dépôt (ou utilisez une archive empaquetée localement) ; `npx` ne
+> peut pas récupérer automatiquement ce dépôt privé.
+
 Consultez le [guide de distribution MyAPI](./docs/MYAPI_DISTRIBUTION.md) pour le
 déploiement, l'adoption des données, la validation et la publication.
 

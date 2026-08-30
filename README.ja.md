@@ -50,6 +50,11 @@ npx @forcemind/myapi configure \
 npx @forcemind/myapi doctor --project-dir ./myapi-source
 ```
 
+> **現在の公開状況:** NPM パッケージはまだ正式公開されていません。公開されるまで
+> は、ソースチェックアウトから `node cli/myapi.mjs ...` を実行するか、ローカルで
+> 作成した tarball を使用してください。この非公開リポジトリを `npx` が自動取得する
+> ことはできません。
+
 デプロイ、既存データの引き継ぎ、検証、公開手順については
 [MyAPI 配布ガイド](./docs/MYAPI_DISTRIBUTION.md)を参照してください。
 
