@@ -17,7 +17,7 @@
 | LAN Lite/桌面 | `lan:check`、`desktop:check`、Electron 安全边界 | 合同已验证 | macOS/Windows 实机安装、LAN 请求、防火墙 |
 | GHCR/升级 | `release:workflow:check`、`upgrade:check`、不可变 digest 合同 | 自动化已验证 | 脱敏副本升级、数据库恢复、人工审批 |
 | Claude 组织用量 | `docs/CLAUDE_USAGE_REPORT.md`，官方 Usage Report 边界 | 设计已验证 | Admin 凭据、权限、保留策略和实际接入 |
-| Google Antigravity | `relay/channel/gemini/antigravity_client.go`、`antigravity_client_test.go`、`docs/ANTIGRAVITY_INTEGRATION.md` | 专用 transport 生命周期已验证（create/get/poll/cancel/delete、usage、脱敏） | 公开 relay/channel 接入的计费/权限/工具策略评审；稳定官方余额接口不存在时保持 `unsupported` |
+| Google Antigravity | `relay/channel/gemini/antigravity_client.go`、`antigravity_client_test.go`、`docs/ANTIGRAVITY_INTEGRATION.md`、`docs/ANTIGRAVITY_PUBLIC_RELAY_GATE.md` | 专用 transport 生命周期已验证（create/get/poll/cancel/delete、usage、脱敏） | 公共 Relay 闸门中的持久化、权限、计费、工具策略和完整测试评审；稳定官方余额接口不存在时保持 `unsupported` |
 | NPM 正式发布 | CLI/打包/版本合同检查 | 发布前检查已验证 | 版本确认、tag、清单、用户明确确认与 `npm publish` |
 
 ## 最近 CI 证据

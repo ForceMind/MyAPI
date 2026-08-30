@@ -16,6 +16,7 @@
 - [LAN Lite](./LAN_LITE.md)
 - [TokenHub 集成边界](./TOKENHUB_INTEGRATION.md)
 - [Google Antigravity 边界](./ANTIGRAVITY_INTEGRATION.md)
+- [Antigravity 公共 Relay 接入闸门](./ANTIGRAVITY_PUBLIC_RELAY_GATE.md)
 - [完整内容日志](./FULL_CONTENT_LOGGING_CUSTOM.md)
 - [Claude 组织用量观测边界](./CLAUDE_USAGE_REPORT.md)
 - [认证和 Cookie 安全](./authentication.md)
@@ -122,7 +123,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 | 账户等级/Key 访问方案 | 独立策略注册表已实现 | 管理员可在计费设置的“Key access profile policies”编辑稳定 profile ID 的显示名、说明、路由组、模型白名单、回退方案和启用状态；显式 `account_tier_id`/`access_profile_id` 会持久化，旧客户端省略时按现有记录或变更后的 `group` 兼容回退，旧路由保持兼容。路由/模型强制执行仍需单独迁移评审 |
 | 设置引导生命周期 | 初版已实现 | 完成后自动消失、按用户和版本保存；真实多设备视觉审查仍待完成 |
 | Claude 支持 | Messages 原生转发与 Responses→Messages 兼容转换已实现；官方组织用量报告已确认存在 | 只实现有明确官方协议的能力；普通 Claude 渠道仍不读取账户余额，组织 Usage Report 只有在管理员显式配置受保护的 Admin 凭据并完成权限/保留策略后才接入 |
-| Google Antigravity 专用 relay | 第一阶段 transport 已完成 | `AntigravityClient` 已覆盖官方 preview 的创建、状态读取、有限轮询、取消、删除和 usage 提取；公开 relay/channel 接入仍需独立计费、权限和工具策略评审，余额端点不存在时显示 `unsupported` |
+| Google Antigravity 专用 relay | 第一阶段 transport 已完成 | `AntigravityClient` 已覆盖官方 preview 的创建、状态读取、有限轮询、取消、删除和 usage 提取；公开 relay/channel 接入按 [公共 Relay 闸门](./ANTIGRAVITY_PUBLIC_RELAY_GATE.md) 进行持久化、权限、计费和工具策略评审，余额端点不存在时显示 `unsupported` |
 | LAN Lite 桌面体验 | 安全状态体验与确定性发行合同检查已实现 | Electron 默认回环、单实例、持久会话密钥、显式 `--allow-lan` 私网绑定、安装脚本 `MYAPI_ALLOW_LAN` 安全门、只读 LAN 状态/防火墙提示、有效地址健康检查和托盘确认后重启切换已补齐；`npm run desktop:check` 与 CI 会验证 macOS/Windows 目标、资源、校验和与发布闸门；真实跨平台安装/局域网请求演练和系统防火墙自动配置仍待完成 |
 | GHCR 自动升级 | CLI 预检与执行流程已实现 | 生产端显式拉取、可选签名验证、可选 digest 固定、健康检查、环境备份和失败回滚已有；`upgrade --dry-run --json` 可在副本上无写入预检，`docs/UPGRADE_REHEARSAL.md` 已补充恢复演练清单，真实数据库恢复和人工审批仍待完成 |
 | NPM 正式发布 | 未完成 | 版本、Tag、清单、测试和用户确认齐备后发布 |
