@@ -23,6 +23,7 @@ jobs:
     name: Validate MyAPI release input
     if: ${{ inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_RELEASE == 'true' }}
     environment: github-release
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -52,6 +53,10 @@ jobs:
             echo "::error::Tag must be an exact semantic version beginning with v"
             exit 1
           fi
+          if [[ "$RELEASE_TAG" == "v0.1.0" ]]; then
+            echo "::error::v0.1.0 is a protected legacy tag; create a new release tag"
+            exit 1
+          fi
           if ! git rev-parse "refs/tags/$RELEASE_TAG^{commit}" >/dev/null 2>&1; then
             echo "::error::Tag '$RELEASE_TAG' does not exist"
             exit 1
@@ -59,7 +64,7 @@ jobs:
           TAG_VERSION="${RELEASE_TAG#v}"
           FILE_VERSION="$(tr -d '[:space:]' < VERSION)"
           PACKAGE_VERSION="$(node -p "require('./package.json').version")"
-          if [[ "$FILE_VERSION" != "$TAG_VERSION" && "$FILE_VERSION" != "$RELEASE_TAG" ]]; then
+          if [[ "$FILE_VERSION" != "$TAG_VERSION" ]]; then
             echo "::error::VERSION ($FILE_VERSION) does not match $RELEASE_TAG"
             exit 1
           fi
@@ -82,6 +87,7 @@ jobs:
     needs: prepare
     if: ${{ needs.prepare.result == 'success' && inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_RELEASE == 'true' }}
     environment: github-release
+    timeout-minutes: 45
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -114,14 +120,14 @@ jobs:
           go mod download
           MODULE_PATH="$(go list -m)"
           [[ "$MODULE_PATH" == "github.com/ForceMind/MyAPI" ]] || { echo "::error::unexpected Go module path: $MODULE_PATH"; exit 1; }
-          go build -ldflags "-s -w -X '${MODULE_PATH}/common.Version=$VERSION' -extldflags '-static'" -o my-api-$VERSION
+          GOMAXPROCS=2 go build -p 2 -ldflags "-s -w -X '${MODULE_PATH}/common.Version=$VERSION' -extldflags '-static'" -o my-api-$VERSION
       - name: Build Backend (arm64)
         run: |
           sudo apt-get update
           DEBIAN_FRONTEND=noninteractive sudo apt-get install -y gcc-aarch64-linux-gnu
           MODULE_PATH="$(go list -m)"
           [[ "$MODULE_PATH" == "github.com/ForceMind/MyAPI" ]] || { echo "::error::unexpected Go module path: $MODULE_PATH"; exit 1; }
-          CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -ldflags "-s -w -X '${MODULE_PATH}/common.Version=$VERSION' -extldflags '-static'" -o my-api-arm64-$VERSION
+          CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=linux GOARCH=arm64 GOMAXPROCS=2 go build -p 2 -ldflags "-s -w -X '${MODULE_PATH}/common.Version=$VERSION' -extldflags '-static'" -o my-api-arm64-$VERSION
       - name: Generate checksums
         run: sha256sum my-api-* > checksums-linux.txt
 
@@ -141,6 +147,7 @@ jobs:
     needs: prepare
     if: ${{ needs.prepare.result == 'success' && inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_RELEASE == 'true' }}
     environment: github-release
+    timeout-minutes: 45
     permissions:
       contents: write
     runs-on: macos-latest
@@ -174,7 +181,7 @@ jobs:
           go mod download
           MODULE_PATH="$(go list -m)"
           [[ "$MODULE_PATH" == "github.com/ForceMind/MyAPI" ]] || { echo "::error::unexpected Go module path: $MODULE_PATH"; exit 1; }
-          go build -ldflags "-X '${MODULE_PATH}/common.Version=$VERSION'" -o my-api-macos-$VERSION
+          GOMAXPROCS=2 go build -p 2 -ldflags "-X '${MODULE_PATH}/common.Version=$VERSION'" -o my-api-macos-$VERSION
       - name: Generate checksums
         run: shasum -a 256 my-api-macos-* > checksums-macos.txt
 
@@ -194,6 +201,7 @@ jobs:
     needs: prepare
     if: ${{ needs.prepare.result == 'success' && inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_RELEASE == 'true' }}
     environment: github-release
+    timeout-minutes: 45
     permissions:
       contents: write
     runs-on: windows-latest
@@ -229,7 +237,7 @@ jobs:
           go mod download
           MODULE_PATH="$(go list -m)"
           [[ "$MODULE_PATH" == "github.com/ForceMind/MyAPI" ]] || { echo "::error::unexpected Go module path: $MODULE_PATH"; exit 1; }
-          go build -ldflags "-s -w -X '${MODULE_PATH}/common.Version=$VERSION'" -o my-api-$VERSION.exe
+          GOMAXPROCS=2 go build -p 2 -ldflags "-s -w -X '${MODULE_PATH}/common.Version=$VERSION'" -o my-api-$VERSION.exe
       - name: Generate checksums
         run: sha256sum my-api-*.exe > checksums-windows.txt
 
