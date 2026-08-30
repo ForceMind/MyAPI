@@ -74,6 +74,7 @@ type channelQuotaSnapshotSyncSummary struct {
 	Considered int `json:"considered"`
 	Sampled    int `json:"sampled"`
 	Failed     int `json:"failed"`
+	Unsupported int `json:"unsupported,omitempty"`
 	Skipped    int `json:"skipped"`
 	// PersistFailed counts successful/failed provider observations that could
 	// not be appended to the history table. It is kept separate from Failed,

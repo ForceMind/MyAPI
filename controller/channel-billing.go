@@ -1188,6 +1188,9 @@ func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, repor
 		lock.Unlock()
 		if queryErr != nil {
 			summary.Failed++
+			if errors.Is(queryErr, errChannelQuotaUnsupported) {
+				summary.Unsupported++
+			}
 		} else {
 			summary.Sampled++
 		}

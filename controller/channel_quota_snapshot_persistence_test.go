@@ -22,6 +22,16 @@ func TestChannelQuotaSnapshotSyncSummaryIncludesPersistenceFailures(t *testing.T
 	require.JSONEq(t, `{"considered":3,"sampled":2,"failed":1,"skipped":0,"persist_failed":2}`, string(payload))
 }
 
+func TestChannelQuotaSnapshotSyncSummaryIncludesUnsupportedCount(t *testing.T) {
+	payload, err := json.Marshal(channelQuotaSnapshotSyncSummary{
+		Considered:  2,
+		Failed:      1,
+		Unsupported: 1,
+	})
+	require.NoError(t, err)
+	require.JSONEq(t, `{"considered":2,"sampled":0,"failed":1,"unsupported":1,"skipped":0,"persist_failed":0}`, string(payload))
+}
+
 func TestRecordChannelBalanceSnapshotReturnsPersistenceError(t *testing.T) {
 	previousDB := model.DB
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
