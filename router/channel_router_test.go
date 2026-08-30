@@ -37,6 +37,10 @@ func TestChannelStatusRoutesRegisterWithoutConflict(t *testing.T) {
 	})
 }
 
+func TestChannelQuotaChangesRouteUsesReadPermission(t *testing.T) {
+	assertChannelRoutePermission(t, http.MethodGet, "/quota/changes", authz.ChannelRead, controller.GetChannelQuotaChanges)
+}
+
 func assertChannelRoutePermission(t *testing.T, method string, path string, permission authz.Permission, handler any) {
 	t.Helper()
 	for _, route := range channelPermissionRoutes {

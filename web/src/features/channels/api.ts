@@ -25,6 +25,7 @@ import type {
   BatchSetTagParams,
   Channel,
   ChannelBalanceResponse,
+  ChannelQuotaChangesResponse,
   ChannelOpsResponse,
   ChannelQuotaHistoryResponse,
   ChannelTestResponse,
@@ -301,6 +302,31 @@ export async function getChannelQuotaHistory(
   const res = await api.get(`/api/channel/${id}/quota/history`, {
     ...channelActionConfig(),
     params,
+  })
+  return res.data
+}
+
+/** Fetch the latest provider-account quota changes across channels. */
+export async function getChannelQuotaChanges(
+  params: {
+    range?: '24h' | '7d' | '30d' | '90d'
+    start?: string
+    end?: string
+    limit?: number
+    sort?: 'abs_change_per_minute' | 'change_desc' | 'change_asc' | 'observed_desc' | 'channel'
+    metric_type?: string
+    window_type?: string
+    source?: string
+  } = {}
+): Promise<ChannelQuotaChangesResponse> {
+  const res = await api.get('/api/channel/quota/changes', {
+    ...channelActionConfig(),
+    params: {
+      range: '24h',
+      limit: 20,
+      sort: 'abs_change_per_minute',
+      ...params,
+    },
   })
   return res.data
 }

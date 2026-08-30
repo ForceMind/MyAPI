@@ -9,6 +9,74 @@ import (
 	"gorm.io/gorm"
 )
 
+// ChannelQuotaAggregateRow is the redacted projection used by the global
+// quota-change view. It deliberately contains no channel key, settings, or
+// upstream response data. Account identity is represented by the channel's
+// operator-provided name and stable numeric id.
+type ChannelQuotaAggregateRow struct {
+	ID            int      `gorm:"column:id"`
+	ChannelID     int      `gorm:"column:channel_id"`
+	ChannelName   string   `gorm:"column:channel_name"`
+	ObservedAt    int64    `gorm:"column:observed_at"`
+	Available     float64  `gorm:"column:available"`
+	Used          *float64 `gorm:"column:used"`
+	Total         *float64 `gorm:"column:total"`
+	Unit          string   `gorm:"column:unit"`
+	Currency      string   `gorm:"column:currency"`
+	MetricType    string   `gorm:"column:metric_type"`
+	WindowType    string   `gorm:"column:window_type"`
+	PlanType      string   `gorm:"column:plan_type"`
+	WindowSeconds int64    `gorm:"column:window_seconds"`
+	ResetAt       int64    `gorm:"column:reset_at"`
+	Source        string   `gorm:"column:source"`
+	Status        string   `gorm:"column:status"`
+	ErrorCode     string   `gorm:"column:error_code"`
+}
+
+const maxChannelQuotaAggregateRows = 200000
+
+// ListChannelQuotaAggregateRows returns a bounded, redacted set of quota
+// observations for all channels in one JOIN query. The newest rows are read
+// first so a busy installation still gets current observations; callers sort
+// rows within each metric/window group before deriving rates.
+func ListChannelQuotaAggregateRows(ctx context.Context, start, end int64, channelIDs []int, metricType, windowType, source string) ([]ChannelQuotaAggregateRow, error) {
+	if DB == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	query := DB.WithContext(ctx).
+		Table("channel_quota_snapshots AS snapshots").
+		Select(`snapshots.id, snapshots.channel_id, channels.name AS channel_name,
+			snapshots.observed_at, snapshots.available, snapshots.used, snapshots.total,
+			snapshots.unit, snapshots.currency, snapshots.metric_type, snapshots.window_type,
+			snapshots.plan_type, snapshots.window_seconds, snapshots.reset_at, snapshots.source,
+			snapshots.status, snapshots.error_code`).
+		Joins("JOIN channels ON channels.id = snapshots.channel_id")
+	if start > 0 {
+		query = query.Where("snapshots.observed_at >= ?", start)
+	}
+	if end > 0 {
+		query = query.Where("snapshots.observed_at <= ?", end)
+	}
+	if len(channelIDs) > 0 {
+		query = query.Where("snapshots.channel_id IN ?", channelIDs)
+	}
+	if metricType != "" {
+		query = query.Where("snapshots.metric_type = ?", metricType)
+	}
+	if windowType != "" {
+		query = query.Where("snapshots.window_type = ?", windowType)
+	}
+	if source != "" {
+		query = query.Where("snapshots.source = ?", source)
+	}
+	rows := make([]ChannelQuotaAggregateRow, 0)
+	err := query.Order("snapshots.observed_at DESC, snapshots.id DESC").Limit(maxChannelQuotaAggregateRows).Find(&rows).Error
+	return rows, err
+}
+
 // ChannelQuotaSnapshot stores a normalized point-in-time view of an upstream
 // channel account's available quota. Raw upstream responses and credentials
 // are intentionally not persisted here.

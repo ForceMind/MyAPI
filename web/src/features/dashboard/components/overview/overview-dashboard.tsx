@@ -63,6 +63,7 @@ import {
 } from '../../hooks/use-status-data'
 import { resolveSetupGuideExpanded } from '../../lib/setup-guide'
 import { AnnouncementsPanel } from './announcements-panel'
+import { AccountQuotaChangesPanel } from './account-quota-changes-panel'
 import { ApiInfoPanel } from './api-info-panel'
 import { FAQPanel } from './faq-panel'
 import { PerformanceHealthPanel } from './performance-health-panel'
@@ -776,6 +777,8 @@ export function OverviewDashboard() {
         </CardStaggerContainer>
       )}
       <SummaryCards />
+
+      <AccountQuotaChangesPanel />
 
       {showContentPanels && (
         <CardStaggerContainer

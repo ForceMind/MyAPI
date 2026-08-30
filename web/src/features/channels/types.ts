@@ -270,6 +270,46 @@ export interface ChannelQuotaHistoryResponse {
   data?: ChannelQuotaHistoryData
 }
 
+/**
+ * One provider-account quota change, normalized by the server from the latest
+ * two trustworthy snapshots. This is intentionally distinct from MyAPI user
+ * balance/quota; it describes the upstream account attached to a channel.
+ */
+export interface ChannelQuotaChangeItem {
+  channel_id: number
+  name: string
+  account_label?: string
+  metric_type?: string
+  window_type?: string
+  source?: string
+  unit?: string
+  currency?: string
+  current_available?: number | null
+  current_total?: number | null
+  previous_available?: number | null
+  change_per_minute?: number | null
+  abs_change_per_minute?: number | null
+  direction?: 'increase' | 'decrease' | 'stable' | 'unknown' | string
+  sample_span_seconds?: number | null
+  observed_at?: number
+  previous_observed_at?: number | null
+  status?: 'success' | 'unavailable' | 'error' | string
+  data_quality?: ChannelQuotaHistoryDataQuality
+}
+
+export interface ChannelQuotaChangesData {
+  items: ChannelQuotaChangeItem[]
+  range?: string
+  generated_at?: number
+  data_quality?: ChannelQuotaHistoryDataQuality
+}
+
+export interface ChannelQuotaChangesResponse {
+  success: boolean
+  message?: string
+  data?: ChannelQuotaChangesData
+}
+
 export interface FetchModelsResponse {
   success: boolean
   message?: string

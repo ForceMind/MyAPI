@@ -36,6 +36,7 @@ import { ChannelsDialogs } from './components/channels-dialogs'
 import { ChannelsPrimaryButtons } from './components/channels-primary-buttons'
 import { ChannelsProvider } from './components/channels-provider'
 import { ChannelsTable } from './components/channels-table'
+import { ChannelQuotaChangesPanel } from './components/channel-quota-changes-panel'
 
 export function Channels() {
   const { t } = useTranslation()
@@ -97,7 +98,10 @@ export function Channels() {
           <ChannelsPrimaryButtons />
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
-          <ChannelsTable />
+          <div className='min-w-0'>
+            <ChannelQuotaChangesPanel />
+            <ChannelsTable />
+          </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>
 
