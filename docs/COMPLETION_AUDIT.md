@@ -21,6 +21,8 @@
 
 ## 最近 CI 证据
 
+- `33335484167`：完成度矩阵一致性修正后的完整 CI，Backend、Frontend、Desktop
+  和 Distribution 四个作业全部成功。
 - `33335299578`：本机部署旧镜像诊断证据提交后的完整 CI，Backend、Frontend、
   Desktop 和 Distribution 四个作业全部成功。
 - `33334940514`：安装环境导出安全修复、官网 metadata 和 LAN 注入回归后的完整 CI，
@@ -37,7 +39,8 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 
 ## 版本与远端 tag 只读核对（2026-08-31）
 
-- 当前 `main` 与 `origin/main` 均指向 `4312ecc`。
+- 本轮只读核对确认 `main` 与 `origin/main` 指向同一提交；精确提交值应以
+  `git rev-parse HEAD origin/main` 的当前输出为准，避免文档提交后产生漂移。
 - `origin` 的 `v0.1.1` 仍指向历史提交 `5007c6c`；本次工作没有移动或覆盖该 tag。
 - 本地历史 `v0.1.0` 仍保留在旧提交；正式发布前仍需由负责人决定新版本号并创建
   指向目标提交的新 tag。
