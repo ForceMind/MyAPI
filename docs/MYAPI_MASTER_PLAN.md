@@ -102,7 +102,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 - GitHub Actions 已支持 SemVer tag 构建并推送 Full/LAN GHCR 镜像。
 - `myapi upgrade` CLI 已支持按发行版拉取 GHCR 镜像、可选 cosign 签名校验、环境文件备份、健康等待和失败回滚；生产启用仍需人工审批与数据备份演练。
 - SemVer tag 可触发 macOS/Windows Electron 构建产物并生成 SHA256 校验和；发布上传需显式开启。
-- 静态官网已补齐移动菜单关闭、outside-click、Escape、焦点回归与 Tab 约束、主题偏好持久化等基础交互，并加入资源/结构自动校验与 Chromium 移动 smoke workflow；GitHub Actions 的真实浏览器结果、真实设备/移动视觉审查与独立发布 workflow 仍待完成。
+- 静态官网已补齐移动菜单关闭、outside-click、Escape、焦点回归与 Tab 约束、主题偏好持久化等基础交互，并加入资源/结构自动校验与 Chromium 移动 smoke workflow；GitHub Actions 已有成功的真实 Chromium smoke 运行（workflow run `33319154631`），真实设备/移动视觉审查与独立发布 workflow 仍待完成。
 
 ## 4. 当前未完成或仅有边界设计的工作
 
@@ -110,7 +110,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 | --- | --- | --- |
 | 品牌和旧元数据清理 | 审计清单已建立 | About 默认态、PNG/ICO 资产已切换；`docs/BRAND_AUDIT.md` 区分必须替换、兼容保留和法律保留项，NOTICE/源码头部仍需合规审查 |
 | 独立 UI 系统 | 部分完成 | 不依赖旧 New API 信息架构，Full/LAN/移动端完成真实画面审查 |
-| TokenHub 风格静态官网 | 交互与审阅制品已实现 | 形成独立产品叙事、安装入口、发行版选择、安全说明、响应式菜单无障碍/主题交互、静态资源自动校验、Chromium 移动 smoke 和 main 变更自动生成的确定性 artifact workflow；GitHub Actions 结果、真实移动视觉审查与绑定域名的独立发布仍待完成 |
+| TokenHub 风格静态官网 | Chromium smoke 与审阅制品已实现 | 形成独立产品叙事、安装入口、发行版选择、安全说明、响应式菜单无障碍/主题交互、静态资源自动校验、Chromium 移动 smoke 和 main 变更自动生成的确定性 artifact workflow；真实移动视觉审查与绑定域名的独立发布仍待完成 |
 | 渠道额度历史 | 后端和前端初版已实现 | 普通渠道与 Codex OAuth 渠道均已有历史查询、折线图、失败状态、可选保留清理和只读健康指标；普通渠道与 Codex OAuth 均支持可选、有界后台采样；告警阈值和 notifier-neutral 去重策略已支持默认关闭、原子持久化和只读状态展示，外部通知通道仍待业务决策 |
 | 账户额度变化聚合 | 初版已实现 | 概览和管理员渠道页均可查看每分钟变化及最大变化排序；普通渠道与 Codex OAuth 后台采样已接入系统任务并避免与旧轮询重复，跨账户订阅账单同步和通知仍待后续迭代 |
 | 账户等级/Key 访问方案 | 独立策略注册表已实现 | 管理员可在计费设置的“Key access profile policies”编辑稳定 profile ID 的显示名、说明、路由组、模型白名单、回退方案和启用状态；`users.account_tier_id` 与 `tokens.access_profile_id` 仍由旧 `group` 幂等回填，旧路由保持兼容。路由/模型强制执行仍需单独迁移评审 |
