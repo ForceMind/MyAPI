@@ -72,6 +72,11 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   `local/new-api:myapi-0684ee3`，容器名为 `new-api`，监听回环地址。
 - 该容器当前为 healthy，但并非本仓库 `main` 的最新构建；本轮没有重建、重启、
   拉取镜像或读取生产环境密钥。
+- 本轮只读请求确认 `/api/status` 返回 `system_name=MyAPI`、`version=0.1.1`；当前
+  首页 bundle 已包含 `Account quota changes` 文案和 `/api/channel/quota/changes`
+  路由字符串，说明该运行副本至少包含额度面板前端资源。
+- 未携带凭据请求额度接口返回 HTTP 401（`AUTH_UNAUTHORIZED`），权限门禁正常；本轮
+  没有使用真实登录凭据，因此仍不能证明管理员账户在手机上已看到数据或样本。
 - 因此，若登录本机看不到额度变化面板或移动端日志，必须先确认实际运行镜像已
   更新到包含当前 `main` 构建的镜像，并在管理员「系统信息」核对 Runtime build
   revision 后，再进行权限和浏览器验收。
