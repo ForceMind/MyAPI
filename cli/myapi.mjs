@@ -912,7 +912,6 @@ function buildUpgradePlan(args) {
     image,
     currentImage: deploymentImage(values),
     verifySignature: shouldVerifyImageSignature(args, values),
-    buildsLocally: shouldBuildLocalImage(values),
   }
 }
 
@@ -924,7 +923,10 @@ function printUpgradeDryRun(plan, args) {
     currentImage: plan.currentImage,
     targetImage: plan.image,
     version: plan.version,
-    imageSource: plan.buildsLocally ? 'local-build' : 'ghcr-pull',
+    // Upgrade always resolves the target to a versioned GHCR image. Local
+    // builds remain available through `myapi build`, but must not silently
+    // change the source of a release upgrade.
+    imageSource: 'ghcr-pull',
     signatureVerification: plan.verifySignature ? 'requested-not-executed' : 'not-requested',
     checks: ['deployment-files', 'environment', 'runtime-configuration'],
     writes: [],
@@ -939,7 +941,7 @@ function printUpgradeDryRun(plan, args) {
   console.log(`Edition: ${result.edition}`)
   console.log(`Current image: ${result.currentImage}`)
   console.log(`Target image: ${result.targetImage}`)
-  console.log(`Image action: ${result.imageSource === 'ghcr-pull' ? 'pull from GHCR' : 'build local image'}`)
+  console.log('Image action: pull the pinned target image from GHCR')
   console.log(
     `Signature verification: ${result.signatureVerification === 'requested-not-executed' ? 'requested (not executed in dry-run)' : 'not requested'}`
   )
