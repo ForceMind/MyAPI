@@ -29,6 +29,9 @@
   恢复后重新运行当前提交。
 - `33339157977`（提交 `cf47ea7`）继续呈现相同 runner 启动前失败：四个作业均为
   `steps: []`，因此仍需 runner 恢复后重新运行当前提交。
+- `33341868806`（提交 `f4fc17e`）仍是同一外部故障：Desktop、Backend、Frontend、
+  Distribution 四个作业均在启动后立即失败且 `steps: []`，不能据此判定代码失败；
+  本轮已用受限本机/Docker 回归替代验证，待 runner 恢复后仍应重跑远端 CI。
 - `33335484167`：完成度矩阵一致性修正后的完整 CI，Backend、Frontend、Desktop
   和 Distribution 四个作业全部成功。
 - `33335299578`：本机部署旧镜像诊断证据提交后的完整 CI，Backend、Frontend、
