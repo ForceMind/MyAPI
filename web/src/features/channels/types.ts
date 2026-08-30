@@ -265,7 +265,6 @@ export interface ChannelQuotaHistoryData {
   metric_type?: string
   window_type?: string
   source?: string
-  plan_type?: string
 }
 
 export interface ChannelQuotaHistoryResponse {
@@ -286,6 +285,7 @@ export interface ChannelQuotaChangeItem {
   metric_type?: string
   window_type?: string
   source?: string
+  plan_type?: string
   unit?: string
   currency?: string
   current_available?: number | null
