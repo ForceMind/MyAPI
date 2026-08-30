@@ -27,6 +27,82 @@ func TestConvertOpenAIResponsesRequestUsesClaudeMessagesConverter(t *testing.T) 
 	assert.Equal(t, "user", request.Messages[0].Role)
 }
 
+func TestConvertOpenAIResponsesRequestMapsClaudeFieldsWithoutStatefulLeakage(t *testing.T) {
+	maxTokens := uint(256)
+	stream := true
+	converted, err := (&Adaptor{}).ConvertOpenAIResponsesRequest(nil, nil, dto.OpenAIResponsesRequest{
+		Model:           "claude-test",
+		Input:           json.RawMessage(`"hello"`),
+		MaxOutputTokens: &maxTokens,
+		Stream:          &stream,
+		Reasoning:       &dto.Reasoning{Effort: "high"},
+	})
+	require.NoError(t, err)
+
+	request, ok := converted.(*dto.ClaudeRequest)
+	require.True(t, ok)
+	assert.Equal(t, "claude-test", request.Model)
+	require.NotNil(t, request.MaxTokens)
+	assert.Equal(t, maxTokens, *request.MaxTokens)
+	require.NotNil(t, request.Stream)
+	assert.True(t, *request.Stream)
+	require.NotNil(t, request.Thinking)
+	assert.Equal(t, "enabled", request.Thinking.Type)
+	assert.Equal(t, 4096, request.Thinking.GetBudgetTokens())
+
+	encoded, err := json.Marshal(request)
+	require.NoError(t, err)
+	for _, field := range []string{
+		"max_output_tokens", "previous_response_id", "conversation", "context_management",
+		"background", "prompt_cache_key",
+	} {
+		assert.NotContains(t, string(encoded), `"`+field+`"`, "unsupported Responses field leaked into Claude request")
+	}
+}
+
+func TestResponseClaude2OpenAIMapsDocumentedStopReasons(t *testing.T) {
+	tests := []struct {
+		name string
+		stop string
+		want string
+	}{
+		{name: "end turn", stop: "end_turn", want: "stop"},
+		{name: "stop sequence", stop: "stop_sequence", want: "stop"},
+		{name: "max tokens", stop: "max_tokens", want: "length"},
+		{name: "tool use", stop: "tool_use", want: "tool_calls"},
+		{name: "refusal", stop: "refusal", want: "content_filter"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			response := ResponseClaude2OpenAI(&dto.ClaudeResponse{
+				Id:         "msg_1",
+				Model:      "claude-test",
+				StopReason: tt.stop,
+				Content: []dto.ClaudeMediaMessage{{
+					Type: "text",
+					Text: commonPointer("hello"),
+				}},
+			})
+			require.Len(t, response.Choices, 1)
+			assert.Equal(t, tt.want, response.Choices[0].FinishReason)
+		})
+	}
+}
+
+func TestStreamResponseClaude2OpenAIMapsStopReason(t *testing.T) {
+	stop := "refusal"
+	response := StreamResponseClaude2OpenAI(&dto.ClaudeResponse{
+		Type: "message_delta",
+		Delta: &dto.ClaudeMediaMessage{
+			StopReason: &stop,
+		},
+	})
+	require.Len(t, response.Choices, 1)
+	require.NotNil(t, response.Choices[0].FinishReason)
+	assert.Equal(t, "content_filter", *response.Choices[0].FinishReason)
+}
+
 func commonPointer[T any](value T) *T {
 	return &value
 }

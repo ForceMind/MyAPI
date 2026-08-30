@@ -13,6 +13,7 @@
     "tools/lan/",
     "tools/desktop/",
     "tools/website/",
+    "tools/upgrade/",
     ".dockerignore",
     ".env.example",
     "Dockerfile",
@@ -72,10 +73,11 @@
     "desktop:check": "node tools/desktop/check.mjs",
     "brand:check": "node tools/branding/check.mjs",
     "website:check": "node tools/website/check-static.mjs",
+    "upgrade:check": "node tools/upgrade/check.mjs",
     "source:manifest": "node tools/npm/generate-source-manifest.mjs",
     "pack:check": "node tools/npm/check-pack.mjs",
     "release:state": "node tools/npm/check-release-state.mjs",
-    "release:check": "npm test && npm run brand:check && npm run website:check && npm run lan:check -- --skip-docker && npm run desktop:check && npm run source:manifest && npm run pack:check",
+    "release:check": "npm test && npm run brand:check && npm run website:check && npm run lan:check -- --skip-docker && npm run desktop:check && npm run upgrade:check && npm run source:manifest && npm run pack:check",
     "prepublishOnly": "npm run release:state && npm run release:check"
   },
   "engines": {

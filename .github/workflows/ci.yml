@@ -130,5 +130,6 @@ jobs:
           npm run website:check
           npm run lan:check -- --skip-docker
           npm run desktop:check
+          npm run upgrade:check
           npm run source:manifest
           npm run pack:check

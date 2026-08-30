@@ -159,12 +159,12 @@ function MovementRow(props: { item: ChannelQuotaChangeItem; maxMovement: number 
           />
         </div>
       </div>
-      <div className='flex shrink-0 flex-col items-end gap-1 text-right'>
-        <span className={cn('font-mono text-sm font-semibold tabular-nums', tone.className)}>
+      <div className='flex min-w-0 max-w-[48%] shrink-0 flex-col items-end gap-1 text-right'>
+        <span className={cn('max-w-full break-words font-mono text-sm font-semibold tabular-nums', tone.className)}>
           {formatSignedAmount(item.change_per_minute, item.unit, item.currency)}
           <span className='text-muted-foreground ml-1 text-[10px] font-normal'>/min</span>
         </span>
-        <span className='text-muted-foreground font-mono text-[11px] tabular-nums'>
+        <span className='text-muted-foreground max-w-full break-words font-mono text-[11px] tabular-nums'>
           {formatAmount(item.current_available, item.unit, item.currency)}
         </span>
       </div>
@@ -311,7 +311,10 @@ export function AccountQuotaChangesPanel() {
           </div>
         </div>
       </div>
-      <ul className='max-h-64 space-y-2 overflow-y-auto pr-1'>
+      <ul
+        className='max-h-64 min-w-0 space-y-2 overflow-y-auto pr-1'
+        aria-label={t('Account quota changes')}
+      >
         {items.map((item) => <MovementRow key={`${item.channel_id}-${item.window_type ?? ''}-${item.metric_type ?? ''}`} item={item} maxMovement={maxMovement} />)}
       </ul>
     </PanelWrapper>
