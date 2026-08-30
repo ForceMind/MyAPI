@@ -46,6 +46,16 @@ for (const file of imageDefaultFiles) {
   }
 }
 
+const releaseWorkflow = readFileSync('.github/workflows/release.yml', 'utf8')
+const resourceBoundBuilds = [
+  'GOMAXPROCS=2 go build -p 2 -ldflags "-s -w',
+  'GOMAXPROCS=2 go build -p 2 -ldflags "-X',
+  'GOARCH=arm64 GOMAXPROCS=2 go build -p 2',
+]
+if (!resourceBoundBuilds.every((fragment) => releaseWorkflow.includes(fragment))) {
+  throw new Error('release workflow Go builds must use GOMAXPROCS=2 and -p 2')
+}
+
 const dirty = git(['status', '--porcelain=v1', '--untracked-files=all'])
 if (dirty) {
   throw new Error(`refusing to publish a dirty source tree:\n${dirty}`)
