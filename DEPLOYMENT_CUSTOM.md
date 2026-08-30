@@ -45,7 +45,7 @@ chmod +x deploy/install.sh
 
 | 旧部署概念 | 新部署写法 | 说明 |
 | --- | --- | --- |
-| 镜像/服务名 | `ghcr.io/forcemind/myapi:v0.1.1` / `my-api` | 镜像由 GitHub Actions 生成；升级时修改 `MYAPI_IMAGE`，再按需重建容器。 |
+| 镜像/服务名 | `ghcr.io/forcemind/myapi:<version>` / `my-api` | 镜像由 GitHub Actions 生成；升级时将 `MYAPI_IMAGE` 设为已发布标签，再按需重建容器。 |
 | 公开地址变量 | `MYAPI_PUBLIC_URL` | 新配置不再新增旧前缀变量；迁移脚本可暂时读取旧值。 |
 | 镜像、端口、数据、日志变量 | `MYAPI_IMAGE`、`MYAPI_PORT`、`MYAPI_DATA_DIR`、`MYAPI_LOGS_DIR` | 逐项复制值后删除旧变量，避免两个变量来源不一致。 |
 | 容器内挂载点 | `/data`、`/app/logs` | 为保护现有数据库和日志格式暂不更改；只迁移宿主机目录。 |
@@ -189,7 +189,7 @@ LAN 版的公开注册、支付、订阅、兑换和外部 OAuth 路由由后端
 for db in deploy/data/my-api.db deploy/data/one-api.db; do
   if [ -f "$db" ]; then cp "$db" "$db.before-update"; fi
 done
-docker image inspect "${MYAPI_IMAGE:-ghcr.io/forcemind/myapi:v0.1.1}"
+docker image inspect "${MYAPI_IMAGE:-ghcr.io/forcemind/myapi:<version>}"
 ```
 
 新安装默认使用 `my-api.db`；接管旧实例时，CLI/运行时会在未显式设置

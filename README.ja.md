@@ -262,7 +262,7 @@ docker run --name my-api -d --restart always \
 ## 🚢 デプロイ
 
 > [!TIP]
-> **既定のDockerイメージ:** `ghcr.io/forcemind/myapi:v0.1.1`（GitHub Actionsで生成。更新時は`MYAPI_IMAGE`を変更）。ローカルビルドには`MYAPI_BUILD_LOCAL=true`を設定してください。
+> **既定のDockerイメージ:** `ghcr.io/forcemind/myapi:<version>`（GitHub Actionsで生成。更新時は公開済みタグに`MYAPI_IMAGE`を変更）。ローカルビルドには`MYAPI_BUILD_LOCAL=true`を設定してください。
 
 `vX.Y.Z` タグをプッシュすると、GitHub Actions が GHCR のマルチアーキテクチャ
 イメージを自動的にビルドして公開します。デプロイ前に `MYAPI_IMAGE` を更新してください。

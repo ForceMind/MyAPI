@@ -261,7 +261,7 @@ docker run --name my-api -d --restart always \
 ## 🚢 Déploiement
 
 > [!TIP]
-> **Image Docker par défaut :** `ghcr.io/forcemind/myapi:v0.1.1` (construite par GitHub Actions ; modifiez `MYAPI_IMAGE` pour mettre à niveau). Définissez `MYAPI_BUILD_LOCAL=true` pour construire localement.
+> **Image Docker par défaut :** `ghcr.io/forcemind/myapi:<version>` (construite par GitHub Actions ; modifiez `MYAPI_IMAGE` vers un tag publié pour mettre à niveau). Définissez `MYAPI_BUILD_LOCAL=true` pour construire localement.
 
 La création d’un tag de version `vX.Y.Z` déclenche automatiquement la construction et la
 publication de l’image multi-architecture GHCR ; mettez `MYAPI_IMAGE` à jour avant le déploiement.

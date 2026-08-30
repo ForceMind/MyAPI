@@ -57,7 +57,7 @@
 version: '3'
 services:
   my-api:
-    image: ghcr.io/forcemind/myapi:v0.1.1
+    image: ghcr.io/forcemind/myapi:<version>
     container_name: my-api
     restart: always
     ports:
@@ -126,7 +126,7 @@ volumes:
 
 ```bash
 # 拉取 GitHub Actions 发布到 GHCR 的指定版本
-docker pull ghcr.io/forcemind/myapi:v0.1.1
+docker pull ghcr.io/forcemind/myapi:<version>
 
 # 重启容器
 docker-compose down && docker-compose up -d

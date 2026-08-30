@@ -258,7 +258,7 @@ docker run --name my-api -d --restart always \
 ## 🚢 部署
 
 > [!TIP]
-> **默认 Docker 镜像：** `ghcr.io/forcemind/myapi:v0.1.1`（由 GitHub Actions 生成，升级时修改 `MYAPI_IMAGE`）。如需本地构建，请设置 `MYAPI_BUILD_LOCAL=true`。
+> **默认 Docker 镜像：** `ghcr.io/forcemind/myapi:<version>`（由 GitHub Actions 生成，升级时将 `MYAPI_IMAGE` 改为已发布的版本标签）。如需本地构建，请设置 `MYAPI_BUILD_LOCAL=true`。
 
 推送新的 `vX.Y.Z` 版本 tag 后，GitHub Actions 会自动构建并推送 GHCR 多架构镜像；
 部署端只需将 `MYAPI_IMAGE` 改为新 tag 后运行更新命令。

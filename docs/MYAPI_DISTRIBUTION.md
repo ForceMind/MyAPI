@@ -60,7 +60,7 @@ echo "$GHCR_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin
 然后在 `deploy/.env` 中固定要运行的版本，例如：
 
 ```text
-MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.1.1
+MYAPI_IMAGE=ghcr.io/forcemind/myapi:<version>
 MYAPI_EDITION=full
 MYAPI_BIND_ADDRESS=127.0.0.1
 MYAPI_BUILD_LOCAL=false
@@ -69,7 +69,7 @@ MYAPI_BUILD_LOCAL=false
 局域网极简版使用同一套源码但不同的镜像和后端发行策略：
 
 ```text
-MYAPI_IMAGE=ghcr.io/forcemind/myapi-lan:v0.1.1
+MYAPI_IMAGE=ghcr.io/forcemind/myapi-lan:<version>
 MYAPI_EDITION=lan
 MYAPI_BIND_ADDRESS=127.0.0.1
 ```
