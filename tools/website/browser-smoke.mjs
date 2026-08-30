@@ -56,7 +56,11 @@ try {
   // the stable data contract to click, then assert both user-visible state
   // signals so localization or copy changes do not make this smoke flaky.
   const themeToggle = page.locator('[data-theme-toggle]')
+  const startedLight = (await page.locator('html.light-preview').count()) > 0
   await themeToggle.click()
+  // Chromium's system preference varies by runner. Ensure the assertion is
+  // deterministic while still exercising a real state transition.
+  if (startedLight) await themeToggle.click()
   if (!(await page.locator('html.light-preview').count())) throw new Error('light theme did not apply')
   if ((await themeToggle.getAttribute('aria-pressed')) !== 'true') throw new Error('theme toggle state did not update')
   mkdirSync('artifacts', { recursive: true })
