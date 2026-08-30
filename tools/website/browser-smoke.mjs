@@ -48,8 +48,9 @@ try {
   if (!address || typeof address === 'string') throw new Error('website smoke server did not bind')
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 })
   await page.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: 'networkidle' })
-  if ((await page.title()) !== 'MyAPI — Your AI gateway, in your control') {
-    throw new Error('unexpected website title')
+  const title = await page.title()
+  if (title !== 'MyAPI — Your AI gateway, in your control') {
+    throw new Error(`unexpected website title: ${JSON.stringify(title)}`)
   }
   if (!(await page.getByText('MyAPI', { exact: true }).first().isVisible())) {
     throw new Error('MyAPI brand is not visible')
