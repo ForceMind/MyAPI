@@ -118,7 +118,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 | 账户额度变化聚合 | 初版已实现 | 概览和管理员渠道页均可查看每分钟变化及最大变化排序；概览页在前台每 60 秒自动刷新，并显示 provider plan type 与错误采样状态；普通渠道与 Codex OAuth 后台采样已接入系统任务并避免与旧轮询重复，跨账户订阅账单同步和通知仍待后续迭代 |
 | 账户等级/Key 访问方案 | 独立策略注册表已实现 | 管理员可在计费设置的“Key access profile policies”编辑稳定 profile ID 的显示名、说明、路由组、模型白名单、回退方案和启用状态；显式 `account_tier_id`/`access_profile_id` 会持久化，旧客户端省略时按现有记录或变更后的 `group` 兼容回退，旧路由保持兼容。路由/模型强制执行仍需单独迁移评审 |
 | 设置引导生命周期 | 初版已实现 | 完成后自动消失、按用户和版本保存；真实多设备视觉审查仍待完成 |
-| Claude 支持 | Messages 原生转发与 Responses→Messages 兼容转换已实现 | 只实现有明确官方协议的能力；账户订阅登录和普通渠道额度查询仍不支持，不读取本地凭据 |
+| Claude 支持 | Messages 原生转发与 Responses→Messages 兼容转换已实现；官方组织用量报告已确认存在 | 只实现有明确官方协议的能力；普通 Claude 渠道仍不读取账户余额，组织 Usage Report 只有在管理员显式配置受保护的 Admin 凭据并完成权限/保留策略后才接入 |
 | Google Antigravity 完整能力 | 未完成 | 只有官方稳定接口存在时才实现；无接口时明确显示不支持 |
 | LAN Lite 桌面体验 | 安全状态体验与确定性发行合同检查已实现 | Electron 默认回环、单实例、持久会话密钥、显式 `--allow-lan` 私网绑定、安装脚本 `MYAPI_ALLOW_LAN` 安全门、只读 LAN 状态/防火墙提示、有效地址健康检查和托盘确认后重启切换已补齐；`npm run desktop:check` 与 CI 会验证 macOS/Windows 目标、资源、校验和与发布闸门；真实跨平台安装/局域网请求演练和系统防火墙自动配置仍待完成 |
 | GHCR 自动升级 | CLI 预检与执行流程已实现 | 生产端显式拉取、可选签名验证、可选 digest 固定、健康检查、环境备份和失败回滚已有；`upgrade --dry-run --json` 可在副本上无写入预检，`docs/UPGRADE_REHEARSAL.md` 已补充恢复演练清单，真实数据库恢复和人工审批仍待完成 |
@@ -362,12 +362,20 @@ GET /api/channel/:id/codex/usage/history?range=24h|7d|30d|90d&limit=500
 WHAM `/backend-api` 是 Codex CLI 使用的上游兼容接口，不将其宣传为稳定的
 公开账户余额 API；字段变化时前端应显示不可用状态。
 
-官方文档核验（2026-08-30）：Anthropic 的 Claude Platform 文档公开了组织级
-spend/rate limit 与 Console 管理入口，但未提供可供普通渠道凭据直接轮询的余额
-端点；Google 的 [Antigravity agent 文档](https://ai.google.dev/gemini-api/docs/antigravity-agent)
-将其定义为 Gemini Interactions API 上的 preview agent。MyAPI 因此继续保留 Claude
-Messages 转发和 Antigravity 请求边界，不把 Console 限额或 interaction 响应推断成
-账户余额；待官方稳定、可授权的额度 API 后再实现采样。
+官方文档核验（2026-08-31）：Anthropic 已公开
+[Get Messages Usage Report](https://platform.claude.com/docs/en/api/admin/usage_report/retrieve_messages)，
+路由为 `GET /v1/organizations/usage_report/messages`，支持 `1m`、`1h`、`1d`
+时间桶和按 workspace、account、API key、model 等维度分组。该接口返回组织级
+token/请求用量，不等于预付费余额或订阅剩余额度；请求还需要组织级 Admin API
+凭据，因此不能把普通 Claude 渠道密钥直接用于后台轮询。MyAPI 后续可在明确的
+Admin 凭据存储、管理员权限、脱敏、保留周期和数据隔离方案后，增加独立的“Claude
+组织用量”观测源，但不得把它混入当前“账户可用额度”折线图。
+
+Google 的 [Antigravity agent 文档](https://ai.google.dev/gemini-api/docs/antigravity-agent)
+将 Antigravity 定义为 Gemini Interactions API 上的托管 preview agent；该接口支持
+agent 执行和远程环境，但没有 provider-neutral 的账户余额端点。MyAPI 因此继续保留
+Claude Messages 转发和 Antigravity 请求边界，不从 Console 限额或 interaction
+响应推断账户余额。
 
 ### P4：独立产品体验
 
