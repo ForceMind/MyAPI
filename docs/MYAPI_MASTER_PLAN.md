@@ -107,7 +107,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 - `myapi upgrade` CLI 已支持按发行版拉取 GHCR 镜像、可选 cosign 签名校验、可选拉取后 digest 固定、环境文件备份、健康等待和失败回滚；生产启用仍需人工审批与数据备份演练。
 - SemVer tag 可触发 macOS/Windows Electron 构建产物并生成 SHA256 校验和；发布上传需显式开启。
 - 静态官网已补齐移动菜单关闭、outside-click、Escape、焦点回归与 Tab 约束、主题偏好持久化等基础交互，并加入资源/结构自动校验与 390px/320px Chromium 移动 smoke workflow；GitHub Actions 最近一次成功的 Chromium smoke run 为 `33332856633`，真实设备/移动视觉审查与独立发布 workflow 仍待完成。
-- 管理员「系统信息」新增只读 Runtime build 标识，可复制构建 revision，用于确认实际运行镜像是否包含最新前端改动；更新测试镜像后的现场核对仍待完成。
+- 管理员「系统信息」新增只读 Runtime build 标识，可复制构建 revision；Docker、Release 和 Electron 构建会注入 commit SHA，避免同一版本不同提交显示相同标识；更新测试镜像后的现场核对仍待完成。
 
 ## 4. 当前未完成或仅有边界设计的工作
 

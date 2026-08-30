@@ -141,6 +141,7 @@ jobs:
             MYAPI_EDITION=${{ matrix.edition }}
             MYAPI_BRAND_NAME=MyAPI
             MYAPI_BRAND_LOGO=/myapi-logo-v1.png
+            MYAPI_BUILD_ID=${{ github.sha }}
             MYAPI_BUILD_PARALLELISM=2
           cache-from: type=gha
           cache-to: type=gha,mode=max

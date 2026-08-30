@@ -106,7 +106,7 @@ jobs:
         run: |
           cd web
           bun install --frozen-lockfile
-          DISABLE_ESLINT_PLUGIN='true' VITE_SELF_USE_MINIMAL='true' VITE_BRAND_NAME='MyAPI' VITE_BRAND_LOGO='/myapi-logo-v1.png' VITE_REACT_APP_VERSION=$(git describe --tags --always) bun run build
+          DISABLE_ESLINT_PLUGIN='true' VITE_SELF_USE_MINIMAL='true' VITE_BRAND_NAME='MyAPI' VITE_BRAND_LOGO='/myapi-logo-v1.png' VITE_REACT_APP_VERSION=$(git describe --tags --always) VITE_BUILD_ID=${{ github.sha }} bun run build
           cd ..
 
       - name: Build Go binary (macOS)

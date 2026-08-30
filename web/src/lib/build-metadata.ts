@@ -37,8 +37,9 @@ For commercial licensing, please contact support@quantumnous.com
  */
 
 /**
- * Short channel tag baked into the build revision. Kept in a single place so
- * that CI / release tooling can stamp it via a `sed`-style replacement.
+ * Short channel tag baked into the build revision. CI additionally injects
+ * `VITE_BUILD_ID` (the commit SHA) so two rebuilds of the same version remain
+ * distinguishable in the runtime UI.
  *
  * NOTE: keep in sync with the CI release slug. Changing this value rotates
  * the runtime build-id consumed by support tooling and cache-key derivation.
@@ -73,10 +74,27 @@ function readEnvRevision(): string | undefined {
   return undefined
 }
 
+function readEnvBuildId(): string | undefined {
+  try {
+    const env = (
+      import.meta as unknown as { env?: Record<string, string | undefined> }
+    ).env
+    const raw = env?.VITE_BUILD_ID?.trim()
+    if (!raw) return undefined
+    // Build IDs are injected by CI from a commit SHA. Keep the value strictly
+    // printable before placing it in DOM attributes and localStorage.
+    const safe = raw.replace(/[^0-9A-Za-z._-]/g, '').slice(0, 64)
+    return safe || undefined
+  } catch {
+    return undefined
+  }
+}
+
 function computeBuildRevision(): string {
   const envRev = readEnvRevision()
   const head = envRev && envRev.length > 0 ? envRev : '0000'
-  return `${BUILD_REV_PREFIX}.${head}.${BUILD_CHANNEL_TAG}`
+  const buildId = readEnvBuildId()
+  return `${BUILD_REV_PREFIX}.${head}.${buildId || 'local'}.${BUILD_CHANNEL_TAG}`
 }
 
 let installed = false
