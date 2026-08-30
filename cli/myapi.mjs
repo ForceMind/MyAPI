@@ -48,7 +48,7 @@ const deploymentEnvAliases = Object.freeze({
 })
 
 const deploymentDefaults = Object.freeze({
-  MYAPI_IMAGE: 'ghcr.io/forcemind/myapi:v0.1.1',
+  MYAPI_IMAGE: `ghcr.io/forcemind/myapi:v${packageMetadata.version}`,
   MYAPI_EDITION: 'full',
   MYAPI_PORT: '3000',
   MYAPI_BIND_ADDRESS: '127.0.0.1',

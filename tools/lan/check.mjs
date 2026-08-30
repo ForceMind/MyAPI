@@ -122,6 +122,7 @@ function checkStaticContracts(checks) {
 
   const installer = readFileSync(path.join(repositoryRoot, 'deploy/install.sh'), 'utf8')
   record(checks, 'installer validates bind addresses strictly', /is_private_ipv4\(\)/.test(installer) && /MYAPI_BIND_ADDRESS must be localhost/.test(installer))
+  record(checks, 'installer derives the default image from VERSION', /distribution_version=/.test(installer) && /myapi:v\$\{distribution_version\}/.test(installer))
   record(checks, 'installer requires explicit LAN opt-in', /MYAPI_ALLOW_LAN/.test(installer) && /LAN binding is disabled by default/.test(installer))
   record(checks, 'installer parses env without shell evaluation', /load_env_file\(\)/.test(installer) && !/source\s+"\$env_file"/.test(installer))
 }
@@ -258,6 +259,9 @@ function checkInstallerEnvParsing(checks) {
         readFileSync(path.join(repositoryRoot, 'deploy', relative)),
       )
     }
+    // The installer derives its default GHCR tag from the distribution
+    // VERSION file at the project root; include it in the isolated fixture.
+    writeFileSync(path.join(project, 'VERSION'), readFileSync(path.join(repositoryRoot, 'VERSION')))
     const marker = path.join(project, 'shell-evaluated')
     const envPath = path.join(deployDir, '.env')
     let env = readFileSync(path.join(deployDir, '.env.example'), 'utf8')

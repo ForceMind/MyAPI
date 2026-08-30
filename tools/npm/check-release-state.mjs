@@ -32,6 +32,20 @@ if (version !== metadata.version) {
   )
 }
 
+const expectedImageVersion = `v${metadata.version}`
+const imageDefaultFiles = [
+  'docker-compose.yml',
+  'deploy/docker-compose.yml',
+]
+for (const file of imageDefaultFiles) {
+  const contents = readFileSync(file, 'utf8')
+  for (const match of contents.matchAll(/ghcr\.io\/forcemind\/myapi:v([0-9]+\.[0-9]+\.[0-9]+(?:[.-][0-9A-Za-z.-]+)?)/g)) {
+    if (`v${match[1]}` !== expectedImageVersion) {
+      throw new Error(`${file} contains a stale default image version (${match[1]}); expected ${metadata.version}`)
+    }
+  }
+}
+
 const dirty = git(['status', '--porcelain=v1', '--untracked-files=all'])
 if (dirty) {
   throw new Error(`refusing to publish a dirty source tree:\n${dirty}`)

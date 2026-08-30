@@ -30,6 +30,9 @@ const repositoryRoot = path.resolve(
   '../..'
 )
 const cli = path.join(repositoryRoot, 'cli/myapi.mjs')
+const packageVersion = JSON.parse(
+  readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
+).version
 const temporaryRoots = []
 
 function runCli(...args) {
@@ -63,10 +66,23 @@ test('version exposes the MyAPI distribution identity', () => {
   const version = JSON.parse(runCli('version', '--json'))
 
   assert.equal(version.package, '@forcemind/myapi')
-  assert.equal(version.version, '0.1.1')
+  assert.equal(version.version, packageVersion)
   assert.equal(version.distribution, 'MyAPI')
   assert.equal(version.machineSlug, 'my-api')
   assert.doesNotMatch(JSON.stringify(version), /New API|QuantumNous/)
+})
+
+test('generated deployment defaults follow the package release version', () => {
+  const root = temporaryRoot()
+  const project = path.join(root, 'source')
+  runCli('init', project)
+  runCli('configure', '--project-dir', project, '--public-url', 'https://myapi.example.test')
+  const env = readFileSync(path.join(project, 'deploy/.env'), 'utf8')
+  const escapedVersion = packageVersion.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')
+  assert.match(
+    env,
+    new RegExp(`^MYAPI_IMAGE=ghcr\\.io/forcemind/myapi:v${escapedVersion}$`, 'm'),
+  )
 })
 
 test('init copies source without runtime data and configure protects secrets', () => {

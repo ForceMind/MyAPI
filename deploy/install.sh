@@ -64,7 +64,12 @@ if (( ${#legacy_keys[@]} > 0 )); then
   echo "Compatibility fallback for ${legacy_keys[*]}; run 'myapi migrate --project-dir $repo_dir' to write MYAPI_* settings." >&2
 fi
 
-MYAPI_IMAGE="${MYAPI_IMAGE:-ghcr.io/forcemind/myapi:v0.1.1}"
+distribution_version="$(tr -d '[:space:]' < "$repo_dir/VERSION" 2>/dev/null || true)"
+if [[ ! "$distribution_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+  echo "VERSION must contain a valid MyAPI release version before installing." >&2
+  exit 1
+fi
+MYAPI_IMAGE="${MYAPI_IMAGE:-ghcr.io/forcemind/myapi:v${distribution_version}}"
 MYAPI_EDITION="${MYAPI_EDITION:-full}"
 MYAPI_BUILD_LOCAL="${MYAPI_BUILD_LOCAL:-false}"
 MYAPI_PORT="${MYAPI_PORT:-3000}"
