@@ -55,6 +55,12 @@ a future adapter cannot accidentally forward incompatible generation settings.
 Preview agent names and model availability can change, so they are
 configuration data rather than a new stable wire identifier.
 
+The official documentation currently describes this as a preview agent and
+documents the Interactions API request shape, but it does not define a
+provider-neutral account-balance endpoint for MyAPI to poll. Until Google
+publishes a stable quota/billing API for this agent, the quota history UI must
+show `unsupported` rather than infer a balance from interaction responses.
+
 ## Recommended configuration while the adapter is pending
 
 For standard Gemini model access, continue using the existing Gemini channel
@@ -62,4 +68,3 @@ or an Advanced Custom route targeting `/{version}/models/{model}:generateContent
 For Claude-compatible providers, use the existing Claude channel or the
 Advanced Custom Claude Messages route. Do not label either route
 “Antigravity”; doing so would misrepresent the API and its execution model.
-

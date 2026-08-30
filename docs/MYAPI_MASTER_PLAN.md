@@ -331,6 +331,13 @@ GET /api/channel/:id/codex/usage/history?range=24h|7d|30d|90d&limit=500
 WHAM `/backend-api` 是 Codex CLI 使用的上游兼容接口，不将其宣传为稳定的
 公开账户余额 API；字段变化时前端应显示不可用状态。
 
+官方文档核验（2026-08-30）：Anthropic 的 Claude Platform 文档公开了组织级
+spend/rate limit 与 Console 管理入口，但未提供可供普通渠道凭据直接轮询的余额
+端点；Google 的 [Antigravity agent 文档](https://ai.google.dev/gemini-api/docs/antigravity-agent)
+将其定义为 Gemini Interactions API 上的 preview agent。MyAPI 因此继续保留 Claude
+Messages 转发和 Antigravity 请求边界，不把 Console 限额或 interaction 响应推断成
+账户余额；待官方稳定、可授权的额度 API 后再实现采样。
+
 ### P4：独立产品体验
 
 - 在 TokenHub 和原 New API 的参考研究基础上，完成 MyAPI 独立管理 UI；不复制任一项目的代码、页面、资产、文案或品牌。
