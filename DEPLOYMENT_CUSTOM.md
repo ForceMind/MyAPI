@@ -99,6 +99,10 @@ FULL_CONTENT_LOG_MAX_FILES=10
 # Keep normalized channel quota snapshots for this many days. 0 disables
 # automatic cleanup; cleanup runs daily in bounded batches.
 CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS=0
+# Optional provider account balance sampler (disabled by default).
+CHANNEL_QUOTA_SYNC_ENABLED=false
+CHANNEL_QUOTA_SYNC_INTERVAL=15m
+CHANNEL_QUOTA_SYNC_MAX_CHANNELS=100
 # Read-only quota threshold status (disabled by default; no notifications or
 # routing changes are triggered). Percentages are relative to provider total.
 CHANNEL_QUOTA_ALERT_ENABLED=false
@@ -219,6 +223,12 @@ CLI 会按 `MYAPI_EDITION` 选择 `ghcr.io/forcemind/myapi` 或
 `ghcr.io/forcemind/myapi-lan`，拉取目标镜像并等待 Compose 健康检查。拉取、启动或
 健康检查失败时自动恢复旧环境并重新启动旧镜像；若回滚也失败，应保留现场并按输出
 中的错误进行人工处理。生产环境仍应先在副本上演练，不会因为安装 NPM 包而自动升级。
+
+部署模板默认设置 `MYAPI_CPU_LIMIT=2.0` 和 `MYAPI_MEMORY_LIMIT=2g`，用于限制
+Docker Desktop 或小型服务器的资源占用。`myapi up` 与 `deploy/install.sh` 会先执行
+Compose 配置校验，再拉取镜像，并等待最多 120 秒的健康检查；限制值无效或容器未健康
+时不会把部署报告为成功。需要提高上限时，只修改 `deploy/.env` 中的这两个变量并先
+在副本上验证。
 
 若确实需要本地构建，请在 `deploy/.env` 中设置 `MYAPI_BUILD_LOCAL=true`。
 

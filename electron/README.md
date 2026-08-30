@@ -45,6 +45,10 @@ This will:
 
 ## Building for Production
 
+The helper limits Go/npm build parallelism to two workers by default so a
+desktop build does not monopolize a shared workstation. Set
+`MYAPI_BUILD_PARALLELISM` to a positive integer for a dedicated build host.
+
 ### Quick Build
 ```bash
 # From electron/, build the frontend, Go binary, and desktop package

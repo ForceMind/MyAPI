@@ -51,6 +51,9 @@ MYAPI_SESSION_COOKIE_SECURE="${MYAPI_SESSION_COOKIE_SECURE:-}"
 MYAPI_PUBLIC_URL="${MYAPI_PUBLIC_URL:-}"
 MYAPI_DATA_DIR="${MYAPI_DATA_DIR:-./data}"
 MYAPI_LOGS_DIR="${MYAPI_LOGS_DIR:-./logs}"
+MYAPI_CPU_LIMIT="${MYAPI_CPU_LIMIT:-2.0}"
+MYAPI_MEMORY_LIMIT="${MYAPI_MEMORY_LIMIT:-2g}"
+MYAPI_BUILD_PARALLELISM="${MYAPI_BUILD_PARALLELISM:-2}"
 if [[ "$MYAPI_EDITION" != "full" && "$MYAPI_EDITION" != "lan" ]]; then
   echo "MYAPI_EDITION must be full or lan." >&2
   exit 1
@@ -63,7 +66,20 @@ if [[ "$MYAPI_EDITION" == "lan" ]]; then
 else
   MYAPI_SESSION_COOKIE_SECURE="${MYAPI_SESSION_COOKIE_SECURE:-true}"
 fi
-export MYAPI_IMAGE MYAPI_EDITION MYAPI_BUILD_LOCAL MYAPI_PORT MYAPI_BIND_ADDRESS MYAPI_SESSION_COOKIE_SECURE MYAPI_PUBLIC_URL MYAPI_DATA_DIR MYAPI_LOGS_DIR
+export MYAPI_IMAGE MYAPI_EDITION MYAPI_BUILD_LOCAL MYAPI_PORT MYAPI_BIND_ADDRESS MYAPI_SESSION_COOKIE_SECURE MYAPI_PUBLIC_URL MYAPI_DATA_DIR MYAPI_LOGS_DIR MYAPI_CPU_LIMIT MYAPI_MEMORY_LIMIT MYAPI_BUILD_PARALLELISM
+
+if [[ ! "$MYAPI_BUILD_PARALLELISM" =~ ^[1-9][0-9]*$ || "$MYAPI_BUILD_PARALLELISM" -gt 64 ]]; then
+  echo "MYAPI_BUILD_PARALLELISM must be a positive integer no more than 64." >&2
+  exit 1
+fi
+if [[ ! "$MYAPI_CPU_LIMIT" =~ ^[0-9]+([.][0-9]+)?$ ]] || (( $(awk "BEGIN { print ($MYAPI_CPU_LIMIT <= 0 || $MYAPI_CPU_LIMIT > 64) }") )); then
+  echo "MYAPI_CPU_LIMIT must be a number greater than 0 and no more than 64." >&2
+  exit 1
+fi
+if [[ ! "$MYAPI_MEMORY_LIMIT" =~ ^[0-9]+([.][0-9]+)?([bBkKmMgGtT][bB]?)$ ]] || [[ "$MYAPI_MEMORY_LIMIT" =~ ^0([.]0+)? ]]; then
+  echo "MYAPI_MEMORY_LIMIT must be a positive Docker size such as 512m or 2g." >&2
+  exit 1
+fi
 
 if [[ -z "${SESSION_SECRET:-}" || "$SESSION_SECRET" == "replace-with-a-long-random-secret" ]]; then
   echo "Set a strong SESSION_SECRET in $env_file before deployment." >&2
@@ -95,15 +111,23 @@ resolve_deploy_path() {
 mkdir -p "$(resolve_deploy_path "$MYAPI_DATA_DIR")" "$(resolve_deploy_path "$MYAPI_LOGS_DIR")"
 
 cd "$repo_dir"
+# Validate interpolation (including resource limits and required origins)
+# before pulling any remote image or changing a running container.
+docker compose --env-file "$env_file" -f "$script_dir/docker-compose.yml" config --quiet
 if [[ "$MYAPI_BUILD_LOCAL" == "true" || "$MYAPI_IMAGE" == local/* ]]; then
   docker build \
     --build-arg "MYAPI_BRAND_NAME=${MYAPI_BRAND_NAME:-MyAPI}" \
     --build-arg "MYAPI_BRAND_LOGO=${MYAPI_BRAND_LOGO:-/myapi-logo-v1.png}" \
     --build-arg "MYAPI_EDITION=${MYAPI_EDITION}" \
+    --build-arg "MYAPI_BUILD_PARALLELISM=${MYAPI_BUILD_PARALLELISM:-2}" \
     -t "$MYAPI_IMAGE" .
 else
   echo "Pulling MyAPI image from ${MYAPI_IMAGE}." >&2
   docker compose --env-file "$env_file" -f "$script_dir/docker-compose.yml" pull my-api
 fi
-docker compose --env-file "$env_file" -f "$script_dir/docker-compose.yml" up -d --force-recreate
+# Wait for the healthcheck before reporting success. Docker Desktop on macOS
+# and Windows may take longer to initialize than a native Linux daemon; the
+# bounded timeout avoids an indefinite busy wait while still catching a bad
+# image/configuration before the operator starts handing out LAN keys.
+docker compose --env-file "$env_file" -f "$script_dir/docker-compose.yml" up -d --force-recreate --wait --wait-timeout 120
 docker compose --env-file "$env_file" -f "$script_dir/docker-compose.yml" ps

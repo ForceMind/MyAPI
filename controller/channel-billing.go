@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -55,6 +56,12 @@ type OpenAICreditGrants struct {
 }
 
 const maxAdvancedCustomBalanceResponseBytes = 256 << 10
+
+// Balance endpoints are provider-controlled and some providers do not close
+// stalled connections promptly.  A bounded request context keeps the
+// scheduled sampler from accumulating goroutines while preserving the
+// existing RelayTimeout setting as an additional client-level limit.
+const channelBalanceRequestTimeout = 30 * time.Second
 
 type channelBalanceResult struct {
 	Balance     float64
@@ -151,7 +158,9 @@ func GetClaudeAuthHeader(token string) http.Header {
 }
 
 func GetResponseBody(method, url string, channel *model.Channel, headers http.Header) ([]byte, error) {
-	req, err := http.NewRequest(method, url, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), channelBalanceRequestTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, method, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -391,7 +400,9 @@ func fetchAdvancedCustomBalance(channel *model.Channel) (channelBalanceResult, e
 		return channelBalanceResult{}, sanitizeFetchModelsError(err, key)
 	}
 
-	request, err := http.NewRequest(http.MethodGet, requestURL, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), channelBalanceRequestTimeout)
+	defer cancel()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		return channelBalanceResult{}, sanitizeFetchModelsError(err, key)
 	}
@@ -1088,6 +1099,88 @@ func UpdateAllChannelsBalance(c *gin.Context) {
 		"message": "",
 	})
 	return
+}
+
+// runChannelQuotaSnapshotSyncOnce samples enabled single-key channels using
+// the normalized balance query path.  The per-channel polling lock prevents a
+// scheduled pass from racing with a manual balance query or multi-key state
+// update.  A busy channel is skipped and retried on the next scheduled pass;
+// this avoids waiting behind a potentially slow provider request.
+func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, report func(processed, total int)) (channelQuotaSnapshotSyncSummary, error) {
+	summary := channelQuotaSnapshotSyncSummary{}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if maxChannels <= 0 || maxChannels > channelQuotaSnapshotSyncMaxChannels {
+		maxChannels = channelQuotaSnapshotSyncMaxChannels
+	}
+	fetchLimit := maxChannels * 4
+	if fetchLimit < maxChannels {
+		fetchLimit = maxChannels
+	}
+	channels, err := model.GetChannelsForQuotaSnapshotSync(fetchLimit)
+	if err != nil {
+		return summary, err
+	}
+	// The model query is bounded. Multi-key entries are skipped because their
+	// aggregate quota is ambiguous; scan a small multiple of the target so a
+	// few such channels do not prevent eligible single-key channels from being
+	// sampled. A hard attempt cap keeps provider fan-out bounded.
+	summary.Considered = len(channels)
+	if report != nil {
+		report(0, summary.Considered)
+	}
+	for index, channel := range channels {
+		if summary.Sampled+summary.Failed >= maxChannels {
+			break
+		}
+		if err := ctx.Err(); err != nil {
+			return summary, err
+		}
+		if channel == nil || channel.Status != common.ChannelStatusEnabled || channel.ChannelInfo.IsMultiKey {
+			summary.Skipped++
+			if report != nil {
+				report(index+1, summary.Considered)
+			}
+			continue
+		}
+		lock := model.GetChannelPollingLock(channel.Id)
+		if !lock.TryLock() {
+			summary.Skipped++
+			if report != nil {
+				report(index+1, summary.Considered)
+			}
+			continue
+		}
+		result, queryErr := updateChannelBalance(channel)
+		recordChannelBalanceSnapshot(channel, result, queryErr)
+		lock.Unlock()
+		if queryErr != nil {
+			summary.Failed++
+		} else {
+			summary.Sampled++
+		}
+		if report != nil {
+			report(index+1, summary.Considered)
+		}
+		if common.RequestInterval > 0 {
+			delay := common.RequestInterval
+			// Do not let a legacy request interval turn a bounded task into a
+			// multi-hour run. Operators needing a slower cadence should configure
+			// CHANNEL_QUOTA_SYNC_INTERVAL instead.
+			if delay > 10*time.Second {
+				delay = 10 * time.Second
+			}
+			timer := time.NewTimer(delay)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return summary, ctx.Err()
+			case <-timer.C:
+			}
+		}
+	}
+	return summary, nil
 }
 
 func AutomaticallyUpdateChannels(frequency int) {

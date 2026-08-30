@@ -44,6 +44,14 @@ import { PanelWrapper } from '../ui/panel-wrapper'
 const RANGE = '24h' as const
 const LIMIT = 5
 
+function getHttpStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return undefined
+  const response = (error as { response?: unknown }).response
+  if (!response || typeof response !== 'object') return undefined
+  const status = (response as { status?: unknown }).status
+  return typeof status === 'number' ? status : undefined
+}
+
 function finite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
@@ -179,7 +187,7 @@ export function AccountQuotaChangesPanel() {
         range: RANGE,
         limit: LIMIT,
         sort: 'abs_change_per_minute',
-      }),
+      }, { skipAuthRefresh: true }),
     enabled: canReadChannels,
     staleTime: 60 * 1000,
     retry: false,
@@ -220,6 +228,14 @@ export function AccountQuotaChangesPanel() {
   if (!canReadChannels) return null
 
   if (query.isError || query.data?.success === false) {
+    const status = getHttpStatus(query.error)
+    const isSessionError = status === 401
+    const isPermissionError = status === 403
+    const errorMessage = isSessionError
+      ? t('Your session is missing or expired. Sign in again to load provider account quota.')
+      : isPermissionError
+        ? t('Your account does not have permission to read channels.')
+        : t('Unable to load account quota changes')
     return (
       <PanelWrapper
         title={
@@ -230,8 +246,18 @@ export function AccountQuotaChangesPanel() {
         }
         description={t('Largest provider account quota movements per minute')}
         empty
-        emptyMessage={t('Unable to load account quota changes')}
-        headerActions={<Button variant='ghost' size='sm' className='size-7 p-0' onClick={() => void query.refetch()} aria-label={t('Retry')}><RotateCw className='size-3.5' /></Button>}
+        emptyMessage={errorMessage}
+        headerActions={
+          isSessionError ? (
+            <Button variant='outline' size='sm' className='h-7 px-2 text-xs' render={<Link to='/sign-in' />}>
+              {t('Sign in again')}
+            </Button>
+          ) : (
+            <Button variant='ghost' size='sm' className='size-7 p-0' onClick={() => void query.refetch()} aria-label={t('Retry')}>
+              <RotateCw className='size-3.5' />
+            </Button>
+          )
+        }
       />
     )
   }

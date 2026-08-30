@@ -182,6 +182,11 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
       columns={columns as ColumnDef<Record<string, unknown>>[]}
       isLoading={isLoadingData}
       isFetching={isFetching}
+      // The mobile list is content-sized and must not inherit the desktop
+      // h-full flex contract. On a phone that contract can resolve to zero
+      // height inside the scrollable page, leaving only the filter toolbar
+      // visible. Keep the bounded flex viewport for desktop only.
+      fixedHeight={!isMobile}
       emptyTitle={t('No Logs Found')}
       emptyDescription={t(
         'No usage logs available. Logs will appear here once API calls are made.'

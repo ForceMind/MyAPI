@@ -51,6 +51,10 @@ const deploymentDefaults = Object.freeze({
   MYAPI_EDITION: 'full',
   MYAPI_PORT: '3000',
   MYAPI_BIND_ADDRESS: '127.0.0.1',
+  // Conservative defaults keep Docker Desktop/LAN Lite from saturating a
+  // workstation. Operators can raise these after measuring their workload.
+  MYAPI_CPU_LIMIT: '2.0',
+  MYAPI_MEMORY_LIMIT: '2g',
   MYAPI_PUBLIC_URL: 'https://my-api.example.com',
   MYAPI_DATA_DIR: './data',
   MYAPI_LOGS_DIR: './logs',
@@ -167,6 +171,9 @@ function composeEnvironment(values) {
     'MYAPI_EDITION',
     'MYAPI_BIND_ADDRESS',
     'MYAPI_SESSION_COOKIE_SECURE',
+    'MYAPI_CPU_LIMIT',
+    'MYAPI_MEMORY_LIMIT',
+    'MYAPI_BUILD_PARALLELISM',
   ]) {
     if (values[key] !== undefined && values[key] !== '') environment[key] = values[key]
   }
@@ -214,6 +221,18 @@ function validateRuntimeConfiguration(values) {
   const bindAddress = values.MYAPI_BIND_ADDRESS || deploymentDefaults.MYAPI_BIND_ADDRESS
   if (!validateBindAddress(bindAddress)) {
     errors.push('MYAPI_BIND_ADDRESS must be a valid host address')
+  }
+  const cpuLimit = values.MYAPI_CPU_LIMIT || deploymentDefaults.MYAPI_CPU_LIMIT
+  if (!/^\d+(?:\.\d+)?$/.test(String(cpuLimit)) || Number(cpuLimit) <= 0 || Number(cpuLimit) > 64) {
+    errors.push('MYAPI_CPU_LIMIT must be a number greater than 0 and no more than 64')
+  }
+  const memoryLimit = values.MYAPI_MEMORY_LIMIT || deploymentDefaults.MYAPI_MEMORY_LIMIT
+  if (!/^\d+(?:\.\d+)?(?:b|k|kb|m|mb|g|gb|t|tb)$/i.test(String(memoryLimit)) || Number.parseFloat(memoryLimit) <= 0) {
+    errors.push('MYAPI_MEMORY_LIMIT must be a positive Docker size such as 512m or 2g')
+  }
+  const buildParallelism = values.MYAPI_BUILD_PARALLELISM || '2'
+  if (!/^[1-9]\d*$/.test(String(buildParallelism)) || Number(buildParallelism) > 64) {
+    errors.push('MYAPI_BUILD_PARALLELISM must be a positive integer no more than 64')
   }
   return errors
 }
@@ -760,6 +779,8 @@ function deploymentCommand(command, args) {
         `MYAPI_BRAND_LOGO=${values.MYAPI_BRAND_LOGO || '/myapi-logo-v1.png'}`,
         '--build-arg',
         `MYAPI_EDITION=${values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION}`,
+        '--build-arg',
+        `MYAPI_BUILD_PARALLELISM=${values.MYAPI_BUILD_PARALLELISM || '2'}`,
         '-t',
         deploymentImage(values),
         '.',

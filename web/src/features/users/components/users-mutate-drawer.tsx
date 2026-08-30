@@ -88,6 +88,8 @@ import {
   USER_FORM_DEFAULT_VALUES,
   transformFormDataToPayload,
   transformUserToFormDefaults,
+  getAccountTierDescription,
+  getAccountTierLabel,
 } from '../lib'
 import { type User } from '../types'
 import { UserQuotaDialog } from './user-quota-dialog'
@@ -348,22 +350,28 @@ export function UsersMutateDrawer({
                 />
               </SideDrawerSection>
 
-              {/* Group & Quota Settings (Update only) */}
+              {/* Account tier & quota settings (Update only) */}
               {isUpdate && (
                 <SideDrawerSection>
-                  <h3 className='text-sm font-medium'>{t('Group & Quota')}</h3>
+                  <h3 className='text-sm font-medium'>
+                    {t('Account tier & quota')}
+                  </h3>
 
                   <FormField
                     control={form.control}
                     name='group'
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t('Group')}</FormLabel>
+                        <FormLabel>{t('Account tier')}</FormLabel>
+                        <FormDescription>
+                          {getAccountTierDescription(field.value, t)}{' '}
+                          {t('This is separate from the access profile selected for each API key.')}
+                        </FormDescription>
                         <Select
                           items={[
                             ...groups.map((group) => ({
                               value: group,
-                              label: group,
+                              label: getAccountTierLabel(group, t),
                             })),
                           ]}
                           onValueChange={field.onChange}
@@ -378,7 +386,7 @@ export function UsersMutateDrawer({
                             <SelectGroup>
                               {groups.map((group) => (
                                 <SelectItem key={group} value={group}>
-                                  {group}
+                                  {getAccountTierLabel(group, t)}
                                 </SelectItem>
                               ))}
                             </SelectGroup>

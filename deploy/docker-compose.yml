@@ -7,6 +7,11 @@ services:
     image: ${MYAPI_IMAGE:-${NEW_API_IMAGE:-ghcr.io/forcemind/myapi:v0.1.1}}
     container_name: my-api
     restart: always
+    # Keep workstation and small-server deployments bounded by default. These
+    # values are configurable in deploy/.env and prevent a build or runaway
+    # request from consuming all host CPU/memory.
+    cpus: ${MYAPI_CPU_LIMIT:-2.0}
+    mem_limit: ${MYAPI_MEMORY_LIMIT:-2g}
     command: --log-dir /app/logs
     ports:
       - "${MYAPI_BIND_ADDRESS:-127.0.0.1}:${MYAPI_PORT:-${NEW_API_PORT:-3000}}:3000"
@@ -32,6 +37,13 @@ services:
       FULL_CONTENT_LOG_ENABLED: ${FULL_CONTENT_LOG_ENABLED:-true}
       FULL_CONTENT_LOG_MAX_MB: ${FULL_CONTENT_LOG_MAX_MB:-100}
       FULL_CONTENT_LOG_MAX_FILES: ${FULL_CONTENT_LOG_MAX_FILES:-10}
+      CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS: ${CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS:-0}
+      CHANNEL_QUOTA_SYNC_ENABLED: ${CHANNEL_QUOTA_SYNC_ENABLED:-false}
+      CHANNEL_QUOTA_SYNC_INTERVAL: ${CHANNEL_QUOTA_SYNC_INTERVAL:-15m}
+      CHANNEL_QUOTA_SYNC_MAX_CHANNELS: ${CHANNEL_QUOTA_SYNC_MAX_CHANNELS:-100}
+      CHANNEL_QUOTA_ALERT_ENABLED: ${CHANNEL_QUOTA_ALERT_ENABLED:-false}
+      CHANNEL_QUOTA_ALERT_WARNING_PERCENT: ${CHANNEL_QUOTA_ALERT_WARNING_PERCENT:-20}
+      CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT: ${CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT:-10}
     logging:
       driver: json-file
       options:

@@ -22,6 +22,10 @@ const (
 	SystemTaskTypeMidjourneyPoll              = "midjourney_poll"
 	SystemTaskTypeAsyncTaskPoll               = "async_task_poll"
 	SystemTaskTypeChannelQuotaSnapshotCleanup = "channel_quota_snapshot_cleanup"
+	// SystemTaskTypeChannelQuotaSnapshotSync periodically samples normalized
+	// upstream account balances.  The task is opt-in and is only registered by
+	// the controller when CHANNEL_QUOTA_SYNC_ENABLED=true.
+	SystemTaskTypeChannelQuotaSnapshotSync = "channel_quota_snapshot_sync"
 )
 
 var ErrSystemTaskLockLost = errors.New("system task lock lost")

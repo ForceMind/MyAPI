@@ -376,6 +376,26 @@ func GetAllChannels(startIdx int, num int, selectAll bool, idSort bool, sortOpti
 	return channels, err
 }
 
+// GetChannelsForQuotaSnapshotSync returns a bounded set of enabled channels
+// with credentials available to the internal sampler.  It intentionally does
+// not expose this projection through an API; callers use it only for the
+// provider request and must not serialize the returned Key field.
+func GetChannelsForQuotaSnapshotSync(limit int) ([]*Channel, error) {
+	if DB == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 4000 {
+		limit = 4000
+	}
+	var channels []*Channel
+	err := DB.Where("status = ?", common.ChannelStatusEnabled).
+		Order("priority DESC, id DESC").Limit(limit).Find(&channels).Error
+	return channels, err
+}
+
 func GetChannelsByTag(tag string, idSort bool, selectAll bool, sortOptions ...ChannelSortOptions) ([]*Channel, error) {
 	var channels []*Channel
 	order := resolveChannelSortOptions(idSort, sortOptions)

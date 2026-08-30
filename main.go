@@ -115,12 +115,19 @@ func main() {
 	// 数据看板
 	go model.UpdateQuotaData()
 
-	if os.Getenv("CHANNEL_UPDATE_FREQUENCY") != "" {
+	// The legacy updater and the normalized quota sampler both query provider
+	// balances. Prefer the bounded system-task sampler when it is enabled so an
+	// installation that keeps the legacy variable during migration does not
+	// duplicate upstream requests and snapshots.
+	if os.Getenv("CHANNEL_UPDATE_FREQUENCY") != "" &&
+		!strings.EqualFold(strings.TrimSpace(os.Getenv("CHANNEL_QUOTA_SYNC_ENABLED")), "true") {
 		frequency, err := strconv.Atoi(os.Getenv("CHANNEL_UPDATE_FREQUENCY"))
 		if err != nil {
 			common.FatalLog("failed to parse CHANNEL_UPDATE_FREQUENCY: " + err.Error())
 		}
 		go controller.AutomaticallyUpdateChannels(frequency)
+	} else if os.Getenv("CHANNEL_UPDATE_FREQUENCY") != "" {
+		common.SysLog("CHANNEL_QUOTA_SYNC_ENABLED=true; skipping legacy CHANNEL_UPDATE_FREQUENCY updater")
 	}
 
 	// Codex credential auto-refresh check every 10 minutes, refresh when expires within 1 day

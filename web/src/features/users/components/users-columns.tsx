@@ -38,6 +38,7 @@ import {
   USER_ROLES,
   isUserDeleted,
 } from '../constants'
+import { getAccountTierLabel } from '../lib'
 import type { User } from '../types'
 import { DataTableRowActions } from './data-table-row-actions'
 import { UserQuotaCell } from './user-quota-cell'
@@ -174,12 +175,12 @@ export function useUsersColumns(): ColumnDef<User>[] {
     },
     {
       accessorKey: 'group',
-      header: t('Group'),
+      header: t('Account tier'),
       cell: ({ row }) => {
         const group = row.getValue('group') as string
         return (
           <BadgeCell>
-            <GroupBadge group={group} />
+            <GroupBadge group={group} label={getAccountTierLabel(group, t)} />
           </BadgeCell>
         )
       },

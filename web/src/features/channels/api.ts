@@ -317,10 +317,11 @@ export async function getChannelQuotaChanges(
     metric_type?: string
     window_type?: string
     source?: string
-  } = {}
+  } = {},
+  requestConfig: ApiRequestConfig = {}
 ): Promise<ChannelQuotaChangesResponse> {
   const res = await api.get('/api/channel/quota/changes', {
-    ...channelActionConfig(),
+    ...channelActionConfig(requestConfig),
     params: {
       range: '24h',
       limit: 20,

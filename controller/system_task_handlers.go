@@ -3,6 +3,9 @@ package controller
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
@@ -20,8 +23,96 @@ import (
 func RegisterScheduledSystemTasks() {
 	service.RegisterSystemTaskHandler(channelTestHandler{})
 	service.RegisterSystemTaskHandler(modelUpdateHandler{})
+	service.RegisterSystemTaskHandler(channelQuotaSnapshotSyncHandler{})
 	service.RegisterSystemTaskHandler(midjourneyPollHandler{})
 	service.RegisterSystemTaskHandler(asyncTaskPollHandler{})
+}
+
+const (
+	channelQuotaSnapshotSyncDefaultInterval    = 15 * time.Minute
+	channelQuotaSnapshotSyncDefaultMaxChannels = 100
+	channelQuotaSnapshotSyncMaxChannels        = 1000
+)
+
+// channelQuotaSnapshotSyncHandler samples provider balances through the same
+// normalized path used by the manual balance action.  It is deliberately
+// opt-in: querying provider billing endpoints can be expensive and should
+// never begin merely because the system-task runner is enabled.
+type channelQuotaSnapshotSyncHandler struct{}
+
+func (channelQuotaSnapshotSyncHandler) Type() string {
+	return model.SystemTaskTypeChannelQuotaSnapshotSync
+}
+
+func (channelQuotaSnapshotSyncHandler) Enabled() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("CHANNEL_QUOTA_SYNC_ENABLED")), "true")
+}
+
+func (channelQuotaSnapshotSyncHandler) Interval() time.Duration {
+	value := strings.TrimSpace(os.Getenv("CHANNEL_QUOTA_SYNC_INTERVAL"))
+	if value == "" {
+		return channelQuotaSnapshotSyncDefaultInterval
+	}
+	interval, err := time.ParseDuration(value)
+	if err != nil || interval < time.Minute {
+		// A bare integer is accepted as minutes for operators migrating from the
+		// old CHANNEL_UPDATE_FREQUENCY setting.  Invalid/too-fast values fall
+		// back to the safe default instead of creating hot polling loops.
+		if minutes, parseErr := strconv.Atoi(value); parseErr == nil && minutes >= 1 {
+			interval = time.Duration(minutes) * time.Minute
+		} else {
+			return channelQuotaSnapshotSyncDefaultInterval
+		}
+	}
+	if interval > 24*time.Hour {
+		return 24 * time.Hour
+	}
+	return interval
+}
+
+type channelQuotaSnapshotSyncSummary struct {
+	Considered int `json:"considered"`
+	Sampled    int `json:"sampled"`
+	Failed     int `json:"failed"`
+	Skipped    int `json:"skipped"`
+}
+
+func (channelQuotaSnapshotSyncHandler) NewPayload() any {
+	return map[string]any{"max_channels": channelQuotaSnapshotSyncMaxChannelsConfigured()}
+}
+
+func channelQuotaSnapshotSyncMaxChannelsConfigured() int {
+	value := strings.TrimSpace(os.Getenv("CHANNEL_QUOTA_SYNC_MAX_CHANNELS"))
+	if value == "" {
+		return channelQuotaSnapshotSyncDefaultMaxChannels
+	}
+	maxChannels, err := strconv.Atoi(value)
+	if err != nil || maxChannels < 1 {
+		return channelQuotaSnapshotSyncDefaultMaxChannels
+	}
+	if maxChannels > channelQuotaSnapshotSyncMaxChannels {
+		return channelQuotaSnapshotSyncMaxChannels
+	}
+	return maxChannels
+}
+
+func (channelQuotaSnapshotSyncHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
+	payload := struct {
+		MaxChannels int `json:"max_channels"`
+	}{}
+	if err := task.DecodePayload(&payload); err != nil {
+		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, nil, err)
+		return
+	}
+	if payload.MaxChannels <= 0 || payload.MaxChannels > channelQuotaSnapshotSyncMaxChannels {
+		payload.MaxChannels = channelQuotaSnapshotSyncMaxChannelsConfigured()
+	}
+	summary, err := runChannelQuotaSnapshotSyncOnce(ctx, payload.MaxChannels, service.NewSystemTaskProgressReporter(task, runnerID))
+	if err != nil {
+		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, summary, err)
+		return
+	}
+	finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, summary, nil)
 }
 
 // channelTestHandler runs the scheduled "test all channels" job. Enablement and

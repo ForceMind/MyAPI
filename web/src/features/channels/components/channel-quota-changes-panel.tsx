@@ -7,6 +7,7 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import {
   Activity,
   ArrowDownRight,
@@ -33,6 +34,14 @@ import type { ChannelQuotaChangeItem } from '../types'
 
 type Range = '24h' | '7d' | '30d' | '90d'
 type StatusFilter = 'all' | 'success' | 'unavailable' | 'error'
+
+function getHttpStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return undefined
+  const response = (error as { response?: unknown }).response
+  if (!response || typeof response !== 'object') return undefined
+  const status = (response as { status?: unknown }).status
+  return typeof status === 'number' ? status : undefined
+}
 
 const rangeOptions: Range[] = ['24h', '7d', '30d', '90d']
 
@@ -126,7 +135,10 @@ export function ChannelQuotaChangesPanel() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const query = useQuery({
     queryKey: ['channel-quota-changes', range],
-    queryFn: () => getChannelQuotaChanges({ range, limit: 2000, sort: 'abs_change_per_minute' }),
+    queryFn: () => getChannelQuotaChanges(
+      { range, limit: 2000, sort: 'abs_change_per_minute' },
+      { skipAuthRefresh: true }
+    ),
     retry: false,
     staleTime: 60 * 1000,
   })
@@ -196,8 +208,29 @@ export function ChannelQuotaChangesPanel() {
         {query.isError || query.data?.success === false ? (
           <Alert variant='destructive'>
             <CircleAlert />
-            <AlertTitle>{t('Unable to load account quota changes')}</AlertTitle>
-            <AlertDescription>{query.error instanceof Error ? query.error.message : query.data?.message || t('Please try again later.')}</AlertDescription>
+            <AlertTitle>
+              {getHttpStatus(query.error) === 401
+                ? t('Sign in again to view account quota changes')
+                : getHttpStatus(query.error) === 403
+                  ? t('Administrator permission required to view account quota changes')
+                  : t('Unable to load account quota changes')}
+            </AlertTitle>
+            <AlertDescription className='flex flex-wrap items-center gap-2'>
+              <span>
+                {getHttpStatus(query.error) === 401
+                  ? t('Your session is missing or expired. Sign in again to load provider account quota.')
+                  : getHttpStatus(query.error) === 403
+                    ? t('Your account does not have permission to read channels.')
+                    : query.error instanceof Error
+                      ? query.error.message
+                      : query.data?.message || t('Please try again later.')}
+              </span>
+              {getHttpStatus(query.error) === 401 ? (
+                <Button variant='outline' size='sm' className='h-7 px-2 text-xs' render={<Link to='/sign-in' />}>
+                  {t('Sign in again')}
+                </Button>
+              ) : null}
+            </AlertDescription>
           </Alert>
         ) : null}
         {!query.isLoading && !query.isError && query.data?.success !== false && filteredItems.length === 0 ? (

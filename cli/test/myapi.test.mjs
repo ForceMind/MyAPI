@@ -130,6 +130,8 @@ test('init copies source without runtime data and configure protects secrets', (
   assert.match(env, /^MYAPI_PUBLIC_URL=https:\/\/myapi\.example\.test$/m)
   assert.match(env, /^MYAPI_BRAND_NAME=MyAPI$/m)
   assert.match(env, /^MYAPI_BRAND_LOGO=\/myapi-logo-v1\.png$/m)
+  assert.match(env, /^MYAPI_CPU_LIMIT=2\.0$/m)
+  assert.match(env, /^MYAPI_MEMORY_LIMIT=2g$/m)
   assert.match(env, /^SESSION_SECRET=[a-f0-9]{64}$/m)
   assert.equal(statSync(envPath).mode & 0o777, 0o600)
 })
@@ -164,6 +166,24 @@ test('upgrade validates the release version before touching deployment state', (
   const env = readFileSync(path.join(project, 'deploy/.env'), 'utf8')
   assert.match(env, /^MYAPI_IMAGE=ghcr\.io\/forcemind\/myapi:v0\.1\.1$/m)
   assert.equal(existsSync(path.join(project, 'backups')), false)
+})
+
+test('up rejects unsafe Docker resource limits before invoking Compose', () => {
+  const root = temporaryRoot()
+  const project = path.join(root, 'source')
+  runCli('init', project)
+  runCli('configure', '--project-dir', project, '--public-url', 'https://myapi.example.test')
+
+  const envPath = path.join(project, 'deploy/.env')
+  let env = readFileSync(envPath, 'utf8')
+  env = env.replace(/^MYAPI_CPU_LIMIT=.*$/m, 'MYAPI_CPU_LIMIT=0')
+  env = env.replace(/^MYAPI_MEMORY_LIMIT=.*$/m, 'MYAPI_MEMORY_LIMIT=not-a-size')
+  writeFileSync(envPath, env, { mode: 0o600 })
+
+  assert.throws(
+    () => runCli('up', '--project-dir', project),
+    /deployment preflight failed.*MYAPI_CPU_LIMIT.*MYAPI_MEMORY_LIMIT/s,
+  )
 })
 
 test('signature verification fails closed before changing deployment state', () => {

@@ -20,6 +20,9 @@ services:
     image: ${MYAPI_IMAGE:-${NEW_API_IMAGE:-ghcr.io/forcemind/myapi:v0.1.1}}
     container_name: my-api
     restart: always
+    # Optional safety limits; override in .env for larger installations.
+    cpus: ${MYAPI_CPU_LIMIT:-2.0}
+    mem_limit: ${MYAPI_MEMORY_LIMIT:-2g}
     command: --log-dir /app/logs
     ports:
       # Keep the development compose private by default. LAN sharing must be
@@ -44,6 +47,13 @@ services:
       - MYAPI_EDITION=${MYAPI_EDITION:-full}
       - ERROR_LOG_ENABLED=true # 是否启用错误日志记录 (Whether to enable error log recording)
       - BATCH_UPDATE_ENABLED=true  # 是否启用批量更新 (Whether to enable batch update)
+      - CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS=${CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS:-0}
+      - CHANNEL_QUOTA_SYNC_ENABLED=${CHANNEL_QUOTA_SYNC_ENABLED:-false}
+      - CHANNEL_QUOTA_SYNC_INTERVAL=${CHANNEL_QUOTA_SYNC_INTERVAL:-15m}
+      - CHANNEL_QUOTA_SYNC_MAX_CHANNELS=${CHANNEL_QUOTA_SYNC_MAX_CHANNELS:-100}
+      - CHANNEL_QUOTA_ALERT_ENABLED=${CHANNEL_QUOTA_ALERT_ENABLED:-false}
+      - CHANNEL_QUOTA_ALERT_WARNING_PERCENT=${CHANNEL_QUOTA_ALERT_WARNING_PERCENT:-20}
+      - CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT=${CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT:-10}
       - NODE_NAME=my-api-node-1  # 节点名称，用于审计日志中标识节点身份；多节点/容器部署时建议设置 (Node name used in audit logs; recommended when running multiple instances or in containers)
 #      - STREAMING_TIMEOUT=300  # 流模式无响应超时时间，单位秒，默认120秒，如果出现空补全可以尝试改为更大值 （Streaming timeout in seconds, default is 120s. Increase if experiencing empty completions）
 #      - RELAY_IDLE_CONN_TIMEOUT=90  # Relay HTTP 客户端空闲连接超时时间，单位秒，默认跟随 Go 标准库，设置为0表示不限制 (Relay HTTP client idle keep-alive timeout in seconds, defaults to Go standard library; set 0 to disable)

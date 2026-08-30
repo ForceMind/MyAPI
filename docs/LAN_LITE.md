@@ -17,11 +17,22 @@ myapi lan init ./myapi-lan
 myapi lan start --project-dir ./myapi-lan
 ```
 
+Use a current Docker Desktop release (Compose v2.17 or newer); the start
+command uses Compose's bounded `--wait` health check and does not treat a
+running-but-unhealthy container as ready.
+
 The release image is in the private MyAPI GHCR package. If Docker Desktop is
 not already authenticated, sign in once with a GitHub token that can read the
 package (`docker login ghcr.io`) before starting the service.
 
 The initializer creates a private `deploy/.env`, a random session secret, SQLite/data directories, and the LAN image configuration. It does not start Docker or change host firewall rules.
+
+The generated deployment also sets conservative Docker guardrails
+(`MYAPI_CPU_LIMIT=2.0` and `MYAPI_MEMORY_LIMIT=2g`). Adjust these values in
+`deploy/.env` only after measuring the workstation workload; `myapi lan start`
+validates the values before pulling an image. Startup waits up to 120 seconds
+for the container healthcheck, so a failed image or configuration is reported
+instead of being presented as a usable LAN endpoint.
 
 On Windows PowerShell the same commands work with a Windows path, for example
 `myapi lan init "$env:LOCALAPPDATA\\MyAPI\\lan-project"`.
