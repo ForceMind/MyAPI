@@ -93,6 +93,11 @@ npx @forcemind/myapi upgrade --project-dir ./my-api --version v0.2.0
 该命令按 Full/LAN 发行版选择 GHCR 仓库，备份部署环境文件，等待健康检查，并在
 失败时恢复旧镜像配置。它不会在安装包时自动运行，也不会替换或删除数据卷。
 
+对需要固定不可变镜像的升级，可增加 `--pin-digest`（或在 `deploy/.env` 设置
+`MYAPI_PIN_IMAGE_DIGEST=true`）；CLI 会在拉取后解析并校验 RepoDigest，再让 Compose
+使用 `repo@sha256:...` 完成切换。普通 `up`/首次安装仍按版本 tag 拉取，生产环境应在
+升级演练中明确选择是否启用 digest 固定。
+
 本地构建示例（不会发布任何远端镜像）：
 
 ```bash

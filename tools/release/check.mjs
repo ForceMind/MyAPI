@@ -14,6 +14,8 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const workflowPath = path.join(root, '.github/workflows/release.yml')
 const workflow = existsSync(workflowPath) ? readFileSync(workflowPath, 'utf8') : ''
+const dockerWorkflowPath = path.join(root, '.github/workflows/docker-build.yml')
+const dockerWorkflow = existsSync(dockerWorkflowPath) ? readFileSync(dockerWorkflowPath, 'utf8') : ''
 const checks = []
 
 function record(name, ok, detail = '') {
@@ -21,6 +23,7 @@ function record(name, ok, detail = '') {
 }
 
 record('release workflow exists', workflow.length > 0)
+record('Docker workflow exists', dockerWorkflow.length > 0)
 record('release workflow requires explicit publish gates', [
   "inputs.confirm == 'PUBLISH'",
   "vars.MYAPI_ENABLE_RELEASE == 'true'",
@@ -40,6 +43,17 @@ const buildLines = workflow
 record(
   'all release Go builds use bounded parallelism',
   buildLines.length >= 4 && buildLines.every((line) => line.includes('GOMAXPROCS=2') && line.includes('-p 2')),
+)
+record(
+  'GHCR manifests are assembled from validated immutable digests',
+  [
+    'Upload immutable image digest',
+    'Download immutable image digests',
+    'Validate immutable image digests',
+    ' =~ ^sha256:[0-9a-f]{64}$',
+    'IMAGE_REPOSITORY}@${amd64}',
+    'IMAGE_REPOSITORY}@${arm64}',
+  ].every((fragment) => dockerWorkflow.includes(fragment)),
 )
 
 const failed = checks.filter((check) => !check.ok)
