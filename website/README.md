@@ -29,4 +29,25 @@ attributes. The theme follows the browser preference until a visitor chooses a
 theme; private browsing environments may disable persistence without breaking
 the page.
 
-Publishing is deliberately not wired to the application image workflow yet. Add a separate, reviewed workflow when a domain and publishing target are confirmed.
+## Reviewable release artifact
+
+The repository includes a manual `Package MyAPI static website` GitHub Actions
+workflow at `.github/workflows/website-artifact.yml`. From the Actions tab,
+choose **Run workflow** and select a retention period from 1 to 14 days. The
+workflow runs `npm run website:check`, then uploads three reviewable files:
+
+- `myapi-website-<commit>.tar.gz`, a deterministic archive of `website/`;
+- its `.sha256` checksum; and
+- `website-artifact-metadata.txt`, recording the commit and retention period.
+
+This workflow is intentionally `workflow_dispatch`-only. It does not publish to
+GitHub Pages, a CDN, Docker, or any external domain, and it has no write token.
+After downloading the artifact, verify it locally with:
+
+```bash
+sha256sum --check myapi-website-<commit>.tar.gz.sha256
+tar -tzf myapi-website-<commit>.tar.gz
+```
+
+Publishing remains a separate, explicitly reviewed decision once a hosting
+target and domain are confirmed.

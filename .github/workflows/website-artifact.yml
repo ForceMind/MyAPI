@@ -1,0 +1,67 @@
+name: Package MyAPI static website
+
+on:
+  workflow_dispatch:
+    inputs:
+      retention_days:
+        description: 'Artifact retention in days (1-14)'
+        required: false
+        default: '14'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: website-artifact-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Validate and package website
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+
+      - name: Validate website
+        run: npm run website:check
+
+      - name: Package deterministic artifact
+        id: package
+        shell: bash
+        env:
+          RETENTION_DAYS: ${{ inputs.retention_days }}
+        run: |
+          set -euo pipefail
+          retention="${RETENTION_DAYS:-14}"
+          [[ "$retention" =~ ^[0-9]+$ ]] && (( retention >= 1 && retention <= 14 )) || {
+            echo 'retention_days must be an integer from 1 to 14' >&2
+            exit 1
+          }
+          artifact="myapi-website-${GITHUB_SHA}.tar.gz"
+          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
+            -czf "$artifact" website
+          sha256sum "$artifact" > "$artifact.sha256"
+          printf 'artifact=%s\nretention_days=%s\ncommit=%s\n' \
+            "$artifact" "$retention" "$GITHUB_SHA" > website-artifact-metadata.txt
+          printf 'retention_days=%s\n' "$retention" >> "$GITHUB_OUTPUT"
+
+      - name: Upload website artifact for review
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-website-${{ github.sha }}
+          path: |
+            myapi-website-${{ github.sha }}.tar.gz
+            myapi-website-${{ github.sha }}.tar.gz.sha256
+            website-artifact-metadata.txt
+          if-no-files-found: error
+          retention-days: ${{ steps.package.outputs.retention_days }}

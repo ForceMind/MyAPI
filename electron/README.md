@@ -86,6 +86,13 @@ non-loopback listener. The tray menu shows the effective endpoint. The desktop
 process runs the LAN edition and never imports local Codex, Claude, or other
 provider credential files.
 
+Use the tray menu item **LAN status and connection help…** to see the effective
+endpoint, whether this process is loopback-only or LAN-enabled, and the
+platform-specific firewall hint. This is a read-only status view: the listener
+is fixed when Electron starts. To change the bind address, port, or LAN opt-in,
+quit MyAPI and relaunch it with the new arguments; the tray view never performs
+an unsafe live rebind.
+
 Before a server process is spawned, Electron performs a platform-independent
 configuration preflight. Invalid/public addresses fail with a visible error;
 the default remains `127.0.0.1:3000`. The checks are covered by

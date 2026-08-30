@@ -54,6 +54,33 @@ test('a saved explicit opt-in survives relaunch without weakening defaults', () 
   )
 })
 
+test('describes immutable loopback status with platform firewall guidance', () => {
+  assert.deepEqual(
+    config.describeRuntimeConfig({ bindAddress: '127.0.0.1', port: 3000, allowLan: false, isLan: false }, 'win32'),
+    {
+      bindAddress: '127.0.0.1',
+      port: 3000,
+      endpoint: 'http://127.0.0.1:3000',
+      lanEnabled: false,
+      mode: '仅本机（回环地址）',
+      firewallHint: 'Windows：如同事无法连接，请在 Windows Defender 防火墙中允许 MyAPI 访问“专用网络”。',
+      restartHint: '监听地址和端口在启动时确定。修改参数后请退出 MyAPI，再使用新的参数重新启动；不会在运行中动态切换。',
+    },
+  )
+})
+
+test('describes an opted-in private LAN endpoint and restart requirement', () => {
+  const status = config.describeRuntimeConfig(
+    { bindAddress: '192.168.1.20', port: 4317, allowLan: true, isLan: true },
+    'darwin',
+  )
+  assert.equal(status.endpoint, 'http://192.168.1.20:4317')
+  assert.equal(status.lanEnabled, true)
+  assert.match(status.mode, /LAN/)
+  assert.match(status.firewallHint, /系统设置/)
+  assert.match(status.restartHint, /重新启动/)
+})
+
 test('electron-builder packages the shared preflight module', async () => {
   const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
   assert.ok(packageJson.build.files.includes('runtime-config.js'))

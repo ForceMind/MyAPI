@@ -8,6 +8,7 @@ const {
   isLoopbackAddress,
   isPrivateAddress,
   resolveRuntimeConfig,
+  describeRuntimeConfig,
 } = require('./runtime-config');
 
 const APP_NAME = 'MyAPI';
@@ -218,7 +219,7 @@ function getBinaryPath() {
 }
 
 // Check if a server is available with retry logic
-function checkServerAvailability(port, maxRetries = 30, retryDelay = 1000) {
+function checkServerAvailability(port, maxRetries = 30, retryDelay = 1000, hostname = '127.0.0.1') {
   return new Promise((resolve, reject) => {
     let currentAttempt = 0;
     
@@ -230,7 +231,10 @@ function checkServerAvailability(port, maxRetries = 30, retryDelay = 1000) {
       }
       
       const req = http.get({
-        hostname: '127.0.0.1', // Use IPv4 explicitly instead of 'localhost' to avoid IPv6 issues
+        // Probe the effective listener.  A private LAN bind is not necessarily
+        // reachable through loopback, while 0.0.0.0 remains probeable via IPv4
+        // loopback on supported platforms.
+        hostname: hostname === '0.0.0.0' ? '127.0.0.1' : hostname,
         port: port,
         timeout: 10000
       }, (res) => {
@@ -440,9 +444,10 @@ function startServer() {
       }
     });
 
-    checkServerAvailability(PORT)
+    const healthCheckHost = BIND_ADDRESS === '0.0.0.0' ? '127.0.0.1' : BIND_ADDRESS;
+    checkServerAvailability(PORT, 30, 1000, healthCheckHost)
       .then(() => {
-        console.log('✓ Backend server is accessible on port 3000');
+        console.log(`✓ Backend server is accessible at ${healthCheckHost}:${PORT}`);
         resolve();
       })
       .catch((err) => {
@@ -524,6 +529,29 @@ function createTray() {
         ? 'LAN sharing enabled (private network)'
         : 'LAN sharing disabled (loopback only)',
       enabled: false,
+    },
+    {
+      label: 'LAN status and connection help…',
+      click: () => {
+        const status = describeRuntimeConfig(runtimeConfig, process.platform);
+        const mode = status.lanEnabled
+          ? 'LAN sharing is enabled for a private network.'
+          : 'LAN sharing is disabled; this instance is reachable only from this computer.';
+        dialog.showMessageBox({
+          type: 'info',
+          title: 'MyAPI LAN status',
+          message: mode,
+          detail: [
+            `Endpoint: ${status.endpoint}`,
+            `Mode: ${status.mode}`,
+            '',
+            status.firewallHint,
+            status.restartHint,
+          ].join('\n'),
+          buttons: ['Close'],
+          defaultId: 0,
+        });
+      },
     },
     { type: 'separator' },
     {

@@ -58,6 +58,44 @@ function resolveRuntimeConfig({ args = [], env = {}, saved = {} } = {}) {
   };
 }
 
+/**
+ * Build a user-facing LAN status snapshot for the desktop tray dialog.
+ *
+ * The desktop listener is resolved once during process startup.  This helper
+ * deliberately exposes that immutable state and a restart hint instead of
+ * pretending that the listener can be changed while the backend is running.
+ */
+function describeRuntimeConfig(config, platform = process.platform) {
+  const bindAddress = String(config?.bindAddress || DEFAULT_BIND_ADDRESS);
+  const port = Number(config?.port || DEFAULT_PORT);
+  const lanEnabled = Boolean(config?.isLan && config?.allowLan);
+  const displayHost = bindAddress === '0.0.0.0' ? '<private-LAN-IP>' : bindAddress;
+  const endpoint = `http://${displayHost}:${port}`;
+
+  const firewallHint = platform === 'win32'
+    ? 'Windows：如同事无法连接，请在 Windows Defender 防火墙中允许 MyAPI 访问“专用网络”。'
+    : platform === 'darwin'
+      ? 'macOS：如同事无法连接，请在“系统设置 > 网络 > 防火墙”中允许 MyAPI 接受传入连接。'
+      : 'Linux：如同事无法连接，请检查 ufw/firewalld 是否允许该端口，并仅开放可信的局域网网段。';
+
+  return {
+    bindAddress,
+    port,
+    endpoint,
+    lanEnabled,
+    mode: lanEnabled ? 'LAN（私有网络）' : '仅本机（回环地址）',
+    firewallHint,
+    restartHint: '监听地址和端口在启动时确定。修改参数后请退出 MyAPI，再使用新的参数重新启动；不会在运行中动态切换。',
+  };
+}
+
+/** Return an IPv4 address that can be used to probe the effective listener. */
+function getHealthCheckAddress(bindAddress) {
+  return String(bindAddress || DEFAULT_BIND_ADDRESS) === '0.0.0.0'
+    ? '127.0.0.1'
+    : String(bindAddress || DEFAULT_BIND_ADDRESS);
+}
+
 module.exports = {
   DEFAULT_BIND_ADDRESS,
   DEFAULT_PORT,
@@ -65,4 +103,6 @@ module.exports = {
   isPrivateAddress,
   parsePort,
   resolveRuntimeConfig,
+  describeRuntimeConfig,
+  getHealthCheckAddress,
 };
