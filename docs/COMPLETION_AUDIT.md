@@ -27,6 +27,8 @@
 - `33339052745`（提交 `149155b`）仍在 runner 启动前失败：Backend、Frontend、Desktop
   和 Distribution 四个作业均为 `steps: []`；这不能作为代码失败证据，需待 runner
   恢复后重新运行当前提交。
+- `33339157977`（提交 `cf47ea7`）继续呈现相同 runner 启动前失败：四个作业均为
+  `steps: []`，因此仍需 runner 恢复后重新运行当前提交。
 - `33335484167`：完成度矩阵一致性修正后的完整 CI，Backend、Frontend、Desktop
   和 Distribution 四个作业全部成功。
 - `33335299578`：本机部署旧镜像诊断证据提交后的完整 CI，Backend、Frontend、
