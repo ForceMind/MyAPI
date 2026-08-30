@@ -58,6 +58,8 @@
   origin 和至少 48 字符的 `SESSION_SECRET`。新增 CLI 回归 21/21、LAN Lite
   合同 66/66，并为 NPM workflow 增加旧 `v0.1.0` tag 保护；概览额度汇总按
   provider `source`/`plan_type` 隔离，避免不同账户语义混算。
+- `0e77a85`：渠道页移动端关闭固定高度表格，避免额度面板与渠道列表形成
+  嵌套滚动或内容裁剪；前端有界回归通过 59 个测试文件、266 个测试。
 - `1827358`：Claude adaptor 增加 nil/base URL 防护和默认 JSON/Anthropic 版本头
   测试；Antigravity transport 固定 dynamic agent/continuation 字段边界、限制
   interaction 响应大小、支持 `requires_action` 终态并保持错误正文脱敏。Go 回归已在
