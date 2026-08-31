@@ -52,6 +52,9 @@
   `33355371586` 仍在 runner 启动阶段失败；最新 CI 的四个 job 均为 `steps: []`，
   约 2 秒内结束。该结果继续按 GitHub Billing/runner 外部阻塞处理，本轮以本机
   前端 62/278、Go 回归和发行合同检查作为替代证据，不重跑历史 workflow。
+- `33357189957`（提交 `f04f97b`，2026-08-31）仍为同一外部启动故障：Backend、Frontend、
+  Desktop 和 Distribution 四个 job 均为 `steps: []`，约 2 秒内结束；不能据此判断本轮
+  文档提交或源码失败，待 GitHub runner/Billing 恢复后只需重跑最新提交。
 - `33335484167`：完成度矩阵一致性修正后的完整 CI，Backend、Frontend、Desktop
   和 Distribution 四个作业全部成功。
 - `33335299578`：本机部署旧镜像诊断证据提交后的完整 CI，Backend、Frontend、
