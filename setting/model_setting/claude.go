@@ -2,12 +2,17 @@ package model_setting
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"strings"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/setting/config"
 )
+
+// ClaudeMaxTokensLimit matches the request-side billing bound.  Defaults are
+// injected after request validation, so they need the same upper limit.
+const ClaudeMaxTokensLimit = math.MaxInt32 / 2
 
 //var claudeHeadersSettings = map[string][]string{}
 //
@@ -103,9 +108,22 @@ func ValidateClaudeDefaultMaxTokens(value string) error {
 		return fmt.Errorf("Claude default max tokens must be a JSON map of model to integer")
 	}
 	for model, maxTokens := range settings {
-		if maxTokens < 0 {
+		if maxTokens < 0 || maxTokens > ClaudeMaxTokensLimit {
+			if maxTokens > ClaudeMaxTokensLimit {
+				return fmt.Errorf("Claude default max_tokens %d for %q exceeds limit %d", maxTokens, model, ClaudeMaxTokensLimit)
+			}
 			return fmt.Errorf("negative Claude default max_tokens %d for %q", maxTokens, model)
 		}
+	}
+	return nil
+}
+
+// ValidateClaudeThinkingAdapterBudgetTokensPercentage validates the fraction
+// used to derive thinking budget_tokens.  Restricting it to (0,1] keeps the
+// derived budget finite, non-negative, and no larger than max_tokens.
+func ValidateClaudeThinkingAdapterBudgetTokensPercentage(value float64) error {
+	if math.IsNaN(value) || math.IsInf(value, 0) || value <= 0 || value > 1 {
+		return fmt.Errorf("Claude thinking adapter budget percentage must be finite and in (0,1], got %v", value)
 	}
 	return nil
 }

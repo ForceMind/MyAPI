@@ -46,10 +46,22 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 		return types.NewError(fmt.Errorf("invalid api type: %d", info.ApiType), types.ErrorCodeInvalidApiType, types.ErrOptionWithSkipRetry())
 	}
 	adaptor.Init(info)
+	claudeSettings := model_setting.GetClaudeSettings()
+	defaultMaxTokens := claudeSettings.GetDefaultMaxTokens(request.Model)
+	if defaultMaxTokens < 0 || defaultMaxTokens > model_setting.ClaudeMaxTokensLimit {
+		return types.NewError(fmt.Errorf("Claude default max_tokens %d is outside the allowed range", defaultMaxTokens), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+	explicitMaxTokens := request.EffectiveMaxTokens()
+	if err := validateClaudeMaxTokens(explicitMaxTokens); err != nil {
+		return types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
 
 	if request.MaxTokens == nil || *request.MaxTokens == 0 {
-		defaultMaxTokens := uint(model_setting.GetClaudeSettings().GetDefaultMaxTokens(request.Model))
-		request.MaxTokens = &defaultMaxTokens
+		injectedMaxTokens := uint(defaultMaxTokens)
+		if request.MaxTokensToSample != nil && *request.MaxTokensToSample > 0 {
+			injectedMaxTokens = *request.MaxTokensToSample
+		}
+		request.MaxTokens = &injectedMaxTokens
 	}
 
 	if baseModel, effortLevel, ok := reasoning.TrimEffortSuffix(request.Model); ok && effortLevel != "" &&
@@ -73,7 +85,7 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 			request.Temperature = common.GetPointer[float64](1.0)
 		}
 		info.UpstreamModelName = request.Model
-	} else if model_setting.GetClaudeSettings().ThinkingAdapterEnabled &&
+	} else if claudeSettings.ThinkingAdapterEnabled &&
 		strings.HasSuffix(request.Model, "-thinking") {
 		if request.Thinking == nil {
 			baseModel := strings.TrimSuffix(request.Model, "-thinking")
@@ -86,6 +98,12 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 				request.TopP = nil
 				request.TopK = nil
 			} else {
+				if err := model_setting.ValidateClaudeThinkingAdapterBudgetTokensPercentage(claudeSettings.ThinkingAdapterBudgetTokensPercentage); err != nil {
+					return types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+				}
+				if explicitMaxTokens > 0 && explicitMaxTokens < 1280 {
+					return types.NewError(fmt.Errorf("max_tokens must be at least 1280 for Claude thinking requests"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+				}
 				// 因为BudgetTokens 必须大于1024
 				if request.MaxTokens == nil || *request.MaxTokens < 1280 {
 					request.MaxTokens = common.GetPointer[uint](1280)
@@ -94,7 +112,7 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 				// BudgetTokens 为 max_tokens 的 80%
 				request.Thinking = &dto.Thinking{
 					Type:         "enabled",
-					BudgetTokens: common.GetPointer[int](int(float64(*request.MaxTokens) * model_setting.GetClaudeSettings().ThinkingAdapterBudgetTokensPercentage)),
+					BudgetTokens: common.GetPointer[int](int(float64(*request.MaxTokens) * claudeSettings.ThinkingAdapterBudgetTokensPercentage)),
 				}
 				// TODO: 临时处理
 				// https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking#important-considerations-when-using-extended-thinking
@@ -226,5 +244,12 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 	}
 
 	service.PostTextConsumeQuota(c, info, usage.(*dto.Usage), nil)
+	return nil
+}
+
+func validateClaudeMaxTokens(maxTokens uint) error {
+	if maxTokens > uint(model_setting.ClaudeMaxTokensLimit) {
+		return fmt.Errorf("Claude max_tokens %d exceeds limit %d", maxTokens, model_setting.ClaudeMaxTokensLimit)
+	}
 	return nil
 }

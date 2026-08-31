@@ -74,6 +74,7 @@ func TestValidateClaudeDefaultMaxTokens(t *testing.T) {
 		{name: "empty map allowed", value: `{}`},
 		{name: "negative default rejected", value: `{"default": -1}`, wantErr: `negative Claude default max_tokens -1 for "default"`},
 		{name: "negative model override rejected", value: `{"default": 8192, "claude-test": -5}`, wantErr: `negative Claude default max_tokens -5 for "claude-test"`},
+		{name: "above billing limit rejected", value: `{"default": 1073741824}`, wantErr: "exceeds limit"},
 		{name: "non-integer rejected", value: `{"default": "high"}`, wantErr: "JSON map of model to integer"},
 		{name: "null rejected", value: `null`, wantErr: "JSON map of model to integer"},
 		{name: "malformed rejected", value: `{`, wantErr: "JSON map of model to integer"},
@@ -88,5 +89,14 @@ func TestValidateClaudeDefaultMaxTokens(t *testing.T) {
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantErr)
 		})
+	}
+}
+
+func TestValidateClaudeThinkingAdapterBudgetTokensPercentage(t *testing.T) {
+	for _, value := range []float64{0, -0.1, 1.1} {
+		require.Error(t, ValidateClaudeThinkingAdapterBudgetTokensPercentage(value))
+	}
+	for _, value := range []float64{0.01, 0.8, 1} {
+		require.NoError(t, ValidateClaudeThinkingAdapterBudgetTokensPercentage(value))
 	}
 }

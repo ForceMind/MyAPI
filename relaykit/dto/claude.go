@@ -235,16 +235,31 @@ type ClaudeRequest struct {
 	ServiceTier string `json:"service_tier,omitempty"`
 }
 
+// EffectiveMaxTokens returns the largest completion limit supplied through
+// either Claude spelling.  Both fields are accepted for compatibility, but
+// billing must account for the effective (largest) limit rather than silently
+// ignoring max_tokens_to_sample.
+func (c *ClaudeRequest) EffectiveMaxTokens() uint {
+	if c == nil {
+		return 0
+	}
+	var maxTokens uint
+	if c.MaxTokens != nil {
+		maxTokens = *c.MaxTokens
+	}
+	if c.MaxTokensToSample != nil && *c.MaxTokensToSample > maxTokens {
+		maxTokens = *c.MaxTokensToSample
+	}
+	return maxTokens
+}
+
 // OutputConfigForEffort just for extract effort
 type OutputConfigForEffort struct {
 	Effort string `json:"effort,omitempty"`
 }
 
 func (c *ClaudeRequest) GetTokenCountMeta() *types.TokenCountMeta {
-	maxTokens := 0
-	if c.MaxTokens != nil {
-		maxTokens = int(*c.MaxTokens)
-	}
+	maxTokens := int(c.EffectiveMaxTokens())
 	var tokenCountMeta = types.TokenCountMeta{
 		TokenType: types.TokenTypeTokenizer,
 		MaxTokens: maxTokens,
