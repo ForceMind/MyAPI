@@ -35,6 +35,22 @@ bun run test -- src/features/usage-logs/components/__tests__/usage-logs-table.te
 
 这些命令不能替代真实画面检查，只能证明合同和状态分支存在。
 
+### 无界面运行时认证探针
+
+在无法立即使用手机时，可以先用仓库自带的只读探针复核部署的认证链路。凭据只从
+进程环境读取，输出只包含 HTTP 状态和固定错误分类，不会打印或保存密码、访问令牌、
+Cookie 或响应正文：
+
+```bash
+MYAPI_PROBE_URL=http://127.0.0.1:3000 \
+MYAPI_PROBE_USERNAME='<管理员用户名>' \
+MYAPI_PROBE_PASSWORD='<管理员密码>' \
+node tools/runtime/auth-probe.mjs
+```
+
+探针检查 `/api/status`、登录、`/api/user/self`、额度变化和管理员日志接口。它只能
+证明服务端认证/权限链路可用，不能代替手机浏览器的视觉、触控、滚动和日志正文验收。
+
 ## 3. macOS/Windows LAN Lite 验收
 
 对每个平台分别记录版本、安装包 SHA256 和系统版本：
