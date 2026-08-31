@@ -266,3 +266,5 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   `SOURCE_MANIFEST.json` 已生成但按约定保持 ignored。
 - 推送 `4cc5e2b` 后的最新 CI `33376520189` 仍在 runner 启动前结束，四个 job 均为
   `steps: []`；该结果继续按 GitHub Billing/runner 外部阻塞处理，不能归因于源码。
+- 推送 `7f4e184` 后的 CI `33376622066` 延续相同状态：四个 job 均在 runner 启动前结束且
+  `steps: []`；待 GitHub Billing/runner 恢复后只需重跑最新提交。
