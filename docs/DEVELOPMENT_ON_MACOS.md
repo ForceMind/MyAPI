@@ -124,6 +124,11 @@ curl -fsS http://127.0.0.1:3000/api/status
 node cli/myapi.mjs stop --project-dir .
 ```
 
+登录管理员后，概览页的「账户额度变化趋势」面板会在每分钟变化列表下显示
+「Codex · Usage trend」折线图；它绘制选中 Codex 账户/窗口在最近 24 小时的可用额度百分比，
+多个账户或窗口可以在图表右上角切换。首次使用若显示暂无历史，请在渠道页成功查询一次
+Codex 用量，或等待已启用的后台采样器完成下一次采样。
+
 `MYAPI_SESSION_COOKIE_SECURE=false` 只用于本机 HTTP；真实 HTTPS 部署必须恢复安全值。
 开发数据和日志只留在本机目录；不要使用 `down -v`，不要把数据库、日志、`dist`、
 `node_modules` 或 `.env` 加入 Git。
@@ -192,4 +197,3 @@ Apple Developer ID 签名和 notarization 时只是测试制品，可能触发 G
 - [ ] Full/LAN Lite 默认回环，开放私网时明确使用 `--allow-lan`；
 - [ ] Electron DMG/ZIP 未签名时只作为测试制品；
 - [ ] 任何服务器升级、GHCR/NPM 发布和生产操作均另行确认。
-
