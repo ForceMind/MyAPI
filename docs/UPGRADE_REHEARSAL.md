@@ -90,3 +90,13 @@ node --test --test-name-pattern="upgrade restores the environment" cli/test/myap
 - 升级失败时保留 CLI 输出、容器状态和备份校验和，再人工决定是否回滚。
 
 当前 CLI 的自动回滚范围是环境文件和镜像部署状态；数据库备份/恢复仍需按组织的 PostgreSQL/SQLite 运维流程执行。本页是演练清单，不会触发任何生产操作。
+
+## 最近一次本机副本演练
+
+2026-08-31 在临时 SQLite 副本、临时端口和受限资源（1 CPU、768 MiB）上完成：
+
+- `local/new-api:myapi-4b08bdb` 启动并完成 `dedupe_key` 迁移，`/api/status` 返回成功；
+- 停止新镜像后恢复原数据库副本，使用旧镜像 `local/new-api:myapi-9dc11d4` 重新启动并通过健康检查；
+- 演练容器、端口和临时数据库副本已清理，正式 `new-api` 容器未使用副本数据。
+
+该记录证明当前迁移和镜像回滚路径在本机 SQLite 数据上可行，不替代 macOS/Windows 真实设备验收或正式发布审批。
