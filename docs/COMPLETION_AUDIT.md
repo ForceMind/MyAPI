@@ -132,7 +132,9 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - 当前工作树快照幂等增量：`ChannelQuotaSnapshot` 使用可迁移的 nullable `dedupe_key`
   唯一索引，并在并发唯一冲突时回读赢家记录；模型定向回归在 `--cpus=1.5 --memory=3g`
   的 Go 容器中通过；随后完整 `GOWORK=off go test ./model -count=1` 也在同样资源限制下
-  通过（约 7 秒）。旧数据的完整字段查询仍作为兼容回退。
+  通过（约 7 秒），额度历史/同步/Codex quota 相关的 `GOWORK=off go test ./controller
+  -run "ChannelQuota|CodexQuota|Quota" -count=1` 也通过（约 0.19 秒）。旧数据的完整字段
+  查询仍作为兼容回退。
 
 - `npm run release:check` 在提交 `4169778` 上通过：CLI 21/21、品牌 2/2（115 条分类
   引用、0 blocking）、Website、LAN Lite 66/66、Desktop 31/31、Upgrade 18/18、
