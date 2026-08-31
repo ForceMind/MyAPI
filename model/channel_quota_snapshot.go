@@ -2,8 +2,12 @@ package model
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"math"
+	"strconv"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -94,14 +98,19 @@ type ChannelQuotaSnapshot struct {
 	// PlanType and WindowSeconds are populated for provider-specific rate-limit
 	// observations (for example Codex OAuth). They remain empty/zero for the
 	// generic balance snapshots.
-	PlanType      string    `json:"plan_type,omitempty" gorm:"size:32;index:idx_channel_quota_dedupe,priority:5"`
-	WindowSeconds int64     `json:"window_seconds,omitempty" gorm:"bigint;index:idx_channel_quota_dedupe,priority:8"`
-	ResetAt       int64     `json:"reset_at,omitempty" gorm:"bigint;index:idx_channel_quota_dedupe,priority:9"`
-	Source        string    `json:"source,omitempty" gorm:"size:64;index:idx_channel_quota_dedupe,priority:10"`
-	Status        string    `json:"status" gorm:"size:16;default:'success';index"`
-	ErrorCode     string    `json:"error_code,omitempty" gorm:"size:64"`
-	ErrorMessage  string    `json:"error_message,omitempty" gorm:"size:255"`
-	CreatedAt     time.Time `json:"created_at"`
+	PlanType      string `json:"plan_type,omitempty" gorm:"size:32;index:idx_channel_quota_dedupe,priority:5"`
+	WindowSeconds int64  `json:"window_seconds,omitempty" gorm:"bigint;index:idx_channel_quota_dedupe,priority:8"`
+	ResetAt       int64  `json:"reset_at,omitempty" gorm:"bigint;index:idx_channel_quota_dedupe,priority:9"`
+	Source        string `json:"source,omitempty" gorm:"size:64;index:idx_channel_quota_dedupe,priority:10"`
+	Status        string `json:"status" gorm:"size:16;default:'success';index"`
+	ErrorCode     string `json:"error_code,omitempty" gorm:"size:64"`
+	ErrorMessage  string `json:"error_message,omitempty" gorm:"size:255"`
+	// DedupeKey is nullable so AutoMigrate can add it without rewriting old
+	// rows. New rows use a unique digest of the complete series identity and
+	// observation time, allowing concurrent samplers to converge safely on all
+	// supported SQL dialects without a wide dialect-sensitive composite index.
+	DedupeKey *string   `json:"-" gorm:"size:64;uniqueIndex:idx_channel_quota_dedupe_key"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // DeleteOldChannelQuotaSnapshotBatch deletes at most limit snapshots observed
@@ -175,6 +184,8 @@ func RecordChannelQuotaSnapshot(snapshot *ChannelQuotaSnapshot) error {
 	if snapshot.Status == "" {
 		snapshot.Status = "success"
 	}
+	dedupeKey := channelQuotaSnapshotDedupeKey(snapshot)
+	snapshot.DedupeKey = &dedupeKey
 	// A sampler retry can produce the same observation more than once. Query
 	// the complete series identity before inserting so all supported SQL
 	// dialects converge on one point per channel/series/time bucket without
@@ -201,7 +212,41 @@ func RecordChannelQuotaSnapshot(snapshot *ChannelQuotaSnapshot) error {
 	if lookup.Error != gorm.ErrRecordNotFound {
 		return lookup.Error
 	}
-	return DB.Create(snapshot).Error
+	if err := DB.Create(snapshot).Error; err != nil {
+		// Two workers can both miss the pre-insert lookup. The unique digest is
+		// the database-level arbiter in that race; recover the winner instead of
+		// surfacing a transient duplicate-key failure to the sampler.
+		var concurrent ChannelQuotaSnapshot
+		if concurrentLookup := DB.Where("dedupe_key = ?", dedupeKey).Order("id ASC").First(&concurrent); concurrentLookup.Error == nil {
+			snapshot.Id = concurrent.Id
+			snapshot.CreatedAt = concurrent.CreatedAt
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func channelQuotaSnapshotDedupeKey(snapshot *ChannelQuotaSnapshot) string {
+	parts := []string{
+		strconv.Itoa(snapshot.ChannelId),
+		strconv.FormatInt(snapshot.ObservedAt, 10),
+		snapshot.MetricType,
+		snapshot.WindowType,
+		snapshot.Source,
+		snapshot.PlanType,
+		snapshot.Unit,
+		snapshot.Currency,
+		strconv.FormatInt(snapshot.WindowSeconds, 10),
+		strconv.FormatInt(snapshot.ResetAt, 10),
+	}
+	var builder strings.Builder
+	for _, part := range parts {
+		fmt.Fprintf(&builder, "%d:", len(part))
+		builder.WriteString(part)
+	}
+	digest := sha256.Sum256([]byte(builder.String()))
+	return hex.EncodeToString(digest[:])
 }
 
 // ListChannelQuotaSnapshots returns the most recent bounded observations in

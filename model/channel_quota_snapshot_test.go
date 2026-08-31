@@ -86,11 +86,34 @@ func TestRecordChannelQuotaSnapshotDeduplicatesSeriesTimeBucket(t *testing.T) {
 	require.NoError(t, RecordChannelQuotaSnapshot(&second))
 	require.NotZero(t, first.Id)
 	require.Equal(t, first.Id, second.Id)
+	require.NotNil(t, first.DedupeKey)
+	require.NotEmpty(t, *first.DedupeKey)
+	require.Equal(t, first.DedupeKey, second.DedupeKey)
 
 	var rows []ChannelQuotaSnapshot
 	require.NoError(t, DB.Where("channel_id = ?", 904).Find(&rows).Error)
 	require.Len(t, rows, 1)
 	require.Equal(t, 80.0, rows[0].Available)
+}
+
+func TestChannelQuotaSnapshotDedupeKeySeparatesProviderSeries(t *testing.T) {
+	base := &ChannelQuotaSnapshot{
+		ChannelId:     905,
+		ObservedAt:    1234,
+		MetricType:    "rate_limit",
+		WindowType:    "five_hour",
+		Source:        "codex",
+		PlanType:      "team",
+		Unit:          "percent",
+		WindowSeconds: 18000,
+	}
+	teamKey := channelQuotaSnapshotDedupeKey(base)
+	pro := *base
+	pro.PlanType = "pro"
+	proKey := channelQuotaSnapshotDedupeKey(&pro)
+	require.Len(t, teamKey, 64)
+	require.Len(t, proKey, 64)
+	require.NotEqual(t, teamKey, proKey)
 }
 
 func TestListChannelQuotaSnapshotsWithQuerySelectsOneProviderSeries(t *testing.T) {
