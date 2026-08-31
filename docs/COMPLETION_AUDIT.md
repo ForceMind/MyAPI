@@ -114,6 +114,12 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 
 ## 当前源码合同复核（2026-08-31）
 
+- 当前 `7c1b6c0` 增量复核：在 `web/` 以
+  `NODE_OPTIONS=--max-old-space-size=2048 npm test -- --run` 完整运行前端回归，62 个测试
+  文件、279 个测试全部通过（约 125 秒）。本条只更新当前提交的前端证据；CLI、品牌、官网、
+  LAN Lite、Desktop、Upgrade 和打包合同仍以各自最近一次明确标注的成功运行作为证据，不能
+  用本地前端测试替代这些合同或真实设备/副本验收。
+
 - `npm run release:check` 在提交 `4169778` 上通过：CLI 21/21、品牌 2/2（115 条分类
   引用、0 blocking）、Website、LAN Lite 66/66、Desktop 31/31、Upgrade 18/18、
   Release workflow 12/12，以及 SOURCE_MANIFEST/package check 均通过。该命令在
