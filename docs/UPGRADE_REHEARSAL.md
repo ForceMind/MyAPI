@@ -39,6 +39,14 @@ npm run upgrade:check -- --json
 5. 预检通过后，才在副本中执行 `myapi upgrade --project-dir <副本目录> --version <新版本>`，确认容器健康、登录、API 请求、日志查询和额度面板均可用。
 6. 在副本中停止服务并从备份恢复，再验证用户、Key、渠道配置、日志索引和快照趋势；记录恢复耗时和缺失项。
 
+### SQLite 迁移注意事项
+
+额度快照的 `dedupe_key` 在旧 SQLite 数据库中先作为可空列添加，随后由迁移显式创建
+唯一索引。不要手工把该列改成 `UNIQUE` 后再启动服务：SQLite 不支持对已有表执行
+`ALTER TABLE ... ADD COLUMN ... UNIQUE`，会导致容器健康检查失败。升级演练应确认日志中
+没有 `Cannot add a UNIQUE column`，并在健康检查通过后再切换流量；失败时保留旧镜像和
+数据库副本，按上面的回滚步骤处理。
+
 发布 workflow 会在构建前检查版本 tag 和架构 tag 是否已经存在；如果存在就失败，
 要求创建新的 SemVer tag，不覆盖已发布镜像。`latest` 和分支滚动 tag 仍是明确的
 可变入口，不应作为生产升级目标。如需避免版本 tag 在拉取后被重新指向，可在副本升级时增加 `--pin-digest`，或在
