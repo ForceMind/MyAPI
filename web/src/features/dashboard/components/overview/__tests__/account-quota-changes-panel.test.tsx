@@ -12,6 +12,7 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import {
+  getChannelQuotaHistory,
   getChannelQuotaChanges,
   getChannelQuotaSamplingStatus,
 } from '@/features/channels/api'
@@ -22,6 +23,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { AccountQuotaChangesPanel } from '../account-quota-changes-panel'
 
 vi.mock('@/features/channels/api', () => ({
+  getChannelQuotaHistory: vi.fn(),
   getChannelQuotaChanges: vi.fn(),
   getChannelQuotaSamplingStatus: vi.fn(),
 }))
@@ -230,6 +232,65 @@ describe('account quota changes dashboard panel', () => {
     expect(
       screen.getByRole('list', { name: 'Account quota changes' })
     ).toBeInTheDocument()
+  })
+
+  test('renders a Codex account availability line chart on the overview', async () => {
+    vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
+      success: true,
+      data: {
+        items: [
+          {
+            channel_id: 12,
+            name: 'Codex production channel',
+            account_label: 'Codex team account',
+            metric_type: 'codex_rate_limit',
+            source: 'codex_wham_usage_primary',
+            window_type: 'five_hour',
+            plan_type: 'team',
+            unit: 'percent',
+            status: 'success',
+            direction: 'decrease',
+            current_available: 72,
+          },
+        ],
+      },
+    })
+    vi.mocked(getChannelQuotaSamplingStatus).mockResolvedValueOnce({
+      success: true,
+      data: { enabled: true, interval_seconds: 300, max_channels: 20 },
+    })
+    vi.mocked(getChannelQuotaHistory).mockResolvedValueOnce({
+      success: true,
+      data: {
+        channel_id: 12,
+        start: 100,
+        end: 200,
+        limit: 500,
+        points: [
+          { timestamp: 100, status: 'success', available: 90 },
+          { timestamp: 200, status: 'success', available: 72 },
+        ],
+      },
+    })
+
+    renderPanel()
+
+    expect(
+      await screen.findByTestId('codex-account-quota-chart')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByLabelText('Codex usage history chart')
+    ).toBeInTheDocument()
+    expect(screen.getByText('Latest: 72.0%')).toBeInTheDocument()
+    expect(getChannelQuotaHistory).toHaveBeenCalledWith(
+      12,
+      expect.objectContaining({
+        metric_type: 'codex_rate_limit',
+        source: 'codex_wham_usage_primary',
+        window_type: 'five_hour',
+        plan_type: 'team',
+      })
+    )
   })
 
   test('renders a useful empty state after a successful response', async () => {

@@ -28,7 +28,8 @@
 - Codex/Chat Completions/Responses、SSE、附件转换和参数兼容；
 - 完整请求/响应/分片日志、脱敏、查询和移动端日志展示；
 - 普通渠道与 Codex OAuth 额度快照、每分钟/小时/天/周趋势、时区、失败状态、可选采样
-  和只读告警状态；概览和管理员渠道页面均有额度变化界面；
+  和只读告警状态；概览同时显示每分钟变化列表和 Codex 账户可用额度折线图，管理员渠道
+  页面提供完整筛选与历史图表；
 - Account Tier 与 Key Access Profile 兼容领域模型、注册表和清晰 Key 表单；
 - MyAPI 独立品牌、UI、静态官网、LAN Lite 和 Electron macOS/Windows 合同；
 - GHCR tag 自动构建 Full/LAN 镜像、不可变 digest、CLI 健康检查/备份/回滚；

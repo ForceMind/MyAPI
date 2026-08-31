@@ -45,9 +45,11 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { PanelWrapper } from '../ui/panel-wrapper'
+import { CodexAccountQuotaChart } from './codex-account-quota-chart'
 
 const RANGE = '24h' as const
 const LIMIT = 5
+const DATA_LIMIT = 50
 
 function getHttpStatus(error: unknown): number | undefined {
   if (!error || typeof error !== 'object') return undefined
@@ -314,7 +316,7 @@ export function AccountQuotaChangesPanel() {
       'dashboard',
       'account-quota-changes',
       RANGE,
-      LIMIT,
+      DATA_LIMIT,
       user?.id ?? null,
       sessionId,
       canReadChannels,
@@ -322,7 +324,9 @@ export function AccountQuotaChangesPanel() {
     queryFn: () =>
       getChannelQuotaChanges({
         range: RANGE,
-        limit: LIMIT,
+        // Keep enough groups to make Codex history discoverable even when a
+        // different provider has the five largest movements.
+        limit: DATA_LIMIT,
         sort: 'abs_change_per_minute',
       }),
     enabled: canReadChannels,
@@ -347,10 +351,11 @@ export function AccountQuotaChangesPanel() {
     staleTime: 5 * 60 * 1000,
   })
 
-  const items = useMemo(
+  const allItems = useMemo(
     () => query.data?.data?.items ?? [],
     [query.data?.data?.items]
   )
+  const items = useMemo(() => allItems.slice(0, LIMIT), [allItems])
   const firstMetric = items.find((item) => finite(item.change_per_minute))
   // Do not compare raw numbers from different units (for example USD and
   // percent). The movement list remains complete; summary cards use the
@@ -543,6 +548,7 @@ export function AccountQuotaChangesPanel() {
           </div>
         </div>
       </div>
+      <CodexAccountQuotaChart items={allItems} />
       <ul
         className='max-h-64 min-w-0 space-y-2 overflow-y-auto pr-1'
         aria-label={t('Account quota changes')}

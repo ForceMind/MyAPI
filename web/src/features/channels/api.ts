@@ -319,7 +319,12 @@ export async function getChannelQuotaChanges(
     start?: string
     end?: string
     limit?: number
-    sort?: 'abs_change_per_minute' | 'change_desc' | 'change_asc' | 'observed_desc' | 'channel'
+    sort?:
+      | 'abs_change_per_minute'
+      | 'change_desc'
+      | 'change_asc'
+      | 'observed_desc'
+      | 'channel'
     metric_type?: string
     window_type?: string
     source?: string
