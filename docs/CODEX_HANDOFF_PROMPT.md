@@ -15,7 +15,8 @@
 - 本机目录建议：~/src/MyAPI（不要放在 iCloud Drive、Dropbox、OneDrive 或网络盘）
 - 首先执行：git status --short --branch、git remote -v、git log --oneline --decorate -5
 - 然后读取仓库根目录 AGENTS.md、docs/MYAPI_MASTER_PLAN.md、docs/COMPLETION_AUDIT.md、
-  docs/DEVELOPMENT_ON_MACOS.md；如果当前环境有 /root/.codex/AGENTS.md，也读取它。
+  docs/DEVELOPMENT_ON_MACOS.md；如果当前环境有 `~/.codex/AGENTS.md`，也读取它（当前 Linux
+  机器上的对应路径是 `/root/.codex/AGENTS.md`）。
 
 开发环境：
 - macOS 原生开发；安装 Xcode Command Line Tools、Homebrew、Docker Desktop、Go、Bun、Node。
@@ -60,4 +61,3 @@
 - 优先处理真实代码缺陷或 macOS/Docker Desktop 开发迁移问题，不重复实现已验证功能；
 - 没有真实设备或外部权限时，明确记录阻塞，不伪造验收。
 ```
-
