@@ -147,6 +147,7 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - JSON wrapper 阶段提交 `83ba011` 将 common 工具、额度告警和 model JSON 持久化路径统一到 `common/json.go`，新增 strict decoder 并保留原有 `JsonRawMessageToString` 回归；完整根 Go 回归与 relaykit 独立构建通过。
 - Provider 阶段提交 `6b160c8` 修复 Midjourney 上传响应 fallback 丢失结果、Tencent 签名 payload 错误被忽略和 Cohere JSON wrapper 绕过；`service`、Tencent、Cohere 定向回归及完整根 Go 回归通过。
 - Provider 阶段推送后的 CI run `33404395878`（提交 `46697c6`）仍在 runner 启动阶段失败，Backend、Frontend、Desktop 和 Distribution 四个 job 均为 `steps: []`；不归因于本轮源码。
+- 迁移/Provider 阶段提交 `b90a342` 对应 CI run `33406547782` 延续同一 runner 启动故障，四个 job 均为 `steps: []`；待 Billing/runner 恢复后只重跑最新提交。
 - JSON helper 增量提交 `f6655ca` 将 `common.Any2Type` 的序列化/反序列化改用项目 wrapper，并保留 `0`、`false`、嵌套值和错误传播回归；common/model 测试通过。
 - 迁移与 Provider 增量提交 `2fab8a3`：SQLite 旧 `subscription_plans` 表新增必需列时使用兼容默认值并支持重复迁移；`migrateDBFast` 改为串行并补齐 Casbin/Authz 模型；Cloudflare/Dify 业务 JSON 统一走 wrapper，Dify 附件字段、上传失败和 SSE 错误不再静默吞掉。完整根 Go 回归、model/cloudflare/dify 定向测试与 relaykit 独立构建通过。
 - 代码优先阶段提交 `9427656` 修复并覆盖了 OpenRouter cache-create quota 饱和、topup ratio 原子更新与有限值校验、Gemini Imagen `N` 边界以及图片 token 面积/最终 quota 转换；`go test ./common ./service ./controller ./relay/channel/gemini`、完整根 Go 回归与 `cd relaykit && GOWORK=off go build ./...` 均通过。
