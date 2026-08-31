@@ -126,6 +126,9 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - 当前 `35ed22b` 后复核：`npm run release:workflow:check` 通过 16/16，确认语义版本
   Tag 自动触发 Full/LAN GHCR、既有 Tag 拒绝覆盖、manifest 使用已校验的不可变 digest，
   以及发布闸门和构建超时/并行度约束仍然生效；这不等于真实 GHCR 拉取或发布操作已执行。
+- 当前 `9cdee3e` 发行包复核：在允许 Node 子进程的受限环境中重新运行
+  `npm run source:manifest && npm run pack:check`，清单记录当前源提交，包含 2110 个文件；
+  打包检查通过（2111 个文件，19,175,562 bytes），未发现敏感文件、构建目录或凭据模式。
 
 - `npm run release:check` 在提交 `4169778` 上通过：CLI 21/21、品牌 2/2（115 条分类
   引用、0 blocking）、Website、LAN Lite 66/66、Desktop 31/31、Upgrade 18/18、
