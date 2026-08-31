@@ -294,6 +294,14 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   18/18、源码清单和打包检查通过）。原生 `/opt/homebrew/bin/node` 的 simdutf 链接问题仍
   需在开发主机永久修复，当前验证通过不代表 Node 26 环境符合项目要求。
 
+## Provider JSON 审计增量（2026-09-01，第二轮）
+
+- Xunfei 与 Volcengine 的业务 JSON 编解码已统一走 `common/json.go` wrapper；Xunfei
+  增加响应解码错误边界，Volcengine 保留 `json.RawMessage` 类型依赖并补充 TTS/metadata
+  malformed 输入测试。
+- 定向回归 `GOWORK=off go test ./relay/channel/xunfei ./relay/channel/volcengine -count=1`
+  通过；未改变上游协议、发布流程或生产数据。
+
 ## 本机部署更新与诊断（2026-08-31）
 
 - `/root/new-api/docker-compose.yml` 当前配置的是本地镜像

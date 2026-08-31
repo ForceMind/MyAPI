@@ -151,6 +151,9 @@ production build 与发行合同均已复核通过；默认 Homebrew Node 26 的
 需永久修复。Docker、跨数据库副本和真实设备继续保持外部待验证。完整 UI 替换没有开始，
 仍按代码合同稳定后的后置闸门执行。
 
+第二轮 Provider 审计已覆盖 Xunfei 与 Volcengine，并通过定向回归；继续以小范围 wrapper
+收敛和错误边界为主，不整体重写稳定适配器。
+
 | 领域 | 当前状态 | 完成定义 |
 | --- | --- | --- |
 | 品牌和旧元数据清理 | 审计清单已建立 | About 默认态、PNG/ICO 资产已切换；`docs/BRAND_AUDIT.md` 区分必须替换、兼容保留和法律保留项，NOTICE/源码头部仍需合规审查 |
