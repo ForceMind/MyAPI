@@ -39,6 +39,8 @@
 - `33344526525`（提交 `1695688`）仍在 runner 启动前失败：Backend、Frontend、Desktop、
   Distribution 四个作业均为 `steps: []`；当前仍应按 GitHub Billing & plans 外部阻塞处理，
   不将其视为代码测试失败。
+- `33344621039`（提交 `51f3fec`）及同提交的官网 workflow 均在 runner 启动前失败，
+  CI 四个作业和官网检查/浏览器 smoke 均无执行 steps；继续按同一 Billing 外部阻塞处理。
 - `33335484167`：完成度矩阵一致性修正后的完整 CI，Backend、Frontend、Desktop
   和 Distribution 四个作业全部成功。
 - `33335299578`：本机部署旧镜像诊断证据提交后的完整 CI，Backend、Frontend、
