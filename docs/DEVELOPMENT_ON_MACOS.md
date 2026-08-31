@@ -200,4 +200,4 @@ Apple Developer ID 签名和 notarization 时只是测试制品，可能触发 G
 - [ ] Electron DMG/ZIP 未签名时只作为测试制品；
 - [ ] 任何服务器升级、GHCR/NPM 发布和生产操作均另行确认。
 
-当前阶段边界：本轮工作树修改尚未推送到 GitHub；完成阶段后应先提交并由负责人确认是否允许 push。即使提交后，GitHub runner/Billing、Docker Desktop、真实手机、Windows 设备、PostgreSQL 恢复、NOTICE/法律审查及正式发布仍分别需要对应外部条件和明确授权。
+当前阶段边界：本阶段代码、测试与文档已提交为 `a620246`，GitHub push 与远端 CI 结果需在阶段同步后记录。即使同步后，GitHub runner/Billing、Docker Desktop、真实手机、Windows 设备、PostgreSQL 恢复、NOTICE/法律审查及正式发布仍分别需要对应外部条件和明确授权。

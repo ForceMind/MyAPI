@@ -129,7 +129,7 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 
 ### 当前工作树阶段证据（2026-08-31）
 
-- 当前基线为 `HEAD=9b65ac4`，`main` 与 `origin/main` 在只读核对时一致；本轮改动尚未提交，工作树仅包含 `deploy/install.sh`、`service/violation_fee.go`、`tools/lan/check.mjs` 的修改及新增 `service/violation_fee_test.go`，不得把下列结果误认为远端提交或 CI 结果。
+- 本阶段提交为 `a620246`（基于 `HEAD=9b65ac4`）；代码、测试与文档已写入本地提交，远端同步状态需以本阶段 push 后的核对为准。
 - `deploy/install.sh` 已移除 macOS 系统 Bash 3.2 不支持的 `${var,,}` 展开，并将 `MYAPI_PORT` 限制为 `1..65535`；`bash -n deploy/install.sh` 通过。
 - 本机合同回归：CLI 22/22、LAN Lite 68/68、Desktop 32/32、Upgrade 18/18、Runtime probe 13/13（测试 4/4）、Release workflow 16/16、Brand 2/2；Website 静态检查通过。
 - 本机前端回归（Node 22）：typecheck、Vitest 62 个测试文件/280 个测试和 production build 全部通过。Node 26 的 localStorage 不兼容只属于不符合项目要求的运行环境，改用 Node 22 后未重现。
