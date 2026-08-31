@@ -69,6 +69,17 @@ record(
     dockerWorkflow.includes('ghcr.io/forcemind/myapi-lan'),
 )
 record(
+  'GHCR release tags reject overwrite',
+  [dockerWorkflow, branchDockerWorkflow].every(
+    (source) =>
+      source.includes('docker buildx imagetools inspect') &&
+      source.includes('immutable GHCR tag already exists') &&
+      source.includes('timeout 20s') &&
+      source.includes('inspect_status') &&
+      source.includes('manifest unknown'),
+  ),
+)
+record(
   'CLI and installer pull versioned GHCR images by default',
   cli.includes('ghcr.io/forcemind/myapi:v${packageMetadata.version}') &&
     installer.includes('ghcr.io/forcemind/myapi:v${distribution_version}') &&

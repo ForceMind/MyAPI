@@ -178,7 +178,9 @@ Full 与 LAN Lite 两个多架构镜像；稳定版本分别更新各自的 `lat
 不会覆盖 `latest`。也可以通过 `workflow_dispatch` 指定已有 tag 手动重跑，但必须在
 `confirm` 输入中选择 `PUBLISH`；默认的 `NO` 会跳过所有推送 job。不要手动重跑旧的
 `v0.1.1` tag；workflow 会校验
-tag、`VERSION` 和 `package.json.version` 完全一致，不会移动既有 tag。
+tag、`VERSION` 和 `package.json.version` 完全一致，不会移动既有 tag。构建前还会检查
+GHCR 的版本和架构 tag；任一已存在就拒绝覆盖，必须创建新的 SemVer tag。稳定版
+`latest` 与分支滚动 tag 是有意保留的可变别名，生产升级应使用版本 tag 或 digest。
 CLI 会从 `package.json.version` 生成新项目的 Full 默认镜像，安装脚本会从根目录
 `VERSION` 生成默认 tag；发布工作流会校验 tag、`VERSION` 与
 `package.json.version` 的一致性，避免版本升级后初始化流程意外拉取旧镜像。当前

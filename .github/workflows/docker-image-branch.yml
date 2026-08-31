@@ -128,6 +128,26 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Reject existing immutable branch build tag
+        env:
+          VERSION_TAG: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          candidate="${IMAGE_REPOSITORY}:${VERSION_TAG}-${{ matrix.arch }}"
+          set +e
+          inspect_output="$(timeout 20s docker buildx imagetools inspect "$candidate" 2>&1)"
+          inspect_status=$?
+          set -e
+          if [[ "$inspect_status" -eq 0 ]]; then
+            echo "::error::immutable GHCR tag already exists: $candidate"
+            echo "::error::Run the branch build with a new commit; do not overwrite an existing image."
+            exit 1
+          fi
+          if [[ "$inspect_status" -eq 124 ]] || ! grep -Eqi 'manifest unknown|no such manifest|not found|404' <<<"$inspect_output"; then
+            echo "::error::Could not prove that immutable GHCR tag is absent: $candidate"
+            exit 1
+          fi
+
       - name: Extract metadata (labels)
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0

@@ -39,7 +39,9 @@ npm run upgrade:check -- --json
 5. 预检通过后，才在副本中执行 `myapi upgrade --project-dir <副本目录> --version <新版本>`，确认容器健康、登录、API 请求、日志查询和额度面板均可用。
 6. 在副本中停止服务并从备份恢复，再验证用户、Key、渠道配置、日志索引和快照趋势；记录恢复耗时和缺失项。
 
-如需避免版本 tag 在拉取后被重新指向，可在副本升级时增加 `--pin-digest`，或在
+发布 workflow 会在构建前检查版本 tag 和架构 tag 是否已经存在；如果存在就失败，
+要求创建新的 SemVer tag，不覆盖已发布镜像。`latest` 和分支滚动 tag 仍是明确的
+可变入口，不应作为生产升级目标。如需避免版本 tag 在拉取后被重新指向，可在副本升级时增加 `--pin-digest`，或在
 `deploy/.env` 设置 `MYAPI_PIN_IMAGE_DIGEST=true`。CLI 会先拉取版本 tag，再读取本机
 `RepoDigests`，严格校验 `repo@sha256:<64 hex>` 后把该 digest 写回环境文件；若同时
 使用 `--verify-signature`，cosign 会验证最终 digest。解析失败会触发原环境回滚。
