@@ -150,6 +150,10 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   访问方案回归证据均对应该提交。`SOURCE_MANIFEST.json` 仍是被忽略的生成文件，发布前
   应在最终版本提交上重新生成，不要将其加入 Git。
 
+- 推送后的 CI `33359526462`（提交 `d422511`，2026-08-31）仍在 runner 启动阶段失败：
+  Backend、Frontend、Desktop 和 Distribution 四个 job 均为 `steps: []`，约 3 秒内结束。
+  该结果与前序记录一致，不能归因于源码；GitHub Billing/runner 恢复后只需重跑最新提交。
+
 - `npm run release:check` 在提交 `4169778` 上通过：CLI 21/21、品牌 2/2（115 条分类
   引用、0 blocking）、Website、LAN Lite 66/66、Desktop 31/31、Upgrade 18/18、
   Release workflow 12/12，以及 SOURCE_MANIFEST/package check 均通过。该命令在
