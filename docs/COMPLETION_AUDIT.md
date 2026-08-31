@@ -147,6 +147,7 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - JSON wrapper 阶段提交 `83ba011` 将 common 工具、额度告警和 model JSON 持久化路径统一到 `common/json.go`，新增 strict decoder 并保留原有 `JsonRawMessageToString` 回归；完整根 Go 回归与 relaykit 独立构建通过。
 - Provider 阶段提交 `6b160c8` 修复 Midjourney 上传响应 fallback 丢失结果、Tencent 签名 payload 错误被忽略和 Cohere JSON wrapper 绕过；`service`、Tencent、Cohere 定向回归及完整根 Go 回归通过。
 - Provider 阶段推送后的 CI run `33404395878`（提交 `46697c6`）仍在 runner 启动阶段失败，Backend、Frontend、Desktop 和 Distribution 四个 job 均为 `steps: []`；不归因于本轮源码。
+- JSON helper 增量提交 `f6655ca` 将 `common.Any2Type` 的序列化/反序列化改用项目 wrapper，并保留 `0`、`false`、嵌套值和错误传播回归；common/model 测试通过。
 - 代码优先阶段提交 `9427656` 修复并覆盖了 OpenRouter cache-create quota 饱和、topup ratio 原子更新与有限值校验、Gemini Imagen `N` 边界以及图片 token 面积/最终 quota 转换；`go test ./common ./service ./controller ./relay/channel/gemini`、完整根 Go 回归与 `cd relaykit && GOWORK=off go build ./...` 均通过。
 - 同一阶段的 Node 合同复核：LAN Lite 68/68、Desktop 32/32、Upgrade 18/18、Release workflow 17/17；Docker workflow 版本写入已断言为无 `v` 的 SemVer。真实 Docker Compose、数据库副本和跨平台设备仍未验证。
 - 代码阶段提交 `d0cd478` 推送后的 CI run `33402289671`（2026-08-31）仍在 runner 启动阶段失败，Backend、Frontend、Desktop 和 Distribution 四个 job 均为 `steps: []`；继续按 GitHub Billing/runner 外部阻塞处理。
