@@ -323,8 +323,6 @@ func migrateDB() error {
 
 func migrateDBFast() error {
 
-	var wg sync.WaitGroup
-
 	migrations := []struct {
 		model interface{}
 		name  string
@@ -361,28 +359,15 @@ func migrateDBFast() error {
 		{&SystemInstance{}, "SystemInstance"},
 		{&SystemTask{}, "SystemTask"},
 		{&SystemTaskLock{}, "SystemTaskLock"},
+		{&CasbinRule{}, "CasbinRule"},
+		{&AuthzRole{}, "AuthzRole"},
 	}
-	// 动态计算migration数量，确保errChan缓冲区足够大
-	errChan := make(chan error, len(migrations))
-
+	// Schema migrations must run serially.  Concurrent AutoMigrate calls on a
+	// shared connection are prone to SQLite schema locks and can race on DDL
+	// and index creation on MySQL/PostgreSQL.
 	for _, m := range migrations {
-		wg.Add(1)
-		go func(model interface{}, name string) {
-			defer wg.Done()
-			if err := DB.AutoMigrate(model); err != nil {
-				errChan <- fmt.Errorf("failed to migrate %s: %v", name, err)
-			}
-		}(m.model, m.name)
-	}
-
-	// Wait for all migrations to complete
-	wg.Wait()
-	close(errChan)
-
-	// Check for any errors
-	for err := range errChan {
-		if err != nil {
-			return err
+		if err := DB.AutoMigrate(m.model); err != nil {
+			return fmt.Errorf("failed to migrate %s: %w", m.name, err)
 		}
 	}
 	if err := ensureChannelQuotaSnapshotDedupeIndex(); err != nil {
@@ -583,9 +568,12 @@ PRIMARY KEY (` + "`id`" + `)
 		existing[c.Name] = struct{}{}
 	}
 	required := []sqliteColumnDef{
-		{Name: "title", DDL: "`title` varchar(128) NOT NULL"},
+		// SQLite rejects adding a NOT NULL column without a default when rows
+		// already exist. Defaults preserve legacy rows and are also valid for
+		// empty tables; normal writes still receive the model's required fields.
+		{Name: "title", DDL: "`title` varchar(128) NOT NULL DEFAULT ''"},
 		{Name: "subtitle", DDL: "`subtitle` varchar(255) DEFAULT ''"},
-		{Name: "price_amount", DDL: "`price_amount` decimal(10,6) NOT NULL"},
+		{Name: "price_amount", DDL: "`price_amount` decimal(10,6) NOT NULL DEFAULT 0"},
 		{Name: "currency", DDL: "`currency` varchar(8) NOT NULL DEFAULT 'USD'"},
 		{Name: "duration_unit", DDL: "`duration_unit` varchar(16) NOT NULL DEFAULT 'month'"},
 		{Name: "duration_value", DDL: "`duration_value` integer NOT NULL DEFAULT 1"},
