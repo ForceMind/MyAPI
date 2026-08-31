@@ -52,7 +52,7 @@ myapi lan start \
   --allow-lan
 ```
 
-`--allow-lan` is required whenever the listener is not loopback. Public addresses are rejected. `0.0.0.0` is accepted only with `--allow-lan`; prefer the workstation's concrete private address when possible.
+`--allow-lan` is required whenever the listener is not loopback. Public addresses are rejected. `0.0.0.0` is accepted only with `--allow-lan`; the CLI discovers and prints RFC1918 addresses from the workstation's network interfaces for this wildcard mode. Prefer a concrete private bind address when possible, and verify that the selected address is reachable by colleagues (virtual/Docker interfaces may also be listed).
 
 If you deploy the generated `deploy/install.sh` directly instead of using the CLI,
 the equivalent guard is `MYAPI_ALLOW_LAN=true` in `deploy/.env`. The installer
@@ -88,7 +88,7 @@ myapi lan status --project-dir ./myapi-lan
 myapi lan stop --project-dir ./myapi-lan
 ```
 
-The status output only shows the listener and deployment state. It never prints `SESSION_SECRET`, upstream keys, downstream keys, OAuth JSON, cookies, or JWTs.
+The status output only shows the listener and deployment state. For a `0.0.0.0` listener it prints only discovered RFC1918 IPv4 endpoint candidates, never public or IPv6 addresses; if discovery finds none it reports that explicitly rather than showing a fake URL. It never prints `SESSION_SECRET`, upstream keys, downstream keys, OAuth JSON, cookies, or JWTs.
 
 ## Platform data locations
 

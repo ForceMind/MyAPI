@@ -669,6 +669,31 @@ test('lan init requires explicit opt-in for a private network address', () => {
   assert.match(readFileSync(envPath, 'utf8'), /^MYAPI_ALLOW_LAN=true$/m)
 })
 
+test('lan wildcard binding advertises discovered RFC1918 endpoints without a placeholder', () => {
+  const root = temporaryRoot()
+  const project = path.join(root, 'wildcard')
+
+  const output = runCli(
+    'lan',
+    'init',
+    project,
+    '--bind-address',
+    '0.0.0.0',
+    '--port',
+    '4318',
+    '--allow-lan',
+  )
+  const env = readFileSync(path.join(project, 'deploy/.env'), 'utf8')
+
+  // A wildcard is a socket bind address, not a usable endpoint. The CLI must
+  // either print one or more RFC1918 URLs or explicitly report that discovery
+  // found none, and must never suggest the old placeholder as a URL.
+  assert.doesNotMatch(output, /<private-LAN-IP>/)
+  assert.match(output, /MyAPI LAN endpoint(?:s)?: .*(?:RFC1918|http:\/\/)/)
+  assert.match(env, /^MYAPI_BIND_ADDRESS=0\.0\.0\.0$/m)
+  assert.match(env, /^MYAPI_PUBLIC_URL=http:\/\/localhost:4318$/m)
+})
+
 test('lan init rejects public and invalid listener addresses', () => {
   const root = temporaryRoot()
   assert.throws(

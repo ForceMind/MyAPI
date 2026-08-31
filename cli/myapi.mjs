@@ -23,7 +23,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { spawnSync } from 'node:child_process'
-import { homedir, platform } from 'node:os'
+import { homedir, networkInterfaces, platform } from 'node:os'
 import { isIP } from 'node:net'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -300,6 +300,32 @@ function isPrivateIPv4(value) {
     (octets[0] === 192 && octets[1] === 168)
 }
 
+// A wildcard listener is useful for LAN mode, but it is not a URL colleagues
+// can use. Only advertise RFC1918 addresses discovered on this host; public,
+// link-local, loopback, and IPv6 addresses are intentionally omitted.
+function privateLANIPv4Addresses() {
+  const addresses = new Set()
+  let interfaces
+  try {
+    interfaces = networkInterfaces()
+  } catch {
+    return []
+  }
+  for (const records of Object.values(interfaces)) {
+    for (const record of records || []) {
+      const address = String(record?.address || '').trim()
+      const family = record?.family
+      if ((family === 'IPv4' || family === 4) && isPrivateIPv4(address)) {
+        addresses.add(address)
+      }
+    }
+  }
+  return [...addresses].sort((left, right) => {
+    const toNumber = (value) => value.split('.').reduce((result, octet) => result * 256 + Number(octet), 0)
+    return toNumber(left) - toNumber(right)
+  })
+}
+
 function isLoopbackBindAddress(value) {
   const address = String(value || '').trim().toLowerCase()
   return address === 'localhost' || address === '127.0.0.1' || address === '::1' || address === '[::1]'
@@ -308,6 +334,14 @@ function isLoopbackBindAddress(value) {
 function isPrivateBindAddress(value) {
   const address = String(value || '').trim().toLowerCase()
   return address === '0.0.0.0' || isPrivateIPv4(address)
+}
+
+function lanPublicHost(bindAddress) {
+  // 0.0.0.0 is a bind wildcard, never a usable browser/API origin. Local
+  // probing should use loopback while endpoint discovery prints LAN IPs.
+  return isLoopbackBindAddress(bindAddress) || bindAddress === '0.0.0.0'
+    ? 'localhost'
+    : bindAddress
 }
 
 function validateLANBinding(value, allowLAN = false) {
@@ -612,7 +646,7 @@ function writeLANEnvironment(projectRoot, options) {
   contents = setEnvValue(contents, 'MYAPI_ALLOW_LAN', isLoopbackBindAddress(options.bindAddress) ? 'false' : 'true')
   contents = setEnvValue(contents, 'MYAPI_PORT', options.port)
   contents = setEnvValue(contents, 'MYAPI_SESSION_COOKIE_SECURE', 'false')
-  const publicHost = isLoopbackBindAddress(options.bindAddress) ? 'localhost' : options.bindAddress
+  const publicHost = lanPublicHost(options.bindAddress)
   contents = setEnvValue(contents, 'MYAPI_PUBLIC_URL', `http://${publicHost}:${options.port}`)
   writeFileSync(paths.envFile, contents, { mode: 0o600 })
   chmodSync(paths.envFile, 0o600)
@@ -623,8 +657,19 @@ function printLANEndpoint(values) {
   const bindAddress = values.MYAPI_BIND_ADDRESS || deploymentDefaults.MYAPI_BIND_ADDRESS
   const port = deploymentValue(values, 'MYAPI_PORT') || deploymentDefaults.MYAPI_PORT
   const loopback = isLoopbackBindAddress(bindAddress)
-  const displayHost = bindAddress === '0.0.0.0' ? '<private-LAN-IP>' : bindAddress
-  console.log(`MyAPI LAN endpoint: http://${displayHost}:${port}`)
+  if (bindAddress === '0.0.0.0') {
+    const hosts = privateLANIPv4Addresses()
+    if (hosts.length > 0) {
+      const endpoints = hosts.map((host) => `http://${host}:${port}`).join(', ')
+      console.log(`MyAPI LAN endpoints: ${endpoints}`)
+      console.log('Wildcard binding is active; only RFC1918 addresses are shown. Verify the chosen address is reachable by colleagues.')
+    } else {
+      console.log(`MyAPI LAN endpoint: no RFC1918 address detected (port ${port})`)
+      console.log('Wildcard binding is active; choose a concrete private bind address and verify the host network before sharing.')
+    }
+  } else {
+    console.log(`MyAPI LAN endpoint: http://${bindAddress}:${port}`)
+  }
   console.log(loopback
     ? 'Loopback-only mode; use --allow-lan with a private bind address to share with colleagues.'
     : 'Private-network mode; create one downstream API Key per colleague in the MyAPI admin UI.')
@@ -642,7 +687,7 @@ function lanInit(args) {
     '--project-dir',
     destination,
     '--public-url',
-    `http://${isLoopbackBindAddress(options.bindAddress) ? 'localhost' : options.bindAddress}:${options.port}`,
+    `http://${lanPublicHost(options.bindAddress)}:${options.port}`,
   ])
   const paths = writeLANEnvironment(destination, options)
   console.log(`LAN edition configured at ${paths.envFile}.`)
