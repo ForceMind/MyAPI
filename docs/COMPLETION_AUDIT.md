@@ -283,6 +283,10 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - 本阶段没有执行 tag、NPM/GHCR publish、生产重启或生产数据操作；完整 UI 替换仍为
   `尚未开始（代码层先行）`。真实 Docker Desktop、MySQL/PostgreSQL 副本、手机及
   macOS/Windows 安装仍按外部验收清单待验证。
+- 提交 `2db1a58` 已推送到 `origin/main`；GitHub Actions CI run `33419182037` 的
+  Backend、Frontend、Desktop、Distribution 四个 job 均在 runner 启动前失败且
+  `steps: []`。按规则归类为 GitHub Billing/runner 外部阻塞，不归因于本轮源码；恢复后
+  只需重跑该提交的 CI。
 
 ## 本机部署更新与诊断（2026-08-31）
 
