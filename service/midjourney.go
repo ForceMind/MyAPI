@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -273,6 +272,28 @@ func ConvertSimpleChangeParams(content string) *dto.MidjourneyRequest {
 	return changeParams
 }
 
+// decodeMidjourneyResponse normalizes the scalar and upload response shapes.
+// The original response body remains available to callers for exact
+// pass-through; Result is projected to the first uploaded URL for the legacy
+// scalar response type.
+func decodeMidjourneyResponse(responseBody []byte) (dto.MidjourneyResponse, error) {
+	var response dto.MidjourneyResponse
+	if err := common.Unmarshal(responseBody, &response); err == nil {
+		return response, nil
+	}
+
+	var uploadResponse dto.MidjourneyUploadResponse
+	if err := common.Unmarshal(responseBody, &uploadResponse); err != nil {
+		return dto.MidjourneyResponse{}, err
+	}
+	response.Code = uploadResponse.Code
+	response.Description = uploadResponse.Description
+	if len(uploadResponse.Result) > 0 {
+		response.Result = uploadResponse.Result[0]
+	}
+	return response, nil
+}
+
 func DoMidjourneyHttpRequest(c *gin.Context, timeout time.Duration, fullRequestURL string) (*dto.MidjourneyResponseWithStatusCode, []byte, error) {
 	var nullBytes []byte
 	//var requestBody io.Reader
@@ -281,7 +302,7 @@ func DoMidjourneyHttpRequest(c *gin.Context, timeout time.Duration, fullRequestU
 	var mapResult map[string]interface{}
 	// if get request, no need to read request body
 	if c.Request.Method != "GET" {
-		err := json.NewDecoder(c.Request.Body).Decode(&mapResult)
+		err := common.DecodeJson(c.Request.Body, &mapResult)
 		if err != nil {
 			return MidjourneyErrorWithStatusCodeWrapper(constant.MjErrorUnknown, "read_request_body_failed", http.StatusInternalServerError), nullBytes, err
 		}
@@ -303,7 +324,7 @@ func DoMidjourneyHttpRequest(c *gin.Context, timeout time.Duration, fullRequestU
 			mapResult["prompt"] = prompt
 		}
 	}
-	reqBody, err := json.Marshal(mapResult)
+	reqBody, err := common.Marshal(mapResult)
 	if err != nil {
 		return MidjourneyErrorWithStatusCodeWrapper(constant.MjErrorUnknown, "marshal_request_body_failed", http.StatusInternalServerError), nullBytes, err
 	}
@@ -339,8 +360,6 @@ func DoMidjourneyHttpRequest(c *gin.Context, timeout time.Duration, fullRequestU
 	if err != nil {
 		return MidjourneyErrorWithStatusCodeWrapper(constant.MjErrorUnknown, "close_request_body_failed", statusCode), nullBytes, err
 	}
-	var midjResponse dto.MidjourneyResponse
-	var midjourneyUploadsResponse dto.MidjourneyUploadResponse
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return MidjourneyErrorWithStatusCodeWrapper(constant.MjErrorUnknown, "read_response_body_failed", statusCode), nullBytes, err
@@ -349,14 +368,10 @@ func DoMidjourneyHttpRequest(c *gin.Context, timeout time.Duration, fullRequestU
 	logger.LogDebug(c, "midjourney response body: %s", responseBody)
 	if len(responseBody) == 0 {
 		return MidjourneyErrorWithStatusCodeWrapper(constant.MjErrorUnknown, "empty_response_body", statusCode), responseBody, nil
-	} else {
-		err = json.Unmarshal(responseBody, &midjResponse)
-		if err != nil {
-			err2 := json.Unmarshal(responseBody, &midjourneyUploadsResponse)
-			if err2 != nil {
-				return MidjourneyErrorWithStatusCodeWrapper(constant.MjErrorUnknown, "unmarshal_response_body_failed", statusCode), responseBody, err
-			}
-		}
+	}
+	midjResponse, err := decodeMidjourneyResponse(responseBody)
+	if err != nil {
+		return MidjourneyErrorWithStatusCodeWrapper(constant.MjErrorUnknown, "unmarshal_response_body_failed", statusCode), responseBody, err
 	}
 	//for k, v := range resp.Header {
 	//	c.Writer.Header().Set(k, v[0])

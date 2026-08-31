@@ -78,7 +78,10 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	}
 	tencentRequest := requestOpenAI2Tencent(a, *request)
 	// we have to calculate the sign here
-	a.Sign = getTencentSign(*tencentRequest, a, secretId, secretKey)
+	a.Sign, err = getTencentSign(*tencentRequest, a, secretId, secretKey)
+	if err != nil {
+		return nil, err
+	}
 	return tencentRequest, nil
 }
 

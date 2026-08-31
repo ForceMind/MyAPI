@@ -184,7 +184,7 @@ func hmacSha256(s, key string) string {
 	return string(hashed.Sum(nil))
 }
 
-func getTencentSign(req TencentChatRequest, adaptor *Adaptor, secId, secKey string) string {
+func getTencentSign(req TencentChatRequest, adaptor *Adaptor, secId, secKey string) (string, error) {
 	// build canonical request string
 	host := "hunyuan.tencentcloudapi.com"
 	httpRequestMethod := "POST"
@@ -193,7 +193,10 @@ func getTencentSign(req TencentChatRequest, adaptor *Adaptor, secId, secKey stri
 	canonicalHeaders := fmt.Sprintf("content-type:%s\nhost:%s\nx-tc-action:%s\n",
 		"application/json", host, strings.ToLower(adaptor.Action))
 	signedHeaders := "content-type;host;x-tc-action"
-	payload, _ := json.Marshal(req)
+	payload, err := common.Marshal(req)
+	if err != nil {
+		return "", fmt.Errorf("marshal tencent request for signature: %w", err)
+	}
 	hashedRequestPayload := sha256hex(string(payload))
 	canonicalRequest := fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s",
 		httpRequestMethod,
@@ -230,5 +233,5 @@ func getTencentSign(req TencentChatRequest, adaptor *Adaptor, secId, secKey stri
 		credentialScope,
 		signedHeaders,
 		signature)
-	return authorization
+	return authorization, nil
 }
