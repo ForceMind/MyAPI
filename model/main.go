@@ -299,6 +299,9 @@ func migrateDB() error {
 	if err != nil {
 		return err
 	}
+	if err := ensureUserNormalizedEmail(); err != nil {
+		return err
+	}
 	if err := ensureChannelQuotaSnapshotDedupeIndex(); err != nil {
 		return err
 	}
@@ -372,6 +375,9 @@ func migrateDBFast() error {
 			return fmt.Errorf("failed to migrate %s: %w", m.name, err)
 		}
 	}
+	if err := ensureUserNormalizedEmail(); err != nil {
+		return err
+	}
 	if err := ensureChannelQuotaSnapshotDedupeIndex(); err != nil {
 		return err
 	}
@@ -394,6 +400,66 @@ func migrateDBFast() error {
 		}
 	}
 	common.SysLog("database migrated")
+	return nil
+}
+
+// ensureUserNormalizedEmail adds and backfills the portable email key before
+// creating its unique index. It deliberately fails when legacy rows collide;
+// silently choosing a winner would change account ownership and make OAuth
+// bindings ambiguous. NULL is used for empty emails because all supported
+// databases permit multiple NULL values in a unique index.
+func ensureUserNormalizedEmail() error {
+	if DB == nil || DB.Dialector == nil || DB.Dialector.Name() == string(common.DatabaseTypeClickHouse) {
+		return nil
+	}
+	if !DB.Migrator().HasTable(&User{}) {
+		return nil
+	}
+	if !DB.Migrator().HasColumn(&User{}, "email_normalized") {
+		if err := DB.Exec("ALTER TABLE users ADD COLUMN email_normalized varchar(50)").Error; err != nil {
+			return fmt.Errorf("add users.email_normalized: %w", err)
+		}
+	}
+	lengthFunction := "CHAR_LENGTH"
+	if DB.Dialector.Name() == string(common.DatabaseTypeSQLite) {
+		lengthFunction = "LENGTH"
+	}
+	var oversized string
+	if err := DB.Raw("SELECT email FROM users WHERE email IS NOT NULL AND " + lengthFunction + "(LOWER(TRIM(email))) > 50 LIMIT 1").Scan(&oversized).Error; err != nil {
+		return fmt.Errorf("check normalized email length: %w", err)
+	}
+	if oversized != "" {
+		return fmt.Errorf("normalized email exceeds 50 characters: %q", oversized)
+	}
+	if err := DB.Exec("UPDATE users SET email_normalized = NULL WHERE email IS NULL OR TRIM(email) = ''").Error; err != nil {
+		return fmt.Errorf("clear empty users.email_normalized: %w", err)
+	}
+	if err := DB.Exec("UPDATE users SET email_normalized = LOWER(TRIM(email)) WHERE email IS NOT NULL AND TRIM(email) <> ''").Error; err != nil {
+		return fmt.Errorf("backfill users.email_normalized: %w", err)
+	}
+	var conflict string
+	if err := DB.Raw("SELECT email_normalized FROM users WHERE email_normalized IS NOT NULL AND email_normalized <> '' GROUP BY email_normalized HAVING COUNT(*) > 1 LIMIT 1").Scan(&conflict).Error; err != nil {
+		return fmt.Errorf("check normalized email conflicts: %w", err)
+	}
+	if conflict != "" {
+		return fmt.Errorf("normalized email conflict for %q: %w", conflict, ErrEmailAlreadyTaken)
+	}
+	const index = "idx_users_email_normalized_unique"
+	migrator := DB.Migrator()
+	if migrator.HasIndex(&User{}, index) {
+		return nil
+	}
+	statement := "CREATE UNIQUE INDEX " + index + " ON users (email_normalized)"
+	switch DB.Dialector.Name() {
+	case string(common.DatabaseTypePostgreSQL), string(common.DatabaseTypeSQLite):
+		statement = "CREATE UNIQUE INDEX IF NOT EXISTS " + index + " ON users (email_normalized)"
+	}
+	if err := DB.Exec(statement).Error; err != nil {
+		if migrator.HasIndex(&User{}, index) {
+			return nil
+		}
+		return fmt.Errorf("create normalized email unique index: %w", err)
+	}
 	return nil
 }
 

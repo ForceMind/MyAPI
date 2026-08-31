@@ -53,7 +53,7 @@ func TestNormalizedEmailLockUsesCaseInsensitiveAvailabilityPredicate(t *testing.
 	query := normalizedEmailLockQuery(db, "  Mixed@Example.COM ")
 	statement := query.Find(&ids).Statement
 
-	assert.Contains(t, statement.SQL.String(), "LOWER(email) = ?")
+	assert.Contains(t, statement.SQL.String(), "email_normalized = ?")
 	assert.Contains(t, statement.SQL.String(), "FOR UPDATE")
 	assert.Len(t, statement.Vars, 1)
 	assert.Equal(t, "mixed@example.com", statement.Vars[0])

@@ -77,14 +77,18 @@ func resolveUserSortOptions(sortOptions []UserSortOptions) UserSortOptions {
 // User if you add sensitive fields, don't forget to clean them in setupLogin function.
 // Otherwise, the sensitive information will be saved on local storage in plain text!
 type User struct {
-	Id               int     `json:"id"`
-	Username         string  `json:"username" gorm:"unique;index" validate:"max=20"`
-	Password         string  `json:"password" gorm:"not null;" validate:"min=8,max=20"`
-	OriginalPassword string  `json:"original_password" gorm:"-:all"` // this field is only for Password change verification, don't save it to database!
-	DisplayName      string  `json:"display_name" gorm:"index" validate:"max=20"`
-	Role             int     `json:"role" gorm:"type:int;default:1"`   // admin, common
-	Status           int     `json:"status" gorm:"type:int;default:1"` // enabled, disabled
-	Email            string  `json:"email" gorm:"index" validate:"max=50"`
+	Id               int    `json:"id"`
+	Username         string `json:"username" gorm:"unique;index" validate:"max=20"`
+	Password         string `json:"password" gorm:"not null;" validate:"min=8,max=20"`
+	OriginalPassword string `json:"original_password" gorm:"-:all"` // this field is only for Password change verification, don't save it to database!
+	DisplayName      string `json:"display_name" gorm:"index" validate:"max=20"`
+	Role             int    `json:"role" gorm:"type:int;default:1"`   // admin, common
+	Status           int    `json:"status" gorm:"type:int;default:1"` // enabled, disabled
+	Email            string `json:"email" gorm:"index" validate:"max=50"`
+	// EmailNormalized is an internal, nullable key used for portable
+	// case-insensitive uniqueness. Empty emails remain NULL so multiple users
+	// may omit an email without colliding on the unique index.
+	EmailNormalized  *string `json:"-" gorm:"column:email_normalized;type:varchar(50)"`
 	GitHubId         string  `json:"github_id" gorm:"column:github_id;index"`
 	DiscordId        string  `json:"discord_id" gorm:"column:discord_id;index"`
 	OidcId           string  `json:"oidc_id" gorm:"column:oidc_id;index"`
@@ -114,6 +118,58 @@ type User struct {
 	LastLoginAt      int64                      `json:"last_login_at" gorm:"default:0;column:last_login_at"`
 	AuthVersion      int64                      `json:"-" gorm:"type:bigint;not null;default:1;column:auth_version"`
 	AdminPermissions map[string]map[string]bool `json:"admin_permissions,omitempty" gorm:"-:all"`
+}
+
+// BeforeCreate/BeforeUpdate keep the denormalized lookup key in sync even for
+// internal callers that use GORM directly (for example payment and OAuth
+// flows). The nullable key intentionally maps an empty email to NULL.
+func (user *User) BeforeCreate(tx *gorm.DB) error {
+	user.Email = NormalizeEmail(user.Email)
+	user.EmailNormalized = normalizedEmailValue(user.Email)
+	return nil
+}
+
+func (user *User) BeforeUpdate(tx *gorm.DB) error {
+	// GORM ignores SetColumn for a single-column map Update. Read and amend
+	// the destination map explicitly so payment/OAuth internal updates cannot
+	// leave the denormalized key stale.
+	if values, ok := tx.Statement.Dest.(map[string]interface{}); ok {
+		var hasEmail bool
+		var email string
+		for key, value := range values {
+			if strings.EqualFold(key, "email") {
+				hasEmail = true
+				email, _ = value.(string)
+				break
+			}
+		}
+		if !hasEmail {
+			return nil
+		}
+		email = NormalizeEmail(email)
+		values["email"] = email
+		if email == "" {
+			values["email_normalized"] = gorm.Expr("NULL")
+		} else {
+			values["email_normalized"] = normalizedEmailValue(email)
+		}
+		return nil
+	}
+	if !tx.Statement.Changed("email") {
+		return nil
+	}
+	// Struct Updates use the normal GORM field path; assigning the field also
+	// ensures the generated UPDATE includes it across all supported dialects.
+	if field := tx.Statement.Schema.LookUpField("Email"); field != nil {
+		if value, isZero := field.ValueOf(tx.Statement.Context, tx.Statement.ReflectValue); !isZero {
+			if email, ok := value.(string); ok {
+				email = NormalizeEmail(email)
+				tx.Statement.SetColumn("Email", email)
+				tx.Statement.SetColumn("EmailNormalized", normalizedEmailValue(email))
+			}
+		}
+	}
+	return nil
 }
 
 func (user *User) ToBaseUser() *UserBase {
@@ -292,7 +348,10 @@ func CheckUserExistOrDeleted(username string, email string) (bool, error) {
 	if email == "" {
 		err = DB.Unscoped().First(&user, "username = ?", username).Error
 	} else {
-		err = DB.Unscoped().First(&user, "username = ? or LOWER(email) = ?", username, email).Error
+		err = DB.Unscoped().First(&user, "username = ? or email_normalized = ?", username, email).Error
+		if isMissingNormalizedEmailColumn(err) {
+			err = DB.Unscoped().First(&user, "username = ? or LOWER(email) = ?", username, email).Error
+		}
 	}
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -310,11 +369,47 @@ func NormalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }
 
+func normalizedEmailValue(email string) *string {
+	email = NormalizeEmail(email)
+	if email == "" {
+		return nil
+	}
+	return &email
+}
+
+func mapEmailConstraintError(err error) error {
+	if err == nil {
+		return nil
+	}
+	message := strings.ToLower(err.Error())
+	if strings.Contains(message, "email_normalized") &&
+		(strings.Contains(message, "unique") || strings.Contains(message, "duplicate")) {
+		return fmt.Errorf("%w: %v", ErrEmailAlreadyTaken, err)
+	}
+	return err
+}
+
 func emailQuery(tx *gorm.DB, email string) *gorm.DB {
 	if tx == nil {
 		tx = DB
 	}
+	return tx.Unscoped().Model(&User{}).Where("email_normalized = ?", NormalizeEmail(email))
+}
+
+func legacyEmailQuery(tx *gorm.DB, email string) *gorm.DB {
+	if tx == nil {
+		tx = DB
+	}
 	return tx.Unscoped().Model(&User{}).Where("LOWER(email) = ?", NormalizeEmail(email))
+}
+
+func isMissingNormalizedEmailColumn(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "email_normalized") &&
+		(strings.Contains(message, "no such column") || strings.Contains(message, "doesn't exist") || strings.Contains(message, "undefined column"))
 }
 
 func CountUsersByEmail(email string) (int64, error) {
@@ -324,6 +419,9 @@ func CountUsersByEmail(email string) (int64, error) {
 	}
 	var count int64
 	err := emailQuery(DB, email).Count(&count).Error
+	if isMissingNormalizedEmailColumn(err) {
+		err = legacyEmailQuery(DB, email).Count(&count).Error
+	}
 	return count, err
 }
 
@@ -337,7 +435,15 @@ func IsEmailAvailable(email string, excludeUserID int) (bool, error) {
 		query = query.Where("id <> ?", excludeUserID)
 	}
 	var count int64
-	if err := query.Count(&count).Error; err != nil {
+	err := query.Count(&count).Error
+	if isMissingNormalizedEmailColumn(err) {
+		query = legacyEmailQuery(DB, email)
+		if excludeUserID > 0 {
+			query = query.Where("id <> ?", excludeUserID)
+		}
+		err = query.Count(&count).Error
+	}
+	if err != nil {
 		return false, err
 	}
 	return count == 0, nil
@@ -606,6 +712,7 @@ func (user *User) prepareForInsert(tx *gorm.DB) error {
 		user.AccountTierID = EffectiveAccountTierID(user.Group)
 	}
 	user.Email = NormalizeEmail(user.Email)
+	user.EmailNormalized = normalizedEmailValue(user.Email)
 	if err := ensureEmailAvailableWithTx(tx, user.Email, 0); err != nil {
 		return err
 	}
@@ -628,6 +735,7 @@ func BindEmailToUser(user *User, email string) error {
 				return err
 			}
 			user.Email = email
+			user.EmailNormalized = normalizedEmailValue(email)
 			return user.UpdateWithTx(tx, false)
 		})
 	}); err != nil {
@@ -671,7 +779,7 @@ func (user *User) Insert(inviterId int) error {
 				user.SetSetting(defaultSetting)
 			}
 
-			return tx.Create(user).Error
+			return mapEmailConstraintError(tx.Create(user).Error)
 		})
 	}); err != nil {
 		return err
@@ -734,7 +842,7 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 			user.SetSetting(defaultSetting)
 		}
 
-		return tx.Create(user).Error
+		return mapEmailConstraintError(tx.Create(user).Error)
 	})
 }
 
@@ -818,6 +926,15 @@ func (user *User) UpdateWithTx(tx *gorm.DB, updatePassword bool) error {
 		}
 	}
 	newUser.AccountTierID = requestedTier
+	if normalizedEmail := NormalizeEmail(newUser.Email); normalizedEmail != "" {
+		newUser.Email = normalizedEmail
+		newUser.EmailNormalized = normalizedEmailValue(normalizedEmail)
+	}
+	if newUser.Email != "" && newUser.Email != NormalizeEmail(current.Email) {
+		if err := ensureEmailAvailableWithTx(tx, newUser.Email, user.Id); err != nil {
+			return err
+		}
+	}
 	// Updates(struct) ignores zero values. Match that behavior when deciding
 	// whether this request actually changes authentication-sensitive state;
 	// partial self-profile updates intentionally leave role/status/group empty.
@@ -841,7 +958,7 @@ func (user *User) UpdateWithTx(tx *gorm.DB, updatePassword bool) error {
 		"aff_history",
 		"auth_version",
 	).Updates(newUser).Error; err != nil {
-		return err
+		return mapEmailConstraintError(err)
 	}
 	return tx.First(user, user.Id).Error
 }
@@ -945,6 +1062,11 @@ func (user *User) ClearBinding(bindingType string) error {
 	if err := DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&User{}).Where("id = ?", user.Id).Update(column, "").Error; err != nil {
 			return err
+		}
+		if bindingType == "email" {
+			if err := tx.Model(&User{}).Where("id = ?", user.Id).Update("email_normalized", gorm.Expr("NULL")).Error; err != nil {
+				return err
+			}
 		}
 		if bindingType == ExternalIdentityProviderTelegram {
 			return ReleaseExternalIdentityWithTx(tx, ExternalIdentityProviderTelegram, user.Id)
@@ -1052,7 +1174,10 @@ func (user *User) ValidateAndFill() (err error) {
 		return ErrUserEmptyCredentials
 	}
 	// find by username or email
-	err = DB.Where("username = ? OR email = ?", username, username).First(user).Error
+	err = DB.Where("username = ? OR email_normalized = ?", username, NormalizeEmail(username)).First(user).Error
+	if isMissingNormalizedEmailColumn(err) {
+		err = DB.Where("username = ? OR LOWER(email) = ?", username, NormalizeEmail(username)).First(user).Error
+	}
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrInvalidCredentials
@@ -1081,7 +1206,13 @@ func (user *User) FillUserByEmail() error {
 	if user.Email == "" {
 		return errors.New("email 为空！")
 	}
-	DB.Where(User{Email: user.Email}).First(user)
+	err := emailQuery(DB, user.Email).First(user).Error
+	if isMissingNormalizedEmailColumn(err) {
+		err = legacyEmailQuery(DB, user.Email).First(user).Error
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
 	return nil
 }
 
@@ -1147,7 +1278,12 @@ func GetUniqueUserByEmail(email string) (*User, error) {
 		return nil, ErrEmailNotFound
 	}
 	var users []User
-	if err := DB.Where("LOWER(email) = ?", email).Limit(2).Find(&users).Error; err != nil {
+	query := emailQuery(DB, email)
+	err := query.Limit(2).Find(&users).Error
+	if isMissingNormalizedEmailColumn(err) {
+		err = legacyEmailQuery(DB, email).Limit(2).Find(&users).Error
+	}
+	if err != nil {
 		return nil, err
 	}
 	switch len(users) {
