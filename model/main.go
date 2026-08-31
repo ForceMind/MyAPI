@@ -297,6 +297,9 @@ func migrateDB() error {
 	if err != nil {
 		return err
 	}
+	if err := ensureChannelQuotaSnapshotDedupeIndex(); err != nil {
+		return err
+	}
 	if err := MigrateAccessProfileIdentifiers(); err != nil {
 		return err
 	}
@@ -382,6 +385,9 @@ func migrateDBFast() error {
 			return err
 		}
 	}
+	if err := ensureChannelQuotaSnapshotDedupeIndex(); err != nil {
+		return err
+	}
 	if err := MigrateAccessProfileIdentifiers(); err != nil {
 		return err
 	}
@@ -409,6 +415,33 @@ func migrateLOGDB() error {
 		return migrateClickHouseLogDB()
 	}
 	return LOG_DB.AutoMigrate(&Log{})
+}
+
+// ensureChannelQuotaSnapshotDedupeIndex adds the database-level arbiter used
+// by concurrent quota samplers. The column itself is deliberately nullable
+// and migrated without a UNIQUE clause because SQLite rejects
+// `ALTER TABLE ... ADD COLUMN ... UNIQUE` for existing databases.
+func ensureChannelQuotaSnapshotDedupeIndex() error {
+	if DB == nil || common.UsingMainDatabase(common.DatabaseTypeClickHouse) {
+		return nil
+	}
+	migrator := DB.Migrator()
+	if migrator.HasIndex(&ChannelQuotaSnapshot{}, "idx_channel_quota_dedupe_key") {
+		return nil
+	}
+	table := "channel_quota_snapshots"
+	column := "dedupe_key"
+	index := "idx_channel_quota_dedupe_key"
+	var statement string
+	switch common.MainDatabaseType() {
+	case common.DatabaseTypePostgreSQL, common.DatabaseTypeSQLite:
+		statement = fmt.Sprintf("CREATE UNIQUE INDEX IF NOT EXISTS %s ON %s (%s)", index, table, column)
+	default:
+		// MySQL has no portable IF NOT EXISTS form for CREATE INDEX; the
+		// HasIndex check above is sufficient during the single-master migration.
+		statement = fmt.Sprintf("CREATE UNIQUE INDEX %s ON %s (%s)", index, table, column)
+	}
+	return DB.Exec(statement).Error
 }
 
 func migrateClickHouseLogDB() error {

@@ -109,7 +109,10 @@ type ChannelQuotaSnapshot struct {
 	// rows. New rows use a unique digest of the complete series identity and
 	// observation time, allowing concurrent samplers to converge safely on all
 	// supported SQL dialects without a wide dialect-sensitive composite index.
-	DedupeKey *string   `json:"-" gorm:"size:64;uniqueIndex:idx_channel_quota_dedupe_key"`
+	// Keep the column definition free of a unique constraint. SQLite cannot
+	// add a UNIQUE column with ALTER TABLE during AutoMigrate; the migration
+	// creates the unique index separately after the nullable column exists.
+	DedupeKey *string   `json:"-" gorm:"size:64"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
