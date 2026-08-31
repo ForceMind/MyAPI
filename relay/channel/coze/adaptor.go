@@ -1,13 +1,13 @@
 package coze
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
 
+	mycommon "github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/relay/channel"
 	"github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/relaykit/dto"
@@ -79,7 +79,10 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *common.RelayInfo, requestBody 
 	if err != nil {
 		return nil, err
 	}
-	err = json.Unmarshal(respBody, &cozeResponse)
+	err = mycommon.Unmarshal(respBody, &cozeResponse)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal response body failed: %w", err)
+	}
 	if cozeResponse.Code != 0 {
 		return nil, errors.New(cozeResponse.Msg)
 	}
