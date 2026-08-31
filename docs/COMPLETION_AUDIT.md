@@ -55,6 +55,9 @@
 - `33357189957`（提交 `f04f97b`，2026-08-31）仍为同一外部启动故障：Backend、Frontend、
   Desktop 和 Distribution 四个 job 均为 `steps: []`，约 2 秒内结束；不能据此判断本轮
   文档提交或源码失败，待 GitHub runner/Billing 恢复后只需重跑最新提交。
+- `33358768662`（提交 `7479b2a`，2026-08-31）继续呈现同一外部启动故障：Backend、
+  Frontend、Desktop 和 Distribution 四个 job 均为 `steps: []`，约 3 秒内结束；当前仍以
+  本机资源受限回归作为替代证据，不将该 CI 红灯归因于源码。
 - `33335484167`：完成度矩阵一致性修正后的完整 CI，Backend、Frontend、Desktop
   和 Distribution 四个作业全部成功。
 - `33335299578`：本机部署旧镜像诊断证据提交后的完整 CI，Backend、Frontend、
