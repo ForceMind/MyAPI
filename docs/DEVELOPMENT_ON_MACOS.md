@@ -87,7 +87,7 @@ npm run release:workflow:check
 npm run pack:check
 ```
 
-Docker 镜像测试使用 GitHub Actions 的 `Docker build smoke` workflow：它只在 runner
+Docker 镜像测试使用 GitHub Actions 的 `Docker build smoke` workflow（手动触发）：它只在 runner
 上构建并加载本地镜像（`push: false`），启动隔离 SQLite 容器检查 `/api/status`，不登录
 GHCR、不创建 tag。workflow 首次运行需等待 GitHub runner/Billing 恢复；本机仍应使用
 Docker Desktop 完成 Compose、资源和数据库副本演练。

@@ -143,6 +143,7 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - 当前执行批次已把代码优先目标写入总体计划；本机尝试安装 Docker Desktop 时下载长时间无进度后中止，Docker/Compose 仍视为未安装的外部环境阻塞。
 - 在干净提交 `54fe197` 上重新生成被忽略的 `SOURCE_MANIFEST.json`，`npm run pack:check` 通过（2119 个文件，19,238,938 bytes）；清单只作为发布前证据，不代表已执行 NPM/GHCR 发布。
 - 新增 `.github/workflows/docker-smoke.yml`：GitHub runner 使用 `push: false`、不登录 GHCR 的 Buildx 构建临时 LAN 镜像，启动隔离 SQLite 容器并检查 `/api/status`；`tools/release/check.mjs` 已增加对应静态合同。该 workflow 仅用于测试，不会创建 tag 或发布镜像，首次真实运行需等待 GitHub runner/Billing 恢复。
+- Docker smoke 手动运行 `33403818364`（提交 `0e4f912`）在 runner 启动阶段失败，唯一 job 为 `steps: []`；已将 workflow 限定为 `workflow_dispatch`，避免普通文档/代码 push 重复触发同一外部阻塞。恢复 runner 后再手动重跑。
 - 代码优先阶段提交 `9427656` 修复并覆盖了 OpenRouter cache-create quota 饱和、topup ratio 原子更新与有限值校验、Gemini Imagen `N` 边界以及图片 token 面积/最终 quota 转换；`go test ./common ./service ./controller ./relay/channel/gemini`、完整根 Go 回归与 `cd relaykit && GOWORK=off go build ./...` 均通过。
 - 同一阶段的 Node 合同复核：LAN Lite 68/68、Desktop 32/32、Upgrade 18/18、Release workflow 17/17；Docker workflow 版本写入已断言为无 `v` 的 SemVer。真实 Docker Compose、数据库副本和跨平台设备仍未验证。
 - 代码阶段提交 `d0cd478` 推送后的 CI run `33402289671`（2026-08-31）仍在 runner 启动阶段失败，Backend、Frontend、Desktop 和 Distribution 四个 job 均为 `steps: []`；继续按 GitHub Billing/runner 外部阻塞处理。
