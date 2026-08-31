@@ -154,6 +154,10 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   Backend、Frontend、Desktop 和 Distribution 四个 job 均为 `steps: []`，约 3 秒内结束。
   该结果与前序记录一致，不能归因于源码；GitHub Billing/runner 恢复后只需重跑最新提交。
 
+- 最新 CI `33359611153`（提交 `cf5d326`，2026-08-31）仍在 runner 启动阶段失败：四个 job
+  均为 `steps: []`，约 2 秒内结束；继续按 GitHub Billing/runner 外部阻塞处理，不将其
+  视为源码测试失败。
+
 - `npm run release:check` 在提交 `4169778` 上通过：CLI 21/21、品牌 2/2（115 条分类
   引用、0 blocking）、Website、LAN Lite 66/66、Desktop 31/31、Upgrade 18/18、
   Release workflow 12/12，以及 SOURCE_MANIFEST/package check 均通过。该命令在
