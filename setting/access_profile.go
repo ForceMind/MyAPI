@@ -75,18 +75,58 @@ func ValidateAccessProfileDefinitionsJSON(raw string) error {
 	if profiles == nil {
 		return errors.New("access profile definitions must be a JSON object")
 	}
+	normalizedIDs := make(map[string]struct{}, len(profiles))
 	for id, profile := range profiles {
 		id = strings.TrimSpace(id)
 		if id == "" {
 			return errors.New("access profile id must not be empty")
 		}
+		if _, exists := normalizedIDs[id]; exists {
+			return errors.New("access profile ids must be unique after trimming: " + id)
+		}
+		normalizedIDs[id] = struct{}{}
 		if strings.TrimSpace(profile.Label) == "" {
 			return errors.New("access profile label must not be empty: " + id)
 		}
-		for _, fallback := range profile.FallbackProfiles {
-			if strings.TrimSpace(fallback) == id {
+	}
+	graph := make(map[string][]string, len(profiles))
+	for rawID, profile := range profiles {
+		id := strings.TrimSpace(rawID)
+		for _, rawFallback := range profile.FallbackProfiles {
+			fallback := strings.TrimSpace(rawFallback)
+			if fallback == "" {
+				return errors.New("access profile fallback id must not be empty: " + id)
+			}
+			if _, exists := normalizedIDs[fallback]; !exists {
+				return errors.New("access profile fallback does not exist: " + id + " -> " + fallback)
+			}
+			if fallback == id {
 				return errors.New("access profile cannot fall back to itself: " + id)
 			}
+			graph[id] = append(graph[id], fallback)
+		}
+	}
+	state := make(map[string]uint8, len(graph))
+	var visit func(string) error
+	visit = func(id string) error {
+		if state[id] == 1 {
+			return errors.New("access profile fallback cycle detected at: " + id)
+		}
+		if state[id] == 2 {
+			return nil
+		}
+		state[id] = 1
+		for _, fallback := range graph[id] {
+			if err := visit(fallback); err != nil {
+				return err
+			}
+		}
+		state[id] = 2
+		return nil
+	}
+	for id := range normalizedIDs {
+		if err := visit(id); err != nil {
+			return err
 		}
 	}
 	return nil

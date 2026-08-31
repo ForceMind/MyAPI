@@ -31,7 +31,7 @@ func TestResolveAccessProfileKeepsLegacyGroupsReadable(t *testing.T) {
 }
 
 func TestAccessProfilePolicyDefinitionsAreValidatedAndApplied(t *testing.T) {
-	raw := `{"standard":{"label":"Team standard","description":"Shared pool","route_groups":["default"],"model_allowlist":["gpt-5"],"fallback_profiles":["priority"],"enabled":true}}`
+	raw := `{"standard":{"label":"Team standard","description":"Shared pool","route_groups":["default"],"model_allowlist":["gpt-5"],"fallback_profiles":["priority"],"enabled":true},"priority":{"label":"Team priority","description":"Priority pool","enabled":true}}`
 	require.NoError(t, setting.ValidateAccessProfileDefinitionsJSON(raw))
 	require.NoError(t, setting.UpdateAccessProfileDefinitionsByJSONString(raw))
 	t.Cleanup(func() {
@@ -42,6 +42,21 @@ func TestAccessProfilePolicyDefinitionsAreValidatedAndApplied(t *testing.T) {
 	require.Equal(t, []string{"default"}, profile.RouteGroups)
 	require.Equal(t, []string{"gpt-5"}, profile.ModelAllowlist)
 	require.Error(t, setting.ValidateAccessProfileDefinitionsJSON(`{"":{"label":"invalid"}}`))
+}
+
+func TestAccessProfileFallbackReferencesAreBounded(t *testing.T) {
+	require.ErrorContains(t,
+		setting.ValidateAccessProfileDefinitionsJSON(`{"standard":{"label":"Standard","fallback_profiles":["missing"]}}`),
+		"does not exist",
+	)
+	require.ErrorContains(t,
+		setting.ValidateAccessProfileDefinitionsJSON(`{"standard":{"label":"Standard","fallback_profiles":["priority"]},"priority":{"label":"Priority","fallback_profiles":["standard"]}}`),
+		"cycle detected",
+	)
+	require.ErrorContains(t,
+		setting.ValidateAccessProfileDefinitionsJSON(`{" standard ":{"label":"Standard"},"standard":{"label":"Duplicate"}}`),
+		"unique after trimming",
+	)
 }
 
 func TestResolveAccountTierIsSeparateFromAccessProfile(t *testing.T) {

@@ -30,6 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { getFullContentLogDetail } from '../api'
 import {
@@ -117,9 +118,19 @@ export function FullContentLogDetailsDialog(
 ) {
   const { t } = useTranslation()
   const isMobile = useMediaQuery('(max-width: 640px)')
+  const userId = useAuthStore((state) => state.auth.user?.id ?? null)
+  const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   const [showRaw, setShowRaw] = useState(false)
   const detailQuery = useQuery({
-    queryKey: ['full-content-logs', 'detail', props.requestId],
+    // Keep sensitive request/response bodies isolated when a tab switches
+    // authenticated identities without a full page reload.
+    queryKey: [
+      'full-content-logs',
+      'detail',
+      props.requestId,
+      userId,
+      sessionId,
+    ],
     queryFn: async () => {
       const response = await getFullContentLogDetail(props.requestId || '')
       if (!response.success || !response.data) {
