@@ -12,6 +12,24 @@ import (
 	"github.com/google/uuid"
 )
 
+// WHAM usage and reset-credit responses are small JSON documents.  Bound the
+// amount read from an upstream (or proxy) response so a malformed/infinite
+// body cannot make a quota poller allocate unbounded memory.  Read one extra
+// byte to distinguish an accepted response at the limit from an oversized
+// response.
+const maxCodexWhamResponseBytes = 1 << 20
+
+func readCodexWhamResponse(resp *http.Response) ([]byte, error) {
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxCodexWhamResponseBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(body) > maxCodexWhamResponseBytes {
+		return nil, fmt.Errorf("Codex WHAM response exceeds %d bytes", maxCodexWhamResponseBytes)
+	}
+	return body, nil
+}
+
 func FetchCodexWhamUsage(
 	ctx context.Context,
 	client *http.Client,
@@ -47,7 +65,7 @@ func FetchCodexWhamUsage(
 	}
 	defer resp.Body.Close()
 
-	body, err = io.ReadAll(resp.Body)
+	body, err = readCodexWhamResponse(resp)
 	if err != nil {
 		return resp.StatusCode, nil, err
 	}
@@ -89,7 +107,7 @@ func FetchCodexWhamRateLimitResetCredits(
 	}
 	defer resp.Body.Close()
 
-	body, err = io.ReadAll(resp.Body)
+	body, err = readCodexWhamResponse(resp)
 	if err != nil {
 		return resp.StatusCode, nil, err
 	}
@@ -144,7 +162,7 @@ func ConsumeCodexWhamRateLimitResetCredit(
 	}
 	defer resp.Body.Close()
 
-	body, err = io.ReadAll(resp.Body)
+	body, err = readCodexWhamResponse(resp)
 	if err != nil {
 		return resp.StatusCode, nil, err
 	}
