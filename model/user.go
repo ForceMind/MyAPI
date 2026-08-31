@@ -371,18 +371,33 @@ func withNormalizedEmailLock(tx *gorm.DB, email string, fn func(tx *gorm.DB) err
 	if email == "" {
 		return fn(tx)
 	}
-	switch {
-	case common.UsingMainDatabase(common.DatabaseTypePostgreSQL):
+	// Use the transaction handle's dialect.  Looking at the process-wide
+	// database setting can make tests/secondary handles issue the wrong SQL.
+	dialect := ""
+	if tx != nil && tx.Dialector != nil {
+		dialect = tx.Dialector.Name()
+	}
+	switch dialect {
+	case string(common.DatabaseTypePostgreSQL):
 		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", email).Error; err != nil {
 			return err
 		}
-	case common.UsingMainDatabase(common.DatabaseTypeMySQL):
+	case string(common.DatabaseTypeMySQL):
+		// Availability uses LOWER(email), so the locking read must use the same
+		// predicate.  An exact `email = ?` read is incorrect on a binary/case-
+		// sensitive collation when a legacy row contains mixed-case email.
 		var ids []int
-		if err := tx.Raw("SELECT id FROM users WHERE email = ? FOR UPDATE", email).Scan(&ids).Error; err != nil {
+		if err := normalizedEmailLockQuery(tx, email).Find(&ids).Error; err != nil {
 			return err
 		}
 	}
 	return fn(tx)
+}
+
+func normalizedEmailLockQuery(tx *gorm.DB, email string) *gorm.DB {
+	return emailQuery(tx, email).
+		Select("id").
+		Clauses(clause.Locking{Strength: "UPDATE"})
 }
 
 func GetMaxUserId() int {

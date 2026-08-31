@@ -44,3 +44,17 @@ func TestLockForUpdateUsesHandleDialectWhenGlobalTypeDiffers(t *testing.T) {
 	// configuration (the helper no longer consults that global value).
 	assert.NotContains(t, lockForUpdate(db).Where("id = ?", 1).Find(&rows).Statement.SQL.String(), "FOR UPDATE")
 }
+
+func TestNormalizedEmailLockUsesCaseInsensitiveAvailabilityPredicate(t *testing.T) {
+	db, err := gorm.Open(namedDummyDialector{name: "mysql"}, &gorm.Config{DryRun: true})
+	require.NoError(t, err)
+
+	var ids []int
+	query := normalizedEmailLockQuery(db, "  Mixed@Example.COM ")
+	statement := query.Find(&ids).Statement
+
+	assert.Contains(t, statement.SQL.String(), "LOWER(email) = ?")
+	assert.Contains(t, statement.SQL.String(), "FOR UPDATE")
+	assert.Len(t, statement.Vars, 1)
+	assert.Equal(t, "mixed@example.com", statement.Vars[0])
+}
