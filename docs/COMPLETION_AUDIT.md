@@ -146,9 +146,9 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   `common.UnmarshalJsonStr`，不再绕过项目 JSON wrapper；`GOWORK=off go test ./setting ./model
   -run "AccessProfile|AccountTier" -count=1` 在资源受限 Go 容器中通过。
 
-- 当前 HEAD `02bcc16` 与 `origin/main` 已核对为同一提交；上述前端、发行合同、清单和
-  访问方案回归证据均对应该提交。`SOURCE_MANIFEST.json` 仍是被忽略的生成文件，发布前
-  应在最终版本提交上重新生成，不要将其加入 Git。
+- 在代码提交 `02bcc16` 的验证时点，`HEAD` 与 `origin/main` 已核对为同一提交；上述
+  前端、发行合同、清单和访问方案回归证据均对应该提交。`SOURCE_MANIFEST.json` 仍是
+  被忽略的生成文件，发布前应在最终版本提交上重新生成，不要将其加入 Git。
 
 - 推送后的 CI `33359526462`（提交 `d422511`，2026-08-31）仍在 runner 启动阶段失败：
   Backend、Frontend、Desktop 和 Distribution 四个 job 均为 `steps: []`，约 3 秒内结束。
