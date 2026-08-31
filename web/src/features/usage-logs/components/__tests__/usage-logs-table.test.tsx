@@ -6,11 +6,12 @@ it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
-import type { ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { fireEvent, render, screen } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
-import { useQuery } from '@tanstack/react-query'
+import { useDataTable } from '@/components/data-table'
 import { useMediaQuery } from '@/hooks'
 
 import { UsageLogsTable } from '../usage-logs-table'
@@ -61,7 +62,7 @@ vi.mock('@/components/data-table', () => ({
     </div>
   ),
   DataTableRow: () => null,
-  useDataTable: () => ({ table: {} }),
+  useDataTable: vi.fn(() => ({ table: {} })),
 }))
 
 vi.mock('@/components/error-state', () => ({
@@ -83,10 +84,7 @@ vi.mock('@/components/error-state', () => ({
 }))
 
 vi.mock('@/components/ui/button', () => ({
-  Button: (props: {
-    children?: ReactNode
-    onClick?: () => void
-  }) => (
+  Button: (props: { children?: ReactNode; onClick?: () => void }) => (
     <button type='button' onClick={props.onClick}>
       {props.children}
     </button>
@@ -121,10 +119,13 @@ vi.mock('../usage-logs-mobile-card', () => ({
   UsageLogsMobileList: () => null,
 }))
 
-function mockQuery(error = new Error('upstream unavailable')) {
+function mockQuery(
+  data: { items: Array<Record<string, unknown>> } | undefined = undefined,
+  error = new Error('upstream unavailable')
+) {
   const refetch = vi.fn()
   vi.mocked(useQuery).mockReturnValue({
-    data: undefined,
+    data,
     error,
     isError: true,
     isLoading: false,
@@ -150,6 +151,16 @@ describe('usage logs table error state', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(refetch).toHaveBeenCalledTimes(1)
+  })
+
+  test('does not pass stale desktop rows to the table after a refetch error', () => {
+    mockQuery({ items: [{ id: 'stale-log' }] })
+
+    render(<UsageLogsTable logCategory='common' />)
+
+    expect(vi.mocked(useDataTable)).toHaveBeenCalledWith(
+      expect.objectContaining({ data: [] })
+    )
   })
 
   test('keeps the same error and retry action visible on mobile', () => {

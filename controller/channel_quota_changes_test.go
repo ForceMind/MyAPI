@@ -55,6 +55,21 @@ func TestBuildQuotaChangeItemsSeparatesUnsupportedFromErrors(t *testing.T) {
 	require.Equal(t, 1, quality.ErrorCount)
 }
 
+func TestBuildQuotaChangeItemsSeparatesSubscriptionPlans(t *testing.T) {
+	rows := []model.ChannelQuotaAggregateRow{
+		{ID: 1, ChannelID: 21, ChannelName: "Codex", ObservedAt: 100, Available: 90, MetricType: "codex_rate_limit", WindowType: "five_hour", Source: "codex_wham_usage_primary", PlanType: "team", Unit: "percent", WindowSeconds: 18000, Status: "success"},
+		{ID: 2, ChannelID: 21, ChannelName: "Codex", ObservedAt: 160, Available: 80, MetricType: "codex_rate_limit", WindowType: "five_hour", Source: "codex_wham_usage_primary", PlanType: "team", Unit: "percent", WindowSeconds: 18000, Status: "success"},
+		{ID: 3, ChannelID: 21, ChannelName: "Codex", ObservedAt: 100, Available: 50, MetricType: "codex_rate_limit", WindowType: "five_hour", Source: "codex_wham_usage_primary", PlanType: "pro", Unit: "percent", WindowSeconds: 18000, Status: "success"},
+		{ID: 4, ChannelID: 21, ChannelName: "Codex", ObservedAt: 160, Available: 40, MetricType: "codex_rate_limit", WindowType: "five_hour", Source: "codex_wham_usage_primary", PlanType: "pro", Unit: "percent", WindowSeconds: 18000, Status: "success"},
+	}
+	items, _ := buildQuotaChangeItems(rows)
+	require.Len(t, items, 2)
+	for _, item := range items {
+		require.Equal(t, "decrease", item.Direction)
+		require.InDelta(t, -10, *item.ChangePerMinute, 0.0001)
+	}
+}
+
 func TestBuildQuotaChangeItemsExposesReadOnlyAlertState(t *testing.T) {
 	previousEnabled := common.ChannelQuotaAlertEnabled
 	previousWarning := common.ChannelQuotaAlertWarningPercent

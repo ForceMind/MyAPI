@@ -34,45 +34,50 @@ func GetChannelQuotaSamplingStatus(c *gin.Context) {
 }
 
 type quotaChangeDataQuality struct {
-	SuccessCount    int   `json:"success_count"`
-	ErrorCount      int   `json:"error_count"`
+	SuccessCount     int   `json:"success_count"`
+	ErrorCount       int   `json:"error_count"`
 	UnsupportedCount int   `json:"unsupported_count,omitempty"`
-	InvalidCount    int   `json:"invalid_count"`
-	ResetBoundaries int   `json:"reset_boundaries"`
-	SpanSeconds     int64 `json:"span_seconds"`
+	InvalidCount     int   `json:"invalid_count"`
+	ResetBoundaries  int   `json:"reset_boundaries"`
+	SpanSeconds      int64 `json:"span_seconds"`
 }
 
 type quotaChangeItem struct {
-	ChannelID          int                    `json:"channel_id"`
-	Name               string                 `json:"name"`
-	AccountLabel       string                 `json:"account_label"`
-	MetricType         string                 `json:"metric_type"`
-	WindowType         string                 `json:"window_type"`
-	Source             string                 `json:"source,omitempty"`
-	Unit               string                 `json:"unit"`
-	Currency           string                 `json:"currency,omitempty"`
-	PlanType           string                 `json:"plan_type,omitempty"`
-	CurrentAvailable   *float64               `json:"current_available,omitempty"`
-	CurrentTotal       *float64               `json:"current_total,omitempty"`
-	PreviousAvailable  *float64               `json:"previous_available,omitempty"`
-	ChangePerMinute    *float64               `json:"change_per_minute,omitempty"`
-	AbsChangePerMinute *float64               `json:"abs_change_per_minute,omitempty"`
-	Direction          string                 `json:"direction"`
-	SampleSpanSeconds  int64                  `json:"sample_span_seconds"`
-	ObservedAt         int64                  `json:"observed_at"`
-	Status             string                 `json:"status"`
+	ChannelID          int      `json:"channel_id"`
+	Name               string   `json:"name"`
+	AccountLabel       string   `json:"account_label"`
+	MetricType         string   `json:"metric_type"`
+	WindowType         string   `json:"window_type"`
+	Source             string   `json:"source,omitempty"`
+	Unit               string   `json:"unit"`
+	Currency           string   `json:"currency,omitempty"`
+	PlanType           string   `json:"plan_type,omitempty"`
+	WindowSeconds      int64    `json:"window_seconds,omitempty"`
+	CurrentAvailable   *float64 `json:"current_available,omitempty"`
+	CurrentTotal       *float64 `json:"current_total,omitempty"`
+	PreviousAvailable  *float64 `json:"previous_available,omitempty"`
+	ChangePerMinute    *float64 `json:"change_per_minute,omitempty"`
+	AbsChangePerMinute *float64 `json:"abs_change_per_minute,omitempty"`
+	Direction          string   `json:"direction"`
+	SampleSpanSeconds  int64    `json:"sample_span_seconds"`
+	ObservedAt         int64    `json:"observed_at"`
+	Status             string   `json:"status"`
 	// Alert is a read-only snapshot of the configured quota threshold state.
 	// It is deliberately derived from the latest normalized observation and
 	// never triggers notification, routing, or channel state changes.
-	Alert              *quotaHistoryAlert     `json:"alert,omitempty"`
-	DataQuality        quotaChangeDataQuality `json:"data_quality"`
+	Alert       *quotaHistoryAlert     `json:"alert,omitempty"`
+	DataQuality quotaChangeDataQuality `json:"data_quality"`
 }
 
 type quotaChangeGroupKey struct {
-	ChannelID  int
-	MetricType string
-	WindowType string
-	Source     string
+	ChannelID     int
+	MetricType    string
+	WindowType    string
+	Source        string
+	PlanType      string
+	Unit          string
+	Currency      string
+	WindowSeconds int64
 }
 
 // GetChannelQuotaChanges returns one redacted trend item per channel/metric/
@@ -198,7 +203,19 @@ func finiteQuotaChangeValue(value float64) bool {
 func buildQuotaChangeItems(rows []model.ChannelQuotaAggregateRow) ([]quotaChangeItem, quotaChangeDataQuality) {
 	groups := make(map[quotaChangeGroupKey][]model.ChannelQuotaAggregateRow)
 	for _, row := range rows {
-		key := quotaChangeGroupKey{row.ChannelID, row.MetricType, row.WindowType, row.Source}
+		// Keep provider account series independent. A channel may expose more
+		// than one subscription plan/window, and unit or currency changes must
+		// never be interpreted as a balance movement within one series.
+		key := quotaChangeGroupKey{
+			ChannelID:     row.ChannelID,
+			MetricType:    row.MetricType,
+			WindowType:    row.WindowType,
+			Source:        row.Source,
+			PlanType:      row.PlanType,
+			Unit:          row.Unit,
+			Currency:      row.Currency,
+			WindowSeconds: row.WindowSeconds,
+		}
 		groups[key] = append(groups[key], row)
 	}
 	items := make([]quotaChangeItem, 0, len(groups))
@@ -234,7 +251,8 @@ func buildQuotaChangeItem(rows []model.ChannelQuotaAggregateRow) quotaChangeItem
 		ChannelID: latest.ChannelID, Name: name, AccountLabel: name,
 		MetricType: latest.MetricType, WindowType: latest.WindowType, Source: latest.Source,
 		Unit: latest.Unit, Currency: latest.Currency, PlanType: latest.PlanType,
-		ObservedAt: latest.ObservedAt, Status: latest.Status, Direction: "unavailable",
+		WindowSeconds: latest.WindowSeconds,
+		ObservedAt:    latest.ObservedAt, Status: latest.Status, Direction: "unavailable",
 	}
 	// Keep the global quota-change view consistent with the channel history
 	// endpoint: failed, unsupported, or total-less observations report an

@@ -30,9 +30,9 @@ import {
 import { ErrorState } from '@/components/error-state'
 import { Button } from '@/components/ui/button'
 import { useMediaQuery } from '@/hooks'
-import { useAuthStore } from '@/stores/auth-store'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
 
 import {
   DEFAULT_LOGS_DATA,
@@ -160,7 +160,10 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
     },
   })
 
-  const logs = data?.items || []
+  // TanStack Query keeps the last successful data when a refetch fails. Do
+  // not render that stale, potentially privileged log data alongside an auth
+  // or permission error; the mobile slot already renders ErrorState directly.
+  const logs = isError ? [] : data?.items || []
   const columns = useColumnsByCategory(logCategory, isAdmin)
   const isLoadingData = isLoading || (isFetching && !data)
   const errorMessage =

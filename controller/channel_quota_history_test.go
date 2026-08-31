@@ -24,6 +24,44 @@ func TestQuotaHistoryGranularityAndTimezone(t *testing.T) {
 	require.Equal(t, time.Date(2026, time.January, 2, 16, 0, 0, 0, time.UTC).Unix(), bucket)
 }
 
+func TestParseQuotaHistoryWindowSeconds(t *testing.T) {
+	value, err := parseQuotaHistoryWindowSeconds("")
+	require.NoError(t, err)
+	require.Nil(t, value)
+	value, err = parseQuotaHistoryWindowSeconds("18000")
+	require.NoError(t, err)
+	require.NotNil(t, value)
+	require.Equal(t, int64(18000), *value)
+	for _, input := range []string{"-1", "five-hours"} {
+		_, err = parseQuotaHistoryWindowSeconds(input)
+		require.Error(t, err)
+	}
+}
+
+func TestResolveQuotaHistorySeriesFilterFillsMissingDimensions(t *testing.T) {
+	windowSeconds := int64(18000)
+	filter := resolveQuotaHistorySeriesFilter(
+		model.ChannelQuotaSnapshotQuery{MetricType: "rate_limit"},
+		model.ChannelQuotaSnapshot{
+			MetricType:    "rate_limit",
+			WindowType:    "five_hour",
+			Source:        "codex",
+			PlanType:      "team",
+			Unit:          "percent",
+			Currency:      "quota",
+			WindowSeconds: 18000,
+		},
+	)
+	require.Equal(t, "rate_limit", filter.MetricType)
+	require.Equal(t, "five_hour", filter.WindowType)
+	require.Equal(t, "codex", filter.Source)
+	require.Equal(t, "team", filter.PlanType)
+	require.Equal(t, "percent", filter.Unit)
+	require.Equal(t, "quota", filter.Currency)
+	require.NotNil(t, filter.WindowSeconds)
+	require.Equal(t, windowSeconds, *filter.WindowSeconds)
+}
+
 func TestAggregateQuotaHistoryKeepsSuccessfulObservation(t *testing.T) {
 	snapshots := []model.ChannelQuotaSnapshot{
 		{ObservedAt: 100, Available: 8, Status: "success"},
@@ -34,6 +72,23 @@ func TestAggregateQuotaHistoryKeepsSuccessfulObservation(t *testing.T) {
 	require.Len(t, aggregated, 1)
 	require.Equal(t, "success", aggregated[0].Status)
 	require.Equal(t, float64(6), aggregated[0].Available)
+}
+
+func TestAggregateQuotaHistoryKeepsIndependentSeriesInSameBucket(t *testing.T) {
+	snapshots := []model.ChannelQuotaSnapshot{
+		{ObservedAt: 100, Available: 8, Status: "success", MetricType: "balance", WindowType: "none", Source: "provider", PlanType: "standard", Unit: "usd", Currency: "USD"},
+		{ObservedAt: 200, Available: 7, Status: "success", MetricType: "balance", WindowType: "none", Source: "provider", PlanType: "standard", Unit: "usd", Currency: "USD"},
+		{ObservedAt: 100, Available: 80, Status: "success", MetricType: "rate_limit", WindowType: "five_hour", Source: "provider", PlanType: "pro", Unit: "percent", WindowSeconds: 18000},
+		{ObservedAt: 200, Available: 70, Status: "success", MetricType: "rate_limit", WindowType: "five_hour", Source: "provider", PlanType: "pro", Unit: "percent", WindowSeconds: 18000},
+	}
+	aggregated := aggregateQuotaHistorySnapshots(snapshots, quotaHistoryHour, 0)
+	require.Len(t, aggregated, 2)
+	seen := map[string]float64{}
+	for _, snapshot := range aggregated {
+		seen[snapshot.PlanType] = snapshot.Available
+	}
+	require.Equal(t, float64(7), seen["standard"])
+	require.Equal(t, float64(70), seen["pro"])
 }
 
 func TestDeriveQuotaHistoryMetricsDeclineAndForecast(t *testing.T) {

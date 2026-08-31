@@ -295,6 +295,11 @@ export async function getChannelQuotaHistory(
     end?: string
     metric_type?: string
     window_type?: string
+    source?: string
+    plan_type?: string
+    unit?: string
+    currency?: string
+    window_seconds?: number
     granularity?: 'raw' | 'hour' | 'day' | 'week' | 'auto'
     timezone_offset?: number
     limit?: number

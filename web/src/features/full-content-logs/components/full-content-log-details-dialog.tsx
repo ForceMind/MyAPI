@@ -172,14 +172,24 @@ export function FullContentLogDetailsDialog(
       )}
 
       {detailQuery.isError && (
-        <div className='border-destructive/30 bg-destructive/5 text-destructive rounded-lg border p-4 text-sm'>
-          {detailQuery.error instanceof Error
-            ? detailQuery.error.message
-            : t('Failed to load log detail')}
+        <div className='border-destructive/30 bg-destructive/5 rounded-lg border p-4 text-sm'>
+          <div className='text-destructive'>
+            {detailQuery.error instanceof Error
+              ? detailQuery.error.message
+              : t('Failed to load log detail')}
+          </div>
+          <Button
+            className='mt-3'
+            size='sm'
+            variant='outline'
+            onClick={() => void detailQuery.refetch()}
+          >
+            {t('Retry')}
+          </Button>
         </div>
       )}
 
-      {detail && (
+      {detail && !detailQuery.isError && (
         <div className='space-y-4'>
           <div className='grid gap-2 rounded-lg border p-3 text-xs sm:grid-cols-2 lg:grid-cols-4'>
             <div>

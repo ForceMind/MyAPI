@@ -223,13 +223,14 @@ export function FullContentLogs() {
                       {t('No matching full content logs')}
                     </div>
                   )}
-                {data?.items.map((log) => (
-                  <FullContentLogMobileCard
-                    key={log.request_id}
-                    log={log}
-                    onView={setDetailRequestId}
-                  />
-                ))}
+                {!logsQuery.isError &&
+                  data?.items.map((log) => (
+                    <FullContentLogMobileCard
+                      key={log.request_id}
+                      log={log}
+                      onView={setDetailRequestId}
+                    />
+                  ))}
               </div>
             ) : (
               <div className='min-h-0 flex-1 overflow-auto rounded-lg border'>
@@ -284,13 +285,14 @@ export function FullContentLogs() {
                         </TableRow>
                       )}
 
-                    {data?.items.map((log) => (
-                      <FullContentLogRow
-                        key={log.request_id}
-                        log={log}
-                        onView={setDetailRequestId}
-                      />
-                    ))}
+                    {!logsQuery.isError &&
+                      data?.items.map((log) => (
+                        <FullContentLogRow
+                          key={log.request_id}
+                          log={log}
+                          onView={setDetailRequestId}
+                        />
+                      ))}
                   </TableBody>
                 </Table>
               </div>

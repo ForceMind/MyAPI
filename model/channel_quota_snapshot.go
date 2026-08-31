@@ -182,7 +182,34 @@ func RecordChannelQuotaSnapshot(snapshot *ChannelQuotaSnapshot) error {
 // oldest-first order. Selecting the newest rows before reversing prevents a
 // high-frequency sampler from filling the limit with only the beginning of a
 // long 30/90-day window and dropping the current trend endpoint.
+// ChannelQuotaSnapshotQuery selects one normalized quota series. Empty string
+// fields are treated as wildcards; WindowSeconds is nil when no window length
+// was requested. Callers that need a single series can first resolve the
+// latest row and then fill the omitted fields from its metadata.
+type ChannelQuotaSnapshotQuery struct {
+	MetricType    string
+	WindowType    string
+	Source        string
+	PlanType      string
+	Unit          string
+	Currency      string
+	WindowSeconds *int64
+}
+
+// ListChannelQuotaSnapshots keeps the legacy query surface for existing
+// callers while routing through the series-aware implementation.
 func ListChannelQuotaSnapshots(channelID int, start, end int64, metricType, windowType string, limit int) ([]ChannelQuotaSnapshot, error) {
+	return ListChannelQuotaSnapshotsWithQuery(channelID, start, end, ChannelQuotaSnapshotQuery{
+		MetricType: metricType,
+		WindowType: windowType,
+	}, limit)
+}
+
+// ListChannelQuotaSnapshotsWithQuery returns the most recent bounded
+// observations in oldest-first order, optionally constrained to one complete
+// provider series. It is intentionally additive so older callers keep their
+// existing behavior when they do not need series metadata.
+func ListChannelQuotaSnapshotsWithQuery(channelID int, start, end int64, filter ChannelQuotaSnapshotQuery, limit int) ([]ChannelQuotaSnapshot, error) {
 	if DB == nil {
 		return nil, gorm.ErrInvalidDB
 	}
@@ -196,11 +223,26 @@ func ListChannelQuotaSnapshots(channelID int, start, end int64, metricType, wind
 	if end > 0 {
 		query = query.Where("observed_at <= ?", end)
 	}
-	if metricType != "" {
-		query = query.Where("metric_type = ?", metricType)
+	if filter.MetricType != "" {
+		query = query.Where("metric_type = ?", filter.MetricType)
 	}
-	if windowType != "" {
-		query = query.Where("window_type = ?", windowType)
+	if filter.WindowType != "" {
+		query = query.Where("window_type = ?", filter.WindowType)
+	}
+	if filter.Source != "" {
+		query = query.Where("source = ?", filter.Source)
+	}
+	if filter.PlanType != "" {
+		query = query.Where("plan_type = ?", filter.PlanType)
+	}
+	if filter.Unit != "" {
+		query = query.Where("unit = ?", filter.Unit)
+	}
+	if filter.Currency != "" {
+		query = query.Where("currency = ?", filter.Currency)
+	}
+	if filter.WindowSeconds != nil {
+		query = query.Where("window_seconds = ?", *filter.WindowSeconds)
 	}
 	var snapshots []ChannelQuotaSnapshot
 	err := query.Order("observed_at DESC, id DESC").Limit(limit).Find(&snapshots).Error

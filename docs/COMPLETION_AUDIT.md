@@ -8,8 +8,8 @@
 | API 兼容 | `relay/` 转换器与后端 CI | 已验证 | 上游版本变化时继续回归 |
 | API/响应日志 | `web/src/features/usage-logs/`、`web/src/features/full-content-logs/`、移动集成测试、脱敏测试、移动内容高度修复；列表与 Full Content Logs 查询缓存均按 user/session 隔离 | 代码已验证 | 真实手机视觉验收 |
 | 运行构建可见性 | 管理员「系统信息」中的只读 Runtime build 标识、`build-metadata.ts` DOM/global 元数据及 `build-metadata.test.ts`；Docker/Release/Electron 构建注入 commit SHA；本机容器已切换到 `local/new-api:myapi-9dc11d4` 并健康 | 代码与本机副本已验证 | 真实管理员手机视觉验收仍待完成 |
-| 渠道额度历史 | `controller/channel-billing.go`、`controller/codex_usage.go`、历史/聚合测试、权限路由测试；2xx 无有效 Codex rate_limit 时标记 unsupported | 已验证 | 真实登录账号和采样数据演练 |
-| 概览额度变化 | `account-quota-changes-panel.tsx`、60 秒前台刷新、错误/plan type/只读告警状态测试；`a2528a2` 的跨登录身份查询缓存隔离与认证刷新回归测试 | 已验证 | 具备 `channel.read` 的真实管理员验收；真实手机视觉仍待完成 |
+| 渠道额度历史 | `controller/channel-billing.go`、`controller/codex_usage.go`、历史/聚合测试、权限路由测试；2xx 无有效 Codex rate_limit 时标记 unsupported；历史聚合按 metric/window/source/plan/unit/currency/window_seconds 隔离 | 已验证 | 真实登录账号和采样数据演练 |
+| 概览额度变化 | `account-quota-changes-panel.tsx`、60 秒前台刷新、错误/plan type/只读告警状态测试；`a2528a2` 的跨登录身份查询缓存隔离与认证刷新回归测试；系列按计划/单位/窗口隔离 | 已验证 | 具备 `channel.read` 的真实管理员验收；真实手机视觉仍待完成 |
 | 账户等级/Key 访问方案 | `model/access_profile.go`、Key/UI/API 测试、策略注册表及旧 Key profile 保留测试 | 兼容层已验证 | 强制路由迁移评审 |
 | 设置引导 | Full/LAN Lite/权限条件、生命周期测试 | 已验证 | 多设备视觉检查 |
 | 品牌与旧元数据 | `tools/branding/check.mjs`，最近运行 `blocking_count: 0` | 阻断项已清零 | NOTICE、源码头和兼容标识法律审查 |

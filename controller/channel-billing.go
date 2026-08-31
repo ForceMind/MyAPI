@@ -699,6 +699,44 @@ func parseQuotaHistoryTimezoneOffset(value string) (int, error) {
 	return offset, nil
 }
 
+func parseQuotaHistoryWindowSeconds(value string) (*int64, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil, nil
+	}
+	seconds, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || seconds < 0 {
+		return nil, errors.New("window_seconds must be a non-negative integer")
+	}
+	return &seconds, nil
+}
+
+func resolveQuotaHistorySeriesFilter(filter model.ChannelQuotaSnapshotQuery, latest model.ChannelQuotaSnapshot) model.ChannelQuotaSnapshotQuery {
+	if filter.MetricType == "" {
+		filter.MetricType = latest.MetricType
+	}
+	if filter.WindowType == "" {
+		filter.WindowType = latest.WindowType
+	}
+	if filter.Source == "" {
+		filter.Source = latest.Source
+	}
+	if filter.PlanType == "" {
+		filter.PlanType = latest.PlanType
+	}
+	if filter.Unit == "" {
+		filter.Unit = latest.Unit
+	}
+	if filter.Currency == "" {
+		filter.Currency = latest.Currency
+	}
+	if filter.WindowSeconds == nil {
+		windowSeconds := latest.WindowSeconds
+		filter.WindowSeconds = &windowSeconds
+	}
+	return filter
+}
+
 func quotaHistoryBucketStart(timestamp int64, granularity quotaHistoryGranularity, timezoneOffset int) int64 {
 	local := time.Unix(timestamp, 0).UTC().Add(time.Duration(timezoneOffset) * time.Minute)
 	var bucket time.Time
@@ -725,11 +763,35 @@ func aggregateQuotaHistorySnapshots(snapshots []model.ChannelQuotaSnapshot, gran
 		return snapshots
 	}
 	aggregated := make([]model.ChannelQuotaSnapshot, 0, len(snapshots))
-	indices := make(map[int64]int, len(snapshots))
+	// A time bucket can contain multiple independent provider series (for
+	// example Codex primary/secondary windows or a plan/unit transition). Keep
+	// those series separate while aggregating so one observation cannot replace
+	// another merely because they share a timestamp bucket.
+	type seriesKey struct {
+		Bucket        int64
+		MetricType    string
+		WindowType    string
+		Source        string
+		PlanType      string
+		Unit          string
+		Currency      string
+		WindowSeconds int64
+	}
+	indices := make(map[seriesKey]int, len(snapshots))
 	for _, snapshot := range snapshots {
 		bucket := quotaHistoryBucketStart(snapshot.ObservedAt, granularity, timezoneOffset)
 		snapshot.ObservedAt = bucket
-		if index, ok := indices[bucket]; ok {
+		key := seriesKey{
+			Bucket:        bucket,
+			MetricType:    snapshot.MetricType,
+			WindowType:    snapshot.WindowType,
+			Source:        snapshot.Source,
+			PlanType:      snapshot.PlanType,
+			Unit:          snapshot.Unit,
+			Currency:      snapshot.Currency,
+			WindowSeconds: snapshot.WindowSeconds,
+		}
+		if index, ok := indices[key]; ok {
 			previous := aggregated[index]
 			if previous.Status == "success" && snapshot.Status != "success" {
 				continue
@@ -737,7 +799,7 @@ func aggregateQuotaHistorySnapshots(snapshots []model.ChannelQuotaSnapshot, gran
 			aggregated[index] = snapshot
 			continue
 		}
-		indices[bucket] = len(aggregated)
+		indices[key] = len(aggregated)
 		aggregated = append(aggregated, snapshot)
 	}
 	return aggregated
@@ -752,12 +814,12 @@ const (
 // metrics. Invalid numeric values are counted separately and never participate
 // in rate or forecast calculations.
 type quotaHistoryDataQuality struct {
-	SuccessCount    int   `json:"success_count"`
-	ErrorCount      int   `json:"error_count"`
-	UnsupportedCount int  `json:"unsupported_count,omitempty"`
-	InvalidCount    int   `json:"invalid_count"`
-	ResetBoundaries int   `json:"reset_boundaries"`
-	SpanSeconds     int64 `json:"span_seconds"`
+	SuccessCount     int   `json:"success_count"`
+	ErrorCount       int   `json:"error_count"`
+	UnsupportedCount int   `json:"unsupported_count,omitempty"`
+	InvalidCount     int   `json:"invalid_count"`
+	ResetBoundaries  int   `json:"reset_boundaries"`
+	SpanSeconds      int64 `json:"span_seconds"`
 }
 
 type quotaHistoryDerivedMetrics struct {
@@ -982,7 +1044,36 @@ func GetChannelQuotaHistory(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	snapshots, err := model.ListChannelQuotaSnapshots(id, start, end, c.Query("metric_type"), c.Query("window_type"), limit)
+	seriesFilter := model.ChannelQuotaSnapshotQuery{
+		MetricType: strings.TrimSpace(c.Query("metric_type")),
+		WindowType: strings.TrimSpace(c.Query("window_type")),
+		Source:     strings.TrimSpace(c.Query("source")),
+		PlanType:   strings.TrimSpace(c.Query("plan_type")),
+		Unit:       strings.TrimSpace(c.Query("unit")),
+		Currency:   strings.TrimSpace(c.Query("currency")),
+	}
+	seriesFilter.WindowSeconds, err = parseQuotaHistoryWindowSeconds(c.Query("window_seconds"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	// A chart and its derived summary represent one provider series. If the
+	// caller omits part of the series identity, resolve the newest matching
+	// observation first and fill the missing dimensions from its metadata. This
+	// keeps legacy callers working while preventing plans, currencies, or reset
+	// windows from being mixed into one line.
+	latestRows, err := model.ListChannelQuotaSnapshotsWithQuery(id, start, end, seriesFilter, 1)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if len(latestRows) > 0 {
+		seriesFilter = resolveQuotaHistorySeriesFilter(
+			seriesFilter,
+			latestRows[len(latestRows)-1],
+		)
+	}
+	snapshots, err := model.ListChannelQuotaSnapshotsWithQuery(id, start, end, seriesFilter, limit)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -1084,6 +1175,8 @@ func GetChannelQuotaHistory(c *gin.Context) {
 		response["metric_type"] = last.MetricType
 		response["window_type"] = last.WindowType
 		response["source"] = last.Source
+		response["plan_type"] = last.PlanType
+		response["window_seconds"] = last.WindowSeconds
 		if last.Status == "success" && finiteQuotaValue(last.Available) {
 			current := gin.H{"available": last.Available, "observed_at": last.ObservedAt, "status": last.Status}
 			if last.Total != nil && finiteQuotaValue(*last.Total) {
