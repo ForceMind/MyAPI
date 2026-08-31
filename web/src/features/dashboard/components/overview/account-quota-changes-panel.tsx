@@ -486,16 +486,6 @@ export function AccountQuotaChangesPanel() {
       }
       description={t('Largest provider account quota movements per minute')}
       loading={query.isLoading}
-      empty={!query.isLoading && items.length === 0}
-      emptyMessage={
-        samplingStatusQuery.data?.data?.enabled
-          ? t(
-              'No account quota changes recorded yet. Background sampling is enabled and will populate this panel after the next interval.'
-            )
-          : t(
-              'No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.'
-            )
-      }
       height='h-64'
       contentClassName='space-y-3'
       headerActions={
@@ -549,18 +539,30 @@ export function AccountQuotaChangesPanel() {
         </div>
       </div>
       <CodexAccountQuotaChart items={allItems} />
-      <ul
-        className='max-h-64 min-w-0 space-y-2 overflow-y-auto pr-1'
-        aria-label={t('Account quota changes')}
-      >
-        {items.map((item) => (
-          <MovementRow
-            key={movementKey(item)}
-            item={item}
-            maxMovement={maxMovement}
-          />
-        ))}
-      </ul>
+      {items.length === 0 ? (
+        <div className='text-muted-foreground rounded-xl border border-dashed p-4 text-center text-sm'>
+          {samplingStatusQuery.data?.data?.enabled
+            ? t(
+                'No account quota changes recorded yet. Background sampling is enabled and will populate this panel after the next interval.'
+              )
+            : t(
+                'No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.'
+              )}
+        </div>
+      ) : (
+        <ul
+          className='max-h-64 min-w-0 space-y-2 overflow-y-auto pr-1'
+          aria-label={t('Account quota changes')}
+        >
+          {items.map((item) => (
+            <MovementRow
+              key={movementKey(item)}
+              item={item}
+              maxMovement={maxMovement}
+            />
+          ))}
+        </ul>
+      )}
     </PanelWrapper>
   )
 }

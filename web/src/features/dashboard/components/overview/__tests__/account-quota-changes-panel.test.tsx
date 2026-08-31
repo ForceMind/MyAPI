@@ -310,6 +310,7 @@ describe('account quota changes dashboard panel', () => {
         'No account quota changes recorded yet. Background sampling is enabled and will populate this panel after the next interval.'
       )
     ).toBeInTheDocument()
+    expect(screen.getByTestId('codex-account-quota-chart')).toBeInTheDocument()
   })
 
   test('labels unsupported provider quota instead of showing stable movement', async () => {
