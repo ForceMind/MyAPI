@@ -14,6 +14,7 @@ const {
   describeRuntimeConfig,
   getHealthCheckAddress,
   isSuccessfulHttpStatus,
+  isSuccessfulStatusResponse,
 } = require('./runtime-config');
 
 const APP_NAME = 'MyAPI';
@@ -245,20 +246,30 @@ function checkServerAvailability(port, maxRetries = 30, retryDelay = 1000, hostn
         timeout: 10000
       }, (res) => {
         const statusCode = Number(res.statusCode || 0);
-        // Drain the response before retrying so a slow/unrelated listener does
-        // not keep sockets open across attempts.
-        res.resume();
-        req.destroy();
-        if (isSuccessfulHttpStatus(statusCode)) {
-          console.log(`✓ Successfully connected to ${requestPath} on port ${port} (status: ${statusCode})`);
-          resolve();
-          return;
-        }
-        if (currentAttempt >= maxRetries) {
-          reject(new Error(`Unexpected HTTP status ${statusCode} from ${requestPath} on port ${port} after ${maxRetries} attempts`));
+        let responseBody = '';
+        if (requestPath === '/api/status') {
+          res.setEncoding('utf8');
+          res.on('data', (chunk) => {
+            if (responseBody.length < 65536) responseBody += chunk;
+          });
         } else {
-          setTimeout(tryConnect, retryDelay);
+          res.resume();
         }
+        res.on('end', () => {
+          const successful = requestPath === '/api/status'
+            ? isSuccessfulStatusResponse(statusCode, responseBody)
+            : isSuccessfulHttpStatus(statusCode);
+          if (successful) {
+            console.log(`✓ Successfully connected to ${requestPath} on port ${port} (status: ${statusCode})`);
+            resolve();
+            return;
+          }
+          if (currentAttempt >= maxRetries) {
+            reject(new Error(`Unexpected HTTP response from ${requestPath} on port ${port} after ${maxRetries} attempts`));
+          } else {
+            setTimeout(tryConnect, retryDelay);
+          }
+        });
       });
 
       req.on('error', (err) => {

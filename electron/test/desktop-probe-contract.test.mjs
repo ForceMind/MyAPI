@@ -6,7 +6,8 @@ test('production desktop startup probes the backend status endpoint and validate
   const source = await readFile(new URL('../main.js', import.meta.url), 'utf8')
   assert.match(source, /checkServerAvailability\(PORT, 30, 1000, healthCheckHost, '\/api\/status'\)/)
   assert.match(source, /isSuccessfulHttpStatus\(statusCode\)/)
-  assert.match(source, /Unexpected HTTP status \$\{statusCode\}/)
+  assert.match(source, /isSuccessfulStatusResponse\(statusCode, responseBody\)/)
+  assert.match(source, /Unexpected HTTP response from \$\{requestPath\}/)
   assert.match(source, /checkServerAvailability\(DEV_FRONTEND_PORT, 30, 1000, '127\.0\.0\.1', '\/'\)/)
 })
 

@@ -164,6 +164,21 @@ function isSuccessfulHttpStatus(statusCode) {
   return Number.isInteger(value) && value >= 200 && value < 300;
 }
 
+/**
+ * Validate the backend status payload used by the production startup probe.
+ * Development mode probes an HTML frontend path and therefore continues to
+ * use the status-only helper above.
+ */
+function isSuccessfulStatusResponse(statusCode, body) {
+  if (!isSuccessfulHttpStatus(statusCode)) return false;
+  try {
+    const payload = JSON.parse(String(body || ''));
+    return payload && payload.success === true;
+  } catch {
+    return false;
+  }
+}
+
 module.exports = {
   DEFAULT_BIND_ADDRESS,
   DEFAULT_PORT,
@@ -176,4 +191,5 @@ module.exports = {
   describeRuntimeConfig,
   getHealthCheckAddress,
   isSuccessfulHttpStatus,
+  isSuccessfulStatusResponse,
 };

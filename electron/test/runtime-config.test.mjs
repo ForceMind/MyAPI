@@ -172,6 +172,14 @@ test('accepts only successful HTTP statuses for the startup probe', () => {
   assert.equal(config.isSuccessfulHttpStatus(Number.NaN), false)
 })
 
+test('requires a successful backend status payload for production probes', () => {
+  assert.equal(config.isSuccessfulStatusResponse(200, '{"success":true}'), true)
+  assert.equal(config.isSuccessfulStatusResponse(200, '{"success":false}'), false)
+  assert.equal(config.isSuccessfulStatusResponse(200, 'not-json'), false)
+  assert.equal(config.isSuccessfulStatusResponse(204, ''), false)
+  assert.equal(config.isSuccessfulStatusResponse(503, '{"success":true}'), false)
+})
+
 test('electron-builder packages the shared preflight module', async () => {
   const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
   assert.ok(packageJson.build.files.includes('runtime-config.js'))
