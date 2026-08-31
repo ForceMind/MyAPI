@@ -1,10 +1,8 @@
 package common
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"strconv"
 	"strings"
@@ -67,16 +65,7 @@ func ValidateChannelQuotaAlertSettings(settings ChannelQuotaAlertSettings) error
 
 func ParseChannelQuotaAlertSettings(raw string) (ChannelQuotaAlertSettings, error) {
 	var settings ChannelQuotaAlertSettings
-	decoder := json.NewDecoder(strings.NewReader(raw))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&settings); err != nil {
-		return ChannelQuotaAlertSettings{}, fmt.Errorf("invalid channel quota alert settings: %w", err)
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); err != io.EOF {
-		if err == nil {
-			return ChannelQuotaAlertSettings{}, errors.New("invalid channel quota alert settings: multiple JSON values")
-		}
+	if err := DecodeJsonStrict(strings.NewReader(raw), &settings); err != nil {
 		return ChannelQuotaAlertSettings{}, fmt.Errorf("invalid channel quota alert settings: %w", err)
 	}
 	if err := ValidateChannelQuotaAlertSettings(settings); err != nil {
@@ -89,7 +78,7 @@ func MarshalChannelQuotaAlertSettings(settings ChannelQuotaAlertSettings) (strin
 	if err := ValidateChannelQuotaAlertSettings(settings); err != nil {
 		return "", err
 	}
-	encoded, err := json.Marshal(settings)
+	encoded, err := Marshal(settings)
 	if err != nil {
 		return "", fmt.Errorf("marshal channel quota alert settings: %w", err)
 	}
