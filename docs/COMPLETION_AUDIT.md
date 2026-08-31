@@ -157,6 +157,7 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - 邮箱一致性阶段推送后的 CI run `33413426111`（提交 `2ff9f3e`）四个 job 均在 runner 启动阶段失败且 `steps: []`；继续按 GitHub Billing/runner 外部阻塞处理。
 - 渠道测试 billing 阶段提交 `e528d34`：`settleTestQuota` 使用 checked quota 转换，饱和值拒绝写入并通过集中化 helper 保留 admin-only 审计标记；controller 与完整根 Go 回归通过。该路径仍不替代真实上游/生产计费验收。
 - Claude billing 阶段提交 `f004bd6`：统一 `max_tokens`/`max_tokens_to_sample` 有效值，限制默认值与 thinking budget 比例，拒绝 thinking 请求中低于 1280 的显式上限，并防止超界配置绕过 validator；relay、setting、relaykit 及完整根 Go 回归通过。
+- 图片计数边界阶段提交 `f53ce34`：MiniMax 与 Vertex Imagen 适配器复用 `dto.MaxImageN`，拒绝超限/负数/非整数/Inf/NaN，并保留合法 0/默认值语义；Provider 定向与完整根 Go 回归通过。
 - 数据库并发/控制器增量提交 `2ae74db`：规范化邮箱锁与可用性检查统一使用 `LOWER(email)`，快照去重索引在 MySQL 并发创建时回检并传播真实错误，io.net 部署测试请求改用 JSON wrapper；model/controller 定向与完整根 Go 回归通过。
 - 代码优先阶段提交 `9427656` 修复并覆盖了 OpenRouter cache-create quota 饱和、topup ratio 原子更新与有限值校验、Gemini Imagen `N` 边界以及图片 token 面积/最终 quota 转换；`go test ./common ./service ./controller ./relay/channel/gemini`、完整根 Go 回归与 `cd relaykit && GOWORK=off go build ./...` 均通过。
 - 同一阶段的 Node 合同复核：LAN Lite 68/68、Desktop 32/32、Upgrade 18/18、Release workflow 17/17；Docker workflow 版本写入已断言为无 `v` 的 SemVer。真实 Docker Compose、数据库副本和跨平台设备仍未验证。
