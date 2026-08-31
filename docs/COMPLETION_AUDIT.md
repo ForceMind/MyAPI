@@ -58,6 +58,10 @@
 - `33358768662`（提交 `7479b2a`，2026-08-31）继续呈现同一外部启动故障：Backend、
   Frontend、Desktop 和 Distribution 四个 job 均为 `steps: []`，约 3 秒内结束；当前仍以
   本机资源受限回归作为替代证据，不将该 CI 红灯归因于源码。
+- 2026-08-31 本机运行副本只读复核：`/root/new-api/docker-compose.yml` 仍使用
+  `local/new-api:myapi-9dc11d4`，容器 `new-api` healthy，回环 `GET /api/status` 返回
+  成功且版本 `0.1.1`。该镜像未能证明包含当前源码 HEAD `5042ed0`；本轮没有重建、重启、
+  读取密钥或改变生产配置，真实运行时更新仍需单独授权。
 - `33335484167`：完成度矩阵一致性修正后的完整 CI，Backend、Frontend、Desktop
   和 Distribution 四个作业全部成功。
 - `33335299578`：本机部署旧镜像诊断证据提交后的完整 CI，Backend、Frontend、
