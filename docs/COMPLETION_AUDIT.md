@@ -220,15 +220,16 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 
 - `/root/new-api/docker-compose.yml` 当前配置的是本地镜像
   `local/new-api:myapi-9dc11d4`，容器名为 `new-api`，监听回环地址。
-- 2026-08-31 后续只读核对确认该容器仍在运行且健康，但镜像标签/摘要仍对应
-  `local/new-api:myapi-9dc11d4`，尚未重建到包含 `bdf1d62`/`c8a0681` 的最新源码；
-  本轮没有重启或替换它，以避免未经当前授权改变正在使用的服务。
-- 本轮在既有一次本机更新授权下完成受限构建与切换；构建使用
-  `MYAPI_BUILD_PARALLELISM=1`，未拉取或发布外部镜像，也未读取生产环境密钥。
+- 2026-08-31 后续只读核对确认该容器仍在运行且健康，镜像标签/摘要仍对应
+  `local/new-api:myapi-9dc11d4`；本轮在受限资源下从最终 HEAD `921ca38` 构建了
+  `local/new-api:myapi-921ca38`，并用匿名数据卷和临时端口完成 `/api/status` 启动探针。
+  现有容器没有重启或替换，以避免未经当前授权改变正在使用的服务。
+- 新镜像构建使用 `MYAPI_BUILD_PARALLELISM=1`，未拉取或发布外部 MyAPI 镜像，也未读取
+  生产环境密钥。
 - 镜像摘要为 `sha256:a8b222d494cad235ef5d1b0c31addad5e42a050c65ae6cc5696b49c8b5d72662`，
   容器健康检查通过，`/api/status` 返回 HTTP 200、`version=0.1.1`。
-- 前端主 bundle 已确认包含 `Account quota changes`、`/api/channel/quota/changes`
-  和 `Runtime build`，说明最新额度面板代码已进入本机运行副本。
+- 新镜像内嵌前端已确认包含 `Account quota changes`、`/api/channel/quota/changes`
+  和 `Runtime build`；当前运行副本仍需切换后才能证明真实服务使用该版本。
 - 未携带凭据请求额度接口返回 HTTP 401（`AUTH_UNAUTHORIZED`），权限门禁正常；本轮
   没有使用真实登录凭据，因此仍不能证明管理员账户在手机上已看到数据或样本。
 - 仍需使用具备 `channel.read` 的管理员账号在手机浏览器登录，核对 Runtime build
