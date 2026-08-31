@@ -123,6 +123,9 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   `npm run desktop:check` 通过 32/32，`npm run upgrade:check -- --json` 通过 18/18。
   LAN 检查跳过了 Docker Compose 解析，三项结果均不能替代真实跨平台安装、局域网请求、
   防火墙或脱敏数据库升级/恢复演练。
+- 当前 `35ed22b` 后复核：`npm run release:workflow:check` 通过 16/16，确认语义版本
+  Tag 自动触发 Full/LAN GHCR、既有 Tag 拒绝覆盖、manifest 使用已校验的不可变 digest，
+  以及发布闸门和构建超时/并行度约束仍然生效；这不等于真实 GHCR 拉取或发布操作已执行。
 
 - `npm run release:check` 在提交 `4169778` 上通过：CLI 21/21、品牌 2/2（115 条分类
   引用、0 blocking）、Website、LAN Lite 66/66、Desktop 31/31、Upgrade 18/18、
