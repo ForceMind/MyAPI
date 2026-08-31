@@ -109,6 +109,9 @@ jobs:
       - name: Validate macOS and Windows desktop contract
         run: node tools/desktop/check.mjs --json
 
+      - name: Run Electron runtime tests
+        run: node --test electron/test/*.test.mjs
+
   distribution-contract:
     name: Distribution and release contracts
     if: github.event.action != 'closed' || github.event.pull_request.merged == true

@@ -60,6 +60,7 @@ function checkPackage() {
 
 function checkWorkflow() {
   const workflow = read('.github/workflows/electron-build.yml')
+  const ciWorkflow = read('.github/workflows/ci.yml')
   if (!workflow) return
   record('Electron workflow is tag/manual gated', workflow.includes("tags:\n      - 'v*.*.*'") && workflow.includes('workflow_dispatch:'))
   record('workflow matrix covers macOS and Windows', workflow.includes('macos-latest') && workflow.includes('windows-latest'))
@@ -81,6 +82,11 @@ function checkWorkflow() {
   record('workflow emits SHA256 checksums', workflow.includes('SHA256SUMS-${process.env.RUNNER_OS}.txt') && workflow.includes("createHash('sha256')"))
   record('workflow uploads separate platform artifacts', workflow.includes('name: macos-build') && workflow.includes('name: windows-build'))
   record('release upload has explicit approval gates', includes(workflow, ["inputs.confirm == 'PUBLISH'", "vars.MYAPI_ENABLE_RELEASE == 'true'", "inputs.tag != ''"]))
+  record(
+    'workflow runs Electron runtime tests',
+    workflow.includes('node --test electron/test/*.test.mjs') ||
+      ciWorkflow.includes('node --test electron/test/*.test.mjs'),
+  )
 }
 
 function checkRuntime() {

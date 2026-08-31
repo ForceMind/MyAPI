@@ -77,7 +77,7 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 ## 当前源码合同复核（2026-08-31）
 
 - `npm run release:check` 在提交 `4169778` 上通过：CLI 21/21、品牌 2/2（115 条分类
-  引用、0 blocking）、Website、LAN Lite 66/66、Desktop 29/29、Upgrade 18/18、
+  引用、0 blocking）、Website、LAN Lite 66/66、Desktop 31/31、Upgrade 18/18、
   Release workflow 12/12，以及 SOURCE_MANIFEST/package check 均通过。该命令在
   外部受限执行环境中运行，避免 CLI 子进程被沙箱拒绝。
 - 本轮有界复核：Go `gemini`/`claude` 测试通过；前端 `tsgo -b` 通过，Vitest
