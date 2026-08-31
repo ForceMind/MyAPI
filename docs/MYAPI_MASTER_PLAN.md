@@ -21,6 +21,8 @@
 - [Claude 组织用量观测边界](./CLAUDE_USAGE_REPORT.md)
 - [认证和 Cookie 安全](./authentication.md)
 - [实机与副本验收清单](./REAL_DEVICE_ACCEPTANCE.md)
+- [macOS 开发迁移指南](./DEVELOPMENT_ON_MACOS.md)
+- [新设备 Codex 交接提示词](./CODEX_HANDOFF_PROMPT.md)
 - [定制说明](../CUSTOMIZATION.md)
 - [部署说明](../DEPLOYMENT_CUSTOM.md)
 
@@ -79,7 +81,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 - 在线查看、纯文本视图、原始 JSON/SSE 视图切换。
 - 移动端 API 日志卡片和详情操作已修复。
 - 响应/SSE 日志内存边界已加固。
-- 本机测试副本已在一次明确授权下切换到 `local/new-api:myapi-4b08bdb` 并通过健康检查；SQLite 迁移和旧镜像回滚也已在临时副本完成。其他生产环境仍需由部署方按 `docs/UPGRADE_REHEARSAL.md` 完成副本验证并明确批准后再操作。
+- 本机测试副本已在一次明确授权下切换到当前构建的 `local/new-api:myapi-3eecadf` 并通过健康检查；SQLite 迁移和旧镜像回滚也已在临时副本完成。其他生产环境仍需由部署方按 `docs/UPGRADE_REHEARSAL.md` 完成副本验证并明确批准后再操作。
 
 ### 统计和品牌
 

@@ -7,10 +7,15 @@
 
 ## 环境要求
 
-- Linux；
-- Docker 与 Docker Compose v2；
+- 服务器部署：Linux、Docker 与 Docker Compose v2；
+- macOS/Windows 开发或 LAN Lite：Docker Desktop 与 Compose v2.17+；
 - 一个反向代理或 Cloudflare Tunnel（可选）；
 - 只需要对外代理 MyAPI 的 `3000` 端口。
+
+如果你的主要开发设备是 Mac，请先阅读
+[`docs/DEVELOPMENT_ON_MACOS.md`](docs/DEVELOPMENT_ON_MACOS.md)。它说明源码克隆位置、
+Homebrew/Bun/Go/Node、Docker Desktop、Electron、LAN Lite 和服务器数据隔离；不要把
+本页的服务器 `.env` 或数据目录复制到开发机。
 
 ## 新机器安装
 

@@ -146,6 +146,8 @@ docker run --name my-api -d --restart always \
 | 🧭 產品與工程計畫 | [MyAPI 總體計畫](./docs/MYAPI_MASTER_PLAN.md) |
 | ✅ 完成度證據 | [完成度稽核](./docs/COMPLETION_AUDIT.md) |
 | 🖥️ LAN Lite 與桌面版 | [LAN Lite 指南](./docs/LAN_LITE.md) |
+| 🍎 macOS 開發遷移 | [macOS 開發指南](./docs/DEVELOPMENT_ON_MACOS.md) |
+| 🧭 新裝置 Codex 交接 | [可複製的交接提示詞](./docs/CODEX_HANDOFF_PROMPT.md) |
 | ❓ 常見問題 | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
 | 💬 社群交流 | [交流管道](https://github.com/ForceMind/MyAPI/discussions) |
 

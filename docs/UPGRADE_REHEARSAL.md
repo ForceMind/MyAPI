@@ -100,3 +100,8 @@ node --test --test-name-pattern="upgrade restores the environment" cli/test/myap
 - 演练容器、端口和临时数据库副本已清理，正式 `new-api` 容器未使用副本数据。
 
 该记录证明当前迁移和镜像回滚路径在本机 SQLite 数据上可行，不替代 macOS/Windows 真实设备验收或正式发布审批。
+
+随后在明确授权下，本机查看部署已切换到当前源码 HEAD `3eecadf` 构建的
+`local/new-api:myapi-3eecadf`。该次操作仅重建 `new-api` 容器并等待健康检查，继续使用
+原有 `/root/new-api/data` 和 `/root/new-api/logs` 绑定目录；没有执行数据库复制、卷删除、
+GHCR 拉取或生产发布。

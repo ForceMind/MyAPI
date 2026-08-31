@@ -152,6 +152,8 @@ docker run --name my-api -d --restart always \
 | 🧭 Product and engineering plan | [MyAPI master plan](./docs/MYAPI_MASTER_PLAN.md) |
 | ✅ Completion evidence | [Completion audit](./docs/COMPLETION_AUDIT.md) |
 | 🖥️ LAN Lite and desktop | [LAN Lite guide](./docs/LAN_LITE.md) |
+| 🍎 macOS development migration | [macOS development guide](./docs/DEVELOPMENT_ON_MACOS.md) |
+| 🧭 New-device Codex handoff | [Copyable handoff prompt](./docs/CODEX_HANDOFF_PROMPT.md) |
 | ❓ FAQ | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
 | 💬 Community Interaction | [Communication Channels](https://github.com/ForceMind/MyAPI/discussions) |
 

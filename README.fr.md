@@ -150,6 +150,8 @@ docker run --name my-api -d --restart always \
 | 🧭 Plan produit et technique | [Plan directeur MyAPI](./docs/MYAPI_MASTER_PLAN.md) |
 | ✅ Preuves d'achèvement | [Audit d'achèvement](./docs/COMPLETION_AUDIT.md) |
 | 🖥️ LAN Lite et bureau | [Guide LAN Lite](./docs/LAN_LITE.md) |
+| 🍎 Développement macOS | [Guide de développement macOS](./docs/DEVELOPMENT_ON_MACOS.md) |
+| 🧭 Relais Codex pour nouvel appareil | [Prompt de relais copiable](./docs/CODEX_HANDOFF_PROMPT.md) |
 | ❓ FAQ | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
 | 💬 Interaction avec la communauté | [Canaux de communication](https://github.com/ForceMind/MyAPI/discussions) |
 

@@ -149,6 +149,8 @@ docker run --name my-api -d --restart always \
 | 🧭 製品・開発計画 | [MyAPI マスタープラン](./docs/MYAPI_MASTER_PLAN.md) |
 | ✅ 完了エビデンス | [完了監査](./docs/COMPLETION_AUDIT.md) |
 | 🖥️ LAN Lite とデスクトップ | [LAN Lite ガイド](./docs/LAN_LITE.md) |
+| 🍎 macOS 開発移行 | [macOS 開発ガイド](./docs/DEVELOPMENT_ON_MACOS.md) |
+| 🧭 新しい端末向け Codex 引き継ぎ | [コピー用引き継ぎプロンプト](./docs/CODEX_HANDOFF_PROMPT.md) |
 | ❓ よくある質問 | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
 | 💬 コミュニティ交流 | [交流チャネル](https://github.com/ForceMind/MyAPI/discussions) |
 
