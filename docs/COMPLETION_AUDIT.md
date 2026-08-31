@@ -24,6 +24,10 @@
 
 ## 最近 CI 证据
 
+- `33377504590`（提交 `4151c41`，2026-08-31）仍在 GitHub Actions runner 启动前失败：
+  Backend、Frontend、Desktop 和 Distribution 四个 job 均为 `steps: []`，约 5 秒内结束。
+  该结果继续按 GitHub Billing/runner 外部阻塞处理，不能据此判断当前文档提交或源码失败；
+  runner 恢复后只需重跑最新提交。
 - `33338149233`（提交 `a9dcbae`）、`33338069839`（提交 `2abb2e1`）、`33337364868`（提交 `f487ac0`）、`33337161936`（提交 `3bae897`）和 `33336527035`（提交 `eae3d30`）在 GitHub Actions runner 启动前失败：四个作业均无 steps，无法据此判断代码失败；需待 runner 恢复后重新运行同一提交。
 - `33339052745`（提交 `149155b`）仍在 runner 启动前失败：Backend、Frontend、Desktop
   和 Distribution 四个作业均为 `steps: []`；这不能作为代码失败证据，需待 runner
