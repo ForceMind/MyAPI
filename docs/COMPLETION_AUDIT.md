@@ -44,6 +44,10 @@
 - `33351658149`（提交 `94a9eba`）在本轮自动触发后仍呈现相同状态：Frontend、Backend、
   Desktop 和 Distribution 四个 job 均 `steps: []`，在启动阶段失败；该结果不能作为
   代码失败证据，需 GitHub Billing/runner 恢复后只重跑最新提交。
+- `33352270443`（提交 `4524224`）和 `33352740848`（提交 `085e475`）继续呈现同一
+  外部启动故障：Frontend、Backend、Desktop 和 Distribution 四个 job 均为 `steps: []`，
+  无可用 job 日志。应按 GitHub Billing/runner 阻塞处理，不能视作代码失败；恢复后只重跑
+  最新提交。
 - `33335484167`：完成度矩阵一致性修正后的完整 CI，Backend、Frontend、Desktop
   和 Distribution 四个作业全部成功。
 - `33335299578`：本机部署旧镜像诊断证据提交后的完整 CI，Backend、Frontend、
@@ -71,7 +75,7 @@
   合同 66/66，并为 NPM workflow 增加旧 `v0.1.0` tag 保护；概览额度汇总按
   provider `source`/`plan_type` 隔离，避免不同账户语义混算。
 - `0e77a85`：渠道页移动端关闭固定高度表格，避免额度面板与渠道列表形成
-  嵌套滚动或内容裁剪；前端有界回归通过 59 个测试文件、266 个测试。
+  嵌套滚动或内容裁剪；该提交当时的前端有界回归为 59 个测试文件、266 个测试（历史证据）。
 - `1827358`：Claude adaptor 增加 nil/base URL 防护和默认 JSON/Anthropic 版本头
   测试；Antigravity transport 固定 dynamic agent/continuation 字段边界、限制
   interaction 响应大小、支持 `requires_action` 终态并保持错误正文脱敏。Go 回归已在
@@ -108,7 +112,7 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   Release workflow 12/12，以及 SOURCE_MANIFEST/package check 均通过。该命令在
   外部受限执行环境中运行，避免 CLI 子进程被沙箱拒绝。
 - 本轮有界复核：Go `gemini`/`claude` 测试通过；前端 `tsgo -b` 通过，Vitest
-  通过 59 个测试文件、266 个测试。测试容器限制为 `--cpus=1.5 --memory=3g
+  通过 61 个测试文件、274 个测试。测试容器限制为 `--cpus=1.5 --memory=3g
   --memory-swap=4g`；图表零尺寸和 React 非布尔属性仅为既有测试环境警告，不影响
   断言结果。真实手机/桌面设备仍按外部验收顺序执行。
 - `618327c` 后增量复核：CLI 22/22、LAN Lite 66/66、Desktop 31/31、Website
@@ -129,6 +133,10 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - `c4793ae` 后增量：在单 CPU、Node 堆上限 2GB 的受限环境中运行完整前端回归，
   61 个测试文件、273 个测试全部通过；仅有既有图表零尺寸和 React 非布尔属性警告，
   没有断言失败。真实手机视觉仍需按实机清单执行。
+- `085e475` 后增量：额度变化面板在管理员面板挂载时按 `user.id + session.sid`
+  最多刷新一次 `/api/user/self`，解决 SPA 内权限策略更新后旧快照导致的误隐藏；新增
+  会话刷新回归测试。单 CPU、Node 堆上限 2GB 的完整前端回归通过 61 个测试文件、274
+  个测试；仅有既有图表零尺寸和 React 非布尔属性警告。
 
 ## 版本与远端 tag 只读核对（2026-08-31）
 
