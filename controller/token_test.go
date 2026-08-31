@@ -578,3 +578,26 @@ func TestGetTokenKeyRequiresOwnershipAndReturnsFullKey(t *testing.T) {
 		t.Fatalf("unauthorized key response leaked raw token key: %s", unauthorizedRecorder.Body.String())
 	}
 }
+
+func TestMaskedTokenResponseExplainsExplicitAccessProfile(t *testing.T) {
+	token := &model.Token{
+		Id:             7,
+		Group:          "vip",
+		AccessProfileID: "priority",
+		Key:            "sk-secret-token-value",
+	}
+
+	response := buildMaskedTokenResponse(token)
+	if response == nil {
+		t.Fatal("expected a token response")
+	}
+	if response.AccessProfile.ID != "priority" {
+		t.Fatalf("expected priority access profile, got %q", response.AccessProfile.ID)
+	}
+	if response.AccessProfile.Label == "" || response.AccessProfile.Description == "" {
+		t.Fatal("expected access profile label and description")
+	}
+	if response.Key == token.Key {
+		t.Fatal("expected token key to remain masked")
+	}
+}
