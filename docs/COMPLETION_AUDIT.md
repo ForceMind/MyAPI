@@ -253,3 +253,8 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   限制下运行 `GOWORK=off go test ./controller -run 'ChannelQuota|CodexQuota|Quota' -count=1`，
   结果 `ok github.com/ForceMind/MyAPI/controller`；该结果验证额度采样、聚合和 Codex
   用量相关控制器回归，不替代真实上游账户或生产数据库演练。
+- 当前提交 `0735b20` 后完整发行检查：在单 CPU 限制下运行 `npm run release:check`，CLI
+  22/22、品牌审计 115 条分类引用且 0 blocking、Website、LAN Lite 66/66、Desktop
+  32/32、Upgrade 18/18、Runtime probe contract 13/13、Runtime probe 测试 3/3、Release
+  workflow 16/16、源码清单和发行包检查全部通过。该结果不替代真实跨平台安装、手机视觉
+  验收、数据库恢复或外部 GitHub runner 验证。
