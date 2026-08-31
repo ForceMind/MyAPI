@@ -39,7 +39,7 @@ type MiniMaxImageResponse struct {
 	} `json:"base_resp"`
 }
 
-func oaiImage2MiniMaxImageRequest(request dto.ImageRequest) MiniMaxImageRequest {
+func oaiImage2MiniMaxImageRequest(request dto.ImageRequest) (MiniMaxImageRequest, error) {
 	responseFormat := normalizeMiniMaxResponseFormat(request.ResponseFormat)
 	minimaxRequest := MiniMaxImageRequest{
 		Model:          request.Model,
@@ -52,8 +52,13 @@ func oaiImage2MiniMaxImageRequest(request dto.ImageRequest) MiniMaxImageRequest 
 	if request.Model == "" {
 		minimaxRequest.Model = "image-01"
 	}
-	if request.N != nil && *request.N > 0 {
-		minimaxRequest.N = int(*request.N)
+	if request.N != nil {
+		if *request.N > dto.MaxImageN {
+			return MiniMaxImageRequest{}, fmt.Errorf("n must be an integer between 1 and %d", dto.MaxImageN)
+		}
+		if *request.N > 0 {
+			minimaxRequest.N = int(*request.N)
+		}
 	}
 	if aspectRatio := aspectRatioFromImageRequest(request); aspectRatio != "" {
 		minimaxRequest.AspectRatio = aspectRatio
@@ -65,7 +70,7 @@ func oaiImage2MiniMaxImageRequest(request dto.ImageRequest) MiniMaxImageRequest 
 		}
 	}
 
-	return minimaxRequest
+	return minimaxRequest, nil
 }
 
 func aspectRatioFromImageRequest(request dto.ImageRequest) string {
