@@ -264,3 +264,5 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   `npm run release:check`，CLI 22/22、LAN Lite 66/66、Desktop 32/32、Upgrade 18/18、
   Runtime probe 4/4、Release workflow 16/16、品牌/官网检查和 2115 文件打包检查均通过。
   `SOURCE_MANIFEST.json` 已生成但按约定保持 ignored。
+- 推送 `4cc5e2b` 后的最新 CI `33376520189` 仍在 runner 启动前结束，四个 job 均为
+  `steps: []`；该结果继续按 GitHub Billing/runner 外部阻塞处理，不能归因于源码。
