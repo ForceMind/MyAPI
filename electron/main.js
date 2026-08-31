@@ -298,6 +298,10 @@ function startServer() {
 
     const userDataPath = app.getPath('userData');
     const dataDir = path.join(userDataPath, 'data');
+    // Packaged apps may run from a read-only resources directory (notably
+    // Windows Program Files). Keep backend and full-content logs under the
+    // per-user writable data root instead of relying on the process cwd.
+    const logsDir = path.join(userDataPath, 'logs');
     
     // 设置环境变量供 preload.js 使用
     process.env.ELECTRON_DATA_DIR = dataDir;
@@ -335,10 +339,14 @@ function startServer() {
       MYAPI_BIND_ADDRESS: BIND_ADDRESS,
       MYAPI_EDITION: 'lan',
       SESSION_COOKIE_SECURE: 'false',
+      FULL_CONTENT_LOG_DIR: path.join(logsDir, 'full-content'),
     };
 
     if (!fs.existsSync(dataDir)) {
       fs.mkdirSync(dataDir, { recursive: true });
+    }
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
     }
     env.SESSION_SECRET = process.env.SESSION_SECRET || ensureSessionSecret(userDataPath);
 
@@ -363,7 +371,7 @@ function startServer() {
     
     console.log('Starting server from:', binaryPath);
 
-    serverProcess = spawn(binaryPath, [], {
+    serverProcess = spawn(binaryPath, ['--log-dir', logsDir], {
       env,
       cwd: workingDir
     });

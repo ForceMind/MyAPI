@@ -97,6 +97,12 @@ Relative `./data` and `./logs` paths are portable and are the default for a sour
 - macOS: `~/Library/Application Support/MyAPI/lan`
 - Windows: `%LOCALAPPDATA%\\MyAPI\\lan`
 
+Packaged Electron builds keep the backend log directory at the platform
+`userData` root (`.../MyAPI/logs`) and full-content logs under its
+`full-content` subdirectory. This avoids writing into the read-only app
+resources directory; copying the app data directory is sufficient for a
+local backup.
+
 Docker Desktop must be allowed to share the selected directory. Do not mount an entire home directory or a credential directory into the container.
 
 ## Colleague access

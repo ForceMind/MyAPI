@@ -97,6 +97,12 @@ function checkRuntime() {
       main.includes('isSuccessfulHttpStatus(statusCode)') &&
       runtime.includes('function isSuccessfulHttpStatus(statusCode)'),
   )
+  record(
+    'production logs stay under the writable Electron userData root',
+    main.includes("const logsDir = path.join(userDataPath, 'logs')") &&
+      main.includes("FULL_CONTENT_LOG_DIR: path.join(logsDir, 'full-content')") &&
+      main.includes("spawn(binaryPath, ['--log-dir', logsDir]"),
+  )
 }
 
 function checkDocs() {

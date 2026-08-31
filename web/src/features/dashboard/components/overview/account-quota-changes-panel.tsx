@@ -36,6 +36,7 @@ import { IconBadge } from '@/components/ui/icon-badge'
 import { getChannelQuotaChanges, getChannelQuotaSamplingStatus } from '@/features/channels/api'
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
 import { hasPermission } from '@/lib/admin-permissions'
+import { ROLE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -62,6 +63,18 @@ function metricIdentity(item: ChannelQuotaChangeItem): string {
     item.unit,
     item.currency,
     item.window_type,
+    item.source,
+    item.plan_type,
+  ]
+    .map((value) => value || '')
+    .join('|')
+}
+
+function movementKey(item: ChannelQuotaChangeItem): string {
+  return [
+    item.channel_id,
+    item.window_type,
+    item.metric_type,
     item.source,
     item.plan_type,
   ]
@@ -311,7 +324,25 @@ export function AccountQuotaChangesPanel() {
     return max
   }, 0)
 
-  if (!canReadChannels) return null
+  if (!canReadChannels) {
+    // Keep ordinary users completely unaware of upstream quota data, while
+    // giving an administrator with a custom/partial permission matrix a
+    // visible explanation instead of an unexplained blank dashboard region.
+    if (!user || user.role < ROLE.ADMIN) return null
+    return (
+      <PanelWrapper
+        title={
+          <span className='flex items-center gap-2'>
+            <IconBadge tone='warning' size='sm'><Activity /></IconBadge>
+            {t('Account quota changes')}
+          </span>
+        }
+        description={t('Largest provider account quota movements per minute')}
+        empty
+        emptyMessage={t('Administrator permission required to view account quota changes')}
+      />
+    )
+  }
 
   if (query.isError || query.data?.success === false) {
     const status = getHttpStatus(query.error)
@@ -393,7 +424,7 @@ export function AccountQuotaChangesPanel() {
         className='max-h-64 min-w-0 space-y-2 overflow-y-auto pr-1'
         aria-label={t('Account quota changes')}
       >
-        {items.map((item) => <MovementRow key={`${item.channel_id}-${item.window_type ?? ''}-${item.metric_type ?? ''}`} item={item} maxMovement={maxMovement} />)}
+        {items.map((item) => <MovementRow key={movementKey(item)} item={item} maxMovement={maxMovement} />)}
       </ul>
     </PanelWrapper>
   )

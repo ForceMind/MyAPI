@@ -59,12 +59,13 @@ describe('account quota changes dashboard panel', () => {
     useAuthStore.getState().auth.setUser(null)
   })
 
-  test('does not request or expose upstream quota to users without channel read permission', () => {
+  test('explains missing permission without requesting upstream quota', () => {
     setUser(false)
 
     renderPanel()
 
-    expect(screen.queryByText('Account quota changes')).not.toBeInTheDocument()
+    expect(screen.getByText('Account quota changes')).toBeInTheDocument()
+    expect(screen.getByText('Administrator permission required to view account quota changes')).toBeInTheDocument()
     expect(getChannelQuotaChanges).not.toHaveBeenCalled()
     expect(getChannelQuotaSamplingStatus).not.toHaveBeenCalled()
   })
@@ -283,7 +284,7 @@ describe('account quota changes dashboard panel', () => {
             source: 'codex',
           },
           {
-            channel_id: 32,
+            channel_id: 31,
             name: 'Claude account',
             change_per_minute: 12,
             abs_change_per_minute: 12,
@@ -307,6 +308,8 @@ describe('account quota changes dashboard panel', () => {
     const increaseCard = (await screen.findByText('Max increase / minute')).parentElement
     expect(increaseCard).toBeTruthy()
     expect(within(increaseCard as HTMLElement).getByText('7 USD')).toBeInTheDocument()
+    expect(screen.getByText('Codex account')).toBeInTheDocument()
+    expect(screen.getByText('Claude account')).toBeInTheDocument()
   })
 
   test('keeps loading state visible while requests are pending', () => {

@@ -30,6 +30,7 @@ import {
 import { ErrorState } from '@/components/error-state'
 import { Button } from '@/components/ui/button'
 import { useMediaQuery } from '@/hooks'
+import { useAuthStore } from '@/stores/auth-store'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { cn } from '@/lib/utils'
 
@@ -79,6 +80,8 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   const { isAdminView: isAdmin } = useLogsViewScope()
   const isMobile = useMediaQuery('(max-width: 640px)')
   const searchParams = route.useSearch()
+  const userId = useAuthStore((state) => state.auth.user?.id ?? null)
+  const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
 
   const {
     columnFilters,
@@ -123,6 +126,8 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
       'logs',
       logCategory,
       isAdmin,
+      userId,
+      sessionId,
       pagination.pageIndex + 1,
       pagination.pageSize,
       columnFilters,
