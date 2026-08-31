@@ -380,6 +380,10 @@ token/请求用量，不等于预付费余额或订阅剩余额度；请求还�
 Admin 凭据存储、管理员权限、脱敏、保留周期和数据隔离方案后，增加独立的“Claude
 组织用量”观测源，但不得把它混入当前“账户可用额度”折线图。
 
+Anthropic 当前还区分 Claude Enterprise 的 Analytics API（需要 `read:analytics`
+权限）以及 Claude Platform on AWS 的不可用端点；MyAPI 必须先识别组织产品形态，
+不能用错误的凭据类型重试或把“接口不可用”记录为网络故障。
+
 Google 的 [Antigravity agent 文档](https://ai.google.dev/gemini-api/docs/antigravity-agent)
 将 Antigravity 定义为 Gemini Interactions API 上的托管 preview agent；该接口支持
 agent 执行和远程环境，但没有 provider-neutral 的账户余额端点。MyAPI 因此继续保留

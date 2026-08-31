@@ -15,12 +15,21 @@ GET https://api.anthropic.com/v1/organizations/usage_report/messages
 接口支持 `bucket_width=1m|1h|1d`、时间范围、workspace/account/API key/model 等
 分组和分页，返回每个时间桶的 token 与请求使用量。
 
+官方文档同时区分产品形态和凭据类型：Claude Platform 使用 Usage & Cost Admin
+API，要求 Admin API key、`org:admin` OAuth token 或同等组织级凭据；Claude
+Enterprise（claude.ai）使用独立的 Analytics API，要求带 `read:analytics` 权限的
+Analytics API key。Claude Platform on AWS 当前不提供这些组织用量/成本端点，不能
+仅凭“渠道类型为 Claude”推断接口可用。参见 Anthropic 的
+[Usage and Cost API](https://platform.claude.com/docs/en/manage-claude/usage-cost-api)、
+[Analytics API](https://platform.claude.com/docs/en/manage-claude/analytics-api) 和
+[Admin API 概览](https://platform.claude.com/docs/en/manage-claude/overview)。
+
 ## 与账户额度的区别
 
 - Usage Report 是组织级使用量，不是预付费余额、订阅剩余额度或速率限制剩余量。
 - 它不能填充当前“账户额度变化”面板，也不能从 token 使用量推算余额。
-- 普通 Claude Messages 渠道密钥不能假定拥有该权限；必须显式配置组织级 Admin
-  凭据或官方支持的等价授权。
+- 普通 Claude Messages 或 workspace 渠道密钥不能假定拥有该权限；必须显式配置
+  与组织产品形态匹配的 Admin/Analytics 凭据或官方支持的等价授权。
 
 ## MyAPI 接入门槛
 
@@ -52,4 +61,3 @@ GET https://api.anthropic.com/v1/organizations/usage_report/messages
 - 单位、时区、时间桶和分页结果可重复；跨桶聚合不伪造余额变化。
 - 普通用户和无 `provider_usage.read` 权限的管理员看不到组织数据。
 - 测试夹具只使用合成响应，不包含真实 API key、OAuth token 或组织标识。
-
