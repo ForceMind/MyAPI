@@ -34,6 +34,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useMediaQuery } from '@/hooks'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { getFullContentLogs } from './api'
 import { FullContentLogDetailsDialog } from './components/full-content-log-details-dialog'
@@ -44,6 +45,7 @@ import {
   FullContentLogRow,
 } from './components/full-content-log-row'
 import { formatLogBytes } from './lib/format'
+import { getFullContentLogsQueryKey } from './lib/query-key'
 import type { FullContentLogFilters } from './types'
 
 const PAGE_SIZE = 20
@@ -66,6 +68,8 @@ const EMPTY_FILTERS: FullContentLogFilters = {
 export function FullContentLogs() {
   const { t } = useTranslation()
   const isMobile = useMediaQuery('(max-width: 640px)')
+  const userId = useAuthStore((state) => state.auth.user?.id ?? null)
+  const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   const [page, setPage] = useState(1)
   const [draftFilters, setDraftFilters] =
     useState<FullContentLogFilters>(EMPTY_FILTERS)
@@ -75,7 +79,12 @@ export function FullContentLogs() {
   const [filesOpen, setFilesOpen] = useState(false)
 
   const logsQuery = useQuery({
-    queryKey: ['full-content-logs', 'list', page, appliedFilters],
+    queryKey: getFullContentLogsQueryKey(
+      page,
+      appliedFilters,
+      userId,
+      sessionId
+    ),
     queryFn: async () => {
       const response = await getFullContentLogs({
         page,
