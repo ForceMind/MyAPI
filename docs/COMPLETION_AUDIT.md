@@ -123,6 +123,9 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   `npm run release:check`，CLI 22/22、品牌 2/2、Website、LAN Lite 66/66、Desktop
   32/32、Upgrade 18/18、Release workflow 15/15 以及 SOURCE_MANIFEST/pack check
   全部通过；未执行任何发布、tag 或生产操作。
+- `c8a0681`：权限快照刷新仅针对非超级管理员的旧会话；`SUPER_ADMIN` 继续使用后端
+  隐式全权限路径，不因缺少矩阵而增加不必要的 refresh。认证会话回归 11/11、格式
+  检查通过；该边界不会把缺失权限当作 allow。
 
 ## 版本与远端 tag 只读核对（2026-08-31）
 
