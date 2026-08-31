@@ -36,6 +36,9 @@
 - `33342523430`（提交 `4c2267c`）及同期官网运行 `33339379741` 的检查注释已明确
   为账户付款失败或 spending limit 阻断；四个作业均 `steps: []`、无 runner，根因在
   GitHub Billing & plans，不是 workflow 或代码。额度恢复后只重跑最新提交，避免重跑历史。
+- `33344526525`（提交 `1695688`）仍在 runner 启动前失败：Backend、Frontend、Desktop、
+  Distribution 四个作业均为 `steps: []`；当前仍应按 GitHub Billing & plans 外部阻塞处理，
+  不将其视为代码测试失败。
 - `33335484167`：完成度矩阵一致性修正后的完整 CI，Backend、Frontend、Desktop
   和 Distribution 四个作业全部成功。
 - `33335299578`：本机部署旧镜像诊断证据提交后的完整 CI，Backend、Frontend、
