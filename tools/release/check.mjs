@@ -16,6 +16,10 @@ const workflowPath = path.join(root, '.github/workflows/release.yml')
 const workflow = existsSync(workflowPath) ? readFileSync(workflowPath, 'utf8') : ''
 const dockerWorkflowPath = path.join(root, '.github/workflows/docker-build.yml')
 const dockerWorkflow = existsSync(dockerWorkflowPath) ? readFileSync(dockerWorkflowPath, 'utf8') : ''
+const dockerSmokeWorkflowPath = path.join(root, '.github/workflows/docker-smoke.yml')
+const dockerSmokeWorkflow = existsSync(dockerSmokeWorkflowPath)
+  ? readFileSync(dockerSmokeWorkflowPath, 'utf8')
+  : ''
 const branchDockerWorkflowPath = path.join(root, '.github/workflows/docker-image-branch.yml')
 const branchDockerWorkflow = existsSync(branchDockerWorkflowPath)
   ? readFileSync(branchDockerWorkflowPath, 'utf8')
@@ -91,6 +95,13 @@ record(
   'Docker workflow writes VERSION without the tag v prefix',
   dockerWorkflow.includes('EXPECTED_VERSION="${TAG#v}"') &&
     dockerWorkflow.includes("printf '%s\\n' \"$EXPECTED_VERSION\" > VERSION"),
+)
+record(
+  'Docker smoke workflow builds locally without registry publishing',
+  dockerSmokeWorkflow.includes('load: true') &&
+    dockerSmokeWorkflow.includes('push: false') &&
+    !dockerSmokeWorkflow.includes('docker/login-action') &&
+    dockerSmokeWorkflow.includes('/api/status'),
 )
 record('prepare and platform jobs have bounded timeouts', [
   'timeout-minutes: 10',
