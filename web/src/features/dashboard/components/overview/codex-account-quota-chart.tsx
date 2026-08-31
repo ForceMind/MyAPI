@@ -91,8 +91,6 @@ export function CodexAccountQuotaChart(props: {
     refetchInterval: 60 * 1000,
   })
 
-  if (series.length === 0) return null
-
   const data = query.data?.data
   const points = (data?.points ?? []).filter(
     (point): point is ChannelQuotaHistoryPoint & { available: number } =>
@@ -142,7 +140,11 @@ export function CodexAccountQuotaChart(props: {
         </CardDescription>
       </CardHeader>
       <CardContent className='min-w-0 space-y-3 p-4 pt-2'>
-        {query.isLoading ? (
+        {series.length === 0 ? (
+          <div className='text-muted-foreground rounded-lg border border-dashed p-5 text-center text-sm'>
+            {t('No Codex usage history yet')}
+          </div>
+        ) : query.isLoading ? (
           <Skeleton className='h-56 w-full' aria-label={t('Loading')} />
         ) : query.isError || query.data?.success === false ? (
           <Alert variant='destructive'>
