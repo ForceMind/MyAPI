@@ -152,6 +152,7 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - 迁移与 Provider 增量提交 `2fab8a3`：SQLite 旧 `subscription_plans` 表新增必需列时使用兼容默认值并支持重复迁移；`migrateDBFast` 改为串行并补齐 Casbin/Authz 模型；Cloudflare/Dify 业务 JSON 统一走 wrapper，Dify 附件字段、上传失败和 SSE 错误不再静默吞掉。完整根 Go 回归、model/cloudflare/dify 定向测试与 relaykit 独立构建通过。
 - model 锁/迁移增量提交 `5ec3822`：`lockForUpdate` 按实际 `tx.Dialector` 选择方言，避免全局配置误加 SQLite `FOR UPDATE`；`migrateSubscriptionPlanPriceAmount` 传播 DDL 错误，防止迁移失败后继续启动；model 全量回归和完整根 Go 回归通过。
 - Dify/迁移增量提交 `f201f6d`：Dify 缺失 usage 时仅按实际输出文本估算，不再按 reasoning 事件数虚构 token；完整上游 usage 保持不被额外增加；迁移转换 helper 按实际连接方言执行，model_sync JSON 走 wrapper。Dify、controller、model 和完整根 Go 回归通过。
+- Controller JSON 增量提交 `791ed6c`：io.net 部署测试与 Creem 支付 products/checkout 路径改用项目 JSON wrapper，保留原错误语义；controller 完整回归通过。
 - 数据库并发/控制器增量提交 `2ae74db`：规范化邮箱锁与可用性检查统一使用 `LOWER(email)`，快照去重索引在 MySQL 并发创建时回检并传播真实错误，io.net 部署测试请求改用 JSON wrapper；model/controller 定向与完整根 Go 回归通过。
 - 代码优先阶段提交 `9427656` 修复并覆盖了 OpenRouter cache-create quota 饱和、topup ratio 原子更新与有限值校验、Gemini Imagen `N` 边界以及图片 token 面积/最终 quota 转换；`go test ./common ./service ./controller ./relay/channel/gemini`、完整根 Go 回归与 `cd relaykit && GOWORK=off go build ./...` 均通过。
 - 同一阶段的 Node 合同复核：LAN Lite 68/68、Desktop 32/32、Upgrade 18/18、Release workflow 17/17；Docker workflow 版本写入已断言为无 `v` 的 SemVer。真实 Docker Compose、数据库副本和跨平台设备仍未验证。
