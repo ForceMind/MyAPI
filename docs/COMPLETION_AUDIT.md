@@ -110,8 +110,8 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - `24a44f1`/`f965e04`/`3338846` 后增量：release contract 15/15、upgrade contract
   18/18、Full Content Logs 相关 Vitest 14/14 和 tsgo 通过；新增 Codex Go 测试仅
   完成 gofmt/静态审阅，未完成依赖下载后的运行验证。
-- `5cfb046` 后增量：Electron runtime tests 当前 17/17、Desktop contract 32/32；真实平台
-  安装和局域网请求仍待实机验收。
+- `5cfb046` 后增量：Electron runtime tests 当前 17/17 个 Node 子测试（分布在 2 个
+  test files）、Desktop contract 32/32；真实平台安装和局域网请求仍待实机验收。
 
 ## 版本与远端 tag 只读核对（2026-08-31）
 
