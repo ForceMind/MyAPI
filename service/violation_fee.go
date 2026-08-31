@@ -12,8 +12,6 @@ import (
 	"github.com/ForceMind/MyAPI/relaykit/types"
 	"github.com/ForceMind/MyAPI/setting/model_setting"
 
-	"github.com/shopspring/decimal"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -81,22 +79,18 @@ func shouldChargeViolationFee(err *types.NewAPIError) bool {
 	return HasCSAMViolationMarker(err)
 }
 
-func calcViolationFeeQuota(amount, groupRatio float64) int {
-	if amount <= 0 {
-		return 0
+func calcViolationFeeQuota(amount, groupRatio float64) (int, *common.QuotaClamp) {
+	if amount <= 0 || groupRatio <= 0 {
+		return 0, nil
 	}
-	if groupRatio <= 0 {
-		return 0
+	quota, clamp := common.QuotaRoundChecked(amount * float64(common.QuotaPerUnit) * groupRatio)
+	if clamp != nil {
+		return 0, clamp
 	}
-	quota := decimal.NewFromFloat(amount).
-		Mul(decimal.NewFromFloat(common.QuotaPerUnit)).
-		Mul(decimal.NewFromFloat(groupRatio)).
-		Round(0).
-		IntPart()
 	if quota <= 0 {
-		return 0
+		return 0, nil
 	}
-	return int(quota)
+	return quota, nil
 }
 
 // ChargeViolationFeeIfNeeded charges an additional fee after the normal flow finishes (including refund).
@@ -118,7 +112,12 @@ func ChargeViolationFeeIfNeeded(ctx *gin.Context, relayInfo *relaycommon.RelayIn
 	}
 
 	groupRatio := relayInfo.PriceData.GroupRatioInfo.GroupRatio
-	feeQuota := calcViolationFeeQuota(settings.ViolationDeductionAmount, groupRatio)
+	feeQuota, quotaClamp := calcViolationFeeQuota(settings.ViolationDeductionAmount, groupRatio)
+	if quotaClamp != nil {
+		noteQuotaClamp(relayInfo, quotaClamp)
+		logger.LogWarn(ctx, fmt.Sprintf("violation fee quota rejected after saturation: %s", quotaClamp.Error()))
+		return false
+	}
 	if feeQuota <= 0 {
 		return false
 	}

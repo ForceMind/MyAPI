@@ -17,6 +17,7 @@
 | LAN Lite/桌面 | `lan:check`、`desktop:check`、Electron 安全边界；`electron/test/desktop-probe-contract.test.mjs`、`runtime-config.js` 和 `tools/desktop/check.mjs` | 合同已验证（生产探针为 `/api/status`，要求 HTTP 2xx 且 JSON `success=true`；开发首页仍仅校验 HTTP 状态）；CLI 与托盘对通配监听均仅展示发现的 RFC1918 地址 | macOS/Windows 实机安装、LAN 请求、防火墙；真实设备运行结果不得由合同测试代替 |
 | 多语言关键文案 | `web/src/i18n/locales/{fr,ja,ru,vi,zh-TW}.json`、`web/src/i18n/__tests__/locale-key-parity.test.ts` | English key parity 已验证（5 locales / 5 tests） | 真实设备文字长度与视觉审查 |
 | GHCR/升级 | `release:workflow:check`、`upgrade:check`、不可变 digest 合同；版本与架构 tag 构建前检查并 fail-closed 拒绝覆盖 | 自动化已验证 | 脱敏副本升级、数据库恢复、人工审批 |
+| 计费安全 | `service/violation_fee.go` 使用 checked quota rounding，并在饱和时拒绝收费、保留 `relayInfo.QuotaClamp`；对应正常值、溢出、`Inf`、`NaN` 与审计捕获回归测试 | 当前工作树代码与定向 Go 测试已验证 | 真实数据库/生产额度与完整 CI 仍待外部条件 |
 | 新开发环境数据库默认值 | `48abce6`、`docker-compose.dev.yml`、`makefile` | 代码与模板已验证（新开发默认数据库为 `myapi`） | 接管既有数据库必须显式设置 `MYAPI_DEV_POSTGRES_DB`/`DEV_POSTGRES_DB` 并在副本验证；该变更不执行重命名或迁移 |
 | Claude 组织用量 | `docs/CLAUDE_USAGE_REPORT.md`，官方 Usage Report 边界 | 设计已验证 | Admin 凭据、权限、保留策略和实际接入 |
 | Google Antigravity | `relay/channel/gemini/antigravity_client.go`、`antigravity_client_test.go`、`docs/ANTIGRAVITY_INTEGRATION.md`、`docs/ANTIGRAVITY_PUBLIC_RELAY_GATE.md`；`1827358` | 专用 transport 代码、边界测试及有界 Docker Go 回归已交付（create/get/poll/cancel/delete、usage、动态 agent/continuation 约束、大小上限、终态和脱敏） | 仍需完成公共 Relay 闸门中的持久化、权限、计费、工具策略和完整测试评审；稳定官方余额接口不存在时保持 `unsupported` |
@@ -125,6 +126,16 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 上述历史编号。
 
 ## 当前源码合同复核（2026-08-31）
+
+### 当前工作树阶段证据（2026-08-31）
+
+- 当前基线为 `HEAD=9b65ac4`，`main` 与 `origin/main` 在只读核对时一致；本轮改动尚未提交，工作树仅包含 `deploy/install.sh`、`service/violation_fee.go`、`tools/lan/check.mjs` 的修改及新增 `service/violation_fee_test.go`，不得把下列结果误认为远端提交或 CI 结果。
+- `deploy/install.sh` 已移除 macOS 系统 Bash 3.2 不支持的 `${var,,}` 展开，并将 `MYAPI_PORT` 限制为 `1..65535`；`bash -n deploy/install.sh` 通过。
+- 本机合同回归：CLI 22/22、LAN Lite 68/68、Desktop 32/32、Upgrade 18/18、Runtime probe 13/13（测试 4/4）、Release workflow 16/16、Brand 2/2；Website 静态检查通过。
+- 本机前端回归（Node 22）：typecheck、Vitest 62 个测试文件/280 个测试和 production build 全部通过。Node 26 的 localStorage 不兼容只属于不符合项目要求的运行环境，改用 Node 22 后未重现。
+- 本机 Go 回归：`GOWORK=off go test ./... -count=1` 通过；额度/渠道与 Gemini/Claude 定向回归通过；`cd relaykit && GOWORK=off go build ./...` 通过。计费饱和回归覆盖正常值、溢出、无穷与 NaN 输入。
+- 上述均为源码、合同和本机受限资源验证；尚未替代 Docker Desktop Compose 实跑、SQLite/MySQL/PostgreSQL 副本恢复、真实管理员手机、macOS/Windows 安装、局域网/防火墙和生产环境验收。
+- 本阶段没有执行 push、tag、GHCR/NPM 发布、生产重启或生产数据操作。GitHub Actions 仍可能受 runner/Billing 启动阶段故障影响；恢复后应只重跑最新提交。NOTICE/法律审查和正式版本号仍需负责人确认。
 
 - 当前 `02bcc16` 增量复核：在 `web/` 以
   `NODE_OPTIONS=--max-old-space-size=2048 npm test -- --run` 完整运行前端回归，62 个测试

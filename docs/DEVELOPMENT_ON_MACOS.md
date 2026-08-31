@@ -189,6 +189,8 @@ Apple Developer ID 签名和 notarization 时只是测试制品，可能触发 G
 
 ## 迁移完成检查表
 
+截至 2026-08-31，本仓库当前工作树已完成 macOS Bash 3.2 installer 兼容修复、`MYAPI_PORT` 边界校验和计费 quota saturation 防护；CLI/LAN/Desktop/Upgrade/Runtime/Release 合同与 Node 22、Go 定向回归已有本机证据。以下清单仍按“新 Mac 实际环境/真实设备”勾选，不以静态合同测试代替外部验收。
+
 - [ ] Xcode CLT、Homebrew、Go、Bun、Node、Docker Desktop 版本已记录；
 - [ ] 仓库在 `~/src/MyAPI` 等非同步目录，remote 指向 `ForceMind/MyAPI`；
 - [ ] 前端 typecheck、Vitest、build 和 provider/额度 Go 测试通过；
@@ -197,3 +199,5 @@ Apple Developer ID 签名和 notarization 时只是测试制品，可能触发 G
 - [ ] Full/LAN Lite 默认回环，开放私网时明确使用 `--allow-lan`；
 - [ ] Electron DMG/ZIP 未签名时只作为测试制品；
 - [ ] 任何服务器升级、GHCR/NPM 发布和生产操作均另行确认。
+
+当前阶段边界：本轮工作树修改尚未推送到 GitHub；完成阶段后应先提交并由负责人确认是否允许 push。即使提交后，GitHub runner/Billing、Docker Desktop、真实手机、Windows 设备、PostgreSQL 恢复、NOTICE/法律审查及正式发布仍分别需要对应外部条件和明确授权。

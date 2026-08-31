@@ -104,6 +104,10 @@ MYAPI_LOGS_DIR="${MYAPI_LOGS_DIR:-./logs}"
 MYAPI_CPU_LIMIT="${MYAPI_CPU_LIMIT:-2.0}"
 MYAPI_MEMORY_LIMIT="${MYAPI_MEMORY_LIMIT:-2g}"
 MYAPI_BUILD_PARALLELISM="${MYAPI_BUILD_PARALLELISM:-2}"
+if [[ ! "$MYAPI_PORT" =~ ^[0-9]+$ ]] || (( 10#$MYAPI_PORT < 1 || 10#$MYAPI_PORT > 65535 )); then
+  echo "MYAPI_PORT must be an integer between 1 and 65535." >&2
+  exit 1
+fi
 if [[ "$MYAPI_EDITION" != "full" && "$MYAPI_EDITION" != "lan" ]]; then
   echo "MYAPI_EDITION must be full or lan." >&2
   exit 1
@@ -122,6 +126,10 @@ is_loopback_bind_address() {
   [[ "$1" == "localhost" || "$1" == "127.0.0.1" ]]
 }
 
+lowercase() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
 is_private_ipv4() {
   local address="$1" a b c d extra
   IFS=. read -r a b c d extra <<< "$address"
@@ -135,7 +143,7 @@ is_valid_lan_origin() {
   if [[ ! "$value" =~ ^https?://([^/:?#]+)(:([0-9]+))?/?$ ]]; then
     return 1
   fi
-  host="${BASH_REMATCH[1],,}"
+  host="$(lowercase "${BASH_REMATCH[1]}")"
   port="${BASH_REMATCH[3]:-}"
   if [[ -n "$port" ]] && (( port < 1 || port > 65535 )); then
     return 1
@@ -148,7 +156,7 @@ is_valid_public_origin() {
   if [[ ! "$value" =~ ^https://([^/:?#]+)(:([0-9]+))?/?$ ]]; then
     return 1
   fi
-  host="${BASH_REMATCH[1],,}"
+  host="$(lowercase "${BASH_REMATCH[1]}")"
   port="${BASH_REMATCH[3]:-}"
   if [[ -n "$port" ]] && (( port < 1 || port > 65535 )); then
     return 1
@@ -160,11 +168,12 @@ if [[ "$MYAPI_ALLOW_LAN" != "true" && "$MYAPI_ALLOW_LAN" != "false" ]]; then
   echo "MYAPI_ALLOW_LAN must be true or false." >&2
   exit 1
 fi
-if ! is_loopback_bind_address "${MYAPI_BIND_ADDRESS,,}" && [[ "$MYAPI_BIND_ADDRESS" != "0.0.0.0" ]] && ! is_private_ipv4 "$MYAPI_BIND_ADDRESS"; then
+myapi_bind_address_lower="$(lowercase "$MYAPI_BIND_ADDRESS")"
+if ! is_loopback_bind_address "$myapi_bind_address_lower" && [[ "$MYAPI_BIND_ADDRESS" != "0.0.0.0" ]] && ! is_private_ipv4 "$MYAPI_BIND_ADDRESS"; then
   echo "MYAPI_BIND_ADDRESS must be localhost, 127.0.0.1, 0.0.0.0, or a private IPv4 address." >&2
   exit 1
 fi
-if ! is_loopback_bind_address "${MYAPI_BIND_ADDRESS,,}" && [[ "$MYAPI_ALLOW_LAN" != "true" ]]; then
+if ! is_loopback_bind_address "$myapi_bind_address_lower" && [[ "$MYAPI_ALLOW_LAN" != "true" ]]; then
   echo "LAN binding is disabled by default; set MYAPI_ALLOW_LAN=true to share on a private network." >&2
   exit 1
 fi

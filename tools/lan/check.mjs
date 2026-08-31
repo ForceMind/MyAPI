@@ -303,6 +303,10 @@ function checkInstallerEnvParsing(checks) {
 
     writeFileSync(envPath, env.replace(/^MYAPI_BIND_ADDRESS=.*$/m, 'MYAPI_BIND_ADDRESS=192.168.999.1'))
     record(checks, 'installer rejects malformed bind addresses', runInstaller().status !== 0)
+    writeFileSync(envPath, env.replace(/^MYAPI_PORT=.*$/m, 'MYAPI_PORT=0'))
+    record(checks, 'installer rejects port 0', runInstaller().status !== 0)
+    writeFileSync(envPath, env.replace(/^MYAPI_PORT=.*$/m, 'MYAPI_PORT=65536'))
+    record(checks, 'installer rejects port 65536', runInstaller().status !== 0)
     writeFileSync(envPath, env.replace(/^MYAPI_BIND_ADDRESS=.*$/m, 'MYAPI_BIND_ADDRESS=192.168.1.20'))
     record(checks, 'installer requires LAN opt-in for private binds', runInstaller().status !== 0)
     writeFileSync(
