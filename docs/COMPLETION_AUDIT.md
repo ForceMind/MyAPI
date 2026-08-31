@@ -7,7 +7,7 @@
 | --- | --- | --- | --- |
 | API 兼容 | `relay/` 转换器与后端 CI | 已验证 | 上游版本变化时继续回归 |
 | API/响应日志 | `web/src/features/usage-logs/`、`web/src/features/full-content-logs/`、移动集成测试、脱敏测试、移动内容高度修复；列表与 Full Content Logs 查询缓存均按 user/session 隔离 | 代码已验证 | 真实手机视觉验收 |
-| 运行构建可见性 | 管理员「系统信息」中的只读 Runtime build 标识、`build-metadata.ts` DOM/global 元数据及 `build-metadata.test.ts`；Docker/Release/Electron 构建注入 commit SHA；本机容器已切换到 `local/new-api:myapi-e7961b4` 并健康 | 代码与本机副本已验证 | 真实管理员手机视觉验收仍待完成 |
+| 运行构建可见性 | 管理员「系统信息」中的只读 Runtime build 标识、`build-metadata.ts` DOM/global 元数据及 `build-metadata.test.ts`；Docker/Release/Electron 构建注入 commit SHA；本机容器已切换到 `local/new-api:myapi-ff5feb8` 并健康 | 代码与本机副本已验证 | 真实管理员手机视觉验收仍待完成 |
 | 渠道额度历史 | `controller/channel-billing.go`、`controller/codex_usage.go`、历史/聚合测试、权限路由测试；2xx 无有效 Codex rate_limit 时标记 unsupported；历史聚合按 metric/window/source/plan/unit/currency/window_seconds 隔离；快照按渠道/系列/观测时间桶幂等保留首条，并以 nullable SHA-256 唯一键抵抗并发重复写入 | 已验证 | 真实登录账号和采样数据演练 |
 | 概览额度变化 | `account-quota-changes-panel.tsx`、`codex-account-quota-chart.tsx`、60 秒前台刷新、Codex 账户选择与 24 小时可用额度折线图、错误/plan type/只读告警状态测试；`a2528a2` 的跨登录身份查询缓存隔离与认证刷新回归测试；系列按计划/单位/窗口隔离 | 代码、前端测试与本机新镜像已验证 | 需要由具备 `channel.read` 的真实管理员在概览页面验收；真实手机视觉仍待完成 |
 | 账户等级/Key 访问方案 | `model/access_profile.go`、Key/UI/API 测试、策略注册表及旧 Key profile 保留测试；Key 表单显式提交稳定 `access_profile_id` 并保留 legacy `group`；`setting/access_profile.go` 校验 fallback 目标存在、去空格后的 ID 唯一性和循环依赖 | 兼容层已验证 | 强制路由迁移评审 |
@@ -231,9 +231,9 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 ## 本机部署更新与诊断（2026-08-31）
 
 - `/root/new-api/docker-compose.yml` 当前配置的是本地镜像
-  `local/new-api:myapi-e7961b4`，容器名为 `new-api`，监听回环地址。
-- 2026-08-31 Codex 额度折线图更新：源码提交 `e7961b4` 已使用单核、2GB 内存构建为
-  `local/new-api:myapi-e7961b4`，并通过 compose 强制重建本机容器；容器健康、首页返回
+  `local/new-api:myapi-ff5feb8`，容器名为 `new-api`，监听回环地址。
+- 2026-08-31 Codex 额度折线图更新：源码提交 `ff5feb8` 已使用单核、2GB 内存构建为
+  `local/new-api:myapi-ff5feb8`，并通过 compose 强制重建本机容器；容器健康、首页返回
   HTTP 200，`/api/status` 返回 `success=true`、`version=0.1.1`、`brand=MyAPI`。
   数据和日志绑定仍为 `/root/new-api/data` 与 `/root/new-api/logs`，本次没有修改或复制其中内容。
 - 2026-08-31 后续核对确认该容器仍在运行且健康；该镜像包含 SQLite 迁移修复，并在
@@ -241,7 +241,7 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - 新镜像构建使用 `MYAPI_BUILD_PARALLELISM=1`，未拉取或发布外部 MyAPI 镜像，也未读取
   生产环境密钥。
 - 容器健康检查通过，`/api/status` 返回 HTTP 200、`version=0.1.1`；本次源码提交和镜像
-  构建分别由 `e7961b4` 与 `local/new-api:myapi-e7961b4` 记录。
+  构建分别由 `ff5feb8` 与 `local/new-api:myapi-ff5feb8` 记录。
 - 新镜像内嵌前端已确认包含 `Account quota changes`、`/api/channel/quota/changes`
   和 `Runtime build`，并已在本机正式回环容器中运行。
 - 未携带凭据请求额度接口返回 HTTP 401（`AUTH_UNAUTHORIZED`），权限门禁正常；本轮

@@ -101,7 +101,7 @@ node --test --test-name-pattern="upgrade restores the environment" cli/test/myap
 
 该记录证明当前迁移和镜像回滚路径在本机 SQLite 数据上可行，不替代 macOS/Windows 真实设备验收或正式发布审批。
 
-随后在明确授权下，本机查看部署已切换到当前源码提交 `e7961b4` 构建的
-`local/new-api:myapi-e7961b4`，其中包含概览 Codex 额度折线图。该次操作仅重建 `new-api` 容器并等待健康检查，继续使用
+随后在明确授权下，本机查看部署已切换到当前源码提交 `ff5feb8` 构建的
+`local/new-api:myapi-ff5feb8`，其中包含概览 Codex 额度折线图。该次操作仅重建 `new-api` 容器并等待健康检查，继续使用
 原有 `/root/new-api/data` 和 `/root/new-api/logs` 绑定目录；没有执行数据库复制、卷删除、
 GHCR 拉取或生产发布。
