@@ -613,6 +613,8 @@ function createTray() {
 
   tray = new Tray(trayIconPath);
 
+  const trayStatus = describeRuntimeConfig(runtimeConfig, process.platform);
+
   const contextMenu = Menu.buildFromTemplate([
     {
       label: `Show ${APP_NAME}`,
@@ -628,7 +630,7 @@ function createTray() {
       }
     },
     {
-      label: `Endpoint: http://${BIND_ADDRESS === '0.0.0.0' ? '<private-LAN-IP>' : BIND_ADDRESS}:${PORT}`,
+      label: `Endpoint: ${trayStatus.endpoint}`,
       enabled: false,
     },
     {

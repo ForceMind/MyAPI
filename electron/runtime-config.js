@@ -117,12 +117,17 @@ function resolveRuntimeConfig({ args = [], env = {}, saved = {} } = {}) {
  * deliberately exposes that immutable state and a restart hint instead of
  * pretending that the listener can be changed while the backend is running.
  */
-function describeRuntimeConfig(config, platform = process.platform) {
+function describeRuntimeConfig(config, platform = process.platform, networkInterfaces) {
   const bindAddress = String(config?.bindAddress || DEFAULT_BIND_ADDRESS);
   const port = Number(config?.port || DEFAULT_PORT);
   const lanEnabled = Boolean(config?.isLan && config?.allowLan);
-  const displayHost = bindAddress === '0.0.0.0' ? '<private-LAN-IP>' : bindAddress;
-  const endpoint = `http://${displayHost}:${port}`;
+  const endpointCandidates = bindAddress === '0.0.0.0'
+    ? getPrivateIPv4Candidates(networkInterfaces)
+    : [bindAddress];
+  const endpoints = endpointCandidates.map((host) => `http://${host}:${port}`);
+  const endpoint = endpoints.length > 0
+    ? endpoints.join(', ')
+    : `No RFC1918 address detected (port ${port})`;
 
   const firewallHint = platform === 'win32'
     ? 'Windows：如同事无法连接，请在 Windows Defender 防火墙中允许 MyAPI 访问“专用网络”。'
@@ -134,6 +139,7 @@ function describeRuntimeConfig(config, platform = process.platform) {
     bindAddress,
     port,
     endpoint,
+    endpoints,
     lanEnabled,
     mode: lanEnabled ? 'LAN（私有网络）' : '仅本机（回环地址）',
     firewallHint,

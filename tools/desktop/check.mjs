@@ -98,6 +98,12 @@ function checkRuntime() {
       main.includes('mainWindow.loadURL(`http://${loadHost}:${loadPort}`)'),
   )
   record(
+    'wildcard LAN status exposes discovered endpoints without placeholders',
+    runtime.includes('getPrivateIPv4Candidates(networkInterfaces)') &&
+      runtime.includes('No RFC1918 address detected') &&
+      !main.includes("'<private-LAN-IP>'"),
+  )
+  record(
     'production startup probes the backend status endpoint and rejects non-2xx',
     main.includes("checkServerAvailability(PORT, 30, 1000, healthCheckHost, '/api/status')") &&
       main.includes('isSuccessfulHttpStatus(statusCode)') &&

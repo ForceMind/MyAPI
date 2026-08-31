@@ -109,6 +109,7 @@ test('describes immutable loopback status with platform firewall guidance', () =
       bindAddress: '127.0.0.1',
       port: 3000,
       endpoint: 'http://127.0.0.1:3000',
+      endpoints: ['http://127.0.0.1:3000'],
       lanEnabled: false,
       mode: '仅本机（回环地址）',
       firewallHint: 'Windows：如同事无法连接，请在 Windows Defender 防火墙中允许 MyAPI 访问“专用网络”。',
@@ -127,6 +128,32 @@ test('describes an opted-in private LAN endpoint and restart requirement', () =>
   assert.match(status.mode, /LAN/)
   assert.match(status.firewallHint, /系统设置/)
   assert.match(status.restartHint, /重新启动/)
+})
+
+test('expands wildcard LAN status into discovered private endpoints', () => {
+  const status = config.describeRuntimeConfig(
+    { bindAddress: '0.0.0.0', port: 4317, allowLan: true, isLan: true },
+    'win32',
+    {
+      wifi: [
+        { address: '192.168.1.20', family: 'IPv4', internal: false },
+        { address: '8.8.8.8', family: 'IPv4', internal: false },
+      ],
+      ethernet: [{ address: '10.0.0.7', family: 4, internal: false }],
+    },
+  )
+  assert.deepEqual(status.endpoints, ['http://192.168.1.20:4317', 'http://10.0.0.7:4317'])
+  assert.equal(status.endpoint, 'http://192.168.1.20:4317, http://10.0.0.7:4317')
+})
+
+test('reports missing wildcard LAN endpoint candidates without a placeholder URL', () => {
+  const status = config.describeRuntimeConfig(
+    { bindAddress: '0.0.0.0', port: 4317, allowLan: true, isLan: true },
+    'darwin',
+    {},
+  )
+  assert.deepEqual(status.endpoints, [])
+  assert.equal(status.endpoint, 'No RFC1918 address detected (port 4317)')
 })
 
 test('probes wildcard listeners through loopback and private listeners directly', () => {

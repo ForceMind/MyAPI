@@ -70,6 +70,8 @@ so LAN mode does not depend on an unreachable hard-coded loopback URL.
 Electron 的托盘菜单提供 **LAN status and connection help…** 只读入口，显示当前
 监听端点、回环/LAN 模式和 macOS/Windows/Linux 防火墙提示。监听地址和端口在启动时
 确定，状态页不会执行不安全的热切换；修改配置后退出并用新参数重新启动。
+若绑定 `0.0.0.0`，托盘和帮助对话框会列出启动时发现的 RFC1918 IPv4 端点；没有发现
+候选地址时会明确提示，而不会显示不可访问的占位 URL。
 
 PowerShell uses the same flags (use a backtick for line continuation):
 
