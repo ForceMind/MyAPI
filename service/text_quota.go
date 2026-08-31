@@ -200,6 +200,12 @@ func noteQuotaClamp(relayInfo *relaycommon.RelayInfo, clamp *common.QuotaClamp) 
 	}
 }
 
+// NoteQuotaClamp records the first quota saturation on relay metadata for
+// billing paths implemented outside this package (for example channel tests).
+func NoteQuotaClamp(relayInfo *relaycommon.RelayInfo, clamp *common.QuotaClamp) {
+	noteQuotaClamp(relayInfo, clamp)
+}
+
 func composeTieredTextQuota(relayInfo *relaycommon.RelayInfo, summary textQuotaSummary, tieredQuota int, tieredResult *billingexpr.TieredResult) int {
 	if summary.ToolCallSurchargeQuota.IsZero() {
 		return tieredQuota

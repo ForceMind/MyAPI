@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -495,6 +494,10 @@ func testChannel(ctx context.Context, channel *model.Channel, testUserID int, te
 	milliseconds := tok.Sub(tik).Milliseconds()
 	consumedTime := float64(milliseconds) / 1000.0
 	other := buildTestLogOther(c, info, priceData, usage, tieredResult)
+	// Channel tests write a consume log directly (without the normal billing
+	// settlement path), so preserve any saturated quota conversion on the
+	// request metadata before recording it for admin auditing.
+	service.AttachQuotaSaturation(c, info, other)
 	model.RecordConsumeLog(c, testUserID, model.RecordConsumeLogParams{
 		ChannelId:        channel.Id,
 		PromptTokens:     usage.PromptTokens,
@@ -540,15 +543,29 @@ func settleTestQuota(info *relaycommon.RelayInfo, priceData hosttypes.PriceData,
 
 	quota := 0
 	if !priceData.UsePrice {
-		quota = usage.PromptTokens + int(math.Round(float64(usage.CompletionTokens)*priceData.CompletionRatio))
-		quota = int(math.Round(float64(quota) * priceData.ModelRatio))
-		if priceData.ModelRatio != 0 && quota <= 0 {
+		// Keep the complete calculation in float64 until the centralized,
+		// checked conversion. Converting the completion component first can
+		// overflow before the model ratio is applied.
+		rawQuota := (float64(usage.PromptTokens) +
+			float64(usage.CompletionTokens)*priceData.CompletionRatio) * priceData.ModelRatio
+		var clamp *common.QuotaClamp
+		quota, clamp = common.QuotaRoundChecked(rawQuota)
+		service.NoteQuotaClamp(info, clamp)
+		if clamp != nil {
+			return 0, nil
+		}
+		if clamp == nil && priceData.ModelRatio != 0 && quota <= 0 {
 			quota = 1
 		}
 		return quota, nil
 	}
 
-	return int(priceData.ModelPrice * common.QuotaPerUnit), nil
+	quota, clamp := common.QuotaFromFloatChecked(priceData.ModelPrice * float64(common.QuotaPerUnit))
+	service.NoteQuotaClamp(info, clamp)
+	if clamp != nil {
+		return 0, nil
+	}
+	return quota, nil
 }
 
 func buildTestLogOther(c *gin.Context, info *relaycommon.RelayInfo, priceData hosttypes.PriceData, usage *dto.Usage, tieredResult *billingexpr.TieredResult) map[string]interface{} {
