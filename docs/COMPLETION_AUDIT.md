@@ -140,6 +140,7 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - 阶段提交 `e0ca670` 推送后的 CI run `33397392112`（2026-08-31）中，Frontend、Desktop、Backend 和 Distribution 四个 job 均在 runner 启动阶段失败且 `steps: []`；按既有规则归类为 GitHub Billing/runner 外部阻塞，不归因于源码。恢复后只需重跑最新提交。
 - 随后的文档同步提交 `52f1d03` 对应 CI run `33397495873` 仍为同一启动阶段故障，四个 job 均为 `steps: []`；继续按 GitHub Billing/runner 外部阻塞处理，不修改无关源码。
 - 阶段 2 的 macOS/Docker/发行合同只读审查未发现新的可直接修复缺陷；Docker Desktop/Compose、真实 LAN 启动、健康检查和数据库演练仍待本机安装与外部验收。
+- 当前执行批次已把代码优先目标写入总体计划；本机尝试安装 Docker Desktop 时下载长时间无进度后中止，Docker/Compose 仍视为未安装的外部环境阻塞。
 
 - 当前 `02bcc16` 增量复核：在 `web/` 以
   `NODE_OPTIONS=--max-old-space-size=2048 npm test -- --run` 完整运行前端回归，62 个测试
