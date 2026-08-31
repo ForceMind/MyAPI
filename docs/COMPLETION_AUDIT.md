@@ -86,6 +86,8 @@
   新增 unsupported 分类回归；Go 测试因依赖下载资源限制未宣称通过。
 - `3338846`：Full Content Logs 查询缓存加入 user/session 身份隔离，新增 query-key
   回归；相关 Vitest 5 文件/14 测试、tsgo 均通过。
+- `9871564`：Codex WHAM usage/reset/consume 响应统一限制为 1 MiB，并以额外 1 字节
+  探测超限；边界测试覆盖三条接口。gofmt 通过，Go 测试因依赖下载资源限制未宣称通过。
 
 CI 运行号会随新提交变化；发布前应重新查询当前提交对应的运行结果，不应永久依赖
 上述历史编号。
