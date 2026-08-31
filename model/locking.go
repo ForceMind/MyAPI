@@ -1,8 +1,6 @@
 package model
 
 import (
-	"github.com/ForceMind/MyAPI/common"
-
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -18,8 +16,19 @@ import (
 // is skipped there; SQLite's single-writer model makes one of two conflicting
 // transactions fail instead of both committing.
 func lockForUpdate(tx *gorm.DB) *gorm.DB {
-	if common.UsingMainDatabase(common.DatabaseTypeSQLite) {
+	if tx == nil {
 		return tx
 	}
-	return tx.Clauses(clause.Locking{Strength: "UPDATE"})
+	// Use the handle's dialector instead of the process-wide configured type.
+	// This keeps test/auxiliary handles safe and prevents SQLite from receiving
+	// unsupported FOR UPDATE syntax when the global setting differs.
+	if tx.Dialector == nil || tx.Dialector.Name() == "sqlite" {
+		return tx
+	}
+	switch tx.Dialector.Name() {
+	case "mysql", "postgres":
+		return tx.Clauses(clause.Locking{Strength: "UPDATE"})
+	default:
+		return tx
+	}
 }
