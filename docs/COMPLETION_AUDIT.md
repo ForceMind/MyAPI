@@ -301,6 +301,9 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   malformed 输入测试。
 - 定向回归 `GOWORK=off go test ./relay/channel/xunfei ./relay/channel/volcengine -count=1`
   通过；未改变上游协议、发布流程或生产数据。
+- 随后在允许本地 SMTP/回环测试端口的环境中重新运行 `GOWORK=off go test ./... -count=1`，
+  全部根模块包通过。提交 `f0b2195` 已推送；CI run `33420183217` 的四个 job 仍均为
+  runner 启动前失败、`steps: []`，继续归类为 GitHub Billing/runner 外部阻塞。
 
 ## 本机部署更新与诊断（2026-08-31）
 
