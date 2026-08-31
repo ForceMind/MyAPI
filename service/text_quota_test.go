@@ -603,6 +603,38 @@ func TestCalculateTextQuotaSummarySeparatesOpenRouterCacheCreationFromPromptBill
 	require.Equal(t, 3012, summary.Quota)
 }
 
+func TestCalcOpenRouterCacheCreateTokensRejectsInvalidValues(t *testing.T) {
+	priceData := hosttypes.PriceData{ModelRatio: 1, CacheCreationRatio: 1.25}
+	cases := []struct {
+		name       string
+		cost       float64
+		price      float64
+		modelRatio float64
+	}{
+		{name: "nan", cost: math.NaN(), price: 1.25, modelRatio: 1},
+		{name: "infinity", cost: math.Inf(1), price: 1.25, modelRatio: 1},
+		{name: "negative", cost: -1, price: 1.25, modelRatio: 1},
+		{name: "zero denominator", cost: 1, price: 1.25, modelRatio: 0},
+		{name: "overflow", cost: float64(common.MaxQuota) * 2, price: 1.25, modelRatio: 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			priceData.CacheCreationRatio = tc.price
+			priceData.ModelRatio = tc.modelRatio
+			got, err := CalcOpenRouterCacheCreateTokens(dto.Usage{Cost: tc.cost}, priceData)
+			require.Error(t, err)
+			require.Zero(t, got)
+		})
+	}
+}
+
+func TestCalcOpenRouterCacheCreateTokensRoundsInRange(t *testing.T) {
+	priceData := hosttypes.PriceData{ModelRatio: 1, CacheCreationRatio: 1.25}
+	got, err := CalcOpenRouterCacheCreateTokens(dto.Usage{Cost: 1.25}, priceData)
+	require.NoError(t, err)
+	require.Equal(t, 2500000, got)
+}
+
 func TestCalculateTextQuotaSummaryKeepsPrePRClaudeOpenRouterBilling(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()

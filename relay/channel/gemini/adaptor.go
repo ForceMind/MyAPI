@@ -64,6 +64,19 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 	if !strings.HasPrefix(info.UpstreamModelName, "imagen") {
 		return nil, errors.New("not supported model for image generation, only imagen models are supported")
 	}
+	// This adapter can also be called through passthrough/alternate paths that
+	// do not run the standard image DTO validator. Keep the billing multiplier
+	// bounded at the provider boundary before converting uint to int.
+	sampleCount := uint(1)
+	if request.N != nil {
+		sampleCount = *request.N
+		if sampleCount == 0 {
+			sampleCount = 1
+		}
+		if sampleCount > dto.MaxImageN {
+			return nil, fmt.Errorf("n must be an integer between 1 and %d", dto.MaxImageN)
+		}
+	}
 
 	// convert size to aspect ratio but allow user to specify aspect ratio
 	aspectRatio := "1:1" // default aspect ratio
@@ -95,7 +108,7 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 			},
 		},
 		Parameters: dto.GeminiImageParameters{
-			SampleCount:      int(lo.FromPtrOr(request.N, uint(1))),
+			SampleCount:      int(sampleCount),
 			AspectRatio:      aspectRatio,
 			PersonGeneration: "allow_adult", // default allow adult
 		},

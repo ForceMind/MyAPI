@@ -258,25 +258,36 @@ func PostWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, mod
 	})
 }
 
-func CalcOpenRouterCacheCreateTokens(usage dto.Usage, priceData types.PriceData) int {
+func CalcOpenRouterCacheCreateTokens(usage dto.Usage, priceData types.PriceData) (int, error) {
 	if priceData.CacheCreationRatio == 1 {
-		return 0
+		return 0, nil
 	}
 	quotaPrice := priceData.ModelRatio / common.QuotaPerUnit
 	promptCacheCreatePrice := quotaPrice * priceData.CacheCreationRatio
 	promptCacheReadPrice := quotaPrice * priceData.CacheRatio
 	completionPrice := quotaPrice * priceData.CompletionRatio
+	denominator := promptCacheCreatePrice - quotaPrice
+	if denominator == 0 || math.IsNaN(denominator) || math.IsInf(denominator, 0) {
+		return 0, fmt.Errorf("invalid OpenRouter cache creation price denominator")
+	}
 
 	cost, _ := usage.Cost.(float64)
 	totalPromptTokens := float64(usage.PromptTokens)
 	completionTokens := float64(usage.CompletionTokens)
 	promptCacheReadTokens := float64(usage.PromptTokensDetails.CachedTokens)
 
-	return int(math.Round((cost -
+	raw := (cost -
 		totalPromptTokens*quotaPrice +
 		promptCacheReadTokens*(quotaPrice-promptCacheReadPrice) -
-		completionTokens*completionPrice) /
-		(promptCacheCreatePrice - quotaPrice)))
+		completionTokens*completionPrice) / denominator
+	if math.IsNaN(raw) || math.IsInf(raw, 0) || raw < 0 {
+		return 0, fmt.Errorf("invalid OpenRouter cache creation token estimate")
+	}
+	quota, clamp := common.QuotaFromFloatChecked(raw)
+	if clamp != nil {
+		return 0, clamp
+	}
+	return quota, nil
 }
 
 func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage, extraContent string) {

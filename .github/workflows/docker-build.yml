@@ -107,7 +107,10 @@ jobs:
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
           echo "image_repository=${IMAGE_REPOSITORY}" >> $GITHUB_OUTPUT
           echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
-          echo "${TAG}" > VERSION
+          # VERSION is the distribution semver without the tag's leading v.
+          # Keep the container's embedded/frontend version consistent with
+          # package.json and the release workflow contract.
+          printf '%s\n' "$EXPECTED_VERSION" > VERSION
           echo "Building MyAPI ${{ matrix.edition }} tag: ${TAG} for ${{ matrix.arch }}"
 
       - name: Set up Docker Buildx

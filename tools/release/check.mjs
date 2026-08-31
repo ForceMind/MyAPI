@@ -87,6 +87,11 @@ record(
     installer.includes('docker compose --env-file "$env_file" -f "$script_dir/docker-compose.yml" pull my-api'),
 )
 record('release workflow requires VERSION without a v prefix', workflow.includes('if [[ "$FILE_VERSION" != "$TAG_VERSION" ]]'))
+record(
+  'Docker workflow writes VERSION without the tag v prefix',
+  dockerWorkflow.includes('EXPECTED_VERSION="${TAG#v}"') &&
+    dockerWorkflow.includes("printf '%s\\n' \"$EXPECTED_VERSION\" > VERSION"),
+)
 record('prepare and platform jobs have bounded timeouts', [
   'timeout-minutes: 10',
   'timeout-minutes: 45',
