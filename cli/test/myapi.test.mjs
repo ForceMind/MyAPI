@@ -649,6 +649,24 @@ test('lan init requires explicit opt-in for a private network address', () => {
   )
   assert.match(startOutput, /Private-network mode/)
   assert.match(readFileSync(dockerLog, 'utf8'), /compose .* up/)
+
+  // An operator may have disabled LAN sharing in .env and explicitly opt in
+  // again for one start. Persist that choice before Compose reads the file.
+  const envPath = path.join(project, 'deploy/.env')
+  writeFileSync(
+    envPath,
+    readFileSync(envPath, 'utf8').replace(/^MYAPI_ALLOW_LAN=.*$/m, 'MYAPI_ALLOW_LAN=false'),
+    { mode: 0o600 },
+  )
+  runCliWithEnv(
+    { PATH: `${fakeBin}:${process.env.PATH || ''}`, MYAPI_FAKE_DOCKER_LOG: dockerLog },
+    'lan',
+    'start',
+    '--project-dir',
+    project,
+    '--allow-lan',
+  )
+  assert.match(readFileSync(envPath, 'utf8'), /^MYAPI_ALLOW_LAN=true$/m)
 })
 
 test('lan init rejects public and invalid listener addresses', () => {

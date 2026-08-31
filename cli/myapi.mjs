@@ -683,7 +683,12 @@ function lanCommand(command, args) {
   const allowLAN = configuredLANOptIn || args.includes('--allow-lan') || command !== 'start'
   const configuredError = validateLANBinding(options.bindAddress, allowLAN)
   if (configuredError) throw new Error(configuredError)
-  if (args.includes('--bind-address') || args.includes('--port')) {
+  const hasExplicitEndpoint = args.includes('--bind-address') || args.includes('--port')
+  const shouldPersistLANOptIn = command === 'start' &&
+    args.includes('--allow-lan') &&
+    !configuredLANOptIn &&
+    !isLoopbackBindAddress(options.bindAddress)
+  if (hasExplicitEndpoint || shouldPersistLANOptIn) {
     writeLANEnvironment(projectRoot, options)
     Object.assign(values, parseEnvFile(paths.envFile))
   }
