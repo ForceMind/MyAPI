@@ -146,9 +146,10 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 #### 2026-09-01 阶段状态
 
 Palm、Zhipu、Ali rerank、MiniMax 的 JSON wrapper 和错误边界已完成并通过定向及全量
-Go 回归，relaykit 独立构建也已通过。下一阶段先修复本机 Homebrew Node 缺失
-`simdutf` 动态库导致的启动阻塞，再重跑前端/发行合同；Docker、跨数据库副本和真实设备
-继续保持外部待验证。完整 UI 替换没有开始，仍按代码合同稳定后的后置闸门执行。
+Go 回归，relaykit 独立构建也已通过。Node 22 路径下前端类型检查、280 个 Vitest 测试、
+production build 与发行合同均已复核通过；默认 Homebrew Node 26 的 simdutf 链接问题仍
+需永久修复。Docker、跨数据库副本和真实设备继续保持外部待验证。完整 UI 替换没有开始，
+仍按代码合同稳定后的后置闸门执行。
 
 | 领域 | 当前状态 | 完成定义 |
 | --- | --- | --- |

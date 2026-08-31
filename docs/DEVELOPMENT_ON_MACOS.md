@@ -97,6 +97,11 @@ Docker Desktop 完成 Compose、资源和数据库副本演练。
 无法启动。这是开发主机 Homebrew 运行时问题，不是前端断言失败；修复 Node/Homebrew
 链接后应按本页命令重新执行类型检查、测试、构建和发行合同。
 
+同日复核可使用已安装的 Node 22：
+`PATH=/opt/homebrew/opt/node@22/bin:$PATH`。该路径下类型检查、前端测试（62 个文件/
+280 个测试）、production build 和发行合同均通过；建议将 Node 22 设为本机默认版本，
+并修复 Homebrew `merve` 与 `simdutf` 的动态库链接后再移除临时 PATH。
+
 MacBook 资源有限时使用 `MYAPI_BUILD_PARALLELISM=1`、`GOMAXPROCS=1`，不要并行运行多
 个完整前端构建或 Docker 构建。Linux 专用的 `taskset` 不适用于 macOS；Docker Desktop
 的 CPU/内存限制和项目的 `MYAPI_CPU_LIMIT`/`MYAPI_MEMORY_LIMIT` 是主要资源边界。

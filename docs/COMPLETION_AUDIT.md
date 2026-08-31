@@ -287,6 +287,12 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   Backend、Frontend、Desktop、Distribution 四个 job 均在 runner 启动前失败且
   `steps: []`。按规则归类为 GitHub Billing/runner 外部阻塞，不归因于本轮源码；恢复后
   只需重跑该提交的 CI。
+- 随后使用已安装的 Node 22.23.2（`PATH=/opt/homebrew/opt/node@22/bin:$PATH`）并将
+  `NPM_CONFIG_CACHE` 指向临时目录复核：`bun run typecheck` 通过，前端 Vitest 62 个文件/
+  280 个测试通过，`bun run build` 通过；`npm run release:check` 通过（CLI 22/22、LAN
+  68/68、Desktop 32/32、Upgrade 18/18、Runtime 13/13+测试 4/4、Release workflow
+  18/18、源码清单和打包检查通过）。原生 `/opt/homebrew/bin/node` 的 simdutf 链接问题仍
+  需在开发主机永久修复，当前验证通过不代表 Node 26 环境符合项目要求。
 
 ## 本机部署更新与诊断（2026-08-31）
 
