@@ -624,10 +624,31 @@ test('lan init requires explicit opt-in for a private network address', () => {
   assert.match(env, /^MYAPI_PORT=4317$/m)
   assert.match(env, /^MYAPI_PUBLIC_URL=http:\/\/192\.168\.1\.20:4317$/m)
   assert.match(output, /Private-network mode/)
-  assert.throws(
-    () => runCli('lan', 'start', '--project-dir', project),
-    /pass --allow-lan/
+
+  // Once the project has recorded the explicit LAN opt-in, the documented
+  // restart command should not require repeating --allow-lan. Use a fake
+  // Docker executable so this remains a no-deployment unit test.
+  const fakeBin = path.join(root, 'bin')
+  const dockerLog = path.join(root, 'docker.log')
+  mkdirSync(fakeBin)
+  const fakeDocker = path.join(fakeBin, 'docker')
+  writeFileSync(
+    fakeDocker,
+    '#!/bin/sh\n' +
+      'set -eu\n' +
+      'printf "%s\\n" "$*" >> "$MYAPI_FAKE_DOCKER_LOG"\n',
+    { mode: 0o700 },
   )
+  chmodSync(fakeDocker, 0o700)
+  const startOutput = runCliWithEnv(
+    { PATH: `${fakeBin}:${process.env.PATH || ''}`, MYAPI_FAKE_DOCKER_LOG: dockerLog },
+    'lan',
+    'start',
+    '--project-dir',
+    project,
+  )
+  assert.match(startOutput, /Private-network mode/)
+  assert.match(readFileSync(dockerLog, 'utf8'), /compose .* up/)
 })
 
 test('lan init rejects public and invalid listener addresses', () => {

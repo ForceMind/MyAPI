@@ -674,10 +674,14 @@ function lanCommand(command, args) {
   if (!Number.isInteger(options.port) || options.port < 1 || options.port > 65535) {
     throw new Error('--port must be an integer between 1 and 65535')
   }
-  const configuredError = validateLANBinding(
-    options.bindAddress,
-    args.includes('--allow-lan') || command !== 'start'
-  )
+  // A previously initialized LAN project has already recorded the explicit
+  // opt-in in its private .env. Requiring the flag again would make the
+  // documented stop/start workflow fail, while still allowing a fresh
+  // non-loopback bind only when either the env or the command explicitly opts
+  // in. The CLI flag remains an additional explicit override for old configs.
+  const configuredLANOptIn = String(values.MYAPI_ALLOW_LAN || '').trim().toLowerCase() === 'true'
+  const allowLAN = configuredLANOptIn || args.includes('--allow-lan') || command !== 'start'
+  const configuredError = validateLANBinding(options.bindAddress, allowLAN)
   if (configuredError) throw new Error(configuredError)
   if (args.includes('--bind-address') || args.includes('--port')) {
     writeLANEnvironment(projectRoot, options)
