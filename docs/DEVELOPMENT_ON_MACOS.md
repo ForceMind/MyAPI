@@ -92,6 +92,11 @@ Docker 镜像测试使用 GitHub Actions 的 `Docker build smoke` workflow（手
 GHCR、不创建 tag。workflow 首次运行需等待 GitHub runner/Billing 恢复；本机仍应使用
 Docker Desktop 完成 Compose、资源和数据库副本演练。
 
+2026-09-01 本机工具链备注：当前 `/opt/homebrew/bin/node` 启动时因 `merve/tsgo` 依赖的
+`simdutf` 动态库缺失而 SIGABRT，导致 `bun run typecheck` 和包含 `npm test` 的发行合同
+无法启动。这是开发主机 Homebrew 运行时问题，不是前端断言失败；修复 Node/Homebrew
+链接后应按本页命令重新执行类型检查、测试、构建和发行合同。
+
 MacBook 资源有限时使用 `MYAPI_BUILD_PARALLELISM=1`、`GOMAXPROCS=1`，不要并行运行多
 个完整前端构建或 Docker 构建。Linux 专用的 `taskset` 不适用于 macOS；Docker Desktop
 的 CPU/内存限制和项目的 `MYAPI_CPU_LIMIT`/`MYAPI_MEMORY_LIMIT` 是主要资源边界。

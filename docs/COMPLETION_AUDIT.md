@@ -266,6 +266,24 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 3. 分别在 macOS 和 Windows 验证默认回环、显式 LAN 绑定、API Key 请求和回滚。
 4. 完成副本升级/恢复后，再由负责人决定是否进行生产变更、版本 tag、NPM 或其他发布。
 
+## 代码优先阶段增量（2026-09-01）
+
+- Palm、Zhipu、Ali rerank 和 MiniMax 的业务 JSON 序列化/反序列化已统一走
+  `common/json.go` wrapper；Palm/Zhipu/Ali 增加 malformed 响应边界回归，Zhipu
+  malformed `meta:` SSE 与 scanner 错误不再继续输出或伪造 usage。
+- Provider 定向回归：`go test ./relay/channel/palm ./relay/channel/zhipu
+  ./relay/channel/ali ./relay/channel/minimax -count=1` 通过；在允许本地测试端口的
+  条件下，`GOWORK=off go test ./... -count=1` 全量通过。受限沙箱首次运行的 SMTP
+  测试因 `127.0.0.1:0` bind 权限失败，升级权限后已复核通过。
+- relaykit 独立构建 `cd relaykit && GOWORK=off go build ./...` 通过（依赖下载在允许网络
+  的执行环境完成）。
+- 前端/发行合同本轮未能启动：本机 `/opt/homebrew/bin/node` 及 `merve/tsgo` 因缺失
+  `simdutf` 动态库而在启动阶段 SIGABRT；代码未因此修改。修复 Homebrew Node 运行时后
+  需重跑 `bun run typecheck`、前端测试、production build 与 `bun/npm run release:check`。
+- 本阶段没有执行 tag、NPM/GHCR publish、生产重启或生产数据操作；完整 UI 替换仍为
+  `尚未开始（代码层先行）`。真实 Docker Desktop、MySQL/PostgreSQL 副本、手机及
+  macOS/Windows 安装仍按外部验收清单待验证。
+
 ## 本机部署更新与诊断（2026-08-31）
 
 - `/root/new-api/docker-compose.yml` 当前配置的是本地镜像
