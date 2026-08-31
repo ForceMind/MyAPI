@@ -115,6 +115,7 @@ describe('API key Auto group form mapping', () => {
     const defaults = getApiKeyFormDefaultValues(true)
 
     expect(defaults.group).toBe('auto')
+    expect(defaults.access_profile_id).toBe('automatic')
     expect(defaults.auto_groups_mode).toBe('inherit')
     expect(defaults.auto_groups).toEqual([])
     expect(transformFormDataToPayload(defaults).auto_groups).toEqual([])
@@ -139,6 +140,19 @@ describe('API key Auto group form mapping', () => {
       expect(defaults.auto_groups_mode).toBe('inherit')
       expect(defaults.auto_groups).toEqual([])
     }
+  })
+
+  test('preserves and submits the stable access profile identity', () => {
+    const defaults = transformApiKeyToFormDefaults({
+      ...baseApiKey,
+      group: 'vip',
+      access_profile_id: 'priority',
+    })
+
+    expect(defaults.access_profile_id).toBe('priority')
+    expect(transformFormDataToPayload(defaults).access_profile_id).toBe(
+      'priority'
+    )
   })
 
   test('filters a stored snapshot before applying a lowered limit', () => {

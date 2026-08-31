@@ -293,6 +293,14 @@ export function ApiKeysMutateDrawer({
   const isFormInitialized = initializedTarget === formTarget
   const selectedGroup = form.watch('group')
 
+  const syncAccessProfileId = (group: string) => {
+    const option = groups.find((candidate) => candidate.value === group)
+    form.setValue('access_profile_id', option?.profileId || group || 'standard', {
+      shouldDirty: true,
+      shouldValidate: false,
+    })
+  }
+
   // Correct group after groups load: if the form value is not in available groups, fall back
   useEffect(() => {
     if (groups.length === 0) return
@@ -475,6 +483,7 @@ export function ApiKeysMutateDrawer({
                         value={field.value}
                         onValueChange={(group) => {
                           field.onChange(group)
+                          syncAccessProfileId(group)
                           if (group === 'auto') {
                             form.setValue('cross_group_retry', true, {
                               shouldDirty: true,

@@ -116,6 +116,7 @@ export interface ApiKeyFormData {
   model_limits: string
   allow_ips: string
   group: string
+  access_profile_id: string
   auto_groups: string[]
   cross_group_retry: boolean
 }

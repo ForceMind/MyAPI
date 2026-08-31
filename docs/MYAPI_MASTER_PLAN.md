@@ -124,7 +124,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 | TokenHub 风格静态官网 | Chromium smoke 与审阅制品已实现 | 形成独立产品叙事、安装入口、发行版选择、安全说明、响应式菜单无障碍/主题交互、静态资源自动校验、390px/320px Chromium 移动 smoke（含窄屏水平溢出断言）和 main 变更自动生成的确定性 artifact workflow；真实移动视觉审查与绑定域名的独立发布仍待完成 |
 | 渠道额度历史 | 后端和前端初版已实现 | 普通渠道与 Codex OAuth 渠道均已有历史查询、折线图、失败状态、可选保留清理和只读健康指标；历史聚合按计划、单位、币种和窗口系列隔离，未指定系列时锁定最新系列；普通渠道与 Codex OAuth 均支持可选、有界后台采样；告警阈值和 notifier-neutral 去重策略已支持默认关闭、原子持久化和只读状态展示，外部通知通道仍待业务决策 |
 | 账户额度变化聚合 | 初版已实现 | 概览和管理员渠道页均可查看每分钟变化及最大变化排序；概览页在前台每 60 秒自动刷新，并显示 provider plan type 与错误采样状态；普通渠道与 Codex OAuth 后台采样已接入系统任务并避免与旧轮询重复，跨账户订阅账单同步和通知仍待后续迭代 |
-| 账户等级/Key 访问方案 | 独立策略注册表已实现 | 管理员可在计费设置的“Key access profile policies”编辑稳定 profile ID 的显示名、说明、路由组、模型白名单、回退方案和启用状态；显式 `account_tier_id`/`access_profile_id` 会持久化，旧客户端省略时按现有记录或变更后的 `group` 兼容回退，旧路由保持兼容。路由/模型强制执行仍需单独迁移评审 |
+| 账户等级/Key 访问方案 | 独立策略注册表已实现 | 管理员可在计费设置的“Key access profile policies”编辑稳定 profile ID 的显示名、说明、路由组、模型白名单、回退方案和启用状态；Key 表单会显式提交 `access_profile_id` 并同时保留 legacy `group`，显式 `account_tier_id`/`access_profile_id` 会持久化，旧客户端省略时按现有记录或变更后的 `group` 兼容回退，旧路由保持兼容。路由/模型强制执行仍需单独迁移评审 |
 | 设置引导生命周期 | 初版已实现 | 完成后自动消失、按用户和版本保存；真实多设备视觉审查仍待完成 |
 | Claude 支持 | Messages 原生转发与 Responses→Messages 兼容转换已实现；官方组织用量报告已确认存在 | 只实现有明确官方协议的能力；普通 Claude 渠道仍不读取账户余额，组织 Usage Report 只有在管理员显式配置受保护的 Admin 凭据并完成权限/保留策略后才接入 |
 | Google Antigravity 专用 relay | 第一阶段 transport 代码、边界测试和有界 Docker Go 回归已交付 | `AntigravityClient` 已覆盖官方 preview 的创建、状态读取、有限轮询、取消、删除和 usage 提取；`1827358` 增加 dynamic agent/continuation 字段约束、请求/响应大小上限、`requires_action` 终态、nil context 兜底和错误正文脱敏测试；`GOWORK=off go test ./relay/channel/gemini ./relay/channel/claude` 已通过。公开 relay/channel 接入按 [公共 Relay 闸门](./ANTIGRAVITY_PUBLIC_RELAY_GATE.md) 进行持久化、权限、计费和工具策略评审，余额端点不存在时显示 `unsupported` |
