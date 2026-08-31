@@ -121,21 +121,21 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 
 ## 当前源码合同复核（2026-08-31）
 
-- 当前 `7c1b6c0` 增量复核：在 `web/` 以
+- 当前 `02bcc16` 增量复核：在 `web/` 以
   `NODE_OPTIONS=--max-old-space-size=2048 npm test -- --run` 完整运行前端回归，62 个测试
   文件、279 个测试全部通过（约 125 秒）。本条只更新当前提交的前端证据；CLI、品牌、官网、
   LAN Lite、Desktop、Upgrade 和打包合同仍以各自最近一次明确标注的成功运行作为证据，不能
   用本地前端测试替代这些合同或真实设备/副本验收。
-- 当前 `7c1b6c0` 合同增量复核：`npm run lan:check -- --skip-docker` 通过 66/66，
+- 当前 `02bcc16` 合同增量复核：`npm run lan:check -- --skip-docker` 通过 66/66，
   `npm run desktop:check` 通过 32/32，`npm run upgrade:check -- --json` 通过 18/18。
   LAN 检查跳过了 Docker Compose 解析，三项结果均不能替代真实跨平台安装、局域网请求、
   防火墙或脱敏数据库升级/恢复演练。
 - 当前 `35ed22b` 后复核：`npm run release:workflow:check` 通过 16/16，确认语义版本
   Tag 自动触发 Full/LAN GHCR、既有 Tag 拒绝覆盖、manifest 使用已校验的不可变 digest，
   以及发布闸门和构建超时/并行度约束仍然生效；这不等于真实 GHCR 拉取或发布操作已执行。
-- 当前 `9cdee3e` 发行包复核：在允许 Node 子进程的受限环境中重新运行
+- 当前 `02bcc16` 发行包复核：在允许 Node 子进程的受限环境中重新运行
   `npm run source:manifest && npm run pack:check`，清单记录当前源提交，包含 2110 个文件；
-  打包检查通过（2111 个文件，19,175,562 bytes），未发现敏感文件、构建目录或凭据模式。
+  打包检查通过（2111 个文件，19,179,859 bytes），未发现敏感文件、构建目录或凭据模式。
 - 当前工作树快照幂等增量：`ChannelQuotaSnapshot` 使用可迁移的 nullable `dedupe_key`
   唯一索引，并在并发唯一冲突时回读赢家记录；模型定向回归在 `--cpus=1.5 --memory=3g`
   的 Go 容器中通过；随后完整 `GOWORK=off go test ./model -count=1` 也在同样资源限制下
@@ -145,6 +145,10 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - 访问方案注册表增量复核：`setting/access_profile.go` 的 JSON 解析统一使用
   `common.UnmarshalJsonStr`，不再绕过项目 JSON wrapper；`GOWORK=off go test ./setting ./model
   -run "AccessProfile|AccountTier" -count=1` 在资源受限 Go 容器中通过。
+
+- 当前 HEAD `02bcc16` 与 `origin/main` 已核对为同一提交；上述前端、发行合同、清单和
+  访问方案回归证据均对应该提交。`SOURCE_MANIFEST.json` 仍是被忽略的生成文件，发布前
+  应在最终版本提交上重新生成，不要将其加入 Git。
 
 - `npm run release:check` 在提交 `4169778` 上通过：CLI 21/21、品牌 2/2（115 条分类
   引用、0 blocking）、Website、LAN Lite 66/66、Desktop 31/31、Upgrade 18/18、
