@@ -6,9 +6,9 @@
 | 领域 | 已验证证据 | 当前状态 | 仍需外部条件 |
 | --- | --- | --- | --- |
 | API 兼容 | `relay/` 转换器与后端 CI | 已验证 | 上游版本变化时继续回归 |
-| API/响应日志 | `web/src/features/usage-logs/`、移动集成测试、脱敏测试、移动内容高度修复（`2eae754`） | 代码已验证 | 真实手机视觉验收 |
+| API/响应日志 | `web/src/features/usage-logs/`、`web/src/features/full-content-logs/`、移动集成测试、脱敏测试、移动内容高度修复；列表与 Full Content Logs 查询缓存均按 user/session 隔离 | 代码已验证 | 真实手机视觉验收 |
 | 运行构建可见性 | 管理员「系统信息」中的只读 Runtime build 标识、`build-metadata.ts` DOM/global 元数据及 `build-metadata.test.ts`；Docker/Release/Electron 构建注入 commit SHA；本机容器已切换到 `local/new-api:myapi-9dc11d4` 并健康 | 代码与本机副本已验证 | 真实管理员手机视觉验收仍待完成 |
-| 渠道额度历史 | `controller/channel-billing.go`、历史/聚合测试、权限路由测试 | 已验证 | 真实登录账号和采样数据演练 |
+| 渠道额度历史 | `controller/channel-billing.go`、`controller/codex_usage.go`、历史/聚合测试、权限路由测试；2xx 无有效 Codex rate_limit 时标记 unsupported | 已验证 | 真实登录账号和采样数据演练 |
 | 概览额度变化 | `account-quota-changes-panel.tsx`、60 秒前台刷新、错误/plan type/只读告警状态测试；`a2528a2` 的跨登录身份查询缓存隔离与认证刷新回归测试 | 已验证 | 具备 `channel.read` 的真实管理员验收；真实手机视觉仍待完成 |
 | 账户等级/Key 访问方案 | `model/access_profile.go`、Key/UI/API 测试、策略注册表及旧 Key profile 保留测试 | 兼容层已验证 | 强制路由迁移评审 |
 | 设置引导 | Full/LAN Lite/权限条件、生命周期测试 | 已验证 | 多设备视觉检查 |
@@ -79,6 +79,13 @@
 - `618327c`：LAN 通配监听移除 `<private-LAN-IP>` 占位，按 RFC1918 IPv4
   地址发现并输出候选端点；补齐五个非中文 locale 的额度/账户/访问方案关键文案，
   并加入 locale key parity 回归测试（5/5）。
+- `24a44f1`：Docker、Release、NPM workflow 和 release-state 统一保护已存在的
+  `v0.1.0`/`v0.1.1` tag，并把 SemVer tag 自动 GHCR 构建、Full/LAN 仓库和版本固定
+  拉取纳入 release contract（15/15）。
+- `f965e04`：Codex 额度采样不再把 2xx 登录页/无 rate_limit JSON 误计为成功样本，
+  新增 unsupported 分类回归；Go 测试因依赖下载资源限制未宣称通过。
+- `3338846`：Full Content Logs 查询缓存加入 user/session 身份隔离，新增 query-key
+  回归；相关 Vitest 5 文件/14 测试、tsgo 均通过。
 
 CI 运行号会随新提交变化；发布前应重新查询当前提交对应的运行结果，不应永久依赖
 上述历史编号。
@@ -96,6 +103,9 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - `618327c` 后增量复核：CLI 22/22、LAN Lite 66/66、Desktop 31/31、Website
   静态检查通过；国际化 parity 测试 5/5 通过。前端完整构建与真实设备视觉仍待
   受限环境/外部设备执行。
+- `24a44f1`/`f965e04`/`3338846` 后增量：release contract 15/15、upgrade contract
+  18/18、Full Content Logs 相关 Vitest 14/14 和 tsgo 通过；新增 Codex Go 测试仅
+  完成 gofmt/静态审阅，未完成依赖下载后的运行验证。
 
 ## 版本与远端 tag 只读核对（2026-08-31）
 
