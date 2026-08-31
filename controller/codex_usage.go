@@ -475,7 +475,31 @@ func sampleCodexChannelUsage(ctx context.Context, ch *model.Channel) error {
 	if statusCode < 200 || statusCode >= 300 {
 		return newChannelQuotaSamplingError(fmt.Errorf("Codex usage upstream status %d", statusCode), persistErr)
 	}
+	// A successful HTTP response is not necessarily a usable quota sample.  In
+	// particular, providers can return an HTML/login payload or a JSON shape
+	// without rate-limit windows while still responding with 2xx.  Classify
+	// those observations as unsupported so the scheduled sampler reports them
+	// in Unsupported instead of falsely counting them as Sampled.
+	if !codexUsageResponseSupportsRateLimit(statusCode, body) {
+		return newChannelQuotaSamplingError(errChannelQuotaUnsupported, persistErr)
+	}
 	return newChannelQuotaSamplingError(nil, persistErr)
+}
+
+// codexUsageResponseSupportsRateLimit mirrors the normalization contract used
+// for persistence and reports whether at least one finite rate-limit window was
+// found.  Non-2xx responses are handled by the caller as query failures and
+// therefore are not classified as unsupported here.
+func codexUsageResponseSupportsRateLimit(statusCode int, body []byte) bool {
+	if statusCode < 200 || statusCode >= 300 {
+		return false
+	}
+	for _, snapshot := range normalizeCodexUsageSnapshots(0, 1, statusCode, body) {
+		if snapshot.Status == "success" {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizeCodexUsageSnapshots(channelID int, observedAt int64, statusCode int, body []byte) []model.ChannelQuotaSnapshot {

@@ -132,3 +132,38 @@ func TestSampleCodexChannelUsageRecordsTransportFailure(t *testing.T) {
 	require.Equal(t, "error", snapshot.Status)
 	require.Equal(t, "upstream_transport", snapshot.ErrorCode)
 }
+
+func TestSampleCodexChannelUsageClassifiesSuccessfulUnsupportedPayload(t *testing.T) {
+	previousDB := model.DB
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.ChannelQuotaSnapshot{}))
+	model.DB = db
+	t.Cleanup(func() { model.DB = previousDB })
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		// A provider/login proxy may return 2xx while omitting the official
+		// rate-limit object. This must not count as a sampled quota point.
+		_, _ = w.Write([]byte(`{"message":"login required"}`))
+	}))
+	defer server.Close()
+	baseURL := server.URL
+	channel := &model.Channel{
+		Id:      990,
+		Type:    constant.ChannelTypeCodex,
+		Key:     `{"access_token":"test-access","account_id":"account-1","type":"codex"}`,
+		BaseURL: &baseURL,
+	}
+
+	err = sampleCodexChannelUsage(context.Background(), channel)
+	var classified *channelQuotaSamplingError
+	require.ErrorAs(t, err, &classified)
+	require.ErrorIs(t, classified.QueryErr, errChannelQuotaUnsupported)
+	require.Nil(t, classified.PersistErr)
+
+	var snapshot model.ChannelQuotaSnapshot
+	require.NoError(t, db.Where("channel_id = ?", channel.Id).First(&snapshot).Error)
+	require.Equal(t, "unsupported", snapshot.Status)
+	require.Equal(t, "invalid_payload", snapshot.ErrorCode)
+}
