@@ -38,7 +38,8 @@
 <img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
 
 This repository ships the **MyAPI** self-hosting CLI and complete source
-distribution for the rc.25 compatibility baseline. The distribution layer uses
+distribution for the rc.25 technical compatibility baseline (API/protocol
+contracts, not a UI template). The distribution layer uses
 the `my-api` machine slug; API, SSE, database, and provider protocol contracts
 remain compatible. Required license, NOTICE, and third-party attribution text
 is kept in the repository's legal files.

@@ -38,7 +38,8 @@
 <img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
 
 Ce dépôt fournit le CLI d'auto-hébergement **MyAPI** et une distribution
-complète du code source basée sur la référence de compatibilité rc.25. La couche
+complète du code source basée sur la référence de compatibilité technique rc.25
+(contrats API/protocole, pas un modèle d’interface). La couche
 de distribution utilise le slug machine my-api; les contrats API, SSE, base de
 données et protocoles amont restent compatibles. Les mentions de licence,
 NOTICE et d'attribution tierce restent dans les fichiers juridiques du dépôt.

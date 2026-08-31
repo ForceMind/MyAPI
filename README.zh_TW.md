@@ -37,7 +37,7 @@
 
 <img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
 
-本倉庫提供 **MyAPI** 自建 CLI 與完整原始碼發行包，採用 rc.25 相容基線。
+本倉庫提供 **MyAPI** 自建 CLI 與完整原始碼發行包，採用 rc.25 技術相容基線（API/協定契約，不是 UI 模板）。
 發行層統一使用 my-api 機器識別；API、SSE、資料庫與上游協議契約保持相容。
 所需的授權條款、NOTICE 與第三方歸屬文字保存在倉庫法律文件中。
 

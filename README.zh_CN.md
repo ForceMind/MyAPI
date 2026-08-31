@@ -37,7 +37,7 @@
 
 <img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
 
-本仓库提供 **MyAPI** 自建 CLI 与完整源码发行包，面向 rc.25 兼容基线。
+本仓库提供 **MyAPI** 自建 CLI 与完整源码发行包，面向 rc.25 技术兼容基线（API/协议契约，不是 UI 模板）。
 发行层统一使用 my-api 机器标识；API、SSE、数据库和上游协议契约保持兼容。
 所需的许可证、NOTICE 与第三方归属文本保存在仓库法律文件中。
 
