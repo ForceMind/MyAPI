@@ -620,8 +620,12 @@ PRIMARY KEY (` + "`id`" + `)
 // migrateTokenModelLimitsToText migrates model_limits column from varchar(1024) to text
 // This is safe to run multiple times - it checks the column type first
 func migrateTokenModelLimitsToText() error {
+	dialect := ""
+	if DB != nil && DB.Dialector != nil {
+		dialect = DB.Dialector.Name()
+	}
 	// SQLite uses type affinity, so TEXT and VARCHAR are effectively the same — no migration needed
-	if common.UsingMainDatabase(common.DatabaseTypeSQLite) {
+	if dialect == string(common.DatabaseTypeSQLite) {
 		return nil
 	}
 
@@ -637,7 +641,7 @@ func migrateTokenModelLimitsToText() error {
 	}
 
 	var alterSQL string
-	if common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
+	if dialect == string(common.DatabaseTypePostgreSQL) {
 		var dataType string
 		if err := DB.Raw(`SELECT data_type FROM information_schema.columns
 			WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?`,
@@ -647,7 +651,7 @@ func migrateTokenModelLimitsToText() error {
 			return nil
 		}
 		alterSQL = fmt.Sprintf(`ALTER TABLE %s ALTER COLUMN %s TYPE text`, tableName, columnName)
-	} else if common.UsingMainDatabase(common.DatabaseTypeMySQL) {
+	} else if dialect == string(common.DatabaseTypeMySQL) {
 		var columnType string
 		if err := DB.Raw(`SELECT COLUMN_TYPE FROM information_schema.columns
 				WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?`,
@@ -673,9 +677,13 @@ func migrateTokenModelLimitsToText() error {
 // migrateSubscriptionPlanPriceAmount migrates price_amount column from float/double to decimal(10,6)
 // This is safe to run multiple times - it checks the column type first
 func migrateSubscriptionPlanPriceAmount() error {
+	dialect := ""
+	if DB != nil && DB.Dialector != nil {
+		dialect = DB.Dialector.Name()
+	}
 	// SQLite doesn't support ALTER COLUMN, and its type affinity handles this automatically
 	// Skip early to avoid GORM parsing the existing table DDL which may cause issues
-	if common.UsingMainDatabase(common.DatabaseTypeSQLite) {
+	if dialect == string(common.DatabaseTypeSQLite) {
 		return nil
 	}
 
@@ -693,7 +701,7 @@ func migrateSubscriptionPlanPriceAmount() error {
 	}
 
 	var alterSQL string
-	if common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
+	if dialect == string(common.DatabaseTypePostgreSQL) {
 		// PostgreSQL: Check if already decimal/numeric
 		var dataType string
 		if err := DB.Raw(`SELECT data_type FROM information_schema.columns
@@ -705,7 +713,7 @@ func migrateSubscriptionPlanPriceAmount() error {
 		}
 		alterSQL = fmt.Sprintf(`ALTER TABLE %s ALTER COLUMN %s TYPE decimal(10,6) USING %s::decimal(10,6)`,
 			tableName, columnName, columnName)
-	} else if common.UsingMainDatabase(common.DatabaseTypeMySQL) {
+	} else if dialect == string(common.DatabaseTypeMySQL) {
 		// MySQL: Check if already decimal
 		var columnType string
 		if err := DB.Raw(`SELECT COLUMN_TYPE FROM information_schema.columns

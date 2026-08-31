@@ -84,6 +84,50 @@ func TestDifyStreamHandlerRejectsErrorEventWithoutUsage(t *testing.T) {
 	require.Error(t, apiErr)
 }
 
+func TestCompleteDifyUsageFillsIncompleteMessageEndFromActualOutput(t *testing.T) {
+	c := difyTestContext()
+	reported := &dto.Usage{PromptTokens: 7}
+	responseText := "The answer and its reasoning"
+	estimated := service.ResponseText2Usage(c, responseText, "", 7)
+
+	usage := completeDifyUsage(reported, responseText, "", 7, c)
+	require.Equal(t, 7, usage.PromptTokens)
+	require.Equal(t, estimated.CompletionTokens, usage.CompletionTokens)
+	require.Equal(t, usage.PromptTokens+usage.CompletionTokens, usage.TotalTokens)
+}
+
+func TestCompleteDifyUsagePreservesCompleteUpstreamUsage(t *testing.T) {
+	c := difyTestContext()
+	reported := &dto.Usage{PromptTokens: 4, CompletionTokens: 6, TotalTokens: 1}
+	usage := completeDifyUsage(reported, "ignored", "", 99, c)
+	require.Equal(t, 4, usage.PromptTokens)
+	require.Equal(t, 6, usage.CompletionTokens)
+	require.Equal(t, 10, usage.TotalTokens)
+}
+
+func TestDifyStreamUsageEstimatesDebugWorkflowText(t *testing.T) {
+	oldDebug := constant.DifyDebug
+	constant.DifyDebug = true
+	t.Cleanup(func() { constant.DifyDebug = oldDebug })
+	oldTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() { constant.StreamingTimeout = oldTimeout })
+
+	c := difyTestContext()
+	info := difyTestInfo()
+	stream := "data: {\"event\":\"workflow_started\",\"data\":{\"workflow_id\":\"wf-1\"}}\n\n" +
+		"data: {\"event\":\"message\",\"answer\":\"visible answer\"}\n\n" +
+		"data: {\"event\":\"message_end\",\"metadata\":{\"usage\":{\"prompt_tokens\":7}}}\n\n"
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewBufferString(stream))}
+
+	estimated := service.ResponseText2Usage(c, "Workflow: wf-1\nvisible answer", "", 7)
+	usage, apiErr := difyStreamHandler(c, info, resp)
+	require.Nil(t, apiErr)
+	require.Equal(t, 7, usage.PromptTokens)
+	require.Equal(t, estimated.CompletionTokens, usage.CompletionTokens)
+	require.Equal(t, 7+estimated.CompletionTokens, usage.TotalTokens)
+}
+
 func TestUploadDifyFileRejectsNon2xx(t *testing.T) {
 	service.InitHttpClient()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

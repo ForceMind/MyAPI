@@ -37,3 +37,23 @@ func TestEnsureSubscriptionPlanTableSQLiteAddsRequiredColumnsToExistingRows(t *t
 	require.NoError(t, db.Model(&SubscriptionPlan{}).Count(&count).Error)
 	require.Equal(t, int64(1), count)
 }
+
+func TestMigrationTypeConversionsUseHandleDialect(t *testing.T) {
+	previousDB := DB
+	previousType := common.MainDatabaseType()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	DB = db
+	// Deliberately disagree with the SQLite handle. The migration helpers must
+	// never use this process-wide value to select dialect-specific SQL.
+	common.SetMainDatabaseType(common.DatabaseTypeMySQL)
+	t.Cleanup(func() {
+		DB = previousDB
+		common.SetMainDatabaseType(previousType)
+	})
+
+	require.NoError(t, db.Exec("CREATE TABLE subscription_plans (id INTEGER PRIMARY KEY, price_amount REAL)").Error)
+	require.NoError(t, db.Exec("CREATE TABLE tokens (id INTEGER PRIMARY KEY, model_limits VARCHAR(1024))").Error)
+	require.NoError(t, migrateSubscriptionPlanPriceAmount())
+	require.NoError(t, migrateTokenModelLimitsToText())
+}

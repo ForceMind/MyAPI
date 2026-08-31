@@ -232,10 +232,33 @@ func streamResponseDify2OpenAI(difyResponse DifyChunkChatCompletionResponse) *dt
 	return &response
 }
 
+// completeDifyUsage fills fields omitted by Dify's message_end metadata while
+// preserving reported prompt and completion values.
+func completeDifyUsage(reported *dto.Usage, responseText string, modelName string, promptTokens int, c *gin.Context) *dto.Usage {
+	usage := &dto.Usage{}
+	if reported != nil {
+		*usage = *reported
+	}
+	var estimated *dto.Usage
+	if usage.PromptTokens <= 0 || usage.CompletionTokens <= 0 {
+		estimated = service.ResponseText2Usage(c, responseText, modelName, promptTokens)
+	}
+	if usage.PromptTokens <= 0 {
+		usage.PromptTokens = estimated.PromptTokens
+	}
+	if usage.CompletionTokens <= 0 {
+		usage.CompletionTokens = estimated.CompletionTokens
+	}
+	// Dify may omit total_tokens or report a stale total. Recompute it from the
+	// final components while preserving complete upstream prompt/completion
+	// values.
+	usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+	return usage
+}
+
 func difyStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	var responseText string
 	usage := &dto.Usage{}
-	var nodeToken int
 	var streamErr *types.NewAPIError
 	helper.SetEventStreamHeaders(c)
 	helper.StreamScannerHandler(c, resp, info, func(data string, sr *helper.StreamResult) {
@@ -259,9 +282,7 @@ func difyStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.R
 		openaiResponse := *streamResponseDify2OpenAI(difyResponse)
 		if len(openaiResponse.Choices) != 0 {
 			responseText += openaiResponse.Choices[0].Delta.GetContentString()
-			if openaiResponse.Choices[0].Delta.ReasoningContent != nil {
-				nodeToken += 1
-			}
+			responseText += openaiResponse.Choices[0].Delta.GetReasoningContent()
 		}
 		if err := helper.ObjectData(c, openaiResponse); err != nil {
 			common.SysLog(err.Error())
@@ -272,11 +293,7 @@ func difyStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.R
 	if streamErr != nil {
 		return nil, streamErr
 	}
-	if usage.TotalTokens == 0 {
-		usage = service.ResponseText2Usage(c, responseText, info.UpstreamModelName, info.GetEstimatePromptTokens())
-	}
-	usage.CompletionTokens += nodeToken
-	return usage, nil
+	return completeDifyUsage(usage, responseText, info.UpstreamModelName, info.GetEstimatePromptTokens(), c), nil
 }
 
 func difyHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
@@ -291,11 +308,12 @@ func difyHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respons
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
 	}
+	usage := completeDifyUsage(&difyResponse.MetaData.Usage, difyResponse.Answer, info.UpstreamModelName, info.GetEstimatePromptTokens(), c)
 	fullTextResponse := dto.OpenAITextResponse{
 		Id:      difyResponse.ConversationId,
 		Object:  "chat.completion",
 		Created: common.GetTimestamp(),
-		Usage:   difyResponse.MetaData.Usage,
+		Usage:   *usage,
 	}
 	choice := dto.OpenAITextResponseChoice{
 		Index: 0,
@@ -313,5 +331,5 @@ func difyHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respons
 	c.Writer.Header().Set("Content-Type", "application/json")
 	c.Writer.WriteHeader(resp.StatusCode)
 	c.Writer.Write(jsonResponse)
-	return &difyResponse.MetaData.Usage, nil
+	return usage, nil
 }
