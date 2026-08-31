@@ -1,11 +1,11 @@
 package setting
 
 import (
-	"encoding/json"
 	"errors"
 	"strings"
 	"sync"
 
+	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/setting/config"
 )
 
@@ -56,7 +56,7 @@ func UpdateAccessProfileDefinitionsByJSONString(raw string) error {
 		return err
 	}
 	var profiles map[string]AccessProfileDefinition
-	if err := json.Unmarshal([]byte(raw), &profiles); err != nil {
+	if err := common.UnmarshalJsonStr(raw, &profiles); err != nil {
 		return err
 	}
 	accessProfileMutex.Lock()
@@ -69,7 +69,7 @@ func UpdateAccessProfileDefinitionsByJSONString(raw string) error {
 // profile registry before it is persisted by the generic option endpoint.
 func ValidateAccessProfileDefinitionsJSON(raw string) error {
 	var profiles map[string]AccessProfileDefinition
-	if err := json.Unmarshal([]byte(raw), &profiles); err != nil {
+	if err := common.UnmarshalJsonStr(raw, &profiles); err != nil {
 		return err
 	}
 	if profiles == nil {
