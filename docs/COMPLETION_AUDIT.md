@@ -14,7 +14,7 @@
 | 设置引导 | Full/LAN Lite/权限条件、生命周期测试 | 已验证 | 多设备视觉检查 |
 | 品牌与旧元数据 | `tools/branding/check.mjs`，最近运行 `blocking_count: 0` | 阻断项已清零 | NOTICE、源码头和兼容标识法律审查 |
 | 静态官网 | `tools/website/check-static.mjs`、Chromium smoke、artifact workflow | 自动化已验证 | 真实移动视觉与独立域名发布决策 |
-| LAN Lite/桌面 | `lan:check`、`desktop:check`、Electron 安全边界；`electron/test/desktop-probe-contract.test.mjs`、`runtime-config.js` 和 `tools/desktop/check.mjs` | 合同已验证（生产探针为 `/api/status`，仅 2xx 视为就绪）；通配监听仅展示发现的 RFC1918 地址 | macOS/Windows 实机安装、LAN 请求、防火墙；真实设备运行结果不得由合同测试代替 |
+| LAN Lite/桌面 | `lan:check`、`desktop:check`、Electron 安全边界；`electron/test/desktop-probe-contract.test.mjs`、`runtime-config.js` 和 `tools/desktop/check.mjs` | 合同已验证（生产探针为 `/api/status`，仅 2xx 视为就绪）；CLI 与托盘对通配监听均仅展示发现的 RFC1918 地址 | macOS/Windows 实机安装、LAN 请求、防火墙；真实设备运行结果不得由合同测试代替 |
 | 多语言关键文案 | `web/src/i18n/locales/{fr,ja,ru,vi,zh-TW}.json`、`web/src/i18n/__tests__/locale-key-parity.test.ts` | English key parity 已验证（5 locales / 5 tests） | 真实设备文字长度与视觉审查 |
 | GHCR/升级 | `release:workflow:check`、`upgrade:check`、不可变 digest 合同 | 自动化已验证 | 脱敏副本升级、数据库恢复、人工审批 |
 | 新开发环境数据库默认值 | `48abce6`、`docker-compose.dev.yml`、`makefile` | 代码与模板已验证（新开发默认数据库为 `myapi`） | 接管既有数据库必须显式设置 `MYAPI_DEV_POSTGRES_DB`/`DEV_POSTGRES_DB` 并在副本验证；该变更不执行重命名或迁移 |
@@ -88,6 +88,8 @@
   回归；相关 Vitest 5 文件/14 测试、tsgo 均通过。
 - `9871564`：Codex WHAM usage/reset/consume 响应统一限制为 1 MiB，并以额外 1 字节
   探测超限；边界测试覆盖三条接口。gofmt 通过，Go 测试因依赖下载资源限制未宣称通过。
+- `5cfb046`：Electron 托盘和 LAN 状态对 `0.0.0.0` 展开实际 RFC1918 IPv4 端点，
+  无候选时显示明确提示并移除占位符；Desktop 合同更新为 32/32。
 
 CI 运行号会随新提交变化；发布前应重新查询当前提交对应的运行结果，不应永久依赖
 上述历史编号。
@@ -108,6 +110,8 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - `24a44f1`/`f965e04`/`3338846` 后增量：release contract 15/15、upgrade contract
   18/18、Full Content Logs 相关 Vitest 14/14 和 tsgo 通过；新增 Codex Go 测试仅
   完成 gofmt/静态审阅，未完成依赖下载后的运行验证。
+- `5cfb046` 后增量：Electron runtime tests 2/2、Desktop contract 32/32；真实平台
+  安装和局域网请求仍待实机验收。
 
 ## 版本与远端 tag 只读核对（2026-08-31）
 
