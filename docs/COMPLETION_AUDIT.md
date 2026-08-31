@@ -155,6 +155,7 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - Controller JSON 增量提交 `791ed6c`：io.net 部署测试与 Creem 支付 products/checkout 路径改用项目 JSON wrapper，保留原错误语义；controller 完整回归通过。
 - 邮箱一致性阶段提交 `9801b57`：新增 nullable `users.email_normalized`，迁移先回填并检测含软删除记录的冲突/超长值，再创建可重复的唯一索引；创建、更新、支付/OAuth 内部 map 更新和解绑同步规范化值，读路径保留缺列时的旧库回退。model 全量与完整根 Go 回归通过；MySQL/PostgreSQL 实库并发和恢复演练仍待外部副本验证。
 - 邮箱一致性阶段推送后的 CI run `33413426111`（提交 `2ff9f3e`）四个 job 均在 runner 启动阶段失败且 `steps: []`；继续按 GitHub Billing/runner 外部阻塞处理。
+- 渠道测试 billing 阶段提交 `e528d34`：`settleTestQuota` 使用 checked quota 转换，饱和值拒绝写入并通过集中化 helper 保留 admin-only 审计标记；controller 与完整根 Go 回归通过。该路径仍不替代真实上游/生产计费验收。
 - 数据库并发/控制器增量提交 `2ae74db`：规范化邮箱锁与可用性检查统一使用 `LOWER(email)`，快照去重索引在 MySQL 并发创建时回检并传播真实错误，io.net 部署测试请求改用 JSON wrapper；model/controller 定向与完整根 Go 回归通过。
 - 代码优先阶段提交 `9427656` 修复并覆盖了 OpenRouter cache-create quota 饱和、topup ratio 原子更新与有限值校验、Gemini Imagen `N` 边界以及图片 token 面积/最终 quota 转换；`go test ./common ./service ./controller ./relay/channel/gemini`、完整根 Go 回归与 `cd relaykit && GOWORK=off go build ./...` 均通过。
 - 同一阶段的 Node 合同复核：LAN Lite 68/68、Desktop 32/32、Upgrade 18/18、Release workflow 17/17；Docker workflow 版本写入已断言为无 `v` 的 SemVer。真实 Docker Compose、数据库副本和跨平台设备仍未验证。
