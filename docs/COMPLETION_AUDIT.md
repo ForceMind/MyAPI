@@ -119,6 +119,10 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   文件、279 个测试全部通过（约 125 秒）。本条只更新当前提交的前端证据；CLI、品牌、官网、
   LAN Lite、Desktop、Upgrade 和打包合同仍以各自最近一次明确标注的成功运行作为证据，不能
   用本地前端测试替代这些合同或真实设备/副本验收。
+- 当前 `7c1b6c0` 合同增量复核：`npm run lan:check -- --skip-docker` 通过 66/66，
+  `npm run desktop:check` 通过 32/32，`npm run upgrade:check -- --json` 通过 18/18。
+  LAN 检查跳过了 Docker Compose 解析，三项结果均不能替代真实跨平台安装、局域网请求、
+  防火墙或脱敏数据库升级/恢复演练。
 
 - `npm run release:check` 在提交 `4169778` 上通过：CLI 21/21、品牌 2/2（115 条分类
   引用、0 blocking）、Website、LAN Lite 66/66、Desktop 31/31、Upgrade 18/18、
