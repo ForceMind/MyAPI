@@ -2,6 +2,12 @@
 
 `myapi upgrade` 是显式操作：它会校验版本、备份 `deploy/.env`、拉取固定 GHCR 镜像、等待健康检查，并在失败时恢复环境文件和旧镜像。它不会替管理员猜测数据库类型，也不会自动复制生产数据库。
 
+GHCR 镜像由推送新的 `vX.Y.Z` tag 自动触发 GitHub Actions 构建；Full 与 LAN Lite
+分别发布到 `ghcr.io/forcemind/myapi` 和 `ghcr.io/forcemind/myapi-lan`。`myapi up`
+和 `myapi upgrade` 只使用版本固定的 GHCR tag（除非明确选择本地构建），不会把
+普通分支提交或可变 `latest` 当成升级目标。历史 `v0.1.0` 与 `v0.1.1` tag 已锁定，
+不得重用或手动重跑发布。
+
 > 当前 `@forcemind/myapi` 尚未正式发布到 NPM。以下命令中的 `npx
 > @forcemind/myapi` 在正式发行前请替换为源码检出的
 > `node cli/myapi.mjs`，或使用已经由维护者审核的本地 tarball；不要让

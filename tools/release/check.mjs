@@ -30,6 +30,10 @@ const npmWorkflowPath = path.join(root, '.github/workflows/npm-publish.yml')
 const npmWorkflow = existsSync(npmWorkflowPath)
   ? readFileSync(npmWorkflowPath, 'utf8')
   : ''
+const cliPath = path.join(root, 'cli/myapi.mjs')
+const cli = existsSync(cliPath) ? readFileSync(cliPath, 'utf8') : ''
+const installerPath = path.join(root, 'deploy/install.sh')
+const installer = existsSync(installerPath) ? readFileSync(installerPath, 'utf8') : ''
 const checks = []
 
 function record(name, ok, detail = '') {
@@ -43,9 +47,34 @@ record('release workflow requires explicit publish gates', [
   "vars.MYAPI_ENABLE_RELEASE == 'true'",
   'environment: github-release',
 ].every((fragment) => workflow.includes(fragment)))
-record('release workflow protects the legacy v0.1.0 tag', workflow.includes('v0.1.0 is a protected legacy tag'))
-record('Docker workflow protects the legacy v0.1.0 tag', dockerWorkflow.includes('v0.1.0 is a protected legacy tag'))
-record('NPM workflow protects the legacy v0.1.0 tag', npmWorkflow.includes('v0.1.0 is a protected legacy tag'))
+record(
+  'release workflow protects existing legacy tags',
+  /\$RELEASE_TAG.*v0\.1\.0.*v0\.1\.1/.test(workflow) && workflow.includes('protected legacy tag'),
+)
+record(
+  'Docker workflow protects existing legacy tags',
+  /\$TAG.*v0\.1\.0.*v0\.1\.1/.test(dockerWorkflow) && dockerWorkflow.includes('protected legacy tag'),
+)
+record(
+  'NPM workflow protects existing legacy tags',
+  /\$RELEASE_TAG.*v0\.1\.0.*v0\.1\.1/.test(npmWorkflow) && npmWorkflow.includes('protected legacy tag'),
+)
+record(
+  'GHCR workflow automatically runs for semantic version tags',
+  /push:\s*\n\s*tags:\s*\n\s*- ['"]v\*\.\*\.\*['"]/.test(dockerWorkflow),
+)
+record(
+  'GHCR workflow publishes both Full and LAN repositories',
+  dockerWorkflow.includes('ghcr.io/forcemind/myapi') &&
+    dockerWorkflow.includes('ghcr.io/forcemind/myapi-lan'),
+)
+record(
+  'CLI and installer pull versioned GHCR images by default',
+  cli.includes('ghcr.io/forcemind/myapi:v${packageMetadata.version}') &&
+    installer.includes('ghcr.io/forcemind/myapi:v${distribution_version}') &&
+    cli.includes("run('docker', composeArguments(paths, ['pull', 'my-api'])") &&
+    installer.includes('docker compose --env-file "$env_file" -f "$script_dir/docker-compose.yml" pull my-api'),
+)
 record('release workflow requires VERSION without a v prefix', workflow.includes('if [[ "$FILE_VERSION" != "$TAG_VERSION" ]]'))
 record('prepare and platform jobs have bounded timeouts', [
   'timeout-minutes: 10',

@@ -62,10 +62,10 @@ if (dirty) {
 }
 
 const expectedTag = `v${metadata.version}`
-// v0.1.0 was an earlier distribution tag. It is intentionally immutable and
-// must never be republished from a later tree, even if a caller checks out the
-// old tag before running this script.
-const protectedLegacyTags = new Set(['v0.1.0'])
+// These tags already exist on the distribution remotes and are intentionally
+// immutable. They must never be republished from a later tree, even if a
+// caller checks out one of the old tags before running this script.
+const protectedLegacyTags = new Set(['v0.1.0', 'v0.1.1'])
 if (protectedLegacyTags.has(expectedTag)) {
   throw new Error(`${expectedTag} is a protected legacy tag; release a new version instead`)
 }

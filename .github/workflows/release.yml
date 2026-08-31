@@ -53,8 +53,8 @@ jobs:
             echo "::error::Tag must be an exact semantic version beginning with v"
             exit 1
           fi
-          if [[ "$RELEASE_TAG" == "v0.1.0" ]]; then
-            echo "::error::v0.1.0 is a protected legacy tag; create a new release tag"
+          if [[ "$RELEASE_TAG" == "v0.1.0" || "$RELEASE_TAG" == "v0.1.1" ]]; then
+            echo "::error::$RELEASE_TAG is a protected legacy tag; create a new release tag"
             exit 1
           fi
           if ! git rev-parse "refs/tags/$RELEASE_TAG^{commit}" >/dev/null 2>&1; then
