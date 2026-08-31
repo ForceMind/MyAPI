@@ -27,15 +27,19 @@ import {
   Minus,
   RotateCw,
 } from 'lucide-react'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { IconBadge } from '@/components/ui/icon-badge'
-import { getChannelQuotaChanges, getChannelQuotaSamplingStatus } from '@/features/channels/api'
+import {
+  getChannelQuotaChanges,
+  getChannelQuotaSamplingStatus,
+} from '@/features/channels/api'
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
 import { hasPermission } from '@/lib/admin-permissions'
+import { getSelf } from '@/lib/api'
 import { ROLE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
@@ -159,7 +163,10 @@ function movementTone(item: ChannelQuotaChangeItem): {
   }
 }
 
-function MovementRow(props: { item: ChannelQuotaChangeItem; maxMovement: number }) {
+function MovementRow(props: {
+  item: ChannelQuotaChangeItem
+  maxMovement: number
+}) {
   const { t } = useTranslation()
   const item = props.item
   const tone = movementTone(item)
@@ -167,9 +174,10 @@ function MovementRow(props: { item: ChannelQuotaChangeItem; maxMovement: number 
   const value = finite(item.change_per_minute)
     ? Math.abs(item.change_per_minute)
     : item.abs_change_per_minute
-  const width = finite(value) && props.maxMovement > 0
-    ? Math.max(8, Math.min(100, (value / props.maxMovement) * 100))
-    : 0
+  const width =
+    finite(value) && props.maxMovement > 0
+      ? Math.max(8, Math.min(100, (value / props.maxMovement) * 100))
+      : 0
 
   return (
     <li className='group flex min-w-0 items-center gap-3 rounded-xl border px-3 py-2.5 sm:px-4'>
@@ -191,14 +199,23 @@ function MovementRow(props: { item: ChannelQuotaChangeItem; maxMovement: number 
           >
             {item.name}
           </Link>
-          <Badge variant={tone.badge} className='hidden shrink-0 sm:inline-flex'>
+          <Badge
+            variant={tone.badge}
+            className='hidden shrink-0 sm:inline-flex'
+          >
             {t(tone.label)}
           </Badge>
         </div>
         <div className='text-muted-foreground mt-1 flex min-w-0 items-center gap-2 text-[11px]'>
-          <span className='truncate'>{item.account_label || t('Provider account')}</span>
-          {item.window_type && <span className='shrink-0'>· {item.window_type}</span>}
-          {item.plan_type && <span className='shrink-0'>· {item.plan_type}</span>}
+          <span className='truncate'>
+            {item.account_label || t('Provider account')}
+          </span>
+          {item.window_type && (
+            <span className='shrink-0'>· {item.window_type}</span>
+          )}
+          {item.plan_type && (
+            <span className='shrink-0'>· {item.plan_type}</span>
+          )}
         </div>
         <div className='bg-muted/50 mt-2 h-1.5 overflow-hidden rounded-full'>
           <div
@@ -215,12 +232,19 @@ function MovementRow(props: { item: ChannelQuotaChangeItem; maxMovement: number 
           />
         </div>
       </div>
-      <div className='flex min-w-0 max-w-[48%] shrink-0 flex-col items-end gap-1 text-right'>
-        <span className={cn('max-w-full break-words font-mono text-sm font-semibold tabular-nums', tone.className)}>
+      <div className='flex max-w-[48%] min-w-0 shrink-0 flex-col items-end gap-1 text-right'>
+        <span
+          className={cn(
+            'max-w-full break-words font-mono text-sm font-semibold tabular-nums',
+            tone.className
+          )}
+        >
           {formatSignedAmount(item.change_per_minute, item.unit, item.currency)}
-          <span className='text-muted-foreground ml-1 text-[10px] font-normal'>/min</span>
+          <span className='text-muted-foreground ml-1 text-[10px] font-normal'>
+            /min
+          </span>
         </span>
-        <span className='text-muted-foreground max-w-full break-words font-mono text-[11px] tabular-nums'>
+        <span className='text-muted-foreground max-w-full font-mono text-[11px] break-words tabular-nums'>
           {formatAmount(item.current_available, item.unit, item.currency)}
         </span>
       </div>
@@ -231,11 +255,54 @@ function MovementRow(props: { item: ChannelQuotaChangeItem; maxMovement: number 
 export function AccountQuotaChangesPanel() {
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
+  const setUser = useAuthStore((state) => state.auth.setUser)
   // Keep dashboard query caches isolated across login sessions. Without the
   // identity in the key, a successful admin response could remain in the
   // TanStack cache and be rendered immediately when another session with the
   // same permission is opened in the same tab.
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
+  const capabilityRefreshKey = useRef<string | null>(null)
+
+  // A non-empty permission matrix can still be stale when an administrator's
+  // role policy changes while the SPA remains open. Refresh the self profile
+  // once per user/session when this panel is mounted; the backend remains the
+  // authority and an explicit deny is preserved in the returned matrix.
+  useEffect(() => {
+    if (
+      !user ||
+      !sessionId ||
+      user.role < ROLE.ADMIN ||
+      user.role >= ROLE.SUPER_ADMIN
+    ) {
+      return
+    }
+    const refreshKey = `${user.id}:${sessionId}`
+    if (capabilityRefreshKey.current === refreshKey) return
+    capabilityRefreshKey.current = refreshKey
+    let active = true
+    void getSelf()
+      .then((response) => {
+        const candidate = response?.data
+        if (
+          !active ||
+          !response?.success ||
+          !candidate ||
+          typeof candidate !== 'object' ||
+          candidate.id !== user.id ||
+          typeof candidate.role !== 'number'
+        ) {
+          return
+        }
+        setUser(candidate as typeof user)
+      })
+      .catch(() => {
+        // The quota query below still reports the current permission/session
+        // error; metadata refresh is best-effort and must not hide the panel.
+      })
+    return () => {
+      active = false
+    }
+  }, [sessionId, setUser, user])
   // The API route is protected by the same resolved permission matrix as the
   // rest of the admin channel surface. Using the capability payload here
   // avoids showing a panel to users who would be rejected by an explicit
@@ -300,7 +367,8 @@ export function AccountQuotaChangesPanel() {
   const maxDrop = useMemo(
     () =>
       summaryItems.reduce<number | null>((max, item) => {
-        if (!finite(item.change_per_minute) || item.change_per_minute >= 0) return max
+        if (!finite(item.change_per_minute) || item.change_per_minute >= 0)
+          return max
         const value = Math.abs(item.change_per_minute)
         return max == null ? value : Math.max(max, value)
       }, null),
@@ -309,8 +377,11 @@ export function AccountQuotaChangesPanel() {
   const maxIncrease = useMemo(
     () =>
       summaryItems.reduce<number | null>((max, item) => {
-        if (!finite(item.change_per_minute) || item.change_per_minute <= 0) return max
-        return max == null ? item.change_per_minute : Math.max(max, item.change_per_minute)
+        if (!finite(item.change_per_minute) || item.change_per_minute <= 0)
+          return max
+        return max == null
+          ? item.change_per_minute
+          : Math.max(max, item.change_per_minute)
       }, null),
     [summaryItems]
   )
@@ -333,13 +404,17 @@ export function AccountQuotaChangesPanel() {
       <PanelWrapper
         title={
           <span className='flex items-center gap-2'>
-            <IconBadge tone='warning' size='sm'><Activity /></IconBadge>
+            <IconBadge tone='warning' size='sm'>
+              <Activity />
+            </IconBadge>
             {t('Account quota changes')}
           </span>
         }
         description={t('Largest provider account quota movements per minute')}
         empty
-        emptyMessage={t('Administrator permission required to view account quota changes')}
+        emptyMessage={t(
+          'Administrator permission required to view account quota changes'
+        )}
       />
     )
   }
@@ -349,7 +424,9 @@ export function AccountQuotaChangesPanel() {
     const isSessionError = status === 401
     const isPermissionError = status === 403
     const errorMessage = isSessionError
-      ? t('Your session is missing or expired. Sign in again to load provider account quota.')
+      ? t(
+          'Your session is missing or expired. Sign in again to load provider account quota.'
+        )
       : isPermissionError
         ? t('Your account does not have permission to read channels.')
         : t('Unable to load account quota changes')
@@ -357,7 +434,9 @@ export function AccountQuotaChangesPanel() {
       <PanelWrapper
         title={
           <span className='flex items-center gap-2'>
-            <IconBadge tone='warning' size='sm'><Activity /></IconBadge>
+            <IconBadge tone='warning' size='sm'>
+              <Activity />
+            </IconBadge>
             {t('Account quota changes')}
           </span>
         }
@@ -366,11 +445,22 @@ export function AccountQuotaChangesPanel() {
         emptyMessage={errorMessage}
         headerActions={
           isSessionError ? (
-            <Button variant='outline' size='sm' className='h-7 px-2 text-xs' render={<Link to='/sign-in' />}>
+            <Button
+              variant='outline'
+              size='sm'
+              className='h-7 px-2 text-xs'
+              render={<Link to='/sign-in' />}
+            >
               {t('Sign in again')}
             </Button>
           ) : (
-            <Button variant='ghost' size='sm' className='size-7 p-0' onClick={() => void query.refetch()} aria-label={t('Retry')}>
+            <Button
+              variant='ghost'
+              size='sm'
+              className='size-7 p-0'
+              onClick={() => void query.refetch()}
+              aria-label={t('Retry')}
+            >
               <RotateCw className='size-3.5' />
             </Button>
           )
@@ -383,40 +473,73 @@ export function AccountQuotaChangesPanel() {
     <PanelWrapper
       title={
         <span className='flex items-center gap-2'>
-          <IconBadge tone='info' size='sm'><Activity /></IconBadge>
+          <IconBadge tone='info' size='sm'>
+            <Activity />
+          </IconBadge>
           {t('Account quota changes')}
         </span>
       }
       description={t('Largest provider account quota movements per minute')}
       loading={query.isLoading}
       empty={!query.isLoading && items.length === 0}
-      emptyMessage={samplingStatusQuery.data?.data?.enabled
-        ? t('No account quota changes recorded yet. Background sampling is enabled and will populate this panel after the next interval.')
-        : t('No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.')}
+      emptyMessage={
+        samplingStatusQuery.data?.data?.enabled
+          ? t(
+              'No account quota changes recorded yet. Background sampling is enabled and will populate this panel after the next interval.'
+            )
+          : t(
+              'No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.'
+            )
+      }
       height='h-64'
       contentClassName='space-y-3'
       headerActions={
         <div className='flex items-center gap-1'>
-          <Button variant='ghost' size='sm' className='size-7 p-0' onClick={() => void query.refetch()} disabled={query.isFetching} aria-label={t('Refresh')}>
-            <RotateCw className={cn('size-3.5', query.isFetching && 'animate-spin')} />
+          <Button
+            variant='ghost'
+            size='sm'
+            className='size-7 p-0'
+            onClick={() => void query.refetch()}
+            disabled={query.isFetching}
+            aria-label={t('Refresh')}
+          >
+            <RotateCw
+              className={cn('size-3.5', query.isFetching && 'animate-spin')}
+            />
           </Button>
-          <Button variant='ghost' size='sm' className='h-7 gap-1 px-2 text-xs' render={<Link to='/channels' />}>
-            {t('Channels')}<ExternalLink data-icon='inline-end' />
+          <Button
+            variant='ghost'
+            size='sm'
+            className='h-7 gap-1 px-2 text-xs'
+            render={<Link to='/channels' />}
+          >
+            {t('Channels')}
+            <ExternalLink data-icon='inline-end' />
           </Button>
         </div>
       }
     >
       <div className='grid grid-cols-2 gap-2'>
-        <div className='bg-destructive/5 rounded-xl border border-destructive/15 px-3 py-2'>
-          <div className='text-muted-foreground text-[11px]'>{t('Max drop / minute')}</div>
+        <div className='bg-destructive/5 border-destructive/15 rounded-xl border px-3 py-2'>
+          <div className='text-muted-foreground text-[11px]'>
+            {t('Max drop / minute')}
+          </div>
           <div className='text-destructive mt-1 font-mono text-sm font-semibold tabular-nums'>
-            {maxDrop == null ? '—' : `-${formatAmount(maxDrop, firstMetric?.unit, firstMetric?.currency)}`}
+            {maxDrop == null
+              ? '—'
+              : `-${formatAmount(maxDrop, firstMetric?.unit, firstMetric?.currency)}`}
           </div>
         </div>
-        <div className='bg-warning/5 rounded-xl border border-warning/15 px-3 py-2'>
-          <div className='text-muted-foreground text-[11px]'>{t('Max increase / minute')}</div>
+        <div className='bg-warning/5 border-warning/15 rounded-xl border px-3 py-2'>
+          <div className='text-muted-foreground text-[11px]'>
+            {t('Max increase / minute')}
+          </div>
           <div className='text-warning mt-1 font-mono text-sm font-semibold tabular-nums'>
-            {formatAmount(maxIncrease, firstMetric?.unit, firstMetric?.currency)}
+            {formatAmount(
+              maxIncrease,
+              firstMetric?.unit,
+              firstMetric?.currency
+            )}
           </div>
         </div>
       </div>
@@ -424,7 +547,13 @@ export function AccountQuotaChangesPanel() {
         className='max-h-64 min-w-0 space-y-2 overflow-y-auto pr-1'
         aria-label={t('Account quota changes')}
       >
-        {items.map((item) => <MovementRow key={movementKey(item)} item={item} maxMovement={maxMovement} />)}
+        {items.map((item) => (
+          <MovementRow
+            key={movementKey(item)}
+            item={item}
+            maxMovement={maxMovement}
+          />
+        ))}
       </ul>
     </PanelWrapper>
   )

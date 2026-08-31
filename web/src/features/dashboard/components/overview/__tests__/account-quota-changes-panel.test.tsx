@@ -7,11 +7,15 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
-import { getChannelQuotaChanges, getChannelQuotaSamplingStatus } from '@/features/channels/api'
+import {
+  getChannelQuotaChanges,
+  getChannelQuotaSamplingStatus,
+} from '@/features/channels/api'
+import { getSelf } from '@/lib/api'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -22,9 +26,19 @@ vi.mock('@/features/channels/api', () => ({
   getChannelQuotaSamplingStatus: vi.fn(),
 }))
 
+vi.mock('@/lib/api', () => ({
+  getSelf: vi.fn(),
+}))
+
 vi.mock('@tanstack/react-router', () => ({
-  Link: (props: { children?: ReactNode; to?: string; [key: string]: unknown }) => (
-    <a href={props.to} {...props}>{props.children}</a>
+  Link: (props: {
+    children?: ReactNode
+    to?: string
+    [key: string]: unknown
+  }) => (
+    <a href={props.to} {...props}>
+      {props.children}
+    </a>
   ),
 }))
 
@@ -53,10 +67,14 @@ function setUser(canReadChannels: boolean, id = 1) {
 }
 
 describe('account quota changes dashboard panel', () => {
-  beforeEach(() => setUser(true))
+  beforeEach(() => {
+    vi.mocked(getSelf).mockResolvedValue({ success: false })
+    setUser(true)
+  })
 
   afterEach(() => {
-    useAuthStore.getState().auth.setUser(null)
+    useAuthStore.getState().auth.reset('idle')
+    vi.clearAllMocks()
   })
 
   test('explains missing permission without requesting upstream quota', () => {
@@ -65,7 +83,11 @@ describe('account quota changes dashboard panel', () => {
     renderPanel()
 
     expect(screen.getByText('Account quota changes')).toBeInTheDocument()
-    expect(screen.getByText('Administrator permission required to view account quota changes')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Administrator permission required to view account quota changes'
+      )
+    ).toBeInTheDocument()
     expect(getChannelQuotaChanges).not.toHaveBeenCalled()
     expect(getChannelQuotaSamplingStatus).not.toHaveBeenCalled()
   })
@@ -75,25 +97,29 @@ describe('account quota changes dashboard panel', () => {
       .mockResolvedValueOnce({
         success: true,
         data: {
-          items: [{
-            channel_id: 41,
-            name: 'First session account',
-            status: 'success',
-            direction: 'stable',
-            current_available: 90,
-          }],
+          items: [
+            {
+              channel_id: 41,
+              name: 'First session account',
+              status: 'success',
+              direction: 'stable',
+              current_available: 90,
+            },
+          ],
         },
       })
       .mockResolvedValueOnce({
         success: true,
         data: {
-          items: [{
-            channel_id: 42,
-            name: 'Second session account',
-            status: 'success',
-            direction: 'stable',
-            current_available: 80,
-          }],
+          items: [
+            {
+              channel_id: 42,
+              name: 'Second session account',
+              status: 'success',
+              direction: 'stable',
+              current_available: 80,
+            },
+          ],
         },
       })
     vi.mocked(getChannelQuotaSamplingStatus)
@@ -111,25 +137,80 @@ describe('account quota changes dashboard panel', () => {
 
     setUser(true, 2)
 
-    expect(await screen.findByText('Second session account')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Second session account')
+    ).toBeInTheDocument()
     expect(screen.queryByText('First session account')).not.toBeInTheDocument()
     expect(getChannelQuotaChanges).toHaveBeenCalledTimes(2)
+  })
+
+  test('refreshes an administrator capability matrix once per session', async () => {
+    const auth = useAuthStore.getState().auth
+    const initialUser = {
+      id: 7,
+      username: 'admin',
+      role: ROLE.ADMIN,
+      permissions: { admin_permissions: { channel: { read: false } } },
+    }
+    auth.setBundle({
+      access_token: 'test-token',
+      token_type: 'Bearer',
+      access_expires_at: Math.floor(Date.now() / 1000) + 600,
+      user: initialUser,
+      session: {
+        sid: 'session-capability-refresh',
+        current: true,
+        login_method: 'password',
+        ip: '127.0.0.1',
+        user_agent: 'test',
+        created_at: 1,
+        last_active_at: 1,
+        expires_at: 1000,
+      },
+    })
+    vi.mocked(getSelf).mockResolvedValueOnce({
+      success: true,
+      data: {
+        ...initialUser,
+        permissions: { admin_permissions: { channel: { read: true } } },
+      },
+    })
+    vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
+      success: true,
+      data: { items: [] },
+    })
+    vi.mocked(getChannelQuotaSamplingStatus).mockResolvedValueOnce({
+      success: true,
+      data: { enabled: false, interval_seconds: 900, max_channels: 20 },
+    })
+
+    renderPanel()
+
+    await waitFor(() => expect(getSelf).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(getChannelQuotaChanges).toHaveBeenCalledTimes(1))
+    expect(
+      useAuthStore.getState().auth.user?.permissions?.admin_permissions
+    ).toEqual({
+      channel: { read: true },
+    })
   })
 
   test('keeps movement details and channel navigation visible on narrow layouts', async () => {
     vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
       success: true,
       data: {
-        items: [{
-          channel_id: 12,
-          name: 'Codex production channel',
-          account_label: 'A deliberately long provider account label',
-          change_per_minute: -1234.56,
-          abs_change_per_minute: 1234.56,
-          current_available: 9876.54,
-          direction: 'decrease',
-          unit: 'USD',
-        }],
+        items: [
+          {
+            channel_id: 12,
+            name: 'Codex production channel',
+            account_label: 'A deliberately long provider account label',
+            change_per_minute: -1234.56,
+            abs_change_per_minute: 1234.56,
+            current_available: 9876.54,
+            direction: 'decrease',
+            unit: 'USD',
+          },
+        ],
       },
     })
     vi.mocked(getChannelQuotaSamplingStatus).mockResolvedValueOnce({
@@ -139,9 +220,16 @@ describe('account quota changes dashboard panel', () => {
 
     renderPanel()
 
-    expect(await screen.findByText('A deliberately long provider account label')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Channels' })).toHaveAttribute('href', '/channels')
-    expect(screen.getByRole('list', { name: 'Account quota changes' })).toBeInTheDocument()
+    expect(
+      await screen.findByText('A deliberately long provider account label')
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Channels' })).toHaveAttribute(
+      'href',
+      '/channels'
+    )
+    expect(
+      screen.getByRole('list', { name: 'Account quota changes' })
+    ).toBeInTheDocument()
   })
 
   test('renders a useful empty state after a successful response', async () => {
@@ -157,7 +245,9 @@ describe('account quota changes dashboard panel', () => {
     renderPanel()
 
     expect(
-      await screen.findByText('No account quota changes recorded yet. Background sampling is enabled and will populate this panel after the next interval.')
+      await screen.findByText(
+        'No account quota changes recorded yet. Background sampling is enabled and will populate this panel after the next interval.'
+      )
     ).toBeInTheDocument()
   })
 
@@ -165,16 +255,18 @@ describe('account quota changes dashboard panel', () => {
     vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
       success: true,
       data: {
-        items: [{
-          channel_id: 18,
-          name: 'Claude subscription',
-          account_label: 'Anthropic account',
-          status: 'unsupported',
-          direction: 'stable',
-          change_per_minute: null,
-          abs_change_per_minute: null,
-          current_available: null,
-        }],
+        items: [
+          {
+            channel_id: 18,
+            name: 'Claude subscription',
+            account_label: 'Anthropic account',
+            status: 'unsupported',
+            direction: 'stable',
+            change_per_minute: null,
+            abs_change_per_minute: null,
+            current_available: null,
+          },
+        ],
       },
     })
     vi.mocked(getChannelQuotaSamplingStatus).mockResolvedValueOnce({
@@ -261,9 +353,12 @@ describe('account quota changes dashboard panel', () => {
 
     renderPanel()
 
-    const increaseCard = (await screen.findByText('Max increase / minute')).parentElement
+    const increaseCard = (await screen.findByText('Max increase / minute'))
+      .parentElement
     expect(increaseCard).toBeTruthy()
-    expect(within(increaseCard as HTMLElement).getByText('5 USD')).toBeInTheDocument()
+    expect(
+      within(increaseCard as HTMLElement).getByText('5 USD')
+    ).toBeInTheDocument()
   })
 
   test('does not mix provider sources in the summary movement cards', async () => {
@@ -305,9 +400,12 @@ describe('account quota changes dashboard panel', () => {
 
     renderPanel()
 
-    const increaseCard = (await screen.findByText('Max increase / minute')).parentElement
+    const increaseCard = (await screen.findByText('Max increase / minute'))
+      .parentElement
     expect(increaseCard).toBeTruthy()
-    expect(within(increaseCard as HTMLElement).getByText('7 USD')).toBeInTheDocument()
+    expect(
+      within(increaseCard as HTMLElement).getByText('7 USD')
+    ).toBeInTheDocument()
     expect(screen.getByText('Codex account')).toBeInTheDocument()
     expect(screen.getByText('Claude account')).toBeInTheDocument()
   })
@@ -322,12 +420,16 @@ describe('account quota changes dashboard panel', () => {
 
     renderPanel()
 
-    expect(document.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0)
+    expect(
+      document.querySelectorAll('[data-slot="skeleton"]').length
+    ).toBeGreaterThan(0)
     expect(screen.getByText('Account quota changes')).toBeInTheDocument()
   })
 
   test('renders a retry action for an expired session', async () => {
-    vi.mocked(getChannelQuotaChanges).mockRejectedValueOnce({ response: { status: 401 } })
+    vi.mocked(getChannelQuotaChanges).mockRejectedValueOnce({
+      response: { status: 401 },
+    })
     vi.mocked(getChannelQuotaSamplingStatus).mockResolvedValueOnce({
       success: true,
       data: { enabled: false, interval_seconds: 300, max_channels: 20 },
@@ -335,7 +437,13 @@ describe('account quota changes dashboard panel', () => {
 
     renderPanel()
 
-    expect(await screen.findByText('Your session is missing or expired. Sign in again to load provider account quota.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Sign in again' })).toHaveAttribute('href', '/sign-in')
+    expect(
+      await screen.findByText(
+        'Your session is missing or expired. Sign in again to load provider account quota.'
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Sign in again' })
+    ).toHaveAttribute('href', '/sign-in')
   })
 })
