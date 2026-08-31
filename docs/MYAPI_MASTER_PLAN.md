@@ -106,7 +106,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 - Google Antigravity 已按官方 Gemini Interactions API 建立独立的非持久化客户端边界（创建、有限轮询、取消、删除和 usage 提取）。`1827358` 进一步固定 dynamic agent 类型、仅通过 `environment` 承载 continuation 的环境标识、限制 interaction ID/输入/响应大小、将 `requires_action` 视为轮询终态并在错误中去除上游响应正文；但尚未接入普通 relay/channel 或账户额度，不应宣传为完整 Antigravity 账户或额度支持。
 - LAN Lite CLI、SQLite-first 项目初始化和局域网安全边界已存在。
 - Electron 桌面版默认回环监听、单实例和持久会话密钥已加固；`--allow-lan` 加私网绑定地址才可共享，并在托盘菜单显示生效端点。
-- Electron 生产后端就绪探针请求 `/api/status`，只把 2xx 响应视为可用；开发前端探针仍使用 `/`。该行为由 runtime-config、探针合同测试和 desktop check 固化，尚未替代真实 macOS/Windows 安装与局域网演练。
+- Electron 生产后端就绪探针请求 `/api/status`，要求 HTTP 2xx 且 JSON `success=true`；开发前端探针仍使用 `/` 并只校验 HTTP 状态。该行为由 runtime-config、探针合同测试和 desktop check 固化，尚未替代真实 macOS/Windows 安装与局域网演练。
 - 新开发环境的 PostgreSQL 默认数据库标识已统一为 `myapi`（`docker-compose.dev.yml`、`makefile`）；接管旧数据必须显式设置 `MYAPI_DEV_POSTGRES_DB` 或 `DEV_POSTGRES_DB`，不自动重命名或迁移既有数据库。
 - `deploy/install.sh` 与 CLI 使用相同的回环/RFC1918 绑定边界；安装脚本拒绝格式错误或公网地址，非回环监听必须显式设置 `MYAPI_ALLOW_LAN=true`，并以非执行方式读取 `.env`。
 - GitHub Actions 已支持 SemVer tag 构建并推送 Full/LAN GHCR 镜像；多架构 manifest 使用构建任务产出的、经过格式和仓库校验的架构 digest 组装，不再以可变架构 tag 作为 manifest 输入。
@@ -128,7 +128,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 | 设置引导生命周期 | 初版已实现 | 完成后自动消失、按用户和版本保存；真实多设备视觉审查仍待完成 |
 | Claude 支持 | Messages 原生转发与 Responses→Messages 兼容转换已实现；官方组织用量报告已确认存在 | 只实现有明确官方协议的能力；普通 Claude 渠道仍不读取账户余额，组织 Usage Report 只有在管理员显式配置受保护的 Admin 凭据并完成权限/保留策略后才接入 |
 | Google Antigravity 专用 relay | 第一阶段 transport 代码、边界测试和有界 Docker Go 回归已交付 | `AntigravityClient` 已覆盖官方 preview 的创建、状态读取、有限轮询、取消、删除和 usage 提取；`1827358` 增加 dynamic agent/continuation 字段约束、请求/响应大小上限、`requires_action` 终态、nil context 兜底和错误正文脱敏测试；`GOWORK=off go test ./relay/channel/gemini ./relay/channel/claude` 已通过。公开 relay/channel 接入按 [公共 Relay 闸门](./ANTIGRAVITY_PUBLIC_RELAY_GATE.md) 进行持久化、权限、计费和工具策略评审，余额端点不存在时显示 `unsupported` |
-| LAN Lite 桌面体验 | 安全状态体验与确定性发行合同检查已实现 | Electron 默认回环、单实例、持久会话密钥、显式 `--allow-lan` 私网绑定、安装脚本 `MYAPI_ALLOW_LAN` 安全门、只读 LAN 状态/防火墙提示、请求 `/api/status` 且仅接受 2xx 的生产探针、有效地址健康检查和托盘确认后重启切换已补齐；通配监听仅展示发现的 RFC1918 IPv4 候选；`npm run desktop:check` 与 CI 会验证 macOS/Windows 目标、资源、校验和与发布闸门；真实跨平台安装/局域网请求演练和系统防火墙自动配置仍待完成 |
+| LAN Lite 桌面体验 | 安全状态体验与确定性发行合同检查已实现 | Electron 默认回环、单实例、持久会话密钥、显式 `--allow-lan` 私网绑定、安装脚本 `MYAPI_ALLOW_LAN` 安全门、只读 LAN 状态/防火墙提示、请求 `/api/status` 且要求 HTTP 2xx 与 JSON `success=true` 的生产探针、有效地址健康检查和托盘确认后重启切换已补齐；通配监听仅展示发现的 RFC1918 IPv4 候选；`npm run desktop:check` 与 CI 会验证 macOS/Windows 目标、资源、校验和与发布闸门；真实跨平台安装/局域网请求演练和系统防火墙自动配置仍待完成 |
 | 新开发环境数据库默认值 | 代码与模板已验证 | `docker-compose.dev.yml`、`makefile` 及多语言 README 的新开发示例默认使用 `myapi`；显式 `MYAPI_DEV_POSTGRES_DB`/`DEV_POSTGRES_DB` 可接管既有数据库，未执行自动迁移或生产改名 |
 | GHCR 自动升级 | CLI 预检与执行流程已实现 | 生产端显式拉取、可选签名验证、可选 digest 固定、健康检查、环境备份和失败回滚已有；`upgrade --dry-run --json` 可在副本上无写入预检，`docs/UPGRADE_REHEARSAL.md` 已补充恢复演练清单，真实数据库恢复和人工审批仍待完成 |
 | NPM 正式发布 | 未完成 | 版本、Tag、清单、测试和用户确认齐备后发布 |

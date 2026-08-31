@@ -14,7 +14,7 @@
 | 设置引导 | Full/LAN Lite/权限条件、生命周期测试 | 已验证 | 多设备视觉检查 |
 | 品牌与旧元数据 | `tools/branding/check.mjs`，最近运行 `blocking_count: 0` | 阻断项已清零 | NOTICE、源码头和兼容标识法律审查 |
 | 静态官网 | `tools/website/check-static.mjs`、Chromium smoke、artifact workflow | 自动化已验证 | 真实移动视觉与独立域名发布决策 |
-| LAN Lite/桌面 | `lan:check`、`desktop:check`、Electron 安全边界；`electron/test/desktop-probe-contract.test.mjs`、`runtime-config.js` 和 `tools/desktop/check.mjs` | 合同已验证（生产探针为 `/api/status`，仅 2xx 视为就绪）；CLI 与托盘对通配监听均仅展示发现的 RFC1918 地址 | macOS/Windows 实机安装、LAN 请求、防火墙；真实设备运行结果不得由合同测试代替 |
+| LAN Lite/桌面 | `lan:check`、`desktop:check`、Electron 安全边界；`electron/test/desktop-probe-contract.test.mjs`、`runtime-config.js` 和 `tools/desktop/check.mjs` | 合同已验证（生产探针为 `/api/status`，要求 HTTP 2xx 且 JSON `success=true`；开发首页仍仅校验 HTTP 状态）；CLI 与托盘对通配监听均仅展示发现的 RFC1918 地址 | macOS/Windows 实机安装、LAN 请求、防火墙；真实设备运行结果不得由合同测试代替 |
 | 多语言关键文案 | `web/src/i18n/locales/{fr,ja,ru,vi,zh-TW}.json`、`web/src/i18n/__tests__/locale-key-parity.test.ts` | English key parity 已验证（5 locales / 5 tests） | 真实设备文字长度与视觉审查 |
 | GHCR/升级 | `release:workflow:check`、`upgrade:check`、不可变 digest 合同；版本与架构 tag 构建前检查并 fail-closed 拒绝覆盖 | 自动化已验证 | 脱敏副本升级、数据库恢复、人工审批 |
 | 新开发环境数据库默认值 | `48abce6`、`docker-compose.dev.yml`、`makefile` | 代码与模板已验证（新开发默认数据库为 `myapi`） | 接管既有数据库必须显式设置 `MYAPI_DEV_POSTGRES_DB`/`DEV_POSTGRES_DB` 并在副本验证；该变更不执行重命名或迁移 |
@@ -76,7 +76,8 @@
 
 - `48abce6`：新开发环境的 compose 与 make 默认 PostgreSQL 数据库标识切换为
   `myapi`；保留显式变量覆盖旧数据库的路径，不代表既有生产数据库已迁移或重命名。
-- `957d4ca`：Electron 生产后端探针改为请求 `/api/status`，并仅接受 2xx
+- `957d4ca`：Electron 生产后端探针改为请求 `/api/status`，并仅接受 2xx；后续
+  `94707b0` 增加 JSON `success=true` 校验，避免业务失败响应误判为就绪。
   HTTP 状态；对应 runtime-config、探针合同测试和 desktop check 已纳入源码证据。
   这些合同证据不等同于 macOS/Windows 实机安装、局域网请求或生产运行验证。
 - `a2528a2`：额度概览和渠道额度面板恢复统一的 `401` 认证刷新路径，并将用户
