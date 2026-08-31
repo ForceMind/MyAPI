@@ -104,10 +104,12 @@ function checkRuntime() {
       !main.includes("'<private-LAN-IP>'"),
   )
   record(
-    'production startup probes the backend status endpoint and rejects non-2xx',
+    'production startup probes the backend status endpoint and rejects non-2xx or unsuccessful JSON',
     main.includes("checkServerAvailability(PORT, 30, 1000, healthCheckHost, '/api/status')") &&
       main.includes('isSuccessfulHttpStatus(statusCode)') &&
-      runtime.includes('function isSuccessfulHttpStatus(statusCode)'),
+      main.includes('isSuccessfulStatusResponse(statusCode, responseBody)') &&
+      runtime.includes('function isSuccessfulHttpStatus(statusCode)') &&
+      runtime.includes('function isSuccessfulStatusResponse(statusCode, body)'),
   )
   record(
     'production logs stay under the writable Electron userData root',
