@@ -48,6 +48,10 @@
   外部启动故障：Frontend、Backend、Desktop 和 Distribution 四个 job 均为 `steps: []`，
   无可用 job 日志。应按 GitHub Billing/runner 阻塞处理，不能视作代码失败；恢复后只重跑
   最新提交。
+- `33356196350`（提交 `a56966f`）及其前序 `33356139117`、`33355935758`、
+  `33355371586` 仍在 runner 启动阶段失败；最新 CI 的四个 job 均为 `steps: []`，
+  约 2 秒内结束。该结果继续按 GitHub Billing/runner 外部阻塞处理，本轮以本机
+  前端 62/278、Go 回归和发行合同检查作为替代证据，不重跑历史 workflow。
 - `33335484167`：完成度矩阵一致性修正后的完整 CI，Backend、Frontend、Desktop
   和 Distribution 四个作业全部成功。
 - `33335299578`：本机部署旧镜像诊断证据提交后的完整 CI，Backend、Frontend、
