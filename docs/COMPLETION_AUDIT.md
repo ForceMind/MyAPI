@@ -136,6 +136,8 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - 本机 Go 回归：`GOWORK=off go test ./... -count=1` 通过；额度/渠道与 Gemini/Claude 定向回归通过；`cd relaykit && GOWORK=off go build ./...` 通过。计费饱和回归覆盖正常值、溢出、无穷与 NaN 输入。
 - 上述均为源码、合同和本机受限资源验证；尚未替代 Docker Desktop Compose 实跑、SQLite/MySQL/PostgreSQL 副本恢复、真实管理员手机、macOS/Windows 安装、局域网/防火墙和生产环境验收。
 - 本阶段没有执行 push、tag、GHCR/NPM 发布、生产重启或生产数据操作。GitHub Actions 仍可能受 runner/Billing 启动阶段故障影响；恢复后应只重跑最新提交。NOTICE/法律审查和正式版本号仍需负责人确认。
+- 阶段提交 `e0ca670` 推送后的 CI run `33397392112`（2026-08-31）中，Frontend、Desktop、Backend 和 Distribution 四个 job 均在 runner 启动阶段失败且 `steps: []`；按既有规则归类为 GitHub Billing/runner 外部阻塞，不归因于源码。恢复后只需重跑最新提交。
+- 阶段 2 的 macOS/Docker/发行合同只读审查未发现新的可直接修复缺陷；Docker Desktop/Compose、真实 LAN 启动、健康检查和数据库演练仍待本机安装与外部验收。
 
 - 当前 `02bcc16` 增量复核：在 `web/` 以
   `NODE_OPTIONS=--max-old-space-size=2048 npm test -- --run` 完整运行前端回归，62 个测试
