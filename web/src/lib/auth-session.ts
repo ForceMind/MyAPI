@@ -29,6 +29,8 @@ import {
   type LoginSession,
 } from '@/stores/auth-store'
 
+import { ROLE } from './roles'
+
 export type RefreshOutcome =
   | { kind: 'authenticated'; bundle: AuthBundle }
   | { kind: 'anonymous' }
@@ -206,6 +208,19 @@ function waitForRefreshRace(delay: number): Promise<void> {
   return new Promise((resolve) => globalThis.setTimeout(resolve, delay))
 }
 
+/**
+ * Returns true when a cached administrator session predates the capability
+ * payload added to the auth bundle and must be refreshed before rendering
+ * permission-gated surfaces.
+ */
+export function requiresCapabilityRefresh(
+  user: AuthUser | null | undefined
+): boolean {
+  return Boolean(
+    user && user.role >= ROLE.ADMIN && !user.permissions?.admin_permissions
+  )
+}
+
 export function createRefreshRunner(
   runtime: AuthRefreshRuntime
 ): () => Promise<RefreshOutcome> {
@@ -349,6 +364,14 @@ function currentValidAuthBundle(): AuthBundle | null {
     !auth.session ||
     auth.accessExpiresAt <= Math.floor(Date.now() / 1000)
   ) {
+    return null
+  }
+  // Older in-memory sessions may predate the admin capability payload. Do not
+  // let those sessions permanently hide admin-only surfaces (for example the
+  // provider quota panel): one refresh obtains the current, server-authoritative
+  // permission matrix. An explicitly present matrix, including an intentional
+  // all-denied matrix, remains authoritative and is not refreshed here.
+  if (requiresCapabilityRefresh(auth.user)) {
     return null
   }
   return {

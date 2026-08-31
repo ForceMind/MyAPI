@@ -26,8 +26,10 @@ import {
   clearAuthenticatedClientState,
   createRefreshRunner,
   isAuthBundle,
+  requiresCapabilityRefresh,
   type AuthRefreshRuntime,
 } from './auth-session'
+import { ROLE } from './roles'
 
 const bundle: AuthBundle = {
   access_token: 'access-token',
@@ -55,6 +57,23 @@ afterEach(() => {
 })
 
 describe('authentication session coordination', () => {
+  test('does not trust an older admin session without a capability snapshot', () => {
+    expect(
+      requiresCapabilityRefresh({ id: 1, username: 'admin', role: ROLE.ADMIN })
+    ).toBe(true)
+    expect(
+      requiresCapabilityRefresh({
+        id: 1,
+        username: 'admin',
+        role: ROLE.ADMIN,
+        permissions: { admin_permissions: {} },
+      })
+    ).toBe(false)
+    expect(
+      requiresCapabilityRefresh({ id: 1, username: 'user', role: ROLE.USER })
+    ).toBe(false)
+  })
+
   test('bootstrap distinguishes a completed anonymous check from an active session', async () => {
     useAuthStore.getState().auth.reset('complete')
     expect(await bootstrapAuthentication()).toEqual({ kind: 'anonymous' })
