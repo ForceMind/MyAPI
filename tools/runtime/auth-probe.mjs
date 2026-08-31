@@ -53,6 +53,10 @@ async function request(fetchImpl, url, options, timeoutMs, parseJson = false) {
   }
 }
 
+function successfulResponse(response) {
+  return response.status >= 200 && response.status < 300 && response.body?.success === true
+}
+
 /**
  * Run read-only authenticated deployment checks. The returned report contains
  * only status codes and stable error classifications, never credentials.
@@ -78,8 +82,8 @@ export async function runRuntimeProbe({
     return { command: 'runtime:probe', base_url: normalizedBaseUrl, passed: false, checks: [check('fetch available', false, null, 'FETCH_UNAVAILABLE')] }
   }
 
-  const status = await request(fetchImpl, `${normalizedBaseUrl}/api/status`, { headers: { Accept: 'application/json' } }, timeoutMs)
-  checks.push(check('server status', status.status >= 200 && status.status < 300, status.status, status.error))
+  const status = await request(fetchImpl, `${normalizedBaseUrl}/api/status`, { headers: { Accept: 'application/json' } }, timeoutMs, true)
+  checks.push(check('server status', successfulResponse(status), status.status, status.error || (status.status >= 200 && status.status < 300 ? 'STATUS_UNCONFIRMED' : '')))
 
   const login = await request(fetchImpl, `${normalizedBaseUrl}/api/user/login`, {
     method: 'POST',
@@ -97,8 +101,8 @@ export async function runRuntimeProbe({
     ['channel quota changes', '/api/channel/quota/changes?range=24h'],
     ['admin logs', '/api/log/?p=1&size=10'],
   ]) {
-    const response = await request(fetchImpl, `${normalizedBaseUrl}${pathname}`, { headers }, timeoutMs)
-    checks.push(check(name, response.status >= 200 && response.status < 300, response.status, response.error))
+    const response = await request(fetchImpl, `${normalizedBaseUrl}${pathname}`, { headers }, timeoutMs, true)
+    checks.push(check(name, successfulResponse(response), response.status, response.error || (response.status >= 200 && response.status < 300 ? 'API_UNCONFIRMED' : '')))
   }
   return { command: 'runtime:probe', base_url: normalizedBaseUrl, passed: checks.every((item) => item.ok), checks }
 }

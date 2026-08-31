@@ -18,6 +18,15 @@ function mockFetch({ loginStatus = 200, token = 'synthetic-token' } = {}) {
   return { calls, fetchImpl }
 }
 
+function mockUnsuccessfulApiFetch() {
+  return async (url) => {
+    if (url.endsWith('/api/user/login')) {
+      return new Response(JSON.stringify({ success: true, data: { access_token: 'synthetic-token' } }), { status: 200 })
+    }
+    return new Response(JSON.stringify({ success: false, message: 'synthetic upstream failure' }), { status: 200 })
+  }
+}
+
 test('authenticated runtime probe checks status, identity, quota, and logs without exposing tokens', async () => {
   const { calls, fetchImpl } = mockFetch()
   const report = await runRuntimeProbe({
@@ -69,4 +78,18 @@ test('probe reports authentication failure without returning upstream response t
   assert.equal(report.passed, false)
   assert.equal(report.checks[1].code, 'AUTH_FAILED')
   assert.doesNotMatch(JSON.stringify(report), /invalid credentials|probe-password/)
+})
+
+test('probe rejects HTTP 200 responses that report success=false', async () => {
+  const report = await runRuntimeProbe({
+    baseUrl: 'https://myapi.example.test',
+    username: 'probe-user',
+    password: 'probe-password',
+    fetchImpl: mockUnsuccessfulApiFetch(),
+  })
+
+  assert.equal(report.passed, false)
+  assert.equal(report.checks[0].code, 'STATUS_UNCONFIRMED')
+  assert.equal(report.checks[2].code, 'API_UNCONFIRMED')
+  assert.doesNotMatch(JSON.stringify(report), /synthetic upstream failure|synthetic-token|probe-password/)
 })
