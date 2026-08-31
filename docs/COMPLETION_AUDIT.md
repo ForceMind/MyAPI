@@ -116,6 +116,10 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   完成 gofmt/静态审阅，未完成依赖下载后的运行验证。
 - `5cfb046` 后增量：Electron runtime tests 当前 17/17 个 Node 子测试（分布在 2 个
   test files）、Desktop contract 32/32；真实平台安装和局域网请求仍待实机验收。
+- `28e7bb2` 后增量：在允许 Node 子进程的受限环境中重新运行完整
+  `npm run release:check`，CLI 22/22、品牌 2/2、Website、LAN Lite 66/66、Desktop
+  32/32、Upgrade 18/18、Release workflow 15/15 以及 SOURCE_MANIFEST/pack check
+  全部通过；未执行任何发布、tag 或生产操作。
 
 ## 版本与远端 tag 只读核对（2026-08-31）
 
