@@ -304,6 +304,10 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - 随后在允许本地 SMTP/回环测试端口的环境中重新运行 `GOWORK=off go test ./... -count=1`，
   全部根模块包通过。提交 `f0b2195` 已推送；CI run `33420183217` 的四个 job 仍均为
   runner 启动前失败、`steps: []`，继续归类为 GitHub Billing/runner 外部阻塞。
+- 按请求手动触发 Docker smoke workflow `33420575494`（提交 `5493cca`）；唯一 job
+  `Build local image and probe SQLite runtime` 同样在 runner 启动前失败且 `steps: []`。
+  workflow 仍保持 `push: false`、不登录 GHCR 的安全边界；待 GitHub runner/Billing 恢复后
+  重跑即可，当前不能把该结果当作镜像或 `/api/status` 验收。
 
 ## 本机部署更新与诊断（2026-08-31）
 
