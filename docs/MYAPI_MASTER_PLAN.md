@@ -128,7 +128,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 | 设置引导生命周期 | 初版已实现 | 完成后自动消失、按用户和版本保存；真实多设备视觉审查仍待完成 |
 | Claude 支持 | Messages 原生转发与 Responses→Messages 兼容转换已实现；官方组织用量报告已确认存在 | 只实现有明确官方协议的能力；普通 Claude 渠道仍不读取账户余额，组织 Usage Report 只有在管理员显式配置受保护的 Admin 凭据并完成权限/保留策略后才接入 |
 | Google Antigravity 专用 relay | 第一阶段 transport 代码、边界测试和有界 Docker Go 回归已交付 | `AntigravityClient` 已覆盖官方 preview 的创建、状态读取、有限轮询、取消、删除和 usage 提取；`1827358` 增加 dynamic agent/continuation 字段约束、请求/响应大小上限、`requires_action` 终态、nil context 兜底和错误正文脱敏测试；`GOWORK=off go test ./relay/channel/gemini ./relay/channel/claude` 已通过。公开 relay/channel 接入按 [公共 Relay 闸门](./ANTIGRAVITY_PUBLIC_RELAY_GATE.md) 进行持久化、权限、计费和工具策略评审，余额端点不存在时显示 `unsupported` |
-| LAN Lite 桌面体验 | 安全状态体验与确定性发行合同检查已实现 | Electron 默认回环、单实例、持久会话密钥、显式 `--allow-lan` 私网绑定、安装脚本 `MYAPI_ALLOW_LAN` 安全门、只读 LAN 状态/防火墙提示、请求 `/api/status` 且仅接受 2xx 的生产探针、有效地址健康检查和托盘确认后重启切换已补齐；`npm run desktop:check` 与 CI 会验证 macOS/Windows 目标、资源、校验和与发布闸门；真实跨平台安装/局域网请求演练和系统防火墙自动配置仍待完成 |
+| LAN Lite 桌面体验 | 安全状态体验与确定性发行合同检查已实现 | Electron 默认回环、单实例、持久会话密钥、显式 `--allow-lan` 私网绑定、安装脚本 `MYAPI_ALLOW_LAN` 安全门、只读 LAN 状态/防火墙提示、请求 `/api/status` 且仅接受 2xx 的生产探针、有效地址健康检查和托盘确认后重启切换已补齐；通配监听仅展示发现的 RFC1918 IPv4 候选；`npm run desktop:check` 与 CI 会验证 macOS/Windows 目标、资源、校验和与发布闸门；真实跨平台安装/局域网请求演练和系统防火墙自动配置仍待完成 |
 | 新开发环境数据库默认值 | 代码与模板已验证 | `docker-compose.dev.yml`、`makefile` 及多语言 README 的新开发示例默认使用 `myapi`；显式 `MYAPI_DEV_POSTGRES_DB`/`DEV_POSTGRES_DB` 可接管既有数据库，未执行自动迁移或生产改名 |
 | GHCR 自动升级 | CLI 预检与执行流程已实现 | 生产端显式拉取、可选签名验证、可选 digest 固定、健康检查、环境备份和失败回滚已有；`upgrade --dry-run --json` 可在副本上无写入预检，`docs/UPGRADE_REHEARSAL.md` 已补充恢复演练清单，真实数据库恢复和人工审批仍待完成 |
 | NPM 正式发布 | 未完成 | 版本、Tag、清单、测试和用户确认齐备后发布 |
@@ -339,7 +339,7 @@ CI 自动构建不等于自动重启生产服务。生产自动升级需要单�
 - 创建 Key 表单重做（初版已完成，仍需完整角色/权限体验审查）。
 - 设置引导完成后自动消失（已完成）。
 - 引导状态按用户和版本隔离（已完成）。
-- 多语言文案和移动端回归（代码测试已完成，真实设备视觉审查待完成）。
+- 多语言文案和移动端回归（五个额外 locale 已补齐本轮关键 key，并由 parity 测试覆盖；真实设备视觉审查待完成）。
 
 ### P2：额度观测
 

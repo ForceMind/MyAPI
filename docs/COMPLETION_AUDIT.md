@@ -14,7 +14,8 @@
 | 设置引导 | Full/LAN Lite/权限条件、生命周期测试 | 已验证 | 多设备视觉检查 |
 | 品牌与旧元数据 | `tools/branding/check.mjs`，最近运行 `blocking_count: 0` | 阻断项已清零 | NOTICE、源码头和兼容标识法律审查 |
 | 静态官网 | `tools/website/check-static.mjs`、Chromium smoke、artifact workflow | 自动化已验证 | 真实移动视觉与独立域名发布决策 |
-| LAN Lite/桌面 | `lan:check`、`desktop:check`、Electron 安全边界；`957d4ca` 的 `electron/test/desktop-probe-contract.test.mjs`、`runtime-config.js` 和 `tools/desktop/check.mjs` | 合同已验证（生产探针为 `/api/status`，仅 2xx 视为就绪） | macOS/Windows 实机安装、LAN 请求、防火墙；真实设备运行结果不得由合同测试代替 |
+| LAN Lite/桌面 | `lan:check`、`desktop:check`、Electron 安全边界；`electron/test/desktop-probe-contract.test.mjs`、`runtime-config.js` 和 `tools/desktop/check.mjs` | 合同已验证（生产探针为 `/api/status`，仅 2xx 视为就绪）；通配监听仅展示发现的 RFC1918 地址 | macOS/Windows 实机安装、LAN 请求、防火墙；真实设备运行结果不得由合同测试代替 |
+| 多语言关键文案 | `web/src/i18n/locales/{fr,ja,ru,vi,zh-TW}.json`、`web/src/i18n/__tests__/locale-key-parity.test.ts` | English key parity 已验证（5 locales / 5 tests） | 真实设备文字长度与视觉审查 |
 | GHCR/升级 | `release:workflow:check`、`upgrade:check`、不可变 digest 合同 | 自动化已验证 | 脱敏副本升级、数据库恢复、人工审批 |
 | 新开发环境数据库默认值 | `48abce6`、`docker-compose.dev.yml`、`makefile` | 代码与模板已验证（新开发默认数据库为 `myapi`） | 接管既有数据库必须显式设置 `MYAPI_DEV_POSTGRES_DB`/`DEV_POSTGRES_DB` 并在副本验证；该变更不执行重命名或迁移 |
 | Claude 组织用量 | `docs/CLAUDE_USAGE_REPORT.md`，官方 Usage Report 边界 | 设计已验证 | Admin 凭据、权限、保留策略和实际接入 |
@@ -70,6 +71,9 @@
   通过（gemini 0.140s、claude 0.018s）。
 - `8a7741a`：PR 质量检查补齐 anti-slop 所需的最小 PR/issue 写权限，并监听
   `pull_request_target.synchronize`，确保后续提交重新审查；未授予 contents 写权限。
+- `618327c`：LAN 通配监听移除 `<private-LAN-IP>` 占位，按 RFC1918 IPv4
+  地址发现并输出候选端点；补齐五个非中文 locale 的额度/账户/访问方案关键文案，
+  并加入 locale key parity 回归测试（5/5）。
 
 CI 运行号会随新提交变化；发布前应重新查询当前提交对应的运行结果，不应永久依赖
 上述历史编号。
@@ -84,6 +88,9 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   通过 59 个测试文件、266 个测试。测试容器限制为 `--cpus=1.5 --memory=3g
   --memory-swap=4g`；图表零尺寸和 React 非布尔属性仅为既有测试环境警告，不影响
   断言结果。真实手机/桌面设备仍按外部验收顺序执行。
+- `618327c` 后增量复核：CLI 22/22、LAN Lite 66/66、Desktop 31/31、Website
+  静态检查通过；国际化 parity 测试 5/5 通过。前端完整构建与真实设备视觉仍待
+  受限环境/外部设备执行。
 
 ## 版本与远端 tag 只读核对（2026-08-31）
 
