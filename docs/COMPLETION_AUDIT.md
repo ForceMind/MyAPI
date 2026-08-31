@@ -249,3 +249,7 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   日志卡片、日志表格集成、概览额度面板和渠道额度面板 4 个测试文件，共 22 个测试全部
   通过（约 13 秒）。这验证移动 slot、加载/错误/空态与权限分支，但仍不能替代真实
   手机浏览器的触控、滚动和视觉验收。
+- 当前后端增量回归：使用本机缓存的 Go 1.26.1 容器，在 `--cpus=1.5`、`--memory=3g`
+  限制下运行 `GOWORK=off go test ./controller -run 'ChannelQuota|CodexQuota|Quota' -count=1`，
+  结果 `ok github.com/ForceMind/MyAPI/controller`；该结果验证额度采样、聚合和 Codex
+  用量相关控制器回归，不替代真实上游账户或生产数据库演练。
