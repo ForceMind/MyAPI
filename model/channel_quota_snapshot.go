@@ -82,22 +82,22 @@ func ListChannelQuotaAggregateRows(ctx context.Context, start, end int64, channe
 // are intentionally not persisted here.
 type ChannelQuotaSnapshot struct {
 	Id         int      `json:"id" gorm:"primaryKey"`
-	ChannelId  int      `json:"channel_id" gorm:"index:idx_channel_quota_observed,priority:1;index:idx_channel_quota_metric,priority:1"`
-	ObservedAt int64    `json:"observed_at" gorm:"bigint;index:idx_channel_quota_observed,priority:2;index:idx_channel_quota_metric,priority:4;index:idx_channel_quota_retention"`
+	ChannelId  int      `json:"channel_id" gorm:"index:idx_channel_quota_observed,priority:1;index:idx_channel_quota_metric,priority:1;index:idx_channel_quota_dedupe,priority:1"`
+	ObservedAt int64    `json:"observed_at" gorm:"bigint;index:idx_channel_quota_observed,priority:2;index:idx_channel_quota_metric,priority:4;index:idx_channel_quota_retention;index:idx_channel_quota_dedupe,priority:2"`
 	Available  float64  `json:"available"`
 	Used       *float64 `json:"used,omitempty"`
 	Total      *float64 `json:"total,omitempty"`
-	Unit       string   `json:"unit" gorm:"size:32;default:'usd'"`
-	Currency   string   `json:"currency,omitempty" gorm:"size:8"`
-	MetricType string   `json:"metric_type" gorm:"size:32;default:'balance';index:idx_channel_quota_metric,priority:2"`
-	WindowType string   `json:"window_type,omitempty" gorm:"size:32;default:'none';index:idx_channel_quota_metric,priority:3"`
+	Unit       string   `json:"unit" gorm:"size:32;default:'usd';index:idx_channel_quota_dedupe,priority:6"`
+	Currency   string   `json:"currency,omitempty" gorm:"size:8;index:idx_channel_quota_dedupe,priority:7"`
+	MetricType string   `json:"metric_type" gorm:"size:32;default:'balance';index:idx_channel_quota_metric,priority:2;index:idx_channel_quota_dedupe,priority:3"`
+	WindowType string   `json:"window_type,omitempty" gorm:"size:32;default:'none';index:idx_channel_quota_metric,priority:3;index:idx_channel_quota_dedupe,priority:4"`
 	// PlanType and WindowSeconds are populated for provider-specific rate-limit
 	// observations (for example Codex OAuth). They remain empty/zero for the
 	// generic balance snapshots.
-	PlanType      string    `json:"plan_type,omitempty" gorm:"size:32"`
-	WindowSeconds int64     `json:"window_seconds,omitempty" gorm:"bigint"`
-	ResetAt       int64     `json:"reset_at,omitempty" gorm:"bigint"`
-	Source        string    `json:"source,omitempty" gorm:"size:64"`
+	PlanType      string    `json:"plan_type,omitempty" gorm:"size:32;index:idx_channel_quota_dedupe,priority:5"`
+	WindowSeconds int64     `json:"window_seconds,omitempty" gorm:"bigint;index:idx_channel_quota_dedupe,priority:8"`
+	ResetAt       int64     `json:"reset_at,omitempty" gorm:"bigint;index:idx_channel_quota_dedupe,priority:9"`
+	Source        string    `json:"source,omitempty" gorm:"size:64;index:idx_channel_quota_dedupe,priority:10"`
 	Status        string    `json:"status" gorm:"size:16;default:'success';index"`
 	ErrorCode     string    `json:"error_code,omitempty" gorm:"size:64"`
 	ErrorMessage  string    `json:"error_message,omitempty" gorm:"size:255"`
@@ -174,6 +174,32 @@ func RecordChannelQuotaSnapshot(snapshot *ChannelQuotaSnapshot) error {
 	}
 	if snapshot.Status == "" {
 		snapshot.Status = "success"
+	}
+	// A sampler retry can produce the same observation more than once. Query
+	// the complete series identity before inserting so all supported SQL
+	// dialects converge on one point per channel/series/time bucket without
+	// requiring a dialect-specific upsert or rewriting existing rows.
+	var existing ChannelQuotaSnapshot
+	lookup := DB.Where(
+		"channel_id = ? AND observed_at = ? AND metric_type = ? AND window_type = ? AND source = ? AND plan_type = ? AND unit = ? AND currency = ? AND window_seconds = ? AND reset_at = ?",
+		snapshot.ChannelId,
+		snapshot.ObservedAt,
+		snapshot.MetricType,
+		snapshot.WindowType,
+		snapshot.Source,
+		snapshot.PlanType,
+		snapshot.Unit,
+		snapshot.Currency,
+		snapshot.WindowSeconds,
+		snapshot.ResetAt,
+	).Order("id ASC").First(&existing)
+	if lookup.Error == nil {
+		snapshot.Id = existing.Id
+		snapshot.CreatedAt = existing.CreatedAt
+		return nil
+	}
+	if lookup.Error != gorm.ErrRecordNotFound {
+		return lookup.Error
 	}
 	return DB.Create(snapshot).Error
 }

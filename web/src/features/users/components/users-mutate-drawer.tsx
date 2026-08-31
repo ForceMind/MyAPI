@@ -156,6 +156,13 @@ export function UsersMutateDrawer({
 
   const currentQuotaRaw = form.watch('quota_dollars') || 0
   const selectedRole = form.watch('role')
+  const selectedGroup = form.watch('group')
+  const explicitAccountTierId = form.watch('account_tier_id')
+  const derivedAccountTierId = getAccountTierId(selectedGroup)
+  const hasExplicitTierMismatch =
+    isUpdate &&
+    Boolean(explicitAccountTierId) &&
+    explicitAccountTierId !== derivedAccountTierId
   const canEditAdminPermissions = currentUser?.role === ROLE.SUPER_ADMIN
   const targetIsAdmin = (selectedRole ?? currentRow?.role ?? 0) >= ROLE.ADMIN
 
@@ -396,9 +403,20 @@ export function UsersMutateDrawer({
                             </SelectGroup>
                           </SelectContent>
                         </Select>
-                        <div className='text-xs text-muted-foreground'>
-                          {t('Stable account tier ID')}: {form.watch('account_tier_id') || getAccountTierId(field.value)}
+                        <div className='text-muted-foreground text-xs'>
+                          {t('Stable account tier ID')}:{' '}
+                          {explicitAccountTierId || derivedAccountTierId}
                         </div>
+                        {hasExplicitTierMismatch && (
+                          <div
+                            className='border-warning/40 bg-warning/10 text-warning rounded-md border p-2 text-xs'
+                            role='status'
+                          >
+                            ⚠ {t('Account tier')} {explicitAccountTierId} ≠{' '}
+                            {derivedAccountTierId} ·{' '}
+                            {t('This is separate from the access profile selected for each API key.')}
+                          </div>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}

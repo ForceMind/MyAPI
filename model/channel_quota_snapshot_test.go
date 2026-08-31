@@ -61,6 +61,38 @@ func TestListChannelQuotaSnapshotsKeepsMostRecentPoints(t *testing.T) {
 	require.Equal(t, now+2, rows[1].ObservedAt)
 }
 
+func TestRecordChannelQuotaSnapshotDeduplicatesSeriesTimeBucket(t *testing.T) {
+	require.NoError(t, DB.AutoMigrate(&ChannelQuotaSnapshot{}))
+	require.NoError(t, DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&ChannelQuotaSnapshot{}).Error)
+	t.Cleanup(func() {
+		require.NoError(t, DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&ChannelQuotaSnapshot{}).Error)
+	})
+
+	now := time.Now().Unix()
+	first := &ChannelQuotaSnapshot{
+		ChannelId:     904,
+		ObservedAt:    now,
+		Available:     80,
+		MetricType:    "rate_limit",
+		WindowType:    "five_hour",
+		Source:        "codex",
+		PlanType:      "team",
+		Unit:          "percent",
+		WindowSeconds: 18000,
+	}
+	second := *first
+	second.Available = 70
+	require.NoError(t, RecordChannelQuotaSnapshot(first))
+	require.NoError(t, RecordChannelQuotaSnapshot(&second))
+	require.NotZero(t, first.Id)
+	require.Equal(t, first.Id, second.Id)
+
+	var rows []ChannelQuotaSnapshot
+	require.NoError(t, DB.Where("channel_id = ?", 904).Find(&rows).Error)
+	require.Len(t, rows, 1)
+	require.Equal(t, 80.0, rows[0].Available)
+}
+
 func TestListChannelQuotaSnapshotsWithQuerySelectsOneProviderSeries(t *testing.T) {
 	require.NoError(t, DB.AutoMigrate(&ChannelQuotaSnapshot{}))
 	require.NoError(t, DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&ChannelQuotaSnapshot{}).Error)
