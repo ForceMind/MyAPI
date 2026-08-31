@@ -1129,8 +1129,8 @@ Usage:
 
 The CLI never deploys during npm install, never removes Docker volumes, and
 never prints SESSION_SECRET or API credentials. 'myapi up' pulls the pinned
-MyAPI image from GHCR; set MYAPI_BUILD_LOCAL=true (or use a local/* image) to
-build locally instead. Existing NEW_API_* deployment variables are read as
+MyAPI image from GHCR. For a local build, run 'myapi build' first with
+MYAPI_BUILD_LOCAL=true (or a local/* image), then run 'myapi up'. Existing NEW_API_* deployment variables are read as
 compatibility aliases; migrate writes MYAPI_* settings. Set MYAPI_EDITION=lan
 for the private LAN edition (it keeps the host binding at 127.0.0.1 unless
 MYAPI_BIND_ADDRESS is explicitly changed).`)
