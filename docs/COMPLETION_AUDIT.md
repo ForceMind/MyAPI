@@ -133,7 +133,7 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - 当前 `35ed22b` 后复核：`npm run release:workflow:check` 通过 16/16，确认语义版本
   Tag 自动触发 Full/LAN GHCR、既有 Tag 拒绝覆盖、manifest 使用已校验的不可变 digest，
   以及发布闸门和构建超时/并行度约束仍然生效；这不等于真实 GHCR 拉取或发布操作已执行。
-- 当前 `02bcc16` 发行包复核：在允许 Node 子进程的受限环境中重新运行
+- 审计提交 `ac2a1d8` 的发行包复核：在允许 Node 子进程的受限环境中重新运行
   `npm run source:manifest && npm run pack:check`，清单记录当前源提交，包含 2110 个文件；
   打包检查通过（2111 个文件，19,180,475 bytes），未发现敏感文件、构建目录或凭据模式。
 - 当前工作树快照幂等增量：`ChannelQuotaSnapshot` 使用可迁移的 nullable `dedupe_key`
