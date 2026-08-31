@@ -72,6 +72,13 @@ describe('authentication session coordination', () => {
     expect(
       requiresCapabilityRefresh({ id: 1, username: 'user', role: ROLE.USER })
     ).toBe(false)
+    expect(
+      requiresCapabilityRefresh({
+        id: 1,
+        username: 'root',
+        role: ROLE.SUPER_ADMIN,
+      })
+    ).toBe(false)
   })
 
   test('bootstrap distinguishes a completed anonymous check from an active session', async () => {

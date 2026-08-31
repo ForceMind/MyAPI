@@ -217,7 +217,10 @@ export function requiresCapabilityRefresh(
   user: AuthUser | null | undefined
 ): boolean {
   return Boolean(
-    user && user.role >= ROLE.ADMIN && !user.permissions?.admin_permissions
+    user &&
+    user.role >= ROLE.ADMIN &&
+    user.role < ROLE.SUPER_ADMIN &&
+    !user.permissions?.admin_permissions
   )
 }
 
