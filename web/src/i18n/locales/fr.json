@@ -5482,6 +5482,21 @@
     "Zero retention": "Aucune rétention",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Time range": "Time range",
+    "Chart granularity": "Chart granularity",
+    "Metric": "Metric",
+    "Chart style": "Chart style",
+    "Line": "Line",
+    "Area": "Area",
+    "Available quota": "Available quota",
+    "Used quota": "Used quota",
+    "Total quota": "Total quota",
+    "Detailed series": "Detailed series",
+    "Detailed quota history": "Detailed quota history",
+    "Change cards need at least two successful samples in the same quota window.": "Change cards need at least two successful samples in the same quota window.",
+    "Historical Codex rate-limit usage. Missing samples remain gaps.": "Historical Codex rate-limit usage. Missing samples remain gaps.",
+    "Codex usage history chart": "Codex usage history chart",
+    "No increase or decrease was observed in the selected window.": "No increase or decrease was observed in the selected window."
   }
 }

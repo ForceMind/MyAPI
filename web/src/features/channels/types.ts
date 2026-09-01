@@ -255,6 +255,7 @@ export interface ChannelQuotaHistoryData {
   alert?: ChannelQuotaHistoryAlert
   current?: {
     available?: number
+    used?: number
     total?: number
     observed_at: number
     status: string

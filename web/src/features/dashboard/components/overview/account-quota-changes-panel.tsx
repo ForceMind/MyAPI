@@ -521,7 +521,9 @@ export function AccountQuotaChangesPanel() {
           </div>
           <div className='text-destructive mt-1 font-mono text-sm font-semibold tabular-nums'>
             {maxDrop == null
-              ? '—'
+              ? firstMetric
+                ? formatAmount(0, firstMetric.unit, firstMetric.currency)
+                : '—'
               : `-${formatAmount(maxDrop, firstMetric?.unit, firstMetric?.currency)}`}
           </div>
         </div>
@@ -531,13 +533,22 @@ export function AccountQuotaChangesPanel() {
           </div>
           <div className='text-warning mt-1 font-mono text-sm font-semibold tabular-nums'>
             {formatAmount(
-              maxIncrease,
+              maxIncrease == null && firstMetric ? 0 : maxIncrease,
               firstMetric?.unit,
               firstMetric?.currency
             )}
           </div>
         </div>
       </div>
+      {maxDrop == null && maxIncrease == null ? (
+        <p className='text-muted-foreground text-xs'>
+          {t(
+            firstMetric
+              ? 'No increase or decrease was observed in the selected window.'
+              : 'Change cards need at least two successful samples in the same quota window.'
+          )}
+        </p>
+      ) : null}
       <CodexAccountQuotaChart items={allItems} />
       {items.length === 0 ? (
         <div className='text-muted-foreground rounded-xl border border-dashed p-4 text-center text-sm'>

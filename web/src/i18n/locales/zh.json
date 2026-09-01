@@ -5505,6 +5505,21 @@
     "Zero retention": "零数据保留",
     "Zhipu": "智谱",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "Time range": "时间范围",
+    "Chart granularity": "图表颗粒度",
+    "Metric": "指标",
+    "Chart style": "图表样式",
+    "Line": "折线",
+    "Area": "面积",
+    "Available quota": "可用额度",
+    "Used quota": "已用额度",
+    "Total quota": "总额度",
+    "Detailed series": "详细数据系列",
+    "Detailed quota history": "额度详细历史",
+    "Change cards need at least two successful samples in the same quota window.": "变化卡片需要同一额度窗口至少有两个成功采样点。",
+    "Historical Codex rate-limit usage. Missing samples remain gaps.": "Codex 历史限流用量；缺失采样会保留为空白。",
+    "Codex usage history chart": "Codex 用量历史图表",
+    "No increase or decrease was observed in the selected window.": "所选时间窗口内未观察到额度增加或减少。"
   }
 }
