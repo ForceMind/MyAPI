@@ -35,9 +35,10 @@ const (
 )
 
 // channelQuotaSnapshotSyncHandler samples provider balances through the same
-// normalized path used by the manual balance action.  It is deliberately
-// opt-in: querying provider billing endpoints can be expensive and should
-// never begin merely because the system-task runner is enabled.
+// normalized path used by the manual balance action. Sampling is enabled by
+// default and can be adjusted at runtime from the admin settings page. An
+// explicit environment variable still takes precedence for deployment-level
+// disablement or bounds.
 type channelQuotaSnapshotSyncHandler struct{}
 
 func (channelQuotaSnapshotSyncHandler) Type() string {
@@ -45,14 +46,29 @@ func (channelQuotaSnapshotSyncHandler) Type() string {
 }
 
 func (channelQuotaSnapshotSyncHandler) Enabled() bool {
-	return strings.EqualFold(strings.TrimSpace(os.Getenv("CHANNEL_QUOTA_SYNC_ENABLED")), "true")
+	if value, ok := os.LookupEnv("CHANNEL_QUOTA_SYNC_ENABLED"); ok && strings.TrimSpace(value) != "" {
+		return strings.EqualFold(strings.TrimSpace(value), "true")
+	}
+	if value := channelQuotaOptionValue("ChannelQuotaSyncEnabled"); value != "" {
+		return strings.EqualFold(value, "true")
+	}
+	return true
 }
 
 func (channelQuotaSnapshotSyncHandler) Interval() time.Duration {
 	value := strings.TrimSpace(os.Getenv("CHANNEL_QUOTA_SYNC_INTERVAL"))
-	if value == "" {
-		return channelQuotaSnapshotSyncDefaultInterval
+	if value != "" {
+		return parseChannelQuotaSyncInterval(value)
 	}
+	if option := channelQuotaOptionValue("ChannelQuotaSyncIntervalMinutes"); option != "" {
+		if minutes, err := strconv.Atoi(option); err == nil && minutes >= 1 {
+			return time.Duration(minutes) * time.Minute
+		}
+	}
+	return channelQuotaSnapshotSyncDefaultInterval
+}
+
+func parseChannelQuotaSyncInterval(value string) time.Duration {
 	interval, err := time.ParseDuration(value)
 	if err != nil || interval < time.Minute {
 		// A bare integer is accepted as minutes for operators migrating from the
@@ -68,6 +84,12 @@ func (channelQuotaSnapshotSyncHandler) Interval() time.Duration {
 		return 24 * time.Hour
 	}
 	return interval
+}
+
+func channelQuotaOptionValue(key string) string {
+	common.OptionMapRWMutex.RLock()
+	defer common.OptionMapRWMutex.RUnlock()
+	return strings.TrimSpace(common.OptionMap[key])
 }
 
 type channelQuotaSnapshotSyncSummary struct {
@@ -88,9 +110,21 @@ func (channelQuotaSnapshotSyncHandler) NewPayload() any {
 
 func channelQuotaSnapshotSyncMaxChannelsConfigured() int {
 	value := strings.TrimSpace(os.Getenv("CHANNEL_QUOTA_SYNC_MAX_CHANNELS"))
-	if value == "" {
-		return channelQuotaSnapshotSyncDefaultMaxChannels
+	if value != "" {
+		return parseChannelQuotaSyncMaxChannels(value)
 	}
+	if option := channelQuotaOptionValue("ChannelQuotaSyncMaxChannels"); option != "" {
+		if maxChannels, err := strconv.Atoi(option); err == nil && maxChannels >= 1 {
+			if maxChannels > channelQuotaSnapshotSyncMaxChannels {
+				return channelQuotaSnapshotSyncMaxChannels
+			}
+			return maxChannels
+		}
+	}
+	return channelQuotaSnapshotSyncDefaultMaxChannels
+}
+
+func parseChannelQuotaSyncMaxChannels(value string) int {
 	maxChannels, err := strconv.Atoi(value)
 	if err != nil || maxChannels < 1 {
 		return channelQuotaSnapshotSyncDefaultMaxChannels

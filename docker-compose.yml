@@ -48,9 +48,12 @@ services:
       - ERROR_LOG_ENABLED=true # 是否启用错误日志记录 (Whether to enable error log recording)
       - BATCH_UPDATE_ENABLED=true  # 是否启用批量更新 (Whether to enable batch update)
       - CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS=${CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS:-0}
-      - CHANNEL_QUOTA_SYNC_ENABLED=${CHANNEL_QUOTA_SYNC_ENABLED:-false}
-      - CHANNEL_QUOTA_SYNC_INTERVAL=${CHANNEL_QUOTA_SYNC_INTERVAL:-15m}
-      - CHANNEL_QUOTA_SYNC_MAX_CHANNELS=${CHANNEL_QUOTA_SYNC_MAX_CHANNELS:-100}
+      # Leave quota sampler overrides unset by default so administrators can
+      # adjust them at runtime from the monitoring settings page. The service
+      # defaults to enabled/15m/100 when these variables are absent.
+      - CHANNEL_QUOTA_SYNC_ENABLED=${CHANNEL_QUOTA_SYNC_ENABLED:-}
+      - CHANNEL_QUOTA_SYNC_INTERVAL=${CHANNEL_QUOTA_SYNC_INTERVAL:-}
+      - CHANNEL_QUOTA_SYNC_MAX_CHANNELS=${CHANNEL_QUOTA_SYNC_MAX_CHANNELS:-}
       - CHANNEL_QUOTA_ALERT_ENABLED=${CHANNEL_QUOTA_ALERT_ENABLED:-false}
       - CHANNEL_QUOTA_ALERT_WARNING_PERCENT=${CHANNEL_QUOTA_ALERT_WARNING_PERCENT:-20}
       - CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT=${CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT:-10}

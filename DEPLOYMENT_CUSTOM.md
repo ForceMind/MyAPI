@@ -104,8 +104,8 @@ FULL_CONTENT_LOG_MAX_FILES=10
 # Keep normalized channel quota snapshots for this many days. 0 disables
 # automatic cleanup; cleanup runs daily in bounded batches.
 CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS=0
-# Optional provider account balance sampler (disabled by default).
-CHANNEL_QUOTA_SYNC_ENABLED=false
+# Provider account balance sampler (enabled by default; can be adjusted in the admin UI).
+CHANNEL_QUOTA_SYNC_ENABLED=true
 CHANNEL_QUOTA_SYNC_INTERVAL=15m
 CHANNEL_QUOTA_SYNC_MAX_CHANNELS=100
 # Read-only quota threshold status (disabled by default; no notifications or
@@ -119,10 +119,10 @@ CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT=10
 # MYAPI_COSIGN_CERTIFICATE_OIDC_ISSUER=https://token.actions.githubusercontent.com
 ```
 
-后台采样默认关闭；需要持续记录普通渠道余额时，管理员必须显式设置
-`CHANNEL_QUOTA_SYNC_ENABLED=true`，并使用有界的采样间隔和渠道数量。额度告警在
-“设置 → 运维 → 监控与告警”中配置，默认关闭，只影响额度历史中的只读状态，不发送
-通知、不停用渠道，也不改变路由。
+后台采样默认开启，并使用有界的采样间隔和渠道数量。管理员可在
+“设置 → 运维 → 监控与告警”中调整采样开关、间隔和每轮最大渠道数；部署环境变量
+`CHANNEL_QUOTA_SYNC_ENABLED=false` 可作为强制关闭覆盖。额度告警默认关闭，只影响
+额度历史中的只读状态，不发送通知、不停用渠道，也不改变路由。
 
 同一进程内的 Relay 路由共享一个日志写入器，默认最多保留 10 个
 100 MiB 文件，约为 1 GiB 软上限。单条超大记录可能暂时超过该值。

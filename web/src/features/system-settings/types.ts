@@ -343,6 +343,9 @@ export type OperationsSettings = {
   SelfUseModeEnabled: boolean
   QuotaRemindThreshold: string
   ChannelQuotaAlertSettings: string
+  ChannelQuotaSyncEnabled: boolean
+  ChannelQuotaSyncIntervalMinutes: number
+  ChannelQuotaSyncMaxChannels: number
   SMTPServer: string
   SMTPPort: string
   SMTPAccount: string

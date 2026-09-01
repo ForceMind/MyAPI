@@ -102,7 +102,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 - API Key 已开始返回兼容旧 `group` 的访问方案元数据，创建和列表 UI 已显示“Access profile”及用途说明；`GET /api/user/self/groups` 另返回独立的 `account_tier` 元数据，Key 创建时会同时解释“账户等级”和“访问方案”的边界。
 - 设置引导已按用户和版本隔离；完成后自动移除引导卡片，不再显示“设置引导已完成”或重复打开入口。
 - 渠道余额对话框已接入额度历史折线图，支持 24h/7d/30d/90d、自定义日期范围、自动/raw/hour/day/week 聚合、浏览器时区偏移、加载/失败/空数据、多 Key 解释和失败采样断点；手动刷新会使趋势查询失效并重新读取。快照可通过 `CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS` 启用每日限批清理。
-- Codex OAuth 渠道的 Account Info 对话框已增加“当前窗口 / 历史趋势”切换；历史只保存官方 WHAM usage 响应中规范化的 primary/secondary 使用百分比、窗口和重置时间，不保存原始响应或凭据。启用 `CHANNEL_QUOTA_SYNC_ENABLED` 后，后台有界采样任务会按渠道锁调用同一官方 usage 接口并记录成功/失败状态；未启用时仍可由管理员查询当前 Codex 用量产生首个样本。
+- Codex OAuth 渠道的 Account Info 对话框已增加“当前窗口 / 历史趋势”切换；历史只保存官方 WHAM usage 响应中规范化的 primary/secondary 使用百分比、窗口和重置时间，不保存原始响应或凭据。后台有界采样任务默认开启，会按渠道锁调用同一官方 usage 接口并记录成功/失败状态；管理员可在「系统设置 → 运维 → 监控与告警」中调整，部署环境显式设置 `CHANNEL_QUOTA_SYNC_ENABLED=false` 时强制关闭。
 - 概览页和管理员渠道页已增加“账户额度变化”面板，共用 `GET /api/channel/quota/changes` 聚合接口；按渠道/上游账户、指标和窗口分组，以相邻有效快照计算带符号的每分钟变化，并默认按绝对变化最大值排序。`GET /api/channel/quota/status` 只读返回采样开关、间隔和每轮上限，帮助空态解释部署配置。跨重置边界、失败或不足样本不会伪造变化值；面板只显示脱敏后的渠道名称和额度数值，不包含凭据或原始响应，移动端使用纵向卡片布局。
 - 额度变化聚合项同时返回与渠道历史一致的只读 `alert` 状态（`disabled`、`unavailable`、`healthy`、`warning`、`critical`）和阈值元数据；失败、无总量或不支持的渠道不会继承旧状态，也不会触发通知、停用渠道或改变路由。
 - 额度概览和渠道详情的查询会使用正常认证刷新流程（不再跳过 `401` 后的 session refresh）；TanStack Query key 同时包含用户 ID、session SID 和能力状态，避免同一标签页切换登录身份后短暂复用上一位管理员的额度或采样状态。`a2528a2` 增加了跨登录身份回归测试；它不改变后端权限边界，也不缓存凭据。
@@ -222,7 +222,7 @@ relaykit 独立性，不把 UI 替换提前到代码合同稳定之前。
 采集规则：
 
 - 复用现有手动和自动余额查询流程。
-- 启用后台采样后默认按 15 分钟采集，使用已有渠道轮询锁并限制并发；`CHANNEL_QUOTA_SYNC_ENABLED` 默认是 `false`，不开启时不会产生后台请求，管理员手动查询仍可写入首个快照。
+- 后台采样默认开启并按 15 分钟采集，使用已有渠道轮询锁并限制并发；管理员可在「系统设置 → 运维 → 监控与告警」中调整开关、间隔和每轮最大渠道数。`CHANNEL_QUOTA_SYNC_ENABLED` 仍可作为部署级覆盖，显式设置为 `false` 时不会产生后台请求；管理员手动查询仍可写入快照。
 - 失败不覆盖最后一个有效余额，但记录失败状态。
 - 不记录上游完整响应。
 - 多密钥渠道在 MVP 中不合并不同 Key 的额度。
@@ -231,8 +231,8 @@ relaykit 独立性，不把 UI 替换提前到代码合同稳定之前。
 建议配置：
 
 ```env
-# Background sampling is opt-in; set true only when collection is wanted.
-CHANNEL_QUOTA_SYNC_ENABLED=false
+# Background sampling is enabled by default; set false only to disable it at deployment level.
+CHANNEL_QUOTA_SYNC_ENABLED=true
 CHANNEL_QUOTA_SYNC_INTERVAL=15m
 CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS=180
 CHANNEL_QUOTA_MAX_POINTS=2000

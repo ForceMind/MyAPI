@@ -199,12 +199,12 @@ func TestChannelQuotaSamplingStatusIsReadOnlyAndReflectsConfiguration(t *testing
 	}
 }
 
-func TestChannelQuotaSnapshotSyncIsOptInAndUsesSafeDefaults(t *testing.T) {
+func TestChannelQuotaSnapshotSyncIsEnabledByDefaultAndUsesSafeDefaults(t *testing.T) {
 	t.Setenv("CHANNEL_QUOTA_SYNC_ENABLED", "")
 	t.Setenv("CHANNEL_QUOTA_SYNC_INTERVAL", "")
 	t.Setenv("CHANNEL_QUOTA_SYNC_MAX_CHANNELS", "")
 	handler := channelQuotaSnapshotSyncHandler{}
-	require.False(t, handler.Enabled())
+	require.True(t, handler.Enabled())
 	require.Equal(t, channelQuotaSnapshotSyncDefaultInterval, handler.Interval())
 	require.Equal(t, channelQuotaSnapshotSyncDefaultMaxChannels, channelQuotaSnapshotSyncMaxChannelsConfigured())
 
@@ -214,6 +214,30 @@ func TestChannelQuotaSnapshotSyncIsOptInAndUsesSafeDefaults(t *testing.T) {
 	require.True(t, handler.Enabled())
 	require.Equal(t, 30*time.Minute, handler.Interval())
 	require.Equal(t, 12, channelQuotaSnapshotSyncMaxChannelsConfigured())
+}
+
+func TestChannelQuotaSnapshotSyncReadsAdminOptionsWhenEnvironmentIsUnset(t *testing.T) {
+	previous := common.OptionMap
+	common.OptionMapRWMutex.Lock()
+	common.OptionMap = map[string]string{
+		"ChannelQuotaSyncEnabled":         "false",
+		"ChannelQuotaSyncIntervalMinutes": "7",
+		"ChannelQuotaSyncMaxChannels":     "24",
+	}
+	common.OptionMapRWMutex.Unlock()
+	defer func() {
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap = previous
+		common.OptionMapRWMutex.Unlock()
+	}()
+
+	t.Setenv("CHANNEL_QUOTA_SYNC_ENABLED", "")
+	t.Setenv("CHANNEL_QUOTA_SYNC_INTERVAL", "")
+	t.Setenv("CHANNEL_QUOTA_SYNC_MAX_CHANNELS", "")
+	handler := channelQuotaSnapshotSyncHandler{}
+	require.False(t, handler.Enabled())
+	require.Equal(t, 7*time.Minute, handler.Interval())
+	require.Equal(t, 24, channelQuotaSnapshotSyncMaxChannelsConfigured())
 }
 
 func TestChannelQuotaSnapshotSyncRejectsHotOrInvalidConfiguration(t *testing.T) {

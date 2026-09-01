@@ -79,6 +79,11 @@ const monitoringSchema = z.object({
         })
       }
     }),
+  channel_quota_sync: z.object({
+    enabled: z.boolean(),
+    interval_minutes: z.coerce.number().int().min(1).max(1440),
+    max_channels: z.coerce.number().int().min(1).max(1000),
+  }),
   perf_metrics_setting: z.object({
     enabled: z.boolean(),
     flush_interval: z.coerce.number().min(1),
@@ -93,6 +98,9 @@ type MonitoringFormValues = z.output<typeof monitoringSchema>
 type FlatMonitoringDefaults = {
   QuotaRemindThreshold: string
   ChannelQuotaAlertSettings: string
+  ChannelQuotaSyncEnabled: boolean
+  ChannelQuotaSyncIntervalMinutes: number
+  ChannelQuotaSyncMaxChannels: number
   'perf_metrics_setting.enabled': boolean
   'perf_metrics_setting.flush_interval': number
   'perf_metrics_setting.bucket_time': 'minute' | '5min' | 'hour'
@@ -165,6 +173,11 @@ const buildFormDefaults = (
   channel_quota_alert: parseQuotaAlertSettings(
     defaults.ChannelQuotaAlertSettings
   ),
+  channel_quota_sync: {
+    enabled: defaults.ChannelQuotaSyncEnabled,
+    interval_minutes: defaults.ChannelQuotaSyncIntervalMinutes,
+    max_channels: defaults.ChannelQuotaSyncMaxChannels,
+  },
   perf_metrics_setting: {
     enabled: defaults['perf_metrics_setting.enabled'],
     flush_interval: defaults['perf_metrics_setting.flush_interval'],
@@ -180,6 +193,9 @@ const normalizeDefaults = (
   ChannelQuotaAlertSettings: serializeQuotaAlertSettings(
     parseQuotaAlertSettings(defaults.ChannelQuotaAlertSettings)
   ),
+  ChannelQuotaSyncEnabled: defaults.ChannelQuotaSyncEnabled,
+  ChannelQuotaSyncIntervalMinutes: defaults.ChannelQuotaSyncIntervalMinutes,
+  ChannelQuotaSyncMaxChannels: defaults.ChannelQuotaSyncMaxChannels,
   'perf_metrics_setting.enabled': defaults['perf_metrics_setting.enabled'],
   'perf_metrics_setting.flush_interval':
     defaults['perf_metrics_setting.flush_interval'],
@@ -196,6 +212,9 @@ const normalizeFormValues = (
   ChannelQuotaAlertSettings: serializeQuotaAlertSettings(
     values.channel_quota_alert
   ),
+  ChannelQuotaSyncEnabled: values.channel_quota_sync.enabled,
+  ChannelQuotaSyncIntervalMinutes: values.channel_quota_sync.interval_minutes,
+  ChannelQuotaSyncMaxChannels: values.channel_quota_sync.max_channels,
   'perf_metrics_setting.enabled': values.perf_metrics_setting.enabled,
   'perf_metrics_setting.flush_interval':
     values.perf_metrics_setting.flush_interval,
@@ -238,6 +257,7 @@ export function MonitoringSettingsSection({
 
   const perfMetricsEnabled = form.watch('perf_metrics_setting.enabled')
   const quotaAlertEnabled = form.watch('channel_quota_alert.enabled')
+  const quotaSyncEnabled = form.watch('channel_quota_sync.enabled')
 
   const onSubmit = async (values: MonitoringFormValues) => {
     const normalized = normalizeFormValues(values)
@@ -409,6 +429,85 @@ export function MonitoringSettingsSection({
                       />
                     </FormControl>
                   </SettingsSwitchItem>
+                )}
+              />
+            </div>
+          </div>
+
+          <div className='grid gap-3 rounded-lg border bg-muted/20 p-4'>
+            <div>
+              <h4 className='font-medium'>{t('Provider quota sampling')}</h4>
+              <p className='text-muted-foreground mt-1 text-xs'>
+                {t(
+                  'Automatically record provider and Codex account quota snapshots. Sampling is enabled by default and runs in the background.'
+                )}
+              </p>
+            </div>
+            <FormField
+              control={form.control}
+              name='channel_quota_sync.enabled'
+              render={({ field }) => (
+                <SettingsSwitchItem>
+                  <SettingsSwitchContent>
+                    <FormLabel>{t('Enable automatic quota sampling')}</FormLabel>
+                    <FormDescription>
+                      {t('Disable only if upstream balance requests should never run automatically.')}
+                    </FormDescription>
+                  </SettingsSwitchContent>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </SettingsSwitchItem>
+              )}
+            />
+            <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+              <FormField
+                control={form.control}
+                name='channel_quota_sync.interval_minutes'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Sampling interval (minutes)')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={1}
+                        max={1440}
+                        step={1}
+                        {...safeNumberFieldProps(field)}
+                        disabled={!quotaSyncEnabled}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('Minimum 1 minute; the default is 15 minutes.')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='channel_quota_sync.max_channels'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Maximum channels per run')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={1}
+                        max={1000}
+                        step={1}
+                        {...safeNumberFieldProps(field)}
+                        disabled={!quotaSyncEnabled}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('Caps each run to protect upstream services and local resources.')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
                 )}
               />
             </div>

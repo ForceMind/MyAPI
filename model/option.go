@@ -136,6 +136,12 @@ func InitOptionMap() {
 	common.OptionMap["QuotaForInvitee"] = strconv.Itoa(common.QuotaForInvitee)
 	common.OptionMap["QuotaRemindThreshold"] = strconv.Itoa(common.QuotaRemindThreshold)
 	common.OptionMap["PreConsumedQuota"] = strconv.Itoa(common.PreConsumedQuota)
+	// Provider quota snapshots are enabled by default and can be adjusted from
+	// the administrator monitoring settings page. Environment variables remain
+	// deployment-level overrides for operators that need a hard disable/bound.
+	common.OptionMap["ChannelQuotaSyncEnabled"] = "true"
+	common.OptionMap["ChannelQuotaSyncIntervalMinutes"] = "15"
+	common.OptionMap["ChannelQuotaSyncMaxChannels"] = "100"
 	if quotaAlertJSON, err := common.MarshalChannelQuotaAlertSettings(common.ChannelQuotaAlertSettings{
 		Enabled:          common.ChannelQuotaAlertEnabled,
 		WarningPercent:   common.ChannelQuotaAlertWarningPercent,
@@ -226,6 +232,23 @@ func validateOptionValue(key string, value string) error {
 	}
 	if key == "MaxTokenAutoGroups" {
 		return setting.ValidateMaxTokenAutoGroups(value)
+	}
+	if key == "ChannelQuotaSyncEnabled" {
+		if _, err := strconv.ParseBool(strings.TrimSpace(value)); err != nil {
+			return err
+		}
+	}
+	if key == "ChannelQuotaSyncIntervalMinutes" {
+		minutes, err := strconv.Atoi(strings.TrimSpace(value))
+		if err != nil || minutes < 1 || minutes > 1440 {
+			return gorm.ErrInvalidData
+		}
+	}
+	if key == "ChannelQuotaSyncMaxChannels" {
+		maxChannels, err := strconv.Atoi(strings.TrimSpace(value))
+		if err != nil || maxChannels < 1 || maxChannels > 1000 {
+			return gorm.ErrInvalidData
+		}
 	}
 	if key == "access_profile_setting.profiles" {
 		return setting.ValidateAccessProfileDefinitionsJSON(value)

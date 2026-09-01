@@ -7,10 +7,10 @@
 | --- | --- | --- | --- |
 | API 兼容 | `relay/` 转换器与后端 CI | 已验证 | 上游版本变化时继续回归 |
 | API/响应日志 | `web/src/features/usage-logs/`、`web/src/features/full-content-logs/`、移动集成测试、脱敏测试、移动内容高度修复；列表与 Full Content Logs 查询缓存均按 user/session 隔离 | 代码已验证 | 真实手机视觉验收 |
-| 运行构建可见性 | 管理员「系统信息」中的只读 Runtime build 标识、`build-metadata.ts` DOM/global 元数据及 `build-metadata.test.ts`；Docker/Release/Electron 构建注入 commit SHA；本机容器已切换到 `local/new-api:myapi-f0b2195` 并健康 | 代码与本机副本已验证 | 真实管理员手机视觉验收仍待完成 |
+| 运行构建可见性 | 管理员「系统信息」中的只读 Runtime build 标识、`build-metadata.ts` DOM/global 元数据及 `build-metadata.test.ts`；Docker/Release/Electron 构建注入 commit SHA；本机容器已切换到 `local/new-api:myapi-3ea1e5b` 并健康 | 代码与本机副本已验证 | 真实管理员手机视觉验收仍待完成 |
 | 完整独立 UI 系统 | 当前仅有 MyAPI 品牌资产、必要文案和局部额度/日志功能增量 | 尚未开始（代码层先行） | 需在代码合同稳定后另行完成信息架构、视觉系统、Full/LAN/移动端真实画面与设备验收；不得把局部增量误报为 UI 全量替换 |
 | 渠道额度历史 | `controller/channel-billing.go`、`controller/codex_usage.go`、历史/聚合测试、权限路由测试；2xx 无有效 Codex rate_limit 时标记 unsupported；历史聚合按 metric/window/source/plan/unit/currency/window_seconds 隔离；快照按渠道/系列/观测时间桶幂等保留首条，并以 nullable SHA-256 唯一键抵抗并发重复写入 | 已验证 | 真实登录账号和采样数据演练 |
-| 概览额度变化 | `account-quota-changes-panel.tsx`、`codex-account-quota-chart.tsx`、60 秒前台刷新、Codex 账户选择与 24 小时可用额度折线图、错误/plan type/只读告警状态测试；`a2528a2` 的跨登录身份查询缓存隔离与认证刷新回归测试；系列按计划/单位/窗口隔离 | 代码、前端测试与本机新镜像已验证 | 需要由具备 `channel.read` 的真实管理员在概览页面验收；真实手机视觉仍待完成 |
+| 概览额度变化 | `account-quota-changes-panel.tsx`、`codex-account-quota-chart.tsx`、60 秒前台刷新、Codex 账户选择与 24 小时可用额度折线图、错误/plan type/只读告警状态测试；`a2528a2` 的跨登录身份查询缓存隔离与认证刷新回归测试；系列按计划/单位/窗口隔离；后台采样默认开启并可在监控设置中调整 | 代码、前端测试与本机新镜像已验证 | 需要由具备 `channel.read` 的真实管理员在概览页面验收；真实手机视觉仍待完成 |
 | 账户等级/Key 访问方案 | `model/access_profile.go`、Key/UI/API 测试、策略注册表及旧 Key profile 保留测试；Key 表单显式提交稳定 `access_profile_id` 并保留 legacy `group`；`setting/access_profile.go` 校验 fallback 目标存在、去空格后的 ID 唯一性和循环依赖 | 兼容层已验证 | 强制路由迁移评审 |
 | 设置引导 | Full/LAN Lite/权限条件、生命周期测试 | 已验证 | 多设备视觉检查 |
 | 品牌与旧元数据 | `tools/branding/check.mjs`，最近运行 `blocking_count: 0` | 阻断项已清零 | NOTICE、源码头和兼容标识法律审查 |
@@ -319,13 +319,16 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   通过；未改变 Provider 协议、发布闸门或生产环境。
 
 - `/root/new-api/docker-compose.yml` 当前配置的是本地镜像
-  `local/new-api:myapi-f0b2195`，容器名为 `new-api`，监听回环地址。
-- 2026-09-01 远端同步：本地 `main` 已快进到 `f0b2195`，与 `origin/main` 一致；该批次包含
+  `local/new-api:myapi-3ea1e5b`，容器名为 `new-api`，监听回环地址。
+- 2026-09-01 远端同步：本地 `main` 已快进到 `3ea1e5b`，与 `origin/main` 一致；该批次包含
   provider JSON 解码路径收敛、请求包装/参数边界、计费与并发安全、数据库迁移和 CI/发布合同更新。
 - 2026-09-01 本机更新：使用 `MYAPI_BUILD_PARALLELISM=1` 构建
-  `local/new-api:myapi-f0b2195`，并通过 compose 强制重建本机容器；容器健康、`/api/status`
+  `local/new-api:myapi-3ea1e5b`，并通过 compose 强制重建本机容器；容器健康、`/api/status`
   返回 HTTP 200、`success=true`、`version=0.1.1`、`system_name=MyAPI`。
   数据和日志绑定仍为 `/root/new-api/data` 与 `/root/new-api/logs`，没有修改其中内容。
+- 后台额度采样默认开启；本机 Compose 不注入覆盖环境变量，因此管理员可在「系统设置 → 运维 →
+  监控与告警」修改采样开关、间隔和每轮最大渠道数。首次任务已成功执行并记录 1 个 Codex 采样点；
+  后续按默认 15 分钟间隔继续产生历史点。
 - 2026-08-31 Codex 额度折线图更新：源码提交 `ff5feb8` 已使用单核、2GB 内存构建为
   `local/new-api:myapi-ff5feb8`，并通过 compose 强制重建本机容器；容器健康、首页返回
   HTTP 200，`/api/status` 返回 `success=true`、`version=0.1.1`、`brand=MyAPI`。

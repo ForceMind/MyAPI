@@ -33,6 +33,9 @@ const defaultOperationsSettings: OperationsSettings = {
   QuotaRemindThreshold: '',
   ChannelQuotaAlertSettings:
     '{"enabled":false,"warning_percent":20,"critical_percent":10,"cooldown_seconds":3600,"notify_on_recovery":false}',
+  ChannelQuotaSyncEnabled: true,
+  ChannelQuotaSyncIntervalMinutes: 15,
+  ChannelQuotaSyncMaxChannels: 100,
   SMTPServer: '',
   SMTPPort: '',
   SMTPAccount: '',

@@ -48,6 +48,10 @@ const OPERATIONS_SECTIONS = [
         defaultValues={{
           QuotaRemindThreshold: settings.QuotaRemindThreshold,
           ChannelQuotaAlertSettings: settings.ChannelQuotaAlertSettings,
+          ChannelQuotaSyncEnabled: settings.ChannelQuotaSyncEnabled,
+          ChannelQuotaSyncIntervalMinutes:
+            settings.ChannelQuotaSyncIntervalMinutes,
+          ChannelQuotaSyncMaxChannels: settings.ChannelQuotaSyncMaxChannels,
           'perf_metrics_setting.enabled':
             settings['perf_metrics_setting.enabled'] ?? true,
           'perf_metrics_setting.flush_interval':
