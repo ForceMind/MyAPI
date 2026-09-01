@@ -5,7 +5,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -41,7 +41,7 @@ import (
 const HexPayloadHashKey = "HexPayloadHash"
 
 func SetPayloadHash(c *gin.Context, req any) error {
-	body, err := json.Marshal(req)
+	body, err := common.Marshal(req)
 	if err != nil {
 		return err
 	}

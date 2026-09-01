@@ -1,12 +1,12 @@
 package jimeng
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 
+	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/relay/channel"
 	"github.com/ForceMind/MyAPI/relay/channel/openai"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
@@ -79,7 +79,7 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 	}
 
 	if len(request.ExtraFields) > 0 {
-		if err := json.Unmarshal(request.ExtraFields, &payload); err != nil {
+		if err := common.Unmarshal(request.ExtraFields, &payload); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal extra fields: %w", err)
 		}
 	}
