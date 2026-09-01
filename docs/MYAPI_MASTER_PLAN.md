@@ -154,6 +154,9 @@ production build 与发行合同均已复核通过；默认 Homebrew Node 26 的
 第二轮 Provider 审计已覆盖 Xunfei 与 Volcengine，并通过定向回归；继续以小范围 wrapper
 收敛和错误边界为主，不整体重写稳定适配器。
 
+第三轮 Provider 审计已覆盖 AWS、Jimeng 与 MokaAI，并通过定向回归；继续保持协议边界和
+relaykit 独立性，不把 UI 替换提前到代码合同稳定之前。
+
 | 领域 | 当前状态 | 完成定义 |
 | --- | --- | --- |
 | 品牌和旧元数据清理 | 审计清单已建立 | About 默认态、PNG/ICO 资产已切换；`docs/BRAND_AUDIT.md` 区分必须替换、兼容保留和法律保留项，NOTICE/源码头部仍需合规审查 |

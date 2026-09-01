@@ -311,6 +311,13 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 
 ## 本机部署更新与诊断（2026-09-01）
 
+## Provider JSON 审计增量（2026-09-01，第三轮）
+
+- AWS、Jimeng、MokaAI 的业务 JSON 路径已统一使用 `common/json.go` wrapper；保留必要的
+  `json.RawMessage` 类型依赖，并补充 malformed 响应/输入回归。
+- `GOWORK=off go test ./relay/channel/aws ./relay/channel/jimeng ./relay/channel/mokaai -count=1`
+  通过；未改变 Provider 协议、发布闸门或生产环境。
+
 - `/root/new-api/docker-compose.yml` 当前配置的是本地镜像
   `local/new-api:myapi-f0b2195`，容器名为 `new-api`，监听回环地址。
 - 2026-09-01 远端同步：本地 `main` 已快进到 `f0b2195`，与 `origin/main` 一致；该批次包含
