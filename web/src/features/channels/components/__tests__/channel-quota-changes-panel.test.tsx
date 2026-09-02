@@ -29,8 +29,14 @@ vi.mock('../../api', () => ({
 // test focused on its responsive content and query states without requiring a
 // full router tree.
 vi.mock('@tanstack/react-router', () => ({
-  Link: (props: { children?: ReactNode; to?: string; [key: string]: unknown }) => (
-    <a href={props.to} {...props}>{props.children}</a>
+  Link: (props: {
+    children?: ReactNode
+    to?: string
+    [key: string]: unknown
+  }) => (
+    <a href={props.to} {...props}>
+      {props.children}
+    </a>
   ),
 }))
 
@@ -51,18 +57,36 @@ describe('channel quota changes panel', () => {
   })
 
   test('does not reuse quota rows after the authenticated user changes', async () => {
-    useAuthStore.getState().auth.setUser({ id: 101, username: 'first-admin', role: ROLE.ADMIN })
+    useAuthStore
+      .getState()
+      .auth.setUser({ id: 101, username: 'first-admin', role: ROLE.ADMIN })
     vi.mocked(getChannelQuotaChanges)
       .mockResolvedValueOnce({
         success: true,
         data: {
-          items: [{ channel_id: 1, name: 'First account', status: 'success', direction: 'stable', current_available: 90 }],
+          items: [
+            {
+              channel_id: 1,
+              name: 'First account',
+              status: 'success',
+              direction: 'stable',
+              current_available: 90,
+            },
+          ],
         },
       })
       .mockResolvedValueOnce({
         success: true,
         data: {
-          items: [{ channel_id: 2, name: 'Second account', status: 'success', direction: 'stable', current_available: 80 }],
+          items: [
+            {
+              channel_id: 2,
+              name: 'Second account',
+              status: 'success',
+              direction: 'stable',
+              current_available: 80,
+            },
+          ],
         },
       })
     vi.mocked(getChannelQuotaSamplingStatus).mockResolvedValue({
@@ -73,7 +97,9 @@ describe('channel quota changes panel', () => {
     renderPanel()
     expect(await screen.findByText('First account')).toBeInTheDocument()
 
-    useAuthStore.getState().auth.setUser({ id: 202, username: 'second-admin', role: ROLE.ADMIN })
+    useAuthStore
+      .getState()
+      .auth.setUser({ id: 202, username: 'second-admin', role: ROLE.ADMIN })
 
     expect(await screen.findByText('Second account')).toBeInTheDocument()
     expect(screen.queryByText('First account')).not.toBeInTheDocument()
@@ -121,7 +147,9 @@ describe('channel quota changes panel', () => {
     expect(screen.getByText('Accounts tracked')).toBeInTheDocument()
     expect(screen.getByLabelText('Refresh')).toBeInTheDocument()
     expect(screen.getByLabelText('Quota window type')).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Unsupported' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('option', { name: 'Unsupported' })
+    ).toBeInTheDocument()
     expect(screen.getByText('Quota alert: Warning')).toBeInTheDocument()
   })
 
@@ -129,13 +157,15 @@ describe('channel quota changes panel', () => {
     vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
       success: true,
       data: {
-        items: [{
-          channel_id: 14,
-          name: 'Claude',
-          status: 'unsupported',
-          direction: 'unknown',
-          observed_at: 1_700_000_100,
-        }],
+        items: [
+          {
+            channel_id: 14,
+            name: 'Claude',
+            status: 'unsupported',
+            direction: 'unknown',
+            observed_at: 1_700_000_100,
+          },
+        ],
       },
     })
     vi.mocked(getChannelQuotaSamplingStatus).mockResolvedValueOnce({
@@ -145,8 +175,10 @@ describe('channel quota changes panel', () => {
 
     renderPanel()
 
-    expect(await screen.findByText('unsupported')).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Unsupported' })).toBeInTheDocument()
+    expect(await screen.findByText('Unsupported')).toBeInTheDocument()
+    expect(
+      screen.getByRole('option', { name: 'Unsupported' })
+    ).toBeInTheDocument()
   })
 
   test('shows sampling guidance in the empty state', async () => {
@@ -162,10 +194,14 @@ describe('channel quota changes panel', () => {
     renderPanel()
 
     expect(
-      await screen.findByText('No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.')
+      await screen.findByText(
+        'No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.'
+      )
     ).toBeInTheDocument()
     expect(
-      screen.getByText('Background quota sampling is enabled (every 5 minutes).')
+      screen.getByText(
+        'Background quota sampling is enabled (every 5 minutes).'
+      )
     ).toBeInTheDocument()
   })
 
@@ -179,7 +215,9 @@ describe('channel quota changes panel', () => {
 
     renderPanel()
 
-    expect(document.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0)
+    expect(
+      document.querySelectorAll('[data-slot="skeleton"]').length
+    ).toBeGreaterThan(0)
     expect(screen.getByText('Account quota changes')).toBeInTheDocument()
   })
 
@@ -194,7 +232,9 @@ describe('channel quota changes panel', () => {
 
     renderPanel()
 
-    expect(await screen.findByText('Unable to load account quota changes')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Unable to load account quota changes')
+    ).toBeInTheDocument()
     expect(screen.getByText('quota endpoint unavailable')).toBeInTheDocument()
   })
 
@@ -203,8 +243,22 @@ describe('channel quota changes panel', () => {
       success: true,
       data: {
         items: [
-          { channel_id: 1, name: 'Codex', account_label: 'Codex account', status: 'success', direction: 'stable', current_available: 80, unit: 'percent' },
-          { channel_id: 2, name: 'Claude', account_label: 'Claude account', status: 'unsupported', direction: 'unknown' },
+          {
+            channel_id: 1,
+            name: 'Codex',
+            account_label: 'Codex account',
+            status: 'success',
+            direction: 'stable',
+            current_available: 80,
+            unit: 'percent',
+          },
+          {
+            channel_id: 2,
+            name: 'Claude',
+            account_label: 'Claude account',
+            status: 'unsupported',
+            direction: 'unknown',
+          },
         ],
       },
     })
@@ -215,7 +269,9 @@ describe('channel quota changes panel', () => {
 
     renderPanel()
     expect(await screen.findByText('Codex account')).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'unsupported' } })
+    fireEvent.change(screen.getByLabelText('Status'), {
+      target: { value: 'unsupported' },
+    })
     expect(screen.queryByText('Codex account')).not.toBeInTheDocument()
     expect(screen.getByText('Claude account')).toBeInTheDocument()
     expect(getChannelQuotaChanges).toHaveBeenCalledTimes(1)
@@ -231,7 +287,9 @@ describe('channel quota changes panel', () => {
     })
 
     renderPanel()
-    await screen.findByText('No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.')
+    await screen.findByText(
+      'No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.'
+    )
     fireEvent.click(screen.getByLabelText('Refresh'))
     await waitFor(() => expect(getChannelQuotaChanges).toHaveBeenCalledTimes(2))
   })

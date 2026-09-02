@@ -139,6 +139,17 @@ function alertLabel(status: string, t: (key: string) => string) {
   return t('Unknown')
 }
 
+function quotaStatusLabel(
+  status: string | undefined,
+  t: (key: string) => string
+) {
+  if (status === 'success') return t('Success')
+  if (status === 'error') return t('Error')
+  if (status === 'unsupported') return t('Unsupported')
+  if (status === 'unavailable') return t('Unavailable')
+  return status || t('Unknown')
+}
+
 function DirectionIcon({
   direction,
 }: {
@@ -237,7 +248,9 @@ function ChangeRow({
       </div>
       <div className='text-muted-foreground text-left text-xs sm:text-right'>
         {item.status ? (
-          <Badge variant={statusVariant(item.status)}>{item.status}</Badge>
+          <Badge variant={statusVariant(item.status)}>
+            {quotaStatusLabel(item.status, t)}
+          </Badge>
         ) : null}
         {item.alert?.status && item.alert.status !== 'disabled' ? (
           <Badge
