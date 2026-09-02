@@ -383,3 +383,8 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - 当前 HEAD `6e96836` 的完整 `npm run release:check` 已重新通过：CLI 22/22、LAN Lite
   66/66、Desktop 32/32、Upgrade 18/18、Runtime probe 4/4、Release workflow 16/16，
   品牌/官网检查和 2115 文件打包检查均通过；该命令在单 CPU 限制下执行。
+- 2026-09-02 本机额度 UI 更新：基于提交 `d69b556` 使用单 CPU、2 GiB 内存构建
+  `local/new-api:myapi-quota-ui-20260902`，并通过 `/root/new-api/docker-compose.yml`
+  重建 `my-api`。容器健康检查通过，继续复用 `/root/new-api/data` 和
+  `/root/new-api/logs` 挂载；`/api/status` 返回 HTTP 200、`success=true`、`version=0.1.1`。
+  本次加载了概览/渠道额度折线、面积、柱状模式、时间颗粒、指标切换和中文状态徽标。
