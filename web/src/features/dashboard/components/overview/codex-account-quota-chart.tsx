@@ -13,6 +13,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Area,
+  Bar,
+  BarChart,
   CartesianGrid,
   Line,
   LineChart,
@@ -61,7 +63,7 @@ function isCodexSeries(item: ChannelQuotaChangeItem): boolean {
 type Range = '24h' | '7d' | '30d' | '90d'
 type Granularity = 'auto' | 'raw' | 'hour' | 'day' | 'week'
 type Metric = 'available' | 'used' | 'total'
-type ChartStyle = 'line' | 'area'
+type ChartStyle = 'line' | 'area' | 'bar'
 
 export function CodexAccountQuotaChart(props: {
   items: ChannelQuotaChangeItem[]
@@ -215,6 +217,7 @@ export function CodexAccountQuotaChart(props: {
             >
               <option value='line'>{t('Line')}</option>
               <option value='area'>{t('Area')}</option>
+              <option value='bar'>{t('Bar')}</option>
             </select>
           </div>
         </div>
@@ -259,61 +262,100 @@ export function CodexAccountQuotaChart(props: {
                 }}
                 initialDimension={{ width: 320, height: 224 }}
               >
-                <LineChart
-                  data={chartPoints}
-                  margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
-                >
-                  <CartesianGrid vertical={false} strokeDasharray='3 3' />
-                  <XAxis
-                    dataKey='label'
-                    tickLine={false}
-                    axisLine={false}
-                    minTickGap={32}
-                    tick={{ fontSize: 10 }}
-                  />
-                  <YAxis
-                    domain={
-                      metric === 'available' ? [0, 100] : ['auto', 'auto']
-                    }
-                    tickLine={false}
-                    axisLine={false}
-                    width={42}
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={(value: number) => `${value}%`}
-                  />
-                  <Tooltip
-                    formatter={(value) => [
-                      formatPercent(Number(value)),
-                      metricLabel,
-                    ]}
-                    labelFormatter={(label) => String(label)}
-                  />
-                  {chartStyle === 'area' ? (
-                    <Area
-                      type='monotone'
+                {chartStyle === 'bar' ? (
+                  <BarChart
+                    data={chartPoints}
+                    margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
+                  >
+                    <CartesianGrid vertical={false} strokeDasharray='3 3' />
+                    <XAxis
+                      dataKey='label'
+                      tickLine={false}
+                      axisLine={false}
+                      minTickGap={32}
+                      tick={{ fontSize: 10 }}
+                    />
+                    <YAxis
+                      domain={
+                        metric === 'available' ? [0, 100] : ['auto', 'auto']
+                      }
+                      tickLine={false}
+                      axisLine={false}
+                      width={42}
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(value: number) => `${value}%`}
+                    />
+                    <Tooltip
+                      formatter={(value) => [
+                        formatPercent(Number(value)),
+                        metricLabel,
+                      ]}
+                      labelFormatter={(label) => String(label)}
+                    />
+                    <Bar
                       dataKey='value'
-                      connectNulls={false}
-                      stroke='var(--color-value)'
                       fill='var(--color-value)'
-                      fillOpacity={0.16}
-                      strokeWidth={2}
-                      dot={points.length < 80}
-                      activeDot={{ r: 4 }}
+                      radius={[3, 3, 0, 0]}
                       isAnimationActive={false}
                     />
-                  ) : (
-                    <Line
-                      type='monotone'
-                      dataKey='value'
-                      connectNulls={false}
-                      stroke='var(--color-value)'
-                      strokeWidth={2}
-                      dot={points.length < 80}
-                      activeDot={{ r: 4 }}
-                      isAnimationActive={false}
+                  </BarChart>
+                ) : (
+                  <LineChart
+                    data={chartPoints}
+                    margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
+                  >
+                    <CartesianGrid vertical={false} strokeDasharray='3 3' />
+                    <XAxis
+                      dataKey='label'
+                      tickLine={false}
+                      axisLine={false}
+                      minTickGap={32}
+                      tick={{ fontSize: 10 }}
                     />
-                  )}
-                </LineChart>
+                    <YAxis
+                      domain={
+                        metric === 'available' ? [0, 100] : ['auto', 'auto']
+                      }
+                      tickLine={false}
+                      axisLine={false}
+                      width={42}
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(value: number) => `${value}%`}
+                    />
+                    <Tooltip
+                      formatter={(value) => [
+                        formatPercent(Number(value)),
+                        metricLabel,
+                      ]}
+                      labelFormatter={(label) => String(label)}
+                    />
+                    {chartStyle === 'area' ? (
+                      <Area
+                        type='monotone'
+                        dataKey='value'
+                        connectNulls={false}
+                        stroke='var(--color-value)'
+                        fill='var(--color-value)'
+                        fillOpacity={0.16}
+                        strokeWidth={2}
+                        dot={points.length < 80}
+                        activeDot={{ r: 4 }}
+                        isAnimationActive={false}
+                      />
+                    ) : (
+                      <Line
+                        type='monotone'
+                        dataKey='value'
+                        connectNulls={false}
+                        stroke='var(--color-value)'
+                        strokeWidth={2}
+                        dot={points.length < 80}
+                        activeDot={{ r: 4 }}
+                        isAnimationActive={false}
+                      />
+                    )}
+                  </LineChart>
+                )}
               </ChartContainer>
             </div>
             <div className='text-muted-foreground flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs'>

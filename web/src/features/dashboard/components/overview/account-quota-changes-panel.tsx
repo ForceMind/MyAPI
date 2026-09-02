@@ -351,10 +351,25 @@ export function AccountQuotaChangesPanel() {
     staleTime: 5 * 60 * 1000,
   })
 
-  const allItems = useMemo(
-    () => query.data?.data?.items ?? [],
-    [query.data?.data?.items]
-  )
+  const allItems = useMemo(() => {
+    const sourceItems = query.data?.data?.items ?? []
+    return sourceItems.filter((item) => {
+      if (
+        item.status !== 'error' ||
+        item.metric_type !== 'codex_rate_limit' ||
+        item.source !== 'codex_wham_usage'
+      ) {
+        return true
+      }
+      return !sourceItems.some(
+        (candidate) =>
+          candidate.status === 'success' &&
+          candidate.channel_id === item.channel_id &&
+          candidate.metric_type === item.metric_type &&
+          (candidate.observed_at ?? 0) >= (item.observed_at ?? 0)
+      )
+    })
+  }, [query.data?.data?.items])
   const items = useMemo(() => allItems.slice(0, LIMIT), [allItems])
   const firstMetric = items.find((item) => finite(item.change_per_minute))
   // Do not compare raw numbers from different units (for example USD and

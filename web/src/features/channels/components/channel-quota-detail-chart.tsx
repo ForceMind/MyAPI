@@ -13,6 +13,8 @@ import { useTranslation } from 'react-i18next'
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   Line,
   LineChart,
@@ -33,7 +35,7 @@ import type { ChannelQuotaChangeItem } from '../types'
 type Range = '24h' | '7d' | '30d' | '90d'
 type Granularity = 'auto' | 'raw' | 'hour' | 'day' | 'week'
 type Metric = 'available' | 'used' | 'total'
-type ChartStyle = 'line' | 'area'
+type ChartStyle = 'line' | 'area' | 'bar'
 
 function valueLabel(value: number | undefined, item: ChannelQuotaChangeItem) {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '-'
@@ -172,6 +174,7 @@ export function ChannelQuotaDetailChart({
             >
               <option value='line'>{t('Line')}</option>
               <option value='area'>{t('Area')}</option>
+              <option value='bar'>{t('Bar')}</option>
             </select>
           </div>
         </div>
@@ -240,7 +243,40 @@ export function ChannelQuotaDetailChart({
                 }}
                 initialDimension={{ width: 640, height: 288 }}
               >
-                {chartStyle === 'area' ? (
+                {chartStyle === 'bar' ? (
+                  <BarChart
+                    data={chartPoints}
+                    margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
+                  >
+                    <CartesianGrid vertical={false} strokeDasharray='3 3' />
+                    <XAxis
+                      dataKey='label'
+                      tickLine={false}
+                      axisLine={false}
+                      minTickGap={36}
+                      tick={{ fontSize: 10 }}
+                    />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      width={56}
+                      tick={{ fontSize: 10 }}
+                    />
+                    <Tooltip
+                      formatter={(value) => [
+                        valueLabel(Number(value), item),
+                        metricLabel,
+                      ]}
+                      labelFormatter={(label) => String(label)}
+                    />
+                    <Bar
+                      dataKey='value'
+                      fill='var(--color-value)'
+                      radius={[3, 3, 0, 0]}
+                      isAnimationActive={false}
+                    />
+                  </BarChart>
+                ) : chartStyle === 'area' ? (
                   <AreaChart
                     data={chartPoints}
                     margin={{ top: 8, right: 8, left: 0, bottom: 4 }}

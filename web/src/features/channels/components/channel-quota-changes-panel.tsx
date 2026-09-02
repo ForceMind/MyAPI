@@ -57,6 +57,30 @@ function finite(value: number | null | undefined): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
+// A failed Codex request has no window/plan identity, so the sampler stores
+// it under the generic source. Once a newer identified success exists for the
+// same channel and metric, that old transport row is historical noise rather
+// than the channel's current state. It remains in history/data-quality counts.
+function isSupersededCodexError(
+  item: ChannelQuotaChangeItem,
+  items: ChannelQuotaChangeItem[]
+): boolean {
+  if (
+    item.status !== 'error' ||
+    item.metric_type !== 'codex_rate_limit' ||
+    item.source !== 'codex_wham_usage'
+  ) {
+    return false
+  }
+  return items.some(
+    (candidate) =>
+      candidate.status === 'success' &&
+      candidate.channel_id === item.channel_id &&
+      candidate.metric_type === item.metric_type &&
+      (candidate.observed_at ?? 0) >= (item.observed_at ?? 0)
+  )
+}
+
 function formatMetric(
   value: number | null | undefined,
   item?: ChannelQuotaChangeItem
@@ -275,6 +299,7 @@ export function ChannelQuotaChangesPanel() {
   const filteredItems = useMemo(
     () =>
       items
+        .filter((item) => !isSupersededCodexError(item, items))
         .filter(
           (item) => windowFilter === 'all' || item.window_type === windowFilter
         )
