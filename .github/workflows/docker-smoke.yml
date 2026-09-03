@@ -24,7 +24,8 @@ jobs:
       MYAPI_SMOKE_EDITION: ${{ matrix.edition }}
       MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
       MYAPI_ISOLATED_SMOKE: '1'
-      SMOKE_CONTAINER: myapi-smoke-${{ matrix.edition }}
+      SMOKE_CONTAINER: myapi-smoke-${{ matrix.edition }}-${{ github.sha }}
+      SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-${{ matrix.edition }}-${{ github.sha }}
       SMOKE_IMAGE: myapi:smoke-${{ matrix.edition }}-${{ github.sha }}
 
     steps:
@@ -73,9 +74,15 @@ jobs:
             --name "$SMOKE_CONTAINER" \
             --label "io.myapi.smoke.sha=${GITHUB_SHA}" \
             --publish 127.0.0.1:18080:3000 \
+            --publish 127.0.0.1:19090:19090 \
             --cpus 1 --memory 768m --pids-limit 256 \
             --tmpfs /data:rw,noexec,nosuid,size=128m \
             --env MYAPI_EDITION="$MYAPI_SMOKE_EDITION" \
+            --env MEMORY_CACHE_ENABLED=false \
+            --env FULL_CONTENT_LOG_ENABLED=true \
+            --env FULL_CONTENT_LOG_DIR=/data/full-content \
+            --env FULL_CONTENT_LOG_MAX_FILES=2 \
+            --env FULL_CONTENT_LOG_MAX_MB=1 \
             --env SESSION_COOKIE_SECURE=false \
             --env TRUSTED_PROXIES=none \
             --env SQL_MAX_OPEN_CONNS=1 --env SQL_MAX_IDLE_CONNS=1 \
@@ -107,6 +114,36 @@ jobs:
           echo 'Docker smoke health check timed out' >&2
           exit 1
 
+      - name: Start isolated fake upstream
+        run: |
+          set -euo pipefail
+          docker run --detach \
+            --name "$SMOKE_FAKE_UPSTREAM_CONTAINER" \
+            --label "io.myapi.smoke.sha=${GITHUB_SHA}" \
+            --network "container:$SMOKE_CONTAINER" \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nodev,nosuid,size=32m \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --user 1000:1000 \
+            --cpus 0.25 --memory 128m --pids-limit 64 \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/tools/runtime/fake-openai.mjs,dst=/fixture/fake-openai.mjs,readonly" \
+            --env BUN_RUNTIME_TRANSPILER_CACHE_PATH=0 \
+            oven/bun:1@sha256:0733e50325078969732ebe3b15ce4c4be5082f18c4ac1a0f0ca4839c2e4e42a7 \
+            bun /fixture/fake-openai.mjs
+
+      - name: Wait for fake upstream fixture
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error --max-time 2 http://127.0.0.1:19090/__smoke__/health >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo 'Fake upstream fixture did not become ready' >&2
+          exit 1
+
       - name: Install isolated browser test runtime
         run: |
           npm install --prefix "$RUNNER_TEMP/myapi-smoke-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1
@@ -115,6 +152,8 @@ jobs:
       - name: Verify fresh setup, authentication and real frontend
         env:
           MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-smoke-browser/node_modules/playwright/index.mjs
+          MYAPI_FAKE_UPSTREAM_URL: http://127.0.0.1:19090
+          MYAPI_SMOKE_FULL_CONTENT: '1'
         run: node tools/runtime/docker-smoke.mjs
 
       - name: Record safe image identity
@@ -129,10 +168,14 @@ jobs:
         if: failure()
         run: |
           docker inspect --format 'status={{.State.Status}} exit_code={{.State.ExitCode}} oom_killed={{.State.OOMKilled}}' "$SMOKE_CONTAINER" 2>/dev/null || true
+          docker inspect --format 'status={{.State.Status}} exit_code={{.State.ExitCode}} oom_killed={{.State.OOMKilled}}' "$SMOKE_FAKE_UPSTREAM_CONTAINER" 2>/dev/null || true
 
-      - name: Remove smoke container
+      - name: Remove smoke containers
         if: always()
         run: |
+          if [[ "$(docker inspect --format '{{index .Config.Labels "io.myapi.smoke.sha"}}' "$SMOKE_FAKE_UPSTREAM_CONTAINER" 2>/dev/null)" == "$GITHUB_SHA" ]]; then
+            docker rm --force "$SMOKE_FAKE_UPSTREAM_CONTAINER" >/dev/null
+          fi
           if [[ "$(docker inspect --format '{{index .Config.Labels "io.myapi.smoke.sha"}}' "$SMOKE_CONTAINER" 2>/dev/null)" == "$GITHUB_SHA" ]]; then
             docker rm --force "$SMOKE_CONTAINER" >/dev/null
           fi

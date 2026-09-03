@@ -242,6 +242,30 @@ LAN `sha256:9426fc35bcb84509772e857adc1892ff550c5bf0c6967cb8ad388ceafa041fa6`。
 新探针随 PG 修正再次提交和镜像复验，不撤销旧有效登录/镜像证据，也不将旧报告当新版通过。
 它也不覆盖三库恢复、真实上游、完整 UI 或 macOS/Windows 安装。
 
+## S4-02 合成业务链（2026-09-04，待 GitHub 实跑）
+
+在 S4-01 的 Full/LAN 全新 SQLite 镜像入口上增加固定 digest Bun sidecar，只运行纯合成
+OpenAI 接口。应用先健康，sidecar 再共享其网络 namespace；宿主 18080/19090 均只绑定
+127.0.0.1。sidecar 为只读文件系统、UID 1000、cap-drop ALL、no-new-privileges、0.25 CPU、
+128 MiB、64 PID，Bun 转译缓存关闭；应用仍为 1 CPU/768 MiB，full-content 日志限制为
+tmpfs 内 1 MiB×2。失败诊断只读状态/退出码/OOM，清理校验 SHA 并先移除 sidecar。
+
+业务探针只接受固定 loopback app/fake URL，并在任何 setup 写入前拒绝缺失/非法 fake；
+fake control 必须从 0 开始。root token 只更新倍率、创建合成普通用户和渠道、读取管理员
+日志；18 字符随机普通用户密码和生成的 API Key 仅驻留内存。普通用户实际登录，创建
+余额 1,000,000、限 `smoke-model` 的 Key，向 type=1 渠道发一次 `max_tokens=8` 非流请求。
+fake 只保存 method/path/model/max_tokens/stream/Bearer 的布尔摘要，不保存原始 header/body；
+返回 usage 10+5。探针精确要求用户和 Key 余额为 999,985，用户/Key/渠道 used 为 15、
+request_count 为 1；普通与 root 通过同 request ID 各看到唯一 Consume 日志，普通日志无
+admin_info。Full Content 普通用户为 403；root 看到 Authorization、请求 api_key 和响应
+X-Api-Key 已脱敏，固定无敏感响应正文按既有合同原样保留。匿名 relay 后 fake count 仍为 1。
+
+本机实际命令：Node22 `npm run runtime:probe:test` 为 16/16（672 ms）；固定入口另由 Bun
+在 127.0.0.1:19090 启动，health 和全 false 零状态读回后立即停止。YAML、全部九个 shell
+块、`runtime:check` 13/13、`release:workflow:check` 18/18、diff-check 与独立 Sol 审查通过。
+这些证据不替代 sidecar 容器联通、真实 API 字段及资源余量；尚未运行新 GitHub workflow，
+状态保持待验证。无页面或产品版本改动，0.1.1 与受保护 tag 不动；未来镜像仍由 SHA 区分。
+
 ## 最近 CI 证据
 
 - 测试隔离与 CI 门禁 `6fd8ae4`：[CI 33783792231](https://github.com/ForceMind/MyAPI/actions/runs/33783792231)

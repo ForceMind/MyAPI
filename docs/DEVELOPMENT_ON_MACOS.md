@@ -307,4 +307,17 @@ linux/amd64、load:true/push:false，无 registry 登录。BuildKit 限 2 CPU/4 
 race 接线已修；本机四包同一命令和独立复审通过。`6fd8ae4` / CI `33783792231` 七项成功，
 新增 backend race 原始日志确认四包实跑，无 DATA RACE/FAIL；没有用前一次绿色替代失败。
 最终代码的 Node22 release:check 全链通过：探针 13 项、干净源码 manifest、pack 2190 文件。
-下一项 S4-02 的合成 Key/假上游精确账务方案已定位，未实施；C03b、B2/B3 与完整恢复仍单列。
+### S4-02 合成业务链（待 GitHub 实跑）
+
+已实现 Full/LAN 测试用的合成普通用户、受限 Key、普通 OpenAI 渠道和固定 usage=10+5
+假上游。sidecar 使用 Dockerfile 已有的固定 Bun digest，与应用共享网络 namespace；两个
+宿主端口均只绑定 127.0.0.1。SQLite/full-content 日志位于应用 `/data` tmpfs，sidecar
+只读且受 UID/capability/CPU/内存/PID 限制；没有 Redis、真实 Provider 或本机凭据读取。
+
+Node22 `npm run runtime:probe:test` 为 16/16；Bun 假上游已在本机 127.0.0.1:19090 实际
+启动，health 与零状态读回后停止。Ruby YAML、全部 workflow shell 块、runtime/release
+workflow 合同和独立审查通过。本机仍无 Docker，所以容器网络、资源余量、Full/LAN 的
+真实 API/账务/日志结果必须由新 GitHub 手动 run 验收；当前不得标完成。
+
+这是测试工具与 workflow 扩展，不改产品页面；可见发行版本保持 0.1.1，GitHub 镜像用
+提交 SHA 作为构建标识。C03b、B2/B3、三库完整恢复和真实设备仍单列。
