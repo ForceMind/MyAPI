@@ -139,13 +139,37 @@ Node22 release:check 和新增专项 race 均通过。收尾再次核对“请�
 仍未改变 C03b 的缓存恢复和高层异步增减/数据库更新语义；正在请求故障策略决定。
 S2-B 持久化恢复、真实付款/供应商、生产与设备验收均未包含在本批。
 
-## S2-B1 与 S4-01（进行中，尚未验收）
+## S2-B1 与 S4-01
+
+**2026-09-04：功能/实库/镜像已通过；追加 race 的测试隔离补项待收尾。** 代码 `7f1913e` 的
+[CI 33781560507](https://github.com/ForceMind/MyAPI/actions/runs/33781560507) 七项成功，
+[Docker smoke 33781637372](https://github.com/ForceMind/MyAPI/actions/runs/33781637372)
+Full/LAN 两项成功。专库 job `100736213883` 原始日志确认 MySQL5.7/PG9.6 各七支付＋
+五种快照/NULL 读回实跑，无 skip、SQLSTATE 22P02 或旧中文日志错误。
+
+两种最终镜像均为 linux/amd64、新 SQLite；安全报告全部检查通过且成功项无错误码。
+实际 revision 为 `rv.0.1.1.7f1913ef8dd9fdeea66b3ce18792c758c870f78b.2k6e8r7p`。
+Full image ID：`sha256:0f32aed5e44b646b7f00f2916a6222b8d4737a8695077f8a045101e1bac55572`；
+LAN image ID：`sha256:cd5ce63849d3f55f3c46345a00d38092d70de4df8dcf2ce401202b7fbd700a0d`。
+它们是 CI 本地 image ID，不是 GHCR digest；没有发布、生产连接或真实设备验收。
+该代码提交的 Node22 完整 release:check 通过，manifest sourceCommit 精确匹配、
+sourceTreeDirty=false，pack 为 2190 文件（19,984,976 字节）。
+
+追加按最终 SHA 对齐的整合 race：logger 2.625s、model 4.545s、controller 4.633s、
+service 5.792s 通过，但 Kling 3.020s 失败。原始报告指向测试清理写 RedisEnabled 与
+合法异步 cache 回调读取竞争；此前 4.976s 的 Kling 通过属于上一轮，不覆盖本次失败。
+测试配置生命周期已固定在进程级内存 SQLite 与 disabled cache，task/logger/Kling 定向
+race 已接入 CI；不改变生产缓存恢复或异步更新策略。本机与新增 CI 同命令四包通过：
+logger 2.264s、model 2.358s、service 3.705s、Kling 2.644s；独立复审通过，待新 CI。
+不把普通 CI/镜像绿灯或前一次偶然通过当本次 race 通过。
+
+以下保留实现、失败与复验过程；其中“待验证”描述当时状态，不覆盖上述最终结论。
 
 本轮基线 `f8aa3d8` / CI `33761897224` 七项成功。B1 只消费已有任务计费快照：提交时
 存实际模型/分组/附加倍率，JSON 版本区分显式零费；完整历史快照不按新配置重算，旧
 缺失记录使用明确审计的当前配置回退。非法/未知版本或不可解析的旧配置保留预扣并
 System 审计；不实现响应前持久化、账务事件、outbox 或批量缓存恢复。
-新增提交、SQLite/实库 JSON 往返与精确结算/日志回归；MySQL/PG 新场景待本批 CI。
+新增提交、SQLite/实库 JSON 往返与精确结算/日志回归；MySQL/PG 新场景最终已实跑。
 
 B1 初始红测：快照 `2×0.5×3×100=300` 被当前配置算成 1200；修复后完整新/旧快照冻结。
 独立复审追加早返回组合，红测确认未知版本可被 adaptor 把预扣 500 改成 300，并漏掉
@@ -160,7 +184,8 @@ C06 已修复并独立复审通过：状态锁只保护计数/预约，自动轮
 UpdateVideoTasks race 3.326s 通过，含两并发真实日志、I/O 阻塞隔离及临时文件轮转。
 fixture 保留共同 500ms 门限，以不可变 ID/事件和后台退出后的 DB 快照消除竞争；无 sleep
 或串行化绕过。主代理最终同一条整合 race 已通过：logger 1.793s、model 3.309s、controller
-4.033s、service 6.561s、Kling 4.976s；包含原失败轮询、B1 快照/守卫和 C02 审计。提交 CI 尚待完成。
+4.033s、service 6.561s、Kling 4.976s；这是 e7fffc2 之前的整合轮次，包含原失败轮询、B1
+快照/守卫和 C02 审计；最终 SHA 的追加 race 结果及隔离补项见本节开头。
 
 S4-01 修复现有 Docker smoke 的 healthcheck 缺失及直接运行时 session 环境变量名称，
 增加串行 Full/LAN 构建、资源限制、回环端口、隔离新 SQLite 初始化、认证与实际浏览器
@@ -215,6 +240,14 @@ LAN `sha256:9426fc35bcb84509772e857adc1892ff550c5bf0c6967cb8ad388ceafa041fa6`。
 它也不覆盖三库恢复、真实上游、完整 UI 或 macOS/Windows 安装。
 
 ## 最近 CI 证据
+
+- 最终修复 `7f1913e`：[CI 33781560507](https://github.com/ForceMind/MyAPI/actions/runs/33781560507)
+  七项成功，MySQL/PG 各五快照与七支付实跑且原始日志已核对；
+  [Docker 33781637372](https://github.com/ForceMind/MyAPI/actions/runs/33781637372) 两种 edition
+  真实探针成功，精确 SHA/revision/image ID 已记录。B1/C06/S4-01 当前范围完成，不代表剩余路线完成。
+- 首批实现 `e7fffc2`：[CI 33778745451](https://github.com/ForceMind/MyAPI/actions/runs/33778745451)
+  六项成功、PG 快照 JSON 写入失败；同提交 Docker `33778810531` 两项成功。
+  原失败由上项修复，不以镜像绿灯代替 PG 验证。
 
 - S4-01 测试入口 `540cf32`：[普通 CI 33766050871](https://github.com/ForceMind/MyAPI/actions/runs/33766050871)
   七项成功；同 SHA 的 [Docker smoke 33766140801](https://github.com/ForceMind/MyAPI/actions/runs/33766140801)

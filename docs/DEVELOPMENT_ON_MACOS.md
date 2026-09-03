@@ -274,42 +274,36 @@ fixture；新增真实 Redis 7 CI 使用开发 Compose 同一主版本，要求
 及最终源码 pack 已通过。零差额饱和审计使用已有 System 类型，不增加消费 RPM/TPM 或
 导出数据；关闭消费日志时仍保留异常审计。C03b 与任务持久化恢复尚未完成。
 
-### B1 与无发布 Docker smoke（进行中）
+### B1、C06 与无发布 Docker smoke（2026-09-04 验收）
 
-B1 在现有 TaskBillingContext JSON 内记录版本及完整性，不新增 SQL 列；本机验证提交时
-实际倍率、SQLite 往返与结算/审计。现有 `TestS2APaymentConfiguredDatabases` 专库入口
-增加任务快照往返场景，继续使用严格空库/loopback 安全门，不连接生产补验。
+代码 `7f1913e` 的 CI `33781560507` 七项成功、Docker smoke `33781637372` Full/LAN
+两项成功。B1/C06/S4-01 当前范围完成，详细命令、失败历史和 image ID 见
+[完成度审计](COMPLETION_AUDIT.md#s2-b1-与-s4-01)。这些结果不替代完整 Key/Provider
+流程、三库恢复、Docker Desktop、arm64 或真实 macOS/Windows/手机验收。
 
-Mac 当前无 Docker CLI/App，S4-01 使用已授权的 GitHub `Docker build smoke` 手动入口：
-分别构建 Full/LAN 的 linux/amd64 镜像，load:true/push:false，无 registry 登录。
-BuildKit 限 2 CPU/4 GiB，应用限 1 CPU/768 MiB，矩阵串行；仅发布 runner 回环端口，
-SQLite 放容器临时挂载，生成合成管理员凭据不输出/不上传。新脚本拒绝已初始化或非
-SQLite 目标及重定向；浏览器只允许同源请求，核对当前 SHA 的实际前端构建标识。
-Node22 `npm run runtime:probe:test`、YAML/Bash 语法已通过；需推送后手动 dispatch 并核对
-精确 headSha、两个 edition 的实际步骤/报告。镜像尚待验证，不以本地单测代替。
-这只是新安装/认证/前端启动，不是完整 Key/Provider 流程、三库恢复或 Docker Desktop 验收。
+B1 在现有 TaskBillingContext JSON 内记录版本及完整性，不新增 SQL 列；三库快照往返、
+显式零费率与结算/审计已验证。现有 `TestS2APaymentConfiguredDatabases` 继续使用严格
+空库/loopback 安全门；最终 MySQL5.7/PG9.6 各五种快照和 NULL 读回、原七支付场景均实跑通过。
+`e7fffc2` 曾出现 PG SQLSTATE 22P02；真实 GORM 参数与 pgx codec 红测定位到 Valuer
+字节数组被编码为 bytea，已改传 JSON 文本。保留 NULL/错误、schema、协议和旧读取兼容，
+不是给 fixture 补假数据。本机 codec 只作诊断，验收以最终原生 CI 为准。
 
-首轮无发布测试 `540cf32` / `33766140801` 的 Full/LAN 构建和新库 API 探针完成，但实际
-浏览器构建标识均失败；回溯生产产物发现 env 别名阻止 Rsbuild 注入版本/SHA，修复与
-复验进行中，不能以旧格式单测或镜像构建成功替代。本机前端补项使用 Bun、Node22，
-单测断言确切注入值并运行 typecheck/lint/生产构建；不修改 UI 布局。
-任务快照异常早退守卫独立复审及专项 race 已通过；更广轮询 race 发现共享 fixture 和
-生产 logger 状态竞争，当次未标为 race 通过；C06 修复证据见下段。
+Mac 仍无 Docker CLI/App，测试使用已授权的 GitHub 手动入口：两种 edition 分别构建，
+linux/amd64、load:true/push:false，无 registry 登录。BuildKit 限 2 CPU/4 GiB，应用限
+1 CPU/768 MiB，矩阵串行；只暴露 runner 回环端口、临时 SQLite 和合成管理员。
+拒绝已初始化、非 SQLite 及重定向目标；浏览器仅同源，实际登录表单就绪后校验
+三处精确 SHA revision。成功项不再携错误码，登录要求 HTTP 2xx＋success:true＋非空 token。
+凭据、原始响应和数据库不上传，容器清理核对本次 SHA 标签。
 
-C06 修复现已通过 logger 全包 race（2.595s）、全部 UpdateVideoTasks race（3.326s）与
-独立复审；主代理最终 logger/model/controller/service/Kling 整合 race 已通过，提交 CI 待验。
-前端使用 Node22＋Bun，`bun run test --maxWorkers=2`
-为 64 文件/336 项通过（101.96s），typecheck、涉及文件 oxlint 及 production build 通过。
-生产构建命令为 `VITE_REACT_APP_VERSION=0.1.1 VITE_BUILD_ID=fixture-s4-build RAYON_NUM_THREADS=2 bun run build`，
-耗时 6.64s，产物含合成标识；这不是不可变 GitHub SHA 或镜像验收，不提交 dist。
+首轮 `540cf32` / `33766140801` 两镜像因构建标识丢失失败，记录未删除；直接 env 属性
+读取修复后，最终镜像已通过。前端本机 `bun run test --maxWorkers=2` 为 64 文件/336 项
+通过（101.96s），typecheck、文件 oxlint 与 production build 通过。合成构建命令
+`VITE_REACT_APP_VERSION=0.1.1 VITE_BUILD_ID=fixture-s4-build RAYON_NUM_THREADS=2 bun run build`
+耗时 6.64s，仅证明本地注入，不冒充提交 SHA，不提交 dist。
 
-2026-09-04 最终根模块全量/vet/build、整合定向 race、relaykit 独立 build/test 已通过，
-命令和边界见[完成度审计](COMPLETION_AUDIT.md#s2-b1-与-s4-01进行中尚未验收)。提交后的
-实库新场景、Full/LAN 镜像和最终源码包仍需分别核验。
-
-`e7fffc2` 的完整 release:check 通过（2190 文件、干净源码 manifest）。GitHub
-`33778810531` Full/LAN 两镜像真实探针均通过；普通 CI `33778745451` 六项通过，但 PG
-快照 INSERT 报 SQLSTATE 22P02，MySQL 快照及两库原支付矩阵通过。JSON Valuer
-在 simple-protocol 下的编码边界已修，本机四包完整测试/vet、根 build 与独立复审通过；
-codec 红绿测试不冒充 PG 实跑，不改专库安全门/协议，仍须新 CI 复验。
-认证探针另修成功错误码与 success:false 登录误判，Node 13 项及独立复审通过，仍待新版镜像复验。
+日志计数/轮转状态和轮询 fixture 竞争已修，保留并发行为、共同 500ms 门限与原日志格式。
+本机根模块全量/vet/build、relaykit 独立 build/test 及独立复审通过；此前整合 race 通过，
+但封版按 7f1913e 追加重跑时 Kling 测试清理与后台 cache 回调竞争。测试生命周期及 CI
+race 接线已修；本机四包同一命令和独立复审通过，待新 CI，不能用前一次绿色替代失败。
+最终代码的 Node22 release:check 全链通过：探针 13 项、干净源码 manifest、pack 2190 文件。
+下一项 S4-02 的合成 Key/假上游精确账务方案已定位，未实施；C03b、B2/B3 与完整恢复仍单列。

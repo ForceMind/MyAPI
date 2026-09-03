@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -20,6 +21,41 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
+
+func TestMain(m *testing.M) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		panic("failed to open Kling test database: " + err.Error())
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		panic("failed to get Kling test database: " + err.Error())
+	}
+	sqlDB.SetMaxOpenConns(1)
+	model.DB, model.LOG_DB = db, db
+	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+	// Cache callbacks may outlive an individual subtest. Keep these process
+	// lifecycle settings immutable after tests begin instead of racing their
+	// reads with per-case restoration.
+	common.RedisEnabled = false
+	common.MemoryCacheEnabled = false
+	common.BatchUpdateEnabled = false
+	common.LogConsumeEnabled = true
+	common.DataExportEnabled = false
+	if err := db.AutoMigrate(&model.Task{}, &model.User{}, &model.Channel{}, &model.Token{}, &model.Log{}); err != nil {
+		panic("failed to migrate Kling test database: " + err.Error())
+	}
+	exitCode := m.Run()
+	_ = sqlDB.Close()
+	os.Exit(exitCode)
+}
+
+func resetKlingPollingTestDB(t *testing.T) {
+	t.Helper()
+	for _, table := range []string{"logs", "tasks", "tokens", "channels", "users"} {
+		require.NoError(t, model.DB.Exec("DELETE FROM "+table).Error)
+	}
+}
 
 func TestParseTaskResultFinalUnitDeduction(t *testing.T) {
 	for _, tc := range []struct {
@@ -96,34 +132,17 @@ func TestKlingPollingPreservesDeductionSaturationAudit(t *testing.T) {
 		{"invalid retains preconsume", "not-a-number", 1000, 1000, 0.001, nil, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-			require.NoError(t, err)
-			sqlDB, err := db.DB()
-			require.NoError(t, err)
-			sqlDB.SetMaxOpenConns(1)
-			require.NoError(t, db.AutoMigrate(&model.Task{}, &model.User{}, &model.Channel{}, &model.Token{}, &model.Log{}))
-			oldDB, oldLogDB := model.DB, model.LOG_DB
-			oldMainType, oldLogType := common.MainDatabaseType(), common.LogDatabaseType()
-			oldRedis, oldMemory, oldBatch := common.RedisEnabled, common.MemoryCacheEnabled, common.BatchUpdateEnabled
-			oldLogConsume, oldExport := common.LogConsumeEnabled, common.DataExportEnabled
+			resetKlingPollingTestDB(t)
+			db := model.DB
 			oldAdaptor := service.GetTaskAdaptorFunc
 			oldModelRatios := ratio_setting.ModelRatio2JSONString()
 			oldGroupRatios := ratio_setting.GroupRatio2JSONString()
 			oldGroupGroupRatios := ratio_setting.GroupGroupRatio2JSONString()
-			model.DB, model.LOG_DB = db, db
-			common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
-			common.RedisEnabled, common.MemoryCacheEnabled, common.BatchUpdateEnabled = false, false, false
-			common.LogConsumeEnabled, common.DataExportEnabled = true, false
 			t.Cleanup(func() {
 				service.GetTaskAdaptorFunc = oldAdaptor
-				model.DB, model.LOG_DB = oldDB, oldLogDB
-				common.SetDatabaseTypes(oldMainType, oldLogType)
-				common.RedisEnabled, common.MemoryCacheEnabled, common.BatchUpdateEnabled = oldRedis, oldMemory, oldBatch
-				common.LogConsumeEnabled, common.DataExportEnabled = oldLogConsume, oldExport
 				require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(oldModelRatios))
 				require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(oldGroupRatios))
 				require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(oldGroupGroupRatios))
-				require.NoError(t, sqlDB.Close())
 			})
 			require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(`{"kling-audit-test":1}`))
 			require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"kling-audit-group":1}`))
