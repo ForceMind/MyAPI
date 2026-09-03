@@ -27,8 +27,12 @@
 
 ## 最近 CI 证据
 
+- R1 交付 `8dfcfba`：[CI 33743669737](https://github.com/ForceMind/MyAPI/actions/runs/33743669737)
+  五项成功，backend 新增配置发布顺序 race 步骤已实际执行通过。该结果及本机完整回归、
+  独立复审支持 S1-R1 在确认范围内完成；不推导跨实例一致性或 S2-S7 完成。
+
 - R1 开始基线 `6fabc98` 的 [CI 33740901999](https://github.com/ForceMind/MyAPI/actions/runs/33740901999)
-  五项通过。用户现已确认 S1-R1（配置保存/后台重载发布顺序），正在实施；该旧 CI 不作为
+  五项通过。这是用户确认并开始 S1-R1（配置保存/后台重载发布顺序）时的记录；该旧 CI 不作为
   R1 新修改已验证的证据。原 S1-01..06 完成状态不变。
 
 - S0＋S1 交付代码 `dc94e81`（2026-09-03）：[CI 33740321133](https://github.com/ForceMind/MyAPI/actions/runs/33740321133)
@@ -480,14 +484,14 @@ PostgreSQL9.6 后，在 MySQL 的 HasColumn 探测发生 panic：当前 GORM 基
 - 本轮未改生产数据库/服务、未移动 tag、未发布 GHCR/NPM；生成清单保持 ignored。
   完整应用三库备份恢复、Full/LAN 镜像矩阵、真实上游/设备和独立 UI 仍按 S2-S7 推进。
 
-## S1-R1 配置发布顺序（2026-09-03，进行中）
+## S1-R1 配置发布顺序（2026-09-03，已验收）
 
 用户已确认在同一进程内统一配置保存及后台重载的发布顺序。实现覆盖数据库读取/提交到
 内存发布的完整区间，保持 OptionMap 锁不跨 DB I/O；初始化调用已持锁 helper，避免递归
 加锁。原代码红测直接观察到 DB=Second、Map/注册表=First，以及 DB=Newer、旧重载
 覆盖为 Initial，另有失败读取仍发布部分快照；无测试超时，不以随机调度或 sleep 作为证明。
 
-新增四项确定性回归已通过，sol 独立静态复审未发现阻断；本机完整回归结果如下，CI 尚待运行。
+新增四项确定性回归已通过，sol 独立静态复审未发现阻断；本机完整回归与最终 CI 结果如下。
 后台重载读失败保留现值；初始化仍先构造默认 Map，读失败不保证调用前 Map 不变。
 本项不处理跨实例一致性或所有配置读取原子快照，未来增加 ConfigManager.SaveToDB
 回调保存的生产入口时须另审锁顺序。
@@ -499,5 +503,15 @@ PostgreSQL9.6 后，在 MySQL 的 HasColumn 探测发生 panic：当前 GORM 基
 - `cd relaykit && go build -p 1 ./... && go test -p 1 ./... -count=1`：独立构建/测试通过。
 - `go test -race -p 1 ./model -run '^TestOption(WritesPublishInCommitOrder|ReloadCannotOverwriteNewerWrite|SaveFailureDoesNotPublishOrHoldSequence|ReloadFailureDoesNotPublishOrHoldSequence)$' -count=1 -timeout=120s`：四项通过；worker 另跑 S1 持久化/规范化/注册表读取回归通过。
 - Release workflow 合同 18/18、Quota OpenAPI 合同 3/3 通过；CI YAML 语法解析通过。
-  新 race 步骤已接入 backend job。源码清单/打包在干净提交复核，新 CI 尚待运行，不借用
-  `6fabc98` 的结果将 R1 提前标为已完成。
+  新 race 步骤已接入 backend job。
+- 干净提交 `8dfcfba`、Node22 下 `npm run release:check` 全部通过，包含 CLI、品牌、官网、
+  OpenAPI、LAN（跳过 Docker）、Desktop、Upgrade、Runtime、Release 和源码清单/打包；
+  包含 2170 个文件、19,749,735 bytes。生成物保持 ignored，未执行发布。
+- [CI 33743669737](https://github.com/ForceMind/MyAPI/actions/runs/33743669737) 的 Backend、
+  Frontend、Desktop、Distribution 与 S1 数据库五项成功；新增 R1 race 步骤通过，原
+  MySQL5.7/PostgreSQL9.6 临时库迁移/配置事务用例继续通过，未扩大其验收范围。
+- CI 前端 64 文件/336 测试、生产构建及浏览器 fixture 回归通过；本轮未修改 UI，未将
+  这些结果冒充新的真实设备视觉审查。
+- R1 生产仅修改 `model/option.go`，新增确定性测试、CI 入口及文档；无数据 schema、
+  Provider、UI、发布、tag 或生产环境操作。全项目目标仍包含 S2-S7，不能把 S1 完成
+  当作整个产品或所有配置并发/原子语义已验证。
