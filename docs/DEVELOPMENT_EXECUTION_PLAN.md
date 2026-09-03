@@ -22,7 +22,7 @@ SSE、脱敏日志、额度分析、账户/Key 兼容字段、CLI/Electron 和�
 | --- | --- | --- | --- |
 | S0 计划与证据 | 已完成／已确认范围 | terra 起草，主代理整合 | 需求、缺陷、验证、决策分开；更新主计划、审计、macOS、额度 OpenAPI；链接、参数和事实一致。 |
 | S1 安全与一致性 | 已完成／已确认范围 | sol 实现；独立 sol 复审 | 原六项及追加 R1 均通过回归、独立复审和 CI；同进程配置保存/后台重载的发布顺序、双写交错与失败释放已有证据，不推导跨实例一致性。 |
-| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06、D01 已完成当前范围。B2/B3 任务持久化/恢复、C03b 缓存恢复及 D02–D10 仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
+| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06、D01 已完成当前范围；C07/D02 本地完成、待同提交 CI。B2/B3 任务持久化/恢复、C03b 缓存恢复及 D03–D10 仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
 | S3 账户/Key 实际策略 | 未开始／迁移设计待确认 | sol 设计，分模块实现 | 明确账户权益、模型限制交集、route_groups、disabled、fallback、计费归属；旧 Key 兼容/差异报告/启用/回滚经确认后落实。不得把已有元数据当强制策略。 |
 | S4 运行与恢复 | 进行中／S4-01、S4-02 已完成当前范围 | 工程/制品与独立 sol 审查；sol 数据与恢复 | Full/LAN 测试镜像均不推送；SQLite/MySQL/PostgreSQL 临时库旧结构升级、重复迁移、多连接竞争、备份恢复；登录/Key/权限/日志/额度探针；原生桌面构建、安装升级与第二设备 LAN。 |
 | S5 额度闭环与选定扩展 | 未开始／各扩展分别决策 | sol 领域/安全，terra 常规实现 | 测试实例真实账户连续采样、任务/API/管理员页面一致；失败/重置/缺口和大数据量性能。通知、多 Key 身份、Claude 组织用量等按决策登记，不混入平台账本。 |
@@ -115,6 +115,7 @@ race、relaykit 独立构建/测试、Node22 发行合同及干净源码 pack �
 | C04 | 已完成 | 私有视频控制器及真实路由回归 | HTTP/data URL 与 handler 错误为 private/no-store，上游 CDN 缓存头不覆盖；owner/非 owner/匿名与 SSRF 不回退。匿名中间件响应不冒称具有 controller 的响应头。 |
 | C05 | 已完成 | 四种支付控制器、必要的定向访问日志过滤及测试 | INFO/WARN/ERROR 和四个已匹配 webhook 的生产访问日志不输出原始正文/签名/query/客户资料；验签/ACK/幂等保持；Pancake 验证边界如实标注。 |
 | C06 | 已完成／测试隔离、本机/CI race 与独立复审通过 | 生产 logger 计数/轮转预约状态及轮询测试共享对象 | 两个渠道并发记录日志无 data race；保留日志格式与轮转、多渠道并发；测试使用独立快照/通知，不用串行化或 sleep 掩盖。 |
+| C07 | 本地已完成／待同提交 CI | `common` 请求正文替换生命周期、Kling/Jimeng 兼容路由、Full Content 入口身份、Provider 模型/时长边界 | 所有正文读取路径同版本；原始客户端日志与转换后分发分离；`model_name`/`req_key`、Kling duration/mode、Jimeng frames 不得绕过已验证/已计费字段；内存/磁盘清理与 race 通过。 |
 
 C03a 不等于整个账务缓存一致性完成。现有缺损 hash 的 miss→hydrate/DB fallback 仍未改；
 高层 User/Token quota 增减仍异步更新缓存、失败只记录而数据库继续写，须在 C03b 单列。
@@ -167,7 +168,7 @@ B2/B3 需核心合同决定：上游接受结果未知时是否不自动重发/�
 | 批次 | 状态 | 调用/文件 | 写入边界与最低验收 |
 | --- | --- | ---: | --- |
 | D01 OAuth | 已完成当前范围 | 9/4 | GitHub、Discord、OIDC、Linux DO；GitHub JSON 请求/响应与宽松单值 decoder 回归，包测试、race、根模块全量、独立审查及同提交 CI。 |
-| D02 请求 middleware | 未开始 | 2/2 | Jimeng/Kling 请求重写；显式 0/false、嵌套 metadata、malformed 与原链路语义。 |
+| D02 请求 middleware | 本地已完成／待同提交 CI | 2/2 | Jimeng/Kling 请求重写；显式 0/false、嵌套 metadata、malformed、缓存一致性、模型与时长边界。 |
 | D03 Relay 输入归一化 | 未开始 | 3/3 | OpenAI/Replicate/model mapping；RawMessage 解码、循环/非法映射和 import alias。 |
 | D04 Provider 响应/Vertex token | 未开始 | 5/3 | SiliconFlow、Tencent、Vertex；合法/错误/malformed 响应，不访问真实上游。 |
 | D05 Midjourney | 未开始 | 8/1 | 持久化 Buttons/VideoUrls/Properties 与 DTO 形状；不顺带改变历史错误语义。 |
@@ -185,6 +186,24 @@ D01 已将四个 OAuth 文件的 9 处直接调用清零，结构余量为 **58 
 该批无页面变化，`VERSION` 仍为 0.1.1。最终 `6b3042a` /
 [CI 33793219733](https://github.com/ForceMind/MyAPI/actions/runs/33793219733) 七项成功，
 Backend 原始步骤包含根/relaykit vet、build、全量 test 与两组既有 race；D01 已完成当前范围。
+
+C07/D02 在 D01 的 58/23 基线上将两个 middleware 直接 Marshal 清零，结构余量为
+**56 处/21 文件**。只读 Sol ultra 追踪确认旧 `KeyBodyStorage` 会遮蔽兼容适配器写入的
+统一正文：Jimeng `req_key` 和 Kling 仅 `model_name` 请求在分发时读不到 `model`；同时
+Provider metadata 可覆盖已经路由/计费的 Kling `model_name`/duration 和 Jimeng
+`req_key`/frames。修复增加原子 `ReplaceRequestBody`，同步 Body/GetBody/ContentLength/cache，
+关闭旧内存/磁盘资源；路由按 TokenAuth→原始 Full Content 日志→转换→Distribute，所有
+日志阶段冻结同一入口身份。兼容 envelope 保留通用 Task 顶层字段，provider 字段按顶层
+覆盖 nested metadata，受保护别名不得下传；Kling/Jimeng adaptor 最终恢复权威模型，
+Kling duration/mode 与 Jimeng frames 只能来自已验证的顶层合同。Jimeng 官方顶层 frames
+只接受 121/241 并正规化为 5/10 秒。
+
+红测先复现下游 GetBody 为空/旧 storage 仍被读取，以及 metadata 覆盖两个 Provider 的
+权威模型；修复后受影响六包及 router、common/middleware 全包 race、受影响 vet 和根模块
+全量测试通过。独立 Sol 首轮指出 duration/frames 旁路与日志身份缺口，修正后第二轮无
+P1/P2，图片权威字段 P3 断言也已补齐。无页面变化，`VERSION` 保持 0.1.1；待同提交 CI
+通过后才标 C07/D02 完成。Jimeng 查询 handler 选择与 metadata JSON 字符串兼容仍单独审计，
+不在本批伪称完成。
 
 ## S4-01 无发布 Full/LAN 镜像测试（已完成当前范围）
 

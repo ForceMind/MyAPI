@@ -320,6 +320,40 @@ JSON/header、token/user 映射及宽松单值语义；全局 transport 和合�
 其余 Frontend、S1/S2-A 实库、S2-C Redis、Desktop、Distribution 也成功。D01 当前范围完成。
 无页面变更，`VERSION` 保持 0.1.1；不发布、不调用真实 Provider、不读取本机凭据。
 
+## S2-C07 / D02 视频正文与 Provider 边界（2026-09-04，本地完成、待同提交 CI）
+
+D02 只读扫描最初只计划把 `middleware/jimeng_adapter.go`、`kling_adapter.go` 的两个
+`json.Marshal` 等价替换为 `common.Marshal`；Sol ultra 数据流追踪进一步确认真实 P1：
+两 adapter 首次 `UnmarshalBodyReusable` 建立旧 `KeyBodyStorage`，随后只更新直接 Body 和
+旧 `KeyRequestBody`，而所有后续读取优先旧 storage。Jimeng 标准 `req_key` 与 Kling 仅
+`model_name` 请求因此在 Distributor 读不到统一 `model`；Full Content 开启与否均可达。
+
+先写红测：compat middleware 下游 `Request.GetBody` 为 nil、预期 204 实际 200；Kling
+converter 实际把权威上游模型改为 `metadata-model-name`，Jimeng 四个 v3 分支实际改为
+`metadata-req-key`。审查再发现 Kling `metadata.duration` 和 Jimeng `metadata.frames`
+仍可绕过顶层边界，未把首轮绿色当完成。最终实现：
+
+- `common.ReplaceRequestBody` 先创建新 storage/独立 reader，全部成功后同步 cache、Body、
+  GetBody、ContentLength，再关闭旧 reader/storage；Cleanup 同时清两 key，内存和强制磁盘
+  测试验证旧文件 unlink、预先打开 reader 的独立生命周期、最终统计回基线与重复清理。
+- 两兼容 adapter 生成统一 envelope：通用 Task 字段在顶层，nested metadata 先复制、
+  provider 顶层字段后覆盖，显式 0/false/空数组保留；模型别名和通用字段不再留在 metadata。
+- Kling/Jimeng Provider 对 metadata 使用副本，并在应用其他 provider 参数后恢复权威
+  UpstreamModelName、prompt 及受保护资源字段。Kling mode/duration/image 不可被 metadata
+  改写；Jimeng frames 不可覆盖已验证 duration。官方顶层 frames 仅接受 121/241，按
+  [火山引擎接口合同](https://www.volcengine.com/docs/85621/1791184?lang=zh) 映射为 5/10 秒。
+- Kling/Jimeng 路由改为 TokenAuth→FullContentLogger→adapter→Distribute；request 保存
+  客户端原始正文，request/chunk/end 共用入口 request ID、method/path、用户/Token/IP。
+  标准视频路由不变，专项说明同步更新。
+
+最终本机实际通过：受影响 `common`、`middleware`、`relay/common`、Kling、Jimeng、router
+包；common/middleware 全包 race 分别 2.302s/1.956s；受影响六包及 router 的 `go vet -p 1`；
+低并行 `go test -p 1 ./... -count=1` 根模块全量。结构门禁从 58/23 降至 56/21。
+独立 Sol 首轮列出两项 P1 和身份/测试 P2，全部修正；第二轮无新 P1/P2，末项图片权威
+P3 断言已补。当前未提交/无 CI，故保持待验证。无真实 Provider/生产数据/凭据、数据库
+迁移、relaykit 或页面改动，`VERSION` 仍为 0.1.1。Jimeng GET handler 候选、metadata
+JSON 字符串兼容、真实上游费用和完整端到端任务仍未验证。
+
 ## 最近 CI 证据
 
 - S2-D01 最终提交 `6b3042a`：[CI 33793219733](https://github.com/ForceMind/MyAPI/actions/runs/33793219733)

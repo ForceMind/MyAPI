@@ -63,11 +63,21 @@ type fullContentFileWriterConfig struct {
 	maxFiles int
 }
 
+type fullContentRequestIdentity struct {
+	requestID string
+	method    string
+	path      string
+	userID    int
+	tokenID   int
+	tokenName string
+	clientIP  string
+}
+
 type fullContentResponseWriter struct {
 	gin.ResponseWriter
-	context    *gin.Context
 	logWriter  *fullContentFileWriter
 	startedAt  time.Time
+	identity   fullContentRequestIdentity
 	sequence   int64
 	bodyBytes  int64
 	writeError atomic.Bool
@@ -90,15 +100,16 @@ func FullContentLogger() gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 		startedAt := time.Now()
+		identity := captureFullContentRequestIdentity(c)
 		responseWriter := &fullContentResponseWriter{
 			ResponseWriter: c.Writer,
-			context:        c,
 			logWriter:      writer,
 			startedAt:      startedAt,
+			identity:       identity,
 		}
 		c.Writer = responseWriter
 
-		requestEntry := newFullContentLogEntry(c, "request")
+		requestEntry := newFullContentLogEntry(identity, "request")
 		requestEntry.ContentType = c.GetHeader("Content-Type")
 		requestEntry.Headers = redactFullContentLogValues(c.Request.Header)
 		requestEntry.Query = redactFullContentLogValues(c.Request.URL.Query())
@@ -129,7 +140,7 @@ func FullContentLogger() gin.HandlerFunc {
 
 		c.Next()
 
-		endEntry := newFullContentLogEntry(c, "response_end")
+		endEntry := newFullContentLogEntry(identity, "response_end")
 		endEntry.Status = c.Writer.Status()
 		endEntry.Headers = redactFullContentLogValues(c.Writer.Header())
 		endEntry.Sequence = atomic.LoadInt64(&responseWriter.sequence)
@@ -180,7 +191,7 @@ func (w *fullContentResponseWriter) WriteString(body string) (int, error) {
 }
 
 func (w *fullContentResponseWriter) logResponseChunk(body []byte) {
-	entry := newFullContentLogEntry(w.context, "response_chunk")
+	entry := newFullContentLogEntry(w.identity, "response_chunk")
 	entry.Sequence = atomic.AddInt64(&w.sequence, 1)
 	entry.Status = w.ResponseWriter.Status()
 	entry.ContentType = w.ResponseWriter.Header().Get("Content-Type")
@@ -193,17 +204,29 @@ func (w *fullContentResponseWriter) logResponseChunk(body []byte) {
 	}
 }
 
-func newFullContentLogEntry(c *gin.Context, phase string) fullContentLogEntry {
+func captureFullContentRequestIdentity(c *gin.Context) fullContentRequestIdentity {
+	return fullContentRequestIdentity{
+		requestID: c.GetString(common.RequestIdKey),
+		method:    c.Request.Method,
+		path:      c.Request.URL.Path,
+		userID:    c.GetInt("id"),
+		tokenID:   c.GetInt("token_id"),
+		tokenName: c.GetString("token_name"),
+		clientIP:  c.ClientIP(),
+	}
+}
+
+func newFullContentLogEntry(identity fullContentRequestIdentity, phase string) fullContentLogEntry {
 	return fullContentLogEntry{
 		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
-		RequestID: c.GetString(common.RequestIdKey),
+		RequestID: identity.requestID,
 		Phase:     phase,
-		Method:    c.Request.Method,
-		Path:      c.Request.URL.Path,
-		UserID:    c.GetInt("id"),
-		TokenID:   c.GetInt("token_id"),
-		TokenName: c.GetString("token_name"),
-		ClientIP:  c.ClientIP(),
+		Method:    identity.method,
+		Path:      identity.path,
+		UserID:    identity.userID,
+		TokenID:   identity.tokenID,
+		TokenName: identity.tokenName,
+		ClientIP:  identity.clientIP,
 	}
 }
 

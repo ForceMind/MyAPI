@@ -54,6 +54,12 @@ https://myapi.example.com/full-content-logs
 
 文本按 UTF-8 保存，非 UTF-8 二进制内容按 Base64 保存，并在 `encoding` 中标记为 `base64`。因此 multipart 附件和二进制返回也不会被静默丢弃。
 
+Kling 与 Jimeng 官方兼容路由在 Token 鉴权成功后、兼容格式转换前记录请求。因此
+`request` 保存客户端实际提交的 method、path 和正文，而下游分发使用转换后的统一视频任务
+正文。即使 Jimeng 查询任务在内部转换为 GET 和统一任务路径，同一请求的
+`response_chunk`、`response_end` 仍沿用入口 method 和 path，避免一次请求在日志中出现
+多个身份。标准 `/v1/video/generations` 路由的处理顺序和日志语义不变。
+
 ## 安全处理
 
 完整日志可能包含提示词、模型回复和附件，请只允许管理员读取。

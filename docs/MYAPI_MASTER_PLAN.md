@@ -180,6 +180,14 @@ relaykit 和合法类型/`json.Valid` 使用。D01 已在本机将 GitHub/Discor
 Relay/Provider 边界；不整体重写、不访问真实 OAuth 凭据，详见
 [执行计划](DEVELOPMENT_EXECUTION_PLAN.md#s2-d-根模块-json-wrapper-合规)。
 
+C07/D02 本地修复了 Kling/Jimeng 兼容入口的旧正文缓存遮蔽和 Provider metadata 二次选模/
+时长旁路：正文缓存、直接 Body、GetBody 与 ContentLength 原子切换；Full Content 保存鉴权
+后的原始客户端请求并冻结同一入口身份，下游只读统一 envelope；模型别名不能覆盖已映射
+模型，Kling duration/mode 和 Jimeng frames 不能绕过顶层验证。Jimeng 官方 frames 仅
+121/241，正规化为 5/10 秒。红绿、全包 race、根模块全量及两轮独立 Sol 审查已通过，
+JSON 余量降至 56/21，当前待同提交 CI。未连接真实 Provider，也未处理 Jimeng 查询 handler
+候选或全局 metadata 系统；详情见[执行计划](DEVELOPMENT_EXECUTION_PLAN.md#s2-d-根模块-json-wrapper-合规)。
+
 以下为此前阶段记录，当前状态以以上验收基线与执行矩阵为准。
 
 S2-A 已确认并在 `c82d0f1` / CI `33744326429` 通过的基线上开始。当前仅支付/订阅六项

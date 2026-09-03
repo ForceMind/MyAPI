@@ -391,6 +391,7 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq, in
 	default:
 		r.Frames = 121 // 24*5+1 = 121
 	}
+	authoritativeFrames := r.Frames
 
 	// Handle one-of image_urls or binary_data_base64
 	if req.HasImage() {
@@ -400,9 +401,23 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq, in
 			r.BinaryDataBase64 = req.Images
 		}
 	}
-	if err := taskcommon.UnmarshalMetadata(req.Metadata, &r); err != nil {
+	metadata := make(map[string]any, len(req.Metadata))
+	for key, value := range req.Metadata {
+		switch key {
+		case "model", "model_name", "req_key", "prompt", "frames":
+			continue
+		default:
+			metadata[key] = value
+		}
+	}
+	if err := taskcommon.UnmarshalMetadata(metadata, &r); err != nil {
 		return nil, errors.Wrap(err, "unmarshal metadata failed")
 	}
+	// Routing and billing have already selected UpstreamModelName. Restore it
+	// after provider metadata is applied so req_key cannot select another model.
+	r.ReqKey = info.UpstreamModelName
+	r.Prompt = req.Prompt
+	r.Frames = authoritativeFrames
 
 	// 即梦视频3.0 ReqKey转换
 	// https://www.volcengine.com/docs/85621/1792707

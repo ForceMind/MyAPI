@@ -3,6 +3,7 @@ package kling
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/model"
+	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/service"
 	"github.com/ForceMind/MyAPI/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
@@ -21,6 +23,42 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
+
+func TestConvertToRequestPayloadKeepsValidatedFieldsAuthoritative(t *testing.T) {
+	for _, metadataDuration := range []any{"10", "-1", "9999999999", float64(10), float64(-1), float64(1e9)} {
+		t.Run(fmt.Sprint(metadataDuration), func(t *testing.T) {
+			req := relaycommon.TaskSubmitReq{
+				Model:    "client-model-a",
+				Prompt:   "make a clip",
+				Image:    "trusted-image",
+				Mode:     "std",
+				Duration: 5,
+				Metadata: map[string]any{
+					"model":           "metadata-model",
+					"model_name":      "metadata-model-name",
+					"req_key":         "metadata-req-key",
+					"prompt":          "metadata prompt",
+					"image":           "metadata-image",
+					"mode":            "pro",
+					"duration":        metadataDuration,
+					"negative_prompt": "keep this provider option",
+				},
+			}
+			info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "mapped-model-c"}}
+
+			payload, err := (&TaskAdaptor{}).convertToRequestPayload(&req, info)
+			require.NoError(t, err)
+			assert.Equal(t, "mapped-model-c", payload.ModelName)
+			assert.Equal(t, "mapped-model-c", payload.Model)
+			assert.Equal(t, "make a clip", payload.Prompt)
+			assert.Equal(t, "trusted-image", payload.Image)
+			assert.Equal(t, "std", payload.Mode)
+			assert.Equal(t, "5", payload.Duration)
+			assert.Equal(t, "keep this provider option", payload.NegativePrompt)
+			assert.Contains(t, req.Metadata, "model", "conversion must not mutate caller metadata")
+		})
+	}
+}
 
 func TestMain(m *testing.M) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})

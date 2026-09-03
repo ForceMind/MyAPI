@@ -1,9 +1,6 @@
 package middleware
 
 import (
-	"bytes"
-	"encoding/json"
-	"io"
 	"net/http"
 
 	"github.com/ForceMind/MyAPI/common"
@@ -27,23 +24,33 @@ func JimengRequestConvert() func(c *gin.Context) {
 			return
 		}
 		model, _ := originalReq["req_key"].(string)
-		prompt, _ := originalReq["prompt"].(string)
-
-		unifiedReq := map[string]interface{}{
-			"model":    model,
-			"prompt":   prompt,
-			"metadata": originalReq,
+		unifiedReq := buildTaskSubmitEnvelope(originalReq, model)
+		metadata, _ := unifiedReq["metadata"].(map[string]interface{})
+		delete(metadata, "frames")
+		if frames, exists := originalReq["frames"]; exists {
+			framesNumber, ok := frames.(float64)
+			if !ok || (framesNumber != 121 && framesNumber != 241) {
+				abortWithOpenAiMessage(c, http.StatusBadRequest, "Invalid request body")
+				return
+			}
+			if framesNumber == 241 {
+				unifiedReq["duration"] = 10
+			} else {
+				unifiedReq["duration"] = 5
+			}
 		}
 
-		jsonData, err := json.Marshal(unifiedReq)
+		jsonData, err := common.Marshal(unifiedReq)
 		if err != nil {
 			abortWithOpenAiMessage(c, http.StatusInternalServerError, "Failed to marshal request body")
 			return
 		}
 
 		// Update request body
-		c.Request.Body = io.NopCloser(bytes.NewBuffer(jsonData))
-		c.Set(common.KeyRequestBody, jsonData)
+		if err := common.ReplaceRequestBody(c, jsonData); err != nil {
+			abortWithOpenAiMessage(c, http.StatusInternalServerError, "Failed to replace request body")
+			return
+		}
 
 		if image, ok := originalReq["image"]; !ok || image == "" {
 			c.Set("action", constant.TaskActionTextGenerate)

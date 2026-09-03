@@ -95,14 +95,61 @@ func GetBodyStorage(c *gin.Context) (BodyStorage, error) {
 	return bs, nil
 }
 
+// ReplaceRequestBody atomically replaces every replay path for a request body.
+// The existing request state is not changed unless both the new storage and an
+// independent reader have been created successfully.
+func ReplaceRequestBody(c *gin.Context, data []byte) error {
+	if c == nil || c.Request == nil {
+		return errors.New("request is nil")
+	}
+
+	storage, err := CreateBodyStorage(data)
+	if err != nil {
+		return err
+	}
+	reader, err := storage.NewReader()
+	if err != nil {
+		_ = storage.Close()
+		return err
+	}
+
+	previousReader := c.Request.Body
+	var previousStorage BodyStorage
+	if value, exists := c.Get(KeyBodyStorage); exists && value != nil {
+		previousStorage, _ = value.(BodyStorage)
+	}
+
+	c.Set(KeyBodyStorage, storage)
+	c.Set(KeyRequestBody, nil)
+	c.Request.Body = reader
+	c.Request.GetBody = storage.NewReader
+	c.Request.ContentLength = storage.Size()
+
+	closeRequestBodyResources(previousReader, previousStorage)
+	return nil
+}
+
 // CleanupBodyStorage 清理请求体存储（应在请求结束时调用）
 func CleanupBodyStorage(c *gin.Context) {
-	if storage, exists := c.Get(KeyBodyStorage); exists && storage != nil {
-		if bs, ok := storage.(BodyStorage); ok {
-			bs.Close()
-		}
-		c.Set(KeyBodyStorage, nil)
+	if c == nil {
+		return
 	}
+
+	var storage BodyStorage
+	if value, exists := c.Get(KeyBodyStorage); exists && value != nil {
+		storage, _ = value.(BodyStorage)
+	}
+	c.Set(KeyBodyStorage, nil)
+	c.Set(KeyRequestBody, nil)
+
+	var reader io.ReadCloser
+	if c.Request != nil {
+		reader = c.Request.Body
+		c.Request.Body = http.NoBody
+		c.Request.GetBody = nil
+		c.Request.ContentLength = 0
+	}
+	closeRequestBodyResources(reader, storage)
 }
 
 func UnmarshalBodyReusable(c *gin.Context, v any) error {
@@ -125,8 +172,7 @@ func UnmarshalBodyReusable(c *gin.Context, v any) error {
 		if _, seekErr := storage.Seek(0, io.SeekStart); seekErr != nil {
 			return seekErr
 		}
-		c.Request.Body = io.NopCloser(storage)
-		return nil
+		return restoreRequestBodyFromStorage(c, storage)
 	}
 
 	requestBody, err := storage.Bytes()
@@ -150,8 +196,40 @@ func UnmarshalBodyReusable(c *gin.Context, v any) error {
 	if _, seekErr := storage.Seek(0, io.SeekStart); seekErr != nil {
 		return seekErr
 	}
-	c.Request.Body = io.NopCloser(storage)
+	return restoreRequestBodyFromStorage(c, storage)
+}
+
+func restoreRequestBodyFromStorage(c *gin.Context, storage BodyStorage) error {
+	if c == nil || c.Request == nil {
+		return errors.New("request is nil")
+	}
+	reader, err := storage.NewReader()
+	if err != nil {
+		return err
+	}
+	previousReader := c.Request.Body
+	c.Request.Body = reader
+	c.Request.GetBody = storage.NewReader
+	c.Request.ContentLength = storage.Size()
+	if previousStorage, ok := previousReader.(BodyStorage); !ok || previousStorage != storage {
+		if previousReader != nil {
+			_ = previousReader.Close()
+		}
+	}
 	return nil
+}
+
+func closeRequestBodyResources(reader io.ReadCloser, storage BodyStorage) {
+	if reader != nil {
+		_ = reader.Close()
+	}
+	if storage == nil {
+		return
+	}
+	if readerStorage, ok := reader.(BodyStorage); ok && readerStorage == storage {
+		return
+	}
+	_ = storage.Close()
 }
 
 func SetContextKey(c *gin.Context, key constant.ContextKey, value any) {
@@ -286,7 +364,9 @@ func ParseMultipartFormReusable(c *gin.Context) (*multipart.Form, error) {
 	if _, seekErr := storage.Seek(0, io.SeekStart); seekErr != nil {
 		return nil, seekErr
 	}
-	c.Request.Body = io.NopCloser(storage)
+	if err := restoreRequestBodyFromStorage(c, storage); err != nil {
+		return nil, err
+	}
 	return form, nil
 }
 

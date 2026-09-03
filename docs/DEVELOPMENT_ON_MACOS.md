@@ -353,3 +353,22 @@ relaykit 及合法类型/`json.Valid` 使用不计。D01 将 GitHub、Discord、
 七项成功，D01 当前范围完成。该批不改前端页面，版本保持 0.1.1；后续 D02–D10 逐批处理，
 不让 `relaykit` 导入根模块 `common`。当前镜像验收仍对应 `237c0da`，没有把常规 CI 写成
 `6b3042a` 的 Docker 证明。
+
+### S2-C07 / D02 视频正文缓存与 Provider 边界（本地完成、待 CI）
+
+Kling/Jimeng 兼容 adapter 过去先缓存原始正文，再只改直接 Body；后续日志、Distributor、
+controller 和 validator 仍优先读旧 `KeyBodyStorage`，导致统一 envelope 不可达。现在通过
+`common.ReplaceRequestBody` 原子同步 storage、Body、GetBody、ContentLength，替换成功后
+立即关闭旧 storage，最终由 `BodyStorageCleanup` 幂等清理；内存与强制磁盘路径均有测试。
+
+两路由在 Token 鉴权后先记录原始客户端请求，再转换并分发；日志所有阶段冻结入口身份。
+metadata 不再获得第二个模型或资源乘数入口：Kling/Jimeng 出站模型固定为已映射模型，
+Kling mode/duration/image 和 Jimeng frames 由已验证顶层字段决定。Jimeng 官方 frames 只接收
+121/241，并正规化为 5/10 秒。两个 middleware 的 JSON 调用也已使用 `common.Marshal`，
+全仓结构余量由 58/23 降为 56/21。
+
+本机在允许 Go cache、临时文件和回环 fixture 的环境中通过受影响包、common/middleware
+全包 race、受影响 vet 与根模块低并行全量测试。首次沙箱 cache/监听拒绝不是代码失败；
+红测和两轮独立 Sol 复审记录见完成度审计。当前待同提交 CI，未连接真实 Provider、数据库
+或凭据，不证明真实任务费用/结果；Jimeng 查询 handler 候选另审。该批无页面改动，版本
+保持 0.1.1。

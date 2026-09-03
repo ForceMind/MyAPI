@@ -265,14 +265,20 @@ func (a *TaskAdaptor) GetChannelName() string {
 // ============================
 
 func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq, info *relaycommon.RelayInfo) (*requestPayload, error) {
+	authoritativeModel := info.UpstreamModelName
+	if authoritativeModel == "" {
+		authoritativeModel = "kling-v1"
+	}
+	authoritativeMode := taskcommon.DefaultString(req.Mode, "std")
+	authoritativeDuration := fmt.Sprintf("%d", taskcommon.DefaultInt(req.Duration, 5))
 	r := requestPayload{
 		Prompt:         req.Prompt,
 		Image:          req.Image,
-		Mode:           taskcommon.DefaultString(req.Mode, "std"),
-		Duration:       fmt.Sprintf("%d", taskcommon.DefaultInt(req.Duration, 5)),
+		Mode:           authoritativeMode,
+		Duration:       authoritativeDuration,
 		AspectRatio:    a.getAspectRatio(req.Size),
-		ModelName:      info.UpstreamModelName,
-		Model:          info.UpstreamModelName,
+		ModelName:      authoritativeModel,
+		Model:          authoritativeModel,
 		CfgScale:       0.5,
 		StaticMask:     "",
 		DynamicMasks:   []DynamicMask{},
@@ -280,13 +286,27 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq, in
 		CallbackUrl:    "",
 		ExternalTaskId: "",
 	}
-	if r.ModelName == "" {
-		r.ModelName = "kling-v1"
-		r.Model = "kling-v1"
+	metadata := make(map[string]any, len(req.Metadata))
+	for key, value := range req.Metadata {
+		switch key {
+		case "model", "model_name", "req_key", "prompt", "image", "mode", "duration":
+			continue
+		default:
+			metadata[key] = value
+		}
 	}
-	if err := taskcommon.UnmarshalMetadata(req.Metadata, &r); err != nil {
+	if err := taskcommon.UnmarshalMetadata(metadata, &r); err != nil {
 		return nil, errors.Wrap(err, "unmarshal metadata failed")
 	}
+	// Routing and billing have already selected UpstreamModelName. Provider
+	// metadata may configure other Kling options, but it cannot change either
+	// model alias after that selection.
+	r.ModelName = authoritativeModel
+	r.Model = authoritativeModel
+	r.Prompt = req.Prompt
+	r.Image = req.Image
+	r.Mode = authoritativeMode
+	r.Duration = authoritativeDuration
 	return &r, nil
 }
 
