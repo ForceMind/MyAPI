@@ -249,3 +249,9 @@ S2-A 当前获准范围见[执行矩阵](DEVELOPMENT_EXECUTION_PLAN.md#s2-a-支�
 `MYAPI_S2A_DATABASE_TESTS=1`，DSN 为字面 loopback 且数据库名必须是 `myapi_s2a_test`；
 不允许远端/其他数据库或已有业务表，不 drop 表，由一次性服务生命周期清理。
 它只证明本批支付/订阅单连接与并发合同，不替代完整升级恢复、真实付款或本机 Docker Desktop 验收。
+
+S2-A `2777021` 已通过本机 Go 全量、vet/build、专项 race、relaykit 独立验证和 Node22
+完整 `release:check`。CI `33749764180` 六项 success，但 MySQL 实库日志出现中文插入
+`Error 1366`，缺少日志断言使 job 假绿；本批尚未验收。fixture 绕过了生产启动的中文
+字符集检查，不能仅靠 DSN `charset=utf8mb4` 认定 schema 正确。S2-A-R1 的测试专库
+配置与日志断言修正待确认，不将其扩展到本机/服务器数据库或生产迁移。

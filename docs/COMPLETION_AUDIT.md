@@ -25,7 +25,7 @@
 | NPM 正式发布 | CLI/打包/版本合同检查 | 发布前检查已验证 | 版本确认、tag、清单、用户明确确认与 `npm publish` |
 | macOS 开发迁移 | `docs/DEVELOPMENT_ON_MACOS.md`、`docs/CODEX_HANDOFF_PROMPT.md`、README 导航 | 文档已补齐 | 新 Mac 的工具安装、依赖测试和实机 Electron/LAN 验收需在新设备执行 |
 
-## S2-A 支付与订阅事务（2026-09-03，待 CI 验证）
+## S2-A 支付与订阅事务（2026-09-03，CI 日志复核未通过）
 
 已确认范围与状态见[执行矩阵](DEVELOPMENT_EXECUTION_PLAN.md#s2-a-支付与订阅事务进行中)。
 实现包括：退款与幂等标记同事务、套餐与时钟同连接、真实 DB 错误不误报缺单、Creem
@@ -46,17 +46,39 @@ HTTP 测试最初的直接 handler fixture 未刷新 Gin Status，已改真实 S
   Stripe/Creem 仅订阅配置的真实 Gin 路由、本地签名、重复履约、非法签名与禁用矩阵。
 - Node22 `npm run release:workflow:check`（18/18）、`npm run quota:openapi:check`（3/3）、`git diff --check`。
 - sol 独立只读复审生产改动、测试与 CI fixture 未发现本批阻断回归，YAML 解析通过。
+- 代码提交 `2777021` 的本机根模块 `go test -p 1 ./... -count=1 -timeout=180s`、
+  `go vet -p 1 ./...`、`go build -p 1 ./...` 通过；同目录/缓存环境与上项一致。
+- `go test -race -p 1 ./controller ./model -run 'Test(SubscriptionTransaction|SubscriptionOnlyPaymentWebhooks|StripeWebhook|WaffoPancakeWebhook|ManualCompleteTopUp|UpdatePendingTopUpStatus)' -count=1 -timeout=120s` 通过。
+- 在 `relaykit/` 使用 `GOWORK=off` 独立 `go build -p 1 ./...` 与 `go test -p 1 ./... -count=1` 通过；
+  Node22 干净提交 `npm run release:check` 全部通过，包括 2177 文件的本地 pack 校验；未发布。
 
 CI 新增独立 `S2-A payment and subscription database regression`，目标仅空库
 `myapi_s2a_test` 的 MySQL5.7/PostgreSQL9.6；明确开关、loopback 与空库检查，无 drop。
-当前尚待实际 CI，不把本机无 DSN 时 skip 写成通过。双连接屏障保证事务重叠及最终
-状态检查，第二屏障在 SQL 发送前，不能声称直接观察到了数据库锁等待。
+`2777021` 的 [CI 33749764180](https://github.com/ForceMind/MyAPI/actions/runs/33749764180)
+六个 job 均为 success，包含后端、前端构建/浏览器、S1/S2-A 实库、发行与桌面合同。
+实库日志确认 MySQL/PostgreSQL 各七个子项实际运行（未 skip）。双连接屏障保证事务
+重叠及最终状态检查，第二屏障在 SQL 发送前，不能声称直接观察到了数据库锁等待。
+
+**日志复核发现，不能据此宣布 S2-A 验收完成**：MySQL 的订阅/充值中文日志插入出现
+`Error 1366 (HY000): Incorrect string value ... for column 'content'`，但测试未断言
+日志写入，因此 job 仍为绿色。fixture 直接 AutoMigrate，没有按真实启动路径调用
+`model/main.go` 的 `checkMySQLChineseSupport`；连接 DSN 的 `charset=utf8mb4` 不等于
+数据库/表的默认字符集已配置。生产启动已有字符集拒绝保护，本次不修改该保护或生产库。
+
+追加 **S2-A-R1（未开始／待确认）**：仅修正专用、已确认空库的 MySQL fixture 字符集，
+复用真实启动的中文支持检查；补齐成功/重复/回滚与并发付款的准确日志条数、中文内容
+断言，再重跑两种实库及相关回归。范围为 `model/payment_database_test.go` 和验收文档，
+不改变生产付款语义、schema 迁移或发布配置。本轮独立静态复审通过不替代这一运行时发现。
 
 Pancake 履约使用已验签合成事件，公开入口另验非法签名拒绝，未替换官方公钥。
 所有支付数据/签名均为 fixture，没有真实付款。明确回滚的提交失败不代表不确定提交
 恢复；完整三库备份恢复、真实网关重试、续费/争议/生产对账及 S2-B/C 仍未验收。
 
 ## 最近 CI 证据
+
+- S2-A 代码 `2777021`：[CI 33749764180](https://github.com/ForceMind/MyAPI/actions/runs/33749764180)
+  六项 success；但实库原始日志发现 MySQL 中文日志写失败且缺断言，详见上节。
+  这是“CI 绿但验收未通过”，不得省略警告或据此完成阶段。
 
 - S2-A 开始基线 `c82d0f1`：[CI 33744326429](https://github.com/ForceMind/MyAPI/actions/runs/33744326429)
   五项成功。已确认 A01–A06，目前修改待验收；此旧运行不证明本轮代码、实库或真实付款通过。

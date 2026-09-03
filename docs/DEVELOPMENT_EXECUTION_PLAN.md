@@ -2,7 +2,7 @@
 
 > 2026-09-03 执行基线：`c82d0f1`。本文件管理完整路线与当前授权；历史证据保留在
 > [完成度审计](COMPLETION_AUDIT.md)，产品定义见[主计划](MYAPI_MASTER_PLAN.md)。
-> **S0＋S1 及 S1-R1** 已完成；**S2-A 六项**已确认并执行中。后续新行为、迁移策略和发布分别确认，不由持续目标扩大权限。
+> **S0＋S1 及 S1-R1** 已完成；**S2-A 六项**已提交，但 CI 日志复核未通过，追加 **S2-A-R1** 待确认。后续新行为、迁移策略和发布分别确认，不由持续目标扩大权限。
 
 ## 目标、保留能力与完成规则
 
@@ -64,6 +64,8 @@ UpdateOptionsBulk 的事务提交到内存发布、loadOptionsFromDatabase / Syn
 ## S2-A 支付与订阅事务（进行中）
 
 开始基线 `c82d0f1` / CI `33744326429` 五项通过，旧绿灯不是本轮修改的验收证据。
+交付 `2777021` / CI `33749764180` 六项 success，本机完整 Go/race/relaykit/发行合同
+及独立静态复审通过；但原始 MySQL 实库日志暴露中文日志插入错误，故阶段仍待验收。
 
 | ID | 状态 | 范围 | 最低验收 |
 | --- | --- | --- | --- |
@@ -73,6 +75,12 @@ UpdateOptionsBulk 的事务提交到内存发布、loadOptionsFromDatabase / Syn
 | A04 | 待验证 | Stripe/Pancake 临时 DB 失败返回可重试 HTTP 错误 | 查询/写入/提交失败不得 ACK 成功；恢复重送一次入账，真正缺单/身份拒绝保持既有行为。 |
 | A05 | 待验证 | Stripe failed 通知的数据库 pending 条件更新 | 陈旧读取及竞争通知不能覆盖 success；只修改 status，不保存旧整行。 |
 | A06 | 待验证 | Stripe/Creem 仅订阅配置的 callback 可用性 | 无充值商品时签名订阅事件可履约；充值入口仍关闭；缺凭据/密钥/合规确认继续拒绝。 |
+
+**S2-A-R1：未开始／待确认**。CI 专库的 DSN 编码并未配置 schema 默认字符集，中文
+日志插入报 `Error 1366`；现有实库测试没断言日志，导致绿色不能支撑完整验收。
+仅调整 `model/payment_database_test.go`：在严格 loopback/专名/空库检查后配置中文
+字符集、调用既有启动校验，补精确日志条数/中文内容及重复/回滚断言，重跑 CI。
+不修改生产 schema、业务行为或放宽现有检查，详细证据见[完成度审计](COMPLETION_AUDIT.md)。
 
 本批无 schema 变更。验证包括临时 SQLite 故障注入、签名 HTTP fixture、独立复审及
 CI 专属 `myapi_s2a_test` MySQL5.7/PostgreSQL9.6 单/多连接测试；不复用 S1 实库证据。
@@ -88,7 +96,7 @@ provider 私钥，不将此写为完整网关签名或真实付款验收。提�
 
 | 项目 | 当前事实 | 恢复/进入条件 |
 | --- | --- | --- |
-| GitHub CI | R1 提交 `8dfcfba` 的 `33743669737` 五个 job 成功，含专项 race 和真实构建的额度浏览器 fixture | 历史 Billing/runner 失败不再是当前阻塞；后续阶段仍检查各自 SHA，不能借用旧绿灯。 |
+| GitHub CI | S2-A `2777021` 的 `33749764180` 六个 job success，但实库日志复核未通过 | 当前不是 Billing/runner 阻塞；S2-A-R1 待确认，需消除中文日志错误并补断言，不能只看绿色。 |
 | Docker | 当前 Mac 未发现 Docker CLI 或 Docker.app；现有 smoke 仅 LAN＋SQLite | 本机安装按权限审批；GitHub 可构建临时镜像测试；Full/三库/业务恢复矩阵仍须补齐。 |
 | 工具链 | macOS 26.2 arm64，Go 1.27.0、Bun 1.4.0、Node 22.23.2 可用 | 最低/固定验证基线以 `go.mod` 1.25.1、CI Bun 1.3.14 为准；本机可运行不等于最低版本或永久环境配置已验。 |
 | 三数据库 | SQLite fixture 与历史副本已有；S1 身份迁移/Option 事务已在 MySQL5.7/PostgreSQL9.6 实跑 | 不等于完整应用升级、备份恢复或多连接业务验证；S4 仍需对应测试，不能连接生产替代。 |
