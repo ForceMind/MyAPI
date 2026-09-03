@@ -1,10 +1,11 @@
 package ionet
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/ForceMind/MyAPI/common"
 	"github.com/samber/lo"
 )
 
@@ -149,12 +150,15 @@ func (c *Client) GetHardwareType(hardwareID int) (*HardwareType, error) {
 	}
 
 	// API response format not documented, assuming direct format
-	var hardwareType HardwareType
-	if err := json.Unmarshal(resp.Body, &hardwareType); err != nil {
+	var hardwareType *HardwareType
+	if err := common.Unmarshal(resp.Body, &hardwareType); err != nil || hardwareType == nil || hardwareType.ID <= 0 {
+		if err == nil {
+			err = fmt.Errorf("hardware id is required")
+		}
 		return nil, fmt.Errorf("failed to parse hardware type: %w", err)
 	}
 
-	return &hardwareType, nil
+	return hardwareType, nil
 }
 
 // GetLocation retrieves details about a specific location
@@ -171,12 +175,15 @@ func (c *Client) GetLocation(locationID int) (*Location, error) {
 	}
 
 	// API response format not documented, assuming direct format
-	var location Location
-	if err := json.Unmarshal(resp.Body, &location); err != nil {
+	var location *Location
+	if err := common.Unmarshal(resp.Body, &location); err != nil || location == nil || location.ID <= 0 {
+		if err == nil {
+			err = fmt.Errorf("location id is required")
+		}
 		return nil, fmt.Errorf("failed to parse location: %w", err)
 	}
 
-	return &location, nil
+	return location, nil
 }
 
 // GetLocationAvailability retrieves real-time availability for a specific location
@@ -193,10 +200,25 @@ func (c *Client) GetLocationAvailability(locationID int) (*LocationAvailability,
 	}
 
 	// API response format not documented, assuming direct format
-	var availability LocationAvailability
-	if err := json.Unmarshal(resp.Body, &availability); err != nil {
+	var availability struct {
+		LocationID           int                    `json:"location_id"`
+		LocationName         string                 `json:"location_name"`
+		Available            *bool                  `json:"available"`
+		HardwareAvailability []HardwareAvailability `json:"hardware_availability"`
+		UpdatedAt            time.Time              `json:"updated_at"`
+	}
+	if err := common.Unmarshal(resp.Body, &availability); err != nil || availability.Available == nil || availability.LocationID <= 0 {
+		if err == nil {
+			err = fmt.Errorf("location availability response requires location_id and available")
+		}
 		return nil, fmt.Errorf("failed to parse location availability: %w", err)
 	}
 
-	return &availability, nil
+	return &LocationAvailability{
+		LocationID:           availability.LocationID,
+		LocationName:         availability.LocationName,
+		Available:            *availability.Available,
+		HardwareAvailability: availability.HardwareAvailability,
+		UpdatedAt:            availability.UpdatedAt,
+	}, nil
 }

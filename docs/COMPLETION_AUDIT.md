@@ -476,8 +476,8 @@ check→execute→record 的近似语义，并发可超发，未误报为硬限�
 
 剩余独立 S2-C09：generic config 对象业务热读缺统一快照/锁；跨不同配置族 reload 仍为
 best-effort 而非全量事务；历史 DB raw `null`、未知分层 key、Passkey 懒写和
-`GroupRatioSetting` 可变指针待审计。C09 只读设计已完成、实施仍独立保留；D08 已完成当前范围，
-D09 下一批，D10 其后。
+`GroupRatioSetting` 可变指针待审计。C09 只读设计已完成、实施仍待决策；D09 已完成本地范围并待同提交 CI，
+D10 为下一批。
 
 ## S2-D08 io.net 核心（2026-09-04，已完成当前范围）
 
@@ -493,8 +493,25 @@ headers、method、URL，NaN marshal，transport/API detail fallback，query sli
 P3 已补。保留 `interface{}`→`float64` 大整数精度风险和递归识别看似时间字符串的既有语义；endpoint path
 逃逸、nil response 等 D09 边界另审。无页面/schema、真实 io.net、凭据或网络访问，`VERSION` 保持 0.1.1。
 
+## S2-D09 io.net endpoints（2026-09-04，本地已完成、同提交 CI 待推送）
+
+`pkg/ionet` container/deployment/hardware 三文件的 9 处实际 `Unmarshal` 已迁移至 `common.Unmarshal`，根模块
+结构余量由 11 处/4 文件降为 **2 处/1 文件**，仅余 D10 的 `pkg/cachex` codec。动态 deployment/container/cluster
+path segment 全部经 `PathEscape`；stream options 采用局部复制，不修改调用者输入。`makeRequest` 对 nil 保持安全，
+仅 2xx 成功；非 2xx 固定映射为 `APIError`，不回显 raw response 或 detail，controller 以 `errors.As` 处理。
+默认 HTTP client 显式拒绝 301/302/303/307/308，避免 `X-API-KEY` 和敏感 body 随重定向泄露。
+
+离线 fake 与 loopback `httptest` 回归覆盖合法/malformed 响应、mutation/hardware/location、null/空/缺 ID 不伪造
+成功、合法 `false`、五类重定向、path 逃逸及 stream options 不变性；没有真实 io.net、凭据或公网 I/O。本机实际通过
+`pkg/ionet` race `-count=2`、controller 定向 race、vet、gofmt、diff-check、根全量 test/vet/build 及 relaykit
+独立 vet/build/test 已通过；同提交 CI 仍待推送后验证。独立 Sol 审查无 P1/P2；P3 为未公开文档的
+hardware/location 必填回显，需真实脱敏响应或官方 schema 补验。无页面/schema 改动，`VERSION` 保持 0.1.1。
+同提交 Backend 已新增 `pkg/ionet` 整包 race `-count=2` 门禁，待 GitHub runner 实跑核对。
+
 ## 最近 CI 证据
 
+- D08 文档提交：[CI 33817446025](https://github.com/ForceMind/MyAPI/actions/runs/33817446025) 七项成功；
+  `upload-artifact` 的 Node 20→24 annotation 是非阻断 workflow 维护项，未为修正该注解扩大本批源码范围。
 - S2-D08 最终提交 `9193ada`：[CI 33816756504](https://github.com/ForceMind/MyAPI/actions/runs/33816756504)
   七项成功；io.net 核心 8 处 wrapper 和离线 HTTP/flexible-time 回归闭环，余量 11/4。
 - S2-C08/D07 最终提交 `2d6acab`：[CI 33814136556](https://github.com/ForceMind/MyAPI/actions/runs/33814136556)

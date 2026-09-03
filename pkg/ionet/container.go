@@ -1,11 +1,12 @@
 package ionet
 
 import (
-	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
+	"github.com/ForceMind/MyAPI/common"
 	"github.com/samber/lo"
 )
 
@@ -15,7 +16,7 @@ func (c *Client) ListContainers(deploymentID string) (*ContainerList, error) {
 		return nil, fmt.Errorf("deployment ID cannot be empty")
 	}
 
-	endpoint := fmt.Sprintf("/deployment/%s/containers", deploymentID)
+	endpoint := fmt.Sprintf("/deployment/%s/containers", url.PathEscape(deploymentID))
 
 	resp, err := c.makeRequest("GET", endpoint, nil)
 	if err != nil {
@@ -39,7 +40,7 @@ func (c *Client) GetContainerDetails(deploymentID, containerID string) (*Contain
 		return nil, fmt.Errorf("container ID cannot be empty")
 	}
 
-	endpoint := fmt.Sprintf("/deployment/%s/container/%s", deploymentID, containerID)
+	endpoint := fmt.Sprintf("/deployment/%s/container/%s", url.PathEscape(deploymentID), url.PathEscape(containerID))
 
 	resp, err := c.makeRequest("GET", endpoint, nil)
 	if err != nil {
@@ -64,7 +65,7 @@ func (c *Client) GetContainerJobs(deploymentID, containerID string) (*ContainerL
 		return nil, fmt.Errorf("container ID cannot be empty")
 	}
 
-	endpoint := fmt.Sprintf("/deployment/%s/containers-jobs/%s", deploymentID, containerID)
+	endpoint := fmt.Sprintf("/deployment/%s/containers-jobs/%s", url.PathEscape(deploymentID), url.PathEscape(containerID))
 
 	resp, err := c.makeRequest("GET", endpoint, nil)
 	if err != nil {
@@ -115,7 +116,7 @@ func buildLogEndpoint(deploymentID, containerID string, opts *GetLogsOptions) (s
 		}
 	}
 
-	endpoint := fmt.Sprintf("/deployment/%s/log/%s", deploymentID, containerID)
+	endpoint := fmt.Sprintf("/deployment/%s/log/%s", url.PathEscape(deploymentID), url.PathEscape(containerID))
 	endpoint += buildQueryParams(params)
 
 	return endpoint, nil
@@ -176,13 +177,13 @@ func (c *Client) StreamContainerLogs(deploymentID, containerID string, opts *Get
 		return fmt.Errorf("callback function cannot be nil")
 	}
 
-	// Set follow to true for streaming
-	if opts == nil {
-		opts = &GetLogsOptions{}
+	localOpts := GetLogsOptions{}
+	if opts != nil {
+		localOpts = *opts
 	}
-	opts.Follow = true
+	localOpts.Follow = true
 
-	endpoint, err := buildLogEndpoint(deploymentID, containerID, opts)
+	endpoint, err := buildLogEndpoint(deploymentID, containerID, &localOpts)
 	if err != nil {
 		return err
 	}
@@ -214,8 +215,8 @@ func (c *Client) StreamContainerLogs(deploymentID, containerID string, opts *Get
 
 		// Update cursor for next request
 		if logs.NextCursor != "" {
-			opts.Cursor = logs.NextCursor
-			endpoint, err = buildLogEndpoint(deploymentID, containerID, opts)
+			localOpts.Cursor = logs.NextCursor
+			endpoint, err = buildLogEndpoint(deploymentID, containerID, &localOpts)
 			if err != nil {
 				return err
 			}
@@ -237,7 +238,7 @@ func (c *Client) RestartContainer(deploymentID, containerID string) error {
 		return fmt.Errorf("container ID cannot be empty")
 	}
 
-	endpoint := fmt.Sprintf("/deployment/%s/container/%s/restart", deploymentID, containerID)
+	endpoint := fmt.Sprintf("/deployment/%s/container/%s/restart", url.PathEscape(deploymentID), url.PathEscape(containerID))
 
 	_, err := c.makeRequest("POST", endpoint, nil)
 	if err != nil {
@@ -256,7 +257,7 @@ func (c *Client) StopContainer(deploymentID, containerID string) error {
 		return fmt.Errorf("container ID cannot be empty")
 	}
 
-	endpoint := fmt.Sprintf("/deployment/%s/container/%s/stop", deploymentID, containerID)
+	endpoint := fmt.Sprintf("/deployment/%s/container/%s/stop", url.PathEscape(deploymentID), url.PathEscape(containerID))
 
 	_, err := c.makeRequest("POST", endpoint, nil)
 	if err != nil {
@@ -282,7 +283,7 @@ func (c *Client) ExecuteInContainer(deploymentID, containerID string, command []
 		"command": command,
 	}
 
-	endpoint := fmt.Sprintf("/deployment/%s/container/%s/exec", deploymentID, containerID)
+	endpoint := fmt.Sprintf("/deployment/%s/container/%s/exec", url.PathEscape(deploymentID), url.PathEscape(containerID))
 
 	resp, err := c.makeRequest("POST", endpoint, reqBody)
 	if err != nil {
@@ -290,7 +291,7 @@ func (c *Client) ExecuteInContainer(deploymentID, containerID string, command []
 	}
 
 	var result map[string]interface{}
-	if err := json.Unmarshal(resp.Body, &result); err != nil {
+	if err := common.Unmarshal(resp.Body, &result); err != nil {
 		return "", fmt.Errorf("failed to parse execution result: %w", err)
 	}
 

@@ -1,10 +1,11 @@
 package ionet
 
 import (
-	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 
+	"github.com/ForceMind/MyAPI/common"
 	"github.com/samber/lo"
 )
 
@@ -44,12 +45,15 @@ func (c *Client) DeployContainer(req *DeploymentRequest) (*DeploymentResponse, e
 
 	// API returns direct format:
 	// {"status": "string", "deployment_id": "..."}
-	var deployResp DeploymentResponse
-	if err := json.Unmarshal(resp.Body, &deployResp); err != nil {
+	var deployResp *DeploymentResponse
+	if err := common.Unmarshal(resp.Body, &deployResp); err != nil || deployResp == nil || deployResp.DeploymentID == "" {
+		if err == nil {
+			err = fmt.Errorf("deployment_id is required")
+		}
 		return nil, fmt.Errorf("failed to parse deployment response: %w", err)
 	}
 
-	return &deployResp, nil
+	return deployResp, nil
 }
 
 // ListDeployments retrieves a list of deployments with optional filtering
@@ -92,7 +96,7 @@ func (c *Client) GetDeployment(deploymentID string) (*DeploymentDetail, error) {
 		return nil, fmt.Errorf("deployment ID cannot be empty")
 	}
 
-	endpoint := fmt.Sprintf("/deployment/%s", deploymentID)
+	endpoint := fmt.Sprintf("/deployment/%s", url.PathEscape(deploymentID))
 
 	resp, err := c.makeRequest("GET", endpoint, nil)
 	if err != nil {
@@ -116,7 +120,7 @@ func (c *Client) UpdateDeployment(deploymentID string, req *UpdateDeploymentRequ
 		return nil, fmt.Errorf("update request cannot be nil")
 	}
 
-	endpoint := fmt.Sprintf("/deployment/%s", deploymentID)
+	endpoint := fmt.Sprintf("/deployment/%s", url.PathEscape(deploymentID))
 
 	resp, err := c.makeRequest("PATCH", endpoint, req)
 	if err != nil {
@@ -125,12 +129,15 @@ func (c *Client) UpdateDeployment(deploymentID string, req *UpdateDeploymentRequ
 
 	// API returns direct format:
 	// {"status": "string", "deployment_id": "..."}
-	var updateResp UpdateDeploymentResponse
-	if err := json.Unmarshal(resp.Body, &updateResp); err != nil {
+	var updateResp *UpdateDeploymentResponse
+	if err := common.Unmarshal(resp.Body, &updateResp); err != nil || updateResp == nil || updateResp.DeploymentID == "" {
+		if err == nil {
+			err = fmt.Errorf("deployment_id is required")
+		}
 		return nil, fmt.Errorf("failed to parse update deployment response: %w", err)
 	}
 
-	return &updateResp, nil
+	return updateResp, nil
 }
 
 // ExtendDeployment extends the duration of an existing deployment
@@ -145,7 +152,7 @@ func (c *Client) ExtendDeployment(deploymentID string, req *ExtendDurationReques
 		return nil, fmt.Errorf("duration_hours must be at least 1")
 	}
 
-	endpoint := fmt.Sprintf("/deployment/%s/extend", deploymentID)
+	endpoint := fmt.Sprintf("/deployment/%s/extend", url.PathEscape(deploymentID))
 
 	resp, err := c.makeRequest("POST", endpoint, req)
 	if err != nil {
@@ -166,7 +173,7 @@ func (c *Client) DeleteDeployment(deploymentID string) (*UpdateDeploymentRespons
 		return nil, fmt.Errorf("deployment ID cannot be empty")
 	}
 
-	endpoint := fmt.Sprintf("/deployment/%s", deploymentID)
+	endpoint := fmt.Sprintf("/deployment/%s", url.PathEscape(deploymentID))
 
 	resp, err := c.makeRequest("DELETE", endpoint, nil)
 	if err != nil {
@@ -175,12 +182,15 @@ func (c *Client) DeleteDeployment(deploymentID string) (*UpdateDeploymentRespons
 
 	// API returns direct format:
 	// {"status": "string", "deployment_id": "..."}
-	var deleteResp UpdateDeploymentResponse
-	if err := json.Unmarshal(resp.Body, &deleteResp); err != nil {
+	var deleteResp *UpdateDeploymentResponse
+	if err := common.Unmarshal(resp.Body, &deleteResp); err != nil || deleteResp == nil || deleteResp.DeploymentID == "" {
+		if err == nil {
+			err = fmt.Errorf("deployment_id is required")
+		}
 		return nil, fmt.Errorf("failed to parse delete deployment response: %w", err)
 	}
 
-	return &deleteResp, nil
+	return deleteResp, nil
 }
 
 // GetPriceEstimation calculates the estimated cost for a deployment
@@ -340,12 +350,15 @@ func (c *Client) CheckClusterNameAvailability(clusterName string) (bool, error) 
 		return false, fmt.Errorf("failed to check cluster name availability: %w", err)
 	}
 
-	var availabilityResp bool
-	if err := json.Unmarshal(resp.Body, &availabilityResp); err != nil {
+	var availabilityResp *bool
+	if err := common.Unmarshal(resp.Body, &availabilityResp); err != nil || availabilityResp == nil {
+		if err == nil {
+			err = fmt.Errorf("availability response cannot be null")
+		}
 		return false, fmt.Errorf("failed to parse cluster name availability response: %w", err)
 	}
 
-	return availabilityResp, nil
+	return *availabilityResp, nil
 }
 
 // UpdateClusterName updates the name of an existing cluster/deployment
@@ -360,7 +373,7 @@ func (c *Client) UpdateClusterName(clusterID string, req *UpdateClusterNameReque
 		return nil, fmt.Errorf("cluster name cannot be empty")
 	}
 
-	endpoint := fmt.Sprintf("/clusters/%s/update-name", clusterID)
+	endpoint := fmt.Sprintf("/clusters/%s/update-name", url.PathEscape(clusterID))
 
 	resp, err := c.makeRequest("PUT", endpoint, req)
 	if err != nil {
@@ -368,10 +381,13 @@ func (c *Client) UpdateClusterName(clusterID string, req *UpdateClusterNameReque
 	}
 
 	// Parse the response directly without data wrapper based on API docs
-	var updateResp UpdateClusterNameResponse
-	if err := json.Unmarshal(resp.Body, &updateResp); err != nil {
+	var updateResp *UpdateClusterNameResponse
+	if err := common.Unmarshal(resp.Body, &updateResp); err != nil || updateResp == nil || (updateResp.Status == "" && updateResp.Message == "") {
+		if err == nil {
+			err = fmt.Errorf("cluster update response cannot be empty")
+		}
 		return nil, fmt.Errorf("failed to parse update cluster name response: %w", err)
 	}
 
-	return &updateResp, nil
+	return updateResp, nil
 }

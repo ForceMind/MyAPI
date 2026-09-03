@@ -2,9 +2,13 @@ package ionet
 
 import (
 	"errors"
+	"fmt"
 	"math"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -64,57 +68,166 @@ func TestClientMakeRequestTransportError(t *testing.T) {
 	require.Len(t, client.requests, 1)
 }
 
-func TestClientMakeRequestAPIErrorFallbacks(t *testing.T) {
+func TestClientMakeRequestRejectsEveryNon2xxStatus(t *testing.T) {
 	tests := []struct {
-		name            string
-		body            string
-		expectedMessage string
-		expectedDetails string
+		name      string
+		status    int
+		body      string
+		sensitive string
 	}{
+		{name: "zero", status: 0},
+		{name: "informational", status: 199},
 		{
-			name:            "detail message",
-			body:            `{"detail":"upstream rejected request"}`,
-			expectedMessage: "upstream rejected request",
+			name:      "redirect with valid business JSON",
+			status:    300,
+			body:      `{"detail":"valid but sensitive business detail"}`,
+			sensitive: "valid but sensitive business detail",
 		},
 		{
-			name:            "empty response body",
-			expectedMessage: "API request failed with status 422",
+			name:      "server error with valid detail",
+			status:    500,
+			body:      `{"detail":"detail-secret"}`,
+			sensitive: "detail-secret",
 		},
 		{
-			name:            "empty detail",
-			body:            `{"detail":""}`,
-			expectedMessage: "API request failed with status 422",
-			expectedDetails: `{"detail":""}`,
-		},
-		{
-			name:            "malformed response body",
-			body:            `{"detail":`,
-			expectedMessage: "API request failed with status 422",
-			expectedDetails: `{"detail":`,
-		},
-		{
-			name:            "non string detail",
-			body:            `{"detail":123}`,
-			expectedMessage: "API request failed with status 422",
-			expectedDetails: `{"detail":123}`,
+			name:      "server error with raw body",
+			status:    500,
+			body:      `raw-secret-response`,
+			sensitive: "raw-secret-response",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := &fakeHTTPClient{response: &HTTPResponse{StatusCode: 422, Body: []byte(tt.body)}}
+			client := &fakeHTTPClient{response: &HTTPResponse{StatusCode: tt.status, Body: []byte(tt.body)}}
 			api := NewClientWithConfig("test-key", "https://ionet.example/api", client)
 
 			_, err := api.makeRequest("GET", "/deployments", nil)
 
 			require.Error(t, err)
-			apiErr, ok := err.(*APIError)
-			require.True(t, ok)
-			assert.Equal(t, 422, apiErr.Code)
-			assert.Equal(t, tt.expectedMessage, apiErr.Message)
-			assert.Equal(t, tt.expectedDetails, apiErr.Details)
+			var apiErr *APIError
+			require.ErrorAs(t, err, &apiErr)
+			assert.Equal(t, tt.status, apiErr.Code)
+			assert.Equal(t, "API request failed with status "+fmt.Sprint(tt.status), apiErr.Message)
+			assert.Empty(t, apiErr.Details)
+			if tt.sensitive != "" {
+				assert.NotContains(t, err.Error(), tt.sensitive)
+				assert.NotContains(t, apiErr.Message, tt.sensitive)
+				assert.NotContains(t, apiErr.Details, tt.sensitive)
+			}
 		})
 	}
+}
+
+func TestClientMakeRequestAcceptsEvery2xxStatus(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusNoContent, 299} {
+		t.Run(fmt.Sprint(status), func(t *testing.T) {
+			response := &HTTPResponse{StatusCode: status}
+			api := NewClientWithConfig("test-key", "https://ionet.example/api", &fakeHTTPClient{response: response})
+
+			actual, err := api.makeRequest("GET", "/deployments", nil)
+
+			require.NoError(t, err)
+			assert.Same(t, response, actual)
+		})
+	}
+}
+
+func TestClientMakeRequestRejectsNilDependenciesAndResponse(t *testing.T) {
+	t.Run("nil receiver", func(t *testing.T) {
+		var api *Client
+
+		_, err := api.makeRequest("GET", "/deployments", nil)
+
+		assert.ErrorIs(t, err, errNilClient)
+	})
+
+	t.Run("nil HTTP client", func(t *testing.T) {
+		api := &Client{BaseURL: "https://ionet.example/api"}
+
+		_, err := api.makeRequest("GET", "/deployments", nil)
+
+		assert.ErrorIs(t, err, errNilHTTPClient)
+	})
+
+	t.Run("nil response without error", func(t *testing.T) {
+		api := NewClientWithConfig("test-key", "https://ionet.example/api", &fakeHTTPClient{})
+
+		_, err := api.makeRequest("GET", "/deployments", nil)
+
+		assert.ErrorIs(t, err, errNilHTTPResponse)
+	})
+}
+
+func TestDefaultHTTPClientRejectsRedirectsWithoutLeakingSecrets(t *testing.T) {
+	const (
+		apiKey = "api-key-secret"
+		secret = "body-secret"
+	)
+
+	for _, status := range []int{
+		http.StatusMovedPermanently,
+		http.StatusFound,
+		http.StatusSeeOther,
+		http.StatusTemporaryRedirect,
+		http.StatusPermanentRedirect,
+	} {
+		t.Run(fmt.Sprint(status), func(t *testing.T) {
+			var targetVisited atomic.Bool
+			target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				targetVisited.Store(true)
+				assert.Empty(t, req.Header.Get("X-API-KEY"))
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			defer target.Close()
+
+			source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				assert.Equal(t, apiKey, req.Header.Get("X-API-KEY"))
+				http.Redirect(w, req, target.URL, status)
+			}))
+			defer source.Close()
+
+			client := NewClientWithConfig(apiKey, source.URL, NewDefaultHTTPClient(time.Second))
+			response, err := client.makeRequest(http.MethodPost, "", map[string]string{"prompt": secret})
+
+			require.Error(t, err)
+			assert.Nil(t, response)
+			var apiErr *APIError
+			require.ErrorAs(t, err, &apiErr)
+			assert.Equal(t, status, apiErr.Code)
+			assert.Empty(t, apiErr.Details)
+			assert.False(t, targetVisited.Load())
+			assert.NotContains(t, err.Error(), apiKey)
+			assert.NotContains(t, err.Error(), secret)
+		})
+	}
+}
+
+func TestDefaultHTTPClientZeroValueAndNilReceiverAreUsable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	request := &HTTPRequest{Method: http.MethodGet, URL: server.URL}
+	clients := []*DefaultHTTPClient{{}, nil}
+	for i, client := range clients {
+		t.Run(fmt.Sprint(i), func(t *testing.T) {
+			response, err := client.Do(request)
+
+			require.NoError(t, err)
+			require.NotNil(t, response)
+			assert.Equal(t, http.StatusNoContent, response.StatusCode)
+		})
+	}
+}
+
+func TestDefaultHTTPClientRejectsNilRequest(t *testing.T) {
+	var client DefaultHTTPClient
+
+	_, err := client.Do(nil)
+
+	assert.ErrorIs(t, err, errNilHTTPRequest)
 }
 
 func TestBuildQueryParamsJSONSlicesAndEscaping(t *testing.T) {

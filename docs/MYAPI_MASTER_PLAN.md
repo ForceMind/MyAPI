@@ -222,8 +222,8 @@ race 全部实跑。无页面或 schema 变更，版本保持 0.1.1；未执行�
 
 这不关闭独立 S2-C09：generic config 热读尚无统一快照/锁；内存和 Redis 成功限额仍是
 check→execute→record 的近似合同，并发可能超发；跨配置族 reload 非全量事务；历史 DB raw
-`null`、未知分层 key、Passkey 懒写和 `GroupRatioSetting` 可变指针待审计。D08 已完成当前范围；
-D09 下一批、D10 其后，C09 只读设计已完成、实施仍独立保留。
+`null`、未知分层 key、Passkey 懒写和 `GroupRatioSetting` 可变指针待审计。C09 只读设计已完成、实施仍待
+决策；D09 已完成本地范围且同提交 CI 待推送，D10 为下一批。
 
 D08 本地将 `pkg/ionet/client.go`、`pkg/ionet/jsonutil.go` 各 4 处实际 stdlib JSON 调用迁移至
 `common` wrapper，根模块余量由 19/6 降为 11/4。无网络 fake client 覆盖请求 body/headers/method/URL、
@@ -234,6 +234,17 @@ test/vet/build 及 relaykit 独立 vet/build/test 已通过。最终 `9193ada` /
 [CI 33816756504](https://github.com/ForceMind/MyAPI/actions/runs/33816756504) 七项成功。独立 Sol 无 P1/P2，数组和 `*time.Time` 的 P3
 已补；保留 `interface{}`→`float64` 大整数精度风险与递归时间字符串识别的既有语义。无页面/schema、真实
 io.net、凭据或网络访问，版本保持 0.1.1；D09 的 endpoint path 逃逸、nil response 等边界另审。
+
+D09 本地完成 `pkg/ionet` container/deployment/hardware 三文件 9 处 `Unmarshal` 到 `common.Unmarshal`
+的收敛，根余量由 11/4 降至 **2/1**（仅 D10 `cachex` codec）。所有动态 deployment/container/cluster
+path segment 经 `PathEscape`，stream options 仅局部复制；`makeRequest` 的 nil、仅 2xx 成功和非 2xx 固定
+`APIError` 合同已锁定，错误不回显 raw response/detail，controller 用 `errors.As` 识别。默认 HTTP client
+拒绝 301/302/303/307/308，防 `X-API-KEY` 及敏感 body 跟随重定向泄露。离线 fake 与 loopback `httptest`
+覆盖合法/malformed、null/空/缺 ID 防伪成功、mutation/hardware/location、合法 `false`、五类重定向、path
+逃逸与 stream options 不变性；未访问真实 io.net、凭据或公网。`pkg/ionet` race `-count=2`、controller
+定向 race、vet、gofmt、diff-check、根全量 test/vet/build 及 relaykit 独立 vet/build/test 已通过；同提交 CI 待推送后验证。
+独立 Sol 无 P1/P2；P3 为 hardware/location 必填回显尚需真实脱敏响应或官方 schema 补验。无页面/schema
+变更，版本仍为 0.1.1。
 
 以下为此前阶段记录，当前状态以以上验收基线与执行矩阵为准。
 

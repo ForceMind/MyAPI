@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -86,7 +87,8 @@ func TestIoNetConnection(c *gin.Context) {
 	client := ionet.NewEnterpriseClient(apiKey)
 	result, err := client.GetMaxGPUsPerContainer()
 	if err != nil {
-		if apiErr, ok := err.(*ionet.APIError); ok {
+		var apiErr *ionet.APIError
+		if errors.As(err, &apiErr) && apiErr != nil {
 			message := strings.TrimSpace(apiErr.Message)
 			if message == "" {
 				message = "failed to validate api key"

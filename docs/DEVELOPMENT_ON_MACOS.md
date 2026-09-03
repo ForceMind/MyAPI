@@ -438,8 +438,8 @@ fresh 发布、RWMap/10 倍率、集合 `null` 规范化、负倍率/NaN/Inf 拒
 无页面/schema 改动，版本保持 0.1.1；没有真实上游、生产、真实设备或发布验证。同 SHA 常规
 MySQL/PostgreSQL CI 成功，但本批无专用三数据库 Settings 行为场景，不替代热更新验收。
 C09 的热读统一快照/锁、硬限额 reservation/rollback、
-跨族 reload 事务与历史数据审计未在本批解决；D08 已完成当前范围，D09 下一批、D10 其后，
-C09 只读设计仍独立保留。
+跨族 reload 事务与历史数据审计未在本批解决；C09 只读设计已完成、实施仍待决策；D09 已完成本地范围并待
+同提交 CI，D10 为下一批。
 
 ### S2-D08 io.net 核心（已完成当前范围）
 
@@ -453,4 +453,18 @@ relaykit 独立 vet/build/test 已通过。最终 `9193ada` /
 
 独立 Sol 审查无 P1/P2，数组和 `*time.Time` 两个 P3 已补。保留 `interface{}`→`float64` 大整数精度风险与
 递归时间字符串识别的既有语义；endpoint path 逃逸、nil response 等 D09 边界另审。C09 设计仍独立保留，
-D09 下一批、D10 其后。本批无页面/schema、真实 io.net、凭据或网络，`VERSION` 保持 0.1.1。
+D09 已完成本地范围并待同提交 CI，D10 为下一批。本批无页面/schema、真实 io.net、凭据或网络，`VERSION` 保持 0.1.1。
+
+### S2-D09 io.net endpoints（本地已完成，待同提交 CI）
+
+`pkg/ionet` 的 container/deployment/hardware 三文件 9 处直接 `Unmarshal` 已迁移到 `common.Unmarshal`，
+根模块余量由 11 处/4 文件降至 2 处/1 文件（仅 D10 的 `pkg/cachex` codec）。动态 deployment/container/
+cluster path segment 均使用 `PathEscape`，stream options 局部复制；`makeRequest` 在 nil、仅 2xx 成功、非 2xx
+固定 `APIError`（不回显 raw/detail）上的边界已覆盖，controller 以 `errors.As` 分类。默认 HTTP client 禁止
+301/302/303/307/308 重定向，防止 `X-API-KEY` 和敏感 body 泄露。
+
+离线 fake 和 loopback `httptest` 覆盖合法/malformed、mutation/hardware/location、null/空/缺 ID 防伪成功、
+合法 `false`、五类重定向、path 逃逸和 stream options 不变性；没有真实 io.net、凭据或公网 I/O。本机
+`pkg/ionet` race `-count=2`、controller 定向 race、vet、gofmt、diff-check、根全量 test/vet/build 及
+relaykit 独立 vet/build/test 已通过；同提交 CI 待推送后验证。独立 Sol 无 P1/P2；P3 是 hardware/location 必填回显尚需真实
+脱敏响应或官方 schema 补验。无页面/schema 改动，`VERSION` 仍为 0.1.1。

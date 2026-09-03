@@ -2,6 +2,7 @@ package ionet
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -17,6 +18,13 @@ const (
 	DefaultTimeout           = 30 * time.Second
 )
 
+var (
+	errNilClient       = errors.New("io.net client is nil")
+	errNilHTTPClient   = errors.New("io.net HTTP client is nil")
+	errNilHTTPResponse = errors.New("io.net HTTP client returned nil response")
+	errNilHTTPRequest  = errors.New("io.net HTTP request is nil")
+)
+
 // DefaultHTTPClient is the default HTTP client implementation
 type DefaultHTTPClient struct {
 	client *http.Client
@@ -26,13 +34,22 @@ type DefaultHTTPClient struct {
 func NewDefaultHTTPClient(timeout time.Duration) *DefaultHTTPClient {
 	return &DefaultHTTPClient{
 		client: &http.Client{
-			Timeout: timeout,
+			Timeout:       timeout,
+			CheckRedirect: rejectRedirect,
 		},
 	}
 }
 
+func rejectRedirect(_ *http.Request, _ []*http.Request) error {
+	return http.ErrUseLastResponse
+}
+
 // Do executes an HTTP request
 func (c *DefaultHTTPClient) Do(req *HTTPRequest) (*HTTPResponse, error) {
+	if req == nil {
+		return nil, errNilHTTPRequest
+	}
+
 	httpReq, err := http.NewRequest(req.Method, req.URL, bytes.NewReader(req.Body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
@@ -43,9 +60,18 @@ func (c *DefaultHTTPClient) Do(req *HTTPRequest) (*HTTPResponse, error) {
 		httpReq.Header.Set(key, value)
 	}
 
-	resp, err := c.client.Do(httpReq)
+	httpClient := http.Client{}
+	if c != nil && c.client != nil {
+		httpClient = *c.client
+	}
+	httpClient.CheckRedirect = rejectRedirect
+
+	resp, err := httpClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
+	}
+	if resp == nil {
+		return nil, errNilHTTPResponse
 	}
 	defer resp.Body.Close()
 
@@ -98,6 +124,13 @@ func NewClientWithConfig(apiKey, baseURL string, httpClient HTTPClient) *Client 
 
 // makeRequest performs an HTTP request and handles common response processing
 func (c *Client) makeRequest(method, endpoint string, body interface{}) (*HTTPResponse, error) {
+	if c == nil {
+		return nil, errNilClient
+	}
+	if c.HTTPClient == nil {
+		return nil, errNilHTTPClient
+	}
+
 	var reqBody []byte
 	var err error
 
@@ -124,35 +157,16 @@ func (c *Client) makeRequest(method, endpoint string, body interface{}) (*HTTPRe
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
+	if resp == nil {
+		return nil, errNilHTTPResponse
+	}
 
 	// Handle API errors
-	if resp.StatusCode >= 400 {
-		var apiErr APIError
-		if len(resp.Body) > 0 {
-			// Try to parse the actual error format: {"detail": "message"}
-			var errorResp struct {
-				Detail string `json:"detail"`
-			}
-			if err := common.Unmarshal(resp.Body, &errorResp); err == nil && errorResp.Detail != "" {
-				apiErr = APIError{
-					Code:    resp.StatusCode,
-					Message: errorResp.Detail,
-				}
-			} else {
-				// Fallback: use raw body as details
-				apiErr = APIError{
-					Code:    resp.StatusCode,
-					Message: fmt.Sprintf("API request failed with status %d", resp.StatusCode),
-					Details: string(resp.Body),
-				}
-			}
-		} else {
-			apiErr = APIError{
-				Code:    resp.StatusCode,
-				Message: fmt.Sprintf("API request failed with status %d", resp.StatusCode),
-			}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, &APIError{
+			Code:    resp.StatusCode,
+			Message: fmt.Sprintf("API request failed with status %d", resp.StatusCode),
 		}
-		return nil, &apiErr
 	}
 
 	return resp, nil
