@@ -71,14 +71,27 @@ func ListChannelQuotaAggregateRows(ctx context.Context, start, end int64, channe
 		query = query.Where("snapshots.metric_type = ?", metricType)
 	}
 	if windowType != "" {
-		query = query.Where("snapshots.window_type = ?", windowType)
+		query = query.Where("(snapshots.window_type = ? OR (snapshots.window_type = ? AND snapshots.status IN ?))", windowType, "none", []string{"error", "unsupported"})
 	}
 	if source != "" {
-		query = query.Where("snapshots.source = ?", source)
+		sources := []string{source}
+		for _, suffix := range []string{"_primary", "_secondary"} {
+			if base := strings.TrimSuffix(source, suffix); base != source {
+				sources = append(sources, base)
+				break
+			}
+		}
+		query = query.Where("snapshots.source IN ?", sources)
 	}
 	rows := make([]ChannelQuotaAggregateRow, 0)
-	err := query.Order("snapshots.observed_at DESC, snapshots.id DESC").Limit(maxChannelQuotaAggregateRows).Find(&rows).Error
-	return rows, err
+	err := query.Order("snapshots.observed_at DESC, snapshots.id DESC").Limit(maxChannelQuotaAggregateRows + 1).Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) > maxChannelQuotaAggregateRows {
+		return nil, fmt.Errorf("quota changes observation limit exceeded; select fewer channels or a shorter range")
+	}
+	return rows, nil
 }
 
 // ChannelQuotaSnapshot stores a normalized point-in-time view of an upstream
@@ -157,9 +170,19 @@ func (ChannelQuotaSnapshot) TableName() string {
 // safe to call when the database has not been initialized (for example in
 // lightweight controller tests).
 func RecordChannelQuotaSnapshot(snapshot *ChannelQuotaSnapshot) error {
+	return RecordChannelQuotaSnapshotWithContext(context.Background(), snapshot)
+}
+
+// RecordChannelQuotaSnapshotWithContext bounds both deduplication queries and
+// insertion, including time spent waiting for an available database connection.
+func RecordChannelQuotaSnapshotWithContext(ctx context.Context, snapshot *ChannelQuotaSnapshot) error {
 	if snapshot == nil || DB == nil {
 		return nil
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	db := DB.WithContext(ctx)
 	if math.IsNaN(snapshot.Available) || math.IsInf(snapshot.Available, 0) {
 		return fmt.Errorf("invalid quota snapshot available value")
 	}
@@ -194,7 +217,7 @@ func RecordChannelQuotaSnapshot(snapshot *ChannelQuotaSnapshot) error {
 	// dialects converge on one point per channel/series/time bucket without
 	// requiring a dialect-specific upsert or rewriting existing rows.
 	var existing ChannelQuotaSnapshot
-	lookup := DB.Where(
+	lookup := db.Where(
 		"channel_id = ? AND observed_at = ? AND metric_type = ? AND window_type = ? AND source = ? AND plan_type = ? AND unit = ? AND currency = ? AND window_seconds = ? AND reset_at = ?",
 		snapshot.ChannelId,
 		snapshot.ObservedAt,
@@ -215,12 +238,12 @@ func RecordChannelQuotaSnapshot(snapshot *ChannelQuotaSnapshot) error {
 	if lookup.Error != gorm.ErrRecordNotFound {
 		return lookup.Error
 	}
-	if err := DB.Create(snapshot).Error; err != nil {
+	if err := db.Create(snapshot).Error; err != nil {
 		// Two workers can both miss the pre-insert lookup. The unique digest is
 		// the database-level arbiter in that race; recover the winner instead of
 		// surfacing a transient duplicate-key failure to the sampler.
 		var concurrent ChannelQuotaSnapshot
-		if concurrentLookup := DB.Where("dedupe_key = ?", dedupeKey).Order("id ASC").First(&concurrent); concurrentLookup.Error == nil {
+		if concurrentLookup := db.Where("dedupe_key = ?", dedupeKey).Order("id ASC").First(&concurrent); concurrentLookup.Error == nil {
 			snapshot.Id = concurrent.Id
 			snapshot.CreatedAt = concurrent.CreatedAt
 			return nil
@@ -255,19 +278,44 @@ func channelQuotaSnapshotDedupeKey(snapshot *ChannelQuotaSnapshot) string {
 // ListChannelQuotaSnapshots returns the most recent bounded observations in
 // oldest-first order. Selecting the newest rows before reversing prevents a
 // high-frequency sampler from filling the limit with only the beginning of a
-// long 30/90-day window and dropping the current trend endpoint.
+// long 30/90-day window and dropping the current trend endpoint. History
+// callers that need an entire time range must use
+// ListChannelQuotaSnapshotsForHistory instead: its completeness result makes
+// a bounded scan explicit rather than silently returning only recent rows.
 // ChannelQuotaSnapshotQuery selects one normalized quota series. Empty string
 // fields are treated as wildcards; WindowSeconds is nil when no window length
 // was requested. Callers that need a single series can first resolve the
 // latest row and then fill the omitted fields from its metadata.
 type ChannelQuotaSnapshotQuery struct {
+	// ExactIdentity makes resolved empty metadata values meaningful instead of
+	// treating them as wildcards that could mix units or subscription plans.
+	ExactIdentity bool
+	// EventMetadata allows missing metadata on a failed provider query while
+	// rejecting failures that explicitly identify another plan or window.
+	EventMetadata bool
 	MetricType    string
 	WindowType    string
 	Source        string
+	// Sources is a multi-source selector for callers that need a small,
+	// explicit source family (for example a Codex window and its generic
+	// failure marker). It takes precedence over Source when non-empty.
+	Sources       []string
 	PlanType      string
 	Unit          string
 	Currency      string
 	WindowSeconds *int64
+	// Statuses narrows a query to explicit normalized states. An empty slice
+	// preserves the legacy wildcard behavior.
+	Statuses []string
+}
+
+// ChannelQuotaSnapshotHistoryResult describes a deliberately bounded full
+// range read. Complete is false when more than the caller's maxRows matched; Snapshots is
+// then nil so callers cannot accidentally calculate a trend from a partial
+// range.
+type ChannelQuotaSnapshotHistoryResult struct {
+	Snapshots []ChannelQuotaSnapshot
+	Complete  bool
 }
 
 // ListChannelQuotaSnapshots keeps the legacy query surface for existing
@@ -290,34 +338,7 @@ func ListChannelQuotaSnapshotsWithQuery(channelID int, start, end int64, filter 
 	if limit <= 0 || limit > 2000 {
 		limit = 2000
 	}
-	query := DB.Model(&ChannelQuotaSnapshot{}).Where("channel_id = ?", channelID)
-	if start > 0 {
-		query = query.Where("observed_at >= ?", start)
-	}
-	if end > 0 {
-		query = query.Where("observed_at <= ?", end)
-	}
-	if filter.MetricType != "" {
-		query = query.Where("metric_type = ?", filter.MetricType)
-	}
-	if filter.WindowType != "" {
-		query = query.Where("window_type = ?", filter.WindowType)
-	}
-	if filter.Source != "" {
-		query = query.Where("source = ?", filter.Source)
-	}
-	if filter.PlanType != "" {
-		query = query.Where("plan_type = ?", filter.PlanType)
-	}
-	if filter.Unit != "" {
-		query = query.Where("unit = ?", filter.Unit)
-	}
-	if filter.Currency != "" {
-		query = query.Where("currency = ?", filter.Currency)
-	}
-	if filter.WindowSeconds != nil {
-		query = query.Where("window_seconds = ?", *filter.WindowSeconds)
-	}
+	query := channelQuotaSnapshotQuery(DB.Model(&ChannelQuotaSnapshot{}).Where("channel_id = ?", channelID), start, end, filter)
 	var snapshots []ChannelQuotaSnapshot
 	err := query.Order("observed_at DESC, id DESC").Limit(limit).Find(&snapshots).Error
 	if err != nil {
@@ -327,4 +348,96 @@ func ListChannelQuotaSnapshotsWithQuery(channelID int, start, end int64, filter 
 		snapshots[left], snapshots[right] = snapshots[right], snapshots[left]
 	}
 	return snapshots, err
+}
+
+// CountChannelQuotaSnapshotsWithQuery counts every observation in a selected
+// time range. It is intentionally separate from the legacy bounded list API
+// so history endpoints can reject or flag a dense range before allocating its
+// raw observations.
+func CountChannelQuotaSnapshotsWithQuery(ctx context.Context, channelID int, start, end int64, filter ChannelQuotaSnapshotQuery) (int64, error) {
+	if DB == nil {
+		return 0, gorm.ErrInvalidDB
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var count int64
+	query := channelQuotaSnapshotQuery(DB.WithContext(ctx).Model(&ChannelQuotaSnapshot{}).Where("channel_id = ?", channelID), start, end, filter)
+	if err := query.Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// ListChannelQuotaSnapshotsForHistory reads an entire selected range in
+// chronological order, subject to the caller's explicit maxRows budget. It
+// reads one extra row to detect a concurrent insert after a preceding count.
+// A non-complete result never contains a partial slice.
+func ListChannelQuotaSnapshotsForHistory(ctx context.Context, channelID int, start, end int64, filter ChannelQuotaSnapshotQuery, maxRows int) (ChannelQuotaSnapshotHistoryResult, error) {
+	if DB == nil {
+		return ChannelQuotaSnapshotHistoryResult{}, gorm.ErrInvalidDB
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if maxRows <= 0 {
+		return ChannelQuotaSnapshotHistoryResult{}, fmt.Errorf("history maxRows must be positive")
+	}
+	query := channelQuotaSnapshotQuery(DB.WithContext(ctx).Model(&ChannelQuotaSnapshot{}).Where("channel_id = ?", channelID), start, end, filter)
+	var snapshots []ChannelQuotaSnapshot
+	if err := query.Order("observed_at ASC, id ASC").Limit(maxRows + 1).Find(&snapshots).Error; err != nil {
+		return ChannelQuotaSnapshotHistoryResult{}, err
+	}
+	if len(snapshots) > maxRows {
+		return ChannelQuotaSnapshotHistoryResult{Complete: false}, nil
+	}
+	return ChannelQuotaSnapshotHistoryResult{Snapshots: snapshots, Complete: true}, nil
+}
+
+func channelQuotaSnapshotQuery(query *gorm.DB, start, end int64, filter ChannelQuotaSnapshotQuery) *gorm.DB {
+	if start > 0 {
+		query = query.Where("observed_at >= ?", start)
+	}
+	if end > 0 {
+		query = query.Where("observed_at <= ?", end)
+	}
+	if filter.ExactIdentity || filter.MetricType != "" {
+		query = query.Where("metric_type = ?", filter.MetricType)
+	}
+	if filter.EventMetadata {
+		query = query.Where("window_type IN ?", []string{filter.WindowType, "", "none"})
+	} else if filter.ExactIdentity || filter.WindowType != "" {
+		query = query.Where("window_type = ?", filter.WindowType)
+	}
+	if len(filter.Sources) > 0 {
+		query = query.Where("source IN ?", filter.Sources)
+	} else if filter.ExactIdentity || filter.Source != "" {
+		query = query.Where("source = ?", filter.Source)
+	}
+	if filter.EventMetadata {
+		query = query.Where("plan_type IN ?", []string{filter.PlanType, ""})
+	} else if filter.ExactIdentity || filter.PlanType != "" {
+		query = query.Where("plan_type = ?", filter.PlanType)
+	}
+	if filter.EventMetadata {
+		query = query.Where("unit IN ?", []string{filter.Unit, ""})
+	} else if filter.ExactIdentity || filter.Unit != "" {
+		query = query.Where("unit = ?", filter.Unit)
+	}
+	if filter.EventMetadata {
+		query = query.Where("currency IN ?", []string{filter.Currency, ""})
+	} else if filter.ExactIdentity || filter.Currency != "" {
+		query = query.Where("currency = ?", filter.Currency)
+	}
+	if filter.WindowSeconds != nil {
+		if filter.EventMetadata {
+			query = query.Where("window_seconds IN ?", []int64{*filter.WindowSeconds, 0})
+		} else {
+			query = query.Where("window_seconds = ?", *filter.WindowSeconds)
+		}
+	}
+	if len(filter.Statuses) > 0 {
+		query = query.Where("status IN ?", filter.Statuses)
+	}
+	return query
 }

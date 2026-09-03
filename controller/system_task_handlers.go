@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -29,9 +30,10 @@ func RegisterScheduledSystemTasks() {
 }
 
 const (
-	channelQuotaSnapshotSyncDefaultInterval    = 15 * time.Minute
+	channelQuotaSnapshotSyncDefaultInterval    = time.Minute
 	channelQuotaSnapshotSyncDefaultMaxChannels = 100
 	channelQuotaSnapshotSyncMaxChannels        = 1000
+	channelQuotaSnapshotSyncMaxRunTimeout      = 5 * time.Minute
 )
 
 // channelQuotaSnapshotSyncHandler samples provider balances through the same
@@ -44,6 +46,10 @@ type channelQuotaSnapshotSyncHandler struct{}
 func (channelQuotaSnapshotSyncHandler) Type() string {
 	return model.SystemTaskTypeChannelQuotaSnapshotSync
 }
+
+// ScheduleFromStart opts only quota sampling into start-to-start cadence.
+// Other periodic tasks keep their established completion-based schedule.
+func (channelQuotaSnapshotSyncHandler) ScheduleFromStart() bool { return true }
 
 func (channelQuotaSnapshotSyncHandler) Enabled() bool {
 	if value, ok := os.LookupEnv("CHANNEL_QUOTA_SYNC_ENABLED"); ok && strings.TrimSpace(value) != "" {
@@ -61,11 +67,20 @@ func (channelQuotaSnapshotSyncHandler) Interval() time.Duration {
 		return parseChannelQuotaSyncInterval(value)
 	}
 	if option := channelQuotaOptionValue("ChannelQuotaSyncIntervalMinutes"); option != "" {
-		if minutes, err := strconv.Atoi(option); err == nil && minutes >= 1 {
-			return time.Duration(minutes) * time.Minute
-		}
+		return parseChannelQuotaSyncInterval(option)
 	}
 	return channelQuotaSnapshotSyncDefaultInterval
+}
+
+// RunTimeout caps one batch independently of its channel count. A large
+// installation can continue with the oldest unvisited accounts on the next
+// scheduled pass instead of holding one task open for hours.
+func (handler channelQuotaSnapshotSyncHandler) RunTimeout() time.Duration {
+	interval := handler.Interval()
+	if interval > channelQuotaSnapshotSyncMaxRunTimeout {
+		return channelQuotaSnapshotSyncMaxRunTimeout
+	}
+	return interval
 }
 
 func parseChannelQuotaSyncInterval(value string) time.Duration {
@@ -75,6 +90,9 @@ func parseChannelQuotaSyncInterval(value string) time.Duration {
 		// old CHANNEL_UPDATE_FREQUENCY setting.  Invalid/too-fast values fall
 		// back to the safe default instead of creating hot polling loops.
 		if minutes, parseErr := strconv.Atoi(value); parseErr == nil && minutes >= 1 {
+			if minutes > 24*60 {
+				return 24 * time.Hour
+			}
 			interval = time.Duration(minutes) * time.Minute
 		} else {
 			return channelQuotaSnapshotSyncDefaultInterval
@@ -93,11 +111,14 @@ func channelQuotaOptionValue(key string) string {
 }
 
 type channelQuotaSnapshotSyncSummary struct {
-	Considered int `json:"considered"`
-	Sampled    int `json:"sampled"`
-	Failed     int `json:"failed"`
-	Unsupported int `json:"unsupported,omitempty"`
-	Skipped    int `json:"skipped"`
+	Considered      int  `json:"considered"`
+	Sampled         int  `json:"sampled"`
+	Failed          int  `json:"failed"`
+	Unsupported     int  `json:"unsupported,omitempty"`
+	Skipped         int  `json:"skipped"`
+	TimedOut        int  `json:"timed_out,omitempty"`
+	Deferred        int  `json:"deferred,omitempty"`
+	BudgetExhausted bool `json:"budget_exhausted,omitempty"`
 	// PersistFailed counts successful/failed provider observations that could
 	// not be appended to the history table. It is kept separate from Failed,
 	// which only describes an upstream balance query failure.
@@ -135,7 +156,7 @@ func parseChannelQuotaSyncMaxChannels(value string) int {
 	return maxChannels
 }
 
-func (channelQuotaSnapshotSyncHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
+func (handler channelQuotaSnapshotSyncHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
 	payload := struct {
 		MaxChannels int `json:"max_channels"`
 	}{}
@@ -146,7 +167,12 @@ func (channelQuotaSnapshotSyncHandler) Run(ctx context.Context, task *model.Syst
 	if payload.MaxChannels <= 0 || payload.MaxChannels > channelQuotaSnapshotSyncMaxChannels {
 		payload.MaxChannels = channelQuotaSnapshotSyncMaxChannelsConfigured()
 	}
-	summary, err := runChannelQuotaSnapshotSyncOnce(ctx, payload.MaxChannels, service.NewSystemTaskProgressReporter(task, runnerID))
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(ctx, handler.RunTimeout())
+	defer cancel()
+	summary, err := runChannelQuotaSnapshotSyncOnce(ctx, payload.MaxChannels, service.NewSystemTaskProgressReporterWithContext(ctx, task, runnerID))
 	if err != nil {
 		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, summary, err)
 		return
@@ -286,6 +312,25 @@ func finishSystemTaskHandler(task *model.SystemTask, runnerID string, status mod
 	errorMessage := ""
 	if runErr != nil {
 		errorMessage = runErr.Error()
+	}
+	if task.Type == model.SystemTaskTypeChannelQuotaSnapshotSync {
+		// Finishing must outlive an expired network/run context without leaving
+		// the handler or its lease heartbeat stuck in a database pool forever.
+		ctx, cancel := context.WithTimeout(context.Background(), channelQuotaPersistenceTimeout)
+		defer cancel()
+		if err := model.FinishSystemTaskWithContext(ctx, task.TaskID, runnerID, status, result, errorMessage); err != nil {
+			code := "write_failed"
+			switch {
+			case errors.Is(err, context.DeadlineExceeded):
+				code = "write_timeout"
+			case errors.Is(err, context.Canceled):
+				code = "write_canceled"
+			case errors.Is(err, model.ErrSystemTaskLockLost):
+				code = "lease_lost"
+			}
+			common.SysLog(fmt.Sprintf("quota sampling task %s failed to persist final state: %s", task.TaskID, code))
+		}
+		return
 	}
 	if err := model.FinishSystemTask(task.TaskID, runnerID, status, result, errorMessage); err != nil {
 		common.SysLog(fmt.Sprintf("system task %s failed to persist result: %v", task.TaskID, err))

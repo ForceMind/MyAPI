@@ -106,7 +106,7 @@ FULL_CONTENT_LOG_MAX_FILES=10
 CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS=0
 # Provider account balance sampler (enabled by default; can be adjusted in the admin UI).
 CHANNEL_QUOTA_SYNC_ENABLED=true
-CHANNEL_QUOTA_SYNC_INTERVAL=15m
+CHANNEL_QUOTA_SYNC_INTERVAL=1m
 CHANNEL_QUOTA_SYNC_MAX_CHANNELS=100
 # Read-only quota threshold status (disabled by default; no notifications or
 # routing changes are triggered). Percentages are relative to provider total.
@@ -119,7 +119,7 @@ CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT=10
 # MYAPI_COSIGN_CERTIFICATE_OIDC_ISSUER=https://token.actions.githubusercontent.com
 ```
 
-后台采样默认开启，并使用有界的采样间隔和渠道数量。管理员可在
+后台采样默认开启，默认间隔为 1 分钟，并限制每轮请求数量和总运行时间。管理员可在
 “设置 → 运维 → 监控与告警”中调整采样开关、间隔和每轮最大渠道数；部署环境变量
 `CHANNEL_QUOTA_SYNC_ENABLED=false` 可作为强制关闭覆盖。额度告警默认关闭，只影响
 额度历史中的只读状态，不发送通知、不停用渠道，也不改变路由。

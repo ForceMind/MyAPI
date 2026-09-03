@@ -65,7 +65,7 @@ jobs:
     name: Frontend typecheck and test
     if: github.event.action != 'closed' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: web
@@ -91,6 +91,35 @@ jobs:
 
       - name: Test
         run: bun run test
+
+      - name: Build real quota UI for browser regression
+        env:
+          RAYON_NUM_THREADS: '2'
+          NODE_OPTIONS: '--max-old-space-size=1536'
+        run: bun run build
+
+      - name: Install isolated browser test dependencies
+        working-directory: .
+        run: |
+          npm install --prefix "$RUNNER_TEMP/myapi-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1
+          "$RUNNER_TEMP/myapi-browser/node_modules/.bin/playwright" install --with-deps chromium
+
+      - name: Verify real quota charts and responsive interactions
+        working-directory: .
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs
+          MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-quota-browser-artifacts
+          NODE_OPTIONS: '--max-old-space-size=768'
+        run: node tools/quota/browser-smoke.mjs
+
+      - name: Upload quota browser screenshots
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-quota-browser-${{ github.sha }}
+          path: ${{ runner.temp }}/myapi-quota-browser-artifacts/*.png
+          if-no-files-found: ignore
+          retention-days: 7
 
   desktop-contract:
     name: Desktop cross-platform contract

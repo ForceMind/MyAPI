@@ -140,7 +140,7 @@ func InitOptionMap() {
 	// the administrator monitoring settings page. Environment variables remain
 	// deployment-level overrides for operators that need a hard disable/bound.
 	common.OptionMap["ChannelQuotaSyncEnabled"] = "true"
-	common.OptionMap["ChannelQuotaSyncIntervalMinutes"] = "15"
+	common.OptionMap["ChannelQuotaSyncIntervalMinutes"] = "1"
 	common.OptionMap["ChannelQuotaSyncMaxChannels"] = "100"
 	if quotaAlertJSON, err := common.MarshalChannelQuotaAlertSettings(common.ChannelQuotaAlertSettings{
 		Enabled:          common.ChannelQuotaAlertEnabled,

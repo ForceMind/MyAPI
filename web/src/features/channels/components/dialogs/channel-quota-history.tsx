@@ -1,68 +1,94 @@
 /*
-Copyright (C) 2023-2026 QuantumNous
+Copyright (C) 2026 ForceMind
 
 This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 */
-/* eslint-disable no-nested-ternary */
 import { useQuery } from '@tanstack/react-query'
-import { AlertCircle, ChartNoAxesCombined, Info } from 'lucide-react'
+import { Info } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ReferenceLine,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ChartContainer } from '@/components/ui/chart'
-import { Skeleton } from '@/components/ui/skeleton'
-import { formatCurrencyFromUSD } from '@/lib/currency'
-import { formatTimestampToDate } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { Card, CardContent } from '@/components/ui/card'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { getChannelQuotaHistory } from '../../api'
 import { isMultiKeyChannel } from '../../lib'
+import type { QuotaHistoryChartStyle } from '../../lib/quota-history'
 import type {
   Channel,
-  ChannelQuotaHistoryData,
-  ChannelQuotaHistoryPoint,
+  ChannelQuotaHistoryGranularity,
+  ChannelQuotaHistoryMetric,
 } from '../../types'
+import { QuotaHistoryTrend } from '../quota-history-trend'
 
-type Range = '24h' | '7d' | '30d' | '90d' | 'custom'
-type Granularity = 'auto' | 'raw' | 'hour' | 'day' | 'week'
+const HISTORY_RANGES = ['1h', '6h', '24h', '7d', '30d', '90d'] as const
+const RANGE_OPTIONS = [...HISTORY_RANGES, 'custom'] as const
+const GRANULARITY_OPTIONS = [
+  'auto',
+  'raw',
+  'minute',
+  '5m',
+  '15m',
+  'hour',
+  'day',
+  'week',
+] as const satisfies readonly ChannelQuotaHistoryGranularity[]
+const HISTORY_POINT_LIMIT = 5000
 
-const ranges: Range[] = ['24h', '7d', '30d', '90d', 'custom']
-const granularities: Granularity[] = ['auto', 'raw', 'hour', 'day', 'week']
+type Range = (typeof RANGE_OPTIONS)[number]
 
-function formatValue(
-  value: number | undefined,
-  data?: ChannelQuotaHistoryData
-) {
-  if (value == null || !Number.isFinite(value)) return '-'
-  if (data?.unit === 'percent') return `${value.toFixed(1)}%`
-  if (data?.unit === 'usd' || (!data?.unit && data?.currency)) {
-    return formatCurrencyFromUSD(value, {
-      digitsLarge: 2,
-      digitsSmall: 4,
-      abbreviate: false,
-    })
-  }
-  return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 }).format(value)}${data?.unit ? ` ${data.unit}` : ''}`
+function alertVariant(status: string) {
+  if (status === 'critical') return 'destructive' as const
+  if (status === 'warning') return 'secondary' as const
+  return 'outline' as const
 }
 
-function pointLabel(timestamp: number) {
-  return formatTimestampToDate(timestamp)
+function QuotaAlertStatus({
+  alert,
+}: {
+  alert:
+    | {
+        enabled: boolean
+        status: 'disabled' | 'unavailable' | 'healthy' | 'warning' | 'critical'
+        ratio_percent?: number
+        warning_percent: number
+        critical_percent: number
+      }
+    | undefined
+}) {
+  const { t } = useTranslation()
+
+  if (!alert?.enabled) return null
+
+  return (
+    <Alert>
+      <AlertTitle className='flex flex-wrap items-center gap-2'>
+        <span>{t('Quota alert')}</span>
+        <Badge variant={alertVariant(alert.status)}>
+          {t(alert.status[0].toUpperCase() + alert.status.slice(1))}
+        </Badge>
+      </AlertTitle>
+      <AlertDescription className='flex flex-wrap gap-x-3 gap-y-1'>
+        {alert.ratio_percent != null ? (
+          <span>
+            {t('Remaining')}: {alert.ratio_percent.toFixed(1)}%
+          </span>
+        ) : null}
+        <span>
+          {t('Warning')}: {alert.warning_percent}%
+        </span>
+        <span>
+          {t('Critical')}: {alert.critical_percent}%
+        </span>
+      </AlertDescription>
+    </Alert>
+  )
 }
 
 export function ChannelQuotaHistory({
@@ -74,46 +100,68 @@ export function ChannelQuotaHistory({
 }) {
   const { t } = useTranslation()
   const [range, setRange] = useState<Range>('30d')
+  const userId = useAuthStore((state) => state.auth.user?.id ?? null)
+  const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
   const [appliedCustomRange, setAppliedCustomRange] = useState<{
     start: string
     end: string
   } | null>(null)
-  const [granularity, setGranularity] = useState<Granularity>('auto')
+  const [granularity, setGranularity] =
+    useState<ChannelQuotaHistoryGranularity>('auto')
+  const [metric, setMetric] = useState<ChannelQuotaHistoryMetric>('available')
+  const [manualChartStyle, setChartStyle] =
+    useState<QuotaHistoryChartStyle | null>(null)
+  const chartStyle =
+    manualChartStyle ?? (metric === 'consumption' ? 'bar' : 'line')
   const multiKey = isMultiKeyChannel(channel)
   const timezoneOffset = -new Date().getTimezoneOffset()
+  const customRangeReady = range !== 'custom' || appliedCustomRange !== null
+  const customStartAt =
+    range === 'custom' && appliedCustomRange
+      ? new Date(`${appliedCustomRange.start}T00:00:00`).toISOString()
+      : undefined
+  const customEndAt =
+    range === 'custom' && appliedCustomRange
+      ? new Date(`${appliedCustomRange.end}T23:59:59.999`).toISOString()
+      : undefined
+  const requestRange = range === 'custom' ? undefined : range
+  const requestIdentity = {
+    range: requestRange,
+    start: customStartAt,
+    end: customEndAt,
+    granularity,
+    timezone_offset: timezoneOffset,
+    limit: HISTORY_POINT_LIMIT,
+  }
   const query = useQuery({
     queryKey: [
       'channel-quota-history',
+      userId,
+      sessionId,
       channel.id,
-      range,
-      appliedCustomRange?.start,
-      appliedCustomRange?.end,
-      granularity,
-      timezoneOffset,
+      requestIdentity.range,
+      requestIdentity.start,
+      requestIdentity.end,
+      requestIdentity.granularity,
+      requestIdentity.timezone_offset,
+      requestIdentity.limit,
     ],
-    queryFn: () =>
-      getChannelQuotaHistory(channel.id, {
-        ...(range === 'custom' && appliedCustomRange
-          ? {
-              start: new Date(
-                `${appliedCustomRange.start}T00:00:00`
-              ).toISOString(),
-              end: new Date(
-                `${appliedCustomRange.end}T23:59:59.999`
-              ).toISOString(),
-            }
-          : { range: range as Exclude<Range, 'custom'> }),
-        granularity,
-        timezone_offset: timezoneOffset,
-        limit: 500,
-      }),
-    enabled:
-      open && !multiKey && (range !== 'custom' || appliedCustomRange !== null),
+    queryFn: () => getChannelQuotaHistory(channel.id, requestIdentity),
+    enabled: open && !multiKey && customRangeReady,
     retry: false,
     staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
   })
+  const data = query.data?.success === false ? undefined : query.data?.data
+  const errorMessage =
+    query.data?.success === false
+      ? query.data.message || t('Please try again later.')
+      : undefined
+  const invalidCustomRange = Boolean(
+    customStart && customEnd && customStart > customEnd
+  )
 
   if (multiKey) {
     return (
@@ -127,327 +175,99 @@ export function ChannelQuotaHistory({
     )
   }
 
-  const data = query.data?.data
-  const points = data?.points ?? []
-  const successfulPoints = points.filter(
-    (point): point is ChannelQuotaHistoryPoint & { available: number } =>
-      point.status === 'success' && typeof point.available === 'number'
-  )
-  const latest = data?.current?.available ?? successfulPoints.at(-1)?.available
-  const chartPoints = points.map((point) => ({
-    ...point,
-    label: pointLabel(point.timestamp),
-    value: point.status === 'success' ? point.available : undefined,
-  }))
-
   return (
-    <Card size='sm' className='min-w-0'>
-      <CardHeader className='gap-2'>
-        <div className='flex items-center justify-between gap-2'>
-          <CardTitle className='flex min-w-0 items-center gap-2 text-sm'>
-            <ChartNoAxesCombined className='size-4 shrink-0' />
-            <span className='truncate'>{t('Quota history')}</span>
-          </CardTitle>
-          <div className='flex max-w-full shrink-0 gap-1 overflow-x-auto pb-0.5'>
-            {ranges.map((item) => (
-              <Button
-                key={item}
-                type='button'
-                variant={range === item ? 'secondary' : 'ghost'}
-                size='xs'
-                className='h-7 shrink-0 px-2 text-xs'
-                onClick={() => setRange(item)}
-              >
-                {item === 'custom' ? t('Custom') : item}
-              </Button>
-            ))}
-          </div>
-        </div>
-        <div
-          className='flex flex-wrap items-center gap-1'
-          aria-label={t('Chart granularity')}
-        >
-          <span className='text-muted-foreground mr-1 text-xs'>
-            {t('Bucket')}
-          </span>
-          {granularities.map((item) => (
-            <Button
-              key={item}
-              type='button'
-              variant={granularity === item ? 'secondary' : 'ghost'}
-              size='xs'
-              className='h-7 px-2 text-xs'
-              onClick={() => setGranularity(item)}
-            >
-              {t(
-                item === 'auto' ? 'Auto' : item[0].toUpperCase() + item.slice(1)
-              )}
-            </Button>
-          ))}
-        </div>
-        {range === 'custom' && (
-          <div className='flex flex-wrap items-end gap-2 rounded-md border p-2'>
-            <label className='grid min-w-[9rem] flex-1 gap-1 text-xs'>
-              <span className='text-muted-foreground'>{t('Start')}</span>
-              <input
-                type='date'
-                value={customStart}
-                max={customEnd || undefined}
-                onChange={(event) => setCustomStart(event.target.value)}
-                className='bg-background h-8 rounded-md border px-2 text-sm'
-              />
-            </label>
-            <label className='grid min-w-[9rem] flex-1 gap-1 text-xs'>
-              <span className='text-muted-foreground'>{t('End')}</span>
-              <input
-                type='date'
-                value={customEnd}
-                min={customStart || undefined}
-                onChange={(event) => setCustomEnd(event.target.value)}
-                className='bg-background h-8 rounded-md border px-2 text-sm'
-              />
-            </label>
-            <Button
-              type='button'
-              size='sm'
-              className='h-8'
-              disabled={!customStart || !customEnd || customStart > customEnd}
-              onClick={() =>
-                setAppliedCustomRange({ start: customStart, end: customEnd })
-              }
-            >
-              {t('Apply Filters')}
-            </Button>
-            {customStart && customEnd && customStart > customEnd && (
-              <p className='text-destructive basis-full text-xs'>
-                {t('Invalid time range')}
-              </p>
-            )}
-          </div>
-        )}
-      </CardHeader>
-      <CardContent className='min-w-0 space-y-3'>
-        {query.isLoading ? (
-          <div className='space-y-3' aria-label={t('Loading')}>
-            <Skeleton className='h-56 w-full' />
-            <Skeleton className='h-4 w-2/3' />
-          </div>
-        ) : query.isError || query.data?.success === false ? (
-          <Alert variant='destructive'>
-            <AlertCircle />
-            <AlertTitle>{t('Unable to load quota history')}</AlertTitle>
-            <AlertDescription>
-              {query.error instanceof Error
-                ? query.error.message
-                : query.data?.message || t('Please try again later.')}
-            </AlertDescription>
-          </Alert>
-        ) : points.length === 0 ? (
-          <div className='text-muted-foreground rounded-lg border border-dashed p-5 text-center text-sm'>
-            {t('No quota history data yet')}
-          </div>
-        ) : successfulPoints.length === 0 ? (
-          <Alert>
-            <Info />
-            <AlertTitle>{t('Quota history is unavailable')}</AlertTitle>
-            <AlertDescription>
-              {t('The upstream did not return a usable quota value.')}
-            </AlertDescription>
-          </Alert>
-        ) : (
-          <>
-            {data?.summary && (
-              <div className='grid grid-cols-2 gap-2 sm:grid-cols-4'>
-                {[
-                  [t('Start'), data.summary.start_available],
-                  [t('Current'), data.summary.end_available],
-                  [t('Change'), data.summary.change],
-                  [t('Change %'), `${data.summary.change_percent.toFixed(1)}%`],
-                ].map(([label, value]) => (
-                  <div
-                    key={String(label)}
-                    className='bg-muted/50 min-w-0 rounded-md p-2'
-                  >
-                    <div className='text-muted-foreground truncate text-[11px]'>
-                      {label}
-                    </div>
-                    <div className='truncate text-sm font-semibold'>
-                      {label === t('Change %')
-                        ? value
-                        : formatValue(value as number, data)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {(data?.summary?.drop_rate_per_day != null ||
-              data?.summary?.forecast_zero_at != null ||
-              data?.data_quality) && (
-              <div className='bg-muted/30 space-y-1 rounded-md border p-2 text-xs'>
-                <div className='font-medium'>{t('Quota health')}</div>
-                <div className='text-muted-foreground flex flex-wrap gap-x-4 gap-y-1'>
-                  {data.summary?.drop_rate_per_day != null && (
-                    <span>
-                      {t('Daily change')}:{' '}
-                      {formatValue(data.summary.drop_rate_per_day, data)} /{' '}
-                      {t('day')}
-                    </span>
-                  )}
-                  {data.summary?.forecast_zero_at != null && (
-                    <span>
-                      {t('Estimated depletion')}:{' '}
-                      {pointLabel(data.summary.forecast_zero_at)}
-                    </span>
-                  )}
-                  {data.summary?.forecast_zero_at == null &&
-                    data.summary?.drop_rate_per_day != null && (
-                      <span>{t('No depletion forecast available')}</span>
-                    )}
-                  {data.summary?.forecast_confidence &&
-                    data.summary.forecast_confidence !== 'insufficient' && (
-                      <span>
-                        {t('Forecast confidence')}:{' '}
-                        {t(data.summary.forecast_confidence)}
-                      </span>
-                    )}
-                  {data.data_quality && (
-                    <span>
-                      {t('Data quality')}:{' '}
-                      {t('{{success}} successful / {{total}} observed', {
-                        success: data.data_quality.success_count,
-                        total:
-                          data.data_quality.success_count +
-                          data.data_quality.error_count +
-                          (data.data_quality.unsupported_count || 0) +
-                          data.data_quality.invalid_count,
-                      })}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-            {data?.alert?.enabled && (
-              <div className='bg-muted/30 flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-xs'>
-                <div className='flex items-center gap-2'>
-                  <span className='font-medium'>{t('Quota alert')}</span>
-                  <Badge
-                    variant={
-                      data.alert.status === 'critical'
-                        ? 'destructive'
-                        : data.alert.status === 'warning'
-                          ? 'secondary'
-                          : 'outline'
-                    }
-                  >
-                    {t(
-                      data.alert.status[0].toUpperCase() +
-                        data.alert.status.slice(1)
-                    )}
-                  </Badge>
-                </div>
-                <div className='text-muted-foreground flex flex-wrap gap-x-3 gap-y-1'>
-                  {data.alert.ratio_percent != null && (
-                    <span>
-                      {t('Remaining')}: {data.alert.ratio_percent.toFixed(1)}%
-                    </span>
-                  )}
-                  <span>
-                    {t('Warning')}: {data.alert.warning_percent}%
-                  </span>
-                  <span>
-                    {t('Critical')}: {data.alert.critical_percent}%
-                  </span>
-                </div>
-              </div>
-            )}
-            <div
-              className='h-56 w-full min-w-0 touch-pan-y'
-              aria-label={t('Quota history chart')}
-            >
-              <ChartContainer
-                className='aspect-auto h-full w-full'
-                config={{
-                  value: {
-                    label: t('Available quota'),
-                    color: 'var(--primary)',
-                  },
-                }}
-                initialDimension={{ width: 320, height: 224 }}
-              >
-                <LineChart
-                  data={chartPoints}
-                  margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
+    <div className='min-w-0 space-y-3'>
+      {range === 'custom' ? (
+        <Card size='sm' className='min-w-0'>
+          <CardContent className='space-y-3 pt-4'>
+            {!appliedCustomRange ? (
+              <label className='grid gap-1 text-xs'>
+                <span className='text-muted-foreground'>{t('Time range')}</span>
+                <select
+                  aria-label={t('Time range')}
+                  value={range}
+                  onChange={(event) => setRange(event.target.value as Range)}
+                  className='h-8 rounded-lg border bg-transparent px-2 text-sm'
                 >
-                  <CartesianGrid vertical={false} strokeDasharray='3 3' />
-                  <XAxis
-                    dataKey='label'
-                    tickLine={false}
-                    axisLine={false}
-                    minTickGap={32}
-                    tick={{ fontSize: 10 }}
-                  />
-                  <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    width={48}
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={(value: number) => formatValue(value, data)}
-                  />
-                  <Tooltip
-                    formatter={(value) => [
-                      formatValue(Number(value), data),
-                      t('Available quota'),
-                    ]}
-                    labelFormatter={(label) => String(label)}
-                  />
-                  {chartPoints.some((point) => point.reset_at) && (
-                    <ReferenceLine
-                      x={chartPoints.find((point) => point.reset_at)?.label}
-                      stroke='var(--muted-foreground)'
-                      strokeDasharray='4 4'
-                    />
-                  )}
-                  <Line
-                    type='monotone'
-                    dataKey='value'
-                    connectNulls={false}
-                    stroke='var(--color-value)'
-                    strokeWidth={2}
-                    dot={successfulPoints.length < 80}
-                    activeDot={{ r: 5 }}
-                    isAnimationActive={false}
-                  />
-                </LineChart>
-              </ChartContainer>
-            </div>
-            <div className='text-muted-foreground space-y-1 text-xs'>
-              <div className='flex flex-wrap justify-between gap-x-3 gap-y-1'>
-                <span>
-                  {t('Latest')}: {formatValue(latest, data)}
-                </span>
-                <span>
-                  {t('Samples')}: {successfulPoints.length}
-                </span>
-              </div>
-              <p className='break-words'>
-                {t('Last sample')}:{' '}
-                {pointLabel(successfulPoints.at(-1)?.timestamp ?? 0)}
-              </p>
-              <div
-                className={cn(
-                  'border-t pt-2',
-                  points.length !== successfulPoints.length &&
-                    'text-amber-600 dark:text-amber-400'
-                )}
+                  {RANGE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option === 'custom' ? t('Custom') : option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <div className='flex flex-wrap items-end gap-2'>
+              <label className='grid min-w-[9rem] flex-1 gap-1 text-xs'>
+                <span className='text-muted-foreground'>{t('Start')}</span>
+                <input
+                  type='date'
+                  value={customStart}
+                  max={customEnd || undefined}
+                  onChange={(event) => setCustomStart(event.target.value)}
+                  className='bg-background h-8 rounded-md border px-2 text-sm'
+                />
+              </label>
+              <label className='grid min-w-[9rem] flex-1 gap-1 text-xs'>
+                <span className='text-muted-foreground'>{t('End')}</span>
+                <input
+                  type='date'
+                  value={customEnd}
+                  min={customStart || undefined}
+                  onChange={(event) => setCustomEnd(event.target.value)}
+                  className='bg-background h-8 rounded-md border px-2 text-sm'
+                />
+              </label>
+              <Button
+                type='button'
+                size='sm'
+                className='h-8'
+                disabled={!customStart || !customEnd || invalidCustomRange}
+                onClick={() =>
+                  setAppliedCustomRange({ start: customStart, end: customEnd })
+                }
               >
-                {points.length !== successfulPoints.length
-                  ? t('Some samples failed and are shown as gaps.')
-                  : t('Failed samples are never treated as zero.')}
-              </div>
+                {t('Apply Filters')}
+              </Button>
+              {invalidCustomRange ? (
+                <p className='text-destructive basis-full text-xs'>
+                  {t('Invalid time range')}
+                </p>
+              ) : null}
             </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
+          </CardContent>
+        </Card>
+      ) : null}
+      {customRangeReady ? (
+        <>
+          <QuotaAlertStatus alert={data?.alert} />
+          <QuotaHistoryTrend
+            data={data}
+            title={t('Quota history')}
+            range={range}
+            granularity={granularity}
+            metric={metric}
+            chartStyle={chartStyle}
+            rangeOptions={RANGE_OPTIONS}
+            rangeOptionLabel={(value) =>
+              value === 'custom' ? t('Custom') : value
+            }
+            granularityOptions={GRANULARITY_OPTIONS}
+            isLoading={query.isLoading}
+            error={query.isError ? query.error : undefined}
+            errorMessage={errorMessage}
+            onRangeChange={(value) => setRange(value as Range)}
+            onGranularityChange={(value) =>
+              setGranularity(value as ChannelQuotaHistoryGranularity)
+            }
+            onMetricChange={setMetric}
+            onChartStyleChange={setChartStyle}
+            onRefresh={() => {
+              void query.refetch()
+            }}
+          />
+        </>
+      ) : null}
+    </div>
   )
 }

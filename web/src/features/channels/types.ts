@@ -200,14 +200,92 @@ export interface ChannelBalanceResponse {
   raw_response?: string
 }
 
+export type ChannelQuotaHistoryRange =
+  | '1h'
+  | '6h'
+  | '24h'
+  | '7d'
+  | '30d'
+  | '90d'
+  | 'custom'
+
+export type ChannelQuotaHistoryGranularity =
+  | 'raw'
+  | 'minute'
+  | '5m'
+  | '15m'
+  | 'hour'
+  | 'day'
+  | 'week'
+  | 'auto'
+
+export type ChannelQuotaHistoryMetric =
+  | 'available'
+  | 'used'
+  | 'total'
+  | 'consumption'
+  | 'rate_per_minute'
+
 export interface ChannelQuotaHistoryPoint {
   timestamp: number
+  /** Actual time of the observation retained for this display bucket. */
+  observed_at?: number
   status: string
   available?: number
   used?: number
+  /** Whether `used` came from the provider or was safely derived. */
+  used_source?: 'reported' | 'derived'
   total?: number
   reset_at?: number
   error_code?: string
+  /** Redacted origin of a non-success point, for diagnostics only. */
+  event_source?: string
+  /** Number of raw observations represented by this display bucket. */
+  sample_count?: number
+  success_count?: number
+  failed_count?: number
+  unsupported_count?: number
+  /** The bucket crosses a provider-reported quota reset boundary. */
+  reset?: boolean
+  /** A value must not be connected to its predecessor in the chart. */
+  continuity_break?: boolean
+  /** Server-derived intervals, assigned to the bucket containing their end. */
+  consumption?: number
+  rate_per_minute?: number
+  peak_rate_per_minute?: number
+  observed_seconds?: number
+  interval_count?: number
+  gap?: boolean
+  recovery?: boolean
+  baseline_change?: boolean
+}
+
+export interface ChannelQuotaHistoryMetricSummary {
+  start?: number
+  end?: number
+  change?: number
+  change_percent?: number
+  minimum?: number
+  maximum?: number
+  samples?: number
+}
+
+export interface ChannelQuotaHistoryConsumptionSummary {
+  /** Consumption observed only across continuous, successful sample pairs. */
+  observed?: number
+  basis?: 'used' | 'available' | string
+  pair_count?: number
+  reset_boundaries?: number
+  recovery_count?: number
+  interrupted_count?: number
+  unit?: string
+  observed_seconds?: number
+  average_rate_per_minute?: number
+  peak_rate_per_minute?: number
+  peak_rate_observed_at?: number
+  gap_count?: number
+  baseline_change_count?: number
+  allocation?: 'interval_end'
 }
 
 export interface ChannelQuotaHistorySummary {
@@ -221,14 +299,21 @@ export interface ChannelQuotaHistorySummary {
   forecast_zero_at?: number | null
   forecast_confidence?: 'high' | 'low' | 'insufficient'
   data_quality?: ChannelQuotaHistoryDataQuality
+  /** Metric-specific figures prevent a selected chart metric using availability figures. */
+  available?: ChannelQuotaHistoryMetricSummary
+  used?: ChannelQuotaHistoryMetricSummary
+  total?: ChannelQuotaHistoryMetricSummary
+  consumption?: ChannelQuotaHistoryConsumptionSummary
 }
 
 export interface ChannelQuotaHistoryDataQuality {
+  sample_count?: number
   success_count: number
   error_count: number
   unsupported_count?: number
   invalid_count: number
   reset_boundaries: number
+  observed_span_seconds?: number
   span_seconds: number
 }
 
@@ -247,8 +332,24 @@ export interface ChannelQuotaHistoryData {
   start: number
   end: number
   limit: number
-  granularity?: 'raw' | 'hour' | 'day' | 'week' | 'auto'
+  granularity?: ChannelQuotaHistoryGranularity
   timezone_offset?: number
+  /** Stable, redacted identifier of the resolved provider quota series. */
+  series_id?: string
+  /** Raw observations found in the requested period before chart bucketing. */
+  raw_observations?: number
+  raw_observation_limit?: number
+  /** Buckets available before and after the response point cap. */
+  available_points?: number
+  returned_points?: number
+  /** No raw observations were skipped while producing the response. */
+  source_complete?: boolean
+  /** No display buckets were skipped while producing the response. */
+  points_complete?: boolean
+  /** True only when the requested range was represented in full. */
+  complete?: boolean
+  truncated?: boolean
+  truncation_reason?: 'raw_observation_limit' | 'point_limit' | string
   points: ChannelQuotaHistoryPoint[]
   summary?: ChannelQuotaHistorySummary
   data_quality?: ChannelQuotaHistoryDataQuality
@@ -256,10 +357,13 @@ export interface ChannelQuotaHistoryData {
   current?: {
     available?: number
     used?: number
+    used_source?: 'reported' | 'derived'
     total?: number
+    reset_at?: number
     observed_at: number
     status: string
     error_code?: string
+    event_source?: string
   }
   unit?: string
   currency?: string
@@ -268,6 +372,16 @@ export interface ChannelQuotaHistoryData {
   source?: string
   plan_type?: string
   window_seconds?: number
+  series?: {
+    id: string
+    metric_type?: string
+    window_type?: string
+    source?: string
+    plan_type?: string
+    unit?: string
+    currency?: string
+    window_seconds?: number
+  }
 }
 
 export interface ChannelQuotaHistoryResponse {
@@ -305,6 +419,10 @@ export interface ChannelQuotaChangeItem {
   /** Read-only threshold state derived from the latest normalized snapshot. */
   alert?: ChannelQuotaHistoryAlert
   data_quality?: ChannelQuotaHistoryDataQuality
+  consumption?: ChannelQuotaHistoryConsumptionSummary
+  peak_abs_change_per_minute?: number
+  peak_drop_per_minute?: number
+  peak_increase_per_minute?: number
 }
 
 export interface ChannelQuotaChangesData {
@@ -312,6 +430,10 @@ export interface ChannelQuotaChangesData {
   range?: string
   generated_at?: number
   data_quality?: ChannelQuotaHistoryDataQuality
+  total_items?: number
+  returned_items?: number
+  source_complete?: boolean
+  items_complete?: boolean
 }
 
 export interface ChannelQuotaChangesResponse {

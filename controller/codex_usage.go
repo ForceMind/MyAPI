@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -16,6 +17,8 @@ import (
 	"github.com/ForceMind/MyAPI/service"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func GetCodexChannelUsage(c *gin.Context) {
@@ -305,10 +308,13 @@ func fetchCodexChannelWhamData(
 				oauthKey.Type = "codex"
 			}
 
-			encoded, encErr := common.Marshal(oauthKey)
-			if encErr == nil {
-				_ = model.DB.Model(&model.Channel{}).Where("id = ?", ch.Id).Update("key", string(encoded)).Error
-				model.InitChannelCache()
+			if persistErr := persistRefreshedCodexCredentials(ch, oauthKey); persistErr != nil {
+				common.SysError("Codex credential refresh persistence failed")
+				if recordUsage {
+					recordCodexCredentialPersistenceFailure(ch.Id)
+				}
+				c.JSON(http.StatusOK, gin.H{"success": false, "message": userMessage})
+				return
 			}
 
 			ctx2, cancel2 := context.WithTimeout(c.Request.Context(), 15*time.Second)
@@ -410,23 +416,87 @@ func newChannelQuotaSamplingError(queryErr, persistErr error) error {
 
 func recordCodexUsageSnapshots(channelID, statusCode int, body []byte) error {
 	snapshots := normalizeCodexUsageSnapshots(channelID, time.Now().Unix(), statusCode, body)
+	return recordQuotaSamplingSnapshots(snapshots)
+}
+
+const channelQuotaPersistenceTimeout = 5 * time.Second
+
+// A completed request must still record its outcome when its network context
+// expires. This separate, short budget also bounds connection-pool waits.
+func recordQuotaSamplingSnapshots(snapshots []model.ChannelQuotaSnapshot) error {
+	ctx, cancel := context.WithTimeout(context.Background(), channelQuotaPersistenceTimeout)
+	defer cancel()
 	var firstErr error
 	for index := range snapshots {
-		if err := model.RecordChannelQuotaSnapshot(&snapshots[index]); err != nil && firstErr == nil {
+		if err := model.RecordChannelQuotaSnapshotWithContext(ctx, &snapshots[index]); err != nil && firstErr == nil {
 			firstErr = err
+		}
+		if ctx.Err() != nil {
+			break
 		}
 	}
 	return firstErr
+}
+
+func recordCodexCredentialPersistenceFailure(channelID int) error {
+	snapshots := normalizeCodexUsageSnapshots(channelID, time.Now().Unix(), 0, nil)
+	snapshots[0].ErrorCode = "credential_persist_failed"
+	snapshots[0].ErrorMessage = "refreshed quota credentials could not be saved"
+	return recordQuotaSamplingSnapshots(snapshots)
+}
+
+func persistRefreshedCodexCredentials(channel *model.Channel, oauthKey *codex.OAuthKey) error {
+	encoded, err := common.Marshal(oauthKey)
+	if err != nil {
+		return errors.New("refreshed Codex credentials could not be encoded")
+	}
+	if channel == nil || model.DB == nil {
+		return errors.New("refreshed Codex credentials could not be saved")
+	}
+	// Refresh tokens may rotate. Do not reuse an almost-expired request context
+	// and discard the only new token even though the refresh itself succeeded.
+	ctx, cancel := context.WithTimeout(context.Background(), channelQuotaPersistenceTimeout)
+	defer cancel()
+	// A failed UPDATE must not put the credential JSON into a SQL trace.
+	result := model.DB.WithContext(ctx).Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)}).
+		Model(&model.Channel{}).Where("id = ?", channel.Id).Update("key", string(encoded))
+	if result.Error != nil {
+		if errors.Is(result.Error, context.DeadlineExceeded) {
+			return fmt.Errorf("save refreshed Codex credentials: %w", context.DeadlineExceeded)
+		}
+		if errors.Is(result.Error, context.Canceled) {
+			return fmt.Errorf("save refreshed Codex credentials: %w", context.Canceled)
+		}
+		return errors.New("refreshed Codex credentials could not be saved")
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("refreshed Codex credential target was not updated")
+	}
+	channel.Key = string(encoded)
+	if err := model.CacheUpdateChannelKeyWithContext(ctx, channel.Id, string(encoded)); err != nil {
+		return fmt.Errorf("update refreshed Codex credential cache: %w", err)
+	}
+	return nil
 }
 
 // sampleCodexChannelUsage records one normalized official WHAM usage sample for
 // the bounded background quota sampler. It deliberately shares the same
 // endpoint and normalization contract as the admin usage view, but never
 // returns or persists the OAuth credential or raw provider response.
+const codexQuotaSamplingRequestTimeout = 20 * time.Second
+
 func sampleCodexChannelUsage(ctx context.Context, ch *model.Channel) error {
 	if ch == nil {
 		return fmt.Errorf("nil Codex channel")
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	// One deadline covers the original request, credential refresh and retry.
+	// Never renew the budget after a 401 or let the relay's unlimited timeout
+	// keep the background sampler and channel polling lock occupied forever.
+	ctx, cancel := context.WithTimeout(ctx, codexQuotaSamplingRequestTimeout)
+	defer cancel()
 	oauthKey, err := codex.ParseOAuthKey(strings.TrimSpace(ch.Key))
 	if err != nil {
 		persistErr := recordCodexUsageSnapshots(ch.Id, 0, nil)
@@ -443,15 +513,14 @@ func sampleCodexChannelUsage(ctx context.Context, ch *model.Channel) error {
 		persistErr := recordCodexUsageSnapshots(ch.Id, 0, nil)
 		return newChannelQuotaSamplingError(err, persistErr)
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	statusCode, body, err := service.FetchCodexWhamUsage(ctx, client, ch.GetBaseURL(), accessToken, accountID)
 	if err == nil && (statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden) && strings.TrimSpace(oauthKey.RefreshToken) != "" {
 		refreshCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		res, refreshErr := service.RefreshCodexOAuthTokenWithProxy(refreshCtx, oauthKey.RefreshToken, ch.GetSetting().Proxy)
 		cancel()
-		if refreshErr == nil {
+		if refreshErr != nil {
+			err = refreshErr
+		} else {
 			oauthKey.AccessToken = res.AccessToken
 			oauthKey.RefreshToken = res.RefreshToken
 			oauthKey.LastRefresh = time.Now().Format(time.RFC3339)
@@ -459,16 +528,25 @@ func sampleCodexChannelUsage(ctx context.Context, ch *model.Channel) error {
 			if strings.TrimSpace(oauthKey.Type) == "" {
 				oauthKey.Type = "codex"
 			}
-			if encoded, encErr := common.Marshal(oauthKey); encErr == nil {
-				if updateErr := model.DB.Model(&model.Channel{}).Where("id = ?", ch.Id).Update("key", string(encoded)).Error; updateErr == nil {
-					model.InitChannelCache()
-				}
+			if persistErr := persistRefreshedCodexCredentials(ch, oauthKey); persistErr != nil {
+				snapshotErr := recordCodexCredentialPersistenceFailure(ch.Id)
+				return newChannelQuotaSamplingError(errors.New("Codex credential refresh could not be persisted"), errors.Join(persistErr, snapshotErr))
 			}
 			statusCode, body, err = service.FetchCodexWhamUsage(ctx, client, ch.GetBaseURL(), oauthKey.AccessToken, accountID)
 		}
 	}
 	if err != nil {
-		persistErr := recordCodexUsageSnapshots(ch.Id, 0, nil)
+		snapshots := normalizeCodexUsageSnapshots(ch.Id, time.Now().Unix(), 0, nil)
+		if errors.Is(err, context.DeadlineExceeded) {
+			snapshots[0].ErrorCode = "upstream_timeout"
+			snapshots[0].ErrorMessage = "quota sampling request timed out"
+		} else if errors.Is(err, context.Canceled) {
+			snapshots[0].ErrorCode = "sampling_canceled"
+			snapshots[0].ErrorMessage = "quota sampling request canceled"
+		}
+		// Persist the safe failure marker independently of the expired request
+		// context, so a timed-out account yields its turn in the next batch.
+		persistErr := recordQuotaSamplingSnapshots(snapshots)
 		return newChannelQuotaSamplingError(err, persistErr)
 	}
 	persistErr := recordCodexUsageSnapshots(ch.Id, statusCode, body)

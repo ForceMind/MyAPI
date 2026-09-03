@@ -25,6 +25,7 @@ const (
 	// pass runs, independent of how often the runner wakes to claim tasks.
 	systemTaskSchedulerInterval = 15 * time.Second
 	systemTaskStaleLockInterval = 30 * time.Second
+	quotaSystemTaskWriteTimeout = 5 * time.Second
 )
 
 // SystemTaskHandler executes a claimed task of a specific type. Run owns the
@@ -44,6 +45,15 @@ type ScheduledSystemTaskHandler interface {
 	Enabled() bool
 	Interval() time.Duration
 	NewPayload() any
+}
+
+// StartScheduledSystemTaskHandler opts a periodic sampler into start-to-start
+// cadence. CreatedAt is the durable schedule anchor (tasks are claimed on the
+// same scheduler pass); active rows still prevent overlapping runs. Other
+// scheduled tasks keep their existing completion-to-start cooldown.
+type StartScheduledSystemTaskHandler interface {
+	ScheduledSystemTaskHandler
+	ScheduleFromStart() bool
 }
 
 var (
@@ -284,7 +294,11 @@ func runSystemTaskScheduler() {
 			if latest.Status == model.SystemTaskStatusPending || latest.Status == model.SystemTaskStatusRunning {
 				continue // an active row already exists
 			}
-			if now-latest.UpdatedAt < int64(scheduled.Interval().Seconds()) {
+			anchor := latest.UpdatedAt
+			if fromStart, ok := scheduled.(StartScheduledSystemTaskHandler); ok && fromStart.ScheduleFromStart() && latest.CreatedAt > 0 {
+				anchor = latest.CreatedAt
+			}
+			if now-anchor < int64(scheduled.Interval().Seconds()) {
 				continue // not due yet
 			}
 		}
@@ -316,14 +330,20 @@ func runWithLeaseHeartbeat(task *model.SystemTask, runnerID string, fn func(ctx 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	done := make(chan struct{})
+	var quotaCanceled <-chan struct{}
+	if task.Type == model.SystemTaskTypeChannelQuotaSnapshotSync {
+		quotaCanceled = ctx.Done()
+	}
 
 	go func() {
 		for {
 			select {
 			case <-done:
 				return
+			case <-quotaCanceled:
+				return
 			case <-ticker.C:
-				if err := model.RenewSystemTaskLock(task.TaskID, runnerID, systemTaskLockUntil()); err != nil {
+				if err := renewSystemTaskLease(ctx, task, runnerID); err != nil {
 					cancel()
 					return
 				}
@@ -333,6 +353,17 @@ func runWithLeaseHeartbeat(task *model.SystemTask, runnerID string, fn func(ctx 
 
 	fn(ctx)
 	close(done)
+}
+
+func renewSystemTaskLease(ctx context.Context, task *model.SystemTask, runnerID string) error {
+	if task.Type != model.SystemTaskTypeChannelQuotaSnapshotSync {
+		return model.RenewSystemTaskLock(task.TaskID, runnerID, systemTaskLockUntil())
+	}
+	// This context is canceled when runWithLeaseHeartbeat's handler returns,
+	// including an in-flight renewal waiting for a database connection.
+	writeCtx, cancel := context.WithTimeout(ctx, quotaSystemTaskWriteTimeout)
+	defer cancel()
+	return model.RenewSystemTaskLockWithContext(writeCtx, task.TaskID, runnerID, systemTaskLockUntil())
 }
 
 func runLogCleanupTask(ctx context.Context, task *model.SystemTask, runnerID string) {
@@ -476,6 +507,26 @@ type SystemTaskProgress struct {
 // loss, so progress writes are best-effort and never abort the run themselves.
 // The returned func is single-goroutine only (call it from the handler loop).
 func NewSystemTaskProgressReporter(task *model.SystemTask, runnerID string) func(processed, total int) {
+	return newSystemTaskProgressReporter(func(state SystemTaskProgress) error {
+		return model.UpdateSystemTaskState(task.TaskID, runnerID, state)
+	})
+}
+
+// NewSystemTaskProgressReporterWithContext is the bounded opt-in used by quota
+// sampling. Each best-effort write respects the run deadline and takes at most
+// five seconds; other handlers retain the legacy background-context reporter.
+func NewSystemTaskProgressReporterWithContext(ctx context.Context, task *model.SystemTask, runnerID string) func(processed, total int) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return newSystemTaskProgressReporter(func(state SystemTaskProgress) error {
+		writeCtx, cancel := context.WithTimeout(ctx, quotaSystemTaskWriteTimeout)
+		defer cancel()
+		return model.UpdateSystemTaskStateWithContext(writeCtx, task.TaskID, runnerID, state)
+	})
+}
+
+func newSystemTaskProgressReporter(write func(SystemTaskProgress) error) func(processed, total int) {
 	const minWriteInterval = 2 * time.Second
 	var (
 		lastWriteAt  time.Time
@@ -504,7 +555,7 @@ func NewSystemTaskProgressReporter(task *model.SystemTask, runnerID string) func
 		lastWriteAt = time.Now()
 
 		state := SystemTaskProgress{Total: total, Processed: processed, Progress: progress}
-		_ = model.UpdateSystemTaskState(task.TaskID, runnerID, state)
+		_ = write(state)
 	}
 }
 

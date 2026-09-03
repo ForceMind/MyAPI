@@ -108,3 +108,46 @@ func TestSortQuotaChangeItemsDefaultsToLargestAbsoluteRate(t *testing.T) {
 }
 
 func ptrChangeFloat(value float64) *float64 { return &value }
+
+func TestQuotaChangesGenericFailureIsAnEventNotAnExtraAccount(t *testing.T) {
+	rows := []model.ChannelQuotaAggregateRow{
+		{ID: 1, ChannelID: 7, ChannelName: "Codex", ObservedAt: 100, Available: 90, Status: "success", MetricType: "codex_rate_limit", WindowType: "weekly", Source: "codex_wham_usage_primary", PlanType: "pro", Unit: "percent"},
+		{ID: 2, ChannelID: 7, ChannelName: "Codex", ObservedAt: 160, Available: 80, Status: "success", MetricType: "codex_rate_limit", WindowType: "weekly", Source: "codex_wham_usage_primary", PlanType: "pro", Unit: "percent"},
+		{ID: 3, ChannelID: 7, ChannelName: "Codex", ObservedAt: 220, Status: "error", MetricType: "codex_rate_limit", WindowType: "none", Source: "codex_wham_usage", Unit: "percent"},
+	}
+	items, quality := buildQuotaChangeItems(rows)
+	require.Len(t, items, 1)
+	require.Equal(t, "codex_wham_usage_primary", items[0].Source)
+	require.Equal(t, "weekly", items[0].WindowType)
+	require.Equal(t, "error", items[0].Status)
+	require.Nil(t, items[0].CurrentAvailable)
+	require.Nil(t, items[0].ChangePerMinute)
+	require.Equal(t, 10.0, *items[0].Consumption.Observed)
+	require.Equal(t, 1, quality.ErrorCount)
+	require.Equal(t, -10.0, *items[0].PeakDropPerMinute)
+}
+
+func TestQuotaChangesHistoryPeakDoesNotBecomeLatestZero(t *testing.T) {
+	rows := []model.ChannelQuotaAggregateRow{
+		{ID: 1, ChannelID: 1, ObservedAt: 100, Available: 100, Status: "success"},
+		{ID: 2, ChannelID: 1, ObservedAt: 160, Available: 90, Status: "success"},
+		{ID: 3, ChannelID: 1, ObservedAt: 220, Available: 90, Status: "success"},
+	}
+	items, _ := buildQuotaChangeItems(rows)
+	require.Len(t, items, 1)
+	require.Equal(t, 0.0, *items[0].ChangePerMinute)
+	require.Equal(t, 10.0, *quotaChangeSummary(items)["max_abs_change_per_minute"].(*float64))
+	require.Equal(t, -10.0, *quotaChangeSummary(items)["max_drop_per_minute"].(*float64))
+}
+
+func TestQuotaChangesDoesNotBridgeFailureWithinSameReset(t *testing.T) {
+	rows := []model.ChannelQuotaAggregateRow{
+		{ID: 1, ChannelID: 1, ObservedAt: 100, Available: 100, Status: "success"},
+		{ID: 2, ChannelID: 1, ObservedAt: 130, Status: "error"},
+		{ID: 3, ChannelID: 1, ObservedAt: 160, Available: 90, Status: "success"},
+	}
+	items, _ := buildQuotaChangeItems(rows)
+	require.Len(t, items, 1)
+	require.Nil(t, items[0].ChangePerMinute)
+	require.Nil(t, items[0].Consumption.Observed)
+}

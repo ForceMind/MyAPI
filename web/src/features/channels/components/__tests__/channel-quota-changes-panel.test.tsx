@@ -9,7 +9,7 @@ License, or (at your option) any later version.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
@@ -17,12 +17,14 @@ import { useAuthStore } from '@/stores/auth-store'
 import {
   getChannelQuotaChanges,
   getChannelQuotaSamplingStatus,
+  getChannelQuotaHistory,
 } from '../../api'
 import { ChannelQuotaChangesPanel } from '../channel-quota-changes-panel'
 
 vi.mock('../../api', () => ({
   getChannelQuotaChanges: vi.fn(),
   getChannelQuotaSamplingStatus: vi.fn(),
+  getChannelQuotaHistory: vi.fn(),
 }))
 
 // The panel is rendered in the channels route in production. Keep this unit
@@ -52,8 +54,97 @@ function renderPanel() {
 }
 
 describe('channel quota changes panel', () => {
+  beforeEach(() => {
+    vi.mocked(getChannelQuotaHistory).mockResolvedValue({
+      success: true,
+      data: { channel_id: 12, start: 100, end: 200, limit: 5000, points: [] },
+    })
+  })
   afterEach(() => {
     useAuthStore.getState().auth.reset()
+  })
+
+  test('keeps chart preferences while parent range and refresh reach the detailed query', async () => {
+    vi.mocked(getChannelQuotaChanges).mockResolvedValue({
+      success: true,
+      data: {
+        items: [
+          {
+            channel_id: 12,
+            name: 'Codex',
+            metric_type: 'codex_rate_limit',
+            source: 'codex_wham_usage_primary',
+            window_type: 'weekly',
+            unit: 'percent',
+            status: 'success',
+          },
+        ],
+      },
+    })
+    vi.mocked(getChannelQuotaSamplingStatus).mockResolvedValue({
+      success: true,
+      data: { enabled: true, interval_seconds: 60, max_channels: 100 },
+    })
+    vi.mocked(getChannelQuotaHistory).mockResolvedValue({
+      success: true,
+      data: {
+        channel_id: 12,
+        start: 100,
+        end: 200,
+        limit: 5000,
+        unit: 'percent',
+        points: [
+          {
+            timestamp: 100,
+            status: 'success',
+            consumption: 1,
+            rate_per_minute: 1,
+          },
+          {
+            timestamp: 200,
+            status: 'success',
+            consumption: 2,
+            rate_per_minute: 1.2,
+          },
+        ],
+      },
+    })
+    renderPanel()
+    await screen.findByTestId('quota-history-chart-bar')
+    fireEvent.change(screen.getByLabelText('Metric'), {
+      target: { value: 'rate_per_minute' },
+    })
+    fireEvent.change(screen.getByLabelText('Chart style'), {
+      target: { value: 'area' },
+    })
+    fireEvent.change(screen.getByLabelText('Window'), {
+      target: { value: '7d' },
+    })
+    await waitFor(() =>
+      expect(getChannelQuotaChanges).toHaveBeenLastCalledWith(
+        expect.objectContaining({ range: '7d' })
+      )
+    )
+    await waitFor(() =>
+      expect(getChannelQuotaHistory).toHaveBeenLastCalledWith(
+        12,
+        expect.objectContaining({
+          range: '7d',
+          source: 'codex_wham_usage_primary',
+          window_type: 'weekly',
+        })
+      )
+    )
+    expect(screen.getByLabelText('Metric')).toHaveValue('rate_per_minute')
+    expect(screen.getByLabelText('Chart style')).toHaveValue('area')
+    await waitFor(() =>
+      expect(screen.getAllByLabelText('Refresh')[0]).toBeEnabled()
+    )
+    const calls = vi.mocked(getChannelQuotaHistory).mock.calls.length
+    fireEvent.click(screen.getAllByLabelText('Refresh')[0])
+    await waitFor(() =>
+      expect(getChannelQuotaHistory).toHaveBeenCalledTimes(calls + 1)
+    )
   })
 
   test('does not reuse quota rows after the authenticated user changes', async () => {
@@ -143,9 +234,11 @@ describe('channel quota changes panel', () => {
     renderPanel()
 
     expect(await screen.findByText('Codex team account')).toBeInTheDocument()
-    expect(screen.getByText('Largest change per minute')).toBeInTheDocument()
-    expect(screen.getByText('Accounts tracked')).toBeInTheDocument()
-    expect(screen.getByLabelText('Refresh')).toBeInTheDocument()
+    expect(
+      screen.getAllByText('Peak consumption per minute').length
+    ).toBeGreaterThan(0)
+    expect(screen.getByText('Quota series tracked')).toBeInTheDocument()
+    expect(screen.getAllByLabelText('Refresh').length).toBeGreaterThan(0)
     expect(screen.getByLabelText('Quota window type')).toBeInTheDocument()
     expect(
       screen.getByRole('option', { name: 'Unsupported' })
@@ -218,7 +311,7 @@ describe('channel quota changes panel', () => {
     expect(
       document.querySelectorAll('[data-slot="skeleton"]').length
     ).toBeGreaterThan(0)
-    expect(screen.getByText('Account quota changes')).toBeInTheDocument()
+    expect(screen.getByText('Quota consumption')).toBeInTheDocument()
   })
 
   test('renders a retryable error instead of an empty table', async () => {

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -326,4 +327,38 @@ func CacheUpdateChannel(channel *Channel) {
 	// updatePricingLock while holding channelSyncLock would be an AB-BA deadlock.
 	channelSyncLock.Unlock()
 	InvalidatePricingCache()
+}
+
+// CacheUpdateChannelKeyWithContext replaces only the credential in an existing
+// cache entry. It performs no database/pricing rebuild and cannot keep a quota
+// sampling lock waiting indefinitely for a concurrent full cache refresh.
+func CacheUpdateChannelKeyWithContext(ctx context.Context, id int, key string) error {
+	if !common.MemoryCacheEnabled {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ticker := time.NewTicker(5 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if channelSyncLock.TryLock() {
+			defer channelSyncLock.Unlock()
+			if channel, ok := channelsIDM[id]; ok {
+				updated := *channel
+				updated.Key = key
+				updated.Keys = nil
+				channelsIDM[id] = &updated
+			}
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
 }

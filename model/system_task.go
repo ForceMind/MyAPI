@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"errors"
 
 	"github.com/ForceMind/MyAPI/common"
@@ -23,8 +24,8 @@ const (
 	SystemTaskTypeAsyncTaskPoll               = "async_task_poll"
 	SystemTaskTypeChannelQuotaSnapshotCleanup = "channel_quota_snapshot_cleanup"
 	// SystemTaskTypeChannelQuotaSnapshotSync periodically samples normalized
-	// upstream account balances.  The task is opt-in and is only registered by
-	// the controller when CHANNEL_QUOTA_SYNC_ENABLED=true.
+	// upstream account balances. Sampling is enabled by default; an explicit
+	// environment override takes precedence over the administrator setting.
 	SystemTaskTypeChannelQuotaSnapshotSync = "channel_quota_snapshot_sync"
 )
 
@@ -312,12 +313,16 @@ func acquireSystemTaskLock(taskType string, taskID string, lockedBy string, now 
 }
 
 func UpdateSystemTaskState(taskID string, lockedBy string, state any) error {
+	return UpdateSystemTaskStateWithContext(context.Background(), taskID, lockedBy, state)
+}
+
+func UpdateSystemTaskStateWithContext(ctx context.Context, taskID string, lockedBy string, state any) error {
 	stateText, err := marshalSystemTaskJSON(state)
 	if err != nil {
 		return err
 	}
 	now := common.GetTimestamp()
-	result := DB.Model(&SystemTask{}).
+	result := DB.WithContext(ctx).Model(&SystemTask{}).
 		Where("task_id = ? AND status = ? AND locked_by = ?", taskID, SystemTaskStatusRunning, lockedBy).
 		Where("EXISTS (SELECT 1 FROM system_task_locks WHERE system_task_locks.task_id = system_tasks.task_id AND system_task_locks.locked_by = ? AND system_task_locks.locked_until >= ?)", lockedBy, now).
 		Updates(map[string]any{
@@ -334,8 +339,12 @@ func UpdateSystemTaskState(taskID string, lockedBy string, state any) error {
 }
 
 func RenewSystemTaskLock(taskID string, lockedBy string, lockUntil int64) error {
+	return RenewSystemTaskLockWithContext(context.Background(), taskID, lockedBy, lockUntil)
+}
+
+func RenewSystemTaskLockWithContext(ctx context.Context, taskID string, lockedBy string, lockUntil int64) error {
 	now := common.GetTimestamp()
-	result := DB.Model(&SystemTaskLock{}).
+	result := DB.WithContext(ctx).Model(&SystemTaskLock{}).
 		Where("task_id = ? AND locked_by = ? AND locked_until >= ?", taskID, lockedBy, now).
 		Updates(map[string]any{
 			"locked_until": lockUntil,
@@ -381,17 +390,25 @@ func ExpireStaleSystemTaskLocks(now int64) error {
 }
 
 func ReleaseSystemTaskLock(taskID string, lockedBy string) error {
-	result := DB.Where("task_id = ? AND locked_by = ?", taskID, lockedBy).Delete(&SystemTaskLock{})
+	return ReleaseSystemTaskLockWithContext(context.Background(), taskID, lockedBy)
+}
+
+func ReleaseSystemTaskLockWithContext(ctx context.Context, taskID string, lockedBy string) error {
+	result := DB.WithContext(ctx).Where("task_id = ? AND locked_by = ?", taskID, lockedBy).Delete(&SystemTaskLock{})
 	return result.Error
 }
 
 func FinishSystemTask(taskID string, lockedBy string, status SystemTaskStatus, resultPayload any, errorMessage string) error {
+	return FinishSystemTaskWithContext(context.Background(), taskID, lockedBy, status, resultPayload, errorMessage)
+}
+
+func FinishSystemTaskWithContext(ctx context.Context, taskID string, lockedBy string, status SystemTaskStatus, resultPayload any, errorMessage string) error {
 	resultText, err := marshalSystemTaskJSON(resultPayload)
 	if err != nil {
 		return err
 	}
 	now := common.GetTimestamp()
-	result := DB.Model(&SystemTask{}).
+	result := DB.WithContext(ctx).Model(&SystemTask{}).
 		Where("task_id = ? AND status = ? AND locked_by = ?", taskID, SystemTaskStatusRunning, lockedBy).
 		Where("EXISTS (SELECT 1 FROM system_task_locks WHERE system_task_locks.task_id = system_tasks.task_id AND system_task_locks.locked_by = ? AND system_task_locks.locked_until >= ?)", lockedBy, now).
 		Updates(map[string]any{
@@ -407,7 +424,7 @@ func FinishSystemTask(taskID string, lockedBy string, status SystemTaskStatus, r
 	if result.RowsAffected == 0 {
 		return ErrSystemTaskLockLost
 	}
-	return ReleaseSystemTaskLock(taskID, lockedBy)
+	return ReleaseSystemTaskLockWithContext(ctx, taskID, lockedBy)
 }
 
 func (task *SystemTask) DecodePayload(v any) error {

@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -55,7 +57,8 @@ type OpenAICreditGrants struct {
 	TotalAvailable float64 `json:"total_available"`
 }
 
-const maxAdvancedCustomBalanceResponseBytes = 256 << 10
+const maxChannelBalanceResponseBytes = 256 << 10
+const maxAdvancedCustomBalanceResponseBytes = maxChannelBalanceResponseBytes
 
 // errChannelQuotaUnsupported distinguishes a provider that has no supported
 // balance endpoint from a transient query failure. Unsupported is persisted as
@@ -162,9 +165,7 @@ func GetClaudeAuthHeader(token string) http.Header {
 	return h
 }
 
-func GetResponseBody(method, url string, channel *model.Channel, headers http.Header) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), channelBalanceRequestTimeout)
-	defer cancel()
+func GetResponseBody(ctx context.Context, method, url string, channel *model.Channel, headers http.Header) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, method, url, nil)
 	if err != nil {
 		return nil, err
@@ -180,23 +181,23 @@ func GetResponseBody(method, url string, channel *model.Channel, headers http.He
 	if err != nil {
 		return nil, err
 	}
+	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("status code: %d", res.StatusCode)
 	}
-	body, err := io.ReadAll(res.Body)
+	body, err := io.ReadAll(io.LimitReader(res.Body, maxChannelBalanceResponseBytes+1))
 	if err != nil {
 		return nil, err
 	}
-	err = res.Body.Close()
-	if err != nil {
-		return nil, err
+	if len(body) > maxChannelBalanceResponseBytes {
+		return nil, fmt.Errorf("balance response exceeds %d bytes", maxChannelBalanceResponseBytes)
 	}
 	return body, nil
 }
 
-func updateChannelCloseAIBalance(channel *model.Channel) (float64, error) {
+func updateChannelCloseAIBalance(ctx context.Context, channel *model.Channel) (float64, error) {
 	url := fmt.Sprintf("%s/dashboard/billing/credit_grants", channel.GetBaseURL())
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody(ctx, "GET", url, channel, GetAuthHeader(channel.Key))
 
 	if err != nil {
 		return 0, err
@@ -206,13 +207,12 @@ func updateChannelCloseAIBalance(channel *model.Channel) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	channel.UpdateBalance(response.TotalAvailable)
 	return response.TotalAvailable, nil
 }
 
-func updateChannelOpenAISBBalance(channel *model.Channel) (float64, error) {
+func updateChannelOpenAISBBalance(ctx context.Context, channel *model.Channel) (float64, error) {
 	url := fmt.Sprintf("https://api.openai-sb.com/sb-api/user/status?api_key=%s", channel.Key)
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody(ctx, "GET", url, channel, GetAuthHeader(channel.Key))
 	if err != nil {
 		return 0, err
 	}
@@ -228,15 +228,14 @@ func updateChannelOpenAISBBalance(channel *model.Channel) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	channel.UpdateBalance(balance)
 	return balance, nil
 }
 
-func updateChannelAIProxyBalance(channel *model.Channel) (float64, error) {
+func updateChannelAIProxyBalance(ctx context.Context, channel *model.Channel) (float64, error) {
 	url := "https://aiproxy.io/api/report/getUserOverview"
 	headers := http.Header{}
 	headers.Add("Api-Key", channel.Key)
-	body, err := GetResponseBody("GET", url, channel, headers)
+	body, err := GetResponseBody(ctx, "GET", url, channel, headers)
 	if err != nil {
 		return 0, err
 	}
@@ -248,13 +247,12 @@ func updateChannelAIProxyBalance(channel *model.Channel) (float64, error) {
 	if !response.Success {
 		return 0, fmt.Errorf("code: %d, message: %s", response.ErrorCode, response.Message)
 	}
-	channel.UpdateBalance(response.Data.TotalPoints)
 	return response.Data.TotalPoints, nil
 }
 
-func updateChannelAPI2GPTBalance(channel *model.Channel) (float64, error) {
+func updateChannelAPI2GPTBalance(ctx context.Context, channel *model.Channel) (float64, error) {
 	url := "https://api.api2gpt.com/dashboard/billing/credit_grants"
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody(ctx, "GET", url, channel, GetAuthHeader(channel.Key))
 
 	if err != nil {
 		return 0, err
@@ -264,13 +262,12 @@ func updateChannelAPI2GPTBalance(channel *model.Channel) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	channel.UpdateBalance(response.TotalRemaining)
 	return response.TotalRemaining, nil
 }
 
-func updateChannelSiliconFlowBalance(channel *model.Channel) (float64, error) {
+func updateChannelSiliconFlowBalance(ctx context.Context, channel *model.Channel) (float64, error) {
 	url := "https://api.siliconflow.cn/v1/user/info"
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody(ctx, "GET", url, channel, GetAuthHeader(channel.Key))
 	if err != nil {
 		return 0, err
 	}
@@ -286,13 +283,12 @@ func updateChannelSiliconFlowBalance(channel *model.Channel) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	channel.UpdateBalance(balance)
 	return balance, nil
 }
 
-func updateChannelDeepSeekBalance(channel *model.Channel) (float64, error) {
+func updateChannelDeepSeekBalance(ctx context.Context, channel *model.Channel) (float64, error) {
 	url := "https://api.deepseek.com/user/balance"
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody(ctx, "GET", url, channel, GetAuthHeader(channel.Key))
 	if err != nil {
 		return 0, err
 	}
@@ -315,13 +311,12 @@ func updateChannelDeepSeekBalance(channel *model.Channel) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	channel.UpdateBalance(balance)
 	return balance, nil
 }
 
-func updateChannelAIGC2DBalance(channel *model.Channel) (float64, error) {
+func updateChannelAIGC2DBalance(ctx context.Context, channel *model.Channel) (float64, error) {
 	url := "https://api.aigc2d.com/dashboard/billing/credit_grants"
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody(ctx, "GET", url, channel, GetAuthHeader(channel.Key))
 	if err != nil {
 		return 0, err
 	}
@@ -330,13 +325,12 @@ func updateChannelAIGC2DBalance(channel *model.Channel) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	channel.UpdateBalance(response.TotalAvailable)
 	return response.TotalAvailable, nil
 }
 
-func updateChannelOpenRouterBalance(channel *model.Channel) (float64, error) {
+func updateChannelOpenRouterBalance(ctx context.Context, channel *model.Channel) (float64, error) {
 	url := "https://openrouter.ai/api/v1/credits"
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody(ctx, "GET", url, channel, GetAuthHeader(channel.Key))
 	if err != nil {
 		return 0, err
 	}
@@ -346,13 +340,12 @@ func updateChannelOpenRouterBalance(channel *model.Channel) (float64, error) {
 		return 0, err
 	}
 	balance := response.Data.TotalCredits - response.Data.TotalUsage
-	channel.UpdateBalance(balance)
 	return balance, nil
 }
 
-func updateChannelMoonshotBalance(channel *model.Channel) (float64, error) {
+func updateChannelMoonshotBalance(ctx context.Context, channel *model.Channel) (float64, error) {
 	url := "https://api.moonshot.cn/v1/users/me/balance"
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody(ctx, "GET", url, channel, GetAuthHeader(channel.Key))
 	if err != nil {
 		return 0, err
 	}
@@ -380,11 +373,10 @@ func updateChannelMoonshotBalance(channel *model.Channel) (float64, error) {
 	}
 	availableBalanceCny := response.Data.AvailableBalance
 	availableBalanceUsd := decimal.NewFromFloat(availableBalanceCny).Div(decimal.NewFromFloat(operation_setting.Price)).InexactFloat64()
-	channel.UpdateBalance(availableBalanceUsd)
 	return availableBalanceUsd, nil
 }
 
-func fetchAdvancedCustomBalance(channel *model.Channel) (channelBalanceResult, error) {
+func fetchAdvancedCustomBalance(ctx context.Context, channel *model.Channel) (channelBalanceResult, error) {
 	key := strings.TrimSpace(channel.Key)
 	info := &relaycommon.RelayInfo{
 		RelayFormat:    types.RelayFormatOpenAI,
@@ -405,8 +397,6 @@ func fetchAdvancedCustomBalance(channel *model.Channel) (channelBalanceResult, e
 		return channelBalanceResult{}, sanitizeFetchModelsError(err, key)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), channelBalanceRequestTimeout)
-	defer cancel()
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		return channelBalanceResult{}, sanitizeFetchModelsError(err, key)
@@ -425,6 +415,12 @@ func fetchAdvancedCustomBalance(channel *model.Channel) (channelBalanceResult, e
 	}
 	response, err := client.Do(request)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return channelBalanceResult{}, context.DeadlineExceeded
+		}
+		if errors.Is(err, context.Canceled) {
+			return channelBalanceResult{}, context.Canceled
+		}
 		return channelBalanceResult{}, sanitizeAdvancedCustomRequestError(err, key, requestURL)
 	}
 	defer response.Body.Close()
@@ -433,6 +429,12 @@ func fetchAdvancedCustomBalance(channel *model.Channel) (channelBalanceResult, e
 	}
 	body, err := io.ReadAll(io.LimitReader(response.Body, maxAdvancedCustomBalanceResponseBytes+1))
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return channelBalanceResult{}, context.DeadlineExceeded
+		}
+		if errors.Is(err, context.Canceled) {
+			return channelBalanceResult{}, context.Canceled
+		}
 		return channelBalanceResult{}, sanitizeAdvancedCustomRequestError(err, key, requestURL)
 	}
 	if len(body) > maxAdvancedCustomBalanceResponseBytes {
@@ -458,7 +460,6 @@ func fetchAdvancedCustomBalance(channel *model.Channel) (channelBalanceResult, e
 				balance >= 0 &&
 				!math.IsNaN(balance) &&
 				!math.IsInf(balance, 0) {
-				channel.UpdateBalance(balance)
 				return channelBalanceResult{Balance: balance}, nil
 			}
 		}
@@ -472,11 +473,31 @@ func fetchAdvancedCustomBalance(channel *model.Channel) (channelBalanceResult, e
 }
 
 func updateChannelBalance(channel *model.Channel) (channelBalanceResult, error) {
-	if channel.Type == constant.ChannelTypeAdvancedCustom {
-		return fetchAdvancedCustomBalance(channel)
+	return updateChannelBalanceWithContext(context.Background(), channel)
+}
+
+func updateChannelBalanceWithContext(ctx context.Context, channel *model.Channel) (channelBalanceResult, error) {
+	if channel == nil {
+		return channelBalanceResult{}, errors.New("nil channel")
 	}
-	balance, err := updateStandardChannelBalance(channel)
-	return channelBalanceResult{Balance: balance}, err
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(ctx, channelBalanceRequestTimeout)
+	defer cancel()
+	var result channelBalanceResult
+	var err error
+	if channel.Type == constant.ChannelTypeAdvancedCustom {
+		result, err = fetchAdvancedCustomBalance(ctx, channel)
+	} else {
+		result.Balance, err = updateStandardChannelBalance(ctx, channel)
+	}
+	if err != nil || result.RawResponse != "" {
+		return result, err
+	}
+	persistCtx, persistCancel := context.WithTimeout(context.Background(), channelQuotaPersistenceTimeout)
+	defer persistCancel()
+	return result, newChannelQuotaSamplingError(nil, channel.UpdateBalanceWithContext(persistCtx, result.Balance))
 }
 
 // withChannelPollingLock runs one channel operation while holding the same
@@ -503,7 +524,11 @@ func updateChannelBalanceWithPollingLock(channel *model.Channel) (result channel
 	}
 	withChannelPollingLock(channel.Id, func() {
 		result, queryErr = updateChannelBalance(channel)
-		persistErr = recordChannelBalanceSnapshot(channel, result, queryErr)
+		var classified *channelQuotaSamplingError
+		if errors.As(queryErr, &classified) {
+			queryErr, persistErr = classified.QueryErr, classified.PersistErr
+		}
+		persistErr = errors.Join(persistErr, recordChannelBalanceSnapshot(channel, result, queryErr))
 	})
 	return result, queryErr, persistErr
 }
@@ -530,30 +555,38 @@ func recordChannelBalanceSnapshot(channel *model.Channel, result channelBalanceR
 			snapshot.Status = "unsupported"
 			snapshot.ErrorCode = "quota_unsupported"
 			snapshot.ErrorMessage = "provider does not expose a supported balance endpoint"
+		} else if errors.Is(queryErr, context.DeadlineExceeded) {
+			snapshot.Status = "error"
+			snapshot.ErrorCode = "upstream_timeout"
+			snapshot.ErrorMessage = "quota sampling request timed out"
+		} else if errors.Is(queryErr, context.Canceled) {
+			snapshot.Status = "error"
+			snapshot.ErrorCode = "sampling_canceled"
+			snapshot.ErrorMessage = "quota sampling request canceled"
 		} else {
 			snapshot.Status = "error"
 			snapshot.ErrorCode = "query_failed"
 			snapshot.ErrorMessage = "balance query failed"
 		}
-		return model.RecordChannelQuotaSnapshot(snapshot)
+		return recordQuotaSamplingSnapshots([]model.ChannelQuotaSnapshot{*snapshot})
 	}
 	if result.RawResponse != "" {
 		snapshot.Status = "unsupported"
 		snapshot.ErrorCode = "unstructured_response"
 		snapshot.ErrorMessage = "upstream did not return a numeric balance"
-		return model.RecordChannelQuotaSnapshot(snapshot)
+		return recordQuotaSamplingSnapshots([]model.ChannelQuotaSnapshot{*snapshot})
 	}
 	if math.IsNaN(result.Balance) || math.IsInf(result.Balance, 0) {
 		snapshot.Status = "error"
 		snapshot.ErrorCode = "invalid_balance"
 		snapshot.ErrorMessage = "upstream returned an invalid balance"
-		return model.RecordChannelQuotaSnapshot(snapshot)
+		return recordQuotaSamplingSnapshots([]model.ChannelQuotaSnapshot{*snapshot})
 	}
 	snapshot.Available = result.Balance
-	return model.RecordChannelQuotaSnapshot(snapshot)
+	return recordQuotaSamplingSnapshots([]model.ChannelQuotaSnapshot{*snapshot})
 }
 
-func updateStandardChannelBalance(channel *model.Channel) (float64, error) {
+func updateStandardChannelBalance(ctx context.Context, channel *model.Channel) (float64, error) {
 	baseURL := constant.ChannelBaseURLs[channel.Type]
 	if channel.GetBaseURL() == "" {
 		channel.BaseURL = &baseURL
@@ -568,27 +601,27 @@ func updateStandardChannelBalance(channel *model.Channel) (float64, error) {
 	case constant.ChannelTypeCustom:
 		baseURL = channel.GetBaseURL()
 	//case common.ChannelTypeOpenAISB:
-	//	return updateChannelOpenAISBBalance(channel)
+	//	return updateChannelOpenAISBBalance(ctx, channel)
 	case constant.ChannelTypeAIProxy:
-		return updateChannelAIProxyBalance(channel)
+		return updateChannelAIProxyBalance(ctx, channel)
 	case constant.ChannelTypeAPI2GPT:
-		return updateChannelAPI2GPTBalance(channel)
+		return updateChannelAPI2GPTBalance(ctx, channel)
 	case constant.ChannelTypeAIGC2D:
-		return updateChannelAIGC2DBalance(channel)
+		return updateChannelAIGC2DBalance(ctx, channel)
 	case constant.ChannelTypeSiliconFlow:
-		return updateChannelSiliconFlowBalance(channel)
+		return updateChannelSiliconFlowBalance(ctx, channel)
 	case constant.ChannelTypeDeepSeek:
-		return updateChannelDeepSeekBalance(channel)
+		return updateChannelDeepSeekBalance(ctx, channel)
 	case constant.ChannelTypeOpenRouter:
-		return updateChannelOpenRouterBalance(channel)
+		return updateChannelOpenRouterBalance(ctx, channel)
 	case constant.ChannelTypeMoonshot:
-		return updateChannelMoonshotBalance(channel)
+		return updateChannelMoonshotBalance(ctx, channel)
 	default:
 		return 0, errChannelQuotaUnsupported
 	}
 	url := fmt.Sprintf("%s/v1/dashboard/billing/subscription", baseURL)
 
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody(ctx, "GET", url, channel, GetAuthHeader(channel.Key))
 	if err != nil {
 		return 0, err
 	}
@@ -604,7 +637,7 @@ func updateStandardChannelBalance(channel *model.Channel) (float64, error) {
 		startDate = now.AddDate(0, 0, -100).Format("2006-01-02")
 	}
 	url = fmt.Sprintf("%s/v1/dashboard/billing/usage?start_date=%s&end_date=%s", baseURL, startDate, endDate)
-	body, err = GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err = GetResponseBody(ctx, "GET", url, channel, GetAuthHeader(channel.Key))
 	if err != nil {
 		return 0, err
 	}
@@ -614,7 +647,6 @@ func updateStandardChannelBalance(channel *model.Channel) (float64, error) {
 		return 0, err
 	}
 	balance := subscription.HardLimitUSD - usage.TotalUsage/100
-	channel.UpdateBalance(balance)
 	return balance, nil
 }
 
@@ -656,11 +688,16 @@ func UpdateChannelBalance(c *gin.Context) {
 type quotaHistoryGranularity string
 
 const (
-	quotaHistoryRaw  quotaHistoryGranularity = "raw"
-	quotaHistoryHour quotaHistoryGranularity = "hour"
-	quotaHistoryDay  quotaHistoryGranularity = "day"
-	quotaHistoryWeek quotaHistoryGranularity = "week"
-	quotaHistoryAuto quotaHistoryGranularity = "auto"
+	quotaHistoryRaw                quotaHistoryGranularity = "raw"
+	quotaHistoryMinute             quotaHistoryGranularity = "minute"
+	quotaHistoryFiveMinutes        quotaHistoryGranularity = "5m"
+	quotaHistoryFifteenMinutes     quotaHistoryGranularity = "15m"
+	quotaHistoryHour               quotaHistoryGranularity = "hour"
+	quotaHistoryDay                quotaHistoryGranularity = "day"
+	quotaHistoryWeek               quotaHistoryGranularity = "week"
+	quotaHistoryAuto               quotaHistoryGranularity = "auto"
+	maxQuotaHistoryPointLimit                              = 5000
+	maxQuotaHistoryRawObservations                         = 150000
 )
 
 func parseQuotaHistoryGranularity(value string, start, end int64) (quotaHistoryGranularity, error) {
@@ -670,9 +707,15 @@ func parseQuotaHistoryGranularity(value string, start, end int64) (quotaHistoryG
 	}
 	if value == string(quotaHistoryAuto) {
 		switch {
-		case end-start <= 48*60*60:
+		case end-start <= 6*60*60:
+			return quotaHistoryMinute, nil
+		case end-start <= 24*60*60:
+			return quotaHistoryFiveMinutes, nil
+		case end-start <= 7*24*60*60:
+			return quotaHistoryFifteenMinutes, nil
+		case end-start <= 30*24*60*60:
 			return quotaHistoryHour, nil
-		case end-start <= 14*24*60*60:
+		case end-start <= 90*24*60*60:
 			return quotaHistoryDay, nil
 		default:
 			return quotaHistoryWeek, nil
@@ -680,10 +723,11 @@ func parseQuotaHistoryGranularity(value string, start, end int64) (quotaHistoryG
 	}
 	granularity := quotaHistoryGranularity(value)
 	switch granularity {
-	case quotaHistoryRaw, quotaHistoryHour, quotaHistoryDay, quotaHistoryWeek:
+	case quotaHistoryRaw, quotaHistoryMinute, quotaHistoryFiveMinutes, quotaHistoryFifteenMinutes,
+		quotaHistoryHour, quotaHistoryDay, quotaHistoryWeek:
 		return granularity, nil
 	default:
-		return "", errors.New("invalid granularity; use raw, hour, day, week, or auto")
+		return "", errors.New("invalid granularity; use raw, minute, 5m, 15m, hour, day, week, or auto")
 	}
 }
 
@@ -712,6 +756,7 @@ func parseQuotaHistoryWindowSeconds(value string) (*int64, error) {
 }
 
 func resolveQuotaHistorySeriesFilter(filter model.ChannelQuotaSnapshotQuery, latest model.ChannelQuotaSnapshot) model.ChannelQuotaSnapshotQuery {
+	filter.ExactIdentity = true
 	if filter.MetricType == "" {
 		filter.MetricType = latest.MetricType
 	}
@@ -741,6 +786,12 @@ func quotaHistoryBucketStart(timestamp int64, granularity quotaHistoryGranularit
 	local := time.Unix(timestamp, 0).UTC().Add(time.Duration(timezoneOffset) * time.Minute)
 	var bucket time.Time
 	switch granularity {
+	case quotaHistoryMinute:
+		bucket = local.Truncate(time.Minute)
+	case quotaHistoryFiveMinutes:
+		bucket = local.Truncate(5 * time.Minute)
+	case quotaHistoryFifteenMinutes:
+		bucket = local.Truncate(15 * time.Minute)
 	case quotaHistoryHour:
 		bucket = local.Truncate(time.Hour)
 	case quotaHistoryDay:
@@ -755,9 +806,11 @@ func quotaHistoryBucketStart(timestamp int64, granularity quotaHistoryGranularit
 	return bucket.Add(-time.Duration(timezoneOffset) * time.Minute).Unix()
 }
 
-// aggregateQuotaHistorySnapshots keeps the latest observation in each bucket.
-// Failed observations remain visible when a bucket has no successful sample;
-// a failure never becomes a numeric zero.
+// aggregateQuotaHistorySnapshots keeps the actual latest observation in each
+// bucket. In particular, a later failed sample is never replaced by an older
+// success: consumers need to know that the newest provider observation did
+// not yield a numeric value. The history endpoint adds bucket counts and
+// continuity markers on top of this legacy helper.
 func aggregateQuotaHistorySnapshots(snapshots []model.ChannelQuotaSnapshot, granularity quotaHistoryGranularity, timezoneOffset int) []model.ChannelQuotaSnapshot {
 	if granularity == quotaHistoryRaw || len(snapshots) < 2 {
 		return snapshots
@@ -792,10 +845,6 @@ func aggregateQuotaHistorySnapshots(snapshots []model.ChannelQuotaSnapshot, gran
 			WindowSeconds: snapshot.WindowSeconds,
 		}
 		if index, ok := indices[key]; ok {
-			previous := aggregated[index]
-			if previous.Status == "success" && snapshot.Status != "success" {
-				continue
-			}
 			aggregated[index] = snapshot
 			continue
 		}
@@ -814,12 +863,14 @@ const (
 // metrics. Invalid numeric values are counted separately and never participate
 // in rate or forecast calculations.
 type quotaHistoryDataQuality struct {
-	SuccessCount     int   `json:"success_count"`
-	ErrorCount       int   `json:"error_count"`
-	UnsupportedCount int   `json:"unsupported_count,omitempty"`
-	InvalidCount     int   `json:"invalid_count"`
-	ResetBoundaries  int   `json:"reset_boundaries"`
-	SpanSeconds      int64 `json:"span_seconds"`
+	SampleCount         int   `json:"sample_count"`
+	SuccessCount        int   `json:"success_count"`
+	ErrorCount          int   `json:"error_count"`
+	UnsupportedCount    int   `json:"unsupported_count,omitempty"`
+	InvalidCount        int   `json:"invalid_count"`
+	ResetBoundaries     int   `json:"reset_boundaries"`
+	ObservedSpanSeconds int64 `json:"observed_span_seconds"`
+	SpanSeconds         int64 `json:"span_seconds"`
 }
 
 type quotaHistoryDerivedMetrics struct {
@@ -857,7 +908,7 @@ func deriveQuotaHistoryAlert(snapshot *model.ChannelQuotaSnapshot) quotaHistoryA
 		return alert
 	}
 	alert.Status = "unavailable"
-	if snapshot == nil || snapshot.Status != "success" || snapshot.Total == nil ||
+	if snapshot == nil || !service.QuotaSnapshotUsable(*snapshot) || snapshot.Total == nil ||
 		!finiteQuotaValue(snapshot.Available) || !finiteQuotaValue(*snapshot.Total) || *snapshot.Total <= 0 {
 		return alert
 	}
@@ -882,40 +933,43 @@ func finiteQuotaValue(value float64) bool {
 }
 
 // deriveQuotaHistoryMetrics computes conservative, read-only trend indicators.
-// A non-zero reset_at change starts a new segment so a provider quota reset is
-// never interpreted as consumption. Failed observations are ignored for the
-// slope but remain visible in data quality counts.
+// A reset, failed observation, unsupported observation, or invalid numeric
+// observation breaks the rate segment. This prevents a forecast from bridging
+// an unobserved period and presenting it as continuous provider data.
 func deriveQuotaHistoryMetrics(snapshots []model.ChannelQuotaSnapshot) quotaHistoryDerivedMetrics {
+	return quotaHistoryMetricsFromConsumption(service.DeriveQuotaConsumption(snapshots, ""))
+}
+
+func quotaHistoryMetricsFromConsumption(consumption service.QuotaConsumptionResult) quotaHistoryDerivedMetrics {
 	metrics := quotaHistoryDerivedMetrics{ForecastConfidence: "insufficient"}
 	quality := &metrics.DataQuality
-	valid := make([]model.ChannelQuotaSnapshot, 0, len(snapshots))
-	for _, snapshot := range snapshots {
+	if len(consumption.Observations) == 0 {
+		return metrics
+	}
+	observations := consumption.Observations
+	quality.ObservedSpanSeconds = observations[len(observations)-1].Snapshot.ObservedAt - observations[0].Snapshot.ObservedAt
+	quality.ResetBoundaries = consumption.Summary.ResetBoundaries
+	segment := make([]model.ChannelQuotaSnapshot, 0, len(observations))
+	for _, observation := range observations {
+		snapshot := observation.Snapshot
+		quality.SampleCount++
 		if snapshot.Status == "unsupported" {
 			quality.UnsupportedCount++
+			segment = segment[:0]
 			continue
 		}
 		if snapshot.Status != "success" {
 			quality.ErrorCount++
+			segment = segment[:0]
 			continue
 		}
-		if !finiteQuotaValue(snapshot.Available) {
+		if !service.QuotaSnapshotUsable(snapshot) {
 			quality.InvalidCount++
+			segment = segment[:0]
 			continue
 		}
 		quality.SuccessCount++
-		valid = append(valid, snapshot)
-	}
-	if len(valid) == 0 {
-		return metrics
-	}
-	sort.SliceStable(valid, func(i, j int) bool {
-		return valid[i].ObservedAt < valid[j].ObservedAt
-	})
-	segment := make([]model.ChannelQuotaSnapshot, 0, len(valid))
-	for _, snapshot := range valid {
-		if len(segment) > 0 && snapshot.ResetAt != segment[len(segment)-1].ResetAt &&
-			(snapshot.ResetAt != 0 || segment[len(segment)-1].ResetAt != 0) {
-			quality.ResetBoundaries++
+		if observation.ContinuityBreak {
 			segment = segment[:0]
 		}
 		segment = append(segment, snapshot)
@@ -958,8 +1012,579 @@ func deriveQuotaHistoryMetrics(snapshots []model.ChannelQuotaSnapshot) quotaHist
 	return metrics
 }
 
+type quotaHistoryPoint struct {
+	Timestamp         int64    `json:"timestamp"`
+	ObservedAt        int64    `json:"observed_at"`
+	Status            string   `json:"status"`
+	Available         *float64 `json:"available,omitempty"`
+	Used              *float64 `json:"used,omitempty"`
+	UsedSource        string   `json:"used_source,omitempty"`
+	Total             *float64 `json:"total,omitempty"`
+	ResetAt           *int64   `json:"reset_at,omitempty"`
+	ErrorCode         string   `json:"error_code,omitempty"`
+	EventSource       string   `json:"event_source,omitempty"`
+	SampleCount       int      `json:"sample_count"`
+	SuccessCount      int      `json:"success_count"`
+	FailedCount       int      `json:"failed_count"`
+	UnsupportedCount  int      `json:"unsupported_count"`
+	Reset             bool     `json:"reset"`
+	ContinuityBreak   bool     `json:"continuity_break"`
+	Consumption       *float64 `json:"consumption,omitempty"`
+	RatePerMinute     *float64 `json:"rate_per_minute,omitempty"`
+	PeakRatePerMinute *float64 `json:"peak_rate_per_minute,omitempty"`
+	ObservedSeconds   int64    `json:"observed_seconds"`
+	IntervalCount     int      `json:"interval_count"`
+	Gap               bool     `json:"gap"`
+	Recovery          bool     `json:"recovery"`
+	BaselineChange    bool     `json:"baseline_change"`
+	PeriodStart       int64    `json:"period_start"`
+	PeriodEnd         int64    `json:"period_end"`
+}
+
+type quotaHistoryBucket struct {
+	timestamp         int64
+	selected          model.ChannelQuotaSnapshot
+	hasSelected       bool
+	sampleCount       int
+	successCount      int
+	failedCount       int
+	unsupportedCount  int
+	resetCount        int
+	continuityBreak   bool
+	consumption       *float64
+	peakRatePerMinute *float64
+	observedSeconds   int64
+	intervalCount     int
+	gap               bool
+	recovery          bool
+	baselineChange    bool
+}
+
+type quotaHistoryValueSummary struct {
+	Start         *float64 `json:"start,omitempty"`
+	End           *float64 `json:"end,omitempty"`
+	Change        *float64 `json:"change,omitempty"`
+	ChangePercent *float64 `json:"change_percent,omitempty"`
+	Minimum       *float64 `json:"minimum,omitempty"`
+	Maximum       *float64 `json:"maximum,omitempty"`
+	Samples       int      `json:"samples"`
+}
+
+type quotaHistoryConsumptionSummary = service.QuotaConsumptionSummary
+
+type quotaHistorySummary struct {
+	// Legacy available fields remain for existing callers. New consumers must
+	// use Available, Used, and Consumption so an active chart metric and its
+	// summary cannot be accidentally mixed.
+	StartAvailable     *float64                       `json:"start_available,omitempty"`
+	EndAvailable       *float64                       `json:"end_available,omitempty"`
+	Change             *float64                       `json:"change,omitempty"`
+	ChangePercent      *float64                       `json:"change_percent,omitempty"`
+	Minimum            *float64                       `json:"minimum,omitempty"`
+	Maximum            *float64                       `json:"maximum,omitempty"`
+	Available          quotaHistoryValueSummary       `json:"available"`
+	Used               *quotaHistoryValueSummary      `json:"used,omitempty"`
+	Total              *quotaHistoryValueSummary      `json:"total,omitempty"`
+	Consumption        quotaHistoryConsumptionSummary `json:"consumption"`
+	DropRatePerDay     *float64                       `json:"drop_rate_per_day,omitempty"`
+	ForecastZeroAt     *int64                         `json:"forecast_zero_at,omitempty"`
+	ForecastConfidence string                         `json:"forecast_confidence"`
+	DataQuality        quotaHistoryDataQuality        `json:"data_quality"`
+}
+
+func quotaHistoryRequestContext(c *gin.Context) context.Context {
+	if c != nil && c.Request != nil && c.Request.Context() != nil {
+		return c.Request.Context()
+	}
+	return context.Background()
+}
+
+func quotaHistoryRangeSeconds(value string) (int64, bool) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1h":
+		return int64(time.Hour / time.Second), true
+	case "6h":
+		return int64(6 * time.Hour / time.Second), true
+	case "24h", "1d":
+		return int64(24 * time.Hour / time.Second), true
+	case "7d":
+		return int64(7 * 24 * time.Hour / time.Second), true
+	case "30d":
+		return int64(30 * 24 * time.Hour / time.Second), true
+	case "90d":
+		return int64(90 * 24 * time.Hour / time.Second), true
+	default:
+		return 0, false
+	}
+}
+
+func quotaHistorySuccessFilter(filter model.ChannelQuotaSnapshotQuery) model.ChannelQuotaSnapshotQuery {
+	filter.Sources = nil
+	filter.Statuses = []string{"success"}
+	return filter
+}
+
+func quotaHistoryFailureSources(source string) []string {
+	source = strings.TrimSpace(source)
+	if source == "" {
+		return nil
+	}
+	sources := []string{source}
+	for _, suffix := range []string{"_primary", "_secondary"} {
+		if base := strings.TrimSuffix(source, suffix); base != source && base != "" {
+			sources = append(sources, base)
+			break
+		}
+	}
+	return sources
+}
+
+func quotaHistoryEventFilter(identity model.ChannelQuotaSnapshotQuery) model.ChannelQuotaSnapshotQuery {
+	return model.ChannelQuotaSnapshotQuery{
+		EventMetadata: true,
+		MetricType:    identity.MetricType,
+		WindowType:    identity.WindowType,
+		PlanType:      identity.PlanType,
+		Unit:          identity.Unit,
+		Currency:      identity.Currency,
+		WindowSeconds: identity.WindowSeconds,
+		Sources:       quotaHistoryFailureSources(identity.Source),
+		Statuses:      []string{"error", "unsupported"},
+	}
+}
+
+func quotaHistorySeriesID(identity model.ChannelQuotaSnapshotQuery) string {
+	parts := []string{
+		identity.MetricType,
+		identity.WindowType,
+		identity.Source,
+		identity.PlanType,
+		identity.Unit,
+		identity.Currency,
+	}
+	if identity.WindowSeconds != nil {
+		parts = append(parts, strconv.FormatInt(*identity.WindowSeconds, 10))
+	} else {
+		parts = append(parts, "")
+	}
+	digest := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
+	return "quota_" + hex.EncodeToString(digest[:12])
+}
+
+func quotaHistoryLatestSnapshot(left, right *model.ChannelQuotaSnapshot) *model.ChannelQuotaSnapshot {
+	if left == nil {
+		return right
+	}
+	if right == nil {
+		return left
+	}
+	if right.ObservedAt > left.ObservedAt || (right.ObservedAt == left.ObservedAt && right.Id > left.Id) {
+		return right
+	}
+	return left
+}
+
+func quotaHistoryLastRow(rows []model.ChannelQuotaSnapshot) *model.ChannelQuotaSnapshot {
+	if len(rows) == 0 {
+		return nil
+	}
+	row := rows[len(rows)-1]
+	return &row
+}
+
+func mergeQuotaHistorySnapshots(left, right []model.ChannelQuotaSnapshot) []model.ChannelQuotaSnapshot {
+	merged := make([]model.ChannelQuotaSnapshot, 0, len(left)+len(right))
+	merged = append(merged, left...)
+	merged = append(merged, right...)
+	sort.SliceStable(merged, func(i, j int) bool {
+		if merged[i].ObservedAt == merged[j].ObservedAt {
+			return merged[i].Id < merged[j].Id
+		}
+		return merged[i].ObservedAt < merged[j].ObservedAt
+	})
+	return merged
+}
+
+func quotaHistorySnapshotStatus(snapshot model.ChannelQuotaSnapshot) string {
+	if snapshot.Status == "success" && !service.QuotaSnapshotUsable(snapshot) {
+		return "error"
+	}
+	if snapshot.Status == "" {
+		return "unknown"
+	}
+	return snapshot.Status
+}
+
+func quotaHistorySnapshotUsed(snapshot model.ChannelQuotaSnapshot) (float64, string, bool) {
+	if snapshot.Used != nil && finiteQuotaValue(*snapshot.Used) {
+		return *snapshot.Used, "reported", true
+	}
+	if snapshot.Total == nil || !finiteQuotaValue(*snapshot.Total) || !finiteQuotaValue(snapshot.Available) {
+		return 0, "", false
+	}
+	used := *snapshot.Total - snapshot.Available
+	if !finiteQuotaValue(used) || used < 0 {
+		return 0, "", false
+	}
+	return used, "derived", true
+}
+
+func quotaHistoryFloatPointer(value float64) *float64 {
+	return &value
+}
+
+func quotaHistoryInt64Pointer(value int64) *int64 {
+	return &value
+}
+
+func quotaHistorySnapshotIsNewer(candidate, selected model.ChannelQuotaSnapshot) bool {
+	return candidate.ObservedAt > selected.ObservedAt ||
+		(candidate.ObservedAt == selected.ObservedAt && candidate.Id >= selected.Id)
+}
+
+func (bucket *quotaHistoryBucket) add(snapshot model.ChannelQuotaSnapshot, reset bool) {
+	bucket.sampleCount++
+	status := quotaHistorySnapshotStatus(snapshot)
+	switch status {
+	case "success":
+		bucket.successCount++
+	case "unsupported":
+		bucket.unsupportedCount++
+		bucket.continuityBreak = true
+	default:
+		bucket.failedCount++
+		bucket.continuityBreak = true
+	}
+	if reset {
+		bucket.resetCount++
+		bucket.continuityBreak = true
+	}
+	if !bucket.hasSelected || quotaHistorySnapshotIsNewer(snapshot, bucket.selected) {
+		bucket.selected = snapshot
+		bucket.hasSelected = true
+	}
+}
+
+func quotaHistoryPointFromBucket(bucket quotaHistoryBucket, seriesSource string) quotaHistoryPoint {
+	snapshot := bucket.selected
+	status := quotaHistorySnapshotStatus(snapshot)
+	point := quotaHistoryPoint{
+		Timestamp:         bucket.timestamp,
+		ObservedAt:        snapshot.ObservedAt,
+		Status:            status,
+		SampleCount:       bucket.sampleCount,
+		SuccessCount:      bucket.successCount,
+		FailedCount:       bucket.failedCount,
+		UnsupportedCount:  bucket.unsupportedCount,
+		Reset:             bucket.resetCount > 0,
+		ContinuityBreak:   bucket.continuityBreak,
+		Consumption:       bucket.consumption,
+		PeakRatePerMinute: bucket.peakRatePerMinute,
+		ObservedSeconds:   bucket.observedSeconds,
+		IntervalCount:     bucket.intervalCount,
+		Gap:               bucket.gap,
+		Recovery:          bucket.recovery,
+		BaselineChange:    bucket.baselineChange,
+		PeriodStart:       bucket.timestamp,
+		PeriodEnd:         snapshot.ObservedAt,
+	}
+	if bucket.consumption != nil && bucket.observedSeconds > 0 {
+		point.RatePerMinute = quotaHistoryFloatPointer(*bucket.consumption / (float64(bucket.observedSeconds) / 60))
+	}
+	if status == "success" {
+		point.Available = quotaHistoryFloatPointer(snapshot.Available)
+		if used, source, ok := quotaHistorySnapshotUsed(snapshot); ok {
+			point.Used = quotaHistoryFloatPointer(used)
+			point.UsedSource = source
+		}
+		if snapshot.Total != nil && finiteQuotaValue(*snapshot.Total) {
+			point.Total = quotaHistoryFloatPointer(*snapshot.Total)
+		}
+	} else {
+		point.ErrorCode = snapshot.ErrorCode
+		if point.ErrorCode == "" && snapshot.Status == "success" {
+			point.ErrorCode = "invalid_balance"
+		}
+	}
+	if snapshot.ResetAt > 0 {
+		point.ResetAt = quotaHistoryInt64Pointer(snapshot.ResetAt)
+	}
+	if snapshot.Source != "" && snapshot.Source != seriesSource {
+		point.EventSource = snapshot.Source
+	}
+	return point
+}
+
+func buildQuotaHistoryPoints(snapshots []model.ChannelQuotaSnapshot, granularity quotaHistoryGranularity, timezoneOffset int, seriesSource string) []quotaHistoryPoint {
+	return quotaHistoryPointsFromObservations(service.DeriveQuotaConsumption(snapshots, "").Observations, granularity, timezoneOffset, seriesSource)
+}
+
+func quotaHistoryPointsFromObservations(observations []service.QuotaConsumptionObservation, granularity quotaHistoryGranularity, timezoneOffset int, seriesSource string) []quotaHistoryPoint {
+	if len(observations) == 0 {
+		return []quotaHistoryPoint{}
+	}
+	if granularity == quotaHistoryRaw {
+		points := make([]quotaHistoryPoint, 0, len(observations))
+		for _, observation := range observations {
+			bucket := quotaHistoryBucket{timestamp: observation.Snapshot.ObservedAt}
+			bucket.addObservation(observation)
+			points = append(points, quotaHistoryPointFromBucket(bucket, seriesSource))
+		}
+		return points
+	}
+	buckets := make(map[int64]*quotaHistoryBucket, len(observations))
+	for _, observation := range observations {
+		timestamp := quotaHistoryBucketStart(observation.Snapshot.ObservedAt, granularity, timezoneOffset)
+		bucket, ok := buckets[timestamp]
+		if !ok {
+			bucket = &quotaHistoryBucket{timestamp: timestamp}
+			buckets[timestamp] = bucket
+		}
+		bucket.addObservation(observation)
+	}
+	timestamps := make([]int64, 0, len(buckets))
+	for timestamp := range buckets {
+		timestamps = append(timestamps, timestamp)
+	}
+	sort.Slice(timestamps, func(i, j int) bool { return timestamps[i] < timestamps[j] })
+	points := make([]quotaHistoryPoint, 0, len(timestamps))
+	for _, timestamp := range timestamps {
+		points = append(points, quotaHistoryPointFromBucket(*buckets[timestamp], seriesSource))
+	}
+	return points
+}
+
+func (bucket *quotaHistoryBucket) addObservation(observation service.QuotaConsumptionObservation) {
+	bucket.add(observation.Snapshot, observation.Reset)
+	bucket.continuityBreak = bucket.continuityBreak || observation.ContinuityBreak
+	bucket.gap = bucket.gap || observation.Gap
+	bucket.recovery = bucket.recovery || observation.Recovery
+	bucket.baselineChange = bucket.baselineChange || observation.BaselineChange
+	if observation.Consumption == nil {
+		return
+	}
+	if bucket.consumption == nil {
+		bucket.consumption = quotaHistoryFloatPointer(0)
+	}
+	*bucket.consumption += *observation.Consumption
+	bucket.observedSeconds += observation.ObservedSeconds
+	bucket.intervalCount++
+	if observation.RatePerMinute != nil && (bucket.peakRatePerMinute == nil || *observation.RatePerMinute > *bucket.peakRatePerMinute) {
+		bucket.peakRatePerMinute = quotaHistoryFloatPointer(*observation.RatePerMinute)
+	}
+}
+
+func limitQuotaHistoryPoints(points []quotaHistoryPoint, limit int) ([]quotaHistoryPoint, bool) {
+	if len(points) <= limit {
+		return points, false
+	}
+	// Compact contiguous groups rather than selecting isolated points. All
+	// interval consumption and failure/reset markers survive the point budget.
+	limited := make([]quotaHistoryPoint, 0, limit)
+	for index := 0; index < limit; index++ {
+		start, end := index*len(points)/limit, (index+1)*len(points)/limit
+		point := points[end-1]
+		point.PeriodStart = points[start].PeriodStart
+		point.Consumption = nil
+		point.RatePerMinute = nil
+		point.PeakRatePerMinute = nil
+		point.ObservedSeconds, point.IntervalCount = 0, 0
+		point.SampleCount, point.SuccessCount, point.FailedCount, point.UnsupportedCount = 0, 0, 0, 0
+		for _, member := range points[start:end] {
+			point.SampleCount += member.SampleCount
+			point.SuccessCount += member.SuccessCount
+			point.FailedCount += member.FailedCount
+			point.UnsupportedCount += member.UnsupportedCount
+			point.Reset = point.Reset || member.Reset
+			point.ContinuityBreak = point.ContinuityBreak || member.ContinuityBreak
+			point.Gap = point.Gap || member.Gap
+			point.Recovery = point.Recovery || member.Recovery
+			point.BaselineChange = point.BaselineChange || member.BaselineChange
+			if member.Consumption != nil {
+				if point.Consumption == nil {
+					point.Consumption = quotaHistoryFloatPointer(0)
+				}
+				*point.Consumption += *member.Consumption
+				point.ObservedSeconds += member.ObservedSeconds
+				point.IntervalCount += member.IntervalCount
+			}
+			if member.PeakRatePerMinute != nil && (point.PeakRatePerMinute == nil || *member.PeakRatePerMinute > *point.PeakRatePerMinute) {
+				point.PeakRatePerMinute = quotaHistoryFloatPointer(*member.PeakRatePerMinute)
+			}
+		}
+		if point.Consumption != nil && point.ObservedSeconds > 0 {
+			point.RatePerMinute = quotaHistoryFloatPointer(*point.Consumption / (float64(point.ObservedSeconds) / 60))
+		}
+		limited = append(limited, point)
+	}
+	return limited, true
+}
+
+func latestContinuousQuotaHistorySegment(observations []service.QuotaConsumptionObservation) []model.ChannelQuotaSnapshot {
+	segment := make([]model.ChannelQuotaSnapshot, 0, len(observations))
+	var latestSegment []model.ChannelQuotaSnapshot
+	for _, observation := range observations {
+		snapshot := observation.Snapshot
+		if quotaHistorySnapshotStatus(snapshot) != "success" {
+			if len(segment) > 0 {
+				latestSegment = append([]model.ChannelQuotaSnapshot(nil), segment...)
+			}
+			segment = nil
+			continue
+		}
+		if observation.ContinuityBreak {
+			segment = nil
+		}
+		segment = append(segment, snapshot)
+	}
+	if len(segment) == 0 {
+		return latestSegment
+	}
+	return segment
+}
+
+func quotaHistoryValueSummaryFor(snapshots []model.ChannelQuotaSnapshot, value func(model.ChannelQuotaSnapshot) (float64, bool)) quotaHistoryValueSummary {
+	summary := quotaHistoryValueSummary{}
+	for _, snapshot := range snapshots {
+		if quotaHistorySnapshotStatus(snapshot) != "success" {
+			continue
+		}
+		current, ok := value(snapshot)
+		if !ok || !finiteQuotaValue(current) {
+			continue
+		}
+		summary.Samples++
+		if summary.Start == nil {
+			summary.Start = quotaHistoryFloatPointer(current)
+			summary.Minimum = quotaHistoryFloatPointer(current)
+			summary.Maximum = quotaHistoryFloatPointer(current)
+		}
+		summary.End = quotaHistoryFloatPointer(current)
+		if current < *summary.Minimum {
+			summary.Minimum = quotaHistoryFloatPointer(current)
+		}
+		if current > *summary.Maximum {
+			summary.Maximum = quotaHistoryFloatPointer(current)
+		}
+	}
+	if summary.Start != nil && summary.End != nil {
+		change := *summary.End - *summary.Start
+		summary.Change = quotaHistoryFloatPointer(change)
+		if *summary.Start != 0 {
+			percent := change / *summary.Start * 100
+			summary.ChangePercent = quotaHistoryFloatPointer(percent)
+		}
+	}
+	return summary
+}
+
+func deriveQuotaHistorySummary(snapshots []model.ChannelQuotaSnapshot, metrics quotaHistoryDerivedMetrics, unit string) *quotaHistorySummary {
+	return quotaHistorySummaryFromConsumption(service.DeriveQuotaConsumption(snapshots, unit), metrics)
+}
+
+func quotaHistorySummaryFromConsumption(consumption service.QuotaConsumptionResult, metrics quotaHistoryDerivedMetrics) *quotaHistorySummary {
+	segment := latestContinuousQuotaHistorySegment(consumption.Observations)
+	available := quotaHistoryValueSummaryFor(segment, func(snapshot model.ChannelQuotaSnapshot) (float64, bool) {
+		return snapshot.Available, finiteQuotaValue(snapshot.Available)
+	})
+	if len(consumption.Observations) == 0 {
+		return nil
+	}
+	used := quotaHistoryValueSummaryFor(segment, func(snapshot model.ChannelQuotaSnapshot) (float64, bool) {
+		value, _, ok := quotaHistorySnapshotUsed(snapshot)
+		return value, ok
+	})
+	total := quotaHistoryValueSummaryFor(segment, func(snapshot model.ChannelQuotaSnapshot) (float64, bool) {
+		if snapshot.Total == nil || !finiteQuotaValue(*snapshot.Total) {
+			return 0, false
+		}
+		return *snapshot.Total, true
+	})
+	summary := &quotaHistorySummary{
+		StartAvailable:     available.Start,
+		EndAvailable:       available.End,
+		Change:             available.Change,
+		ChangePercent:      available.ChangePercent,
+		Minimum:            available.Minimum,
+		Maximum:            available.Maximum,
+		Available:          available,
+		Consumption:        consumption.Summary,
+		DropRatePerDay:     metrics.DropRatePerDay,
+		ForecastZeroAt:     metrics.ForecastZeroAt,
+		ForecastConfidence: metrics.ForecastConfidence,
+		DataQuality:        metrics.DataQuality,
+	}
+	if used.Samples > 0 {
+		summary.Used = &used
+	}
+	if total.Samples > 0 {
+		summary.Total = &total
+	}
+	return summary
+}
+
+func quotaHistoryCurrent(snapshot *model.ChannelQuotaSnapshot, seriesSource string) gin.H {
+	if snapshot == nil {
+		return nil
+	}
+	status := quotaHistorySnapshotStatus(*snapshot)
+	current := gin.H{"observed_at": snapshot.ObservedAt, "status": status}
+	if snapshot.Source != "" && snapshot.Source != seriesSource {
+		current["event_source"] = snapshot.Source
+	}
+	if status != "success" {
+		errorCode := snapshot.ErrorCode
+		if errorCode == "" && snapshot.Status == "success" {
+			errorCode = "invalid_balance"
+		}
+		current["error_code"] = errorCode
+		return current
+	}
+	current["available"] = snapshot.Available
+	if used, source, ok := quotaHistorySnapshotUsed(*snapshot); ok {
+		current["used"] = used
+		current["used_source"] = source
+	}
+	if snapshot.Total != nil && finiteQuotaValue(*snapshot.Total) {
+		current["total"] = *snapshot.Total
+	}
+	if snapshot.ResetAt > 0 {
+		current["reset_at"] = snapshot.ResetAt
+	}
+	return current
+}
+
+func quotaHistoryMetadata(response gin.H, identity model.ChannelQuotaSnapshotQuery) {
+	if identity.MetricType == "" {
+		return
+	}
+	response["series_id"] = quotaHistorySeriesID(identity)
+	response["metric_type"] = identity.MetricType
+	response["window_type"] = identity.WindowType
+	response["source"] = identity.Source
+	response["plan_type"] = identity.PlanType
+	response["unit"] = identity.Unit
+	response["currency"] = identity.Currency
+	if identity.WindowSeconds != nil {
+		response["window_seconds"] = *identity.WindowSeconds
+	}
+	response["series"] = gin.H{
+		"id":             response["series_id"],
+		"metric_type":    identity.MetricType,
+		"window_type":    identity.WindowType,
+		"source":         identity.Source,
+		"plan_type":      identity.PlanType,
+		"unit":           identity.Unit,
+		"currency":       identity.Currency,
+		"window_seconds": response["window_seconds"],
+	}
+}
+
 // GetChannelQuotaHistory returns normalized quota observations for a channel.
-// It deliberately excludes any raw upstream response data.
+// It deliberately excludes raw upstream responses and credentials. The range
+// is fully read before aggregation; when an explicit safety budget would be
+// exceeded, the response is marked incomplete instead of pretending that the
+// newest observations represent the requested range.
 func GetChannelQuotaHistory(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -973,46 +1598,29 @@ func GetChannelQuotaHistory(c *gin.Context) {
 	now := time.Now().Unix()
 	end := now
 	start := now - 30*24*60*60
-	if value := strings.TrimSpace(c.Query("range")); value != "" {
-		var seconds int64
-		switch strings.ToLower(value) {
-		case "24h", "1d":
-			seconds = 24 * 60 * 60
-		case "7d":
-			seconds = 7 * 24 * 60 * 60
-		case "30d":
-			seconds = 30 * 24 * 60 * 60
-		case "90d":
-			seconds = 90 * 24 * 60 * 60
-		default:
-			common.ApiError(c, errors.New("invalid range; use 24h, 7d, 30d, or 90d"))
+	if value := strings.TrimSpace(c.Query("range")); value != "" && value != "custom" {
+		seconds, ok := quotaHistoryRangeSeconds(value)
+		if !ok {
+			common.ApiError(c, errors.New("invalid range; use 1h, 6h, 24h, 7d, 30d, or 90d"))
 			return
 		}
 		start = end - seconds
 	}
-	if value := strings.TrimSpace(c.Query("start")); value != "" {
+	for key, target := range map[string]*int64{"start": &start, "end": &end} {
+		value := strings.TrimSpace(c.Query(key))
+		if value == "" {
+			continue
+		}
 		parsed, parseErr := strconv.ParseInt(value, 10, 64)
 		if parseErr != nil {
-			if timestamp, timeErr := time.Parse(time.RFC3339, value); timeErr == nil {
-				parsed = timestamp.Unix()
-			} else {
-				common.ApiError(c, errors.New("invalid start timestamp"))
+			parsedTime, timeErr := time.Parse(time.RFC3339, value)
+			if timeErr != nil {
+				common.ApiError(c, errors.New("invalid "+key+" timestamp"))
 				return
 			}
+			parsed = parsedTime.Unix()
 		}
-		start = parsed
-	}
-	if value := strings.TrimSpace(c.Query("end")); value != "" {
-		parsed, parseErr := strconv.ParseInt(value, 10, 64)
-		if parseErr != nil {
-			if timestamp, timeErr := time.Parse(time.RFC3339, value); timeErr == nil {
-				parsed = timestamp.Unix()
-			} else {
-				common.ApiError(c, errors.New("invalid end timestamp"))
-				return
-			}
-		}
-		end = parsed
+		*target = parsed
 	}
 	if start < 0 || end < start {
 		common.ApiError(c, errors.New("invalid quota history time range"))
@@ -1025,14 +1633,11 @@ func GetChannelQuotaHistory(c *gin.Context) {
 	limit := 500
 	if value := strings.TrimSpace(c.Query("limit")); value != "" {
 		parsed, parseErr := strconv.Atoi(value)
-		if parseErr != nil || parsed <= 0 {
-			common.ApiError(c, errors.New("invalid quota history limit"))
+		if parseErr != nil || parsed <= 0 || parsed > maxQuotaHistoryPointLimit {
+			common.ApiError(c, fmt.Errorf("quota history limit must be between 1 and %d", maxQuotaHistoryPointLimit))
 			return
 		}
 		limit = parsed
-	}
-	if limit > 2000 {
-		limit = 2000
 	}
 	granularity, err := parseQuotaHistoryGranularity(c.Query("granularity"), start, end)
 	if err != nil {
@@ -1057,141 +1662,155 @@ func GetChannelQuotaHistory(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	// A chart and its derived summary represent one provider series. If the
-	// caller omits part of the series identity, resolve the newest matching
-	// observation first and fill the missing dimensions from its metadata. This
-	// keeps legacy callers working while preventing plans, currencies, or reset
-	// windows from being mixed into one line.
-	latestRows, err := model.ListChannelQuotaSnapshotsWithQuery(id, start, end, seriesFilter, 1)
+
+	// Resolve the chart identity from the newest successful sample, not a
+	// generic failure marker. A current failure is queried separately below and
+	// still wins the current/alert state, while the historical line remains the
+	// actual provider window that operators selected.
+	successCandidateFilter := quotaHistorySuccessFilter(seriesFilter)
+	latestSuccessRows, err := model.ListChannelQuotaSnapshotsWithQuery(id, start, end, successCandidateFilter, 1)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	if len(latestRows) > 0 {
-		seriesFilter = resolveQuotaHistorySeriesFilter(
-			seriesFilter,
-			latestRows[len(latestRows)-1],
-		)
+	identity := seriesFilter
+	latestSuccess := quotaHistoryLastRow(latestSuccessRows)
+	if latestSuccess != nil {
+		identity = resolveQuotaHistorySeriesFilter(identity, *latestSuccess)
 	}
-	snapshots, err := model.ListChannelQuotaSnapshotsWithQuery(id, start, end, seriesFilter, limit)
-	if err != nil {
-		common.ApiError(c, err)
-		return
+	identity.Sources = nil
+	identity.Statuses = nil
+
+	if latestSuccess == nil {
+		latestRows, latestErr := model.ListChannelQuotaSnapshotsWithQuery(id, start, end, seriesFilter, 1)
+		if latestErr != nil {
+			common.ApiError(c, latestErr)
+			return
+		}
+		if latest := quotaHistoryLastRow(latestRows); latest != nil {
+			identity = resolveQuotaHistorySeriesFilter(identity, *latest)
+			identity.Sources = nil
+			identity.Statuses = nil
+		}
 	}
-	snapshots = aggregateQuotaHistorySnapshots(snapshots, granularity, timezoneOffset)
-	points := make([]gin.H, 0, len(snapshots))
-	for _, snapshot := range snapshots {
-		point := gin.H{
-			"timestamp": snapshot.ObservedAt,
-			"status":    snapshot.Status,
-		}
-		if snapshot.Status == "success" {
-			if finiteQuotaValue(snapshot.Available) {
-				point["available"] = snapshot.Available
-			} else {
-				// A corrupt/legacy row must not make JSON encoding fail with NaN
-				// or Infinity, and must never be shown as a numeric zero.
-				point["status"] = "error"
-				point["error_code"] = "invalid_balance"
-			}
-			if snapshot.Used != nil {
-				if finiteQuotaValue(*snapshot.Used) {
-					point["used"] = *snapshot.Used
-				}
-			}
-			if snapshot.Total != nil {
-				if finiteQuotaValue(*snapshot.Total) {
-					point["total"] = *snapshot.Total
-				}
-			}
-		}
-		if snapshot.ResetAt > 0 {
-			point["reset_at"] = snapshot.ResetAt
-		}
-		if snapshot.ErrorCode != "" {
-			point["error_code"] = snapshot.ErrorCode
-		}
-		points = append(points, point)
-	}
+
 	response := gin.H{
-		"channel_id":      id,
-		"start":           start,
-		"end":             end,
-		"limit":           limit,
-		"granularity":     string(granularity),
-		"timezone_offset": timezoneOffset,
-		"points":          points,
+		"channel_id":            id,
+		"start":                 start,
+		"end":                   end,
+		"limit":                 limit,
+		"granularity":           string(granularity),
+		"requested_granularity": strings.ToLower(strings.TrimSpace(c.Query("granularity"))),
+		"timezone_offset":       timezoneOffset,
+		"raw_observation_limit": maxQuotaHistoryRawObservations,
+		"points":                []quotaHistoryPoint{},
 	}
-	metrics := deriveQuotaHistoryMetrics(snapshots)
-	response["data_quality"] = metrics.DataQuality
-	var latestSnapshot *model.ChannelQuotaSnapshot
-	if len(snapshots) > 0 {
-		latestSnapshot = &snapshots[len(snapshots)-1]
+	quotaHistoryMetadata(response, identity)
+	if response["requested_granularity"] == "" {
+		response["requested_granularity"] = string(quotaHistoryRaw)
 	}
-	// Use the newest observation, including a failed one, so a stale balance
-	// cannot be presented as a current alert state after an upstream failure.
+
+	if identity.MetricType == "" {
+		response["raw_observations"] = 0
+		response["available_points"] = 0
+		response["returned_points"] = 0
+		response["source_complete"] = true
+		response["points_complete"] = true
+		response["complete"] = true
+		response["truncated"] = false
+		response["alert"] = deriveQuotaHistoryAlert(nil)
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": response})
+		return
+	}
+
+	successFilter := quotaHistorySuccessFilter(identity)
+	eventFilter := quotaHistoryEventFilter(identity)
+	requestContext := quotaHistoryRequestContext(c)
+	successCount, err := model.CountChannelQuotaSnapshotsWithQuery(requestContext, id, start, end, successFilter)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	eventCount, err := model.CountChannelQuotaSnapshotsWithQuery(requestContext, id, start, end, eventFilter)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	rawObservations := successCount + eventCount
+	response["raw_observations"] = rawObservations
+
+	latestEventRows, err := model.ListChannelQuotaSnapshotsWithQuery(id, start, end, eventFilter, 1)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	latestSnapshot := quotaHistoryLatestSnapshot(latestSuccess, quotaHistoryLastRow(latestEventRows))
+	response["current"] = quotaHistoryCurrent(latestSnapshot, identity.Source)
 	response["alert"] = deriveQuotaHistoryAlert(latestSnapshot)
-	var firstSuccess, lastSuccess *model.ChannelQuotaSnapshot
-	var minimum, maximum float64
-	for index := range snapshots {
-		if snapshots[index].Status != "success" || !finiteQuotaValue(snapshots[index].Available) {
-			continue
-		}
-		if firstSuccess == nil {
-			firstSuccess = &snapshots[index]
-			minimum, maximum = snapshots[index].Available, snapshots[index].Available
-		}
-		lastSuccess = &snapshots[index]
-		if snapshots[index].Available < minimum {
-			minimum = snapshots[index].Available
-		}
-		if snapshots[index].Available > maximum {
-			maximum = snapshots[index].Available
-		}
+
+	if rawObservations > maxQuotaHistoryRawObservations {
+		response["available_points"] = 0
+		response["returned_points"] = 0
+		response["source_complete"] = false
+		response["points_complete"] = false
+		response["complete"] = false
+		response["truncated"] = true
+		response["truncation_reason"] = "raw_observation_limit"
+		response["resolution_hint"] = "Use a shorter time range."
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": response})
+		return
 	}
-	if firstSuccess != nil && lastSuccess != nil {
-		change := lastSuccess.Available - firstSuccess.Available
-		changePercent := float64(0)
-		if firstSuccess.Available != 0 {
-			changePercent = change / firstSuccess.Available * 100
-		}
-		response["summary"] = gin.H{
-			"start_available":     firstSuccess.Available,
-			"end_available":       lastSuccess.Available,
-			"change":              change,
-			"change_percent":      changePercent,
-			"minimum":             minimum,
-			"maximum":             maximum,
-			"drop_rate_per_day":   metrics.DropRatePerDay,
-			"forecast_zero_at":    metrics.ForecastZeroAt,
-			"forecast_confidence": metrics.ForecastConfidence,
-			"data_quality":        metrics.DataQuality,
-		}
+
+	successes, err := model.ListChannelQuotaSnapshotsForHistory(requestContext, id, start, end, successFilter, maxQuotaHistoryRawObservations)
+	if err != nil {
+		common.ApiError(c, err)
+		return
 	}
-	if len(snapshots) > 0 {
-		last := snapshots[len(snapshots)-1]
-		response["unit"] = last.Unit
-		response["currency"] = last.Currency
-		response["metric_type"] = last.MetricType
-		response["window_type"] = last.WindowType
-		response["source"] = last.Source
-		response["plan_type"] = last.PlanType
-		response["window_seconds"] = last.WindowSeconds
-		if last.Status == "success" && finiteQuotaValue(last.Available) {
-			current := gin.H{"available": last.Available, "observed_at": last.ObservedAt, "status": last.Status}
-			if last.Total != nil && finiteQuotaValue(*last.Total) {
-				current["total"] = *last.Total
-			}
-			response["current"] = current
-		} else {
-			errorCode := last.ErrorCode
-			status := last.Status
-			if status == "success" {
-				status = "error"
-				errorCode = "invalid_balance"
-			}
-			response["current"] = gin.H{"observed_at": last.ObservedAt, "status": status, "error_code": errorCode}
-		}
+	events, err := model.ListChannelQuotaSnapshotsForHistory(requestContext, id, start, end, eventFilter, maxQuotaHistoryRawObservations)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if !successes.Complete || !events.Complete {
+		// A concurrent sampler can add rows between Count and List. Do not use
+		// the partial prefix from either query as a history range.
+		response["available_points"] = 0
+		response["returned_points"] = 0
+		response["source_complete"] = false
+		response["points_complete"] = false
+		response["complete"] = false
+		response["truncated"] = true
+		response["truncation_reason"] = "raw_observation_limit"
+		response["resolution_hint"] = "Use a shorter time range."
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": response})
+		return
+	}
+
+	snapshots := mergeQuotaHistorySnapshots(successes.Snapshots, events.Snapshots)
+	// Count/list are separate read-only queries; report the actual stable end of
+	// the loaded range if a sampler appended a same-second observation meanwhile.
+	response["raw_observations"] = len(snapshots)
+	latestSnapshot = quotaHistoryLatestSnapshot(latestSnapshot, quotaHistoryLastRow(snapshots))
+	response["current"] = quotaHistoryCurrent(latestSnapshot, identity.Source)
+	response["alert"] = deriveQuotaHistoryAlert(latestSnapshot)
+	consumption := service.DeriveQuotaConsumption(snapshots, identity.Unit)
+	metrics := quotaHistoryMetricsFromConsumption(consumption)
+	points := quotaHistoryPointsFromObservations(consumption.Observations, granularity, timezoneOffset, identity.Source)
+	availablePoints := len(points)
+	points, pointTruncated := limitQuotaHistoryPoints(points, limit)
+	response["points"] = points
+	response["available_points"] = availablePoints
+	response["returned_points"] = len(points)
+	response["source_complete"] = true
+	response["points_complete"] = !pointTruncated
+	response["complete"] = !pointTruncated
+	response["truncated"] = pointTruncated
+	if pointTruncated {
+		response["truncation_reason"] = "point_limit"
+	}
+	response["data_quality"] = metrics.DataQuality
+	if summary := quotaHistorySummaryFromConsumption(consumption, metrics); summary != nil {
+		response["summary"] = summary
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": response})
 }
@@ -1245,8 +1864,14 @@ func UpdateAllChannelsBalance(c *gin.Context) {
 // scheduled pass from racing with a manual balance query or multi-key state
 // update.  A busy channel is skipped and retried on the next scheduled pass;
 // this avoids waiting behind a potentially slow provider request.
-func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, report func(processed, total int)) (channelQuotaSnapshotSyncSummary, error) {
-	summary := channelQuotaSnapshotSyncSummary{}
+func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, report func(processed, total int)) (summary channelQuotaSnapshotSyncSummary, runErr error) {
+	defer func() {
+		summary.Deferred = summary.Considered - summary.Sampled - summary.Failed - summary.Skipped
+		if summary.Deferred < 0 {
+			summary.Deferred = 0
+		}
+		summary.BudgetExhausted = errors.Is(runErr, context.DeadlineExceeded)
+	}()
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -1257,14 +1882,13 @@ func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, repor
 	if fetchLimit < maxChannels {
 		fetchLimit = maxChannels
 	}
-	channels, err := model.GetChannelsForQuotaSnapshotSync(fetchLimit)
+	channels, err := model.GetChannelsForQuotaSnapshotSyncContext(ctx, fetchLimit)
 	if err != nil {
 		return summary, err
 	}
-	// The model query is bounded. Multi-key entries are skipped because their
-	// aggregate quota is ambiguous; scan a small multiple of the target so a
-	// few such channels do not prevent eligible single-key channels from being
-	// sampled. A hard attempt cap keeps provider fan-out bounded.
+	// The model query selects single-key accounts by their oldest recorded
+	// attempt. Keep extra candidates so busy polling locks do not prevent other
+	// accounts from being sampled, with a hard cap on actual provider requests.
 	summary.Considered = len(channels)
 	if report != nil {
 		report(0, summary.Considered)
@@ -1306,13 +1930,20 @@ func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, repor
 				persistErr = classifiedErr.PersistErr
 			}
 		} else {
-			result, balanceErr := updateChannelBalance(channel)
+			result, balanceErr := updateChannelBalanceWithContext(ctx, channel)
 			queryErr = balanceErr
-			persistErr = recordChannelBalanceSnapshot(channel, result, balanceErr)
+			var classifiedErr *channelQuotaSamplingError
+			if errors.As(balanceErr, &classifiedErr) {
+				queryErr, persistErr = classifiedErr.QueryErr, classifiedErr.PersistErr
+			}
+			persistErr = errors.Join(persistErr, recordChannelBalanceSnapshot(channel, result, queryErr))
 		}
 		lock.Unlock()
 		if queryErr != nil {
 			summary.Failed++
+			if errors.Is(queryErr, context.DeadlineExceeded) {
+				summary.TimedOut++
+			}
 			if errors.Is(queryErr, errChannelQuotaUnsupported) {
 				summary.Unsupported++
 			}
@@ -1328,7 +1959,10 @@ func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, repor
 		if report != nil {
 			report(index+1, summary.Considered)
 		}
-		if common.RequestInterval > 0 {
+		if err := ctx.Err(); err != nil {
+			return summary, errors.Join(err, firstPersistErr)
+		}
+		if common.RequestInterval > 0 && index+1 < len(channels) && summary.Sampled+summary.Failed < maxChannels {
 			delay := common.RequestInterval
 			// Do not let a legacy request interval turn a bounded task into a
 			// multi-hour run. Operators needing a slower cadence should configure
@@ -1347,6 +1981,9 @@ func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, repor
 	}
 	if firstPersistErr != nil {
 		return summary, fmt.Errorf("quota snapshot persistence failed: %w", firstPersistErr)
+	}
+	if err := ctx.Err(); err != nil {
+		return summary, err
 	}
 	return summary, nil
 }

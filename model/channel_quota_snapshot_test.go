@@ -167,6 +167,50 @@ func TestListChannelQuotaSnapshotsWithQuerySelectsOneProviderSeries(t *testing.T
 	}
 }
 
+func TestListChannelQuotaSnapshotsForHistoryKeepsFullRangeOrReportsIncomplete(t *testing.T) {
+	require.NoError(t, DB.AutoMigrate(&ChannelQuotaSnapshot{}))
+	require.NoError(t, DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&ChannelQuotaSnapshot{}).Error)
+	t.Cleanup(func() {
+		require.NoError(t, DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&ChannelQuotaSnapshot{}).Error)
+	})
+
+	now := time.Now().Unix()
+	for offset, available := range []float64{90, 80, 70} {
+		require.NoError(t, RecordChannelQuotaSnapshot(&ChannelQuotaSnapshot{
+			ChannelId:     906,
+			ObservedAt:    now + int64(offset),
+			Available:     available,
+			MetricType:    "rate_limit",
+			WindowType:    "five_hour",
+			Source:        "codex_wham_usage_primary",
+			PlanType:      "pro",
+			Unit:          "percent",
+			WindowSeconds: 18000,
+			Status:        "success",
+		}))
+	}
+	filter := ChannelQuotaSnapshotQuery{
+		MetricType: "rate_limit",
+		Source:     "codex_wham_usage_primary",
+		Statuses:   []string{"success"},
+	}
+	count, err := CountChannelQuotaSnapshotsWithQuery(context.Background(), 906, now-1, now+10, filter)
+	require.NoError(t, err)
+	require.Equal(t, int64(3), count)
+
+	partial, err := ListChannelQuotaSnapshotsForHistory(context.Background(), 906, now-1, now+10, filter, 2)
+	require.NoError(t, err)
+	require.False(t, partial.Complete)
+	require.Nil(t, partial.Snapshots)
+
+	complete, err := ListChannelQuotaSnapshotsForHistory(context.Background(), 906, now-1, now+10, filter, 3)
+	require.NoError(t, err)
+	require.True(t, complete.Complete)
+	require.Len(t, complete.Snapshots, 3)
+	require.Equal(t, now, complete.Snapshots[0].ObservedAt)
+	require.Equal(t, now+2, complete.Snapshots[2].ObservedAt)
+}
+
 func TestDeleteOldChannelQuotaSnapshotBatchHonorsCutoffAndLimit(t *testing.T) {
 	require.NotNil(t, DB)
 	require.NoError(t, DB.AutoMigrate(&ChannelQuotaSnapshot{}))

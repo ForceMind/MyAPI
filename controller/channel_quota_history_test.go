@@ -1,19 +1,39 @@
 package controller
 
 import (
+	"encoding/json"
 	"math"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
+	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestQuotaHistoryGranularityAndTimezone(t *testing.T) {
 	granularity, err := parseQuotaHistoryGranularity("auto", 0, 7*24*60*60)
 	require.NoError(t, err)
-	require.Equal(t, quotaHistoryDay, granularity)
+	require.Equal(t, quotaHistoryFifteenMinutes, granularity)
+	granularity, err = parseQuotaHistoryGranularity("auto", 0, 60*60)
+	require.NoError(t, err)
+	require.Equal(t, quotaHistoryMinute, granularity)
+	granularity, err = parseQuotaHistoryGranularity("5m", 0, 60*60)
+	require.NoError(t, err)
+	require.Equal(t, quotaHistoryFiveMinutes, granularity)
+	granularity, err = parseQuotaHistoryGranularity("15m", 0, 6*60*60)
+	require.NoError(t, err)
+	require.Equal(t, quotaHistoryFifteenMinutes, granularity)
+	oneHour, ok := quotaHistoryRangeSeconds("1h")
+	require.True(t, ok)
+	require.Equal(t, int64(60*60), oneHour)
+	sixHours, ok := quotaHistoryRangeSeconds("6h")
+	require.True(t, ok)
+	require.Equal(t, int64(6*60*60), sixHours)
 
 	offset, err := parseQuotaHistoryTimezoneOffset("480")
 	require.NoError(t, err)
@@ -22,6 +42,8 @@ func TestQuotaHistoryGranularityAndTimezone(t *testing.T) {
 	timestamp := time.Date(2026, time.January, 2, 23, 45, 0, 0, time.UTC).Unix()
 	bucket := quotaHistoryBucketStart(timestamp, quotaHistoryDay, 480)
 	require.Equal(t, time.Date(2026, time.January, 2, 16, 0, 0, 0, time.UTC).Unix(), bucket)
+	require.Equal(t, int64(120), quotaHistoryBucketStart(179, quotaHistoryMinute, 0))
+	require.Equal(t, int64(0), quotaHistoryBucketStart(299, quotaHistoryFiveMinutes, 0))
 }
 
 func TestParseQuotaHistoryWindowSeconds(t *testing.T) {
@@ -62,7 +84,7 @@ func TestResolveQuotaHistorySeriesFilterFillsMissingDimensions(t *testing.T) {
 	require.Equal(t, windowSeconds, *filter.WindowSeconds)
 }
 
-func TestAggregateQuotaHistoryKeepsSuccessfulObservation(t *testing.T) {
+func TestAggregateQuotaHistoryKeepsLatestFailureVisible(t *testing.T) {
 	snapshots := []model.ChannelQuotaSnapshot{
 		{ObservedAt: 100, Available: 8, Status: "success"},
 		{ObservedAt: 200, Status: "error", ErrorCode: "query_failed"},
@@ -72,6 +94,11 @@ func TestAggregateQuotaHistoryKeepsSuccessfulObservation(t *testing.T) {
 	require.Len(t, aggregated, 1)
 	require.Equal(t, "success", aggregated[0].Status)
 	require.Equal(t, float64(6), aggregated[0].Available)
+
+	aggregated = aggregateQuotaHistorySnapshots(snapshots[:2], quotaHistoryHour, 0)
+	require.Len(t, aggregated, 1)
+	require.Equal(t, "error", aggregated[0].Status)
+	require.Equal(t, "query_failed", aggregated[0].ErrorCode)
 }
 
 func TestAggregateQuotaHistoryKeepsIndependentSeriesInSameBucket(t *testing.T) {
@@ -199,4 +226,231 @@ func TestDeriveQuotaHistoryAlertThresholdsAndUnavailable(t *testing.T) {
 	require.Equal(t, "unavailable", alert.Status)
 }
 
+func TestBuildQuotaHistoryPointsRetainsBucketFailureAndContinuity(t *testing.T) {
+	usedTen, usedTwenty, usedThirty := 10.0, 20.0, 30.0
+	points := buildQuotaHistoryPoints([]model.ChannelQuotaSnapshot{
+		{Id: 1, ObservedAt: 100, Available: 90, Used: &usedTen, Total: ptrFloat(100), Status: "success", Source: "codex_wham_usage_primary"},
+		{Id: 2, ObservedAt: 200, Status: "error", ErrorCode: "upstream_http", Source: "codex_wham_usage"},
+		{Id: 3, ObservedAt: 300, Available: 70, Used: &usedThirty, Total: ptrFloat(100), Status: "success", Source: "codex_wham_usage_primary"},
+		{Id: 4, ObservedAt: 3_700, Available: 80, Used: &usedTwenty, Total: ptrFloat(100), Status: "success", Source: "codex_wham_usage_primary"},
+	}, quotaHistoryHour, 0, "codex_wham_usage_primary")
+	require.Len(t, points, 2)
+	require.Equal(t, "success", points[0].Status)
+	require.Equal(t, 3, points[0].SampleCount)
+	require.Equal(t, 1, points[0].FailedCount)
+	require.True(t, points[0].ContinuityBreak)
+	require.NotNil(t, points[0].Available)
+	require.Equal(t, 70.0, *points[0].Available)
+	require.Equal(t, "success", points[1].Status, "the next bucket remains independently observable")
+}
+
+func TestDeriveQuotaHistorySummaryAndConsumptionDoNotCrossFailureOrReset(t *testing.T) {
+	usedTen, usedTwenty, usedThirty, usedFifteen := 10.0, 20.0, 30.0, 15.0
+	snapshots := []model.ChannelQuotaSnapshot{
+		{Id: 1, ObservedAt: 100, Available: 90, Used: &usedTen, Total: ptrFloat(100), ResetAt: 1_000, Status: "success"},
+		{Id: 2, ObservedAt: 160, Available: 80, Used: &usedTwenty, Total: ptrFloat(100), ResetAt: 1_000, Status: "success"},
+		{Id: 3, ObservedAt: 180, Status: "error", ErrorCode: "upstream_http"},
+		{Id: 4, ObservedAt: 220, Available: 70, Used: &usedThirty, Total: ptrFloat(100), ResetAt: 1_000, Status: "success"},
+		{Id: 5, ObservedAt: 280, Available: 90, Used: &usedTen, Total: ptrFloat(100), ResetAt: 2_000, Status: "success"},
+		{Id: 6, ObservedAt: 340, Available: 85, Used: &usedFifteen, Total: ptrFloat(100), ResetAt: 2_000, Status: "success"},
+	}
+	metrics := deriveQuotaHistoryMetrics(snapshots)
+	summary := deriveQuotaHistorySummary(snapshots, metrics, "percent")
+	require.NotNil(t, summary)
+	require.NotNil(t, summary.Used)
+	require.NotNil(t, summary.Total)
+	// The available/used/total summaries represent only the latest continuous
+	// segment after the provider reset, rather than crossing the earlier error.
+	require.InDelta(t, 90, *summary.Available.Start, 0.0001)
+	require.InDelta(t, 85, *summary.Available.End, 0.0001)
+	require.InDelta(t, 10, *summary.Used.Start, 0.0001)
+	require.InDelta(t, 15, *summary.Used.End, 0.0001)
+	require.InDelta(t, 100, *summary.Total.Start, 0.0001)
+	require.InDelta(t, 100, *summary.Total.End, 0.0001)
+	require.NotNil(t, summary.Consumption.Observed)
+	require.InDelta(t, 15, *summary.Consumption.Observed, 0.0001)
+	require.Equal(t, "used", summary.Consumption.Basis)
+	require.Equal(t, 2, summary.Consumption.PairCount)
+	require.Equal(t, 1, summary.Consumption.InterruptedCount)
+	require.Equal(t, 1, summary.Consumption.ResetBoundaries)
+	require.NotNil(t, summary.Consumption.PeakRatePerMinute)
+	require.InDelta(t, 10, *summary.Consumption.PeakRatePerMinute, 0.0001)
+	require.NotNil(t, summary.Consumption.PeakRateObservedAt)
+	require.Equal(t, int64(160), *summary.Consumption.PeakRateObservedAt)
+	// The forecasting segment also cannot bridge the error marker.
+	require.Equal(t, 1, metrics.DataQuality.ResetBoundaries)
+	require.Equal(t, 1, metrics.DataQuality.ErrorCount)
+}
+
+func setupChannelQuotaHistoryHandlerTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	previousDB := model.DB
+	previousMemoryCache := common.MemoryCacheEnabled
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}))
+	model.DB = db
+	common.MemoryCacheEnabled = false
+	t.Cleanup(func() {
+		model.DB = previousDB
+		common.MemoryCacheEnabled = previousMemoryCache
+	})
+	require.NoError(t, db.Create(&model.Channel{Id: 971, Name: "quota-history-test", Key: "test"}).Error)
+	return db
+}
+
+func getChannelQuotaHistoryTestData(t *testing.T, query string) map[string]any {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Params = gin.Params{{Key: "id", Value: "971"}}
+	ctx.Request = httptest.NewRequest("GET", "/api/channel/971/quota/history?"+query, nil)
+	GetChannelQuotaHistory(ctx)
+	require.Equal(t, 200, recorder.Code)
+	var response struct {
+		Success bool           `json:"success"`
+		Data    map[string]any `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
+	require.True(t, response.Success, recorder.Body.String())
+	require.NotNil(t, response.Data)
+	return response.Data
+}
+
+func TestGetChannelQuotaHistoryReadsFullRangeBeforePointLimitAndKeepsRawCurrent(t *testing.T) {
+	db := setupChannelQuotaHistoryHandlerTestDB(t)
+	base := int64(1_700_000_000)
+	for index, available := range []float64{100, 80, 70} {
+		used := 100 - available
+		require.NoError(t, db.Create(&model.ChannelQuotaSnapshot{
+			ChannelId: 971, ObservedAt: base + int64(index*3600+17),
+			Available: available, Used: &used, Total: ptrFloat(100),
+			MetricType: "codex_rate_limit", WindowType: "five_hour",
+			Source: "codex_wham_usage_primary", PlanType: "pro", Unit: "percent",
+			WindowSeconds: 18000, ResetAt: 2_000_000_000, Status: "success",
+		}).Error)
+	}
+	data := getChannelQuotaHistoryTestData(t, "start=1700000000&end=1700008000&granularity=hour&limit=2")
+	require.Equal(t, float64(3), data["raw_observations"])
+	require.Equal(t, float64(3), data["available_points"])
+	require.Equal(t, float64(2), data["returned_points"])
+	require.Equal(t, true, data["source_complete"])
+	require.Equal(t, false, data["points_complete"])
+	require.Equal(t, false, data["complete"])
+	require.Equal(t, true, data["truncated"])
+	require.Equal(t, "point_limit", data["truncation_reason"])
+	summary, ok := data["summary"].(map[string]any)
+	require.True(t, ok)
+	require.InDelta(t, 100, summary["start_available"], 0.0001)
+	require.InDelta(t, 70, summary["end_available"], 0.0001)
+	require.InDelta(t, -30, summary["change"], 0.0001)
+	current, ok := data["current"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, float64(base+7_217), current["observed_at"])
+	require.Equal(t, "success", current["status"])
+	require.NotEmpty(t, data["series_id"])
+}
+
+func TestGetChannelQuotaHistoryUsesLatestGenericFailureForCurrentAndBucket(t *testing.T) {
+	db := setupChannelQuotaHistoryHandlerTestDB(t)
+	base := int64(1_700_100_000)
+	used := 10.0
+	require.NoError(t, db.Create(&model.ChannelQuotaSnapshot{
+		ChannelId: 971, ObservedAt: base + 10, Available: 90, Used: &used, Total: ptrFloat(100),
+		MetricType: "codex_rate_limit", WindowType: "five_hour", Source: "codex_wham_usage_primary",
+		PlanType: "pro", Unit: "percent", WindowSeconds: 18000, Status: "success",
+	}).Error)
+	require.NoError(t, db.Create(&model.ChannelQuotaSnapshot{
+		ChannelId: 971, ObservedAt: base + 20, MetricType: "codex_rate_limit", WindowType: "none",
+		Source: "codex_wham_usage", Unit: "percent", Status: "error", ErrorCode: "upstream_http",
+	}).Error)
+	data := getChannelQuotaHistoryTestData(t, "start=1700100000&end=1700100100&granularity=minute&limit=10")
+	require.Equal(t, float64(2), data["raw_observations"])
+	current, ok := data["current"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "error", current["status"])
+	require.Equal(t, "upstream_http", current["error_code"])
+	require.Equal(t, "codex_wham_usage", current["event_source"])
+	points, ok := data["points"].([]any)
+	require.True(t, ok)
+	require.Len(t, points, 1)
+	point, ok := points[0].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "error", point["status"])
+	require.Equal(t, float64(1), point["failed_count"])
+	require.Equal(t, true, point["continuity_break"])
+	quality, ok := data["data_quality"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, float64(1), quality["success_count"])
+	require.Equal(t, float64(1), quality["error_count"])
+}
+
 func ptrFloat(value float64) *float64 { return &value }
+
+func TestQuotaHistoryConsumptionSurvivesGranularityAndPointCompaction(t *testing.T) {
+	snapshots := []model.ChannelQuotaSnapshot{
+		{Id: 1, ObservedAt: 3500, Available: 100, Status: "success"},
+		{Id: 2, ObservedAt: 3560, Available: 90, Status: "success"},
+		{Id: 3, ObservedAt: 3620, Available: 85, Status: "success"},
+		{Id: 4, ObservedAt: 3680, Status: "error"},
+		{Id: 5, ObservedAt: 3740, Available: 80, Status: "success"},
+		{Id: 6, ObservedAt: 3800, Available: 78, Status: "success"},
+	}
+	for _, granularity := range []quotaHistoryGranularity{quotaHistoryRaw, quotaHistoryMinute, quotaHistoryFiveMinutes, quotaHistoryHour, quotaHistoryDay} {
+		t.Run(string(granularity), func(t *testing.T) {
+			points := buildQuotaHistoryPoints(snapshots, granularity, 0, "")
+			compressed, _ := limitQuotaHistoryPoints(points, 1)
+			require.Len(t, compressed, 1)
+			require.NotNil(t, compressed[0].Consumption)
+			require.InDelta(t, 17, *compressed[0].Consumption, 1e-9)
+			require.Equal(t, int64(180), compressed[0].ObservedSeconds)
+			require.Equal(t, 3, compressed[0].IntervalCount)
+			require.InDelta(t, 10, *compressed[0].PeakRatePerMinute, 1e-9)
+			require.Equal(t, 1, compressed[0].FailedCount)
+			require.True(t, compressed[0].ContinuityBreak)
+		})
+	}
+}
+
+func TestQuotaHistoryLatestFailureDoesNotEraseObservedSummary(t *testing.T) {
+	snapshots := []model.ChannelQuotaSnapshot{
+		{Id: 1, ObservedAt: 100, Available: 90, Status: "success"},
+		{Id: 2, ObservedAt: 160, Available: 80, Status: "success"},
+		{Id: 3, ObservedAt: 220, Status: "error"},
+	}
+	summary := deriveQuotaHistorySummary(snapshots, deriveQuotaHistoryMetrics(snapshots), "percent")
+	require.NotNil(t, summary)
+	require.Equal(t, 10.0, *summary.Consumption.Observed)
+	require.Equal(t, int64(60), summary.Consumption.ObservedSeconds)
+	require.Equal(t, 1, summary.Consumption.InterruptedCount)
+	require.Equal(t, "error", quotaHistoryCurrent(&snapshots[2], "")["status"])
+}
+
+func TestQuotaHistoryResolvedEmptyIdentityDoesNotMixCurrencyOrPlanEvents(t *testing.T) {
+	db := setupChannelQuotaHistoryHandlerTestDB(t)
+	rows := []model.ChannelQuotaSnapshot{
+		{ChannelId: 971, ObservedAt: 100, Available: 100, Status: "success", MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", Currency: "USD"},
+		{ChannelId: 971, ObservedAt: 160, Available: 90, Status: "success", MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd"},
+		{ChannelId: 971, ObservedAt: 220, Status: "error", MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", PlanType: "other-plan"},
+	}
+	require.NoError(t, db.Create(&rows).Error)
+	data := getChannelQuotaHistoryTestData(t, "range=custom&start=1&end=300&granularity=raw")
+	require.Equal(t, float64(1), data["raw_observations"])
+	current := data["current"].(map[string]any)
+	require.Equal(t, "success", current["status"])
+	require.Equal(t, float64(160), current["observed_at"])
+}
+
+func TestQuotaHistoryAlertRejectsInvalidUsedEvenWithHealthyAvailable(t *testing.T) {
+	previousEnabled := common.ChannelQuotaAlertEnabled
+	common.ChannelQuotaAlertEnabled = true
+	t.Cleanup(func() { common.ChannelQuotaAlertEnabled = previousEnabled })
+	for _, used := range []float64{-1, math.NaN(), math.Inf(1)} {
+		snapshot := model.ChannelQuotaSnapshot{Status: "success", Available: 90, Total: ptrFloat(100), Used: ptrFloat(used)}
+		require.Equal(t, "error", quotaHistorySnapshotStatus(snapshot))
+		alert := deriveQuotaHistoryAlert(&snapshot)
+		require.Equal(t, "unavailable", alert.Status)
+		require.Nil(t, alert.RatioPercent)
+	}
+}

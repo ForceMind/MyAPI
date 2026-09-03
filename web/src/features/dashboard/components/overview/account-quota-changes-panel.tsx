@@ -27,17 +27,30 @@ import {
   Minus,
   RotateCw,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { IconBadge } from '@/components/ui/icon-badge'
 import {
   getChannelQuotaChanges,
   getChannelQuotaSamplingStatus,
+  getCodexQuotaSeries,
 } from '@/features/channels/api'
-import type { ChannelQuotaChangeItem } from '@/features/channels/types'
+import { QuotaCustomRangeControls } from '@/features/channels/components/quota-history-trend'
+import { useQuotaHistoryTime } from '@/features/channels/hooks/use-quota-history-time'
+import {
+  quotaWindowLabel,
+  quotaSeriesKey,
+  quotaHistoryRangeOptions,
+  formatQuotaAmount,
+} from '@/features/channels/lib/quota-history'
+import type {
+  ChannelQuotaChangeItem,
+  ChannelQuotaHistoryRange,
+} from '@/features/channels/types'
 import { hasPermission } from '@/lib/admin-permissions'
 import { getSelf } from '@/lib/api'
 import { ROLE } from '@/lib/roles'
@@ -47,9 +60,9 @@ import { useAuthStore } from '@/stores/auth-store'
 import { PanelWrapper } from '../ui/panel-wrapper'
 import { CodexAccountQuotaChart } from './codex-account-quota-chart'
 
-const RANGE = '24h' as const
 const LIMIT = 5
 const DATA_LIMIT = 50
+type Range = ChannelQuotaHistoryRange
 
 function getHttpStatus(error: unknown): number | undefined {
   if (!error || typeof error !== 'object') return undefined
@@ -63,52 +76,15 @@ function finite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
-function metricIdentity(item: ChannelQuotaChangeItem): string {
-  return [
-    item.metric_type,
-    item.unit,
-    item.currency,
-    item.window_type,
-    item.source,
-    item.plan_type,
-  ]
-    .map((value) => value || '')
-    .join('|')
-}
-
-function movementKey(item: ChannelQuotaChangeItem): string {
-  return [
-    item.channel_id,
-    item.window_type,
-    item.metric_type,
-    item.source,
-    item.plan_type,
-  ]
-    .map((value) => value || '')
-    .join('|')
-}
-
-function formatAmount(
-  value: number | null | undefined,
-  unit?: string,
-  currency?: string
-): string {
-  if (!finite(value)) return '—'
-  const formatted = new Intl.NumberFormat(undefined, {
-    maximumFractionDigits: 2,
-  }).format(value)
-  const suffix = currency || unit
-  return suffix ? `${formatted} ${suffix}` : formatted
-}
-
 function formatSignedAmount(
   value: number | null | undefined,
-  unit?: string,
-  currency?: string
+  unit: string | undefined,
+  currency: string | undefined,
+  t: (key: string, options?: Record<string, unknown>) => string
 ): string {
   if (!finite(value)) return '—'
   const sign = value > 0 ? '+' : ''
-  return `${sign}${formatAmount(value, unit, currency)}`
+  return `${sign}${formatQuotaAmount(value, { unit, currency }, 'rate_per_minute', t)}`
 }
 
 function movementTone(item: ChannelQuotaChangeItem): {
@@ -180,6 +156,11 @@ function MovementRow(props: {
     finite(value) && props.maxMovement > 0
       ? Math.max(8, Math.min(100, (value / props.maxMovement) * 100))
       : 0
+  let movementColor =
+    item.direction === 'decrease' ? 'bg-destructive/70' : 'bg-warning/70'
+  if (item.status === 'unsupported' || item.status === 'unavailable') {
+    movementColor = 'bg-muted-foreground/40'
+  }
 
   return (
     <li className='group flex min-w-0 items-center gap-3 rounded-xl border px-3 py-2.5 sm:px-4'>
@@ -213,7 +194,9 @@ function MovementRow(props: {
             {item.account_label || t('Provider account')}
           </span>
           {item.window_type && (
-            <span className='shrink-0'>· {item.window_type}</span>
+            <span className='shrink-0'>
+              · {quotaWindowLabel(item.window_type, t)}
+            </span>
           )}
           {item.plan_type && (
             <span className='shrink-0'>· {item.plan_type}</span>
@@ -223,11 +206,7 @@ function MovementRow(props: {
           <div
             className={cn(
               'h-full rounded-full transition-[width]',
-              item.status === 'unsupported' || item.status === 'unavailable'
-                ? 'bg-muted-foreground/40'
-                : item.direction === 'decrease'
-                  ? 'bg-destructive/70'
-                  : 'bg-warning/70'
+              movementColor
             )}
             style={{ width: `${width}%` }}
             aria-hidden='true'
@@ -241,13 +220,15 @@ function MovementRow(props: {
             tone.className
           )}
         >
-          {formatSignedAmount(item.change_per_minute, item.unit, item.currency)}
-          <span className='text-muted-foreground ml-1 text-[10px] font-normal'>
-            /min
-          </span>
+          {formatSignedAmount(
+            item.change_per_minute,
+            item.unit,
+            item.currency,
+            t
+          )}
         </span>
         <span className='text-muted-foreground max-w-full font-mono text-[11px] break-words tabular-nums'>
-          {formatAmount(item.current_available, item.unit, item.currency)}
+          {formatQuotaAmount(item.current_available, item, 'available', t)}
         </span>
       </div>
     </li>
@@ -264,6 +245,9 @@ export function AccountQuotaChangesPanel() {
   // same permission is opened in the same tab.
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   const capabilityRefreshKey = useRef<string | null>(null)
+  const time = useQuotaHistoryTime()
+  const { range, setRange } = time
+  const [refreshEpoch, setRefreshEpoch] = useState(0)
 
   // A non-empty permission matrix can still be stale when an administrator's
   // role policy changes while the SPA remains open. Refresh the self profile
@@ -315,7 +299,7 @@ export function AccountQuotaChangesPanel() {
     queryKey: [
       'dashboard',
       'account-quota-changes',
-      RANGE,
+      time.params,
       DATA_LIMIT,
       user?.id ?? null,
       sessionId,
@@ -323,19 +307,42 @@ export function AccountQuotaChangesPanel() {
     ],
     queryFn: () =>
       getChannelQuotaChanges({
-        range: RANGE,
-        // Keep enough groups to make Codex history discoverable even when a
-        // different provider has the five largest movements.
+        ...time.params,
+        // This bounded list is only the compact latest-movement list.
         limit: DATA_LIMIT,
         sort: 'abs_change_per_minute',
       }),
     enabled: canReadChannels,
     staleTime: 60 * 1000,
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[4] === (user?.id ?? null) &&
+      previousQuery?.queryKey[5] === sessionId
+        ? previous
+        : undefined,
     // Keep the overview useful while it remains open after a background
     // sampler run. TanStack Query pauses interval work in hidden tabs by
     // default, so this does not create background polling for idle clients.
     refetchInterval: 60 * 1000,
     retry: false,
+  })
+  const codexQuery = useQuery({
+    queryKey: [
+      'dashboard',
+      'codex-quota-series',
+      user?.id ?? null,
+      sessionId,
+      time.params,
+    ],
+    queryFn: () => getCodexQuotaSeries({ ...time.params, limit: 2000 }),
+    enabled: canReadChannels,
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
+    retry: false,
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[2] === (user?.id ?? null) &&
+      previousQuery?.queryKey[3] === sessionId
+        ? previous
+        : undefined,
   })
   const samplingStatusQuery = useQuery({
     queryKey: [
@@ -350,61 +357,21 @@ export function AccountQuotaChangesPanel() {
     retry: false,
     staleTime: 5 * 60 * 1000,
   })
+  const refreshAll = () => {
+    // Child quota history queries include refreshEpoch. A dashboard refresh
+    // therefore refreshes the list, sampler state, and visible chart together.
+    setRefreshEpoch((value) => value + 1)
+    void query.refetch()
+    void codexQuery.refetch()
+    void samplingStatusQuery.refetch()
+  }
 
-  const allItems = useMemo(() => {
-    const sourceItems = query.data?.data?.items ?? []
-    return sourceItems.filter((item) => {
-      if (
-        item.status !== 'error' ||
-        item.metric_type !== 'codex_rate_limit' ||
-        item.source !== 'codex_wham_usage'
-      ) {
-        return true
-      }
-      return !sourceItems.some(
-        (candidate) =>
-          candidate.status === 'success' &&
-          candidate.channel_id === item.channel_id &&
-          candidate.metric_type === item.metric_type &&
-          (candidate.observed_at ?? 0) >= (item.observed_at ?? 0)
-      )
-    })
-  }, [query.data?.data?.items])
+  const allItems = useMemo(
+    () => query.data?.data?.items ?? [],
+    [query.data?.data?.items]
+  )
   const items = useMemo(() => allItems.slice(0, LIMIT), [allItems])
-  const firstMetric = items.find((item) => finite(item.change_per_minute))
-  // Do not compare raw numbers from different units (for example USD and
-  // percent). The movement list remains complete; summary cards use the
-  // first metric's homogeneous series only, preventing a wrong suffix/value.
-  const summaryItems = useMemo(
-    () =>
-      firstMetric
-        ? items.filter(
-            (item) => metricIdentity(item) === metricIdentity(firstMetric)
-          )
-        : [],
-    [items, firstMetric]
-  )
-  const maxDrop = useMemo(
-    () =>
-      summaryItems.reduce<number | null>((max, item) => {
-        if (!finite(item.change_per_minute) || item.change_per_minute >= 0)
-          return max
-        const value = Math.abs(item.change_per_minute)
-        return max == null ? value : Math.max(max, value)
-      }, null),
-    [summaryItems]
-  )
-  const maxIncrease = useMemo(
-    () =>
-      summaryItems.reduce<number | null>((max, item) => {
-        if (!finite(item.change_per_minute) || item.change_per_minute <= 0)
-          return max
-        return max == null
-          ? item.change_per_minute
-          : Math.max(max, item.change_per_minute)
-      }, null),
-    [summaryItems]
-  )
+  const codexItems = codexQuery.data?.data?.items ?? []
   const maxMovement = items.reduce((max, item) => {
     if (finite(item.abs_change_per_minute)) {
       return Math.max(max, item.abs_change_per_minute)
@@ -427,10 +394,12 @@ export function AccountQuotaChangesPanel() {
             <IconBadge tone='warning' size='sm'>
               <Activity />
             </IconBadge>
-            {t('Account quota changes')}
+            {t('Quota consumption')}
           </span>
         }
-        description={t('Largest provider account quota movements per minute')}
+        description={t(
+          'Observed provider account consumption and latest quota status'
+        )}
         empty
         emptyMessage={t(
           'Administrator permission required to view account quota changes'
@@ -439,55 +408,21 @@ export function AccountQuotaChangesPanel() {
     )
   }
 
-  if (query.isError || query.data?.success === false) {
-    const status = getHttpStatus(query.error)
-    const isSessionError = status === 401
-    const isPermissionError = status === 403
-    const errorMessage = isSessionError
-      ? t(
-          'Your session is missing or expired. Sign in again to load provider account quota.'
-        )
-      : isPermissionError
-        ? t('Your account does not have permission to read channels.')
-        : t('Unable to load account quota changes')
-    return (
-      <PanelWrapper
-        title={
-          <span className='flex items-center gap-2'>
-            <IconBadge tone='warning' size='sm'>
-              <Activity />
-            </IconBadge>
-            {t('Account quota changes')}
-          </span>
-        }
-        description={t('Largest provider account quota movements per minute')}
-        empty
-        emptyMessage={errorMessage}
-        headerActions={
-          isSessionError ? (
-            <Button
-              variant='outline'
-              size='sm'
-              className='h-7 px-2 text-xs'
-              render={<Link to='/sign-in' />}
-            >
-              {t('Sign in again')}
-            </Button>
-          ) : (
-            <Button
-              variant='ghost'
-              size='sm'
-              className='size-7 p-0'
-              onClick={() => void query.refetch()}
-              aria-label={t('Retry')}
-            >
-              <RotateCw className='size-3.5' />
-            </Button>
-          )
-        }
-      />
+  const queryFailed = query.isError || query.data?.success === false
+  const codexFailed = codexQuery.isError || codexQuery.data?.success === false
+  const status = getHttpStatus(query.error) ?? getHttpStatus(codexQuery.error)
+  let errorMessage = t('Unable to load account quota changes')
+  if (status === 401) {
+    errorMessage = t(
+      'Your session is missing or expired. Sign in again to load provider account quota.'
     )
   }
+  if (status === 403) {
+    errorMessage = t('Your account does not have permission to read channels.')
+  }
+  const incomplete =
+    codexQuery.data?.data?.items_complete === false ||
+    codexQuery.data?.data?.source_complete === false
 
   return (
     <PanelWrapper
@@ -496,21 +431,39 @@ export function AccountQuotaChangesPanel() {
           <IconBadge tone='info' size='sm'>
             <Activity />
           </IconBadge>
-          {t('Account quota changes')}
+          {t('Quota consumption')}
         </span>
       }
-      description={t('Largest provider account quota movements per minute')}
-      loading={query.isLoading}
+      description={t(
+        'Observed provider account consumption and latest quota status'
+      )}
+      loading={query.isLoading && codexQuery.isLoading}
       height='h-64'
       contentClassName='space-y-3'
       headerActions={
         <div className='flex items-center gap-1'>
+          <select
+            aria-label={t('Time range')}
+            className='text-foreground h-7 min-w-0 rounded-md border bg-transparent px-1.5 text-xs'
+            value={range}
+            onChange={(event) => setRange(event.target.value as Range)}
+          >
+            {quotaHistoryRangeOptions.map((option) => (
+              <option key={option} value={option}>
+                {option === 'custom' ? t('Custom') : option}
+              </option>
+            ))}
+          </select>
           <Button
             variant='ghost'
             size='sm'
             className='size-7 p-0'
-            onClick={() => void query.refetch()}
-            disabled={query.isFetching}
+            onClick={refreshAll}
+            disabled={
+              query.isFetching ||
+              codexQuery.isFetching ||
+              samplingStatusQuery.isFetching
+            }
             aria-label={t('Refresh')}
           >
             <RotateCw
@@ -529,66 +482,82 @@ export function AccountQuotaChangesPanel() {
         </div>
       }
     >
-      <div className='grid grid-cols-2 gap-2'>
-        <div className='bg-destructive/5 border-destructive/15 rounded-xl border px-3 py-2'>
-          <div className='text-muted-foreground text-[11px]'>
-            {t('Max drop / minute')}
-          </div>
-          <div className='text-destructive mt-1 font-mono text-sm font-semibold tabular-nums'>
-            {maxDrop == null
-              ? firstMetric
-                ? formatAmount(0, firstMetric.unit, firstMetric.currency)
-                : '—'
-              : `-${formatAmount(maxDrop, firstMetric?.unit, firstMetric?.currency)}`}
-          </div>
-        </div>
-        <div className='bg-warning/5 border-warning/15 rounded-xl border px-3 py-2'>
-          <div className='text-muted-foreground text-[11px]'>
-            {t('Max increase / minute')}
-          </div>
-          <div className='text-warning mt-1 font-mono text-sm font-semibold tabular-nums'>
-            {formatAmount(
-              maxIncrease == null && firstMetric ? 0 : maxIncrease,
-              firstMetric?.unit,
-              firstMetric?.currency
+      {queryFailed || codexFailed ? (
+        <Alert variant='destructive'>
+          <AlertTitle>{errorMessage}</AlertTitle>
+          <AlertDescription>
+            <p>
+              {t(
+                'Try a shorter time range or refresh to retry. Existing history is retained.'
+              )}
+            </p>
+            {status === 401 ? (
+              <Button
+                variant='outline'
+                size='sm'
+                render={<Link to='/sign-in' />}
+              >
+                {t('Sign in again')}
+              </Button>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {incomplete ? (
+        <Alert>
+          <AlertTitle>{t('Incomplete quota history')}</AlertTitle>
+          <AlertDescription>
+            {t(
+              'Some quota series are missing. Narrow the time range to load complete history.'
             )}
-          </div>
-        </div>
-      </div>
-      {maxDrop == null && maxIncrease == null ? (
-        <p className='text-muted-foreground text-xs'>
-          {t(
-            firstMetric
-              ? 'No increase or decrease was observed in the selected window.'
-              : 'Change cards need at least two successful samples in the same quota window.'
-          )}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {query.isPlaceholderData || codexQuery.isPlaceholderData ? (
+        <p className='text-muted-foreground text-xs' role='status'>
+          {t('Loading')}
         </p>
       ) : null}
-      <CodexAccountQuotaChart items={allItems} />
-      {items.length === 0 ? (
-        <div className='text-muted-foreground rounded-xl border border-dashed p-4 text-center text-sm'>
-          {samplingStatusQuery.data?.data?.enabled
-            ? t(
-                'No account quota changes recorded yet. Background sampling is enabled and will populate this panel after the next interval.'
-              )
-            : t(
-                'No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.'
-              )}
-        </div>
-      ) : (
-        <ul
-          className='max-h-64 min-w-0 space-y-2 overflow-y-auto pr-1'
-          aria-label={t('Account quota changes')}
-        >
-          {items.map((item) => (
-            <MovementRow
-              key={movementKey(item)}
-              item={item}
-              maxMovement={maxMovement}
-            />
-          ))}
-        </ul>
-      )}
+      {range === 'custom' &&
+      !codexItems.some((item) => item.metric_type === 'codex_rate_limit') ? (
+        <QuotaCustomRangeControls
+          range={time.customRange}
+          onApply={time.setCustomRange}
+        />
+      ) : null}
+      <CodexAccountQuotaChart
+        items={codexItems}
+        range={range}
+        onRangeChange={setRange}
+        refreshEpoch={refreshEpoch}
+        customRange={time.customRange}
+        onCustomRangeChange={time.setCustomRange}
+      />
+      {!queryFailed &&
+        (items.length === 0 ? (
+          <div className='text-muted-foreground rounded-xl border border-dashed p-4 text-center text-sm'>
+            {samplingStatusQuery.data?.data?.enabled
+              ? t(
+                  'No account quota changes recorded yet. Background sampling is enabled and will populate this panel after the next interval.'
+                )
+              : t(
+                  'No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.'
+                )}
+          </div>
+        ) : (
+          <ul
+            className='max-h-64 min-w-0 space-y-2 overflow-y-auto pr-1'
+            aria-label={t('Account quota changes')}
+          >
+            {items.map((item) => (
+              <MovementRow
+                key={quotaSeriesKey(item)}
+                item={item}
+                maxMovement={maxMovement}
+              />
+            ))}
+          </ul>
+        ))}
     </PanelWrapper>
   )
 }

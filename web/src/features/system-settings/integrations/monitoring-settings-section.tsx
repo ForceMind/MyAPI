@@ -54,46 +54,51 @@ import { useResetForm } from '../hooks/use-reset-form'
 import { useUpdateOption } from '../hooks/use-update-option'
 import { safeNumberFieldProps } from '../utils/numeric-field'
 
-const numericString = z.string().refine((value) => {
-  const trimmed = value.trim()
-  if (!trimmed) return true
-  return !Number.isNaN(Number(trimmed)) && Number(trimmed) >= 0
-}, 'Enter a non-negative number or leave empty')
+const createMonitoringSchema = (t: (key: string) => string) => {
+  const numericString = z.string().refine((value) => {
+    const trimmed = value.trim()
+    if (!trimmed) return true
+    return !Number.isNaN(Number(trimmed)) && Number(trimmed) >= 0
+  }, t('Enter a non-negative number or leave empty'))
 
-const monitoringSchema = z.object({
-  QuotaRemindThreshold: numericString,
-  channel_quota_alert: z
-    .object({
+  return z.object({
+    QuotaRemindThreshold: numericString,
+    channel_quota_alert: z
+      .object({
+        enabled: z.boolean(),
+        warning_percent: z.coerce.number().finite().gt(0).lte(100),
+        critical_percent: z.coerce.number().finite().gte(0),
+        cooldown_seconds: z.coerce.number().int().gte(0).lte(604800),
+        notify_on_recovery: z.boolean(),
+      })
+      .superRefine((value, ctx) => {
+        if (value.critical_percent >= value.warning_percent) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['critical_percent'],
+            message: t(
+              'Critical threshold must be lower than warning threshold'
+            ),
+          })
+        }
+      }),
+    channel_quota_sync: z.object({
       enabled: z.boolean(),
-      warning_percent: z.coerce.number().finite().gt(0).lte(100),
-      critical_percent: z.coerce.number().finite().gte(0),
-      cooldown_seconds: z.coerce.number().int().gte(0).lte(604800),
-      notify_on_recovery: z.boolean(),
-    })
-    .superRefine((value, ctx) => {
-      if (value.critical_percent >= value.warning_percent) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['critical_percent'],
-          message: 'Critical threshold must be lower than warning threshold',
-        })
-      }
+      interval_minutes: z.coerce.number().int().min(1).max(1440),
+      max_channels: z.coerce.number().int().min(1).max(1000),
     }),
-  channel_quota_sync: z.object({
-    enabled: z.boolean(),
-    interval_minutes: z.coerce.number().int().min(1).max(1440),
-    max_channels: z.coerce.number().int().min(1).max(1000),
-  }),
-  perf_metrics_setting: z.object({
-    enabled: z.boolean(),
-    flush_interval: z.coerce.number().min(1),
-    bucket_time: z.enum(['minute', '5min', 'hour']),
-    retention_days: z.coerce.number().min(0),
-  }),
-})
+    perf_metrics_setting: z.object({
+      enabled: z.boolean(),
+      flush_interval: z.coerce.number().min(1),
+      bucket_time: z.enum(['minute', '5min', 'hour']),
+      retention_days: z.coerce.number().min(0),
+    }),
+  })
+}
 
-type MonitoringFormInput = z.input<typeof monitoringSchema>
-type MonitoringFormValues = z.output<typeof monitoringSchema>
+type MonitoringSchema = ReturnType<typeof createMonitoringSchema>
+type MonitoringFormInput = z.input<MonitoringSchema>
+type MonitoringFormValues = z.output<MonitoringSchema>
 
 type FlatMonitoringDefaults = {
   QuotaRemindThreshold: string
@@ -239,6 +244,7 @@ export function MonitoringSettingsSection({
     () => buildFormDefaults(defaultValues),
     [defaultValues]
   )
+  const monitoringSchema = useMemo(() => createMonitoringSchema(t), [t])
 
   const form = useForm<MonitoringFormInput, unknown, MonitoringFormValues>({
     resolver: zodResolver(monitoringSchema),
@@ -481,7 +487,7 @@ export function MonitoringSettingsSection({
                       />
                     </FormControl>
                     <FormDescription>
-                      {t('Minimum 1 minute; the default is 15 minutes.')}
+                      {t('Minimum 1 minute; the default is 1 minute.')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

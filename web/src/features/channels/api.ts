@@ -26,6 +26,8 @@ import type {
   Channel,
   ChannelBalanceResponse,
   ChannelQuotaChangesResponse,
+  ChannelQuotaHistoryGranularity,
+  ChannelQuotaHistoryRange,
   ChannelQuotaSamplingStatusResponse,
   ChannelOpsResponse,
   ChannelQuotaHistoryResponse,
@@ -290,7 +292,7 @@ export async function updateChannelBalance(
 export async function getChannelQuotaHistory(
   id: number,
   params: {
-    range?: '24h' | '7d' | '30d' | '90d'
+    range?: ChannelQuotaHistoryRange
     start?: string
     end?: string
     metric_type?: string
@@ -300,7 +302,7 @@ export async function getChannelQuotaHistory(
     unit?: string
     currency?: string
     window_seconds?: number
-    granularity?: 'raw' | 'hour' | 'day' | 'week' | 'auto'
+    granularity?: ChannelQuotaHistoryGranularity
     timezone_offset?: number
     limit?: number
   } = {}
@@ -312,10 +314,27 @@ export async function getChannelQuotaHistory(
   return res.data
 }
 
+/** Resolve Codex windows independently of other providers' movement ranking. */
+export async function getCodexQuotaSeries(
+  params: {
+    range?: ChannelQuotaHistoryRange
+    start?: string
+    end?: string
+    limit?: number
+  } = {}
+): Promise<ChannelQuotaChangesResponse> {
+  return getChannelQuotaChanges({
+    ...params,
+    metric_type: 'codex_rate_limit',
+    limit: params.limit ?? 2000,
+    sort: 'observed_desc',
+  })
+}
+
 /** Fetch the latest provider-account quota changes across channels. */
 export async function getChannelQuotaChanges(
   params: {
-    range?: '24h' | '7d' | '30d' | '90d'
+    range?: ChannelQuotaHistoryRange
     start?: string
     end?: string
     limit?: number
@@ -328,6 +347,7 @@ export async function getChannelQuotaChanges(
     metric_type?: string
     window_type?: string
     source?: string
+    channel_ids?: string
   } = {},
   requestConfig: ApiRequestConfig = {}
 ): Promise<ChannelQuotaChangesResponse> {

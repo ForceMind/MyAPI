@@ -55,6 +55,45 @@ func (h *stubScheduledHandler) Enabled() bool           { return h.enabled }
 func (h *stubScheduledHandler) Interval() time.Duration { return h.interval }
 func (h *stubScheduledHandler) NewPayload() any         { return nil }
 
+type stubStartScheduledHandler struct{ stubScheduledHandler }
+
+func (h *stubStartScheduledHandler) ScheduleFromStart() bool { return true }
+
+func TestSystemTaskSamplerSchedulesFromCreationWithoutOverlap(t *testing.T) {
+	truncate(t)
+	handler := &stubStartScheduledHandler{stubScheduledHandler{
+		taskType: "test_sampler_cadence", enabled: true, interval: time.Minute,
+	}}
+	withSystemTaskRegistry(t, handler)
+	runSystemTaskScheduler()
+	latest, err := model.GetLatestSystemTask(handler.Type())
+	require.NoError(t, err)
+	require.NotNil(t, latest)
+	// Even an overdue pending task must not create an overlapping sample.
+	require.NoError(t, model.DB.Model(&model.SystemTask{}).Where("id = ?", latest.ID).
+		Update("created_at", common.GetTimestamp()-90).Error)
+	runSystemTaskScheduler()
+	require.Equal(t, int64(1), countSystemTasks(t, handler.Type()))
+	_, claimed, err := model.ClaimSystemTask(latest.ID, handler.Type(), "sampler-runner", common.GetTimestamp()+60)
+	require.NoError(t, err)
+	require.True(t, claimed)
+	runSystemTaskScheduler()
+	require.Equal(t, int64(1), countSystemTasks(t, handler.Type()))
+	require.NoError(t, model.FinishSystemTask(latest.TaskID, "sampler-runner", model.SystemTaskStatusSucceeded, nil, ""))
+	// A just-finished but already overdue round is eligible immediately; its
+	// duration is not silently added to the configured sampling interval.
+	runSystemTaskScheduler()
+	require.Equal(t, int64(2), countSystemTasks(t, handler.Type()))
+	latest, err = model.GetLatestSystemTask(handler.Type())
+	require.NoError(t, err)
+	_, claimed, err = model.ClaimSystemTask(latest.ID, handler.Type(), "sampler-runner", common.GetTimestamp()+60)
+	require.NoError(t, err)
+	require.True(t, claimed)
+	require.NoError(t, model.FinishSystemTask(latest.TaskID, "sampler-runner", model.SystemTaskStatusSucceeded, nil, ""))
+	runSystemTaskScheduler()
+	require.Equal(t, int64(2), countSystemTasks(t, handler.Type()))
+}
+
 func countSystemTasks(t *testing.T, taskType string) int64 {
 	t.Helper()
 	var count int64

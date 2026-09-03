@@ -49,7 +49,13 @@ func TestGetChannelQuotaChangesRejectsInvalidLimitAndChannelIDs(t *testing.T) {
 }
 
 func TestQuotaChangeQueryHelpersNormalizeAliasesAndDeduplicateIDs(t *testing.T) {
-	seconds, ok := quotaChangeRangeSeconds("1d")
+	seconds, ok := quotaChangeRangeSeconds("1h")
+	require.True(t, ok)
+	require.EqualValues(t, 60*60, seconds)
+	seconds, ok = quotaChangeRangeSeconds("6h")
+	require.True(t, ok)
+	require.EqualValues(t, 6*60*60, seconds)
+	seconds, ok = quotaChangeRangeSeconds("1d")
 	require.True(t, ok)
 	require.EqualValues(t, 24*60*60, seconds)
 	ids, err := parseQuotaChangeChannelIDs("7, 7, 9")

@@ -222,20 +222,19 @@ relaykit 独立性，不把 UI 替换提前到代码合同稳定之前。
 采集规则：
 
 - 复用现有手动和自动余额查询流程。
-- 后台采样默认开启并按 15 分钟采集，使用已有渠道轮询锁并限制并发；管理员可在「系统设置 → 运维 → 监控与告警」中调整开关、间隔和每轮最大渠道数。`CHANNEL_QUOTA_SYNC_ENABLED` 仍可作为部署级覆盖，显式设置为 `false` 时不会产生后台请求；管理员手动查询仍可写入快照。
+- 后台采样默认开启，默认目标间隔为 1 分钟，使用已有渠道轮询锁并限制并发；管理员可在「系统设置 → 运维 → 监控与告警」中调整开关、间隔和每轮最大渠道数。环境变量覆盖管理员设置；已有显式间隔不会被升级自动覆盖。调度存在最多一个轮询周期的抖动，多渠道限额和上游延迟也会影响单渠道实际间隔。
 - 失败不覆盖最后一个有效余额，但记录失败状态。
 - 不记录上游完整响应。
 - 多密钥渠道在 MVP 中不合并不同 Key 的额度。
-- 查询服务端聚合和降采样，默认最多返回 2000 个点。
+- 查询在服务端先计算原始观测区间的消耗与速率，再进行展示聚合；点数限制不得改变消费总量或抹去失败、重置标记。当前修复契约和验收见 [额度消耗分析](QUOTA_ANALYTICS.md)。
 
 建议配置：
 
 ```env
 # Background sampling is enabled by default; set false only to disable it at deployment level.
 CHANNEL_QUOTA_SYNC_ENABLED=true
-CHANNEL_QUOTA_SYNC_INTERVAL=15m
+CHANNEL_QUOTA_SYNC_INTERVAL=1m
 CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS=180
-CHANNEL_QUOTA_MAX_POINTS=2000
 # Optional read-only threshold status (disabled by default). This only adds
 # `data.alert` to quota history responses when the provider reports a total;
 # it never sends notifications, disables channels, or changes routing.

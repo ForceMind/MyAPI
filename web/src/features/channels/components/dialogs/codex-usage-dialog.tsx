@@ -28,7 +28,6 @@ import {
 } from 'lucide-react'
 import { type ReactNode, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Dialog } from '@/components/dialog'
@@ -43,7 +42,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { ChartContainer } from '@/components/ui/chart'
 import {
   Collapsible,
   CollapsibleContent,
@@ -63,14 +61,17 @@ import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import dayjs from '@/lib/dayjs'
 import { formatDateTimeStr, formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
 
 import {
   getCodexResetCredits,
-  getCodexUsageHistory,
+  getChannelQuotaChanges,
   resetCodexUsage,
   type CodexResetCreditsResponse,
-  type CodexUsageHistoryPoint,
 } from '../../api'
+import { useQuotaHistoryTime } from '../../hooks/use-quota-history-time'
+import { quotaSeriesKey, quotaWindowLabel } from '../../lib/quota-history'
+import { ChannelQuotaDetailChart } from '../channel-quota-detail-chart'
 
 type CodexRateLimitWindow = {
   used_percent?: number
@@ -888,42 +889,54 @@ function ResetCreditsPanel(props: {
   )
 }
 
-function historyPercent(value: unknown): number | undefined {
-  const numeric = Number(value)
-  return Number.isFinite(numeric)
-    ? Math.max(0, Math.min(100, numeric))
-    : undefined
-}
-
 export function CodexUsageHistoryPanel(props: {
   channelId?: number
   open: boolean
 }) {
   const { t } = useTranslation()
+  const userId = useAuthStore((state) => state.auth.user?.id ?? null)
+  const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
+  const time = useQuotaHistoryTime()
+  const [selectedKey, setSelectedKey] = useState('')
   const query = useQuery({
-    queryKey: ['codex-usage-history', props.channelId],
-    queryFn: () => getCodexUsageHistory(props.channelId as number),
+    queryKey: [
+      'codex-quota-series',
+      userId,
+      sessionId,
+      props.channelId,
+      time.params,
+    ],
+    queryFn: () =>
+      getChannelQuotaChanges({
+        ...time.params,
+        channel_ids: String(props.channelId),
+        metric_type: 'codex_rate_limit',
+        limit: 100,
+      }),
     enabled: props.open && Boolean(props.channelId),
-    retry: false,
+    refetchInterval: 60 * 1000,
     staleTime: 60 * 1000,
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === userId &&
+      previousQuery?.queryKey[2] === sessionId &&
+      previousQuery?.queryKey[3] === props.channelId
+        ? previous
+        : undefined,
+    retry: false,
   })
-  const data = query.data?.data
-  const points = (data?.points ?? []).filter(
-    (point): point is CodexUsageHistoryPoint =>
-      point != null && Number.isFinite(Number(point.timestamp))
+  const series = (query.data?.data?.items ?? []).filter(
+    (item) =>
+      item.channel_id === props.channelId &&
+      item.metric_type === 'codex_rate_limit'
   )
-  const chartPoints = points.map((point) => ({
-    ...point,
-    label: formatUnixSeconds(point.timestamp),
-    primary: historyPercent(point.primary_used_percent),
-    secondary: historyPercent(point.secondary_used_percent),
-  }))
-  const hasPrimary = chartPoints.some((point) => point.primary != null)
-  const hasSecondary = chartPoints.some((point) => point.secondary != null)
-  const validPoints = chartPoints.filter(
-    (point) => point.primary != null || point.secondary != null
-  )
-
+  const selected =
+    series.find((item) => quotaSeriesKey(item) === selectedKey) ?? series[0]
+  // An empty time range must retain the controls so the user can expand it.
+  const fallback = {
+    channel_id: props.channelId ?? 0,
+    name: 'Codex',
+    metric_type: 'codex_rate_limit',
+  }
   if (!props.channelId) {
     return (
       <Alert>
@@ -932,173 +945,41 @@ export function CodexUsageHistoryPanel(props: {
       </Alert>
     )
   }
-  if (query.isLoading) {
-    return (
-      <div className='space-y-3' aria-label={t('Loading')}>
-        <Skeleton className='h-56 w-full' />
-        <Skeleton className='h-4 w-2/3' />
-      </div>
-    )
-  }
-  if (query.isError || query.data?.success === false) {
-    return (
-      <Alert variant='destructive'>
-        <AlertTriangle />
-        <AlertTitle>{t('Unable to load Codex usage history')}</AlertTitle>
-        <AlertDescription>
-          {query.error instanceof Error
-            ? query.error.message
-            : query.data?.message || t('Please try again later.')}
-        </AlertDescription>
-      </Alert>
-    )
-  }
-  if (points.length === 0) {
-    return (
-      <Empty className='min-h-40 border border-dashed'>
-        <EmptyHeader>
-          <EmptyTitle>{t('No Codex usage history yet')}</EmptyTitle>
-          <EmptyDescription>
-            {t('Usage history appears after the first successful usage query.')}
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    )
-  }
-  if (validPoints.length === 0) {
-    return (
-      <Alert>
-        <AlertTriangle />
-        <AlertTitle>{t('Codex usage history is unavailable')}</AlertTitle>
-        <AlertDescription>
-          {t('The upstream did not return usable usage percentages.')}
-        </AlertDescription>
-      </Alert>
-    )
-  }
-
-  const latest = validPoints.at(-1)
   return (
-    <Card size='sm' className='min-w-0'>
-      <CardHeader className='gap-1 p-4 pb-2'>
-        <CardTitle className='text-sm'>{t('Usage trend')}</CardTitle>
-        <CardDescription className='text-xs leading-5'>
-          {t('Historical Codex rate-limit usage. Missing samples remain gaps.')}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className='min-w-0 space-y-3 p-4 pt-2'>
-        <div className='flex flex-wrap gap-3 text-xs'>
-          {hasPrimary ? (
-            <span className='text-chart-1'>● {t('Primary window')}</span>
-          ) : null}
-          {hasSecondary ? (
-            <span className='text-chart-2'>● {t('Secondary window')}</span>
-          ) : null}
-          <span className='text-muted-foreground'>
-            {t('Samples')}: {validPoints.length}
-          </span>
-        </div>
-        <div
-          className='h-56 w-full min-w-0 touch-pan-y'
-          aria-label={t('Codex usage history chart')}
-        >
-          <ChartContainer
-            className='aspect-auto h-full w-full'
-            config={{
-              primary: { label: t('Primary window'), color: 'var(--chart-1)' },
-              secondary: {
-                label: t('Secondary window'),
-                color: 'var(--chart-2)',
-              },
-            }}
-            initialDimension={{ width: 320, height: 224 }}
+    <div className='min-w-0 space-y-3' data-testid='codex-usage-history-panel'>
+      {query.isError || query.data?.success === false ? (
+        <Alert variant='destructive'>
+          <AlertTitle>{t('Unable to load Codex usage history')}</AlertTitle>
+          <AlertDescription>{t('Please try again later.')}</AlertDescription>
+        </Alert>
+      ) : null}
+      {series.length > 1 ? (
+        <label className='grid min-w-0 gap-1 text-xs'>
+          <span>{t('Quota window type')}</span>
+          <select
+            aria-label={t('Codex quota window')}
+            className='h-9 min-w-0 rounded-lg border bg-transparent px-2'
+            value={selected ? quotaSeriesKey(selected) : ''}
+            onChange={(event) => setSelectedKey(event.target.value)}
           >
-            <LineChart
-              data={chartPoints}
-              margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
-            >
-              <CartesianGrid vertical={false} strokeDasharray='3 3' />
-              <XAxis
-                dataKey='label'
-                tickLine={false}
-                axisLine={false}
-                minTickGap={32}
-                tick={{ fontSize: 10 }}
-              />
-              <YAxis
-                domain={[0, 100]}
-                tickLine={false}
-                axisLine={false}
-                width={42}
-                tick={{ fontSize: 10 }}
-                tickFormatter={(value: number) => `${value}%`}
-              />
-              <Tooltip
-                formatter={(value, name) => [
-                  `${Number(value).toFixed(1)}%`,
-                  name === 'primary'
-                    ? t('Primary window')
-                    : t('Secondary window'),
-                ]}
-                labelFormatter={(label) => String(label)}
-              />
-              {hasPrimary ? (
-                <Line
-                  type='monotone'
-                  dataKey='primary'
-                  connectNulls={false}
-                  stroke='var(--color-primary)'
-                  strokeWidth={2}
-                  dot={chartPoints.length < 80}
-                  activeDot={{ r: 4 }}
-                  isAnimationActive={false}
-                />
-              ) : null}
-              {hasSecondary ? (
-                <Line
-                  type='monotone'
-                  dataKey='secondary'
-                  connectNulls={false}
-                  stroke='var(--color-secondary)'
-                  strokeWidth={2}
-                  dot={chartPoints.length < 80}
-                  activeDot={{ r: 4 }}
-                  isAnimationActive={false}
-                />
-              ) : null}
-            </LineChart>
-          </ChartContainer>
-        </div>
-        <div className='text-muted-foreground flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs'>
-          <span>
-            {t('Latest')}:{' '}
-            {latest?.primary != null ? `${latest.primary.toFixed(1)}%` : '-'} /{' '}
-            {latest?.secondary != null
-              ? `${latest.secondary.toFixed(1)}%`
-              : '-'}
-          </span>
-          <span>
-            {t('Last sample')}: {latest?.label ?? '-'}
-          </span>
-        </div>
-        {data?.summary ? (
-          <div className='bg-muted/30 flex flex-wrap gap-x-4 gap-y-1 rounded-md border p-2 text-xs'>
-            {data.summary.primary_change_percent != null ? (
-              <span>
-                {t('Primary change')}:{' '}
-                {data.summary.primary_change_percent.toFixed(1)}%
-              </span>
-            ) : null}
-            {data.summary.secondary_change_percent != null ? (
-              <span>
-                {t('Secondary change')}:{' '}
-                {data.summary.secondary_change_percent.toFixed(1)}%
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
+            {series.map((item) => (
+              <option key={quotaSeriesKey(item)} value={quotaSeriesKey(item)}>
+                {quotaWindowLabel(item.window_type, t)}
+                {item.plan_type ? ` · ${item.plan_type}` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      <ChannelQuotaDetailChart
+        item={selected ?? fallback}
+        range={time.range}
+        onRangeChange={time.setRange}
+        customRange={time.customRange}
+        onCustomRangeChange={time.setCustomRange}
+        enabled={props.open && !query.isLoading}
+      />
+    </div>
   )
 }
 
@@ -1256,6 +1137,12 @@ export function CodexUsageDialog({
       setResetConfirmOpen(false)
       await Promise.resolve(onRefresh?.())
       await loadResetCredits(true)
+      await queryClient.invalidateQueries({
+        predicate: (query) =>
+          (query.queryKey[0] === 'channel-quota-detail-chart' ||
+            query.queryKey[0] === 'codex-quota-series') &&
+          query.queryKey[3] === channelId,
+      })
     } catch (error) {
       setResetActionError(
         error instanceof Error ? error.message : t('Failed to reset usage')
@@ -1326,7 +1213,10 @@ export function CodexUsageDialog({
                     await Promise.resolve(onRefresh())
                     if (channelId) {
                       await queryClient.invalidateQueries({
-                        queryKey: ['codex-usage-history', channelId],
+                        predicate: (query) =>
+                          (query.queryKey[0] === 'channel-quota-detail-chart' ||
+                            query.queryKey[0] === 'codex-quota-series') &&
+                          query.queryKey[3] === channelId,
                       })
                     }
                   }}

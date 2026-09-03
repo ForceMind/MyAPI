@@ -31,16 +31,22 @@ import {
 } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatCurrencyFromUSD } from '@/lib/currency'
 import { formatNumber, formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { getChannelQuotaChanges, getChannelQuotaSamplingStatus } from '../api'
-import type { ChannelQuotaChangeItem } from '../types'
+import { useQuotaHistoryTime } from '../hooks/use-quota-history-time'
+import {
+  quotaWindowLabel,
+  formatQuotaAmount,
+  quotaHistoryRangeOptions,
+} from '../lib/quota-history'
+import type { ChannelQuotaChangeItem, ChannelQuotaHistoryRange } from '../types'
 import { ChannelQuotaDetailChart } from './channel-quota-detail-chart'
+import { QuotaCustomRangeControls } from './quota-history-trend'
 
-type Range = '24h' | '7d' | '30d' | '90d'
+type Range = ChannelQuotaHistoryRange
 type StatusFilter = 'all' | 'success' | 'unavailable' | 'unsupported' | 'error'
 
 function getHttpStatus(error: unknown): number | undefined {
@@ -51,63 +57,37 @@ function getHttpStatus(error: unknown): number | undefined {
   return typeof status === 'number' ? status : undefined
 }
 
-const rangeOptions: Range[] = ['24h', '7d', '30d', '90d']
+const rangeOptions = quotaHistoryRangeOptions
 
-function finite(value: number | null | undefined): value is number {
-  return typeof value === 'number' && Number.isFinite(value)
-}
-
-// A failed Codex request has no window/plan identity, so the sampler stores
-// it under the generic source. Once a newer identified success exists for the
-// same channel and metric, that old transport row is historical noise rather
-// than the channel's current state. It remains in history/data-quality counts.
-function isSupersededCodexError(
-  item: ChannelQuotaChangeItem,
-  items: ChannelQuotaChangeItem[]
-): boolean {
-  if (
-    item.status !== 'error' ||
-    item.metric_type !== 'codex_rate_limit' ||
-    item.source !== 'codex_wham_usage'
-  ) {
-    return false
-  }
-  return items.some(
-    (candidate) =>
-      candidate.status === 'success' &&
-      candidate.channel_id === item.channel_id &&
-      candidate.metric_type === item.metric_type &&
-      (candidate.observed_at ?? 0) >= (item.observed_at ?? 0)
-  )
+function detailSeriesKey(item: ChannelQuotaChangeItem): string {
+  return [
+    item.channel_id,
+    item.metric_type,
+    item.source,
+    item.window_type,
+    item.plan_type,
+    item.unit,
+    item.currency,
+    item.window_seconds,
+  ]
+    .map((value) => value ?? '')
+    .join(':')
 }
 
 function formatMetric(
   value: number | null | undefined,
-  item?: ChannelQuotaChangeItem
+  item: ChannelQuotaChangeItem | undefined,
+  t: (key: string, options?: Record<string, unknown>) => string
 ) {
-  if (!finite(value)) return '-'
-  if (item?.unit === 'percent') return `${value.toFixed(2)}%/min`
-  if (item?.unit === 'usd' || item?.currency) {
-    return `${formatCurrencyFromUSD(value, { digitsLarge: 2, digitsSmall: 4, abbreviate: false })}/min`
-  }
-  const unit = item?.unit ? ` ${item.unit}` : ''
-  return `${formatNumber(value)}${unit}/min`
+  return formatQuotaAmount(value, item, 'rate_per_minute', t)
 }
 
 function formatAvailable(
   value: number | null | undefined,
-  item: ChannelQuotaChangeItem
+  item: ChannelQuotaChangeItem,
+  t: (key: string) => string
 ) {
-  if (!finite(value)) return '-'
-  if (item.unit === 'percent') return `${value.toFixed(1)}%`
-  if (item.unit === 'usd' || item.currency) {
-    return formatCurrencyFromUSD(value, {
-      digitsLarge: 2,
-      digitsSmall: 4,
-      abbreviate: false,
-    })
-  }
-  return `${formatNumber(value)}${item.unit ? ` ${item.unit}` : ''}`
+  return formatQuotaAmount(value, item, 'available', t)
 }
 
 function directionLabel(
@@ -126,8 +106,9 @@ function statusVariant(status: string | undefined) {
     status === 'unavailable' ||
     status === 'unsupported' ||
     status === 'warning'
-  )
+  ) {
     return 'warning' as const
+  }
   return 'outline' as const
 }
 
@@ -155,27 +136,30 @@ function DirectionIcon({
 }: {
   direction: ChannelQuotaChangeItem['direction']
 }) {
-  if (direction === 'increase')
+  if (direction === 'increase') {
     return (
       <ArrowUpRight
         className='text-success size-4 shrink-0'
         aria-hidden='true'
       />
     )
-  if (direction === 'decrease')
+  }
+  if (direction === 'decrease') {
     return (
       <ArrowDownRight
         className='text-destructive size-4 shrink-0'
         aria-hidden='true'
       />
     )
-  if (direction === 'stable')
+  }
+  if (direction === 'stable') {
     return (
       <Minus
         className='text-muted-foreground size-4 shrink-0'
         aria-hidden='true'
       />
     )
+  }
   return (
     <CircleAlert
       className='text-muted-foreground size-4 shrink-0'
@@ -192,8 +176,8 @@ function ChangeRow({
   t: (key: string) => string
 }) {
   const direction = item.direction ?? 'unknown'
-  const current = formatAvailable(item.current_available, item)
-  const previous = formatAvailable(item.previous_available, item)
+  const current = formatAvailable(item.current_available, item, t)
+  const previous = formatAvailable(item.previous_available, item, t)
   return (
     <div className='bg-card/60 grid min-w-0 gap-2 rounded-lg border p-3 sm:grid-cols-[minmax(0,1.5fr)_minmax(7rem,0.8fr)_minmax(8rem,1fr)_auto] sm:items-center'>
       <div className='min-w-0'>
@@ -210,14 +194,14 @@ function ChangeRow({
           {item.account_label && item.name !== item.account_label ? (
             <span className='truncate'>{item.name}</span>
           ) : null}
-          {item.source ? <Badge variant='outline'>{item.source}</Badge> : null}
           {item.window_type ? (
-            <Badge variant='secondary'>{item.window_type}</Badge>
+            <Badge variant='secondary'>
+              {quotaWindowLabel(item.window_type, t)}
+            </Badge>
           ) : null}
           {item.plan_type ? (
             <Badge variant='secondary'>{item.plan_type}</Badge>
           ) : null}
-          {item.metric_type ? <span>{item.metric_type}</span> : null}
         </div>
       </div>
       <div className='text-muted-foreground text-xs'>
@@ -239,10 +223,12 @@ function ChangeRow({
               direction === 'increase' && 'text-success'
             )}
           >
-            {formatMetric(item.change_per_minute, item)}
+            {formatMetric(item.change_per_minute, item, t)}
           </div>
           <div className='text-muted-foreground text-xs'>
             {directionLabel(direction, t)}
+            {' · '}
+            {t('Latest observed interval')}
           </div>
         </div>
       </div>
@@ -274,20 +260,28 @@ export function ChannelQuotaChangesPanel() {
   // a different login session when the route remains mounted during logout.
   const userId = useAuthStore((state) => state.auth.user?.id ?? null)
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
-  const [range, setRange] = useState<Range>('24h')
+  const time = useQuotaHistoryTime()
+  const { range, setRange } = time
   const [windowFilter, setWindowFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [detailKey, setDetailKey] = useState('')
+  const [refreshEpoch, setRefreshEpoch] = useState(0)
   const query = useQuery({
-    queryKey: ['channel-quota-changes', userId, sessionId, range],
+    queryKey: ['channel-quota-changes', userId, sessionId, time.params],
     queryFn: () =>
       getChannelQuotaChanges({
-        range,
+        ...time.params,
         limit: 2000,
         sort: 'abs_change_per_minute',
       }),
     retry: false,
     staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === userId &&
+      previousQuery?.queryKey[2] === sessionId
+        ? previous
+        : undefined,
   })
   const samplingStatusQuery = useQuery({
     queryKey: ['channel-quota-sampling-status', userId, sessionId],
@@ -295,6 +289,13 @@ export function ChannelQuotaChangesPanel() {
     retry: false,
     staleTime: 5 * 60 * 1000,
   })
+  const refreshAll = () => {
+    // The detail query carries refreshEpoch in its key, so a visible graph is
+    // refreshed alongside the change list rather than displaying stale data.
+    setRefreshEpoch((value) => value + 1)
+    void query.refetch()
+    void samplingStatusQuery.refetch()
+  }
 
   const items = useMemo(
     () => query.data?.data?.items ?? [],
@@ -312,7 +313,6 @@ export function ChannelQuotaChangesPanel() {
   const filteredItems = useMemo(
     () =>
       items
-        .filter((item) => !isSupersededCodexError(item, items))
         .filter(
           (item) => windowFilter === 'all' || item.window_type === windowFilter
         )
@@ -326,18 +326,32 @@ export function ChannelQuotaChangesPanel() {
         ),
     [items, statusFilter, windowFilter]
   )
-  const maxItem = filteredItems.find(
-    (item) =>
-      finite(item.abs_change_per_minute) || finite(item.change_per_minute)
-  )
-  const maxDrop = filteredItems.find((item) => item.direction === 'decrease')
-  const detailItems = filteredItems.filter((item) => item.status === 'success')
+  // Keep a current upstream error selectable. The detailed endpoint preserves
+  // the error as a chart gap and shows it as the latest raw status, which is
+  // more useful than hiding the account behind the last successful value.
+  const detailItems = filteredItems
   const detailItem =
-    detailItems.find(
-      (item) =>
-        `${item.channel_id}:${item.metric_type ?? ''}:${item.window_type ?? ''}:${item.source ?? ''}` ===
-        detailKey
-    ) ?? detailItems[0]
+    detailItems.find((item) => detailSeriesKey(item) === detailKey) ??
+    detailItems[0]
+  const httpStatus = getHttpStatus(query.error)
+  let errorTitle = t('Unable to load account quota changes')
+  let errorDescription =
+    query.error instanceof Error
+      ? query.error.message
+      : query.data?.message || t('Please try again later.')
+  if (httpStatus === 401) {
+    errorTitle = t('Sign in again to view account quota changes')
+    errorDescription = t(
+      'Your session is missing or expired. Sign in again to load provider account quota.'
+    )
+  } else if (httpStatus === 403) {
+    errorTitle = t(
+      'Administrator permission required to view account quota changes'
+    )
+    errorDescription = t(
+      'Your account does not have permission to read channels.'
+    )
+  }
 
   return (
     <Card className='mb-3 min-w-0' data-testid='channel-quota-changes-panel'>
@@ -349,7 +363,7 @@ export function ChannelQuotaChangesPanel() {
                 className='text-primary size-4 shrink-0'
                 aria-hidden='true'
               />
-              <span>{t('Account quota changes')}</span>
+              <span>{t('Quota consumption')}</span>
             </CardTitle>
             <CardDescription className='mt-1 max-w-2xl text-xs leading-5'>
               {t(
@@ -361,8 +375,8 @@ export function ChannelQuotaChangesPanel() {
             type='button'
             variant='ghost'
             size='icon-xs'
-            onClick={() => void query.refetch()}
-            disabled={query.isFetching}
+            onClick={refreshAll}
+            disabled={query.isFetching || samplingStatusQuery.isFetching}
             aria-label={t('Refresh')}
           >
             <RefreshCw
@@ -387,7 +401,7 @@ export function ChannelQuotaChangesPanel() {
             >
               {rangeOptions.map((option) => (
                 <option key={option} value={option}>
-                  {option}
+                  {option === 'custom' ? t('Custom') : option}
                 </option>
               ))}
             </select>
@@ -402,20 +416,16 @@ export function ChannelQuotaChangesPanel() {
               </Label>
               <select
                 id='quota-detail-series'
-                value={
-                  detailItem
-                    ? `${detailItem.channel_id}:${detailItem.metric_type ?? ''}:${detailItem.window_type ?? ''}:${detailItem.source ?? ''}`
-                    : ''
-                }
+                value={detailItem ? detailSeriesKey(detailItem) : ''}
                 onChange={(event) => setDetailKey(event.target.value)}
                 className='h-8 min-w-0 rounded-lg border bg-transparent px-2 text-sm'
               >
                 {detailItems.map((item) => {
-                  const key = `${item.channel_id}:${item.metric_type ?? ''}:${item.window_type ?? ''}:${item.source ?? ''}`
+                  const key = detailSeriesKey(item)
                   return (
                     <option key={key} value={key}>
                       {item.account_label || item.name} ·{' '}
-                      {item.window_type || t('Quota')}
+                      {quotaWindowLabel(item.window_type, t)}
                     </option>
                   )
                 })}
@@ -438,7 +448,7 @@ export function ChannelQuotaChangesPanel() {
               <option value='all'>{t('All windows')}</option>
               {windows.map((option) => (
                 <option key={option} value={option}>
-                  {option}
+                  {quotaWindowLabel(option, t)}
                 </option>
               ))}
             </select>
@@ -466,8 +476,30 @@ export function ChannelQuotaChangesPanel() {
             </select>
           </div>
         </div>
+        {range === 'custom' && !detailItem ? (
+          <QuotaCustomRangeControls
+            range={time.customRange}
+            onApply={time.setCustomRange}
+          />
+        ) : null}
       </CardHeader>
       <CardContent className='min-w-0 space-y-3 pt-0'>
+        {query.data?.data?.source_complete === false ||
+        query.data?.data?.items_complete === false ? (
+          <Alert>
+            <AlertTitle>{t('Incomplete quota history')}</AlertTitle>
+            <AlertDescription>
+              {t(
+                'Some quota series are missing. Narrow the time range to load complete history.'
+              )}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        {query.isPlaceholderData ? (
+          <p className='text-muted-foreground text-xs' role='status'>
+            {t('Loading')}
+          </p>
+        ) : null}
         {query.isLoading ? (
           <div className='space-y-2'>
             <Skeleton className='h-14 w-full' />
@@ -477,29 +509,9 @@ export function ChannelQuotaChangesPanel() {
         {query.isError || query.data?.success === false ? (
           <Alert variant='destructive'>
             <CircleAlert />
-            <AlertTitle>
-              {getHttpStatus(query.error) === 401
-                ? t('Sign in again to view account quota changes')
-                : getHttpStatus(query.error) === 403
-                  ? t(
-                      'Administrator permission required to view account quota changes'
-                    )
-                  : t('Unable to load account quota changes')}
-            </AlertTitle>
+            <AlertTitle>{errorTitle}</AlertTitle>
             <AlertDescription className='flex flex-wrap items-center gap-2'>
-              <span>
-                {getHttpStatus(query.error) === 401
-                  ? t(
-                      'Your session is missing or expired. Sign in again to load provider account quota.'
-                    )
-                  : getHttpStatus(query.error) === 403
-                    ? t(
-                        'Your account does not have permission to read channels.'
-                      )
-                    : query.error instanceof Error
-                      ? query.error.message
-                      : query.data?.message || t('Please try again later.')}
-              </span>
+              <span>{errorDescription}</span>
               {getHttpStatus(query.error) === 401 ? (
                 <Button
                   variant='outline'
@@ -552,48 +564,50 @@ export function ChannelQuotaChangesPanel() {
             <div className='grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3'>
               <div className='bg-muted/20 rounded-lg border p-3'>
                 <div className='text-muted-foreground text-xs'>
-                  {t('Largest change per minute')}
+                  {t('Peak consumption per minute')}
                 </div>
                 <div className='mt-1 font-semibold'>
                   {formatMetric(
-                    maxItem?.abs_change_per_minute ??
-                      (maxItem
-                        ? Math.abs(maxItem.change_per_minute ?? 0)
-                        : null),
-                    maxItem
+                    detailItem?.consumption?.peak_rate_per_minute,
+                    detailItem,
+                    t
                   )}
                 </div>
               </div>
               <div className='bg-muted/20 rounded-lg border p-3'>
                 <div className='text-muted-foreground text-xs'>
-                  {t('Largest decrease per minute')}
+                  {t('Average consumption per minute')}
                 </div>
                 <div className='text-destructive mt-1 font-semibold'>
                   {formatMetric(
-                    maxDrop?.change_per_minute != null
-                      ? Math.abs(maxDrop.change_per_minute)
-                      : null,
-                    maxDrop
+                    detailItem?.consumption?.average_rate_per_minute,
+                    detailItem,
+                    t
                   )}
                 </div>
               </div>
               <div className='bg-muted/20 rounded-lg border p-3'>
                 <div className='text-muted-foreground text-xs'>
-                  {t('Accounts tracked')}
+                  {t('Quota series tracked')}
                 </div>
                 <div className='mt-1 font-semibold'>
                   {formatNumber(filteredItems.length)}
                 </div>
               </div>
             </div>
-            {detailItem ? <ChannelQuotaDetailChart item={detailItem} /> : null}
+            {detailItem ? (
+              <ChannelQuotaDetailChart
+                item={detailItem}
+                range={range}
+                onRangeChange={setRange}
+                refreshEpoch={refreshEpoch}
+                customRange={time.customRange}
+                onCustomRangeChange={time.setCustomRange}
+              />
+            ) : null}
             <div className='space-y-2'>
               {filteredItems.map((item) => (
-                <ChangeRow
-                  key={`${item.channel_id}:${item.metric_type ?? ''}:${item.window_type ?? ''}:${item.source ?? ''}`}
-                  item={item}
-                  t={t}
-                />
+                <ChangeRow key={detailSeriesKey(item)} item={item} t={t} />
               ))}
             </div>
           </>

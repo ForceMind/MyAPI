@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
@@ -376,13 +377,25 @@ func GetAllChannels(startIdx int, num int, selectAll bool, idSort bool, sortOpti
 	return channels, err
 }
 
-// GetChannelsForQuotaSnapshotSync returns a bounded set of enabled channels
+// GetChannelsForQuotaSnapshotSync returns a bounded set of enabled single-key channels
 // with credentials available to the internal sampler.  It intentionally does
 // not expose this projection through an API; callers use it only for the
-// provider request and must not serialize the returned Key field.
+// provider request and must not serialize the returned Key field. Every recorded
+// attempt, including an error or unsupported response, advances that channel's
+// turn so a fixed channel limit does not starve lower-priority accounts.
 func GetChannelsForQuotaSnapshotSync(limit int) ([]*Channel, error) {
+	return GetChannelsForQuotaSnapshotSyncContext(context.Background(), limit)
+}
+
+// GetChannelsForQuotaSnapshotSyncContext filters multi-key rows in the database
+// before its single bounded result query. Excluded rows cannot consume pages or
+// repeatedly exhaust a batch deadline before an eligible account is reached.
+func GetChannelsForQuotaSnapshotSyncContext(ctx context.Context, limit int) ([]*Channel, error) {
 	if DB == nil {
 		return nil, gorm.ErrInvalidDB
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	if limit <= 0 {
 		limit = 100
@@ -390,10 +403,46 @@ func GetChannelsForQuotaSnapshotSync(limit int) ([]*Channel, error) {
 	if limit > 4000 {
 		limit = 4000
 	}
-	var channels []*Channel
-	err := DB.Where("status = ?", common.ChannelStatusEnabled).
-		Order("priority DESC, id DESC").Limit(limit).Find(&channels).Error
+	condition, err := channelQuotaSingleKeyCondition(common.MainDatabaseType())
+	if err != nil {
+		return nil, err
+	}
+	channels := make([]*Channel, 0, limit)
+	// Every selected row is known to be single-key. Do not deserialize legacy
+	// NULL ChannelInfo values through its JSON scanner; the zero value is the
+	// same single-key mode and no multi-key fields are needed by this sampler.
+	err = DB.WithContext(ctx).Omit("channel_info").
+		Where("status = ?", common.ChannelStatusEnabled).Where(condition).
+		Order("COALESCE((SELECT MAX(observed_at) FROM channel_quota_snapshots WHERE channel_quota_snapshots.channel_id = channels.id), 0) ASC").
+		Order("channels.id ASC").Limit(limit).Find(&channels).Error
 	return channels, err
+}
+
+// Native JSON columns on MySQL/PostgreSQL and SQLite JSON stored as TEXT/BLOB
+// use different extraction operators. Accept an object with a missing/false
+// boolean flag, or SQL NULL from old rows. Malformed metadata is excluded, not
+// silently treated as a single-key credential or allowed to break the batch.
+func channelQuotaSingleKeyCondition(databaseType common.DatabaseType) (string, error) {
+	switch databaseType {
+	case common.DatabaseTypeSQLite:
+		return `CASE WHEN channel_info IS NULL THEN 1
+			WHEN json_valid(CAST(channel_info AS TEXT)) THEN
+				CASE WHEN json_type(CAST(channel_info AS TEXT)) = 'object'
+				AND COALESCE(json_type(CAST(channel_info AS TEXT), '$.is_multi_key'), 'false') = 'false' THEN 1 ELSE 0 END
+			ELSE 0 END = 1`, nil
+	case common.DatabaseTypeMySQL:
+		return `(channel_info IS NULL OR (JSON_TYPE(channel_info) = 'OBJECT' AND
+			(JSON_EXTRACT(channel_info, '$.is_multi_key') IS NULL OR
+			(JSON_TYPE(JSON_EXTRACT(channel_info, '$.is_multi_key')) = 'BOOLEAN'
+			AND JSON_UNQUOTE(JSON_EXTRACT(channel_info, '$.is_multi_key')) = 'false'))))`, nil
+	case common.DatabaseTypePostgreSQL:
+		return `(channel_info IS NULL OR (json_typeof(channel_info) = 'object' AND
+			(channel_info->'is_multi_key' IS NULL OR
+			(json_typeof(channel_info->'is_multi_key') = 'boolean'
+			AND channel_info->>'is_multi_key' = 'false'))))`, nil
+	default:
+		return "", fmt.Errorf("unsupported quota sampling database type: %s", databaseType)
+	}
 }
 
 func GetChannelsByTag(tag string, idSort bool, selectAll bool, sortOptions ...ChannelSortOptions) ([]*Channel, error) {
@@ -620,13 +669,25 @@ func (channel *Channel) UpdateResponseTime(responseTime int64) {
 }
 
 func (channel *Channel) UpdateBalance(balance float64) {
-	err := DB.Model(channel).Select("balance_updated_time", "balance").Updates(Channel{
-		BalanceUpdatedTime: common.GetTimestamp(),
-		Balance:            balance,
-	}).Error
+	err := channel.UpdateBalanceWithContext(context.Background(), balance)
 	if err != nil {
 		common.SysLog(fmt.Sprintf("failed to update balance: channel_id=%d, error=%v", channel.Id, err))
 	}
+}
+
+// UpdateBalanceWithContext reports write failures to bounded background tasks.
+// The legacy UpdateBalance wrapper retains its logging-only contract.
+func (channel *Channel) UpdateBalanceWithContext(ctx context.Context, balance float64) error {
+	if channel == nil || DB == nil {
+		return gorm.ErrInvalidDB
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return DB.WithContext(ctx).Model(channel).Select("balance_updated_time", "balance").Updates(Channel{
+		BalanceUpdatedTime: common.GetTimestamp(),
+		Balance:            balance,
+	}).Error
 }
 
 func (channel *Channel) Delete() error {
