@@ -7,7 +7,7 @@
 | --- | --- | --- | --- |
 | API 兼容 | `relay/` 转换器与后端 CI | 已验证 | 上游版本变化时继续回归 |
 | API/响应日志 | `web/src/features/usage-logs/`、`web/src/features/full-content-logs/`、移动集成测试、脱敏测试、移动内容高度修复；列表与 Full Content Logs 查询缓存均按 user/session 隔离 | 代码已验证 | 真实手机视觉验收 |
-| 运行构建可见性 | 管理员「系统信息」中的只读 Runtime build 标识、`build-metadata.ts` DOM/global 元数据及 `build-metadata.test.ts`；Docker/Release/Electron 构建注入 commit SHA；本机容器已切换到 `local/new-api:myapi-c283c1d` 并健康 | 代码与本机副本已验证 | 真实管理员手机视觉验收仍待完成 |
+| 运行构建可见性 | 管理员「系统信息」中的只读 Runtime build 标识、`build-metadata.ts` DOM/global 元数据及 `build-metadata.test.ts`；Docker/Release/Electron 构建注入 commit SHA；历史 Linux 副本曾切换到 `local/new-api:myapi-c283c1d` 并健康 | 代码与历史副本有证据；当前部署未核验 | 真实管理员手机视觉验收仍待完成 |
 | 完整独立 UI 系统 | 当前仅有 MyAPI 品牌资产、必要文案和局部额度/日志功能增量 | 尚未开始（代码层先行） | 需在代码合同稳定后另行完成信息架构、视觉系统、Full/LAN/移动端真实画面与设备验收；不得把局部增量误报为 UI 全量替换 |
 | 渠道额度历史 | `controller/channel-billing.go`、`controller/codex_usage.go`、历史/聚合测试、权限路由测试；2xx 无有效 Codex rate_limit 时标记 unsupported；历史聚合按 metric/window/source/plan/unit/currency/window_seconds 隔离；快照按渠道/系列/观测时间桶幂等保留首条，并以 nullable SHA-256 唯一键抵抗并发重复写入 | 已验证 | 真实登录账号和采样数据演练 |
 | 概览额度变化 | `account-quota-changes-panel.tsx`、`codex-account-quota-chart.tsx`、60 秒前台刷新、Codex 账户选择与可配置时间范围/颗粒度/指标/折线、面积或柱状图、稳定额度 0 值解释、旧传输错误行抑制、错误/plan type/只读告警状态测试；`a2528a2` 的跨登录身份查询缓存隔离与认证刷新回归测试；系列按计划/单位/窗口隔离；后台采样默认开启并可在监控设置中调整 | 代码、前端类型检查、生产构建与定向测试已验证 | 需要由具备 `channel.read` 的真实管理员在最新镜像中验收；真实手机视觉仍待完成 |
@@ -18,7 +18,7 @@
 | LAN Lite/桌面 | `lan:check`、`desktop:check`、Electron 安全边界；`electron/test/desktop-probe-contract.test.mjs`、`runtime-config.js` 和 `tools/desktop/check.mjs` | 合同已验证（生产探针为 `/api/status`，要求 HTTP 2xx 且 JSON `success=true`；开发首页仍仅校验 HTTP 状态）；CLI 与托盘对通配监听均仅展示发现的 RFC1918 地址 | macOS/Windows 实机安装、LAN 请求、防火墙；真实设备运行结果不得由合同测试代替 |
 | 多语言关键文案 | `web/src/i18n/locales/{fr,ja,ru,vi,zh-TW}.json`、`web/src/i18n/__tests__/locale-key-parity.test.ts` | English key parity 已验证（5 locales / 5 tests） | 真实设备文字长度与视觉审查 |
 | GHCR/升级 | `release:workflow:check`、`upgrade:check`、不可变 digest 合同；版本与架构 tag 构建前检查并 fail-closed 拒绝覆盖 | 自动化已验证 | 脱敏副本升级、数据库恢复、人工审批 |
-| 计费安全 | `service/violation_fee.go` 使用 checked quota rounding，并在饱和时拒绝收费、保留 `relayInfo.QuotaClamp`；对应正常值、溢出、`Inf`、`NaN` 与审计捕获回归测试 | 当前工作树代码与定向 Go 测试已验证 | 真实数据库/生产额度与完整 CI 仍待外部条件 |
+| 计费安全 | `service/violation_fee.go` 使用 checked quota rounding，并在饱和时拒绝收费、保留 `relayInfo.QuotaClamp`；对应正常值、溢出、`Inf`、`NaN` 与审计捕获回归测试 | 当前工作树代码与定向 Go 测试已验证 | 当前 CI 已通过；真实业务账本/生产额度仍待相应条件 |
 | 新开发环境数据库默认值 | `48abce6`、`docker-compose.dev.yml`、`makefile` | 代码与模板已验证（新开发默认数据库为 `myapi`） | 接管既有数据库必须显式设置 `MYAPI_DEV_POSTGRES_DB`/`DEV_POSTGRES_DB` 并在副本验证；该变更不执行重命名或迁移 |
 | Claude 组织用量 | `docs/CLAUDE_USAGE_REPORT.md`，官方 Usage Report 边界 | 设计已验证 | Admin 凭据、权限、保留策略和实际接入 |
 | Google Antigravity | `relay/channel/gemini/antigravity_client.go`、`antigravity_client_test.go`、`docs/ANTIGRAVITY_INTEGRATION.md`、`docs/ANTIGRAVITY_PUBLIC_RELAY_GATE.md`；`1827358` | 专用 transport 代码、边界测试及有界 Docker Go 回归已交付（create/get/poll/cancel/delete、usage、动态 agent/continuation 约束、大小上限、终态和脱敏） | 仍需完成公共 Relay 闸门中的持久化、权限、计费、工具策略和完整测试评审；稳定官方余额接口不存在时保持 `unsupported` |
@@ -26,6 +26,10 @@
 | macOS 开发迁移 | `docs/DEVELOPMENT_ON_MACOS.md`、`docs/CODEX_HANDOFF_PROMPT.md`、README 导航 | 文档已补齐 | 新 Mac 的工具安装、依赖测试和实机 Electron/LAN 验收需在新设备执行 |
 
 ## 最近 CI 证据
+
+- S0＋S1 交付代码 `dc94e81`（2026-09-03）：[CI 33740321133](https://github.com/ForceMind/MyAPI/actions/runs/33740321133)
+  五个 job 全部成功；相比旧基线新增 S1 临时数据库实跑。详情和先失败后修复记录见本页
+  S0＋S1 章节；原六项与追加待确认风险分开，不代表整项目或生产完成。
 
 - 当前重新核对基线 `a36e529`（2026-09-03）：CI `33721694305` 的 Backend、Frontend、
   Desktop、Distribution 四个 job 均成功，包含真实构建的额度浏览器 fixture、截图工件；
@@ -413,7 +417,7 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - 原始本地验收没有修改 tag、发布 NPM 或重启生产容器。本轮审计未访问生产；获准部署后，
   还需等待至少两个新样本，核对任务结果、实际 API 和管理员页面，才能确认线上修复完成。
 
-## S0＋S1 执行（2026-09-03，数据库 CI 复验中）
+## S0＋S1 执行（2026-09-03，原六项已验收）
 
 用户已明确确认 S0＋S1，完整阶段/依赖、六项缺陷与授权边界见
 [开发执行计划](DEVELOPMENT_EXECUTION_PLAN.md)。新增回归先复现显式 ID 迁移覆盖、配置
@@ -447,7 +451,7 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 新增 S1 专用 CI 服务库验证入口 `TestAccessProfileConfiguredDatabases`，仅显式启用、
 loopback 与 `myapi_s1_test` 库名可用，先拒绝已有 users/tokens/options 表，不删除既有表；
 MySQL 5.7/PostgreSQL 9.6 容器由 CI 生命周期清理，不发布镜像、不读取实际部署 DSN。
-当前等待真实 CI 运行，不把本机未配置而 skip 或 SQLite 成功写成三数据库已通过；其范围
+首次提交时尚待真实 CI，不把本机未配置而 skip 或 SQLite 成功写成三数据库已通过；其范围
 仅本次 identity/Option 迁移与事务，不替代 S4 的完整应用升级、备份恢复及多连接业务验收。
 
 阶段提交 `c42eeeb` 与 CI 修正 `68e930f` 已推送；`c42eeeb` 干净树的 manifest/pack
@@ -455,4 +459,19 @@ MySQL 5.7/PostgreSQL 9.6 容器由 CI 生命周期清理，不发布镜像、不
 真实图表 fixture 与截图）、桌面、发行四项成功；新增数据库任务实际启动 MySQL5.7/
 PostgreSQL9.6 后，在 MySQL 的 HasColumn 探测发生 panic：当前 GORM 基础实现不能用纯
 表名字符串替代带 schema 的模型。该结果是代码兼容回归，**不是 Billing/runner 阻塞**；
-S1-01 保持待验证，修正探测参数后必须重跑同一实库用例，不跳过引擎或放宽断言。
+该次失败时 S1-01 保持待验证，要求修正探测参数后重跑同一实库用例，不跳过引擎或放宽断言。
+
+上述两段记录初次提交/失败时点；最终在 `dc94e81` 修正为携带模型 schema 的列探测，
+独立复核机制后重跑 [CI 33740321133](https://github.com/ForceMind/MyAPI/actions/runs/33740321133)：
+
+- 五个 job 全通过：Backend、Frontend、Desktop、Distribution、S1 database regression。
+- 数据库 job `100600463870` 日志确认 `TestAccessProfileConfiguredDatabases/mysql` 和
+  `/postgres` 及各自 create-new/save-new/save-existing 全部 PASS，没有 SKIP；对应
+  MySQL5.7、PostgreSQL9.6 一次性服务库，仅涵盖本批 identity/Option 行为。
+- CI 采用 `go.mod` 的 Go 1.25.1、Bun 1.3.14；根模块及 relaykit vet/build/test 通过。
+  前端 64 文件/336 测试、生产构建、真实图表合成 fixture 与截图工件成功；截图工件名
+  `myapi-quota-browser-dc94e81f21dca9378fdb76a4f38be7cdcc57a29d`。
+- S0 计划/接口文档和 S1-01..06 原六项可标已完成。S1-R1 双写者最终一致性仍待用户
+  决策；不把单写者 race 或以上实库事务测试当作双写顺序证明。
+- 本轮未改生产数据库/服务、未移动 tag、未发布 GHCR/NPM；生成清单保持 ignored。
+  完整应用三库备份恢复、Full/LAN 镜像矩阵、真实上游/设备和独立 UI 仍按 S2-S7 推进。

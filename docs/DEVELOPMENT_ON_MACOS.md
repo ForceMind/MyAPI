@@ -230,3 +230,9 @@ Apple Developer ID 签名和 notarization 时只是测试制品，可能触发 G
 CI `33721694305`、网站检查/工件均成功；`a620246`、`e0ca670` 及对应 runner 启动失败是
 历史记录。Docker Desktop、真实手机、Windows 安装、MySQL/PostgreSQL 恢复、NOTICE/法律
 及正式发布分别需要对应条件与授权，不能由本机静态合同替代。
+
+S0＋S1 后续交付 `dc94e81` 已通过 CI `33740321133` 五项验证；本机 Go 全量测试、
+vet/build、relaykit 独立构建/测试、Zhipu 与 profile 专项 race 通过，Node22 发行合同
+通过（pack 必须在干净提交重新生成清单）。CI 另外实跑本次身份迁移/配置事务的
+MySQL5.7 和 PostgreSQL9.6；它不是本机 Docker Desktop 验收，也不替代完整三库恢复。
+后续本机与 CI 都按实际范围记录结果，不再统一写成“数据库完全验证”或“全部外部阻塞”。
