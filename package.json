@@ -80,7 +80,7 @@
     "quota:openapi:check": "node --test tools/quota/openapi-contract.test.mjs",
     "upgrade:check": "node tools/upgrade/check.mjs",
     "runtime:probe": "node tools/runtime/auth-probe.mjs",
-    "runtime:probe:test": "node --test tools/runtime/auth-probe.test.mjs",
+    "runtime:probe:test": "node --test tools/runtime/*.test.mjs",
     "runtime:check": "node tools/runtime/check.mjs",
     "release:workflow:check": "node tools/release/check.mjs",
     "source:manifest": "node tools/npm/generate-source-manifest.mjs",

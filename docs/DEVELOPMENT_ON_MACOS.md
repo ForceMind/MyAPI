@@ -273,3 +273,18 @@ fixture；新增真实 Redis 7 CI 使用开发 Compose 同一主版本，要求
 本机根模块全量/vet/build、专项 race、relaykit 独立 build/test、Node22 release:check
 及最终源码 pack 已通过。零差额饱和审计使用已有 System 类型，不增加消费 RPM/TPM 或
 导出数据；关闭消费日志时仍保留异常审计。C03b 与任务持久化恢复尚未完成。
+
+### B1 与无发布 Docker smoke（进行中）
+
+B1 在现有 TaskBillingContext JSON 内记录版本及完整性，不新增 SQL 列；本机验证提交时
+实际倍率、SQLite 往返与结算/审计。现有 `TestS2APaymentConfiguredDatabases` 专库入口
+增加任务快照往返场景，继续使用严格空库/loopback 安全门，不连接生产补验。
+
+Mac 当前无 Docker CLI/App，S4-01 使用已授权的 GitHub `Docker build smoke` 手动入口：
+分别构建 Full/LAN 的 linux/amd64 镜像，load:true/push:false，无 registry 登录。
+BuildKit 限 2 CPU/4 GiB，应用限 1 CPU/768 MiB，矩阵串行；仅发布 runner 回环端口，
+SQLite 放容器临时挂载，生成合成管理员凭据不输出/不上传。新脚本拒绝已初始化或非
+SQLite 目标及重定向；浏览器只允许同源请求，核对当前 SHA 的实际前端构建标识。
+Node22 `npm run runtime:probe:test`、YAML/Bash 语法已通过；需推送后手动 dispatch 并核对
+精确 headSha、两个 edition 的实际步骤/报告。镜像尚待验证，不以本地单测代替。
+这只是新安装/认证/前端启动，不是完整 Key/Provider 流程、三库恢复或 Docker Desktop 验收。

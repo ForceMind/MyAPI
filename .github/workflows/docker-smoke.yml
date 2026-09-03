@@ -12,9 +12,20 @@ concurrency:
 
 jobs:
   build-and-healthcheck:
-    name: Build local image and probe SQLite runtime
+    name: ${{ matrix.edition }} isolated image and SQLite smoke
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        edition: [full, lan]
+    env:
+      MYAPI_SMOKE_EDITION: ${{ matrix.edition }}
+      MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
+      MYAPI_ISOLATED_SMOKE: '1'
+      SMOKE_CONTAINER: myapi-smoke-${{ matrix.edition }}
+      SMOKE_IMAGE: myapi:smoke-${{ matrix.edition }}-${{ github.sha }}
 
     steps:
       - name: Check out
@@ -24,6 +35,18 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        with:
+          driver: docker-container
+          driver-opts: |
+            memory=4g
+            memory-swap=4g
+            cpu-period=100000
+            cpu-quota=200000
+
+      - name: Set up Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
 
       - name: Build local smoke image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -31,40 +54,51 @@ jobs:
           context: .
           load: true
           push: false
-          tags: myapi:smoke-${{ github.sha }}
+          platforms: linux/amd64
+          tags: ${{ env.SMOKE_IMAGE }}
           build-args: |
-            MYAPI_EDITION=lan
+            MYAPI_EDITION=${{ matrix.edition }}
             MYAPI_BRAND_NAME=MyAPI
             MYAPI_BRAND_LOGO=/myapi-logo-v1.png
             MYAPI_BUILD_ID=${{ github.sha }}
             MYAPI_BUILD_PARALLELISM=2
-          cache-from: type=gha
+          cache-from: type=gha,scope=smoke-${{ matrix.edition }}
+          cache-to: type=gha,mode=min,scope=smoke-${{ matrix.edition }}
 
       - name: Start isolated SQLite container
         run: |
           set -euo pipefail
+          export SESSION_SECRET="$(openssl rand -hex 32)"
           docker run --detach \
-            --name myapi-smoke \
-            --publish 18080:3000 \
-            --env MYAPI_EDITION=lan \
-            --env MYAPI_PUBLIC_URL=http://localhost:18080 \
-            --env MYAPI_BIND_ADDRESS=0.0.0.0 \
-            --env MYAPI_ALLOW_LAN=true \
-            --env MYAPI_SESSION_COOKIE_SECURE=false \
-            --env SESSION_SECRET=ci-smoke-secret-0123456789abcdefghijklmnopqrstuvwxyz-0123456789 \
-            "myapi:smoke-${GITHUB_SHA}"
+            --name "$SMOKE_CONTAINER" \
+            --label "io.myapi.smoke.sha=${GITHUB_SHA}" \
+            --publish 127.0.0.1:18080:3000 \
+            --cpus 1 --memory 768m --pids-limit 256 \
+            --tmpfs /data:rw,noexec,nosuid,size=128m \
+            --env MYAPI_EDITION="$MYAPI_SMOKE_EDITION" \
+            --env SESSION_COOKIE_SECURE=false \
+            --env TRUSTED_PROXIES=none \
+            --env SQL_MAX_OPEN_CONNS=1 --env SQL_MAX_IDLE_CONNS=1 \
+            --env GOMEMLIMIT=512MiB \
+            --env SESSION_SECRET \
+            --health-cmd='wget -q -O - http://127.0.0.1:3000/api/status | grep -q '"'"'"success"[[:space:]]*:[[:space:]]*true'"'"'' \
+            --health-interval=3s --health-timeout=2s --health-retries=10 --health-start-period=20s \
+            "$SMOKE_IMAGE"
 
       - name: Wait for health and verify status
         run: |
           set -euo pipefail
           for attempt in $(seq 1 60); do
-            health="$(docker inspect --format '{{.State.Health.Status}}' myapi-smoke 2>/dev/null || true)"
+            running="$(docker inspect --format '{{.State.Running}}' "$SMOKE_CONTAINER")"
+            health="$(docker inspect --format '{{.State.Health.Status}}' "$SMOKE_CONTAINER")"
+            if [[ "$running" != "true" ]]; then
+              echo 'Isolated smoke container exited before readiness' >&2
+              exit 1
+            fi
             if [[ "$health" == "healthy" ]]; then
-              curl --fail --silent --show-error http://127.0.0.1:18080/api/status \
-                | grep -q '"success"[[:space:]]*:[[:space:]]*true'
               exit 0
             fi
-            if [[ "$health" == "unhealthy" || ( "$health" == "" && "$attempt" -gt 10 ) ]]; then
+            if [[ "$health" == "unhealthy" ]]; then
               echo "Docker smoke container did not become healthy (state=$health)" >&2
               exit 1
             fi
@@ -73,6 +107,32 @@ jobs:
           echo 'Docker smoke health check timed out' >&2
           exit 1
 
+      - name: Install isolated browser test runtime
+        run: |
+          npm install --prefix "$RUNNER_TEMP/myapi-smoke-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1
+          "$RUNNER_TEMP/myapi-smoke-browser/node_modules/.bin/playwright" install --with-deps chromium
+
+      - name: Verify fresh setup, authentication and real frontend
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-smoke-browser/node_modules/playwright/index.mjs
+        run: node tools/runtime/docker-smoke.mjs
+
+      - name: Record safe image identity
+        run: |
+          set -euo pipefail
+          image_edition="$(docker image inspect --format '{{index .Config.Labels "io.myapi.edition"}}' "$SMOKE_IMAGE")"
+          [[ "$image_edition" == "$MYAPI_SMOKE_EDITION" ]]
+          echo "source_sha=$GITHUB_SHA edition=$MYAPI_SMOKE_EDITION"
+          docker image inspect --format 'image_id={{.Id}} os={{.Os}} architecture={{.Architecture}}' "$SMOKE_IMAGE"
+
+      - name: Safe container diagnostics
+        if: failure()
+        run: |
+          docker inspect --format 'status={{.State.Status}} exit_code={{.State.ExitCode}} oom_killed={{.State.OOMKilled}}' "$SMOKE_CONTAINER" 2>/dev/null || true
+
       - name: Remove smoke container
         if: always()
-        run: docker rm --force myapi-smoke >/dev/null 2>&1 || true
+        run: |
+          if [[ "$(docker inspect --format '{{index .Config.Labels "io.myapi.smoke.sha"}}' "$SMOKE_CONTAINER" 2>/dev/null)" == "$GITHUB_SHA" ]]; then
+            docker rm --force "$SMOKE_CONTAINER" >/dev/null
+          fi

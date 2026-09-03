@@ -29,7 +29,7 @@ record('probe has bounded timeout', source.includes('MAX_TIMEOUT_MS') && source.
 record('probe does not print credentials or response bodies', source.includes('never\n * prints') && source.includes('await response.arrayBuffer()'))
 record('probe tests redaction and fail-closed behavior', tests.includes('without exposing tokens') && tests.includes('credentials are missing') && tests.includes('authentication failure'))
 record('package includes runtime tools', Array.isArray(packageJson.files) && packageJson.files.includes('tools/runtime/'))
-record('package exposes probe commands', packageJson.scripts?.['runtime:probe'] === 'node tools/runtime/auth-probe.mjs' && packageJson.scripts?.['runtime:probe:test'] === 'node --test tools/runtime/auth-probe.test.mjs')
+record('package exposes probe commands', packageJson.scripts?.['runtime:probe'] === 'node tools/runtime/auth-probe.mjs' && packageJson.scripts?.['runtime:probe:test'] === 'node --test tools/runtime/*.test.mjs')
 record('acceptance guide documents env-only usage', docs.includes('MYAPI_PROBE_URL') && docs.includes('MYAPI_PROBE_PASSWORD') && docs.includes('不能代替手机浏览器'))
 
 const failed = checks.filter((item) => !item.ok)
