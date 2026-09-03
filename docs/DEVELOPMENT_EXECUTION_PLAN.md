@@ -22,7 +22,7 @@ SSE、脱敏日志、额度分析、账户/Key 兼容字段、CLI/Electron 和�
 | --- | --- | --- | --- |
 | S0 计划与证据 | 已完成／已确认范围 | terra 起草，主代理整合 | 需求、缺陷、验证、决策分开；更新主计划、审计、macOS、额度 OpenAPI；链接、参数和事实一致。 |
 | S1 安全与一致性 | 已完成／已确认范围 | sol 实现；独立 sol 复审 | 原六项及追加 R1 均通过回归、独立复审和 CI；同进程配置保存/后台重载的发布顺序、双写交错与失败释放已有证据，不推导跨实例一致性。 |
-| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06/C07/C08、D01–D07 已完成当前范围并通过同提交 CI；D08 已完成本地范围、待同提交 CI。B2/B3 任务持久化/恢复、C03b 缓存恢复、C09 实施及 D09–D10 仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
+| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06/C07/C08、D01–D08 已完成当前范围并通过同提交 CI。B2/B3 任务持久化/恢复、C03b 缓存恢复、C09 实施及 D09–D10 仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
 | S3 账户/Key 实际策略 | 未开始／迁移设计待确认 | sol 设计，分模块实现 | 明确账户权益、模型限制交集、route_groups、disabled、fallback、计费归属；旧 Key 兼容/差异报告/启用/回滚经确认后落实。不得把已有元数据当强制策略。 |
 | S4 运行与恢复 | 进行中／S4-01、S4-02 已完成当前范围 | 工程/制品与独立 sol 审查；sol 数据与恢复 | Full/LAN 测试镜像均不推送；SQLite/MySQL/PostgreSQL 临时库旧结构升级、重复迁移、多连接竞争、备份恢复；登录/Key/权限/日志/额度探针；原生桌面构建、安装升级与第二设备 LAN。 |
 | S5 额度闭环与选定扩展 | 未开始／各扩展分别决策 | sol 领域/安全，terra 常规实现 | 测试实例真实账户连续采样、任务/API/管理员页面一致；失败/重置/缺口和大数据量性能。通知、多 Key 身份、Claude 组织用量等按决策登记，不混入平台账本。 |
@@ -176,7 +176,7 @@ B2/B3 需核心合同决定：上游接受结果未知时是否不自动重发/�
 | D05 Midjourney | 已完成当前范围 | 8/1 | 持久化 Buttons/VideoUrls/Properties、Notify 与 object/array/`[]` 响应形状；保留静默解析及历史错误字符串；同提交 CI 通过。 |
 | D06 Controller | 已完成当前范围 | 8/3 | Vertex key、model metadata、Uptime Kuma/Ollama 边界；保留合法 `json.Valid`/RawMessage，规则 endpoint 稳定排序；同提交 CI 通过。 |
 | D07 Settings / C08 | 已完成当前范围 | 13/5 已清零；根余量 19/6 | 设置反射及 fresh 发布、群组倍率、集合 null 规范化、generic config 原子发布与纯验证；配置/模型/限流并发边界回归，新增 D07 race 门禁并于同 SHA CI 实跑。 |
-| D08 io.net 核心 | 本地完成／待同提交 CI | 8/2 已清零；根余量 11/4 | `pkg/ionet/client.go` 和 `jsonutil.go` 各 4 处实际 stdlib JSON 调用迁移至 `common` wrapper；离线 fake client 覆盖 HTTP body/query、API error 与 flexible time。普通/race `-count=2`/vet/diff-check/gofmt、根全量与 relaykit 独立矩阵已通过；同提交 CI 待验证。 |
+| D08 io.net 核心 | 已完成当前范围 | 8/2 已清零；根余量 11/4 | `pkg/ionet/client.go` 和 `jsonutil.go` 各 4 处实际 stdlib JSON 调用迁移至 `common` wrapper；离线 fake client 覆盖 HTTP body/query、API error 与 flexible time。普通/race `-count=2`/vet/diff-check/gofmt、根全量、relaykit 独立矩阵及 `9193ada` 同 SHA CI 通过。 |
 | D09 io.net endpoints | 未开始／依赖 D08 | 9/3 | container/deployment/hardware 表驱动合法与 malformed 响应；下一批另审 endpoint path 逃逸、nil response 等边界。 |
 | D10 cachex | 未开始 | 2/1 | codec round trip、空白/malformed/不可编码值；不新增平行 abstraction。 |
 
@@ -214,13 +214,14 @@ reservation/rollback 合同；跨配置族 reload 仍是 best-effort，非全量
 `null`、未知分层 key、Passkey 懒写与 `GroupRatioSetting` 可变指针仍待审计。D08 已完成本地范围，
 D09 为下一批、D10 其后；C09 的只读设计仍独立保留。
 
-**S2-D08 io.net 核心已完成本地范围，待同提交 CI。** `pkg/ionet/client.go`
+**S2-D08 io.net 核心已完成当前范围。** `pkg/ionet/client.go`
 与 `pkg/ionet/jsonutil.go` 的各 4 处实际 stdlib JSON 调用已迁移至 `common` wrapper，根模块结构余量
 由 **19 处/6 文件**降为 **11 处/4 文件**。无网络 fake client 回归覆盖请求 body、headers、method、URL，
 NaN marshal，transport/API detail fallback，query slices、HTML escape、空值/零值/false、`time.Time` 与
 `*time.Time`；flexible time 覆盖对象/数组、直接或 `data` 包装、无时区 UTC、带时区 offset、未知/普通
 字符串、malformed、错误类型与尾随值。普通测试、race `-count=2`、vet、gofmt 与 diff-check，以及
-根模块全量测试/vet/build 和 `relaykit` 独立 vet/build/test 已通过；尚未推送或产生同提交 CI。独立 Sol 审查无
+根模块全量测试/vet/build 和 `relaykit` 独立 vet/build/test 已通过。最终 `9193ada` /
+[CI 33816756504](https://github.com/ForceMind/MyAPI/actions/runs/33816756504) 七项成功。独立 Sol 审查无
 P1/P2，数组和 `*time.Time` 两项 P3 已补。保留 `interface{}`→`float64` 的大整数精度风险与递归识别
 “看似时间”字符串的既有语义；endpoint path 逃逸、nil response 等 D09 边界另审。本批无页面、schema、
 真实 io.net、凭据或网络访问，`VERSION` 保持 0.1.1。

@@ -476,10 +476,10 @@ check→execute→record 的近似语义，并发可超发，未误报为硬限�
 
 剩余独立 S2-C09：generic config 对象业务热读缺统一快照/锁；跨不同配置族 reload 仍为
 best-effort 而非全量事务；历史 DB raw `null`、未知分层 key、Passkey 懒写和
-`GroupRatioSetting` 可变指针待审计。C09 只读设计已完成、实施仍独立保留；D08 已完成本地范围、待
-同提交 CI，D09 下一批，D10 其后。
+`GroupRatioSetting` 可变指针待审计。C09 只读设计已完成、实施仍独立保留；D08 已完成当前范围，
+D09 下一批，D10 其后。
 
-## S2-D08 io.net 核心（2026-09-04，本地完成、待同提交 CI）
+## S2-D08 io.net 核心（2026-09-04，已完成当前范围）
 
 `pkg/ionet/client.go` 与 `pkg/ionet/jsonutil.go` 的各 4 处实际 stdlib JSON 调用已等价迁移至
 `common` wrapper，根模块结构余量由 19 处/6 文件降为 11 处/4 文件。无网络 fake client 覆盖请求 body、
@@ -488,12 +488,15 @@ headers、method、URL，NaN marshal，transport/API detail fallback，query sli
 带时区 offset、未知/普通字符串、malformed、错误类型与尾随值。
 
 普通测试、race `-count=2`、vet、gofmt 和 diff-check，根模块全量 test/vet/build 及 relaykit
-独立 vet/build/test 已通过；尚未推送，故没有同提交 CI 结论。独立 Sol 审查无 P1/P2；数组和 `*time.Time` 的两个
+独立 vet/build/test 已通过。最终 `9193ada` /
+[CI 33816756504](https://github.com/ForceMind/MyAPI/actions/runs/33816756504) 七项成功。独立 Sol 审查无 P1/P2；数组和 `*time.Time` 的两个
 P3 已补。保留 `interface{}`→`float64` 大整数精度风险和递归识别看似时间字符串的既有语义；endpoint path
 逃逸、nil response 等 D09 边界另审。无页面/schema、真实 io.net、凭据或网络访问，`VERSION` 保持 0.1.1。
 
 ## 最近 CI 证据
 
+- S2-D08 最终提交 `9193ada`：[CI 33816756504](https://github.com/ForceMind/MyAPI/actions/runs/33816756504)
+  七项成功；io.net 核心 8 处 wrapper 和离线 HTTP/flexible-time 回归闭环，余量 11/4。
 - S2-C08/D07 最终提交 `2d6acab`：[CI 33814136556](https://github.com/ForceMind/MyAPI/actions/runs/33814136556)
   七项成功；Backend 全量、旧配置顺序 race、新 D07 十包 race 和既有计费/日志 race 均成功，余量 19/6。
 - S2-D06 最终提交 `02a0aaf`：[CI 33805743908](https://github.com/ForceMind/MyAPI/actions/runs/33805743908)

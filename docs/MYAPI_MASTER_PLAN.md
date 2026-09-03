@@ -222,15 +222,16 @@ race 全部实跑。无页面或 schema 变更，版本保持 0.1.1；未执行�
 
 这不关闭独立 S2-C09：generic config 热读尚无统一快照/锁；内存和 Redis 成功限额仍是
 check→execute→record 的近似合同，并发可能超发；跨配置族 reload 非全量事务；历史 DB raw
-`null`、未知分层 key、Passkey 懒写和 `GroupRatioSetting` 可变指针待审计。D08 已完成本地范围、
-待同提交 CI；D09 下一批、D10 其后，C09 只读设计已完成、实施仍独立保留。
+`null`、未知分层 key、Passkey 懒写和 `GroupRatioSetting` 可变指针待审计。D08 已完成当前范围；
+D09 下一批、D10 其后，C09 只读设计已完成、实施仍独立保留。
 
 D08 本地将 `pkg/ionet/client.go`、`pkg/ionet/jsonutil.go` 各 4 处实际 stdlib JSON 调用迁移至
 `common` wrapper，根模块余量由 19/6 降为 11/4。无网络 fake client 覆盖请求 body/headers/method/URL、
 NaN marshal、transport/API detail fallback、query slices/HTML escape/空值/零值/false/`time.Time`/
 `*time.Time`，以及 flexible time 的对象/数组、直接或 `data` 包装、无时区 UTC、带时区 offset、未知或普通
 字符串、malformed、错误类型和尾随值。普通测试、race `-count=2`、vet、gofmt、diff-check、根全量
-test/vet/build 及 relaykit 独立 vet/build/test 已通过；同提交 CI 待验证。独立 Sol 无 P1/P2，数组和 `*time.Time` 的 P3
+test/vet/build 及 relaykit 独立 vet/build/test 已通过。最终 `9193ada` /
+[CI 33816756504](https://github.com/ForceMind/MyAPI/actions/runs/33816756504) 七项成功。独立 Sol 无 P1/P2，数组和 `*time.Time` 的 P3
 已补；保留 `interface{}`→`float64` 大整数精度风险与递归时间字符串识别的既有语义。无页面/schema、真实
 io.net、凭据或网络访问，版本保持 0.1.1；D09 的 endpoint path 逃逸、nil response 等边界另审。
 
