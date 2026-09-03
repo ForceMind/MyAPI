@@ -29,6 +29,7 @@ API、SSE、数据库迁移、Provider 和发行接口契约（技术基线标�
 - [Claude 组织用量观测边界](./CLAUDE_USAGE_REPORT.md)
 - [认证和 Cookie 安全](./authentication.md)
 - [实机与副本验收清单](./REAL_DEVICE_ACCEPTANCE.md)
+- [开发执行计划与缺陷矩阵](./DEVELOPMENT_EXECUTION_PLAN.md)
 - [macOS 开发迁移指南](./DEVELOPMENT_ON_MACOS.md)
 - [新设备 Codex 交接提示词](./CODEX_HANDOFF_PROMPT.md)
 - [定制说明](../CUSTOMIZATION.md)
@@ -143,12 +144,23 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 5. **UI 后置闸门**：只有代码合同稳定、外部运行边界明确后，才启动完整独立 UI 的
    信息架构、视觉和交互替换；此前的 Logo、文案和局部面板不计为 UI 全量替换。
 
-#### 2026-09-01 阶段状态
+#### 2026-09-03 执行基线
+
+源码基线 `a36e529` 的 CI `33721694305` 四个 job 已以真实 steps 成功，包含额度浏览器
+回归和截图；网站检查 `33721694330` 与制品 `33721694316` 成功。历史 Billing/runner
+故障不再是当前阻塞。S0 计划/证据和 S1 六项安全/一致性修复已获明确确认，执行状态见
+[集中清单](DEVELOPMENT_EXECUTION_PLAN.md)；尚未授权启用新的路由策略或扩展 Provider。
+
+本机 Node 22.23.2 可用，Go/Bun 当前安装版本不替代最低/固定基线验收；Docker CLI/App
+尚不可用。真实数据库、设备、账户与生产证据单列；完整 UI 在核心合同稳定、测试实例
+可运行且外部验收条件明确后启动，不要求先正式发布或先完成全部外部设备验收。
+
+#### 2026-09-01 历史阶段状态
 
 Palm、Zhipu、Ali rerank、MiniMax 的 JSON wrapper 和错误边界已完成并通过定向及全量
 Go 回归，relaykit 独立构建也已通过。Node 22 路径下前端类型检查、280 个 Vitest 测试、
 production build 与发行合同均已复核通过；默认 Homebrew Node 26 的 simdutf 链接问题仍
-需永久修复。Docker、跨数据库副本和真实设备继续保持外部待验证。完整 UI 替换没有开始，
+在该次检查中未修复。Docker、跨数据库副本和真实设备当时仍待验证。完整 UI 替换没有开始，
 仍按代码合同稳定后的后置闸门执行。
 
 第二轮 Provider 审计已覆盖 Xunfei 与 Volcengine，并通过定向回归；继续以小范围 wrapper
@@ -281,8 +293,8 @@ Full 版可包含渠道、额度和日志步骤；LAN Lite 只包含创建 Key�
 - 最后采集时间和采集状态。
 - 可用额度折线图。
 - 失败断点、重置标记和触摸 tooltip。
-- 24 小时、7 天、30 天、90 天和自定义范围。
-- 服务端支持 `granularity=raw|hour|day|week|auto` 与 `timezone_offset`（分钟）；前端默认按浏览器时区自动聚合。
+- 1 小时、6 小时、24 小时、7 天、30 天、90 天和自定义范围。
+- 服务端支持 `granularity=raw|minute|5m|15m|hour|day|week|auto` 与 `timezone_offset`（分钟）；前端默认按浏览器时区自动聚合。展示颗粒不改变采样间隔，完整契约见 [额度分析](QUOTA_ANALYTICS.md)。
 - 手机端纯文本摘要和无图表降级视图。
 
 渠道上游账户余额、MyAPI 用户余额和单个 API Key 限额必须使用不同标题，不能统称为“可用额度”。
@@ -369,7 +381,7 @@ CI 自动构建不等于自动重启生产服务。生产自动升级需要单�
 - 保持移动端 API 日志修复。
 - Full/LAN 镜像健康检查和 CLI 升级回滚说明已完成；生产环境升级演练仍待完成。
 - 完成品牌、旧名称、旧链接、版权头和环境变量专项审计。
-- 补齐真实手机浏览器验证；前端 `tsgo -b` 与 Vitest（当前 62 个文件、279 个测试）已在有界容器通过，实机视觉仍不可由自动化替代。额度概览面板会在管理员会话挂载时按 `user.id + session.sid` 最多刷新一次 `/api/user/self`，避免旧权限快照导致误隐藏；真实手机仍需验收。日志查询失败时会清空旧缓存行和正文，避免权限/会话错误仍展示上一结果。
+- 补齐真实手机浏览器验证；前端 `tsgo -b` 与 Vitest 已有有界回归，测试规模以 [完成审计](COMPLETION_AUDIT.md) 对应提交记录为准，实机视觉不可由自动化替代。额度概览面板会在管理员会话挂载时按 `user.id + session.sid` 最多刷新一次 `/api/user/self`，避免旧权限快照导致误隐藏；真实手机仍需验收。日志查询失败时会清空旧缓存行和正文，避免权限/会话错误仍展示上一结果。
 
 ### P1：账户和管理体验
 

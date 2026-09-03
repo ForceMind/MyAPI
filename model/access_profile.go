@@ -46,17 +46,44 @@ func EffectiveAccountTierID(groupName string) string {
 	return ResolveAccountTier(strings.TrimSpace(groupName), "").ID
 }
 
-// MigrateAccessProfileIdentifiers backfills the additive identity columns on
-// existing installations. It is idempotent and derives values from legacy
-// group fields; no credentials or request data are touched.
+// prepareAccessProfileIdentifiers runs before AutoMigrate. Old tables must
+// receive nullable columns without the model's standard default: otherwise
+// legacy rows become indistinguishable from explicitly selected standard IDs.
+// DDL is intentionally outside the backfill transaction (MySQL implicitly
+// commits DDL). A failed/interrupted startup leaves NULLs that the next run can
+// safely fill, including when only one of the two columns has been added.
+func prepareAccessProfileIdentifiers() error {
+	for _, column := range []struct {
+		table, name string
+		model       interface{}
+	}{
+		{"users", "account_tier_id", &struct {
+			AccountTierID string `gorm:"column:account_tier_id;type:varchar(64)"`
+		}{}},
+		{"tokens", "access_profile_id", &struct {
+			AccessProfileID string `gorm:"column:access_profile_id;type:varchar(64)"`
+		}{}},
+	} {
+		if !DB.Migrator().HasTable(column.table) || DB.Migrator().HasColumn(column.table, column.name) {
+			continue
+		}
+		if err := DB.Table(column.table).Migrator().AddColumn(column.model, column.name); err != nil {
+			return err
+		}
+	}
+	return MigrateAccessProfileIdentifiers()
+}
+
+// MigrateAccessProfileIdentifiers only fills missing identities. Non-empty
+// values, including an explicit standard ID for a legacy vip group, survive
+// every restart. This migration does not change the legacy routing contract.
 func MigrateAccessProfileIdentifiers() error {
 	if DB == nil {
 		return nil
 	}
 	groupColumn := commonGroupCol
 	if strings.TrimSpace(groupColumn) == "" {
-		// Lightweight model tests may set DB directly without running InitDB.
-		groupColumn = "`group`"
+		groupColumn = DB.Statement.Quote("group")
 	}
 	return DB.Transaction(func(tx *gorm.DB) error {
 		const batchSize = 500
@@ -65,21 +92,25 @@ func MigrateAccessProfileIdentifiers() error {
 			LegacyGroup   string `gorm:"column:legacy_group"`
 			AccountTierID string `gorm:"column:account_tier_id"`
 		}
-		if err := tx.Model(&User{}).
-			Select("id, "+groupColumn+" AS legacy_group, account_tier_id").
-			FindInBatches(&users, batchSize, func(batchTx *gorm.DB, _ int) error {
-				for _, user := range users {
-					want := EffectiveAccountTierID(user.LegacyGroup)
-					if strings.TrimSpace(user.AccountTierID) == want {
-						continue
+		if tx.Migrator().HasTable(&User{}) {
+			if err := tx.Unscoped().Model(&User{}).
+				Select("id, "+groupColumn+" AS legacy_group, account_tier_id").
+				Where("account_tier_id IS NULL OR TRIM(account_tier_id) = ''").
+				FindInBatches(&users, batchSize, func(batchTx *gorm.DB, _ int) error {
+					for _, user := range users {
+						want := EffectiveAccountTierID(user.LegacyGroup)
+						if strings.TrimSpace(user.AccountTierID) != "" {
+							continue
+						}
+						if err := tx.Unscoped().Model(&User{}).Where("id = ?", user.Id).
+							Where("account_tier_id IS NULL OR TRIM(account_tier_id) = ''").Update("account_tier_id", want).Error; err != nil {
+							return err
+						}
 					}
-					if err := tx.Model(&User{}).Where("id = ?", user.Id).Update("account_tier_id", want).Error; err != nil {
-						return err
-					}
-				}
-				return nil
-			}).Error; err != nil {
-			return err
+					return nil
+				}).Error; err != nil {
+				return err
+			}
 		}
 
 		var tokens []struct {
@@ -87,21 +118,25 @@ func MigrateAccessProfileIdentifiers() error {
 			LegacyGroup     string `gorm:"column:legacy_group"`
 			AccessProfileID string `gorm:"column:access_profile_id"`
 		}
-		if err := tx.Model(&Token{}).
-			Select("id, "+groupColumn+" AS legacy_group, access_profile_id").
-			FindInBatches(&tokens, batchSize, func(batchTx *gorm.DB, _ int) error {
-				for _, token := range tokens {
-					want := EffectiveAccessProfileID(token.LegacyGroup)
-					if strings.TrimSpace(token.AccessProfileID) == want {
-						continue
+		if tx.Migrator().HasTable(&Token{}) {
+			if err := tx.Unscoped().Model(&Token{}).
+				Select("id, "+groupColumn+" AS legacy_group, access_profile_id").
+				Where("access_profile_id IS NULL OR TRIM(access_profile_id) = ''").
+				FindInBatches(&tokens, batchSize, func(batchTx *gorm.DB, _ int) error {
+					for _, token := range tokens {
+						want := EffectiveAccessProfileID(token.LegacyGroup)
+						if strings.TrimSpace(token.AccessProfileID) != "" {
+							continue
+						}
+						if err := tx.Unscoped().Model(&Token{}).Where("id = ?", token.Id).
+							Where("access_profile_id IS NULL OR TRIM(access_profile_id) = ''").Update("access_profile_id", want).Error; err != nil {
+							return err
+						}
 					}
-					if err := tx.Model(&Token{}).Where("id = ?", token.Id).Update("access_profile_id", want).Error; err != nil {
-						return err
-					}
-				}
-				return nil
-			}).Error; err != nil {
-			return err
+					return nil
+				}).Error; err != nil {
+				return err
+			}
 		}
 		return nil
 	})

@@ -61,6 +61,52 @@ jobs:
       - name: Test root and relaykit modules
         run: make test
 
+  s1-databases:
+    name: S1 identity and options database regression
+    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_DATABASE: myapi_s1_test
+          MYSQL_ROOT_PASSWORD: s1-fixture-password
+          MYSQL_ROOT_HOST: '%'
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ps1-fixture-password"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+      postgres:
+        image: postgres:9.6
+        env:
+          POSTGRES_DB: myapi_s1_test
+          POSTGRES_PASSWORD: s1-fixture-password
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd="pg_isready -U postgres -d myapi_s1_test"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    env:
+      GOWORK: 'off'
+      GOMAXPROCS: '1'
+      MYAPI_S1_DATABASE_TESTS: '1'
+      MYAPI_S1_MYSQL_DSN: root:s1-fixture-password@tcp(127.0.0.1:${{ job.services.mysql.ports[3306] }})/myapi_s1_test?charset=utf8mb4&parseTime=true
+      MYAPI_S1_POSTGRES_DSN: host=127.0.0.1 port=${{ job.services.postgres.ports[5432] }} user=postgres password=s1-fixture-password dbname=myapi_s1_test sslmode=disable
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Verify identity migration and option persistence on disposable databases
+        run: go test -p 1 ./model -run '^TestAccessProfileConfiguredDatabases$' -count=1 -timeout=180s -v
+
   frontend:
     name: Frontend typecheck and test
     if: github.event.action != 'closed' || github.event.pull_request.merged == true
@@ -161,6 +207,7 @@ jobs:
           npm run brand:test
           npm run brand:check
           npm run website:check
+          npm run quota:openapi:check
           npm run lan:check -- --skip-docker
           npm run desktop:check
           npm run upgrade:check

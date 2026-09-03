@@ -59,6 +59,444 @@
     }
   ],
   "paths": {
+    "/api/channel/quota/status": {
+      "get": {
+        "summary": "查询有效额度采样配置",
+        "description": "AdminAuth 且具有 channel.read 权限。只读查询规范化记录，不请求上游、不返回凭据或原始上游响应。完整算法与运行边界见 docs/QUOTA_ANALYTICS.md。",
+        "tags": [
+          "渠道管理"
+        ],
+        "security": [
+          {
+            "AccessToken1": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功或参数/业务失败（HTTP 200）。认证/权限拒绝由中间件处理。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "success",
+                        "data"
+                      ],
+                      "properties": {
+                        "success": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        },
+                        "data": {
+                          "$ref": "#/components/schemas/QuotaSamplingData"
+                        }
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/QuotaBusinessError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "认证或权限中间件拒绝；响应遵循现有面板认证错误契约。"
+          }
+        }
+      }
+    },
+    "/api/channel/quota/changes": {
+      "get": {
+        "summary": "查询账户额度变化与消耗",
+        "description": "AdminAuth 且具有 channel.read 权限。只读查询规范化记录，不请求上游、不返回凭据或原始上游响应。完整算法与运行边界见 docs/QUOTA_ANALYTICS.md。",
+        "tags": [
+          "渠道管理"
+        ],
+        "security": [
+          {
+            "AccessToken1": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "required": false,
+            "description": "大小写不敏感；1d 等价 24h。custom 使用 start/end，未提供时间沿用默认范围。",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "6h",
+                "24h",
+                "1d",
+                "7d",
+                "30d",
+                "90d",
+                "custom"
+              ],
+              "default": "24h"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "description": "Unix 秒或 RFC3339；显式时间覆盖预设，0 <= start <= end，最多 180 天。",
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              ]
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "description": "Unix 秒或 RFC3339；显式时间覆盖预设，0 <= start <= end，最多 180 天。",
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "返回系列数；超过 2000 时截为 2000。",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 20
+            }
+          },
+          {
+            "name": "channel_ids",
+            "in": "query",
+            "required": false,
+            "description": "逗号分隔的正整数渠道 ID，自动去重，非法项拒绝。",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "metric_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "window_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "change_asc/change_desc/observed_desc/channel/channel_asc；缺省或未知值按绝对变化降序。",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功或参数/业务失败（HTTP 200）。认证/权限拒绝由中间件处理。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "success",
+                        "data"
+                      ],
+                      "properties": {
+                        "success": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        },
+                        "data": {
+                          "$ref": "#/components/schemas/QuotaChangesData"
+                        }
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/QuotaBusinessError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "认证或权限中间件拒绝；响应遵循现有面板认证错误契约。"
+          }
+        }
+      }
+    },
+    "/api/channel/{id}/quota/history": {
+      "get": {
+        "summary": "查询指定渠道的精确额度序列历史",
+        "description": "AdminAuth 且具有 channel.read 权限。只读查询规范化记录，不请求上游、不返回凭据或原始上游响应。完整算法与运行边界见 docs/QUOTA_ANALYTICS.md。",
+        "tags": [
+          "渠道管理"
+        ],
+        "security": [
+          {
+            "AccessToken1": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "range",
+            "in": "query",
+            "required": false,
+            "description": "大小写不敏感；1d 等价 24h。custom 使用 start/end，未提供时间沿用默认范围。",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "6h",
+                "24h",
+                "1d",
+                "7d",
+                "30d",
+                "90d",
+                "custom"
+              ],
+              "default": "30d"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "description": "Unix 秒或 RFC3339；显式时间覆盖预设，0 <= start <= end，最多 180 天。",
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              ]
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "description": "Unix 秒或 RFC3339；显式时间覆盖预设，0 <= start <= end，最多 180 天。",
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5000,
+              "default": 500
+            }
+          },
+          {
+            "name": "granularity",
+            "in": "query",
+            "required": false,
+            "description": "展示颗粒不改变采样间隔，auto 解析为实际颗粒。",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "raw",
+                "minute",
+                "5m",
+                "15m",
+                "hour",
+                "day",
+                "week",
+                "auto"
+              ],
+              "default": "raw"
+            }
+          },
+          {
+            "name": "timezone_offset",
+            "in": "query",
+            "required": false,
+            "description": "UTC 以东的分钟数；北京时间为480。",
+            "schema": {
+              "type": "integer",
+              "minimum": -840,
+              "maximum": 840,
+              "default": 0
+            }
+          },
+          {
+            "name": "metric_type",
+            "in": "query",
+            "required": false,
+            "description": "精确序列筛选；未完整指定时从范围内最新成功样本解析。显式空币种也属于身份。",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "window_type",
+            "in": "query",
+            "required": false,
+            "description": "精确序列筛选；未完整指定时从范围内最新成功样本解析。显式空币种也属于身份。",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "description": "精确序列筛选；未完整指定时从范围内最新成功样本解析。显式空币种也属于身份。",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "plan_type",
+            "in": "query",
+            "required": false,
+            "description": "精确序列筛选；未完整指定时从范围内最新成功样本解析。显式空币种也属于身份。",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "unit",
+            "in": "query",
+            "required": false,
+            "description": "精确序列筛选；未完整指定时从范围内最新成功样本解析。显式空币种也属于身份。",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "description": "精确序列筛选；未完整指定时从范围内最新成功样本解析。显式空币种也属于身份。",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "window_seconds",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功或参数/业务失败（HTTP 200）。认证/权限拒绝由中间件处理。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "success",
+                        "data"
+                      ],
+                      "properties": {
+                        "success": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        },
+                        "data": {
+                          "$ref": "#/components/schemas/QuotaHistoryData"
+                        }
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/QuotaBusinessError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "认证或权限中间件拒绝；响应遵循现有面板认证错误契约。"
+          }
+        }
+      }
+    },
     "/api/setup": {
       "get": {
         "summary": "获取初始化状态",
@@ -5233,6 +5671,808 @@
   },
   "components": {
     "schemas": {
+      "QuotaBusinessError": {
+        "type": "object",
+        "required": [
+          "success",
+          "message"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "QuotaSamplingData": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "interval_seconds",
+          "max_channels"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "interval_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "max_channels": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "QuotaDataQuality": {
+        "type": "object",
+        "properties": {
+          "sample_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "success_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "error_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "unsupported_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "invalid_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reset_boundaries": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "observed_span_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "span_seconds": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "QuotaAlert": {
+        "type": "object",
+        "description": "只读阈值状态；不发送通知、不改变路由或停用渠道。",
+        "required": [
+          "enabled",
+          "status",
+          "warning_percent",
+          "critical_percent",
+          "cooldown_seconds",
+          "notify_on_recovery"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "unavailable",
+              "healthy",
+              "warning",
+              "critical"
+            ]
+          },
+          "ratio_percent": {
+            "type": "number",
+            "format": "double"
+          },
+          "warning_percent": {
+            "type": "number",
+            "format": "double"
+          },
+          "critical_percent": {
+            "type": "number",
+            "format": "double"
+          },
+          "cooldown_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "notify_on_recovery": {
+            "type": "boolean"
+          }
+        }
+      },
+      "QuotaConsumptionSummary": {
+        "type": "object",
+        "description": "可选数值字段不可用时省略；有效的 0 保留。Codex 消耗单位为百分点，不是 token、货币或 MyAPI 扣费。原始相邻样本计算后聚合；区间分配到结束点所在桶，平均值按有效秒数加权。",
+        "required": [
+          "basis",
+          "pair_count",
+          "observed_seconds",
+          "reset_boundaries",
+          "recovery_count",
+          "interrupted_count",
+          "gap_count",
+          "baseline_change_count",
+          "allocation"
+        ],
+        "properties": {
+          "observed": {
+            "type": "number",
+            "format": "double"
+          },
+          "average_rate_per_minute": {
+            "type": "number",
+            "format": "double"
+          },
+          "peak_rate_per_minute": {
+            "type": "number",
+            "format": "double"
+          },
+          "pair_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "observed_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "peak_rate_observed_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reset_boundaries": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "recovery_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "interrupted_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "gap_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "baseline_change_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "basis": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "allocation": {
+            "type": "string",
+            "enum": [
+              "interval_end"
+            ]
+          }
+        }
+      },
+      "QuotaChangeItem": {
+        "type": "object",
+        "description": "可选数值字段不可用时省略；有效的 0 保留。Codex 消耗单位为百分点，不是 token、货币或 MyAPI 扣费。",
+        "required": [
+          "channel_id",
+          "name",
+          "account_label",
+          "metric_type",
+          "window_type",
+          "unit",
+          "direction",
+          "sample_span_seconds",
+          "observed_at",
+          "status",
+          "consumption",
+          "data_quality"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "account_label": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "metric_type": {
+            "type": "string"
+          },
+          "window_type": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "plan_type": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "window_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "current_available": {
+            "type": "number",
+            "format": "double"
+          },
+          "current_total": {
+            "type": "number",
+            "format": "double"
+          },
+          "previous_available": {
+            "type": "number",
+            "format": "double"
+          },
+          "change_per_minute": {
+            "type": "number",
+            "format": "double"
+          },
+          "abs_change_per_minute": {
+            "type": "number",
+            "format": "double"
+          },
+          "peak_abs_change_per_minute": {
+            "type": "number",
+            "format": "double"
+          },
+          "peak_drop_per_minute": {
+            "type": "number",
+            "format": "double"
+          },
+          "peak_increase_per_minute": {
+            "type": "number",
+            "format": "double"
+          },
+          "sample_span_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "observed_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "consumption": {
+            "$ref": "#/components/schemas/QuotaConsumptionSummary"
+          },
+          "alert": {
+            "$ref": "#/components/schemas/QuotaAlert"
+          },
+          "data_quality": {
+            "$ref": "#/components/schemas/QuotaDataQuality"
+          }
+        }
+      },
+      "QuotaChangesSummary": {
+        "type": "object",
+        "description": "没有可比较区间或 mixed_units=true 时三个峰值为 null；不同币种/单位不作全局比较。",
+        "required": [
+          "max_abs_change_per_minute",
+          "max_drop_per_minute",
+          "max_increase_per_minute",
+          "mixed_units"
+        ],
+        "properties": {
+          "max_abs_change_per_minute": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "max_drop_per_minute": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "max_increase_per_minute": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "mixed_units": {
+            "type": "boolean"
+          }
+        }
+      },
+      "QuotaChangesData": {
+        "type": "object",
+        "description": "最多读取 200000 条原始快照；超限以 success=false 拒绝完整统计。items_complete 仅表示返回系列列表是否被 limit 截断。",
+        "required": [
+          "items",
+          "range",
+          "start",
+          "end",
+          "generated_at",
+          "total_items",
+          "returned_items",
+          "source_complete",
+          "items_complete",
+          "data_quality",
+          "summary"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuotaChangeItem"
+            }
+          },
+          "range": {
+            "type": "string"
+          },
+          "start": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "end": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "generated_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total_items": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "returned_items": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "source_complete": {
+            "type": "boolean"
+          },
+          "items_complete": {
+            "type": "boolean"
+          },
+          "data_quality": {
+            "$ref": "#/components/schemas/QuotaDataQuality"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/QuotaChangesSummary"
+          }
+        }
+      },
+      "QuotaHistoryPoint": {
+        "type": "object",
+        "description": "可选数值字段不可用时省略；有效的 0 保留。Codex 消耗单位为百分点，不是 token、货币或 MyAPI 扣费。period_start/period_end 是展示边界；速率分母必须用 observed_seconds。",
+        "required": [
+          "timestamp",
+          "observed_at",
+          "status",
+          "sample_count",
+          "success_count",
+          "failed_count",
+          "unsupported_count",
+          "reset",
+          "continuity_break",
+          "observed_seconds",
+          "interval_count",
+          "gap",
+          "recovery",
+          "baseline_change",
+          "period_start",
+          "period_end"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "observed_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reset_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sample_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "success_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "failed_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "unsupported_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "observed_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "interval_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "period_start": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "period_end": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "type": "string"
+          },
+          "used_source": {
+            "type": "string"
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "event_source": {
+            "type": "string"
+          },
+          "available": {
+            "type": "number",
+            "format": "double"
+          },
+          "used": {
+            "type": "number",
+            "format": "double"
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
+          },
+          "consumption": {
+            "type": "number",
+            "format": "double"
+          },
+          "rate_per_minute": {
+            "type": "number",
+            "format": "double"
+          },
+          "peak_rate_per_minute": {
+            "type": "number",
+            "format": "double"
+          },
+          "reset": {
+            "type": "boolean"
+          },
+          "continuity_break": {
+            "type": "boolean"
+          },
+          "gap": {
+            "type": "boolean"
+          },
+          "recovery": {
+            "type": "boolean"
+          },
+          "baseline_change": {
+            "type": "boolean"
+          }
+        }
+      },
+      "QuotaValueSummary": {
+        "type": "object",
+        "required": [
+          "samples"
+        ],
+        "properties": {
+          "start": {
+            "type": "number",
+            "format": "double"
+          },
+          "end": {
+            "type": "number",
+            "format": "double"
+          },
+          "change": {
+            "type": "number",
+            "format": "double"
+          },
+          "change_percent": {
+            "type": "number",
+            "format": "double"
+          },
+          "minimum": {
+            "type": "number",
+            "format": "double"
+          },
+          "maximum": {
+            "type": "number",
+            "format": "double"
+          },
+          "samples": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "QuotaHistorySummary": {
+        "type": "object",
+        "required": [
+          "available",
+          "consumption",
+          "forecast_confidence",
+          "data_quality"
+        ],
+        "properties": {
+          "start_available": {
+            "type": "number",
+            "format": "double"
+          },
+          "end_available": {
+            "type": "number",
+            "format": "double"
+          },
+          "change": {
+            "type": "number",
+            "format": "double"
+          },
+          "change_percent": {
+            "type": "number",
+            "format": "double"
+          },
+          "minimum": {
+            "type": "number",
+            "format": "double"
+          },
+          "maximum": {
+            "type": "number",
+            "format": "double"
+          },
+          "drop_rate_per_day": {
+            "type": "number",
+            "format": "double"
+          },
+          "forecast_zero_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "forecast_confidence": {
+            "type": "string"
+          },
+          "available": {
+            "$ref": "#/components/schemas/QuotaValueSummary"
+          },
+          "used": {
+            "$ref": "#/components/schemas/QuotaValueSummary"
+          },
+          "total": {
+            "$ref": "#/components/schemas/QuotaValueSummary"
+          },
+          "consumption": {
+            "$ref": "#/components/schemas/QuotaConsumptionSummary"
+          },
+          "data_quality": {
+            "$ref": "#/components/schemas/QuotaDataQuality"
+          }
+        }
+      },
+      "QuotaHistoryData": {
+        "type": "object",
+        "description": "无历史时 points=[]，可缺失 series/current/summary/data_quality。原始观察上限150000，超限返回 success=true 但 source_complete=false、points=[]、truncated=true；展示点超限会保留消耗/峰值/异常标记压缩，points_complete=false，不可冒称完整精度。",
+        "required": [
+          "channel_id",
+          "start",
+          "end",
+          "limit",
+          "granularity",
+          "requested_granularity",
+          "timezone_offset",
+          "raw_observation_limit",
+          "raw_observations",
+          "available_points",
+          "returned_points",
+          "points",
+          "source_complete",
+          "points_complete",
+          "complete",
+          "truncated",
+          "alert"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "start": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "end": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "timezone_offset": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "raw_observation_limit": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "raw_observations": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "available_points": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "returned_points": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "window_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "granularity": {
+            "type": "string"
+          },
+          "requested_granularity": {
+            "type": "string"
+          },
+          "series_id": {
+            "type": "string"
+          },
+          "truncation_reason": {
+            "type": "string"
+          },
+          "resolution_hint": {
+            "type": "string"
+          },
+          "metric_type": {
+            "type": "string"
+          },
+          "window_type": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "plan_type": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "series": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "metric_type": {
+                "type": "string"
+              },
+              "window_type": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "plan_type": {
+                "type": "string"
+              },
+              "unit": {
+                "type": "string"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "window_seconds": {
+                "type": "integer",
+                "format": "int64",
+                "nullable": true
+              }
+            }
+          },
+          "current": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "error_code": {
+                "type": "string"
+              },
+              "used_source": {
+                "type": "string"
+              },
+              "observed_at": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "reset_at": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "available": {
+                "type": "number",
+                "format": "double"
+              },
+              "used": {
+                "type": "number",
+                "format": "double"
+              },
+              "total": {
+                "type": "number",
+                "format": "double"
+              }
+            },
+            "nullable": true
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuotaHistoryPoint"
+            }
+          },
+          "source_complete": {
+            "type": "boolean"
+          },
+          "points_complete": {
+            "type": "boolean"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "alert": {
+            "$ref": "#/components/schemas/QuotaAlert"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/QuotaHistorySummary"
+          },
+          "data_quality": {
+            "$ref": "#/components/schemas/QuotaDataQuality"
+          }
+        }
+      },
       "ApiResponse": {
         "type": "object",
         "properties": {

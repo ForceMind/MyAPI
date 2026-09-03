@@ -18,6 +18,13 @@ type ConfigManager struct {
 
 var GlobalConfig = NewConfigManager()
 
+// MapConfig lets a module own its synchronization and validation instead of
+// exposing mutable fields to the generic reflection-based loader/exporter.
+type MapConfig interface {
+	ExportConfigMap() (map[string]string, error)
+	UpdateConfigMap(map[string]string) error
+}
+
 func NewConfigManager() *ConfigManager {
 	return &ConfigManager{
 		configs: make(map[string]interface{}),
@@ -91,6 +98,9 @@ func (cm *ConfigManager) SaveToDB(updateFunc func(key, value string) error) erro
 
 // 辅助函数：将配置对象转换为map
 func configToMap(config interface{}) (map[string]string, error) {
+	if managed, ok := config.(MapConfig); ok {
+		return managed.ExportConfigMap()
+	}
 	result := make(map[string]string)
 
 	val := reflect.ValueOf(config)
@@ -163,6 +173,9 @@ func configToMap(config interface{}) (map[string]string, error) {
 
 // 辅助函数：从map更新配置对象
 func updateConfigFromMap(config interface{}, configMap map[string]string) error {
+	if managed, ok := config.(MapConfig); ok {
+		return managed.UpdateConfigMap(configMap)
+	}
 	val := reflect.ValueOf(config)
 	if val.Kind() != reflect.Ptr {
 		return nil

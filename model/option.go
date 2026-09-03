@@ -257,22 +257,7 @@ func validateOptionValue(key string, value string) error {
 }
 
 func UpdateOption(key string, value string) error {
-	if err := validateOptionValue(key, value); err != nil {
-		return err
-	}
-	// Save to database first
-	option := Option{
-		Key: key,
-	}
-	// https://gorm.io/docs/update.html#Save-All-Fields
-	DB.FirstOrCreate(&option, Option{Key: key})
-	option.Value = value
-	// Save is a combination function.
-	// If save value does not contain primary key, it will execute Create,
-	// otherwise it will execute Update (with all fields).
-	DB.Save(&option)
-	// Update OptionMap
-	return updateOptionMap(key, value)
+	return UpdateOptionsBulk(map[string]string{key: value})
 }
 
 // UpdateOptionsBulk persists multiple key/value pairs in a single database
@@ -284,13 +269,22 @@ func UpdateOptionsBulk(values map[string]string) error {
 	if len(values) == 0 {
 		return nil
 	}
+	normalized := make(map[string]string, len(values))
 	for key, value := range values {
+		if key == "access_profile_setting.profiles" {
+			var err error
+			value, err = setting.NormalizeAccessProfileDefinitionsJSON(value)
+			if err != nil {
+				return err
+			}
+		}
 		if err := validateOptionValue(key, value); err != nil {
 			return err
 		}
+		normalized[key] = value
 	}
 	err := DB.Transaction(func(tx *gorm.DB) error {
-		for k, v := range values {
+		for k, v := range normalized {
 			option := Option{Key: k}
 			if err := tx.FirstOrCreate(&option, Option{Key: k}).Error; err != nil {
 				return err
@@ -305,7 +299,7 @@ func UpdateOptionsBulk(values map[string]string) error {
 	if err != nil {
 		return err
 	}
-	for k, v := range values {
+	for k, v := range normalized {
 		if err := updateOptionMap(k, v); err != nil {
 			return err
 		}
@@ -317,6 +311,12 @@ func updateOptionMap(key string, value string) (err error) {
 	if err = common.ValidateChannelQuotaAlertOptionValue(key, value); err != nil {
 		return err
 	}
+	if key == "access_profile_setting.profiles" {
+		value, err = setting.NormalizeAccessProfileDefinitionsJSON(value)
+		if err != nil {
+			return err
+		}
+	}
 	if key == retiredThemeOptionKey {
 		common.OptionMapRWMutex.Lock()
 		delete(common.OptionMap, key)
@@ -325,6 +325,15 @@ func updateOptionMap(key string, value string) (err error) {
 	}
 	common.OptionMapRWMutex.Lock()
 	defer common.OptionMapRWMutex.Unlock()
+	if key == "access_profile_setting.profiles" {
+		// Publish exactly once through the profile registry's synchronization;
+		// the generic reflective writer must never see its mutable fields.
+		if err := setting.UpdateAccessProfileDefinitionsByJSONString(value); err != nil {
+			return err
+		}
+		common.OptionMap[key] = value
+		return nil
+	}
 	common.OptionMap[key] = value
 
 	// 检查是否是模型配置 - 使用更规范的方式处理
@@ -700,12 +709,6 @@ func handleConfigUpdate(key, value string) bool {
 		configKey: value,
 	}
 	config.UpdateConfigFromMap(cfg, configMap)
-	if configName == "access_profile_setting" && configKey == "profiles" {
-		// Apply through the setting package as well so concurrent readers use the
-		// same lock as explicit updates; the reflective config update above keeps
-		// ConfigManager's persistence/export view in sync.
-		_ = setting.UpdateAccessProfileDefinitionsByJSONString(value)
-	}
 
 	// 特定配置的后处理
 	if configName == "performance_setting" {

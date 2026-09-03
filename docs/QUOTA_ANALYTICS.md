@@ -1,6 +1,8 @@
 # 上游账户额度与消耗分析
 
-本页是额度分析的实现契约与验收入口。2026-09-03 当前工作树修复及本地回归已完成；**尚未部署此版本，真实上游部署后验收仍待进行**。历史交付记录见 [完成审计](COMPLETION_AUDIT.md)，总体需求见 [主计划](MYAPI_MASTER_PLAN.md)。
+本页是额度分析的实现契约与验收入口。2026-09-03 修复与本地回归已提交为 `a36e529`，
+CI `33721694305`（含额度浏览器工件）成功；**当前版本真实上游/生产部署验收仍缺证据**。
+本轮未访问生产。历史记录见 [完成审计](COMPLETION_AUDIT.md)，总体需求见 [主计划](MYAPI_MASTER_PLAN.md)。
 
 ## 管理员从哪里查看
 
@@ -136,7 +138,7 @@ Codex 单次网络采样预算 20 秒，覆盖首次查询、凭据刷新和重�
 - 多智能体按后端算法、采样、前端分工并交叉审查；最终重置边界只读复审未发现阻断问题。这不代表第三方或生产环境审计。
 - MySQL/PostgreSQL 查询兼容性有 SQL 生成测试；本轮未启动这两种真实数据库，运行时兼容性仍需副本验证。
 
-浏览器脚本：`tools/quota/browser-smoke.mjs`，在隔离 HTTP 服务上加载真实 `web/dist`，使用明确标记的合成 API fixtures，不读取生产授权。安装 Playwright 后执行 `npm run quota:browser`；可通过 `MYAPI_PLAYWRIGHT_MODULE` 和 `MYAPI_CHROMIUM_PATH` 复用本机驱动/浏览器，截图写入被忽略的 `.local-tests/quota-browser`。CI 的前端任务已加入生产构建与该浏览器回归；本轮仅更新配置，尚未在 GitHub 运行。
+浏览器脚本：`tools/quota/browser-smoke.mjs`，在隔离 HTTP 服务上加载真实 `web/dist`，使用明确标记的合成 API fixtures，不读取生产授权。安装 Playwright 后执行 `npm run quota:browser`；可通过 `MYAPI_PLAYWRIGHT_MODULE` 和 `MYAPI_CHROMIUM_PATH` 复用本机驱动/浏览器，截图写入被忽略的 `.local-tests/quota-browser`。CI 的前端任务已实际运行生产构建与浏览器回归，`33721694305` 的截图工件成功；这不等于真实账户端到端验收。
 
 它验证真实 React/Recharts/路由/弹窗和按钮，不等同于真实 Codex 上游的端到端采样。Go 回归验证 HTTP 取消和数据库写入等后端路径。生产真实账户验收必须在获准部署后，再等待至少两个有效采样，核对实际接口、任务结果与页面；不能把构建成功当作已上线成功。
 

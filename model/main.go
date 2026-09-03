@@ -251,6 +251,9 @@ func InitLogDB() (err error) {
 }
 
 func migrateDB() error {
+	if err := prepareAccessProfileIdentifiers(); err != nil {
+		return err
+	}
 	// Migrate price_amount column from float/double to decimal for existing tables
 	if err := migrateSubscriptionPlanPriceAmount(); err != nil {
 		return err
@@ -327,6 +330,9 @@ func migrateDB() error {
 }
 
 func migrateDBFast() error {
+	if err := prepareAccessProfileIdentifiers(); err != nil {
+		return err
+	}
 
 	migrations := []struct {
 		model interface{}

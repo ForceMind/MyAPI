@@ -15,12 +15,17 @@ Electron 和 LAN Lite 试用的主机；Linux 服务器只作为远程仓库、C
 - Bun 使用项目 lockfile 对应版本（CI 当前 `1.3.14`）；
 - Node.js `22.x`，用于 CLI、脚本和 Electron 测试。
 
+2026-09-03 只读核对：本机 macOS 26.2 arm64，Xcode CLT 已配置；Go 1.27.0、Bun 1.4.0、
+Node 22.23.2 可用。最低/固定验证仍以 `go.mod` 和 CI 为准，不能用较新版本代替最低版本
+保证。未发现 Docker CLI 或 `/Applications/Docker.app`，本机 Docker/Compose 演练仍缺前置
+环境；GitHub CI 已恢复成功，与本机 Docker 安装是两个独立事项。
+
 安装基础工具：
 
 ```bash
 xcode-select --install
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew install git go node
+brew install git go node@22
 curl -fsSL https://bun.sh/install | bash
 ```
 
@@ -35,6 +40,10 @@ node --version
 bun --version
 docker compose version
 ```
+
+Homebrew 的 `node@22` 是独立版本；在当前 shell 使用
+`export PATH="$(brew --prefix node@22)/bin:$PATH"` 后再运行 Node/Bun 脚本。
+不要把未锁版本的安装命令当作已符合 Go/Bun 基线，安装后必须核对实际版本。
 
 Docker Desktop 设置建议：给 Docker 至少 4GB 内存，构建时通过项目参数限制并行度；
 不要共享整个用户目录、`~/.codex`、Keychain 导出目录或其他凭据目录。
@@ -78,6 +87,7 @@ npm test
 npm run brand:test
 npm run brand:check
 npm run website:check
+npm run quota:openapi:check
 npm run lan:check -- --skip-docker
 npm run desktop:check
 npm run upgrade:check
@@ -89,18 +99,19 @@ npm run pack:check
 
 Docker 镜像测试使用 GitHub Actions 的 `Docker build smoke` workflow（手动触发）：它只在 runner
 上构建并加载本地镜像（`push: false`），启动隔离 SQLite 容器检查 `/api/status`，不登录
-GHCR、不创建 tag。workflow 首次运行需等待 GitHub runner/Billing 恢复；本机仍应使用
-Docker Desktop 完成 Compose、资源和数据库副本演练。
+GHCR、不创建 tag。现有 smoke 仅覆盖 LAN＋SQLite，不等于 Full/Compose/三数据库恢复。
+`a36e529` 的 CI `33721694305` 已成功，历史 Billing/runner 故障不再是当前阻塞；本机仍
+需 Docker Desktop 完成 Compose、资源和数据库副本演练。
 
-2026-09-01 本机工具链备注：当前 `/opt/homebrew/bin/node` 启动时因 `merve/tsgo` 依赖的
+2026-09-01 历史工具链备注：当时 `/opt/homebrew/bin/node` 启动时因 `merve` 依赖的
 `simdutf` 动态库缺失而 SIGABRT，导致 `bun run typecheck` 和包含 `npm test` 的发行合同
 无法启动。这是开发主机 Homebrew 运行时问题，不是前端断言失败；修复 Node/Homebrew
 链接后应按本页命令重新执行类型检查、测试、构建和发行合同。
 
 同日复核可使用已安装的 Node 22：
 `PATH=/opt/homebrew/opt/node@22/bin:$PATH`。该路径下类型检查、前端测试（62 个文件/
-280 个测试）、production build 和发行合同均通过；建议将 Node 22 设为本机默认版本，
-并修复 Homebrew `merve` 与 `simdutf` 的动态库链接后再移除临时 PATH。
+280 个测试）、production build 和发行合同均通过；后续继续明确选择 Node 22。
+当前 Node 22 可运行不等于默认 Node 或 Homebrew 动态库已永久修复，本轮未修改 shell 配置。
 
 MacBook 资源有限时使用 `MYAPI_BUILD_PARALLELISM=1`、`GOMAXPROCS=1`，不要并行运行多
 个完整前端构建或 Docker 构建。Linux 专用的 `taskset` 不适用于 macOS；Docker Desktop
@@ -215,4 +226,7 @@ Apple Developer ID 签名和 notarization 时只是测试制品，可能触发 G
 - [ ] Electron DMG/ZIP 未签名时只作为测试制品；
 - [ ] 任何服务器升级、GHCR/NPM 发布和生产操作均另行确认。
 
-当前阶段边界：本阶段代码、测试与文档已提交为 `a620246`、`e0ca670` 并推送到 `origin/main`；最新 CI run `33397392112` 在 runner 启动阶段失败（四个 job 均无 steps），继续按 GitHub runner/Billing 外部阻塞处理。即使同步后，Docker Desktop、真实手机、Windows 设备、PostgreSQL 恢复、NOTICE/法律审查及正式发布仍分别需要对应外部条件和明确授权。
+当前执行基线与授权见 [开发执行计划](DEVELOPMENT_EXECUTION_PLAN.md)：`a36e529` 的
+CI `33721694305`、网站检查/工件均成功；`a620246`、`e0ca670` 及对应 runner 启动失败是
+历史记录。Docker Desktop、真实手机、Windows 安装、MySQL/PostgreSQL 恢复、NOTICE/法律
+及正式发布分别需要对应条件与授权，不能由本机静态合同替代。

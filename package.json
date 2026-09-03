@@ -77,6 +77,7 @@
     "brand:test": "node --test tools/branding/check.test.mjs",
     "website:check": "node tools/website/check-static.mjs",
     "quota:browser": "node tools/quota/browser-smoke.mjs",
+    "quota:openapi:check": "node --test tools/quota/openapi-contract.test.mjs",
     "upgrade:check": "node tools/upgrade/check.mjs",
     "runtime:probe": "node tools/runtime/auth-probe.mjs",
     "runtime:probe:test": "node --test tools/runtime/auth-probe.test.mjs",
@@ -85,7 +86,7 @@
     "source:manifest": "node tools/npm/generate-source-manifest.mjs",
     "pack:check": "node tools/npm/check-pack.mjs",
     "release:state": "node tools/npm/check-release-state.mjs",
-    "release:check": "npm test && npm run brand:test && npm run brand:check && npm run website:check && npm run lan:check -- --skip-docker && npm run desktop:check && npm run upgrade:check && npm run runtime:check && npm run runtime:probe:test && npm run release:workflow:check && npm run source:manifest && npm run pack:check",
+    "release:check": "npm test && npm run brand:test && npm run brand:check && npm run website:check && npm run quota:openapi:check && npm run lan:check -- --skip-docker && npm run desktop:check && npm run upgrade:check && npm run runtime:check && npm run runtime:probe:test && npm run release:workflow:check && npm run source:manifest && npm run pack:check",
     "prepublishOnly": "npm run release:state && npm run release:check"
   },
   "engines": {

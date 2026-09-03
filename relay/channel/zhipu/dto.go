@@ -35,10 +35,10 @@ type ZhipuResponse struct {
 }
 
 type ZhipuStreamMetaResponse struct {
-	RequestId  string `json:"request_id"`
-	TaskId     string `json:"task_id"`
-	TaskStatus string `json:"task_status"`
-	dto.Usage  `json:"usage"`
+	RequestId  string     `json:"request_id"`
+	TaskId     string     `json:"task_id"`
+	TaskStatus string     `json:"task_status"`
+	Usage      *dto.Usage `json:"usage"`
 }
 
 type zhipuTokenData struct {

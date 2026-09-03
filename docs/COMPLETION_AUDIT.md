@@ -27,6 +27,11 @@
 
 ## 最近 CI 证据
 
+- 当前重新核对基线 `a36e529`（2026-09-03）：CI `33721694305` 的 Backend、Frontend、
+  Desktop、Distribution 四个 job 均成功，包含真实构建的额度浏览器 fixture、截图工件；
+  官网检查 `33721694330`、官网工件 `33721694316` 成功。以下 Billing/runner `steps: []`
+  为历史记录，不再是当前阻塞。该 CI 不替代 Docker、三数据库恢复、真设备或生产验收。
+
 - `33377504590`（提交 `4151c41`，2026-08-31）仍在 GitHub Actions runner 启动前失败：
   Backend、Frontend、Desktop 和 Distribution 四个 job 均为 `steps: []`，约 5 秒内结束。
   该结果继续按 GitHub Billing/runner 外部阻塞处理，不能据此判断当前文档提交或源码失败；
@@ -309,8 +314,6 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
   workflow 仍保持 `push: false`、不登录 GHCR 的安全边界；待 GitHub runner/Billing 恢复后
   重跑即可，当前不能把该结果当作镜像或 `/api/status` 验收。
 
-## 本机部署更新与诊断（2026-09-01）
-
 ## Provider JSON 审计增量（2026-09-01，第三轮）
 
 - AWS、Jimeng、MokaAI 的业务 JSON 路径已统一使用 `common/json.go` wrapper；保留必要的
@@ -318,7 +321,11 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - `GOWORK=off go test ./relay/channel/aws ./relay/channel/jimeng ./relay/channel/mokaai -count=1`
   通过；未改变 Provider 协议、发布闸门或生产环境。
 
-- `/root/new-api/docker-compose.yml` 当前配置的是本地镜像
+## Linux 实例历史部署记录（2026-09-01）
+
+本节来自当时获准执行的 Linux 实例记录，不表示当前 Mac 的部署或本轮生产验证。
+
+- `/root/new-api/docker-compose.yml` 当时配置的是本地镜像
   `local/new-api:myapi-c283c1d`，容器名为 `my-api`，监听回环地址；旧的 `new-api` 仅保留在历史演练记录中。
 - 2026-09-01 远端同步：本地 `main` 已快进到 `3ea1e5b`，与 `origin/main` 一致；该批次包含
   provider JSON 解码路径收敛、请求包装/参数边界、计费与并发安全、数据库迁移和 CI/发布合同更新。
@@ -400,5 +407,45 @@ CI 运行号会随新提交变化；发布前应重新查询当前提交对应�
 - 只读检查实际历史规范化快照发现 `reset_at` 秒级抖动，已补 Codex 限定容错及匿名回归测试。实际跨越重置仍断开；未修改生产数据或凭据。
 - 前端完整回归 **64 文件 / 336 测试通过**，TypeScript 与生产构建通过；Go 1.26.1 的 `service`、`controller`、`model` 三包完整回归通过。测试使用单核/半核和明确内存限额，没有无约束并行构建。
 - 真实构建的浏览器回归通过：三个入口的实际 Recharts SVG、样式/范围/颗粒/自定义日期请求、失败历史保留，以及 320×740、390×844、1280×600 下滚轮到达图表时间轴和渠道操作。已实际查看截图。浏览器使用合成 API fixtures，不冒充真实账户端到端验证。
-- 新增 `npm run quota:browser` 和 CI 浏览器回归、截图工件；本轮没有推送，因此尚无该版本的 GitHub CI 结果。MySQL/PostgreSQL 本轮只有 SQL 生成层检查，真实运行未验证。
-- 本轮没有提交、推送、修改 tag、发布 NPM 或重启生产容器。服务器仍为此前部署版本；获准部署后，还需等待至少两个新样本，核对任务结果、实际 API 和管理员页面，再确认线上修复完成。
+- 新增 `npm run quota:browser` 和 CI 浏览器回归、截图工件；原始本地验收时尚未提交/推送，
+  后续提交为 `a36e529`，其 CI 已成功（见本页当前证据）。MySQL/PostgreSQL 当次只有
+  SQL 生成层检查，真实运行未验证。
+- 原始本地验收没有修改 tag、发布 NPM 或重启生产容器。本轮审计未访问生产；获准部署后，
+  还需等待至少两个新样本，核对任务结果、实际 API 和管理员页面，才能确认线上修复完成。
+
+## S0＋S1 执行（2026-09-03，代码与本机回归就绪，待 CI）
+
+用户已明确确认 S0＋S1，完整阶段/依赖、六项缺陷与授权边界见
+[开发执行计划](DEVELOPMENT_EXECUTION_PLAN.md)。新增回归先复现显式 ID 迁移覆盖、配置
+持久化失败误报成功、profile 规范化/共享状态问题、Zhipu 缺 usage 伪成功及合成凭据日志
+泄露，再完成修复与复验。
+
+- S1-01：在 AutoMigrate 前给缺失 identity 列添加 nullable 无默认值列，仅回填空值；DDL
+  不依赖事务回滚，部分加列或事务失败可以重试。显式 standard/custom、旧 group 及重复
+  启动保留。此前版本已经覆盖的 ID 无法可靠推断恢复，不自动猜测改写。
+- S1-02/03：单一有序 SSE 通道，取消/下游写失败关闭上游并等待生产者退出；缺失/非法
+  usage、解析/读取错误不发送 DONE、不以 nil usage 报成功；无效凭据不写日志且拒绝认证
+  构造，合法 JWT/缓存协议保留。测试使用合成数据，不是上游实测。
+- S1-04/05/06：配置写入检查事务错误、成功后才发布内存；profile 专有同步导入/快照
+  导出与深拷贝不暴露共享可变对象，ID/fallback 实际存储规范化并拒绝碰撞。
+- 独立 sol 对两条实现线静态复审，原六项修复未发现新增阻断回归；另发现既有双写者
+  提交/发布顺序风险 S1-R1（P2），已征求用户确认，未授权前不实现，也不声称多写者
+  最终一致性已验证。terra 对文档/额度 OpenAPI/本地链接复审通过。
+
+实际本机验证（Go 1.27.0，以下 Go 命令使用 `GOMAXPROCS=1 GOWORK=off` 与临时缓存）：
+
+- `go test -p 1 ./... -count=1 -timeout=180s`：根模块全量通过。
+- `go vet -p 1 ./...`、`go build -p 1 ./...`：通过。
+- `cd relaykit && go build -p 1 ./... && go test -p 1 ./... -count=1`：独立构建/测试通过。
+- `go test -race -p 1 ./relay/channel/zhipu -count=1 -timeout=60s`：通过。
+- `go test -race -p 1 ./model ./setting -run 'TestUpdateOptionAccessProfileConcurrentReadAndExport|TestAccessProfileReadersReturnDetachedSnapshots|TestAccessProfileConfigManager' -count=1`：专项通过；不代替双写者逻辑顺序测试。
+- Node 22 下 `npm run release:check`：CLI 22/22、Brand 2/2（116 条分类/0 blocking）、
+  Website、Quota OpenAPI 3/3、LAN 68/68（跳过 Docker）、Desktop 32/32、Upgrade 18/18、
+  Runtime 13/13＋4/4、Release workflow 18/18 均通过；最后 pack 检查按预期拒绝 dirty
+  源码树，需在干净提交上重新生成 manifest/pack，不放宽此保护。
+
+新增 S1 专用 CI 服务库验证入口 `TestAccessProfileConfiguredDatabases`，仅显式启用、
+loopback 与 `myapi_s1_test` 库名可用，先拒绝已有 users/tokens/options 表，不删除既有表；
+MySQL 5.7/PostgreSQL 9.6 容器由 CI 生命周期清理，不发布镜像、不读取实际部署 DSN。
+当前等待真实 CI 运行，不把本机未配置而 skip 或 SQLite 成功写成三数据库已通过；其范围
+仅本次 identity/Option 迁移与事务，不替代 S4 的完整应用升级、备份恢复及多连接业务验收。

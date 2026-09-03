@@ -37,26 +37,60 @@ var accessProfileSetting = AccessProfileSetting{Profiles: map[string]AccessProfi
 var accessProfileMutex sync.RWMutex
 
 func init() {
-	config.GlobalConfig.Register("access_profile_setting", &accessProfileSetting)
+	config.GlobalConfig.Register("access_profile_setting", accessProfileConfig{})
+}
+
+// The registry exposes only synchronized import/export operations, never the
+// mutable setting pointer. All three ConfigManager load/save/export paths use
+// these operations through config.MapConfig.
+type accessProfileConfig struct{}
+
+func (accessProfileConfig) ExportConfigMap() (map[string]string, error) {
+	snapshot := GetAccessProfileSetting()
+	raw, err := common.Marshal(snapshot.Profiles)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]string{"profiles": string(raw)}, nil
+}
+
+func (accessProfileConfig) UpdateConfigMap(values map[string]string) error {
+	if raw, ok := values["profiles"]; ok {
+		return UpdateAccessProfileDefinitionsByJSONString(raw)
+	}
+	return nil
+}
+
+func (profile AccessProfileDefinition) clone() AccessProfileDefinition {
+	profile.RouteGroups = append([]string(nil), profile.RouteGroups...)
+	profile.ModelAllowlist = append([]string(nil), profile.ModelAllowlist...)
+	profile.FallbackProfiles = append([]string(nil), profile.FallbackProfiles...)
+	if profile.Enabled != nil {
+		profile.Enabled = boolPtr(*profile.Enabled)
+	}
+	return profile
 }
 
 func GetAccessProfileSetting() *AccessProfileSetting {
-	return &accessProfileSetting
+	accessProfileMutex.RLock()
+	defer accessProfileMutex.RUnlock()
+	snapshot := &AccessProfileSetting{Profiles: make(map[string]AccessProfileDefinition, len(accessProfileSetting.Profiles))}
+	for id, profile := range accessProfileSetting.Profiles {
+		snapshot.Profiles[id] = profile.clone()
+	}
+	return snapshot
 }
 
 func GetAccessProfileDefinition(id string) (AccessProfileDefinition, bool) {
 	accessProfileMutex.RLock()
 	defer accessProfileMutex.RUnlock()
 	profile, ok := accessProfileSetting.Profiles[strings.TrimSpace(id)]
-	return profile, ok
+	return profile.clone(), ok
 }
 
 func UpdateAccessProfileDefinitionsByJSONString(raw string) error {
-	if err := ValidateAccessProfileDefinitionsJSON(raw); err != nil {
-		return err
-	}
-	var profiles map[string]AccessProfileDefinition
-	if err := common.UnmarshalJsonStr(raw, &profiles); err != nil {
+	profiles, err := parseAccessProfileDefinitions(raw)
+	if err != nil {
 		return err
 	}
 	accessProfileMutex.Lock()
@@ -68,25 +102,41 @@ func UpdateAccessProfileDefinitionsByJSONString(raw string) error {
 // ValidateAccessProfileDefinitionsJSON validates the independently editable
 // profile registry before it is persisted by the generic option endpoint.
 func ValidateAccessProfileDefinitionsJSON(raw string) error {
+	_, err := parseAccessProfileDefinitions(raw)
+	return err
+}
+
+// NormalizeAccessProfileDefinitionsJSON gives persistence and OptionMap the
+// same canonical IDs/fallback references used by the live profile registry.
+func NormalizeAccessProfileDefinitionsJSON(raw string) (string, error) {
+	profiles, err := parseAccessProfileDefinitions(raw)
+	if err != nil {
+		return "", err
+	}
+	data, err := common.Marshal(profiles)
+	return string(data), err
+}
+
+func parseAccessProfileDefinitions(raw string) (map[string]AccessProfileDefinition, error) {
 	var profiles map[string]AccessProfileDefinition
 	if err := common.UnmarshalJsonStr(raw, &profiles); err != nil {
-		return err
+		return nil, err
 	}
 	if profiles == nil {
-		return errors.New("access profile definitions must be a JSON object")
+		return nil, errors.New("access profile definitions must be a JSON object")
 	}
 	normalizedIDs := make(map[string]struct{}, len(profiles))
 	for id, profile := range profiles {
 		id = strings.TrimSpace(id)
 		if id == "" {
-			return errors.New("access profile id must not be empty")
+			return nil, errors.New("access profile id must not be empty")
 		}
 		if _, exists := normalizedIDs[id]; exists {
-			return errors.New("access profile ids must be unique after trimming: " + id)
+			return nil, errors.New("access profile ids must be unique after trimming: " + id)
 		}
 		normalizedIDs[id] = struct{}{}
 		if strings.TrimSpace(profile.Label) == "" {
-			return errors.New("access profile label must not be empty: " + id)
+			return nil, errors.New("access profile label must not be empty: " + id)
 		}
 	}
 	graph := make(map[string][]string, len(profiles))
@@ -95,13 +145,13 @@ func ValidateAccessProfileDefinitionsJSON(raw string) error {
 		for _, rawFallback := range profile.FallbackProfiles {
 			fallback := strings.TrimSpace(rawFallback)
 			if fallback == "" {
-				return errors.New("access profile fallback id must not be empty: " + id)
+				return nil, errors.New("access profile fallback id must not be empty: " + id)
 			}
 			if _, exists := normalizedIDs[fallback]; !exists {
-				return errors.New("access profile fallback does not exist: " + id + " -> " + fallback)
+				return nil, errors.New("access profile fallback does not exist: " + id + " -> " + fallback)
 			}
 			if fallback == id {
-				return errors.New("access profile cannot fall back to itself: " + id)
+				return nil, errors.New("access profile cannot fall back to itself: " + id)
 			}
 			graph[id] = append(graph[id], fallback)
 		}
@@ -126,8 +176,15 @@ func ValidateAccessProfileDefinitionsJSON(raw string) error {
 	}
 	for id := range normalizedIDs {
 		if err := visit(id); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	normalized := make(map[string]AccessProfileDefinition, len(profiles))
+	for id, profile := range profiles {
+		for i, fallback := range profile.FallbackProfiles {
+			profile.FallbackProfiles[i] = strings.TrimSpace(fallback)
+		}
+		normalized[strings.TrimSpace(id)] = profile
+	}
+	return normalized, nil
 }
