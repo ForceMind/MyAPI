@@ -98,8 +98,9 @@ npm run pack:check
 ```
 
 Docker 镜像测试使用 GitHub Actions 的 `Docker build smoke` workflow（手动触发）：它只在 runner
-上构建并加载本地镜像（`push: false`），启动隔离 SQLite 容器检查 `/api/status`，不登录
-GHCR、不创建 tag。现有 smoke 仅覆盖 LAN＋SQLite，不等于 Full/Compose/三数据库恢复。
+上构建并加载本地镜像（`push: false`），启动隔离 Full/LAN SQLite 容器验证状态、登录、
+合成计费与日志合同，不登录 GHCR、不创建 tag。现有 smoke 不等于本机 Compose、三数据库
+恢复、真实 Provider 或真实设备验收。
 `a36e529` 的 CI `33721694305` 已成功，历史 Billing/runner 故障不再是当前阻塞；本机仍
 需 Docker Desktop 完成 Compose、资源和数据库副本演练。
 
@@ -336,3 +337,17 @@ loopback 的 fake，连续 connection reset，业务探针未开始；LAN 随后
 这是测试工具与 workflow 扩展，不改产品页面；可见发行版本保持 0.1.1，GitHub 镜像用
 提交 SHA 作为构建标识；临时 image ID 不是发布 digest。C03b、B2/B3、三库完整恢复、
 本机 Docker Desktop 和真实设备仍单列。
+
+### S2-D01 OAuth JSON wrapper（本地完成、待 CI）
+
+根模块生产代码结构扫描从 67 个直接 JSON 序列化调用/27 文件开始；测试、wrapper 实现、
+relaykit 及合法类型/`json.Valid` 使用不计。D01 将 GitHub、Discord、OIDC、Linux DO 四个
+适配器的 9 处调用统一到 `common.Marshal` / `common.DecodeJson`，保持非严格单值 decoder
+语义；当前余 58 处/23 文件。GitHub 回归通过合成 `http.DefaultTransport` 截取固定 URL，
+不绑定端口、不读取真实 OAuth 配置或发起外网请求，测试结束恢复全局状态。
+
+本机低并行实际通过 `go test ./common ./oauth`、`go test -race ./oauth`、
+`go vet ./oauth` 和 `go test -p 1 ./... -count=1`。Go 首次编译需要写用户 build/module cache；
+受限沙箱拒绝该写入时应在获准的本机执行环境运行，不能把权限错误写成测试失败。
+独立审查无 P1/P2，当前仍待本提交 CI。该批不改前端页面，版本保持 0.1.1；后续 D02–D10
+逐批处理，不让 `relaykit` 导入根模块 `common`。

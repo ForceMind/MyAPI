@@ -296,6 +296,27 @@ relay 401 且 fake count 保持 1、真实登录表单。两者 revision 均为
 这些临时 image ID 不是发布 digest；无 Redis/batch、真实 Provider、三库恢复、本机 Docker
 Desktop、真实手机/桌面安装或生产证据。
 
+## S2-D01 OAuth JSON wrapper（2026-09-04，本地完成、待同提交 CI）
+
+Sol ultra 只读复审按根模块生产代码重新计数：排除测试、`common/json.go`、`relaykit/**`、
+合法 `json.Valid` 及仅类型用途后，标准库直接 Marshal/Unmarshal/Decoder/Encoder 共
+67 处、27 文件；旧 54 处计数漏掉 11 个 decoder 和 2 个 RawMessage 解码。执行按十个
+互不争写的小批次进行，完整分解见[执行计划](DEVELOPMENT_EXECUTION_PLAN.md#s2-d-根模块-json-wrapper-合规)。
+
+D01 仅修改 `oauth/github.go`、`discord.go`、`oidc.go`、`linuxdo.go`：1 个 Marshal 和 8 个
+单次 decoder 分别等价改为 `common.Marshal` / `common.DecodeJson`，删除只为调用存在的
+`encoding/json` import。未知字段、尾随第二个 JSON 值、错误传播、endpoint、DTO 和返回
+映射不变；没有切换 strict decoder。新增 GitHub 合成 RoundTripper 回归，验证 token 请求
+JSON/header、token/user 映射及宽松单值语义；全局 transport 和合成 client 配置均恢复，
+不访问真实网络或凭据。
+
+本机实际通过：`go test ./common ./oauth`（common 1.301s、oauth 0.654s）、
+`go test -race ./oauth`（2.134s）、`go vet ./oauth`、低并行
+`go test -p 1 ./... -count=1`。结构门禁从 67/27 降为 58/23，OAuth 四文件为 0。
+独立审查无 P1/P2；保留 P3：Discord/OIDC/Linux DO 没有为机械替换复制同类协议测试，
+不以重复测试制造覆盖率。当前未提交/未获 CI 证据，故只标本地完成。无页面变更，
+`VERSION` 保持 0.1.1；不发布、不调用真实 Provider、不读取本机凭据。
+
 ## 最近 CI 证据
 
 - S4-02 最终提交 `237c0da`：[CI 33790468336](https://github.com/ForceMind/MyAPI/actions/runs/33790468336)

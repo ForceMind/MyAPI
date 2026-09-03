@@ -22,7 +22,7 @@ SSE、脱敏日志、额度分析、账户/Key 兼容字段、CLI/Electron 和�
 | --- | --- | --- | --- |
 | S0 计划与证据 | 已完成／已确认范围 | terra 起草，主代理整合 | 需求、缺陷、验证、决策分开；更新主计划、审计、macOS、额度 OpenAPI；链接、参数和事实一致。 |
 | S1 安全与一致性 | 已完成／已确认范围 | sol 实现；独立 sol 复审 | 原六项及追加 R1 均通过回归、独立复审和 CI；同进程配置保存/后台重载的发布顺序、双写交错与失败释放已有证据，不推导跨实例一致性。 |
-| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06 已完成当前范围；B2/B3 任务持久化/恢复及 C03b 缓存恢复仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
+| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06 已完成当前范围；D01 OAuth wrapper 本地完成、待同提交 CI。B2/B3 任务持久化/恢复、C03b 缓存恢复及 D02–D10 仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
 | S3 账户/Key 实际策略 | 未开始／迁移设计待确认 | sol 设计，分模块实现 | 明确账户权益、模型限制交集、route_groups、disabled、fallback、计费归属；旧 Key 兼容/差异报告/启用/回滚经确认后落实。不得把已有元数据当强制策略。 |
 | S4 运行与恢复 | 进行中／S4-01、S4-02 已完成当前范围 | 工程/制品与独立 sol 审查；sol 数据与恢复 | Full/LAN 测试镜像均不推送；SQLite/MySQL/PostgreSQL 临时库旧结构升级、重复迁移、多连接竞争、备份恢复；登录/Key/权限/日志/额度探针；原生桌面构建、安装升级与第二设备 LAN。 |
 | S5 额度闭环与选定扩展 | 未开始／各扩展分别决策 | sol 领域/安全，terra 常规实现 | 测试实例真实账户连续采样、任务/API/管理员页面一致；失败/重置/缺口和大数据量性能。通知、多 Key 身份、Claude 组织用量等按决策登记，不混入平台账本。 |
@@ -154,6 +154,35 @@ B2/B3 需核心合同决定：上游接受结果未知时是否不自动重发/�
 终态 CAS/系统任务租约，须复用；不能只延迟 HTTP 响应就宣称恢复完成，不能把批量队列
 “已入队”当作事务落账，也不能批量推断历史终态记录应退款。三库迁移及混合版本启用
 闸门需在设计中明确，生产切换仍另行批准。C03b 的缓存恢复决定不由此代替。
+
+## S2-D 根模块 JSON wrapper 合规
+
+2026-09-04 对根模块生产 Go 代码重新做结构扫描；排除 `*_test.go`、wrapper 实现
+`common/json.go`、独立模块 `relaykit/**` 和只使用 `json.RawMessage`/`json.Number` 类型或
+`json.Valid` 的合法位置后，共有 **67 个直接序列化调用、27 个文件**。这里的扫描是政策
+门禁，不代替行为测试；迁移只做 `json.Marshal`→`common.Marshal`、
+`json.Unmarshal`→`common.Unmarshal`、单次非严格 decoder→`common.DecodeJson` 的等价替换，
+不引入第二套 wrapper，不让 relaykit 依赖根模块。
+
+| 批次 | 状态 | 调用/文件 | 写入边界与最低验收 |
+| --- | --- | ---: | --- |
+| D01 OAuth | 本地已完成／待同提交 CI | 9/4 | GitHub、Discord、OIDC、Linux DO；GitHub JSON 请求/响应与宽松单值 decoder 回归，包测试、race、根模块全量、独立审查。 |
+| D02 请求 middleware | 未开始 | 2/2 | Jimeng/Kling 请求重写；显式 0/false、嵌套 metadata、malformed 与原链路语义。 |
+| D03 Relay 输入归一化 | 未开始 | 3/3 | OpenAI/Replicate/model mapping；RawMessage 解码、循环/非法映射和 import alias。 |
+| D04 Provider 响应/Vertex token | 未开始 | 5/3 | SiliconFlow、Tencent、Vertex；合法/错误/malformed 响应，不访问真实上游。 |
+| D05 Midjourney | 未开始 | 8/1 | 持久化 Buttons/VideoUrls/Properties 与 DTO 形状；不顺带改变历史错误语义。 |
+| D06 Controller | 未开始 | 8/3 | Vertex key、model metadata、Uptime Kuma/Ollama 边界；保留合法 `json.Valid`/RawMessage。 |
+| D07 Settings | 未开始 | 13/5 | 配置反射、fresh map、群组倍率与 malformed 跳过；全局设置恢复，锁问题单独跟踪。 |
+| D08 io.net 核心 | 未开始 | 8/2 | HTTP body/query、API error 和 flexible time；建立无网络 fake client。 |
+| D09 io.net endpoints | 未开始／依赖 D08 | 9/3 | container/deployment/hardware 表驱动合法与 malformed 响应。 |
+| D10 cachex | 未开始 | 2/1 | codec round trip、空白/malformed/不可编码值；不新增平行 abstraction。 |
+
+D01 已将四个 OAuth 文件的 9 处直接调用清零，结构余量为 **58 处/23 文件**。本机
+`go test ./common ./oauth`、`go test -race ./oauth`、`go vet ./oauth` 与低并行根模块
+`go test ./... -count=1` 通过；测试仅用合成 RoundTripper，不访问真实 OAuth endpoint 或
+凭据。独立审查无 P1/P2；P3 是另外三个 provider 未机械复制 GitHub 的协议测试，当前由
+等价替换、全包编译/race 和静态门禁承担，后续若改 DTO/endpoint 再补专用行为回归。
+该批无页面变化，`VERSION` 仍为 0.1.1；待本提交 GitHub CI 后才标 D01 完成。
 
 ## S4-01 无发布 Full/LAN 镜像测试（已完成当前范围）
 
