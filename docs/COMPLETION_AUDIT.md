@@ -429,7 +429,7 @@ JSON-safe DTO 的 marshal error 无法自然触发，未为此引入生产测试
 包含根/relaykit vet、build、全量 test 与既有 race 门禁；D05 完成当前范围。无网络、真实
 渠道、计费、转发 URL、relaykit 或页面变化，版本仍 0.1.1。
 
-## S2-D06 Controller JSON wrapper（2026-09-04，本地完成、待同提交 CI）
+## S2-D06 Controller JSON wrapper（2026-09-04，已完成当前范围）
 
 `controller/channel.go` 五处、`model_meta.go` 两处、`uptime_kuma.go` 一处实际编解码改用
 `common.Marshal/Unmarshal/DecodeJson`。`channel.go` 的两个 `json.Valid` 和 RawMessage 类型
@@ -445,10 +445,15 @@ EndpointType 字符串排序，不改变去重集合。新增 testify 离线测�
 本机定向测试 2.292s、Controller 全包 3.259s、race 9.101s，Controller vet、gofmt、
 diff-check 通过；结构门禁从 40/14 降至 32/11。独立 Sol 审查无 P1/P2；P3 是没有单列
 endpoint enrich 与 Ollama SSE 集成测试，现由直接确定性排序、机械等价和全包回归覆盖。
-当前未提交/无 CI，故保持待验证；无外网、数据库、relaykit 或页面变化，版本仍 0.1.1。
+最终 `02a0aaf0cb761bdaab44dbe1ff786039960cbc63` /
+[CI 33805743908](https://github.com/ForceMind/MyAPI/actions/runs/33805743908) 七项成功，Backend
+包含根/relaykit vet、build、全量 test 与既有 race 门禁；D06 完成当前范围。无外网、
+数据库、relaykit 或页面变化，版本仍 0.1.1。
 
 ## 最近 CI 证据
 
+- S2-D06 最终提交 `02a0aaf`：[CI 33805743908](https://github.com/ForceMind/MyAPI/actions/runs/33805743908)
+  七项成功；Controller 8 处 wrapper 与 endpoint 稳定排序闭环，余量 32/11。
 - S2-D05 最终提交 `b2b60fd`：[CI 33804146311](https://github.com/ForceMind/MyAPI/actions/runs/33804146311)
   七项成功；Midjourney 8 处 wrapper、持久化与响应形状闭环，余量 40/14。
   文档提交 `0818ea1` / [CI 33804869951](https://github.com/ForceMind/MyAPI/actions/runs/33804869951)

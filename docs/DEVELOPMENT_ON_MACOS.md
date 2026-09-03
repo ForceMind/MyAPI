@@ -412,13 +412,14 @@ marshal error、持久字段 malformed 静默和历史错误字符串。测试�
 [CI 33804146311](https://github.com/ForceMind/MyAPI/actions/runs/33804146311) 七项成功，D05 当前
 范围完成；无页面/版本/relaykit 变化，不把 SQLite fixture 写成三数据库或真实上游验收。
 
-### S2-D06 Controller JSON wrapper（本地完成、待 CI）
+### S2-D06 Controller JSON wrapper（已完成当前范围）
 
 Controller 三文件的 8 处编解码已统一到 `common` wrapper，合法 `json.Valid`/RawMessage
 继续保留；规则模型 endpoint 并集在编码前稳定排序。Vertex key 和 Uptime helper 测试只用
 内存数据与实例级 HTTP transport，不连接外网或修改全局 client。
 
 本机定向、Controller 全包普通/race、vet、gofmt 和 diff-check 通过，结构余量由 40/14
-降至 32/11，独立 Sol 审查无 P1/P2。当前待同提交 CI；没有新增 Ollama/endpoint 完整集成
-测试，不把机械 wrapper 与全包回归写成真实 Uptime/Ollama 运行验收。无页面/版本/relaykit
-变化。
+降至 32/11，独立 Sol 审查无 P1/P2。`02a0aaf` /
+[CI 33805743908](https://github.com/ForceMind/MyAPI/actions/runs/33805743908) 七项成功，D06 当前
+范围完成；没有新增 Ollama/endpoint 完整集成测试，不把机械 wrapper 与全包回归写成真实
+Uptime/Ollama 运行验收。无页面/版本/relaykit 变化。
