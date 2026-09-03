@@ -141,7 +141,7 @@ S2-B 持久化恢复、真实付款/供应商、生产与设备验收均未包�
 
 ## S2-B1 与 S4-01
 
-**2026-09-04：功能/实库/镜像已通过；追加 race 的测试隔离补项待收尾。** 代码 `7f1913e` 的
+**2026-09-04 最终验收：B1、C06、S4-01 已完成当前范围。** 生产代码 `7f1913e` 的
 [CI 33781560507](https://github.com/ForceMind/MyAPI/actions/runs/33781560507) 七项成功，
 [Docker smoke 33781637372](https://github.com/ForceMind/MyAPI/actions/runs/33781637372)
 Full/LAN 两项成功。专库 job `100736213883` 原始日志确认 MySQL5.7/PG9.6 各七支付＋
@@ -159,8 +159,11 @@ sourceTreeDirty=false，pack 为 2190 文件（19,984,976 字节）。
 service 5.792s 通过，但 Kling 3.020s 失败。原始报告指向测试清理写 RedisEnabled 与
 合法异步 cache 回调读取竞争；此前 4.976s 的 Kling 通过属于上一轮，不覆盖本次失败。
 测试配置生命周期已固定在进程级内存 SQLite 与 disabled cache，task/logger/Kling 定向
-race 已接入 CI；不改变生产缓存恢复或异步更新策略。本机与新增 CI 同命令四包通过：
-logger 2.264s、model 2.358s、service 3.705s、Kling 2.644s；独立复审通过，待新 CI。
+race 已接入 CI；不改变生产缓存恢复或异步更新策略。本机同命令四包通过：logger
+2.264s、model 2.358s、service 3.705s、Kling 2.644s；独立复审通过。测试/CI 收尾
+`6fd8ae4` / [CI 33783792231](https://github.com/ForceMind/MyAPI/actions/runs/33783792231)
+七项成功；backend 新步骤原始日志为 logger 1.042s、model 1.461s、service 3.755s、
+Kling 1.662s，均真正执行通过，无 DATA RACE/FAIL。
 不把普通 CI/镜像绿灯或前一次偶然通过当本次 race 通过。
 
 以下保留实现、失败与复验过程；其中“待验证”描述当时状态，不覆盖上述最终结论。
@@ -241,6 +244,8 @@ LAN `sha256:9426fc35bcb84509772e857adc1892ff550c5bf0c6967cb8ad388ceafa041fa6`。
 
 ## 最近 CI 证据
 
+- 测试隔离与 CI 门禁 `6fd8ae4`：[CI 33783792231](https://github.com/ForceMind/MyAPI/actions/runs/33783792231)
+  七项成功；新增 task/logger/Kling backend race 四包实跑，原始日志已核对。生产代码未再变。
 - 最终修复 `7f1913e`：[CI 33781560507](https://github.com/ForceMind/MyAPI/actions/runs/33781560507)
   七项成功，MySQL/PG 各五快照与七支付实跑且原始日志已核对；
   [Docker 33781637372](https://github.com/ForceMind/MyAPI/actions/runs/33781637372) 两种 edition

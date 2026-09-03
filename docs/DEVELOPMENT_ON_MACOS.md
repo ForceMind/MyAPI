@@ -304,6 +304,7 @@ linux/amd64、load:true/push:false，无 registry 登录。BuildKit 限 2 CPU/4 
 日志计数/轮转状态和轮询 fixture 竞争已修，保留并发行为、共同 500ms 门限与原日志格式。
 本机根模块全量/vet/build、relaykit 独立 build/test 及独立复审通过；此前整合 race 通过，
 但封版按 7f1913e 追加重跑时 Kling 测试清理与后台 cache 回调竞争。测试生命周期及 CI
-race 接线已修；本机四包同一命令和独立复审通过，待新 CI，不能用前一次绿色替代失败。
+race 接线已修；本机四包同一命令和独立复审通过。`6fd8ae4` / CI `33783792231` 七项成功，
+新增 backend race 原始日志确认四包实跑，无 DATA RACE/FAIL；没有用前一次绿色替代失败。
 最终代码的 Node22 release:check 全链通过：探针 13 项、干净源码 manifest、pack 2190 文件。
 下一项 S4-02 的合成 Key/假上游精确账务方案已定位，未实施；C03b、B2/B3 与完整恢复仍单列。

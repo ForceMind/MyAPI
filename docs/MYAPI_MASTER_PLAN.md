@@ -148,13 +148,13 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 
 `7f1913e` / [CI 33781560507](https://github.com/ForceMind/MyAPI/actions/runs/33781560507)
 七项成功；[Docker smoke 33781637372](https://github.com/ForceMind/MyAPI/actions/runs/33781637372)
-Full/LAN 两项均成功。**B1 与 S4-01 已完成当前范围；C06 测试隔离的 CI race 补项待验证**：
+Full/LAN 两项均成功。**B1、C06 与 S4-01 已完成当前范围**：
 任务提交费率冻结及异常快照守卫、日志并发/轮转状态修复、无发布镜像新安装/认证/真实登录表单与精确构建标识。
 MySQL5.7/PG9.6 各五种快照/NULL 往返与原七支付场景实跑通过，原始日志已核对。
 本机整合全量/vet/build/race、relaykit 独立验证、336 项前端测试及生产构建、13 项探针
 测试、2190 文件源码发行包通过。封版追加 race 发现 Kling 测试清理与后台缓存回调
-竞争；测试隔离及 CI race 接线已修，本机精确命令与独立复审通过，本批封版尚待新 CI，
-不改变生产缓存恢复策略。
+竞争；测试隔离及 CI race 接线已修。`6fd8ae4` / CI `33783792231` 七项成功，新增 backend
+race 原始日志确认四包通过，本批封版闭环，不改变生产缓存恢复策略。
 
 保留 `540cf32` 首轮镜像 BuildMismatch、`e7fffc2` PostgreSQL JSON 写入失败等历史证据。
 两处 JSON Valuer 的文本绑定修复和探针严格成功判定均由最终提交重新实跑，不跳过数据库
