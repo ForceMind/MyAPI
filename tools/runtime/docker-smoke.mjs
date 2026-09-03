@@ -92,8 +92,9 @@ async function probeFrontend(baseUrl, sha, version, modulePath) {
       html: document.documentElement.getAttribute('data-build-rev'),
       meta: document.querySelector('meta[name="build-id"]')?.getAttribute('content'),
     }))
+    if (errors > 0) throw new Error('SMOKE_FRONTEND_RUNTIME_ERROR')
     if (!metadata.global?.startsWith(`rv.${version}.${sha}.`) || metadata.global !== metadata.html ||
-        metadata.global !== metadata.meta || errors > 0) throw new Error('SMOKE_FRONTEND_BUILD_MISMATCH')
+        metadata.global !== metadata.meta) throw new Error('SMOKE_FRONTEND_BUILD_MISMATCH')
     return { name: 'real frontend sign-in form and revision', ok: true, revision: metadata.global }
   } finally {
     await browser.close()
@@ -120,7 +121,8 @@ async function main() {
       'SMOKE_ORIGIN_MISMATCH', 'SMOKE_REQUIRES_FRESH_SQLITE', 'SMOKE_SETUP_FAILED',
       'SMOKE_ANONYMOUS_ACCESS_NOT_REJECTED', 'SMOKE_RUNTIME_MODE_MISMATCH',
       'SMOKE_BROWSER_MODULE_REQUIRED', 'SMOKE_FRONTEND_HTTP_FAILED',
-      'SMOKE_FRONTEND_BUILD_MISMATCH', 'SMOKE_FRONTEND_FORM_UNAVAILABLE', 'ISOLATED_CI_SMOKE_ONLY'])
+      'SMOKE_FRONTEND_BUILD_MISMATCH', 'SMOKE_FRONTEND_RUNTIME_ERROR',
+      'SMOKE_FRONTEND_FORM_UNAVAILABLE', 'ISOLATED_CI_SMOKE_ONLY'])
     console.error(JSON.stringify({ command: 'docker:smoke', passed: false,
       code: safeCodes.has(error?.message) ? error.message : 'SMOKE_UNEXPECTED_FAILURE' }))
     process.exitCode = 1

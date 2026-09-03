@@ -6,14 +6,24 @@ it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
-import { describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { getBuildRevision, installBuildMetadata } from '@/lib/build-metadata'
 
 describe('runtime build metadata', () => {
-  it('returns a stable, non-sensitive revision format', () => {
+  const buildId = 'a'.repeat(40)
+
+  beforeAll(() => {
+    vi.stubEnv('VITE_REACT_APP_VERSION', '9.8.7')
+    vi.stubEnv('VITE_BUILD_ID', buildId)
+  })
+
+  afterAll(() => vi.unstubAllEnvs())
+
+  it('returns the injected version and exact build identity', () => {
     const revision = getBuildRevision()
 
+    expect(revision).toBe(`rv.9.8.7.${buildId}.2k6e8r7p`)
     expect(revision).toMatch(/^rv\.[0-9A-Za-z._-]+\.[0-9A-Za-z._-]+\.[0-9a-z]+$/)
     expect(revision).not.toMatch(/secret|token|cookie|jwt/i)
   })

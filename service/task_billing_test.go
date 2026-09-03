@@ -1336,3 +1336,49 @@ func TestSettleTaskSaturationAuditWhenRepricingIsSkipped(t *testing.T) {
 		})
 	}
 }
+
+func TestRecalculateTaskQuotaByTokensUsesSubmittedRates(t *testing.T) {
+	truncate(t)
+	oldModelRatios := ratio_setting.ModelRatio2JSONString()
+	oldGroupRatios := ratio_setting.GroupRatio2JSONString()
+	oldGroupGroupRatios := ratio_setting.GroupGroupRatio2JSONString()
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(oldModelRatios))
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(oldGroupRatios))
+		require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(oldGroupGroupRatios))
+	})
+	require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(`{"b1-snapshot":4}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1}`))
+	require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(`{}`))
+	seedUser(t, 83, 10000)
+	seedChannel(t, 83)
+	seedToken(t, 83, 83, "b1-snapshot-token", 10000)
+	seedChargedAccounting(t, 83, 83, 83, 500, 1)
+	task := makeTask(83, 83, 500, 83, BillingSourceWallet, 0)
+	task.PrivateData.BillingContext = &model.TaskBillingContext{
+		OriginModelName: "b1-snapshot", ModelRatio: 2, GroupRatio: 0.5,
+		OtherRatios: map[string]float64{"duration": 3},
+	}
+	require.NoError(t, model.DB.Create(task).Error)
+
+	RecalculateTaskQuotaByTokens(context.Background(), task, 100)
+
+	assert.Equal(t, 300, getTaskQuota(t, task.ID))
+	assert.Equal(t, 10200, getUserQuota(t, 83))
+	assert.Equal(t, 10200, getTokenRemainQuota(t, 83))
+	assert.Equal(t, 300, getTokenUsedQuota(t, 83))
+	used, requests := getUserUsageAccounting(t, 83)
+	assert.Equal(t, 300, used)
+	assert.Equal(t, 1, requests)
+	assert.Equal(t, int64(300), getChannelUsedQuota(t, 83))
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	assert.Equal(t, model.LogTypeRefund, log.Type)
+	assert.Equal(t, 200, log.Quota)
+	var other map[string]any
+	require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
+	assert.Equal(t, float64(300), other["actual_quota"])
+	assert.Equal(t, float64(2), other["model_ratio"])
+	assert.Equal(t, 0.5, other["group_ratio"])
+	assert.Equal(t, float64(3), other["duration"])
+}

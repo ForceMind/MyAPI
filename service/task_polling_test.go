@@ -275,10 +275,16 @@ func TestUpdateVideoTasksSlowChannelDoesNotBlockOtherChannels(t *testing.T) {
 	slowTask := seedPollingTask(t, slowChannelID, "task_public_slow", "upstream_slow_1")
 	fastFirst := seedPollingTask(t, fastChannelID, "task_public_fast_1", "upstream_fast_parallel_1")
 	fastSecond := seedPollingTask(t, fastChannelID, "task_public_fast_2", "upstream_fast_parallel_2")
+	// GORM updates these task structs in place. Keep assertion inputs separate
+	// before handing the task pointers to the polling workers.
+	slowUpstreamID := slowTask.GetUpstreamTaskID()
+	fastFirstUpstreamID := fastFirst.GetUpstreamTaskID()
+	fastSecondUpstreamID := fastSecond.GetUpstreamTaskID()
+	fastTaskIDs := []int64{fastFirst.ID, fastSecond.ID}
 
 	adaptor := &taskPollingFetchAdaptor{
 		fetched:      make(chan string, 4),
-		blockTaskID:  slowTask.GetUpstreamTaskID(),
+		blockTaskID:  slowUpstreamID,
 		blockStarted: make(chan struct{}),
 		releaseBlock: make(chan struct{}),
 	}
@@ -288,25 +294,30 @@ func TestUpdateVideoTasksSlowChannelDoesNotBlockOtherChannels(t *testing.T) {
 			close(adaptor.releaseBlock)
 		})
 	}
-	t.Cleanup(releaseBlockedTask)
 	previousFactory := GetTaskAdaptorFunc
 	GetTaskAdaptorFunc = func(constant.TaskPlatform) TaskPollingAdaptor { return adaptor }
 	t.Cleanup(func() { GetTaskAdaptorFunc = previousFactory })
 
 	errCh := make(chan error, 1)
+	pollingDone := make(chan struct{})
+	t.Cleanup(func() {
+		releaseBlockedTask()
+		<-pollingDone
+	})
 	gopool.Go(func() {
+		defer close(pollingDone)
 		errCh <- UpdateVideoTasks(context.Background(), constant.TaskPlatform("kling"), map[int][]string{
 			slowChannelID: {
-				slowTask.GetUpstreamTaskID(),
+				slowUpstreamID,
 			},
 			fastChannelID: {
-				fastFirst.GetUpstreamTaskID(),
-				fastSecond.GetUpstreamTaskID(),
+				fastFirstUpstreamID,
+				fastSecondUpstreamID,
 			},
 		}, map[string]*model.Task{
-			slowTask.GetUpstreamTaskID():   slowTask,
-			fastFirst.GetUpstreamTaskID():  fastFirst,
-			fastSecond.GetUpstreamTaskID(): fastSecond,
+			slowUpstreamID:       slowTask,
+			fastFirstUpstreamID:  fastFirst,
+			fastSecondUpstreamID: fastSecond,
 		})
 	})
 
@@ -316,20 +327,32 @@ func TestUpdateVideoTasksSlowChannelDoesNotBlockOtherChannels(t *testing.T) {
 		t.Fatal("slow channel did not start blocking")
 	}
 
-	require.Eventually(t, func() bool {
-		fetchedTaskIDs := adaptor.fetchedTaskIDs()
-		return len(fetchedTaskIDs) == 2 &&
-			fetchedTaskIDs[0] == fastFirst.GetUpstreamTaskID() &&
-			fetchedTaskIDs[1] == fastSecond.GetUpstreamTaskID()
-	}, 500*time.Millisecond, 10*time.Millisecond)
+	fastDeadline := time.NewTimer(500 * time.Millisecond)
+	defer fastDeadline.Stop()
+	for _, expectedID := range []string{fastFirstUpstreamID, fastSecondUpstreamID} {
+		select {
+		case fetchedID := <-adaptor.fetched:
+			require.Equal(t, expectedID, fetchedID)
+		case <-fastDeadline.C:
+			t.Fatal("fast channel did not fetch both tasks while the slow channel was blocked")
+		}
+	}
 
 	releaseBlockedTask()
 	require.NoError(t, <-errCh)
 	assert.ElementsMatch(t, []string{
-		slowTask.GetUpstreamTaskID(),
-		fastFirst.GetUpstreamTaskID(),
-		fastSecond.GetUpstreamTaskID(),
+		slowUpstreamID,
+		fastFirstUpstreamID,
+		fastSecondUpstreamID,
 	}, adaptor.fetchedTaskIDs())
+	var storedFastTasks []model.Task
+	require.NoError(t, model.DB.Where("id IN ?", fastTaskIDs).Find(&storedFastTasks).Error)
+	require.Len(t, storedFastTasks, 2)
+	for _, task := range storedFastTasks {
+		assert.Equal(t, model.TaskStatus(model.TaskStatusInProgress), task.Status)
+		assert.Equal(t, "30%", task.Progress)
+		assert.Positive(t, task.StartTime)
+	}
 }
 
 func TestUpdateVideoTasksMixedChannelSleepSettings(t *testing.T) {

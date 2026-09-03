@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 /// <reference types="@rsbuild/core/types" />
 
 interface ImportMetaEnv {
+  readonly VITE_REACT_APP_VERSION?: string
   readonly VITE_BRAND_NAME?: string
   readonly VITE_BRAND_LOGO?: string
   /** Commit or immutable build identifier injected by release tooling. */

@@ -63,10 +63,9 @@ declare global {
 
 function readEnvRevision(): string | undefined {
   try {
-    const env = (
-      import.meta as unknown as { env?: Record<string, string | undefined> }
-    ).env
-    const raw = env?.VITE_REACT_APP_VERSION
+    // Keep the full property access visible to Rsbuild's compile-time define.
+    // Aliasing import.meta.env only retains Rsbuild's built-in variables.
+    const raw = import.meta.env.VITE_REACT_APP_VERSION
     if (typeof raw === 'string' && raw.length > 0) return raw
   } catch {
     // import.meta may be unavailable in some test environments.
@@ -76,14 +75,11 @@ function readEnvRevision(): string | undefined {
 
 function readEnvBuildId(): string | undefined {
   try {
-    const env = (
-      import.meta as unknown as { env?: Record<string, string | undefined> }
-    ).env
-    const raw = env?.VITE_BUILD_ID?.trim()
+    const raw = import.meta.env.VITE_BUILD_ID?.trim()
     if (!raw) return undefined
     // Build IDs are injected by CI from a commit SHA. Keep the value strictly
     // printable before placing it in DOM attributes and localStorage.
-    const safe = raw.replace(/[^0-9A-Za-z._-]/g, '').slice(0, 64)
+    const safe = raw.replaceAll(/[^0-9A-Za-z._-]/g, '').slice(0, 64)
     return safe || undefined
   } catch {
     return undefined

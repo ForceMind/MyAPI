@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/ForceMind/MyAPI/common"
@@ -119,19 +120,23 @@ func taskAdjustTokenQuota(ctx context.Context, task *model.Task, delta int) {
 }
 
 // taskBillingOther 从 task 的 BillingContext 构建日志 Other 字段。
-func taskBillingOther(task *model.Task) map[string]interface{} {
+func taskBillingOther(task *model.Task, resolved ...*model.TaskBillingContext) map[string]interface{} {
 	other := make(map[string]interface{})
-	if bc := task.PrivateData.BillingContext; bc != nil {
-		other["model_price"] = bc.ModelPrice
-		if bc.ModelRatio > 0 {
-			other["model_ratio"] = bc.ModelRatio
-		}
-		other["group_ratio"] = bc.GroupRatio
+	bc := task.PrivateData.BillingContext
+	if len(resolved) > 0 {
+		bc = resolved[0]
+	}
+	if bc != nil {
 		if priceData := taskBillingContextPriceData(bc); priceData != nil {
 			for k, v := range priceData.OtherRatios() {
 				other[k] = v
 			}
 		}
+		other["model_price"] = bc.ModelPrice
+		if bc.ModelRatio > 0 || len(resolved) > 0 {
+			other["model_ratio"] = bc.ModelRatio
+		}
+		other["group_ratio"] = bc.GroupRatio
 	}
 	props := task.Properties
 	if props.UpstreamModelName != "" && props.UpstreamModelName != props.OriginModelName {
@@ -213,6 +218,18 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) bool 
 // clamps 按发生顺序传入，首个非空事件记入 admin_info（仅管理员可见）。
 // 存在饱和事件但差额为零时，仅记录 quota=0 的审计日志，不调整账务或请求次数。
 func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int, reason string, clamps ...*common.QuotaClamp) {
+	recalculateTaskQuota(ctx, task, actualQuota, reason, taskQuotaSettlementOptions{}, clamps...)
+}
+
+// Only a validated explicit free rate may settle a real usage to zero. The
+// public API retains its historical zero-means-unavailable behavior.
+type taskQuotaSettlementOptions struct {
+	allowZero bool
+	audit     bool
+	other     map[string]interface{}
+}
+
+func recalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int, reason string, options taskQuotaSettlementOptions, clamps ...*common.QuotaClamp) {
 	var clamp *common.QuotaClamp
 	for _, candidate := range clamps {
 		if candidate != nil {
@@ -224,8 +241,8 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 		logger.LogWarn(ctx, fmt.Sprintf("quota saturation on task log: op=%s kind=%s original=%g clamped=%d task=%s user=%d model=%s",
 			clamp.Op, clamp.Kind, clamp.Original, clamp.Clamped, task.TaskID, task.UserId, taskModelName(task)))
 	}
-	if actualQuota <= 0 {
-		if clamp == nil {
+	if actualQuota < 0 || (actualQuota == 0 && !options.allowZero) {
+		if clamp == nil && !options.audit {
 			return
 		}
 		// Unusable usage still keeps the original reservation, but must not
@@ -238,7 +255,7 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	if quotaDelta == 0 {
 		logger.LogInfo(ctx, fmt.Sprintf("任务 %s 预扣费准确（%s，%s）",
 			task.TaskID, logger.LogQuota(actualQuota), reason))
-		if clamp == nil {
+		if clamp == nil && !options.audit {
 			return
 		}
 	} else {
@@ -282,7 +299,10 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 		logType = model.LogTypeRefund
 		logQuota = -quotaDelta
 	}
-	other := taskBillingOther(task)
+	other := options.other
+	if other == nil {
+		other = taskBillingOther(task)
+	}
 	other["task_id"] = task.TaskID
 	other["pre_consumed_quota"] = preConsumedQuota
 	other["actual_quota"] = actualQuota
@@ -305,6 +325,9 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 // 当任务成功且返回了 totalTokens 时，根据模型倍率和分组倍率重新计算实际扣费额度，
 // 与预扣费的差额进行补扣或退还。支持钱包和订阅计费来源。
 func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTokens int, clamps ...*common.QuotaClamp) {
+	if auditInvalidTaskBillingSnapshot(ctx, task, clamps...) {
+		return
+	}
 	var usageClamp *common.QuotaClamp
 	for _, clamp := range clamps {
 		if clamp != nil {
@@ -318,55 +341,150 @@ func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTo
 		}
 		return
 	}
-
-	modelName := taskModelName(task)
-
-	// 获取模型价格和倍率
-	modelRatio, hasRatioSetting, _ := ratio_setting.GetModelRatio(modelName)
-	// 只有配置了倍率(非固定价格)时才按 token 重新计费
-	if !hasRatioSetting || modelRatio <= 0 {
+	if bc := task.PrivateData.BillingContext; bc != nil && bc.PerCallBilling {
 		if usageClamp != nil {
-			RecalculateTaskQuota(ctx, task, task.Quota, "无适用的token计费倍率，保持预扣额度", usageClamp)
+			RecalculateTaskQuota(ctx, task, task.Quota, "按次计费，保持预扣额度", usageClamp)
 		}
 		return
 	}
 
-	// 获取用户和组的倍率信息
-	group := task.Group
-	if group == "" {
-		user, err := model.GetUserById(task.UserId, false)
-		if err == nil {
-			group = user.Group
-		}
+	rates, source, err := resolveTaskTokenBillingRates(task)
+	other := taskBillingOther(task, rates)
+	other["billing_rate_source"] = source
+	if bc := task.PrivateData.BillingContext; bc != nil {
+		other["billing_rate_version"] = bc.Version
 	}
-	if group == "" {
-		if usageClamp != nil {
-			RecalculateTaskQuota(ctx, task, task.Quota, "无适用的计费分组，保持预扣额度", usageClamp)
-		}
+	if err != nil {
+		other["billing_rate_error"] = err.Error()
+		logger.LogWarn(ctx, fmt.Sprintf("task billing rates unavailable: task=%s source=%s error=%s", task.TaskID, source, err))
+		recalculateTaskQuota(ctx, task, task.Quota, "计费费率不可用，保持预扣额度", taskQuotaSettlementOptions{audit: true, other: other}, usageClamp)
 		return
-	}
-
-	groupRatio := ratio_setting.GetGroupRatio(group)
-	userGroupRatio, hasUserGroupRatio := ratio_setting.GetGroupGroupRatio(group, group)
-
-	var finalGroupRatio float64
-	if hasUserGroupRatio {
-		finalGroupRatio = userGroupRatio
-	} else {
-		finalGroupRatio = groupRatio
 	}
 
 	// 计算 OtherRatios 乘积（视频折扣、时长等）
 	otherMultiplier := 1.0
-	if priceData := taskBillingContextPriceData(task.PrivateData.BillingContext); priceData != nil {
+	if priceData := taskBillingContextPriceData(rates); priceData != nil {
 		otherMultiplier = priceData.OtherRatioMultiplier()
 	}
-
-	// 计算实际应扣费额度: totalTokens * modelRatio * groupRatio * otherMultiplier（饱和转换，防止溢出成负数）
-	actualQuota, clamp := common.QuotaFromFloatChecked(float64(totalTokens) * modelRatio * finalGroupRatio * otherMultiplier)
-
-	reason := fmt.Sprintf("token重算：tokens=%d, modelRatio=%.2f, groupRatio=%.2f, otherMultiplier=%.4f", totalTokens, modelRatio, finalGroupRatio, otherMultiplier)
+	freeRate := rates.ModelRatio == 0 || rates.GroupRatio == 0
+	actualQuota := 0
+	var clamp *common.QuotaClamp
+	if !freeRate {
+		actualQuota, clamp = common.QuotaFromFloatChecked(float64(totalTokens) * rates.ModelRatio * rates.GroupRatio * otherMultiplier)
+	}
+	reason := fmt.Sprintf("token重算：tokens=%d, modelRatio=%.2f, groupRatio=%.2f, otherMultiplier=%.4f", totalTokens, rates.ModelRatio, rates.GroupRatio, otherMultiplier)
 	// The earliest event is authoritative, including a provider clamp that
 	// becomes in-range after applying small model/group/other ratios.
-	RecalculateTaskQuota(ctx, task, actualQuota, reason, usageClamp, clamp)
+	recalculateTaskQuota(ctx, task, actualQuota, reason, taskQuotaSettlementOptions{
+		allowZero: freeRate, audit: source == "legacy_current", other: other,
+	}, usageClamp, clamp)
+}
+
+// validateTaskBillingSnapshot validates only persisted metadata. Incomplete
+// legacy contexts (including zero model rates on old per-call tasks) remain
+// valid here; deciding whether token repricing needs live rates is separate.
+func validateTaskBillingSnapshot(bc *model.TaskBillingContext) (string, error) {
+	if bc != nil {
+		if bc.Version != 0 && bc.Version != model.TaskBillingContextVersion {
+			return "unsupported_snapshot", fmt.Errorf("unsupported billing context version %d", bc.Version)
+		}
+		if (bc.Version == model.TaskBillingContextVersion && !bc.Complete) || (bc.Version == 0 && bc.Complete) {
+			return "invalid_snapshot", fmt.Errorf("incomplete billing context marker")
+		}
+		for name, rate := range map[string]float64{"model_ratio": bc.ModelRatio, "group_ratio": bc.GroupRatio} {
+			if rate < 0 || math.IsNaN(rate) || math.IsInf(rate, 0) {
+				return "invalid_snapshot", fmt.Errorf("invalid %s", name)
+			}
+		}
+		// -1 is the existing token-priced task sentinel, not a negative rate.
+		if math.IsNaN(bc.ModelPrice) || math.IsInf(bc.ModelPrice, 0) || (bc.ModelPrice < 0 && bc.ModelPrice != -1) {
+			return "invalid_snapshot", fmt.Errorf("invalid model_price")
+		}
+		for _, rate := range bc.OtherRatios {
+			if rate <= 0 || math.IsNaN(rate) || math.IsInf(rate, 0) {
+				return "invalid_snapshot", fmt.Errorf("invalid other_ratio")
+			}
+		}
+		if bc.Version == model.TaskBillingContextVersion {
+			if bc.OriginModelName == "" {
+				return "invalid_snapshot", fmt.Errorf("missing origin model name")
+			}
+			return "snapshot_v1", nil
+		}
+		if bc.ModelRatio > 0 && bc.GroupRatio > 0 && bc.OriginModelName != "" {
+			return "legacy_snapshot", nil
+		}
+	}
+	return "legacy_current", nil
+}
+
+// auditInvalidTaskBillingSnapshot must run before any settlement early return
+// or adaptor override. It never loads current pricing and never changes funds.
+func auditInvalidTaskBillingSnapshot(ctx context.Context, task *model.Task, clamps ...*common.QuotaClamp) bool {
+	bc := task.PrivateData.BillingContext
+	source, err := validateTaskBillingSnapshot(bc)
+	if err == nil {
+		return false
+	}
+	// Do not copy invalid prices into Other: NaN/Inf would discard the entire
+	// JSON payload. Error text is fixed metadata validation text, not upstream
+	// response content or a dump of the persisted snapshot.
+	other := taskBillingOther(task, nil)
+	other["billing_rate_source"] = source
+	other["billing_rate_version"] = bc.Version
+	other["billing_rate_error"] = err.Error()
+	logger.LogWarn(ctx, fmt.Sprintf("task billing snapshot unavailable: task=%s source=%s error=%s", task.TaskID, source, err))
+	recalculateTaskQuota(ctx, task, task.Quota, "计费快照不可用，保持预扣额度", taskQuotaSettlementOptions{audit: true, other: other}, clamps...)
+	return true
+}
+
+// resolveTaskTokenBillingRates consumes the existing persisted context. Only
+// genuinely incomplete legacy contexts consult live configuration; the
+// temporary context returned in that case is used for calculation/logging,
+// never written back over submission history.
+func resolveTaskTokenBillingRates(task *model.Task) (*model.TaskBillingContext, string, error) {
+	bc := task.PrivateData.BillingContext
+	source, err := validateTaskBillingSnapshot(bc)
+	if err != nil {
+		return nil, source, err
+	}
+	if source != "legacy_current" {
+		return bc, source, nil
+	}
+
+	modelName := taskModelName(task)
+	modelRatio, configured, _ := ratio_setting.GetModelRatio(modelName)
+	if !configured || modelRatio <= 0 || math.IsNaN(modelRatio) || math.IsInf(modelRatio, 0) {
+		return nil, "legacy_current", fmt.Errorf("legacy model ratio unavailable")
+	}
+	user, err := model.GetUserById(task.UserId, false)
+	if err != nil || user.Group == "" {
+		return nil, "legacy_current", fmt.Errorf("legacy user group unavailable")
+	}
+	group := task.Group
+	if group == "" {
+		group = user.Group
+	}
+	if group == "" {
+		return nil, "legacy_current", fmt.Errorf("legacy routing group unavailable")
+	}
+	var groupRatio float64
+	if specialRatio, ok := ratio_setting.GetGroupGroupRatio(user.Group, group); ok {
+		groupRatio = specialRatio
+	} else {
+		if !ratio_setting.ContainsGroupRatio(group) {
+			return nil, "legacy_current", fmt.Errorf("legacy group ratio unavailable")
+		}
+		groupRatio = ratio_setting.GetGroupRatio(group)
+	}
+	if groupRatio <= 0 || math.IsNaN(groupRatio) || math.IsInf(groupRatio, 0) {
+		return nil, "legacy_current", fmt.Errorf("legacy group ratio unavailable")
+	}
+	rates := &model.TaskBillingContext{ModelPrice: -1, ModelRatio: modelRatio, GroupRatio: groupRatio, OriginModelName: modelName}
+	if bc != nil {
+		if priceData := taskBillingContextPriceData(bc); priceData != nil {
+			rates.OtherRatios = priceData.OtherRatios()
+		}
+	}
+	return rates, "legacy_current", nil
 }

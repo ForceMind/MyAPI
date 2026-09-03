@@ -26,6 +26,8 @@ const (
 
 const maxLogCount = 1000000
 
+// logStateLock protects the count and the single asynchronous rotation reservation.
+var logStateLock sync.Mutex
 var logCount int
 var setupLogLock sync.Mutex
 var setupLogWorking bool
@@ -40,9 +42,6 @@ func GetCurrentLogPath() string {
 }
 
 func SetupLogger() {
-	defer func() {
-		setupLogWorking = false
-	}()
 	if *common.LogDir != "" {
 		ok := setupLogLock.TryLock()
 		if !ok {
@@ -71,6 +70,15 @@ func SetupLogger() {
 		}
 		common.LogWriterMu.Unlock()
 	}
+}
+
+func runLogRotation() {
+	defer func() {
+		logStateLock.Lock()
+		setupLogWorking = false
+		logStateLock.Unlock()
+	}()
+	SetupLogger()
 }
 
 func LogInfo(ctx context.Context, msg string) {
@@ -109,13 +117,17 @@ func logHelper(ctx context.Context, level string, msg string) {
 	}
 	_, _ = fmt.Fprintf(writer, "[%s] %v | %s | %s \n", level, now.Format("2006/01/02 - 15:04:05"), id, msg)
 	common.LogWriterMu.RUnlock()
-	logCount++ // we don't need accurate count, so no lock here
+	rotate := false
+	logStateLock.Lock()
+	logCount++
 	if logCount > maxLogCount && !setupLogWorking {
 		logCount = 0
 		setupLogWorking = true
-		gopool.Go(func() {
-			SetupLogger()
-		})
+		rotate = true
+	}
+	logStateLock.Unlock()
+	if rotate {
+		gopool.Go(runLogRotation)
 	}
 }
 

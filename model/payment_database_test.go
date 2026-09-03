@@ -377,4 +377,7 @@ func runS2APaymentDatabaseMatrix(t *testing.T, db *gorm.DB, databaseType common.
 			assertS2APaymentLogDelta(t, db, user.Id, logsBefore, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：2", logger.FormatQuota(200)))
 		})
 	}
+	t.Run("task-billing-snapshot-roundtrip", func(t *testing.T) {
+		runTaskBillingSnapshotRoundTrip(t, db)
+	})
 }

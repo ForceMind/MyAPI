@@ -147,14 +147,55 @@ S2-B 持久化恢复、真实付款/供应商、生产与设备验收均未包�
 System 审计；不实现响应前持久化、账务事件、outbox 或批量缓存恢复。
 新增提交、SQLite/实库 JSON 往返与精确结算/日志回归；MySQL/PG 新场景待本批 CI。
 
+B1 初始红测：快照 `2×0.5×3×100=300` 被当前配置算成 1200；修复后完整新/旧快照冻结。
+独立复审追加早返回组合，红测确认未知版本可被 adaptor 把预扣 500 改成 300，并漏掉
+来源审计；非有限价格还会清空 Other JSON。共享纯快照守卫已在真实轮询及 token 入口
+修复这些路径，独立复审通过；新守卫专项 race 通过（service 4.272s）。
+初版根模块全量/vet/build、relaykit 独立 build/test 通过；扩展 race 的 model/controller/
+Kling 通过，但 service 的旧 SlowChannel 测试暴露共享 Task 读取及生产 logger.logCount
+竞争，当次不能标全量 race 通过。测试同步与日志状态列为 C06，下列记录保留修复证据。
+
+C06 已修复并独立复审通过：状态锁只保护计数/预约，自动轮转自行释放，手动 SetupLogger
+不误清他人预约；原输出格式、阈值与 writer 锁不变。logger 全包 race 2.595s、全部
+UpdateVideoTasks race 3.326s 通过，含两并发真实日志、I/O 阻塞隔离及临时文件轮转。
+fixture 保留共同 500ms 门限，以不可变 ID/事件和后台退出后的 DB 快照消除竞争；无 sleep
+或串行化绕过。主代理最终同一条整合 race 已通过：logger 1.793s、model 3.309s、controller
+4.033s、service 6.561s、Kling 4.976s；包含原失败轮询、B1 快照/守卫和 C02 审计。提交 CI 尚待完成。
+
 S4-01 修复现有 Docker smoke 的 healthcheck 缺失及直接运行时 session 环境变量名称，
 增加串行 Full/LAN 构建、资源限制、回环端口、隔离新 SQLite 初始化、认证与实际浏览器
 精确构建版本检查。仅手动构建加载本地镜像，push:false，无发布或生产连接。
-Node 合成单测与 YAML/Bash 语法通过；尚未获得本批镜像/浏览器实跑证据，不标为完成。
+Node 合成 12 项与 YAML/Bash 语法通过。首轮 `540cf32` /
+[Docker smoke 33766140801](https://github.com/ForceMind/MyAPI/actions/runs/33766140801) 两种
+镜像构建、健康检查、初始化/认证及登录表单就绪已执行，但最终均以
+`SMOKE_FRONTEND_BUILD_MISMATCH` 失败，未验收。原生产 chunk 中 env 别名仅保留 Rsbuild
+内建变量，VITE 版本/SHA 读取为 undefined；已修为可被编译替换的直接属性读取，
+需要新提交的真实镜像复验。初始单测只检查 revision 格式，所以未发现此问题。
+修复后本机两项元数据单测、typecheck、文件 lint、完整 64 文件/336 项 Vitest（101.96s）
+通过；生产 build 6.64s，产物已包含合成 `fixture-s4-build` 字面值，替代旧缺失 env 查找。
+实际产品 SHA 仍须由后续 GitHub smoke 验证。独立复审确认 local fallback、白名单/长度
+限制、表单与 SHA 检查未放宽。CLI 的 runtime 脚本合同最初因新增测试 glob 未同步失败，
+已同步声明并通过 runtime:check（13/13）、release:workflow:check（18/18）及运行探针 12 项。
+
+2026-09-04 收尾：最终代码的根模块全量、vet/build 及同一条整合 race 已通过，独立代码
+与文档复审闭环。使用 `GOMAXPROCS=1 GOWORK=off GOCACHE=/tmp/myapi-gocache GOMODCACHE=/tmp/myapi-gomodcache`：
+
+```sh
+go test -p 1 ./... -count=1 -timeout=180s
+go vet -p 1 ./...
+go build -p 1 ./...
+go test -race -p 1 ./logger ./model ./controller ./service ./relay/channel/task/kling -run 'Test(ConcurrentLog|BlockedInfo|ManualSetupLogger|AutomaticRotation|NewTaskBillingContext|TaskBillingSnapshotRoundTrip|TaskJSONScan|TaskSubmissionBillingContext|Recalculate|RefundTask|Settle_|SettleTask|TaskToken|TaskFreeSnapshot|TaskBilling|TaskRecalculate|TaskPollingAudits|ParseTaskResultFinalUnitDeduction|KlingPollingPreservesDeductionSaturationAudit|CASGuarded|NonTerminalUpdate|UpdateVideoTasks|S2APaymentSQLite)' -count=1 -timeout=180s
+```
+
+`relaykit/` 的 `GOWORK=off go build -p 1 ./...` / `go test -p 1 ./... -count=1` 独立通过。
+上述不替代新提交的 MySQL/PG 快照实跑、Full/LAN 镜像及完整发行包复验，提交后继续补证。
 它也不覆盖三库恢复、真实上游、完整 UI 或 macOS/Windows 安装。
 
 ## 最近 CI 证据
 
+- S4-01 测试入口 `540cf32`：[普通 CI 33766050871](https://github.com/ForceMind/MyAPI/actions/runs/33766050871)
+  七项成功；同 SHA 的 [Docker smoke 33766140801](https://github.com/ForceMind/MyAPI/actions/runs/33766140801)
+  两种 edition 均因真实构建标识不匹配失败。两类证据不可混用，修复后的新提交尚待 CI/镜像验证。
 - S2-C 文档收尾 `f8aa3d8`：[CI 33761897224](https://github.com/ForceMind/MyAPI/actions/runs/33761897224)
   七项成功，作为 B1/S4-01 开始基线，不证明新增代码与镜像测试已通过。
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
@@ -85,12 +86,27 @@ type Properties struct {
 }
 
 func (m *Properties) Scan(val interface{}) error {
-	bytesValue, _ := val.([]byte)
+	*m = Properties{}
+	var bytesValue []byte
+	switch value := val.(type) {
+	case nil:
+		return nil
+	case []byte:
+		bytesValue = value
+	case string:
+		bytesValue = []byte(value)
+	default:
+		return fmt.Errorf("unsupported task properties database value %T", val)
+	}
 	if len(bytesValue) == 0 {
-		*m = Properties{}
 		return nil
 	}
-	return common.Unmarshal(bytesValue, m)
+	var properties Properties
+	if err := common.Unmarshal(bytesValue, &properties); err != nil {
+		return err
+	}
+	*m = properties
+	return nil
 }
 
 func (m Properties) Value() (driver.Value, error) {
@@ -112,14 +128,34 @@ type TaskPrivateData struct {
 	BillingContext *TaskBillingContext `json:"billing_context,omitempty"` // 计费参数快照（用于轮询阶段重新计算）
 }
 
+// TaskBillingContextVersion identifies a complete submission-rate snapshot.
+const TaskBillingContextVersion = 1
+
 // TaskBillingContext 记录任务提交时的计费参数，以便轮询阶段可以重新计算额度。
 type TaskBillingContext struct {
+	Version         int                `json:"version,omitempty"`
+	Complete        bool               `json:"complete,omitempty"`          // All submission rates captured; zero is an explicit free rate.
 	ModelPrice      float64            `json:"model_price,omitempty"`       // 模型单价
-	GroupRatio      float64            `json:"group_ratio,omitempty"`       // 分组倍率
-	ModelRatio      float64            `json:"model_ratio,omitempty"`       // 模型倍率
+	GroupRatio      float64            `json:"group_ratio"`                 // 分组倍率
+	ModelRatio      float64            `json:"model_ratio"`                 // 模型倍率
 	OtherRatios     map[string]float64 `json:"other_ratios,omitempty"`      // 附加倍率（时长、分辨率等）
 	OriginModelName string             `json:"origin_model_name,omitempty"` // 模型名称，必须为OriginModelName
 	PerCallBilling  bool               `json:"per_call_billing,omitempty"`  // 按次计费：跳过轮询阶段的差额结算
+}
+
+// NewTaskBillingContext freezes the final submission prices, including the
+// selected user's special group rate and an independent other-ratio map.
+func NewTaskBillingContext(info *commonRelay.RelayInfo) *TaskBillingContext {
+	if info == nil {
+		return nil
+	}
+	return &TaskBillingContext{
+		Version: TaskBillingContextVersion, Complete: true,
+		ModelPrice: info.PriceData.ModelPrice, ModelRatio: info.PriceData.ModelRatio,
+		GroupRatio: info.PriceData.GroupRatioInfo.GroupRatio, OtherRatios: info.PriceData.OtherRatios(),
+		OriginModelName: info.OriginModelName,
+		PerCallBilling:  common.StringsContains(constant.TaskPricePatches, info.OriginModelName) || info.PriceData.UsePrice,
+	}
 }
 
 // GetUpstreamTaskID 获取上游真实 task ID（用于与 provider 通信）
@@ -147,11 +183,27 @@ func GenerateTaskID() string {
 }
 
 func (p *TaskPrivateData) Scan(val interface{}) error {
-	bytesValue, _ := val.([]byte)
+	*p = TaskPrivateData{}
+	var bytesValue []byte
+	switch value := val.(type) {
+	case nil:
+		return nil
+	case []byte:
+		bytesValue = value
+	case string:
+		bytesValue = []byte(value)
+	default:
+		return fmt.Errorf("unsupported task private data database value %T", val)
+	}
 	if len(bytesValue) == 0 {
 		return nil
 	}
-	return common.Unmarshal(bytesValue, p)
+	var privateData TaskPrivateData
+	if err := common.Unmarshal(bytesValue, &privateData); err != nil {
+		return err
+	}
+	*p = privateData
+	return nil
 }
 
 func (p TaskPrivateData) Value() (driver.Value, error) {

@@ -288,3 +288,21 @@ SQLite 目标及重定向；浏览器只允许同源请求，核对当前 SHA �
 Node22 `npm run runtime:probe:test`、YAML/Bash 语法已通过；需推送后手动 dispatch 并核对
 精确 headSha、两个 edition 的实际步骤/报告。镜像尚待验证，不以本地单测代替。
 这只是新安装/认证/前端启动，不是完整 Key/Provider 流程、三库恢复或 Docker Desktop 验收。
+
+首轮无发布测试 `540cf32` / `33766140801` 的 Full/LAN 构建和新库 API 探针完成，但实际
+浏览器构建标识均失败；回溯生产产物发现 env 别名阻止 Rsbuild 注入版本/SHA，修复与
+复验进行中，不能以旧格式单测或镜像构建成功替代。本机前端补项使用 Bun、Node22，
+单测断言确切注入值并运行 typecheck/lint/生产构建；不修改 UI 布局。
+任务快照异常早退守卫独立复审及专项 race 已通过；更广轮询 race 发现共享 fixture 和
+生产 logger 状态竞争，当次未标为 race 通过；C06 修复证据见下段。
+
+C06 修复现已通过 logger 全包 race（2.595s）、全部 UpdateVideoTasks race（3.326s）与
+独立复审；主代理最终 logger/model/controller/service/Kling 整合 race 已通过，提交 CI 待验。
+前端使用 Node22＋Bun，`bun run test --maxWorkers=2`
+为 64 文件/336 项通过（101.96s），typecheck、涉及文件 oxlint 及 production build 通过。
+生产构建命令为 `VITE_REACT_APP_VERSION=0.1.1 VITE_BUILD_ID=fixture-s4-build RAYON_NUM_THREADS=2 bun run build`，
+耗时 6.64s，产物含合成标识；这不是不可变 GitHub SHA 或镜像验收，不提交 dist。
+
+2026-09-04 最终根模块全量/vet/build、整合定向 race、relaykit 独立 build/test 已通过，
+命令和边界见[完成度审计](COMPLETION_AUDIT.md#s2-b1-与-s4-01进行中尚未验收)。提交后的
+实库新场景、Full/LAN 镜像和最终源码包仍需分别核验。
