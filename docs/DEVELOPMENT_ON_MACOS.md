@@ -354,7 +354,7 @@ relaykit 及合法类型/`json.Valid` 使用不计。D01 将 GitHub、Discord、
 不让 `relaykit` 导入根模块 `common`。当前镜像验收仍对应 `237c0da`，没有把常规 CI 写成
 `6b3042a` 的 Docker 证明。
 
-### S2-C07 / D02 视频正文缓存与 Provider 边界（本地完成、待 CI）
+### S2-C07 / D02 视频正文缓存与 Provider 边界（已完成当前范围）
 
 Kling/Jimeng 兼容 adapter 过去先缓存原始正文，再只改直接 Body；后续日志、Distributor、
 controller 和 validator 仍优先读旧 `KeyBodyStorage`，导致统一 envelope 不可达。现在通过
@@ -369,6 +369,7 @@ Kling mode/duration/image 和 Jimeng frames 由已验证顶层字段决定。Jim
 
 本机在允许 Go cache、临时文件和回环 fixture 的环境中通过受影响包、common/middleware
 全包 race、受影响 vet 与根模块低并行全量测试。首次沙箱 cache/监听拒绝不是代码失败；
-红测和两轮独立 Sol 复审记录见完成度审计。当前待同提交 CI，未连接真实 Provider、数据库
-或凭据，不证明真实任务费用/结果；Jimeng 查询 handler 候选另审。该批无页面改动，版本
-保持 0.1.1。
+红测和两轮独立 Sol 复审记录见完成度审计；`f7cc5c3` /
+[CI 33798508808](https://github.com/ForceMind/MyAPI/actions/runs/33798508808) 七项成功，C07/D02
+当前范围完成。未连接真实 Provider、数据库或凭据，不证明真实任务费用/结果；Jimeng 查询
+handler 候选另审。该批无页面改动，版本保持 0.1.1；最新 Docker 验收仍对应 `237c0da`。

@@ -320,7 +320,7 @@ JSON/header、token/user 映射及宽松单值语义；全局 transport 和合�
 其余 Frontend、S1/S2-A 实库、S2-C Redis、Desktop、Distribution 也成功。D01 当前范围完成。
 无页面变更，`VERSION` 保持 0.1.1；不发布、不调用真实 Provider、不读取本机凭据。
 
-## S2-C07 / D02 视频正文与 Provider 边界（2026-09-04，本地完成、待同提交 CI）
+## S2-C07 / D02 视频正文与 Provider 边界（2026-09-04，已完成当前范围）
 
 D02 只读扫描最初只计划把 `middleware/jimeng_adapter.go`、`kling_adapter.go` 的两个
 `json.Marshal` 等价替换为 `common.Marshal`；Sol ultra 数据流追踪进一步确认真实 P1：
@@ -350,12 +350,18 @@ converter 实际把权威上游模型改为 `metadata-model-name`，Jimeng 四�
 包；common/middleware 全包 race 分别 2.302s/1.956s；受影响六包及 router 的 `go vet -p 1`；
 低并行 `go test -p 1 ./... -count=1` 根模块全量。结构门禁从 58/23 降至 56/21。
 独立 Sol 首轮列出两项 P1 和身份/测试 P2，全部修正；第二轮无新 P1/P2，末项图片权威
-P3 断言已补。当前未提交/无 CI，故保持待验证。无真实 Provider/生产数据/凭据、数据库
-迁移、relaykit 或页面改动，`VERSION` 仍为 0.1.1。Jimeng GET handler 候选、metadata
-JSON 字符串兼容、真实上游费用和完整端到端任务仍未验证。
+P3 断言已补。最终 `f7cc5c326a725170663e035a56b3573883ab198e` /
+[CI 33798508808](https://github.com/ForceMind/MyAPI/actions/runs/33798508808) 七项成功；Backend
+完成根/relaykit vet、build、全量 test、配置发布 race 与 task billing/logging race，其他
+Frontend、S1/S2-A 实库、S2-C Redis、Desktop、Distribution 作业也成功。C07/D02 当前范围
+完成。无真实 Provider/生产数据/凭据、数据库迁移、relaykit 或页面改动，`VERSION` 仍为
+0.1.1。Jimeng GET handler 候选、metadata JSON 字符串兼容、真实上游费用和完整端到端任务
+仍未验证。
 
 ## 最近 CI 证据
 
+- S2-C07/D02 最终提交 `f7cc5c3`：[CI 33798508808](https://github.com/ForceMind/MyAPI/actions/runs/33798508808)
+  七项成功；正文缓存、视频模型/时长边界、原始日志身份和 wrapper 余量 56/21 已闭环。
 - S2-D01 最终提交 `6b3042a`：[CI 33793219733](https://github.com/ForceMind/MyAPI/actions/runs/33793219733)
   七项成功；OAuth 9 处 wrapper 清零，结构余量 58/23，定向/race/全量和独立复审均通过。
 - S4-02 最终提交 `237c0da`：[CI 33790468336](https://github.com/ForceMind/MyAPI/actions/runs/33790468336)
