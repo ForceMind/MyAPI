@@ -72,7 +72,7 @@ end
 if pending > 0 and pending <= incoming then
   redis.call('DEL', KEYS[2])
 end
-if ARGV[10] == '0' and redis.call('EXISTS', KEYS[1]) == 0 then
+if ARGV[11] == '0' and redis.call('EXISTS', KEYS[1]) == 0 then
   return 1
 end
 redis.call('HSET', KEYS[1],

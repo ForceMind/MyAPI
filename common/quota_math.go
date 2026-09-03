@@ -53,10 +53,17 @@ func (c *QuotaClamp) AuditMap() map[string]interface{} {
 	if c == nil {
 		return nil
 	}
+	// JSON has no numeric representation for NaN or infinity. Keep finite
+	// values numeric, but preserve diagnostic non-finite values as strings so
+	// serializing this marker cannot discard the surrounding log metadata.
+	var original any = c.Original
+	if math.IsNaN(c.Original) || math.IsInf(c.Original, 0) {
+		original = fmt.Sprint(c.Original)
+	}
 	return map[string]interface{}{
 		"op":       c.Op,
 		"kind":     c.Kind,
-		"original": c.Original,
+		"original": original,
 		"clamped":  c.Clamped,
 	}
 }

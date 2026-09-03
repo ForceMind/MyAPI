@@ -644,17 +644,23 @@ func settleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor
 	// 0. 按次计费的任务不做差额结算
 	if bc := task.PrivateData.BillingContext; bc != nil && bc.PerCallBilling {
 		logger.LogInfo(ctx, fmt.Sprintf("任务 %s 按次计费，跳过差额结算", task.TaskID))
+		if taskResult.QuotaClamp != nil {
+			RecalculateTaskQuota(ctx, task, task.Quota, "按次计费，保持预扣额度", taskResult.QuotaClamp)
+		}
 		return
 	}
 	// 1. 优先让 adaptor 决定最终额度
 	if actualQuota := adaptor.AdjustBillingOnComplete(task, taskResult); actualQuota > 0 {
-		RecalculateTaskQuota(ctx, task, actualQuota, "adaptor计费调整")
+		RecalculateTaskQuota(ctx, task, actualQuota, "adaptor计费调整", taskResult.QuotaClamp)
 		return
 	}
 	// 2. 回退到 token 重算
 	if taskResult.TotalTokens > 0 {
-		RecalculateTaskQuotaByTokens(ctx, task, taskResult.TotalTokens)
+		RecalculateTaskQuotaByTokens(ctx, task, taskResult.TotalTokens, taskResult.QuotaClamp)
 		return
 	}
 	// 3. 无调整，保持预扣额度
+	if taskResult.QuotaClamp != nil {
+		RecalculateTaskQuota(ctx, task, task.Quota, "上游计费用量不可用，保持预扣额度", taskResult.QuotaClamp)
+	}
 }

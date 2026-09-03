@@ -17,51 +17,93 @@ const (
 	cacheQuotaMiss
 )
 
-const userQuotaReserveScript = `
-if tonumber(redis.call('HGET', KEYS[1], 'Id') or '0') ~= tonumber(ARGV[2])
-  or tonumber(redis.call('HGET', KEYS[1], 'CacheSchema') or '0') ~= tonumber(ARGV[3])
-  or redis.call('HEXISTS', KEYS[1], 'Quota') == 0 then
+var errInvalidQuotaCacheOperation = errors.New("invalid quota cache operation")
+
+// Validate canonical integer strings before the first Redis write. Lua numbers
+// are doubles; restricting quota arithmetic to the shared int32 policy bounds
+// also keeps every addition exact. Redis scripts do not roll back earlier writes
+// when a later HINCRBY fails.
+var quotaCacheScriptPrelude = fmt.Sprintf(`
+local minimum = %d
+local maximum = %d
+local function integerText(value)
+  return type(value) == 'string' and (value == '0' or string.match(value, '^%%-?[1-9]%%d*$') ~= nil)
+end
+local function quotaInteger(value)
+  if not integerText(value) then return nil end
+  local number = tonumber(value)
+  if number == nil or number < minimum or number > maximum then return nil end
+  return number
+end
+local function inRange(value)
+  return value >= minimum and value <= maximum
+end
+local function validTimestamp(value)
+  return integerText(value) and string.sub(value, 1, 1) ~= '-'
+    and (#value < 19 or (#value == 19 and value <= '9223372036854775807'))
+end
+if #KEYS ~= 1 or #ARGV ~= 3 or not integerText(ARGV[2]) or ARGV[2] == '0'
+  or string.sub(ARGV[2], 1, 1) == '-' then
+  return -2
+end
+local amount = quotaInteger(ARGV[1])
+if amount == nil then return -2 end
+`, common.MinQuota, common.MaxQuota)
+
+var userQuotaReserveScript = quotaCacheScriptPrelude + `
+if amount < 0 or not integerText(ARGV[3]) then return -2 end
+if redis.call('HGET', KEYS[1], 'Id') ~= ARGV[2]
+  or redis.call('HGET', KEYS[1], 'CacheSchema') ~= ARGV[3] then
   return -1
 end
-local quota = tonumber(redis.call('HGET', KEYS[1], 'Quota'))
-if quota == nil or quota < tonumber(ARGV[1]) then
+local quota = quotaInteger(redis.call('HGET', KEYS[1], 'Quota'))
+if quota == nil then return -1 end
+if quota < amount then
   return 0
 end
-redis.call('HINCRBY', KEYS[1], 'Quota', -tonumber(ARGV[1]))
+redis.call('HINCRBY', KEYS[1], 'Quota', string.format('%.0f', -amount))
 return 1`
 
-const userQuotaDeltaScript = `
-if tonumber(redis.call('HGET', KEYS[1], 'Id') or '0') ~= tonumber(ARGV[2])
-  or tonumber(redis.call('HGET', KEYS[1], 'CacheSchema') or '0') ~= tonumber(ARGV[3])
-  or redis.call('HEXISTS', KEYS[1], 'Quota') == 0 then
+var userQuotaDeltaScript = quotaCacheScriptPrelude + `
+if not integerText(ARGV[3]) then return -2 end
+if redis.call('HGET', KEYS[1], 'Id') ~= ARGV[2]
+  or redis.call('HGET', KEYS[1], 'CacheSchema') ~= ARGV[3] then
   return -1
 end
-redis.call('HINCRBY', KEYS[1], 'Quota', tonumber(ARGV[1]))
+local quota = quotaInteger(redis.call('HGET', KEYS[1], 'Quota'))
+if quota == nil then return -1 end
+if not inRange(quota + amount) then return -2 end
+redis.call('HINCRBY', KEYS[1], 'Quota', ARGV[1])
 return 1`
 
-const tokenQuotaReserveScript = `
-if tonumber(redis.call('HGET', KEYS[1], 'Id') or '0') ~= tonumber(ARGV[2])
-  or redis.call('HEXISTS', KEYS[1], 'RemainQuota') == 0
-  or redis.call('HEXISTS', KEYS[1], 'UsedQuota') == 0 then
+var tokenQuotaReserveScript = quotaCacheScriptPrelude + `
+if amount < 0 or not validTimestamp(ARGV[3]) then return -2 end
+if redis.call('HGET', KEYS[1], 'Id') ~= ARGV[2] then
   return -1
 end
-local remain = tonumber(redis.call('HGET', KEYS[1], 'RemainQuota'))
-if remain == nil or remain < tonumber(ARGV[1]) then
+local remain = quotaInteger(redis.call('HGET', KEYS[1], 'RemainQuota'))
+local used = quotaInteger(redis.call('HGET', KEYS[1], 'UsedQuota'))
+if remain == nil or used == nil then return -1 end
+if remain < amount then
   return 0
 end
-redis.call('HINCRBY', KEYS[1], 'RemainQuota', -tonumber(ARGV[1]))
-redis.call('HINCRBY', KEYS[1], 'UsedQuota', tonumber(ARGV[1]))
+if not inRange(used + amount) then return -2 end
+redis.call('HINCRBY', KEYS[1], 'RemainQuota', string.format('%.0f', -amount))
+redis.call('HINCRBY', KEYS[1], 'UsedQuota', ARGV[1])
 redis.call('HSET', KEYS[1], 'AccessedTime', ARGV[3])
 return 1`
 
-const tokenQuotaDeltaScript = `
-if tonumber(redis.call('HGET', KEYS[1], 'Id') or '0') ~= tonumber(ARGV[2])
-  or redis.call('HEXISTS', KEYS[1], 'RemainQuota') == 0
-  or redis.call('HEXISTS', KEYS[1], 'UsedQuota') == 0 then
+var tokenQuotaDeltaScript = quotaCacheScriptPrelude + `
+if not validTimestamp(ARGV[3]) then return -2 end
+if redis.call('HGET', KEYS[1], 'Id') ~= ARGV[2] then
   return -1
 end
-redis.call('HINCRBY', KEYS[1], 'RemainQuota', tonumber(ARGV[1]))
-redis.call('HINCRBY', KEYS[1], 'UsedQuota', -tonumber(ARGV[1]))
+local remain = quotaInteger(redis.call('HGET', KEYS[1], 'RemainQuota'))
+local used = quotaInteger(redis.call('HGET', KEYS[1], 'UsedQuota'))
+if remain == nil or used == nil then return -1 end
+if not inRange(remain + amount) or not inRange(used - amount) then return -2 end
+redis.call('HINCRBY', KEYS[1], 'RemainQuota', ARGV[1])
+redis.call('HINCRBY', KEYS[1], 'UsedQuota', string.format('%.0f', -amount))
 redis.call('HSET', KEYS[1], 'AccessedTime', ARGV[3])
 return 1`
 
@@ -70,6 +112,8 @@ func quotaResultFromLua(result int, err error) (cacheQuotaResult, error) {
 		return cacheQuotaMiss, err
 	}
 	switch result {
+	case -2:
+		return cacheQuotaMiss, errInvalidQuotaCacheOperation
 	case 1:
 		return cacheQuotaOK, nil
 	case 0:
@@ -80,24 +124,36 @@ func quotaResultFromLua(result int, err error) (cacheQuotaResult, error) {
 }
 
 func cacheTryReserveUserQuota(userID int, amount int64) (cacheQuotaResult, error) {
+	if amount < 0 || amount > common.MaxQuota {
+		return cacheQuotaMiss, errInvalidQuotaCacheOperation
+	}
 	result, err := common.RDB.Eval(context.Background(), userQuotaReserveScript,
 		[]string{getUserCacheKey(userID)}, amount, userID, userCacheSchemaVersion).Int()
 	return quotaResultFromLua(result, err)
 }
 
 func cacheApplyUserQuotaDelta(userID int, delta int64) (cacheQuotaResult, error) {
+	if delta < common.MinQuota || delta > common.MaxQuota {
+		return cacheQuotaMiss, errInvalidQuotaCacheOperation
+	}
 	result, err := common.RDB.Eval(context.Background(), userQuotaDeltaScript,
 		[]string{getUserCacheKey(userID)}, delta, userID, userCacheSchemaVersion).Int()
 	return quotaResultFromLua(result, err)
 }
 
 func cacheTryReserveTokenQuota(id int, key string, amount int64) (cacheQuotaResult, error) {
+	if amount < 0 || amount > common.MaxQuota {
+		return cacheQuotaMiss, errInvalidQuotaCacheOperation
+	}
 	result, err := common.RDB.Eval(context.Background(), tokenQuotaReserveScript,
 		[]string{getTokenCacheKey(key)}, amount, id, common.GetTimestamp()).Int()
 	return quotaResultFromLua(result, err)
 }
 
 func cacheApplyTokenQuotaDelta(id int, key string, delta int64) (cacheQuotaResult, error) {
+	if delta < common.MinQuota || delta > common.MaxQuota {
+		return cacheQuotaMiss, errInvalidQuotaCacheOperation
+	}
 	result, err := common.RDB.Eval(context.Background(), tokenQuotaDeltaScript,
 		[]string{getTokenCacheKey(key)}, delta, id, common.GetTimestamp()).Int()
 	return quotaResultFromLua(result, err)
@@ -166,6 +222,9 @@ func TryReserveUserQuota(id int, quota int) (bool, error) {
 	if quota < 0 {
 		return false, errors.New("quota 不能为负数！")
 	}
+	if quota > common.MaxQuota {
+		return false, errInvalidQuotaCacheOperation
+	}
 	if quota == 0 {
 		return true, nil
 	}
@@ -178,6 +237,9 @@ func TryReserveUserQuota(id int, quota int) (bool, error) {
 		if _, hydrateErr := GetUserCache(id); hydrateErr == nil {
 			result, err = cacheTryReserveUserQuota(id, int64(quota))
 		}
+	}
+	if errors.Is(err, errInvalidQuotaCacheOperation) {
+		return false, err
 	}
 	if err != nil || result == cacheQuotaMiss {
 		if err != nil {
@@ -204,6 +266,9 @@ func TryReserveTokenQuota(id int, key string, quota int, unlimited bool) (bool, 
 	if quota < 0 {
 		return false, errors.New("quota 不能为负数！")
 	}
+	if quota > common.MaxQuota {
+		return false, errInvalidQuotaCacheOperation
+	}
 	if quota == 0 {
 		return true, nil
 	}
@@ -219,6 +284,9 @@ func TryReserveTokenQuota(id int, key string, quota int, unlimited bool) (bool, 
 		if _, hydrateErr := GetTokenByKey(key, true); hydrateErr == nil {
 			result, err = cacheTryReserveTokenQuota(id, key, int64(quota))
 		}
+	}
+	if errors.Is(err, errInvalidQuotaCacheOperation) {
+		return false, err
 	}
 	if err != nil || result == cacheQuotaMiss {
 		if err != nil {

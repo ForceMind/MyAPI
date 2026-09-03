@@ -12,6 +12,7 @@ import (
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
+	"github.com/ForceMind/MyAPI/setting/ratio_setting"
 	"github.com/ForceMind/MyAPI/types"
 	"github.com/glebarez/sqlite"
 	"github.com/shopspring/decimal"
@@ -1225,4 +1226,68 @@ func TestSettle_NonPerCallBilling_AppliesAdaptorAdjustment(t *testing.T) {
 	log := getLastLog(t)
 	require.NotNil(t, log)
 	assert.Equal(t, model.LogTypeRefund, log.Type)
+}
+
+func TestSettleTaskSaturationAuditWhenRepricingIsSkipped(t *testing.T) {
+	for _, tc := range []struct {
+		name                                string
+		perCall, noRatio, noGroup, noTokens bool
+		adaptorQuota                        int
+	}{
+		{name: "per-call", perCall: true},
+		{name: "disabled model ratio", noRatio: true},
+		{name: "missing group", noGroup: true},
+		{name: "no usable tokens", noTokens: true},
+		{name: "adaptor zero delta", adaptorQuota: 500},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			truncate(t)
+			oldRatios := ratio_setting.ModelRatio2JSONString()
+			t.Cleanup(func() { require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(oldRatios)) })
+			modelRatio := 1.0
+			if tc.noRatio {
+				modelRatio = 0
+			}
+			require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(common.MapToJsonStr(map[string]any{"test-model": modelRatio})))
+			seedUser(t, 82, 10000)
+			seedChannel(t, 82)
+			seedToken(t, 82, 82, "task-saturation-token", 10000)
+			seedChargedAccounting(t, 82, 82, 82, 500, 1)
+			task := makeTask(82, 82, 500, 82, BillingSourceWallet, 0)
+			task.PrivateData.BillingContext.PerCallBilling = tc.perCall
+			if tc.noGroup {
+				task.Group = ""
+				require.NoError(t, model.DB.Model(&model.User{}).Where("id = ?", 82).Update("group", "").Error)
+			}
+			require.NoError(t, model.DB.Create(task).Error)
+			_, clamp := common.QuotaFromFloatChecked(1e100)
+			taskResult := &relaycommon.TaskInfo{Status: model.TaskStatusSuccess, TotalTokens: common.MaxQuota, QuotaClamp: clamp}
+			if tc.noTokens {
+				taskResult.TotalTokens = 0
+			}
+
+			settleTaskBillingOnComplete(context.Background(), &mockAdaptor{adjustReturn: tc.adaptorQuota}, task, taskResult)
+
+			assert.Equal(t, 500, getTaskQuota(t, task.ID))
+			assert.Equal(t, 10000, getUserQuota(t, 82))
+			assert.Equal(t, 10000, getTokenRemainQuota(t, 82))
+			assert.Equal(t, 500, getTokenUsedQuota(t, 82))
+			used, requests := getUserUsageAccounting(t, 82)
+			assert.Equal(t, 500, used)
+			assert.Equal(t, 1, requests)
+			assert.Equal(t, int64(500), getChannelUsedQuota(t, 82))
+			require.Equal(t, int64(1), countLogs(t))
+			log := getLastLog(t)
+			require.NotNil(t, log)
+			assert.Zero(t, log.Quota)
+			assert.Equal(t, model.LogTypeConsume, log.Type)
+			var other map[string]any
+			require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
+			assert.Equal(t, float64(500), other["actual_quota"])
+			assert.Equal(t, float64(500), other["pre_consumed_quota"])
+			admin, ok := other["admin_info"].(map[string]any)
+			require.True(t, ok)
+			assert.Contains(t, admin, "quota_saturation")
+		})
+	}
 }

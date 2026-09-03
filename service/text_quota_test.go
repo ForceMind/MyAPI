@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"math"
 	"net/http/httptest"
 	"testing"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/pkg/billingexpr"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	relayconstant "github.com/ForceMind/MyAPI/relay/constant"
@@ -21,6 +23,104 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestCalculateTextQuotaSummaryTotalTokensSaturatesBeforeAddition(t *testing.T) {
+	for _, tc := range []struct {
+		name                             string
+		prompt, completion, total, quota int
+		clamped                          bool
+	}{
+		{"normal", 100, 20, 120, 120, false},
+		{"zero", 0, 0, 0, 0, false},
+		{"int overflow", math.MaxInt, 1, common.MaxQuota, common.MaxQuota, true},
+		{"below int32 boundary", common.MaxQuota - 2, 1, common.MaxQuota - 1, common.MaxQuota - 1, false},
+		{"at int32 boundary", common.MaxQuota - 1, 1, common.MaxQuota, common.MaxQuota, true},
+		{"above int32 boundary", common.MaxQuota, 1, common.MaxQuota, common.MaxQuota, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			info := &relaycommon.RelayInfo{StartTime: time.Now(), PriceData: hosttypes.PriceData{
+				ModelRatio: 1, CompletionRatio: 1, GroupRatioInfo: hosttypes.GroupRatioInfo{GroupRatio: 1},
+			}}
+			summary := calculateTextQuotaSummary(ctx, info, &dto.Usage{PromptTokens: tc.prompt, CompletionTokens: tc.completion})
+			assert.Equal(t, tc.total, summary.TotalTokens)
+			assert.Equal(t, tc.quota, summary.Quota)
+			assert.Equal(t, tc.total > 0, summary.hasBillableUsage())
+			assert.Equal(t, tc.clamped, info.QuotaClamp != nil)
+		})
+	}
+}
+
+type textQuotaTestSettler struct {
+	preConsumed int
+	settled     []int
+	refund      int
+}
+
+func (s *textQuotaTestSettler) Settle(quota int) error {
+	s.settled = append(s.settled, quota)
+	if quota < s.preConsumed {
+		s.refund += s.preConsumed - quota
+	}
+	return nil
+}
+func (s *textQuotaTestSettler) Refund(*gin.Context)      {}
+func (s *textQuotaTestSettler) NeedsRefund() bool        { return false }
+func (s *textQuotaTestSettler) GetPreConsumedQuota() int { return s.preConsumed }
+func (s *textQuotaTestSettler) Reserve(int) error        { return nil }
+
+func TestPostTextConsumeQuotaOverflowDoesNotRefundPreconsume(t *testing.T) {
+	truncate(t)
+	seedUser(t, 81, 1000)
+	seedChannel(t, 81)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	ctx.Set(common.RequestIdKey, "text-overflow-request")
+	ctx.Set("username", "test_user")
+	settler := &textQuotaTestSettler{preConsumed: 384}
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{ChannelId: 81},
+		UserId:      81, UserQuota: math.MaxInt, OriginModelName: "text-overflow-test", StartTime: time.Now(),
+		Billing: settler, FinalPreConsumedQuota: 384,
+		PriceData: hosttypes.PriceData{UsePrice: true, ModelPrice: 384 / common.QuotaPerUnit,
+			GroupRatioInfo: hosttypes.GroupRatioInfo{GroupRatio: 1}},
+	}
+	var warnings bytes.Buffer
+	common.LogWriterMu.Lock()
+	oldWriter := gin.DefaultErrorWriter
+	gin.DefaultErrorWriter = &warnings
+	common.LogWriterMu.Unlock()
+	t.Cleanup(func() {
+		common.LogWriterMu.Lock()
+		gin.DefaultErrorWriter = oldWriter
+		common.LogWriterMu.Unlock()
+	})
+
+	PostTextConsumeQuota(ctx, info, &dto.Usage{PromptTokens: math.MaxInt, CompletionTokens: 1}, nil)
+
+	assert.Equal(t, []int{384}, settler.settled)
+	assert.Zero(t, settler.refund)
+	used, requests := getUserUsageAccounting(t, 81)
+	assert.Equal(t, 384, used)
+	assert.Equal(t, 1, requests)
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	assert.Equal(t, 384, log.Quota)
+	var other map[string]any
+	require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
+	admin, ok := other["admin_info"].(map[string]any)
+	require.True(t, ok)
+	assert.Contains(t, admin, "quota_saturation")
+	assert.Contains(t, warnings.String(), "text-overflow-request")
+	assert.Contains(t, warnings.String(), "quota saturation on consume log")
+	userLogs, _, err := model.GetUserLogs(81, model.LogTypeUnknown, 0, 0, "", "", 0, 10, "", "", "")
+	require.NoError(t, err)
+	require.Len(t, userLogs, 1)
+	var userOther map[string]any
+	require.NoError(t, common.UnmarshalJsonStr(userLogs[0].Other, &userOther))
+	assert.NotContains(t, userOther, "admin_info")
+	assert.Contains(t, userOther, "model_price")
+}
 
 func TestCalculateTextQuotaSummaryUnifiedForClaudeSemantic(t *testing.T) {
 	gin.SetMode(gin.TestMode)

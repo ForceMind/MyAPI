@@ -262,7 +262,13 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 
 	summary.PromptTokens = usage.PromptTokens
 	summary.CompletionTokens = usage.CompletionTokens
-	summary.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+	// Add before converting to int: overflowing the native sum would make a
+	// billable request appear empty and refund its pre-consumed quota.
+	totalTokens, totalClamp := common.QuotaFromDecimalChecked(
+		decimal.NewFromInt(int64(usage.PromptTokens)).Add(decimal.NewFromInt(int64(usage.CompletionTokens))),
+	)
+	summary.TotalTokens = totalTokens
+	noteQuotaClamp(relayInfo, totalClamp)
 	summary.CacheTokens = usage.PromptTokensDetails.CachedTokens
 	summary.CacheCreationTokens = usage.PromptTokensDetails.CacheCreationTokensTotal()
 	summary.CacheCreationTokens5m = usage.ClaudeCacheCreation5mTokens

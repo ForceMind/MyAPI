@@ -124,3 +124,37 @@ func TestQuotaFromDecimalChecked(t *testing.T) {
 		assert.Equal(t, QuotaClampOverflow, clamp.Kind)
 	}
 }
+
+func TestQuotaClampAuditMapJSONSafe(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		original float64
+		want     any
+	}{
+		{"finite", 1e100, float64(1e100)},
+		{"nan", math.NaN(), "NaN"},
+		{"positive infinity", math.Inf(1), "+Inf"},
+		{"negative infinity", math.Inf(-1), "-Inf"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, clamp := QuotaFromFloatChecked(tc.original)
+			require.NotNil(t, clamp)
+			other := map[string]any{
+				"model_ratio": 0.5,
+				"admin_info":  map[string]any{"quota_saturation": clamp.AuditMap()},
+			}
+			encoded := MapToJsonStr(other)
+			require.NotEmpty(t, encoded, "a non-finite original must not discard the entire other payload")
+			var decoded map[string]any
+			require.NoError(t, UnmarshalJsonStr(encoded, &decoded))
+			assert.Equal(t, 0.5, decoded["model_ratio"])
+			admin, ok := decoded["admin_info"].(map[string]any)
+			require.True(t, ok)
+			saturation, ok := admin["quota_saturation"].(map[string]any)
+			require.True(t, ok)
+			assert.Equal(t, tc.want, saturation["original"])
+			assert.Equal(t, string(clamp.Kind), saturation["kind"])
+			assert.Equal(t, float64(clamp.Clamped), saturation["clamped"])
+		})
+	}
+}

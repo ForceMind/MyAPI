@@ -31,6 +31,7 @@ func videoProxyError(c *gin.Context, status int, errType, message string) {
 }
 
 func VideoProxy(c *gin.Context) {
+	setPrivateVideoCacheHeaders(c.Writer.Header())
 	taskID := c.Param("task_id")
 	if taskID == "" {
 		videoProxyError(c, http.StatusBadRequest, "invalid_request_error", "task_id is required")
@@ -175,7 +176,9 @@ func VideoProxy(c *gin.Context) {
 		}
 	}
 
-	c.Writer.Header().Set("Cache-Control", "public, max-age=86400")
+	// Upstream cache policy must not make this authenticated, owner-scoped
+	// response reusable by shared caches.
+	setPrivateVideoCacheHeaders(c.Writer.Header())
 	c.Writer.WriteHeader(resp.StatusCode)
 	if _, err = io.Copy(c.Writer, resp.Body); err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("Failed to stream video content: %s", err.Error()))
@@ -183,6 +186,7 @@ func VideoProxy(c *gin.Context) {
 }
 
 func writeVideoDataURL(c *gin.Context, dataURL string) error {
+	setPrivateVideoCacheHeaders(c.Writer.Header())
 	parts := strings.SplitN(dataURL, ",", 2)
 	if len(parts) != 2 {
 		return fmt.Errorf("invalid data url")
@@ -209,8 +213,15 @@ func writeVideoDataURL(c *gin.Context, dataURL string) error {
 	}
 
 	c.Writer.Header().Set("Content-Type", mimeType)
-	c.Writer.Header().Set("Cache-Control", "public, max-age=86400")
 	c.Writer.WriteHeader(http.StatusOK)
 	_, err = c.Writer.Write(videoBytes)
 	return err
+}
+
+func setPrivateVideoCacheHeaders(header http.Header) {
+	header.Set("Cache-Control", "private, no-store")
+	// CDN/reverse-proxy directives can take precedence over Cache-Control.
+	for _, name := range []string{"CDN-Cache-Control", "Cloudflare-CDN-Cache-Control", "Surrogate-Control", "X-Accel-Expires", "Expires"} {
+		header.Del(name)
+	}
 }

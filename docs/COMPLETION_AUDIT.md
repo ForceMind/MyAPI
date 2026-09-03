@@ -90,7 +90,41 @@ Pancake 履约使用已验签合成事件，公开入口另验非法签名拒绝
 所有支付数据/签名均为 fixture，没有真实付款。明确回滚的提交失败不代表不确定提交
 恢复；完整三库备份恢复、真实网关重试、续费/争议/生产对账及 S2-B/C 仍未验收。
 
+## S2-C 实施中（2026-09-03）
+
+开始基线 `2d705a7` / CI `33752536294` 六项成功。当前不是完整 S2 验收，具体状态见
+[执行矩阵](DEVELOPMENT_EXECUTION_PLAN.md#s2-c-数值缓存与-http-隐私)。
+
+已实际复现的红测：
+
+- 文本 `PromptTokens=MaxInt, CompletionTokens=1` 导致总数溢负、收费归零、测试预扣 384 被退；
+  clamp 的 NaN/±Inf 又使 `other` JSON 编码成空串。
+- Kling 首次过大扣减乘小倍率后丢失 clamp；零差额和非正 token 缺审计。
+  独立复审追加 ±1e309（ParseFloat 返回 ErrRange），红测后修复，普通语法错误语义保留。
+- token hash `UsedQuota=bad` 时，旧 reserve/delta 在报错前已把 `RemainQuota=100` 改成 90/110；
+  metadata-only 用户刷新因 ARGV 索引错误创建缺 Quota hash，使实际 123 被读成 0。
+- 视频返回 public 缓存；支付日志暴露合成正文/签名/query/客户资料。独立复审还指出真实
+  Gin 访问日志会拼入 query，已通过挂载生产日志中间件的红测复现并修复；只对四个真实
+  webhook 路由记录模板，普通路由既有日志语义与请求原文不变。
+
+C01/C02 定向 common/service/Kling/relay-common 回归和独立复审已通过；C04/C05 定向、
+middleware/controller 全量与 vet 通过，含生产访问日志补项，独立复审闭环。C03a 本机脚本/预扣/
+补偿/围栏定向通过，真实 Redis 7 CI 尚未执行，本机无 Redis server/Docker，不冒充实测。
+新增 Redis fixture 只接受显式开启、字面 loopback、空实例及 DB 15；不删除已有数据。
+
+本机使用 `GOMAXPROCS=1 GOWORK=off GOCACHE=/tmp/myapi-gocache GOMODCACHE=/tmp/myapi-gomodcache`：
+`go test -p 1 ./model -run 'Test(QuotaCache|QuotaScripts|UserCacheMetadata)' -count=1 -timeout=120s`
+通过（1.533s）；`go vet -p 1 ./common ./model ./service ./controller ./middleware ./relay/channel/task/kling`
+通过。`go test -p 1 ./... -count=1 -timeout=180s` 根模块全量回归通过；本次真实 Redis CI
+仍待验证，不提前据本机结果完成阶段。
+
+仍未改变 C03b 的缓存恢复和高层异步增减/数据库更新语义；正在请求故障策略决定。
+S2-B 持久化恢复、真实付款/供应商、生产与设备验收均未包含在本批。
+
 ## 最近 CI 证据
+
+- R1 文档收尾 `2d705a7`：[CI 33752536294](https://github.com/ForceMind/MyAPI/actions/runs/33752536294)
+  六项成功，作为 S2-C 开始基线，不代表当前未提交的 C 系列修复已通过 CI。
 
 - S2-A-R1 `767b17b`：[CI 33751536908](https://github.com/ForceMind/MyAPI/actions/runs/33751536908)
   六项 success；实库两种数据库各七场景均含准确日志/中文读回断言，无 skip 或旧日志错误。

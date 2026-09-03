@@ -358,9 +358,12 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 			video := videos[0]
 			taskInfo.Url = video.Url
 		}
-		if tokens, err := strconv.ParseFloat(resPayload.Data.FinalUnitDeduction, 64); err == nil {
+		// Range errors carry +/-Inf and still require saturation auditing;
+		// syntax errors contain no usable deduction and keep the precharge.
+		if tokens, err := strconv.ParseFloat(resPayload.Data.FinalUnitDeduction, 64); err == nil || errors.Is(err, strconv.ErrRange) {
 			// 上游返回的扣费数值，饱和转换防止超大数值回绕成负数
-			rounded := common.QuotaFromFloat(math.Ceil(tokens))
+			rounded, clamp := common.QuotaFromFloatChecked(math.Ceil(tokens))
+			taskInfo.QuotaClamp = clamp
 			if rounded > 0 {
 				taskInfo.CompletionTokens = rounded
 				taskInfo.TotalTokens = rounded

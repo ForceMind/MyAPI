@@ -957,6 +957,8 @@ type TaskInfo struct {
 	Progress         string `json:"progress,omitempty"`
 	CompletionTokens int    `json:"completion_tokens,omitempty"` // 用于按倍率计费
 	TotalTokens      int    `json:"total_tokens,omitempty"`      // 用于按倍率计费
+
+	QuotaClamp *common.QuotaClamp `json:"-"` // Internal provider-usage saturation audit; never part of the task response.
 }
 
 func FailTaskInfo(reason string) *TaskInfo {

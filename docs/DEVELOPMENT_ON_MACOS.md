@@ -261,3 +261,10 @@ S2-A-R1 交付 `767b17b` / CI `33751536908` 六项成功，MySQL5.7/PostgreSQL9.
 字符集 DDL 只作用于已校验的空库 `myapi_s2a_test`，不属于生产 schema 迁移。
 SQLite 后三项为顺序重放，不替代实库并发；本批也不替代 Docker Desktop、完整升级恢复、
 真实网关付款、跨实例部署或真实设备验收。
+
+S2-C 从 `2d705a7` / CI `33752536294` 开始。Mac 上先跑 miniredis/SQLite 和内存上游
+fixture；新增真实 Redis 7 CI 使用开发 Compose 同一主版本，要求
+`MYAPI_S2C_REDIS_TESTS=1`、`MYAPI_S2C_REDIS_ADDR` 为字面 loopback 与有效端口，整个
+实例必须为空，仅写 DB 15，不 FLUSH 或删除键。绝对过期时间由 PEXPIRETIME 检查，
+测试不靠等待时间猜测 TTL 行为。该 CI 尚待本批提交实跑，不是本机 Redis/Docker 验收。
+批量缓存损坏后的恢复策略未改变；不得使用生产 Redis 或旧数据库快照冒充安全恢复。
