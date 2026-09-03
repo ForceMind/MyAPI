@@ -101,7 +101,9 @@ jobs:
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
-          cache-dependency-path: go.sum
+          cache-dependency-path: |
+            go.sum
+            relaykit/go.sum
       - name: Verify identity migration and option persistence on disposable databases
         env:
           MYAPI_S1_MYSQL_DSN: root:s1-fixture-password@tcp(127.0.0.1:${{ job.services.mysql.ports[3306] }})/myapi_s1_test?charset=utf8mb4&parseTime=true

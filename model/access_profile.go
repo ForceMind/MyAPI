@@ -64,10 +64,13 @@ func prepareAccessProfileIdentifiers() error {
 			AccessProfileID string `gorm:"column:access_profile_id;type:varchar(64)"`
 		}{}},
 	} {
-		if !DB.Migrator().HasTable(column.table) || DB.Migrator().HasColumn(column.table, column.name) {
+		migrator := DB.Table(column.table).Migrator()
+		// MySQL's base GORM HasColumn dereferences the parsed model schema;
+		// a bare table-name string does not provide one.
+		if !migrator.HasTable(column.model) || migrator.HasColumn(column.model, column.name) {
 			continue
 		}
-		if err := DB.Table(column.table).Migrator().AddColumn(column.model, column.name); err != nil {
+		if err := migrator.AddColumn(column.model, column.name); err != nil {
 			return err
 		}
 	}
