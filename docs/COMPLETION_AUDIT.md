@@ -65,10 +65,18 @@ CI 新增独立 `S2-A payment and subscription database regression`，目标仅�
 `model/main.go` 的 `checkMySQLChineseSupport`；连接 DSN 的 `charset=utf8mb4` 不等于
 数据库/表的默认字符集已配置。生产启动已有字符集拒绝保护，本次不修改该保护或生产库。
 
-追加 **S2-A-R1（未开始／待确认）**：仅修正专用、已确认空库的 MySQL fixture 字符集，
+追加 **S2-A-R1（进行中／已确认）**，开始基线 `5db9558`：仅修正专用、已确认空库的 MySQL fixture 字符集，
 复用真实启动的中文支持检查；补齐成功/重复/回滚与并发付款的准确日志条数、中文内容
 断言，再重跑两种实库及相关回归。范围为 `model/payment_database_test.go` 和验收文档，
 不改变生产付款语义、schema 迁移或发布配置。本轮独立静态复审通过不替代这一运行时发现。
+
+R1 已实现并待本次实库 CI：固定 `ALTER DATABASE myapi_s2a_test` 仅在目标及空库检查后
+配置 utf8mb4；复用中文支持检查，在 AutoMigrate 前后验证。七个业务场景均比较历史
+日志快照、新增数量及完整中文正文，订阅退款保持不新增充值日志。新增
+`TestS2APaymentSQLite` 复用同一矩阵，但后三项仅顺序重放，明确不模拟 MySQL/PG 行锁。
+本机 `go test -p 1 ./model -run '^TestS2APayment(SQLite|DatabaseTargetSafety|ConfiguredDatabases)$' -count=1 -v`
+已通过本地七场景和目标安全检查；无 DSN 的外部入口明确 skip，不能算实库通过。
+sol 独立复审未发现阻断问题，确认日志缺失现在会失败；旧 Error 1366 证据保留。
 
 Pancake 履约使用已验签合成事件，公开入口另验非法签名拒绝，未替换官方公钥。
 所有支付数据/签名均为 fixture，没有真实付款。明确回滚的提交失败不代表不确定提交

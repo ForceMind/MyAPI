@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"sync"
@@ -10,6 +11,8 @@ import (
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/logger"
+	"github.com/glebarez/sqlite"
 	mysqldriver "github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -18,7 +21,7 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 func s2aPaymentDatabaseDialector(engine, dsn string) (gorm.Dialector, error) {
@@ -70,11 +73,17 @@ func TestS2APaymentDatabaseTargetSafety(t *testing.T) {
 	}
 }
 
-// runS2APaymentContenders holds the first operation after its real SELECT FOR
+// runS2APaymentReplay holds the first operation after its real SELECT FOR
 // UPDATE and starts the second transaction's query before releasing it. The
 // channels control the interleaving; timeouts only diagnose unexpected hangs.
-func runS2APaymentContenders(t *testing.T, db *gorm.DB, table string, first, second func() error) (error, error) {
+// SQLite runs sequential replays of the same business operations; it neither
+// supports nor simulates the other engines' row-lock/concurrency contract.
+func runS2APaymentReplay(t *testing.T, db *gorm.DB, table string, first, second func() error) (error, error) {
 	t.Helper()
+	if db.Dialector.Name() == "sqlite" {
+		firstErr := first()
+		return firstErr, second()
+	}
 	locked, contender, release := make(chan struct{}), make(chan struct{}), make(chan struct{})
 	resume := sync.OnceFunc(func() { close(release) })
 	var entered atomic.Int32
@@ -133,6 +142,28 @@ func runS2APaymentContenders(t *testing.T, db *gorm.DB, table string, first, sec
 	return firstErr, secondErr
 }
 
+func s2aPaymentLogs(t *testing.T, db *gorm.DB, userID int) []Log {
+	t.Helper()
+	var logs []Log
+	require.NoError(t, db.Where("user_id = ? AND type = ?", userID, LogTypeTopup).Order("id").Find(&logs).Error)
+	return logs
+}
+
+// A committed payment adds exactly its expected Chinese log entry; replays,
+// failed transactions, refunds, and late failure callbacks add none. Retain
+// the earlier rows too, so an overwritten/missing entry cannot hide in counts.
+func assertS2APaymentLogDelta(t *testing.T, db *gorm.DB, userID int, before []Log, content ...string) {
+	t.Helper()
+	logs := s2aPaymentLogs(t, db, userID)
+	require.Len(t, logs, len(before)+len(content))
+	for i, previous := range before {
+		assert.Equal(t, previous, logs[i])
+	}
+	for i, expected := range content {
+		assert.Equal(t, expected, logs[len(before)+i].Content)
+	}
+}
+
 func TestS2APaymentConfiguredDatabases(t *testing.T) {
 	if os.Getenv("MYAPI_S2A_DATABASE_TESTS") != "1" {
 		t.Skip("disposable S2-A database tests require MYAPI_S2A_DATABASE_TESTS=1")
@@ -151,7 +182,7 @@ func TestS2APaymentConfiguredDatabases(t *testing.T) {
 			}
 			dialector, err := s2aPaymentDatabaseDialector(engine.name, dsn)
 			require.NoError(t, err)
-			db, err := gorm.Open(dialector, &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+			db, err := gorm.Open(dialector, &gorm.Config{Logger: gormlogger.Default.LogMode(gormlogger.Silent)})
 			require.NoError(t, err)
 			sqlDB, err := db.DB()
 			require.NoError(t, err)
@@ -160,144 +191,190 @@ func TestS2APaymentConfiguredDatabases(t *testing.T) {
 			tables, err := db.Migrator().GetTables()
 			require.NoError(t, err)
 			require.Empty(t, tables, "refusing a non-empty S2-A fixture database; CI owns its lifecycle, no tables are dropped")
-			previousDB, previousLogDB := DB, LOG_DB
-			previousMainType, previousLogType := common.MainDatabaseType(), common.LogDatabaseType()
-			previousRedis, previousBatch, previousQuotaUnit := common.RedisEnabled, common.BatchUpdateEnabled, common.QuotaPerUnit
-			DB, LOG_DB = db, db
-			common.SetDatabaseTypes(engine.typeID, engine.typeID)
-			common.RedisEnabled, common.BatchUpdateEnabled, common.QuotaPerUnit = false, false, 100
-			initCol()
-			t.Cleanup(func() {
-				DB, LOG_DB = previousDB, previousLogDB
-				common.SetDatabaseTypes(previousMainType, previousLogType)
-				common.RedisEnabled, common.BatchUpdateEnabled, common.QuotaPerUnit = previousRedis, previousBatch, previousQuotaUnit
-				initCol()
-			})
-			require.NoError(t, db.AutoMigrate(&User{}, &SubscriptionPlan{}, &SubscriptionOrder{}, &UserSubscription{}, &SubscriptionPreConsumeRecord{}, &TopUp{}, &Log{}))
-			user := User{Username: "s2a-fixture-user", Password: "fixture-not-a-login", AffCode: "s2a-fixture", Quota: 1000, Group: "default"}
-			require.NoError(t, db.Create(&user).Error)
-			plan := SubscriptionPlan{Title: "S2-A fixture plan", PriceAmount: 2, Enabled: true, DurationUnit: SubscriptionDurationDay, DurationValue: 7, TotalAmount: 1000, UpgradeGroup: "priority"}
-			require.NoError(t, db.Create(&plan).Error)
+			if engine.typeID == common.DatabaseTypeMySQL {
+				// All target/empty-schema guards have passed. This fixed disposable
+				// database is the only allowed ALTER target; never interpolate a DSN.
+				require.NoError(t, db.Exec("ALTER DATABASE `myapi_s2a_test` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci").Error)
+			}
+			runS2APaymentDatabaseMatrix(t, db, engine.typeID)
+		})
+	}
+}
+
+func TestS2APaymentSQLite(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: gormlogger.Default.LogMode(gormlogger.Silent)})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
+	runS2APaymentDatabaseMatrix(t, db, common.DatabaseTypeSQLite)
+}
+
+func runS2APaymentDatabaseMatrix(t *testing.T, db *gorm.DB, databaseType common.DatabaseType) {
+	t.Helper()
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	previousDB, previousLogDB := DB, LOG_DB
+	previousMainType, previousLogType := common.MainDatabaseType(), common.LogDatabaseType()
+	previousRedis, previousBatch, previousQuotaUnit := common.RedisEnabled, common.BatchUpdateEnabled, common.QuotaPerUnit
+	DB, LOG_DB = db, db
+	common.SetDatabaseTypes(databaseType, databaseType)
+	common.RedisEnabled, common.BatchUpdateEnabled, common.QuotaPerUnit = false, false, 100
+	initCol()
+	t.Cleanup(func() {
+		DB, LOG_DB = previousDB, previousLogDB
+		common.SetDatabaseTypes(previousMainType, previousLogType)
+		common.RedisEnabled, common.BatchUpdateEnabled, common.QuotaPerUnit = previousRedis, previousBatch, previousQuotaUnit
+		initCol()
+	})
+	if databaseType == common.DatabaseTypeMySQL {
+		require.NoError(t, checkMySQLChineseSupport(db), "fixture database must support Chinese before migration")
+	}
+	require.NoError(t, db.AutoMigrate(&User{}, &SubscriptionPlan{}, &SubscriptionOrder{}, &UserSubscription{}, &SubscriptionPreConsumeRecord{}, &TopUp{}, &Log{}))
+	if databaseType == common.DatabaseTypeMySQL {
+		require.NoError(t, checkMySQLChineseSupport(db), "fixture tables must support Chinese after migration")
+	}
+	user := User{Username: "s2a-fixture-user", Password: "fixture-not-a-login", AffCode: "s2a-fixture", Quota: 1000, Group: "default"}
+	require.NoError(t, db.Create(&user).Error)
+	plan := SubscriptionPlan{Title: "S2-A中文订阅套餐", PriceAmount: 2, Enabled: true, DurationUnit: SubscriptionDurationDay, DurationValue: 7, TotalAmount: 1000, UpgradeGroup: "priority"}
+	require.NoError(t, db.Create(&plan).Error)
+	InvalidateSubscriptionPlanCache(plan.Id)
+	t.Cleanup(func() { InvalidateSubscriptionPlanCache(plan.Id) })
+
+	for _, temperature := range []string{"cold", "warm"} {
+		t.Run("single-connection-complete-"+temperature, func(t *testing.T) {
 			InvalidateSubscriptionPlanCache(plan.Id)
-			t.Cleanup(func() { InvalidateSubscriptionPlanCache(plan.Id) })
-
-			for _, temperature := range []string{"cold", "warm"} {
-				t.Run("single-connection-complete-"+temperature, func(t *testing.T) {
-					InvalidateSubscriptionPlanCache(plan.Id)
-					if temperature == "warm" {
-						_, err := GetSubscriptionPlanById(plan.Id)
-						require.NoError(t, err)
-					}
-					order := SubscriptionOrder{UserId: user.Id, PlanId: plan.Id, Money: 2, TradeNo: "s2a-complete-" + temperature, PaymentMethod: PaymentMethodStripe, PaymentProvider: PaymentProviderStripe, Status: common.TopUpStatusPending}
-					require.NoError(t, db.Create(&order).Error)
-					var before int64
-					require.NoError(t, db.Model(&UserSubscription{}).Count(&before).Error)
-					beforeTime := GetDBTimestamp()
-					require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "fixture", PaymentProviderStripe, ""))
-					require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "fixture", PaymentProviderStripe, ""))
-					var after int64
-					require.NoError(t, db.Model(&UserSubscription{}).Count(&after).Error)
-					assert.Equal(t, before+1, after)
-					var sub UserSubscription
-					require.NoError(t, db.Order("id desc").First(&sub).Error)
-					assert.GreaterOrEqual(t, sub.StartTime, beforeTime)
-					assert.LessOrEqual(t, sub.StartTime, GetDBTimestamp())
-					require.NoError(t, db.First(&order, order.Id).Error)
-					assert.Equal(t, common.TopUpStatusSuccess, order.Status)
-				})
+			if temperature == "warm" {
+				_, err := GetSubscriptionPlanById(plan.Id)
+				require.NoError(t, err)
 			}
+			order := SubscriptionOrder{UserId: user.Id, PlanId: plan.Id, Money: 2, TradeNo: "s2a-complete-" + temperature, PaymentMethod: PaymentMethodStripe, PaymentProvider: PaymentProviderStripe, Status: common.TopUpStatusPending}
+			require.NoError(t, db.Create(&order).Error)
+			logsBefore := s2aPaymentLogs(t, db, user.Id)
+			expectedLog := fmt.Sprintf("订阅购买成功，套餐: %s，支付金额: 2.00，支付方式: %s", plan.Title, PaymentMethodStripe)
+			var before int64
+			require.NoError(t, db.Model(&UserSubscription{}).Count(&before).Error)
+			beforeTime := GetDBTimestamp()
+			require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "fixture", PaymentProviderStripe, ""))
+			assertS2APaymentLogDelta(t, db, user.Id, logsBefore, expectedLog)
+			require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "fixture", PaymentProviderStripe, ""))
+			assertS2APaymentLogDelta(t, db, user.Id, logsBefore, expectedLog)
+			var after int64
+			require.NoError(t, db.Model(&UserSubscription{}).Count(&after).Error)
+			assert.Equal(t, before+1, after)
+			var sub UserSubscription
+			require.NoError(t, db.Order("id desc").First(&sub).Error)
+			assert.GreaterOrEqual(t, sub.StartTime, beforeTime)
+			assert.LessOrEqual(t, sub.StartTime, GetDBTimestamp())
+			require.NoError(t, db.First(&order, order.Id).Error)
+			assert.Equal(t, common.TopUpStatusSuccess, order.Status)
+		})
+	}
 
-			t.Run("completion-rollback", func(t *testing.T) {
-				order := SubscriptionOrder{UserId: user.Id, PlanId: plan.Id, Money: 2, TradeNo: "s2a-completion-rollback", PaymentMethod: PaymentMethodStripe, PaymentProvider: PaymentProviderStripe, Status: common.TopUpStatusPending}
-				require.NoError(t, db.Create(&order).Error)
-				var before int64
-				require.NoError(t, db.Model(&UserSubscription{}).Count(&before).Error)
-				writeErr := errors.New("injected S2-A order save failure")
-				require.NoError(t, db.Callback().Update().Before("gorm:update").Register("test:s2a-order-save", func(tx *gorm.DB) {
-					if tx.Statement.Table == "subscription_orders" {
-						tx.AddError(writeErr)
-					}
-				}))
-				assert.ErrorIs(t, CompleteSubscriptionOrder(order.TradeNo, "fixture", PaymentProviderStripe, ""), writeErr)
-				require.NoError(t, db.Callback().Update().Remove("test:s2a-order-save"))
-				require.NoError(t, db.First(&order, order.Id).Error)
-				assert.Equal(t, common.TopUpStatusPending, order.Status)
-				var after, topups int64
-				require.NoError(t, db.Model(&UserSubscription{}).Count(&after).Error)
-				require.NoError(t, db.Model(&TopUp{}).Where("trade_no = ?", order.TradeNo).Count(&topups).Error)
-				assert.Equal(t, before, after)
-				assert.Zero(t, topups)
-				require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "fixture", PaymentProviderStripe, ""))
-			})
+	t.Run("completion-rollback", func(t *testing.T) {
+		order := SubscriptionOrder{UserId: user.Id, PlanId: plan.Id, Money: 2, TradeNo: "s2a-completion-rollback", PaymentMethod: PaymentMethodStripe, PaymentProvider: PaymentProviderStripe, Status: common.TopUpStatusPending}
+		require.NoError(t, db.Create(&order).Error)
+		logsBefore := s2aPaymentLogs(t, db, user.Id)
+		var before int64
+		require.NoError(t, db.Model(&UserSubscription{}).Count(&before).Error)
+		writeErr := errors.New("injected S2-A order save failure")
+		require.NoError(t, db.Callback().Update().Before("gorm:update").Register("test:s2a-order-save", func(tx *gorm.DB) {
+			if tx.Statement.Table == "subscription_orders" {
+				tx.AddError(writeErr)
+			}
+		}))
+		assert.ErrorIs(t, CompleteSubscriptionOrder(order.TradeNo, "fixture", PaymentProviderStripe, ""), writeErr)
+		assertS2APaymentLogDelta(t, db, user.Id, logsBefore)
+		require.NoError(t, db.Callback().Update().Remove("test:s2a-order-save"))
+		require.NoError(t, db.First(&order, order.Id).Error)
+		assert.Equal(t, common.TopUpStatusPending, order.Status)
+		var after, topups int64
+		require.NoError(t, db.Model(&UserSubscription{}).Count(&after).Error)
+		require.NoError(t, db.Model(&TopUp{}).Where("trade_no = ?", order.TradeNo).Count(&topups).Error)
+		assert.Equal(t, before, after)
+		assert.Zero(t, topups)
+		require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "fixture", PaymentProviderStripe, ""))
+		assertS2APaymentLogDelta(t, db, user.Id, logsBefore, fmt.Sprintf("订阅购买成功，套餐: %s，支付金额: 2.00，支付方式: %s", plan.Title, PaymentMethodStripe))
+	})
 
-			t.Run("refund-rollback-and-replay", func(t *testing.T) {
-				sub := UserSubscription{UserId: user.Id, PlanId: plan.Id, AmountTotal: 1000, AmountUsed: 900, Status: "active"}
-				require.NoError(t, db.Create(&sub).Error)
-				record := SubscriptionPreConsumeRecord{RequestId: "s2a-refund-rollback", UserId: user.Id, UserSubscriptionId: sub.Id, PreConsumed: 100, Status: "consumed"}
-				require.NoError(t, db.Create(&record).Error)
-				writeErr := errors.New("injected S2-A refund marker save failure")
-				require.NoError(t, db.Callback().Update().Before("gorm:update").Register("test:s2a-refund-marker", func(tx *gorm.DB) {
-					if tx.Statement.Table == "subscription_pre_consume_records" {
-						tx.AddError(writeErr)
-					}
-				}))
-				assert.ErrorIs(t, RefundSubscriptionPreConsume(record.RequestId), writeErr)
-				require.NoError(t, db.Callback().Update().Remove("test:s2a-refund-marker"))
-				require.NoError(t, db.First(&sub, sub.Id).Error)
-				require.NoError(t, db.First(&record, record.Id).Error)
-				assert.EqualValues(t, 900, sub.AmountUsed)
-				assert.Equal(t, "consumed", record.Status)
-				require.NoError(t, RefundSubscriptionPreConsume(record.RequestId))
-				require.NoError(t, RefundSubscriptionPreConsume(record.RequestId))
-				require.NoError(t, db.First(&sub, sub.Id).Error)
-				require.NoError(t, db.First(&record, record.Id).Error)
-				assert.EqualValues(t, 800, sub.AmountUsed)
-				assert.Equal(t, "refunded", record.Status)
-			})
+	t.Run("refund-rollback-and-replay", func(t *testing.T) {
+		sub := UserSubscription{UserId: user.Id, PlanId: plan.Id, AmountTotal: 1000, AmountUsed: 900, Status: "active"}
+		require.NoError(t, db.Create(&sub).Error)
+		record := SubscriptionPreConsumeRecord{RequestId: "s2a-refund-rollback", UserId: user.Id, UserSubscriptionId: sub.Id, PreConsumed: 100, Status: "consumed"}
+		require.NoError(t, db.Create(&record).Error)
+		logsBefore := s2aPaymentLogs(t, db, user.Id)
+		writeErr := errors.New("injected S2-A refund marker save failure")
+		require.NoError(t, db.Callback().Update().Before("gorm:update").Register("test:s2a-refund-marker", func(tx *gorm.DB) {
+			if tx.Statement.Table == "subscription_pre_consume_records" {
+				tx.AddError(writeErr)
+			}
+		}))
+		assert.ErrorIs(t, RefundSubscriptionPreConsume(record.RequestId), writeErr)
+		assertS2APaymentLogDelta(t, db, user.Id, logsBefore)
+		require.NoError(t, db.Callback().Update().Remove("test:s2a-refund-marker"))
+		require.NoError(t, db.First(&sub, sub.Id).Error)
+		require.NoError(t, db.First(&record, record.Id).Error)
+		assert.EqualValues(t, 900, sub.AmountUsed)
+		assert.Equal(t, "consumed", record.Status)
+		require.NoError(t, RefundSubscriptionPreConsume(record.RequestId))
+		require.NoError(t, RefundSubscriptionPreConsume(record.RequestId))
+		require.NoError(t, db.First(&sub, sub.Id).Error)
+		require.NoError(t, db.First(&record, record.Id).Error)
+		assert.EqualValues(t, 800, sub.AmountUsed)
+		assert.Equal(t, "refunded", record.Status)
+		assertS2APaymentLogDelta(t, db, user.Id, logsBefore)
+	})
 
-			sqlDB.SetMaxOpenConns(2)
-			t.Run("concurrent-refund", func(t *testing.T) {
-				sub := UserSubscription{UserId: user.Id, PlanId: plan.Id, AmountTotal: 1000, AmountUsed: 900, Status: "active"}
-				require.NoError(t, db.Create(&sub).Error)
-				record := SubscriptionPreConsumeRecord{RequestId: "s2a-concurrent-refund", UserId: user.Id, UserSubscriptionId: sub.Id, PreConsumed: 100, Status: "consumed"}
-				require.NoError(t, db.Create(&record).Error)
-				firstErr, secondErr := runS2APaymentContenders(t, db, "subscription_pre_consume_records",
-					func() error { return RefundSubscriptionPreConsume(record.RequestId) },
-					func() error { return RefundSubscriptionPreConsume(record.RequestId) })
-				require.NoError(t, firstErr)
+	replayMode := "sequential"
+	if databaseType != common.DatabaseTypeSQLite {
+		sqlDB.SetMaxOpenConns(2)
+		replayMode = "concurrent"
+	}
+	t.Run(replayMode+"-refund", func(t *testing.T) {
+		sub := UserSubscription{UserId: user.Id, PlanId: plan.Id, AmountTotal: 1000, AmountUsed: 900, Status: "active"}
+		require.NoError(t, db.Create(&sub).Error)
+		record := SubscriptionPreConsumeRecord{RequestId: "s2a-concurrent-refund", UserId: user.Id, UserSubscriptionId: sub.Id, PreConsumed: 100, Status: "consumed"}
+		require.NoError(t, db.Create(&record).Error)
+		logsBefore := s2aPaymentLogs(t, db, user.Id)
+		firstErr, secondErr := runS2APaymentReplay(t, db, "subscription_pre_consume_records",
+			func() error { return RefundSubscriptionPreConsume(record.RequestId) },
+			func() error { return RefundSubscriptionPreConsume(record.RequestId) })
+		require.NoError(t, firstErr)
+		require.NoError(t, secondErr)
+		require.NoError(t, db.First(&sub, sub.Id).Error)
+		require.NoError(t, db.First(&record, record.Id).Error)
+		assert.EqualValues(t, 800, sub.AmountUsed)
+		assert.Equal(t, "refunded", record.Status)
+		assertS2APaymentLogDelta(t, db, user.Id, logsBefore)
+	})
+
+	for _, outcome := range []string{"duplicate-success", "late-failure"} {
+		t.Run(replayMode+"-stripe-"+outcome, func(t *testing.T) {
+			require.NoError(t, db.First(&user, user.Id).Error)
+			beforeQuota := user.Quota
+			topup := TopUp{UserId: user.Id, Amount: 2, Money: 2, TradeNo: "s2a-stripe-" + outcome, PaymentMethod: PaymentMethodStripe, PaymentProvider: PaymentProviderStripe, Status: common.TopUpStatusPending}
+			require.NoError(t, db.Create(&topup).Error)
+			logsBefore := s2aPaymentLogs(t, db, user.Id)
+			second := func() error { return Recharge(topup.TradeNo, "fixture-customer", "127.0.0.1") }
+			if outcome == "late-failure" {
+				second = func() error {
+					return UpdatePendingTopUpStatus(topup.TradeNo, PaymentProviderStripe, common.TopUpStatusFailed)
+				}
+			}
+			firstErr, secondErr := runS2APaymentReplay(t, db, "top_ups",
+				func() error { return Recharge(topup.TradeNo, "fixture-customer", "127.0.0.1") }, second)
+			require.NoError(t, firstErr)
+			if outcome == "late-failure" {
+				assert.ErrorIs(t, secondErr, ErrTopUpStatusInvalid)
+			} else {
 				require.NoError(t, secondErr)
-				require.NoError(t, db.First(&sub, sub.Id).Error)
-				require.NoError(t, db.First(&record, record.Id).Error)
-				assert.EqualValues(t, 800, sub.AmountUsed)
-				assert.Equal(t, "refunded", record.Status)
-			})
-
-			for _, outcome := range []string{"duplicate-success", "late-failure"} {
-				t.Run("concurrent-stripe-"+outcome, func(t *testing.T) {
-					require.NoError(t, db.First(&user, user.Id).Error)
-					beforeQuota := user.Quota
-					topup := TopUp{UserId: user.Id, Amount: 2, Money: 2, TradeNo: "s2a-stripe-" + outcome, PaymentMethod: PaymentMethodStripe, PaymentProvider: PaymentProviderStripe, Status: common.TopUpStatusPending}
-					require.NoError(t, db.Create(&topup).Error)
-					second := func() error { return Recharge(topup.TradeNo, "fixture-customer", "127.0.0.1") }
-					if outcome == "late-failure" {
-						second = func() error {
-							return UpdatePendingTopUpStatus(topup.TradeNo, PaymentProviderStripe, common.TopUpStatusFailed)
-						}
-					}
-					firstErr, secondErr := runS2APaymentContenders(t, db, "top_ups",
-						func() error { return Recharge(topup.TradeNo, "fixture-customer", "127.0.0.1") }, second)
-					require.NoError(t, firstErr)
-					if outcome == "late-failure" {
-						assert.ErrorIs(t, secondErr, ErrTopUpStatusInvalid)
-					} else {
-						require.NoError(t, secondErr)
-					}
-					require.NoError(t, db.First(&topup, topup.Id).Error)
-					require.NoError(t, db.First(&user, user.Id).Error)
-					assert.Equal(t, common.TopUpStatusSuccess, topup.Status)
-					assert.Equal(t, beforeQuota+200, user.Quota)
-				})
 			}
+			require.NoError(t, db.First(&topup, topup.Id).Error)
+			require.NoError(t, db.First(&user, user.Id).Error)
+			assert.Equal(t, common.TopUpStatusSuccess, topup.Status)
+			assert.Equal(t, beforeQuota+200, user.Quota)
+			assertS2APaymentLogDelta(t, db, user.Id, logsBefore, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：2", logger.FormatQuota(200)))
 		})
 	}
 }
