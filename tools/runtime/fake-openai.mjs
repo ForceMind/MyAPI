@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
-// A deliberately tiny loopback-only OpenAI-shaped upstream for the isolated
-// Docker smoke. It retains only booleans needed by the control endpoint.
+// A deliberately tiny OpenAI-shaped upstream for isolated smoke tests. Local
+// use defaults to loopback; a Docker network-namespace sidecar may explicitly
+// listen on all container interfaces. Only control booleans are retained.
 import http from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -34,10 +35,18 @@ function readJson(request) {
   })
 }
 
-export function startFakeOpenAI({ host = '127.0.0.1', port = 19090 } = {}) {
-  if (host !== '127.0.0.1' || !Number.isInteger(port) || port < 0 || port > 65535) {
+function validateFakeOpenAIHost(host) {
+  if (!['127.0.0.1', '0.0.0.0'].includes(host)) {
     throw new Error('INVALID_FAKE_OPENAI_LISTENER')
   }
+  return host
+}
+
+export function startFakeOpenAI({ host = '127.0.0.1', port = 19090 } = {}) {
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new Error('INVALID_FAKE_OPENAI_LISTENER')
+  }
+  host = validateFakeOpenAIHost(host)
   const state = { count: 0, path_ok: false, model_ok: false, max_tokens_ok: false, stream_ok: false, bearer_ok: false, request_ok: false }
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url || '/', 'http://127.0.0.1')
@@ -87,10 +96,17 @@ export function startFakeOpenAI({ host = '127.0.0.1', port = 19090 } = {}) {
   })
 }
 
+export function fakeOpenAIListenHost(environment = process.env) {
+  return validateFakeOpenAIHost(environment.FAKE_OPENAI_LISTEN_HOST || '127.0.0.1')
+}
+
 async function main() {
   try {
     if (process.argv.length !== 2) throw new Error('INVALID_FAKE_OPENAI_ARGUMENTS')
-    const listener = await startFakeOpenAI()
+    // The default remains loopback for local use. A Docker network-namespace
+    // sidecar must explicitly opt into all-interface binding so published host
+    // traffic can reach its shared namespace.
+    const listener = await startFakeOpenAI({ host: fakeOpenAIListenHost() })
     const close = async () => {
       process.off('SIGINT', close)
       process.off('SIGTERM', close)

@@ -199,9 +199,12 @@ Key 剩余减 15、用户/Key/渠道用量加 15、请求数加 1，以及唯一
 固定 digest Bun sidecar 与应用共享网络，root 仅管理，普通用户真实登录并使用受限 Key；
 fake control 在业务前为 0、成功调用后为 1，匿名拒绝后仍为 1，只保存请求形状布尔值。
 应用/sidecar 只发布 runner 回环端口，日志和 SQLite 位于 tmpfs；sidecar 只读、非 root、
-cap-drop/no-new-privileges，并按 SHA 标签先于应用清理。Node22 16 项、Bun 回环入口、
-YAML 与全部 shell 块、runtime/release workflow 合同及独立审查通过。尚无新镜像实跑，
-因此不能标完成。该批不改产品页面；`VERSION` 保持 0.1.1，实际镜像仍以提交 SHA 标识。
+cap-drop/no-new-privileges，并按 SHA 标签先于应用清理。Node22 17 项、Bun 回环入口、
+YAML 与全部 shell 块、runtime/release workflow 合同及独立审查通过。首个 `b54ce36`
+实跑的 app 与 sidecar 均运行，但 sidecar 只监听 namespace loopback，宿主 NAT 健康请求
+持续 reset，业务探针未执行；已改为仅 CI sidecar 显式监听容器全接口，宿主仍只发布
+127.0.0.1。本地默认 loopback 不变，修复仍待新镜像实跑。该批不改产品页面；`VERSION`
+保持 0.1.1，实际镜像仍以提交 SHA 标识。
 
 之后复用相同 HTTP 合同扩展 MySQL5.7/PG9.6：应用启动前证明独立专库为空，正确配置
 字符集，不把 setup/root_init 标记当作全库空证明，也不直接放宽 SQLite-only 安全门。

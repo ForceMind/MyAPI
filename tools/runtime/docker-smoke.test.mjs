@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { probeFreshSQLite, probeRelayFixture, validateSmokeTarget } from './docker-smoke.mjs'
-import { startFakeOpenAI } from './fake-openai.mjs'
+import { fakeOpenAIListenHost, startFakeOpenAI } from './fake-openai.mjs'
 
 const sha = 'a'.repeat(40)
 const baseUrl = 'http://127.0.0.1:18080'
@@ -52,6 +52,15 @@ test('synthetic OpenAI only exposes a non-sensitive request summary', async (t) 
   assert.deepEqual(control, { count: 1, path_ok: true, model_ok: true, max_tokens_ok: true, stream_ok: true, bearer_ok: true, request_ok: true })
   assert.equal(response.headers.get('x-api-key'), 'synthetic-response-header-secret')
   assert.equal(JSON.stringify(control).includes('synthetic-upstream-key'), false)
+})
+
+test('synthetic OpenAI listener only allows explicit loopback or Docker namespace hosts', async (t) => {
+  assert.equal(fakeOpenAIListenHost({}), '127.0.0.1')
+  assert.equal(fakeOpenAIListenHost({ FAKE_OPENAI_LISTEN_HOST: '0.0.0.0' }), '0.0.0.0')
+  assert.throws(() => fakeOpenAIListenHost({ FAKE_OPENAI_LISTEN_HOST: 'localhost' }), /INVALID_FAKE_OPENAI_LISTENER/)
+  assert.throws(() => fakeOpenAIListenHost({ FAKE_OPENAI_LISTEN_HOST: '192.0.2.1' }), /INVALID_FAKE_OPENAI_LISTENER/)
+  assert.throws(() => startFakeOpenAI({ host: 'localhost', port: 0 }), /INVALID_FAKE_OPENAI_LISTENER/)
+  assert.throws(() => startFakeOpenAI({ host: '192.0.2.1', port: 19090 }), /INVALID_FAKE_OPENAI_LISTENER/)
 })
 
 test('relay fixture verifies exact wallet, key, usage, log and redaction contracts without reporting credentials', async () => {

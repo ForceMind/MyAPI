@@ -163,6 +163,8 @@ race 原始日志确认四包通过，本批封版闭环，不改变生产缓存
 S4-02 的隔离合成用户/受限 Key/假上游一次调用已完成本地实现、回归及独立复审，待
 GitHub Full/LAN 实跑：usage 10+5 必须精确形成 15 quota，关联普通/管理员日志、权限与
 已定义请求/响应头脱敏同时通过。它不调用真实 Provider，也不证明 Redis/batch 或恢复。
+首个 `b54ce36` Full job 在业务前暴露 sidecar loopback/NAT reset，未验收；监听修复已通过
+17 项 Node 回归和独立复审，仍以新 Docker run 为最终证据。
 通过后再扩展三库运行合同。完整备份恢复、真实账户/设备、独立 UI 仍未完成。
 B2/B3 的提交未知状态、持久账务事件和 outbox，以及 C03b 缓存恢复策略仍需核心决定；
 复用既有 CAS/租约/快照，不重建平行系统。见[完整执行矩阵](DEVELOPMENT_EXECUTION_PLAN.md)。

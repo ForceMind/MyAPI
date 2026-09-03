@@ -260,11 +260,20 @@ request_count 为 1；普通与 root 通过同 request ID 各看到唯一 Consum
 admin_info。Full Content 普通用户为 403；root 看到 Authorization、请求 api_key 和响应
 X-Api-Key 已脱敏，固定无敏感响应正文按既有合同原样保留。匿名 relay 后 fake count 仍为 1。
 
-本机实际命令：Node22 `npm run runtime:probe:test` 为 16/16（672 ms）；固定入口另由 Bun
+本机首批命令：Node22 `npm run runtime:probe:test` 为 16/16（672 ms）；固定入口另由 Bun
 在 127.0.0.1:19090 启动，health 和全 false 零状态读回后立即停止。YAML、全部九个 shell
 块、`runtime:check` 13/13、`release:workflow:check` 18/18、diff-check 与独立 Sol 审查通过。
 这些证据不替代 sidecar 容器联通、真实 API 字段及资源余量；尚未运行新 GitHub workflow，
 状态保持待验证。无页面或产品版本改动，0.1.1 与受保护 tag 不动；未来镜像仍由 SHA 区分。
+
+`b54ce36` 的普通 CI `33788688465` 七项成功。两次重复手动触发
+`33788701235` / `33788890484` 均被取消且无验收结论；随后唯一运行 `33789030687` 的
+Full app/sidecar 均保持 running、exit=0、OOM=false，但宿主健康请求连续 connection reset。
+根因是 sidecar 在共享 namespace 只绑定 127，而 Docker publish 将宿主流量 NAT 到该
+namespace 的非 loopback 接口；业务探针未执行，LAN 为避免重复消耗而取消。修复保持
+本机默认 127，仅在 CI sidecar 通过受限 env 显式监听 0.0.0.0；宿主 publish 仍为
+127.0.0.1，state 仅合成布尔值。Node22 更新后 17/17（491 ms）、YAML/九个 shell 块及
+独立复审通过；新 Docker run 仍是完成条件。
 
 ## 最近 CI 证据
 

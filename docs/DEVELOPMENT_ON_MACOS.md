@@ -314,10 +314,15 @@ race 接线已修；本机四包同一命令和独立复审通过。`6fd8ae4` / 
 宿主端口均只绑定 127.0.0.1。SQLite/full-content 日志位于应用 `/data` tmpfs，sidecar
 只读且受 UID/capability/CPU/内存/PID 限制；没有 Redis、真实 Provider 或本机凭据读取。
 
-Node22 `npm run runtime:probe:test` 为 16/16；Bun 假上游已在本机 127.0.0.1:19090 实际
+Node22 `npm run runtime:probe:test` 最终为 17/17；Bun 假上游已在本机 127.0.0.1:19090 实际
 启动，health 与零状态读回后停止。Ruby YAML、全部 workflow shell 块、runtime/release
 workflow 合同和独立审查通过。本机仍无 Docker，所以容器网络、资源余量、Full/LAN 的
 真实 API/账务/日志结果必须由新 GitHub 手动 run 验收；当前不得标完成。
+
+首个 `b54ce36` Full job 的 app/sidecar 均运行，但宿主 NAT 请求无法命中只绑定 namespace
+loopback 的 fake，连续 connection reset，业务探针未开始；LAN 随后取消以节省资源。
+仅 CI sidecar 改为显式监听 0.0.0.0，宿主端口仍绑定 127.0.0.1，本机默认监听不变。
+监听修复的 Node17项、YAML/Bash 和独立复审通过，必须由下一次镜像 run 证明联通。
 
 这是测试工具与 workflow 扩展，不改产品页面；可见发行版本保持 0.1.1，GitHub 镜像用
 提交 SHA 作为构建标识。C03b、B2/B3、三库完整恢复和真实设备仍单列。
