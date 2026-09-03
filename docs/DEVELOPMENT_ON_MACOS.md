@@ -266,5 +266,10 @@ S2-C 从 `2d705a7` / CI `33752536294` 开始。Mac 上先跑 miniredis/SQLite �
 fixture；新增真实 Redis 7 CI 使用开发 Compose 同一主版本，要求
 `MYAPI_S2C_REDIS_TESTS=1`、`MYAPI_S2C_REDIS_ADDR` 为字面 loopback 与有效端口，整个
 实例必须为空，仅写 DB 15，不 FLUSH 或删除键。绝对过期时间由 PEXPIRETIME 检查，
-测试不靠等待时间猜测 TTL 行为。该 CI 尚待本批提交实跑，不是本机 Redis/Docker 验收。
+测试不靠等待时间猜测 TTL 行为。`451bee3` / CI `33760303619` 七项成功，真实 Redis 36
+场景全部执行且原始日志无 skip/Lua 错误；这不是本机 Redis/Docker 验收。
 批量缓存损坏后的恢复策略未改变；不得使用生产 Redis 或旧数据库快照冒充安全恢复。
+
+本机根模块全量/vet/build、专项 race、relaykit 独立 build/test、Node22 release:check
+及最终源码 pack 已通过。零差额饱和审计使用已有 System 类型，不增加消费 RPM/TPM 或
+导出数据；关闭消费日志时仍保留异常审计。C03b 与任务持久化恢复尚未完成。

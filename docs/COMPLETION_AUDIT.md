@@ -90,10 +90,14 @@ Pancake 履约使用已验签合成事件，公开入口另验非法签名拒绝
 所有支付数据/签名均为 fixture，没有真实付款。明确回滚的提交失败不代表不确定提交
 恢复；完整三库备份恢复、真实网关重试、续费/争议/生产对账及 S2-B/C 仍未验收。
 
-## S2-C 实施中（2026-09-03）
+## S2-C 已验收项与剩余恢复设计（2026-09-03）
 
 开始基线 `2d705a7` / CI `33752536294` 六项成功。当前不是完整 S2 验收，具体状态见
 [执行矩阵](DEVELOPMENT_EXECUTION_PLAN.md#s2-c-数值缓存与-http-隐私)。
+
+最终代码 `451bee3` / [CI 33760303619](https://github.com/ForceMind/MyAPI/actions/runs/33760303619)
+七项成功。C01/C02/C03a/C04/C05 已完成当前范围，C03b 未完成。最终 Redis job 的原始
+步骤日志再次确认 36 个 PASS，无 skip/Lua/整数错误，实际检查 hash 全字段与绝对过期时间。
 
 已实际复现的红测：
 
@@ -109,14 +113,17 @@ Pancake 履约使用已验签合成事件，公开入口另验非法签名拒绝
 
 C01/C02 定向 common/service/Kling/relay-common 回归和独立复审已通过；C04/C05 定向、
 middleware/controller 全量与 vet 通过，含生产访问日志补项，独立复审闭环。C03a 本机脚本/预扣/
-补偿/围栏定向通过，真实 Redis 7 CI 尚未执行，本机无 Redis server/Docker，不冒充实测。
+补偿/围栏定向通过；真实 Redis 7 CI 已执行，本机无 Redis server/Docker，不冒充本机实测。
 新增 Redis fixture 只接受显式开启、字面 loopback、空实例及 DB 15；不删除已有数据。
 
 本机使用 `GOMAXPROCS=1 GOWORK=off GOCACHE=/tmp/myapi-gocache GOMODCACHE=/tmp/myapi-gomodcache`：
 `go test -p 1 ./model -run 'Test(QuotaCache|QuotaScripts|UserCacheMetadata)' -count=1 -timeout=120s`
 通过（1.533s）；`go vet -p 1 ./common ./model ./service ./controller ./middleware ./relay/channel/task/kling`
-通过。`go test -p 1 ./... -count=1 -timeout=180s` 根模块全量回归通过；本次真实 Redis CI
-仍待验证，不提前据本机结果完成阶段。
+通过。`go test -p 1 ./... -count=1 -timeout=180s`、根模块 vet/build、relaykit 独立
+build/test、Node22 `npm run release:check` 通过；最终干净提交 `source:manifest` +
+`pack:check` 通过（2183 文件）。新增 model/controller/middleware/Kling 专项 race 通过，
+文本/JSON审计 common/service race 通过；统计修正后 service/Kling 两项整链 race 再通过
+（2.693s / 2.670s）。这些本机结果与最终 CI 相互补充，不代替真实供应商或生产验收。
 
 首批代码 `6bae734` 的 CI `33757378962` 七项成功，真实 Redis 7 的 36 个场景已实际
 通过，原始日志无 skip、Lua/整数错误；本机根模块 vet/build、relaykit 独立构建/测试、
@@ -125,13 +132,19 @@ Node22 release:check 和新增专项 race 均通过。收尾再次核对“请�
 的 RPM（真实统计红测 1→2）。已修正为已有 System 类型；不改变正差额 Consume 或负
 差额 Refund，不改统计 SQL。消费日志关闭时异常系统审计仍保留，且不进入消费导出。
 新增真实统计、消费筛选、开/关消费日志与真实导出缓存快照回归通过；service/Kling 全量
-及 vet 通过（3.386s / 2.091s），独立复审闭环。该补项 CI 复验前 C02 不标完成，不能仅凭
-首批七个绿色 job 结束验收。
+及 vet 通过（3.386s / 2.091s），独立复审闭环。补项已由 `451bee3` 和最终 CI 复验，
+不以首批七个绿色 job 代替新增统计合同的验收。System 审计可在全部/系统日志中查看，
+消费筛选不包含它，普通用户始终去除 admin_info；关闭消费日志仍保留异常系统审计。
 
 仍未改变 C03b 的缓存恢复和高层异步增减/数据库更新语义；正在请求故障策略决定。
 S2-B 持久化恢复、真实付款/供应商、生产与设备验收均未包含在本批。
 
 ## 最近 CI 证据
+
+- S2-C 统计补项 `451bee3`：[CI 33760303619](https://github.com/ForceMind/MyAPI/actions/runs/33760303619)
+  七项成功，最终 Redis 36 场景实跑且原始日志已核对；完成 C01/C02/C03a/C04/C05，C03b 保留。
+- S2-C 首批 `6bae734`：[CI 33757378962](https://github.com/ForceMind/MyAPI/actions/runs/33757378962)
+  七项成功，但随后真实统计红测发现审计-only日志增加RPM；该回归已由上项关闭。
 
 - R1 文档收尾 `2d705a7`：[CI 33752536294](https://github.com/ForceMind/MyAPI/actions/runs/33752536294)
   六项成功，作为 S2-C 开始基线，不代表当前未提交的 C 系列修复已通过 CI。
