@@ -1,7 +1,9 @@
 package config
 
 import (
-	"encoding/json"
+	"errors"
+	"fmt"
+	"math"
 	"reflect"
 	"strconv"
 	"strings"
@@ -12,8 +14,9 @@ import (
 
 // ConfigManager 统一管理所有配置
 type ConfigManager struct {
-	configs map[string]interface{}
-	mutex   sync.RWMutex
+	configs        map[string]interface{}
+	mutex          sync.RWMutex
+	operationMutex sync.RWMutex
 }
 
 var GlobalConfig = NewConfigManager()
@@ -24,6 +27,9 @@ type MapConfig interface {
 	ExportConfigMap() (map[string]string, error)
 	UpdateConfigMap(map[string]string) error
 }
+
+// ErrMapConfigValidationUnsupported reports that a MapConfig has no pure validation contract.
+var ErrMapConfigValidationUnsupported = errors.New("MapConfig does not support side-effect-free validation")
 
 func NewConfigManager() *ConfigManager {
 	return &ConfigManager{
@@ -45,12 +51,21 @@ func (cm *ConfigManager) Get(name string) interface{} {
 	return cm.configs[name]
 }
 
+func (cm *ConfigManager) snapshotConfigs() map[string]interface{} {
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
+	configs := make(map[string]interface{}, len(cm.configs))
+	for name, registered := range cm.configs {
+		configs[name] = registered
+	}
+	return configs
+}
+
 // LoadFromDB 从数据库加载配置
 func (cm *ConfigManager) LoadFromDB(options map[string]string) error {
-	cm.mutex.Lock()
-	defer cm.mutex.Unlock()
-
-	for name, config := range cm.configs {
+	cm.operationMutex.Lock()
+	defer cm.operationMutex.Unlock()
+	for name, config := range cm.snapshotConfigs() {
 		prefix := name + "."
 		configMap := make(map[string]string)
 
@@ -76,10 +91,9 @@ func (cm *ConfigManager) LoadFromDB(options map[string]string) error {
 
 // SaveToDB 将配置保存到数据库
 func (cm *ConfigManager) SaveToDB(updateFunc func(key, value string) error) error {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
-	for name, config := range cm.configs {
+	cm.operationMutex.RLock()
+	defer cm.operationMutex.RUnlock()
+	for name, config := range cm.snapshotConfigs() {
 		configMap, err := configToMap(config)
 		if err != nil {
 			return err
@@ -144,7 +158,7 @@ func configToMap(config interface{}) (map[string]string, error) {
 		case reflect.Ptr:
 			// 处理指针类型：如果非 nil，序列化指向的值
 			if !field.IsNil() {
-				bytes, err := json.Marshal(field.Interface())
+				bytes, err := common.Marshal(field.Interface())
 				if err != nil {
 					return nil, err
 				}
@@ -155,7 +169,7 @@ func configToMap(config interface{}) (map[string]string, error) {
 			}
 		case reflect.Map, reflect.Slice, reflect.Struct:
 			// 复杂类型使用JSON序列化
-			bytes, err := json.Marshal(field.Interface())
+			bytes, err := common.Marshal(field.Interface())
 			if err != nil {
 				return nil, err
 			}
@@ -176,19 +190,33 @@ func updateConfigFromMap(config interface{}, configMap map[string]string) error 
 	if managed, ok := config.(MapConfig); ok {
 		return managed.UpdateConfigMap(configMap)
 	}
+
+	val, candidate, ok, err := prepareConfigFromMap(config, configMap)
+	if err != nil {
+		return err
+	}
+	if ok {
+		val.Set(candidate)
+	}
+	return nil
+}
+
+func prepareConfigFromMap(config interface{}, configMap map[string]string) (reflect.Value, reflect.Value, bool, error) {
 	val := reflect.ValueOf(config)
 	if val.Kind() != reflect.Ptr {
-		return nil
+		return reflect.Value{}, reflect.Value{}, false, nil
 	}
 	val = val.Elem()
 
 	if val.Kind() != reflect.Struct {
-		return nil
+		return reflect.Value{}, reflect.Value{}, false, nil
 	}
 
 	typ := val.Type()
-	for i := 0; i < val.NumField(); i++ {
-		field := val.Field(i)
+	candidate := reflect.New(typ).Elem()
+	candidate.Set(val)
+	for i := 0; i < candidate.NumField(); i++ {
+		field := candidate.Field(i)
 		fieldType := typ.Field(i)
 
 		// 跳过未导出字段
@@ -208,81 +236,153 @@ func updateConfigFromMap(config interface{}, configMap map[string]string) error 
 			continue
 		}
 
-		// 根据字段类型设置值
 		if !field.CanSet() {
 			continue
 		}
 
-		switch field.Kind() {
-		case reflect.String:
-			field.SetString(strValue)
-		case reflect.Bool:
-			boolValue, err := strconv.ParseBool(strValue)
-			if err != nil {
-				continue
-			}
-			field.SetBool(boolValue)
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			intValue, err := strconv.ParseInt(strValue, 10, 64)
-			if err != nil {
-				// 兼容 float 格式的字符串（如 "2.000000"）
-				floatValue, fErr := strconv.ParseFloat(strValue, 64)
-				if fErr != nil {
-					continue
-				}
-				intValue = int64(floatValue)
-			}
-			field.SetInt(intValue)
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			uintValue, err := strconv.ParseUint(strValue, 10, 64)
-			if err != nil {
-				// 兼容 float 格式的字符串
-				floatValue, fErr := strconv.ParseFloat(strValue, 64)
-				if fErr != nil || floatValue < 0 {
-					continue
-				}
-				uintValue = uint64(floatValue)
-			}
-			field.SetUint(uintValue)
-		case reflect.Float32, reflect.Float64:
-			floatValue, err := strconv.ParseFloat(strValue, 64)
-			if err != nil {
-				continue
-			}
-			field.SetFloat(floatValue)
-		case reflect.Ptr:
-			// 处理指针类型
-			if strValue == "null" {
-				field.Set(reflect.Zero(field.Type()))
-			} else {
-				// 如果指针是 nil，需要先初始化
-				if field.IsNil() {
-					field.Set(reflect.New(field.Type().Elem()))
-				}
-				// 反序列化到指针指向的值
-				err := json.Unmarshal([]byte(strValue), field.Interface())
-				if err != nil {
-					continue
-				}
-			}
-		case reflect.Map:
-			// json.Unmarshal merges into existing maps (keeps old keys that are
-			// absent from the new JSON). Allocate a fresh map so removed keys
-			// are properly cleared.
-			fresh := reflect.New(field.Type())
-			if err := json.Unmarshal([]byte(strValue), fresh.Interface()); err != nil {
-				continue
-			}
-			field.Set(fresh.Elem())
-		case reflect.Slice, reflect.Struct:
-			err := json.Unmarshal([]byte(strValue), field.Addr().Interface())
-			if err != nil {
-				continue
-			}
+		parsed, err := parseConfigField(field, strValue)
+		if err != nil {
+			return reflect.Value{}, reflect.Value{}, false, fmt.Errorf("config field %q: %w", key, err)
 		}
+		field.Set(parsed)
 	}
 
-	return nil
+	return val, candidate, true, nil
+}
+
+func parseConfigField(field reflect.Value, strValue string) (reflect.Value, error) {
+	parsed := reflect.New(field.Type()).Elem()
+
+	switch field.Kind() {
+	case reflect.String:
+		parsed.SetString(strValue)
+	case reflect.Bool:
+		value, err := strconv.ParseBool(strValue)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+		parsed.SetBool(value)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		bits := field.Type().Bits()
+		value, err := strconv.ParseInt(strValue, 10, bits)
+		if err != nil {
+			floatValue, floatErr := strconv.ParseFloat(strValue, 64)
+			minValue := -math.Ldexp(1, bits-1)
+			maxValue := math.Ldexp(1, bits-1)
+			if floatErr != nil || math.IsNaN(floatValue) || math.IsInf(floatValue, 0) || math.Trunc(floatValue) != floatValue || floatValue < minValue || floatValue >= maxValue {
+				return reflect.Value{}, err
+			}
+			value = int64(floatValue)
+		}
+		parsed.SetInt(value)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		bits := field.Type().Bits()
+		value, err := strconv.ParseUint(strValue, 10, bits)
+		if err != nil {
+			floatValue, floatErr := strconv.ParseFloat(strValue, 64)
+			maxValue := math.Ldexp(1, bits)
+			if floatErr != nil || math.IsNaN(floatValue) || math.IsInf(floatValue, 0) || math.Trunc(floatValue) != floatValue || floatValue < 0 || floatValue >= maxValue {
+				return reflect.Value{}, err
+			}
+			value = uint64(floatValue)
+		}
+		parsed.SetUint(value)
+	case reflect.Float32, reflect.Float64:
+		value, err := strconv.ParseFloat(strValue, field.Type().Bits())
+		if err != nil || math.IsNaN(value) || math.IsInf(value, 0) {
+			if err == nil {
+				err = fmt.Errorf("value must be finite")
+			}
+			return reflect.Value{}, err
+		}
+		parsed.SetFloat(value)
+	case reflect.Ptr:
+		parsed.Set(cloneConfigValue(field))
+		if strValue == "null" {
+			parsed.Set(reflect.Zero(field.Type()))
+		} else {
+			if parsed.IsNil() {
+				parsed.Set(reflect.New(field.Type().Elem()))
+			}
+			if err := common.Unmarshal([]byte(strValue), parsed.Interface()); err != nil {
+				return reflect.Value{}, err
+			}
+		}
+	case reflect.Map:
+		fresh := reflect.New(field.Type())
+		if err := common.Unmarshal([]byte(strValue), fresh.Interface()); err != nil {
+			return reflect.Value{}, err
+		}
+		parsed.Set(fresh.Elem())
+	case reflect.Slice, reflect.Struct:
+		parsed.Set(cloneConfigValue(field))
+		if err := common.Unmarshal([]byte(strValue), parsed.Addr().Interface()); err != nil {
+			return reflect.Value{}, err
+		}
+	default:
+		parsed.Set(field)
+	}
+
+	return parsed, nil
+}
+
+func cloneConfigValue(value reflect.Value) reflect.Value {
+	if !value.IsValid() {
+		return value
+	}
+
+	switch value.Kind() {
+	case reflect.Ptr:
+		if value.IsNil() {
+			return reflect.Zero(value.Type())
+		}
+		clone := reflect.New(value.Type().Elem())
+		clone.Elem().Set(cloneConfigValue(value.Elem()))
+		return clone
+	case reflect.Interface:
+		if value.IsNil() {
+			return reflect.Zero(value.Type())
+		}
+		clone := reflect.New(value.Type()).Elem()
+		clone.Set(cloneConfigValue(value.Elem()))
+		return clone
+	case reflect.Map:
+		if value.IsNil() {
+			return reflect.Zero(value.Type())
+		}
+		clone := reflect.MakeMapWithSize(value.Type(), value.Len())
+		iterator := value.MapRange()
+		for iterator.Next() {
+			clone.SetMapIndex(cloneConfigValue(iterator.Key()), cloneConfigValue(iterator.Value()))
+		}
+		return clone
+	case reflect.Slice:
+		if value.IsNil() {
+			return reflect.Zero(value.Type())
+		}
+		clone := reflect.MakeSlice(value.Type(), value.Len(), value.Len())
+		for i := 0; i < value.Len(); i++ {
+			clone.Index(i).Set(cloneConfigValue(value.Index(i)))
+		}
+		return clone
+	case reflect.Array:
+		clone := reflect.New(value.Type()).Elem()
+		for i := 0; i < value.Len(); i++ {
+			clone.Index(i).Set(cloneConfigValue(value.Index(i)))
+		}
+		return clone
+	case reflect.Struct:
+		clone := reflect.New(value.Type()).Elem()
+		clone.Set(value)
+		for i := 0; i < value.NumField(); i++ {
+			if value.Type().Field(i).IsExported() {
+				clone.Field(i).Set(cloneConfigValue(value.Field(i)))
+			}
+		}
+		return clone
+	default:
+		return value
+	}
 }
 
 // ConfigToMap 将配置对象转换为map（导出函数）
@@ -295,14 +395,22 @@ func UpdateConfigFromMap(config interface{}, configMap map[string]string) error 
 	return updateConfigFromMap(config, configMap)
 }
 
+// ValidateConfigFromMap validates an update without changing config.
+func ValidateConfigFromMap(config interface{}, configMap map[string]string) error {
+	if _, ok := config.(MapConfig); ok {
+		return ErrMapConfigValidationUnsupported
+	}
+	_, _, _, err := prepareConfigFromMap(config, configMap)
+	return err
+}
+
 // ExportAllConfigs 导出所有已注册的配置为扁平结构
 func (cm *ConfigManager) ExportAllConfigs() map[string]string {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
+	cm.operationMutex.RLock()
+	defer cm.operationMutex.RUnlock()
 	result := make(map[string]string)
 
-	for name, cfg := range cm.configs {
+	for name, cfg := range cm.snapshotConfigs() {
 		configMap, err := ConfigToMap(cfg)
 		if err != nil {
 			continue

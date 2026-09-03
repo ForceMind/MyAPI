@@ -423,3 +423,18 @@ Controller 三文件的 8 处编解码已统一到 `common` wrapper，合法 `js
 [CI 33805743908](https://github.com/ForceMind/MyAPI/actions/runs/33805743908) 七项成功，D06 当前
 范围完成；没有新增 Ollama/endpoint 完整集成测试，不把机械 wrapper 与全包回归写成真实
 Uptime/Ollama 运行验收。无页面/版本/relaykit 变化。
+
+### S2-C08 / D07 Settings（本地完成；待同提交 CI）
+
+Settings 五个目标文件的 13 处直接 JSON 调用已清零，根余量为 19 处/6 文件。该批还覆盖设置
+fresh 发布、RWMap/10 倍率、集合 `null` 规范化、负倍率/NaN/Inf 拒绝、模型 DB 前完整验证和
+批量 rate 聚合、generic config 全对象原子验证、Claude/Gemini 语义及 ConfigManager registry
+回调锁。模型成功请求限流使用单请求快照；0 分钟不能在 Enabled 状态启用；成功才写入额度；
+动态窗口按每个 key 自身过期并在 count 缩小时 prune，不做巨额预分配。
+
+本机已通过受影响包、同 CI race、限流 race `-count=2`、低并行根 test/vet/build、relaykit
+独立 vet/build/test、gofmt、diff-check 和 YAML 解析。独立 Sol 复审无 P1/P2；提交与 CI 均待
+推送/待 CI。无页面/schema 改动，版本保持 0.1.1；没有真实上游、生产、真实设备或发布
+验证。本批无专用三数据库 Settings 行为场景；同 SHA 常规 MySQL/PostgreSQL CI 待运行且不替代热更新验收。
+C09 的热读统一快照/锁、硬限额 reservation/rollback、
+跨族 reload 事务与历史数据审计未在本批解决；D08–D10 仍待，建议先 C09 只读设计。

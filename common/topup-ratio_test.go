@@ -25,3 +25,11 @@ func TestUpdateTopupGroupRatioKeepsPreviousValueOnInvalidInput(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateTopupGroupRatioDoesNotPublish(t *testing.T) {
+	previous := TopupGroupRatio2JSONString()
+	t.Cleanup(func() { require.NoError(t, UpdateTopupGroupRatioByJSONString(previous)) })
+	require.NoError(t, UpdateTopupGroupRatioByJSONString(`{"default":1}`))
+	require.NoError(t, ValidateTopupGroupRatioJSON(`{"default":2}`))
+	require.Equal(t, 1.0, GetTopupGroupRatio("default"))
+}

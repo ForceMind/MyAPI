@@ -3,6 +3,7 @@ package setting
 import (
 	"fmt"
 	"strconv"
+	"sync"
 	"sync/atomic"
 
 	"github.com/ForceMind/MyAPI/common"
@@ -13,6 +14,7 @@ const DefaultMaxTokenAutoGroups = 5
 var autoGroups = []string{
 	"default",
 }
+var autoGroupsMutex sync.RWMutex
 
 var DefaultUseAutoGroup = false
 
@@ -23,6 +25,8 @@ func init() {
 }
 
 func ContainsAutoGroup(group string) bool {
+	autoGroupsMutex.RLock()
+	defer autoGroupsMutex.RUnlock()
 	for _, autoGroup := range autoGroups {
 		if autoGroup == group {
 			return true
@@ -32,11 +36,27 @@ func ContainsAutoGroup(group string) bool {
 }
 
 func UpdateAutoGroupsByJsonString(jsonString string) error {
-	autoGroups = make([]string, 0)
-	return common.Unmarshal([]byte(jsonString), &autoGroups)
+	var groups []string
+	if err := common.Unmarshal([]byte(jsonString), &groups); err != nil {
+		return err
+	}
+	if groups == nil {
+		groups = []string{}
+	}
+	autoGroupsMutex.Lock()
+	autoGroups = groups
+	autoGroupsMutex.Unlock()
+	return nil
+}
+
+func ValidateAutoGroupsJSON(value string) error {
+	var groups []string
+	return common.Unmarshal([]byte(value), &groups)
 }
 
 func AutoGroups2JsonString() string {
+	autoGroupsMutex.RLock()
+	defer autoGroupsMutex.RUnlock()
 	jsonBytes, err := common.Marshal(autoGroups)
 	if err != nil {
 		return "[]"
@@ -45,7 +65,9 @@ func AutoGroups2JsonString() string {
 }
 
 func GetAutoGroups() []string {
-	return autoGroups
+	autoGroupsMutex.RLock()
+	defer autoGroupsMutex.RUnlock()
+	return append([]string(nil), autoGroups...)
 }
 
 func GetMaxTokenAutoGroups() int {

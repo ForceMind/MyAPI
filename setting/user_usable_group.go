@@ -1,7 +1,6 @@
 package setting
 
 import (
-	"encoding/json"
 	"sync"
 
 	"github.com/ForceMind/MyAPI/common"
@@ -28,7 +27,7 @@ func UserUsableGroups2JSONString() string {
 	userUsableGroupsMutex.RLock()
 	defer userUsableGroupsMutex.RUnlock()
 
-	jsonBytes, err := json.Marshal(userUsableGroups)
+	jsonBytes, err := common.Marshal(userUsableGroups)
 	if err != nil {
 		common.SysLog("error marshalling user groups: " + err.Error())
 	}
@@ -36,11 +35,22 @@ func UserUsableGroups2JSONString() string {
 }
 
 func UpdateUserUsableGroupsByJSONString(jsonStr string) error {
+	var groups map[string]string
+	if err := common.Unmarshal([]byte(jsonStr), &groups); err != nil {
+		return err
+	}
+	if groups == nil {
+		groups = map[string]string{}
+	}
 	userUsableGroupsMutex.Lock()
-	defer userUsableGroupsMutex.Unlock()
+	userUsableGroups = groups
+	userUsableGroupsMutex.Unlock()
+	return nil
+}
 
-	userUsableGroups = make(map[string]string)
-	return json.Unmarshal([]byte(jsonStr), &userUsableGroups)
+func ValidateUserUsableGroupsJSON(value string) error {
+	var groups map[string]string
+	return common.Unmarshal([]byte(value), &groups)
 }
 
 func GetUsableGroupDescription(groupName string) string {

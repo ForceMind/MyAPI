@@ -1,6 +1,6 @@
 # MyAPI 开发执行计划
 
-> 2026-09-04 代码验收基线：`02a0aaf`（CI `33805743908` 七项成功）；最新适用镜像证据仍为 `237c0da` 的 Docker smoke `33790513455`，Full/LAN 均成功。本文件管理完整路线与当前授权；历史证据保留在
+> 2026-09-04 代码验收基线：当前 `HEAD`（本批提交、同提交 CI 均待推送/待 CI）；最新适用镜像证据仍为 `237c0da` 的 Docker smoke `33790513455`，Full/LAN 均成功。本文件管理完整路线与当前授权；历史证据保留在
 > [完成度审计](COMPLETION_AUDIT.md)，产品定义见[主计划](MYAPI_MASTER_PLAN.md)。
 > **S0＋S1 及 S1-R1、S2-A 六项及 S2-A-R1** 已完成当前确认范围。目标及风险边界内的实现、测试修正、审查修复、复验和阶段同步持续推进，不把每次小修拆为新的确认；核心架构/业务取舍、范围扩大与发布仍单独确认。
 
@@ -22,7 +22,7 @@ SSE、脱敏日志、额度分析、账户/Key 兼容字段、CLI/Electron 和�
 | --- | --- | --- | --- |
 | S0 计划与证据 | 已完成／已确认范围 | terra 起草，主代理整合 | 需求、缺陷、验证、决策分开；更新主计划、审计、macOS、额度 OpenAPI；链接、参数和事实一致。 |
 | S1 安全与一致性 | 已完成／已确认范围 | sol 实现；独立 sol 复审 | 原六项及追加 R1 均通过回归、独立复审和 CI；同进程配置保存/后台重载的发布顺序、双写交错与失败释放已有证据，不推导跨实例一致性。 |
-| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06/C07、D01–D06 已完成当前范围。B2/B3 任务持久化/恢复、C03b 缓存恢复及 D07–D10 仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
+| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06/C07、C08、D01–D07 已完成本地范围，D07 同提交 CI 待验证。B2/B3 任务持久化/恢复、C03b 缓存恢复、C09 独立设计及 D08–D10 仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
 | S3 账户/Key 实际策略 | 未开始／迁移设计待确认 | sol 设计，分模块实现 | 明确账户权益、模型限制交集、route_groups、disabled、fallback、计费归属；旧 Key 兼容/差异报告/启用/回滚经确认后落实。不得把已有元数据当强制策略。 |
 | S4 运行与恢复 | 进行中／S4-01、S4-02 已完成当前范围 | 工程/制品与独立 sol 审查；sol 数据与恢复 | Full/LAN 测试镜像均不推送；SQLite/MySQL/PostgreSQL 临时库旧结构升级、重复迁移、多连接竞争、备份恢复；登录/Key/权限/日志/额度探针；原生桌面构建、安装升级与第二设备 LAN。 |
 | S5 额度闭环与选定扩展 | 未开始／各扩展分别决策 | sol 领域/安全，terra 常规实现 | 测试实例真实账户连续采样、任务/API/管理员页面一致；失败/重置/缺口和大数据量性能。通知、多 Key 身份、Claude 组织用量等按决策登记，不混入平台账本。 |
@@ -116,6 +116,8 @@ race、relaykit 独立构建/测试、Node22 发行合同及干净源码 pack �
 | C05 | 已完成 | 四种支付控制器、必要的定向访问日志过滤及测试 | INFO/WARN/ERROR 和四个已匹配 webhook 的生产访问日志不输出原始正文/签名/query/客户资料；验签/ACK/幂等保持；Pancake 验证边界如实标注。 |
 | C06 | 已完成／测试隔离、本机/CI race 与独立复审通过 | 生产 logger 计数/轮转预约状态及轮询测试共享对象 | 两个渠道并发记录日志无 data race；保留日志格式与轮转、多渠道并发；测试使用独立快照/通知，不用串行化或 sleep 掩盖。 |
 | C07 | 已完成当前范围 | `common` 请求正文替换生命周期、Kling/Jimeng 兼容路由、Full Content 入口身份、Provider 模型/时长边界 | 所有正文读取路径同版本；原始客户端日志与转换后分发分离；`model_name`/`req_key`、Kling duration/mode、Jimeng frames 不得绕过已验证/已计费字段；内存/磁盘清理、race 与同提交 CI 通过。 |
+| C08 | 本地完成／待同提交 CI | Settings JSON、持久化前验证、限流快照、倍率与配置发布 | 失败解析/DB 失败不改 runtime；负/非有限倍率拒绝；rate 单请求快照、溢出/内存/动态窗口回归；本地普通/race/全量通过，同 SHA CI 待核对。 |
+| C09 | 未开始／待独立设计 | Settings 控制面并发与硬限额合同 | generic config 热读快照/锁、成功限额 reservation/rollback、跨配置族 reload 原子性取舍、历史 null/未知 key/Passkey 懒写/可变指针审计。 |
 
 C03a 不等于整个账务缓存一致性完成。现有缺损 hash 的 miss→hydrate/DB fallback 仍未改；
 高层 User/Token quota 增减仍异步更新缓存、失败只记录而数据库继续写，须在 C03b 单列。
@@ -173,7 +175,7 @@ B2/B3 需核心合同决定：上游接受结果未知时是否不自动重发/�
 | D04 Provider 响应/Vertex token | 已完成当前范围 | 5/3 | SiliconFlow、Tencent、Vertex；合法/错误/malformed 响应，Vertex 固定安全错误、非空 token 与 HTTP/provider error 边界；同提交 CI 通过，不访问真实上游。 |
 | D05 Midjourney | 已完成当前范围 | 8/1 | 持久化 Buttons/VideoUrls/Properties、Notify 与 object/array/`[]` 响应形状；保留静默解析及历史错误字符串；同提交 CI 通过。 |
 | D06 Controller | 已完成当前范围 | 8/3 | Vertex key、model metadata、Uptime Kuma/Ollama 边界；保留合法 `json.Valid`/RawMessage，规则 endpoint 稳定排序；同提交 CI 通过。 |
-| D07 Settings | 未开始 | 13/5 | 配置反射、fresh map、群组倍率与 malformed 跳过；全局设置恢复，锁问题单独跟踪。 |
+| D07 Settings / C08 | 本地完成／待同提交 CI | 13/5 已清零；根余量 19/6 | 设置反射及 fresh 发布、群组倍率、集合 null 规范化、generic config 原子发布与纯验证；配置/模型/限流并发边界回归，新增 D07 race 门禁。 |
 | D08 io.net 核心 | 未开始 | 8/2 | HTTP body/query、API error 和 flexible time；建立无网络 fake client。 |
 | D09 io.net endpoints | 未开始／依赖 D08 | 9/3 | container/deployment/hardware 表驱动合法与 malformed 响应。 |
 | D10 cachex | 未开始 | 2/1 | codec round trip、空白/malformed/不可编码值；不新增平行 abstraction。 |
@@ -186,6 +188,29 @@ D01 已将四个 OAuth 文件的 9 处直接调用清零，结构余量为 **58 
 该批无页面变化，`VERSION` 仍为 0.1.1。最终 `6b3042a` /
 [CI 33793219733](https://github.com/ForceMind/MyAPI/actions/runs/33793219733) 七项成功，
 Backend 原始步骤包含根/relaykit vet、build、全量 test 与两组既有 race；D01 已完成当前范围。
+
+**S2-C08 / D07 本地完成，待同提交 CI。** Settings 五个目标文件的 13 处直接 JSON 调用已
+清零，根模块结构余量由 32 处/11 文件降为 **19 处/6 文件**。同批修复 fresh 发布与
+验证合同：RWMap、10 倍率、Chats/UserGroups/AutoGroups/PayMethods、负倍率和非有限值、
+model DB 前完整验证及批量 rate 聚合、generic config 全对象失败原子性和纯验证、
+ConfigManager registry 回调锁、集合 `null` 规范化；Claude/Gemini 各自语义保持不被通用
+配置路径改写。模型成功请求限流改为单请求快照，防止溢出；Enabled 且 0 分钟不能启用，
+成功请求才记录，内存路径不把成功计入失败，避免巨额预分配；动态窗口按 key 自身过期，
+并在计数缩小时 prune。exposed cache 代际也纳入可观察回归。
+
+本机实际通过受影响包普通测试；最终 CI 同款 race（`common`、`types/config`、
+`model_setting`、`operation_setting`、`ratio_setting`、`setting/model`、`middleware`、
+`controller`）；限流 race `-count=2`；根 `go test -p 1 ./...`、`go vet ./...`、
+`go build -p 1 ./...`；以及 `relaykit` 的 `GOWORK=off` vet/build/test、gofmt、diff-check
+和 YAML 解析。独立 Sol 首审问题均已修复，复审确认当前范围无剩余 P1/P2。本批无前端
+页面或 schema 变化，`VERSION` 保持 0.1.1；未跑真实上游、生产、真实设备或发布。本批无
+专用三数据库 Settings 行为场景；同 SHA 常规 MySQL/PostgreSQL jobs 待运行，但不得替代热更新验收。
+
+**明确未完成的 S2-C09：** generic config 对象业务热读仍缺统一快照/锁；成功限额的内存
+与 Redis 都是 check→execute→record 的近似语义，并发可超发，硬限额须另定
+reservation/rollback 合同；跨配置族 reload 仍是 best-effort，非全量事务；历史 DB raw
+`null`、未知分层 key、Passkey 懒写与 `GroupRatioSetting` 可变指针仍待审计。D08–D10 仍待；
+建议先做 C09 只读设计，再进入 D08。
 
 C07/D02 在 D01 的 58/23 基线上将两个 middleware 直接 Marshal 清零，结构余量为
 **56 处/21 文件**。只读 Sol ultra 追踪确认旧 `KeyBodyStorage` 会遮蔽兼容适配器写入的

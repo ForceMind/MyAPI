@@ -2,7 +2,7 @@
 
 > 文档状态：执行基线与路线图
 >
-> 基线复核日期：2026-09-03（历史阶段记录保留）
+> 基线复核日期：2026-09-04（历史阶段记录保留）
 >
 > 当前源码基线：本分支 `main` 最新提交（后续阶段性提交以 Git 历史为准）
 
@@ -209,6 +209,19 @@ D06 本地完成 Controller 8 处 wrapper 收敛，并让规则模型 endpoint J
 合法 `json.Valid`/RawMessage。Vertex key 与 Uptime helper 离线测试、Controller 全包
 普通/race、vet、独立 Sol 审查及 `02a0aaf` 七项 CI 通过，余量为 32/11，D06 当前范围
 完成；Ollama/endpoint 专用集成测试为非阻断剩余，不改变其现有流式或集合合同。
+
+S2-C08 / D07 已在本地完成，提交与同提交 CI 均待推送/待 CI：Settings 五个目标文件 13 处直接
+JSON 调用清零，根余量降为 19 处/6 文件；同时收紧设置 fresh 发布、倍率和非有限值、模型
+DB 前验证/批量 rate 聚合、generic config 全对象原子验证、ConfigManager 回调锁、集合 null
+规范化与模型成功限流的快照、溢出、动态 key 过期和缩小 prune 合同。独立 Sol 首审修复后
+复审无 P1/P2。本机完成同 CI race、限流 race `-count=2`、根测试/vet/build、relaykit 独立
+vet/build/test、格式/diff/YAML 检查；无页面或 schema 变更，版本保持 0.1.1。未执行真实
+上游、生产、真实设备或发布；同 SHA 常规 MySQL/PostgreSQL job 仍待 CI，但本批无专用三数据库 Settings 行为场景。
+
+这不关闭独立 S2-C09：generic config 热读尚无统一快照/锁；内存和 Redis 成功限额仍是
+check→execute→record 的近似合同，并发可能超发；跨配置族 reload 非全量事务；历史 DB raw
+`null`、未知分层 key、Passkey 懒写和 `GroupRatioSetting` 可变指针待审计。D08–D10 仍未开始，
+建议先完成 C09 只读设计。
 
 以下为此前阶段记录，当前状态以以上验收基线与执行矩阵为准。
 

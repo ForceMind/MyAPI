@@ -6,6 +6,8 @@ This file is the old version of the payment settings file. If you need to add ne
 package operation_setting
 
 import (
+	"sync"
+
 	"github.com/ForceMind/MyAPI/common"
 )
 
@@ -35,13 +37,30 @@ var PayMethods = []map[string]string{
 		"min_topup": "50",
 	},
 }
+var payMethodsMutex sync.RWMutex
 
 func UpdatePayMethodsByJsonString(jsonString string) error {
-	PayMethods = make([]map[string]string, 0)
-	return common.Unmarshal([]byte(jsonString), &PayMethods)
+	var methods []map[string]string
+	if err := common.Unmarshal([]byte(jsonString), &methods); err != nil {
+		return err
+	}
+	if methods == nil {
+		methods = []map[string]string{}
+	}
+	payMethodsMutex.Lock()
+	PayMethods = methods
+	payMethodsMutex.Unlock()
+	return nil
+}
+
+func ValidatePayMethodsJSON(value string) error {
+	var methods []map[string]string
+	return common.Unmarshal([]byte(value), &methods)
 }
 
 func PayMethods2JsonString() string {
+	payMethodsMutex.RLock()
+	defer payMethodsMutex.RUnlock()
 	jsonBytes, err := common.Marshal(PayMethods)
 	if err != nil {
 		return "[]"
@@ -49,7 +68,25 @@ func PayMethods2JsonString() string {
 	return string(jsonBytes)
 }
 
+func GetPayMethods() []map[string]string {
+	payMethodsMutex.RLock()
+	defer payMethodsMutex.RUnlock()
+	methods := make([]map[string]string, len(PayMethods))
+	for i, method := range PayMethods {
+		if method == nil {
+			continue
+		}
+		methods[i] = make(map[string]string, len(method))
+		for key, value := range method {
+			methods[i][key] = value
+		}
+	}
+	return methods
+}
+
 func ContainsPayMethod(method string) bool {
+	payMethodsMutex.RLock()
+	defer payMethodsMutex.RUnlock()
 	for _, payMethod := range PayMethods {
 		if payMethod["type"] == method {
 			return true

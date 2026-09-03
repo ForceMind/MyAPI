@@ -1,8 +1,8 @@
 package ratio_setting
 
 import (
-	"encoding/json"
-	"errors"
+	"fmt"
+	"math"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/setting/config"
@@ -52,11 +52,73 @@ func init() {
 }
 
 func GetGroupRatioSetting() *GroupRatioSetting {
-	if groupRatioSetting.GroupSpecialUsableGroup == nil {
-		groupRatioSetting.GroupSpecialUsableGroup = types.NewRWMap[string, map[string]string]()
-		groupRatioSetting.GroupSpecialUsableGroup.AddAll(defaultGroupSpecialUsableGroup)
-	}
 	return &groupRatioSetting
+}
+
+func (s *GroupRatioSetting) ExportConfigMap() (map[string]string, error) {
+	specialGroups := "{}"
+	if s != nil && s.GroupSpecialUsableGroup != nil {
+		specialGroups = s.GroupSpecialUsableGroup.MarshalJSONString()
+	}
+	return map[string]string{
+		"group_ratio":                GroupRatio2JSONString(),
+		"group_group_ratio":          GroupGroupRatio2JSONString(),
+		"group_special_usable_group": specialGroups,
+	}, nil
+}
+
+func (s *GroupRatioSetting) UpdateConfigMap(values map[string]string) error {
+	if raw, ok := values["group_ratio"]; ok {
+		if err := ValidateRatioMapJSON(raw); err != nil {
+			return err
+		}
+	}
+	if raw, ok := values["group_group_ratio"]; ok {
+		if err := ValidateNestedRatioMapJSON(raw); err != nil {
+			return err
+		}
+	}
+	if raw, ok := values["group_special_usable_group"]; ok {
+		if err := ValidateGroupSpecialUsableGroupJSON(raw); err != nil {
+			return err
+		}
+	}
+
+	if raw, ok := values["group_ratio"]; ok {
+		if err := UpdateGroupRatioByJSONString(raw); err != nil {
+			return err
+		}
+	}
+	if raw, ok := values["group_group_ratio"]; ok {
+		if err := UpdateGroupGroupRatioByJSONString(raw); err != nil {
+			return err
+		}
+	}
+	if raw, ok := values["group_special_usable_group"]; ok {
+		if s.GroupSpecialUsableGroup == nil {
+			s.GroupSpecialUsableGroup = types.NewRWMap[string, map[string]string]()
+		}
+		if err := types.LoadFromJsonString(s.GroupSpecialUsableGroup, raw); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ValidateGroupSpecialUsableGroupJSON(raw string) error {
+	var groups map[string]map[string]string
+	if err := common.Unmarshal([]byte(raw), &groups); err != nil {
+		return err
+	}
+	if groups == nil {
+		return fmt.Errorf("group special usable groups must be a JSON object")
+	}
+	for name, group := range groups {
+		if group == nil {
+			return fmt.Errorf("group special usable group %s must be a JSON object", name)
+		}
+	}
+	return nil
 }
 
 func GetGroupRatioCopy() map[string]float64 {
@@ -73,6 +135,9 @@ func GroupRatio2JSONString() string {
 }
 
 func UpdateGroupRatioByJSONString(jsonStr string) error {
+	if err := ValidateRatioMapJSON(jsonStr); err != nil {
+		return err
+	}
 	return types.LoadFromJsonString(groupRatioMap, jsonStr)
 }
 
@@ -80,6 +145,10 @@ func GetGroupRatio(name string) float64 {
 	ratio, ok := groupRatioMap.Get(name)
 	if !ok {
 		common.SysLog("group ratio not found: " + name)
+		return 1
+	}
+	if ratio < 0 || math.IsNaN(ratio) || math.IsInf(ratio, 0) {
+		common.SysError("invalid group ratio for " + name)
 		return 1
 	}
 	return ratio
@@ -94,6 +163,10 @@ func GetGroupGroupRatio(userGroup, usingGroup string) (float64, bool) {
 	if !ok {
 		return -1, false
 	}
+	if ratio < 0 || math.IsNaN(ratio) || math.IsInf(ratio, 0) {
+		common.SysError("invalid special group ratio for " + userGroup + "/" + usingGroup)
+		return -1, false
+	}
 	return ratio, true
 }
 
@@ -102,19 +175,12 @@ func GroupGroupRatio2JSONString() string {
 }
 
 func UpdateGroupGroupRatioByJSONString(jsonStr string) error {
+	if err := ValidateNestedRatioMapJSON(jsonStr); err != nil {
+		return err
+	}
 	return types.LoadFromJsonString(groupGroupRatioMap, jsonStr)
 }
 
 func CheckGroupRatio(jsonStr string) error {
-	checkGroupRatio := make(map[string]float64)
-	err := json.Unmarshal([]byte(jsonStr), &checkGroupRatio)
-	if err != nil {
-		return err
-	}
-	for name, ratio := range checkGroupRatio {
-		if ratio < 0 {
-			return errors.New("group ratio must be not less than 0: " + name)
-		}
-	}
-	return nil
+	return ValidateRatioMapJSON(jsonStr)
 }

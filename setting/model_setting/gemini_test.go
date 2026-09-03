@@ -1,6 +1,7 @@
 package model_setting
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -95,5 +96,14 @@ func TestValidateGeminiSafetySettings(t *testing.T) {
 	}
 	for _, value := range invalid {
 		assert.Error(t, ValidateGeminiSafetySettings(value), value)
+	}
+}
+
+func TestValidateGeminiThinkingAdapterBudgetTokensPercentage(t *testing.T) {
+	for _, value := range []float64{-1, 0, 0.001, 1.01, math.NaN(), math.Inf(1)} {
+		require.Error(t, ValidateGeminiThinkingAdapterBudgetTokensPercentage(value))
+	}
+	for _, value := range []float64{0.002, 0.6, 1} {
+		require.NoError(t, ValidateGeminiThinkingAdapterBudgetTokensPercentage(value))
 	}
 }

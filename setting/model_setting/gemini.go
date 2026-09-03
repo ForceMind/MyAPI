@@ -2,6 +2,7 @@ package model_setting
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/setting/config"
@@ -95,6 +96,15 @@ func ValidateGeminiSafetySettings(value string) error {
 		if _, ok := validGeminiSafetySettings[threshold]; !ok {
 			return fmt.Errorf("invalid Gemini safety threshold %q for %q", threshold, category)
 		}
+	}
+	return nil
+}
+
+// ValidateGeminiThinkingAdapterBudgetTokensPercentage keeps the derived
+// thinking budget finite and within the range accepted by the settings UI.
+func ValidateGeminiThinkingAdapterBudgetTokensPercentage(value float64) error {
+	if math.IsNaN(value) || math.IsInf(value, 0) || value < 0.002 || value > 1 {
+		return fmt.Errorf("Gemini thinking adapter budget percentage must be finite and in [0.002,1], got %v", value)
 	}
 	return nil
 }

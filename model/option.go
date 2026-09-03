@@ -9,6 +9,7 @@ import (
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/setting"
 	"github.com/ForceMind/MyAPI/setting/config"
+	"github.com/ForceMind/MyAPI/setting/model_setting"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	"github.com/ForceMind/MyAPI/setting/performance_setting"
 	"github.com/ForceMind/MyAPI/setting/ratio_setting"
@@ -37,6 +38,7 @@ func InitOptionMap() {
 	defer optionMutationLock.Unlock()
 	common.OptionMapRWMutex.Lock()
 	common.OptionMap = make(map[string]string)
+	rateLimitConfig := setting.GetModelRequestRateLimitConfig()
 
 	// 添加原有的系统配置
 	common.OptionMap["FileUploadPermission"] = strconv.Itoa(common.FileUploadPermission)
@@ -158,10 +160,13 @@ func InitOptionMap() {
 	}); err == nil {
 		common.OptionMap[common.ChannelQuotaAlertSettingsOptionKey] = quotaAlertJSON
 	}
-	common.OptionMap["ModelRequestRateLimitCount"] = strconv.Itoa(setting.ModelRequestRateLimitCount)
-	common.OptionMap["ModelRequestRateLimitDurationMinutes"] = strconv.Itoa(setting.ModelRequestRateLimitDurationMinutes)
-	common.OptionMap["ModelRequestRateLimitSuccessCount"] = strconv.Itoa(setting.ModelRequestRateLimitSuccessCount)
-	common.OptionMap["ModelRequestRateLimitGroup"] = setting.ModelRequestRateLimitGroup2JSONString()
+	common.OptionMap["ModelRequestRateLimitCount"] = strconv.Itoa(rateLimitConfig.Total)
+	common.OptionMap["ModelRequestRateLimitDurationMinutes"] = strconv.Itoa(rateLimitConfig.DurationMinutes)
+	common.OptionMap["ModelRequestRateLimitSuccessCount"] = strconv.Itoa(rateLimitConfig.Success)
+	rateLimitGroupJSON, err := common.Marshal(rateLimitConfig.Group)
+	if err == nil {
+		common.OptionMap["ModelRequestRateLimitGroup"] = string(rateLimitGroupJSON)
+	}
 	common.OptionMap["ModelRatio"] = ratio_setting.ModelRatio2JSONString()
 	common.OptionMap["ModelPrice"] = ratio_setting.ModelPrice2JSONString()
 	common.OptionMap["CacheRatio"] = ratio_setting.CacheRatio2JSONString()
@@ -189,7 +194,7 @@ func InitOptionMap() {
 	common.OptionMap["CheckSensitiveEnabled"] = strconv.FormatBool(setting.CheckSensitiveEnabled)
 	common.OptionMap["DemoSiteEnabled"] = strconv.FormatBool(operation_setting.DemoSiteEnabled)
 	common.OptionMap["SelfUseModeEnabled"] = strconv.FormatBool(operation_setting.SelfUseModeEnabled)
-	common.OptionMap["ModelRequestRateLimitEnabled"] = strconv.FormatBool(setting.ModelRequestRateLimitEnabled)
+	common.OptionMap["ModelRequestRateLimitEnabled"] = strconv.FormatBool(rateLimitConfig.Enabled)
 	common.OptionMap["CheckSensitiveOnPromptEnabled"] = strconv.FormatBool(setting.CheckSensitiveOnPromptEnabled)
 	common.OptionMap["StopOnSensitiveEnabled"] = strconv.FormatBool(setting.StopOnSensitiveEnabled)
 	common.OptionMap["SensitiveWords"] = setting.SensitiveWordsToString()
@@ -224,10 +229,20 @@ func loadOptionsFromDatabaseLocked() {
 		common.SysLog("failed to load options from database: " + err.Error())
 		return
 	}
+	rateLimitValues := make(map[string]string)
 	for _, option := range options {
+		if isModelRequestRateLimitOption(option.Key) {
+			rateLimitValues[option.Key] = option.Value
+			continue
+		}
 		err := updateOptionMap(option.Key, option.Value)
 		if err != nil {
 			common.SysLog("failed to update option map: " + err.Error())
+		}
+	}
+	if len(rateLimitValues) > 0 {
+		if err := publishModelRequestRateLimitOptions(rateLimitValues, nil); err != nil {
+			common.SysLog("failed to update model request rate limit options: " + err.Error())
 		}
 	}
 }
@@ -253,6 +268,57 @@ func validateOptionValue(key string, value string) error {
 	if key == "MaxTokenAutoGroups" {
 		return setting.ValidateMaxTokenAutoGroups(value)
 	}
+	if key == "AutoGroups" {
+		return setting.ValidateAutoGroupsJSON(value)
+	}
+	if key == "TopupGroupRatio" {
+		return common.ValidateTopupGroupRatioJSON(value)
+	}
+	if key == "PayMethods" {
+		return operation_setting.ValidatePayMethodsJSON(value)
+	}
+	if key == "AutomaticDisableStatusCodes" || key == "AutomaticRetryStatusCodes" {
+		_, err := operation_setting.ParseHTTPStatusCodeRanges(value)
+		return err
+	}
+	if key == "gemini.safety_settings" {
+		return model_setting.ValidateGeminiSafetySettings(value)
+	}
+	if key == "claude.default_max_tokens" {
+		return model_setting.ValidateClaudeDefaultMaxTokens(value)
+	}
+	if key == "claude.thinking_adapter_budget_tokens_percentage" || key == "gemini.thinking_adapter_budget_tokens_percentage" {
+		percentage, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return err
+		}
+		if key == "claude.thinking_adapter_budget_tokens_percentage" {
+			return model_setting.ValidateClaudeThinkingAdapterBudgetTokensPercentage(percentage)
+		}
+		return model_setting.ValidateGeminiThinkingAdapterBudgetTokensPercentage(percentage)
+	}
+	if isModelRequestRateLimitOption(key) {
+		rateLimitConfig := setting.GetModelRequestRateLimitConfig()
+		_, err := applyModelRequestRateLimitOptionValue(&rateLimitConfig, key, value)
+		if err != nil {
+			return err
+		}
+		return setting.ValidateModelRequestRateLimitConfig(rateLimitConfig)
+	}
+	switch key {
+	case "ModelRatio", "ModelPrice", "CompletionRatio", "CacheRatio", "CreateCacheRatio", "ImageRatio", "AudioRatio", "AudioCompletionRatio":
+		return ratio_setting.ValidateRatioMapJSON(value)
+	case "GroupRatio", "group_ratio_setting.group_ratio":
+		return ratio_setting.ValidateRatioMapJSON(value)
+	case "GroupGroupRatio", "group_ratio_setting.group_group_ratio":
+		return ratio_setting.ValidateNestedRatioMapJSON(value)
+	case "group_ratio_setting.group_special_usable_group":
+		return ratio_setting.ValidateGroupSpecialUsableGroupJSON(value)
+	case "Chats":
+		return setting.ValidateChatsJSON(value)
+	case "UserUsableGroups":
+		return setting.ValidateUserUsableGroupsJSON(value)
+	}
 	if key == "ChannelQuotaSyncEnabled" {
 		if _, err := strconv.ParseBool(strings.TrimSpace(value)); err != nil {
 			return err
@@ -273,6 +339,98 @@ func validateOptionValue(key string, value string) error {
 	if key == "access_profile_setting.profiles" {
 		return setting.ValidateAccessProfileDefinitionsJSON(value)
 	}
+	parts := strings.SplitN(key, ".", 2)
+	if len(parts) == 2 {
+		if cfg := config.GlobalConfig.Get(parts[0]); cfg != nil {
+			err := config.ValidateConfigFromMap(cfg, map[string]string{parts[1]: value})
+			if err != nil && err != config.ErrMapConfigValidationUnsupported {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func isModelRequestRateLimitOption(key string) bool {
+	switch key {
+	case "ModelRequestRateLimitEnabled", "ModelRequestRateLimitDurationMinutes", "ModelRequestRateLimitCount", "ModelRequestRateLimitSuccessCount", "ModelRequestRateLimitGroup":
+		return true
+	default:
+		return false
+	}
+}
+
+func applyModelRequestRateLimitOptionValue(config *setting.ModelRequestRateLimitConfig, key, value string) (bool, error) {
+	switch key {
+	case "ModelRequestRateLimitEnabled":
+		enabled, err := strconv.ParseBool(strings.TrimSpace(value))
+		if err != nil {
+			return true, err
+		}
+		config.Enabled = enabled
+	case "ModelRequestRateLimitDurationMinutes":
+		duration, err := strconv.Atoi(strings.TrimSpace(value))
+		if err != nil {
+			return true, err
+		}
+		config.DurationMinutes = duration
+	case "ModelRequestRateLimitCount":
+		count, err := strconv.Atoi(strings.TrimSpace(value))
+		if err != nil {
+			return true, err
+		}
+		config.Total = count
+	case "ModelRequestRateLimitSuccessCount":
+		count, err := strconv.Atoi(strings.TrimSpace(value))
+		if err != nil {
+			return true, err
+		}
+		config.Success = count
+	case "ModelRequestRateLimitGroup":
+		group, err := setting.ParseModelRequestRateLimitGroupJSON(value)
+		if err != nil {
+			return true, err
+		}
+		config.Group = group
+	default:
+		return false, nil
+	}
+	return true, nil
+}
+
+func prepareModelRequestRateLimitConfig(values map[string]string) (setting.ModelRequestRateLimitConfig, error) {
+	config := setting.GetModelRequestRateLimitConfig()
+	for key, value := range values {
+		if _, err := applyModelRequestRateLimitOptionValue(&config, key, value); err != nil {
+			return setting.ModelRequestRateLimitConfig{}, err
+		}
+	}
+	if err := setting.ValidateModelRequestRateLimitConfig(config); err != nil {
+		return setting.ModelRequestRateLimitConfig{}, err
+	}
+	return config, nil
+}
+
+func publishModelRequestRateLimitOptions(values map[string]string, prepared *setting.ModelRequestRateLimitConfig) error {
+	common.OptionMapRWMutex.Lock()
+	defer common.OptionMapRWMutex.Unlock()
+
+	var config setting.ModelRequestRateLimitConfig
+	if prepared == nil {
+		var err error
+		config, err = prepareModelRequestRateLimitConfig(values)
+		if err != nil {
+			return err
+		}
+	} else {
+		config = *prepared
+	}
+	if err := setting.ApplyModelRequestRateLimitConfig(config); err != nil {
+		return err
+	}
+	for key, value := range values {
+		common.OptionMap[key] = value
+	}
 	return nil
 }
 
@@ -291,15 +449,15 @@ func UpdateOptionsBulk(values map[string]string) error {
 	}
 	normalized := make(map[string]string, len(values))
 	for key, value := range values {
-		if key == "access_profile_setting.profiles" {
-			var err error
-			value, err = setting.NormalizeAccessProfileDefinitionsJSON(value)
-			if err != nil {
+		var err error
+		value, err = normalizeOptionValue(key, value)
+		if err != nil {
+			return err
+		}
+		if !isModelRequestRateLimitOption(key) {
+			if err := validateOptionValue(key, value); err != nil {
 				return err
 			}
-		}
-		if err := validateOptionValue(key, value); err != nil {
-			return err
 		}
 		normalized[key] = value
 	}
@@ -308,6 +466,20 @@ func UpdateOptionsBulk(values map[string]string) error {
 	// or an atomic read snapshot across all configuration fields.
 	optionMutationLock.Lock()
 	defer optionMutationLock.Unlock()
+	rateLimitValues := make(map[string]string)
+	for key, value := range normalized {
+		if isModelRequestRateLimitOption(key) {
+			rateLimitValues[key] = value
+		}
+	}
+	var rateLimitConfig *setting.ModelRequestRateLimitConfig
+	if len(rateLimitValues) > 0 {
+		config, err := prepareModelRequestRateLimitConfig(rateLimitValues)
+		if err != nil {
+			return err
+		}
+		rateLimitConfig = &config
+	}
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		for k, v := range normalized {
 			option := Option{Key: k}
@@ -325,7 +497,16 @@ func UpdateOptionsBulk(values map[string]string) error {
 		return err
 	}
 	for k, v := range normalized {
+		if isModelRequestRateLimitOption(k) {
+			rateLimitValues[k] = v
+			continue
+		}
 		if err := updateOptionMap(k, v); err != nil {
+			return err
+		}
+	}
+	if len(rateLimitValues) > 0 {
+		if err := publishModelRequestRateLimitOptions(rateLimitValues, rateLimitConfig); err != nil {
 			return err
 		}
 	}
@@ -333,14 +514,12 @@ func UpdateOptionsBulk(values map[string]string) error {
 }
 
 func updateOptionMap(key string, value string) (err error) {
-	if err = common.ValidateChannelQuotaAlertOptionValue(key, value); err != nil {
+	value, err = normalizeOptionValue(key, value)
+	if err != nil {
 		return err
 	}
-	if key == "access_profile_setting.profiles" {
-		value, err = setting.NormalizeAccessProfileDefinitionsJSON(value)
-		if err != nil {
-			return err
-		}
+	if err = validateOptionValue(key, value); err != nil {
+		return err
 	}
 	if key == retiredThemeOptionKey {
 		common.OptionMapRWMutex.Lock()
@@ -359,11 +538,22 @@ func updateOptionMap(key string, value string) (err error) {
 		common.OptionMap[key] = value
 		return nil
 	}
+	previousValue, hadPreviousValue := common.OptionMap[key]
 	common.OptionMap[key] = value
+	defer func() {
+		if err == nil {
+			return
+		}
+		if hadPreviousValue {
+			common.OptionMap[key] = previousValue
+		} else {
+			delete(common.OptionMap, key)
+		}
+	}()
 
 	// 检查是否是模型配置 - 使用更规范的方式处理
-	if handleConfigUpdate(key, value) {
-		return nil // 已由配置系统处理
+	if handled, configErr := handleConfigUpdate(key, value); handled {
+		return configErr
 	}
 
 	// 处理传统配置项...
@@ -450,7 +640,12 @@ func updateOptionMap(key string, value string) (err error) {
 		case "CheckSensitiveOnPromptEnabled":
 			setting.CheckSensitiveOnPromptEnabled = boolValue
 		case "ModelRequestRateLimitEnabled":
-			setting.ModelRequestRateLimitEnabled = boolValue
+			enabled, parseErr := strconv.ParseBool(strings.TrimSpace(value))
+			if parseErr != nil {
+				err = parseErr
+			} else {
+				err = setting.SetModelRequestRateLimitEnabled(enabled)
+			}
 		case "StopOnSensitiveEnabled":
 			setting.StopOnSensitiveEnabled = boolValue
 		case "SMTPSSLEnabled":
@@ -632,11 +827,26 @@ func updateOptionMap(key string, value string) (err error) {
 	case "PreConsumedQuota":
 		common.PreConsumedQuota, _ = strconv.Atoi(value)
 	case "ModelRequestRateLimitCount":
-		setting.ModelRequestRateLimitCount, _ = strconv.Atoi(value)
+		count, parseErr := strconv.Atoi(strings.TrimSpace(value))
+		if parseErr != nil {
+			err = parseErr
+		} else {
+			err = setting.SetModelRequestRateLimitCount(count)
+		}
 	case "ModelRequestRateLimitDurationMinutes":
-		setting.ModelRequestRateLimitDurationMinutes, _ = strconv.Atoi(value)
+		duration, parseErr := strconv.Atoi(strings.TrimSpace(value))
+		if parseErr != nil {
+			err = parseErr
+		} else {
+			err = setting.SetModelRequestRateLimitDurationMinutes(duration)
+		}
 	case "ModelRequestRateLimitSuccessCount":
-		setting.ModelRequestRateLimitSuccessCount, _ = strconv.Atoi(value)
+		count, parseErr := strconv.Atoi(strings.TrimSpace(value))
+		if parseErr != nil {
+			err = parseErr
+		} else {
+			err = setting.SetModelRequestRateLimitSuccessCount(count)
+		}
 	case "ModelRequestRateLimitGroup":
 		err = setting.UpdateModelRequestRateLimitGroupByJSONString(value)
 	case "RetryTimes":
@@ -708,16 +918,33 @@ func updateOptionMap(key string, value string) (err error) {
 	return err
 }
 
+func normalizeOptionValue(key, value string) (string, error) {
+	if key == "access_profile_setting.profiles" {
+		return setting.NormalizeAccessProfileDefinitionsJSON(value)
+	}
+	if strings.TrimSpace(value) != "null" {
+		return value, nil
+	}
+	switch key {
+	case "Chats", "AutoGroups", "PayMethods":
+		return "[]", nil
+	case "UserUsableGroups":
+		return "{}", nil
+	default:
+		return value, nil
+	}
+}
+
 // handleConfigUpdate 处理分层配置更新，返回是否已处理
-func handleConfigUpdate(key, value string) bool {
+func handleConfigUpdate(key, value string) (bool, error) {
 	if key == operation_setting.ToolPriceOptionKey {
 		operation_setting.LoadToolPricesFromJSONString(value)
-		return true
+		return true, nil
 	}
 
 	parts := strings.SplitN(key, ".", 2)
 	if len(parts) != 2 {
-		return false // 不是分层配置
+		return false, nil // 不是分层配置
 	}
 
 	configName := parts[0]
@@ -726,14 +953,16 @@ func handleConfigUpdate(key, value string) bool {
 	// 获取配置对象
 	cfg := config.GlobalConfig.Get(configName)
 	if cfg == nil {
-		return false // 未注册的配置
+		return false, nil // 未注册的配置
 	}
 
 	// 更新配置
 	configMap := map[string]string{
 		configKey: value,
 	}
-	config.UpdateConfigFromMap(cfg, configMap)
+	if err := config.UpdateConfigFromMap(cfg, configMap); err != nil {
+		return true, err
+	}
 
 	// 特定配置的后处理
 	if configName == "performance_setting" {
@@ -743,5 +972,5 @@ func handleConfigUpdate(key, value string) bool {
 		ratio_setting.InvalidateExposedDataCache()
 	}
 
-	return true // 已处理
+	return true, nil // 已处理
 }
