@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/ForceMind/MyAPI/common"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/service"
 
@@ -122,16 +123,7 @@ func exchangeJwtForAccessToken(signedJWT string, info *relaycommon.RelayInfo) (s
 	}
 	defer resp.Body.Close()
 
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", err
-	}
-
-	if accessToken, ok := result["access_token"].(string); ok {
-		return accessToken, nil
-	}
-
-	return "", fmt.Errorf("failed to get access token: %v", result)
+	return decodeAccessTokenResponse(resp)
 }
 
 func AcquireAccessToken(creds Credentials, proxy string) (string, error) {
@@ -165,13 +157,31 @@ func exchangeJwtForAccessTokenWithProxy(signedJWT string, proxy string) (string,
 	}
 	defer resp.Body.Close()
 
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", err
+	return decodeAccessTokenResponse(resp)
+}
+
+func decodeAccessTokenResponse(resp *http.Response) (string, error) {
+	if resp == nil || resp.Body == nil {
+		return "", errors.New("invalid access token response")
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return "", fmt.Errorf("access token endpoint returned HTTP status %d", resp.StatusCode)
 	}
 
-	if accessToken, ok := result["access_token"].(string); ok {
-		return accessToken, nil
+	var result struct {
+		AccessToken   json.RawMessage `json:"access_token"`
+		ProviderError json.RawMessage `json:"error"`
 	}
-	return "", fmt.Errorf("failed to get access token: %v", result)
+	if err := common.DecodeJson(resp.Body, &result); err != nil {
+		return "", errors.New("invalid access token response")
+	}
+	if len(result.ProviderError) > 0 {
+		return "", errors.New("access token provider returned an error")
+	}
+
+	var accessToken string
+	if len(result.AccessToken) == 0 || common.Unmarshal(result.AccessToken, &accessToken) != nil || strings.TrimSpace(accessToken) == "" {
+		return "", errors.New("access token response missing valid access token")
+	}
+	return accessToken, nil
 }

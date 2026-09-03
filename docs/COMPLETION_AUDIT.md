@@ -380,10 +380,37 @@ diff-check 通过。结构门禁从 56/21 降至 53/18，独立 Sol 审查无 P1
 包含根/relaykit vet、build、全量 test 和既有 race 门禁；D03 完成当前范围。无网络、
 数据库、凭据、relaykit 或页面变更，`VERSION` 仍为 0.1.1。
 
+## S2-D04 Provider 响应与 Vertex token（2026-09-04，本地完成、待同提交 CI）
+
+机械范围为 SiliconFlow rerank 一次 Unmarshal/一次 Marshal、Tencent 非流一次 Unmarshal、
+Vertex 两个 decoder，共五处全部改用 `common` wrapper。Sol 只读审计发现不能只机械替换：
+Vertex 两路径在 token 类型断言失败时把整个不可信 response map 写入 error，该错误可进入
+同步 relay 或异步任务 API；字符串空 token 也会被接受并可能缓存。因此 D04 同批增加共享
+`decodeAccessTokenResponse` 安全边界。
+
+parser 先验证 response/body 与 HTTP 2xx，再用非严格 `common.DecodeJson` 解第一值；存在
+provider error（包括 null 或与 token 同时出现）、malformed、missing/null、number/bool/
+array/object、空或纯空白 token 一律固定失败。错误测试逐项禁止出现合成 token、provider
+error、description、原始 JSON 或 map；未知字段和尾随第二个 JSON 值仍兼容，合法非空 token
+原样返回，body 仍由调用者关闭。两个 exchange 直接共用该 parser，不修改 cache 或 transport。
+
+SiliconFlow/Tencent 测试调用真实 handler，验证正常 status/header/usage/统一正文、reader/
+malformed 与既有 provider error 行为；结构合法的 SiliconFlow provider error 仍保持历史
+零值响应，本批不借 wrapper 改协议。全部 fixture 为内存合成值，无网络、数据库或凭据。
+
+本机三包普通测试分别 1.775s/1.327s/1.003s，race 分别 2.560s/2.809s/2.478s；新增 Vertex
+类型用例复验普通 1.844s、race 2.625s。三包 vet、gofmt、diff-check 通过，结构门禁从
+53/18 降至 48/15，独立 Sol 审查无 P1/P2。P3 为非 2xx 不 drain 的错误连接复用效率，以及
+未给两个 exchange 各建 transport 测试；固定安全 parser 与直接接线已覆盖当前风险。
+当前未提交/无 CI，故保持待验证；无真实 Google/代理/cache/JWT、relaykit 或页面变更，
+`VERSION` 仍为 0.1.1。
+
 ## 最近 CI 证据
 
 - S2-D03 最终提交 `615fbbd`：[CI 33800052236](https://github.com/ForceMind/MyAPI/actions/runs/33800052236)
   七项成功；OpenRouter/Replicate/model mapping wrapper 与行为回归闭环，余量 53/18。
+  文档提交 `4e71ec2` / [CI 33800837776](https://github.com/ForceMind/MyAPI/actions/runs/33800837776)
+  也为七项成功。
 - S2-C07/D02 最终提交 `f7cc5c3`：[CI 33798508808](https://github.com/ForceMind/MyAPI/actions/runs/33798508808)
   七项成功；正文缓存、视频模型/时长边界、原始日志身份和 wrapper 余量 56/21 已闭环。
   文档提交 `3133495` / [CI 33799035547](https://github.com/ForceMind/MyAPI/actions/runs/33799035547)

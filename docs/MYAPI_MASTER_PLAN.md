@@ -194,6 +194,11 @@ D03 本地把 OpenRouter Anthropic thinking、Replicate output format 与模型�
 定向与 race 三包、vet 和独立 Sol 审查通过；`615fbbd` 七项 CI 成功，结构余量为 53/18，
 D03 当前范围完成。不借 wrapper 迁移改变 Provider 协议、模型 mapping 算法或全局设置。
 
+D04 本地完成 SiliconFlow/Tencent/Vertex 五处 wrapper 收敛，并修复 Vertex token 边界：
+非 2xx、provider error、malformed、缺失/错误类型/空白 token 只返回固定安全错误，不再把
+完整上游响应 map 带入 API 错误。三包 handler/parser 普通与 race、vet、独立 Sol 审查通过，
+结构余量为 48/15，当前待同提交 CI；没有真实 Google、代理、JWT 或凭据访问。
+
 以下为此前阶段记录，当前状态以以上验收基线与执行矩阵为准。
 
 S2-A 已确认并在 `c82d0f1` / CI `33744326429` 通过的基线上开始。当前仅支付/订阅六项
