@@ -407,10 +407,31 @@ malformed 与既有 provider error 行为；结构合法的 SiliconFlow provider
 包含根/relaykit vet、build、全量 test 和既有 race 门禁；D04 完成当前范围。无真实 Google/
 代理/cache/JWT、relaykit 或页面变更，`VERSION` 仍为 0.1.1。
 
+## S2-D05 Midjourney JSON wrapper（2026-09-04，本地完成、待同提交 CI）
+
+`relay/mjproxy_handler.go` 的 VideoUrls 持久化 marshal、Buttons/VideoUrls/Properties 三个
+持久字段 unmarshal，以及 SwapFace、ImageSeed、单任务、条件列表四个 response marshal
+共 8 处迁移到 `common` wrapper，删除 `encoding/json`。Notify 的 marshal error 继续忽略；
+malformed 持久字段继续分别静默；四个 response 失败仍返回历史误命名字符串
+`unmarshal_response_body_failed`。
+
+新增 testify 回归不只检查“可执行”：精确断言 ActionButton 的 0/false/空/null、两个非 nil
+空 slice、Properties=`null` 仍得到非 nil 零值指针；Buttons、VideoUrls、Properties 各自
+malformed 时另外两个合法字段不受影响。隔离 SQLite 单连接并精确恢复 `model.DB`，真实调用
+Notify 验证 `videoUrls:[]` 存为 `[]`；真实 Task handler 验证单项为 camelCase object、条件
+查询为 array、空 IDs 精确为 `[]`，三者 Content-Type 均为 JSON。
+
+本机定向 handler 测试 1.259s、relay 全包普通 0.561s、race 1.888s，relay vet、gofmt、
+diff-check 通过；结构门禁从 48/15 降至 40/14。独立 Sol 审查无 P1/P2；剩余 P3 仅为
+JSON-safe DTO 的 marshal error 无法自然触发，未为此引入生产测试钩子。当前未提交/无 CI，
+故保持待验证；无网络、真实渠道、计费、转发 URL、relaykit 或页面变化，版本仍 0.1.1。
+
 ## 最近 CI 证据
 
 - S2-D04 最终提交 `544f83b`：[CI 33802572396](https://github.com/ForceMind/MyAPI/actions/runs/33802572396)
   七项成功；五处 wrapper 和 Vertex token 安全边界闭环，余量 48/15。
+  文档提交 `30d1d13` / [CI 33803224195](https://github.com/ForceMind/MyAPI/actions/runs/33803224195)
+  也为七项成功。
 - S2-D03 最终提交 `615fbbd`：[CI 33800052236](https://github.com/ForceMind/MyAPI/actions/runs/33800052236)
   七项成功；OpenRouter/Replicate/model mapping wrapper 与行为回归闭环，余量 53/18。
   文档提交 `4e71ec2` / [CI 33800837776](https://github.com/ForceMind/MyAPI/actions/runs/33800837776)

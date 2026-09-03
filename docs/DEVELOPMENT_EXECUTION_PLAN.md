@@ -22,7 +22,7 @@ SSE、脱敏日志、额度分析、账户/Key 兼容字段、CLI/Electron 和�
 | --- | --- | --- | --- |
 | S0 计划与证据 | 已完成／已确认范围 | terra 起草，主代理整合 | 需求、缺陷、验证、决策分开；更新主计划、审计、macOS、额度 OpenAPI；链接、参数和事实一致。 |
 | S1 安全与一致性 | 已完成／已确认范围 | sol 实现；独立 sol 复审 | 原六项及追加 R1 均通过回归、独立复审和 CI；同进程配置保存/后台重载的发布顺序、双写交错与失败释放已有证据，不推导跨实例一致性。 |
-| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06/C07、D01–D04 已完成当前范围。B2/B3 任务持久化/恢复、C03b 缓存恢复及 D05–D10 仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
+| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06/C07、D01–D04 已完成当前范围；D05 本地完成、待同提交 CI。B2/B3 任务持久化/恢复、C03b 缓存恢复及 D06–D10 仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
 | S3 账户/Key 实际策略 | 未开始／迁移设计待确认 | sol 设计，分模块实现 | 明确账户权益、模型限制交集、route_groups、disabled、fallback、计费归属；旧 Key 兼容/差异报告/启用/回滚经确认后落实。不得把已有元数据当强制策略。 |
 | S4 运行与恢复 | 进行中／S4-01、S4-02 已完成当前范围 | 工程/制品与独立 sol 审查；sol 数据与恢复 | Full/LAN 测试镜像均不推送；SQLite/MySQL/PostgreSQL 临时库旧结构升级、重复迁移、多连接竞争、备份恢复；登录/Key/权限/日志/额度探针；原生桌面构建、安装升级与第二设备 LAN。 |
 | S5 额度闭环与选定扩展 | 未开始／各扩展分别决策 | sol 领域/安全，terra 常规实现 | 测试实例真实账户连续采样、任务/API/管理员页面一致；失败/重置/缺口和大数据量性能。通知、多 Key 身份、Claude 组织用量等按决策登记，不混入平台账本。 |
@@ -171,7 +171,7 @@ B2/B3 需核心合同决定：上游接受结果未知时是否不自动重发/�
 | D02 请求 middleware | 已完成当前范围 | 2/2 | Jimeng/Kling 请求重写；显式 0/false、嵌套 metadata、malformed、缓存一致性、模型与时长边界。 |
 | D03 Relay 输入归一化 | 已完成当前范围 | 3/3 | OpenAI/Replicate/model mapping；RawMessage 解码、循环/非法映射和 import alias；定向/race/vet、独立审查与同提交 CI 通过。 |
 | D04 Provider 响应/Vertex token | 已完成当前范围 | 5/3 | SiliconFlow、Tencent、Vertex；合法/错误/malformed 响应，Vertex 固定安全错误、非空 token 与 HTTP/provider error 边界；同提交 CI 通过，不访问真实上游。 |
-| D05 Midjourney | 未开始 | 8/1 | 持久化 Buttons/VideoUrls/Properties 与 DTO 形状；不顺带改变历史错误语义。 |
+| D05 Midjourney | 本地已完成／待同提交 CI | 8/1 | 持久化 Buttons/VideoUrls/Properties、Notify 与 object/array/`[]` 响应形状；保留静默解析及历史错误字符串。 |
 | D06 Controller | 未开始 | 8/3 | Vertex key、model metadata、Uptime Kuma/Ollama 边界；保留合法 `json.Valid`/RawMessage。 |
 | D07 Settings | 未开始 | 13/5 | 配置反射、fresh map、群组倍率与 malformed 跳过；全局设置恢复，锁问题单独跟踪。 |
 | D08 io.net 核心 | 未开始 | 8/2 | HTTP body/query、API error 和 flexible time；建立无网络 fake client。 |
@@ -234,6 +234,19 @@ drain 正文会降低错误连接复用，两 exchange 尚无各自 transport �
 代码/纯 parser 测试确认。最终 `544f83b` /
 [CI 33802572396](https://github.com/ForceMind/MyAPI/actions/runs/33802572396) 七项成功，D04
 完成当前范围。无页面变化，版本仍 0.1.1。
+
+D05 将 `relay/mjproxy_handler.go` 的 8 处直接调用机械迁移到 `common.Marshal/Unmarshal`，
+结构余量从 48/15 降为 **40 处/14 文件**。Notify 仍忽略 VideoUrls marshal error；三种
+持久 JSON 仍只在解析成功时赋值；SwapFace、ImageSeed、单 task 与列表的 marshal 失败仍
+使用历史 `unmarshal_response_body_failed`，不借迁移改协议。
+
+回归精确覆盖 Buttons 的 0/false/空/null、Buttons/VideoUrls 非 nil 空 slice、Properties
+`null` 的非 nil 零值历史语义，三字段各自 malformed 静默且不影响其他字段。隔离 SQLite
+真实验证 Notify 将 `videoUrls:[]` 存为精确 `[]`，Task handler 单项为 camelCase object、
+条件项为 array、空条件为 `[]` 并设置 JSON Content-Type；全局 DB 单连接、关闭并恢复。
+relay 定向、全包普通/race、vet、diff-check 与独立 Sol 审查通过。JSON-safe DTO 的四个
+marshal 错误分支无法自然构造，源码确认错误字符串未变，不为覆盖率引入注入钩子。无网络、
+上游、计费、转发设置或页面变化，版本仍 0.1.1；待同提交 CI 后标 D05 完成。
 
 ## S4-01 无发布 Full/LAN 镜像测试（已完成当前范围）
 

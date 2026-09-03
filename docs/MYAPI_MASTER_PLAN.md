@@ -200,6 +200,11 @@ D04 本地完成 SiliconFlow/Tencent/Vertex 五处 wrapper 收敛，并修复 Ve
 `544f83b` 七项 CI 通过，结构余量为 48/15，D04 当前范围完成；没有真实 Google、代理、
 JWT 或凭据访问。
 
+D05 本地完成 Midjourney 单文件 8 处 wrapper 收敛；SQLite 真实 handler 回归锁定空
+VideoUrls 持久化、Buttons/Properties 历史兼容、camelCase 单对象/条件数组/空 `[]` 响应。
+relay 全包普通/race、vet 与独立 Sol 审查通过，余量为 40/14，当前待同提交 CI；不改变
+上游、计费、转发 URL 或历史错误字符串。
+
 以下为此前阶段记录，当前状态以以上验收基线与执行矩阵为准。
 
 S2-A 已确认并在 `c82d0f1` / CI `33744326429` 通过的基线上开始。当前仅支付/订阅六项
