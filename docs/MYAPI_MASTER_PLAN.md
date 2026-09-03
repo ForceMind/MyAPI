@@ -189,6 +189,11 @@ C07/D02 本地修复了 Kling/Jimeng 兼容入口的旧正文缓存遮蔽和 Pro
 Provider，也未处理 Jimeng 查询 handler 候选或全局 metadata 系统；详情见
 [执行计划](DEVELOPMENT_EXECUTION_PLAN.md#s2-d-根模块-json-wrapper-合规)。
 
+D03 本地把 OpenRouter Anthropic thinking、Replicate output format 与模型映射三处解码
+等价迁移到 `common.Unmarshal`，保留 RawMessage 类型和各自既有静默/错误/循环/覆盖顺序。
+定向与 race 三包、vet 和独立 Sol 审查通过，结构余量为 53/18，当前待同提交 CI；不借
+wrapper 迁移改变 Provider 协议、模型 mapping 算法或全局设置。
+
 以下为此前阶段记录，当前状态以以上验收基线与执行矩阵为准。
 
 S2-A 已确认并在 `c82d0f1` / CI `33744326429` 通过的基线上开始。当前仅支付/订阅六项

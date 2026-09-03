@@ -22,7 +22,7 @@ SSE、脱敏日志、额度分析、账户/Key 兼容字段、CLI/Electron 和�
 | --- | --- | --- | --- |
 | S0 计划与证据 | 已完成／已确认范围 | terra 起草，主代理整合 | 需求、缺陷、验证、决策分开；更新主计划、审计、macOS、额度 OpenAPI；链接、参数和事实一致。 |
 | S1 安全与一致性 | 已完成／已确认范围 | sol 实现；独立 sol 复审 | 原六项及追加 R1 均通过回归、独立复审和 CI；同进程配置保存/后台重载的发布顺序、双写交错与失败释放已有证据，不推导跨实例一致性。 |
-| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06/C07、D01/D02 已完成当前范围。B2/B3 任务持久化/恢复、C03b 缓存恢复及 D03–D10 仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
+| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06/C07、D01/D02 已完成当前范围；D03 本地完成、待同提交 CI。B2/B3 任务持久化/恢复、C03b 缓存恢复及 D04–D10 仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
 | S3 账户/Key 实际策略 | 未开始／迁移设计待确认 | sol 设计，分模块实现 | 明确账户权益、模型限制交集、route_groups、disabled、fallback、计费归属；旧 Key 兼容/差异报告/启用/回滚经确认后落实。不得把已有元数据当强制策略。 |
 | S4 运行与恢复 | 进行中／S4-01、S4-02 已完成当前范围 | 工程/制品与独立 sol 审查；sol 数据与恢复 | Full/LAN 测试镜像均不推送；SQLite/MySQL/PostgreSQL 临时库旧结构升级、重复迁移、多连接竞争、备份恢复；登录/Key/权限/日志/额度探针；原生桌面构建、安装升级与第二设备 LAN。 |
 | S5 额度闭环与选定扩展 | 未开始／各扩展分别决策 | sol 领域/安全，terra 常规实现 | 测试实例真实账户连续采样、任务/API/管理员页面一致；失败/重置/缺口和大数据量性能。通知、多 Key 身份、Claude 组织用量等按决策登记，不混入平台账本。 |
@@ -169,7 +169,7 @@ B2/B3 需核心合同决定：上游接受结果未知时是否不自动重发/�
 | --- | --- | ---: | --- |
 | D01 OAuth | 已完成当前范围 | 9/4 | GitHub、Discord、OIDC、Linux DO；GitHub JSON 请求/响应与宽松单值 decoder 回归，包测试、race、根模块全量、独立审查及同提交 CI。 |
 | D02 请求 middleware | 已完成当前范围 | 2/2 | Jimeng/Kling 请求重写；显式 0/false、嵌套 metadata、malformed、缓存一致性、模型与时长边界。 |
-| D03 Relay 输入归一化 | 未开始 | 3/3 | OpenAI/Replicate/model mapping；RawMessage 解码、循环/非法映射和 import alias。 |
+| D03 Relay 输入归一化 | 本地已完成／待同提交 CI | 3/3 | OpenAI/Replicate/model mapping；RawMessage 解码、循环/非法映射和 import alias；定向/race/vet 与独立审查通过。 |
 | D04 Provider 响应/Vertex token | 未开始 | 5/3 | SiliconFlow、Tencent、Vertex；合法/错误/malformed 响应，不访问真实上游。 |
 | D05 Midjourney | 未开始 | 8/1 | 持久化 Buttons/VideoUrls/Properties 与 DTO 形状；不顺带改变历史错误语义。 |
 | D06 Controller | 未开始 | 8/3 | Vertex key、model metadata、Uptime Kuma/Ollama 边界；保留合法 `json.Valid`/RawMessage。 |
@@ -206,6 +206,17 @@ P1/P2，图片权威字段 P3 断言也已补齐。最终 `f7cc5c3` /
 完成根/relaykit vet、build、全量 test 和既有 race 门禁，C07/D02 已完成当前范围。无页面
 变化，`VERSION` 保持 0.1.1。Jimeng 查询 handler 选择与 metadata JSON 字符串兼容仍单独
 审计，不在本批伪称完成。
+
+D03 将 OpenRouter Anthropic `THINKING`、Replicate `OutputFormat` 和模型映射的三个直接
+Unmarshal 等价改为 `common.Unmarshal`，结构余量由 56/21 降至 **53 处/18 文件**。
+OpenAI 继续保留 `encoding/json` 仅作 RawMessage 类型，Replicate 删除无用 import，
+model helper 用 `rootcommon` 避免与 `relay/common` 命名冲突。测试冻结 thinking 的双重
+门控、enabled/budget/malformed/disabled 行为，Replicate 原字符串/静默忽略与 Extra 覆盖
+顺序，以及映射直链/多跳/自映射/真循环/非法/空/null 的成功和部分失败状态。
+三包普通测试及 race、三包 vet、diff-check 与独立 Sol 审查通过；无网络、数据库、凭据或
+全局设置修改。非阻断 P3 是未单列“非 OpenRouter＋Anthropic”轴，以及不锁定自映射时
+SetModelName 的内部调用细节；代码门控和可观察业务结果已覆盖。无页面变化，`VERSION`
+保持 0.1.1；待同提交 CI 后才标 D03 完成。
 
 ## S4-01 无发布 Full/LAN 镜像测试（已完成当前范围）
 
