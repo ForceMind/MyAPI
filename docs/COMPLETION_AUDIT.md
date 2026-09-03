@@ -118,6 +118,16 @@ middleware/controller 全量与 vet 通过，含生产访问日志补项，独�
 通过。`go test -p 1 ./... -count=1 -timeout=180s` 根模块全量回归通过；本次真实 Redis CI
 仍待验证，不提前据本机结果完成阶段。
 
+首批代码 `6bae734` 的 CI `33757378962` 七项成功，真实 Redis 7 的 36 个场景已实际
+通过，原始日志无 skip、Lua/整数错误；本机根模块 vet/build、relaykit 独立构建/测试、
+Node22 release:check 和新增专项 race 均通过。收尾再次核对“请求次数不变”时发现：
+零差额 clamp 审计虽未改 User.RequestCount，却以 Consume 类型进入 `SumUsedQuota`
+的 RPM（真实统计红测 1→2）。已修正为已有 System 类型；不改变正差额 Consume 或负
+差额 Refund，不改统计 SQL。消费日志关闭时异常系统审计仍保留，且不进入消费导出。
+新增真实统计、消费筛选、开/关消费日志与真实导出缓存快照回归通过；service/Kling 全量
+及 vet 通过（3.386s / 2.091s），独立复审闭环。该补项 CI 复验前 C02 不标完成，不能仅凭
+首批七个绿色 job 结束验收。
+
 仍未改变 C03b 的缓存恢复和高层异步增减/数据库更新语义；正在请求故障策略决定。
 S2-B 持久化恢复、真实付款/供应商、生产与设备验收均未包含在本批。
 

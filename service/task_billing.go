@@ -271,7 +271,11 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 
 	var logType int
 	var logQuota int
-	if quotaDelta >= 0 {
+	if quotaDelta == 0 {
+		// Audit-only events must not count as consumed requests or enter
+		// quota exports, and remain visible when consume logging is disabled.
+		logType = model.LogTypeSystem
+	} else if quotaDelta > 0 {
 		logType = model.LogTypeConsume
 		logQuota = quotaDelta
 	} else {

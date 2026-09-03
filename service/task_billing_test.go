@@ -1233,15 +1233,22 @@ func TestSettleTaskSaturationAuditWhenRepricingIsSkipped(t *testing.T) {
 		name                                string
 		perCall, noRatio, noGroup, noTokens bool
 		adaptorQuota                        int
+		disableConsumeLog                   bool
+		enableExport                        bool
 	}{
 		{name: "per-call", perCall: true},
 		{name: "disabled model ratio", noRatio: true},
 		{name: "missing group", noGroup: true},
 		{name: "no usable tokens", noTokens: true},
 		{name: "adaptor zero delta", adaptorQuota: 500},
+		{name: "consume logging disabled with export enabled", noTokens: true, disableConsumeLog: true, enableExport: true},
+		{name: "consume logging enabled with export enabled", perCall: true, enableExport: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			truncate(t)
+			oldLogConsume, oldExport := common.LogConsumeEnabled, common.DataExportEnabled
+			common.LogConsumeEnabled, common.DataExportEnabled = !tc.disableConsumeLog, tc.enableExport
+			t.Cleanup(func() { common.LogConsumeEnabled, common.DataExportEnabled = oldLogConsume, oldExport })
 			oldRatios := ratio_setting.ModelRatio2JSONString()
 			t.Cleanup(func() { require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(oldRatios)) })
 			modelRatio := 1.0
@@ -1265,9 +1272,36 @@ func TestSettleTaskSaturationAuditWhenRepricingIsSkipped(t *testing.T) {
 			if tc.noTokens {
 				taskResult.TotalTokens = 0
 			}
+			require.NoError(t, model.LOG_DB.Create(&model.Log{
+				UserId: 82, ChannelId: 82, Type: model.LogTypeConsume, Quota: 500,
+				PromptTokens: 100, CompletionTokens: 20, CreatedAt: time.Now().Unix(),
+			}).Error)
+			statsBefore, err := model.SumUsedQuota(model.LogTypeConsume, 0, 0, "", "", "", 82, "")
+			require.NoError(t, err)
+			require.Equal(t, model.Stat{Quota: 500, Rpm: 1, Tpm: 120}, statsBefore)
+			exportBefore := make(map[string]model.QuotaData)
+			model.CacheQuotaDataLock.Lock()
+			for key, data := range model.CacheQuotaData {
+				if data.UserID == 82 && data.ChannelID == 82 {
+					exportBefore[key] = *data
+				}
+			}
+			model.CacheQuotaDataLock.Unlock()
 
 			settleTaskBillingOnComplete(context.Background(), &mockAdaptor{adjustReturn: tc.adaptorQuota}, task, taskResult)
 
+			exportAfter := make(map[string]model.QuotaData)
+			model.CacheQuotaDataLock.Lock()
+			for key, data := range model.CacheQuotaData {
+				if data.UserID == 82 && data.ChannelID == 82 {
+					exportAfter[key] = *data
+				}
+			}
+			model.CacheQuotaDataLock.Unlock()
+			assert.Equal(t, exportBefore, exportAfter, "audit-only logs must not add to or change actual quota export cache rows")
+			statsAfter, err := model.SumUsedQuota(model.LogTypeConsume, 0, 0, "", "", "", 82, "")
+			require.NoError(t, err)
+			assert.Equal(t, statsBefore, statsAfter, "audit-only logs must not change consumption quota, RPM or TPM")
 			assert.Equal(t, 500, getTaskQuota(t, task.ID))
 			assert.Equal(t, 10000, getUserQuota(t, 82))
 			assert.Equal(t, 10000, getTokenRemainQuota(t, 82))
@@ -1276,11 +1310,11 @@ func TestSettleTaskSaturationAuditWhenRepricingIsSkipped(t *testing.T) {
 			assert.Equal(t, 500, used)
 			assert.Equal(t, 1, requests)
 			assert.Equal(t, int64(500), getChannelUsedQuota(t, 82))
-			require.Equal(t, int64(1), countLogs(t))
+			require.Equal(t, int64(2), countLogs(t))
 			log := getLastLog(t)
 			require.NotNil(t, log)
 			assert.Zero(t, log.Quota)
-			assert.Equal(t, model.LogTypeConsume, log.Type)
+			assert.Equal(t, model.LogTypeSystem, log.Type)
 			var other map[string]any
 			require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
 			assert.Equal(t, float64(500), other["actual_quota"])
@@ -1288,6 +1322,17 @@ func TestSettleTaskSaturationAuditWhenRepricingIsSkipped(t *testing.T) {
 			admin, ok := other["admin_info"].(map[string]any)
 			require.True(t, ok)
 			assert.Contains(t, admin, "quota_saturation")
+			consumeLogs, _, err := model.GetUserLogs(82, model.LogTypeConsume, 0, 0, "", "", 0, 10, "", "", "")
+			require.NoError(t, err)
+			require.Len(t, consumeLogs, 1, "the audit event is not a consumption request")
+			assert.Equal(t, 500, consumeLogs[0].Quota)
+			systemLogs, _, err := model.GetUserLogs(82, model.LogTypeSystem, 0, 0, "", "", 0, 10, "", "", "")
+			require.NoError(t, err)
+			require.Len(t, systemLogs, 1)
+			var userOther map[string]any
+			require.NoError(t, common.UnmarshalJsonStr(systemLogs[0].Other, &userOther))
+			assert.NotContains(t, userOther, "admin_info")
+			assert.Equal(t, task.TaskID, userOther["task_id"])
 		})
 	}
 }

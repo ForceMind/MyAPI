@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
@@ -144,6 +145,14 @@ func TestKlingPollingPreservesDeductionSaturationAudit(t *testing.T) {
 				},
 			}
 			require.NoError(t, db.Create(task).Error)
+			preconsumeLog := model.Log{
+				UserId: 1, ChannelId: 1, Type: model.LogTypeConsume, Quota: tc.preConsumed,
+				PromptTokens: 100, CompletionTokens: 20, CreatedAt: time.Now().Unix(),
+			}
+			require.NoError(t, db.Create(&preconsumeLog).Error)
+			statsBefore, err := model.SumUsedQuota(model.LogTypeConsume, 0, 0, "", "", "", 1, "")
+			require.NoError(t, err)
+			require.Equal(t, model.Stat{Quota: tc.preConsumed, Rpm: 1, Tpm: 120}, statsBefore)
 			payload := responsePayload{}
 			payload.Data.TaskId, payload.Data.TaskStatus, payload.Data.FinalUnitDeduction = "kling-upstream", "succeed", tc.deduction
 			body, err := common.Marshal(payload)
@@ -164,6 +173,13 @@ func TestKlingPollingPreservesDeductionSaturationAudit(t *testing.T) {
 
 			err = service.UpdateVideoTasks(context.Background(), "kling", map[int][]string{1: {"kling-upstream"}}, map[string]*model.Task{"kling-upstream": task})
 			require.NoError(t, err)
+			statsAfter, err := model.SumUsedQuota(model.LogTypeConsume, 0, 0, "", "", "", 1, "")
+			require.NoError(t, err)
+			if tc.wantQuota == tc.preConsumed {
+				assert.Equal(t, statsBefore, statsAfter, "audit-only logs must not change consumption quota, RPM or TPM")
+			} else {
+				assert.Equal(t, model.Stat{Quota: tc.wantQuota, Rpm: 2, Tpm: 120}, statsAfter, "positive settlement keeps existing consumption statistics")
+			}
 			require.NoError(t, db.First(task, task.ID).Error)
 			assert.Equal(t, model.TaskStatus(model.TaskStatusSuccess), task.Status)
 			assert.Equal(t, tc.wantQuota, task.Quota)
@@ -178,7 +194,7 @@ func TestKlingPollingPreservesDeductionSaturationAudit(t *testing.T) {
 			assert.Equal(t, int64(tc.wantQuota), channel.UsedQuota)
 
 			var logs []model.Log
-			require.NoError(t, db.Order("id").Find(&logs).Error)
+			require.NoError(t, db.Where("id > ?", preconsumeLog.Id).Order("id").Find(&logs).Error)
 			if tc.wantKind == "" && tc.wantQuota == tc.preConsumed {
 				assert.Empty(t, logs)
 				assert.NotContains(t, warnings.String(), "quota saturation")
@@ -186,6 +202,11 @@ func TestKlingPollingPreservesDeductionSaturationAudit(t *testing.T) {
 			}
 			require.Len(t, logs, 1)
 			assert.Equal(t, tc.wantQuota-tc.preConsumed, logs[0].Quota)
+			if tc.wantQuota == tc.preConsumed {
+				assert.Equal(t, model.LogTypeSystem, logs[0].Type)
+			} else {
+				assert.Equal(t, model.LogTypeConsume, logs[0].Type)
+			}
 			var other map[string]any
 			require.NoError(t, common.UnmarshalJsonStr(logs[0].Other, &other))
 			assert.Equal(t, "kling-public-task", other["task_id"])
@@ -203,7 +224,7 @@ func TestKlingPollingPreservesDeductionSaturationAudit(t *testing.T) {
 			assert.Equal(t, "QuotaFromFloat", saturation["op"])
 			assert.Equal(t, 1, strings.Count(warnings.String(), "quota saturation on task log:"))
 			assert.Contains(t, warnings.String(), "task=kling-public-task")
-			userLogs, _, err := model.GetUserLogs(1, model.LogTypeUnknown, 0, 0, "", "", 0, 10, "", "", "")
+			userLogs, _, err := model.GetUserLogs(1, model.LogTypeUnknown, 0, 0, "", "", 0, 10, "", logs[0].RequestId, "")
 			require.NoError(t, err)
 			require.Len(t, userLogs, 1)
 			var userOther map[string]any
