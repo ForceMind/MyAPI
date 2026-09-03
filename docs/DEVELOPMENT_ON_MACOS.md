@@ -387,7 +387,7 @@ OpenRouter Anthropic thinking、Replicate output format 和模型映射的三个
 范围完成。该批不改页面或版本，不触碰 relaykit，不用常规 CI 冒充 Docker/真实 Provider
 验收。
 
-### S2-D04 Provider 响应与 Vertex token（本地完成、待 CI）
+### S2-D04 Provider 响应与 Vertex token（已完成当前范围）
 
 SiliconFlow rerank、Tencent 非流响应和 Vertex token 的五处 JSON 调用已统一到 `common`
 wrapper。Vertex 两个 exchange 共用离线可测的安全 parser：非 2xx/provider error、畸形或
@@ -396,5 +396,6 @@ wrapper。Vertex 两个 exchange 共用离线可测的安全 parser：非 2xx/pr
 
 三包普通与 race、vet、gofmt、diff-check 均通过，结构余量由 53/18 降至 48/15，独立 Sol
 审查无 P1/P2。测试只构造内存 HTTP response，不生成真实 JWT、不读取 service account、
-不连接 Google/代理/cache。当前待同提交 CI；无页面/版本/relaykit 变化，常规 CI 不能替代
-真实 Vertex 账户或代理验收。
+不连接 Google/代理/cache。`544f83b` /
+[CI 33802572396](https://github.com/ForceMind/MyAPI/actions/runs/33802572396) 七项成功，D04 当前
+范围完成；无页面/版本/relaykit 变化，常规 CI 不能替代真实 Vertex 账户或代理验收。

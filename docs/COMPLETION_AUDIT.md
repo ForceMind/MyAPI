@@ -380,7 +380,7 @@ diff-check 通过。结构门禁从 56/21 降至 53/18，独立 Sol 审查无 P1
 包含根/relaykit vet、build、全量 test 和既有 race 门禁；D03 完成当前范围。无网络、
 数据库、凭据、relaykit 或页面变更，`VERSION` 仍为 0.1.1。
 
-## S2-D04 Provider 响应与 Vertex token（2026-09-04，本地完成、待同提交 CI）
+## S2-D04 Provider 响应与 Vertex token（2026-09-04，已完成当前范围）
 
 机械范围为 SiliconFlow rerank 一次 Unmarshal/一次 Marshal、Tencent 非流一次 Unmarshal、
 Vertex 两个 decoder，共五处全部改用 `common` wrapper。Sol 只读审计发现不能只机械替换：
@@ -401,12 +401,16 @@ malformed 与既有 provider error 行为；结构合法的 SiliconFlow provider
 本机三包普通测试分别 1.775s/1.327s/1.003s，race 分别 2.560s/2.809s/2.478s；新增 Vertex
 类型用例复验普通 1.844s、race 2.625s。三包 vet、gofmt、diff-check 通过，结构门禁从
 53/18 降至 48/15，独立 Sol 审查无 P1/P2。P3 为非 2xx 不 drain 的错误连接复用效率，以及
-未给两个 exchange 各建 transport 测试；固定安全 parser 与直接接线已覆盖当前风险。
-当前未提交/无 CI，故保持待验证；无真实 Google/代理/cache/JWT、relaykit 或页面变更，
-`VERSION` 仍为 0.1.1。
+未给两个 exchange 各建 transport 测试；固定安全 parser 与直接接线已覆盖当前风险。最终
+`544f83b54e44e4747998297e9eb45a1ffa368489` /
+[CI 33802572396](https://github.com/ForceMind/MyAPI/actions/runs/33802572396) 七项成功，Backend
+包含根/relaykit vet、build、全量 test 和既有 race 门禁；D04 完成当前范围。无真实 Google/
+代理/cache/JWT、relaykit 或页面变更，`VERSION` 仍为 0.1.1。
 
 ## 最近 CI 证据
 
+- S2-D04 最终提交 `544f83b`：[CI 33802572396](https://github.com/ForceMind/MyAPI/actions/runs/33802572396)
+  七项成功；五处 wrapper 和 Vertex token 安全边界闭环，余量 48/15。
 - S2-D03 最终提交 `615fbbd`：[CI 33800052236](https://github.com/ForceMind/MyAPI/actions/runs/33800052236)
   七项成功；OpenRouter/Replicate/model mapping wrapper 与行为回归闭环，余量 53/18。
   文档提交 `4e71ec2` / [CI 33800837776](https://github.com/ForceMind/MyAPI/actions/runs/33800837776)
