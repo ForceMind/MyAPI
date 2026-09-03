@@ -146,9 +146,10 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 
 #### 2026-09-04 当前代码验收基线
 
-`237c0da` / [CI 33790468336](https://github.com/ForceMind/MyAPI/actions/runs/33790468336)
-七项成功；[Docker smoke 33790513455](https://github.com/ForceMind/MyAPI/actions/runs/33790513455)
-Full/LAN 两项均成功。**B1、C06、S4-01 与 S4-02 已完成当前范围**：
+当前代码 `6b3042a` / [CI 33793219733](https://github.com/ForceMind/MyAPI/actions/runs/33793219733)
+七项成功；最新适用镜像证据是 `237c0da` 的
+[Docker smoke 33790513455](https://github.com/ForceMind/MyAPI/actions/runs/33790513455)，
+Full/LAN 两项均成功。**B1、C06、S4-01、S4-02 与 D01 已完成当前范围**：
 任务提交费率冻结及异常快照守卫、日志并发/轮转状态修复、无发布镜像新安装/认证/真实登录表单与精确构建标识。
 MySQL5.7/PG9.6 各五种快照/NULL 往返与原七支付场景实跑通过，原始日志已核对。
 本机整合全量/vet/build/race、relaykit 独立验证、336 项前端测试及生产构建、13 项探针
@@ -174,9 +175,10 @@ B2/B3 的提交未知状态、持久账务事件和 outbox，以及 C03b 缓存�
 根模块 JSON wrapper 复审重新识别出 67 个直接序列化调用/27 个生产文件；此前 Provider
 小批完成不等于全仓合规。已按协议风险拆为 D01–D10，排除 `common/json.go`、测试、
 relaykit 和合法类型/`json.Valid` 使用。D01 已在本机将 GitHub/Discord/OIDC/Linux DO 的
-9 处清零，GitHub 合成 transport 回归、OAuth race、根模块全量及独立审查通过；剩余
-58 处/23 文件。当前待该代码提交的 GitHub CI，之后继续请求 middleware 与 Relay/Provider
-边界；不整体重写、不访问真实 OAuth 凭据，详见[执行计划](DEVELOPMENT_EXECUTION_PLAN.md#s2-d-根模块-json-wrapper-合规)。
+9 处清零，GitHub 合成 transport 回归、OAuth race、根模块全量及独立审查通过；
+`6b3042a` 的七项 CI 也已通过，剩余 58 处/23 文件。之后继续请求 middleware 与
+Relay/Provider 边界；不整体重写、不访问真实 OAuth 凭据，详见
+[执行计划](DEVELOPMENT_EXECUTION_PLAN.md#s2-d-根模块-json-wrapper-合规)。
 
 以下为此前阶段记录，当前状态以以上验收基线与执行矩阵为准。
 

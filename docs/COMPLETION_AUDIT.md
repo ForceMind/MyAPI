@@ -296,7 +296,7 @@ relay 401 且 fake count 保持 1、真实登录表单。两者 revision 均为
 这些临时 image ID 不是发布 digest；无 Redis/batch、真实 Provider、三库恢复、本机 Docker
 Desktop、真实手机/桌面安装或生产证据。
 
-## S2-D01 OAuth JSON wrapper（2026-09-04，本地完成、待同提交 CI）
+## S2-D01 OAuth JSON wrapper（2026-09-04，已完成当前范围）
 
 Sol ultra 只读复审按根模块生产代码重新计数：排除测试、`common/json.go`、`relaykit/**`、
 合法 `json.Valid` 及仅类型用途后，标准库直接 Marshal/Unmarshal/Decoder/Encoder 共
@@ -314,11 +314,16 @@ JSON/header、token/user 映射及宽松单值语义；全局 transport 和合�
 `go test -race ./oauth`（2.134s）、`go vet ./oauth`、低并行
 `go test -p 1 ./... -count=1`。结构门禁从 67/27 降为 58/23，OAuth 四文件为 0。
 独立审查无 P1/P2；保留 P3：Discord/OIDC/Linux DO 没有为机械替换复制同类协议测试，
-不以重复测试制造覆盖率。当前未提交/未获 CI 证据，故只标本地完成。无页面变更，
-`VERSION` 保持 0.1.1；不发布、不调用真实 Provider、不读取本机凭据。
+不以重复测试制造覆盖率。最终 `6b3042ac021183111240915f00ead6fd16b5c986` /
+[CI 33793219733](https://github.com/ForceMind/MyAPI/actions/runs/33793219733) 七项成功；Backend
+明确通过根/relaykit vet、build、全量 test、配置发布 race 和 task billing/logging race，
+其余 Frontend、S1/S2-A 实库、S2-C Redis、Desktop、Distribution 也成功。D01 当前范围完成。
+无页面变更，`VERSION` 保持 0.1.1；不发布、不调用真实 Provider、不读取本机凭据。
 
 ## 最近 CI 证据
 
+- S2-D01 最终提交 `6b3042a`：[CI 33793219733](https://github.com/ForceMind/MyAPI/actions/runs/33793219733)
+  七项成功；OAuth 9 处 wrapper 清零，结构余量 58/23，定向/race/全量和独立复审均通过。
 - S4-02 最终提交 `237c0da`：[CI 33790468336](https://github.com/ForceMind/MyAPI/actions/runs/33790468336)
   七项成功；[Docker 33790513455](https://github.com/ForceMind/MyAPI/actions/runs/33790513455)
   Full/LAN 两项均成功，精确 SHA、revision、image ID 与安全业务报告已核对。

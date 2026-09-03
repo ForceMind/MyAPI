@@ -338,7 +338,7 @@ loopback 的 fake，连续 connection reset，业务探针未开始；LAN 随后
 提交 SHA 作为构建标识；临时 image ID 不是发布 digest。C03b、B2/B3、三库完整恢复、
 本机 Docker Desktop 和真实设备仍单列。
 
-### S2-D01 OAuth JSON wrapper（本地完成、待 CI）
+### S2-D01 OAuth JSON wrapper（已完成当前范围）
 
 根模块生产代码结构扫描从 67 个直接 JSON 序列化调用/27 文件开始；测试、wrapper 实现、
 relaykit 及合法类型/`json.Valid` 使用不计。D01 将 GitHub、Discord、OIDC、Linux DO 四个
@@ -349,5 +349,7 @@ relaykit 及合法类型/`json.Valid` 使用不计。D01 将 GitHub、Discord、
 本机低并行实际通过 `go test ./common ./oauth`、`go test -race ./oauth`、
 `go vet ./oauth` 和 `go test -p 1 ./... -count=1`。Go 首次编译需要写用户 build/module cache；
 受限沙箱拒绝该写入时应在获准的本机执行环境运行，不能把权限错误写成测试失败。
-独立审查无 P1/P2，当前仍待本提交 CI。该批不改前端页面，版本保持 0.1.1；后续 D02–D10
-逐批处理，不让 `relaykit` 导入根模块 `common`。
+独立审查无 P1/P2；`6b3042a` / [CI 33793219733](https://github.com/ForceMind/MyAPI/actions/runs/33793219733)
+七项成功，D01 当前范围完成。该批不改前端页面，版本保持 0.1.1；后续 D02–D10 逐批处理，
+不让 `relaykit` 导入根模块 `common`。当前镜像验收仍对应 `237c0da`，没有把常规 CI 写成
+`6b3042a` 的 Docker 证明。
