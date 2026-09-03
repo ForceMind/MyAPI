@@ -438,4 +438,18 @@ fresh 发布、RWMap/10 倍率、集合 `null` 规范化、负倍率/NaN/Inf 拒
 无页面/schema 改动，版本保持 0.1.1；没有真实上游、生产、真实设备或发布验证。同 SHA 常规
 MySQL/PostgreSQL CI 成功，但本批无专用三数据库 Settings 行为场景，不替代热更新验收。
 C09 的热读统一快照/锁、硬限额 reservation/rollback、
-跨族 reload 事务与历史数据审计未在本批解决；D08–D10 仍待，建议先 C09 只读设计。
+跨族 reload 事务与历史数据审计未在本批解决；D08 已完成本地范围，D09 下一批、D10 其后，
+C09 只读设计仍独立保留。
+
+### S2-D08 io.net 核心（本地完成、待同提交 CI）
+
+`pkg/ionet/client.go`、`pkg/ionet/jsonutil.go` 的各 4 处实际 stdlib JSON 调用已迁移至 `common`
+wrapper，根余量由 19/6 降为 11/4。无网络 fake client 覆盖请求 body/headers/method/URL、NaN marshal、
+transport/API detail fallback、query slices/HTML escape/空值/零值/false/`time.Time`/`*time.Time`；
+flexible time 覆盖对象/数组、直接或 `data` 包装、无时区 UTC、带时区 offset、未知/普通字符串、malformed、
+错误类型与尾随值。普通测试、race `-count=2`、vet、gofmt、diff-check，根模块全量 test/vet/build 及
+relaykit 独立 vet/build/test 已通过；同提交 CI 待验证，尚未推送。
+
+独立 Sol 审查无 P1/P2，数组和 `*time.Time` 两个 P3 已补。保留 `interface{}`→`float64` 大整数精度风险与
+递归时间字符串识别的既有语义；endpoint path 逃逸、nil response 等 D09 边界另审。C09 设计仍独立保留，
+D09 下一批、D10 其后。本批无页面/schema、真实 io.net、凭据或网络，`VERSION` 保持 0.1.1。
