@@ -429,10 +429,30 @@ JSON-safe DTO 的 marshal error 无法自然触发，未为此引入生产测试
 包含根/relaykit vet、build、全量 test 与既有 race 门禁；D05 完成当前范围。无网络、真实
 渠道、计费、转发 URL、relaykit 或页面变化，版本仍 0.1.1。
 
+## S2-D06 Controller JSON wrapper（2026-09-04，本地完成、待同提交 CI）
+
+`controller/channel.go` 五处、`model_meta.go` 两处、`uptime_kuma.go` 一处实际编解码改用
+`common.Marshal/Unmarshal/DecodeJson`。`channel.go` 的两个 `json.Valid` 和 RawMessage 类型
+按规则保留；另两文件删除 stdlib JSON import。Ollama progress/error/success 仍忽略不可达
+marshal error，SSE frame、flush 与 `[DONE]` 不变。
+
+只读检查确认规则模型 endpoint union 来自 map，原 JSON 顺序不稳定；本批在序列化前按
+EndpointType 字符串排序，不改变去重集合。新增 testify 离线测试精确覆盖 Vertex array key
+的字符串 trim、空过滤、object/array/0/false/null 表达和非法/非数组/空错误；Uptime 使用
+实例级 RoundTripper 验证 GET、200、未知字段/尾随值、malformed、非 200、transport error
+与 body close，不修改全局 client。
+
+本机定向测试 2.292s、Controller 全包 3.259s、race 9.101s，Controller vet、gofmt、
+diff-check 通过；结构门禁从 40/14 降至 32/11。独立 Sol 审查无 P1/P2；P3 是没有单列
+endpoint enrich 与 Ollama SSE 集成测试，现由直接确定性排序、机械等价和全包回归覆盖。
+当前未提交/无 CI，故保持待验证；无外网、数据库、relaykit 或页面变化，版本仍 0.1.1。
+
 ## 最近 CI 证据
 
 - S2-D05 最终提交 `b2b60fd`：[CI 33804146311](https://github.com/ForceMind/MyAPI/actions/runs/33804146311)
   七项成功；Midjourney 8 处 wrapper、持久化与响应形状闭环，余量 40/14。
+  文档提交 `0818ea1` / [CI 33804869951](https://github.com/ForceMind/MyAPI/actions/runs/33804869951)
+  也为七项成功。
 - S2-D04 最终提交 `544f83b`：[CI 33802572396](https://github.com/ForceMind/MyAPI/actions/runs/33802572396)
   七项成功；五处 wrapper 和 Vertex token 安全边界闭环，余量 48/15。
   文档提交 `30d1d13` / [CI 33803224195](https://github.com/ForceMind/MyAPI/actions/runs/33803224195)

@@ -22,7 +22,7 @@ SSE、脱敏日志、额度分析、账户/Key 兼容字段、CLI/Electron 和�
 | --- | --- | --- | --- |
 | S0 计划与证据 | 已完成／已确认范围 | terra 起草，主代理整合 | 需求、缺陷、验证、决策分开；更新主计划、审计、macOS、额度 OpenAPI；链接、参数和事实一致。 |
 | S1 安全与一致性 | 已完成／已确认范围 | sol 实现；独立 sol 复审 | 原六项及追加 R1 均通过回归、独立复审和 CI；同进程配置保存/后台重载的发布顺序、双写交错与失败释放已有证据，不推导跨实例一致性。 |
-| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06/C07、D01–D05 已完成当前范围。B2/B3 任务持久化/恢复、C03b 缓存恢复及 D06–D10 仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
+| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06/C07、D01–D05 已完成当前范围；D06 本地完成、待同提交 CI。B2/B3 任务持久化/恢复、C03b 缓存恢复及 D07–D10 仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
 | S3 账户/Key 实际策略 | 未开始／迁移设计待确认 | sol 设计，分模块实现 | 明确账户权益、模型限制交集、route_groups、disabled、fallback、计费归属；旧 Key 兼容/差异报告/启用/回滚经确认后落实。不得把已有元数据当强制策略。 |
 | S4 运行与恢复 | 进行中／S4-01、S4-02 已完成当前范围 | 工程/制品与独立 sol 审查；sol 数据与恢复 | Full/LAN 测试镜像均不推送；SQLite/MySQL/PostgreSQL 临时库旧结构升级、重复迁移、多连接竞争、备份恢复；登录/Key/权限/日志/额度探针；原生桌面构建、安装升级与第二设备 LAN。 |
 | S5 额度闭环与选定扩展 | 未开始／各扩展分别决策 | sol 领域/安全，terra 常规实现 | 测试实例真实账户连续采样、任务/API/管理员页面一致；失败/重置/缺口和大数据量性能。通知、多 Key 身份、Claude 组织用量等按决策登记，不混入平台账本。 |
@@ -172,7 +172,7 @@ B2/B3 需核心合同决定：上游接受结果未知时是否不自动重发/�
 | D03 Relay 输入归一化 | 已完成当前范围 | 3/3 | OpenAI/Replicate/model mapping；RawMessage 解码、循环/非法映射和 import alias；定向/race/vet、独立审查与同提交 CI 通过。 |
 | D04 Provider 响应/Vertex token | 已完成当前范围 | 5/3 | SiliconFlow、Tencent、Vertex；合法/错误/malformed 响应，Vertex 固定安全错误、非空 token 与 HTTP/provider error 边界；同提交 CI 通过，不访问真实上游。 |
 | D05 Midjourney | 已完成当前范围 | 8/1 | 持久化 Buttons/VideoUrls/Properties、Notify 与 object/array/`[]` 响应形状；保留静默解析及历史错误字符串；同提交 CI 通过。 |
-| D06 Controller | 未开始 | 8/3 | Vertex key、model metadata、Uptime Kuma/Ollama 边界；保留合法 `json.Valid`/RawMessage。 |
+| D06 Controller | 本地已完成／待同提交 CI | 8/3 | Vertex key、model metadata、Uptime Kuma/Ollama 边界；保留合法 `json.Valid`/RawMessage，规则 endpoint 稳定排序。 |
 | D07 Settings | 未开始 | 13/5 | 配置反射、fresh map、群组倍率与 malformed 跳过；全局设置恢复，锁问题单独跟踪。 |
 | D08 io.net 核心 | 未开始 | 8/2 | HTTP body/query、API error 和 flexible time；建立无网络 fake client。 |
 | D09 io.net endpoints | 未开始／依赖 D08 | 9/3 | container/deployment/hardware 表驱动合法与 malformed 响应。 |
@@ -248,6 +248,18 @@ relay 定向、全包普通/race、vet、diff-check 与独立 Sol 审查通过�
 marshal 错误分支无法自然构造，源码确认错误字符串未变，不为覆盖率引入注入钩子。最终
 `b2b60fd` / [CI 33804146311](https://github.com/ForceMind/MyAPI/actions/runs/33804146311)
 七项成功，D05 完成当前范围。无网络、上游、计费、转发设置或页面变化，版本仍 0.1.1。
+
+D06 将 Controller 的 8 处实际编解码迁移到 `common` wrapper；`channel.go` 仍只为
+`json.Valid` 和 RawMessage 类型保留 stdlib import。规则模型 endpoint 并集从 map 转 slice
+后按字符串排序再编码，修复同集合在响应/缓存中顺序漂移；精确模型集合不变。结构余量从
+40/14 降为 **32 处/11 文件**。
+
+离线测试覆盖 Vertex key 数组的 string trim、object/array/0/false/null 紧凑表达及 malformed/
+非数组/空输入；Uptime helper 验证 GET、200、未知字段与尾随值宽松解码、malformed、非 200、
+transport error 和 body close。Controller 全包普通/race、vet、gofmt、diff-check 与独立 Sol
+审查通过。Ollama 三种 SSE frame 仍忽略不可达 marshal error、frame 与 `[DONE]` 顺序不变；
+endpoint enrich 和 Ollama 未新增专用集成测试列为非阻断 P3，由直接排序、机械等价、全包
+回归与后续 CI 承担。无外网、数据库、页面或 relaykit 变化，版本仍 0.1.1；待同提交 CI。
 
 ## S4-01 无发布 Full/LAN 镜像测试（已完成当前范围）
 

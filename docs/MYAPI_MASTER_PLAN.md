@@ -205,6 +205,11 @@ VideoUrls 持久化、Buttons/Properties 历史兼容、camelCase 单对象/条�
 relay 全包普通/race、vet、独立 Sol 审查及 `b2b60fd` 七项 CI 通过，余量为 40/14，D05
 当前范围完成；不改变上游、计费、转发 URL 或历史错误字符串。
 
+D06 本地完成 Controller 8 处 wrapper 收敛，并让规则模型 endpoint JSON 稳定排序；保留
+合法 `json.Valid`/RawMessage。Vertex key 与 Uptime helper 离线测试、Controller 全包
+普通/race、vet 和独立 Sol 审查通过，余量为 32/11，当前待同提交 CI；Ollama/endpoint
+专用集成测试为非阻断剩余，不改变其现有流式或集合合同。
+
 以下为此前阶段记录，当前状态以以上验收基线与执行矩阵为准。
 
 S2-A 已确认并在 `c82d0f1` / CI `33744326429` 通过的基线上开始。当前仅支付/订阅六项
