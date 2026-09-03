@@ -25,7 +25,41 @@
 | NPM 正式发布 | CLI/打包/版本合同检查 | 发布前检查已验证 | 版本确认、tag、清单、用户明确确认与 `npm publish` |
 | macOS 开发迁移 | `docs/DEVELOPMENT_ON_MACOS.md`、`docs/CODEX_HANDOFF_PROMPT.md`、README 导航 | 文档已补齐 | 新 Mac 的工具安装、依赖测试和实机 Electron/LAN 验收需在新设备执行 |
 
+## S2-A 支付与订阅事务（2026-09-03，待 CI 验证）
+
+已确认范围与状态见[执行矩阵](DEVELOPMENT_EXECUTION_PLAN.md#s2-a-支付与订阅事务进行中)。
+实现包括：退款与幂等标记同事务、套餐与时钟同连接、真实 DB 错误不误报缺单、Creem
+补单额度单位及重复日志、Stripe 回调错误 ACK/重复成功与 pending 条件更新、
+Pancake 查询错误分类，以及 Stripe/Creem 仅订阅配置的回调闸门。没有 schema 迁移。
+
+本机新增回归先复现冷缓存额外借连接、热缓存错误时间 fallback、退款嵌套事务、
+Creem 补单多乘 QuotaPerUnit/重复日志及陈旧 pending 覆盖 success；随后修复。
+HTTP 测试最初的直接 handler fixture 未刷新 Gin Status，已改真实 ServeHTTP；
+提交故障 wrapper 已改指针以符合 GORM 回滚接口。二者是测试设施修正，不冒称生产缺陷。
+
+已执行并通过：
+
+- `GOMAXPROCS=1 GOWORK=off GOCACHE=/tmp/myapi-gocache GOMODCACHE=/tmp/myapi-gomodcache go test -p 1 ./controller ./service ./model -count=1 -timeout=180s`；
+  需要的 SMTP/HTTP/Redis 均为 loopback 临时 fixture，sandbox 不允许监听时改在审批环境运行。
+- 同一 Go 环境下新增 `TestSubscriptionTransaction` 八项、既有订阅分组/会话回归及新事务 `-race`；
+  手动补单五 provider 单位、额度非法/边界与重复日志；Stripe/Pancake 查询/写入/明确提交失败及重送；
+  Stripe/Creem 仅订阅配置的真实 Gin 路由、本地签名、重复履约、非法签名与禁用矩阵。
+- Node22 `npm run release:workflow:check`（18/18）、`npm run quota:openapi:check`（3/3）、`git diff --check`。
+- sol 独立只读复审生产改动、测试与 CI fixture 未发现本批阻断回归，YAML 解析通过。
+
+CI 新增独立 `S2-A payment and subscription database regression`，目标仅空库
+`myapi_s2a_test` 的 MySQL5.7/PostgreSQL9.6；明确开关、loopback 与空库检查，无 drop。
+当前尚待实际 CI，不把本机无 DSN 时 skip 写成通过。双连接屏障保证事务重叠及最终
+状态检查，第二屏障在 SQL 发送前，不能声称直接观察到了数据库锁等待。
+
+Pancake 履约使用已验签合成事件，公开入口另验非法签名拒绝，未替换官方公钥。
+所有支付数据/签名均为 fixture，没有真实付款。明确回滚的提交失败不代表不确定提交
+恢复；完整三库备份恢复、真实网关重试、续费/争议/生产对账及 S2-B/C 仍未验收。
+
 ## 最近 CI 证据
+
+- S2-A 开始基线 `c82d0f1`：[CI 33744326429](https://github.com/ForceMind/MyAPI/actions/runs/33744326429)
+  五项成功。已确认 A01–A06，目前修改待验收；此旧运行不证明本轮代码、实库或真实付款通过。
 
 - R1 交付 `8dfcfba`：[CI 33743669737](https://github.com/ForceMind/MyAPI/actions/runs/33743669737)
   五项成功，backend 新增配置发布顺序 race 步骤已实际执行通过。该结果及本机完整回归、

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -480,6 +481,12 @@ func WaffoPancakeWebhook(c *gin.Context) {
 		return
 	}
 
+	fulfillWaffoPancakeWebhook(c, event, string(bodyBytes))
+}
+
+// fulfillWaffoPancakeWebhook handles only signature-verified, environment-matched
+// completed events. It is not registered as a route or an alternate auth path.
+func fulfillWaffoPancakeWebhook(c *gin.Context, event *service.WaffoPancakeWebhookEvent, payload string) {
 	// Dispatch by trade_no prefix. OrderMerchantExternalID = our trade_no;
 	// OrderID is Pancake's internal ORD_* (logs only).
 	rawTradeNo := strings.TrimSpace(event.Data.OrderMerchantExternalID)
@@ -492,12 +499,16 @@ func WaffoPancakeWebhook(c *gin.Context) {
 				"Waffo Pancake webhook 订阅订单解析失败 event_id=%s order_id=%s buyer_identity=%q client_ip=%s error=%q",
 				event.ID, event.Data.OrderID, event.Data.MerchantProvidedBuyerIdentity, c.ClientIP(), err.Error(),
 			))
+			if errors.Is(err, service.ErrWaffoPancakeOrderLookupFailed) {
+				c.String(http.StatusInternalServerError, "retry")
+				return
+			}
 			c.String(http.StatusOK, "OK")
 			return
 		}
 		LockOrder(tradeNo)
 		defer UnlockOrder(tradeNo)
-		if err := model.CompleteSubscriptionOrder(tradeNo, string(bodyBytes), model.PaymentProviderWaffoPancake, ""); err != nil {
+		if err := model.CompleteSubscriptionOrder(tradeNo, payload, model.PaymentProviderWaffoPancake, ""); err != nil {
 			logger.LogError(c.Request.Context(), fmt.Sprintf("Waffo Pancake 订阅完成失败 trade_no=%s event_id=%s order_id=%s client_ip=%s error=%q", tradeNo, event.ID, event.Data.OrderID, c.ClientIP(), err.Error()))
 			c.String(http.StatusInternalServerError, "retry")
 			return
@@ -510,12 +521,16 @@ func WaffoPancakeWebhook(c *gin.Context) {
 	tradeNo, err := service.ResolveWaffoPancakeTradeNo(event)
 	if err != nil {
 		// LogError (not LogWarn): covers order-not-found and buyer-identity
-		// mismatch — both warrant human attention. 200 OK so Waffo doesn't
-		// retry a permanently-unresolvable webhook.
+		// mismatch warrant human attention. Only actual database failures
+		// request retry; permanently-unresolvable events retain their ACK.
 		logger.LogError(c.Request.Context(), fmt.Sprintf(
 			"Waffo Pancake webhook 订单解析失败 event_id=%s order_id=%s buyer_identity=%q client_ip=%s error=%q",
 			event.ID, event.Data.OrderID, event.Data.MerchantProvidedBuyerIdentity, c.ClientIP(), err.Error(),
 		))
+		if errors.Is(err, service.ErrWaffoPancakeOrderLookupFailed) {
+			c.String(http.StatusInternalServerError, "retry")
+			return
+		}
 		c.String(http.StatusOK, "OK")
 		return
 	}

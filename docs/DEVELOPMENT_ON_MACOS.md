@@ -242,3 +242,10 @@ S1-R1 本轮基线 `6fabc98`、CI `33740901999` 已核对。原六项已完成�
 本机 Go 全量/vet/build、relaykit 独立验证、四项 race 和干净树 release:check 通过。
 验证使用低并行 Go 与临时 fixture，不操作本机生产数据。跨实例一致性、完整
 数据库恢复、Docker Desktop 和真实设备验收仍按各自范围处理。
+
+S2-A 当前获准范围见[执行矩阵](DEVELOPMENT_EXECUTION_PLAN.md#s2-a-支付与订阅事务进行中)，
+开始基线 `c82d0f1` / CI `33744326429`。仅使用临时 SQLite 和独立 CI 数据库 fixture，
+不配置真实 Stripe/Creem/Pancake 凭据或回调。新实库测试要求显式
+`MYAPI_S2A_DATABASE_TESTS=1`，DSN 为字面 loopback 且数据库名必须是 `myapi_s2a_test`；
+不允许远端/其他数据库或已有业务表，不 drop 表，由一次性服务生命周期清理。
+它只证明本批支付/订阅单连接与并发合同，不替代完整升级恢复、真实付款或本机 Docker Desktop 验收。

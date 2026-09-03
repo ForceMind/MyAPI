@@ -115,6 +115,55 @@ jobs:
           MYAPI_S1_POSTGRES_DSN: host=127.0.0.1 port=${{ job.services.postgres.ports[5432] }} user=postgres password=s1-fixture-password dbname=myapi_s1_test sslmode=disable
         run: go test -p 1 ./model -run '^TestAccessProfileConfiguredDatabases$' -count=1 -timeout=180s -v
 
+  s2a-databases:
+    name: S2-A payment and subscription database regression
+    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_DATABASE: myapi_s2a_test
+          MYSQL_ROOT_PASSWORD: s2a-fixture-password
+          MYSQL_ROOT_HOST: '%'
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ps2a-fixture-password"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+      postgres:
+        image: postgres:9.6
+        env:
+          POSTGRES_DB: myapi_s2a_test
+          POSTGRES_PASSWORD: s2a-fixture-password
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd="pg_isready -U postgres -d myapi_s2a_test"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    env:
+      GOWORK: 'off'
+      GOMAXPROCS: '1'
+      MYAPI_S2A_DATABASE_TESTS: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            relaykit/go.sum
+      - name: Verify payment transactions on disposable databases
+        env:
+          MYAPI_S2A_MYSQL_DSN: root:s2a-fixture-password@tcp(127.0.0.1:${{ job.services.mysql.ports[3306] }})/myapi_s2a_test?charset=utf8mb4&parseTime=true
+          MYAPI_S2A_POSTGRES_DSN: host=127.0.0.1 port=${{ job.services.postgres.ports[5432] }} user=postgres password=s2a-fixture-password dbname=myapi_s2a_test sslmode=disable
+        run: go test -p 1 ./model -run '^TestS2APaymentConfiguredDatabases$' -count=1 -timeout=180s -v
+
   frontend:
     name: Frontend typecheck and test
     if: github.event.action != 'closed' || github.event.pull_request.merged == true

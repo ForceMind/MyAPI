@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -210,6 +211,10 @@ func VerifyConfiguredWaffoPancakeWebhook(payload string, signatureHeader string)
 	}, nil
 }
 
+// ErrWaffoPancakeOrderLookupFailed identifies retryable database lookup failures,
+// separately from permanently missing orders or invalid buyer/provider identity.
+var ErrWaffoPancakeOrderLookupFailed = errors.New("waffo pancake order lookup failed")
+
 // ResolveWaffoPancakeTradeNo maps a verified webhook event to a local TopUp
 // trade_no via OrderMerchantExternalID, and rejects buyer-identity mismatches.
 func ResolveWaffoPancakeTradeNo(event *WaffoPancakeWebhookEvent) (string, error) {
@@ -220,7 +225,10 @@ func ResolveWaffoPancakeTradeNo(event *WaffoPancakeWebhookEvent) (string, error)
 	if tradeNo == "" {
 		return "", fmt.Errorf("missing webhook orderMerchantExternalId")
 	}
-	topUp := model.GetTopUpByTradeNo(tradeNo)
+	topUp, err := model.GetTopUpByTradeNoWithError(tradeNo)
+	if err != nil && !errors.Is(err, model.ErrTopUpNotFound) {
+		return "", fmt.Errorf("%w: %w", ErrWaffoPancakeOrderLookupFailed, err)
+	}
 	if topUp == nil || topUp.PaymentProvider != model.PaymentProviderWaffoPancake {
 		return "", fmt.Errorf("waffo pancake order not found for tradeNo=%s", tradeNo)
 	}
@@ -247,7 +255,10 @@ func ResolveWaffoPancakeSubscriptionTradeNo(event *WaffoPancakeWebhookEvent) (st
 	if tradeNo == "" {
 		return "", fmt.Errorf("missing webhook orderMerchantExternalId")
 	}
-	order := model.GetSubscriptionOrderByTradeNo(tradeNo)
+	order, err := model.GetSubscriptionOrderByTradeNoWithError(tradeNo)
+	if err != nil && !errors.Is(err, model.ErrSubscriptionOrderNotFound) {
+		return "", fmt.Errorf("%w: %w", ErrWaffoPancakeOrderLookupFailed, err)
+	}
 	if order == nil || order.PaymentProvider != model.PaymentProviderWaffoPancake {
 		return "", fmt.Errorf("waffo pancake subscription order not found for tradeNo=%s", tradeNo)
 	}

@@ -25,7 +25,9 @@ func isStripeWebhookConfigured() bool {
 }
 
 func isStripeWebhookEnabled() bool {
-	return isStripeTopUpEnabled()
+	// Subscription plans have their own prices; recharge catalog configuration
+	// must not disable fulfillment of their already-created orders.
+	return isPaymentComplianceConfirmed() && strings.TrimSpace(setting.StripeApiSecret) != "" && isStripeWebhookConfigured()
 }
 
 func isCreemTopUpEnabled() bool {
@@ -43,7 +45,7 @@ func isCreemWebhookConfigured() bool {
 }
 
 func isCreemWebhookEnabled() bool {
-	return isCreemTopUpEnabled() && isCreemWebhookConfigured()
+	return isPaymentComplianceConfirmed() && strings.TrimSpace(setting.CreemApiKey) != "" && isCreemWebhookConfigured()
 }
 
 func isWaffoTopUpEnabled() bool {
