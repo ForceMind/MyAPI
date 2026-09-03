@@ -374,7 +374,7 @@ Kling mode/duration/image 和 Jimeng frames 由已验证顶层字段决定。Jim
 当前范围完成。未连接真实 Provider、数据库或凭据，不证明真实任务费用/结果；Jimeng 查询
 handler 候选另审。该批无页面改动，版本保持 0.1.1；最新 Docker 验收仍对应 `237c0da`。
 
-### S2-D03 Relay 输入 JSON wrapper（本地完成、待 CI）
+### S2-D03 Relay 输入 JSON wrapper（已完成当前范围）
 
 OpenRouter Anthropic thinking、Replicate output format 和模型映射的三个直接解码已等价改为
 `common.Unmarshal`；OpenAI 仍保留 RawMessage 类型 import，model helper 使用明确别名。
@@ -382,5 +382,7 @@ OpenRouter Anthropic thinking、Replicate output format 和模型映射的三个
 空值及错误部分状态，不连接网络或数据库，也不修改全局模型设置。
 
 本机低并行三包普通测试、同三包 race、vet、gofmt 和 diff-check 均通过；全仓结构余量
-由 56/21 降至 53/18，独立 Sol 审查无 P1/P2。当前待同提交 CI；该批不改页面或版本，
-不触碰 relaykit，不用常规 CI 冒充 Docker/真实 Provider 验收。
+由 56/21 降至 53/18，独立 Sol 审查无 P1/P2。`615fbbd` /
+[CI 33800052236](https://github.com/ForceMind/MyAPI/actions/runs/33800052236) 七项成功，D03 当前
+范围完成。该批不改页面或版本，不触碰 relaykit，不用常规 CI 冒充 Docker/真实 Provider
+验收。

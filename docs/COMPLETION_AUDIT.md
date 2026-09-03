@@ -358,7 +358,7 @@ Frontend、S1/S2-A 实库、S2-C Redis、Desktop、Distribution 作业也成功�
 0.1.1。Jimeng GET handler 候选、metadata JSON 字符串兼容、真实上游费用和完整端到端任务
 仍未验证。
 
-## S2-D03 Relay 输入 JSON wrapper（2026-09-04，本地完成、待同提交 CI）
+## S2-D03 Relay 输入 JSON wrapper（2026-09-04，已完成当前范围）
 
 仅修改三处生产调用：OpenRouter 将 Anthropic `THINKING` RawMessage 交给
 `common.Unmarshal`，仍保留 `encoding/json` 类型 import；Replicate `OutputFormat` 改用
@@ -374,11 +374,16 @@ malformed、disabled 与非 Anthropic；Replicate 保留带空格原字符串，
 本机 `go test -p 1 ./relay/channel/openai ./relay/channel/replicate ./relay/helper -count=1`
 分别 2.016s/1.138s/3.742s；同三包 race 分别 2.795s/2.506s/5.255s；三包 vet、gofmt、
 diff-check 通过。结构门禁从 56/21 降至 53/18，独立 Sol 审查无 P1/P2。两个 P3 仅为
-额外门控轴和内部调用顺序测试，不改变可观察合同。当前未提交/无 CI，故保持待验证；
-无网络、数据库、凭据、relaykit 或页面变更，`VERSION` 仍为 0.1.1。
+额外门控轴和内部调用顺序测试，不改变可观察合同。最终
+`615fbbd48c2f7627d6f3dc513c97b8845ba3074e` /
+[CI 33800052236](https://github.com/ForceMind/MyAPI/actions/runs/33800052236) 七项成功，Backend
+包含根/relaykit vet、build、全量 test 和既有 race 门禁；D03 完成当前范围。无网络、
+数据库、凭据、relaykit 或页面变更，`VERSION` 仍为 0.1.1。
 
 ## 最近 CI 证据
 
+- S2-D03 最终提交 `615fbbd`：[CI 33800052236](https://github.com/ForceMind/MyAPI/actions/runs/33800052236)
+  七项成功；OpenRouter/Replicate/model mapping wrapper 与行为回归闭环，余量 53/18。
 - S2-C07/D02 最终提交 `f7cc5c3`：[CI 33798508808](https://github.com/ForceMind/MyAPI/actions/runs/33798508808)
   七项成功；正文缓存、视频模型/时长边界、原始日志身份和 wrapper 余量 56/21 已闭环。
   文档提交 `3133495` / [CI 33799035547](https://github.com/ForceMind/MyAPI/actions/runs/33799035547)
