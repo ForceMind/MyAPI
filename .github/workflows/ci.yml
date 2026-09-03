@@ -92,8 +92,6 @@ jobs:
       GOWORK: 'off'
       GOMAXPROCS: '1'
       MYAPI_S1_DATABASE_TESTS: '1'
-      MYAPI_S1_MYSQL_DSN: root:s1-fixture-password@tcp(127.0.0.1:${{ job.services.mysql.ports[3306] }})/myapi_s1_test?charset=utf8mb4&parseTime=true
-      MYAPI_S1_POSTGRES_DSN: host=127.0.0.1 port=${{ job.services.postgres.ports[5432] }} user=postgres password=s1-fixture-password dbname=myapi_s1_test sslmode=disable
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -105,6 +103,9 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
       - name: Verify identity migration and option persistence on disposable databases
+        env:
+          MYAPI_S1_MYSQL_DSN: root:s1-fixture-password@tcp(127.0.0.1:${{ job.services.mysql.ports[3306] }})/myapi_s1_test?charset=utf8mb4&parseTime=true
+          MYAPI_S1_POSTGRES_DSN: host=127.0.0.1 port=${{ job.services.postgres.ports[5432] }} user=postgres password=s1-fixture-password dbname=myapi_s1_test sslmode=disable
         run: go test -p 1 ./model -run '^TestAccessProfileConfiguredDatabases$' -count=1 -timeout=180s -v
 
   frontend:
