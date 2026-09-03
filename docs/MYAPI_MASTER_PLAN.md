@@ -146,10 +146,10 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 
 #### 2026-09-04 当前代码验收基线
 
-当前代码 `544f83b` / [CI 33802572396](https://github.com/ForceMind/MyAPI/actions/runs/33802572396)
+当前代码 `b2b60fd` / [CI 33804146311](https://github.com/ForceMind/MyAPI/actions/runs/33804146311)
 七项成功；最新适用镜像证据是 `237c0da` 的
 [Docker smoke 33790513455](https://github.com/ForceMind/MyAPI/actions/runs/33790513455)，
-Full/LAN 两项均成功。**B1、C06/C07、S4-01/S4-02 与 D01–D04 已完成当前范围**：
+Full/LAN 两项均成功。**B1、C06/C07、S4-01/S4-02 与 D01–D05 已完成当前范围**：
 任务提交费率冻结及异常快照守卫、日志并发/轮转状态修复、无发布镜像新安装/认证/真实登录表单与精确构建标识。
 MySQL5.7/PG9.6 各五种快照/NULL 往返与原七支付场景实跑通过，原始日志已核对。
 本机整合全量/vet/build/race、relaykit 独立验证、336 项前端测试及生产构建、13 项探针
@@ -202,8 +202,8 @@ JWT 或凭据访问。
 
 D05 本地完成 Midjourney 单文件 8 处 wrapper 收敛；SQLite 真实 handler 回归锁定空
 VideoUrls 持久化、Buttons/Properties 历史兼容、camelCase 单对象/条件数组/空 `[]` 响应。
-relay 全包普通/race、vet 与独立 Sol 审查通过，余量为 40/14，当前待同提交 CI；不改变
-上游、计费、转发 URL 或历史错误字符串。
+relay 全包普通/race、vet、独立 Sol 审查及 `b2b60fd` 七项 CI 通过，余量为 40/14，D05
+当前范围完成；不改变上游、计费、转发 URL 或历史错误字符串。
 
 以下为此前阶段记录，当前状态以以上验收基线与执行矩阵为准。
 

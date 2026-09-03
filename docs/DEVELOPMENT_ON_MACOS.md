@@ -400,7 +400,7 @@ wrapper。Vertex 两个 exchange 共用离线可测的安全 parser：非 2xx/pr
 [CI 33802572396](https://github.com/ForceMind/MyAPI/actions/runs/33802572396) 七项成功，D04 当前
 范围完成；无页面/版本/relaykit 变化，常规 CI 不能替代真实 Vertex 账户或代理验收。
 
-### S2-D05 Midjourney JSON wrapper（本地完成、待 CI）
+### S2-D05 Midjourney JSON wrapper（已完成当前范围）
 
 `relay/mjproxy_handler.go` 的 8 处 JSON 调用已统一到 `common` wrapper，保留 Notify 忽略
 marshal error、持久字段 malformed 静默和历史错误字符串。测试使用单连接内存 SQLite，
@@ -408,5 +408,6 @@ marshal error、持久字段 malformed 静默和历史错误字符串。测试�
 空 `[]`、camelCase 和 JSON Content-Type，不访问真实 Midjourney、渠道或凭据。
 
 本机 relay 定向、全包普通/race、vet、gofmt 和 diff-check 通过，结构余量由 48/15 降至
-40/14，独立 Sol 审查无 P1/P2。当前待同提交 CI；无页面/版本/relaykit 变化，不把 SQLite
-fixture 写成三数据库或真实上游验收。
+40/14，独立 Sol 审查无 P1/P2。`b2b60fd` /
+[CI 33804146311](https://github.com/ForceMind/MyAPI/actions/runs/33804146311) 七项成功，D05 当前
+范围完成；无页面/版本/relaykit 变化，不把 SQLite fixture 写成三数据库或真实上游验收。
