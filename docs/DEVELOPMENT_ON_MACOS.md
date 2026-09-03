@@ -226,8 +226,8 @@ Apple Developer ID 签名和 notarization 时只是测试制品，可能触发 G
 - [ ] Electron DMG/ZIP 未签名时只作为测试制品；
 - [ ] 任何服务器升级、GHCR/NPM 发布和生产操作均另行确认。
 
-当前执行基线与授权见 [开发执行计划](DEVELOPMENT_EXECUTION_PLAN.md)：`a36e529` 的
-CI `33721694305`、网站检查/工件均成功；`a620246`、`e0ca670` 及对应 runner 启动失败是
+当前执行基线与授权见 [开发执行计划](DEVELOPMENT_EXECUTION_PLAN.md)：`6fabc98` 的
+CI `33740901999` 五项均成功；`a620246`、`e0ca670` 及对应 runner 启动失败是
 历史记录。Docker Desktop、真实手机、Windows 安装、MySQL/PostgreSQL 恢复、NOTICE/法律
 及正式发布分别需要对应条件与授权，不能由本机静态合同替代。
 
@@ -236,3 +236,8 @@ vet/build、relaykit 独立构建/测试、Zhipu 与 profile 专项 race 通过�
 通过（pack 必须在干净提交重新生成清单）。CI 另外实跑本次身份迁移/配置事务的
 MySQL5.7 和 PostgreSQL9.6；它不是本机 Docker Desktop 验收，也不替代完整三库恢复。
 后续本机与 CI 都按实际范围记录结果，不再统一写成“数据库完全验证”或“全部外部阻塞”。
+
+S1-R1 本轮基线 `6fabc98`、CI `33740901999` 已核对。原六项已完成，用户已确认追加的
+同进程配置保存/后台重载顺序修复，当前进行中。验证仍使用低并行 Go 与临时 fixture，
+不操作本机生产数据；新结果必须对应 R1 提交，不借用基线绿灯。跨实例一致性、完整
+数据库恢复、Docker Desktop 和真实设备验收仍按各自范围处理。

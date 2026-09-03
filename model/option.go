@@ -3,6 +3,7 @@ package model
 import (
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
@@ -20,6 +21,10 @@ type Option struct {
 	Value string `json:"value"`
 }
 
+// optionMutationLock orders database snapshots/commits and their in-process
+// publication. Its production implementation is a non-reentrant mutex.
+var optionMutationLock sync.Locker = &sync.Mutex{}
+
 func AllOption() ([]*Option, error) {
 	var options []*Option
 	var err error
@@ -28,6 +33,8 @@ func AllOption() ([]*Option, error) {
 }
 
 func InitOptionMap() {
+	optionMutationLock.Lock()
+	defer optionMutationLock.Unlock()
 	common.OptionMapRWMutex.Lock()
 	common.OptionMap = make(map[string]string)
 
@@ -199,11 +206,24 @@ func InitOptionMap() {
 	}
 
 	common.OptionMapRWMutex.Unlock()
-	loadOptionsFromDatabase()
+	loadOptionsFromDatabaseLocked()
 }
 
 func loadOptionsFromDatabase() {
-	options, _ := AllOption()
+	optionMutationLock.Lock()
+	defer optionMutationLock.Unlock()
+	loadOptionsFromDatabaseLocked()
+}
+
+// loadOptionsFromDatabaseLocked requires optionMutationLock. Keep the read
+// and publication in the same sequence as writers so an older snapshot cannot
+// overwrite a newer local commit. OptionMap's lock is not held during I/O.
+func loadOptionsFromDatabaseLocked() {
+	options, err := AllOption()
+	if err != nil {
+		common.SysLog("failed to load options from database: " + err.Error())
+		return
+	}
 	for _, option := range options {
 		err := updateOptionMap(option.Key, option.Value)
 		if err != nil {
@@ -283,6 +303,11 @@ func UpdateOptionsBulk(values map[string]string) error {
 		}
 		normalized[key] = value
 	}
+	// Serialize commits and their complete local publication with reloads.
+	// This is a single-process ordering guarantee, not a cross-instance lock
+	// or an atomic read snapshot across all configuration fields.
+	optionMutationLock.Lock()
+	defer optionMutationLock.Unlock()
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		for k, v := range normalized {
 			option := Option{Key: k}

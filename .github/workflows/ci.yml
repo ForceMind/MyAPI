@@ -61,6 +61,11 @@ jobs:
       - name: Test root and relaykit modules
         run: make test
 
+      - name: Verify configuration publication ordering under race detector
+        env:
+          GOMAXPROCS: '1'
+        run: go test -race -p 1 ./model -run '^TestOption(WritesPublishInCommitOrder|ReloadCannotOverwriteNewerWrite|SaveFailureDoesNotPublishOrHoldSequence|ReloadFailureDoesNotPublishOrHoldSequence)$' -count=1 -timeout=120s
+
   s1-databases:
     name: S1 identity and options database regression
     if: github.event.action != 'closed' || github.event.pull_request.merged == true

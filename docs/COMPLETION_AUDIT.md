@@ -27,6 +27,10 @@
 
 ## 最近 CI 证据
 
+- R1 开始基线 `6fabc98` 的 [CI 33740901999](https://github.com/ForceMind/MyAPI/actions/runs/33740901999)
+  五项通过。用户现已确认 S1-R1（配置保存/后台重载发布顺序），正在实施；该旧 CI 不作为
+  R1 新修改已验证的证据。原 S1-01..06 完成状态不变。
+
 - S0＋S1 交付代码 `dc94e81`（2026-09-03）：[CI 33740321133](https://github.com/ForceMind/MyAPI/actions/runs/33740321133)
   五个 job 全部成功；相比旧基线新增 S1 临时数据库实跑。详情和先失败后修复记录见本页
   S0＋S1 章节；原六项与追加待确认风险分开，不代表整项目或生产完成。
@@ -475,3 +479,25 @@ PostgreSQL9.6 后，在 MySQL 的 HasColumn 探测发生 panic：当前 GORM 基
   决策；不把单写者 race 或以上实库事务测试当作双写顺序证明。
 - 本轮未改生产数据库/服务、未移动 tag、未发布 GHCR/NPM；生成清单保持 ignored。
   完整应用三库备份恢复、Full/LAN 镜像矩阵、真实上游/设备和独立 UI 仍按 S2-S7 推进。
+
+## S1-R1 配置发布顺序（2026-09-03，进行中）
+
+用户已确认在同一进程内统一配置保存及后台重载的发布顺序。实现覆盖数据库读取/提交到
+内存发布的完整区间，保持 OptionMap 锁不跨 DB I/O；初始化调用已持锁 helper，避免递归
+加锁。原代码红测直接观察到 DB=Second、Map/注册表=First，以及 DB=Newer、旧重载
+覆盖为 Initial，另有失败读取仍发布部分快照；无测试超时，不以随机调度或 sleep 作为证明。
+
+新增四项确定性回归已通过，sol 独立静态复审未发现阻断；本机完整回归结果如下，CI 尚待运行。
+后台重载读失败保留现值；初始化仍先构造默认 Map，读失败不保证调用前 Map 不变。
+本项不处理跨实例一致性或所有配置读取原子快照，未来增加 ConfigManager.SaveToDB
+回调保存的生产入口时须另审锁顺序。
+
+本机集成回归（Go 1.27.0；前缀 `GOMAXPROCS=1 GOWORK=off`，构建/模块缓存位于临时目录）：
+
+- `go test -p 1 ./... -count=1 -timeout=180s`、`go vet -p 1 ./...`、
+  `go build -p 1 ./...`：全部通过。
+- `cd relaykit && go build -p 1 ./... && go test -p 1 ./... -count=1`：独立构建/测试通过。
+- `go test -race -p 1 ./model -run '^TestOption(WritesPublishInCommitOrder|ReloadCannotOverwriteNewerWrite|SaveFailureDoesNotPublishOrHoldSequence|ReloadFailureDoesNotPublishOrHoldSequence)$' -count=1 -timeout=120s`：四项通过；worker 另跑 S1 持久化/规范化/注册表读取回归通过。
+- Release workflow 合同 18/18、Quota OpenAPI 合同 3/3 通过；CI YAML 语法解析通过。
+  新 race 步骤已接入 backend job。源码清单/打包在干净提交复核，新 CI 尚待运行，不借用
+  `6fabc98` 的结果将 R1 提前标为已完成。
