@@ -25,12 +25,17 @@
 | NPM 正式发布 | CLI/打包/版本合同检查 | 发布前检查已验证 | 版本确认、tag、清单、用户明确确认与 `npm publish` |
 | macOS 开发迁移 | `docs/DEVELOPMENT_ON_MACOS.md`、`docs/CODEX_HANDOFF_PROMPT.md`、README 导航 | 文档已补齐 | 新 Mac 的工具安装、依赖测试和实机 Electron/LAN 验收需在新设备执行 |
 
-## S2-A 支付与订阅事务（2026-09-03，CI 日志复核未通过）
+## S2-A 支付与订阅事务（2026-09-03，已完成当前确认范围）
 
-已确认范围与状态见[执行矩阵](DEVELOPMENT_EXECUTION_PLAN.md#s2-a-支付与订阅事务进行中)。
+已确认范围与状态见[执行矩阵](DEVELOPMENT_EXECUTION_PLAN.md#s2-a-支付与订阅事务)。
 实现包括：退款与幂等标记同事务、套餐与时钟同连接、真实 DB 错误不误报缺单、Creem
 补单额度单位及重复日志、Stripe 回调错误 ACK/重复成功与 pending 条件更新、
 Pancake 查询错误分类，以及 Stripe/Creem 仅订阅配置的回调闸门。没有 schema 迁移。
+
+当前验收代码 `767b17b` / [CI 33751536908](https://github.com/ForceMind/MyAPI/actions/runs/33751536908)
+六个 job 全部成功；MySQL5.7/PostgreSQL9.6 各七场景实际执行，精确日志增量、中文正文和
+历史日志不变断言全部通过，原始实库输出未见 `Error 1366`、日志写失败或 skip。
+A01–A06 及追加 R1 已验收；S2 总阶段、完整恢复和真实付款/设备并未完成。
 
 本机新增回归先复现冷缓存额外借连接、热缓存错误时间 fallback、退款嵌套事务、
 Creem 补单多乘 QuotaPerUnit/重复日志及陈旧 pending 覆盖 success；随后修复。
@@ -59,24 +64,27 @@ CI 新增独立 `S2-A payment and subscription database regression`，目标仅�
 实库日志确认 MySQL/PostgreSQL 各七个子项实际运行（未 skip）。双连接屏障保证事务
 重叠及最终状态检查，第二屏障在 SQL 发送前，不能声称直接观察到了数据库锁等待。
 
-**日志复核发现，不能据此宣布 S2-A 验收完成**：MySQL 的订阅/充值中文日志插入出现
+**历史日志复核失败（已由 R1 处理）**：当时不能据此宣布 S2-A 验收完成。MySQL 的订阅/充值中文日志插入出现
 `Error 1366 (HY000): Incorrect string value ... for column 'content'`，但测试未断言
 日志写入，因此 job 仍为绿色。fixture 直接 AutoMigrate，没有按真实启动路径调用
 `model/main.go` 的 `checkMySQLChineseSupport`；连接 DSN 的 `charset=utf8mb4` 不等于
 数据库/表的默认字符集已配置。生产启动已有字符集拒绝保护，本次不修改该保护或生产库。
 
-追加 **S2-A-R1（进行中／已确认）**，开始基线 `5db9558`：仅修正专用、已确认空库的 MySQL fixture 字符集，
+追加 **S2-A-R1（已完成／已确认）**，开始基线 `5db9558`，交付 `767b17b`：仅修正专用、已确认空库的 MySQL fixture 字符集，
 复用真实启动的中文支持检查；补齐成功/重复/回滚与并发付款的准确日志条数、中文内容
 断言，再重跑两种实库及相关回归。范围为 `model/payment_database_test.go` 和验收文档，
 不改变生产付款语义、schema 迁移或发布配置。本轮独立静态复审通过不替代这一运行时发现。
 
-R1 已实现并待本次实库 CI：固定 `ALTER DATABASE myapi_s2a_test` 仅在目标及空库检查后
+R1 已通过实库 CI：固定 `ALTER DATABASE myapi_s2a_test` 仅在目标及空库检查后
 配置 utf8mb4；复用中文支持检查，在 AutoMigrate 前后验证。七个业务场景均比较历史
 日志快照、新增数量及完整中文正文，订阅退款保持不新增充值日志。新增
 `TestS2APaymentSQLite` 复用同一矩阵，但后三项仅顺序重放，明确不模拟 MySQL/PG 行锁。
 本机 `go test -p 1 ./model -run '^TestS2APayment(SQLite|DatabaseTargetSafety|ConfiguredDatabases)$' -count=1 -v`
 已通过本地七场景和目标安全检查；无 DSN 的外部入口明确 skip，不能算实库通过。
-sol 独立复审未发现阻断问题，确认日志缺失现在会失败；旧 Error 1366 证据保留。
+本机同一低并行 Go 环境下 `go test -p 1 ./model -count=1 -timeout=180s`（9.003s）、
+`go vet -p 1 ./model`、`go test -race -p 1 ./model -run '^TestS2APayment(SQLite|DatabaseTargetSafety)$' -count=1 -timeout=120s`（5.070s）通过。
+`relaykit/` 独立 `GOWORK=off go build -p 1 ./...` 与 Node22 干净提交 `npm run release:check`
+通过（本地 pack 2177 文件）；未发布。sol 独立复审未发现阻断问题，确认日志缺失现在会失败；旧 Error 1366 证据保留。
 
 Pancake 履约使用已验签合成事件，公开入口另验非法签名拒绝，未替换官方公钥。
 所有支付数据/签名均为 fixture，没有真实付款。明确回滚的提交失败不代表不确定提交
@@ -84,9 +92,13 @@ Pancake 履约使用已验签合成事件，公开入口另验非法签名拒绝
 
 ## 最近 CI 证据
 
+- S2-A-R1 `767b17b`：[CI 33751536908](https://github.com/ForceMind/MyAPI/actions/runs/33751536908)
+  六项 success；实库两种数据库各七场景均含准确日志/中文读回断言，无 skip 或旧日志错误。
+  此结果支持 S2-A/A-R1 当前确认范围验收，不代表 S2-B/C、S3–S7 或生产验收完成。
+
 - S2-A 代码 `2777021`：[CI 33749764180](https://github.com/ForceMind/MyAPI/actions/runs/33749764180)
   六项 success；但实库原始日志发现 MySQL 中文日志写失败且缺断言，详见上节。
-  这是“CI 绿但验收未通过”，不得省略警告或据此完成阶段。
+  这是当时“CI 绿但验收未通过”的记录，不得省略警告；其缺口现由上项 R1 关闭。
 
 - S2-A 开始基线 `c82d0f1`：[CI 33744326429](https://github.com/ForceMind/MyAPI/actions/runs/33744326429)
   五项成功。已确认 A01–A06，目前修改待验收；此旧运行不证明本轮代码、实库或真实付款通过。

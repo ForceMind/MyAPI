@@ -243,7 +243,7 @@ S1-R1 本轮基线 `6fabc98`、CI `33740901999` 已核对。原六项已完成�
 验证使用低并行 Go 与临时 fixture，不操作本机生产数据。跨实例一致性、完整
 数据库恢复、Docker Desktop 和真实设备验收仍按各自范围处理。
 
-S2-A 当前获准范围见[执行矩阵](DEVELOPMENT_EXECUTION_PLAN.md#s2-a-支付与订阅事务进行中)，
+S2-A 当前获准范围见[执行矩阵](DEVELOPMENT_EXECUTION_PLAN.md#s2-a-支付与订阅事务)，
 开始基线 `c82d0f1` / CI `33744326429`。仅使用临时 SQLite 和独立 CI 数据库 fixture，
 不配置真实 Stripe/Creem/Pancake 凭据或回调。新实库测试要求显式
 `MYAPI_S2A_DATABASE_TESTS=1`，DSN 为字面 loopback 且数据库名必须是 `myapi_s2a_test`；
@@ -252,6 +252,12 @@ S2-A 当前获准范围见[执行矩阵](DEVELOPMENT_EXECUTION_PLAN.md#s2-a-支�
 
 S2-A `2777021` 已通过本机 Go 全量、vet/build、专项 race、relaykit 独立验证和 Node22
 完整 `release:check`。CI `33749764180` 六项 success，但 MySQL 实库日志出现中文插入
-`Error 1366`，缺少日志断言使 job 假绿；本批尚未验收。fixture 绕过了生产启动的中文
-字符集检查，不能仅靠 DSN `charset=utf8mb4` 认定 schema 正确。S2-A-R1 的测试专库
-配置与日志断言修正已确认执行，基线 `5db9558`；不将其扩展到本机/服务器数据库或生产迁移。
+`Error 1366`，缺少日志断言使 job 假绿；该次未予验收。fixture 绕过了生产启动的中文
+字符集检查，不能仅靠 DSN `charset=utf8mb4` 认定 schema 正确。
+
+S2-A-R1 交付 `767b17b` / CI `33751536908` 六项成功，MySQL5.7/PostgreSQL9.6 专用空库
+各七场景的中文日志、增量和历史不变断言通过，原始输出无旧错误。本机 model 全量/vet、
+七场景 SQLite、专项 race、relaykit 独立构建及 Node22 完整 release:check 通过。
+字符集 DDL 只作用于已校验的空库 `myapi_s2a_test`，不属于生产 schema 迁移。
+SQLite 后三项为顺序重放，不替代实库并发；本批也不替代 Docker Desktop、完整升级恢复、
+真实网关付款、跨实例部署或真实设备验收。
