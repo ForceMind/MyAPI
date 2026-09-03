@@ -450,7 +450,7 @@ endpoint enrich 与 Ollama SSE 集成测试，现由直接确定性排序、机�
 包含根/relaykit vet、build、全量 test 与既有 race 门禁；D06 完成当前范围。无外网、
 数据库、relaykit 或页面变化，版本仍 0.1.1。
 
-## S2-C08 / D07 Settings（2026-09-04，本地完成；待同提交 CI）
+## S2-C08 / D07 Settings（2026-09-04，已完成当前范围）
 
 本批 Settings 五个目标文件 13 处直接 JSON 编解码全部迁移至 `common` wrapper，根模块合规余量
 由 32 处/11 文件降为 19 处/6 文件。除机械迁移外，实际修复和回归覆盖 RWMap/10 倍率、
@@ -467,10 +467,12 @@ check→execute→record 的近似语义，并发可超发，未误报为硬限�
 `model_setting`、`operation_setting`、`ratio_setting`、`setting/model`、`middleware`、
 `controller`）；限流 race `-count=2`；根 `go test -p 1 ./...`、`go vet ./...`、
 `go build -p 1 ./...`；`relaykit` `GOWORK=off` vet/build/test；gofmt、diff-check 与 YAML
-解析。独立 Sol 初审问题修复后复审无当前范围 P1/P2。提交和 CI 编号均为待推送/待 CI，
-不得把本机结果写成三库或发布验收；本批无 schema/前端页面变化，`VERSION` 仍为 0.1.1，
-未运行真实上游、生产或真实设备。
-同 SHA 常规 MySQL/PostgreSQL jobs 待运行；本批无专用三数据库 Settings 行为场景，不会把其绿灯写成热更新验收。
+解析。独立 Sol 初审问题修复后复审无当前范围 P1/P2。最终 `2d6acab` /
+[CI 33814136556](https://github.com/ForceMind/MyAPI/actions/runs/33814136556) 七项成功；Backend 原始日志中新增 D07 race
+步骤的 `common`、`types`、五个 `setting` 相关包、`model`、`middleware`、`controller`
+均实际返回 `ok`。不得把这些证据写成发布验收；本批无 schema/前端页面变化，
+`VERSION` 仍为 0.1.1，未运行真实上游、生产或真实设备。同 SHA 常规 MySQL/PostgreSQL jobs 成功；
+本批无专用三数据库 Settings 行为场景，不会把其绿灯写成热更新验收。
 
 剩余独立 S2-C09：generic config 对象业务热读缺统一快照/锁；跨不同配置族 reload 仍为
 best-effort 而非全量事务；历史 DB raw `null`、未知分层 key、Passkey 懒写和
@@ -478,6 +480,8 @@ best-effort 而非全量事务；历史 DB raw `null`、未知分层 key、Passk
 
 ## 最近 CI 证据
 
+- S2-C08/D07 最终提交 `2d6acab`：[CI 33814136556](https://github.com/ForceMind/MyAPI/actions/runs/33814136556)
+  七项成功；Backend 全量、旧配置顺序 race、新 D07 十包 race 和既有计费/日志 race 均成功，余量 19/6。
 - S2-D06 最终提交 `02a0aaf`：[CI 33805743908](https://github.com/ForceMind/MyAPI/actions/runs/33805743908)
   七项成功；Controller 8 处 wrapper 与 endpoint 稳定排序闭环，余量 32/11。
 - S2-D05 最终提交 `b2b60fd`：[CI 33804146311](https://github.com/ForceMind/MyAPI/actions/runs/33804146311)
