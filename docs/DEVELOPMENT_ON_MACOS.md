@@ -455,7 +455,7 @@ relaykit 独立 vet/build/test 已通过。最终 `9193ada` /
 递归时间字符串识别的既有语义；endpoint path 逃逸、nil response 等 D09 边界另审。C09 设计仍独立保留，
 D09 已完成本地范围并待同提交 CI，D10 为下一批。本批无页面/schema、真实 io.net、凭据或网络，`VERSION` 保持 0.1.1。
 
-### S2-D09 io.net endpoints（本地已完成，待同提交 CI）
+### S2-D09 io.net endpoints（已完成当前范围）
 
 `pkg/ionet` 的 container/deployment/hardware 三文件 9 处直接 `Unmarshal` 已迁移到 `common.Unmarshal`，
 根模块余量由 11 处/4 文件降至 2 处/1 文件（仅 D10 的 `pkg/cachex` codec）。动态 deployment/container/
@@ -466,5 +466,7 @@ cluster path segment 均使用 `PathEscape`，stream options 局部复制；`mak
 离线 fake 和 loopback `httptest` 覆盖合法/malformed、mutation/hardware/location、null/空/缺 ID 防伪成功、
 合法 `false`、五类重定向、path 逃逸和 stream options 不变性；没有真实 io.net、凭据或公网 I/O。本机
 `pkg/ionet` race `-count=2`、controller 定向 race、vet、gofmt、diff-check、根全量 test/vet/build 及
-relaykit 独立 vet/build/test 已通过；同提交 CI 待推送后验证。独立 Sol 无 P1/P2；P3 是 hardware/location 必填回显尚需真实
+relaykit 独立 vet/build/test 已通过。最终 `8228203` /
+[CI 33819117410](https://github.com/ForceMind/MyAPI/actions/runs/33819117410) 七项成功，新 io.net race `-count=2` 门禁实跑通过。
+独立 Sol 无 P1/P2；P3 是 hardware/location 必填回显尚需真实
 脱敏响应或官方 schema 补验。无页面/schema 改动，`VERSION` 仍为 0.1.1。

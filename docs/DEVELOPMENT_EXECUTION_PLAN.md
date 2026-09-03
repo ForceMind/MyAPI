@@ -22,7 +22,7 @@ SSE、脱敏日志、额度分析、账户/Key 兼容字段、CLI/Electron 和�
 | --- | --- | --- | --- |
 | S0 计划与证据 | 已完成／已确认范围 | terra 起草，主代理整合 | 需求、缺陷、验证、决策分开；更新主计划、审计、macOS、额度 OpenAPI；链接、参数和事实一致。 |
 | S1 安全与一致性 | 已完成／已确认范围 | sol 实现；独立 sol 复审 | 原六项及追加 R1 均通过回归、独立复审和 CI；同进程配置保存/后台重载的发布顺序、双写交错与失败释放已有证据，不推导跨实例一致性。 |
-| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06/C07/C08、D01–D09 已完成本地范围；D09 同提交 CI 待推送。B2/B3 任务持久化/恢复、C03b 缓存恢复、C09 实施及 D10 仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
+| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06/C07/C08、D01–D09 已完成当前范围并通过同提交 CI。B2/B3 任务持久化/恢复、C03b 缓存恢复、C09 实施及 D10 仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
 | S3 账户/Key 实际策略 | 未开始／迁移设计待确认 | sol 设计，分模块实现 | 明确账户权益、模型限制交集、route_groups、disabled、fallback、计费归属；旧 Key 兼容/差异报告/启用/回滚经确认后落实。不得把已有元数据当强制策略。 |
 | S4 运行与恢复 | 进行中／S4-01、S4-02 已完成当前范围 | 工程/制品与独立 sol 审查；sol 数据与恢复 | Full/LAN 测试镜像均不推送；SQLite/MySQL/PostgreSQL 临时库旧结构升级、重复迁移、多连接竞争、备份恢复；登录/Key/权限/日志/额度探针；原生桌面构建、安装升级与第二设备 LAN。 |
 | S5 额度闭环与选定扩展 | 未开始／各扩展分别决策 | sol 领域/安全，terra 常规实现 | 测试实例真实账户连续采样、任务/API/管理员页面一致；失败/重置/缺口和大数据量性能。通知、多 Key 身份、Claude 组织用量等按决策登记，不混入平台账本。 |
@@ -177,7 +177,7 @@ B2/B3 需核心合同决定：上游接受结果未知时是否不自动重发/�
 | D06 Controller | 已完成当前范围 | 8/3 | Vertex key、model metadata、Uptime Kuma/Ollama 边界；保留合法 `json.Valid`/RawMessage，规则 endpoint 稳定排序；同提交 CI 通过。 |
 | D07 Settings / C08 | 已完成当前范围 | 13/5 已清零；根余量 19/6 | 设置反射及 fresh 发布、群组倍率、集合 null 规范化、generic config 原子发布与纯验证；配置/模型/限流并发边界回归，新增 D07 race 门禁并于同 SHA CI 实跑。 |
 | D08 io.net 核心 | 已完成当前范围 | 8/2 已清零；根余量 11/4 | `pkg/ionet/client.go` 和 `jsonutil.go` 各 4 处实际 stdlib JSON 调用迁移至 `common` wrapper；离线 fake client 覆盖 HTTP body/query、API error 与 flexible time。普通/race `-count=2`/vet/diff-check/gofmt、根全量、relaykit 独立矩阵及 `9193ada` 同 SHA CI 通过。 |
-| D09 io.net endpoints | 本地已完成／同提交 CI 待推送 | 9/3 已清零；根余量 2/1（仅 `cachex`） | container/deployment/hardware 全部 path segment 使用 `PathEscape`；stream options 局部复制；nil、null、空、缺 ID、mutation/hardware/location 与 `false` 合同回归；默认 HTTP client 禁止 301/302/303/307/308 重定向，避免 `X-API-KEY` 和敏感 body 泄露；新增 io.net 整包 race 门禁。 |
+| D09 io.net endpoints | 已完成当前范围 | 9/3 已清零；根余量 2/1（仅 `cachex`） | container/deployment/hardware 全部 path segment 使用 `PathEscape`；stream options 局部复制；nil、null、空、缺 ID、mutation/hardware/location 与 `false` 合同回归；默认 HTTP client 禁止 301/302/303/307/308 重定向，避免 `X-API-KEY` 和敏感 body 泄露；`8228203` 同 SHA CI 含 io.net 整包 race 实跑。 |
 | D10 cachex | 未开始 | 2/1 | codec round trip、空白/malformed/不可编码值；不新增平行 abstraction。 |
 
 D01 已将四个 OAuth 文件的 9 处直接调用清零，结构余量为 **58 处/23 文件**。本机
@@ -226,7 +226,7 @@ P1/P2，数组和 `*time.Time` 两项 P3 已补。保留 `interface{}`→`float6
 “看似时间”字符串的既有语义；endpoint path 逃逸、nil response 等 D09 边界另审。本批无页面、schema、
 真实 io.net、凭据或网络访问，`VERSION` 保持 0.1.1。
 
-**S2-D09 io.net endpoints 已完成本地范围，待同提交 CI。** `container`、`deployment`、
+**S2-D09 io.net endpoints 已完成当前范围。** `container`、`deployment`、
 `hardware` 三文件的 9 处实际 `Unmarshal` 已全部迁移至 `common.Unmarshal`，根模块结构余量由
 11 处/4 文件降为 **2 处/1 文件**，仅余 `pkg/cachex` 的 D10 codec。所有动态 deployment/container/
 cluster path segment 均经 `PathEscape`；stream options 使用局部复制，调用者输入不被修改。`makeRequest`
@@ -239,7 +239,8 @@ body 跟随跳转泄露。
 凭据或公网。本机 `pkg/ionet` race `-count=2`、controller 定向 race、vet、gofmt、diff-check、根模块
 全量 test/vet/build 及 relaykit 独立 vet/build/test 已通过。独立 Sol 审查无 P1/P2；P3 为未公开文档
 的 hardware/location 必填回显，仍需真实脱敏响应或官方 schema 补验。无页面或 schema 改动，`VERSION` 保持
-0.1.1；同提交 CI 将额外实跑 io.net 整包 race `-count=2`，提交及 CI 证据待推送后补录。
+0.1.1。最终 `8228203` / [CI 33819117410](https://github.com/ForceMind/MyAPI/actions/runs/33819117410)
+七项成功；Backend 新增 io.net 整包 race `-count=2` 步骤成功。
 
 C07/D02 在 D01 的 58/23 基线上将两个 middleware 直接 Marshal 清零，结构余量为
 **56 处/21 文件**。只读 Sol ultra 追踪确认旧 `KeyBodyStorage` 会遮蔽兼容适配器写入的

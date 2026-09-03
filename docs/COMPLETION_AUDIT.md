@@ -493,7 +493,7 @@ headers、method、URL，NaN marshal，transport/API detail fallback，query sli
 P3 已补。保留 `interface{}`→`float64` 大整数精度风险和递归识别看似时间字符串的既有语义；endpoint path
 逃逸、nil response 等 D09 边界另审。无页面/schema、真实 io.net、凭据或网络访问，`VERSION` 保持 0.1.1。
 
-## S2-D09 io.net endpoints（2026-09-04，本地已完成、同提交 CI 待推送）
+## S2-D09 io.net endpoints（2026-09-04，已完成当前范围）
 
 `pkg/ionet` container/deployment/hardware 三文件的 9 处实际 `Unmarshal` 已迁移至 `common.Unmarshal`，根模块
 结构余量由 11 处/4 文件降为 **2 处/1 文件**，仅余 D10 的 `pkg/cachex` codec。动态 deployment/container/cluster
@@ -504,12 +504,16 @@ path segment 全部经 `PathEscape`；stream options 采用局部复制，不修
 离线 fake 与 loopback `httptest` 回归覆盖合法/malformed 响应、mutation/hardware/location、null/空/缺 ID 不伪造
 成功、合法 `false`、五类重定向、path 逃逸及 stream options 不变性；没有真实 io.net、凭据或公网 I/O。本机实际通过
 `pkg/ionet` race `-count=2`、controller 定向 race、vet、gofmt、diff-check、根全量 test/vet/build 及 relaykit
-独立 vet/build/test 已通过；同提交 CI 仍待推送后验证。独立 Sol 审查无 P1/P2；P3 为未公开文档的
+独立 vet/build/test 已通过。最终 `8228203` /
+[CI 33819117410](https://github.com/ForceMind/MyAPI/actions/runs/33819117410) 七项成功；Backend 新增 io.net 整包 race
+`-count=2` 步骤成功。独立 Sol 审查无 P1/P2；P3 为未公开文档的
 hardware/location 必填回显，需真实脱敏响应或官方 schema 补验。无页面/schema 改动，`VERSION` 保持 0.1.1。
 同提交 Backend 已新增 `pkg/ionet` 整包 race `-count=2` 门禁，待 GitHub runner 实跑核对。
 
 ## 最近 CI 证据
 
+- S2-D09 最终提交 `8228203`：[CI 33819117410](https://github.com/ForceMind/MyAPI/actions/runs/33819117410)
+  七项成功；9 处 endpoint wrapper、传输安全与 io.net 整包 race 门禁闭环，余量 2/1。
 - D08 文档提交：[CI 33817446025](https://github.com/ForceMind/MyAPI/actions/runs/33817446025) 七项成功；
   `upload-artifact` 的 Node 20→24 annotation 是非阻断 workflow 维护项，未为修正该注解扩大本批源码范围。
 - S2-D08 最终提交 `9193ada`：[CI 33816756504](https://github.com/ForceMind/MyAPI/actions/runs/33816756504)
