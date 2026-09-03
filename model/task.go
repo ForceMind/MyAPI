@@ -113,7 +113,12 @@ func (m Properties) Value() (driver.Value, error) {
 	if m == (Properties{}) {
 		return nil, nil
 	}
-	return common.Marshal(m)
+	data, err := common.Marshal(m)
+	if err != nil {
+		return nil, err
+	}
+	// Text avoids bytea inference for JSON columns in PostgreSQL simple protocol.
+	return string(data), nil
 }
 
 type TaskPrivateData struct {
@@ -210,7 +215,12 @@ func (p TaskPrivateData) Value() (driver.Value, error) {
 	if (p == TaskPrivateData{}) {
 		return nil, nil
 	}
-	return common.Marshal(p)
+	data, err := common.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	// Text avoids bytea inference for JSON columns in PostgreSQL simple protocol.
+	return string(data), nil
 }
 
 // SyncTaskQueryParams 用于包含所有搜索条件的结构体，可以根据需求添加更多字段

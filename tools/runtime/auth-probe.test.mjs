@@ -3,13 +3,13 @@ import { test } from 'node:test'
 
 import { runRuntimeProbe } from './auth-probe.mjs'
 
-function mockFetch({ loginStatus = 200, token = 'synthetic-token' } = {}) {
+function mockFetch({ loginStatus = 200, loginSuccess = true, token = 'synthetic-token' } = {}) {
   const calls = []
   const fetchImpl = async (url, options = {}) => {
     calls.push({ url, options })
     if (url.endsWith('/api/user/login')) {
       const body = loginStatus === 200
-        ? { success: true, data: { access_token: token } }
+        ? { success: loginSuccess, data: { access_token: token } }
         : { success: false, message: 'invalid credentials' }
       return new Response(JSON.stringify(body), { status: loginStatus, headers: { 'content-type': 'application/json' } })
     }
@@ -37,6 +37,7 @@ test('authenticated runtime probe checks status, identity, quota, and logs witho
   })
 
   assert.equal(report.passed, true)
+  assert.ok(report.checks.every((item) => item.ok && !item.code))
   assert.deepEqual(report.checks.map((item) => item.name), [
     'server status',
     'password login',
@@ -92,4 +93,17 @@ test('probe rejects HTTP 200 responses that report success=false', async () => {
   assert.equal(report.checks[0].code, 'STATUS_UNCONFIRMED')
   assert.equal(report.checks[2].code, 'API_UNCONFIRMED')
   assert.doesNotMatch(JSON.stringify(report), /synthetic upstream failure|synthetic-token|probe-password/)
+})
+
+test('probe rejects a logically failed login even when its body contains a token', async () => {
+  const { calls, fetchImpl } = mockFetch({ loginSuccess: false })
+  const report = await runRuntimeProbe({
+    baseUrl: 'http://127.0.0.1:3311', username: 'probe-user', password: 'probe-password', fetchImpl,
+  })
+
+  assert.equal(report.passed, false)
+  assert.equal(report.checks[1].code, 'LOGIN_UNCONFIRMED')
+  assert.equal(calls.length, 2, 'do not use a token from a failed login')
+  assert.equal(report.checks.length, 2)
+  assert.doesNotMatch(JSON.stringify(report), /synthetic-token|probe-password/)
 })

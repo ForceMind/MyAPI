@@ -306,3 +306,10 @@ C06 修复现已通过 logger 全包 race（2.595s）、全部 UpdateVideoTasks 
 2026-09-04 最终根模块全量/vet/build、整合定向 race、relaykit 独立 build/test 已通过，
 命令和边界见[完成度审计](COMPLETION_AUDIT.md#s2-b1-与-s4-01进行中尚未验收)。提交后的
 实库新场景、Full/LAN 镜像和最终源码包仍需分别核验。
+
+`e7fffc2` 的完整 release:check 通过（2190 文件、干净源码 manifest）。GitHub
+`33778810531` Full/LAN 两镜像真实探针均通过；普通 CI `33778745451` 六项通过，但 PG
+快照 INSERT 报 SQLSTATE 22P02，MySQL 快照及两库原支付矩阵通过。JSON Valuer
+在 simple-protocol 下的编码边界已修，本机四包完整测试/vet、根 build 与独立复审通过；
+codec 红绿测试不冒充 PG 实跑，不改专库安全门/协议，仍须新 CI 复验。
+认证探针另修成功错误码与 success:false 登录误判，Node 13 项及独立复审通过，仍待新版镜像复验。

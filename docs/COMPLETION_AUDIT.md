@@ -189,6 +189,29 @@ go test -race -p 1 ./logger ./model ./controller ./service ./relay/channel/task/
 
 `relaykit/` 的 `GOWORK=off go build -p 1 ./...` / `go test -p 1 ./... -count=1` 独立通过。
 上述不替代新提交的 MySQL/PG 快照实跑、Full/LAN 镜像及完整发行包复验，提交后继续补证。
+
+`e7fffc2` 复验结果：本机干净源码 `npm run release:check` 全链通过，manifest 的
+sourceCommit 为该完整 SHA、sourceTreeDirty=false；pack 为 2190 文件。普通 CI
+`33778745451` 六项通过，但专库 job `100726920898` 未通过：MySQL 七支付及五快照均通过，
+PG 七支付通过、五快照 INSERT 均报 SQLSTATE 22P02，B1 未予验收。与生产一致的
+simple-protocol 下，两处 JSON Valuer 的字节数组被编码为 bytea 十六进制文本；实际 GORM
+参数配合同一 pgx codec 的红测已复现，空 Data/NULL 控制组正常；两处 Value 已改为成功
+编码后返回 JSON 文本，不修改 schema、协议或补假数据绕过。四个受影响包完整测试
+（model 9.838s、service 2.148s、controller 3.658s、Kling 1.201s）、相关 vet 及根模块 build
+通过，独立复审通过。按复审建议以五场景真实 NULL 读回断言代替 SQL 括号格式断言，
+SQLite/codec 复跑 1.942s 通过。修正仍待新的 MySQL/PG 实跑。
+
+第二轮 [Docker smoke 33778810531](https://github.com/ForceMind/MyAPI/actions/runs/33778810531)
+在 `e7fffc2` 的 Full/LAN 均成功，原始报告确认实际初始化/认证、匿名拒绝、模式及登录
+表单，三处 revision 均为 `rv.0.1.1.e7fffc223ec9a73bae5606cfad681b9c9c795555.2k6e8r7p`。
+本地 image ID（不是 GHCR digest）：Full `sha256:3990bc161879273143d9b15fdc05dde29c862403f0faad61efd1115069187d7c`；
+LAN `sha256:9426fc35bcb84509772e857adc1892ff550c5bf0c6967cb8ad388ceafa041fa6`。均为 linux/amd64、
+全新 SQLite，不代表三库恢复。首轮 BuildMismatch 失败记录保留。
+
+核对该报告时发现原认证探针对成功项误附 UNCONFIRMED code，另用红测复现登录
+`success:false` 即使含 token 也被接受。已修为成功无错误码、登录必须 HTTP 2xx＋success:true＋
+非空 token，否则不调用管理 API；新增红绿回归后 Node 13 项、runtime 合同及独立复审通过。
+新探针随 PG 修正再次提交和镜像复验，不撤销旧有效登录/镜像证据，也不将旧报告当新版通过。
 它也不覆盖三库恢复、真实上游、完整 UI 或 macOS/Windows 安装。
 
 ## 最近 CI 证据

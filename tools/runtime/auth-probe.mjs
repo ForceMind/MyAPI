@@ -83,7 +83,8 @@ export async function runRuntimeProbe({
   }
 
   const status = await request(fetchImpl, `${normalizedBaseUrl}/api/status`, { headers: { Accept: 'application/json' } }, timeoutMs, true)
-  checks.push(check('server status', successfulResponse(status), status.status, status.error || (status.status >= 200 && status.status < 300 ? 'STATUS_UNCONFIRMED' : '')))
+  const statusConfirmed = successfulResponse(status)
+  checks.push(check('server status', statusConfirmed, status.status, status.error || (!statusConfirmed && status.status >= 200 && status.status < 300 ? 'STATUS_UNCONFIRMED' : '')))
 
   const login = await request(fetchImpl, `${normalizedBaseUrl}/api/user/login`, {
     method: 'POST',
@@ -91,8 +92,14 @@ export async function runRuntimeProbe({
     body: JSON.stringify({ username, password }),
   }, timeoutMs, true)
   const token = login.body?.data?.access_token
-  const loggedIn = login.status >= 200 && login.status < 300 && typeof token === 'string' && token.length > 0
-  checks.push(check('password login', loggedIn, login.status, loggedIn ? '' : login.error || (login.status === 401 ? 'AUTH_FAILED' : 'LOGIN_TOKEN_UNAVAILABLE')))
+  const loggedIn = successfulResponse(login) && typeof token === 'string' && token.length > 0
+  let loginCode = ''
+  if (!loggedIn) {
+    loginCode = login.error || 'LOGIN_TOKEN_UNAVAILABLE'
+    if (login.status === 401) loginCode = 'AUTH_FAILED'
+    else if (login.status >= 200 && login.status < 300 && login.body?.success !== true) loginCode = 'LOGIN_UNCONFIRMED'
+  }
+  checks.push(check('password login', loggedIn, login.status, loginCode))
   if (!loggedIn) return { command: 'runtime:probe', base_url: normalizedBaseUrl, passed: false, checks }
 
   const headers = { Accept: 'application/json', Authorization: `Bearer ${token}` }
@@ -102,7 +109,8 @@ export async function runRuntimeProbe({
     ['admin logs', '/api/log/?p=1&size=10'],
   ]) {
     const response = await request(fetchImpl, `${normalizedBaseUrl}${pathname}`, { headers }, timeoutMs, true)
-    checks.push(check(name, successfulResponse(response), response.status, response.error || (response.status >= 200 && response.status < 300 ? 'API_UNCONFIRMED' : '')))
+    const confirmed = successfulResponse(response)
+    checks.push(check(name, confirmed, response.status, response.error || (!confirmed && response.status >= 200 && response.status < 300 ? 'API_UNCONFIRMED' : '')))
   }
   return { command: 'runtime:probe', base_url: normalizedBaseUrl, passed: checks.every((item) => item.ok), checks }
 }
