@@ -160,12 +160,14 @@ race 原始日志确认四包通过，本批封版闭环，不改变生产缓存
 两处 JSON Valuer 的文本绑定修复和探针严格成功判定均由最终提交重新实跑，不跳过数据库
 或放宽 SHA/认证检查。详细命令、image ID 和红绿过程见[完成度审计](COMPLETION_AUDIT.md#s2-b1-与-s4-01)。
 
-S4-02 的隔离合成用户/受限 Key/假上游一次调用已完成本地实现、回归及独立复审，待
-GitHub Full/LAN 实跑：usage 10+5 必须精确形成 15 quota，关联普通/管理员日志、权限与
-已定义请求/响应头脱敏同时通过。它不调用真实 Provider，也不证明 Redis/batch 或恢复。
-首个 `b54ce36` Full job 在业务前暴露 sidecar loopback/NAT reset，未验收；监听修复已通过
-17 项 Node 回归和独立复审，仍以新 Docker run 为最终证据。
-通过后再扩展三库运行合同。完整备份恢复、真实账户/设备、独立 UI 仍未完成。
+**S4-02 已完成当前范围。** 首个 `b54ce36` Full job 在业务前暴露 sidecar
+loopback/NAT reset，未验收；修复保持宿主回环发布，仅令受限 CI sidecar 显式监听 namespace
+全接口。最终 `237c0da` 的本机完整 `release:check`、独立复审与七项常规 CI 通过；
+[Docker 33790513455](https://github.com/ForceMind/MyAPI/actions/runs/33790513455) 在同一 SHA
+上 Full/LAN 均通过。usage 10+5 精确形成 15 quota，普通用户/受限 Key/渠道账本、唯一关联
+日志、普通/管理员权限、请求/响应头脱敏、匿名不上游和真实登录表单均由实际临时镜像验证。
+它不调用真实 Provider，也不证明 Redis/batch、MySQL/PostgreSQL 完整运行恢复或真实设备。
+下一步扩展三库运行合同；完整备份恢复、真实账户/设备、独立 UI 仍未完成。
 B2/B3 的提交未知状态、持久账务事件和 outbox，以及 C03b 缓存恢复策略仍需核心决定；
 复用既有 CAS/租约/快照，不重建平行系统。见[完整执行矩阵](DEVELOPMENT_EXECUTION_PLAN.md)。
 

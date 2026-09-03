@@ -307,7 +307,7 @@ linux/amd64、load:true/push:false，无 registry 登录。BuildKit 限 2 CPU/4 
 race 接线已修；本机四包同一命令和独立复审通过。`6fd8ae4` / CI `33783792231` 七项成功，
 新增 backend race 原始日志确认四包实跑，无 DATA RACE/FAIL；没有用前一次绿色替代失败。
 最终代码的 Node22 release:check 全链通过：探针 13 项、干净源码 manifest、pack 2190 文件。
-### S4-02 合成业务链（待 GitHub 实跑）
+### S4-02 合成业务链（已完成当前范围）
 
 已实现 Full/LAN 测试用的合成普通用户、受限 Key、普通 OpenAI 渠道和固定 usage=10+5
 假上游。sidecar 使用 Dockerfile 已有的固定 Bun digest，与应用共享网络 namespace；两个
@@ -316,13 +316,23 @@ race 接线已修；本机四包同一命令和独立复审通过。`6fd8ae4` / 
 
 Node22 `npm run runtime:probe:test` 最终为 17/17；Bun 假上游已在本机 127.0.0.1:19090 实际
 启动，health 与零状态读回后停止。Ruby YAML、全部 workflow shell 块、runtime/release
-workflow 合同和独立审查通过。本机仍无 Docker，所以容器网络、资源余量、Full/LAN 的
-真实 API/账务/日志结果必须由新 GitHub 手动 run 验收；当前不得标完成。
+workflow 合同和独立审查通过。本机仍无 Docker；容器网络、资源余量及 Full/LAN 的
+API/账务/日志合同由后述 GitHub 临时 runner 验收，不能写成本机 Docker Desktop 通过。
 
 首个 `b54ce36` Full job 的 app/sidecar 均运行，但宿主 NAT 请求无法命中只绑定 namespace
 loopback 的 fake，连续 connection reset，业务探针未开始；LAN 随后取消以节省资源。
 仅 CI sidecar 改为显式监听 0.0.0.0，宿主端口仍绑定 127.0.0.1，本机默认监听不变。
-监听修复的 Node17项、YAML/Bash 和独立复审通过，必须由下一次镜像 run 证明联通。
+监听修复的 Node 17 项、YAML/Bash 和独立复审通过。
+
+最终 `237c0da` 本机完整 `npm run release:check` 通过，包检查为 2191 文件/
+20,024,635 bytes；[CI 33790468336](https://github.com/ForceMind/MyAPI/actions/runs/33790468336)
+七项成功。[Docker 33790513455](https://github.com/ForceMind/MyAPI/actions/runs/33790513455)
+在精确同一 SHA 上 Full 4m21s、LAN 4m30s 均成功，容器联通、合成 15 quota 账本、日志
+权限与脱敏、匿名不上游、真实登录表单、三处一致 revision、image identity 和 SHA 清理均
+通过；失败诊断因无失败而跳过。Full/LAN image ID 分别为
+`sha256:5bff88fc38c973f86d0966aff1539ddae5e1c658627a7bb7a9e8bf471343d1ae` 与
+`sha256:6eb322e85047c9bb6f5087717527c5b9b0e1d91cf3c631fff7fb373f539ba1ce`。
 
 这是测试工具与 workflow 扩展，不改产品页面；可见发行版本保持 0.1.1，GitHub 镜像用
-提交 SHA 作为构建标识。C03b、B2/B3、三库完整恢复和真实设备仍单列。
+提交 SHA 作为构建标识；临时 image ID 不是发布 digest。C03b、B2/B3、三库完整恢复、
+本机 Docker Desktop 和真实设备仍单列。

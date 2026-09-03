@@ -1,6 +1,6 @@
 # MyAPI 开发执行计划
 
-> 2026-09-04 代码验收基线：`7f1913e`（CI `33781560507` 七项成功，Docker smoke `33781637372` Full/LAN 均成功）。本文件管理完整路线与当前授权；历史证据保留在
+> 2026-09-04 代码验收基线：`237c0da`（CI `33790468336` 七项成功，Docker smoke `33790513455` Full/LAN 均成功）。本文件管理完整路线与当前授权；历史证据保留在
 > [完成度审计](COMPLETION_AUDIT.md)，产品定义见[主计划](MYAPI_MASTER_PLAN.md)。
 > **S0＋S1 及 S1-R1、S2-A 六项及 S2-A-R1** 已完成当前确认范围。目标及风险边界内的实现、测试修正、审查修复、复验和阶段同步持续推进，不把每次小修拆为新的确认；核心架构/业务取舍、范围扩大与发布仍单独确认。
 
@@ -24,7 +24,7 @@ SSE、脱敏日志、额度分析、账户/Key 兼容字段、CLI/Electron 和�
 | S1 安全与一致性 | 已完成／已确认范围 | sol 实现；独立 sol 复审 | 原六项及追加 R1 均通过回归、独立复审和 CI；同进程配置保存/后台重载的发布顺序、双写交错与失败释放已有证据，不推导跨实例一致性。 |
 | S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06 已完成当前范围；B2/B3 任务持久化/恢复及 C03b 缓存恢复仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
 | S3 账户/Key 实际策略 | 未开始／迁移设计待确认 | sol 设计，分模块实现 | 明确账户权益、模型限制交集、route_groups、disabled、fallback、计费归属；旧 Key 兼容/差异报告/启用/回滚经确认后落实。不得把已有元数据当强制策略。 |
-| S4 运行与恢复 | 进行中／S4-01 已完成；S4-02 待 GitHub 实跑 | 工程/制品与独立 sol 审查；sol 数据与恢复 | Full/LAN 测试镜像均不推送；SQLite/MySQL/PostgreSQL 临时库旧结构升级、重复迁移、多连接竞争、备份恢复；登录/Key/权限/日志/额度探针；原生桌面构建、安装升级与第二设备 LAN。 |
+| S4 运行与恢复 | 进行中／S4-01、S4-02 已完成当前范围 | 工程/制品与独立 sol 审查；sol 数据与恢复 | Full/LAN 测试镜像均不推送；SQLite/MySQL/PostgreSQL 临时库旧结构升级、重复迁移、多连接竞争、备份恢复；登录/Key/权限/日志/额度探针；原生桌面构建、安装升级与第二设备 LAN。 |
 | S5 额度闭环与选定扩展 | 未开始／各扩展分别决策 | sol 领域/安全，terra 常规实现 | 测试实例真实账户连续采样、任务/API/管理员页面一致；失败/重置/缺口和大数据量性能。通知、多 Key 身份、Claude 组织用量等按决策登记，不混入平台账本。 |
 | S6 完整独立 UI | 未开始／设计待确认 | sol 信息架构/复杂交互，terra 页面实施；独立视觉审查 | 角色化 IA→设计系统→登录/引导→Key/调用→渠道/额度→日志→计费/运维；Full/LAN/移动、七语言、键盘、空/错/加载/权限状态；实际渲染/操作验收，官网同步。 |
 | S7 交付就绪 | 未开始／发布不在当前授权内 | 主代理、独立审查者、负责人 | 逐需求证据、已知阻断清零、恢复可执行、文档/接口/制品一致；版本、签名、NOTICE、域名及正式发布另行审批。 |
@@ -187,7 +187,7 @@ S3–S7 或真实设备范围列为完成。
 
 ## 待决策与外部条件
 
-下一项 **S4-02 待验证／本地实现、回归与独立复审完成，待 GitHub Full/LAN 实跑**：
+**S4-02 已完成当前范围**：
 在无 Redis、非 batch、关闭渠道内存缓存的全新 SQLite Full/LAN 镜像中创建合成普通用户、钱包、受限 Key 和普通
 OpenAI 渠道；假上游与应用共享隔离网络 namespace，绝不调用真实 Provider。通过管理
 API 显式固定测试模型/补全/组倍率为 1，单次非流请求返回 usage 10+5，精确验证钱包与
@@ -203,18 +203,27 @@ cap-drop/no-new-privileges，并按 SHA 标签先于应用清理。Node22 17 项
 YAML 与全部 shell 块、runtime/release workflow 合同及独立审查通过。首个 `b54ce36`
 实跑的 app 与 sidecar 均运行，但 sidecar 只监听 namespace loopback，宿主 NAT 健康请求
 持续 reset，业务探针未执行；已改为仅 CI sidecar 显式监听容器全接口，宿主仍只发布
-127.0.0.1。本地默认 loopback 不变，修复仍待新镜像实跑。该批不改产品页面；`VERSION`
-保持 0.1.1，实际镜像仍以提交 SHA 标识。
+127.0.0.1，本机默认 loopback 不变。
 
-之后复用相同 HTTP 合同扩展 MySQL5.7/PG9.6：应用启动前证明独立专库为空，正确配置
+最终 `237c0da` 的本机 `release:check` 全链通过（runtime 17/17、合同检查及 2191 文件/
+20,024,635 bytes 包检查）；[CI 33790468336](https://github.com/ForceMind/MyAPI/actions/runs/33790468336)
+七项成功。[Docker 33790513455](https://github.com/ForceMind/MyAPI/actions/runs/33790513455)
+在同一精确 SHA 上 Full 4m21s、LAN 4m30s 均成功：fresh SQLite、身份/权限、精确 15 quota
+账本、唯一关联日志、普通用户 admin_info 隔离与 Full Content 403、请求/响应头脱敏、匿名
+relay 401 且不上游、真实登录表单和三处一致 revision 全部通过；失败诊断未运行，SHA 标签
+清理完成。Full image ID 为 `sha256:5bff88fc38c973f86d0966aff1539ddae5e1c658627a7bb7a9e8bf471343d1ae`，
+LAN 为 `sha256:6eb322e85047c9bb6f5087717527c5b9b0e1d91cf3c631fff7fb373f539ba1ce`。
+该批不改产品页面；`VERSION` 保持 0.1.1，临时 image ID 不是 GHCR digest。
+
+下一项复用相同 HTTP 合同扩展 MySQL5.7/PG9.6：应用启动前证明独立专库为空，正确配置
 字符集，不把 setup/root_init 标记当作全库空证明，也不直接放宽 SQLite-only 安全门。
 完整备份/升级/恢复、Redis/batch、失败退款、SSE、真实账户仍分别验收；不由一次调用
 成功推导上述能力。B2/B3、C03b 的账务恢复决策独立保留。
 
 | 项目 | 当前事实 | 恢复/进入条件 |
 | --- | --- | --- |
-| GitHub CI | 生产代码 `7f1913e` / `33781560507` 七项 success；测试门禁 `6fd8ae4` / `33783792231` 七项 success。两库各七支付＋五快照及新增四包 race 的原始日志已核对 | 历史假绿、统计回归、PG JSON 与追加 race 失败保留；后续仍核对各自 SHA。 |
-| Docker | Mac 仍无 Docker CLI/App；`7f1913e` 的 Full/LAN 全新 SQLite smoke 已通过 | GitHub 临时镜像不发布；image ID 不是 GHCR digest，也不是三库恢复、本机 Docker Desktop 或真实设备证据。 |
+| GitHub CI | 最新 `237c0da` / `33790468336` 七项 success；测试门禁 `6fd8ae4` / `33783792231` 七项 success。两库各七支付＋五快照及新增四包 race 的原始日志已核对 | 历史假绿、统计回归、PG JSON 与追加 race 失败保留；后续仍核对各自 SHA。 |
+| Docker | Mac 仍无 Docker CLI/App；`237c0da` / `33790513455` 的 Full/LAN 全新 SQLite 合成计费 smoke 已通过 | GitHub 临时镜像不发布；image ID 不是 GHCR digest，也不是三库恢复、本机 Docker Desktop 或真实设备证据。 |
 | 工具链 | macOS 26.2 arm64，Go 1.27.0、Bun 1.4.0、Node 22.23.2 可用 | 最低/固定验证基线以 `go.mod` 1.25.1、CI Bun 1.3.14 为准；本机可运行不等于最低版本或永久环境配置已验。 |
 | 三数据库 | SQLite fixture 与历史副本已有；S1 身份迁移/Option 事务已在 MySQL5.7/PostgreSQL9.6 实跑 | 不等于完整应用升级、备份恢复或多连接业务验证；S4 仍需对应测试，不能连接生产替代。 |
 | 真账户/设备 | 缺当前版本完整真实采样、手机、macOS/Windows 安装、第二设备 LAN 证据 | 测试实例、显式配置的上游账户、管理员权限、设备/网络与回滚方案；不读取本机凭据文件。 |

@@ -242,7 +242,7 @@ LAN `sha256:9426fc35bcb84509772e857adc1892ff550c5bf0c6967cb8ad388ceafa041fa6`。
 新探针随 PG 修正再次提交和镜像复验，不撤销旧有效登录/镜像证据，也不将旧报告当新版通过。
 它也不覆盖三库恢复、真实上游、完整 UI 或 macOS/Windows 安装。
 
-## S4-02 合成业务链（2026-09-04，待 GitHub 实跑）
+## S4-02 合成业务链（2026-09-04，已完成当前范围）
 
 在 S4-01 的 Full/LAN 全新 SQLite 镜像入口上增加固定 digest Bun sidecar，只运行纯合成
 OpenAI 接口。应用先健康，sidecar 再共享其网络 namespace；宿主 18080/19090 均只绑定
@@ -263,8 +263,8 @@ X-Api-Key 已脱敏，固定无敏感响应正文按既有合同原样保留。�
 本机首批命令：Node22 `npm run runtime:probe:test` 为 16/16（672 ms）；固定入口另由 Bun
 在 127.0.0.1:19090 启动，health 和全 false 零状态读回后立即停止。YAML、全部九个 shell
 块、`runtime:check` 13/13、`release:workflow:check` 18/18、diff-check 与独立 Sol 审查通过。
-这些证据不替代 sidecar 容器联通、真实 API 字段及资源余量；尚未运行新 GitHub workflow，
-状态保持待验证。无页面或产品版本改动，0.1.1 与受保护 tag 不动；未来镜像仍由 SHA 区分。
+这些是提交前证据，当时不替代 sidecar 容器联通、真实 API 字段及资源余量，因此没有提前
+标记完成。无页面或产品版本改动，0.1.1 与受保护 tag 不动；临时镜像仍由 SHA 区分。
 
 `b54ce36` 的普通 CI `33788688465` 七项成功。两次重复手动触发
 `33788701235` / `33788890484` 均被取消且无验收结论；随后唯一运行 `33789030687` 的
@@ -273,10 +273,34 @@ Full app/sidecar 均保持 running、exit=0、OOM=false，但宿主健康请求�
 namespace 的非 loopback 接口；业务探针未执行，LAN 为避免重复消耗而取消。修复保持
 本机默认 127，仅在 CI sidecar 通过受限 env 显式监听 0.0.0.0；宿主 publish 仍为
 127.0.0.1，state 仅合成布尔值。Node22 更新后 17/17（491 ms）、YAML/九个 shell 块及
-独立复审通过；新 Docker run 仍是完成条件。
+独立复审通过。
+
+监听修复提交 `237c0da16ee2ced3a0f00aca700f23cdb405bb75` 的本机完整
+`npm run release:check` 通过：CLI 22/22、branding 2/2、quota OpenAPI 3/3、LAN 68/68、
+desktop 32/32、upgrade 18/18、runtime contract 13/13、runtime probe 17/17、release
+workflow 18/18，源码 manifest 2190 项，最终包 2191 文件/20,024,635 bytes。
+[CI 33790468336](https://github.com/ForceMind/MyAPI/actions/runs/33790468336) 同 SHA 七个 job
+成功，包含根/relaykit vet/build/test、四包 race、前端真实 quota 图表、Redis 与 MySQL5.7/
+PostgreSQL9.6 既有回归、desktop 和 distribution 合同。
+
+[Docker 33790513455](https://github.com/ForceMind/MyAPI/actions/runs/33790513455) 同 SHA 成功：
+Full job `100765715038` 为 4m21s，LAN job `100765714033` 为 4m30s；每项 build、health、
+fake health、浏览器安装、完整业务探针、image identity 和清理均成功，失败诊断因无失败跳过。
+两份原始安全报告均为 `passed:true`，并验证 fresh SQLite、匿名 self 401、正确 edition、
+root 登录/身份/基础额度日志、精确 15 quota 的普通用户/Key/渠道账本、唯一 Consume 日志且
+普通视图无 admin_info、普通用户 Full Content 403、root 请求/响应头和请求字段脱敏、匿名
+relay 401 且 fake count 保持 1、真实登录表单。两者 revision 均为
+`rv.0.1.1.237c0da16ee2ced3a0f00aca700f23cdb405bb75.2k6e8r7p`；Full image ID
+`sha256:5bff88fc38c973f86d0966aff1539ddae5e1c658627a7bb7a9e8bf471343d1ae`，LAN image ID
+`sha256:6eb322e85047c9bb6f5087717527c5b9b0e1d91cf3c631fff7fb373f539ba1ce`。S4-02 当前范围完成。
+这些临时 image ID 不是发布 digest；无 Redis/batch、真实 Provider、三库恢复、本机 Docker
+Desktop、真实手机/桌面安装或生产证据。
 
 ## 最近 CI 证据
 
+- S4-02 最终提交 `237c0da`：[CI 33790468336](https://github.com/ForceMind/MyAPI/actions/runs/33790468336)
+  七项成功；[Docker 33790513455](https://github.com/ForceMind/MyAPI/actions/runs/33790513455)
+  Full/LAN 两项均成功，精确 SHA、revision、image ID 与安全业务报告已核对。
 - 测试隔离与 CI 门禁 `6fd8ae4`：[CI 33783792231](https://github.com/ForceMind/MyAPI/actions/runs/33783792231)
   七项成功；新增 task/logger/Kling backend race 四包实跑，原始日志已核对。生产代码未再变。
 - 最终修复 `7f1913e`：[CI 33781560507](https://github.com/ForceMind/MyAPI/actions/runs/33781560507)
