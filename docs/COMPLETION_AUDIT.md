@@ -589,8 +589,8 @@ gated 子测试，并由同提交 CI 通过。独立 Sol 最终复审无 P1/P2/P
 supplied WebAuthn snapshot、OAuth/支付/任务代理空地址和尾随 slash 语义；`gofmt`、`git diff --check` 通过。
 尚未执行根模块全量、race、真实 Redis、三数据库矩阵、relaykit、前端/浏览器或 Docker，也未访问真实设备、OAuth 上游或生产。
 当前 diff 的独立复审无 P0/P1/P2；唯一 P3 是未来可增加确定性并发观察来强化单 Store 回归保护，静态复核已确认当前
-实现为单 writer lock / 单 Store。CI run 与最终提交 SHA 尚未形成，因此本节不是“已完成”或“同提交 CI 通过”的声明。
-无 schema、UI、发布配置或版本号变更，`VERSION` 仍为 0.1.1。
+实现为单 writer lock / 单 Store。R4 代码提交为 `c5cf662`；分支 tip CI 尚未形成，因此本节不是“已完成”或
+“同提交 CI 通过”的声明。无 schema、UI、发布配置或版本号变更，`VERSION` 仍为 0.1.1。
 
 ## S2-D08 io.net 核心（2026-09-04，已完成当前范围）
 
