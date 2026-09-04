@@ -246,7 +246,10 @@ gofmt、diff-check、YAML 与根 JSON 静态门禁。CI 原始日志确认 Redis
 `SCRIPT FLUSH` 恢复均实际执行；MySQL/PostgreSQL engine 测试及 11 包扩展 race 均成功，不以 miniredis 或
 SQLite 替代这些结果。
 
-S2-C09-R2 本地完成，待同提交 CI，不写 R2 SHA/CI。`ValidatingMapConfig` 只作纯验证，既有
+S2-C09-R2 已完成当前范围。最终 `2575f5b` / [CI 33828024982](https://github.com/ForceMind/MyAPI/actions/runs/33828024982)
+八项成功；Backend 原始日志确认改名后的 `Verify settings, rate-limit, and request snapshots` 12 包均为 `ok`，
+包括 `setting/model_setting`、`operation_setting` 与 `relay/common`，不是 no tests；其余七个 job 亦成功。
+`ValidatingMapConfig` 只作纯验证，既有
 `MapConfig` 仍保持 unsupported。Claude 采用私有 atomic 完整代，getter 对三层 map/slice 深拷贝并保留 `[]`/`null`
 形状；`null`/`{}` 仅在读取副本补 8192，不污染 export，严格失败不发布。`GenRelayInfo` 捕获 request-private Claude
 代，handler/header/converter 使用同一代。Monitor 使用私有 atomic 代，保留 env frequency 优先于 enabled 的顺序；

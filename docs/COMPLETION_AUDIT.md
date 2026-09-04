@@ -508,9 +508,11 @@ JSON 静态门禁同样通过。本机未执行真实 Redis/MySQL/PostgreSQL；�
 产品语义；generic 21 模块热读、跨族事务、Passkey/null/未知 key/`GroupRatioSetting` 审计仍待；payment runtime
 逐字段读取及活指针未解决；真实付款、生产、设备及发布均未做。`VERSION` 仍为 0.1.1。
 
-## S2-C09-R2（2026-09-04，本地完成／待同提交 CI）
+## S2-C09-R2（2026-09-04，已完成当前范围）
 
-不写 R2 SHA/CI。`ValidatingMapConfig` 保持纯验证，旧 `MapConfig` 仍为 unsupported。Claude 使用私有 atomic 完整代；
+最终 `2575f5b` / [CI 33828024982](https://github.com/ForceMind/MyAPI/actions/runs/33828024982) 八项成功。Backend 原始日志确认
+改名后的 `Verify settings, rate-limit, and request snapshots` 12 包全部 `ok`，包括 `setting/model_setting`、
+`operation_setting`、`relay/common`，不是 no tests；其余七个 job 亦成功。`ValidatingMapConfig` 保持纯验证，旧 `MapConfig` 仍为 unsupported。Claude 使用私有 atomic 完整代；
 getter 深拷贝三层 map/slice 并保留 `[]`/`null` 形状；`null`/`{}` 仅在读取副本补 8192，不污染 export，严格失败不发布。
 `GenRelayInfo` 捕获 request-private Claude 代，handler/header/converter 使用同代。Monitor 私有 atomic 代保留 env
 frequency 再 enabled 的优先序；env 移除恢复 DB，mode/concurrency 仅作用于 effective、不污染 export；
@@ -573,6 +575,8 @@ diff-check 与静态门禁通过；独立复审最终无 P1/P2。最终 `bf03cba
 
 ## 最近 CI 证据
 
+- S2-C09-R2 最终提交 `2575f5b`：[CI 33828024982](https://github.com/ForceMind/MyAPI/actions/runs/33828024982)
+  八项成功；改名后的 `Verify settings, rate-limit, and request snapshots` 12 包均为 `ok`，其余七个 job 也成功。
 - S2-C09-R1 最终提交 `ae07527`：[CI 33824814509](https://github.com/ForceMind/MyAPI/actions/runs/33824814509)
   八项成功；真实 Redis 7 limiter lifecycle、MySQL/PostgreSQL engine fixture 与 11 包扩展 race 均通过。
 - S2-D09 最终提交 `8228203`：[CI 33819117410](https://github.com/ForceMind/MyAPI/actions/runs/33819117410)

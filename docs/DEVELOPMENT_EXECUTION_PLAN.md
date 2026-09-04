@@ -117,7 +117,7 @@ race、relaykit 独立构建/测试、Node22 发行合同及干净源码 pack �
 | C06 | 已完成／测试隔离、本机/CI race 与独立复审通过 | 生产 logger 计数/轮转预约状态及轮询测试共享对象 | 两个渠道并发记录日志无 data race；保留日志格式与轮转、多渠道并发；测试使用独立快照/通知，不用串行化或 sleep 掩盖。 |
 | C07 | 已完成当前范围 | `common` 请求正文替换生命周期、Kling/Jimeng 兼容路由、Full Content 入口身份、Provider 模型/时长边界 | 所有正文读取路径同版本；原始客户端日志与转换后分发分离；`model_name`/`req_key`、Kling duration/mode、Jimeng frames 不得绕过已验证/已计费字段；内存/磁盘清理、race 与同提交 CI 通过。 |
 | C08 | 已完成当前范围 | Settings JSON、持久化前验证、限流快照、倍率与配置发布 | 失败解析/DB 失败不改 runtime；负/非有限倍率拒绝；rate 单请求快照、溢出/内存/动态窗口回归；本地普通/race/全量及 `2d6acab` 同 SHA CI 通过。 |
-| C09 | R2 本地完成／待同提交 CI | Settings 控制面并发与硬限额合同 | R1 已由 `ae07527` 同 SHA 八项 CI 完成 payment、工具价格、ConfigManager 与 limiter 范围；R2 完成 ValidatingMapConfig/Claude/Monitor 私有发布代与同代请求快照，独立最终复审无 P1/P2；Passkey/ServerAddress、payment runtime/密钥轮换、GroupRatio alias/前端 bulk、成功 hard limit、跨族事务仍待。 |
+| C09 | R2 已完成当前范围 | Settings 控制面并发与硬限额合同 | R1 已由 `ae07527` 同 SHA 八项 CI 完成 payment、工具价格、ConfigManager 与 limiter 范围；R2 `2575f5b` 同 SHA 八项 CI 完成 ValidatingMapConfig/Claude/Monitor 私有发布代与同代请求快照，独立最终复审无 P1/P2；Passkey/ServerAddress、payment runtime/密钥轮换、GroupRatio alias/前端 bulk、成功 hard limit、跨族事务仍待。 |
 
 C03a 不等于整个账务缓存一致性完成。现有缺损 hash 的 miss→hydrate/DB fallback 仍未改；
 高层 User/Token quota 增减仍异步更新缓存、失败只记录而数据库继续写，须在 C03b 单列。
@@ -139,7 +139,9 @@ Settings 默认及每个 group 在 DB 写入前按实际 `capacity=total*duratio
 使用同一 2^53-1 精确边界，覆盖大于 2^53 且不超过 MaxInt64 的拒绝，runtime/OptionMap 不发布；保留 `total=0` 和
 disabled `duration=0`。miniredis 与独立真实 Redis 7 CI job 均通过。
 
-**S2-C09-R2（本地完成／待同提交 CI）：** 不写 R2 SHA/CI。`ValidatingMapConfig` 纯验证，既有 `MapConfig` 保持
+**S2-C09-R2（已完成当前范围）：** 最终 `2575f5b` / [CI 33828024982](https://github.com/ForceMind/MyAPI/actions/runs/33828024982)
+八项成功。Backend 原始日志确认改名后的 `Verify settings, rate-limit, and request snapshots` 12 包均为 `ok`，
+包括 `setting/model_setting`、`operation_setting`、`relay/common`，不是 no tests；其余七个 job 成功。`ValidatingMapConfig` 纯验证，既有 `MapConfig` 保持
 unsupported。Claude 使用私有 atomic 完整代；getter 深拷贝三层 map/slice、保留 `[]`/`null` 形状；`null`/`{}` 仅在读取
 副本补 8192，不污染 export，严格失败不发布。`GenRelayInfo` 捕获 request-private Claude 代，handler/header/converter
 同代。Monitor 使用私有 atomic 代，保留 env frequency 再 enabled 优先序；env 移除恢复 DB；mode/concurrency 只作用

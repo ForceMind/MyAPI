@@ -464,9 +464,11 @@ C09 的热读统一快照/锁、硬限额 reservation/rollback、
 语义不变；generic 21 模块热读、跨族事务、Passkey/null/未知 key/`GroupRatioSetting` 审计仍待；payment runtime
 逐字段读取及活指针未解决；未运行真实付款、生产、真实设备或发布。`VERSION` 保持 0.1.1。
 
-### S2-C09-R2（本地完成／待同提交 CI）
+### S2-C09-R2（已完成当前范围）
 
-不写 R2 SHA/CI。`ValidatingMapConfig` 仅纯验证，既有 `MapConfig` 保持 unsupported。Claude 私有 atomic 完整代，getter
+最终 `2575f5b` / [CI 33828024982](https://github.com/ForceMind/MyAPI/actions/runs/33828024982) 八项成功。Backend 原始日志确认
+改名后的 `Verify settings, rate-limit, and request snapshots` 12 包均为 `ok`，包含 `setting/model_setting`、
+`operation_setting`、`relay/common`，不是 no tests；其余七个 job 均成功。`ValidatingMapConfig` 仅纯验证，既有 `MapConfig` 保持 unsupported。Claude 私有 atomic 完整代，getter
 深拷贝三层 map/slice 并保留 `[]`/`null`；`null`/`{}` 只在读取副本补 8192，不污染 export，严格失败不发布。`GenRelayInfo`
 捕获 request-private Claude 代，handler/header/converter 同代。Monitor 私有 atomic 代保留 env frequency 再 enabled
 优先序；env 移除恢复 DB，mode/concurrency 仅 effective 不污染 export，`runChannelTestTask` 一次快照且并发 partial 不丢。
