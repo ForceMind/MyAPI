@@ -13,7 +13,6 @@ import (
 	"github.com/ForceMind/MyAPI/relaykit/dto"
 	"github.com/ForceMind/MyAPI/relaykit/relayconvert"
 	"github.com/ForceMind/MyAPI/relaykit/types"
-	"github.com/ForceMind/MyAPI/setting/model_setting"
 
 	"github.com/gin-gonic/gin"
 )
@@ -88,7 +87,7 @@ func CommonClaudeHeadersOperation(c *gin.Context, req *http.Header, info *relayc
 		}
 	}
 	if info != nil {
-		model_setting.GetClaudeSettings().WriteHeaders(info.OriginModelName, req)
+		info.ClaudeSettingsSnapshot().WriteHeaders(info.OriginModelName, req)
 	}
 }
 

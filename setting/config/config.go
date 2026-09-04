@@ -28,6 +28,13 @@ type MapConfig interface {
 	UpdateConfigMap(map[string]string) error
 }
 
+// ValidatingMapConfig extends MapConfig with side-effect-free validation.
+// Implementations must not publish the candidate configuration.
+type ValidatingMapConfig interface {
+	MapConfig
+	ValidateConfigMap(map[string]string) error
+}
+
 // ErrMapConfigValidationUnsupported reports that a MapConfig has no pure validation contract.
 var ErrMapConfigValidationUnsupported = errors.New("MapConfig does not support side-effect-free validation")
 
@@ -398,6 +405,9 @@ func UpdateConfigFromMap(config interface{}, configMap map[string]string) error 
 
 // ValidateConfigFromMap validates an update without changing config.
 func ValidateConfigFromMap(config interface{}, configMap map[string]string) error {
+	if validating, ok := config.(ValidatingMapConfig); ok {
+		return validating.ValidateConfigMap(configMap)
+	}
 	if _, ok := config.(MapConfig); ok {
 		return ErrMapConfigValidationUnsupported
 	}

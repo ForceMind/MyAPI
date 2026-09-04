@@ -464,6 +464,21 @@ C09 的热读统一快照/锁、硬限额 reservation/rollback、
 语义不变；generic 21 模块热读、跨族事务、Passkey/null/未知 key/`GroupRatioSetting` 审计仍待；payment runtime
 逐字段读取及活指针未解决；未运行真实付款、生产、真实设备或发布。`VERSION` 保持 0.1.1。
 
+### S2-C09-R2（本地完成／待同提交 CI）
+
+不写 R2 SHA/CI。`ValidatingMapConfig` 仅纯验证，既有 `MapConfig` 保持 unsupported。Claude 私有 atomic 完整代，getter
+深拷贝三层 map/slice 并保留 `[]`/`null`；`null`/`{}` 只在读取副本补 8192，不污染 export，严格失败不发布。`GenRelayInfo`
+捕获 request-private Claude 代，handler/header/converter 同代。Monitor 私有 atomic 代保留 env frequency 再 enabled
+优先序；env 移除恢复 DB，mode/concurrency 仅 effective 不污染 export，`runChannelTestTask` 一次快照且并发 partial 不丢。
+测试使用单次屏障，不使用 sleep 或概率循环。独立 Sol 最终复审当前范围无 P1/P2；P3 为 `GlobalConfig.Get` 动态具体类型变为
+私有 manager，公开 DTO/getter 签名兼容、仓内无断言。
+
+本机通过受影响包普通、workflow 同款 12 包 race（`common`、`common/limiter`、`types`、五个 setting 相关包、`model`、
+`middleware`、`controller`、`relay/common`）、`go test -p 1 ./...`、vet、build、relaykit `GOWORK=off` vet/build/test、
+gofmt、diff、YAML/JSON 门禁。R2 不需且未做真实 Redis、三数据库、前端、上游；无页面/schema，`VERSION` 0.1.1。
+Passkey/ServerAddress、payment runtime/密钥轮换、`GroupRatioSetting` alias/前端 bulk、成功 hard limit、跨族事务仍待。
+R1 文档收尾 `3af738e` / [CI 33825533002](https://github.com/ForceMind/MyAPI/actions/runs/33825533002) 八项成功。
+
 ### S2-D08 io.net 核心（已完成当前范围）
 
 `pkg/ionet/client.go`、`pkg/ionet/jsonutil.go` 的各 4 处实际 stdlib JSON 调用已迁移至 `common`

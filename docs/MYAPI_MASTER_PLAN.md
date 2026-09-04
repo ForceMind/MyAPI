@@ -246,6 +246,21 @@ gofmt、diff-check、YAML 与根 JSON 静态门禁。CI 原始日志确认 Redis
 `SCRIPT FLUSH` 恢复均实际执行；MySQL/PostgreSQL engine 测试及 11 包扩展 race 均成功，不以 miniredis 或
 SQLite 替代这些结果。
 
+S2-C09-R2 本地完成，待同提交 CI，不写 R2 SHA/CI。`ValidatingMapConfig` 只作纯验证，既有
+`MapConfig` 仍保持 unsupported。Claude 采用私有 atomic 完整代，getter 对三层 map/slice 深拷贝并保留 `[]`/`null`
+形状；`null`/`{}` 仅在读取副本补 8192，不污染 export，严格失败不发布。`GenRelayInfo` 捕获 request-private Claude
+代，handler/header/converter 使用同一代。Monitor 使用私有 atomic 代，保留 env frequency 优先于 enabled 的顺序；
+移除 env 后恢复 DB，mode/concurrency 只影响 effective 值且不污染 export，`runChannelTestTask` 取一次快照并发 partial
+不丢。测试改为单次屏障，无 sleep 或概率循环。独立 Sol 最终复审当前范围无 P1/P2；P3 是 `GlobalConfig.Get` 的动态
+具体类型转为私有 manager，公开 DTO/getter 签名兼容且仓内无断言。
+
+本机已通过受影响包普通测试、workflow 同款 12 包 race（`common`、`common/limiter`、`types`、五个 setting
+相关包、`model`、`middleware`、`controller`、`relay/common`）、`go test -p 1 ./...`、vet、build、relaykit
+`GOWORK=off` vet/build/test、gofmt、diff、YAML/JSON 门禁。R2 不需且未做真实 Redis、三数据库、前端或上游；无页面/
+schema 改动，`VERSION` 仍为 0.1.1。仍待：Passkey/ServerAddress、payment runtime/密钥轮换、`GroupRatioSetting` alias/
+前端 bulk、成功 hard limit 与跨族事务。R1 文档收尾 `3af738e` / [CI 33825533002](https://github.com/ForceMind/MyAPI/actions/runs/33825533002)
+八项成功。
+
 D08 本地将 `pkg/ionet/client.go`、`pkg/ionet/jsonutil.go` 各 4 处实际 stdlib JSON 调用迁移至
 `common` wrapper，根模块余量由 19/6 降为 11/4。无网络 fake client 覆盖请求 body/headers/method/URL、
 NaN marshal、transport/API detail fallback、query slices/HTML escape/空值/零值/false/`time.Time`/

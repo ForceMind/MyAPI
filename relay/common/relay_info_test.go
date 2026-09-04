@@ -3,11 +3,14 @@ package common
 import (
 	"encoding/json"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/ForceMind/MyAPI/relaykit/dto"
 	"github.com/ForceMind/MyAPI/relaykit/relayconvert/convmeta"
 	"github.com/ForceMind/MyAPI/relaykit/types"
+	"github.com/ForceMind/MyAPI/setting/config"
+	"github.com/ForceMind/MyAPI/setting/model_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -81,6 +84,64 @@ func TestRelayInfoMetaTypedNilReceiver(t *testing.T) {
 	assert.NotNil(t, firstOptions.Gemini.SupportsImagine)
 	assert.NotNil(t, firstOptions.Gemini.SafetySetting)
 	assert.NotNil(t, firstOptions.PreserveThinkingSuffix)
+}
+
+func TestRelayInfoKeepsCapturedClaudeSettingsDuringConcurrentPublish(t *testing.T) {
+	registered := config.GlobalConfig.Get("claude")
+	require.NotNil(t, registered)
+	original, err := config.ConfigToMap(registered)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, config.UpdateConfigFromMap(registered, original)) })
+
+	require.NoError(t, config.UpdateConfigFromMap(registered, map[string]string{
+		"thinking_adapter_enabled": "true",
+		"default_max_tokens":       `{"default":1111}`,
+	}))
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest("POST", "/v1/messages", nil)
+	oldInfo, err := GenRelayInfo(c, types.RelayFormatClaude, &dto.ClaudeRequest{}, nil)
+	require.NoError(t, err)
+
+	const readers = 4
+	start := make(chan struct{})
+	updateErrCh := make(chan error, 1)
+	snapshotCh := make(chan *model_setting.ClaudeSettings, readers)
+	var wg sync.WaitGroup
+	wg.Add(readers + 1)
+	go func() {
+		defer wg.Done()
+		<-start
+		updateErrCh <- config.UpdateConfigFromMap(registered, map[string]string{
+			"thinking_adapter_enabled": "false",
+			"default_max_tokens":       `{"default":2222}`,
+		})
+	}()
+	for range readers {
+		go func() {
+			defer wg.Done()
+			<-start
+			snapshotCh <- oldInfo.ClaudeSettingsSnapshot()
+		}()
+	}
+	close(start)
+	wg.Wait()
+	require.NoError(t, <-updateErrCh)
+	close(snapshotCh)
+	for snapshot := range snapshotCh {
+		assert.True(t, snapshot.ThinkingAdapterEnabled)
+		assert.Equal(t, 1111, snapshot.GetDefaultMaxTokens("unknown"))
+	}
+
+	newRecorder := httptest.NewRecorder()
+	newContext, _ := gin.CreateTestContext(newRecorder)
+	newContext.Request = httptest.NewRequest("POST", "/v1/messages", nil)
+	newInfo, err := GenRelayInfo(newContext, types.RelayFormatClaude, &dto.ClaudeRequest{}, nil)
+	require.NoError(t, err)
+	newSnapshot := newInfo.ClaudeSettingsSnapshot()
+	assert.False(t, newSnapshot.ThinkingAdapterEnabled)
+	assert.Equal(t, 2222, newSnapshot.GetDefaultMaxTokens("unknown"))
 }
 
 func TestGenRelayInfoCapturesRequestReasoningEffort(t *testing.T) {

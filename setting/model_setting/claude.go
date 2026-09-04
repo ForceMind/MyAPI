@@ -5,6 +5,8 @@ import (
 	"math"
 	"net/http"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/setting/config"
@@ -13,6 +15,10 @@ import (
 // ClaudeMaxTokensLimit matches the request-side billing bound.  Defaults are
 // injected after request validation, so they need the same upper limit.
 const ClaudeMaxTokensLimit = math.MaxInt32 / 2
+
+// ClaudeDefaultMaxTokens is supplied to request snapshots when the persisted
+// configuration has no default entry. It is never written back implicitly.
+const ClaudeDefaultMaxTokens = 8192
 
 //var claudeHeadersSettings = map[string][]string{}
 //
@@ -33,26 +39,117 @@ var defaultClaudeSettings = ClaudeSettings{
 	HeadersSettings:        map[string]map[string][]string{},
 	ThinkingAdapterEnabled: true,
 	DefaultMaxTokens: map[string]int{
-		"default": 8192,
+		"default": ClaudeDefaultMaxTokens,
 	},
 	ThinkingAdapterBudgetTokensPercentage: 0.8,
 }
 
-// 全局实例
-var claudeSettings = defaultClaudeSettings
+type managedClaudeSettings struct {
+	current    atomic.Pointer[ClaudeSettings]
+	writeMutex sync.Mutex
+}
+
+func newManagedClaudeSettings(initial ClaudeSettings) *managedClaudeSettings {
+	managed := &managedClaudeSettings{}
+	managed.current.Store(cloneClaudeSettings(&initial))
+	return managed
+}
+
+var claudeSettingState = newManagedClaudeSettings(defaultClaudeSettings)
 
 func init() {
 	// 注册到全局配置管理器
-	config.GlobalConfig.Register("claude", &claudeSettings)
+	config.GlobalConfig.Register("claude", claudeSettingState)
 }
 
 // GetClaudeSettings 获取Claude配置
 func GetClaudeSettings() *ClaudeSettings {
-	// check default max tokens must have default key
-	if _, ok := claudeSettings.DefaultMaxTokens["default"]; !ok {
-		claudeSettings.DefaultMaxTokens["default"] = 8192
+	snapshot := claudeSettingState.snapshot()
+	if snapshot.DefaultMaxTokens == nil {
+		snapshot.DefaultMaxTokens = make(map[string]int, 1)
 	}
-	return &claudeSettings
+	if _, ok := snapshot.DefaultMaxTokens["default"]; !ok {
+		snapshot.DefaultMaxTokens["default"] = ClaudeDefaultMaxTokens
+	}
+	return snapshot
+}
+
+func (s *managedClaudeSettings) snapshot() *ClaudeSettings {
+	return cloneClaudeSettings(s.current.Load())
+}
+
+func cloneClaudeSettings(source *ClaudeSettings) *ClaudeSettings {
+	if source == nil {
+		return &ClaudeSettings{}
+	}
+	clone := &ClaudeSettings{
+		ThinkingAdapterEnabled:                source.ThinkingAdapterEnabled,
+		ThinkingAdapterBudgetTokensPercentage: source.ThinkingAdapterBudgetTokensPercentage,
+	}
+	if source.DefaultMaxTokens != nil {
+		clone.DefaultMaxTokens = make(map[string]int, len(source.DefaultMaxTokens))
+		for model, maxTokens := range source.DefaultMaxTokens {
+			clone.DefaultMaxTokens[model] = maxTokens
+		}
+	}
+	if source.HeadersSettings != nil {
+		clone.HeadersSettings = make(map[string]map[string][]string, len(source.HeadersSettings))
+		for model, headers := range source.HeadersSettings {
+			if headers == nil {
+				clone.HeadersSettings[model] = nil
+				continue
+			}
+			headersClone := make(map[string][]string, len(headers))
+			for name, values := range headers {
+				if values == nil {
+					headersClone[name] = nil
+					continue
+				}
+				valuesClone := make([]string, len(values))
+				copy(valuesClone, values)
+				headersClone[name] = valuesClone
+			}
+			clone.HeadersSettings[model] = headersClone
+		}
+	}
+	return clone
+}
+
+func (s *managedClaudeSettings) ExportConfigMap() (map[string]string, error) {
+	return config.ConfigToMap(s.snapshot())
+}
+
+func (s *managedClaudeSettings) ValidateConfigMap(values map[string]string) error {
+	_, err := s.buildCandidate(values)
+	return err
+}
+
+func (s *managedClaudeSettings) UpdateConfigMap(values map[string]string) error {
+	s.writeMutex.Lock()
+	defer s.writeMutex.Unlock()
+
+	candidate, err := s.buildCandidate(values)
+	if err != nil {
+		return err
+	}
+	s.current.Store(candidate)
+	return nil
+}
+
+func (s *managedClaudeSettings) buildCandidate(values map[string]string) (*ClaudeSettings, error) {
+	candidate := s.snapshot()
+	if err := config.UpdateConfigFromMap(candidate, values); err != nil {
+		return nil, err
+	}
+	if candidate.DefaultMaxTokens != nil {
+		if err := validateClaudeDefaultMaxTokensMap(candidate.DefaultMaxTokens); err != nil {
+			return nil, err
+		}
+	}
+	if err := ValidateClaudeThinkingAdapterBudgetTokensPercentage(candidate.ThinkingAdapterBudgetTokensPercentage); err != nil {
+		return nil, err
+	}
+	return candidate, nil
 }
 
 func (c *ClaudeSettings) WriteHeaders(originModel string, httpHeader *http.Header) {
@@ -89,10 +186,16 @@ func normalizeHeaderListValues(values []string) []string {
 }
 
 func (c *ClaudeSettings) GetDefaultMaxTokens(model string) int {
+	if c == nil {
+		return ClaudeDefaultMaxTokens
+	}
 	if maxTokens, ok := c.DefaultMaxTokens[model]; ok {
 		return maxTokens
 	}
-	return c.DefaultMaxTokens["default"]
+	if maxTokens, ok := c.DefaultMaxTokens["default"]; ok {
+		return maxTokens
+	}
+	return ClaudeDefaultMaxTokens
 }
 
 // ValidateClaudeDefaultMaxTokens validates the JSON persisted by the option
@@ -107,6 +210,10 @@ func ValidateClaudeDefaultMaxTokens(value string) error {
 	if settings == nil {
 		return fmt.Errorf("Claude default max tokens must be a JSON map of model to integer")
 	}
+	return validateClaudeDefaultMaxTokensMap(settings)
+}
+
+func validateClaudeDefaultMaxTokensMap(settings map[string]int) error {
 	for model, maxTokens := range settings {
 		if maxTokens < 0 || maxTokens > ClaudeMaxTokensLimit {
 			if maxTokens > ClaudeMaxTokensLimit {

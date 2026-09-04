@@ -46,7 +46,7 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 		return types.NewError(fmt.Errorf("invalid api type: %d", info.ApiType), types.ErrorCodeInvalidApiType, types.ErrOptionWithSkipRetry())
 	}
 	adaptor.Init(info)
-	claudeSettings := model_setting.GetClaudeSettings()
+	claudeSettings := info.ClaudeSettingsSnapshot()
 	defaultMaxTokens := claudeSettings.GetDefaultMaxTokens(request.Model)
 	if defaultMaxTokens < 0 || defaultMaxTokens > model_setting.ClaudeMaxTokensLimit {
 		return types.NewError(fmt.Errorf("Claude default max_tokens %d is outside the allowed range", defaultMaxTokens), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())

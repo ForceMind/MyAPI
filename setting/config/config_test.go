@@ -207,6 +207,19 @@ type testMapConfig struct {
 	onUpdate     func()
 }
 
+type testValidatingMapConfig struct {
+	testMapConfig
+	validateCalled bool
+	validate       map[string]string
+	validateErr    error
+}
+
+func (cfg *testValidatingMapConfig) ValidateConfigMap(update map[string]string) error {
+	cfg.validateCalled = true
+	cfg.validate = update
+	return cfg.validateErr
+}
+
 func (cfg *testMapConfig) ExportConfigMap() (map[string]string, error) {
 	if cfg.onExport != nil {
 		cfg.onExport()
@@ -238,6 +251,19 @@ func TestValidateConfigFromMap_MapConfigDoesNotInvokeUpdate(t *testing.T) {
 	err := ValidateConfigFromMap(cfg, map[string]string{"name": "updated"})
 
 	require.ErrorIs(t, err, ErrMapConfigValidationUnsupported)
+	assert.False(t, cfg.updateCalled)
+}
+
+func TestValidateConfigFromMap_ValidatingMapConfigDelegatesPureValidation(t *testing.T) {
+	sentinel := errors.New("invalid managed config")
+	cfg := &testValidatingMapConfig{validateErr: sentinel}
+	update := map[string]string{"name": "updated"}
+
+	err := ValidateConfigFromMap(cfg, update)
+
+	require.ErrorIs(t, err, sentinel)
+	assert.True(t, cfg.validateCalled)
+	assert.Equal(t, update, cfg.validate)
 	assert.False(t, cfg.updateCalled)
 }
 

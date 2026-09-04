@@ -174,7 +174,8 @@ type RelayInfo struct {
 	StreamStatus *StreamStatus
 
 	// convOptions caches the converter settings snapshot (see ConvOptions).
-	convOptions *convmeta.Options
+	convOptions            *convmeta.Options
+	claudeSettingsSnapshot *model_setting.ClaudeSettings
 
 	ThinkingContentInfo
 	TokenCountMeta
@@ -502,8 +503,9 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 	}
 	reasoningEffort := reasoningEffortFromRequest(request)
 	info := &RelayInfo{
-		Request:         request,
-		ReasoningEffort: reasoningEffort,
+		Request:                request,
+		ReasoningEffort:        reasoningEffort,
+		claudeSettingsSnapshot: model_setting.GetClaudeSettings(),
 
 		RequestId:  reqId,
 		UserId:     common.GetContextKeyInt(c, constant.ContextKeyUserId),
@@ -815,7 +817,7 @@ func (info *RelayInfo) ConvOptions() *convmeta.Options {
 		return info.convOptions
 	}
 
-	claudeSettings := model_setting.GetClaudeSettings()
+	claudeSettings := info.ClaudeSettingsSnapshot()
 	geminiSettings := model_setting.GetGeminiSettings()
 	options := &convmeta.Options{
 		Claude: convmeta.ClaudeOptions{
@@ -837,6 +839,16 @@ func (info *RelayInfo) ConvOptions() *convmeta.Options {
 		info.convOptions = options
 	}
 	return options
+}
+
+// ClaudeSettingsSnapshot returns the request-private settings copy captured
+// when a production RelayInfo was built. Hand-written RelayInfo values get a
+// fresh read-only fallback without mutating the struct.
+func (info *RelayInfo) ClaudeSettingsSnapshot() *model_setting.ClaudeSettings {
+	if info == nil || info.claudeSettingsSnapshot == nil {
+		return model_setting.GetClaudeSettings()
+	}
+	return info.claudeSettingsSnapshot
 }
 
 func (info *RelayInfo) SetFirstResponseTime() {
