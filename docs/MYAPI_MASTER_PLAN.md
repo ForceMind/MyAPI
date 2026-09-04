@@ -224,7 +224,7 @@ race 全部实跑。无页面或 schema 变更，版本保持 0.1.1；未执行�
 这不关闭独立 S2-C09：generic config 热读尚无统一快照/锁；内存和 Redis 成功限额仍是
 check→execute→record 的近似合同，并发可能超发；跨配置族 reload 非全量事务；历史 DB raw
 `null`、未知分层 key、Passkey 懒写和 `GroupRatioSetting` 可变指针待审计。C09 只读设计已完成、实施仍待
-决策；D09 与 D10 已本地完成，D10 待同提交 CI。
+分批收敛；D09 与 D10 均已完成当前范围并通过同提交 CI。
 
 D08 本地将 `pkg/ionet/client.go`、`pkg/ionet/jsonutil.go` 各 4 处实际 stdlib JSON 调用迁移至
 `common` wrapper，根模块余量由 19/6 降为 11/4。无网络 fake client 覆盖请求 body/headers/method/URL、
@@ -248,13 +248,15 @@ path segment 经 `PathEscape`，stream options 仅局部复制；`makeRequest` �
 独立 Sol 无 P1/P2；P3 为 hardware/location 必填回显尚需真实脱敏响应或官方 schema 补验。无页面/schema
 变更，版本仍为 0.1.1。
 
-D10 本地完成 `pkg/cachex/codec.go` 的最后两处 JSON wrapper 收敛：编码走 `common.Marshal`，解码走
+D10 已完成当前范围：`pkg/cachex/codec.go` 的最后两处 JSON wrapper 收敛为编码走 `common.Marshal`、解码走
 `common.Unmarshal([]byte(s), ...)`，并保留 string→`[]byte` 的复制。审查发现直接改用 `UnmarshalJsonStr` 的 unsafe
 别名会允许自定义 `UnmarshalJSON` 改写调用者字符串，codec 路径已避免该回归；测试覆盖嵌套 round trip（含 `0`/`false`）、空白、
 malformed、类型错误、多个 JSON 值、尾随空白、func 不可编码及 mutating unmarshaler 输入不变性。cachex race
 `-count=2`、根全量 test/vet/build、relaykit `GOWORK=off` vet/build/test、gofmt、diff-check、静态门禁均通过，
-独立复审最终无 P1/P2。无页面/schema/Redis/真实缓存服务改动，`VERSION` 仍为 0.1.1；本批提交与同提交 CI 待创建，
-不以已七项成功的 D09 文档收尾 CI `33819671044` 代替。同提交 Backend 将新增 `git grep` 静态门禁阻止回归。
+独立复审最终无 P1/P2。最终 `bf03cba` /
+[CI 33821142971](https://github.com/ForceMind/MyAPI/actions/runs/33821142971) 七项成功；Backend 原始步骤确认根生产代码
+`git grep` 静态门禁及 io.net/cachex race `-count=2` 均实际成功。无页面/schema/Redis/真实缓存服务改动，
+`VERSION` 仍为 0.1.1。
 
 以下为此前阶段记录，当前状态以以上验收基线与执行矩阵为准。
 
