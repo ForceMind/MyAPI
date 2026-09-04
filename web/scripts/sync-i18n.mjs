@@ -21,6 +21,7 @@ import path from 'node:path'
 
 // This script is executed from the web/ package root (see package.json script).
 const LOCALES_DIR = path.resolve('src/i18n/locales')
+const BASE_LOCALE = 'en'
 const FALLBACK_COMPARE_LOCALE = 'en' // used for "still English" detection only
 const OBFUSCATED_KEYS = []
 
@@ -119,18 +120,6 @@ function stableStringify(obj) {
     text = text.replaceAll(`"${key.runtime}":`, `"${key.serialized}":`)
   }
   return text + '\n'
-}
-
-function countLeafKeys(obj) {
-  if (Array.isArray(obj)) return obj.length
-  if (!isPlainObject(obj)) return 0
-  let count = 0
-  for (const k of Object.keys(obj)) {
-    const v = obj[k]
-    if (isPlainObject(v) || Array.isArray(v)) count += countLeafKeys(v)
-    else count += 1
-  }
-  return count
 }
 
 function reorderLikeBase(
@@ -238,7 +227,9 @@ async function main() {
     .map((e) => e.name)
     .sort((a, b) => a.localeCompare(b))
 
-  // Auto-pick base locale as the one with the most leaf keys under translation (most "rich").
+  // English is the product contract's canonical source locale. Choosing the
+  // largest locale made a temporarily richer translation file redefine the
+  // schema and remove valid English keys from every other locale.
   const parsedByLocale = {}
   for (const filename of localeFiles) {
     const locale = filename.replace(/\.json$/i, '')
@@ -246,17 +237,8 @@ async function main() {
     parsedByLocale[locale] = JSON.parse(raw)
   }
 
-  const baseLocale = Object.keys(parsedByLocale)
-    .map((locale) => {
-      const json = parsedByLocale[locale]
-      const trans = json?.translation ?? {}
-      return { locale, score: countLeafKeys(trans) }
-    })
-    .sort(
-      (a, b) => b.score - a.score || a.locale.localeCompare(b.locale)
-    )[0]?.locale
-
-  if (!baseLocale) throw new Error('No locale files found.')
+  const baseLocale = parsedByLocale[BASE_LOCALE] ? BASE_LOCALE : null
+  if (!baseLocale) throw new Error(`${BASE_LOCALE}.json is required as the base locale.`)
 
   const baseFile = `${baseLocale}.json`
   const baseJson = parsedByLocale[baseLocale]

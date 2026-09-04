@@ -10,6 +10,8 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import type {
+  ChannelQuotaAnalysisMethod,
+  ChannelQuotaETA,
   ChannelQuotaHistoryData,
   ChannelQuotaHistoryRange,
   ChannelQuotaHistoryGranularity,
@@ -27,6 +29,75 @@ export const quotaHistoryRangeOptions: readonly ChannelQuotaHistoryRange[] = [
 ]
 export const quotaHistoryGranularityOptions: readonly ChannelQuotaHistoryGranularity[] =
   ['auto', 'raw', 'minute', '5m', '15m', 'hour', 'day', 'week']
+export const quotaAnalysisDurationOptions = [
+  60,
+  5 * 60,
+  15 * 60,
+  30 * 60,
+  60 * 60,
+  6 * 60 * 60,
+  24 * 60 * 60,
+  7 * 24 * 60 * 60,
+  30 * 24 * 60 * 60,
+  90 * 24 * 60 * 60,
+] as const
+
+type Translate = (key: string, options?: Record<string, unknown>) => string
+
+function formatQuotaScalar(
+  value: number,
+  units: { unit?: string; currency?: string } | undefined,
+  locale?: string
+): string {
+  const currency = units?.currency?.toUpperCase()
+  const intlLocale = toIntlLocale(locale)
+  if (
+    currency === 'USD' ||
+    (!currency && units?.unit?.toLowerCase() === 'usd')
+  ) {
+    return formatCurrencyFromUSD(value, {
+      digitsLarge: 2,
+      digitsSmall: 4,
+      abbreviate: false,
+    })
+  }
+  if (currency) {
+    try {
+      return new Intl.NumberFormat(intlLocale, {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: 4,
+      }).format(value)
+    } catch {
+      return `${new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 4 }).format(value)} ${currency}`
+    }
+  }
+  let amount = new Intl.NumberFormat(intlLocale, {
+    maximumFractionDigits: 4,
+  }).format(value)
+  if (units?.unit) amount += ` ${units.unit}`
+  return amount
+}
+
+export function formatQuotaRate(
+  value: number | null | undefined,
+  units: { unit?: string; currency?: string } | undefined,
+  period: 'minute' | 'hour',
+  t: Translate,
+  locale?: string
+): string {
+  if (!finite(value)) return '-'
+  if (units?.unit === 'percent') {
+    const key =
+      period === 'minute'
+        ? '{{value}} percentage points/min'
+        : '{{value}} percentage points/hour'
+    return t(key, { value: value.toFixed(2) })
+  }
+  const amount = formatQuotaScalar(value, units, locale)
+  const key = period === 'minute' ? '{{value}}/min' : '{{value}}/hour'
+  return t(key, { value: amount })
+}
 
 export function formatQuotaAmount(
   value: number | null | undefined,
@@ -38,44 +109,104 @@ export function formatQuotaAmount(
   if (!finite(value)) return '-'
   if (units?.unit === 'percent') {
     if (metric === 'rate_per_minute') {
-      return t('{{value}} percentage points/min', { value: value.toFixed(2) })
+      return formatQuotaRate(value, units, 'minute', t, locale)
     }
     if (metric === 'consumption') {
       return t('{{value}} percentage points', { value: value.toFixed(2) })
     }
     return `${value.toFixed(1)}%`
   }
-  const currency = units?.currency?.toUpperCase()
-  const intlLocale = toIntlLocale(locale)
-  let amount: string
-  if (
-    currency === 'USD' ||
-    (!currency && units?.unit?.toLowerCase() === 'usd')
-  ) {
-    amount = formatCurrencyFromUSD(value, {
-      digitsLarge: 2,
-      digitsSmall: 4,
-      abbreviate: false,
-    })
-  } else if (currency) {
-    try {
-      amount = new Intl.NumberFormat(intlLocale, {
-        style: 'currency',
-        currency,
-        maximumFractionDigits: 4,
-      }).format(value)
-    } catch {
-      amount = `${new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 4 }).format(value)} ${currency}`
-    }
-  } else {
-    amount = new Intl.NumberFormat(intlLocale, {
-      maximumFractionDigits: 4,
-    }).format(value)
-    if (units?.unit) amount += ` ${units.unit}`
+  if (metric === 'rate_per_minute') {
+    return formatQuotaRate(value, units, 'minute', t, locale)
   }
-  return metric === 'rate_per_minute'
-    ? t('{{value}}/min', { value: amount })
-    : amount
+  return formatQuotaScalar(value, units, locale)
+}
+
+export function quotaHistoryRangeSeconds(
+  range: ChannelQuotaHistoryRange,
+  customRange?: { start: string; end: string }
+): number {
+  const secondsByRange: Partial<Record<ChannelQuotaHistoryRange, number>> = {
+    '1h': 60 * 60,
+    '6h': 6 * 60 * 60,
+    '24h': 24 * 60 * 60,
+    '7d': 7 * 24 * 60 * 60,
+    '30d': 30 * 24 * 60 * 60,
+    '90d': 90 * 24 * 60 * 60,
+  }
+  if (range !== 'custom') return secondsByRange[range] ?? 60 * 60
+  if (!customRange) return 60 * 60
+  const start = new Date(customRange.start).getTime()
+  const end = new Date(customRange.end).getTime()
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+    return 60 * 60
+  }
+  return Math.max(1, Math.floor((end - start) / 1000))
+}
+
+export function boundedQuotaDuration(value: number, maximum: number): number {
+  return Math.max(1, Math.min(Math.floor(value), Math.floor(maximum)))
+}
+
+export function quotaDurationOptions(
+  maximum: number,
+  selected: number
+): number[] {
+  const bounded = boundedQuotaDuration(selected, maximum)
+  return [...new Set([...quotaAnalysisDurationOptions, bounded])]
+    .filter((seconds) => seconds <= maximum)
+    .sort((left, right) => left - right)
+}
+
+export function formatQuotaDuration(seconds: number, t: Translate): string {
+  const rounded = (value: number) => Math.round(value * 10) / 10
+  if (seconds >= 24 * 60 * 60) {
+    const count = rounded(seconds / (24 * 60 * 60))
+    return count === 1 ? t('1 day') : t('{{count}} days', { count })
+  }
+  if (seconds >= 60 * 60) {
+    const count = rounded(seconds / (60 * 60))
+    return count === 1 ? t('1 hour') : t('{{count}} hours', { count })
+  }
+  if (seconds >= 60) {
+    const count = rounded(seconds / 60)
+    return count === 1 ? t('1 minute') : t('{{count}} minutes', { count })
+  }
+  const count = Math.max(0, Math.round(seconds))
+  return count === 1 ? t('1 second') : t('{{count}} seconds', { count })
+}
+
+export function quotaAnalysisMethodLabel(
+  method: ChannelQuotaAnalysisMethod,
+  t: Translate
+): string {
+  if (method === 'latest_interval') return t('Latest observed interval')
+  if (method === 'ewma') return t('EWMA')
+  return t('Observed window')
+}
+
+export function quotaETAStatus(
+  eta: ChannelQuotaETA | undefined
+): 'depletion' | 'reset' | 'stable' | 'insufficient' {
+  if (eta?.outcome === 'depletes_before_reset') return 'depletion'
+  if (eta?.outcome === 'reset_before_depletion') return 'reset'
+  if (eta?.outcome === 'stable_or_no_observed_consumption') return 'stable'
+  return 'insufficient'
+}
+
+export function quotaPredictionTiming(
+  eventAt: number | null | undefined,
+  analysisAsOf: number | null | undefined
+):
+  | { status: 'future'; seconds: number }
+  | { status: 'passed' | 'unavailable' } {
+  if (!finite(eventAt) || !finite(analysisAsOf)) {
+    return { status: 'unavailable' }
+  }
+  if (eventAt <= analysisAsOf) {
+    return { status: 'passed' }
+  }
+  return { status: 'future', seconds: eventAt - analysisAsOf }
 }
 
 export type QuotaHistoryMetric = ChannelQuotaHistoryMetric

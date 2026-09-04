@@ -37,6 +37,43 @@ export function quotaFixtures({ latestError = false } = {}) {
     observed_span_seconds: 300,
   }
   const current = points.at(-1)
+  const eta = {
+    outcome: latestError ? 'insufficient_data' : 'depletes_before_reset',
+    ...(latestError ? {} : {
+      seconds_to_depletion: 5100,
+      estimated_depletion_at: now + 4800,
+      reset_at: now + 86400,
+      seconds_until_reset: 86700,
+    }),
+  }
+  const rateMethod = (rate, observedSeconds, intervalCount, coverage) => ({
+    rate_per_minute: rate,
+    rate_per_hour: rate * 60,
+    coverage,
+    observed_seconds: observedSeconds,
+    interval_count: intervalCount,
+    observed_at: start + 300,
+    eta,
+  })
+  const analysis = {
+    default_method: 'observed_window',
+    rate_window_seconds: 3600,
+    window_start: now - 3600,
+    window_end: now,
+    as_of: now,
+    ewma_half_life_seconds: 1800,
+    complete: true,
+    methods: {
+      latest_interval: rateMethod(1, 60, 1, 1 / 60),
+      observed_window: rateMethod(1, 300, 5, 1 / 12),
+      ewma: rateMethod(1.1, 300, 5, 1 / 12),
+    },
+  }
+  const overviewPoints = points.map((point) => ({
+    timestamp: point.observed_at,
+    available: point.available ?? null,
+    continuity_break: Boolean(point.continuity_break),
+  }))
   const item = {
     ...series, status: current.status, observed_at: current.observed_at,
     current_available: current.available, current_total: current.total,
@@ -45,7 +82,8 @@ export function quotaFixtures({ latestError = false } = {}) {
     abs_change_per_minute: latestError ? null : 1,
     sample_span_seconds: latestError ? null : 60,
     direction: latestError ? 'unknown' : 'decrease',
-    consumption, data_quality: dataQuality,
+    consumption, analysis, data_quality: dataQuality,
+    overview_points: overviewPoints,
     peak_abs_change_per_minute: 2, peak_drop_per_minute: 2, peak_increase_per_minute: 0,
   }
   const history = {
@@ -53,7 +91,7 @@ export function quotaFixtures({ latestError = false } = {}) {
     granularity: 'minute', timezone_offset: -480, points, current,
     raw_observations: points.length, available_points: points.length,
     returned_points: points.length, source_complete: true, points_complete: true,
-    complete: true, truncated: false, data_quality: dataQuality,
+    complete: true, truncated: false, data_quality: dataQuality, analysis,
     summary: {
       start_available: 90, end_available: 85, change: -5, change_percent: -5.56,
       minimum: 85, maximum: 90, consumption, data_quality: dataQuality,
@@ -82,7 +120,27 @@ export function quotaFixtures({ latestError = false } = {}) {
     if (path === '/api/setup') return ok({ status: true })
     if (path === '/api/status') return ok({ system_name: 'MyAPI', version: 'browser-fixture', start_time: start, api_info_enabled: false, announcements_enabled: false, faq_enabled: false, uptime_kuma_enabled: false, quota_per_unit: 500000, display_in_currency: false })
     if (path === '/api/channel/quota/status') return ok({ enabled: true, interval_seconds: 60, max_channels: 2 })
-    if (path === '/api/channel/quota/changes') return ok({ items: [item], range: url.searchParams.get('range') || '24h', generated_at: now, data_quality: dataQuality })
+    if (path === '/api/channel/codex/local-auth/status') return ok({
+      state: 'ready', platform: 'darwin', environment: 'native',
+      codex_installed: true, auth_file_exists: true, auth_readable: true,
+      logged_in: true, auto_import_available: true, manual_import_available: true,
+      account_hint: 'acct…1234', email_hint: 'b***@example.com',
+      last_refresh: new Date((now - 300) * 1000).toISOString(), can_refresh: true,
+    })
+    if (path === '/api/channel/quota/changes') {
+      const requestedOverviewPoints = Number(url.searchParams.get('overview_points') || 0)
+      return ok({
+        items: [{
+          ...item,
+          ...(requestedOverviewPoints > 0 ? {} : { overview_points: undefined }),
+        }],
+        range: url.searchParams.get('range') || '24h',
+        generated_at: now,
+        rate_window_seconds: Number(url.searchParams.get('rate_window') || 86400),
+        ewma_half_life_seconds: Number(url.searchParams.get('ewma_half_life') || 43200),
+        data_quality: dataQuality,
+      })
+    }
     if (path === '/api/channel/1/quota/history') return ok({ ...history, granularity: url.searchParams.get('granularity') || 'auto' })
     if (path === '/api/channel/1/codex/usage') return ok({ plan_type: 'pro', rate_limit: { allowed: true, limit_reached: false, primary_window: { used_percent: 15, reset_at: now + 86400, limit_window_seconds: 604800 } } })
     if (path === '/api/channel/1/codex/usage/reset-credits') return ok({ credits: [], available_count: 0 })

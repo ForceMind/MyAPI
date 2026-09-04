@@ -9,10 +9,10 @@
   "Failed to load full content logs": "Failed to load full content logs",
   "Failed to load log detail": "Failed to load log detail",
   "Failed to load log files": "Failed to load log files",
-  "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.": "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.",
+  "Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online.": "Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online.",
   "Raw mode shows headers, parameters and protocol envelopes. Sensitive credentials remain redacted.": "Raw mode shows headers, parameters and protocol envelopes. Sensitive credentials remain redacted.",
+  "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.": "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.",
   "This permanently deletes every full request and response log file. New requests will start a new file.": "This permanently deletes every full request and response log file. New requests will start a new file.",
   "This permanently deletes the selected full request and response records. This action cannot be undone.": "This permanently deletes the selected full request and response records. This action cannot be undone.",
-  "Token name or ID": "Token name or ID",
-  "Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online.": "Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online."
+  "Token name or ID": "Token name or ID"
 }

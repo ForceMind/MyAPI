@@ -13,7 +13,17 @@ import type {
   ChannelQuotaHistoryData,
   ChannelQuotaHistoryPoint,
 } from '../../types'
-import { buildQuotaHistoryTrend, formatQuotaAmount } from '../quota-history'
+import {
+  boundedQuotaDuration,
+  buildQuotaHistoryTrend,
+  formatQuotaAmount,
+  formatQuotaDuration,
+  formatQuotaRate,
+  quotaDurationOptions,
+  quotaHistoryRangeSeconds,
+  quotaPredictionTiming,
+  quotaSeriesKey,
+} from '../quota-history'
 
 function history(
   points: ChannelQuotaHistoryPoint[],
@@ -38,6 +48,79 @@ const summary = {
 }
 
 describe('quota history server contract', () => {
+  test('formats hourly analysis rates without treating percentages as balances', () => {
+    expect(
+      formatQuotaRate(90, { unit: 'percent' }, 'hour', i18next.t, 'en-US')
+    ).toBe('90.00 percentage points/hour')
+    expect(
+      formatQuotaRate(12.5, { currency: 'EUR' }, 'hour', i18next.t, 'en-US')
+    ).toBe('€12.50/hour')
+  })
+
+  test('bounds analysis durations independently within preset and custom ranges', () => {
+    expect(quotaHistoryRangeSeconds('24h')).toBe(24 * 60 * 60)
+    expect(
+      quotaHistoryRangeSeconds('custom', {
+        start: '2026-01-01T00:00:00Z',
+        end: '2026-01-01T00:20:00Z',
+      })
+    ).toBe(20 * 60)
+    expect(boundedQuotaDuration(6 * 60 * 60, 60 * 60)).toBe(60 * 60)
+    expect(quotaDurationOptions(20 * 60, 60 * 60)).toContain(20 * 60)
+    expect(formatQuotaDuration(200, i18next.t)).toBe('3.3 minutes')
+    expect(formatQuotaDuration(60 * 60, i18next.t)).toBe('1 hour')
+    expect(formatQuotaDuration(6 * 60 * 60, i18next.t)).toBe('6 hours')
+  })
+
+  test('keeps overview React identities distinct across unit currency and window seconds', () => {
+    const base = {
+      channel_id: 7,
+      metric_type: 'balance',
+      source: 'provider',
+      window_type: 'monthly',
+      plan_type: 'team',
+    }
+    const keys = [
+      quotaSeriesKey({
+        ...base,
+        unit: 'usd',
+        currency: 'USD',
+        window_seconds: 1,
+      }),
+      quotaSeriesKey({
+        ...base,
+        unit: 'usd',
+        currency: 'EUR',
+        window_seconds: 1,
+      }),
+      quotaSeriesKey({
+        ...base,
+        unit: 'percent',
+        currency: 'USD',
+        window_seconds: 1,
+      }),
+      quotaSeriesKey({
+        ...base,
+        unit: 'usd',
+        currency: 'USD',
+        window_seconds: 2,
+      }),
+    ]
+    expect(new Set(keys).size).toBe(keys.length)
+  })
+
+  test('derives prediction timing from the analysis point rather than stale relative seconds', () => {
+    expect(quotaPredictionTiming(300, 250)).toEqual({
+      status: 'future',
+      seconds: 50,
+    })
+    expect(quotaPredictionTiming(250, 250)).toEqual({ status: 'passed' })
+    expect(quotaPredictionTiming(200, 250)).toEqual({ status: 'passed' })
+    expect(quotaPredictionTiming(undefined, 250)).toEqual({
+      status: 'unavailable',
+    })
+  })
+
   test('preserves a non-USD source currency instead of interpreting it as USD', () => {
     expect(
       formatQuotaAmount(

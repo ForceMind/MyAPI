@@ -60,6 +60,28 @@ func TestParseQuotaHistoryWindowSeconds(t *testing.T) {
 	}
 }
 
+func TestParseQuotaAnalysisDurationsAreIndependentAndBounded(t *testing.T) {
+	rateWindow, err := parseQuotaAnalysisDuration("", 6*60*60, "rate_window")
+	require.NoError(t, err)
+	require.Equal(t, int64(6*60*60), rateWindow)
+
+	rateWindow, err = parseQuotaAnalysisDuration("1h", 6*60*60, "rate_window")
+	require.NoError(t, err)
+	require.Equal(t, int64(60*60), rateWindow)
+
+	rateWindow, err = parseQuotaAnalysisDuration("900", 6*60*60, "rate_window")
+	require.NoError(t, err)
+	require.Equal(t, int64(900), rateWindow)
+
+	for _, value := range []string{"0", "invalid", "7d"} {
+		_, err = parseQuotaAnalysisDuration(value, 6*60*60, "rate_window")
+		require.Error(t, err, value)
+	}
+
+	require.Equal(t, int64(30*60), defaultQuotaAnalysisHalfLife(60*60))
+	require.Equal(t, int64(1), defaultQuotaAnalysisHalfLife(1))
+}
+
 func TestResolveQuotaHistorySeriesFilterFillsMissingDimensions(t *testing.T) {
 	windowSeconds := int64(18000)
 	filter := resolveQuotaHistorySeriesFilter(
@@ -350,6 +372,56 @@ func TestGetChannelQuotaHistoryReadsFullRangeBeforePointLimitAndKeepsRawCurrent(
 	require.Equal(t, float64(base+7_217), current["observed_at"])
 	require.Equal(t, "success", current["status"])
 	require.NotEmpty(t, data["series_id"])
+}
+
+func TestGetChannelQuotaHistoryAnalysisDoesNotDependOnGranularity(t *testing.T) {
+	db := setupChannelQuotaHistoryHandlerTestDB(t)
+	base := int64(1_700_050_000)
+	for index, available := range []float64{100, 94, 88} {
+		require.NoError(t, db.Create(&model.ChannelQuotaSnapshot{
+			ChannelId: 971, ObservedAt: base + int64(index*60), Available: available,
+			MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", Status: "success",
+		}).Error)
+	}
+	query := "start=1700050000&end=1700050180&rate_window=180&ewma_half_life=60&limit=10&granularity="
+	raw := getChannelQuotaHistoryTestData(t, query+"raw")
+	hour := getChannelQuotaHistoryTestData(t, query+"hour")
+
+	require.Equal(t, raw["analysis"], hour["analysis"])
+	analysis := raw["analysis"].(map[string]any)
+	require.Equal(t, "observed_window", analysis["default_method"])
+	require.Equal(t, float64(180), analysis["rate_window_seconds"])
+	require.Equal(t, float64(60), analysis["ewma_half_life_seconds"])
+	require.Equal(t, float64(1_700_050_180), analysis["as_of"])
+	methods := analysis["methods"].(map[string]any)
+	observed := methods["observed_window"].(map[string]any)
+	require.InDelta(t, 6, observed["rate_per_minute"], 1e-9)
+	require.InDelta(t, 360, observed["rate_per_hour"], 1e-9)
+	require.InDelta(t, 2.0/3.0, observed["coverage"], 1e-9)
+	require.Equal(t, float64(1_700_050_120), observed["observed_at"])
+}
+
+func TestGetChannelQuotaHistoryRejectsAnalysisWindowsOutsideSelectedRange(t *testing.T) {
+	setupChannelQuotaHistoryHandlerTestDB(t)
+	for _, query := range []string{
+		"range=1h&rate_window=6h",
+		"range=1h&rate_window=1h&ewma_half_life=6h",
+	} {
+		gin.SetMode(gin.TestMode)
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Params = gin.Params{{Key: "id", Value: "971"}}
+		ctx.Request = httptest.NewRequest("GET", "/api/channel/971/quota/history?"+query, nil)
+		GetChannelQuotaHistory(ctx)
+		require.Equal(t, 200, recorder.Code)
+		var response struct {
+			Success bool   `json:"success"`
+			Message string `json:"message"`
+		}
+		require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
+		require.False(t, response.Success)
+		require.Contains(t, response.Message, "selected range")
+	}
 }
 
 func TestGetChannelQuotaHistoryUsesLatestGenericFailureForCurrentAndBucket(t *testing.T) {

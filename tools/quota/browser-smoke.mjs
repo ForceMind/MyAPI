@@ -37,9 +37,11 @@ try {
   await context.addInitScript(() => { localStorage.setItem('i18nextLng', 'zhCN'); localStorage.setItem('theme', 'light') })
   let latestError = false
   const historyRequests = []
+  const changeRequests = []
   await context.route('**/api/**', async (route) => {
     const url = new URL(route.request().url())
     if (url.pathname.endsWith('/quota/history')) historyRequests.push(Object.fromEntries(url.searchParams))
+    if (url.pathname.endsWith('/quota/changes')) changeRequests.push(Object.fromEntries(url.searchParams))
     const response = quotaFixtures({ latestError }).response(url)
     if (!response) unexpected.add(`${route.request().method()} ${url.pathname}`)
     await route.fulfill({ status: response ? 200 : 501, json: response || { success: false, message: 'Unconfigured browser fixture' } })
@@ -80,6 +82,17 @@ try {
     await scope.getByLabel(label('Time range'), { exact: true }).selectOption('7d')
     await page.waitForTimeout(120)
     assert(historyRequests.slice(previous).some((request) => request.range === '7d'), 'range changes query actual history')
+    const beforeMethod = historyRequests.length
+    await scope.getByRole('combobox', { name: label('Consumption rate'), exact: true }).selectOption('ewma')
+    await page.waitForTimeout(120)
+    assert.equal(historyRequests.length, beforeMethod, 'switching the displayed analysis method does not refetch history')
+    await scope.getByRole('combobox', { name: label('Analysis window'), exact: true }).selectOption('21600')
+    for (let attempt = 0; attempt < 50 && !historyRequests.slice(beforeMethod).some((request) => request.rate_window === '21600'); attempt++) await page.waitForTimeout(50)
+    assert(historyRequests.slice(beforeMethod).some((request) => request.rate_window === '21600'), 'analysis window reaches the history API independently')
+    const beforeHalfLife = historyRequests.length
+    await scope.getByRole('combobox', { name: label('EWMA half-life'), exact: true }).selectOption('3600')
+    for (let attempt = 0; attempt < 50 && !historyRequests.slice(beforeHalfLife).some((request) => request.ewma_half_life === '3600'); attempt++) await page.waitForTimeout(50)
+    assert(historyRequests.slice(beforeHalfLife).some((request) => request.ewma_half_life === '3600'), 'EWMA half-life reaches the history API independently')
     await scope.getByLabel(label('Time range'), { exact: true }).selectOption('custom')
     const localDate = (value) => new Date(value + 8 * 3600000).toISOString().slice(0, 16)
     const now = Date.now()
@@ -113,12 +126,18 @@ try {
     assert(box && box.y >= 99 && box.y + box.height <= bottomLimit + 1, 'the whole chart, including its time axis, is reachable by real scrolling')
   }
   await page.goto(`${origin}/dashboard/overview`, { waitUntil: 'networkidle' })
-  await trend().waitFor({ state: 'visible' })
-  assert.equal(await trend().getByLabel(label('Metric'), { exact: true }).inputValue(), 'available', 'overview defaults to the promised available-quota metric')
-  await trend().getByTestId('quota-history-chart-line').waitFor({ state: 'visible' })
-  await trend().screenshot({ path: resolve(output, 'overview-available.png') })
-  await checkControls(trend())
-  await trend().screenshot({ path: resolve(output, 'overview-consumption.png') })
+  const overview = page.getByTestId('quota-overview-card').first()
+  await overview.waitFor({ state: 'visible' })
+  const overviewText = await overview.innerText()
+  for (const key of ['Remaining quota', 'Latest observed interval', 'Average consumption per minute', 'Estimated consumption per hour', 'Estimated time from analysis point']) {
+    assert(overviewText.includes(label(key)), `overview includes ${key}`)
+  }
+  await overview.getByTestId('quota-overview-sparkline').locator('polyline, circle').first().waitFor({ state: 'visible' })
+  for (const key of ['Time range', 'Chart granularity', 'Metric', 'Chart style', 'Analysis window', 'EWMA half-life']) {
+    assert.equal(await overview.getByLabel(label(key), { exact: true }).count(), 0, `overview omits detailed ${key} control`)
+  }
+  assert(changeRequests.some((request) => request.range === '24h' && request.rate_window === '3600' && request.ewma_half_life === '1800' && request.overview_points === '48' && request.limit === '4' && request.sort === 'observed_desc'), 'overview uses one bounded analysis query')
+  await overview.screenshot({ path: resolve(output, 'overview-quota-summary.png') })
 
   await page.goto(`${origin}/channels`, { waitUntil: 'networkidle' })
   await trend().waitFor({ state: 'visible' })
@@ -149,6 +168,42 @@ try {
   await dialog.screenshot({ path: resolve(output, 'codex-dialog-chart.png') })
   await page.keyboard.press('Escape')
 
+  // Exercise the real Codex channel editor and local-login import wizard.
+  await page.getByRole('button', { name: label('Open menu'), exact: true }).last().click()
+  await page.getByRole('menuitem', { name: label('Edit'), exact: true }).click()
+  const channelEditor = page.getByRole('dialog').filter({ hasText: label('Edit Channel') }).last()
+  await channelEditor.waitFor({ state: 'visible' })
+  await channelEditor.getByRole('button', { name: label('Import local Codex'), exact: true }).click()
+  const localAuthDialog = page.getByRole('dialog', { name: label('Import local Codex'), exact: true })
+  await localAuthDialog.getByText(label('Local Codex account detected'), { exact: true }).waitFor({ state: 'visible' })
+  assert((await localAuthDialog.innerText()).includes('acct…1234'), 'local-auth wizard shows only the masked account hint')
+  assert(!(await localAuthDialog.innerText()).includes('access_token'), 'automatic local-auth view never renders credential fields')
+  await localAuthDialog.screenshot({ path: resolve(output, 'codex-local-auth-ready.png') })
+  await localAuthDialog.getByRole('button', { name: label('Manual import'), exact: true }).click()
+  await localAuthDialog.getByLabel(label('Codex credential JSON'), { exact: true }).waitFor({ state: 'visible' })
+  await page.setViewportSize({ width: 390, height: 844 })
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'local-auth wizard has no page overflow at 390px')
+  await localAuthDialog.screenshot({ path: resolve(output, 'codex-local-auth-manual-390x844.png') })
+  const manualCancel = localAuthDialog.getByRole('button', { name: label('Cancel'), exact: true })
+  for (let step = 0; step < 12; step++) {
+    const box = await manualCancel.boundingBox()
+    if (box && box.y >= 0 && box.y + box.height <= 844) break
+    await page.mouse.move(195, 720)
+    await page.mouse.wheel(0, 500)
+    await page.waitForTimeout(80)
+  }
+  const manualCancelBox = await manualCancel.boundingBox()
+  assert(manualCancelBox && manualCancelBox.y >= 0 && manualCancelBox.y + manualCancelBox.height <= 844, 'local-auth manual actions are reachable by real dialog scrolling')
+  const manualCancelReachable = await manualCancel.evaluate((button) => {
+    const rect = button.getBoundingClientRect()
+    const target = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
+    return target === button || button.contains(target)
+  })
+  assert(manualCancelReachable, 'local-auth manual actions are not obscured')
+  await localAuthDialog.screenshot({ path: resolve(output, 'codex-local-auth-manual-actions-390x844.png') })
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+
   for (const viewport of [{ width: 320, height: 740 }, { width: 390, height: 844 }, { width: 1280, height: 600 }]) {
     await page.setViewportSize(viewport)
     await page.goto(`${origin}/channels`, { waitUntil: 'networkidle' })
@@ -175,7 +230,7 @@ try {
   }
   assert.deepEqual([...unexpected], [], 'all application endpoints have explicit fixtures')
   assert.deepEqual(errors, [], 'no browser runtime errors')
-  console.log('Quota browser regression passed: three real entry points; line/area/bar SVG; rate/granularity/range requests; latest-error history; 320px/390px/low-height layout. Synthetic fixtures only.')
+  console.log('Quota browser regression passed: compact overview summary/sparkline; detailed line/area/bar and analysis controls; latest-error history; 320px/390px/low-height layout. Synthetic fixtures only.')
 } catch (error) {
   if (page) {
     await page.screenshot({ path: resolve(output, 'failure.png'), fullPage: true }).catch(() => {})

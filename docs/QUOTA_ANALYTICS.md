@@ -4,16 +4,24 @@
 CI `33721694305`（含额度浏览器工件）成功；**当前版本真实上游/生产部署验收仍缺证据**。
 概览默认值补项 `423846b` / CI `33835254816` 八个 job 成功，其中 Frontend job
 实际运行生产构建和 Chromium 图表回归。
+2026-09-04 的下一阶段工作树进一步拆分概览与详细分析：概览使用单次有界查询和紧凑
+折线卡，渠道页增加三种速率方法、独立分析窗口和 reset-aware ETA；本机 Go、106 项
+相关 Vitest、typecheck、生产构建及真实 Chrome 合成回归已通过，同提交 CI 尚待推送后
+确认。它不重写历史快照，也不代表真实上游或生产部署验收。
 本轮未访问生产。历史记录见 [完成审计](COMPLETION_AUDIT.md)，总体需求见 [主计划](MYAPI_MASTER_PLAN.md)。
 
 ## 管理员从哪里查看
 
-- **概览**：账户消耗摘要及 Codex 趋势。
+- **概览**：最多四个最近观测系列的剩余额度、最近/平均速度、每小时速率、预计可用
+  时长、覆盖率与最多 48 点简洁折线；没有详细分析控件。
 - **管理员 → 渠道**：选择渠道/额度窗口，查看详细趋势、累计已观测消耗、平均与峰值每分钟消耗、当前状态和数据质量。
 - **渠道行 → 查询余额 → Codex 用量 → 历史趋势**：使用同一分析组件；不再使用独立的固定 30 天、500 点折线实现。
 - **系统设置 → 运维 → 监控与告警**：开关、采样间隔（分钟）、每轮最大渠道数。默认开启，默认 1 分钟；已有显式设置不会被自动覆盖。
 
-概览、渠道详情、Codex 历史入口均支持折线、面积、柱状图，以及剩余额度、已用额度、总额度、已观测消耗、估算每分钟消耗。概览中的 Codex 趋势默认显示可用额度折线；渠道详情和历史分析的消费仍默认柱状图，速率默认折线；手动选择图形后切换指标不会强制覆盖选择。
+渠道详情和 Codex 历史入口支持折线、面积、柱状图，以及剩余额度、已用额度、总额度、
+已观测消耗和每分钟速率。概览只显示固定的剩余额度 sparkline，不出现图形、颗粒、指标、
+算法或时间范围控件。渠道详情的消费默认柱状图、速率默认折线；图形或算法切换不会
+重新请求，范围、颗粒、分析窗口或 EWMA 半衰期变化才更新对应查询。
 
 时间范围：1 小时、6 小时、24 小时、7 天、30 天、90 天、自定义；展示颗粒：原始样本、分钟、5 分钟、15 分钟、小时、天、周、自动。**展示颗粒不是采样间隔**，改变图表颗粒不会增加对上游的请求。
 
@@ -51,6 +59,26 @@ Codex 返回的通常是用量百分比，不是精确 token 或货币额度。�
 4. 两次都有已用额度时，`消耗 = B.used - A.used`；否则使用 `A.available - B.available`。
 5. 负变化记为额度恢复事件，不计负消耗；重置不产生虚假消耗尖峰。
 6. `每分钟速率 = 消耗 × 60 ÷ 实际经过秒数`。
+
+### 速率方法与预计可用时间
+
+同一批有效原始区间同时产生三种互相可比较的方法；改变展示颗粒不改变它们：
+
+- `latest_interval`：最后一个连续有效区间的每分钟速率。
+- `observed_window`：`60 × Σ消费 ÷ Σ有效观测秒数`，是概览和详情的默认方法；不能简单
+  平均不同长度区间的速率。
+- `ewma`：对每个原始区间做连续时间指数权重积分，半衰期由 `ewma_half_life` 指定；
+  等价的恒定速率区间无论怎样拆分样本，结果保持一致。
+
+每小时速率只由同一方法的每分钟速率乘 60，不另造估算口径。所有方法返回有效区间数、
+观测秒数、覆盖率、最新有效观测时刻和独立 ETA。`rate_window` 是速率分析周期，和
+`range`（查询范围）、`granularity`（展示桶）互相独立。
+
+当当前剩余额度为 `A`、选定速率为正数 `r` 时，候选耗尽秒数为 `A × 60 ÷ r`。若未来
+`reset_at` 早于或等于候选耗尽时刻，结果为 `reset_before_depletion`，只返回距重置时间，
+不返回跨重置窗口的耗尽时刻；零余额立即耗尽，正余额但零速率返回
+`stable_or_no_observed_consumption`，样本不足或当前状态失败返回 `insufficient_data`。
+前端展示时使用事件绝对时刻减 `analysis.as_of`，不能把相对旧采样点的秒数写成当前倒计时。
 
 Codex 的未来重置时间存在秒级舍入抖动：仅对同一 `codex_rate_limit` 百分比序列，两个重置时间仍在各自观测时间之后时，容忍最多 2 秒的差异。明确 `used=0`、`available=total=100` 的未使用窗口若仍处于未来，也允许初始化期间重置时间移动，不把它重复计为重置。**实际跨过旧重置时刻始终断开**；非零用量且重置时间大幅变化、其他供应商、不同基准、失败或缺失时间戳都不使用这项例外。历史数据不做重写。
 
@@ -100,10 +128,16 @@ Codex 单次网络采样预算 20 秒，覆盖首次查询、凭据刷新和重�
 | 入口 | 作用 |
 | --- | --- |
 | `GET /api/channel/quota/status` | 有效采样开关、秒数间隔、每轮名额 |
-| `GET /api/channel/quota/changes` | 查询范围内各额度序列的当前状态、历史消费与速率峰值 |
-| `GET /api/channel/:id/quota/history` | 精确序列的历史点、原始当前状态、消耗摘要、完整性与质量信息 |
+| `GET /api/channel/quota/changes` | 查询范围内各额度序列的当前状态、历史消费、三种速率和 ETA；`overview_points=1..120` 时只为 limit 后的返回项附带有界折线点 |
+| `GET /api/channel/:id/quota/history` | 精确序列的历史点、原始当前状态、三种速率/ETA、消耗摘要、完整性与质量信息 |
 
 历史查询沿用 `range/start/end`，新增范围与颗粒取值见上文；完整序列过滤字段为 `metric_type/source/window_type/plan_type/unit/currency/window_seconds`，空币种也属于精确身份。`timezone_offset` 为 UTC 以东的分钟数（北京为 480）。查询上限沿用最多 180 天。
+
+两个查询都接受 `rate_window` 与 `ewma_half_life`，可使用正整数秒数或受支持的时间预设；
+二者不得超过查询范围，EWMA 半衰期不得超过分析窗口，最大均为 180 天。changes 的
+`overview_points` 默认不返回，显式请求时上限为 120；实现先按旧字段排序并应用 limit，
+再只为返回项重建分析和折线，不执行每系列数据库查询，也不让未返回项长期保留派生
+observations。
 
 点字段包含：`consumption`、`rate_per_minute`、`peak_rate_per_minute`、`observed_seconds`、`interval_count`、`observed_at`、展示边界及失败/重置/中断标记。`period_start/period_end` 描述展示桶覆盖边界（原始模式均为观测时刻），不是独立的消费区间起止时间；计算速率必须使用 `observed_seconds`，不能据这两个展示字段另算。
 
@@ -114,12 +148,26 @@ Codex 单次网络采样预算 20 秒，覆盖首次查询、凭据刷新和重�
 模块边界：
 
 - `service/quota_consumption.go`：唯一消耗和速率领域规则，无 HTTP/数据库副作用。
+- `service/quota_analysis.go`：latest/weighted/EWMA、coverage、ETA 与概览点压缩规则。
 - `model/channel_quota_snapshot.go`：有界查询、精确序列与安全投影。
 - `controller/channel-billing.go`、`channel_quota_changes.go`：接口解析、序列解析、展示桶和响应。
 - `web/src/features/channels/components/quota-history-trend.tsx`：共享呈现；`channel-quota-detail-chart.tsx`：查询、刷新和显示偏好。
-- React Query 缓存包含登录用户/会话、完整序列、时间范围和颗粒，避免账号切换复用其他人的图表。
+- React Query 缓存包含登录用户/会话、完整序列、时间范围、颗粒、分析窗口和 EWMA
+  半衰期，避免账号切换或参数变化时复用错误图表；纯图形/算法显示切换不请求。
 
 ## 验收与已知边界
+
+2026-09-04 当前阶段本机结果：额度 service/controller/model 定向测试与 OpenAPI 4/4 通过；
+前端额度、Codex 本机导入和 locale parity 共 8 个文件、106 项 Vitest 通过，`tsgo -b`、
+定向 oxlint 和 Rsbuild 生产构建通过。隔离 Playwright 1.61.1 复用本机 Chrome，实际验证
+概览紧凑卡/48 点分段折线、渠道详情三种方法与所有图形/颗粒/周期、自定义时间、最新失败、
+320/390 像素和低高度滚动；另从真实渠道菜单打开 Codex 本机导入向导，验证脱敏 ready
+状态、手工 fallback 焦点、390 像素无横向溢出及滚轮可达底部操作。第一次浏览器回归按
+旧概览控件断言失败，第二次暴露手工模式焦点回落到全局 skip link，均已修正后重跑通过。
+截图保存在被忽略的 `.local-tests/quota-browser`，不加入 Git。
+
+上述使用合成额度、账号提示和 token 占位符，不读取真实 `auth.json`、不调用生产或上游；
+同提交 CI、GitHub Docker smoke 和真实账号连续采样仍是后续证据。
 
 本次修复的本地验收结果（2026-09-03）：
 
@@ -141,7 +189,7 @@ Codex 单次网络采样预算 20 秒，覆盖首次查询、凭据刷新和重�
 - 多智能体按后端算法、采样、前端分工并交叉审查；最终重置边界只读复审未发现阻断问题。这不代表第三方或生产环境审计。
 - MySQL/PostgreSQL 查询兼容性有 SQL 生成测试；本轮未启动这两种真实数据库，运行时兼容性仍需副本验证。
 
-浏览器脚本：`tools/quota/browser-smoke.mjs`，在隔离 HTTP 服务上加载真实 `web/dist`，使用明确标记的合成 API fixtures，不读取生产授权。安装 Playwright 后执行 `npm run quota:browser`；可通过 `MYAPI_PLAYWRIGHT_MODULE` 和 `MYAPI_CHROMIUM_PATH` 复用本机驱动/浏览器，截图写入被忽略的 `.local-tests/quota-browser`。CI 的前端任务已实际运行生产构建与浏览器回归，`33721694305` 的截图工件成功；这不等于真实账户端到端验收。
+浏览器脚本：`tools/quota/browser-smoke.mjs`，在隔离 HTTP 服务上加载真实 `web/dist`，使用明确标记的合成 API fixtures，不读取生产授权。安装 Playwright 后执行 `npm run quota:browser`；可通过 `MYAPI_PLAYWRIGHT_MODULE` 和 `MYAPI_CHROMIUM_PATH` 复用本机驱动/浏览器，截图写入被忽略的 `.local-tests/quota-browser`。当前脚本同时验证紧凑概览、渠道详细图表和 Codex 本机导入向导。历史 CI `33721694305` 的截图工件仍只证明当时版本；新阶段需要同提交 CI 重新生成工件。
 
 它验证真实 React/Recharts/路由/弹窗和按钮，不等同于真实 Codex 上游的端到端采样。Go 回归验证 HTTP 取消和数据库写入等后端路径。生产真实账户验收必须在获准部署后，再等待至少两个有效采样，核对实际接口、任务结果与页面；不能把构建成功当作已上线成功。
 

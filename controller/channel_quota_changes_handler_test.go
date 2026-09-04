@@ -48,6 +48,21 @@ func TestGetChannelQuotaChangesRejectsInvalidLimitAndChannelIDs(t *testing.T) {
 	require.True(t, strings.Contains(message, "invalid channel_ids"))
 }
 
+func TestGetChannelQuotaChangesRejectsAnalysisWindowsOutsideSelectedRange(t *testing.T) {
+	require.Contains(t, quotaChangesErrorMessage(t, "range=1h&rate_window=6h"), "selected range")
+	require.Contains(t, quotaChangesErrorMessage(t, "range=1h&rate_window=1h&ewma_half_life=6h"), "selected range")
+}
+
+func TestGetChannelQuotaChangesRejectsInvalidOverviewPointLimit(t *testing.T) {
+	for _, value := range []string{"0", "121", "invalid"} {
+		require.Contains(
+			t,
+			quotaChangesErrorMessage(t, "range=1h&overview_points="+value),
+			"overview_points",
+		)
+	}
+}
+
 func TestQuotaChangeQueryHelpersNormalizeAliasesAndDeduplicateIDs(t *testing.T) {
 	seconds, ok := quotaChangeRangeSeconds("1h")
 	require.True(t, ok)

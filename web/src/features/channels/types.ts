@@ -288,6 +288,52 @@ export interface ChannelQuotaHistoryConsumptionSummary {
   allocation?: 'interval_end'
 }
 
+export type ChannelQuotaAnalysisMethod =
+  | 'latest_interval'
+  | 'observed_window'
+  | 'ewma'
+
+export type ChannelQuotaETAOutcome =
+  | 'depletes_before_reset'
+  | 'reset_before_depletion'
+  | 'stable_or_no_observed_consumption'
+  | 'insufficient_data'
+
+export interface ChannelQuotaETA {
+  outcome: ChannelQuotaETAOutcome
+  estimated_depletion_at?: number
+  seconds_to_depletion?: number
+  reset_at?: number
+  seconds_until_reset?: number
+}
+
+export interface ChannelQuotaRateMethodAnalysis {
+  rate_per_minute: number | null
+  rate_per_hour: number | null
+  coverage: number
+  observed_seconds: number
+  interval_count: number
+  observed_at: number | null
+  eta: ChannelQuotaETA
+}
+
+export interface ChannelQuotaAnalysis {
+  default_method: 'observed_window'
+  rate_window_seconds: number
+  window_start: number
+  window_end: number
+  as_of: number
+  ewma_half_life_seconds: number
+  complete: boolean
+  methods: Record<ChannelQuotaAnalysisMethod, ChannelQuotaRateMethodAnalysis>
+}
+
+export interface ChannelQuotaOverviewPoint {
+  timestamp: number
+  available: number | null
+  continuity_break: boolean
+}
+
 export interface ChannelQuotaHistorySummary {
   start_available: number
   end_available: number
@@ -351,6 +397,7 @@ export interface ChannelQuotaHistoryData {
   truncated?: boolean
   truncation_reason?: 'raw_observation_limit' | 'point_limit' | string
   points: ChannelQuotaHistoryPoint[]
+  analysis?: ChannelQuotaAnalysis
   summary?: ChannelQuotaHistorySummary
   data_quality?: ChannelQuotaHistoryDataQuality
   alert?: ChannelQuotaHistoryAlert
@@ -420,6 +467,8 @@ export interface ChannelQuotaChangeItem {
   alert?: ChannelQuotaHistoryAlert
   data_quality?: ChannelQuotaHistoryDataQuality
   consumption?: ChannelQuotaHistoryConsumptionSummary
+  analysis?: ChannelQuotaAnalysis
+  overview_points?: ChannelQuotaOverviewPoint[]
   peak_abs_change_per_minute?: number
   peak_drop_per_minute?: number
   peak_increase_per_minute?: number
@@ -429,6 +478,8 @@ export interface ChannelQuotaChangesData {
   items: ChannelQuotaChangeItem[]
   range?: string
   generated_at?: number
+  rate_window_seconds?: number
+  ewma_half_life_seconds?: number
   data_quality?: ChannelQuotaHistoryDataQuality
   total_items?: number
   returned_items?: number
@@ -631,4 +682,38 @@ export interface AddChannelRequest {
   multi_key_mode?: 'random' | 'polling'
   batch_add_set_key_prefix_2_name?: boolean
   channel: Partial<Channel>
+}
+
+export type CodexLocalAuthState =
+  | 'ready'
+  | 'container_host_unavailable'
+  | 'home_unavailable'
+  | 'not_found'
+  | 'unreadable'
+  | 'unsafe_file'
+  | 'too_large'
+  | 'changed_during_read'
+  | 'invalid_json'
+  | 'unsupported_auth_method'
+  | 'incomplete_credential'
+  | 'lan'
+  | 'disabled'
+  | 'unknown'
+
+/** Non-secret state of the Codex login owned by the MyAPI process user. */
+export interface CodexLocalAuthStatus {
+  state: CodexLocalAuthState
+  platform: 'darwin' | 'linux' | 'windows' | 'unknown'
+  environment: 'native' | 'container' | 'lan' | 'unknown'
+  codex_installed: boolean
+  cli_version?: string
+  auth_file_exists: boolean
+  auth_readable: boolean
+  logged_in: boolean
+  auto_import_available: boolean
+  manual_import_available: boolean
+  account_hint?: string
+  email_hint?: string
+  last_refresh?: string
+  can_refresh: boolean
 }

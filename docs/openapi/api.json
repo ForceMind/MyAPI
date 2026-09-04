@@ -181,6 +181,68 @@
             }
           },
           {
+            "name": "rate_window",
+            "in": "query",
+            "required": false,
+            "description": "分析窗口，独立于展示设置；可传正整数 seconds 或 preset（1m/5m/15m/1h/6h/24h/1d/7d/30d/90d），不得超过所选 range 或 180 天。",
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 1,
+                  "maximum": 15552000
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "1m",
+                    "5m",
+                    "15m",
+                    "1h",
+                    "6h",
+                    "24h",
+                    "1d",
+                    "7d",
+                    "30d",
+                    "90d"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "name": "ewma_half_life",
+            "in": "query",
+            "required": false,
+            "description": "EWMA 时间衰减半衰期；可传正整数 seconds 或同一 preset 集合，默认 rate_window/2，且不得超过 rate_window。",
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 1,
+                  "maximum": 15552000
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "1m",
+                    "5m",
+                    "15m",
+                    "1h",
+                    "6h",
+                    "24h",
+                    "1d",
+                    "7d",
+                    "30d",
+                    "90d"
+                  ]
+                }
+              ]
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -189,6 +251,17 @@
               "type": "integer",
               "minimum": 1,
               "default": 20
+            }
+          },
+          {
+            "name": "overview_points",
+            "in": "query",
+            "required": false,
+            "description": "可选概览剩余额度投影点数；缺省或不传为 0（不返回投影），显式值必须为 1..120。仅在排序和 limit 后为返回项从本次已加载快照生成，不增加数据库查询。",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 120
             }
           },
           {
@@ -379,6 +452,68 @@
                 "auto"
               ],
               "default": "raw"
+            }
+          },
+          {
+            "name": "rate_window",
+            "in": "query",
+            "required": false,
+            "description": "速率分析窗口，独立于 granularity；可传正整数 seconds 或 preset（1m/5m/15m/1h/6h/24h/1d/7d/30d/90d），默认完整 range，且不得超过 range 或 180 天。",
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 1,
+                  "maximum": 15552000
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "1m",
+                    "5m",
+                    "15m",
+                    "1h",
+                    "6h",
+                    "24h",
+                    "1d",
+                    "7d",
+                    "30d",
+                    "90d"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "name": "ewma_half_life",
+            "in": "query",
+            "required": false,
+            "description": "EWMA 时间衰减半衰期；可传正整数 seconds 或同一 preset 集合，默认 rate_window/2，且不得超过 rate_window。",
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 1,
+                  "maximum": 15552000
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "1m",
+                    "5m",
+                    "15m",
+                    "1h",
+                    "6h",
+                    "24h",
+                    "1d",
+                    "7d",
+                    "30d",
+                    "90d"
+                  ]
+                }
+              ]
             }
           },
           {
@@ -5866,6 +6001,178 @@
           }
         }
       },
+      "QuotaETA": {
+        "type": "object",
+        "description": "以对应方法的消耗速率和最新有效原始快照估算；不会跨越重置、失败、恢复、缺口或基准变化。available=0 表示立即耗尽，available<0 为 insufficient_data；预计耗尽与 reset 同刻时 reset 优先。仅 depletes_before_reset 返回 estimated_depletion_at/seconds_to_depletion；reset_before_depletion 只返回 reset_at/seconds_until_reset，避免展示跨重置的失效耗尽时间。",
+        "required": [
+          "outcome"
+        ],
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "depletes_before_reset",
+              "reset_before_depletion",
+              "stable_or_no_observed_consumption",
+              "insufficient_data"
+            ]
+          },
+          "estimated_depletion_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "seconds_to_depletion": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reset_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "seconds_until_reset": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "QuotaRateMethodAnalysis": {
+        "type": "object",
+        "description": "rate 为每分钟/小时的同单位消耗；不可估算时显式为 null。coverage=有效原始区间秒数/rate_window_seconds，范围 0..1。",
+        "required": [
+          "rate_per_minute",
+          "rate_per_hour",
+          "coverage",
+          "observed_seconds",
+          "interval_count",
+          "observed_at",
+          "eta"
+        ],
+        "properties": {
+          "rate_per_minute": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "rate_per_hour": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "coverage": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "observed_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "interval_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "observed_at": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true,
+            "description": "该方法最新一个有效原始区间的结束观测时间；无有效区间时为 null。"
+          },
+          "eta": {
+            "$ref": "#/components/schemas/QuotaETA"
+          }
+        }
+      },
+      "QuotaRateMethods": {
+        "type": "object",
+        "required": [
+          "latest_interval",
+          "observed_window",
+          "ewma"
+        ],
+        "properties": {
+          "latest_interval": {
+            "$ref": "#/components/schemas/QuotaRateMethodAnalysis"
+          },
+          "observed_window": {
+            "$ref": "#/components/schemas/QuotaRateMethodAnalysis"
+          },
+          "ewma": {
+            "$ref": "#/components/schemas/QuotaRateMethodAnalysis"
+          }
+        }
+      },
+      "QuotaAnalysis": {
+        "type": "object",
+        "description": "三个方法都从相邻原始快照先计算安全区间，再独立于展示 granularity 分析。latest_interval.rate_per_minute=60*consumption/observed_seconds；observed_window.rate_per_minute=60*sum(consumption)/sum(observed_seconds)。EWMA 使用连续时间指数权重：lambda=ln(2)/half_life_seconds，w_i=integral(exp(-lambda*(as_of-t)), interval_start, interval_end)，rate=sum(rate_i*w_i)/sum(w_i)；实现可平移到最新 observed_at 以稳定归一化，等价区间切分不改变结果。coverage=sum(valid observed_seconds)/rate_window_seconds（latest_interval 仅使用最新区间），范围 0..1。as_of 是分析窗口结束时刻，方法 observed_at 是最新有效区间结束时刻。",
+        "required": [
+          "default_method",
+          "rate_window_seconds",
+          "window_start",
+          "window_end",
+          "as_of",
+          "ewma_half_life_seconds",
+          "complete",
+          "methods"
+        ],
+        "properties": {
+          "default_method": {
+            "type": "string",
+            "enum": [
+              "observed_window"
+            ]
+          },
+          "rate_window_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "window_start": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "window_end": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "as_of": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ewma_half_life_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "methods": {
+            "$ref": "#/components/schemas/QuotaRateMethods"
+          }
+        }
+      },
+      "QuotaOverviewPoint": {
+        "type": "object",
+        "description": "从已加载原始观察压缩出的非敏感剩余额度点；available=null 或 continuity_break=true 时前端必须断线，不得跨失败、reset、recovery、gap 或 baseline change 连线。",
+        "required": [
+          "timestamp",
+          "available",
+          "continuity_break"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "available": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "continuity_break": {
+            "type": "boolean"
+          }
+        }
+      },
       "QuotaChangeItem": {
         "type": "object",
         "description": "可选数值字段不可用时省略；有效的 0 保留。Codex 消耗单位为百分点，不是 token、货币或 MyAPI 扣费。",
@@ -5881,6 +6188,7 @@
           "observed_at",
           "status",
           "consumption",
+          "analysis",
           "data_quality"
         ],
         "properties": {
@@ -5965,6 +6273,16 @@
           "consumption": {
             "$ref": "#/components/schemas/QuotaConsumptionSummary"
           },
+          "analysis": {
+            "$ref": "#/components/schemas/QuotaAnalysis"
+          },
+          "overview_points": {
+            "type": "array",
+            "description": "仅请求 overview_points 时返回，长度不超过请求值。",
+            "items": {
+              "$ref": "#/components/schemas/QuotaOverviewPoint"
+            }
+          },
           "alert": {
             "$ref": "#/components/schemas/QuotaAlert"
           },
@@ -6005,13 +6323,15 @@
       },
       "QuotaChangesData": {
         "type": "object",
-        "description": "最多读取 200000 条原始快照；超限以 success=false 拒绝完整统计。items_complete 仅表示返回系列列表是否被 limit 截断。",
+        "description": "最多读取 200000 条原始快照；超限以 success=false 拒绝完整统计。先按旧变化字段完成轻量构建与排序，再应用 limit，analysis 只为最终返回项计算；items_complete 仅表示返回系列列表是否被 limit 截断。",
         "required": [
           "items",
           "range",
           "start",
           "end",
           "generated_at",
+          "rate_window_seconds",
+          "ewma_half_life_seconds",
           "total_items",
           "returned_items",
           "source_complete",
@@ -6038,6 +6358,14 @@
             "format": "int64"
           },
           "generated_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "rate_window_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ewma_half_life_seconds": {
             "type": "integer",
             "format": "int64"
           },
@@ -6253,14 +6581,20 @@
           },
           "drop_rate_per_day": {
             "type": "number",
-            "format": "double"
+            "format": "double",
+            "deprecated": true,
+            "description": "Legacy compatibility field; use data.analysis.methods instead."
           },
           "forecast_zero_at": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "deprecated": true,
+            "description": "Legacy compatibility field; use reset-aware ETA under data.analysis.methods instead."
           },
           "forecast_confidence": {
-            "type": "string"
+            "type": "string",
+            "deprecated": true,
+            "description": "Legacy compatibility field; use method coverage and reset-aware ETA under data.analysis instead."
           },
           "available": {
             "$ref": "#/components/schemas/QuotaValueSummary"
@@ -6299,7 +6633,8 @@
           "points_complete",
           "complete",
           "truncated",
-          "alert"
+          "alert",
+          "analysis"
         ],
         "properties": {
           "channel_id": {
@@ -6464,6 +6799,9 @@
           },
           "alert": {
             "$ref": "#/components/schemas/QuotaAlert"
+          },
+          "analysis": {
+            "$ref": "#/components/schemas/QuotaAnalysis"
           },
           "summary": {
             "$ref": "#/components/schemas/QuotaHistorySummary"

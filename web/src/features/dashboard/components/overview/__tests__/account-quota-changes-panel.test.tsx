@@ -76,6 +76,56 @@ function setUser(canReadChannels: boolean, id = 1) {
   })
 }
 
+const analysis = {
+  default_method: 'observed_window' as const,
+  rate_window_seconds: 3600,
+  window_start: 100,
+  window_end: 250,
+  as_of: 250,
+  ewma_half_life_seconds: 1800,
+  complete: true,
+  methods: {
+    latest_interval: {
+      rate_per_minute: 3,
+      rate_per_hour: 180,
+      coverage: 0.25,
+      observed_seconds: 900,
+      interval_count: 1,
+      observed_at: 200,
+      eta: {
+        outcome: 'reset_before_depletion' as const,
+        reset_at: 400,
+        seconds_until_reset: 200,
+      },
+    },
+    observed_window: {
+      rate_per_minute: 1.5,
+      rate_per_hour: 90,
+      coverage: 0.75,
+      observed_seconds: 2700,
+      interval_count: 3,
+      observed_at: 200,
+      eta: {
+        outcome: 'reset_before_depletion' as const,
+        reset_at: 400,
+        seconds_until_reset: 200,
+      },
+    },
+    ewma: {
+      rate_per_minute: 2,
+      rate_per_hour: 120,
+      coverage: 0.75,
+      observed_seconds: 2700,
+      interval_count: 3,
+      observed_at: 200,
+      eta: {
+        outcome: 'depletes_before_reset' as const,
+        estimated_depletion_at: 300,
+      },
+    },
+  },
+}
+
 describe('account quota changes dashboard panel', () => {
   beforeEach(() => {
     vi.mocked(getSelf).mockResolvedValue({ success: false })
@@ -252,29 +302,13 @@ describe('account quota changes dashboard panel', () => {
       'href',
       '/channels'
     )
+    expect(screen.getByTestId('quota-overview-card')).toBeInTheDocument()
     expect(
-      screen.getByRole('list', { name: 'Account quota changes' })
-    ).toBeInTheDocument()
+      screen.getByRole('button', { name: 'View details' })
+    ).toHaveAttribute('href', '/channels')
   })
 
-  test('renders the Codex available quota line by default on the overview', async () => {
-    vi.mocked(getCodexQuotaSeries).mockResolvedValueOnce({
-      success: true,
-      data: {
-        items: [
-          {
-            channel_id: 12,
-            name: 'Codex production channel',
-            account_label: 'Codex team account',
-            metric_type: 'codex_rate_limit',
-            source: 'codex_wham_usage_primary',
-            window_type: 'five_hour',
-            plan_type: 'team',
-            unit: 'percent',
-          },
-        ],
-      },
-    })
+  test('renders one compact analysis card without advanced controls or duplicate requests', async () => {
     vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
       success: true,
       data: {
@@ -290,31 +324,16 @@ describe('account quota changes dashboard panel', () => {
             unit: 'percent',
             status: 'success',
             direction: 'decrease',
+            previous_available: 80,
             current_available: 72,
-          },
-        ],
-      },
-    })
-    vi.mocked(getChannelQuotaSamplingStatus).mockResolvedValueOnce({
-      success: true,
-      data: { enabled: true, interval_seconds: 300, max_channels: 20 },
-    })
-    vi.mocked(getChannelQuotaHistory).mockResolvedValueOnce({
-      success: true,
-      data: {
-        channel_id: 12,
-        start: 100,
-        end: 200,
-        limit: 500,
-        unit: 'percent',
-        points: [
-          { timestamp: 100, status: 'success', available: 90 },
-          {
-            timestamp: 200,
-            status: 'success',
-            available: 72,
-            consumption: 18,
-            rate_per_minute: 10.8,
+            analysis,
+            overview_points: [
+              { timestamp: 100, available: 90, continuity_break: false },
+              { timestamp: 120, available: 80, continuity_break: false },
+              { timestamp: 140, available: null, continuity_break: true },
+              { timestamp: 160, available: 75, continuity_break: true },
+              { timestamp: 180, available: 72, continuity_break: false },
+            ],
           },
         ],
       },
@@ -325,20 +344,128 @@ describe('account quota changes dashboard panel', () => {
     expect(
       await screen.findByTestId('codex-account-quota-chart')
     ).toBeInTheDocument()
+    const sparkline = screen.getByTestId('quota-overview-sparkline')
+    expect(sparkline).toBeInTheDocument()
     expect(
-      await screen.findByTestId('quota-history-chart-line')
+      screen.getByRole('img', {
+        name: /Remaining quota trend from 90\.0% to 72\.0%, .+ to .+, across 2 continuous segments/,
+      })
     ).toBeInTheDocument()
-    expect(screen.getByLabelText('Metric')).toHaveValue('available')
-    expect(screen.getByText('Last plotted value: 72.0%')).toBeInTheDocument()
-    expect(getChannelQuotaHistory).toHaveBeenCalledWith(
-      12,
+    expect(
+      within(sparkline).getAllByTestId('quota-overview-sparkline-segment')
+    ).toHaveLength(2)
+    const renderedPointCount = [
+      ...sparkline.querySelectorAll('polyline'),
+    ].reduce(
+      (count, line) =>
+        count + (line.getAttribute('points')?.split(' ').length ?? 0),
+      0
+    )
+    expect(renderedPointCount).toBe(4)
+    expect(screen.getByText('72.0%')).toBeInTheDocument()
+    expect(screen.getByText('3.00 percentage points/min')).toBeInTheDocument()
+    expect(screen.getByText('1.50 percentage points/min')).toBeInTheDocument()
+    expect(screen.getByText('90.00 percentage points/hour')).toBeInTheDocument()
+    expect(screen.getByText('75%')).toBeInTheDocument()
+    expect(screen.getByText('Reset before depletion')).toBeInTheDocument()
+    expect(
+      screen.getByText('Estimated time from analysis point: 2.5 minutes')
+    ).toBeInTheDocument()
+    expect(screen.queryByLabelText('Time range')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Chart granularity')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Metric')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Chart style')).not.toBeInTheDocument()
+    expect(getChannelQuotaChanges).toHaveBeenCalledWith(
       expect.objectContaining({
-        metric_type: 'codex_rate_limit',
-        source: 'codex_wham_usage_primary',
-        window_type: 'five_hour',
-        plan_type: 'team',
+        range: '24h',
+        rate_window: 3600,
+        overview_points: 48,
+        limit: 4,
+        sort: 'observed_desc',
       })
     )
+    expect(getCodexQuotaSeries).not.toHaveBeenCalled()
+    expect(getChannelQuotaHistory).not.toHaveBeenCalled()
+  })
+
+  test('describes one sparkline segment using its first and last valid points', async () => {
+    vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
+      success: true,
+      data: {
+        items: [
+          {
+            channel_id: 13,
+            name: 'Interrupted account',
+            unit: 'percent',
+            status: 'success',
+            current_available: 80,
+            overview_points: [
+              { timestamp: 0, available: null, continuity_break: true },
+              { timestamp: 3_600, available: 90, continuity_break: false },
+              { timestamp: 7_200, available: 80, continuity_break: false },
+              { timestamp: 10_800, available: null, continuity_break: true },
+            ],
+          },
+        ],
+      },
+    })
+
+    renderPanel()
+
+    const sparkline = await screen.findByRole('img', {
+      name: /Remaining quota trend from 90\.0% to 80\.0%, .+ across 1 continuous segment$/,
+    })
+    const description = sparkline.getAttribute('aria-label') ?? ''
+    const timestampFormat = new Intl.DateTimeFormat('en', {
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    expect(description).toContain(timestampFormat.format(3_600_000))
+    expect(description).toContain(timestampFormat.format(7_200_000))
+    expect(description).not.toContain(timestampFormat.format(10_800_000))
+    expect(description).not.toContain('segments')
+  })
+
+  test('does not present a past overview prediction as current remaining time', async () => {
+    vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
+      success: true,
+      data: {
+        items: [
+          {
+            channel_id: 12,
+            name: 'Past prediction account',
+            unit: 'percent',
+            current_available: 0,
+            analysis: {
+              ...analysis,
+              methods: {
+                ...analysis.methods,
+                observed_window: {
+                  ...analysis.methods.observed_window,
+                  eta: {
+                    outcome: 'depletes_before_reset',
+                    estimated_depletion_at: 200,
+                    seconds_to_depletion: 100,
+                  },
+                },
+              },
+            },
+          },
+        ],
+      },
+    })
+
+    renderPanel()
+
+    expect(
+      await screen.findByText('Prediction time has passed')
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Time remaining:/)).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/Estimated time from analysis point:/)
+    ).not.toBeInTheDocument()
   })
 
   test('renders a useful empty state after a successful response', async () => {
@@ -355,7 +482,7 @@ describe('account quota changes dashboard panel', () => {
 
     expect(
       await screen.findByText(
-        'No account quota changes recorded yet. Background sampling is enabled and will populate this panel after the next interval.'
+        'No account quota changes recorded yet. Enable quota sampling or query a provider account to start history.'
       )
     ).toBeInTheDocument()
     expect(
@@ -423,7 +550,7 @@ describe('account quota changes dashboard panel', () => {
 
     renderPanel()
 
-    expect(await screen.findByText('· team')).toBeInTheDocument()
+    expect(await screen.findByText('team')).toBeInTheDocument()
     expect(screen.getByText('Error')).toBeInTheDocument()
     expect(screen.getByText('Unavailable account')).toBeInTheDocument()
   })
@@ -550,10 +677,12 @@ describe('account quota changes dashboard panel', () => {
     expect(screen.getByText('Quota consumption')).toBeInTheDocument()
   })
 
-  test('discovers Codex independently when fifty other quota series occupy the movement response', async () => {
+  test('keeps the overview bounded without a second Codex discovery request', async () => {
     vi.mocked(getChannelQuotaChanges).mockResolvedValue({
       success: true,
       data: {
+        items_complete: false,
+        source_complete: true,
         items: Array.from({ length: 50 }, (_, index) => ({
           channel_id: index + 1,
           name: `Other provider ${index}`,
@@ -561,73 +690,34 @@ describe('account quota changes dashboard panel', () => {
         })),
       },
     })
-    vi.mocked(getCodexQuotaSeries).mockResolvedValue({
-      success: true,
-      data: {
-        items: [
-          {
-            channel_id: 99,
-            name: 'Separate Codex',
-            metric_type: 'codex_rate_limit',
-            source: 'codex_wham_usage_primary',
-            window_type: 'weekly',
-          },
-        ],
-      },
-    })
-    vi.mocked(getChannelQuotaSamplingStatus).mockResolvedValue({
-      success: true,
-      data: { enabled: true, interval_seconds: 60, max_channels: 100 },
-    })
     renderPanel()
     expect(
       await screen.findByTestId('codex-account-quota-chart')
     ).toBeInTheDocument()
-    await waitFor(() =>
-      expect(getChannelQuotaHistory).toHaveBeenCalledWith(
-        99,
-        expect.objectContaining({
-          metric_type: 'codex_rate_limit',
-          source: 'codex_wham_usage_primary',
-        })
-      )
-    )
-    expect(getCodexQuotaSeries).toHaveBeenCalledWith(
-      expect.objectContaining({ range: '24h', limit: 2000 })
-    )
+    expect(screen.getAllByTestId('quota-overview-card')).toHaveLength(4)
+    expect(
+      screen.queryByText('Incomplete quota history')
+    ).not.toBeInTheDocument()
+    expect(getCodexQuotaSeries).not.toHaveBeenCalled()
+    expect(getChannelQuotaHistory).not.toHaveBeenCalled()
   })
 
-  test('keeps range and custom controls available after a failed quota query so the user can recover', async () => {
-    vi.mocked(getChannelQuotaChanges).mockImplementation(async (params) => {
-      if (params?.range === '1h') return { success: true, data: { items: [] } }
-      throw new Error('range too large')
-    })
-    vi.mocked(getCodexQuotaSeries).mockResolvedValue({
-      success: true,
-      data: { items: [] },
-    })
-    vi.mocked(getChannelQuotaSamplingStatus).mockResolvedValue({
-      success: true,
-      data: { enabled: true, interval_seconds: 60, max_channels: 100 },
-    })
+  test('retries the fixed compact query after a failure', async () => {
+    vi.mocked(getChannelQuotaChanges)
+      .mockRejectedValueOnce(new Error('quota unavailable'))
+      .mockResolvedValueOnce({ success: true, data: { items: [] } })
     renderPanel()
     expect(
       await screen.findByText('Unable to load account quota changes')
     ).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('Time range'), {
-      target: { value: 'custom' },
-    })
-    expect(screen.getByLabelText('Custom range start')).toBeEnabled()
-    fireEvent.change(screen.getByLabelText('Time range'), {
-      target: { value: '1h' },
-    })
+    fireEvent.click(screen.getByLabelText('Refresh'))
     await waitFor(() =>
       expect(
         screen.queryByText('Unable to load account quota changes')
       ).not.toBeInTheDocument()
     )
     expect(getChannelQuotaChanges).toHaveBeenLastCalledWith(
-      expect.objectContaining({ range: '1h' })
+      expect.objectContaining({ range: '24h', rate_window: 3600, limit: 4 })
     )
   })
 

@@ -20,6 +20,7 @@ export type VerificationMethod = '2fa' | 'passkey'
 
 export type SecurityProofScope =
   | 'channel.key.read'
+  | 'channel.codex.local_import'
   | 'passkey.register'
   | 'passkey.delete'
 

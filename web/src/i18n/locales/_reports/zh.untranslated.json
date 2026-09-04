@@ -1,0 +1,14 @@
+{
+  "Callback URL": "回调 URL",
+  "Codex authorization failed": "Codex 授权失败",
+  "Codex credential saved": "Codex 凭据已保存",
+  "Codex login failed": "Codex 登录失败",
+  "Failed to start Codex login": "无法启动 Codex 登录",
+  "macOS / Linux": "macOS / Linux",
+  "Open ChatGPT login": "打开 ChatGPT 登录",
+  "Open the ChatGPT authorization page and finish signing in. The browser will redirect to localhost; if that page cannot load, this is expected. Copy the full URL from the address bar, return here, and paste it below.": "打开 ChatGPT 授权页面并完成登录。浏览器随后会跳转到 localhost；页面打不开是正常现象。请复制地址栏里的完整 URL，返回这里并粘贴到下方。",
+  "Opened ChatGPT authorization page": "已打开 ChatGPT 授权页面",
+  "Sign in to Codex with ChatGPT": "使用 ChatGPT 登录 Codex",
+  "Sign in with ChatGPT": "使用 ChatGPT 登录",
+  "Windows PowerShell": "Windows PowerShell"
+}

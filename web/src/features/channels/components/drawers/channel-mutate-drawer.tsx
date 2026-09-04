@@ -170,6 +170,7 @@ import {
   findMissingModelsInMapping,
   validateModelMappingJson,
   hasAdvancedSettingsErrors,
+  transformFormDataToCreatePayload,
 } from '../../lib'
 import { getChannelTypeConfig } from '../../lib/channel-type-config'
 import {
@@ -180,6 +181,7 @@ import type { Channel } from '../../types'
 import { useChannels } from '../channels-provider'
 import { AdvancedCustomEditorDialog } from '../dialogs/advanced-custom-editor-dialog'
 import { CodexOAuthDialog } from '../dialogs/codex-oauth-dialog'
+import { CodexLocalAuthDialog } from '../dialogs/codex-local-auth-dialog'
 import { FetchModelsDialog } from '../dialogs/fetch-models-dialog'
 import {
   MissingModelsConfirmationDialog,
@@ -628,6 +630,8 @@ export function ChannelMutateDrawer({
   const [channelKey, setChannelKey] = useState<string | null>(null)
   const [isChannelKeyLoading, setIsChannelKeyLoading] = useState(false)
   const [codexOAuthDialogOpen, setCodexOAuthDialogOpen] = useState(false)
+  const [codexLocalAuthDialogOpen, setCodexLocalAuthDialogOpen] =
+    useState(false)
   const [isCodexCredentialRefreshing, setIsCodexCredentialRefreshing] =
     useState(false)
   const initialModelsRef = useRef<string[]>([])
@@ -1424,6 +1428,20 @@ export function ChannelMutateDrawer({
       setIsCodexCredentialRefreshing(false)
     }
   }, [channelId, queryClient, t])
+
+  const getCodexLocalImportCreatePayload = useCallback(async () => {
+    const valid = await form.trigger(['name', 'models', 'group', 'type'], {
+      shouldFocus: true,
+    })
+    if (!valid) return null
+
+    const payload = transformFormDataToCreatePayload({
+      ...form.getValues(),
+      key: '',
+    })
+    payload.channel.key = ''
+    return payload
+  }, [form])
 
   // Unified function to update models
   const updateModels = useCallback(
@@ -3119,6 +3137,20 @@ export function ChannelMutateDrawer({
                                         <Link2 className='mr-2 h-4 w-4' />
                                         {t('Sign in with ChatGPT')}
                                       </Button>
+                                      {canRevealChannelKey && (
+                                        <Button
+                                          type='button'
+                                          variant='outline'
+                                          size='sm'
+                                          onClick={() =>
+                                            setCodexLocalAuthDialogOpen(true)
+                                          }
+                                          disabled={sensitiveLocked}
+                                        >
+                                          <ClipboardPaste className='mr-2 h-4 w-4' />
+                                          {t('Import local Codex')}
+                                        </Button>
+                                      )}
                                       {isEditing && channelId && (
                                         <Button
                                           type='button'
@@ -3169,6 +3201,27 @@ export function ChannelMutateDrawer({
                                   void queryClient.invalidateQueries({
                                     queryKey:
                                       channelsQueryKeys.detail(channelId),
+                                  })
+                                }}
+                              />
+
+                              <CodexLocalAuthDialog
+                                open={codexLocalAuthDialogOpen}
+                                onOpenChange={setCodexLocalAuthDialogOpen}
+                                channelId={
+                                  isEditing ? channelId || undefined : undefined
+                                }
+                                disabled={sensitiveLocked}
+                                getCreatePayload={
+                                  isEditing
+                                    ? undefined
+                                    : getCodexLocalImportCreatePayload
+                                }
+                                onImportSuccess={handleSuccess}
+                                onKeyImported={(key) => {
+                                  form.setValue('key', key, {
+                                    shouldDirty: true,
+                                    shouldValidate: true,
                                   })
                                 }}
                               />

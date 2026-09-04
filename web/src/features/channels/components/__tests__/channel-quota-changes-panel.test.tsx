@@ -130,6 +130,8 @@ describe('channel quota changes panel', () => {
         12,
         expect.objectContaining({
           range: '7d',
+          rate_window: 3600,
+          ewma_half_life: 1800,
           source: 'codex_wham_usage_primary',
           window_type: 'weekly',
         })

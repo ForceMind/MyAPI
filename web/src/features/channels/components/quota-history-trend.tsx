@@ -35,13 +35,21 @@ import { cn } from '@/lib/utils'
 import type { QuotaCustomRange } from '../hooks/use-quota-history-time'
 import {
   buildQuotaHistoryTrend,
+  formatQuotaDuration,
   formatQuotaAmount as formatQuotaValue,
+  formatQuotaRate,
   isIntervalMetric,
+  quotaAnalysisMethodLabel,
+  quotaETAStatus,
+  quotaPredictionTiming,
   type QuotaHistoryChartStyle,
   type QuotaHistoryMetric,
   type QuotaHistoryTrend,
 } from '../lib/quota-history'
-import type { ChannelQuotaHistoryData } from '../types'
+import type {
+  ChannelQuotaAnalysisMethod,
+  ChannelQuotaHistoryData,
+} from '../types'
 
 const DEFAULT_RANGE_OPTIONS = [
   '1h',
@@ -91,6 +99,14 @@ export interface QuotaHistoryTrendProps {
   onGranularityChange?: (granularity: string) => void
   onMetricChange?: (metric: QuotaHistoryMetric) => void
   onChartStyleChange?: (chartStyle: QuotaHistoryChartStyle) => void
+  analysisMethod?: ChannelQuotaAnalysisMethod
+  rateWindowSeconds?: number
+  ewmaHalfLifeSeconds?: number
+  rateWindowOptions?: readonly number[]
+  ewmaHalfLifeOptions?: readonly number[]
+  onAnalysisMethodChange?: (method: ChannelQuotaAnalysisMethod) => void
+  onRateWindowChange?: (seconds: number) => void
+  onEWMAHalfLifeChange?: (seconds: number) => void
   onRefresh?: () => void
   className?: string
   customRange?: QuotaCustomRange
@@ -391,6 +407,99 @@ function SummaryCards(props: {
   )
 }
 
+function AnalysisSummary(props: {
+  data: ChannelQuotaHistoryData
+  method: ChannelQuotaAnalysisMethod
+  locale: string | undefined
+  t: Translate
+}) {
+  const analysis = props.data.analysis
+  if (!analysis) return null
+  const selected = analysis.methods[props.method]
+  const etaStatus = quotaETAStatus(selected.eta)
+  let etaLabel = props.t('Insufficient data')
+  let etaValue = props.t('No depletion forecast available')
+  let etaTime: number | null = null
+  if (etaStatus === 'depletion') {
+    etaLabel = props.t('Estimated depletion')
+    etaTime = selected.eta.estimated_depletion_at ?? null
+  } else if (etaStatus === 'reset') {
+    etaLabel = props.t('Reset before depletion')
+    etaTime = selected.eta.reset_at ?? null
+  } else if (etaStatus === 'stable') {
+    etaLabel = props.t('Stable or no observed consumption')
+    etaValue = props.t('Stable')
+  }
+  if (etaStatus === 'depletion' || etaStatus === 'reset') {
+    const timing = quotaPredictionTiming(etaTime, analysis.as_of)
+    if (timing.status === 'future') {
+      etaValue = `${props.t('Estimated time from analysis point')}: ${formatQuotaDuration(
+        timing.seconds,
+        props.t
+      )}`
+    } else if (timing.status === 'passed') {
+      etaValue = props.t('Prediction time has passed')
+    }
+  }
+
+  return (
+    <section
+      className='grid min-w-0 gap-2 rounded-lg border p-3'
+      aria-label={props.t('Consumption rate')}
+      data-testid='quota-analysis-summary'
+    >
+      <div className='flex min-w-0 flex-wrap items-center justify-between gap-2'>
+        <span className='text-xs font-medium'>
+          {props.t('Consumption rate')} ·{' '}
+          {quotaAnalysisMethodLabel(props.method, props.t)}
+        </span>
+        <Badge variant={analysis.complete ? 'outline' : 'warning'}>
+          {props.t('Observed coverage')}: {Math.round(selected.coverage * 100)}%
+        </Badge>
+      </div>
+      <div className='grid grid-cols-1 gap-2 sm:grid-cols-3'>
+        <div className='bg-muted/30 rounded-md p-2'>
+          <div className='text-muted-foreground text-[11px]'>
+            {props.t('Estimated consumption per minute')}
+          </div>
+          <div className='font-semibold tabular-nums'>
+            {formatQuotaRate(
+              selected.rate_per_minute,
+              props.data,
+              'minute',
+              props.t,
+              props.locale
+            )}
+          </div>
+        </div>
+        <div className='bg-muted/30 rounded-md p-2'>
+          <div className='text-muted-foreground text-[11px]'>
+            {props.t('Estimated consumption per hour')}
+          </div>
+          <div className='font-semibold tabular-nums'>
+            {formatQuotaRate(
+              selected.rate_per_hour,
+              props.data,
+              'hour',
+              props.t,
+              props.locale
+            )}
+          </div>
+        </div>
+        <div className='bg-muted/30 rounded-md p-2'>
+          <div className='text-muted-foreground text-[11px]'>{etaLabel}</div>
+          <div className='font-semibold'>{etaValue}</div>
+          <div className='text-muted-foreground text-[11px] tabular-nums'>
+            {etaTime !== null
+              ? formatTimestamp(etaTime, props.locale, false)
+              : null}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function QuotaHistoryChart(props: {
   data?: ChannelQuotaHistoryData
   trend: QuotaHistoryTrend
@@ -627,6 +736,80 @@ export function QuotaHistoryTrend(props: QuotaHistoryTrendProps) {
             </select>
           </label>
         </div>
+        {props.analysisMethod &&
+        props.rateWindowSeconds &&
+        props.ewmaHalfLifeSeconds ? (
+          <div className='grid grid-cols-1 gap-2 sm:grid-cols-3'>
+            <label className='grid min-w-0 gap-1 text-xs'>
+              <span className='text-muted-foreground'>
+                {t('Consumption rate')}
+              </span>
+              <select
+                aria-label={t('Consumption rate')}
+                value={props.analysisMethod}
+                onChange={(event) =>
+                  props.onAnalysisMethodChange?.(
+                    event.target.value as ChannelQuotaAnalysisMethod
+                  )
+                }
+                disabled={!props.onAnalysisMethodChange}
+                className='h-8 min-w-0 rounded-lg border bg-transparent px-2 text-sm disabled:cursor-not-allowed disabled:opacity-60'
+              >
+                {(['latest_interval', 'observed_window', 'ewma'] as const).map(
+                  (method) => (
+                    <option key={method} value={method}>
+                      {quotaAnalysisMethodLabel(method, t)}
+                    </option>
+                  )
+                )}
+              </select>
+            </label>
+            <label className='grid min-w-0 gap-1 text-xs'>
+              <span className='text-muted-foreground'>
+                {t('Analysis window')}
+              </span>
+              <select
+                aria-label={t('Analysis window')}
+                value={props.rateWindowSeconds}
+                onChange={(event) =>
+                  props.onRateWindowChange?.(Number(event.target.value))
+                }
+                disabled={!props.onRateWindowChange}
+                className='h-8 min-w-0 rounded-lg border bg-transparent px-2 text-sm disabled:cursor-not-allowed disabled:opacity-60'
+              >
+                {(props.rateWindowOptions ?? [props.rateWindowSeconds]).map(
+                  (seconds) => (
+                    <option key={seconds} value={seconds}>
+                      {formatQuotaDuration(seconds, t)}
+                    </option>
+                  )
+                )}
+              </select>
+            </label>
+            <label className='grid min-w-0 gap-1 text-xs'>
+              <span className='text-muted-foreground'>
+                {t('EWMA half-life')}
+              </span>
+              <select
+                aria-label={t('EWMA half-life')}
+                value={props.ewmaHalfLifeSeconds}
+                onChange={(event) =>
+                  props.onEWMAHalfLifeChange?.(Number(event.target.value))
+                }
+                disabled={!props.onEWMAHalfLifeChange}
+                className='h-8 min-w-0 rounded-lg border bg-transparent px-2 text-sm disabled:cursor-not-allowed disabled:opacity-60'
+              >
+                {(props.ewmaHalfLifeOptions ?? [props.ewmaHalfLifeSeconds]).map(
+                  (seconds) => (
+                    <option key={seconds} value={seconds}>
+                      {formatQuotaDuration(seconds, t)}
+                    </option>
+                  )
+                )}
+              </select>
+            </label>
+          </div>
+        ) : null}
         {props.range === 'custom' &&
         props.customRange &&
         props.onCustomRangeChange ? (
@@ -710,6 +893,14 @@ export function QuotaHistoryTrend(props: QuotaHistoryTrendProps) {
               </p>
             ) : null}
             <SummaryCards data={props.data} trend={trend} t={t} />
+            {props.data && props.analysisMethod ? (
+              <AnalysisSummary
+                data={props.data}
+                method={props.analysisMethod}
+                locale={i18n.language}
+                t={t}
+              />
+            ) : null}
             {isIntervalMetric(props.metric) ? (
               <p className='text-muted-foreground text-xs leading-5'>
                 {t(

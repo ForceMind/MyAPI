@@ -43,6 +43,7 @@ import type {
   SearchChannelsParams,
   SearchChannelsResponse,
   TagOperationParams,
+  CodexLocalAuthStatus,
 } from './types'
 
 const channelActionConfig = (
@@ -124,6 +125,27 @@ export type CodexCredentialRefreshResponse = {
     channel_id?: number
     channel_type?: number
     channel_name?: string
+  }
+}
+
+export type CodexLocalAuthStatusResponse = {
+  success: boolean
+  code?: string
+  message?: string
+  data?: CodexLocalAuthStatus
+}
+
+export type CodexLocalAuthImportResponse = {
+  success: boolean
+  code?: string
+  message?: string
+  data?: {
+    channel_id?: number
+    operation?: 'created' | 'updated'
+    account_hint?: string
+    email_hint?: string
+    last_refresh?: string
+    can_refresh?: boolean
   }
 }
 
@@ -304,6 +326,8 @@ export async function getChannelQuotaHistory(
     window_seconds?: number
     granularity?: ChannelQuotaHistoryGranularity
     timezone_offset?: number
+    rate_window?: string | number
+    ewma_half_life?: string | number
     limit?: number
   } = {}
 ): Promise<ChannelQuotaHistoryResponse> {
@@ -320,6 +344,8 @@ export async function getCodexQuotaSeries(
     range?: ChannelQuotaHistoryRange
     start?: string
     end?: string
+    rate_window?: string | number
+    ewma_half_life?: string | number
     limit?: number
   } = {}
 ): Promise<ChannelQuotaChangesResponse> {
@@ -348,6 +374,9 @@ export async function getChannelQuotaChanges(
     window_type?: string
     source?: string
     channel_ids?: string
+    rate_window?: string | number
+    ewma_half_life?: string | number
+    overview_points?: number
   } = {},
   requestConfig: ApiRequestConfig = {}
 ): Promise<ChannelQuotaChangesResponse> {
@@ -478,6 +507,42 @@ export async function refreshCodexCredential(
     `/api/channel/${channelId}/codex/refresh`,
     {},
     channelActionConfig()
+  )
+  return res.data
+}
+
+export async function getCodexLocalAuthStatus(): Promise<CodexLocalAuthStatusResponse> {
+  const res = await api.get(
+    '/api/channel/codex/local-auth/status',
+    channelActionConfig({ disableDuplicate: true })
+  )
+  return res.data
+}
+
+export async function importCodexLocalAuthForNewChannel(
+  data: AddChannelRequest,
+  proofToken?: string
+): Promise<CodexLocalAuthImportResponse> {
+  const res = await api.post(
+    '/api/channel/codex/local-auth/import',
+    data,
+    channelActionConfig({
+      headers: proofToken ? { 'X-Security-Proof': proofToken } : undefined,
+    })
+  )
+  return res.data
+}
+
+export async function importCodexLocalAuthForChannel(
+  channelId: number,
+  proofToken?: string
+): Promise<CodexLocalAuthImportResponse> {
+  const res = await api.post(
+    `/api/channel/${channelId}/codex/local-auth/import`,
+    undefined,
+    channelActionConfig({
+      headers: proofToken ? { 'X-Security-Proof': proofToken } : undefined,
+    })
   )
   return res.data
 }

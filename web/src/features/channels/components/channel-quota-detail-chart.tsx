@@ -7,7 +7,7 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useAuthStore } from '@/stores/auth-store'
@@ -16,12 +16,16 @@ import { getChannelQuotaHistory } from '../api'
 import type { QuotaCustomRange } from '../hooks/use-quota-history-time'
 import {
   quotaWindowLabel,
+  boundedQuotaDuration,
+  quotaDurationOptions,
   quotaHistoryRangeOptions,
+  quotaHistoryRangeSeconds,
   quotaHistoryGranularityOptions,
   type QuotaHistoryChartStyle,
   type QuotaHistoryMetric,
 } from '../lib/quota-history'
 import type {
+  ChannelQuotaAnalysisMethod,
   ChannelQuotaChangeItem,
   ChannelQuotaHistoryGranularity,
   ChannelQuotaHistoryRange,
@@ -46,6 +50,10 @@ function isMetric(value: string): value is QuotaHistoryMetric {
 
 function isChartStyle(value: string): value is QuotaHistoryChartStyle {
   return ['line', 'area', 'bar'].includes(value)
+}
+
+function isAnalysisMethod(value: string): value is ChannelQuotaAnalysisMethod {
+  return ['latest_interval', 'observed_window', 'ewma'].includes(value)
 }
 
 /**
@@ -80,6 +88,10 @@ export function ChannelQuotaDetailChart({
   const [granularity, setGranularity] =
     useState<ChannelQuotaHistoryGranularity>('auto')
   const [metric, setMetric] = useState<QuotaHistoryMetric>(initialMetric)
+  const [analysisMethod, setAnalysisMethod] =
+    useState<ChannelQuotaAnalysisMethod>('observed_window')
+  const [requestedRateWindow, setRequestedRateWindow] = useState(60 * 60)
+  const [requestedHalfLife, setRequestedHalfLife] = useState(30 * 60)
   const [manualChartStyle, setChartStyle] =
     useState<QuotaHistoryChartStyle | null>(null)
   const chartStyle =
@@ -87,6 +99,23 @@ export function ChannelQuotaDetailChart({
   const timezoneOffset = -new Date().getTimezoneOffset()
   const start = range === 'custom' ? customRange?.start : undefined
   const end = range === 'custom' ? customRange?.end : undefined
+  const rangeSeconds = quotaHistoryRangeSeconds(range, customRange)
+  const rateWindowSeconds = boundedQuotaDuration(
+    requestedRateWindow,
+    rangeSeconds
+  )
+  const ewmaHalfLifeSeconds = boundedQuotaDuration(
+    requestedHalfLife,
+    rateWindowSeconds
+  )
+  const rateWindowOptions = useMemo(
+    () => quotaDurationOptions(rangeSeconds, rateWindowSeconds),
+    [rangeSeconds, rateWindowSeconds]
+  )
+  const halfLifeOptions = useMemo(
+    () => quotaDurationOptions(rateWindowSeconds, ewmaHalfLifeSeconds),
+    [ewmaHalfLifeSeconds, rateWindowSeconds]
+  )
 
   const query = useQuery({
     queryKey: [
@@ -106,6 +135,8 @@ export function ChannelQuotaDetailChart({
       end,
       granularity,
       timezoneOffset,
+      rateWindowSeconds,
+      ewmaHalfLifeSeconds,
       refreshEpoch,
     ],
     queryFn: () =>
@@ -122,6 +153,8 @@ export function ChannelQuotaDetailChart({
         window_seconds: item.window_seconds,
         granularity,
         timezone_offset: timezoneOffset,
+        rate_window: rateWindowSeconds,
+        ewma_half_life: ewmaHalfLifeSeconds,
         // The backend reports an explicit incomplete response instead of
         // silently returning a misleading partial history.
         limit: 5000,
@@ -164,6 +197,16 @@ export function ChannelQuotaDetailChart({
       onChartStyleChange={(value) => {
         if (isChartStyle(value)) setChartStyle(value)
       }}
+      analysisMethod={analysisMethod}
+      rateWindowSeconds={rateWindowSeconds}
+      ewmaHalfLifeSeconds={ewmaHalfLifeSeconds}
+      rateWindowOptions={rateWindowOptions}
+      ewmaHalfLifeOptions={halfLifeOptions}
+      onAnalysisMethodChange={(value) => {
+        if (isAnalysisMethod(value)) setAnalysisMethod(value)
+      }}
+      onRateWindowChange={setRequestedRateWindow}
+      onEWMAHalfLifeChange={setRequestedHalfLife}
       onRefresh={() => void query.refetch()}
       className='min-w-0'
       customRange={customRange}

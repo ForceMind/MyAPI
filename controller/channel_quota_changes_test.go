@@ -5,6 +5,7 @@ import (
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
+	"github.com/ForceMind/MyAPI/service"
 	"github.com/stretchr/testify/require"
 )
 
@@ -150,4 +151,63 @@ func TestQuotaChangesDoesNotBridgeFailureWithinSameReset(t *testing.T) {
 	require.Len(t, items, 1)
 	require.Nil(t, items[0].ChangePerMinute)
 	require.Nil(t, items[0].Consumption.Observed)
+}
+
+func TestQuotaChangesAnalysisUsesLatestPostResetSegment(t *testing.T) {
+	rows := []model.ChannelQuotaAggregateRow{
+		{ID: 1, ChannelID: 1, ObservedAt: 100, Available: 100, ResetAt: 220, Status: "success"},
+		{ID: 2, ChannelID: 1, ObservedAt: 160, Available: 80, ResetAt: 220, Status: "success"},
+		{ID: 3, ChannelID: 1, ObservedAt: 220, Available: 100, ResetAt: 1_000, Status: "success"},
+		{ID: 4, ChannelID: 1, ObservedAt: 280, Available: 98, ResetAt: 1_000, Status: "success"},
+	}
+	items, _ := buildQuotaChangeItemsWithAnalysis(rows, 100, 280, 60)
+	require.Len(t, items, 1)
+	require.Equal(t, "observed_window", items[0].Analysis.DefaultMethod)
+	require.InDelta(t, 2, *items[0].Analysis.Methods.ObservedWindow.RatePerMinute, 1e-9)
+	require.Equal(t, int64(60), items[0].Analysis.Methods.ObservedWindow.ObservedSeconds)
+	require.Equal(t, int64(280), *items[0].Analysis.Methods.ObservedWindow.ObservedAt)
+	require.InDelta(t, 1.0/3.0, items[0].Analysis.Methods.ObservedWindow.Coverage, 1e-9)
+	require.Equal(t, service.QuotaETAResetBeforeDepletion, items[0].Analysis.Methods.ObservedWindow.ETA.Outcome)
+}
+
+func TestQuotaChangesLimitBoundsAnalysisWork(t *testing.T) {
+	const seriesCount = 400
+	rows := make([]model.ChannelQuotaAggregateRow, 0, seriesCount*2)
+	for channelID := 1; channelID <= seriesCount; channelID++ {
+		rows = append(rows,
+			model.ChannelQuotaAggregateRow{ID: channelID * 2, ChannelID: channelID, ObservedAt: 100, Available: 100, Status: "success"},
+			model.ChannelQuotaAggregateRow{ID: channelID*2 + 1, ChannelID: channelID, ObservedAt: 160, Available: 99, Status: "success"},
+		)
+	}
+
+	items, quality := buildQuotaChangeItemsLightweight(rows)
+	require.Len(t, items, seriesCount)
+	require.Equal(t, seriesCount*2, quality.SuccessCount)
+	allItems := items
+	analysisCalls := 0
+	items = finalizeQuotaChangeItems(items, "", 1, 100, 160, 30, 3, func(consumption service.QuotaConsumptionResult, start, end, halfLife int64) service.QuotaAnalysis {
+		analysisCalls++
+		return service.QuotaAnalysis{DefaultMethod: "sentinel"}
+	})
+
+	require.Len(t, items, 1)
+	require.Equal(t, 1, analysisCalls)
+	require.NotNil(t, items[0].Analysis)
+	require.Equal(t, "sentinel", items[0].Analysis.DefaultMethod)
+	require.NotNil(t, items[0].OverviewPoints)
+	require.LessOrEqual(t, len(*items[0].OverviewPoints), 3)
+	for index := 1; index < len(allItems); index++ {
+		require.Nil(t, allItems[index].Analysis)
+		require.Nil(t, allItems[index].OverviewPoints)
+		require.Nil(t, allItems[index].analysisRows)
+	}
+}
+
+func TestQuotaChangesOmitsOverviewProjectionByDefault(t *testing.T) {
+	items, _ := buildQuotaChangeItems([]model.ChannelQuotaAggregateRow{
+		{ID: 1, ChannelID: 1, ObservedAt: 100, Available: 100, Status: "success"},
+		{ID: 2, ChannelID: 1, ObservedAt: 160, Available: 90, Status: "success"},
+	})
+	require.Len(t, items, 1)
+	require.Nil(t, items[0].OverviewPoints)
 }

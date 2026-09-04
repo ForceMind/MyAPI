@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"net/http"
 	"sort"
@@ -18,6 +19,7 @@ import (
 )
 
 const maxQuotaChangesLimit = 2000
+const maxQuotaOverviewPoints = 120
 
 // GetChannelQuotaSamplingStatus exposes only the effective sampler settings so
 // administrators can understand an empty trend panel without inspecting the
@@ -64,6 +66,8 @@ type quotaChangeItem struct {
 	ObservedAt             int64                           `json:"observed_at"`
 	Status                 string                          `json:"status"`
 	Consumption            service.QuotaConsumptionSummary `json:"consumption"`
+	Analysis               *service.QuotaAnalysis          `json:"analysis,omitempty"`
+	OverviewPoints         *[]service.QuotaOverviewPoint   `json:"overview_points,omitempty"`
 	PeakAbsChangePerMinute *float64                        `json:"peak_abs_change_per_minute,omitempty"`
 	PeakDropPerMinute      *float64                        `json:"peak_drop_per_minute,omitempty"`
 	PeakIncreasePerMinute  *float64                        `json:"peak_increase_per_minute,omitempty"`
@@ -72,6 +76,8 @@ type quotaChangeItem struct {
 	// never triggers notification, routing, or channel state changes.
 	Alert       *quotaHistoryAlert     `json:"alert,omitempty"`
 	DataQuality quotaChangeDataQuality `json:"data_quality"`
+
+	analysisRows []model.ChannelQuotaAggregateRow
 }
 
 type quotaChangeGroupKey struct {
@@ -121,6 +127,20 @@ func GetChannelQuotaChanges(c *gin.Context) {
 		common.ApiError(c, errors.New("invalid quota changes time range"))
 		return
 	}
+	rateWindowSeconds, err := parseQuotaAnalysisDuration(c.Query("rate_window"), end-start, "rate_window")
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	ewmaHalfLifeSeconds := defaultQuotaAnalysisHalfLife(rateWindowSeconds)
+	if value := strings.TrimSpace(c.Query("ewma_half_life")); value != "" {
+		ewmaHalfLifeSeconds, err = parseQuotaAnalysisDuration(value, rateWindowSeconds, "ewma_half_life")
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
+	analysisStart := end - rateWindowSeconds
 	limit := 20
 	if value := strings.TrimSpace(c.Query("limit")); value != "" {
 		parsed, err := strconv.Atoi(value)
@@ -132,6 +152,14 @@ func GetChannelQuotaChanges(c *gin.Context) {
 	}
 	if limit > maxQuotaChangesLimit {
 		limit = maxQuotaChangesLimit
+	}
+	overviewPointLimit := 0
+	if value := strings.TrimSpace(c.Query("overview_points")); value != "" {
+		overviewPointLimit, err = strconv.Atoi(value)
+		if err != nil || overviewPointLimit <= 0 || overviewPointLimit > maxQuotaOverviewPoints {
+			common.ApiError(c, fmt.Errorf("overview_points must be between 1 and %d", maxQuotaOverviewPoints))
+			return
+		}
 	}
 	channelIDs, err := parseQuotaChangeChannelIDs(c.Query("channel_ids"))
 	if err != nil {
@@ -148,24 +176,23 @@ func GetChannelQuotaChanges(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	items, quality := buildQuotaChangeItems(rows)
+	items, quality := buildQuotaChangeItemsLightweight(rows)
 	summary := quotaChangeSummary(items)
 	totalItems := len(items)
-	sortQuotaChangeItems(items, c.Query("sort"))
-	if len(items) > limit {
-		items = items[:limit]
-	}
+	items = finalizeQuotaChangeItems(items, c.Query("sort"), limit, analysisStart, end, ewmaHalfLifeSeconds, overviewPointLimit, service.AnalyzeQuotaConsumption)
 	response := gin.H{
-		"items":           items,
-		"range":           rangeName,
-		"start":           start,
-		"end":             end,
-		"generated_at":    now,
-		"data_quality":    quality,
-		"total_items":     totalItems,
-		"returned_items":  len(items),
-		"source_complete": true,
-		"items_complete":  totalItems == len(items),
+		"items":                  items,
+		"range":                  rangeName,
+		"start":                  start,
+		"end":                    end,
+		"generated_at":           now,
+		"rate_window_seconds":    rateWindowSeconds,
+		"ewma_half_life_seconds": ewmaHalfLifeSeconds,
+		"data_quality":           quality,
+		"total_items":            totalItems,
+		"returned_items":         len(items),
+		"source_complete":        true,
+		"items_complete":         totalItems == len(items),
 	}
 	response["summary"] = summary
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": response})
@@ -216,6 +243,28 @@ func finiteQuotaChangeValue(value float64) bool {
 }
 
 func buildQuotaChangeItems(rows []model.ChannelQuotaAggregateRow) ([]quotaChangeItem, quotaChangeDataQuality) {
+	if len(rows) == 0 {
+		return []quotaChangeItem{}, quotaChangeDataQuality{}
+	}
+	start, end := rows[0].ObservedAt, rows[0].ObservedAt
+	for _, row := range rows[1:] {
+		if row.ObservedAt < start {
+			start = row.ObservedAt
+		}
+		if row.ObservedAt > end {
+			end = row.ObservedAt
+		}
+	}
+	return buildQuotaChangeItemsWithAnalysis(rows, start, end, defaultQuotaAnalysisHalfLife(end-start))
+}
+
+func buildQuotaChangeItemsWithAnalysis(rows []model.ChannelQuotaAggregateRow, analysisStart, analysisEnd, ewmaHalfLifeSeconds int64) ([]quotaChangeItem, quotaChangeDataQuality) {
+	items, quality := buildQuotaChangeItemsLightweight(rows)
+	attachQuotaChangeAnalysis(items, analysisStart, analysisEnd, ewmaHalfLifeSeconds, 0, service.AnalyzeQuotaConsumption)
+	return items, quality
+}
+
+func buildQuotaChangeItemsLightweight(rows []model.ChannelQuotaAggregateRow) ([]quotaChangeItem, quotaChangeDataQuality) {
 	groups := make(map[quotaChangeGroupKey][]model.ChannelQuotaAggregateRow)
 	keyFor := func(row model.ChannelQuotaAggregateRow) quotaChangeGroupKey {
 		return quotaChangeGroupKey{row.ChannelID, row.MetricType, row.WindowType, row.Source, row.PlanType, row.Unit, row.Currency, row.WindowSeconds}
@@ -327,7 +376,8 @@ func buildQuotaChangeItem(rows []model.ChannelQuotaAggregateRow) quotaChangeItem
 		Unit: identity.Unit, Currency: identity.Currency, PlanType: identity.PlanType,
 		WindowSeconds: identity.WindowSeconds,
 		ObservedAt:    latest.ObservedAt, Status: quotaHistorySnapshotStatus(quotaChangeSnapshot(latest)), Direction: "unavailable",
-		Consumption: consumption.Summary,
+		Consumption:  consumption.Summary,
+		analysisRows: rows,
 	}
 	// Keep the global quota-change view consistent with the channel history
 	// endpoint: failed, unsupported, or total-less observations report an
@@ -396,6 +446,39 @@ func buildQuotaChangeItem(rows []model.ChannelQuotaAggregateRow) quotaChangeItem
 		item.Direction = "unknown"
 	}
 	return item
+}
+
+type quotaChangeAnalyzer func(service.QuotaConsumptionResult, int64, int64, int64) service.QuotaAnalysis
+
+func attachQuotaChangeAnalysis(items []quotaChangeItem, analysisStart, analysisEnd, ewmaHalfLifeSeconds int64, overviewPointLimit int, analyze quotaChangeAnalyzer) {
+	for index := range items {
+		snapshots := make([]model.ChannelQuotaSnapshot, 0, len(items[index].analysisRows))
+		for _, row := range items[index].analysisRows {
+			snapshots = append(snapshots, quotaChangeSnapshot(row))
+		}
+		consumption := service.DeriveQuotaConsumption(snapshots, items[index].Unit)
+		analysis := analyze(consumption, analysisStart, analysisEnd, ewmaHalfLifeSeconds)
+		items[index].Analysis = &analysis
+		if overviewPointLimit > 0 {
+			points := service.BuildQuotaOverviewPoints(consumption.Observations, overviewPointLimit)
+			items[index].OverviewPoints = &points
+		}
+		items[index].analysisRows = nil
+	}
+}
+
+func finalizeQuotaChangeItems(items []quotaChangeItem, sortValue string, limit int, analysisStart, analysisEnd, ewmaHalfLifeSeconds int64, overviewPointLimit int, analyze quotaChangeAnalyzer) []quotaChangeItem {
+	sortQuotaChangeItems(items, sortValue)
+	if limit > 0 && len(items) > limit {
+		for index := limit; index < len(items); index++ {
+			items[index].Analysis = nil
+			items[index].OverviewPoints = nil
+			items[index].analysisRows = nil
+		}
+		items = append([]quotaChangeItem(nil), items[:limit]...)
+	}
+	attachQuotaChangeAnalysis(items, analysisStart, analysisEnd, ewmaHalfLifeSeconds, overviewPointLimit, analyze)
+	return items
 }
 
 func quotaChangeSnapshot(row model.ChannelQuotaAggregateRow) model.ChannelQuotaSnapshot {

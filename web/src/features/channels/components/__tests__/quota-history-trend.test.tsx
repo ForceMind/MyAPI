@@ -19,6 +19,8 @@ import type {
   QuotaHistoryMetric,
 } from '../../lib/quota-history'
 import type {
+  ChannelQuotaAnalysis,
+  ChannelQuotaETA,
   ChannelQuotaHistoryData,
   ChannelQuotaHistoryPoint,
 } from '../../types'
@@ -61,6 +63,44 @@ function makeHistory(
   }
 }
 
+function makeAnalysis(
+  outcome: ChannelQuotaAnalysis['methods']['observed_window']['eta']['outcome']
+): ChannelQuotaAnalysis {
+  let eta: ChannelQuotaETA = { outcome }
+  if (outcome === 'reset_before_depletion') {
+    eta = { outcome, reset_at: 400, seconds_until_reset: 200 }
+  } else if (outcome === 'depletes_before_reset') {
+    eta = {
+      outcome,
+      estimated_depletion_at: 300,
+      seconds_to_depletion: 100,
+    }
+  }
+  const method = {
+    rate_per_minute: outcome === 'insufficient_data' ? null : 0,
+    rate_per_hour: outcome === 'insufficient_data' ? null : 0,
+    coverage: outcome === 'insufficient_data' ? 0 : 0.75,
+    observed_seconds: outcome === 'insufficient_data' ? 0 : 2700,
+    interval_count: outcome === 'insufficient_data' ? 0 : 45,
+    observed_at: outcome === 'insufficient_data' ? null : 200,
+    eta,
+  }
+  return {
+    default_method: 'observed_window',
+    rate_window_seconds: 3600,
+    window_start: 100,
+    window_end: 250,
+    as_of: 250,
+    ewma_half_life_seconds: 1800,
+    complete: true,
+    methods: {
+      latest_interval: method,
+      observed_window: method,
+      ewma: method,
+    },
+  }
+}
+
 function ControlledTrend(props: { data: ChannelQuotaHistoryData }) {
   const [range, setRange] = useState('24h')
   const [granularity, setGranularity] = useState('raw')
@@ -83,6 +123,83 @@ function ControlledTrend(props: { data: ChannelQuotaHistoryData }) {
 }
 
 describe('quota history trend', () => {
+  test.each([
+    [
+      'depletes_before_reset',
+      'Estimated depletion',
+      'Estimated time from analysis point: 50 seconds',
+    ],
+    [
+      'reset_before_depletion',
+      'Reset before depletion',
+      'Estimated time from analysis point: 2.5 minutes',
+    ],
+    [
+      'stable_or_no_observed_consumption',
+      'Stable or no observed consumption',
+      'Stable',
+    ],
+    [
+      'insufficient_data',
+      'Insufficient data',
+      'No depletion forecast available',
+    ],
+  ] as const)(
+    'renders reset-aware analysis outcome %s without inventing another ETA',
+    (outcome, expectedLabel, expectedValue) => {
+      render(
+        <QuotaHistoryTrend
+          data={makeHistory(
+            [{ timestamp: 200, status: 'success', available: 0 }],
+            { analysis: makeAnalysis(outcome) }
+          )}
+          range='24h'
+          granularity='raw'
+          metric='available'
+          chartStyle='line'
+          analysisMethod='observed_window'
+        />
+      )
+
+      expect(screen.getByText(expectedLabel)).toBeInTheDocument()
+      expect(
+        screen.getAllByText(new RegExp(expectedValue)).length
+      ).toBeGreaterThan(0)
+      expect(screen.getAllByText(/Observed coverage/).length).toBeGreaterThan(0)
+      for (const label of [
+        'Estimated depletion',
+        'Reset before depletion',
+        'Stable or no observed consumption',
+        'Insufficient data',
+      ]) {
+        if (label !== expectedLabel) {
+          expect(screen.queryByText(label)).not.toBeInTheDocument()
+        }
+      }
+    }
+  )
+  test('marks an ETA at or before analysis as-of as passed', () => {
+    const analysis = makeAnalysis('depletes_before_reset')
+    analysis.methods.observed_window.eta.estimated_depletion_at = 250
+    render(
+      <QuotaHistoryTrend
+        data={makeHistory(
+          [{ timestamp: 200, status: 'success', available: 0 }],
+          { analysis }
+        )}
+        range='24h'
+        granularity='raw'
+        metric='available'
+        chartStyle='line'
+        analysisMethod='observed_window'
+      />
+    )
+
+    expect(screen.getByText('Prediction time has passed')).toBeInTheDocument()
+    expect(
+      screen.queryByText(/Estimated time from analysis point:/)
+    ).not.toBeInTheDocument()
+  })
   test('prevents custom ranges longer than the backend 180-day limit and accepts a shorter range', () => {
     const onApply = vi.fn()
     render(

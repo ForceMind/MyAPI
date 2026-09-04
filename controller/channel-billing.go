@@ -755,6 +755,50 @@ func parseQuotaHistoryWindowSeconds(value string) (*int64, error) {
 	return &seconds, nil
 }
 
+func parseQuotaAnalysisDuration(value string, maximum int64, field string) (int64, error) {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return maximum, nil
+	}
+	presets := map[string]int64{
+		"1m":  60,
+		"5m":  5 * 60,
+		"15m": 15 * 60,
+		"1h":  60 * 60,
+		"6h":  6 * 60 * 60,
+		"24h": 24 * 60 * 60,
+		"1d":  24 * 60 * 60,
+		"7d":  7 * 24 * 60 * 60,
+		"30d": 30 * 24 * 60 * 60,
+		"90d": 90 * 24 * 60 * 60,
+	}
+	seconds, ok := presets[value]
+	if !ok {
+		parsed, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("%s must be seconds or a supported preset", field)
+		}
+		seconds = parsed
+	}
+	if seconds <= 0 {
+		return 0, fmt.Errorf("%s must be positive", field)
+	}
+	if seconds > 180*24*60*60 {
+		return 0, fmt.Errorf("%s cannot exceed 180 days", field)
+	}
+	if maximum <= 0 || seconds > maximum {
+		return 0, fmt.Errorf("%s cannot exceed the selected range", field)
+	}
+	return seconds, nil
+}
+
+func defaultQuotaAnalysisHalfLife(rateWindowSeconds int64) int64 {
+	if rateWindowSeconds <= 2 {
+		return 1
+	}
+	return rateWindowSeconds / 2
+}
+
 func resolveQuotaHistorySeriesFilter(filter model.ChannelQuotaSnapshotQuery, latest model.ChannelQuotaSnapshot) model.ChannelQuotaSnapshotQuery {
 	filter.ExactIdentity = true
 	if filter.MetricType == "" {
@@ -1073,9 +1117,9 @@ type quotaHistoryValueSummary struct {
 type quotaHistoryConsumptionSummary = service.QuotaConsumptionSummary
 
 type quotaHistorySummary struct {
-	// Legacy available fields remain for existing callers. New consumers must
-	// use Available, Used, and Consumption so an active chart metric and its
-	// summary cannot be accidentally mixed.
+	// Legacy available and forecast fields remain for existing callers. New
+	// consumers use Available, Used, Consumption, and the method-specific,
+	// reset-aware ETA values under data.analysis.
 	StartAvailable     *float64                       `json:"start_available,omitempty"`
 	EndAvailable       *float64                       `json:"end_available,omitempty"`
 	Change             *float64                       `json:"change,omitempty"`
@@ -1649,6 +1693,20 @@ func GetChannelQuotaHistory(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	rateWindowSeconds, err := parseQuotaAnalysisDuration(c.Query("rate_window"), end-start, "rate_window")
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	ewmaHalfLifeSeconds := defaultQuotaAnalysisHalfLife(rateWindowSeconds)
+	if value := strings.TrimSpace(c.Query("ewma_half_life")); value != "" {
+		ewmaHalfLifeSeconds, err = parseQuotaAnalysisDuration(value, rateWindowSeconds, "ewma_half_life")
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
+	analysisStart := end - rateWindowSeconds
 	seriesFilter := model.ChannelQuotaSnapshotQuery{
 		MetricType: strings.TrimSpace(c.Query("metric_type")),
 		WindowType: strings.TrimSpace(c.Query("window_type")),
@@ -1704,6 +1762,7 @@ func GetChannelQuotaHistory(c *gin.Context) {
 		"timezone_offset":       timezoneOffset,
 		"raw_observation_limit": maxQuotaHistoryRawObservations,
 		"points":                []quotaHistoryPoint{},
+		"analysis":              service.AnalyzeQuotaConsumption(service.QuotaConsumptionResult{}, analysisStart, end, ewmaHalfLifeSeconds),
 	}
 	quotaHistoryMetadata(response, identity)
 	if response["requested_granularity"] == "" {
@@ -1749,6 +1808,9 @@ func GetChannelQuotaHistory(c *gin.Context) {
 	response["alert"] = deriveQuotaHistoryAlert(latestSnapshot)
 
 	if rawObservations > maxQuotaHistoryRawObservations {
+		analysis := response["analysis"].(service.QuotaAnalysis)
+		analysis.Complete = false
+		response["analysis"] = analysis
 		response["available_points"] = 0
 		response["returned_points"] = 0
 		response["source_complete"] = false
@@ -1774,6 +1836,9 @@ func GetChannelQuotaHistory(c *gin.Context) {
 	if !successes.Complete || !events.Complete {
 		// A concurrent sampler can add rows between Count and List. Do not use
 		// the partial prefix from either query as a history range.
+		analysis := response["analysis"].(service.QuotaAnalysis)
+		analysis.Complete = false
+		response["analysis"] = analysis
 		response["available_points"] = 0
 		response["returned_points"] = 0
 		response["source_complete"] = false
@@ -1794,6 +1859,7 @@ func GetChannelQuotaHistory(c *gin.Context) {
 	response["current"] = quotaHistoryCurrent(latestSnapshot, identity.Source)
 	response["alert"] = deriveQuotaHistoryAlert(latestSnapshot)
 	consumption := service.DeriveQuotaConsumption(snapshots, identity.Unit)
+	response["analysis"] = service.AnalyzeQuotaConsumption(consumption, analysisStart, end, ewmaHalfLifeSeconds)
 	metrics := quotaHistoryMetricsFromConsumption(consumption)
 	points := quotaHistoryPointsFromObservations(consumption.Observations, granularity, timezoneOffset, identity.Source)
 	availablePoints := len(points)
