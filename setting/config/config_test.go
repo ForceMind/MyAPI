@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -201,6 +202,7 @@ func TestValidateConfigFromMap_DoesNotChangeConfig(t *testing.T) {
 type testMapConfig struct {
 	updateCalled bool
 	update       map[string]string
+	exportErr    error
 	onExport     func()
 	onUpdate     func()
 }
@@ -209,7 +211,7 @@ func (cfg *testMapConfig) ExportConfigMap() (map[string]string, error) {
 	if cfg.onExport != nil {
 		cfg.onExport()
 	}
-	return nil, nil
+	return nil, cfg.exportErr
 }
 
 func (cfg *testMapConfig) UpdateConfigMap(update map[string]string) error {
@@ -277,15 +279,85 @@ func TestConfigManagerDoesNotHoldRegistryLockAcrossCallbacks(t *testing.T) {
 	})
 }
 
+func TestConfigManagerSaveCallbackCanReenterLoadAndUsesExportedSnapshot(t *testing.T) {
+	manager := NewConfigManager()
+	first := &testConfigWithMap{Name: "first-before"}
+	second := &testConfigWithMap{Name: "second-before"}
+	manager.Register("first", first)
+	manager.Register("second", second)
+
+	saved := make(map[string]string)
+	reentered := false
+	requireConfigOperationCompletes(t, func() error {
+		return manager.SaveToDB(func(key, value string) error {
+			saved[key] = value
+			if reentered {
+				return nil
+			}
+			reentered = true
+			return manager.LoadFromDB(map[string]string{
+				"first.name":  "first-after",
+				"second.name": "second-after",
+			})
+		})
+	})
+
+	assert.Equal(t, "first-before", saved["first.name"])
+	assert.Equal(t, "second-before", saved["second.name"])
+	assert.Equal(t, "first-after", first.Name)
+	assert.Equal(t, "second-after", second.Name)
+}
+
+func TestConfigManagerSaveExportErrorSkipsCallbackAndPreservesError(t *testing.T) {
+	manager := NewConfigManager()
+	sentinel := errors.New("export failed")
+	manager.Register("managed", &testMapConfig{exportErr: sentinel})
+
+	callbackCalls := 0
+	err := configOperationResult(t, func() error {
+		return manager.SaveToDB(func(_, _ string) error {
+			callbackCalls++
+			return nil
+		})
+	})
+
+	require.ErrorIs(t, err, sentinel)
+	assert.Zero(t, callbackCalls)
+}
+
+func TestConfigManagerSaveCallbackErrorReleasesOperationLock(t *testing.T) {
+	manager := NewConfigManager()
+	manager.Register("base", &testConfigWithMap{Name: "before"})
+	sentinel := errors.New("update failed")
+
+	err := configOperationResult(t, func() error {
+		return manager.SaveToDB(func(_, _ string) error { return sentinel })
+	})
+	require.ErrorIs(t, err, sentinel)
+
+	requireConfigOperationCompletes(t, func() error {
+		return manager.LoadFromDB(map[string]string{"base.name": "after"})
+	})
+	requireConfigOperationCompletes(t, func() error {
+		return manager.SaveToDB(func(_, _ string) error { return nil })
+	})
+}
+
 func requireConfigOperationCompletes(t *testing.T, operation func() error) {
+	t.Helper()
+	require.NoError(t, configOperationResult(t, operation))
+}
+
+func configOperationResult(t *testing.T, operation func() error) error {
 	t.Helper()
 	result := make(chan error, 1)
 	go func() { result <- operation() }()
 	select {
 	case err := <-result:
-		require.NoError(t, err)
+		return err
 	case <-time.After(2 * time.Second):
 		t.Fatal("configuration manager callback deadlocked on the registry lock")
+		return nil
 	}
 }
 

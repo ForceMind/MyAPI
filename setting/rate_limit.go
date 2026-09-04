@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/common/limiter"
 )
 
 var ModelRequestRateLimitEnabled = false
@@ -239,13 +240,34 @@ func ValidateModelRequestRateLimitConfig(config ModelRequestRateLimitConfig) err
 		return err
 	}
 	durationSeconds := int64(config.DurationMinutes) * 60
-	if config.Total > 0 && durationSeconds > math.MaxInt64/int64(config.Total) {
-		return fmt.Errorf("model request rate limit count and duration exceed the supported capacity")
+	if err := validateModelRequestRateLimitBucket("model request", config.Total, durationSeconds); err != nil {
+		return err
 	}
 	for name, limits := range config.Group {
-		if limits[0] > 0 && durationSeconds > math.MaxInt64/int64(limits[0]) {
-			return fmt.Errorf("group %s rate limit count and duration exceed the supported capacity", name)
+		if err := validateModelRequestRateLimitBucket("group "+name, limits[0], durationSeconds); err != nil {
+			return err
 		}
+	}
+	return nil
+}
+
+func validateModelRequestRateLimitBucket(name string, total int, durationSeconds int64) error {
+	// A zero total disables this bucket, and a zero duration remains valid while
+	// the complete model request limiter configuration is disabled.
+	if total == 0 || durationSeconds == 0 {
+		return nil
+	}
+	rate := int64(total)
+	if durationSeconds > limiter.MaxExactInteger/rate {
+		return fmt.Errorf("%s rate limit count and duration exceed the limiter exact integer capacity of %d", name, limiter.MaxExactInteger)
+	}
+	config := limiter.Config{
+		Capacity:  rate * durationSeconds,
+		Rate:      rate,
+		Requested: durationSeconds,
+	}
+	if err := limiter.ValidateConfig(config); err != nil {
+		return fmt.Errorf("%s rate limit configuration is invalid: %w", name, err)
 	}
 	return nil
 }

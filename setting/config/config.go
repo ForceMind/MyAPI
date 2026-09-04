@@ -91,23 +91,24 @@ func (cm *ConfigManager) LoadFromDB(options map[string]string) error {
 
 // SaveToDB 将配置保存到数据库
 func (cm *ConfigManager) SaveToDB(updateFunc func(key, value string) error) error {
-	cm.operationMutex.RLock()
-	defer cm.operationMutex.RUnlock()
-	for name, config := range cm.snapshotConfigs() {
-		configMap, err := configToMap(config)
-		if err != nil {
-			return err
-		}
+	snapshot, err := cm.snapshotForSave()
+	if err != nil {
+		return err
+	}
 
-		for key, value := range configMap {
-			dbKey := name + "." + key
-			if err := updateFunc(dbKey, value); err != nil {
-				return err
-			}
+	for key, value := range snapshot {
+		if err := updateFunc(key, value); err != nil {
+			return err
 		}
 	}
 
 	return nil
+}
+
+func (cm *ConfigManager) snapshotForSave() (map[string]string, error) {
+	cm.operationMutex.RLock()
+	defer cm.operationMutex.RUnlock()
+	return cm.exportAllConfigsLocked()
 }
 
 // 辅助函数：将配置对象转换为map
@@ -408,11 +409,23 @@ func ValidateConfigFromMap(config interface{}, configMap map[string]string) erro
 func (cm *ConfigManager) ExportAllConfigs() map[string]string {
 	cm.operationMutex.RLock()
 	defer cm.operationMutex.RUnlock()
+	result, _ := cm.exportAllConfigsLocked()
+	return result
+}
+
+// exportAllConfigsLocked copies a complete flattened generation while the
+// caller holds operationMutex for reading. External persistence callbacks must
+// run only after that lock is released.
+func (cm *ConfigManager) exportAllConfigsLocked() (map[string]string, error) {
 	result := make(map[string]string)
+	var firstErr error
 
 	for name, cfg := range cm.snapshotConfigs() {
 		configMap, err := ConfigToMap(cfg)
 		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
 			continue
 		}
 
@@ -422,5 +435,5 @@ func (cm *ConfigManager) ExportAllConfigs() map[string]string {
 		}
 	}
 
-	return result
+	return result, firstErr
 }

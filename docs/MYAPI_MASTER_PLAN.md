@@ -226,6 +226,24 @@ check→execute→record 的近似合同，并发可能超发；跨配置族 rel
 `null`、未知分层 key、Passkey 懒写和 `GroupRatioSetting` 可变指针待审计。C09 只读设计已完成、实施仍待
 分批收敛；D09 与 D10 均已完成当前范围并通过同提交 CI。
 
+S2-C09-R1 本地已完成，待同提交 CI，不记录未产生的 SHA 或 CI 结果；独立最终复审确认当前范围无 P1/P2，
+真实 Redis 与三数据库验证仍待 CI。
+当前范围包括：payment compliance 五字段以单次 `UpdateOptionsBulk` 写入；SQLite 覆盖成功及保留旧值的
+rollback，既有 MySQL 5.7/PostgreSQL 9.6 fixture 仍待 CI 验证。工具价格配置改为 source 与 index 在同一
+代际不可变原子发布，公开 DTO 保持兼容，严格 `MapConfig` 与历史宽松 loader 分离。`ConfigManager.SaveToDB`
+在完整快照完成后于锁外回调，覆盖重入和错误释放。Redis limiter 取消首个 client singleton，Lua 通过
+`redis.Script` 在 `NOSCRIPT` 后恢复；TTL 按自然复满时间设置，不再截断为 24 小时；Go 在触碰 Redis 前拒绝
+非正、超过 2^53 或 `Requested > Capacity` 的参数，Lua 还在写入前拒绝非整数，拒绝路径零写入；miniredis 回归已通过，新增独立
+真实 Redis 7 CI job 待跑。`common/limiter` 已导出并复用 `MaxExactInteger`/`ValidateConfig`；Settings 对默认及每个
+group 在 DB 写入前均按实际 `capacity=total*durationSeconds`、`rate=total`、`requested=durationSeconds` 使用同一
+2^53-1 精确边界，覆盖大于 2^53 且不超过 MaxInt64 的拒绝，并确保 runtime/OptionMap 不发布；保留 `total=0` 和
+disabled `duration=0`。仍不完成：成功限额仍为 check→execute→record，未引入 reservation/rollback；
+总量仍令牌桶，未改变产品语义；generic 21 模块热读、跨族事务、Passkey/null/未知 key/`GroupRatioSetting`
+仍待；payment runtime 的逐字段读取与活指针问题未解决；真实付款、生产、设备及发布未做。`VERSION` 保持 0.1.1。
+本机实际通过扩展后的 Settings/C09 同 CI race、根模块全量 test/vet/build、relaykit 独立 vet/build/test、
+gofmt、diff-check、YAML 与根 JSON 静态门禁；真实 Redis 7 和 MySQL/PostgreSQL 仍只等待同提交 CI，不以本机
+miniredis 或 SQLite 替代。
+
 D08 本地将 `pkg/ionet/client.go`、`pkg/ionet/jsonutil.go` 各 4 处实际 stdlib JSON 调用迁移至
 `common` wrapper，根模块余量由 19/6 降为 11/4。无网络 fake client 覆盖请求 body/headers/method/URL、
 NaN marshal、transport/API detail fallback、query slices/HTML escape/空值/零值/false/`time.Time`/

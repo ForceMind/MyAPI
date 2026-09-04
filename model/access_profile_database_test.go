@@ -4,11 +4,13 @@ import (
 	"errors"
 	"net"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/setting"
 	"github.com/ForceMind/MyAPI/setting/config"
+	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	mysqldriver "github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -37,6 +39,96 @@ type s1TokenIdentityRow struct {
 	ID              int    `gorm:"column:id;primaryKey"`
 	Group           string `gorm:"column:group;type:varchar(64)"`
 	AccessProfileID string `gorm:"column:access_profile_id;type:varchar(64);default:'standard';index"`
+}
+
+func s2PaymentComplianceOptionValues() map[string]string {
+	return map[string]string{
+		"payment_setting.compliance_confirmed":     "true",
+		"payment_setting.compliance_terms_version": operation_setting.CurrentComplianceTermsVersion,
+		"payment_setting.compliance_confirmed_at":  "1700000000",
+		"payment_setting.compliance_confirmed_by":  "42",
+		"payment_setting.compliance_confirmed_ip":  "192.0.2.17",
+	}
+}
+
+func s2PaymentComplianceOldOptionValues() map[string]string {
+	return map[string]string{
+		"payment_setting.compliance_confirmed":     "false",
+		"payment_setting.compliance_terms_version": "v0",
+		"payment_setting.compliance_confirmed_at":  "1600000000",
+		"payment_setting.compliance_confirmed_by":  "7",
+		"payment_setting.compliance_confirmed_ip":  "198.51.100.7",
+	}
+}
+
+// s2PaymentComplianceBulkRollbackContract is intentionally run against every
+// supported database fixture. The failure is tied to the second update, rather
+// than a particular option key, so the contract does not depend on map order.
+func s2PaymentComplianceBulkRollbackContract(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	require.NoError(t, db.AutoMigrate(&Option{}))
+
+	common.OptionMapRWMutex.Lock()
+	previousOptions := common.OptionMap
+	common.OptionMap = map[string]string{"fixture": "before"}
+	oldOptions := s2PaymentComplianceOldOptionValues()
+	for key, value := range oldOptions {
+		common.OptionMap[key] = value
+	}
+	common.OptionMapRWMutex.Unlock()
+	paymentSetting := operation_setting.GetPaymentSetting()
+	previousPaymentSetting := *paymentSetting
+	baselinePaymentSetting := operation_setting.PaymentSetting{
+		ComplianceTermsVersion: oldOptions["payment_setting.compliance_terms_version"],
+		ComplianceConfirmedAt:  1600000000,
+		ComplianceConfirmedBy:  7,
+		ComplianceConfirmedIP:  oldOptions["payment_setting.compliance_confirmed_ip"],
+	}
+	*paymentSetting = baselinePaymentSetting
+	restoreGlobals := sync.OnceFunc(func() {
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap = previousOptions
+		common.OptionMapRWMutex.Unlock()
+		*paymentSetting = previousPaymentSetting
+	})
+	defer restoreGlobals()
+	t.Cleanup(restoreGlobals)
+	for key, value := range oldOptions {
+		require.NoError(t, db.Create(&Option{Key: key, Value: value}).Error)
+	}
+
+	injected := errors.New("injected payment compliance bulk persistence failure")
+	updates := 0
+	const callbackName = "test:s2-payment-compliance-bulk-failure"
+	require.NoError(t, db.Callback().Update().Before("gorm:update").Register(callbackName, func(tx *gorm.DB) {
+		updates++
+		if updates == 2 {
+			tx.AddError(injected)
+		}
+	}))
+	removeCallback := sync.OnceFunc(func() { require.NoError(t, db.Callback().Update().Remove(callbackName)) })
+	defer removeCallback()
+	t.Cleanup(removeCallback)
+
+	require.ErrorIs(t, UpdateOptionsBulk(s2PaymentComplianceOptionValues()), injected)
+	assert.Equal(t, 2, updates)
+	var options []Option
+	require.NoError(t, db.Find(&options).Error)
+	persisted := make(map[string]string, len(oldOptions))
+	for _, option := range options {
+		if _, ok := oldOptions[option.Key]; ok {
+			persisted[option.Key] = option.Value
+		}
+	}
+	assert.Equal(t, oldOptions, persisted)
+	common.OptionMapRWMutex.RLock()
+	expectedPublished := map[string]string{"fixture": "before"}
+	for key, value := range oldOptions {
+		expectedPublished[key] = value
+	}
+	assert.Equal(t, expectedPublished, common.OptionMap)
+	common.OptionMapRWMutex.RUnlock()
+	assert.Equal(t, baselinePaymentSetting, *paymentSetting)
 }
 
 func s1DatabaseDialector(engine, dsn string) (gorm.Dialector, error) {
@@ -88,6 +180,10 @@ func TestS1AccessProfileDatabaseTargetSafety(t *testing.T) {
 			require.Error(t, err)
 		})
 	}
+}
+
+func TestS2PaymentComplianceBulkRollbackSQLite(t *testing.T) {
+	s2PaymentComplianceBulkRollbackContract(t, accessProfileTestDB(t))
 }
 
 func TestAccessProfileConfiguredDatabases(t *testing.T) {
@@ -237,6 +333,7 @@ func TestAccessProfileConfiguredDatabases(t *testing.T) {
 					}
 				})
 			}
+			s2PaymentComplianceBulkRollbackContract(t, db)
 			require.NoError(t, UpdateOption(key, after))
 			var stored Option
 			require.NoError(t, db.First(&stored, Option{Key: key}).Error)

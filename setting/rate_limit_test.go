@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ForceMind/MyAPI/common/limiter"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -96,26 +97,33 @@ func TestResolveModelRequestRateLimitSeesOnlyAtomicConfigurations(t *testing.T) 
 	}
 }
 
-func TestValidateModelRequestRateLimitConfigRejectsDurationAndCapacityOverflow(t *testing.T) {
+func TestValidateModelRequestRateLimitConfigRejectsDurationAndInexactLimiterCapacity(t *testing.T) {
 	maxDurationMinutes := int(int64(math.MaxInt64) / int64(time.Minute))
+	durationSeconds := int64(maxDurationMinutes) * 60
+	maxExactTotal := int(limiter.MaxExactInteger / durationSeconds)
 	valid := ModelRequestRateLimitConfig{
 		DurationMinutes: maxDurationMinutes,
-		Total:           1,
+		Total:           maxExactTotal,
 		Success:         1,
-		Group:           map[string][2]int{"vip": {1, 1}},
+		Group:           map[string][2]int{"vip": {maxExactTotal, 1}},
 	}
 	require.NoError(t, ValidateModelRequestRateLimitConfig(valid))
+	assert.LessOrEqual(t, int64(valid.Total)*durationSeconds, limiter.MaxExactInteger)
 
 	durationOverflow := valid
 	durationOverflow.DurationMinutes++
 	require.Error(t, ValidateModelRequestRateLimitConfig(durationOverflow))
 
 	capacityOverflow := valid
-	capacityOverflow.Total = math.MaxInt32
+	capacityOverflow.Total++
+	unsafeCapacity := int64(capacityOverflow.Total) * durationSeconds
+	assert.Greater(t, unsafeCapacity, limiter.MaxExactInteger)
+	assert.LessOrEqual(t, unsafeCapacity, int64(math.MaxInt64))
 	require.Error(t, ValidateModelRequestRateLimitConfig(capacityOverflow))
 
 	groupCapacityOverflow := valid
-	groupCapacityOverflow.Group = map[string][2]int{"vip": {math.MaxInt32, 1}}
+	groupCapacityOverflow.Total = 0
+	groupCapacityOverflow.Group = map[string][2]int{"vip": {maxExactTotal + 1, 1}}
 	require.Error(t, ValidateModelRequestRateLimitConfig(groupCapacityOverflow))
 }
 

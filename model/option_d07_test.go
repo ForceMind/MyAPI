@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/common/limiter"
 	"github.com/ForceMind/MyAPI/setting"
 	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
@@ -328,7 +329,7 @@ func TestUpdateOptionsBulkPublishesRateLimitConfigOnceComplete(t *testing.T) {
 	assert.Equal(t, int64(len(values)), persisted)
 }
 
-func TestUpdateOptionsBulkRejectsCombinedRateLimitOverflowBeforePersistence(t *testing.T) {
+func TestUpdateOptionsBulkRejectsInexactRateLimitCapacityBeforePersistence(t *testing.T) {
 	db := accessProfileTestDB(t)
 	require.NoError(t, db.AutoMigrate(&Option{}))
 	previousRateLimit := setting.GetModelRequestRateLimitConfig()
@@ -354,9 +355,14 @@ func TestUpdateOptionsBulkRejectsCombinedRateLimitOverflowBeforePersistence(t *t
 	})
 
 	maxDurationMinutes := int64(math.MaxInt64) / int64(time.Minute)
+	durationSeconds := maxDurationMinutes * 60
+	unsafeTotal := limiter.MaxExactInteger/durationSeconds + 1
+	unsafeCapacity := unsafeTotal * durationSeconds
+	require.Greater(t, unsafeCapacity, limiter.MaxExactInteger)
+	require.LessOrEqual(t, unsafeCapacity, int64(math.MaxInt64))
 	err := UpdateOptionsBulk(map[string]string{
 		"ModelRequestRateLimitDurationMinutes": strconv.FormatInt(maxDurationMinutes, 10),
-		"ModelRequestRateLimitCount":           strconv.Itoa(math.MaxInt32),
+		"ModelRequestRateLimitCount":           strconv.FormatInt(unsafeTotal, 10),
 	})
 	require.Error(t, err)
 

@@ -6,6 +6,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/ForceMind/MyAPI/common"
@@ -51,19 +52,29 @@ func seedHardcodedToolPrices(prices map[string]float64) {
 	prices["web_search_preview:gpt-4.1-mini*"] = defaultSearchPreviewModelPrice
 }
 
-// ToolPriceSetting is managed by config.GlobalConfig.Register.
-// Prices holds operator overrides only; hardcoded fallbacks live in the index.
+// ToolPriceSetting is the public serialization DTO retained for callers that
+// construct or decode tool-price configuration values.
 type ToolPriceSetting struct {
 	Prices map[string]float64 `json:"prices"`
 }
 
-var toolPriceSetting = ToolPriceSetting{
-	Prices: make(map[string]float64),
+// managedToolPriceSetting publishes immutable operator overrides and their
+// derived lookup index as one generation. It is intentionally private so the
+// live source map cannot be mutated outside its publication methods.
+type managedToolPriceSetting struct {
+	writeMutex sync.Mutex
+	current    atomic.Pointer[toolPriceState]
 }
 
+type toolPriceState struct {
+	overrides map[string]float64
+	index     toolPriceIndex
+}
+
+var toolPriceSetting = newManagedToolPriceSetting()
+
 func init() {
-	config.GlobalConfig.Register("tool_price_setting", &toolPriceSetting)
-	RebuildToolPriceIndex()
+	config.GlobalConfig.Register("tool_price_setting", toolPriceSetting)
 }
 
 // ---------------------------------------------------------------------------
@@ -79,8 +90,6 @@ type toolPriceIndex struct {
 	defaults map[string]float64
 	prefixes map[string][]prefixEntry
 }
-
-var currentIndex atomic.Pointer[toolPriceIndex]
 
 func isValidToolPrice(price float64) bool {
 	return price >= 0 && !math.IsNaN(price) && !math.IsInf(price, 0)
@@ -135,69 +144,137 @@ func ValidateToolPricesJSON(value string) error {
 // Invalid legacy entries are ignored individually so valid sibling overrides
 // survive, while missing built-in keys continue to use hardcoded fallbacks.
 func LoadToolPricesFromJSONString(value string) {
+	toolPriceSetting.loadJSONString(value)
+}
+
+func (s *managedToolPriceSetting) loadJSONString(value string) {
 	prices, err := decodeToolPricesJSON(value, true)
 	if err != nil {
 		common.SysError("加载工具价格失败，将使用硬编码兜底: " + err.Error())
 		prices = make(map[string]float64)
 	}
-	toolPriceSetting.Prices = prices
-	RebuildToolPriceIndex()
+	s.replaceOverrides(prices)
 }
 
-// RebuildToolPriceIndex rebuilds the lookup index from the current config.
-// Called on init and after config updates. Not on the billing hot path.
-func RebuildToolPriceIndex() {
-	merged := make(map[string]float64, 9+len(toolPriceSetting.Prices))
-	seedHardcodedToolPrices(merged)
-	for k, v := range toolPriceSetting.Prices {
-		if !isValidToolPrice(v) {
-			continue
+func newManagedToolPriceSetting() *managedToolPriceSetting {
+	setting := &managedToolPriceSetting{}
+	setting.current.Store(buildToolPriceState(nil))
+	return setting
+}
+
+func buildToolPriceState(overrides map[string]float64) *toolPriceState {
+	validOverrides := make(map[string]float64, len(overrides))
+	for key, price := range overrides {
+		if isValidToolPrice(price) {
+			validOverrides[key] = price
 		}
+	}
+
+	merged := make(map[string]float64, 9+len(validOverrides))
+	seedHardcodedToolPrices(merged)
+	for k, v := range validOverrides {
 		merged[k] = v
 	}
 
-	idx := &toolPriceIndex{
-		defaults: make(map[string]float64),
-		prefixes: make(map[string][]prefixEntry),
+	state := &toolPriceState{
+		overrides: validOverrides,
+		index: toolPriceIndex{
+			defaults: make(map[string]float64),
+			prefixes: make(map[string][]prefixEntry),
+		},
 	}
 
 	for key, price := range merged {
 		colonIdx := strings.IndexByte(key, ':')
 		if colonIdx < 0 {
-			idx.defaults[key] = price
+			state.index.defaults[key] = price
 			continue
 		}
 		toolName := key[:colonIdx]
 		modelPart := key[colonIdx+1:]
 		prefix := strings.TrimSuffix(modelPart, "*")
-		idx.prefixes[toolName] = append(idx.prefixes[toolName], prefixEntry{prefix: prefix, price: price})
+		state.index.prefixes[toolName] = append(state.index.prefixes[toolName], prefixEntry{prefix: prefix, price: price})
 	}
 
-	for tool := range idx.prefixes {
-		entries := idx.prefixes[tool]
+	for tool := range state.index.prefixes {
+		entries := state.index.prefixes[tool]
 		sort.Slice(entries, func(i, j int) bool {
 			if len(entries[i].prefix) == len(entries[j].prefix) {
 				return entries[i].prefix < entries[j].prefix
 			}
 			return len(entries[i].prefix) > len(entries[j].prefix)
 		})
-		idx.prefixes[tool] = entries
+		state.index.prefixes[tool] = entries
 	}
+	return state
+}
 
-	currentIndex.Store(idx)
+func (s *managedToolPriceSetting) replaceOverrides(overrides map[string]float64) {
+	candidate := buildToolPriceState(overrides)
+	s.writeMutex.Lock()
+	s.current.Store(candidate)
+	s.writeMutex.Unlock()
+}
+
+func (s *managedToolPriceSetting) mutateOverrides(mutate func(map[string]float64)) {
+	s.writeMutex.Lock()
+	current := s.current.Load()
+	overrides := make(map[string]float64)
+	if current != nil {
+		overrides = make(map[string]float64, len(current.overrides)+1)
+		for key, price := range current.overrides {
+			overrides[key] = price
+		}
+	}
+	mutate(overrides)
+	s.current.Store(buildToolPriceState(overrides))
+	s.writeMutex.Unlock()
+}
+
+func (s *managedToolPriceSetting) ExportConfigMap() (map[string]string, error) {
+	state := s.current.Load()
+	overrides := map[string]float64{}
+	if state != nil {
+		overrides = state.overrides
+	}
+	raw, err := common.Marshal(overrides)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]string{"prices": string(raw)}, nil
+}
+
+func (s *managedToolPriceSetting) UpdateConfigMap(values map[string]string) error {
+	raw, ok := values["prices"]
+	if !ok {
+		return nil
+	}
+	prices, err := decodeToolPricesJSON(raw, false)
+	if err != nil {
+		return err
+	}
+	s.replaceOverrides(prices)
+	return nil
+}
+
+// RebuildToolPriceIndex republishes the current immutable overrides together
+// with a freshly derived index. It is not used on the billing hot path.
+func RebuildToolPriceIndex() {
+	toolPriceSetting.mutateOverrides(func(map[string]float64) {})
 }
 
 // GetToolPriceForModel returns the price ($/1K calls) for a tool given a model name.
 // Lookup: longest prefix match → tool default → 0.
 func GetToolPriceForModel(toolName, modelName string) float64 {
-	idx := currentIndex.Load()
-	if idx == nil {
-		RebuildToolPriceIndex()
-		idx = currentIndex.Load()
-		if idx == nil {
-			return 0
-		}
+	return toolPriceSetting.getPriceForModel(toolName, modelName)
+}
+
+func (s *managedToolPriceSetting) getPriceForModel(toolName, modelName string) float64 {
+	state := s.current.Load()
+	if state == nil {
+		return 0
 	}
+	idx := &state.index
 
 	if entries, ok := idx.prefixes[toolName]; ok && modelName != "" {
 		for _, e := range entries {
@@ -220,17 +297,16 @@ func GetToolPrice(toolName string) float64 {
 
 // SetToolPriceForTest injects a tool price and rebuilds the lookup index. Tests only.
 func SetToolPriceForTest(name string, price float64) {
-	if toolPriceSetting.Prices == nil {
-		toolPriceSetting.Prices = make(map[string]float64)
-	}
-	toolPriceSetting.Prices[name] = price
-	RebuildToolPriceIndex()
+	toolPriceSetting.mutateOverrides(func(overrides map[string]float64) {
+		overrides[name] = price
+	})
 }
 
 // DeleteToolPriceForTest removes an injected tool price and rebuilds the index. Tests only.
 func DeleteToolPriceForTest(name string) {
-	delete(toolPriceSetting.Prices, name)
-	RebuildToolPriceIndex()
+	toolPriceSetting.mutateOverrides(func(overrides map[string]float64) {
+		delete(overrides, name)
+	})
 }
 
 // ---------------------------------------------------------------------------

@@ -117,7 +117,7 @@ race、relaykit 独立构建/测试、Node22 发行合同及干净源码 pack �
 | C06 | 已完成／测试隔离、本机/CI race 与独立复审通过 | 生产 logger 计数/轮转预约状态及轮询测试共享对象 | 两个渠道并发记录日志无 data race；保留日志格式与轮转、多渠道并发；测试使用独立快照/通知，不用串行化或 sleep 掩盖。 |
 | C07 | 已完成当前范围 | `common` 请求正文替换生命周期、Kling/Jimeng 兼容路由、Full Content 入口身份、Provider 模型/时长边界 | 所有正文读取路径同版本；原始客户端日志与转换后分发分离；`model_name`/`req_key`、Kling duration/mode、Jimeng frames 不得绕过已验证/已计费字段；内存/磁盘清理、race 与同提交 CI 通过。 |
 | C08 | 已完成当前范围 | Settings JSON、持久化前验证、限流快照、倍率与配置发布 | 失败解析/DB 失败不改 runtime；负/非有限倍率拒绝；rate 单请求快照、溢出/内存/动态窗口回归；本地普通/race/全量及 `2d6acab` 同 SHA CI 通过。 |
-| C09 | 只读设计已完成／实施未开始 | Settings 控制面并发与硬限额合同 | generic config 热读快照/锁、成功限额 reservation/rollback、跨配置族 reload 原子性取舍、历史 null/未知 key/Passkey 懒写/可变指针审计。 |
+| C09 | R1 本地完成／待同提交 CI | Settings 控制面并发与硬限额合同 | 本轮完成 payment 五字段单批写、工具价格不可变同代际发布、ConfigManager 锁外回调和 Redis limiter 边界修复；独立最终复审当前范围无 P1/P2，真实 Redis/三数据库仍待 CI；generic config 热读快照/锁、成功限额 reservation/rollback、跨配置族 reload 原子性及历史 null/未知 key/Passkey 懒写/可变指针审计仍待。 |
 
 C03a 不等于整个账务缓存一致性完成。现有缺损 hash 的 miss→hydrate/DB fallback 仍未改；
 高层 User/Token quota 增减仍异步更新缓存、失败只记录而数据库继续写，须在 C03b 单列。
@@ -127,6 +127,24 @@ C03a 不等于整个账务缓存一致性完成。现有缺损 hash 的 miss→h
 显式开关、字面 loopback、整个实例为空，仅在 DB 15 写测试键，不 FLUSH/删除；用
 PEXPIRETIME 比较绝对过期时刻，不靠 sleep 或相对 TTL 的时间差判定。它不证明跨实例
 丢失增量恢复。首次红测和独立复审发现/修正均记入[完成度审计](COMPLETION_AUDIT.md)。
+
+**S2-C09-R1（本地完成／待同提交 CI）：** 不虚构提交号或 CI；独立最终复审确认当前范围无 P1/P2，真实 Redis
+与三数据库仍待 CI。payment compliance 五字段
+由单次 `UpdateOptionsBulk` 原子提交；SQLite 成功与保留旧值 rollback 已回归，既有 MySQL 5.7/PostgreSQL 9.6
+fixture 待 CI。工具价格 source/index 以不可变同代际快照原子发布，公开 DTO 兼容保留，严格 `MapConfig` 与历史
+宽松 loader 分离。`ConfigManager.SaveToDB` 完整快照后锁外 callback，覆盖重入及错误释放。Redis limiter 移除首 client
+singleton；`redis.Script` 在 `NOSCRIPT` 后恢复；TTL 自然复满而不截断至 24 小时；Go 在触碰 Redis 前拒绝非正、
+超过 2^53 与 `Requested > Capacity` 的参数，Lua 还在写前拒绝非整数，拒绝路径零写。`common/limiter` 导出并复用 `MaxExactInteger`/`ValidateConfig`；
+Settings 默认及每个 group 在 DB 写入前按实际 `capacity=total*durationSeconds`、`rate=total`、`requested=durationSeconds`
+使用同一 2^53-1 精确边界，覆盖大于 2^53 且不超过 MaxInt64 的拒绝，runtime/OptionMap 不发布；保留 `total=0` 和
+disabled `duration=0`。miniredis 已通过，新增独立真实 Redis 7 CI job 待跑。
+
+本机扩展 Settings/C09 同 CI race、根模块全量 test/vet/build、relaykit 独立 vet/build/test、格式、YAML 和
+根 JSON 静态门禁均通过；真实 Redis 7 与 MySQL/PostgreSQL 场景保留给同提交 CI 原始步骤验证。
+
+本轮明确不完成：成功限额仍 check→execute→record，未实现 reservation/rollback；总量仍令牌桶，不改产品语义；
+generic 21 模块热读、跨族事务、Passkey/null/未知 key/`GroupRatioSetting` 审计仍待；payment runtime 逐字段/活指针
+仍未解决；真实付款、生产、设备和发布未做。`VERSION` 保持 0.1.1。
 
 C06 使用私有状态锁保护计数与轮转预约，不跨日志 I/O；只有自动轮转任务释放自己的
 预约，手动 SetupLogger 不误清。logger 全包 race（2.595s）与全部 UpdateVideoTasks

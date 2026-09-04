@@ -478,6 +478,31 @@ check→execute→record 的近似语义，并发可超发，未误报为硬限�
 best-effort 而非全量事务；历史 DB raw `null`、未知分层 key、Passkey 懒写和
 `GroupRatioSetting` 可变指针待审计。C09 只读设计已完成、实施仍待分批收敛；D09 与 D10 均已完成当前范围并通过同提交 CI。
 
+## S2-C09-R1（2026-09-04，本地完成／待同提交 CI）
+
+本阶段尚无可报告的提交 SHA 或 CI 结果。payment compliance 五字段改由单一 `UpdateOptionsBulk` 提交；SQLite
+回归覆盖成功与保留旧值 rollback，既有 MySQL 5.7/PostgreSQL 9.6 fixture 待 CI。工具价格 source 与 index 采用
+不可变、同代际的原子发布，公开 DTO 保留；严格 `MapConfig` 和历史宽松 loader 分离。`ConfigManager.SaveToDB` 在完整
+快照后锁外执行 callback，并覆盖重入和错误释放。
+
+Redis limiter 已移除首个 client singleton，改用可处理 `NOSCRIPT` 恢复的 `redis.Script`；TTL 依自然复满设置，
+不再做 24 小时截断。Go 在触碰 Redis 前拒绝非正、超过 2^53 或 `Requested > Capacity` 的参数；Lua 还在写入前
+拒绝非整数，拒绝路径零写入。miniredis 回归已通过；新增独立真实 Redis 7 CI job 尚待运行。
+
+`common/limiter` 已导出并复用 `MaxExactInteger`/`ValidateConfig`。Settings 对默认及每个 group 均在 DB 写入前按实际
+`capacity=total*durationSeconds`、`rate=total`、`requested=durationSeconds` 采用同一 2^53-1 精确边界；大于 2^53
+且不超过 MaxInt64 的输入会被拒绝，runtime/OptionMap 不发布，同时保留 `total=0` 和 disabled `duration=0`。
+独立最终复审确认当前范围无 P1/P2；真实 Redis 与 MySQL 5.7/PostgreSQL 9.6 fixture 仍待同提交 CI。
+
+本机实际通过扩展后的 Settings/C09 同 CI race 命令、`go test -p 1 ./... -count=1`、`go vet ./...`、
+`go build -p 1 ./...`，以及 relaykit `GOWORK=off` vet/build/test；gofmt、diff-check、YAML 解析和根生产
+JSON 静态门禁同样通过。真实 Redis 7 gated 测试与 MySQL/PostgreSQL 回滚场景尚未在本机执行，必须由同提交
+CI 原始步骤闭环。
+
+本项不宣称关闭 C09：成功限额依然是 check→execute→record，未实现 reservation/rollback；总量仍令牌桶，未改变
+产品语义；generic 21 模块热读、跨族事务、Passkey/null/未知 key/`GroupRatioSetting` 审计仍待；payment runtime
+逐字段读取及活指针未解决；真实付款、生产、设备及发布均未做。`VERSION` 仍为 0.1.1。
+
 ## S2-D08 io.net 核心（2026-09-04，已完成当前范围）
 
 `pkg/ionet/client.go` 与 `pkg/ionet/jsonutil.go` 的各 4 处实际 stdlib JSON 调用已等价迁移至
@@ -531,6 +556,8 @@ diff-check 与静态门禁通过；独立复审最终无 P1/P2。最终 `bf03cba
 - D09 文档收尾：[CI 33819671044](https://github.com/ForceMind/MyAPI/actions/runs/33819671044) 七项成功。
 - S2-D10 最终提交 `bf03cba`：[CI 33821142971](https://github.com/ForceMind/MyAPI/actions/runs/33821142971)
   七项成功；根生产 JSON 余量 0/0，新增静态门禁与 io.net/cachex race 均实际成功。
+- D10 文档收尾提交 `521aa3c`：[CI 33821732655](https://github.com/ForceMind/MyAPI/actions/runs/33821732655)
+  七项成功；仅作为已完成 D10 的最近文档证据，不扩展为 C09-R1 的 CI 结论。
 - D08 文档提交：[CI 33817446025](https://github.com/ForceMind/MyAPI/actions/runs/33817446025) 七项成功；
   `upload-artifact` 的 Node 20→24 annotation 是非阻断 workflow 维护项，未为修正该注解扩大本批源码范围。
 - S2-D08 最终提交 `9193ada`：[CI 33816756504](https://github.com/ForceMind/MyAPI/actions/runs/33816756504)
