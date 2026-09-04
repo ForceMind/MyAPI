@@ -133,3 +133,35 @@ func TestSessionCookieOriginGuardDoesNotTrustForwardedProtoFromClient(t *testing
 
 	assert.Equal(t, http.StatusForbidden, response.Code)
 }
+
+func TestDashboardSessionOriginGuardEnforcesOriginOnLocalHTTP(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	previousSecure := common.SessionCookieSecure
+	common.SessionCookieSecure = false
+	t.Cleanup(func() { common.SessionCookieSecure = previousSecure })
+
+	router := gin.New()
+	router.POST("/api/channel/codex/local-auth/import", DashboardSessionOriginGuard(), func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+
+	for _, tc := range []struct {
+		name   string
+		origin string
+		want   int
+	}{
+		{name: "same origin", origin: "http://myapi.local", want: http.StatusNoContent},
+		{name: "cross origin", origin: "https://attacker.example", want: http.StatusForbidden},
+		{name: "missing origin", want: http.StatusForbidden},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "http://myapi.local/api/channel/codex/local-auth/import", nil)
+			if tc.origin != "" {
+				request.Header.Set("Origin", tc.origin)
+			}
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, request)
+			assert.Equal(t, tc.want, recorder.Code)
+		})
+	}
+}

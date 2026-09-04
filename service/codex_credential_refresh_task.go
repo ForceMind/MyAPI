@@ -118,7 +118,8 @@ func runCodexCredentialAutoRefreshOnce() {
 			}
 
 			refreshCtx, cancel := context.WithTimeout(ctx, codexCredentialRefreshTimeout)
-			newKey, _, err := RefreshCodexChannelCredential(refreshCtx, ch.Id, CodexCredentialRefreshOptions{ResetCaches: false})
+			expectedKey := ch.Key
+			newKey, _, err := RefreshCodexChannelCredential(refreshCtx, ch.Id, CodexCredentialRefreshOptions{ExpectedKey: &expectedKey})
 			cancel()
 			if err != nil {
 				logger.LogWarn(ctx, fmt.Sprintf("codex credential auto-refresh: channel_id=%d name=%s refresh failed: %v", ch.Id, ch.Name, err))
@@ -128,17 +129,6 @@ func runCodexCredentialAutoRefreshOnce() {
 			refreshed++
 			logger.LogInfo(ctx, fmt.Sprintf("codex credential auto-refresh: channel_id=%d name=%s refreshed, expires_at=%s", ch.Id, ch.Name, newKey.Expired))
 		}
-	}
-
-	if refreshed > 0 {
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					logger.LogWarn(ctx, fmt.Sprintf("codex credential auto-refresh: InitChannelCache panic: %v", r))
-				}
-			}()
-			model.InitChannelCache()
-		}()
 	}
 
 	if common.DebugEnabled {

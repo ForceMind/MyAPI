@@ -34,6 +34,24 @@ func SessionCookieOriginGuard() gin.HandlerFunc {
 	}
 }
 
+// DashboardSessionOriginGuard always enforces an exact browser origin for
+// high-risk dashboard operations, including local credential import. Unlike
+// SessionCookieOriginGuard it remains active for loopback HTTP development.
+func DashboardSessionOriginGuard() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		origin, ok := requestBrowserOrigin(c.Request)
+		if !ok || !isAllowedSessionOrigin(c.Request, origin) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"code":    "AUTH_ORIGIN_FORBIDDEN",
+				"message": "request origin is not allowed",
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
 func requestBrowserOrigin(request *http.Request) (string, bool) {
 	originValues := request.Header.Values("Origin")
 	if len(originValues) > 1 {

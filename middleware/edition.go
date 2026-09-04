@@ -39,6 +39,9 @@ func EditionGuard() gin.HandlerFunc {
 			return
 		}
 
+		c.Header("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0")
+		c.Header("Pragma", "no-cache")
+		c.Header("Expires", "0")
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 			"success": false,
 			"code":    "MYAPI_LAN_ROUTE_DISABLED",
@@ -49,6 +52,9 @@ func EditionGuard() gin.HandlerFunc {
 
 func isLANRestrictedPath(path string) bool {
 	path = strings.TrimSuffix(path, "/")
+	if strings.HasPrefix(path, "/api/channel/") && strings.Contains(path, "/codex/local-auth") {
+		return true
+	}
 	// Admin OAuth binding routes include a user id segment
 	// (`/api/user/:id/oauth/...`) and therefore cannot be represented by a
 	// simple static prefix without disabling every user endpoint.

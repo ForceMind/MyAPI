@@ -46,7 +46,9 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 核心原则：
 
 - MyAPI 是发行版品牌和运行时品牌。
-- 上游凭据只在 MyAPI 服务端配置；LAN 客户端不读取本机 Codex、Claude 或其他凭据文件。
+- 上游凭据只在 MyAPI 服务端配置。Full 原生进程可由 Root 管理员在实时会话、同源请求和
+  Passkey/2FA 复核后，显式导入该服务进程用户的 Codex `auth.json`；LAN Lite、当前
+  Electron LAN edition 和容器均不扫描宿主机 Codex、Claude 或其他凭据文件。
 - 局域网版默认本机回环监听，扩大到局域网必须显式确认。
 - Full、LAN Lite、桌面版共享可靠的请求转发、日志、权限和安全边界，但不强行共享不适用的功能。
 - TokenHub 和原 New API 都只是参考样本：可以研究其架构取舍、用户流程、信息层级和产品表达，但不得复制其代码、页面结构、视觉资产、文案、品牌、链接、容器/环境约定或内部协议。
@@ -97,6 +99,12 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 
 - 用量分布支持分钟、小时、天、周，以及时区偏移和边界处理。
 - Codex 网页 OAuth 登录入口已存在。
+- Codex 本机登录导入的后端边界已实现：只解析当前进程的 `CODEX_HOME/auth.json` 或
+  用户目录 `.codex/auth.json`，不接受客户端路径、不修改原文件、不向浏览器返回 token；
+  新建渠道与 abilities 同事务，既有渠道/刷新使用跨实例命名租约、条件更新和缓存发布
+  generation，避免并发轮换或旧快照覆盖。Full 原生允许显式自动导入；官方容器镜像固定
+  `MYAPI_RUNTIME_ENV=container` 并返回宿主凭据不可见，LAN edition 后端硬拒绝自动扫描。
+  管理界面向导、七语言和实际页面验收仍按执行计划收尾。
 - 默认推广内容已精简。
 - MyAPI 品牌运行时参数：`VITE_BRAND_NAME`、`VITE_BRAND_LOGO`、`MYAPI_BRAND_NAME`、`MYAPI_BRAND_LOGO`。
 - Full/LAN 构建参数和 Logo 配置已接入 Docker 与部署脚本。

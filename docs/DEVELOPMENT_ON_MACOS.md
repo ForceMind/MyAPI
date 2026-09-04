@@ -164,6 +164,21 @@ node cli/myapi.mjs stop --project-dir .
 开发数据和日志只留在本机目录；不要使用 `down -v`，不要把数据库、日志、`dist`、
 `node_modules` 或 `.env` 加入 Git。
 
+## Full 原生进程导入本机 Codex
+
+只有直接运行在 macOS 上的 Full 进程可以自动检查该进程用户的 Codex 登录文件。默认
+读取 `~/.codex/auth.json`；若启动 MyAPI 时显式设置了绝对路径 `CODEX_HOME`，则读取
+`$CODEX_HOME/auth.json`。接口不接受任意路径，不写回原文件，也不在响应、日志或审计中
+返回 token。自动导入要求 Root 的实时 dashboard 会话、同源请求和 Passkey/2FA 安全复核。
+
+Docker Desktop 中的 MyAPI 只能看到容器文件系统。官方镜像固定
+`MYAPI_RUNTIME_ENV=container`，因此页面应显示“无法访问宿主机 Codex 登录”，不能解释成
+宿主机未登录，也不要为此挂载整个 home 或 `.codex` 目录。需要在容器/LAN 环境配置账号时，
+使用管理界面的显式手工凭据或现有 ChatGPT OAuth 流程。
+
+自动化测试必须使用临时 `CODEX_HOME` 和合成 JWT；不得读取开发者真实 `auth.json`、
+macOS Keychain 或其他凭据库。真实账号验收只能由用户在本机界面明确触发。
+
 ## LAN Lite 试用
 
 LAN Lite 不读取 macOS Keychain、`~/.codex`、Claude/Antigravity 凭据文件或任何本地

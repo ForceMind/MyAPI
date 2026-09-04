@@ -151,12 +151,14 @@ func completeCodexOAuthWithChannelID(c *gin.Context, channelID int) {
 	}
 
 	channelProxy := ""
+	var targetChannel *model.Channel
 	if channelID > 0 {
 		ch, err := getCodexOAuthChannel(channelID)
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
 			return
 		}
+		targetChannel = ch
 		channelProxy = ch.GetSetting().Proxy
 	}
 
@@ -222,11 +224,21 @@ func completeCodexOAuthWithChannelID(c *gin.Context, channelID int) {
 		"last_refresh": key.LastRefresh,
 	}
 	if channelID > 0 {
-		if err := model.DB.Model(&model.Channel{}).Where("id = ?", channelID).Update("key", string(encoded)).Error; err != nil {
-			common.ApiError(c, err)
+		updated, updateErr := model.UpdateChannelCredentialIfUnchanged(
+			c.Request.Context(),
+			channelID,
+			constant.ChannelTypeCodex,
+			targetChannel.Key,
+			string(encoded),
+		)
+		if updateErr != nil {
+			common.ApiError(c, updateErr)
 			return
 		}
-		model.InitChannelCache()
+		if !updated {
+			c.JSON(http.StatusConflict, gin.H{"success": false, "message": "Codex channel credential changed; start again"})
+			return
+		}
 		service.ResetProxyClientCache()
 		data["channel_id"] = channelID
 		c.JSON(http.StatusOK, gin.H{"success": true, "message": "saved", "data": data})
@@ -238,7 +250,7 @@ func completeCodexOAuthWithChannelID(c *gin.Context, channelID int) {
 }
 
 func getCodexOAuthChannel(channelID int) (*model.Channel, error) {
-	ch, err := model.GetChannelById(channelID, false)
+	ch, err := model.GetChannelById(channelID, true)
 	if err != nil {
 		return nil, err
 	}

@@ -13,6 +13,7 @@ type permissionRoute struct {
 	method     string
 	path       string
 	permission authz.Permission
+	middleware []gin.HandlerFunc
 	handler    gin.HandlerFunc
 }
 
@@ -29,10 +30,10 @@ func registerChannelRoutes(apiRouter *gin.RouterGroup) {
 	)
 
 	for _, route := range channelPermissionRoutes {
-		channelRoute.Handle(route.method, route.path,
-			middleware.RequirePermission(route.permission),
-			route.handler,
-		)
+		handlers := []gin.HandlerFunc{middleware.RequirePermission(route.permission)}
+		handlers = append(handlers, route.middleware...)
+		handlers = append(handlers, route.handler)
+		channelRoute.Handle(route.method, route.path, handlers...)
 	}
 }
 
@@ -68,6 +69,21 @@ var channelPermissionRoutes = []permissionRoute{
 	{method: http.MethodPost, path: "/:id/codex/oauth/start", permission: authz.ChannelSensitiveWrite, handler: controller.StartCodexOAuthForChannel},
 	{method: http.MethodPost, path: "/:id/codex/oauth/complete", permission: authz.ChannelSensitiveWrite, handler: controller.CompleteCodexOAuthForChannel},
 	{method: http.MethodPost, path: "/:id/codex/refresh", permission: authz.ChannelSensitiveWrite, handler: controller.RefreshCodexChannelCredential},
+	{
+		method: http.MethodGet, path: "/codex/local-auth/status", permission: authz.ChannelSensitiveWrite,
+		middleware: []gin.HandlerFunc{middleware.RootAuth(), middleware.DisableCache(), middleware.CriticalRateLimit()},
+		handler:    controller.GetCodexLocalAuthStatus,
+	},
+	{
+		method: http.MethodPost, path: "/codex/local-auth/import", permission: authz.ChannelSensitiveWrite,
+		middleware: []gin.HandlerFunc{middleware.RootAuth(), middleware.DisableCache(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), middleware.CodexLocalImportVerificationRequired()},
+		handler:    controller.ImportCodexLocalAuth,
+	},
+	{
+		method: http.MethodPost, path: "/:id/codex/local-auth/import", permission: authz.ChannelSensitiveWrite,
+		middleware: []gin.HandlerFunc{middleware.RootAuth(), middleware.DisableCache(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), middleware.CodexLocalImportVerificationRequired()},
+		handler:    controller.ImportCodexLocalAuthForChannel,
+	},
 	{method: http.MethodGet, path: "/:id/codex/usage", permission: authz.ChannelRead, handler: controller.GetCodexChannelUsage},
 	{method: http.MethodGet, path: "/:id/codex/usage/history", permission: authz.ChannelRead, handler: controller.GetCodexChannelUsageHistory},
 	{method: http.MethodGet, path: "/:id/codex/usage/reset-credits", permission: authz.ChannelRead, handler: controller.GetCodexChannelRateLimitResetCredits},

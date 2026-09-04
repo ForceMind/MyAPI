@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -14,7 +15,9 @@ import (
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/relay/channel/codex"
 	"github.com/ForceMind/MyAPI/service"
+	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
@@ -30,7 +33,7 @@ func TestCodexSamplingSharesOneDeadlineAcrossUsageRefreshAndRetry(t *testing.T) 
 	previousMemoryCache := common.MemoryCacheEnabled
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}))
+	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}, &model.SystemTaskLock{}))
 	model.DB = db
 	common.MemoryCacheEnabled = false
 	t.Cleanup(func() {
@@ -116,7 +119,7 @@ func TestCodexSamplingRefreshWriteFailureIsReportedAndSafelyRecorded(t *testing.
 	previousDB := model.DB
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}))
+	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}, &model.SystemTaskLock{}))
 	model.DB = db
 	t.Cleanup(func() { model.DB = previousDB })
 	baseURL := "https://quota-fixture.invalid"
@@ -152,11 +155,64 @@ func TestCodexSamplingRefreshWriteFailureIsReportedAndSafelyRecorded(t *testing.
 	require.Equal(t, "credential_persist_failed", snapshot.ErrorCode)
 }
 
+func TestManualCodexUsageFailsAndRecordsCredentialPersistenceError(t *testing.T) {
+	previousDB, previousCache := model.DB, common.MemoryCacheEnabled
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}, &model.SystemTaskLock{}))
+	model.DB, common.MemoryCacheEnabled = db, false
+	t.Cleanup(func() { model.DB, common.MemoryCacheEnabled = previousDB, previousCache })
+	baseURL := "https://manual-quota-fixture.invalid"
+	channel := &model.Channel{Id: 46, Type: constant.ChannelTypeCodex, BaseURL: &baseURL,
+		Key: `{"access_token":"fixture-access","refresh_token":"fixture-refresh","account_id":"fixture-account"}`}
+	require.NoError(t, db.Create(channel).Error)
+	require.NoError(t, db.Callback().Update().Before("gorm:update").Register("fixture_reject_manual_credential_update", func(tx *gorm.DB) {
+		tx.AddError(errors.New("fixture credential write unavailable"))
+	}))
+	client, err := service.GetHttpClientWithProxy("")
+	require.NoError(t, err)
+	previousTransport := client.Transport
+	t.Cleanup(func() { client.Transport = previousTransport })
+	client.Transport = quotaSamplingRoundTripper(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(strings.NewReader(`{"access_token":"fixture-replacement","refresh_token":"fixture-rotated","expires_in":3600}`)),
+			Request:    request,
+		}, nil
+	})
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ginContext, _ := gin.CreateTestContext(recorder)
+	ginContext.Request = httptest.NewRequest(http.MethodGet, "/api/channel/46/codex/usage", nil)
+	ginContext.Params = gin.Params{{Key: "id", Value: "46"}}
+	fetchCalls := 0
+	fetch := func(context.Context, *http.Client, string, string, string) (int, []byte, error) {
+		fetchCalls++
+		return http.StatusUnauthorized, []byte(`{}`), nil
+	}
+
+	fetchCodexChannelWhamData(ginContext, fetch, "fixture usage", "safe user message", true)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), `"success":false`)
+	assert.Contains(t, recorder.Body.String(), "safe user message")
+	assert.NotContains(t, recorder.Body.String(), "fixture-rotated")
+	assert.Equal(t, 1, fetchCalls, "a persistence failure must stop before retrying usage")
+	var snapshot model.ChannelQuotaSnapshot
+	require.NoError(t, db.Where("channel_id = ?", channel.Id).First(&snapshot).Error)
+	assert.Equal(t, "credential_persist_failed", snapshot.ErrorCode)
+	var lockCount int64
+	require.NoError(t, db.Model(&model.SystemTaskLock{}).Count(&lockCount).Error)
+	assert.Zero(t, lockCount)
+}
+
 func TestCodexSamplingSavesRotatedCredentialsAfterRequestCancellation(t *testing.T) {
 	previousDB, previousCache := model.DB, common.MemoryCacheEnabled
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}))
+	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}, &model.SystemTaskLock{}))
 	model.DB, common.MemoryCacheEnabled = db, false
 	t.Cleanup(func() { model.DB, common.MemoryCacheEnabled = previousDB, previousCache })
 	baseURL := "https://quota-fixture.invalid"

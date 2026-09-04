@@ -24,78 +24,94 @@ var channelsIDM map[int]*Channel                     // all channels include dis
 var channel2advancedCustomConfig map[int]*dto.AdvancedCustomConfig
 var channelSyncLock sync.RWMutex
 
+// channelCredentialCacheGeneration fences full-cache snapshots against
+// credential writes that commit while InitChannelCache is reading the DB.
+// It is protected by channelSyncLock.
+var channelCredentialCacheGeneration uint64
+
 func InitChannelCache() {
 	if !common.MemoryCacheEnabled {
 		InvalidatePricingCache()
 		return
 	}
-	newChannelId2channel := make(map[int]*Channel)
-	newChannel2advancedCustomConfig := make(map[int]*dto.AdvancedCustomConfig)
-	var channels []*Channel
-	DB.Find(&channels)
-	for _, channel := range channels {
-		newChannelId2channel[channel.Id] = channel
-		if channel.Type == constant.ChannelTypeAdvancedCustom {
-			if config := channel.GetOtherSettings().AdvancedCustom; config != nil {
-				newChannel2advancedCustomConfig[channel.Id] = config
-			}
-		}
-	}
-	var abilities []*Ability
-	DB.Find(&abilities)
-	groups := make(map[string]bool)
-	for _, ability := range abilities {
-		groups[ability.Group] = true
-	}
-	newGroup2model2channels := make(map[string]map[string][]int)
-	for group := range groups {
-		newGroup2model2channels[group] = make(map[string][]int)
-	}
-	for _, channel := range channels {
-		if channel.Status != common.ChannelStatusEnabled {
-			continue // skip disabled channels
-		}
-		groups := strings.Split(channel.Group, ",")
-		for _, group := range groups {
-			models := strings.Split(channel.Models, ",")
-			for _, model := range models {
-				if _, ok := newGroup2model2channels[group][model]; !ok {
-					newGroup2model2channels[group][model] = make([]int, 0)
+	for {
+		channelSyncLock.RLock()
+		readGeneration := channelCredentialCacheGeneration
+		channelSyncLock.RUnlock()
+
+		newChannelId2channel := make(map[int]*Channel)
+		newChannel2advancedCustomConfig := make(map[int]*dto.AdvancedCustomConfig)
+		var channels []*Channel
+		DB.Find(&channels)
+		for _, channel := range channels {
+			newChannelId2channel[channel.Id] = channel
+			if channel.Type == constant.ChannelTypeAdvancedCustom {
+				if config := channel.GetOtherSettings().AdvancedCustom; config != nil {
+					newChannel2advancedCustomConfig[channel.Id] = config
 				}
-				newGroup2model2channels[group][model] = append(newGroup2model2channels[group][model], channel.Id)
 			}
 		}
-	}
-
-	// sort by priority
-	for group, model2channels := range newGroup2model2channels {
-		for model, channels := range model2channels {
-			sort.Slice(channels, func(i, j int) bool {
-				return newChannelId2channel[channels[i]].GetPriority() > newChannelId2channel[channels[j]].GetPriority()
-			})
-			newGroup2model2channels[group][model] = channels
+		var abilities []*Ability
+		DB.Find(&abilities)
+		groups := make(map[string]bool)
+		for _, ability := range abilities {
+			groups[ability.Group] = true
 		}
-	}
+		newGroup2model2channels := make(map[string]map[string][]int)
+		for group := range groups {
+			newGroup2model2channels[group] = make(map[string][]int)
+		}
+		for _, channel := range channels {
+			if channel.Status != common.ChannelStatusEnabled {
+				continue // skip disabled channels
+			}
+			groups := strings.Split(channel.Group, ",")
+			for _, group := range groups {
+				models := strings.Split(channel.Models, ",")
+				for _, model := range models {
+					if _, ok := newGroup2model2channels[group][model]; !ok {
+						newGroup2model2channels[group][model] = make([]int, 0)
+					}
+					newGroup2model2channels[group][model] = append(newGroup2model2channels[group][model], channel.Id)
+				}
+			}
+		}
 
-	channelSyncLock.Lock()
-	group2model2channels = newGroup2model2channels
-	//channelsIDM = newChannelId2channel
-	for i, channel := range newChannelId2channel {
-		if channel.ChannelInfo.IsMultiKey {
-			channel.Keys = channel.GetKeys()
-			if channel.ChannelInfo.MultiKeyMode == constant.MultiKeyModePolling {
-				if oldChannel, ok := channelsIDM[i]; ok {
-					// 存在旧的渠道，如果是多key且轮询，保留轮询索引信息
-					if oldChannel.ChannelInfo.IsMultiKey && oldChannel.ChannelInfo.MultiKeyMode == constant.MultiKeyModePolling {
-						channel.ChannelInfo.MultiKeyPollingIndex = oldChannel.ChannelInfo.MultiKeyPollingIndex
+		// sort by priority
+		for group, model2channels := range newGroup2model2channels {
+			for model, channels := range model2channels {
+				sort.Slice(channels, func(i, j int) bool {
+					return newChannelId2channel[channels[i]].GetPriority() > newChannelId2channel[channels[j]].GetPriority()
+				})
+				newGroup2model2channels[group][model] = channels
+			}
+		}
+
+		channelSyncLock.Lock()
+		if channelCredentialCacheGeneration != readGeneration {
+			channelSyncLock.Unlock()
+			continue
+		}
+		group2model2channels = newGroup2model2channels
+		//channelsIDM = newChannelId2channel
+		for i, channel := range newChannelId2channel {
+			if channel.ChannelInfo.IsMultiKey {
+				channel.Keys = channel.GetKeys()
+				if channel.ChannelInfo.MultiKeyMode == constant.MultiKeyModePolling {
+					if oldChannel, ok := channelsIDM[i]; ok {
+						// 存在旧的渠道，如果是多key且轮询，保留轮询索引信息
+						if oldChannel.ChannelInfo.IsMultiKey && oldChannel.ChannelInfo.MultiKeyMode == constant.MultiKeyModePolling {
+							channel.ChannelInfo.MultiKeyPollingIndex = oldChannel.ChannelInfo.MultiKeyPollingIndex
+						}
 					}
 				}
 			}
 		}
+		channelsIDM = newChannelId2channel
+		channel2advancedCustomConfig = newChannel2advancedCustomConfig
+		channelSyncLock.Unlock()
+		break
 	}
-	channelsIDM = newChannelId2channel
-	channel2advancedCustomConfig = newChannel2advancedCustomConfig
-	channelSyncLock.Unlock()
 	// Lock ordering: InvalidatePricingCache acquires updatePricingLock, and
 	// GetPricing (holding updatePricingLock) nests channelSyncLock.RLock via
 	// loadPricingAdvancedCustomConfigs. channelSyncLock MUST be released before
@@ -309,6 +325,9 @@ func CacheUpdateChannel(channel *Channel) {
 	}
 	if oldChannel, ok := channelsIDM[channel.Id]; ok {
 		logger.LogDebug(nil, "CacheUpdateChannel before: id=%d, name=%s, status=%d, polling_index=%d", channel.Id, channel.Name, channel.Status, oldChannel.ChannelInfo.MultiKeyPollingIndex)
+		if oldChannel.Key != channel.Key {
+			channelCredentialCacheGeneration++
+		}
 	}
 	channelsIDM[channel.Id] = channel
 	if channel2advancedCustomConfig == nil {
@@ -352,6 +371,7 @@ func CacheUpdateChannelKeyWithContext(ctx context.Context, id int, key string) e
 				updated.Key = key
 				updated.Keys = nil
 				channelsIDM[id] = &updated
+				channelCredentialCacheGeneration++
 			}
 			return nil
 		}

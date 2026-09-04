@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"testing"
 
 	"github.com/ForceMind/MyAPI/common"
@@ -111,6 +112,41 @@ func TestSystemTaskLockPreventsConcurrentClaim(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, reloadedSecond)
 	assert.Equal(t, SystemTaskStatusPending, reloadedSecond.Status)
+}
+
+func TestNamedSystemTaskLockLeaseLifecycle(t *testing.T) {
+	truncateTables(t)
+	lockType := "codex_credential_refresh:42"
+	now := common.GetTimestamp()
+
+	acquired, err := TryAcquireNamedSystemTaskLockWithContext(t.Context(), lockType, "task-a", "owner-a", now+60)
+	require.NoError(t, err)
+	require.True(t, acquired)
+
+	acquired, err = TryAcquireNamedSystemTaskLockWithContext(t.Context(), lockType, "task-b", "owner-b", now+60)
+	require.NoError(t, err)
+	assert.False(t, acquired, "a second owner must not acquire the live lease")
+
+	require.NoError(t, ReleaseNamedSystemTaskLockWithContext(t.Context(), lockType, "task-a", "owner-a"))
+	acquired, err = TryAcquireNamedSystemTaskLockWithContext(t.Context(), lockType, "task-b", "owner-b", now+60)
+	require.NoError(t, err)
+	assert.True(t, acquired, "the second owner may acquire after release")
+	require.NoError(t, ReleaseNamedSystemTaskLockWithContext(t.Context(), lockType, "task-b", "owner-b"))
+
+	acquired, err = TryAcquireNamedSystemTaskLockWithContext(t.Context(), lockType, "task-expired", "owner-expired", now+60)
+	require.NoError(t, err)
+	require.True(t, acquired)
+	require.NoError(t, DB.Model(&SystemTaskLock{}).Where("type = ?", lockType).Update("locked_until", now-1).Error)
+	acquired, err = TryAcquireNamedSystemTaskLockWithContext(t.Context(), lockType, "task-takeover", "owner-takeover", now+60)
+	require.NoError(t, err)
+	assert.True(t, acquired, "an expired lease must be replaceable by another owner")
+
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	acquired, err = TryAcquireNamedSystemTaskLockWithContext(canceledCtx, lockType, "task-canceled", "owner-canceled", now+60)
+	assert.False(t, acquired)
+	assert.ErrorIs(t, err, context.Canceled)
+	require.NoError(t, ReleaseNamedSystemTaskLockWithContext(t.Context(), lockType, "task-takeover", "owner-takeover"))
 }
 
 func TestExpiredSystemTaskLockFailsOldRunAndClaimsLegacyPendingRun(t *testing.T) {

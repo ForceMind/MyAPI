@@ -9,6 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const SecurityProofScopeCodexLocalImport = "channel.codex.local_import"
+
 // SecureVerificationRequired protects channel key disclosure. Other sensitive
 // operations validate their narrower proof scopes in their controller.
 func SecureVerificationRequired() gin.HandlerFunc {
@@ -17,6 +19,17 @@ func SecureVerificationRequired() gin.HandlerFunc {
 			return
 		}
 		c.Set("secure_verified", true)
+		c.Next()
+	}
+}
+
+// CodexLocalImportVerificationRequired protects the operation that copies a
+// password-equivalent Codex credential from the backend host into a channel.
+func CodexLocalImportVerificationRequired() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !RequireSecurityProof(c, SecurityProofScopeCodexLocalImport, []string{"2fa", "passkey"}) {
+			return
+		}
 		c.Next()
 	}
 }

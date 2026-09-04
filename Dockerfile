@@ -47,7 +47,8 @@ RUN case "${MYAPI_BUILD_PARALLELISM}" in \
 FROM alpine:3.22@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce
 
 ARG MYAPI_EDITION=full
-ENV MYAPI_EDITION=${MYAPI_EDITION}
+ENV MYAPI_EDITION=${MYAPI_EDITION} \
+    MYAPI_RUNTIME_ENV=container
 LABEL org.opencontainers.image.title="MyAPI" \
       org.opencontainers.image.vendor="ForceMind" \
       io.myapi.edition="${MYAPI_EDITION}"

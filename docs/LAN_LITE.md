@@ -6,7 +6,12 @@ LAN Lite runs MyAPI as a small, private-network API gateway on a macOS or Window
 
 LAN Lite is a single-process, SQLite-first deployment for a trusted local network. It is not a public hosting mode, a credential-file importer, or an automatic firewall configurator. The default listener is loopback-only.
 
-The CLI never scans `~/.codex`, Claude credential files, Keychain, Windows Credential Manager, or any other local credential store. Configure an upstream channel explicitly in the MyAPI administrator interface or point it at an already-authorized local API endpoint.
+The CLI and LAN backend never scan `~/.codex`, Claude credential files,
+Keychain, Windows Credential Manager, or any other local credential store.
+Administrators may still configure an upstream channel explicitly in the
+MyAPI interface, including deliberately pasting a credential they exported
+themselves, or point it at an already-authorized local API endpoint. That
+explicit configuration is not automatic host credential discovery.
 
 **CLI availability:** `@forcemind/myapi` is not yet published to NPM. Until the
 maintainer publishes a reviewed release, run the examples from a source checkout

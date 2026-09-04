@@ -51,7 +51,7 @@ func TestFullContentLoggerCapturesRequestAndStreamingResponse(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	requestJSON := `{"messages":[{"role":"user","content":"hello"}],"api_key":"should-hide","nested":{"password":"also-hide"}}`
+	requestJSON := `{"messages":[{"role":"user","content":"hello"}],"api_key":"should-hide","nested":{"password":"also-hide","access_token":"access-hide","refresh_token":"refresh-hide","id_token":"identity-hide"}}`
 	request := httptest.NewRequest(http.MethodPost, "/v1/responses?api_key=query-secret", strings.NewReader(requestJSON))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Authorization", "Bearer header-secret")
@@ -81,6 +81,9 @@ func TestFullContentLoggerCapturesRequestAndStreamingResponse(t *testing.T) {
 	logText := string(logBytes)
 	assert.NotContains(t, logText, "should-hide")
 	assert.NotContains(t, logText, "also-hide")
+	assert.NotContains(t, logText, "access-hide")
+	assert.NotContains(t, logText, "refresh-hide")
+	assert.NotContains(t, logText, "identity-hide")
 	assert.NotContains(t, logText, "header-secret")
 	assert.NotContains(t, logText, "cookie-secret")
 	assert.NotContains(t, logText, "query-secret")
@@ -104,6 +107,9 @@ func TestFullContentLoggerCapturesRequestAndStreamingResponse(t *testing.T) {
 	assert.Contains(t, requestEntry.Body, `"content":"hello"`)
 	assert.Contains(t, requestEntry.Body, `"api_key":"[REDACTED]"`)
 	assert.Contains(t, requestEntry.Body, `"password":"[REDACTED]"`)
+	assert.Contains(t, requestEntry.Body, `"access_token":"[REDACTED]"`)
+	assert.Contains(t, requestEntry.Body, `"refresh_token":"[REDACTED]"`)
+	assert.Contains(t, requestEntry.Body, `"id_token":"[REDACTED]"`)
 	assert.Equal(t, 7, requestEntry.UserID)
 	assert.Equal(t, 9, requestEntry.TokenID)
 	assert.Equal(t, "integration-test", requestEntry.TokenName)

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -24,12 +25,18 @@ func TestEditionGuardBlocksLANCommercialRoutes(t *testing.T) {
 		"/api/user/aff_transfer",
 		"/api/user/oauth/bindings",
 		"/api/user/42/oauth/bindings",
+		"/api/channel/codex/local-auth/status",
+		"/api/channel/codex/local-auth/import",
+		"/api/channel/42/codex/local-auth/import",
 	} {
 		router.Any(route, func(c *gin.Context) { c.Status(http.StatusOK) })
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, route, nil))
 		if recorder.Code != http.StatusForbidden {
 			t.Fatalf("expected LAN commercial route %s to be forbidden, got %d", route, recorder.Code)
+		}
+		if cacheControl := recorder.Header().Get("Cache-Control"); !strings.Contains(cacheControl, "no-store") {
+			t.Fatalf("expected LAN commercial route %s to disable caching, got %q", route, cacheControl)
 		}
 	}
 }

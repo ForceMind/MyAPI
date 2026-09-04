@@ -3,10 +3,12 @@ package model
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/ForceMind/MyAPI/common"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type SystemTaskStatus string
@@ -272,6 +274,39 @@ func ClaimSystemTask(id int64, taskType string, runnerID string, lockUntil int64
 }
 
 func acquireSystemTaskLock(taskType string, taskID string, lockedBy string, now int64, lockUntil int64) (bool, string, error) {
+	return acquireSystemTaskLockWithContext(context.Background(), taskType, taskID, lockedBy, now, lockUntil)
+}
+
+// TryAcquireNamedSystemTaskLockWithContext attempts to acquire a reusable
+// lease identified by lockType. It does not create a SystemTask row, making it
+// suitable for short cross-instance coordination that reuses the migrated
+// system_task_locks table.
+func TryAcquireNamedSystemTaskLockWithContext(ctx context.Context, lockType string, taskID string, lockedBy string, lockUntil int64) (bool, error) {
+	if DB == nil {
+		return false, gorm.ErrInvalidDB
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	lockType = strings.TrimSpace(lockType)
+	taskID = strings.TrimSpace(taskID)
+	lockedBy = strings.TrimSpace(lockedBy)
+	if lockType == "" || len(lockType) > 64 || taskID == "" || len(taskID) > 64 || lockedBy == "" || len(lockedBy) > 128 {
+		return false, errors.New("invalid named system task lock identity")
+	}
+	now := common.GetTimestamp()
+	if lockUntil <= now {
+		return false, errors.New("named system task lock expiry must be in the future")
+	}
+	acquired, _, err := acquireSystemTaskLockWithContext(ctx, lockType, taskID, lockedBy, now, lockUntil)
+	return acquired, err
+}
+
+func acquireSystemTaskLockWithContext(ctx context.Context, taskType string, taskID string, lockedBy string, now int64, lockUntil int64) (bool, string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	db := DB.WithContext(ctx).Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)})
 	lock := &SystemTaskLock{
 		Type:        taskType,
 		TaskID:      taskID,
@@ -279,12 +314,15 @@ func acquireSystemTaskLock(taskType string, taskID string, lockedBy string, now 
 		LockedUntil: lockUntil,
 		UpdatedAt:   now,
 	}
-	if err := DB.Create(lock).Error; err == nil {
+	if err := db.Create(lock).Error; err == nil {
 		return true, "", nil
+	}
+	if err := ctx.Err(); err != nil {
+		return false, "", err
 	}
 
 	var existing SystemTaskLock
-	err := DB.Where("type = ?", taskType).First(&existing).Error
+	err := db.Where("type = ?", taskType).First(&existing).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, "", nil
@@ -295,8 +333,8 @@ func acquireSystemTaskLock(taskType string, taskID string, lockedBy string, now 
 		return false, "", nil
 	}
 
-	result := DB.Model(&SystemTaskLock{}).
-		Where("type = ? AND locked_until < ?", taskType, now).
+	result := db.Model(&SystemTaskLock{}).
+		Where("type = ? AND task_id = ? AND locked_by = ? AND locked_until = ? AND locked_until < ?", taskType, existing.TaskID, existing.LockedBy, existing.LockedUntil, now).
 		Updates(map[string]any{
 			"task_id":      taskID,
 			"locked_by":    lockedBy,
@@ -310,6 +348,21 @@ func acquireSystemTaskLock(taskType string, taskID string, lockedBy string, now 
 		return false, "", nil
 	}
 	return true, existing.TaskID, nil
+}
+
+// ReleaseNamedSystemTaskLockWithContext releases only the exact named lease
+// held by taskID and lockedBy. A lost/expired lease is an idempotent no-op.
+func ReleaseNamedSystemTaskLockWithContext(ctx context.Context, lockType string, taskID string, lockedBy string) error {
+	if DB == nil {
+		return gorm.ErrInvalidDB
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	result := DB.WithContext(ctx).
+		Where("type = ? AND task_id = ? AND locked_by = ?", lockType, taskID, lockedBy).
+		Delete(&SystemTaskLock{})
+	return result.Error
 }
 
 func UpdateSystemTaskState(taskID string, lockedBy string, state any) error {

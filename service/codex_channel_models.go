@@ -61,7 +61,7 @@ func fetchCodexChannelModels(
 		refreshedKey, _, refreshErr := RefreshCodexChannelCredential(
 			ctx,
 			channel.Id,
-			CodexCredentialRefreshOptions{ResetCaches: true},
+			CodexCredentialRefreshOptions{ExpectedKey: &channel.Key},
 		)
 		if refreshErr != nil {
 			return nil, fmt.Errorf("failed to refresh Codex channel credential: %w", refreshErr)

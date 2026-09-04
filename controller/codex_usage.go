@@ -17,8 +17,6 @@ import (
 	"github.com/ForceMind/MyAPI/service"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 func GetCodexChannelUsage(c *gin.Context) {
@@ -295,31 +293,21 @@ func fetchCodexChannelWhamData(
 	}
 
 	if (statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden) && strings.TrimSpace(oauthKey.RefreshToken) != "" {
-		refreshCtx, refreshCancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
-		defer refreshCancel()
-
-		res, refreshErr := service.RefreshCodexOAuthTokenWithProxy(refreshCtx, oauthKey.RefreshToken, ch.GetSetting().Proxy)
-		if refreshErr == nil {
-			oauthKey.AccessToken = res.AccessToken
-			oauthKey.RefreshToken = res.RefreshToken
-			oauthKey.LastRefresh = time.Now().Format(time.RFC3339)
-			oauthKey.Expired = res.ExpiresAt.Format(time.RFC3339)
-			if strings.TrimSpace(oauthKey.Type) == "" {
-				oauthKey.Type = "codex"
-			}
-
-			if persistErr := persistRefreshedCodexCredentials(ch, oauthKey); persistErr != nil {
+		refreshedKey, _, refreshErr := service.RefreshCodexChannelCredential(ctx, ch.Id, service.CodexCredentialRefreshOptions{ExpectedKey: &ch.Key})
+		if refreshErr != nil {
+			var persistErr *service.CodexCredentialPersistenceError
+			if errors.As(refreshErr, &persistErr) {
 				common.SysError("Codex credential refresh persistence failed")
-				if recordUsage {
-					recordCodexCredentialPersistenceFailure(ch.Id)
+				if snapshotErr := recordCodexCredentialPersistenceFailure(ch.Id); snapshotErr != nil {
+					common.SysError("failed to record Codex credential persistence failure")
 				}
 				c.JSON(http.StatusOK, gin.H{"success": false, "message": userMessage})
 				return
 			}
-
+		} else {
 			ctx2, cancel2 := context.WithTimeout(c.Request.Context(), 15*time.Second)
 			defer cancel2()
-			statusCode, body, err = fetch(ctx2, client, ch.GetBaseURL(), oauthKey.AccessToken, accountID)
+			statusCode, body, err = fetch(ctx2, client, ch.GetBaseURL(), refreshedKey.AccessToken, refreshedKey.AccountID)
 			if err != nil {
 				common.SysError(logPrefix + " after refresh: " + err.Error())
 				if recordUsage {
@@ -445,40 +433,6 @@ func recordCodexCredentialPersistenceFailure(channelID int) error {
 	return recordQuotaSamplingSnapshots(snapshots)
 }
 
-func persistRefreshedCodexCredentials(channel *model.Channel, oauthKey *codex.OAuthKey) error {
-	encoded, err := common.Marshal(oauthKey)
-	if err != nil {
-		return errors.New("refreshed Codex credentials could not be encoded")
-	}
-	if channel == nil || model.DB == nil {
-		return errors.New("refreshed Codex credentials could not be saved")
-	}
-	// Refresh tokens may rotate. Do not reuse an almost-expired request context
-	// and discard the only new token even though the refresh itself succeeded.
-	ctx, cancel := context.WithTimeout(context.Background(), channelQuotaPersistenceTimeout)
-	defer cancel()
-	// A failed UPDATE must not put the credential JSON into a SQL trace.
-	result := model.DB.WithContext(ctx).Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)}).
-		Model(&model.Channel{}).Where("id = ?", channel.Id).Update("key", string(encoded))
-	if result.Error != nil {
-		if errors.Is(result.Error, context.DeadlineExceeded) {
-			return fmt.Errorf("save refreshed Codex credentials: %w", context.DeadlineExceeded)
-		}
-		if errors.Is(result.Error, context.Canceled) {
-			return fmt.Errorf("save refreshed Codex credentials: %w", context.Canceled)
-		}
-		return errors.New("refreshed Codex credentials could not be saved")
-	}
-	if result.RowsAffected == 0 {
-		return errors.New("refreshed Codex credential target was not updated")
-	}
-	channel.Key = string(encoded)
-	if err := model.CacheUpdateChannelKeyWithContext(ctx, channel.Id, string(encoded)); err != nil {
-		return fmt.Errorf("update refreshed Codex credential cache: %w", err)
-	}
-	return nil
-}
-
 // sampleCodexChannelUsage records one normalized official WHAM usage sample for
 // the bounded background quota sampler. It deliberately shares the same
 // endpoint and normalization contract as the admin usage view, but never
@@ -515,24 +469,16 @@ func sampleCodexChannelUsage(ctx context.Context, ch *model.Channel) error {
 	}
 	statusCode, body, err := service.FetchCodexWhamUsage(ctx, client, ch.GetBaseURL(), accessToken, accountID)
 	if err == nil && (statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden) && strings.TrimSpace(oauthKey.RefreshToken) != "" {
-		refreshCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		res, refreshErr := service.RefreshCodexOAuthTokenWithProxy(refreshCtx, oauthKey.RefreshToken, ch.GetSetting().Proxy)
-		cancel()
+		refreshedKey, _, refreshErr := service.RefreshCodexChannelCredential(ctx, ch.Id, service.CodexCredentialRefreshOptions{ExpectedKey: &ch.Key})
 		if refreshErr != nil {
-			err = refreshErr
-		} else {
-			oauthKey.AccessToken = res.AccessToken
-			oauthKey.RefreshToken = res.RefreshToken
-			oauthKey.LastRefresh = time.Now().Format(time.RFC3339)
-			oauthKey.Expired = res.ExpiresAt.Format(time.RFC3339)
-			if strings.TrimSpace(oauthKey.Type) == "" {
-				oauthKey.Type = "codex"
-			}
-			if persistErr := persistRefreshedCodexCredentials(ch, oauthKey); persistErr != nil {
+			var persistErr *service.CodexCredentialPersistenceError
+			if errors.As(refreshErr, &persistErr) {
 				snapshotErr := recordCodexCredentialPersistenceFailure(ch.Id)
 				return newChannelQuotaSamplingError(errors.New("Codex credential refresh could not be persisted"), errors.Join(persistErr, snapshotErr))
 			}
-			statusCode, body, err = service.FetchCodexWhamUsage(ctx, client, ch.GetBaseURL(), oauthKey.AccessToken, accountID)
+			err = refreshErr
+		} else {
+			statusCode, body, err = service.FetchCodexWhamUsage(ctx, client, ch.GetBaseURL(), refreshedKey.AccessToken, refreshedKey.AccountID)
 		}
 	}
 	if err != nil {
