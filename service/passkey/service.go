@@ -16,9 +16,17 @@ import (
 	webauthn "github.com/go-webauthn/webauthn/webauthn"
 )
 
-// BuildWebAuthn constructs a WebAuthn instance using the current passkey settings and request context.
+// BuildWebAuthn constructs a WebAuthn instance using one current Passkey
+// settings snapshot and the request context.
 func BuildWebAuthn(r *http.Request) (*webauthn.WebAuthn, error) {
-	settings := system_setting.GetPasskeySettings()
+	return BuildWebAuthnWithSettings(r, system_setting.GetPasskeySettings())
+}
+
+// BuildWebAuthnWithSettings constructs a WebAuthn instance from one caller
+// supplied settings snapshot. Request handlers use it after checking Enabled
+// so a hot configuration update cannot mix the enablement decision with RP
+// settings later in the same request.
+func BuildWebAuthnWithSettings(r *http.Request, settings *system_setting.PasskeySettings) (*webauthn.WebAuthn, error) {
 	if settings == nil {
 		return nil, errors.New("未找到 Passkey 设置")
 	}
@@ -97,23 +105,15 @@ func resolveOrigins(r *http.Request, settings *system_setting.PasskeySettings) (
 
 autoDetect:
 	scheme := detectScheme(r)
-	if scheme == "http" && !settings.AllowInsecureOrigin && r.Host != "localhost" && r.Host != "127.0.0.1" && !strings.HasPrefix(r.Host, "127.0.0.1:") && !strings.HasPrefix(r.Host, "localhost:") {
-		return nil, fmt.Errorf("Passkey 仅支持 HTTPS，当前访问: %s://%s，请在 Passkey 设置中允许不安全 Origin 或配置 HTTPS", scheme, r.Host)
+	host := ""
+	if r != nil {
+		host = r.Host
 	}
-	// 优先使用请求的完整Host（包含端口）
-	host := r.Host
-
-	// 如果无法从请求获取Host，尝试从ServerAddress获取
-	if host == "" && system_setting.ServerAddress != "" {
-		if parsed, err := url.Parse(system_setting.ServerAddress); err == nil && parsed.Host != "" {
-			host = parsed.Host
-			if scheme == "" && parsed.Scheme != "" {
-				scheme = parsed.Scheme
-			}
-		}
+	if scheme == "http" && !settings.AllowInsecureOrigin && host != "localhost" && host != "127.0.0.1" && !strings.HasPrefix(host, "127.0.0.1:") && !strings.HasPrefix(host, "localhost:") {
+		return nil, fmt.Errorf("Passkey 仅支持 HTTPS，当前访问: %s://%s，请在 Passkey 设置中允许不安全 Origin 或配置 HTTPS", scheme, host)
 	}
 	if host == "" {
-		return nil, fmt.Errorf("无法确定 Passkey 的 Origin，请在系统设置或 Passkey 设置中指定。当前 Host: '%s', ServerAddress: '%s'", r.Host, system_setting.ServerAddress)
+		return nil, fmt.Errorf("无法确定 Passkey 的 Origin，请在系统设置或 Passkey 设置中指定。当前 Host: '%s', Origins: '%s'", host, settings.Origins)
 	}
 	if scheme == "" {
 		scheme = "https"

@@ -11,7 +11,7 @@ import (
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/service"
-	"github.com/ForceMind/MyAPI/setting/system_setting"
+	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -48,8 +48,9 @@ func TestPasskeyRegisterFinishRejectsMissingOrWrongProofWithoutConsumingFlow(t *
 	previousType := common.MainDatabaseType()
 	previousRedis := common.RedisEnabled
 	previousSecret := common.SessionSecret
-	settings := system_setting.GetPasskeySettings()
-	previousSettings := *settings
+	passkeyConfig := config.GlobalConfig.Get("passkey")
+	previousSettings, err := config.ConfigToMap(passkeyConfig)
+	require.NoError(t, err)
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
@@ -58,13 +59,13 @@ func TestPasskeyRegisterFinishRejectsMissingOrWrongProofWithoutConsumingFlow(t *
 	common.SetMainDatabaseType(common.DatabaseTypeSQLite)
 	common.RedisEnabled = false
 	common.SessionSecret = "passkey-register-proof-test-secret"
-	*settings = system_setting.PasskeySettings{Enabled: true}
+	require.NoError(t, config.UpdateConfigFromMap(passkeyConfig, map[string]string{"enabled": "true"}))
 	t.Cleanup(func() {
 		model.DB = previousDB
 		common.SetMainDatabaseType(previousType)
 		common.RedisEnabled = previousRedis
 		common.SessionSecret = previousSecret
-		*settings = previousSettings
+		require.NoError(t, config.UpdateConfigFromMap(passkeyConfig, previousSettings))
 		sqlDB, dbErr := db.DB()
 		if dbErr == nil {
 			_ = sqlDB.Close()

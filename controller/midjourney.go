@@ -293,8 +293,9 @@ func GetAllMidjourney(c *gin.Context) {
 	total := model.CountAllTasks(queryParams)
 
 	if setting.MjForwardUrlEnabled {
+		serverAddress := system_setting.GetServerAddress()
 		for i, midjourney := range items {
-			midjourney.ImageUrl = system_setting.ServerAddress + "/mj/image/" + midjourney.MjId
+			midjourney.ImageUrl = serverAddress + "/mj/image/" + midjourney.MjId
 			items[i] = midjourney
 		}
 	}
@@ -318,8 +319,9 @@ func GetUserMidjourney(c *gin.Context) {
 	total := model.CountAllUserTask(userId, queryParams)
 
 	if setting.MjForwardUrlEnabled {
+		serverAddress := system_setting.GetServerAddress()
 		for i, midjourney := range items {
-			midjourney.ImageUrl = system_setting.ServerAddress + "/mj/image/" + midjourney.MjId
+			midjourney.ImageUrl = serverAddress + "/mj/image/" + midjourney.MjId
 			items[i] = midjourney
 		}
 	}

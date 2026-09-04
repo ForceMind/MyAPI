@@ -30,6 +30,8 @@ const (
 	groupGroupRatioOptionKey       = "GroupGroupRatio"
 	groupGroupRatioOptionAlias     = "group_ratio_setting.group_group_ratio"
 	groupRatioAliasConflictLogText = "conflicting group ratio option aliases"
+	serverAddressOptionKey         = "ServerAddress"
+	passkeyOptionPrefix            = "passkey."
 )
 
 type groupRatioOptionPair struct {
@@ -255,6 +257,8 @@ func loadOptionsFromDatabaseLocked() {
 	}
 	rateLimitValues := make(map[string]string)
 	groupRatioValues := make(map[string]string, len(groupRatioOptionPairs)*2)
+	passkeyValues := make(map[string]string)
+	var serverAddress *string
 	for _, option := range options {
 		if _, ok := groupRatioOptionPairForKey(option.Key); ok {
 			groupRatioValues[option.Key] = option.Value
@@ -262,6 +266,15 @@ func loadOptionsFromDatabaseLocked() {
 		}
 		if isModelRequestRateLimitOption(option.Key) {
 			rateLimitValues[option.Key] = option.Value
+			continue
+		}
+		if configKey, ok := passkeyOptionConfigKey(option.Key); ok {
+			passkeyValues[configKey] = option.Value
+			continue
+		}
+		if option.Key == serverAddressOptionKey {
+			value := option.Value
+			serverAddress = &value
 			continue
 		}
 		err := updateOptionMap(option.Key, option.Value)
@@ -276,6 +289,9 @@ func loadOptionsFromDatabaseLocked() {
 		if err := publishModelRequestRateLimitOptions(rateLimitValues, nil); err != nil {
 			common.SysLog("failed to update model request rate limit options: " + err.Error())
 		}
+	}
+	if err := publishPasskeyAndServerAddressOptions(serverAddress, passkeyValues); err != nil {
+		common.SysLog("failed to update Passkey and ServerAddress options: " + err.Error())
 	}
 }
 
@@ -392,6 +408,48 @@ func isModelRequestRateLimitOption(key string) bool {
 	}
 }
 
+func passkeyOptionConfigKey(key string) (string, bool) {
+	if !strings.HasPrefix(key, passkeyOptionPrefix) {
+		return "", false
+	}
+	configKey := strings.TrimPrefix(key, passkeyOptionPrefix)
+	return configKey, configKey != ""
+}
+
+func validatePasskeyOptions(values map[string]string) error {
+	if len(values) == 0 {
+		return nil
+	}
+	cfg := config.GlobalConfig.Get("passkey")
+	if cfg == nil {
+		return fmt.Errorf("Passkey config is not registered")
+	}
+	return config.ValidateConfigFromMap(cfg, values)
+}
+
+// publishPasskeyAndServerAddressOptions publishes the managed Passkey fields,
+// their dependent address, and corresponding OptionMap keys together. Its
+// caller has already completed persistence and validation; publishing one
+// runtime generation prevents readers from seeing a partial configuration
+// during bulk writes or option reload.
+func publishPasskeyAndServerAddressOptions(serverAddress *string, passkeyValues map[string]string) error {
+	if serverAddress == nil && len(passkeyValues) == 0 {
+		return nil
+	}
+	common.OptionMapRWMutex.Lock()
+	defer common.OptionMapRWMutex.Unlock()
+	if err := system_setting.UpdatePasskeyAndServerAddress(serverAddress, passkeyValues); err != nil {
+		return err
+	}
+	if serverAddress != nil {
+		common.OptionMap[serverAddressOptionKey] = *serverAddress
+	}
+	for configKey, value := range passkeyValues {
+		common.OptionMap[passkeyOptionPrefix+configKey] = value
+	}
+	return nil
+}
+
 func applyModelRequestRateLimitOptionValue(config *setting.ModelRequestRateLimitConfig, key, value string) (bool, error) {
 	switch key {
 	case "ModelRequestRateLimitEnabled":
@@ -481,11 +539,24 @@ func UpdateOptionsBulk(values map[string]string) error {
 	}
 	normalized := make(map[string]string, len(values)+len(groupRatioOptionPairs)*2)
 	groupRatioValues := make(map[string]string, len(groupRatioOptionPairs))
+	passkeyValues := make(map[string]string)
+	var serverAddress *string
 	for key, value := range values {
 		var err error
 		value, err = normalizeOptionValue(key, value)
 		if err != nil {
 			return err
+		}
+		if configKey, ok := passkeyOptionConfigKey(key); ok {
+			passkeyValues[configKey] = value
+			normalized[key] = value
+			continue
+		}
+		if key == serverAddressOptionKey {
+			address := value
+			serverAddress = &address
+			normalized[key] = value
+			continue
 		}
 		if !isModelRequestRateLimitOption(key) {
 			if err := validateOptionValue(key, value); err != nil {
@@ -506,6 +577,9 @@ func UpdateOptionsBulk(values map[string]string) error {
 			normalized[pair.canonical] = value
 			normalized[pair.alias] = value
 		}
+	}
+	if err := validatePasskeyOptions(passkeyValues); err != nil {
+		return err
 	}
 	// Serialize commits and their complete local publication with reloads.
 	// This is a single-process ordering guarantee, not a cross-instance lock
@@ -549,6 +623,12 @@ func UpdateOptionsBulk(values map[string]string) error {
 		return err
 	}
 	for k, v := range normalized {
+		if _, ok := passkeyOptionConfigKey(k); ok {
+			continue
+		}
+		if k == serverAddressOptionKey {
+			continue
+		}
 		if _, ok := groupRatioOptionPairForKey(k); ok {
 			continue
 		}
@@ -571,6 +651,9 @@ func UpdateOptionsBulk(values map[string]string) error {
 		if err := publishModelRequestRateLimitOptions(rateLimitValues, rateLimitConfig); err != nil {
 			return err
 		}
+	}
+	if err := publishPasskeyAndServerAddressOptions(serverAddress, passkeyValues); err != nil {
+		return err
 	}
 	return nil
 }
@@ -760,7 +843,7 @@ func updateOptionMap(key string, value string) (err error) {
 	case "SMTPToken":
 		common.SMTPToken = value
 	case "ServerAddress":
-		system_setting.ServerAddress = value
+		system_setting.SetServerAddress(value)
 	case "WorkerUrl":
 		system_setting.WorkerUrl = value
 	case "WorkerValidKey":

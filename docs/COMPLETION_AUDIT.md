@@ -565,6 +565,33 @@ gated 子测试，并由同提交 CI 通过。独立 Sol 最终复审无 P1/P2/P
 仓库/DB 未触碰。R3 不完成前端 bulk/跨多 HTTP 事务、历史 DB 清理、payment/Passkey/hard limit/global config；
 无页面/schema，`VERSION` 仍为 0.1.1。
 
+## S2-C09-R4（2026-09-05，本地证据／待 CI）
+
+本地工作树已将 `ServerAddress` 与原始 Passkey 字段放入同一 immutable runtime generation：地址访问改为
+`GetServerAddress` / `SetServerAddress`，保留空字符串和尾随 `/` 的原始拼接语义，不做 URL 规范化；所有仓内生产
+读取方均已迁移。`GetPasskeySettings` 返回 detached effective 副本，空 `RPID` / `Origins` 的地址派生不会写回原始
+配置、`OptionMap` 或数据库。旧 getter 的派生值会黏附全局状态；R4 故意取消该行为，原始空字段会在后续读取时随当前
+地址派生。
+
+`UpdateOptionsBulk` 与后台 reload 会将同批 `ServerAddress + passkey.*` 构造成一个候选，并在完整 Passkey
+验证及数据库成功后只发布一次 runtime generation；无效组或 DB 写失败不发布部分 runtime/`OptionMap`。这只保证
+单进程内该相关配置族，不代表跨实例、跨配置族或跨 HTTP 请求事务。六个 Passkey begin/finish handler 的 enablement
+检查与 WebAuthn 构造使用同一次请求快照；`BuildWebAuthnWithSettings` 不再在中途重读全局地址。调用方提供空 settings
+且请求没有 Host 时会明确失败，既有 `BuildWebAuthn` wrapper 仍使用当前 global effective snapshot。
+
+这是刻意的源码级迁移：`system_setting.ServerAddress` 已移除，仓内及仓外读取须改为
+`GetServerAddress()`、写入须改为 `SetServerAddress(value)`；`GetPasskeySettings()` 返回值不可作为写入接口。仓内调用
+已迁移。本轮没有发布 Go library 或变更 `VERSION`；任何仓外导入方须在正式发布前完成此迁移并评审版本策略。
+
+已实际执行且通过的本地定向 Go 验证使用 `systemd-run` 的 `MemoryMax=768M`、`CPUQuota=100%` 和
+`GOMAXPROCS=1 GOMEMLIMIT=768MiB go test -p 1`：`setting/system_setting`、`service/passkey`、`model`、`oauth`、
+`service`、`relay`、`relay/channel/task/taskcommon`。覆盖 raw/effective 分离、联合 bulk/reload、无效与 DB 失败不发布、
+supplied WebAuthn snapshot、OAuth/支付/任务代理空地址和尾随 slash 语义；`gofmt`、`git diff --check` 通过。
+尚未执行根模块全量、race、真实 Redis、三数据库矩阵、relaykit、前端/浏览器或 Docker，也未访问真实设备、OAuth 上游或生产。
+当前 diff 的独立复审无 P0/P1/P2；唯一 P3 是未来可增加确定性并发观察来强化单 Store 回归保护，静态复核已确认当前
+实现为单 writer lock / 单 Store。CI run 与最终提交 SHA 尚未形成，因此本节不是“已完成”或“同提交 CI 通过”的声明。
+无 schema、UI、发布配置或版本号变更，`VERSION` 仍为 0.1.1。
+
 ## S2-D08 io.net 核心（2026-09-04，已完成当前范围）
 
 `pkg/ionet/client.go` 与 `pkg/ionet/jsonutil.go` 的各 4 处实际 stdlib JSON 调用已等价迁移至

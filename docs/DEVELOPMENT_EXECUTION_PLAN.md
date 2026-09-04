@@ -22,7 +22,7 @@ SSE、脱敏日志、额度分析、账户/Key 兼容字段、CLI/Electron 和�
 | --- | --- | --- | --- |
 | S0 计划与证据 | 已完成／已确认范围 | terra 起草，主代理整合 | 需求、缺陷、验证、决策分开；更新主计划、审计、macOS、额度 OpenAPI；链接、参数和事实一致。 |
 | S1 安全与一致性 | 已完成／已确认范围 | sol 实现；独立 sol 复审 | 原六项及追加 R1 均通过回归、独立复审和 CI；同进程配置保存/后台重载的发布顺序、双写交错与失败释放已有证据，不推导跨实例一致性。 |
-| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06/C07/C08、D01–D10 已完成既有范围；C09-R3 已完成，C10 Codex 本机导入（含向导）及额度分析整合 `6f8f85b` 已完成当前确认范围，并有同 SHA CI/Docker 证据。B2/B3 任务持久化/恢复与 C03b 缓存恢复仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
+| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06/C07/C08、D01–D10 已完成既有范围；C09-R4 已完成本地范围、待本提交 CI，C10 Codex 本机导入（含向导）及额度分析整合 `6f8f85b` 已完成当前确认范围，并有同 SHA CI/Docker 证据。B2/B3 任务持久化/恢复与 C03b 缓存恢复仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
 | S3 账户/Key 实际策略 | 未开始／迁移设计待确认 | sol 设计，分模块实现 | 明确账户权益、模型限制交集、route_groups、disabled、fallback、计费归属；旧 Key 兼容/差异报告/启用/回滚经确认后落实。不得把已有元数据当强制策略。 |
 | S4 运行与恢复 | 进行中／S4-01、S4-02 已完成当前范围 | 工程/制品与独立 sol 审查；sol 数据与恢复 | Full/LAN 测试镜像均不推送；SQLite/MySQL/PostgreSQL 临时库旧结构升级、重复迁移、多连接竞争、备份恢复；登录/Key/权限/日志/额度探针；原生桌面构建、安装升级与第二设备 LAN。 |
 | S5 额度闭环与选定扩展 | 进行中／额度分析分层已完成当前确认范围 | sol 领域/安全，terra 常规实现 | 概览/渠道详情分层、三种速率方法、reset-aware ETA、有界折线和实际浏览器回归已完成当前确认范围；`6f8f85b` 同 SHA CI/Docker 已通过。真实账户连续采样、通知、多 Key 身份和 Claude 组织用量仍按外部条件/决策登记，不混入平台账本。 |
@@ -150,7 +150,7 @@ race、relaykit 独立构建/测试、Node22 发行合同及干净源码 pack �
 | C06 | 已完成／测试隔离、本机/CI race 与独立复审通过 | 生产 logger 计数/轮转预约状态及轮询测试共享对象 | 两个渠道并发记录日志无 data race；保留日志格式与轮转、多渠道并发；测试使用独立快照/通知，不用串行化或 sleep 掩盖。 |
 | C07 | 已完成当前范围 | `common` 请求正文替换生命周期、Kling/Jimeng 兼容路由、Full Content 入口身份、Provider 模型/时长边界 | 所有正文读取路径同版本；原始客户端日志与转换后分发分离；`model_name`/`req_key`、Kling duration/mode、Jimeng frames 不得绕过已验证/已计费字段；内存/磁盘清理、race 与同提交 CI 通过。 |
 | C08 | 已完成当前范围 | Settings JSON、持久化前验证、限流快照、倍率与配置发布 | 失败解析/DB 失败不改 runtime；负/非有限倍率拒绝；rate 单请求快照、溢出/内存/动态窗口回归；本地普通/race/全量及 `2d6acab` 同 SHA CI 通过。 |
-| C09 | R3 已完成当前范围 | Settings 控制面并发与硬限额合同 | R1/R2 当前范围及同提交 CI 已完成；R3 `e3cd185` 同 SHA 八项 CI 完成 GroupRatio 私有快照、canonical/alias 兼容与写入回滚合同，独立最终复审无 P1/P2/P3；前端 bulk/跨多 HTTP 事务、历史 DB 清理、payment/Passkey/hard limit/global config 仍待。 |
+| C09 | R4 本地验证／待 CI | Settings 控制面并发与硬限额合同 | R1/R2/R3 的既有同提交 CI 证据保留；R4 已收敛 Passkey/ServerAddress 的单进程 immutable generation、整组发布和请求快照，当前 diff 的独立审查无 P0/P1/P2，待本提交 CI。前端 bulk/跨多 HTTP 事务、历史 DB 清理、payment runtime、成功 hard limit、generic config 热读仍待。 |
 
 C03a 不等于整个账务缓存一致性完成。现有缺损 hash 的 miss→hydrate/DB fallback 仍未改；
 高层 User/Token quota 增减仍异步更新缓存、失败只记录而数据库继续写，须在 C03b 单列。
@@ -213,6 +213,34 @@ MySQL/PostgreSQL engine 以及 11 包扩展 race 均成功。
 本轮明确不完成：成功限额仍 check→execute→record，未实现 reservation/rollback；总量仍令牌桶，不改产品语义；
 generic 21 模块热读、跨族事务、Passkey/null/未知 key/`GroupRatioSetting` 审计仍待；payment runtime 逐字段/活指针
 仍未解决；真实付款、生产、设备和发布未做。`VERSION` 保持 0.1.1。
+
+**S2-C09-R4（本地实现／待 CI）：** `ServerAddress` 与原始 Passkey 字段已改为同一不可变运行时
+generation；`GetServerAddress` / `SetServerAddress` 保留空值和尾随 `/` 的原始字符串语义，不做 URL
+规范化。`GetPasskeySettings` 返回调用方独占的 effective 副本：空 `RPID` / `Origins` 只在该副本中按当前
+地址派生，绝不回写原始配置、`OptionMap` 或数据库。因此原始 Passkey 空字段不再像旧 getter 一样在首次读取后
+黏附旧地址；后续地址变更会影响下一次 effective 读取，这是刻意的安全行为迁移而非严格旧行为复现。
+
+`UpdateOptionsBulk` 与后台 Option reload 都先收集 `ServerAddress + passkey.*`，验证完整 Passkey 候选并在
+数据库成功后以一次 Store 发布；无效候选或 DB 写失败不会发布地址、Passkey 或对应 `OptionMap` 项。这个保证仅限
+单进程内这一相关配置族，不是跨实例锁、跨配置族事务或跨多个 HTTP 更新的全局一致性承诺。六个 Passkey
+begin/finish handler 都在请求起点取得一个 settings snapshot，并同时用于 `Enabled` 判定和
+`BuildWebAuthnWithSettings`；新 helper 不会在构造期间偷偷重读全局地址。显式传入空 settings 且请求没有 Host 会
+失败；既有 `BuildWebAuthn` wrapper 仍从当前 effective 全局快照开始。
+
+**源码迁移说明：** 删除可写导出变量 `system_setting.ServerAddress` 是刻意的源码级 breaking change：读取改为
+`GetServerAddress()`，写入改为 `SetServerAddress(value)`。同样，`GetPasskeySettings()` 的返回值是 detached
+snapshot，修改该指针不再持久化或发布设置；写入必须走已注册的 Passkey 配置/Option 更新路径。仓内生产调用点已
+迁移。此应用仓库本轮未发布 Go library 或版本号；若有仓外导入方，须在后续正式发布前按此迁移说明完成编译与版本策略评审。
+
+本机已在 `systemd-run` 的 `MemoryMax=768M`、`CPUQuota=100%` 下，使用
+`GOMAXPROCS=1 GOMEMLIMIT=768MiB go test -p 1` 完成 `setting/system_setting`、`service/passkey`、`model`、
+`oauth`、`service`、`relay` 与 `relay/channel/task/taskcommon` 的定向回归；覆盖 Passkey 地址派生不污染原始导出、
+bulk/reload 联合发布、无效候选/DB 失败不发布、WebAuthn supplied snapshot、OAuth/支付/任务代理的空地址及尾随
+`/` 语义。`gofmt` 与 `git diff --check` 也已通过。本轮尚未执行根模块全量、race、真实 Redis、SQLite/MySQL/PostgreSQL
+矩阵、relaykit 独立构建、前端/浏览器或 Docker；未访问真实 WebAuthn 设备/OAuth 上游/生产。无 schema、前端 UI、
+发布配置或版本号变更，`VERSION` 仍为 0.1.1。独立复审当前 diff 无 P0/P1/P2；其唯一 P3 是未来可增加
+确定性并发观察以强化“单 Store”回归保护，当前实现已静态核对为单 writer lock / 单 Store。CI 未完成前不得将本段写为
+同提交 CI 通过。
 
 C06 使用私有状态锁保护计数与轮转预约，不跨日志 I/O；只有自动轮转任务释放自己的
 预约，手动 SetupLogger 不误清。logger 全包 race（2.595s）与全部 UpdateVideoTasks

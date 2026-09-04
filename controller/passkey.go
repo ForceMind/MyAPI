@@ -48,7 +48,8 @@ func parsePasskeyFinishRequest(c *gin.Context) (*passkeyFinishRequest, error) {
 }
 
 func PasskeyRegisterBegin(c *gin.Context) {
-	if !system_setting.GetPasskeySettings().Enabled {
+	settings := system_setting.GetPasskeySettings()
+	if !settings.Enabled {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
 			"message": "管理员未启用 Passkey 登录",
@@ -78,7 +79,7 @@ func PasskeyRegisterBegin(c *gin.Context) {
 		credential = nil
 	}
 
-	wa, err := passkeysvc.BuildWebAuthn(c.Request)
+	wa, err := passkeysvc.BuildWebAuthnWithSettings(c.Request, settings)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -126,7 +127,8 @@ func PasskeyRegisterBegin(c *gin.Context) {
 }
 
 func PasskeyRegisterFinish(c *gin.Context) {
-	if !system_setting.GetPasskeySettings().Enabled {
+	settings := system_setting.GetPasskeySettings()
+	if !settings.Enabled {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
 			"message": "管理员未启用 Passkey 登录",
@@ -157,7 +159,7 @@ func PasskeyRegisterFinish(c *gin.Context) {
 		return
 	}
 
-	wa, err := passkeysvc.BuildWebAuthn(c.Request)
+	wa, err := passkeysvc.BuildWebAuthnWithSettings(c.Request, settings)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -295,7 +297,8 @@ func PasskeyStatus(c *gin.Context) {
 }
 
 func PasskeyLoginBegin(c *gin.Context) {
-	if !system_setting.GetPasskeySettings().Enabled {
+	settings := system_setting.GetPasskeySettings()
+	if !settings.Enabled {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
 			"message": "管理员未启用 Passkey 登录",
@@ -303,7 +306,7 @@ func PasskeyLoginBegin(c *gin.Context) {
 		return
 	}
 
-	wa, err := passkeysvc.BuildWebAuthn(c.Request)
+	wa, err := passkeysvc.BuildWebAuthnWithSettings(c.Request, settings)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -339,7 +342,8 @@ func PasskeyLoginBegin(c *gin.Context) {
 }
 
 func PasskeyLoginFinish(c *gin.Context) {
-	if !system_setting.GetPasskeySettings().Enabled {
+	settings := system_setting.GetPasskeySettings()
+	if !settings.Enabled {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
 			"message": "管理员未启用 Passkey 登录",
@@ -358,7 +362,7 @@ func PasskeyLoginFinish(c *gin.Context) {
 		return
 	}
 
-	wa, err := passkeysvc.BuildWebAuthn(c.Request)
+	wa, err := passkeysvc.BuildWebAuthnWithSettings(c.Request, settings)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -486,7 +490,8 @@ func AdminResetPasskey(c *gin.Context) {
 }
 
 func PasskeyVerifyBegin(c *gin.Context) {
-	if !system_setting.GetPasskeySettings().Enabled {
+	settings := system_setting.GetPasskeySettings()
+	if !settings.Enabled {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
 			"message": "管理员未启用 Passkey 登录",
@@ -521,7 +526,7 @@ func PasskeyVerifyBegin(c *gin.Context) {
 		return
 	}
 
-	wa, err := passkeysvc.BuildWebAuthn(c.Request)
+	wa, err := passkeysvc.BuildWebAuthnWithSettings(c.Request, settings)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -563,7 +568,8 @@ func PasskeyVerifyBegin(c *gin.Context) {
 }
 
 func PasskeyVerifyFinish(c *gin.Context) {
-	if !system_setting.GetPasskeySettings().Enabled {
+	settings := system_setting.GetPasskeySettings()
+	if !settings.Enabled {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
 			"message": "管理员未启用 Passkey 登录",
@@ -591,7 +597,7 @@ func PasskeyVerifyFinish(c *gin.Context) {
 		return
 	}
 
-	wa, err := passkeysvc.BuildWebAuthn(c.Request)
+	wa, err := passkeysvc.BuildWebAuthnWithSettings(c.Request, settings)
 	if err != nil {
 		common.ApiError(c, err)
 		return
