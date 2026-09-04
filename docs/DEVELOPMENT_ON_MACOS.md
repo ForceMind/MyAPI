@@ -441,22 +441,24 @@ C09 的热读统一快照/锁、硬限额 reservation/rollback、
 跨族 reload 事务与历史数据审计未在本批解决；C09 只读设计已完成、实施仍待分批收敛；D09 与 D10
 均已完成当前范围并通过同提交 CI。
 
-### S2-C09-R1（本地完成／待同提交 CI）
+### S2-C09-R1（已完成当前范围）
 
-本轮不生成 SHA 或 CI 结论。payment compliance 的五字段统一由一次 `UpdateOptionsBulk` 提交；SQLite 回归覆盖
-成功写入和保留旧值的 rollback，既有 MySQL 5.7/PostgreSQL 9.6 fixture 留待 CI。工具价格以 source 与 index
+最终 `ae07527` / [CI 33824814509](https://github.com/ForceMind/MyAPI/actions/runs/33824814509)
+八项成功。payment compliance 的五字段统一由一次 `UpdateOptionsBulk` 提交；SQLite 回归覆盖
+成功写入和保留旧值的 rollback，同一 helper 已由 MySQL 5.7/PostgreSQL 9.6 CI engine 流程执行。工具价格以 source 与 index
 不可变同代际原子发布，公开 DTO 不变；严格 `MapConfig` 与历史宽松 loader 明确分离。`ConfigManager.SaveToDB`
 先完成完整快照，随后锁外 callback，覆盖重入和错误释放。Redis limiter 不再把第一个 client 固化为 singleton；
 `redis.Script` 可在 `NOSCRIPT` 后恢复，TTL 自然复满、无 24 小时截断；Go 在触碰 Redis 前拒绝非正、超过
 2^53 或 `Requested > Capacity` 的参数，Lua 还在写前拒绝非整数，且拒绝路径零写入。`common/limiter` 导出并复用 `MaxExactInteger`/
 `ValidateConfig`；Settings 默认及每个 group 在 DB 写入前以实际 `capacity=total*durationSeconds`、`rate=total`、
 `requested=durationSeconds` 共用 2^53-1 精确边界，覆盖大于 2^53 且不超过 MaxInt64 的拒绝，并保证 runtime/OptionMap
-不发布；`total=0` 与 disabled `duration=0` 保留。miniredis 已通过；新增独立真实 Redis 7 CI job 待跑。独立最终复审
-确认当前范围无 P1/P2；真实 Redis 与三数据库仍待 CI。
+不发布；`total=0` 与 disabled `duration=0` 保留。miniredis 已通过；独立真实 Redis 7 CI job 已实跑。独立最终复审
+确认当前范围无 P1/P2。
 
 本机已运行扩展后的 Settings/C09 同 CI race、低并行根模块全量 test、vet、build，以及 relaykit 的
 `GOWORK=off` vet/build/test；gofmt、diff-check、YAML 与根 JSON 静态门禁通过。没有在本机连接 Redis、MySQL
-或 PostgreSQL；其 gated 合同必须由同提交 GitHub CI 实际步骤验证。
+或 PostgreSQL；同提交 GitHub CI 已实际验证。原始 Redis 日志包含短/25 小时 TTL、Go/Lua 拒绝与
+`SCRIPT FLUSH` 恢复，S1 Job 的 MySQL/PostgreSQL engine 均通过，Backend 扩展 race 的 11 包均为 `ok`。
 
 未在本轮关闭的合同：成功限额仍是 check→execute→record，未实现 reservation/rollback；总量继续令牌桶，产品
 语义不变；generic 21 模块热读、跨族事务、Passkey/null/未知 key/`GroupRatioSetting` 审计仍待；payment runtime
