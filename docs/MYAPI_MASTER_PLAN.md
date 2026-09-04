@@ -518,6 +518,13 @@ Full 版可包含渠道、额度和日志步骤；LAN Lite 只包含创建 Key�
 
 渠道上游账户余额、MyAPI 用户余额和单个 API Key 限额必须使用不同标题，不能统称为“可用额度”。
 
+2026-09-04 代码阶段收口：Codex 本机导入和额度分析整合提交 `6f8f85b` 已通过
+[CI 33861244725](https://github.com/ForceMind/MyAPI/actions/runs/33861244725) 八项检查；
+[Docker smoke 33862317233](https://github.com/ForceMind/MyAPI/actions/runs/33862317233)
+在同一提交上完成 Full/LAN 两种 `push:false` 镜像、隔离 SQLite、认证和真实前端冒烟。
+因此该批代码与自动化合同标记为已完成；真实账号长期刷新、真实管理员/手机视觉、桌面
+安装、三数据库恢复及生产升级仍按外部验收处理，完整独立 UI 替换仍未启动。
+
 ## 7. Provider 支持路线
 
 优先级和边界：

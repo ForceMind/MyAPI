@@ -101,8 +101,10 @@ Docker 镜像测试使用 GitHub Actions 的 `Docker build smoke` workflow（手
 上构建并加载本地镜像（`push: false`），启动隔离 Full/LAN SQLite 容器验证状态、登录、
 合成计费与日志合同，不登录 GHCR、不创建 tag。现有 smoke 不等于本机 Compose、三数据库
 恢复、真实 Provider 或真实设备验收。
-`a36e529` 的 CI `33721694305` 已成功，历史 Billing/runner 故障不再是当前阻塞；本机仍
-需 Docker Desktop 完成 Compose、资源和数据库副本演练。
+`6f8f85b` 的 CI `33861244725` 八项成功；同 SHA 的 Docker smoke `33862317233` 已实际
+完成 Full/LAN 两种镜像构建、隔离 SQLite 启动、健康检查、认证和真实前端冒烟。历史
+Billing/runner 故障不再是当前阻塞；该结果不代表本机 Docker Desktop、数据库副本、
+真实账号或设备已经验收。
 
 2026-09-01 历史工具链备注：当时 `/opt/homebrew/bin/node` 启动时因 `merve` 依赖的
 `simdutf` 动态库缺失而 SIGABRT，导致 `bun run typecheck` 和包含 `npm test` 的发行合同
@@ -117,6 +119,13 @@ Docker 镜像测试使用 GitHub Actions 的 `Docker build smoke` workflow（手
 MacBook 资源有限时使用 `MYAPI_BUILD_PARALLELISM=1`、`GOMAXPROCS=1`，不要并行运行多
 个完整前端构建或 Docker 构建。Linux 专用的 `taskset` 不适用于 macOS；Docker Desktop
 的 CPU/内存限制和项目的 `MYAPI_CPU_LIMIT`/`MYAPI_MEMORY_LIMIT` 是主要资源边界。
+
+发生过内存或磁盘压力后，本机默认只运行定向检查，不再连续执行根模块全量测试、race、
+前端生产构建、Chromium 和 Docker 组合矩阵。完整矩阵优先交给 GitHub Actions；需要本机
+补验时必须串行、使用独立临时缓存并在结束后清理。删除前先区分本轮临时产物与共享缓存：
+`/tmp/myapi-*`、`web/dist` 和 `.local-tests/` 可以按本轮证据清理；`~/.npm`、`~/.bun`、
+`~/Library/Caches/ms-playwright`、`~/go/pkg/mod` 与 `web/node_modules` 可能被其他项目复用，
+没有明确确认不得删除。
 
 ## 本机 Full 运行
 

@@ -10,8 +10,8 @@
 | 运行构建可见性 | 管理员「系统信息」中的只读 Runtime build 标识、`build-metadata.ts` DOM/global 元数据及 `build-metadata.test.ts`；Docker/Release/Electron 构建注入 commit SHA；历史 Linux 副本曾切换到 `local/new-api:myapi-c283c1d` 并健康 | 代码与历史副本有证据；当前部署未核验 | 真实管理员手机视觉验收仍待完成 |
 | 完整独立 UI 系统 | 当前仅有 MyAPI 品牌资产、必要文案和局部额度/日志功能增量 | 尚未开始（代码层先行） | 需在代码合同稳定后另行完成信息架构、视觉系统、Full/LAN/移动端真实画面与设备验收；不得把局部增量误报为 UI 全量替换 |
 | 渠道额度历史 | `controller/channel-billing.go`、`controller/codex_usage.go`、历史/聚合测试、权限路由测试；2xx 无有效 Codex rate_limit 时标记 unsupported；历史聚合按 metric/window/source/plan/unit/currency/window_seconds 隔离；快照按渠道/系列/观测时间桶幂等保留首条，并以 nullable SHA-256 唯一键抵抗并发重复写入 | 已验证 | 真实登录账号和采样数据演练 |
-| 概览与渠道额度分析 | `service/quota_analysis.go`、history/changes/OpenAPI、`quota-overview-card.tsx`、共享详情图表、48 点服务端折线、三种速率方法、reset-aware ETA、七语言与浏览器脚本；概览单次有界查询且无高级控件，渠道页保留完整周期/颗粒/指标/图形/算法 | 新阶段本机 Go/OpenAPI、8 文件 106 项 Vitest、typecheck/lint/build 和真实 Chrome 合成回归通过；独立审查已闭环，待同提交 CI | 需要真实管理员在最新镜像等待至少两个采样核对；真实手机、长时间数据量和生产性能仍待完成 |
-| Codex 本机登录检测/导入 | `service/codex_local_auth.go`、`controller/codex_local_auth.go`、真实渠道路由安全链、`model/channel_credential.go`、跨实例 `system_task_locks` 命名租约、缓存 generation、`id_token` Full Content 脱敏、向导/手工 fallback及定向普通/race/浏览器测试 | 后端 `a7499a5` / CI `33857902218` 八项成功；前端向导、七语言、焦点与窄屏滚动本机已验证，待前端同提交 CI；测试不读取真实开发者凭据 | Full 原生真实账号导入需由 Root 在本机显式操作；容器/LAN 不自动扫描宿主机；真实账号长期运行仍由用户验收 |
+| 概览与渠道额度分析 | `service/quota_analysis.go`、history/changes/OpenAPI、`quota-overview-card.tsx`、共享详情图表、48 点服务端折线、三种速率方法、reset-aware ETA、七语言与浏览器脚本；概览单次有界查询且无高级控件，渠道页保留完整周期/颗粒/指标/图形/算法 | `6f8f85b` / CI `33861244725` 八项成功；本机受控回归和独立审查已闭环；同 SHA 的 Docker smoke `33862317233` Full/LAN 两项成功 | 需要真实管理员在最新镜像等待至少两个采样核对；真实手机、长时间数据量和生产性能仍待完成 |
+| Codex 本机登录检测/导入 | `service/codex_local_auth.go`、`controller/codex_local_auth.go`、真实渠道路由安全链、`model/channel_credential.go`、跨实例 `system_task_locks` 命名租约、缓存 generation、`id_token` Full Content 脱敏、向导/手工 fallback及定向普通/race/浏览器测试 | 后端 `a7499a5` / CI `33857902218` 八项成功；完整向导与额度整合 `6f8f85b` / CI `33861244725` 八项成功；同 SHA 的 Full/LAN 镜像冒烟成功，测试不读取真实开发者凭据 | Full 原生真实账号导入需由 Root 在本机显式操作；容器/LAN 不自动扫描宿主机；真实账号长期运行仍由用户验收 |
 | 账户等级/Key 访问方案 | `model/access_profile.go`、Key/UI/API 测试、策略注册表及旧 Key profile 保留测试；Key 表单显式提交稳定 `access_profile_id` 并保留 legacy `group`；`setting/access_profile.go` 校验 fallback 目标存在、去空格后的 ID 唯一性和循环依赖 | 兼容层已验证 | 强制路由迁移评审 |
 | 设置引导 | Full/LAN Lite/权限条件、生命周期测试 | 已验证 | 多设备视觉检查 |
 | 品牌与旧元数据 | `tools/branding/check.mjs`，最近运行 `blocking_count: 0` | 阻断项已清零 | NOTICE、源码头和兼容标识法律审查 |
@@ -25,6 +25,22 @@
 | Google Antigravity | `relay/channel/gemini/antigravity_client.go`、`antigravity_client_test.go`、`docs/ANTIGRAVITY_INTEGRATION.md`、`docs/ANTIGRAVITY_PUBLIC_RELAY_GATE.md`；`1827358` | 专用 transport 代码、边界测试及有界 Docker Go 回归已交付（create/get/poll/cancel/delete、usage、动态 agent/continuation 约束、大小上限、终态和脱敏） | 仍需完成公共 Relay 闸门中的持久化、权限、计费、工具策略和完整测试评审；稳定官方余额接口不存在时保持 `unsupported` |
 | NPM 正式发布 | CLI/打包/版本合同检查 | 发布前检查已验证 | 版本确认、tag、清单、用户明确确认与 `npm publish` |
 | macOS 开发迁移 | `docs/DEVELOPMENT_ON_MACOS.md`、`docs/CODEX_HANDOFF_PROMPT.md`、README 导航 | 文档已补齐 | 新 Mac 的工具安装、依赖测试和实机 Electron/LAN 验收需在新设备执行 |
+
+## Codex 本机导入与额度分析收口（2026-09-04）
+
+- 最终功能提交 `6f8f85b2fe45b466578a6f0d29840f7e6feeec72` 已推送到
+  `origin/main`；[CI 33861244725](https://github.com/ForceMind/MyAPI/actions/runs/33861244725)
+  的八个 job 全部成功，覆盖后端、前端、数据库/Redis 专项、桌面与发行合同。
+- [Docker smoke 33862317233](https://github.com/ForceMind/MyAPI/actions/runs/33862317233)
+  在同一 SHA 上串行完成 Full（job `100989318200`）与 LAN（job `100989318226`）两种
+  `push:false` 镜像的构建、隔离 SQLite 启动、健康检查、合成上游、认证和真实前端冒烟；
+  两项均成功，没有登录 GHCR、创建 tag、发布镜像或连接生产环境。
+- 本机资源异常后已停止所有重型验证并删除本轮可再生临时 Go/浏览器缓存与构建产物；
+  后续完整 Go、前端、浏览器和 Docker 矩阵转交 GitHub runner。共享的 npm、Bun、
+  Playwright、Go module 缓存以及 `web/node_modules` 未经用户确认不删除。
+- 当前代码阶段可以结束；仍未完成且不得误报为通过的项目是：真实 Codex 账号导入与长期
+  刷新、真实管理员/手机视觉、macOS/Windows 安装、MySQL/PostgreSQL 备份恢复、生产升级、
+  法律/NOTICE、正式版本号及 GHCR/NPM 发布。
 
 ## S2-A 支付与订阅事务（2026-09-03，已完成当前确认范围）
 
