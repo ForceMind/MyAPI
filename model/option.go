@@ -1,6 +1,8 @@
 package model
 
 import (
+	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,6 +22,24 @@ import (
 type Option struct {
 	Key   string `json:"key" gorm:"primaryKey"`
 	Value string `json:"value"`
+}
+
+const (
+	groupRatioOptionKey            = "GroupRatio"
+	groupRatioOptionAlias          = "group_ratio_setting.group_ratio"
+	groupGroupRatioOptionKey       = "GroupGroupRatio"
+	groupGroupRatioOptionAlias     = "group_ratio_setting.group_group_ratio"
+	groupRatioAliasConflictLogText = "conflicting group ratio option aliases"
+)
+
+type groupRatioOptionPair struct {
+	canonical string
+	alias     string
+}
+
+var groupRatioOptionPairs = []groupRatioOptionPair{
+	{canonical: groupRatioOptionKey, alias: groupRatioOptionAlias},
+	{canonical: groupGroupRatioOptionKey, alias: groupGroupRatioOptionAlias},
 }
 
 // optionMutationLock orders database snapshots/commits and their in-process
@@ -209,6 +229,10 @@ func InitOptionMap() {
 	for k, v := range modelConfigs {
 		common.OptionMap[k] = v
 	}
+	// The flat option names are canonical. Keep the compatibility aliases in
+	// the same snapshot so readers never observe two meanings for one setting.
+	common.OptionMap[groupRatioOptionAlias] = common.OptionMap[groupRatioOptionKey]
+	common.OptionMap[groupGroupRatioOptionAlias] = common.OptionMap[groupGroupRatioOptionKey]
 
 	common.OptionMapRWMutex.Unlock()
 	loadOptionsFromDatabaseLocked()
@@ -230,7 +254,12 @@ func loadOptionsFromDatabaseLocked() {
 		return
 	}
 	rateLimitValues := make(map[string]string)
+	groupRatioValues := make(map[string]string, len(groupRatioOptionPairs)*2)
 	for _, option := range options {
+		if _, ok := groupRatioOptionPairForKey(option.Key); ok {
+			groupRatioValues[option.Key] = option.Value
+			continue
+		}
 		if isModelRequestRateLimitOption(option.Key) {
 			rateLimitValues[option.Key] = option.Value
 			continue
@@ -239,6 +268,9 @@ func loadOptionsFromDatabaseLocked() {
 		if err != nil {
 			common.SysLog("failed to update option map: " + err.Error())
 		}
+	}
+	for _, pair := range groupRatioOptionPairs {
+		publishLoadedGroupRatioOptionPair(pair, groupRatioValues)
 	}
 	if len(rateLimitValues) > 0 {
 		if err := publishModelRequestRateLimitOptions(rateLimitValues, nil); err != nil {
@@ -447,7 +479,8 @@ func UpdateOptionsBulk(values map[string]string) error {
 	if len(values) == 0 {
 		return nil
 	}
-	normalized := make(map[string]string, len(values))
+	normalized := make(map[string]string, len(values)+len(groupRatioOptionPairs)*2)
+	groupRatioValues := make(map[string]string, len(groupRatioOptionPairs))
 	for key, value := range values {
 		var err error
 		value, err = normalizeOptionValue(key, value)
@@ -459,7 +492,20 @@ func UpdateOptionsBulk(values map[string]string) error {
 				return err
 			}
 		}
+		if pair, ok := groupRatioOptionPairForKey(key); ok {
+			if previous, exists := groupRatioValues[pair.canonical]; exists && previous != value {
+				return fmt.Errorf("%s: %s and %s contain different values", groupRatioAliasConflictLogText, pair.canonical, pair.alias)
+			}
+			groupRatioValues[pair.canonical] = value
+			continue
+		}
 		normalized[key] = value
+	}
+	for _, pair := range groupRatioOptionPairs {
+		if value, ok := groupRatioValues[pair.canonical]; ok {
+			normalized[pair.canonical] = value
+			normalized[pair.alias] = value
+		}
 	}
 	// Serialize commits and their complete local publication with reloads.
 	// This is a single-process ordering guarantee, not a cross-instance lock
@@ -481,7 +527,13 @@ func UpdateOptionsBulk(values map[string]string) error {
 		rateLimitConfig = &config
 	}
 	err := DB.Transaction(func(tx *gorm.DB) error {
-		for k, v := range normalized {
+		keys := make([]string, 0, len(normalized))
+		for key := range normalized {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			v := normalized[k]
 			option := Option{Key: k}
 			if err := tx.FirstOrCreate(&option, Option{Key: k}).Error; err != nil {
 				return err
@@ -497,12 +549,22 @@ func UpdateOptionsBulk(values map[string]string) error {
 		return err
 	}
 	for k, v := range normalized {
+		if _, ok := groupRatioOptionPairForKey(k); ok {
+			continue
+		}
 		if isModelRequestRateLimitOption(k) {
 			rateLimitValues[k] = v
 			continue
 		}
 		if err := updateOptionMap(k, v); err != nil {
 			return err
+		}
+	}
+	for _, pair := range groupRatioOptionPairs {
+		if value, ok := groupRatioValues[pair.canonical]; ok {
+			if err := publishGroupRatioOptionPair(pair, value); err != nil {
+				return err
+			}
 		}
 	}
 	if len(rateLimitValues) > 0 {
@@ -520,6 +582,9 @@ func updateOptionMap(key string, value string) (err error) {
 	}
 	if err = validateOptionValue(key, value); err != nil {
 		return err
+	}
+	if pair, ok := groupRatioOptionPairForKey(key); ok {
+		return publishGroupRatioOptionPair(pair, value)
 	}
 	if key == retiredThemeOptionKey {
 		common.OptionMapRWMutex.Lock()
@@ -919,6 +984,9 @@ func updateOptionMap(key string, value string) (err error) {
 }
 
 func normalizeOptionValue(key, value string) (string, error) {
+	if pair, ok := groupRatioOptionPairForKey(key); ok {
+		return normalizeGroupRatioOptionValue(pair, value)
+	}
 	if key == "access_profile_setting.profiles" {
 		return setting.NormalizeAccessProfileDefinitionsJSON(value)
 	}
@@ -932,6 +1000,117 @@ func normalizeOptionValue(key, value string) (string, error) {
 		return "{}", nil
 	default:
 		return value, nil
+	}
+}
+
+func groupRatioOptionPairForKey(key string) (groupRatioOptionPair, bool) {
+	for _, pair := range groupRatioOptionPairs {
+		if key == pair.canonical || key == pair.alias {
+			return pair, true
+		}
+	}
+	return groupRatioOptionPair{}, false
+}
+
+func normalizeGroupRatioOptionValue(pair groupRatioOptionPair, value string) (string, error) {
+	if pair.canonical == groupRatioOptionKey {
+		if err := ratio_setting.ValidateRatioMapJSON(value); err != nil {
+			return "", err
+		}
+		var ratios map[string]float64
+		if err := common.Unmarshal([]byte(value), &ratios); err != nil {
+			return "", err
+		}
+		for key, ratio := range ratios {
+			if ratio == 0 {
+				ratios[key] = 0
+			}
+		}
+		encoded, err := common.Marshal(ratios)
+		return string(encoded), err
+	}
+	if err := ratio_setting.ValidateNestedRatioMapJSON(value); err != nil {
+		return "", err
+	}
+	var ratios map[string]map[string]float64
+	if err := common.Unmarshal([]byte(value), &ratios); err != nil {
+		return "", err
+	}
+	for _, nested := range ratios {
+		for key, ratio := range nested {
+			if ratio == 0 {
+				nested[key] = 0
+			}
+		}
+	}
+	encoded, err := common.Marshal(ratios)
+	return string(encoded), err
+}
+
+func publishGroupRatioOptionPair(pair groupRatioOptionPair, value string) error {
+	value, err := normalizeGroupRatioOptionValue(pair, value)
+	if err != nil {
+		return err
+	}
+	if pair.canonical == groupRatioOptionKey {
+		err = ratio_setting.UpdateGroupRatioByJSONString(value)
+	} else {
+		err = ratio_setting.UpdateGroupGroupRatioByJSONString(value)
+	}
+	if err != nil {
+		return err
+	}
+	common.OptionMapRWMutex.Lock()
+	common.OptionMap[pair.canonical] = value
+	common.OptionMap[pair.alias] = value
+	common.OptionMapRWMutex.Unlock()
+	return nil
+}
+
+func publishLoadedGroupRatioOptionPair(pair groupRatioOptionPair, values map[string]string) {
+	canonicalValue, hasCanonical := values[pair.canonical]
+	aliasValue, hasAlias := values[pair.alias]
+
+	normalizedCanonical, canonicalErr := "", error(nil)
+	if hasCanonical {
+		normalizedCanonical, canonicalErr = normalizeGroupRatioOptionValue(pair, canonicalValue)
+	}
+	normalizedAlias, aliasErr := "", error(nil)
+	if hasAlias {
+		normalizedAlias, aliasErr = normalizeGroupRatioOptionValue(pair, aliasValue)
+	}
+
+	selected := ""
+	switch {
+	case hasCanonical && canonicalErr == nil:
+		selected = normalizedCanonical
+		if hasAlias && aliasErr != nil {
+			common.SysLog(fmt.Sprintf("warning: invalid group ratio option alias %s: %v; valid canonical %s remains authoritative", pair.alias, aliasErr, pair.canonical))
+		} else if hasAlias && normalizedCanonical != normalizedAlias {
+			common.SysLog(fmt.Sprintf("warning: %s: valid canonical %s takes precedence over %s", groupRatioAliasConflictLogText, pair.canonical, pair.alias))
+		}
+	case hasCanonical && canonicalErr != nil && hasAlias && aliasErr == nil:
+		selected = normalizedAlias
+		common.SysLog(fmt.Sprintf("warning: invalid canonical group ratio option %s: %v; falling back to valid alias %s", pair.canonical, canonicalErr, pair.alias))
+	case hasCanonical && canonicalErr != nil && hasAlias:
+		common.SysLog(fmt.Sprintf("warning: both group ratio option aliases for %s are invalid; retaining last valid runtime value (canonical: %v; alias: %v)", pair.canonical, canonicalErr, aliasErr))
+	case hasCanonical && canonicalErr != nil:
+		common.SysLog(fmt.Sprintf("warning: invalid canonical group ratio option %s: %v; retaining last valid runtime value", pair.canonical, canonicalErr))
+	case hasAlias && aliasErr == nil:
+		selected = normalizedAlias
+	case hasAlias:
+		common.SysLog(fmt.Sprintf("warning: invalid group ratio option alias %s: %v; retaining last valid runtime value", pair.alias, aliasErr))
+	}
+
+	if selected == "" {
+		if pair.canonical == groupRatioOptionKey {
+			selected = ratio_setting.GroupRatio2JSONString()
+		} else {
+			selected = ratio_setting.GroupGroupRatio2JSONString()
+		}
+	}
+	if err := publishGroupRatioOptionPair(pair, selected); err != nil {
+		common.SysLog(fmt.Sprintf("failed to publish last valid %s runtime snapshot: %v", pair.canonical, err))
 	}
 }
 

@@ -70,3 +70,58 @@ func TestGetRequestAutoGroupsDoesNotFallBackAfterPermissionChange(t *testing.T) 
 
 	assert.Empty(t, groups)
 }
+
+func TestGetUserUsableGroupsAppliesSpecialGroupAddRemoveSemantics(t *testing.T) {
+	originalUsableGroups := setting.UserUsableGroups2JSONString()
+	originalSpecialGroups := ratio_setting.GroupSpecialUsableGroup2JSONString()
+	t.Cleanup(func() {
+		require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(originalUsableGroups))
+		require.NoError(t, ratio_setting.UpdateGroupSpecialUsableGroupByJSONString(originalSpecialGroups))
+	})
+
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{
+		"default": "Default",
+		"legacy": "Legacy",
+		"unavailable": "Unavailable"
+	}`))
+	require.NoError(t, ratio_setting.UpdateGroupSpecialUsableGroupByJSONString(`{
+		"member": {
+			"+:vip": "VIP",
+			"-:legacy": "",
+			"-:unavailable": "",
+			"bonus": "Bonus"
+		}
+	}`))
+
+	assert.Equal(t, map[string]string{
+		"default": "Default",
+		"vip":     "VIP",
+		"bonus":   "Bonus",
+		"member":  "用户分组",
+	}, GetUserUsableGroups("member"))
+}
+
+func TestGetGroupSpecialUsableGroupReturnsDetachedMap(t *testing.T) {
+	originalUsableGroups := setting.UserUsableGroups2JSONString()
+	originalSpecialGroups := ratio_setting.GroupSpecialUsableGroup2JSONString()
+	t.Cleanup(func() {
+		require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(originalUsableGroups))
+		require.NoError(t, ratio_setting.UpdateGroupSpecialUsableGroupByJSONString(originalSpecialGroups))
+	})
+
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"Default"}`))
+	require.NoError(t, ratio_setting.UpdateGroupSpecialUsableGroupByJSONString(`{
+		"member": {"+:vip": "VIP"}
+	}`))
+
+	specialGroups, ok := ratio_setting.GetGroupSpecialUsableGroup("member")
+	require.True(t, ok)
+	specialGroups["+:vip"] = "Changed"
+	specialGroups["bonus"] = "Bonus"
+
+	assert.Equal(t, map[string]string{
+		"default": "Default",
+		"vip":     "VIP",
+		"member":  "用户分组",
+	}, GetUserUsableGroups("member"))
+}

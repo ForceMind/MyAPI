@@ -266,23 +266,21 @@ func TestGetUserModelsReturnsCodexPlaygroundRestrictions(t *testing.T) {
 func TestGetUserModelsExpandsAutoGroupsInConfiguredOrder(t *testing.T) {
 	originalAutoGroups := setting.AutoGroups2JsonString()
 	originalUsableGroups := setting.UserUsableGroups2JSONString()
-	originalSpecialGroups := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.ReadAll()
+	originalSpecialGroups := ratio_setting.GroupSpecialUsableGroup2JSONString()
 	t.Cleanup(func() {
 		require.NoError(t, setting.UpdateAutoGroupsByJsonString(originalAutoGroups))
 		require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(originalUsableGroups))
-		specialGroups := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup
-		specialGroups.Clear()
-		specialGroups.AddAll(originalSpecialGroups)
+		require.NoError(t, ratio_setting.UpdateGroupSpecialUsableGroupByJSONString(originalSpecialGroups))
 	})
 
 	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["vip","default","unavailable"]`))
 	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"auto":"自动分组","default":"默认分组","unavailable":"不可用分组"}`))
-	specialGroups := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup
-	specialGroups.Clear()
-	specialGroups.Set("default", map[string]string{
-		"+:vip":         "VIP 分组",
-		"-:unavailable": "",
-	})
+	require.NoError(t, ratio_setting.UpdateGroupSpecialUsableGroupByJSONString(`{
+		"default": {
+			"+:vip": "VIP 分组",
+			"-:unavailable": ""
+		}
+	}`))
 
 	db := setupModelListControllerTestDB(t)
 	require.NoError(t, db.Create(&model.User{

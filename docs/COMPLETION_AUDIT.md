@@ -526,6 +526,24 @@ schema 改动，`VERSION` 仍为 0.1.1。
 
 仍待：Passkey/ServerAddress、payment runtime/密钥轮换、`GroupRatioSetting` alias/前端 bulk、成功 hard limit 与跨族事务。
 R1 文档收尾 `3af738e` / [CI 33825533002](https://github.com/ForceMind/MyAPI/actions/runs/33825533002) 八项成功。
+R2 文档收尾 `3c63e02` / [CI 33828752473](https://github.com/ForceMind/MyAPI/actions/runs/33828752473) 八项成功。
+
+## S2-C09-R3（2026-09-04，本地完成／待同提交 CI）
+
+不写 R3 SHA/CI。GroupRatio 三图采用私有 writer 与 atomic 单快照，嵌套深拷贝。detached 公开 DTO 保持三字段
+unkeyed/JSON 兼容与 receiver-local，NaN/Inf 导出错误继续传播；`GlobalConfig.Get` 的动态类型改为私有 manager，
+公开 DTO/函数不变且仓内无生产类型断言。special 空 user/target，以及 direct、`+:`/`-:`
+同目标冲突均在写前拒绝；service 使用 detached special getter，`+`/`-` 语义保持。当前 UI 决定平面
+`GroupRatio`/`GroupGroupRatio` 为 canonical、分层键仅兼容；新 JSON 语义规范化并事务双写，bulk 冲突写前拒绝，
+OptionMap/runtime 双键同值。历史加载有效 canonical 优先；invalid canonical fallback 有效 alias；双方 invalid 保留最后
+有效 runtime，明确 warning 且不改 DB。
+
+SQLite 覆盖反向行序、alias-only/conflict、update/mixed/create rollback；同一合同已接现有 MySQL 5.7/PostgreSQL 9.6
+gated 子测试，待 CI。独立 Sol 最终复审无 P1/P2/P3。本机通过 ratio/model/service/controller 普通、workflow 同款
+13 包 race、`go test -p 1 ./...`、vet、build、relaykit `GOWORK=off` vet/build/test、gofmt、diff、YAML/JSON 门禁。
+首次 service/controller race 仅因磁盘满链接失败；只清理 7.9GB 可重建 `/private/tmp/myapi-gocache` 后原命令通过，
+仓库/DB 未触碰。R3 不完成前端 bulk/跨多 HTTP 事务、历史 DB 清理、payment/Passkey/hard limit/global config；
+无页面/schema，`VERSION` 仍为 0.1.1。
 
 ## S2-D08 io.net 核心（2026-09-04，已完成当前范围）
 
@@ -577,6 +595,8 @@ diff-check 与静态门禁通过；独立复审最终无 P1/P2。最终 `bf03cba
 
 - S2-C09-R2 最终提交 `2575f5b`：[CI 33828024982](https://github.com/ForceMind/MyAPI/actions/runs/33828024982)
   八项成功；改名后的 `Verify settings, rate-limit, and request snapshots` 12 包均为 `ok`，其余七个 job 也成功。
+- R2 文档收尾 `3c63e02`：[CI 33828752473](https://github.com/ForceMind/MyAPI/actions/runs/33828752473)
+  八项成功；仅补充已完成 R2 的文档证据，不外推为 R3 CI 结论。
 - S2-C09-R1 最终提交 `ae07527`：[CI 33824814509](https://github.com/ForceMind/MyAPI/actions/runs/33824814509)
   八项成功；真实 Redis 7 limiter lifecycle、MySQL/PostgreSQL engine fixture 与 11 包扩展 race 均通过。
 - S2-D09 最终提交 `8228203`：[CI 33819117410](https://github.com/ForceMind/MyAPI/actions/runs/33819117410)

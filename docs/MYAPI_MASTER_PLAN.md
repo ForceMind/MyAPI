@@ -264,6 +264,21 @@ schema 改动，`VERSION` 仍为 0.1.1。仍待：Passkey/ServerAddress、paymen
 前端 bulk、成功 hard limit 与跨族事务。R1 文档收尾 `3af738e` / [CI 33825533002](https://github.com/ForceMind/MyAPI/actions/runs/33825533002)
 八项成功。
 
+R2 文档收尾 `3c63e02` / [CI 33828752473](https://github.com/ForceMind/MyAPI/actions/runs/33828752473) 八项成功。
+S2-C09-R3 本地完成，待同提交 CI，不写 R3 SHA/CI。GroupRatio 三图由私有 writer 加 atomic 单快照发布，嵌套值深拷贝；
+detached 公开 DTO 保持三字段 unkeyed/JSON 兼容、receiver-local，NaN/Inf 导出错误继续传播；注册表动态类型改为私有
+manager，但公开 DTO/函数不变且仓内无生产类型断言。special 的空 user/target，
+以及 direct、`+:`/`-:` 同目标冲突均在写前拒绝；service 读取 detached special getter，`+`/`-` 语义不变。基于当前 UI，
+平面 `GroupRatio`/`GroupGroupRatio` 为 canonical，分层键仅兼容；新 JSON 语义规范化并在事务中双写，bulk 冲突写前拒绝，
+OptionMap/runtime 双键同值。历史加载有效 canonical 优先；invalid canonical fallback 有效 alias；双方 invalid 保留最后有效
+runtime，明确 warning 且不写回 DB。SQLite 覆盖反向行序、alias-only/conflict、update/mixed/create rollback；同一合同已接入
+现有 MySQL 5.7/PostgreSQL 9.6 gated 子测试，待 CI。
+
+独立 Sol 最终复审无 P1/P2/P3。本机已通过 ratio/model/service/controller 普通测试、workflow 同款 13 包 race、
+`go test -p 1 ./...`、vet、build、relaykit `GOWORK=off` vet/build/test、gofmt、diff、YAML/JSON 门禁。首次 service/controller
+race 仅因磁盘满导致链接失败；只清理 7.9GB 可重建的 `/private/tmp/myapi-gocache` 后原命令通过，未触碰仓库或 DB。R3 不完成
+前端 bulk/跨多 HTTP 事务、历史 DB 清理、payment/Passkey/hard limit/global config；无页面/schema，`VERSION` 仍为 0.1.1。
+
 D08 本地将 `pkg/ionet/client.go`、`pkg/ionet/jsonutil.go` 各 4 处实际 stdlib JSON 调用迁移至
 `common` wrapper，根模块余量由 19/6 降为 11/4。无网络 fake client 覆盖请求 body/headers/method/URL、
 NaN marshal、transport/API detail fallback、query slices/HTML escape/空值/零值/false/`time.Time`/

@@ -83,16 +83,15 @@ func TestGroupRatioConfigLoadRejectsNegativeValuesWithoutChangingLiveMaps(t *tes
 }
 
 func TestGroupRatioReadsFailClosedForCorruptedInMemoryValues(t *testing.T) {
-	previousGroup := GroupRatio2JSONString()
-	previousSpecial := GroupGroupRatio2JSONString()
-	t.Cleanup(func() {
-		require.NoError(t, UpdateGroupRatioByJSONString(previousGroup))
-		require.NoError(t, UpdateGroupGroupRatioByJSONString(previousSpecial))
-	})
+	previous := groupRatioSetting.snapshot()
+	t.Cleanup(func() { groupRatioSetting.current.Store(previous) })
 
-	groupRatioMap.Set("corrupted", -1)
+	groupRatioSetting.current.Store(&groupRatioSnapshot{
+		groupRatio:              map[string]float64{"corrupted": -1},
+		groupGroupRatio:         map[string]map[string]float64{"vip": {"corrupted": -1}},
+		groupSpecialUsableGroup: map[string]map[string]string{},
+	})
 	assert.Equal(t, 1.0, GetGroupRatio("corrupted"))
-	groupGroupRatioMap.Set("vip", map[string]float64{"corrupted": -1})
 	_, ok := GetGroupGroupRatio("vip", "corrupted")
 	assert.False(t, ok)
 }

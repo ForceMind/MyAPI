@@ -341,6 +341,9 @@ func TestAccessProfileConfiguredDatabases(t *testing.T) {
 			require.True(t, ok)
 			assert.Equal(t, "After", profile.Label)
 			assert.Equal(t, config.GlobalConfig.ExportAllConfigs()[key], stored.Value)
+			t.Run("group-ratio-alias-contract", func(t *testing.T) {
+				groupRatioAliasDatabaseContract(t, db)
+			})
 		})
 	}
 }

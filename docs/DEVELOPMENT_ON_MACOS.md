@@ -480,6 +480,22 @@ C09 的热读统一快照/锁、硬限额 reservation/rollback、
 gofmt、diff、YAML/JSON 门禁。R2 不需且未做真实 Redis、三数据库、前端、上游；无页面/schema，`VERSION` 0.1.1。
 Passkey/ServerAddress、payment runtime/密钥轮换、`GroupRatioSetting` alias/前端 bulk、成功 hard limit、跨族事务仍待。
 R1 文档收尾 `3af738e` / [CI 33825533002](https://github.com/ForceMind/MyAPI/actions/runs/33825533002) 八项成功。
+R2 文档收尾 `3c63e02` / [CI 33828752473](https://github.com/ForceMind/MyAPI/actions/runs/33828752473) 八项成功。
+
+### S2-C09-R3（本地完成／待同提交 CI）
+
+不写 R3 SHA/CI。GroupRatio 三图通过私有 writer 加 atomic 单快照发布，嵌套深拷贝；detached 公开 DTO 保持三字段
+unkeyed/JSON 兼容、receiver-local，NaN/Inf 导出错误传播；注册表动态类型改为私有 manager，公开 DTO/函数不变且仓内
+无生产类型断言。special 空 user/target 及 direct、`+:`/`-:` 同目标冲突均写前拒绝；
+service 使用 detached special getter，`+`/`-` 语义保持。当前 UI 的平面 `GroupRatio`/`GroupGroupRatio` 为 canonical，分层键兼容；
+新 JSON 语义规范化后事务双写，bulk 冲突写前拒绝，OptionMap/runtime 双键同值。历史加载以有效 canonical 优先，invalid canonical
+fallback 有效 alias；双方 invalid 留最后有效 runtime、显式 warning、不改 DB。SQLite 覆盖反向行序、alias-only/conflict、
+update/mixed/create rollback；同一合同接入现有 MySQL 5.7/PostgreSQL 9.6 gated 子测试，待 CI。
+
+独立 Sol 最终复审无 P1/P2/P3。本机通过 ratio/model/service/controller 普通、workflow 同款 13 包 race、
+`go test -p 1 ./...`、vet、build、relaykit `GOWORK=off` vet/build/test、gofmt、diff、YAML/JSON 门禁。首次 service/controller
+race 只因磁盘满链接失败；仅清理 7.9GB 可重建 `/private/tmp/myapi-gocache` 后原命令通过，未触碰仓库/DB。R3 不完成前端 bulk/
+跨多 HTTP 事务、历史 DB 清理、payment/Passkey/hard limit/global config；无页面/schema，`VERSION` 0.1.1。
 
 ### S2-D08 io.net 核心（已完成当前范围）
 
