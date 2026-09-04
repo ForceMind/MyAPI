@@ -117,7 +117,7 @@ race、relaykit 独立构建/测试、Node22 发行合同及干净源码 pack �
 | C06 | 已完成／测试隔离、本机/CI race 与独立复审通过 | 生产 logger 计数/轮转预约状态及轮询测试共享对象 | 两个渠道并发记录日志无 data race；保留日志格式与轮转、多渠道并发；测试使用独立快照/通知，不用串行化或 sleep 掩盖。 |
 | C07 | 已完成当前范围 | `common` 请求正文替换生命周期、Kling/Jimeng 兼容路由、Full Content 入口身份、Provider 模型/时长边界 | 所有正文读取路径同版本；原始客户端日志与转换后分发分离；`model_name`/`req_key`、Kling duration/mode、Jimeng frames 不得绕过已验证/已计费字段；内存/磁盘清理、race 与同提交 CI 通过。 |
 | C08 | 已完成当前范围 | Settings JSON、持久化前验证、限流快照、倍率与配置发布 | 失败解析/DB 失败不改 runtime；负/非有限倍率拒绝；rate 单请求快照、溢出/内存/动态窗口回归；本地普通/race/全量及 `2d6acab` 同 SHA CI 通过。 |
-| C09 | R3 本地完成／待同提交 CI | Settings 控制面并发与硬限额合同 | R1/R2 当前范围及同提交 CI 已完成；R3 完成 GroupRatio 私有快照、canonical/alias 兼容与写入回滚合同，独立最终复审无 P1/P2/P3；前端 bulk/跨多 HTTP 事务、历史 DB 清理、payment/Passkey/hard limit/global config 仍待。 |
+| C09 | R3 已完成当前范围 | Settings 控制面并发与硬限额合同 | R1/R2 当前范围及同提交 CI 已完成；R3 `e3cd185` 同 SHA 八项 CI 完成 GroupRatio 私有快照、canonical/alias 兼容与写入回滚合同，独立最终复审无 P1/P2/P3；前端 bulk/跨多 HTTP 事务、历史 DB 清理、payment/Passkey/hard limit/global config 仍待。 |
 
 C03a 不等于整个账务缓存一致性完成。现有缺损 hash 的 miss→hydrate/DB fallback 仍未改；
 高层 User/Token quota 增减仍异步更新缓存、失败只记录而数据库继续写，须在 C03b 单列。
@@ -156,13 +156,17 @@ Passkey/ServerAddress、payment runtime/密钥轮换、`GroupRatioSetting` alias
 R1 文档收尾 `3af738e` / [CI 33825533002](https://github.com/ForceMind/MyAPI/actions/runs/33825533002) 八项成功。
 R2 文档收尾 `3c63e02` / [CI 33828752473](https://github.com/ForceMind/MyAPI/actions/runs/33828752473) 八项成功。
 
-**S2-C09-R3（本地完成／待同提交 CI）：** 不写 R3 SHA/CI。GroupRatio 三图私有 writer 加 atomic 单快照、嵌套深拷贝；
+**S2-C09-R3（已完成当前范围）：** 最终 `e3cd185` / [CI 33831492021](https://github.com/ForceMind/MyAPI/actions/runs/33831492021)
+八项成功。原始 S1 日志确认 MySQL 5.7 与 PostgreSQL 9.6 均执行
+`group-ratio-alias-contract/create-rollback/{mixed-existing-canonical-and-missing-alias,both-missing-second-create}`，全 PASS、无 skip；
+Backend `Verify settings, rate-limit, and request snapshots` 13 包均为 `ok`，含 ratio/model/controller/service/relay-common。
+GroupRatio 三图私有 writer 加 atomic 单快照、嵌套深拷贝；
 detached 公开 DTO 保持三字段 unkeyed/JSON 兼容、receiver-local，NaN/Inf 导出错误传播；注册表动态类型改私有 manager，
 公开 DTO/函数不变且仓内无生产类型断言。special 空 user/target 和 direct、
 `+:`/`-:` 同目标冲突写前拒绝；service 走 detached special getter，`+`/`-` 语义不变。平面 `GroupRatio`/`GroupGroupRatio`
 基于当前 UI 为 canonical，分层键兼容；新 JSON 规范化并事务双写，bulk 冲突写前拒绝，OptionMap/runtime 双键同值。历史加载有效
 canonical 优先；invalid canonical fallback 有效 alias；双方 invalid 保留最后有效 runtime、warning、不改 DB。SQLite 覆盖反向
-行序、alias-only/conflict、update/mixed/create rollback；同一合同接入 MySQL 5.7/PostgreSQL 9.6 gated 子测试，待 CI。
+行序、alias-only/conflict、update/mixed/create rollback；同一合同接入 MySQL 5.7/PostgreSQL 9.6 gated 子测试，并由同提交 CI 通过。
 
 独立 Sol 最终复审无 P1/P2/P3。本机通过 ratio/model/service/controller 普通、workflow 同款 13 包 race、
 `go test -p 1 ./...`、vet、build、relaykit `GOWORK=off` vet/build/test、gofmt、diff、YAML/JSON 门禁。首次 service/controller

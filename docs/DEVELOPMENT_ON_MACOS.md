@@ -482,15 +482,18 @@ Passkey/ServerAddress、payment runtime/密钥轮换、`GroupRatioSetting` alias
 R1 文档收尾 `3af738e` / [CI 33825533002](https://github.com/ForceMind/MyAPI/actions/runs/33825533002) 八项成功。
 R2 文档收尾 `3c63e02` / [CI 33828752473](https://github.com/ForceMind/MyAPI/actions/runs/33828752473) 八项成功。
 
-### S2-C09-R3（本地完成／待同提交 CI）
+### S2-C09-R3（已完成当前范围）
 
-不写 R3 SHA/CI。GroupRatio 三图通过私有 writer 加 atomic 单快照发布，嵌套深拷贝；detached 公开 DTO 保持三字段
+最终 `e3cd185` / [CI 33831492021](https://github.com/ForceMind/MyAPI/actions/runs/33831492021) 八项成功。原始 S1 日志明确
+MySQL 5.7 与 PostgreSQL 9.6 均执行 `group-ratio-alias-contract/create-rollback/{mixed-existing-canonical-and-missing-alias,both-missing-second-create}`，
+全 PASS、无 skip；Backend `Verify settings, rate-limit, and request snapshots` 13 包均为 `ok`，含 ratio/model/controller/service/relay-common。
+GroupRatio 三图通过私有 writer 加 atomic 单快照发布，嵌套深拷贝；detached 公开 DTO 保持三字段
 unkeyed/JSON 兼容、receiver-local，NaN/Inf 导出错误传播；注册表动态类型改为私有 manager，公开 DTO/函数不变且仓内
 无生产类型断言。special 空 user/target 及 direct、`+:`/`-:` 同目标冲突均写前拒绝；
 service 使用 detached special getter，`+`/`-` 语义保持。当前 UI 的平面 `GroupRatio`/`GroupGroupRatio` 为 canonical，分层键兼容；
 新 JSON 语义规范化后事务双写，bulk 冲突写前拒绝，OptionMap/runtime 双键同值。历史加载以有效 canonical 优先，invalid canonical
 fallback 有效 alias；双方 invalid 留最后有效 runtime、显式 warning、不改 DB。SQLite 覆盖反向行序、alias-only/conflict、
-update/mixed/create rollback；同一合同接入现有 MySQL 5.7/PostgreSQL 9.6 gated 子测试，待 CI。
+update/mixed/create rollback；同一合同接入现有 MySQL 5.7/PostgreSQL 9.6 gated 子测试，并已由同提交 CI 通过。
 
 独立 Sol 最终复审无 P1/P2/P3。本机通过 ratio/model/service/controller 普通、workflow 同款 13 包 race、
 `go test -p 1 ./...`、vet、build、relaykit `GOWORK=off` vet/build/test、gofmt、diff、YAML/JSON 门禁。首次 service/controller

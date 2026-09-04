@@ -528,9 +528,12 @@ schema 改动，`VERSION` 仍为 0.1.1。
 R1 文档收尾 `3af738e` / [CI 33825533002](https://github.com/ForceMind/MyAPI/actions/runs/33825533002) 八项成功。
 R2 文档收尾 `3c63e02` / [CI 33828752473](https://github.com/ForceMind/MyAPI/actions/runs/33828752473) 八项成功。
 
-## S2-C09-R3（2026-09-04，本地完成／待同提交 CI）
+## S2-C09-R3（2026-09-04，已完成当前范围）
 
-不写 R3 SHA/CI。GroupRatio 三图采用私有 writer 与 atomic 单快照，嵌套深拷贝。detached 公开 DTO 保持三字段
+最终 `e3cd185` / [CI 33831492021](https://github.com/ForceMind/MyAPI/actions/runs/33831492021) 八项成功。原始 S1 日志明确
+MySQL 5.7 与 PostgreSQL 9.6 各执行 `group-ratio-alias-contract/create-rollback/{mixed-existing-canonical-and-missing-alias,both-missing-second-create}`，
+全 PASS、无 skip。Backend `Verify settings, rate-limit, and request snapshots` 13 包全部 `ok`，包含 ratio/model/controller/service/relay-common。
+GroupRatio 三图采用私有 writer 与 atomic 单快照，嵌套深拷贝。detached 公开 DTO 保持三字段
 unkeyed/JSON 兼容与 receiver-local，NaN/Inf 导出错误继续传播；`GlobalConfig.Get` 的动态类型改为私有 manager，
 公开 DTO/函数不变且仓内无生产类型断言。special 空 user/target，以及 direct、`+:`/`-:`
 同目标冲突均在写前拒绝；service 使用 detached special getter，`+`/`-` 语义保持。当前 UI 决定平面
@@ -539,7 +542,7 @@ OptionMap/runtime 双键同值。历史加载有效 canonical 优先；invalid c
 有效 runtime，明确 warning 且不改 DB。
 
 SQLite 覆盖反向行序、alias-only/conflict、update/mixed/create rollback；同一合同已接现有 MySQL 5.7/PostgreSQL 9.6
-gated 子测试，待 CI。独立 Sol 最终复审无 P1/P2/P3。本机通过 ratio/model/service/controller 普通、workflow 同款
+gated 子测试，并由同提交 CI 通过。独立 Sol 最终复审无 P1/P2/P3。本机通过 ratio/model/service/controller 普通、workflow 同款
 13 包 race、`go test -p 1 ./...`、vet、build、relaykit `GOWORK=off` vet/build/test、gofmt、diff、YAML/JSON 门禁。
 首次 service/controller race 仅因磁盘满链接失败；只清理 7.9GB 可重建 `/private/tmp/myapi-gocache` 后原命令通过，
 仓库/DB 未触碰。R3 不完成前端 bulk/跨多 HTTP 事务、历史 DB 清理、payment/Passkey/hard limit/global config；
@@ -593,6 +596,8 @@ diff-check 与静态门禁通过；独立复审最终无 P1/P2。最终 `bf03cba
 
 ## 最近 CI 证据
 
+- S2-C09-R3 最终提交 `e3cd185`：[CI 33831492021](https://github.com/ForceMind/MyAPI/actions/runs/33831492021)
+  八项成功；MySQL 5.7/PG 9.6 的两个 group-ratio alias create-rollback 场景全 PASS 无 skip，Backend 13 包均为 `ok`。
 - S2-C09-R2 最终提交 `2575f5b`：[CI 33828024982](https://github.com/ForceMind/MyAPI/actions/runs/33828024982)
   八项成功；改名后的 `Verify settings, rate-limit, and request snapshots` 12 包均为 `ok`，其余七个 job 也成功。
 - R2 文档收尾 `3c63e02`：[CI 33828752473](https://github.com/ForceMind/MyAPI/actions/runs/33828752473)

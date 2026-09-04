@@ -265,14 +265,18 @@ schema 改动，`VERSION` 仍为 0.1.1。仍待：Passkey/ServerAddress、paymen
 八项成功。
 
 R2 文档收尾 `3c63e02` / [CI 33828752473](https://github.com/ForceMind/MyAPI/actions/runs/33828752473) 八项成功。
-S2-C09-R3 本地完成，待同提交 CI，不写 R3 SHA/CI。GroupRatio 三图由私有 writer 加 atomic 单快照发布，嵌套值深拷贝；
+S2-C09-R3 已完成当前范围。最终 `e3cd185` / [CI 33831492021](https://github.com/ForceMind/MyAPI/actions/runs/33831492021)
+八项成功。原始 S1 日志明确 MySQL 5.7 与 PostgreSQL 9.6 均执行
+`group-ratio-alias-contract/create-rollback/{mixed-existing-canonical-and-missing-alias,both-missing-second-create}`，全 PASS 且无 skip；
+Backend `Verify settings, rate-limit, and request snapshots` 13 包均为 `ok`，包括 ratio/model/controller/service/relay-common。
+GroupRatio 三图由私有 writer 加 atomic 单快照发布，嵌套值深拷贝；
 detached 公开 DTO 保持三字段 unkeyed/JSON 兼容、receiver-local，NaN/Inf 导出错误继续传播；注册表动态类型改为私有
 manager，但公开 DTO/函数不变且仓内无生产类型断言。special 的空 user/target，
 以及 direct、`+:`/`-:` 同目标冲突均在写前拒绝；service 读取 detached special getter，`+`/`-` 语义不变。基于当前 UI，
 平面 `GroupRatio`/`GroupGroupRatio` 为 canonical，分层键仅兼容；新 JSON 语义规范化并在事务中双写，bulk 冲突写前拒绝，
 OptionMap/runtime 双键同值。历史加载有效 canonical 优先；invalid canonical fallback 有效 alias；双方 invalid 保留最后有效
 runtime，明确 warning 且不写回 DB。SQLite 覆盖反向行序、alias-only/conflict、update/mixed/create rollback；同一合同已接入
-现有 MySQL 5.7/PostgreSQL 9.6 gated 子测试，待 CI。
+现有 MySQL 5.7/PostgreSQL 9.6 gated 子测试，并已由同提交 CI 通过。
 
 独立 Sol 最终复审无 P1/P2/P3。本机已通过 ratio/model/service/controller 普通测试、workflow 同款 13 包 race、
 `go test -p 1 ./...`、vet、build、relaykit `GOWORK=off` vet/build/test、gofmt、diff、YAML/JSON 门禁。首次 service/controller
