@@ -565,7 +565,7 @@ gated 子测试，并由同提交 CI 通过。独立 Sol 最终复审无 P1/P2/P
 仓库/DB 未触碰。R3 不完成前端 bulk/跨多 HTTP 事务、历史 DB 清理、payment/Passkey/hard limit/global config；
 无页面/schema，`VERSION` 仍为 0.1.1。
 
-## S2-C09-R4（2026-09-05，本地证据／待 CI）
+## S2-C09-R4（2026-09-05，已完成当前范围）
 
 本地工作树已将 `ServerAddress` 与原始 Passkey 字段放入同一 immutable runtime generation：地址访问改为
 `GetServerAddress` / `SetServerAddress`，保留空字符串和尾随 `/` 的原始拼接语义，不做 URL 规范化；所有仓内生产
@@ -587,10 +587,15 @@ gated 子测试，并由同提交 CI 通过。独立 Sol 最终复审无 P1/P2/P
 `GOMAXPROCS=1 GOMEMLIMIT=768MiB go test -p 1`：`setting/system_setting`、`service/passkey`、`model`、`oauth`、
 `service`、`relay`、`relay/channel/task/taskcommon`。覆盖 raw/effective 分离、联合 bulk/reload、无效与 DB 失败不发布、
 supplied WebAuthn snapshot、OAuth/支付/任务代理空地址和尾随 slash 语义；`gofmt`、`git diff --check` 通过。
-尚未执行根模块全量、race、真实 Redis、三数据库矩阵、relaykit、前端/浏览器或 Docker，也未访问真实设备、OAuth 上游或生产。
+本机未执行根模块全量、race、真实 Redis、三数据库矩阵、relaykit、前端/浏览器或 Docker，也未访问真实设备、OAuth 上游或生产。
 当前 diff 的独立复审无 P0/P1/P2；唯一 P3 是未来可增加确定性并发观察来强化单 Store 回归保护，静态复核已确认当前
-实现为单 writer lock / 单 Store。R4 代码提交为 `c5cf662`；分支 tip CI 尚未形成，因此本节不是“已完成”或
-“同提交 CI 通过”的声明。无 schema、UI、发布配置或版本号变更，`VERSION` 仍为 0.1.1。
+实现为单 writer lock / 单 Store。R4 代码 `c5cf662`／审计 tip `b77ae6b` 的
+[CI 33900966323](https://github.com/ForceMind/MyAPI/actions/runs/33900966323) 八项全成功，实际运行根/relaykit
+vet/build/test、四组 race、临时 MySQL 5.7/PostgreSQL 9.6/Redis、前端 typecheck/test/build/browser、桌面及发行合同。
+这些数据库任务是既有 S1/S2-A/C02 回归；R4 没有 schema 或专用三库 Passkey 用例，不能将其外推为新 Passkey 方言证明。
+[Docker smoke 33901685068](https://github.com/ForceMind/MyAPI/actions/runs/33901685068) 在同一 `b77ae6b` 上将 Full/LAN
+串行隔离验证为成功：`push:false` 镜像、新 SQLite、合成上游、真实登录与前端冒烟均通过，容器清理完成；未登录 GHCR、
+发布镜像、创建 tag、部署或访问生产。无 schema、UI、发布配置或版本号变更，`VERSION` 仍为 0.1.1。
 
 ## S2-D08 io.net 核心（2026-09-04，已完成当前范围）
 
