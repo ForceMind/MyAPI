@@ -157,6 +157,8 @@ node cli/myapi.mjs stop --project-dir .
 渠道页成功查询一次 Codex 用量，或等待已启用的后台采样器完成下一次采样。
 回归验收时应在不手动切换控件的情况下看到指标 `available`、图形 `line`；
 如果首屏仍是“已观察消耗”柱图，说明运行制品未包含 2026-09-04 的默认值修复。
+`423846b` 的 CI `33835254816` 已用隔离 Playwright/Chromium 实际验证该初始指标、折线 SVG
+与 320/390 像素响应式布局；本机仍可按上文使用真实管理员/账户补验。
 
 `MYAPI_SESSION_COOKIE_SECURE=false` 只用于本机 HTTP；真实 HTTPS 部署必须恢复安全值。
 开发数据和日志只留在本机目录；不要使用 `down -v`，不要把数据库、日志、`dist`、
