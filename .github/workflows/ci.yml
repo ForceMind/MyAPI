@@ -54,6 +54,13 @@ jobs:
       - name: Build root module
         run: go build ./...
 
+      - name: Verify root JSON wrapper policy
+        run: |
+          if git grep -n -E 'json\.(Marshal|Unmarshal|NewDecoder|NewEncoder)' -- '*.go' ':(exclude)**/*_test.go' ':(exclude)common/json.go' ':(exclude)relaykit/**'; then
+            echo 'root production JSON calls must use common/json.go wrappers' >&2
+            exit 1
+          fi
+
       - name: Build relaykit independently
         working-directory: relaykit
         run: go build ./...
@@ -74,10 +81,10 @@ jobs:
           -run '^Test(InMemoryRateLimiter|UpdateTopupGroupRatio|ValidateTopupGroupRatio|RWMap|LoadFromJsonString|Chats|UserUsableGroups|UpdateAutoGroups|UpdatePayMethods|UpdateConfigFromMap|ValidateConfigFromMap|ConfigManager|ValidateGeminiThinking|ValidateRatioMapJSON|ValidateNestedRatioMapJSON|RatioJSON|GroupRatio|ExposedData|UpdateModelRequest|ModelRequest|ResolveModelRequest|ValidateModelRequest|EnabledModelRequest|RateLimitTyped|ValidateOptionValue|GenericConfig|ModelSemanticConfig|AuxiliaryOption|NullCollection|MalformedD07|UpdateOptionsBulk|LoadOptionsRejects|RateLimitPersistence|ModelRedisRateLimit|MemoryModelRateLimit|UpdateOptionRatioPersistence).*$'
           -count=1 -timeout=180s
 
-      - name: Verify io.net transport and endpoint boundaries under race detector
+      - name: Verify io.net and cache codec boundaries under race detector
         env:
           GOMAXPROCS: '1'
-        run: go test -race -p 1 ./pkg/ionet -count=2 -timeout=120s
+        run: go test -race -p 1 ./pkg/ionet ./pkg/cachex -count=2 -timeout=120s
 
       - name: Verify task billing and logging boundaries under race detector
         env:

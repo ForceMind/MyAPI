@@ -438,8 +438,8 @@ fresh 发布、RWMap/10 倍率、集合 `null` 规范化、负倍率/NaN/Inf 拒
 无页面/schema 改动，版本保持 0.1.1；没有真实上游、生产、真实设备或发布验证。同 SHA 常规
 MySQL/PostgreSQL CI 成功，但本批无专用三数据库 Settings 行为场景，不替代热更新验收。
 C09 的热读统一快照/锁、硬限额 reservation/rollback、
-跨族 reload 事务与历史数据审计未在本批解决；C09 只读设计已完成、实施仍待决策；D09 已完成本地范围并待
-同提交 CI，D10 为下一批。
+跨族 reload 事务与历史数据审计未在本批解决；C09 只读设计已完成、实施仍待决策；D09 与 D10 已本地完成，
+D10 待同提交 CI。
 
 ### S2-D08 io.net 核心（已完成当前范围）
 
@@ -470,3 +470,17 @@ relaykit 独立 vet/build/test 已通过。最终 `8228203` /
 [CI 33819117410](https://github.com/ForceMind/MyAPI/actions/runs/33819117410) 七项成功，新 io.net race `-count=2` 门禁实跑通过。
 独立 Sol 无 P1/P2；P3 是 hardware/location 必填回显尚需真实
 脱敏响应或官方 schema 补验。无页面/schema 改动，`VERSION` 仍为 0.1.1。
+
+### S2-D10 cachex JSON wrapper（本地完成／待同提交 CI）
+
+`pkg/cachex/codec.go` 的最后两处调用已迁移为 `common.Marshal` 与
+`common.Unmarshal([]byte(s), ...)`，根模块生产实际 JSON Marshal/Unmarshal/Decoder/Encoder 直调余量为
+0/0。扫描排除 `common/json.go`、测试、relaykit、合法类型/`json.Valid` 及一条注释。解码保留 `[]byte(s)`
+复制：独立审查指出直接使用 `UnmarshalJsonStr` 的 unsafe 别名会使自定义 `UnmarshalJSON` 可能改写调用者
+string；codec 路径已改回复制，并新增 mutating unmarshaler 输入不变性测试。
+
+codec 回归覆盖嵌套 round trip（含 `0`/`false`）、空白、malformed、类型错、多个值、尾随空白及 func
+不可编码。本机 cachex race `-count=2`、根全量 test/vet/build、relaykit `GOWORK=off` vet/build/test、
+gofmt、diff-check 和静态门禁均通过，独立复审最终无 P1/P2。无页面/schema/Redis/真实缓存服务改动，
+`VERSION` 保持 0.1.1。本批提交和同提交 CI 待创建；D09 文档收尾
+[CI 33819671044](https://github.com/ForceMind/MyAPI/actions/runs/33819671044) 已七项成功，不以其代替本批结果。同提交 Backend 将实跑新增的根 JSON 静态门禁。

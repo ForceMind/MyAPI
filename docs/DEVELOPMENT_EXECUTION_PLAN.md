@@ -22,7 +22,7 @@ SSE、脱敏日志、额度分析、账户/Key 兼容字段、CLI/Electron 和�
 | --- | --- | --- | --- |
 | S0 计划与证据 | 已完成／已确认范围 | terra 起草，主代理整合 | 需求、缺陷、验证、决策分开；更新主计划、审计、macOS、额度 OpenAPI；链接、参数和事实一致。 |
 | S1 安全与一致性 | 已完成／已确认范围 | sol 实现；独立 sol 复审 | 原六项及追加 R1 均通过回归、独立复审和 CI；同进程配置保存/后台重载的发布顺序、双写交错与失败释放已有证据，不推导跨实例一致性。 |
-| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06/C07/C08、D01–D09 已完成当前范围并通过同提交 CI。B2/B3 任务持久化/恢复、C03b 缓存恢复、C09 实施及 D10 仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
+| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06/C07/C08、D01–D10 已本地完成，D10 待同提交 CI；此前批次 CI 见各自记录。B2/B3 任务持久化/恢复、C03b 缓存恢复与 C09 实施仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
 | S3 账户/Key 实际策略 | 未开始／迁移设计待确认 | sol 设计，分模块实现 | 明确账户权益、模型限制交集、route_groups、disabled、fallback、计费归属；旧 Key 兼容/差异报告/启用/回滚经确认后落实。不得把已有元数据当强制策略。 |
 | S4 运行与恢复 | 进行中／S4-01、S4-02 已完成当前范围 | 工程/制品与独立 sol 审查；sol 数据与恢复 | Full/LAN 测试镜像均不推送；SQLite/MySQL/PostgreSQL 临时库旧结构升级、重复迁移、多连接竞争、备份恢复；登录/Key/权限/日志/额度探针；原生桌面构建、安装升级与第二设备 LAN。 |
 | S5 额度闭环与选定扩展 | 未开始／各扩展分别决策 | sol 领域/安全，terra 常规实现 | 测试实例真实账户连续采样、任务/API/管理员页面一致；失败/重置/缺口和大数据量性能。通知、多 Key 身份、Claude 组织用量等按决策登记，不混入平台账本。 |
@@ -178,7 +178,7 @@ B2/B3 需核心合同决定：上游接受结果未知时是否不自动重发/�
 | D07 Settings / C08 | 已完成当前范围 | 13/5 已清零；根余量 19/6 | 设置反射及 fresh 发布、群组倍率、集合 null 规范化、generic config 原子发布与纯验证；配置/模型/限流并发边界回归，新增 D07 race 门禁并于同 SHA CI 实跑。 |
 | D08 io.net 核心 | 已完成当前范围 | 8/2 已清零；根余量 11/4 | `pkg/ionet/client.go` 和 `jsonutil.go` 各 4 处实际 stdlib JSON 调用迁移至 `common` wrapper；离线 fake client 覆盖 HTTP body/query、API error 与 flexible time。普通/race `-count=2`/vet/diff-check/gofmt、根全量、relaykit 独立矩阵及 `9193ada` 同 SHA CI 通过。 |
 | D09 io.net endpoints | 已完成当前范围 | 9/3 已清零；根余量 2/1（仅 `cachex`） | container/deployment/hardware 全部 path segment 使用 `PathEscape`；stream options 局部复制；nil、null、空、缺 ID、mutation/hardware/location 与 `false` 合同回归；默认 HTTP client 禁止 301/302/303/307/308 重定向，避免 `X-API-KEY` 和敏感 body 泄露；`8228203` 同 SHA CI 含 io.net 整包 race 实跑。 |
-| D10 cachex | 未开始 | 2/1 | codec round trip、空白/malformed/不可编码值；不新增平行 abstraction。 |
+| D10 cachex | 本地完成／待同提交 CI | 2/1 已清零；根余量 0/0 | `codec.go` 的 `Marshal`/`Unmarshal` 已改用 `common` wrapper，Decode 保留 `[]byte(s)` 复制；覆盖 round trip、空白、错误输入、不可编码值及会改写输入的自定义 unmarshaler；新增根生产代码静态门禁，CI race 步骤纳入 cachex。 |
 
 D01 已将四个 OAuth 文件的 9 处直接调用清零，结构余量为 **58 处/23 文件**。本机
 `go test ./common ./oauth`、`go test -race ./oauth`、`go vet ./oauth` 与低并行根模块
@@ -212,7 +212,7 @@ Settings 行为场景，不得以其代替热更新验收。
 与 Redis 都是 check→execute→record 的近似语义，并发可超发，硬限额须另定
 reservation/rollback 合同；跨配置族 reload 仍是 best-effort，非全量事务；历史 DB raw
 `null`、未知分层 key、Passkey 懒写与 `GroupRatioSetting` 可变指针仍待审计。C09 的只读设计已完成、
-实施仍待决策；D09 已完成本地范围并待同提交 CI，D10 为下一批。
+实施仍待决策；D09 与 D10 均已本地完成，D10 待同提交 CI。
 
 **S2-D08 io.net 核心已完成当前范围。** `pkg/ionet/client.go`
 与 `pkg/ionet/jsonutil.go` 的各 4 处实际 stdlib JSON 调用已迁移至 `common` wrapper，根模块结构余量
@@ -241,6 +241,20 @@ body 跟随跳转泄露。
 的 hardware/location 必填回显，仍需真实脱敏响应或官方 schema 补验。无页面或 schema 改动，`VERSION` 保持
 0.1.1。最终 `8228203` / [CI 33819117410](https://github.com/ForceMind/MyAPI/actions/runs/33819117410)
 七项成功；Backend 新增 io.net 整包 race `-count=2` 步骤成功。
+
+**S2-D10 cachex 已本地完成，待同提交 CI。** `pkg/cachex/codec.go` 最后两处生产
+JSON 调用已等价迁移为 `common.Marshal` 与 `common.Unmarshal([]byte(s), ...)`，根模块生产实际
+`Marshal`/`Unmarshal`/`Decoder`/`Encoder` 直调余量为 **0/0**；扫描继续排除 `common/json.go`、测试、
+`relaykit`、合法类型/`json.Valid` 及一条注释。`[]byte(s)` 不可改为无复制转换：独立审查发现
+`UnmarshalJsonStr` 的 unsafe 别名可让自定义 `UnmarshalJSON` 改写调用者 string，codec 路径已改回复制并以 mutating
+unmarshaler 回归锁定输入不变。
+
+新增 codec 回归覆盖嵌套 round trip（含显式 `0`/`false`）、空白、malformed、类型错误、多个 JSON 值、
+尾随空白、func 不可编码及上述输入不变性。本机 `cachex` race `-count=2`、根模块全量 test/vet/build、
+`relaykit` `GOWORK=off` vet/build/test、gofmt、diff-check 与静态门禁均通过；独立复审最终无 P1/P2。
+无页面、schema、Redis 或真实缓存服务改动，`VERSION` 保持 0.1.1。提交号与同提交 CI 尚待本批提交后创建；
+D09 文档收尾 [CI 33819671044](https://github.com/ForceMind/MyAPI/actions/runs/33819671044) 已七项成功，但不代替 D10。
+同提交 Backend 将使用 `git grep` 门禁阻止根生产代码重新引入直接 JSON 编解码，并在现有 io.net race 步骤中同时实跑 cachex。
 
 C07/D02 在 D01 的 58/23 基线上将两个 middleware 直接 Marshal 清零，结构余量为
 **56 处/21 文件**。只读 Sol ultra 追踪确认旧 `KeyBodyStorage` 会遮蔽兼容适配器写入的

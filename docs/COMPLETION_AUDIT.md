@@ -476,8 +476,7 @@ check→execute→record 的近似语义，并发可超发，未误报为硬限�
 
 剩余独立 S2-C09：generic config 对象业务热读缺统一快照/锁；跨不同配置族 reload 仍为
 best-effort 而非全量事务；历史 DB raw `null`、未知分层 key、Passkey 懒写和
-`GroupRatioSetting` 可变指针待审计。C09 只读设计已完成、实施仍待决策；D09 已完成本地范围并待同提交 CI，
-D10 为下一批。
+`GroupRatioSetting` 可变指针待审计。C09 只读设计已完成、实施仍待决策；D09 与 D10 已本地完成，D10 待同提交 CI。
 
 ## S2-D08 io.net 核心（2026-09-04，已完成当前范围）
 
@@ -510,10 +509,27 @@ path segment 全部经 `PathEscape`；stream options 采用局部复制，不修
 hardware/location 必填回显，需真实脱敏响应或官方 schema 补验。无页面/schema 改动，`VERSION` 保持 0.1.1。
 同提交 Backend 已新增 `pkg/ionet` 整包 race `-count=2` 门禁，待 GitHub runner 实跑核对。
 
+## S2-D10 cachex JSON wrapper（2026-09-04，本地完成／待同提交 CI）
+
+`pkg/cachex/codec.go` 的最后两处生产 JSON 调用已迁移为 `common.Marshal` 与
+`common.Unmarshal([]byte(s), ...)`。根模块生产实际 Marshal/Unmarshal/Decoder/Encoder 直调为 **0/0**；
+结构扫描排除 `common/json.go`、测试、`relaykit`、合法类型/`json.Valid` 及一条注释。Decode 必须保留
+`[]byte(s)` 复制：独立审查发现直接改用 `UnmarshalJsonStr` 会经 unsafe 别名让自定义 `UnmarshalJSON`
+改写输入 string；codec 路径已改为 `common.Unmarshal([]byte(s), ...)`，并以 mutating unmarshaler 验证调用者输入不变。
+
+新增嵌套 round trip（含 `0`/`false`）、空白、malformed、类型错误、多个值、尾随空白、func 不可编码回归。
+本机 cachex race `-count=2`、根模块全量 test/vet/build、relaykit `GOWORK=off` vet/build/test、gofmt、
+diff-check 与静态门禁通过；独立复审最终无 P1/P2。无页面、schema、Redis 或真实缓存服务改动，`VERSION` 保持
+0.1.1。提交号及同提交 CI 待本批提交后创建；D09 文档收尾 [CI 33819671044](https://github.com/ForceMind/MyAPI/actions/runs/33819671044)
+已七项成功，但不作为本批证据。
+新增 Backend `git grep` 门禁将在同提交 CI 中阻止根生产代码回归到直接 JSON 调用，原 io.net race 步骤也将同时实跑 cachex `-count=2`。
+
 ## 最近 CI 证据
 
 - S2-D09 最终提交 `8228203`：[CI 33819117410](https://github.com/ForceMind/MyAPI/actions/runs/33819117410)
   七项成功；9 处 endpoint wrapper、传输安全与 io.net 整包 race 门禁闭环，余量 2/1。
+- D09 文档收尾：[CI 33819671044](https://github.com/ForceMind/MyAPI/actions/runs/33819671044) 七项成功。
+- S2-D10：本地验证与独立复审已完成；本批提交号和同提交 CI 待创建。
 - D08 文档提交：[CI 33817446025](https://github.com/ForceMind/MyAPI/actions/runs/33817446025) 七项成功；
   `upload-artifact` 的 Node 20→24 annotation 是非阻断 workflow 维护项，未为修正该注解扩大本批源码范围。
 - S2-D08 最终提交 `9193ada`：[CI 33816756504](https://github.com/ForceMind/MyAPI/actions/runs/33816756504)

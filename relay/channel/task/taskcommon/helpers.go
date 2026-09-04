@@ -12,7 +12,7 @@ import (
 )
 
 // UnmarshalMetadata converts a map[string]any metadata to a typed struct via JSON round-trip.
-// This replaces the repeated pattern: json.Marshal(metadata) → json.Unmarshal(bytes, &target).
+// This replaces the repeated pattern: marshal metadata, then unmarshal it into the target.
 func UnmarshalMetadata(metadata map[string]any, target any) error {
 	if metadata == nil {
 		return nil
