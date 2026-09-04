@@ -10,7 +10,7 @@
 | 运行构建可见性 | 管理员「系统信息」中的只读 Runtime build 标识、`build-metadata.ts` DOM/global 元数据及 `build-metadata.test.ts`；Docker/Release/Electron 构建注入 commit SHA；历史 Linux 副本曾切换到 `local/new-api:myapi-c283c1d` 并健康 | 代码与历史副本有证据；当前部署未核验 | 真实管理员手机视觉验收仍待完成 |
 | 完整独立 UI 系统 | 当前仅有 MyAPI 品牌资产、必要文案和局部额度/日志功能增量 | 尚未开始（代码层先行） | 需在代码合同稳定后另行完成信息架构、视觉系统、Full/LAN/移动端真实画面与设备验收；不得把局部增量误报为 UI 全量替换 |
 | 渠道额度历史 | `controller/channel-billing.go`、`controller/codex_usage.go`、历史/聚合测试、权限路由测试；2xx 无有效 Codex rate_limit 时标记 unsupported；历史聚合按 metric/window/source/plan/unit/currency/window_seconds 隔离；快照按渠道/系列/观测时间桶幂等保留首条，并以 nullable SHA-256 唯一键抵抗并发重复写入 | 已验证 | 真实登录账号和采样数据演练 |
-| 概览额度变化 | `account-quota-changes-panel.tsx`、`codex-account-quota-chart.tsx`、60 秒前台刷新、Codex 账户选择与可配置时间范围/颗粒度/指标/折线、面积或柱状图、稳定额度 0 值解释、旧传输错误行抑制、错误/plan type/只读告警状态测试；`a2528a2` 的跨登录身份查询缓存隔离与认证刷新回归测试；系列按计划/单位/窗口隔离；后台采样默认开启并可在监控设置中调整 | 代码、前端类型检查、生产构建与定向测试已验证 | 需要由具备 `channel.read` 的真实管理员在最新镜像中验收；真实手机视觉仍待完成 |
+| 概览额度变化 | `account-quota-changes-panel.tsx`、`codex-account-quota-chart.tsx`、60 秒前台刷新、Codex 账户选择与可配置时间范围/颗粒度/指标/折线、面积或柱状图、稳定额度 0 值解释、旧传输错误行抑制、错误/plan type/只读告警状态测试；概览默认“可用额度＋折线”而渠道详情保留消耗柱图默认；`a2528a2` 的跨登录身份查询缓存隔离与认证刷新回归测试；系列按计划/单位/窗口隔离；后台采样默认开启并可在监控设置中调整 | 2026-09-04 失败→通过定向回归 22/22，`build:check` 通过；精确 SHA 浏览器 CI 待推送后补验 | 需要由具备 `channel.read` 的真实管理员在最新镜像中验收；真实手机视觉仍待完成 |
 | 账户等级/Key 访问方案 | `model/access_profile.go`、Key/UI/API 测试、策略注册表及旧 Key profile 保留测试；Key 表单显式提交稳定 `access_profile_id` 并保留 legacy `group`；`setting/access_profile.go` 校验 fallback 目标存在、去空格后的 ID 唯一性和循环依赖 | 兼容层已验证 | 强制路由迁移评审 |
 | 设置引导 | Full/LAN Lite/权限条件、生命周期测试 | 已验证 | 多设备视觉检查 |
 | 品牌与旧元数据 | `tools/branding/check.mjs`，最近运行 `blocking_count: 0` | 阻断项已清零 | NOTICE、源码头和兼容标识法律审查 |

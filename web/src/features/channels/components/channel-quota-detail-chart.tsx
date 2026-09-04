@@ -57,6 +57,7 @@ export function ChannelQuotaDetailChart({
   item,
   range,
   onRangeChange,
+  initialMetric = 'consumption',
   refreshEpoch = 0,
   customRange,
   onCustomRangeChange,
@@ -66,6 +67,7 @@ export function ChannelQuotaDetailChart({
   item: ChannelQuotaChangeItem
   range: ChannelQuotaHistoryRange
   onRangeChange: (range: ChannelQuotaHistoryRange) => void
+  initialMetric?: QuotaHistoryMetric
   refreshEpoch?: number
   customRange?: QuotaCustomRange
   onCustomRangeChange?: (range: QuotaCustomRange) => void
@@ -77,7 +79,7 @@ export function ChannelQuotaDetailChart({
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   const [granularity, setGranularity] =
     useState<ChannelQuotaHistoryGranularity>('auto')
-  const [metric, setMetric] = useState<QuotaHistoryMetric>('consumption')
+  const [metric, setMetric] = useState<QuotaHistoryMetric>(initialMetric)
   const [manualChartStyle, setChartStyle] =
     useState<QuotaHistoryChartStyle | null>(null)
   const chartStyle =

@@ -155,6 +155,8 @@ node cli/myapi.mjs stop --project-dir .
 「Codex · Usage trend」趋势卡；有成功采样时绘制选中 Codex 账户/窗口在最近 24 小时的
 可用额度百分比，多个账户或窗口可以在图表右上角切换。首次使用若显示暂无历史，请在
 渠道页成功查询一次 Codex 用量，或等待已启用的后台采样器完成下一次采样。
+回归验收时应在不手动切换控件的情况下看到指标 `available`、图形 `line`；
+如果首屏仍是“已观察消耗”柱图，说明运行制品未包含 2026-09-04 的默认值修复。
 
 `MYAPI_SESSION_COOKIE_SECURE=false` 只用于本机 HTTP；真实 HTTPS 部署必须恢复安全值。
 开发数据和日志只留在本机目录；不要使用 `down -v`，不要把数据库、日志、`dist`、

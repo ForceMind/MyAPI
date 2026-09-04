@@ -62,6 +62,7 @@ export function CodexAccountQuotaChart(props: {
         title={`Codex · ${t('Usage trend')}`}
         range={props.range}
         onRangeChange={props.onRangeChange}
+        initialMetric='available'
         refreshEpoch={props.refreshEpoch}
         customRange={props.customRange}
         onCustomRangeChange={props.onCustomRangeChange}

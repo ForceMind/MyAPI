@@ -114,6 +114,9 @@ try {
   }
   await page.goto(`${origin}/dashboard/overview`, { waitUntil: 'networkidle' })
   await trend().waitFor({ state: 'visible' })
+  assert.equal(await trend().getByLabel(label('Metric'), { exact: true }).inputValue(), 'available', 'overview defaults to the promised available-quota metric')
+  await trend().getByTestId('quota-history-chart-line').waitFor({ state: 'visible' })
+  await trend().screenshot({ path: resolve(output, 'overview-available.png') })
   await checkControls(trend())
   await trend().screenshot({ path: resolve(output, 'overview-consumption.png') })
 

@@ -257,7 +257,7 @@ describe('account quota changes dashboard panel', () => {
     ).toBeInTheDocument()
   })
 
-  test('renders Codex consumption bars and switches to available quota on the overview', async () => {
+  test('renders the Codex available quota line by default on the overview', async () => {
     vi.mocked(getCodexQuotaSeries).mockResolvedValueOnce({
       success: true,
       data: {
@@ -326,11 +326,9 @@ describe('account quota changes dashboard panel', () => {
       await screen.findByTestId('codex-account-quota-chart')
     ).toBeInTheDocument()
     expect(
-      await screen.findByTestId('quota-history-chart-bar')
+      await screen.findByTestId('quota-history-chart-line')
     ).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('Metric'), {
-      target: { value: 'available' },
-    })
+    expect(screen.getByLabelText('Metric')).toHaveValue('available')
     expect(screen.getByText('Last plotted value: 72.0%')).toBeInTheDocument()
     expect(getChannelQuotaHistory).toHaveBeenCalledWith(
       12,
