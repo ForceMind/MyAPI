@@ -29,10 +29,12 @@ var DisplayTokenStatEnabled = true
 var DrawingEnabled = true
 var TaskEnabled = true
 
-// TaskRecoveryEnabled is a deployment-level safety gate for the durable task
-// recovery writers/workers. It defaults to false and is not backed by OptionMap.
-// No request path consumes it until the complete B2/B3 recovery flow is wired.
+// TaskRecoveryEnabled is kept as the legacy alias for new durable submission
+// creation. New callers must select the narrower capability they need so a
+// rollout can stop accepting new work without abandoning pre-existing debt.
 var TaskRecoveryEnabled = false
+var TaskRecoveryNewSubmissionsEnabled = false
+var TaskRecoveryObligationRecoveryEnabled = false
 var DataExportEnabled = true
 var DataExportInterval = 5         // unit: minute
 var DataExportDefaultTime = "hour" // unit: minute
@@ -163,6 +165,32 @@ var IsMasterNode bool
 
 func IsTaskRecoveryEnabled() bool {
 	return TaskRecoveryEnabled
+}
+
+// IsTaskRecoveryNewSubmissionEnabled controls creation of new durable task
+// intents. It does not control recovery of already committed obligations.
+func IsTaskRecoveryNewSubmissionEnabled() bool {
+	return TaskRecoveryNewSubmissionsEnabled
+}
+
+// IsTaskRecoveryObligationRecoveryEnabled controls recovery and projection of
+// already persisted billing and delivery obligations. It intentionally remains
+// independent from accepting a new client submission.
+func IsTaskRecoveryObligationRecoveryEnabled() bool {
+	return TaskRecoveryObligationRecoveryEnabled
+}
+
+// IsTaskRecoveryIdentityRequired reports whether any runtime recovery
+// capability can use the stable deployment-to-database binding.
+func IsTaskRecoveryIdentityRequired() bool {
+	return TaskRecoveryNewSubmissionsEnabled || TaskRecoveryObligationRecoveryEnabled
+}
+
+// IsTaskRecoverySchemaCompatibilityEnabled is intentionally always true:
+// schema reads and migrations must stay compatible even while all writers and
+// workers are gated off.
+func IsTaskRecoverySchemaCompatibilityEnabled() bool {
+	return true
 }
 
 const (

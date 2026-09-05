@@ -669,6 +669,23 @@ MySQL 5.7/PostgreSQL 9.6/ClickHouse 实际 CI、全量及 race 尚未运行；�
 本条随后续纯文档审计提交保留；该文档提交不改变 `fea4637` 的已验证源码内容。
 完整 B2/B3、C03b 账务权威源及历史未知余额决定、其余 S3–S7 目标继续保留，详见[完整执行计划](PROJECT_COMPLETION_EXECUTION_PLAN.md)。
 
+### B2-1 追加安全修复（2026-09-06，本地复验及独立复审通过，待实库 CI/同步）
+
+接管后的独立复审没有把历史“无 P1/P2”结论延用到新改动，而是重新检查了可变状态边界。已修复并加入精确回归的 P2 包括：
+
+- 通用 operation 状态 CAS 不再允许 `manual_audit` 结束 unknown；v1 只接受 `provider_verified`，带审计命令的人工处置留待 B3 专用边界。
+- `DISPATCHING` 只能由 `StartTaskSubmissionDispatch` 同时把 reserved operation 和唯一 prepared attempt CAS 到 dispatching；两个通用 transition API 均拒绝单独进入 dispatching。对于调用方显式关闭 GORM nested transaction 的外层事务，内部使用 savepoint；普通 error 与 callback/driver panic 都先回滚 savepoint。回归覆盖 panic 被 recover 后外层事务仍 Commit 的场景，两个记录仍保持 `reserved`/`prepared`。
+- 普通 GORM `Table`/alias `Update`、`UpdateColumn` 与 `Delete` 已在回调层拦截，不能绕开 hook 或 `<-:create` 标签。动态 `TableExpr` 的 `Vars` 可经 `clause.Table`、`NamedExpr`、map 或其他 clause expression 间接解析，未带私有受控写入标记的 Update/Delete 因而保守拒绝，而不是不完整地猜测最终表名。受控 marker 先置入独立 GORM statement，不能残留到调用方 clone==0 链式句柄并授权后续写入。精确回归覆盖直接 alias、`clause.Table` 变量、`NamedExpr`/map 嵌套变量，以及合法 CAS 后同一链式句柄的 `UpdateColumn`/`Delete`。
+
+本机验证仍全部串行且使用 `systemd-run` 的 `CPUQuota=100%`、`MemoryMax=768MiB` 进程组，以及
+`GOMAXPROCS=1 GOMEMLIMIT=768MiB GOWORK=off` 和任务专用 Go 缓存：
+
+1. `go test -p 1 ./model -run '^TestB2SubmissionSQLite$' -count=1 -timeout=180s -v`，exit 0，最终复验 `model 0.146s`。
+2. `go test -p 1 ./common ./model -run '^(TestTaskRecovery.*|TestB2SubmissionSQLite|TestB2Recovery(Main|Log)Migration.*|TestB2SubmissionDatabaseTargetSafety)$' -count=1 -timeout=180s -v`，exit 0，`common 0.015s`、`model 0.723s`。
+3. `go vet -p 1 ./model`，exit 0。
+
+上述是 SQLite/静态本地证据，不替代 MySQL 5.7、PostgreSQL 9.6、ClickHouse fixture、race 或全量 CI。2026-09-06 的最终独立只读复审确认无 P1/P2/P3；审查者未自行重复运行测试。实库 CI 和已授权远端同步/Draft PR 尚未完成，因此 B2-1 仍是待验证，不能标记为完成或启用 gate。未访问生产目录、未启用任务恢复 gate、未变更 UI，`VERSION` 仍为 0.1.1。
+
 ## S2-D08 io.net 核心（2026-09-04，已完成当前范围）
 
 `pkg/ionet/client.go` 与 `pkg/ionet/jsonutil.go` 的各 4 处实际 stdlib JSON 调用已等价迁移至

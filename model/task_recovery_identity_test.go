@@ -15,14 +15,13 @@ import (
 )
 
 func TestTaskRecoveryInitDBRejectsInvalidSecretBeforeOpeningDatabase(t *testing.T) {
-	t.Setenv("TASK_RECOVERY_ENABLED", "true")
 	t.Setenv("SQL_DSN", "local")
 	t.Setenv("LOG_SQL_DSN", "")
 	previousDB, previousPath := DB, common.SQLitePath
-	previousGate, previousMaster := common.TaskRecoveryEnabled, common.IsMasterNode
+	previousGate, previousNewSubmissions, previousObligationRecovery, previousMaster := common.TaskRecoveryEnabled, common.TaskRecoveryNewSubmissionsEnabled, common.TaskRecoveryObligationRecoveryEnabled, common.IsMasterNode
 	previousMainType, previousLogType := common.MainDatabaseType(), common.LogDatabaseType()
 	common.SQLitePath = filepath.Join(t.TempDir(), "must-not-open.db")
-	common.TaskRecoveryEnabled, common.IsMasterNode = false, false
+	common.TaskRecoveryEnabled, common.TaskRecoveryNewSubmissionsEnabled, common.TaskRecoveryObligationRecoveryEnabled, common.IsMasterNode = false, false, false, false
 	t.Cleanup(func() {
 		if DB != nil && DB != previousDB {
 			if connection, err := DB.DB(); err == nil {
@@ -30,16 +29,28 @@ func TestTaskRecoveryInitDBRejectsInvalidSecretBeforeOpeningDatabase(t *testing.
 			}
 		}
 		DB, common.SQLitePath = previousDB, previousPath
-		common.TaskRecoveryEnabled, common.IsMasterNode = previousGate, previousMaster
+		common.TaskRecoveryEnabled, common.TaskRecoveryNewSubmissionsEnabled, common.TaskRecoveryObligationRecoveryEnabled, common.IsMasterNode = previousGate, previousNewSubmissions, previousObligationRecovery, previousMaster
 		common.SetMainDatabaseType(previousMainType)
 		common.SetLogDatabaseType(previousLogType)
 	})
-	for _, secret := range []string{"", strings.Repeat("a", 63), strings.Repeat("x", 64)} {
-		t.Setenv("TASK_RECOVERY_IDEMPOTENCY_SECRET", secret)
-		require.ErrorIs(t, InitDB(), common.ErrTaskRecoveryIdempotencySecret)
-		assert.Same(t, previousDB, DB)
-		_, err := os.Stat(common.SQLitePath)
-		assert.True(t, os.IsNotExist(err), "invalid recovery configuration must fail before opening the database")
+	for _, gate := range []struct {
+		name, legacy, newSubmissions, obligationRecovery string
+	}{
+		{"legacy", "true", "", ""},
+		{"recovery-only", "", "false", "true"},
+	} {
+		t.Run(gate.name, func(t *testing.T) {
+			t.Setenv("TASK_RECOVERY_ENABLED", gate.legacy)
+			t.Setenv("TASK_RECOVERY_NEW_SUBMISSIONS_ENABLED", gate.newSubmissions)
+			t.Setenv("TASK_RECOVERY_OBLIGATION_RECOVERY_ENABLED", gate.obligationRecovery)
+			for _, secret := range []string{"", strings.Repeat("a", 63), strings.Repeat("x", 64)} {
+				t.Setenv("TASK_RECOVERY_IDEMPOTENCY_SECRET", secret)
+				require.ErrorIs(t, InitDB(), common.ErrTaskRecoveryIdempotencySecret)
+				assert.Same(t, previousDB, DB)
+				_, err := os.Stat(common.SQLitePath)
+				assert.True(t, os.IsNotExist(err), "invalid recovery configuration must fail before opening the database")
+			}
+		})
 	}
 }
 
@@ -47,18 +58,19 @@ func TestTaskRecoveryInitDBRejectsInvalidSecretBeforeOpeningDatabase(t *testing.
 func runB2TaskRecoveryIdentityContract(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	t.Setenv("TASK_RECOVERY_IDEMPOTENCY_SECRET", strings.Repeat("1a", 32))
+	ensureB2SubmissionOwner(t, db, 601)
 	require.NoError(t, EnsureTaskRecoveryIdentity(db))
 	require.NoError(t, EnsureTaskRecoveryIdentity(db))
 	var binding TaskRecoveryIdentity
 	require.NoError(t, db.First(&binding, 1).Error)
-	operation := newB2SubmissionOperation(t, 601, "POST", "video", "database-key-binding", `{}`)
+	operation := newB2SubmissionOperation(t, 601, "POST", TaskSubmissionOperationKindVideoCreate, "database-key-binding", `{}`)
 	require.NoError(t, db.Create(operation).Error)
 	var before int64
 	require.NoError(t, db.Model(&TaskSubmissionOperation{}).Count(&before).Error)
 
 	t.Setenv("TASK_RECOVERY_IDEMPOTENCY_SECRET", strings.Repeat("2b", 32))
 	require.ErrorIs(t, EnsureTaskRecoveryIdentity(db), ErrTaskRecoveryIdentityMismatch)
-	replayWithWrongKey := newB2SubmissionOperation(t, 601, "POST", "video", "database-key-binding", `{}`)
+	replayWithWrongKey := newB2SubmissionOperation(t, 601, "POST", TaskSubmissionOperationKindVideoCreate, "database-key-binding", `{}`)
 	require.ErrorIs(t, db.Create(replayWithWrongKey).Error, ErrTaskRecoveryIdentityMismatch)
 	var after int64
 	require.NoError(t, db.Model(&TaskSubmissionOperation{}).Count(&after).Error)
@@ -78,6 +90,34 @@ func runB2TaskRecoveryIdentityContract(t *testing.T, db *gorm.DB) {
 	assert.Equal(t, operation.PublicID, loaded.PublicID)
 }
 
+// runB2TaskRecoveryIdentityConcurrentContract is exercised only by the
+// disposable MySQL/PostgreSQL fixture. Two independently acquired connections
+// model first startup on two nodes and must converge on one immutable binding.
+func runB2TaskRecoveryIdentityConcurrentContract(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	t.Setenv("TASK_RECOVERY_IDEMPOTENCY_SECRET", strings.Repeat("1a", 32))
+	start := make(chan struct{})
+	errorsByNode := make(chan error, 2)
+	for range 2 {
+		go func() {
+			<-start
+			errorsByNode <- EnsureTaskRecoveryIdentity(db.Session(&gorm.Session{NewDB: true}))
+		}()
+	}
+	close(start)
+	for range 2 {
+		require.NoError(t, <-errorsByNode)
+	}
+	var identities int64
+	require.NoError(t, db.Model(&TaskRecoveryIdentity{}).Count(&identities).Error)
+	assert.Equal(t, int64(1), identities)
+	var identity TaskRecoveryIdentity
+	require.NoError(t, db.First(&identity, 1).Error)
+	verifier, err := common.TaskRecoveryIdempotencyKeyVerifier()
+	require.NoError(t, err)
+	assert.Equal(t, verifier, identity.KeyVerifier)
+}
+
 func TestTaskRecoveryIdentityPersistsAfterReopenAndRejectsWrongKey(t *testing.T) {
 	t.Setenv("TASK_RECOVERY_IDEMPOTENCY_SECRET", strings.Repeat("1a", 32))
 	fixturePath := filepath.Join(t.TempDir(), "identity.db")
@@ -86,9 +126,10 @@ func TestTaskRecoveryIdentityPersistsAfterReopenAndRejectsWrongKey(t *testing.T)
 	firstConnection, err := db.DB()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = firstConnection.Close() })
-	require.NoError(t, db.AutoMigrate(&TaskRecoveryIdentity{}, &TaskSubmissionOperation{}))
+	require.NoError(t, db.AutoMigrate(&User{}, &Token{}, &TaskRecoveryIdentity{}, &TaskSubmissionOperation{}))
+	ensureB2SubmissionOwner(t, db, 501)
 	require.NoError(t, EnsureTaskRecoveryIdentity(db))
-	operation := newB2SubmissionOperation(t, 501, "POST", "video", "restart-client-key", `{}`)
+	operation := newB2SubmissionOperation(t, 501, "POST", TaskSubmissionOperationKindVideoCreate, "restart-client-key", `{}`)
 	require.NoError(t, db.Create(operation).Error)
 
 	// Close the original connection and reopen the persisted store. Resolving
@@ -101,7 +142,7 @@ func TestTaskRecoveryIdentityPersistsAfterReopenAndRejectsWrongKey(t *testing.T)
 	t.Cleanup(func() { require.NoError(t, secondConnection.Close()) })
 	require.NoError(t, EnsureTaskRecoveryIdentity(fresh))
 	scope := TaskSubmissionIdempotencyScope{
-		TokenID: 501, HTTPMethod: "POST", OperationKind: "video", IdempotencyKeyHash: operation.IdempotencyKeyHash,
+		TokenID: 501, HTTPMethod: "POST", OperationKind: TaskSubmissionOperationKindVideoCreate, IdempotencyKeyHash: operation.IdempotencyKeyHash,
 	}
 	loaded, err := FindTaskSubmissionOperationByIdempotencyScope(fresh, scope)
 	require.NoError(t, err)
@@ -110,7 +151,7 @@ func TestTaskRecoveryIdentityPersistsAfterReopenAndRejectsWrongKey(t *testing.T)
 
 	t.Setenv("TASK_RECOVERY_IDEMPOTENCY_SECRET", strings.Repeat("2b", 32))
 	require.ErrorIs(t, EnsureTaskRecoveryIdentity(fresh), ErrTaskRecoveryIdentityMismatch)
-	second := newB2SubmissionOperation(t, 501, "POST", "video", "restart-client-key", `{}`)
+	second := newB2SubmissionOperation(t, 501, "POST", TaskSubmissionOperationKindVideoCreate, "restart-client-key", `{}`)
 	require.ErrorIs(t, fresh.Create(second).Error, ErrTaskRecoveryIdentityMismatch)
 	var count int64
 	require.NoError(t, fresh.Model(&TaskSubmissionOperation{}).Count(&count).Error)

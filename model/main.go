@@ -172,7 +172,7 @@ func InitDB() (err error) {
 	// Do not turn an explicitly requested recovery deployment into a legacy
 	// writer when its dedicated key is missing or malformed. InitEnv keeps the
 	// effective gate closed, but startup must still reject this configuration.
-	if os.Getenv("TASK_RECOVERY_ENABLED") == "true" {
+	if common.TaskRecoveryDeploymentRequested() {
 		if _, err := common.TaskRecoveryIdempotencyKeyVerifier(); err != nil {
 			return fmt.Errorf("task recovery deployment configuration is invalid: %w", err)
 		}
@@ -188,6 +188,9 @@ func InitDB() (err error) {
 			db = db.Debug()
 		}
 		DB = db
+		if err := registerTaskRecoveryGormGuards(DB); err != nil {
+			return fmt.Errorf("register task recovery GORM guards: %w", err)
+		}
 		// MySQL charset/collation startup check: ensure Chinese-capable charset
 		if common.UsingMainDatabase(common.DatabaseTypeMySQL) {
 			if err := checkMySQLChineseSupport(DB); err != nil {
@@ -203,7 +206,7 @@ func InitDB() (err error) {
 		sqlDB.SetConnMaxLifetime(time.Second * time.Duration(common.GetEnvOrDefault("SQL_MAX_LIFETIME", 60)))
 
 		if !common.IsMasterNode {
-			if common.IsTaskRecoveryEnabled() {
+			if common.IsTaskRecoveryIdentityRequired() {
 				if err := EnsureTaskRecoveryIdentity(DB); err != nil {
 					return fmt.Errorf("task recovery database identity verification failed: %w", err)
 				}
@@ -217,7 +220,7 @@ func InitDB() (err error) {
 		if err := migrateDB(); err != nil {
 			return err
 		}
-		if common.IsTaskRecoveryEnabled() {
+		if common.IsTaskRecoveryIdentityRequired() {
 			if err := EnsureTaskRecoveryIdentity(DB); err != nil {
 				return fmt.Errorf("task recovery database identity verification failed: %w", err)
 			}

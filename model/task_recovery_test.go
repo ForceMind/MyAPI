@@ -10,11 +10,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
 )
 
 var errInjectedTaskRecoveryRollback = errors.New("injected task recovery transaction rollback")
 var errInjectedTaskRecoveryClock = errors.New("injected task recovery database clock failure")
+var errInjectedTaskRecoveryDispatchAttemptUpdate = errors.New("injected task recovery dispatch attempt update failure")
+var errInjectedTaskRecoveryDispatchAttemptPanic = errors.New("injected task recovery dispatch attempt panic")
 
 type b2TaskRecoveryFixtureClock struct {
 	now  int64
@@ -43,6 +46,7 @@ func openB2SubmissionSQLite(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, err)
+	require.NoError(t, registerTaskRecoveryGormGuards(db))
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
@@ -52,6 +56,9 @@ func openB2SubmissionSQLite(t *testing.T) *gorm.DB {
 
 func b2SubmissionModels() []interface{} {
 	return []interface{}{
+		&User{},
+		&Token{},
+		&UserSubscription{},
 		&Task{},
 		&TaskRecoveryIdentity{},
 		&TaskSubmissionOperation{},
@@ -59,6 +66,27 @@ func b2SubmissionModels() []interface{} {
 		&TaskBillingEvent{},
 		&TaskBillingLogOutbox{},
 		&Log{},
+	}
+}
+
+func ensureB2SubmissionOwner(t *testing.T, db *gorm.DB, tokenID int) {
+	t.Helper()
+	var user User
+	err := db.Where("id = ?", 11).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		user = User{Id: 11, Username: "b2-fixture-user", Password: "fixture-password", DisplayName: "B2 Fixture"}
+		require.NoError(t, db.Create(&user).Error)
+	} else {
+		require.NoError(t, err)
+	}
+	var token Token
+	err = db.Where("id = ?", tokenID).First(&token).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		token = Token{Id: tokenID, UserId: user.Id, Key: "b2-fixture-token-" + strconv.Itoa(tokenID), Name: "B2 fixture token"}
+		require.NoError(t, db.Create(&token).Error)
+	} else {
+		require.NoError(t, err)
+		assert.Equal(t, user.Id, token.UserId)
 	}
 }
 
@@ -108,6 +136,37 @@ func newB2SubmissionOperation(t *testing.T, tokenID int, method, kind, rawKey, c
 	}
 }
 
+func createB2SubmissionAttempt(t *testing.T, db *gorm.DB, operation *TaskSubmissionOperation, channelID int) *TaskSubmissionAttempt {
+	t.Helper()
+	attempt := &TaskSubmissionAttempt{
+		OperationID:  operation.ID,
+		AttemptNo:    1,
+		ChannelID:    channelID,
+		Provider:     "fixture",
+		RequestClass: "video",
+	}
+	require.NoError(t, db.Create(attempt).Error)
+	return attempt
+}
+
+func reserveB2SubmissionOperation(t *testing.T, db *gorm.DB, operationID, expectedVersion int64) {
+	t.Helper()
+	won, err := TransitionTaskSubmissionOperation(db, operationID, TaskSubmissionOperationTransition{
+		From: TaskSubmissionOperationStatusPrepared, To: TaskSubmissionOperationStatusReserved, ExpectedVersion: expectedVersion,
+	})
+	require.NoError(t, err)
+	require.True(t, won)
+}
+
+func startB2SubmissionDispatch(t *testing.T, db *gorm.DB, operationID, operationVersion, attemptVersion int64) {
+	t.Helper()
+	won, err := StartTaskSubmissionDispatch(db, operationID, TaskSubmissionDispatchTransition{
+		ExpectedOperationVersion: operationVersion, ExpectedAttemptVersion: attemptVersion,
+	})
+	require.NoError(t, err)
+	require.True(t, won)
+}
+
 func b2BillingLogPayload(event *TaskBillingEvent) TaskBillingLogPayload {
 	payload := TaskBillingLogPayload{
 		Version:        TaskRecoveryPayloadVersion,
@@ -142,6 +201,9 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 	require.Positive(t, realDatabaseNow)
 	fixtureClock := installB2TaskRecoveryFixtureClock(t, db)
 	migrateB2SubmissionFixture(t, db)
+	for _, tokenID := range []int{101, 102, 201, 202, 203, 204, 205, 206, 207, 301, 302, 303, 304, 305, 306, 401, 602, 603} {
+		ensureB2SubmissionOwner(t, db, tokenID)
+	}
 	t.Run("database-key-binding", func(t *testing.T) {
 		runB2TaskRecoveryIdentityContract(t, db)
 	})
@@ -149,14 +211,14 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 		fixtureClock.fail = true
 		_, err := taskRecoveryDBTimestamp(db)
 		assert.ErrorIs(t, err, errInjectedTaskRecoveryClock)
-		operation := newB2SubmissionOperation(t, 602, "POST", "video", "database-clock-failure", `{}`)
+		operation := newB2SubmissionOperation(t, 602, "POST", TaskSubmissionOperationKindVideoCreate, "database-clock-failure", `{}`)
 		assert.ErrorIs(t, db.Create(operation).Error, errInjectedTaskRecoveryClock)
 		fixtureClock.fail = false
 		var count int64
 		require.NoError(t, db.Model(&TaskSubmissionOperation{}).Where("token_id = ?", 602).Count(&count).Error)
 		assert.Zero(t, count)
 
-		persisted := newB2SubmissionOperation(t, 603, "POST", "video", "database-clock-transition-failure", `{}`)
+		persisted := newB2SubmissionOperation(t, 603, "POST", TaskSubmissionOperationKindVideoCreate, "database-clock-transition-failure", `{}`)
 		require.NoError(t, db.Create(persisted).Error)
 		fixtureClock.fail = true
 		won, err := TransitionTaskSubmissionOperation(db, persisted.ID, TaskSubmissionOperationTransition{
@@ -170,15 +232,101 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 		assert.Equal(t, int64(1), persisted.LockVersion)
 	})
 
+	t.Run("gorm-table-write-guard-protects-durable-records", func(t *testing.T) {
+		operation := newB2SubmissionOperation(t, 401, "POST", TaskSubmissionOperationKindVideoCreate, "gorm-table-write-guard", `{}`)
+		require.NoError(t, db.Create(operation).Error)
+		attempt := createB2SubmissionAttempt(t, db, operation, 41)
+		event := &TaskBillingEvent{
+			OperationID: &operation.ID, EventType: TaskBillingEventTypeReserve,
+			UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: attempt.ChannelID,
+			BillingSource: "wallet", QuotaDelta: -41,
+		}
+		require.NoError(t, db.Create(event).Error)
+		outbox, err := NewTaskBillingLogOutbox(event, b2BillingLogPayload(event))
+		require.NoError(t, err)
+		require.NoError(t, db.Create(outbox).Error)
+
+		for _, update := range []struct {
+			name, table, column string
+			id, value           interface{}
+			err                 error
+		}{
+			{"identity", "task_recovery_identities", "key_verifier", 1, strings.Repeat("f", taskRecoveryDigestLength), ErrTaskRecoveryIdentityImmutable},
+			{"operation", "task_submission_operations", "request_fingerprint", operation.ID, strings.Repeat("f", taskRecoveryDigestLength), ErrTaskRecoveryInvalidRecord},
+			{"attempt", "task_submission_attempts", "channel_id", attempt.ID, 42, ErrTaskRecoveryInvalidRecord},
+			{"event", "task_billing_events", "quota_delta", event.ID, -42, ErrTaskRecoveryInvalidRecord},
+			{"outbox", "task_billing_log_outboxes", "billing_event_id", outbox.ID, "billing_evt_" + strings.Repeat("f", taskSubmissionPublicIDRandomLength), ErrTaskRecoveryInvalidRecord},
+		} {
+			t.Run(update.name, func(t *testing.T) {
+				result := db.Table(update.table).Where("id = ?", update.id).Update(update.column, update.value)
+				assert.ErrorIs(t, result.Error, update.err)
+				assert.Zero(t, result.RowsAffected)
+			})
+		}
+		aliasUpdate := db.Table("task_submission_operations AS tso").Where("tso.id = ?", operation.ID).
+			UpdateColumn("request_fingerprint", strings.Repeat("e", taskRecoveryDigestLength))
+		assert.ErrorIs(t, aliasUpdate.Error, ErrTaskRecoveryInvalidRecord)
+		assert.Zero(t, aliasUpdate.RowsAffected)
+
+		variableAliasUpdate := db.Table("? AS tso", clause.Table{Name: "task_submission_operations"}).
+			Where("tso.id = ?", operation.ID).
+			UpdateColumn("request_fingerprint", strings.Repeat("d", taskRecoveryDigestLength))
+		assert.ErrorIs(t, variableAliasUpdate.Error, ErrTaskRecoveryInvalidRecord)
+		assert.Zero(t, variableAliasUpdate.RowsAffected)
+
+		nestedVariableAliasUpdate := db.Table("? AS tso", clause.NamedExpr{
+			SQL: "@target",
+			Vars: []interface{}{map[string]interface{}{
+				"target": clause.Table{Name: "task_submission_operations"},
+			}},
+		}).Where("tso.id = ?", operation.ID).
+			UpdateColumn("request_fingerprint", strings.Repeat("c", taskRecoveryDigestLength))
+		assert.ErrorIs(t, nestedVariableAliasUpdate.Error, ErrTaskRecoveryInvalidRecord)
+		assert.Zero(t, nestedVariableAliasUpdate.RowsAffected)
+
+		chainedOperation := newB2SubmissionOperation(t, 207, "POST", TaskSubmissionOperationKindVideoCreate, "gorm-marker-leak", `{}`)
+		require.NoError(t, db.Create(chainedOperation).Error)
+		chainedDB := db.Where("1 = 1")
+		reserveB2SubmissionOperation(t, chainedDB, chainedOperation.ID, 1)
+		chainedUpdate := chainedDB.Table("task_submission_operations").Where("id = ?", chainedOperation.ID).
+			UpdateColumn("request_fingerprint", strings.Repeat("b", taskRecoveryDigestLength))
+		assert.ErrorIs(t, chainedUpdate.Error, ErrTaskRecoveryInvalidRecord)
+		assert.Zero(t, chainedUpdate.RowsAffected)
+		chainedDeleteOperation := newB2SubmissionOperation(t, 207, "POST", TaskSubmissionOperationKindVideoCreate, "gorm-marker-leak-delete", `{}`)
+		require.NoError(t, db.Create(chainedDeleteOperation).Error)
+		chainedDeleteDB := db.Where("1 = 1")
+		reserveB2SubmissionOperation(t, chainedDeleteDB, chainedDeleteOperation.ID, 1)
+		chainedDelete := chainedDeleteDB.Table("task_submission_operations").Where("id = ?", chainedDeleteOperation.ID).Delete(nil)
+		assert.ErrorIs(t, chainedDelete.Error, ErrTaskRecoveryInvalidRecord)
+		assert.Zero(t, chainedDelete.RowsAffected)
+
+		result := db.Table("task_billing_events").Where("id = ?", event.ID).Delete(nil)
+		assert.ErrorIs(t, result.Error, ErrTaskRecoveryInvalidRecord)
+		assert.Zero(t, result.RowsAffected)
+
+		var unchangedOperation TaskSubmissionOperation
+		var unchangedAttempt TaskSubmissionAttempt
+		var unchangedEvent TaskBillingEvent
+		var unchangedOutbox TaskBillingLogOutbox
+		require.NoError(t, db.First(&unchangedOperation, operation.ID).Error)
+		require.NoError(t, db.First(&unchangedAttempt, attempt.ID).Error)
+		require.NoError(t, db.First(&unchangedEvent, event.ID).Error)
+		require.NoError(t, db.First(&unchangedOutbox, outbox.ID).Error)
+		assert.Equal(t, operation.RequestFingerprint, unchangedOperation.RequestFingerprint)
+		assert.Equal(t, attempt.ChannelID, unchangedAttempt.ChannelID)
+		assert.Equal(t, event.QuotaDelta, unchangedEvent.QuotaDelta)
+		assert.Equal(t, outbox.BillingEventID, unchangedOutbox.BillingEventID)
+	})
+
 	t.Run("stable-public-id-and-idempotency-scope", func(t *testing.T) {
-		first := newB2SubmissionOperation(t, 101, "post", "video", "same-client-key", `{"model":"fixture-a"}`)
+		first := newB2SubmissionOperation(t, 101, "post", TaskSubmissionOperationKindVideoCreate, "same-client-key", `{"model":"fixture-a"}`)
 		require.NoError(t, db.Create(first).Error)
 		assert.True(t, strings.HasPrefix(first.PublicID, "task_"))
 		assert.Len(t, first.PublicID, len("task_")+taskSubmissionPublicIDRandomLength)
 		assert.Equal(t, "POST", first.HTTPMethod)
-		assert.Equal(t, "video", first.OperationKind)
+		assert.Equal(t, TaskSubmissionOperationKindVideoCreate, first.OperationKind)
 
-		duplicateScope := newB2SubmissionOperation(t, 101, "POST", "video", "same-client-key", `{"model":"fixture-b"}`)
+		duplicateScope := newB2SubmissionOperation(t, 101, "POST", TaskSubmissionOperationKindVideoCreate, "same-client-key", `{"model":"fixture-b"}`)
 		require.Error(t, db.Create(duplicateScope).Error)
 
 		keyHash, err := HashTaskSubmissionIdempotencyKey("same-client-key")
@@ -186,7 +334,7 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 		found, err := FindTaskSubmissionOperationByIdempotencyScope(db, TaskSubmissionIdempotencyScope{
 			TokenID:            101,
 			HTTPMethod:         "post",
-			OperationKind:      "VIDEO",
+			OperationKind:      "VIDEO.CREATE",
 			IdempotencyKeyHash: keyHash,
 		})
 		require.NoError(t, err)
@@ -195,10 +343,10 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 		assert.NotEqual(t, duplicateScope.RequestFingerprint, found.RequestFingerprint)
 
 		for _, operation := range []*TaskSubmissionOperation{
-			newB2SubmissionOperation(t, 102, "POST", "video", "same-client-key", `{"scope":"token"}`),
-			newB2SubmissionOperation(t, 101, "PUT", "video", "same-client-key", `{"scope":"method"}`),
-			newB2SubmissionOperation(t, 101, "POST", "image", "same-client-key", `{"scope":"kind"}`),
-			newB2SubmissionOperation(t, 101, "POST", "video", "different-client-key", `{"scope":"key"}`),
+			newB2SubmissionOperation(t, 102, "POST", TaskSubmissionOperationKindVideoCreate, "same-client-key", `{"scope":"token"}`),
+			newB2SubmissionOperation(t, 101, "PUT", TaskSubmissionOperationKindVideoCreate, "same-client-key", `{"scope":"method"}`),
+			newB2SubmissionOperation(t, 101, "POST", TaskSubmissionOperationKindVideoRemix, "same-client-key", `{"scope":"kind"}`),
+			newB2SubmissionOperation(t, 101, "POST", TaskSubmissionOperationKindVideoCreate, "different-client-key", `{"scope":"key"}`),
 		} {
 			require.NoError(t, db.Create(operation).Error)
 			assert.NotEqual(t, first.PublicID, operation.PublicID)
@@ -210,10 +358,108 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 		assert.Equal(t, first.ID, byPublicID.ID)
 	})
 
+	t.Run("create-or-load-replays-immutable-v1-records-without-poisoning-transactions", func(t *testing.T) {
+		candidate := newB2SubmissionOperation(t, 602, "POST", TaskSubmissionOperationKindVideoCreate, "create-or-load", `{"model":"fixture"}`)
+		operation, err := CreateOrLoadTaskSubmissionOperation(db, candidate)
+		require.NoError(t, err)
+		require.NotNil(t, operation)
+
+		replay, err := CreateOrLoadTaskSubmissionOperation(db,
+			newB2SubmissionOperation(t, 602, "post", TaskSubmissionOperationKindVideoCreate, "create-or-load", `{"model":"fixture"}`))
+		require.NoError(t, err)
+		assert.Equal(t, operation.ID, replay.ID)
+		conflict, err := CreateOrLoadTaskSubmissionOperation(db,
+			newB2SubmissionOperation(t, 602, "POST", TaskSubmissionOperationKindVideoCreate, "create-or-load", `{"model":"different"}`))
+		assert.ErrorIs(t, err, ErrTaskSubmissionIdempotencyConflict)
+		assert.Equal(t, operation.ID, conflict.ID)
+
+		attempt, err := CreateOrLoadTaskSubmissionAttempt(db, &TaskSubmissionAttempt{
+			OperationID: operation.ID, AttemptNo: 1, ChannelID: 14, Provider: "Fixture", RequestClass: "video",
+		})
+		require.NoError(t, err)
+		attemptReplay, err := CreateOrLoadTaskSubmissionAttempt(db, &TaskSubmissionAttempt{
+			OperationID: operation.ID, AttemptNo: 1, ChannelID: 14, Provider: "fixture", RequestClass: "video",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, attempt.ID, attemptReplay.ID)
+		attemptConflict, err := CreateOrLoadTaskSubmissionAttempt(db, &TaskSubmissionAttempt{
+			OperationID: operation.ID, AttemptNo: 1, ChannelID: 15, Provider: "fixture", RequestClass: "video",
+		})
+		assert.ErrorIs(t, err, ErrTaskSubmissionAttemptConflict)
+		assert.Equal(t, attempt.ID, attemptConflict.ID)
+
+		reserveB2SubmissionOperation(t, db, operation.ID, 1)
+		startB2SubmissionDispatch(t, db, operation.ID, 2, 1)
+		attemptReplay, err = CreateOrLoadTaskSubmissionAttempt(db, &TaskSubmissionAttempt{
+			OperationID: operation.ID, AttemptNo: 1, ChannelID: 14, Provider: "fixture", RequestClass: "video",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, TaskSubmissionAttemptStatusDispatching, attemptReplay.Status)
+
+		eventCandidate := &TaskBillingEvent{
+			OperationID: &operation.ID, EventType: TaskBillingEventTypeReserve,
+			UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: attempt.ChannelID,
+			BillingSource: "wallet", QuotaDelta: -10,
+		}
+		event, err := CreateOrLoadTaskBillingEvent(db, eventCandidate)
+		require.NoError(t, err)
+		eventReplay, err := CreateOrLoadTaskBillingEvent(db, &TaskBillingEvent{
+			OperationID: &operation.ID, EventType: TaskBillingEventTypeReserve,
+			UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: attempt.ChannelID,
+			BillingSource: "wallet", QuotaDelta: -10,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, event.ID, eventReplay.ID)
+		eventConflict, err := CreateOrLoadTaskBillingEvent(db, &TaskBillingEvent{
+			OperationID: &operation.ID, EventType: TaskBillingEventTypeReserve,
+			UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: attempt.ChannelID,
+			BillingSource: "wallet", QuotaDelta: -11,
+		})
+		assert.ErrorIs(t, err, ErrTaskBillingEventConflict)
+		assert.Equal(t, event.ID, eventConflict.ID)
+
+		outboxCandidate, err := NewTaskBillingLogOutbox(event, TaskBillingLogPayload{
+			Content: "create or load receipt", ModelName: "fixture-model", Group: "default",
+		})
+		require.NoError(t, err)
+		outbox, err := CreateOrLoadTaskBillingLogOutbox(db, outboxCandidate)
+		require.NoError(t, err)
+		outboxReplay, err := CreateOrLoadTaskBillingLogOutbox(db, outboxCandidate)
+		require.NoError(t, err)
+		assert.Equal(t, outbox.ID, outboxReplay.ID)
+		outboxConflictCandidate := *outboxCandidate
+		outboxConflictCandidate.Payload.Content = "different immutable receipt"
+		outboxConflict, err := CreateOrLoadTaskBillingLogOutbox(db, &outboxConflictCandidate)
+		assert.ErrorIs(t, err, ErrTaskBillingLogOutboxConflict)
+		assert.Equal(t, outbox.ID, outboxConflict.ID)
+
+		// Raw SQL intentionally simulates a privileged historical corruption;
+		// ordinary GORM table writes are rejected by the durable-record guard.
+		require.NoError(t, db.Exec("UPDATE task_billing_log_outboxes SET state = ?, attempt_count = ?, delivered_at = ? WHERE id = ?",
+			TaskBillingLogOutboxStateDelivered, 1, nil, outbox.ID).Error)
+		_, err = CreateOrLoadTaskBillingLogOutbox(db, outboxCandidate)
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+
+		require.NoError(t, db.Exec("UPDATE task_billing_events SET state = ?, attempt_count = ?, applied_at = ? WHERE id = ?",
+			TaskBillingEventStateApplied, 1, nil, event.ID).Error)
+		_, err = CreateOrLoadTaskBillingEvent(db, eventCandidate)
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+
+		err = db.Transaction(func(tx *gorm.DB) error {
+			_, conflictErr := CreateOrLoadTaskSubmissionOperation(tx,
+				newB2SubmissionOperation(t, 602, "POST", TaskSubmissionOperationKindVideoCreate, "create-or-load", `{"model":"different"}`))
+			require.ErrorIs(t, conflictErr, ErrTaskSubmissionIdempotencyConflict)
+			_, createErr := CreateOrLoadTaskSubmissionOperation(tx,
+				newB2SubmissionOperation(t, 602, "POST", TaskSubmissionOperationKindSunoMusic, "usable-after-conflict", `{"model":"fixture"}`))
+			return createErr
+		})
+		require.NoError(t, err)
+	})
+
 	t.Run("operation-cas-and-formal-task-link", func(t *testing.T) {
-		operation := newB2SubmissionOperation(t, 201, "POST", "video", "operation-cas", `{}`)
+		operation := newB2SubmissionOperation(t, 201, "POST", TaskSubmissionOperationKindVideoCreate, "operation-cas", `{}`)
 		require.NoError(t, db.Create(operation).Error)
-		negativeCreatedAt := newB2SubmissionOperation(t, 205, "POST", "video", "negative-created-at", `{}`)
+		negativeCreatedAt := newB2SubmissionOperation(t, 205, "POST", TaskSubmissionOperationKindVideoCreate, "negative-created-at", `{}`)
 		negativeCreatedAt.CreatedAt = -1
 		assert.ErrorIs(t, db.Create(negativeCreatedAt).Error, ErrTaskRecoveryInvalidRecord)
 		operationSave := *operation
@@ -226,9 +472,15 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 		assert.ErrorIs(t, db.Model(&TaskSubmissionOperation{}).Where("id = ?", operation.ID).Updates(map[string]interface{}{
 			"public_id": operationSave.PublicID, "status": TaskSubmissionOperationStatusReserved,
 		}).Error, ErrTaskRecoveryInvalidRecord)
+		updateColumns := db.Model(&TaskSubmissionOperation{}).Where("id = ?", operation.ID).UpdateColumns(map[string]interface{}{
+			"request_fingerprint": strings.Repeat("f", taskRecoveryDigestLength),
+		})
+		assert.ErrorIs(t, updateColumns.Error, ErrTaskRecoveryInvalidRecord)
+		assert.Zero(t, updateColumns.RowsAffected)
 		var unchangedOperation TaskSubmissionOperation
 		require.NoError(t, db.First(&unchangedOperation, operation.ID).Error)
 		assert.Equal(t, operation.PublicID, unchangedOperation.PublicID)
+		assert.Equal(t, operation.RequestFingerprint, unchangedOperation.RequestFingerprint)
 		assert.Equal(t, TaskSubmissionOperationStatusPrepared, unchangedOperation.Status)
 		assert.ErrorIs(t, db.Delete(&unchangedOperation).Error, ErrTaskRecoveryInvalidRecord)
 		won, err := TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
@@ -260,6 +512,7 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidTransition)
 		assert.False(t, won)
 
+		attempt := createB2SubmissionAttempt(t, db, operation, 16)
 		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
 			From:            TaskSubmissionOperationStatusPrepared,
 			To:              TaskSubmissionOperationStatusReserved,
@@ -280,8 +533,125 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 			To:              TaskSubmissionOperationStatusDispatching,
 			ExpectedVersion: 2,
 		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidTransition)
+		assert.False(t, won)
+		won, err = TransitionTaskSubmissionAttempt(db, attempt.ID, TaskSubmissionAttemptTransition{
+			From: TaskSubmissionAttemptStatusPrepared, To: TaskSubmissionAttemptStatusDispatching, ExpectedVersion: 1,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidTransition)
+		assert.False(t, won)
+		won, err = StartTaskSubmissionDispatch(db, operation.ID, TaskSubmissionDispatchTransition{
+			ExpectedOperationVersion: 2, ExpectedAttemptVersion: 2,
+		})
 		require.NoError(t, err)
-		assert.True(t, won)
+		assert.False(t, won)
+		var afterAtomicLossOperation TaskSubmissionOperation
+		var afterAtomicLossAttempt TaskSubmissionAttempt
+		require.NoError(t, db.First(&afterAtomicLossOperation, operation.ID).Error)
+		require.NoError(t, db.First(&afterAtomicLossAttempt, attempt.ID).Error)
+		assert.Equal(t, TaskSubmissionOperationStatusReserved, afterAtomicLossOperation.Status)
+		assert.Equal(t, int64(2), afterAtomicLossOperation.LockVersion)
+		assert.Equal(t, TaskSubmissionAttemptStatusPrepared, afterAtomicLossAttempt.Status)
+		assert.Equal(t, int64(1), afterAtomicLossAttempt.LockVersion)
+		won, err = StartTaskSubmissionDispatch(db, operation.ID, TaskSubmissionDispatchTransition{
+			ExpectedOperationVersion: 2, ExpectedAttemptVersion: 1, TransitionedAt: -1,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.False(t, won)
+		won, err = StartTaskSubmissionDispatch(db, operation.ID, TaskSubmissionDispatchTransition{
+			ExpectedOperationVersion: taskRecoveryMaxInt64, ExpectedAttemptVersion: 1,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidTransition)
+		assert.False(t, won)
+		startB2SubmissionDispatch(t, db, operation.ID, 2, 1)
+		var dispatchedOperation TaskSubmissionOperation
+		var dispatchedAttempt TaskSubmissionAttempt
+		require.NoError(t, db.First(&dispatchedOperation, operation.ID).Error)
+		require.NoError(t, db.First(&dispatchedAttempt, attempt.ID).Error)
+		assert.Equal(t, TaskSubmissionOperationStatusDispatching, dispatchedOperation.Status)
+		assert.Equal(t, TaskSubmissionAttemptStatusDispatching, dispatchedAttempt.Status)
+		require.NotNil(t, dispatchedOperation.DispatchStartedAt)
+		require.NotNil(t, dispatchedAttempt.StartedAt)
+		assert.Equal(t, *dispatchedOperation.DispatchStartedAt, *dispatchedAttempt.StartedAt)
+
+		failDispatchAttemptUpdate := false
+		require.NoError(t, db.Callback().Update().Before("gorm:update").Register("test:b2-task-recovery-dispatch-attempt-failure", func(tx *gorm.DB) {
+			if failDispatchAttemptUpdate && taskRecoveryGormStatementTable(tx) == "task_submission_attempts" {
+				tx.AddError(errInjectedTaskRecoveryDispatchAttemptUpdate)
+			}
+		}))
+		atomicOperation := newB2SubmissionOperation(t, 205, "POST", TaskSubmissionOperationKindVideoCreate, "dispatch-savepoint", `{}`)
+		require.NoError(t, db.Create(atomicOperation).Error)
+		atomicAttempt := createB2SubmissionAttempt(t, db, atomicOperation, 18)
+		reserveB2SubmissionOperation(t, db, atomicOperation.ID, 1)
+		err = db.Session(&gorm.Session{DisableNestedTransaction: true}).Transaction(func(tx *gorm.DB) error {
+			failDispatchAttemptUpdate = true
+			defer func() { failDispatchAttemptUpdate = false }()
+			won, dispatchErr := StartTaskSubmissionDispatch(tx, atomicOperation.ID, TaskSubmissionDispatchTransition{
+				ExpectedOperationVersion: 2, ExpectedAttemptVersion: 1,
+			})
+			assert.ErrorIs(t, dispatchErr, errInjectedTaskRecoveryDispatchAttemptUpdate)
+			assert.False(t, won)
+			var unchangedAtomicOperation TaskSubmissionOperation
+			var unchangedAtomicAttempt TaskSubmissionAttempt
+			require.NoError(t, tx.First(&unchangedAtomicOperation, atomicOperation.ID).Error)
+			require.NoError(t, tx.First(&unchangedAtomicAttempt, atomicAttempt.ID).Error)
+			assert.Equal(t, TaskSubmissionOperationStatusReserved, unchangedAtomicOperation.Status)
+			assert.Equal(t, int64(2), unchangedAtomicOperation.LockVersion)
+			assert.Equal(t, TaskSubmissionAttemptStatusPrepared, unchangedAtomicAttempt.Status)
+			assert.Equal(t, int64(1), unchangedAtomicAttempt.LockVersion)
+			return nil
+		})
+		require.NoError(t, err)
+		var persistedAtomicOperation TaskSubmissionOperation
+		var persistedAtomicAttempt TaskSubmissionAttempt
+		require.NoError(t, db.First(&persistedAtomicOperation, atomicOperation.ID).Error)
+		require.NoError(t, db.First(&persistedAtomicAttempt, atomicAttempt.ID).Error)
+		assert.Equal(t, TaskSubmissionOperationStatusReserved, persistedAtomicOperation.Status)
+		assert.Equal(t, TaskSubmissionAttemptStatusPrepared, persistedAtomicAttempt.Status)
+
+		panicDispatchAttemptUpdate := false
+		require.NoError(t, db.Callback().Update().Before("gorm:update").Register("test:b2-task-recovery-dispatch-attempt-panic", func(tx *gorm.DB) {
+			if panicDispatchAttemptUpdate && taskRecoveryGormStatementTable(tx) == "task_submission_attempts" {
+				panic(errInjectedTaskRecoveryDispatchAttemptPanic)
+			}
+		}))
+		panicOperation := newB2SubmissionOperation(t, 206, "POST", TaskSubmissionOperationKindVideoCreate, "dispatch-savepoint-panic", `{}`)
+		require.NoError(t, db.Create(panicOperation).Error)
+		panicAttempt := createB2SubmissionAttempt(t, db, panicOperation, 19)
+		reserveB2SubmissionOperation(t, db, panicOperation.ID, 1)
+		outerTx := db.Session(&gorm.Session{DisableNestedTransaction: true}).Begin()
+		require.NoError(t, outerTx.Error)
+		outerTxOpen := true
+		defer func() {
+			if outerTxOpen {
+				_ = outerTx.Rollback().Error
+			}
+		}()
+		var recovered interface{}
+		func() {
+			panicDispatchAttemptUpdate = true
+			defer func() {
+				panicDispatchAttemptUpdate = false
+				recovered = recover()
+			}()
+			_, _ = StartTaskSubmissionDispatch(outerTx, panicOperation.ID, TaskSubmissionDispatchTransition{
+				ExpectedOperationVersion: 2, ExpectedAttemptVersion: 1,
+			})
+		}()
+		panicErr, ok := recovered.(error)
+		require.True(t, ok)
+		assert.ErrorIs(t, panicErr, errInjectedTaskRecoveryDispatchAttemptPanic)
+		require.NoError(t, outerTx.Commit().Error)
+		outerTxOpen = false
+		var persistedPanicOperation TaskSubmissionOperation
+		var persistedPanicAttempt TaskSubmissionAttempt
+		require.NoError(t, db.First(&persistedPanicOperation, panicOperation.ID).Error)
+		require.NoError(t, db.First(&persistedPanicAttempt, panicAttempt.ID).Error)
+		assert.Equal(t, TaskSubmissionOperationStatusReserved, persistedPanicOperation.Status)
+		assert.Equal(t, int64(2), persistedPanicOperation.LockVersion)
+		assert.Equal(t, TaskSubmissionAttemptStatusPrepared, persistedPanicAttempt.Status)
+		assert.Equal(t, int64(1), persistedPanicAttempt.LockVersion)
 		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
 			From:            TaskSubmissionOperationStatusDispatching,
 			To:              TaskSubmissionOperationStatusAccepted,
@@ -317,29 +687,36 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 		assert.Equal(t, formalTask.ID, *persisted.TaskID)
 		assert.Nil(t, persisted.RetentionUntil, "an accepted active task must not receive a retention deadline")
 
-		secondOperation := newB2SubmissionOperation(t, 203, "POST", "video", "operation-task-unique", `{}`)
+		secondOperation := newB2SubmissionOperation(t, 203, "POST", TaskSubmissionOperationKindVideoCreate, "operation-task-unique", `{}`)
 		require.NoError(t, db.Create(secondOperation).Error)
 		require.Error(t, db.Model(secondOperation).Update("task_id", formalTask.ID).Error)
 	})
 
 	t.Run("unknown-states-require-explicit-resolution", func(t *testing.T) {
-		operation := newB2SubmissionOperation(t, 202, "POST", "video", "operation-unknown", `{}`)
+		operation := newB2SubmissionOperation(t, 202, "POST", TaskSubmissionOperationKindVideoCreate, "operation-unknown", `{}`)
 		require.NoError(t, db.Create(operation).Error)
-		for _, transition := range []TaskSubmissionOperationTransition{
-			{From: TaskSubmissionOperationStatusPrepared, To: TaskSubmissionOperationStatusReserved, ExpectedVersion: 1},
-			{From: TaskSubmissionOperationStatusReserved, To: TaskSubmissionOperationStatusDispatching, ExpectedVersion: 2},
-			{From: TaskSubmissionOperationStatusDispatching, To: TaskSubmissionOperationStatusSubmissionUnknown, ExpectedVersion: 3},
-		} {
-			won, err := TransitionTaskSubmissionOperation(db, operation.ID, transition)
-			require.NoError(t, err)
-			assert.True(t, won)
-		}
-		deadline := int64(999)
+		createB2SubmissionAttempt(t, db, operation, 17)
+		reserveB2SubmissionOperation(t, db, operation.ID, 1)
+		startB2SubmissionDispatch(t, db, operation.ID, 2, 1)
 		won, err := TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From: TaskSubmissionOperationStatusDispatching, To: TaskSubmissionOperationStatusSubmissionUnknown, ExpectedVersion: 3,
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		deadline := int64(999)
+		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
 			From:            TaskSubmissionOperationStatusSubmissionUnknown,
 			To:              TaskSubmissionOperationStatusAccepted,
 			RetentionUntil:  &deadline,
 			ExpectedVersion: 4,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.False(t, won)
+		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From:             TaskSubmissionOperationStatusSubmissionUnknown,
+			To:               TaskSubmissionOperationStatusRejected,
+			ResolutionSource: TaskSubmissionResolutionSourceManualAudit,
+			ExpectedVersion:  4,
 		})
 		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
 		assert.False(t, won)
@@ -372,16 +749,11 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 	})
 
 	t.Run("outcome-unknown-requires-explicit-terminal-resolution", func(t *testing.T) {
-		operation := newB2SubmissionOperation(t, 204, "POST", "video", "outcome-unknown", `{}`)
+		operation := newB2SubmissionOperation(t, 204, "POST", TaskSubmissionOperationKindVideoCreate, "outcome-unknown", `{}`)
 		require.NoError(t, db.Create(operation).Error)
-		for _, transition := range []TaskSubmissionOperationTransition{
-			{From: TaskSubmissionOperationStatusPrepared, To: TaskSubmissionOperationStatusReserved, ExpectedVersion: 1},
-			{From: TaskSubmissionOperationStatusReserved, To: TaskSubmissionOperationStatusDispatching, ExpectedVersion: 2},
-		} {
-			won, err := TransitionTaskSubmissionOperation(db, operation.ID, transition)
-			require.NoError(t, err)
-			assert.True(t, won)
-		}
+		createB2SubmissionAttempt(t, db, operation, 17)
+		reserveB2SubmissionOperation(t, db, operation.ID, 1)
+		startB2SubmissionDispatch(t, db, operation.ID, 2, 1)
 		formalTask := Task{TaskID: operation.PublicID, UserId: operation.UserID, ChannelId: 17, Status: TaskStatusSubmitted}
 		require.NoError(t, db.Create(&formalTask).Error)
 		won, err := TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
@@ -417,8 +789,12 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 	})
 
 	t.Run("attempt-event-and-outbox-uniqueness", func(t *testing.T) {
-		operation := newB2SubmissionOperation(t, 301, "POST", "video", "child-records", `{}`)
+		operation := newB2SubmissionOperation(t, 301, "POST", TaskSubmissionOperationKindVideoCreate, "child-records", `{}`)
 		require.NoError(t, db.Create(operation).Error)
+		assert.ErrorIs(t, db.Create(&TaskBillingEvent{
+			OperationID: &operation.ID, EventType: TaskBillingEventTypeReserve,
+			UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: 9, BillingSource: "wallet", QuotaDelta: 0,
+		}).Error, ErrTaskRecoveryInvalidRecord)
 		assert.ErrorIs(t, db.Create(&TaskSubmissionAttempt{
 			OperationID: operation.ID, AttemptNo: 2, ChannelID: 9, Provider: "fixture", RequestClass: "video",
 		}).Error, ErrTaskRecoveryInvalidRecord)
@@ -426,26 +802,25 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 			OperationID: 9_999_999, AttemptNo: 1, ChannelID: 9, Provider: "fixture", RequestClass: "video",
 		}).Error, ErrTaskSubmissionOperationNotFound)
 
-		unknownOperation := newB2SubmissionOperation(t, 302, "POST", "video", "attempt-unknown-operation", `{}`)
+		unknownOperation := newB2SubmissionOperation(t, 302, "POST", TaskSubmissionOperationKindVideoCreate, "attempt-unknown-operation", `{}`)
 		require.NoError(t, db.Create(unknownOperation).Error)
-		for _, transition := range []TaskSubmissionOperationTransition{
-			{From: TaskSubmissionOperationStatusPrepared, To: TaskSubmissionOperationStatusReserved, ExpectedVersion: 1},
-			{From: TaskSubmissionOperationStatusReserved, To: TaskSubmissionOperationStatusDispatching, ExpectedVersion: 2},
-			{From: TaskSubmissionOperationStatusDispatching, To: TaskSubmissionOperationStatusSubmissionUnknown, ExpectedVersion: 3},
-		} {
-			won, err := TransitionTaskSubmissionOperation(db, unknownOperation.ID, transition)
-			require.NoError(t, err)
-			assert.True(t, won)
-		}
+		createB2SubmissionAttempt(t, db, unknownOperation, 9)
+		reserveB2SubmissionOperation(t, db, unknownOperation.ID, 1)
+		startB2SubmissionDispatch(t, db, unknownOperation.ID, 2, 1)
+		won, err := TransitionTaskSubmissionOperation(db, unknownOperation.ID, TaskSubmissionOperationTransition{
+			From: TaskSubmissionOperationStatusDispatching, To: TaskSubmissionOperationStatusSubmissionUnknown, ExpectedVersion: 3,
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
 		assert.ErrorIs(t, db.Create(&TaskSubmissionAttempt{
 			OperationID: unknownOperation.ID, AttemptNo: 1, ChannelID: 9, Provider: "fixture", RequestClass: "video",
 		}).Error, ErrTaskRecoveryInvalidRecord)
 
-		terminalOperation := newB2SubmissionOperation(t, 303, "POST", "video", "attempt-terminal-operation", `{}`)
+		terminalOperation := newB2SubmissionOperation(t, 303, "POST", TaskSubmissionOperationKindVideoCreate, "attempt-terminal-operation", `{}`)
 		require.NoError(t, db.Create(terminalOperation).Error)
 		negativeTerminalAt := int64(-1)
 		negativeRetention := negativeTerminalAt + TaskSubmissionTerminalRetentionSeconds
-		won, err := TransitionTaskSubmissionOperation(db, terminalOperation.ID, TaskSubmissionOperationTransition{
+		won, err = TransitionTaskSubmissionOperation(db, terminalOperation.ID, TaskSubmissionOperationTransition{
 			From: TaskSubmissionOperationStatusPrepared, To: TaskSubmissionOperationStatusCanceled,
 			TransitionedAt: negativeTerminalAt, RetentionUntil: &negativeRetention, ExpectedVersion: 1,
 		})
@@ -499,16 +874,20 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 		assert.ErrorIs(t, db.Model(&TaskSubmissionAttempt{}).Where("id = ?", attempt.ID).Updates(map[string]interface{}{
 			"attempt_no": 2, "status": TaskSubmissionAttemptStatusDispatching,
 		}).Error, ErrTaskRecoveryInvalidRecord)
+		updateColumn := db.Model(&TaskSubmissionAttempt{}).Where("id = ?", attempt.ID).UpdateColumn("channel_id", 99)
+		assert.ErrorIs(t, updateColumn.Error, ErrTaskRecoveryInvalidRecord)
+		assert.Zero(t, updateColumn.RowsAffected)
 		var unchangedAttempt TaskSubmissionAttempt
 		require.NoError(t, db.First(&unchangedAttempt, attempt.ID).Error)
 		assert.Equal(t, 1, unchangedAttempt.AttemptNo)
+		assert.Equal(t, attempt.ChannelID, unchangedAttempt.ChannelID)
 		assert.Equal(t, TaskSubmissionAttemptStatusPrepared, unchangedAttempt.Status)
 		assert.ErrorIs(t, db.Delete(&unchangedAttempt).Error, ErrTaskRecoveryInvalidRecord)
 		won, err = TransitionTaskSubmissionAttempt(db, attempt.ID, TaskSubmissionAttemptTransition{
 			From: TaskSubmissionAttemptStatusPrepared, To: TaskSubmissionAttemptStatusDispatching,
 			ExpectedVersion: 1, TransitionedAt: -1,
 		})
-		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidTransition)
 		assert.False(t, won)
 		won, err = TransitionTaskSubmissionAttempt(db, attempt.ID, TaskSubmissionAttemptTransition{
 			From: TaskSubmissionAttemptStatusPrepared, To: TaskSubmissionAttemptStatusDispatching,
@@ -526,11 +905,12 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 			From: TaskSubmissionAttemptStatusPrepared, To: TaskSubmissionAttemptStatusDispatching,
 			ExpectedVersion: 1,
 		})
-		require.NoError(t, err)
-		assert.True(t, won)
-		won, err = TransitionTaskSubmissionAttempt(db, attempt.ID, TaskSubmissionAttemptTransition{
-			From: TaskSubmissionAttemptStatusPrepared, To: TaskSubmissionAttemptStatusDispatching,
-			ExpectedVersion: 1,
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidTransition)
+		assert.False(t, won)
+		reserveB2SubmissionOperation(t, db, operation.ID, 1)
+		startB2SubmissionDispatch(t, db, operation.ID, 2, 1)
+		won, err = StartTaskSubmissionDispatch(db, operation.ID, TaskSubmissionDispatchTransition{
+			ExpectedOperationVersion: 2, ExpectedAttemptVersion: 1,
 		})
 		require.NoError(t, err)
 		assert.False(t, won)
@@ -655,14 +1035,6 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 		duplicateStableID.UpdatedAt = 0
 		require.Error(t, db.Create(&duplicateStableID).Error)
 
-		for _, transition := range []TaskSubmissionOperationTransition{
-			{From: TaskSubmissionOperationStatusPrepared, To: TaskSubmissionOperationStatusReserved, ExpectedVersion: 1},
-			{From: TaskSubmissionOperationStatusReserved, To: TaskSubmissionOperationStatusDispatching, ExpectedVersion: 2},
-		} {
-			won, err = TransitionTaskSubmissionOperation(db, operation.ID, transition)
-			require.NoError(t, err)
-			assert.True(t, won)
-		}
 		formalTask := Task{TaskID: operation.PublicID, UserId: operation.UserID, ChannelId: attempt.ChannelID, Status: TaskStatusSubmitted}
 		require.NoError(t, db.Create(&formalTask).Error)
 		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
@@ -726,6 +1098,11 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 		assert.ErrorIs(t, db.Model(&TaskBillingEvent{}).Where("id = ?", event.ID).Updates(map[string]interface{}{
 			"event_key": "forged-map-key", "state": TaskBillingEventStateApplied,
 		}).Error, ErrTaskRecoveryInvalidRecord)
+		updateEventColumns := db.Model(&TaskBillingEvent{}).Where("id = ?", event.ID).UpdateColumns(map[string]interface{}{
+			"quota_delta": -999,
+		})
+		assert.ErrorIs(t, updateEventColumns.Error, ErrTaskRecoveryInvalidRecord)
+		assert.Zero(t, updateEventColumns.RowsAffected)
 		outboxSave := persistedOutbox
 		outboxSave.BillingEventID = "forged-save-event"
 		outboxSave.State = TaskBillingLogOutboxStateDelivered
@@ -736,8 +1113,12 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 		assert.ErrorIs(t, db.Model(&TaskBillingLogOutbox{}).Where("id = ?", outbox.ID).Updates(map[string]interface{}{
 			"billing_event_id": "forged-map-event", "state": TaskBillingLogOutboxStateDelivered,
 		}).Error, ErrTaskRecoveryInvalidRecord)
+		updateOutboxColumn := db.Model(&TaskBillingLogOutbox{}).Where("id = ?", outbox.ID).UpdateColumn("billing_event_id", "billing_evt_"+strings.Repeat("x", taskSubmissionPublicIDRandomLength))
+		assert.ErrorIs(t, updateOutboxColumn.Error, ErrTaskRecoveryInvalidRecord)
+		assert.Zero(t, updateOutboxColumn.RowsAffected)
 		require.NoError(t, db.First(&persistedEvent, event.ID).Error)
 		assert.Equal(t, event.EventKey, persistedEvent.EventKey)
+		assert.Equal(t, event.QuotaDelta, persistedEvent.QuotaDelta)
 		assert.Equal(t, TaskBillingEventStatePending, persistedEvent.State)
 		require.NoError(t, db.First(&persistedOutbox, outbox.ID).Error)
 		assert.Equal(t, event.EventID, persistedOutbox.BillingEventID)
@@ -798,11 +1179,12 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 	})
 
 	t.Run("billing-processing-leases-are-owned-due-and-reclaimable", func(t *testing.T) {
-		operation := newB2SubmissionOperation(t, 306, "POST", "video", "processing-leases", `{}`)
+		operation := newB2SubmissionOperation(t, 306, "POST", TaskSubmissionOperationKindVideoCreate, "processing-leases", `{}`)
 		require.NoError(t, db.Create(operation).Error)
+		attempt := createB2SubmissionAttempt(t, db, operation, 10)
 		event := TaskBillingEvent{
 			OperationID: &operation.ID, EventType: TaskBillingEventTypeReserve,
-			UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: 0,
+			UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: attempt.ChannelID, BillingSource: "wallet", QuotaDelta: 0,
 		}
 		require.NoError(t, db.Create(&event).Error)
 		outbox, err := NewTaskBillingLogOutbox(&event, TaskBillingLogPayload{
@@ -835,7 +1217,7 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 		at(95)
 		boundaryEvent := TaskBillingEvent{
 			OperationID: &operation.ID, EventType: TaskBillingEventTypeTerminalSettlement,
-			UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: 0,
+			UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: attempt.ChannelID, BillingSource: "wallet", QuotaDelta: 0,
 		}
 		require.NoError(t, db.Create(&boundaryEvent).Error)
 		won, err = TransitionTaskBillingEvent(db, boundaryEvent.ID, TaskBillingEventTransition{
@@ -1055,7 +1437,7 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 
 		manualReviewEvent := TaskBillingEvent{
 			OperationID: &operation.ID, EventType: TaskBillingEventTypeSubmissionAdjustment,
-			UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: 0,
+			UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: attempt.ChannelID, BillingSource: "wallet", QuotaDelta: 0,
 		}
 		require.NoError(t, db.Create(&manualReviewEvent).Error)
 		won, err = TransitionTaskBillingEvent(db, manualReviewEvent.ID, TaskBillingEventTransition{
@@ -1086,7 +1468,7 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 
 		cappedEvent := TaskBillingEvent{
 			OperationID: &operation.ID, EventType: TaskBillingEventTypeRefund,
-			UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: 0,
+			UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: attempt.ChannelID, BillingSource: "wallet", QuotaDelta: 0,
 		}
 		require.NoError(t, db.Create(&cappedEvent).Error)
 		cappedOutbox, err := NewTaskBillingLogOutbox(&cappedEvent, TaskBillingLogPayload{
@@ -1094,10 +1476,10 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 		})
 		require.NoError(t, err)
 		require.NoError(t, db.Create(cappedOutbox).Error)
-		require.NoError(t, db.Table("task_billing_events").Where("id = ?", cappedEvent.ID).
-			Update("attempt_count", taskRecoveryAttemptCountMax).Error)
-		require.NoError(t, db.Table("task_billing_log_outboxes").Where("id = ?", cappedOutbox.ID).
-			Update("attempt_count", taskRecoveryAttemptCountMax).Error)
+		// Simulate a privileged malformed legacy row; application-level GORM
+		// writes must instead use the guarded state transition APIs.
+		require.NoError(t, db.Exec("UPDATE task_billing_events SET attempt_count = ? WHERE id = ?", taskRecoveryAttemptCountMax, cappedEvent.ID).Error)
+		require.NoError(t, db.Exec("UPDATE task_billing_log_outboxes SET attempt_count = ? WHERE id = ?", taskRecoveryAttemptCountMax, cappedOutbox.ID).Error)
 		won, err = TransitionTaskBillingEvent(db, cappedEvent.ID, TaskBillingEventTransition{
 			From: TaskBillingEventStatePending, To: TaskBillingEventStateClaimed,
 			Lease:           TaskRecoveryProcessingLease{WorkerID: "capped-worker", LeaseSeconds: 100},
@@ -1115,11 +1497,12 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 	})
 
 	t.Run("billing-event-sign-boundaries-manual-keys-and-free-projection", func(t *testing.T) {
-		operation := newB2SubmissionOperation(t, 304, "POST", "video", "billing-boundaries", `{}`)
+		operation := newB2SubmissionOperation(t, 304, "POST", TaskSubmissionOperationKindVideoCreate, "billing-boundaries", `{}`)
 		require.NoError(t, db.Create(operation).Error)
+		attempt := createB2SubmissionAttempt(t, db, operation, 11)
 		reserveBoundary := TaskBillingEvent{
 			OperationID: &operation.ID, EventType: TaskBillingEventTypeReserve,
-			UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: taskBillingQuotaMin,
+			UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: attempt.ChannelID, BillingSource: "wallet", QuotaDelta: taskBillingQuotaMin,
 		}
 		require.NoError(t, db.Create(&reserveBoundary).Error)
 		reserveOutbox, err := NewTaskBillingLogOutbox(&reserveBoundary, TaskBillingLogPayload{
@@ -1131,7 +1514,7 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 
 		refundBoundary := TaskBillingEvent{
 			OperationID: &operation.ID, EventType: TaskBillingEventTypeRefund,
-			UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: taskBillingQuotaMax,
+			UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: attempt.ChannelID, BillingSource: "wallet", QuotaDelta: taskBillingQuotaMax,
 		}
 		require.NoError(t, db.Create(&refundBoundary).Error)
 		refundOutbox, err := NewTaskBillingLogOutbox(&refundBoundary, TaskBillingLogPayload{
@@ -1166,19 +1549,19 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 		for name, invalidEvent := range map[string]TaskBillingEvent{
 			"underflow": {
 				OperationID: &operation.ID, EventType: TaskBillingEventTypeSubmissionAdjustment,
-				UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: taskBillingQuotaMin - 1,
+				UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: attempt.ChannelID, BillingSource: "wallet", QuotaDelta: taskBillingQuotaMin - 1,
 			},
 			"overflow": {
 				OperationID: &operation.ID, EventType: TaskBillingEventTypeTerminalSettlement,
-				UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: taskBillingQuotaMax + 1,
+				UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: attempt.ChannelID, BillingSource: "wallet", QuotaDelta: taskBillingQuotaMax + 1,
 			},
 			"positive-reserve": {
 				OperationID: &operation.ID, EventType: TaskBillingEventTypeReserve,
-				UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: 1,
+				UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: attempt.ChannelID, BillingSource: "wallet", QuotaDelta: 1,
 			},
 			"negative-refund": {
 				OperationID: &operation.ID, EventType: TaskBillingEventTypeRefund,
-				UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: -1,
+				UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: attempt.ChannelID, BillingSource: "wallet", QuotaDelta: -1,
 			},
 		} {
 			t.Run(name, func(t *testing.T) {
@@ -1186,11 +1569,12 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 			})
 		}
 
-		freeOperation := newB2SubmissionOperation(t, 305, "POST", "video", "free-reserve", `{}`)
+		freeOperation := newB2SubmissionOperation(t, 305, "POST", TaskSubmissionOperationKindVideoCreate, "free-reserve", `{}`)
 		require.NoError(t, db.Create(freeOperation).Error)
+		freeAttempt := createB2SubmissionAttempt(t, db, freeOperation, 12)
 		freeReserve := TaskBillingEvent{
 			OperationID: &freeOperation.ID, EventType: TaskBillingEventTypeReserve,
-			UserID: freeOperation.UserID, TokenID: freeOperation.TokenID, BillingSource: "wallet", QuotaDelta: 0,
+			UserID: freeOperation.UserID, TokenID: freeOperation.TokenID, ChannelID: freeAttempt.ChannelID, BillingSource: "wallet", QuotaDelta: 0,
 		}
 		require.NoError(t, db.Create(&freeReserve).Error)
 		freeOutbox, err := NewTaskBillingLogOutbox(&freeReserve, TaskBillingLogPayload{
@@ -1203,7 +1587,7 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 
 		manualFirst := TaskBillingEvent{
 			OperationID: &operation.ID, EventType: TaskBillingEventTypeManualResolution,
-			UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: 0,
+			UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: attempt.ChannelID, BillingSource: "wallet", QuotaDelta: 0,
 			AuditCommandID: "audit-command-001", ResolutionSource: TaskSubmissionResolutionSourceManualAudit,
 		}
 		require.NoError(t, db.Create(&manualFirst).Error)
@@ -1240,19 +1624,42 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 		manualWithoutCommand.CreatedAt = 0
 		manualWithoutCommand.UpdatedAt = 0
 		assert.ErrorIs(t, db.Create(&manualWithoutCommand).Error, ErrTaskRecoveryInvalidRecord)
+		assert.ErrorIs(t, db.Create(&TaskBillingEvent{
+			OperationID: &operation.ID, EventType: TaskBillingEventTypeRefund,
+			UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: attempt.ChannelID,
+			BillingSource: "wallet", QuotaDelta: 0, ResolutionSource: TaskSubmissionResolutionSourceManualAudit,
+		}).Error, ErrTaskRecoveryInvalidRecord)
+
+		subscription := UserSubscription{Id: 700, UserId: operation.UserID, PlanId: 1, Status: "active"}
+		require.NoError(t, db.Create(&subscription).Error)
+		subscriptionEvent := TaskBillingEvent{
+			OperationID: &operation.ID, EventType: TaskBillingEventTypeSubmissionAdjustment,
+			UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: attempt.ChannelID,
+			BillingSource: "subscription", SubscriptionID: subscription.Id, QuotaDelta: 0,
+		}
+		require.NoError(t, db.Create(&subscriptionEvent).Error)
+		foreignSubscription := UserSubscription{Id: 701, UserId: operation.UserID + 1, PlanId: 1, Status: "active"}
+		require.NoError(t, db.Create(&foreignSubscription).Error)
+		assert.ErrorIs(t, db.Create(&TaskBillingEvent{
+			OperationID: &operation.ID, EventType: TaskBillingEventTypeTerminalSettlement,
+			UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: attempt.ChannelID,
+			BillingSource: "subscription", SubscriptionID: foreignSubscription.Id, QuotaDelta: 0,
+		}).Error, ErrTaskRecoveryInvalidRecord)
 	})
 
 	t.Run("transaction-rollback", func(t *testing.T) {
 		var outboxCountBefore int64
 		require.NoError(t, db.Model(&TaskBillingLogOutbox{}).Count(&outboxCountBefore).Error)
-		operation := newB2SubmissionOperation(t, 401, "POST", "video", "rollback", `{}`)
+		operation := newB2SubmissionOperation(t, 401, "POST", TaskSubmissionOperationKindVideoCreate, "rollback", `{}`)
 		err := db.Transaction(func(tx *gorm.DB) error {
 			require.NoError(t, tx.Create(operation).Error)
+			attempt := createB2SubmissionAttempt(t, tx, operation, 13)
 			event := TaskBillingEvent{
 				OperationID:   &operation.ID,
 				EventType:     TaskBillingEventTypeReserve,
 				UserID:        operation.UserID,
 				TokenID:       operation.TokenID,
+				ChannelID:     attempt.ChannelID,
 				BillingSource: "wallet",
 				QuotaDelta:    -100,
 			}
@@ -1262,7 +1669,7 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 		})
 		assert.ErrorIs(t, err, errInjectedTaskRecoveryRollback)
 		var operationCount, eventCount, outboxCount int64
-		require.NoError(t, db.Model(&TaskSubmissionOperation{}).Where("token_id = ?", 401).Count(&operationCount).Error)
+		require.NoError(t, db.Model(&TaskSubmissionOperation{}).Where("public_id = ?", operation.PublicID).Count(&operationCount).Error)
 		require.NoError(t, db.Model(&TaskBillingEvent{}).Where("operation_id = ?", operation.ID).Count(&eventCount).Error)
 		require.NoError(t, db.Model(&TaskBillingLogOutbox{}).Count(&outboxCount).Error)
 		assert.Zero(t, operationCount)

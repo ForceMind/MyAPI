@@ -61,6 +61,11 @@ func EnsureTaskRecoveryIdentity(tx *gorm.DB) error {
 		return err
 	}
 	var identity TaskRecoveryIdentity
+	// The initial existence check intentionally remains a non-locking read.
+	// On MySQL/InnoDB, FOR UPDATE over a missing singleton primary key would
+	// take a gap lock; two first-start transactions could then deadlock while
+	// both try the insert. The post-conflict read below is the locking/current
+	// read that resolves the winner safely.
 	err = tx.Where("id = ?", 1).Take(&identity).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		var operations int64
@@ -78,7 +83,11 @@ func EnsureTaskRecoveryIdentity(tx *gorm.DB) error {
 		}).Create(&candidate).Error; err != nil {
 			return err
 		}
-		err = tx.Where("id = ?", 1).Take(&identity).Error
+		// A locking read is a current read under MySQL's default REPEATABLE
+		// READ isolation. Without it, a concurrent first-start loser could
+		// keep an earlier snapshot after ON DUPLICATE KEY and falsely report a
+		// missing binding.
+		err = lockForUpdate(tx).Where("id = ?", 1).Take(&identity).Error
 	}
 	if err != nil {
 		return err

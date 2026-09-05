@@ -1,7 +1,6 @@
 package common
 
 import (
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -11,16 +10,13 @@ import (
 )
 
 func TestTaskRecoveryEnabledDefaultsOffWhenEnvironmentIsAbsent(t *testing.T) {
-	previous, wasSet := os.LookupEnv("TASK_RECOVERY_ENABLED")
-	require.NoError(t, os.Unsetenv("TASK_RECOVERY_ENABLED"))
-	t.Cleanup(func() {
-		if wasSet {
-			require.NoError(t, os.Setenv("TASK_RECOVERY_ENABLED", previous))
-			return
-		}
-		require.NoError(t, os.Unsetenv("TASK_RECOVERY_ENABLED"))
-	})
+	t.Setenv("TASK_RECOVERY_ENABLED", "")
+	t.Setenv("TASK_RECOVERY_NEW_SUBMISSIONS_ENABLED", "")
+	t.Setenv("TASK_RECOVERY_OBLIGATION_RECOVERY_ENABLED", "")
 	assert.False(t, taskRecoveryEnabledEnv())
+	newSubmissions, obligationRecovery := taskRecoveryGatesEnv()
+	assert.False(t, newSubmissions)
+	assert.False(t, obligationRecovery)
 }
 
 func TestTaskRecoveryEnabledEnvironmentIsStrictAndFailClosed(t *testing.T) {
@@ -41,17 +37,75 @@ func TestTaskRecoveryEnabledEnvironmentIsStrictAndFailClosed(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Setenv("TASK_RECOVERY_ENABLED", testCase.raw)
+			t.Setenv("TASK_RECOVERY_NEW_SUBMISSIONS_ENABLED", "")
+			t.Setenv("TASK_RECOVERY_OBLIGATION_RECOVERY_ENABLED", "")
 			assert.Equal(t, testCase.expected, taskRecoveryEnabledEnv())
+			newSubmissions, obligationRecovery := taskRecoveryGatesEnv()
+			assert.Equal(t, testCase.expected, newSubmissions)
+			assert.Equal(t, testCase.expected, obligationRecovery)
+		})
+	}
+}
+
+func TestTaskRecoverySplitGatesKeepExistingObligationsIndependent(t *testing.T) {
+	t.Setenv("TASK_RECOVERY_IDEMPOTENCY_SECRET", strings.Repeat("1a", 32))
+	for _, testCase := range []struct {
+		name                string
+		legacy              string
+		newSubmissions      string
+		obligationRecovery  string
+		expectedNew         bool
+		expectedObligations bool
+	}{
+		{"legacy-maps-to-both", "true", "", "", true, true},
+		{"new-submissions-only", "", "true", "false", true, false},
+		{"recover-existing-only", "", "false", "true", false, true},
+		{"explicit-split-overrides-legacy", "true", "false", "true", false, true},
+		{"new-flags-disable-legacy", "true", "false", "false", false, false},
+		{"explicit-off", "", "false", "false", false, false},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Setenv("TASK_RECOVERY_ENABLED", testCase.legacy)
+			t.Setenv("TASK_RECOVERY_NEW_SUBMISSIONS_ENABLED", testCase.newSubmissions)
+			t.Setenv("TASK_RECOVERY_OBLIGATION_RECOVERY_ENABLED", testCase.obligationRecovery)
+			newSubmissions, obligationRecovery := taskRecoveryGatesEnv()
+			assert.Equal(t, testCase.expectedNew, newSubmissions)
+			assert.Equal(t, testCase.expectedObligations, obligationRecovery)
+			assert.Equal(t, testCase.expectedNew || testCase.expectedObligations, TaskRecoveryDeploymentRequested())
+		})
+	}
+}
+
+func TestTaskRecoverySplitGateRejectsMalformedValues(t *testing.T) {
+	t.Setenv("TASK_RECOVERY_IDEMPOTENCY_SECRET", strings.Repeat("1a", 32))
+	for _, name := range []string{
+		"TASK_RECOVERY_ENABLED",
+		"TASK_RECOVERY_NEW_SUBMISSIONS_ENABLED",
+		"TASK_RECOVERY_OBLIGATION_RECOVERY_ENABLED",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv("TASK_RECOVERY_ENABLED", "")
+			t.Setenv("TASK_RECOVERY_NEW_SUBMISSIONS_ENABLED", "")
+			t.Setenv("TASK_RECOVERY_OBLIGATION_RECOVERY_ENABLED", "")
+			t.Setenv(name, "TRUE")
+			newSubmissions, obligationRecovery := taskRecoveryGatesEnv()
+			assert.False(t, newSubmissions)
+			assert.False(t, obligationRecovery)
+			assert.False(t, TaskRecoveryDeploymentRequested())
 		})
 	}
 }
 
 func TestTaskRecoveryEnabledRequiresDedicatedSecret(t *testing.T) {
-	t.Setenv("TASK_RECOVERY_ENABLED", "true")
+	t.Setenv("TASK_RECOVERY_ENABLED", "")
+	t.Setenv("TASK_RECOVERY_NEW_SUBMISSIONS_ENABLED", "false")
+	t.Setenv("TASK_RECOVERY_OBLIGATION_RECOVERY_ENABLED", "true")
 	for _, raw := range []string{"", "random_string", strings.Repeat("a", 63), strings.Repeat("x", 64), " " + strings.Repeat("1a", 32)} {
 		t.Run("invalid-secret-"+strconv.Itoa(len(raw)), func(t *testing.T) {
 			t.Setenv("TASK_RECOVERY_IDEMPOTENCY_SECRET", raw)
-			assert.False(t, taskRecoveryEnabledEnv())
+			newSubmissions, obligationRecovery := taskRecoveryGatesEnv()
+			assert.False(t, newSubmissions)
+			assert.False(t, obligationRecovery)
 			_, err := HashTaskRecoveryIdempotencyKey("fixture-client-key")
 			require.ErrorIs(t, err, ErrTaskRecoveryIdempotencySecret)
 		})
@@ -85,10 +139,27 @@ func TestTaskRecoveryKeyStableAcrossSessionSecretRotation(t *testing.T) {
 }
 
 func TestTaskRecoveryEnabledAccessor(t *testing.T) {
-	previous := TaskRecoveryEnabled
-	t.Cleanup(func() { TaskRecoveryEnabled = previous })
+	previousLegacy := TaskRecoveryEnabled
+	previousNew := TaskRecoveryNewSubmissionsEnabled
+	previousRecovery := TaskRecoveryObligationRecoveryEnabled
+	t.Cleanup(func() {
+		TaskRecoveryEnabled = previousLegacy
+		TaskRecoveryNewSubmissionsEnabled = previousNew
+		TaskRecoveryObligationRecoveryEnabled = previousRecovery
+	})
 	TaskRecoveryEnabled = false
+	TaskRecoveryNewSubmissionsEnabled = false
+	TaskRecoveryObligationRecoveryEnabled = false
 	assert.False(t, IsTaskRecoveryEnabled())
+	assert.False(t, IsTaskRecoveryNewSubmissionEnabled())
+	assert.False(t, IsTaskRecoveryObligationRecoveryEnabled())
+	assert.False(t, IsTaskRecoveryIdentityRequired())
 	TaskRecoveryEnabled = true
+	TaskRecoveryNewSubmissionsEnabled = true
+	TaskRecoveryObligationRecoveryEnabled = true
 	assert.True(t, IsTaskRecoveryEnabled())
+	assert.True(t, IsTaskRecoveryNewSubmissionEnabled())
+	assert.True(t, IsTaskRecoveryObligationRecoveryEnabled())
+	assert.True(t, IsTaskRecoveryIdentityRequired())
+	assert.True(t, IsTaskRecoverySchemaCompatibilityEnabled())
 }

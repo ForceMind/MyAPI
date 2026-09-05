@@ -11,6 +11,7 @@ import (
 	"github.com/ForceMind/MyAPI/common"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -30,16 +31,156 @@ const (
 
 	TaskSubmissionResolutionSourceProviderVerified = "provider_verified"
 	TaskSubmissionResolutionSourceManualAudit      = "manual_audit"
+
+	TaskSubmissionOperationKindVideoCreate = "video.create"
+	TaskSubmissionOperationKindVideoRemix  = "video.remix"
+	TaskSubmissionOperationKindSunoMusic   = "suno.music"
+	TaskSubmissionOperationKindSunoLyrics  = "suno.lyrics"
 )
 
 var (
-	ErrTaskRecoveryInvalidRecord       = errors.New("invalid task recovery record")
-	ErrTaskRecoveryInvalidTransition   = errors.New("invalid task recovery state transition")
-	ErrTaskSubmissionOperationNotFound = errors.New("task submission operation not found")
-	ErrTaskSubmissionTaskNotFound      = errors.New("task submission operation task not found")
-	ErrTaskSubmissionTaskIDMismatch    = errors.New("task submission operation public id does not match task id")
-	ErrTaskBillingEventNotFound        = errors.New("task billing event not found")
+	ErrTaskRecoveryInvalidRecord         = errors.New("invalid task recovery record")
+	ErrTaskRecoveryInvalidTransition     = errors.New("invalid task recovery state transition")
+	ErrTaskSubmissionOperationNotFound   = errors.New("task submission operation not found")
+	ErrTaskSubmissionTaskNotFound        = errors.New("task submission operation task not found")
+	ErrTaskSubmissionTaskIDMismatch      = errors.New("task submission operation public id does not match task id")
+	ErrTaskSubmissionIdempotencyConflict = errors.New("task submission idempotency key belongs to a different request")
+	ErrTaskSubmissionAttemptConflict     = errors.New("task submission attempt belongs to a different immutable request")
+	ErrTaskBillingEventNotFound          = errors.New("task billing event not found")
+	ErrTaskBillingEventConflict          = errors.New("task billing event key belongs to a different immutable event")
+	ErrTaskBillingLogOutboxConflict      = errors.New("task billing log outbox already has a different immutable projection")
+	errTaskSubmissionDispatchCASLost     = errors.New("task submission dispatch compare-and-swap lost")
 )
+
+const (
+	taskRecoveryControlledWriteSetting = "task-recovery:controlled-write"
+	taskRecoveryUpdateGuardCallback    = "task-recovery:protect-durable-update"
+	taskRecoveryDeleteGuardCallback    = "task-recovery:protect-durable-delete"
+)
+
+type taskRecoveryControlledWriteMarkerType struct {
+	value byte
+}
+
+var taskRecoveryControlledWriteMarker = &taskRecoveryControlledWriteMarkerType{}
+
+var taskRecoveryProtectedTables = []string{
+	"task_recovery_identities",
+	"task_submission_operations",
+	"task_submission_attempts",
+	"task_billing_events",
+	"task_billing_log_outboxes",
+}
+
+// registerTaskRecoveryGormGuards closes the normal GORM Table(...).Update
+// and Delete bypass around model hooks and <-:create tags. State CAS helpers
+// below hold the private marker while performing their bounded updates. Raw
+// SQL remains a privileged migration/test boundary and is never used by the
+// task-recovery business write path.
+func registerTaskRecoveryGormGuards(db *gorm.DB) error {
+	if db == nil {
+		return gorm.ErrInvalidDB
+	}
+	if db.Callback().Update().Get(taskRecoveryUpdateGuardCallback) == nil {
+		if err := db.Callback().Update().Before("gorm:update").Register(taskRecoveryUpdateGuardCallback, taskRecoveryGormWriteGuard); err != nil {
+			return err
+		}
+	}
+	if db.Callback().Delete().Get(taskRecoveryDeleteGuardCallback) == nil {
+		if err := db.Callback().Delete().Before("gorm:delete").Register(taskRecoveryDeleteGuardCallback, taskRecoveryGormWriteGuard); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func taskRecoveryControlledWrite(tx *gorm.DB) *gorm.DB {
+	// Set stores its value on Statement.Settings. Always allocate an isolated
+	// statement first: a caller may pass a clone==0 chained GORM handle, where
+	// Set would otherwise leave the private marker on that handle and authorize
+	// a later unrelated Table(...).Update/Delete call.
+	return tx.Session(&gorm.Session{NewDB: true}).Set(taskRecoveryControlledWriteSetting, taskRecoveryControlledWriteMarker)
+}
+
+func taskRecoveryGormWriteGuard(tx *gorm.DB) {
+	if tx == nil || taskRecoveryControlledWriteAllowed(tx) {
+		return
+	}
+	switch taskRecoveryGormStatementTable(tx) {
+	case "task_recovery_identities":
+		tx.AddError(ErrTaskRecoveryIdentityImmutable)
+	case "task_submission_operations", "task_submission_attempts", "task_billing_events", "task_billing_log_outboxes":
+		tx.AddError(fmt.Errorf("%w: durable task-recovery records may only change through their controlled state CAS", ErrTaskRecoveryInvalidRecord))
+	case "":
+		// GORM may render a TableExpr variable through nested maps, named
+		// expressions, or arbitrary Clause expressions. Its final table cannot
+		// be proven from Statement.Table, so allowing a dynamic target would
+		// reopen the model-hook bypass for a protected table. The controlled
+		// B2 writers use fixed table names; reject this unsupported update/delete
+		// shape rather than attempting to parse every GORM expression type.
+		if taskRecoveryGormHasDynamicTableExpression(tx) {
+			tx.AddError(fmt.Errorf("%w: dynamic table expressions are not permitted for unguarded updates or deletes", ErrTaskRecoveryInvalidRecord))
+		}
+	}
+}
+
+func taskRecoveryControlledWriteAllowed(tx *gorm.DB) bool {
+	value, ok := tx.Get(taskRecoveryControlledWriteSetting)
+	return ok && value == taskRecoveryControlledWriteMarker
+}
+
+func taskRecoveryGormStatementTable(tx *gorm.DB) string {
+	if tx == nil || tx.Statement == nil {
+		return ""
+	}
+	candidates := []string{tx.Statement.Table}
+	if tx.Statement.Schema != nil {
+		candidates = append(candidates, tx.Statement.Schema.Table)
+	}
+	if tx.Statement.TableExpr != nil {
+		candidates = append(candidates, tx.Statement.TableExpr.SQL)
+	}
+	for _, candidate := range candidates {
+		for _, table := range taskRecoveryProtectedTables {
+			if taskRecoveryTableExpressionContains(candidate, table) {
+				return table
+			}
+		}
+	}
+	return ""
+}
+
+func taskRecoveryGormHasDynamicTableExpression(tx *gorm.DB) bool {
+	return tx != nil && tx.Statement != nil && tx.Statement.TableExpr != nil && len(tx.Statement.TableExpr.Vars) > 0
+}
+
+// taskRecoveryTableExpressionContains deliberately recognizes the protected
+// table as a SQL identifier rather than trusting Statement.Table alone. GORM
+// replaces Statement.Table with an alias for Table("... AS alias"), while the
+// original table remains in TableExpr.SQL.
+func taskRecoveryTableExpressionContains(expression, table string) bool {
+	expression = strings.ToLower(expression)
+	table = strings.ToLower(table)
+	for offset := 0; ; {
+		index := strings.Index(expression[offset:], table)
+		if index < 0 {
+			return false
+		}
+		index += offset
+		end := index + len(table)
+		if (index == 0 || !taskRecoverySQLIdentifierCharacter(expression[index-1])) &&
+			(end == len(expression) || !taskRecoverySQLIdentifierCharacter(expression[end])) {
+			return true
+		}
+		offset = end
+	}
+}
+
+func taskRecoverySQLIdentifierCharacter(character byte) bool {
+	return character >= 'a' && character <= 'z' ||
+		character >= '0' && character <= '9' ||
+		character == '_'
+}
 
 // TaskSubmissionOperationStatus is the durable, client-queryable lifecycle of
 // one modern task submission. SubmissionUnknown and OutcomeUnknown are both
@@ -151,9 +292,6 @@ func (operation *TaskSubmissionOperation) BeforeCreate(tx *gorm.DB) error {
 	if tx == nil {
 		return gorm.ErrInvalidDB
 	}
-	if err := EnsureTaskRecoveryIdentity(tx); err != nil {
-		return err
-	}
 	if operation.PublicID == "" {
 		publicID, err := GenerateTaskSubmissionOperationPublicID()
 		if err != nil {
@@ -181,15 +319,22 @@ func (operation *TaskSubmissionOperation) BeforeCreate(tx *gorm.DB) error {
 	if operation.CreatedAt != 0 || operation.UpdatedAt != 0 {
 		return fmt.Errorf("%w: task submission timestamps are assigned by the database clock", ErrTaskRecoveryInvalidRecord)
 	}
-	if operation.UserID <= 0 || operation.TokenID <= 0 || operation.HTTPMethod == "" || operation.OperationKind == "" {
+	if operation.UserID <= 0 || operation.TokenID <= 0 || int64(operation.UserID) > taskBillingQuotaMax || int64(operation.TokenID) > taskBillingQuotaMax ||
+		operation.HTTPMethod == "" || !validTaskSubmissionOperationKind(operation.OperationKind) {
 		return fmt.Errorf("%w: task submission scope is incomplete", ErrTaskRecoveryInvalidRecord)
 	}
 	if !validTaskRecoveryDigest(operation.IdempotencyKeyHash) || !validTaskRecoveryDigest(operation.RequestFingerprint) {
 		return fmt.Errorf("%w: task submission digests must be lowercase SHA-256 hex", ErrTaskRecoveryInvalidRecord)
 	}
-	if len(operation.PublicID) != len("task_")+taskSubmissionPublicIDRandomLength || !strings.HasPrefix(operation.PublicID, "task_") ||
+	if !validTaskSubmissionPublicID(operation.PublicID) ||
 		len(operation.HTTPMethod) > 16 || len(operation.OperationKind) > 48 {
 		return fmt.Errorf("%w: task submission identifier exceeds its database bound", ErrTaskRecoveryInvalidRecord)
+	}
+	if err := validateTaskSubmissionOperationOwner(tx, operation.UserID, operation.TokenID); err != nil {
+		return err
+	}
+	if err := EnsureTaskRecoveryIdentity(tx); err != nil {
+		return err
 	}
 	now, err := taskRecoveryDBTimestamp(tx)
 	if err != nil {
@@ -213,7 +358,7 @@ func GenerateTaskSubmissionOperationPublicID() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("generate task submission public id: %w", err)
 	}
-	return "task_" + key, nil
+	return "task_" + strings.ToLower(key), nil
 }
 
 // HashTaskSubmissionIdempotencyKey produces the only representation of a
@@ -248,7 +393,7 @@ func FindTaskSubmissionOperationByIdempotencyScope(tx *gorm.DB, scope TaskSubmis
 	scope.HTTPMethod = strings.ToUpper(strings.TrimSpace(scope.HTTPMethod))
 	scope.OperationKind = strings.ToLower(strings.TrimSpace(scope.OperationKind))
 	scope.IdempotencyKeyHash = strings.ToLower(scope.IdempotencyKeyHash)
-	if scope.TokenID <= 0 || scope.HTTPMethod == "" || scope.OperationKind == "" || !validTaskRecoveryDigest(scope.IdempotencyKeyHash) {
+	if scope.TokenID <= 0 || int64(scope.TokenID) > taskBillingQuotaMax || scope.HTTPMethod == "" || !validTaskSubmissionOperationKind(scope.OperationKind) || !validTaskRecoveryDigest(scope.IdempotencyKeyHash) {
 		return nil, ErrTaskRecoveryInvalidRecord
 	}
 	var operation TaskSubmissionOperation
@@ -266,6 +411,93 @@ func FindTaskSubmissionOperationByIdempotencyScope(tx *gorm.DB, scope TaskSubmis
 		return nil, err
 	}
 	return &operation, nil
+}
+
+// validateTaskSubmissionOperationOwner makes the durable operation's user and
+// token references authoritative at creation time. Both lookups intentionally
+// use GORM's normal soft-delete scope: a deleted user or token cannot begin a
+// new billable operation, while an already persisted operation remains
+// queryable through its own durable identity.
+func validateTaskSubmissionOperationOwner(tx *gorm.DB, userID, tokenID int) error {
+	if tx == nil {
+		return gorm.ErrInvalidDB
+	}
+	var user User
+	if err := tx.Select("id").Where("id = ?", userID).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("%w: task submission user does not exist", ErrTaskRecoveryInvalidRecord)
+		}
+		return err
+	}
+	var token Token
+	if err := tx.Select("id", "user_id").Where("id = ? AND user_id = ?", tokenID, userID).First(&token).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("%w: task submission token does not belong to its user", ErrTaskRecoveryInvalidRecord)
+		}
+		return err
+	}
+	return nil
+}
+
+func loadTaskSubmissionOperationForReplay(tx *gorm.DB, scope TaskSubmissionIdempotencyScope) (*TaskSubmissionOperation, error) {
+	if tx == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	var operation TaskSubmissionOperation
+	err := lockForUpdate(tx).Where(
+		"token_id = ? AND http_method = ? AND operation_kind = ? AND idempotency_key_hash = ?",
+		scope.TokenID,
+		scope.HTTPMethod,
+		scope.OperationKind,
+		scope.IdempotencyKeyHash,
+	).First(&operation).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &operation, nil
+}
+
+// CreateOrLoadTaskSubmissionOperation creates the durable idempotency owner or
+// safely returns its existing record. A duplicate scope with a different
+// request fingerprint (or owner) is a protocol conflict and never starts a
+// second operation. ON CONFLICT DO NOTHING keeps PostgreSQL transactions
+// usable for the required post-conflict read.
+func CreateOrLoadTaskSubmissionOperation(tx *gorm.DB, candidate *TaskSubmissionOperation) (*TaskSubmissionOperation, error) {
+	if tx == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	if candidate == nil {
+		return nil, ErrTaskRecoveryInvalidRecord
+	}
+	writeDB := tx.Session(&gorm.Session{NewDB: true})
+	record := *candidate
+	if err := writeDB.Clauses(clause.OnConflict{DoNothing: true}).Create(&record).Error; err != nil {
+		return nil, err
+	}
+	existing, err := loadTaskSubmissionOperationForReplay(writeDB, TaskSubmissionIdempotencyScope{
+		TokenID:            record.TokenID,
+		HTTPMethod:         record.HTTPMethod,
+		OperationKind:      record.OperationKind,
+		IdempotencyKeyHash: record.IdempotencyKeyHash,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		// A collision on the independently generated public ID must never be
+		// mistaken for an idempotency replay.
+		return nil, ErrTaskSubmissionIdempotencyConflict
+	}
+	if err := validateStoredTaskSubmissionOperation(writeDB, existing); err != nil {
+		return existing, err
+	}
+	if existing.UserID != record.UserID || existing.RequestFingerprint != record.RequestFingerprint {
+		return existing, ErrTaskSubmissionIdempotencyConflict
+	}
+	return existing, nil
 }
 
 func GetTaskSubmissionOperationByPublicID(tx *gorm.DB, publicID string) (*TaskSubmissionOperation, error) {
@@ -306,7 +538,8 @@ func TransitionTaskSubmissionOperation(tx *gorm.DB, operationID int64, transitio
 	if tx == nil {
 		return false, gorm.ErrInvalidDB
 	}
-	if operationID <= 0 || transition.ExpectedVersion <= 0 || transition.ExpectedVersion == taskRecoveryMaxInt64 || !CanTransitionTaskSubmissionOperation(transition.From, transition.To) {
+	if operationID <= 0 || transition.ExpectedVersion <= 0 || transition.ExpectedVersion == taskRecoveryMaxInt64 ||
+		!CanTransitionTaskSubmissionOperation(transition.From, transition.To) || transition.To == TaskSubmissionOperationStatusDispatching {
 		return false, ErrTaskRecoveryInvalidTransition
 	}
 	transition.ReasonCode = strings.TrimSpace(transition.ReasonCode)
@@ -317,11 +550,14 @@ func TransitionTaskSubmissionOperation(tx *gorm.DB, operationID int64, transitio
 	if !transition.To.Terminal() && transition.RetentionUntil != nil {
 		return false, fmt.Errorf("%w: active task submission operations cannot expire", ErrTaskRecoveryInvalidRecord)
 	}
-	resolvesUnknown := transition.From == TaskSubmissionOperationStatusSubmissionUnknown || transition.From == TaskSubmissionOperationStatusOutcomeUnknown
-	if resolvesUnknown && transition.ResolutionSource != TaskSubmissionResolutionSourceProviderVerified && transition.ResolutionSource != TaskSubmissionResolutionSourceManualAudit {
-		return false, fmt.Errorf("%w: unknown task state requires provider_verified or manual_audit resolution", ErrTaskRecoveryInvalidRecord)
+	if transition.ResolutionSource == TaskSubmissionResolutionSourceManualAudit {
+		return false, fmt.Errorf("%w: manual task resolution requires a dedicated audited command boundary", ErrTaskRecoveryInvalidRecord)
 	}
-	if transition.ResolutionSource != "" && transition.ResolutionSource != TaskSubmissionResolutionSourceProviderVerified && transition.ResolutionSource != TaskSubmissionResolutionSourceManualAudit {
+	resolvesUnknown := transition.From == TaskSubmissionOperationStatusSubmissionUnknown || transition.From == TaskSubmissionOperationStatusOutcomeUnknown
+	if resolvesUnknown && transition.ResolutionSource != TaskSubmissionResolutionSourceProviderVerified {
+		return false, fmt.Errorf("%w: unknown task state requires provider_verified resolution", ErrTaskRecoveryInvalidRecord)
+	}
+	if transition.ResolutionSource != "" && transition.ResolutionSource != TaskSubmissionResolutionSourceProviderVerified {
 		return false, fmt.Errorf("%w: unsupported task resolution source", ErrTaskRecoveryInvalidRecord)
 	}
 	transitionedAt, err := taskRecoveryValidatedTime(tx, transition.TransitionedAt)
@@ -336,9 +572,6 @@ func TransitionTaskSubmissionOperation(tx *gorm.DB, operationID int64, transitio
 		"resolution_source": transition.ResolutionSource,
 		"updated_at":        transition.TransitionedAt,
 		"lock_version":      gorm.Expr("lock_version + ?", 1),
-	}
-	if transition.To == TaskSubmissionOperationStatusDispatching {
-		updates["dispatch_started_at"] = transition.TransitionedAt
 	}
 	if transition.To.Terminal() {
 		if transitionedAt > taskRecoveryMaxInt64-TaskSubmissionTerminalRetentionSeconds {
@@ -383,10 +616,145 @@ func TransitionTaskSubmissionOperation(tx *gorm.DB, operationID int64, transitio
 		return false, fmt.Errorf("%w: only acceptance can attach a task", ErrTaskRecoveryInvalidRecord)
 	}
 
-	result := tx.Table("task_submission_operations").
+	result := taskRecoveryControlledWrite(tx).Table("task_submission_operations").
 		Where("id = ? AND status = ? AND lock_version = ? AND updated_at <= ?", operationID, transition.From, transition.ExpectedVersion, transitionedAt).
 		Updates(updates)
 	return result.RowsAffected == 1, result.Error
+}
+
+// TaskSubmissionDispatchTransition is the one atomic v1 hand-off from a
+// reserved operation and its prepared sole attempt to dispatching. The same
+// database timestamp is written to both records so a crash cannot create an
+// operation that appears delivered without its dispatch authorization.
+type TaskSubmissionDispatchTransition struct {
+	ExpectedOperationVersion int64
+	ExpectedAttemptVersion   int64
+	TransitionedAt           int64
+}
+
+// StartTaskSubmissionDispatch atomically starts the single v1 dispatch. The
+// generic operation and attempt transition APIs intentionally reject a move to
+// dispatching so callers cannot split this critical transition across writes.
+func StartTaskSubmissionDispatch(tx *gorm.DB, operationID int64, transition TaskSubmissionDispatchTransition) (bool, error) {
+	if tx == nil {
+		return false, gorm.ErrInvalidDB
+	}
+	if operationID <= 0 || transition.ExpectedOperationVersion <= 0 || transition.ExpectedAttemptVersion <= 0 ||
+		transition.ExpectedOperationVersion == taskRecoveryMaxInt64 || transition.ExpectedAttemptVersion == taskRecoveryMaxInt64 {
+		return false, ErrTaskRecoveryInvalidTransition
+	}
+
+	won := false
+	err := taskRecoveryDispatchTransaction(tx, func(writeDB *gorm.DB) error {
+		transitionedAt, err := taskRecoveryValidatedTime(writeDB, transition.TransitionedAt)
+		if err != nil {
+			return err
+		}
+
+		var operation TaskSubmissionOperation
+		err = lockForUpdate(writeDB).Where("id = ?", operationID).First(&operation).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errTaskSubmissionDispatchCASLost
+		}
+		if err != nil {
+			return err
+		}
+		if err := validateStoredTaskSubmissionOperation(writeDB, &operation); err != nil {
+			return err
+		}
+		if operation.Status != TaskSubmissionOperationStatusReserved || operation.LockVersion != transition.ExpectedOperationVersion {
+			return errTaskSubmissionDispatchCASLost
+		}
+
+		var attempt TaskSubmissionAttempt
+		err = lockForUpdate(writeDB).Where("operation_id = ?", operationID).First(&attempt).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("%w: reserved task submission operation is missing its v1 attempt", ErrTaskRecoveryInvalidRecord)
+		}
+		if err != nil {
+			return err
+		}
+		if err := validateStoredTaskSubmissionAttempt(writeDB, &attempt); err != nil {
+			return err
+		}
+		if attempt.Status != TaskSubmissionAttemptStatusPrepared || attempt.LockVersion != transition.ExpectedAttemptVersion {
+			return errTaskSubmissionDispatchCASLost
+		}
+
+		operationResult := taskRecoveryControlledWrite(writeDB).Table("task_submission_operations").
+			Where("id = ? AND status = ? AND lock_version = ? AND updated_at <= ?", operation.ID, TaskSubmissionOperationStatusReserved, transition.ExpectedOperationVersion, transitionedAt).
+			Updates(map[string]interface{}{
+				"status":              TaskSubmissionOperationStatusDispatching,
+				"dispatch_started_at": transitionedAt,
+				"updated_at":          transitionedAt,
+				"lock_version":        gorm.Expr("lock_version + ?", 1),
+			})
+		if operationResult.Error != nil {
+			return operationResult.Error
+		}
+		if operationResult.RowsAffected != 1 {
+			return errTaskSubmissionDispatchCASLost
+		}
+
+		attemptResult := taskRecoveryControlledWrite(writeDB).Table("task_submission_attempts").
+			Where("id = ? AND operation_id = ? AND status = ? AND lock_version = ? AND updated_at <= ?", attempt.ID, operation.ID, TaskSubmissionAttemptStatusPrepared, transition.ExpectedAttemptVersion, transitionedAt).
+			Updates(map[string]interface{}{
+				"status":       TaskSubmissionAttemptStatusDispatching,
+				"started_at":   transitionedAt,
+				"updated_at":   transitionedAt,
+				"lock_version": gorm.Expr("lock_version + ?", 1),
+			})
+		if attemptResult.Error != nil {
+			return attemptResult.Error
+		}
+		if attemptResult.RowsAffected != 1 {
+			return errTaskSubmissionDispatchCASLost
+		}
+		won = true
+		return nil
+	})
+	if errors.Is(err, errTaskSubmissionDispatchCASLost) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return won, nil
+}
+
+// taskRecoveryDispatchTransaction retains the all-or-nothing dispatch
+// invariant when a caller has deliberately disabled GORM nested transactions.
+// In that case GORM would otherwise invoke the callback directly inside the
+// caller's transaction, allowing a CAS-loss sentinel to be swallowed after
+// the operation update but before the attempt update.
+func taskRecoveryDispatchTransaction(tx *gorm.DB, fn func(*gorm.DB) error) (err error) {
+	if tx == nil || tx.Statement == nil {
+		return gorm.ErrInvalidDB
+	}
+	if _, alreadyTransactional := tx.Statement.ConnPool.(gorm.TxCommitter); !alreadyTransactional || !tx.DisableNestedTransaction {
+		return tx.Transaction(fn)
+	}
+	savepoint := fmt.Sprintf("task_recovery_dispatch_%p", &fn)
+	if err = tx.SavePoint(savepoint).Error; err != nil {
+		return err
+	}
+	panicked := true
+	defer func() {
+		if !panicked && err == nil {
+			return
+		}
+		if rollbackErr := tx.RollbackTo(savepoint).Error; rollbackErr != nil {
+			// Preserve an in-flight panic just as GORM's transaction helper
+			// does. For a normal error return, surface a failed rollback rather
+			// than letting the outer caller commit a possibly partial dispatch.
+			if !panicked {
+				err = fmt.Errorf("%w: rollback durable dispatch savepoint: %v", err, rollbackErr)
+			}
+		}
+	}()
+	err = fn(tx.Session(&gorm.Session{NewDB: true}))
+	panicked = false
+	return err
 }
 
 type TaskSubmissionAttemptStatus string
@@ -450,6 +818,32 @@ type TaskSubmissionAttempt struct {
 }
 
 func (attempt *TaskSubmissionAttempt) BeforeCreate(tx *gorm.DB) error {
+	if tx == nil {
+		return gorm.ErrInvalidDB
+	}
+	if err := normalizeTaskSubmissionAttemptForCreate(attempt); err != nil {
+		return err
+	}
+	var operation TaskSubmissionOperation
+	if err := tx.Select("id", "status", "task_id", "lock_version").Where("id = ?", attempt.OperationID).First(&operation).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrTaskSubmissionOperationNotFound
+		}
+		return err
+	}
+	if err := validateTaskSubmissionAttemptCreationOperation(&operation); err != nil {
+		return err
+	}
+	now, err := taskRecoveryDBTimestamp(tx)
+	if err != nil {
+		return err
+	}
+	attempt.CreatedAt = now
+	attempt.UpdatedAt = now
+	return nil
+}
+
+func normalizeTaskSubmissionAttemptForCreate(attempt *TaskSubmissionAttempt) error {
 	if attempt == nil {
 		return ErrTaskRecoveryInvalidRecord
 	}
@@ -458,7 +852,8 @@ func (attempt *TaskSubmissionAttempt) BeforeCreate(tx *gorm.DB) error {
 	}
 	attempt.Provider = strings.ToLower(strings.TrimSpace(attempt.Provider))
 	attempt.RequestClass = strings.ToLower(strings.TrimSpace(attempt.RequestClass))
-	if attempt.OperationID <= 0 || attempt.AttemptNo != 1 || attempt.ChannelID <= 0 || attempt.Provider == "" || attempt.RequestClass == "" || attempt.Status != TaskSubmissionAttemptStatusPrepared {
+	if attempt.OperationID <= 0 || attempt.AttemptNo != 1 || attempt.ChannelID <= 0 || int64(attempt.ChannelID) > taskBillingQuotaMax ||
+		attempt.Provider == "" || attempt.RequestClass == "" || attempt.Status != TaskSubmissionAttemptStatusPrepared {
 		return fmt.Errorf("%w: new task submission attempt is incomplete or not prepared", ErrTaskRecoveryInvalidRecord)
 	}
 	if attempt.ProviderOperationID != "" || attempt.UpstreamRequestID != "" || attempt.OutcomeCode != "" || attempt.StartedAt != nil || attempt.FinishedAt != nil {
@@ -476,26 +871,133 @@ func (attempt *TaskSubmissionAttempt) BeforeCreate(tx *gorm.DB) error {
 	if attempt.CreatedAt != 0 || attempt.UpdatedAt != 0 {
 		return fmt.Errorf("%w: task submission attempt timestamps are assigned by the database clock", ErrTaskRecoveryInvalidRecord)
 	}
-	if tx == nil {
-		return gorm.ErrInvalidDB
-	}
-	var operation TaskSubmissionOperation
-	if err := tx.Select("id", "status", "task_id", "lock_version").Where("id = ?", attempt.OperationID).First(&operation).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrTaskSubmissionOperationNotFound
-		}
-		return err
-	}
-	if operation.Status != TaskSubmissionOperationStatusPrepared || operation.TaskID != nil || operation.LockVersion != 1 {
+	return nil
+}
+
+func validateTaskSubmissionAttemptCreationOperation(operation *TaskSubmissionOperation) error {
+	if operation == nil || operation.Status != TaskSubmissionOperationStatusPrepared || operation.TaskID != nil || operation.LockVersion != 1 {
 		return fmt.Errorf("%w: v1 attempts may only be created for a new prepared operation", ErrTaskRecoveryInvalidRecord)
 	}
-	now, err := taskRecoveryDBTimestamp(tx)
-	if err != nil {
-		return err
-	}
-	attempt.CreatedAt = now
-	attempt.UpdatedAt = now
 	return nil
+}
+
+func findTaskSubmissionAttemptByOperationID(tx *gorm.DB, operationID int64) (*TaskSubmissionAttempt, error) {
+	if tx == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	if operationID <= 0 {
+		return nil, ErrTaskRecoveryInvalidRecord
+	}
+	var attempt TaskSubmissionAttempt
+	err := tx.Where("operation_id = ?", operationID).First(&attempt).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &attempt, nil
+}
+
+func loadTaskSubmissionAttemptForReplay(tx *gorm.DB, operationID int64) (*TaskSubmissionAttempt, error) {
+	if tx == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	if operationID <= 0 {
+		return nil, ErrTaskRecoveryInvalidRecord
+	}
+	var attempt TaskSubmissionAttempt
+	err := lockForUpdate(tx).Where("operation_id = ?", operationID).First(&attempt).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &attempt, nil
+}
+
+// CreateOrLoadTaskSubmissionAttempt records the one v1 dispatch authorization
+// for an operation. It first checks an existing row without locking a missing
+// unique key, then serializes creation through the operation row. This avoids
+// MySQL gap-lock deadlocks while still making PostgreSQL conflict recovery safe.
+func CreateOrLoadTaskSubmissionAttempt(tx *gorm.DB, candidate *TaskSubmissionAttempt) (*TaskSubmissionAttempt, error) {
+	if tx == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	if candidate == nil {
+		return nil, ErrTaskRecoveryInvalidRecord
+	}
+	writeDB := tx.Session(&gorm.Session{NewDB: true})
+	record := *candidate
+	if err := normalizeTaskSubmissionAttemptForCreate(&record); err != nil {
+		return nil, err
+	}
+	if existing, err := findTaskSubmissionAttemptByOperationID(writeDB, record.OperationID); err != nil {
+		return nil, err
+	} else if existing != nil {
+		if err := validateStoredTaskSubmissionAttempt(writeDB, existing); err != nil {
+			return existing, err
+		}
+		if !taskSubmissionAttemptSemanticallyMatches(existing, &record) {
+			return existing, ErrTaskSubmissionAttemptConflict
+		}
+		return existing, nil
+	}
+
+	var operation TaskSubmissionOperation
+	if err := lockForUpdate(writeDB).Select("id", "status", "task_id", "lock_version").Where("id = ?", record.OperationID).First(&operation).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrTaskSubmissionOperationNotFound
+		}
+		return nil, err
+	}
+	if existing, err := findTaskSubmissionAttemptByOperationID(writeDB, record.OperationID); err != nil {
+		return nil, err
+	} else if existing != nil {
+		if err := validateStoredTaskSubmissionAttempt(writeDB, existing); err != nil {
+			return existing, err
+		}
+		if !taskSubmissionAttemptSemanticallyMatches(existing, &record) {
+			return existing, ErrTaskSubmissionAttemptConflict
+		}
+		return existing, nil
+	}
+	if err := validateTaskSubmissionAttemptCreationOperation(&operation); err != nil {
+		return nil, err
+	}
+	now, err := taskRecoveryDBTimestamp(writeDB)
+	if err != nil {
+		return nil, err
+	}
+	record.CreatedAt = now
+	record.UpdatedAt = now
+	if err := writeDB.Session(&gorm.Session{SkipHooks: true}).Clauses(clause.OnConflict{DoNothing: true}).Create(&record).Error; err != nil {
+		return nil, err
+	}
+	existing, err := loadTaskSubmissionAttemptForReplay(writeDB, record.OperationID)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, ErrTaskSubmissionAttemptConflict
+	}
+	if err := validateStoredTaskSubmissionAttempt(writeDB, existing); err != nil {
+		return existing, err
+	}
+	if !taskSubmissionAttemptSemanticallyMatches(existing, &record) {
+		return existing, ErrTaskSubmissionAttemptConflict
+	}
+	return existing, nil
+}
+
+func taskSubmissionAttemptSemanticallyMatches(existing, candidate *TaskSubmissionAttempt) bool {
+	return existing != nil && candidate != nil &&
+		existing.OperationID == candidate.OperationID &&
+		existing.AttemptNo == candidate.AttemptNo &&
+		existing.ChannelID == candidate.ChannelID &&
+		existing.Provider == candidate.Provider &&
+		existing.RequestClass == candidate.RequestClass
 }
 
 func (attempt *TaskSubmissionAttempt) BeforeUpdate(_ *gorm.DB) error {
@@ -521,7 +1023,7 @@ func TransitionTaskSubmissionAttempt(tx *gorm.DB, attemptID int64, transition Ta
 		return false, gorm.ErrInvalidDB
 	}
 	if attemptID <= 0 || transition.ExpectedVersion <= 0 || transition.ExpectedVersion == taskRecoveryMaxInt64 ||
-		!CanTransitionTaskSubmissionAttempt(transition.From, transition.To) {
+		!CanTransitionTaskSubmissionAttempt(transition.From, transition.To) || transition.To == TaskSubmissionAttemptStatusDispatching {
 		return false, ErrTaskRecoveryInvalidTransition
 	}
 	transition.ProviderOperationID = strings.TrimSpace(transition.ProviderOperationID)
@@ -553,12 +1055,6 @@ func TransitionTaskSubmissionAttempt(tx *gorm.DB, attemptID int64, transition Ta
 		"updated_at":   transition.TransitionedAt,
 		"lock_version": gorm.Expr("lock_version + ?", 1),
 	}
-	if transition.To == TaskSubmissionAttemptStatusDispatching {
-		if transition.ProviderOperationID != "" || transition.UpstreamRequestID != "" || transition.OutcomeCode != "" {
-			return false, fmt.Errorf("%w: dispatch start cannot contain an upstream outcome", ErrTaskRecoveryInvalidRecord)
-		}
-		updates["started_at"] = transition.TransitionedAt
-	}
 	if transition.To == TaskSubmissionAttemptStatusAccepted || transition.To == TaskSubmissionAttemptStatusSubmissionUnknown {
 		providerOperationID, err := preserveTaskSubmissionAttemptReference(attempt.ProviderOperationID, transition.ProviderOperationID, "provider operation id")
 		if err != nil {
@@ -579,7 +1075,7 @@ func TransitionTaskSubmissionAttempt(tx *gorm.DB, attemptID int64, transition Ta
 	if transition.To == TaskSubmissionAttemptStatusAccepted || transition.To == TaskSubmissionAttemptStatusRejected {
 		updates["finished_at"] = transition.TransitionedAt
 	}
-	result := tx.Table("task_submission_attempts").
+	result := taskRecoveryControlledWrite(tx).Table("task_submission_attempts").
 		Where("id = ? AND status = ? AND lock_version = ? AND updated_at <= ?", attemptID, transition.From, transition.ExpectedVersion, transitionedAt).
 		Updates(updates)
 	return result.RowsAffected == 1, result.Error
@@ -593,6 +1089,61 @@ func preserveTaskSubmissionAttemptReference(existing, provided, fieldName string
 		return existing, nil
 	}
 	return provided, nil
+}
+
+func validateStoredTaskSubmissionAttempt(tx *gorm.DB, attempt *TaskSubmissionAttempt) error {
+	if tx == nil {
+		return gorm.ErrInvalidDB
+	}
+	if attempt == nil || attempt.ID <= 0 || attempt.OperationID <= 0 || attempt.AttemptNo != 1 ||
+		attempt.ChannelID <= 0 || int64(attempt.ChannelID) > taskBillingQuotaMax || !attempt.Status.Valid() ||
+		attempt.Provider == "" || attempt.Provider != strings.ToLower(strings.TrimSpace(attempt.Provider)) ||
+		attempt.RequestClass == "" || attempt.RequestClass != strings.ToLower(strings.TrimSpace(attempt.RequestClass)) ||
+		attempt.ProviderOperationID != strings.TrimSpace(attempt.ProviderOperationID) ||
+		attempt.UpstreamRequestID != strings.TrimSpace(attempt.UpstreamRequestID) ||
+		attempt.OutcomeCode != strings.TrimSpace(attempt.OutcomeCode) ||
+		len(attempt.Provider) > 64 || len(attempt.RequestClass) > 48 || len(attempt.ProviderOperationID) > 191 ||
+		len(attempt.UpstreamRequestID) > 128 || len(attempt.OutcomeCode) > 64 ||
+		attempt.LockVersion <= 0 || attempt.CreatedAt <= 0 || attempt.UpdatedAt < attempt.CreatedAt {
+		return fmt.Errorf("%w: stored task submission attempt is not a valid immutable v1 record", ErrTaskRecoveryInvalidRecord)
+	}
+	if (attempt.StartedAt != nil && *attempt.StartedAt <= 0) || (attempt.FinishedAt != nil && *attempt.FinishedAt <= 0) ||
+		(attempt.StartedAt != nil && (*attempt.StartedAt < attempt.CreatedAt || *attempt.StartedAt > attempt.UpdatedAt)) ||
+		(attempt.FinishedAt != nil && (*attempt.FinishedAt < attempt.CreatedAt || *attempt.FinishedAt > attempt.UpdatedAt)) ||
+		(attempt.StartedAt != nil && attempt.FinishedAt != nil && *attempt.FinishedAt < *attempt.StartedAt) {
+		return fmt.Errorf("%w: stored task submission attempt has invalid timestamps", ErrTaskRecoveryInvalidRecord)
+	}
+	switch attempt.Status {
+	case TaskSubmissionAttemptStatusPrepared:
+		if attempt.ProviderOperationID != "" || attempt.UpstreamRequestID != "" || attempt.OutcomeCode != "" || attempt.StartedAt != nil || attempt.FinishedAt != nil {
+			return fmt.Errorf("%w: stored prepared task submission attempt contains an outcome", ErrTaskRecoveryInvalidRecord)
+		}
+	case TaskSubmissionAttemptStatusDispatching:
+		if attempt.ProviderOperationID != "" || attempt.UpstreamRequestID != "" || attempt.OutcomeCode != "" || attempt.StartedAt == nil || attempt.FinishedAt != nil {
+			return fmt.Errorf("%w: stored dispatching task submission attempt has an invalid outcome", ErrTaskRecoveryInvalidRecord)
+		}
+	case TaskSubmissionAttemptStatusSubmissionUnknown:
+		if attempt.StartedAt == nil || attempt.FinishedAt != nil {
+			return fmt.Errorf("%w: stored unknown task submission attempt has invalid timestamps", ErrTaskRecoveryInvalidRecord)
+		}
+	case TaskSubmissionAttemptStatusAccepted:
+		if attempt.ProviderOperationID == "" || attempt.StartedAt == nil || attempt.FinishedAt == nil {
+			return fmt.Errorf("%w: stored accepted task submission attempt is incomplete", ErrTaskRecoveryInvalidRecord)
+		}
+	case TaskSubmissionAttemptStatusRejected:
+		if attempt.StartedAt == nil || attempt.FinishedAt == nil {
+			return fmt.Errorf("%w: stored rejected task submission attempt is incomplete", ErrTaskRecoveryInvalidRecord)
+		}
+	}
+
+	var operation TaskSubmissionOperation
+	if err := tx.Where("id = ?", attempt.OperationID).First(&operation).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrTaskSubmissionOperationNotFound
+		}
+		return err
+	}
+	return validateStoredTaskSubmissionOperation(tx, &operation)
 }
 
 type TaskBillingEventType string
@@ -748,11 +1299,14 @@ func (event *TaskBillingEvent) BeforeCreate(tx *gorm.DB) error {
 	}
 	providedEventKey := strings.TrimSpace(event.EventKey)
 	event.BillingSource = strings.ToLower(strings.TrimSpace(event.BillingSource))
-	event.AuditCommandID = strings.TrimSpace(event.AuditCommandID)
+	event.ReasonCode = strings.TrimSpace(event.ReasonCode)
+	event.ResolutionSource = strings.TrimSpace(event.ResolutionSource)
+	event.AuditCommandID = strings.ToLower(strings.TrimSpace(event.AuditCommandID))
 	if event.State == "" {
 		event.State = TaskBillingEventStatePending
 	}
-	if event.State != TaskBillingEventStatePending || !event.EventType.Valid() || event.UserID <= 0 || event.TokenID <= 0 || event.ChannelID < 0 || event.BillingSource == "" {
+	if event.State != TaskBillingEventStatePending || !event.EventType.Valid() || event.UserID <= 0 || event.TokenID <= 0 || event.ChannelID <= 0 || event.SubscriptionID < 0 ||
+		int64(event.UserID) > taskBillingQuotaMax || int64(event.TokenID) > taskBillingQuotaMax || int64(event.ChannelID) > taskBillingQuotaMax || int64(event.SubscriptionID) > taskBillingQuotaMax || event.BillingSource == "" {
 		return fmt.Errorf("%w: new task billing event is incomplete or not pending", ErrTaskRecoveryInvalidRecord)
 	}
 	if event.ClaimedBy != "" || event.ClaimedUntil != 0 || event.AttemptCount != 0 || event.NextAttemptAt != 0 || event.LastErrorCode != "" || event.LastErrorAt != 0 || event.AppliedAt != nil {
@@ -764,7 +1318,7 @@ func (event *TaskBillingEvent) BeforeCreate(tx *gorm.DB) error {
 	if (event.OperationID != nil && *event.OperationID <= 0) || (event.TaskID != nil && *event.TaskID <= 0) {
 		return fmt.Errorf("%w: task billing event contains an invalid subject reference", ErrTaskRecoveryInvalidRecord)
 	}
-	if len(event.EventID) != len("billing_evt_")+taskSubmissionPublicIDRandomLength || !strings.HasPrefix(event.EventID, "billing_evt_") ||
+	if !validTaskBillingEventID(event.EventID) ||
 		len(event.BillingSource) > 32 || len(event.RequestID) > 64 || len(event.NodeName) > 128 ||
 		len(event.ReasonCode) > 64 || len(event.ResolutionSource) > 32 {
 		return fmt.Errorf("%w: task billing event identifier exceeds its database bound", ErrTaskRecoveryInvalidRecord)
@@ -784,12 +1338,24 @@ func (event *TaskBillingEvent) BeforeCreate(tx *gorm.DB) error {
 	if (event.BillingSource == "wallet" && event.SubscriptionID != 0) || (event.BillingSource == "subscription" && event.SubscriptionID <= 0) {
 		return fmt.Errorf("%w: task billing subscription does not match its funding source", ErrTaskRecoveryInvalidRecord)
 	}
+	if event.BillingSource == "subscription" {
+		var subscription UserSubscription
+		if err := tx.Select("id", "user_id").Where("id = ? AND user_id = ?", event.SubscriptionID, event.UserID).First(&subscription).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return fmt.Errorf("%w: task billing subscription does not belong to its user", ErrTaskRecoveryInvalidRecord)
+			}
+			return err
+		}
+	}
+	if event.ResolutionSource != "" && event.ResolutionSource != TaskSubmissionResolutionSourceProviderVerified && event.ResolutionSource != TaskSubmissionResolutionSourceManualAudit {
+		return fmt.Errorf("%w: unsupported task billing resolution source", ErrTaskRecoveryInvalidRecord)
+	}
 	if event.EventType == TaskBillingEventTypeManualResolution {
-		if !validTaskBillingAuditCommandID(event.AuditCommandID) {
+		if !validTaskBillingAuditCommandID(event.AuditCommandID) || event.ResolutionSource != TaskSubmissionResolutionSourceManualAudit {
 			return fmt.Errorf("%w: manual billing events require a stable audit command id", ErrTaskRecoveryInvalidRecord)
 		}
-	} else if event.AuditCommandID != "" {
-		return fmt.Errorf("%w: only manual billing events may have an audit command id", ErrTaskRecoveryInvalidRecord)
+	} else if event.AuditCommandID != "" || event.ResolutionSource == TaskSubmissionResolutionSourceManualAudit {
+		return fmt.Errorf("%w: manual audit metadata is only valid for manual billing events", ErrTaskRecoveryInvalidRecord)
 	}
 	if event.LockVersion == 0 {
 		event.LockVersion = 1
@@ -803,7 +1369,7 @@ func (event *TaskBillingEvent) BeforeCreate(tx *gorm.DB) error {
 
 	var operation TaskSubmissionOperation
 	if event.OperationID != nil {
-		if err := tx.Select("id", "public_id", "user_id", "token_id", "task_id").Where("id = ?", *event.OperationID).First(&operation).Error; err != nil {
+		if err := tx.Where("id = ?", *event.OperationID).First(&operation).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrTaskSubmissionOperationNotFound
 			}
@@ -822,7 +1388,7 @@ func (event *TaskBillingEvent) BeforeCreate(tx *gorm.DB) error {
 			return err
 		}
 		if operation.ID == 0 {
-			if err := tx.Select("id", "public_id", "user_id", "token_id", "task_id").Where("public_id = ?", task.TaskID).First(&operation).Error; err != nil {
+			if err := tx.Where("public_id = ?", task.TaskID).First(&operation).Error; err != nil {
 				if errors.Is(err, gorm.ErrRecordNotFound) {
 					return ErrTaskSubmissionOperationNotFound
 				}
@@ -837,8 +1403,24 @@ func (event *TaskBillingEvent) BeforeCreate(tx *gorm.DB) error {
 			return fmt.Errorf("%w: task billing event does not match the formal task owner or channel", ErrTaskRecoveryInvalidRecord)
 		}
 	}
+	if err := validateStoredTaskSubmissionOperation(tx, &operation); err != nil {
+		return err
+	}
 	if operation.UserID != event.UserID || operation.TokenID != event.TokenID {
 		return fmt.Errorf("%w: task billing event does not match the operation owner", ErrTaskRecoveryInvalidRecord)
+	}
+	var attempt TaskSubmissionAttempt
+	if err := tx.Where("operation_id = ?", operation.ID).First(&attempt).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("%w: task billing events require the v1 submission attempt", ErrTaskRecoveryInvalidRecord)
+		}
+		return err
+	}
+	if err := validateStoredTaskSubmissionAttempt(tx, &attempt); err != nil {
+		return err
+	}
+	if attempt.ChannelID != event.ChannelID {
+		return fmt.Errorf("%w: task billing event does not match the submission attempt channel", ErrTaskRecoveryInvalidRecord)
 	}
 
 	canonicalEventKey := "task:" + operation.PublicID + ":" + string(event.EventType)
@@ -884,7 +1466,7 @@ func generateTaskBillingEventID() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("generate task billing event id: %w", err)
 	}
-	return "billing_evt_" + key, nil
+	return "billing_evt_" + strings.ToLower(key), nil
 }
 
 type TaskRecoveryProcessingLease struct {
@@ -920,7 +1502,7 @@ func TransitionTaskBillingEvent(tx *gorm.DB, eventID int64, transition TaskBilli
 		"updated_at":   transitionedAt,
 		"lock_version": gorm.Expr("lock_version + ?", 1),
 	}
-	query := tx.Table("task_billing_events").Where(
+	query := taskRecoveryControlledWrite(tx).Table("task_billing_events").Where(
 		"id = ? AND state = ? AND lock_version = ? AND updated_at <= ?", eventID, transition.From, transition.ExpectedVersion, transitionedAt,
 	)
 	if transition.To == TaskBillingEventStateClaimed {
@@ -990,7 +1572,7 @@ func ReclaimExpiredTaskBillingEvent(tx *gorm.DB, eventID int64, lease TaskRecove
 	if err != nil {
 		return false, err
 	}
-	result := tx.Table("task_billing_events").Where(
+	result := taskRecoveryControlledWrite(tx).Table("task_billing_events").Where(
 		"id = ? AND state = ? AND lock_version = ? AND updated_at <= ? AND claimed_until > 0 AND claimed_until <= ? AND attempt_count < ?",
 		eventID, TaskBillingEventStateClaimed, expectedVersion, checkedAt, checkedAt, taskRecoveryAttemptCountMax,
 	).Updates(map[string]interface{}{
@@ -1123,6 +1705,278 @@ func GetTaskBillingEventByEventID(tx *gorm.DB, stableEventID string) (*TaskBilli
 		return nil, err
 	}
 	return &event, nil
+}
+
+func loadTaskBillingEventByEventKeyForReplay(tx *gorm.DB, eventKey string) (*TaskBillingEvent, error) {
+	if tx == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	var event TaskBillingEvent
+	err := lockForUpdate(tx).Where("event_key = ?", eventKey).First(&event).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &event, nil
+}
+
+func loadTaskBillingEventByIDForReplay(tx *gorm.DB, stableEventID string) (*TaskBillingEvent, error) {
+	if tx == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	stableEventID = strings.TrimSpace(stableEventID)
+	if stableEventID == "" {
+		return nil, ErrTaskRecoveryInvalidRecord
+	}
+	var event TaskBillingEvent
+	err := lockForUpdate(tx).Where("event_id = ?", stableEventID).First(&event).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &event, nil
+}
+
+func validateStoredTaskSubmissionOperation(tx *gorm.DB, operation *TaskSubmissionOperation) error {
+	if tx == nil {
+		return gorm.ErrInvalidDB
+	}
+	if operation == nil || operation.ID <= 0 || !validTaskSubmissionPublicID(operation.PublicID) ||
+		operation.UserID <= 0 || operation.TokenID <= 0 || int64(operation.UserID) > taskBillingQuotaMax || int64(operation.TokenID) > taskBillingQuotaMax ||
+		operation.HTTPMethod == "" || operation.HTTPMethod != strings.ToUpper(operation.HTTPMethod) || !validTaskSubmissionOperationKind(operation.OperationKind) ||
+		!validTaskRecoveryDigest(operation.IdempotencyKeyHash) || !validTaskRecoveryDigest(operation.RequestFingerprint) ||
+		!operation.Status.Valid() || operation.LockVersion <= 0 || operation.CreatedAt <= 0 || operation.UpdatedAt < operation.CreatedAt ||
+		operation.ReasonCode != strings.TrimSpace(operation.ReasonCode) || operation.ResolutionSource != strings.TrimSpace(operation.ResolutionSource) ||
+		len(operation.HTTPMethod) > 16 || len(operation.OperationKind) > 48 || len(operation.ReasonCode) > 64 || len(operation.ResolutionSource) > 32 ||
+		(operation.DispatchStartedAt != nil && (*operation.DispatchStartedAt <= 0 || *operation.DispatchStartedAt < operation.CreatedAt || *operation.DispatchStartedAt > operation.UpdatedAt)) ||
+		(operation.ResolvedAt != nil && (*operation.ResolvedAt <= 0 || *operation.ResolvedAt < operation.CreatedAt || *operation.ResolvedAt > operation.UpdatedAt)) {
+		return fmt.Errorf("%w: stored task submission operation is not a valid immutable v1 record", ErrTaskRecoveryInvalidRecord)
+	}
+	if operation.ResolutionSource != "" && operation.ResolutionSource != TaskSubmissionResolutionSourceProviderVerified {
+		return fmt.Errorf("%w: stored task submission operation has an unsupported resolution source", ErrTaskRecoveryInvalidRecord)
+	}
+	if operation.Status.Terminal() {
+		if operation.ResolvedAt == nil || *operation.ResolvedAt <= 0 || operation.RetentionUntil == nil ||
+			*operation.ResolvedAt > taskRecoveryMaxInt64-TaskSubmissionTerminalRetentionSeconds ||
+			*operation.RetentionUntil != *operation.ResolvedAt+TaskSubmissionTerminalRetentionSeconds {
+			return fmt.Errorf("%w: stored terminal task submission operation has an invalid retention deadline", ErrTaskRecoveryInvalidRecord)
+		}
+	} else if operation.ResolvedAt != nil || operation.RetentionUntil != nil {
+		return fmt.Errorf("%w: stored active task submission operation cannot have a retention deadline", ErrTaskRecoveryInvalidRecord)
+	}
+
+	requiresDispatch := operation.Status == TaskSubmissionOperationStatusDispatching ||
+		operation.Status == TaskSubmissionOperationStatusSubmissionUnknown ||
+		operation.Status == TaskSubmissionOperationStatusAccepted ||
+		operation.Status == TaskSubmissionOperationStatusOutcomeUnknown ||
+		operation.Status == TaskSubmissionOperationStatusSucceeded ||
+		operation.Status == TaskSubmissionOperationStatusFailed
+	if requiresDispatch && (operation.DispatchStartedAt == nil || *operation.DispatchStartedAt <= 0) {
+		return fmt.Errorf("%w: stored task submission operation is missing its dispatch timestamp", ErrTaskRecoveryInvalidRecord)
+	}
+	if (operation.Status == TaskSubmissionOperationStatusPrepared || operation.Status == TaskSubmissionOperationStatusReserved || operation.Status == TaskSubmissionOperationStatusCanceled) && operation.DispatchStartedAt != nil {
+		return fmt.Errorf("%w: stored task submission operation has an impossible dispatch timestamp", ErrTaskRecoveryInvalidRecord)
+	}
+
+	requiresTask := operation.Status == TaskSubmissionOperationStatusAccepted || operation.Status == TaskSubmissionOperationStatusOutcomeUnknown ||
+		operation.Status == TaskSubmissionOperationStatusSucceeded || operation.Status == TaskSubmissionOperationStatusFailed
+	if requiresTask && (operation.TaskID == nil || *operation.TaskID <= 0) {
+		return fmt.Errorf("%w: stored task submission operation is missing its formal task", ErrTaskRecoveryInvalidRecord)
+	}
+	if !requiresTask && operation.TaskID != nil {
+		return fmt.Errorf("%w: stored task submission operation has an impossible formal task", ErrTaskRecoveryInvalidRecord)
+	}
+	if operation.TaskID == nil {
+		return nil
+	}
+	var task Task
+	if err := tx.Select("id", "task_id", "user_id").Where("id = ?", *operation.TaskID).First(&task).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrTaskSubmissionTaskNotFound
+		}
+		return err
+	}
+	if task.TaskID != operation.PublicID || task.UserId != operation.UserID {
+		return ErrTaskSubmissionTaskIDMismatch
+	}
+	return nil
+}
+
+func validateStoredTaskBillingEventState(event *TaskBillingEvent) error {
+	if event == nil || event.AttemptCount < 0 || event.AttemptCount > taskRecoveryAttemptCountMax ||
+		event.ClaimedBy != strings.TrimSpace(event.ClaimedBy) || len(event.ClaimedBy) > 128 ||
+		event.ClaimedUntil < 0 || event.NextAttemptAt < 0 || event.LastErrorAt < 0 ||
+		event.LastErrorCode != strings.TrimSpace(event.LastErrorCode) || len(event.LastErrorCode) > 64 ||
+		(event.LastErrorCode == "") != (event.LastErrorAt == 0) ||
+		(event.AppliedAt != nil && (*event.AppliedAt <= 0 || *event.AppliedAt > event.UpdatedAt)) {
+		return fmt.Errorf("%w: stored task billing event has invalid processing state", ErrTaskRecoveryInvalidRecord)
+	}
+	switch event.State {
+	case TaskBillingEventStatePending:
+		if event.ClaimedBy != "" || event.ClaimedUntil != 0 || event.AttemptCount != 0 || event.NextAttemptAt != 0 ||
+			event.LastErrorCode != "" || event.LastErrorAt != 0 || event.AppliedAt != nil {
+			return fmt.Errorf("%w: stored pending task billing event contains processing state", ErrTaskRecoveryInvalidRecord)
+		}
+	case TaskBillingEventStateClaimed:
+		if event.ClaimedBy == "" || event.ClaimedUntil <= event.UpdatedAt || event.AttemptCount <= 0 || event.NextAttemptAt != 0 || event.AppliedAt != nil ||
+			(event.LastErrorAt != 0 && event.LastErrorAt > event.UpdatedAt) {
+			return fmt.Errorf("%w: stored claimed task billing event has an invalid lease", ErrTaskRecoveryInvalidRecord)
+		}
+	case TaskBillingEventStateRetryable:
+		if event.ClaimedBy != "" || event.ClaimedUntil != 0 || event.AttemptCount <= 0 || event.NextAttemptAt <= event.UpdatedAt ||
+			event.LastErrorCode == "" || event.LastErrorAt <= 0 || event.LastErrorAt > event.UpdatedAt || event.AppliedAt != nil {
+			return fmt.Errorf("%w: stored retryable task billing event has an invalid retry", ErrTaskRecoveryInvalidRecord)
+		}
+	case TaskBillingEventStateApplied:
+		if event.ClaimedBy != "" || event.ClaimedUntil != 0 || event.AttemptCount <= 0 || event.NextAttemptAt != 0 || event.AppliedAt == nil ||
+			(event.LastErrorAt != 0 && event.LastErrorAt > *event.AppliedAt) {
+			return fmt.Errorf("%w: stored applied task billing event has an invalid settlement", ErrTaskRecoveryInvalidRecord)
+		}
+	case TaskBillingEventStateManualReview:
+		if event.ClaimedBy != "" || event.ClaimedUntil != 0 || event.AttemptCount <= 0 || event.NextAttemptAt != 0 ||
+			event.LastErrorCode == "" || event.LastErrorAt <= 0 || event.LastErrorAt > event.UpdatedAt || event.AppliedAt != nil {
+			return fmt.Errorf("%w: stored manual-review task billing event has an invalid failure state", ErrTaskRecoveryInvalidRecord)
+		}
+	}
+	return nil
+}
+
+func validateStoredTaskBillingEvent(tx *gorm.DB, event *TaskBillingEvent) error {
+	if tx == nil {
+		return gorm.ErrInvalidDB
+	}
+	if event == nil || event.ID <= 0 || !validTaskBillingEventID(event.EventID) || event.EventKey == "" ||
+		!event.EventType.Valid() || !event.State.Valid() || event.OperationID == nil || *event.OperationID <= 0 ||
+		event.UserID <= 0 || event.TokenID <= 0 || event.ChannelID <= 0 || event.SubscriptionID < 0 ||
+		int64(event.UserID) > taskBillingQuotaMax || int64(event.TokenID) > taskBillingQuotaMax || int64(event.ChannelID) > taskBillingQuotaMax || int64(event.SubscriptionID) > taskBillingQuotaMax ||
+		event.BillingSource == "" || event.LockVersion <= 0 || event.CreatedAt <= 0 || event.UpdatedAt < event.CreatedAt ||
+		event.QuotaDelta < taskBillingQuotaMin || event.QuotaDelta > taskBillingQuotaMax ||
+		len(event.EventKey) > 128 || len(event.BillingSource) > 32 || len(event.RequestID) > 64 || len(event.NodeName) > 128 ||
+		len(event.ReasonCode) > 64 || len(event.ResolutionSource) > 32 || len(event.AuditCommandID) > taskBillingAuditCommandIDMaxLength ||
+		event.PayloadVersion != TaskRecoveryPayloadVersion || event.Payload != taskBillingEventPayloadFromRecord(event) {
+		return fmt.Errorf("%w: stored task billing event is not a valid immutable v1 record", ErrTaskRecoveryInvalidRecord)
+	}
+	if event.BillingSource != "wallet" && event.BillingSource != "subscription" ||
+		(event.BillingSource == "wallet" && event.SubscriptionID != 0) ||
+		(event.BillingSource == "subscription" && event.SubscriptionID <= 0) ||
+		(event.EventType == TaskBillingEventTypeReserve && event.QuotaDelta > 0) ||
+		(event.EventType == TaskBillingEventTypeRefund && event.QuotaDelta < 0) ||
+		(event.ResolutionSource != "" && event.ResolutionSource != TaskSubmissionResolutionSourceProviderVerified && event.ResolutionSource != TaskSubmissionResolutionSourceManualAudit) ||
+		(event.EventType == TaskBillingEventTypeManualResolution && (!validTaskBillingAuditCommandID(event.AuditCommandID) || event.ResolutionSource != TaskSubmissionResolutionSourceManualAudit)) ||
+		(event.EventType != TaskBillingEventTypeManualResolution && (event.AuditCommandID != "" || event.ResolutionSource == TaskSubmissionResolutionSourceManualAudit)) {
+		return fmt.Errorf("%w: stored task billing event has invalid funding, amount, or audit metadata", ErrTaskRecoveryInvalidRecord)
+	}
+	if err := validateStoredTaskBillingEventState(event); err != nil {
+		return err
+	}
+
+	var operation TaskSubmissionOperation
+	if err := tx.Where("id = ?", *event.OperationID).First(&operation).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrTaskSubmissionOperationNotFound
+		}
+		return err
+	}
+	if err := validateStoredTaskSubmissionOperation(tx, &operation); err != nil {
+		return err
+	}
+	if operation.UserID != event.UserID || operation.TokenID != event.TokenID {
+		return fmt.Errorf("%w: stored task billing event does not match its operation owner", ErrTaskRecoveryInvalidRecord)
+	}
+	if event.TaskID != nil {
+		if *event.TaskID <= 0 || operation.TaskID == nil || *operation.TaskID != *event.TaskID {
+			return ErrTaskSubmissionTaskIDMismatch
+		}
+		var task Task
+		if err := tx.Select("id", "task_id", "user_id", "channel_id").Where("id = ?", *event.TaskID).First(&task).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrTaskSubmissionTaskNotFound
+			}
+			return err
+		}
+		if task.TaskID != operation.PublicID || task.UserId != event.UserID || (task.ChannelId > 0 && task.ChannelId != event.ChannelID) {
+			return ErrTaskSubmissionTaskIDMismatch
+		}
+	}
+	var attempt TaskSubmissionAttempt
+	if err := tx.Where("operation_id = ?", operation.ID).First(&attempt).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("%w: stored task billing event is missing its v1 submission attempt", ErrTaskRecoveryInvalidRecord)
+		}
+		return err
+	}
+	if err := validateStoredTaskSubmissionAttempt(tx, &attempt); err != nil {
+		return err
+	}
+	if attempt.ChannelID != event.ChannelID {
+		return fmt.Errorf("%w: stored task billing event does not match its submission attempt channel", ErrTaskRecoveryInvalidRecord)
+	}
+	canonicalEventKey := "task:" + operation.PublicID + ":" + string(event.EventType)
+	if event.EventType == TaskBillingEventTypeManualResolution {
+		canonicalEventKey += ":" + event.AuditCommandID
+	}
+	canonicalEventKey += ":v1"
+	if event.EventKey != canonicalEventKey {
+		return fmt.Errorf("%w: stored task billing event key is not canonical", ErrTaskRecoveryInvalidRecord)
+	}
+	return nil
+}
+
+// CreateOrLoadTaskBillingEvent preserves the single canonical event for one
+// operation/type business action. The Task reference is deliberately excluded
+// from the semantic comparison: an event may be recorded before formal Task
+// creation and later replayed through that Task's public operation reference.
+func CreateOrLoadTaskBillingEvent(tx *gorm.DB, candidate *TaskBillingEvent) (*TaskBillingEvent, error) {
+	if tx == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	if candidate == nil {
+		return nil, ErrTaskRecoveryInvalidRecord
+	}
+	writeDB := tx.Session(&gorm.Session{NewDB: true})
+	record := *candidate
+	if err := writeDB.Clauses(clause.OnConflict{DoNothing: true}).Create(&record).Error; err != nil {
+		return nil, err
+	}
+	existing, err := loadTaskBillingEventByEventKeyForReplay(writeDB, record.EventKey)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		// Do not turn a collision on EventID into a false event replay.
+		return nil, ErrTaskBillingEventConflict
+	}
+	if err := validateStoredTaskBillingEvent(writeDB, existing); err != nil {
+		return existing, err
+	}
+	if !taskBillingEventSemanticallyMatches(existing, &record) {
+		return existing, ErrTaskBillingEventConflict
+	}
+	return existing, nil
+}
+
+func taskBillingEventSemanticallyMatches(existing, candidate *TaskBillingEvent) bool {
+	if existing == nil || candidate == nil || existing.OperationID == nil || candidate.OperationID == nil {
+		return false
+	}
+	return existing.EventKey == candidate.EventKey &&
+		*existing.OperationID == *candidate.OperationID &&
+		existing.EventType == candidate.EventType &&
+		existing.UserID == candidate.UserID &&
+		existing.TokenID == candidate.TokenID &&
+		existing.ChannelID == candidate.ChannelID &&
+		existing.BillingSource == candidate.BillingSource &&
+		existing.SubscriptionID == candidate.SubscriptionID &&
+		existing.QuotaDelta == candidate.QuotaDelta &&
+		existing.RequestID == candidate.RequestID &&
+		existing.NodeName == candidate.NodeName &&
+		existing.ReasonCode == candidate.ReasonCode &&
+		existing.ResolutionSource == candidate.ResolutionSource &&
+		existing.AuditCommandID == candidate.AuditCommandID
 }
 
 type TaskBillingLogOutboxState string
@@ -1306,7 +2160,7 @@ func (outbox *TaskBillingLogOutbox) BeforeCreate(tx *gorm.DB) error {
 	if outbox.State == "" {
 		outbox.State = TaskBillingLogOutboxStatePending
 	}
-	if outbox.BillingEventID == "" || len(outbox.BillingEventID) > 64 || outbox.State != TaskBillingLogOutboxStatePending {
+	if !validTaskBillingEventID(outbox.BillingEventID) || outbox.State != TaskBillingLogOutboxStatePending {
 		return fmt.Errorf("%w: new billing log outbox entry is incomplete or not pending", ErrTaskRecoveryInvalidRecord)
 	}
 	if tx == nil {
@@ -1320,6 +2174,9 @@ func (outbox *TaskBillingLogOutbox) BeforeCreate(tx *gorm.DB) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrTaskBillingEventNotFound
 		}
+		return err
+	}
+	if err := validateStoredTaskBillingEvent(tx, &event); err != nil {
 		return err
 	}
 	if outbox.PayloadVersion == 0 {
@@ -1357,6 +2214,114 @@ func (outbox *TaskBillingLogOutbox) BeforeDelete(_ *gorm.DB) error {
 	return fmt.Errorf("%w: billing log outbox entries are immutable delivery records", ErrTaskRecoveryInvalidRecord)
 }
 
+func loadTaskBillingLogOutboxForReplay(tx *gorm.DB, billingEventID string) (*TaskBillingLogOutbox, error) {
+	if tx == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	billingEventID = strings.TrimSpace(billingEventID)
+	if !validTaskBillingEventID(billingEventID) {
+		return nil, ErrTaskRecoveryInvalidRecord
+	}
+	var outbox TaskBillingLogOutbox
+	err := lockForUpdate(tx).Where("billing_event_id = ?", billingEventID).First(&outbox).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &outbox, nil
+}
+
+func validateStoredTaskBillingLogOutbox(outbox *TaskBillingLogOutbox, event *TaskBillingEvent) error {
+	if outbox == nil || outbox.ID <= 0 || !validTaskBillingEventID(outbox.BillingEventID) || !outbox.State.Valid() ||
+		outbox.LockVersion <= 0 || outbox.CreatedAt <= 0 || outbox.UpdatedAt < outbox.CreatedAt ||
+		outbox.PayloadVersion != TaskRecoveryPayloadVersion || !taskBillingLogPayloadMatchesEvent(outbox.Payload, event) {
+		return fmt.Errorf("%w: stored task billing log outbox is not a valid immutable v1 projection", ErrTaskRecoveryInvalidRecord)
+	}
+	if err := validateStoredTaskBillingLogOutboxState(outbox); err != nil {
+		return err
+	}
+	return validateTaskBillingLogPayload(outbox.Payload)
+}
+
+func validateStoredTaskBillingLogOutboxState(outbox *TaskBillingLogOutbox) error {
+	if outbox == nil || outbox.AttemptCount < 0 || outbox.AttemptCount > taskRecoveryAttemptCountMax ||
+		outbox.ClaimedBy != strings.TrimSpace(outbox.ClaimedBy) || len(outbox.ClaimedBy) > 128 ||
+		outbox.ClaimedUntil < 0 || outbox.NextAttemptAt < 0 || outbox.LastErrorAt < 0 ||
+		outbox.LastErrorCode != strings.TrimSpace(outbox.LastErrorCode) || len(outbox.LastErrorCode) > 64 ||
+		(outbox.LastErrorCode == "") != (outbox.LastErrorAt == 0) ||
+		(outbox.DeliveredAt != nil && (*outbox.DeliveredAt <= 0 || *outbox.DeliveredAt > outbox.UpdatedAt)) {
+		return fmt.Errorf("%w: stored task billing log outbox has invalid delivery state", ErrTaskRecoveryInvalidRecord)
+	}
+	switch outbox.State {
+	case TaskBillingLogOutboxStatePending:
+		if outbox.ClaimedBy != "" || outbox.ClaimedUntil != 0 || outbox.AttemptCount != 0 || outbox.NextAttemptAt != 0 ||
+			outbox.LastErrorCode != "" || outbox.LastErrorAt != 0 || outbox.DeliveredAt != nil {
+			return fmt.Errorf("%w: stored pending task billing log outbox contains delivery state", ErrTaskRecoveryInvalidRecord)
+		}
+	case TaskBillingLogOutboxStateClaimed:
+		if outbox.ClaimedBy == "" || outbox.ClaimedUntil <= outbox.UpdatedAt || outbox.AttemptCount <= 0 || outbox.NextAttemptAt != 0 || outbox.DeliveredAt != nil ||
+			(outbox.LastErrorAt != 0 && outbox.LastErrorAt > outbox.UpdatedAt) {
+			return fmt.Errorf("%w: stored claimed task billing log outbox has an invalid lease", ErrTaskRecoveryInvalidRecord)
+		}
+	case TaskBillingLogOutboxStateRetryable:
+		if outbox.ClaimedBy != "" || outbox.ClaimedUntil != 0 || outbox.AttemptCount <= 0 || outbox.NextAttemptAt <= outbox.UpdatedAt ||
+			outbox.LastErrorCode == "" || outbox.LastErrorAt <= 0 || outbox.LastErrorAt > outbox.UpdatedAt || outbox.DeliveredAt != nil {
+			return fmt.Errorf("%w: stored retryable task billing log outbox has an invalid retry", ErrTaskRecoveryInvalidRecord)
+		}
+	case TaskBillingLogOutboxStateDelivered:
+		if outbox.ClaimedBy != "" || outbox.ClaimedUntil != 0 || outbox.AttemptCount <= 0 || outbox.NextAttemptAt != 0 || outbox.DeliveredAt == nil ||
+			(outbox.LastErrorAt != 0 && outbox.LastErrorAt > *outbox.DeliveredAt) {
+			return fmt.Errorf("%w: stored delivered task billing log outbox has an invalid receipt", ErrTaskRecoveryInvalidRecord)
+		}
+	}
+	return nil
+}
+
+// CreateOrLoadTaskBillingLogOutbox gives an authoritative billing event one
+// durable projection receipt. Its immutable payload must match exactly on a
+// retry; different display or usage details cannot silently attach to the
+// existing event.
+func CreateOrLoadTaskBillingLogOutbox(tx *gorm.DB, candidate *TaskBillingLogOutbox) (*TaskBillingLogOutbox, error) {
+	if tx == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	if candidate == nil {
+		return nil, ErrTaskRecoveryInvalidRecord
+	}
+	writeDB := tx.Session(&gorm.Session{NewDB: true})
+	record := *candidate
+	record.BillingEventID = strings.TrimSpace(record.BillingEventID)
+	event, err := loadTaskBillingEventByIDForReplay(writeDB, record.BillingEventID)
+	if err != nil {
+		return nil, err
+	}
+	if event == nil {
+		return nil, ErrTaskBillingEventNotFound
+	}
+	if err := validateStoredTaskBillingEvent(writeDB, event); err != nil {
+		return nil, err
+	}
+	if err := writeDB.Clauses(clause.OnConflict{DoNothing: true}).Create(&record).Error; err != nil {
+		return nil, err
+	}
+	existing, err := loadTaskBillingLogOutboxForReplay(writeDB, record.BillingEventID)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, ErrTaskBillingLogOutboxConflict
+	}
+	if err := validateStoredTaskBillingLogOutbox(existing, event); err != nil {
+		return existing, err
+	}
+	if existing.PayloadVersion != record.PayloadVersion || existing.Payload != record.Payload {
+		return existing, ErrTaskBillingLogOutboxConflict
+	}
+	return existing, nil
+}
+
 type TaskBillingLogOutboxTransition struct {
 	From              TaskBillingLogOutboxState
 	To                TaskBillingLogOutboxState
@@ -1385,7 +2350,7 @@ func TransitionTaskBillingLogOutbox(tx *gorm.DB, outboxID int64, transition Task
 		"updated_at":   transitionedAt,
 		"lock_version": gorm.Expr("lock_version + ?", 1),
 	}
-	query := tx.Table("task_billing_log_outboxes").Where(
+	query := taskRecoveryControlledWrite(tx).Table("task_billing_log_outboxes").Where(
 		"id = ? AND state = ? AND lock_version = ? AND updated_at <= ?", outboxID, transition.From, transition.ExpectedVersion, transitionedAt,
 	)
 	if transition.To == TaskBillingLogOutboxStateClaimed {
@@ -1447,7 +2412,7 @@ func ReclaimExpiredTaskBillingLogOutbox(tx *gorm.DB, outboxID int64, lease TaskR
 	if err != nil {
 		return false, err
 	}
-	result := tx.Table("task_billing_log_outboxes").Where(
+	result := taskRecoveryControlledWrite(tx).Table("task_billing_log_outboxes").Where(
 		"id = ? AND state = ? AND lock_version = ? AND updated_at <= ? AND claimed_until > 0 AND claimed_until <= ? AND attempt_count < ?",
 		outboxID, TaskBillingLogOutboxStateClaimed, expectedVersion, checkedAt, checkedAt, taskRecoveryAttemptCountMax,
 	).Updates(map[string]interface{}{
@@ -1483,13 +2448,45 @@ func validTaskRecoveryDigest(value string) bool {
 	return err == nil
 }
 
+func validTaskSubmissionOperationKind(value string) bool {
+	switch value {
+	case TaskSubmissionOperationKindVideoCreate,
+		TaskSubmissionOperationKindVideoRemix,
+		TaskSubmissionOperationKindSunoMusic,
+		TaskSubmissionOperationKindSunoLyrics:
+		return true
+	default:
+		return false
+	}
+}
+
+func validTaskSubmissionPublicID(value string) bool {
+	return validTaskRecoveryStableID(value, "task_")
+}
+
+func validTaskBillingEventID(value string) bool {
+	return validTaskRecoveryStableID(value, "billing_evt_")
+}
+
+func validTaskRecoveryStableID(value, prefix string) bool {
+	if len(value) != len(prefix)+taskSubmissionPublicIDRandomLength || !strings.HasPrefix(value, prefix) {
+		return false
+	}
+	for _, character := range value[len(prefix):] {
+		if (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
 func validTaskBillingAuditCommandID(value string) bool {
 	if value == "" || len(value) > taskBillingAuditCommandIDMaxLength {
 		return false
 	}
 	for _, character := range value {
-		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
-			(character >= '0' && character <= '9') || character == '-' || character == '_' || character == '.' {
+		if (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '-' || character == '_' || character == '.' {
 			continue
 		}
 		return false

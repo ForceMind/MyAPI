@@ -86,7 +86,8 @@ func InitEnv() {
 	DebugEnabled = os.Getenv("DEBUG") == "true"
 	MemoryCacheEnabled = os.Getenv("MEMORY_CACHE_ENABLED") == "true"
 	IsMasterNode = os.Getenv("NODE_TYPE") != "slave"
-	TaskRecoveryEnabled = taskRecoveryEnabledEnv()
+	TaskRecoveryNewSubmissionsEnabled, TaskRecoveryObligationRecoveryEnabled = taskRecoveryGatesEnv()
+	TaskRecoveryEnabled = TaskRecoveryNewSubmissionsEnabled
 	initNodeNameIdentity()
 	TLSInsecureSkipVerify = GetEnvOrDefaultBool("TLS_INSECURE_SKIP_VERIFY", false)
 	if TLSInsecureSkipVerify {
@@ -136,27 +137,73 @@ func InitEnv() {
 	initConstantEnv()
 }
 
-// taskRecoveryEnabledEnv is fail-closed. Only the exact deployment values
-// "true" and "false" are accepted; strconv's broader forms (1, t, TRUE) must
-// not accidentally open a billing-recovery rollout gate.
+// taskRecoveryEnabledEnv remains for legacy callers and reports only the
+// new-submission capability. New code must use taskRecoveryGatesEnv or one of
+// the explicit capability accessors.
 func taskRecoveryEnabledEnv() bool {
-	raw, exists := os.LookupEnv("TASK_RECOVERY_ENABLED")
+	newSubmissions, _ := taskRecoveryGatesEnv()
+	return newSubmissions
+}
+
+// taskRecoveryGatesEnv splits three concerns that must not share one rollout
+// switch: new request creation, recovery of already committed obligations, and
+// schema compatibility (which remains always on). The legacy flag maps to both
+// runtime capabilities only when neither new flag explicitly overrides it.
+func taskRecoveryGatesEnv() (newSubmissions bool, obligationRecovery bool) {
+	newSubmissions, obligationRecovery, valid := taskRecoveryGateSelection()
+	if !valid || (!newSubmissions && !obligationRecovery) {
+		return false, false
+	}
+	if _, err := TaskRecoveryIdempotencyKeyVerifier(); err != nil {
+		SysError("task recovery runtime gates require a valid TASK_RECOVERY_IDEMPOTENCY_SECRET; keeping both gates disabled")
+		return false, false
+	}
+	return newSubmissions, obligationRecovery
+}
+
+func taskRecoveryGateSelection() (newSubmissions bool, obligationRecovery bool, valid bool) {
+	legacyValue, legacySet, legacyValid := taskRecoveryGateValue("TASK_RECOVERY_ENABLED")
+	newValue, newSet, newValid := taskRecoveryGateValue("TASK_RECOVERY_NEW_SUBMISSIONS_ENABLED")
+	recoveryValue, recoverySet, recoveryValid := taskRecoveryGateValue("TASK_RECOVERY_OBLIGATION_RECOVERY_ENABLED")
+	if !legacyValid || !newValid || !recoveryValid {
+		return false, false, false
+	}
+	if newSet {
+		newSubmissions = newValue
+	} else if legacySet {
+		newSubmissions = legacyValue
+	}
+	if recoverySet {
+		obligationRecovery = recoveryValue
+	} else if legacySet {
+		obligationRecovery = legacyValue
+	}
+	return newSubmissions, obligationRecovery, true
+}
+
+func taskRecoveryGateValue(name string) (value bool, explicitlySet bool, valid bool) {
+	raw, exists := os.LookupEnv(name)
 	if !exists || raw == "" {
-		return false
+		return false, false, true
 	}
 	switch raw {
 	case "true":
-		if _, err := TaskRecoveryIdempotencyKeyVerifier(); err != nil {
-			SysError("TASK_RECOVERY_ENABLED requires a valid TASK_RECOVERY_IDEMPOTENCY_SECRET; keeping task recovery disabled")
-			return false
-		}
-		return true
+		return true, true, true
 	case "false":
-		return false
+		return false, true, true
 	default:
-		SysError("TASK_RECOVERY_ENABLED accepts only true or false; keeping task recovery disabled")
-		return false
+		SysError(name + " accepts only true or false; keeping task recovery disabled")
+		return false, true, false
 	}
+}
+
+// TaskRecoveryDeploymentRequested reports whether an operator explicitly asked
+// to activate either runtime capability. InitDB uses it before opening a
+// database so an invalid dedicated secret cannot silently turn a requested
+// rollout into legacy behavior.
+func TaskRecoveryDeploymentRequested() bool {
+	newSubmissions, obligationRecovery, valid := taskRecoveryGateSelection()
+	return valid && (newSubmissions || obligationRecovery)
 }
 
 func initChannelQuotaAlertSettings() {

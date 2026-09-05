@@ -105,8 +105,9 @@ func TestB2ClickHouseConfiguredDatabase(t *testing.T) {
 	})
 	t.Setenv("LOG_SQL_CLICKHOUSE_TTL_DAYS", "0")
 
-	// New deployments receive the projection column from the canonical helper.
-	require.NoError(t, migrateClickHouseLogDB())
+	// New deployments receive the projection column through the production
+	// LOG_DB migration entry, not a test-only direct helper call.
+	require.NoError(t, migrateLOGDB())
 	hasColumn, err := clickHouseLogColumnExists("billing_event_id")
 	require.NoError(t, err)
 	require.True(t, hasColumn)
@@ -119,7 +120,7 @@ func TestB2ClickHouseConfiguredDatabase(t *testing.T) {
 	require.NoError(t, db.Exec(legacyCreateSQL).Error)
 	require.NoError(t, db.Exec("INSERT INTO logs (id, content) VALUES (?, ?)", 7, "legacy-b2-clickhouse-log").Error)
 
-	require.NoError(t, migrateClickHouseLogDB())
+	require.NoError(t, migrateLOGDB())
 	hasColumn, err = clickHouseLogColumnExists("billing_event_id")
 	require.NoError(t, err)
 	require.True(t, hasColumn)
@@ -127,7 +128,7 @@ func TestB2ClickHouseConfiguredDatabase(t *testing.T) {
 	require.NoError(t, db.Table("logs").Where("id = ? AND content = ?", 7, "legacy-b2-clickhouse-log").Count(&retainedRows).Error)
 	assert.Equal(t, int64(1), retainedRows)
 
-	require.NoError(t, migrateClickHouseLogDB())
+	require.NoError(t, migrateLOGDB())
 	hasColumn, err = clickHouseLogColumnExists("billing_event_id")
 	require.NoError(t, err)
 	assert.True(t, hasColumn)

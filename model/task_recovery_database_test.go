@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/ForceMind/MyAPI/common"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -114,6 +115,7 @@ func TestB2SubmissionConfiguredDatabases(t *testing.T) {
 			require.NoError(t, err)
 			db, err := gorm.Open(dialector, &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 			require.NoError(t, err)
+			require.NoError(t, registerTaskRecoveryGormGuards(db))
 			sqlDB, err := db.DB()
 			require.NoError(t, err)
 			sqlDB.SetMaxOpenConns(1)
@@ -127,16 +129,41 @@ func TestB2SubmissionConfiguredDatabases(t *testing.T) {
 				// checks. utf8mb4 exercises the widest supported index encoding.
 				require.NoError(t, db.Exec("ALTER DATABASE `myapi_b2_test` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci").Error)
 			}
-			migrateB2LegacyLogsFixture(t, db)
+			previousDB, previousLogDB := DB, LOG_DB
+			previousMainType, previousLogType := common.MainDatabaseType(), common.LogDatabaseType()
+			DB, LOG_DB = db, db
+			if engine.name == "mysql" {
+				common.SetDatabaseTypes(common.DatabaseTypeMySQL, common.DatabaseTypeMySQL)
+			} else {
+				common.SetDatabaseTypes(common.DatabaseTypePostgreSQL, common.DatabaseTypePostgreSQL)
+			}
+			initCol()
+			t.Cleanup(func() {
+				DB, LOG_DB = previousDB, previousLogDB
+				common.SetDatabaseTypes(previousMainType, previousLogType)
+				initCol()
+			})
+			legacy := createB2LegacyLogsFixture(t, db)
+			require.NoError(t, migrateDB())
+			assertB2RecoveryMainSchema(t, db)
+			assertB2LegacyLogsMigrated(t, db, legacy)
+			require.NoError(t, migrateDBFast())
+			assertB2RecoveryMainSchema(t, db)
+			assertB2LegacyLogsMigrated(t, db, legacy)
+			require.NoError(t, migrateLOGDB())
+			assertB2LegacyLogsMigrated(t, db, legacy)
+			sqlDB.SetMaxOpenConns(2)
+			runB2TaskRecoveryIdentityConcurrentContract(t, db)
+			sqlDB.SetMaxOpenConns(1)
 			runB2SubmissionDatabaseContract(t, db)
 		})
 	}
 }
 
-// migrateB2LegacyLogsFixture exercises the production log migration against
-// the oldest supported B2 fixture shape before any current-schema tables are
-// created. The fixture database was asserted empty above and is never dropped.
-func migrateB2LegacyLogsFixture(t *testing.T, db *gorm.DB) {
+// createB2LegacyLogsFixture builds the oldest supported B2 log shape before
+// any current-schema tables are created. The caller chooses the production
+// migration entry point, which keeps normal, fast, and LOG_DB paths testable.
+func createB2LegacyLogsFixture(t *testing.T, db *gorm.DB) b2LegacyLog {
 	t.Helper()
 	require.NoError(t, db.AutoMigrate(&b2LegacyLog{}))
 	legacy := b2LegacyLog{
@@ -162,8 +189,11 @@ func migrateB2LegacyLogsFixture(t *testing.T, db *gorm.DB) {
 	}
 	require.NoError(t, db.Create(&legacy).Error)
 	require.NotZero(t, legacy.Id)
+	return legacy
+}
 
-	require.NoError(t, db.AutoMigrate(&Log{}))
+func assertB2LegacyLogsMigrated(t *testing.T, db *gorm.DB, legacy b2LegacyLog) {
+	t.Helper()
 	require.True(t, db.Migrator().HasColumn(&Log{}, "BillingEventID"))
 	for _, index := range []string{
 		"idx_logs_request_id",
@@ -196,6 +226,16 @@ func migrateB2LegacyLogsFixture(t *testing.T, db *gorm.DB) {
 	assert.Equal(t, legacy.UpstreamRequestId, historical.UpstreamRequestId)
 	assert.Equal(t, legacy.Other, historical.Other)
 	assert.Empty(t, historical.BillingEventID)
+}
+
+// migrateB2LegacyLogsFixture exercises the production log migration against
+// the oldest supported B2 fixture shape before any current-schema tables are
+// created. The fixture database was asserted empty above and is never dropped.
+func migrateB2LegacyLogsFixture(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	legacy := createB2LegacyLogsFixture(t, db)
+	require.NoError(t, db.AutoMigrate(&Log{}))
+	assertB2LegacyLogsMigrated(t, db, legacy)
 
 	// Startup migrations must remain safe to repeat after an upgrade.
 	require.NoError(t, db.AutoMigrate(&Log{}))
