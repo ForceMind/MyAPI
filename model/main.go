@@ -169,6 +169,14 @@ func chooseDB(envName string, isLog bool) (*gorm.DB, common.DatabaseType, error)
 }
 
 func InitDB() (err error) {
+	// Do not turn an explicitly requested recovery deployment into a legacy
+	// writer when its dedicated key is missing or malformed. InitEnv keeps the
+	// effective gate closed, but startup must still reject this configuration.
+	if os.Getenv("TASK_RECOVERY_ENABLED") == "true" {
+		if _, err := common.TaskRecoveryIdempotencyKeyVerifier(); err != nil {
+			return fmt.Errorf("task recovery deployment configuration is invalid: %w", err)
+		}
+	}
 	db, dbType, err := chooseDB("SQL_DSN", false)
 	if err == nil {
 		common.SetMainDatabaseType(dbType)
@@ -195,14 +203,26 @@ func InitDB() (err error) {
 		sqlDB.SetConnMaxLifetime(time.Second * time.Duration(common.GetEnvOrDefault("SQL_MAX_LIFETIME", 60)))
 
 		if !common.IsMasterNode {
+			if common.IsTaskRecoveryEnabled() {
+				if err := EnsureTaskRecoveryIdentity(DB); err != nil {
+					return fmt.Errorf("task recovery database identity verification failed: %w", err)
+				}
+			}
 			return nil
 		}
 		if common.UsingMainDatabase(common.DatabaseTypeMySQL) {
 			//_, _ = sqlDB.Exec("ALTER TABLE channels MODIFY model_mapping TEXT;") // TODO: delete this line when most users have upgraded
 		}
 		common.SysLog("database migration started")
-		err = migrateDB()
-		return err
+		if err := migrateDB(); err != nil {
+			return err
+		}
+		if common.IsTaskRecoveryEnabled() {
+			if err := EnsureTaskRecoveryIdentity(DB); err != nil {
+				return fmt.Errorf("task recovery database identity verification failed: %w", err)
+			}
+		}
+		return nil
 	} else {
 		common.FatalLog(err)
 	}
@@ -280,6 +300,11 @@ func migrateDB() error {
 		&TopUp{},
 		&QuotaData{},
 		&Task{},
+		&TaskRecoveryIdentity{},
+		&TaskSubmissionOperation{},
+		&TaskSubmissionAttempt{},
+		&TaskBillingEvent{},
+		&TaskBillingLogOutbox{},
 		&Model{},
 		&Vendor{},
 		&PrefillGroup{},
@@ -354,6 +379,11 @@ func migrateDBFast() error {
 		{&TopUp{}, "TopUp"},
 		{&QuotaData{}, "QuotaData"},
 		{&Task{}, "Task"},
+		{&TaskRecoveryIdentity{}, "TaskRecoveryIdentity"},
+		{&TaskSubmissionOperation{}, "TaskSubmissionOperation"},
+		{&TaskSubmissionAttempt{}, "TaskSubmissionAttempt"},
+		{&TaskBillingEvent{}, "TaskBillingEvent"},
+		{&TaskBillingLogOutbox{}, "TaskBillingLogOutbox"},
 		{&Model{}, "Model"},
 		{&Vendor{}, "Vendor"},
 		{&PrefillGroup{}, "PrefillGroup"},
@@ -518,7 +548,39 @@ func migrateClickHouseLogDB() error {
 	if err := LOG_DB.Exec(clickHouseLogCreateTableSQL(ttlDays)).Error; err != nil {
 		return err
 	}
+	if err := ensureClickHouseLogBillingEventID(); err != nil {
+		return err
+	}
 	return syncClickHouseLogTTL(ttlDays)
+}
+
+// ensureClickHouseLogBillingEventID evolves an existing ClickHouse logs table
+// without relying on version-dependent ADD COLUMN IF NOT EXISTS syntax. A
+// second schema check makes concurrent migrators converge if another node adds
+// the column after our first observation.
+func ensureClickHouseLogBillingEventID() error {
+	hasColumn, err := clickHouseLogColumnExists("billing_event_id")
+	if err != nil || hasColumn {
+		return err
+	}
+	if err := LOG_DB.Exec("ALTER TABLE logs ADD COLUMN billing_event_id String DEFAULT ''").Error; err != nil {
+		hasColumn, checkErr := clickHouseLogColumnExists("billing_event_id")
+		if checkErr == nil && hasColumn {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func clickHouseLogColumnExists(column string) (bool, error) {
+	var count int64
+	err := LOG_DB.Raw(
+		"SELECT count() FROM system.columns WHERE database = currentDatabase() AND table = ? AND name = ?",
+		"logs",
+		column,
+	).Scan(&count).Error
+	return count > 0, err
 }
 
 func clickHouseLogTTLDays() int {
@@ -566,6 +628,7 @@ CREATE TABLE IF NOT EXISTS logs (
 	ip String DEFAULT '',
 	request_id String DEFAULT '',
 	upstream_request_id String DEFAULT '',
+	billing_event_id String DEFAULT '',
 	other String DEFAULT ''
 )
 ENGINE = MergeTree()

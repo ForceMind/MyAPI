@@ -77,7 +77,11 @@ type Log struct {
 	Ip                string `json:"ip" gorm:"index;default:''"`
 	RequestId         string `json:"request_id,omitempty" gorm:"type:varchar(64);index:idx_logs_request_id;default:''"`
 	UpstreamRequestId string `json:"upstream_request_id,omitempty" gorm:"type:varchar(128);index:idx_logs_upstream_request_id;default:''"`
-	Other             string `json:"other"`
+	// BillingEventID is the stable at-least-once projection key emitted by the
+	// main-database billing outbox. It is deliberately non-unique because a
+	// log sink may replay delivery; query/export aggregation must deduplicate it.
+	BillingEventID string `json:"billing_event_id,omitempty" gorm:"type:varchar(64);index:idx_logs_billing_event_id;default:''"`
+	Other          string `json:"other"`
 }
 
 // don't use iota, avoid change log type value

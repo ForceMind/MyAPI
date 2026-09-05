@@ -2,9 +2,9 @@
 
 > 文档状态：执行基线与路线图
 >
-> 基线复核日期：2026-09-04（历史阶段记录保留）
+> 基线复核日期：2026-09-05（历史阶段记录保留）
 >
-> 当前源码基线：本分支 `main` 最新提交（后续阶段性提交以 Git 历史为准）
+> 当前执行分支：`codex/b2-durable-submissions`；当前进度与验证见全项目执行计划和完成度审计，不将旧 `main` 当作本轮工作树状态。
 
 这份文档把 MyAPI 的产品目标、已完成能力、未完成工作、发行方式、UI 方向、自动化和验收规则统一起来。它是路线图和交付索引，不把设计目标误写成已经实现的功能。
 
@@ -30,6 +30,8 @@ API、SSE、数据库迁移、Provider 和发行接口契约（技术基线标�
 - [认证和 Cookie 安全](./authentication.md)
 - [实机与副本验收清单](./REAL_DEVICE_ACCEPTANCE.md)
 - [开发执行计划与缺陷矩阵](./DEVELOPMENT_EXECUTION_PLAN.md)
+- [全项目完成执行计划](./PROJECT_COMPLETION_EXECUTION_PLAN.md)
+- [Linux 新对话交接](./NEXT_SESSION_HANDOFF.md)
 - [macOS 开发迁移指南](./DEVELOPMENT_ON_MACOS.md)
 - [新设备 Codex 交接提示词](./CODEX_HANDOFF_PROMPT.md)
 - [定制说明](../CUSTOMIZATION.md)
@@ -187,10 +189,10 @@ loopback/NAT reset，未验收；修复保持宿主回环发布，仅令受限 C
 日志、普通/管理员权限、请求/响应头脱敏、匿名不上游和真实登录表单均由实际临时镜像验证。
 它不调用真实 Provider，也不证明 Redis/batch、MySQL/PostgreSQL 完整运行恢复或真实设备。
 下一步扩展三库运行合同；完整备份恢复、真实账户/设备、独立 UI 仍未完成。
-#### 2026-09-05 B2-0 恢复账务合同（已冻结，尚未实现）
+#### 2026-09-05 B2-0 恢复账务合同（已冻结，完整流程尚未实现）
 
-B2/B3 的核心业务决定已确认，但提交未知状态、持久账务事件、outbox、三库迁移与恢复代码仍未实现，
-没有新增 schema、测试、CI 或生产开关。现代 Task 的 `submission_unknown` 与已受理后轮询结果未知的
+B2/B3 的核心业务决定已确认；B2-1 模型/迁移基础已进入受限本机验证及独立审查，实库 CI 尚待完成。
+HTTP 提交/查询、原子账务及恢复闭环仍未接入，不能启用生产开关。现代 Task 的 `submission_unknown` 与已受理后轮询结果未知的
 `outcome_unknown` 不自动重发或退款，只能由上游可验证的结果或带审计记录的人工处置结束；v1 在进入
 `DISPATCHING` 后禁止一切可能已送达请求的重试及跨渠道 failover，包含 Provider 内重试。
 

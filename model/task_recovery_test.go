@@ -1,0 +1,1284 @@
+package model
+
+import (
+	"errors"
+	"strconv"
+	"strings"
+	"testing"
+
+	"github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+)
+
+var errInjectedTaskRecoveryRollback = errors.New("injected task recovery transaction rollback")
+var errInjectedTaskRecoveryClock = errors.New("injected task recovery database clock failure")
+
+type b2TaskRecoveryFixtureClock struct {
+	now  int64
+	fail bool
+}
+
+func installB2TaskRecoveryFixtureClock(t *testing.T, db *gorm.DB) *b2TaskRecoveryFixtureClock {
+	t.Helper()
+	clock := &b2TaskRecoveryFixtureClock{now: 1_700_000_000}
+	require.NoError(t, db.Callback().Row().Before("gorm:row").Register("test:b2-task-recovery-clock", func(tx *gorm.DB) {
+		switch tx.Statement.SQL.String() {
+		case "SELECT FLOOR(EXTRACT(EPOCH FROM clock_timestamp()))::bigint", "SELECT UNIX_TIMESTAMP()", "SELECT strftime('%s','now')":
+			if clock.fail {
+				tx.AddError(errInjectedTaskRecoveryClock)
+				return
+			}
+			tx.Statement.SQL.Reset()
+			tx.Statement.SQL.WriteString("SELECT " + strconv.FormatInt(clock.now, 10))
+			tx.Statement.Vars = nil
+		}
+	}))
+	return clock
+}
+
+func openB2SubmissionSQLite(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
+	return db
+}
+
+func b2SubmissionModels() []interface{} {
+	return []interface{}{
+		&Task{},
+		&TaskRecoveryIdentity{},
+		&TaskSubmissionOperation{},
+		&TaskSubmissionAttempt{},
+		&TaskBillingEvent{},
+		&TaskBillingLogOutbox{},
+		&Log{},
+	}
+}
+
+func migrateB2SubmissionFixture(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	require.NoError(t, db.AutoMigrate(b2SubmissionModels()...))
+	// Startup migrations are intentionally repeatable on existing installs.
+	require.NoError(t, db.AutoMigrate(b2SubmissionModels()...))
+
+	for _, model := range []interface{}{
+		&TaskRecoveryIdentity{},
+		&TaskSubmissionOperation{},
+		&TaskSubmissionAttempt{},
+		&TaskBillingEvent{},
+		&TaskBillingLogOutbox{},
+	} {
+		require.True(t, db.Migrator().HasTable(model))
+	}
+	for _, index := range []struct {
+		model interface{}
+		name  string
+	}{
+		{&TaskSubmissionOperation{}, "uidx_task_submission_public_id"},
+		{&TaskSubmissionOperation{}, "uidx_task_submission_idempotency"},
+		{&TaskSubmissionOperation{}, "uidx_task_submission_task"},
+		{&TaskSubmissionAttempt{}, "uidx_task_submission_attempt"},
+		{&TaskBillingEvent{}, "uidx_task_billing_event_id"},
+		{&TaskBillingEvent{}, "uidx_task_billing_event_key"},
+		{&TaskBillingLogOutbox{}, "uidx_task_billing_outbox_event"},
+		{&Log{}, "idx_logs_billing_event_id"},
+	} {
+		require.True(t, db.Migrator().HasIndex(index.model, index.name), "missing index %s", index.name)
+	}
+}
+
+func newB2SubmissionOperation(t *testing.T, tokenID int, method, kind, rawKey, canonicalRequest string) *TaskSubmissionOperation {
+	t.Helper()
+	keyHash, err := HashTaskSubmissionIdempotencyKey(rawKey)
+	require.NoError(t, err)
+	return &TaskSubmissionOperation{
+		UserID:             11,
+		TokenID:            tokenID,
+		HTTPMethod:         method,
+		OperationKind:      kind,
+		IdempotencyKeyHash: keyHash,
+		RequestFingerprint: FingerprintTaskSubmissionRequest([]byte(canonicalRequest)),
+	}
+}
+
+func b2BillingLogPayload(event *TaskBillingEvent) TaskBillingLogPayload {
+	payload := TaskBillingLogPayload{
+		Version:        TaskRecoveryPayloadVersion,
+		BillingEventID: event.EventID,
+		UserID:         event.UserID,
+		CreatedAt:      event.CreatedAt,
+		Content:        "task billing reserve",
+		ModelName:      "fixture-model",
+		ChannelID:      event.ChannelID,
+		TokenID:        event.TokenID,
+		Group:          "default",
+		RequestID:      event.RequestID,
+	}
+	switch {
+	case event.QuotaDelta < 0:
+		payload.Type = LogTypeConsume
+		payload.Quota = int(-event.QuotaDelta)
+	case event.QuotaDelta > 0:
+		payload.Type = LogTypeRefund
+		payload.Quota = int(event.QuotaDelta)
+	default:
+		payload.Type = LogTypeSystem
+	}
+	return payload
+}
+
+func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	t.Setenv("TASK_RECOVERY_IDEMPOTENCY_SECRET", strings.Repeat("1a", 32))
+	realDatabaseNow, err := taskRecoveryDBTimestamp(db)
+	require.NoError(t, err)
+	require.Positive(t, realDatabaseNow)
+	fixtureClock := installB2TaskRecoveryFixtureClock(t, db)
+	migrateB2SubmissionFixture(t, db)
+	t.Run("database-key-binding", func(t *testing.T) {
+		runB2TaskRecoveryIdentityContract(t, db)
+	})
+	t.Run("database-clock-failure-never-falls-back", func(t *testing.T) {
+		fixtureClock.fail = true
+		_, err := taskRecoveryDBTimestamp(db)
+		assert.ErrorIs(t, err, errInjectedTaskRecoveryClock)
+		operation := newB2SubmissionOperation(t, 602, "POST", "video", "database-clock-failure", `{}`)
+		assert.ErrorIs(t, db.Create(operation).Error, errInjectedTaskRecoveryClock)
+		fixtureClock.fail = false
+		var count int64
+		require.NoError(t, db.Model(&TaskSubmissionOperation{}).Where("token_id = ?", 602).Count(&count).Error)
+		assert.Zero(t, count)
+
+		persisted := newB2SubmissionOperation(t, 603, "POST", "video", "database-clock-transition-failure", `{}`)
+		require.NoError(t, db.Create(persisted).Error)
+		fixtureClock.fail = true
+		won, err := TransitionTaskSubmissionOperation(db, persisted.ID, TaskSubmissionOperationTransition{
+			From: TaskSubmissionOperationStatusPrepared, To: TaskSubmissionOperationStatusReserved, ExpectedVersion: 1,
+		})
+		assert.ErrorIs(t, err, errInjectedTaskRecoveryClock)
+		assert.False(t, won)
+		fixtureClock.fail = false
+		require.NoError(t, db.First(persisted, persisted.ID).Error)
+		assert.Equal(t, TaskSubmissionOperationStatusPrepared, persisted.Status)
+		assert.Equal(t, int64(1), persisted.LockVersion)
+	})
+
+	t.Run("stable-public-id-and-idempotency-scope", func(t *testing.T) {
+		first := newB2SubmissionOperation(t, 101, "post", "video", "same-client-key", `{"model":"fixture-a"}`)
+		require.NoError(t, db.Create(first).Error)
+		assert.True(t, strings.HasPrefix(first.PublicID, "task_"))
+		assert.Len(t, first.PublicID, len("task_")+taskSubmissionPublicIDRandomLength)
+		assert.Equal(t, "POST", first.HTTPMethod)
+		assert.Equal(t, "video", first.OperationKind)
+
+		duplicateScope := newB2SubmissionOperation(t, 101, "POST", "video", "same-client-key", `{"model":"fixture-b"}`)
+		require.Error(t, db.Create(duplicateScope).Error)
+
+		keyHash, err := HashTaskSubmissionIdempotencyKey("same-client-key")
+		require.NoError(t, err)
+		found, err := FindTaskSubmissionOperationByIdempotencyScope(db, TaskSubmissionIdempotencyScope{
+			TokenID:            101,
+			HTTPMethod:         "post",
+			OperationKind:      "VIDEO",
+			IdempotencyKeyHash: keyHash,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, found)
+		assert.Equal(t, first.ID, found.ID)
+		assert.NotEqual(t, duplicateScope.RequestFingerprint, found.RequestFingerprint)
+
+		for _, operation := range []*TaskSubmissionOperation{
+			newB2SubmissionOperation(t, 102, "POST", "video", "same-client-key", `{"scope":"token"}`),
+			newB2SubmissionOperation(t, 101, "PUT", "video", "same-client-key", `{"scope":"method"}`),
+			newB2SubmissionOperation(t, 101, "POST", "image", "same-client-key", `{"scope":"kind"}`),
+			newB2SubmissionOperation(t, 101, "POST", "video", "different-client-key", `{"scope":"key"}`),
+		} {
+			require.NoError(t, db.Create(operation).Error)
+			assert.NotEqual(t, first.PublicID, operation.PublicID)
+		}
+
+		byPublicID, err := GetTaskSubmissionOperationByPublicID(db, first.PublicID)
+		require.NoError(t, err)
+		require.NotNil(t, byPublicID)
+		assert.Equal(t, first.ID, byPublicID.ID)
+	})
+
+	t.Run("operation-cas-and-formal-task-link", func(t *testing.T) {
+		operation := newB2SubmissionOperation(t, 201, "POST", "video", "operation-cas", `{}`)
+		require.NoError(t, db.Create(operation).Error)
+		negativeCreatedAt := newB2SubmissionOperation(t, 205, "POST", "video", "negative-created-at", `{}`)
+		negativeCreatedAt.CreatedAt = -1
+		assert.ErrorIs(t, db.Create(negativeCreatedAt).Error, ErrTaskRecoveryInvalidRecord)
+		operationSave := *operation
+		operationSave.PublicID = "task_" + strings.Repeat("x", taskSubmissionPublicIDRandomLength)
+		operationSave.Status = TaskSubmissionOperationStatusReserved
+		assert.ErrorIs(t, db.Save(&operationSave).Error, ErrTaskRecoveryInvalidRecord)
+		assert.ErrorIs(t, db.Model(&TaskSubmissionOperation{}).Where("id = ?", operation.ID).Updates(TaskSubmissionOperation{
+			PublicID: operationSave.PublicID, Status: TaskSubmissionOperationStatusReserved,
+		}).Error, ErrTaskRecoveryInvalidRecord)
+		assert.ErrorIs(t, db.Model(&TaskSubmissionOperation{}).Where("id = ?", operation.ID).Updates(map[string]interface{}{
+			"public_id": operationSave.PublicID, "status": TaskSubmissionOperationStatusReserved,
+		}).Error, ErrTaskRecoveryInvalidRecord)
+		var unchangedOperation TaskSubmissionOperation
+		require.NoError(t, db.First(&unchangedOperation, operation.ID).Error)
+		assert.Equal(t, operation.PublicID, unchangedOperation.PublicID)
+		assert.Equal(t, TaskSubmissionOperationStatusPrepared, unchangedOperation.Status)
+		assert.ErrorIs(t, db.Delete(&unchangedOperation).Error, ErrTaskRecoveryInvalidRecord)
+		won, err := TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From: TaskSubmissionOperationStatusPrepared, To: TaskSubmissionOperationStatusReserved,
+			ExpectedVersion: 1, TransitionedAt: -1,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.False(t, won)
+		for _, invalidTime := range []int64{fixtureClock.now - 1, fixtureClock.now + 1} {
+			won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+				From: TaskSubmissionOperationStatusPrepared, To: TaskSubmissionOperationStatusReserved,
+				ExpectedVersion: 1, TransitionedAt: invalidTime,
+			})
+			assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+			assert.False(t, won)
+		}
+		createdAt := fixtureClock.now
+		fixtureClock.now = createdAt - 1
+		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From: TaskSubmissionOperationStatusPrepared, To: TaskSubmissionOperationStatusReserved, ExpectedVersion: 1,
+		})
+		require.NoError(t, err)
+		assert.False(t, won)
+		fixtureClock.now = createdAt
+		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From: TaskSubmissionOperationStatusPrepared, To: TaskSubmissionOperationStatusReserved,
+			ExpectedVersion: taskRecoveryMaxInt64, TransitionedAt: 1,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidTransition)
+		assert.False(t, won)
+
+		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From:            TaskSubmissionOperationStatusPrepared,
+			To:              TaskSubmissionOperationStatusReserved,
+			ExpectedVersion: 1,
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From:            TaskSubmissionOperationStatusPrepared,
+			To:              TaskSubmissionOperationStatusRejected,
+			ExpectedVersion: 1,
+		})
+		require.NoError(t, err)
+		assert.False(t, won)
+
+		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From:            TaskSubmissionOperationStatusReserved,
+			To:              TaskSubmissionOperationStatusDispatching,
+			ExpectedVersion: 2,
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From:            TaskSubmissionOperationStatusDispatching,
+			To:              TaskSubmissionOperationStatusAccepted,
+			ExpectedVersion: 3,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.False(t, won)
+
+		wrongOwnerTask := Task{TaskID: operation.PublicID, UserId: operation.UserID + 1, Status: TaskStatusSubmitted}
+		require.NoError(t, db.Create(&wrongOwnerTask).Error)
+		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From: TaskSubmissionOperationStatusDispatching, To: TaskSubmissionOperationStatusAccepted,
+			TaskID: &wrongOwnerTask.ID, ExpectedVersion: 3,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.False(t, won)
+
+		formalTask := Task{TaskID: operation.PublicID, UserId: operation.UserID, Status: TaskStatusSubmitted}
+		require.NoError(t, db.Create(&formalTask).Error)
+		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From:            TaskSubmissionOperationStatusDispatching,
+			To:              TaskSubmissionOperationStatusAccepted,
+			TaskID:          &formalTask.ID,
+			ExpectedVersion: 3,
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+
+		var persisted TaskSubmissionOperation
+		require.NoError(t, db.First(&persisted, operation.ID).Error)
+		assert.Equal(t, TaskSubmissionOperationStatusAccepted, persisted.Status)
+		require.NotNil(t, persisted.TaskID)
+		assert.Equal(t, formalTask.ID, *persisted.TaskID)
+		assert.Nil(t, persisted.RetentionUntil, "an accepted active task must not receive a retention deadline")
+
+		secondOperation := newB2SubmissionOperation(t, 203, "POST", "video", "operation-task-unique", `{}`)
+		require.NoError(t, db.Create(secondOperation).Error)
+		require.Error(t, db.Model(secondOperation).Update("task_id", formalTask.ID).Error)
+	})
+
+	t.Run("unknown-states-require-explicit-resolution", func(t *testing.T) {
+		operation := newB2SubmissionOperation(t, 202, "POST", "video", "operation-unknown", `{}`)
+		require.NoError(t, db.Create(operation).Error)
+		for _, transition := range []TaskSubmissionOperationTransition{
+			{From: TaskSubmissionOperationStatusPrepared, To: TaskSubmissionOperationStatusReserved, ExpectedVersion: 1},
+			{From: TaskSubmissionOperationStatusReserved, To: TaskSubmissionOperationStatusDispatching, ExpectedVersion: 2},
+			{From: TaskSubmissionOperationStatusDispatching, To: TaskSubmissionOperationStatusSubmissionUnknown, ExpectedVersion: 3},
+		} {
+			won, err := TransitionTaskSubmissionOperation(db, operation.ID, transition)
+			require.NoError(t, err)
+			assert.True(t, won)
+		}
+		deadline := int64(999)
+		won, err := TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From:            TaskSubmissionOperationStatusSubmissionUnknown,
+			To:              TaskSubmissionOperationStatusAccepted,
+			RetentionUntil:  &deadline,
+			ExpectedVersion: 4,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.False(t, won)
+		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From:            TaskSubmissionOperationStatusSubmissionUnknown,
+			To:              TaskSubmissionOperationStatusSucceeded,
+			ExpectedVersion: 4,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidTransition)
+		assert.False(t, won)
+
+		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From:            TaskSubmissionOperationStatusSubmissionUnknown,
+			To:              TaskSubmissionOperationStatusRejected,
+			ExpectedVersion: 4,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.False(t, won)
+		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From:             TaskSubmissionOperationStatusSubmissionUnknown,
+			To:               TaskSubmissionOperationStatusRejected,
+			ResolutionSource: TaskSubmissionResolutionSourceProviderVerified,
+			ExpectedVersion:  4,
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		require.NoError(t, db.First(operation, operation.ID).Error)
+		assert.Equal(t, TaskSubmissionOperationStatusRejected, operation.Status)
+		assert.Equal(t, fixtureClock.now+TaskSubmissionTerminalRetentionSeconds, *operation.RetentionUntil)
+	})
+
+	t.Run("outcome-unknown-requires-explicit-terminal-resolution", func(t *testing.T) {
+		operation := newB2SubmissionOperation(t, 204, "POST", "video", "outcome-unknown", `{}`)
+		require.NoError(t, db.Create(operation).Error)
+		for _, transition := range []TaskSubmissionOperationTransition{
+			{From: TaskSubmissionOperationStatusPrepared, To: TaskSubmissionOperationStatusReserved, ExpectedVersion: 1},
+			{From: TaskSubmissionOperationStatusReserved, To: TaskSubmissionOperationStatusDispatching, ExpectedVersion: 2},
+		} {
+			won, err := TransitionTaskSubmissionOperation(db, operation.ID, transition)
+			require.NoError(t, err)
+			assert.True(t, won)
+		}
+		formalTask := Task{TaskID: operation.PublicID, UserId: operation.UserID, ChannelId: 17, Status: TaskStatusSubmitted}
+		require.NoError(t, db.Create(&formalTask).Error)
+		won, err := TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From: TaskSubmissionOperationStatusDispatching, To: TaskSubmissionOperationStatusAccepted,
+			TaskID: &formalTask.ID, ExpectedVersion: 3,
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From: TaskSubmissionOperationStatusAccepted, To: TaskSubmissionOperationStatusOutcomeUnknown, ExpectedVersion: 4,
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+
+		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From: TaskSubmissionOperationStatusOutcomeUnknown, To: TaskSubmissionOperationStatusSucceeded,
+			ExpectedVersion: 5,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.False(t, won)
+		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From: TaskSubmissionOperationStatusOutcomeUnknown, To: TaskSubmissionOperationStatusSucceeded,
+			ResolutionSource: TaskSubmissionResolutionSourceProviderVerified,
+			ExpectedVersion:  5,
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		require.NoError(t, db.First(operation, operation.ID).Error)
+		assert.Equal(t, TaskSubmissionOperationStatusSucceeded, operation.Status)
+		assert.Equal(t, TaskSubmissionResolutionSourceProviderVerified, operation.ResolutionSource)
+		require.NotNil(t, operation.RetentionUntil)
+		assert.Equal(t, fixtureClock.now+TaskSubmissionTerminalRetentionSeconds, *operation.RetentionUntil)
+	})
+
+	t.Run("attempt-event-and-outbox-uniqueness", func(t *testing.T) {
+		operation := newB2SubmissionOperation(t, 301, "POST", "video", "child-records", `{}`)
+		require.NoError(t, db.Create(operation).Error)
+		assert.ErrorIs(t, db.Create(&TaskSubmissionAttempt{
+			OperationID: operation.ID, AttemptNo: 2, ChannelID: 9, Provider: "fixture", RequestClass: "video",
+		}).Error, ErrTaskRecoveryInvalidRecord)
+		assert.ErrorIs(t, db.Create(&TaskSubmissionAttempt{
+			OperationID: 9_999_999, AttemptNo: 1, ChannelID: 9, Provider: "fixture", RequestClass: "video",
+		}).Error, ErrTaskSubmissionOperationNotFound)
+
+		unknownOperation := newB2SubmissionOperation(t, 302, "POST", "video", "attempt-unknown-operation", `{}`)
+		require.NoError(t, db.Create(unknownOperation).Error)
+		for _, transition := range []TaskSubmissionOperationTransition{
+			{From: TaskSubmissionOperationStatusPrepared, To: TaskSubmissionOperationStatusReserved, ExpectedVersion: 1},
+			{From: TaskSubmissionOperationStatusReserved, To: TaskSubmissionOperationStatusDispatching, ExpectedVersion: 2},
+			{From: TaskSubmissionOperationStatusDispatching, To: TaskSubmissionOperationStatusSubmissionUnknown, ExpectedVersion: 3},
+		} {
+			won, err := TransitionTaskSubmissionOperation(db, unknownOperation.ID, transition)
+			require.NoError(t, err)
+			assert.True(t, won)
+		}
+		assert.ErrorIs(t, db.Create(&TaskSubmissionAttempt{
+			OperationID: unknownOperation.ID, AttemptNo: 1, ChannelID: 9, Provider: "fixture", RequestClass: "video",
+		}).Error, ErrTaskRecoveryInvalidRecord)
+
+		terminalOperation := newB2SubmissionOperation(t, 303, "POST", "video", "attempt-terminal-operation", `{}`)
+		require.NoError(t, db.Create(terminalOperation).Error)
+		negativeTerminalAt := int64(-1)
+		negativeRetention := negativeTerminalAt + TaskSubmissionTerminalRetentionSeconds
+		won, err := TransitionTaskSubmissionOperation(db, terminalOperation.ID, TaskSubmissionOperationTransition{
+			From: TaskSubmissionOperationStatusPrepared, To: TaskSubmissionOperationStatusCanceled,
+			TransitionedAt: negativeTerminalAt, RetentionUntil: &negativeRetention, ExpectedVersion: 1,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.False(t, won)
+		unsafeRetention := int64(10) + TaskSubmissionTerminalRetentionSeconds
+		won, err = TransitionTaskSubmissionOperation(db, terminalOperation.ID, TaskSubmissionOperationTransition{
+			From: TaskSubmissionOperationStatusPrepared, To: TaskSubmissionOperationStatusCanceled,
+			RetentionUntil: &unsafeRetention, ExpectedVersion: 1,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.False(t, won)
+		terminalEpoch := fixtureClock.now
+		fixtureClock.now = taskRecoveryMaxInt64 - TaskSubmissionTerminalRetentionSeconds + 1
+		won, err = TransitionTaskSubmissionOperation(db, terminalOperation.ID, TaskSubmissionOperationTransition{
+			From: TaskSubmissionOperationStatusPrepared, To: TaskSubmissionOperationStatusCanceled, ExpectedVersion: 1,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.False(t, won)
+		fixtureClock.now = terminalEpoch
+		won, err = TransitionTaskSubmissionOperation(db, terminalOperation.ID, TaskSubmissionOperationTransition{
+			From: TaskSubmissionOperationStatusPrepared, To: TaskSubmissionOperationStatusCanceled,
+			ExpectedVersion: 1,
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		require.NoError(t, db.First(terminalOperation, terminalOperation.ID).Error)
+		assert.Equal(t, fixtureClock.now+TaskSubmissionTerminalRetentionSeconds, *terminalOperation.RetentionUntil)
+		assert.ErrorIs(t, db.Create(&TaskSubmissionAttempt{
+			OperationID: terminalOperation.ID, AttemptNo: 1, ChannelID: 9, Provider: "fixture", RequestClass: "video",
+		}).Error, ErrTaskRecoveryInvalidRecord)
+
+		attempt := TaskSubmissionAttempt{
+			OperationID:  operation.ID,
+			AttemptNo:    1,
+			ChannelID:    9,
+			Provider:     "FixtureProvider",
+			RequestClass: "video",
+		}
+		negativeAttemptTime := attempt
+		negativeAttemptTime.UpdatedAt = -1
+		assert.ErrorIs(t, db.Create(&negativeAttemptTime).Error, ErrTaskRecoveryInvalidRecord)
+		require.NoError(t, db.Create(&attempt).Error)
+		attemptSave := attempt
+		attemptSave.AttemptNo = 2
+		attemptSave.Status = TaskSubmissionAttemptStatusDispatching
+		assert.ErrorIs(t, db.Save(&attemptSave).Error, ErrTaskRecoveryInvalidRecord)
+		assert.ErrorIs(t, db.Model(&TaskSubmissionAttempt{}).Where("id = ?", attempt.ID).Updates(TaskSubmissionAttempt{
+			AttemptNo: 2, Status: TaskSubmissionAttemptStatusDispatching,
+		}).Error, ErrTaskRecoveryInvalidRecord)
+		assert.ErrorIs(t, db.Model(&TaskSubmissionAttempt{}).Where("id = ?", attempt.ID).Updates(map[string]interface{}{
+			"attempt_no": 2, "status": TaskSubmissionAttemptStatusDispatching,
+		}).Error, ErrTaskRecoveryInvalidRecord)
+		var unchangedAttempt TaskSubmissionAttempt
+		require.NoError(t, db.First(&unchangedAttempt, attempt.ID).Error)
+		assert.Equal(t, 1, unchangedAttempt.AttemptNo)
+		assert.Equal(t, TaskSubmissionAttemptStatusPrepared, unchangedAttempt.Status)
+		assert.ErrorIs(t, db.Delete(&unchangedAttempt).Error, ErrTaskRecoveryInvalidRecord)
+		won, err = TransitionTaskSubmissionAttempt(db, attempt.ID, TaskSubmissionAttemptTransition{
+			From: TaskSubmissionAttemptStatusPrepared, To: TaskSubmissionAttemptStatusDispatching,
+			ExpectedVersion: 1, TransitionedAt: -1,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.False(t, won)
+		won, err = TransitionTaskSubmissionAttempt(db, attempt.ID, TaskSubmissionAttemptTransition{
+			From: TaskSubmissionAttemptStatusPrepared, To: TaskSubmissionAttemptStatusDispatching,
+			ExpectedVersion: taskRecoveryMaxInt64, TransitionedAt: 1,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidTransition)
+		assert.False(t, won)
+		duplicateAttempt := attempt
+		duplicateAttempt.ID = 0
+		duplicateAttempt.CreatedAt = 0
+		duplicateAttempt.UpdatedAt = 0
+		require.Error(t, db.Create(&duplicateAttempt).Error)
+
+		won, err = TransitionTaskSubmissionAttempt(db, attempt.ID, TaskSubmissionAttemptTransition{
+			From: TaskSubmissionAttemptStatusPrepared, To: TaskSubmissionAttemptStatusDispatching,
+			ExpectedVersion: 1,
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		won, err = TransitionTaskSubmissionAttempt(db, attempt.ID, TaskSubmissionAttemptTransition{
+			From: TaskSubmissionAttemptStatusPrepared, To: TaskSubmissionAttemptStatusDispatching,
+			ExpectedVersion: 1,
+		})
+		require.NoError(t, err)
+		assert.False(t, won)
+		won, err = TransitionTaskSubmissionAttempt(db, attempt.ID, TaskSubmissionAttemptTransition{
+			From: TaskSubmissionAttemptStatusDispatching, To: TaskSubmissionAttemptStatusSubmissionUnknown,
+			ProviderOperationID: strings.Repeat("p", 192), ExpectedVersion: 2,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.False(t, won)
+		won, err = TransitionTaskSubmissionAttempt(db, attempt.ID, TaskSubmissionAttemptTransition{
+			From: TaskSubmissionAttemptStatusDispatching, To: TaskSubmissionAttemptStatusSubmissionUnknown,
+			UpstreamRequestID: strings.Repeat("r", 129), ExpectedVersion: 2,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.False(t, won)
+		won, err = TransitionTaskSubmissionAttempt(db, attempt.ID, TaskSubmissionAttemptTransition{
+			From: TaskSubmissionAttemptStatusDispatching, To: TaskSubmissionAttemptStatusSubmissionUnknown,
+			ProviderOperationID: "provider-task-301", UpstreamRequestID: "upstream-request-301",
+			OutcomeCode: "read_unknown", ExpectedVersion: 2,
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		won, err = TransitionTaskSubmissionAttempt(db, attempt.ID, TaskSubmissionAttemptTransition{
+			From: TaskSubmissionAttemptStatusSubmissionUnknown, To: TaskSubmissionAttemptStatusAccepted,
+			ProviderOperationID: "conflicting-provider-task", ExpectedVersion: 3,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.False(t, won)
+		won, err = TransitionTaskSubmissionAttempt(db, attempt.ID, TaskSubmissionAttemptTransition{
+			From: TaskSubmissionAttemptStatusSubmissionUnknown, To: TaskSubmissionAttemptStatusAccepted,
+			OutcomeCode: "provider_verified", ExpectedVersion: 3,
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		var resolvedAttempt TaskSubmissionAttempt
+		require.NoError(t, db.First(&resolvedAttempt, attempt.ID).Error)
+		assert.Equal(t, TaskSubmissionAttemptStatusAccepted, resolvedAttempt.Status)
+		assert.Equal(t, "provider-task-301", resolvedAttempt.ProviderOperationID)
+		assert.Equal(t, "upstream-request-301", resolvedAttempt.UpstreamRequestID)
+
+		event := TaskBillingEvent{
+			OperationID:   &operation.ID,
+			EventType:     TaskBillingEventTypeReserve,
+			UserID:        operation.UserID,
+			TokenID:       operation.TokenID,
+			ChannelID:     attempt.ChannelID,
+			BillingSource: "wallet",
+			QuotaDelta:    -500,
+			RequestID:     "fixture-request",
+		}
+		require.NoError(t, db.Create(&event).Error)
+		assert.NotEmpty(t, event.EventID)
+		assert.Equal(t, "task:"+operation.PublicID+":reserve:v1", event.EventKey)
+		assert.Equal(t, TaskRecoveryPayloadVersion, event.PayloadVersion)
+		assert.Equal(t, taskBillingEventPayloadFromRecord(&event), event.Payload)
+		negativeChannelEvent := TaskBillingEvent{
+			OperationID: &operation.ID, EventType: TaskBillingEventTypeRefund,
+			UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: -1,
+			BillingSource: "wallet", QuotaDelta: 1,
+		}
+		assert.ErrorIs(t, db.Create(&negativeChannelEvent).Error, ErrTaskRecoveryInvalidRecord)
+		negativeEventTime := event
+		negativeEventTime.ID = 0
+		negativeEventTime.EventID = ""
+		negativeEventTime.EventKey = ""
+		negativeEventTime.EventType = TaskBillingEventTypeRefund
+		negativeEventTime.QuotaDelta = 1
+		negativeEventTime.Payload = TaskBillingEventPayload{}
+		negativeEventTime.PayloadVersion = 0
+		negativeEventTime.LockVersion = 0
+		negativeEventTime.CreatedAt = -1
+		assert.ErrorIs(t, db.Create(&negativeEventTime).Error, ErrTaskRecoveryInvalidRecord)
+		wrongOwnerEvent := TaskBillingEvent{
+			OperationID: &operation.ID, EventType: TaskBillingEventTypeRefund,
+			UserID: operation.UserID + 1, TokenID: operation.TokenID, ChannelID: attempt.ChannelID,
+			BillingSource: "wallet", QuotaDelta: 1,
+		}
+		assert.ErrorIs(t, db.Create(&wrongOwnerEvent).Error, ErrTaskRecoveryInvalidRecord)
+		wrongTokenEvent := TaskBillingEvent{
+			OperationID: &operation.ID, EventType: TaskBillingEventTypeRefund,
+			UserID: operation.UserID, TokenID: operation.TokenID + 1, ChannelID: attempt.ChannelID,
+			BillingSource: "wallet", QuotaDelta: 1,
+		}
+		assert.ErrorIs(t, db.Create(&wrongTokenEvent).Error, ErrTaskRecoveryInvalidRecord)
+		forgedEventKey := TaskBillingEvent{
+			EventKey: "caller-controlled-key", OperationID: &operation.ID,
+			EventType: TaskBillingEventTypeRefund, UserID: operation.UserID, TokenID: operation.TokenID,
+			ChannelID: attempt.ChannelID, BillingSource: "wallet", QuotaDelta: 1,
+		}
+		assert.ErrorIs(t, db.Create(&forgedEventKey).Error, ErrTaskRecoveryInvalidRecord)
+		overflowEvent := event
+		overflowEvent.ID = 0
+		overflowEvent.EventID = ""
+		overflowEvent.EventKey += ":overflow"
+		overflowEvent.QuotaDelta = taskBillingQuotaMax + 1
+		overflowEvent.Payload = TaskBillingEventPayload{}
+		overflowEvent.PayloadVersion = 0
+		overflowEvent.LockVersion = 0
+		overflowEvent.CreatedAt = 0
+		overflowEvent.UpdatedAt = 0
+		assert.ErrorIs(t, db.Create(&overflowEvent).Error, ErrTaskRecoveryInvalidRecord)
+		underflowEvent := overflowEvent
+		underflowEvent.EventKey = event.EventKey + ":underflow"
+		underflowEvent.QuotaDelta = taskBillingQuotaMin - 1
+		assert.ErrorIs(t, db.Create(&underflowEvent).Error, ErrTaskRecoveryInvalidRecord)
+		duplicateEventKey := event
+		duplicateEventKey.ID = 0
+		duplicateEventKey.EventID = ""
+		duplicateEventKey.Payload = TaskBillingEventPayload{}
+		duplicateEventKey.PayloadVersion = 0
+		duplicateEventKey.CreatedAt = 0
+		duplicateEventKey.UpdatedAt = 0
+		require.Error(t, db.Create(&duplicateEventKey).Error)
+		duplicateStableID := event
+		duplicateStableID.ID = 0
+		duplicateStableID.EventKey = ""
+		duplicateStableID.EventType = TaskBillingEventTypeRefund
+		duplicateStableID.QuotaDelta = 1
+		duplicateStableID.Payload = TaskBillingEventPayload{}
+		duplicateStableID.PayloadVersion = 0
+		duplicateStableID.CreatedAt = 0
+		duplicateStableID.UpdatedAt = 0
+		require.Error(t, db.Create(&duplicateStableID).Error)
+
+		for _, transition := range []TaskSubmissionOperationTransition{
+			{From: TaskSubmissionOperationStatusPrepared, To: TaskSubmissionOperationStatusReserved, ExpectedVersion: 1},
+			{From: TaskSubmissionOperationStatusReserved, To: TaskSubmissionOperationStatusDispatching, ExpectedVersion: 2},
+		} {
+			won, err = TransitionTaskSubmissionOperation(db, operation.ID, transition)
+			require.NoError(t, err)
+			assert.True(t, won)
+		}
+		formalTask := Task{TaskID: operation.PublicID, UserId: operation.UserID, ChannelId: attempt.ChannelID, Status: TaskStatusSubmitted}
+		require.NoError(t, db.Create(&formalTask).Error)
+		won, err = TransitionTaskSubmissionOperation(db, operation.ID, TaskSubmissionOperationTransition{
+			From: TaskSubmissionOperationStatusDispatching, To: TaskSubmissionOperationStatusAccepted,
+			TaskID: &formalTask.ID, ExpectedVersion: 3,
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		taskReferencedDuplicate := TaskBillingEvent{
+			TaskID: &formalTask.ID, EventType: TaskBillingEventTypeReserve,
+			UserID: operation.UserID, TokenID: operation.TokenID, ChannelID: attempt.ChannelID,
+			BillingSource: "wallet", QuotaDelta: event.QuotaDelta, RequestID: event.RequestID,
+		}
+		require.Error(t, db.Create(&taskReferencedDuplicate).Error)
+		assert.Equal(t, event.EventKey, taskReferencedDuplicate.EventKey)
+		require.NotNil(t, taskReferencedDuplicate.OperationID)
+		assert.Equal(t, operation.ID, *taskReferencedDuplicate.OperationID)
+
+		outboxPayload := b2BillingLogPayload(&event)
+		assert.ErrorIs(t, db.Create(&TaskBillingLogOutbox{BillingEventID: event.EventID}).Error, ErrTaskRecoveryInvalidRecord)
+		for name, mutate := range map[string]func(*TaskBillingLogPayload){
+			"user":  func(payload *TaskBillingLogPayload) { payload.UserID++ },
+			"token": func(payload *TaskBillingLogPayload) { payload.TokenID++ },
+			"quota": func(payload *TaskBillingLogPayload) { payload.Quota++ },
+			"type":  func(payload *TaskBillingLogPayload) { payload.Type = LogTypeRefund },
+		} {
+			t.Run("reject-projection-"+name, func(t *testing.T) {
+				wrongPayload := outboxPayload
+				mutate(&wrongPayload)
+				assert.ErrorIs(t, db.Create(&TaskBillingLogOutbox{
+					BillingEventID: event.EventID, Payload: wrongPayload,
+				}).Error, ErrTaskRecoveryInvalidRecord)
+			})
+		}
+		generatedOutbox, err := NewTaskBillingLogOutbox(&event, TaskBillingLogPayload{
+			Content: "task billing reserve", ModelName: "fixture-model", Group: "default",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, outboxPayload, generatedOutbox.Payload)
+		negativeOutboxTime := *generatedOutbox
+		negativeOutboxTime.CreatedAt = -1
+		assert.ErrorIs(t, db.Create(&negativeOutboxTime).Error, ErrTaskRecoveryInvalidRecord)
+		outbox := *generatedOutbox
+		require.NoError(t, db.Create(&outbox).Error)
+		var persistedEvent TaskBillingEvent
+		require.NoError(t, db.First(&persistedEvent, event.ID).Error)
+		assert.Equal(t, event.Payload, persistedEvent.Payload)
+		var persistedOutbox TaskBillingLogOutbox
+		require.NoError(t, db.First(&persistedOutbox, outbox.ID).Error)
+		assert.Equal(t, outboxPayload, persistedOutbox.Payload)
+		assert.ErrorIs(t, db.Delete(&persistedEvent).Error, ErrTaskRecoveryInvalidRecord)
+		assert.ErrorIs(t, db.Delete(&persistedOutbox).Error, ErrTaskRecoveryInvalidRecord)
+
+		eventSave := persistedEvent
+		eventSave.EventKey = "forged-save-key"
+		eventSave.State = TaskBillingEventStateApplied
+		assert.ErrorIs(t, db.Save(&eventSave).Error, ErrTaskRecoveryInvalidRecord)
+		assert.ErrorIs(t, db.Model(&TaskBillingEvent{}).Where("id = ?", event.ID).Updates(TaskBillingEvent{
+			EventKey: "forged-struct-key", State: TaskBillingEventStateApplied,
+		}).Error, ErrTaskRecoveryInvalidRecord)
+		assert.ErrorIs(t, db.Model(&TaskBillingEvent{}).Where("id = ?", event.ID).Updates(map[string]interface{}{
+			"event_key": "forged-map-key", "state": TaskBillingEventStateApplied,
+		}).Error, ErrTaskRecoveryInvalidRecord)
+		outboxSave := persistedOutbox
+		outboxSave.BillingEventID = "forged-save-event"
+		outboxSave.State = TaskBillingLogOutboxStateDelivered
+		assert.ErrorIs(t, db.Save(&outboxSave).Error, ErrTaskRecoveryInvalidRecord)
+		assert.ErrorIs(t, db.Model(&TaskBillingLogOutbox{}).Where("id = ?", outbox.ID).Updates(TaskBillingLogOutbox{
+			BillingEventID: "forged-struct-event", State: TaskBillingLogOutboxStateDelivered,
+		}).Error, ErrTaskRecoveryInvalidRecord)
+		assert.ErrorIs(t, db.Model(&TaskBillingLogOutbox{}).Where("id = ?", outbox.ID).Updates(map[string]interface{}{
+			"billing_event_id": "forged-map-event", "state": TaskBillingLogOutboxStateDelivered,
+		}).Error, ErrTaskRecoveryInvalidRecord)
+		require.NoError(t, db.First(&persistedEvent, event.ID).Error)
+		assert.Equal(t, event.EventKey, persistedEvent.EventKey)
+		assert.Equal(t, TaskBillingEventStatePending, persistedEvent.State)
+		require.NoError(t, db.First(&persistedOutbox, outbox.ID).Error)
+		assert.Equal(t, event.EventID, persistedOutbox.BillingEventID)
+		assert.Equal(t, TaskBillingLogOutboxStatePending, persistedOutbox.State)
+		assert.ErrorIs(t, db.Model(&TaskBillingEvent{}).Where("id = ?", event.ID).
+			Update("payload", TaskBillingEventPayload{Version: TaskRecoveryPayloadVersion}).Error, ErrTaskRecoveryInvalidRecord)
+		assert.ErrorIs(t, db.Model(&TaskBillingLogOutbox{}).Where("id = ?", outbox.ID).
+			Update("payload", TaskBillingLogPayload{Version: TaskRecoveryPayloadVersion}).Error, ErrTaskRecoveryInvalidRecord)
+		duplicateOutbox := outbox
+		duplicateOutbox.ID = 0
+		duplicateOutbox.CreatedAt = 0
+		duplicateOutbox.UpdatedAt = 0
+		require.Error(t, db.Create(&duplicateOutbox).Error)
+
+		won, err = TransitionTaskBillingEvent(db, event.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStatePending, To: TaskBillingEventStateClaimed,
+			Lease:           TaskRecoveryProcessingLease{WorkerID: "event-worker", LeaseSeconds: 50},
+			ExpectedVersion: 1,
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		won, err = TransitionTaskBillingEvent(db, event.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStatePending, To: TaskBillingEventStateClaimed,
+			Lease:           TaskRecoveryProcessingLease{WorkerID: "stale-worker", LeaseSeconds: 50},
+			ExpectedVersion: 1,
+		})
+		require.NoError(t, err)
+		assert.False(t, won)
+		won, err = TransitionTaskBillingEvent(db, event.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStateClaimed, To: TaskBillingEventStateApplied,
+			WorkerID: "event-worker", ExpectedVersion: 2,
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+
+		won, err = TransitionTaskBillingLogOutbox(db, outbox.ID, TaskBillingLogOutboxTransition{
+			From: TaskBillingLogOutboxStatePending, To: TaskBillingLogOutboxStateClaimed,
+			Lease:           TaskRecoveryProcessingLease{WorkerID: "outbox-worker", LeaseSeconds: 50},
+			ExpectedVersion: 1,
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		won, err = TransitionTaskBillingLogOutbox(db, outbox.ID, TaskBillingLogOutboxTransition{
+			From: TaskBillingLogOutboxStateClaimed, To: TaskBillingLogOutboxStateDelivered,
+			WorkerID: "outbox-worker", ExpectedVersion: 2,
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+
+		// Log delivery is at-least-once. Its projection key is indexed but not
+		// unique, so a retry remains writable and readers can deduplicate it.
+		for i := 0; i < 2; i++ {
+			require.NoError(t, db.Create(&Log{BillingEventID: event.EventID, RequestId: "log-replay"}).Error)
+		}
+		var replayCount int64
+		require.NoError(t, db.Model(&Log{}).Where("billing_event_id = ?", event.EventID).Count(&replayCount).Error)
+		assert.Equal(t, int64(2), replayCount)
+	})
+
+	t.Run("billing-processing-leases-are-owned-due-and-reclaimable", func(t *testing.T) {
+		operation := newB2SubmissionOperation(t, 306, "POST", "video", "processing-leases", `{}`)
+		require.NoError(t, db.Create(operation).Error)
+		event := TaskBillingEvent{
+			OperationID: &operation.ID, EventType: TaskBillingEventTypeReserve,
+			UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: 0,
+		}
+		require.NoError(t, db.Create(&event).Error)
+		outbox, err := NewTaskBillingLogOutbox(&event, TaskBillingLogPayload{
+			Content: "processing lease", ModelName: "fixture-model", Group: "default",
+		})
+		require.NoError(t, err)
+		require.NoError(t, db.Create(outbox).Error)
+		leaseEpoch := fixtureClock.now + 10_000
+		at := func(offset int64) int64 {
+			fixtureClock.now = leaseEpoch + offset
+			return fixtureClock.now
+		}
+		for _, invalidLeaseSeconds := range []int64{0, -1, TaskRecoveryMaxProcessingLeaseSeconds + 1} {
+			won, err := TransitionTaskBillingEvent(db, event.ID, TaskBillingEventTransition{
+				From: TaskBillingEventStatePending, To: TaskBillingEventStateClaimed,
+				Lease:           TaskRecoveryProcessingLease{WorkerID: "event-worker-a", LeaseSeconds: invalidLeaseSeconds},
+				ExpectedVersion: 1, TransitionedAt: at(90),
+			})
+			assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+			assert.False(t, won)
+		}
+		fixtureClock.now = taskRecoveryMaxInt64 - TaskRecoveryMaxProcessingLeaseSeconds + 1
+		won, err := TransitionTaskBillingEvent(db, event.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStatePending, To: TaskBillingEventStateClaimed,
+			Lease:           TaskRecoveryProcessingLease{WorkerID: "event-worker-a", LeaseSeconds: TaskRecoveryMaxProcessingLeaseSeconds},
+			ExpectedVersion: 1,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.False(t, won)
+		at(95)
+		boundaryEvent := TaskBillingEvent{
+			OperationID: &operation.ID, EventType: TaskBillingEventTypeTerminalSettlement,
+			UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: 0,
+		}
+		require.NoError(t, db.Create(&boundaryEvent).Error)
+		won, err = TransitionTaskBillingEvent(db, boundaryEvent.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStatePending, To: TaskBillingEventStateClaimed,
+			Lease:           TaskRecoveryProcessingLease{WorkerID: "boundary-worker", LeaseSeconds: TaskRecoveryMaxProcessingLeaseSeconds},
+			ExpectedVersion: 1, TransitionedAt: at(96),
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		var boundaryPersisted TaskBillingEvent
+		require.NoError(t, db.First(&boundaryPersisted, boundaryEvent.ID).Error)
+		assert.Equal(t, leaseEpoch+96+TaskRecoveryMaxProcessingLeaseSeconds, boundaryPersisted.ClaimedUntil)
+		won, err = TransitionTaskBillingEvent(db, boundaryEvent.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStateClaimed, To: TaskBillingEventStateRetryable,
+			WorkerID: "boundary-worker", RetryDelaySeconds: TaskRecoveryMaxRetryDelaySeconds, LastErrorCode: "boundary_retry",
+			ExpectedVersion: 2, TransitionedAt: at(97),
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		require.NoError(t, db.First(&boundaryPersisted, boundaryEvent.ID).Error)
+		assert.Equal(t, leaseEpoch+97+TaskRecoveryMaxRetryDelaySeconds, boundaryPersisted.NextAttemptAt)
+
+		won, err = TransitionTaskBillingEvent(db, event.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStatePending, To: TaskBillingEventStateClaimed,
+			Lease:           TaskRecoveryProcessingLease{WorkerID: "event-worker-a", LeaseSeconds: 100},
+			ExpectedVersion: 1, TransitionedAt: -1,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.False(t, won)
+		won, err = TransitionTaskBillingEvent(db, event.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStatePending, To: TaskBillingEventStateClaimed,
+			Lease:           TaskRecoveryProcessingLease{WorkerID: "event-worker-a", LeaseSeconds: 100},
+			ExpectedVersion: taskRecoveryMaxInt64,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidTransition)
+		assert.False(t, won)
+		won, err = TransitionTaskBillingEvent(db, event.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStatePending, To: TaskBillingEventStateClaimed,
+			Lease:           TaskRecoveryProcessingLease{WorkerID: "event-worker-a", LeaseSeconds: 100},
+			ExpectedVersion: 1, TransitionedAt: at(100),
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		var persistedEvent TaskBillingEvent
+		require.NoError(t, db.First(&persistedEvent, event.ID).Error)
+		assert.Equal(t, TaskBillingEventStateClaimed, persistedEvent.State)
+		assert.Equal(t, "event-worker-a", persistedEvent.ClaimedBy)
+		assert.Equal(t, leaseEpoch+200, persistedEvent.ClaimedUntil)
+		assert.Equal(t, 1, persistedEvent.AttemptCount)
+		assert.Equal(t, int64(2), persistedEvent.LockVersion)
+
+		won, err = TransitionTaskBillingEvent(db, event.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStateClaimed, To: TaskBillingEventStateApplied,
+			WorkerID: "wrong-worker", ExpectedVersion: 2, TransitionedAt: at(150),
+		})
+		require.NoError(t, err)
+		assert.False(t, won)
+		won, err = ReclaimExpiredTaskBillingEvent(db, event.ID,
+			TaskRecoveryProcessingLease{WorkerID: "event-worker-b", LeaseSeconds: 101}, 2, at(199))
+		require.NoError(t, err)
+		assert.False(t, won)
+		won, err = TransitionTaskBillingEvent(db, event.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStateClaimed, To: TaskBillingEventStateApplied,
+			WorkerID: "event-worker-a", ExpectedVersion: 2, TransitionedAt: at(200),
+		})
+		require.NoError(t, err)
+		assert.False(t, won)
+		won, err = ReclaimExpiredTaskBillingEvent(db, event.ID,
+			TaskRecoveryProcessingLease{WorkerID: "event-worker-b", LeaseSeconds: 100}, 2, at(200))
+		require.NoError(t, err)
+		assert.True(t, won)
+		require.NoError(t, db.First(&persistedEvent, event.ID).Error)
+		assert.Equal(t, "event-worker-b", persistedEvent.ClaimedBy)
+		assert.Equal(t, 2, persistedEvent.AttemptCount)
+		assert.Equal(t, "lease_expired", persistedEvent.LastErrorCode)
+		assert.Equal(t, int64(3), persistedEvent.LockVersion)
+		won, err = TransitionTaskBillingEvent(db, event.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStateClaimed, To: TaskBillingEventStateApplied,
+			WorkerID: "event-worker-a", ExpectedVersion: 2, TransitionedAt: at(220),
+		})
+		require.NoError(t, err)
+		assert.False(t, won)
+		won, err = TransitionTaskBillingEvent(db, event.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStateClaimed, To: TaskBillingEventStateRetryable,
+			WorkerID: "event-worker-b", RetryDelaySeconds: 30, LastErrorCode: "sink_unavailable",
+			ExpectedVersion: 3, TransitionedAt: at(220),
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		require.NoError(t, db.First(&persistedEvent, event.ID).Error)
+		assert.Equal(t, TaskBillingEventStateRetryable, persistedEvent.State)
+		assert.Empty(t, persistedEvent.ClaimedBy)
+		assert.Zero(t, persistedEvent.ClaimedUntil)
+		assert.Equal(t, leaseEpoch+250, persistedEvent.NextAttemptAt)
+		assert.Equal(t, "sink_unavailable", persistedEvent.LastErrorCode)
+		assert.Equal(t, leaseEpoch+220, persistedEvent.LastErrorAt)
+		won, err = TransitionTaskBillingEvent(db, event.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStateRetryable, To: TaskBillingEventStateClaimed,
+			Lease:           TaskRecoveryProcessingLease{WorkerID: "event-worker-c", LeaseSeconds: 110},
+			ExpectedVersion: 4, TransitionedAt: at(240),
+		})
+		require.NoError(t, err)
+		assert.False(t, won)
+		won, err = TransitionTaskBillingEvent(db, event.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStateRetryable, To: TaskBillingEventStateClaimed,
+			Lease:           TaskRecoveryProcessingLease{WorkerID: "event-worker-c", LeaseSeconds: 100},
+			ExpectedVersion: 4, TransitionedAt: at(250),
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		for _, invalidRetryDelay := range []int64{0, -1, TaskRecoveryMaxRetryDelaySeconds + 1} {
+			won, err = TransitionTaskBillingEvent(db, event.ID, TaskBillingEventTransition{
+				From: TaskBillingEventStateClaimed, To: TaskBillingEventStateRetryable,
+				WorkerID: "event-worker-c", RetryDelaySeconds: invalidRetryDelay, LastErrorCode: "invalid_delay",
+				ExpectedVersion: 5, TransitionedAt: at(260),
+			})
+			assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+			assert.False(t, won)
+		}
+		fixtureClock.now = taskRecoveryMaxInt64 - TaskRecoveryMaxRetryDelaySeconds + 1
+		won, err = TransitionTaskBillingEvent(db, event.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStateClaimed, To: TaskBillingEventStateRetryable,
+			WorkerID: "event-worker-c", RetryDelaySeconds: TaskRecoveryMaxRetryDelaySeconds, LastErrorCode: "overflow",
+			ExpectedVersion: 5,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.False(t, won)
+		won, err = TransitionTaskBillingEvent(db, event.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStateClaimed, To: TaskBillingEventStateApplied,
+			WorkerID: "event-worker-c", ExpectedVersion: 5, TransitionedAt: at(300),
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		won, err = TransitionTaskBillingLogOutbox(db, outbox.ID, TaskBillingLogOutboxTransition{
+			From: TaskBillingLogOutboxStatePending, To: TaskBillingLogOutboxStateClaimed,
+			Lease:           TaskRecoveryProcessingLease{WorkerID: "outbox-worker-a", LeaseSeconds: 100},
+			ExpectedVersion: 1, TransitionedAt: -1,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.False(t, won)
+		won, err = TransitionTaskBillingLogOutbox(db, outbox.ID, TaskBillingLogOutboxTransition{
+			From: TaskBillingLogOutboxStatePending, To: TaskBillingLogOutboxStateClaimed,
+			Lease:           TaskRecoveryProcessingLease{WorkerID: "outbox-worker-a", LeaseSeconds: 100},
+			ExpectedVersion: taskRecoveryMaxInt64,
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidTransition)
+		assert.False(t, won)
+		won, err = TransitionTaskBillingLogOutbox(db, outbox.ID, TaskBillingLogOutboxTransition{
+			From: TaskBillingLogOutboxStatePending, To: TaskBillingLogOutboxStateClaimed,
+			Lease:           TaskRecoveryProcessingLease{WorkerID: "outbox-worker-a", LeaseSeconds: 100},
+			ExpectedVersion: 1, TransitionedAt: at(1_000),
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		won, err = TransitionTaskBillingLogOutbox(db, outbox.ID, TaskBillingLogOutboxTransition{
+			From: TaskBillingLogOutboxStateClaimed, To: TaskBillingLogOutboxStateDelivered,
+			WorkerID: "wrong-worker", ExpectedVersion: 2, TransitionedAt: at(1_050),
+		})
+		require.NoError(t, err)
+		assert.False(t, won)
+		won, err = ReclaimExpiredTaskBillingLogOutbox(db, outbox.ID,
+			TaskRecoveryProcessingLease{WorkerID: "outbox-worker-b", LeaseSeconds: 101}, 2, at(1_099))
+		require.NoError(t, err)
+		assert.False(t, won)
+		won, err = TransitionTaskBillingLogOutbox(db, outbox.ID, TaskBillingLogOutboxTransition{
+			From: TaskBillingLogOutboxStateClaimed, To: TaskBillingLogOutboxStateDelivered,
+			WorkerID: "outbox-worker-a", ExpectedVersion: 2, TransitionedAt: at(1_100),
+		})
+		require.NoError(t, err)
+		assert.False(t, won)
+		won, err = ReclaimExpiredTaskBillingLogOutbox(db, outbox.ID,
+			TaskRecoveryProcessingLease{WorkerID: "outbox-worker-b", LeaseSeconds: 100}, 2, at(1_100))
+		require.NoError(t, err)
+		assert.True(t, won)
+		won, err = TransitionTaskBillingLogOutbox(db, outbox.ID, TaskBillingLogOutboxTransition{
+			From: TaskBillingLogOutboxStateClaimed, To: TaskBillingLogOutboxStateDelivered,
+			WorkerID: "outbox-worker-a", ExpectedVersion: 2, TransitionedAt: at(1_150),
+		})
+		require.NoError(t, err)
+		assert.False(t, won)
+		won, err = TransitionTaskBillingLogOutbox(db, outbox.ID, TaskBillingLogOutboxTransition{
+			From: TaskBillingLogOutboxStateClaimed, To: TaskBillingLogOutboxStateRetryable,
+			WorkerID: "outbox-worker-b", RetryDelaySeconds: 25, LastErrorCode: "log_sink_unavailable",
+			ExpectedVersion: 3, TransitionedAt: at(1_150),
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		won, err = TransitionTaskBillingLogOutbox(db, outbox.ID, TaskBillingLogOutboxTransition{
+			From: TaskBillingLogOutboxStateRetryable, To: TaskBillingLogOutboxStateClaimed,
+			Lease:           TaskRecoveryProcessingLease{WorkerID: "outbox-worker-c", LeaseSeconds: 140},
+			ExpectedVersion: 4, TransitionedAt: at(1_160),
+		})
+		require.NoError(t, err)
+		assert.False(t, won)
+		won, err = TransitionTaskBillingLogOutbox(db, outbox.ID, TaskBillingLogOutboxTransition{
+			From: TaskBillingLogOutboxStateRetryable, To: TaskBillingLogOutboxStateClaimed,
+			Lease:           TaskRecoveryProcessingLease{WorkerID: "outbox-worker-c", LeaseSeconds: 125},
+			ExpectedVersion: 4, TransitionedAt: at(1_175),
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		won, err = TransitionTaskBillingLogOutbox(db, outbox.ID, TaskBillingLogOutboxTransition{
+			From: TaskBillingLogOutboxStateClaimed, To: TaskBillingLogOutboxStateDelivered,
+			WorkerID: "outbox-worker-c", ExpectedVersion: 5, TransitionedAt: at(1_200),
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		var persistedOutbox TaskBillingLogOutbox
+		require.NoError(t, db.First(&persistedOutbox, outbox.ID).Error)
+		assert.Equal(t, TaskBillingLogOutboxStateDelivered, persistedOutbox.State)
+		assert.Empty(t, persistedOutbox.ClaimedBy)
+		assert.Zero(t, persistedOutbox.ClaimedUntil)
+		assert.Equal(t, 3, persistedOutbox.AttemptCount)
+		assert.Equal(t, int64(6), persistedOutbox.LockVersion)
+		require.NotNil(t, persistedOutbox.DeliveredAt)
+		assert.Equal(t, leaseEpoch+1_200, *persistedOutbox.DeliveredAt)
+
+		manualReviewEvent := TaskBillingEvent{
+			OperationID: &operation.ID, EventType: TaskBillingEventTypeSubmissionAdjustment,
+			UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: 0,
+		}
+		require.NoError(t, db.Create(&manualReviewEvent).Error)
+		won, err = TransitionTaskBillingEvent(db, manualReviewEvent.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStatePending, To: TaskBillingEventStateClaimed,
+			Lease:           TaskRecoveryProcessingLease{WorkerID: "review-worker", LeaseSeconds: 100},
+			ExpectedVersion: 1, TransitionedAt: at(1_400),
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		won, err = TransitionTaskBillingEvent(db, manualReviewEvent.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStateClaimed, To: TaskBillingEventStateManualReview,
+			WorkerID: "review-worker", LastErrorCode: "ledger_conflict",
+			ExpectedVersion: 2, TransitionedAt: at(1_450),
+		})
+		require.NoError(t, err)
+		assert.True(t, won)
+		won, err = TransitionTaskBillingEvent(db, manualReviewEvent.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStateManualReview, To: TaskBillingEventStatePending,
+			ExpectedVersion: 3, TransitionedAt: at(1_451),
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidTransition)
+		assert.False(t, won)
+		var persistedReviewEvent TaskBillingEvent
+		require.NoError(t, db.First(&persistedReviewEvent, manualReviewEvent.ID).Error)
+		assert.Equal(t, TaskBillingEventStateManualReview, persistedReviewEvent.State)
+		assert.Empty(t, persistedReviewEvent.ClaimedBy)
+		assert.Equal(t, "ledger_conflict", persistedReviewEvent.LastErrorCode)
+
+		cappedEvent := TaskBillingEvent{
+			OperationID: &operation.ID, EventType: TaskBillingEventTypeRefund,
+			UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: 0,
+		}
+		require.NoError(t, db.Create(&cappedEvent).Error)
+		cappedOutbox, err := NewTaskBillingLogOutbox(&cappedEvent, TaskBillingLogPayload{
+			Content: "attempt cap", ModelName: "fixture-model", Group: "default",
+		})
+		require.NoError(t, err)
+		require.NoError(t, db.Create(cappedOutbox).Error)
+		require.NoError(t, db.Table("task_billing_events").Where("id = ?", cappedEvent.ID).
+			Update("attempt_count", taskRecoveryAttemptCountMax).Error)
+		require.NoError(t, db.Table("task_billing_log_outboxes").Where("id = ?", cappedOutbox.ID).
+			Update("attempt_count", taskRecoveryAttemptCountMax).Error)
+		won, err = TransitionTaskBillingEvent(db, cappedEvent.ID, TaskBillingEventTransition{
+			From: TaskBillingEventStatePending, To: TaskBillingEventStateClaimed,
+			Lease:           TaskRecoveryProcessingLease{WorkerID: "capped-worker", LeaseSeconds: 100},
+			ExpectedVersion: 1, TransitionedAt: at(2_000),
+		})
+		require.NoError(t, err)
+		assert.False(t, won)
+		won, err = TransitionTaskBillingLogOutbox(db, cappedOutbox.ID, TaskBillingLogOutboxTransition{
+			From: TaskBillingLogOutboxStatePending, To: TaskBillingLogOutboxStateClaimed,
+			Lease:           TaskRecoveryProcessingLease{WorkerID: "capped-worker", LeaseSeconds: 100},
+			ExpectedVersion: 1, TransitionedAt: at(2_000),
+		})
+		require.NoError(t, err)
+		assert.False(t, won)
+	})
+
+	t.Run("billing-event-sign-boundaries-manual-keys-and-free-projection", func(t *testing.T) {
+		operation := newB2SubmissionOperation(t, 304, "POST", "video", "billing-boundaries", `{}`)
+		require.NoError(t, db.Create(operation).Error)
+		reserveBoundary := TaskBillingEvent{
+			OperationID: &operation.ID, EventType: TaskBillingEventTypeReserve,
+			UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: taskBillingQuotaMin,
+		}
+		require.NoError(t, db.Create(&reserveBoundary).Error)
+		reserveOutbox, err := NewTaskBillingLogOutbox(&reserveBoundary, TaskBillingLogPayload{
+			Content: "boundary reserve", ModelName: "fixture-model", Group: "default",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, LogTypeConsume, reserveOutbox.Payload.Type)
+		assert.Equal(t, int(taskBillingQuotaMax), reserveOutbox.Payload.Quota)
+
+		refundBoundary := TaskBillingEvent{
+			OperationID: &operation.ID, EventType: TaskBillingEventTypeRefund,
+			UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: taskBillingQuotaMax,
+		}
+		require.NoError(t, db.Create(&refundBoundary).Error)
+		refundOutbox, err := NewTaskBillingLogOutbox(&refundBoundary, TaskBillingLogPayload{
+			Content: "boundary refund", ModelName: "fixture-model", Group: "default",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, LogTypeRefund, refundOutbox.Payload.Type)
+		assert.Equal(t, int(taskBillingQuotaMax), refundOutbox.Payload.Quota)
+		mutatedEvent := reserveBoundary
+		mutatedEvent.QuotaDelta = taskBillingQuotaMin - 1
+		_, err = NewTaskBillingLogOutbox(&mutatedEvent, TaskBillingLogPayload{
+			Content: "invalid mutated event", ModelName: "fixture-model", Group: "default",
+		})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		for name, details := range map[string]TaskBillingLogPayload{
+			"prompt-tokens": {
+				Content: "invalid prompt tokens", ModelName: "fixture-model", Group: "default", PromptTokens: int(taskBillingQuotaMax) + 1,
+			},
+			"completion-tokens": {
+				Content: "invalid completion tokens", ModelName: "fixture-model", Group: "default", CompletionTokens: int(taskBillingQuotaMax) + 1,
+			},
+			"use-time": {
+				Content: "invalid use time", ModelName: "fixture-model", Group: "default", UseTime: int(taskBillingQuotaMax) + 1,
+			},
+		} {
+			t.Run("reject-projection-overflow-"+name, func(t *testing.T) {
+				_, err := NewTaskBillingLogOutbox(&reserveBoundary, details)
+				assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+			})
+		}
+
+		for name, invalidEvent := range map[string]TaskBillingEvent{
+			"underflow": {
+				OperationID: &operation.ID, EventType: TaskBillingEventTypeSubmissionAdjustment,
+				UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: taskBillingQuotaMin - 1,
+			},
+			"overflow": {
+				OperationID: &operation.ID, EventType: TaskBillingEventTypeTerminalSettlement,
+				UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: taskBillingQuotaMax + 1,
+			},
+			"positive-reserve": {
+				OperationID: &operation.ID, EventType: TaskBillingEventTypeReserve,
+				UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: 1,
+			},
+			"negative-refund": {
+				OperationID: &operation.ID, EventType: TaskBillingEventTypeRefund,
+				UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: -1,
+			},
+		} {
+			t.Run(name, func(t *testing.T) {
+				assert.ErrorIs(t, db.Create(&invalidEvent).Error, ErrTaskRecoveryInvalidRecord)
+			})
+		}
+
+		freeOperation := newB2SubmissionOperation(t, 305, "POST", "video", "free-reserve", `{}`)
+		require.NoError(t, db.Create(freeOperation).Error)
+		freeReserve := TaskBillingEvent{
+			OperationID: &freeOperation.ID, EventType: TaskBillingEventTypeReserve,
+			UserID: freeOperation.UserID, TokenID: freeOperation.TokenID, BillingSource: "wallet", QuotaDelta: 0,
+		}
+		require.NoError(t, db.Create(&freeReserve).Error)
+		freeOutbox, err := NewTaskBillingLogOutbox(&freeReserve, TaskBillingLogPayload{
+			Content: "free reserve receipt", ModelName: "fixture-model", Group: "default",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, LogTypeSystem, freeOutbox.Payload.Type)
+		assert.Zero(t, freeOutbox.Payload.Quota)
+		require.NoError(t, db.Create(freeOutbox).Error)
+
+		manualFirst := TaskBillingEvent{
+			OperationID: &operation.ID, EventType: TaskBillingEventTypeManualResolution,
+			UserID: operation.UserID, TokenID: operation.TokenID, BillingSource: "wallet", QuotaDelta: 0,
+			AuditCommandID: "audit-command-001", ResolutionSource: TaskSubmissionResolutionSourceManualAudit,
+		}
+		require.NoError(t, db.Create(&manualFirst).Error)
+		manualSecond := manualFirst
+		manualSecond.ID = 0
+		manualSecond.EventID = ""
+		manualSecond.EventKey = ""
+		manualSecond.AuditCommandID = "audit-command-002"
+		manualSecond.Payload = TaskBillingEventPayload{}
+		manualSecond.PayloadVersion = 0
+		manualSecond.LockVersion = 0
+		manualSecond.CreatedAt = 0
+		manualSecond.UpdatedAt = 0
+		require.NoError(t, db.Create(&manualSecond).Error)
+		assert.NotEqual(t, manualFirst.EventKey, manualSecond.EventKey)
+		manualReplay := manualFirst
+		manualReplay.ID = 0
+		manualReplay.EventID = ""
+		manualReplay.Payload = TaskBillingEventPayload{}
+		manualReplay.PayloadVersion = 0
+		manualReplay.LockVersion = 0
+		manualReplay.CreatedAt = 0
+		manualReplay.UpdatedAt = 0
+		require.Error(t, db.Create(&manualReplay).Error)
+		assert.Equal(t, manualFirst.EventKey, manualReplay.EventKey)
+		manualWithoutCommand := manualFirst
+		manualWithoutCommand.ID = 0
+		manualWithoutCommand.EventID = ""
+		manualWithoutCommand.EventKey = ""
+		manualWithoutCommand.AuditCommandID = ""
+		manualWithoutCommand.Payload = TaskBillingEventPayload{}
+		manualWithoutCommand.PayloadVersion = 0
+		manualWithoutCommand.LockVersion = 0
+		manualWithoutCommand.CreatedAt = 0
+		manualWithoutCommand.UpdatedAt = 0
+		assert.ErrorIs(t, db.Create(&manualWithoutCommand).Error, ErrTaskRecoveryInvalidRecord)
+	})
+
+	t.Run("transaction-rollback", func(t *testing.T) {
+		var outboxCountBefore int64
+		require.NoError(t, db.Model(&TaskBillingLogOutbox{}).Count(&outboxCountBefore).Error)
+		operation := newB2SubmissionOperation(t, 401, "POST", "video", "rollback", `{}`)
+		err := db.Transaction(func(tx *gorm.DB) error {
+			require.NoError(t, tx.Create(operation).Error)
+			event := TaskBillingEvent{
+				OperationID:   &operation.ID,
+				EventType:     TaskBillingEventTypeReserve,
+				UserID:        operation.UserID,
+				TokenID:       operation.TokenID,
+				BillingSource: "wallet",
+				QuotaDelta:    -100,
+			}
+			require.NoError(t, tx.Create(&event).Error)
+			require.NoError(t, tx.Create(&TaskBillingLogOutbox{BillingEventID: event.EventID, Payload: b2BillingLogPayload(&event)}).Error)
+			return errInjectedTaskRecoveryRollback
+		})
+		assert.ErrorIs(t, err, errInjectedTaskRecoveryRollback)
+		var operationCount, eventCount, outboxCount int64
+		require.NoError(t, db.Model(&TaskSubmissionOperation{}).Where("token_id = ?", 401).Count(&operationCount).Error)
+		require.NoError(t, db.Model(&TaskBillingEvent{}).Where("operation_id = ?", operation.ID).Count(&eventCount).Error)
+		require.NoError(t, db.Model(&TaskBillingLogOutbox{}).Count(&outboxCount).Error)
+		assert.Zero(t, operationCount)
+		assert.Zero(t, eventCount)
+		assert.Equal(t, outboxCountBefore, outboxCount)
+	})
+}
+
+func TestB2SubmissionSQLite(t *testing.T) {
+	runB2SubmissionDatabaseContract(t, openB2SubmissionSQLite(t))
+}
+
+func TestClickHouseLogSchemaReservesBillingEventProjectionKey(t *testing.T) {
+	assert.Contains(t, clickHouseLogCreateTableSQL(0), "billing_event_id String DEFAULT ''")
+}
+
+func TestB2LogProjectionMigrationPreservesExistingRowsSQLite(t *testing.T) {
+	migrateB2LegacyLogsFixture(t, openB2SubmissionSQLite(t))
+}

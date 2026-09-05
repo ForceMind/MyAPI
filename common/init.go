@@ -86,6 +86,7 @@ func InitEnv() {
 	DebugEnabled = os.Getenv("DEBUG") == "true"
 	MemoryCacheEnabled = os.Getenv("MEMORY_CACHE_ENABLED") == "true"
 	IsMasterNode = os.Getenv("NODE_TYPE") != "slave"
+	TaskRecoveryEnabled = taskRecoveryEnabledEnv()
 	initNodeNameIdentity()
 	TLSInsecureSkipVerify = GetEnvOrDefaultBool("TLS_INSECURE_SKIP_VERIFY", false)
 	if TLSInsecureSkipVerify {
@@ -133,6 +134,29 @@ func InitEnv() {
 	SearchRateLimitNum = GetEnvOrDefault("SEARCH_RATE_LIMIT", 10)
 	SearchRateLimitDuration = int64(GetEnvOrDefault("SEARCH_RATE_LIMIT_DURATION", 60))
 	initConstantEnv()
+}
+
+// taskRecoveryEnabledEnv is fail-closed. Only the exact deployment values
+// "true" and "false" are accepted; strconv's broader forms (1, t, TRUE) must
+// not accidentally open a billing-recovery rollout gate.
+func taskRecoveryEnabledEnv() bool {
+	raw, exists := os.LookupEnv("TASK_RECOVERY_ENABLED")
+	if !exists || raw == "" {
+		return false
+	}
+	switch raw {
+	case "true":
+		if _, err := TaskRecoveryIdempotencyKeyVerifier(); err != nil {
+			SysError("TASK_RECOVERY_ENABLED requires a valid TASK_RECOVERY_IDEMPOTENCY_SECRET; keeping task recovery disabled")
+			return false
+		}
+		return true
+	case "false":
+		return false
+	default:
+		SysError("TASK_RECOVERY_ENABLED accepts only true or false; keeping task recovery disabled")
+		return false
+	}
 }
 
 func initChannelQuotaAlertSettings() {

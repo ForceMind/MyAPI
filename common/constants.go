@@ -28,6 +28,11 @@ var DisplayInCurrencyEnabled = true
 var DisplayTokenStatEnabled = true
 var DrawingEnabled = true
 var TaskEnabled = true
+
+// TaskRecoveryEnabled is a deployment-level safety gate for the durable task
+// recovery writers/workers. It defaults to false and is not backed by OptionMap.
+// No request path consumes it until the complete B2/B3 recovery flow is wired.
+var TaskRecoveryEnabled = false
 var DataExportEnabled = true
 var DataExportInterval = 5         // unit: minute
 var DataExportDefaultTime = "hour" // unit: minute
@@ -155,6 +160,10 @@ var RetryTimes = 0
 //var RootUserEmail = ""
 
 var IsMasterNode bool
+
+func IsTaskRecoveryEnabled() bool {
+	return TaskRecoveryEnabled
+}
 
 const (
 	NodeNameSourceManual   = "manual"

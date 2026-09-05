@@ -22,6 +22,8 @@ jobs:
     timeout-minutes: 15
     env:
       GOWORK: 'off'
+      GOMAXPROCS: '1'
+      GOMEMLIMIT: '768MiB'
 
     steps:
       - name: Checkout
@@ -121,6 +123,7 @@ jobs:
     env:
       GOWORK: 'off'
       GOMAXPROCS: '1'
+      GOMEMLIMIT: '768MiB'
       MYAPI_S1_DATABASE_TESTS: '1'
     steps:
       - name: Checkout
@@ -170,6 +173,7 @@ jobs:
     env:
       GOWORK: 'off'
       GOMAXPROCS: '1'
+      GOMEMLIMIT: '768MiB'
       MYAPI_S2A_DATABASE_TESTS: '1'
     steps:
       - name: Checkout
@@ -189,6 +193,97 @@ jobs:
           MYAPI_S2A_POSTGRES_DSN: host=127.0.0.1 port=${{ job.services.postgres.ports[5432] }} user=postgres password=s2a-fixture-password dbname=myapi_s2a_test sslmode=disable
         run: go test -p 1 ./model -run '^TestS2APaymentConfiguredDatabases$' -count=1 -timeout=180s -v
 
+  b2-databases:
+    name: B2 durable submission database regression
+    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_DATABASE: myapi_b2_test
+          MYSQL_ROOT_PASSWORD: b2-fixture-password
+          MYSQL_ROOT_HOST: '%'
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pb2-fixture-password"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+      postgres:
+        image: postgres:9.6
+        env:
+          POSTGRES_DB: myapi_b2_test
+          POSTGRES_PASSWORD: b2-fixture-password
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd="pg_isready -U postgres -d myapi_b2_test"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    env:
+      GOWORK: 'off'
+      GOMAXPROCS: '1'
+      GOMEMLIMIT: '768MiB'
+      MYAPI_B2_DATABASE_TESTS: '1'
+      TASK_RECOVERY_IDEMPOTENCY_SECRET: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            relaykit/go.sum
+      - name: Verify durable submissions on disposable databases
+        env:
+          MYAPI_B2_MYSQL_DSN: root:b2-fixture-password@tcp(127.0.0.1:${{ job.services.mysql.ports[3306] }})/myapi_b2_test?charset=utf8mb4&parseTime=true
+          MYAPI_B2_POSTGRES_DSN: host=127.0.0.1 port=${{ job.services.postgres.ports[5432] }} user=postgres password=b2-fixture-password dbname=myapi_b2_test sslmode=disable
+        run: go test -p 1 ./model -run '^TestB2SubmissionConfiguredDatabases$' -count=1 -timeout=180s -v
+
+  b2-clickhouse:
+    name: B2 ClickHouse log migration regression
+    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      clickhouse:
+        image: clickhouse/clickhouse-server:24.8
+        env:
+          CLICKHOUSE_DB: myapi_b2_clickhouse_test
+          CLICKHOUSE_USER: b2_fixture
+          CLICKHOUSE_PASSWORD: b2-fixture-password
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: '1'
+        ports:
+          - 9000/tcp
+        options: >-
+          --health-cmd="wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    env:
+      GOWORK: 'off'
+      GOMAXPROCS: '1'
+      GOMEMLIMIT: '768MiB'
+      MYAPI_B2_CLICKHOUSE_TESTS: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            relaykit/go.sum
+      - name: Verify ClickHouse logs migration on a disposable database
+        env:
+          MYAPI_B2_CLICKHOUSE_DSN: clickhouse://b2_fixture:b2-fixture-password@127.0.0.1:${{ job.services.clickhouse.ports[9000] }}/myapi_b2_clickhouse_test
+        run: go test -p 1 ./model -run '^TestB2ClickHouseConfiguredDatabase$' -count=1 -timeout=180s -v
+
   s2c-redis:
     name: S2-C quota script Redis regression
     if: github.event.action != 'closed' || github.event.pull_request.merged == true
@@ -205,6 +300,7 @@ jobs:
     env:
       GOWORK: 'off'
       GOMAXPROCS: '1'
+      GOMEMLIMIT: '768MiB'
       MYAPI_S2C_REDIS_TESTS: '1'
     steps:
       - name: Checkout
@@ -239,6 +335,7 @@ jobs:
     env:
       GOWORK: 'off'
       GOMAXPROCS: '1'
+      GOMEMLIMIT: '768MiB'
       MYAPI_S2C_REDIS_TESTS: '1'
     steps:
       - name: Checkout

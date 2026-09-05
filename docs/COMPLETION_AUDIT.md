@@ -599,7 +599,8 @@ vet/build/test、四组 race、临时 MySQL 5.7/PostgreSQL 9.6/Redis、前端 ty
 
 ## S2-B2/B3 B2-0 恢复账务合同（2026-09-05，已冻结，尚未实现）
 
-负责人已确认 B2-0 的业务合同，但本节不是 B2/B3 的实现验收：目前没有新增 schema、生产代码、定向测试、
+本节记录 B2-0 合同冻结时点，后续 B2-1 进展见下一节，不将历史“未实现”覆盖当前修复状态。
+负责人已确认 B2-0 的业务合同，但本节不是 B2/B3 的实现验收：冻结时没有新增 schema、生产代码、定向测试、
 CI 或功能开关变更。现代 Task 的 `submission_unknown` 和已受理但轮询结果未知的 `outcome_unknown` 均不自动
 重发或退款；只有上游可验证的结果，或带审计记录的人工处置可以结束它们。v1 一旦进入 `DISPATCHING`，禁止
 一切可能已送达请求的重试和跨渠道 failover，也不开放 Provider 内重试。
@@ -614,6 +615,53 @@ adaptor 不得先写成功响应。
 gate 必须保持关闭；启用前须排空并升级全部旧 writer/poller，且不承诺新旧 worker 混跑。后续实现须复用既有
 终态 CAS/系统任务租约，完成三数据库加法迁移、故障注入和恢复验证后，才可提出生产启用申请；本合同不替代
 C03b 的缓存恢复决策，也不授权生产切换。
+
+## S2-B2-1 安全持久模型（2026-09-05，待验证）
+
+执行基线为 `513ea6d6e863883aa3415a785a4d858bcf7210b0`，源码分支
+`codex/b2-durable-submissions`。本轮继续已知任务草稿，未访问生产目录。
+当前完成模型与迁移基础修复，不代表 HTTP 202/409、原子落账、恢复器或日志消费去重已经接入。
+
+- 幂等 HMAC 使用独立 `TASK_RECOVERY_IDEMPOTENCY_SECRET`（32 字节、64 位 hex），不依赖会话/通用加密秘密。
+  主库 `TaskRecoveryIdentity` 保存版本与 verifier，首次并发建库按单行唯一键协调；已有 operation 但无绑定时拒绝猜测重绑。
+  同 key 重开数据库仍找到同一 public ID；错 key 拒绝新记录。v1 不提供自动密钥轮换或绑定删除。
+- operation/attempt/event/outbox 普通 Save、struct/map Update 与 Delete 被拒绝；业务字段 create-only，状态由显式 CAS 更新。
+  v1 attempt 固定为 1，operation ID 唯一；活动及 unknown 状态无自动清理路径。
+- claim/reclaim 记录 worker、到期时间和有界处理次数；完成/重试需要同 worker、有效租约和版本，重试记录未来调度与错误码，结束时清除租约。
+  attempt 的 typed CAS 可保存并保留稳定上游操作/请求 ID，拒绝覆盖已知引用。负时间、版本递增溢出被拒绝。
+  manual_review 不允许通用状态 CAS 直接复位；带审计的人工恢复属于 B3，当前没有后台 worker。
+  安全时钟在模型内从同一事务连接读取，故障不回退本机时钟；PG 使用即时 `clock_timestamp` 并向下取秒。
+  状态更新禁止时间倒退，创建与终态保留时间内生；租约为 1–300 秒，单次重试延迟为 1–86400 秒，由 DBnow 计算并检查上溢。
+  上界是后台处理的技术安全约束，不是 Provider 任务生命周期或重试次数上限；后续配置必须选取边界内值。
+- 账务 EventKey 从 operation public ID 和事件类型规范生成，Task 引用归一为相同业务主体；人工事件另带稳定审计命令 ID。
+  所属用户/Key/任务关系和资金来源校验，金额限制在正负 MaxInt32；合法免费事件继续保留零额。
+- outbox 回读权威事件核对用户、Key、渠道、请求、时间、日志类型和额度。负差额为 Consume，正差额为 Refund，零差额为 System；
+  日志用量字段受 int32 上界约束，构造器在有符号转换前校验范围。日志 `billing_event_id` 为非唯一投影索引，不冒称已实现消费侧去重。
+- 新增模型列入主库迁移；ClickHouse 旧 logs 使用加列及二次检测兼容并发迁移。CI 为新/旧表、重跑、历史行保留准备了隔离 fixture；
+  仅字面 loopback 和专用空库可运行，不删除旧表，不使用部署 DSN。显式测试开关为 1 但 DSN 缺失时必须失败。
+
+本机实际验证，全部串行，Go 环境 `GOMAXPROCS=1 GOMEMLIMIT=768MiB GOWORK=off`，缓存仅使用本任务独立目录：
+
+1. `go test -p 1 ./common -run '^TestTaskRecovery' -count=1 -timeout=120s -v`，exit 0，`common 0.014s`。
+2. `go test -p 1 ./model -run '^Test(B2Submission(SQLite|DatabaseTargetSafety)|B2LogProjectionMigrationPreservesExistingRowsSQLite|B2ClickHouseDatabaseTargetSafety|ClickHouseLogSchemaReservesBillingEventProjectionKey|TaskRecovery)' -count=1 -timeout=180s -v`，
+   exit 0，`model 0.158s`；覆盖 SQLite 八个主子场景、重启绑定、不可变性、缺密钥启动拒绝和目标安全检查。
+3. 模型测试启动时，活跃 systemd 单元读回 `CPUQuotaPerSecUSec=1s`、`MemoryMax=805306368`，确认 1 核/768MiB 硬限制生效。
+
+独立 Sol 审查在本轮发现显式启用但密钥缺失/格式错时，gate 被置 false、InitDB 会跳过绑定校验的问题。
+已修为 InitDB 在打开数据库前直接拒绝该配置；精确缺失/短值/非法 hex 回归通过。
+追加复审同时修复租约所有权、attempt 无合法路径保存上游引用、负时间与版本递增、旧 logs 两列 fixture 不代表真实升级的问题。
+旧日志 fixture 现按完整旧 Log 建表，验证新旧自增 ID、所有历史持久字段及重复迁移；SQLite 与实库共用。
+追加回归首次因测试复用其他事件主键而得到 `record not found`（exit 1，0.159s）；改用独立零值接收对象，保持全部断言。
+最终同范围定向（去掉 `-v`，其余 Go 参数及硬限制不变）exit 0，`model 0.152s`，已含新增租约场景和真实旧 schema。
+该结果对应本轮第二次修复候选；随后独立复核要求租约/保留期使用严格数据库时钟，
+不能由调用者提供旧时间通过已过期租约，也不能接受负 ChannelID 的权威事件。上述追加修复已完成。
+最终数据库时钟候选以本节第 2 项完整命令复验，exit 0，`model 0.158s`；包括真实 SQLite 取时、精确时钟故障/漂移/
+倒退、租约/重试边界和所有前述子项。最终独立 Sol 静态复核未发现 P1/P2，**代码审查通过，实库 CI 待验证**。
+CI YAML 在已有 Python YAML 解析器下通过；本机 Node 缺少 `yaml` 包，未安装依赖，没有将该失败冒充通过。
+MySQL 5.7/PostgreSQL 9.6/ClickHouse 实际 CI、全量及 race 尚未运行；这些不是本机 SQLite 绿灯可替代的证据。
+没有进行新 UI 修改或视觉验收，`VERSION` 保持 0.1.1。本节记录源码候选的本机证据；后续提交/同步与 CI 结果必须另附准确 SHA，
+不能以本地绿灯宣称已同步。远端私有属性已只读核对，历史审批拒绝不得绕过。
+完整 B2/B3、C03b 账务权威源及历史未知余额决定、其余 S3–S7 目标继续保留，详见[完整执行计划](PROJECT_COMPLETION_EXECUTION_PLAN.md)。
 
 ## S2-D08 io.net 核心（2026-09-04，已完成当前范围）
 
