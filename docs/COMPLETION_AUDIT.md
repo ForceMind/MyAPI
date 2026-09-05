@@ -669,7 +669,7 @@ MySQL 5.7/PostgreSQL 9.6/ClickHouse 实际 CI、全量及 race 尚未运行；�
 本条随后续纯文档审计提交保留；该文档提交不改变 `fea4637` 的已验证源码内容。
 完整 B2/B3、C03b 账务权威源及历史未知余额决定、其余 S3–S7 目标继续保留，详见[完整执行计划](PROJECT_COMPLETION_EXECUTION_PLAN.md)。
 
-### B2-1 追加安全修复（2026-09-06，本地复验及独立复审通过，待实库 CI/同步）
+### B2-1 追加安全修复（2026-09-06，已完成当前范围）
 
 接管后的独立复审没有把历史“无 P1/P2”结论延用到新改动，而是重新检查了可变状态边界。已修复并加入精确回归的 P2 包括：
 
@@ -684,7 +684,7 @@ MySQL 5.7/PostgreSQL 9.6/ClickHouse 实际 CI、全量及 race 尚未运行；�
 2. `go test -p 1 ./common ./model -run '^(TestTaskRecovery.*|TestB2SubmissionSQLite|TestB2Recovery(Main|Log)Migration.*|TestB2SubmissionDatabaseTargetSafety)$' -count=1 -timeout=180s -v`，exit 0，`common 0.015s`、`model 0.723s`。
 3. `go vet -p 1 ./model`，exit 0。
 
-上述是 SQLite/静态本地证据，不替代 MySQL 5.7、PostgreSQL 9.6、ClickHouse fixture、race 或全量 CI。2026-09-06 的最终独立只读复审确认无 P1/P2/P3；审查者未自行重复运行测试。实库 CI 和已授权远端同步/Draft PR 尚未完成，因此 B2-1 仍是待验证，不能标记为完成或启用 gate。未访问生产目录、未启用任务恢复 gate、未变更 UI，`VERSION` 仍为 0.1.1。
+上述 SQLite/静态本地证据已由 [Draft PR #1](https://github.com/ForceMind/MyAPI/pull/1) 的 CI 补全：运行 [33981861810](https://github.com/ForceMind/MyAPI/actions/runs/33981861810) 的 MySQL 5.7/PG 9.6 durable submission fixture、ClickHouse fixture、Backend（含新增 durable submission race）、Frontend、S1/S2 数据库、Redis、Desktop 与 Distribution 作业均通过，另 `pr-quality` 通过。2026-09-06 的最终独立只读复审确认无 P1/P2/P3；审查者未自行重复运行测试。提交 `c045e42c1ff710e5629e60772bbc453899df5d0b` 已同步到 `codex/b2-durable-submissions`，PR 保持 Draft，未合并、发布或启用 gate。至此 B2-1 的当前范围完成；B2-2、B3、C03b 与其余 S3–S7 目标仍未完成。未访问生产目录、未变更 UI，`VERSION` 仍为 0.1.1。
 
 ## S2-D08 io.net 核心（2026-09-04，已完成当前范围）
 
