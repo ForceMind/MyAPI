@@ -661,6 +661,12 @@ CI YAML 在已有 Python YAML 解析器下通过；本机 Node 缺少 `yaml` 包
 MySQL 5.7/PostgreSQL 9.6/ClickHouse 实际 CI、全量及 race 尚未运行；这些不是本机 SQLite 绿灯可替代的证据。
 没有进行新 UI 修改或视觉验收，`VERSION` 保持 0.1.1。本节记录源码候选的本机证据；后续提交/同步与 CI 结果必须另附准确 SHA，
 不能以本地绿灯宣称已同步。远端私有属性已只读核对，历史审批拒绝不得绕过。
+本地源码候选已提交为 `fea46372974d0f9aaf2c0ae03853fc6cab1cb457`，提交后工作树干净。
+尝试 `git push --set-upstream origin HEAD:refs/heads/codex/b2-durable-submissions` 被自动审批拒绝：
+审批要求负责人明确授权本批源码、测试和技术文档发送至 `ForceMind/MyAPI` 的该分支；私有属性只读查询不替代用户外发授权。
+没有重试、改用 API 上传或绕过拒绝；远端功能分支、PR 和本候选 CI 均未创建，源码状态为“本地已提交，未同步”。
+恢复条件：负责人明确批准候选及尚未同步祖先中的本项目代码/测试/技术文档外发到上述目标，且工具审批放行。
+本条随后续纯文档审计提交保留；该文档提交不改变 `fea4637` 的已验证源码内容。
 完整 B2/B3、C03b 账务权威源及历史未知余额决定、其余 S3–S7 目标继续保留，详见[完整执行计划](PROJECT_COMPLETION_EXECUTION_PLAN.md)。
 
 ## S2-D08 io.net 核心（2026-09-04，已完成当前范围）

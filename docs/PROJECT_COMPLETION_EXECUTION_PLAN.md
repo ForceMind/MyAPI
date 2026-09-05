@@ -93,14 +93,15 @@
 | R0 接管与调度 | 已完成当前只读核对 | 继续原功能分支，已知草稿按所有权分工；持续目标已建立；测试由主代理唯一调度 |
 | B2-1 密钥/模型/迁移 | 待验证 | 最终数据库时钟/有界TTL/负渠道候选定向通过，独立代码审查无P1/P2；实库CI及同步待补 |
 | B2-1 实库验证 | 待验证 | CI 已加入 MySQL5.7、PG9.6、ClickHouse24.8 的专用空库 fixture；本机不启动这些服务 |
-| GitHub 同步 | 未同步 | 已只读确认 ForceMind/MyAPI 为私有仓库；远端 main 仍为 af5ded0；目标功能分支和对应 PR 尚不存在 |
+| GitHub 同步 | 未同步 | 源码候选 fea46372974d0f9aaf2c0ae03853fc6cab1cb457 已本地提交；push再次被自动审批拒绝，需明确目标/内容外发授权；未创建远端分支、PR或该候选CI |
 | C03b-0 | 未开始，待决定 | D02/D03 已提出：主库权威/Redis投影，以及历史无法证明余额的处理；答复前不实施不可逆业务选择 |
 
-当前任务文件为第 2.1 节九个草稿，新增 `common/task_recovery_key.go`、
+`fea4637` 已提交的任务文件包括第 2.1 节九个草稿，以及新增 `common/task_recovery_key.go`、
 `model/task_recovery_identity.go`、`model/task_recovery_identity_test.go`、`model/task_recovery_clickhouse_test.go`，
 以及 `.env.example`、本计划、`NEXT_SESSION_HANDOFF.md`、`MYAPI_MASTER_PLAN.md`、
 `DEVELOPMENT_EXECUTION_PLAN.md` 和 `COMPLETION_AUDIT.md` 的任务内更新。
-旧九文件指纹仅作历史追溯；当前内容以本节进度、审计记录和工作树差异相互核对，最终提交后以提交 SHA 为准。
+旧九文件指纹仅作历史追溯，不能再当作忽略脏工作树的许可。源码内容以 `fea4637` 为准；随后纯文档审计提交按 Git 历史核对。
+新对话若发现未提交修改，应停止并报告具体文件与来源，得到对这些实际修改的明确接管授权后才能继续。
 
 已实测限制：Go 使用 `GOMAXPROCS=1`、`GOMEMLIMIT=768MiB`、`-p 1`；模型测试活跃单元
 `CPUQuotaPerSecUSec=1s`、`MemoryMax=805306368`。两个实施角色不运行测试，独立审查只读；没有并发构建。
