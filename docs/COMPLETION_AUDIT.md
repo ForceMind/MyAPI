@@ -597,6 +597,24 @@ vet/build/test、四组 race、临时 MySQL 5.7/PostgreSQL 9.6/Redis、前端 ty
 串行隔离验证为成功：`push:false` 镜像、新 SQLite、合成上游、真实登录与前端冒烟均通过，容器清理完成；未登录 GHCR、
 发布镜像、创建 tag、部署或访问生产。无 schema、UI、发布配置或版本号变更，`VERSION` 仍为 0.1.1。
 
+## S2-B2/B3 B2-0 恢复账务合同（2026-09-05，已冻结，尚未实现）
+
+负责人已确认 B2-0 的业务合同，但本节不是 B2/B3 的实现验收：目前没有新增 schema、生产代码、定向测试、
+CI 或功能开关变更。现代 Task 的 `submission_unknown` 和已受理但轮询结果未知的 `outcome_unknown` 均不自动
+重发或退款；只有上游可验证的结果，或带审计记录的人工处置可以结束它们。v1 一旦进入 `DISPATCHING`，禁止
+一切可能已送达请求的重试和跨渠道 failover，也不开放 Provider 内重试。
+
+`Idempotency-Key` scope 为 `token + HTTP method + operation kind`：同一 scope、key、请求指纹返回原
+operation，同一 scope/key 而指纹不同返回 `409`；活动 operation 不自动过期，终态后保留 180 天。adaptor
+必须先持久化 operation，再由统一边界返回 `202` 和稳定的 operation/task ID；所有 operation 状态均须可查询，
+adaptor 不得先写成功响应。
+
+主库账务事件是唯一权威账本。分库/ClickHouse 日志为带稳定 `billing_event_id` 的至少一次投影；用户可见查询、
+导出和统计必须去重，重投不能显示为重复用量。首版只覆盖现代 Task，Midjourney 留待独立阶段。C03b 完成前
+gate 必须保持关闭；启用前须排空并升级全部旧 writer/poller，且不承诺新旧 worker 混跑。后续实现须复用既有
+终态 CAS/系统任务租约，完成三数据库加法迁移、故障注入和恢复验证后，才可提出生产启用申请；本合同不替代
+C03b 的缓存恢复决策，也不授权生产切换。
+
 ## S2-D08 io.net 核心（2026-09-04，已完成当前范围）
 
 `pkg/ionet/client.go` 与 `pkg/ionet/jsonutil.go` 的各 4 处实际 stdlib JSON 调用已等价迁移至

@@ -187,8 +187,22 @@ loopback/NAT reset，未验收；修复保持宿主回环发布，仅令受限 C
 日志、普通/管理员权限、请求/响应头脱敏、匿名不上游和真实登录表单均由实际临时镜像验证。
 它不调用真实 Provider，也不证明 Redis/batch、MySQL/PostgreSQL 完整运行恢复或真实设备。
 下一步扩展三库运行合同；完整备份恢复、真实账户/设备、独立 UI 仍未完成。
-B2/B3 的提交未知状态、持久账务事件和 outbox，以及 C03b 缓存恢复策略仍需核心决定；
-复用既有 CAS/租约/快照，不重建平行系统。见[完整执行矩阵](DEVELOPMENT_EXECUTION_PLAN.md)。
+#### 2026-09-05 B2-0 恢复账务合同（已冻结，尚未实现）
+
+B2/B3 的核心业务决定已确认，但提交未知状态、持久账务事件、outbox、三库迁移与恢复代码仍未实现，
+没有新增 schema、测试、CI 或生产开关。现代 Task 的 `submission_unknown` 与已受理后轮询结果未知的
+`outcome_unknown` 不自动重发或退款，只能由上游可验证的结果或带审计记录的人工处置结束；v1 在进入
+`DISPATCHING` 后禁止一切可能已送达请求的重试及跨渠道 failover，包含 Provider 内重试。
+
+幂等范围为 `token + HTTP method + operation kind`：同一 scope/key/请求指纹复用原 operation，同一
+scope/key 但指纹不同返回 `409`；活动 operation 不自动过期，终态后保留 180 天。adaptor 必须先持久化
+operation，随后统一返回 `202` 和稳定 operation/task ID，所有状态可查询，不能先写成功响应。主库账务事件
+是唯一权威账本；分库/ClickHouse 日志为带稳定 `billing_event_id` 的至少一次投影，用户查询、导出、统计
+必须去重，重投不得成为重复用量。
+
+首版仅覆盖现代 Task，Midjourney 保持在独立后续阶段。C03b 完成前 gate 保持关闭；开启前须排空并升级全部
+旧 writer/poller，不承诺新旧 worker 混跑。后续应复用既有 CAS/租约/快照，不重建平行系统；三库加法迁移、
+故障恢复验证及生产启用申请仍须分阶段完成。见[完整执行矩阵](DEVELOPMENT_EXECUTION_PLAN.md)。
 
 根模块 JSON wrapper 复审重新识别出 67 个直接序列化调用/27 个生产文件；此前 Provider
 小批完成不等于全仓合规。已按协议风险拆为 D01–D10，排除 `common/json.go`、测试、
