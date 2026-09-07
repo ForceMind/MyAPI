@@ -7,7 +7,7 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import { useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { getRouteApi, Link } from '@tanstack/react-router'
 import {
   Activity,
   ArrowDownRight,
@@ -45,6 +45,8 @@ import {
 import type { ChannelQuotaChangeItem, ChannelQuotaHistoryRange } from '../types'
 import { ChannelQuotaDetailChart } from './channel-quota-detail-chart'
 import { QuotaCustomRangeControls } from './quota-history-trend'
+
+const route = getRouteApi('/_authenticated/channels/')
 
 type Range = ChannelQuotaHistoryRange
 type StatusFilter = 'all' | 'success' | 'unavailable' | 'unsupported' | 'error'
@@ -262,6 +264,7 @@ export function ChannelQuotaChangesPanel() {
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   const time = useQuotaHistoryTime()
   const { range, setRange } = time
+  const { quotaChannelId } = route.useSearch()
   const [windowFilter, setWindowFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [detailKey, setDetailKey] = useState('')
@@ -332,6 +335,9 @@ export function ChannelQuotaChangesPanel() {
   const detailItems = filteredItems
   const detailItem =
     detailItems.find((item) => detailSeriesKey(item) === detailKey) ??
+    (detailKey === '' && quotaChannelId != null
+      ? detailItems.find((item) => item.channel_id === quotaChannelId)
+      : undefined) ??
     detailItems[0]
   const httpStatus = getHttpStatus(query.error)
   let errorTitle = t('Unable to load account quota changes')
