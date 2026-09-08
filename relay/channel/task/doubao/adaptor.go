@@ -2,11 +2,12 @@ package doubao
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
-	"time"
+	"unicode/utf8"
 
 	"github.com/ForceMind/MyAPI/common"
 
@@ -64,10 +65,6 @@ type requestPayload struct {
 	Watermark        *dto.BoolValue `json:"watermark,omitempty"`
 }
 
-type responsePayload struct {
-	ID string `json:"id"` // task_id
-}
-
 type responseTask struct {
 	ID      string `json:"id"`
 	Model   string `json:"model"`
@@ -109,6 +106,8 @@ type TaskAdaptor struct {
 	apiKey      string
 	baseURL     string
 }
+
+var _ channel.TaskSubmitResponseParser = (*TaskAdaptor)(nil)
 
 func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 	a.ChannelType = info.ChannelType
@@ -209,33 +208,178 @@ func (a *TaskAdaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, req
 
 // DoResponse handles upstream response, returns taskID etc.
 func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (taskID string, taskData []byte, taskErr *taskdto.TaskError) {
-	responseBody, err := io.ReadAll(resp.Body)
+	if resp == nil || resp.Body == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Doubao task submission response"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	defer resp.Body.Close()
+
+	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, channel.MaxTaskSubmitResponseBytes+1))
 	if err != nil {
-		taskErr = service.TaskErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
-		return
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("failed to read Doubao task submission response"),
+			"read_response_body_failed",
+			http.StatusInternalServerError,
+		)
 	}
-	_ = resp.Body.Close()
+	upstreamRequestID := ""
+	if resp.Header != nil {
+		upstreamRequestID = resp.Header.Get(common.RequestIdKey)
+	}
+	parseInput := channel.TaskSubmitParseInput{
+		HTTPStatus:        resp.StatusCode,
+		Body:              responseBody,
+		UpstreamRequestID: upstreamRequestID,
+		SubmittedAtUnix:   common.GetTimestamp(),
+	}
+	if info != nil {
+		parseInput.OriginModelName = info.OriginModelName
+		if info.TaskRelayInfo != nil {
+			parseInput.PublicTaskID = info.PublicTaskID
+		}
+	}
+	result := a.ParseTaskSubmitResponse(parseInput)
+	if err := result.Validate(); err != nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Doubao task submission parse result"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	if result.Disposition != channel.TaskSubmitAccepted {
+		if resp.StatusCode != http.StatusOK {
+			return "", nil, service.TaskErrorWrapper(
+				fmt.Errorf("task submission upstream returned an unexpected HTTP status"),
+				"fail_to_fetch_task",
+				resp.StatusCode,
+			)
+		}
+		problem := result.Problem
+		if problem.Local {
+			return "", nil, service.TaskErrorWrapperLocal(fmt.Errorf("%s", problem.SafeMessage), problem.OutcomeCode, problem.StatusCode)
+		}
+		return "", nil, service.TaskErrorWrapper(fmt.Errorf("%s", problem.SafeMessage), problem.OutcomeCode, problem.StatusCode)
+	}
+	if c == nil || info == nil || info.TaskRelayInfo == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Doubao task submission response context"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	c.Data(result.LegacyResponse.StatusCode, result.LegacyResponse.ContentType, result.LegacyResponse.Body)
+	return result.LegacyPollingID, result.TaskData, nil
+}
 
-	// Parse Doubao response
-	var dResp responsePayload
-	if err := common.Unmarshal(responseBody, &dResp); err != nil {
-		taskErr = service.TaskErrorWrapper(errors.Wrapf(err, "body: %s", responseBody), "unmarshal_response_body_failed", http.StatusInternalServerError)
-		return
+// doubaoTaskSubmitPersistence deliberately excludes the upstream task ID and
+// every provider response field. Polling replaces Task.Data with task state.
+type doubaoTaskSubmitPersistence struct{}
+
+// ParseTaskSubmitResponse interprets one complete Doubao submission response.
+// It has no dependency on Gin, persistence, billing, clocks, or network I/O.
+func (_ *TaskAdaptor) ParseTaskSubmitResponse(input channel.TaskSubmitParseInput) channel.TaskSubmitParseResult {
+	providerTaskID := ""
+	upstreamRequestID := ""
+	if channel.IsValidTaskSubmitToken(input.UpstreamRequestID, channel.TaskSubmitUpstreamRequestIDMaxLength, false) {
+		upstreamRequestID = input.UpstreamRequestID
+	}
+	unknown := func(code, message string, statusCode int) channel.TaskSubmitParseResult {
+		return channel.TaskSubmitParseResult{
+			Disposition:         channel.TaskSubmitUnknown,
+			ProviderOperationID: providerTaskID,
+			LegacyPollingID:     providerTaskID,
+			UpstreamRequestID:   upstreamRequestID,
+			Problem: &channel.TaskSubmitProblem{
+				OutcomeCode: code,
+				SafeMessage: message,
+				StatusCode:  statusCode,
+			},
+		}
+	}
+	if len(input.Body) == 0 || len(input.Body) > channel.MaxTaskSubmitResponseBytes || !utf8.Valid(input.Body) {
+		return unknown("invalid_response", "invalid Doubao task submission response", http.StatusInternalServerError)
 	}
 
-	if dResp.ID == "" {
-		taskErr = service.TaskErrorWrapper(fmt.Errorf("task_id is empty"), "invalid_response", http.StatusInternalServerError)
-		return
+	var responseObject map[string]json.RawMessage
+	if err := common.Unmarshal(input.Body, &responseObject); err != nil || responseObject == nil {
+		return unknown("unmarshal_response_body_failed", "invalid Doubao task submission response", http.StatusInternalServerError)
+	}
+	idBody, idPresent := responseObject["id"]
+	if idPresent {
+		var taskID string
+		if err := common.Unmarshal(idBody, &taskID); err == nil && isSafeDoubaoTaskID(taskID) {
+			providerTaskID = taskID
+		}
+	}
+	if input.HTTPStatus != http.StatusOK {
+		return unknown("unverified_response", "unverified Doubao task submission response", http.StatusBadGateway)
+	}
+	// A documented successful submission is an HTTP 200 envelope with an id.
+	// Error and code members are contradictory evidence and cannot be accepted.
+	if _, hasError := responseObject["error"]; hasError {
+		return unknown("unverified_response", "Doubao returned conflicting task submission evidence", http.StatusInternalServerError)
+	}
+	if _, hasCode := responseObject["code"]; hasCode {
+		return unknown("unverified_response", "Doubao returned conflicting task submission evidence", http.StatusInternalServerError)
+	}
+	if !idPresent || providerTaskID == "" {
+		return unknown("invalid_response", "invalid Doubao task submission response", http.StatusInternalServerError)
 	}
 
-	ov := dto.NewOpenAIVideo()
-	ov.ID = info.PublicTaskID
-	ov.TaskID = info.PublicTaskID
-	ov.CreatedAt = time.Now().Unix()
-	ov.Model = info.OriginModelName
+	taskData, err := common.Marshal(doubaoTaskSubmitPersistence{})
+	if err != nil {
+		return unknown("marshal_task_data_failed", "failed to build Doubao task submission data", http.StatusInternalServerError)
+	}
+	openAIResp := dto.NewOpenAIVideo()
+	openAIResp.ID = input.PublicTaskID
+	openAIResp.TaskID = input.PublicTaskID
+	openAIResp.Model = input.OriginModelName
+	openAIResp.CreatedAt = input.SubmittedAtUnix
+	legacyBody, err := common.Marshal(openAIResp)
+	if err != nil {
+		return unknown("marshal_legacy_response_failed", "failed to build Doubao task submission response", http.StatusInternalServerError)
+	}
 
-	c.JSON(http.StatusOK, ov)
-	return dResp.ID, responseBody, nil
+	return channel.TaskSubmitParseResult{
+		Disposition:         channel.TaskSubmitAccepted,
+		ProviderOperationID: providerTaskID,
+		LegacyPollingID:     providerTaskID,
+		UpstreamRequestID:   upstreamRequestID,
+		TaskData:            taskData,
+		LegacyResponse: &channel.LegacyTaskSubmitResponse{
+			StatusCode:  http.StatusOK,
+			ContentType: "application/json; charset=utf-8",
+			Body:        legacyBody,
+		},
+	}
+}
+
+func isSafeDoubaoTaskID(taskID string) bool {
+	if taskID == "." || taskID == ".." ||
+		!channel.IsValidTaskSubmitToken(taskID, channel.TaskSubmitProviderOperationIDMaxLength, false) {
+		return false
+	}
+	for index := 0; index < len(taskID); index++ {
+		character := taskID[index]
+		if (character >= 'a' && character <= 'z') ||
+			(character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') ||
+			character == '-' || character == '_' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func buildDoubaoTaskFetchURL(baseURL, taskID string) (string, error) {
+	if !isSafeDoubaoTaskID(taskID) {
+		return "", fmt.Errorf("invalid task_id")
+	}
+	return fmt.Sprintf("%s/api/v3/contents/generations/tasks/%s", baseURL, taskID), nil
 }
 
 // FetchTask fetch task status
@@ -245,7 +389,10 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 		return nil, fmt.Errorf("invalid task_id")
 	}
 
-	uri := fmt.Sprintf("%s/api/v3/contents/generations/tasks/%s", baseUrl, taskID)
+	uri, err := buildDoubaoTaskFetchURL(baseUrl, taskID)
+	if err != nil {
+		return nil, err
+	}
 
 	req, err := http.NewRequest(http.MethodGet, uri, nil)
 	if err != nil {

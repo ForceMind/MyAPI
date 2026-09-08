@@ -2,12 +2,13 @@ package gemini
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"regexp"
 	"strings"
-	"time"
+	"unicode/utf8"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
@@ -33,6 +34,8 @@ type TaskAdaptor struct {
 	apiKey      string
 	baseURL     string
 }
+
+var _ channel.TaskSubmitResponseParser = (*TaskAdaptor)(nil)
 
 func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 	a.ChannelType = info.ChannelType
@@ -122,27 +125,193 @@ func (a *TaskAdaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, req
 
 // DoResponse handles upstream response, returns taskID etc.
 func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (taskID string, taskData []byte, taskErr *taskdto.TaskError) {
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", nil, service.TaskErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
+	if resp == nil || resp.Body == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Gemini task submission response"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
 	}
-	_ = resp.Body.Close()
+	defer resp.Body.Close()
 
-	var s submitResponse
-	if err := common.Unmarshal(responseBody, &s); err != nil {
-		return "", nil, service.TaskErrorWrapper(err, "unmarshal_response_failed", http.StatusInternalServerError)
+	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, channel.MaxTaskSubmitResponseBytes+1))
+	if err != nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("failed to read Gemini task submission response"),
+			"read_response_body_failed",
+			http.StatusInternalServerError,
+		)
 	}
-	if strings.TrimSpace(s.Name) == "" {
-		return "", nil, service.TaskErrorWrapper(fmt.Errorf("missing operation name"), "invalid_response", http.StatusInternalServerError)
+	upstreamRequestID := ""
+	if resp.Header != nil {
+		upstreamRequestID = resp.Header.Get(common.RequestIdKey)
 	}
-	taskID = taskcommon.EncodeLocalTaskID(s.Name)
-	ov := dto.NewOpenAIVideo()
-	ov.ID = info.PublicTaskID
-	ov.TaskID = info.PublicTaskID
-	ov.CreatedAt = time.Now().Unix()
-	ov.Model = info.OriginModelName
-	c.JSON(http.StatusOK, ov)
-	return taskID, responseBody, nil
+	parseInput := channel.TaskSubmitParseInput{
+		HTTPStatus:        resp.StatusCode,
+		Body:              responseBody,
+		UpstreamRequestID: upstreamRequestID,
+		SubmittedAtUnix:   common.GetTimestamp(),
+	}
+	if info != nil {
+		parseInput.OriginModelName = info.OriginModelName
+		if info.TaskRelayInfo != nil {
+			parseInput.PublicTaskID = info.PublicTaskID
+		}
+	}
+	result := a.ParseTaskSubmitResponse(parseInput)
+	if err := result.Validate(); err != nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Gemini task submission parse result"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	if result.Disposition != channel.TaskSubmitAccepted {
+		if resp.StatusCode != http.StatusOK {
+			return "", nil, service.TaskErrorWrapper(
+				fmt.Errorf("task submission upstream returned an unexpected HTTP status"),
+				"fail_to_fetch_task",
+				resp.StatusCode,
+			)
+		}
+		problem := result.Problem
+		if problem.Local {
+			return "", nil, service.TaskErrorWrapperLocal(fmt.Errorf("%s", problem.SafeMessage), problem.OutcomeCode, problem.StatusCode)
+		}
+		return "", nil, service.TaskErrorWrapper(fmt.Errorf("%s", problem.SafeMessage), problem.OutcomeCode, problem.StatusCode)
+	}
+	if c == nil || info == nil || info.TaskRelayInfo == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Gemini task submission response context"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	c.Data(result.LegacyResponse.StatusCode, result.LegacyResponse.ContentType, result.LegacyResponse.Body)
+	return result.LegacyPollingID, result.TaskData, nil
+}
+
+// geminiTaskSubmitPersistence deliberately excludes the provider operation
+// name, prompt, media, and unrecognized response fields. Polling replaces it.
+type geminiTaskSubmitPersistence struct{}
+
+// ParseTaskSubmitResponse interprets one complete Gemini long-running
+// operation submission without writing HTTP responses or touching state.
+func (_ *TaskAdaptor) ParseTaskSubmitResponse(input channel.TaskSubmitParseInput) channel.TaskSubmitParseResult {
+	providerOperationName := ""
+	legacyPollingID := ""
+	upstreamRequestID := ""
+	if channel.IsValidTaskSubmitToken(input.UpstreamRequestID, channel.TaskSubmitUpstreamRequestIDMaxLength, false) {
+		upstreamRequestID = input.UpstreamRequestID
+	}
+	unknown := func(code, message string, statusCode int) channel.TaskSubmitParseResult {
+		return channel.TaskSubmitParseResult{
+			Disposition:         channel.TaskSubmitUnknown,
+			ProviderOperationID: providerOperationName,
+			LegacyPollingID:     legacyPollingID,
+			UpstreamRequestID:   upstreamRequestID,
+			Problem: &channel.TaskSubmitProblem{
+				OutcomeCode: code,
+				SafeMessage: message,
+				StatusCode:  statusCode,
+			},
+		}
+	}
+	if len(input.Body) == 0 || len(input.Body) > channel.MaxTaskSubmitResponseBytes || !utf8.Valid(input.Body) {
+		return unknown("invalid_response", "invalid Gemini task submission response", http.StatusInternalServerError)
+	}
+
+	var responseObject map[string]json.RawMessage
+	if err := common.Unmarshal(input.Body, &responseObject); err != nil || responseObject == nil {
+		return unknown("unmarshal_response_failed", "invalid Gemini task submission response", http.StatusInternalServerError)
+	}
+	nameBody, namePresent := responseObject["name"]
+	if namePresent {
+		var operationName string
+		if err := common.Unmarshal(nameBody, &operationName); err == nil && isSafeGeminiOperationName(operationName) {
+			providerOperationName = operationName
+			legacyPollingID = taskcommon.EncodeLocalTaskID(operationName)
+		}
+	}
+	if input.HTTPStatus != http.StatusOK {
+		return unknown("unverified_response", "unverified Gemini task submission response", http.StatusBadGateway)
+	}
+	// An error envelope and an operation name are contradictory submission
+	// evidence. No provider rejection allowlist is established here.
+	if _, hasError := responseObject["error"]; hasError {
+		return unknown("unverified_response", "Gemini returned conflicting task submission evidence", http.StatusInternalServerError)
+	}
+	if !namePresent || providerOperationName == "" ||
+		!channel.IsValidTaskSubmitToken(legacyPollingID, channel.TaskSubmitProviderOperationIDMaxLength, false) {
+		return unknown("invalid_response", "invalid Gemini task submission response", http.StatusInternalServerError)
+	}
+
+	taskData, err := common.Marshal(geminiTaskSubmitPersistence{})
+	if err != nil {
+		return unknown("marshal_task_data_failed", "failed to build Gemini task submission data", http.StatusInternalServerError)
+	}
+	openAIResp := dto.NewOpenAIVideo()
+	openAIResp.ID = input.PublicTaskID
+	openAIResp.TaskID = input.PublicTaskID
+	openAIResp.Model = input.OriginModelName
+	openAIResp.CreatedAt = input.SubmittedAtUnix
+	legacyBody, err := common.Marshal(openAIResp)
+	if err != nil {
+		return unknown("marshal_legacy_response_failed", "failed to build Gemini task submission response", http.StatusInternalServerError)
+	}
+
+	return channel.TaskSubmitParseResult{
+		Disposition:         channel.TaskSubmitAccepted,
+		ProviderOperationID: providerOperationName,
+		LegacyPollingID:     legacyPollingID,
+		UpstreamRequestID:   upstreamRequestID,
+		TaskData:            taskData,
+		LegacyResponse: &channel.LegacyTaskSubmitResponse{
+			StatusCode:  http.StatusOK,
+			ContentType: "application/json; charset=utf-8",
+			Body:        legacyBody,
+		},
+	}
+}
+
+// A 143-byte operation name expands to at most the 191-byte durable local ID
+// boundary after RawURLEncoding. The provider name is restricted to the
+// documented Gemini model operation path before it can become a fetch URL.
+const maxGeminiOperationNameLength = 143
+
+func isSafeGeminiOperationName(operationName string) bool {
+	if !channel.IsValidTaskSubmitToken(operationName, maxGeminiOperationNameLength, false) {
+		return false
+	}
+	parts := strings.Split(operationName, "/")
+	if len(parts) != 4 || parts[0] != "models" || parts[2] != "operations" {
+		return false
+	}
+	for _, part := range []string{parts[1], parts[3]} {
+		if part == "" || part == "." || part == ".." {
+			return false
+		}
+		for index := 0; index < len(part); index++ {
+			character := part[index]
+			if (character >= 'a' && character <= 'z') ||
+				(character >= 'A' && character <= 'Z') ||
+				(character >= '0' && character <= '9') ||
+				character == '-' || character == '_' || character == '.' {
+				continue
+			}
+			return false
+		}
+	}
+	return true
+}
+
+func buildGeminiTaskFetchURL(baseURL, version, taskID string) (string, error) {
+	operationName, err := taskcommon.DecodeLocalTaskID(taskID)
+	if err != nil || !isSafeGeminiOperationName(operationName) ||
+		taskcommon.EncodeLocalTaskID(operationName) != taskID {
+		return "", fmt.Errorf("invalid task_id")
+	}
+	return fmt.Sprintf("%s/%s/%s", baseURL, version, operationName), nil
 }
 
 func (a *TaskAdaptor) GetModelList() []string {
@@ -186,13 +355,11 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 		return nil, fmt.Errorf("invalid task_id")
 	}
 
-	upstreamName, err := taskcommon.DecodeLocalTaskID(taskID)
-	if err != nil {
-		return nil, fmt.Errorf("decode task_id failed: %w", err)
-	}
-
 	version := model_setting.GetGeminiVersionSetting("default")
-	url := fmt.Sprintf("%s/%s/%s", baseUrl, version, upstreamName)
+	url, err := buildGeminiTaskFetchURL(baseUrl, version, taskID)
+	if err != nil {
+		return nil, err
+	}
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {

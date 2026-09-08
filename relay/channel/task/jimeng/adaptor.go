@@ -6,13 +6,16 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
@@ -44,13 +47,11 @@ type requestPayload struct {
 	Frames           int      `json:"frames,omitempty"`
 }
 
-type responsePayload struct {
-	Code      int    `json:"code"`
-	Message   string `json:"message"`
-	RequestId string `json:"request_id"`
-	Data      struct {
-		TaskID string `json:"task_id"`
-	} `json:"data"`
+// jimengTaskSubmitPersistence is the minimal safe snapshot retained until a
+// polling response replaces task data. Upstream task identifiers, prompts,
+// messages, and extension fields are intentionally excluded.
+type jimengTaskSubmitPersistence struct {
+	Code int `json:"code"`
 }
 
 type responseTask struct {
@@ -84,6 +85,8 @@ type TaskAdaptor struct {
 	secretKey   string
 	baseURL     string
 }
+
+var _ channel.TaskSubmitResponseParser = (*TaskAdaptor)(nil)
 
 func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 	a.ChannelType = info.ChannelType
@@ -184,38 +187,209 @@ func (a *TaskAdaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, req
 
 // DoResponse handles upstream response, returns taskID etc.
 func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (taskID string, taskData []byte, taskErr *taskdto.TaskError) {
-	responseBody, err := io.ReadAll(resp.Body)
+	if resp == nil || resp.Body == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Jimeng task submission response"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	defer resp.Body.Close()
+
+	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, channel.MaxTaskSubmitResponseBytes+1))
 	if err != nil {
-		taskErr = service.TaskErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
-		return
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("failed to read Jimeng task submission response"),
+			"read_response_body_failed",
+			http.StatusInternalServerError,
+		)
 	}
-	_ = resp.Body.Close()
+	upstreamRequestID := ""
+	if resp.Header != nil {
+		upstreamRequestID = resp.Header.Get(common.RequestIdKey)
+	}
+	parseInput := channel.TaskSubmitParseInput{
+		HTTPStatus:        resp.StatusCode,
+		Body:              responseBody,
+		UpstreamRequestID: upstreamRequestID,
+		SubmittedAtUnix:   common.GetTimestamp(),
+	}
+	if info != nil {
+		parseInput.OriginModelName = info.OriginModelName
+		if info.TaskRelayInfo != nil {
+			parseInput.PublicTaskID = info.PublicTaskID
+		}
+	}
+	result := a.ParseTaskSubmitResponse(parseInput)
+	if err := result.Validate(); err != nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Jimeng task submission parse result"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	if result.Disposition != channel.TaskSubmitAccepted {
+		if resp.StatusCode != http.StatusOK {
+			return "", nil, service.TaskErrorWrapper(
+				fmt.Errorf("task submission upstream returned an unexpected HTTP status"),
+				"fail_to_fetch_task",
+				resp.StatusCode,
+			)
+		}
+		problem := result.Problem
+		if problem.Local {
+			return "", nil, service.TaskErrorWrapperLocal(fmt.Errorf("%s", problem.SafeMessage), problem.OutcomeCode, problem.StatusCode)
+		}
+		return "", nil, service.TaskErrorWrapper(fmt.Errorf("%s", problem.SafeMessage), problem.OutcomeCode, problem.StatusCode)
+	}
+	if c == nil || info == nil || info.TaskRelayInfo == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Jimeng task submission response context"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	c.Data(result.LegacyResponse.StatusCode, result.LegacyResponse.ContentType, result.LegacyResponse.Body)
+	return result.LegacyPollingID, result.TaskData, nil
+}
 
-	// Parse Jimeng response
-	var jResp responsePayload
-	if err := common.Unmarshal(responseBody, &jResp); err != nil {
-		taskErr = service.TaskErrorWrapper(errors.Wrapf(err, "body: %s", responseBody), "unmarshal_response_body_failed", http.StatusInternalServerError)
-		return
+// ParseTaskSubmitResponse interprets one complete Jimeng submission response.
+// It is intentionally independent of Gin, HTTP writers, persistence, billing,
+// clocks, and network activity.
+func (_ *TaskAdaptor) ParseTaskSubmitResponse(input channel.TaskSubmitParseInput) channel.TaskSubmitParseResult {
+	providerTaskID := ""
+	upstreamRequestID := ""
+	unknown := func(code, message string, statusCode int) channel.TaskSubmitParseResult {
+		return channel.TaskSubmitParseResult{
+			Disposition:         channel.TaskSubmitUnknown,
+			ProviderOperationID: providerTaskID,
+			LegacyPollingID:     providerTaskID,
+			UpstreamRequestID:   upstreamRequestID,
+			Problem: &channel.TaskSubmitProblem{
+				OutcomeCode: code,
+				SafeMessage: message,
+				StatusCode:  statusCode,
+			},
+		}
+	}
+	legacyProviderError := func(code int) channel.TaskSubmitParseResult {
+		return unknown(strconv.Itoa(code), "Jimeng did not confirm the task submission", http.StatusInternalServerError)
+	}
+	if channel.IsValidTaskSubmitToken(input.UpstreamRequestID, channel.TaskSubmitUpstreamRequestIDMaxLength, false) {
+		upstreamRequestID = input.UpstreamRequestID
+	}
+	if len(input.Body) == 0 || len(input.Body) > channel.MaxTaskSubmitResponseBytes || !utf8.Valid(input.Body) {
+		return unknown("invalid_response", "invalid Jimeng task submission response", http.StatusBadGateway)
 	}
 
-	if jResp.Code != 10000 {
-		taskErr = service.TaskErrorWrapper(fmt.Errorf("%s", jResp.Message), fmt.Sprintf("%d", jResp.Code), http.StatusInternalServerError)
-		return
+	var responseObject map[string]json.RawMessage
+	if err := common.Unmarshal(input.Body, &responseObject); err != nil || responseObject == nil {
+		return unknown("unmarshal_response_body_failed", "invalid Jimeng task submission response", http.StatusBadGateway)
+	}
+	codeBody, ok := responseObject["code"]
+	if !ok {
+		return unknown("invalid_response", "invalid Jimeng task submission response", http.StatusBadGateway)
+	}
+	var code *int
+	if err := common.Unmarshal(codeBody, &code); err != nil || code == nil {
+		return unknown("invalid_response", "invalid Jimeng task submission response", http.StatusBadGateway)
+	}
+	if requestIDBody, exists := responseObject["request_id"]; exists {
+		var requestID string
+		if err := common.Unmarshal(requestIDBody, &requestID); err == nil &&
+			channel.IsValidTaskSubmitToken(requestID, channel.TaskSubmitUpstreamRequestIDMaxLength, false) &&
+			upstreamRequestID == "" {
+			upstreamRequestID = requestID
+		}
+	}
+	dataObject, dataPresent, dataObjectValid := parseJimengTaskSubmitData(responseObject["data"])
+	if !dataObjectValid {
+		return unknown("invalid_response", "invalid Jimeng task submission response", http.StatusBadGateway)
+	}
+	taskIDPresent := false
+	if dataPresent {
+		if taskIDBody, exists := dataObject["task_id"]; exists {
+			taskIDPresent = true
+			var taskID string
+			if err := common.Unmarshal(taskIDBody, &taskID); err == nil && isSafeJimengTaskID(taskID) {
+				providerTaskID = taskID
+			}
+		}
+	}
+	if input.HTTPStatus != http.StatusOK {
+		return unknown("unverified_response", "unverified Jimeng task submission response", http.StatusBadGateway)
+	}
+	if *code != 10000 {
+		return legacyProviderError(*code)
+	}
+	if !dataPresent || !taskIDPresent || providerTaskID == "" {
+		return unknown("invalid_response", "invalid Jimeng task submission response", http.StatusBadGateway)
 	}
 
-	ov := dto.NewOpenAIVideo()
-	ov.ID = info.PublicTaskID
-	ov.TaskID = info.PublicTaskID
-	ov.CreatedAt = time.Now().Unix()
-	ov.Model = info.OriginModelName
-	c.JSON(http.StatusOK, ov)
-	return jResp.Data.TaskID, responseBody, nil
+	taskData, err := common.Marshal(jimengTaskSubmitPersistence{Code: *code})
+	if err != nil {
+		return unknown("marshal_task_data_failed", "failed to build Jimeng task submission data", http.StatusInternalServerError)
+	}
+	openAIResp := dto.NewOpenAIVideo()
+	openAIResp.ID = input.PublicTaskID
+	openAIResp.TaskID = input.PublicTaskID
+	openAIResp.Model = input.OriginModelName
+	openAIResp.CreatedAt = input.SubmittedAtUnix
+	legacyBody, err := common.Marshal(openAIResp)
+	if err != nil {
+		return unknown("marshal_legacy_response_failed", "failed to build Jimeng task submission response", http.StatusInternalServerError)
+	}
+
+	return channel.TaskSubmitParseResult{
+		Disposition:         channel.TaskSubmitAccepted,
+		ProviderOperationID: providerTaskID,
+		LegacyPollingID:     providerTaskID,
+		UpstreamRequestID:   upstreamRequestID,
+		TaskData:            taskData,
+		LegacyResponse: &channel.LegacyTaskSubmitResponse{
+			StatusCode:  http.StatusOK,
+			ContentType: "application/json; charset=utf-8",
+			Body:        legacyBody,
+		},
+	}
+}
+
+// parseJimengTaskSubmitData distinguishes an omitted or null data field from
+// malformed non-object data. Only a verified success may require a task_id;
+// an error envelope can legitimately omit data without proving no submission.
+func parseJimengTaskSubmitData(dataBody json.RawMessage) (map[string]json.RawMessage, bool, bool) {
+	if dataBody == nil || string(bytes.TrimSpace(dataBody)) == "null" {
+		return nil, false, true
+	}
+	var dataObject map[string]json.RawMessage
+	if err := common.Unmarshal(dataBody, &dataObject); err != nil || dataObject == nil {
+		return nil, false, false
+	}
+	return dataObject, true, true
+}
+
+func isSafeJimengTaskID(taskID string) bool {
+	if taskID == "." || taskID == ".." ||
+		!channel.IsValidTaskSubmitToken(taskID, channel.TaskSubmitProviderOperationIDMaxLength, false) {
+		return false
+	}
+	for index := 0; index < len(taskID); index++ {
+		character := taskID[index]
+		if (character >= 'a' && character <= 'z') ||
+			(character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') ||
+			character == '-' || character == '_' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 // FetchTask fetch task status
 func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy string) (*http.Response, error) {
 	taskID, ok := body["task_id"].(string)
-	if !ok {
+	if !ok || !isSafeJimengTaskID(taskID) {
 		return nil, fmt.Errorf("invalid task_id")
 	}
 

@@ -2,12 +2,13 @@ package vertex
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"regexp"
 	"strings"
-	"time"
+	"unicode/utf8"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
@@ -68,6 +69,8 @@ type TaskAdaptor struct {
 	apiKey      string
 	baseURL     string
 }
+
+var _ channel.TaskSubmitResponseParser = (*TaskAdaptor)(nil)
 
 func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 	a.ChannelType = info.ChannelType
@@ -193,27 +196,152 @@ func (a *TaskAdaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, req
 
 // DoResponse handles upstream response, returns taskID etc.
 func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (taskID string, taskData []byte, taskErr *taskdto.TaskError) {
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", nil, service.TaskErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
+	if resp == nil || resp.Body == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Vertex task submission response"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
 	}
-	_ = resp.Body.Close()
+	defer resp.Body.Close()
 
-	var s submitResponse
-	if err := common.Unmarshal(responseBody, &s); err != nil {
-		return "", nil, service.TaskErrorWrapper(err, "unmarshal_response_failed", http.StatusInternalServerError)
+	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, channel.MaxTaskSubmitResponseBytes+1))
+	if err != nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("failed to read Vertex task submission response"),
+			"read_response_body_failed",
+			http.StatusInternalServerError,
+		)
 	}
-	if strings.TrimSpace(s.Name) == "" {
-		return "", nil, service.TaskErrorWrapper(fmt.Errorf("missing operation name"), "invalid_response", http.StatusInternalServerError)
+	upstreamRequestID := ""
+	if resp.Header != nil {
+		upstreamRequestID = resp.Header.Get(common.RequestIdKey)
 	}
-	localID := taskcommon.EncodeLocalTaskID(s.Name)
-	ov := dto.NewOpenAIVideo()
-	ov.ID = info.PublicTaskID
-	ov.TaskID = info.PublicTaskID
-	ov.CreatedAt = time.Now().Unix()
-	ov.Model = info.OriginModelName
-	c.JSON(http.StatusOK, ov)
-	return localID, responseBody, nil
+	parseInput := channel.TaskSubmitParseInput{
+		HTTPStatus:        resp.StatusCode,
+		Body:              responseBody,
+		UpstreamRequestID: upstreamRequestID,
+		SubmittedAtUnix:   common.GetTimestamp(),
+	}
+	if info != nil {
+		parseInput.OriginModelName = info.OriginModelName
+		if info.TaskRelayInfo != nil {
+			parseInput.PublicTaskID = info.PublicTaskID
+		}
+	}
+	result := a.ParseTaskSubmitResponse(parseInput)
+	if err := result.Validate(); err != nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Vertex task submission parse result"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	if result.Disposition != channel.TaskSubmitAccepted {
+		if resp.StatusCode != http.StatusOK {
+			return "", nil, service.TaskErrorWrapper(
+				fmt.Errorf("task submission upstream returned an unexpected HTTP status"),
+				"fail_to_fetch_task",
+				resp.StatusCode,
+			)
+		}
+		problem := result.Problem
+		if problem.Local {
+			return "", nil, service.TaskErrorWrapperLocal(fmt.Errorf("%s", problem.SafeMessage), problem.OutcomeCode, problem.StatusCode)
+		}
+		return "", nil, service.TaskErrorWrapper(fmt.Errorf("%s", problem.SafeMessage), problem.OutcomeCode, problem.StatusCode)
+	}
+	if c == nil || info == nil || info.TaskRelayInfo == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Vertex task submission response context"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	c.Data(result.LegacyResponse.StatusCode, result.LegacyResponse.ContentType, result.LegacyResponse.Body)
+	return result.LegacyPollingID, result.TaskData, nil
+}
+
+// ParseTaskSubmitResponse interprets one complete Vertex Veo submission
+// response. It is intentionally independent of Gin, HTTP writers,
+// persistence, billing, clocks, and network activity.
+func (_ *TaskAdaptor) ParseTaskSubmitResponse(input channel.TaskSubmitParseInput) channel.TaskSubmitParseResult {
+	providerOperationID := ""
+	legacyPollingID := ""
+	upstreamRequestID := ""
+	unknown := func(code, message string, statusCode int) channel.TaskSubmitParseResult {
+		return channel.TaskSubmitParseResult{
+			Disposition:         channel.TaskSubmitUnknown,
+			ProviderOperationID: providerOperationID,
+			LegacyPollingID:     legacyPollingID,
+			UpstreamRequestID:   upstreamRequestID,
+			Problem: &channel.TaskSubmitProblem{
+				OutcomeCode: code,
+				SafeMessage: message,
+				StatusCode:  statusCode,
+			},
+		}
+	}
+	if channel.IsValidTaskSubmitToken(input.UpstreamRequestID, channel.TaskSubmitUpstreamRequestIDMaxLength, false) {
+		upstreamRequestID = input.UpstreamRequestID
+	}
+	if len(input.Body) == 0 || len(input.Body) > channel.MaxTaskSubmitResponseBytes || !utf8.Valid(input.Body) {
+		return unknown("invalid_response", "invalid Vertex task submission response", http.StatusInternalServerError)
+	}
+
+	var responseObject map[string]json.RawMessage
+	if err := common.Unmarshal(input.Body, &responseObject); err != nil || responseObject == nil {
+		return unknown("unmarshal_response_failed", "invalid Vertex task submission response", http.StatusInternalServerError)
+	}
+	nameBody, namePresent := responseObject["name"]
+	if namePresent {
+		var operationName string
+		if err := common.Unmarshal(nameBody, &operationName); err == nil && isSafeVertexOperationName(operationName) {
+			providerOperationID = operationName
+			legacyPollingID = taskcommon.EncodeLocalTaskID(operationName)
+		}
+	}
+	if input.HTTPStatus != http.StatusOK {
+		return unknown("unverified_response", "unverified Vertex task submission response", http.StatusBadGateway)
+	}
+	// An error envelope and an operation name are contradictory submission
+	// evidence. Without a provider contract proving their combined meaning, it
+	// must not be promoted to accepted.
+	if _, hasError := responseObject["error"]; hasError {
+		return unknown("unverified_response", "Vertex returned conflicting task submission evidence", http.StatusInternalServerError)
+	}
+	if !namePresent || providerOperationID == "" || legacyPollingID == "" {
+		return unknown("invalid_response", "invalid Vertex task submission response", http.StatusInternalServerError)
+	}
+
+	// The operation ID is stored separately. No provider response fields are
+	// needed by the legacy converter before the first polling update.
+	taskData, err := common.Marshal(struct{}{})
+	if err != nil {
+		return unknown("marshal_task_data_failed", "failed to build Vertex task submission data", http.StatusInternalServerError)
+	}
+	openAIResp := dto.NewOpenAIVideo()
+	openAIResp.ID = input.PublicTaskID
+	openAIResp.TaskID = input.PublicTaskID
+	openAIResp.Model = input.OriginModelName
+	openAIResp.CreatedAt = input.SubmittedAtUnix
+	legacyBody, err := common.Marshal(openAIResp)
+	if err != nil {
+		return unknown("marshal_legacy_response_failed", "failed to build Vertex task submission response", http.StatusInternalServerError)
+	}
+
+	return channel.TaskSubmitParseResult{
+		Disposition:         channel.TaskSubmitAccepted,
+		ProviderOperationID: providerOperationID,
+		LegacyPollingID:     legacyPollingID,
+		UpstreamRequestID:   upstreamRequestID,
+		TaskData:            taskData,
+		LegacyResponse: &channel.LegacyTaskSubmitResponse{
+			StatusCode:  http.StatusOK,
+			ContentType: "application/json; charset=utf-8",
+			Body:        legacyBody,
+		},
+	}
 }
 
 func (a *TaskAdaptor) GetModelList() []string {
@@ -227,6 +355,9 @@ func (a *TaskAdaptor) GetModelList() []string {
 func (a *TaskAdaptor) GetChannelName() string { return "vertex" }
 
 func buildFetchOperationURL(baseURL, upstreamName string) (string, error) {
+	if !isSafeVertexOperationName(upstreamName) {
+		return "", fmt.Errorf("invalid operation name")
+	}
 	region := extractRegionFromOperationName(upstreamName)
 	if region == "" {
 		region = "us-central1"
@@ -246,6 +377,9 @@ func buildFetchOperationURL(baseURL, upstreamName string) (string, error) {
 func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy string) (*http.Response, error) {
 	taskID, ok := body["task_id"].(string)
 	if !ok {
+		return nil, fmt.Errorf("invalid task_id")
+	}
+	if !channel.IsValidTaskSubmitToken(taskID, channel.TaskSubmitProviderOperationIDMaxLength, false) {
 		return nil, fmt.Errorf("invalid task_id")
 	}
 	upstreamName, err := taskcommon.DecodeLocalTaskID(taskID)
@@ -380,6 +514,22 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
 // ============================
 
 var regionRe = regexp.MustCompile(`locations/([a-z0-9-]+)/`)
+
+const maxVertexOperationNameBytes = 143
+
+var vertexOperationNameRe = regexp.MustCompile(`^projects/[A-Za-z0-9][A-Za-z0-9._-]{0,62}/locations/[a-z0-9-]{1,63}/publishers/google/models/[A-Za-z0-9][A-Za-z0-9._-]{0,95}/operations/[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+
+func isSafeVertexOperationName(operationName string) bool {
+	if !channel.IsValidTaskSubmitToken(operationName, maxVertexOperationNameBytes, false) ||
+		!vertexOperationNameRe.MatchString(operationName) {
+		return false
+	}
+	return channel.IsValidTaskSubmitToken(
+		taskcommon.EncodeLocalTaskID(operationName),
+		channel.TaskSubmitProviderOperationIDMaxLength,
+		false,
+	)
+}
 
 func extractRegionFromOperationName(name string) string {
 	m := regionRe.FindStringSubmatch(name)

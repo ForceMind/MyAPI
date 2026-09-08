@@ -2,13 +2,16 @@ package kling
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
@@ -108,6 +111,17 @@ type responsePayload struct {
 	} `json:"data"`
 }
 
+// klingTaskSubmitPersistence is the bounded snapshot needed by the legacy
+// video response converter before its first polling update. The provider task
+// id is held separately in Task.PrivateData; arbitrary upstream response
+// fields, including prompts, URLs, messages, and extensions, are excluded.
+type klingTaskSubmitPersistence struct {
+	Code int `json:"code"`
+	Data struct {
+		TaskStatus string `json:"task_status,omitempty"`
+	} `json:"data"`
+}
+
 // ============================
 // Adaptor implementation
 // ============================
@@ -118,6 +132,8 @@ type TaskAdaptor struct {
 	apiKey      string
 	baseURL     string
 }
+
+var _ channel.TaskSubmitResponseParser = (*TaskAdaptor)(nil)
 
 func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 	a.ChannelType = info.ChannelType
@@ -190,35 +206,284 @@ func (a *TaskAdaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, req
 
 // DoResponse handles upstream response, returns taskID etc.
 func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (taskID string, taskData []byte, taskErr *taskdto.TaskError) {
-	responseBody, err := io.ReadAll(resp.Body)
+	if resp == nil || resp.Body == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Kling task submission response"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	defer resp.Body.Close()
+
+	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, channel.MaxTaskSubmitResponseBytes+1))
 	if err != nil {
-		taskErr = service.TaskErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
-		return
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("failed to read Kling task submission response"),
+			"read_response_body_failed",
+			http.StatusInternalServerError,
+		)
+	}
+	modelName := ""
+	if c != nil {
+		modelName = c.GetString("model")
+	}
+	if modelName == "" && info != nil {
+		modelName = info.OriginModelName
+	}
+	upstreamRequestID := ""
+	if resp.Header != nil {
+		upstreamRequestID = resp.Header.Get(common.RequestIdKey)
+	}
+	parseInput := channel.TaskSubmitParseInput{
+		HTTPStatus:        resp.StatusCode,
+		Body:              responseBody,
+		UpstreamRequestID: upstreamRequestID,
+		ClientModelName:   modelName,
+		SubmittedAtUnix:   common.GetTimestamp(),
+	}
+	if info != nil {
+		parseInput.OriginModelName = info.OriginModelName
+		if info.TaskRelayInfo != nil {
+			parseInput.PublicTaskID = info.PublicTaskID
+		}
+	}
+	result := a.ParseTaskSubmitResponse(parseInput)
+	if err := result.Validate(); err != nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Kling task submission parse result"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	if result.Disposition != channel.TaskSubmitAccepted {
+		if resp.StatusCode != http.StatusOK {
+			return "", nil, service.TaskErrorWrapper(
+				fmt.Errorf("task submission upstream returned an unexpected HTTP status"),
+				"fail_to_fetch_task",
+				resp.StatusCode,
+			)
+		}
+		problem := result.Problem
+		if problem.Local {
+			return "", nil, service.TaskErrorWrapperLocal(fmt.Errorf("%s", problem.SafeMessage), problem.OutcomeCode, problem.StatusCode)
+		}
+		return "", nil, service.TaskErrorWrapper(fmt.Errorf("%s", problem.SafeMessage), problem.OutcomeCode, problem.StatusCode)
+	}
+	if c == nil || info == nil || info.TaskRelayInfo == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Kling task submission response context"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	c.Data(result.LegacyResponse.StatusCode, result.LegacyResponse.ContentType, result.LegacyResponse.Body)
+	return result.LegacyPollingID, result.TaskData, nil
+}
+
+// ParseTaskSubmitResponse interprets one complete Kling submission response.
+// It is intentionally independent of Gin, HTTP writers, persistence, billing,
+// clocks, and network activity.
+func (_ *TaskAdaptor) ParseTaskSubmitResponse(input channel.TaskSubmitParseInput) channel.TaskSubmitParseResult {
+	providerTaskID := ""
+	upstreamRequestID := ""
+	if channel.IsValidTaskSubmitToken(input.UpstreamRequestID, channel.TaskSubmitUpstreamRequestIDMaxLength, false) {
+		upstreamRequestID = input.UpstreamRequestID
+	}
+	unknown := func(code, message string) channel.TaskSubmitParseResult {
+		return channel.TaskSubmitParseResult{
+			Disposition:         channel.TaskSubmitUnknown,
+			ProviderOperationID: providerTaskID,
+			LegacyPollingID:     providerTaskID,
+			UpstreamRequestID:   upstreamRequestID,
+			Problem: &channel.TaskSubmitProblem{
+				OutcomeCode: code,
+				SafeMessage: message,
+				StatusCode:  http.StatusBadGateway,
+			},
+		}
+	}
+	if len(input.Body) == 0 || len(input.Body) > channel.MaxTaskSubmitResponseBytes || !utf8.Valid(input.Body) {
+		return unknown("invalid_response", "invalid Kling task submission response")
 	}
 
-	var kResp responsePayload
-	err = common.Unmarshal(responseBody, &kResp)
+	var responseObject map[string]json.RawMessage
+	if err := common.Unmarshal(input.Body, &responseObject); err != nil || responseObject == nil {
+		return unknown("unmarshal_response_body_failed", "invalid Kling task submission response")
+	}
+	codeBody, ok := responseObject["code"]
+	if !ok {
+		return unknown("invalid_response", "invalid Kling task submission response")
+	}
+	var code *int
+	if err := common.Unmarshal(codeBody, &code); err != nil || code == nil {
+		return unknown("invalid_response", "invalid Kling task submission response")
+	}
+	if requestIDBody, exists := responseObject["request_id"]; exists && upstreamRequestID == "" {
+		var requestID string
+		if err := common.Unmarshal(requestIDBody, &requestID); err == nil &&
+			channel.IsValidTaskSubmitToken(requestID, channel.TaskSubmitUpstreamRequestIDMaxLength, false) {
+			upstreamRequestID = requestID
+		}
+	}
+
+	dataObject, dataPresent, dataObjectValid := parseKlingTaskSubmitData(responseObject["data"])
+	if !dataObjectValid {
+		return unknown("invalid_response", "invalid Kling task submission response")
+	}
+	topLevelTaskID, topLevelTaskIDPresent, topLevelTaskIDValid := parseKlingTaskSubmitTaskID(responseObject["task_id"])
+	if !topLevelTaskIDValid {
+		return unknown("invalid_response", "invalid Kling task submission response")
+	}
+	dataTaskID := ""
+	dataTaskIDPresent := false
+	if dataPresent {
+		var dataTaskIDValid bool
+		dataTaskID, dataTaskIDPresent, dataTaskIDValid = parseKlingTaskSubmitTaskID(dataObject["task_id"])
+		if !dataTaskIDValid {
+			return unknown("invalid_response", "invalid Kling task submission response")
+		}
+	}
+	if topLevelTaskIDPresent && dataTaskIDPresent && topLevelTaskID != dataTaskID {
+		return unknown("unverified_response", "Kling returned conflicting task submission evidence")
+	}
+	if dataTaskIDPresent {
+		providerTaskID = dataTaskID
+	} else if topLevelTaskIDPresent {
+		providerTaskID = topLevelTaskID
+	}
+
+	if input.HTTPStatus != http.StatusOK {
+		return unknown("unverified_response", "unverified Kling task submission response")
+	}
+	if *code != 0 {
+		// The public success shape establishes code == 0, but no rejection
+		// allowlist is yet verified. Preserve the old local-error behavior for
+		// the gate-off bridge while keeping durable disposition conservative.
+		return channel.TaskSubmitParseResult{
+			Disposition:         channel.TaskSubmitUnknown,
+			ProviderOperationID: providerTaskID,
+			LegacyPollingID:     providerTaskID,
+			UpstreamRequestID:   upstreamRequestID,
+			Problem: &channel.TaskSubmitProblem{
+				OutcomeCode: "task_failed",
+				SafeMessage: "Kling did not confirm the task submission",
+				StatusCode:  http.StatusBadRequest,
+				Local:       true,
+			},
+		}
+	}
+	if !dataPresent || !dataTaskIDPresent || providerTaskID == "" {
+		return unknown("invalid_response", "Kling did not return a valid task id")
+	}
+
+	taskStatus := ""
+	if taskStatusBody, exists := dataObject["task_status"]; exists {
+		var upstreamTaskStatus string
+		if err := common.Unmarshal(taskStatusBody, &upstreamTaskStatus); err == nil {
+			switch upstreamTaskStatus {
+			case "submitted", "processing", "succeed", "failed":
+				taskStatus = upstreamTaskStatus
+			}
+		}
+	}
+	taskData := klingTaskSubmitPersistence{Code: *code}
+	taskData.Data.TaskStatus = taskStatus
+	persistedTaskData, err := common.Marshal(taskData)
 	if err != nil {
-		taskErr = service.TaskErrorWrapper(err, "unmarshal_response_failed", http.StatusInternalServerError)
-		return
+		return unknown("marshal_task_data_failed", "failed to build Kling task submission data")
 	}
-	if kResp.Code != 0 {
-		taskErr = service.TaskErrorWrapperLocal(fmt.Errorf("%s", kResp.Message), "task_failed", http.StatusBadRequest)
-		return
+
+	modelName := input.ClientModelName
+	if modelName == "" {
+		modelName = input.OriginModelName
 	}
-	ov := dto.NewOpenAIVideo()
-	ov.ID = info.PublicTaskID
-	ov.TaskID = info.PublicTaskID
-	ov.CreatedAt = time.Now().Unix()
-	ov.Model = info.OriginModelName
-	c.JSON(http.StatusOK, ov)
-	return kResp.Data.TaskId, responseBody, nil
+	openAIResp := dto.NewOpenAIVideo()
+	openAIResp.ID = input.PublicTaskID
+	openAIResp.TaskID = input.PublicTaskID
+	openAIResp.Model = modelName
+	openAIResp.CreatedAt = input.SubmittedAtUnix
+	legacyBody, err := common.Marshal(openAIResp)
+	if err != nil {
+		return unknown("marshal_legacy_response_failed", "failed to build Kling task submission response")
+	}
+
+	return channel.TaskSubmitParseResult{
+		Disposition:         channel.TaskSubmitAccepted,
+		ProviderOperationID: providerTaskID,
+		LegacyPollingID:     providerTaskID,
+		UpstreamRequestID:   upstreamRequestID,
+		TaskData:            persistedTaskData,
+		LegacyResponse: &channel.LegacyTaskSubmitResponse{
+			StatusCode:  http.StatusOK,
+			ContentType: "application/json; charset=utf-8",
+			Body:        legacyBody,
+		},
+	}
+}
+
+// parseKlingTaskSubmitData distinguishes an omitted or null data field from
+// malformed non-object data. Only a verified success requires data.task_id;
+// an error envelope remains unknown until a rejection contract is verified.
+func parseKlingTaskSubmitData(dataBody json.RawMessage) (map[string]json.RawMessage, bool, bool) {
+	if dataBody == nil {
+		return nil, false, true
+	}
+	if string(bytes.TrimSpace(dataBody)) == "null" {
+		return nil, false, true
+	}
+	var dataObject map[string]json.RawMessage
+	if err := common.Unmarshal(dataBody, &dataObject); err != nil || dataObject == nil {
+		return nil, false, false
+	}
+	return dataObject, true, true
+}
+
+// parseKlingTaskSubmitTaskID treats a present but null, malformed, or unsafe
+// task id as unverified evidence. This prevents alternate top-level and data
+// shapes from being silently ignored during durable migration.
+func parseKlingTaskSubmitTaskID(taskIDBody json.RawMessage) (string, bool, bool) {
+	if taskIDBody == nil {
+		return "", false, true
+	}
+	var taskID string
+	if err := common.Unmarshal(taskIDBody, &taskID); err != nil || !isSafeKlingTaskID(taskID) {
+		return "", true, false
+	}
+	return taskID, true, true
+}
+
+func isSafeKlingTaskID(taskID string) bool {
+	if taskID == "." || taskID == ".." ||
+		!channel.IsValidTaskSubmitToken(taskID, channel.TaskSubmitProviderOperationIDMaxLength, false) {
+		return false
+	}
+	for index := 0; index < len(taskID); index++ {
+		character := taskID[index]
+		if (character >= 'a' && character <= 'z') ||
+			(character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') ||
+			character == '-' || character == '_' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func buildKlingTaskFetchURL(baseURL, path, taskID string, useNewAPIRelay bool) (string, error) {
+	if !isSafeKlingTaskID(taskID) {
+		return "", fmt.Errorf("invalid task_id")
+	}
+	if useNewAPIRelay {
+		return fmt.Sprintf("%s/kling%s/%s", baseURL, path, url.PathEscape(taskID)), nil
+	}
+	return fmt.Sprintf("%s%s/%s", baseURL, path, url.PathEscape(taskID)), nil
 }
 
 // FetchTask fetch task status
 func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy string) (*http.Response, error) {
 	taskID, ok := body["task_id"].(string)
-	if !ok {
+	if !ok || !isSafeKlingTaskID(taskID) {
 		return nil, fmt.Errorf("invalid task_id")
 	}
 	action, ok := body["action"].(string)
@@ -226,12 +491,12 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 		return nil, fmt.Errorf("invalid action")
 	}
 	path := lo.Ternary(action == constant.TaskActionGenerate, "/v1/videos/image2video", "/v1/videos/text2video")
-	url := fmt.Sprintf("%s%s/%s", baseUrl, path, taskID)
-	if isNewAPIRelay(key) {
-		url = fmt.Sprintf("%s/kling%s/%s", baseUrl, path, taskID)
+	requestURL, err := buildKlingTaskFetchURL(baseUrl, path, taskID, isNewAPIRelay(key))
+	if err != nil {
+		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
 	if err != nil {
 		return nil, err
 	}

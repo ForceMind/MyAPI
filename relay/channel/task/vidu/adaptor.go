@@ -2,11 +2,13 @@ package vidu
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
-	"time"
+	"unicode/utf8"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/gin-gonic/gin"
@@ -78,6 +80,8 @@ type TaskAdaptor struct {
 	ChannelType int
 	baseURL     string
 }
+
+var _ channel.TaskSubmitResponseParser = (*TaskAdaptor)(nil)
 
 func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 	a.ChannelType = info.ChannelType
@@ -163,31 +167,210 @@ func (a *TaskAdaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, req
 }
 
 func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (taskID string, taskData []byte, taskErr *taskdto.TaskError) {
-	responseBody, err := io.ReadAll(resp.Body)
+	if resp == nil || resp.Body == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Vidu task submission response"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	defer resp.Body.Close()
+
+	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, channel.MaxTaskSubmitResponseBytes+1))
 	if err != nil {
-		taskErr = service.TaskErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
-		return
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("failed to read Vidu task submission response"),
+			"read_response_body_failed",
+			http.StatusInternalServerError,
+		)
+	}
+	upstreamRequestID := ""
+	if resp.Header != nil {
+		upstreamRequestID = resp.Header.Get(common.RequestIdKey)
+	}
+	parseInput := channel.TaskSubmitParseInput{
+		HTTPStatus:        resp.StatusCode,
+		Body:              responseBody,
+		UpstreamRequestID: upstreamRequestID,
+		SubmittedAtUnix:   common.GetTimestamp(),
+	}
+	if info != nil {
+		parseInput.OriginModelName = info.OriginModelName
+		if info.TaskRelayInfo != nil {
+			parseInput.PublicTaskID = info.PublicTaskID
+		}
+	}
+	result := a.ParseTaskSubmitResponse(parseInput)
+	if err := result.Validate(); err != nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Vidu task submission parse result"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	if result.Disposition != channel.TaskSubmitAccepted {
+		if resp.StatusCode != http.StatusOK {
+			return "", nil, service.TaskErrorWrapper(
+				fmt.Errorf("task submission upstream returned an unexpected HTTP status"),
+				"fail_to_fetch_task",
+				resp.StatusCode,
+			)
+		}
+		problem := result.Problem
+		if problem.Local {
+			return "", nil, service.TaskErrorWrapperLocal(fmt.Errorf("%s", problem.SafeMessage), problem.OutcomeCode, problem.StatusCode)
+		}
+		return "", nil, service.TaskErrorWrapper(fmt.Errorf("%s", problem.SafeMessage), problem.OutcomeCode, problem.StatusCode)
+	}
+	if c == nil || info == nil || info.TaskRelayInfo == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Vidu task submission response context"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	c.Data(result.LegacyResponse.StatusCode, result.LegacyResponse.ContentType, result.LegacyResponse.Body)
+	return result.LegacyPollingID, result.TaskData, nil
+}
+
+// viduTaskSubmitPersistence is the minimal safe state retained until polling
+// replaces Task.Data. The provider task ID, prompt, payload, and all other
+// upstream fields are persisted elsewhere or deliberately excluded.
+type viduTaskSubmitPersistence struct {
+	State string `json:"state"`
+}
+
+// ParseTaskSubmitResponse interprets one complete Vidu submission response.
+// It is intentionally independent of Gin, HTTP writers, persistence, billing,
+// clocks, and network activity.
+func (_ *TaskAdaptor) ParseTaskSubmitResponse(input channel.TaskSubmitParseInput) channel.TaskSubmitParseResult {
+	providerTaskID := ""
+	upstreamRequestID := ""
+	unknown := func(code, message string, statusCode int) channel.TaskSubmitParseResult {
+		return channel.TaskSubmitParseResult{
+			Disposition:         channel.TaskSubmitUnknown,
+			ProviderOperationID: providerTaskID,
+			LegacyPollingID:     providerTaskID,
+			UpstreamRequestID:   upstreamRequestID,
+			Problem: &channel.TaskSubmitProblem{
+				OutcomeCode: code,
+				SafeMessage: message,
+				StatusCode:  statusCode,
+			},
+		}
+	}
+	if channel.IsValidTaskSubmitToken(input.UpstreamRequestID, channel.TaskSubmitUpstreamRequestIDMaxLength, false) {
+		upstreamRequestID = input.UpstreamRequestID
+	}
+	if len(input.Body) == 0 || len(input.Body) > channel.MaxTaskSubmitResponseBytes || !utf8.Valid(input.Body) {
+		return unknown("invalid_response", "invalid Vidu task submission response", http.StatusBadGateway)
 	}
 
-	var vResp responsePayload
-	err = common.Unmarshal(responseBody, &vResp)
+	var responseObject map[string]json.RawMessage
+	if err := common.Unmarshal(input.Body, &responseObject); err != nil || responseObject == nil {
+		return unknown("unmarshal_response_body_failed", "invalid Vidu task submission response", http.StatusBadGateway)
+	}
+	taskIDBody, taskIDPresent := responseObject["task_id"]
+	if taskIDPresent {
+		var taskID string
+		if err := common.Unmarshal(taskIDBody, &taskID); err == nil && isSafeViduTaskID(taskID) {
+			providerTaskID = taskID
+		}
+	}
+	stateBody, statePresent := responseObject["state"]
+	if !statePresent {
+		return unknown("invalid_response", "invalid Vidu task submission response", http.StatusBadGateway)
+	}
+	var state string
+	if err := common.Unmarshal(stateBody, &state); err != nil {
+		return unknown("invalid_response", "invalid Vidu task submission response", http.StatusBadGateway)
+	}
+	if input.HTTPStatus != http.StatusOK {
+		return unknown("unverified_response", "unverified Vidu task submission response", http.StatusBadGateway)
+	}
+	if state == "failed" {
+		// A failed response can represent a task that was accepted and then
+		// failed. Preserve the legacy local error while leaving durable
+		// disposition unknown until a provider rejection contract is verified.
+		return channel.TaskSubmitParseResult{
+			Disposition:         channel.TaskSubmitUnknown,
+			ProviderOperationID: providerTaskID,
+			LegacyPollingID:     providerTaskID,
+			UpstreamRequestID:   upstreamRequestID,
+			Problem: &channel.TaskSubmitProblem{
+				OutcomeCode: "task_failed",
+				SafeMessage: "Vidu did not confirm the task submission",
+				StatusCode:  http.StatusBadRequest,
+				Local:       true,
+			},
+		}
+	}
+	if _, hasError := responseObject["error"]; hasError {
+		return unknown("unverified_response", "Vidu returned conflicting task submission evidence", http.StatusBadGateway)
+	}
+	if errCodeBody, hasErrCode := responseObject["err_code"]; hasErrCode {
+		var errCode *string
+		if err := common.Unmarshal(errCodeBody, &errCode); err != nil || errCode == nil || *errCode != "" {
+			return unknown("unverified_response", "Vidu returned conflicting task submission evidence", http.StatusBadGateway)
+		}
+	}
+	// Vidu documents state=created as the successful creation response. Other
+	// lifecycle states do not prove this request's acceptance contract here.
+	if state != "created" || !taskIDPresent || providerTaskID == "" {
+		return unknown("invalid_response", "invalid Vidu task submission response", http.StatusBadGateway)
+	}
+
+	taskData, err := common.Marshal(viduTaskSubmitPersistence{State: state})
 	if err != nil {
-		taskErr = service.TaskErrorWrapper(errors.Wrap(err, fmt.Sprintf("%s", responseBody)), "unmarshal_response_failed", http.StatusInternalServerError)
-		return
+		return unknown("marshal_task_data_failed", "failed to build Vidu task submission data", http.StatusInternalServerError)
+	}
+	openAIResp := dto.NewOpenAIVideo()
+	openAIResp.ID = input.PublicTaskID
+	openAIResp.TaskID = input.PublicTaskID
+	openAIResp.Model = input.OriginModelName
+	openAIResp.CreatedAt = input.SubmittedAtUnix
+	legacyBody, err := common.Marshal(openAIResp)
+	if err != nil {
+		return unknown("marshal_legacy_response_failed", "failed to build Vidu task submission response", http.StatusInternalServerError)
 	}
 
-	if vResp.State == "failed" {
-		taskErr = service.TaskErrorWrapperLocal(fmt.Errorf("task failed"), "task_failed", http.StatusBadRequest)
-		return
+	return channel.TaskSubmitParseResult{
+		Disposition:         channel.TaskSubmitAccepted,
+		ProviderOperationID: providerTaskID,
+		LegacyPollingID:     providerTaskID,
+		UpstreamRequestID:   upstreamRequestID,
+		TaskData:            taskData,
+		LegacyResponse: &channel.LegacyTaskSubmitResponse{
+			StatusCode:  http.StatusOK,
+			ContentType: "application/json; charset=utf-8",
+			Body:        legacyBody,
+		},
 	}
+}
 
-	ov := dto.NewOpenAIVideo()
-	ov.ID = info.PublicTaskID
-	ov.TaskID = info.PublicTaskID
-	ov.CreatedAt = time.Now().Unix()
-	ov.Model = info.OriginModelName
-	c.JSON(http.StatusOK, ov)
-	return vResp.TaskId, responseBody, nil
+func isSafeViduTaskID(taskID string) bool {
+	if taskID == "." || taskID == ".." ||
+		!channel.IsValidTaskSubmitToken(taskID, channel.TaskSubmitProviderOperationIDMaxLength, false) {
+		return false
+	}
+	for index := 0; index < len(taskID); index++ {
+		character := taskID[index]
+		if (character >= 'a' && character <= 'z') ||
+			(character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') ||
+			character == '-' || character == '_' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func buildViduTaskFetchURL(baseURL, taskID string) (string, error) {
+	if !isSafeViduTaskID(taskID) {
+		return "", fmt.Errorf("invalid task_id")
+	}
+	return fmt.Sprintf("%s/ent/v2/tasks/%s/creations", baseURL, url.PathEscape(taskID)), nil
 }
 
 func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy string) (*http.Response, error) {
@@ -196,7 +379,10 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 		return nil, fmt.Errorf("invalid task_id")
 	}
 
-	url := fmt.Sprintf("%s/ent/v2/tasks/%s/creations", baseUrl, taskID)
+	url, err := buildViduTaskFetchURL(baseUrl, taskID)
+	if err != nil {
+		return nil, err
+	}
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {

@@ -15,7 +15,7 @@ import (
 	"github.com/ForceMind/MyAPI/relaykit/dto"
 	"github.com/ForceMind/MyAPI/relaykit/relayconvert"
 	"github.com/ForceMind/MyAPI/relaykit/types"
-	"github.com/ForceMind/MyAPI/setting/model_setting"
+	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -621,12 +621,16 @@ func TestAdaptorResponsesToGeminiUsesResponsesBridge(t *testing.T) {
 }
 
 func TestAdaptorResponsesToGeminiAddsThoughtSignatureForFunctionCallHistory(t *testing.T) {
-	geminiSettings := model_setting.GetGeminiSettings()
-	originalThoughtSignatureEnabled := geminiSettings.FunctionCallThoughtSignatureEnabled
-	geminiSettings.FunctionCallThoughtSignatureEnabled = true
+	registered := config.GlobalConfig.Get("gemini")
+	require.NotNil(t, registered)
+	baseline, err := config.ConfigToMap(registered)
+	require.NoError(t, err)
 	t.Cleanup(func() {
-		geminiSettings.FunctionCallThoughtSignatureEnabled = originalThoughtSignatureEnabled
+		require.NoError(t, config.UpdateConfigFromMap(registered, baseline))
 	})
+	require.NoError(t, config.UpdateConfigFromMap(registered, map[string]string{
+		"function_call_thought_signature_enabled": "true",
+	}))
 
 	adaptor := &Adaptor{}
 	info := advancedCustomRelayInfo(&dto.AdvancedCustomConfig{

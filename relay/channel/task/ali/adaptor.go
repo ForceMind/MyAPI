@@ -2,11 +2,14 @@ package ali
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/ForceMind/MyAPI/common"
 	taskdto "github.com/ForceMind/MyAPI/dto"
@@ -86,6 +89,18 @@ type AliVideoOutput struct {
 	Message       string `json:"message,omitempty"`
 }
 
+// aliTaskSubmitPersistence is the minimal safe snapshot needed by the legacy
+// video response converter before the first polling update replaces Task.Data.
+// The provider operation id is persisted separately and response fields such
+// as prompts, media URLs, messages, and unknown extensions are excluded.
+type aliTaskSubmitPersistence struct {
+	Output aliTaskSubmitPersistenceOutput `json:"output"`
+}
+
+type aliTaskSubmitPersistenceOutput struct {
+	TaskStatus string `json:"task_status,omitempty"`
+}
+
 // AliUsage 使用统计
 type AliUsage struct {
 	Duration   dto.IntValue `json:"duration,omitempty"`
@@ -123,6 +138,8 @@ type TaskAdaptor struct {
 	apiKey      string
 	baseURL     string
 }
+
+var _ channel.TaskSubmitResponseParser = (*TaskAdaptor)(nil)
 
 func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 	a.ChannelType = info.ChannelType
@@ -479,46 +496,216 @@ func (a *TaskAdaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, req
 
 // DoResponse handles upstream response
 func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (taskID string, taskData []byte, taskErr *taskdto.TaskError) {
-	responseBody, err := io.ReadAll(resp.Body)
+	if resp == nil || resp.Body == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Ali task submission response"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	defer resp.Body.Close()
+
+	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, channel.MaxTaskSubmitResponseBytes+1))
 	if err != nil {
-		taskErr = service.TaskErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
-		return
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("failed to read Ali task submission response"),
+			"read_response_body_failed",
+			http.StatusInternalServerError,
+		)
 	}
-	_ = resp.Body.Close()
+	modelName := ""
+	if c != nil {
+		modelName = c.GetString("model")
+	}
+	if modelName == "" && info != nil {
+		modelName = info.OriginModelName
+	}
+	upstreamRequestID := ""
+	if resp.Header != nil {
+		upstreamRequestID = resp.Header.Get(common.RequestIdKey)
+	}
+	parseInput := channel.TaskSubmitParseInput{
+		HTTPStatus:        resp.StatusCode,
+		Body:              responseBody,
+		UpstreamRequestID: upstreamRequestID,
+		ClientModelName:   modelName,
+	}
+	if info != nil && info.TaskRelayInfo != nil {
+		parseInput.PublicTaskID = info.PublicTaskID
+	}
+	if info != nil {
+		parseInput.OriginModelName = info.OriginModelName
+	}
+	parseInput.SubmittedAtUnix = common.GetTimestamp()
+	result := a.ParseTaskSubmitResponse(parseInput)
+	if err := result.Validate(); err != nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Ali task submission parse result"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	if result.Disposition != channel.TaskSubmitAccepted {
+		if resp.StatusCode != http.StatusOK {
+			return "", nil, service.TaskErrorWrapper(
+				fmt.Errorf("task submission upstream returned an unexpected HTTP status"),
+				"fail_to_fetch_task",
+				resp.StatusCode,
+			)
+		}
+		problem := result.Problem
+		if problem.Local {
+			return "", nil, service.TaskErrorWrapperLocal(fmt.Errorf("%s", problem.SafeMessage), problem.OutcomeCode, problem.StatusCode)
+		}
+		return "", nil, service.TaskErrorWrapper(fmt.Errorf("%s", problem.SafeMessage), problem.OutcomeCode, problem.StatusCode)
+	}
+	if c == nil || info == nil || info.TaskRelayInfo == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Ali task submission response context"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	c.Data(result.LegacyResponse.StatusCode, result.LegacyResponse.ContentType, result.LegacyResponse.Body)
+	return result.LegacyPollingID, result.TaskData, nil
+}
 
-	// 解析阿里响应
+// ParseTaskSubmitResponse interprets one complete Ali submission response. It
+// is intentionally independent of Gin, HTTP writers, persistence, and billing.
+func (_ *TaskAdaptor) ParseTaskSubmitResponse(input channel.TaskSubmitParseInput) channel.TaskSubmitParseResult {
+	providerTaskID := ""
+	upstreamRequestID := ""
+	if channel.IsValidTaskSubmitToken(input.UpstreamRequestID, channel.TaskSubmitUpstreamRequestIDMaxLength, false) {
+		upstreamRequestID = input.UpstreamRequestID
+	}
+	unknown := func(code, message string, statusCode int) channel.TaskSubmitParseResult {
+		return channel.TaskSubmitParseResult{
+			Disposition:         channel.TaskSubmitUnknown,
+			ProviderOperationID: providerTaskID,
+			LegacyPollingID:     providerTaskID,
+			UpstreamRequestID:   upstreamRequestID,
+			Problem: &channel.TaskSubmitProblem{
+				OutcomeCode: code,
+				SafeMessage: message,
+				StatusCode:  statusCode,
+			},
+		}
+	}
+	if len(input.Body) == 0 || len(input.Body) > channel.MaxTaskSubmitResponseBytes {
+		return unknown("invalid_response", "invalid Ali task submission response", http.StatusInternalServerError)
+	}
+	if !utf8.Valid(input.Body) {
+		return unknown("unmarshal_response_body_failed", "invalid Ali task submission response", http.StatusInternalServerError)
+	}
+
+	var responseObject map[string]json.RawMessage
+	if err := common.Unmarshal(input.Body, &responseObject); err != nil || responseObject == nil {
+		return unknown("unmarshal_response_body_failed", "invalid Ali task submission response", http.StatusInternalServerError)
+	}
+	if requestIDBody, exists := responseObject["request_id"]; exists && upstreamRequestID == "" {
+		var requestID string
+		if err := common.Unmarshal(requestIDBody, &requestID); err == nil &&
+			channel.IsValidTaskSubmitToken(requestID, channel.TaskSubmitUpstreamRequestIDMaxLength, false) {
+			upstreamRequestID = requestID
+		}
+	}
+	if outputBody, exists := responseObject["output"]; exists {
+		var outputObject map[string]json.RawMessage
+		if err := common.Unmarshal(outputBody, &outputObject); err == nil && outputObject != nil {
+			if taskIDBody, exists := outputObject["task_id"]; exists {
+				var taskID string
+				if err := common.Unmarshal(taskIDBody, &taskID); err == nil && isSafeAliTaskID(taskID) {
+					providerTaskID = taskID
+				}
+			}
+		}
+	}
+	// DashScope success envelopes omit the top-level code entirely. Presence is
+	// evidence of an error envelope even when the value is null, empty, or
+	// otherwise malformed, so it can never be accepted as a submission.
+	if _, providerReturnedCode := responseObject["code"]; providerReturnedCode {
+		statusCode := input.HTTPStatus
+		if statusCode < 100 || statusCode > 599 {
+			statusCode = http.StatusBadGateway
+		}
+		return unknown("ali_api_error", "Ali returned an unverified task submission error", statusCode)
+	}
+	if input.HTTPStatus != http.StatusOK {
+		return unknown("unverified_response", "unverified Ali task submission response", http.StatusBadGateway)
+	}
 	var aliResp AliVideoResponse
-	if err := common.Unmarshal(responseBody, &aliResp); err != nil {
-		taskErr = service.TaskErrorWrapper(errors.Wrapf(err, "body: %s", responseBody), "unmarshal_response_body_failed", http.StatusInternalServerError)
-		return
+	if err := common.Unmarshal(input.Body, &aliResp); err != nil {
+		return unknown("unmarshal_response_body_failed", "invalid Ali task submission response", http.StatusInternalServerError)
 	}
 
-	// 检查错误
-	if aliResp.Code != "" {
-		taskErr = service.TaskErrorWrapper(fmt.Errorf("%s: %s", aliResp.Code, aliResp.Message), "ali_api_error", resp.StatusCode)
-		return
+	if providerTaskID == "" {
+		return unknown("invalid_response", "task_id is empty or exceeds its boundary", http.StatusInternalServerError)
 	}
 
-	if aliResp.Output.TaskID == "" {
-		taskErr = service.TaskErrorWrapper(fmt.Errorf("task_id is empty"), "invalid_response", http.StatusInternalServerError)
-		return
+	modelName := input.ClientModelName
+	if modelName == "" {
+		modelName = input.OriginModelName
 	}
-
-	// 转换为 OpenAI 格式响应
 	openAIResp := dto.NewOpenAIVideo()
-	openAIResp.ID = info.PublicTaskID
-	openAIResp.TaskID = info.PublicTaskID
-	openAIResp.Model = c.GetString("model")
-	if openAIResp.Model == "" && info != nil {
-		openAIResp.Model = info.OriginModelName
-	}
+	openAIResp.ID = input.PublicTaskID
+	openAIResp.TaskID = input.PublicTaskID
+	openAIResp.Model = modelName
 	openAIResp.Status = convertAliStatus(aliResp.Output.TaskStatus)
-	openAIResp.CreatedAt = common.GetTimestamp()
+	openAIResp.CreatedAt = input.SubmittedAtUnix
+	legacyBody, err := common.Marshal(openAIResp)
+	if err != nil {
+		return unknown("marshal_legacy_response_failed", "failed to build Ali task submission response", http.StatusInternalServerError)
+	}
 
-	// 返回 OpenAI 格式
-	c.JSON(http.StatusOK, openAIResp)
+	taskStatus := ""
+	switch aliResp.Output.TaskStatus {
+	case "PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELED", "UNKNOWN":
+		taskStatus = aliResp.Output.TaskStatus
+	}
+	taskData, err := common.Marshal(aliTaskSubmitPersistence{
+		Output: aliTaskSubmitPersistenceOutput{TaskStatus: taskStatus},
+	})
+	if err != nil {
+		return unknown("marshal_task_data_failed", "failed to build Ali task submission data", http.StatusInternalServerError)
+	}
 
-	return aliResp.Output.TaskID, responseBody, nil
+	return channel.TaskSubmitParseResult{
+		Disposition:         channel.TaskSubmitAccepted,
+		ProviderOperationID: providerTaskID,
+		LegacyPollingID:     providerTaskID,
+		UpstreamRequestID:   upstreamRequestID,
+		TaskData:            taskData,
+		LegacyResponse: &channel.LegacyTaskSubmitResponse{
+			StatusCode:  http.StatusOK,
+			ContentType: "application/json; charset=utf-8",
+			Body:        legacyBody,
+		},
+	}
+}
+
+func isSafeAliTaskID(taskID string) bool {
+	if taskID == "." || taskID == ".." ||
+		!channel.IsValidTaskSubmitToken(taskID, channel.TaskSubmitProviderOperationIDMaxLength, false) {
+		return false
+	}
+	for index := 0; index < len(taskID); index++ {
+		character := taskID[index]
+		if (character >= 'a' && character <= 'z') ||
+			(character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') ||
+			character == '-' || character == '_' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func buildAliTaskFetchURL(baseURL, taskID string) (string, error) {
+	if !isSafeAliTaskID(taskID) {
+		return "", fmt.Errorf("invalid task_id")
+	}
+	return fmt.Sprintf("%s/api/v1/tasks/%s", baseURL, url.PathEscape(taskID)), nil
 }
 
 // FetchTask 查询任务状态
@@ -528,7 +715,10 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 		return nil, fmt.Errorf("invalid task_id")
 	}
 
-	uri := fmt.Sprintf("%s/api/v1/tasks/%s", baseUrl, taskID)
+	uri, err := buildAliTaskFetchURL(baseUrl, taskID)
+	if err != nil {
+		return nil, err
+	}
 
 	req, err := http.NewRequest(http.MethodGet, uri, nil)
 	if err != nil {

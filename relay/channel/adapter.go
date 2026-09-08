@@ -79,6 +79,14 @@ type TaskAdaptor interface {
 	ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, error)
 }
 
+// TaskSubmitResponseParser is the side-effect-free response boundary used by
+// durable task submissions. Implementations must not write an HTTP response or
+// mutate persistence/billing state. It is intentionally separate from
+// TaskAdaptor while providers migrate away from the legacy DoResponse method.
+type TaskSubmitResponseParser interface {
+	ParseTaskSubmitResponse(input TaskSubmitParseInput) TaskSubmitParseResult
+}
+
 type OpenAIVideoConverter interface {
 	ConvertToOpenAIVideo(originTask *model.Task) ([]byte, error)
 }

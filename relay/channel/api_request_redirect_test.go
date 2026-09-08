@@ -86,3 +86,51 @@ func TestDoRequestReturnsUpstreamRedirectWithoutFollowing(t *testing.T) {
 
 	assert.Equal(t, originalRedirectPolicy, reflect.ValueOf(sharedClient.CheckRedirect).Pointer(), "the cached client must not be mutated")
 }
+
+func TestDoTaskApiRequestReturnsUpstreamRedirectWithoutFollowing(t *testing.T) {
+	service.InitHttpClient()
+	gin.SetMode(gin.TestMode)
+
+	var targetRequests atomic.Int32
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		targetRequests.Add(1)
+		w.WriteHeader(http.StatusTeapot)
+	}))
+	defer target.Close()
+
+	const responseBody = "task redirect response"
+	for _, statusCode := range []int{http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect} {
+		t.Run(http.StatusText(statusCode), func(t *testing.T) {
+			targetRequests.Store(0)
+			var sourceRequests atomic.Int32
+			source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				sourceRequests.Add(1)
+				_, _ = io.ReadAll(r.Body)
+				w.Header().Set("Location", target.URL+"/redirect-target")
+				w.WriteHeader(statusCode)
+				_, _ = io.WriteString(w, responseBody)
+			}))
+			defer source.Close()
+
+			recorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(recorder)
+			ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/video/generations", nil)
+			info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{}}
+			adaptor := &stubTaskAdaptor{baseURL: source.URL}
+
+			resp, err := DoTaskApiRequest(adaptor, ctx, info, bytes.NewReader([]byte("task request body")))
+			require.NoError(t, err)
+			defer resp.Body.Close()
+			body, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+
+			assert.Equal(t, statusCode, resp.StatusCode)
+			assert.Equal(t, target.URL+"/redirect-target", resp.Header.Get("Location"))
+			assert.Equal(t, responseBody, string(body))
+			assert.EqualValues(t, 1, sourceRequests.Load())
+			assert.Zero(t, targetRequests.Load())
+			require.NotNil(t, adaptor.capturedReq)
+			assert.Nil(t, adaptor.capturedReq.GetBody)
+		})
+	}
+}

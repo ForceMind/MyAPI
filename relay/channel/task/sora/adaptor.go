@@ -2,13 +2,16 @@ package sora
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"net/url"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
@@ -57,6 +60,19 @@ type responseTask struct {
 	} `json:"error,omitempty"`
 }
 
+type soraTaskSubmitPersistence struct {
+	Object             string `json:"object"`
+	Model              string `json:"model"`
+	Status             string `json:"status"`
+	Progress           int    `json:"progress"`
+	CreatedAt          int64  `json:"created_at"`
+	CompletedAt        int64  `json:"completed_at,omitempty"`
+	ExpiresAt          int64  `json:"expires_at,omitempty"`
+	Seconds            string `json:"seconds,omitempty"`
+	Size               string `json:"size,omitempty"`
+	RemixedFromVideoID string `json:"remixed_from_video_id,omitempty"`
+}
+
 // ============================
 // Adaptor implementation
 // ============================
@@ -67,6 +83,8 @@ type TaskAdaptor struct {
 	apiKey      string
 	baseURL     string
 }
+
+var _ channel.TaskSubmitResponseParser = (*TaskAdaptor)(nil)
 
 func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 	a.ChannelType = info.ChannelType
@@ -226,34 +244,230 @@ func (a *TaskAdaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, req
 
 // DoResponse handles upstream response, returns taskID etc.
 func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (taskID string, taskData []byte, taskErr *dto.TaskError) {
-	responseBody, err := io.ReadAll(resp.Body)
+	if resp == nil || resp.Body == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Sora task submission response"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	defer resp.Body.Close()
+
+	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, channel.MaxTaskSubmitResponseBytes+1))
 	if err != nil {
-		taskErr = service.TaskErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
-		return
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("failed to read Sora task submission response"),
+			"read_response_body_failed",
+			http.StatusInternalServerError,
+		)
 	}
-	_ = resp.Body.Close()
+	upstreamRequestID := ""
+	if resp.Header != nil {
+		upstreamRequestID = resp.Header.Get(common.RequestIdKey)
+	}
+	parseInput := channel.TaskSubmitParseInput{
+		HTTPStatus:        resp.StatusCode,
+		Body:              responseBody,
+		UpstreamRequestID: upstreamRequestID,
+		SubmittedAtUnix:   common.GetTimestamp(),
+	}
+	if info != nil {
+		parseInput.OriginModelName = info.OriginModelName
+		if info.TaskRelayInfo != nil {
+			parseInput.PublicTaskID = info.PublicTaskID
+			parseInput.OriginPublicTaskID = info.OriginTaskID
+		}
+	}
+	result := a.ParseTaskSubmitResponse(parseInput)
+	if err := result.Validate(); err != nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Sora task submission parse result"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	if result.Disposition != channel.TaskSubmitAccepted {
+		if resp.StatusCode != http.StatusOK {
+			return "", nil, service.TaskErrorWrapper(
+				fmt.Errorf("task submission upstream returned an unexpected HTTP status"),
+				"fail_to_fetch_task",
+				resp.StatusCode,
+			)
+		}
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("%s", result.Problem.SafeMessage),
+			result.Problem.OutcomeCode,
+			result.Problem.StatusCode,
+		)
+	}
+	if c == nil || info == nil || info.TaskRelayInfo == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Sora task submission response context"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	c.Data(result.LegacyResponse.StatusCode, result.LegacyResponse.ContentType, result.LegacyResponse.Body)
+	return result.LegacyPollingID, result.TaskData, nil
+}
 
-	// Parse Sora response
-	var dResp responseTask
-	if err := common.Unmarshal(responseBody, &dResp); err != nil {
-		taskErr = service.TaskErrorWrapper(errors.Wrapf(err, "body: %s", responseBody), "unmarshal_response_body_failed", http.StatusInternalServerError)
-		return
+// ParseTaskSubmitResponse interprets one complete Sora submission response.
+// It is intentionally independent of Gin, HTTP writers, persistence, billing,
+// clocks, and network activity.
+func (_ *TaskAdaptor) ParseTaskSubmitResponse(input channel.TaskSubmitParseInput) channel.TaskSubmitParseResult {
+	providerTaskID := ""
+	upstreamRequestID := ""
+	if channel.IsValidTaskSubmitToken(input.UpstreamRequestID, channel.TaskSubmitUpstreamRequestIDMaxLength, false) {
+		upstreamRequestID = input.UpstreamRequestID
+	}
+	unknown := func(code, message string, statusCode int) channel.TaskSubmitParseResult {
+		return channel.TaskSubmitParseResult{
+			Disposition:         channel.TaskSubmitUnknown,
+			ProviderOperationID: providerTaskID,
+			LegacyPollingID:     providerTaskID,
+			UpstreamRequestID:   upstreamRequestID,
+			Problem: &channel.TaskSubmitProblem{
+				OutcomeCode: code,
+				SafeMessage: message,
+				StatusCode:  statusCode,
+			},
+		}
+	}
+	if len(input.Body) == 0 || len(input.Body) > channel.MaxTaskSubmitResponseBytes || !utf8.Valid(input.Body) {
+		return unknown("invalid_response", "invalid Sora task submission response", http.StatusInternalServerError)
 	}
 
-	upstreamID := dResp.ID
-	if upstreamID == "" {
-		upstreamID = dResp.TaskID
+	var responseObject map[string]json.RawMessage
+	if err := common.Unmarshal(input.Body, &responseObject); err != nil || responseObject == nil {
+		return unknown("unmarshal_response_body_failed", "invalid Sora task submission response", http.StatusInternalServerError)
 	}
-	if upstreamID == "" {
-		taskErr = service.TaskErrorWrapper(fmt.Errorf("task_id is empty"), "invalid_response", http.StatusInternalServerError)
-		return
+	id, idPresent, idValid := parseSoraTaskSubmitID(responseObject["id"])
+	legacyID, legacyIDPresent, legacyIDValid := parseSoraTaskSubmitID(responseObject["task_id"])
+	if !idValid || !legacyIDValid {
+		return unknown("invalid_response", "invalid Sora task submission response", http.StatusInternalServerError)
+	}
+	if idPresent && legacyIDPresent && id != legacyID {
+		return unknown("unverified_response", "Sora returned conflicting task submission identifiers", http.StatusBadGateway)
+	}
+	if idPresent {
+		providerTaskID = id
+	} else if legacyIDPresent {
+		providerTaskID = legacyID
+	}
+	if input.HTTPStatus != http.StatusOK {
+		return unknown("unverified_response", "unverified Sora task submission response", http.StatusBadGateway)
+	}
+	if errorBody, hasError := responseObject["error"]; hasError && string(bytes.TrimSpace(errorBody)) != "null" {
+		return unknown("unverified_response", "Sora returned conflicting task submission evidence", http.StatusBadGateway)
 	}
 
-	// 使用公开 task_xxxx ID 返回给客户端
-	dResp.ID = info.PublicTaskID
-	dResp.TaskID = info.PublicTaskID
-	c.JSON(http.StatusOK, dResp)
-	return upstreamID, responseBody, nil
+	var response responseTask
+	if err := common.Unmarshal(input.Body, &response); err != nil {
+		return unknown("unmarshal_response_body_failed", "invalid Sora task submission response", http.StatusInternalServerError)
+	}
+	if !isSafeSoraTaskID(providerTaskID) || !isSoraSubmissionStatus(response.Status) {
+		return unknown("invalid_response", "invalid Sora task submission response", http.StatusInternalServerError)
+	}
+	remixedFromVideoID := ""
+	if isSafeSoraPublicTaskID(input.OriginPublicTaskID) {
+		remixedFromVideoID = input.OriginPublicTaskID
+	}
+
+	persistedResponse := soraTaskSubmitPersistence{
+		Object:             response.Object,
+		Model:              response.Model,
+		Status:             response.Status,
+		Progress:           response.Progress,
+		CreatedAt:          response.CreatedAt,
+		CompletedAt:        response.CompletedAt,
+		ExpiresAt:          response.ExpiresAt,
+		Seconds:            response.Seconds,
+		Size:               response.Size,
+		RemixedFromVideoID: remixedFromVideoID,
+	}
+	taskData, err := common.Marshal(persistedResponse)
+	if err != nil {
+		return unknown("marshal_task_data_failed", "failed to build Sora task submission data", http.StatusInternalServerError)
+	}
+	legacyResponse := responseTask{
+		ID:                 input.PublicTaskID,
+		TaskID:             input.PublicTaskID,
+		Object:             persistedResponse.Object,
+		Model:              persistedResponse.Model,
+		Status:             persistedResponse.Status,
+		Progress:           persistedResponse.Progress,
+		CreatedAt:          persistedResponse.CreatedAt,
+		CompletedAt:        persistedResponse.CompletedAt,
+		ExpiresAt:          persistedResponse.ExpiresAt,
+		Seconds:            persistedResponse.Seconds,
+		Size:               persistedResponse.Size,
+		RemixedFromVideoID: persistedResponse.RemixedFromVideoID,
+	}
+	legacyBody, err := common.Marshal(legacyResponse)
+	if err != nil {
+		return unknown("marshal_legacy_response_failed", "failed to build Sora task submission response", http.StatusInternalServerError)
+	}
+	return channel.TaskSubmitParseResult{
+		Disposition:         channel.TaskSubmitAccepted,
+		ProviderOperationID: providerTaskID,
+		LegacyPollingID:     providerTaskID,
+		UpstreamRequestID:   upstreamRequestID,
+		TaskData:            taskData,
+		LegacyResponse: &channel.LegacyTaskSubmitResponse{
+			StatusCode:  http.StatusOK,
+			ContentType: "application/json; charset=utf-8",
+			Body:        legacyBody,
+		},
+	}
+}
+
+func parseSoraTaskSubmitID(taskIDBody json.RawMessage) (string, bool, bool) {
+	if taskIDBody == nil {
+		return "", false, true
+	}
+	var taskID string
+	if err := common.Unmarshal(taskIDBody, &taskID); err != nil || !isSafeSoraTaskID(taskID) {
+		return "", true, false
+	}
+	return taskID, true, true
+}
+
+func isSoraSubmissionStatus(status string) bool {
+	switch status {
+	case "queued", "pending", "processing", "in_progress":
+		return true
+	default:
+		return false
+	}
+}
+
+func isSafeSoraTaskID(taskID string) bool {
+	if taskID == "." || taskID == ".." ||
+		!channel.IsValidTaskSubmitToken(taskID, channel.TaskSubmitProviderOperationIDMaxLength, false) {
+		return false
+	}
+	for index := 0; index < len(taskID); index++ {
+		character := taskID[index]
+		if (character >= 'a' && character <= 'z') ||
+			(character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') ||
+			character == '-' || character == '_' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func isSafeSoraPublicTaskID(taskID string) bool {
+	return strings.HasPrefix(taskID, "task_") && isSafeSoraTaskID(taskID)
+}
+
+func buildSoraTaskFetchURL(baseURL, taskID string) (string, error) {
+	if !isSafeSoraTaskID(taskID) {
+		return "", fmt.Errorf("invalid task_id")
+	}
+	return fmt.Sprintf("%s/v1/videos/%s", baseURL, url.PathEscape(taskID)), nil
 }
 
 // FetchTask fetch task status
@@ -263,7 +477,10 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 		return nil, fmt.Errorf("invalid task_id")
 	}
 
-	uri := fmt.Sprintf("%s/v1/videos/%s", baseUrl, taskID)
+	uri, err := buildSoraTaskFetchURL(baseUrl, taskID)
+	if err != nil {
+		return nil, err
+	}
 
 	req, err := http.NewRequest(http.MethodGet, uri, nil)
 	if err != nil {

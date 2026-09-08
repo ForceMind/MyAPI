@@ -2,12 +2,14 @@ package hailuo
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
-	"time"
+	"unicode/utf8"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
@@ -30,6 +32,8 @@ type TaskAdaptor struct {
 	apiKey      string
 	baseURL     string
 }
+
+var _ channel.TaskSubmitResponseParser = (*TaskAdaptor)(nil)
 
 func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 	a.ChannelType = info.ChannelType
@@ -80,36 +84,203 @@ func (a *TaskAdaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, req
 }
 
 func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (taskID string, taskData []byte, taskErr *taskdto.TaskError) {
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		taskErr = service.TaskErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
-		return
-	}
-	_ = resp.Body.Close()
-
-	var hResp VideoResponse
-	if err := common.Unmarshal(responseBody, &hResp); err != nil {
-		taskErr = service.TaskErrorWrapper(errors.Wrapf(err, "body: %s", responseBody), "unmarshal_response_body_failed", http.StatusInternalServerError)
-		return
-	}
-
-	if hResp.BaseResp.StatusCode != StatusSuccess {
-		taskErr = service.TaskErrorWrapper(
-			fmt.Errorf("hailuo api error: %s", hResp.BaseResp.StatusMsg),
-			strconv.Itoa(hResp.BaseResp.StatusCode),
-			http.StatusBadRequest,
+	if resp == nil || resp.Body == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Hailuo task submission response"),
+			"invalid_response",
+			http.StatusInternalServerError,
 		)
-		return
+	}
+	defer resp.Body.Close()
+
+	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, channel.MaxTaskSubmitResponseBytes+1))
+	if err != nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("failed to read Hailuo task submission response"),
+			"read_response_body_failed",
+			http.StatusInternalServerError,
+		)
+	}
+	upstreamRequestID := ""
+	if resp.Header != nil {
+		upstreamRequestID = resp.Header.Get(common.RequestIdKey)
+	}
+	parseInput := channel.TaskSubmitParseInput{
+		HTTPStatus:        resp.StatusCode,
+		Body:              responseBody,
+		UpstreamRequestID: upstreamRequestID,
+		SubmittedAtUnix:   common.GetTimestamp(),
+	}
+	if info != nil {
+		parseInput.OriginModelName = info.OriginModelName
+		if info.TaskRelayInfo != nil {
+			parseInput.PublicTaskID = info.PublicTaskID
+		}
+	}
+	result := a.ParseTaskSubmitResponse(parseInput)
+	if err := result.Validate(); err != nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Hailuo task submission parse result"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	if result.Disposition != channel.TaskSubmitAccepted {
+		if resp.StatusCode != http.StatusOK {
+			return "", nil, service.TaskErrorWrapper(
+				fmt.Errorf("task submission upstream returned an unexpected HTTP status"),
+				"fail_to_fetch_task",
+				resp.StatusCode,
+			)
+		}
+		problem := result.Problem
+		if problem.Local {
+			return "", nil, service.TaskErrorWrapperLocal(fmt.Errorf("%s", problem.SafeMessage), problem.OutcomeCode, problem.StatusCode)
+		}
+		return "", nil, service.TaskErrorWrapper(fmt.Errorf("%s", problem.SafeMessage), problem.OutcomeCode, problem.StatusCode)
+	}
+	if c == nil || info == nil || info.TaskRelayInfo == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Hailuo task submission response context"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	c.Data(result.LegacyResponse.StatusCode, result.LegacyResponse.ContentType, result.LegacyResponse.Body)
+	return result.LegacyPollingID, result.TaskData, nil
+}
+
+// hailuoTaskSubmitPersistence is the minimal safe snapshot retained until a
+// polling response replaces Task.Data. The provider task identifier, status
+// message, prompts, and unknown fields are deliberately excluded.
+type hailuoTaskSubmitPersistence struct {
+	BaseResp hailuoTaskSubmitBaseResp `json:"base_resp"`
+}
+
+type hailuoTaskSubmitBaseResp struct {
+	StatusCode int `json:"status_code"`
+}
+
+// ParseTaskSubmitResponse interprets one complete Hailuo submission response.
+// It is intentionally independent of Gin, HTTP writers, persistence, billing,
+// clocks, and network activity.
+func (_ *TaskAdaptor) ParseTaskSubmitResponse(input channel.TaskSubmitParseInput) channel.TaskSubmitParseResult {
+	providerTaskID := ""
+	upstreamRequestID := ""
+	unknown := func(code, message string, statusCode int) channel.TaskSubmitParseResult {
+		return channel.TaskSubmitParseResult{
+			Disposition:         channel.TaskSubmitUnknown,
+			ProviderOperationID: providerTaskID,
+			LegacyPollingID:     providerTaskID,
+			UpstreamRequestID:   upstreamRequestID,
+			Problem: &channel.TaskSubmitProblem{
+				OutcomeCode: code,
+				SafeMessage: message,
+				StatusCode:  statusCode,
+			},
+		}
+	}
+	if channel.IsValidTaskSubmitToken(input.UpstreamRequestID, channel.TaskSubmitUpstreamRequestIDMaxLength, false) {
+		upstreamRequestID = input.UpstreamRequestID
+	}
+	if len(input.Body) == 0 || len(input.Body) > channel.MaxTaskSubmitResponseBytes || !utf8.Valid(input.Body) {
+		return unknown("invalid_response", "invalid Hailuo task submission response", http.StatusBadGateway)
 	}
 
-	ov := dto.NewOpenAIVideo()
-	ov.ID = info.PublicTaskID
-	ov.TaskID = info.PublicTaskID
-	ov.CreatedAt = time.Now().Unix()
-	ov.Model = info.OriginModelName
+	var responseObject map[string]json.RawMessage
+	if err := common.Unmarshal(input.Body, &responseObject); err != nil || responseObject == nil {
+		return unknown("unmarshal_response_body_failed", "invalid Hailuo task submission response", http.StatusBadGateway)
+	}
+	baseRespBody, ok := responseObject["base_resp"]
+	if !ok {
+		return unknown("invalid_response", "invalid Hailuo task submission response", http.StatusBadGateway)
+	}
+	var baseRespObject map[string]json.RawMessage
+	if err := common.Unmarshal(baseRespBody, &baseRespObject); err != nil || baseRespObject == nil {
+		return unknown("invalid_response", "invalid Hailuo task submission response", http.StatusBadGateway)
+	}
+	statusCodeBody, ok := baseRespObject["status_code"]
+	if !ok {
+		return unknown("invalid_response", "invalid Hailuo task submission response", http.StatusBadGateway)
+	}
+	var providerStatusCode *int
+	if err := common.Unmarshal(statusCodeBody, &providerStatusCode); err != nil || providerStatusCode == nil {
+		return unknown("invalid_response", "invalid Hailuo task submission response", http.StatusBadGateway)
+	}
+	taskIDPresent := false
+	if taskIDBody, exists := responseObject["task_id"]; exists {
+		taskIDPresent = true
+		var taskID string
+		if err := common.Unmarshal(taskIDBody, &taskID); err == nil && isSafeHailuoTaskID(taskID) {
+			providerTaskID = taskID
+		}
+	}
+	if input.HTTPStatus != http.StatusOK {
+		return unknown("unverified_response", "unverified Hailuo task submission response", http.StatusBadGateway)
+	}
+	if *providerStatusCode != StatusSuccess {
+		// The documented success response proves only status_code == 0. Until a
+		// provider rejection allowlist is verified, all other status codes remain
+		// unknown for durable accounting while retaining the legacy error contract.
+		return unknown(strconv.Itoa(*providerStatusCode), "Hailuo did not confirm the task submission", http.StatusBadRequest)
+	}
+	if !taskIDPresent || providerTaskID == "" {
+		return unknown("invalid_response", "invalid Hailuo task submission response", http.StatusBadGateway)
+	}
 
-	c.JSON(http.StatusOK, ov)
-	return hResp.TaskID, responseBody, nil
+	taskData, err := common.Marshal(hailuoTaskSubmitPersistence{
+		BaseResp: hailuoTaskSubmitBaseResp{StatusCode: StatusSuccess},
+	})
+	if err != nil {
+		return unknown("marshal_task_data_failed", "failed to build Hailuo task submission data", http.StatusInternalServerError)
+	}
+	openAIResp := dto.NewOpenAIVideo()
+	openAIResp.ID = input.PublicTaskID
+	openAIResp.TaskID = input.PublicTaskID
+	openAIResp.Model = input.OriginModelName
+	openAIResp.CreatedAt = input.SubmittedAtUnix
+	legacyBody, err := common.Marshal(openAIResp)
+	if err != nil {
+		return unknown("marshal_legacy_response_failed", "failed to build Hailuo task submission response", http.StatusInternalServerError)
+	}
+
+	return channel.TaskSubmitParseResult{
+		Disposition:         channel.TaskSubmitAccepted,
+		ProviderOperationID: providerTaskID,
+		LegacyPollingID:     providerTaskID,
+		UpstreamRequestID:   upstreamRequestID,
+		TaskData:            taskData,
+		LegacyResponse: &channel.LegacyTaskSubmitResponse{
+			StatusCode:  http.StatusOK,
+			ContentType: "application/json; charset=utf-8",
+			Body:        legacyBody,
+		},
+	}
+}
+
+func isSafeHailuoTaskID(taskID string) bool {
+	if taskID == "." || taskID == ".." ||
+		!channel.IsValidTaskSubmitToken(taskID, channel.TaskSubmitProviderOperationIDMaxLength, false) {
+		return false
+	}
+	for index := 0; index < len(taskID); index++ {
+		character := taskID[index]
+		if (character >= 'a' && character <= 'z') ||
+			(character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') ||
+			character == '-' || character == '_' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func buildHailuoTaskFetchURL(baseURL, taskID string) (string, error) {
+	if !isSafeHailuoTaskID(taskID) {
+		return "", fmt.Errorf("invalid task_id")
+	}
+	return fmt.Sprintf("%s%s?task_id=%s", baseURL, QueryTaskEndpoint, url.QueryEscape(taskID)), nil
 }
 
 func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy string) (*http.Response, error) {
@@ -118,7 +289,10 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 		return nil, fmt.Errorf("invalid task_id")
 	}
 
-	uri := fmt.Sprintf("%s%s?task_id=%s", baseUrl, QueryTaskEndpoint, taskID)
+	uri, err := buildHailuoTaskFetchURL(baseUrl, taskID)
+	if err != nil {
+		return nil, err
+	}
 
 	req, err := http.NewRequest(http.MethodGet, uri, nil)
 	if err != nil {

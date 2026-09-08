@@ -156,6 +156,7 @@ func TestB2SubmissionConfiguredDatabases(t *testing.T) {
 			runB2TaskRecoveryIdentityConcurrentContract(t, db)
 			sqlDB.SetMaxOpenConns(1)
 			runB2SubmissionDatabaseContract(t, db)
+			runB2TaskOperationQueryDatabaseContract(t, db)
 		})
 	}
 }

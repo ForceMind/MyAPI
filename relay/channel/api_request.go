@@ -558,7 +558,13 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 	return resp, nil
 }
 
-func DoTaskApiRequest(a TaskAdaptor, c *gin.Context, info *common.RelayInfo, requestBody io.Reader) (*http.Response, error) {
+// buildTaskSubmissionRequest builds the one outbound request for a Task
+// submission attempt. It deliberately preserves a known ContentLength while
+// removing every replay hook: an ambiguous submit must surface to the caller
+// rather than be silently retransmitted by net/http after its body was sent.
+// Durable operation ownership and controller-level retry policy are separate
+// boundaries and are not implemented here.
+func buildTaskSubmissionRequest(a TaskAdaptor, c *gin.Context, info *common.RelayInfo, requestBody io.Reader) (*http.Request, error) {
 	fullRequestURL, err := a.BuildRequestURL(info)
 	if err != nil {
 		return nil, err
@@ -568,18 +574,34 @@ func DoTaskApiRequest(a TaskAdaptor, c *gin.Context, info *common.RelayInfo, req
 		return nil, fmt.Errorf("new request failed: %w", err)
 	}
 	ApplyUpstreamBodyMetadata(req, requestBody)
-	// Do NOT wrap requestBody in a GetBody closure here: returning the same
-	// (already consumed) reader would make any transport-level retry silently
-	// replay an empty body. http.NewRequest already derives a correct,
-	// snapshot-based GetBody for *bytes.Reader/Buffer/strings.Reader bodies
-	// (which most task adaptors pass in); ApplyUpstreamBodyMetadata wires the
-	// same contract for bodies that explicitly implement ReplayableBody.
-	// Otherwise GetBody stays nil so the transport fails the retry instead of
-	// sending a corrupted request.
 
 	err = a.BuildRequestHeader(c, req, info)
 	if err != nil {
 		return nil, fmt.Errorf("setup request header failed: %w", err)
+	}
+
+	// http.NewRequest and ApplyUpstreamBodyMetadata both install GetBody for
+	// replayable readers. Task submission is different from ordinary relay:
+	// once its body may have reached an upstream, an HTTP transport retry would
+	// create a second provider submission. Retain ContentLength for correct
+	// framing, but make this particular outbound attempt one-shot.
+	req.GetBody = nil
+	// Task adaptors construct their own provider credentials and do not use the
+	// normal header-passthrough path. Clear client idempotency headers anyway so
+	// a future adaptor cannot accidentally mark this POST retryable at the
+	// transport layer. delete handles non-canonical map keys as well.
+	for name := range req.Header {
+		if strings.EqualFold(name, "Idempotency-Key") || strings.EqualFold(name, "X-Idempotency-Key") {
+			delete(req.Header, name)
+		}
+	}
+	return req, nil
+}
+
+func DoTaskApiRequest(a TaskAdaptor, c *gin.Context, info *common.RelayInfo, requestBody io.Reader) (*http.Response, error) {
+	req, err := buildTaskSubmissionRequest(a, c, info, requestBody)
+	if err != nil {
+		return nil, err
 	}
 	resp, err := doRequest(c, req, info)
 	if err != nil {

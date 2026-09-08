@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
@@ -22,6 +23,8 @@ type TaskAdaptor struct {
 	taskcommon.BaseBilling
 	ChannelType int
 }
+
+var _ channel.TaskSubmitResponseParser = (*TaskAdaptor)(nil)
 
 // ParseTaskResult is not used for Suno tasks.
 // Suno polling uses a dedicated batch-fetch path (service.UpdateSunoTasks) that
@@ -93,31 +96,168 @@ func (a *TaskAdaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, req
 }
 
 func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (taskID string, taskData []byte, taskErr *dto.TaskError) {
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		taskErr = service.TaskErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
-		return
+	if resp == nil || resp.Body == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Suno task submission response"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
 	}
-	var sunoResponse dto.TaskResponse[string]
-	err = common.Unmarshal(responseBody, &sunoResponse)
+	defer resp.Body.Close()
+
+	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, channel.MaxTaskSubmitResponseBytes+1))
 	if err != nil {
-		taskErr = service.TaskErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError)
-		return
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("failed to read Suno task submission response"),
+			"read_response_body_failed",
+			http.StatusInternalServerError,
+		)
 	}
-	if !sunoResponse.IsSuccess() {
-		taskErr = service.TaskErrorWrapper(fmt.Errorf("%s", sunoResponse.Message), sunoResponse.Code, http.StatusInternalServerError)
-		return
+	upstreamRequestID := ""
+	if resp.Header != nil {
+		upstreamRequestID = resp.Header.Get(common.RequestIdKey)
+	}
+	parseInput := channel.TaskSubmitParseInput{
+		HTTPStatus:        resp.StatusCode,
+		Body:              responseBody,
+		UpstreamRequestID: upstreamRequestID,
+	}
+	if info != nil {
+		if info.TaskRelayInfo != nil {
+			parseInput.PublicTaskID = info.PublicTaskID
+		}
+	}
+	result := a.ParseTaskSubmitResponse(parseInput)
+	if err := result.Validate(); err != nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Suno task submission parse result"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	if result.Disposition != channel.TaskSubmitAccepted {
+		if resp.StatusCode != http.StatusOK {
+			return "", nil, service.TaskErrorWrapper(
+				fmt.Errorf("task submission upstream returned an unexpected HTTP status"),
+				"fail_to_fetch_task",
+				resp.StatusCode,
+			)
+		}
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("%s", result.Problem.SafeMessage),
+			result.Problem.OutcomeCode,
+			result.Problem.StatusCode,
+		)
+	}
+	if c == nil || info == nil || info.TaskRelayInfo == nil {
+		return "", nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid Suno task submission response context"),
+			"invalid_response",
+			http.StatusInternalServerError,
+		)
+	}
+	c.Data(result.LegacyResponse.StatusCode, result.LegacyResponse.ContentType, result.LegacyResponse.Body)
+	return result.LegacyPollingID, result.TaskData, nil
+}
+
+type sunoTaskSubmitPersistence struct {
+	Code string `json:"code"`
+}
+
+type sunoTaskSubmitLegacyResponse struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Data    string `json:"data"`
+}
+
+// ParseTaskSubmitResponse interprets one complete Suno submission response.
+// It is intentionally independent of Gin, HTTP writers, persistence, billing,
+// clocks, and network activity.
+func (_ *TaskAdaptor) ParseTaskSubmitResponse(input channel.TaskSubmitParseInput) channel.TaskSubmitParseResult {
+	providerTaskID := ""
+	upstreamRequestID := ""
+	if channel.IsValidTaskSubmitToken(input.UpstreamRequestID, channel.TaskSubmitUpstreamRequestIDMaxLength, false) {
+		upstreamRequestID = input.UpstreamRequestID
+	}
+	unknown := func(code, message string, statusCode int) channel.TaskSubmitParseResult {
+		return channel.TaskSubmitParseResult{
+			Disposition:         channel.TaskSubmitUnknown,
+			ProviderOperationID: providerTaskID,
+			LegacyPollingID:     providerTaskID,
+			UpstreamRequestID:   upstreamRequestID,
+			Problem: &channel.TaskSubmitProblem{
+				OutcomeCode: code,
+				SafeMessage: message,
+				StatusCode:  statusCode,
+			},
+		}
+	}
+	if len(input.Body) == 0 || len(input.Body) > channel.MaxTaskSubmitResponseBytes || !utf8.Valid(input.Body) {
+		return unknown("invalid_response", "invalid Suno task submission response", http.StatusInternalServerError)
 	}
 
-	// 使用公开 task_xxxx ID 替换上游 ID 返回给客户端
-	publicResponse := dto.TaskResponse[string]{
-		Code:    sunoResponse.Code,
-		Message: sunoResponse.Message,
-		Data:    info.PublicTaskID,
+	var response dto.TaskResponse[string]
+	if err := common.Unmarshal(input.Body, &response); err != nil {
+		return unknown("unmarshal_response_body_failed", "invalid Suno task submission response", http.StatusInternalServerError)
 	}
-	c.JSON(http.StatusOK, publicResponse)
+	if response.Data != "" && isSafeSunoTaskID(response.Data) {
+		providerTaskID = response.Data
+	}
+	if input.HTTPStatus != http.StatusOK {
+		return unknown("unverified_response", "unverified Suno task submission response", http.StatusBadGateway)
+	}
+	if response.Code != dto.TaskSuccessCode {
+		if channel.IsValidTaskSubmitToken(response.Code, channel.TaskSubmitOutcomeCodeMaxLength, false) {
+			return unknown(response.Code, "Suno did not confirm the task submission", http.StatusInternalServerError)
+		}
+		return unknown("invalid_response", "invalid Suno task submission response", http.StatusInternalServerError)
+	}
+	if !isSafeSunoTaskID(response.Data) {
+		return unknown("invalid_response", "invalid Suno task submission response", http.StatusInternalServerError)
+	}
 
-	return sunoResponse.Data, nil, nil
+	taskData, err := common.Marshal(sunoTaskSubmitPersistence{Code: dto.TaskSuccessCode})
+	if err != nil {
+		return unknown("marshal_task_data_failed", "failed to build Suno task submission data", http.StatusInternalServerError)
+	}
+	legacyBody, err := common.Marshal(sunoTaskSubmitLegacyResponse{
+		Code:    dto.TaskSuccessCode,
+		Message: "",
+		Data:    input.PublicTaskID,
+	})
+	if err != nil {
+		return unknown("marshal_legacy_response_failed", "failed to build Suno task submission response", http.StatusInternalServerError)
+	}
+	return channel.TaskSubmitParseResult{
+		Disposition:         channel.TaskSubmitAccepted,
+		ProviderOperationID: providerTaskID,
+		LegacyPollingID:     providerTaskID,
+		UpstreamRequestID:   upstreamRequestID,
+		TaskData:            taskData,
+		LegacyResponse: &channel.LegacyTaskSubmitResponse{
+			StatusCode:  http.StatusOK,
+			ContentType: "application/json; charset=utf-8",
+			Body:        legacyBody,
+		},
+	}
+}
+
+func isSafeSunoTaskID(taskID string) bool {
+	if taskID == "." || taskID == ".." ||
+		!channel.IsValidTaskSubmitToken(taskID, channel.TaskSubmitProviderOperationIDMaxLength, false) {
+		return false
+	}
+	for index := 0; index < len(taskID); index++ {
+		character := taskID[index]
+		if (character >= 'a' && character <= 'z') ||
+			(character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') ||
+			character == '-' || character == '_' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func (a *TaskAdaptor) GetModelList() []string {
@@ -129,8 +269,17 @@ func (a *TaskAdaptor) GetChannelName() string {
 }
 
 func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy string) (*http.Response, error) {
+	rawIDs, ok := body["ids"].([]string)
+	if !ok || len(rawIDs) == 0 {
+		return nil, fmt.Errorf("invalid task ids")
+	}
+	for _, taskID := range rawIDs {
+		if !isSafeSunoTaskID(taskID) {
+			return nil, fmt.Errorf("invalid task_id")
+		}
+	}
 	requestUrl := fmt.Sprintf("%s/suno/fetch", baseUrl)
-	byteBody, err := common.Marshal(body)
+	byteBody, err := common.Marshal(map[string][]string{"ids": rawIDs})
 	if err != nil {
 		return nil, err
 	}

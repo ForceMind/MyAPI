@@ -1,12 +1,14 @@
 package model
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql/driver"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 
 	"github.com/ForceMind/MyAPI/common"
 
@@ -63,6 +65,8 @@ type taskRecoveryControlledWriteMarkerType struct {
 }
 
 var taskRecoveryControlledWriteMarker = &taskRecoveryControlledWriteMarkerType{}
+
+var taskRecoverySavepointSequence uint64
 
 var taskRecoveryProtectedTables = []string{
 	"task_recovery_identities",
@@ -466,16 +470,38 @@ func loadTaskSubmissionOperationForReplay(tx *gorm.DB, scope TaskSubmissionIdemp
 // second operation. ON CONFLICT DO NOTHING keeps PostgreSQL transactions
 // usable for the required post-conflict read.
 func CreateOrLoadTaskSubmissionOperation(tx *gorm.DB, candidate *TaskSubmissionOperation) (*TaskSubmissionOperation, error) {
+	operation, _, err := createOrLoadTaskSubmissionOperation(tx, candidate)
+	return operation, err
+}
+
+// createOrLoadTaskSubmissionOperation additionally reports whether this call
+// inserted the operation. The public operation-only API intentionally discards
+// that fact; only the atomic T0 intent API may use it to authorize subsequent
+// work.
+func createOrLoadTaskSubmissionOperation(tx *gorm.DB, candidate *TaskSubmissionOperation) (*TaskSubmissionOperation, bool, error) {
 	if tx == nil {
-		return nil, gorm.ErrInvalidDB
+		return nil, false, gorm.ErrInvalidDB
 	}
 	if candidate == nil {
-		return nil, ErrTaskRecoveryInvalidRecord
+		return nil, false, ErrTaskRecoveryInvalidRecord
+	}
+	if candidate.ID != 0 || candidate.PublicID != "" {
+		// The owner proof below intentionally compares a newly generated public
+		// ID with the stored row. Accepting a caller-provided persisted ID or
+		// public ID would let MySQL's client-found-rows mode misclassify a
+		// duplicate ON DUPLICATE KEY UPDATE as a new owner.
+		return nil, false, fmt.Errorf("%w: task submission operation candidates must not carry a persisted identifier", ErrTaskRecoveryInvalidRecord)
 	}
 	writeDB := tx.Session(&gorm.Session{NewDB: true})
 	record := *candidate
-	if err := writeDB.Clauses(clause.OnConflict{DoNothing: true}).Create(&record).Error; err != nil {
-		return nil, err
+	publicID, err := GenerateTaskSubmissionOperationPublicID()
+	if err != nil {
+		return nil, false, err
+	}
+	record.PublicID = publicID
+	createResult := writeDB.Clauses(clause.OnConflict{DoNothing: true}).Create(&record)
+	if createResult.Error != nil {
+		return nil, false, createResult.Error
 	}
 	existing, err := loadTaskSubmissionOperationForReplay(writeDB, TaskSubmissionIdempotencyScope{
 		TokenID:            record.TokenID,
@@ -484,20 +510,22 @@ func CreateOrLoadTaskSubmissionOperation(tx *gorm.DB, candidate *TaskSubmissionO
 		IdempotencyKeyHash: record.IdempotencyKeyHash,
 	})
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if existing == nil {
 		// A collision on the independently generated public ID must never be
 		// mistaken for an idempotency replay.
-		return nil, ErrTaskSubmissionIdempotencyConflict
+		return nil, false, ErrTaskSubmissionIdempotencyConflict
 	}
 	if err := validateStoredTaskSubmissionOperation(writeDB, existing); err != nil {
-		return existing, err
+		return existing, false, err
 	}
 	if existing.UserID != record.UserID || existing.RequestFingerprint != record.RequestFingerprint {
-		return existing, ErrTaskSubmissionIdempotencyConflict
+		return existing, false, ErrTaskSubmissionIdempotencyConflict
 	}
-	return existing, nil
+	created := createResult.RowsAffected == 1 && record.ID > 0 &&
+		existing.ID == record.ID && existing.PublicID == record.PublicID
+	return existing, created, nil
 }
 
 func GetTaskSubmissionOperationByPublicID(tx *gorm.DB, publicID string) (*TaskSubmissionOperation, error) {
@@ -728,33 +756,7 @@ func StartTaskSubmissionDispatch(tx *gorm.DB, operationID int64, transition Task
 // caller's transaction, allowing a CAS-loss sentinel to be swallowed after
 // the operation update but before the attempt update.
 func taskRecoveryDispatchTransaction(tx *gorm.DB, fn func(*gorm.DB) error) (err error) {
-	if tx == nil || tx.Statement == nil {
-		return gorm.ErrInvalidDB
-	}
-	if _, alreadyTransactional := tx.Statement.ConnPool.(gorm.TxCommitter); !alreadyTransactional || !tx.DisableNestedTransaction {
-		return tx.Transaction(fn)
-	}
-	savepoint := fmt.Sprintf("task_recovery_dispatch_%p", &fn)
-	if err = tx.SavePoint(savepoint).Error; err != nil {
-		return err
-	}
-	panicked := true
-	defer func() {
-		if !panicked && err == nil {
-			return
-		}
-		if rollbackErr := tx.RollbackTo(savepoint).Error; rollbackErr != nil {
-			// Preserve an in-flight panic just as GORM's transaction helper
-			// does. For a normal error return, surface a failed rollback rather
-			// than letting the outer caller commit a possibly partial dispatch.
-			if !panicked {
-				err = fmt.Errorf("%w: rollback durable dispatch savepoint: %v", err, rollbackErr)
-			}
-		}
-	}()
-	err = fn(tx.Session(&gorm.Session{NewDB: true}))
-	panicked = false
-	return err
+	return taskRecoveryAtomicTransaction(tx, "task_recovery_dispatch", fn)
 }
 
 type TaskSubmissionAttemptStatus string
@@ -989,6 +991,173 @@ func CreateOrLoadTaskSubmissionAttempt(tx *gorm.DB, candidate *TaskSubmissionAtt
 		return existing, ErrTaskSubmissionAttemptConflict
 	}
 	return existing, nil
+}
+
+// TaskSubmissionIntentResult is the atomic T0 snapshot returned before any
+// reserve or upstream dispatch. Owner is true only when this call inserted
+// both the operation and its sole initial attempt.
+type TaskSubmissionIntentResult struct {
+	Operation *TaskSubmissionOperation
+	Attempt   *TaskSubmissionAttempt
+	Owner     bool
+}
+
+// CreateOrLoadTaskSubmissionIntent atomically creates an operation and its
+// sole v1 attempt, or returns the already-persisted pair for an idempotent
+// replay. Once an operation exists, its persisted attempt is authoritative:
+// the current routing candidate is deliberately ignored so routing drift does
+// not turn a client replay into an attempt conflict.
+//
+// A replay whose operation is missing its attempt is rejected as an invalid
+// durable record. Choosing a new channel at that point would invent history
+// and cannot safely repair a submission created outside this transaction.
+func CreateOrLoadTaskSubmissionIntent(tx *gorm.DB, operationCandidate *TaskSubmissionOperation, attemptCandidate *TaskSubmissionAttempt) (*TaskSubmissionIntentResult, error) {
+	if tx == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	if operationCandidate == nil || attemptCandidate == nil {
+		return nil, ErrTaskRecoveryInvalidRecord
+	}
+
+	var result *TaskSubmissionIntentResult
+	var conflictResult *TaskSubmissionIntentResult
+	err := taskSubmissionIntentTransaction(tx, func(writeDB *gorm.DB) error {
+		operation, created, err := createOrLoadTaskSubmissionOperation(writeDB, operationCandidate)
+		if err != nil {
+			if operation != nil && errors.Is(err, ErrTaskSubmissionIdempotencyConflict) {
+				conflictResult = &TaskSubmissionIntentResult{Operation: operation}
+			}
+			return err
+		}
+
+		if !created {
+			attempt, err := loadTaskSubmissionAttemptForReplay(writeDB, operation.ID)
+			if err != nil {
+				return err
+			}
+			if attempt == nil {
+				return fmt.Errorf("%w: task submission operation is missing its atomic v1 attempt", ErrTaskRecoveryInvalidRecord)
+			}
+			if err := validateStoredTaskSubmissionAttempt(writeDB, attempt); err != nil {
+				return err
+			}
+			result = &TaskSubmissionIntentResult{Operation: operation, Attempt: attempt}
+			return nil
+		}
+
+		attemptRecord := *attemptCandidate
+		attemptRecord.OperationID = operation.ID
+		if err := writeDB.Create(&attemptRecord).Error; err != nil {
+			return err
+		}
+		attempt, err := loadTaskSubmissionAttemptForReplay(writeDB, operation.ID)
+		if err != nil {
+			return err
+		}
+		if attempt == nil || attemptRecord.ID <= 0 || attempt.ID != attemptRecord.ID ||
+			!taskSubmissionAttemptSemanticallyMatches(attempt, &attemptRecord) {
+			return ErrTaskSubmissionAttemptConflict
+		}
+		if err := validateStoredTaskSubmissionAttempt(writeDB, attempt); err != nil {
+			return err
+		}
+		result = &TaskSubmissionIntentResult{Operation: operation, Attempt: attempt, Owner: true}
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, ErrTaskSubmissionIdempotencyConflict) {
+			return conflictResult, err
+		}
+		return nil, err
+	}
+	return result, nil
+}
+
+// taskSubmissionIntentTransaction preserves T0 all-or-nothing behavior even
+// when a caller has disabled GORM nested transactions and then handles the
+// returned error without aborting its outer transaction.
+func taskSubmissionIntentTransaction(tx *gorm.DB, fn func(*gorm.DB) error) (err error) {
+	return taskRecoveryAtomicTransaction(tx, "task_submission_intent", fn)
+}
+
+// taskRecoveryAtomicTransaction uses a direct, generated savepoint for an
+// existing transaction. The GORM PostgreSQL and glebarez SQLite SavePoint
+// dialect methods discard Exec errors, so this must not call tx.SavePoint or
+// tx.RollbackTo when a caller may otherwise catch an error and commit the
+// outer transaction. SAVEPOINT and ROLLBACK TO SAVEPOINT are supported by all
+// three project database dialects, and savepoint names are generated solely
+// from a fixed prefix plus a monotonic decimal counter.
+func taskRecoveryAtomicTransaction(tx *gorm.DB, prefix string, fn func(*gorm.DB) error) (err error) {
+	if tx == nil || tx.Statement == nil {
+		return gorm.ErrInvalidDB
+	}
+	if _, alreadyTransactional := tx.Statement.ConnPool.(gorm.TxCommitter); !alreadyTransactional {
+		return tx.Transaction(fn)
+	}
+
+	savepoint := fmt.Sprintf("%s_%d", prefix, atomic.AddUint64(&taskRecoverySavepointSequence, 1))
+	if err = taskRecoveryTransactionControl(tx, "SAVEPOINT "+savepoint); err != nil {
+		return err
+	}
+	panicked := true
+	defer func() {
+		if !panicked && err == nil {
+			return
+		}
+		rollbackErr := taskRecoveryTransactionControl(tx, "ROLLBACK TO SAVEPOINT "+savepoint)
+		if rollbackErr == nil {
+			return
+		}
+		// If the savepoint could not be rolled back, invalidate the outer
+		// transaction rather than leaving a partial operation/attempt pair
+		// committable. Preserve an in-flight panic after performing this best
+		// effort outer rollback; a recovered caller then observes Commit fail.
+		outerRollbackErr := tx.Rollback().Error
+		if panicked {
+			return
+		}
+		if outerRollbackErr != nil {
+			err = fmt.Errorf("%w: rollback durable task-recovery savepoint: %v; rollback outer transaction: %v", err, rollbackErr, outerRollbackErr)
+			return
+		}
+		err = fmt.Errorf("%w: rollback durable task-recovery savepoint: %v", err, rollbackErr)
+	}()
+	err = fn(tx.Session(&gorm.Session{NewDB: true}))
+	panicked = false
+	return err
+}
+
+// taskRecoveryTransactionControl executes a generated transaction-control
+// statement without GORM's prepared-statement wrapper. MySQL does not permit
+// SAVEPOINT or ROLLBACK TO SAVEPOINT through the prepared-statement protocol;
+// the clone keeps ordinary business statements on the caller's prepared pool
+// while using the underlying transaction only for this checked control SQL.
+func taskRecoveryTransactionControl(tx *gorm.DB, statement string) error {
+	if tx == nil {
+		return gorm.ErrInvalidDB
+	}
+	if tx.Statement == nil {
+		return gorm.ErrInvalidDB
+	}
+	requestContext := tx.Statement.Context
+	if requestContext == nil {
+		requestContext = context.Background()
+	}
+	// A Context makes GORM clone Statement immediately. NewDB alone retains
+	// the original Statement until Exec calls getInstance, so changing the
+	// ConnPool here would otherwise turn the caller's outer transaction from a
+	// PreparedStmtTX into its raw transaction permanently.
+	controlDB := tx.Session(&gorm.Session{NewDB: true, Context: requestContext})
+	if controlDB == nil || controlDB.Statement == nil {
+		return gorm.ErrInvalidDB
+	}
+	if preparedTx, ok := controlDB.Statement.ConnPool.(*gorm.PreparedStmtTX); ok {
+		if preparedTx == nil || preparedTx.Tx == nil {
+			return gorm.ErrInvalidTransaction
+		}
+		controlDB.Statement.ConnPool = preparedTx.Tx
+	}
+	return controlDB.Exec(statement).Error
 }
 
 func taskSubmissionAttemptSemanticallyMatches(existing, candidate *TaskSubmissionAttempt) bool {
@@ -2462,6 +2631,13 @@ func validTaskSubmissionOperationKind(value string) bool {
 
 func validTaskSubmissionPublicID(value string) bool {
 	return validTaskRecoveryStableID(value, "task_")
+}
+
+// ValidTaskSubmissionPublicID reports whether value is a stable public task
+// identifier. It performs no database lookup and does not disclose task
+// ownership; protocol layers use it only to validate route-bound identifiers.
+func ValidTaskSubmissionPublicID(value string) bool {
+	return validTaskSubmissionPublicID(value)
 }
 
 func validTaskBillingEventID(value string) bool {

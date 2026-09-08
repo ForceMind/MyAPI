@@ -4,12 +4,83 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"reflect"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestExchangeJwtForAccessTokenRejectsRedirectsWithoutMutatingSharedClient(t *testing.T) {
+	for _, redirectStatus := range []int{
+		http.StatusMovedPermanently,
+		http.StatusFound,
+		http.StatusSeeOther,
+		http.StatusTemporaryRedirect,
+		http.StatusPermanentRedirect,
+	} {
+		t.Run(http.StatusText(redirectStatus), func(t *testing.T) {
+			type sourceRequest struct {
+				method      string
+				contentType string
+				grantType   string
+				assertion   string
+				parseErr    error
+			}
+			var sourceRequests atomic.Int32
+			var targetRequests atomic.Int32
+			var sharedRedirectCalls atomic.Int32
+			sourceRequestsCh := make(chan sourceRequest, 1)
+			target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				targetRequests.Add(1)
+				w.WriteHeader(http.StatusOK)
+			}))
+			t.Cleanup(target.Close)
+			source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				sourceRequests.Add(1)
+				parseErr := r.ParseForm()
+				sourceRequestsCh <- sourceRequest{
+					method:      r.Method,
+					contentType: r.Header.Get("Content-Type"),
+					grantType:   r.Form.Get("grant_type"),
+					assertion:   r.Form.Get("assertion"),
+					parseErr:    parseErr,
+				}
+				http.Redirect(w, r, target.URL, redirectStatus)
+			}))
+			t.Cleanup(source.Close)
+
+			sharedClient := &http.Client{
+				Timeout: time.Second,
+				CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+					sharedRedirectCalls.Add(1)
+					return errors.New("shared client redirect policy must remain unused")
+				},
+			}
+			originalRedirectPolicy := reflect.ValueOf(sharedClient.CheckRedirect).Pointer()
+			token, err := exchangeJwtForAccessTokenWithClient("SYNTHETIC_SIGNED_JWT", source.URL, sharedClient)
+			received := <-sourceRequestsCh
+
+			assert.Empty(t, token)
+			require.EqualError(t, err, "access token endpoint returned HTTP status "+strconv.Itoa(redirectStatus))
+			require.NoError(t, received.parseErr)
+			assert.Equal(t, http.MethodPost, received.method)
+			assert.Equal(t, "application/x-www-form-urlencoded", received.contentType)
+			assert.Equal(t, "urn:ietf:params:oauth:grant-type:jwt-bearer", received.grantType)
+			assert.Equal(t, "SYNTHETIC_SIGNED_JWT", received.assertion)
+			assert.EqualValues(t, 1, sourceRequests.Load())
+			assert.Zero(t, targetRequests.Load())
+			assert.Zero(t, sharedRedirectCalls.Load())
+			assert.Equal(t, originalRedirectPolicy, reflect.ValueOf(sharedClient.CheckRedirect).Pointer())
+			assert.Equal(t, time.Second, sharedClient.Timeout)
+		})
+	}
+}
 
 func TestDecodeAccessTokenResponseRejectsUnsafeFailures(t *testing.T) {
 	for _, testCase := range []struct {

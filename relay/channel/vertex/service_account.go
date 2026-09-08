@@ -106,24 +106,13 @@ func createSignedJWT(email, privateKeyPEM string) (string, error) {
 }
 
 func exchangeJwtForAccessToken(signedJWT string, info *relaycommon.RelayInfo) (string, error) {
-
 	authURL := "https://www.googleapis.com/oauth2/v4/token"
-	data := url.Values{}
-	data.Set("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer")
-	data.Set("assertion", signedJWT)
 
 	client, err := service.GetHttpClientWithProxySettings(info.ChannelSetting.Proxy, info.ChannelSetting)
 	if err != nil {
 		return "", fmt.Errorf("new proxy http client failed: %w", err)
 	}
-
-	resp, err := client.PostForm(authURL, data)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	return decodeAccessTokenResponse(resp)
+	return exchangeJwtForAccessTokenWithClient(signedJWT, authURL, client)
 }
 
 func AcquireAccessToken(creds Credentials, proxy string) (string, error) {
@@ -136,9 +125,6 @@ func AcquireAccessToken(creds Credentials, proxy string) (string, error) {
 
 func exchangeJwtForAccessTokenWithProxy(signedJWT string, proxy string) (string, error) {
 	authURL := "https://www.googleapis.com/oauth2/v4/token"
-	data := url.Values{}
-	data.Set("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer")
-	data.Set("assertion", signedJWT)
 
 	var client *http.Client
 	var err error
@@ -150,6 +136,14 @@ func exchangeJwtForAccessTokenWithProxy(signedJWT string, proxy string) (string,
 	} else {
 		client = service.GetHttpClient()
 	}
+	return exchangeJwtForAccessTokenWithClient(signedJWT, authURL, client)
+}
+
+func exchangeJwtForAccessTokenWithClient(signedJWT string, authURL string, sharedClient *http.Client) (string, error) {
+	client := cloneVertexOAuthExchangeClient(sharedClient)
+	data := url.Values{}
+	data.Set("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer")
+	data.Set("assertion", signedJWT)
 
 	resp, err := client.PostForm(authURL, data)
 	if err != nil {
@@ -158,6 +152,14 @@ func exchangeJwtForAccessTokenWithProxy(signedJWT string, proxy string) (string,
 	defer resp.Body.Close()
 
 	return decodeAccessTokenResponse(resp)
+}
+
+func cloneVertexOAuthExchangeClient(sharedClient *http.Client) *http.Client {
+	clientCopy := *sharedClient
+	clientCopy.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	return &clientCopy
 }
 
 func decodeAccessTokenResponse(resp *http.Response) (string, error) {

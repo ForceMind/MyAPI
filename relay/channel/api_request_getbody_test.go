@@ -183,8 +183,10 @@ func TestApplyUpstreamBodyMetadataEmptyStorageRemainsReplayable(t *testing.T) {
 // stubTaskAdaptor implements just enough of TaskAdaptor for DoTaskApiRequest.
 type stubTaskAdaptor struct {
 	TaskAdaptor
-	baseURL     string
-	capturedReq *http.Request
+	baseURL                    string
+	capturedReq                *http.Request
+	providerAuthorization      string
+	copyClientIdempotencyHeads bool
 }
 
 func (s *stubTaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
@@ -192,28 +194,33 @@ func (s *stubTaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, 
 }
 
 func (s *stubTaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info *relaycommon.RelayInfo) error {
+	if s.providerAuthorization != "" {
+		req.Header.Set("Authorization", s.providerAuthorization)
+	}
+	if s.copyClientIdempotencyHeads {
+		req.Header.Set("Idempotency-Key", c.GetHeader("Idempotency-Key"))
+		// Use a deliberately non-canonical map key too: the final Task
+		// boundary must not depend on every future adaptor using Header.Set.
+		req.Header["x-idempotency-key"] = []string{c.GetHeader("X-Idempotency-Key")}
+	}
 	s.capturedReq = req
 	return nil
 }
 
-// TestDoTaskApiRequest_KeepsReplayableGetBody guards against reintroducing the
-// hand-rolled GetBody override that wrapped the already consumed request
-// reader: any transport-level retry would then have silently replayed an empty
-// body. net/http derives a correct snapshot-based GetBody from the
-// *bytes.Reader bodies the task adaptors pass in, and it must be left intact.
-func TestDoTaskApiRequest_KeepsReplayableGetBody(t *testing.T) {
+func TestDoTaskApiRequestUsesOneShotBodyAndFiltersClientIdempotencyHeaders(t *testing.T) {
 	service.InitHttpClient()
 
 	payload := []byte(`{"model":"test-model","prompt":"hello"}`)
 
-	type receivedBody struct {
-		body []byte
-		err  error
+	type receivedRequest struct {
+		body   []byte
+		header http.Header
+		err    error
 	}
-	receivedCh := make(chan receivedBody, 1)
+	receivedCh := make(chan receivedRequest, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
-		receivedCh <- receivedBody{body: body, err: err}
+		receivedCh <- receivedRequest{body: body, header: r.Header.Clone(), err: err}
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -222,12 +229,21 @@ func TestDoTaskApiRequest_KeepsReplayableGetBody(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/video/generations", bytes.NewReader(payload))
+	ctx.Request.Header.Set("Authorization", "Bearer client-secret")
+	ctx.Request.Header.Set("Cookie", "session=client-secret")
+	ctx.Request.Header.Set("X-Api-Key", "client-key")
+	ctx.Request.Header.Set("Idempotency-Key", "client-idempotency-key")
+	ctx.Request.Header.Set("X-Idempotency-Key", "legacy-client-idempotency-key")
 
 	info := &relaycommon.RelayInfo{
 		ChannelMeta: &relaycommon.ChannelMeta{},
 	}
 
-	adaptor := &stubTaskAdaptor{baseURL: server.URL}
+	adaptor := &stubTaskAdaptor{
+		baseURL:                    server.URL,
+		providerAuthorization:      "Bearer provider-secret",
+		copyClientIdempotencyHeads: true,
+	}
 	resp, err := DoTaskApiRequest(adaptor, ctx, info, bytes.NewReader(payload))
 	require.NoError(t, err)
 	defer resp.Body.Close()
@@ -235,20 +251,42 @@ func TestDoTaskApiRequest_KeepsReplayableGetBody(t *testing.T) {
 	received := <-receivedCh
 	require.NoError(t, received.err)
 	assert.Equal(t, payload, received.body)
+	assert.Equal(t, "Bearer provider-secret", received.header.Get("Authorization"))
+	assert.Empty(t, received.header.Get("Cookie"))
+	assert.Empty(t, received.header.Get("X-Api-Key"))
+	assert.Empty(t, received.header.Get("Idempotency-Key"))
+	assert.Empty(t, received.header.Get("X-Idempotency-Key"))
 
 	req := adaptor.capturedReq
 	require.NotNil(t, req)
-	require.NotNil(t, req.GetBody)
-	// Even after the request body has been fully written, GetBody must still
-	// return the complete payload, repeatedly.
-	for i := 0; i < 2; i++ {
-		rc, err := req.GetBody()
-		require.NoError(t, err)
-		replay, err := io.ReadAll(rc)
-		require.NoError(t, err)
-		require.NoError(t, rc.Close())
-		assert.Equal(t, payload, replay, "replay %d must equal the original payload", i+1)
-	}
+	assert.EqualValues(t, len(payload), req.ContentLength)
+	assert.Nil(t, req.GetBody)
+}
+
+func TestBuildTaskSubmissionRequestPreservesReplayableBodyWithoutReplayHook(t *testing.T) {
+	payload := []byte(`{"model":"test-model","prompt":"storage-backed"}`)
+	body, storage := newPassThroughBody(t, payload)
+	defer storage.Close()
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/video/generations", nil)
+	info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{}}
+
+	req, err := buildTaskSubmissionRequest(&stubTaskAdaptor{baseURL: "https://upstream.test"}, ctx, info, body)
+	require.NoError(t, err)
+	require.NotNil(t, req)
+	defer req.Body.Close()
+	assert.EqualValues(t, len(payload), req.ContentLength)
+	assert.Nil(t, req.GetBody)
+
+	sent, err := io.ReadAll(req.Body)
+	require.NoError(t, err)
+	assert.Equal(t, payload, sent)
+	stored, err := storage.Bytes()
+	require.NoError(t, err)
+	assert.Equal(t, payload, stored)
 }
 
 type h2ServerResult struct {
@@ -445,6 +483,42 @@ func newH2PriorKnowledgeClient(ln net.Listener) (*http.Client, *http2.Transport)
 		},
 	}
 	return &http.Client{Transport: transport, Timeout: 15 * time.Second}, transport
+}
+
+func TestTaskSubmissionRequestDoesNotRetryAfterHTTP2StreamReset(t *testing.T) {
+	payload := []byte(`{"model":"test-model","prompt":"one outbound attempt"}`)
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+	resCh := runResetOnFirstStreamServer(ln, false)
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/video/generations", nil)
+	info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{}}
+	req, err := buildTaskSubmissionRequest(
+		&stubTaskAdaptor{baseURL: "http://upstream.test"},
+		ctx,
+		info,
+		bytes.NewReader(payload),
+	)
+	require.NoError(t, err)
+	require.Nil(t, req.GetBody)
+
+	client, transport := newH2PriorKnowledgeClient(ln)
+	defer transport.CloseIdleConnections()
+	resp, err := client.Do(req) //nolint:bodyclose // the reset returns no response body
+	require.Error(t, err)
+	assert.Nil(t, resp)
+	assert.ErrorContains(t, err, "cannot retry")
+
+	srv := awaitH2ServerResult(t, resCh)
+	require.NoError(t, srv.err)
+	assert.Equal(t, 1, srv.streamCount)
+	require.Len(t, srv.attemptBodies, 1)
+	assert.Equal(t, payload, srv.attemptBodies[0])
 }
 
 func newPassThroughBody(t *testing.T, payload []byte) (common.ReplayableBody, common.BodyStorage) {

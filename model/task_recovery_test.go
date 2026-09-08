@@ -1,6 +1,7 @@
 package model
 
 import (
+	"database/sql"
 	"errors"
 	"strconv"
 	"strings"
@@ -18,6 +19,23 @@ var errInjectedTaskRecoveryRollback = errors.New("injected task recovery transac
 var errInjectedTaskRecoveryClock = errors.New("injected task recovery database clock failure")
 var errInjectedTaskRecoveryDispatchAttemptUpdate = errors.New("injected task recovery dispatch attempt update failure")
 var errInjectedTaskRecoveryDispatchAttemptPanic = errors.New("injected task recovery dispatch attempt panic")
+var errInjectedTaskSubmissionIntentAttemptCreate = errors.New("injected task submission intent attempt create failure")
+var errInjectedTaskSubmissionIntentAttemptPanic = errors.New("injected task submission intent attempt panic")
+var errInjectedTaskSubmissionIntentSavepoint = errors.New("injected task submission intent savepoint failure")
+var errInjectedTaskSubmissionIntentRollback = errors.New("injected task submission intent rollback failure")
+
+func TestValidTaskSubmissionPublicID(t *testing.T) {
+	assert.True(t, ValidTaskSubmissionPublicID("task_"+strings.Repeat("a", taskSubmissionPublicIDRandomLength)))
+	for _, invalid := range []string{
+		"",
+		"task_" + strings.Repeat("a", taskSubmissionPublicIDRandomLength-1),
+		"task_" + strings.Repeat("A", taskSubmissionPublicIDRandomLength),
+		"task_" + strings.Repeat("a", taskSubmissionPublicIDRandomLength-1) + "-",
+		"billing_evt_" + strings.Repeat("a", taskSubmissionPublicIDRandomLength),
+	} {
+		assert.False(t, ValidTaskSubmissionPublicID(invalid))
+	}
+}
 
 type b2TaskRecoveryFixtureClock struct {
 	now  int64
@@ -43,8 +61,19 @@ func installB2TaskRecoveryFixtureClock(t *testing.T, db *gorm.DB) *b2TaskRecover
 }
 
 func openB2SubmissionSQLite(t *testing.T) *gorm.DB {
+	return openB2SubmissionSQLiteWithConfig(t, &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+}
+
+func openB2SubmissionSQLitePrepared(t *testing.T) *gorm.DB {
+	return openB2SubmissionSQLiteWithConfig(t, &gorm.Config{
+		Logger:      logger.Default.LogMode(logger.Silent),
+		PrepareStmt: true,
+	})
+}
+
+func openB2SubmissionSQLiteWithConfig(t *testing.T, config *gorm.Config) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	db, err := gorm.Open(sqlite.Open(":memory:"), config)
 	require.NoError(t, err)
 	require.NoError(t, registerTaskRecoveryGormGuards(db))
 	sqlDB, err := db.DB()
@@ -454,6 +483,304 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 			return createErr
 		})
 		require.NoError(t, err)
+	})
+
+	t.Run("atomic-t0-intent-owns-once-and-replays-the-persisted-route", func(t *testing.T) {
+		operationCandidate := newB2SubmissionOperation(t, 602, "POST", TaskSubmissionOperationKindVideoCreate, "atomic-t0-intent", `{"model":"fixture"}`)
+		intent, err := CreateOrLoadTaskSubmissionIntent(db, operationCandidate, &TaskSubmissionAttempt{
+			AttemptNo: 1, ChannelID: 61, Provider: "Fixture", RequestClass: "video",
+		})
+		require.NoError(t, err)
+		require.NotNil(t, intent)
+		require.NotNil(t, intent.Operation)
+		require.NotNil(t, intent.Attempt)
+		assert.True(t, intent.Owner)
+		assert.Equal(t, intent.Operation.ID, intent.Attempt.OperationID)
+		assert.Equal(t, TaskSubmissionOperationStatusPrepared, intent.Operation.Status)
+		assert.Equal(t, TaskSubmissionAttemptStatusPrepared, intent.Attempt.Status)
+		assert.Equal(t, 61, intent.Attempt.ChannelID)
+		assert.Equal(t, "fixture", intent.Attempt.Provider)
+
+		replay, err := CreateOrLoadTaskSubmissionIntent(db,
+			newB2SubmissionOperation(t, 602, "post", TaskSubmissionOperationKindVideoCreate, "atomic-t0-intent", `{"model":"fixture"}`),
+			&TaskSubmissionAttempt{AttemptNo: 1, ChannelID: 62, Provider: "replacement", RequestClass: "music"})
+		require.NoError(t, err)
+		require.NotNil(t, replay)
+		require.NotNil(t, replay.Operation)
+		require.NotNil(t, replay.Attempt)
+		assert.False(t, replay.Owner)
+		assert.Equal(t, intent.Operation.ID, replay.Operation.ID)
+		assert.Equal(t, intent.Attempt.ID, replay.Attempt.ID)
+		assert.Equal(t, 61, replay.Attempt.ChannelID)
+		assert.Equal(t, "fixture", replay.Attempt.Provider)
+
+		legacyOperation, err := CreateOrLoadTaskSubmissionOperation(db,
+			newB2SubmissionOperation(t, 602, "POST", TaskSubmissionOperationKindSunoMusic, "atomic-t0-legacy-prepared", `{"model":"fixture"}`))
+		require.NoError(t, err)
+		legacyAttempt, err := CreateOrLoadTaskSubmissionAttempt(db, &TaskSubmissionAttempt{
+			OperationID: legacyOperation.ID, AttemptNo: 1, ChannelID: 63, Provider: "legacy", RequestClass: "music",
+		})
+		require.NoError(t, err)
+		legacyReplay, err := CreateOrLoadTaskSubmissionIntent(db,
+			newB2SubmissionOperation(t, 602, "POST", TaskSubmissionOperationKindSunoMusic, "atomic-t0-legacy-prepared", `{"model":"fixture"}`),
+			&TaskSubmissionAttempt{AttemptNo: 1, ChannelID: 64, Provider: "replacement", RequestClass: "video"})
+		require.NoError(t, err)
+		require.NotNil(t, legacyReplay)
+		assert.False(t, legacyReplay.Owner)
+		assert.Equal(t, legacyOperation.ID, legacyReplay.Operation.ID)
+		assert.Equal(t, legacyAttempt.ID, legacyReplay.Attempt.ID)
+		assert.Equal(t, 63, legacyReplay.Attempt.ChannelID)
+
+		missingAttemptOperation, err := CreateOrLoadTaskSubmissionOperation(db,
+			newB2SubmissionOperation(t, 603, "POST", TaskSubmissionOperationKindSunoLyrics, "atomic-t0-missing-attempt", `{"model":"fixture"}`))
+		require.NoError(t, err)
+		missingAttempt, err := CreateOrLoadTaskSubmissionIntent(db,
+			newB2SubmissionOperation(t, 603, "POST", TaskSubmissionOperationKindSunoLyrics, "atomic-t0-missing-attempt", `{"model":"fixture"}`),
+			&TaskSubmissionAttempt{AttemptNo: 1, ChannelID: 64, Provider: "replacement", RequestClass: "music"})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.Nil(t, missingAttempt)
+		var missingAttemptCount int64
+		require.NoError(t, db.Model(&TaskSubmissionAttempt{}).Where("operation_id = ?", missingAttemptOperation.ID).Count(&missingAttemptCount).Error)
+		assert.Zero(t, missingAttemptCount, "a damaged legacy operation must not be silently repaired with a new route")
+
+		persistedCandidate := *intent.Operation
+		persistedCandidateResult, err := CreateOrLoadTaskSubmissionIntent(db, &persistedCandidate,
+			&TaskSubmissionAttempt{AttemptNo: 1, ChannelID: 65, Provider: "replacement", RequestClass: "video"})
+		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
+		assert.Nil(t, persistedCandidateResult)
+		var persistedAttemptCount int64
+		require.NoError(t, db.Model(&TaskSubmissionAttempt{}).Where("operation_id = ?", intent.Operation.ID).Count(&persistedAttemptCount).Error)
+		assert.Equal(t, int64(1), persistedAttemptCount, "a caller-provided persisted operation must never obtain a second owner attempt")
+
+		conflict, err := CreateOrLoadTaskSubmissionIntent(db,
+			newB2SubmissionOperation(t, 602, "POST", TaskSubmissionOperationKindVideoCreate, "atomic-t0-intent", `{"model":"different"}`),
+			&TaskSubmissionAttempt{AttemptNo: 1, ChannelID: 65, Provider: "replacement", RequestClass: "video"})
+		assert.ErrorIs(t, err, ErrTaskSubmissionIdempotencyConflict)
+		require.NotNil(t, conflict)
+		require.NotNil(t, conflict.Operation)
+		assert.False(t, conflict.Owner)
+		assert.Equal(t, intent.Operation.ID, conflict.Operation.ID)
+		assert.Nil(t, conflict.Attempt)
+	})
+
+	if db.Dialector.Name() != "sqlite" {
+		t.Run("atomic-t0-intent-concurrent-loser-reuses-the-winner", func(t *testing.T) {
+			sqlDB, err := db.DB()
+			require.NoError(t, err)
+			sqlDB.SetMaxOpenConns(2)
+			defer sqlDB.SetMaxOpenConns(1)
+
+			arrived := make(chan struct{}, 2)
+			release := make(chan struct{})
+			barrierEnabled := true
+			require.NoError(t, db.Callback().Create().Before("gorm:create").Register("test:b2-task-submission-intent-concurrent-insert", func(tx *gorm.DB) {
+				if barrierEnabled && taskRecoveryGormStatementTable(tx) == "task_submission_operations" {
+					arrived <- struct{}{}
+					<-release
+				}
+			}))
+
+			type outcome struct {
+				intent *TaskSubmissionIntentResult
+				err    error
+			}
+			outcomes := make(chan outcome, 2)
+			operationCandidates := []*TaskSubmissionOperation{
+				newB2SubmissionOperation(t, 602, "POST", TaskSubmissionOperationKindSunoLyrics, "atomic-t0-concurrent", `{"model":"fixture"}`),
+				newB2SubmissionOperation(t, 602, "POST", TaskSubmissionOperationKindSunoLyrics, "atomic-t0-concurrent", `{"model":"fixture"}`),
+			}
+			for index, channelID := range []int{67, 68} {
+				go func(operationCandidate *TaskSubmissionOperation, channelID int) {
+					intent, err := CreateOrLoadTaskSubmissionIntent(db,
+						operationCandidate,
+						&TaskSubmissionAttempt{AttemptNo: 1, ChannelID: channelID, Provider: "fixture", RequestClass: "music"})
+					outcomes <- outcome{intent: intent, err: err}
+				}(operationCandidates[index], channelID)
+			}
+			<-arrived
+			<-arrived
+			close(release)
+
+			first := <-outcomes
+			second := <-outcomes
+			barrierEnabled = false
+			require.NoError(t, first.err)
+			require.NoError(t, second.err)
+			require.NotNil(t, first.intent)
+			require.NotNil(t, second.intent)
+			require.NotNil(t, first.intent.Operation)
+			require.NotNil(t, second.intent.Operation)
+			require.NotNil(t, first.intent.Attempt)
+			require.NotNil(t, second.intent.Attempt)
+			assert.NotEqual(t, first.intent.Owner, second.intent.Owner)
+			assert.Equal(t, first.intent.Operation.ID, second.intent.Operation.ID)
+			assert.Equal(t, first.intent.Attempt.ID, second.intent.Attempt.ID)
+			assert.Equal(t, first.intent.Attempt.ChannelID, second.intent.Attempt.ChannelID)
+		})
+	}
+
+	t.Run("atomic-t0-intent-rolls-back-an-operation-when-attempt-creation-fails", func(t *testing.T) {
+		operationCandidate := newB2SubmissionOperation(t, 602, "POST", TaskSubmissionOperationKindVideoRemix, "atomic-t0-attempt-failure", `{"model":"fixture"}`)
+		var operationCountBefore, attemptCountBefore int64
+		require.NoError(t, db.Model(&TaskSubmissionOperation{}).Count(&operationCountBefore).Error)
+		require.NoError(t, db.Model(&TaskSubmissionAttempt{}).Count(&attemptCountBefore).Error)
+
+		failAttemptCreate := false
+		operationVisibleAtFailure := false
+		require.NoError(t, db.Callback().Create().Before("gorm:create").Register("test:b2-task-submission-intent-attempt-failure", func(tx *gorm.DB) {
+			if !failAttemptCreate || taskRecoveryGormStatementTable(tx) != "task_submission_attempts" {
+				return
+			}
+			var count int64
+			query := tx.Session(&gorm.Session{NewDB: true}).Model(&TaskSubmissionOperation{}).Where(
+				"token_id = ? AND http_method = ? AND operation_kind = ? AND idempotency_key_hash = ?",
+				operationCandidate.TokenID, operationCandidate.HTTPMethod, operationCandidate.OperationKind, operationCandidate.IdempotencyKeyHash,
+			).Count(&count)
+			if query.Error != nil {
+				tx.AddError(query.Error)
+				return
+			}
+			operationVisibleAtFailure = count == 1
+			tx.AddError(errInjectedTaskSubmissionIntentAttemptCreate)
+		}))
+
+		outerErr := db.Session(&gorm.Session{DisableNestedTransaction: true}).Transaction(func(tx *gorm.DB) error {
+			failAttemptCreate = true
+			failed, err := CreateOrLoadTaskSubmissionIntent(tx, operationCandidate, &TaskSubmissionAttempt{
+				AttemptNo: 1, ChannelID: 66, Provider: "fixture", RequestClass: "video",
+			})
+			failAttemptCreate = false
+			assert.ErrorIs(t, err, errInjectedTaskSubmissionIntentAttemptCreate)
+			assert.Nil(t, failed)
+
+			loaded, loadErr := FindTaskSubmissionOperationByIdempotencyScope(tx, TaskSubmissionIdempotencyScope{
+				TokenID: operationCandidate.TokenID, HTTPMethod: operationCandidate.HTTPMethod,
+				OperationKind: operationCandidate.OperationKind, IdempotencyKeyHash: operationCandidate.IdempotencyKeyHash,
+			})
+			require.NoError(t, loadErr)
+			assert.Nil(t, loaded)
+			return nil
+		})
+		require.NoError(t, outerErr)
+		assert.True(t, operationVisibleAtFailure, "operation must have been inserted before the attempt failure was injected")
+
+		var operationCountAfter, attemptCountAfter int64
+		require.NoError(t, db.Model(&TaskSubmissionOperation{}).Count(&operationCountAfter).Error)
+		require.NoError(t, db.Model(&TaskSubmissionAttempt{}).Count(&attemptCountAfter).Error)
+		assert.Equal(t, operationCountBefore, operationCountAfter)
+		assert.Equal(t, attemptCountBefore, attemptCountAfter)
+	})
+
+	t.Run("atomic-t0-intent-does-not-enter-an-outer-transaction-when-savepoint-creation-fails", func(t *testing.T) {
+		failSavepointCreate := false
+		require.NoError(t, db.Callback().Raw().Before("gorm:raw").Register("test:b2-task-submission-intent-savepoint-failure", func(tx *gorm.DB) {
+			if failSavepointCreate && strings.HasPrefix(tx.Statement.SQL.String(), "SAVEPOINT task_submission_intent_") {
+				tx.AddError(errInjectedTaskSubmissionIntentSavepoint)
+			}
+		}))
+
+		outerTx := db.Session(&gorm.Session{DisableNestedTransaction: true}).Begin()
+		require.NoError(t, outerTx.Error)
+		t.Cleanup(func() { _ = outerTx.Rollback().Error })
+		candidate := newB2SubmissionOperation(t, 603, "POST", TaskSubmissionOperationKindSunoLyrics, "atomic-t0-savepoint-failure", `{"model":"fixture"}`)
+		failSavepointCreate = true
+		result, err := CreateOrLoadTaskSubmissionIntent(outerTx, candidate, &TaskSubmissionAttempt{
+			AttemptNo: 1, ChannelID: 67, Provider: "fixture", RequestClass: "music",
+		})
+		failSavepointCreate = false
+		assert.ErrorIs(t, err, errInjectedTaskSubmissionIntentSavepoint)
+		assert.Nil(t, result)
+		require.NoError(t, outerTx.Commit().Error)
+
+		persisted, err := FindTaskSubmissionOperationByIdempotencyScope(db, TaskSubmissionIdempotencyScope{
+			TokenID: candidate.TokenID, HTTPMethod: candidate.HTTPMethod,
+			OperationKind: candidate.OperationKind, IdempotencyKeyHash: candidate.IdempotencyKeyHash,
+		})
+		require.NoError(t, err)
+		assert.Nil(t, persisted)
+	})
+
+	t.Run("atomic-t0-intent-invalidates-an-outer-transaction-when-savepoint-rollback-fails", func(t *testing.T) {
+		failAttemptCreate := false
+		failSavepointRollback := false
+		require.NoError(t, db.Callback().Create().Before("gorm:create").Register("test:b2-task-submission-intent-rollback-failure-attempt", func(tx *gorm.DB) {
+			if failAttemptCreate && taskRecoveryGormStatementTable(tx) == "task_submission_attempts" {
+				tx.AddError(errInjectedTaskSubmissionIntentAttemptCreate)
+			}
+		}))
+		require.NoError(t, db.Callback().Raw().Before("gorm:raw").Register("test:b2-task-submission-intent-rollback-failure", func(tx *gorm.DB) {
+			if failSavepointRollback && strings.HasPrefix(strings.ToUpper(tx.Statement.SQL.String()), "ROLLBACK TO SAVEPOINT TASK_SUBMISSION_INTENT_") {
+				tx.AddError(errInjectedTaskSubmissionIntentRollback)
+			}
+		}))
+
+		outerTx := db.Session(&gorm.Session{DisableNestedTransaction: true}).Begin()
+		require.NoError(t, outerTx.Error)
+		t.Cleanup(func() { _ = outerTx.Rollback().Error })
+		candidate := newB2SubmissionOperation(t, 603, "POST", TaskSubmissionOperationKindSunoLyrics, "atomic-t0-rollback-failure", `{"model":"fixture"}`)
+		failAttemptCreate = true
+		failSavepointRollback = true
+		result, err := CreateOrLoadTaskSubmissionIntent(outerTx, candidate, &TaskSubmissionAttempt{
+			AttemptNo: 1, ChannelID: 68, Provider: "fixture", RequestClass: "music",
+		})
+		failAttemptCreate = false
+		failSavepointRollback = false
+		assert.ErrorIs(t, err, errInjectedTaskSubmissionIntentAttemptCreate)
+		assert.Nil(t, result)
+		assert.ErrorIs(t, outerTx.Commit().Error, sql.ErrTxDone)
+
+		persisted, err := FindTaskSubmissionOperationByIdempotencyScope(db, TaskSubmissionIdempotencyScope{
+			TokenID: candidate.TokenID, HTTPMethod: candidate.HTTPMethod,
+			OperationKind: candidate.OperationKind, IdempotencyKeyHash: candidate.IdempotencyKeyHash,
+		})
+		require.NoError(t, err)
+		assert.Nil(t, persisted)
+	})
+
+	t.Run("atomic-t0-intent-rolls-back-before-a-recovered-panic-can-commit", func(t *testing.T) {
+		panicAttemptCreate := false
+		require.NoError(t, db.Callback().Create().Before("gorm:create").Register("test:b2-task-submission-intent-panic-attempt", func(tx *gorm.DB) {
+			if panicAttemptCreate && taskRecoveryGormStatementTable(tx) == "task_submission_attempts" {
+				panic(errInjectedTaskSubmissionIntentAttemptPanic)
+			}
+		}))
+
+		outerTx := db.Session(&gorm.Session{DisableNestedTransaction: true}).Begin()
+		require.NoError(t, outerTx.Error)
+		t.Cleanup(func() { _ = outerTx.Rollback().Error })
+		candidate := newB2SubmissionOperation(t, 603, "POST", TaskSubmissionOperationKindSunoLyrics, "atomic-t0-panic", `{"model":"fixture"}`)
+		recovered := false
+		func() {
+			defer func() {
+				value := recover()
+				require.NotNil(t, value)
+				panicError, ok := value.(error)
+				require.True(t, ok)
+				assert.ErrorIs(t, panicError, errInjectedTaskSubmissionIntentAttemptPanic)
+				recovered = true
+			}()
+			panicAttemptCreate = true
+			_, _ = CreateOrLoadTaskSubmissionIntent(outerTx, candidate, &TaskSubmissionAttempt{
+				AttemptNo: 1, ChannelID: 69, Provider: "fixture", RequestClass: "music",
+			})
+		}()
+		panicAttemptCreate = false
+		require.True(t, recovered)
+
+		persisted, err := FindTaskSubmissionOperationByIdempotencyScope(outerTx, TaskSubmissionIdempotencyScope{
+			TokenID: candidate.TokenID, HTTPMethod: candidate.HTTPMethod,
+			OperationKind: candidate.OperationKind, IdempotencyKeyHash: candidate.IdempotencyKeyHash,
+		})
+		require.NoError(t, err)
+		assert.Nil(t, persisted)
+		require.NoError(t, outerTx.Commit().Error)
+
+		persisted, err = FindTaskSubmissionOperationByIdempotencyScope(db, TaskSubmissionIdempotencyScope{
+			TokenID: candidate.TokenID, HTTPMethod: candidate.HTTPMethod,
+			OperationKind: candidate.OperationKind, IdempotencyKeyHash: candidate.IdempotencyKeyHash,
+		})
+		require.NoError(t, err)
+		assert.Nil(t, persisted)
 	})
 
 	t.Run("operation-cas-and-formal-task-link", func(t *testing.T) {
@@ -1680,6 +2007,41 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 
 func TestB2SubmissionSQLite(t *testing.T) {
 	runB2SubmissionDatabaseContract(t, openB2SubmissionSQLite(t))
+}
+
+func TestB2SubmissionSQLitePreparedOuterTransaction(t *testing.T) {
+	t.Setenv("TASK_RECOVERY_IDEMPOTENCY_SECRET", strings.Repeat("1a", 32))
+	db := openB2SubmissionSQLitePrepared(t)
+	migrateB2SubmissionFixture(t, db)
+	ensureB2SubmissionOwner(t, db, 801)
+
+	outerTx := db.Session(&gorm.Session{DisableNestedTransaction: true}).Begin()
+	require.NoError(t, outerTx.Error)
+	t.Cleanup(func() { _ = outerTx.Rollback().Error })
+	preparedPool, prepared := outerTx.Statement.ConnPool.(*gorm.PreparedStmtTX)
+	require.True(t, prepared, "the outer transaction must exercise GORM's prepared transaction wrapper")
+
+	candidate := newB2SubmissionOperation(t, 801, "POST", TaskSubmissionOperationKindVideoCreate, "prepared-outer-transaction", `{"model":"fixture"}`)
+	intent, err := CreateOrLoadTaskSubmissionIntent(outerTx, candidate, &TaskSubmissionAttempt{
+		AttemptNo: 1, ChannelID: 81, Provider: "fixture", RequestClass: "video",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, intent)
+	assert.True(t, intent.Owner)
+	currentPreparedPool, stillPrepared := outerTx.Statement.ConnPool.(*gorm.PreparedStmtTX)
+	require.True(t, stillPrepared, "transaction-control SQL must not disable prepared SQL for the caller")
+	assert.Same(t, preparedPool, currentPreparedPool)
+	var operationCount int64
+	require.NoError(t, outerTx.Model(&TaskSubmissionOperation{}).Where("id = ?", intent.Operation.ID).Count(&operationCount).Error)
+	assert.Equal(t, int64(1), operationCount)
+	require.NoError(t, outerTx.Commit().Error)
+
+	persisted, err := FindTaskSubmissionOperationByIdempotencyScope(db, TaskSubmissionIdempotencyScope{
+		TokenID: candidate.TokenID, HTTPMethod: candidate.HTTPMethod,
+		OperationKind: candidate.OperationKind, IdempotencyKeyHash: candidate.IdempotencyKeyHash,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, persisted)
 }
 
 func TestClickHouseLogSchemaReservesBillingEventProjectionKey(t *testing.T) {

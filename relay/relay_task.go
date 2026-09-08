@@ -221,9 +221,15 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	if err != nil {
 		return nil, service.TaskErrorWrapper(err, "do_request_failed", http.StatusInternalServerError)
 	}
-	if resp != nil && resp.StatusCode != http.StatusOK {
-		responseBody, _ := io.ReadAll(resp.Body)
-		return nil, service.TaskErrorWrapper(fmt.Errorf("%s", string(responseBody)), "fail_to_fetch_task", resp.StatusCode)
+	if resp == nil {
+		return nil, service.TaskErrorWrapper(
+			fmt.Errorf("invalid task submission response"),
+			"invalid_response",
+			http.StatusBadGateway,
+		)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, legacyTaskSubmitHTTPStatusError(resp)
 	}
 
 	// 10. 返回 OtherRatios 给下游（header 必须在 DoResponse 写 body 之前设置）
@@ -235,7 +241,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	c.Header("X-New-Api-Other-Ratios", string(ratiosJSON))
 
 	// 11. 解析响应
-	upstreamTaskID, taskData, taskErr := adaptor.DoResponse(c, resp, info)
+	upstreamTaskID, taskData, taskErr := resolveLegacyTaskSubmitResponse(c, adaptor, resp, info)
 	if taskErr != nil {
 		return nil, taskErr
 	}
@@ -257,6 +263,42 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		Platform:       platform,
 		Quota:          finalQuota,
 	}, nil
+}
+
+// legacyTaskSubmitResponseAdapter is the narrow gate-off response boundary.
+// Keeping its status decision here makes every TaskAdaptor, including those
+// that now expose a pure TaskSubmitResponseParser, follow the same legacy
+// non-200 path until durable submission owns the response lifecycle.
+type legacyTaskSubmitResponseAdapter interface {
+	DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (taskID string, taskData []byte, taskErr *dto.TaskError)
+}
+
+func resolveLegacyTaskSubmitResponse(c *gin.Context, adaptor legacyTaskSubmitResponseAdapter, resp *http.Response, info *relaycommon.RelayInfo) (string, []byte, *dto.TaskError) {
+	if resp.StatusCode != http.StatusOK {
+		return "", nil, legacyTaskSubmitHTTPStatusError(resp)
+	}
+	return adaptor.DoResponse(c, resp, info)
+}
+
+// legacyTaskSubmitHTTPStatusError is the compatibility boundary for the
+// gate-off dispatcher. Until durable submission consumes parser results, every
+// non-200 response keeps its existing retry/status semantics while this helper
+// closes a bounded body and never exposes upstream content through a client
+// error or channel-error log.
+func legacyTaskSubmitHTTPStatusError(resp *http.Response) *dto.TaskError {
+	statusCode := http.StatusBadGateway
+	if resp != nil && resp.StatusCode >= 100 && resp.StatusCode <= 599 {
+		statusCode = resp.StatusCode
+	}
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close()
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, int64(channel.MaxTaskSubmitResponseBytes)+1))
+	}
+	return service.TaskErrorWrapper(
+		fmt.Errorf("task submission upstream returned an unexpected HTTP status"),
+		"fail_to_fetch_task",
+		statusCode,
+	)
 }
 
 // recalcQuotaFromRatios 根据 adjustedRatios 重新计算 quota。
