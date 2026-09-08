@@ -1,6 +1,12 @@
 package console_setting
 
-import "github.com/ForceMind/MyAPI/setting/config"
+import (
+	"strconv"
+	"sync"
+	"sync/atomic"
+
+	"github.com/ForceMind/MyAPI/setting/config"
+)
 
 type ConsoleSetting struct {
 	ApiInfo              string `json:"api_info"`              // 控制台 API 信息 (JSON 数组字符串)
@@ -25,15 +31,90 @@ var defaultConsoleSetting = ConsoleSetting{
 	FAQEnabled:           true,
 }
 
-// 全局实例
-var consoleSetting = defaultConsoleSetting
+// consoleSettingGeneration is immutable after publication. Console content is
+// configured as independent option keys, but readers must not observe fields
+// from a struct being rewritten by the generic reflection-based config loader.
+type consoleSettingGeneration struct {
+	setting ConsoleSetting
+}
+
+// managedConsoleSetting owns the synchronized runtime snapshot registered
+// with the generic config manager.
+type managedConsoleSetting struct {
+	writeMutex sync.Mutex
+	current    atomic.Pointer[consoleSettingGeneration]
+}
+
+func newManagedConsoleSetting(initial ConsoleSetting) *managedConsoleSetting {
+	setting := &managedConsoleSetting{}
+	setting.current.Store(&consoleSettingGeneration{setting: initial})
+	return setting
+}
+
+func (s *managedConsoleSetting) snapshot() ConsoleSetting {
+	if s != nil {
+		if current := s.current.Load(); current != nil {
+			return current.setting
+		}
+	}
+	return defaultConsoleSetting
+}
+
+func (s *managedConsoleSetting) detachedSnapshot() *ConsoleSetting {
+	setting := s.snapshot()
+	return &setting
+}
+
+func (s *managedConsoleSetting) candidate(values map[string]string) (ConsoleSetting, error) {
+	candidate := s.snapshot()
+	if err := config.UpdateConfigFromMap(&candidate, values); err != nil {
+		return ConsoleSetting{}, err
+	}
+	return candidate, nil
+}
+
+func (s *managedConsoleSetting) ExportConfigMap() (map[string]string, error) {
+	setting := s.snapshot()
+	return map[string]string{
+		"api_info":              setting.ApiInfo,
+		"uptime_kuma_groups":    setting.UptimeKumaGroups,
+		"announcements":         setting.Announcements,
+		"faq":                   setting.FAQ,
+		"api_info_enabled":      strconv.FormatBool(setting.ApiInfoEnabled),
+		"uptime_kuma_enabled":   strconv.FormatBool(setting.UptimeKumaEnabled),
+		"announcements_enabled": strconv.FormatBool(setting.AnnouncementsEnabled),
+		"faq_enabled":           strconv.FormatBool(setting.FAQEnabled),
+	}, nil
+}
+
+func (s *managedConsoleSetting) ValidateConfigMap(values map[string]string) error {
+	_, err := s.candidate(values)
+	return err
+}
+
+func (s *managedConsoleSetting) UpdateConfigMap(values map[string]string) error {
+	s.writeMutex.Lock()
+	defer s.writeMutex.Unlock()
+
+	candidate, err := s.candidate(values)
+	if err != nil {
+		return err
+	}
+	s.current.Store(&consoleSettingGeneration{setting: candidate})
+	return nil
+}
+
+var consoleSettingState = newManagedConsoleSetting(defaultConsoleSetting)
+
+var _ config.ValidatingMapConfig = (*managedConsoleSetting)(nil)
 
 func init() {
 	// 注册到全局配置管理器，键名为 console_setting
-	config.GlobalConfig.Register("console_setting", &consoleSetting)
+	config.GlobalConfig.Register("console_setting", consoleSettingState)
 }
 
-// GetConsoleSetting 获取 ConsoleSetting 配置实例
+// GetConsoleSetting returns a detached copy of one immutable runtime
+// generation. Mutating the returned value never updates the live setting.
 func GetConsoleSetting() *ConsoleSetting {
-	return &consoleSetting
+	return consoleSettingState.detachedSnapshot()
 }

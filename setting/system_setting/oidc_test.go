@@ -29,7 +29,7 @@ func TestOIDCSettings_GetEffectiveDisplayName(t *testing.T) {
 }
 
 func TestOIDCSettings_DisplayNamePersistenceRoundTrip(t *testing.T) {
-	settings := &OIDCSettings{DisplayName: "  Acme SSO  "}
+	settings := newManagedOIDCSettings(OIDCSettings{DisplayName: "  Acme SSO  "})
 	manager := config.NewConfigManager()
 	manager.Register("oidc", settings)
 
@@ -40,8 +40,9 @@ func TestOIDCSettings_DisplayNamePersistenceRoundTrip(t *testing.T) {
 	}))
 	require.Equal(t, "  Acme SSO  ", saved["oidc.display_name"])
 
-	settings.DisplayName = ""
+	require.NoError(t, settings.UpdateConfigMap(map[string]string{"display_name": ""}))
 	require.NoError(t, manager.LoadFromDB(saved))
-	assert.Equal(t, "  Acme SSO  ", settings.DisplayName)
-	assert.Equal(t, "Acme SSO", settings.GetEffectiveDisplayName())
+	snapshot := settings.snapshot()
+	assert.Equal(t, "  Acme SSO  ", snapshot.DisplayName)
+	assert.Equal(t, "Acme SSO", snapshot.GetEffectiveDisplayName())
 }

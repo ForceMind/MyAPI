@@ -2,7 +2,10 @@ package billing_setting
 
 import (
 	"fmt"
+	"sync"
+	"sync/atomic"
 
+	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/pkg/billingexpr"
 	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/samber/lo"
@@ -22,13 +25,140 @@ type BillingSetting struct {
 	BillingExpr map[string]string `json:"billing_expr"`
 }
 
-var billingSetting = BillingSetting{
+var defaultBillingSetting = BillingSetting{
 	BillingMode: make(map[string]string),
 	BillingExpr: make(map[string]string),
 }
 
+// BillingSnapshot exposes one immutable billing configuration generation to
+// callers that must pair a model's mode and expression consistently.
+type BillingSnapshot struct {
+	billingMode map[string]string
+	billingExpr map[string]string
+}
+
+func cloneBillingSettingMap(values map[string]string) map[string]string {
+	if values == nil {
+		return nil
+	}
+	clone := make(map[string]string, len(values))
+	for key, value := range values {
+		clone[key] = value
+	}
+	return clone
+}
+
+func cloneBillingSetting(setting BillingSetting) BillingSetting {
+	return BillingSetting{
+		BillingMode: cloneBillingSettingMap(setting.BillingMode),
+		BillingExpr: cloneBillingSettingMap(setting.BillingExpr),
+	}
+}
+
+func (s BillingSnapshot) GetBillingMode(model string) string {
+	if mode, ok := s.billingMode[model]; ok {
+		return mode
+	}
+	return BillingModeRatio
+}
+
+func (s BillingSnapshot) GetBillingExpr(model string) (string, bool) {
+	expr, ok := s.billingExpr[model]
+	return expr, ok
+}
+
+func (s BillingSnapshot) GetBillingModeCopy() map[string]string {
+	return cloneBillingSettingMap(s.billingMode)
+}
+
+func (s BillingSnapshot) GetBillingExprCopy() map[string]string {
+	return cloneBillingSettingMap(s.billingExpr)
+}
+
+type billingSettingGeneration struct {
+	setting BillingSetting
+}
+
+// managedBillingSetting owns the synchronized runtime generation registered
+// with the generic config manager. The two maps publish together but callers
+// must not infer cross-key atomic persistence from that in-process property.
+type managedBillingSetting struct {
+	writeMutex sync.Mutex
+	current    atomic.Pointer[billingSettingGeneration]
+}
+
+func newManagedBillingSetting(initial BillingSetting) *managedBillingSetting {
+	state := &managedBillingSetting{}
+	state.current.Store(&billingSettingGeneration{setting: cloneBillingSetting(initial)})
+	return state
+}
+
+func (s *managedBillingSetting) snapshot() BillingSnapshot {
+	if s != nil {
+		if current := s.current.Load(); current != nil {
+			return BillingSnapshot{
+				billingMode: current.setting.BillingMode,
+				billingExpr: current.setting.BillingExpr,
+			}
+		}
+	}
+	return BillingSnapshot{
+		billingMode: defaultBillingSetting.BillingMode,
+		billingExpr: defaultBillingSetting.BillingExpr,
+	}
+}
+
+func (s *managedBillingSetting) candidate(values map[string]string) (BillingSetting, error) {
+	snapshot := s.snapshot()
+	candidate := BillingSetting{
+		BillingMode: snapshot.billingMode,
+		BillingExpr: snapshot.billingExpr,
+	}
+	if err := config.UpdateConfigFromMap(&candidate, values); err != nil {
+		return BillingSetting{}, err
+	}
+	return candidate, nil
+}
+
+func (s *managedBillingSetting) ExportConfigMap() (map[string]string, error) {
+	snapshot := s.snapshot()
+	billingMode, err := common.Marshal(snapshot.billingMode)
+	if err != nil {
+		return nil, err
+	}
+	billingExpr, err := common.Marshal(snapshot.billingExpr)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]string{
+		"billing_mode": string(billingMode),
+		"billing_expr": string(billingExpr),
+	}, nil
+}
+
+func (s *managedBillingSetting) ValidateConfigMap(values map[string]string) error {
+	_, err := s.candidate(values)
+	return err
+}
+
+func (s *managedBillingSetting) UpdateConfigMap(values map[string]string) error {
+	s.writeMutex.Lock()
+	defer s.writeMutex.Unlock()
+
+	candidate, err := s.candidate(values)
+	if err != nil {
+		return err
+	}
+	s.current.Store(&billingSettingGeneration{setting: cloneBillingSetting(candidate)})
+	return nil
+}
+
+var billingSettingState = newManagedBillingSetting(defaultBillingSetting)
+
+var _ config.ValidatingMapConfig = (*managedBillingSetting)(nil)
+
 func init() {
-	config.GlobalConfig.Register("billing_setting", &billingSetting)
+	config.GlobalConfig.Register("billing_setting", billingSettingState)
 }
 
 // ---------------------------------------------------------------------------
@@ -36,31 +166,32 @@ func init() {
 // ---------------------------------------------------------------------------
 
 func GetBillingMode(model string) string {
-	if mode, ok := billingSetting.BillingMode[model]; ok {
-		return mode
-	}
-	return BillingModeRatio
+	return GetBillingSnapshot().GetBillingMode(model)
 }
 
 func GetBillingExpr(model string) (string, bool) {
-	expr, ok := billingSetting.BillingExpr[model]
-	return expr, ok
+	return GetBillingSnapshot().GetBillingExpr(model)
 }
 
 func GetBillingModeCopy() map[string]string {
-	return lo.Assign(billingSetting.BillingMode)
+	return GetBillingSnapshot().GetBillingModeCopy()
 }
 
 func GetBillingExprCopy() map[string]string {
-	return lo.Assign(billingSetting.BillingExpr)
+	return GetBillingSnapshot().GetBillingExprCopy()
+}
+
+func GetBillingSnapshot() BillingSnapshot {
+	return billingSettingState.snapshot()
 }
 
 func GetPricingSyncData(base map[string]any) map[string]any {
+	snapshot := GetBillingSnapshot()
 	extra := make(map[string]any, 2)
-	if modes := GetBillingModeCopy(); len(modes) > 0 {
+	if modes := snapshot.GetBillingModeCopy(); len(modes) > 0 {
 		extra[BillingModeField] = modes
 	}
-	if exprs := GetBillingExprCopy(); len(exprs) > 0 {
+	if exprs := snapshot.GetBillingExprCopy(); len(exprs) > 0 {
 		extra[BillingExprField] = exprs
 	}
 	return lo.Assign(base, extra)

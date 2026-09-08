@@ -35,6 +35,15 @@ type ValidatingMapConfig interface {
 	ValidateConfigMap(map[string]string) error
 }
 
+// DiagnosticSchemaMapConfig lets a MapConfig expose its field schema to
+// diagnostics. Implementations must return a fresh zero value of the schema
+// struct, never a live runtime generation, so a caller can inspect field names
+// and types without observing configured values.
+type DiagnosticSchemaMapConfig interface {
+	MapConfig
+	DiagnosticSchema() any
+}
+
 // ErrMapConfigValidationUnsupported reports that a MapConfig has no pure validation contract.
 var ErrMapConfigValidationUnsupported = errors.New("MapConfig does not support side-effect-free validation")
 

@@ -141,7 +141,11 @@ func validateApiInfo(apiInfoStr string) error {
 }
 
 func GetApiInfo() []map[string]interface{} {
-	return getJSONList(GetConsoleSetting().ApiInfo)
+	return GetApiInfoForConsoleSetting(*GetConsoleSetting())
+}
+
+func GetApiInfoForConsoleSetting(setting ConsoleSetting) []map[string]interface{} {
+	return getJSONList(setting.ApiInfo)
 }
 
 func validateAnnouncements(announcementsStr string) error {
@@ -229,7 +233,11 @@ func getPublishTime(item map[string]interface{}) time.Time {
 }
 
 func GetAnnouncements() []map[string]interface{} {
-	list := getJSONList(GetConsoleSetting().Announcements)
+	return GetAnnouncementsForConsoleSetting(*GetConsoleSetting())
+}
+
+func GetAnnouncementsForConsoleSetting(setting ConsoleSetting) []map[string]interface{} {
+	list := getJSONList(setting.Announcements)
 	sort.SliceStable(list, func(i, j int) bool {
 		return getPublishTime(list[i]).After(getPublishTime(list[j]))
 	})
@@ -237,7 +245,11 @@ func GetAnnouncements() []map[string]interface{} {
 }
 
 func GetFAQ() []map[string]interface{} {
-	return getJSONList(GetConsoleSetting().FAQ)
+	return GetFAQForConsoleSetting(*GetConsoleSetting())
+}
+
+func GetFAQForConsoleSetting(setting ConsoleSetting) []map[string]interface{} {
+	return getJSONList(setting.FAQ)
 }
 
 func validateUptimeKumaGroups(groupsStr string) error {
@@ -306,5 +318,9 @@ func validateUptimeKumaGroups(groupsStr string) error {
 }
 
 func GetUptimeKumaGroups() []map[string]interface{} {
-	return getJSONList(GetConsoleSetting().UptimeKumaGroups)
+	return GetUptimeKumaGroupsForConsoleSetting(*GetConsoleSetting())
+}
+
+func GetUptimeKumaGroupsForConsoleSetting(setting ConsoleSetting) []map[string]interface{} {
+	return getJSONList(setting.UptimeKumaGroups)
 }

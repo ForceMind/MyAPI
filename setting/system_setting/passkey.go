@@ -74,6 +74,10 @@ func effectivePasskeySettings(snapshot *runtimeSnapshot) *PasskeySettings {
 	return &settings
 }
 
+func (s *managedPasskeySettings) DiagnosticSchema() any {
+	return &PasskeySettings{}
+}
+
 func (s *managedPasskeySettings) ExportConfigMap() (map[string]string, error) {
 	settings := defaultPasskeySettings
 	if snapshot := s.runtime.current.Load(); snapshot != nil {

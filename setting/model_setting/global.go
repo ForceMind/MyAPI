@@ -3,6 +3,8 @@ package model_setting
 import (
 	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/ForceMind/MyAPI/setting/config"
 )
@@ -51,26 +53,119 @@ var defaultOpenaiSettings = GlobalSettings{
 	},
 }
 
-// 全局实例
-var globalSettings = defaultOpenaiSettings
+// globalSettingsGeneration is immutable after publication. Global settings
+// contain several slices, so readers must not observe an in-place update.
+type globalSettingsGeneration struct {
+	settings GlobalSettings
+}
+
+// managedGlobalSettings owns the synchronized runtime snapshot registered
+// with the generic config manager.
+type managedGlobalSettings struct {
+	writeMutex sync.Mutex
+	current    atomic.Pointer[globalSettingsGeneration]
+}
+
+func cloneGlobalSettings(settings GlobalSettings) GlobalSettings {
+	clone := GlobalSettings{
+		PassThroughRequestEnabled: settings.PassThroughRequestEnabled,
+		ChatCompletionsToResponsesPolicy: ChatCompletionsToResponsesPolicy{
+			Enabled:     settings.ChatCompletionsToResponsesPolicy.Enabled,
+			AllChannels: settings.ChatCompletionsToResponsesPolicy.AllChannels,
+		},
+	}
+	if settings.ThinkingModelBlacklist != nil {
+		clone.ThinkingModelBlacklist = append([]string{}, settings.ThinkingModelBlacklist...)
+	}
+	if settings.ChatCompletionsToResponsesPolicy.ChannelIDs != nil {
+		clone.ChatCompletionsToResponsesPolicy.ChannelIDs = append([]int{}, settings.ChatCompletionsToResponsesPolicy.ChannelIDs...)
+	}
+	if settings.ChatCompletionsToResponsesPolicy.ChannelTypes != nil {
+		clone.ChatCompletionsToResponsesPolicy.ChannelTypes = append([]int{}, settings.ChatCompletionsToResponsesPolicy.ChannelTypes...)
+	}
+	if settings.ChatCompletionsToResponsesPolicy.ModelPatterns != nil {
+		clone.ChatCompletionsToResponsesPolicy.ModelPatterns = append([]string{}, settings.ChatCompletionsToResponsesPolicy.ModelPatterns...)
+	}
+	return clone
+}
+
+func newManagedGlobalSettings(initial GlobalSettings) *managedGlobalSettings {
+	state := &managedGlobalSettings{}
+	state.current.Store(&globalSettingsGeneration{settings: cloneGlobalSettings(initial)})
+	return state
+}
+
+func (s *managedGlobalSettings) snapshot() GlobalSettings {
+	if s != nil {
+		if current := s.current.Load(); current != nil {
+			return cloneGlobalSettings(current.settings)
+		}
+	}
+	return cloneGlobalSettings(defaultOpenaiSettings)
+}
+
+func (s *managedGlobalSettings) candidate(values map[string]string) (GlobalSettings, error) {
+	candidate := s.snapshot()
+	if err := config.UpdateConfigFromMap(&candidate, values); err != nil {
+		return GlobalSettings{}, err
+	}
+	return candidate, nil
+}
+
+func (s *managedGlobalSettings) DiagnosticSchema() any {
+	return &GlobalSettings{}
+}
+
+func (s *managedGlobalSettings) ExportConfigMap() (map[string]string, error) {
+	settings := s.snapshot()
+	return config.ConfigToMap(&settings)
+}
+
+func (s *managedGlobalSettings) ValidateConfigMap(values map[string]string) error {
+	_, err := s.candidate(values)
+	return err
+}
+
+func (s *managedGlobalSettings) UpdateConfigMap(values map[string]string) error {
+	s.writeMutex.Lock()
+	defer s.writeMutex.Unlock()
+
+	candidate, err := s.candidate(values)
+	if err != nil {
+		return err
+	}
+	s.current.Store(&globalSettingsGeneration{settings: cloneGlobalSettings(candidate)})
+	return nil
+}
+
+var globalSettingsState = newManagedGlobalSettings(defaultOpenaiSettings)
+
+var _ config.ValidatingMapConfig = (*managedGlobalSettings)(nil)
 
 func init() {
 	// 注册到全局配置管理器
-	config.GlobalConfig.Register("global", &globalSettings)
+	config.GlobalConfig.Register("global", globalSettingsState)
 }
 
 func GetGlobalSettings() *GlobalSettings {
-	return &globalSettings
+	settings := globalSettingsState.snapshot()
+	return &settings
 }
 
 // ShouldPreserveThinkingSuffix 判断模型是否配置为保留 thinking/-nothinking/-low/-high/-medium 后缀
 func ShouldPreserveThinkingSuffix(modelName string) bool {
+	return GetGlobalSettings().ShouldPreserveThinkingSuffix(modelName)
+}
+
+// ShouldPreserveThinkingSuffix reports whether this settings snapshot keeps
+// the model's thinking suffix using the existing exact-match rule.
+func (settings GlobalSettings) ShouldPreserveThinkingSuffix(modelName string) bool {
 	target := strings.TrimSpace(modelName)
 	if target == "" {
 		return false
 	}
 
-	for _, entry := range globalSettings.ThinkingModelBlacklist {
+	for _, entry := range settings.ThinkingModelBlacklist {
 		if strings.TrimSpace(entry) == target {
 			return true
 		}
