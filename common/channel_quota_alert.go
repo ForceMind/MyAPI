@@ -1,6 +1,8 @@
 package common
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
@@ -133,6 +135,139 @@ func EvaluateChannelQuotaAlertTransition(subject, previousStatus, currentStatus 
 		event.NextEligible = lastNotifiedAt + settings.CooldownSeconds
 	}
 	return event
+}
+
+const (
+	channelQuotaAlertOccurrenceVersion = "quota-alert-occurrence-v2"
+	maxChannelQuotaAlertTimestamp      = int64(^uint64(0) >> 1)
+)
+
+// ChannelQuotaAlertOccurrenceInput is the bounded, redacted input required to
+// derive an event identity for a future persistent alert pipeline. SubjectRef
+// must be the canonical channel:<positive decimal id> form. SourceSnapshotRef
+// must be the canonical snapshot:<positive decimal id> form; that snapshot ID
+// identifies one immutable normalized observation. Neither accepts names,
+// URLs, provider responses, credentials, request bodies, or arbitrary opaque
+// identifiers. The future persistence boundary must verify that both IDs
+// belong to the same authorized scope before calling this pure helper.
+type ChannelQuotaAlertOccurrenceInput struct {
+	SubjectRef        string
+	SourceSnapshotRef string
+	PreviousStatus    string
+	CurrentStatus     string
+	ObservedAt        int64
+	LastDeliveredAt   int64
+	SourceTrusted     bool
+	HasProviderTotal  bool
+}
+
+// ChannelQuotaAlertOccurrenceOutcome is a notifier-neutral event candidate.
+// EventKey is a SHA-256 digest over bounded redacted identifiers and the
+// occurrence identity, so it does not expose the input references. A blank
+// EventKey means no event may be persisted or delivered.
+type ChannelQuotaAlertOccurrenceOutcome struct {
+	Status       string `json:"status"`
+	Kind         string `json:"kind"`
+	EventKey     string `json:"event_key"`
+	Suppressed   bool   `json:"suppressed"`
+	NextEligible int64  `json:"next_eligible_at,omitempty"`
+}
+
+// EvaluateChannelQuotaAlertOccurrenceV2 derives a versioned event identity
+// without DB, network, notifier, routing, or configuration side effects.
+//
+// Unlike the legacy EvaluateChannelQuotaAlertTransition helper, EventKey is
+// tied to an immutable source snapshot and occurrence kind. A later
+// healthy->critical transition or a later reminder therefore cannot be
+// permanently suppressed by a historical <subject>:<status> delivery key.
+// Invalid, untrusted, disabled, total-less, or unknown inputs fail closed.
+func EvaluateChannelQuotaAlertOccurrenceV2(input ChannelQuotaAlertOccurrenceInput, settings ChannelQuotaAlertSettings) ChannelQuotaAlertOccurrenceOutcome {
+	if !settings.Enabled || ValidateChannelQuotaAlertSettings(settings) != nil ||
+		!validChannelQuotaAlertOccurrenceInput(input) {
+		return ChannelQuotaAlertOccurrenceOutcome{}
+	}
+	if settings.CooldownSeconds <= 0 {
+		settings.CooldownSeconds = DefaultChannelQuotaAlertCooldownSeconds
+	}
+	// A saturated timestamp must never wrap into a negative next_eligible_at.
+	// Failing closed is safer than creating an event whose cooldown cannot be
+	// represented or persisted consistently by a future delivery pipeline.
+	if input.LastDeliveredAt > maxChannelQuotaAlertTimestamp-settings.CooldownSeconds {
+		return ChannelQuotaAlertOccurrenceOutcome{}
+	}
+
+	outcome := ChannelQuotaAlertOccurrenceOutcome{Status: input.CurrentStatus}
+	switch input.CurrentStatus {
+	case "healthy":
+		if !settings.NotifyOnRecovery || (input.PreviousStatus != "warning" && input.PreviousStatus != "critical") {
+			return outcome
+		}
+		outcome.Kind = "recovery"
+	case "warning", "critical":
+		if input.PreviousStatus != input.CurrentStatus {
+			outcome.Kind = "threshold"
+			break
+		}
+		if input.LastDeliveredAt > 0 && input.ObservedAt-input.LastDeliveredAt < settings.CooldownSeconds {
+			outcome.Suppressed = true
+			outcome.NextEligible = input.LastDeliveredAt + settings.CooldownSeconds
+			return outcome
+		}
+		outcome.Kind = "reminder"
+	default:
+		return ChannelQuotaAlertOccurrenceOutcome{}
+	}
+
+	outcome.EventKey = channelQuotaAlertOccurrenceKey(input, outcome.Kind)
+	return outcome
+}
+
+func validChannelQuotaAlertOccurrenceInput(input ChannelQuotaAlertOccurrenceInput) bool {
+	return input.SourceTrusted && input.HasProviderTotal && input.ObservedAt > 0 &&
+		input.LastDeliveredAt >= 0 && input.LastDeliveredAt <= input.ObservedAt &&
+		validChannelQuotaAlertOccurrenceReference(input.SubjectRef, "channel:") &&
+		validChannelQuotaAlertOccurrenceReference(input.SourceSnapshotRef, "snapshot:") &&
+		validChannelQuotaAlertStatus(input.PreviousStatus) && validChannelQuotaAlertStatus(input.CurrentStatus)
+}
+
+func validChannelQuotaAlertOccurrenceReference(value, prefix string) bool {
+	identifier := strings.TrimPrefix(value, prefix)
+	if identifier == value || identifier == "" || identifier == "0" ||
+		(len(identifier) > 1 && identifier[0] == '0') {
+		return false
+	}
+	for index := 0; index < len(identifier); index++ {
+		if identifier[index] < '0' || identifier[index] > '9' {
+			return false
+		}
+	}
+	parsed, err := strconv.ParseInt(identifier, 10, 64)
+	return err == nil && parsed > 0
+}
+
+func validChannelQuotaAlertStatus(status string) bool {
+	return status == "healthy" || status == "warning" || status == "critical"
+}
+
+func channelQuotaAlertOccurrenceKey(input ChannelQuotaAlertOccurrenceInput, kind string) string {
+	cycle := "transition"
+	if kind == "reminder" {
+		cycle = strconv.FormatInt(input.LastDeliveredAt, 10)
+	}
+	parts := []string{
+		channelQuotaAlertOccurrenceVersion,
+		input.SubjectRef,
+		input.SourceSnapshotRef,
+		input.CurrentStatus,
+		kind,
+		cycle,
+	}
+	var builder strings.Builder
+	for _, part := range parts {
+		fmt.Fprintf(&builder, "%d:%s", len(part), part)
+	}
+	digest := sha256.Sum256([]byte(builder.String()))
+	return channelQuotaAlertOccurrenceVersion + ":" + hex.EncodeToString(digest[:])
 }
 
 func finiteChannelQuotaAlertPercent(value float64) bool {

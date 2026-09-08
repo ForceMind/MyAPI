@@ -1,6 +1,12 @@
 package common
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
 func TestChannelQuotaAlertSettingsJSONRoundTrip(t *testing.T) {
 	settings := ChannelQuotaAlertSettings{Enabled: true, WarningPercent: 25.5, CriticalPercent: 5}
@@ -66,6 +72,171 @@ func TestEvaluateChannelQuotaAlertTransitionRequiresSubject(t *testing.T) {
 	event := EvaluateChannelQuotaAlertTransition("  ", "healthy", "critical", 1000, 0, settings)
 	if event.Kind != "" || event.DedupKey != "" {
 		t.Fatalf("blank subject must not produce an event: %#v", event)
+	}
+}
+
+func TestEvaluateChannelQuotaAlertOccurrenceV2SeparatesOccurrences(t *testing.T) {
+	settings := ChannelQuotaAlertSettings{
+		Enabled:          true,
+		WarningPercent:   20,
+		CriticalPercent:  10,
+		CooldownSeconds:  60,
+		NotifyOnRecovery: true,
+	}
+	base := ChannelQuotaAlertOccurrenceInput{
+		SubjectRef:        "channel:7",
+		SourceSnapshotRef: "snapshot:100",
+		PreviousStatus:    "healthy",
+		CurrentStatus:     "critical",
+		ObservedAt:        1000,
+		SourceTrusted:     true,
+		HasProviderTotal:  true,
+	}
+
+	critical := EvaluateChannelQuotaAlertOccurrenceV2(base, settings)
+	replayed := EvaluateChannelQuotaAlertOccurrenceV2(base, settings)
+	recovery := EvaluateChannelQuotaAlertOccurrenceV2(ChannelQuotaAlertOccurrenceInput{
+		SubjectRef:        "channel:7",
+		SourceSnapshotRef: "snapshot:101",
+		PreviousStatus:    "critical",
+		CurrentStatus:     "healthy",
+		ObservedAt:        1060,
+		LastDeliveredAt:   1000,
+		SourceTrusted:     true,
+		HasProviderTotal:  true,
+	}, settings)
+	secondCritical := EvaluateChannelQuotaAlertOccurrenceV2(ChannelQuotaAlertOccurrenceInput{
+		SubjectRef:        "channel:7",
+		SourceSnapshotRef: "snapshot:102",
+		PreviousStatus:    "healthy",
+		CurrentStatus:     "critical",
+		ObservedAt:        1120,
+		LastDeliveredAt:   1000,
+		SourceTrusted:     true,
+		HasProviderTotal:  true,
+	}, settings)
+
+	require.Equal(t, "threshold", critical.Kind)
+	require.NotEmpty(t, critical.EventKey)
+	assert.Equal(t, critical.EventKey, replayed.EventKey, "same trusted source replay must converge")
+	require.Equal(t, "recovery", recovery.Kind)
+	require.Equal(t, "threshold", secondCritical.Kind)
+	assert.NotEqual(t, critical.EventKey, recovery.EventKey)
+	assert.NotEqual(t, critical.EventKey, secondCritical.EventKey)
+	assert.True(t, strings.HasPrefix(critical.EventKey, channelQuotaAlertOccurrenceVersion+":"))
+	assert.NotContains(t, critical.EventKey, "channel:7")
+	assert.NotContains(t, critical.EventKey, "snapshot:100")
+}
+
+func TestEvaluateChannelQuotaAlertOccurrenceV2UsesDistinctReminderCyclesAndSuppressesCooldown(t *testing.T) {
+	settings := ChannelQuotaAlertSettings{Enabled: true, WarningPercent: 20, CriticalPercent: 10, CooldownSeconds: 60}
+	first := ChannelQuotaAlertOccurrenceInput{
+		SubjectRef:        "channel:8",
+		SourceSnapshotRef: "snapshot:200",
+		PreviousStatus:    "warning",
+		CurrentStatus:     "warning",
+		ObservedAt:        2000,
+		LastDeliveredAt:   1900,
+		SourceTrusted:     true,
+		HasProviderTotal:  true,
+	}
+	secondCycle := first
+	secondCycle.LastDeliveredAt = 1960
+	secondCycle.ObservedAt = 2020
+	secondSource := first
+	secondSource.SourceSnapshotRef = "snapshot:201"
+
+	firstOutcome := EvaluateChannelQuotaAlertOccurrenceV2(first, settings)
+	secondCycleOutcome := EvaluateChannelQuotaAlertOccurrenceV2(secondCycle, settings)
+	secondSourceOutcome := EvaluateChannelQuotaAlertOccurrenceV2(secondSource, settings)
+	suppressed := EvaluateChannelQuotaAlertOccurrenceV2(ChannelQuotaAlertOccurrenceInput{
+		SubjectRef:        "channel:8",
+		SourceSnapshotRef: "snapshot:202",
+		PreviousStatus:    "warning",
+		CurrentStatus:     "warning",
+		ObservedAt:        1959,
+		LastDeliveredAt:   1900,
+		SourceTrusted:     true,
+		HasProviderTotal:  true,
+	}, settings)
+
+	require.Equal(t, "reminder", firstOutcome.Kind)
+	require.Equal(t, "reminder", secondCycleOutcome.Kind)
+	require.Equal(t, "reminder", secondSourceOutcome.Kind)
+	assert.NotEqual(t, firstOutcome.EventKey, secondCycleOutcome.EventKey)
+	assert.NotEqual(t, firstOutcome.EventKey, secondSourceOutcome.EventKey)
+	assert.True(t, suppressed.Suppressed)
+	assert.Empty(t, suppressed.Kind)
+	assert.Empty(t, suppressed.EventKey)
+	assert.Equal(t, int64(1960), suppressed.NextEligible)
+}
+
+func TestEvaluateChannelQuotaAlertOccurrenceV2FailsClosedForUnsafeInputs(t *testing.T) {
+	settings := ChannelQuotaAlertSettings{Enabled: true, WarningPercent: 20, CriticalPercent: 10, CooldownSeconds: 60}
+	valid := ChannelQuotaAlertOccurrenceInput{
+		SubjectRef:        "channel:9",
+		SourceSnapshotRef: "snapshot:300",
+		PreviousStatus:    "healthy",
+		CurrentStatus:     "critical",
+		ObservedAt:        3000,
+		SourceTrusted:     true,
+		HasProviderTotal:  true,
+	}
+	for _, test := range []struct {
+		name     string
+		input    ChannelQuotaAlertOccurrenceInput
+		settings ChannelQuotaAlertSettings
+	}{
+		{name: "disabled", input: valid, settings: ChannelQuotaAlertSettings{WarningPercent: 20, CriticalPercent: 10, CooldownSeconds: 60}},
+		{name: "missing provider total", input: func() ChannelQuotaAlertOccurrenceInput { value := valid; value.HasProviderTotal = false; return value }(), settings: settings},
+		{name: "untrusted source", input: func() ChannelQuotaAlertOccurrenceInput { value := valid; value.SourceTrusted = false; return value }(), settings: settings},
+		{name: "unknown status", input: func() ChannelQuotaAlertOccurrenceInput { value := valid; value.CurrentStatus = "unknown"; return value }(), settings: settings},
+		{name: "raw URL reference", input: func() ChannelQuotaAlertOccurrenceInput {
+			value := valid
+			value.SubjectRef = "channel:https://example.invalid/token=secret"
+			return value
+		}(), settings: settings},
+		{name: "known API key reference", input: func() ChannelQuotaAlertOccurrenceInput {
+			value := valid
+			value.SubjectRef = "sk-proj-secret"
+			return value
+		}(), settings: settings},
+		{name: "arbitrary opaque source reference", input: func() ChannelQuotaAlertOccurrenceInput {
+			value := valid
+			value.SourceSnapshotRef = "snapshot:key=secret"
+			return value
+		}(), settings: settings},
+		{name: "zero identifier", input: func() ChannelQuotaAlertOccurrenceInput { value := valid; value.SubjectRef = "channel:0"; return value }(), settings: settings},
+		{name: "noncanonical identifier", input: func() ChannelQuotaAlertOccurrenceInput {
+			value := valid
+			value.SourceSnapshotRef = "snapshot:0300"
+			return value
+		}(), settings: settings},
+		{name: "identifier overflow", input: func() ChannelQuotaAlertOccurrenceInput {
+			value := valid
+			value.SubjectRef = "channel:9223372036854775808"
+			return value
+		}(), settings: settings},
+		{name: "future delivery", input: func() ChannelQuotaAlertOccurrenceInput {
+			value := valid
+			value.LastDeliveredAt = value.ObservedAt + 1
+			return value
+		}(), settings: settings},
+		{name: "next eligible timestamp overflow", input: func() ChannelQuotaAlertOccurrenceInput {
+			value := valid
+			value.PreviousStatus = "warning"
+			value.CurrentStatus = "warning"
+			value.ObservedAt = maxChannelQuotaAlertTimestamp
+			value.LastDeliveredAt = maxChannelQuotaAlertTimestamp - 30
+			return value
+		}(), settings: settings},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			outcome := EvaluateChannelQuotaAlertOccurrenceV2(test.input, test.settings)
+			assert.Equal(t, ChannelQuotaAlertOccurrenceOutcome{}, outcome)
+			assert.NotContains(t, outcome.EventKey, "secret")
+			assert.NotContains(t, outcome.EventKey, "https")
+		})
 	}
 }
 
