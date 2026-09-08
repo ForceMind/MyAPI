@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/ForceMind/MyAPI/common"
-	"github.com/ForceMind/MyAPI/setting/system_setting"
+	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,20 +41,24 @@ func testConn(t *testing.T) net.Conn {
 
 func configureSSRFTestFetchSetting(t *testing.T) {
 	t.Helper()
-	fetchSetting := system_setting.GetFetchSetting()
-	original := *fetchSetting
+	registered := config.GlobalConfig.Get("fetch_setting")
+	require.NotNil(t, registered)
+	baseline, err := config.ConfigToMap(registered)
+	require.NoError(t, err)
 	t.Cleanup(func() {
-		*fetchSetting = original
+		require.NoError(t, config.UpdateConfigFromMap(registered, baseline))
 	})
 
-	fetchSetting.EnableSSRFProtection = true
-	fetchSetting.AllowPrivateIp = false
-	fetchSetting.DomainFilterMode = false
-	fetchSetting.IpFilterMode = false
-	fetchSetting.DomainList = nil
-	fetchSetting.IpList = nil
-	fetchSetting.AllowedPorts = []string{"80", "443"}
-	fetchSetting.ApplyIPFilterForDomain = true
+	require.NoError(t, config.UpdateConfigFromMap(registered, map[string]string{
+		"enable_ssrf_protection":     "true",
+		"allow_private_ip":           "false",
+		"domain_filter_mode":         "false",
+		"ip_filter_mode":             "false",
+		"domain_list":                "null",
+		"ip_list":                    "null",
+		"allowed_ports":              `["80","443"]`,
+		"apply_ip_filter_for_domain": "true",
+	}))
 }
 
 func mustParseURL(t *testing.T, rawURL string) *url.URL {
@@ -195,17 +199,19 @@ func TestProtectedFetchDialerSkipsResolvedIPCheckWhenDisabled(t *testing.T) {
 }
 
 func TestGetSSRFProtectedHTTPClientFallsBackToDefaultClientWhenProtectionDisabled(t *testing.T) {
-	fetchSetting := system_setting.GetFetchSetting()
-	originalFetchSetting := *fetchSetting
+	registered := config.GlobalConfig.Get("fetch_setting")
+	require.NotNil(t, registered)
+	baseline, err := config.ConfigToMap(registered)
+	require.NoError(t, err)
 	originalHTTPClient := httpClient
 	originalProtectedClient := ssrfProtectedHTTPClient
 	t.Cleanup(func() {
-		*fetchSetting = originalFetchSetting
+		require.NoError(t, config.UpdateConfigFromMap(registered, baseline))
 		httpClient = originalHTTPClient
 		ssrfProtectedHTTPClient = originalProtectedClient
 	})
 
-	fetchSetting.EnableSSRFProtection = false
+	require.NoError(t, config.UpdateConfigFromMap(registered, map[string]string{"enable_ssrf_protection": "false"}))
 	expected := &http.Client{}
 	httpClient = expected
 	ssrfProtectedHTTPClient = &http.Client{}
