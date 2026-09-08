@@ -40,6 +40,9 @@ vi.mock('@tanstack/react-router', () => ({
       {props.children}
     </a>
   ),
+  // The panel reads quotaChannelId to preselect the account a dashboard link
+  // points at; these cases arrive without one and fall back to the first item.
+  getRouteApi: () => ({ useSearch: () => ({}) }),
 }))
 
 function renderPanel() {
