@@ -201,6 +201,122 @@ func TestEncodeFullContentLogBodyUsesBase64ForBinaryData(t *testing.T) {
 	assert.Equal(t, base64.StdEncoding.EncodeToString(body), encoded)
 }
 
+func TestFullContentLogRedactsIdempotencyKeys(t *testing.T) {
+	headerSecrets := map[string]string{
+		"Idempotency-Key":   "header-hyphen-secret",
+		"IDEMPOTENCY_KEY":   "header-underscore-secret",
+		"X-Idempotency-Key": "header-alias-hyphen-secret",
+		"X_IDEMPOTENCY_KEY": "header-alias-underscore-secret",
+	}
+	headers := map[string][]string{
+		"X-Trace-ID": {"trace-123"},
+	}
+	for key, secret := range headerSecrets {
+		headers[key] = []string{secret}
+	}
+
+	bodySecrets := []string{"body-hyphen-secret", "body-alias-secret"}
+	body, encoding := encodeFullContentLogBody(
+		"application/json",
+		[]byte(`{"Idempotency-Key":"body-hyphen-secret","nested":{"x_idempotency_key":"body-alias-secret"},"operation":"create"}`),
+		true,
+	)
+	entry := fullContentLogEntry{
+		Phase:    "request",
+		Headers:  redactFullContentLogValues(headers),
+		Body:     body,
+		Encoding: encoding,
+	}
+	encodedEntry, err := common.Marshal(entry)
+	require.NoError(t, err)
+
+	assert.Equal(t, "json", entry.Encoding)
+	assert.Equal(t, []string{"trace-123"}, entry.Headers["X-Trace-ID"])
+	for key, secret := range headerSecrets {
+		assert.Equal(t, []string{"[REDACTED]"}, entry.Headers[key])
+		assert.NotContains(t, string(encodedEntry), secret)
+	}
+	for _, secret := range bodySecrets {
+		assert.NotContains(t, entry.Body, secret)
+		assert.NotContains(t, string(encodedEntry), secret)
+	}
+	assert.Contains(t, entry.Body, `"Idempotency-Key":"[REDACTED]"`)
+	assert.Contains(t, entry.Body, `"x_idempotency_key":"[REDACTED]"`)
+	assert.Contains(t, entry.Body, `"operation":"create"`)
+}
+
+func TestEncodeFullContentLogBodyRedactsArraysWithoutMatchingApproximateKeys(t *testing.T) {
+	body, encoding := encodeFullContentLogBody(
+		"application/json",
+		[]byte(`[{"idempotency_key":"array-secret"},{"X-Idempotency-Key":"alias-secret"},{"idempotency_key_hint":"keep-standard","x_idempotency_key_suffix":"keep-alias"}]`),
+		true,
+	)
+
+	assert.Equal(t, "json", encoding)
+	assert.NotContains(t, body, "array-secret")
+	assert.NotContains(t, body, "alias-secret")
+	assert.Contains(t, body, `"idempotency_key":"[REDACTED]"`)
+	assert.Contains(t, body, `"X-Idempotency-Key":"[REDACTED]"`)
+	assert.Contains(t, body, `"idempotency_key_hint":"keep-standard"`)
+	assert.Contains(t, body, `"x_idempotency_key_suffix":"keep-alias"`)
+}
+
+func TestFullContentLoggerRedactsIdempotencyFieldsWithoutSuppressingUnrelatedContent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	logDir := t.TempDir()
+	t.Setenv(fullContentLogEnabledEnv, "true")
+	t.Setenv(fullContentLogDirEnv, logDir)
+	t.Setenv(fullContentLogMaxMBEnv, "1")
+	t.Setenv(fullContentLogMaxFilesEnv, "0")
+
+	const headerValue = "v"
+	const visibleRequestValue = "request-visible-v"
+	const visibleResponseValue = "response-visible-v"
+
+	engine := gin.New()
+	engine.Use(BodyStorageCleanup(), FullContentLogger())
+	engine.POST("/v1/responses", func(c *gin.Context) {
+		c.String(http.StatusOK, visibleResponseValue)
+	})
+
+	requestBody := `{"echo":"` + visibleRequestValue + `","idempotency_key":"body-key"}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/responses?echo="+visibleRequestValue, strings.NewReader(requestBody))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Idempotency-Key", headerValue)
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, visibleResponseValue, recorder.Body.String())
+
+	files, err := filepath.Glob(filepath.Join(logDir, "full-content-*.jsonl"))
+	require.NoError(t, err)
+	require.Len(t, files, 1)
+	logBytes, err := os.ReadFile(files[0])
+	require.NoError(t, err)
+	logText := string(logBytes)
+	lines := strings.Split(strings.TrimSpace(logText), "\n")
+	var requestEntry fullContentLogEntry
+	var responseEntry fullContentLogEntry
+	for _, line := range lines {
+		var entry fullContentLogEntry
+		require.NoError(t, common.Unmarshal([]byte(line), &entry))
+		switch entry.Phase {
+		case "request":
+			requestEntry = entry
+		case "response_chunk":
+			responseEntry = entry
+		}
+	}
+
+	assert.Contains(t, requestEntry.Body, visibleRequestValue)
+	assert.Contains(t, requestEntry.Body, `"idempotency_key":"[REDACTED]"`)
+	assert.Equal(t, []string{"[REDACTED]"}, requestEntry.Headers["Idempotency-Key"])
+	assert.Equal(t, []string{visibleRequestValue}, requestEntry.Query["echo"])
+	assert.Equal(t, visibleResponseValue, responseEntry.Body)
+	assert.Equal(t, "utf-8", responseEntry.Encoding)
+}
+
 func TestDeleteFullContentLogFileRotatesActiveWriter(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	logDir := t.TempDir()

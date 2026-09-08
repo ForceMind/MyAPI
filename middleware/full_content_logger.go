@@ -487,6 +487,9 @@ func redactFullContentLogSecrets(value any) {
 }
 
 func isFullContentLogSecretKey(key string) bool {
+	if isFullContentLogIdempotencyKey(key) {
+		return true
+	}
 	normalized := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(key), "-", "_"))
 	switch normalized {
 	case "api_key", "x_api_key", "key", "authorization", "proxy_authorization", "x_auth_token", "cookie", "set_cookie", "token", "access_token", "refresh_token", "id_token", "password", "secret", "client_secret", "session_secret", "jwt":
@@ -494,6 +497,11 @@ func isFullContentLogSecretKey(key string) bool {
 	default:
 		return false
 	}
+}
+
+func isFullContentLogIdempotencyKey(key string) bool {
+	normalized := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(key), "-", "_"))
+	return normalized == "idempotency_key" || normalized == "x_idempotency_key"
 }
 
 func redactFullContentLogValues(values map[string][]string) map[string][]string {
