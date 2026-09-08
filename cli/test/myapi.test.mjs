@@ -588,7 +588,10 @@ test('lan init creates a loopback-only LAN deployment without exposing credentia
   const output = runCli('lan', 'init', project)
   const env = readFileSync(path.join(project, 'deploy/.env'), 'utf8')
 
-  assert.match(env, /^MYAPI_IMAGE=ghcr\.io\/forcemind\/myapi-lan:v0\.1\.1$/m)
+  assert.equal(
+    env.split('\n').find((line) => line.startsWith('MYAPI_IMAGE=')),
+    `MYAPI_IMAGE=ghcr.io/forcemind/myapi-lan:v${packageVersion}`
+  )
   assert.match(env, /^MYAPI_EDITION=lan$/m)
   assert.match(env, /^MYAPI_BIND_ADDRESS=127\.0\.0\.1$/m)
   assert.match(env, /^MYAPI_ALLOW_LAN=false$/m)
