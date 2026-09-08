@@ -44,3 +44,7 @@
 缓存：清理两处 Go 构建缓存、12 份旧 Codex 安装包及已解压的浏览器依赖下载包，共 11,769,250,023 字节（约 11.77 GB / 10.96 GiB）。Codex 安装目录约 4.4 GiB 降至 639 MiB；保留当前运行 0.153.4 和回滚 0.153.3。会话、认证和生产数据未清理；Go 依赖模块约 1.1 GiB 保留供项目使用。本批清理脚本为 `tools/maintenance/clean-development-cache.py`，默认预览、显式 --apply 才删除；收尾清理写入 AGENTS.md。
 
 候选源码/构建为 0.1.4，线上仍为 0.1.2；尚未部署或推送。测试日志 `/tmp/myapi-quota-layout-*`，真实采样验证截图 `/tmp/myapi-quota-after/`，原始数值脱敏 fixture 位于权限 0600 的 `/tmp/myapi-quota-real-fixture/data.json`。缓存报告 `/tmp/myapi-cache-cleanup.json`。
+
+## 2026-09-09 部署完成
+
+用户明确授权后，0.1.4 已通过 GitHub Actions 构建并部署。源码 `67996ab9a7c1c5044aa9d47f3eb47168dd4c197d` 已同步至独立部署分支；完整 CI 与制品构建通过。线上健康/版本/资源、运行二进制校验、SQLite 和路由配置保持检查通过，下载制品已清理；原 0.1.2 镜像及离线备份保留。此前“未部署/未推送”描述属于历史状态，当前以本节为准。完整证据与后续流程见 [GitHub 构建与服务器部署](GITHUB_DEPLOYMENT_BUILDS.md)。
