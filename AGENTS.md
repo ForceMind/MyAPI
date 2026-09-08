@@ -1137,3 +1137,12 @@ A change is not complete while known issues remain in any applicable area:
 - inconsistent technical identifiers
 - incomplete deployment references
 - accidental changes to third-party provider names
+## Development Cache Cleanup (user preference, 2026-09-08)
+
+After each development batch, inspect and clean regenerable build/test caches created by the work. Avoid accumulating separate Go build caches or old Codex installation bundles.
+
+- Run `python3 tools/maintenance/clean-development-cache.py` to inspect the known local targets; use `--apply` after validation finishes, through the environment's required permissions.
+- The cleanup skips Go build caches while a Go build is active and preserves running Codex releases plus recent rollback copies.
+- Never treat Codex sessions, archived sessions, attachments, authentication, settings, skills, current binaries, project data, or deployment backups as disposable caches.
+- Keep dependency installations needed for the workspace separate from build artifacts. Report the actual reclaimed size and any substantial retained cache when relevant.
+- Do not recreate a large cache after the final cleanup just to repeat checks that already passed. New changes or failures may justify rebuilding; clean up again afterward.

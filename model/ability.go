@@ -124,21 +124,15 @@ func GetChannel(group string, model string, retry int, requestPath string) (*Cha
 	abilities = filterAbilitiesByRequestPathAndModel(abilities, requestPath, model)
 	channel := Channel{}
 	if len(abilities) > 0 {
-		// Randomly choose one
-		weightSum := uint(0)
-		for _, ability_ := range abilities {
-			weightSum += ability_.Weight + 10
+		candidates := make([]WeightedChannelCandidate, 0, len(abilities))
+		for _, ability := range abilities {
+			candidates = append(candidates, WeightedChannelCandidate{ChannelID: ability.ChannelId, Weight: ability.Weight})
 		}
-		// Randomly choose one
-		weight := common.GetRandomInt(int(weightSum))
-		for _, ability_ := range abilities {
-			weight -= int(ability_.Weight) + 10
-			//log.Printf("weight: %d, ability weight: %d", weight, *ability_.Weight)
-			if weight <= 0 {
-				channel.Id = ability_.ChannelId
-				break
-			}
+		channelID, ok := SelectWeightedChannel(candidates)
+		if !ok {
+			return nil, errors.New("channel not found")
 		}
+		channel.Id = channelID
 	} else {
 		return nil, nil
 	}

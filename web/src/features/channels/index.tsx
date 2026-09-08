@@ -17,12 +17,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { getRouteApi, Link } from '@tanstack/react-router'
 import { Settings2 } from 'lucide-react'
+import { lazy, Suspense, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   Tooltip,
   TooltipContent,
@@ -38,8 +40,25 @@ import { ChannelsPrimaryButtons } from './components/channels-primary-buttons'
 import { ChannelsProvider } from './components/channels-provider'
 import { ChannelsTable } from './components/channels-table'
 
+const RoutingPanel = lazy(() =>
+  import('@/features/channel-routing/channel-routing-dialog').then(
+    (module) => ({ default: module.ChannelRoutingPanel })
+  )
+)
+const QuotaComparison = lazy(() =>
+  import('./components/channel-quota-comparison').then((module) => ({
+    default: module.ChannelQuotaComparison,
+  }))
+)
+const route = getRouteApi('/_authenticated/channels/')
+
 export function Channels() {
   const { t } = useTranslation()
+  const search = route.useSearch()
+  const navigate = route.useNavigate()
+  const tab =
+    search.tab ?? (search.quotaChannelId != null ? 'quota' : 'channels')
+  const [showDetails, setShowDetails] = useState(false)
   const isRoot = useAuthStore(
     (state) => state.auth.user?.role === ROLE.SUPER_ADMIN
   )
@@ -87,7 +106,6 @@ export function Channels() {
 
   return (
     <ChannelsProvider>
-      {/* Charts and the table share the page scroll on every viewport height. */}
       <SectionPageLayout fixedContent={false}>
         <SectionPageLayout.Title>
           <span className='flex min-w-0 items-center gap-2'>
@@ -96,13 +114,63 @@ export function Channels() {
           </span>
         </SectionPageLayout.Title>
         <SectionPageLayout.Actions>
-          <ChannelsPrimaryButtons />
+          {tab === 'channels' ? <ChannelsPrimaryButtons /> : null}
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
-          <div className='min-w-0'>
-            <ChannelQuotaChangesPanel />
-            <ChannelsTable />
-          </div>
+          <Tabs
+            value={tab}
+            onValueChange={(value) => {
+              if (
+                value === 'channels' ||
+                value === 'quota' ||
+                value === 'routing'
+              ) {
+                void navigate({
+                  search: (previous) => ({ ...previous, tab: value }),
+                })
+              }
+            }}
+            className='min-w-0 gap-5'
+          >
+            <TabsList
+              className='w-full sm:w-fit'
+              aria-label={t('Channel sections')}
+            >
+              <TabsTrigger value='channels'>
+                {t('Channel management')}
+              </TabsTrigger>
+              <TabsTrigger value='quota'>{t('Quota analysis')}</TabsTrigger>
+              <TabsTrigger value='routing'>
+                {t('Traffic Allocation')}
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value='channels'>
+              <ChannelsTable />
+            </TabsContent>
+            <TabsContent value='quota'>
+              <Suspense fallback={<p>{t('Loading')}</p>}>
+                <QuotaComparison initialChannelId={search.quotaChannelId} />
+              </Suspense>
+              <details
+                className='mt-6 rounded-lg border p-3'
+                onToggle={(event) => setShowDetails(event.currentTarget.open)}
+              >
+                <summary className='cursor-pointer text-sm'>
+                  {t('Sampling details and diagnostics')}
+                </summary>
+                {showDetails ? (
+                  <div className='mt-4'>
+                    <ChannelQuotaChangesPanel />
+                  </div>
+                ) : null}
+              </details>
+            </TabsContent>
+            <TabsContent value='routing'>
+              <Suspense fallback={<p>{t('Loading')}</p>}>
+                <RoutingPanel />
+              </Suspense>
+            </TabsContent>
+          </Tabs>
         </SectionPageLayout.Content>
       </SectionPageLayout>
 

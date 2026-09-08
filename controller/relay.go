@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -197,6 +198,14 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		if channelErr != nil {
 			logger.LogError(c, channelErr.Error())
 			newAPIError = channelErr
+			if channel != nil && service.IsSmartChannelRoutingRequest(c) && types.IsChannelError(channelErr) {
+				service.MarkSmartChannelRoutingFailure(c, channel.Id, smartRoutingFailureReason(channelErr))
+				processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), channelErr)
+				if retryParam.GetRetry() < common.RetryTimes {
+					retryParam.ExcludeChannel(channel.Id)
+					continue
+				}
+			}
 			break
 		}
 		addUsedChannel(c, channel.Id)
@@ -230,15 +239,33 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 		if newAPIError == nil {
 			relayInfo.LastError = nil
+			if service.IsSmartChannelRoutingRequest(c) {
+				if failed, reason := smartRoutingStreamFailure(relayInfo); failed {
+					service.MarkSmartChannelRoutingFailure(c, channel.Id, reason)
+				} else {
+					service.MarkSmartChannelRoutingSuccess(c, channel.Id)
+				}
+			}
 			return
 		}
 
 		newAPIError = service.NormalizeViolationFeeError(newAPIError)
 		relayInfo.LastError = newAPIError
+		routingChannelFailure := isSmartRoutingChannelFailure(c, newAPIError)
+		if service.IsSmartChannelRoutingRequest(c) && routingChannelFailure {
+			service.MarkSmartChannelRoutingFailure(c, channel.Id, smartRoutingFailureReason(newAPIError))
+		}
 
 		processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError)
 
-		if !shouldRetry(c, newAPIError, common.RetryTimes-retryParam.GetRetry()) {
+		if relayInfo.GetSendResponseCount() > 0 || c.Writer.Written() {
+			break
+		}
+		canRetry := shouldRetry(c, newAPIError, common.RetryTimes-retryParam.GetRetry())
+		if service.IsSmartChannelRoutingRequest(c) && canRetry {
+			retryParam.ExcludeChannel(channel.Id)
+		}
+		if !canRetry {
 			break
 		}
 	}
@@ -253,6 +280,77 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			perfmetrics.RecordRelaySample(relayInfo, false, 0)
 		})
 	}
+}
+
+func isSmartRoutingChannelFailure(c *gin.Context, openaiErr *types.NewAPIError) bool {
+	if openaiErr == nil {
+		return false
+	}
+	// Health attribution is independent from whether this request can be
+	// replayed. Channel configuration errors must move a sticky binding even
+	// when the originating request carries a skip-retry marker.
+	if types.IsChannelError(openaiErr) {
+		return true
+	}
+	if errors.Is(openaiErr, context.Canceled) || errors.Is(openaiErr, io.ErrClosedPipe) {
+		return false
+	}
+	if c != nil && c.Request != nil && errors.Is(c.Request.Context().Err(), context.Canceled) {
+		return false
+	}
+	switch openaiErr.GetErrorCode() {
+	case types.ErrorCodeDoRequestFailed,
+		types.ErrorCodeReadResponseBodyFailed,
+		types.ErrorCodeBadResponse,
+		types.ErrorCodeBadResponseBody,
+		types.ErrorCodeEmptyResponse,
+		types.ErrorCodeAwsInvokeError:
+		return true
+	case types.ErrorCodeBadResponseStatusCode:
+		return openaiErr.StatusCode == http.StatusUnauthorized ||
+			openaiErr.StatusCode == http.StatusForbidden ||
+			openaiErr.StatusCode == http.StatusTooManyRequests ||
+			openaiErr.StatusCode >= http.StatusInternalServerError
+	}
+	// Parsed upstream errors retain their provider error code. Their error type
+	// distinguishes them from local validation, pricing, and billing failures.
+	if openaiErr.GetErrorType() != types.ErrorTypeNewAPIError {
+		return openaiErr.StatusCode == http.StatusUnauthorized ||
+			openaiErr.StatusCode == http.StatusForbidden ||
+			openaiErr.StatusCode == http.StatusTooManyRequests ||
+			openaiErr.StatusCode >= http.StatusInternalServerError
+	}
+	return false
+}
+
+func smartRoutingStreamFailure(info *relaycommon.RelayInfo) (bool, string) {
+	if info == nil || info.StreamStatus == nil {
+		return false, ""
+	}
+	switch info.StreamStatus.EndReason {
+	case relaycommon.StreamEndReasonScannerErr:
+		return true, "upstream_stream_scanner_error"
+	case relaycommon.StreamEndReasonTimeout:
+		return true, "upstream_stream_timeout"
+	default:
+		return false, ""
+	}
+}
+
+func smartRoutingFailureReason(openaiErr *types.NewAPIError) string {
+	if openaiErr == nil {
+		return "channel_failure"
+	}
+	if types.IsChannelError(openaiErr) {
+		return strings.ReplaceAll(string(openaiErr.GetErrorCode()), ":", "_")
+	}
+	if openaiErr.StatusCode == http.StatusTooManyRequests {
+		return "upstream_quota_or_rate_limit"
+	}
+	if openaiErr.StatusCode > 0 {
+		return fmt.Sprintf("upstream_status_%d", openaiErr.StatusCode)
+	}
+	return "upstream_failure"
 }
 
 var upgrader = websocket.Upgrader{
@@ -323,7 +421,7 @@ func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service
 
 	newAPIError := middleware.SetupContextForSelectedChannel(c, channel, info.OriginModelName)
 	if newAPIError != nil {
-		return nil, newAPIError
+		return channel, newAPIError
 	}
 	return channel, nil
 }
@@ -332,11 +430,11 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	if openaiErr == nil {
 		return false
 	}
-	if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
+	if _, ok := c.Get("specific_channel_id"); ok {
 		return false
 	}
-	if types.IsChannelError(openaiErr) {
-		return true
+	if !service.IsSmartChannelRoutingRequest(c) && service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
+		return false
 	}
 	if types.IsSkipRetryError(openaiErr) {
 		return false
@@ -344,8 +442,8 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	if retryTimes <= 0 {
 		return false
 	}
-	if _, ok := c.Get("specific_channel_id"); ok {
-		return false
+	if types.IsChannelError(openaiErr) {
+		return true
 	}
 	code := openaiErr.StatusCode
 	if code >= 200 && code < 300 {
@@ -396,6 +494,7 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 			adminInfo["multi_key_index"] = common.GetContextKeyInt(c, constant.ContextKeyChannelMultiKeyIndex)
 		}
 		service.AppendChannelAffinityAdminInfo(c, adminInfo)
+		service.AppendChannelRoutingAdminInfo(c, adminInfo)
 		other["admin_info"] = adminInfo
 		startTime := common.GetContextKeyTime(c, constant.ContextKeyRequestStartTime)
 		if startTime.IsZero() {

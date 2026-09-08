@@ -11,12 +11,23 @@ import (
 )
 
 type RetryParam struct {
-	Ctx          *gin.Context
-	TokenGroup   string
-	ModelName    string
-	RequestPath  string
-	Retry        *int
-	resetNextTry bool
+	Ctx                *gin.Context
+	TokenGroup         string
+	ModelName          string
+	RequestPath        string
+	Retry              *int
+	excludedChannelIDs map[int]struct{}
+	resetNextTry       bool
+}
+
+func (p *RetryParam) ExcludeChannel(channelID int) {
+	if p == nil || channelID <= 0 {
+		return
+	}
+	if p.excludedChannelIDs == nil {
+		p.excludedChannelIDs = make(map[int]struct{})
+	}
+	p.excludedChannelIDs[channelID] = struct{}{}
 }
 
 func (p *RetryParam) GetRetry() int {
@@ -81,6 +92,9 @@ func (p *RetryParam) ResetRetryNextTry() {
 //	Retry=3: GroupB, priority1 (startRetryIndex=2, priorityRetry=1)
 //	         分组B, 优先级1
 func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, error) {
+	if param != nil && ShouldUseSmartChannelRouting(param.Ctx) {
+		return SelectSmartChannelRouting(param)
+	}
 	var channel *model.Channel
 	var err error
 	selectGroup := param.TokenGroup

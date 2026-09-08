@@ -1639,6 +1639,22 @@ func GetChannelQuotaHistory(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	consumptionBasis := service.QuotaConsumptionBasisAuto
+	if value := strings.ToLower(strings.TrimSpace(c.Query("consumption_basis"))); value != "" {
+		if value != string(service.QuotaConsumptionBasisAvailable) {
+			common.ApiError(c, errors.New("invalid consumption_basis; use available or omit it"))
+			return
+		}
+		consumptionBasis = service.QuotaConsumptionBasisAvailable
+	}
+	exactIdentity := false
+	if value := strings.TrimSpace(c.Query("exact_identity")); value != "" {
+		exactIdentity, err = strconv.ParseBool(value)
+		if err != nil {
+			common.ApiError(c, errors.New("invalid exact_identity flag"))
+			return
+		}
+	}
 	now := time.Now().Unix()
 	end := now
 	start := now - 30*24*60*60
@@ -1708,12 +1724,13 @@ func GetChannelQuotaHistory(c *gin.Context) {
 	}
 	analysisStart := end - rateWindowSeconds
 	seriesFilter := model.ChannelQuotaSnapshotQuery{
-		MetricType: strings.TrimSpace(c.Query("metric_type")),
-		WindowType: strings.TrimSpace(c.Query("window_type")),
-		Source:     strings.TrimSpace(c.Query("source")),
-		PlanType:   strings.TrimSpace(c.Query("plan_type")),
-		Unit:       strings.TrimSpace(c.Query("unit")),
-		Currency:   strings.TrimSpace(c.Query("currency")),
+		ExactIdentity: exactIdentity,
+		MetricType:    strings.TrimSpace(c.Query("metric_type")),
+		WindowType:    strings.TrimSpace(c.Query("window_type")),
+		Source:        strings.TrimSpace(c.Query("source")),
+		PlanType:      strings.TrimSpace(c.Query("plan_type")),
+		Unit:          strings.TrimSpace(c.Query("unit")),
+		Currency:      strings.TrimSpace(c.Query("currency")),
 	}
 	seriesFilter.WindowSeconds, err = parseQuotaHistoryWindowSeconds(c.Query("window_seconds"))
 	if err != nil {
@@ -1858,7 +1875,7 @@ func GetChannelQuotaHistory(c *gin.Context) {
 	latestSnapshot = quotaHistoryLatestSnapshot(latestSnapshot, quotaHistoryLastRow(snapshots))
 	response["current"] = quotaHistoryCurrent(latestSnapshot, identity.Source)
 	response["alert"] = deriveQuotaHistoryAlert(latestSnapshot)
-	consumption := service.DeriveQuotaConsumption(snapshots, identity.Unit)
+	consumption := service.DeriveQuotaConsumptionWithBasis(snapshots, identity.Unit, consumptionBasis)
 	response["analysis"] = service.AnalyzeQuotaConsumption(consumption, analysisStart, end, ewmaHalfLifeSeconds)
 	metrics := quotaHistoryMetricsFromConsumption(consumption)
 	points := quotaHistoryPointsFromObservations(consumption.Observations, granularity, timezoneOffset, identity.Source)

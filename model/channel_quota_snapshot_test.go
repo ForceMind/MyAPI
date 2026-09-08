@@ -6,9 +6,100 @@ import (
 	"testing"
 	"time"
 
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
+
+func TestChannelQuotaSeriesCatalogueSQLite(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
+	runChannelQuotaSeriesCatalogueDatabaseContract(t, db)
+}
+
+func runChannelQuotaSeriesCatalogueDatabaseContract(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	previousDB := DB
+	DB = db
+	t.Cleanup(func() { DB = previousDB })
+	require.NoError(t, db.AutoMigrate(&Channel{}, &ChannelQuotaSnapshot{}))
+
+	live := Channel{Name: "catalogue-live", Key: "fixture-live"}
+	errorOnly := Channel{Name: "catalogue-error-only", Key: "fixture-error"}
+	deleted := Channel{Name: "catalogue-deleted", Key: "fixture-deleted"}
+	for _, channel := range []*Channel{&live, &errorOnly, &deleted} {
+		require.NoError(t, db.Create(channel).Error)
+	}
+	snapshots := []ChannelQuotaSnapshot{
+		{
+			ChannelId: live.Id, ObservedAt: 100, Available: 90,
+			MetricType: "rate_limit", WindowType: "five_hour", Source: "provider_primary",
+			PlanType: "pro", Unit: "percent", WindowSeconds: 18000, ResetAt: 500, Status: "success",
+		},
+		{
+			ChannelId: live.Id, ObservedAt: 200, Available: 80,
+			MetricType: "rate_limit", WindowType: "five_hour", Source: "provider_primary",
+			PlanType: "pro", Unit: "percent", WindowSeconds: 18000, ResetAt: 900, Status: "success",
+		},
+		{
+			ChannelId: live.Id, ObservedAt: 300, Available: 70,
+			MetricType: "rate_limit", WindowType: "weekly", Source: "provider_secondary",
+			PlanType: "pro", Unit: "percent", Currency: "quota", WindowSeconds: 604800, Status: "success",
+		},
+		{
+			ChannelId: errorOnly.Id, ObservedAt: 400,
+			MetricType: "balance", WindowType: "none", Source: "provider_error",
+			Unit: "usd", Status: "error", ErrorCode: "query_failed",
+		},
+		{
+			ChannelId: deleted.Id, ObservedAt: 500, Available: 60,
+			MetricType: "balance", WindowType: "none", Source: "provider_deleted",
+			Unit: "usd", Status: "success",
+		},
+	}
+	require.NoError(t, db.Create(&snapshots).Error)
+	require.NoError(t, db.Model(&Channel{}).Where("id = ?", live.Id).Update("name", "catalogue-renamed").Error)
+	require.NoError(t, db.Delete(&deleted).Error)
+	var orphanCount int64
+	require.NoError(t, db.Model(&ChannelQuotaSnapshot{}).Where("channel_id = ?", deleted.Id).Count(&orphanCount).Error)
+	require.Equal(t, int64(1), orphanCount)
+
+	result, err := ListChannelQuotaSeriesCatalogue(context.Background(), 10)
+	require.NoError(t, err)
+	require.Equal(t, 20000, result.ScanLimit)
+	require.Equal(t, 5, result.ScannedItems)
+	require.True(t, result.SourceComplete)
+	require.True(t, result.ItemsComplete)
+	require.Equal(t, []ChannelQuotaSeriesCatalogueRow{
+		{
+			ChannelID: live.Id, ChannelName: "catalogue-renamed", MetricType: "rate_limit",
+			WindowType: "five_hour", Source: "provider_primary", PlanType: "pro",
+			Unit: "percent", WindowSeconds: 18000,
+		},
+		{
+			ChannelID: live.Id, ChannelName: "catalogue-renamed", MetricType: "rate_limit",
+			WindowType: "weekly", Source: "provider_secondary", PlanType: "pro",
+			Unit: "percent", Currency: "quota", WindowSeconds: 604800,
+		},
+	}, result.Rows)
+
+	bounded, err := ListChannelQuotaSeriesCatalogue(context.Background(), 1)
+	require.NoError(t, err)
+	require.True(t, bounded.SourceComplete)
+	require.False(t, bounded.ItemsComplete)
+	require.Len(t, bounded.Rows, 1)
+
+	sourceBounded, err := listChannelQuotaSeriesCatalogue(context.Background(), 10, 4)
+	require.NoError(t, err)
+	require.Equal(t, 4, sourceBounded.ScanLimit)
+	require.Equal(t, 4, sourceBounded.ScannedItems)
+	require.False(t, sourceBounded.SourceComplete)
+	require.False(t, sourceBounded.ItemsComplete)
+	require.Len(t, sourceBounded.Rows, 2)
+}
 
 func TestChannelQuotaSnapshotsAreNormalizedAndBounded(t *testing.T) {
 	require.NotNil(t, DB)

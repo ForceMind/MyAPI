@@ -117,13 +117,22 @@ try {
       const box = await chart.boundingBox()
       assert(box, 'chart has layout bounds')
       if (box.y >= 100 && box.y + box.height <= bottomLimit) break
-      await page.mouse.move(Math.min(viewport.width - 60, box.x + box.width / 2), viewport.height / 2)
+      // Scroll the page gutter: the comparison plot intentionally consumes wheel events for zoom.
+      const scrollX = await chart.evaluate((node) => {
+        if (node.closest('[role=dialog]')) return null
+        for (let parent = node.parentElement; parent; parent = parent.parentElement) {
+          if (/(auto|scroll)/.test(getComputedStyle(parent).overflowY) && parent.scrollHeight > parent.clientHeight) return parent.getBoundingClientRect().right - 18
+        }
+        return 4
+      })
+      await page.mouse.move(scrollX ?? Math.min(viewport.width - 60, box.x + box.width / 2), viewport.height / 2)
       const delta = box.y + box.height > bottomLimit ? box.y + box.height - bottomLimit : box.y - 100
       await page.mouse.wheel(0, Math.max(-220, Math.min(220, delta)))
       await page.waitForTimeout(80)
     }
     const box = await chart.boundingBox()
-    assert(box && box.y >= 99 && box.y + box.height <= bottomLimit + 1, 'the whole chart, including its time axis, is reachable by real scrolling')
+    if (!(box && box.y >= 99 && box.y + box.height <= bottomLimit + 1)) console.error('scroll ancestry', await chart.evaluate(node => { const rows=[]; for(let p=node;p;p=p.parentElement) rows.push({tag:p.tagName,cls:p.className,overflow:getComputedStyle(p).overflowY,scroll:p.scrollTop,h:p.clientHeight,sh:p.scrollHeight,rect:p.getBoundingClientRect().toJSON()}); return rows }))
+    assert(box && box.y >= 99 && box.y + box.height <= bottomLimit + 1, `the whole chart, including its time axis, is reachable by real scrolling: ${JSON.stringify({box, bottomLimit, viewport})}`)
   }
   await page.goto(`${origin}/dashboard/overview`, { waitUntil: 'networkidle' })
   const overview = page.getByTestId('quota-overview-card').first()
@@ -139,7 +148,8 @@ try {
   assert(changeRequests.some((request) => request.range === '24h' && request.rate_window === '3600' && request.ewma_half_life === '1800' && request.overview_points === '48' && request.limit === '4' && request.sort === 'observed_desc'), 'overview uses one bounded analysis query')
   await overview.screenshot({ path: resolve(output, 'overview-quota-summary.png') })
 
-  await page.goto(`${origin}/channels`, { waitUntil: 'networkidle' })
+  await page.goto(`${origin}/channels?tab=quota`, { waitUntil: 'networkidle' })
+  await page.getByText(label('Sampling details and diagnostics'), { exact: true }).click()
   await trend().waitFor({ state: 'visible' })
   await checkControls(trend())
   await trend().screenshot({ path: resolve(output, 'channel-consumption.png') })
@@ -147,12 +157,15 @@ try {
   // Latest failure must remain visible without discarding valid historical data.
   latestError = true
   await page.reload({ waitUntil: 'networkidle' })
+  await page.getByText(label('Sampling details and diagnostics'), { exact: true }).click()
   await trend().waitFor({ state: 'visible' })
   await checkChart(trend(), 'bar')
   assert((await trend().innerText()).includes(label('Latest raw sample')), 'latest status displayed separately')
   await trend().screenshot({ path: resolve(output, 'channel-latest-error.png') })
   latestError = false
   await page.reload({ waitUntil: 'networkidle' })
+
+  await page.getByRole('tab', { name: label('Channel management'), exact: true }).click()
 
   // Exercise the existing channel-row entry, rather than a test-only component.
   await page.getByRole('button', { name: label('Open menu'), exact: true }).last().click()
@@ -206,12 +219,14 @@ try {
 
   for (const viewport of [{ width: 320, height: 740 }, { width: 390, height: 844 }, { width: 1280, height: 600 }]) {
     await page.setViewportSize(viewport)
-    await page.goto(`${origin}/channels`, { waitUntil: 'networkidle' })
+    await page.goto(`${origin}/channels?tab=quota`, { waitUntil: 'networkidle' })
+    await page.getByText(label('Sampling details and diagnostics'), { exact: true }).click()
     await trend().waitFor({ state: 'visible' })
     await checkChart(trend(), 'bar')
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `no page overflow at ${viewport.width}`)
     await showWholeChart(trend(), viewport.height - 80)
     await page.screenshot({ path: resolve(output, `channel-chart-${viewport.width}x${viewport.height}.png`) })
+    await page.getByRole('tab', { name: label('Channel management'), exact: true }).click()
     const rowMenu = page.getByRole('button', { name: label('Open menu'), exact: true }).last()
     // Real wheel scrolling, not scrollIntoView (which can scroll an
     // overflow:hidden ancestor programmatically and hide a production bug).

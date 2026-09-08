@@ -2,9 +2,7 @@ package model
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"math/rand"
 	"sort"
 	"strings"
 	"sync"
@@ -23,16 +21,29 @@ var channelsIDM map[int]*Channel                     // all channels include dis
 // path-aware selection avoids re-parsing JSON per request. Refreshed on full sync.
 var channel2advancedCustomConfig map[int]*dto.AdvancedCustomConfig
 var channelSyncLock sync.RWMutex
+var channelFullRefreshLock sync.Mutex
 
 // channelCredentialCacheGeneration fences full-cache snapshots against
-// credential writes that commit while InitChannelCache is reading the DB.
+// credential and routing writes that commit while InitChannelCache is reading
+// the DB. The historical name is retained for package-test compatibility.
 // It is protected by channelSyncLock.
 var channelCredentialCacheGeneration uint64
 
 func InitChannelCache() {
+	if err := initChannelCache(); err != nil {
+		common.SysError("failed to sync channels from database: " + err.Error())
+	}
+}
+
+func initChannelCache() error {
+	// Serialize the database read through publication. Channel mutations commit
+	// before requesting a refresh, so a later mutation's refresh always reads and
+	// publishes after any older snapshot that was already in flight.
+	channelFullRefreshLock.Lock()
+	defer channelFullRefreshLock.Unlock()
 	if !common.MemoryCacheEnabled {
 		InvalidatePricingCache()
-		return
+		return nil
 	}
 	for {
 		channelSyncLock.RLock()
@@ -42,7 +53,9 @@ func InitChannelCache() {
 		newChannelId2channel := make(map[int]*Channel)
 		newChannel2advancedCustomConfig := make(map[int]*dto.AdvancedCustomConfig)
 		var channels []*Channel
-		DB.Find(&channels)
+		if err := DB.Find(&channels).Error; err != nil {
+			return err
+		}
 		for _, channel := range channels {
 			newChannelId2channel[channel.Id] = channel
 			if channel.Type == constant.ChannelTypeAdvancedCustom {
@@ -52,7 +65,9 @@ func InitChannelCache() {
 			}
 		}
 		var abilities []*Ability
-		DB.Find(&abilities)
+		if err := DB.Find(&abilities).Error; err != nil {
+			return err
+		}
 		groups := make(map[string]bool)
 		for _, ability := range abilities {
 			groups[ability.Group] = true
@@ -118,6 +133,13 @@ func InitChannelCache() {
 	// invalidating the pricing cache, otherwise the reversed order deadlocks.
 	InvalidatePricingCache()
 	common.SysLog("channels synced from database")
+	return nil
+}
+
+func markChannelCacheMutation() {
+	channelSyncLock.Lock()
+	channelCredentialCacheGeneration++
+	channelSyncLock.Unlock()
 }
 
 func SyncChannelCache(frequency int) {
@@ -177,12 +199,10 @@ func GetRandomSatisfiedChannel(group string, model string, retry int, requestPat
 	targetPriority := int64(sortedUniquePriorities[retry])
 
 	// get the priority for the given retry number
-	var sumWeight = 0
 	var targetChannels []*Channel
 	for _, channelId := range channels {
 		if channel, ok := channelsIDM[channelId]; ok {
 			if channel.GetPriority() == targetPriority {
-				sumWeight += channel.GetWeight()
 				targetChannels = append(targetChannels, channel)
 			}
 		} else {
@@ -191,38 +211,22 @@ func GetRandomSatisfiedChannel(group string, model string, retry int, requestPat
 	}
 
 	if len(targetChannels) == 0 {
-		return nil, errors.New(fmt.Sprintf("no channel found, group: %s, model: %s, priority: %d", group, model, targetPriority))
+		return nil, fmt.Errorf("no channel found, group: %s, model: %s, priority: %d", group, model, targetPriority)
 	}
-
-	// smoothing factor and adjustment
-	smoothingFactor := 1
-	smoothingAdjustment := 0
-
-	if sumWeight == 0 {
-		// when all channels have weight 0, set sumWeight to the number of channels and set smoothing adjustment to 100
-		// each channel's effective weight = 100
-		sumWeight = len(targetChannels) * 100
-		smoothingAdjustment = 100
-	} else if sumWeight/len(targetChannels) < 10 {
-		// when the average weight is less than 10, set smoothing factor to 100
-		smoothingFactor = 100
-	}
-
-	// Calculate the total weight of all channels up to endIdx
-	totalWeight := sumWeight * smoothingFactor
-
-	// Generate a random value in the range [0, totalWeight)
-	randomWeight := rand.Intn(totalWeight)
-
-	// Find a channel based on its weight
+	candidates := make([]WeightedChannelCandidate, 0, len(targetChannels))
 	for _, channel := range targetChannels {
-		randomWeight -= channel.GetWeight()*smoothingFactor + smoothingAdjustment
-		if randomWeight < 0 {
+		candidates = append(candidates, WeightedChannelCandidate{ChannelID: channel.Id, Weight: uint(channel.GetWeight())})
+	}
+	channelID, ok := SelectWeightedChannel(candidates)
+	if !ok {
+		return nil, fmt.Errorf("channel not found")
+	}
+	for _, channel := range targetChannels {
+		if channel.Id == channelID {
 			return channel, nil
 		}
 	}
-	// return null if no channel is not found
-	return nil, errors.New("channel not found")
+	return nil, fmt.Errorf("database consistency error, channel #%d is missing", channelID)
 }
 
 // filterChannelsByRequestPathAndModel restricts candidates by request path and

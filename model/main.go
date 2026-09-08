@@ -289,6 +289,7 @@ func migrateDB() error {
 	err := DB.AutoMigrate(
 		&Channel{},
 		&ChannelQuotaSnapshot{},
+		&ChannelRoutingSession{},
 		&Token{},
 		&User{},
 		&UserSession{},
@@ -368,6 +369,7 @@ func migrateDBFast() error {
 	}{
 		{&Channel{}, "Channel"},
 		{&ChannelQuotaSnapshot{}, "ChannelQuotaSnapshot"},
+		{&ChannelRoutingSession{}, "ChannelRoutingSession"},
 		{&Token{}, "Token"},
 		{&User{}, "User"},
 		{&UserSession{}, "UserSession"},

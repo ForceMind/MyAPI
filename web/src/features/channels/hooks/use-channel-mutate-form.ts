@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useMutation } from '@tanstack/react-query'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -83,6 +84,27 @@ function getErrorMessage(error: unknown): string | undefined {
 export function useChannelMutateForm(props: UseChannelMutateFormParams) {
   const { t } = useTranslation()
   const currentUser = useAuthStore((s) => s.auth.user)
+  const routingBaselineRef = useRef<Pick<
+    Channel,
+    'priority' | 'weight'
+  > | null>(null)
+  const routingBaselineChannelIdRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (!props.isEditing || !props.currentRow) {
+      routingBaselineChannelIdRef.current = null
+      routingBaselineRef.current = null
+      return
+    }
+    if (routingBaselineChannelIdRef.current === props.currentRow.id) return
+
+    routingBaselineChannelIdRef.current = props.currentRow.id
+    routingBaselineRef.current = {
+      priority: props.currentRow.priority,
+      weight: props.currentRow.weight,
+    }
+  }, [props.currentRow, props.isEditing])
+
   const canEditSensitive = hasPermission(
     currentUser,
     ADMIN_PERMISSION_RESOURCES.CHANNEL,
@@ -94,7 +116,8 @@ export function useChannelMutateForm(props: UseChannelMutateFormParams) {
       if (props.isEditing && props.currentRow) {
         const payload = transformFormDataToUpdatePayload(
           data,
-          props.currentRow.id
+          props.currentRow.id,
+          routingBaselineRef.current ?? props.currentRow
         )
         if (!data.key?.trim()) {
           delete payload.key

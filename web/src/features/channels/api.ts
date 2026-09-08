@@ -314,6 +314,8 @@ export async function updateChannelBalance(
 export async function getChannelQuotaHistory(
   id: number,
   params: {
+    exact_identity?: boolean
+    consumption_basis?: 'available'
     range?: ChannelQuotaHistoryRange
     start?: string
     end?: string
@@ -360,6 +362,7 @@ export async function getCodexQuotaSeries(
 /** Fetch the latest provider-account quota changes across channels. */
 export async function getChannelQuotaChanges(
   params: {
+    catalogue?: boolean
     range?: ChannelQuotaHistoryRange
     start?: string
     end?: string

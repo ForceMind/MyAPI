@@ -44,6 +44,16 @@ type QuotaConsumptionResult struct {
 	Summary      QuotaConsumptionSummary
 }
 
+// QuotaConsumptionBasis selects the provider field used to derive interval
+// consumption. Auto preserves the historical preference for reported usage;
+// Available always derives consumption from the remaining-quota difference.
+type QuotaConsumptionBasis string
+
+const (
+	QuotaConsumptionBasisAuto      QuotaConsumptionBasis = "auto"
+	QuotaConsumptionBasisAvailable QuotaConsumptionBasis = "available"
+)
+
 func quotaFinite(value float64) bool     { return !math.IsNaN(value) && !math.IsInf(value, 0) }
 func quotaNumber(value float64) *float64 { return &value }
 
@@ -109,20 +119,33 @@ func quotaSameBaseline(a, b model.ChannelQuotaSnapshot) bool {
 	return true
 }
 
-func quotaComparable(a, b model.ChannelQuotaSnapshot) bool {
+func quotaSameConsumptionBaseline(a, b model.ChannelQuotaSnapshot, basis QuotaConsumptionBasis) bool {
+	if basis == QuotaConsumptionBasisAvailable {
+		if (a.Total == nil) != (b.Total == nil) {
+			return false
+		}
+		if a.Total != nil && math.Abs(*a.Total-*b.Total) > 1e-9*math.Max(1, math.Max(math.Abs(*a.Total), math.Abs(*b.Total))) {
+			return false
+		}
+		return true
+	}
+	return quotaSameBaseline(a, b)
+}
+
+func quotaComparable(a, b model.ChannelQuotaSnapshot, basis QuotaConsumptionBasis) bool {
 	return QuotaSnapshotUsable(a) && QuotaSnapshotUsable(b) && quotaSameIdentity(a, b) &&
-		!quotaResetBetween(a, b) && quotaSameBaseline(a, b) && b.ObservedAt > a.ObservedAt
+		!quotaResetBetween(a, b) && quotaSameConsumptionBaseline(a, b, basis) && b.ObservedAt > a.ObservedAt
 }
 
 // quotaLocalCadence derives the historical cadence from neighboring intervals,
 // not today's sampler configuration. The slower side protects a genuine change
 // from one-minute to fifteen-minute sampling. Two isolated observations have
 // no cadence evidence; their rate remains an average over the reported span.
-func quotaLocalCadence(rows []model.ChannelQuotaSnapshot, end int) int64 {
+func quotaLocalCadence(rows []model.ChannelQuotaSnapshot, end int, basis QuotaConsumptionBasis) int64 {
 	medianSide := func(from, step int) int64 {
 		spans := make([]int64, 0, 3)
 		for i := from; i > 0 && i < len(rows) && len(spans) < 3; i += step {
-			if !quotaComparable(rows[i-1], rows[i]) {
+			if !quotaComparable(rows[i-1], rows[i], basis) {
 				break
 			}
 			spans = append(spans, rows[i].ObservedAt-rows[i-1].ObservedAt)
@@ -144,6 +167,13 @@ func quotaLocalCadence(rows []model.ChannelQuotaSnapshot, end int) int64 {
 // history endpoint and the cross-channel summary. A reset, failure, changed
 // baseline, or unusually long sampling gap cannot create a charge or recovery.
 func DeriveQuotaConsumption(snapshots []model.ChannelQuotaSnapshot, unit string) QuotaConsumptionResult {
+	return DeriveQuotaConsumptionWithBasis(snapshots, unit, QuotaConsumptionBasisAuto)
+}
+
+// DeriveQuotaConsumptionWithBasis applies the same continuity and safety
+// guards as DeriveQuotaConsumption while allowing callers to explicitly use
+// remaining quota as the interval source.
+func DeriveQuotaConsumptionWithBasis(snapshots []model.ChannelQuotaSnapshot, unit string, basis QuotaConsumptionBasis) QuotaConsumptionResult {
 	rows := append([]model.ChannelQuotaSnapshot(nil), snapshots...)
 	sort.SliceStable(rows, func(i, j int) bool {
 		if rows[i].ObservedAt == rows[j].ObservedAt {
@@ -176,7 +206,7 @@ func DeriveQuotaConsumption(snapshots []model.ChannelQuotaSnapshot, unit string)
 		switch {
 		case !QuotaSnapshotUsable(previous):
 			point.ContinuityBreak = true
-		case !quotaSameIdentity(previous, snapshot), !quotaSameBaseline(previous, snapshot):
+		case !quotaSameIdentity(previous, snapshot), !quotaSameConsumptionBaseline(previous, snapshot, basis):
 			point.BaselineChange = true
 			point.ContinuityBreak = true
 			result.Summary.BaselineChangeCount++
@@ -187,7 +217,7 @@ func DeriveQuotaConsumption(snapshots []model.ChannelQuotaSnapshot, unit string)
 			result.Summary.GapCount++
 		default:
 			span := snapshot.ObservedAt - previous.ObservedAt
-			cadence := quotaLocalCadence(rows, i)
+			cadence := quotaLocalCadence(rows, i, basis)
 			threshold := int64(180)
 			if cadence*3 > threshold {
 				threshold = cadence * 3
@@ -198,10 +228,10 @@ func DeriveQuotaConsumption(snapshots []model.ChannelQuotaSnapshot, unit string)
 				result.Summary.GapCount++
 				break
 			}
-			delta, basis := previous.Available-snapshot.Available, "available"
-			if previous.Used != nil && snapshot.Used != nil {
+			delta, intervalBasis := previous.Available-snapshot.Available, "available"
+			if basis != QuotaConsumptionBasisAvailable && previous.Used != nil && snapshot.Used != nil {
 				delta = *snapshot.Used - *previous.Used
-				basis = "used"
+				intervalBasis = "used"
 			}
 			rate := delta / (float64(span) / 60)
 			availableRate := (snapshot.Available - previous.Available) / (float64(span) / 60)
@@ -231,7 +261,7 @@ func DeriveQuotaConsumption(snapshots []model.ChannelQuotaSnapshot, unit string)
 			*result.Summary.Observed += delta
 			result.Summary.PairCount++
 			result.Summary.ObservedSeconds += span
-			bases[basis] = true
+			bases[intervalBasis] = true
 			if result.Summary.PeakRatePerMinute == nil || rate > *result.Summary.PeakRatePerMinute {
 				result.Summary.PeakRatePerMinute = quotaNumber(rate)
 				at := snapshot.ObservedAt

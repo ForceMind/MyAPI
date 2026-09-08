@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"math"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -399,6 +400,111 @@ func TestGetChannelQuotaHistoryAnalysisDoesNotDependOnGranularity(t *testing.T) 
 	require.InDelta(t, 360, observed["rate_per_hour"], 1e-9)
 	require.InDelta(t, 2.0/3.0, observed["coverage"], 1e-9)
 	require.Equal(t, float64(1_700_050_120), observed["observed_at"])
+}
+
+func TestGetChannelQuotaHistoryCanDeriveConsumptionFromAvailableQuota(t *testing.T) {
+	db := setupChannelQuotaHistoryHandlerTestDB(t)
+	base := int64(1_700_060_000)
+	availableValues := []float64{90, 85, 80}
+	usedValues := []float64{10, 30, 40}
+	for index := range availableValues {
+		require.NoError(t, db.Create(&model.ChannelQuotaSnapshot{
+			ChannelId: 971, ObservedAt: base + int64(index*60),
+			Available: availableValues[index], Used: ptrFloat(usedValues[index]), Total: ptrFloat(100),
+			MetricType: "balance", WindowType: "none", Source: "provider", Unit: "credits", Status: "success",
+		}).Error)
+	}
+	query := "start=1700060000&end=1700060180&rate_window=180&ewma_half_life=60&granularity=raw&limit=10"
+
+	automatic := getChannelQuotaHistoryTestData(t, query)
+	automaticConsumption := automatic["summary"].(map[string]any)["consumption"].(map[string]any)
+	require.Equal(t, "used", automaticConsumption["basis"])
+	require.InDelta(t, 30, automaticConsumption["observed"], 1e-9)
+
+	available := getChannelQuotaHistoryTestData(t, query+"&consumption_basis=available")
+	availableConsumption := available["summary"].(map[string]any)["consumption"].(map[string]any)
+	require.Equal(t, "available", availableConsumption["basis"])
+	require.InDelta(t, 10, availableConsumption["observed"], 1e-9)
+	require.Equal(t, float64(2), availableConsumption["pair_count"])
+
+	points := available["points"].([]any)
+	require.Len(t, points, 3)
+	require.InDelta(t, 5, points[1].(map[string]any)["consumption"], 1e-9)
+	require.InDelta(t, 5, points[2].(map[string]any)["rate_per_minute"], 1e-9)
+	methods := available["analysis"].(map[string]any)["methods"].(map[string]any)
+	observed := methods["observed_window"].(map[string]any)
+	require.InDelta(t, 5, observed["rate_per_minute"], 1e-9)
+}
+
+func TestGetChannelQuotaHistoryExactIdentityKeepsEmptySeriesDimensions(t *testing.T) {
+	db := setupChannelQuotaHistoryHandlerTestDB(t)
+	base := int64(1_700_070_000)
+	for index, available := range []float64{100, 90} {
+		require.NoError(t, db.Create(&model.ChannelQuotaSnapshot{
+			ChannelId: 971, ObservedAt: base + int64(index*60), Available: available,
+			MetricType: "balance", WindowType: "none", Source: "", PlanType: "",
+			Unit: "credits", Currency: "", WindowSeconds: 0, Status: "success",
+		}).Error)
+	}
+	for index, available := range []float64{70, 60} {
+		require.NoError(t, db.Create(&model.ChannelQuotaSnapshot{
+			ChannelId: 971, ObservedAt: base + int64((index+2)*60), Available: available,
+			MetricType: "balance", WindowType: "none", Source: "provider", PlanType: "pro",
+			Unit: "credits", Currency: "USD", WindowSeconds: 0, Status: "success",
+		}).Error)
+	}
+	query := "start=1700070000&end=1700070300&granularity=raw&limit=10&metric_type=balance&window_type=none&unit=credits&window_seconds=0"
+
+	wildcard := getChannelQuotaHistoryTestData(t, query)
+	require.Equal(t, "provider", wildcard["source"])
+	require.Equal(t, "pro", wildcard["plan_type"])
+	require.Equal(t, "USD", wildcard["currency"])
+
+	exact := getChannelQuotaHistoryTestData(t, query+"&exact_identity=true&source=&plan_type=&currency=")
+	require.Equal(t, "", exact["source"])
+	require.Equal(t, "", exact["plan_type"])
+	require.Equal(t, "", exact["currency"])
+	require.Equal(t, float64(2), exact["raw_observations"])
+	summary := exact["summary"].(map[string]any)
+	require.InDelta(t, 100, summary["start_available"], 1e-9)
+	require.InDelta(t, 90, summary["end_available"], 1e-9)
+}
+
+func TestGetChannelQuotaHistoryRejectsInvalidExactIdentity(t *testing.T) {
+	setupChannelQuotaHistoryHandlerTestDB(t)
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Params = gin.Params{{Key: "id", Value: "971"}}
+	ctx.Request = httptest.NewRequest("GET", "/api/channel/971/quota/history?exact_identity=maybe", nil)
+	GetChannelQuotaHistory(ctx)
+
+	var response struct {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
+	require.False(t, response.Success)
+	require.Contains(t, response.Message, "exact_identity")
+}
+
+func TestGetChannelQuotaHistoryRejectsUnknownConsumptionBasis(t *testing.T) {
+	setupChannelQuotaHistoryHandlerTestDB(t)
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Params = gin.Params{{Key: "id", Value: "971"}}
+	ctx.Request = httptest.NewRequest("GET", "/api/channel/971/quota/history?consumption_basis=used", nil)
+	GetChannelQuotaHistory(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var response struct {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
+	require.False(t, response.Success)
+	require.Contains(t, response.Message, "consumption_basis")
 }
 
 func TestGetChannelQuotaHistoryRejectsAnalysisWindowsOutsideSelectedRange(t *testing.T) {

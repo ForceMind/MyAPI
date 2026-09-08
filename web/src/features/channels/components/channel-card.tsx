@@ -36,7 +36,7 @@ const SENSITIVE_MASK = '••••'
  * renderer via `flexRender`, so the table's information and interactions are
  * preserved: row selection, provider/multi-key/IO.NET type badge, id,
  * name/remark + warning icons, status (with tooltips), groups, inline
- * priority/weight spinners, balance refresh, response/test times, tag
+ * routing order and traffic share, balance refresh, response/test times, tag
  * expand-collapse, and the per-row (or per-tag) actions menu.
  */
 function ChannelCardComponent({
@@ -109,7 +109,7 @@ function ChannelCardComponent({
         </div>
 
         {/* Body: left column (id/name + balance) paired with a right-aligned
-          column (priority/weight + response/test time). */}
+          column (routing order/traffic share + response/test time). */}
         <div className='flex items-start justify-between gap-3'>
           {/* Left column */}
           <div className='flex min-w-0 flex-1 flex-col gap-3 overflow-hidden'>
@@ -134,11 +134,11 @@ function ChannelCardComponent({
           </div>
 
           {/* Right column (sits on the right, content left-aligned). A single
-            grid with content-sized columns keeps Priority/Weight and
-            Response/Last Tested aligned without wasting horizontal space. */}
+            grid with content-sized columns keeps routing details and
+            response/test times aligned without wasting horizontal space. */}
           <div className='grid shrink-0 grid-cols-[auto_auto] items-center gap-x-3 gap-y-1'>
-            <span className={labelClass}>{t('Priority')}</span>
-            <span className={labelClass}>{t('Weight')}</span>
+            <span className={labelClass}>{t('Routing order')}</span>
+            <span className={labelClass}>{t('Traffic share')}</span>
             <div className='flex justify-start'>{priorityCell}</div>
             <div className='flex justify-start'>{weightCell}</div>
             <span className={cn('mt-2', labelClass)}>

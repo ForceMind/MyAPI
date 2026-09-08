@@ -165,13 +165,30 @@ func ApplyChannelGroupFilter(query *gorm.DB, group string) *gorm.DB {
 
 // Value implements driver.Valuer interface
 func (c ChannelInfo) Value() (driver.Value, error) {
-	return common.Marshal(&c)
+	encoded, err := common.Marshal(&c)
+	if err != nil {
+		return nil, err
+	}
+	// Return text instead of []byte. pgx simple protocol otherwise binds the
+	// value as bytea, which PostgreSQL rejects for a json column.
+	return string(encoded), nil
 }
 
 // Scan implements sql.Scanner interface
 func (c *ChannelInfo) Scan(value interface{}) error {
-	bytesValue, _ := value.([]byte)
-	return common.Unmarshal(bytesValue, c)
+	var encoded []byte
+	switch typed := value.(type) {
+	case nil:
+		*c = ChannelInfo{}
+		return nil
+	case []byte:
+		encoded = typed
+	case string:
+		encoded = []byte(typed)
+	default:
+		return fmt.Errorf("unsupported ChannelInfo database value %T", value)
+	}
+	return common.Unmarshal(encoded, c)
 }
 
 func (channel *Channel) GetKeys() []string {

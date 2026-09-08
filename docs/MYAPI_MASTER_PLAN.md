@@ -1,10 +1,16 @@
 # MyAPI 总体产品与工程计划
 
+> 2026-09-08 最新：额度页首屏布局修正源码 0.1.4 已验证，真实双渠道折线可见，线上仍为 0.1.2、尚未部署。已清理约 11.77 GB Go 构建/旧 Codex 缓存；每批收尾清理要求见 AGENTS.md。详情见[渠道分析执行记录](CHANNEL_ANALYTICS_EXECUTION.md)。
+
+> 2026-09-08 最新交付：渠道分页签与多图额度分析源码 `0.1.3` 已验收，尚未部署或推送；线上仍为 `0.1.2`。功能、验证、历史数据扫描边界及接续状态见[渠道分析执行记录](CHANNEL_ANALYTICS_EXECUTION.md)。恢复时保留两批未提交改动。
+
 > 文档状态：执行基线与路线图
 >
 > 基线复核日期：2026-09-06（历史阶段记录保留；S5-P 与发行/安装/更新 P0 合同已纳入；仅有未接线的 S5-P P1a/P1b 纯内核、S5-Q P2A occurrence identity、C09-N1 legal/perf/general/console/checkin immutable generation/C09-N5a 只读诊断、B2-2B0/B1a/B1b gate-off 基元、Release Manifest schema-1/未受信 raw-bytes evidence/输入硬化与 D2A 纯安装状态子范围，完整功能尚未实现）
 >
-> 当前执行分支：`codex/b2-durable-submissions`；当前进度与验证见全项目执行计划和完成度审计，不将旧 `main` 当作本轮工作树状态。
+> 2026-09-08 状态更正：`codex/b2-durable-submissions` 已合并并删除，当前开发基线为 `main` / `f6536ca`，PR #1 已合并，CI `34186651121` 十项通过。下文日期较早的分支/未同步记录属于历史。当前新增工作见[多渠道分配执行记录](CHANNEL_ROUTING_EXECUTION.md)，源码候选 `0.1.2` 已验收，尚未部署或推送。
+
+> 2026-09-08 部署更新：用户已授权部署，多渠道分配版本 `0.1.2` 已上线并通过健康、HTTPS 版本/资源及数据库检查；智能策略仍关闭。回滚备份和证据见 [多渠道执行记录](CHANNEL_ROUTING_EXECUTION.md)。源码尚未提交或推送。
 
 这份文档把 MyAPI 的产品目标、已完成能力、未完成工作、发行方式、UI 方向、自动化和验收规则统一起来。它是路线图和交付索引，不把设计目标误写成已经实现的功能。
 

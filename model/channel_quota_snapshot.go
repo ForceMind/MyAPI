@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -38,6 +39,154 @@ type ChannelQuotaAggregateRow struct {
 }
 
 const maxChannelQuotaAggregateRows = 200000
+
+const maxChannelQuotaSeriesCatalogueItems = 2000
+const maxChannelQuotaSeriesCatalogueCandidates = 20000
+
+// ChannelQuotaSeriesCatalogueRow is one distinct successful historical quota
+// series joined to its current channel name. It contains only series identity
+// metadata; observation values and provider response details are deliberately
+// excluded so catalogue reads stay bounded independently of history density.
+type ChannelQuotaSeriesCatalogueRow struct {
+	ChannelID     int    `gorm:"column:channel_id"`
+	ChannelName   string `gorm:"column:channel_name"`
+	MetricType    string `gorm:"column:metric_type"`
+	WindowType    string `gorm:"column:window_type"`
+	Source        string `gorm:"column:source"`
+	PlanType      string `gorm:"column:plan_type"`
+	Unit          string `gorm:"column:unit"`
+	Currency      string `gorm:"column:currency"`
+	WindowSeconds int64  `gorm:"column:window_seconds"`
+}
+
+type channelQuotaSeriesCatalogueCandidate struct {
+	ChannelQuotaSeriesCatalogueRow `gorm:"embedded"`
+	ExistingChannelID              *int   `gorm:"column:existing_channel_id"`
+	Status                         string `gorm:"column:status"`
+}
+
+// ChannelQuotaSeriesCatalogueResult distinguishes the bounded source scan from
+// the final item limit. Rows contains only identities discovered in the newest
+// candidate window and is always trimmed to the requested item limit.
+type ChannelQuotaSeriesCatalogueResult struct {
+	Rows           []ChannelQuotaSeriesCatalogueRow
+	ScanLimit      int
+	ScannedItems   int
+	SourceComplete bool
+	ItemsComplete  bool
+}
+
+// ListChannelQuotaSeriesCatalogue lists series found in the newest bounded
+// window of historical snapshots. The inner subquery is deliberately ordered
+// only by observed_at so every database can serve the bound from the existing
+// retention index before status filtering or the channel join. Only identity,
+// status, and channel-existence metadata is projected; values used for quota
+// calculations never enter the catalogue read. When the source window is
+// truncated, SourceComplete is false because an older series may be hidden.
+func ListChannelQuotaSeriesCatalogue(ctx context.Context, limit int) (ChannelQuotaSeriesCatalogueResult, error) {
+	return listChannelQuotaSeriesCatalogue(ctx, limit, maxChannelQuotaSeriesCatalogueCandidates)
+}
+
+func listChannelQuotaSeriesCatalogue(ctx context.Context, limit, candidateLimit int) (ChannelQuotaSeriesCatalogueResult, error) {
+	if DB == nil {
+		return ChannelQuotaSeriesCatalogueResult{}, gorm.ErrInvalidDB
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if limit <= 0 || limit > maxChannelQuotaSeriesCatalogueItems {
+		limit = maxChannelQuotaSeriesCatalogueItems
+	}
+	if candidateLimit <= 0 || candidateLimit > maxChannelQuotaSeriesCatalogueCandidates {
+		candidateLimit = maxChannelQuotaSeriesCatalogueCandidates
+	}
+	recent := DB.WithContext(ctx).
+		Table("channel_quota_snapshots AS snapshots").
+		Select(`snapshots.channel_id, snapshots.metric_type,
+			snapshots.window_type, snapshots.source,
+			snapshots.plan_type, snapshots.unit, snapshots.currency,
+			snapshots.window_seconds, snapshots.status`).
+		Order("snapshots.observed_at DESC").
+		Limit(candidateLimit + 1)
+	candidates := make([]channelQuotaSeriesCatalogueCandidate, 0, candidateLimit+1)
+	err := DB.WithContext(ctx).
+		Table("(?) AS recent", recent).
+		Select(`recent.channel_id, channels.id AS existing_channel_id,
+			channels.name AS channel_name, recent.metric_type, recent.window_type,
+			recent.source, recent.plan_type, recent.unit, recent.currency,
+			recent.window_seconds, recent.status`).
+		Joins("LEFT JOIN channels ON channels.id = recent.channel_id").
+		Find(&candidates).Error
+	if err != nil {
+		return ChannelQuotaSeriesCatalogueResult{}, err
+	}
+	sourceComplete := len(candidates) <= candidateLimit
+	scannedItems := len(candidates)
+	if !sourceComplete {
+		candidates = candidates[:candidateLimit]
+		scannedItems = candidateLimit
+	}
+	type seriesKey struct {
+		ChannelID     int
+		MetricType    string
+		WindowType    string
+		Source        string
+		PlanType      string
+		Unit          string
+		Currency      string
+		WindowSeconds int64
+	}
+	identities := make(map[seriesKey]ChannelQuotaSeriesCatalogueRow, len(candidates))
+	for _, candidate := range candidates {
+		if candidate.Status != "success" || candidate.ExistingChannelID == nil {
+			continue
+		}
+		row := candidate.ChannelQuotaSeriesCatalogueRow
+		key := seriesKey{
+			ChannelID: row.ChannelID, MetricType: row.MetricType, WindowType: row.WindowType,
+			Source: row.Source, PlanType: row.PlanType, Unit: row.Unit,
+			Currency: row.Currency, WindowSeconds: row.WindowSeconds,
+		}
+		identities[key] = row
+	}
+	rows := make([]ChannelQuotaSeriesCatalogueRow, 0, len(identities))
+	for _, row := range identities {
+		rows = append(rows, row)
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		left, right := rows[i], rows[j]
+		if left.ChannelID != right.ChannelID {
+			return left.ChannelID < right.ChannelID
+		}
+		if left.MetricType != right.MetricType {
+			return left.MetricType < right.MetricType
+		}
+		if left.WindowType != right.WindowType {
+			return left.WindowType < right.WindowType
+		}
+		if left.Source != right.Source {
+			return left.Source < right.Source
+		}
+		if left.PlanType != right.PlanType {
+			return left.PlanType < right.PlanType
+		}
+		if left.Unit != right.Unit {
+			return left.Unit < right.Unit
+		}
+		if left.Currency != right.Currency {
+			return left.Currency < right.Currency
+		}
+		return left.WindowSeconds < right.WindowSeconds
+	})
+	itemsComplete := sourceComplete && len(rows) <= limit
+	if len(rows) > limit {
+		rows = rows[:limit]
+	}
+	return ChannelQuotaSeriesCatalogueResult{
+		Rows: rows, ScanLimit: candidateLimit, ScannedItems: scannedItems,
+		SourceComplete: sourceComplete, ItemsComplete: itemsComplete,
+	}, nil
+}
 
 // ListChannelQuotaAggregateRows returns a bounded, redacted set of quota
 // observations for all channels in one JOIN query. The newest rows are read

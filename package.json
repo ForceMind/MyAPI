@@ -1,6 +1,6 @@
 {
   "name": "@forcemind/myapi",
-  "version": "0.1.1",
+  "version": "0.1.4",
   "description": "MyAPI self-hosting CLI and complete source distribution.",
   "type": "module",
   "bin": {
@@ -14,6 +14,7 @@
     "tools/desktop/",
     "tools/website/",
     "tools/quota/",
+    "tools/routing/",
     "tools/upgrade/",
     "tools/runtime/",
     ".dockerignore",
@@ -77,6 +78,7 @@
     "brand:test": "node --test tools/branding/check.test.mjs",
     "website:check": "node tools/website/check-static.mjs",
     "quota:browser": "node tools/quota/browser-smoke.mjs",
+    "routing:browser": "node tools/routing/browser-smoke.mjs",
     "quota:openapi:check": "node --test tools/quota/openapi-contract.test.mjs",
     "upgrade:check": "node tools/upgrade/check.mjs",
     "runtime:probe": "node tools/runtime/auth-probe.mjs",

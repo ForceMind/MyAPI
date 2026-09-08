@@ -91,10 +91,84 @@ type quotaChangeGroupKey struct {
 	WindowSeconds int64
 }
 
+type quotaSeriesCatalogueItem struct {
+	ChannelID     int    `json:"channel_id"`
+	Name          string `json:"name"`
+	AccountLabel  string `json:"account_label"`
+	MetricType    string `json:"metric_type"`
+	WindowType    string `json:"window_type"`
+	Source        string `json:"source"`
+	PlanType      string `json:"plan_type"`
+	Unit          string `json:"unit"`
+	Currency      string `json:"currency"`
+	WindowSeconds int64  `json:"window_seconds"`
+}
+
 // GetChannelQuotaChanges returns one redacted trend item per channel/metric/
 // window/source group. It is intentionally read-only: no provider is queried
 // and no credentials or raw provider responses are returned.
 func GetChannelQuotaChanges(c *gin.Context) {
+	catalogue := false
+	if value := strings.TrimSpace(c.Query("catalogue")); value != "" {
+		parsed, err := strconv.ParseBool(value)
+		if err != nil {
+			common.ApiError(c, errors.New("invalid catalogue flag"))
+			return
+		}
+		catalogue = parsed
+	}
+	if catalogue {
+		limit := 20
+		if value := strings.TrimSpace(c.Query("limit")); value != "" {
+			parsed, err := strconv.Atoi(value)
+			if err != nil || parsed <= 0 || parsed > maxQuotaChangesLimit {
+				common.ApiError(c, fmt.Errorf("quota changes catalogue limit must be between 1 and %d", maxQuotaChangesLimit))
+				return
+			}
+			limit = parsed
+		}
+		requestContext := context.Background()
+		if c.Request != nil && c.Request.Context() != nil {
+			requestContext = c.Request.Context()
+		}
+		result, err := model.ListChannelQuotaSeriesCatalogue(requestContext, limit)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		items := make([]quotaSeriesCatalogueItem, 0, len(result.Rows))
+		for _, row := range result.Rows {
+			name := strings.TrimSpace(row.ChannelName)
+			if name == "" {
+				name = "Channel #" + strconv.Itoa(row.ChannelID)
+			}
+			items = append(items, quotaSeriesCatalogueItem{
+				ChannelID: row.ChannelID, Name: name, AccountLabel: name,
+				MetricType: row.MetricType, WindowType: row.WindowType, Source: row.Source,
+				PlanType: row.PlanType, Unit: row.Unit, Currency: row.Currency,
+				WindowSeconds: row.WindowSeconds,
+			})
+		}
+		response := gin.H{
+			"catalogue":       true,
+			"items":           items,
+			"generated_at":    time.Now().Unix(),
+			"returned_items":  len(items),
+			"scan_limit":      result.ScanLimit,
+			"scanned_items":   result.ScannedItems,
+			"source_complete": result.SourceComplete,
+			"items_complete":  result.ItemsComplete,
+			"truncated":       !result.ItemsComplete,
+		}
+		if !result.SourceComplete {
+			response["truncation_reason"] = "catalogue_scan_limit"
+		} else if !result.ItemsComplete {
+			response["truncation_reason"] = "items_limit"
+		}
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": response})
+		return
+	}
+
 	now := time.Now().Unix()
 	start, end := now-24*60*60, now
 	rangeName := strings.TrimSpace(c.Query("range"))

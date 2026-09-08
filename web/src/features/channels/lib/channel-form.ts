@@ -411,7 +411,7 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   group: ['default'],
   model_mapping: '',
   priority: 0,
-  weight: 0,
+  weight: 1,
   test_model: '',
   auto_ban: 1,
   status: CHANNEL_STATUS.ENABLED,
@@ -792,8 +792,8 @@ export function transformFormDataToCreatePayload(formData: ChannelFormValues): {
     models: formData.models,
     group: formatGroups(formData.group),
     model_mapping: formData.model_mapping || null,
-    priority: formData.priority || null,
-    weight: formData.weight || null,
+    priority: formData.priority ?? 0,
+    weight: formData.weight ?? 1,
     test_model: formData.test_model || null,
     auto_ban: formData.auto_ban ?? 1,
     status: formData.status,
@@ -829,7 +829,8 @@ export function transformFormDataToCreatePayload(formData: ChannelFormValues): {
  */
 export function transformFormDataToUpdatePayload(
   formData: ChannelFormValues,
-  channelId: number
+  channelId: number,
+  routingBaseline: Pick<Channel, 'priority' | 'weight'>
 ): Partial<Channel> {
   const payload: Partial<Channel> = {
     id: channelId,
@@ -840,8 +841,6 @@ export function transformFormDataToUpdatePayload(
     models: formData.models,
     group: formatGroups(formData.group),
     model_mapping: formData.model_mapping || null,
-    priority: formData.priority ?? 0,
-    weight: formData.weight ?? 0,
     test_model: formData.test_model || null,
     auto_ban: formData.auto_ban ?? 1,
     status_code_mapping: formData.status_code_mapping || null,
@@ -852,6 +851,15 @@ export function transformFormDataToUpdatePayload(
     header_override: formData.header_override || null,
     settings: buildSettingsJSON(formData),
     other: formData.other || '',
+  }
+
+  const priority = formData.priority ?? 0
+  const weight = formData.weight ?? 0
+  if (priority !== (routingBaseline.priority ?? 0)) {
+    payload.priority = priority
+  }
+  if (weight !== (routingBaseline.weight ?? 0)) {
+    payload.weight = weight
   }
 
   // Only include key if it was changed (not empty)

@@ -244,20 +244,25 @@ function incompleteReasons(trend: QuotaHistoryTrend, t: Translate) {
   return reasons
 }
 
-function localDateTime(iso: string): string {
+function localDateTime(iso: string, seconds = false): string {
   const date = new Date(iso)
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
     .toISOString()
-    .slice(0, 16)
+    .slice(0, seconds ? 19 : 16)
 }
 
 export function QuotaCustomRangeControls(props: {
   range: QuotaCustomRange
+  seconds?: boolean
   onApply: (range: QuotaCustomRange) => void
 }) {
   const { t } = useTranslation()
-  const [start, setStart] = useState(() => localDateTime(props.range.start))
-  const [end, setEnd] = useState(() => localDateTime(props.range.end))
+  const [start, setStart] = useState(() =>
+    localDateTime(props.range.start, props.seconds)
+  )
+  const [end, setEnd] = useState(() =>
+    localDateTime(props.range.end, props.seconds)
+  )
   const startAt = new Date(start).getTime()
   const endAt = new Date(end).getTime()
   const valid =
@@ -272,6 +277,7 @@ export function QuotaCustomRangeControls(props: {
         <input
           aria-label={t('Custom range start')}
           type='datetime-local'
+          step={props.seconds ? 1 : 60}
           className='h-9 min-w-0 rounded-md border bg-transparent px-2'
           value={start}
           onChange={(event) => setStart(event.target.value)}
@@ -282,6 +288,7 @@ export function QuotaCustomRangeControls(props: {
         <input
           aria-label={t('Custom range end')}
           type='datetime-local'
+          step={props.seconds ? 1 : 60}
           className='h-9 min-w-0 rounded-md border bg-transparent px-2'
           value={end}
           onChange={(event) => setEnd(event.target.value)}

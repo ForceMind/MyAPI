@@ -262,3 +262,73 @@ func TestQuotaConsumptionCodexResetRoundingDoesNotBridgeFailedSampling(t *testin
 	require.Nil(t, result.Observations[2].Consumption)
 	require.True(t, result.Observations[2].ContinuityBreak)
 }
+
+func TestQuotaConsumptionAvailableBasisOverridesReportedUsage(t *testing.T) {
+	usedStart, usedEnd := 10.0, 20.0
+	rows := []model.ChannelQuotaSnapshot{
+		{Id: 1, ChannelId: 7, ObservedAt: 100, Available: 90, Used: &usedStart, Status: "success", MetricType: "balance", WindowType: "none", Source: "provider", Unit: "credits"},
+		{Id: 2, ChannelId: 7, ObservedAt: 160, Available: 85, Used: &usedEnd, Status: "success", MetricType: "balance", WindowType: "none", Source: "provider", Unit: "credits"},
+	}
+
+	automatic := DeriveQuotaConsumption(rows, "credits")
+	require.Equal(t, "used", automatic.Summary.Basis)
+	require.InDelta(t, 10, *automatic.Summary.Observed, 1e-9)
+	require.InDelta(t, 10, *automatic.Observations[1].RatePerMinute, 1e-9)
+
+	available := DeriveQuotaConsumptionWithBasis(rows, "credits", QuotaConsumptionBasisAvailable)
+	require.Equal(t, "available", available.Summary.Basis)
+	require.InDelta(t, 5, *available.Summary.Observed, 1e-9)
+	require.InDelta(t, 5, *available.Observations[1].RatePerMinute, 1e-9)
+}
+
+func TestQuotaConsumptionAvailableBasisDoesNotBreakWhenReportedUsageAppears(t *testing.T) {
+	usedMiddle, usedEnd := 10.0, 20.0
+	rows := []model.ChannelQuotaSnapshot{
+		{Id: 1, ChannelId: 7, ObservedAt: 100, Available: 100, Status: "success", MetricType: "balance", WindowType: "none", Source: "provider", Unit: "credits"},
+		{Id: 2, ChannelId: 7, ObservedAt: 160, Available: 90, Used: &usedMiddle, Status: "success", MetricType: "balance", WindowType: "none", Source: "provider", Unit: "credits"},
+		{Id: 3, ChannelId: 7, ObservedAt: 220, Available: 80, Used: &usedEnd, Status: "success", MetricType: "balance", WindowType: "none", Source: "provider", Unit: "credits"},
+	}
+
+	automatic := DeriveQuotaConsumption(rows, "credits")
+	require.Equal(t, 1, automatic.Summary.BaselineChangeCount)
+	require.Equal(t, 1, automatic.Summary.PairCount)
+
+	available := DeriveQuotaConsumptionWithBasis(rows, "credits", QuotaConsumptionBasisAvailable)
+	require.Zero(t, available.Summary.BaselineChangeCount)
+	require.Equal(t, 2, available.Summary.PairCount)
+	require.Equal(t, int64(120), available.Summary.ObservedSeconds)
+	require.Equal(t, "available", available.Summary.Basis)
+	require.InDelta(t, 20, *available.Summary.Observed, 1e-9)
+}
+
+func TestQuotaConsumptionAvailableBasisKeepsContinuityGuards(t *testing.T) {
+	t.Run("remaining quota increase is a recovery", func(t *testing.T) {
+		usedStart, usedEnd := 10.0, 20.0
+		rows := []model.ChannelQuotaSnapshot{
+			{Id: 1, ChannelId: 7, ObservedAt: 100, Available: 90, Used: &usedStart, Status: "success", MetricType: "balance", WindowType: "none", Source: "provider", Unit: "credits"},
+			{Id: 2, ChannelId: 7, ObservedAt: 160, Available: 95, Used: &usedEnd, Status: "success", MetricType: "balance", WindowType: "none", Source: "provider", Unit: "credits"},
+		}
+		result := DeriveQuotaConsumptionWithBasis(rows, "credits", QuotaConsumptionBasisAvailable)
+		require.Nil(t, result.Summary.Observed)
+		require.Equal(t, 1, result.Summary.RecoveryCount)
+		require.True(t, result.Observations[1].ContinuityBreak)
+	})
+
+	t.Run("provider reset is not bridged", func(t *testing.T) {
+		rows := quotaConsumptionFixture([]int64{60, 180})
+		rows[0].ResetAt = 120
+		rows[1].ResetAt = 120
+		result := DeriveQuotaConsumptionWithBasis(rows, "percent", QuotaConsumptionBasisAvailable)
+		require.Nil(t, result.Summary.Observed)
+		require.Equal(t, 1, result.Summary.ResetBoundaries)
+		require.True(t, result.Observations[1].Reset)
+	})
+
+	t.Run("long sampling gap is not reconstructed", func(t *testing.T) {
+		rows := quotaConsumptionFixture([]int64{0, 60, 120, 3720, 3780, 3840})
+		result := DeriveQuotaConsumptionWithBasis(rows, "percent", QuotaConsumptionBasisAvailable)
+		require.Equal(t, 1, result.Summary.GapCount)
+		require.Nil(t, result.Observations[3].Consumption)
+		require.True(t, result.Observations[3].ContinuityBreak)
+	})
+}

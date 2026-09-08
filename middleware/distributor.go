@@ -102,33 +102,35 @@ func Distribute() func(c *gin.Context) {
 					}
 				}
 
-				if preferredChannelID, found := service.GetPreferredChannelByAffinity(c, modelRequest.Model, usingGroup); found {
-					affinityUsable := false
-					preferred, err := model.CacheGetChannel(preferredChannelID)
-					if err == nil && preferred != nil && preferred.Status == common.ChannelStatusEnabled &&
-						channelSupportsRequestPath(preferred, c.Request.URL.Path, modelRequest.Model) {
-						if usingGroup == "auto" {
-							userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
-							autoGroups := service.GetRequestAutoGroups(c, userGroup)
-							for _, g := range autoGroups {
-								if model.IsChannelEnabledForGroupModel(g, modelRequest.Model, preferred.Id) {
-									selectGroup = g
-									common.SetContextKey(c, constant.ContextKeyAutoGroup, g)
-									channel = preferred
-									affinityUsable = true
-									service.MarkChannelAffinityUsed(c, g, preferred.Id)
-									break
+				if !service.ShouldUseSmartChannelRouting(c) {
+					if preferredChannelID, found := service.GetPreferredChannelByAffinity(c, modelRequest.Model, usingGroup); found {
+						affinityUsable := false
+						preferred, err := model.CacheGetChannel(preferredChannelID)
+						if err == nil && preferred != nil && preferred.Status == common.ChannelStatusEnabled &&
+							channelSupportsRequestPath(preferred, c.Request.URL.Path, modelRequest.Model) {
+							if usingGroup == "auto" {
+								userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
+								autoGroups := service.GetRequestAutoGroups(c, userGroup)
+								for _, g := range autoGroups {
+									if model.IsChannelEnabledForGroupModel(g, modelRequest.Model, preferred.Id) {
+										selectGroup = g
+										common.SetContextKey(c, constant.ContextKeyAutoGroup, g)
+										channel = preferred
+										affinityUsable = true
+										service.MarkChannelAffinityUsed(c, g, preferred.Id)
+										break
+									}
 								}
+							} else if model.IsChannelEnabledForGroupModel(usingGroup, modelRequest.Model, preferred.Id) {
+								channel = preferred
+								selectGroup = usingGroup
+								affinityUsable = true
+								service.MarkChannelAffinityUsed(c, usingGroup, preferred.Id)
 							}
-						} else if model.IsChannelEnabledForGroupModel(usingGroup, modelRequest.Model, preferred.Id) {
-							channel = preferred
-							selectGroup = usingGroup
-							affinityUsable = true
-							service.MarkChannelAffinityUsed(c, usingGroup, preferred.Id)
 						}
-					}
-					if !affinityUsable && !service.ShouldKeepChannelAffinityOnChannelDisabled() {
-						service.ClearCurrentChannelAffinityCache(c)
+						if !affinityUsable && !service.ShouldKeepChannelAffinityOnChannelDisabled() {
+							service.ClearCurrentChannelAffinityCache(c)
+						}
 					}
 				}
 
@@ -162,9 +164,57 @@ func Distribute() func(c *gin.Context) {
 			}
 		}
 		common.SetContextKey(c, constant.ContextKeyRequestStartTime, time.Now())
-		SetupContextForSelectedChannel(c, channel, modelRequest.Model)
+		var setupErr *types.NewAPIError
+		if channel != nil {
+			setupErr = SetupContextForSelectedChannel(c, channel, modelRequest.Model)
+		}
+		if setupErr != nil && service.IsSmartChannelRoutingRequest(c) && types.IsChannelError(setupErr) {
+			retryParam := &service.RetryParam{
+				Ctx:         c,
+				TokenGroup:  common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
+				ModelName:   modelRequest.Model,
+				RequestPath: c.Request.URL.Path,
+				Retry:       common.GetPointer(0),
+			}
+			for attempt := 0; setupErr != nil && types.IsChannelError(setupErr); attempt++ {
+				service.MarkSmartChannelRoutingFailure(c, channel.Id, strings.ReplaceAll(string(setupErr.GetErrorCode()), ":", "_"))
+				service.CompleteSmartChannelRouting(c)
+				usedChannels := c.GetStringSlice("use_channel")
+				c.Set("use_channel", append(usedChannels, strconv.Itoa(channel.Id)))
+				if attempt >= common.RetryTimes {
+					break
+				}
+				retryParam.ExcludeChannel(channel.Id)
+				retryParam.IncreaseRetry()
+				var selectGroup string
+				channel, selectGroup, err = service.CacheGetRandomSatisfiedChannel(retryParam)
+				if err != nil {
+					setupErr = types.NewError(err, types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+					break
+				}
+				if channel == nil {
+					setupErr = types.NewError(errors.New(i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{"Group": selectGroup, "Model": modelRequest.Model})), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+					break
+				}
+				setupErr = SetupContextForSelectedChannel(c, channel, modelRequest.Model)
+			}
+		}
+		if setupErr != nil {
+			group := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
+			if selectedGroup := common.GetContextKeyString(c, constant.ContextKeyAutoGroup); selectedGroup != "" {
+				group = selectedGroup
+			}
+			message := i18n.T(c, i18n.MsgDistributorGetChannelFailed, map[string]any{"Group": group, "Model": modelRequest.Model, "Error": setupErr.Error()})
+			if types.IsChannelError(setupErr) {
+				message = i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{"Group": group, "Model": modelRequest.Model})
+			}
+			abortWithOpenAiMessage(c, http.StatusServiceUnavailable, message, setupErr.GetErrorCode())
+			return
+		}
 		c.Next()
-		if channel != nil && c.Writer != nil && c.Writer.Status() < http.StatusBadRequest {
+		if service.IsSmartChannelRoutingRequest(c) {
+			service.CompleteSmartChannelRouting(c)
+		} else if channel != nil && c.Writer != nil && c.Writer.Status() < http.StatusBadRequest {
 			service.RecordChannelAffinity(c, channel.Id)
 		}
 	}

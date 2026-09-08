@@ -101,6 +101,59 @@ jobs:
           GOMAXPROCS: '1'
         run: go test -race -p 1 ./model -run '^TestB2SubmissionSQLite$' -count=1 -timeout=180s
 
+      - name: Verify channel routing concurrency under race detector
+        run: go test -race -p 1 ./model ./service ./controller ./middleware ./setting/operation_setting -run '^Test(ChannelRouting|SelectWeightedChannel|ManagedChannelRoutingPolicy|DeriveRoutingQuota|BuildRoutingPlan|SmartRouting|AppendChannelRouting|RoutingQuotaCache|CompleteSmartRouting|ShouldRetryNeverOverridesSpecificChannel|DistributeRetriesSmartRouting|InitChannelCacheRetriesSnapshotAfterCredentialGenerationChanges)' -count=1 -timeout=180s
+
+  routing-databases:
+    name: Channel routing database regression
+    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_DATABASE: myapi_routing_test
+          MYSQL_ROOT_PASSWORD: routing-fixture-password
+          MYSQL_ROOT_HOST: '%'
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -prouting-fixture-password"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+      postgres:
+        image: postgres:9.6
+        env:
+          POSTGRES_DB: myapi_routing_test
+          POSTGRES_PASSWORD: routing-fixture-password
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd="pg_isready -U postgres -d myapi_routing_test"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    env:
+      GOWORK: 'off'
+      GOMAXPROCS: '1'
+      GOMEMLIMIT: '768MiB'
+      MYAPI_ROUTING_DATABASE_TESTS: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            relaykit/go.sum
+      - name: Verify session claims and routing updates on disposable databases
+        env:
+          MYAPI_ROUTING_MYSQL_DSN: root:routing-fixture-password@tcp(127.0.0.1:${{ job.services.mysql.ports[3306] }})/myapi_routing_test?charset=utf8mb4&parseTime=true
+          MYAPI_ROUTING_POSTGRES_DSN: host=127.0.0.1 port=${{ job.services.postgres.ports[5432] }} user=postgres password=routing-fixture-password dbname=myapi_routing_test sslmode=disable
+        run: go test -p 1 ./model -run '^TestChannelRoutingDatabaseMatrix$' -count=1 -timeout=180s -v
+
   s1-databases:
     name: S1 identity and options database regression
     if: github.event.action != 'closed' || github.event.pull_request.merged == true
@@ -413,12 +466,28 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=768'
         run: node tools/quota/browser-smoke.mjs
 
+      - name: Verify routing management and responsive interactions
+        working-directory: .
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs
+          MYAPI_ROUTING_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-quota-browser-artifacts/routing
+          NODE_OPTIONS: '--max-old-space-size=768'
+        run: node tools/routing/browser-smoke.mjs
+
+      - name: Verify multi-channel quota comparison and zoom
+        working-directory: .
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs
+          MYAPI_QUOTA_COMPARISON_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-quota-browser-artifacts/comparison
+          NODE_OPTIONS: '--max-old-space-size=768'
+        run: node tools/quota/comparison-browser.mjs
+
       - name: Upload quota browser screenshots
         if: always()
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: myapi-quota-browser-${{ github.sha }}
-          path: ${{ runner.temp }}/myapi-quota-browser-artifacts/*.png
+          path: ${{ runner.temp }}/myapi-quota-browser-artifacts/**/*.png
           if-no-files-found: ignore
           retention-days: 7
 
