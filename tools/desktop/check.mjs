@@ -122,12 +122,19 @@ function checkRuntime() {
 function checkDocs() {
   const lan = read('docs/LAN_LITE.md')
   const master = read('docs/MYAPI_MASTER_PLAN.md')
-  record('LAN guide documents platform data locations', includes(lan, ['macOS:', 'Windows:', 'Cross-platform acceptance']))
+  record(
+    'LAN guide documents platform data locations',
+    includes(lan, ['macOS:', 'Windows:']) &&
+      (lan.includes('Cross-platform acceptance') || lan.includes('跨平台合同验收')),
+  )
   record('LAN guide distinguishes parser checks from real-device rehearsal', includes(lan, ['does not prove that macOS/Windows firewall rules', 'real macOS and Windows rehearsal']))
+  // The gate is that the plan still calls real-device work outstanding. Accept
+  // any wording that says so; reject a plan that quietly drops the claim.
   record(
     'master plan keeps real platform rehearsal as an explicit gate',
     master.includes('真实跨平台安装/局域网请求演练和系统防火墙自动配置仍待完成') ||
-      master.includes('跨平台安装演练和系统防火墙自动配置仍待完成'),
+      master.includes('跨平台安装演练和系统防火墙自动配置仍待完成') ||
+      master.includes('真实安装/网络验证仍待完成'),
   )
 }
 

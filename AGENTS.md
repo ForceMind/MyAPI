@@ -188,6 +188,10 @@ Rules:
 - Actual serialization and deserialization must go through the `common.*` wrappers.
 - Do not introduce local JSON wrapper functions that duplicate `common/json.go`.
 
+`common/canonical_json.go` is the one exception, and the CI policy check excludes it by name.
+
+A canonical digest must walk the raw token stream, because the wrappers decode into Go values and that step discards the number lexeme and the key order the digest exists to preserve. Do not extend this exception to other files, and do not route business payload serialization through it.
+
 ### Database Compatibility
 
 All database code **MUST** work with all of the following:

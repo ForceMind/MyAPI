@@ -56,9 +56,12 @@ jobs:
       - name: Build root module
         run: go build ./...
 
+      # common/canonical_json.go is excluded because a canonical digest has to
+      # walk the raw token stream: the wrappers decode into Go values, which
+      # discards the number lexeme and key order the digest must preserve.
       - name: Verify root JSON wrapper policy
         run: |
-          if git grep -n -E 'json\.(Marshal|Unmarshal|NewDecoder|NewEncoder)' -- '*.go' ':(exclude)**/*_test.go' ':(exclude)common/json.go' ':(exclude)relaykit/**'; then
+          if git grep -n -E 'json\.(Marshal|Unmarshal|NewDecoder|NewEncoder)' -- '*.go' ':(exclude)**/*_test.go' ':(exclude)common/json.go' ':(exclude)common/canonical_json.go' ':(exclude)relaykit/**'; then
             echo 'root production JSON calls must use common/json.go wrappers' >&2
             exit 1
           fi
