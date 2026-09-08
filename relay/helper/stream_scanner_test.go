@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/ForceMind/MyAPI/constant"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
+	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -287,13 +289,9 @@ func TestStreamScannerHandler_ClientCancelAbortsUpstreamAndReturns(t *testing.T)
 
 func TestStreamScannerHandler_PingSentDuringSlowUpstream(t *testing.T) {
 	setting := operation_setting.GetGeneralSetting()
-	oldEnabled := setting.PingIntervalEnabled
-	oldSeconds := setting.PingIntervalSeconds
-	setting.PingIntervalEnabled = true
-	setting.PingIntervalSeconds = 1
+	setGeneralSettingPingForTest(t, true, 1)
 	t.Cleanup(func() {
-		setting.PingIntervalEnabled = oldEnabled
-		setting.PingIntervalSeconds = oldSeconds
+		setGeneralSettingPingForTest(t, setting.PingIntervalEnabled, setting.PingIntervalSeconds)
 	})
 
 	pr, pw := io.Pipe()
@@ -338,13 +336,9 @@ func TestStreamScannerHandler_PingSentDuringSlowUpstream(t *testing.T) {
 
 func TestStreamScannerHandler_PingDisabledByRelayInfo(t *testing.T) {
 	setting := operation_setting.GetGeneralSetting()
-	oldEnabled := setting.PingIntervalEnabled
-	oldSeconds := setting.PingIntervalSeconds
-	setting.PingIntervalEnabled = true
-	setting.PingIntervalSeconds = 1
+	setGeneralSettingPingForTest(t, true, 1)
 	t.Cleanup(func() {
-		setting.PingIntervalEnabled = oldEnabled
-		setting.PingIntervalSeconds = oldSeconds
+		setGeneralSettingPingForTest(t, setting.PingIntervalEnabled, setting.PingIntervalSeconds)
 	})
 
 	recorder := httptest.NewRecorder()
@@ -377,6 +371,16 @@ func TestStreamScannerHandler_PingDisabledByRelayInfo(t *testing.T) {
 	body := recorder.Body.String()
 	pingCount := strings.Count(body, ": PING")
 	assert.Equal(t, 0, pingCount, "pings should be disabled when DisablePing=true")
+}
+
+func setGeneralSettingPingForTest(t *testing.T, enabled bool, seconds int) {
+	t.Helper()
+	registered := config.GlobalConfig.Get("general_setting")
+	require.NotNil(t, registered)
+	require.NoError(t, config.UpdateConfigFromMap(registered, map[string]string{
+		"ping_interval_enabled": strconv.FormatBool(enabled),
+		"ping_interval_seconds": strconv.Itoa(seconds),
+	}))
 }
 
 // ---------- StreamStatus integration ----------
