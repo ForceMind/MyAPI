@@ -151,7 +151,10 @@ test('init copies source without runtime data and configure protects secrets', (
 
   const envPath = path.join(project, 'deploy/.env')
   const env = readFileSync(envPath, 'utf8')
-  assert.match(env, /^MYAPI_IMAGE=ghcr\.io\/forcemind\/myapi:v0\.1\.1$/m)
+  assert.equal(
+    env.split('\n').find((line) => line.startsWith('MYAPI_IMAGE=')),
+    `MYAPI_IMAGE=ghcr.io/forcemind/myapi:v${packageVersion}`
+  )
   assert.match(env, /^MYAPI_BUILD_LOCAL=false$/m)
   assert.match(env, /^MYAPI_PUBLIC_URL=https:\/\/myapi\.example\.test$/m)
   assert.match(env, /^MYAPI_BRAND_NAME=MyAPI$/m)
@@ -190,7 +193,10 @@ test('upgrade validates the release version before touching deployment state', (
     /semantic version/
   )
   const env = readFileSync(path.join(project, 'deploy/.env'), 'utf8')
-  assert.match(env, /^MYAPI_IMAGE=ghcr\.io\/forcemind\/myapi:v0\.1\.1$/m)
+  assert.equal(
+    env.split('\n').find((line) => line.startsWith('MYAPI_IMAGE=')),
+    `MYAPI_IMAGE=ghcr.io/forcemind/myapi:v${packageVersion}`
+  )
   assert.equal(existsSync(path.join(project, 'backups')), false)
 })
 
@@ -516,7 +522,10 @@ test('signature verification fails closed before changing deployment state', () 
     /requires MYAPI_COSIGN_CERTIFICATE_IDENTITY/
   )
   const env = readFileSync(path.join(project, 'deploy/.env'), 'utf8')
-  assert.match(env, /^MYAPI_IMAGE=ghcr\.io\/forcemind\/myapi:v0\.1\.1$/m)
+  assert.equal(
+    env.split('\n').find((line) => line.startsWith('MYAPI_IMAGE=')),
+    `MYAPI_IMAGE=ghcr.io/forcemind/myapi:v${packageVersion}`
+  )
   assert.equal(existsSync(path.join(project, 'backups')), false)
 })
 
