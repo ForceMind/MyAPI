@@ -2,7 +2,7 @@
 
 > 文档状态：执行基线与路线图
 >
-> 基线复核日期：2026-09-05（历史阶段记录保留）
+> 基线复核日期：2026-09-06（历史阶段记录保留；S5-P 与发行/安装/更新 P0 合同已纳入；仅有未接线的 S5-P P1a/P1b 纯内核、S5-Q P2A occurrence identity、C09-N1 legal/perf/general/console/checkin immutable generation/C09-N5a 只读诊断、B2-2B0/B1a/B1b gate-off 基元、Release Manifest schema-1/未受信 raw-bytes evidence/输入硬化与 D2A 纯安装状态子范围，完整功能尚未实现）
 >
 > 当前执行分支：`codex/b2-durable-submissions`；当前进度与验证见全项目执行计划和完成度审计，不将旧 `main` 当作本轮工作树状态。
 
@@ -21,7 +21,9 @@ API、SSE、数据库迁移、Provider 和发行接口契约（技术基线标�
 关联规范：
 
 - [发行版说明](./MYAPI_DISTRIBUTION.md)
-- [LAN Lite](./LAN_LITE.md)
+- [发行制品、安装与更新合同](./RELEASE_MANIFEST.md)
+- [Lite 与 Legacy LAN 迁移](./LAN_LITE.md)
+- [提示词学习与版本中心（S5-P）](./PROMPT_LEARNING.md)
 - [TokenHub 集成边界](./TOKENHUB_INTEGRATION.md)
 - [Google Antigravity 边界](./ANTIGRAVITY_INTEGRATION.md)
 - [Antigravity 公共 Relay 接入闸门](./ANTIGRAVITY_PUBLIC_RELAY_GATE.md)
@@ -39,20 +41,20 @@ API、SSE、数据库迁移、Provider 和发行接口契约（技术基线标�
 
 ## 1. 产品目标
 
-MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用场景：
+My API 是独立的 AI API 网关发行版和运行时品牌，提供三个交付选择：
 
-1. Full：服务器或团队使用的完整管理版。
-2. LAN Lite：macOS/Windows 工作站上的局域网极简版，同事使用自己的 MyAPI API Key 调用。
-3. Desktop/LAN：围绕 LAN Lite 的桌面化安装、升级和状态体验。
+1. **Full 完整版**：面向团队、组织和完整管理需求，主要部署在服务器，提供渠道、用户、权限、额度、订阅、支付、日志和运维管理。
+2. **Lite 轻量版**：面向个人和小规模使用；正式支持个人服务器、云服务器、VPS 与个人电脑。轻量化指安装、依赖、默认配置和资源占用，而不是把 Lite 限制为局域网或删除可靠转发、鉴权、Key、日志、额度安全、必要备份恢复等核心能力。
+3. **Desktop 桌面版**：Lite 的桌面安装和管理形态，复用 Lite 的业务核心和数据模型，提供安装、初始化、后台服务、托盘、升级、备份恢复和本机集成体验，不维护第二套业务实现。
+
+功能版、安装形态和访问范围必须分别建模：`Full|Lite`、`server-native|server-container|personal-native|personal-container|desktop`、`local|lan|public`。服务器可以选择 Full 或 Lite；没有服务器的用户可以在个人电脑运行 Lite 或安装 Desktop。初始个人电脑安装只开放本机访问，LAN 与公网均须独立、明确开启；公网可达必须经过环境检测和外部验证，不能由本机健康检查推断。
 
 核心原则：
 
 - MyAPI 是发行版品牌和运行时品牌。
-- 上游凭据只在 MyAPI 服务端配置。Full 原生进程可由 Root 管理员在实时会话、同源请求和
-  Passkey/2FA 复核后，显式导入该服务进程用户的 Codex `auth.json`；LAN Lite、当前
-  Electron LAN edition 和容器均不扫描宿主机 Codex、Claude 或其他凭据文件。
-- 局域网版默认本机回环监听，扩大到局域网必须显式确认。
-- Full、LAN Lite、桌面版共享可靠的请求转发、日志、权限和安全边界，但不强行共享不适用的功能。
+- 上游凭据只在 My API 服务端配置。既有 Full 原生 Codex 凭据导入边界不因 S5-P 扩大；提示词学习中的指令文件读取、模型外发和文件写入分别授权，永不扫描主目录、凭据库或模型内置指令。
+- 本机、LAN 与公网访问均默认最小暴露；扩大访问范围必须显式确认，并保持用户、Key、权限、额度和限流规则。
+- Full、Lite 与 Desktop 共享可靠的请求转发、日志、权限和安全边界；功能差异由能力矩阵明确展示，不能因更名静默删除既有核心功能或历史数据。
 - TokenHub 和原 New API 都只是参考样本：可以研究其架构取舍、用户流程、信息层级和产品表达，但不得复制其代码、页面结构、视觉资产、文案、品牌、链接、容器/环境约定或内部协议。
 - MyAPI 的领域模型、接口契约、UI 信息架构、视觉系统、静态官网和运行时行为必须独立设计与实现；“借鉴”只表示吸收可验证的设计思路，不表示逐项仿制。
 - 许可证和法定通知另行进行合规审查，不把参考项目的署名或产品归属混入 MyAPI 的品牌展示。
@@ -113,7 +115,7 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
   完成本机验收；真实账号操作与同提交 CI 仍按执行计划收尾。
 - 默认推广内容已精简。
 - MyAPI 品牌运行时参数：`VITE_BRAND_NAME`、`VITE_BRAND_LOGO`、`MYAPI_BRAND_NAME`、`MYAPI_BRAND_LOGO`。
-- Full/LAN 构建参数和 Logo 配置已接入 Docker 与部署脚本。
+- 当前 Full/Legacy LAN 构建参数和 Logo 配置已接入 Docker 与部署脚本；这不是新 Full/Lite 三维解析器。
 - API Key 已开始返回兼容旧 `group` 的访问方案元数据，创建和列表 UI 已显示“Access profile”及用途说明；`GET /api/user/self/groups` 另返回独立的 `account_tier` 元数据，Key 创建时会同时解释“账户等级”和“访问方案”的边界。
 - 设置引导已按用户和版本隔离；完成后自动移除引导卡片，不再显示“设置引导已完成”或重复打开入口。
 - 渠道余额对话框已接入额度历史折线图，支持 24h/7d/30d/90d、自定义日期范围、自动/raw/hour/day/week 聚合、浏览器时区偏移、加载/失败/空数据、多 Key 解释和失败采样断点；手动刷新会使趋势查询失效并重新读取。快照可通过 `CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS` 启用每日限批清理。
@@ -136,12 +138,12 @@ MyAPI 是独立的 AI API 网关发行版和运行时品牌，面向三类使用
 
 - TokenHub 有独立边界文档和 provider-neutral 适配边界；后续 UI 和官网只借鉴其产品叙事与信息组织，不复制实现或页面。
 - Google Antigravity 已按官方 Gemini Interactions API 建立独立的非持久化客户端边界（创建、有限轮询、取消、删除和 usage 提取）。`1827358` 进一步固定 dynamic agent 类型、仅通过 `environment` 承载 continuation 的环境标识、限制 interaction ID/输入/响应大小、将 `requires_action` 视为轮询终态并在错误中去除上游响应正文；但尚未接入普通 relay/channel 或账户额度，不应宣传为完整 Antigravity 账户或额度支持。
-- LAN Lite CLI、SQLite-first 项目初始化和局域网安全边界已存在。
+- Legacy LAN CLI、SQLite-first 项目初始化和局域网安全边界已存在；服务器 Lite 与个人电脑 Lite 的正式交付仍未实现。
 - Electron 桌面版默认回环监听、单实例和持久会话密钥已加固；`--allow-lan` 加私网绑定地址才可共享，并在托盘菜单显示生效端点。
 - Electron 生产后端就绪探针请求 `/api/status`，要求 HTTP 2xx 且 JSON `success=true`；开发前端探针仍使用 `/` 并只校验 HTTP 状态。该行为由 runtime-config、探针合同测试和 desktop check 固化，尚未替代真实 macOS/Windows 安装与局域网演练。
 - 新开发环境的 PostgreSQL 默认数据库标识已统一为 `myapi`（`docker-compose.dev.yml`、`makefile`）；接管旧数据必须显式设置 `MYAPI_DEV_POSTGRES_DB` 或 `DEV_POSTGRES_DB`，不自动重命名或迁移既有数据库。
 - `deploy/install.sh` 与 CLI 使用相同的回环/RFC1918 绑定边界；安装脚本拒绝格式错误或公网地址，非回环监听必须显式设置 `MYAPI_ALLOW_LAN=true`，并以非执行方式读取 `.env`。
-- GitHub Actions 已支持 SemVer tag 构建并推送 Full/LAN GHCR 镜像；多架构 manifest 使用构建任务产出的、经过格式和仓库校验的架构 digest 组装，不再以可变架构 tag 作为 manifest 输入。
+- GitHub Actions 已支持 SemVer tag 构建并推送 Full/Legacy LAN GHCR 镜像；多架构 manifest 使用构建任务产出的、经过格式和仓库校验的架构 digest 组装，不再以可变架构 tag 作为 manifest 输入。它不是后续统一 Release Manifest。
 - `myapi upgrade` CLI 已支持按发行版拉取 GHCR 镜像、可选 cosign 签名校验、可选拉取后 digest 固定、环境文件备份、健康等待和失败回滚；生产启用仍需人工审批与数据备份演练。
 - SemVer tag 可触发 macOS/Windows Electron 构建产物并生成 SHA256 校验和；发布上传需显式开启。
 - 静态官网已补齐移动菜单关闭、outside-click、Escape、焦点回归与 Tab 约束、主题偏好持久化等基础交互，并加入资源/结构自动校验与 390px/320px Chromium 移动 smoke workflow；完成度记录中的最近一次成功 Chromium smoke run 为 `33334940499`，真实设备/移动视觉审查与独立发布 workflow 仍待完成。
@@ -191,8 +193,9 @@ loopback/NAT reset，未验收；修复保持宿主回环发布，仅令受限 C
 下一步扩展三库运行合同；完整备份恢复、真实账户/设备、独立 UI 仍未完成。
 #### 2026-09-05 B2-0 恢复账务合同（已冻结，完整流程尚未实现）
 
-B2/B3 的核心业务决定已确认；B2-1 模型/迁移基础已进入受限本机验证及独立审查，实库 CI 尚待完成。
-HTTP 提交/查询、原子账务及恢复闭环仍未接入，不能启用生产开关。现代 Task 的 `submission_unknown` 与已受理后轮询结果未知的
+B2-0 的未知态、幂等和 Task 业务事件权威合同已确认；可消费余额权威源与历史不明余额处置（D02/D03）仍是建议待决定，不能误写为 B3 已确认。B2-1 模型/迁移基础已完成当前范围的受限本机验证、独立审查和隔离实库 CI。
+Ali、Doubao、Gemini、Hailuo、Jimeng、Kling、Sora、Suno、Vertex、Vidu 的 B2-2A 纯响应 parser 在 HTTP 200 时已由 legacy `DoResponse` 调用，gate-off 非 200 安全兼容桥则在 parser 前处理；Task 单个 outbound attempt 的 one-shot body、3xx 不跟随、客户幂等头隔离及 Vertex OAuth JWT 换取无重定向也已有合成测试与独立审查。这些本地子范围不等于
+durable submission。B2-2B0 现有无 caller 的严格 protocol、operation+attempt T0 原子基元和 Full Content 字段级幂等脱敏，并有 owner-scoped、只读的 `GET /v1/task-operations/:id`；B1a/B1b 另有 JSON 与仅 video form/multipart 的严格 canonical request fingerprint，但都不含 HTTP POST 提交、原子账务或恢复闭环，不能启用生产开关；controller 的 legacy retry/failover 也仍待 B2-2B/C durable dispatcher 接管。现代 Task 的 `submission_unknown` 与已受理后轮询结果未知的
 `outcome_unknown` 不自动重发或退款，只能由上游可验证的结果或带审计记录的人工处置结束；v1 在进入
 `DISPATCHING` 后禁止一切可能已送达请求的重试及跨渠道 failover，包含 Provider 内重试。
 
@@ -257,8 +260,8 @@ race 全部实跑。无页面或 schema 变更，版本保持 0.1.1；未执行�
 
 这不关闭独立 S2-C09：generic config 热读尚无统一快照/锁；内存和 Redis 成功限额仍是
 check→execute→record 的近似合同，并发可能超发；跨配置族 reload 非全量事务；历史 DB raw
-`null`、未知分层 key、Passkey 懒写和 `GroupRatioSetting` 可变指针待审计。C09 只读设计已完成、实施仍待
-分批收敛；D09 与 D10 均已完成当前范围并通过同提交 CI。
+`null`、未知分层 key、Passkey 懒写和 `GroupRatioSetting` 可变指针待审计。C09-N1 已盘点 24 个注册族：
+22 个已有受控快照/复制语义，仅 `performance_setting` 与 `channel_affinity_setting` 分别等待 D14/D15；除既有族外，`gemini`、`billing_setting`、`payment_setting` 与 `global` 也在不改变原键/默认/宽松 parser 或业务校验的前提下完成私有原子 generation 与 detached getter 子范围。仍待的是两族受决策阻塞热读、跨族事务、N2b/N3/N4/N5b 接线和三数据库验收。D09 与 D10 均已完成当前范围并通过同提交 CI。
 
 S2-C09-R1 已完成当前范围；独立最终复审确认无 P1/P2。最终 `ae07527` /
 [CI 33824814509](https://github.com/ForceMind/MyAPI/actions/runs/33824814509) 八项成功，包含独立真实 Redis 7
@@ -273,8 +276,24 @@ rollback，同一 helper 已由 MySQL 5.7/PostgreSQL 9.6 CI engine 流程执行�
 group 在 DB 写入前均按实际 `capacity=total*durationSeconds`、`rate=total`、`requested=durationSeconds` 使用同一
 2^53-1 精确边界，覆盖大于 2^53 且不超过 MaxInt64 的拒绝，并确保 runtime/OptionMap 不发布；保留 `total=0` 和
 disabled `duration=0`。仍不完成：成功限额仍为 check→execute→record，未引入 reservation/rollback；
-总量仍令牌桶，未改变产品语义；generic 21 模块热读、跨族事务、Passkey/null/未知 key/`GroupRatioSetting`
-仍待；payment runtime 的逐字段读取与活指针问题未解决；真实付款、生产、设备及发布未做。`VERSION` 保持 0.1.1。
+总量仍令牌桶，未改变产品语义；R1 当时 24 个注册族中尚余 6 个通用热读，且跨族事务、Passkey/null/未知 key/
+`GroupRatioSetting`、payment runtime 的 legacy 逐字段读取与活指针接线仍待；后续 N1 子范围已将热读余量收敛为 D14/D15 的两个族。真实付款、生产、设备及发布仍未做。`VERSION` 保持 0.1.1。
+
+`channel_affinity_setting` 的后续收口必须单列：复杂规则/模板会改变渠道、retry、上游参数和账务归属，且 capacity/TTL 当前只在 HybridCache 首建时读取。D15 需先确定重启或受控 drain/rebuild/epoch 的 cache 生命周期；不能把普通设置保存实现成静默清 cache、Redis 迁移或路由语义变更。
+
+2026-09-06 新增的 C09-N2a 只完成一个无副作用的 PaymentRuntime 内核：显式 seed 的 immutable generation、typed set/clear/keep、detached snapshot、候选 CAS/abort 与 canonical option copy 均留在 `setting/payment_runtime.go`，且把所有现有支付 option 与 `TopupGroupRatio` 纳入同一代际。它没有 caller，不读取或替换 legacy global、`OptionMap`、数据库、Provider SDK 或网络，因此不会改变真实支付行为。`go test -p 1 -count=1 -timeout=180s -v ./setting`、`go vet -p 1 ./setting` 在单核/768MiB 隔离组成功；独立审查发现并修复 `TopupGroupRatio` 的代际遗漏后复审无 P1/P2。后续仍须完成 N2b 请求快照、N3 typed DB/runtime writer、webhook keyring 窗口、Provider 补偿和三数据库验收，不能把本段当作支付接线或 C09 完结。
+
+同日 C09-N5a 增加了 root-only 的 `/api/option/diagnostics` 本地诊断子范围：精确路径在全局限流前写 no-store，`DisableCache → RootAuth` 覆盖业务 401/403/200；query 先以 `url.ParseQuery` fail-closed；业务层只做主库 `options` 的 1024 行有界 SELECT，key 仅读取前 256 字符和一字符截断探针，value 仅读取前 65537 字符，按类型元数据诊断 raw-null/空/非法 UTF-8/截断、注册 schema 和 GroupRatio alias，不读写 OptionMap、配置 generation、LOG_DB 或 Redis。超长/未知/畸形/dynamic external key、值和 parser error 一律不回显；MapConfig 不调用 validator，截断 source 或覆盖不全只给不确定状态。平台继承的鉴权/限流仍可使用自身 Redis cache，不能把该业务限制错误描述为全 HTTP 请求零 Redis。SQLite 合成 test/vet 与独立审查已完成；MySQL 5.7/PostgreSQL 9.6 实库证据为 P2，race、CI 和 N5b 修复流程仍待。
+
+同日 C09-N1 继续以低风险批次收口 `general_setting`、`console_setting` 与 `checkin_setting`：三者只替换原地反射发布为 immutable generation、完整 partial candidate 和 detached getter，保留注册名、键、默认值、unknown/partial/`null`/标量解析语义。`GetStatus` 对 general/console 字段各使用单代 snapshot；checkin 没有新增额度范围业务校验，负数、反向范围和极端差值风险仍待独立决定。单核/768MiB 下相关定向 Go test/vet 通过，独立审查无 P1/P2/P3；这不形成跨族 runtime 原子性、三数据库热更新或成功硬限额证据。
+
+同日对余下的 `performance_setting` 只做了盘点：它除 source 配置外还分别发布 disk/monitor 两个 `common` 投影，批量/重载可逐字段发布中间代，磁盘缓存一次操作也会多次读取配置且路径创建会重新读取全局 path。因此不能将其作为普通低风险 generation 批次接入；D14 需先决定 `DiskCachePath` 热切换生命周期，以及是否要求八个性能字段跨所有消费者同一 runtime generation。本段没有代码、测试或运行行为变更。
+
+同日 `token_setting` 完成了低风险快照化：保持注册名、`max_user_tokens`、默认 `1000` 和 generic parser 的宽松语义，私有 immutable generation 与 detached getter 只关闭 live-pointer race；它没有改变后端对 `0`/负值的历史接受行为，也没有处理 Key 数量检查与创建之间的竞态。单核/768MiB 定向 Go test/vet 和独立审查通过。
+
+同日 `grok`、`discord` 与 `oidc` 完成独立 immutable generation 子范围。Grok 保持违规收费开关/金额、有限 float parser 和 `service/violation_fee.go` 的既有单次读取，不新增收费规则；Discord/OIDC 保持全部 OAuth 持久键、HTTP/endpoint/redirect 语义和 secret 边界，`GetStatus` 对各族只取一次 snapshot。随后 `quota_setting` 保持免费模型预扣开关与默认 `true`，`qwen` 对同步图片模型列表做深复制并保留 `null`/空列表和既有 `Contains` 匹配；`fetch_setting` 对 domain/IP/port 列表深复制、保持默认 SSRF 策略并取消 getter 对 live policy 的可写暴露。三者均不改变 relay、账务或 Provider 语义。上述批次完成时尚余 6 个热读族；后续的 `gemini`、`billing_setting`、`payment_setting` 与 `global` 已进一步收口，目前仅余 D14/D15 所阻塞的两个热读族，以及跨族发布和服务端 Key 限额事务。
+
+`gemini` 的 request-private `ConvOptions` 现在连同 `SafetySetting` 与 `SupportsImagine` 回调绑定到同一 generation；`billing_setting` 的 mode/expression 两张 map 同代深复制，定价/同步读取不混代，但连续单 key 更新仍非跨 option 原子合同。`payment_setting` 保持七个既有持久键、金额 option/discount map 与合规判断的 detached snapshot，不接 PaymentRuntime、订单、SDK 或回调。`global` 深复制模型黑名单和策略图，`PreserveThinkingSuffix` 绑定捕获的 snapshot，缓存中旧 options 仍是旧代且重试按既有路径重建。四项单核/768MiB 相关 Go test/vet 均通过；独立审查在补齐 Gemini callback、Global partial-policy 回归后无 P1/P2/P3。它们不改变 Provider、账务、支付、路由或三数据库持久化语义。
 本机实际通过扩展后的 Settings/C09 同 CI race、根模块全量 test/vet/build、relaykit 独立 vet/build/test、
 gofmt、diff-check、YAML 与根 JSON 静态门禁。CI 原始日志确认 Redis 7 的短/25 小时 TTL、Go/Lua 拒绝和
 `SCRIPT FLUSH` 恢复均实际执行；MySQL/PostgreSQL engine 测试及 11 包扩展 race 均成功，不以 miniredis 或
@@ -400,18 +419,19 @@ relaykit 独立性，不把 UI 替换提前到代码合同稳定之前。
 | 领域 | 当前状态 | 完成定义 |
 | --- | --- | --- |
 | 品牌和旧元数据清理 | 审计清单已建立 | About 默认态、PNG/ICO 资产已切换；`docs/BRAND_AUDIT.md` 区分必须替换、兼容保留和法律保留项，NOTICE/源码头部仍需合规审查 |
-| 独立 UI 系统 | 尚未开始（代码层先行） | 不依赖旧 New API 信息架构，Full/LAN/移动端完成真实画面审查；当前已有的 Logo、品牌文案和局部功能面板不计为完整 UI 替换 |
+| 独立 UI 系统 | 尚未开始（代码层先行） | 不依赖旧 New API 信息架构，Full/Lite/Desktop/移动端完成真实画面审查；当前已有的 Logo、品牌文案和局部功能面板不计为完整 UI 替换 |
 | TokenHub 风格静态官网 | Chromium smoke 与审阅制品已实现 | 形成独立产品叙事、安装入口、发行版选择、安全说明、响应式菜单无障碍/主题交互、静态资源自动校验、390px/320px Chromium 移动 smoke（含窄屏水平溢出断言）和 main 变更自动生成的确定性 artifact workflow；真实移动视觉审查与绑定域名的独立发布仍待完成 |
 | 渠道额度历史 | 后端和前端初版已实现 | 普通渠道与 Codex OAuth 渠道均已有历史查询、折线图、失败状态、可选保留清理和只读健康指标；历史聚合按计划、单位、币种和窗口系列隔离，未指定系列时锁定最新系列；普通渠道与 Codex OAuth 均支持可选、有界后台采样；告警阈值和 notifier-neutral 去重策略已支持默认关闭、原子持久化和只读状态展示，外部通知通道仍待业务决策 |
 | 账户额度变化聚合 | 初版已实现 | 概览和管理员渠道页均可查看每分钟变化及最大变化排序；概览页在前台每 60 秒自动刷新，并显示 provider plan type 与错误采样状态；普通渠道与 Codex OAuth 后台采样已接入系统任务并避免与旧轮询重复，跨账户订阅账单同步和通知仍待后续迭代 |
-| 账户等级/Key 访问方案 | 独立策略注册表已实现 | 管理员可在计费设置的“Key access profile policies”编辑稳定 profile ID 的显示名、说明、路由组、模型白名单、回退方案和启用状态；Key 表单会显式提交 `access_profile_id` 并同时保留 legacy `group`，显式 `account_tier_id`/`access_profile_id` 会持久化，旧客户端省略时按现有记录或变更后的 `group` 兼容回退，旧路由保持兼容。路由/模型强制执行仍需单独迁移评审 |
+| 账户等级/Key 访问方案 | 独立策略注册表、S3-0 盘点与 PRE1 纯预检内核已完成当前子范围 | 管理员可在计费设置的“Key access profile policies”编辑稳定 profile ID 的显示名、说明、路由组、模型白名单、回退方案和启用状态；Key 表单会显式提交 `access_profile_id` 并同时保留 legacy `group`，显式 `account_tier_id`/`access_profile_id` 会持久化，旧客户端省略时按现有记录或变更后的 `group` 兼容回退。PRE1 只形成 detached diagnostic，永不强制；路由/模型强制执行仍需 D04 后的单独迁移评审 |
 | 设置引导生命周期 | 初版已实现 | 完成后自动消失、按用户和版本保存；真实多设备视觉审查仍待完成 |
 | Claude 支持 | Messages 原生转发与 Responses→Messages 兼容转换已实现；官方组织用量报告已确认存在 | 只实现有明确官方协议的能力；普通 Claude 渠道仍不读取账户余额，组织 Usage Report 只有在管理员显式配置受保护的 Admin 凭据并完成权限/保留策略后才接入 |
 | Google Antigravity 专用 relay | 第一阶段 transport 代码、边界测试和有界 Docker Go 回归已交付 | `AntigravityClient` 已覆盖官方 preview 的创建、状态读取、有限轮询、取消、删除和 usage 提取；`1827358` 增加 dynamic agent/continuation 字段约束、请求/响应大小上限、`requires_action` 终态、nil context 兜底和错误正文脱敏测试；`GOWORK=off go test ./relay/channel/gemini ./relay/channel/claude` 已通过。公开 relay/channel 接入按 [公共 Relay 闸门](./ANTIGRAVITY_PUBLIC_RELAY_GATE.md) 进行持久化、权限、计费和工具策略评审，余额端点不存在时显示 `unsupported` |
-| LAN Lite 桌面体验 | 安全状态体验与确定性发行合同检查已实现 | Electron 默认回环、单实例、持久会话密钥、显式 `--allow-lan` 私网绑定、安装脚本 `MYAPI_ALLOW_LAN` 安全门、只读 LAN 状态/防火墙提示、请求 `/api/status` 且要求 HTTP 2xx 与 JSON `success=true` 的生产探针、有效地址健康检查和托盘确认后重启切换已补齐；通配监听仅展示发现的 RFC1918 IPv4 候选；`npm run desktop:check` 与 CI 会验证 macOS/Windows 目标、资源、校验和与发布闸门；真实跨平台安装/局域网请求演练和系统防火墙自动配置仍待完成 |
+| Legacy LAN/当前 Desktop 安全边界 | 合同检查已实现，不是正式 Lite/Desktop 完成交付 | 当前 Electron 默认回环、单实例、显式 `--allow-lan` 私网绑定和私网地址提示已验证；它仍以 `lan` 混合功能版/安装形态/访问范围，未提供服务器 Lite、公共访问向导、统一更新器或正式跨平台交付。P0 已将迁移、安装与更新合同纳入计划，真实安装/网络验证仍待完成。 |
 | 新开发环境数据库默认值 | 代码与模板已验证 | `docker-compose.dev.yml`、`makefile` 及多语言 README 的新开发示例默认使用 `myapi`；显式 `MYAPI_DEV_POSTGRES_DB`/`DEV_POSTGRES_DB` 可接管既有数据库，未执行自动迁移或生产改名 |
-| GHCR 自动升级 | CLI 预检与执行流程已实现 | 生产端显式拉取、可选签名验证、可选 digest 固定、健康检查、环境备份和失败回滚已有；`upgrade --dry-run --json` 可在副本上无写入预检，SQLite 脱敏副本的新镜像迁移与旧镜像回滚已完成，PostgreSQL/生产数据库恢复和人工审批仍待完成 |
-| NPM 正式发布 | 未完成 | 版本、Tag、清单、测试和用户确认齐备后发布 |
+| Legacy Docker 升级 | CLI 预检与有限 Docker 回退已实现 | 生产端显式拉取、可选签名验证、可选 digest 固定、健康检查、环境文件备份和失败回滚已有；它不证明数据库回退、原生/Desktop 更新、持久 journal 或形态切换。完整目标见 [发行制品、安装与更新合同](RELEASE_MANIFEST.md)。 |
+| 统一 NPM 发行与更新 | 未完成；schema-1 结构选择/输入硬化、未受信 raw-bytes evidence 与 D2A 纯安装状态子范围已验证 | 保留 `@forcemind/myapi` / `myapi`，新增同源受信 Release Manifest、平台制品选择、受控清理、更新/回退和切换；现有纯 selector/evidence/installation state 不获取/验签资产、不读写文件或安装，且对 hostile JS 输入 fail closed；正式 NPM/GHCR/tag 发布仍需单独授权。 |
+| S5-P 提示词学习与版本中心 | P0 合同与 P1a/P1b 纯内核子范围已完成；完整 P1 未实现 | 默认关闭、授权范围、脱敏派生样本、触发/预算、版本/差异、Codex 文件受限应用、备份/回滚和三形态支持见 [专题](PROMPT_LEARNING.md)；纯内核不接真实日志、模型、文件或存储。 |
 
 ## 5. 领域模型重构方向
 
@@ -429,6 +449,8 @@ relaykit 独立性，不把 UI 替换提前到代码合同稳定之前。
 1. 第一阶段只改 UI、说明和返回的展示元数据，保留旧 `group` 字段兼容（已完成）。
 2. 第二阶段增加访问方案显示名、描述、倍率、可选范围和稳定标识（内置方案及管理员注册表配置已完成）。
 3. 第三阶段已增加 `users.account_tier_id` 与 `tokens.access_profile_id` 独立字段，并在启动迁移中从旧 `group` 幂等回填；旧 `group` 继续作为兼容回退。当前已增加 `access_profile_setting.profiles` 注册表及计费设置管理编辑器，供管理员配置稳定 profile 的说明和候选约束；路由/模型强制执行需在兼容策略评审后再启用。
+
+4. S3-PRE1 现提供不接运行路径的 `service/accesspolicy` envelope：固定 reference/list presence/legacy outcome 经有界校验形成确定性诊断快照，所有模式均不应用结果。它不能读取或更改 legacy 路由、价格、缓存或账务，也不替代 D04 对权益交集、disabled/fallback 和计费快照的决定。
 
 创建 Key 的界面不再只显示 `Group`，而显示“Key 访问方案”，每个选项必须展示用途、计费倍率、路由范围和是否可用。
 
@@ -487,6 +509,23 @@ CHANNEL_QUOTA_ALERT_COOLDOWN_SECONDS=3600
 CHANNEL_QUOTA_ALERT_NOTIFY_ON_RECOVERY=false
 ```
 
+### 5.3 S5-P 提示词学习与版本中心
+
+S5-P 是与 S5-Q 额度闭环并列的必选模块，不替代渠道提示词、Full Content 日志、Codex 凭据导入或现有权限模型。目标是让用户在手动启用、限定用户/项目/Key 范围、明确外发渠道/模型和预算后，从**已脱敏且可审阅的新增用户需求样本**生成可复用的 Codex 自定义指令文档。
+
+当前未接线的 P1a/P1b 纯内核负责包内候选的来源类别、文本边界、二层脱敏、scope 隔离指纹，以及完整 server-observed turn 的单一新用户段准入。P1b 明确排除历史/system/developer/助手/工具/附件/响应/internal/automatic-analysis 段，并以独立 observation HMAC 绑定可信物理回执和规范化 eligible payload；它不读取或保存实际日志，不调用模型，也不形成用户可用功能。真实采集、用户隔离、DB 去重、调度、版本中心和文件应用仍按专题计划推进。
+
+核心不变量如下：
+
+- 默认关闭；没有新样本时不调用模型。时间与请求数触发独立启用、可按任一/同时条件组合，双条件同批命中只生成一个 run。
+- 原始 Full Content JSONL 不直接作为训练集或模型输入；排除 system/developer、助手、工具、附件、凭据、响应正文、重试、重复上传和自动分析任务，并在发送前进行第二层正文脱敏。
+- 需求候选区分长期偏好、重复需求、纠正、禁止、项目规则、一次性任务、已替代规则和冲突/证据不足；高频不自动变全局规则，锁定规则不被静默删除。
+- 自动生成、人工编辑和模型再生成都创建不可变版本；冻结样本范围与基线，保留来源摘要、渠道/模型、token、费用、父版本和差异；并发编辑不能被旧结果覆盖。
+- 读取 Codex 指令、向分析模型外发、应用到目标文件三者单独授权。定时任务只生成草稿，绝不自动应用；文件应用需检查路径/链接/外部修改、原子备份/替换/校验并可回滚。
+- Lite 服务器、个人电脑 Lite 与 Desktop 都可支持本模块，但公网访问者永远不获得宿主文件或 Codex 权限；容器只能经受限宿主集成，LAN 浏览器不能直接写访问者电脑。
+
+S5-P 的数据模型、调度、费用、Codex 集成、阶段和验收见 [提示词学习与版本中心](PROMPT_LEARNING.md)。付费自动分析调用依赖 B3 原子账务、C03b 权威余额/receipt、S3 相关权限和 S4 的恢复合同；在此前仅可进行合成/假上游验证。
+
 ## 6. UI 与交互路线
 
 ### 6.1 Key 创建
@@ -502,15 +541,15 @@ CHANNEL_QUOTA_ALERT_NOTIFY_ON_RECOVERY=false
 
 ### 6.2 设置引导
 
-设置引导按用户与版本记录完成状态；完成所有步骤后应自动移除引导卡片，不能继续渲染“设置引导已完成”提示，也不重复打开已完成入口。Full 构建的管理员还会看到“配置上游渠道”步骤，该步骤仅在具备 `channel.read` 权限时查询渠道数量；普通用户和 LAN Lite/极简构建不显示管理员步骤。当前实现已覆盖基础生命周期，仍需完成真实多设备视觉审查。
+设置引导按用户与版本记录完成状态；完成所有步骤后应自动移除引导卡片，不能继续渲染“设置引导已完成”提示，也不重复打开已完成入口。当前 Legacy Full 构建的管理员还会看到“配置上游渠道”步骤，该步骤仅在具备 `channel.read` 权限时查询渠道数量；普通用户和 Legacy LAN/极简构建不显示管理员步骤。当前实现已覆盖基础生命周期，Lite/Desktop 的目标引导在 S6 重建。
 
-- 已完成：按发行版和角色显示相关步骤；Full 管理员在具备 `channel.read` 时看到渠道配置步骤，普通用户与 LAN Lite 不显示管理员步骤。
+- 已完成：按当前 Legacy 发行版和角色显示相关步骤；Full 管理员在具备 `channel.read` 时看到渠道配置步骤，普通用户与 Legacy LAN 不显示管理员步骤。
 - 已完成：整个引导卡片移除，不占首屏空间。
 - 需要帮助：从帮助菜单或“重新查看快速开始”主动打开。
 - 状态按用户 ID 和引导版本保存，不使用跨用户的单一 localStorage key。
 - 步骤使用稳定 ID，并区分未开始、进行中、完成、不适用、错误和权限不足。
 
-Full 版可包含渠道、额度和日志步骤；LAN Lite 只包含创建 Key、选择访问方案和发送测试请求。
+目标 Full 版可包含渠道、额度和日志步骤；目标 Lite/Desktop 保留核心调用与安全流程，具体页面差异由 S6 能力矩阵决定，不能继续以 Legacy LAN 的极简路由替代。
 
 ### 6.3 额度趋势
 
@@ -551,70 +590,40 @@ Full 版可包含渠道、额度和日志步骤；LAN Lite 只包含创建 Key�
 4. Google Antigravity 不通过普通 Gemini 路由伪装实现，不读取本地凭据；只有官方稳定额度接口出现后才增加额度适配。
 5. Advanced Custom 使用受限的 JSON 映射，不保存原始敏感响应。
 
-## 8. Full、LAN Lite 和桌面版
+## 8. Full、Lite、Desktop、安装形态与访问模式
 
-### Full
+Full、Lite、Desktop 的产品定位以第 1 节为准。下面的能力矩阵用于产品、后端门禁、安装器、界面和文档；它不能用当前 `MYAPI_EDITION=lan` 的实现替代。
 
-适用于服务器或团队：完整渠道管理、用户管理、日志、额度、订阅和运维功能。
+| 范围 | Full | Lite | Desktop |
+| --- | --- | --- | --- |
+| 典型用户 | 团队/组织与完整治理 | 个人/小规模，服务器或个人电脑 | 希望本机安装和管理 Lite 的个人 |
+| 核心业务 | 完整 | 可靠转发、鉴权、Key、日志、额度安全、必要备份恢复 | 与 Lite 相同 |
+| 管理复杂度 | 完整用户、权限、订阅、支付与运维 | 精简默认流程；任何不提供能力须显示影响且保留历史数据 | 只增加安装、托盘、后台服务与 OS 集成 |
+| 默认数据与运行 | 由部署拓扑决定 | SQLite-first、低依赖 | 平台 `userData`，同 Lite 模型 |
+| 访问模式 | local/LAN/public 独立配置 | local/LAN/public 独立配置 | local/LAN/public 独立配置 |
+| 指令学习与 Codex 集成 | 经授权支持 | 经授权支持 | 经授权本机支持 |
 
-### LAN Lite
+个人电脑 Lite/Desktop 初始只绑定本机。LAN 分享和公网开放是两个独立操作：公网向导检查监听、端口、权限、防火墙、NAT/CGNAT、IPv4/IPv6、域名/DNS/HTTPS、反向代理或用户选择的隧道，并以外部网络验证区分“已验证”“仍需配置”“不支持”“无法自动判断”。电脑休眠、合盖、关机、断网、退出后台服务、上行带宽和动态地址都会影响公网可用性，界面和平台教程必须如实说明。
 
-适用于可信局域网：
+现有 `lan` 配置在过渡期只作为 Legacy 映射：回环为 Lite/local，私网显式 `ALLOW_LAN=true` 为 Lite/lan，绝不自动推导 public。新旧字段冲突必须拒绝；不改 GHCR/NPM 地址、包名、tag 或用户数据，直到负责人决定兼容命名与弃用窗口。完整映射与发行约束见 [发行制品、安装与更新合同](RELEASE_MANIFEST.md)。
 
-- macOS 和 Windows 优先。
-- SQLite-first，单进程，最小配置。
-- 默认绑定回环地址。
-- `--allow-lan` 才允许非回环监听。
-- 不导入本地 Codex/Claude 凭据。
-- 同事只获得自己的 MyAPI Key，不获得上游密钥、管理员密码或其他人的日志。
+## 9. 发行、安装、更新与恢复
 
-### Desktop
+现有 CI 已能构建 Full 与 Legacy LAN OCI、原生后端和部分 Electron 产物；现有 CLI 只能执行有限 Docker 升级。另有 schema-1 Release Manifest 的纯结构校验/fresh-install 选择和只冻结未受信原始 bytes 的 evidence 合同；selector/installation state 会在反射前拒绝 Proxy、访问器、非 plain object/array 等 hostile JS 输入，但都不获取、解析或验签资产，不能安装或更新。它们是可保留基础，不代表统一发行、Lite 服务器、Desktop updater、数据库回退或产品切换已完成。
 
-- Electron 负责安装、项目初始化、启动/停止、状态和升级提示。
-- 后端仍由 MyAPI 进程或受控容器运行。
-- 桌面进程默认以 `MYAPI_EDITION=lan` 和 `MYAPI_BIND_ADDRESS=127.0.0.1` 启动，避免无提示暴露到局域网；开放局域网必须显式传入 `--allow-lan` 和私网绑定地址。托盘提供确认后的重启切换，真正运行中热重绑定仍不启用。
-- Electron 使用单实例锁，避免重复进程争用端口和 SQLite 数据库。
-- 升级必须先拉取目标镜像、执行健康检查，再切换服务。
-- 保留旧镜像和数据目录以支持回滚。
+后续使用一个经验证的 `RELEASE_MANIFEST.json` 将 NPM 包、源码 SHA、Full/Lite OCI digest、原生二进制、Desktop 产物、签名、SBOM/provenance、安装器兼容、数据库/配置 schema 和回退条件绑定。NPM 包、Full/Lite 运行制品和 Desktop 共享同一版本清单，但安装器只保留已选形态的运行文件；安装、配置、数据、日志、暂存和回退备份必须分开存放。
 
-## 9. GitHub Actions、镜像和自动升级
+安装、切换和更新必须有持久 journal 与单安装锁：预检 → 校验 → 暂存 → 备份 → 排空/维护 → 切换 → 健康/业务验证 → 提交 → 受控清理。失败或崩溃进入恢复、回退或人工处理状态；程序回退与数据库恢复明确分开。自动检查、自动下载、自动安装默认均关闭，且检查、下载、安装、维护窗口和更新范围分别配置。更新不得改变访问模式、用户授权、Key、额度、S5-P 数据或 Codex 文件。
 
-现有 CI 负责构建和推送：
+NPM bootstrap 只能由用户通过包管理器更新；应用不能自行改写全局 NPM。Docker 只能管理已登记的 Compose 项目和卷，不能 `down -v` 或接管未知目录；Desktop 必须把窗口关闭、退出应用和停止后台服务区别展示，并在更新后按用户原有运行状态恢复。所有细节、目录和验收见 [发行制品、安装与更新合同](RELEASE_MANIFEST.md)。
 
-```text
-ghcr.io/forcemind/myapi:<version>
-ghcr.io/forcemind/myapi-lan:<version>
-```
-
-后续标准流程：
-
-1. 提交并审查代码。
-2. 升级 `VERSION`、`package.json` 和相关清单。
-3. 创建新的 SemVer tag，不移动旧 tag。
-4. GitHub Actions 构建并签名 Full/LAN 多架构镜像。
-5. 同一 tag 触发 macOS/Windows Electron 构建。
-6. 部署端显式选择版本并拉取 GHCR 镜像。
-7. 健康检查通过后切换，失败则保留旧版本并回滚。
-
-CI 自动构建不等于自动重启生产服务。生产自动升级需要单独实现明确的拉取、审批、健康检查、备份和回滚策略。
-
-当前 `.github/workflows/ci.yml` 已在 `main` push、Pull Request 和手动触发时运行
-后端 vet/build/test、前端 typecheck/test、桌面发行合同以及 CLI/品牌/官网/LAN/打包合同检查；`.github/workflows/docker-build.yml`
-仍只在 SemVer tag（或显式手动输入既有 tag）时推送 GHCR，因此普通提交不会意外发布镜像。
+CI 自动构建不等于自动重启生产服务。正式 NPM/GHCR/tag/发布、系统权限、外部网络配置和生产升级均保持单独授权。
 
 ## 10. NPM 和版本策略
 
-正式发布前必须：
+正式发布前，除既有 `VERSION`、`package.json`、`SOURCE_MANIFEST.json`、测试与 tag 一致性检查外，还必须聚合并校验同一源码 SHA 的 `RELEASE_MANIFEST.json`、全部声明制品、hash/digest、签名和兼容矩阵。任何制品缺失或错误均不得标记为完整 release；未决定的 Lite 公开 OCI 坐标继续使用 Legacy 兼容记录，不静默创建新 namespace。
 
-- 确认目标版本号。
-- 同步修改 `VERSION`、`package.json` 和文档。
-- 重新生成 `SOURCE_MANIFEST.json`。
-- 执行 `npm test`、`npm run pack:check`、`npm run release:state`。
-- 检查新 tag 指向当前提交。
-- 不强制移动或覆盖已有旧 tag。
-- 得到明确确认后再执行 `npm publish`。
-
-当前发布状态需要继续核对旧 `v0.1.0`/`v0.1.1` tag 与当前提交的关系，不能假定旧 tag 可以复用。
+当前 `@forcemind/myapi` 尚未正式发布。未来统一入口可以通过交互式安装向导显示 Full 服务器、Lite 服务器、个人电脑 Lite 和 Desktop，但文档不能在实现/制品/签名/平台验证之前把设计命令写成已发布命令。正式发布仍需目标版本、tag、维护者确认和独立的 NPM/GHCR 发布授权。
 
 ## 11. 分阶段路线图
 
@@ -641,7 +650,7 @@ CI 自动构建不等于自动重启生产服务。生产自动升级需要单�
 - 历史查询 API、基础 summary 和权限（初版已完成；已补聚合/时区参数及 handler 参数拒绝测试）。
 - 渠道详情折线图、移动端降级视图和只读额度健康指标（代码初版已完成；概览额度变化支持前台自动刷新、provider plan type、错误状态和只读 warning/critical 告警徽标；真实设备审查与通知策略待完成）。
 - 采集失败、重置和不支持状态。
-- 额度告警配置（默认关闭；警告/严重阈值、重复通知冷却时间和恢复通知偏好均原子持久化、校验并只读展示；策略评估已实现但不发送外部通知，具体通道和凭据仍待业务决策）。
+- 额度告警配置（默认关闭；警告/严重阈值、重复通知冷却时间和恢复通知偏好均原子持久化、校验并只读展示；另有 P2A 纯 occurrence identity，以可信内部 channel/snapshot 引用和冷却周期生成 fail-closed key，不创建持久事件或发送外部通知；具体通道和凭据仍待业务决策）。
 
 ### P3：Provider 和预警
 
@@ -685,12 +694,13 @@ Claude Messages 转发和 Antigravity 请求边界，不从 Console 限额或 in
 
 ### P4：独立产品体验
 
-- 当前阶段策略：先完成后端、协议、安全、计费、迁移、桌面/LAN 和发行代码；完整 UI
+- 当前阶段策略：先完成后端、协议、安全、计费、迁移、Lite/Desktop 和发行代码；完整 UI
   替换暂缓，待代码合同稳定后再建立独立的信息架构、视觉系统和真实设备验收批次。
 - 在 TokenHub 和原 New API 的参考研究基础上，完成 MyAPI 独立管理 UI；不复制任一项目的代码、页面、资产、文案或品牌。
-- 静态官网和发行版选择页（基础交互、静态资源校验和 main 变更自动 artifact workflow 已完成，真实浏览器/移动视觉审查与绑定域名的发布 workflow 待完成）。
-- LAN Lite macOS/Windows 安装、升级、状态和回滚。
-- GHCR 版本拉取自动化（CLI 预检、显式拉取、可选签名校验和失败回滚已完成，生产审批/数据备份演练待完成）。
+- 静态官网和发行版选择页：Full、Lite、Desktop 及服务器/个人电脑安装选择，明确 local/LAN/public 是独立访问模式；基础交互、静态资源校验和 main 变更 artifact workflow 已完成，真实浏览器/移动视觉审查与绑定域名发布仍待完成。
+- 统一 NPM 入口、Release Manifest、安装器所有权清单、服务器 Lite、个人电脑 Lite、Desktop 安装/升级/状态/回滚，以及中英文验证过的教程。
+- 产品形态切换、手动/自动更新、持久 journal、数据库恢复边界、S5-P 数据保留与受限宿主集成。
+- S5-P 的样本治理、调度/预算、版本中心、差异/导出、人工文件应用/回滚；真实日志、付费调用与宿主写入另行授权。
 
 ## 12. 测试和验收矩阵
 
@@ -708,17 +718,18 @@ Claude Messages 转发和 Antigravity 请求边界，不从 Console 限额或 in
 - Key 访问方案表单和旧数据兼容。
 - 引导未开始、进行中、完成、不适用和错误状态。
 - 折线图加载、空数据、失败、触摸和响应式布局。
-- Full/LAN/管理员/普通用户差异。
+- Full/Lite/Desktop、管理员/普通用户及 local/LAN/public 状态差异。
 - 中文、英文及其他支持语言。
 
 ### 运行和发行
 
 - TypeScript 类型检查、前端测试和生产构建。
 - Go 单元测试、格式检查和 API 回归。
-- Docker Full/LAN 构建和健康检查。
-- macOS/Windows 构建产物验证。
-- GHCR 镜像标签、签名和回滚。
-- 不触碰生产数据的升级演练。
+- Full/Lite OCI、原生和 Desktop 与同一 Release Manifest 的版本、SHA/digest、签名和平台矩阵校验。
+- Docker/原生/Desktop 安装、健康、清理、切换、更新中断、回退与三数据库恢复副本。
+- 本机、LAN、公网状态准确性和外部验证；升级不得扩大访问范围。
+- S5-P 数据、授权、预算、任务恢复和 Codex 应用备份保持正确。
+- 不触碰生产数据的升级演练；实际设备、网络、签名与正式发布单独记录。
 
 验收不能用静态代码检查替代真实画面检查，也不能用镜像构建成功替代生产升级验证。
 
@@ -754,6 +765,10 @@ Claude Messages 转发和 Antigravity 请求边界，不从 Console 限额或 in
 - Claude 和 Antigravity 是否存在可依赖的官方额度接口。
 - 生产环境是否启用 GHCR 自动拉取，以及是否需要人工审批。
 - NPM 正式发布时使用哪个新 tag。
+- `@forcemind/myapi` 是否演进为轻量安装入口、Release Manifest 的信任根，以及 Lite OCI 的长期兼容坐标。
+- 原生安装的标准数据/配置/日志目录、system/user service、最低可升级版本、RPO/RTO 与数据库 downgrade 规则。
+- Desktop 首发平台/架构、Linux Desktop 的正式支持条件和自动更新策略。
+- S5-P 的用户/项目/Key scope、指令正文加密、允许的分析渠道/预算与历史样本导入范围。
 
 ## 15. 实施文件映射
 
@@ -766,6 +781,7 @@ Claude Messages 转发和 Antigravity 请求边界，不从 Console 限额或 in
 | 设置引导 | `controller/setup.go`、系统状态接口 | `web/src/features/dashboard/components/overview/overview-dashboard.tsx`、`web/src/features/setup/` | 引导状态、角色、版本迁移测试 |
 | 移动端日志 | 日志查询和完整内容日志控制器 | `web/src/features/usage-logs/`、`web/src/features/full-content-logs/` | Vitest、真实移动浏览器检查 |
 | Provider 支持 | `relay/channel/codex/`、`relay/channel/claude/`、`relay/channel/gemini/`、额度适配器 | 渠道创建和状态页 | 官方接口 fixture、失败和安全测试 |
-| LAN Lite | `cli/myapi.mjs`、`deploy/`、发行配置 | 极简路由和安装状态页 | macOS/Windows、端口和回滚演练 |
-| CI/CD | `.github/workflows/`、Dockerfile、版本脚本 | Electron 打包配置 | 镜像标签、签名、产物和发布检查 |
+| Lite/Desktop 与访问模式 | `cli/myapi.mjs`、`deploy/`、edition/access resolver、受限安装管理器 | 安装、访问、公网向导、状态与托盘 | 服务器/个人电脑/桌面、端口、外部可达性与回滚演练 |
+| 统一发行与更新 | `package.json`、`tools/npm/`、`tools/upgrade/`、`tools/release/`、Dockerfile、版本脚本 | 安装/更新/切换/备份页面、Electron 打包配置 | Release Manifest、签名、制品、journal、清理、三数据库恢复与发布检查 |
+| S5-P 提示词学习 | `model/`、`service/`、`controller/`、专用 worker/授权/文件适配 | `web/src/features/prompt-learning/`、设置/版本/差异/授权页面 | 合成日志、预算/未知态、三数据库、文件安全、七语言与真实设备验收 |
 | 品牌/官网 | 构建参数、元数据和部署变量 | `web/src/lib/build-branding.ts`、`website/` | 旧引用扫描、视觉审查、许可证审查 |

@@ -1,10 +1,30 @@
 # My API 新对话启动提示词（Linux 源码开发）
 
-编制日期：2026-09-05。将下方文本作为负责人指令复制到在 `/root/myapi` 打开的新对话。
+编制日期：2026-09-05；2026-09-06 增补产品、发行与 S5-P 交接事项。将下方文本作为负责人指令复制到在 `/root/myapi` 打开的新对话。
 这份模板只有在负责人实际发送后才构成其中描述的授权；文档本身不授予额外权限。
 完整任务拆分见 [全项目执行计划](PROJECT_COMPLETION_EXECUTION_PLAN.md)。
 
 本提示词用于接管已本地提交的 B2-1 候选，不使用旧 Mac 交接提示词，不重新要求 HEAD 必须停在旧 main。
+
+## 2026-09-06 使用前补充
+
+模板中 B2-1 的历史状态仅用于说明当时授权，实时 Git、[全项目完成执行计划](PROJECT_COMPLETION_EXECUTION_PLAN.md) 和 [完成度审计](COMPLETION_AUDIT.md) 优先。当前已知还有未提交的本任务代码/文档；新对话必须先按模板核对工作树，不得覆盖或假定归属。新对话还必须完整读取：
+
+- [提示词学习与版本中心（S5-P）](PROMPT_LEARNING.md)：默认关闭、三层授权、合成样本/预算/版本/Codex 文件边界；不得把模板当作读取真实日志、调用模型或覆盖宿主指令的授权。
+- [发行制品、安装与更新合同](RELEASE_MANIFEST.md)：Full/Lite/Desktop、功能版/安装形态/访问模式分离、Legacy LAN 映射、统一入口、更新/切换/恢复边界；不得把合同当作发布、tag、生产升级、防火墙或公网开放的授权。
+- [Lite 与 Legacy LAN 迁移](LAN_LITE.md)：旧 `MYAPI_EDITION=lan` 只映射 Lite/local 或 Lite/lan，升级不能自动 public。
+
+当前局部证据也应按范围读取：Ali、Doubao、Gemini、Hailuo、Jimeng、Kling、Sora、Suno、Vertex、Vidu 的 B2-2A parser 在 HTTP 200 时已由 legacy `DoResponse` 调用，gate-off 非 200 安全兼容 bridge 在 parser 前处理；Task 单个 outbound attempt 的 one-shot body、3xx 不跟随、客户幂等头隔离和 Vertex OAuth JWT 换取无重定向均已有受限制最终测试与独立审查，但没有 durable 提交接线。B2-2B0 的设计确认不能包裹旧 retry/failover，真正 POST 必须等 D02 与 B3-A；当前另有无 caller 的严格 protocol、T0 owner/replay 原子基元、Full Content 字段级幂等脱敏，以及 owner-scoped、no-store 的只读 `GET /v1/task-operations/:id`（DTO/router/controller 已接线），B1a/B1b 另有 JSON 与仅 video form/multipart canonical request fingerprint，仍无 POST、账务或上游。`setting/system_setting/legal.go` 与 `setting/perf_metrics_setting/config.go` 是 C09-N1 的私有 immutable generation：分别保持 legal 原键/默认/controller 输出，以及 perf metrics 四键、整值浮点解析和读时 fallback，仅返回 detached snapshot；另有 `setting/payment_runtime.go` 的 C09-N2a immutable payment generation，它涵盖现有支付 option 与 `TopupGroupRatio`，三者都不读写 legacy global、OptionMap、DB、SDK 或网络，不能被当作付款/回调/账务已迁移。C09-N5a 的 `/api/option/diagnostics` 是 RootAuth/no-store 的有界主库只读诊断，业务层不触碰 OptionMap/runtime/LOG_DB/Redis，但平台鉴权/限流仍可使用自己的 cache；不回显 values 或不可信 key，MySQL/PG/CI 仍待。`service/promptlearning` 是未接线的 P1a/P1b 纯准入/脱敏/指纹内核：仅 package-private 完整 server-observed turn 可提取一个可信新增用户段，排除段/客户端来源声明不进入样本或指纹，仍不能读取真实日志或计数。`service/accesspolicy` 是 S3-PRE1 无 caller 的 detached snapshot/diagnostic，所有 mode 都不应用策略、不触碰路由/价格/账务/缓存；D04、audit ingress 和 enforce 仍待。`cli/lib/release-manifest.mjs` 与 `installation-state.mjs` 分别是 schema-1 结构选择和内存安装状态/cleanup plan，且拒绝 Proxy/访问器等 hostile JS 输入；它们不能获取/验证资产、读写文件、安装、更新、切换、回退。上述子范围均不改变 C03b gate、生产、真实模型或宿主文件边界。
+
+本轮的其他有限本地证据如下：B2-2B1a/B1b 已补严格 JSON 与仅 video form/multipart canonical digest/版本化请求 HMAC，仍未接入 POST/账务/上游；C09-N1 现有 22/24 个注册族采用受控快照/复制，新增 `gemini`、`billing_setting`、`payment_setting` 与 `global` 后，仅 `performance_setting`/`channel_affinity_setting` 分别等待 D14/D15。Gemini 的 `ConvOptions` callbacks 与 request snapshot 同代；billing 的 mode/expression map 同代深复制，价格、定价与同步读取各自单次捕获；payment 保持七个既有持久键及金额 map 的 detached snapshot，不接 PaymentRuntime、SDK、订单或回调；global 深复制黑名单/策略图，缓存中旧 `ConvOptions` 保持旧代、重试才按既有逻辑重建。连续单 key 写入仍不构成跨 option 原子性。既有 token/quota/Grok/Qwen/fetch/OAuth 的兼容边界保持不变；S5-Q P2A 仍仅生成 fail-closed occurrence identity；`release-manifest-evidence.mjs` 仍仅处理未受信 raw bytes；`legacy-installation-profile.mjs` 仅把显式 Legacy Docker 配置 fail-closed 映射为 Full/Lite 与 local/LAN/needs_manual，永不推断 public、不读文件或接线 CLI。适用的单核/768MiB test/vet 和未参与实现者独立审查均已完成（manifest/installation state Node 28/28，evidence 9/9、legacy profile 7/7）；没有 MySQL/PG 当前 SHA、CI、真实日志/模型、文件安装或外部网络验收。
+
+`performance_setting` 是余下两个 C09 热读族之一：只读盘点已发现它分开发布 disk/monitor 投影，磁盘缓存消费者可在一次操作中多次读取配置，不能以 source 指针原子化冒充全链路同代。D14 必须先决定 `DiskCachePath` 热切换及跨投影一致性；此项没有代码、测试或运行行为变更。
+
+`billing_setting` 已完成最低快照化：`billing_mode` 与 `billing_expr` 同 generation 深复制，`relay/helper/price.go`、`model/pricing.go` 与同步数据各只读一次 snapshot；不改 `pkg/billingexpr/expr.md` 的表达式/额度合同。兼容单 key 更新不能宣称跨 key 原子，统一提交仍留给 C09-N3 typed bulk；本项有单核/768MiB test/vet 与独立审查证据，但不改变运行中的账务语义。
+
+`channel_affinity_setting` 是余下热读族中的 routing/cache 高风险项：规则/嵌套模板影响渠道、retry、上游参数和账务归属，capacity/TTL 却只在 HybridCache 首建读取。D15 必须先决定重启或受控 drain/rebuild/epoch；不得在普通快照化中静默清 cache、迁移 Redis、改变规则优先级、retry 或账务归属。本项没有代码、测试或运行行为变更。
+
+本轮 P0 文档整合及上述纯子范围不表示 S4-D、完整 S5-P、S6 或 S7 已实现。实施前仍按 AGENTS 的“先方案、明确批准、再执行”规则，且保持 B2/B3/C03b 主链优先与共享文件单写者。
 
 ```text
 你接管 My API 在 Linux 开发目录 /root/myapi 的全项目后续开发。
@@ -55,7 +75,7 @@ docs/COMPLETION_AUDIT.md
 持续目标：
 完成 S2-B2/B3、C03b 全账务与缓存恢复、C09 剩余配置/限额、S3 账户和 Key 真正策略、
 S4 完整运行/升级/备份恢复、S5 额度闭环及确认的扩展、S6 完整独立 UI/官网、S7 交付就绪。
-保留原协议、B1 计费快照、导入、日志脱敏、额度分析、Full/LAN/Desktop 与 relaykit 独立性。
+保留原协议、B1 计费快照、导入、日志脱敏、额度分析、Full/Lite/Desktop 与 relaykit 独立性；Legacy LAN 的安全边界按迁移合同保留，不自动开放公网。
 读取已有目标后使用产品提供的方式维护或恢复，不重复建目标，不把未完成目标标成 complete。
 
 顺序：

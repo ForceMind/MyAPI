@@ -8,23 +8,57 @@
 | API 兼容 | `relay/` 转换器与后端 CI | 已验证 | 上游版本变化时继续回归 |
 | API/响应日志 | `web/src/features/usage-logs/`、`web/src/features/full-content-logs/`、移动集成测试、脱敏测试、移动内容高度修复；列表与 Full Content Logs 查询缓存均按 user/session 隔离 | 代码已验证 | 真实手机视觉验收 |
 | 运行构建可见性 | 管理员「系统信息」中的只读 Runtime build 标识、`build-metadata.ts` DOM/global 元数据及 `build-metadata.test.ts`；Docker/Release/Electron 构建注入 commit SHA；历史 Linux 副本曾切换到 `local/new-api:myapi-c283c1d` 并健康 | 代码与历史副本有证据；当前部署未核验 | 真实管理员手机视觉验收仍待完成 |
-| 完整独立 UI 系统 | 当前仅有 MyAPI 品牌资产、必要文案和局部额度/日志功能增量 | 尚未开始（代码层先行） | 需在代码合同稳定后另行完成信息架构、视觉系统、Full/LAN/移动端真实画面与设备验收；不得把局部增量误报为 UI 全量替换 |
+| 完整独立 UI 系统 | 当前仅有 MyAPI 品牌资产、必要文案和局部额度/日志功能增量 | 尚未开始（代码层先行） | 需在代码合同稳定后另行完成信息架构、视觉系统、Full/Lite/Desktop/移动端真实画面与设备验收；不得把局部增量误报为 UI 全量替换 |
 | 渠道额度历史 | `controller/channel-billing.go`、`controller/codex_usage.go`、历史/聚合测试、权限路由测试；2xx 无有效 Codex rate_limit 时标记 unsupported；历史聚合按 metric/window/source/plan/unit/currency/window_seconds 隔离；快照按渠道/系列/观测时间桶幂等保留首条，并以 nullable SHA-256 唯一键抵抗并发重复写入 | 已验证 | 真实登录账号和采样数据演练 |
 | 概览与渠道额度分析 | `service/quota_analysis.go`、history/changes/OpenAPI、`quota-overview-card.tsx`、共享详情图表、48 点服务端折线、三种速率方法、reset-aware ETA、七语言与浏览器脚本；概览单次有界查询且无高级控件，渠道页保留完整周期/颗粒/指标/图形/算法 | `6f8f85b` / CI `33861244725` 八项成功；本机受控回归和独立审查已闭环；同 SHA 的 Docker smoke `33862317233` Full/LAN 两项成功 | 需要真实管理员在最新镜像等待至少两个采样核对；真实手机、长时间数据量和生产性能仍待完成 |
 | Codex 本机登录检测/导入 | `service/codex_local_auth.go`、`controller/codex_local_auth.go`、真实渠道路由安全链、`model/channel_credential.go`、跨实例 `system_task_locks` 命名租约、缓存 generation、`id_token` Full Content 脱敏、向导/手工 fallback及定向普通/race/浏览器测试 | 后端 `a7499a5` / CI `33857902218` 八项成功；完整向导与额度整合 `6f8f85b` / CI `33861244725` 八项成功；同 SHA 的 Full/LAN 镜像冒烟成功，测试不读取真实开发者凭据 | Full 原生真实账号导入需由 Root 在本机显式操作；容器/LAN 不自动扫描宿主机；真实账号长期运行仍由用户验收 |
-| 账户等级/Key 访问方案 | `model/access_profile.go`、Key/UI/API 测试、策略注册表及旧 Key profile 保留测试；Key 表单显式提交稳定 `access_profile_id` 并保留 legacy `group`；`setting/access_profile.go` 校验 fallback 目标存在、去空格后的 ID 唯一性和循环依赖 | 兼容层已验证 | 强制路由迁移评审 |
-| 设置引导 | Full/LAN Lite/权限条件、生命周期测试 | 已验证 | 多设备视觉检查 |
+| S5-P 提示词学习与版本中心 | `docs/PROMPT_LEARNING.md` 的 P0 合同，以及 `service/promptlearning` 未接线的 P1a/P1b 候选准入/脱敏/指纹纯内核 | P0 与 P1a/P1b 本地子范围已验证；完整 P1 未实现 | 无数据模型/API/worker/UI/文件适配或真实 ingress；不得读取真实日志、调用模型或写 Codex 文件；付费调用依赖 B3/C03b，文件适配依赖 S4 |
+| 账户等级/Key 访问方案 | `model/access_profile.go`、Key/UI/API 测试、策略注册表及旧 Key profile 保留测试；`service/accesspolicy` 的 detached PRE1 snapshot/diagnostic；Key 表单显式提交稳定 `access_profile_id` 并保留 legacy `group`；`setting/access_profile.go` 校验 fallback 目标存在、去空格后的 ID 唯一性和循环依赖 | 兼容层、S3-0 盘点与 S3-PRE1 纯内核已验证；enforce 未实现 | D04 确认后才可进入强制路由迁移 |
+| 设置引导 | 当前 Legacy Full/LAN Lite/权限条件、生命周期测试 | 已验证 | Lite/Desktop 新信息架构与多设备视觉检查 |
 | 品牌与旧元数据 | `tools/branding/check.mjs`，最近运行 `blocking_count: 0` | 阻断项已清零 | NOTICE、源码头和兼容标识法律审查 |
 | 静态官网 | `tools/website/check-static.mjs`、Chromium smoke、artifact workflow | 自动化已验证 | 真实移动视觉与独立域名发布决策 |
-| LAN Lite/桌面 | `lan:check`、`desktop:check`、Electron 安全边界；`electron/test/desktop-probe-contract.test.mjs`、`runtime-config.js` 和 `tools/desktop/check.mjs` | 合同已验证（生产探针为 `/api/status`，要求 HTTP 2xx 且 JSON `success=true`；开发首页仍仅校验 HTTP 状态）；CLI 与托盘对通配监听均仅展示发现的 RFC1918 地址 | macOS/Windows 实机安装、LAN 请求、防火墙；真实设备运行结果不得由合同测试代替 |
+| Legacy LAN/当前 Desktop | `lan:check`、`desktop:check`、Electron 安全边界；`electron/test/desktop-probe-contract.test.mjs`、`runtime-config.js` 和 `tools/desktop/check.mjs` | Legacy LAN 合同已验证（生产探针为 `/api/status`，要求 HTTP 2xx 且 JSON `success=true`；CLI 与托盘对通配监听均仅展示 RFC1918 地址） | 这不是服务器 Lite、个人电脑 Lite、公共访问向导或完整 Desktop updater；macOS/Windows/Linux 实机、LAN/公网、安装切换和恢复仍待 |
 | 多语言关键文案 | `web/src/i18n/locales/{fr,ja,ru,vi,zh-TW}.json`、`web/src/i18n/__tests__/locale-key-parity.test.ts` | English key parity 已验证（5 locales / 5 tests） | 真实设备文字长度与视觉审查 |
-| GHCR/升级 | `release:workflow:check`、`upgrade:check`、不可变 digest 合同；版本与架构 tag 构建前检查并 fail-closed 拒绝覆盖 | 自动化已验证 | 脱敏副本升级、数据库恢复、人工审批 |
+| Legacy GHCR/Docker 升级 | `release:workflow:check`、`upgrade:check`、不可变 digest 合同；版本与架构 tag 构建前检查并 fail-closed 拒绝覆盖 | Legacy Docker 自动化已验证 | 脱敏副本升级、数据库恢复、原生/Desktop、持久 journal、形态切换和人工审批仍待 |
+| 统一发行、安装与更新 | `docs/RELEASE_MANIFEST.md` 的 P0 合同，以及 `cli/lib/release-manifest.mjs` schema-1 结构校验/输入硬化/fresh-install-only 选择、`release-manifest-evidence.mjs` 未受信 raw-bytes evidence 和 `installation-state.mjs` 内存状态/cleanup plan | P0、结构选择/输入硬化、未受信 evidence 与 D2A 纯状态子范围已验证；未形成受信发行能力 | 无受信 manifest 获取/验签、真实文件安装/清理、统一安装器、自动更新器、服务器 Lite 或完整平台制品；正式发布仍待 |
 | 计费安全 | `service/violation_fee.go` 使用 checked quota rounding，并在饱和时拒绝收费、保留 `relayInfo.QuotaClamp`；对应正常值、溢出、`Inf`、`NaN` 与审计捕获回归测试 | 当前工作树代码与定向 Go 测试已验证 | 当前 CI 已通过；真实业务账本/生产额度仍待相应条件 |
 | 新开发环境数据库默认值 | `48abce6`、`docker-compose.dev.yml`、`makefile` | 代码与模板已验证（新开发默认数据库为 `myapi`） | 接管既有数据库必须显式设置 `MYAPI_DEV_POSTGRES_DB`/`DEV_POSTGRES_DB` 并在副本验证；该变更不执行重命名或迁移 |
 | Claude 组织用量 | `docs/CLAUDE_USAGE_REPORT.md`，官方 Usage Report 边界 | 设计已验证 | Admin 凭据、权限、保留策略和实际接入 |
 | Google Antigravity | `relay/channel/gemini/antigravity_client.go`、`antigravity_client_test.go`、`docs/ANTIGRAVITY_INTEGRATION.md`、`docs/ANTIGRAVITY_PUBLIC_RELAY_GATE.md`；`1827358` | 专用 transport 代码、边界测试及有界 Docker Go 回归已交付（create/get/poll/cancel/delete、usage、动态 agent/continuation 约束、大小上限、终态和脱敏） | 仍需完成公共 Relay 闸门中的持久化、权限、计费、工具策略和完整测试评审；稳定官方余额接口不存在时保持 `unsupported` |
-| NPM 正式发布 | CLI/打包/版本合同检查 | 发布前检查已验证 | 版本确认、tag、清单、用户明确确认与 `npm publish` |
+| NPM 正式发布 | CLI/打包/版本合同检查；P0 统一入口/Release Manifest 设计 | 发布前检查已验证；统一发行未实现 | 版本确认、tag、实际制品清单、用户明确确认与 `npm publish` |
 | macOS 开发迁移 | `docs/DEVELOPMENT_ON_MACOS.md`、`docs/CODEX_HANDOFF_PROMPT.md`、README 导航 | 文档已补齐 | 新 Mac 的工具安装、依赖测试和实机 Electron/LAN 验收需在新设备执行 |
+
+## 产品定位、发行与 S5-P P0 合同及纯子范围（2026-09-06）
+
+**P0 原始完成范围仅为文档设计整合。** 已新增 [提示词学习与版本中心](PROMPT_LEARNING.md) 与 [发行制品、安装与更新合同](RELEASE_MANIFEST.md)，并更新总体计划、全项目执行计划、历史执行计划、发行说明、Lite/Legacy LAN、升级演练、实机验收和交接文档。
+
+已记录的合同包括：
+
+- Full（团队/组织完整服务）、Lite（服务器/VPS/个人电脑的轻量正式产品）、Desktop（Lite 桌面安装/管理形态）；功能版、安装形态和 local/LAN/public 访问模式分离。
+- 保持 `@forcemind/myapi` / `myapi`，用独立 Release Manifest 连接 NPM、OCI、原生和 Desktop 制品；程序、数据、日志、暂存、备份分离，受控清理、持久更新 journal、形态切换和数据库回退边界明确。
+- S5-P 默认关闭，使用授权的派生样本和二层脱敏；时间/次数触发、预算、未知费用、不可变版本、人工 Codex 文件应用/备份/回滚、Full/Lite/Desktop 边界明确。
+
+P0 本身未修改 Go/TypeScript/CLI/Docker/Electron/CI，未生成 manifest 或安装制品，未访问真实日志、付费模型、Codex 指令/凭据或 `/root/new-api`，未发布、推送、创建 tag 或部署。其后增加下列本地子范围：
+
+- B2-2A 纯 parser：最初 Ali、后续扩展为十个现代 Task Provider；HTTP 200 的 legacy `DoResponse` 已调用 parser，非 200 已走共享兼容 bridge，详见本审计的 B2-2A 专节。它仍没有 durable consumer、T0–T4、持久账务或统一 202/查询接线。
+- `service/promptlearning` 的 P1a/P1b 纯内核：包内候选准入、大小/Unicode 边界、二层脱敏、scope 隔离 HMAC 指纹和 rotation alias；P1b 只接收 package-private 的完整 server-observed turn，恰取一个 server-marked 新用户段，明确排除 history/system/developer/assistant/tool/attachment/response/internal/automatic-analysis，且拒绝客户端声明、缺失/多段新输入与不完整 provenance。`hmac-sha256-v2` / `occurrence-v2` 已使 stable conversation/turn 的 logical occurrence 与 transport 排除物理 node/epoch 和 HTTP observation；独立 `observation-v1` HMAC 绑定它们与规范化 eligible payload，同轮跨节点/普通重启可 replay、异载荷仍 conflict。上下文敏感标签现以 Unicode rune 词边界识别，避免中文/阿拉伯文等普通词内 ASCII 后缀的过度遮盖，同时保持实际标签、Bearer、URL/JWT/API key/邮件/电话/高熵值 fail-closed。单核/768MiB 定向 Go test/vet 通过，P1b 两轮未参与实现者复审无 P1/P2/P3。没有真实 ingress、DB、日志、API、worker、模型、文件或调用者。
+- `service/accesspolicy` 的 S3-PRE1 纯预检内核：固定、有限的 Tier/Profile reference、group/model/route presence 与 legacy outcome 形成有界、确定性 snapshot/diagnostic；错误不含输入，所有 mode 都 `Applied=false`，不接数据库、缓存、Gin、全局设置或路由。单核/768MiB 定向 Go test/vet 通过，最终独立复审无 P1/P2/P3；它不代表 D04、audit ingress、策略存储、迁移或 enforce 已完成。
+- C09-N1 的 `setting/system_setting/legal.go`、`setting/perf_metrics_setting/config.go`、`setting/operation_setting/general_setting.go`、`setting/console_setting/config.go`、`setting/operation_setting/checkin_setting.go`、`setting/operation_setting/token_setting.go`、`setting/operation_setting/quota_setting.go`、`setting/model_setting/grok.go`、`setting/model_setting/qwen.go`、`setting/system_setting/fetch_setting.go`、`setting/system_setting/discord.go`、`setting/system_setting/oidc.go`、`setting/model_setting/gemini.go`、`setting/billing_setting/tiered_billing.go`、`setting/operation_setting/payment_setting.go` 与 `setting/model_setting/global.go`：均保持原注册名、键、默认值、公开 getter 与 generic partial/unknown/`null`/标量解析语义，以私有 atomic immutable generation、完整 candidate 与 detached getter 消除活指针。`GetStatus` 对 general/console/Discord/OIDC 使用同代 snapshot；checkin 未新增奖励范围校验，token 未收紧 `0`/负值或修复 Key 创建竞态，quota 未改免费模型预扣合同，Qwen 深复制同步图片模型列表但保留 `null`/空列表与 `Contains` 匹配，fetch 深复制 SSRF 三组列表且默认策略不变，Grok 未改收费规则，OAuth secret 可见性保持，既有风险仍待。相关单核/768MiB 定向 Go test/vet 通过，独立复审无 P1/P2/P3；24 个注册族中已有 22 个受控快照/复制，余下仅 `performance_setting` 与 `channel_affinity_setting`，分别等待 D14/D15。
+- 新增的 Gemini/Billing/Payment/Global 子范围均只缩小活指针和混代风险：Gemini 的 `ConvOptions` 回调绑定到请求捕获 generation；billing 的 mode/expression map 同代深复制并由价格、定价与同步读取各自单次捕获；payment 保持七个既有持久键并深复制金额选项/折扣 map，合规判定单次读取；global 深复制黑名单和策略图，并把 `PreserveThinkingSuffix` 绑定到已捕获 snapshot。连续单 key 写入仍不构成跨 option 原子性，payment 不接 PaymentRuntime/SDK/订单/回调，global 缓存旧 options 保留旧代、重试才按原有逻辑重建。独立审查先发现 Gemini callback 与 Global partial-policy 测试缺口，补齐后无 P1/P2/P3；不改变 Provider、账务、付款、路由或三数据库持久化语义。
+- `performance_setting` 只有只读盘点：source 之外还会分别发布 disk/monitor `common` 投影，逐 key reload/bulk 可能产生中间代，磁盘缓存单次操作会多次读取 enabled/threshold/max/path。普通 immutable getter 改造不能证明全链路同代；D14 仍须决定 `DiskCachePath` 热切换生命周期及是否需要统一 aggregate runtime generation。本项没有代码、测试或运行行为变更。
+- `channel_affinity_setting` 只有只读盘点：其 Rules 含嵌套 slice/template，影响渠道选择、retry、上游参数与账务归属；MaxEntries/DefaultTTL 又只在 HybridCache 首建读取。普通 getter 深复制不足以形成低分配同代服务读取，也不能把设置保存误报为 cache/Redis 热迁移。D15 必须先决定重启或受控 drain/rebuild/epoch；本项没有代码、测试或运行行为变更。
+- `grok` 的两项标量已按同一代发布，`service/violation_fee.go` 在单次收费判断中继续只读一次设置；不会因本批更改非零模型收费、checked quota conversion、结算或日志。单核/768MiB 的 `./setting/model_setting ./service` 定向 test 与 vet 通过，独立审查无 P1/P2/P3。
+- `quota_setting` 仅将 `enable_free_model_pre_consume` 的运行时发布改为不可变 generation，默认 `true` 与既有免费模型/零预扣语义未改；`qwen` 仅使 `sync_image_models` 的初始、发布和 getter 均深复制，保留默认列表、`null`/空列表和 `strings.Contains`（含空 pattern）语义。单核/768MiB 的 `./setting/operation_setting ./controller ./relay/helper` 与 `./setting/model_setting ./relay/channel/task/ali` 定向 test、相关 vet 以及两项独立审查均通过；无 Provider、账务、跨族或三数据库行为变更。
+- `fetch_setting` 已对 domain/IP/allowed-port 三个 slice 做 initial/getter 深复制，保留默认 SSRF protection=`true`、全部八键和 generic parser；已知生产读取方只消费 detached snapshot。视频代理测试的一处旧 live-pointer 写入在独立审查中被阻断，改为 ConfigManager 更新并保留完整 baseline cleanup 后复审无 P1/P2/P3。单核/768MiB 下 `./setting/system_setting ./service ./controller` 定向 test 和 vet 通过；未改网络、路由、SSRF 策略或跨 option 原子性。
+- Discord/OIDC 的 OAuth 配置已各自按同一代发布；`GetStatus` 仅从一次 snapshot 输出原有非秘密字段，OAuth 生产 HTTP 代码、endpoint/redirect 及服务器端 discovery 均未改。单核/768MiB 的 `./setting/system_setting ./oauth ./controller` 定向 test 与 vet 通过，独立审查无 P1/P2/P3。
+- `cli/lib/release-manifest.mjs` 的 schema-1 纯结构校验：冻结快照、bounded field/semver、URL/OCI、平台和 fresh-install 选择；在反射前拒绝 Proxy/revoked Proxy、自定义原型、访问器、symbol/非枚举字段、稀疏/额外属性数组，避免检查执行 hostile caller code。与 installation state 的受限串行 Node 定向测试 28/28 通过，独立审查无 P1/P2/P3。它不获取或验证受信 manifest/canonical bytes/signature/provenance，不下载、安装、更新、切换、回退或发布；受管操作明确 fail closed，D11 仍未决定。
+- `cli/lib/release-manifest-evidence.mjs` 的 raw-bytes 纯合同：仅复制并严格校验 1B–4MiB 的未受信 ArrayBuffer-backed bytes evidence，拒绝伪造 typed-array、SharedArrayBuffer、Proxy、非 canonical base64、长度或 lowercase SHA-256 不一致；不读取、解析、验签、联网或形成 `verified` 状态。单核/768MiB Node 合成测试 9/9 通过，独立复审修复后无 P1/P2/P3；它没有接线到 selector、CLI、安装器或任何信任边界。
+- `cli/lib/installation-state.mjs` / `canonical-artifact-reference.mjs` 的 D2A 纯状态合同：只接收已验证的 artifact identity，冻结 installation record，并在内存中生成显式 owned-file cleanup plan；在 descriptor/reflection 前拒绝 hostile JS object/array，且拒绝可变 OCI/HTTPS、路径穿越、保护目录重叠、未通过健康检查、错误 ownership authority 及未知字段。与 manifest 的受限串行 Node 定向测试 28/28 通过，独立复审无 P1/P2/P3。它不读写文件、不删除、不安装、不启动服务、不加锁、不更新或回退；D11 的信任根、持久 journal、实际 FS/TOCTOU、跨平台与真实恢复仍待。
+- `cli/lib/legacy-installation-profile.mjs` 的 Legacy 映射纯合同：仅对显式 Docker 配置生成冻结的 Full/Lite、`legacy-server-container` 和 local/LAN/needs_manual 画像；`lan` 只映射 Lite，精确 loopback/`localhost` 与明确私网是唯一自动判断，0.0.0.0、public、反代、缺失或冲突均需人工确认，永不输出 public。Proxy、访问器、未知字段与控制字符 fail-closed，且不读文件、网络、Docker 或接线 CLI。受限 Node 测试 7/7 通过，独立审查先修 `localhost` 与 revoked Proxy 再复审无 P1/P2/P3；它不构成安装、升级、监听或权限变化。
+- B2-2B0/B1a/B1b gate-off 基元与 owner 查询：B0 包含 `service/task_submission_protocol.go` 专用 HMAC、T0 owner/replay 原子基元、字段级 Full Content 脱敏与唯一 `GET /v1/task-operations/:id`；B1a 新增严格 JSON canonical digest/请求 HMAC，B1b 新增只限 `video.create`/`video.remix` 的严格 URL form/multipart canonical digest，Suno 非 JSON 明确拒绝。B1b 限制 1 MiB、form 128 字段/multipart 64 part、受限 MIME/header、唯一 field/part name、无路径/空 filename 歧义，并令 multipart material 独立于 wire boundary/part order；两者均绑定 token、method、kind、route、content family 与 body digest。单核/768MiB 下 B1b 定向 Go test、`go vet ./service ./service/promptlearning` 和未参与实现者独立审查通过。没有 caller、POST、账务、upstream 或 dispatch；MySQL 5.7/PostgreSQL 9.6 当前 SHA、CI/race 和运行时接线仍未实跑。
+- S5-Q P2A occurrence identity：`EvaluateChannelQuotaAlertOccurrenceV2` 只对可信、有总量且时间一致的 canonical `channel:<positive-id>`/`snapshot:<positive-id>` 输入生成 threshold/recovery/reminder 的 versioned digest key，并以 source snapshot/reminder cycle 区分重放、恢复和后续提醒；无效引用、未知状态、时钟或加法溢出均 fail-closed。单核/768MiB 的 `common` 定向 test/vet 与独立审查通过。它没有 DB/outbox/worker/notifier/网络/配置写入，不能视为持久事件或外部投递。
+
+因此此项仍**不能**证明任何完整 durable 运行功能、发行、安装、更新、真实采集、文件应用、真实设备或外部网络验收；S4-D、完整 S5-P、S6、S7 保持未开始。只读架构/发行交叉核验及上述本地子范围不替代整合后的独立审查。
 
 ## Codex 本机导入与额度分析收口（2026-09-04）
 
@@ -493,7 +527,7 @@ check→execute→record 的近似语义，并发可超发，未误报为硬限�
 
 剩余独立 S2-C09：generic config 对象业务热读缺统一快照/锁；跨不同配置族 reload 仍为
 best-effort 而非全量事务；历史 DB raw `null`、未知分层 key、Passkey 懒写和
-`GroupRatioSetting` 可变指针待审计。C09 只读设计已完成、实施仍待分批收敛；D09 与 D10 均已完成当前范围并通过同提交 CI。
+`GroupRatioSetting` 可变指针待审计。C09-N1 已盘点 24 个注册族：8 个已有受控快照/复制语义，16 个仍待按安全/账务/路由优先级分批收敛；其中 `legal` 与 `perf_metrics_setting` 已完成私有 immutable generation/partial candidate/detached getter 子范围。实施仍待。D09 与 D10 均已完成当前范围并通过同提交 CI。
 
 ## S2-C09-R1（2026-09-04，已完成当前范围）
 
@@ -522,7 +556,7 @@ JSON 静态门禁同样通过。本机未执行真实 Redis/MySQL/PostgreSQL；�
 `controller` 共 11 包均返回 `ok`。
 
 本项不宣称关闭 C09：成功限额依然是 check→execute→record，未实现 reservation/rollback；总量仍令牌桶，未改变
-产品语义；generic 21 模块热读、跨族事务、Passkey/null/未知 key/`GroupRatioSetting` 审计仍待；payment runtime
+产品语义；24 个注册族中尚余 16 个通用热读、跨族事务、Passkey/null/未知 key/`GroupRatioSetting` 审计仍待；payment runtime
 逐字段读取及活指针未解决；真实付款、生产、设备及发布均未做。`VERSION` 仍为 0.1.1。
 
 ## S2-C09-R2（2026-09-04，已完成当前范围）
@@ -685,6 +719,85 @@ MySQL 5.7/PostgreSQL 9.6/ClickHouse 实际 CI、全量及 race 尚未运行；�
 3. `go vet -p 1 ./model`，exit 0。
 
 上述 SQLite/静态本地证据已由 [Draft PR #1](https://github.com/ForceMind/MyAPI/pull/1) 的 CI 补全：运行 [33981861810](https://github.com/ForceMind/MyAPI/actions/runs/33981861810) 的 MySQL 5.7/PG 9.6 durable submission fixture、ClickHouse fixture、Backend（含新增 durable submission race）、Frontend、S1/S2 数据库、Redis、Desktop 与 Distribution 作业均通过，另 `pr-quality` 通过。2026-09-06 的最终独立只读复审确认无 P1/P2/P3；审查者未自行重复运行测试。提交 `c045e42c1ff710e5629e60772bbc453899df5d0b` 已同步到 `codex/b2-durable-submissions`，PR 保持 Draft，未合并、发布或启用 gate。至此 B2-1 的当前范围完成；B2-2、B3、C03b 与其余 S3–S7 目标仍未完成。未访问生产目录、未变更 UI，`VERSION` 仍为 0.1.1。
+
+## S2-B2-2A 十个 Provider 纯提交解析（2026-09-06，已完成本地子范围）
+
+新增 `TaskSubmitResponseParser` 只接收已读的不可变响应数据，不接 Gin writer、数据库、账务、网络或时钟。Ali 仅在
+HTTP 200、顶层完全没有 `code` 且严格安全 Task ID 存在时 accepted；Doubao 仅在 HTTP 200、严格顶层 `id` 存在且没有
+`error`/`code` 冲突时 accepted；Gemini 仅在 HTTP 200、严格 `models/.../operations/...` 名称存在且没有 `error` 时
+accepted；Hailuo 仅在 HTTP 200、`base_resp.status_code=0` 与严格 Task ID 时 accepted；Jimeng 仅在 HTTP 200、
+`code=10000` 与严格 `data.task_id` 时 accepted；Kling 仅在 HTTP 200、`code=0`、规范 `data.task_id` 存在且顶层/
+数据内已知 Task ID 不冲突时 accepted。Sora 仅在 HTTP 200、唯一严格 `id`/`task_id`、可受理状态且顶层 `error` 为 null/
+缺失时 accepted，并且 remix 只保留已验证的本地公开来源 ID；Suno 仅在 HTTP 200、`code=success` 与严格 `data` 时
+accepted，legacy `message` 固定为空字符串；Vertex 仅在 HTTP 200、严格完整 operation `name` 且没有 `error` 时 accepted；
+Vidu 仅在 HTTP 200、严格 `task_id`、`state=created` 且没有冲突 `error`/`err_code` 时 accepted。accepted 都要求受控 JSON
+content type、严格有界 legacy polling ID 和仅供旧转换器使用的最小 `TaskData`；Provider message、prompt、媒体 URL、
+上游 remix ID 及未知扩展均不保留，fetch ID 不能形成 path/query 注入。
+
+未获得权威 Provider 拒绝码 allowlist 的所有非成功码、非 200、空/异常 ID、读取/UTF-8/JSON 不明和超过边界的 body
+一律为 unknown，只返回受控 reference；不得据此退款或重发的 durable 语义仍待 B2-2B/C 接线。实际 gate-off dispatcher
+对所有非 200 都在 adaptor `DoResponse` 前进入共享兼容桥：最多读取 1 MiB + 1 字节、关闭 body、固定脱敏消息，并保留
+旧 `fail_to_fetch_task` code/status/retry 语义。因此没有把 non-200 虚构为 parser 已接入的 durable 决策。
+
+在 `CPUQuota=100%`、`MemoryMax=768M`、`MemorySwapMax=768M`、`GOMAXPROCS=1`、`GOMEMLIMIT=768MiB` 的受限服务
+`myapi-b2-all-final-pass` 中，`go test -p 1 -count=1 -timeout=360s -v ./relay ./relay/channel/task/ali ./relay/channel/task/doubao ./relay/channel/task/gemini ./relay/channel/task/hailuo ./relay/channel/task/jimeng ./relay/channel/task/kling ./relay/channel/task/sora ./relay/channel/task/suno ./relay/channel/task/vertex ./relay/channel/task/vidu`
+exit 0；journal 记录为 relay 0.032s、Ali 0.026s、Doubao 0.019s、Gemini 0.020s、Hailuo 0.035s、Jimeng 0.026s、Kling
+0.076s、Sora 0.020s、Suno 0.020s、Vertex 0.031s、Vidu 0.024s。覆盖十个 parser 的 accepted/unknown、null/冲突 ID、
+malformed/oversized body、受控 reference、legacy envelope、Task ID 安全、body close，以及共享非 200 兼容桥的有界读取、
+关闭、固定脱敏消息、status 归一化和“迁移 parser 不接收 gate-off 非 200”的 dispatcher 级断言。首轮回归发现四处
+`*dto.TaskError` 测试断言类型错误及一处 Vidu null-state 对账引用期望不一致；均为测试修正，经过独立复审后 Vidu 定向复验和
+最终整组复验通过。两位未参与实现的独立审查者在修复后确认无 P1/P2。
+
+同日补齐的 one-shot 出站子范围只作用于单个 Task transport attempt：`buildTaskSubmissionRequest` 保留
+`ContentLength`、清除 `GetBody`，并在 adaptor header 构造后删除大小写变体的 `Idempotency-Key`/
+`X-Idempotency-Key`。合成 HTTP/2 `REFUSED_STREAM` 证实完整 body 仅发送一次且客户端得到 `cannot retry`；
+Task 301/302/303/307/308 均只返回源 3xx、target 为 0。当前十个 adaptor 也没有通用客户端 header 透传，合成测试
+确认 client Authorization/Cookie/X-Api-Key 不进入上游、Provider Authorization 保留。Vertex JWT access-token exchange
+的两条路径各自浅复制 shared client 并设 `http.ErrUseLastResponse`；五类 3xx 均为 source 1/target 0，JWT form 的 POST、
+`application/x-www-form-urlencoded`、grant/assertion、共享 callback/timeout 均有断言。受限服务
+`myapi-b2-vertex-test-pass` 执行 `go test -p 1 -count=1 -timeout=180s -v ./relay/channel ./relay/channel/vertex`，退出状态 0，
+包结果为 0.029s / 0.021s。独立审查提出并复核关闭了 OAuth 测试的两项 P2（goroutine 计数与 form 契约）；最终无 P1/P2。
+
+该证据仅覆盖十个纯 parser、gate-off 非 200 安全兼容桥和单个 outbound attempt 的 one-shot/redirect/凭据子范围。HTTP 200 的
+Provider unknown 仍会映射到旧 `TaskError`/retry 流程，成功的 legacy `c.Data` 仍可能早于 durable 状态写出；没有 T0–T4、幂等持久化、
+主库账务、统一 202/查询、poll/recovery/outbox。`controller.RelayTask` 的旧 retry/failover 仍会对 307、429、可重试 5xx 或
+未知结果创建新 legacy attempt，必须由 B2-2B/C durable dispatcher 接管；C03b gate 仍关闭，完整 B2/B3 仍待；本批尚未提交或同步，CI 仍须针对实际 SHA 复验。
+
+## S2-B2-2B0 gate-off 协议、T0 与日志字段脱敏（2026-09-06，已完成当前本地子范围）
+
+该子范围没有接入任何实际 Task POST。`ParseTaskSubmissionProtocol` 仅接受 `POST` 与四个冻结 operation kind，要求唯一、1–255 字节可见 ASCII 的 canonical `Idempotency-Key`；别名、下划线、重复值、控制字符和错误摘要全部 fail closed。公开入口不可注入替代 hasher，固定使用 task-recovery 专用 HMAC；成功后删除所有实际大小写形式的 canonical header，返回值不包含原文。当前 protocol 无 caller，因此失败路径仍必须由未来 HTTP 接线立即终止，不能回落 legacy/upstream。
+
+`CreateOrLoadTaskSubmissionIntent` 在新 operation 上原子写入唯一 attempt，replay 只读已持久 attempt；缺失 attempt、异指纹、候选携带既有 ID/public ID 都 fail closed。它用受检查的原生 savepoint 防止 GORM PostgreSQL/glebarez SQLite dialect 丢失错误，并在 `PrepareStmt` 外层事务中复制 Statement、仅为 `SAVEPOINT` / `ROLLBACK TO SAVEPOINT` 临时解包底层 transaction，普通业务 SQL 与调用方 prepared pool 保持不变。SQLite 定向回归覆盖 replay、attempt 失败、savepoint 错误/回滚失败、panic、预填 ID 和 prepared outer transaction。
+
+Full Content 的改动只扩展字段名级 secret 识别到 canonical/alias/underscore 幂等键，且递归处理有效 JSON。审查发现“任意 header 隐藏整段内容”、原始 key 长期副本、短 key 子串污染身份字段及 malformed JSON 全局行为四类问题后已全部删除；当前回归以单字符 header 验证 header/JSON 字段被脱敏，而无关 request body、query 和 response body 保持可审计。
+
+同一 gate-off 范围已接入一个独立的只读查询路由 `GET /v1/task-operations/:id`，不注册 POST、不调用 `Distribute`、账务、upstream 或 feature gate。其路由按 `SetRelayRouter → SetTaskOperationRouter → SetVideoRouter` 组合注册，`DisableCache` 位于认证前；成功及 401/403/404/500 都是 no-store。Dashboard session 仅按 `user_id` 读取；API token 直接查询主库 token/user，允许 enabled/expired/exhausted，拒绝 disabled、软删除、未知与非正 identity，并继续检查用户状态和 IP allowlist。资源查询同一 SQL 固定带 `public_id + user_id`，token 请求另带 `token_id`，使不存在、跨 user 与同 user 跨 token 保持同一 404。响应固定为 `object: "task_operation"` 及 id/kind/status/created/updated/dispatch/resolved 时间；内部 ID、摘要、owner、账务、Task、attempt、retention 与恢复字段不进入投影。由公开投影即可证明的时间/状态不变量不成立时 fail-closed 为 unavailable。SQLite 定向测试和相关 vet 已通过，两轮独立复审无代码 P1/P2/P3。
+
+受限验证实际为：`go test -p 1 -count=1 -timeout=180s ./model -run '^TestB2Submission(SQLite|SQLitePreparedOuterTransaction|ConfiguredDatabases)|TestReadTaskOperation'`、`go test -p 1 -count=1 -timeout=180s ./service -run '^TestParseTaskSubmissionProtocol|TestGetTaskOperation'`、相关 middleware/controller/router 的 Task/C09 定向回归，以及 `go vet -p 1 ./model ./service ./middleware ./controller ./router ./setting/config`；均在 `CPUQuota=100%` / `MemoryMax=768M` / `MemorySwapMax=768M`、`GOMAXPROCS=1`、`GOMEMLIMIT=768MiB` 下 exit 0。`TestB2SubmissionConfiguredDatabases` 在本机因未设置 `MYAPI_B2_DATABASE_TESTS=1` 只完成编译/skip；其新增 MySQL 5.7/PostgreSQL 9.6 合同已在既有受保护 loopback/空库 fixture 中覆盖 token/user JOIN、两类软删除、owner scope、not-found 与坏投影，尚待 CI 对当前 SHA 实跑。独立审查者分别复核 protocol、T0/PreparedStmt、Full Content 与 owner-query，代码复审无 P1/P2/P3。race、完整 CI、durable POST/202/账务/dispatch/recovery 仍待；本节不构成 B2-2B/C 或 B3 完成。
+
+## C09-N2a PaymentRuntime 纯内核（2026-09-06，已完成当前子范围）
+
+新增 `setting/payment_runtime.go` 与同包回归，提供只接受显式 seed 的 immutable payment generation：封闭现有支付 option 键、typed `set`/`clear`/`keep`、deep-detached JSON/keyring/snapshot、候选 generation、单次 CAS publish、冲突和 abort。敏感 option 的格式化与错误不拼接明文；canonical option copy 只供后续受信 persistence/provider 边界使用，当前无 caller。`TopupGroupRatio` 已与普通、Stripe、Waffo、Pancake 的价格字段一并归入同一 generation，避免未来 bridge 混读新单价与旧 group ratio。
+
+该文件不读取或写入 legacy payment globals、`OptionMap`、数据库、Provider SDK、网络或真实配置，包级 runtime 只从空显式 seed 建立；因而不改变付款、回调、订单或账务行为。未参与实现者的独立审查首先报告 `TopupGroupRatio` 遗漏为 P2，补充精确旧键、JSON spec 及 initial/set/clear/unknown/detached-copy 回归后复审无 P1/P2。`go test -p 1 -count=1 -timeout=180s -v ./setting` 与 `go vet -p 1 ./setting` 均在 `CPUQuota=100%`、`MemoryMax=768M`、`MemorySwapMax=768M`、`GOMAXPROCS=1`、`GOMEMLIMIT=768MiB` 受限组退出 0。
+
+未完成且不能由本子范围替代：N2b 的请求私有 snapshot/SDK 全局移除、N3 typed DB/runtime writer、旧回调 keyring 窗口、业务字段的更深层验证、订单/金额 snapshot、三数据库和真实付款验收。
+
+## C09-N5a 只读配置诊断（2026-09-06，已完成当前本地子范围；实库待验）
+
+新增 `setting/config/option_diagnostics.go`、`model/option_diagnostics.go`、`service/option_diagnostics.go`、`controller/option_diagnostics.go` 及定向回归；精确 `/api/option/diagnostics` 路径在全局 API 限流前先写 no-store，路由业务链继续使用 `DisableCache → RootAuth`，因此未认证、非 root、root 成功以及 429/限流后端错误响应均是 no-store。query 先用 `url.ParseQuery`，未知、重复、错误值、未转义分号和畸形 percent-encoding 一律拒绝。
+
+业务层唯一数据库操作是主库 `options` 的有界 SELECT：最多扫描 1024 行；每个 key 只投影前 256 个字符并以第 257 个字符探测截断，超长 key 不进入 parser/alias 比较且只输出 redacted malformed metadata；每个 value 最多读取 65537 个字符以检测 65536 字符上限。结果只含元数据；所有 DB row value/key 内部字段都 `json:"-"`，unknown prefix/field、畸形 key、未信任 legacy flat 与 dynamic external key 只给 `key_redacted`，不复制 raw value、parser error 或 digest。MapConfig 固定为 `schema_indeterminate/unsupported`，不调用 Export/Update/Validate 或读取 live generation；GroupRatio 复用现有 normalization 与 canonical-first/alias-fallback 规则，但 raw-null、非法 UTF-8、截断 source 或 row-limit snapshot 只报告 `source_indeterminate`/`coverage_incomplete`，不伪称运行时 fallback。它不写 DB、不访问 OptionMap、配置 runtime、LOG_DB 或 Redis；平台继承的全局限流/鉴权缓存仍可能使用 Redis，故该零缓存结论仅限 diagnostics 业务链。
+
+三轮独立只读审查先发现 runtime validator、原始 alias、值/key 泄漏、截断/coverage 误报、畸形 query、no-store 顺序，以及两个测试隔离问题；均已修复。最后复核无 P1/P3；仅保留 MySQL 5.7/PostgreSQL 9.6 对保留字别名、`SUBSTR` 多字节语义和 `CASE`→bool 扫描的实库证据为 P2。`setting/config`、`model`、`service`、`controller`、`router` 的相关定向 Go test/vet 均在单核/768MiB 隔离组退出 0；新增数据库执行覆盖仅为 SQLite 内存库，race、CI 与 N5b 可控修复仍未完成。
+
+## S5-P1a/P1b 逻辑轮次与观测指纹（2026-09-06，已完成当前本地子范围）
+
+`service/promptlearning/kernel.go` 将 scope 的内部第三段从 token 特指泛化为 opaque `subjectScopeReceipt`，仍保持 policy/owner/subject 三段 HMAC 隔离且不向外部提供可信构造入口。由于逻辑输入改变，`FingerprintPolicyVersion` 与 `OccurrencePolicyVersion` 分别升级为 `hmac-sha256-v2` 和 `occurrence-v2`。live occurrence 与 transport 只用稳定 scope、conversation receipt、turn receipt；node/epoch 与 HTTP request observation 仍必须校验，但不再使同一可信轮次跨节点、普通重启或 HTTP 重试被重复。
+
+P1b 的 `serverObservedLiveTurn` 只在包内接收未来认证 ingress 的完整服务器观测：每段均须 server-marked、没有客户端 role/origin 声明，且恰有一个 `new_user_text`。明确的 history/system/developer/assistant/tool/attachment/response/internal/automatic-analysis 段只能被排除，绝不进入正文、脱敏摘要、occurrence、transport、semantic 或 observation 指纹；未知/未标记/零或多新用户段和不完整 provenance 均拒绝且零泄漏。`observation-v1` 另以 HMAC 绑定 scope、node、epoch、conversation、turn、request observation 与规范化 eligible payload，供未来审计关联而不改变 logical replay/transport。
+
+定向合成测试断言跨 node/epoch/observation replay、同 turn 异 payload 的 transport conflict、不同 turn 与 Key/user/project-like opaque scope 隔离、精确 HMAC material、retired-key alias、混合排除段、拒绝零泄漏及全角/空白等非规范等价 payload 的四域指纹等价。两轮未参与实现者独立审查无 P1/P2/P3；受限 test/vet 退出 0。该内核仍完全无 caller、HTTP、DB、日志、文件、worker、timer、模型或真实 ingress，不能把它描述为已计数、已采集、已外发或已支持 project 协作；D13 仍决定 P1 的 scope、加密、保留和历史导入。
 
 ## S2-D08 io.net 核心（2026-09-04，已完成当前范围）
 

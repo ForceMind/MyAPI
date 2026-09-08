@@ -1,7 +1,7 @@
 # MyAPI 开发执行计划
 
-> 2026-09-05 当前执行入口：[全项目完成执行计划](PROJECT_COMPLETION_EXECUTION_PLAN.md)。
-> 当前在 Linux 源码分支 `codex/b2-durable-submissions` 推进 B2-1 安全模型修复；
+> 2026-09-06 当前执行入口：[全项目完成执行计划](PROJECT_COMPLETION_EXECUTION_PLAN.md)。Full/Lite/Desktop、S5-P 与统一发行/安装/更新的 P0 合同见 [总体产品计划](MYAPI_MASTER_PLAN.md)、[发行制品合同](RELEASE_MANIFEST.md)、[提示词学习专题](PROMPT_LEARNING.md)。
+> 当前在 Linux 源码分支 `codex/b2-durable-submissions` 保留 B2-1 已完成当前范围的 CI/审查证据；Ali、Doubao、Gemini、Hailuo、Jimeng、Kling、Sora、Suno、Vertex、Vidu 的 B2-2A parser 仅在 HTTP 200 时由 legacy `DoResponse` 调用，gate-off 非 200 由 parser 前共享 bridge 处理。Task 单个 outbound attempt 的 one-shot body、3xx 不跟随、客户幂等头隔离及 Vertex OAuth JWT 换取的无重定向子范围已受限验证/独立审查；durable 提交仍未接线，B2-2B0 现有无 caller 的严格协议、T0 原子基元、Full Content 字段级脱敏、owner-scoped 只读 GET、B1a 严格 JSON 和 B1b video form/multipart 请求指纹，真正 POST 仍等待 D02/B3-A。C09-N1 `legal`/`perf_metrics_setting`/`general_setting`/`console_setting`/`checkin_setting`/`token_setting`/`quota_setting`/`grok`/`qwen`/`fetch_setting`/`discord`/`oidc` immutable generation、C09-N2a `PaymentRuntime`、C09-N5a 只读配置诊断、S5-P P1a/P1b 指纹、S5-Q P2A occurrence identity、Release Manifest schema-1/未受信 raw-bytes evidence/输入硬化和 D2A 纯安装状态均是有限本地子范围；下一主链仍是 C03b-0 决策与 B3-A；
 > 本文原 Mac 环境与阶段记录为历史证据，不代表本机可并行运行全量验证。
 > 仅本机串行定向测试，Go 单并发并使用 768MiB 内存限制；实库、race、浏览器和 Docker 交给 CI。
 
@@ -11,9 +11,9 @@
 
 ## 目标、保留能力与完成规则
 
-面向 Full 管理员/普通用户、LAN Lite 同事和桌面用户，完成可靠的调用、计费、日志、
-额度观测、配置、安装升级与独立产品体验。保留现有 Codex/Chat/Responses/Claude、附件、
-SSE、脱敏日志、额度分析、账户/Key 兼容字段、CLI/Electron 和发行合同，不整体重写。
+面向 Full 管理员/普通用户、Lite 服务器/个人电脑用户和 Desktop 用户，完成可靠的调用、计费、日志、
+额度观测、配置、安装升级、提示词学习与独立产品体验。功能版、安装形态、访问模式分离；保留现有 Codex/Chat/Responses/Claude、附件、
+SSE、脱敏日志、额度分析、账户/Key 兼容字段、CLI/Electron 和发行合同，不整体重写 Legacy LAN 安全边界。
 
 状态使用 `未开始`、`进行中`、`待验证`、`审查未通过`、`已完成`；阻塞原因与恢复条件单列。
 每项必须有责任、范围、验收、证据 SHA/命令/结果与未覆盖风险。CI、SQL DryRun、合成
@@ -27,12 +27,13 @@ SSE、脱敏日志、额度分析、账户/Key 兼容字段、CLI/Electron 和�
 | --- | --- | --- | --- |
 | S0 计划与证据 | 已完成／已确认范围 | terra 起草，主代理整合 | 需求、缺陷、验证、决策分开；更新主计划、审计、macOS、额度 OpenAPI；链接、参数和事实一致。 |
 | S1 安全与一致性 | 已完成／已确认范围 | sol 实现；独立 sol 复审 | 原六项及追加 R1 均通过回归、独立复审和 CI；同进程配置保存/后台重载的发布顺序、双写交错与失败释放已有证据，不推导跨实例一致性。 |
-| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06/C07/C08、D01–D10 已完成既有范围；C09-R4 代码 `c5cf662`／审计 tip `b77ae6b` 已完成当前范围，CI `33900966323` 八项及 Docker smoke `33901685068` Full/LAN 均成功。C10 Codex 本机导入（含向导）及额度分析整合 `6f8f85b` 已完成当前确认范围，并有同 SHA CI/Docker 证据。B2/B3 任务持久化/恢复与 C03b 缓存恢复仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
-| S3 账户/Key 实际策略 | 未开始／迁移设计待确认 | sol 设计，分模块实现 | 明确账户权益、模型限制交集、route_groups、disabled、fallback、计费归属；旧 Key 兼容/差异报告/启用/回滚经确认后落实。不得把已有元数据当强制策略。 |
-| S4 运行与恢复 | 进行中／S4-01、S4-02 已完成当前范围 | 工程/制品与独立 sol 审查；sol 数据与恢复 | Full/LAN 测试镜像均不推送；SQLite/MySQL/PostgreSQL 临时库旧结构升级、重复迁移、多连接竞争、备份恢复；登录/Key/权限/日志/额度探针；原生桌面构建、安装升级与第二设备 LAN。 |
-| S5 额度闭环与选定扩展 | 进行中／额度分析分层已完成当前确认范围 | sol 领域/安全，terra 常规实现 | 概览/渠道详情分层、三种速率方法、reset-aware ETA、有界折线和实际浏览器回归已完成当前确认范围；`6f8f85b` 同 SHA CI/Docker 已通过。真实账户连续采样、通知、多 Key 身份和 Claude 组织用量仍按外部条件/决策登记，不混入平台账本。 |
-| S6 完整独立 UI | 未开始／设计待确认 | sol 信息架构/复杂交互，terra 页面实施；独立视觉审查 | 角色化 IA→设计系统→登录/引导→Key/调用→渠道/额度→日志→计费/运维；Full/LAN/移动、七语言、键盘、空/错/加载/权限状态；实际渲染/操作验收，官网同步。 |
-| S7 交付就绪 | 未开始／发布不在当前授权内 | 主代理、独立审查者、负责人 | 逐需求证据、已知阻断清零、恢复可执行、文档/接口/制品一致；版本、签名、NOTICE、域名及正式发布另行审批。 |
+| S2 核心业务合同 | 进行中／已验收项见下表 | sol 实现与独立复审，terra 回归矩阵 | A01–A06/R1、B1、C01/C02/C03a/C04/C05/C06/C07/C08、D01–D10 已完成既有范围；C09-R4 代码 `c5cf662`／审计 tip `b77ae6b` 已完成当前范围，CI `33900966323` 八项及 Docker smoke `33901685068` Full/LAN 均成功；C09-N2a 与 N5a 分别有未接线的 PaymentRuntime 和只读诊断本地子范围。十个现代 Task Provider 的 B2-2A 纯 parser 已有受限本地测试/独立审查；B2-2B0 已有无 caller 的协议/T0/字段脱敏和 owner-scoped 只读 GET 基元，B1a/B1b 有 JSON 与 video form/multipart canonical request HMAC，POST 仍必须等待 D02/B3-A；B2/B3 持久化/恢复与 C03b 缓存恢复仍未完成。完整验证仍包括请求→预扣→上游→结算/退款→日志与 Provider 边界，relaykit 独立。 |
+| S3 账户/Key 实际策略 | S3-0 只读设计与 S3-PRE1 纯预检内核已完成本地子范围，D04 待确认 | sol 设计，分模块实现 | PRE1 仅形成 detached snapshot/diagnostic，所有 mode 均不应用；明确账户权益、模型限制交集、route_groups、disabled、fallback、计费归属后才落实旧 Key 兼容/差异报告/启用/回滚。不得把已有元数据当强制策略。 |
+| S4 运行、发行与恢复 | 进行中／S4-01、S4-02 已完成当前范围；S4-D0 文档合同、schema-1 结构选择/输入硬化、未受信 raw-bytes evidence 和 D2A 纯安装状态子范围已完成 | 工程/制品与独立 sol 审查；sol 数据与恢复 | Full/Lite 服务器/个人电脑/Desktop、受信 Release Manifest、安装记录/清理、切换、更新 journal、SQLite/MySQL/PostgreSQL 恢复、外部访问验证；纯 selector/evidence/installation state 均未接入 CLI 或文件系统，仍不等于信任/安装能力，Legacy Full/LAN 证据不外推。 |
+| S5-Q 额度闭环与选定扩展 | 进行中／额度分析分层与 P2A occurrence identity 已完成当前本地子范围 | sol 领域/安全，terra 常规实现 | 概览/渠道详情分层、三种速率方法、reset-aware ETA、有界折线和实际浏览器回归已完成当前确认范围；P2A 仅产生 fail-closed 纯事件 identity，无 DB/outbox/notifier。真实账户连续采样、持久通知、多 Key 身份和 Claude 组织用量仍按外部条件/决策登记，不混入平台账本。 |
+| S5-P 提示词学习与版本中心 | P0 文档合同与 P1a/P1b 纯内核子范围已完成；完整 P1 未实现 | 数据/权限/worker 与独立安全审查 | 默认关闭、授权样本、二层脱敏、调度/预算、不可变版本、Codex 文件应用/回滚；P1a/P1b 不接真实数据，完整 server-observed turn 只采一段可信新增文本，同一可信 turn 跨 node/epoch 不重复计数，付费调用依赖 B3/C03b，文件适配依赖 S4 管理桥。 |
+| S6 完整独立 UI | 未开始／设计待确认 | sol 信息架构/复杂交互，terra 页面实施；独立视觉审查 | 角色化 IA→设计系统→登录/引导→Key/调用→渠道/额度→日志→计费/运维→S5-P→安装/更新；Full/Lite/Desktop/移动、七语言、键盘、空/错/加载/权限状态；实际渲染/操作验收，官网同步。 |
+| S7 交付就绪 | 未开始／发布不在当前授权内 | 主代理、独立审查者、负责人 | 逐需求证据、Release Manifest/制品矩阵、已知阻断清零、恢复可执行、文档/接口/制品一致；版本、签名、NOTICE、域名及正式发布另行审批。 |
 
 **2026-09-04 额度概览图表修复（已完成当前范围）：** 主计划要求概览默认显示 Codex
 可用额度折线，但实际入口继承了通用详情的“消耗柱图”默认值。本批仅向
@@ -68,7 +69,7 @@ session、精确同源、CriticalRateLimit、no-store 与 Passkey/2FA proof；LA
 Docker smoke 已成功；未读取生产数据或真实凭据，真实账号连续采样仍待。
 
 S0/S1 先行；S1 通过后的 S2、S3 设计和 S4 独立准备可并行，重型构建不得并行占满主机。
-S6 启动闸门是核心缺陷关闭、API/权限/数据模型稳定、Full/LAN 测试实例可运行、外部
+S6 启动闸门是核心缺陷关闭、API/权限/数据模型稳定、Full/Lite/Desktop 代表性测试实例可运行、外部
 验收责任与条件明确；不是等待正式发布或所有真实设备先完成。完整 UI 是必做后置工作，
 不是把现有品牌/局部面板再次标成全量 UI。
 
@@ -155,7 +156,7 @@ race、relaykit 独立构建/测试、Node22 发行合同及干净源码 pack �
 | C06 | 已完成／测试隔离、本机/CI race 与独立复审通过 | 生产 logger 计数/轮转预约状态及轮询测试共享对象 | 两个渠道并发记录日志无 data race；保留日志格式与轮转、多渠道并发；测试使用独立快照/通知，不用串行化或 sleep 掩盖。 |
 | C07 | 已完成当前范围 | `common` 请求正文替换生命周期、Kling/Jimeng 兼容路由、Full Content 入口身份、Provider 模型/时长边界 | 所有正文读取路径同版本；原始客户端日志与转换后分发分离；`model_name`/`req_key`、Kling duration/mode、Jimeng frames 不得绕过已验证/已计费字段；内存/磁盘清理、race 与同提交 CI 通过。 |
 | C08 | 已完成当前范围 | Settings JSON、持久化前验证、限流快照、倍率与配置发布 | 失败解析/DB 失败不改 runtime；负/非有限倍率拒绝；rate 单请求快照、溢出/内存/动态窗口回归；本地普通/race/全量及 `2d6acab` 同 SHA CI 通过。 |
-| C09 | R4 已完成当前范围 | Settings 控制面并发与硬限额合同 | R1/R2/R3 的既有同提交 CI 证据保留；R4 代码 `c5cf662`／审计 tip `b77ae6b` 已收敛 Passkey/ServerAddress 的单进程 immutable generation、整组发布和请求快照，独立审查无 P0/P1/P2；CI `33900966323` 八项与 `33901685068` Full/LAN 均成功。前端 bulk/跨多 HTTP 事务、历史 DB 清理、payment runtime、成功 hard limit、generic config 热读仍待。 |
+| C09 | R4 已完成当前范围；N1 只读细分中已有 22/24 注册族采用 immutable generation，新增 `gemini`/`billing_setting`/`payment_setting`/`global`；N2a PaymentRuntime 和 N5a 只读诊断已完成各自本地子范围 | Settings 控制面并发与硬限额合同 | R1/R2/R3 的既有同提交 CI 证据保留；R4 代码 `c5cf662`／审计 tip `b77ae6b` 已收敛 Passkey/ServerAddress 的单进程 immutable generation、整组发布和请求快照，独立审查无 P0/P1/P2；CI `33900966323` 八项与 `33901685068` Full/LAN 均成功。N1 的 22 个已迁移族均保持原键/默认/宽松 parser，以私有原子 generation、完整 candidate 和 detached getter 消除活指针。`token_setting` 不收紧 `0`/负值，也不修复 Key 数量创建竞态；`quota_setting` 不改免费模型预扣；Qwen、fetch、Grok、Discord/OIDC 保持原有协议边界。Gemini 的 request-private callbacks、billing 的同代 mode/expression、payment 的七键 detached snapshot、global 的 policy/ConvOptions snapshot 均有回归，不改变 Provider、账务、付款、路由或缓存重试语义。单核/768MiB 定向 test/vet 与独立审查通过。N2a 提供不读写旧 globals/OptionMap/DB/SDK/network 的 immutable payment generation；N5a 提供 RootAuth/no-store、严格 query、有界主库只读诊断与脱敏元数据。所有新增局部范围均有受限定向 test/vet 和独立审查，且不替代 MySQL/PG/CI。`performance_setting` 与 `channel_affinity_setting` 分别等待 D14/D15；N2b 接线、前端 bulk/跨多 HTTP 事务、N5b 受控修复与成功 hard limit 仍待。 |
 
 C03a 不等于整个账务缓存一致性完成。现有缺损 hash 的 miss→hydrate/DB fallback 仍未改；
 高层 User/Token quota 增减仍异步更新缓存、失败只记录而数据库继续写，须在 C03b 单列。
@@ -216,8 +217,8 @@ race 仅磁盘满链接失败；只清理 7.9GB 可重建 `/private/tmp/myapi-go
 MySQL/PostgreSQL engine 以及 11 包扩展 race 均成功。
 
 本轮明确不完成：成功限额仍 check→execute→record，未实现 reservation/rollback；总量仍令牌桶，不改产品语义；
-generic 21 模块热读、跨族事务、Passkey/null/未知 key/`GroupRatioSetting` 审计仍待；payment runtime 逐字段/活指针
-仍未解决；真实付款、生产、设备和发布未做。`VERSION` 保持 0.1.1。
+当前审计确认 generic config 为 24 个注册族，其中 22 个已有受控快照/复制语义、仅 `performance_setting` 与 `channel_affinity_setting` 仍待 D14/D15 后按批次收口；跨族事务、
+历史 null/未知 key 诊断、payment runtime 逐字段/活指针仍未解决；真实付款、生产、设备和发布未做。`VERSION` 保持 0.1.1。
 
 **S2-C09-R4（已完成当前范围）：** `ServerAddress` 与原始 Passkey 字段已改为同一不可变运行时
 generation；`GetServerAddress` / `SetServerAddress` 保留空值和尾随 `/` 的原始字符串语义，不做 URL
@@ -277,8 +278,7 @@ MySQL5.7/PG9.6 已由最终 CI 真正执行，原始日志确认无 skip 或旧 
 合法旧按次即使当前配置缺失也不重新查价。此保证仅针对新代码执行结算；旧轮询进程仍
 可能使用旧逻辑，混合版本生产切换不在本批验收中。扩大 race 检查发现的 C06 独立跟踪。
 
-**B2-0 合同已冻结；B2-1 安全模型当前待验证，完整 B2/B3 尚未实现。** 当前模型/迁移基础已修复并通过本机限额定向测试，
-实库 CI 与完整独立复审仍待完成，见[完成审计](COMPLETION_AUDIT.md#s2-b2-1-安全持久模型2026-09-05待验证)。
+**B2-0 合同已冻结；B2-1 安全模型已完成当前范围，完整 B2/B3 尚未实现。** 当前模型/迁移基础已通过本机限额定向测试、MySQL 5.7/PG 9.6/ClickHouse 隔离 CI 与最终独立复审，见[完成审计](COMPLETION_AUDIT.md#b2-1-追加安全修复2026-09-06已完成当前范围)。十个现代 Task Provider 的 B2-2A 纯解析边界，以及 Task 单个 outbound attempt 的 one-shot body/3xx 不跟随/客户幂等头隔离和 Vertex OAuth JWT 换取无重定向子范围，均已通过本机受限定向测试和独立审查；持久提交、账务与恢复路径仍待，可与 C03b-0 设计并行。旧 controller retry/failover 尚未由 durable dispatcher 替代，不能误称端到端单 attempt 已完成。
 以下是负责人于 2026-09-05 确认的恢复与账务边界，不代表生产开关或完整流程已启用。现代 Task 的 `submission_unknown`（提交结果未知）
 与已受理后轮询结果未知的 `outcome_unknown` 均不得自动重发或退款；只能由上游可验证的结果，或带审计
 记录的人工处置结束。进入 `DISPATCHING` 后，v1 禁止一切可能已送达请求的重试和跨渠道 failover，包含
@@ -469,6 +469,17 @@ endpoint enrich 和 Ollama 未新增专用集成测试列为非阻断 P3，由�
 回归与后续 CI 承担。最终 `02a0aaf` /
 [CI 33805743908](https://github.com/ForceMind/MyAPI/actions/runs/33805743908) 七项成功，D06
 完成当前范围。无外网、数据库、页面或 relaykit 变化，版本仍 0.1.1。
+
+## 发行、Lite 与 S5-P P0 合同及本地纯子范围（2026-09-06）
+
+P0 原始范围只做只读核验和文档整合，未修改运行时代码、CLI、Docker、Electron、CI、包名、GHCR 坐标、tag 或任何真实环境。新增 [发行制品、安装与更新合同](RELEASE_MANIFEST.md) 与 [提示词学习与版本中心](PROMPT_LEARNING.md)，并同步总体计划、完成计划、发行/升级/Lite/实机/交接文档。随后先增加 Ali Task submit 纯 parser、S5-P P1a/P1b 纯准入/脱敏/指纹内核、Release Manifest schema-1 结构校验/输入硬化/fresh-install 选择及 D2A 纯安装状态四个无外部副作用的本地子范围；B2-2A 随后扩展为十个现代 Task Provider 的纯解析：HTTP 200 时由 legacy `DoResponse` 调 parser，非 200 时由 parser 前共享兼容 bridge 处理；B2-2B0 另有无 caller 的 protocol/T0/字段脱敏/B1a/B1b 基元，durable 提交仍未接线；S5-P 内核、Release Manifest selector 和 installation state 均无 caller。准确证据见[完成审计](COMPLETION_AUDIT.md)。
+
+- 产品正式定位为 Full、Lite、Desktop：Lite 支持服务器/VPS/云服务器与个人电脑，不再等同 LAN；Desktop 是 Lite 安装/管理形态，核心业务和数据模型一致。
+- 功能版、安装形态、访问模式分开；旧 `MYAPI_EDITION=lan` 按现有监听/`MYAPI_ALLOW_LAN` 映射到 Lite/local 或 Lite/lan，旧部署永不自动公网。
+- 统一入口保持 `@forcemind/myapi` / `myapi`。既有 `SOURCE_MANIFEST.json` 继续保护源码包；未来 `RELEASE_MANIFEST.json` 单独绑定 NPM、OCI、原生和 Desktop 的同源版本、hash/digest、签名、平台与 schema/回退兼容。
+- S4-D1..D5 负责统一入口、安装目录/清理、更新/切换、平台执行者和服务器 Lite/公网向导；S5-P0..P5 负责授权样本、脱敏、调度/费用、版本、文件应用与联合验收。具体依赖/退出条件以全项目计划为准。
+
+P0 文档本身不构成实现、真实模型调用、文件访问、发布或实机验收证据；S5-P 内核和 Release Manifest selector 也不构成持久化、安装、更新、真实采集或 Codex 文件能力。B2 parser 的 legacy 接入不构成 durable 提交、账务或恢复能力。下一步仍是 B2/B3/C03b 主链；S4/S5-P 的独立设计/fixture 可按所有权并行，但共享账务、权限、迁移和 UI 热点必须串行。
 
 ## S4-01 无发布 Full/LAN 镜像测试（已完成当前范围）
 

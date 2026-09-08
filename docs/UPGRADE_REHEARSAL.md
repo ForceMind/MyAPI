@@ -1,8 +1,10 @@
-# MyAPI 升级与恢复演练
+# My API 升级、切换与恢复演练
 
-`myapi upgrade` 是显式操作：它会校验版本、备份 `deploy/.env`、拉取固定 GHCR 镜像、等待健康检查，并在失败时恢复环境文件和旧镜像。它不会替管理员猜测数据库类型，也不会自动复制生产数据库。
+> 当前状态：本页前半部分记录当前 Legacy Docker 升级事实；统一 Release Manifest、原生/Desktop 更新、产品形态切换、持久 journal 和数据库安全回退仍未实现。现有 schema-1 纯结构 selector 不读取受信资产、不安装或更新，参见 [发行制品、安装与更新合同](RELEASE_MANIFEST.md)。
 
-GHCR 镜像由推送新的 `vX.Y.Z` tag 自动触发 GitHub Actions 构建；Full 与 LAN Lite
+当前 `myapi upgrade` 是显式 Legacy Docker 操作：它会校验版本、备份 `deploy/.env`、拉取固定 GHCR 镜像、等待健康检查，并在失败时恢复环境文件和旧镜像。它不会替管理员猜测数据库类型，也不会自动复制生产数据库；“旧镜像已恢复”不等于数据库已安全回退。
+
+当前 GHCR 镜像由推送新的 `vX.Y.Z` tag 自动触发 GitHub Actions 构建；Full 与 Legacy LAN
 分别发布到 `ghcr.io/forcemind/myapi` 和 `ghcr.io/forcemind/myapi-lan`。`myapi up`
 和 `myapi upgrade` 只使用版本固定的 GHCR tag（除非明确选择本地构建），不会把
 普通分支提交或可变 `latest` 当成升级目标。历史 `v0.1.0` 与 `v0.1.1` tag 已锁定，
@@ -21,7 +23,23 @@ npm run upgrade:check -- --json
 
 该检查只确认 CLI 的 dry-run、资源预检、签名闸门、备份权限、健康等待和回滚路径仍与本页及回归测试一致；它不会创建环境文件、读取 `deploy/.env`、访问网络或调用 Docker。它不能替代下面的副本升级和数据库恢复演练。
 
-## 在副本上演练
+## 统一更新与形态切换目标合同（尚未实现）
+
+未来所有安装方式共用以下持久、可恢复状态机：
+
+```text
+idle → planned → preflighted → artifact_verified → staged → backed_up
+→ draining → migration_started → service_started → health_checked → committed
+                    ↘ rollback_pending | outcome_unknown | needs_manual
+```
+
+检查、下载、安装是独立动作；自动检查、自动下载、自动安装均默认关闭。更新前核验 Release Manifest、来源/签名、OS/arch、安装器/配置/数据 schema、磁盘、权限、备份、运行任务和维护窗口。下载/校验尽量保持旧版本可用；UI、CLI 与自动计划通过同一安装锁串行。机器重启或进程崩溃后必须先读取 journal、实际制品、schema 和健康状态，再决定继续、回退或人工处理，不能盲目再次迁移。
+
+程序文件回退、数据库恢复和 rollout-forward 必须分别显示。形态切换（Full↔Lite、服务器↔个人电脑/Desktop）先报告功能差异、活动订单/订阅/Task/worker、数据兼容和空间；不安全时拒绝，不能删除数据或静默转换数据库。更新和切换不改变 local/LAN/public 访问模式，不改防火墙、路由器、反代、隧道、用户/Key 授权、S5-P 数据或 Codex 指令文件。
+
+S5-P 分析 worker 在维护开始时停止提交新的模型请求；已经发出的请求按成功、失败或未知费用状态恢复。提示词版本、样本、水位、授权审计和 Codex 应用备份属于必须验证的持久备份范围。
+
+## 当前 Legacy Docker 副本演练
 
 1. 使用与生产相同版本的副本目录和脱敏数据，不挂载生产 `data`、`logs` 或数据库卷。
 2. 固定 `MYAPI_IMAGE=ghcr.io/forcemind/myapi:<version>`，确认 `MYAPI_EDITION` 与目标发行版一致。
@@ -33,7 +51,7 @@ npm run upgrade:check -- --json
      --project-dir <副本目录> --version <新版本> --dry-run --json
    ```
 
-   预检会检查发行版本、Full/LAN 镜像映射、环境文件、会话密钥、URL、端口和资源限制，输出
+   预检会检查发行版本、Full/Legacy LAN 镜像映射、环境文件、会话密钥、URL、端口和资源限制，输出
    目标镜像但不会输出任何密钥或完整环境变量。签名参数在预检中只记录为待执行，不会调用
    `cosign`；正式升级时才会执行签名验证。
 5. 预检通过后，才在副本中执行 `myapi upgrade --project-dir <副本目录> --version <新版本>`，确认容器健康、登录、API 请求、日志查询和额度面板均可用。
