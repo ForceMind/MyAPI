@@ -293,7 +293,7 @@ func TestKernelDoesNotTrustPublicRedactionMarkers(t *testing.T) {
 		`password "correct horse battery staple"`,
 		`authorization Bearer "short secret"`,
 		"password=person@example.com/hunter2",
-		"token=sk-abcdefghijklmnopqrstuvwxyz123456",
+		"token=sk-abcdefghijklmnopqrstuv",
 	}, "\n")
 
 	decision := kernel.evaluate(newLiveUserTurn(text, testLiveIdentity(testScope("a"), "turn", "observation")))
@@ -303,7 +303,7 @@ func TestKernelDoesNotTrustPublicRedactionMarkers(t *testing.T) {
 	assert.NotContains(t, decision.text, "short secret")
 	assert.NotContains(t, decision.text, "person@example.com")
 	assert.NotContains(t, decision.text, "hunter2")
-	assert.NotContains(t, decision.text, "sk-abcdefghijklmnopqrstuvwxyz123456")
+	assert.NotContains(t, decision.text, "sk-abcdefghijklmnopqrstuv")
 	// The first forged public marker begins with a composite delimiter, so the
 	// context scanner intentionally fails closed through EOF. Structured scans
 	// still record their earlier matches, but only the fail-closed marker remains.
@@ -565,13 +565,13 @@ func TestContextSecretScannerPreservesExactInternalMarkerKind(t *testing.T) {
 	}{
 		{
 			name: "labelled API key",
-			text: "token=sk-abcdefghijklmnopqrstuvwxyz123456",
+			text: "token=sk-abcdefghijklmnopqrstuv",
 			want: "token=[REDACTED:API_KEY]",
 			kind: RedactionAPIKey,
 		},
 		{
 			name: "bearer API key",
-			text: "authorization: Bearer sk-abcdefghijklmnopqrstuvwxyz123456",
+			text: "authorization: Bearer sk-abcdefghijklmnopqrstuv",
 			want: "authorization: Bearer [REDACTED:API_KEY]",
 			kind: RedactionAPIKey,
 		},
@@ -622,7 +622,7 @@ func TestKernelRedactsSensitiveTextInTwoLayers(t *testing.T) {
 	secrets := []string{
 		"dbuser:dbpass",
 		"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
-		"sk-abcdefghijklmnopqrstuvwxyz123456",
+		"sk-abcdefghijklmnopqrstuv",
 		"person@example.com",
 		"+1 (415) 555-2671",
 		"hunter2",
