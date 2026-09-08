@@ -23,7 +23,7 @@ func TestTopUpQuotaValidation(t *testing.T) {
 	common.QuotaPerUnit = 500000
 	t.Cleanup(func() {
 		common.QuotaPerUnit = oldQuotaPerUnit
-		operation_setting.GetGeneralSetting().QuotaDisplayType = oldDisplayType
+		setGeneralSettingQuotaDisplayTypeForTest(t, oldDisplayType)
 	})
 
 	testCases := []struct {
@@ -61,7 +61,7 @@ func TestTopUpQuotaValidation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			operation_setting.GetGeneralSetting().QuotaDisplayType = tc.displayType
+			setGeneralSettingQuotaDisplayTypeForTest(t, tc.displayType)
 			quota, err := getTopUpQuota(tc.amount)
 			if tc.wantErr {
 				require.Error(t, err)
@@ -77,10 +77,10 @@ func TestValidateTopUpQuotaReturnsMaximumAmount(t *testing.T) {
 	oldQuotaPerUnit := common.QuotaPerUnit
 	oldDisplayType := operation_setting.GetGeneralSetting().QuotaDisplayType
 	common.QuotaPerUnit = 500000
-	operation_setting.GetGeneralSetting().QuotaDisplayType = operation_setting.QuotaDisplayTypeUSD
+	setGeneralSettingQuotaDisplayTypeForTest(t, operation_setting.QuotaDisplayTypeUSD)
 	t.Cleanup(func() {
 		common.QuotaPerUnit = oldQuotaPerUnit
-		operation_setting.GetGeneralSetting().QuotaDisplayType = oldDisplayType
+		setGeneralSettingQuotaDisplayTypeForTest(t, oldDisplayType)
 	})
 
 	maxAmount := decimal.NewFromInt(common.MaxQuota - 1).
@@ -97,10 +97,10 @@ func TestRequestAmountRejectsTopUpThatCannotBeSettled(t *testing.T) {
 	oldQuotaPerUnit := common.QuotaPerUnit
 	oldDisplayType := operation_setting.GetGeneralSetting().QuotaDisplayType
 	common.QuotaPerUnit = 500000
-	operation_setting.GetGeneralSetting().QuotaDisplayType = operation_setting.QuotaDisplayTypeUSD
+	setGeneralSettingQuotaDisplayTypeForTest(t, operation_setting.QuotaDisplayTypeUSD)
 	t.Cleanup(func() {
 		common.QuotaPerUnit = oldQuotaPerUnit
-		operation_setting.GetGeneralSetting().QuotaDisplayType = oldDisplayType
+		setGeneralSettingQuotaDisplayTypeForTest(t, oldDisplayType)
 	})
 
 	gin.SetMode(gin.TestMode)
@@ -124,7 +124,7 @@ func TestRequestAmountRejectsTopUpThatWouldOverflowWallet(t *testing.T) {
 	oldDisplayType := operation_setting.GetGeneralSetting().QuotaDisplayType
 	oldDB := model.DB
 	common.QuotaPerUnit = 500000
-	operation_setting.GetGeneralSetting().QuotaDisplayType = operation_setting.QuotaDisplayTypeUSD
+	setGeneralSettingQuotaDisplayTypeForTest(t, operation_setting.QuotaDisplayTypeUSD)
 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
@@ -132,7 +132,7 @@ func TestRequestAmountRejectsTopUpThatWouldOverflowWallet(t *testing.T) {
 	model.DB = db
 	t.Cleanup(func() {
 		common.QuotaPerUnit = oldQuotaPerUnit
-		operation_setting.GetGeneralSetting().QuotaDisplayType = oldDisplayType
+		setGeneralSettingQuotaDisplayTypeForTest(t, oldDisplayType)
 		model.DB = oldDB
 		sqlDB, dbErr := db.DB()
 		if dbErr == nil {

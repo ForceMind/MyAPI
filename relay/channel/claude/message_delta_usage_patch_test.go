@@ -5,7 +5,7 @@ import (
 
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/relaykit/dto"
-	"github.com/ForceMind/MyAPI/setting/model_setting"
+	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -46,15 +46,22 @@ func TestPatchClaudeMessageDeltaUsageDataZeroValueChecks(t *testing.T) {
 }
 
 func TestShouldSkipClaudeMessageDeltaUsagePatch(t *testing.T) {
-	originGlobalPassThrough := model_setting.GetGlobalSettings().PassThroughRequestEnabled
+	registered := config.GlobalConfig.Get("global")
+	require.NotNil(t, registered)
+	baseline, err := config.ConfigToMap(registered)
+	require.NoError(t, err)
 	t.Cleanup(func() {
-		model_setting.GetGlobalSettings().PassThroughRequestEnabled = originGlobalPassThrough
+		require.NoError(t, config.UpdateConfigFromMap(registered, baseline))
 	})
 
-	model_setting.GetGlobalSettings().PassThroughRequestEnabled = true
+	require.NoError(t, config.UpdateConfigFromMap(registered, map[string]string{
+		"pass_through_request_enabled": "true",
+	}))
 	assert.True(t, shouldSkipClaudeMessageDeltaUsagePatch(&relaycommon.RelayInfo{}))
 
-	model_setting.GetGlobalSettings().PassThroughRequestEnabled = false
+	require.NoError(t, config.UpdateConfigFromMap(registered, map[string]string{
+		"pass_through_request_enabled": "false",
+	}))
 	assert.True(t, shouldSkipClaudeMessageDeltaUsagePatch(&relaycommon.RelayInfo{
 		ChannelMeta: &relaycommon.ChannelMeta{ChannelSetting: dto.ChannelSettings{PassThroughBodyEnabled: true}},
 	}))

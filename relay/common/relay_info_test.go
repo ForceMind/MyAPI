@@ -144,6 +144,33 @@ func TestRelayInfoKeepsCapturedClaudeSettingsDuringConcurrentPublish(t *testing.
 	assert.Equal(t, 2222, newSnapshot.GetDefaultMaxTokens("unknown"))
 }
 
+func TestRelayInfoConvOptionsKeepsCapturedGlobalThinkingSettings(t *testing.T) {
+	registered := config.GlobalConfig.Get("global")
+	require.NotNil(t, registered)
+	baseline, err := config.ConfigToMap(registered)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, config.UpdateConfigFromMap(registered, baseline)) })
+
+	require.NoError(t, config.UpdateConfigFromMap(registered, map[string]string{
+		"thinking_model_blacklist": `["old-thinking"]`,
+	}))
+	oldOptions := (&RelayInfo{}).ConvOptions()
+	require.NotNil(t, oldOptions.PreserveThinkingSuffix)
+	assert.True(t, oldOptions.PreserveThinkingSuffix("old-thinking"))
+	assert.False(t, oldOptions.PreserveThinkingSuffix("new-thinking"))
+
+	require.NoError(t, config.UpdateConfigFromMap(registered, map[string]string{
+		"thinking_model_blacklist": `["new-thinking"]`,
+	}))
+	assert.True(t, oldOptions.PreserveThinkingSuffix("old-thinking"))
+	assert.False(t, oldOptions.PreserveThinkingSuffix("new-thinking"))
+
+	newOptions := (&RelayInfo{}).ConvOptions()
+	require.NotNil(t, newOptions.PreserveThinkingSuffix)
+	assert.False(t, newOptions.PreserveThinkingSuffix("old-thinking"))
+	assert.True(t, newOptions.PreserveThinkingSuffix("new-thinking"))
+}
+
 func TestGenRelayInfoCapturesRequestReasoningEffort(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	tests := []struct {

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/ForceMind/MyAPI/model"
+	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/ForceMind/MyAPI/setting/system_setting"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,20 +39,23 @@ func withServerAddressTokenTransport(t *testing.T, wantEndpoint, wantRedirectURI
 
 func TestOIDCExchangeTokenUsesCurrentServerAddress(t *testing.T) {
 	settings := system_setting.GetOIDCSettings()
-	previousSettings := *settings
 	previousAddress := system_setting.GetServerAddress()
 	t.Cleanup(func() {
-		*settings = previousSettings
+		require.NoError(t, config.UpdateConfigFromMap(config.GlobalConfig.Get("oidc"), map[string]string{
+			"client_id":      settings.ClientId,
+			"client_secret":  settings.ClientSecret,
+			"token_endpoint": settings.TokenEndpoint,
+		}))
 		system_setting.SetServerAddress(previousAddress)
 	})
 
 	system_setting.SetServerAddress("https://dashboard.example.test")
-	*settings = system_setting.OIDCSettings{
-		ClientId:      "client-id",
-		ClientSecret:  "client-secret",
-		TokenEndpoint: "https://oidc.example.test/token",
-	}
-	withServerAddressTokenTransport(t, settings.TokenEndpoint, "https://dashboard.example.test/oauth/oidc")
+	require.NoError(t, config.UpdateConfigFromMap(config.GlobalConfig.Get("oidc"), map[string]string{
+		"client_id":      "client-id",
+		"client_secret":  "client-secret",
+		"token_endpoint": "https://oidc.example.test/token",
+	}))
+	withServerAddressTokenTransport(t, "https://oidc.example.test/token", "https://dashboard.example.test/oauth/oidc")
 
 	token, err := (&OIDCProvider{}).ExchangeToken(context.Background(), "authorization-code", nil)
 	require.NoError(t, err)
@@ -60,15 +64,20 @@ func TestOIDCExchangeTokenUsesCurrentServerAddress(t *testing.T) {
 
 func TestDiscordExchangeTokenUsesCurrentServerAddress(t *testing.T) {
 	settings := system_setting.GetDiscordSettings()
-	previousSettings := *settings
 	previousAddress := system_setting.GetServerAddress()
 	t.Cleanup(func() {
-		*settings = previousSettings
+		require.NoError(t, config.UpdateConfigFromMap(config.GlobalConfig.Get("discord"), map[string]string{
+			"client_id":     settings.ClientId,
+			"client_secret": settings.ClientSecret,
+		}))
 		system_setting.SetServerAddress(previousAddress)
 	})
 
 	system_setting.SetServerAddress("https://dashboard.example.test")
-	*settings = system_setting.DiscordSettings{ClientId: "client-id", ClientSecret: "client-secret"}
+	require.NoError(t, config.UpdateConfigFromMap(config.GlobalConfig.Get("discord"), map[string]string{
+		"client_id":     "client-id",
+		"client_secret": "client-secret",
+	}))
 	withServerAddressTokenTransport(t, "https://discord.com/api/v10/oauth2/token", "https://dashboard.example.test/oauth/discord")
 
 	token, err := (&DiscordProvider{}).ExchangeToken(context.Background(), "authorization-code", nil)

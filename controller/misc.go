@@ -48,6 +48,9 @@ func GetStatus(c *gin.Context) {
 
 	passkeySetting := system_setting.GetPasskeySettings()
 	legalSetting := system_setting.GetLegalSettings()
+	generalSetting := operation_setting.GetGeneralSetting()
+	discordSetting := system_setting.GetDiscordSettings()
+	oidcSetting := system_setting.GetOIDCSettings()
 
 	data := gin.H{
 		"version":                     common.Version,
@@ -55,8 +58,8 @@ func GetStatus(c *gin.Context) {
 		"email_verification":          common.EmailVerificationEnabled,
 		"github_oauth":                common.GitHubOAuthEnabled,
 		"github_client_id":            common.GitHubClientId,
-		"discord_oauth":               system_setting.GetDiscordSettings().Enabled,
-		"discord_client_id":           system_setting.GetDiscordSettings().ClientId,
+		"discord_oauth":               discordSetting.Enabled,
+		"discord_client_id":           discordSetting.ClientId,
 		"linuxdo_oauth":               common.LinuxDOOAuthEnabled,
 		"linuxdo_client_id":           common.LinuxDOClientId,
 		"linuxdo_minimum_trust_level": common.LinuxDOMinimumTrustLevel,
@@ -71,13 +74,13 @@ func GetStatus(c *gin.Context) {
 		"server_address":              system_setting.GetServerAddress(),
 		"turnstile_check":             common.TurnstileCheckEnabled,
 		"turnstile_site_key":          common.TurnstileSiteKey,
-		"docs_link":                   operation_setting.GetGeneralSetting().DocsLink,
+		"docs_link":                   generalSetting.DocsLink,
 		"quota_per_unit":              common.QuotaPerUnit,
 		// 兼容旧前端：保留 display_in_currency，同时提供新的 quota_display_type
-		"display_in_currency":           operation_setting.IsCurrencyDisplay(),
-		"quota_display_type":            operation_setting.GetQuotaDisplayType(),
-		"custom_currency_symbol":        operation_setting.GetGeneralSetting().CustomCurrencySymbol,
-		"custom_currency_exchange_rate": operation_setting.GetGeneralSetting().CustomCurrencyExchangeRate,
+		"display_in_currency":           generalSetting.QuotaDisplayType != operation_setting.QuotaDisplayTypeTokens,
+		"quota_display_type":            generalSetting.QuotaDisplayType,
+		"custom_currency_symbol":        generalSetting.CustomCurrencySymbol,
+		"custom_currency_exchange_rate": generalSetting.CustomCurrencyExchangeRate,
 		"enable_batch_update":           common.BatchUpdateEnabled,
 		"enable_drawing":                common.DrawingEnabled,
 		"enable_task":                   common.TaskEnabled,
@@ -107,10 +110,10 @@ func GetStatus(c *gin.Context) {
 		"HeaderNavModules":    common.OptionMap["HeaderNavModules"],
 		"SidebarModulesAdmin": common.OptionMap["SidebarModulesAdmin"],
 
-		"oidc_enabled":                system_setting.GetOIDCSettings().Enabled,
-		"oidc_client_id":              system_setting.GetOIDCSettings().ClientId,
-		"oidc_authorization_endpoint": system_setting.GetOIDCSettings().AuthorizationEndpoint,
-		"oidc_display_name":           system_setting.GetOIDCSettings().GetEffectiveDisplayName(),
+		"oidc_enabled":                oidcSetting.Enabled,
+		"oidc_client_id":              oidcSetting.ClientId,
+		"oidc_authorization_endpoint": oidcSetting.AuthorizationEndpoint,
+		"oidc_display_name":           oidcSetting.GetEffectiveDisplayName(),
 		"passkey_login":               passkeySetting.Enabled,
 		"passkey_display_name":        passkeySetting.RPDisplayName,
 		"passkey_rp_id":               passkeySetting.RPID,
@@ -126,13 +129,13 @@ func GetStatus(c *gin.Context) {
 
 	// 根据启用状态注入可选内容
 	if cs.ApiInfoEnabled {
-		data["api_info"] = console_setting.GetApiInfo()
+		data["api_info"] = console_setting.GetApiInfoForConsoleSetting(*cs)
 	}
 	if cs.AnnouncementsEnabled {
-		data["announcements"] = console_setting.GetAnnouncements()
+		data["announcements"] = console_setting.GetAnnouncementsForConsoleSetting(*cs)
 	}
 	if cs.FAQEnabled {
-		data["faq"] = console_setting.GetFAQ()
+		data["faq"] = console_setting.GetFAQForConsoleSetting(*cs)
 	}
 
 	// Add enabled custom OAuth providers

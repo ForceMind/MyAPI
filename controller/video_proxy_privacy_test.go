@@ -14,7 +14,7 @@ import (
 	"github.com/ForceMind/MyAPI/middleware"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/service"
-	"github.com/ForceMind/MyAPI/setting/system_setting"
+	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -58,10 +58,18 @@ func TestVideoProxyPrivateResponses(t *testing.T) {
 	t.Cleanup(upstream.Close)
 	upstreamURL, err := url.Parse(upstream.URL)
 	require.NoError(t, err)
-	fetchSetting := system_setting.GetFetchSetting()
-	oldFetch := *fetchSetting
-	*fetchSetting = system_setting.FetchSetting{EnableSSRFProtection: true, AllowPrivateIp: true, AllowedPorts: []string{upstreamURL.Port()}}
-	t.Cleanup(func() { *fetchSetting = oldFetch })
+	fetchSettings := config.GlobalConfig.Get("fetch_setting")
+	require.NotNil(t, fetchSettings)
+	oldFetch, err := config.ConfigToMap(fetchSettings)
+	require.NoError(t, err)
+	require.NoError(t, config.UpdateConfigFromMap(fetchSettings, map[string]string{
+		"enable_ssrf_protection": "true",
+		"allow_private_ip":       "true",
+		"allowed_ports":          `["` + upstreamURL.Port() + `"]`,
+	}))
+	t.Cleanup(func() {
+		require.NoError(t, config.UpdateConfigFromMap(fetchSettings, oldFetch))
+	})
 	if service.GetSSRFProtectedHTTPClient() == nil {
 		service.InitHttpClient()
 	}
@@ -123,7 +131,9 @@ func TestVideoProxyPrivateResponses(t *testing.T) {
 	}
 
 	t.Run("ssrf protection remains active", func(t *testing.T) {
-		fetchSetting.AllowPrivateIp = false
+		require.NoError(t, config.UpdateConfigFromMap(fetchSettings, map[string]string{
+			"allow_private_ip": "false",
+		}))
 		before := requests.Load()
 		request := httptest.NewRequest(http.MethodGet, "/v1/videos/http-video/content", nil)
 		request.Header.Set("Authorization", "Bearer sk-videoownerfixture")

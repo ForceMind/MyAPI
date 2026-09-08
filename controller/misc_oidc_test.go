@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/ForceMind/MyAPI/setting/system_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -14,10 +15,11 @@ import (
 
 func TestGetStatusReturnsEffectiveOIDCDisplayName(t *testing.T) {
 	settings := system_setting.GetOIDCSettings()
-	originalDisplayName := settings.DisplayName
 	originalOptionMap := common.OptionMap
 	t.Cleanup(func() {
-		settings.DisplayName = originalDisplayName
+		require.NoError(t, config.UpdateConfigFromMap(config.GlobalConfig.Get("oidc"), map[string]string{
+			"display_name": settings.DisplayName,
+		}))
 		common.OptionMap = originalOptionMap
 	})
 	common.OptionMap = map[string]string{}
@@ -41,7 +43,9 @@ func TestGetStatusReturnsEffectiveOIDCDisplayName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			settings.DisplayName = tt.displayName
+			require.NoError(t, config.UpdateConfigFromMap(config.GlobalConfig.Get("oidc"), map[string]string{
+				"display_name": tt.displayName,
+			}))
 			response := httptest.NewRecorder()
 			context, _ := gin.CreateTestContext(response)
 			context.Request = httptest.NewRequest(http.MethodGet, "/api/status", nil)

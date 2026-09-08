@@ -10,7 +10,7 @@ import (
 	"github.com/ForceMind/MyAPI/relaykit/types"
 
 	"github.com/ForceMind/MyAPI/relaykit/dto"
-	"github.com/ForceMind/MyAPI/setting/model_setting"
+	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -2126,11 +2126,16 @@ func TestRemoveDisabledFieldsSkipWhenChannelPassThroughEnabled(t *testing.T) {
 }
 
 func TestRemoveDisabledFieldsSkipWhenGlobalPassThroughEnabled(t *testing.T) {
-	original := model_setting.GetGlobalSettings().PassThroughRequestEnabled
-	model_setting.GetGlobalSettings().PassThroughRequestEnabled = true
+	registered := config.GlobalConfig.Get("global")
+	require.NotNil(t, registered)
+	original, err := config.ConfigToMap(registered)
+	require.NoError(t, err)
 	t.Cleanup(func() {
-		model_setting.GetGlobalSettings().PassThroughRequestEnabled = original
+		require.NoError(t, config.UpdateConfigFromMap(registered, original))
 	})
+	require.NoError(t, config.UpdateConfigFromMap(registered, map[string]string{
+		"pass_through_request_enabled": "true",
+	}))
 
 	input := `{
 		"service_tier":"flex",

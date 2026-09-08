@@ -818,7 +818,8 @@ func (info *RelayInfo) ConvOptions() *convmeta.Options {
 	}
 
 	claudeSettings := info.ClaudeSettingsSnapshot()
-	geminiSettings := model_setting.GetGeminiSettings()
+	geminiSettings := *model_setting.GetGeminiSettings()
+	globalSettings := model_setting.GetGlobalSettings()
 	options := &convmeta.Options{
 		Claude: convmeta.ClaudeOptions{
 			ThinkingAdapterEnabled:                claudeSettings.ThinkingAdapterEnabled,
@@ -829,11 +830,11 @@ func (info *RelayInfo) ConvOptions() *convmeta.Options {
 			ThinkingAdapterEnabled:                geminiSettings.ThinkingAdapterEnabled,
 			ThinkingAdapterBudgetTokensPercentage: geminiSettings.ThinkingAdapterBudgetTokensPercentage,
 			FunctionCallThoughtSignatureEnabled:   geminiSettings.FunctionCallThoughtSignatureEnabled,
-			SupportsImagine:                       model_setting.IsGeminiModelSupportImagine,
-			SafetySetting:                         model_setting.GetGeminiSafetySetting,
+			SupportsImagine:                       geminiSettings.SupportsImagine,
+			SafetySetting:                         geminiSettings.SafetySetting,
 		},
 		OpenRouterDialect:      info != nil && info.GetChannelType() == constant.ChannelTypeOpenRouter,
-		PreserveThinkingSuffix: model_setting.ShouldPreserveThinkingSuffix,
+		PreserveThinkingSuffix: globalSettings.ShouldPreserveThinkingSuffix,
 	}
 	if info != nil {
 		info.convOptions = options

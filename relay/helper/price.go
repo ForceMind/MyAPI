@@ -76,8 +76,9 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 	groupRatioInfo := HandleGroupRatio(c, info)
 
 	// Check if this model uses tiered_expr billing
-	if billing_setting.GetBillingMode(info.OriginModelName) == billing_setting.BillingModeTieredExpr {
-		return modelPriceHelperTiered(c, info, promptTokens, meta, groupRatioInfo)
+	billingSnapshot := billing_setting.GetBillingSnapshot()
+	if billingSnapshot.GetBillingMode(info.OriginModelName) == billing_setting.BillingModeTieredExpr {
+		return modelPriceHelperTiered(c, info, promptTokens, meta, groupRatioInfo, billingSnapshot)
 	}
 
 	var preConsumedQuota int
@@ -259,15 +260,16 @@ func HasModelBillingConfig(modelName string) bool {
 	if _, ok, _ := ratio_setting.GetModelRatio(modelName); ok {
 		return true
 	}
-	if billing_setting.GetBillingMode(modelName) != billing_setting.BillingModeTieredExpr {
+	billingSnapshot := billing_setting.GetBillingSnapshot()
+	if billingSnapshot.GetBillingMode(modelName) != billing_setting.BillingModeTieredExpr {
 		return false
 	}
-	expr, ok := billing_setting.GetBillingExpr(modelName)
+	expr, ok := billingSnapshot.GetBillingExpr(modelName)
 	return ok && strings.TrimSpace(expr) != ""
 }
 
-func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, promptTokens int, meta *types.TokenCountMeta, groupRatioInfo hosttypes.GroupRatioInfo) (hosttypes.PriceData, error) {
-	exprStr, ok := billing_setting.GetBillingExpr(info.OriginModelName)
+func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, promptTokens int, meta *types.TokenCountMeta, groupRatioInfo hosttypes.GroupRatioInfo, billingSnapshot billing_setting.BillingSnapshot) (hosttypes.PriceData, error) {
+	exprStr, ok := billingSnapshot.GetBillingExpr(info.OriginModelName)
 	if !ok {
 		return hosttypes.PriceData{}, fmt.Errorf("model %s is configured as tiered_expr but has no billing expression", info.OriginModelName)
 	}

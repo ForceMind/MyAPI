@@ -259,6 +259,7 @@ func updatePricing() {
 	}
 
 	modelGroupsMap := make(map[string]*types.Set[string])
+	billingSnapshot := billing_setting.GetBillingSnapshot()
 
 	for _, ability := range enableAbilities {
 		groups, ok := modelGroupsMap[ability.Model]
@@ -400,8 +401,8 @@ func updatePricing() {
 			audioCompletionRatio := ratio_setting.GetAudioCompletionRatio(model)
 			pricing.AudioCompletionRatio = &audioCompletionRatio
 		}
-		if billingMode := billing_setting.GetBillingMode(model); billingMode == "tiered_expr" {
-			if expr, ok := billing_setting.GetBillingExpr(model); ok && strings.TrimSpace(expr) != "" {
+		if billingMode := billingSnapshot.GetBillingMode(model); billingMode == "tiered_expr" {
+			if expr, ok := billingSnapshot.GetBillingExpr(model); ok && strings.TrimSpace(expr) != "" {
 				pricing.BillingMode = billingMode
 				pricing.BillingExpr = expr
 			}

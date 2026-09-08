@@ -4,21 +4,24 @@ import (
 	"testing"
 
 	"github.com/ForceMind/MyAPI/setting"
+	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	"github.com/stretchr/testify/require"
 )
 
 func confirmPaymentComplianceForTest(t *testing.T) {
 	t.Helper()
-	paymentSetting := operation_setting.GetPaymentSetting()
-	originalConfirmed := paymentSetting.ComplianceConfirmed
-	originalTermsVersion := paymentSetting.ComplianceTermsVersion
+	paymentSetting := config.GlobalConfig.Get("payment_setting")
+	require.NotNil(t, paymentSetting)
+	baseline, err := config.ConfigToMap(paymentSetting)
+	require.NoError(t, err)
 	t.Cleanup(func() {
-		paymentSetting.ComplianceConfirmed = originalConfirmed
-		paymentSetting.ComplianceTermsVersion = originalTermsVersion
+		require.NoError(t, config.UpdateConfigFromMap(paymentSetting, baseline))
 	})
-	paymentSetting.ComplianceConfirmed = true
-	paymentSetting.ComplianceTermsVersion = operation_setting.CurrentComplianceTermsVersion
+	require.NoError(t, config.UpdateConfigFromMap(paymentSetting, map[string]string{
+		"compliance_confirmed":     "true",
+		"compliance_terms_version": operation_setting.CurrentComplianceTermsVersion,
+	}))
 }
 
 func TestStripeWebhookEnabledSupportsSubscriptionOnly(t *testing.T) {

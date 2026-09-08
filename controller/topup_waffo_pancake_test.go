@@ -5,6 +5,7 @@ import (
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/setting"
+	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	"github.com/stretchr/testify/require"
 )
@@ -30,25 +31,29 @@ func TestFormatWaffoPancakeAmount_UsesDisplayPriceString(t *testing.T) {
 func TestGetWaffoPancakePayMoney(t *testing.T) {
 	originalUnitPrice := setting.WaffoPancakeUnitPrice
 	originalQuotaDisplayType := operation_setting.GetGeneralSetting().QuotaDisplayType
-	originalDiscounts := make(map[int]float64, len(operation_setting.GetPaymentSetting().AmountDiscount))
-	for k, v := range operation_setting.GetPaymentSetting().AmountDiscount {
-		originalDiscounts[k] = v
-	}
+	paymentSetting := config.GlobalConfig.Get("payment_setting")
+	require.NotNil(t, paymentSetting)
+	originalPaymentSetting, err := config.ConfigToMap(paymentSetting)
+	require.NoError(t, err)
 	originalTopupGroupRatio := common.TopupGroupRatio2JSONString()
 
 	t.Cleanup(func() {
 		setting.WaffoPancakeUnitPrice = originalUnitPrice
-		operation_setting.GetGeneralSetting().QuotaDisplayType = originalQuotaDisplayType
-		operation_setting.GetPaymentSetting().AmountDiscount = originalDiscounts
+		setGeneralSettingQuotaDisplayTypeForTest(t, originalQuotaDisplayType)
+		require.NoError(t, config.UpdateConfigFromMap(paymentSetting, originalPaymentSetting))
 		require.NoError(t, common.UpdateTopupGroupRatioByJSONString(originalTopupGroupRatio))
 	})
 
 	setting.WaffoPancakeUnitPrice = 2.5
-	operation_setting.GetPaymentSetting().AmountDiscount = map[int]float64{
+	discounts, err := common.Marshal(map[int]float64{
 		10:                           0.8,
 		int(common.QuotaPerUnit * 3): 0.5,
 		20:                           0,
-	}
+	})
+	require.NoError(t, err)
+	require.NoError(t, config.UpdateConfigFromMap(paymentSetting, map[string]string{
+		"amount_discount": string(discounts),
+	}))
 	require.NoError(t, common.UpdateTopupGroupRatioByJSONString(`{"default":1,"vip":1.2}`))
 
 	testCases := []struct {
@@ -83,9 +88,18 @@ func TestGetWaffoPancakePayMoney(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			operation_setting.GetGeneralSetting().QuotaDisplayType = tc.quotaDisplayType
+			setGeneralSettingQuotaDisplayTypeForTest(t, tc.quotaDisplayType)
 			actual := getWaffoPancakePayMoney(tc.amount, tc.group)
 			require.InDelta(t, tc.expected, actual, 0.000001)
 		})
 	}
+}
+
+func setGeneralSettingQuotaDisplayTypeForTest(t *testing.T, displayType string) {
+	t.Helper()
+	registered := config.GlobalConfig.Get("general_setting")
+	require.NotNil(t, registered)
+	require.NoError(t, config.UpdateConfigFromMap(registered, map[string]string{
+		"quota_display_type": displayType,
+	}))
 }

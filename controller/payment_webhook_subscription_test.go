@@ -12,6 +12,7 @@ import (
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/setting"
+	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -21,17 +22,21 @@ import (
 
 func subscriptionWebhookSettings(t *testing.T) {
 	t.Helper()
-	paymentSetting := operation_setting.GetPaymentSetting()
-	confirmed, terms := paymentSetting.ComplianceConfirmed, paymentSetting.ComplianceTermsVersion
+	paymentSetting := config.GlobalConfig.Get("payment_setting")
+	require.NotNil(t, paymentSetting)
+	baseline, err := config.ConfigToMap(paymentSetting)
+	require.NoError(t, err)
 	stripeAPI, stripeSecret, stripePrice := setting.StripeApiSecret, setting.StripeWebhookSecret, setting.StripePriceId
 	creemAPI, creemSecret, creemProducts, creemTestMode := setting.CreemApiKey, setting.CreemWebhookSecret, setting.CreemProducts, setting.CreemTestMode
 	t.Cleanup(func() {
-		paymentSetting.ComplianceConfirmed, paymentSetting.ComplianceTermsVersion = confirmed, terms
+		require.NoError(t, config.UpdateConfigFromMap(paymentSetting, baseline))
 		setting.StripeApiSecret, setting.StripeWebhookSecret, setting.StripePriceId = stripeAPI, stripeSecret, stripePrice
 		setting.CreemApiKey, setting.CreemWebhookSecret, setting.CreemProducts, setting.CreemTestMode = creemAPI, creemSecret, creemProducts, creemTestMode
 	})
-	paymentSetting.ComplianceConfirmed = true
-	paymentSetting.ComplianceTermsVersion = operation_setting.CurrentComplianceTermsVersion
+	require.NoError(t, config.UpdateConfigFromMap(paymentSetting, map[string]string{
+		"compliance_confirmed":     "true",
+		"compliance_terms_version": operation_setting.CurrentComplianceTermsVersion,
+	}))
 	setting.StripeApiSecret = "sk_test_subscription_fixture"
 	setting.StripeWebhookSecret = "whsec_subscription_fixture"
 	setting.StripePriceId = ""
@@ -160,15 +165,19 @@ func TestSubscriptionOnlyPaymentWebhooksRejectIncompleteConfiguration(t *testing
 			deliver:   func(t *testing.T) int { return deliverCreemSubscriptionFixture(t, "subscription-disabled", "fixture") },
 		},
 		{
-			name:      "compliance false",
-			configure: func() { operation_setting.GetPaymentSetting().ComplianceConfirmed = false },
+			name: "compliance false",
+			configure: func() {
+				require.NoError(t, config.UpdateConfigFromMap(config.GlobalConfig.Get("payment_setting"), map[string]string{"compliance_confirmed": "false"}))
+			},
 			deliver: func(t *testing.T) int {
 				return deliverStripeFixture(t, "checkout.session.completed", "subscription-disabled", "complete", setting.StripeWebhookSecret)
 			},
 		},
 		{
-			name:      "terms expired",
-			configure: func() { operation_setting.GetPaymentSetting().ComplianceTermsVersion = "expired" },
+			name: "terms expired",
+			configure: func() {
+				require.NoError(t, config.UpdateConfigFromMap(config.GlobalConfig.Get("payment_setting"), map[string]string{"compliance_terms_version": "expired"}))
+			},
 			deliver: func(t *testing.T) int {
 				return deliverCreemSubscriptionFixture(t, "subscription-disabled", setting.CreemWebhookSecret)
 			},

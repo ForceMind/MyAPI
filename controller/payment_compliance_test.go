@@ -10,6 +10,7 @@ import (
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
+	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
@@ -33,15 +34,25 @@ func paymentComplianceControllerTestDB(t *testing.T) *gorm.DB {
 	previousOptions := common.OptionMap
 	common.OptionMap = map[string]string{"fixture": "before"}
 	common.OptionMapRWMutex.Unlock()
-	paymentSetting := operation_setting.GetPaymentSetting()
-	previousPaymentSetting := *paymentSetting
-	*paymentSetting = operation_setting.PaymentSetting{}
+	paymentSetting := config.GlobalConfig.Get("payment_setting")
+	require.NotNil(t, paymentSetting)
+	previousPaymentSetting, err := config.ConfigToMap(paymentSetting)
+	require.NoError(t, err)
+	require.NoError(t, config.UpdateConfigFromMap(paymentSetting, map[string]string{
+		"amount_options":           `null`,
+		"amount_discount":          `null`,
+		"compliance_confirmed":     "false",
+		"compliance_terms_version": "",
+		"compliance_confirmed_at":  "0",
+		"compliance_confirmed_by":  "0",
+		"compliance_confirmed_ip":  "",
+	}))
 	t.Cleanup(func() {
 		model.DB = previousDB
 		common.OptionMapRWMutex.Lock()
 		common.OptionMap = previousOptions
 		common.OptionMapRWMutex.Unlock()
-		*paymentSetting = previousPaymentSetting
+		require.NoError(t, config.UpdateConfigFromMap(paymentSetting, previousPaymentSetting))
 		require.NoError(t, sqlDB.Close())
 	})
 	return db
@@ -88,7 +99,17 @@ func seedPaymentComplianceOldState(t *testing.T, db *gorm.DB) operation_setting.
 		ComplianceConfirmedBy:  7,
 		ComplianceConfirmedIP:  oldOptions["payment_setting.compliance_confirmed_ip"],
 	}
-	*operation_setting.GetPaymentSetting() = oldPaymentSetting
+	registered := config.GlobalConfig.Get("payment_setting")
+	require.NotNil(t, registered)
+	require.NoError(t, config.UpdateConfigFromMap(registered, map[string]string{
+		"amount_options":           `null`,
+		"amount_discount":          `null`,
+		"compliance_confirmed":     "false",
+		"compliance_terms_version": oldPaymentSetting.ComplianceTermsVersion,
+		"compliance_confirmed_at":  "1600000000",
+		"compliance_confirmed_by":  "7",
+		"compliance_confirmed_ip":  oldPaymentSetting.ComplianceConfirmedIP,
+	}))
 	return oldPaymentSetting
 }
 

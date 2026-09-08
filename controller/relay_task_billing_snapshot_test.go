@@ -7,7 +7,7 @@ import (
 	"github.com/ForceMind/MyAPI/model"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/relay/helper"
-	"github.com/ForceMind/MyAPI/setting/operation_setting"
+	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/ForceMind/MyAPI/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -28,14 +28,18 @@ func TestTaskSubmissionBillingContextCapturesFinalSpecialGroupAndFreeRates(t *te
 			oldModelRatios := ratio_setting.ModelRatio2JSONString()
 			oldGroupRatios := ratio_setting.GroupRatio2JSONString()
 			oldSpecialRatios := ratio_setting.GroupGroupRatio2JSONString()
-			quotaSettings := operation_setting.GetQuotaSetting()
-			oldFreePreconsume := quotaSettings.EnableFreeModelPreConsume
-			quotaSettings.EnableFreeModelPreConsume = false
+			quotaSettings := config.GlobalConfig.Get("quota_setting")
+			require.NotNil(t, quotaSettings)
+			oldQuotaSettings, err := config.ConfigToMap(quotaSettings)
+			require.NoError(t, err)
+			require.NoError(t, config.UpdateConfigFromMap(quotaSettings, map[string]string{
+				"enable_free_model_pre_consume": "false",
+			}))
 			t.Cleanup(func() {
 				require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(oldModelRatios))
 				require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(oldGroupRatios))
 				require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(oldSpecialRatios))
-				quotaSettings.EnableFreeModelPreConsume = oldFreePreconsume
+				require.NoError(t, config.UpdateConfigFromMap(quotaSettings, oldQuotaSettings))
 			})
 			require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(tc.modelRatios))
 			require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(tc.groupRatios))

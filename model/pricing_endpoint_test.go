@@ -7,6 +7,7 @@ import (
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/relaykit/dto"
+	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -105,6 +106,36 @@ func TestPricingAdvancedCustomUsesConfiguredEndpointTypes(t *testing.T) {
 	assert.Equal(t, []constant.EndpointType{
 		constant.EndpointTypeOpenAI,
 	}, byModel["gpt-4o"])
+}
+
+func TestPricingExposesTieredBillingFromOneGeneration(t *testing.T) {
+	resetPricingEndpointTestTables(t)
+	registered := config.GlobalConfig.Get("billing_setting")
+	require.NotNil(t, registered)
+	baseline, err := config.ConfigToMap(registered)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, config.UpdateConfigFromMap(registered, baseline))
+		InvalidatePricingCache()
+	})
+
+	require.NoError(t, config.UpdateConfigFromMap(registered, map[string]string{
+		"billing_mode": `{"tiered-display-model":"tiered_expr"}`,
+		"billing_expr": `{"tiered-display-model":"tier(\"base\", p * 2 + c * 3)"}`,
+	}))
+	insertPricingEndpointChannel(t, 150, constant.ChannelTypeOpenAI, dto.ChannelOtherSettings{})
+	insertPricingEndpointAbility(t, 150, "tiered-display-model")
+
+	pricing := GetPricing()
+	for _, item := range pricing {
+		if item.ModelName != "tiered-display-model" {
+			continue
+		}
+		assert.Equal(t, "tiered_expr", item.BillingMode)
+		assert.Equal(t, `tier("base", p * 2 + c * 3)`, item.BillingExpr)
+		return
+	}
+	t.Fatal("tiered pricing model not found")
 }
 
 func TestPricingModelMetadataEndpointsMergeWithAdvancedCustomInference(t *testing.T) {
