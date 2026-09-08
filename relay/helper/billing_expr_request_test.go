@@ -10,8 +10,11 @@ import (
 	"github.com/ForceMind/MyAPI/common"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/relaykit/dto"
+	"github.com/ForceMind/MyAPI/relaykit/types"
+	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
@@ -60,4 +63,30 @@ func TestBuildBillingExprRequestInputFromRequest(t *testing.T) {
 	require.True(t, gjson.GetBytes(input.Body, "stream").Bool())
 	require.Equal(t, "user", gjson.GetBytes(input.Body, "messages.0.role").String())
 	require.Equal(t, float64(3000), gjson.GetBytes(input.Body, "max_tokens").Float())
+}
+
+func TestModelPriceHelperUsesOneBillingGeneration(t *testing.T) {
+	registered := config.GlobalConfig.Get("billing_setting")
+	require.NotNil(t, registered)
+	baseline, err := config.ConfigToMap(registered)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, config.UpdateConfigFromMap(registered, baseline))
+	})
+
+	require.NoError(t, config.UpdateConfigFromMap(registered, map[string]string{
+		"billing_mode": `{"snapshot-billing-model":"tiered_expr"}`,
+		"billing_expr": `{"snapshot-billing-model":"tier(\"base\", p * 2 + c * 3)"}`,
+	}))
+
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	price, err := ModelPriceHelper(ctx, &relaycommon.RelayInfo{
+		OriginModelName: "snapshot-billing-model",
+		UsingGroup:      "default",
+	}, 100, &types.TokenCountMeta{MaxTokens: 20})
+
+	require.NoError(t, err)
+	assert.False(t, price.FreeModel)
+	assert.Greater(t, price.QuotaToPreConsume, 0)
 }

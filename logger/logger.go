@@ -134,15 +134,16 @@ func logHelper(ctx context.Context, level string, msg string) {
 func LogQuota(quota int) string {
 	// 新逻辑：根据额度展示类型输出
 	q := float64(quota)
-	switch operation_setting.GetQuotaDisplayType() {
+	generalSetting := operation_setting.GetGeneralSetting()
+	switch generalSetting.QuotaDisplayType {
 	case operation_setting.QuotaDisplayTypeCNY:
 		usd := q / common.QuotaPerUnit
 		cny := usd * operation_setting.USDExchangeRate
 		return fmt.Sprintf("¥%.6f 额度", cny)
 	case operation_setting.QuotaDisplayTypeCustom:
 		usd := q / common.QuotaPerUnit
-		rate := operation_setting.GetGeneralSetting().CustomCurrencyExchangeRate
-		symbol := operation_setting.GetGeneralSetting().CustomCurrencySymbol
+		rate := generalSetting.CustomCurrencyExchangeRate
+		symbol := generalSetting.CustomCurrencySymbol
 		if symbol == "" {
 			symbol = "¤"
 		}
@@ -160,15 +161,16 @@ func LogQuota(quota int) string {
 
 func FormatQuota(quota int) string {
 	q := float64(quota)
-	switch operation_setting.GetQuotaDisplayType() {
+	generalSetting := operation_setting.GetGeneralSetting()
+	switch generalSetting.QuotaDisplayType {
 	case operation_setting.QuotaDisplayTypeCNY:
 		usd := q / common.QuotaPerUnit
 		cny := usd * operation_setting.USDExchangeRate
 		return fmt.Sprintf("¥%.6f", cny)
 	case operation_setting.QuotaDisplayTypeCustom:
 		usd := q / common.QuotaPerUnit
-		rate := operation_setting.GetGeneralSetting().CustomCurrencyExchangeRate
-		symbol := operation_setting.GetGeneralSetting().CustomCurrencySymbol
+		rate := generalSetting.CustomCurrencyExchangeRate
+		symbol := generalSetting.CustomCurrencySymbol
 		if symbol == "" {
 			symbol = "¤"
 		}

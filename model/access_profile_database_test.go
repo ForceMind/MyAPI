@@ -76,20 +76,30 @@ func s2PaymentComplianceBulkRollbackContract(t *testing.T, db *gorm.DB) {
 		common.OptionMap[key] = value
 	}
 	common.OptionMapRWMutex.Unlock()
-	paymentSetting := operation_setting.GetPaymentSetting()
-	previousPaymentSetting := *paymentSetting
+	paymentSetting := config.GlobalConfig.Get("payment_setting")
+	require.NotNil(t, paymentSetting)
+	previousPaymentSetting, err := config.ConfigToMap(paymentSetting)
+	require.NoError(t, err)
 	baselinePaymentSetting := operation_setting.PaymentSetting{
 		ComplianceTermsVersion: oldOptions["payment_setting.compliance_terms_version"],
 		ComplianceConfirmedAt:  1600000000,
 		ComplianceConfirmedBy:  7,
 		ComplianceConfirmedIP:  oldOptions["payment_setting.compliance_confirmed_ip"],
 	}
-	*paymentSetting = baselinePaymentSetting
+	require.NoError(t, config.UpdateConfigFromMap(paymentSetting, map[string]string{
+		"amount_options":           `null`,
+		"amount_discount":          `null`,
+		"compliance_confirmed":     "false",
+		"compliance_terms_version": baselinePaymentSetting.ComplianceTermsVersion,
+		"compliance_confirmed_at":  "1600000000",
+		"compliance_confirmed_by":  "7",
+		"compliance_confirmed_ip":  baselinePaymentSetting.ComplianceConfirmedIP,
+	}))
 	restoreGlobals := sync.OnceFunc(func() {
 		common.OptionMapRWMutex.Lock()
 		common.OptionMap = previousOptions
 		common.OptionMapRWMutex.Unlock()
-		*paymentSetting = previousPaymentSetting
+		require.NoError(t, config.UpdateConfigFromMap(paymentSetting, previousPaymentSetting))
 	})
 	defer restoreGlobals()
 	t.Cleanup(restoreGlobals)
@@ -128,7 +138,7 @@ func s2PaymentComplianceBulkRollbackContract(t *testing.T, db *gorm.DB) {
 	}
 	assert.Equal(t, expectedPublished, common.OptionMap)
 	common.OptionMapRWMutex.RUnlock()
-	assert.Equal(t, baselinePaymentSetting, *paymentSetting)
+	assert.Equal(t, baselinePaymentSetting, *operation_setting.GetPaymentSetting())
 }
 
 func s1DatabaseDialector(engine, dsn string) (gorm.Dialector, error) {
