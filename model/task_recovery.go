@@ -1305,8 +1305,12 @@ func validateStoredTaskSubmissionAttempt(tx *gorm.DB, attempt *TaskSubmissionAtt
 		}
 	}
 
+	// A locking read, because a caller that lost the idempotency race reaches
+	// here inside a transaction whose MySQL REPEATABLE READ snapshot predates
+	// the winner's commit. A plain read returns no row there and the loser
+	// reports a missing operation instead of replaying the winner's.
 	var operation TaskSubmissionOperation
-	if err := tx.Where("id = ?", attempt.OperationID).First(&operation).Error; err != nil {
+	if err := lockForUpdate(tx).Where("id = ?", attempt.OperationID).First(&operation).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrTaskSubmissionOperationNotFound
 		}
