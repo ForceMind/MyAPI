@@ -41,8 +41,8 @@ try {
   await new Promise(done => server.listen(0, '127.0.0.1', done))
   const origin = `http://127.0.0.1:${server.address().port}`
   browser = await chromium.launch({ headless: true, executablePath: process.env.MYAPI_CHROMIUM_PATH || undefined, args: ['--disable-dev-shm-usage'] })
-  const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, locale: 'zh-CN', reducedMotion: 'reduce' })
-  await context.addInitScript(() => { localStorage.setItem('i18nextLng', 'zhCN'); localStorage.setItem('theme', 'light') })
+  const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, locale: 'zh-CN', reducedMotion: 'reduce', colorScheme: 'light' })
+  await context.addInitScript(() => { localStorage.setItem('i18nextLng', 'zhCN') })
   const fixtures = quotaFixtures()
   await context.route('**/api/**', async route => {
     const request = route.request()
@@ -97,9 +97,13 @@ try {
     }
     await page.screenshot({ path: resolve(output, `overview-${viewport.width}.png`), fullPage: true })
   }
-  await page.evaluate(() => localStorage.setItem('theme', 'dark'))
+  await page.emulateMedia({ colorScheme: 'dark' })
   await page.reload({ waitUntil: 'networkidle' })
+  await page.waitForFunction(() => document.documentElement.classList.contains('dark'))
+  await page.setViewportSize({ width: 1280, height: 720 })
   await page.screenshot({ path: resolve(output, 'overview-dark.png'), fullPage: true })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.screenshot({ path: resolve(output, 'overview-dark-mobile.png'), fullPage: true })
   summaryFails = true
   await page.reload({ waitUntil: 'networkidle' })
   assert.equal(new URL(page.url()).pathname, '/dashboard/overview', 'summary failure stays within the operational page')
@@ -109,7 +113,7 @@ try {
   summaryFails = false
 
   emptyOverview = true
-  await page.evaluate(() => localStorage.setItem('theme', 'light'))
+  await page.emulateMedia({ colorScheme: 'light' })
   await page.reload({ waitUntil: 'networkidle' })
   await page.getByText(label('No quota history data yet'), { exact: true }).waitFor()
   assert.equal(await quotaChart.locator('.recharts-line-curve').count(), 0, 'empty quota state does not render a synthetic series')
