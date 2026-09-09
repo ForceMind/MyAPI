@@ -174,13 +174,13 @@ export function QuotaComparisonChart(props: {
             allowDataOverflow
             tickFormatter={(value) => formatTime(Number(value))}
             minTickGap={48}
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
           />
           <YAxis
             width={64}
             domain={[0, 'auto']}
             tickFormatter={(value) => formatNumber(Number(value))}
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
           />
           <Tooltip
             content={({ active, label }) => {

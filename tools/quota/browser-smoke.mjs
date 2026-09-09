@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { quotaFixtures } from './browser-fixtures.mjs'
 
 const repo = fileURLToPath(new URL('../../', import.meta.url))
-const root = resolve(repo, 'web/dist')
+const root = resolve(process.env.MYAPI_UI_REDESIGN_FRONTEND || resolve(repo, 'web/dist'))
 const output = resolve(process.env.MYAPI_BROWSER_ARTIFACTS || `${repo}/.local-tests/quota-browser`)
 const zh = JSON.parse(readFileSync(resolve(repo, 'web/src/i18n/locales/zh.json'), 'utf8')).translation
 const label = (key) => zh[key] || key
@@ -183,8 +183,7 @@ try {
   await page.keyboard.press('Escape')
 
   // Exercise the real Codex channel editor and local-login import wizard.
-  await page.getByRole('button', { name: label('Open menu'), exact: true }).last().click()
-  await page.getByRole('menuitem', { name: label('Edit'), exact: true }).click()
+  await page.getByRole('button', { name: label('Edit'), exact: true }).first().click()
   const channelEditor = page.getByRole('dialog').filter({ hasText: label('Edit Channel') }).last()
   await channelEditor.waitFor({ state: 'visible' })
   await channelEditor.getByRole('button', { name: label('Import local Codex'), exact: true }).click()

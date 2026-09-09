@@ -57,6 +57,7 @@ try {
       const start = Number(url.searchParams.get('start_timestamp'))
       const end = Number(url.searchParams.get('end_timestamp'))
       assert(start > 0 && end > start, 'request metrics use an explicit common period')
+      assert(end <= Math.floor(Date.now() / 1000) + 300 && end - start === 86400, 'summary window satisfies the server time contract without the legacy future-hour buffer')
       status = summaryFails ? 500 : 200
       response = summaryFails ? { success: false, message: 'Synthetic summary unavailable' } : { success: true, data: {
         start_timestamp: start, end_timestamp: end, total_requests: emptyOverview ? 0 : 100, successful_requests: emptyOverview ? 0 : 92, failed_requests: emptyOverview ? 0 : 8,
@@ -149,9 +150,8 @@ try {
   await page.getByRole('table').waitFor()
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'desktop channels page must not overflow')
   await page.screenshot({ path: resolve(output, 'channels-desktop.png'), fullPage: true })
-  const edit = page.getByRole('button', { name: label('Open menu'), exact: true }).last()
+  const edit = page.getByRole('button', { name: label('Edit'), exact: true }).first()
   await edit.click()
-  await page.getByRole('menuitem', { name: label('Edit'), exact: true }).click()
   const drawer = page.getByRole('dialog', { name: label('Edit Channel'), exact: false })
   await drawer.waitFor()
   await drawer.screenshot({ path: resolve(output, 'channel-desktop-drawer-content.png') })

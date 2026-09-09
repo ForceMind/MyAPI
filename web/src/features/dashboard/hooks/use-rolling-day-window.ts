@@ -11,10 +11,12 @@ import { useEffect, useState } from 'react'
 import { computeTimeRange } from '@/lib/time'
 
 export function useRollingDayWindow() {
-  const [range, setRange] = useState(() => computeTimeRange(1))
+  const [range, setRange] = useState(() =>
+    computeTimeRange(1, undefined, new Date())
+  )
   useEffect(() => {
     const interval = window.setInterval(
-      () => setRange(computeTimeRange(1)),
+      () => setRange(computeTimeRange(1, undefined, new Date())),
       60000
     )
     return () => window.clearInterval(interval)
