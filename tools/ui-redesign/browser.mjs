@@ -32,6 +32,8 @@ const unexpected = new Set()
 const requests = []
 let role = 100
 let summaryFails = false
+let emptyOverview = false
+let channelRead = true
 const policy = { enabled: false, sticky_enabled: true, session_ttl_seconds: 86400, quota_max_age_seconds: 600 }
 const channels = [{ id: 1, name: 'Codex · 浏览器测试', type: 57, status: 1, priority: 0, weight: 30, quota: { state: 'fresh', available: 85, unit: 'percent', observed_at: now } }]
 try {
@@ -49,20 +51,25 @@ try {
     if (path !== '/api/user/auth/refresh') assert.equal(request.method(), 'GET', `overview must be read-only: ${path}`)
     let response
     let status = 200
-    if (path === '/api/channel/routing') response = { success: true, data: { policy, channels } }
+    if (path === '/api/channel/routing') response = { success: true, data: { policy, channels: emptyOverview ? [] : channels } }
     else if (path.endsWith('/request-summary')) {
       const start = Number(url.searchParams.get('start_timestamp'))
       const end = Number(url.searchParams.get('end_timestamp'))
       assert(start > 0 && end > start, 'request metrics use an explicit common period')
       status = summaryFails ? 500 : 200
       response = summaryFails ? { success: false, message: 'Synthetic summary unavailable' } : { success: true, data: {
-        start_timestamp: start, end_timestamp: end, total_requests: 100, successful_requests: 92, failed_requests: 8,
-        success_rate: 92, coverage: { complete: false, reason: 'recorded_logs_only', identified_requests: 100, unidentified_log_rows: 0, consume_logs_enabled: true, error_logs_enabled: true, window_semantics: 'log_events_within_range', deduplication: 'request_id_success_precedence' },
+        start_timestamp: start, end_timestamp: end, total_requests: emptyOverview ? 0 : 100, successful_requests: emptyOverview ? 0 : 92, failed_requests: emptyOverview ? 0 : 8,
+        success_rate: emptyOverview ? null : 92, coverage: { complete: false, reason: 'recorded_logs_only', identified_requests: emptyOverview ? 0 : 100, unidentified_log_rows: 0, consume_logs_enabled: true, error_logs_enabled: true, window_semantics: 'log_events_within_range', deduplication: 'request_id_success_precedence' },
       } }
-    } else if (path === '/api/log' || path === '/api/log/self') response = { success: true, data: { items: [], total: 0 } }
+    } else if (emptyOverview && path === '/api/channel/quota/changes') response = { success: true, data: {
+      items: [], range: url.searchParams.get('range') || '24h', generated_at: now,
+      source_complete: true, items_complete: true,
+    } }
+    else if (path === '/api/log' || path === '/api/log/self') response = { success: true, data: { items: [], total: 0 } }
     else response = fixtures.response(url)
-    if (path === '/api/user/auth/refresh' && response?.data?.user) response.data.user = { ...response.data.user, role }
-    if (path === '/api/user/self' && response?.data) response.data = { ...response.data, role }
+    const permissions = { admin_permissions: { channel: { read: channelRead, operate: channelRead, write: channelRead, sensitive_write: channelRead, secret_view: channelRead } } }
+    if (path === '/api/user/auth/refresh' && response?.data?.user) response.data.user = { ...response.data.user, role, permissions }
+    if (path === '/api/user/self' && response?.data) response.data = { ...response.data, role, permissions }
     if (!response) unexpected.add(path)
     await route.fulfill({ status: response ? status : 501, json: response || { success: false } })
   })
@@ -92,6 +99,24 @@ try {
   assert.equal(await page.getByText('92%', { exact: false }).count(), 0, 'failed summary does not show stale success as current')
   await page.screenshot({ path: resolve(output, 'overview-error.png'), fullPage: true })
   summaryFails = false
+
+  emptyOverview = true
+  await page.evaluate(() => localStorage.setItem('theme', 'light'))
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.getByText(label('No quota history data yet'), { exact: true }).waitFor()
+  assert.equal(await quotaChart.locator('.recharts-line-curve').count(), 0, 'empty quota state does not render a synthetic series')
+  await page.screenshot({ path: resolve(output, 'overview-empty.png'), fullPage: true })
+  emptyOverview = false
+
+  role = 10
+  channelRead = false
+  requests.length = 0
+  await page.reload({ waitUntil: 'networkidle' })
+  assert(!requests.some(path => path.startsWith('/api/channel')), 'an administrator without channel read permission never requests channel metadata')
+  assert.equal(await page.getByTestId('quota-comparison-chart').count(), 0, 'channel quota UI is hidden without channel read permission')
+  assert((await page.getByText(label('Unavailable'), { exact: true }).count()) >= 2, 'permission-limited operational summary values are unavailable')
+  await page.screenshot({ path: resolve(output, 'overview-channel-read-denied.png'), fullPage: true })
+
   role = 1
   requests.length = 0
   await page.reload({ waitUntil: 'networkidle' })
@@ -100,11 +125,26 @@ try {
   assert(!requests.includes('/api/log/request-summary'), 'ordinary overview never requests global summary')
   await page.screenshot({ path: resolve(output, 'overview-personal.png'), fullPage: true })
   role = 100
+  channelRead = true
+  await page.setViewportSize({ width: 1280, height: 720 })
   await page.goto(`${origin}/channels`, { waitUntil: 'networkidle' })
-  await page.setViewportSize({ width: 390, height: 844 })
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'desktop channels page must not overflow')
+  await page.screenshot({ path: resolve(output, 'channels-desktop.png'), fullPage: true })
   const edit = page.getByRole('button', { name: label('Edit'), exact: true }).first()
   await edit.click()
   const drawer = page.getByRole('dialog', { name: label('Edit Channel'), exact: false })
+  await drawer.waitFor()
+  const desktopDrawerBounds = await drawer.boundingBox()
+  assert(desktopDrawerBounds && desktopDrawerBounds.width < 1280 && Math.abs(desktopDrawerBounds.x + desktopDrawerBounds.width - 1280) <= 1, 'desktop channel editor is a right-side drawer')
+  await page.screenshot({ path: resolve(output, 'channel-desktop-drawer.png'), fullPage: true })
+  await page.keyboard.press('Escape')
+  await drawer.waitFor({ state: 'hidden' })
+  assert(await edit.evaluate(element => element === document.activeElement), 'closing the desktop editor restores focus to the edit action')
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  const mobileMenu = page.getByRole('button', { name: label('Open menu'), exact: true }).last()
+  await mobileMenu.click()
+  await page.getByRole('menuitem', { name: label('Edit'), exact: true }).click()
   await drawer.waitFor()
   const drawerBounds = await drawer.boundingBox()
   assert(drawerBounds && Math.abs(drawerBounds.width - 390) <= 1, 'mobile channel editor fills the viewport')
@@ -119,7 +159,7 @@ try {
   await page.keyboard.press('Escape')
   await confirm.getByRole('button', { name: label('Leave'), exact: true }).click()
   await drawer.waitFor({ state: 'hidden' })
-  assert(await edit.evaluate(element => element === document.activeElement), 'closing the editor restores focus to the edit action')
+  assert(await mobileMenu.evaluate(element => element === document.activeElement), 'closing the mobile editor restores focus to the row actions')
   assert.deepEqual([...unexpected], [], 'all API requests are explicitly covered')
   assert.deepEqual(failures, [], 'no browser runtime errors')
   console.log(JSON.stringify({ result: 'pass', artifacts: output }))

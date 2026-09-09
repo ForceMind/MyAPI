@@ -7,7 +7,7 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { AxiosError } from 'axios'
 import { createInstance } from 'i18next'
 import { initReactI18next, I18nextProvider } from 'react-i18next'
@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
-import type { ChannelRoutingData } from '../types'
+import type { ChannelRoutingData, RoutingPreviewResponse } from '../types'
 
 vi.mock('../api', () => ({
   getChannelRouting: vi.fn(),
@@ -687,4 +687,47 @@ describe('ChannelRoutingDialog', () => {
       ).toBeInTheDocument()
     }
   )
+  test('a preview resolving after an account change cannot expose previous candidates', async () => {
+    let finish: ((response: RoutingPreviewResponse) => void) | undefined
+    vi.mocked(previewChannelRouting).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    setUser(ROLE.SUPER_ADMIN)
+    renderDialog()
+    await openDialog()
+    fireEvent.click(screen.getByRole('button', { name: 'Preview routing' }))
+    await waitFor(() => expect(previewChannelRouting).toHaveBeenCalled())
+    act(() =>
+      useAuthStore.getState().auth.setUser({
+        id: 5,
+        username: 'second-admin',
+        role: ROLE.SUPER_ADMIN,
+      })
+    )
+    await screen.findByRole('heading', { name: 'Policy' })
+    await act(async () => {
+      if (!finish) throw new Error('preview request was not started')
+      finish({
+        success: true,
+        data: {
+          workload: 'chat',
+          reason: 'chat_lower_remaining_quota',
+          candidates: [
+            {
+              id: 999,
+              name: 'Previous account private channel',
+              share: 1,
+              reason: 'priority_weight',
+            },
+          ],
+        },
+      })
+    })
+    expect(
+      screen.queryByText('Previous account private channel')
+    ).not.toBeInTheDocument()
+  })
 })

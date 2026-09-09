@@ -8,7 +8,6 @@ License, or (at your option) any later version.
 */
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { getAllLogs } from '@/features/usage-logs/api'
@@ -17,6 +16,8 @@ import { hasPermission } from '@/lib/admin-permissions'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
+import { useRollingDayWindow } from '../../hooks/use-rolling-day-window'
+
 export function RoutingSwitchSummary() {
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
@@ -24,7 +25,7 @@ export function RoutingSwitchSummary() {
   const allowed =
     Boolean(user && user.role >= ROLE.ADMIN) &&
     hasPermission(user, 'channel', 'read')
-  const [end] = useState(() => Math.floor(Date.now() / 1000))
+  const { end_timestamp: end } = useRollingDayWindow()
   const query = useQuery({
     queryKey: [
       'dashboard',

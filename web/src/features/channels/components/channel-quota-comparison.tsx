@@ -426,7 +426,21 @@ export function ChannelQuotaComparison(props: ChannelQuotaComparisonProps) {
             <Button
               variant='ghost'
               size='sm'
-              onClick={() => setRefresh((value) => value + 1)}
+              onClick={() => {
+                const duration = (
+                  {
+                    '1h': 3600,
+                    '24h': 86400,
+                    '7d': 604800,
+                    '30d': 2592000,
+                  } as Record<string, number>
+                )[mode]
+                if (duration) {
+                  const end = Math.floor(Date.now() / 1000)
+                  setBounds({ start: end - duration, end })
+                }
+                setRefresh((value) => value + 1)
+              }}
               disabled={loading}
             >
               {t('Refresh')}

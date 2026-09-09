@@ -857,34 +857,36 @@ export function OverviewDashboard() {
         </div>
       ) : null}
 
-      <Collapsible
-        open={accountQuotaExpanded}
-        onOpenChange={setAccountQuotaExpanded}
-        className='bg-card order-4 rounded-2xl border shadow-xs'
-      >
-        <CollapsibleTrigger
-          render={
-            <Button
-              variant='ghost'
-              className='h-auto w-full justify-between rounded-2xl px-4 py-3 sm:px-5'
-            />
-          }
+      {isAdmin && (
+        <Collapsible
+          open={accountQuotaExpanded}
+          onOpenChange={setAccountQuotaExpanded}
+          className='bg-card order-4 rounded-2xl border shadow-xs'
         >
-          <span className='text-sm font-semibold'>
-            {t('Account quota changes')}
-          </span>
-          <ChevronDown
-            className={cn(
-              'size-4 transition-transform',
-              accountQuotaExpanded && 'rotate-180'
-            )}
-            aria-hidden='true'
-          />
-        </CollapsibleTrigger>
-        <CollapsibleContent className='border-t p-3 sm:p-4'>
-          <AccountQuotaChangesPanel />
-        </CollapsibleContent>
-      </Collapsible>
+          <CollapsibleTrigger
+            render={
+              <Button
+                variant='ghost'
+                className='h-auto w-full justify-between rounded-2xl px-4 py-3 sm:px-5'
+              />
+            }
+          >
+            <span className='text-sm font-semibold'>
+              {t('Account quota changes')}
+            </span>
+            <ChevronDown
+              className={cn(
+                'size-4 transition-transform',
+                accountQuotaExpanded && 'rotate-180'
+              )}
+              aria-hidden='true'
+            />
+          </CollapsibleTrigger>
+          <CollapsibleContent className='border-t p-3 sm:p-4'>
+            <AccountQuotaChangesPanel />
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       {showContentPanels && (
         <CardStaggerContainer

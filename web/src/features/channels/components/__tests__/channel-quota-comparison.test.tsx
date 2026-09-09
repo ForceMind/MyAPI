@@ -362,3 +362,35 @@ test('sampling controls stay collapsed until advanced settings are opened', asyn
   fireEvent.click(screen.getByText('Advanced settings'))
   expect(screen.getByLabelText('Resolution')).toBeVisible()
 })
+
+test('refresh advances a relative range while retaining its duration', async () => {
+  mount()
+  await waitFor(() => expect(getChannelQuotaHistory).toHaveBeenCalled())
+  vi.mocked(Date.now).mockReturnValue((now + 3600) * 1000)
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+  await waitFor(() =>
+    expect(getChannelQuotaHistory).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({
+        start: new Date((now + 3600 - 86400) * 1000).toISOString(),
+        end: new Date((now + 3600) * 1000).toISOString(),
+      })
+    )
+  )
+})
+test('refresh preserves an explicitly selected historical range', async () => {
+  mount({ initialBounds: { start: now - 7200, end: now - 3600 } })
+  await waitFor(() => expect(getChannelQuotaHistory).toHaveBeenCalled())
+  vi.mocked(getChannelQuotaHistory).mockClear()
+  vi.mocked(Date.now).mockReturnValue((now + 3600) * 1000)
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+  await waitFor(() =>
+    expect(getChannelQuotaHistory).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({
+        start: new Date((now - 7200) * 1000).toISOString(),
+        end: new Date((now - 3600) * 1000).toISOString(),
+      })
+    )
+  )
+})

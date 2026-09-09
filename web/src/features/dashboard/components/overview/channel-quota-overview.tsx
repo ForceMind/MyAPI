@@ -179,7 +179,10 @@ export function ChannelQuotaOverview() {
           <Button
             variant='ghost'
             size='sm'
-            onClick={() => setRefresh((value) => value + 1)}
+            onClick={() => {
+              if (range !== 'custom') setBounds(currentBounds(range))
+              setRefresh((value) => value + 1)
+            }}
             disabled={loading}
           >
             {t('Refresh')}

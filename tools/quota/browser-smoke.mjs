@@ -135,6 +135,7 @@ try {
     assert(box && box.y >= 99 && box.y + box.height <= bottomLimit + 1, `the whole chart, including its time axis, is reachable by real scrolling: ${JSON.stringify({box, bottomLimit, viewport})}`)
   }
   await page.goto(`${origin}/dashboard/overview`, { waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: label('Account quota changes'), exact: true }).click()
   const overview = page.getByTestId('quota-overview-card').first()
   await overview.waitFor({ state: 'visible' })
   const overviewText = await overview.innerText()

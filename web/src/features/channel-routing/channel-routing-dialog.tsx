@@ -179,6 +179,17 @@ export interface ChannelRoutingPanelProps {
 }
 
 export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
+  const userId = useAuthStore((state) => state.auth.user?.id)
+  const sessionId = useAuthStore((state) => state.auth.session?.sid)
+  return (
+    <ChannelRoutingEditor
+      key={`${userId ?? ''}:${sessionId ?? ''}`}
+      {...props}
+    />
+  )
+}
+
+function ChannelRoutingEditor(props: ChannelRoutingPanelProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const currentUser = useAuthStore((state) => state.auth.user)

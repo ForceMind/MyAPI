@@ -38,10 +38,10 @@ import { getCurrencyLabel, isCurrencyDisplayEnabled } from '@/lib/currency'
 import { formatNumber, formatQuota } from '@/lib/format'
 import { ROLE } from '@/lib/roles'
 import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
-import { computeTimeRange } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
+import { useRollingDayWindow } from '../../hooks/use-rolling-day-window'
 import { StatCard } from '../ui/stat-card'
 
 const SUMMARY_SPARKLINE_BUCKETS = 12
@@ -141,7 +141,7 @@ export function SummaryCards() {
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   const { status, loading } = useStatus()
 
-  const summaryTimeRange = useMemo(() => computeTimeRange(1), [])
+  const summaryTimeRange = useRollingDayWindow()
   const summaryQueryParams = useMemo(
     () =>
       buildQueryParams(summaryTimeRange, {
@@ -320,7 +320,28 @@ export function SummaryCards() {
     if (config.key === 'todayUsage') sparkline = sparklineData.usage
     else if (config.key === 'requests') sparkline = sparklineData.requests
 
+    let itemLoading = false
+    let updatedAt = 0
+    if (config.key === 'requests' || config.key === 'successRate') {
+      itemLoading = requestSummaryQuery.isLoading
+      if (requestSummaryQuery.isSuccess) {
+        updatedAt = requestSummaryQuery.dataUpdatedAt
+      }
+    } else if (
+      canReadOperationalChannels &&
+      routingQuery.isSuccess &&
+      routingQuery.data?.success
+    ) {
+      updatedAt = routingQuery.dataUpdatedAt
+    }
+
+    if (config.key === 'channels' || config.key === 'routing') {
+      itemLoading = canReadOperationalChannels && routingQuery.isLoading
+    }
+
     return {
+      itemLoading,
+      updatedAt,
       key: config.key,
       title: config.title,
       value: config.value,
@@ -338,6 +359,14 @@ export function SummaryCards() {
         aria-label={t('Usage at a glance')}
         className='bg-card overflow-hidden rounded-xl border'
       >
+        <header className='flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b px-4 py-2'>
+          <h2 className='text-sm font-semibold'>{t('Overview')}</h2>
+          <p className='text-muted-foreground text-xs tabular-nums'>
+            {t('Time range')}:{' '}
+            {new Date(summaryTimeRange.start_timestamp * 1000).toLocaleString()}{' '}
+            – {new Date(summaryTimeRange.end_timestamp * 1000).toLocaleString()}
+          </p>
+        </header>
         <dl className='grid grid-cols-2 lg:grid-cols-4'>
           {items.map((item) => (
             <div
@@ -346,12 +375,15 @@ export function SummaryCards() {
             >
               <dt className='text-muted-foreground text-xs'>{item.title}</dt>
               <dd className='text-xl font-semibold tabular-nums sm:text-2xl'>
-                {(item.key === 'requests' || item.key === 'successRate') &&
-                requestSummaryQuery.isLoading
-                  ? t('Loading')
-                  : item.value}
+                {item.itemLoading ? t('Loading') : item.value}
               </dd>
               <p className='text-muted-foreground text-xs'>{item.desc}</p>
+              <p className='text-muted-foreground text-xs tabular-nums'>
+                {t('Last updated:')}{' '}
+                {item.updatedAt
+                  ? new Date(item.updatedAt).toLocaleTimeString()
+                  : t('Unavailable')}
+              </p>
             </div>
           ))}
         </dl>

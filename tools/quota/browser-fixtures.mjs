@@ -156,6 +156,16 @@ export function quotaFixtures({ latestError = false } = {}) {
     if (path === '/api/user/passkey') return ok({ enabled: false, credentials: [] })
     if (path === '/api/token' || path === '/api/token/search') return ok({ items: [], total: 0, page: 1, page_size: 10 })
     if (path.startsWith('/api/data') || path === '/api/uptime/status') return ok([])
+    if (path === '/api/log/request-summary' || path === '/api/log/self/request-summary') return ok({
+      start_timestamp: Number(url.searchParams.get('start_timestamp')), end_timestamp: Number(url.searchParams.get('end_timestamp')),
+      total_requests: 1, successful_requests: 1, failed_requests: 0, success_rate: 100,
+      coverage: { complete: false, reason: 'recorded_logs_only', consume_logs_enabled: true, error_logs_enabled: true, identified_requests: 1, unidentified_log_rows: 0 },
+    })
+    if (path === '/api/channel/routing') return ok({
+      policy: { enabled: false, sticky_enabled: true, session_ttl_seconds: 86400, quota_max_age_seconds: 600 },
+      channels: [{ ...channel, weight: 30, quota: { state: latestError ? 'unknown' : 'fresh', available: current.available, unit: 'percent', observed_at: current.observed_at } }],
+    })
+    if (path === '/api/log' || path === '/api/log/self') return ok({ items: [], total: 0, page: 1, page_size: 20 })
     if (path === '/api/log/stat' || path === '/api/log/self/stat') return ok({ quota: 0, rpm: 0, tpm: 0, count: 0 })
     if (path === '/api/perf-metrics/summary') return ok({ models: [] })
     if (path === '/api/notice') return ok('')

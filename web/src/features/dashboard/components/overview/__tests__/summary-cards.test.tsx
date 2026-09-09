@@ -95,6 +95,9 @@ describe('administrator overview indicators', () => {
       screen.getByText('Configured channels, not a health check')
     ).toBeInTheDocument()
     expect(getUserQuotaDates).not.toHaveBeenCalled()
+    expect(screen.getByRole('heading', { name: 'Overview' })).toBeInTheDocument()
+    expect(screen.getByText(/Time range:/)).toBeInTheDocument()
+    expect(screen.getAllByText(/Last updated:/)).toHaveLength(4)
   })
   test('failed refresh replaces the previously successful request rate', async () => {
     const client = mountSummary()
