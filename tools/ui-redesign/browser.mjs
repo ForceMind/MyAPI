@@ -146,6 +146,7 @@ try {
   channelRead = true
   await page.setViewportSize({ width: 1280, height: 720 })
   await page.goto(`${origin}/channels`, { waitUntil: 'networkidle' })
+  await page.getByRole('table').waitFor()
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'desktop channels page must not overflow')
   await page.screenshot({ path: resolve(output, 'channels-desktop.png'), fullPage: true })
   const edit = page.getByRole('button', { name: label('Open menu'), exact: true }).last()
@@ -163,6 +164,7 @@ try {
   assert(await edit.evaluate(element => element === document.activeElement), 'closing the desktop editor restores focus to the edit action')
 
   await page.setViewportSize({ width: 390, height: 844 })
+  await page.reload({ waitUntil: 'networkidle' })
   const mobileMenu = page.getByRole('button', { name: label('Open menu'), exact: true }).last()
   await mobileMenu.click()
   await page.getByRole('menuitem', { name: label('Edit'), exact: true }).click()

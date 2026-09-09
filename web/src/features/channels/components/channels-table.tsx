@@ -419,6 +419,7 @@ export function ChannelsTable() {
       )}
       skeletonKeyPrefix='channel-skeleton'
       enableCardView
+      defaultViewMode={isMobile ? 'card' : 'table'}
       viewModeStorageKey={CHANNELS_VIEW_MODE_STORAGE_KEY}
       renderCard={(row, { isSelected }) => (
         <ChannelCard row={row} isSelected={isSelected} />
