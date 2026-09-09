@@ -75,7 +75,7 @@ func getRecordedRequestSummary(c *gin.Context, userId *int) {
 	}
 	summary, err := model.GetRecordedRequestSummary(startTimestamp, endTimestamp, userId)
 	if err != nil {
-		common.ApiError(c, err)
+		common.ApiErrorI18n(c, i18n.MsgDatabaseError)
 		return
 	}
 	common.ApiSuccess(c, recordedRequestSummaryResponse{

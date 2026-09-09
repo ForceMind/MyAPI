@@ -657,4 +657,34 @@ describe('ChannelRoutingDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     expect(updateRoutingChannel).not.toHaveBeenCalled()
   })
+  test('initially loaded configuration is not reported as a successful save', async () => {
+    setUser(ROLE.SUPER_ADMIN)
+    renderDialog()
+    await openDialog()
+    expect(screen.queryByText('Saved successfully')).not.toBeInTheDocument()
+    expect(screen.getAllByText('No changes').length).toBeGreaterThan(0)
+  })
+
+  test.each([
+    ['Model', 'changed-model'],
+    ['Group', 'changed-group'],
+    ['Request type', '/v1/responses'],
+  ])(
+    'changing preview %s invalidates the previous result',
+    async (label, value) => {
+      setUser(ROLE.ADMIN)
+      renderDialog()
+      await openDialog()
+      fireEvent.click(screen.getByRole('button', { name: 'Preview routing' }))
+      await screen.findByText(
+        'Chat routing favors lower comparable remaining quota.'
+      )
+      fireEvent.change(screen.getByLabelText(label), { target: { value } })
+      expect(
+        screen.getByText(
+          'Configuration changed after this preview. Preview again to use the saved configuration.'
+        )
+      ).toBeInTheDocument()
+    }
+  )
 })

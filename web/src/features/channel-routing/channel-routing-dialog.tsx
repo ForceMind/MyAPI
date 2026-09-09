@@ -222,6 +222,11 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
   const [policyError, setPolicyError] = useState<string | null>(null)
   const [channelError, setChannelError] = useState<string | null>(null)
   const [previewIsStale, setPreviewIsStale] = useState(false)
+  const previewRevision = useRef(0)
+  const invalidatePreview = () => {
+    previewRevision.current += 1
+    setPreviewIsStale(true)
+  }
 
   useEffect(() => {
     if (sessionIdentityRef.current === sessionIdentity) return
@@ -276,7 +281,7 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
     },
     onSuccess: (_, savedPolicy) => {
       setPolicyError(null)
-      setPreviewIsStale(true)
+      invalidatePreview()
       const nextBaseline = localPolicy(savedPolicy)
       policyBaselineRef.current = nextBaseline
       void queryClient.invalidateQueries({ queryKey })
@@ -305,7 +310,7 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
     },
     onSuccess: (_, values) => {
       setChannelError(null)
-      setPreviewIsStale(true)
+      invalidatePreview()
       setChannelDrafts((current) => {
         const next = { ...current }
         delete next[values.channel.id]
@@ -315,7 +320,7 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
     },
     onError: async (error, values) => {
       if (isConflictError(error)) {
-        setPreviewIsStale(true)
+        invalidatePreview()
         setChannelError(
           t(
             'This channel changed elsewhere. Current values were reloaded; your edits are still shown.'
@@ -357,7 +362,7 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
     key: K,
     value: ChannelRoutingPolicy[K]
   ) => {
-    setPreviewIsStale(true)
+    invalidatePreview()
     setPolicy((current) => {
       if (!current) return current
       const nextPolicy = { ...current, [key]: value }
@@ -370,7 +375,7 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
     key: 'priority' | 'weight',
     value: number
   ) => {
-    setPreviewIsStale(true)
+    invalidatePreview()
     setChannelDrafts((current) => {
       const draft = current[channel.id] ?? {
         priority: channel.priority,
@@ -404,9 +409,10 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
     policyMutation.mutate(policy)
   }
   const handlePreview = () => {
+    const revision = previewRevision.current
     previewMutation.reset()
     previewMutation.mutate(previewRequest, {
-      onSuccess: () => setPreviewIsStale(false),
+      onSuccess: () => setPreviewIsStale(revision !== previewRevision.current),
     })
   }
 
@@ -414,7 +420,9 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
     !!policyBaselineRef.current &&
     !!policy &&
     !policiesMatch(policy, policyBaselineRef.current)
-  let policySaveStatus = t('Saved successfully')
+  let policySaveStatus = policyMutation.isSuccess
+    ? t('Saved successfully')
+    : t('No changes')
   if (policyHasUnsavedChanges) policySaveStatus = t('Unsaved changes')
   if (policyMutation.isPending) policySaveStatus = t('Saving…')
 
@@ -628,7 +636,11 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
                       const isSavingThisChannel =
                         channelMutation.isPending &&
                         channelMutation.variables?.channel.id === channel.id
-                      let channelSaveStatus = t('Saved successfully')
+                      let channelSaveStatus =
+                        channelMutation.isSuccess &&
+                        channelMutation.variables?.channel.id === channel.id
+                          ? t('Saved successfully')
+                          : t('No changes')
                       if (changed) channelSaveStatus = t('Unsaved changes')
                       if (isSavingThisChannel) channelSaveStatus = t('Saving…')
                       const priorityValue = hasStandardPriority(draft.priority)
@@ -822,12 +834,13 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
                   aria-label={t('Request type')}
                   className='border-input h-8 rounded-lg border bg-transparent px-2.5 text-sm'
                   value={previewRequest.path}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    invalidatePreview()
                     setPreviewRequest((current) => ({
                       ...current,
                       path: event.target.value,
                     }))
-                  }
+                  }}
                 >
                   <option value={CHAT_PATH}>{t('Chat')}</option>
                   <option value={WORK_PATH}>{t('Work')}</option>
@@ -838,12 +851,13 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
                 <Input
                   id='routing-preview-model'
                   value={previewRequest.model}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    invalidatePreview()
                     setPreviewRequest((current) => ({
                       ...current,
                       model: event.target.value,
                     }))
-                  }
+                  }}
                 />
               </div>
               <div className='grid gap-1.5'>
@@ -851,12 +865,13 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
                 <Input
                   id='routing-preview-group'
                   value={previewRequest.group}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    invalidatePreview()
                     setPreviewRequest((current) => ({
                       ...current,
                       group: event.target.value,
                     }))
-                  }
+                  }}
                 />
               </div>
             </div>

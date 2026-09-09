@@ -355,9 +355,11 @@ export function SummaryCards() {
             </div>
           ))}
         </dl>
-        <p className='text-muted-foreground border-t px-4 py-2 text-xs'>
-          {t('Recorded request outcomes are incomplete for this period.')}
-        </p>
+        {requestSummaryQuery.data?.coverage?.complete === false && (
+          <p className='text-muted-foreground border-t px-4 py-2 text-xs'>
+            {t('Recorded request outcomes are incomplete for this period.')}
+          </p>
+        )}
       </section>
     )
   }

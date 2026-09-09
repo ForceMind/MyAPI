@@ -7,6 +7,7 @@ import (
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -101,4 +102,22 @@ func TestGetRecordedRequestSummaryRejectsUnboundedRange(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, recorder.Code)
 		assert.False(t, response.Success)
 	}
+}
+
+func TestGetRecordedRequestSummaryLocalizesDatabaseFailure(t *testing.T) {
+	setupRecordedRequestSummaryControllerTest(t)
+	require.NoError(t, i18n.Init())
+	require.NoError(t, model.LOG_DB.Migrator().DropTable(&model.Log{}))
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/log/request-summary?start_timestamp=100&end_timestamp=200", nil)
+	ctx.Request.Header.Set("Accept-Language", "en")
+	GetRecordedRequestSummary(ctx)
+	var response struct {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	assert.False(t, response.Success)
+	assert.Equal(t, "Database error, please contact the administrator", response.Message)
 }
