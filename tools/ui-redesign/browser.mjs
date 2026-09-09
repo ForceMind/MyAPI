@@ -90,6 +90,7 @@ try {
   await quotaChart.locator('.recharts-line-curve').first().waitFor()
   for (const viewport of [{ width: 1280, height: 720 }, { width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 740 }]) {
     await page.setViewportSize(viewport)
+    await page.waitForFunction(() => document.documentElement.scrollWidth <= innerWidth + 1)
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `overview width ${viewport.width} must not overflow`)
     if (viewport.width === 1280) {
       const bounds = await quotaChart.boundingBox()
@@ -102,8 +103,11 @@ try {
   await page.reload({ waitUntil: 'networkidle' })
   await page.waitForFunction(() => document.documentElement.classList.contains('dark'))
   await page.setViewportSize({ width: 1280, height: 720 })
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.waitForFunction(() => document.documentElement.classList.contains('dark'))
   await page.screenshot({ path: resolve(output, 'overview-dark.png'), fullPage: true })
   await page.setViewportSize({ width: 390, height: 844 })
+  await page.reload({ waitUntil: 'networkidle' })
   await page.screenshot({ path: resolve(output, 'overview-dark-mobile.png'), fullPage: true })
   summaryFails = true
   await page.reload({ waitUntil: 'networkidle' })
