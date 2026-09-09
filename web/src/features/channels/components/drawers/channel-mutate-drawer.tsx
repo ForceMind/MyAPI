@@ -675,9 +675,13 @@ export function ChannelMutateDrawer({
   useEffect(() => {
     if (open) return
     const captureOpener = (event: Event) => {
-      if (event.target instanceof HTMLElement) {
-        openerFocusRef.current = event.target
-      }
+      if (!(event.target instanceof Element)) return
+      // Menu items unmount when they open the editor; retain their trigger.
+      if (event.target.closest('[role="menu"]')) return
+      const opener = event.target.closest<HTMLElement>(
+        'button, a[href], input, select, textarea, [tabindex]'
+      )
+      if (opener) openerFocusRef.current = opener
     }
     document.addEventListener('pointerdown', captureOpener, true)
     document.addEventListener('keydown', captureOpener, true)
@@ -1922,6 +1926,7 @@ export function ChannelMutateDrawer({
       <FormNavigationGuard when={open && form.formState.isDirty} />
       <Sheet open={open} onOpenChange={handleOpenChange}>
         <SheetContent
+          finalFocus={openerFocusRef}
           className={sideDrawerContentClassName('w-full sm:max-w-5xl')}
         >
           <SheetHeader className={sideDrawerHeaderClassName()}>

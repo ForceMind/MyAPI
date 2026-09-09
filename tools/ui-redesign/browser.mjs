@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { quotaFixtures } from '../quota/browser-fixtures.mjs'
 
 const repo = fileURLToPath(new URL('../../', import.meta.url))
-const root = resolve(repo, 'web/dist')
+const root = resolve(process.env.MYAPI_UI_REDESIGN_FRONTEND || resolve(repo, 'web/dist'))
 const output = resolve(process.env.MYAPI_UI_REDESIGN_BROWSER_ARTIFACTS || '/tmp/myapi-ui-redesign-browser')
 const translations = JSON.parse(readFileSync(resolve(repo, 'web/src/i18n/locales/zh.json'), 'utf8')).translation
 const label = (key) => translations[key] || key
@@ -97,6 +97,8 @@ try {
   await page.screenshot({ path: resolve(output, 'overview-dark.png'), fullPage: true })
   summaryFails = true
   await page.reload({ waitUntil: 'networkidle' })
+  assert.equal(new URL(page.url()).pathname, '/dashboard/overview', 'summary failure stays within the operational page')
+  assert(await page.getByRole('heading', { name: label('Overview'), exact: true }).count() > 0, 'summary failure preserves the surrounding overview')
   assert.equal(await page.getByText('92%', { exact: false }).count(), 0, 'failed summary does not show stale success as current')
   await page.screenshot({ path: resolve(output, 'overview-error.png'), fullPage: true })
   summaryFails = false
@@ -131,10 +133,12 @@ try {
   await page.goto(`${origin}/channels`, { waitUntil: 'networkidle' })
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'desktop channels page must not overflow')
   await page.screenshot({ path: resolve(output, 'channels-desktop.png'), fullPage: true })
-  const edit = page.getByRole('button', { name: label('Edit'), exact: true }).first()
+  const edit = page.getByRole('button', { name: label('Open menu'), exact: true }).last()
   await edit.click()
+  await page.getByRole('menuitem', { name: label('Edit'), exact: true }).click()
   const drawer = page.getByRole('dialog', { name: label('Edit Channel'), exact: false })
   await drawer.waitFor()
+  await drawer.screenshot({ path: resolve(output, 'channel-desktop-drawer.png') })
   const desktopDrawerBounds = await drawer.boundingBox()
   assert(desktopDrawerBounds && desktopDrawerBounds.width < 1280 && Math.abs(desktopDrawerBounds.x + desktopDrawerBounds.width - 1280) <= 1, 'desktop channel editor is a right-side drawer')
   await page.screenshot({ path: resolve(output, 'channel-desktop-drawer.png'), fullPage: true })
@@ -154,7 +158,7 @@ try {
   await page.keyboard.press('Escape')
   const confirm = page.getByRole('alertdialog', { name: label('Unsaved changes') })
   await confirm.waitFor()
-  await confirm.getByRole('button', { name: label('Cancel'), exact: true }).click()
+  await confirm.getByRole('button', { name: label('Stay'), exact: true }).click()
   assert.equal(await name.inputValue(), 'Browser unsaved channel', 'canceling dismissal retains the draft')
   await page.screenshot({ path: resolve(output, 'channel-mobile-draft.png'), fullPage: true })
   await page.keyboard.press('Escape')

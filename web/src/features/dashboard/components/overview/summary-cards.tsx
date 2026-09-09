@@ -185,6 +185,7 @@ export function SummaryCards() {
     enabled: Boolean(user),
     staleTime: 60 * 1000,
     retry: false,
+    meta: { errorHandledLocally: true },
   })
   const routingQuery = useQuery({
     queryKey: [
@@ -198,6 +199,7 @@ export function SummaryCards() {
     enabled: canReadOperationalChannels,
     staleTime: 60 * 1000,
     retry: false,
+    meta: { errorHandledLocally: true },
   })
 
   const summaryValues = useMemo(() => {
@@ -359,7 +361,7 @@ export function SummaryCards() {
         aria-label={t('Usage at a glance')}
         className='bg-card overflow-hidden rounded-xl border'
       >
-        <header className='flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b px-4 py-2'>
+        <header className='flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b px-4 py-1.5'>
           <h2 className='text-sm font-semibold'>{t('Overview')}</h2>
           <p className='text-muted-foreground text-xs tabular-nums'>
             {t('Time range')}:{' '}
@@ -371,7 +373,7 @@ export function SummaryCards() {
           {items.map((item) => (
             <div
               key={item.key}
-              className='min-w-0 space-y-2 border-b p-4 odd:border-r lg:border-r lg:border-b-0 lg:last:border-r-0'
+              className='min-w-0 space-y-1 border-b p-3 odd:border-r lg:border-r lg:border-b-0 lg:last:border-r-0'
             >
               <dt className='text-muted-foreground text-xs'>{item.title}</dt>
               <dd className='text-xl font-semibold tabular-nums sm:text-2xl'>

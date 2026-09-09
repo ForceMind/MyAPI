@@ -37,6 +37,7 @@ export function OperationalAttentionPanel() {
     enabled: allowed,
     staleTime: 60000,
     retry: false,
+    meta: { errorHandledLocally: true },
   })
   const quota = useQuery({
     queryKey: [
@@ -55,6 +56,7 @@ export function OperationalAttentionPanel() {
     enabled: allowed,
     staleTime: 60000,
     retry: false,
+    meta: { errorHandledLocally: true },
   })
   if (!allowed) return null
   const failed =

@@ -72,19 +72,37 @@ await i18n.use(initReactI18next).init({
   resources: { en: { translation: {} } },
 })
 
-function DrawerHarness() {
+function DrawerHarness({ viaMenu = false }: { viaMenu?: boolean }) {
   const [open, setOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   return (
     <>
-      <button type='button' onClick={() => setOpen(true)}>
+      <button
+        type='button'
+        onClick={() => (viaMenu ? setMenuOpen(true) : setOpen(true))}
+      >
         Open channel drawer
       </button>
+      {menuOpen && (
+        <div role='menu'>
+          <button
+            type='button'
+            role='menuitem'
+            onClick={() => {
+              setMenuOpen(false)
+              setOpen(true)
+            }}
+          >
+            Edit from menu
+          </button>
+        </div>
+      )}
       <ChannelMutateDrawer open={open} onOpenChange={setOpen} />
     </>
   )
 }
 
-function mount(): void {
+function mount(viaMenu = false): void {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -92,7 +110,7 @@ function mount(): void {
     <QueryClientProvider client={client}>
       <I18nextProvider i18n={i18n}>
         <ChannelsProvider>
-          <DrawerHarness />
+          <DrawerHarness viaMenu={viaMenu} />
         </ChannelsProvider>
       </I18nextProvider>
     </QueryClientProvider>
@@ -108,6 +126,20 @@ describe('ChannelMutateDrawer dirty close guard', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
+  })
+
+  test('restores the menu trigger after its edit item unmounts', async () => {
+    mount(true)
+    const opener = screen.getByRole('button', { name: 'Open channel drawer' })
+    fireEvent.pointerDown(opener)
+    fireEvent.click(opener)
+    const item = screen.getByRole('menuitem', { name: 'Edit from menu' })
+    fireEvent.pointerDown(item)
+    fireEvent.click(item)
+    await screen.findByLabelText('Name *')
+    expect(item).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(opener).toHaveFocus())
   })
 
   test('keeps an edited draft when Escape is pressed, then restores the opener focus after Leave', async () => {

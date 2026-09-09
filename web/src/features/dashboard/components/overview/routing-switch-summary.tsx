@@ -45,6 +45,7 @@ export function RoutingSwitchSummary() {
     enabled: allowed,
     staleTime: 60000,
     retry: false,
+    meta: { errorHandledLocally: true },
   })
   if (!allowed) return null
   const failed = query.isError || query.data?.success === false

@@ -73,6 +73,7 @@ export function ChannelQuotaOverview() {
     queryFn: () => getChannelQuotaChanges({ catalogue: true, limit: 2000 }),
     staleTime: 60 * 1000,
     retry: false,
+    meta: { errorHandledLocally: true },
   })
   const items = useMemo(
     () => selectComparableQuotaSeries(catalogue.data?.data?.items ?? []),
@@ -110,6 +111,7 @@ export function ChannelQuotaOverview() {
         }),
       staleTime: 60 * 1000,
       retry: false,
+      meta: { errorHandledLocally: true },
     })),
   })
   const series = useMemo<ComparisonSeries[]>(
