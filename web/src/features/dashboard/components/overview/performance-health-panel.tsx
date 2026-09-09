@@ -39,20 +39,27 @@ const TOP_MODEL_LIMIT = 6
 
 type WeightedMetric = 'avg_latency_ms' | 'avg_tps' | 'success_rate'
 
-function simpleAverage(
+function requestWeightedAverage(
   rows: PerfModelSummary[],
   metric: WeightedMetric,
   isValid: (value: number) => boolean
 ): number {
-  let total = 0
-  let count = 0
+  let weightedTotal = 0
+  let requestTotal = 0
   for (const row of rows) {
     const value = Number(row[metric])
-    if (!isValid(value)) continue
-    total += value
-    count++
+    const requestCount = Number(row.request_count)
+    if (
+      !isValid(value) ||
+      !Number.isFinite(requestCount) ||
+      requestCount <= 0
+    ) {
+      continue
+    }
+    weightedTotal += value * requestCount
+    requestTotal += requestCount
   }
-  return count > 0 ? total / count : Number.NaN
+  return requestTotal > 0 ? weightedTotal / requestTotal : Number.NaN
 }
 
 export function PerformanceHealthPanel() {
@@ -72,18 +79,22 @@ export function PerformanceHealthPanel() {
   const summary = useMemo(() => {
     return {
       avgLatencyMs: Math.round(
-        simpleAverage(
+        requestWeightedAverage(
           models,
           'avg_latency_ms',
           (v) => Number.isFinite(v) && v > 0
         )
       ),
-      avgTps: simpleAverage(
+      avgTps: requestWeightedAverage(
         models,
         'avg_tps',
         (v) => Number.isFinite(v) && v > 0
       ),
-      successRate: simpleAverage(models, 'success_rate', Number.isFinite),
+      successRate: requestWeightedAverage(
+        models,
+        'success_rate',
+        Number.isFinite
+      ),
     }
   }, [models])
 

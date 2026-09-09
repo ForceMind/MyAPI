@@ -29,6 +29,27 @@ export const quotaHistoryRangeOptions: readonly ChannelQuotaHistoryRange[] = [
 ]
 export const quotaHistoryGranularityOptions: readonly ChannelQuotaHistoryGranularity[] =
   ['auto', 'raw', 'minute', '5m', '15m', 'hour', 'day', 'week']
+export const CHANNEL_QUOTA_SERIES_COLORS = [
+  '#2563eb',
+  '#d97706',
+  '#059669',
+  '#db2777',
+  '#7c3aed',
+  '#0891b2',
+  '#dc2626',
+  '#4d7c0f',
+] as const
+
+/**
+ * Keeps a channel's visual identity stable when comparison selections change.
+ * Channel id is durable across quota windows and dashboard/analysis views.
+ */
+export function getChannelQuotaSeriesColor(channelId: number): string {
+  const normalizedId = Number.isSafeInteger(channelId) ? Math.abs(channelId) : 0
+  return CHANNEL_QUOTA_SERIES_COLORS[
+    normalizedId % CHANNEL_QUOTA_SERIES_COLORS.length
+  ]
+}
 export const quotaAnalysisDurationOptions = [
   60,
   5 * 60,

@@ -37,7 +37,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -46,6 +46,11 @@ import {
   CardStaggerItem,
 } from '@/components/page-transition'
 import { Button } from '@/components/ui/button'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import { IconBadge, type IconBadgeTone } from '@/components/ui/icon-badge'
 import { getChannels } from '@/features/channels/api'
 import { fetchTokenKey, getApiKeys } from '@/features/keys/api'
@@ -64,13 +69,21 @@ import {
   useDashboardContentVisibility,
 } from '../../hooks/use-status-data'
 import { resolveSetupGuideExpanded } from '../../lib/setup-guide'
-import { AnnouncementsPanel } from './announcements-panel'
 import { AccountQuotaChangesPanel } from './account-quota-changes-panel'
+import { AnnouncementsPanel } from './announcements-panel'
 import { ApiInfoPanel } from './api-info-panel'
 import { FAQPanel } from './faq-panel'
+import { OperationalAttentionPanel } from './operational-attention-panel'
 import { PerformanceHealthPanel } from './performance-health-panel'
+import { RoutingSwitchSummary } from './routing-switch-summary'
 import { SummaryCards } from './summary-cards'
 import { UptimePanel } from './uptime-panel'
+
+const ChannelQuotaOverview = lazy(() =>
+  import('./channel-quota-overview').then((module) => ({
+    default: module.ChannelQuotaOverview,
+  }))
+)
 
 // Keep guide visibility scoped to both the signed-in user and the guide
 // version.  The previous global key caused one user's dismissal to leak into
@@ -486,6 +499,7 @@ export function OverviewDashboard() {
   const [manualSetupGuideExpanded, setManualSetupGuideExpanded] = useState<
     boolean | null
   >(null)
+  const [accountQuotaExpanded, setAccountQuotaExpanded] = useState(false)
 
   // Re-read the scoped preference when authentication finishes or the active
   // account changes without forcing a dashboard remount.
@@ -498,6 +512,7 @@ export function OverviewDashboard() {
   const usedQuota = Number(user?.used_quota ?? 0)
   const isAdmin = Boolean(user?.role && user.role >= ROLE.ADMIN)
   const canReadChannels = hasPermission(user, 'channel', 'read')
+  const canReadOperationalChannels = isAdmin && canReadChannels
 
   const apiKeysQuery = useQuery({
     queryKey: ['dashboard', 'overview', 'api-keys'],
@@ -546,7 +561,9 @@ export function OverviewDashboard() {
         ? [
             {
               title: t('Configure upstream channels'),
-              description: t('Add at least one provider channel for team traffic'),
+              description: t(
+                'Add at least one provider channel for team traffic'
+              ),
               to: '/channels' as const,
               icon: RadioTower,
               completed: (channelsQuery.data?.data?.total ?? 0) > 0,
@@ -631,12 +648,6 @@ export function OverviewDashboard() {
   const heroSignals = useMemo<HeroSignal[]>(
     () => [
       {
-        label: t('Route active'),
-        value: apiInfoItems.length > 0 ? t('Online') : t('Current domain'),
-        icon: RadioTower,
-        tone: 'info',
-      },
-      {
         label: t('Auth configured'),
         value: preferredKey ? t('Secured') : t('Needs API key'),
         icon: ShieldCheck,
@@ -649,7 +660,7 @@ export function OverviewDashboard() {
         tone: 'chart-4',
       },
     ],
-    [apiInfoItems.length, modelsQuery.data, preferredKey, t]
+    [modelsQuery.data, preferredKey, t]
   )
 
   const requestExample = useMemo<RequestExample>(() => {
@@ -691,7 +702,7 @@ export function OverviewDashboard() {
   return (
     <div className='flex flex-col gap-4'>
       {setupGuideExpanded && (
-        <CardStaggerContainer className='grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
+        <CardStaggerContainer className='order-4 grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
           <CardStaggerItem className='bg-card h-full overflow-hidden rounded-2xl border shadow-xs'>
             <div className='relative h-full overflow-hidden p-4 sm:p-5'>
               <SetupGuideBackdrop />
@@ -768,7 +779,7 @@ export function OverviewDashboard() {
         </CardStaggerContainer>
       )}
       {!setupGuideExpanded && setupStatusReady && !setupComplete && (
-        <CardStaggerContainer>
+        <CardStaggerContainer className='order-4'>
           <CardStaggerItem className='bg-card overflow-hidden rounded-2xl border shadow-xs'>
             <div className='relative overflow-hidden px-4 py-3 sm:px-5'>
               <SetupGuideBackdrop compact />
@@ -814,14 +825,71 @@ export function OverviewDashboard() {
           </CardStaggerItem>
         </CardStaggerContainer>
       )}
-      <SummaryCards />
+      <div className='order-1'>
+        <SummaryCards />
+      </div>
 
-      <AccountQuotaChangesPanel />
+      {canReadOperationalChannels ? (
+        <CardStaggerContainer className='order-2 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
+          <CardStaggerItem className='min-w-0'>
+            <Suspense
+              fallback={
+                <div
+                  className='bg-card h-[22rem] animate-pulse rounded-2xl border shadow-xs'
+                  role='status'
+                >
+                  <span className='sr-only'>{t('Loading')}</span>
+                </div>
+              }
+            >
+              <ChannelQuotaOverview />
+            </Suspense>
+          </CardStaggerItem>
+          <CardStaggerItem className='min-w-0'>
+            <OperationalAttentionPanel />
+          </CardStaggerItem>
+        </CardStaggerContainer>
+      ) : null}
+
+      {canReadOperationalChannels ? (
+        <div className='order-3'>
+          <RoutingSwitchSummary />
+        </div>
+      ) : null}
+
+      <Collapsible
+        open={accountQuotaExpanded}
+        onOpenChange={setAccountQuotaExpanded}
+        className='bg-card order-4 rounded-2xl border shadow-xs'
+      >
+        <CollapsibleTrigger
+          render={
+            <Button
+              variant='ghost'
+              className='h-auto w-full justify-between rounded-2xl px-4 py-3 sm:px-5'
+            />
+          }
+        >
+          <span className='text-sm font-semibold'>
+            {t('Account quota changes')}
+          </span>
+          <ChevronDown
+            className={cn(
+              'size-4 transition-transform',
+              accountQuotaExpanded && 'rotate-180'
+            )}
+            aria-hidden='true'
+          />
+        </CollapsibleTrigger>
+        <CollapsibleContent className='border-t p-3 sm:p-4'>
+          <AccountQuotaChangesPanel />
+        </CollapsibleContent>
+      </Collapsible>
 
       {showContentPanels && (
         <CardStaggerContainer
           className={cn(
-            'grid grid-cols-1 gap-4',
+            'order-5 grid grid-cols-1 gap-4',
             showLeftContentPanels &&
               showUptimePanel &&
               'xl:grid-cols-[minmax(0,1fr)_22rem]'

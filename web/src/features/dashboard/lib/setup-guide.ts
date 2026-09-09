@@ -7,5 +7,7 @@ export function resolveSetupGuideExpanded(
   setupComplete: boolean,
   manualExpanded: boolean | null
 ): boolean {
-  return setupStatusReady && !setupComplete && (manualExpanded ?? true)
+  // The overview prioritizes operational status. New or returning users can
+  // still expand the guide, but it should not displace the dashboard on load.
+  return setupStatusReady && !setupComplete && (manualExpanded ?? false)
 }

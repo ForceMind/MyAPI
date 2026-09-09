@@ -58,6 +58,48 @@ export async function getUserQuotaDates(
   return res.data
 }
 
+export interface RecordedRequestSummary {
+  start_timestamp: number
+  end_timestamp: number
+  total_requests: number
+  successful_requests: number
+  failed_requests: number
+  /** Percentage in the inclusive 0–100 range, or null when there are no requests. */
+  success_rate: number | null
+  coverage?: {
+    complete: boolean
+    consume_logs_enabled: boolean
+    error_logs_enabled: boolean
+    reason?: string
+    identified_requests: number
+    unidentified_log_rows: number
+    window_semantics?: string
+    deduplication?: string
+  }
+}
+
+/**
+ * Returns deduplicated, recorded API request outcomes for the active scope.
+ * Administrators receive the global aggregate; other users receive their own.
+ */
+export async function getRecordedRequestSummary(
+  params: { start_timestamp: number; end_timestamp: number },
+  isAdmin = false
+): Promise<RecordedRequestSummary> {
+  const endpoint = isAdmin
+    ? '/api/log/request-summary'
+    : '/api/log/self/request-summary'
+  const res = await api.get<{
+    success: boolean
+    data?: RecordedRequestSummary
+    message?: string
+  }>(endpoint, { params })
+  if (!res.data.success || !res.data.data) {
+    throw new Error(res.data.message || 'Failed to load request summary')
+  }
+  return res.data.data
+}
+
 // ----------------------------------------------------------------------------
 // System Monitoring
 // ----------------------------------------------------------------------------

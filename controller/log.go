@@ -3,12 +3,97 @@ package controller
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/model"
 
 	"github.com/gin-gonic/gin"
 )
+
+const maxRecordedRequestSummaryRange = int64(31 * 24 * time.Hour / time.Second)
+const maxRecordedRequestSummaryFutureSkew = int64(5 * time.Minute / time.Second)
+
+type recordedRequestSummaryCoverage struct {
+	Complete            bool   `json:"complete"`
+	ConsumeLogsEnabled  bool   `json:"consume_logs_enabled"`
+	ErrorLogsEnabled    bool   `json:"error_logs_enabled"`
+	Reason              string `json:"reason"`
+	IdentifiedRequests  int64  `json:"identified_requests"`
+	UnidentifiedLogRows int64  `json:"unidentified_log_rows"`
+	WindowSemantics     string `json:"window_semantics"`
+	Deduplication       string `json:"deduplication"`
+}
+
+type recordedRequestSummaryResponse struct {
+	StartTimestamp int64 `json:"start_timestamp"`
+	EndTimestamp   int64 `json:"end_timestamp"`
+	model.RecordedRequestSummary
+	Coverage recordedRequestSummaryCoverage `json:"coverage"`
+}
+
+func parseRecordedRequestSummaryRange(c *gin.Context) (int64, int64, bool) {
+	startTimestamp, err := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
+	if err != nil || startTimestamp <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": i18n.T(c, i18n.MsgInvalidParams)})
+		return 0, 0, false
+	}
+	endTimestamp, err := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
+	if err != nil || endTimestamp <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": i18n.T(c, i18n.MsgInvalidParams)})
+		return 0, 0, false
+	}
+	if endTimestamp <= startTimestamp || endTimestamp-startTimestamp > maxRecordedRequestSummaryRange ||
+		endTimestamp > time.Now().Unix()+maxRecordedRequestSummaryFutureSkew {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": i18n.T(c, i18n.MsgInvalidParams)})
+		return 0, 0, false
+	}
+	return startTimestamp, endTimestamp, true
+}
+
+func recordedRequestCoverage(summary model.RecordedRequestSummary) recordedRequestSummaryCoverage {
+	consumeEnabled := common.LogConsumeEnabled
+	errorEnabled := constant.ErrorLogEnabled
+	return recordedRequestSummaryCoverage{
+		Complete:            false,
+		ConsumeLogsEnabled:  consumeEnabled,
+		ErrorLogsEnabled:    errorEnabled,
+		Reason:              "recorded_logs_only",
+		IdentifiedRequests:  summary.IdentifiedRequests,
+		UnidentifiedLogRows: summary.UnidentifiedLogRows,
+		WindowSemantics:     "log_events_within_range",
+		Deduplication:       "request_id_success_precedence",
+	}
+}
+
+func getRecordedRequestSummary(c *gin.Context, userId *int) {
+	startTimestamp, endTimestamp, ok := parseRecordedRequestSummaryRange(c)
+	if !ok {
+		return
+	}
+	summary, err := model.GetRecordedRequestSummary(startTimestamp, endTimestamp, userId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, recordedRequestSummaryResponse{
+		StartTimestamp:         startTimestamp,
+		EndTimestamp:           endTimestamp,
+		RecordedRequestSummary: summary,
+		Coverage:               recordedRequestCoverage(summary),
+	})
+}
+
+func GetRecordedRequestSummary(c *gin.Context) {
+	getRecordedRequestSummary(c, nil)
+}
+
+func GetRecordedRequestSelfSummary(c *gin.Context) {
+	userId := c.GetInt("id")
+	getRecordedRequestSummary(c, &userId)
+}
 
 func GetAllLogs(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)

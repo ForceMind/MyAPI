@@ -23,8 +23,10 @@ import {
   Gauge,
   Zap,
   Flame,
-  TrendingUp,
   Activity,
+  CircleCheckBig,
+  RadioTower,
+  Route,
   type LucideIcon,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -92,12 +94,48 @@ export function useModelStatCardsConfig(): StatCardConfig[] {
 
 export function useSummaryCardsConfig(totals: {
   todayUsageDisplay: string
-  usedDisplay: string
-  requestCountDisplay: string
+  recordedRequestsDisplay: string
+  recordedSuccessRateDisplay: string
+  enabledChannelsDisplay?: string
+  routingModeDisplay?: string
+  isAdmin?: boolean
   currencyLabel: string
   currencyEnabled: boolean
 }) {
   const { t } = useTranslation()
+
+  if (totals.isAdmin) {
+    return [
+      {
+        key: 'requests',
+        title: t('Recorded API requests'),
+        value: totals.recordedRequestsDisplay,
+        description: t('Requests recorded in the last 24 hours'),
+        icon: Activity,
+      },
+      {
+        key: 'successRate',
+        title: t('Recorded request success rate'),
+        value: totals.recordedSuccessRateDisplay,
+        description: t('Based on recorded request outcomes'),
+        icon: CircleCheckBig,
+      },
+      {
+        key: 'channels',
+        title: t('Enabled channels'),
+        value: totals.enabledChannelsDisplay ?? t('Unavailable'),
+        description: t('Configured channels, not a health check'),
+        icon: RadioTower,
+      },
+      {
+        key: 'routing',
+        title: t('Traffic Allocation'),
+        value: totals.routingModeDisplay ?? t('Unavailable'),
+        description: t('Current server routing policy'),
+        icon: Route,
+      },
+    ]
+  }
 
   return [
     {
@@ -110,20 +148,18 @@ export function useSummaryCardsConfig(totals: {
       icon: Flame,
     },
     {
-      key: 'usage',
-      title: t('Historical Usage'),
-      value: totals.usedDisplay,
-      description: totals.currencyEnabled
-        ? `${t('Total consumed')} (${totals.currencyLabel})`
-        : t('Total consumed quota'),
-      icon: TrendingUp,
+      key: 'requests',
+      title: t('Recorded API requests'),
+      value: totals.recordedRequestsDisplay,
+      description: t('Requests recorded in the last 24 hours'),
+      icon: Activity,
     },
     {
-      key: 'requests',
-      title: t('Request Count'),
-      value: totals.requestCountDisplay,
-      description: t('Total requests made'),
-      icon: Activity,
+      key: 'successRate',
+      title: t('Recorded request success rate'),
+      value: totals.recordedSuccessRateDisplay,
+      description: t('Based on recorded request outcomes'),
+      icon: CircleCheckBig,
     },
   ]
 }

@@ -7,7 +7,7 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -44,17 +44,21 @@ vi.mock('@/features/dashboard/hooks/use-status-data', () => ({
 }))
 
 vi.mock('@/components/page-transition', () => ({
-  CardStaggerContainer: (props: { children?: ReactNode; className?: string }) => (
-    <div className={props.className}>{props.children}</div>
-  ),
+  CardStaggerContainer: (props: {
+    children?: ReactNode
+    className?: string
+  }) => <div className={props.className}>{props.children}</div>,
   CardStaggerItem: (props: { children?: ReactNode; className?: string }) => (
     <div className={props.className}>{props.children}</div>
   ),
 }))
 
-vi.mock('@/features/dashboard/components/overview/account-quota-changes-panel', () => ({
-  AccountQuotaChangesPanel: () => null,
-}))
+vi.mock(
+  '@/features/dashboard/components/overview/account-quota-changes-panel',
+  () => ({
+    AccountQuotaChangesPanel: () => <div data-testid='account-quota-changes' />,
+  })
+)
 vi.mock('@/features/dashboard/components/overview/announcements-panel', () => ({
   AnnouncementsPanel: () => null,
 }))
@@ -64,9 +68,32 @@ vi.mock('@/features/dashboard/components/overview/api-info-panel', () => ({
 vi.mock('@/features/dashboard/components/overview/faq-panel', () => ({
   FAQPanel: () => null,
 }))
-vi.mock('@/features/dashboard/components/overview/performance-health-panel', () => ({
-  PerformanceHealthPanel: () => null,
-}))
+vi.mock(
+  '@/features/dashboard/components/overview/channel-quota-overview',
+  () => ({
+    ChannelQuotaOverview: () => <div data-testid='channel-quota-overview' />,
+  })
+)
+vi.mock(
+  '@/features/dashboard/components/overview/operational-attention-panel',
+  () => ({
+    OperationalAttentionPanel: () => (
+      <div data-testid='operational-attention' />
+    ),
+  })
+)
+vi.mock(
+  '@/features/dashboard/components/overview/routing-switch-summary',
+  () => ({
+    RoutingSwitchSummary: () => <div data-testid='routing-switch-summary' />,
+  })
+)
+vi.mock(
+  '@/features/dashboard/components/overview/performance-health-panel',
+  () => ({
+    PerformanceHealthPanel: () => null,
+  })
+)
 vi.mock('@/features/dashboard/components/overview/summary-cards', () => ({
   SummaryCards: () => null,
 }))
@@ -135,13 +162,22 @@ describe('overview setup guide edition and role gating', () => {
     renderDashboard()
 
     if (SELF_USE_MINIMAL) {
-      expect(screen.queryByText('Configure upstream channels')).not.toBeInTheDocument()
-      expect(screen.queryByRole('link', { name: 'Channels' })).not.toBeInTheDocument()
+      expect(
+        screen.queryByText('Configure upstream channels')
+      ).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('link', { name: 'Channels' })
+      ).not.toBeInTheDocument()
       expect(getChannels).not.toHaveBeenCalled()
       return
     }
 
-    expect(await screen.findByText('Configure upstream channels')).toBeInTheDocument()
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Show setup guide' })
+    )
+    expect(
+      await screen.findByText('Configure upstream channels')
+    ).toBeInTheDocument()
     await waitFor(() => {
       expect(getChannels).toHaveBeenCalledWith({ p: 1, page_size: 1 })
     })
@@ -152,7 +188,9 @@ describe('overview setup guide edition and role gating', () => {
     const { unmount } = renderDashboard()
 
     await waitFor(() => expect(getApiKeys).toHaveBeenCalled())
-    expect(screen.queryByText('Configure upstream channels')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Configure upstream channels')
+    ).not.toBeInTheDocument()
     expect(getChannels).not.toHaveBeenCalled()
 
     unmount()
@@ -161,7 +199,50 @@ describe('overview setup guide edition and role gating', () => {
     renderDashboard()
 
     await waitFor(() => expect(getApiKeys).toHaveBeenCalled())
-    expect(screen.queryByText('Configure upstream channels')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Configure upstream channels')
+    ).not.toBeInTheDocument()
     expect(getChannels).not.toHaveBeenCalled()
+  })
+
+  test('shows operational panels only to an administrator with channel read access', async () => {
+    setUser(ROLE.ADMIN, true)
+    renderDashboard()
+
+    expect(
+      await screen.findByTestId('channel-quota-overview')
+    ).toBeInTheDocument()
+    expect(screen.getByTestId('operational-attention')).toBeInTheDocument()
+    expect(screen.getByTestId('routing-switch-summary')).toBeInTheDocument()
+
+    const accountToggle = screen.getByRole('button', {
+      name: 'Account quota changes',
+    })
+    expect(accountToggle).toHaveAttribute('aria-expanded', 'false')
+    expect(
+      screen.queryByTestId('account-quota-changes')
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(accountToggle)
+    expect(
+      await screen.findByTestId('account-quota-changes')
+    ).toBeInTheDocument()
+    expect(accountToggle).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  test('keeps global channel panels hidden when channel read access is denied', async () => {
+    setUser(ROLE.ADMIN, false)
+    renderDashboard()
+
+    await waitFor(() => expect(getApiKeys).toHaveBeenCalled())
+    expect(
+      screen.queryByTestId('channel-quota-overview')
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId('operational-attention')
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId('routing-switch-summary')
+    ).not.toBeInTheDocument()
   })
 })

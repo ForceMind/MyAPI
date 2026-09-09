@@ -149,6 +149,7 @@ func runChannelRoutingDatabaseMatrix(t *testing.T, db *gorm.DB, databaseType com
 	runChannelRoutingSessionDatabaseContract(t)
 	runChannelRoutingValuesDatabaseContract(t, db)
 	runChannelQuotaSeriesCatalogueDatabaseContract(t, db)
+	runRecordedRequestSummaryDatabaseContract(t, db)
 }
 
 func runChannelRoutingSessionDatabaseContract(t *testing.T) {

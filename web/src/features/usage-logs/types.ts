@@ -120,6 +120,16 @@ export interface LogOtherData {
     use_channel?: number[]
     local_count_tokens?: boolean
     usage_billing_path?: UsageBillingPath | string
+    channel_routing?: {
+      workload?: string
+      reason?: string
+      channel_id?: number
+      group?: string
+      sticky?: boolean
+      switch_count?: number
+      switch_reason?: string
+      outcome?: string
+    }
     channel_affinity?: ChannelAffinityInfo
     // Top-up audit fields (type=1, admin only)
     payment_method?: string

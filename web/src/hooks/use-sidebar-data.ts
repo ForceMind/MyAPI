@@ -84,7 +84,7 @@ export function useSidebarData(): SidebarData {
           icon: Activity,
         },
         {
-          title: t('Dashboard'),
+          title: t('Usage analysis'),
           url: '/dashboard/models',
           icon: LayoutDashboard,
         },

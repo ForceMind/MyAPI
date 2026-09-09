@@ -39,6 +39,7 @@ import { ChannelsDialogs } from './components/channels-dialogs'
 import { ChannelsPrimaryButtons } from './components/channels-primary-buttons'
 import { ChannelsProvider } from './components/channels-provider'
 import { ChannelsTable } from './components/channels-table'
+import type { QuotaTimeBounds } from './lib/quota-comparison'
 
 const RoutingPanel = lazy(() =>
   import('@/features/channel-routing/channel-routing-dialog').then(
@@ -52,12 +53,36 @@ const QuotaComparison = lazy(() =>
 )
 const route = getRouteApi('/_authenticated/channels/')
 
+function getInitialQuotaBounds(
+  start: number | undefined,
+  end: number | undefined
+): QuotaTimeBounds | undefined {
+  if (
+    typeof start !== 'number' ||
+    typeof end !== 'number' ||
+    !Number.isSafeInteger(start) ||
+    !Number.isSafeInteger(end) ||
+    start <= 0 ||
+    end <= start
+  ) {
+    return undefined
+  }
+  return { start, end }
+}
+
 export function Channels() {
   const { t } = useTranslation()
   const search = route.useSearch()
   const navigate = route.useNavigate()
   const tab =
     search.tab ?? (search.quotaChannelId != null ? 'quota' : 'channels')
+  const initialQuotaBounds = getInitialQuotaBounds(
+    search.quotaStart,
+    search.quotaEnd
+  )
+  const quotaComparisonKey = initialQuotaBounds
+    ? `${search.quotaChannelId ?? 'all'}:${initialQuotaBounds.start}:${initialQuotaBounds.end}`
+    : `${search.quotaChannelId ?? 'all'}:default`
   const [showDetails, setShowDetails] = useState(false)
   const isRoot = useAuthStore(
     (state) => state.auth.user?.role === ROLE.SUPER_ADMIN
@@ -149,7 +174,11 @@ export function Channels() {
             </TabsContent>
             <TabsContent value='quota'>
               <Suspense fallback={<p>{t('Loading')}</p>}>
-                <QuotaComparison initialChannelId={search.quotaChannelId} />
+                <QuotaComparison
+                  key={quotaComparisonKey}
+                  initialChannelId={search.quotaChannelId}
+                  initialBounds={initialQuotaBounds}
+                />
               </Suspense>
               <details
                 className='mt-6 rounded-lg border p-3'

@@ -482,6 +482,14 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=768'
         run: node tools/quota/comparison-browser.mjs
 
+      - name: Verify redesigned overview permissions and responsive states
+        working-directory: .
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs
+          MYAPI_UI_REDESIGN_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-quota-browser-artifacts/redesign
+          NODE_OPTIONS: '--max-old-space-size=768'
+        run: node tools/ui-redesign/browser.mjs
+
       - name: Upload quota browser screenshots
         if: always()
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0

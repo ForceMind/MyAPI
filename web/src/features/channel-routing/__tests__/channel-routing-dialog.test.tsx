@@ -348,6 +348,28 @@ describe('ChannelRoutingDialog', () => {
     ).toBeInTheDocument()
   })
 
+  test('marks a saved-configuration preview stale when channel edits become a draft', async () => {
+    setUser(ROLE.ADMIN, true)
+    renderDialog()
+    await openDialog()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Preview routing' }))
+    await screen.findByText(
+      'Chat routing favors lower comparable remaining quota.'
+    )
+    fireEvent.change(
+      screen.getByRole('spinbutton', { name: 'Traffic share Primary' }),
+      { target: { value: '6' } }
+    )
+
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Configuration changed after this preview. Preview again to use the saved configuration.'
+      )
+    ).toBeInTheDocument()
+  })
+
   test.each([
     [0.004, /0\.40%/],
     [0.000001, /<0\.01%/],

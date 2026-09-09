@@ -619,6 +619,69 @@ type Stat struct {
 	Tpm   int `json:"tpm"`
 }
 
+// RecordedRequestSummary describes request outcomes that can be reconstructed
+// from consume and error logs. A request with both kinds of rows is successful:
+// error rows from channel retries must not turn a later successful request into
+// a failure. Legacy rows without a request ID cannot be deduplicated and are
+// therefore counted one row at a time.
+type RecordedRequestSummary struct {
+	TotalRequests       int64    `json:"total_requests"`
+	SuccessfulRequests  int64    `json:"successful_requests"`
+	FailedRequests      int64    `json:"failed_requests"`
+	SuccessRate         *float64 `json:"success_rate"`
+	IdentifiedRequests  int64    `json:"-"`
+	UnidentifiedLogRows int64    `json:"-"`
+}
+
+type recordedRequestSummaryCounts struct {
+	IdentifiedRequests        int64 `gorm:"column:identified_requests"`
+	IdentifiedSuccessRequests int64 `gorm:"column:identified_success_requests"`
+	UnidentifiedSuccessRows   int64 `gorm:"column:unidentified_success_rows"`
+	UnidentifiedRows          int64 `gorm:"column:unidentified_rows"`
+}
+
+// GetRecordedRequestSummary returns a bounded-time, read-only summary of relay
+// outcome logs. If userId is non-nil, the same query is scoped to that user.
+// Billing-event projections are accounting records rather than new requests and
+// are excluded from this request-level view.
+func GetRecordedRequestSummary(startTimestamp int64, endTimestamp int64, userId *int) (RecordedRequestSummary, error) {
+	var counts recordedRequestSummaryCounts
+	query := LOG_DB.Table("logs").
+		Select(`
+			COUNT(DISTINCT CASE WHEN COALESCE(request_id, '') <> '' THEN request_id END) AS identified_requests,
+			COUNT(DISTINCT CASE WHEN COALESCE(request_id, '') <> '' AND type = ? AND COALESCE(content, '') <> ? THEN request_id END) AS identified_success_requests,
+			COALESCE(SUM(CASE WHEN COALESCE(request_id, '') = '' AND type = ? AND COALESCE(content, '') <> ? THEN 1 ELSE 0 END), 0) AS unidentified_success_rows,
+			COALESCE(SUM(CASE WHEN COALESCE(request_id, '') = '' THEN 1 ELSE 0 END), 0) AS unidentified_rows
+		`, LogTypeConsume, "Violation fee charged", LogTypeConsume, "Violation fee charged").
+		Where("created_at >= ? AND created_at <= ?", startTimestamp, endTimestamp).
+		Where(`type = ? OR (type = ? AND (other IS NULL OR other NOT LIKE ? OR other LIKE ?))`,
+			LogTypeError, LogTypeConsume, `%"task_id":%`, `%"is_task":true%`).
+		Where("billing_event_id = ? OR billing_event_id IS NULL", "")
+	if userId != nil {
+		query = query.Where("user_id = ?", *userId)
+	}
+	if err := query.Scan(&counts).Error; err != nil {
+		common.SysError("failed to query recorded request summary: " + err.Error())
+		return RecordedRequestSummary{}, errors.New("查询请求统计失败")
+	}
+
+	unidentifiedRows := counts.UnidentifiedRows
+	total := counts.IdentifiedRequests + unidentifiedRows
+	successful := counts.IdentifiedSuccessRequests + counts.UnidentifiedSuccessRows
+	result := RecordedRequestSummary{
+		TotalRequests:       total,
+		SuccessfulRequests:  successful,
+		FailedRequests:      total - successful,
+		IdentifiedRequests:  counts.IdentifiedRequests,
+		UnidentifiedLogRows: unidentifiedRows,
+	}
+	if total > 0 {
+		successRate := float64(successful) / float64(total) * 100
+		result.SuccessRate = &successRate
+	}
+	return result, nil
+}
+
 func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string) (stat Stat, err error) {
 	tx := LOG_DB.Table("logs").Select("COALESCE(sum(quota), 0) quota")
 

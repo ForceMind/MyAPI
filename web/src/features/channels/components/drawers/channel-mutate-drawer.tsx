@@ -56,6 +56,7 @@ import { type SubmitErrorHandler, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import {
   sideDrawerContentClassName,
   sideDrawerFooterClassName,
@@ -112,6 +113,7 @@ import {
   SecureVerificationDialog,
   useSecureVerification,
 } from '@/features/auth/secure-verification'
+import { FormNavigationGuard } from '@/features/system-settings/components/form-navigation-guard'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { useHiddenClickUnlock } from '@/hooks/use-hidden-click-unlock'
 import {
@@ -663,10 +665,27 @@ export function ChannelMutateDrawer({
     useState(false)
   const [clipboardConnectionInfo, setClipboardConnectionInfo] =
     useState<ChannelConnectionInfo | null>(null)
+  const [discardConfirmationOpen, setDiscardConfirmationOpen] = useState(false)
+  const openerFocusRef = useRef<HTMLElement | null>(null)
 
   const isEditing = Boolean(currentRow)
   const channelId = currentRow?.id ?? null
   const sensitiveLocked = isEditing && !canEditSensitive
+
+  useEffect(() => {
+    if (open) return
+    const captureOpener = (event: Event) => {
+      if (event.target instanceof HTMLElement) {
+        openerFocusRef.current = event.target
+      }
+    }
+    document.addEventListener('pointerdown', captureOpener, true)
+    document.addEventListener('keydown', captureOpener, true)
+    return () => {
+      document.removeEventListener('pointerdown', captureOpener, true)
+      document.removeEventListener('keydown', captureOpener, true)
+    }
+  }, [open])
 
   // Fetch channel details if editing
   const { data: channelData, isLoading: isChannelLoading } = useQuery({
@@ -1865,26 +1884,46 @@ export function ChannelMutateDrawer({
     [handleAdvancedSettingsOpenChange, t]
   )
 
-  // Handle drawer close
+  const resetDrawerState = useCallback(() => {
+    form.reset(CHANNEL_FORM_DEFAULT_VALUES)
+    advancedNavScrollPendingRef.current = false
+    setActiveEditorSectionId(CHANNEL_EDITOR_SECTION_IDS.identity)
+    setExpandedEditorNavItemId(undefined)
+    setAdvancedSettingsOpen(false)
+    setClipboardConnectionInfo(null)
+  }, [form])
+
+  const discardChanges = useCallback(() => {
+    const opener = openerFocusRef.current
+    setDiscardConfirmationOpen(false)
+    resetDrawerState()
+    onOpenChange(false)
+    window.requestAnimationFrame(() => opener?.focus())
+  }, [onOpenChange, resetDrawerState])
+
+  // Keep the sheet open until a user explicitly discards the current draft.
   const handleOpenChange = useCallback(
     (v: boolean) => {
+      if (!v && isSubmitting) return
+      if (!v && form.formState.isDirty) {
+        setDiscardConfirmationOpen(true)
+        return
+      }
       onOpenChange(v)
       if (!v) {
-        form.reset(CHANNEL_FORM_DEFAULT_VALUES)
-        advancedNavScrollPendingRef.current = false
-        setActiveEditorSectionId(CHANNEL_EDITOR_SECTION_IDS.identity)
-        setExpandedEditorNavItemId(undefined)
-        setAdvancedSettingsOpen(false)
-        setClipboardConnectionInfo(null)
+        resetDrawerState()
       }
     },
-    [onOpenChange, form]
+    [form.formState.isDirty, isSubmitting, onOpenChange, resetDrawerState]
   )
 
   return (
     <>
+      <FormNavigationGuard when={open && form.formState.isDirty} />
       <Sheet open={open} onOpenChange={handleOpenChange}>
-        <SheetContent className={sideDrawerContentClassName('sm:max-w-5xl')}>
+        <SheetContent
+          className={sideDrawerContentClassName('w-full sm:max-w-5xl')}
+        >
           <SheetHeader className={sideDrawerHeaderClassName()}>
             <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
               <div className='min-w-0'>
@@ -4833,6 +4872,17 @@ export function ChannelMutateDrawer({
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      <ConfirmDialog
+        open={discardConfirmationOpen}
+        onOpenChange={setDiscardConfirmationOpen}
+        title={t('Unsaved changes')}
+        desc={t('You have unsaved changes. Are you sure you want to leave?')}
+        confirmText={t('Leave')}
+        cancelBtnText={t('Stay')}
+        destructive
+        handleConfirm={discardChanges}
+      />
 
       {paramOverrideEditorOpen && !sensitiveLocked && (
         <ParamOverrideEditorDialog

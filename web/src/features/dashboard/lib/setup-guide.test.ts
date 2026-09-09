@@ -7,8 +7,8 @@ describe('setup guide visibility', () => {
     expect(resolveSetupGuideExpanded(false, false, null)).toBe(false)
   })
 
-  test('expands by default while setup is incomplete', () => {
-    expect(resolveSetupGuideExpanded(true, false, null)).toBe(true)
+  test('stays collapsed by default while setup is incomplete', () => {
+    expect(resolveSetupGuideExpanded(true, false, null)).toBe(false)
   })
 
   test('honors a user collapse preference while incomplete', () => {

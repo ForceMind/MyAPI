@@ -32,7 +32,14 @@ const channelsSearchSchema = z.object({
   type: z.array(z.string()).optional().catch([]),
   group: z.array(z.string()).optional().catch([]),
   model: z.string().optional().catch(''),
-  quotaChannelId: z.coerce.number().optional().catch(undefined),
+  quotaChannelId: z.coerce
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .catch(undefined),
+  quotaStart: z.coerce.number().int().positive().optional().catch(undefined),
+  quotaEnd: z.coerce.number().int().positive().optional().catch(undefined),
 })
 
 export const Route = createFileRoute('/_authenticated/channels/')({

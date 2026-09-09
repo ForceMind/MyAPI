@@ -1,6 +1,6 @@
 {
   "name": "@forcemind/myapi",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "MyAPI self-hosting CLI and complete source distribution.",
   "type": "module",
   "bin": {
@@ -15,6 +15,7 @@
     "tools/website/",
     "tools/quota/",
     "tools/routing/",
+    "tools/ui-redesign/",
     "tools/upgrade/",
     "tools/runtime/",
     ".dockerignore",

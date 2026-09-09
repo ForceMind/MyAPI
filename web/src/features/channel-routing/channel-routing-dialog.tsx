@@ -221,6 +221,7 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
   })
   const [policyError, setPolicyError] = useState<string | null>(null)
   const [channelError, setChannelError] = useState<string | null>(null)
+  const [previewIsStale, setPreviewIsStale] = useState(false)
 
   useEffect(() => {
     if (sessionIdentityRef.current === sessionIdentity) return
@@ -231,6 +232,7 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
     setChannelDrafts({})
     setPolicyError(null)
     setChannelError(null)
+    setPreviewIsStale(false)
     setPreviewRequest({ model: '', group: '', path: CHAT_PATH })
   }, [sessionIdentity])
 
@@ -274,6 +276,7 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
     },
     onSuccess: (_, savedPolicy) => {
       setPolicyError(null)
+      setPreviewIsStale(true)
       const nextBaseline = localPolicy(savedPolicy)
       policyBaselineRef.current = nextBaseline
       void queryClient.invalidateQueries({ queryKey })
@@ -302,6 +305,7 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
     },
     onSuccess: (_, values) => {
       setChannelError(null)
+      setPreviewIsStale(true)
       setChannelDrafts((current) => {
         const next = { ...current }
         delete next[values.channel.id]
@@ -311,6 +315,7 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
     },
     onError: async (error, values) => {
       if (isConflictError(error)) {
+        setPreviewIsStale(true)
         setChannelError(
           t(
             'This channel changed elsewhere. Current values were reloaded; your edits are still shown.'
@@ -352,6 +357,7 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
     key: K,
     value: ChannelRoutingPolicy[K]
   ) => {
+    setPreviewIsStale(true)
     setPolicy((current) => {
       if (!current) return current
       const nextPolicy = { ...current, [key]: value }
@@ -364,6 +370,7 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
     key: 'priority' | 'weight',
     value: number
   ) => {
+    setPreviewIsStale(true)
     setChannelDrafts((current) => {
       const draft = current[channel.id] ?? {
         priority: channel.priority,
@@ -398,8 +405,18 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
   }
   const handlePreview = () => {
     previewMutation.reset()
-    previewMutation.mutate(previewRequest)
+    previewMutation.mutate(previewRequest, {
+      onSuccess: () => setPreviewIsStale(false),
+    })
   }
+
+  const policyHasUnsavedChanges =
+    !!policyBaselineRef.current &&
+    !!policy &&
+    !policiesMatch(policy, policyBaselineRef.current)
+  let policySaveStatus = t('Saved successfully')
+  if (policyHasUnsavedChanges) policySaveStatus = t('Unsaved changes')
+  if (policyMutation.isPending) policySaveStatus = t('Saving…')
 
   return (
     <div className='grid gap-6'>
@@ -532,6 +549,11 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
             {policyError && (
               <p className='text-destructive text-sm'>{policyError}</p>
             )}
+            {isRoot && !policyError ? (
+              <p className='text-muted-foreground text-xs' role='status'>
+                {policySaveStatus}
+              </p>
+            ) : null}
           </section>
 
           <section
@@ -603,6 +625,12 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
                       const changed =
                         draft.priority !== draft.expected_priority ||
                         draft.weight !== draft.expected_weight
+                      const isSavingThisChannel =
+                        channelMutation.isPending &&
+                        channelMutation.variables?.channel.id === channel.id
+                      let channelSaveStatus = t('Saved successfully')
+                      if (changed) channelSaveStatus = t('Unsaved changes')
+                      if (isSavingThisChannel) channelSaveStatus = t('Saving…')
                       const priorityValue = hasStandardPriority(draft.priority)
                         ? String(draft.priority)
                         : 'existing'
@@ -721,6 +749,12 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
                             </p>
                           </td>
                           <td className='col-span-2 text-right sm:p-3'>
+                            <p
+                              className='text-muted-foreground mb-1 text-xs'
+                              role='status'
+                            >
+                              {channelSaveStatus}
+                            </p>
                             <Button
                               className='w-full sm:w-auto'
                               size='sm'
@@ -850,6 +884,13 @@ export function ChannelRoutingPanel(props: ChannelRoutingPanelProps) {
             )}
             {previewMutation.data && (
               <div className='bg-muted/50 grid gap-2 rounded-md p-3 text-sm'>
+                {previewIsStale ? (
+                  <p className='text-muted-foreground'>
+                    {t(
+                      'Configuration changed after this preview. Preview again to use the saved configuration.'
+                    )}
+                  </p>
+                ) : null}
                 <div className='flex flex-wrap items-center gap-2'>
                   <Badge variant='outline'>
                     {getWorkloadLabel(t, previewMutation.data.workload)}

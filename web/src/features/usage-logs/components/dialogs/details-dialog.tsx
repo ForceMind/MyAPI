@@ -83,6 +83,7 @@ import {
   isTimingLogType,
 } from '../../lib/utils'
 import { USAGE_BILLING_PATH, type LogOtherData } from '../../types'
+import { RoutingLogDetails } from './routing-log-details'
 
 // Maps a channel-update changed-field token (as recorded by the backend audit)
 // to its i18n label key for display in the audit details.
@@ -777,6 +778,11 @@ export function DetailsDialog(props: DetailsDialogProps) {
             </div>
           </DetailSection>
         )}
+
+        <RoutingLogDetails
+          isAdmin={props.isAdmin}
+          routing={other?.admin_info?.channel_routing}
+        />
 
         {/* Quota saturation marker (admin only) */}
         {props.isAdmin && other?.admin_info?.quota_saturation && (

@@ -23,6 +23,7 @@ import {
 
 import { ChartContainer } from '@/components/ui/chart'
 import { toIntlLocale } from '@/i18n/languages'
+import { cn } from '@/lib/utils'
 
 import {
   nearestQuotaPoint,
@@ -47,6 +48,7 @@ export function QuotaComparisonChart(props: {
   style: ComparisonChartStyle
   bounds: QuotaTimeBounds
   onZoom: (bounds: QuotaTimeBounds) => void
+  className?: string
 }) {
   const { t, i18n } = useTranslation()
   const hostRef = useRef<HTMLDivElement>(null)
@@ -153,7 +155,10 @@ export function QuotaComparisonChart(props: {
     >
       <ChartContainer
         config={{}}
-        className='aspect-auto h-[clamp(220px,42dvh,400px)] w-full'
+        className={cn(
+          'aspect-auto h-[clamp(220px,42dvh,400px)] w-full',
+          props.className
+        )}
         initialDimension={{ width: 640, height: 440 }}
       >
         <ComposedChart

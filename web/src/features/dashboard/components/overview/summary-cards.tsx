@@ -24,13 +24,19 @@ import { useTranslation } from 'react-i18next'
 
 import { StaggerContainer, StaggerItem } from '@/components/page-transition'
 import { Button } from '@/components/ui/button'
-import { getUserQuotaDates } from '@/features/dashboard/api'
+import { getChannelRouting } from '@/features/channel-routing/api'
+import {
+  getRecordedRequestSummary,
+  getUserQuotaDates,
+} from '@/features/dashboard/api'
 import { useSummaryCardsConfig } from '@/features/dashboard/hooks/use-dashboard-config'
 import { buildQueryParams } from '@/features/dashboard/lib/filters'
 import type { QuotaDataItem } from '@/features/dashboard/types'
 import { useStatus } from '@/hooks/use-status'
+import { hasPermission } from '@/lib/admin-permissions'
 import { getCurrencyLabel, isCurrencyDisplayEnabled } from '@/lib/currency'
 import { formatNumber, formatQuota } from '@/lib/format'
+import { ROLE } from '@/lib/roles'
 import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
 import { computeTimeRange } from '@/lib/time'
 import { cn } from '@/lib/utils'
@@ -92,15 +98,6 @@ function buildSummarySparklines(
   }
 }
 
-function getSummarySparkline(
-  key: string,
-  sparklineData: Record<SummarySparklineKey, number[]>
-): number[] | undefined {
-  if (key === 'usage') return sparklineData.usage
-  if (key === 'requests') return sparklineData.requests
-  return undefined
-}
-
 function getRunwayDays(
   remainQuota: number,
   recentUsage: number
@@ -141,6 +138,7 @@ const HEALTH_CONFIG: Record<
 export function SummaryCards() {
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
+  const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   const { status, loading } = useStatus()
 
   const summaryTimeRange = useMemo(() => computeTimeRange(1), [])
@@ -152,28 +150,103 @@ export function SummaryCards() {
     [summaryTimeRange]
   )
   const remainQuota = Number(user?.quota ?? 0)
-  const usedQuota = Number(user?.used_quota ?? 0)
-  const requestCount = Number(user?.request_count ?? 0)
+  const isAdmin = Boolean(user?.role && user.role >= ROLE.ADMIN)
+  const canReadChannels = hasPermission(user, 'channel', 'read')
+  const canReadOperationalChannels = isAdmin && canReadChannels
 
   const usageTrendQuery = useQuery({
     queryKey: [
       'dashboard',
       'overview',
       'summary-sparklines',
+      user?.id ?? null,
+      sessionId,
       summaryTimeRange.start_timestamp,
       summaryTimeRange.end_timestamp,
       summaryQueryParams.timezone_offset,
     ],
     queryFn: async () => getUserQuotaDates(summaryQueryParams),
+    enabled: Boolean(user) && !isAdmin,
     staleTime: 60 * 1000,
   })
 
+  const requestSummaryQuery = useQuery({
+    queryKey: [
+      'dashboard',
+      'overview',
+      'recorded-request-summary',
+      user?.id ?? null,
+      sessionId,
+      isAdmin,
+      summaryTimeRange.start_timestamp,
+      summaryTimeRange.end_timestamp,
+    ],
+    queryFn: () => getRecordedRequestSummary(summaryTimeRange, isAdmin),
+    enabled: Boolean(user),
+    staleTime: 60 * 1000,
+    retry: false,
+  })
+  const routingQuery = useQuery({
+    queryKey: [
+      'dashboard',
+      'overview',
+      'routing-policy',
+      user?.id ?? null,
+      sessionId,
+    ],
+    queryFn: getChannelRouting,
+    enabled: canReadOperationalChannels,
+    staleTime: 60 * 1000,
+    retry: false,
+  })
+
   const summaryValues = useMemo(() => {
-    return {
-      usedDisplay: formatQuota(usedQuota),
-      requestCountDisplay: formatNumber(requestCount),
+    const requestSummaryUnavailable =
+      requestSummaryQuery.isError || !requestSummaryQuery.data
+    const routingAvailable =
+      canReadOperationalChannels &&
+      !routingQuery.isError &&
+      routingQuery.data?.success === true
+    const routingChannels = routingQuery.data?.data?.channels ?? []
+    let routingModeDisplay = t('Unavailable')
+    if (routingAvailable) {
+      routingModeDisplay = routingQuery.data?.data?.policy.enabled
+        ? t('Enabled')
+        : t('Disabled')
     }
-  }, [requestCount, usedQuota])
+
+    let recordedSuccessRateDisplay = t('Unavailable')
+    if (!requestSummaryUnavailable) {
+      recordedSuccessRateDisplay =
+        requestSummaryQuery.data?.success_rate == null
+          ? t('No data')
+          : `${formatNumber(requestSummaryQuery.data.success_rate)}%`
+    }
+
+    return {
+      recordedRequestsDisplay: requestSummaryUnavailable
+        ? t('Unavailable')
+        : formatNumber(requestSummaryQuery.data?.total_requests ?? 0),
+      recordedSuccessRateDisplay,
+      enabledChannelsDisplay: !routingAvailable
+        ? t('Unavailable')
+        : formatNumber(
+            routingChannels.filter((channel) => channel.status === 1).length
+          ),
+      routingModeDisplay,
+      isAdmin,
+    }
+  }, [
+    canReadOperationalChannels,
+    isAdmin,
+    requestSummaryQuery.data,
+    requestSummaryQuery.isError,
+    routingQuery.data?.success,
+    routingQuery.data?.data?.channels,
+    routingQuery.data?.data?.policy.enabled,
+    routingQuery.isError,
+    t,
+  ])
 
   const currencyEnabledFromStore = isCurrencyDisplayEnabled()
   const statusCurrencyFlag =
@@ -243,6 +316,9 @@ export function SummaryCards() {
     currencyLabel,
   }).map((config, index) => {
     const tones = ['accent-1', 'accent-2', 'accent-3'] as const
+    let sparkline: number[] | undefined
+    if (config.key === 'todayUsage') sparkline = sparklineData.usage
+    else if (config.key === 'requests') sparkline = sparklineData.requests
 
     return {
       key: config.key,
@@ -251,13 +327,40 @@ export function SummaryCards() {
       desc: config.description,
       icon: config.icon,
       tone: tones[index] ?? 'accent-3',
-      sparkline:
-        config.key === 'todayUsage'
-          ? sparklineData.usage
-          : getSummarySparkline(config.key, sparklineData),
+      sparkline,
       sparklineVariant: 'line' as const,
     }
   })
+
+  if (isAdmin) {
+    return (
+      <section
+        aria-label={t('Usage at a glance')}
+        className='bg-card overflow-hidden rounded-xl border'
+      >
+        <dl className='grid grid-cols-2 lg:grid-cols-4'>
+          {items.map((item) => (
+            <div
+              key={item.key}
+              className='min-w-0 space-y-2 border-b p-4 odd:border-r lg:border-r lg:border-b-0 lg:last:border-r-0'
+            >
+              <dt className='text-muted-foreground text-xs'>{item.title}</dt>
+              <dd className='text-xl font-semibold tabular-nums sm:text-2xl'>
+                {(item.key === 'requests' || item.key === 'successRate') &&
+                requestSummaryQuery.isLoading
+                  ? t('Loading')
+                  : item.value}
+              </dd>
+              <p className='text-muted-foreground text-xs'>{item.desc}</p>
+            </div>
+          ))}
+        </dl>
+        <p className='text-muted-foreground border-t px-4 py-2 text-xs'>
+          {t('Recorded request outcomes are incomplete for this period.')}
+        </p>
+      </section>
+    )
+  }
 
   return (
     <div className='bg-card overflow-hidden rounded-2xl border shadow-xs'>
@@ -276,9 +379,16 @@ export function SummaryCards() {
                   {t('Usage data is temporarily unavailable.')}
                 </p>
               ) : null}
+              {requestSummaryQuery.data?.coverage?.complete === false ? (
+                <p className='text-muted-foreground text-xs'>
+                  {t(
+                    'Recorded request outcomes are incomplete for this period.'
+                  )}
+                </p>
+              ) : null}
             </div>
           </div>
-          <StaggerContainer className='grid grid-cols-3 gap-1.5 sm:gap-3'>
+          <StaggerContainer className='grid grid-cols-2 gap-1.5 sm:gap-3 lg:grid-cols-4'>
             {items.map((it) => (
               <StaggerItem
                 key={it.key}

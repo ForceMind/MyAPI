@@ -21,7 +21,11 @@ import {
   zoomQuotaTime,
   type QuotaTimeBounds,
 } from '../lib/quota-comparison'
-import { quotaSeriesKey, quotaWindowLabel } from '../lib/quota-history'
+import {
+  getChannelQuotaSeriesColor,
+  quotaSeriesKey,
+  quotaWindowLabel,
+} from '../lib/quota-history'
 import {
   QuotaComparisonChart,
   type ComparisonChartStyle,
@@ -30,27 +34,38 @@ import {
 } from './quota-comparison-chart'
 import { QuotaCustomRangeControls } from './quota-history-trend'
 
-const colors = [
-  '#2563eb',
-  '#d97706',
-  '#059669',
-  '#db2777',
-  '#7c3aed',
-  '#0891b2',
-  '#dc2626',
-  '#4d7c0f',
-]
 const selectClass = 'h-9 min-w-0 rounded-lg border bg-background px-2 text-sm'
 
-export function ChannelQuotaComparison(props: { initialChannelId?: number }) {
+export type ChannelQuotaComparisonProps = {
+  initialChannelId?: number
+  initialBounds?: QuotaTimeBounds
+}
+
+function isInitialQuotaBounds(
+  bounds: QuotaTimeBounds | undefined
+): bounds is QuotaTimeBounds {
+  return (
+    !!bounds &&
+    Number.isSafeInteger(bounds.start) &&
+    Number.isSafeInteger(bounds.end) &&
+    bounds.start > 0 &&
+    bounds.end > bounds.start
+  )
+}
+
+export function ChannelQuotaComparison(props: ChannelQuotaComparisonProps) {
   const { t } = useTranslation()
   const userId = useAuthStore((state) => state.auth.user?.id)
   const sessionId = useAuthStore((state) => state.auth.session?.sid)
+  const initialBounds = isInitialQuotaBounds(props.initialBounds)
+    ? props.initialBounds
+    : undefined
   const [bounds, setBounds] = useState<QuotaTimeBounds>(() => {
+    if (initialBounds) return initialBounds
     const end = Math.floor(Date.now() / 1000)
     return { start: end - 86400, end }
   })
-  const [mode, setMode] = useState('24h')
+  const [mode, setMode] = useState(initialBounds ? 'custom' : '24h')
   const [metric, setMetric] = useState<ComparisonMetric>('available')
   const [style, setStyle] = useState<ComparisonChartStyle>('line')
   const [group, setGroup] = useState('')
@@ -154,7 +169,7 @@ export function ChannelQuotaComparison(props: { initialChannelId?: number }) {
         key: quotaSeriesKey(item),
         label: `${item.account_label || item.name} · #${item.channel_id}${candidates.filter((peer) => peer.channel_id === item.channel_id).length > 1 ? ` · ${item.plan_type || ''} / ${item.source || ''}` : ''}`,
         data: result.data,
-        color: colors[index % colors.length],
+        color: getChannelQuotaSeriesColor(item.channel_id),
       },
     ]
   })

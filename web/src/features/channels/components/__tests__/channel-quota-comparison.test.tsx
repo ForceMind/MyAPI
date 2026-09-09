@@ -28,13 +28,13 @@ const items = [1, 2].map((channel_id) => ({
   source: 'codex',
   window_seconds: 604800,
 }))
-function mount() {
+function mount(props: { initialBounds?: { start: number; end: number } } = {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   })
   return render(
     <QueryClientProvider client={client}>
-      <ChannelQuotaComparison />
+      <ChannelQuotaComparison {...props} />
     </QueryClientProvider>
   )
 }
@@ -109,6 +109,27 @@ test('loads two comparable channels together from raw remaining-based history', 
     expect(screen.getByLabelText('Chart type')).toHaveValue(value)
   }
 })
+
+test('keeps a channel color stable after another selected channel is removed', async () => {
+  mount()
+  const channelOne = await screen.findByRole('checkbox', {
+    name: 'Channel 1 · #1',
+  })
+  const channelTwoLegend = await screen.findByText('● Channel 2 · #2')
+  const originalColor = channelTwoLegend.getAttribute('style')
+
+  fireEvent.click(channelOne)
+
+  await waitFor(() =>
+    expect(
+      screen.getByRole('checkbox', { name: 'Channel 1 · #1' })
+    ).not.toBeChecked()
+  )
+  expect(screen.getByText('● Channel 2 · #2')).toHaveAttribute(
+    'style',
+    originalColor
+  )
+})
 test('zoom requests a narrower absolute range instead of magnifying old buckets', async () => {
   mount()
   await waitFor(() =>
@@ -121,6 +142,45 @@ test('zoom requests a narrower absolute range instead of magnifying old buckets'
       expect.objectContaining({
         start: new Date((now - 64800) * 1000).toISOString(),
         end: new Date((now - 21600) * 1000).toISOString(),
+      })
+    )
+  )
+  expect(screen.getByLabelText('Time range')).toHaveValue('custom')
+})
+
+test('scrolling over the chart reloads a narrower absolute range', async () => {
+  mount()
+  await waitFor(() =>
+    expect(getChannelQuotaHistory).toHaveBeenCalledWith(1, expect.anything())
+  )
+
+  fireEvent.wheel(screen.getByTestId('quota-comparison-chart'), {
+    deltaY: -120,
+    clientX: 64,
+  })
+
+  await waitFor(() =>
+    expect(getChannelQuotaHistory).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({
+        start: new Date((now - 86400) * 1000).toISOString(),
+        end: new Date((now - 17280) * 1000).toISOString(),
+      })
+    )
+  )
+  expect(screen.getByLabelText('Time range')).toHaveValue('custom')
+})
+
+test('uses a valid linked time range as the initial custom range', async () => {
+  const initialBounds = { start: now - 3600, end: now - 60 }
+  mount({ initialBounds })
+
+  await waitFor(() =>
+    expect(getChannelQuotaHistory).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({
+        start: new Date(initialBounds.start * 1000).toISOString(),
+        end: new Date(initialBounds.end * 1000).toISOString(),
       })
     )
   )
