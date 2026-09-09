@@ -1012,6 +1012,7 @@
     "Codex credential must be a JSON object with access_token and account_id": "Учетные данные Codex должны быть JSON-объектом с access_token и account_id",
     "Codex credential saved": "Codex 凭据已保存",
     "Codex login failed": "Codex 登录失败",
+    "Codex OAuth channel with usage inspection. Credentials are for Codex CLI-compatible requests only; this is not a general ChatGPT account proxy.": "Канал Codex OAuth с просмотром расхода. Учётные данные предназначены только для запросов, совместимых с Codex CLI, а не для универсального прокси аккаунта ChatGPT.",
     "Codex quota window": "Окно квоты Codex",
     "Codex usage history chart": "График истории использования Codex",
     "Codex usage history is unavailable": "История использования Codex недоступна",

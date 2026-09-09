@@ -1012,6 +1012,7 @@
     "Codex credential must be a JSON object with access_token and account_id": "Codex 凭据必须是包含 access_token 和 account_id 的 JSON 对象",
     "Codex credential saved": "Codex 凭据已保存",
     "Codex login failed": "Codex 登录失败",
+    "Codex OAuth channel with usage inspection. Credentials are for Codex CLI-compatible requests only; this is not a general ChatGPT account proxy.": "支持用量查询的 Codex OAuth 渠道。凭据仅用于兼容 Codex CLI 的请求，不是通用 ChatGPT 账户代理。",
     "Codex quota window": "Codex 额度窗口",
     "Codex usage history chart": "Codex 用量历史图表",
     "Codex usage history is unavailable": "Codex 用量历史不可用",

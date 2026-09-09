@@ -168,6 +168,7 @@ export function SummaryCards() {
     queryFn: async () => getUserQuotaDates(summaryQueryParams),
     enabled: Boolean(user) && !isAdmin,
     staleTime: 60 * 1000,
+    meta: { errorHandledLocally: true },
   })
 
   const requestSummaryQuery = useQuery({

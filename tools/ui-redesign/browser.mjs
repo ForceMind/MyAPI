@@ -33,6 +33,7 @@ const requests = []
 let role = 100
 let summaryFails = false
 let emptyOverview = false
+let personalUsageFails = false
 let channelRead = true
 const policy = { enabled: false, sticky_enabled: true, session_ttl_seconds: 86400, quota_max_age_seconds: 600 }
 const channels = [{ id: 1, name: 'Codex · 浏览器测试', type: 57, status: 1, priority: 0, weight: 30, quota: { state: 'fresh', available: 85, unit: 'percent', observed_at: now } }]
@@ -66,6 +67,10 @@ try {
       source_complete: true, items_complete: true,
     } }
     else if (path === '/api/log' || path === '/api/log/self') response = { success: true, data: { items: [], total: 0 } }
+    else if (personalUsageFails && path === '/api/data/self') {
+      status = 500
+      response = { success: false, message: 'Synthetic personal usage unavailable' }
+    }
     else response = fixtures.response(url)
     const permissions = { admin_permissions: { channel: { read: channelRead, operate: channelRead, write: channelRead, sensitive_write: channelRead, secret_view: channelRead } } }
     if (path === '/api/user/auth/refresh' && response?.data?.user) response.data.user = { ...response.data.user, role, permissions }
@@ -127,6 +132,12 @@ try {
   assert(!requests.some(path => path.startsWith('/api/channel')), 'ordinary overview never requests channel metadata')
   assert(!requests.includes('/api/log/request-summary'), 'ordinary overview never requests global summary')
   await page.screenshot({ path: resolve(output, 'overview-personal.png'), fullPage: true })
+  personalUsageFails = true
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.getByText(label('Usage data is temporarily unavailable.'), { exact: true }).waitFor({ timeout: 30000 })
+  assert.equal(new URL(page.url()).pathname, '/dashboard/overview', 'personal usage failure stays within the overview')
+  await page.screenshot({ path: resolve(output, 'overview-personal-error.png'), fullPage: true })
+  personalUsageFails = false
   role = 100
   channelRead = true
   await page.setViewportSize({ width: 1280, height: 720 })
@@ -138,12 +149,13 @@ try {
   await page.getByRole('menuitem', { name: label('Edit'), exact: true }).click()
   const drawer = page.getByRole('dialog', { name: label('Edit Channel'), exact: false })
   await drawer.waitFor()
-  await drawer.screenshot({ path: resolve(output, 'channel-desktop-drawer.png') })
+  await drawer.screenshot({ path: resolve(output, 'channel-desktop-drawer-content.png') })
   const desktopDrawerBounds = await drawer.boundingBox()
   assert(desktopDrawerBounds && desktopDrawerBounds.width < 1280 && Math.abs(desktopDrawerBounds.x + desktopDrawerBounds.width - 1280) <= 1, 'desktop channel editor is a right-side drawer')
   await page.screenshot({ path: resolve(output, 'channel-desktop-drawer.png'), fullPage: true })
   await page.keyboard.press('Escape')
   await drawer.waitFor({ state: 'hidden' })
+  await page.waitForFunction(element => element === document.activeElement, await edit.elementHandle())
   assert(await edit.evaluate(element => element === document.activeElement), 'closing the desktop editor restores focus to the edit action')
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -164,6 +176,7 @@ try {
   await page.keyboard.press('Escape')
   await confirm.getByRole('button', { name: label('Leave'), exact: true }).click()
   await drawer.waitFor({ state: 'hidden' })
+  await page.waitForFunction(element => element === document.activeElement, await mobileMenu.elementHandle())
   assert(await mobileMenu.evaluate(element => element === document.activeElement), 'closing the mobile editor restores focus to the row actions')
   assert.deepEqual([...unexpected], [], 'all API requests are explicitly covered')
   assert.deepEqual(failures, [], 'no browser runtime errors')
