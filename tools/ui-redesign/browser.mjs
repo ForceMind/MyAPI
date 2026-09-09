@@ -87,7 +87,8 @@ try {
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `overview width ${viewport.width} must not overflow`)
     if (viewport.width === 1280) {
       const bounds = await quotaChart.boundingBox()
-      assert(bounds && bounds.y >= 0 && bounds.y + bounds.height <= 720, 'overview chart and time axis must fit the initial desktop viewport')
+      await page.screenshot({ path: resolve(output, 'overview-first-viewport.png'), fullPage: true })
+      assert(bounds && bounds.y >= 0 && bounds.y + bounds.height <= 720, `overview chart and time axis must fit the initial desktop viewport: ${JSON.stringify(bounds)}`)
     }
     await page.screenshot({ path: resolve(output, `overview-${viewport.width}.png`), fullPage: true })
   }
