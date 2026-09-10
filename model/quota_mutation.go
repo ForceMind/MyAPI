@@ -164,10 +164,11 @@ func (snapshot QuotaMutationAccountSnapshot) Value() (driver.Value, error) {
 type QuotaMutationReceipt struct {
 	ID                          int64                        `json:"id" gorm:"primaryKey"`
 	ReceiptVersion              int                          `json:"receipt_version" gorm:"not null;<-:create"`
+	MutationType                string                       `json:"mutation_type" gorm:"type:varchar(32);not null;default:'reserve';uniqueIndex:uidx_quota_mutation_receipt_op_type,priority:2;<-:create"`
 	MutationKey                 string                       `json:"mutation_key" gorm:"type:varchar(128);not null;uniqueIndex:uidx_quota_mutation_receipt_key;<-:create"`
 	RequestFingerprint          string                       `json:"request_fingerprint" gorm:"type:char(64);not null;<-:create"`
 	OperationRequestFingerprint string                       `json:"operation_request_fingerprint" gorm:"type:char(64);not null;<-:create"`
-	OperationID                 int64                        `json:"operation_id" gorm:"not null;uniqueIndex:uidx_quota_mutation_receipt_operation;<-:create"`
+	OperationID                 int64                        `json:"operation_id" gorm:"not null;uniqueIndex:uidx_quota_mutation_receipt_op_type,priority:1;<-:create"`
 	OperationPublicID           string                       `json:"operation_public_id" gorm:"type:varchar(48);not null;<-:create"`
 	ExpectedOperationVersion    int64                        `json:"expected_operation_version" gorm:"type:bigint;not null;<-:create"`
 	OperationVersionBefore      int64                        `json:"operation_version_before" gorm:"type:bigint;not null;<-:create"`
@@ -247,14 +248,30 @@ func FindTaskQuotaReservation(tx *gorm.DB, operationID int64, userID, tokenID in
 }
 
 func findTaskQuotaReservation(tx *gorm.DB, operationID int64, userID, tokenID int) (*QuotaMutationReceipt, error) {
+	return findTaskQuotaReceiptByType(tx, operationID, string(TaskBillingEventTypeReserve), userID, tokenID)
+}
+
+// FindTaskQuotaReceipt performs only a main-database read for a specific receipt type.
+func FindTaskQuotaReceipt(tx *gorm.DB, operationID int64, mutationType string, userID, tokenID int) (*QuotaMutationReceipt, error) {
+	receipt, err := findTaskQuotaReceiptByType(tx, operationID, mutationType, userID, tokenID)
+	if err != nil {
+		return nil, err
+	}
+	if receipt == nil {
+		return nil, ErrTaskQuotaReservationNotFound
+	}
+	return receipt, nil
+}
+
+func findTaskQuotaReceiptByType(tx *gorm.DB, operationID int64, mutationType string, userID, tokenID int) (*QuotaMutationReceipt, error) {
 	if tx == nil {
 		return nil, gorm.ErrInvalidDB
 	}
-	if operationID <= 0 || userID <= 0 || tokenID <= 0 {
+	if operationID <= 0 || userID <= 0 || tokenID <= 0 || mutationType == "" {
 		return nil, ErrTaskQuotaReservationInvalidInput
 	}
 	var receipt QuotaMutationReceipt
-	err := tx.Session(&gorm.Session{NewDB: true}).Where("operation_id = ?", operationID).First(&receipt).Error
+	err := tx.Session(&gorm.Session{NewDB: true}).Where("operation_id = ? AND mutation_type = ?", operationID, mutationType).First(&receipt).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -432,6 +449,7 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 
 		receipt := &QuotaMutationReceipt{
 			ReceiptVersion:              quotaMutationReceiptVersion,
+			MutationType:                string(TaskBillingEventTypeReserve),
 			MutationKey:                 event.EventKey,
 			RequestFingerprint:          fingerprint,
 			OperationRequestFingerprint: operation.RequestFingerprint,
@@ -740,11 +758,23 @@ func validateQuotaMutationReceiptShape(receipt *QuotaMutationReceipt) error {
 		!validTaskRecoveryDigest(receipt.RequestFingerprint) || !validTaskRecoveryDigest(receipt.OperationRequestFingerprint) ||
 		receipt.OperationID <= 0 || !validTaskSubmissionPublicID(receipt.OperationPublicID) ||
 		receipt.ExpectedOperationVersion <= 0 || receipt.OperationVersionBefore != receipt.ExpectedOperationVersion ||
-		receipt.OperationVersionBefore == quotaMutationMaxInt64 || receipt.OperationVersionAfter != receipt.OperationVersionBefore+1 ||
+		receipt.OperationVersionBefore == quotaMutationMaxInt64 ||
+		(receipt.OperationVersionAfter != receipt.OperationVersionBefore && receipt.OperationVersionAfter != receipt.OperationVersionBefore+1) ||
 		!validTaskBillingEventID(receipt.BillingEventID) || receipt.BillingEventVersion <= 0 ||
 		receipt.UserID <= 0 || receipt.TokenID <= 0 || receipt.ChannelID <= 0 || receipt.SubscriptionID < 0 ||
 		receipt.Quota < 0 || receipt.Quota > int64(common.MaxQuota) {
 		return fmt.Errorf("%w: receipt identity or version fields are invalid", ErrTaskQuotaReservationInvalidInput)
+	}
+	if receipt.MutationType == "" {
+		receipt.MutationType = string(TaskBillingEventTypeReserve)
+	}
+	if receipt.MutationType != string(TaskBillingEventTypeReserve) &&
+		receipt.MutationType != string(TaskBillingEventTypeRefund) &&
+		receipt.MutationType != string(TaskBillingEventTypeTerminalSettlement) {
+		return fmt.Errorf("%w: receipt mutation type is invalid", ErrTaskQuotaReservationInvalidInput)
+	}
+	if receipt.MutationType == string(TaskBillingEventTypeReserve) && receipt.OperationVersionAfter != receipt.OperationVersionBefore+1 {
+		return fmt.Errorf("%w: reserve receipt must advance operation version", ErrTaskQuotaReservationInvalidInput)
 	}
 	if receipt.BillingSource != "wallet" && receipt.BillingSource != "subscription" ||
 		(receipt.BillingSource == "wallet" && receipt.SubscriptionID != 0) ||
@@ -754,17 +784,117 @@ func validateQuotaMutationReceiptShape(receipt *QuotaMutationReceipt) error {
 	if err := validateTaskQuotaBillingContext(TaskBillingContext(receipt.BillingContext)); err != nil {
 		return err
 	}
-	if err := validateQuotaMutationSnapshotPair(receipt); err != nil {
-		return err
+	switch receipt.MutationType {
+	case string(TaskBillingEventTypeReserve):
+		if err := validateQuotaMutationSnapshotPair(receipt); err != nil {
+			return err
+		}
+		_, fingerprint, err := normalizeTaskQuotaReservationInput(TaskQuotaReservationInput{
+			OperationID: receipt.OperationID, UserID: receipt.UserID, TokenID: receipt.TokenID,
+			ChannelID: receipt.ChannelID, ExpectedOperationVersion: receipt.ExpectedOperationVersion,
+			Quota: receipt.Quota, BillingSource: receipt.BillingSource, SubscriptionID: receipt.SubscriptionID,
+			BillingContext: TaskBillingContext(receipt.BillingContext),
+		})
+		if err != nil || fingerprint != receipt.RequestFingerprint {
+			return fmt.Errorf("%w: receipt request fingerprint does not match its immutable payload", ErrTaskQuotaReservationInvalidInput)
+		}
+	case string(TaskBillingEventTypeRefund):
+		if err := validateQuotaMutationRefundShape(receipt); err != nil {
+			return err
+		}
+	case string(TaskBillingEventTypeTerminalSettlement):
+		if err := validateQuotaMutationSettlementShape(receipt); err != nil {
+			return err
+		}
 	}
-	_, fingerprint, err := normalizeTaskQuotaReservationInput(TaskQuotaReservationInput{
-		OperationID: receipt.OperationID, UserID: receipt.UserID, TokenID: receipt.TokenID,
-		ChannelID: receipt.ChannelID, ExpectedOperationVersion: receipt.ExpectedOperationVersion,
-		Quota: receipt.Quota, BillingSource: receipt.BillingSource, SubscriptionID: receipt.SubscriptionID,
-		BillingContext: TaskBillingContext(receipt.BillingContext),
-	})
-	if err != nil || fingerprint != receipt.RequestFingerprint {
-		return fmt.Errorf("%w: receipt request fingerprint does not match its immutable payload", ErrTaskQuotaReservationInvalidInput)
+	return nil
+}
+
+func validateQuotaMutationRefundShape(receipt *QuotaMutationReceipt) error {
+	before, after := receipt.Before, receipt.After
+	if before.User.ID != receipt.UserID || after.User.ID != receipt.UserID ||
+		before.Token.ID != receipt.TokenID || after.Token.ID != receipt.TokenID ||
+		before.Token.UserID != receipt.UserID || after.Token.UserID != receipt.UserID ||
+		before.User.QuotaVersion < 0 || before.Token.QuotaVersion < 0 ||
+		after.User.QuotaVersion < before.User.QuotaVersion || after.Token.QuotaVersion < before.Token.QuotaVersion {
+		return fmt.Errorf("%w: refund receipt account snapshots do not match their subjects", ErrTaskQuotaReservationInvalidInput)
+	}
+	if receipt.Quota == 0 {
+		if !reflect.DeepEqual(before, after) {
+			return fmt.Errorf("%w: zero-quota refund receipt changed account state", ErrTaskQuotaReservationInvalidInput)
+		}
+		return nil
+	}
+	if after.Token.QuotaVersion != before.Token.QuotaVersion+1 {
+		return fmt.Errorf("%w: token quota version did not advance on refund", ErrTaskQuotaReservationInvalidInput)
+	}
+	if receipt.BillingSource == "wallet" {
+		if before.Subscription != nil || after.Subscription != nil ||
+			after.User.QuotaVersion != before.User.QuotaVersion+1 ||
+			int64(after.User.Quota)-int64(before.User.Quota) != receipt.Quota {
+			return fmt.Errorf("%w: wallet refund snapshot delta is invalid", ErrTaskQuotaReservationInvalidInput)
+		}
+	} else {
+		if before.Subscription == nil || after.Subscription == nil || before.Subscription.ID != receipt.SubscriptionID ||
+			after.Subscription.ID != receipt.SubscriptionID || before.Subscription.UserID != receipt.UserID ||
+			after.Subscription.UserID != receipt.UserID || after.Subscription.QuotaVersion != before.Subscription.QuotaVersion+1 ||
+			before.Subscription.AmountUsed-after.Subscription.AmountUsed != receipt.Quota ||
+			!reflect.DeepEqual(before.User, after.User) {
+			return fmt.Errorf("%w: subscription refund snapshot delta is invalid", ErrTaskQuotaReservationInvalidInput)
+		}
+	}
+	if int64(after.Token.RemainQuota)-int64(before.Token.RemainQuota) != receipt.Quota ||
+		int64(before.Token.UsedQuota)-int64(after.Token.UsedQuota) != receipt.Quota {
+		return fmt.Errorf("%w: token refund snapshot delta is invalid", ErrTaskQuotaReservationInvalidInput)
+	}
+	return nil
+}
+
+func validateQuotaMutationSettlementShape(receipt *QuotaMutationReceipt) error {
+	before, after := receipt.Before, receipt.After
+	if before.User.ID != receipt.UserID || after.User.ID != receipt.UserID ||
+		before.Token.ID != receipt.TokenID || after.Token.ID != receipt.TokenID ||
+		before.Token.UserID != receipt.UserID || after.Token.UserID != receipt.UserID ||
+		before.User.QuotaVersion < 0 || before.Token.QuotaVersion < 0 ||
+		after.User.QuotaVersion < before.User.QuotaVersion || after.Token.QuotaVersion < before.Token.QuotaVersion {
+		return fmt.Errorf("%w: settlement receipt account snapshots do not match their subjects", ErrTaskQuotaReservationInvalidInput)
+	}
+	return nil
+}
+
+func validateQuotaMutationSettlementSnapshots(before, after QuotaMutationAccountSnapshot, billingSource string, delta int64) error {
+	if delta == 0 {
+		if !reflect.DeepEqual(before, after) {
+			return fmt.Errorf("%w: zero-delta settlement changed account state", ErrTaskQuotaReservationInvalidInput)
+		}
+		return nil
+	}
+	if after.Token.QuotaVersion != before.Token.QuotaVersion+1 {
+		return fmt.Errorf("%w: token quota version did not advance on settlement", ErrTaskQuotaReservationInvalidInput)
+	}
+	if billingSource == "wallet" {
+		if after.User.QuotaVersion != before.User.QuotaVersion+1 {
+			return fmt.Errorf("%w: user quota version did not advance on wallet settlement", ErrTaskQuotaReservationInvalidInput)
+		}
+		userDiff := int64(after.User.Quota) - int64(before.User.Quota)
+		if userDiff != delta && !(after.User.Quota == common.MaxQuota || after.User.Quota == common.MinQuota) {
+			return fmt.Errorf("%w: wallet settlement delta mismatch", ErrTaskQuotaReservationInvalidInput)
+		}
+	} else {
+		if before.Subscription == nil || after.Subscription == nil {
+			return fmt.Errorf("%w: missing subscription snapshot on settlement", ErrTaskQuotaReservationInvalidInput)
+		}
+		if after.Subscription.QuotaVersion != before.Subscription.QuotaVersion+1 {
+			return fmt.Errorf("%w: subscription quota version did not advance on settlement", ErrTaskQuotaReservationInvalidInput)
+		}
+		subDiff := before.Subscription.AmountUsed - after.Subscription.AmountUsed
+		if subDiff != delta && after.Subscription.AmountUsed != 0 {
+			return fmt.Errorf("%w: subscription settlement delta mismatch", ErrTaskQuotaReservationInvalidInput)
+		}
+	}
+	tokenRemainDiff := int64(after.Token.RemainQuota) - int64(before.Token.RemainQuota)
+	if tokenRemainDiff != delta && !(after.Token.RemainQuota == common.MaxQuota || after.Token.RemainQuota == common.MinQuota) {
+		return fmt.Errorf("%w: token remain delta mismatch on settlement", ErrTaskQuotaReservationInvalidInput)
 	}
 	return nil
 }
@@ -842,11 +972,36 @@ func validateStoredQuotaMutationReceipt(tx *gorm.DB, receipt *QuotaMutationRecei
 		return err
 	}
 	if event.OperationID == nil || *event.OperationID != receipt.OperationID || event.EventKey != receipt.BillingEventKey ||
-		event.EventType != TaskBillingEventTypeReserve || event.State != TaskBillingEventStateApplied ||
+		string(event.EventType) != receipt.MutationType || event.State != TaskBillingEventStateApplied ||
 		event.UserID != receipt.UserID || event.TokenID != receipt.TokenID || event.ChannelID != receipt.ChannelID ||
 		event.BillingSource != receipt.BillingSource || event.SubscriptionID != receipt.SubscriptionID ||
-		event.QuotaDelta != -receipt.Quota || event.LockVersion != receipt.BillingEventVersion {
-		return fmt.Errorf("%w: receipt does not match its authoritative reserve event", ErrTaskQuotaReservationConflict)
+		event.LockVersion != receipt.BillingEventVersion {
+		return fmt.Errorf("%w: receipt does not match its authoritative billing event", ErrTaskQuotaReservationConflict)
+	}
+	switch receipt.MutationType {
+	case string(TaskBillingEventTypeReserve):
+		if event.QuotaDelta != -receipt.Quota {
+			return fmt.Errorf("%w: reserve receipt does not match its reserve quota delta", ErrTaskQuotaReservationConflict)
+		}
+	case string(TaskBillingEventTypeRefund):
+		if event.QuotaDelta != receipt.Quota {
+			return fmt.Errorf("%w: refund receipt does not match its refund quota delta", ErrTaskQuotaReservationConflict)
+		}
+	case string(TaskBillingEventTypeTerminalSettlement):
+		reserveReceipt, err := findTaskQuotaReservation(tx, receipt.OperationID, receipt.UserID, receipt.TokenID)
+		if err != nil {
+			return err
+		}
+		if reserveReceipt == nil {
+			return fmt.Errorf("%w: settlement receipt is missing its prerequisite reserve receipt", ErrTaskQuotaReservationConflict)
+		}
+		expectedDelta := reserveReceipt.Quota - receipt.Quota
+		if event.QuotaDelta != expectedDelta {
+			return fmt.Errorf("%w: settlement receipt does not match its calculated quota delta", ErrTaskQuotaReservationConflict)
+		}
+		if err := validateQuotaMutationSettlementSnapshots(receipt.Before, receipt.After, receipt.BillingSource, expectedDelta); err != nil {
+			return err
+		}
 	}
 	return nil
 }

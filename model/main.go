@@ -346,6 +346,9 @@ func migrateDB() error {
 	if err := InitializeExternalIdentityClaims(); err != nil {
 		return err
 	}
+	if err := ensureQuotaMutationReceiptSchema(); err != nil {
+		return err
+	}
 	if common.UsingMainDatabase(common.DatabaseTypeSQLite) {
 		if err := ensureSubscriptionPlanTableSQLite(); err != nil {
 			return err
@@ -429,6 +432,9 @@ func migrateDBFast() error {
 		return err
 	}
 	if err := InitializeExternalIdentityClaims(); err != nil {
+		return err
+	}
+	if err := ensureQuotaMutationReceiptSchema(); err != nil {
 		return err
 	}
 	if common.UsingMainDatabase(common.DatabaseTypeSQLite) {
@@ -544,6 +550,24 @@ func ensureChannelQuotaSnapshotDedupeIndex() error {
 			return nil
 		}
 		return fmt.Errorf("create channel quota snapshot dedupe index: %w", err)
+	}
+	return nil
+}
+
+func ensureQuotaMutationReceiptSchema() error {
+	return ensureQuotaMutationReceiptSchemaWithDB(DB)
+}
+
+func ensureQuotaMutationReceiptSchemaWithDB(db *gorm.DB) error {
+	if db == nil || !db.Migrator().HasTable(&QuotaMutationReceipt{}) {
+		return nil
+	}
+	migrator := db.Migrator()
+	const oldIndex = "uidx_quota_mutation_receipt_operation"
+	if migrator.HasIndex(&QuotaMutationReceipt{}, oldIndex) {
+		if err := migrator.DropIndex(&QuotaMutationReceipt{}, oldIndex); err != nil {
+			common.SysError(fmt.Sprintf("drop legacy quota mutation receipt operation index: %v", err))
+		}
 	}
 	return nil
 }

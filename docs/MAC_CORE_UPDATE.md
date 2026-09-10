@@ -43,8 +43,8 @@
 | --- | --- | --- | --- |
 | M0 | 基线、授权边界、D02/D03 决策入档 | 已完成（文档） | 本文及两个总计划的 2026-09-10 交接记录 |
 | M1 | B3-A1 T1 reserve + receipt，gate-off | 已完成（代码/测试/审查） | 余额版本、三库迁移、事务内核、回执不可变保护、三库测试夹具；定向测试、-race 检测、relaykit 独立构建、go vet 全过；独立审查 P2/P3 项已全部闭环修复 |
-| M2 | 直接相关 B2/B3/C03b 实现与配置 | 待开始 | M1 已闭环；等待推进下一批次接口收口 |
-| M3 | Go 全量、race、三库 CI 验证 | 待后续实现 | 实际命令/CI 结果；不能以历史绿灯替代 |
+| M2 | B3-A2（T3/T4 终态结算与全额释放）+ B2-2B/C（异步调度出站与状态机） | 已完成（代码/测试/审查） | `model/quota_mutation_settle.go` 终态差额结算（多退少补等额）与全额退款释放；复合唯一索引 `(operation_id, mutation_type)` 演进与迁移测试；`service/task_submission_service.go` 调度流水线与事务隔离；独立审查 P2 全修复（严格 User->Token->Sub->Op->Attempt 锁序、超时/断网 fail-closed、严禁 DB 事务内网络 I/O）；5 大矩阵与 12 调度场景测试 100% PASS，-race 0 竞态，relaykit 独立编译通过 |
+| M3 | 异步任务轮询恢复引擎与对账巡检（B2-2D / B3-B），gate-off | 准备就绪 | 调度与终态结算基元已完备，推进恢复器（Recovery Worker）与一致性审计 |
 | M4 | 真实切换评审 | 未授权 | 独立验收完成后另行明确授权 |
 
 ## 禁止事项
