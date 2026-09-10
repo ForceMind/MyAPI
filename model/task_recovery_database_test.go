@@ -144,10 +144,13 @@ func TestB2SubmissionConfiguredDatabases(t *testing.T) {
 				initCol()
 			})
 			legacy := createB2LegacyLogsFixture(t, db)
+			createTaskQuotaLegacyFixture(t, db)
 			require.NoError(t, migrateDB())
+			assertTaskQuotaLegacyFixtureMigrated(t, db)
 			assertB2RecoveryMainSchema(t, db)
 			assertB2LegacyLogsMigrated(t, db, legacy)
 			require.NoError(t, migrateDBFast())
+			assertTaskQuotaLegacyFixtureMigrated(t, db)
 			assertB2RecoveryMainSchema(t, db)
 			assertB2LegacyLogsMigrated(t, db, legacy)
 			require.NoError(t, migrateLOGDB())
@@ -157,6 +160,8 @@ func TestB2SubmissionConfiguredDatabases(t *testing.T) {
 			sqlDB.SetMaxOpenConns(1)
 			runB2SubmissionDatabaseContract(t, db)
 			runB2TaskOperationQueryDatabaseContract(t, db)
+			t.Run("quota-reservation", func(t *testing.T) { runTaskQuotaReservationContract(t, db) })
+			t.Run("quota-commit-acknowledgement", func(t *testing.T) { runTaskQuotaCommitAcknowledgementContract(t, db) })
 		})
 	}
 }

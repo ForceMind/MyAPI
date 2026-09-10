@@ -99,7 +99,7 @@ jobs:
       - name: Verify durable submission model under race detector
         env:
           GOMAXPROCS: '1'
-        run: go test -race -p 1 ./model -run '^TestB2SubmissionSQLite$' -count=1 -timeout=180s
+        run: go test -race -p 1 ./model -run '^Test(B2SubmissionSQLite|TaskQuotaReservation.*)$' -count=1 -timeout=180s
 
   s1-databases:
     name: S1 identity and options database regression

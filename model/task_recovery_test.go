@@ -94,6 +94,7 @@ func b2SubmissionModels() []interface{} {
 		&TaskSubmissionAttempt{},
 		&TaskBillingEvent{},
 		&TaskBillingLogOutbox{},
+		&QuotaMutationReceipt{},
 		&Log{},
 	}
 }

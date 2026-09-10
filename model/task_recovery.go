@@ -74,6 +74,7 @@ var taskRecoveryProtectedTables = []string{
 	"task_submission_attempts",
 	"task_billing_events",
 	"task_billing_log_outboxes",
+	"quota_mutation_receipts",
 }
 
 // registerTaskRecoveryGormGuards closes the normal GORM Table(...).Update
@@ -107,12 +108,21 @@ func taskRecoveryControlledWrite(tx *gorm.DB) *gorm.DB {
 }
 
 func taskRecoveryGormWriteGuard(tx *gorm.DB) {
-	if tx == nil || taskRecoveryControlledWriteAllowed(tx) {
+	if tx == nil {
 		return
 	}
 	switch taskRecoveryGormStatementTable(tx) {
 	case "task_recovery_identities":
 		tx.AddError(ErrTaskRecoveryIdentityImmutable)
+		return
+	case "quota_mutation_receipts":
+		tx.AddError(ErrQuotaMutationReceiptImmutable)
+		return
+	}
+	if taskRecoveryControlledWriteAllowed(tx) {
+		return
+	}
+	switch taskRecoveryGormStatementTable(tx) {
 	case "task_submission_operations", "task_submission_attempts", "task_billing_events", "task_billing_log_outboxes":
 		tx.AddError(fmt.Errorf("%w: durable task-recovery records may only change through their controlled state CAS", ErrTaskRecoveryInvalidRecord))
 	case "":

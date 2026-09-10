@@ -785,3 +785,16 @@ Claude Messages 转发和 Antigravity 请求边界，不从 Console 限额或 in
 | 统一发行与更新 | `package.json`、`tools/npm/`、`tools/upgrade/`、`tools/release/`、Dockerfile、版本脚本 | 安装/更新/切换/备份页面、Electron 打包配置 | Release Manifest、签名、制品、journal、清理、三数据库恢复与发布检查 |
 | S5-P 提示词学习 | `model/`、`service/`、`controller/`、专用 worker/授权/文件适配 | `web/src/features/prompt-learning/`、设置/版本/差异/授权页面 | 合成日志、预算/未知态、三数据库、文件安全、七语言与真实设备验收 |
 | 品牌/官网 | 构建参数、元数据和部署变量 | `web/src/lib/build-branding.ts`、`website/` | 旧引用扫描、视觉审查、许可证审查 |
+
+---
+
+## 2026-09-10 最新 Mac 核心更新交接与决策（追加记录）
+
+本节仅增加最新交接和已选定决策，不改写上述历史计划、历史状态或完成证据。发生冲突时，本节适用于本次 Mac 首批执行。
+
+- 实施分支：`codex/mac-durable-accounting`；基线：`f6536ca96126415f74d239165fd688589bd54af9`。
+- PR #1 已于 2026-09-08 合入 `main`；主代理已 API 核实 CI `34186651121` 十个 job 成功。Mac 44 项 CLI 纯逻辑测试通过。这些是历史/局部证据，不表示当前首批实现、整体验收或真实切换已经完成。
+- 用户已授权：B3-A1 保持 gate-off，优先 T1 reserve + receipt，随后仅推进直接相关的 B2/B3/C03b 和配置。不完整重做 UI、Linux 部署、发布和真实数据操作均不在范围内。
+- 本次授权下选定 D02：主库为唯一可消费权威，Redis 为可重建投影；选定 D03：历史不明差异进入人工核查，禁止自动扣款、退款、补扣或补退。该决策不表示迁移已执行；真实切换仍须在验收完成后另行明确授权。
+- 资源与验证：串行使用 `GOMAXPROCS=1`、`GOMEMLIMIT=768MiB`；后续验证目标为相关定向 Go 测试、Go 全量、race 和 SQLite/MySQL/PostgreSQL 三库 CI。本机为 Go 1.27、Bun 1.4、Node 26.7，尚未整体验收，且 `Docker` 不在 `PATH`。本机没有已确认的 `systemd` 硬限额，不能声称存在整个进程组的硬限制。
+- 规划采用 Sol/high（ultra 不可用）；主代理协调，文档采用 Terra/medium，后续安排独立审查。持久 Goal 曾被创建，但本记录不据此声称有新实现或验证。
