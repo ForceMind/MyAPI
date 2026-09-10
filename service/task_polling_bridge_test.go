@@ -428,3 +428,28 @@ func (m *mockBridgeAdaptor) ParseTaskResult(body []byte) (*relaycommon.TaskInfo,
 func (m *mockBridgeAdaptor) AdjustBillingOnComplete(task *model.Task, taskResult *relaycommon.TaskInfo) int {
 	return m.adjustQuota
 }
+
+func TestDurablePollingBridge_QuotaSaturationAudit(t *testing.T) {
+	db := setupBridgeTestDB(t)
+	ctx := context.Background()
+
+	fixture := newBridgeTestFixture(t, db, "clamp-audit", 1000, 1000, 200)
+
+	clamp := &common.QuotaClamp{
+		Op:       "test_conversion",
+		Kind:     "upper",
+		Original: 1e12,
+		Clamped:  common.MaxQuota,
+	}
+
+	handled, err := DurableSettleTaskOnComplete(ctx, &fixture.Task, 200, "settle with clamp", clamp)
+	require.NoError(t, err)
+	assert.True(t, handled)
+
+	// Verify outbox record contains admin_info.quota_saturation
+	var outbox model.TaskBillingLogOutbox
+	require.NoError(t, db.First(&outbox).Error)
+	assert.Contains(t, outbox.Payload.Other, "quota_saturation")
+	assert.Contains(t, outbox.Payload.Other, "test_conversion")
+}
+

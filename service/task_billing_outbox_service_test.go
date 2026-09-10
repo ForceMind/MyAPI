@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -227,3 +229,48 @@ func TestTaskBillingOutboxService_MaxAttemptsExceeded(t *testing.T) {
 	assert.Equal(t, ErrorCodeMaxAttemptsExceeded, reloaded.LastErrorCode)
 	assert.Equal(t, 3, reloaded.AttemptCount)
 }
+
+func TestTaskBillingOutboxService_ConcurrentWorkers(t *testing.T) {
+	db := setupTaskSubmissionTestDB(t)
+
+	// Create 5 distinct outboxes
+	for i := 1; i <= 5; i++ {
+		createTestOutbox(t, db, fmt.Sprintf("concurrent-outbox-%d", i))
+	}
+
+	const workerCount = 3
+	deliveredCounts := make([]int, workerCount)
+	var wg sync.WaitGroup
+
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		idx := i
+		go func() {
+			defer wg.Done()
+			svc := NewTaskBillingOutboxService(fmt.Sprintf("worker-%d", idx))
+			svc.LogDB = db
+			count, err := svc.ProcessClaimableBatch(context.Background(), db)
+			if err == nil {
+				deliveredCounts[idx] = count
+			}
+		}()
+	}
+	wg.Wait()
+
+	totalDelivered := 0
+	for _, c := range deliveredCounts {
+		totalDelivered += c
+	}
+	assert.Equal(t, 5, totalDelivered)
+
+	// Verify all 5 are delivered in outbox table
+	var deliveredOutboxes []model.TaskBillingLogOutbox
+	require.NoError(t, db.Where("state = ?", model.TaskBillingLogOutboxStateDelivered).Find(&deliveredOutboxes).Error)
+	assert.Len(t, deliveredOutboxes, 5)
+
+	// Verify exactly 5 logs exist
+	var logCount int64
+	require.NoError(t, db.Model(&model.Log{}).Count(&logCount).Error)
+	assert.Equal(t, int64(5), logCount)
+}
+

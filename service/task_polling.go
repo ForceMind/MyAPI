@@ -647,7 +647,7 @@ func settleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor
 	// 0. 按次计费的任务不做差额结算
 	if bc := task.PrivateData.BillingContext; bc != nil && bc.PerCallBilling {
 		logger.LogInfo(ctx, fmt.Sprintf("任务 %s 按次计费，跳过差额结算", task.TaskID))
-		if handled, err := DurableSettleTaskOnComplete(ctx, task, task.Quota, "per_call_billing"); handled {
+		if handled, err := DurableSettleTaskOnComplete(ctx, task, task.Quota, "per_call_billing", taskResult.QuotaClamp); handled {
 			if err != nil {
 				logger.LogError(ctx, fmt.Sprintf("durable settlement failed for task %s: %v", task.TaskID, err))
 			}
@@ -660,7 +660,7 @@ func settleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor
 	}
 	// 1. 优先让 adaptor 决定最终额度
 	if actualQuota := adaptor.AdjustBillingOnComplete(task, taskResult); actualQuota > 0 {
-		if handled, err := DurableSettleTaskOnComplete(ctx, task, actualQuota, "adaptor计费调整"); handled {
+		if handled, err := DurableSettleTaskOnComplete(ctx, task, actualQuota, "adaptor计费调整", taskResult.QuotaClamp); handled {
 			if err != nil {
 				logger.LogError(ctx, fmt.Sprintf("durable settlement failed for task %s: %v", task.TaskID, err))
 			}
@@ -671,8 +671,8 @@ func settleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor
 	}
 	// 2. 回退到 token 重算
 	if taskResult.TotalTokens > 0 {
-		if computedQuota, ok := computeTaskQuotaFromTokens(task, taskResult.TotalTokens); ok {
-			if handled, err := DurableSettleTaskOnComplete(ctx, task, computedQuota, fmt.Sprintf("token重算:tokens=%d", taskResult.TotalTokens)); handled {
+		if computedQuota, tokenClamp, ok := computeTaskQuotaFromTokens(task, taskResult.TotalTokens); ok {
+			if handled, err := DurableSettleTaskOnComplete(ctx, task, computedQuota, fmt.Sprintf("token重算:tokens=%d", taskResult.TotalTokens), taskResult.QuotaClamp, tokenClamp); handled {
 				if err != nil {
 					logger.LogError(ctx, fmt.Sprintf("durable settlement failed for task %s: %v", task.TaskID, err))
 				}
@@ -683,7 +683,7 @@ func settleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor
 		return
 	}
 	// 3. 无调整，保持预扣额度
-	if handled, err := DurableSettleTaskOnComplete(ctx, task, task.Quota, "保持预扣额度"); handled {
+	if handled, err := DurableSettleTaskOnComplete(ctx, task, task.Quota, "保持预扣额度", taskResult.QuotaClamp); handled {
 		if err != nil {
 			logger.LogError(ctx, fmt.Sprintf("durable settlement failed for task %s: %v", task.TaskID, err))
 		}

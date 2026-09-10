@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/ForceMind/MyAPI/common"
@@ -578,3 +579,66 @@ func TestTaskResolutionService_ManualAudit_ValidationErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestTaskResolutionService_ManualAudit_ConcurrentReplay(t *testing.T) {
+	db := setupResolutionTestDB(t)
+	fixture := newResolutionTestFixture(t, db, "audit-concurrent", 1000, 500)
+
+	// Reserve 100 quota
+	receipt, err := model.ReserveTaskQuota(db, model.TaskQuotaReservationInput{
+		OperationID:              fixture.Operation.ID,
+		UserID:                   fixture.User.Id,
+		TokenID:                  fixture.Token.Id,
+		ChannelID:                fixture.Attempt.ChannelID,
+		ExpectedOperationVersion: fixture.Operation.LockVersion,
+		Quota:                    100,
+		BillingSource:            "wallet",
+		BillingContext: model.TaskBillingContext{
+			Version:         model.TaskBillingContextVersion,
+			Complete:        true,
+			ModelPrice:      1,
+			ModelRatio:      1,
+			GroupRatio:      1,
+			OriginModelName: "test-model",
+			PerCallBilling:  true,
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, receipt)
+
+	svc := NewTaskResolutionService(db)
+	input := ManualAuditResolutionInput{
+		OperationID:    fixture.Operation.ID,
+		AuditCommandID: "concurrent-cmd-1",
+		OperatorUserID: 99,
+		ReasonCode:     "concurrent_audit_test",
+		TargetStatus:   model.TaskSubmissionOperationStatusCanceled,
+	}
+
+	const concurrency = 5
+	results := make([]*ManualAuditResolutionResult, concurrency)
+	errorsList := make([]error, concurrency)
+	var wg sync.WaitGroup
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		idx := i
+		go func() {
+			defer wg.Done()
+			results[idx], errorsList[idx] = svc.ResolveOperationManualAudit(context.Background(), input)
+		}()
+	}
+	wg.Wait()
+
+	// Every concurrent goroutine must succeed and return the same canonical audit event
+	for i := 0; i < concurrency; i++ {
+		require.NoError(t, errorsList[i])
+		require.NotNil(t, results[i])
+		assert.Equal(t, "concurrent-cmd-1", results[i].BillingEvent.AuditCommandID)
+	}
+
+	// Verify balance refunded exactly once (1000 - 100 + 100 = 1000)
+	var updatedUser model.User
+	require.NoError(t, db.First(&updatedUser, fixture.User.Id).Error)
+	assert.Equal(t, 1000, updatedUser.Quota)
+}
+

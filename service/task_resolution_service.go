@@ -149,20 +149,6 @@ func ResolveOperationProviderVerified(ctx context.Context, input ProviderVerifie
 				}
 				formalTask = &task
 
-				attemptWon, err := model.TransitionTaskSubmissionAttempt(tx, attempt.ID, model.TaskSubmissionAttemptTransition{
-					From:                model.TaskSubmissionAttemptStatusSubmissionUnknown,
-					To:                  model.TaskSubmissionAttemptStatusAccepted,
-					ProviderOperationID: strings.TrimSpace(input.ProviderOperationID),
-					UpstreamRequestID:   strings.TrimSpace(input.UpstreamRequestID),
-					ExpectedVersion:     attempt.LockVersion,
-				})
-				if err != nil {
-					return fmt.Errorf("transition attempt to accepted failed: %w", err)
-				}
-				if !attemptWon {
-					return fmt.Errorf("%w: attempt accepted CAS lost", ErrTaskResolutionCASLost)
-				}
-
 				opWon, err := model.TransitionTaskSubmissionOperation(tx, op.ID, model.TaskSubmissionOperationTransition{
 					From:             model.TaskSubmissionOperationStatusSubmissionUnknown,
 					To:               model.TaskSubmissionOperationStatusAccepted,
@@ -175,6 +161,20 @@ func ResolveOperationProviderVerified(ctx context.Context, input ProviderVerifie
 				}
 				if !opWon {
 					return fmt.Errorf("%w: operation accepted CAS lost", ErrTaskResolutionCASLost)
+				}
+
+				attemptWon, err := model.TransitionTaskSubmissionAttempt(tx, attempt.ID, model.TaskSubmissionAttemptTransition{
+					From:                model.TaskSubmissionAttemptStatusSubmissionUnknown,
+					To:                  model.TaskSubmissionAttemptStatusAccepted,
+					ProviderOperationID: strings.TrimSpace(input.ProviderOperationID),
+					UpstreamRequestID:   strings.TrimSpace(input.UpstreamRequestID),
+					ExpectedVersion:     attempt.LockVersion,
+				})
+				if err != nil {
+					return fmt.Errorf("transition attempt to accepted failed: %w", err)
+				}
+				if !attemptWon {
+					return fmt.Errorf("%w: attempt accepted CAS lost", ErrTaskResolutionCASLost)
 				}
 
 			} else {
@@ -214,19 +214,6 @@ func ResolveOperationProviderVerified(ctx context.Context, input ProviderVerifie
 					return fmt.Errorf("release quota reservation failed: %w", relErr)
 				}
 
-				attemptWon, err := model.TransitionTaskSubmissionAttempt(tx, attempt.ID, model.TaskSubmissionAttemptTransition{
-					From:            model.TaskSubmissionAttemptStatusSubmissionUnknown,
-					To:              model.TaskSubmissionAttemptStatusRejected,
-					OutcomeCode:     reasonCode,
-					ExpectedVersion: attempt.LockVersion,
-				})
-				if err != nil {
-					return fmt.Errorf("transition attempt to rejected failed: %w", err)
-				}
-				if !attemptWon {
-					return fmt.Errorf("%w: attempt rejected CAS lost", ErrTaskResolutionCASLost)
-				}
-
 				opWon, err := model.TransitionTaskSubmissionOperation(tx, op.ID, model.TaskSubmissionOperationTransition{
 					From:             model.TaskSubmissionOperationStatusSubmissionUnknown,
 					To:               model.TaskSubmissionOperationStatusRejected,
@@ -239,6 +226,19 @@ func ResolveOperationProviderVerified(ctx context.Context, input ProviderVerifie
 				}
 				if !opWon {
 					return fmt.Errorf("%w: operation rejected CAS lost", ErrTaskResolutionCASLost)
+				}
+
+				attemptWon, err := model.TransitionTaskSubmissionAttempt(tx, attempt.ID, model.TaskSubmissionAttemptTransition{
+					From:            model.TaskSubmissionAttemptStatusSubmissionUnknown,
+					To:              model.TaskSubmissionAttemptStatusRejected,
+					OutcomeCode:     reasonCode,
+					ExpectedVersion: attempt.LockVersion,
+				})
+				if err != nil {
+					return fmt.Errorf("transition attempt to rejected failed: %w", err)
+				}
+				if !attemptWon {
+					return fmt.Errorf("%w: attempt rejected CAS lost", ErrTaskResolutionCASLost)
 				}
 			}
 		} else if op.Status == model.TaskSubmissionOperationStatusOutcomeUnknown {
@@ -425,6 +425,21 @@ func ResolveOperationManualAudit(ctx context.Context, input ManualAuditResolutio
 		}
 
 		if op.Status == model.TaskSubmissionOperationStatusSubmissionUnknown {
+			opWon, err := model.TransitionTaskSubmissionOperation(tx, op.ID, model.TaskSubmissionOperationTransition{
+				From:             model.TaskSubmissionOperationStatusSubmissionUnknown,
+				To:               model.TaskSubmissionOperationStatusRejected,
+				ResolutionSource: model.TaskSubmissionResolutionSourceManualAudit,
+				AuditCommandID:   input.AuditCommandID,
+				ReasonCode:       reasonCode,
+				ExpectedVersion:  op.LockVersion,
+			})
+			if err != nil {
+				return fmt.Errorf("transition operation to rejected failed: %w", err)
+			}
+			if !opWon {
+				return fmt.Errorf("%w: operation rejected CAS lost", ErrTaskResolutionCASLost)
+			}
+
 			if attempt != nil && attempt.Status == model.TaskSubmissionAttemptStatusSubmissionUnknown {
 				attemptWon, err := model.TransitionTaskSubmissionAttempt(tx, attempt.ID, model.TaskSubmissionAttemptTransition{
 					From:            model.TaskSubmissionAttemptStatusSubmissionUnknown,
@@ -440,26 +455,14 @@ func ResolveOperationManualAudit(ctx context.Context, input ManualAuditResolutio
 				}
 			}
 
-			opWon, err := model.TransitionTaskSubmissionOperation(tx, op.ID, model.TaskSubmissionOperationTransition{
-				From:             model.TaskSubmissionOperationStatusSubmissionUnknown,
-				To:               model.TaskSubmissionOperationStatusRejected,
-				ResolutionSource: model.TaskSubmissionResolutionSourceProviderVerified,
-				ReasonCode:       reasonCode,
-				ExpectedVersion:  op.LockVersion,
-			})
-			if err != nil {
-				return fmt.Errorf("transition operation to rejected failed: %w", err)
-			}
-			if !opWon {
-				return fmt.Errorf("%w: operation rejected CAS lost", ErrTaskResolutionCASLost)
-			}
-
 		} else if op.Status == model.TaskSubmissionOperationStatusReserved {
 			opWon, err := model.TransitionTaskSubmissionOperation(tx, op.ID, model.TaskSubmissionOperationTransition{
-				From:            model.TaskSubmissionOperationStatusReserved,
-				To:              targetStatus,
-				ReasonCode:      reasonCode,
-				ExpectedVersion: op.LockVersion,
+				From:             model.TaskSubmissionOperationStatusReserved,
+				To:               targetStatus,
+				ResolutionSource: model.TaskSubmissionResolutionSourceManualAudit,
+				AuditCommandID:   input.AuditCommandID,
+				ReasonCode:       reasonCode,
+				ExpectedVersion:  op.LockVersion,
 			})
 			if err != nil {
 				return fmt.Errorf("transition reserved operation to %s failed: %w", targetStatus, err)
@@ -517,6 +520,22 @@ func ResolveOperationManualAudit(ctx context.Context, input ManualAuditResolutio
 		return nil
 	})
 	if err != nil {
+		var existingEvent model.TaskBillingEvent
+		if queryErr := db.Where("event_key = ?", canonicalEventKey).First(&existingEvent).Error; queryErr == nil {
+			if existingEvent.AuditCommandID == auditCmd && existingEvent.ResolutionSource == model.TaskSubmissionResolutionSourceManualAudit {
+				_ = db.Where("id = ?", op.ID).First(&op)
+				if attempt != nil {
+					_ = db.Where("id = ?", attempt.ID).First(attempt)
+				}
+				existingReceipt, _ := model.FindTaskQuotaReceipt(db, op.ID, string(model.TaskBillingEventTypeRefund), op.UserID, op.TokenID)
+				return &ManualAuditResolutionResult{
+					Operation:      &op,
+					Attempt:        attempt,
+					BillingEvent:   &existingEvent,
+					ReleaseReceipt: existingReceipt,
+				}, nil
+			}
+		}
 		return nil, err
 	}
 

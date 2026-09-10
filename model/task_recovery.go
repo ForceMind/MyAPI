@@ -563,6 +563,7 @@ type TaskSubmissionOperationTransition struct {
 	TaskID           *int64
 	ReasonCode       string
 	ResolutionSource string
+	AuditCommandID   string
 	TransitionedAt   int64
 	RetentionUntil   *int64
 	ExpectedVersion  int64
@@ -582,20 +583,23 @@ func TransitionTaskSubmissionOperation(tx *gorm.DB, operationID int64, transitio
 	}
 	transition.ReasonCode = strings.TrimSpace(transition.ReasonCode)
 	transition.ResolutionSource = strings.TrimSpace(transition.ResolutionSource)
-	if len(transition.ReasonCode) > 64 || len(transition.ResolutionSource) > 32 {
+	transition.AuditCommandID = strings.TrimSpace(transition.AuditCommandID)
+	if len(transition.ReasonCode) > 64 || len(transition.ResolutionSource) > 32 || len(transition.AuditCommandID) > taskBillingAuditCommandIDMaxLength {
 		return false, fmt.Errorf("%w: transition audit code exceeds its database bound", ErrTaskRecoveryInvalidRecord)
 	}
 	if !transition.To.Terminal() && transition.RetentionUntil != nil {
 		return false, fmt.Errorf("%w: active task submission operations cannot expire", ErrTaskRecoveryInvalidRecord)
 	}
 	if transition.ResolutionSource == TaskSubmissionResolutionSourceManualAudit {
-		return false, fmt.Errorf("%w: manual task resolution requires a dedicated audited command boundary", ErrTaskRecoveryInvalidRecord)
+		if !validTaskBillingAuditCommandID(transition.AuditCommandID) {
+			return false, fmt.Errorf("%w: manual task resolution requires a valid audit command id", ErrTaskRecoveryInvalidRecord)
+		}
 	}
 	resolvesUnknown := transition.From == TaskSubmissionOperationStatusSubmissionUnknown || transition.From == TaskSubmissionOperationStatusOutcomeUnknown
-	if resolvesUnknown && transition.ResolutionSource != TaskSubmissionResolutionSourceProviderVerified {
-		return false, fmt.Errorf("%w: unknown task state requires provider_verified resolution", ErrTaskRecoveryInvalidRecord)
+	if resolvesUnknown && transition.ResolutionSource != TaskSubmissionResolutionSourceProviderVerified && transition.ResolutionSource != TaskSubmissionResolutionSourceManualAudit {
+		return false, fmt.Errorf("%w: unknown task state requires provider_verified or manual_audit resolution", ErrTaskRecoveryInvalidRecord)
 	}
-	if transition.ResolutionSource != "" && transition.ResolutionSource != TaskSubmissionResolutionSourceProviderVerified {
+	if transition.ResolutionSource != "" && transition.ResolutionSource != TaskSubmissionResolutionSourceProviderVerified && transition.ResolutionSource != TaskSubmissionResolutionSourceManualAudit {
 		return false, fmt.Errorf("%w: unsupported task resolution source", ErrTaskRecoveryInvalidRecord)
 	}
 	transitionedAt, err := taskRecoveryValidatedTime(tx, transition.TransitionedAt)
@@ -1939,7 +1943,9 @@ func validateStoredTaskSubmissionOperation(tx *gorm.DB, operation *TaskSubmissio
 		(operation.ResolvedAt != nil && (*operation.ResolvedAt <= 0 || *operation.ResolvedAt < operation.CreatedAt || *operation.ResolvedAt > operation.UpdatedAt)) {
 		return fmt.Errorf("%w: stored task submission operation is not a valid immutable v1 record", ErrTaskRecoveryInvalidRecord)
 	}
-	if operation.ResolutionSource != "" && operation.ResolutionSource != TaskSubmissionResolutionSourceProviderVerified {
+	if operation.ResolutionSource != "" &&
+		operation.ResolutionSource != TaskSubmissionResolutionSourceProviderVerified &&
+		operation.ResolutionSource != TaskSubmissionResolutionSourceManualAudit {
 		return fmt.Errorf("%w: stored task submission operation has an unsupported resolution source", ErrTaskRecoveryInvalidRecord)
 	}
 	if operation.Status.Terminal() {

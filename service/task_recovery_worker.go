@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ForceMind/MyAPI/logger"
 	"github.com/ForceMind/MyAPI/model"
 	"gorm.io/gorm"
 )
@@ -85,7 +86,7 @@ func (w *TaskRecoveryWorker) RecoverStaleDispatching(ctx context.Context, db *go
 		return 0, gorm.ErrInvalidDB
 	}
 	_, dispatchThreshold, _, batchSize, _ := w.resolveConfig()
-	now := time.Now().Unix()
+	now, _ := getDBTimestamp(db)
 	cutoffTime := now - int64(dispatchThreshold.Seconds())
 	if cutoffTime < 0 {
 		cutoffTime = 0
@@ -171,7 +172,7 @@ func (w *TaskRecoveryWorker) RecoverStaleUnfinished(ctx context.Context, db *gor
 		return 0, gorm.ErrInvalidDB
 	}
 	_, _, reservationThreshold, batchSize, _ := w.resolveConfig()
-	now := time.Now().Unix()
+	now, _ := getDBTimestamp(db)
 	cutoffTime := now - int64(reservationThreshold.Seconds())
 	if cutoffTime < 0 {
 		cutoffTime = 0
@@ -199,6 +200,9 @@ func (w *TaskRecoveryWorker) RecoverStaleUnfinished(ctx context.Context, db *gor
 				// Attempt already dispatched or attempted dispatch; skip
 				continue
 			}
+		} else if op.Status == model.TaskSubmissionOperationStatusReserved {
+			logger.LogWarn(ctx, fmt.Sprintf("stale reserved operation %d has no attempt, skip safe cancellation", op.ID))
+			continue
 		}
 
 		switch op.Status {
@@ -243,7 +247,8 @@ func (w *TaskRecoveryWorker) RecoverStaleUnfinished(ctx context.Context, db *gor
 					errors.Is(relErr, model.ErrTaskRecoveryInvalidTransition) {
 					continue
 				}
-				return recoveredCount, fmt.Errorf("release stale reserved quota op %d failed: %w", op.ID, relErr)
+				logger.LogError(ctx, fmt.Sprintf("release stale reserved quota op %d failed: %v", op.ID, relErr))
+				continue
 			}
 			if receipt != nil {
 				recoveredCount++
@@ -284,7 +289,7 @@ func (w *TaskRecoveryWorker) RecoverExpiredBillingEvents(ctx context.Context, db
 		return 0, gorm.ErrInvalidDB
 	}
 	workerID, _, _, batchSize, leaseDuration := w.resolveConfig()
-	now := time.Now().Unix()
+	now, _ := getDBTimestamp(db)
 
 	events, err := model.ListStaleClaimedTaskBillingEvents(db, now, batchSize)
 	if err != nil {

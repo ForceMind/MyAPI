@@ -18,7 +18,7 @@ import (
 //
 // Returns (handled=true, nil) if processed by durable accounting.
 // Returns (handled=false, nil) if the task is not backed by a durable operation (caller should use legacy settlement).
-func DurableSettleTaskOnComplete(ctx context.Context, task *model.Task, actualQuota int, reason string) (bool, error) {
+func DurableSettleTaskOnComplete(ctx context.Context, task *model.Task, actualQuota int, reason string, clamps ...*common.QuotaClamp) (bool, error) {
 	if model.DB == nil || task == nil || task.TaskID == "" {
 		return false, nil
 	}
@@ -97,7 +97,7 @@ func DurableSettleTaskOnComplete(ctx context.Context, task *model.Task, actualQu
 	model.UpdateUserUsedQuota(task.UserId, quotaDelta)
 	model.UpdateChannelUsedQuota(task.ChannelId, quotaDelta)
 
-	createOutboxForBillingEvent(model.DB, receipt.BillingEventID, task, reason)
+	createOutboxForBillingEvent(model.DB, receipt.BillingEventID, task, reason, clamps...)
 
 	logger.LogInfo(ctx, fmt.Sprintf("task %s durable settlement complete: actual=%d, delta=%d, receipt=%s",
 		task.TaskID, actualQuota, quotaDelta, receipt.MutationKey))
@@ -179,8 +179,9 @@ func DurableReleaseTaskOnFailure(ctx context.Context, task *model.Task, reason s
 		return true, fmt.Errorf("release task quota reservation failed for %s: %w", task.TaskID, err)
 	}
 
-	model.UpdateUserUsedQuota(task.UserId, -task.Quota)
-	model.UpdateChannelUsedQuota(task.ChannelId, -task.Quota)
+	// Use authoritative receipt quota for usage reversal
+	model.UpdateUserUsedQuota(task.UserId, -int(receipt.Quota))
+	model.UpdateChannelUsedQuota(task.ChannelId, -int(receipt.Quota))
 
 	task.Quota = 0
 	if err := task.UpdateQuota(); err != nil {
@@ -193,7 +194,7 @@ func DurableReleaseTaskOnFailure(ctx context.Context, task *model.Task, reason s
 	return true, nil
 }
 
-func createOutboxForBillingEvent(db *gorm.DB, eventID string, task *model.Task, reason string) {
+func createOutboxForBillingEvent(db *gorm.DB, eventID string, task *model.Task, reason string, clamps ...*common.QuotaClamp) {
 	if db == nil || eventID == "" {
 		return
 	}
@@ -214,10 +215,38 @@ func createOutboxForBillingEvent(db *gorm.DB, eventID string, task *model.Task, 
 		content = fmt.Sprintf("task billing event %s", event.EventType)
 	}
 
+	other := make(map[string]interface{})
+	other["task_id"] = task.TaskID
+	other["reason"] = reason
+	if bc := task.PrivateData.BillingContext; bc != nil {
+		other["model_price"] = bc.ModelPrice
+		other["model_ratio"] = bc.ModelRatio
+		other["group_ratio"] = bc.GroupRatio
+	}
+	var saturationClamp *common.QuotaClamp
+	for _, c := range clamps {
+		if c != nil {
+			saturationClamp = c
+			break
+		}
+	}
+	if saturationClamp != nil {
+		other["admin_info"] = map[string]interface{}{
+			"quota_saturation": map[string]interface{}{
+				"op":       saturationClamp.Op,
+				"kind":     saturationClamp.Kind,
+				"original": saturationClamp.Original,
+				"clamped":  saturationClamp.Clamped,
+			},
+		}
+	}
+	otherBytes, _ := common.Marshal(other)
+
 	outboxCandidate, err := model.NewTaskBillingLogOutbox(&event, model.TaskBillingLogPayload{
 		Content:   content,
 		ModelName: modelName,
 		Group:     group,
+		Other:     string(otherBytes),
 	})
 	if err != nil {
 		return
@@ -225,23 +254,23 @@ func createOutboxForBillingEvent(db *gorm.DB, eventID string, task *model.Task, 
 	_, _ = model.CreateOrLoadTaskBillingLogOutbox(db, outboxCandidate)
 }
 
-func computeTaskQuotaFromTokens(task *model.Task, totalTokens int) (int, bool) {
+func computeTaskQuotaFromTokens(task *model.Task, totalTokens int) (int, *common.QuotaClamp, bool) {
 	if totalTokens <= 0 {
-		return 0, false
+		return 0, nil, false
 	}
 	rates, _, err := resolveTaskTokenBillingRates(task)
 	if err != nil {
-		return task.Quota, true
+		return task.Quota, nil, true
 	}
 	otherMultiplier := 1.0
 	if priceData := taskBillingContextPriceData(rates); priceData != nil {
 		otherMultiplier = priceData.OtherRatioMultiplier()
 	}
 	if rates.ModelRatio == 0 || rates.GroupRatio == 0 {
-		return 0, true
+		return 0, nil, true
 	}
-	actualQuota, _ := common.QuotaFromFloatChecked(float64(totalTokens) * rates.ModelRatio * rates.GroupRatio * otherMultiplier)
-	return actualQuota, true
+	actualQuota, clamp := common.QuotaFromFloatChecked(float64(totalTokens) * rates.ModelRatio * rates.GroupRatio * otherMultiplier)
+	return actualQuota, clamp, true
 }
 
 func resolveDurableTaskBillingContext(task *model.Task) model.TaskBillingContext {
