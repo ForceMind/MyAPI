@@ -174,6 +174,14 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) bool 
 		return true
 	}
 
+	if handled, err := DurableReleaseTaskOnFailure(ctx, task, reason); handled {
+		if err != nil {
+			logger.LogError(ctx, fmt.Sprintf("durable release failed for task %s: %v", task.TaskID, err))
+			return false
+		}
+		return true
+	}
+
 	// 1. 退还资金来源（钱包或订阅）
 	if err := taskAdjustFunding(task, -quota); err != nil {
 		logger.LogWarn(ctx, fmt.Sprintf("退还资金来源失败 task %s: %s", task.TaskID, err.Error()))

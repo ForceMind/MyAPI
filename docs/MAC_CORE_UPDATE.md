@@ -44,7 +44,7 @@
 | M0 | 基线、授权边界、D02/D03 决策入档 | 已完成（文档） | 本文及两个总计划的 2026-09-10 交接记录 |
 | M1 | B3-A1 T1 reserve + receipt，gate-off | 已完成（代码/测试/审查） | 余额版本、三库迁移、事务内核、回执不可变保护、三库测试夹具；定向测试、-race 检测、relaykit 独立构建、go vet 全过；独立审查 P2/P3 项已全部闭环修复 |
 | M2 | B3-A2（T3/T4 终态结算与全额释放）+ B2-2B/C（异步调度出站与状态机） | 已完成（代码/测试/审查） | `model/quota_mutation_settle.go` 终态差额结算（多退少补等额）与全额退款释放；复合唯一索引 `(operation_id, mutation_type)` 演进与迁移测试；`service/task_submission_service.go` 调度流水线与事务隔离；独立审查 P2 全修复（严格 User->Token->Sub->Op->Attempt 锁序、超时/断网 fail-closed、严禁 DB 事务内网络 I/O）；5 大矩阵与 12 调度场景测试 100% PASS，-race 0 竞态，relaykit 独立编译通过 |
-| M3 | 异步任务轮询恢复引擎与对账巡检（B2-2D / B3-B），gate-off | 准备就绪 | 调度与终态结算基元已完备，推进恢复器（Recovery Worker）与一致性审计 |
+| M3 | 异步任务轮询恢复引擎、日志 Outbox 投递与一致性审计（B2-2D / B3-B / B3-C），gate-off | 已完成（代码/测试/审查） | 1. Model 层扫描基元（ListStaleDispatchingOperations、ListUnfinishedPreparedOrReservedOperations、ListClaimableTaskBillingLogOutboxes 等）；2. TaskRecoveryWorker（超时 dispatching 严格 fail-closed 隔离至 submission_unknown，未出站 reserved 安全取消释放，过期 lease 回收）；3. TaskBillingOutboxService（Outbox 租约抢占、去重投递至 logs、指数退避重试）；4. TaskResolutionService（人工审计闭环，AuditCommandID 幂等重放与冲突拒绝）；5. 轮询终态持久对账桥接（DurableSettleTaskOnComplete 与 DurableReleaseTaskOnFailure，自动流转至 succeeded/failed 并投递 Outbox）；全部测试通过，-race 0 竞态，relaykit 独立编译通过 |
 | M4 | 真实切换评审 | 未授权 | 独立验收完成后另行明确授权 |
 
 ## 禁止事项
