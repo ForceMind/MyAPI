@@ -45,7 +45,8 @@
 | M1 | B3-A1 T1 reserve + receipt，gate-off | 已完成（代码/测试/审查） | 余额版本、三库迁移、事务内核、回执不可变保护、三库测试夹具；定向测试、-race 检测、relaykit 独立构建、go vet 全过；独立审查 P2/P3 项已全部闭环修复 |
 | M2 | B3-A2（T3/T4 终态结算与全额释放）+ B2-2B/C（异步调度出站与状态机） | 已完成（代码/测试/审查） | `model/quota_mutation_settle.go` 终态差额结算（多退少补等额）与全额退款释放；复合唯一索引 `(operation_id, mutation_type)` 演进与迁移测试；`service/task_submission_service.go` 调度流水线与事务隔离；独立审查 P2 全修复（严格 User->Token->Sub->Op->Attempt 锁序、超时/断网 fail-closed、严禁 DB 事务内网络 I/O）；5 大矩阵与 12 调度场景测试 100% PASS，-race 0 竞态，relaykit 独立编译通过 |
 | M3 | 异步任务轮询恢复引擎、日志 Outbox 投递与一致性审计（B2-2D / B3-B / B3-C），gate-off | 已完成（代码/测试/审查） | 1. Model 层扫描基元（ListStaleDispatchingOperations、ListUnfinishedPreparedOrReservedOperations、ListClaimableTaskBillingLogOutboxes 等）；2. TaskRecoveryWorker（超时 dispatching 严格 fail-closed 隔离至 submission_unknown，未出站 reserved 安全取消释放，过期 lease 回收）；3. TaskBillingOutboxService（Outbox 租约抢占、去重投递至 logs、指数退避重试）；4. TaskResolutionService（人工审计闭环，AuditCommandID 幂等重放与冲突拒绝）；5. 轮询终态持久对账桥接（DurableSettleTaskOnComplete 与 DurableReleaseTaskOnFailure，自动流转至 succeeded/failed 并投递 Outbox）；全部测试通过，-race 0 竞态，relaykit 独立编译通过 |
-| M4 | 真实切换评审 | 未授权 | 独立验收完成后另行明确授权 |
+| M4 | 系统任务注册、恢复执行引擎、持久入口协议与控制器接入（B2-2A / B2-1 / SystemTask），gate-off | 已完成（代码/测试/审查） | 1. `model/system_task.go` 注册 `task_recovery` 与 `task_billing_outbox` 系统任务；2. `controller/system_task_handlers.go` 挂接 `service.TaskEngineRunner` 门面执行恢复巡检与 Outbox 投递，绑定 `IsTaskRecoveryObligationRecoveryEnabled` 开关；3. `service/task_ingress_service.go` 完成路由动作识别（video.create, video.remix, suno.music, suno.lyrics）、三种指纹提取（JSON, Form, Multipart）、意图创建与重放判定；4. `controller/relay_task_durable.go` 实现持久入口控制器，提供 Location、Cache-Control: no-store、HTTP 202 响应规范；5. 独立审查发现的 P1（头修改导致重拒）、P2（别名头逃逸、nil resp、500 误报、饱和 clamp 审计、全局 DB 污染）全部彻底修复；6. 包含 端到端全新提交、幂等重放、指纹冲突、别名拦截、传统链路 gate-off 短路 的单元及集成测试 100% PASS，-race 0 竞态，relaykit 独立编译通过 |
+| M5 | 真实切换评审与上线准备 | 未授权 | 独立验收完成后另行明确授权 |
 
 ## 禁止事项
 
