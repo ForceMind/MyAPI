@@ -57,9 +57,12 @@ func TestMain(m *testing.M) {
 		&SystemInstance{},
 		&SystemTask{},
 		&SystemTaskLock{},
+		&QuotaMutationReceipt{},
+		&UserQuotaMutationReceipt{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}
+	_ = registerTaskRecoveryGormGuards(db)
 
 	os.Exit(m.Run())
 }
@@ -89,6 +92,8 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM system_instances")
 		DB.Exec("DELETE FROM system_task_locks")
 		DB.Exec("DELETE FROM system_tasks")
+		DB.Exec("DELETE FROM user_quota_mutation_receipts")
+		DB.Exec("DELETE FROM quota_mutation_receipts")
 	})
 }
 

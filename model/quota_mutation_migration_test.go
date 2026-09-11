@@ -250,3 +250,83 @@ func TestQuotaMutationReceiptLegacyMigrationConfiguredDatabases(t *testing.T) {
 	}
 }
 
+func assertUserQuotaMutationReceiptMigrated(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	migrator := db.Migrator()
+	assert.True(t, migrator.HasTable(&UserQuotaMutationReceipt{}))
+	assert.True(t, migrator.HasIndex(&UserQuotaMutationReceipt{}, "uidx_user_quota_mutation_key"))
+	assert.True(t, migrator.HasIndex(&UserQuotaMutationReceipt{}, "idx_user_quota_mutation_lookup"))
+
+	// Insert receipt via authoritative create context
+	tx := userQuotaMutationReceiptCreateDB(db)
+	receipt := &UserQuotaMutationReceipt{
+		ReceiptVersion:     UserQuotaMutationReceiptVersion,
+		MutationType:       "test_migration",
+		BusinessEventKey:   "migration:test:key:1",
+		RequestFingerprint: "f000000000000000000000000000000000000000000000000000000000000001",
+		UserID:             100,
+		Delta:              500,
+		QuotaBefore:        1000,
+		QuotaAfter:         1500,
+		QuotaVersionBefore: 0,
+		QuotaVersionAfter:  1,
+		ReasonCode:         "initial_migration",
+		OperatorUserID:     0,
+		Metadata:           "{}",
+	}
+	require.NoError(t, tx.Create(receipt).Error)
+	assert.NotZero(t, receipt.ID)
+
+	// Verify duplicate business_event_key is rejected by unique constraint
+	dupReceipt := &UserQuotaMutationReceipt{
+		ReceiptVersion:     UserQuotaMutationReceiptVersion,
+		MutationType:       "test_migration",
+		BusinessEventKey:   "migration:test:key:1",
+		RequestFingerprint: "f000000000000000000000000000000000000000000000000000000000000002",
+		UserID:             100,
+		Delta:              200,
+		QuotaBefore:        1500,
+		QuotaAfter:         1700,
+		QuotaVersionBefore: 1,
+		QuotaVersionAfter:  2,
+		ReasonCode:         "duplicate_key",
+		OperatorUserID:     0,
+		Metadata:           "{}",
+	}
+	dupTx := userQuotaMutationReceiptCreateDB(db)
+	require.Error(t, dupTx.Create(dupReceipt).Error)
+}
+
+func TestUserQuotaMutationReceiptMigrationSQLite(t *testing.T) {
+	db := openB2SubmissionSQLite(t)
+	for range 2 {
+		require.NoError(t, db.AutoMigrate(&UserQuotaMutationReceipt{}))
+	}
+	assertUserQuotaMutationReceiptMigrated(t, db)
+}
+
+func TestUserQuotaMutationReceiptMigrationConfiguredDatabases(t *testing.T) {
+	if os.Getenv("MYAPI_B2_DATABASE_TESTS") != "1" {
+		t.Skip("disposable B2 database tests require MYAPI_B2_DATABASE_TESTS=1")
+	}
+	for _, engine := range []struct{ name, env string }{
+		{"mysql", "MYAPI_B2_MYSQL_DSN"},
+		{"postgres", "MYAPI_B2_POSTGRES_DSN"},
+	} {
+		t.Run(engine.name, func(t *testing.T) {
+			dsn := os.Getenv(engine.env)
+			require.NotEmpty(t, dsn, "%s must be configured when MYAPI_B2_DATABASE_TESTS=1", engine.env)
+			dialector, err := b2SubmissionDatabaseDialector(engine.name, dsn)
+			require.NoError(t, err)
+			db, err := gorm.Open(dialector, &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+			require.NoError(t, err)
+			require.NoError(t, registerTaskRecoveryGormGuards(db))
+			for range 2 {
+				require.NoError(t, db.AutoMigrate(&UserQuotaMutationReceipt{}))
+			}
+			assertUserQuotaMutationReceiptMigrated(t, db)
+		})
+	}
+}
+
+

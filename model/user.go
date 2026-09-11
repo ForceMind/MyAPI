@@ -186,6 +186,7 @@ func (user *User) ToBaseUser() *UserBase {
 		Email:         user.Email,
 		AuthVersion:   user.AuthVersion,
 		CacheSchema:   userCacheSchemaVersion,
+		QuotaVersion:  user.QuotaVersion,
 	}
 	return cache
 }

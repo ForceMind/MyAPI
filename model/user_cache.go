@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const userCacheSchemaVersion = 3
+const userCacheSchemaVersion = 4
 
 type UserBase struct {
 	Id            int    `json:"id"`
@@ -25,6 +25,7 @@ type UserBase struct {
 	Setting       string `json:"setting"`
 	AuthVersion   int64  `json:"-"`
 	CacheSchema   int    `json:"-"`
+	QuotaVersion  int64  `json:"quota_version"`
 }
 
 func (user *UserBase) WriteContext(c *gin.Context) {
@@ -58,6 +59,21 @@ func userCacheTTLSeconds() int {
 		return 60
 	}
 	return ttl
+}
+
+// InvalidateUserQuotaCache clears user cache
+func InvalidateUserQuotaCache(userId int) error {
+	return invalidateUserCache(userId)
+}
+
+// HydrateUserQuotaCache updates user quota projection in Redis with version anti-rollback.
+// If the cache key does not exist or has an older schema, it does nothing (allowing GetUserCache to hydrate cleanly).
+// If incoming QuotaVersion is older than cached, it rejects/drops to prevent version rollback.
+func HydrateUserQuotaCache(userId int, quota int, quotaVersion int64) error {
+	if !common.RedisEnabled || userId <= 0 {
+		return nil
+	}
+	return hydrateUserQuotaCacheRedis(userId, quota, quotaVersion)
 }
 
 // invalidateUserCache clears user cache

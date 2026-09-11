@@ -72,6 +72,9 @@ end
 if pending > 0 and pending <= incoming then
   redis.call('DEL', KEYS[2])
 end
+if redis.call('EXISTS', KEYS[1]) == 1 and redis.call('HGET', KEYS[1], 'CacheSchema') ~= ARGV[10] then
+  redis.call('DEL', KEYS[1])
+end
 if ARGV[11] == '0' and redis.call('EXISTS', KEYS[1]) == 0 then
   return 1
 end
@@ -79,15 +82,19 @@ redis.call('HSET', KEYS[1],
   'Id', ARGV[2], 'Group', ARGV[3], 'AccountTierID', ARGV[4], 'Email', ARGV[5],
   'Status', ARGV[6], 'Role', ARGV[7], 'Username', ARGV[8],
   'Setting', ARGV[9], 'AuthVersion', ARGV[1], 'CacheSchema', ARGV[10])
-if ARGV[11] == '1' and redis.call('HEXISTS', KEYS[1], 'Quota') == 0 then
-  redis.call('HSET', KEYS[1], 'Quota', ARGV[12])
+if ARGV[11] == '1' then
+  local incomingQV = tonumber(ARGV[13] or '0')
+  local currentQV = tonumber(redis.call('HGET', KEYS[1], 'QuotaVersion') or '-1')
+  if currentQV == -1 or incomingQV > currentQV then
+    redis.call('HSET', KEYS[1], 'Quota', ARGV[12], 'QuotaVersion', ARGV[13])
+  end
 end
-redis.call('EXPIRE', KEYS[1], ARGV[13])
+redis.call('EXPIRE', KEYS[1], ARGV[14])
 return 1`
 	result, err := common.RDB.Eval(context.Background(), script,
 		[]string{getUserCacheKey(user.Id), getUserAuthFenceKey(user.Id), getUserAuthVersionKey(user.Id)},
 		user.AuthVersion, user.Id, user.Group, user.AccountTierID, user.Email, user.Status, user.Role,
-		user.Username, user.Setting, user.CacheSchema, includeQuotaArg, user.Quota, ttl,
+		user.Username, user.Setting, user.CacheSchema, includeQuotaArg, user.Quota, user.QuotaVersion, ttl,
 	).Int()
 	if err != nil {
 		return err
@@ -96,6 +103,37 @@ return 1`
 		return ErrUserAuthCachePending
 	}
 	return nil
+}
+
+const hydrateUserQuotaCacheScript = `
+if redis.call('EXISTS', KEYS[1]) == 0 then
+  return 2
+end
+if redis.call('HGET', KEYS[1], 'Id') ~= ARGV[1] or redis.call('HGET', KEYS[1], 'CacheSchema') ~= ARGV[2] then
+  redis.call('DEL', KEYS[1])
+  return 2
+end
+local currentQV = tonumber(redis.call('HGET', KEYS[1], 'QuotaVersion') or '-1')
+local incomingQV = tonumber(ARGV[4])
+if currentQV ~= -1 and incomingQV <= currentQV then
+  redis.call('EXPIRE', KEYS[1], ARGV[5])
+  return 0
+end
+redis.call('HSET', KEYS[1], 'Quota', ARGV[3], 'QuotaVersion', ARGV[4])
+redis.call('EXPIRE', KEYS[1], ARGV[5])
+return 1`
+
+func hydrateUserQuotaCacheRedis(userId int, quota int, quotaVersion int64) error {
+	if !common.RedisEnabled || userId <= 0 {
+		return nil
+	}
+	ttl := userCacheTTLSeconds()
+	_, err := common.RDB.Eval(context.Background(), hydrateUserQuotaCacheScript,
+		[]string{getUserCacheKey(userId)},
+		strconv.Itoa(userId), strconv.Itoa(userCacheSchemaVersion),
+		strconv.Itoa(quota), strconv.FormatInt(quotaVersion, 10), ttl,
+	).Int()
+	return err
 }
 
 func getUserAuthVersionFloor(userId int) (int64, error) {

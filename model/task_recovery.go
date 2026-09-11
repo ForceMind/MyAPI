@@ -75,6 +75,7 @@ var taskRecoveryProtectedTables = []string{
 	"task_billing_events",
 	"task_billing_log_outboxes",
 	"quota_mutation_receipts",
+	"user_quota_mutation_receipts",
 }
 
 // registerTaskRecoveryGormGuards closes the normal GORM Table(...).Update
@@ -117,6 +118,9 @@ func taskRecoveryGormWriteGuard(tx *gorm.DB) {
 		return
 	case "quota_mutation_receipts":
 		tx.AddError(ErrQuotaMutationReceiptImmutable)
+		return
+	case "user_quota_mutation_receipts":
+		tx.AddError(ErrUserQuotaMutationReceiptImmutable)
 		return
 	}
 	if taskRecoveryControlledWriteAllowed(tx) {

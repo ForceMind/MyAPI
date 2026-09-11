@@ -74,7 +74,7 @@ redis.call('HSET', KEYS[1],
   'CreatedTime', ARGV[5], 'AccessedTime', ARGV[6], 'ExpiredTime', ARGV[7],
   'UnlimitedQuota', ARGV[8], 'ModelLimitsEnabled', ARGV[9], 'ModelLimits', ARGV[10],
   'AllowIps', ARGV[11], 'Group', ARGV[12], 'CrossGroupRetry', ARGV[13],
-  'AutoGroups', ARGV[14], 'RemainQuota', ARGV[15], 'UsedQuota', ARGV[16])
+  'AutoGroups', ARGV[14], 'RemainQuota', ARGV[15], 'UsedQuota', ARGV[16], 'QuotaVersion', ARGV[18])
 redis.call('EXPIRE', KEYS[1], ARGV[17])
 return 1`
 
@@ -87,7 +87,45 @@ return 1`
 		token.ModelLimits, allowIps, token.Group, strconv.FormatBool(token.CrossGroupRetry),
 		token.AutoGroups, token.RemainQuota, token.UsedQuota,
 		tokenCacheTTLSeconds(),
+		strconv.FormatInt(token.QuotaVersion, 10),
 	).Int()
+}
+
+// HydrateTokenQuotaCache updates the token remain/used quota and quota version in Redis if the hash exists.
+// If incoming QuotaVersion is older than cached, it rejects/drops to prevent version rollback.
+func HydrateTokenQuotaCache(key string, id int, remainQuota, usedQuota int, quotaVersion int64) error {
+	if !common.RedisEnabled || key == "" || id <= 0 {
+		return nil
+	}
+	const script = `
+if redis.call('EXISTS', KEYS[1]) == 0 then
+  return 2
+end
+if redis.call('HGET', KEYS[1], 'Id') ~= ARGV[1] then
+  redis.call('DEL', KEYS[1])
+  return 2
+end
+local currentQV = tonumber(redis.call('HGET', KEYS[1], 'QuotaVersion') or '-1')
+local incomingQV = tonumber(ARGV[4])
+if currentQV ~= -1 and incomingQV <= currentQV then
+  redis.call('EXPIRE', KEYS[1], ARGV[5])
+  return 0
+end
+redis.call('HSET', KEYS[1], 'RemainQuota', ARGV[2], 'UsedQuota', ARGV[3], 'QuotaVersion', ARGV[4])
+redis.call('EXPIRE', KEYS[1], ARGV[5])
+return 1`
+
+	ttl := tokenCacheTTLSeconds()
+	_, err := common.RDB.Eval(context.Background(), script, []string{getTokenCacheKey(key)},
+		strconv.Itoa(id), strconv.Itoa(remainQuota), strconv.Itoa(usedQuota),
+		strconv.FormatInt(quotaVersion, 10), ttl,
+	).Int()
+	return err
+}
+
+// InvalidateTokenQuotaCache invalidates the token cache for mutation
+func InvalidateTokenQuotaCache(key string) error {
+	return invalidateTokenCacheForMutation(key)
 }
 
 // cacheGetTokenByKey 从缓存读取 token；不完整的哈希（如仅有配额字段）会被拒绝。
