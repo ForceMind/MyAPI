@@ -490,6 +490,15 @@ func RelayTaskFetch(c *gin.Context) {
 }
 
 func RelayTask(c *gin.Context) {
+	if common.IsTaskRecoveryNewSubmissionEnabled() {
+		if opKind, originID, ok := service.DetectTaskOperationKind(c.Request.Method, c.Request.URL.Path, map[string]string{"video_id": c.Param("video_id")}); ok {
+			if service.HasTaskSubmissionIdempotencyHeader(c.Request.Header) {
+				relayTaskDurable(c, opKind, originID)
+				return
+			}
+		}
+	}
+
 	relayInfo, err := relaycommon.GenRelayInfo(c, types.RelayFormatTask, nil, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, &taskdto.TaskError{

@@ -27,6 +27,8 @@ func RegisterScheduledSystemTasks() {
 	service.RegisterSystemTaskHandler(channelQuotaSnapshotSyncHandler{})
 	service.RegisterSystemTaskHandler(midjourneyPollHandler{})
 	service.RegisterSystemTaskHandler(asyncTaskPollHandler{})
+	service.RegisterSystemTaskHandler(taskRecoveryHandler{})
+	service.RegisterSystemTaskHandler(taskBillingOutboxHandler{})
 }
 
 const (
@@ -305,6 +307,86 @@ func (asyncTaskPollHandler) NewPayload() any { return nil }
 
 func (asyncTaskPollHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
 	summary := service.RunTaskPollingOnce(ctx, service.NewSystemTaskProgressReporter(task, runnerID))
+	finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, summary, nil)
+}
+
+// TaskRecoverySummary records the result of one task recovery pass.
+type TaskRecoverySummary struct {
+	RecoveredDispatching   int `json:"recovered_dispatching"`
+	RecoveredUnfinished    int `json:"recovered_unfinished"`
+	RecoveredBillingEvents int `json:"recovered_billing_events"`
+}
+
+type taskRecoveryHandler struct{}
+
+func (taskRecoveryHandler) Type() string { return model.SystemTaskTypeTaskRecovery }
+
+func (taskRecoveryHandler) Enabled() bool {
+	return common.IsTaskRecoveryObligationRecoveryEnabled()
+}
+
+func (taskRecoveryHandler) Interval() time.Duration {
+	if val := strings.TrimSpace(os.Getenv("TASK_RECOVERY_INTERVAL_SECONDS")); val != "" {
+		if sec, err := strconv.Atoi(val); err == nil && sec >= 5 {
+			return time.Duration(sec) * time.Second
+		}
+	}
+	return 30 * time.Second
+}
+
+func (taskRecoveryHandler) NewPayload() any { return nil }
+
+func (taskRecoveryHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
+	runner := service.NewTaskEngineRunner(service.TaskEngineConfig{
+		WorkerID: runnerID,
+	}, model.DB)
+	dispatchCount, unfinCount, billingCount, errs := runner.RunRecoveryPass(ctx)
+	summary := TaskRecoverySummary{
+		RecoveredDispatching:   dispatchCount,
+		RecoveredUnfinished:    unfinCount,
+		RecoveredBillingEvents: billingCount,
+	}
+	if len(errs) > 0 {
+		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, summary, errs[0])
+		return
+	}
+	finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, summary, nil)
+}
+
+// TaskBillingOutboxSummary records the delivery count of one outbox pass.
+type TaskBillingOutboxSummary struct {
+	DeliveredCount int `json:"delivered_count"`
+}
+
+type taskBillingOutboxHandler struct{}
+
+func (taskBillingOutboxHandler) Type() string { return model.SystemTaskTypeTaskBillingOutbox }
+
+func (taskBillingOutboxHandler) Enabled() bool {
+	return common.IsTaskRecoveryObligationRecoveryEnabled()
+}
+
+func (taskBillingOutboxHandler) Interval() time.Duration {
+	if val := strings.TrimSpace(os.Getenv("TASK_BILLING_OUTBOX_INTERVAL_SECONDS")); val != "" {
+		if sec, err := strconv.Atoi(val); err == nil && sec >= 2 {
+			return time.Duration(sec) * time.Second
+		}
+	}
+	return 10 * time.Second
+}
+
+func (taskBillingOutboxHandler) NewPayload() any { return nil }
+
+func (taskBillingOutboxHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
+	runner := service.NewTaskEngineRunner(service.TaskEngineConfig{
+		WorkerID: runnerID,
+	}, model.DB)
+	delivered, err := runner.RunOutboxPass(ctx)
+	summary := TaskBillingOutboxSummary{DeliveredCount: delivered}
+	if err != nil {
+		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, summary, err)
+		return
+	}
 	finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, summary, nil)
 }
 

@@ -29,6 +29,8 @@ const (
 	// upstream account balances. Sampling is enabled by default; an explicit
 	// environment override takes precedence over the administrator setting.
 	SystemTaskTypeChannelQuotaSnapshotSync = "channel_quota_snapshot_sync"
+	SystemTaskTypeTaskRecovery             = "task_recovery"
+	SystemTaskTypeTaskBillingOutbox        = "task_billing_outbox"
 )
 
 var ErrSystemTaskLockLost = errors.New("system task lock lost")

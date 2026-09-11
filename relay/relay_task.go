@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 
@@ -274,10 +275,24 @@ type legacyTaskSubmitResponseAdapter interface {
 }
 
 func resolveLegacyTaskSubmitResponse(c *gin.Context, adaptor legacyTaskSubmitResponseAdapter, resp *http.Response, info *relaycommon.RelayInfo) (string, []byte, *dto.TaskError) {
-	if resp.StatusCode != http.StatusOK {
+	if resp == nil || resp.StatusCode != http.StatusOK {
 		return "", nil, legacyTaskSubmitHTTPStatusError(resp)
 	}
 	return adaptor.DoResponse(c, resp, info)
+}
+
+// ResolveLegacyTaskSubmitResponse is the exported compatibility boundary for resolving
+// a legacy task submission response into a task ID, task data, or error.
+// It isolates the client writer so legacy DoResponse cannot taint durable responses.
+func ResolveLegacyTaskSubmitResponse(c *gin.Context, adaptor channel.TaskAdaptor, resp *http.Response, info *relaycommon.RelayInfo) (string, []byte, *dto.TaskError) {
+	isolatedCtx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	if c != nil {
+		isolatedCtx.Request = c.Request
+		for k, v := range c.Keys {
+			isolatedCtx.Set(k, v)
+		}
+	}
+	return resolveLegacyTaskSubmitResponse(isolatedCtx, adaptor, resp, info)
 }
 
 // legacyTaskSubmitHTTPStatusError is the compatibility boundary for the
