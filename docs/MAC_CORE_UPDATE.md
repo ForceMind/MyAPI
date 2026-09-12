@@ -52,17 +52,18 @@
 | M5 | C03b：Redis 余额投影与权威账务变更内核 | 实现子范围存在 | 共享 schema/cache 逻辑仍会生效 | 当前独立复核未通过 | 未启用 |
 | M6 | 真实切换评审与上线准备 | 未开始 | 未开始 | 未开始 | 未授权 |
 
-### 2026-09-12 Phase A / WP1 状态（已在提交 `da6a59a` 落盘、待开发分支推送/精确 SHA CI 核验）
+### 2026-09-12 Phase A / WP1 与 WP2-A-core 状态
 
-- 已在提交 `da6a59a` 落盘并通过独立复核；待开发分支推送/精确 SHA CI 核验：P1-2 固定 wallet、P1-6 Task candidate 非原子落库及恢复不完整、P1-7 quota clamp 后继续请求上游。
-- 关键新增合同：自动资金来源冻结；`free` / `nonfree` 的 zero 分离；Task candidate 原子落库；历史 `unknown` 显式安全分类恢复；fingerprint v2 兼容 v1；后端 i18n 和 `LOG_DB` 边界。
-- 仍未处理：P1-1 Redis 投影缺失、P1-3 终态恢复、P1-4 统计漏记/负减、P1-5 Outbox 事务外且吞错，以及 P2 日志消费侧去重缺失、settlement/refund 静默截断。因此 M1-M5 与 WP1 均不得描述为“全部完成”或完整闭环。
+- Phase A / WP1 历史记录保留：`da6a59a` 为代码基础，文档基础为 `ba80b8b`。P1-2 固定 wallet、P1-6 Task candidate 原子落库及恢复、P1-7 quota clamp 后拒绝上游请求已在该基础上落盘。
+- WP2-A-core 已提交为 `779901cf0a2f3a793980785ee6b5612fc58a575b`：P1-3 的核心原子账务、terminal observation 与 recovery core，P1-4 的统计证据，以及 P1-5 的三 mutation Outbox 均已落盘。
+- `779901cf0a2f3a793980785ee6b5612fc58a575b` 已通过 Sol 独立审查，以及 Terra 定向测试、`-race`、`go vet`、`relaykit` 独立构建和 SQLite 验证。P1-3/P1-4/P1-5 只能标记为“核心完成、入口待收口”，不得完整关闭：timeout、空 upstream、Suno 成功/失败及渠道失败、Video 渠道失败、批量错误等 terminal 入口覆盖尚未完成。
+- P1-1 Redis 投影仍未处理。P2 settlement/refund 静默截断核心已改为 manual review；日志消费侧去重仍未处理。因此 M1-M5、WP1 和 WP2-A 均不得描述为“全部完成”或完整闭环。
 
 默认 gate 保持关闭；无 durable 历史数据时，未处理项不能描述为生产事故；但 M5 的共享 schema/cache 逻辑仍会生效，必须在切换前修复并复验。Linux、生产和 M6 未获授权。
 
-提交 `da6a59a` 的独立定向测试、最小 `-race`、`go vet`、`relaykit` 独立构建和 SQLite 验证均通过；待开发分支推送/精确 SHA CI 核验。MySQL 5.7 / PostgreSQL 9.6 的实际迁移并发尚未验证；仍须核验 `da6a59a` 对应精确 SHA 的 CI，不能以历史 `main` CI 替代。
+MySQL 5.7 / PostgreSQL 9.6 尚未实测。开发分支推送后仍须核验 `779901cf0a2f3a793980785ee6b5612fc58a575b` 的精确 SHA CI；历史 `main` CI 不能替代该证据。
 
-下一执行点：**WP2-A**，使终态 observation、账务/统计/Outbox/Task 状态同主库事务，并补齐恢复路径；其后才继续 WP3 C03b 写入与 Redis bridge-drain-epoch、WP4 恢复操作面、WP5 独立验证与计划同步。Sol 负责主要实现，Terra 负责测试/文档，主代理负责最终复核。
+下一执行点：**WP2-A-entry**，收口尚未覆盖的 terminal 入口；之后执行 **WP2-B**。其后才继续 WP3 C03b 写入与 Redis bridge-drain-epoch、WP4 恢复操作面、WP5 独立验证与计划同步。Sol 负责主要实现，Terra 负责测试/文档，主代理负责最终复核。
 
 ## 禁止事项
 
