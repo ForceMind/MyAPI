@@ -1,12 +1,13 @@
 # Mac 核心大更新：实施交接与阶段清单
 
-更新日期：2026-09-10。本文记录本次获批 Mac 首批工作的实施边界，不是已完成、已迁移或已启用的证明。
+更新日期：2026-09-12。本文记录本次获批 Mac 首批工作的实施边界和最新审计；不是已完成、已迁移或已启用的证明。
 
 ## 当前基线与已知事实
 
 - 实施分支：`codex/mac-durable-accounting`。
-- 代码基线：`f6536ca96126415f74d239165fd688589bd54af9`。
-- PR #1 已于 2026-09-08 合入 `main`；主代理已通过 API 核实 CI `34186651121` 的十个 job 成功。
+- 审计范围：`f6536ca96126415f74d239165fd688589bd54af9..1d5bc446d68b776ba4ff3cf4878cdbb5925f7362`，共 7 个提交。
+- 本地/远端开发分支均指向 `1d5bc446d68b776ba4ff3cf4878cdbb5925f7362`；`VERSION` 为 `0.1.1`。
+- `f6536ca96126415f74d239165fd688589bd54af9` 及其此前 `main` CI 记录仅为历史证据，不能替代本审计范围末端 SHA 的验证。
 - Mac 的 44 项 CLI 纯逻辑测试已通过。该结果不覆盖本次后续实现，也不等同于整体验收。
 - 当前本机工具版本为 Go 1.27、Bun 1.4、Node 26.7；尚未进行整体验收。`Docker` 不在当前 `PATH`，因此未做容器相关验证。
 - 主代理已创建本次核心更新的持久 Goal，状态为进行中；阶段验收以本表和实际证据为准。
@@ -39,15 +40,29 @@
 
 ## 简短阶段清单
 
-| 阶段 | 范围 | 状态 | 完成依据 |
-| --- | --- | --- | --- |
-| M0 | 基线、授权边界、D02/D03 决策入档 | 已完成（文档） | 本文及两个总计划的 2026-09-10 交接记录 |
-| M1 | B3-A1 T1 reserve + receipt，gate-off | 已完成（代码/测试/审查） | 余额版本、三库迁移、事务内核、回执不可变保护、三库测试夹具；定向测试、-race 检测、relaykit 独立构建、go vet 全过；独立审查 P2/P3 项已全部闭环修复 |
-| M2 | B3-A2（T3/T4 终态结算与全额释放）+ B2-2B/C（异步调度出站与状态机） | 已完成（代码/测试/审查） | `model/quota_mutation_settle.go` 终态差额结算（多退少补等额）与全额退款释放；复合唯一索引 `(operation_id, mutation_type)` 演进与迁移测试；`service/task_submission_service.go` 调度流水线与事务隔离；独立审查 P2 全修复（严格 User->Token->Sub->Op->Attempt 锁序、超时/断网 fail-closed、严禁 DB 事务内网络 I/O）；5 大矩阵与 12 调度场景测试 100% PASS，-race 0 竞态，relaykit 独立编译通过 |
-| M3 | 异步任务轮询恢复引擎、日志 Outbox 投递与一致性审计（B2-2D / B3-B / B3-C），gate-off | 已完成（代码/测试/审查） | 1. Model 层扫描基元（ListStaleDispatchingOperations、ListUnfinishedPreparedOrReservedOperations、ListClaimableTaskBillingLogOutboxes 等）；2. TaskRecoveryWorker（超时 dispatching 严格 fail-closed 隔离至 submission_unknown，未出站 reserved 安全取消释放，过期 lease 回收）；3. TaskBillingOutboxService（Outbox 租约抢占、去重投递至 logs、指数退避重试）；4. TaskResolutionService（人工审计闭环，AuditCommandID 幂等重放与冲突拒绝）；5. 轮询终态持久对账桥接（DurableSettleTaskOnComplete 与 DurableReleaseTaskOnFailure，自动流转至 succeeded/failed 并投递 Outbox）；全部测试通过，-race 0 竞态，relaykit 独立编译通过 |
-| M4 | 系统任务注册、恢复执行引擎、持久入口协议与控制器接入（B2-2A / B2-1 / SystemTask），gate-off | 已完成（代码/测试/审查） | 1. `model/system_task.go` 注册 `task_recovery` 与 `task_billing_outbox` 系统任务；2. `controller/system_task_handlers.go` 挂接 `service.TaskEngineRunner` 门面执行恢复巡检与 Outbox 投递，绑定 `IsTaskRecoveryObligationRecoveryEnabled` 开关；3. `service/task_ingress_service.go` 完成路由动作识别（video.create, video.remix, suno.music, suno.lyrics）、三种指纹提取（JSON, Form, Multipart）、意图创建与重放判定；4. `controller/relay_task_durable.go` 实现持久入口控制器，提供 Location、Cache-Control: no-store、HTTP 202 响应规范；5. 独立审查发现的 P1（头修改导致重拒）、P2（别名头逃逸、nil resp、500 误报、饱和 clamp 审计、全局 DB 污染）全部彻底修复；6. 包含 端到端全新提交、幂等重放、指纹冲突、别名拦截、传统链路 gate-off 短路 的单元及集成测试 100% PASS，-race 0 竞态，relaykit 独立编译通过 |
-| M5 | 统一账务与余额投影收口（C03b: C03b-1 Redis 余额投影防回滚 + C03b-2 通用权威账务变更内核与收据），gate-off | 已完成（代码/测试/审查） | 1. `model/user_cache.go` 升级 `userCacheSchemaVersion = 4`，引入 `QuotaVersion`；2. `model/user_auth_cache.go` 升级 Lua 脚本实现严格防回滚（`incomingQV <= currentQV` 拦截重写，冷缓存防残缺哈希）；3. `model/token_cache.go` 同步引入 `QuotaVersion` 与防回滚；4. `model/user_quota_mutation.go` 实现 `UserQuotaMutationReceipt` 模型、不可变 Hook、GORM 全局防写 Guard、`MutateUserQuotaAuthoritative`（用户行锁 + 双重检查 CAS + 幂等重放/冲突拒绝）与提交包装 `MutateUserQuota`；5. 独立审查发现的 P1（MySQL 5.7 TEXT default 语法错误）、P2（等版本覆盖实时扣费、双重检查加锁防并发冲突、零 delta 校验）全部闭环修复；6. 单元、高并发 CAS 竞争、重放与投影防回滚、三库迁移测试 100% PASS，-race 0 竞态，relaykit 独立编译通过 |
-| M6 | 真实切换评审与上线准备 | 未授权 | 独立验收完成后另行明确授权 |
+2026-09-12 独立审计将状态拆分为“代码 / 接线 / 验证 / 生产启用”。“实现子范围存在”只说明范围内有代码，不能替代可恢复的账务闭环、独立复核或生产资格。
+
+| 阶段 | 范围 | 代码 | 接线 | 验证 | 生产启用 |
+| --- | --- | --- | --- | --- | --- |
+| M0 | 基线、授权边界、D02/D03 决策入档 | 已入档 | 不适用 | 文档一致性待本次检查 | 未启用 |
+| M1 | B3-A1 T1 reserve + receipt，gate-off | 实现子范围存在 | 仅限 gate-off 范围 | 当前独立复核未通过 | 未启用 |
+| M2 | B3-A2 与 B2-2B/C：终态结算、释放、异步调度与状态机 | 实现子范围存在 | 存在部分接线，未证明闭环 | 当前独立复核未通过 | 未启用 |
+| M3 | 异步恢复、日志 Outbox 与一致性审计 | 实现子范围存在 | 存在部分接线，未证明可恢复投递 | 当前独立复核未通过 | 未启用 |
+| M4 | 系统任务、恢复执行、持久入口协议与控制器接入 | 实现子范围存在 | 存在部分接线，未证明端到端正确性 | 当前独立复核未通过 | 未启用 |
+| M5 | C03b：Redis 余额投影与权威账务变更内核 | 实现子范围存在 | 共享 schema/cache 逻辑仍会生效 | 当前独立复核未通过 | 未启用 |
+| M6 | 真实切换评审与上线准备 | 未开始 | 未开始 | 未开始 | 未授权 |
+
+### 2026-09-12 Phase A / WP1 状态（已在提交 `da6a59a` 落盘、待开发分支推送/精确 SHA CI 核验）
+
+- 已在提交 `da6a59a` 落盘并通过独立复核；待开发分支推送/精确 SHA CI 核验：P1-2 固定 wallet、P1-6 Task candidate 非原子落库及恢复不完整、P1-7 quota clamp 后继续请求上游。
+- 关键新增合同：自动资金来源冻结；`free` / `nonfree` 的 zero 分离；Task candidate 原子落库；历史 `unknown` 显式安全分类恢复；fingerprint v2 兼容 v1；后端 i18n 和 `LOG_DB` 边界。
+- 仍未处理：P1-1 Redis 投影缺失、P1-3 终态恢复、P1-4 统计漏记/负减、P1-5 Outbox 事务外且吞错，以及 P2 日志消费侧去重缺失、settlement/refund 静默截断。因此 M1-M5 与 WP1 均不得描述为“全部完成”或完整闭环。
+
+默认 gate 保持关闭；无 durable 历史数据时，未处理项不能描述为生产事故；但 M5 的共享 schema/cache 逻辑仍会生效，必须在切换前修复并复验。Linux、生产和 M6 未获授权。
+
+提交 `da6a59a` 的独立定向测试、最小 `-race`、`go vet`、`relaykit` 独立构建和 SQLite 验证均通过；待开发分支推送/精确 SHA CI 核验。MySQL 5.7 / PostgreSQL 9.6 的实际迁移并发尚未验证；仍须核验 `da6a59a` 对应精确 SHA 的 CI，不能以历史 `main` CI 替代。
+
+下一执行点：**WP2-A**，使终态 observation、账务/统计/Outbox/Task 状态同主库事务，并补齐恢复路径；其后才继续 WP3 C03b 写入与 Redis bridge-drain-epoch、WP4 恢复操作面、WP5 独立验证与计划同步。Sol 负责主要实现，Terra 负责测试/文档，主代理负责最终复核。
 
 ## 禁止事项
 
