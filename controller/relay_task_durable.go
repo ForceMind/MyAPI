@@ -333,12 +333,12 @@ func rejectDurableTaskQuotaClamp(c *gin.Context, relayInfo *relaycommon.RelayInf
 		if relayInfo.ChannelMeta != nil {
 			channelID = relayInfo.ChannelMeta.ChannelId
 		}
-		if err := auditDB.Create(&model.Log{
+		if err := model.CreateLog(auditDB, &model.Log{
 			UserId: relayInfo.UserId, Username: c.GetString("username"), CreatedAt: common.GetTimestamp(),
 			Type: model.LogTypeSystem, Content: "task request rejected before dispatch: quota saturation",
 			ModelName: relayInfo.OriginModelName, TokenId: relayInfo.TokenId, ChannelId: channelID,
 			RequestId: c.GetString(common.RequestIdKey), Other: common.MapToJsonStr(map[string]interface{}{"admin_info": adminInfo}),
-		}).Error; err != nil {
+		}); err != nil {
 			logger.LogError(c, "failed to persist durable task quota clamp audit: "+err.Error())
 		}
 	}

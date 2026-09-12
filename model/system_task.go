@@ -31,23 +31,25 @@ const (
 	SystemTaskTypeChannelQuotaSnapshotSync = "channel_quota_snapshot_sync"
 	SystemTaskTypeTaskRecovery             = "task_recovery"
 	SystemTaskTypeTaskBillingOutbox        = "task_billing_outbox"
+	SystemTaskTypeLogProjectionBackfill    = "log_projection_backfill"
 )
 
 var ErrSystemTaskLockLost = errors.New("system task lock lost")
 
 type SystemTask struct {
-	ID        int64            `json:"id" gorm:"primary_key"`
-	TaskID    string           `json:"task_id" gorm:"type:varchar(64);uniqueIndex"`
-	Type      string           `json:"type" gorm:"type:varchar(64);index"`
-	Status    SystemTaskStatus `json:"status" gorm:"type:varchar(32);index"`
-	ActiveKey *string          `json:"active_key,omitempty" gorm:"type:varchar(64);uniqueIndex"`
-	Payload   string           `json:"payload" gorm:"type:text"`
-	State     string           `json:"state" gorm:"type:text"`
-	Result    string           `json:"result" gorm:"type:text"`
-	Error     string           `json:"error" gorm:"type:text"`
-	LockedBy  string           `json:"locked_by" gorm:"type:varchar(128);index"`
-	CreatedAt int64            `json:"created_at" gorm:"bigint;index"`
-	UpdatedAt int64            `json:"updated_at" gorm:"bigint;index"`
+	ID         int64            `json:"id" gorm:"primary_key"`
+	TaskID     string           `json:"task_id" gorm:"type:varchar(64);uniqueIndex"`
+	Type       string           `json:"type" gorm:"type:varchar(64);index"`
+	Status     SystemTaskStatus `json:"status" gorm:"type:varchar(32);index"`
+	ActiveKey  *string          `json:"active_key,omitempty" gorm:"type:varchar(64);uniqueIndex"`
+	Payload    string           `json:"payload" gorm:"type:text"`
+	State      string           `json:"state" gorm:"type:text"`
+	Result     string           `json:"result" gorm:"type:text"`
+	Error      string           `json:"error" gorm:"type:text"`
+	LockedBy   string           `json:"locked_by" gorm:"type:varchar(128);index"`
+	FenceToken int64            `json:"fence_token" gorm:"bigint;not null;default:0"`
+	CreatedAt  int64            `json:"created_at" gorm:"bigint;index"`
+	UpdatedAt  int64            `json:"updated_at" gorm:"bigint;index"`
 }
 
 type SystemTaskLock struct {
@@ -55,22 +57,24 @@ type SystemTaskLock struct {
 	TaskID      string `json:"task_id" gorm:"type:varchar(64);index"`
 	LockedBy    string `json:"locked_by" gorm:"type:varchar(128);index"`
 	LockedUntil int64  `json:"locked_until" gorm:"bigint;index"`
+	FenceToken  int64  `json:"fence_token" gorm:"bigint;not null;default:0"`
 	UpdatedAt   int64  `json:"updated_at" gorm:"bigint;index"`
 }
 
 type SystemTaskResponse struct {
-	ID        int64            `json:"id"`
-	TaskID    string           `json:"task_id"`
-	Type      string           `json:"type"`
-	Status    SystemTaskStatus `json:"status"`
-	ActiveKey *string          `json:"active_key,omitempty"`
-	Payload   any              `json:"payload"`
-	State     any              `json:"state"`
-	Result    any              `json:"result"`
-	Error     string           `json:"error"`
-	LockedBy  string           `json:"locked_by"`
-	CreatedAt int64            `json:"created_at"`
-	UpdatedAt int64            `json:"updated_at"`
+	ID         int64            `json:"id"`
+	TaskID     string           `json:"task_id"`
+	Type       string           `json:"type"`
+	Status     SystemTaskStatus `json:"status"`
+	ActiveKey  *string          `json:"active_key,omitempty"`
+	Payload    any              `json:"payload"`
+	State      any              `json:"state"`
+	Result     any              `json:"result"`
+	Error      string           `json:"error"`
+	LockedBy   string           `json:"locked_by"`
+	FenceToken int64            `json:"fence_token"`
+	CreatedAt  int64            `json:"created_at"`
+	UpdatedAt  int64            `json:"updated_at"`
 }
 
 func (task *SystemTask) BeforeCreate(_ *gorm.DB) error {
@@ -242,7 +246,7 @@ func ClaimSystemTask(id int64, taskType string, runnerID string, lockUntil int64
 		return nil, false, err
 	}
 
-	acquired, expiredTaskID, err := acquireSystemTaskLock(taskType, task.TaskID, runnerID, now, lockUntil)
+	acquired, expiredTaskID, fenceToken, err := acquireSystemTaskLock(taskType, task.TaskID, runnerID, now, lockUntil)
 	if err != nil || !acquired {
 		return nil, acquired, err
 	}
@@ -256,9 +260,10 @@ func ClaimSystemTask(id int64, taskType string, runnerID string, lockUntil int64
 	result := DB.Model(&SystemTask{}).
 		Where("id = ? AND type = ? AND status = ?", id, taskType, SystemTaskStatusPending).
 		Updates(map[string]any{
-			"status":     SystemTaskStatusRunning,
-			"locked_by":  runnerID,
-			"updated_at": now,
+			"status":      SystemTaskStatusRunning,
+			"locked_by":   runnerID,
+			"fence_token": fenceToken,
+			"updated_at":  now,
 		})
 	if result.Error != nil {
 		_ = ReleaseSystemTaskLock(task.TaskID, runnerID)
@@ -275,7 +280,7 @@ func ClaimSystemTask(id int64, taskType string, runnerID string, lockUntil int64
 	return &task, true, nil
 }
 
-func acquireSystemTaskLock(taskType string, taskID string, lockedBy string, now int64, lockUntil int64) (bool, string, error) {
+func acquireSystemTaskLock(taskType string, taskID string, lockedBy string, now int64, lockUntil int64) (bool, string, int64, error) {
 	return acquireSystemTaskLockWithContext(context.Background(), taskType, taskID, lockedBy, now, lockUntil)
 }
 
@@ -300,11 +305,11 @@ func TryAcquireNamedSystemTaskLockWithContext(ctx context.Context, lockType stri
 	if lockUntil <= now {
 		return false, errors.New("named system task lock expiry must be in the future")
 	}
-	acquired, _, err := acquireSystemTaskLockWithContext(ctx, lockType, taskID, lockedBy, now, lockUntil)
+	acquired, _, _, err := acquireSystemTaskLockWithContext(ctx, lockType, taskID, lockedBy, now, lockUntil)
 	return acquired, err
 }
 
-func acquireSystemTaskLockWithContext(ctx context.Context, taskType string, taskID string, lockedBy string, now int64, lockUntil int64) (bool, string, error) {
+func acquireSystemTaskLockWithContext(ctx context.Context, taskType string, taskID string, lockedBy string, now int64, lockUntil int64) (bool, string, int64, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -314,42 +319,48 @@ func acquireSystemTaskLockWithContext(ctx context.Context, taskType string, task
 		TaskID:      taskID,
 		LockedBy:    lockedBy,
 		LockedUntil: lockUntil,
+		FenceToken:  1,
 		UpdatedAt:   now,
 	}
 	if err := db.Create(lock).Error; err == nil {
-		return true, "", nil
+		return true, "", lock.FenceToken, nil
 	}
 	if err := ctx.Err(); err != nil {
-		return false, "", err
+		return false, "", 0, err
 	}
 
 	var existing SystemTaskLock
 	err := db.Where("type = ?", taskType).First(&existing).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return false, "", nil
+			return false, "", 0, nil
 		}
-		return false, "", err
+		return false, "", 0, err
 	}
 	if existing.LockedUntil >= now {
-		return false, "", nil
+		return false, "", 0, nil
 	}
 
+	nextFenceToken := existing.FenceToken + 1
+	if nextFenceToken <= 0 {
+		nextFenceToken = 1
+	}
 	result := db.Model(&SystemTaskLock{}).
-		Where("type = ? AND task_id = ? AND locked_by = ? AND locked_until = ? AND locked_until < ?", taskType, existing.TaskID, existing.LockedBy, existing.LockedUntil, now).
+		Where("type = ? AND task_id = ? AND locked_by = ? AND locked_until = ? AND fence_token = ? AND locked_until < ?", taskType, existing.TaskID, existing.LockedBy, existing.LockedUntil, existing.FenceToken, now).
 		Updates(map[string]any{
 			"task_id":      taskID,
 			"locked_by":    lockedBy,
 			"locked_until": lockUntil,
+			"fence_token":  nextFenceToken,
 			"updated_at":   now,
 		})
 	if result.Error != nil {
-		return false, "", result.Error
+		return false, "", 0, result.Error
 	}
 	if result.RowsAffected == 0 {
-		return false, "", nil
+		return false, "", 0, nil
 	}
-	return true, existing.TaskID, nil
+	return true, existing.TaskID, nextFenceToken, nil
 }
 
 // ReleaseNamedSystemTaskLockWithContext releases only the exact named lease
@@ -398,9 +409,21 @@ func RenewSystemTaskLock(taskID string, lockedBy string, lockUntil int64) error 
 }
 
 func RenewSystemTaskLockWithContext(ctx context.Context, taskID string, lockedBy string, lockUntil int64) error {
+	return renewSystemTaskLockWithFence(ctx, taskID, lockedBy, 0, lockUntil)
+}
+
+func RenewSystemTaskLockWithFence(ctx context.Context, taskID string, lockedBy string, fenceToken int64, lockUntil int64) error {
+	return renewSystemTaskLockWithFence(ctx, taskID, lockedBy, fenceToken, lockUntil)
+}
+
+func renewSystemTaskLockWithFence(ctx context.Context, taskID string, lockedBy string, fenceToken int64, lockUntil int64) error {
 	now := common.GetTimestamp()
-	result := DB.WithContext(ctx).Model(&SystemTaskLock{}).
-		Where("task_id = ? AND locked_by = ? AND locked_until >= ?", taskID, lockedBy, now).
+	query := DB.WithContext(ctx).Model(&SystemTaskLock{}).
+		Where("task_id = ? AND locked_by = ? AND locked_until >= ?", taskID, lockedBy, now)
+	if fenceToken > 0 {
+		query = query.Where("fence_token = ?", fenceToken)
+	}
+	result := query.
 		Updates(map[string]any{
 			"locked_until": lockUntil,
 			"updated_at":   now,
@@ -492,18 +515,19 @@ func (task *SystemTask) DecodeState(v any) error {
 
 func (task *SystemTask) ToResponse() SystemTaskResponse {
 	return SystemTaskResponse{
-		ID:        task.ID,
-		TaskID:    task.TaskID,
-		Type:      task.Type,
-		Status:    task.Status,
-		ActiveKey: task.ActiveKey,
-		Payload:   decodeSystemTaskJSONValue(task.Payload),
-		State:     decodeSystemTaskJSONValue(task.State),
-		Result:    decodeSystemTaskJSONValue(task.Result),
-		Error:     task.Error,
-		LockedBy:  task.LockedBy,
-		CreatedAt: task.CreatedAt,
-		UpdatedAt: task.UpdatedAt,
+		ID:         task.ID,
+		TaskID:     task.TaskID,
+		Type:       task.Type,
+		Status:     task.Status,
+		ActiveKey:  task.ActiveKey,
+		Payload:    decodeSystemTaskJSONValue(task.Payload),
+		State:      decodeSystemTaskJSONValue(task.State),
+		Result:     decodeSystemTaskJSONValue(task.Result),
+		Error:      task.Error,
+		LockedBy:   task.LockedBy,
+		FenceToken: task.FenceToken,
+		CreatedAt:  task.CreatedAt,
+		UpdatedAt:  task.UpdatedAt,
 	}
 }
 

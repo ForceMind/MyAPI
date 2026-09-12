@@ -4,10 +4,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
@@ -56,6 +57,31 @@ func createTestOutbox(t *testing.T, db *gorm.DB, label string) (*model.TaskBilli
 	return event, outbox
 }
 
+func testOutboxLog(event *model.TaskBillingEvent, outbox *model.TaskBillingLogOutbox) model.Log {
+	return model.Log{
+		UserId:            outbox.Payload.UserID,
+		CreatedAt:         outbox.Payload.CreatedAt,
+		Type:              outbox.Payload.Type,
+		Content:           outbox.Payload.Content,
+		Username:          outbox.Payload.Username,
+		TokenName:         outbox.Payload.TokenName,
+		ModelName:         outbox.Payload.ModelName,
+		Quota:             outbox.Payload.Quota,
+		PromptTokens:      outbox.Payload.PromptTokens,
+		CompletionTokens:  outbox.Payload.CompletionTokens,
+		UseTime:           outbox.Payload.UseTime,
+		IsStream:          outbox.Payload.IsStream,
+		ChannelId:         outbox.Payload.ChannelID,
+		TokenId:           outbox.Payload.TokenID,
+		Group:             outbox.Payload.Group,
+		Ip:                outbox.Payload.IP,
+		RequestId:         event.RequestID,
+		UpstreamRequestId: outbox.Payload.UpstreamRequestID,
+		BillingEventID:    outbox.BillingEventID,
+		Other:             outbox.Payload.Other,
+	}
+}
+
 func TestTaskBillingOutboxService_NormalDelivery(t *testing.T) {
 	db := setupTaskSubmissionTestDB(t)
 	event, outbox := createTestOutbox(t, db, "normal")
@@ -94,16 +120,10 @@ func TestTaskBillingOutboxService_IdempotentDeduplication(t *testing.T) {
 	db := setupTaskSubmissionTestDB(t)
 	event, outbox := createTestOutbox(t, db, "idempotent")
 
-	// Pre-insert log entry to simulate at-least-once replay
-	preLog := model.Log{
-		UserId:         event.UserID,
-		BillingEventID: event.EventID,
-		Content:        "pre-existing log entry",
-		ModelName:      "test-model",
-		RequestId:      "req-pre-existing",
-		CreatedAt:      time.Now().Unix(),
-	}
-	require.NoError(t, db.Create(&preLog).Error)
+	// Pre-insert the exact immutable projection to simulate an acknowledged
+	// log write followed by an uncertain outbox state transition.
+	preLog := testOutboxLog(event, outbox)
+	require.NoError(t, model.CreateLog(db, &preLog))
 
 	svc := NewTaskBillingOutboxService("worker-idempotent")
 	svc.LogDB = db
@@ -123,6 +143,63 @@ func TestTaskBillingOutboxService_IdempotentDeduplication(t *testing.T) {
 	assert.Equal(t, model.TaskBillingLogOutboxStateDelivered, reloaded.State)
 	require.NotNil(t, reloaded.DeliveredAt)
 	assert.Greater(t, *reloaded.DeliveredAt, int64(0))
+}
+
+func TestTaskBillingOutboxService_RejectsConflictingExistingProjection(t *testing.T) {
+	db := setupTaskSubmissionTestDB(t)
+	event, outbox := createTestOutbox(t, db, "conflict")
+
+	conflictLog := testOutboxLog(event, outbox)
+	conflictLog.Content = "conflicting projection"
+	conflictLog.LogRowKey = "conflicting-row-key"
+	conflictLog.BillingProjectionDigest = model.ComputeBillingProjectionDigest(&conflictLog)
+	require.NoError(t, db.Exec(`INSERT INTO logs (
+		user_id, created_at, type, content, username, token_name, model_name,
+		quota, prompt_tokens, completion_tokens, use_time, is_stream, channel_id,
+		token_id, `+"`group`"+`, ip, request_id, upstream_request_id,
+		billing_event_id, billing_projection_digest, log_row_key, other
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		conflictLog.UserId, conflictLog.CreatedAt, conflictLog.Type, conflictLog.Content,
+		conflictLog.Username, conflictLog.TokenName, conflictLog.ModelName, conflictLog.Quota,
+		conflictLog.PromptTokens, conflictLog.CompletionTokens, conflictLog.UseTime, conflictLog.IsStream,
+		conflictLog.ChannelId, conflictLog.TokenId, conflictLog.Group, conflictLog.Ip,
+		conflictLog.RequestId, conflictLog.UpstreamRequestId, conflictLog.BillingEventID,
+		conflictLog.BillingProjectionDigest, conflictLog.LogRowKey, conflictLog.Other,
+	).Error)
+
+	svc := NewTaskBillingOutboxService("worker-conflict")
+	svc.LogDB = db
+	delivered, err := svc.ProcessClaimableBatch(context.Background(), db)
+	require.NoError(t, err)
+	assert.Zero(t, delivered)
+
+	var reloaded model.TaskBillingLogOutbox
+	require.NoError(t, db.First(&reloaded, outbox.ID).Error)
+	assert.Equal(t, model.TaskBillingLogOutboxStateQuarantined, reloaded.State)
+	assert.Equal(t, ErrorCodeBillingProjectionConflict, reloaded.LastErrorCode)
+
+	var logCount int64
+	require.NoError(t, db.Model(&model.Log{}).Where("billing_event_id = ?", event.EventID).Count(&logCount).Error)
+	assert.EqualValues(t, 1, logCount)
+	var identity model.BillingLogProjectionIdentity
+	require.NoError(t, db.Where("billing_event_id = ?", event.EventID).First(&identity).Error)
+	assert.Equal(t, model.BillingLogProjectionIdentityStatusQuarantined, identity.Status)
+	assert.Contains(t, identity.Reason, "conflict")
+	visible, total, err := model.GetAllLogs(model.LogTypeUnknown, 0, 0, "", "", "", 0, 10, 0, "", conflictLog.RequestId, "")
+	require.NoError(t, err)
+	assert.Zero(t, total)
+	assert.Empty(t, visible)
+	stat, err := model.SumUsedQuota(model.LogTypeConsume, 0, 0, "", "", "", 0, "")
+	require.NoError(t, err)
+	assert.Zero(t, stat.Quota)
+	remaining, err := model.CountOldLog(t.Context(), conflictLog.CreatedAt+1)
+	require.NoError(t, err)
+	assert.Zero(t, remaining)
+	cleanup, err := model.DeleteOldLogBatchDetailed(t.Context(), conflictLog.CreatedAt+1, 10)
+	require.NoError(t, err)
+	assert.Zero(t, cleanup.Deleted)
+	require.NoError(t, db.Model(&model.Log{}).Where("billing_event_id = ?", event.EventID).Count(&logCount).Error)
+	assert.EqualValues(t, 1, logCount)
 }
 
 func TestTaskBillingOutboxService_FailureRetry(t *testing.T) {
@@ -299,4 +376,117 @@ func TestTaskBillingOutboxService_LegacyEmptyBillingRequestIDUsesDeterministicEv
 	require.NoError(t, db.Where("billing_event_id = ?", event.EventID).First(&logRecord).Error)
 	digest := sha256.Sum256([]byte(event.EventID))
 	assert.Equal(t, "billing_"+hex.EncodeToString(digest[:])[:48], logRecord.RequestId)
+}
+
+type serviceClickHouseSQLiteDialector struct {
+	gorm.Dialector
+}
+
+func (serviceClickHouseSQLiteDialector) Name() string {
+	return string(common.DatabaseTypeClickHouse)
+}
+
+func openTaskBillingClickHouseSQLiteFixture(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(serviceClickHouseSQLiteDialector{Dialector: sqlite.Open("file:" + t.Name() + "?mode=memory&cache=shared")}, &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
+	require.NoError(t, db.Exec(`CREATE TABLE logs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER DEFAULT 0,
+		created_at INTEGER DEFAULT 0,
+		type INTEGER DEFAULT 0,
+		content TEXT DEFAULT '',
+		username TEXT DEFAULT '',
+		token_name TEXT DEFAULT '',
+		model_name TEXT DEFAULT '',
+		quota INTEGER DEFAULT 0,
+		prompt_tokens INTEGER DEFAULT 0,
+		completion_tokens INTEGER DEFAULT 0,
+		use_time INTEGER DEFAULT 0,
+		is_stream INTEGER DEFAULT 0,
+		channel_id INTEGER DEFAULT 0,
+		token_id INTEGER DEFAULT 0,
+		"group" TEXT DEFAULT '',
+		ip TEXT DEFAULT '',
+		request_id TEXT DEFAULT '',
+		upstream_request_id TEXT DEFAULT '',
+		billing_event_id TEXT DEFAULT '',
+		billing_projection_digest TEXT DEFAULT '',
+		log_row_key TEXT DEFAULT '',
+		other TEXT DEFAULT ''
+	)`).Error)
+	require.NoError(t, db.Exec(`CREATE TABLE billing_log_projection_identities (
+		billing_event_id TEXT,
+		digest TEXT,
+		canonical_version INTEGER,
+		status TEXT DEFAULT 'canonical',
+		reason TEXT DEFAULT '',
+		updated_at INTEGER
+	)`).Error)
+	return db
+}
+
+func TestTaskBillingOutboxServiceClickHouseUsesIdentityWithoutScanningLogs(t *testing.T) {
+	mainDB := setupTaskSubmissionTestDB(t)
+	event, outbox := createTestOutbox(t, mainDB, "clickhouse-identity")
+	logDB := openTaskBillingClickHouseSQLiteFixture(t)
+	candidate := testOutboxLog(event, outbox)
+	require.NoError(t, model.PrepareLogProjectionIdentity(&candidate))
+	require.NoError(t, logDB.Exec(
+		"INSERT INTO billing_log_projection_identities (billing_event_id, digest, canonical_version, status, reason, updated_at) VALUES (?, ?, ?, 'canonical', '', ?)",
+		candidate.BillingEventID, candidate.BillingProjectionDigest, 1, 1,
+	).Error)
+
+	const queryGuard = "test:clickhouse-outbox-no-log-scan"
+	require.NoError(t, logDB.Callback().Query().Before("gorm:query").Register(queryGuard, func(tx *gorm.DB) {
+		if tx.Statement != nil && tx.Statement.Table == "logs" {
+			tx.AddError(errors.New("outbox attempted to scan ClickHouse logs"))
+		}
+	}))
+
+	svc := NewTaskBillingOutboxService("clickhouse-identity-worker")
+	svc.LogDB = logDB
+	delivered, err := svc.ProcessClaimableBatch(t.Context(), mainDB)
+	require.NoError(t, err)
+	assert.Equal(t, 1, delivered)
+	require.NoError(t, logDB.Callback().Query().Remove(queryGuard))
+
+	var logCount int64
+	require.NoError(t, logDB.Table("logs").Where("billing_event_id = ?", event.EventID).Count(&logCount).Error)
+	assert.Equal(t, int64(1), logCount)
+	var reloaded model.TaskBillingLogOutbox
+	require.NoError(t, mainDB.First(&reloaded, outbox.ID).Error)
+	assert.Equal(t, model.TaskBillingLogOutboxStateDelivered, reloaded.State)
+}
+
+func TestTaskBillingOutboxServiceClickHouseIdentityConflictQuarantines(t *testing.T) {
+	mainDB := setupTaskSubmissionTestDB(t)
+	event, outbox := createTestOutbox(t, mainDB, "clickhouse-conflict")
+	logDB := openTaskBillingClickHouseSQLiteFixture(t)
+	candidate := testOutboxLog(event, outbox)
+	require.NoError(t, model.PrepareLogProjectionIdentity(&candidate))
+	conflictingDigest := "1" + strings.Repeat("f", 64)
+	require.NotEqual(t, candidate.BillingProjectionDigest, conflictingDigest)
+	require.NoError(t, logDB.Exec(
+		"INSERT INTO billing_log_projection_identities (billing_event_id, digest, canonical_version, status, reason, updated_at) VALUES (?, ?, ?, 'canonical', '', ?)",
+		candidate.BillingEventID, conflictingDigest, 1, 1,
+	).Error)
+
+	svc := NewTaskBillingOutboxService("clickhouse-conflict-worker")
+	svc.LogDB = logDB
+	delivered, err := svc.ProcessClaimableBatch(t.Context(), mainDB)
+	require.NoError(t, err)
+	assert.Zero(t, delivered)
+
+	var logCount int64
+	require.NoError(t, logDB.Table("logs").Count(&logCount).Error)
+	assert.Zero(t, logCount)
+	var reloaded model.TaskBillingLogOutbox
+	require.NoError(t, mainDB.First(&reloaded, outbox.ID).Error)
+	assert.Equal(t, model.TaskBillingLogOutboxStateQuarantined, reloaded.State)
+	assert.Equal(t, ErrorCodeBillingProjectionConflict, reloaded.LastErrorCode)
 }

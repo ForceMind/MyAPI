@@ -145,16 +145,41 @@ func TestB2SubmissionConfiguredDatabases(t *testing.T) {
 			})
 			legacy := createB2LegacyLogsFixture(t, db)
 			createTaskQuotaLegacyFixture(t, db)
-			require.NoError(t, migrateDB())
+			require.ErrorIs(t, migrateDB(), ErrLogProjectionMaintenanceRequired)
 			assertTaskQuotaLegacyFixtureMigrated(t, db)
 			assertB2RecoveryMainSchema(t, db)
-			assertB2LegacyLogsMigrated(t, db, legacy)
-			require.NoError(t, migrateDBFast())
+			assertLegacyLogsStartupRequiresMaintenance(t, db, legacy)
+			require.ErrorIs(t, migrateDBFast(), ErrLogProjectionMaintenanceRequired)
 			assertTaskQuotaLegacyFixtureMigrated(t, db)
 			assertB2RecoveryMainSchema(t, db)
+			assertLegacyLogsStartupRequiresMaintenance(t, db, legacy)
+			require.ErrorIs(t, migrateLOGDB(), ErrLogProjectionMaintenanceRequired)
+			assertLegacyLogsStartupRequiresMaintenance(t, db, legacy)
+			// The configured database fixture then models the explicit operator
+			// maintenance step before exercising online index creation and backfill.
+			require.NoError(t, EnsureLogProjectionSchemaWithDB(db))
 			assertB2LegacyLogsMigrated(t, db, legacy)
-			require.NoError(t, migrateLOGDB())
-			assertB2LegacyLogsMigrated(t, db, legacy)
+			var mysqlLockWait, mysqlInnoDBLockWait int64
+			var postgresLockTimeout string
+			if engine.name == "mysql" {
+				require.NoError(t, db.Raw("SELECT @@SESSION.lock_wait_timeout").Scan(&mysqlLockWait).Error)
+				require.NoError(t, db.Raw("SELECT @@SESSION.innodb_lock_wait_timeout").Scan(&mysqlInnoDBLockWait).Error)
+			} else {
+				require.NoError(t, db.Raw("SHOW lock_timeout").Scan(&postgresLockTimeout).Error)
+			}
+			runLogProjectionBackfillDatabaseContract(t, db)
+			if engine.name == "mysql" {
+				var restoredLockWait, restoredInnoDBLockWait int64
+				require.NoError(t, db.Raw("SELECT @@SESSION.lock_wait_timeout").Scan(&restoredLockWait).Error)
+				require.NoError(t, db.Raw("SELECT @@SESSION.innodb_lock_wait_timeout").Scan(&restoredInnoDBLockWait).Error)
+				assert.Equal(t, mysqlLockWait, restoredLockWait)
+				assert.Equal(t, mysqlInnoDBLockWait, restoredInnoDBLockWait)
+			} else {
+				var restoredLockTimeout string
+				require.NoError(t, db.Raw("SHOW lock_timeout").Scan(&restoredLockTimeout).Error)
+				assert.Equal(t, postgresLockTimeout, restoredLockTimeout)
+			}
+			runLogDedupDatabaseContract(t, db)
 			sqlDB.SetMaxOpenConns(2)
 			runB2TaskRecoveryIdentityConcurrentContract(t, db)
 			sqlDB.SetMaxOpenConns(1)
@@ -200,11 +225,12 @@ func createB2LegacyLogsFixture(t *testing.T, db *gorm.DB) b2LegacyLog {
 
 func assertB2LegacyLogsMigrated(t *testing.T, db *gorm.DB, legacy b2LegacyLog) {
 	t.Helper()
-	require.True(t, db.Migrator().HasColumn(&Log{}, "BillingEventID"))
+	for _, column := range []string{"BillingEventID", "BillingProjectionDigest", "LogRowKey"} {
+		require.True(t, db.Migrator().HasColumn(&Log{}, column), "missing column %s", column)
+	}
 	for _, index := range []string{
 		"idx_logs_request_id",
 		"idx_logs_upstream_request_id",
-		"idx_logs_billing_event_id",
 	} {
 		require.True(t, db.Migrator().HasIndex(&Log{}, index), "missing index %s", index)
 	}
@@ -232,6 +258,8 @@ func assertB2LegacyLogsMigrated(t *testing.T, db *gorm.DB, legacy b2LegacyLog) {
 	assert.Equal(t, legacy.UpstreamRequestId, historical.UpstreamRequestId)
 	assert.Equal(t, legacy.Other, historical.Other)
 	assert.Empty(t, historical.BillingEventID)
+	assert.Empty(t, historical.BillingProjectionDigest)
+	assert.Empty(t, historical.LogRowKey)
 }
 
 // migrateB2LegacyLogsFixture exercises the production log migration against
@@ -241,15 +269,17 @@ func migrateB2LegacyLogsFixture(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	legacy := createB2LegacyLogsFixture(t, db)
 	require.NoError(t, db.AutoMigrate(&Log{}))
+	require.NoError(t, EnsureLogProjectionSchemaWithDB(db))
 	assertB2LegacyLogsMigrated(t, db, legacy)
 
 	// Startup migrations must remain safe to repeat after an upgrade.
 	require.NoError(t, db.AutoMigrate(&Log{}))
+	require.NoError(t, EnsureLogProjectionSchemaWithDB(db))
 	require.True(t, db.Migrator().HasTable(&Log{}))
-	require.True(t, db.Migrator().HasIndex(&Log{}, "idx_logs_billing_event_id"))
+	require.False(t, db.Migrator().HasIndex(&Log{}, "idx_logs_billing_canonical"))
 
 	current := Log{Content: "current-b2-log"}
-	require.NoError(t, db.Create(&current).Error)
+	require.NoError(t, CreateLog(db, &current))
 	require.NotZero(t, current.Id)
 	assert.NotEqual(t, legacy.Id, current.Id)
 }

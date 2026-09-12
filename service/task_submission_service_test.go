@@ -47,6 +47,7 @@ func setupTaskSubmissionTestDB(t *testing.T) *gorm.DB {
 		&model.Log{},
 	)
 	require.NoError(t, err)
+	require.NoError(t, model.EnsureLogProjectionSchemaWithDB(db))
 	require.NoError(t, db.Create(&model.Channel{Id: 101, Name: "submission-test"}).Error)
 	return db
 }

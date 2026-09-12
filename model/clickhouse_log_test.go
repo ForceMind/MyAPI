@@ -69,12 +69,12 @@ func TestChooseDBRejectsClickHouseForMainDatabase(t *testing.T) {
 func TestClickHouseLogTTLExpression(t *testing.T) {
 	assert.Equal(t, "", clickHouseLogTTLExpression(0))
 	assert.Equal(t, "", clickHouseLogTTLExpression(-5))
-	assert.Equal(t, "toDateTime(created_at) + INTERVAL 30 DAY DELETE", clickHouseLogTTLExpression(30))
+	assert.Equal(t, "toDateTime(created_at) + INTERVAL 30 DAY DELETE WHERE billing_event_id = ''", clickHouseLogTTLExpression(30))
 }
 
 func TestClickHouseLogTTLClause(t *testing.T) {
 	assert.Equal(t, "", clickHouseLogTTLClause(0))
-	assert.Equal(t, "\nTTL toDateTime(created_at) + INTERVAL 7 DAY DELETE", clickHouseLogTTLClause(7))
+	assert.Equal(t, "\nTTL toDateTime(created_at) + INTERVAL 7 DAY DELETE WHERE billing_event_id = ''", clickHouseLogTTLClause(7))
 }
 
 func TestClickHouseLogCreateTableSQL(t *testing.T) {
@@ -82,11 +82,15 @@ func TestClickHouseLogCreateTableSQL(t *testing.T) {
 	assert.Contains(t, withoutTTL, "CREATE TABLE IF NOT EXISTS logs")
 	assert.Contains(t, withoutTTL, "ENGINE = MergeTree()")
 	assert.Contains(t, withoutTTL, "PARTITION BY toYYYYMM(toDateTime(created_at))")
-	assert.Contains(t, withoutTTL, "ORDER BY (created_at, request_id)")
+	assert.Contains(t, withoutTTL, "billing_projection_digest String DEFAULT ''")
+	assert.Contains(t, withoutTTL, "log_row_key String DEFAULT ''")
+	assert.Contains(t, withoutTTL, "PROJECTION "+clickHouseCanonicalProjection)
+	assert.Contains(t, withoutTTL, "argMin(")
+	assert.Contains(t, withoutTTL, "ORDER BY (created_at, request_id, log_row_key)")
 	assert.NotContains(t, withoutTTL, "TTL ")
 
 	withTTL := clickHouseLogCreateTableSQL(30)
-	assert.Contains(t, withTTL, "ORDER BY (created_at, request_id)")
+	assert.Contains(t, withTTL, "ORDER BY (created_at, request_id, log_row_key)")
 	assert.Contains(t, withTTL, "TTL toDateTime(created_at) + INTERVAL 30 DAY DELETE")
 }
 
@@ -97,8 +101,15 @@ func TestClickHouseCreateTableHasTTL(t *testing.T) {
 }
 
 func TestClickHouseLogOrder(t *testing.T) {
-	assert.Equal(t, "created_at desc, request_id desc", clickHouseLogOrder(""))
-	assert.Equal(t, "logs.created_at desc, logs.request_id desc", clickHouseLogOrder("logs."))
+	order := clickHouseLogOrder("")
+	assert.Contains(t, order, "created_at desc, request_id desc")
+	assert.Contains(t, order, "CASE WHEN log_row_key = '' THEN 1 ELSE 0 END")
+	assert.Contains(t, order, "COALESCE(content, '') desc")
+	assert.Contains(t, order, "log_row_key desc")
+	assert.Contains(t, order, "id desc")
+	prefixed := clickHouseLogOrder("logs.")
+	assert.Contains(t, prefixed, "logs.created_at desc")
+	assert.Contains(t, prefixed, "COALESCE(logs.content, '') desc")
 }
 
 func TestBuildLogLikeConditionUsesStandardEscape(t *testing.T) {

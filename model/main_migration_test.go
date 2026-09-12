@@ -88,6 +88,7 @@ func assertB2RecoveryMainSchema(t *testing.T, db *gorm.DB) {
 		&TaskSubmissionAttempt{},
 		&TaskBillingEvent{},
 		&TaskBillingLogOutbox{},
+		&LogProjectionBackfillState{},
 	} {
 		assert.True(t, db.Migrator().HasTable(model))
 	}
@@ -106,6 +107,21 @@ func assertB2RecoveryMainSchema(t *testing.T, db *gorm.DB) {
 	}
 }
 
+func assertLegacyLogsStartupRequiresMaintenance(t *testing.T, db *gorm.DB, legacy b2LegacyLog) {
+	t.Helper()
+	for _, column := range []string{"BillingEventID", "BillingProjectionDigest", "LogRowKey"} {
+		assert.False(t, db.Migrator().HasColumn(&Log{}, column), "startup must not add %s to a non-empty logs table", column)
+	}
+	var historical b2LegacyLog
+	require.NoError(t, db.First(&historical, legacy.Id).Error)
+	assert.Equal(t, legacy, historical)
+	state, err := GetLogProjectionBackfillState(t.Context(), db)
+	require.NoError(t, err)
+	require.NotNil(t, state)
+	assert.Equal(t, LogProjectionBackfillStatusMaintenanceRequired, state.Status)
+	assert.Contains(t, state.LastError, "existing non-empty logs table")
+}
+
 func TestB2RecoveryMainMigrationEntriesPreserveLegacyLogsSQLite(t *testing.T) {
 	for _, entry := range []struct {
 		name string
@@ -117,12 +133,12 @@ func TestB2RecoveryMainMigrationEntriesPreserveLegacyLogsSQLite(t *testing.T) {
 		t.Run(entry.name, func(t *testing.T) {
 			db := useB2MainMigrationSQLite(t)
 			legacy := createB2LegacyLogsFixture(t, db)
-			require.NoError(t, entry.run())
+			require.ErrorIs(t, entry.run(), ErrLogProjectionMaintenanceRequired)
 			assertB2RecoveryMainSchema(t, db)
-			assertB2LegacyLogsMigrated(t, db, legacy)
-			require.NoError(t, entry.run())
+			assertLegacyLogsStartupRequiresMaintenance(t, db, legacy)
+			require.ErrorIs(t, entry.run(), ErrLogProjectionMaintenanceRequired)
 			assertB2RecoveryMainSchema(t, db)
-			assertB2LegacyLogsMigrated(t, db, legacy)
+			assertLegacyLogsStartupRequiresMaintenance(t, db, legacy)
 		})
 	}
 }
@@ -133,17 +149,124 @@ func TestB2RecoveryLogMigrationEntryPreservesLegacyLogsSQLite(t *testing.T) {
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
-	previousLogDB, previousLogType := LOG_DB, common.LogDatabaseType()
-	LOG_DB = db
+	previousDB, previousLogDB, previousLogType := DB, LOG_DB, common.LogDatabaseType()
+	DB, LOG_DB = db, db
 	common.SetLogDatabaseType(common.DatabaseTypeSQLite)
 	t.Cleanup(func() {
-		LOG_DB = previousLogDB
+		DB, LOG_DB = previousDB, previousLogDB
 		common.SetLogDatabaseType(previousLogType)
 		require.NoError(t, sqlDB.Close())
 	})
+	require.NoError(t, db.AutoMigrate(&LogProjectionBackfillState{}))
 	legacy := createB2LegacyLogsFixture(t, db)
-	require.NoError(t, migrateLOGDB())
-	assertB2LegacyLogsMigrated(t, db, legacy)
-	require.NoError(t, migrateLOGDB())
-	assertB2LegacyLogsMigrated(t, db, legacy)
+	require.ErrorIs(t, migrateLOGDB(), ErrLogProjectionMaintenanceRequired)
+	assertLegacyLogsStartupRequiresMaintenance(t, db, legacy)
+	require.ErrorIs(t, migrateLOGDB(), ErrLogProjectionMaintenanceRequired)
+	assertLegacyLogsStartupRequiresMaintenance(t, db, legacy)
+}
+
+func TestSeparateLogDatabaseLeavesMainLogsSchemaUntouched(t *testing.T) {
+	for _, entry := range []struct {
+		name string
+		run  func() error
+	}{
+		{"normal", migrateDB},
+		{"fast", migrateDBFast},
+	} {
+		t.Run(entry.name, func(t *testing.T) {
+			db := useB2MainMigrationSQLite(t)
+			legacy := createB2LegacyLogsFixture(t, db)
+			t.Setenv("LOG_SQL_DSN", "configured-separate-log-database")
+			require.NoError(t, entry.run())
+			for _, column := range []string{"BillingEventID", "BillingProjectionDigest", "LogRowKey"} {
+				assert.False(t, db.Migrator().HasColumn(&Log{}, column), "main database logs must remain untouched when LOG_SQL_DSN is independent")
+			}
+			var historical b2LegacyLog
+			require.NoError(t, db.First(&historical, legacy.Id).Error)
+			assert.Equal(t, legacy, historical)
+		})
+	}
+}
+
+func TestNonMasterLogGuardRejectsDirectCreateAndAllowsCreateLog(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
+	require.NoError(t, db.AutoMigrate(&Log{}))
+	require.NoError(t, EnsureLogProjectionSchemaWithDB(db))
+
+	previousMaster := common.IsMasterNode
+	common.IsMasterNode = false
+	t.Cleanup(func() { common.IsMasterNode = previousMaster })
+	require.NoError(t, registerLogCreateGuard(db))
+
+	direct := &Log{Content: "direct"}
+	require.ErrorContains(t, db.Create(direct).Error, "CreateLog or CreateLogs")
+	controlled := &Log{Content: "controlled"}
+	require.NoError(t, CreateLog(db, controlled))
+	assert.NotEmpty(t, controlled.LogRowKey)
+}
+
+func TestNonMasterIndependentLogDatabaseGuardIsRegistered(t *testing.T) {
+	mainDB, err := gorm.Open(sqlite.Open("file:"+t.Name()+"_main?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	logDB, err := gorm.Open(sqlite.Open("file:"+t.Name()+"_log?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	mainSQL, err := mainDB.DB()
+	require.NoError(t, err)
+	logSQL, err := logDB.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, mainSQL.Close())
+		require.NoError(t, logSQL.Close())
+	})
+	require.NoError(t, logDB.AutoMigrate(&Log{}))
+	require.NoError(t, EnsureLogProjectionSchemaWithDB(logDB))
+
+	previousMaster := common.IsMasterNode
+	common.IsMasterNode = false
+	t.Cleanup(func() { common.IsMasterNode = previousMaster })
+	require.NoError(t, registerLogCreateGuard(mainDB))
+	require.NoError(t, registerLogCreateGuard(logDB))
+
+	require.ErrorContains(t, logDB.Create(&Log{Content: "direct-independent"}).Error, "CreateLog or CreateLogs")
+	require.NoError(t, CreateLog(logDB, &Log{Content: "controlled-independent"}))
+	assert.False(t, mainDB.Migrator().HasTable(&Log{}), "independent LOG_DB initialization must not create main-database logs")
+}
+
+func TestEnsureLogProjectionSchemaAddsAllColumnsToEmptyLegacySQLiteTable(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
+	require.NoError(t, db.Exec("CREATE TABLE logs (id INTEGER PRIMARY KEY, content TEXT)").Error)
+	require.NoError(t, EnsureLogProjectionSchemaWithDB(db))
+	for _, column := range []string{"BillingEventID", "BillingProjectionDigest", "LogRowKey"} {
+		assert.True(t, db.Migrator().HasColumn(&Log{}, column), "missing column %s", column)
+	}
+}
+
+func TestNonMasterStartupValidatesSharedAndIndependentLegacyLogSchemaReadOnly(t *testing.T) {
+	for _, mode := range []string{"shared", "independent"} {
+		t.Run(mode, func(t *testing.T) {
+			db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+			require.NoError(t, err)
+			sqlDB, err := db.DB()
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
+			require.NoError(t, db.Exec("CREATE TABLE logs (id INTEGER PRIMARY KEY, content TEXT)").Error)
+
+			err = ValidateLogProjectionSchemaWithDB(db)
+			require.ErrorIs(t, err, ErrLogProjectionMaintenanceRequired)
+			assert.Contains(t, err.Error(), "billing_event_id")
+			assert.Contains(t, err.Error(), clickHouseIdentityTable)
+			for _, column := range []string{"BillingEventID", "BillingProjectionDigest", "LogRowKey"} {
+				assert.False(t, db.Migrator().HasColumn(&Log{}, column), "non-master validation must not add %s", column)
+			}
+			assert.False(t, db.Migrator().HasTable(&BillingLogProjectionIdentity{}), "non-master validation must not create identity state")
+		})
+	}
 }

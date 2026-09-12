@@ -2391,10 +2391,11 @@ func taskBillingEventSemanticallyMatches(existing, candidate *TaskBillingEvent) 
 type TaskBillingLogOutboxState string
 
 const (
-	TaskBillingLogOutboxStatePending   TaskBillingLogOutboxState = "pending"
-	TaskBillingLogOutboxStateClaimed   TaskBillingLogOutboxState = "claimed"
-	TaskBillingLogOutboxStateRetryable TaskBillingLogOutboxState = "retryable"
-	TaskBillingLogOutboxStateDelivered TaskBillingLogOutboxState = "delivered"
+	TaskBillingLogOutboxStatePending     TaskBillingLogOutboxState = "pending"
+	TaskBillingLogOutboxStateClaimed     TaskBillingLogOutboxState = "claimed"
+	TaskBillingLogOutboxStateRetryable   TaskBillingLogOutboxState = "retryable"
+	TaskBillingLogOutboxStateDelivered   TaskBillingLogOutboxState = "delivered"
+	TaskBillingLogOutboxStateQuarantined TaskBillingLogOutboxState = "quarantined"
 )
 
 func (state TaskBillingLogOutboxState) Valid() bool {
@@ -2402,7 +2403,8 @@ func (state TaskBillingLogOutboxState) Valid() bool {
 	case TaskBillingLogOutboxStatePending,
 		TaskBillingLogOutboxStateClaimed,
 		TaskBillingLogOutboxStateRetryable,
-		TaskBillingLogOutboxStateDelivered:
+		TaskBillingLogOutboxStateDelivered,
+		TaskBillingLogOutboxStateQuarantined:
 		return true
 	default:
 		return false
@@ -2414,7 +2416,7 @@ func CanTransitionTaskBillingLogOutbox(from, to TaskBillingLogOutboxState) bool 
 	case TaskBillingLogOutboxStatePending, TaskBillingLogOutboxStateRetryable:
 		return to == TaskBillingLogOutboxStateClaimed
 	case TaskBillingLogOutboxStateClaimed:
-		return to == TaskBillingLogOutboxStateRetryable || to == TaskBillingLogOutboxStateDelivered
+		return to == TaskBillingLogOutboxStateRetryable || to == TaskBillingLogOutboxStateDelivered || to == TaskBillingLogOutboxStateQuarantined
 	default:
 		return false
 	}
@@ -2684,6 +2686,11 @@ func validateStoredTaskBillingLogOutboxState(outbox *TaskBillingLogOutbox) error
 			(outbox.LastErrorAt != 0 && outbox.LastErrorAt > *outbox.DeliveredAt) {
 			return fmt.Errorf("%w: stored delivered task billing log outbox has an invalid receipt", ErrTaskRecoveryInvalidRecord)
 		}
+	case TaskBillingLogOutboxStateQuarantined:
+		if outbox.ClaimedBy != "" || outbox.ClaimedUntil != 0 || outbox.AttemptCount <= 0 || outbox.NextAttemptAt != 0 ||
+			outbox.LastErrorCode == "" || outbox.LastErrorAt <= 0 || outbox.LastErrorAt > outbox.UpdatedAt || outbox.DeliveredAt != nil {
+			return fmt.Errorf("%w: stored quarantined task billing log outbox has invalid terminal state", ErrTaskRecoveryInvalidRecord)
+		}
 	}
 	return nil
 }
@@ -2798,6 +2805,14 @@ func TransitionTaskBillingLogOutbox(tx *gorm.DB, outboxID int64, transition Task
 				return false, err
 			}
 			updates["next_attempt_at"] = nextAttemptAt
+			updates["last_error_code"] = errorCode
+			updates["last_error_at"] = transitionedAt
+		case TaskBillingLogOutboxStateQuarantined:
+			errorCode := strings.TrimSpace(transition.LastErrorCode)
+			if transition.RetryDelaySeconds != 0 || errorCode == "" || len(errorCode) > 64 {
+				return false, fmt.Errorf("%w: quarantined outbox requires one terminal error code", ErrTaskRecoveryInvalidRecord)
+			}
+			updates["next_attempt_at"] = 0
 			updates["last_error_code"] = errorCode
 			updates["last_error_at"] = transitionedAt
 		}

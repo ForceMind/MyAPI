@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -20,8 +21,9 @@ const (
 	DefaultOutboxBatchSize     = 50
 	DefaultOutboxMaxAttempts   = 5
 
-	ErrorCodeLogDeliveryFailed   = "log_delivery_failed"
-	ErrorCodeMaxAttemptsExceeded = "max_attempts_exceeded"
+	ErrorCodeLogDeliveryFailed         = "log_delivery_failed"
+	ErrorCodeMaxAttemptsExceeded       = "max_attempts_exceeded"
+	ErrorCodeBillingProjectionConflict = "billing_projection_conflict"
 )
 
 // TaskBillingOutboxService delivers pending and retryable task billing outbox items
@@ -189,47 +191,67 @@ func (s *TaskBillingOutboxService) ProcessClaimableBatch(ctx context.Context, db
 		outbox.LockVersion++
 		outbox.AttemptCount++
 
-		// 2. Deliver log idempotently
+		// 2. Deliver the immutable log projection idempotently. Existing rows
+		// are validated against the authoritative outbox payload before a replay
+		// is accepted as already delivered.
+		logRecord := model.Log{
+			UserId:            outbox.Payload.UserID,
+			CreatedAt:         outbox.Payload.CreatedAt,
+			Type:              outbox.Payload.Type,
+			Content:           outbox.Payload.Content,
+			Username:          outbox.Payload.Username,
+			TokenName:         outbox.Payload.TokenName,
+			ModelName:         outbox.Payload.ModelName,
+			Quota:             outbox.Payload.Quota,
+			PromptTokens:      outbox.Payload.PromptTokens,
+			CompletionTokens:  outbox.Payload.CompletionTokens,
+			UseTime:           outbox.Payload.UseTime,
+			IsStream:          outbox.Payload.IsStream,
+			ChannelId:         outbox.Payload.ChannelID,
+			TokenId:           outbox.Payload.TokenID,
+			Group:             outbox.Payload.Group,
+			Ip:                outbox.Payload.IP,
+			RequestId:         outbox.Payload.RequestID,
+			UpstreamRequestId: outbox.Payload.UpstreamRequestID,
+			BillingEventID:    outbox.BillingEventID,
+			Other:             outbox.Payload.Other,
+		}
+		if logRecord.RequestId == "" {
+			if outbox.BillingEventID != "" {
+				digest := sha256.Sum256([]byte(outbox.BillingEventID))
+				logRecord.RequestId = "billing_" + hex.EncodeToString(digest[:])[:48]
+			} else {
+				logRecord.RequestId = common.NewRequestId()
+			}
+		}
+		if logRecord.CreatedAt == 0 {
+			logRecord.CreatedAt = now
+		}
+
 		var deliverErr error
-		var existingCount int64
-		if err := logDB.WithContext(ctx).Model(&model.Log{}).Where("billing_event_id = ?", outbox.BillingEventID).Count(&existingCount).Error; err != nil {
+		if err := model.PrepareLogProjectionIdentity(&logRecord); err != nil {
 			deliverErr = err
-		} else if existingCount == 0 {
-			logRecord := model.Log{
-				UserId:            outbox.Payload.UserID,
-				CreatedAt:         outbox.Payload.CreatedAt,
-				Type:              outbox.Payload.Type,
-				Content:           outbox.Payload.Content,
-				Username:          outbox.Payload.Username,
-				TokenName:         outbox.Payload.TokenName,
-				ModelName:         outbox.Payload.ModelName,
-				Quota:             outbox.Payload.Quota,
-				PromptTokens:      outbox.Payload.PromptTokens,
-				CompletionTokens:  outbox.Payload.CompletionTokens,
-				UseTime:           outbox.Payload.UseTime,
-				IsStream:          outbox.Payload.IsStream,
-				ChannelId:         outbox.Payload.ChannelID,
-				TokenId:           outbox.Payload.TokenID,
-				Group:             outbox.Payload.Group,
-				Ip:                outbox.Payload.IP,
-				RequestId:         outbox.Payload.RequestID,
-				UpstreamRequestId: outbox.Payload.UpstreamRequestID,
-				BillingEventID:    outbox.BillingEventID,
-				Other:             outbox.Payload.Other,
-			}
-			if logRecord.RequestId == "" {
-				if outbox.BillingEventID != "" {
-					digest := sha256.Sum256([]byte(outbox.BillingEventID))
-					logRecord.RequestId = "billing_" + hex.EncodeToString(digest[:])[:48]
-				} else {
-					logRecord.RequestId = common.NewRequestId()
-				}
-			}
-			if logRecord.CreatedAt == 0 {
-				logRecord.CreatedAt = now
-			}
-			if err := logDB.WithContext(ctx).Create(&logRecord).Error; err != nil {
+		} else if logDB.Dialector.Name() == string(common.DatabaseTypeClickHouse) {
+			if err := model.EnsureClickHouseBillingProjectionIdentity(
+				ctx,
+				logDB,
+				logRecord.BillingEventID,
+				logRecord.BillingProjectionDigest,
+			); err != nil {
 				deliverErr = err
+			} else {
+				deliverErr = model.CreateLog(logDB.WithContext(ctx), &logRecord)
+			}
+		} else {
+			var existingLogs []*model.Log
+			if err := logDB.WithContext(ctx).
+				Where("billing_event_id = ?", outbox.BillingEventID).
+				Find(&existingLogs).Error; err != nil {
+				deliverErr = err
+			} else if err := model.ValidateBillingProjectionCompatibility(&logRecord, existingLogs); err != nil {
+				deliverErr = err
+			} else if len(existingLogs) == 0 {
+				deliverErr = model.CreateLog(logDB.WithContext(ctx), &logRecord)
 			}
 		}
 
@@ -248,6 +270,25 @@ func (s *TaskBillingOutboxService) ProcessClaimableBatch(ctx context.Context, db
 			}
 		} else {
 			logger.LogError(ctx, fmt.Sprintf("task billing outbox delivery failed for %s (id=%d, attempt=%d): %v", outbox.BillingEventID, outbox.ID, outbox.AttemptCount, deliverErr))
+			if errors.Is(deliverErr, model.ErrBillingProjectionConflict) || errors.Is(deliverErr, model.ErrBillingProjectionDigestMismatch) {
+				quarantineErr := model.QuarantineBillingProjectionEvent(ctx, logDB, outbox.BillingEventID, deliverErr.Error())
+				if quarantineErr != nil {
+					logger.LogError(ctx, fmt.Sprintf("failed to persist billing projection quarantine for outbox %d: %v", outbox.ID, quarantineErr))
+					deliverErr = errors.Join(deliverErr, quarantineErr)
+				} else {
+					_, quarantineErr = model.TransitionTaskBillingLogOutbox(db, outbox.ID, model.TaskBillingLogOutboxTransition{
+						From:            model.TaskBillingLogOutboxStateClaimed,
+						To:              model.TaskBillingLogOutboxStateQuarantined,
+						WorkerID:        workerID,
+						ExpectedVersion: outbox.LockVersion,
+						LastErrorCode:   ErrorCodeBillingProjectionConflict,
+					})
+					if quarantineErr != nil {
+						logger.LogError(ctx, fmt.Sprintf("failed to quarantine task billing outbox %d: %v", outbox.ID, quarantineErr))
+					}
+					continue
+				}
+			}
 			errorCode := ErrorCodeLogDeliveryFailed
 			var retryDelay int64
 

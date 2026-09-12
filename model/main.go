@@ -1,6 +1,8 @@
 package model
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/url"
@@ -188,6 +190,9 @@ func InitDB() (err error) {
 			db = db.Debug()
 		}
 		DB = db
+		if err := registerLogCreateGuard(DB); err != nil {
+			return fmt.Errorf("register main database log create guard: %w", err)
+		}
 		if err := registerTaskRecoveryGormGuards(DB); err != nil {
 			return fmt.Errorf("register task recovery GORM guards: %w", err)
 		}
@@ -206,6 +211,11 @@ func InitDB() (err error) {
 		sqlDB.SetConnMaxLifetime(time.Second * time.Duration(common.GetEnvOrDefault("SQL_MAX_LIFETIME", 60)))
 
 		if !common.IsMasterNode {
+			if os.Getenv("LOG_SQL_DSN") == "" {
+				if err := ValidateLogProjectionSchemaWithDB(DB); err != nil {
+					return err
+				}
+			}
 			if common.IsTaskRecoveryIdentityRequired() {
 				if err := EnsureTaskRecoveryIdentity(DB); err != nil {
 					return fmt.Errorf("task recovery database identity verification failed: %w", err)
@@ -237,7 +247,7 @@ func InitLogDB() (err error) {
 		LOG_DB = DB
 		common.SetLogDatabaseType(common.MainDatabaseType())
 		initCol()
-		return
+		return registerLogCreateGuard(LOG_DB)
 	}
 	db, dbType, err := chooseDB("LOG_SQL_DSN", true)
 	if err == nil {
@@ -247,6 +257,9 @@ func InitLogDB() (err error) {
 			db = db.Debug()
 		}
 		LOG_DB = db
+		if err := registerLogCreateGuard(LOG_DB); err != nil {
+			return fmt.Errorf("register log database create guard: %w", err)
+		}
 		// If log DB is MySQL, also ensure Chinese-capable charset
 		if common.UsingLogDatabase(common.DatabaseTypeMySQL) {
 			if err := checkMySQLChineseSupport(LOG_DB); err != nil {
@@ -262,7 +275,7 @@ func InitLogDB() (err error) {
 		sqlDB.SetConnMaxLifetime(time.Second * time.Duration(common.GetEnvOrDefault("SQL_MAX_LIFETIME", 60)))
 
 		if !common.IsMasterNode {
-			return nil
+			return ValidateLogProjectionSchemaWithDB(LOG_DB)
 		}
 		common.SysLog("database migration started")
 		err = migrateLOGDB()
@@ -298,7 +311,6 @@ func migrateDB() error {
 		&Option{},
 		&Redemption{},
 		&Ability{},
-		&Log{},
 		&Midjourney{},
 		&TopUp{},
 		&QuotaData{},
@@ -327,11 +339,17 @@ func migrateDB() error {
 		&SystemInstance{},
 		&SystemTask{},
 		&SystemTaskLock{},
+		&LogProjectionBackfillState{},
 		&CasbinRule{},
 		&AuthzRole{},
 	)
 	if err != nil {
 		return err
+	}
+	if os.Getenv("LOG_SQL_DSN") == "" {
+		if err := migrateRelationalLogDBStartup(DB); err != nil {
+			return err
+		}
 	}
 	if err := ensureUserNormalizedEmail(); err != nil {
 		return err
@@ -386,7 +404,6 @@ func migrateDBFast() error {
 		{&Option{}, "Option"},
 		{&Redemption{}, "Redemption"},
 		{&Ability{}, "Ability"},
-		{&Log{}, "Log"},
 		{&Midjourney{}, "Midjourney"},
 		{&TopUp{}, "TopUp"},
 		{&QuotaData{}, "QuotaData"},
@@ -415,6 +432,7 @@ func migrateDBFast() error {
 		{&SystemInstance{}, "SystemInstance"},
 		{&SystemTask{}, "SystemTask"},
 		{&SystemTaskLock{}, "SystemTaskLock"},
+		{&LogProjectionBackfillState{}, "LogProjectionBackfillState"},
 		{&CasbinRule{}, "CasbinRule"},
 		{&AuthzRole{}, "AuthzRole"},
 	}
@@ -424,6 +442,11 @@ func migrateDBFast() error {
 	for _, m := range migrations {
 		if err := DB.AutoMigrate(m.model); err != nil {
 			return fmt.Errorf("failed to migrate %s: %w", m.name, err)
+		}
+	}
+	if os.Getenv("LOG_SQL_DSN") == "" {
+		if err := migrateRelationalLogDBStartup(DB); err != nil {
+			return err
 		}
 	}
 	if err := ensureUserNormalizedEmail(); err != nil {
@@ -524,7 +547,145 @@ func migrateLOGDB() error {
 	if common.UsingLogDatabase(common.DatabaseTypeClickHouse) {
 		return migrateClickHouseLogDB()
 	}
-	return LOG_DB.AutoMigrate(&Log{})
+	return migrateRelationalLogDBStartup(LOG_DB)
+}
+
+func relationalLogTableHasRows(db *gorm.DB) (bool, error) {
+	var row int
+	result := db.Table("logs").Select("1").Limit(1).Scan(&row)
+	return row == 1, result.Error
+}
+
+func migrateRelationalLogDBStartup(db *gorm.DB) error {
+	if db == nil || db.Dialector == nil {
+		return gorm.ErrInvalidDB
+	}
+	if err := registerLogCreateGuard(db); err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&Log{}) {
+		if err := db.AutoMigrate(&Log{}, &BillingLogProjectionIdentity{}); err != nil {
+			return err
+		}
+		return EnsureLogProjectionSchemaWithDB(db)
+	}
+	if err := db.AutoMigrate(&BillingLogProjectionIdentity{}); err != nil {
+		return fmt.Errorf("migrate billing log projection identity state: %w", err)
+	}
+	hasRows, err := relationalLogTableHasRows(db)
+	if err != nil {
+		return err
+	}
+	missing := make([]string, 0, 3)
+	if !db.Migrator().HasColumn(&Log{}, "BillingEventID") {
+		missing = append(missing, "billing_event_id")
+	}
+	if !db.Migrator().HasColumn(&Log{}, "BillingProjectionDigest") {
+		missing = append(missing, "billing_projection_digest")
+	}
+	if !db.Migrator().HasColumn(&Log{}, "LogRowKey") {
+		missing = append(missing, "log_row_key")
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	if hasRows {
+		reason := "existing non-empty logs table is missing required log projection schema: " + strings.Join(missing, ", ") + "; stop all application nodes, apply the documented additive column DDL, then restart the master node"
+		if err := SetLogProjectionMaintenanceRequired(context.Background(), DB, db, reason); err != nil {
+			return errors.Join(fmt.Errorf("%w: %s", ErrLogProjectionMaintenanceRequired, reason), err)
+		}
+		return fmt.Errorf("%w: %s", ErrLogProjectionMaintenanceRequired, reason)
+	}
+	return EnsureLogProjectionSchemaWithDB(db)
+}
+
+func ValidateLogProjectionSchemaWithDB(db *gorm.DB) error {
+	if db == nil || db.Dialector == nil {
+		return gorm.ErrInvalidDB
+	}
+	missing := make([]string, 0, 5)
+	if db.Dialector.Name() == string(common.DatabaseTypeClickHouse) {
+		logsExists := false
+		for _, table := range []string{"logs", clickHouseIdentityTable} {
+			var count int64
+			if err := db.Raw("SELECT count() FROM system.tables WHERE database = currentDatabase() AND name = ?", table).Scan(&count).Error; err != nil {
+				return err
+			}
+			if count == 0 {
+				missing = append(missing, "table "+table)
+			} else if table == "logs" {
+				logsExists = true
+			}
+		}
+		for _, column := range []string{"billing_event_id", "billing_projection_digest", "log_row_key"} {
+			var count int64
+			if err := db.Raw("SELECT count() FROM system.columns WHERE database = currentDatabase() AND table = 'logs' AND name = ?", column).Scan(&count).Error; err != nil {
+				return err
+			}
+			if count == 0 {
+				missing = append(missing, "column "+column)
+			}
+		}
+		if logsExists {
+			var createSQL string
+			if err := db.Raw("SHOW CREATE TABLE logs").Scan(&createSQL).Error; err != nil {
+				return err
+			}
+			if !strings.Contains(strings.ToLower(createSQL), "projection "+strings.ToLower(clickHouseCanonicalProjection)) {
+				missing = append(missing, "projection "+clickHouseCanonicalProjection)
+			}
+		}
+	} else {
+		if !db.Migrator().HasTable(&Log{}) {
+			missing = append(missing, "table logs")
+		} else {
+			for _, column := range []struct{ field, name string }{
+				{"BillingEventID", "billing_event_id"}, {"BillingProjectionDigest", "billing_projection_digest"}, {"LogRowKey", "log_row_key"},
+			} {
+				if !db.Migrator().HasColumn(&Log{}, column.field) {
+					missing = append(missing, "column "+column.name)
+				}
+			}
+		}
+		if !db.Migrator().HasTable(&BillingLogProjectionIdentity{}) {
+			missing = append(missing, "table "+clickHouseIdentityTable)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("%w: missing %s; run the master-node additive log projection migration before starting non-master nodes", ErrLogProjectionMaintenanceRequired, strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+func EnsureLogProjectionSchemaWithDB(db *gorm.DB) error {
+	if db == nil || db.Dialector == nil || db.Dialector.Name() == string(common.DatabaseTypeClickHouse) {
+		return nil
+	}
+	if !db.Migrator().HasTable(&Log{}) {
+		if err := db.AutoMigrate(&Log{}); err != nil {
+			return err
+		}
+	}
+	if err := db.AutoMigrate(&BillingLogProjectionIdentity{}); err != nil {
+		return fmt.Errorf("migrate billing log projection identity state: %w", err)
+	}
+	for _, column := range []struct {
+		field      string
+		name       string
+		definition string
+	}{
+		{"BillingEventID", "billing_event_id", "varchar(64) NOT NULL DEFAULT ''"},
+		{"BillingProjectionDigest", "billing_projection_digest", "varchar(65) NOT NULL DEFAULT ''"},
+		{"LogRowKey", "log_row_key", "varchar(64) NOT NULL DEFAULT ''"},
+	} {
+		if db.Migrator().HasColumn(&Log{}, column.field) {
+			continue
+		}
+		if err := db.Exec("ALTER TABLE logs ADD COLUMN " + column.name + " " + column.definition).Error; err != nil {
+			return fmt.Errorf("add log projection column %s: %w", column.name, err)
+		}
+	}
+	return nil
 }
 
 // ensureChannelQuotaSnapshotDedupeIndex adds the database-level arbiter used
@@ -583,31 +744,130 @@ func ensureQuotaMutationReceiptSchemaWithDB(db *gorm.DB) error {
 }
 
 func migrateClickHouseLogDB() error {
-	ttlDays := clickHouseLogTTLDays()
-	if err := LOG_DB.Exec(clickHouseLogCreateTableSQL(ttlDays)).Error; err != nil {
+	if err := registerLogCreateGuard(LOG_DB); err != nil {
 		return err
 	}
-	if err := ensureClickHouseLogBillingEventID(); err != nil {
+	ttlDays := clickHouseLogTTLDays()
+	var tableCount int64
+	if err := LOG_DB.Raw("SELECT count() FROM system.tables WHERE database = currentDatabase() AND name = 'logs'").Scan(&tableCount).Error; err != nil {
+		return err
+	}
+	if tableCount == 0 {
+		if err := LOG_DB.Exec(clickHouseLogCreateTableSQL(ttlDays)).Error; err != nil {
+			return err
+		}
+		if err := ensureClickHouseProjectionIdentityTable(); err != nil {
+			return err
+		}
+		return registerLogCreateGuard(LOG_DB)
+	}
+	if err := ensureClickHouseProjectionIdentityTable(); err != nil {
+		return err
+	}
+	var hasRow int
+	if err := LOG_DB.Raw("SELECT 1 FROM logs LIMIT 1").Scan(&hasRow).Error; err != nil {
+		return err
+	}
+	missing := make([]string, 0, 4)
+	for _, column := range []string{"billing_event_id", "billing_projection_digest", "log_row_key"} {
+		exists, err := clickHouseLogColumnExists(column)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			missing = append(missing, column)
+		}
+	}
+	projectionExists, err := clickHouseCanonicalProjectionExists()
+	if err != nil {
+		return err
+	}
+	if !projectionExists {
+		missing = append(missing, "projection "+clickHouseCanonicalProjection)
+	}
+	if hasRow == 1 && len(missing) > 0 {
+		reason := "existing non-empty ClickHouse logs table is missing required log projection schema: " + strings.Join(missing, ", ") + "; stop all application nodes, apply additive columns/projection DDL, then restart the master node"
+		if err := SetLogProjectionMaintenanceRequired(context.Background(), DB, LOG_DB, reason); err != nil {
+			return errors.Join(fmt.Errorf("%w: %s", ErrLogProjectionMaintenanceRequired, reason), err)
+		}
+		return fmt.Errorf("%w: %s", ErrLogProjectionMaintenanceRequired, reason)
+	}
+	for _, column := range []struct {
+		name       string
+		definition string
+	}{
+		{"billing_event_id", "billing_event_id String DEFAULT ''"},
+		{"billing_projection_digest", "billing_projection_digest String DEFAULT ''"},
+		{"log_row_key", "log_row_key String DEFAULT ''"},
+	} {
+		if err := ensureClickHouseLogColumn(column.name, column.definition); err != nil {
+			return err
+		}
+	}
+	if err := ensureClickHouseCanonicalProjection(); err != nil {
 		return err
 	}
 	return syncClickHouseLogTTL(ttlDays)
 }
 
-// ensureClickHouseLogBillingEventID evolves an existing ClickHouse logs table
-// without relying on version-dependent ADD COLUMN IF NOT EXISTS syntax. A
-// second schema check makes concurrent migrators converge if another node adds
-// the column after our first observation.
-func ensureClickHouseLogBillingEventID() error {
-	hasColumn, err := clickHouseLogColumnExists("billing_event_id")
+func ensureClickHouseProjectionIdentityTable() error {
+	if err := LOG_DB.Exec(clickHouseBillingProjectionIdentityCreateTableSQL()).Error; err != nil {
+		return fmt.Errorf("create ClickHouse billing projection identity table: %w", err)
+	}
+	for _, column := range []struct {
+		name       string
+		definition string
+	}{
+		{"status", "status String DEFAULT 'canonical'"},
+		{"reason", "reason String DEFAULT ''"},
+	} {
+		var count int64
+		if err := LOG_DB.Raw("SELECT count() FROM system.columns WHERE database = currentDatabase() AND table = ? AND name = ?", clickHouseIdentityTable, column.name).Scan(&count).Error; err != nil {
+			return err
+		}
+		if count == 0 {
+			if err := LOG_DB.Exec("ALTER TABLE " + clickHouseIdentityTable + " ADD COLUMN IF NOT EXISTS " + column.definition).Error; err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func ensureClickHouseLogColumn(name string, definition string) error {
+	hasColumn, err := clickHouseLogColumnExists(name)
 	if err != nil || hasColumn {
 		return err
 	}
-	if err := LOG_DB.Exec("ALTER TABLE logs ADD COLUMN billing_event_id String DEFAULT ''").Error; err != nil {
-		hasColumn, checkErr := clickHouseLogColumnExists("billing_event_id")
+	if err := LOG_DB.Exec("ALTER TABLE logs ADD COLUMN IF NOT EXISTS " + definition).Error; err != nil {
+		hasColumn, checkErr := clickHouseLogColumnExists(name)
 		if checkErr == nil && hasColumn {
 			return nil
 		}
 		return err
+	}
+	return nil
+}
+
+func clickHouseCanonicalProjectionExists() (bool, error) {
+	var createTableSQL string
+	if err := LOG_DB.Raw("SHOW CREATE TABLE logs").Scan(&createTableSQL).Error; err != nil {
+		return false, err
+	}
+	return strings.Contains(strings.ToLower(createTableSQL), "projection "+strings.ToLower(clickHouseCanonicalProjection)), nil
+}
+
+func ensureClickHouseCanonicalProjection() error {
+	definition := strings.TrimPrefix(clickHouseCanonicalProjectionDefinition(), "PROJECTION ")
+	if err := LOG_DB.Exec("ALTER TABLE logs ADD PROJECTION IF NOT EXISTS " + definition).Error; err != nil {
+		return err
+	}
+	exists, err := clickHouseCanonicalProjectionExists()
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return errors.New("ClickHouse canonical projection was not observable in SHOW CREATE TABLE")
 	}
 	return nil
 }
@@ -634,7 +894,7 @@ func clickHouseLogTTLExpression(ttlDays int) string {
 	if ttlDays <= 0 {
 		return ""
 	}
-	return fmt.Sprintf("toDateTime(created_at) + INTERVAL %d DAY DELETE", ttlDays)
+	return fmt.Sprintf("toDateTime(created_at) + INTERVAL %d DAY DELETE WHERE billing_event_id = ''", ttlDays)
 }
 
 func clickHouseLogTTLClause(ttlDays int) string {
@@ -668,11 +928,28 @@ CREATE TABLE IF NOT EXISTS logs (
 	request_id String DEFAULT '',
 	upstream_request_id String DEFAULT '',
 	billing_event_id String DEFAULT '',
-	other String DEFAULT ''
+	billing_projection_digest String DEFAULT '',
+	log_row_key String DEFAULT '',
+	other String DEFAULT '',
+	%s
 )
 ENGINE = MergeTree()
 PARTITION BY toYYYYMM(toDateTime(created_at))
-ORDER BY (created_at, request_id)%s`, clickHouseLogTTLClause(ttlDays))
+ORDER BY (created_at, request_id, log_row_key)%s`, clickHouseCanonicalProjectionDefinition(), clickHouseLogTTLClause(ttlDays))
+}
+
+func clickHouseBillingProjectionIdentityCreateTableSQL() string {
+	return `
+CREATE TABLE IF NOT EXISTS billing_log_projection_identities (
+	billing_event_id String,
+	digest String,
+	canonical_version UInt16,
+	status String DEFAULT 'canonical',
+	reason String DEFAULT '',
+	updated_at Int64
+)
+ENGINE = MergeTree()
+ORDER BY billing_event_id`
 }
 
 func syncClickHouseLogTTL(ttlDays int) error {

@@ -103,14 +103,18 @@ type LogCleanupPayload struct {
 }
 
 type LogCleanupState struct {
-	Total     int64 `json:"total"`
-	Processed int64 `json:"processed"`
-	Progress  int   `json:"progress"`
-	Remaining int64 `json:"remaining"`
+	Total     int64    `json:"total"`
+	Processed int64    `json:"processed"`
+	Progress  int      `json:"progress"`
+	Remaining int64    `json:"remaining"`
+	Skipped   int64    `json:"skipped,omitempty"`
+	Errors    []string `json:"errors,omitempty"`
 }
 
 type LogCleanupResult struct {
-	DeletedCount int64 `json:"deleted_count"`
+	DeletedCount int64    `json:"deleted_count"`
+	SkippedCount int64    `json:"skipped_count,omitempty"`
+	Errors       []string `json:"errors,omitempty"`
 }
 
 var (
@@ -357,13 +361,13 @@ func runWithLeaseHeartbeat(task *model.SystemTask, runnerID string, fn func(ctx 
 
 func renewSystemTaskLease(ctx context.Context, task *model.SystemTask, runnerID string) error {
 	if task.Type != model.SystemTaskTypeChannelQuotaSnapshotSync {
-		return model.RenewSystemTaskLock(task.TaskID, runnerID, systemTaskLockUntil())
+		return model.RenewSystemTaskLockWithFence(context.Background(), task.TaskID, runnerID, task.FenceToken, systemTaskLockUntil())
 	}
 	// This context is canceled when runWithLeaseHeartbeat's handler returns,
 	// including an in-flight renewal waiting for a database connection.
 	writeCtx, cancel := context.WithTimeout(ctx, quotaSystemTaskWriteTimeout)
 	defer cancel()
-	return model.RenewSystemTaskLockWithContext(writeCtx, task.TaskID, runnerID, systemTaskLockUntil())
+	return model.RenewSystemTaskLockWithFence(writeCtx, task.TaskID, runnerID, task.FenceToken, systemTaskLockUntil())
 }
 
 func runLogCleanupTask(ctx context.Context, task *model.SystemTask, runnerID string) {
@@ -392,6 +396,17 @@ func runLogCleanupTask(ctx context.Context, task *model.SystemTask, runnerID str
 			failSystemTask(task, runnerID, err)
 			return
 		}
+		skipped, err := model.CountUnsafeOldLogs(ctx, payload.TargetTimestamp)
+		if err != nil {
+			failSystemTask(task, runnerID, err)
+			return
+		}
+		state.Skipped = skipped
+		if skipped > 0 {
+			state.Errors = []string{fmt.Sprintf("%d old log rows could not be safely located and were skipped", skipped)}
+		} else {
+			state.Errors = nil
+		}
 		syncLogCleanupStateFromRemaining(&state, remaining)
 		if err := model.UpdateSystemTaskState(task.TaskID, runnerID, state); err != nil {
 			logSystemTaskLockError(ctx, task, err)
@@ -407,10 +422,15 @@ func runLogCleanupTask(ctx context.Context, task *model.SystemTask, runnerID str
 		// rows cannot be removed and we fail instead of busy-looping.
 		progressed := false
 		for state.Remaining > 0 {
-			rowsAffected, err := model.DeleteOldLogBatch(ctx, payload.TargetTimestamp, payload.BatchSize)
+			batchResult, err := model.DeleteOldLogBatchDetailed(ctx, payload.TargetTimestamp, payload.BatchSize)
 			if err != nil {
 				failSystemTask(task, runnerID, err)
 				return
+			}
+			rowsAffected := batchResult.Deleted
+			if batchResult.Skipped > 0 {
+				state.Skipped += batchResult.Skipped
+				state.Errors = append(state.Errors, batchResult.Errors...)
 			}
 			if rowsAffected == 0 {
 				break
@@ -450,7 +470,11 @@ func runLogCleanupTask(ctx context.Context, task *model.SystemTask, runnerID str
 		return
 	}
 
-	result := LogCleanupResult{DeletedCount: state.Processed}
+	result := LogCleanupResult{
+		DeletedCount: state.Processed,
+		SkippedCount: state.Skipped,
+		Errors:       state.Errors,
+	}
 	if err := model.FinishSystemTask(task.TaskID, runnerID, model.SystemTaskStatusSucceeded, result, ""); err != nil {
 		logSystemTaskLockError(ctx, task, err)
 	}

@@ -45,6 +45,7 @@ func TestMain(m *testing.M) {
 		&model.User{},
 		&model.Token{},
 		&model.Log{},
+		&model.BillingLogProjectionIdentity{},
 		&model.Channel{},
 		&model.Midjourney{},
 		&model.TopUp{},

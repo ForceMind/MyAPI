@@ -29,6 +29,7 @@ func RegisterScheduledSystemTasks() {
 	service.RegisterSystemTaskHandler(asyncTaskPollHandler{})
 	service.RegisterSystemTaskHandler(taskRecoveryHandler{})
 	service.RegisterSystemTaskHandler(taskBillingOutboxHandler{})
+	service.RegisterSystemTaskHandler(logProjectionBackfillHandler{})
 }
 
 const (
@@ -388,6 +389,47 @@ func (taskBillingOutboxHandler) Run(ctx context.Context, task *model.SystemTask,
 		return
 	}
 	finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, summary, nil)
+}
+
+type logProjectionBackfillHandler struct{}
+
+func (logProjectionBackfillHandler) Type() string {
+	return model.SystemTaskTypeLogProjectionBackfill
+}
+
+func (logProjectionBackfillHandler) Enabled() bool {
+	return service.ShouldScheduleLogProjectionBackfill(context.Background(), model.DB)
+}
+
+func (logProjectionBackfillHandler) Interval() time.Duration { return 10 * time.Second }
+
+func (logProjectionBackfillHandler) NewPayload() any { return nil }
+
+func (logProjectionBackfillHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
+	// A task may have been queued before an operator closes the obligation gate.
+	// Re-check at execution time so gate-off never touches migration state or logs.
+	if !common.IsTaskRecoveryObligationRecoveryEnabled() {
+		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, service.LogProjectionBackfillBatchResult{
+			Status: "gate_off",
+			NoOp:   true,
+		}, nil)
+		return
+	}
+
+	result, err := service.RunLogProjectionBackfillBatch(
+		ctx,
+		model.DB,
+		model.LOG_DB,
+		task.TaskID,
+		runnerID,
+		task.FenceToken,
+		service.DefaultLogProjectionBackfillBatchSize,
+	)
+	if err != nil {
+		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, result, err)
+		return
+	}
+	finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, result, nil)
 }
 
 func finishSystemTaskHandler(task *model.SystemTask, runnerID string, status model.SystemTaskStatus, result any, runErr error) {
