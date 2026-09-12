@@ -2,11 +2,14 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -73,6 +76,8 @@ func TestTaskBillingOutboxService_NormalDelivery(t *testing.T) {
 	assert.Equal(t, "test-model", logRecord.ModelName)
 	assert.Equal(t, "task billing log normal", logRecord.Content)
 	assert.Equal(t, event.EventID, logRecord.BillingEventID)
+	assert.NotEmpty(t, event.RequestID)
+	assert.Equal(t, event.RequestID, logRecord.RequestId)
 
 	// Verify outbox entry transitioned to delivered
 	var reloaded model.TaskBillingLogOutbox
@@ -274,3 +279,24 @@ func TestTaskBillingOutboxService_ConcurrentWorkers(t *testing.T) {
 	assert.Equal(t, int64(5), logCount)
 }
 
+func TestTaskBillingOutboxService_LegacyEmptyBillingRequestIDUsesDeterministicEventIdentity(t *testing.T) {
+	db := setupTaskSubmissionTestDB(t)
+	event, outbox := createTestOutbox(t, db, "legacy-empty-request")
+	event.Payload.RequestID = ""
+	eventPayload, err := common.Marshal(event.Payload)
+	require.NoError(t, err)
+	require.NoError(t, db.Exec("UPDATE task_billing_events SET request_id = '', payload = ? WHERE id = ?", string(eventPayload), event.ID).Error)
+	outbox.Payload.RequestID = ""
+	outboxPayload, err := common.Marshal(outbox.Payload)
+	require.NoError(t, err)
+	require.NoError(t, db.Exec("UPDATE task_billing_log_outboxes SET payload = ? WHERE id = ?", string(outboxPayload), outbox.ID).Error)
+	svc := NewTaskBillingOutboxService("legacy-request-worker")
+	svc.LogDB = db
+	delivered, err := svc.ProcessClaimableBatch(context.Background(), db)
+	require.NoError(t, err)
+	assert.Equal(t, 1, delivered)
+	var logRecord model.Log
+	require.NoError(t, db.Where("billing_event_id = ?", event.EventID).First(&logRecord).Error)
+	digest := sha256.Sum256([]byte(event.EventID))
+	assert.Equal(t, "billing_"+hex.EncodeToString(digest[:])[:48], logRecord.RequestId)
+}

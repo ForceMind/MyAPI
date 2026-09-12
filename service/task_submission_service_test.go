@@ -35,16 +35,19 @@ func setupTaskSubmissionTestDB(t *testing.T) *gorm.DB {
 		&model.Token{},
 		&model.SubscriptionPlan{},
 		&model.UserSubscription{},
+		&model.Channel{},
 		&model.Task{},
 		&model.TaskRecoveryIdentity{},
 		&model.TaskSubmissionOperation{},
 		&model.TaskSubmissionAttempt{},
+		&model.TaskTerminalObservation{},
 		&model.TaskBillingEvent{},
 		&model.TaskBillingLogOutbox{},
 		&model.QuotaMutationReceipt{},
 		&model.Log{},
 	)
 	require.NoError(t, err)
+	require.NoError(t, db.Create(&model.Channel{Id: 101, Name: "submission-test"}).Error)
 	return db
 }
 
@@ -255,6 +258,8 @@ func TestTaskSubmissionPipeline_Rejected(t *testing.T) {
 	require.NotNil(t, result.ReleaseReceipt)
 	assert.Equal(t, string(model.TaskBillingEventTypeRefund), result.ReleaseReceipt.MutationType)
 	assert.Equal(t, int64(100), result.ReleaseReceipt.Quota)
+	assert.Equal(t, "local.dispatch_rejected", result.ReleaseReceipt.EvidenceID)
+	assert.Equal(t, 1, result.ReleaseReceipt.EvidenceVersion)
 
 	// Verify balances were fully refunded
 	var user model.User
@@ -264,12 +269,20 @@ func TestTaskSubmissionPipeline_Rejected(t *testing.T) {
 	assert.Equal(t, 1000, user.Quota)
 	assert.Equal(t, 500, token.RemainQuota)
 	assert.Equal(t, 0, token.UsedQuota)
+	assert.Equal(t, 0, user.UsedQuota)
+	assert.Equal(t, 1, user.RequestCount)
+	var channel model.Channel
+	require.NoError(t, db.First(&channel, fixture.Attempt.ChannelID).Error)
+	assert.Zero(t, channel.UsedQuota)
+	var outboxCount int64
+	require.NoError(t, db.Model(&model.TaskBillingLogOutbox{}).Count(&outboxCount).Error)
+	assert.Equal(t, int64(2), outboxCount)
 
 	// Verify Operation and Attempt status
 	assert.Equal(t, model.TaskSubmissionOperationStatusRejected, result.Operation.Status)
 	assert.Equal(t, model.TaskSubmissionAttemptStatusRejected, result.Attempt.Status)
-	assert.Equal(t, "UPSTREAM_POLICY_REJECT", result.Attempt.OutcomeCode)
-	assert.Equal(t, "UPSTREAM_POLICY_REJECT", result.Operation.ReasonCode)
+	assert.Equal(t, "upstream_policy_reject", result.Attempt.OutcomeCode)
+	assert.Equal(t, "upstream_policy_reject", result.Operation.ReasonCode)
 }
 
 func TestTaskSubmissionPipeline_Unknown_ExplicitStatus(t *testing.T) {
@@ -329,8 +342,8 @@ func TestTaskSubmissionPipeline_Unknown_ExplicitStatus(t *testing.T) {
 	assert.Equal(t, model.TaskSubmissionOperationStatusSubmissionUnknown, result.Operation.Status)
 	assert.Equal(t, model.TaskSubmissionAttemptStatusSubmissionUnknown, result.Attempt.Status)
 	assert.Equal(t, "pending-or-indeterminate-id", result.Attempt.ProviderOperationID)
-	assert.Equal(t, "STATUS_POLL_REQUIRED", result.Attempt.OutcomeCode)
-	assert.Equal(t, "STATUS_POLL_REQUIRED", result.Operation.ReasonCode)
+	assert.Equal(t, "status_poll_required", result.Attempt.OutcomeCode)
+	assert.Equal(t, "status_poll_required", result.Operation.ReasonCode)
 }
 
 func TestTaskSubmissionPipeline_Unknown_NetworkError(t *testing.T) {

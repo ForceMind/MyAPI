@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/logger"
 	"github.com/ForceMind/MyAPI/model"
 	"gorm.io/gorm"
 )
@@ -29,6 +31,10 @@ type ProviderVerifiedResolutionInput struct {
 	BillingContext      model.TaskBillingContext
 	TaskPlatform        string
 	TaskAction          string
+	ActualQuota         *int64
+	EvidenceID          string
+	EvidenceHash        string
+	EvidenceVersion     int
 }
 
 // ProviderVerifiedResolutionResult holds the result of a provider-verified resolution.
@@ -135,12 +141,64 @@ func ResolveOperationProviderVerified(ctx context.Context, input ProviderVerifie
 		}
 	}
 
-	reasonCode := strings.TrimSpace(input.ReasonCode)
-	if reasonCode == "" {
-		reasonCode = "provider_verified_rejected"
+	reasonCode := sanitizeReasonCode(input.ReasonCode, "provider_verified_terminal")
+	if strings.TrimSpace(input.ReasonCode) != "" && reasonCode == "provider_verified_terminal" && strings.ToLower(strings.TrimSpace(input.ReasonCode)) != reasonCode {
+		logger.LogWarn(ctx, "unsafe provider resolution reason replaced with provider_verified_terminal")
 	}
-	if len(reasonCode) > 64 {
-		reasonCode = reasonCode[:64]
+	if op.Status == model.TaskSubmissionOperationStatusSubmissionUnknown && providerStatus == TaskProviderDispatchStatusRejected && !validProviderTerminalEvidence(input, &op, attempt) {
+		_, observationErr := model.CreateOrLoadTaskTerminalObservation(db, model.TaskTerminalObservationInput{OperationID: op.ID, TaskID: 0, Outcome: "failed", ActualQuota: 0, ReasonCode: reasonCode, RequestID: op.RequestID, ManualReview: true, EvidenceID: strings.TrimSpace(input.EvidenceID), EvidenceHash: strings.ToLower(strings.TrimSpace(input.EvidenceHash)), EvidenceVersion: input.EvidenceVersion})
+		if observationErr != nil {
+			return nil, observationErr
+		}
+		return nil, model.ErrTaskTerminalObservationManualReview
+	}
+	if op.Status == model.TaskSubmissionOperationStatusOutcomeUnknown {
+		if op.TaskID == nil || *op.TaskID <= 0 {
+			return nil, fmt.Errorf("%w: outcome_unknown operation has no task", ErrTaskResolutionInvalidInput)
+		}
+		var task model.Task
+		if err := db.First(&task, *op.TaskID).Error; err != nil {
+			return nil, err
+		}
+		outcome := "succeeded"
+		actualQuota := int64(0)
+		validEvidence := validProviderTerminalEvidence(input, &op, attempt)
+		if providerStatus == TaskProviderDispatchStatusAccepted {
+			validEvidence = validEvidence && input.ActualQuota != nil && *input.ActualQuota >= 0 && *input.ActualQuota <= int64(common.MaxQuota)
+			if validEvidence {
+				actualQuota = *input.ActualQuota
+			}
+		} else {
+			outcome = "failed"
+			if input.ActualQuota != nil && *input.ActualQuota != 0 {
+				return nil, fmt.Errorf("%w: rejected terminal outcome requires zero actual quota", ErrTaskResolutionInvalidInput)
+			}
+		}
+		evidenceID := strings.TrimSpace(input.EvidenceID)
+		evidenceHash := strings.ToLower(strings.TrimSpace(input.EvidenceHash))
+		observation, err := model.CreateOrLoadTaskTerminalObservation(db, model.TaskTerminalObservationInput{OperationID: op.ID, TaskID: task.ID, Outcome: outcome, ActualQuota: actualQuota, ReasonCode: reasonCode, ResolutionSource: model.TaskSubmissionResolutionSourceProviderVerified, EvidenceID: evidenceID, EvidenceHash: evidenceHash, EvidenceVersion: input.EvidenceVersion, ManualReview: !validEvidence, RequestID: op.RequestID, TaskData: terminalTaskDataProjection(task.Data), TaskStartTime: task.StartTime, TaskFinishTime: task.FinishTime, OperationalResultURL: terminalOperationalResultURL(task.PrivateData.ResultURL), TaskUpstreamID: strings.TrimSpace(task.PrivateData.UpstreamTaskID), ResultURL: sanitizeTerminalResultURL(task.PrivateData.ResultURL)})
+		if err != nil {
+			return nil, err
+		}
+		if !validEvidence {
+			return nil, model.ErrTaskTerminalObservationManualReview
+		}
+		applied, err := model.ApplyTaskTerminalObservation(db, observation.ID)
+		if err != nil {
+			return nil, err
+		}
+		if err := db.First(&op, op.ID).Error; err != nil {
+			return nil, err
+		}
+		if err := db.First(&task, task.ID).Error; err != nil {
+			return nil, err
+		}
+		return &ProviderVerifiedResolutionResult{Operation: &op, Attempt: attempt, Task: &task, ReleaseReceipt: func() *model.QuotaMutationReceipt {
+			if outcome == "failed" {
+				return applied.Receipt
+			}
+			return nil
+		}()}, nil
 	}
 
 	var formalTask *model.Task
@@ -202,37 +260,25 @@ func ResolveOperationProviderVerified(ctx context.Context, input ProviderVerifie
 				}
 
 			} else {
-				billingContext := input.BillingContext
-				if !billingContext.Complete || billingContext.OriginModelName == "" {
-					if reserveReceipt, rErr := model.FindTaskQuotaReceipt(db, op.ID, string(model.TaskBillingEventTypeReserve), op.UserID, op.TokenID); rErr == nil && reserveReceipt != nil {
-						billingContext = model.TaskBillingContext(reserveReceipt.BillingContext)
-					}
+				reserveEvidence, evidenceErr := model.FindTaskQuotaReceipt(tx, op.ID, string(model.TaskBillingEventTypeReserve), op.UserID, op.TokenID)
+				if evidenceErr != nil || reserveEvidence == nil {
+					return model.ErrTaskTerminalObservationManualReview
 				}
-				if !billingContext.Complete || billingContext.OriginModelName == "" {
-					billingContext = model.TaskBillingContext{
-						Version:         model.TaskBillingContextVersion,
-						Complete:        true,
-						ModelPrice:      1,
-						ModelRatio:      1,
-						GroupRatio:      1,
-						OriginModelName: "provider_verified_resolution",
-						PerCallBilling:  true,
-					}
-				}
-				channelID := attempt.ChannelID
-				if channelID <= 0 {
-					channelID = 1
-				}
+				billingContext := model.TaskBillingContext(reserveEvidence.BillingContext)
+				channelID := reserveEvidence.ChannelID
 				var relErr error
 				releaseReceipt, relErr = model.ReleaseTaskQuotaReservation(tx, model.TaskQuotaReleaseInput{
-					OperationID:              op.ID,
-					UserID:                   op.UserID,
-					TokenID:                  op.TokenID,
-					ChannelID:                channelID,
-					ExpectedOperationVersion: op.LockVersion,
-					ReasonCode:               reasonCode,
-					BillingContext:           billingContext,
-					TargetOperationStatus:    "",
+					OperationID:               op.ID,
+					UserID:                    op.UserID,
+					TokenID:                   op.TokenID,
+					ChannelID:                 channelID,
+					ExpectedOperationVersion:  op.LockVersion,
+					ReasonCode:                reasonCode,
+					BillingContext:            billingContext,
+					TargetOperationStatus:     "",
+					ResolutionSource:          model.TaskSubmissionResolutionSourceProviderVerified,
+					RequireStatisticsEvidence: true,
+					EvidenceID:                strings.TrimSpace(input.EvidenceID), EvidenceHash: strings.ToLower(strings.TrimSpace(input.EvidenceHash)), EvidenceVersion: input.EvidenceVersion,
 				})
 				if relErr != nil {
 					return fmt.Errorf("release quota reservation failed: %w", relErr)
@@ -265,28 +311,17 @@ func ResolveOperationProviderVerified(ctx context.Context, input ProviderVerifie
 					return fmt.Errorf("%w: attempt rejected CAS lost", ErrTaskResolutionCASLost)
 				}
 			}
-		} else if op.Status == model.TaskSubmissionOperationStatusOutcomeUnknown {
-			targetStatus := model.TaskSubmissionOperationStatusSucceeded
-			if providerStatus == TaskProviderDispatchStatusRejected {
-				targetStatus = model.TaskSubmissionOperationStatusFailed
-			}
-			opWon, err := model.TransitionTaskSubmissionOperation(tx, op.ID, model.TaskSubmissionOperationTransition{
-				From:             model.TaskSubmissionOperationStatusOutcomeUnknown,
-				To:               targetStatus,
-				ResolutionSource: model.TaskSubmissionResolutionSourceProviderVerified,
-				ReasonCode:       reasonCode,
-				ExpectedVersion:  op.LockVersion,
-			})
-			if err != nil {
-				return fmt.Errorf("transition operation from outcome_unknown failed: %w", err)
-			}
-			if !opWon {
-				return fmt.Errorf("%w: operation outcome CAS lost", ErrTaskResolutionCASLost)
-			}
 		}
 		return nil
 	})
 	if err != nil {
+		if errors.Is(err, model.ErrTaskTerminalObservationManualReview) {
+			_, obsErr := model.CreateOrLoadTaskTerminalObservation(db, model.TaskTerminalObservationInput{OperationID: op.ID, TaskID: 0, Outcome: "failed", ActualQuota: 0, ReasonCode: "provider_resolution_evidence_missing", RequestID: op.RequestID, ManualReview: true, ResolutionSource: model.TaskSubmissionResolutionSourceProviderVerified, EvidenceID: strings.TrimSpace(input.EvidenceID), EvidenceHash: strings.ToLower(strings.TrimSpace(input.EvidenceHash)), EvidenceVersion: input.EvidenceVersion})
+			if obsErr != nil {
+				return nil, obsErr
+			}
+			return nil, model.ErrTaskTerminalObservationManualReview
+		}
 		return nil, err
 	}
 
@@ -305,6 +340,14 @@ func ResolveOperationProviderVerified(ctx context.Context, input ProviderVerifie
 		Task:           formalTask,
 		ReleaseReceipt: releaseReceipt,
 	}, nil
+}
+
+func validProviderTerminalEvidence(input ProviderVerifiedResolutionInput, operation *model.TaskSubmissionOperation, attempt *model.TaskSubmissionAttempt) bool {
+	if operation == nil || attempt == nil || input.EvidenceVersion != 1 {
+		return false
+	}
+	evidenceID := strings.TrimSpace(input.EvidenceID)
+	return evidenceID != "" && len(evidenceID) <= 191 && (evidenceID == attempt.UpstreamRequestID || evidenceID == attempt.ProviderOperationID)
 }
 
 func validTaskRecoveryClassification(platform, action string) bool {
@@ -352,9 +395,9 @@ func ResolveOperationManualAudit(ctx context.Context, input ManualAuditResolutio
 		return nil, fmt.Errorf("%w: audit command id must be 1-48 characters containing only lowercase letters, digits, '.', '-', '_'", ErrTaskResolutionInvalidInput)
 	}
 
-	reasonCode := strings.TrimSpace(input.ReasonCode)
-	if reasonCode == "" || len(reasonCode) > 64 {
-		return nil, fmt.Errorf("%w: reason code must be non-empty and at most 64 characters", ErrTaskResolutionInvalidInput)
+	reasonCode := strings.ToLower(strings.TrimSpace(input.ReasonCode))
+	if reasonCode == "" || reasonCode != sanitizeReasonCode(reasonCode, "") {
+		return nil, fmt.Errorf("%w: reason code must use lowercase internal-code characters", ErrTaskResolutionInvalidInput)
 	}
 
 	targetStatus := input.TargetStatus
@@ -414,48 +457,32 @@ func ResolveOperationManualAudit(ctx context.Context, input ManualAuditResolutio
 	var releaseReceipt *model.QuotaMutationReceipt
 	var auditEvent *model.TaskBillingEvent
 
-	billingContext := input.BillingContext
+	var billingContext model.TaskBillingContext
 	channelID := 0
-	if attempt != nil && attempt.ChannelID > 0 {
-		channelID = attempt.ChannelID
-	}
 	if op.Status == model.TaskSubmissionOperationStatusReserved || op.Status == model.TaskSubmissionOperationStatusSubmissionUnknown {
-		if !billingContext.Complete || billingContext.OriginModelName == "" {
-			if reserveReceipt, rErr := model.FindTaskQuotaReceipt(db, op.ID, string(model.TaskBillingEventTypeReserve), op.UserID, op.TokenID); rErr == nil && reserveReceipt != nil {
-				billingContext = model.TaskBillingContext(reserveReceipt.BillingContext)
-				if channelID == 0 && reserveReceipt.ChannelID > 0 {
-					channelID = reserveReceipt.ChannelID
-				}
-			}
+		reserveEvidence, evidenceErr := model.FindTaskQuotaReceipt(db, op.ID, string(model.TaskBillingEventTypeReserve), op.UserID, op.TokenID)
+		if evidenceErr != nil || reserveEvidence == nil {
+			return nil, model.ErrTaskTerminalObservationManualReview
 		}
-		if !billingContext.Complete || billingContext.OriginModelName == "" {
-			billingContext = model.TaskBillingContext{
-				Version:         model.TaskBillingContextVersion,
-				Complete:        true,
-				ModelPrice:      1,
-				ModelRatio:      1,
-				GroupRatio:      1,
-				OriginModelName: "manual_audit_resolution",
-				PerCallBilling:  true,
-			}
-		}
-		if channelID <= 0 {
-			channelID = 1
-		}
+		billingContext = model.TaskBillingContext(reserveEvidence.BillingContext)
+		channelID = reserveEvidence.ChannelID
 	}
 
 	err = db.Transaction(func(tx *gorm.DB) error {
 		if op.Status == model.TaskSubmissionOperationStatusReserved || op.Status == model.TaskSubmissionOperationStatusSubmissionUnknown {
 			var relErr error
 			releaseReceipt, relErr = model.ReleaseTaskQuotaReservation(tx, model.TaskQuotaReleaseInput{
-				OperationID:              op.ID,
-				UserID:                   op.UserID,
-				TokenID:                  op.TokenID,
-				ChannelID:                channelID,
-				ExpectedOperationVersion: op.LockVersion,
-				ReasonCode:               reasonCode,
-				BillingContext:           billingContext,
-				TargetOperationStatus:    "",
+				OperationID:               op.ID,
+				UserID:                    op.UserID,
+				TokenID:                   op.TokenID,
+				ChannelID:                 channelID,
+				ExpectedOperationVersion:  op.LockVersion,
+				ReasonCode:                reasonCode,
+				BillingContext:            billingContext,
+				TargetOperationStatus:     "",
+				ResolutionSource:          model.TaskSubmissionResolutionSourceManualAudit,
+				RequireStatisticsEvidence: true,
+				EvidenceID:                "audit." + auditCmd, EvidenceVersion: 1,
 			})
 			if relErr != nil {
 				return fmt.Errorf("release quota reservation failed: %w", relErr)
@@ -545,6 +572,14 @@ func ResolveOperationManualAudit(ctx context.Context, input ManualAuditResolutio
 			ReasonCode:       reasonCode,
 			ResolutionSource: model.TaskSubmissionResolutionSourceManualAudit,
 			AuditCommandID:   auditCmd,
+			EvidenceID:       "audit." + auditCmd,
+			EvidenceVersion:  1,
+			RequestID: func() string {
+				if op.RequestID != "" {
+					return op.RequestID
+				}
+				return "manual_" + auditCmd
+			}(),
 		}
 		var createErr error
 		auditEvent, createErr = model.CreateOrLoadTaskBillingEvent(tx, candidate)
@@ -554,10 +589,28 @@ func ResolveOperationManualAudit(ctx context.Context, input ManualAuditResolutio
 			}
 			return fmt.Errorf("create manual resolution event failed: %w", createErr)
 		}
+		other, marshalErr := common.Marshal(map[string]interface{}{"operation_id": op.PublicID, "audit_command_id": auditCmd, "reason": reasonCode})
+		if marshalErr != nil {
+			return fmt.Errorf("encode manual resolution outbox: %w", marshalErr)
+		}
+		outboxCandidate, outboxErr := model.NewTaskBillingLogOutbox(auditEvent, model.TaskBillingLogPayload{Content: "manual_resolution", ModelName: "manual_resolution", Group: "system", Other: string(other)})
+		if outboxErr != nil {
+			return fmt.Errorf("build manual resolution outbox: %w", outboxErr)
+		}
+		if _, outboxErr = model.CreateOrLoadTaskBillingLogOutbox(tx, outboxCandidate); outboxErr != nil {
+			return fmt.Errorf("create manual resolution outbox: %w", outboxErr)
+		}
 
 		return nil
 	})
 	if err != nil {
+		if errors.Is(err, model.ErrTaskTerminalObservationManualReview) {
+			_, obsErr := model.CreateOrLoadTaskTerminalObservation(db, model.TaskTerminalObservationInput{OperationID: op.ID, TaskID: 0, Outcome: "failed", ActualQuota: 0, ReasonCode: "manual_resolution_evidence_missing", RequestID: op.RequestID, ManualReview: true, ResolutionSource: model.TaskSubmissionResolutionSourceManualAudit, EvidenceID: "audit." + auditCmd, EvidenceVersion: 1})
+			if obsErr != nil {
+				return nil, obsErr
+			}
+			return nil, model.ErrTaskTerminalObservationManualReview
+		}
 		var existingEvent model.TaskBillingEvent
 		if queryErr := db.Where("event_key = ?", canonicalEventKey).First(&existingEvent).Error; queryErr == nil {
 			if existingEvent.AuditCommandID == auditCmd && existingEvent.ResolutionSource == model.TaskSubmissionResolutionSourceManualAudit {

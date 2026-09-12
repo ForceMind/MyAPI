@@ -306,6 +306,7 @@ func migrateDB() error {
 		&TaskRecoveryIdentity{},
 		&TaskSubmissionOperation{},
 		&TaskSubmissionAttempt{},
+		&TaskTerminalObservation{},
 		&TaskBillingEvent{},
 		&TaskBillingLogOutbox{},
 		&QuotaMutationReceipt{},
@@ -350,6 +351,9 @@ func migrateDB() error {
 	if err := ensureQuotaMutationReceiptSchema(); err != nil {
 		return err
 	}
+	if err := ensureTaskTerminalObservationSchemaWithDB(DB); err != nil {
+		return err
+	}
 	if common.UsingMainDatabase(common.DatabaseTypeSQLite) {
 		if err := ensureSubscriptionPlanTableSQLite(); err != nil {
 			return err
@@ -390,6 +394,7 @@ func migrateDBFast() error {
 		{&TaskRecoveryIdentity{}, "TaskRecoveryIdentity"},
 		{&TaskSubmissionOperation{}, "TaskSubmissionOperation"},
 		{&TaskSubmissionAttempt{}, "TaskSubmissionAttempt"},
+		{&TaskTerminalObservation{}, "TaskTerminalObservation"},
 		{&TaskBillingEvent{}, "TaskBillingEvent"},
 		{&TaskBillingLogOutbox{}, "TaskBillingLogOutbox"},
 		{&QuotaMutationReceipt{}, "QuotaMutationReceipt"},
@@ -437,6 +442,9 @@ func migrateDBFast() error {
 		return err
 	}
 	if err := ensureQuotaMutationReceiptSchema(); err != nil {
+		return err
+	}
+	if err := ensureTaskTerminalObservationSchemaWithDB(DB); err != nil {
 		return err
 	}
 	if common.UsingMainDatabase(common.DatabaseTypeSQLite) {

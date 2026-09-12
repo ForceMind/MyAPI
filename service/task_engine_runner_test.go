@@ -24,6 +24,7 @@ func TestTaskEngineRunner_RunOnce_StaleDispatching_FailClosed(t *testing.T) {
 		ExpectedOperationVersion: fixture.Operation.LockVersion,
 		Quota:                    100,
 		BillingSource:            "wallet",
+		ApplyStatistics:          true,
 		BillingContext: model.TaskBillingContext{
 			Version:         model.TaskBillingContextVersion,
 			Complete:        true,
@@ -61,7 +62,7 @@ func TestTaskEngineRunner_RunOnce_StaleDispatching_FailClosed(t *testing.T) {
 	assert.Equal(t, 1, report.StaleDispatchingRecovered)
 	assert.Equal(t, 0, report.StaleUnfinishedRecovered)
 	assert.Equal(t, 0, report.ExpiredBillingReclaimed)
-	assert.Equal(t, 0, report.OutboxDelivered)
+	assert.Equal(t, 1, report.OutboxDelivered)
 	assert.False(t, report.HasErrors())
 	assert.Empty(t, report.Errors)
 	assert.Greater(t, report.Duration, time.Duration(0))
@@ -102,6 +103,7 @@ func TestTaskEngineRunner_RunOnce_StaleReserved_SafeCancel(t *testing.T) {
 		ExpectedOperationVersion: fixture.Operation.LockVersion,
 		Quota:                    100,
 		BillingSource:            "wallet",
+		ApplyStatistics:          true,
 		BillingContext: model.TaskBillingContext{
 			Version:         model.TaskBillingContextVersion,
 			Complete:        true,
@@ -136,7 +138,7 @@ func TestTaskEngineRunner_RunOnce_StaleReserved_SafeCancel(t *testing.T) {
 	assert.Equal(t, 0, report.StaleDispatchingRecovered)
 	assert.Equal(t, 1, report.StaleUnfinishedRecovered)
 	assert.Equal(t, 0, report.ExpiredBillingReclaimed)
-	assert.Equal(t, 0, report.OutboxDelivered)
+	assert.Equal(t, 2, report.OutboxDelivered)
 	assert.False(t, report.HasErrors())
 	assert.Empty(t, report.Errors)
 	assert.Greater(t, report.Duration, time.Duration(0))
@@ -208,6 +210,7 @@ func TestTaskEngineRunner_RunOnce_ComprehensiveMetricsAndReport(t *testing.T) {
 		ExpectedOperationVersion: dispFixture.Operation.LockVersion,
 		Quota:                    100,
 		BillingSource:            "wallet",
+		ApplyStatistics:          true,
 		BillingContext: model.TaskBillingContext{
 			Version:         model.TaskBillingContextVersion,
 			Complete:        true,
@@ -238,6 +241,7 @@ func TestTaskEngineRunner_RunOnce_ComprehensiveMetricsAndReport(t *testing.T) {
 		ExpectedOperationVersion: resFixture.Operation.LockVersion,
 		Quota:                    100,
 		BillingSource:            "wallet",
+		ApplyStatistics:          true,
 		BillingContext: model.TaskBillingContext{
 			Version:         model.TaskBillingContextVersion,
 			Complete:        true,
@@ -297,7 +301,7 @@ func TestTaskEngineRunner_RunOnce_ComprehensiveMetricsAndReport(t *testing.T) {
 	assert.Equal(t, 1, report.StaleDispatchingRecovered)
 	assert.Equal(t, 1, report.StaleUnfinishedRecovered)
 	assert.Equal(t, 1, report.ExpiredBillingReclaimed)
-	assert.Equal(t, 1, report.OutboxDelivered)
+	assert.Equal(t, 4, report.OutboxDelivered)
 	assert.Greater(t, report.Duration, time.Duration(0))
 	assert.False(t, report.HasErrors())
 	assert.Empty(t, report.Errors)
@@ -308,7 +312,7 @@ func TestTaskEngineRunner_RunOnce_ComprehensiveMetricsAndReport(t *testing.T) {
 	assert.Contains(t, jsonStr, `"stale_dispatching_recovered":1`)
 	assert.Contains(t, jsonStr, `"stale_unfinished_recovered":1`)
 	assert.Contains(t, jsonStr, `"expired_billing_reclaimed":1`)
-	assert.Contains(t, jsonStr, `"outbox_delivered":1`)
+	assert.Contains(t, jsonStr, `"outbox_delivered":4`)
 
 	var unmarshaled TaskEngineReport
 	err = common.Unmarshal([]byte(jsonStr), &unmarshaled)

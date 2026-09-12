@@ -86,7 +86,10 @@ func (w *TaskRecoveryWorker) RecoverStaleDispatching(ctx context.Context, db *go
 		return 0, gorm.ErrInvalidDB
 	}
 	_, dispatchThreshold, _, batchSize, _ := w.resolveConfig()
-	now, _ := getDBTimestamp(db)
+	now, nowErr := getDBTimestamp(db)
+	if nowErr != nil {
+		return 0, nowErr
+	}
 	cutoffTime := now - int64(dispatchThreshold.Seconds())
 	if cutoffTime < 0 {
 		cutoffTime = 0
@@ -172,7 +175,10 @@ func (w *TaskRecoveryWorker) RecoverStaleUnfinished(ctx context.Context, db *gor
 		return 0, gorm.ErrInvalidDB
 	}
 	_, _, reservationThreshold, batchSize, _ := w.resolveConfig()
-	now, _ := getDBTimestamp(db)
+	now, nowErr := getDBTimestamp(db)
+	if nowErr != nil {
+		return 0, nowErr
+	}
 	cutoffTime := now - int64(reservationThreshold.Seconds())
 	if cutoffTime < 0 {
 		cutoffTime = 0
@@ -211,38 +217,32 @@ func (w *TaskRecoveryWorker) RecoverStaleUnfinished(ctx context.Context, db *gor
 			if attempt != nil && attempt.ChannelID > 0 {
 				channelID = attempt.ChannelID
 			}
-			var billingContext model.TaskBillingContext
-			if reserveReceipt, rErr := model.FindTaskQuotaReceipt(db, op.ID, string(model.TaskBillingEventTypeReserve), op.UserID, op.TokenID); rErr == nil && reserveReceipt != nil {
-				billingContext = model.TaskBillingContext(reserveReceipt.BillingContext)
-				if channelID == 0 && reserveReceipt.ChannelID > 0 {
-					channelID = reserveReceipt.ChannelID
-				}
+			reserveReceipt, rErr := model.FindTaskQuotaReceipt(db, op.ID, string(model.TaskBillingEventTypeReserve), op.UserID, op.TokenID)
+			if rErr != nil || reserveReceipt == nil {
+				logger.LogError(ctx, fmt.Sprintf("stale reserved operation %d lacks immutable reserve evidence: %v", op.ID, rErr))
+				continue
 			}
-			if !billingContext.Complete || billingContext.OriginModelName == "" {
-				billingContext = model.TaskBillingContext{
-					Version:         model.TaskBillingContextVersion,
-					Complete:        true,
-					ModelPrice:      1,
-					ModelRatio:      1,
-					GroupRatio:      1,
-					OriginModelName: "stale_recovery",
-					PerCallBilling:  true,
-				}
-			}
-			if channelID <= 0 {
-				channelID = 1
-			}
+			billingContext := model.TaskBillingContext(reserveReceipt.BillingContext)
+			channelID = reserveReceipt.ChannelID
 			receipt, relErr := model.ReleaseTaskQuotaReservation(db, model.TaskQuotaReleaseInput{
-				OperationID:              op.ID,
-				UserID:                   op.UserID,
-				TokenID:                  op.TokenID,
-				ChannelID:                channelID,
-				ExpectedOperationVersion: op.LockVersion,
-				ReasonCode:               "stale_reservation_timeout",
-				BillingContext:           billingContext,
-				TargetOperationStatus:    model.TaskSubmissionOperationStatusCanceled,
+				OperationID:               op.ID,
+				UserID:                    op.UserID,
+				TokenID:                   op.TokenID,
+				ChannelID:                 channelID,
+				ExpectedOperationVersion:  op.LockVersion,
+				ReasonCode:                "stale_reservation_timeout",
+				BillingContext:            billingContext,
+				TargetOperationStatus:     model.TaskSubmissionOperationStatusCanceled,
+				RequireStatisticsEvidence: true,
+				EvidenceID:                "local.stale_reservation_timeout", EvidenceVersion: 1,
 			})
 			if relErr != nil {
+				if errors.Is(relErr, model.ErrTaskTerminalObservationManualReview) {
+					if _, obsErr := model.CreateOrLoadTaskTerminalObservation(db, model.TaskTerminalObservationInput{OperationID: op.ID, TaskID: 0, Outcome: "failed", ActualQuota: 0, ReasonCode: "stale_reservation_evidence_missing", RequestID: op.RequestID, ManualReview: true, EvidenceID: "local.stale_reservation_timeout", EvidenceVersion: 1}); obsErr != nil {
+						logger.LogError(ctx, fmt.Sprintf("record stale operation %d manual review failed: %v", op.ID, obsErr))
+					}
+					continue
+				}
 				if errors.Is(relErr, model.ErrTaskQuotaReservationCASLost) ||
 					errors.Is(relErr, model.ErrTaskRecoveryInvalidTransition) {
 					continue
@@ -320,4 +320,96 @@ func (w *TaskRecoveryWorker) RecoverExpiredBillingEvents(ctx context.Context, db
 	}
 
 	return recoveredCount, nil
+}
+
+// RecoverTerminalObservations applies durable terminal observations and imports
+// only provable historical terminal Task projections. It never recalculates price.
+func (w *TaskRecoveryWorker) RecoverTerminalObservations(ctx context.Context, db *gorm.DB) (int, error) {
+	if db == nil {
+		db = model.DB
+	}
+	if db == nil {
+		return 0, gorm.ErrInvalidDB
+	}
+	_, _, _, batchSize, _ := w.resolveConfig()
+	processed := 0
+	var passErrors []error
+	var observations []model.TaskTerminalObservation
+	now, nowErr := getDBTimestamp(db)
+	if nowErr != nil {
+		return 0, nowErr
+	}
+	if err := db.Where("state = ?", model.TaskTerminalObservationPending).Order("id").Limit(batchSize).Find(&observations).Error; err != nil {
+		return 0, err
+	}
+	if remaining := batchSize - len(observations); remaining > 0 {
+		var retryable []model.TaskTerminalObservation
+		if err := db.Where("state = ? AND next_attempt_at <= ?", model.TaskTerminalObservationRetryable, now).Order("id").Limit(remaining).Find(&retryable).Error; err != nil {
+			return 0, err
+		}
+		observations = append(observations, retryable...)
+	}
+	for index := range observations {
+		if err := ctx.Err(); err != nil {
+			return processed, errors.Join(append(passErrors, err)...)
+		}
+		if _, err := model.ApplyTaskTerminalObservation(db, observations[index].ID); err != nil {
+			if !errors.Is(err, model.ErrTaskTerminalObservationManualReview) {
+				if markErr := model.MarkTaskTerminalObservationRetryable(db, observations[index].ID, observations[index].LockVersion, 30); markErr != nil {
+					passErrors = append(passErrors, fmt.Errorf("apply observation %d: %v; mark retryable: %w", observations[index].ID, err, markErr))
+					continue
+				}
+				var current model.TaskTerminalObservation
+				if reloadErr := db.First(&current, observations[index].ID).Error; reloadErr == nil && current.State == model.TaskTerminalObservationApplied {
+					processed++
+					continue
+				}
+				passErrors = append(passErrors, fmt.Errorf("apply observation %d: %w", observations[index].ID, err))
+			}
+			continue
+		}
+		processed++
+	}
+	{
+		var historical []struct {
+			OperationID int64
+			TaskID      int64
+			Status      model.TaskStatus
+			RequestID   string
+		}
+		err := db.Table("task_submission_operations AS o").Select("o.id AS operation_id, t.id AS task_id, t.status, o.request_id").Joins("JOIN tasks AS t ON t.id = o.task_id").
+			Where("o.status IN ? AND t.status IN ?", []model.TaskSubmissionOperationStatus{model.TaskSubmissionOperationStatusAccepted, model.TaskSubmissionOperationStatusOutcomeUnknown}, []model.TaskStatus{model.TaskStatusSuccess, model.TaskStatusFailure}).
+			Where("NOT EXISTS (?)", db.Table("quota_mutation_receipts AS r").Select("1").Where("r.operation_id = o.id AND r.mutation_type IN ?", []string{string(model.TaskBillingEventTypeTerminalSettlement), string(model.TaskBillingEventTypeRefund)})).Order("o.id").Limit(batchSize).Scan(&historical).Error
+		if err != nil {
+			passErrors = append(passErrors, err)
+		} else {
+			for _, row := range historical {
+				outcome, reason := "succeeded", "historical_terminal_success_unproven"
+				if row.Status == model.TaskStatusFailure {
+					outcome, reason = "failed", "historical_terminal_failure_unproven"
+				}
+				if _, err := model.CreateOrLoadTaskTerminalObservation(db, model.TaskTerminalObservationInput{OperationID: row.OperationID, TaskID: row.TaskID, Outcome: outcome, ActualQuota: 0, ReasonCode: reason, RequestID: row.RequestID, ManualReview: true}); err != nil && !errors.Is(err, model.ErrTaskTerminalObservationConflict) {
+					passErrors = append(passErrors, fmt.Errorf("record historical operation %d: %w", row.OperationID, err))
+				}
+			}
+		}
+	}
+	var missing []model.TaskBillingEvent
+	if err := db.Table("task_billing_events AS e").Select("e.*").Joins("LEFT JOIN task_billing_log_outboxes AS o ON o.billing_event_id = e.event_id").
+		Where("e.state = ? AND e.event_type IN ? AND o.id IS NULL", model.TaskBillingEventStateApplied, []model.TaskBillingEventType{model.TaskBillingEventTypeReserve, model.TaskBillingEventTypeRefund, model.TaskBillingEventTypeTerminalSettlement}).Order("e.id").Limit(batchSize).Scan(&missing).Error; err != nil {
+		passErrors = append(passErrors, err)
+	} else {
+		for index := range missing {
+			event := &missing[index]
+			receipt, err := model.FindTaskQuotaReceipt(db, *event.OperationID, string(event.EventType), event.UserID, event.TokenID)
+			if err != nil {
+				passErrors = append(passErrors, fmt.Errorf("missing outbox event %s lacks proof: %w", event.EventID, err))
+				continue
+			}
+			if _, err := model.EnsureTaskMutationOutbox(db, receipt); err != nil {
+				passErrors = append(passErrors, fmt.Errorf("repair outbox event %s: %w", event.EventID, err))
+			}
+		}
+	}
+	return processed, errors.Join(passErrors...)
 }

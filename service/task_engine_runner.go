@@ -178,6 +178,11 @@ func (r *TaskEngineRunner) RunRecoveryPass(ctx context.Context) (dispatching int
 	if err != nil {
 		errs = append(errs, err)
 	}
+	terminal, err := r.recoveryWorker.RecoverTerminalObservations(ctx, db)
+	_ = terminal
+	if err != nil {
+		errs = append(errs, err)
+	}
 
 	return dispatching, unfinished, expiredBilling, errs
 }

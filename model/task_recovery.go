@@ -56,6 +56,7 @@ var (
 
 const (
 	taskRecoveryControlledWriteSetting = "task-recovery:controlled-write"
+	taskRecoveryMigrationWriteSetting  = "task-recovery:migration-write"
 	taskRecoveryUpdateGuardCallback    = "task-recovery:protect-durable-update"
 	taskRecoveryDeleteGuardCallback    = "task-recovery:protect-durable-delete"
 )
@@ -65,6 +66,7 @@ type taskRecoveryControlledWriteMarkerType struct {
 }
 
 var taskRecoveryControlledWriteMarker = &taskRecoveryControlledWriteMarkerType{}
+var taskRecoveryMigrationWriteMarker = &taskRecoveryControlledWriteMarkerType{value: 1}
 
 var taskRecoverySavepointSequence uint64
 
@@ -72,6 +74,7 @@ var taskRecoveryProtectedTables = []string{
 	"task_recovery_identities",
 	"task_submission_operations",
 	"task_submission_attempts",
+	"task_terminal_observations",
 	"task_billing_events",
 	"task_billing_log_outboxes",
 	"quota_mutation_receipts",
@@ -88,12 +91,12 @@ func registerTaskRecoveryGormGuards(db *gorm.DB) error {
 		return gorm.ErrInvalidDB
 	}
 	if db.Callback().Update().Get(taskRecoveryUpdateGuardCallback) == nil {
-		if err := db.Callback().Update().Before("gorm:update").Register(taskRecoveryUpdateGuardCallback, taskRecoveryGormWriteGuard); err != nil {
+		if err := db.Callback().Update().Before("gorm:update").Register(taskRecoveryUpdateGuardCallback, taskRecoveryGormUpdateGuard); err != nil {
 			return err
 		}
 	}
 	if db.Callback().Delete().Get(taskRecoveryDeleteGuardCallback) == nil {
-		if err := db.Callback().Delete().Before("gorm:delete").Register(taskRecoveryDeleteGuardCallback, taskRecoveryGormWriteGuard); err != nil {
+		if err := db.Callback().Delete().Before("gorm:delete").Register(taskRecoveryDeleteGuardCallback, taskRecoveryGormDeleteGuard); err != nil {
 			return err
 		}
 	}
@@ -108,11 +111,16 @@ func taskRecoveryControlledWrite(tx *gorm.DB) *gorm.DB {
 	return tx.Session(&gorm.Session{NewDB: true}).Set(taskRecoveryControlledWriteSetting, taskRecoveryControlledWriteMarker)
 }
 
-func taskRecoveryGormWriteGuard(tx *gorm.DB) {
+func taskRecoveryMigrationWrite(tx *gorm.DB) *gorm.DB {
+	return tx.Session(&gorm.Session{NewDB: true}).Set(taskRecoveryMigrationWriteSetting, taskRecoveryMigrationWriteMarker)
+}
+
+func taskRecoveryGormUpdateGuard(tx *gorm.DB) {
 	if tx == nil {
 		return
 	}
-	switch taskRecoveryGormStatementTable(tx) {
+	table := taskRecoveryGormStatementTable(tx)
+	switch table {
 	case "task_recovery_identities":
 		tx.AddError(ErrTaskRecoveryIdentityImmutable)
 		return
@@ -122,29 +130,152 @@ func taskRecoveryGormWriteGuard(tx *gorm.DB) {
 	case "user_quota_mutation_receipts":
 		tx.AddError(ErrUserQuotaMutationReceiptImmutable)
 		return
+	case "task_terminal_observations":
+		if taskRecoveryMigrationWriteAllowed(tx) {
+			if !validTaskTerminalObservationMigrationUpdate(tx) {
+				tx.AddError(fmt.Errorf("%w: terminal observation migration update is not bounded", ErrTaskRecoveryInvalidRecord))
+			}
+			return
+		}
+		if !taskRecoveryControlledWriteAllowed(tx) || !validTaskTerminalObservationControlledUpdate(tx) {
+			tx.AddError(fmt.Errorf("%w: terminal observations may only change through bounded state CAS", ErrTaskRecoveryInvalidRecord))
+		}
+		return
 	}
 	if taskRecoveryControlledWriteAllowed(tx) {
 		return
 	}
-	switch taskRecoveryGormStatementTable(tx) {
+	switch table {
 	case "task_submission_operations", "task_submission_attempts", "task_billing_events", "task_billing_log_outboxes":
 		tx.AddError(fmt.Errorf("%w: durable task-recovery records may only change through their controlled state CAS", ErrTaskRecoveryInvalidRecord))
 	case "":
-		// GORM may render a TableExpr variable through nested maps, named
-		// expressions, or arbitrary Clause expressions. Its final table cannot
-		// be proven from Statement.Table, so allowing a dynamic target would
-		// reopen the model-hook bypass for a protected table. The controlled
-		// B2 writers use fixed table names; reject this unsupported update/delete
-		// shape rather than attempting to parse every GORM expression type.
 		if taskRecoveryGormHasDynamicTableExpression(tx) {
 			tx.AddError(fmt.Errorf("%w: dynamic table expressions are not permitted for unguarded updates or deletes", ErrTaskRecoveryInvalidRecord))
 		}
 	}
 }
 
+func taskRecoveryGormDeleteGuard(tx *gorm.DB) {
+	if tx == nil {
+		return
+	}
+	table := taskRecoveryGormStatementTable(tx)
+	switch table {
+	case "task_recovery_identities":
+		tx.AddError(ErrTaskRecoveryIdentityImmutable)
+	case "quota_mutation_receipts":
+		tx.AddError(ErrQuotaMutationReceiptImmutable)
+	case "user_quota_mutation_receipts":
+		tx.AddError(ErrUserQuotaMutationReceiptImmutable)
+	case "task_submission_operations", "task_submission_attempts", "task_terminal_observations", "task_billing_events", "task_billing_log_outboxes":
+		tx.AddError(fmt.Errorf("%w: durable task-recovery records cannot be deleted", ErrTaskRecoveryInvalidRecord))
+	case "":
+		if taskRecoveryGormHasDynamicTableExpression(tx) {
+			tx.AddError(fmt.Errorf("%w: dynamic table expressions are not permitted for unguarded updates or deletes", ErrTaskRecoveryInvalidRecord))
+		}
+	}
+}
+
+func validTaskTerminalObservationControlledUpdate(tx *gorm.DB) bool {
+	updates, ok := tx.Statement.Dest.(map[string]interface{})
+	if !ok || len(updates) == 0 {
+		return false
+	}
+	allowed := map[string]struct{}{
+		"state": {}, "applied_at": {}, "updated_at": {}, "next_attempt_at": {}, "last_error_code": {}, "lock_version": {}, "attempt_count": {},
+		"conflict_count": {}, "last_conflict_fingerprint": {}, "clamp_op": {}, "clamp_kind": {}, "clamp_original": {}, "clamp_clamped": {},
+	}
+	for column := range updates {
+		if _, exists := allowed[column]; !exists {
+			return false
+		}
+	}
+	return taskRecoveryWhereHasColumn(tx, "id") && taskRecoveryWhereHasColumn(tx, "lock_version") &&
+		(taskRecoveryWhereHasColumn(tx, "state") || taskRecoveryWhereHasColumn(tx, "conflict_count"))
+}
+
+func validTaskTerminalObservationMigrationUpdate(tx *gorm.DB) bool {
+	updates, ok := tx.Statement.Dest.(map[string]interface{})
+	if !ok || len(updates) == 0 {
+		return false
+	}
+	for column := range updates {
+		if column != "request_id" && column != "retention_until" {
+			return false
+		}
+	}
+	return taskRecoveryWhereHasColumn(tx, "id")
+}
+
+func taskRecoveryWhereHasColumn(tx *gorm.DB, column string) bool {
+	whereClause, ok := tx.Statement.Clauses["WHERE"]
+	if !ok {
+		return false
+	}
+	return taskRecoveryExpressionHasColumn(whereClause.Expression, column)
+}
+
+func taskRecoveryExpressionHasColumn(expression clause.Expression, column string) bool {
+	switch value := expression.(type) {
+	case clause.Where:
+		for _, child := range value.Exprs {
+			if taskRecoveryExpressionHasColumn(child, column) {
+				return true
+			}
+		}
+	case clause.AndConditions:
+		for _, child := range value.Exprs {
+			if taskRecoveryExpressionHasColumn(child, column) {
+				return true
+			}
+		}
+	case clause.OrConditions:
+		for _, child := range value.Exprs {
+			if taskRecoveryExpressionHasColumn(child, column) {
+				return true
+			}
+		}
+	case clause.Expr:
+		return taskRecoverySQLMentionsColumn(value.SQL, column)
+	case clause.Eq:
+		return taskRecoveryColumnName(value.Column) == column
+	case clause.IN:
+		return taskRecoveryColumnName(value.Column) == column
+	}
+	return false
+}
+
+func taskRecoverySQLMentionsColumn(sqlText, column string) bool {
+	column = strings.ToLower(column)
+	for _, token := range strings.FieldsFunc(strings.ToLower(sqlText), func(character rune) bool {
+		return (character < 'a' || character > 'z') && (character < '0' || character > '9') && character != '_'
+	}) {
+		if token == column {
+			return true
+		}
+	}
+	return false
+}
+
+func taskRecoveryColumnName(value interface{}) string {
+	switch column := value.(type) {
+	case clause.Column:
+		return strings.ToLower(column.Name)
+	case string:
+		return strings.ToLower(column)
+	default:
+		return ""
+	}
+}
+
 func taskRecoveryControlledWriteAllowed(tx *gorm.DB) bool {
 	value, ok := tx.Get(taskRecoveryControlledWriteSetting)
 	return ok && value == taskRecoveryControlledWriteMarker
+}
+
+func taskRecoveryMigrationWriteAllowed(tx *gorm.DB) bool {
+	value, ok := tx.Get(taskRecoveryMigrationWriteSetting)
+	return ok && value == taskRecoveryMigrationWriteMarker
 }
 
 func taskRecoveryGormStatementTable(tx *gorm.DB) string {
@@ -291,6 +422,7 @@ type TaskSubmissionOperation struct {
 	OperationKind      string                        `json:"operation_kind" gorm:"type:varchar(48);not null;uniqueIndex:uidx_task_submission_idempotency,priority:3;<-:create"`
 	IdempotencyKeyHash string                        `json:"-" gorm:"type:char(64);not null;uniqueIndex:uidx_task_submission_idempotency,priority:4;<-:create"`
 	RequestFingerprint string                        `json:"-" gorm:"type:char(64);not null;<-:create"`
+	RequestID          string                        `json:"request_id" gorm:"type:varchar(64);not null;default:'';<-:create"`
 	Status             TaskSubmissionOperationStatus `json:"status" gorm:"type:varchar(32);not null;index:idx_task_submission_status_created,priority:1;<-:create"`
 	BillingPreference  string                        `json:"billing_preference,omitempty" gorm:"type:varchar(32);not null;default:'';<-:create"`
 	BillingSource      string                        `json:"billing_source,omitempty" gorm:"type:varchar(32);not null;default:'';<-:create"`
@@ -328,6 +460,10 @@ func (operation *TaskSubmissionOperation) BeforeCreate(tx *gorm.DB) error {
 	operation.OperationKind = strings.ToLower(strings.TrimSpace(operation.OperationKind))
 	operation.IdempotencyKeyHash = strings.ToLower(operation.IdempotencyKeyHash)
 	operation.RequestFingerprint = strings.ToLower(operation.RequestFingerprint)
+	operation.RequestID = strings.TrimSpace(operation.RequestID)
+	if operation.RequestID == "" && validTaskRecoveryDigest(operation.RequestFingerprint) {
+		operation.RequestID = "taskreq_" + operation.RequestFingerprint[:48]
+	}
 	if operation.Status == "" {
 		operation.Status = TaskSubmissionOperationStatusPrepared
 	}
@@ -346,7 +482,7 @@ func (operation *TaskSubmissionOperation) BeforeCreate(tx *gorm.DB) error {
 		return fmt.Errorf("%w: task submission timestamps are assigned by the database clock", ErrTaskRecoveryInvalidRecord)
 	}
 	if operation.UserID <= 0 || operation.TokenID <= 0 || int64(operation.UserID) > taskBillingQuotaMax || int64(operation.TokenID) > taskBillingQuotaMax ||
-		operation.HTTPMethod == "" || !validTaskSubmissionOperationKind(operation.OperationKind) {
+		operation.HTTPMethod == "" || !validTaskSubmissionOperationKind(operation.OperationKind) || len(operation.RequestID) > 64 {
 		return fmt.Errorf("%w: task submission scope is incomplete", ErrTaskRecoveryInvalidRecord)
 	}
 	if !validTaskRecoveryDigest(operation.IdempotencyKeyHash) || !validTaskRecoveryDigest(operation.RequestFingerprint) {
@@ -1423,23 +1559,28 @@ func CanTransitionTaskBillingEvent(from, to TaskBillingEventState) bool {
 // identifier, classification or amount already present in the event; there is
 // deliberately no request body, prompt, provider response or credential field.
 type TaskBillingEventPayload struct {
-	Version          int                  `json:"version"`
-	BillingEventID   string               `json:"billing_event_id"`
-	EventKey         string               `json:"event_key"`
-	EventType        TaskBillingEventType `json:"event_type"`
-	OperationID      int64                `json:"operation_id,omitempty"`
-	TaskID           int64                `json:"task_id,omitempty"`
-	UserID           int                  `json:"user_id"`
-	TokenID          int                  `json:"token_id"`
-	ChannelID        int                  `json:"channel_id,omitempty"`
-	BillingSource    string               `json:"billing_source"`
-	SubscriptionID   int                  `json:"subscription_id,omitempty"`
-	QuotaDelta       int64                `json:"quota_delta"`
-	RequestID        string               `json:"request_id,omitempty"`
-	NodeName         string               `json:"node_name,omitempty"`
-	ReasonCode       string               `json:"reason_code,omitempty"`
-	ResolutionSource string               `json:"resolution_source,omitempty"`
-	AuditCommandID   string               `json:"audit_command_id,omitempty"`
+	Version           int                  `json:"version"`
+	BillingEventID    string               `json:"billing_event_id"`
+	EventKey          string               `json:"event_key"`
+	EventType         TaskBillingEventType `json:"event_type"`
+	OperationID       int64                `json:"operation_id,omitempty"`
+	TaskID            int64                `json:"task_id,omitempty"`
+	UserID            int                  `json:"user_id"`
+	TokenID           int                  `json:"token_id"`
+	ChannelID         int                  `json:"channel_id,omitempty"`
+	BillingSource     string               `json:"billing_source"`
+	SubscriptionID    int                  `json:"subscription_id,omitempty"`
+	QuotaDelta        int64                `json:"quota_delta"`
+	RequestID         string               `json:"request_id,omitempty"`
+	NodeName          string               `json:"node_name,omitempty"`
+	ReasonCode        string               `json:"reason_code,omitempty"`
+	ResolutionSource  string               `json:"resolution_source,omitempty"`
+	AuditCommandID    string               `json:"audit_command_id,omitempty"`
+	EvidenceID        string               `json:"evidence_id,omitempty"`
+	EvidenceHash      string               `json:"evidence_hash,omitempty"`
+	EvidenceVersion   int                  `json:"evidence_version,omitempty"`
+	StatisticsVersion int                  `json:"statistics_version,omitempty"`
+	StatisticsApplied bool                 `json:"statistics_applied,omitempty"`
 }
 
 func (payload *TaskBillingEventPayload) Scan(value interface{}) error {
@@ -1464,36 +1605,41 @@ func (payload TaskBillingEventPayload) Value() (driver.Value, error) {
 // copied to the log outbox and projected Log row. Audit fields are bounded
 // codes/references and intentionally exclude arbitrary request/provider data.
 type TaskBillingEvent struct {
-	ID               int64                   `json:"id" gorm:"primaryKey"`
-	EventID          string                  `json:"event_id" gorm:"type:varchar(64);not null;uniqueIndex:uidx_task_billing_event_id;<-:create"`
-	EventKey         string                  `json:"event_key" gorm:"type:varchar(128);not null;uniqueIndex:uidx_task_billing_event_key;<-:create"`
-	OperationID      *int64                  `json:"operation_id,omitempty" gorm:"index;<-:create"`
-	TaskID           *int64                  `json:"task_id,omitempty" gorm:"index;<-:create"`
-	EventType        TaskBillingEventType    `json:"event_type" gorm:"type:varchar(32);not null;index;<-:create"`
-	State            TaskBillingEventState   `json:"state" gorm:"type:varchar(24);not null;index:idx_task_billing_ready,priority:1;<-:create"`
-	UserID           int                     `json:"user_id" gorm:"not null;index;<-:create"`
-	TokenID          int                     `json:"token_id" gorm:"not null;index;<-:create"`
-	ChannelID        int                     `json:"channel_id" gorm:"index;<-:create"`
-	BillingSource    string                  `json:"billing_source" gorm:"type:varchar(32);not null;<-:create"`
-	SubscriptionID   int                     `json:"subscription_id,omitempty" gorm:"index;<-:create"`
-	QuotaDelta       int64                   `json:"quota_delta" gorm:"type:bigint;not null;<-:create"`
-	RequestID        string                  `json:"request_id,omitempty" gorm:"type:varchar(64);index;<-:create"`
-	NodeName         string                  `json:"node_name,omitempty" gorm:"type:varchar(128);<-:create"`
-	ReasonCode       string                  `json:"reason_code,omitempty" gorm:"type:varchar(64);<-:create"`
-	ResolutionSource string                  `json:"resolution_source,omitempty" gorm:"type:varchar(32);<-:create"`
-	AuditCommandID   string                  `json:"audit_command_id,omitempty" gorm:"type:varchar(48);<-:create"`
-	ClaimedBy        string                  `json:"claimed_by,omitempty" gorm:"type:varchar(128);index;<-:create"`
-	ClaimedUntil     int64                   `json:"claimed_until,omitempty" gorm:"type:bigint;index;<-:create"`
-	AttemptCount     int                     `json:"attempt_count" gorm:"not null;<-:create"`
-	NextAttemptAt    int64                   `json:"next_attempt_at,omitempty" gorm:"type:bigint;index:idx_task_billing_ready,priority:2;<-:create"`
-	LastErrorCode    string                  `json:"last_error_code,omitempty" gorm:"type:varchar(64);<-:create"`
-	LastErrorAt      int64                   `json:"last_error_at,omitempty" gorm:"type:bigint;<-:create"`
-	AppliedAt        *int64                  `json:"applied_at,omitempty" gorm:"type:bigint;<-:create"`
-	PayloadVersion   int                     `json:"payload_version" gorm:"not null;<-:create"`
-	Payload          TaskBillingEventPayload `json:"-" gorm:"type:text;not null;<-:create"`
-	LockVersion      int64                   `json:"lock_version" gorm:"type:bigint;not null;<-:create"`
-	CreatedAt        int64                   `json:"created_at" gorm:"type:bigint;index;<-:create"`
-	UpdatedAt        int64                   `json:"updated_at" gorm:"type:bigint;<-:create"`
+	ID                int64                   `json:"id" gorm:"primaryKey"`
+	EventID           string                  `json:"event_id" gorm:"type:varchar(64);not null;uniqueIndex:uidx_task_billing_event_id;<-:create"`
+	EventKey          string                  `json:"event_key" gorm:"type:varchar(128);not null;uniqueIndex:uidx_task_billing_event_key;<-:create"`
+	OperationID       *int64                  `json:"operation_id,omitempty" gorm:"index;<-:create"`
+	TaskID            *int64                  `json:"task_id,omitempty" gorm:"index;<-:create"`
+	EventType         TaskBillingEventType    `json:"event_type" gorm:"type:varchar(32);not null;index;<-:create"`
+	State             TaskBillingEventState   `json:"state" gorm:"type:varchar(24);not null;index:idx_task_billing_ready,priority:1;<-:create"`
+	UserID            int                     `json:"user_id" gorm:"not null;index;<-:create"`
+	TokenID           int                     `json:"token_id" gorm:"not null;index;<-:create"`
+	ChannelID         int                     `json:"channel_id" gorm:"index;<-:create"`
+	BillingSource     string                  `json:"billing_source" gorm:"type:varchar(32);not null;<-:create"`
+	SubscriptionID    int                     `json:"subscription_id,omitempty" gorm:"index;<-:create"`
+	QuotaDelta        int64                   `json:"quota_delta" gorm:"type:bigint;not null;<-:create"`
+	RequestID         string                  `json:"request_id,omitempty" gorm:"type:varchar(64);index;<-:create"`
+	NodeName          string                  `json:"node_name,omitempty" gorm:"type:varchar(128);<-:create"`
+	ReasonCode        string                  `json:"reason_code,omitempty" gorm:"type:varchar(64);<-:create"`
+	ResolutionSource  string                  `json:"resolution_source,omitempty" gorm:"type:varchar(32);<-:create"`
+	AuditCommandID    string                  `json:"audit_command_id,omitempty" gorm:"type:varchar(48);<-:create"`
+	EvidenceID        string                  `json:"evidence_id,omitempty" gorm:"type:varchar(191);not null;default:'';<-:create"`
+	EvidenceHash      string                  `json:"evidence_hash,omitempty" gorm:"type:char(64);not null;default:'';<-:create"`
+	EvidenceVersion   int                     `json:"evidence_version,omitempty" gorm:"not null;default:0;<-:create"`
+	StatisticsVersion int                     `json:"statistics_version,omitempty" gorm:"not null;default:0;<-:create"`
+	StatisticsApplied bool                    `json:"statistics_applied,omitempty" gorm:"not null;default:false;<-:create"`
+	ClaimedBy         string                  `json:"claimed_by,omitempty" gorm:"type:varchar(128);index;<-:create"`
+	ClaimedUntil      int64                   `json:"claimed_until,omitempty" gorm:"type:bigint;index;<-:create"`
+	AttemptCount      int                     `json:"attempt_count" gorm:"not null;<-:create"`
+	NextAttemptAt     int64                   `json:"next_attempt_at,omitempty" gorm:"type:bigint;index:idx_task_billing_ready,priority:2;<-:create"`
+	LastErrorCode     string                  `json:"last_error_code,omitempty" gorm:"type:varchar(64);<-:create"`
+	LastErrorAt       int64                   `json:"last_error_at,omitempty" gorm:"type:bigint;<-:create"`
+	AppliedAt         *int64                  `json:"applied_at,omitempty" gorm:"type:bigint;<-:create"`
+	PayloadVersion    int                     `json:"payload_version" gorm:"not null;<-:create"`
+	Payload           TaskBillingEventPayload `json:"-" gorm:"type:text;not null;<-:create"`
+	LockVersion       int64                   `json:"lock_version" gorm:"type:bigint;not null;<-:create"`
+	CreatedAt         int64                   `json:"created_at" gorm:"type:bigint;index;<-:create"`
+	UpdatedAt         int64                   `json:"updated_at" gorm:"type:bigint;<-:create"`
 }
 
 func (event *TaskBillingEvent) BeforeCreate(tx *gorm.DB) error {
@@ -1512,9 +1658,17 @@ func (event *TaskBillingEvent) BeforeCreate(tx *gorm.DB) error {
 	}
 	providedEventKey := strings.TrimSpace(event.EventKey)
 	event.BillingSource = strings.ToLower(strings.TrimSpace(event.BillingSource))
-	event.ReasonCode = strings.TrimSpace(event.ReasonCode)
+	event.ReasonCode = strings.ToLower(strings.TrimSpace(event.ReasonCode))
+	if event.ReasonCode == "" {
+		event.ReasonCode = "task_" + string(event.EventType)
+	}
+	if !validTaskTerminalReasonCode(event.ReasonCode) {
+		return fmt.Errorf("%w: task billing reason code is not a safe internal code", ErrTaskRecoveryInvalidRecord)
+	}
 	event.ResolutionSource = strings.TrimSpace(event.ResolutionSource)
 	event.AuditCommandID = strings.ToLower(strings.TrimSpace(event.AuditCommandID))
+	event.EvidenceID = strings.TrimSpace(event.EvidenceID)
+	event.EvidenceHash = strings.ToLower(strings.TrimSpace(event.EvidenceHash))
 	if event.State == "" {
 		event.State = TaskBillingEventStatePending
 	}
@@ -1533,11 +1687,14 @@ func (event *TaskBillingEvent) BeforeCreate(tx *gorm.DB) error {
 	}
 	if !validTaskBillingEventID(event.EventID) ||
 		len(event.BillingSource) > 32 || len(event.RequestID) > 64 || len(event.NodeName) > 128 ||
-		len(event.ReasonCode) > 64 || len(event.ResolutionSource) > 32 {
+		len(event.ReasonCode) > 64 || len(event.ResolutionSource) > 32 || len(event.EvidenceID) > 191 || !validTaskMutationEvidence(event.EvidenceID, event.EvidenceHash, event.EvidenceVersion) {
 		return fmt.Errorf("%w: task billing event identifier exceeds its database bound", ErrTaskRecoveryInvalidRecord)
 	}
 	if event.QuotaDelta < taskBillingQuotaMin || event.QuotaDelta > taskBillingQuotaMax {
 		return fmt.Errorf("%w: task billing quota delta exceeds the int32 ledger boundary", ErrTaskRecoveryInvalidRecord)
+	}
+	if (event.StatisticsApplied && event.StatisticsVersion != 1) || (!event.StatisticsApplied && event.StatisticsVersion != 0) {
+		return fmt.Errorf("%w: task billing event statistics evidence is invalid", ErrTaskRecoveryInvalidRecord)
 	}
 	if event.EventType == TaskBillingEventTypeReserve && event.QuotaDelta > 0 {
 		return fmt.Errorf("%w: reserve events must decrease the available quota", ErrTaskRecoveryInvalidRecord)
@@ -1635,6 +1792,10 @@ func (event *TaskBillingEvent) BeforeCreate(tx *gorm.DB) error {
 	if attempt.ChannelID != event.ChannelID {
 		return fmt.Errorf("%w: task billing event does not match the submission attempt channel", ErrTaskRecoveryInvalidRecord)
 	}
+	if event.ResolutionSource == TaskSubmissionResolutionSourceProviderVerified &&
+		(event.EvidenceVersion != 1 || event.EvidenceID == "" || (event.EvidenceID != attempt.ProviderOperationID && event.EvidenceID != attempt.UpstreamRequestID)) {
+		return fmt.Errorf("%w: provider-verified billing event evidence is not bound to its attempt", ErrTaskRecoveryInvalidRecord)
+	}
 
 	canonicalEventKey := "task:" + operation.PublicID + ":" + string(event.EventType)
 	if event.EventType == TaskBillingEventTypeManualResolution {
@@ -1648,6 +1809,9 @@ func (event *TaskBillingEvent) BeforeCreate(tx *gorm.DB) error {
 		return fmt.Errorf("%w: task billing event key is not canonical", ErrTaskRecoveryInvalidRecord)
 	}
 	event.EventKey = canonicalEventKey
+	if event.RequestID == "" {
+		event.RequestID = stableTaskBillingRequestID("", canonicalEventKey)
+	}
 	if event.Payload == (TaskBillingEventPayload{}) {
 		event.Payload = taskBillingEventPayloadFromRecord(event)
 	}
@@ -1876,21 +2040,26 @@ func validateTaskRecoveryFailure(errorCode string, retryDelaySeconds, transition
 
 func taskBillingEventPayloadFromRecord(event *TaskBillingEvent) TaskBillingEventPayload {
 	payload := TaskBillingEventPayload{
-		Version:          TaskRecoveryPayloadVersion,
-		BillingEventID:   event.EventID,
-		EventKey:         event.EventKey,
-		EventType:        event.EventType,
-		UserID:           event.UserID,
-		TokenID:          event.TokenID,
-		ChannelID:        event.ChannelID,
-		BillingSource:    event.BillingSource,
-		SubscriptionID:   event.SubscriptionID,
-		QuotaDelta:       event.QuotaDelta,
-		RequestID:        event.RequestID,
-		NodeName:         event.NodeName,
-		ReasonCode:       event.ReasonCode,
-		ResolutionSource: event.ResolutionSource,
-		AuditCommandID:   event.AuditCommandID,
+		Version:           TaskRecoveryPayloadVersion,
+		BillingEventID:    event.EventID,
+		EventKey:          event.EventKey,
+		EventType:         event.EventType,
+		UserID:            event.UserID,
+		TokenID:           event.TokenID,
+		ChannelID:         event.ChannelID,
+		BillingSource:     event.BillingSource,
+		SubscriptionID:    event.SubscriptionID,
+		QuotaDelta:        event.QuotaDelta,
+		RequestID:         event.RequestID,
+		NodeName:          event.NodeName,
+		ReasonCode:        event.ReasonCode,
+		ResolutionSource:  event.ResolutionSource,
+		AuditCommandID:    event.AuditCommandID,
+		EvidenceID:        event.EvidenceID,
+		EvidenceHash:      event.EvidenceHash,
+		EvidenceVersion:   event.EvidenceVersion,
+		StatisticsVersion: event.StatisticsVersion,
+		StatisticsApplied: event.StatisticsApplied,
 	}
 	if event.OperationID != nil {
 		payload.OperationID = *event.OperationID
@@ -1961,6 +2130,7 @@ func validateStoredTaskSubmissionOperation(tx *gorm.DB, operation *TaskSubmissio
 	if operation == nil || operation.ID <= 0 || !validTaskSubmissionPublicID(operation.PublicID) ||
 		operation.UserID <= 0 || operation.TokenID <= 0 || int64(operation.UserID) > taskBillingQuotaMax || int64(operation.TokenID) > taskBillingQuotaMax ||
 		operation.HTTPMethod == "" || operation.HTTPMethod != strings.ToUpper(operation.HTTPMethod) || !validTaskSubmissionOperationKind(operation.OperationKind) ||
+		operation.RequestID != strings.TrimSpace(operation.RequestID) || len(operation.RequestID) > 64 ||
 		!validTaskRecoveryDigest(operation.IdempotencyKeyHash) || !validTaskRecoveryDigest(operation.RequestFingerprint) ||
 		!operation.Status.Valid() || operation.LockVersion <= 0 || operation.CreatedAt <= 0 || operation.UpdatedAt < operation.CreatedAt ||
 		operation.ReasonCode != strings.TrimSpace(operation.ReasonCode) || operation.ResolutionSource != strings.TrimSpace(operation.ResolutionSource) ||
@@ -1979,7 +2149,7 @@ func validateStoredTaskSubmissionOperation(tx *gorm.DB, operation *TaskSubmissio
 		if common.NormalizeBillingPreference(operation.BillingPreference) != operation.BillingPreference ||
 			(operation.BillingSource != "wallet" && operation.BillingSource != "subscription") ||
 			(operation.BillingSource == "wallet" && operation.SubscriptionID != 0) ||
-			(operation.BillingSource == "subscription" && operation.SubscriptionID <= 0) || operation.ReservedQuota < 0 || operation.ReservedQuota > taskBillingQuotaMax || operation.EstimatedQuota < 0 || operation.EstimatedQuota > taskBillingQuotaMax || (operation.BillingVersion != 0 && operation.BillingVersion != 2) {
+			(operation.BillingSource == "subscription" && operation.SubscriptionID <= 0) || operation.ReservedQuota < 0 || operation.ReservedQuota > taskBillingQuotaMax || operation.EstimatedQuota < 0 || operation.EstimatedQuota > taskBillingQuotaMax || (operation.BillingVersion != 0 && operation.BillingVersion != 2 && operation.BillingVersion != 3) {
 			return fmt.Errorf("%w: stored task submission operation has an invalid billing selection", ErrTaskRecoveryInvalidRecord)
 		}
 	}
@@ -2083,8 +2253,8 @@ func validateStoredTaskBillingEvent(tx *gorm.DB, event *TaskBillingEvent) error 
 		event.BillingSource == "" || event.LockVersion <= 0 || event.CreatedAt <= 0 || event.UpdatedAt < event.CreatedAt ||
 		event.QuotaDelta < taskBillingQuotaMin || event.QuotaDelta > taskBillingQuotaMax ||
 		len(event.EventKey) > 128 || len(event.BillingSource) > 32 || len(event.RequestID) > 64 || len(event.NodeName) > 128 ||
-		len(event.ReasonCode) > 64 || len(event.ResolutionSource) > 32 || len(event.AuditCommandID) > taskBillingAuditCommandIDMaxLength ||
-		event.PayloadVersion != TaskRecoveryPayloadVersion || event.Payload != taskBillingEventPayloadFromRecord(event) {
+		len(event.ReasonCode) > 64 || len(event.ResolutionSource) > 32 || len(event.AuditCommandID) > taskBillingAuditCommandIDMaxLength || len(event.EvidenceID) > 191 ||
+		!validTaskMutationEvidence(event.EvidenceID, event.EvidenceHash, event.EvidenceVersion) || event.PayloadVersion != TaskRecoveryPayloadVersion || event.Payload != taskBillingEventPayloadFromRecord(event) {
 		return fmt.Errorf("%w: stored task billing event is not a valid immutable v1 record", ErrTaskRecoveryInvalidRecord)
 	}
 	if event.BillingSource != "wallet" && event.BillingSource != "subscription" ||
@@ -2096,6 +2266,9 @@ func validateStoredTaskBillingEvent(tx *gorm.DB, event *TaskBillingEvent) error 
 		(event.EventType == TaskBillingEventTypeManualResolution && (!validTaskBillingAuditCommandID(event.AuditCommandID) || event.ResolutionSource != TaskSubmissionResolutionSourceManualAudit)) ||
 		(event.EventType != TaskBillingEventTypeManualResolution && (event.AuditCommandID != "" || event.ResolutionSource == TaskSubmissionResolutionSourceManualAudit)) {
 		return fmt.Errorf("%w: stored task billing event has invalid funding, amount, or audit metadata", ErrTaskRecoveryInvalidRecord)
+	}
+	if (event.StatisticsApplied && event.StatisticsVersion != 1) || (!event.StatisticsApplied && event.StatisticsVersion != 0) {
+		return fmt.Errorf("%w: stored task billing event has invalid statistics evidence", ErrTaskRecoveryInvalidRecord)
 	}
 	if err := validateStoredTaskBillingEventState(event); err != nil {
 		return err
@@ -2141,6 +2314,10 @@ func validateStoredTaskBillingEvent(tx *gorm.DB, event *TaskBillingEvent) error 
 	}
 	if attempt.ChannelID != event.ChannelID {
 		return fmt.Errorf("%w: stored task billing event does not match its submission attempt channel", ErrTaskRecoveryInvalidRecord)
+	}
+	if event.ResolutionSource == TaskSubmissionResolutionSourceProviderVerified &&
+		(event.EvidenceVersion != 1 || event.EvidenceID == "" || (event.EvidenceID != attempt.ProviderOperationID && event.EvidenceID != attempt.UpstreamRequestID)) {
+		return fmt.Errorf("%w: stored provider-verified billing event evidence is not bound to its attempt", ErrTaskRecoveryInvalidRecord)
 	}
 	canonicalEventKey := "task:" + operation.PublicID + ":" + string(event.EventType)
 	if event.EventType == TaskBillingEventTypeManualResolution {
@@ -2203,7 +2380,12 @@ func taskBillingEventSemanticallyMatches(existing, candidate *TaskBillingEvent) 
 		existing.NodeName == candidate.NodeName &&
 		existing.ReasonCode == candidate.ReasonCode &&
 		existing.ResolutionSource == candidate.ResolutionSource &&
-		existing.AuditCommandID == candidate.AuditCommandID
+		existing.AuditCommandID == candidate.AuditCommandID &&
+		existing.EvidenceID == candidate.EvidenceID &&
+		existing.EvidenceHash == candidate.EvidenceHash &&
+		existing.EvidenceVersion == candidate.EvidenceVersion &&
+		existing.StatisticsVersion == candidate.StatisticsVersion &&
+		existing.StatisticsApplied == candidate.StatisticsApplied
 }
 
 type TaskBillingLogOutboxState string

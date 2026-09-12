@@ -223,6 +223,10 @@ func relayTaskDurable(c *gin.Context, opKind string, originID string) {
 		}, nil
 	}
 
+	requestID := c.GetString(common.RequestIdKey)
+	if requestID == "" {
+		requestID = relayInfo.RequestId
+	}
 	ingressReq := service.TaskIngressRequest{
 		UserID:             relayInfo.UserId,
 		TokenID:            relayInfo.TokenId,
@@ -234,6 +238,7 @@ func relayTaskDurable(c *gin.Context, opKind string, originID string) {
 		Header:             ingressHeader,
 		ContentType:        c.Request.Header.Get("Content-Type"),
 		Body:               bodyBytes,
+		RequestID:          requestID,
 		EstimatedQuota:     estimatedQuota,
 		FreeModel:          relayInfo.PriceData.FreeModel,
 		BillingContext:     *billingContext,

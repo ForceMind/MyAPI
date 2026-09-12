@@ -30,6 +30,7 @@ func newSettleTestFixture(t *testing.T, db *gorm.DB, label string, quota int64) 
 	require.NoError(t, db.Create(&user).Error)
 	token := Token{UserId: user.Id, Key: name, Status: common.TokenStatusEnabled, RemainQuota: tokenRemain, ExpiredTime: -1}
 	require.NoError(t, db.Create(&token).Error)
+	require.NoError(t, db.FirstOrCreate(&Channel{Id: 61, Name: "settle-test"}, Channel{Id: 61}).Error)
 	operation := newB2SubmissionOperation(t, token.Id, "POST", TaskSubmissionOperationKindVideoCreate, name, "{}")
 	operation.UserID = user.Id
 	intent, err := CreateOrLoadTaskSubmissionIntent(db, operation, &TaskSubmissionAttempt{
@@ -39,7 +40,7 @@ func newSettleTestFixture(t *testing.T, db *gorm.DB, label string, quota int64) 
 	return TaskQuotaReservationInput{
 		OperationID: intent.Operation.ID, UserID: user.Id, TokenID: token.Id,
 		ChannelID: 61, ExpectedOperationVersion: intent.Operation.LockVersion,
-		Quota: quota, BillingSource: "wallet",
+		Quota: quota, BillingSource: "wallet", ApplyStatistics: true,
 		BillingContext: TaskBillingContext{
 			Version: TaskBillingContextVersion, Complete: true, ModelPrice: 1,
 			GroupRatio: 1, OriginModelName: "quota-settle-fixture", PerCallBilling: true,
@@ -55,6 +56,7 @@ func newSettleSubscriptionFixture(t *testing.T, db *gorm.DB, label string, quota
 	require.NoError(t, db.Create(&user).Error)
 	token := Token{UserId: user.Id, Key: name, Status: common.TokenStatusEnabled, RemainQuota: 500, ExpiredTime: -1}
 	require.NoError(t, db.Create(&token).Error)
+	require.NoError(t, db.FirstOrCreate(&Channel{Id: 61, Name: "settle-test"}, Channel{Id: 61}).Error)
 	subscription := UserSubscription{
 		UserId: user.Id, PlanId: 1, AmountTotal: 1000, AmountUsed: 200,
 		Status: "active", StartTime: 1, EndTime: 1<<31 - 1,
@@ -69,7 +71,7 @@ func newSettleSubscriptionFixture(t *testing.T, db *gorm.DB, label string, quota
 	return TaskQuotaReservationInput{
 		OperationID: intent.Operation.ID, UserID: user.Id, TokenID: token.Id,
 		ChannelID: 61, ExpectedOperationVersion: intent.Operation.LockVersion,
-		Quota: quota, BillingSource: "subscription", SubscriptionID: subscription.Id,
+		Quota: quota, BillingSource: "subscription", SubscriptionID: subscription.Id, ApplyStatistics: true,
 		BillingContext: TaskBillingContext{
 			Version: TaskBillingContextVersion, Complete: true, ModelPrice: 1,
 			GroupRatio: 1, OriginModelName: "quota-settle-sub-fixture", PerCallBilling: true,

@@ -87,11 +87,13 @@ func b2SubmissionModels() []interface{} {
 	return []interface{}{
 		&User{},
 		&Token{},
+		&Channel{},
 		&UserSubscription{},
 		&Task{},
 		&TaskRecoveryIdentity{},
 		&TaskSubmissionOperation{},
 		&TaskSubmissionAttempt{},
+		&TaskTerminalObservation{},
 		&TaskBillingEvent{},
 		&TaskBillingLogOutbox{},
 		&QuotaMutationReceipt{},

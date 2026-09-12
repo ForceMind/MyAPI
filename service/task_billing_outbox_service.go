@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -216,7 +218,12 @@ func (s *TaskBillingOutboxService) ProcessClaimableBatch(ctx context.Context, db
 				Other:             outbox.Payload.Other,
 			}
 			if logRecord.RequestId == "" {
-				logRecord.RequestId = common.NewRequestId()
+				if outbox.BillingEventID != "" {
+					digest := sha256.Sum256([]byte(outbox.BillingEventID))
+					logRecord.RequestId = "billing_" + hex.EncodeToString(digest[:])[:48]
+				} else {
+					logRecord.RequestId = common.NewRequestId()
+				}
 			}
 			if logRecord.CreatedAt == 0 {
 				logRecord.CreatedAt = now

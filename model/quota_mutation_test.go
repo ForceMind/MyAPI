@@ -16,6 +16,24 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+type legacyTaskTerminalObservation struct {
+	ID          int64 `gorm:"primaryKey"`
+	OperationID int64
+	TaskID      int64
+	Outcome     string `gorm:"type:varchar(16)"`
+	ActualQuota int64
+	TaskStatus  TaskStatus                   `gorm:"type:varchar(20)"`
+	ReasonCode  string                       `gorm:"type:varchar(64)"`
+	RequestID   string                       `gorm:"type:varchar(64)"`
+	Fingerprint string                       `gorm:"type:char(64)"`
+	State       TaskTerminalObservationState `gorm:"type:varchar(24)"`
+	CreatedAt   int64
+	UpdatedAt   int64
+	LockVersion int64
+}
+
+func (legacyTaskTerminalObservation) TableName() string { return "task_terminal_observations" }
+
 // Every scenario owns different subjects and an intent. This fixture is shared
 // by SQLite and the disposable minimum-version MySQL/PostgreSQL CI databases.
 func newTaskQuotaReservationFixture(t *testing.T, db *gorm.DB, label string) TaskQuotaReservationInput {
@@ -26,6 +44,7 @@ func newTaskQuotaReservationFixture(t *testing.T, db *gorm.DB, label string) Tas
 	require.NoError(t, db.Create(&user).Error)
 	token := Token{UserId: user.Id, Key: name, Status: common.TokenStatusEnabled, RemainQuota: 500, ExpiredTime: -1}
 	require.NoError(t, db.Create(&token).Error)
+	require.NoError(t, db.FirstOrCreate(&Channel{Id: 61, Name: "quota-test"}, Channel{Id: 61}).Error)
 	operation := newB2SubmissionOperation(t, token.Id, "POST", TaskSubmissionOperationKindVideoCreate, name, "{}")
 	operation.UserID = user.Id
 	intent, err := CreateOrLoadTaskSubmissionIntent(db, operation, &TaskSubmissionAttempt{
@@ -35,7 +54,7 @@ func newTaskQuotaReservationFixture(t *testing.T, db *gorm.DB, label string) Tas
 	return TaskQuotaReservationInput{
 		OperationID: intent.Operation.ID, UserID: user.Id, TokenID: token.Id,
 		ChannelID: 61, ExpectedOperationVersion: intent.Operation.LockVersion,
-		Quota: 100, BillingSource: "wallet",
+		Quota: 100, BillingSource: "wallet", ApplyStatistics: true,
 		BillingContext: TaskBillingContext{
 			Version: TaskBillingContextVersion, Complete: true, ModelPrice: 1,
 			GroupRatio: 1, OriginModelName: "quota-reserve-fixture", PerCallBilling: true,
@@ -50,7 +69,7 @@ func assertTaskQuotaWallet(t *testing.T, db *gorm.DB, input TaskQuotaReservation
 	require.NoError(t, db.First(&user, input.UserID).Error)
 	require.NoError(t, db.First(&token, input.TokenID).Error)
 	assert.Equal(t, quota, user.Quota)
-	assert.Zero(t, user.UsedQuota, "a reservation is not terminal user usage")
+	assert.Equal(t, used, user.UsedQuota, "durable usage statistics must match the authoritative net charge")
 	assert.Equal(t, remaining, token.RemainQuota)
 	assert.Equal(t, used, token.UsedQuota)
 	assert.Equal(t, version, user.QuotaVersion)
@@ -484,12 +503,12 @@ func newSecondOperationForExistingOwner(t *testing.T, db *gorm.DB, base TaskQuot
 	return second
 }
 
-func TestTaskQuotaReservationFingerprintV2PreferenceAndV1Compatibility(t *testing.T) {
+func TestTaskQuotaReservationFingerprintV3StatisticsAndHistoricalCompatibility(t *testing.T) {
 	t.Setenv("TASK_RECOVERY_IDEMPOTENCY_SECRET", strings.Repeat("1a", 32))
 	db := openB2SubmissionSQLite(t)
 	migrateB2SubmissionFixture(t, db)
 
-	t.Run("v2 includes explicit preference", func(t *testing.T) {
+	t.Run("v3 includes explicit preference", func(t *testing.T) {
 		input := newTaskQuotaReservationFixture(t, db, "v2-preference")
 		input.BillingPreference = "wallet_only"
 		_, err := ReserveTaskQuota(db, input)
@@ -498,6 +517,51 @@ func TestTaskQuotaReservationFingerprintV2PreferenceAndV1Compatibility(t *testin
 		changed.BillingPreference = "wallet_first"
 		_, err = ReserveTaskQuota(db, changed)
 		require.ErrorIs(t, err, ErrTaskQuotaReservationConflict)
+	})
+
+	t.Run("v3 freezes statistics contract", func(t *testing.T) {
+		input := newTaskQuotaReservationFixture(t, db, "v3-statistics")
+		input.ApplyStatistics = true
+		receipt, err := ReserveTaskQuota(db, input)
+		require.NoError(t, err)
+		assert.Equal(t, quotaMutationFingerprintVersion, receipt.RequestFingerprintVersion)
+		assert.True(t, receipt.StatisticsApplied)
+		assert.Equal(t, 1, receipt.StatisticsVersion)
+		changed := input
+		changed.ApplyStatistics = false
+		changed.StatisticsVersion = 0
+		_, err = ReserveTaskQuota(db, changed)
+		require.ErrorIs(t, err, ErrTaskQuotaReservationConflict)
+
+		reverse := newTaskQuotaReservationFixture(t, db, "v3-statistics-reverse")
+		reverse.ApplyStatistics = false
+		_, err = ReserveTaskQuota(db, reverse)
+		require.NoError(t, err)
+		reverseChanged := reverse
+		reverseChanged.ApplyStatistics = true
+		_, err = ReserveTaskQuota(db, reverseChanged)
+		require.ErrorIs(t, err, ErrTaskQuotaReservationConflict)
+	})
+
+	t.Run("historical v2 remains readable", func(t *testing.T) {
+		input := newTaskQuotaReservationFixture(t, db, "v2-history")
+		input.ApplyStatistics = true
+		receipt, err := ReserveTaskQuota(db, input)
+		require.NoError(t, err)
+		fingerprintInput := TaskQuotaReservationInput{
+			OperationID: receipt.OperationID, UserID: receipt.UserID, TokenID: receipt.TokenID, ChannelID: receipt.ChannelID,
+			ExpectedOperationVersion: receipt.ExpectedOperationVersion, Quota: receipt.Quota, EstimatedQuota: receipt.EstimatedQuota,
+			FreeModel: receipt.FreeModel, BillingPreference: receipt.BillingPreference, BillingSource: receipt.BillingSource,
+			SubscriptionID: receipt.SubscriptionID, BillingContext: TaskBillingContext(receipt.BillingContext), RequestID: receipt.RequestID,
+		}
+		v2Fingerprint, err := taskQuotaReservationFingerprintV2(fingerprintInput)
+		require.NoError(t, err)
+		require.NoError(t, db.Exec("UPDATE quota_mutation_receipts SET request_fingerprint_version = 2, request_fingerprint = ? WHERE id = ?", v2Fingerprint, receipt.ID).Error)
+		require.NoError(t, db.Exec("UPDATE task_submission_operations SET billing_version = 2 WHERE id = ?", input.OperationID).Error)
+		replayed, err := FindTaskQuotaReservation(db, input.OperationID, input.UserID, input.TokenID)
+		require.NoError(t, err)
+		require.NotNil(t, replayed)
+		assert.Equal(t, 2, replayed.RequestFingerprintVersion)
 	})
 
 	t.Run("historical v1 empty preference remains readable", func(t *testing.T) {
@@ -519,19 +583,47 @@ func TestTaskQuotaReservationFingerprintV2PreferenceAndV1Compatibility(t *testin
 func TestTaskBillingSchemaMigrationAddsNewColumnsIdempotently(t *testing.T) {
 	db := openB2SubmissionSQLite(t)
 	migrateB2SubmissionFixture(t, db)
-	for _, field := range []string{"EstimatedQuota", "BillingVersion"} {
+	for _, field := range []string{"EstimatedQuota", "BillingVersion", "RequestID"} {
 		require.NoError(t, db.Migrator().DropColumn(&TaskSubmissionOperation{}, field))
 	}
-	for _, field := range []string{"EstimatedQuota", "RequestFingerprintVersion", "FreeModel"} {
+	for _, field := range []string{"EstimatedQuota", "RequestFingerprintVersion", "FreeModel", "RequestID", "StatisticsVersion", "StatisticsApplied", "EvidenceID", "EvidenceHash", "EvidenceVersion"} {
 		require.NoError(t, db.Migrator().DropColumn(&QuotaMutationReceipt{}, field))
 	}
-	for run := 0; run < 2; run++ {
-		require.NoError(t, db.AutoMigrate(&TaskSubmissionOperation{}, &QuotaMutationReceipt{}, &TaskSubmissionAttempt{}))
+	for _, field := range []string{"StatisticsVersion", "StatisticsApplied", "EvidenceID", "EvidenceHash", "EvidenceVersion"} {
+		require.NoError(t, db.Migrator().DropColumn(&TaskBillingEvent{}, field))
 	}
-	for _, field := range []string{"EstimatedQuota", "BillingVersion"} {
+	require.NoError(t, db.Migrator().DropTable(&TaskTerminalObservation{}))
+	require.NoError(t, db.AutoMigrate(&legacyTaskTerminalObservation{}))
+	require.NoError(t, db.Exec("INSERT INTO task_terminal_observations (id,operation_id,task_id,outcome,actual_quota,task_status,reason_code,request_id,fingerprint,state,created_at,updated_at,lock_version) VALUES (1,999,999,'succeeded',0,?,'historical_terminal_success_unproven','',?,'manual_review',1,1,1)", TaskStatusSuccess, strings.Repeat("a", 64)).Error)
+	for run := 0; run < 2; run++ {
+		require.NoError(t, db.AutoMigrate(&TaskSubmissionOperation{}, &QuotaMutationReceipt{}, &TaskSubmissionAttempt{}, &TaskTerminalObservation{}, &TaskBillingEvent{}))
+		require.NoError(t, ensureTaskTerminalObservationSchemaWithDB(db))
+	}
+	for _, field := range []string{"EstimatedQuota", "BillingVersion", "RequestID"} {
 		assert.True(t, db.Migrator().HasColumn(&TaskSubmissionOperation{}, field))
 	}
-	for _, field := range []string{"EstimatedQuota", "RequestFingerprintVersion", "FreeModel"} {
+	for _, field := range []string{"EstimatedQuota", "RequestFingerprintVersion", "FreeModel", "RequestID", "StatisticsVersion", "StatisticsApplied", "EvidenceID", "EvidenceHash", "EvidenceVersion"} {
 		assert.True(t, db.Migrator().HasColumn(&QuotaMutationReceipt{}, field))
+	}
+	for _, field := range []string{"StatisticsVersion", "StatisticsApplied", "EvidenceID", "EvidenceHash", "EvidenceVersion"} {
+		assert.True(t, db.Migrator().HasColumn(&TaskBillingEvent{}, field))
+	}
+	assert.True(t, db.Migrator().HasTable(&TaskTerminalObservation{}))
+	for _, field := range []string{"TaskData", "TaskStartTime", "TaskFinishTime", "OperationalResultURL", "TaskUpstreamID"} {
+		assert.True(t, db.Migrator().HasColumn(&TaskTerminalObservation{}, field))
+	}
+	assert.True(t, db.Migrator().HasIndex(&TaskTerminalObservation{}, "OperationID"))
+	var migratedObservation TaskTerminalObservation
+	require.NoError(t, db.First(&migratedObservation, 1).Error)
+	assert.NotEmpty(t, migratedObservation.RequestID)
+	assert.Equal(t, migratedObservation.CreatedAt+TaskSubmissionTerminalRetentionSeconds, migratedObservation.RetentionUntil)
+	columns, err := db.Migrator().ColumnTypes(&TaskTerminalObservation{})
+	require.NoError(t, err)
+	for _, column := range columns {
+		switch column.Name() {
+		case "result_url", "task_data", "operational_result_url":
+			defaultValue, hasDefault := column.DefaultValue()
+			assert.False(t, hasDefault && defaultValue != "", "TEXT %s must not carry a database default", column.Name())
+		}
 	}
 }

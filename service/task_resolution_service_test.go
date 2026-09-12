@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -34,16 +35,19 @@ func setupResolutionTestDB(t *testing.T) *gorm.DB {
 		&model.Token{},
 		&model.SubscriptionPlan{},
 		&model.UserSubscription{},
+		&model.Channel{},
 		&model.Task{},
 		&model.TaskRecoveryIdentity{},
 		&model.TaskSubmissionOperation{},
 		&model.TaskSubmissionAttempt{},
+		&model.TaskTerminalObservation{},
 		&model.TaskBillingEvent{},
 		&model.TaskBillingLogOutbox{},
 		&model.QuotaMutationReceipt{},
 		&model.Log{},
 	)
 	require.NoError(t, err)
+	require.NoError(t, db.Create(&model.Channel{Id: 101, Name: "resolution-test"}).Error)
 	return db
 }
 
@@ -110,7 +114,7 @@ func newResolutionTestFixture(t *testing.T, db *gorm.DB, label string, userQuota
 }
 
 // advanceToSubmissionUnknown advances fixture operation & attempt to submission_unknown with reserved quota
-func advanceToSubmissionUnknown(t *testing.T, db *gorm.DB, fixture resolutionTestFixture, quota int64) (model.TaskSubmissionOperation, model.TaskSubmissionAttempt) {
+func advanceToSubmissionUnknown(t *testing.T, db *gorm.DB, fixture resolutionTestFixture, quota int64, providerOperationIDs ...string) (model.TaskSubmissionOperation, model.TaskSubmissionAttempt) {
 	t.Helper()
 	reserveReceipt, err := model.ReserveTaskQuota(db, model.TaskQuotaReservationInput{
 		OperationID:              fixture.Operation.ID,
@@ -119,6 +123,7 @@ func advanceToSubmissionUnknown(t *testing.T, db *gorm.DB, fixture resolutionTes
 		ChannelID:                fixture.Attempt.ChannelID,
 		ExpectedOperationVersion: fixture.Operation.LockVersion,
 		Quota:                    quota,
+		ApplyStatistics:          true,
 		BillingSource:            "wallet",
 		BillingContext: model.TaskBillingContext{
 			Version:         model.TaskBillingContextVersion,
@@ -144,6 +149,11 @@ func advanceToSubmissionUnknown(t *testing.T, db *gorm.DB, fixture resolutionTes
 	var att model.TaskSubmissionAttempt
 	require.NoError(t, db.First(&att, fixture.Attempt.ID).Error)
 
+	providerOperationID := ""
+	if len(providerOperationIDs) > 0 {
+		providerOperationID = providerOperationIDs[0]
+	}
+
 	won, err = model.TransitionTaskSubmissionOperation(db, op.ID, model.TaskSubmissionOperationTransition{
 		From:            model.TaskSubmissionOperationStatusDispatching,
 		To:              model.TaskSubmissionOperationStatusSubmissionUnknown,
@@ -154,12 +164,13 @@ func advanceToSubmissionUnknown(t *testing.T, db *gorm.DB, fixture resolutionTes
 	require.True(t, won)
 
 	won, err = model.TransitionTaskSubmissionAttempt(db, att.ID, model.TaskSubmissionAttemptTransition{
-		From:            model.TaskSubmissionAttemptStatusDispatching,
-		To:              model.TaskSubmissionAttemptStatusSubmissionUnknown,
-		OutcomeCode:     "dispatch_timeout_fail_closed",
-		ExpectedVersion: att.LockVersion,
-		TaskPlatform:    "test",
-		TaskAction:      "video.create",
+		From:                model.TaskSubmissionAttemptStatusDispatching,
+		To:                  model.TaskSubmissionAttemptStatusSubmissionUnknown,
+		OutcomeCode:         "dispatch_timeout_fail_closed",
+		ProviderOperationID: providerOperationID,
+		ExpectedVersion:     att.LockVersion,
+		TaskPlatform:        "test",
+		TaskAction:          "video.create",
 	})
 	require.NoError(t, err)
 	require.True(t, won)
@@ -214,18 +225,22 @@ func TestTaskResolutionService_ProviderVerified_Accepted(t *testing.T) {
 	require.NotNil(t, settlement)
 	require.NoError(t, db.First(&u, fixture.User.Id).Error)
 	assert.Equal(t, 1000, u.Quota)
+	assert.Zero(t, u.UsedQuota)
+	assert.Equal(t, 1, u.RequestCount)
 }
 
 func TestTaskResolutionService_ProviderVerified_Rejected(t *testing.T) {
 	db := setupResolutionTestDB(t)
 	fixture := newResolutionTestFixture(t, db, "pv-rejected", 1000, 500)
-	op, _ := advanceToSubmissionUnknown(t, db, fixture, 100)
+	op, _ := advanceToSubmissionUnknown(t, db, fixture, 100, "provider-rejected-proof")
 
 	svc := NewTaskResolutionService(db)
-	result, err := svc.ResolveOperationProviderVerified(context.Background(), ProviderVerifiedResolutionInput{
-		OperationID:    op.ID,
-		ProviderStatus: TaskProviderDispatchStatusRejected,
-		ReasonCode:     "upstream_not_found",
+	resolutionInput := ProviderVerifiedResolutionInput{
+		OperationID:     op.ID,
+		ProviderStatus:  TaskProviderDispatchStatusRejected,
+		EvidenceID:      "provider-rejected-proof",
+		EvidenceVersion: 1,
+		ReasonCode:      "upstream_not_found",
 		BillingContext: model.TaskBillingContext{
 			Version:         model.TaskBillingContextVersion,
 			Complete:        true,
@@ -235,7 +250,8 @@ func TestTaskResolutionService_ProviderVerified_Rejected(t *testing.T) {
 			OriginModelName: "test-model",
 			PerCallBilling:  true,
 		},
-	})
+	}
+	result, err := svc.ResolveOperationProviderVerified(context.Background(), resolutionInput)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.Equal(t, model.TaskSubmissionOperationStatusRejected, result.Operation.Status)
@@ -252,9 +268,19 @@ func TestTaskResolutionService_ProviderVerified_Rejected(t *testing.T) {
 	require.NoError(t, db.First(&tok, fixture.Token.Id).Error)
 	assert.Equal(t, 500, tok.RemainQuota)
 	assert.Equal(t, 0, tok.UsedQuota)
+	var channel model.Channel
+	require.NoError(t, db.First(&channel, fixture.Attempt.ChannelID).Error)
+	assert.Zero(t, channel.UsedQuota)
 
 	require.NotNil(t, result.ReleaseReceipt)
 	assert.Equal(t, int64(100), result.ReleaseReceipt.Quota)
+	assert.Empty(t, result.ReleaseReceipt.EvidenceHash)
+	assert.Equal(t, 1, result.ReleaseReceipt.EvidenceVersion)
+	var providerOutboxes []model.TaskBillingLogOutbox
+	require.NoError(t, db.Order("id").Find(&providerOutboxes).Error)
+	require.Len(t, providerOutboxes, 2)
+	assert.Equal(t, model.LogTypeConsume, providerOutboxes[0].Payload.Type)
+	assert.Equal(t, model.LogTypeRefund, providerOutboxes[1].Payload.Type)
 }
 
 func TestTaskResolutionService_ProviderVerified_OutcomeUnknown(t *testing.T) {
@@ -278,6 +304,7 @@ func TestTaskResolutionService_ProviderVerified_OutcomeUnknown(t *testing.T) {
 		ChannelID:                fixture.Attempt.ChannelID,
 		ExpectedOperationVersion: fixture.Operation.LockVersion,
 		Quota:                    100,
+		ApplyStatistics:          true,
 		BillingSource:            "wallet",
 		BillingContext: model.TaskBillingContext{
 			Version:         model.TaskBillingContextVersion,
@@ -335,11 +362,19 @@ func TestTaskResolutionService_ProviderVerified_OutcomeUnknown(t *testing.T) {
 	result, err := svc.ResolveOperationProviderVerified(context.Background(), ProviderVerifiedResolutionInput{
 		OperationID:    op.ID,
 		ProviderStatus: TaskProviderDispatchStatusAccepted,
+		ActualQuota:    common.GetPointer(int64(100)), EvidenceID: "prov-op-1", EvidenceVersion: 1,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.Equal(t, model.TaskSubmissionOperationStatusSucceeded, result.Operation.Status)
 	assert.Equal(t, model.TaskSubmissionResolutionSourceProviderVerified, result.Operation.ResolutionSource)
+	terminalReceipt, err := model.FindTaskQuotaReceipt(db, op.ID, string(model.TaskBillingEventTypeTerminalSettlement), fixture.User.Id, fixture.Token.Id)
+	require.NoError(t, err)
+	assert.Equal(t, "prov-op-1", terminalReceipt.EvidenceID)
+	assert.Equal(t, 1, terminalReceipt.EvidenceVersion)
+	var evidenceOutbox model.TaskBillingLogOutbox
+	require.NoError(t, db.Where("billing_event_id = ?", terminalReceipt.BillingEventID).First(&evidenceOutbox).Error)
+	assert.Equal(t, "prov-op-1", evidenceOutbox.Payload.UpstreamRequestID)
 }
 
 func TestTaskResolutionService_ManualAudit_FullFlow_Reserved(t *testing.T) {
@@ -354,6 +389,7 @@ func TestTaskResolutionService_ManualAudit_FullFlow_Reserved(t *testing.T) {
 		ChannelID:                fixture.Attempt.ChannelID,
 		ExpectedOperationVersion: fixture.Operation.LockVersion,
 		Quota:                    100,
+		ApplyStatistics:          true,
 		BillingSource:            "wallet",
 		BillingContext: model.TaskBillingContext{
 			Version:         model.TaskBillingContextVersion,
@@ -397,10 +433,19 @@ func TestTaskResolutionService_ManualAudit_FullFlow_Reserved(t *testing.T) {
 	var u model.User
 	require.NoError(t, db.First(&u, fixture.User.Id).Error)
 	assert.Equal(t, 1000, u.Quota)
+	assert.Zero(t, u.UsedQuota)
+	assert.Equal(t, 1, u.RequestCount)
 
 	var tok model.Token
 	require.NoError(t, db.First(&tok, fixture.Token.Id).Error)
 	assert.Equal(t, 500, tok.RemainQuota)
+	var manualOutboxes []model.TaskBillingLogOutbox
+	require.NoError(t, db.Order("id").Find(&manualOutboxes).Error)
+	require.Len(t, manualOutboxes, 3)
+	assert.Equal(t, "audit.audit-cmd-001", result.ReleaseReceipt.EvidenceID)
+	for _, outbox := range manualOutboxes {
+		assert.NotEmpty(t, outbox.Payload.RequestID)
+	}
 	assert.Equal(t, 0, tok.UsedQuota)
 
 	// Assert immutable audit TaskBillingEvent recorded
@@ -608,6 +653,7 @@ func TestTaskResolutionService_ManualAudit_ConcurrentReplay(t *testing.T) {
 		ChannelID:                fixture.Attempt.ChannelID,
 		ExpectedOperationVersion: fixture.Operation.LockVersion,
 		Quota:                    100,
+		ApplyStatistics:          true,
 		BillingSource:            "wallet",
 		BillingContext: model.TaskBillingContext{
 			Version:         model.TaskBillingContextVersion,
@@ -687,4 +733,122 @@ func TestProviderVerifiedResolution_HistoricalUnknownClassificationFallback(t *t
 		BillingContext: *result.Task.PrivateData.BillingContext, TargetOperationStatus: model.TaskSubmissionOperationStatusSucceeded,
 	})
 	require.NoError(t, err)
+}
+
+func TestProviderVerifiedOutcomeUnknownRequiresBoundEvidence(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		providerStatus string
+		evidenceID     string
+		evidenceHash   string
+		actualQuota    *int64
+		wantSuccess    bool
+		wantInvalid    bool
+	}{
+		{name: "success_missing", providerStatus: TaskProviderDispatchStatusAccepted, actualQuota: common.GetPointer(int64(100))},
+		{name: "success_arbitrary_id", providerStatus: TaskProviderDispatchStatusAccepted, evidenceID: "unbound-proof", actualQuota: common.GetPointer(int64(100))},
+		{name: "success_hash_only", providerStatus: TaskProviderDispatchStatusAccepted, evidenceHash: strings.Repeat("a", 64), actualQuota: common.GetPointer(int64(100))},
+		{name: "success_bound_id", providerStatus: TaskProviderDispatchStatusAccepted, evidenceID: "bound-provider-id", actualQuota: common.GetPointer(int64(100)), wantSuccess: true},
+		{name: "failure_bound_id_nil_actual", providerStatus: TaskProviderDispatchStatusRejected, evidenceID: "bound-provider-id", wantSuccess: true},
+		{name: "failure_nonzero_actual", providerStatus: TaskProviderDispatchStatusRejected, evidenceID: "bound-provider-id", actualQuota: common.GetPointer(int64(1)), wantInvalid: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db := setupResolutionTestDB(t)
+			fixture := newResolutionTestFixture(t, db, "evidence-"+tc.name, 1000, 500)
+			formalTask := model.Task{TaskID: fixture.Operation.PublicID, UserId: fixture.User.Id, ChannelId: fixture.Attempt.ChannelID, Status: model.TaskStatusSubmitted, Quota: 100}
+			require.NoError(t, db.Create(&formalTask).Error)
+			receipt, err := model.ReserveTaskQuota(db, model.TaskQuotaReservationInput{OperationID: fixture.Operation.ID, UserID: fixture.User.Id, TokenID: fixture.Token.Id, ChannelID: fixture.Attempt.ChannelID, ExpectedOperationVersion: fixture.Operation.LockVersion, Quota: 100, BillingSource: "wallet", ApplyStatistics: true, BillingContext: ingressBillingContext(100)})
+			require.NoError(t, err)
+			won, err := model.StartTaskSubmissionDispatch(db, fixture.Operation.ID, model.TaskSubmissionDispatchTransition{ExpectedOperationVersion: receipt.OperationVersionAfter, ExpectedAttemptVersion: fixture.Attempt.LockVersion})
+			require.NoError(t, err)
+			require.True(t, won)
+			var op model.TaskSubmissionOperation
+			var attempt model.TaskSubmissionAttempt
+			require.NoError(t, db.First(&op, fixture.Operation.ID).Error)
+			require.NoError(t, db.First(&attempt, fixture.Attempt.ID).Error)
+			won, err = model.TransitionTaskSubmissionAttempt(db, attempt.ID, model.TaskSubmissionAttemptTransition{From: model.TaskSubmissionAttemptStatusDispatching, To: model.TaskSubmissionAttemptStatusAccepted, ProviderOperationID: "bound-provider-id", ExpectedVersion: attempt.LockVersion})
+			require.NoError(t, err)
+			require.True(t, won)
+			won, err = model.TransitionTaskSubmissionOperation(db, op.ID, model.TaskSubmissionOperationTransition{From: model.TaskSubmissionOperationStatusDispatching, To: model.TaskSubmissionOperationStatusAccepted, TaskID: &formalTask.ID, ExpectedVersion: op.LockVersion})
+			require.NoError(t, err)
+			require.True(t, won)
+			require.NoError(t, db.First(&op, op.ID).Error)
+			won, err = model.TransitionTaskSubmissionOperation(db, op.ID, model.TaskSubmissionOperationTransition{From: model.TaskSubmissionOperationStatusAccepted, To: model.TaskSubmissionOperationStatusOutcomeUnknown, ExpectedVersion: op.LockVersion})
+			require.NoError(t, err)
+			require.True(t, won)
+			input := ProviderVerifiedResolutionInput{DB: db, OperationID: op.ID, ProviderStatus: tc.providerStatus, ActualQuota: tc.actualQuota, EvidenceID: tc.evidenceID, EvidenceHash: tc.evidenceHash, EvidenceVersion: 1}
+			result, err := ResolveOperationProviderVerified(context.Background(), input)
+			if tc.wantInvalid {
+				require.ErrorIs(t, err, ErrTaskResolutionInvalidInput)
+				return
+			}
+			if tc.wantSuccess {
+				require.NoError(t, err)
+				if tc.providerStatus == TaskProviderDispatchStatusRejected {
+					assert.Equal(t, model.TaskSubmissionOperationStatusFailed, result.Operation.Status)
+					assert.Equal(t, int64(100), result.ReleaseReceipt.Quota)
+				} else {
+					assert.Equal(t, model.TaskSubmissionOperationStatusSucceeded, result.Operation.Status)
+				}
+				return
+			}
+			require.ErrorIs(t, err, model.ErrTaskTerminalObservationManualReview)
+			var unchanged model.TaskSubmissionOperation
+			require.NoError(t, db.First(&unchanged, op.ID).Error)
+			assert.Equal(t, model.TaskSubmissionOperationStatusOutcomeUnknown, unchanged.Status)
+		})
+	}
+}
+
+func TestManualResolutionOutboxFailureRollsBackReleaseAndProjection(t *testing.T) {
+	db := setupResolutionTestDB(t)
+	fixture := newResolutionTestFixture(t, db, "manual-outbox-rollback", 1000, 500)
+	reserve, err := model.ReserveTaskQuota(db, model.TaskQuotaReservationInput{OperationID: fixture.Operation.ID, UserID: fixture.User.Id, TokenID: fixture.Token.Id, ChannelID: fixture.Attempt.ChannelID, ExpectedOperationVersion: fixture.Operation.LockVersion, Quota: 100, BillingSource: "wallet", ApplyStatistics: true, BillingContext: ingressBillingContext(100)})
+	require.NoError(t, err)
+	require.NoError(t, db.Callback().Create().Before("gorm:create").Register("test:manual-resolution-outbox", func(tx *gorm.DB) {
+		if tx.Statement != nil && tx.Statement.Schema != nil && tx.Statement.Schema.Table == "task_billing_log_outboxes" {
+			if candidate, ok := tx.Statement.Dest.(*model.TaskBillingLogOutbox); ok && candidate.Payload.ModelName == "manual_resolution" {
+				tx.AddError(errors.New("manual outbox failure"))
+			}
+		}
+	}))
+	_, err = ResolveOperationManualAudit(context.Background(), ManualAuditResolutionInput{DB: db, OperationID: fixture.Operation.ID, AuditCommandID: "audit-outbox-failure", OperatorUserID: 99, ReasonCode: "manual_audit_cancel", TargetStatus: model.TaskSubmissionOperationStatusCanceled, BillingContext: ingressBillingContext(100)})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "manual resolution outbox")
+	var operation model.TaskSubmissionOperation
+	var user model.User
+	var token model.Token
+	require.NoError(t, db.First(&operation, fixture.Operation.ID).Error)
+	require.NoError(t, db.First(&user, fixture.User.Id).Error)
+	require.NoError(t, db.First(&token, fixture.Token.Id).Error)
+	assert.Equal(t, model.TaskSubmissionOperationStatusReserved, operation.Status)
+	assert.Equal(t, 900, user.Quota)
+	assert.Equal(t, 100, user.UsedQuota)
+	assert.Equal(t, 400, token.RemainQuota)
+	var refundCount int64
+	require.NoError(t, db.Model(&model.QuotaMutationReceipt{}).Where("operation_id = ? AND mutation_type = ?", fixture.Operation.ID, model.TaskBillingEventTypeRefund).Count(&refundCount).Error)
+	assert.Zero(t, refundCount)
+	var reserveOutboxCount int64
+	require.NoError(t, db.Model(&model.TaskBillingLogOutbox{}).Where("billing_event_id = ?", reserve.BillingEventID).Count(&reserveOutboxCount).Error)
+	assert.Equal(t, int64(1), reserveOutboxCount)
+}
+
+func TestProviderVerifiedSubmissionUnknownFailureWithoutEvidenceStaysUnknown(t *testing.T) {
+	db := setupResolutionTestDB(t)
+	fixture := newResolutionTestFixture(t, db, "rejected-no-evidence", 1000, 500)
+	op, _ := advanceToSubmissionUnknown(t, db, fixture, 100)
+	_, err := ResolveOperationProviderVerified(context.Background(), ProviderVerifiedResolutionInput{DB: db, OperationID: op.ID, ProviderStatus: TaskProviderDispatchStatusRejected, ReasonCode: "provider_rejected"})
+	require.ErrorIs(t, err, model.ErrTaskTerminalObservationManualReview)
+	var unchanged model.TaskSubmissionOperation
+	require.NoError(t, db.First(&unchanged, op.ID).Error)
+	assert.Equal(t, model.TaskSubmissionOperationStatusSubmissionUnknown, unchanged.Status)
+	var user model.User
+	require.NoError(t, db.First(&user, fixture.User.Id).Error)
+	assert.Equal(t, 900, user.Quota)
+	assert.Equal(t, 100, user.UsedQuota)
+	assert.Equal(t, 1, user.RequestCount)
+	var observation model.TaskTerminalObservation
+	require.NoError(t, db.Where("operation_id = ?", op.ID).First(&observation).Error)
+	assert.Equal(t, int64(0), observation.TaskID)
+	assert.Equal(t, model.TaskTerminalObservationManualReview, observation.State)
 }

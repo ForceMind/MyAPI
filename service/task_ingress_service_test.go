@@ -41,16 +41,19 @@ func setupTaskIngressTestDB(t *testing.T) *gorm.DB {
 		&model.Token{},
 		&model.SubscriptionPlan{},
 		&model.UserSubscription{},
+		&model.Channel{},
 		&model.Task{},
 		&model.TaskRecoveryIdentity{},
 		&model.TaskSubmissionOperation{},
 		&model.TaskSubmissionAttempt{},
+		&model.TaskTerminalObservation{},
 		&model.TaskBillingEvent{},
 		&model.TaskBillingLogOutbox{},
 		&model.QuotaMutationReceipt{},
 		&model.Log{},
 	)
 	require.NoError(t, err)
+	require.NoError(t, db.Create(&model.Channel{Id: 10, Name: "ingress-test", Status: common.ChannelStatusEnabled}).Error)
 	return db
 }
 
@@ -260,6 +263,7 @@ func TestExecuteTaskIngress_NewSubmissionAccepted(t *testing.T) {
 		Header:         headers,
 		ContentType:    "application/json",
 		Body:           []byte(`{"prompt":"a peaceful lakeside","model":"sora-2"}`),
+		RequestID:      "request-ingress-fixed",
 		EstimatedQuota: 2000,
 		Dispatcher:     dispatcher,
 		DB:             db,
@@ -278,6 +282,15 @@ func TestExecuteTaskIngress_NewSubmissionAccepted(t *testing.T) {
 	assert.Equal(t, model.TaskSubmissionOperationKindVideoCreate, result.Response.Kind)
 	assert.Equal(t, string(model.TaskSubmissionOperationStatusAccepted), result.Response.Status)
 	assert.Equal(t, int32(1), atomic.LoadInt32(&dispatchCalled))
+	operation, err := model.GetTaskSubmissionOperationByPublicID(db, result.Response.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "request-ingress-fixed", operation.RequestID)
+	var reserveReceipt model.QuotaMutationReceipt
+	require.NoError(t, db.Where("operation_id = ? AND mutation_type = ?", operation.ID, model.TaskBillingEventTypeReserve).First(&reserveReceipt).Error)
+	assert.Equal(t, operation.RequestID, reserveReceipt.RequestID)
+	var reserveOutbox model.TaskBillingLogOutbox
+	require.NoError(t, db.Where("billing_event_id = ?", reserveReceipt.BillingEventID).First(&reserveOutbox).Error)
+	assert.Equal(t, operation.RequestID, reserveOutbox.Payload.RequestID)
 
 	// Ensure header was stripped
 	assert.Empty(t, headers.Get("Idempotency-Key"))
@@ -887,10 +900,14 @@ func TestExecuteTaskIngress_SubscriptionZeroQuotaDistinguishesFreeModel(t *testi
 			assert.Equal(t, tc.free, receipt.FreeModel)
 			var updatedToken model.Token
 			var updatedSub model.UserSubscription
+			var updatedUser model.User
 			require.NoError(t, db.First(&updatedToken, token.Id).Error)
 			require.NoError(t, db.First(&updatedSub, sub.Id).Error)
+			require.NoError(t, db.First(&updatedUser, user.Id).Error)
 			assert.Equal(t, 1-int(tc.wantReserved), updatedToken.RemainQuota)
 			assert.Equal(t, tc.wantReserved, updatedSub.AmountUsed)
+			assert.Equal(t, int(tc.wantReserved), updatedUser.UsedQuota)
+			assert.Equal(t, 1, updatedUser.RequestCount)
 			if !tc.free {
 				oldDB := model.DB
 				model.DB = db
@@ -901,11 +918,56 @@ func TestExecuteTaskIngress_SubscriptionZeroQuotaDistinguishesFreeModel(t *testi
 				settleTaskBillingOnComplete(context.Background(), &mockAdaptor{adjustReturn: 0}, &task, &relaycommon.TaskInfo{Status: model.TaskStatusSuccess})
 				require.NoError(t, db.First(&updatedToken, token.Id).Error)
 				require.NoError(t, db.First(&updatedSub, sub.Id).Error)
+				require.NoError(t, db.First(&updatedUser, user.Id).Error)
 				require.NoError(t, db.First(&task, task.ID).Error)
-				assert.Equal(t, 1, updatedToken.RemainQuota)
-				assert.Zero(t, updatedSub.AmountUsed)
+				assert.Zero(t, updatedToken.RemainQuota)
+				assert.Equal(t, int64(1), updatedSub.AmountUsed)
+				assert.Equal(t, 1, updatedUser.UsedQuota)
+				assert.Equal(t, 1, updatedUser.RequestCount)
 				assert.Zero(t, task.Quota)
+				var observation model.TaskTerminalObservation
+				require.NoError(t, db.Where("operation_id = ?", op.ID).First(&observation).Error)
+				assert.Equal(t, model.TaskTerminalObservationManualReview, observation.State)
 			}
 		})
 	}
+}
+
+func TestDurableEvidenceSettlementRefundsNonFreeZeroSubscriptionReservation(t *testing.T) {
+	db := setupTaskIngressTestDB(t)
+	oldDB := model.DB
+	model.DB = db
+	t.Cleanup(func() { model.DB = oldDB })
+	user, token := createIngressUserAndToken(t, db, 0)
+	require.NoError(t, db.Model(&token).Update("remain_quota", 1).Error)
+	user.SetSetting(relaykitdto.UserSetting{BillingPreference: "subscription_only"})
+	require.NoError(t, db.Model(&user).Update("setting", user.Setting).Error)
+	plan := model.SubscriptionPlan{Title: "zero-core", Enabled: true, TotalAmount: 10, DurationUnit: "month", DurationValue: 1}
+	require.NoError(t, db.Create(&plan).Error)
+	sub := model.UserSubscription{UserId: user.Id, PlanId: plan.Id, AmountTotal: 10, Status: "active", EndTime: 1<<31 - 1, AllowWalletOverflow: true}
+	require.NoError(t, db.Create(&sub).Error)
+	billingContext := ingressBillingContext(0)
+	result, err := ExecuteTaskIngress(context.Background(), TaskIngressRequest{UserID: user.Id, TokenID: token.Id, ChannelID: 10, Provider: "test", OperationKind: model.TaskSubmissionOperationKindVideoCreate, HTTPMethod: http.MethodPost, Header: http.Header{"Idempotency-Key": []string{"zero-core-evidence"}}, ContentType: "application/json", Body: []byte(`{"prompt":"zero"}`), EstimatedQuota: 0, FreeModel: false, BillingContext: billingContext, DB: db, Dispatcher: func(_ context.Context, op *model.TaskSubmissionOperation, attempt *model.TaskSubmissionAttempt) (*TaskProviderDispatchResult, error) {
+		return &TaskProviderDispatchResult{Status: TaskProviderDispatchStatusAccepted, ProviderTaskID: "zero-core-upstream", TaskCandidate: acceptedTaskCandidateForTest(op, attempt, "zero-core-upstream", 0, billingContext)}, nil
+	}})
+	require.NoError(t, err)
+	op, err := model.GetTaskSubmissionOperationByPublicID(db, result.Response.ID)
+	require.NoError(t, err)
+	var task model.Task
+	require.NoError(t, db.First(&task, *op.TaskID).Error)
+	assert.Zero(t, task.Quota)
+	_, err = settleDurableForTest(context.Background(), &task, 0, "provider_terminal")
+	require.NoError(t, err)
+	var updatedToken model.Token
+	var updatedSub model.UserSubscription
+	var updatedUser model.User
+	require.NoError(t, db.First(&updatedToken, token.Id).Error)
+	require.NoError(t, db.First(&updatedSub, sub.Id).Error)
+	require.NoError(t, db.First(&updatedUser, user.Id).Error)
+	require.NoError(t, db.First(&task, task.ID).Error)
+	assert.Equal(t, 1, updatedToken.RemainQuota)
+	assert.Zero(t, updatedSub.AmountUsed)
+	assert.Zero(t, updatedUser.UsedQuota)
+	assert.Equal(t, 1, updatedUser.RequestCount)
+	assert.Zero(t, task.Quota)
 }

@@ -27,6 +27,7 @@ type TaskIngressRequest struct {
 	Header             http.Header
 	ContentType        string
 	Body               []byte
+	RequestID          string
 	EstimatedQuota     int
 	FreeModel          bool
 	InitialQuotaClamp  *common.QuotaClamp
@@ -173,6 +174,7 @@ func ExecuteTaskIngress(ctx context.Context, req TaskIngressRequest) (*TaskIngre
 		OperationKind:      protocol.OperationKind,
 		IdempotencyKeyHash: protocol.IdempotencyKeyHash,
 		RequestFingerprint: fingerprint,
+		RequestID:          strings.TrimSpace(req.RequestID),
 		Status:             model.TaskSubmissionOperationStatusPrepared,
 	}
 

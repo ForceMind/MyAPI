@@ -16,7 +16,7 @@ import (
 
 const (
 	quotaMutationReceiptVersion             = 1
-	quotaMutationFingerprintVersion         = 2
+	quotaMutationFingerprintVersion         = 3
 	quotaMutationMaxOtherRatios             = 64
 	quotaMutationMaxRatioNameLength         = 64
 	quotaMutationMaxBillingJSONLength       = 16 * 1024
@@ -57,6 +57,9 @@ type TaskQuotaReservationInput struct {
 	SelectBillingSource      bool
 	EstimatedQuota           int64
 	FreeModel                bool
+	ApplyStatistics          bool
+	StatisticsVersion        int
+	RequestID                string
 	BillingContext           TaskBillingContext
 }
 
@@ -190,6 +193,12 @@ type QuotaMutationReceipt struct {
 	Quota                       int64                        `json:"quota" gorm:"type:bigint;not null;<-:create"`
 	EstimatedQuota              int64                        `json:"estimated_quota,omitempty" gorm:"type:bigint;not null;default:0;<-:create"`
 	FreeModel                   bool                         `json:"free_model,omitempty" gorm:"not null;default:false;<-:create"`
+	RequestID                   string                       `json:"request_id" gorm:"type:varchar(64);not null;default:'';<-:create"`
+	StatisticsVersion           int                          `json:"statistics_version,omitempty" gorm:"not null;default:0;<-:create"`
+	StatisticsApplied           bool                         `json:"statistics_applied,omitempty" gorm:"not null;default:false;<-:create"`
+	EvidenceID                  string                       `json:"evidence_id,omitempty" gorm:"type:varchar(191);not null;default:'';<-:create"`
+	EvidenceHash                string                       `json:"evidence_hash,omitempty" gorm:"type:char(64);not null;default:'';<-:create"`
+	EvidenceVersion             int                          `json:"evidence_version,omitempty" gorm:"not null;default:0;<-:create"`
 	BillingContext              TaskQuotaBillingContext      `json:"billing_context" gorm:"type:text;not null;<-:create"`
 	Before                      QuotaMutationAccountSnapshot `json:"before" gorm:"column:before_snapshot;type:text;not null;<-:create"`
 	After                       QuotaMutationAccountSnapshot `json:"after" gorm:"column:after_snapshot;type:text;not null;<-:create"`
@@ -322,6 +331,18 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 			if err != nil {
 				return nil, err
 			}
+		} else {
+			normalized.RequestID = existing.RequestID
+			if existing.RequestFingerprintVersion == 2 {
+				fingerprint, err = taskQuotaReservationFingerprintV2(normalized)
+			} else if existing.RequestFingerprintVersion == quotaMutationFingerprintVersion {
+				fingerprint, err = taskQuotaReservationFingerprintV3(normalized)
+			} else {
+				err = ErrTaskQuotaReservationConflict
+			}
+			if err != nil {
+				return nil, err
+			}
 		}
 		if existing.RequestFingerprint != fingerprint {
 			return nil, ErrTaskQuotaReservationConflict
@@ -381,6 +402,18 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 				if err != nil {
 					return err
 				}
+			} else {
+				normalized.RequestID = existing.RequestID
+				if existing.RequestFingerprintVersion == 2 {
+					fingerprint, err = taskQuotaReservationFingerprintV2(normalized)
+				} else if existing.RequestFingerprintVersion == quotaMutationFingerprintVersion {
+					fingerprint, err = taskQuotaReservationFingerprintV3(normalized)
+				} else {
+					err = ErrTaskQuotaReservationConflict
+				}
+				if err != nil {
+					return err
+				}
 			}
 			if existing.RequestFingerprint != fingerprint {
 				return ErrTaskQuotaReservationConflict
@@ -402,7 +435,7 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 				normalized.SubscriptionID = selectedSubscription.Id
 				subscription = selectedSubscription
 			}
-			fingerprint, err = taskQuotaReservationFingerprintV2(normalized)
+			fingerprint, err = taskQuotaReservationFingerprintV3(normalized)
 			if err != nil {
 				return err
 			}
@@ -444,6 +477,18 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 				if err != nil {
 					return err
 				}
+			} else if existing.RequestFingerprintVersion > 0 {
+				normalized.RequestID = existing.RequestID
+				if existing.RequestFingerprintVersion == 2 {
+					fingerprint, err = taskQuotaReservationFingerprintV2(normalized)
+				} else if existing.RequestFingerprintVersion == quotaMutationFingerprintVersion {
+					fingerprint, err = taskQuotaReservationFingerprintV3(normalized)
+				} else {
+					err = ErrTaskQuotaReservationConflict
+				}
+				if err != nil {
+					return err
+				}
 			}
 			if existing.RequestFingerprint != fingerprint {
 				return ErrTaskQuotaReservationConflict
@@ -458,6 +503,11 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 			operation.Status != TaskSubmissionOperationStatusPrepared || operation.TaskID != nil ||
 			operation.LockVersion != normalized.ExpectedOperationVersion || operation.LockVersion == quotaMutationMaxInt64 {
 			return ErrTaskQuotaReservationCASLost
+		}
+		normalized.RequestID = stableTaskBillingRequestID(operation.RequestID, operation.PublicID+":reserve")
+		fingerprint, err = taskQuotaReservationFingerprintV3(normalized)
+		if err != nil {
+			return err
 		}
 
 		var attempt TaskSubmissionAttempt
@@ -511,18 +561,26 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 		if err := applyTaskQuotaReservationBalances(writeDB, before, after, normalized); err != nil {
 			return err
 		}
+		if normalized.ApplyStatistics {
+			if err := applyTaskStatistics(writeDB, normalized.UserID, normalized.ChannelID, normalized.Quota, 1); err != nil {
+				return err
+			}
+		}
 
 		operationID := operation.ID
 		event, err := CreateOrLoadTaskBillingEvent(writeDB, &TaskBillingEvent{
-			OperationID:    &operationID,
-			EventType:      TaskBillingEventTypeReserve,
-			UserID:         normalized.UserID,
-			TokenID:        normalized.TokenID,
-			ChannelID:      normalized.ChannelID,
-			BillingSource:  normalized.BillingSource,
-			SubscriptionID: normalized.SubscriptionID,
-			QuotaDelta:     -normalized.Quota,
-			ReasonCode:     "task_t1_reserve",
+			OperationID:       &operationID,
+			EventType:         TaskBillingEventTypeReserve,
+			UserID:            normalized.UserID,
+			TokenID:           normalized.TokenID,
+			ChannelID:         normalized.ChannelID,
+			BillingSource:     normalized.BillingSource,
+			SubscriptionID:    normalized.SubscriptionID,
+			QuotaDelta:        -normalized.Quota,
+			ReasonCode:        "task_t1_reserve",
+			RequestID:         normalized.RequestID,
+			StatisticsVersion: normalized.StatisticsVersion,
+			StatisticsApplied: normalized.ApplyStatistics,
 		})
 		if err != nil {
 			return err
@@ -565,11 +623,17 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 			Quota:                       normalized.Quota,
 			EstimatedQuota:              normalized.EstimatedQuota,
 			FreeModel:                   normalized.FreeModel,
+			RequestID:                   normalized.RequestID,
+			StatisticsVersion:           normalized.StatisticsVersion,
+			StatisticsApplied:           normalized.ApplyStatistics,
 			BillingContext:              TaskQuotaBillingContext(normalized.BillingContext),
 			Before:                      before,
 			After:                       after,
 		}
 		if err := quotaMutationReceiptCreateDB(writeDB).Create(receipt).Error; err != nil {
+			return err
+		}
+		if _, err := createTaskMutationOutbox(writeDB, event, receipt, "task quota reserved"); err != nil {
 			return err
 		}
 
@@ -615,6 +679,17 @@ func normalizeTaskQuotaReservationInput(input TaskQuotaReservationInput) (TaskQu
 	input.BillingSource = strings.ToLower(strings.TrimSpace(input.BillingSource))
 	input.BillingPreference = strings.ToLower(strings.TrimSpace(input.BillingPreference))
 	input.BillingContext.OriginModelName = strings.TrimSpace(input.BillingContext.OriginModelName)
+	input.RequestID = strings.TrimSpace(input.RequestID)
+	if input.ApplyStatistics {
+		if input.StatisticsVersion == 0 {
+			input.StatisticsVersion = 1
+		}
+		if input.StatisticsVersion != 1 {
+			return input, "", ErrTaskQuotaReservationInvalidInput
+		}
+	} else if input.StatisticsVersion != 0 {
+		return input, "", ErrTaskQuotaReservationInvalidInput
+	}
 	if input.EstimatedQuota == 0 {
 		input.EstimatedQuota = input.Quota
 	}
@@ -663,7 +738,7 @@ func normalizeTaskQuotaReservationInput(input TaskQuotaReservationInput) (TaskQu
 	if input.SelectBillingSource {
 		return input, "", nil
 	}
-	fingerprint, err := taskQuotaReservationFingerprintV2(input)
+	fingerprint, err := taskQuotaReservationFingerprintV3(input)
 	return input, fingerprint, err
 }
 
@@ -703,7 +778,35 @@ func taskQuotaReservationFingerprintV2(input TaskQuotaReservationInput) (string,
 		BillingSource            string             `json:"billing_source"`
 		SubscriptionID           int                `json:"subscription_id"`
 		BillingContext           TaskBillingContext `json:"billing_context"`
-	}{quotaMutationFingerprintVersion, input.OperationID, input.UserID, input.TokenID, input.ChannelID, input.ExpectedOperationVersion, input.EstimatedQuota, input.Quota, input.FreeModel, input.BillingPreference, input.BillingSource, input.SubscriptionID, input.BillingContext}
+		RequestID                string             `json:"request_id"`
+	}{2, input.OperationID, input.UserID, input.TokenID, input.ChannelID, input.ExpectedOperationVersion, input.EstimatedQuota, input.Quota, input.FreeModel, input.BillingPreference, input.BillingSource, input.SubscriptionID, input.BillingContext, input.RequestID}
+	data, err := common.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("%w: encode reservation fingerprint: %v", ErrTaskQuotaReservationInvalidInput, err)
+	}
+	digest := sha256.Sum256(data)
+	return hex.EncodeToString(digest[:]), nil
+}
+
+func taskQuotaReservationFingerprintV3(input TaskQuotaReservationInput) (string, error) {
+	payload := struct {
+		Version                  int                `json:"version"`
+		OperationID              int64              `json:"operation_id"`
+		UserID                   int                `json:"user_id"`
+		TokenID                  int                `json:"token_id"`
+		ChannelID                int                `json:"channel_id"`
+		ExpectedOperationVersion int64              `json:"expected_operation_version"`
+		EstimatedQuota           int64              `json:"estimated_quota"`
+		ReservedQuota            int64              `json:"reserved_quota"`
+		FreeModel                bool               `json:"free_model"`
+		BillingPreference        string             `json:"billing_preference"`
+		BillingSource            string             `json:"billing_source"`
+		SubscriptionID           int                `json:"subscription_id"`
+		BillingContext           TaskBillingContext `json:"billing_context"`
+		RequestID                string             `json:"request_id"`
+		ApplyStatistics          bool               `json:"apply_statistics"`
+		StatisticsVersion        int                `json:"statistics_version"`
+	}{quotaMutationFingerprintVersion, input.OperationID, input.UserID, input.TokenID, input.ChannelID, input.ExpectedOperationVersion, input.EstimatedQuota, input.Quota, input.FreeModel, input.BillingPreference, input.BillingSource, input.SubscriptionID, input.BillingContext, input.RequestID, input.ApplyStatistics, input.StatisticsVersion}
 	data, err := common.Marshal(payload)
 	if err != nil {
 		return "", fmt.Errorf("%w: encode reservation fingerprint: %v", ErrTaskQuotaReservationInvalidInput, err)
@@ -719,16 +822,20 @@ func taskQuotaReservationReplayFingerprint(receipt *QuotaMutationReceipt, input 
 	input.BillingPreference = receipt.BillingPreference
 	input.BillingSource = receipt.BillingSource
 	input.SubscriptionID = receipt.SubscriptionID
+	input.RequestID = receipt.RequestID
 	input.Quota = receipt.Quota
 	if receipt.RequestFingerprintVersion == 0 {
 		return taskQuotaReservationFingerprintV1(input)
 	}
-	if receipt.RequestFingerprintVersion != quotaMutationFingerprintVersion {
-		return "", ErrTaskQuotaReservationConflict
-	}
 	input.EstimatedQuota = receipt.EstimatedQuota
 	input.FreeModel = receipt.FreeModel
-	return taskQuotaReservationFingerprintV2(input)
+	if receipt.RequestFingerprintVersion == 2 {
+		return taskQuotaReservationFingerprintV2(input)
+	}
+	if receipt.RequestFingerprintVersion == quotaMutationFingerprintVersion {
+		return taskQuotaReservationFingerprintV3(input)
+	}
+	return "", ErrTaskQuotaReservationConflict
 }
 
 func selectTaskQuotaBillingSource(tx *gorm.DB, user *User, estimatedQuota int64, freeModel bool, databaseNow int64) (string, string, *UserSubscription, int64, error) {
@@ -971,7 +1078,7 @@ func validateQuotaMutationReceiptShape(receipt *QuotaMutationReceipt) error {
 		(receipt.OperationVersionAfter != receipt.OperationVersionBefore && receipt.OperationVersionAfter != receipt.OperationVersionBefore+1) ||
 		!validTaskBillingEventID(receipt.BillingEventID) || receipt.BillingEventVersion <= 0 ||
 		receipt.UserID <= 0 || receipt.TokenID <= 0 || receipt.ChannelID <= 0 || receipt.SubscriptionID < 0 ||
-		receipt.Quota < 0 || receipt.Quota > int64(common.MaxQuota) || receipt.EstimatedQuota < 0 || receipt.EstimatedQuota > int64(common.MaxQuota) {
+		receipt.Quota < 0 || receipt.Quota > int64(common.MaxQuota) || receipt.EstimatedQuota < 0 || receipt.EstimatedQuota > int64(common.MaxQuota) || len(receipt.RequestID) > 64 {
 		return fmt.Errorf("%w: receipt identity or version fields are invalid", ErrTaskQuotaReservationInvalidInput)
 	}
 	if receipt.MutationType == "" {
@@ -990,11 +1097,18 @@ func validateQuotaMutationReceiptShape(receipt *QuotaMutationReceipt) error {
 		(receipt.BillingSource == "subscription" && receipt.SubscriptionID <= 0) {
 		return fmt.Errorf("%w: receipt funding source is invalid", ErrTaskQuotaReservationInvalidInput)
 	}
+	if (receipt.StatisticsApplied && receipt.StatisticsVersion != 1) || (!receipt.StatisticsApplied && receipt.StatisticsVersion != 0) ||
+		!validTaskMutationEvidence(receipt.EvidenceID, receipt.EvidenceHash, receipt.EvidenceVersion) {
+		return fmt.Errorf("%w: receipt statistics or evidence snapshot is invalid", ErrTaskQuotaReservationInvalidInput)
+	}
 	if err := validateTaskQuotaBillingContext(TaskBillingContext(receipt.BillingContext)); err != nil {
 		return err
 	}
 	switch receipt.MutationType {
 	case string(TaskBillingEventTypeReserve):
+		if receipt.RequestFingerprintVersion >= 2 && receipt.RequestID == "" {
+			return fmt.Errorf("%w: v2 reserve receipt request id is missing", ErrTaskQuotaReservationInvalidInput)
+		}
 		if receipt.BillingPreference != "" && common.NormalizeBillingPreference(receipt.BillingPreference) != receipt.BillingPreference {
 			return fmt.Errorf("%w: reserve receipt billing preference is invalid", ErrTaskQuotaReservationInvalidInput)
 		}
@@ -1006,15 +1120,19 @@ func validateQuotaMutationReceiptShape(receipt *QuotaMutationReceipt) error {
 			ChannelID: receipt.ChannelID, ExpectedOperationVersion: receipt.ExpectedOperationVersion,
 			Quota: receipt.Quota, EstimatedQuota: receipt.EstimatedQuota, FreeModel: receipt.FreeModel,
 			BillingPreference: receipt.BillingPreference, BillingSource: receipt.BillingSource, SubscriptionID: receipt.SubscriptionID,
-			BillingContext: TaskBillingContext(receipt.BillingContext),
+			BillingContext: TaskBillingContext(receipt.BillingContext), RequestID: receipt.RequestID,
+			ApplyStatistics: receipt.StatisticsApplied, StatisticsVersion: receipt.StatisticsVersion,
 		}
 		var fingerprint string
 		var err error
-		if receipt.RequestFingerprintVersion == 0 {
+		switch receipt.RequestFingerprintVersion {
+		case 0:
 			fingerprint, err = taskQuotaReservationFingerprintV1(fingerprintInput)
-		} else if receipt.RequestFingerprintVersion == quotaMutationFingerprintVersion {
+		case 2:
 			fingerprint, err = taskQuotaReservationFingerprintV2(fingerprintInput)
-		} else {
+		case quotaMutationFingerprintVersion:
+			fingerprint, err = taskQuotaReservationFingerprintV3(fingerprintInput)
+		default:
 			err = ErrTaskQuotaReservationConflict
 		}
 		if err != nil || fingerprint != receipt.RequestFingerprint {
@@ -1183,9 +1301,9 @@ func validateStoredQuotaMutationReceipt(tx *gorm.DB, receipt *QuotaMutationRecei
 		operation.LockVersion < receipt.OperationVersionAfter {
 		return fmt.Errorf("%w: receipt does not match its durable operation", ErrTaskQuotaReservationConflict)
 	}
-	if operation.BillingSource != "" && (operation.BillingPreference != receipt.BillingPreference || operation.BillingSource != receipt.BillingSource ||
+	if receipt.MutationType == string(TaskBillingEventTypeReserve) && operation.BillingSource != "" && (operation.BillingPreference != receipt.BillingPreference || operation.BillingSource != receipt.BillingSource ||
 		operation.SubscriptionID != receipt.SubscriptionID || operation.ReservedQuota != receipt.Quota || operation.EstimatedQuota != receipt.EstimatedQuota ||
-		operation.BillingVersion != receipt.RequestFingerprintVersion || operation.FreeModel != receipt.FreeModel) {
+		operation.BillingVersion != receipt.RequestFingerprintVersion || operation.FreeModel != receipt.FreeModel || (operation.RequestID != "" && operation.RequestID != receipt.RequestID)) {
 		return fmt.Errorf("%w: receipt billing selection does not match its durable operation", ErrTaskQuotaReservationConflict)
 	}
 	event, err := GetTaskBillingEventByEventID(tx, receipt.BillingEventID)
@@ -1201,8 +1319,9 @@ func validateStoredQuotaMutationReceipt(tx *gorm.DB, receipt *QuotaMutationRecei
 	if event.OperationID == nil || *event.OperationID != receipt.OperationID || event.EventKey != receipt.BillingEventKey ||
 		string(event.EventType) != receipt.MutationType || event.State != TaskBillingEventStateApplied ||
 		event.UserID != receipt.UserID || event.TokenID != receipt.TokenID || event.ChannelID != receipt.ChannelID ||
-		event.BillingSource != receipt.BillingSource || event.SubscriptionID != receipt.SubscriptionID ||
-		event.LockVersion != receipt.BillingEventVersion {
+		event.BillingSource != receipt.BillingSource || event.SubscriptionID != receipt.SubscriptionID || event.RequestID != receipt.RequestID ||
+		event.EvidenceID != receipt.EvidenceID || event.EvidenceHash != receipt.EvidenceHash || event.EvidenceVersion != receipt.EvidenceVersion ||
+		event.LockVersion != receipt.BillingEventVersion || event.StatisticsVersion != receipt.StatisticsVersion || event.StatisticsApplied != receipt.StatisticsApplied {
 		return fmt.Errorf("%w: receipt does not match its authoritative billing event", ErrTaskQuotaReservationConflict)
 	}
 	switch receipt.MutationType {
@@ -1231,4 +1350,54 @@ func validateStoredQuotaMutationReceipt(tx *gorm.DB, receipt *QuotaMutationRecei
 		}
 	}
 	return nil
+}
+
+func createTaskMutationOutbox(tx *gorm.DB, event *TaskBillingEvent, receipt *QuotaMutationReceipt, content string) (*TaskBillingLogOutbox, error) {
+	if tx == nil || event == nil || receipt == nil {
+		return nil, ErrTaskRecoveryInvalidRecord
+	}
+	group := receipt.Before.User.Group
+	if group == "" {
+		group = "default"
+	}
+	billingContext := TaskBillingContext(receipt.BillingContext)
+	modelName := billingContext.OriginModelName
+	if modelName == "" {
+		return nil, ErrTaskRecoveryInvalidRecord
+	}
+	reasonCode := event.ReasonCode
+	if !validTaskTerminalReasonCode(reasonCode) {
+		reasonCode = "task_billing_mutation"
+	}
+	other, err := common.Marshal(map[string]interface{}{"operation_id": receipt.OperationPublicID, "mutation_type": receipt.MutationType, "reason": reasonCode, "resolution_source": event.ResolutionSource, "evidence_hash": receipt.EvidenceHash, "evidence_version": receipt.EvidenceVersion})
+	if err != nil {
+		return nil, err
+	}
+	candidate, err := NewTaskBillingLogOutbox(event, TaskBillingLogPayload{Content: content, ModelName: modelName, Group: group, Other: string(other), UpstreamRequestID: taskMutationEvidenceLogReference(receipt.EvidenceID, receipt.EvidenceHash)})
+	if err != nil {
+		return nil, err
+	}
+	return CreateOrLoadTaskBillingLogOutbox(tx, candidate)
+}
+
+func taskMutationEvidenceLogReference(evidenceID, evidenceHash string) string {
+	evidenceID = strings.TrimSpace(evidenceID)
+	if len(evidenceID) <= 128 {
+		return evidenceID
+	}
+	evidenceHash = strings.ToLower(strings.TrimSpace(evidenceHash))
+	if validTaskRecoveryDigest(evidenceHash) {
+		return "evidence_hash_" + evidenceHash
+	}
+	digest := sha256.Sum256([]byte(evidenceID))
+	return "evidence_" + hex.EncodeToString(digest[:])[:48]
+}
+
+func stableTaskBillingRequestID(requestID, seed string) string {
+	requestID = strings.TrimSpace(requestID)
+	if requestID != "" && len(requestID) <= 64 {
+		return requestID
+	}
+	digest := sha256.Sum256([]byte(seed))
+	return "billing_" + hex.EncodeToString(digest[:])[:48]
 }

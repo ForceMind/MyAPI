@@ -20,27 +20,39 @@ var (
 
 // TaskQuotaReleaseInput is the complete gate-off T4 refund release input.
 type TaskQuotaReleaseInput struct {
-	OperationID              int64
-	UserID                   int
-	TokenID                  int
-	ChannelID                int
-	ExpectedOperationVersion int64
-	ReasonCode               string
-	BillingContext           TaskBillingContext
-	TargetOperationStatus    TaskSubmissionOperationStatus
+	OperationID               int64
+	UserID                    int
+	TokenID                   int
+	ChannelID                 int
+	ExpectedOperationVersion  int64
+	ReasonCode                string
+	BillingContext            TaskBillingContext
+	TargetOperationStatus     TaskSubmissionOperationStatus
+	ResolutionSource          string
+	RequireStatisticsEvidence bool
+	EvidenceID                string
+	EvidenceHash              string
+	EvidenceVersion           int
+	RequestID                 string
 }
 
 // TaskQuotaSettlementInput is the complete gate-off T3 terminal settlement input.
 type TaskQuotaSettlementInput struct {
-	OperationID              int64
-	UserID                   int
-	TokenID                  int
-	ChannelID                int
-	ExpectedOperationVersion int64
-	ActualQuota              int64
-	ReasonCode               string
-	BillingContext           TaskBillingContext
-	TargetOperationStatus    TaskSubmissionOperationStatus
+	OperationID               int64
+	UserID                    int
+	TokenID                   int
+	ChannelID                 int
+	ExpectedOperationVersion  int64
+	ActualQuota               int64
+	ReasonCode                string
+	BillingContext            TaskBillingContext
+	TargetOperationStatus     TaskSubmissionOperationStatus
+	ResolutionSource          string
+	RequireStatisticsEvidence bool
+	EvidenceID                string
+	EvidenceHash              string
+	EvidenceVersion           int
+	RequestID                 string
 }
 
 // ReleaseTaskQuotaReservation applies gate-off T4 atomically. It fully releases
@@ -54,23 +66,6 @@ func ReleaseTaskQuotaReservation(tx *gorm.DB, input TaskQuotaReleaseInput) (*Quo
 		return nil, err
 	}
 
-	// Idempotency check: if refund receipt already exists
-	if existing, err := findTaskQuotaReceiptByType(tx, normalized.OperationID, string(TaskBillingEventTypeRefund), normalized.UserID, normalized.TokenID); err != nil {
-		return nil, err
-	} else if existing != nil {
-		if existing.RequestFingerprint != fingerprint {
-			return nil, ErrTaskQuotaReservationConflict
-		}
-		return existing, nil
-	}
-
-	// Mutual exclusion: if terminal settlement receipt already exists, refund is forbidden
-	if settled, err := findTaskQuotaReceiptByType(tx, normalized.OperationID, string(TaskBillingEventTypeTerminalSettlement), normalized.UserID, normalized.TokenID); err != nil {
-		return nil, err
-	} else if settled != nil {
-		return nil, ErrTaskQuotaAlreadySettled
-	}
-
 	// Must have a valid T1 reservation receipt
 	reserveReceipt, err := findTaskQuotaReservation(tx, normalized.OperationID, normalized.UserID, normalized.TokenID)
 	if err != nil {
@@ -79,28 +74,15 @@ func ReleaseTaskQuotaReservation(tx *gorm.DB, input TaskQuotaReleaseInput) (*Quo
 	if reserveReceipt == nil {
 		return nil, ErrTaskQuotaReservationNotFound
 	}
+	if (input.RequireStatisticsEvidence || reserveReceipt.RequestFingerprintVersion >= 2) && (!reserveReceipt.StatisticsApplied || reserveReceipt.StatisticsVersion != 1) {
+		return nil, ErrTaskTerminalObservationManualReview
+	}
 
 	var result *QuotaMutationReceipt
 	err = taskRecoveryAtomicTransaction(tx, "task_quota_release", func(writeDB *gorm.DB) error {
 		databaseNow, err := taskRecoveryDBTimestamp(writeDB)
 		if err != nil {
 			return err
-		}
-
-		// Recheck under lock
-		if existing, err := findTaskQuotaReceiptByType(writeDB, normalized.OperationID, string(TaskBillingEventTypeRefund), normalized.UserID, normalized.TokenID); err != nil {
-			return err
-		} else if existing != nil {
-			if existing.RequestFingerprint != fingerprint {
-				return ErrTaskQuotaReservationConflict
-			}
-			result = existing
-			return nil
-		}
-		if settled, err := findTaskQuotaReceiptByType(writeDB, normalized.OperationID, string(TaskBillingEventTypeTerminalSettlement), normalized.UserID, normalized.TokenID); err != nil {
-			return err
-		} else if settled != nil {
-			return ErrTaskQuotaAlreadySettled
 		}
 
 		// 1. Lock User
@@ -154,10 +136,6 @@ func ReleaseTaskQuotaReservation(tx *gorm.DB, input TaskQuotaReleaseInput) (*Quo
 		if err := validateStoredTaskSubmissionOperation(writeDB, &operation); err != nil {
 			return err
 		}
-		if operation.UserID != normalized.UserID || operation.TokenID != normalized.TokenID ||
-			operation.LockVersion != normalized.ExpectedOperationVersion || operation.LockVersion == quotaMutationMaxInt64 {
-			return ErrTaskQuotaReservationCASLost
-		}
 
 		// 5. Lock Attempt
 		var attempt TaskSubmissionAttempt
@@ -170,6 +148,26 @@ func ReleaseTaskQuotaReservation(tx *gorm.DB, input TaskQuotaReleaseInput) (*Quo
 		if err := validateStoredTaskSubmissionAttempt(writeDB, &attempt); err != nil {
 			return err
 		}
+		if !taskMutationEvidenceMatchesAttempt(normalized.ResolutionSource, normalized.EvidenceID, normalized.EvidenceHash, normalized.EvidenceVersion, &attempt) {
+			return ErrTaskQuotaReleaseInvalidInput
+		}
+		if existing, err := findTaskQuotaReceiptByType(writeDB, normalized.OperationID, string(TaskBillingEventTypeRefund), normalized.UserID, normalized.TokenID); err != nil {
+			return err
+		} else if existing != nil {
+			if existing.RequestFingerprint != fingerprint {
+				return ErrTaskQuotaReservationConflict
+			}
+			result = existing
+			return nil
+		}
+		if settled, err := findTaskQuotaReceiptByType(writeDB, normalized.OperationID, string(TaskBillingEventTypeTerminalSettlement), normalized.UserID, normalized.TokenID); err != nil {
+			return err
+		} else if settled != nil {
+			return ErrTaskQuotaAlreadySettled
+		}
+		if operation.UserID != normalized.UserID || operation.TokenID != normalized.TokenID || operation.LockVersion != normalized.ExpectedOperationVersion || operation.LockVersion == quotaMutationMaxInt64 {
+			return ErrTaskQuotaReservationCASLost
+		}
 
 		refundQuota := reserveReceipt.Quota
 		before := quotaMutationSnapshot(&user, &token, subscription)
@@ -180,6 +178,11 @@ func ReleaseTaskQuotaReservation(tx *gorm.DB, input TaskQuotaReleaseInput) (*Quo
 
 		if err := applyTaskQuotaRefundBalances(writeDB, before, after, reserveReceipt.BillingSource, refundQuota); err != nil {
 			return err
+		}
+		if reserveReceipt.StatisticsApplied {
+			if err := applyTaskStatistics(writeDB, normalized.UserID, normalized.ChannelID, -refundQuota, 0); err != nil {
+				return err
+			}
 		}
 
 		operationID := operation.ID
@@ -194,6 +197,18 @@ func ReleaseTaskQuotaReservation(tx *gorm.DB, input TaskQuotaReleaseInput) (*Quo
 			SubscriptionID: reserveReceipt.SubscriptionID,
 			QuotaDelta:     refundQuota,
 			ReasonCode:     normalized.ReasonCode,
+			RequestID:      stableTaskBillingRequestID(taskMutationRequestID(normalized.RequestID, reserveReceipt.RequestID), eventKey),
+			ResolutionSource: func() string {
+				if normalized.ResolutionSource == TaskSubmissionResolutionSourceProviderVerified {
+					return normalized.ResolutionSource
+				}
+				return ""
+			}(),
+			EvidenceID:        normalized.EvidenceID,
+			EvidenceHash:      normalized.EvidenceHash,
+			EvidenceVersion:   normalized.EvidenceVersion,
+			StatisticsVersion: reserveReceipt.StatisticsVersion,
+			StatisticsApplied: reserveReceipt.StatisticsApplied,
 		})
 		if err != nil {
 			return err
@@ -238,6 +253,12 @@ func ReleaseTaskQuotaReservation(tx *gorm.DB, input TaskQuotaReleaseInput) (*Quo
 			BillingSource:               reserveReceipt.BillingSource,
 			SubscriptionID:              reserveReceipt.SubscriptionID,
 			Quota:                       refundQuota,
+			RequestID:                   event.RequestID,
+			StatisticsVersion:           reserveReceipt.StatisticsVersion,
+			StatisticsApplied:           reserveReceipt.StatisticsApplied,
+			EvidenceID:                  normalized.EvidenceID,
+			EvidenceHash:                normalized.EvidenceHash,
+			EvidenceVersion:             normalized.EvidenceVersion,
 			BillingContext:              TaskQuotaBillingContext(normalized.BillingContext),
 			Before:                      before,
 			After:                       after,
@@ -245,13 +266,17 @@ func ReleaseTaskQuotaReservation(tx *gorm.DB, input TaskQuotaReleaseInput) (*Quo
 		if err := quotaMutationReceiptCreateDB(writeDB).Create(receipt).Error; err != nil {
 			return err
 		}
+		if _, err := createTaskMutationOutbox(writeDB, event, receipt, "task quota released"); err != nil {
+			return err
+		}
 
 		if normalized.TargetOperationStatus != "" {
 			won, err := TransitionTaskSubmissionOperation(writeDB, operation.ID, TaskSubmissionOperationTransition{
-				From:            operation.Status,
-				To:              normalized.TargetOperationStatus,
-				ExpectedVersion: operation.LockVersion,
-				ReasonCode:      normalized.ReasonCode,
+				From:             operation.Status,
+				To:               normalized.TargetOperationStatus,
+				ExpectedVersion:  operation.LockVersion,
+				ReasonCode:       normalized.ReasonCode,
+				ResolutionSource: normalized.ResolutionSource,
 			})
 			if err != nil {
 				return err
@@ -281,23 +306,6 @@ func SettleTaskQuotaReservation(tx *gorm.DB, input TaskQuotaSettlementInput) (*Q
 		return nil, err
 	}
 
-	// Idempotency check: if settlement receipt already exists
-	if existing, err := findTaskQuotaReceiptByType(tx, normalized.OperationID, string(TaskBillingEventTypeTerminalSettlement), normalized.UserID, normalized.TokenID); err != nil {
-		return nil, err
-	} else if existing != nil {
-		if existing.RequestFingerprint != fingerprint {
-			return nil, ErrTaskQuotaReservationConflict
-		}
-		return existing, nil
-	}
-
-	// Mutual exclusion: if refund receipt already exists, settlement is forbidden
-	if refunded, err := findTaskQuotaReceiptByType(tx, normalized.OperationID, string(TaskBillingEventTypeRefund), normalized.UserID, normalized.TokenID); err != nil {
-		return nil, err
-	} else if refunded != nil {
-		return nil, ErrTaskQuotaAlreadyRefunded
-	}
-
 	// Must have a valid T1 reservation receipt
 	reserveReceipt, err := findTaskQuotaReservation(tx, normalized.OperationID, normalized.UserID, normalized.TokenID)
 	if err != nil {
@@ -306,28 +314,15 @@ func SettleTaskQuotaReservation(tx *gorm.DB, input TaskQuotaSettlementInput) (*Q
 	if reserveReceipt == nil {
 		return nil, ErrTaskQuotaReservationNotFound
 	}
+	if (input.RequireStatisticsEvidence || reserveReceipt.RequestFingerprintVersion >= 2) && (!reserveReceipt.StatisticsApplied || reserveReceipt.StatisticsVersion != 1) {
+		return nil, ErrTaskTerminalObservationManualReview
+	}
 
 	var result *QuotaMutationReceipt
 	err = taskRecoveryAtomicTransaction(tx, "task_quota_settle", func(writeDB *gorm.DB) error {
 		databaseNow, err := taskRecoveryDBTimestamp(writeDB)
 		if err != nil {
 			return err
-		}
-
-		// Recheck under lock
-		if existing, err := findTaskQuotaReceiptByType(writeDB, normalized.OperationID, string(TaskBillingEventTypeTerminalSettlement), normalized.UserID, normalized.TokenID); err != nil {
-			return err
-		} else if existing != nil {
-			if existing.RequestFingerprint != fingerprint {
-				return ErrTaskQuotaReservationConflict
-			}
-			result = existing
-			return nil
-		}
-		if refunded, err := findTaskQuotaReceiptByType(writeDB, normalized.OperationID, string(TaskBillingEventTypeRefund), normalized.UserID, normalized.TokenID); err != nil {
-			return err
-		} else if refunded != nil {
-			return ErrTaskQuotaAlreadyRefunded
 		}
 
 		// 1. Lock User
@@ -381,10 +376,6 @@ func SettleTaskQuotaReservation(tx *gorm.DB, input TaskQuotaSettlementInput) (*Q
 		if err := validateStoredTaskSubmissionOperation(writeDB, &operation); err != nil {
 			return err
 		}
-		if operation.UserID != normalized.UserID || operation.TokenID != normalized.TokenID ||
-			operation.LockVersion != normalized.ExpectedOperationVersion || operation.LockVersion == quotaMutationMaxInt64 {
-			return ErrTaskQuotaReservationCASLost
-		}
 
 		// 5. Lock Attempt
 		var attempt TaskSubmissionAttempt
@@ -396,6 +387,26 @@ func SettleTaskQuotaReservation(tx *gorm.DB, input TaskQuotaSettlementInput) (*Q
 		}
 		if err := validateStoredTaskSubmissionAttempt(writeDB, &attempt); err != nil {
 			return err
+		}
+		if !taskMutationEvidenceMatchesAttempt(normalized.ResolutionSource, normalized.EvidenceID, normalized.EvidenceHash, normalized.EvidenceVersion, &attempt) {
+			return ErrTaskQuotaSettlementInvalidInput
+		}
+		if existing, err := findTaskQuotaReceiptByType(writeDB, normalized.OperationID, string(TaskBillingEventTypeTerminalSettlement), normalized.UserID, normalized.TokenID); err != nil {
+			return err
+		} else if existing != nil {
+			if existing.RequestFingerprint != fingerprint {
+				return ErrTaskQuotaReservationConflict
+			}
+			result = existing
+			return nil
+		}
+		if refunded, err := findTaskQuotaReceiptByType(writeDB, normalized.OperationID, string(TaskBillingEventTypeRefund), normalized.UserID, normalized.TokenID); err != nil {
+			return err
+		} else if refunded != nil {
+			return ErrTaskQuotaAlreadyRefunded
+		}
+		if operation.UserID != normalized.UserID || operation.TokenID != normalized.TokenID || operation.LockVersion != normalized.ExpectedOperationVersion || operation.LockVersion == quotaMutationMaxInt64 {
+			return ErrTaskQuotaReservationCASLost
 		}
 
 		// Calculate settlement delta: expectedDelta = reservedQuota - actualQuota
@@ -412,6 +423,11 @@ func SettleTaskQuotaReservation(tx *gorm.DB, input TaskQuotaSettlementInput) (*Q
 		if err := applyTaskQuotaSettlementBalances(writeDB, before, after, reserveReceipt.BillingSource, settlementDelta); err != nil {
 			return err
 		}
+		if reserveReceipt.StatisticsApplied {
+			if err := applyTaskStatistics(writeDB, normalized.UserID, normalized.ChannelID, actualQuota-reservedQuota, 0); err != nil {
+				return err
+			}
+		}
 
 		operationID := operation.ID
 		eventKey := "task:" + operation.PublicID + ":" + string(TaskBillingEventTypeTerminalSettlement) + ":v1"
@@ -425,6 +441,18 @@ func SettleTaskQuotaReservation(tx *gorm.DB, input TaskQuotaSettlementInput) (*Q
 			SubscriptionID: reserveReceipt.SubscriptionID,
 			QuotaDelta:     settlementDelta,
 			ReasonCode:     normalized.ReasonCode,
+			RequestID:      stableTaskBillingRequestID(taskMutationRequestID(normalized.RequestID, reserveReceipt.RequestID), eventKey),
+			ResolutionSource: func() string {
+				if normalized.ResolutionSource == TaskSubmissionResolutionSourceProviderVerified {
+					return normalized.ResolutionSource
+				}
+				return ""
+			}(),
+			EvidenceID:        normalized.EvidenceID,
+			EvidenceHash:      normalized.EvidenceHash,
+			EvidenceVersion:   normalized.EvidenceVersion,
+			StatisticsVersion: reserveReceipt.StatisticsVersion,
+			StatisticsApplied: reserveReceipt.StatisticsApplied,
 		})
 		if err != nil {
 			return err
@@ -469,6 +497,12 @@ func SettleTaskQuotaReservation(tx *gorm.DB, input TaskQuotaSettlementInput) (*Q
 			BillingSource:               reserveReceipt.BillingSource,
 			SubscriptionID:              reserveReceipt.SubscriptionID,
 			Quota:                       actualQuota,
+			RequestID:                   event.RequestID,
+			StatisticsVersion:           reserveReceipt.StatisticsVersion,
+			StatisticsApplied:           reserveReceipt.StatisticsApplied,
+			EvidenceID:                  normalized.EvidenceID,
+			EvidenceHash:                normalized.EvidenceHash,
+			EvidenceVersion:             normalized.EvidenceVersion,
 			BillingContext:              TaskQuotaBillingContext(normalized.BillingContext),
 			Before:                      before,
 			After:                       after,
@@ -476,13 +510,17 @@ func SettleTaskQuotaReservation(tx *gorm.DB, input TaskQuotaSettlementInput) (*Q
 		if err := quotaMutationReceiptCreateDB(writeDB).Create(receipt).Error; err != nil {
 			return err
 		}
+		if _, err := createTaskMutationOutbox(writeDB, event, receipt, "task quota settled"); err != nil {
+			return err
+		}
 
 		if normalized.TargetOperationStatus != "" {
 			won, err := TransitionTaskSubmissionOperation(writeDB, operation.ID, TaskSubmissionOperationTransition{
-				From:            operation.Status,
-				To:              normalized.TargetOperationStatus,
-				ExpectedVersion: operation.LockVersion,
-				ReasonCode:      normalized.ReasonCode,
+				From:             operation.Status,
+				To:               normalized.TargetOperationStatus,
+				ExpectedVersion:  operation.LockVersion,
+				ReasonCode:       normalized.ReasonCode,
+				ResolutionSource: normalized.ResolutionSource,
 			})
 			if err != nil {
 				return err
@@ -538,7 +576,7 @@ func quotaMutationRefundAfter(before QuotaMutationAccountSnapshot, billingSource
 	if billingSource == "wallet" {
 		newUserQuota := int64(before.User.Quota) + refundQuota
 		if newUserQuota > int64(common.MaxQuota) {
-			newUserQuota = int64(common.MaxQuota)
+			return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
 		}
 		after.User.Quota = int(newUserQuota)
 		after.User.QuotaVersion++
@@ -548,7 +586,7 @@ func quotaMutationRefundAfter(before QuotaMutationAccountSnapshot, billingSource
 		}
 		newUsed := after.Subscription.AmountUsed - refundQuota
 		if newUsed < 0 {
-			newUsed = 0
+			return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
 		}
 		after.Subscription.AmountUsed = newUsed
 		after.Subscription.QuotaVersion++
@@ -557,11 +595,11 @@ func quotaMutationRefundAfter(before QuotaMutationAccountSnapshot, billingSource
 
 	newRemain := int64(before.Token.RemainQuota) + refundQuota
 	if newRemain > int64(common.MaxQuota) {
-		newRemain = int64(common.MaxQuota)
+		return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
 	}
 	newUsed := int64(before.Token.UsedQuota) - refundQuota
 	if newUsed < 0 {
-		newUsed = 0
+		return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
 	}
 	after.Token.RemainQuota = int(newRemain)
 	after.Token.UsedQuota = int(newUsed)
@@ -634,9 +672,9 @@ func quotaMutationSettlementAfter(before QuotaMutationAccountSnapshot, billingSo
 	if billingSource == "wallet" {
 		newUserQuota := int64(before.User.Quota) + delta
 		if newUserQuota > int64(common.MaxQuota) {
-			newUserQuota = int64(common.MaxQuota)
+			return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
 		} else if newUserQuota < int64(common.MinQuota) {
-			newUserQuota = int64(common.MinQuota)
+			return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
 		}
 		after.User.Quota = int(newUserQuota)
 		after.User.QuotaVersion++
@@ -646,7 +684,7 @@ func quotaMutationSettlementAfter(before QuotaMutationAccountSnapshot, billingSo
 		}
 		newUsed := after.Subscription.AmountUsed - delta
 		if newUsed < 0 {
-			newUsed = 0
+			return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
 		}
 		after.Subscription.AmountUsed = newUsed
 		after.Subscription.QuotaVersion++
@@ -655,15 +693,15 @@ func quotaMutationSettlementAfter(before QuotaMutationAccountSnapshot, billingSo
 
 	newRemain := int64(before.Token.RemainQuota) + delta
 	if newRemain > int64(common.MaxQuota) {
-		newRemain = int64(common.MaxQuota)
+		return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
 	} else if newRemain < int64(common.MinQuota) {
-		newRemain = int64(common.MinQuota)
+		return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
 	}
 	newUsed := int64(before.Token.UsedQuota) - delta
 	if newUsed < 0 {
-		newUsed = 0
+		return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
 	} else if newUsed > int64(common.MaxQuota) {
-		newUsed = int64(common.MaxQuota)
+		return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
 	}
 	after.Token.RemainQuota = int(newRemain)
 	after.Token.UsedQuota = int(newUsed)
@@ -724,9 +762,16 @@ func applyTaskQuotaSettlementBalances(tx *gorm.DB, before, after QuotaMutationAc
 }
 
 func normalizeTaskQuotaReleaseInput(input TaskQuotaReleaseInput) (TaskQuotaReleaseInput, string, error) {
-	input.ReasonCode = strings.TrimSpace(input.ReasonCode)
+	input.ReasonCode = strings.ToLower(strings.TrimSpace(input.ReasonCode))
+	input.ResolutionSource = strings.TrimSpace(input.ResolutionSource)
+	input.EvidenceID = strings.TrimSpace(input.EvidenceID)
+	input.EvidenceHash = strings.ToLower(strings.TrimSpace(input.EvidenceHash))
+	input.RequestID = strings.TrimSpace(input.RequestID)
 	if input.ReasonCode == "" {
 		input.ReasonCode = "task_t4_refund"
+	}
+	if !validTaskTerminalReasonCode(input.ReasonCode) {
+		return input, "", ErrTaskQuotaReleaseInvalidInput
 	}
 	input.BillingContext.OriginModelName = strings.TrimSpace(input.BillingContext.OriginModelName)
 	if len(input.BillingContext.OtherRatios) == 0 {
@@ -741,10 +786,13 @@ func normalizeTaskQuotaReleaseInput(input TaskQuotaReleaseInput) (TaskQuotaRelea
 	if input.OperationID <= 0 || input.UserID <= 0 || input.TokenID <= 0 || input.ChannelID <= 0 ||
 		input.ExpectedOperationVersion <= 0 || input.ExpectedOperationVersion == quotaMutationMaxInt64 ||
 		int64(input.UserID) > int64(common.MaxQuota) || int64(input.TokenID) > int64(common.MaxQuota) ||
-		int64(input.ChannelID) > int64(common.MaxQuota) || len(input.ReasonCode) > 64 {
+		int64(input.ChannelID) > int64(common.MaxQuota) || len(input.ReasonCode) > 64 || len(input.ResolutionSource) > 32 || len(input.RequestID) > 64 {
 		return input, "", ErrTaskQuotaReleaseInvalidInput
 	}
 	if input.TargetOperationStatus != "" && !input.TargetOperationStatus.Valid() {
+		return input, "", ErrTaskQuotaReleaseInvalidInput
+	}
+	if !validTaskMutationEvidence(input.EvidenceID, input.EvidenceHash, input.EvidenceVersion) {
 		return input, "", ErrTaskQuotaReleaseInvalidInput
 	}
 	if err := validateTaskQuotaBillingContext(input.BillingContext); err != nil {
@@ -759,12 +807,20 @@ func normalizeTaskQuotaReleaseInput(input TaskQuotaReleaseInput) (TaskQuotaRelea
 		ExpectedOperationVersion int64                         `json:"expected_operation_version"`
 		ReasonCode               string                        `json:"reason_code"`
 		TargetOperationStatus    TaskSubmissionOperationStatus `json:"target_operation_status,omitempty"`
+		ResolutionSource         string                        `json:"resolution_source,omitempty"`
 		BillingContext           TaskBillingContext            `json:"billing_context"`
+		EvidenceID               string                        `json:"evidence_id,omitempty"`
+		EvidenceHash             string                        `json:"evidence_hash,omitempty"`
+		EvidenceVersion          int                           `json:"evidence_version,omitempty"`
+		RequestID                string                        `json:"request_id,omitempty"`
 	}{
 		Version: quotaMutationFingerprintVersion, OperationID: input.OperationID,
 		UserID: input.UserID, TokenID: input.TokenID, ChannelID: input.ChannelID,
 		ExpectedOperationVersion: input.ExpectedOperationVersion, ReasonCode: input.ReasonCode,
 		TargetOperationStatus: input.TargetOperationStatus, BillingContext: input.BillingContext,
+		ResolutionSource: input.ResolutionSource,
+		EvidenceID:       input.EvidenceID, EvidenceHash: input.EvidenceHash, EvidenceVersion: input.EvidenceVersion,
+		RequestID: input.RequestID,
 	}
 	data, err := common.Marshal(payload)
 	if err != nil {
@@ -775,9 +831,16 @@ func normalizeTaskQuotaReleaseInput(input TaskQuotaReleaseInput) (TaskQuotaRelea
 }
 
 func normalizeTaskQuotaSettlementInput(input TaskQuotaSettlementInput) (TaskQuotaSettlementInput, string, error) {
-	input.ReasonCode = strings.TrimSpace(input.ReasonCode)
+	input.ReasonCode = strings.ToLower(strings.TrimSpace(input.ReasonCode))
+	input.ResolutionSource = strings.TrimSpace(input.ResolutionSource)
+	input.EvidenceID = strings.TrimSpace(input.EvidenceID)
+	input.EvidenceHash = strings.ToLower(strings.TrimSpace(input.EvidenceHash))
+	input.RequestID = strings.TrimSpace(input.RequestID)
 	if input.ReasonCode == "" {
 		input.ReasonCode = "task_t3_settle"
+	}
+	if !validTaskTerminalReasonCode(input.ReasonCode) {
+		return input, "", ErrTaskQuotaSettlementInvalidInput
 	}
 	input.BillingContext.OriginModelName = strings.TrimSpace(input.BillingContext.OriginModelName)
 	if len(input.BillingContext.OtherRatios) == 0 {
@@ -793,10 +856,13 @@ func normalizeTaskQuotaSettlementInput(input TaskQuotaSettlementInput) (TaskQuot
 		input.ExpectedOperationVersion <= 0 || input.ExpectedOperationVersion == quotaMutationMaxInt64 ||
 		input.ActualQuota < 0 || input.ActualQuota > int64(common.MaxQuota) ||
 		int64(input.UserID) > int64(common.MaxQuota) || int64(input.TokenID) > int64(common.MaxQuota) ||
-		int64(input.ChannelID) > int64(common.MaxQuota) || len(input.ReasonCode) > 64 {
+		int64(input.ChannelID) > int64(common.MaxQuota) || len(input.ReasonCode) > 64 || len(input.ResolutionSource) > 32 || len(input.RequestID) > 64 {
 		return input, "", ErrTaskQuotaSettlementInvalidInput
 	}
 	if input.TargetOperationStatus != "" && !input.TargetOperationStatus.Valid() {
+		return input, "", ErrTaskQuotaSettlementInvalidInput
+	}
+	if !validTaskMutationEvidence(input.EvidenceID, input.EvidenceHash, input.EvidenceVersion) {
 		return input, "", ErrTaskQuotaSettlementInvalidInput
 	}
 	if err := validateTaskQuotaBillingContext(input.BillingContext); err != nil {
@@ -812,13 +878,20 @@ func normalizeTaskQuotaSettlementInput(input TaskQuotaSettlementInput) (TaskQuot
 		ActualQuota              int64                         `json:"actual_quota"`
 		ReasonCode               string                        `json:"reason_code"`
 		TargetOperationStatus    TaskSubmissionOperationStatus `json:"target_operation_status,omitempty"`
+		ResolutionSource         string                        `json:"resolution_source,omitempty"`
 		BillingContext           TaskBillingContext            `json:"billing_context"`
+		EvidenceID               string                        `json:"evidence_id,omitempty"`
+		EvidenceHash             string                        `json:"evidence_hash,omitempty"`
+		EvidenceVersion          int                           `json:"evidence_version,omitempty"`
+		RequestID                string                        `json:"request_id,omitempty"`
 	}{
 		Version: quotaMutationFingerprintVersion, OperationID: input.OperationID,
 		UserID: input.UserID, TokenID: input.TokenID, ChannelID: input.ChannelID,
 		ExpectedOperationVersion: input.ExpectedOperationVersion, ActualQuota: input.ActualQuota,
-		ReasonCode: input.ReasonCode, TargetOperationStatus: input.TargetOperationStatus,
+		ReasonCode: input.ReasonCode, TargetOperationStatus: input.TargetOperationStatus, ResolutionSource: input.ResolutionSource,
 		BillingContext: input.BillingContext,
+		EvidenceID:     input.EvidenceID, EvidenceHash: input.EvidenceHash, EvidenceVersion: input.EvidenceVersion,
+		RequestID: input.RequestID,
 	}
 	data, err := common.Marshal(payload)
 	if err != nil {
@@ -826,4 +899,31 @@ func normalizeTaskQuotaSettlementInput(input TaskQuotaSettlementInput) (TaskQuot
 	}
 	digest := sha256.Sum256(data)
 	return input, hex.EncodeToString(digest[:]), nil
+}
+
+func validTaskMutationEvidence(id, hash string, version int) bool {
+	if len(id) > 191 || version < 0 || (hash != "" && !validTaskRecoveryDigest(hash)) {
+		return false
+	}
+	if version == 0 {
+		return id == "" && hash == ""
+	}
+	return id != "" || hash != ""
+}
+
+func taskMutationRequestID(primary, fallback string) string {
+	if strings.TrimSpace(primary) != "" {
+		return strings.TrimSpace(primary)
+	}
+	return strings.TrimSpace(fallback)
+}
+
+func taskMutationEvidenceMatchesAttempt(resolutionSource, id, hash string, version int, attempt *TaskSubmissionAttempt) bool {
+	if resolutionSource != TaskSubmissionResolutionSourceProviderVerified {
+		return true
+	}
+	if attempt == nil || version != 1 || id == "" {
+		return false
+	}
+	return id == attempt.ProviderOperationID || id == attempt.UpstreamRequestID
 }

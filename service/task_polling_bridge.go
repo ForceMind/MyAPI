@@ -2,14 +2,13 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/logger"
 	"github.com/ForceMind/MyAPI/model"
-	"gorm.io/gorm"
 )
 
 // DurableSettleTaskOnComplete bridges async task completion to the durable accounting
@@ -18,11 +17,55 @@ import (
 //
 // Returns (handled=true, nil) if processed by durable accounting.
 // Returns (handled=false, nil) if the task is not backed by a durable operation (caller should use legacy settlement).
+type DurableTerminalEvidence struct {
+	ID      string
+	Hash    string
+	Version int
+}
+
 func DurableSettleTaskOnComplete(ctx context.Context, task *model.Task, actualQuota int, reason string, clamps ...*common.QuotaClamp) (bool, error) {
+	return durableTerminalWithoutEvidence(ctx, task, "succeeded", actualQuota, reason, clamps...)
+}
+
+func DurableReleaseTaskOnFailure(ctx context.Context, task *model.Task, reason string) (bool, error) {
+	return durableTerminalWithoutEvidence(ctx, task, "failed", 0, reason)
+}
+
+func durableTerminalWithoutEvidence(ctx context.Context, task *model.Task, outcome string, actualQuota int, reason string, clamps ...*common.QuotaClamp) (bool, error) {
+	return DurableTerminalManualReviewWithEvidence(ctx, task, outcome, actualQuota, reason, DurableTerminalEvidence{}, clamps...)
+}
+
+func DurableTerminalManualReviewWithEvidence(ctx context.Context, task *model.Task, outcome string, actualQuota int, reason string, evidence DurableTerminalEvidence, clamps ...*common.QuotaClamp) (bool, error) {
 	if model.DB == nil || task == nil || task.TaskID == "" {
 		return false, nil
 	}
+	op, err := model.GetTaskSubmissionOperationByPublicID(model.DB, task.TaskID)
+	if err != nil {
+		return false, err
+	}
+	if op == nil {
+		return false, nil
+	}
+	reasonCode := sanitizeReasonCode(reason, "terminal_evidence_missing")
+	var clamp *common.QuotaClamp
+	for _, candidate := range clamps {
+		if candidate != nil {
+			clamp = candidate
+			break
+		}
+	}
+	_, err = model.CreateOrLoadTaskTerminalObservation(model.DB, model.TaskTerminalObservationInput{OperationID: op.ID, TaskID: task.ID, Outcome: outcome, ActualQuota: int64(actualQuota), ReasonCode: reasonCode, RequestID: op.RequestID, ResultURL: sanitizeTerminalResultURL(task.PrivateData.ResultURL), TaskData: terminalTaskDataProjection(task.Data), TaskStartTime: task.StartTime, TaskFinishTime: task.FinishTime, OperationalResultURL: terminalOperationalResultURL(task.PrivateData.ResultURL), TaskUpstreamID: strings.TrimSpace(task.PrivateData.UpstreamTaskID), ManualReview: true, QuotaClamp: clamp, EvidenceID: strings.TrimSpace(evidence.ID), EvidenceHash: strings.ToLower(strings.TrimSpace(evidence.Hash)), EvidenceVersion: evidence.Version})
+	if err != nil {
+		return true, err
+	}
+	logger.LogWarn(ctx, "durable terminal result lacks immutable evidence and requires manual review")
+	return true, model.ErrTaskTerminalObservationManualReview
+}
 
+func DurableSettleTaskOnCompleteWithEvidence(ctx context.Context, task *model.Task, actualQuota int, reason string, evidence DurableTerminalEvidence, clamps ...*common.QuotaClamp) (bool, error) {
+	if model.DB == nil || task == nil || task.TaskID == "" {
+		return false, nil
+	}
 	op, err := model.GetTaskSubmissionOperationByPublicID(model.DB, task.TaskID)
 	if err != nil {
 		return false, fmt.Errorf("query task submission operation failed: %w", err)
@@ -30,77 +73,50 @@ func DurableSettleTaskOnComplete(ctx context.Context, task *model.Task, actualQu
 	if op == nil {
 		return false, nil
 	}
-
-	// Idempotency: if operation is already in terminal state
-	if op.Status == model.TaskSubmissionOperationStatusSucceeded {
-		logger.LogInfo(ctx, fmt.Sprintf("task %s operation %s already succeeded, skip settlement", task.TaskID, op.PublicID))
-		return true, nil
+	if !validDurableTerminalEvidence(op, evidence) {
+		return durableTerminalWithoutEvidence(ctx, task, "succeeded", actualQuota, reason, clamps...)
 	}
-	if op.Status == model.TaskSubmissionOperationStatusFailed ||
-		op.Status == model.TaskSubmissionOperationStatusRejected ||
-		op.Status == model.TaskSubmissionOperationStatusCanceled {
-		logger.LogWarn(ctx, fmt.Sprintf("task %s operation %s already terminated (%s), skip settlement", task.TaskID, op.PublicID, op.Status))
-		return true, nil
-	}
-
-	if op.Status != model.TaskSubmissionOperationStatusAccepted &&
-		op.Status != model.TaskSubmissionOperationStatusOutcomeUnknown {
-		return true, fmt.Errorf("cannot settle task %s: operation status %s is not accepted or outcome_unknown", task.TaskID, op.Status)
-	}
-
-	channelID := task.ChannelId
-	if channelID <= 0 {
-		attempt, _ := model.FindAttemptByOperationID(model.DB, op.ID)
-		if attempt != nil && attempt.ChannelID > 0 {
-			channelID = attempt.ChannelID
+	manualReview := false
+	for _, clamp := range clamps {
+		if clamp != nil {
+			manualReview = true
+			break
 		}
 	}
-	if channelID <= 0 {
-		channelID = 1
-	}
-
-	tokenID := op.TokenID
-	if tokenID <= 0 {
-		tokenID = task.PrivateData.TokenId
-	}
-
-	bc := resolveDurableTaskBillingContext(task)
 	reasonCode := sanitizeReasonCode(reason, "task_poll_settle")
-
-	input := model.TaskQuotaSettlementInput{
-		OperationID:              op.ID,
-		UserID:                   op.UserID,
-		TokenID:                  tokenID,
-		ChannelID:                channelID,
-		ExpectedOperationVersion: op.LockVersion,
-		ActualQuota:              int64(actualQuota),
-		ReasonCode:               reasonCode,
-		BillingContext:           bc,
-		TargetOperationStatus:    model.TaskSubmissionOperationStatusSucceeded,
+	if strings.TrimSpace(reason) != "" && reasonCode == "task_poll_settle" && strings.ToLower(strings.TrimSpace(reason)) != reasonCode {
+		logger.LogWarn(ctx, "unsafe provider terminal reason replaced with task_poll_settle")
 	}
-
-	receipt, err := model.SettleTaskQuotaReservation(model.DB, input)
+	observation, err := model.CreateOrLoadTaskTerminalObservation(model.DB, model.TaskTerminalObservationInput{
+		OperationID: op.ID, TaskID: task.ID, Outcome: "succeeded", ActualQuota: int64(actualQuota),
+		ReasonCode: reasonCode, ManualReview: manualReview,
+		RequestID: op.RequestID, ResolutionSource: model.TaskSubmissionResolutionSourceProviderVerified, EvidenceID: evidence.ID, EvidenceHash: strings.ToLower(strings.TrimSpace(evidence.Hash)), EvidenceVersion: evidence.Version,
+		ResultURL: sanitizeTerminalResultURL(task.PrivateData.ResultURL),
+		TaskData:  terminalTaskDataProjection(task.Data), TaskStartTime: task.StartTime, TaskFinishTime: task.FinishTime,
+		OperationalResultURL: terminalOperationalResultURL(task.PrivateData.ResultURL), TaskUpstreamID: strings.TrimSpace(task.PrivateData.UpstreamTaskID),
+		QuotaClamp: func() *common.QuotaClamp {
+			for _, clamp := range clamps {
+				if clamp != nil {
+					return clamp
+				}
+			}
+			return nil
+		}(),
+	})
 	if err != nil {
-		if errors.Is(err, model.ErrTaskQuotaAlreadySettled) {
-			logger.LogInfo(ctx, fmt.Sprintf("task %s operation %s already settled", task.TaskID, op.PublicID))
-			return true, nil
-		}
-		return true, fmt.Errorf("settle task quota reservation failed for %s: %w", task.TaskID, err)
+		return true, err
 	}
-
-	quotaDelta := actualQuota - task.Quota
-	task.Quota = actualQuota
-	if err := task.UpdateQuota(); err != nil {
-		logger.LogError(ctx, fmt.Sprintf("durable settlement updated quota but failed to persist task quota: %v", err))
+	if manualReview {
+		return true, model.ErrTaskTerminalObservationManualReview
 	}
-
-	model.UpdateUserUsedQuota(task.UserId, quotaDelta)
-	model.UpdateChannelUsedQuota(task.ChannelId, quotaDelta)
-
-	createOutboxForBillingEvent(model.DB, receipt.BillingEventID, task, reason, clamps...)
-
-	logger.LogInfo(ctx, fmt.Sprintf("task %s durable settlement complete: actual=%d, delta=%d, receipt=%s",
-		task.TaskID, actualQuota, quotaDelta, receipt.MutationKey))
+	_, err = model.ApplyTaskTerminalObservation(model.DB, observation.ID)
+	if err != nil {
+		return true, fmt.Errorf("apply terminal settlement observation: %w", err)
+	}
+	if reloadErr := model.DB.First(task, task.ID).Error; reloadErr != nil {
+		return true, reloadErr
+	}
+	logger.LogInfo(ctx, fmt.Sprintf("task %s durable terminal settlement applied", task.TaskID))
 	return true, nil
 }
 
@@ -110,11 +126,10 @@ func DurableSettleTaskOnComplete(ctx context.Context, task *model.Task, actualQu
 //
 // Returns (handled=true, nil) if processed by durable accounting.
 // Returns (handled=false, nil) if the task is not backed by a durable operation (caller should use legacy refund).
-func DurableReleaseTaskOnFailure(ctx context.Context, task *model.Task, reason string) (bool, error) {
+func DurableReleaseTaskOnFailureWithEvidence(ctx context.Context, task *model.Task, reason string, evidence DurableTerminalEvidence) (bool, error) {
 	if model.DB == nil || task == nil || task.TaskID == "" {
 		return false, nil
 	}
-
 	op, err := model.GetTaskSubmissionOperationByPublicID(model.DB, task.TaskID)
 	if err != nil {
 		return false, fmt.Errorf("query task submission operation failed: %w", err)
@@ -122,136 +137,45 @@ func DurableReleaseTaskOnFailure(ctx context.Context, task *model.Task, reason s
 	if op == nil {
 		return false, nil
 	}
-
-	// Idempotency: if operation is already in terminal state
-	if op.Status == model.TaskSubmissionOperationStatusFailed ||
-		op.Status == model.TaskSubmissionOperationStatusRejected ||
-		op.Status == model.TaskSubmissionOperationStatusCanceled {
-		logger.LogInfo(ctx, fmt.Sprintf("task %s operation %s already terminated (%s), skip release", task.TaskID, op.PublicID, op.Status))
-		return true, nil
+	if !validDurableTerminalEvidence(op, evidence) {
+		return durableTerminalWithoutEvidence(ctx, task, "failed", 0, reason)
 	}
-	if op.Status == model.TaskSubmissionOperationStatusSucceeded {
-		logger.LogWarn(ctx, fmt.Sprintf("task %s operation %s already succeeded, cannot release", task.TaskID, op.PublicID))
-		return true, model.ErrTaskQuotaAlreadySettled
+	reasonCode := sanitizeReasonCode(reason, "task_poll_release")
+	if strings.TrimSpace(reason) != "" && reasonCode == "task_poll_release" && strings.ToLower(strings.TrimSpace(reason)) != reasonCode {
+		logger.LogWarn(ctx, "unsafe provider terminal reason replaced with task_poll_release")
 	}
-
-	if op.Status != model.TaskSubmissionOperationStatusAccepted &&
-		op.Status != model.TaskSubmissionOperationStatusOutcomeUnknown {
-		return true, fmt.Errorf("cannot release task %s: operation status %s is not accepted or outcome_unknown", task.TaskID, op.Status)
-	}
-
-	channelID := task.ChannelId
-	if channelID <= 0 {
-		attempt, _ := model.FindAttemptByOperationID(model.DB, op.ID)
-		if attempt != nil && attempt.ChannelID > 0 {
-			channelID = attempt.ChannelID
-		}
-	}
-	if channelID <= 0 {
-		channelID = 1
-	}
-
-	tokenID := op.TokenID
-	if tokenID <= 0 {
-		tokenID = task.PrivateData.TokenId
-	}
-
-	bc := resolveDurableTaskBillingContext(task)
-	reasonCode := sanitizeReasonCode(reason, "task_poll_failed")
-
-	input := model.TaskQuotaReleaseInput{
-		OperationID:              op.ID,
-		UserID:                   op.UserID,
-		TokenID:                  tokenID,
-		ChannelID:                channelID,
-		ExpectedOperationVersion: op.LockVersion,
-		ReasonCode:               reasonCode,
-		BillingContext:           bc,
-		TargetOperationStatus:    model.TaskSubmissionOperationStatusFailed,
-	}
-
-	receipt, err := model.ReleaseTaskQuotaReservation(model.DB, input)
+	observation, err := model.CreateOrLoadTaskTerminalObservation(model.DB, model.TaskTerminalObservationInput{
+		OperationID: op.ID, TaskID: task.ID, Outcome: "failed", ActualQuota: 0,
+		ReasonCode: reasonCode,
+		RequestID:  op.RequestID, ResolutionSource: model.TaskSubmissionResolutionSourceProviderVerified, EvidenceID: evidence.ID, EvidenceHash: strings.ToLower(strings.TrimSpace(evidence.Hash)), EvidenceVersion: evidence.Version,
+		ResultURL: sanitizeTerminalResultURL(task.PrivateData.ResultURL),
+		TaskData:  terminalTaskDataProjection(task.Data), TaskStartTime: task.StartTime, TaskFinishTime: task.FinishTime,
+		OperationalResultURL: terminalOperationalResultURL(task.PrivateData.ResultURL), TaskUpstreamID: strings.TrimSpace(task.PrivateData.UpstreamTaskID),
+	})
 	if err != nil {
-		if errors.Is(err, model.ErrTaskQuotaAlreadyRefunded) {
-			logger.LogInfo(ctx, fmt.Sprintf("task %s operation %s already refunded", task.TaskID, op.PublicID))
-			return true, nil
-		}
-		return true, fmt.Errorf("release task quota reservation failed for %s: %w", task.TaskID, err)
+		return true, err
 	}
-
-	// Use authoritative receipt quota for usage reversal
-	model.UpdateUserUsedQuota(task.UserId, -int(receipt.Quota))
-	model.UpdateChannelUsedQuota(task.ChannelId, -int(receipt.Quota))
-
-	task.Quota = 0
-	if err := task.UpdateQuota(); err != nil {
-		logger.LogError(ctx, fmt.Sprintf("durable release refunded quota but failed to persist task quota: %v", err))
+	_, err = model.ApplyTaskTerminalObservation(model.DB, observation.ID)
+	if err != nil {
+		return true, fmt.Errorf("apply terminal failure observation: %w", err)
 	}
-
-	createOutboxForBillingEvent(model.DB, receipt.BillingEventID, task, reason)
-
-	logger.LogInfo(ctx, fmt.Sprintf("task %s durable release complete: receipt=%s", task.TaskID, receipt.MutationKey))
+	if reloadErr := model.DB.First(task, task.ID).Error; reloadErr != nil {
+		return true, reloadErr
+	}
+	logger.LogInfo(ctx, fmt.Sprintf("task %s durable terminal failure applied", task.TaskID))
 	return true, nil
 }
 
-func createOutboxForBillingEvent(db *gorm.DB, eventID string, task *model.Task, reason string, clamps ...*common.QuotaClamp) {
-	if db == nil || eventID == "" {
-		return
+func validDurableTerminalEvidence(op *model.TaskSubmissionOperation, evidence DurableTerminalEvidence) bool {
+	if op == nil || evidence.Version != 1 {
+		return false
 	}
-	var event model.TaskBillingEvent
-	if err := db.Where("event_id = ?", eventID).First(&event).Error; err != nil {
-		return
+	attempt, err := model.FindAttemptByOperationID(model.DB, op.ID)
+	if err != nil || attempt == nil {
+		return false
 	}
-	modelName := taskModelName(task)
-	if modelName == "" {
-		modelName = "default"
-	}
-	group := task.Group
-	if group == "" {
-		group = "default"
-	}
-	content := reason
-	if content == "" {
-		content = fmt.Sprintf("task billing event %s", event.EventType)
-	}
-
-	other := make(map[string]interface{})
-	other["task_id"] = task.TaskID
-	other["reason"] = reason
-	if bc := task.PrivateData.BillingContext; bc != nil {
-		other["model_price"] = bc.ModelPrice
-		other["model_ratio"] = bc.ModelRatio
-		other["group_ratio"] = bc.GroupRatio
-	}
-	var saturationClamp *common.QuotaClamp
-	for _, c := range clamps {
-		if c != nil {
-			saturationClamp = c
-			break
-		}
-	}
-	if saturationClamp != nil {
-		other["admin_info"] = map[string]interface{}{
-			"quota_saturation": map[string]interface{}{
-				"op":       saturationClamp.Op,
-				"kind":     saturationClamp.Kind,
-				"original": saturationClamp.Original,
-				"clamped":  saturationClamp.Clamped,
-			},
-		}
-	}
-	otherBytes, _ := common.Marshal(other)
-
-	outboxCandidate, err := model.NewTaskBillingLogOutbox(&event, model.TaskBillingLogPayload{
-		Content:   content,
-		ModelName: modelName,
-		Group:     group,
-		Other:     string(otherBytes),
-	})
-	if err != nil {
-		return
-	}
-	_, _ = model.CreateOrLoadTaskBillingLogOutbox(db, outboxCandidate)
+	id := strings.TrimSpace(evidence.ID)
+	return id != "" && len(id) <= 191 && (id == attempt.ProviderOperationID || id == attempt.UpstreamRequestID)
 }
 
 func computeTaskQuotaFromTokens(task *model.Task, totalTokens int) (int, *common.QuotaClamp, bool) {
@@ -273,48 +197,67 @@ func computeTaskQuotaFromTokens(task *model.Task, totalTokens int) (int, *common
 	return actualQuota, clamp, true
 }
 
-func resolveDurableTaskBillingContext(task *model.Task) model.TaskBillingContext {
-	if task.PrivateData.BillingContext != nil {
-		bc := *task.PrivateData.BillingContext
-		if bc.Version == 0 {
-			bc.Version = model.TaskBillingContextVersion
-		}
-		bc.Complete = true
-		if bc.OriginModelName == "" {
-			bc.OriginModelName = taskModelName(task)
-		}
-		if bc.OriginModelName == "" {
-			bc.OriginModelName = "default"
-		}
-		return bc
-	}
-
-	modelName := taskModelName(task)
-	if modelName == "" {
-		modelName = "default"
-	}
-	return model.TaskBillingContext{
-		Version:         model.TaskBillingContextVersion,
-		Complete:        true,
-		OriginModelName: modelName,
-		ModelPrice:      0,
-		ModelRatio:      1.0,
-		GroupRatio:      1.0,
-	}
-}
-
 func sanitizeReasonCode(reason string, defaultCode string) string {
-	reason = strings.TrimSpace(reason)
-	if reason == "" {
+	reason = strings.ToLower(strings.TrimSpace(reason))
+	if reason == "" || len(reason) > 64 {
 		return defaultCode
 	}
-	// Limit to 64 bytes safely
-	if len(reason) > 64 {
-		runes := []rune(reason)
-		for len(string(runes)) > 64 && len(runes) > 0 {
-			runes = runes[:len(runes)-1]
+	for _, c := range reason {
+		if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '.' && c != '_' && c != '-' {
+			return defaultCode
 		}
-		reason = string(runes)
 	}
 	return reason
+}
+
+func terminalTaskDataProjection(raw []byte) string {
+	if len(raw) == 0 || len(raw) > 60*1024 {
+		return ""
+	}
+	var decoded interface{}
+	if err := common.Unmarshal(raw, &decoded); err != nil {
+		return ""
+	}
+	canonical, err := common.Marshal(decoded)
+	if err != nil || len(canonical) > 60*1024 {
+		return ""
+	}
+	return string(canonical)
+}
+
+func terminalOperationalResultURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || len(raw) > 8*1024 {
+		return ""
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.User != nil {
+		return ""
+	}
+	if parsed.IsAbs() {
+		if (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+			return ""
+		}
+		return parsed.String()
+	}
+	if parsed.Host != "" || !strings.HasPrefix(parsed.Path, "/") {
+		return ""
+	}
+	return parsed.String()
+}
+
+func sanitizeTerminalResultURL(raw string) string {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || parsed.User != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return ""
+	}
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	parsed.RawFragment = ""
+	parsed.ForceQuery = false
+	value := parsed.String()
+	if len(value) > 4096 {
+		return ""
+	}
+	return value
 }

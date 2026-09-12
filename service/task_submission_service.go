@@ -16,8 +16,6 @@ const (
 	TaskProviderDispatchStatusAccepted = "accepted"
 	TaskProviderDispatchStatusRejected = "rejected"
 	TaskProviderDispatchStatusUnknown  = "unknown"
-
-	maxAuditCodeLength = 64
 )
 
 var (
@@ -150,6 +148,8 @@ func ExecuteTaskSubmissionPipeline(ctx context.Context, input TaskSubmissionPipe
 			ExpectedOperationVersion: op.LockVersion,
 			Quota:                    input.Quota,
 			FreeModel:                input.FreeModel,
+			ApplyStatistics:          true,
+			RequestID:                op.RequestID,
 			BillingSource:            input.BillingSource,
 			SubscriptionID:           input.SubscriptionID,
 			SelectBillingSource:      input.BillingSource == "",
@@ -266,7 +266,7 @@ func ExecuteTaskSubmissionPipeline(ctx context.Context, input TaskSubmissionPipe
 			}
 
 		case TaskProviderDispatchStatusRejected:
-			outcomeCode := truncateAuditCode(dispatchResult.ErrorCode, maxAuditCodeLength)
+			outcomeCode := sanitizeReasonCode(dispatchResult.ErrorCode, "task_dispatch_rejected")
 			reasonCode := "task_dispatch_rejected"
 			if outcomeCode != "" {
 				reasonCode = outcomeCode
@@ -275,14 +275,16 @@ func ExecuteTaskSubmissionPipeline(ctx context.Context, input TaskSubmissionPipe
 			// Release reserved quota first to strictly preserve User -> Token -> Sub -> Op -> Attempt lock hierarchy
 			var relErr error
 			releaseReceipt, relErr = model.ReleaseTaskQuotaReservation(tx, model.TaskQuotaReleaseInput{
-				OperationID:              op.ID,
-				UserID:                   input.UserID,
-				TokenID:                  input.TokenID,
-				ChannelID:                input.ChannelID,
-				ExpectedOperationVersion: op.LockVersion,
-				ReasonCode:               reasonCode,
-				BillingContext:           input.BillingContext,
-				TargetOperationStatus:    model.TaskSubmissionOperationStatusRejected,
+				OperationID:               op.ID,
+				UserID:                    input.UserID,
+				TokenID:                   input.TokenID,
+				ChannelID:                 input.ChannelID,
+				ExpectedOperationVersion:  op.LockVersion,
+				ReasonCode:                reasonCode,
+				BillingContext:            input.BillingContext,
+				TargetOperationStatus:     model.TaskSubmissionOperationStatusRejected,
+				RequireStatisticsEvidence: true,
+				EvidenceID:                "local.dispatch_rejected", EvidenceVersion: 1,
 			})
 			if relErr != nil {
 				return fmt.Errorf("release quota reservation failed: %w", relErr)
@@ -304,7 +306,7 @@ func ExecuteTaskSubmissionPipeline(ctx context.Context, input TaskSubmissionPipe
 
 		case TaskProviderDispatchStatusUnknown:
 			// Fail-closed: do not release quota
-			outcomeCode := truncateAuditCode(dispatchResult.ErrorCode, maxAuditCodeLength)
+			outcomeCode := sanitizeReasonCode(dispatchResult.ErrorCode, "task_dispatch_unknown")
 			attemptWon, err := model.TransitionTaskSubmissionAttempt(tx, attempt.ID, model.TaskSubmissionAttemptTransition{
 				From:                model.TaskSubmissionAttemptStatusDispatching,
 				To:                  model.TaskSubmissionAttemptStatusSubmissionUnknown,
@@ -399,7 +401,7 @@ func TaskInitialQuota(version int, estimatedQuota, reservedQuota int64) int {
 
 func transitionTaskSubmissionToUnknown(db *gorm.DB, operation *model.TaskSubmissionOperation, attempt *model.TaskSubmissionAttempt, result *TaskProviderDispatchResult) error {
 	return db.Transaction(func(tx *gorm.DB) error {
-		outcomeCode := truncateAuditCode(result.ErrorCode, maxAuditCodeLength)
+		outcomeCode := sanitizeReasonCode(result.ErrorCode, "task_dispatch_unknown")
 		attemptWon, err := model.TransitionTaskSubmissionAttempt(tx, attempt.ID, model.TaskSubmissionAttemptTransition{
 			From: model.TaskSubmissionAttemptStatusDispatching, To: model.TaskSubmissionAttemptStatusSubmissionUnknown,
 			ProviderOperationID: strings.TrimSpace(result.ProviderTaskID), OutcomeCode: outcomeCode, ExpectedVersion: attempt.LockVersion,
@@ -438,13 +440,4 @@ func transitionTaskSubmissionToUnknown(db *gorm.DB, operation *model.TaskSubmiss
 		}
 		return nil
 	})
-}
-
-func truncateAuditCode(code string, maxLen int) string {
-	code = strings.TrimSpace(code)
-	runes := []rune(code)
-	if len(runes) > maxLen {
-		return string(runes[:maxLen])
-	}
-	return code
 }
