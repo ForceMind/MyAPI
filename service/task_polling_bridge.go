@@ -24,28 +24,38 @@ type DurableTerminalEvidence struct {
 }
 
 func DurableSettleTaskOnComplete(ctx context.Context, task *model.Task, actualQuota int, reason string, clamps ...*common.QuotaClamp) (bool, error) {
-	return durableTerminalWithoutEvidence(ctx, task, "succeeded", actualQuota, reason, clamps...)
-}
-
-func DurableReleaseTaskOnFailure(ctx context.Context, task *model.Task, reason string) (bool, error) {
-	return durableTerminalWithoutEvidence(ctx, task, "failed", 0, reason)
-}
-
-func durableTerminalWithoutEvidence(ctx context.Context, task *model.Task, outcome string, actualQuota int, reason string, clamps ...*common.QuotaClamp) (bool, error) {
-	return DurableTerminalManualReviewWithEvidence(ctx, task, outcome, actualQuota, reason, DurableTerminalEvidence{}, clamps...)
-}
-
-func DurableTerminalManualReviewWithEvidence(ctx context.Context, task *model.Task, outcome string, actualQuota int, reason string, evidence DurableTerminalEvidence, clamps ...*common.QuotaClamp) (bool, error) {
-	if model.DB == nil || task == nil || task.TaskID == "" {
-		return false, nil
-	}
-	op, err := model.GetTaskSubmissionOperationByPublicID(model.DB, task.TaskID)
+	pollingContext, err := LoadTaskPollingContext(model.DB, task)
 	if err != nil {
 		return false, err
 	}
-	if op == nil {
+	return durableTerminalWithoutEvidenceUsingContext(ctx, pollingContext, task, "succeeded", actualQuota, reason, clamps...)
+}
+
+func DurableReleaseTaskOnFailure(ctx context.Context, task *model.Task, reason string) (bool, error) {
+	pollingContext, err := LoadTaskPollingContext(model.DB, task)
+	if err != nil {
+		return false, err
+	}
+	return durableTerminalWithoutEvidenceUsingContext(ctx, pollingContext, task, "failed", 0, reason)
+}
+
+func durableTerminalWithoutEvidenceUsingContext(ctx context.Context, pollingContext *TaskPollingContext, task *model.Task, outcome string, actualQuota int, reason string, clamps ...*common.QuotaClamp) (bool, error) {
+	return durableTerminalManualReviewUsingContext(ctx, pollingContext, task, outcome, actualQuota, reason, DurableTerminalEvidence{}, clamps...)
+}
+
+func DurableTerminalManualReviewWithEvidence(ctx context.Context, task *model.Task, outcome string, actualQuota int, reason string, evidence DurableTerminalEvidence, clamps ...*common.QuotaClamp) (bool, error) {
+	pollingContext, err := LoadTaskPollingContext(model.DB, task)
+	if err != nil {
+		return false, err
+	}
+	return durableTerminalManualReviewUsingContext(ctx, pollingContext, task, outcome, actualQuota, reason, evidence, clamps...)
+}
+
+func durableTerminalManualReviewUsingContext(ctx context.Context, pollingContext *TaskPollingContext, task *model.Task, outcome string, actualQuota int, reason string, evidence DurableTerminalEvidence, clamps ...*common.QuotaClamp) (bool, error) {
+	if model.DB == nil || task == nil || task.TaskID == "" || pollingContext == nil || pollingContext.Operation == nil {
 		return false, nil
 	}
+	op := pollingContext.Operation
 	reasonCode := sanitizeReasonCode(reason, "terminal_evidence_missing")
 	var clamp *common.QuotaClamp
 	for _, candidate := range clamps {
@@ -54,32 +64,38 @@ func DurableTerminalManualReviewWithEvidence(ctx context.Context, task *model.Ta
 			break
 		}
 	}
-	_, err = model.CreateOrLoadTaskTerminalObservation(model.DB, model.TaskTerminalObservationInput{OperationID: op.ID, TaskID: task.ID, Outcome: outcome, ActualQuota: int64(actualQuota), ReasonCode: reasonCode, RequestID: op.RequestID, ResultURL: sanitizeTerminalResultURL(task.PrivateData.ResultURL), TaskData: terminalTaskDataProjection(task.Data), TaskStartTime: task.StartTime, TaskFinishTime: task.FinishTime, OperationalResultURL: terminalOperationalResultURL(task.PrivateData.ResultURL), TaskUpstreamID: strings.TrimSpace(task.PrivateData.UpstreamTaskID), ManualReview: true, QuotaClamp: clamp, EvidenceID: strings.TrimSpace(evidence.ID), EvidenceHash: strings.ToLower(strings.TrimSpace(evidence.Hash)), EvidenceVersion: evidence.Version})
+	_, err := model.CreateOrLoadTaskTerminalObservation(model.DB, terminalObservationInput(op, task, outcome, actualQuota, reasonCode, evidence, true, clamp))
 	if err != nil {
 		return true, err
 	}
-	logger.LogWarn(ctx, "durable terminal result lacks immutable evidence and requires manual review")
+	logger.LogWarn(ctx, "durable terminal result requires manual review")
 	return true, model.ErrTaskTerminalObservationManualReview
 }
 
 func DurableSettleTaskOnCompleteWithEvidence(ctx context.Context, task *model.Task, actualQuota int, reason string, evidence DurableTerminalEvidence, clamps ...*common.QuotaClamp) (bool, error) {
-	if model.DB == nil || task == nil || task.TaskID == "" {
-		return false, nil
-	}
-	op, err := model.GetTaskSubmissionOperationByPublicID(model.DB, task.TaskID)
+	pollingContext, err := LoadTaskPollingContext(model.DB, task)
 	if err != nil {
-		return false, fmt.Errorf("query task submission operation failed: %w", err)
+		return false, err
 	}
-	if op == nil {
+	return durableSettleTaskOnCompleteUsingContext(ctx, pollingContext, task, actualQuota, reason, evidence, clamps...)
+}
+
+func durableSettleTaskOnCompleteUsingContext(ctx context.Context, pollingContext *TaskPollingContext, task *model.Task, actualQuota int, reason string, evidence DurableTerminalEvidence, clamps ...*common.QuotaClamp) (bool, error) {
+	if model.DB == nil || task == nil || task.TaskID == "" || pollingContext == nil || pollingContext.Operation == nil {
 		return false, nil
 	}
-	if !validDurableTerminalEvidence(op, evidence) {
-		return durableTerminalWithoutEvidence(ctx, task, "succeeded", actualQuota, reason, clamps...)
+	if pollingContext.ValidationErr != nil {
+		return durableTerminalManualReviewUsingContext(ctx, pollingContext, task, "succeeded", 0, "polling_context_invalid", evidence)
+	}
+	if !validDurableTerminalEvidence(pollingContext, evidence) {
+		return durableTerminalManualReviewUsingContext(ctx, pollingContext, task, "succeeded", actualQuota, reason, evidence, clamps...)
 	}
 	manualReview := false
+	var quotaClamp *common.QuotaClamp
 	for _, clamp := range clamps {
 		if clamp != nil {
 			manualReview = true
+			quotaClamp = clamp
 			break
 		}
 	}
@@ -87,22 +103,7 @@ func DurableSettleTaskOnCompleteWithEvidence(ctx context.Context, task *model.Ta
 	if strings.TrimSpace(reason) != "" && reasonCode == "task_poll_settle" && strings.ToLower(strings.TrimSpace(reason)) != reasonCode {
 		logger.LogWarn(ctx, "unsafe provider terminal reason replaced with task_poll_settle")
 	}
-	observation, err := model.CreateOrLoadTaskTerminalObservation(model.DB, model.TaskTerminalObservationInput{
-		OperationID: op.ID, TaskID: task.ID, Outcome: "succeeded", ActualQuota: int64(actualQuota),
-		ReasonCode: reasonCode, ManualReview: manualReview,
-		RequestID: op.RequestID, ResolutionSource: model.TaskSubmissionResolutionSourceProviderVerified, EvidenceID: evidence.ID, EvidenceHash: strings.ToLower(strings.TrimSpace(evidence.Hash)), EvidenceVersion: evidence.Version,
-		ResultURL: sanitizeTerminalResultURL(task.PrivateData.ResultURL),
-		TaskData:  terminalTaskDataProjection(task.Data), TaskStartTime: task.StartTime, TaskFinishTime: task.FinishTime,
-		OperationalResultURL: terminalOperationalResultURL(task.PrivateData.ResultURL), TaskUpstreamID: strings.TrimSpace(task.PrivateData.UpstreamTaskID),
-		QuotaClamp: func() *common.QuotaClamp {
-			for _, clamp := range clamps {
-				if clamp != nil {
-					return clamp
-				}
-			}
-			return nil
-		}(),
-	})
+	observation, err := model.CreateOrLoadTaskTerminalObservation(model.DB, terminalObservationInput(pollingContext.Operation, task, "succeeded", actualQuota, reasonCode, evidence, manualReview, quotaClamp))
 	if err != nil {
 		return true, err
 	}
@@ -123,35 +124,29 @@ func DurableSettleTaskOnCompleteWithEvidence(ctx context.Context, task *model.Ta
 // DurableReleaseTaskOnFailure bridges async task failure to the durable accounting
 // release system (T4). If the task is associated with a durable TaskSubmissionOperation,
 // it executes ReleaseTaskQuotaReservation atomically and transitions the operation to failed.
-//
-// Returns (handled=true, nil) if processed by durable accounting.
-// Returns (handled=false, nil) if the task is not backed by a durable operation (caller should use legacy refund).
 func DurableReleaseTaskOnFailureWithEvidence(ctx context.Context, task *model.Task, reason string, evidence DurableTerminalEvidence) (bool, error) {
-	if model.DB == nil || task == nil || task.TaskID == "" {
-		return false, nil
-	}
-	op, err := model.GetTaskSubmissionOperationByPublicID(model.DB, task.TaskID)
+	pollingContext, err := LoadTaskPollingContext(model.DB, task)
 	if err != nil {
-		return false, fmt.Errorf("query task submission operation failed: %w", err)
+		return false, err
 	}
-	if op == nil {
+	return durableReleaseTaskOnFailureUsingContext(ctx, pollingContext, task, reason, evidence)
+}
+
+func durableReleaseTaskOnFailureUsingContext(ctx context.Context, pollingContext *TaskPollingContext, task *model.Task, reason string, evidence DurableTerminalEvidence) (bool, error) {
+	if model.DB == nil || task == nil || task.TaskID == "" || pollingContext == nil || pollingContext.Operation == nil {
 		return false, nil
 	}
-	if !validDurableTerminalEvidence(op, evidence) {
-		return durableTerminalWithoutEvidence(ctx, task, "failed", 0, reason)
+	if pollingContext.ValidationErr != nil {
+		return durableTerminalManualReviewUsingContext(ctx, pollingContext, task, "failed", 0, "polling_context_invalid", evidence)
+	}
+	if !validDurableTerminalEvidence(pollingContext, evidence) {
+		return durableTerminalManualReviewUsingContext(ctx, pollingContext, task, "failed", 0, reason, evidence)
 	}
 	reasonCode := sanitizeReasonCode(reason, "task_poll_release")
 	if strings.TrimSpace(reason) != "" && reasonCode == "task_poll_release" && strings.ToLower(strings.TrimSpace(reason)) != reasonCode {
 		logger.LogWarn(ctx, "unsafe provider terminal reason replaced with task_poll_release")
 	}
-	observation, err := model.CreateOrLoadTaskTerminalObservation(model.DB, model.TaskTerminalObservationInput{
-		OperationID: op.ID, TaskID: task.ID, Outcome: "failed", ActualQuota: 0,
-		ReasonCode: reasonCode,
-		RequestID:  op.RequestID, ResolutionSource: model.TaskSubmissionResolutionSourceProviderVerified, EvidenceID: evidence.ID, EvidenceHash: strings.ToLower(strings.TrimSpace(evidence.Hash)), EvidenceVersion: evidence.Version,
-		ResultURL: sanitizeTerminalResultURL(task.PrivateData.ResultURL),
-		TaskData:  terminalTaskDataProjection(task.Data), TaskStartTime: task.StartTime, TaskFinishTime: task.FinishTime,
-		OperationalResultURL: terminalOperationalResultURL(task.PrivateData.ResultURL), TaskUpstreamID: strings.TrimSpace(task.PrivateData.UpstreamTaskID),
-	})
+	observation, err := model.CreateOrLoadTaskTerminalObservation(model.DB, terminalObservationInput(pollingContext.Operation, task, "failed", 0, reasonCode, evidence, false, nil))
 	if err != nil {
 		return true, err
 	}
@@ -166,25 +161,71 @@ func DurableReleaseTaskOnFailureWithEvidence(ctx context.Context, task *model.Ta
 	return true, nil
 }
 
-func validDurableTerminalEvidence(op *model.TaskSubmissionOperation, evidence DurableTerminalEvidence) bool {
-	if op == nil || evidence.Version != 1 {
-		return false
+func terminalObservationInput(op *model.TaskSubmissionOperation, task *model.Task, outcome string, actualQuota int, reasonCode string, evidence DurableTerminalEvidence, manualReview bool, clamp *common.QuotaClamp) model.TaskTerminalObservationInput {
+	resolutionSource := ""
+	if !manualReview {
+		resolutionSource = model.TaskSubmissionResolutionSourceProviderVerified
 	}
-	attempt, err := model.FindAttemptByOperationID(model.DB, op.ID)
-	if err != nil || attempt == nil {
+	return model.TaskTerminalObservationInput{
+		OperationID: op.ID, TaskID: task.ID, Outcome: outcome, ActualQuota: int64(actualQuota), ReasonCode: reasonCode,
+		RequestID: op.RequestID, ManualReview: manualReview, ResolutionSource: resolutionSource,
+		EvidenceID: strings.TrimSpace(evidence.ID), EvidenceHash: strings.ToLower(strings.TrimSpace(evidence.Hash)), EvidenceVersion: evidence.Version,
+		ResultURL: sanitizeTerminalResultURL(task.PrivateData.ResultURL), TaskData: terminalTaskDataProjection(task.Data),
+		TaskStartTime: task.StartTime, TaskFinishTime: task.FinishTime, OperationalResultURL: terminalOperationalResultURL(task.PrivateData.ResultURL),
+		TaskUpstreamID: strings.TrimSpace(task.PrivateData.UpstreamTaskID), QuotaClamp: clamp,
+	}
+}
+
+func validDurableTerminalEvidence(pollingContext *TaskPollingContext, evidence DurableTerminalEvidence) bool {
+	if pollingContext == nil || pollingContext.Operation == nil || pollingContext.Attempt == nil || evidence.Version != 1 {
 		return false
 	}
 	id := strings.TrimSpace(evidence.ID)
-	return id != "" && len(id) <= 191 && (id == attempt.ProviderOperationID || id == attempt.UpstreamRequestID)
+	return id != "" && len(id) <= 191 && (id == pollingContext.Attempt.ProviderOperationID || id == pollingContext.Attempt.UpstreamRequestID)
 }
 
-func computeTaskQuotaFromTokens(task *model.Task, totalTokens int) (int, *common.QuotaClamp, bool) {
+func immutableTaskInitialQuota(pollingContext *TaskPollingContext) (int, error) {
+	if pollingContext == nil || pollingContext.Operation == nil || pollingContext.ReserveReceipt == nil || pollingContext.ValidationErr != nil {
+		return 0, fmt.Errorf("durable polling billing context is unavailable")
+	}
+	receipt := pollingContext.ReserveReceipt
+	if receipt.FreeModel {
+		if receipt.EstimatedQuota != 0 {
+			return 0, fmt.Errorf("free model has non-zero estimated quota")
+		}
+		return 0, nil
+	}
+	return TaskInitialQuota(receipt.RequestFingerprintVersion, receipt.EstimatedQuota, receipt.Quota), nil
+}
+
+func immutableTaskBillingContext(pollingContext *TaskPollingContext) (*model.TaskBillingContext, error) {
+	if pollingContext == nil || pollingContext.ReserveReceipt == nil || pollingContext.ValidationErr != nil {
+		return nil, fmt.Errorf("durable polling billing context is unavailable")
+	}
+	billingContext := model.TaskBillingContext(pollingContext.ReserveReceipt.BillingContext)
+	if _, err := validateTaskBillingSnapshot(&billingContext); err != nil {
+		return nil, err
+	}
+	return &billingContext, nil
+}
+
+func computeTaskQuotaFromTokensWithContext(task *model.Task, pollingContext *TaskPollingContext, totalTokens int) (int, *common.QuotaClamp, bool) {
 	if totalTokens <= 0 {
 		return 0, nil, false
 	}
-	rates, _, err := resolveTaskTokenBillingRates(task)
-	if err != nil {
-		return task.Quota, nil, true
+	var rates *model.TaskBillingContext
+	if pollingContext != nil && pollingContext.Durable() {
+		var err error
+		rates, err = immutableTaskBillingContext(pollingContext)
+		if err != nil {
+			return 0, nil, false
+		}
+	} else {
+		var err error
+		rates, _, err = resolveTaskTokenBillingRates(task)
+		if err != nil {
+			return 0, nil, false
+		}
 	}
 	otherMultiplier := 1.0
 	if priceData := taskBillingContextPriceData(rates); priceData != nil {
@@ -195,6 +236,10 @@ func computeTaskQuotaFromTokens(task *model.Task, totalTokens int) (int, *common
 	}
 	actualQuota, clamp := common.QuotaFromFloatChecked(float64(totalTokens) * rates.ModelRatio * rates.GroupRatio * otherMultiplier)
 	return actualQuota, clamp, true
+}
+
+func computeTaskQuotaFromTokens(task *model.Task, totalTokens int) (int, *common.QuotaClamp, bool) {
+	return computeTaskQuotaFromTokensWithContext(task, nil, totalTokens)
 }
 
 func sanitizeReasonCode(reason string, defaultCode string) string {

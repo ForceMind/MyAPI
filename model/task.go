@@ -47,24 +47,28 @@ const (
 const TaskRefundLegacyCutoff int64 = 1771718400 // 2026-02-22 00:00:00 UTC
 
 type Task struct {
-	ID         int64                 `json:"id" gorm:"primary_key;AUTO_INCREMENT"`
-	CreatedAt  int64                 `json:"created_at" gorm:"index"`
-	UpdatedAt  int64                 `json:"updated_at"`
-	TaskID     string                `json:"task_id" gorm:"type:varchar(191);index"` // 第三方id，不一定有/ song id\ Task id
-	Platform   constant.TaskPlatform `json:"platform" gorm:"type:varchar(30);index"` // 平台
-	UserId     int                   `json:"user_id" gorm:"index"`
-	Group      string                `json:"group" gorm:"type:varchar(50)"` // 修正计费用
-	ChannelId  int                   `json:"channel_id" gorm:"index"`
-	Quota      int                   `json:"quota"`
-	Action     string                `json:"action" gorm:"type:varchar(40);index"` // 任务类型, song, lyrics, description-mode
-	Status     TaskStatus            `json:"status" gorm:"type:varchar(20);index"` // 任务状态
-	FailReason string                `json:"fail_reason"`
-	SubmitTime int64                 `json:"submit_time" gorm:"index"`
-	StartTime  int64                 `json:"start_time" gorm:"index"`
-	FinishTime int64                 `json:"finish_time" gorm:"index"`
-	Progress   string                `json:"progress" gorm:"type:varchar(20);index"`
-	Properties Properties            `json:"properties" gorm:"type:json"`
-	Username   string                `json:"username,omitempty" gorm:"-"`
+	ID                  int64                 `json:"id" gorm:"primary_key;AUTO_INCREMENT"`
+	CreatedAt           int64                 `json:"created_at" gorm:"index"`
+	UpdatedAt           int64                 `json:"updated_at"`
+	TaskID              string                `json:"task_id" gorm:"type:varchar(191);index"` // 第三方id，不一定有/ song id\ Task id
+	Platform            constant.TaskPlatform `json:"platform" gorm:"type:varchar(30);index"` // 平台
+	UserId              int                   `json:"user_id" gorm:"index"`
+	Group               string                `json:"group" gorm:"type:varchar(50)"` // 修正计费用
+	ChannelId           int                   `json:"channel_id" gorm:"index"`
+	Quota               int                   `json:"quota"`
+	Action              string                `json:"action" gorm:"type:varchar(40);index"` // 任务类型, song, lyrics, description-mode
+	Status              TaskStatus            `json:"status" gorm:"type:varchar(20);index"` // 任务状态
+	FailReason          string                `json:"fail_reason"`
+	SubmitTime          int64                 `json:"submit_time" gorm:"index"`
+	StartTime           int64                 `json:"start_time" gorm:"index"`
+	FinishTime          int64                 `json:"finish_time" gorm:"index"`
+	Progress            string                `json:"progress" gorm:"type:varchar(20);index"`
+	PollingDisposition  string                `json:"-" gorm:"type:varchar(16);not null;default:'';index:idx_task_polling_due,priority:1"`
+	NextPollAt          int64                 `json:"-" gorm:"type:bigint;not null;default:0;index:idx_task_polling_due,priority:2"`
+	PollingReasonCode   string                `json:"-" gorm:"type:varchar(64);not null;default:''"`
+	PollingAttemptCount int                   `json:"-" gorm:"not null;default:0"`
+	Properties          Properties            `json:"properties" gorm:"type:json"`
+	Username            string                `json:"username,omitempty" gorm:"-"`
 	// 禁止返回给用户，内部可能包含key等隐私信息
 	PrivateData TaskPrivateData `json:"-" gorm:"column:private_data;type:json"`
 	Data        json.RawMessage `json:"data" gorm:"type:json"`
@@ -360,9 +364,9 @@ func TaskGetAllTasks(startIdx int, num int, queryParams SyncTaskQueryParams) []*
 
 func GetTimedOutUnfinishedTasks(cutoffUnix int64, limit int) []*Task {
 	var tasks []*Task
-	err := DB.Where("progress != ?", "100%").
-		Where("status NOT IN ?", []string{TaskStatusFailure, TaskStatusSuccess}).
+	err := unfinishedTaskPollingQuery(DB, time.Now().Unix()).
 		Where("submit_time < ?", cutoffUnix).
+		Order("CASE WHEN polling_disposition = 'retryable' THEN 1 ELSE 0 END").
 		Order("submit_time").
 		Limit(limit).
 		Find(&tasks).Error
@@ -373,14 +377,56 @@ func GetTimedOutUnfinishedTasks(cutoffUnix int64, limit int) []*Task {
 }
 
 func GetAllUnFinishSyncTasks(limit int) []*Task {
-	var tasks []*Task
-	var err error
-	// get all tasks progress is not 100%
-	err = DB.Where("progress != ?", "100%").Where("status != ?", TaskStatusFailure).Where("status != ?", TaskStatusSuccess).Limit(limit).Order("id").Find(&tasks).Error
-	if err != nil {
-		return nil
-	}
+	tasks, _ := GetAllUnfinishedSyncTasksForPolling(limit, time.Now().Unix())
 	return tasks
+}
+
+// GetAllUnfinishedSyncTasksForPolling returns due tasks while excluding manual
+// review rows. Fresh pending work is ordered before retryable work so a large
+// uncertainty backlog cannot consume the entire polling window.
+func GetAllUnfinishedSyncTasksForPolling(limit int, now int64) ([]*Task, error) {
+	if limit <= 0 {
+		return []*Task{}, nil
+	}
+	retryableLimit := limit / 4
+	if retryableLimit < 1 {
+		retryableLimit = 1
+	}
+	var retryable []*Task
+	if err := unfinishedTaskBaseQuery(DB).
+		Where("polling_disposition = ? AND next_poll_at <= ?", TaskPollingDispositionRetryable, now).
+		Order("next_poll_at").
+		Order("id").
+		Limit(retryableLimit).
+		Find(&retryable).Error; err != nil {
+		return nil, err
+	}
+	var fresh []*Task
+	if err := unfinishedTaskBaseQuery(DB).
+		Where("polling_disposition = ? OR polling_disposition IS NULL", "").
+		Order("id").
+		Limit(limit).
+		Find(&fresh).Error; err != nil {
+		return nil, err
+	}
+	seen := make(map[int64]struct{}, len(retryable))
+	for _, task := range retryable {
+		seen[task.ID] = struct{}{}
+	}
+	result := make([]*Task, 0, limit)
+	freshLimit := limit - len(retryable)
+	if freshLimit > 0 {
+		for _, task := range fresh {
+			if _, duplicate := seen[task.ID]; duplicate {
+				continue
+			}
+			result = append(result, task)
+			if len(result) == freshLimit {
+				break
+			}
+		}
+	}
+	return append(result, retryable...), nil
 }
 
 // HasUnfinishedSyncTasks reports whether at least one async (Suno/video) task is
@@ -389,10 +435,7 @@ func GetAllUnFinishSyncTasks(limit int) []*Task {
 // the scheduler skips creating a row entirely.
 func HasUnfinishedSyncTasks() bool {
 	var id int64
-	err := DB.Model(&Task{}).
-		Where("progress != ?", "100%").
-		Where("status != ?", TaskStatusFailure).
-		Where("status != ?", TaskStatusSuccess).
+	err := unfinishedTaskPollingQuery(DB.Model(&Task{}), time.Now().Unix()).
 		Limit(1).
 		Pluck("id", &id).Error
 	return err == nil && id != 0

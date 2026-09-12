@@ -2,6 +2,7 @@ package relay
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -15,7 +16,6 @@ import (
 	"github.com/ForceMind/MyAPI/dto"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/relay/channel"
-	"github.com/ForceMind/MyAPI/relay/channel/task/taskcommon"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	relayconstant "github.com/ForceMind/MyAPI/relay/constant"
 	"github.com/ForceMind/MyAPI/relay/helper"
@@ -445,7 +445,7 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 	isOpenAIVideoAPI := strings.HasPrefix(c.Request.RequestURI, "/v1/videos/")
 
 	// Gemini/Vertex 支持实时查询：用户 fetch 时直接从上游拉取最新状态
-	if realtimeResp := tryRealtimeFetch(originTask, isOpenAIVideoAPI); len(realtimeResp) > 0 {
+	if realtimeResp := tryRealtimeFetch(c.Request.Context(), originTask, isOpenAIVideoAPI); len(realtimeResp) > 0 {
 		respBody = realtimeResp
 		return
 	}
@@ -484,9 +484,14 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 // tryRealtimeFetch 尝试从上游实时拉取 Gemini/Vertex 任务状态。
 // 仅当渠道类型为 Gemini 或 Vertex 时触发；其他渠道或出错时返回 nil。
 // 当非 OpenAI Video API 时，还会构建自定义格式的响应体。
-func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
+var getRealtimeTaskAdaptor = func(platform constant.TaskPlatform) service.TaskPollingAdaptor {
+	return GetTaskAdaptor(platform)
+}
+
+func tryRealtimeFetch(ctx context.Context, task *model.Task, isOpenAIVideoAPI bool) []byte {
 	channelModel, err := model.GetChannelById(task.ChannelId, true)
 	if err != nil {
+		_ = service.DeferTaskPolling(ctx, task, false, "realtime_channel_unavailable")
 		return nil
 	}
 	if channelModel.Type != constant.ChannelTypeVertexAi && channelModel.Type != constant.ChannelTypeGemini {
@@ -498,61 +503,36 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 		baseURL = channelModel.GetBaseURL()
 	}
 	proxy := channelModel.GetSetting().Proxy
-	adaptor := GetTaskAdaptor(constant.TaskPlatform(strconv.Itoa(channelModel.Type)))
+	adaptor := getRealtimeTaskAdaptor(constant.TaskPlatform(strconv.Itoa(channelModel.Type)))
 	if adaptor == nil {
+		_ = service.DeferTaskPolling(ctx, task, true, "realtime_adaptor_unavailable")
 		return nil
 	}
 
-	resp, err := adaptor.FetchTask(baseURL, channelModel.Key, map[string]any{
+	key := task.PrivateData.Key
+	if key == "" {
+		key = channelModel.Key
+	}
+	resp, err := adaptor.FetchTask(baseURL, key, map[string]any{
 		"task_id": task.GetUpstreamTaskID(),
 		"action":  task.Action,
 	}, proxy)
 	if err != nil || resp == nil {
+		_ = service.DeferTaskPolling(ctx, task, false, "realtime_fetch_failed")
 		return nil
 	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil
-	}
-
-	ti, err := adaptor.ParseTaskResult(body)
-	if err != nil || ti == nil {
+	if err := service.ApplyRealtimeTaskPollingResponse(ctx, adaptor, channelModel, task, resp); err != nil {
 		return nil
 	}
 
-	snap := task.Snapshot()
-
-	// 将上游最新状态更新到 task
-	if ti.Status != "" {
-		task.Status = model.TaskStatus(ti.Status)
-	}
-	if ti.Progress != "" {
-		task.Progress = ti.Progress
-	}
-	if strings.HasPrefix(ti.Url, "data:") {
-		// data: URI — kept in Data, not ResultURL
-	} else if ti.Url != "" {
-		task.PrivateData.ResultURL = ti.Url
-	} else if task.Status == model.TaskStatusSuccess {
-		// No URL from adaptor — construct proxy URL using public task ID
-		task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)
-	}
-
-	if !snap.Equal(task.Snapshot()) {
-		_, _ = task.UpdateWithStatus(snap.Status)
-	}
-
-	// OpenAI Video API 由调用者的 ConvertToOpenAIVideo 分支处理
+	// OpenAI Video API 由调用者的 ConvertToOpenAIVideo 分支处理。
 	if isOpenAIVideoAPI {
 		return nil
 	}
 
-	// 非 OpenAI Video API: 构建自定义格式响应
-	format := detectVideoFormat(body)
 	out := map[string]any{
 		"error":    nil,
-		"format":   format,
+		"format":   detectVideoFormat(task.Data),
 		"metadata": nil,
 		"status":   mapTaskStatusToSimple(task.Status),
 		"task_id":  task.TaskID,

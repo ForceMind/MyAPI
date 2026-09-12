@@ -761,10 +761,13 @@ func TestDurablePollingTimeoutAndMissingUpstreamRemainManual(t *testing.T) {
 		constant.TaskTimeoutMinutes = 1
 		t.Cleanup(func() { constant.TaskTimeoutMinutes = previousTimeout })
 		sweepTimedOutTasks(context.Background())
-		var observation model.TaskTerminalObservation
-		require.NoError(t, db.Where("operation_id = ?", fixture.Operation.ID).First(&observation).Error)
-		assert.Equal(t, model.TaskTerminalObservationManualReview, observation.State)
-		assert.Equal(t, "task_timeout_unverified", observation.ReasonCode)
+		var observationCount int64
+		require.NoError(t, db.Model(&model.TaskTerminalObservation{}).Where("operation_id = ?", fixture.Operation.ID).Count(&observationCount).Error)
+		assert.Zero(t, observationCount)
+		var polledTask model.Task
+		require.NoError(t, db.First(&polledTask, fixture.Task.ID).Error)
+		assert.Equal(t, model.TaskPollingDispositionManual, polledTask.PollingDisposition)
+		assert.Equal(t, "task_timeout_unverified", polledTask.PollingReasonCode)
 		assertDurableAccountingState(t, db, fixture, model.TaskStatusInProgress, model.TaskSubmissionOperationStatusAccepted, 100, 900, 100, 100, 1)
 	})
 
@@ -788,10 +791,13 @@ func TestDurablePollingTimeoutAndMissingUpstreamRemainManual(t *testing.T) {
 		require.Equal(t, int64(1), unfinishedCount)
 		summary := RunTaskPollingOnce(context.Background(), nil)
 		assert.Equal(t, 1, summary.NullTasksFailed)
-		var observation model.TaskTerminalObservation
-		require.NoError(t, db.Where("operation_id = ?", fixture.Operation.ID).First(&observation).Error)
-		assert.Equal(t, model.TaskTerminalObservationManualReview, observation.State)
-		assert.Equal(t, "missing_upstream_task_id", observation.ReasonCode)
+		var observationCount int64
+		require.NoError(t, db.Model(&model.TaskTerminalObservation{}).Where("operation_id = ?", fixture.Operation.ID).Count(&observationCount).Error)
+		assert.Zero(t, observationCount)
+		var polledTask model.Task
+		require.NoError(t, db.First(&polledTask, fixture.Task.ID).Error)
+		assert.Equal(t, model.TaskPollingDispositionManual, polledTask.PollingDisposition)
+		assert.Equal(t, "missing_upstream_task_id", polledTask.PollingReasonCode)
 		assertDurableAccountingState(t, db, fixture, model.TaskStatusInProgress, model.TaskSubmissionOperationStatusAccepted, 100, 900, 100, 100, 1)
 	})
 }
@@ -818,9 +824,9 @@ func TestDurablePollingChannelFailuresDoNotBulkFinalize(t *testing.T) {
 			t.Cleanup(func() { common.MemoryCacheEnabled = previousMemoryCache })
 			require.NoError(t, db.Delete(&model.Channel{}, fixture.Attempt.ChannelID).Error)
 			_ = tc.run(context.Background(), fixture.Attempt.ChannelID, fixture.Attempt.ProviderOperationID, map[string]*model.Task{fixture.Attempt.ProviderOperationID: &fixture.Task})
-			var observation model.TaskTerminalObservation
-			require.NoError(t, db.Where("operation_id = ?", fixture.Operation.ID).First(&observation).Error)
-			assert.Equal(t, model.TaskTerminalObservationManualReview, observation.State)
+			var observationCount int64
+			require.NoError(t, db.Model(&model.TaskTerminalObservation{}).Where("operation_id = ?", fixture.Operation.ID).Count(&observationCount).Error)
+			assert.Zero(t, observationCount)
 			var task model.Task
 			var operation model.TaskSubmissionOperation
 			var user model.User
@@ -828,6 +834,8 @@ func TestDurablePollingChannelFailuresDoNotBulkFinalize(t *testing.T) {
 			require.NoError(t, db.First(&operation, fixture.Operation.ID).Error)
 			require.NoError(t, db.First(&user, fixture.User.Id).Error)
 			assert.Equal(t, model.TaskStatus(model.TaskStatusInProgress), task.Status)
+			assert.Equal(t, model.TaskPollingDispositionRetryable, task.PollingDisposition)
+			assert.Contains(t, task.PollingReasonCode, "channel_unavailable")
 			assert.Equal(t, model.TaskSubmissionOperationStatusAccepted, operation.Status)
 			assert.Equal(t, 900, user.Quota)
 			assert.Equal(t, 100, user.UsedQuota)
