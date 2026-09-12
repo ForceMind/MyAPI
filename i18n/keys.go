@@ -28,6 +28,8 @@ const (
 	MsgBatchTooMany      = "common.batch_too_many"
 )
 
+const MsgTaskQuotaOutOfRange = "task.quota_out_of_range"
+
 // Auth middleware messages
 const (
 	MsgAuthNotLoggedIn           = "auth.not_logged_in"

@@ -16,7 +16,7 @@ import (
 
 const (
 	quotaMutationReceiptVersion             = 1
-	quotaMutationFingerprintVersion         = 1
+	quotaMutationFingerprintVersion         = 2
 	quotaMutationMaxOtherRatios             = 64
 	quotaMutationMaxRatioNameLength         = 64
 	quotaMutationMaxBillingJSONLength       = 16 * 1024
@@ -53,6 +53,10 @@ type TaskQuotaReservationInput struct {
 	Quota                    int64
 	BillingSource            string
 	SubscriptionID           int
+	BillingPreference        string
+	SelectBillingSource      bool
+	EstimatedQuota           int64
+	FreeModel                bool
 	BillingContext           TaskBillingContext
 }
 
@@ -167,6 +171,7 @@ type QuotaMutationReceipt struct {
 	MutationType                string                       `json:"mutation_type" gorm:"type:varchar(32);not null;default:'reserve';uniqueIndex:uidx_quota_mutation_receipt_op_type,priority:2;<-:create"`
 	MutationKey                 string                       `json:"mutation_key" gorm:"type:varchar(128);not null;uniqueIndex:uidx_quota_mutation_receipt_key;<-:create"`
 	RequestFingerprint          string                       `json:"request_fingerprint" gorm:"type:char(64);not null;<-:create"`
+	RequestFingerprintVersion   int                          `json:"request_fingerprint_version,omitempty" gorm:"not null;default:0;<-:create"`
 	OperationRequestFingerprint string                       `json:"operation_request_fingerprint" gorm:"type:char(64);not null;<-:create"`
 	OperationID                 int64                        `json:"operation_id" gorm:"not null;uniqueIndex:uidx_quota_mutation_receipt_op_type,priority:1;<-:create"`
 	OperationPublicID           string                       `json:"operation_public_id" gorm:"type:varchar(48);not null;<-:create"`
@@ -181,7 +186,10 @@ type QuotaMutationReceipt struct {
 	ChannelID                   int                          `json:"channel_id" gorm:"not null;<-:create"`
 	BillingSource               string                       `json:"billing_source" gorm:"type:varchar(32);not null;<-:create"`
 	SubscriptionID              int                          `json:"subscription_id,omitempty" gorm:"index;<-:create"`
+	BillingPreference           string                       `json:"billing_preference,omitempty" gorm:"type:varchar(32);not null;default:'';<-:create"`
 	Quota                       int64                        `json:"quota" gorm:"type:bigint;not null;<-:create"`
+	EstimatedQuota              int64                        `json:"estimated_quota,omitempty" gorm:"type:bigint;not null;default:0;<-:create"`
+	FreeModel                   bool                         `json:"free_model,omitempty" gorm:"not null;default:false;<-:create"`
 	BillingContext              TaskQuotaBillingContext      `json:"billing_context" gorm:"type:text;not null;<-:create"`
 	Before                      QuotaMutationAccountSnapshot `json:"before" gorm:"column:before_snapshot;type:text;not null;<-:create"`
 	After                       QuotaMutationAccountSnapshot `json:"after" gorm:"column:after_snapshot;type:text;not null;<-:create"`
@@ -300,6 +308,21 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 	if existing, err := findTaskQuotaReservation(tx, normalized.OperationID, normalized.UserID, normalized.TokenID); err != nil {
 		return nil, err
 	} else if existing != nil {
+		if normalized.SelectBillingSource {
+			normalized.BillingSource = existing.BillingSource
+			normalized.SubscriptionID = existing.SubscriptionID
+			normalized.BillingPreference = existing.BillingPreference
+			fingerprint, err = taskQuotaReservationReplayFingerprint(existing, normalized)
+			if err != nil {
+				return nil, err
+			}
+		} else if existing.RequestFingerprintVersion == 0 {
+			normalized.Quota = existing.Quota
+			fingerprint, err = taskQuotaReservationFingerprintV1(normalized)
+			if err != nil {
+				return nil, err
+			}
+		}
 		if existing.RequestFingerprint != fingerprint {
 			return nil, ErrTaskQuotaReservationConflict
 		}
@@ -341,9 +364,49 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 		if !quotaMutationInt32Value(token.RemainQuota) || !quotaMutationInt32Value(token.UsedQuota) {
 			return fmt.Errorf("%w: token quota state exceeds its database boundary", ErrTaskQuotaReservationIneligible)
 		}
+		if existing, err := findTaskQuotaReservation(writeDB, normalized.OperationID, normalized.UserID, normalized.TokenID); err != nil {
+			return err
+		} else if existing != nil {
+			if normalized.SelectBillingSource {
+				normalized.BillingSource = existing.BillingSource
+				normalized.SubscriptionID = existing.SubscriptionID
+				normalized.BillingPreference = existing.BillingPreference
+				fingerprint, err = taskQuotaReservationReplayFingerprint(existing, normalized)
+				if err != nil {
+					return err
+				}
+			} else if existing.RequestFingerprintVersion == 0 {
+				normalized.Quota = existing.Quota
+				fingerprint, err = taskQuotaReservationFingerprintV1(normalized)
+				if err != nil {
+					return err
+				}
+			}
+			if existing.RequestFingerprint != fingerprint {
+				return ErrTaskQuotaReservationConflict
+			}
+			result = existing
+			return nil
+		}
 
 		var subscription *UserSubscription
-		if normalized.BillingSource == "subscription" {
+		if normalized.SelectBillingSource {
+			preference, source, selectedSubscription, reservedQuota, selectErr := selectTaskQuotaBillingSource(writeDB, &user, normalized.EstimatedQuota, normalized.FreeModel, databaseNow)
+			if selectErr != nil {
+				return selectErr
+			}
+			normalized.BillingPreference = preference
+			normalized.BillingSource = source
+			normalized.Quota = reservedQuota
+			if selectedSubscription != nil {
+				normalized.SubscriptionID = selectedSubscription.Id
+				subscription = selectedSubscription
+			}
+			fingerprint, err = taskQuotaReservationFingerprintV2(normalized)
+			if err != nil {
+				return err
+			}
+		} else if normalized.BillingSource == "subscription" {
 			var locked UserSubscription
 			if err := lockForUpdate(writeDB).Where("id = ?", normalized.SubscriptionID).First(&locked).Error; err != nil {
 				if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -373,6 +436,15 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 		if existing, err := findTaskQuotaReservation(writeDB, normalized.OperationID, normalized.UserID, normalized.TokenID); err != nil {
 			return err
 		} else if existing != nil {
+			if normalized.SelectBillingSource {
+				normalized.BillingSource = existing.BillingSource
+				normalized.SubscriptionID = existing.SubscriptionID
+				normalized.BillingPreference = existing.BillingPreference
+				fingerprint, err = taskQuotaReservationReplayFingerprint(existing, normalized)
+				if err != nil {
+					return err
+				}
+			}
 			if existing.RequestFingerprint != fingerprint {
 				return ErrTaskQuotaReservationConflict
 			}
@@ -407,6 +479,28 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 			return err
 		} else if existingEvent != nil {
 			return fmt.Errorf("%w: reserve event exists without its receipt", ErrTaskQuotaReservationConflict)
+		}
+
+		operationUpdate := taskRecoveryControlledWrite(writeDB).Table("task_submission_operations").Where(
+			"id = ? AND status = ? AND lock_version = ? AND updated_at <= ?",
+			operation.ID, TaskSubmissionOperationStatusPrepared, operation.LockVersion, databaseNow,
+		).Updates(map[string]interface{}{
+			"status":             TaskSubmissionOperationStatusReserved,
+			"billing_preference": normalized.BillingPreference,
+			"billing_source":     normalized.BillingSource,
+			"subscription_id":    normalized.SubscriptionID,
+			"reserved_quota":     normalized.Quota,
+			"estimated_quota":    normalized.EstimatedQuota,
+			"billing_version":    quotaMutationFingerprintVersion,
+			"free_model":         normalized.FreeModel,
+			"updated_at":         databaseNow,
+			"lock_version":       gorm.Expr("lock_version + ?", 1),
+		})
+		if operationUpdate.Error != nil {
+			return operationUpdate.Error
+		}
+		if operationUpdate.RowsAffected != 1 {
+			return ErrTaskQuotaReservationCASLost
 		}
 
 		before := quotaMutationSnapshot(&user, &token, subscription)
@@ -452,6 +546,7 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 			MutationType:                string(TaskBillingEventTypeReserve),
 			MutationKey:                 event.EventKey,
 			RequestFingerprint:          fingerprint,
+			RequestFingerprintVersion:   quotaMutationFingerprintVersion,
 			OperationRequestFingerprint: operation.RequestFingerprint,
 			OperationID:                 operation.ID,
 			OperationPublicID:           operation.PublicID,
@@ -466,7 +561,10 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 			ChannelID:                   normalized.ChannelID,
 			BillingSource:               normalized.BillingSource,
 			SubscriptionID:              normalized.SubscriptionID,
+			BillingPreference:           normalized.BillingPreference,
 			Quota:                       normalized.Quota,
+			EstimatedQuota:              normalized.EstimatedQuota,
+			FreeModel:                   normalized.FreeModel,
 			BillingContext:              TaskQuotaBillingContext(normalized.BillingContext),
 			Before:                      before,
 			After:                       after,
@@ -475,17 +573,6 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 			return err
 		}
 
-		won, err := TransitionTaskSubmissionOperation(writeDB, operation.ID, TaskSubmissionOperationTransition{
-			From:            TaskSubmissionOperationStatusPrepared,
-			To:              TaskSubmissionOperationStatusReserved,
-			ExpectedVersion: operation.LockVersion,
-		})
-		if err != nil {
-			return err
-		}
-		if !won {
-			return ErrTaskQuotaReservationCASLost
-		}
 		result = receipt
 		return nil
 	})
@@ -526,7 +613,11 @@ func applySynchronousTaskQuotaReserveEvent(tx *gorm.DB, event *TaskBillingEvent)
 
 func normalizeTaskQuotaReservationInput(input TaskQuotaReservationInput) (TaskQuotaReservationInput, string, error) {
 	input.BillingSource = strings.ToLower(strings.TrimSpace(input.BillingSource))
+	input.BillingPreference = strings.ToLower(strings.TrimSpace(input.BillingPreference))
 	input.BillingContext.OriginModelName = strings.TrimSpace(input.BillingContext.OriginModelName)
+	if input.EstimatedQuota == 0 {
+		input.EstimatedQuota = input.Quota
+	}
 	if len(input.BillingContext.OtherRatios) == 0 {
 		input.BillingContext.OtherRatios = nil
 	} else {
@@ -538,22 +629,46 @@ func normalizeTaskQuotaReservationInput(input TaskQuotaReservationInput) (TaskQu
 	}
 	if input.OperationID <= 0 || input.UserID <= 0 || input.TokenID <= 0 || input.ChannelID <= 0 ||
 		input.ExpectedOperationVersion <= 0 || input.ExpectedOperationVersion == quotaMutationMaxInt64 ||
-		input.Quota < 0 || input.Quota > int64(common.MaxQuota) || input.SubscriptionID < 0 ||
-		int64(input.UserID) > int64(common.MaxQuota) || int64(input.TokenID) > int64(common.MaxQuota) ||
-		int64(input.ChannelID) > int64(common.MaxQuota) || int64(input.SubscriptionID) > int64(common.MaxQuota) {
+		input.Quota < 0 || input.Quota > int64(common.MaxQuota) || input.EstimatedQuota < 0 || input.EstimatedQuota > int64(common.MaxQuota) || input.SubscriptionID < 0 {
 		return input, "", ErrTaskQuotaReservationInvalidInput
 	}
-	if input.BillingSource != "wallet" && input.BillingSource != "subscription" {
-		return input, "", fmt.Errorf("%w: unsupported billing source", ErrTaskQuotaReservationInvalidInput)
-	}
-	if (input.BillingSource == "wallet" && input.SubscriptionID != 0) ||
-		(input.BillingSource == "subscription" && input.SubscriptionID <= 0) {
-		return input, "", fmt.Errorf("%w: subscription does not match billing source", ErrTaskQuotaReservationInvalidInput)
+	if input.SelectBillingSource {
+		if input.BillingSource != "" || input.SubscriptionID != 0 || input.BillingPreference != "" {
+			return input, "", fmt.Errorf("%w: automatic billing selection cannot carry a preselected source", ErrTaskQuotaReservationInvalidInput)
+		}
+	} else {
+		if input.BillingSource != "wallet" && input.BillingSource != "subscription" {
+			return input, "", fmt.Errorf("%w: unsupported billing source", ErrTaskQuotaReservationInvalidInput)
+		}
+		if (input.BillingSource == "wallet" && input.SubscriptionID != 0) || (input.BillingSource == "subscription" && input.SubscriptionID <= 0) {
+			return input, "", fmt.Errorf("%w: subscription does not match billing source", ErrTaskQuotaReservationInvalidInput)
+		}
+		if input.BillingPreference == "" {
+			if input.BillingSource == "wallet" {
+				input.BillingPreference = "wallet_only"
+			} else {
+				input.BillingPreference = "subscription_only"
+			}
+		}
+		if common.NormalizeBillingPreference(input.BillingPreference) != input.BillingPreference {
+			return input, "", fmt.Errorf("%w: unsupported billing preference", ErrTaskQuotaReservationInvalidInput)
+		}
+		if input.BillingSource == "subscription" && input.Quota == 0 && !input.FreeModel {
+			input.Quota = 1
+		}
 	}
 	if err := validateTaskQuotaBillingContext(input.BillingContext); err != nil {
 		return input, "", err
 	}
-	fingerprintPayload := struct {
+	if input.SelectBillingSource {
+		return input, "", nil
+	}
+	fingerprint, err := taskQuotaReservationFingerprintV2(input)
+	return input, fingerprint, err
+}
+
+func taskQuotaReservationFingerprintV1(input TaskQuotaReservationInput) (string, error) {
+	payload := struct {
 		Version                  int                `json:"version"`
 		OperationID              int64              `json:"operation_id"`
 		UserID                   int                `json:"user_id"`
@@ -564,19 +679,113 @@ func normalizeTaskQuotaReservationInput(input TaskQuotaReservationInput) (TaskQu
 		BillingSource            string             `json:"billing_source"`
 		SubscriptionID           int                `json:"subscription_id"`
 		BillingContext           TaskBillingContext `json:"billing_context"`
-	}{
-		Version: quotaMutationFingerprintVersion, OperationID: input.OperationID,
-		UserID: input.UserID, TokenID: input.TokenID, ChannelID: input.ChannelID,
-		ExpectedOperationVersion: input.ExpectedOperationVersion, Quota: input.Quota,
-		BillingSource: input.BillingSource, SubscriptionID: input.SubscriptionID,
-		BillingContext: input.BillingContext,
-	}
-	data, err := common.Marshal(fingerprintPayload)
+	}{1, input.OperationID, input.UserID, input.TokenID, input.ChannelID, input.ExpectedOperationVersion, input.Quota, input.BillingSource, input.SubscriptionID, input.BillingContext}
+	data, err := common.Marshal(payload)
 	if err != nil {
-		return input, "", fmt.Errorf("%w: encode reservation fingerprint: %v", ErrTaskQuotaReservationInvalidInput, err)
+		return "", err
 	}
 	digest := sha256.Sum256(data)
-	return input, hex.EncodeToString(digest[:]), nil
+	return hex.EncodeToString(digest[:]), nil
+}
+
+func taskQuotaReservationFingerprintV2(input TaskQuotaReservationInput) (string, error) {
+	payload := struct {
+		Version                  int                `json:"version"`
+		OperationID              int64              `json:"operation_id"`
+		UserID                   int                `json:"user_id"`
+		TokenID                  int                `json:"token_id"`
+		ChannelID                int                `json:"channel_id"`
+		ExpectedOperationVersion int64              `json:"expected_operation_version"`
+		EstimatedQuota           int64              `json:"estimated_quota"`
+		ReservedQuota            int64              `json:"reserved_quota"`
+		FreeModel                bool               `json:"free_model"`
+		BillingPreference        string             `json:"billing_preference"`
+		BillingSource            string             `json:"billing_source"`
+		SubscriptionID           int                `json:"subscription_id"`
+		BillingContext           TaskBillingContext `json:"billing_context"`
+	}{quotaMutationFingerprintVersion, input.OperationID, input.UserID, input.TokenID, input.ChannelID, input.ExpectedOperationVersion, input.EstimatedQuota, input.Quota, input.FreeModel, input.BillingPreference, input.BillingSource, input.SubscriptionID, input.BillingContext}
+	data, err := common.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("%w: encode reservation fingerprint: %v", ErrTaskQuotaReservationInvalidInput, err)
+	}
+	digest := sha256.Sum256(data)
+	return hex.EncodeToString(digest[:]), nil
+}
+
+func taskQuotaReservationReplayFingerprint(receipt *QuotaMutationReceipt, input TaskQuotaReservationInput) (string, error) {
+	if receipt == nil {
+		return "", ErrTaskQuotaReservationInvalidInput
+	}
+	input.BillingPreference = receipt.BillingPreference
+	input.BillingSource = receipt.BillingSource
+	input.SubscriptionID = receipt.SubscriptionID
+	input.Quota = receipt.Quota
+	if receipt.RequestFingerprintVersion == 0 {
+		return taskQuotaReservationFingerprintV1(input)
+	}
+	if receipt.RequestFingerprintVersion != quotaMutationFingerprintVersion {
+		return "", ErrTaskQuotaReservationConflict
+	}
+	input.EstimatedQuota = receipt.EstimatedQuota
+	input.FreeModel = receipt.FreeModel
+	return taskQuotaReservationFingerprintV2(input)
+}
+
+func selectTaskQuotaBillingSource(tx *gorm.DB, user *User, estimatedQuota int64, freeModel bool, databaseNow int64) (string, string, *UserSubscription, int64, error) {
+	if tx == nil || user == nil || user.Id <= 0 || estimatedQuota < 0 {
+		return "", "", nil, 0, ErrTaskQuotaReservationInvalidInput
+	}
+	if freeModel && estimatedQuota == 0 {
+		// Zero-cost tasks use a deterministic wallet-compatible marker without
+		// checking wallet balance or reading/resetting subscriptions.
+		return "wallet_only", "wallet", nil, 0, nil
+	}
+	preference := common.NormalizeBillingPreference(user.GetSetting().BillingPreference)
+	walletAvailable := int64(user.Quota) >= estimatedQuota && (estimatedQuota == 0 && freeModel || user.Quota > 0)
+	subscriptionQuota := estimatedQuota
+	if subscriptionQuota == 0 && !freeModel {
+		subscriptionQuota = 1
+	}
+	trySubscription := func() (*UserSubscription, bool, bool, error) {
+		return selectActiveUserSubscriptionForPreConsumeTx(tx, user.Id, subscriptionQuota, databaseNow)
+	}
+	switch preference {
+	case "wallet_only":
+		if walletAvailable {
+			return preference, "wallet", nil, estimatedQuota, nil
+		}
+	case "subscription_only":
+		sub, _, _, err := trySubscription()
+		if err != nil {
+			return "", "", nil, 0, err
+		}
+		if sub != nil {
+			return preference, "subscription", sub, subscriptionQuota, nil
+		}
+	case "wallet_first":
+		if walletAvailable {
+			return preference, "wallet", nil, estimatedQuota, nil
+		}
+		sub, _, _, err := trySubscription()
+		if err != nil {
+			return "", "", nil, 0, err
+		}
+		if sub != nil {
+			return preference, "subscription", sub, subscriptionQuota, nil
+		}
+	case "subscription_first":
+		sub, hasActive, allowOverflow, err := trySubscription()
+		if err != nil {
+			return "", "", nil, 0, err
+		}
+		if sub != nil {
+			return preference, "subscription", sub, subscriptionQuota, nil
+		}
+		if (!hasActive || allowOverflow) && walletAvailable {
+			return preference, "wallet", nil, estimatedQuota, nil
+		}
+	}
+	return "", "", nil, 0, ErrTaskQuotaReservationInsufficientQuota
 }
 
 func validateTaskQuotaBillingContext(context TaskBillingContext) error {
@@ -762,7 +971,7 @@ func validateQuotaMutationReceiptShape(receipt *QuotaMutationReceipt) error {
 		(receipt.OperationVersionAfter != receipt.OperationVersionBefore && receipt.OperationVersionAfter != receipt.OperationVersionBefore+1) ||
 		!validTaskBillingEventID(receipt.BillingEventID) || receipt.BillingEventVersion <= 0 ||
 		receipt.UserID <= 0 || receipt.TokenID <= 0 || receipt.ChannelID <= 0 || receipt.SubscriptionID < 0 ||
-		receipt.Quota < 0 || receipt.Quota > int64(common.MaxQuota) {
+		receipt.Quota < 0 || receipt.Quota > int64(common.MaxQuota) || receipt.EstimatedQuota < 0 || receipt.EstimatedQuota > int64(common.MaxQuota) {
 		return fmt.Errorf("%w: receipt identity or version fields are invalid", ErrTaskQuotaReservationInvalidInput)
 	}
 	if receipt.MutationType == "" {
@@ -786,15 +995,28 @@ func validateQuotaMutationReceiptShape(receipt *QuotaMutationReceipt) error {
 	}
 	switch receipt.MutationType {
 	case string(TaskBillingEventTypeReserve):
+		if receipt.BillingPreference != "" && common.NormalizeBillingPreference(receipt.BillingPreference) != receipt.BillingPreference {
+			return fmt.Errorf("%w: reserve receipt billing preference is invalid", ErrTaskQuotaReservationInvalidInput)
+		}
 		if err := validateQuotaMutationSnapshotPair(receipt); err != nil {
 			return err
 		}
-		_, fingerprint, err := normalizeTaskQuotaReservationInput(TaskQuotaReservationInput{
+		fingerprintInput := TaskQuotaReservationInput{
 			OperationID: receipt.OperationID, UserID: receipt.UserID, TokenID: receipt.TokenID,
 			ChannelID: receipt.ChannelID, ExpectedOperationVersion: receipt.ExpectedOperationVersion,
-			Quota: receipt.Quota, BillingSource: receipt.BillingSource, SubscriptionID: receipt.SubscriptionID,
+			Quota: receipt.Quota, EstimatedQuota: receipt.EstimatedQuota, FreeModel: receipt.FreeModel,
+			BillingPreference: receipt.BillingPreference, BillingSource: receipt.BillingSource, SubscriptionID: receipt.SubscriptionID,
 			BillingContext: TaskBillingContext(receipt.BillingContext),
-		})
+		}
+		var fingerprint string
+		var err error
+		if receipt.RequestFingerprintVersion == 0 {
+			fingerprint, err = taskQuotaReservationFingerprintV1(fingerprintInput)
+		} else if receipt.RequestFingerprintVersion == quotaMutationFingerprintVersion {
+			fingerprint, err = taskQuotaReservationFingerprintV2(fingerprintInput)
+		} else {
+			err = ErrTaskQuotaReservationConflict
+		}
 		if err != nil || fingerprint != receipt.RequestFingerprint {
 			return fmt.Errorf("%w: receipt request fingerprint does not match its immutable payload", ErrTaskQuotaReservationInvalidInput)
 		}
@@ -960,6 +1182,11 @@ func validateStoredQuotaMutationReceipt(tx *gorm.DB, receipt *QuotaMutationRecei
 		operation.TokenID != receipt.TokenID || operation.RequestFingerprint != receipt.OperationRequestFingerprint ||
 		operation.LockVersion < receipt.OperationVersionAfter {
 		return fmt.Errorf("%w: receipt does not match its durable operation", ErrTaskQuotaReservationConflict)
+	}
+	if operation.BillingSource != "" && (operation.BillingPreference != receipt.BillingPreference || operation.BillingSource != receipt.BillingSource ||
+		operation.SubscriptionID != receipt.SubscriptionID || operation.ReservedQuota != receipt.Quota || operation.EstimatedQuota != receipt.EstimatedQuota ||
+		operation.BillingVersion != receipt.RequestFingerprintVersion || operation.FreeModel != receipt.FreeModel) {
+		return fmt.Errorf("%w: receipt billing selection does not match its durable operation", ErrTaskQuotaReservationConflict)
 	}
 	event, err := GetTaskBillingEventByEventID(tx, receipt.BillingEventID)
 	if err != nil {

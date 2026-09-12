@@ -483,3 +483,55 @@ func newSecondOperationForExistingOwner(t *testing.T, db *gorm.DB, base TaskQuot
 	second.ExpectedOperationVersion = intent.Operation.LockVersion
 	return second
 }
+
+func TestTaskQuotaReservationFingerprintV2PreferenceAndV1Compatibility(t *testing.T) {
+	t.Setenv("TASK_RECOVERY_IDEMPOTENCY_SECRET", strings.Repeat("1a", 32))
+	db := openB2SubmissionSQLite(t)
+	migrateB2SubmissionFixture(t, db)
+
+	t.Run("v2 includes explicit preference", func(t *testing.T) {
+		input := newTaskQuotaReservationFixture(t, db, "v2-preference")
+		input.BillingPreference = "wallet_only"
+		_, err := ReserveTaskQuota(db, input)
+		require.NoError(t, err)
+		changed := input
+		changed.BillingPreference = "wallet_first"
+		_, err = ReserveTaskQuota(db, changed)
+		require.ErrorIs(t, err, ErrTaskQuotaReservationConflict)
+	})
+
+	t.Run("historical v1 empty preference remains readable", func(t *testing.T) {
+		input := newTaskQuotaReservationFixture(t, db, "v1-history")
+		receipt, err := ReserveTaskQuota(db, input)
+		require.NoError(t, err)
+		v1Fingerprint, err := taskQuotaReservationFingerprintV1(input)
+		require.NoError(t, err)
+		require.NoError(t, db.Exec("UPDATE quota_mutation_receipts SET request_fingerprint_version = 0, request_fingerprint = ?, billing_preference = '' WHERE id = ?", v1Fingerprint, receipt.ID).Error)
+		require.NoError(t, db.Exec("UPDATE task_submission_operations SET billing_preference = '', billing_source = '', subscription_id = 0, reserved_quota = 0, free_model = ? WHERE id = ?", false, input.OperationID).Error)
+		replayed, err := FindTaskQuotaReservation(db, input.OperationID, input.UserID, input.TokenID)
+		require.NoError(t, err)
+		require.NotNil(t, replayed)
+		assert.Zero(t, replayed.RequestFingerprintVersion)
+		assert.Empty(t, replayed.BillingPreference)
+	})
+}
+
+func TestTaskBillingSchemaMigrationAddsNewColumnsIdempotently(t *testing.T) {
+	db := openB2SubmissionSQLite(t)
+	migrateB2SubmissionFixture(t, db)
+	for _, field := range []string{"EstimatedQuota", "BillingVersion"} {
+		require.NoError(t, db.Migrator().DropColumn(&TaskSubmissionOperation{}, field))
+	}
+	for _, field := range []string{"EstimatedQuota", "RequestFingerprintVersion", "FreeModel"} {
+		require.NoError(t, db.Migrator().DropColumn(&QuotaMutationReceipt{}, field))
+	}
+	for run := 0; run < 2; run++ {
+		require.NoError(t, db.AutoMigrate(&TaskSubmissionOperation{}, &QuotaMutationReceipt{}, &TaskSubmissionAttempt{}))
+	}
+	for _, field := range []string{"EstimatedQuota", "BillingVersion"} {
+		assert.True(t, db.Migrator().HasColumn(&TaskSubmissionOperation{}, field))
+	}
+	for _, field := range []string{"EstimatedQuota", "RequestFingerprintVersion", "FreeModel"} {
+		assert.True(t, db.Migrator().HasColumn(&QuotaMutationReceipt{}, field))
+	}
+}

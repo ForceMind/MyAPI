@@ -126,11 +126,13 @@ type TaskPrivateData struct {
 	UpstreamTaskID string `json:"upstream_task_id,omitempty"` // 上游真实 task ID
 	ResultURL      string `json:"result_url,omitempty"`       // 任务成功后的结果 URL（视频地址等）
 	// 计费上下文：用于异步退款/差额结算（轮询阶段读取）
-	BillingSource  string              `json:"billing_source,omitempty"`  // "wallet" 或 "subscription"
-	SubscriptionId int                 `json:"subscription_id,omitempty"` // 订阅 ID，用于订阅退款
-	TokenId        int                 `json:"token_id,omitempty"`        // 令牌 ID，用于令牌额度退款
-	NodeName       string              `json:"node_name,omitempty"`       // 发起任务的节点名，轮询结算阶段据此归属日志而非最后查询节点
-	BillingContext *TaskBillingContext `json:"billing_context,omitempty"` // 计费参数快照（用于轮询阶段重新计算）
+	BillingPreference string              `json:"billing_preference,omitempty"` // 资金来源选择策略快照
+	BillingSource     string              `json:"billing_source,omitempty"`     // "wallet" 或 "subscription"
+	FreeModel         bool                `json:"free_model,omitempty"`         // 提交时是否为真正免费模型
+	SubscriptionId    int                 `json:"subscription_id,omitempty"`    // 订阅 ID，用于订阅退款
+	TokenId           int                 `json:"token_id,omitempty"`           // 令牌 ID，用于令牌额度退款
+	NodeName          string              `json:"node_name,omitempty"`          // 发起任务的节点名，轮询结算阶段据此归属日志而非最后查询节点
+	BillingContext    *TaskBillingContext `json:"billing_context,omitempty"`    // 计费参数快照（用于轮询阶段重新计算）
 }
 
 // TaskBillingContextVersion identifies a complete submission-rate snapshot.

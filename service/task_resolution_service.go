@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/model"
 	"gorm.io/gorm"
 )
@@ -26,6 +27,8 @@ type ProviderVerifiedResolutionInput struct {
 	UpstreamRequestID   string
 	ReasonCode          string
 	BillingContext      model.TaskBillingContext
+	TaskPlatform        string
+	TaskAction          string
 }
 
 // ProviderVerifiedResolutionResult holds the result of a provider-verified resolution.
@@ -117,6 +120,20 @@ func ResolveOperationProviderVerified(ctx context.Context, input ProviderVerifie
 		strings.TrimSpace(input.ProviderOperationID) == "" {
 		return nil, fmt.Errorf("%w: accepted provider resolution requires provider operation id", ErrTaskResolutionInvalidInput)
 	}
+	resolvedPlatform := attempt.TaskPlatform
+	resolvedAction := attempt.TaskAction
+	if resolvedPlatform == "" && resolvedAction == "" {
+		resolvedPlatform = strings.ToLower(strings.TrimSpace(input.TaskPlatform))
+		resolvedAction = strings.TrimSpace(input.TaskAction)
+	} else if (input.TaskPlatform != "" && strings.ToLower(strings.TrimSpace(input.TaskPlatform)) != resolvedPlatform) ||
+		(input.TaskAction != "" && strings.TrimSpace(input.TaskAction) != resolvedAction) {
+		return nil, fmt.Errorf("%w: recovery classification conflicts with durable attempt", ErrTaskResolutionConflict)
+	}
+	if providerStatus == TaskProviderDispatchStatusAccepted && op.Status == model.TaskSubmissionOperationStatusSubmissionUnknown {
+		if !validTaskRecoveryClassification(resolvedPlatform, resolvedAction) {
+			return nil, fmt.Errorf("%w: accepted recovery requires a valid task platform and action", ErrTaskResolutionInvalidInput)
+		}
+	}
 
 	reasonCode := strings.TrimSpace(input.ReasonCode)
 	if reasonCode == "" {
@@ -132,20 +149,25 @@ func ResolveOperationProviderVerified(ctx context.Context, input ProviderVerifie
 	err = db.Transaction(func(tx *gorm.DB) error {
 		if op.Status == model.TaskSubmissionOperationStatusSubmissionUnknown {
 			if providerStatus == TaskProviderDispatchStatusAccepted {
-				var task model.Task
-				err := tx.Where("task_id = ? AND user_id = ?", op.PublicID, op.UserID).First(&task).Error
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					task = model.Task{
-						TaskID:    op.PublicID,
-						UserId:    op.UserID,
-						ChannelId: attempt.ChannelID,
-						Status:    model.TaskStatusSubmitted,
-					}
-					if err := tx.Create(&task).Error; err != nil {
-						return fmt.Errorf("create formal task failed: %w", err)
-					}
-				} else if err != nil {
-					return fmt.Errorf("query formal task failed: %w", err)
+				reserveReceipt, err := model.FindTaskQuotaReservation(tx, op.ID, op.UserID, op.TokenID)
+				if err != nil {
+					return fmt.Errorf("load task reservation for accepted recovery failed: %w", err)
+				}
+				billingContext := model.TaskBillingContext(reserveReceipt.BillingContext)
+				billingContextCopy := billingContext
+				task := model.Task{
+					TaskID: op.PublicID, Platform: constant.TaskPlatform(resolvedPlatform), UserId: op.UserID,
+					Group: reserveReceipt.Before.User.Group, ChannelId: attempt.ChannelID, Quota: TaskInitialQuota(reserveReceipt.RequestFingerprintVersion, reserveReceipt.EstimatedQuota, reserveReceipt.Quota),
+					Action: resolvedAction, Status: model.TaskStatusNotStart, SubmitTime: op.CreatedAt, Progress: "0%",
+					Properties: model.Properties{OriginModelName: billingContext.OriginModelName},
+					PrivateData: model.TaskPrivateData{
+						UpstreamTaskID: strings.TrimSpace(input.ProviderOperationID), BillingPreference: reserveReceipt.BillingPreference,
+						BillingSource: reserveReceipt.BillingSource, SubscriptionId: reserveReceipt.SubscriptionID,
+						FreeModel: reserveReceipt.FreeModel, TokenId: op.TokenID, BillingContext: &billingContextCopy,
+					},
+				}
+				if err := tx.Create(&task).Error; err != nil {
+					return fmt.Errorf("create complete formal task failed: %w", err)
 				}
 				formalTask = &task
 
@@ -168,6 +190,8 @@ func ResolveOperationProviderVerified(ctx context.Context, input ProviderVerifie
 					To:                  model.TaskSubmissionAttemptStatusAccepted,
 					ProviderOperationID: strings.TrimSpace(input.ProviderOperationID),
 					UpstreamRequestID:   strings.TrimSpace(input.UpstreamRequestID),
+					TaskPlatform:        resolvedPlatform,
+					TaskAction:          resolvedAction,
 					ExpectedVersion:     attempt.LockVersion,
 				})
 				if err != nil {
@@ -281,6 +305,20 @@ func ResolveOperationProviderVerified(ctx context.Context, input ProviderVerifie
 		Task:           formalTask,
 		ReleaseReceipt: releaseReceipt,
 	}, nil
+}
+
+func validTaskRecoveryClassification(platform, action string) bool {
+	if platform == "" || action == "" || len(platform) > 30 || len(action) > 40 {
+		return false
+	}
+	for _, value := range []string{platform, action} {
+		for _, character := range value {
+			if (character < 'a' || character > 'z') && (character < '0' || character > '9') && character != '.' && character != '_' && character != '-' {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // ResolveOperationManualAudit applies administrator manual audit resolution.

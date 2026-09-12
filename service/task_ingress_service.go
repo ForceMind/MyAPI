@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/dto"
 	"github.com/ForceMind/MyAPI/model"
 	"gorm.io/gorm"
@@ -27,6 +28,8 @@ type TaskIngressRequest struct {
 	ContentType        string
 	Body               []byte
 	EstimatedQuota     int
+	FreeModel          bool
+	InitialQuotaClamp  *common.QuotaClamp
 	BillingContext     model.TaskBillingContext
 	Dispatcher         TaskProviderDispatcher
 	DB                 *gorm.DB
@@ -138,6 +141,9 @@ func ExecuteTaskIngress(ctx context.Context, req TaskIngressRequest) (*TaskIngre
 	if req.Dispatcher == nil {
 		return nil, ErrTaskSubmissionDispatcherNil
 	}
+	if req.InitialQuotaClamp != nil {
+		return nil, req.InitialQuotaClamp
+	}
 
 	// 1. Validate and strip Idempotency-Key from headers
 	protocol, err := ParseTaskSubmissionProtocol(req.Header, req.HTTPMethod, req.OperationKind)
@@ -228,7 +234,7 @@ func ExecuteTaskIngress(ctx context.Context, req TaskIngressRequest) (*TaskIngre
 		TokenID:        req.TokenID,
 		ChannelID:      req.ChannelID,
 		Quota:          int64(req.EstimatedQuota),
-		BillingSource:  "wallet",
+		FreeModel:      req.FreeModel,
 		BillingContext: billingContext,
 		Dispatcher:     req.Dispatcher,
 	})

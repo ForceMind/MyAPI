@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,8 +13,10 @@ import (
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
 	taskdto "github.com/ForceMind/MyAPI/dto"
+	appI18n "github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/middleware"
 	"github.com/ForceMind/MyAPI/model"
+	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/service"
 	"github.com/ForceMind/MyAPI/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
@@ -32,6 +35,7 @@ func (f testRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 
 func setupDurableRelayTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
+	require.NoError(t, appI18n.Init())
 	t.Setenv("TASK_RECOVERY_IDEMPOTENCY_SECRET", strings.Repeat("2b", 32))
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
@@ -41,14 +45,17 @@ func setupDurableRelayTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
 	oldDB := model.DB
+	oldLogDB := model.LOG_DB
 	t.Cleanup(func() {
 		_ = sqlDB.Close()
 		model.DB = oldDB
+		model.LOG_DB = oldLogDB
 	})
 
 	err = db.AutoMigrate(
 		&model.User{},
 		&model.Token{},
+		&model.SubscriptionPlan{},
 		&model.UserSubscription{},
 		&model.Channel{},
 		&model.Task{},
@@ -62,7 +69,37 @@ func setupDurableRelayTestDB(t *testing.T) *gorm.DB {
 	)
 	require.NoError(t, err)
 	model.DB = db
+	model.LOG_DB = db
 	return db
+}
+
+func TestRejectDurableTaskQuotaClamp_ReturnsHTTP400AndPersistsAdminAudit(t *testing.T) {
+	db := setupDurableRelayTestDB(t)
+	user := model.User{Username: "clamp-audit-user", Status: common.UserStatusEnabled, Quota: 1000}
+	require.NoError(t, db.Create(&user).Error)
+
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos", strings.NewReader(`{"prompt":"oversized"}`))
+	c.Set(common.RequestIdKey, "req-clamp-audit")
+	clamp := &common.QuotaClamp{Op: "QuotaFromFloat", Kind: common.QuotaClampOverflow, Original: 1e30, Clamped: common.MaxQuota}
+
+	handled := rejectDurableTaskQuotaClamp(c, &relaycommon.RelayInfo{
+		UserId: user.Id, OriginModelName: "kling", QuotaClamp: clamp,
+	})
+	require.True(t, handled)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "quota_out_of_range")
+
+	var audit model.Log
+	require.NoError(t, db.Where("user_id = ? AND type = ?", user.Id, model.LogTypeSystem).First(&audit).Error)
+	var other map[string]interface{}
+	require.NoError(t, common.UnmarshalJsonStr(audit.Other, &other))
+	adminInfo, ok := other["admin_info"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "req-clamp-audit", adminInfo["request_id"])
+	assert.NotNil(t, adminInfo["quota_saturation"])
 }
 
 func TestRelayTask_GateOff_ByDefault(t *testing.T) {
@@ -129,14 +166,14 @@ func TestRelayTask_GateOn_InvalidIdempotencyKey(t *testing.T) {
 
 	// Channel
 	channel := model.Channel{
-		Type:        constant.ChannelTypeKling,
-		Name:        "test-kling",
-		Key:         "test-key",
-		BaseURL:     common.GetPointer("https://api.test.com"),
-		Status:      common.ChannelStatusEnabled,
-		Group:       "default",
-		Models:      "kling",
-		Other:       `{"channel_type":"kling"}`,
+		Type:    constant.ChannelTypeKling,
+		Name:    "test-kling",
+		Key:     "test-key",
+		BaseURL: common.GetPointer("https://api.test.com"),
+		Status:  common.ChannelStatusEnabled,
+		Group:   "default",
+		Models:  "kling",
+		Other:   `{"channel_type":"kling"}`,
 	}
 	require.NoError(t, db.Create(&channel).Error)
 
@@ -242,14 +279,14 @@ func TestRelayTask_GateOn_SuccessAcceptedAndReplay(t *testing.T) {
 	require.NoError(t, db.Create(&token).Error)
 
 	channel := model.Channel{
-		Type:     constant.ChannelTypeKling,
-		Name:     "test-kling-e2e",
-		Key:      "sk-mock-key",
-		BaseURL:  common.GetPointer("https://api.klingai.com"),
-		Status:   common.ChannelStatusEnabled,
-		Group:    "default",
-		Models:   "kling",
-		Other:    `{"channel_type":"kling"}`,
+		Type:    constant.ChannelTypeKling,
+		Name:    "test-kling-e2e",
+		Key:     "sk-mock-key",
+		BaseURL: common.GetPointer("https://api.klingai.com"),
+		Status:  common.ChannelStatusEnabled,
+		Group:   "default",
+		Models:  "kling",
+		Other:   `{"channel_type":"kling"}`,
 	}
 	require.NoError(t, db.Create(&channel).Error)
 
@@ -343,3 +380,35 @@ func TestRelayTask_GateOn_SuccessAcceptedAndReplay(t *testing.T) {
 	assert.Equal(t, 500000-deductedQuota, refreshedUser3.Quota)
 }
 
+func TestRejectDurableTaskQuotaClamp_LogDBUnavailableDoesNotFallbackOrChange400(t *testing.T) {
+	db := setupDurableRelayTestDB(t)
+	model.LOG_DB = nil
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos", nil)
+	clamp := &common.QuotaClamp{Op: "QuotaFromFloat", Kind: common.QuotaClampOverflow, Original: 1e30, Clamped: common.MaxQuota}
+	require.True(t, rejectDurableTaskQuotaClamp(c, &relaycommon.RelayInfo{UserId: 1, OriginModelName: "kling", QuotaClamp: clamp}))
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "quota_out_of_range")
+	var count int64
+	require.NoError(t, db.Model(&model.Log{}).Count(&count).Error)
+	assert.Zero(t, count)
+}
+
+func TestRejectDurableTaskQuotaClamp_LogDBFailureDoesNotChange400(t *testing.T) {
+	db := setupDurableRelayTestDB(t)
+	require.NoError(t, db.Callback().Create().Before("gorm:create").Register("test:fail-clamp-log", func(tx *gorm.DB) {
+		if tx.Statement != nil && tx.Statement.Schema != nil && tx.Statement.Schema.Table == "logs" {
+			tx.AddError(errors.New("injected log failure"))
+		}
+	}))
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos", nil)
+	clamp := &common.QuotaClamp{Op: "QuotaFromFloat", Kind: common.QuotaClampOverflow, Original: 1e30, Clamped: common.MaxQuota}
+	require.True(t, rejectDurableTaskQuotaClamp(c, &relaycommon.RelayInfo{UserId: 1, OriginModelName: "kling", QuotaClamp: clamp}))
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "quota_out_of_range")
+}

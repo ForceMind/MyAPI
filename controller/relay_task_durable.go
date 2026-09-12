@@ -11,6 +11,7 @@ import (
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
 	taskdto "github.com/ForceMind/MyAPI/dto"
+	appI18n "github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/logger"
 	"github.com/ForceMind/MyAPI/middleware"
 	"github.com/ForceMind/MyAPI/model"
@@ -151,6 +152,9 @@ func relayTaskDurable(c *gin.Context, opKind string, originID string) {
 			relayInfo.QuotaClamp = clamp
 		}
 	}
+	if rejectDurableTaskQuotaClamp(c, relayInfo) {
+		return
+	}
 
 	provider := adaptor.GetChannelName()
 	if provider == "" {
@@ -160,7 +164,10 @@ func relayTaskDurable(c *gin.Context, opKind string, originID string) {
 		provider = channel.Name
 	}
 
+	billingContext := model.NewTaskBillingContext(relayInfo)
 	dispatcher := func(ctx context.Context, op *model.TaskSubmissionOperation, attempt *model.TaskSubmissionAttempt) (*service.TaskProviderDispatchResult, error) {
+		relayInfo.BillingSource = op.BillingSource
+		relayInfo.SubscriptionId = op.SubscriptionID
 		c.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 		requestBody, err := adaptor.BuildRequestBody(c, relayInfo)
 		if err != nil {
@@ -197,21 +204,22 @@ func relayTaskDurable(c *gin.Context, opKind string, originID string) {
 		task := model.InitTask(platform, relayInfo)
 		task.TaskID = op.PublicID
 		task.PrivateData.UpstreamTaskID = upstreamTaskID
-		task.PrivateData.BillingSource = relayInfo.BillingSource
-		task.PrivateData.SubscriptionId = relayInfo.SubscriptionId
+		task.PrivateData.BillingPreference = op.BillingPreference
+		task.PrivateData.BillingSource = op.BillingSource
+		task.PrivateData.FreeModel = op.FreeModel
+		task.PrivateData.SubscriptionId = op.SubscriptionID
 		task.PrivateData.TokenId = relayInfo.TokenId
 		task.PrivateData.NodeName = common.NodeName
-		task.PrivateData.BillingContext = model.NewTaskBillingContext(relayInfo)
-		task.Quota = estimatedQuota
+		billingContextCopy := *billingContext
+		task.PrivateData.BillingContext = &billingContextCopy
+		task.Quota = service.TaskInitialQuota(op.BillingVersion, op.EstimatedQuota, op.ReservedQuota)
 		task.Data = taskData
 		task.Action = relayInfo.Action
-		if insertErr := task.Insert(); insertErr != nil {
-			common.SysError("durable task insert error: " + insertErr.Error())
-		}
 
 		return &service.TaskProviderDispatchResult{
 			Status:         "accepted",
 			ProviderTaskID: upstreamTaskID,
+			TaskCandidate:  task,
 		}, nil
 	}
 
@@ -227,7 +235,9 @@ func relayTaskDurable(c *gin.Context, opKind string, originID string) {
 		ContentType:        c.Request.Header.Get("Content-Type"),
 		Body:               bodyBytes,
 		EstimatedQuota:     estimatedQuota,
-		BillingContext:     *model.NewTaskBillingContext(relayInfo),
+		FreeModel:          relayInfo.PriceData.FreeModel,
+		BillingContext:     *billingContext,
+		InitialQuotaClamp:  relayInfo.QuotaClamp,
 		Dispatcher:         dispatcher,
 		DB:                 model.DB,
 	}
@@ -298,4 +308,35 @@ func relayTaskDurable(c *gin.Context, opKind string, originID string) {
 
 	c.Header("Cache-Control", "no-store")
 	c.JSON(http.StatusAccepted, gin.H{"status": "accepted"})
+}
+
+func rejectDurableTaskQuotaClamp(c *gin.Context, relayInfo *relaycommon.RelayInfo) bool {
+	if relayInfo == nil || relayInfo.QuotaClamp == nil {
+		return false
+	}
+	clamp := relayInfo.QuotaClamp
+	logger.LogWarn(c, fmt.Sprintf("durable task quota rejected before dispatch: op=%s kind=%s clamped=%d user=%d model=%s",
+		clamp.Op, clamp.Kind, clamp.Clamped, relayInfo.UserId, relayInfo.OriginModelName))
+	adminInfo := map[string]interface{}{
+		"quota_saturation": clamp.AuditMap(),
+		"request_id":       c.GetString(common.RequestIdKey),
+		"model":            relayInfo.OriginModelName,
+	}
+	auditDB := model.LOG_DB
+	if auditDB != nil {
+		channelID := 0
+		if relayInfo.ChannelMeta != nil {
+			channelID = relayInfo.ChannelMeta.ChannelId
+		}
+		if err := auditDB.Create(&model.Log{
+			UserId: relayInfo.UserId, Username: c.GetString("username"), CreatedAt: common.GetTimestamp(),
+			Type: model.LogTypeSystem, Content: "task request rejected before dispatch: quota saturation",
+			ModelName: relayInfo.OriginModelName, TokenId: relayInfo.TokenId, ChannelId: channelID,
+			RequestId: c.GetString(common.RequestIdKey), Other: common.MapToJsonStr(map[string]interface{}{"admin_info": adminInfo}),
+		}).Error; err != nil {
+			logger.LogError(c, "failed to persist durable task quota clamp audit: "+err.Error())
+		}
+	}
+	respondTaskError(c, service.TaskErrorWrapperLocal(errors.New(appI18n.T(c, appI18n.MsgTaskQuotaOutOfRange)), "quota_out_of_range", http.StatusBadRequest))
+	return true
 }

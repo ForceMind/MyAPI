@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/ForceMind/MyAPI/common"
@@ -30,6 +31,7 @@ var (
 type TaskProviderDispatchResult struct {
 	Status         string // "accepted", "rejected", "unknown"
 	ProviderTaskID string
+	TaskCandidate  *model.Task
 	ErrorCode      string
 	ErrorMessage   string
 }
@@ -47,6 +49,7 @@ type TaskSubmissionPipelineInput struct {
 	TokenID        int
 	ChannelID      int
 	Quota          int64
+	FreeModel      bool
 	BillingSource  string
 	SubscriptionID int
 	BillingContext model.TaskBillingContext
@@ -85,9 +88,9 @@ func (s *TaskSubmissionService) Execute(ctx context.Context, input TaskSubmissio
 // 2. T2 Outbound: atomically starts dispatch via model.StartTaskSubmissionDispatch in a DB transaction.
 // 3. Dispatch: calls dispatcher(ctx, op, attempt) OUTSIDE of any database transaction.
 // 4. T3 Outcome: handles the provider outcome (accepted, rejected, unknown) in a DB transaction:
-//    - accepted: transitions attempt & operation to accepted, records ProviderTaskID, ensures formal task exists.
-//    - rejected: releases quota reservation (full refund) and transitions attempt & operation to rejected.
-//    - unknown: transitions attempt & operation to submission_unknown; retains reserved quota (fail-closed).
+//   - accepted: transitions attempt & operation to accepted, records ProviderTaskID, ensures formal task exists.
+//   - rejected: releases quota reservation (full refund) and transitions attempt & operation to rejected.
+//   - unknown: transitions attempt & operation to submission_unknown; retains reserved quota (fail-closed).
 func ExecuteTaskSubmissionPipeline(ctx context.Context, input TaskSubmissionPipelineInput) (*TaskSubmissionPipelineResult, error) {
 	db := input.DB
 	if db == nil {
@@ -107,9 +110,6 @@ func ExecuteTaskSubmissionPipeline(ctx context.Context, input TaskSubmissionPipe
 	if input.OperationID <= 0 || input.UserID <= 0 || input.TokenID <= 0 || input.ChannelID <= 0 ||
 		input.Quota < 0 || input.Quota > int64(common.MaxQuota) {
 		return nil, ErrTaskSubmissionInvalidInput
-	}
-	if input.BillingSource == "" {
-		input.BillingSource = "wallet"
 	}
 
 	var op model.TaskSubmissionOperation
@@ -149,8 +149,10 @@ func ExecuteTaskSubmissionPipeline(ctx context.Context, input TaskSubmissionPipe
 			ChannelID:                input.ChannelID,
 			ExpectedOperationVersion: op.LockVersion,
 			Quota:                    input.Quota,
+			FreeModel:                input.FreeModel,
 			BillingSource:            input.BillingSource,
 			SubscriptionID:           input.SubscriptionID,
+			SelectBillingSource:      input.BillingSource == "",
 			BillingContext:           input.BillingContext,
 		})
 		return err
@@ -214,27 +216,25 @@ func ExecuteTaskSubmissionPipeline(ctx context.Context, input TaskSubmissionPipe
 		status = TaskProviderDispatchStatusUnknown
 	}
 	dispatchResult.Status = status
+	if status == TaskProviderDispatchStatusAccepted {
+		if err := validateTaskProviderCandidate(dispatchResult, &op, &attempt, input, reserveReceipt); err != nil {
+			dispatchResult.Status = TaskProviderDispatchStatusUnknown
+			dispatchResult.ErrorCode = "invalid_task_candidate"
+			dispatchResult.ErrorMessage = err.Error()
+			status = TaskProviderDispatchStatusUnknown
+		}
+	}
 
 	// 4. T3 Outcome: handle outcome in a DB transaction
 	var releaseReceipt *model.QuotaMutationReceipt
+	var taskCreateErr error
 	err = db.Transaction(func(tx *gorm.DB) error {
 		switch status {
 		case TaskProviderDispatchStatusAccepted:
-			// Ensure formal task exists for accepted operation
-			var formalTask model.Task
-			err := tx.Where("task_id = ? AND user_id = ?", op.PublicID, op.UserID).First(&formalTask).Error
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				formalTask = model.Task{
-					TaskID:    op.PublicID,
-					UserId:    op.UserID,
-					ChannelId: attempt.ChannelID,
-					Status:    model.TaskStatusSubmitted,
-				}
-				if err := tx.Create(&formalTask).Error; err != nil {
-					return fmt.Errorf("create formal task for accepted operation failed: %w", err)
-				}
-			} else if err != nil {
-				return fmt.Errorf("query formal task for accepted operation failed: %w", err)
+			formalTask := *dispatchResult.TaskCandidate
+			if err := tx.Create(&formalTask).Error; err != nil {
+				taskCreateErr = err
+				return fmt.Errorf("create formal task for accepted operation failed: %w", err)
 			}
 
 			// Transition attempt to accepted
@@ -338,6 +338,15 @@ func ExecuteTaskSubmissionPipeline(ctx context.Context, input TaskSubmissionPipe
 		}
 		return nil
 	})
+	if err != nil && taskCreateErr != nil {
+		dispatchResult.Status = TaskProviderDispatchStatusUnknown
+		dispatchResult.ErrorCode = "task_create_failed"
+		dispatchResult.ErrorMessage = "accepted provider result could not be persisted"
+		if unknownErr := transitionTaskSubmissionToUnknown(db, &op, &attempt, dispatchResult); unknownErr != nil {
+			return nil, fmt.Errorf("task submission outcome processing failed: %v; mark task creation failure unknown: %w", err, unknownErr)
+		}
+		err = nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("task submission outcome processing failed: %w", err)
 	}
@@ -357,6 +366,78 @@ func ExecuteTaskSubmissionPipeline(ctx context.Context, input TaskSubmissionPipe
 		ReserveReceipt: reserveReceipt,
 		ReleaseReceipt: releaseReceipt,
 	}, nil
+}
+
+func validateTaskProviderCandidate(result *TaskProviderDispatchResult, operation *model.TaskSubmissionOperation, attempt *model.TaskSubmissionAttempt, input TaskSubmissionPipelineInput, receipt *model.QuotaMutationReceipt) error {
+	if result == nil || operation == nil || attempt == nil || receipt == nil || result.TaskCandidate == nil {
+		return errors.New("accepted provider result is missing a task candidate")
+	}
+	providerTaskID := strings.TrimSpace(result.ProviderTaskID)
+	candidate := result.TaskCandidate
+	if providerTaskID == "" || candidate.ID != 0 || candidate.TaskID != operation.PublicID || candidate.UserId != input.UserID ||
+		candidate.ChannelId != input.ChannelID || candidate.Platform == "" || strings.TrimSpace(candidate.Action) == "" ||
+		candidate.Quota != TaskInitialQuota(receipt.RequestFingerprintVersion, receipt.EstimatedQuota, receipt.Quota) || candidate.PrivateData.UpstreamTaskID != providerTaskID || candidate.PrivateData.FreeModel != receipt.FreeModel ||
+		candidate.PrivateData.TokenId != input.TokenID || candidate.PrivateData.BillingPreference != operation.BillingPreference ||
+		candidate.PrivateData.BillingSource != operation.BillingSource || candidate.PrivateData.SubscriptionId != operation.SubscriptionID ||
+		candidate.PrivateData.BillingSource != receipt.BillingSource || candidate.PrivateData.SubscriptionId != receipt.SubscriptionID ||
+		candidate.PrivateData.BillingPreference != receipt.BillingPreference || candidate.PrivateData.BillingContext == nil ||
+		!reflect.DeepEqual(*candidate.PrivateData.BillingContext, input.BillingContext) {
+		return errors.New("accepted provider task candidate does not match the frozen submission contract")
+	}
+	return nil
+}
+
+// TaskInitialQuota returns the quota persisted on a formal Task. V2 receipts
+// separate the estimated initial charge from the actual reservation; historical
+// receipts use the reservation amount for both meanings.
+func TaskInitialQuota(version int, estimatedQuota, reservedQuota int64) int {
+	if version >= 2 {
+		return int(estimatedQuota)
+	}
+	return int(reservedQuota)
+}
+
+func transitionTaskSubmissionToUnknown(db *gorm.DB, operation *model.TaskSubmissionOperation, attempt *model.TaskSubmissionAttempt, result *TaskProviderDispatchResult) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		outcomeCode := truncateAuditCode(result.ErrorCode, maxAuditCodeLength)
+		attemptWon, err := model.TransitionTaskSubmissionAttempt(tx, attempt.ID, model.TaskSubmissionAttemptTransition{
+			From: model.TaskSubmissionAttemptStatusDispatching, To: model.TaskSubmissionAttemptStatusSubmissionUnknown,
+			ProviderOperationID: strings.TrimSpace(result.ProviderTaskID), OutcomeCode: outcomeCode, ExpectedVersion: attempt.LockVersion,
+			TaskPlatform: func() string {
+				if result.TaskCandidate != nil {
+					return string(result.TaskCandidate.Platform)
+				}
+				return ""
+			}(),
+			TaskAction: func() string {
+				if result.TaskCandidate != nil {
+					return result.TaskCandidate.Action
+				}
+				return ""
+			}(),
+		})
+		if err != nil {
+			return err
+		}
+		if !attemptWon {
+			return ErrTaskSubmissionOutcomeCASLost
+		}
+		reasonCode := outcomeCode
+		if reasonCode == "" {
+			reasonCode = "task_dispatch_unknown"
+		}
+		opWon, err := model.TransitionTaskSubmissionOperation(tx, operation.ID, model.TaskSubmissionOperationTransition{
+			From: model.TaskSubmissionOperationStatusDispatching, To: model.TaskSubmissionOperationStatusSubmissionUnknown,
+			ReasonCode: reasonCode, ExpectedVersion: operation.LockVersion,
+		})
+		if err != nil {
+			return err
+		}
+		if !opWon {
+			return ErrTaskSubmissionOutcomeCASLost
+		}
+		return nil
+	})
 }
 
 func truncateAuditCode(code string, maxLen int) string {

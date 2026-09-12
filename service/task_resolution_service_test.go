@@ -32,6 +32,7 @@ func setupResolutionTestDB(t *testing.T) *gorm.DB {
 	err = db.AutoMigrate(
 		&model.User{},
 		&model.Token{},
+		&model.SubscriptionPlan{},
 		&model.UserSubscription{},
 		&model.Task{},
 		&model.TaskRecoveryIdentity{},
@@ -157,6 +158,8 @@ func advanceToSubmissionUnknown(t *testing.T, db *gorm.DB, fixture resolutionTes
 		To:              model.TaskSubmissionAttemptStatusSubmissionUnknown,
 		OutcomeCode:     "dispatch_timeout_fail_closed",
 		ExpectedVersion: att.LockVersion,
+		TaskPlatform:    "test",
+		TaskAction:      "video.create",
 	})
 	require.NoError(t, err)
 	require.True(t, won)
@@ -191,6 +194,9 @@ func TestTaskResolutionService_ProviderVerified_Accepted(t *testing.T) {
 	assert.Equal(t, op.PublicID, result.Task.TaskID)
 	assert.Equal(t, fixture.User.Id, result.Task.UserId)
 	assert.Equal(t, att.ChannelID, result.Task.ChannelId)
+	assert.Equal(t, "provider-verified-task-888", result.Task.PrivateData.UpstreamTaskID)
+	assert.Equal(t, "video.create", result.Task.Action)
+	require.NotNil(t, result.Task.PrivateData.BillingContext)
 	require.NotNil(t, result.Operation.TaskID)
 	assert.Equal(t, result.Task.ID, *result.Operation.TaskID)
 
@@ -198,6 +204,16 @@ func TestTaskResolutionService_ProviderVerified_Accepted(t *testing.T) {
 	var u model.User
 	require.NoError(t, db.First(&u, fixture.User.Id).Error)
 	assert.Equal(t, 900, u.Quota)
+
+	settlement, err := model.SettleTaskQuotaReservation(db, model.TaskQuotaSettlementInput{
+		OperationID: op.ID, UserID: fixture.User.Id, TokenID: fixture.Token.Id, ChannelID: att.ChannelID,
+		ExpectedOperationVersion: result.Operation.LockVersion, ActualQuota: 0, ReasonCode: "provider_completed_free",
+		BillingContext: *result.Task.PrivateData.BillingContext, TargetOperationStatus: model.TaskSubmissionOperationStatusSucceeded,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, settlement)
+	require.NoError(t, db.First(&u, fixture.User.Id).Error)
+	assert.Equal(t, 1000, u.Quota)
 }
 
 func TestTaskResolutionService_ProviderVerified_Rejected(t *testing.T) {
@@ -642,3 +658,33 @@ func TestTaskResolutionService_ManualAudit_ConcurrentReplay(t *testing.T) {
 	assert.Equal(t, 1000, updatedUser.Quota)
 }
 
+func TestProviderVerifiedResolution_HistoricalUnknownClassificationFallback(t *testing.T) {
+	db := setupResolutionTestDB(t)
+	fixture := newResolutionTestFixture(t, db, "historical-classification", 1000, 500)
+	op, att := advanceToSubmissionUnknown(t, db, fixture, 100)
+	require.NoError(t, db.Exec("UPDATE task_submission_attempts SET task_platform = '', task_action = '' WHERE id = ?", att.ID).Error)
+
+	_, err := ResolveOperationProviderVerified(context.Background(), ProviderVerifiedResolutionInput{
+		DB: db, OperationID: op.ID, ProviderStatus: TaskProviderDispatchStatusAccepted, ProviderOperationID: "historical-upstream",
+	})
+	require.ErrorIs(t, err, ErrTaskResolutionInvalidInput)
+	var unchanged model.TaskSubmissionOperation
+	require.NoError(t, db.First(&unchanged, op.ID).Error)
+	assert.Equal(t, model.TaskSubmissionOperationStatusSubmissionUnknown, unchanged.Status)
+
+	result, err := ResolveOperationProviderVerified(context.Background(), ProviderVerifiedResolutionInput{
+		DB: db, OperationID: op.ID, ProviderStatus: TaskProviderDispatchStatusAccepted, ProviderOperationID: "historical-upstream",
+		TaskPlatform: "test", TaskAction: "video.create",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result.Task)
+	assert.Equal(t, "test", string(result.Task.Platform))
+	assert.Equal(t, "video.create", result.Task.Action)
+	require.NotNil(t, result.Task.PrivateData.BillingContext)
+	_, err = model.SettleTaskQuotaReservation(db, model.TaskQuotaSettlementInput{
+		OperationID: result.Operation.ID, UserID: fixture.User.Id, TokenID: fixture.Token.Id, ChannelID: att.ChannelID,
+		ExpectedOperationVersion: result.Operation.LockVersion, ActualQuota: 0, ReasonCode: "historical-complete",
+		BillingContext: *result.Task.PrivateData.BillingContext, TargetOperationStatus: model.TaskSubmissionOperationStatusSucceeded,
+	})
+	require.NoError(t, err)
+}

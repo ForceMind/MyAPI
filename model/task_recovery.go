@@ -292,6 +292,13 @@ type TaskSubmissionOperation struct {
 	IdempotencyKeyHash string                        `json:"-" gorm:"type:char(64);not null;uniqueIndex:uidx_task_submission_idempotency,priority:4;<-:create"`
 	RequestFingerprint string                        `json:"-" gorm:"type:char(64);not null;<-:create"`
 	Status             TaskSubmissionOperationStatus `json:"status" gorm:"type:varchar(32);not null;index:idx_task_submission_status_created,priority:1;<-:create"`
+	BillingPreference  string                        `json:"billing_preference,omitempty" gorm:"type:varchar(32);not null;default:'';<-:create"`
+	BillingSource      string                        `json:"billing_source,omitempty" gorm:"type:varchar(32);not null;default:'';<-:create"`
+	SubscriptionID     int                           `json:"subscription_id,omitempty" gorm:"not null;default:0;<-:create"`
+	ReservedQuota      int64                         `json:"reserved_quota,omitempty" gorm:"type:bigint;not null;default:0;<-:create"`
+	EstimatedQuota     int64                         `json:"estimated_quota,omitempty" gorm:"type:bigint;not null;default:0;<-:create"`
+	BillingVersion     int                           `json:"billing_version,omitempty" gorm:"not null;default:0;<-:create"`
+	FreeModel          bool                          `json:"free_model,omitempty" gorm:"not null;default:false;<-:create"`
 	TaskID             *int64                        `json:"task_id,omitempty" gorm:"uniqueIndex:uidx_task_submission_task;<-:create"`
 	ReasonCode         string                        `json:"reason_code,omitempty" gorm:"type:varchar(64);<-:create"`
 	ResolutionSource   string                        `json:"resolution_source,omitempty" gorm:"type:varchar(32);<-:create"`
@@ -325,6 +332,7 @@ func (operation *TaskSubmissionOperation) BeforeCreate(tx *gorm.DB) error {
 		operation.Status = TaskSubmissionOperationStatusPrepared
 	}
 	if operation.Status != TaskSubmissionOperationStatusPrepared || operation.TaskID != nil || operation.ReasonCode != "" || operation.ResolutionSource != "" ||
+		operation.BillingPreference != "" || operation.BillingSource != "" || operation.SubscriptionID != 0 || operation.ReservedQuota != 0 || operation.EstimatedQuota != 0 || operation.BillingVersion != 0 || operation.FreeModel ||
 		operation.DispatchStartedAt != nil || operation.ResolvedAt != nil || operation.RetentionUntil != nil {
 		return fmt.Errorf("%w: new task submission operations must start prepared without a task or retention deadline", ErrTaskRecoveryInvalidRecord)
 	}
@@ -829,6 +837,8 @@ type TaskSubmissionAttempt struct {
 	RequestClass        string                      `json:"request_class" gorm:"type:varchar(48);not null;<-:create"`
 	ProviderOperationID string                      `json:"provider_operation_id,omitempty" gorm:"type:varchar(191);<-:create"`
 	UpstreamRequestID   string                      `json:"upstream_request_id,omitempty" gorm:"type:varchar(128);<-:create"`
+	TaskPlatform        string                      `json:"task_platform,omitempty" gorm:"type:varchar(30);not null;default:'';<-:create"`
+	TaskAction          string                      `json:"task_action,omitempty" gorm:"type:varchar(40);not null;default:'';<-:create"`
 	OutcomeCode         string                      `json:"outcome_code,omitempty" gorm:"type:varchar(64);<-:create"`
 	StartedAt           *int64                      `json:"started_at,omitempty" gorm:"type:bigint;<-:create"`
 	FinishedAt          *int64                      `json:"finished_at,omitempty" gorm:"type:bigint;<-:create"`
@@ -876,7 +886,7 @@ func normalizeTaskSubmissionAttemptForCreate(attempt *TaskSubmissionAttempt) err
 		attempt.Provider == "" || attempt.RequestClass == "" || attempt.Status != TaskSubmissionAttemptStatusPrepared {
 		return fmt.Errorf("%w: new task submission attempt is incomplete or not prepared", ErrTaskRecoveryInvalidRecord)
 	}
-	if attempt.ProviderOperationID != "" || attempt.UpstreamRequestID != "" || attempt.OutcomeCode != "" || attempt.StartedAt != nil || attempt.FinishedAt != nil {
+	if attempt.ProviderOperationID != "" || attempt.UpstreamRequestID != "" || attempt.TaskPlatform != "" || attempt.TaskAction != "" || attempt.OutcomeCode != "" || attempt.StartedAt != nil || attempt.FinishedAt != nil {
 		return fmt.Errorf("%w: a prepared task submission attempt cannot contain an upstream outcome", ErrTaskRecoveryInvalidRecord)
 	}
 	if len(attempt.Provider) > 64 || len(attempt.RequestClass) > 48 {
@@ -1200,6 +1210,8 @@ type TaskSubmissionAttemptTransition struct {
 	To                  TaskSubmissionAttemptStatus
 	ProviderOperationID string
 	UpstreamRequestID   string
+	TaskPlatform        string
+	TaskAction          string
 	OutcomeCode         string
 	ExpectedVersion     int64
 	TransitionedAt      int64
@@ -1215,8 +1227,10 @@ func TransitionTaskSubmissionAttempt(tx *gorm.DB, attemptID int64, transition Ta
 	}
 	transition.ProviderOperationID = strings.TrimSpace(transition.ProviderOperationID)
 	transition.UpstreamRequestID = strings.TrimSpace(transition.UpstreamRequestID)
+	transition.TaskPlatform = strings.ToLower(strings.TrimSpace(transition.TaskPlatform))
+	transition.TaskAction = strings.TrimSpace(transition.TaskAction)
 	transition.OutcomeCode = strings.TrimSpace(transition.OutcomeCode)
-	if len(transition.ProviderOperationID) > 191 || len(transition.UpstreamRequestID) > 128 || len(transition.OutcomeCode) > 64 {
+	if len(transition.ProviderOperationID) > 191 || len(transition.UpstreamRequestID) > 128 || len(transition.TaskPlatform) > 30 || len(transition.TaskAction) > 40 || len(transition.OutcomeCode) > 64 {
 		return false, fmt.Errorf("%w: attempt upstream reference or outcome code exceeds its database bound", ErrTaskRecoveryInvalidRecord)
 	}
 	transitionedAt, err := taskRecoveryValidatedTime(tx, transition.TransitionedAt)
@@ -1256,6 +1270,13 @@ func TransitionTaskSubmissionAttempt(tx *gorm.DB, attemptID int64, transition Ta
 		}
 		updates["provider_operation_id"] = providerOperationID
 		updates["upstream_request_id"] = upstreamRequestID
+		if transition.TaskPlatform != "" || transition.TaskAction != "" {
+			if transition.TaskPlatform == "" || transition.TaskAction == "" {
+				return false, fmt.Errorf("%w: task recovery classification must be complete", ErrTaskRecoveryInvalidRecord)
+			}
+			updates["task_platform"] = transition.TaskPlatform
+			updates["task_action"] = transition.TaskAction
+		}
 	} else if transition.ProviderOperationID != "" || transition.UpstreamRequestID != "" {
 		return false, fmt.Errorf("%w: upstream references may only be recorded for accepted or unknown submissions", ErrTaskRecoveryInvalidRecord)
 	}
@@ -1288,9 +1309,10 @@ func validateStoredTaskSubmissionAttempt(tx *gorm.DB, attempt *TaskSubmissionAtt
 		attempt.RequestClass == "" || attempt.RequestClass != strings.ToLower(strings.TrimSpace(attempt.RequestClass)) ||
 		attempt.ProviderOperationID != strings.TrimSpace(attempt.ProviderOperationID) ||
 		attempt.UpstreamRequestID != strings.TrimSpace(attempt.UpstreamRequestID) ||
+		attempt.TaskPlatform != strings.ToLower(strings.TrimSpace(attempt.TaskPlatform)) || attempt.TaskAction != strings.TrimSpace(attempt.TaskAction) ||
 		attempt.OutcomeCode != strings.TrimSpace(attempt.OutcomeCode) ||
 		len(attempt.Provider) > 64 || len(attempt.RequestClass) > 48 || len(attempt.ProviderOperationID) > 191 ||
-		len(attempt.UpstreamRequestID) > 128 || len(attempt.OutcomeCode) > 64 ||
+		len(attempt.UpstreamRequestID) > 128 || len(attempt.TaskPlatform) > 30 || len(attempt.TaskAction) > 40 || len(attempt.OutcomeCode) > 64 ||
 		attempt.LockVersion <= 0 || attempt.CreatedAt <= 0 || attempt.UpdatedAt < attempt.CreatedAt {
 		return fmt.Errorf("%w: stored task submission attempt is not a valid immutable v1 record", ErrTaskRecoveryInvalidRecord)
 	}
@@ -1302,7 +1324,7 @@ func validateStoredTaskSubmissionAttempt(tx *gorm.DB, attempt *TaskSubmissionAtt
 	}
 	switch attempt.Status {
 	case TaskSubmissionAttemptStatusPrepared:
-		if attempt.ProviderOperationID != "" || attempt.UpstreamRequestID != "" || attempt.OutcomeCode != "" || attempt.StartedAt != nil || attempt.FinishedAt != nil {
+		if attempt.ProviderOperationID != "" || attempt.UpstreamRequestID != "" || attempt.TaskPlatform != "" || attempt.TaskAction != "" || attempt.OutcomeCode != "" || attempt.StartedAt != nil || attempt.FinishedAt != nil {
 			return fmt.Errorf("%w: stored prepared task submission attempt contains an outcome", ErrTaskRecoveryInvalidRecord)
 		}
 	case TaskSubmissionAttemptStatusDispatching:
@@ -1951,6 +1973,18 @@ func validateStoredTaskSubmissionOperation(tx *gorm.DB, operation *TaskSubmissio
 		operation.ResolutionSource != TaskSubmissionResolutionSourceProviderVerified &&
 		operation.ResolutionSource != TaskSubmissionResolutionSourceManualAudit {
 		return fmt.Errorf("%w: stored task submission operation has an unsupported resolution source", ErrTaskRecoveryInvalidRecord)
+	}
+	selectionFrozen := operation.BillingPreference != "" || operation.BillingSource != "" || operation.SubscriptionID != 0
+	if selectionFrozen {
+		if common.NormalizeBillingPreference(operation.BillingPreference) != operation.BillingPreference ||
+			(operation.BillingSource != "wallet" && operation.BillingSource != "subscription") ||
+			(operation.BillingSource == "wallet" && operation.SubscriptionID != 0) ||
+			(operation.BillingSource == "subscription" && operation.SubscriptionID <= 0) || operation.ReservedQuota < 0 || operation.ReservedQuota > taskBillingQuotaMax || operation.EstimatedQuota < 0 || operation.EstimatedQuota > taskBillingQuotaMax || (operation.BillingVersion != 0 && operation.BillingVersion != 2) {
+			return fmt.Errorf("%w: stored task submission operation has an invalid billing selection", ErrTaskRecoveryInvalidRecord)
+		}
+	}
+	if operation.Status == TaskSubmissionOperationStatusPrepared && selectionFrozen {
+		return fmt.Errorf("%w: prepared task submission operation cannot have a billing selection", ErrTaskRecoveryInvalidRecord)
 	}
 	if operation.Status.Terminal() {
 		if operation.ResolvedAt == nil || *operation.ResolvedAt <= 0 || operation.RetentionUntil == nil ||

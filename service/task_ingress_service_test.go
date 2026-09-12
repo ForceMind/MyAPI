@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"mime/multipart"
 	"net/http"
@@ -14,6 +15,8 @@ import (
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/dto"
 	"github.com/ForceMind/MyAPI/model"
+	relaycommon "github.com/ForceMind/MyAPI/relay/common"
+	relaykitdto "github.com/ForceMind/MyAPI/relaykit/dto"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -36,6 +39,7 @@ func setupTaskIngressTestDB(t *testing.T) *gorm.DB {
 	err = db.AutoMigrate(
 		&model.User{},
 		&model.Token{},
+		&model.SubscriptionPlan{},
 		&model.UserSubscription{},
 		&model.Task{},
 		&model.TaskRecoveryIdentity{},
@@ -71,15 +75,23 @@ func createIngressUserAndToken(t *testing.T, db *gorm.DB, initialQuota int) (mod
 	return user, token
 }
 
+func ingressBillingContext(quota int) model.TaskBillingContext {
+	return model.TaskBillingContext{
+		Version: model.TaskBillingContextVersion, Complete: true,
+		OriginModelName: model.TaskSubmissionOperationKindVideoCreate,
+		ModelPrice:      float64(quota), ModelRatio: 1, GroupRatio: 1, PerCallBilling: true,
+	}
+}
+
 func TestDetectTaskOperationKind(t *testing.T) {
 	testCases := []struct {
-		name          string
-		method        string
-		path          string
-		params        map[string]string
-		wantKind      string
-		wantOriginID  string
-		wantOk        bool
+		name         string
+		method       string
+		path         string
+		params       map[string]string
+		wantKind     string
+		wantOriginID string
+		wantOk       bool
 	}{
 		{
 			name:         "remix with video_id param",
@@ -229,6 +241,7 @@ func TestExecuteTaskIngress_NewSubmissionAccepted(t *testing.T) {
 		return &TaskProviderDispatchResult{
 			Status:         TaskProviderDispatchStatusAccepted,
 			ProviderTaskID: "upstream-video-task-42",
+			TaskCandidate:  acceptedTaskCandidateForTest(op, attempt, "upstream-video-task-42", 2000, ingressBillingContext(2000)),
 		}, nil
 	}
 
@@ -289,6 +302,7 @@ func TestExecuteTaskIngress_IdempotentReplay(t *testing.T) {
 		return &TaskProviderDispatchResult{
 			Status:         TaskProviderDispatchStatusAccepted,
 			ProviderTaskID: "upstream-replay-id-1",
+			TaskCandidate:  acceptedTaskCandidateForTest(op, attempt, "upstream-replay-id-1", 2500, ingressBillingContext(2500)),
 		}, nil
 	}
 
@@ -361,6 +375,121 @@ func TestExecuteTaskIngress_IdempotentReplay(t *testing.T) {
 	assert.Equal(t, 7500, updatedToken.RemainQuota)
 }
 
+func TestExecuteTaskIngress_FreezesBillingPreferenceSelection(t *testing.T) {
+	testCases := []struct {
+		name              string
+		preference        string
+		walletQuota       int
+		subscriptionQuota int64
+		wantSource        string
+	}{
+		{name: "subscription_only_uses_subscription_when_wallet_empty", preference: "subscription_only", walletQuota: 0, subscriptionQuota: 1000, wantSource: "subscription"},
+		{name: "subscription_first_prefers_subscription", preference: "subscription_first", walletQuota: 1000, subscriptionQuota: 1000, wantSource: "subscription"},
+		{name: "wallet_only_uses_wallet", preference: "wallet_only", walletQuota: 1000, subscriptionQuota: 1000, wantSource: "wallet"},
+		{name: "wallet_first_prefers_wallet", preference: "wallet_first", walletQuota: 1000, subscriptionQuota: 1000, wantSource: "wallet"},
+		{name: "wallet_first_falls_back_when_wallet_insufficient", preference: "wallet_first", walletQuota: 50, subscriptionQuota: 1000, wantSource: "subscription"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			db := setupTaskIngressTestDB(t)
+			user, token := createIngressUserAndToken(t, db, tc.walletQuota)
+			require.NoError(t, db.Model(&token).Updates(map[string]interface{}{"remain_quota": 1000}).Error)
+			user.SetSetting(relaykitdto.UserSetting{BillingPreference: tc.preference})
+			require.NoError(t, db.Model(&user).Update("setting", user.Setting).Error)
+			plan := model.SubscriptionPlan{Title: "test", Enabled: true, TotalAmount: tc.subscriptionQuota, DurationUnit: "month", DurationValue: 1}
+			require.NoError(t, db.Create(&plan).Error)
+
+			subscription := model.UserSubscription{
+				UserId: user.Id, PlanId: plan.Id, AmountTotal: tc.subscriptionQuota, AmountUsed: 0,
+				Status: "active", StartTime: 1, EndTime: 1<<31 - 1, AllowWalletOverflow: true,
+			}
+			require.NoError(t, db.Create(&subscription).Error)
+			billingContext := model.TaskBillingContext{
+				Version: model.TaskBillingContextVersion, Complete: true, ModelPrice: 1,
+				ModelRatio: 1, GroupRatio: 1, OriginModelName: "test-model", PerCallBilling: true,
+			}
+			dispatchCount := 0
+			result, err := ExecuteTaskIngress(context.Background(), TaskIngressRequest{
+				UserID: user.Id, TokenID: token.Id, ChannelID: 10, Provider: "test",
+				OperationKind: model.TaskSubmissionOperationKindVideoCreate, HTTPMethod: http.MethodPost,
+				Header:      http.Header{"Idempotency-Key": []string{"billing-" + tc.name}},
+				ContentType: "application/json", Body: []byte(`{"prompt":"billing source"}`),
+				EstimatedQuota: 100, BillingContext: billingContext, DB: db,
+				Dispatcher: func(_ context.Context, op *model.TaskSubmissionOperation, attempt *model.TaskSubmissionAttempt) (*TaskProviderDispatchResult, error) {
+					dispatchCount++
+					return &TaskProviderDispatchResult{
+						Status: TaskProviderDispatchStatusAccepted, ProviderTaskID: "billing-upstream-" + tc.name,
+						TaskCandidate: acceptedTaskCandidateForTest(op, attempt, "billing-upstream-"+tc.name, 100, billingContext),
+					}, nil
+				},
+			})
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			require.Equal(t, 1, dispatchCount)
+
+			operation, err := model.GetTaskSubmissionOperationByPublicID(db, result.Response.ID)
+			require.NoError(t, err)
+			require.NotNil(t, operation)
+			assert.Equal(t, tc.preference, operation.BillingPreference)
+			assert.Equal(t, tc.wantSource, operation.BillingSource)
+			if tc.wantSource == "subscription" {
+				assert.Equal(t, subscription.Id, operation.SubscriptionID)
+			} else {
+				assert.Zero(t, operation.SubscriptionID)
+			}
+
+			var receipt model.QuotaMutationReceipt
+			require.NoError(t, db.Where("operation_id = ? AND mutation_type = ?", operation.ID, model.TaskBillingEventTypeReserve).First(&receipt).Error)
+			assert.Equal(t, tc.preference, receipt.BillingPreference)
+			assert.Equal(t, operation.BillingSource, receipt.BillingSource)
+			assert.Equal(t, operation.SubscriptionID, receipt.SubscriptionID)
+
+			var task model.Task
+			require.NoError(t, db.First(&task, *operation.TaskID).Error)
+			assert.Equal(t, operation.BillingPreference, task.PrivateData.BillingPreference)
+			assert.Equal(t, operation.BillingSource, task.PrivateData.BillingSource)
+			assert.Equal(t, operation.SubscriptionID, task.PrivateData.SubscriptionId)
+			require.NotNil(t, task.PrivateData.BillingContext)
+			assert.Equal(t, billingContext, *task.PrivateData.BillingContext)
+
+			var userBeforeReplay model.User
+			var tokenBeforeReplay model.Token
+			var subscriptionBeforeReplay model.UserSubscription
+			require.NoError(t, db.First(&userBeforeReplay, user.Id).Error)
+			require.NoError(t, db.First(&tokenBeforeReplay, token.Id).Error)
+			require.NoError(t, db.First(&subscriptionBeforeReplay, subscription.Id).Error)
+			user.SetSetting(relaykitdto.UserSetting{BillingPreference: "wallet_only"})
+			require.NoError(t, db.Model(&user).Update("setting", user.Setting).Error)
+
+			replay, err := ExecuteTaskIngress(context.Background(), TaskIngressRequest{
+				UserID: user.Id, TokenID: token.Id, ChannelID: 10, Provider: "test",
+				OperationKind: model.TaskSubmissionOperationKindVideoCreate, HTTPMethod: http.MethodPost,
+				Header:      http.Header{"Idempotency-Key": []string{"billing-" + tc.name}},
+				ContentType: "application/json", Body: []byte(`{"prompt":"billing source"}`),
+				EstimatedQuota: 100, BillingContext: billingContext, DB: db,
+				Dispatcher: func(context.Context, *model.TaskSubmissionOperation, *model.TaskSubmissionAttempt) (*TaskProviderDispatchResult, error) {
+					dispatchCount++
+					return nil, errors.New("idempotent replay must not dispatch")
+				},
+			})
+			require.NoError(t, err)
+			require.True(t, replay.IsReplay)
+			assert.Equal(t, 1, dispatchCount)
+
+			var userAfterReplay model.User
+			var tokenAfterReplay model.Token
+			var subscriptionAfterReplay model.UserSubscription
+			require.NoError(t, db.First(&userAfterReplay, user.Id).Error)
+			require.NoError(t, db.First(&tokenAfterReplay, token.Id).Error)
+			require.NoError(t, db.First(&subscriptionAfterReplay, subscription.Id).Error)
+			assert.Equal(t, userBeforeReplay.Quota, userAfterReplay.Quota)
+			assert.Equal(t, tokenBeforeReplay.RemainQuota, tokenAfterReplay.RemainQuota)
+			assert.Equal(t, subscriptionBeforeReplay.AmountUsed, subscriptionAfterReplay.AmountUsed)
+		})
+	}
+}
+
 func TestExecuteTaskIngress_ConflictRejected(t *testing.T) {
 	db := setupTaskIngressTestDB(t)
 	user, token := createIngressUserAndToken(t, db, 10000)
@@ -369,6 +498,7 @@ func TestExecuteTaskIngress_ConflictRejected(t *testing.T) {
 		return &TaskProviderDispatchResult{
 			Status:         TaskProviderDispatchStatusAccepted,
 			ProviderTaskID: "conflict-test-upstream",
+			TaskCandidate:  acceptedTaskCandidateForTest(op, attempt, "conflict-test-upstream", 1000, ingressBillingContext(1000)),
 		}, nil
 	}
 
@@ -434,6 +564,7 @@ func TestExecuteTaskIngress_ContentTypes(t *testing.T) {
 		return &TaskProviderDispatchResult{
 			Status:         TaskProviderDispatchStatusAccepted,
 			ProviderTaskID: "ct-upstream-id",
+			TaskCandidate:  acceptedTaskCandidateForTest(op, attempt, "ct-upstream-id", 1000, ingressBillingContext(1000)),
 		}, nil
 	}
 
@@ -680,6 +811,7 @@ func TestTaskIngressService_ExecuteWrapper(t *testing.T) {
 			return &TaskProviderDispatchResult{
 				Status:         TaskProviderDispatchStatusAccepted,
 				ProviderTaskID: "wrapper-task-123",
+				TaskCandidate:  acceptedTaskCandidateForTest(op, attempt, "wrapper-task-123", 500, ingressBillingContext(500)),
 			}, nil
 		},
 	}
@@ -688,4 +820,92 @@ func TestTaskIngressService_ExecuteWrapper(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	assert.Equal(t, "accepted", res.Response.Status)
+}
+
+func TestExecuteTaskIngress_InitialQuotaClampRejectsBeforeIntentAndDispatch(t *testing.T) {
+	db := setupTaskIngressTestDB(t)
+	user, token := createIngressUserAndToken(t, db, 1000)
+	dispatchCount := 0
+	clamp := &common.QuotaClamp{Op: "QuotaFromFloat", Kind: common.QuotaClampOverflow, Original: 1e30, Clamped: common.MaxQuota}
+
+	result, err := ExecuteTaskIngress(context.Background(), TaskIngressRequest{
+		UserID: user.Id, TokenID: token.Id, ChannelID: 10, Provider: "test",
+		OperationKind: model.TaskSubmissionOperationKindVideoCreate, HTTPMethod: http.MethodPost,
+		Header: http.Header{"Idempotency-Key": []string{"clamp-before-intent"}}, ContentType: "application/json",
+		Body: []byte(`{"prompt":"oversized"}`), EstimatedQuota: common.MaxQuota, InitialQuotaClamp: clamp,
+		Dispatcher: func(context.Context, *model.TaskSubmissionOperation, *model.TaskSubmissionAttempt) (*TaskProviderDispatchResult, error) {
+			dispatchCount++
+			return nil, nil
+		}, DB: db,
+	})
+	require.ErrorIs(t, err, clamp)
+	assert.Nil(t, result)
+	assert.Zero(t, dispatchCount)
+
+	var operationCount, receiptCount int64
+	require.NoError(t, db.Model(&model.TaskSubmissionOperation{}).Count(&operationCount).Error)
+	require.NoError(t, db.Model(&model.QuotaMutationReceipt{}).Count(&receiptCount).Error)
+	assert.Zero(t, operationCount)
+	assert.Zero(t, receiptCount)
+}
+
+func TestExecuteTaskIngress_SubscriptionZeroQuotaDistinguishesFreeModel(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		free         bool
+		wantReserved int64
+	}{
+		{name: "nonfree_truncation_reserves_one", free: false, wantReserved: 1},
+		{name: "true_free_reserves_zero", free: true, wantReserved: 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db := setupTaskIngressTestDB(t)
+			user, token := createIngressUserAndToken(t, db, 0)
+			require.NoError(t, db.Model(&token).Updates(map[string]interface{}{"remain_quota": 1}).Error)
+			user.SetSetting(relaykitdto.UserSetting{BillingPreference: "subscription_only"})
+			require.NoError(t, db.Model(&user).Update("setting", user.Setting).Error)
+			plan := model.SubscriptionPlan{Title: "zero", Enabled: true, TotalAmount: 10, DurationUnit: "month", DurationValue: 1}
+			require.NoError(t, db.Create(&plan).Error)
+			sub := model.UserSubscription{UserId: user.Id, PlanId: plan.Id, AmountTotal: 10, Status: "active", EndTime: 1<<31 - 1, AllowWalletOverflow: true}
+			require.NoError(t, db.Create(&sub).Error)
+			billingContext := ingressBillingContext(0)
+			result, err := ExecuteTaskIngress(context.Background(), TaskIngressRequest{
+				UserID: user.Id, TokenID: token.Id, ChannelID: 10, Provider: "test", OperationKind: model.TaskSubmissionOperationKindVideoCreate,
+				HTTPMethod: http.MethodPost, Header: http.Header{"Idempotency-Key": []string{"zero-" + tc.name}}, ContentType: "application/json",
+				Body: []byte(`{"prompt":"zero"}`), EstimatedQuota: 0, FreeModel: tc.free, BillingContext: billingContext, DB: db,
+				Dispatcher: func(_ context.Context, op *model.TaskSubmissionOperation, attempt *model.TaskSubmissionAttempt) (*TaskProviderDispatchResult, error) {
+					return &TaskProviderDispatchResult{Status: TaskProviderDispatchStatusAccepted, ProviderTaskID: "zero-upstream", TaskCandidate: acceptedTaskCandidateForTest(op, attempt, "zero-upstream", int(tc.wantReserved), billingContext)}, nil
+				},
+			})
+			require.NoError(t, err)
+			op, err := model.GetTaskSubmissionOperationByPublicID(db, result.Response.ID)
+			require.NoError(t, err)
+			var receipt model.QuotaMutationReceipt
+			require.NoError(t, db.Where("operation_id = ? AND mutation_type = ?", op.ID, model.TaskBillingEventTypeReserve).First(&receipt).Error)
+			assert.Equal(t, tc.wantReserved, receipt.Quota)
+			assert.Equal(t, int64(0), receipt.EstimatedQuota)
+			assert.Equal(t, tc.free, receipt.FreeModel)
+			var updatedToken model.Token
+			var updatedSub model.UserSubscription
+			require.NoError(t, db.First(&updatedToken, token.Id).Error)
+			require.NoError(t, db.First(&updatedSub, sub.Id).Error)
+			assert.Equal(t, 1-int(tc.wantReserved), updatedToken.RemainQuota)
+			assert.Equal(t, tc.wantReserved, updatedSub.AmountUsed)
+			if !tc.free {
+				oldDB := model.DB
+				model.DB = db
+				t.Cleanup(func() { model.DB = oldDB })
+				var task model.Task
+				require.NoError(t, db.First(&task, *op.TaskID).Error)
+				assert.Zero(t, task.Quota)
+				settleTaskBillingOnComplete(context.Background(), &mockAdaptor{adjustReturn: 0}, &task, &relaycommon.TaskInfo{Status: model.TaskStatusSuccess})
+				require.NoError(t, db.First(&updatedToken, token.Id).Error)
+				require.NoError(t, db.First(&updatedSub, sub.Id).Error)
+				require.NoError(t, db.First(&task, task.ID).Error)
+				assert.Equal(t, 1, updatedToken.RemainQuota)
+				assert.Zero(t, updatedSub.AmountUsed)
+				assert.Zero(t, task.Quota)
+			}
+		})
+	}
 }

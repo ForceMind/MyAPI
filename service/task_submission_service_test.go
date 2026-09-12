@@ -10,6 +10,7 @@ import (
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
+	relaykitdto "github.com/ForceMind/MyAPI/relaykit/dto"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,6 +33,7 @@ func setupTaskSubmissionTestDB(t *testing.T) *gorm.DB {
 	err = db.AutoMigrate(
 		&model.User{},
 		&model.Token{},
+		&model.SubscriptionPlan{},
 		&model.UserSubscription{},
 		&model.Task{},
 		&model.TaskRecoveryIdentity{},
@@ -108,9 +110,45 @@ func newTaskSubmissionTestFixture(t *testing.T, db *gorm.DB, label string, userQ
 	}
 }
 
+func acceptedTaskCandidateForTest(op *model.TaskSubmissionOperation, attempt *model.TaskSubmissionAttempt, providerTaskID string, quota int, billingContext model.TaskBillingContext) *model.Task {
+	_ = quota
+	contextCopy := billingContext
+	return &model.Task{
+		TaskID:     op.PublicID,
+		Platform:   "test",
+		UserId:     op.UserID,
+		Group:      "default",
+		ChannelId:  attempt.ChannelID,
+		Quota:      TaskInitialQuota(op.BillingVersion, op.EstimatedQuota, op.ReservedQuota),
+		Action:     "video.create",
+		Status:     model.TaskStatusNotStart,
+		SubmitTime: common.GetTimestamp(),
+		Progress:   "0%",
+		PrivateData: model.TaskPrivateData{
+			UpstreamTaskID:    providerTaskID,
+			BillingPreference: op.BillingPreference,
+			BillingSource:     op.BillingSource,
+			FreeModel:         op.FreeModel,
+			SubscriptionId:    op.SubscriptionID,
+			TokenId:           op.TokenID,
+			NodeName:          "test-node",
+			BillingContext:    &contextCopy,
+		},
+	}
+}
+
 func TestTaskSubmissionPipeline_Accepted(t *testing.T) {
 	db := setupTaskSubmissionTestDB(t)
 	fixture := newTaskSubmissionTestFixture(t, db, "accepted", 1000, 500)
+	billingContext := model.TaskBillingContext{
+		Version:         model.TaskBillingContextVersion,
+		Complete:        true,
+		ModelPrice:      1,
+		ModelRatio:      1,
+		GroupRatio:      1,
+		OriginModelName: "test-model",
+		PerCallBilling:  true,
+	}
 
 	dispatcherCalled := false
 	dispatcher := func(ctx context.Context, op *model.TaskSubmissionOperation, attempt *model.TaskSubmissionAttempt) (*TaskProviderDispatchResult, error) {
@@ -120,6 +158,7 @@ func TestTaskSubmissionPipeline_Accepted(t *testing.T) {
 		return &TaskProviderDispatchResult{
 			Status:         TaskProviderDispatchStatusAccepted,
 			ProviderTaskID: "provider-upstream-task-999",
+			TaskCandidate:  acceptedTaskCandidateForTest(op, attempt, "provider-upstream-task-999", 100, billingContext),
 		}, nil
 	}
 
@@ -132,15 +171,7 @@ func TestTaskSubmissionPipeline_Accepted(t *testing.T) {
 		ChannelID:      fixture.Attempt.ChannelID,
 		Quota:          100,
 		BillingSource:  "wallet",
-		BillingContext: model.TaskBillingContext{
-			Version:         model.TaskBillingContextVersion,
-			Complete:        true,
-			ModelPrice:      1,
-			ModelRatio:      1,
-			GroupRatio:      1,
-			OriginModelName: "test-model",
-			PerCallBilling:  true,
-		},
+		BillingContext: billingContext,
 		Dispatcher:     dispatcher,
 	}
 
@@ -174,7 +205,7 @@ func TestTaskSubmissionPipeline_Accepted(t *testing.T) {
 	require.NoError(t, db.First(&formalTask, *result.Operation.TaskID).Error)
 	assert.Equal(t, fixture.Operation.PublicID, formalTask.TaskID)
 	assert.Equal(t, fixture.User.Id, formalTask.UserId)
-	assert.Equal(t, model.TaskStatus(model.TaskStatusSubmitted), formalTask.Status)
+	assert.Equal(t, model.TaskStatusNotStart, formalTask.Status)
 }
 
 func TestTaskSubmissionPipeline_Rejected(t *testing.T) {
@@ -194,14 +225,14 @@ func TestTaskSubmissionPipeline_Rejected(t *testing.T) {
 	}
 
 	input := TaskSubmissionPipelineInput{
-		DB:             db,
-		OperationID:    fixture.Operation.ID,
-		AttemptID:      fixture.Attempt.ID,
-		UserID:         fixture.User.Id,
-		TokenID:        fixture.Token.Id,
-		ChannelID:      fixture.Attempt.ChannelID,
-		Quota:          100,
-		BillingSource:  "wallet",
+		DB:            db,
+		OperationID:   fixture.Operation.ID,
+		AttemptID:     fixture.Attempt.ID,
+		UserID:        fixture.User.Id,
+		TokenID:       fixture.Token.Id,
+		ChannelID:     fixture.Attempt.ChannelID,
+		Quota:         100,
+		BillingSource: "wallet",
 		BillingContext: model.TaskBillingContext{
 			Version:         model.TaskBillingContextVersion,
 			Complete:        true,
@@ -211,7 +242,7 @@ func TestTaskSubmissionPipeline_Rejected(t *testing.T) {
 			OriginModelName: "test-model",
 			PerCallBilling:  true,
 		},
-		Dispatcher:     dispatcher,
+		Dispatcher: dispatcher,
 	}
 
 	result, err := ExecuteTaskSubmissionPipeline(context.Background(), input)
@@ -257,14 +288,14 @@ func TestTaskSubmissionPipeline_Unknown_ExplicitStatus(t *testing.T) {
 	}
 
 	input := TaskSubmissionPipelineInput{
-		DB:             db,
-		OperationID:    fixture.Operation.ID,
-		AttemptID:      fixture.Attempt.ID,
-		UserID:         fixture.User.Id,
-		TokenID:        fixture.Token.Id,
-		ChannelID:      fixture.Attempt.ChannelID,
-		Quota:          100,
-		BillingSource:  "wallet",
+		DB:            db,
+		OperationID:   fixture.Operation.ID,
+		AttemptID:     fixture.Attempt.ID,
+		UserID:        fixture.User.Id,
+		TokenID:       fixture.Token.Id,
+		ChannelID:     fixture.Attempt.ChannelID,
+		Quota:         100,
+		BillingSource: "wallet",
 		BillingContext: model.TaskBillingContext{
 			Version:         model.TaskBillingContextVersion,
 			Complete:        true,
@@ -274,7 +305,7 @@ func TestTaskSubmissionPipeline_Unknown_ExplicitStatus(t *testing.T) {
 			OriginModelName: "test-model",
 			PerCallBilling:  true,
 		},
-		Dispatcher:     dispatcher,
+		Dispatcher: dispatcher,
 	}
 
 	result, err := ExecuteTaskSubmissionPipeline(context.Background(), input)
@@ -313,14 +344,14 @@ func TestTaskSubmissionPipeline_Unknown_NetworkError(t *testing.T) {
 	}
 
 	input := TaskSubmissionPipelineInput{
-		DB:             db,
-		OperationID:    fixture.Operation.ID,
-		AttemptID:      fixture.Attempt.ID,
-		UserID:         fixture.User.Id,
-		TokenID:        fixture.Token.Id,
-		ChannelID:      fixture.Attempt.ChannelID,
-		Quota:          100,
-		BillingSource:  "wallet",
+		DB:            db,
+		OperationID:   fixture.Operation.ID,
+		AttemptID:     fixture.Attempt.ID,
+		UserID:        fixture.User.Id,
+		TokenID:       fixture.Token.Id,
+		ChannelID:     fixture.Attempt.ChannelID,
+		Quota:         100,
+		BillingSource: "wallet",
 		BillingContext: model.TaskBillingContext{
 			Version:         model.TaskBillingContextVersion,
 			Complete:        true,
@@ -330,7 +361,7 @@ func TestTaskSubmissionPipeline_Unknown_NetworkError(t *testing.T) {
 			OriginModelName: "test-model",
 			PerCallBilling:  true,
 		},
-		Dispatcher:     dispatcher,
+		Dispatcher: dispatcher,
 	}
 
 	result, err := ExecuteTaskSubmissionPipeline(context.Background(), input)
@@ -363,14 +394,14 @@ func TestTaskSubmissionPipeline_ReserveFailure_InsufficientQuota(t *testing.T) {
 	}
 
 	input := TaskSubmissionPipelineInput{
-		DB:             db,
-		OperationID:    fixture.Operation.ID,
-		AttemptID:      fixture.Attempt.ID,
-		UserID:         fixture.User.Id,
-		TokenID:        fixture.Token.Id,
-		ChannelID:      fixture.Attempt.ChannelID,
-		Quota:          100,
-		BillingSource:  "wallet",
+		DB:            db,
+		OperationID:   fixture.Operation.ID,
+		AttemptID:     fixture.Attempt.ID,
+		UserID:        fixture.User.Id,
+		TokenID:       fixture.Token.Id,
+		ChannelID:     fixture.Attempt.ChannelID,
+		Quota:         100,
+		BillingSource: "wallet",
 		BillingContext: model.TaskBillingContext{
 			Version:         model.TaskBillingContextVersion,
 			Complete:        true,
@@ -380,7 +411,7 @@ func TestTaskSubmissionPipeline_ReserveFailure_InsufficientQuota(t *testing.T) {
 			OriginModelName: "test-model",
 			PerCallBilling:  true,
 		},
-		Dispatcher:     dispatcher,
+		Dispatcher: dispatcher,
 	}
 
 	result, err := ExecuteTaskSubmissionPipeline(context.Background(), input)
@@ -444,6 +475,10 @@ func TestTaskSubmissionService_ExecuteWrapper(t *testing.T) {
 	fixture := newTaskSubmissionTestFixture(t, db, "service-wrapper", 1000, 500)
 
 	svc := NewTaskSubmissionService(db)
+	billingContext := model.TaskBillingContext{
+		Version: model.TaskBillingContextVersion, Complete: true, ModelPrice: 1,
+		ModelRatio: 1, GroupRatio: 1, OriginModelName: "test-model", PerCallBilling: true,
+	}
 	result, err := svc.Execute(context.Background(), TaskSubmissionPipelineInput{
 		OperationID:    fixture.Operation.ID,
 		AttemptID:      fixture.Attempt.ID,
@@ -452,19 +487,12 @@ func TestTaskSubmissionService_ExecuteWrapper(t *testing.T) {
 		ChannelID:      fixture.Attempt.ChannelID,
 		Quota:          100,
 		BillingSource:  "wallet",
-		BillingContext: model.TaskBillingContext{
-			Version:         model.TaskBillingContextVersion,
-			Complete:        true,
-			ModelPrice:      1,
-			ModelRatio:      1,
-			GroupRatio:      1,
-			OriginModelName: "test-model",
-			PerCallBilling:  true,
-		},
+		BillingContext: billingContext,
 		Dispatcher: func(ctx context.Context, op *model.TaskSubmissionOperation, attempt *model.TaskSubmissionAttempt) (*TaskProviderDispatchResult, error) {
 			return &TaskProviderDispatchResult{
 				Status:         TaskProviderDispatchStatusAccepted,
 				ProviderTaskID: "wrapper-task-id",
+				TaskCandidate:  acceptedTaskCandidateForTest(op, attempt, "wrapper-task-id", 100, billingContext),
 			}, nil
 		},
 	})
@@ -488,14 +516,14 @@ func TestTaskSubmissionPipeline_ContextTimeoutFailClosed(t *testing.T) {
 	}
 
 	result, err := ExecuteTaskSubmissionPipeline(ctx, TaskSubmissionPipelineInput{
-		DB:             db,
-		OperationID:    fixture.Operation.ID,
-		AttemptID:      fixture.Attempt.ID,
-		UserID:         fixture.User.Id,
-		TokenID:        fixture.Token.Id,
-		ChannelID:      fixture.Attempt.ChannelID,
-		Quota:          100,
-		BillingSource:  "wallet",
+		DB:            db,
+		OperationID:   fixture.Operation.ID,
+		AttemptID:     fixture.Attempt.ID,
+		UserID:        fixture.User.Id,
+		TokenID:       fixture.Token.Id,
+		ChannelID:     fixture.Attempt.ChannelID,
+		Quota:         100,
+		BillingSource: "wallet",
 		BillingContext: model.TaskBillingContext{
 			Version:         model.TaskBillingContextVersion,
 			Complete:        true,
@@ -561,6 +589,10 @@ func TestTaskSubmissionPipeline_ZeroQuota(t *testing.T) {
 	db := setupTaskSubmissionTestDB(t)
 	fixture := newTaskSubmissionTestFixture(t, db, "zero-quota-pipe", 1000, 500)
 
+	billingContext := model.TaskBillingContext{
+		Version: model.TaskBillingContextVersion, Complete: true, ModelPrice: 0,
+		ModelRatio: 1, GroupRatio: 1, OriginModelName: "free-model", PerCallBilling: true,
+	}
 	result, err := ExecuteTaskSubmissionPipeline(context.Background(), TaskSubmissionPipelineInput{
 		DB:             db,
 		OperationID:    fixture.Operation.ID,
@@ -569,20 +601,14 @@ func TestTaskSubmissionPipeline_ZeroQuota(t *testing.T) {
 		TokenID:        fixture.Token.Id,
 		ChannelID:      fixture.Attempt.ChannelID,
 		Quota:          0, // Free model
+		FreeModel:      true,
 		BillingSource:  "wallet",
-		BillingContext: model.TaskBillingContext{
-			Version:         model.TaskBillingContextVersion,
-			Complete:        true,
-			ModelPrice:      0,
-			ModelRatio:      1,
-			GroupRatio:      1,
-			OriginModelName: "free-model",
-			PerCallBilling:  true,
-		},
+		BillingContext: billingContext,
 		Dispatcher: func(ctx context.Context, op *model.TaskSubmissionOperation, attempt *model.TaskSubmissionAttempt) (*TaskProviderDispatchResult, error) {
 			return &TaskProviderDispatchResult{
 				Status:         TaskProviderDispatchStatusAccepted,
 				ProviderTaskID: "free-task-1",
+				TaskCandidate:  acceptedTaskCandidateForTest(op, attempt, "free-task-1", 0, billingContext),
 			}, nil
 		},
 	})
@@ -638,4 +664,251 @@ func TestTaskSubmissionPipeline_Subscription(t *testing.T) {
 	var checkSub model.UserSubscription
 	require.NoError(t, db.First(&checkSub, sub.Id).Error)
 	assert.Equal(t, int64(100), checkSub.AmountUsed, "subscription amount_used should be restored to initial 100")
+}
+
+func TestTaskSubmissionPipeline_AcceptedWithoutCompleteTaskCandidateBecomesUnknown(t *testing.T) {
+	db := setupTaskSubmissionTestDB(t)
+	fixture := newTaskSubmissionTestFixture(t, db, "accepted-missing-task", 1000, 500)
+	billingContext := model.TaskBillingContext{
+		Version: model.TaskBillingContextVersion, Complete: true, ModelPrice: 1,
+		ModelRatio: 1, GroupRatio: 1, OriginModelName: "test-model", PerCallBilling: true,
+	}
+
+	result, err := ExecuteTaskSubmissionPipeline(context.Background(), TaskSubmissionPipelineInput{
+		DB: db, OperationID: fixture.Operation.ID, AttemptID: fixture.Attempt.ID,
+		UserID: fixture.User.Id, TokenID: fixture.Token.Id, ChannelID: fixture.Attempt.ChannelID,
+		Quota: 100, BillingSource: "wallet", BillingContext: billingContext,
+		Dispatcher: func(context.Context, *model.TaskSubmissionOperation, *model.TaskSubmissionAttempt) (*TaskProviderDispatchResult, error) {
+			return &TaskProviderDispatchResult{
+				Status: TaskProviderDispatchStatusAccepted, ProviderTaskID: "missing-candidate-upstream",
+			}, nil
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, TaskProviderDispatchStatusUnknown, result.DispatchResult.Status)
+	assert.Equal(t, "invalid_task_candidate", result.DispatchResult.ErrorCode)
+	assert.Equal(t, model.TaskSubmissionOperationStatusSubmissionUnknown, result.Operation.Status)
+	assert.Equal(t, model.TaskSubmissionAttemptStatusSubmissionUnknown, result.Attempt.Status)
+	assert.Nil(t, result.Operation.TaskID)
+
+	var count int64
+	require.NoError(t, db.Model(&model.Task{}).Count(&count).Error)
+	assert.Zero(t, count)
+}
+
+func TestTaskSubmissionPipeline_TaskInsertFailureBecomesUnknown(t *testing.T) {
+	db := setupTaskSubmissionTestDB(t)
+	fixture := newTaskSubmissionTestFixture(t, db, "accepted-task-insert-failure", 1000, 500)
+	billingContext := model.TaskBillingContext{
+		Version: model.TaskBillingContextVersion, Complete: true, ModelPrice: 1,
+		ModelRatio: 1, GroupRatio: 1, OriginModelName: "test-model", PerCallBilling: true,
+	}
+	require.NoError(t, db.Callback().Create().Before("gorm:create").Register("test:reject-formal-task-create", func(tx *gorm.DB) {
+		if tx.Statement != nil && tx.Statement.Schema != nil && tx.Statement.Schema.Table == "tasks" {
+			tx.AddError(errors.New("injected task insert failure"))
+		}
+	}))
+
+	result, err := ExecuteTaskSubmissionPipeline(context.Background(), TaskSubmissionPipelineInput{
+		DB: db, OperationID: fixture.Operation.ID, AttemptID: fixture.Attempt.ID,
+		UserID: fixture.User.Id, TokenID: fixture.Token.Id, ChannelID: fixture.Attempt.ChannelID,
+		Quota: 100, BillingSource: "wallet", BillingContext: billingContext,
+		Dispatcher: func(_ context.Context, op *model.TaskSubmissionOperation, attempt *model.TaskSubmissionAttempt) (*TaskProviderDispatchResult, error) {
+			return &TaskProviderDispatchResult{
+				Status: TaskProviderDispatchStatusAccepted, ProviderTaskID: "insert-failure-upstream",
+				TaskCandidate: acceptedTaskCandidateForTest(op, attempt, "insert-failure-upstream", 100, billingContext),
+			}, nil
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, TaskProviderDispatchStatusUnknown, result.DispatchResult.Status)
+	assert.Equal(t, "task_create_failed", result.DispatchResult.ErrorCode)
+	assert.Equal(t, model.TaskSubmissionOperationStatusSubmissionUnknown, result.Operation.Status)
+	assert.Equal(t, model.TaskSubmissionAttemptStatusSubmissionUnknown, result.Attempt.Status)
+	assert.Nil(t, result.Operation.TaskID)
+
+	var count int64
+	require.NoError(t, db.Model(&model.Task{}).Count(&count).Error)
+	assert.Zero(t, count)
+	assert.Equal(t, "test", result.Attempt.TaskPlatform)
+	assert.Equal(t, "video.create", result.Attempt.TaskAction)
+
+	require.NoError(t, db.Callback().Create().Remove("test:reject-formal-task-create"))
+	recovered, err := ResolveOperationProviderVerified(context.Background(), ProviderVerifiedResolutionInput{
+		DB: db, OperationID: result.Operation.ID, ProviderStatus: TaskProviderDispatchStatusAccepted,
+		ProviderOperationID: "insert-failure-upstream",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, recovered.Task)
+	assert.Equal(t, "insert-failure-upstream", recovered.Task.PrivateData.UpstreamTaskID)
+	assert.Equal(t, "video.create", recovered.Task.Action)
+	require.NotNil(t, recovered.Task.PrivateData.BillingContext)
+	_, err = model.SettleTaskQuotaReservation(db, model.TaskQuotaSettlementInput{
+		OperationID: recovered.Operation.ID, UserID: fixture.User.Id, TokenID: fixture.Token.Id, ChannelID: fixture.Attempt.ChannelID,
+		ExpectedOperationVersion: recovered.Operation.LockVersion, ActualQuota: 0, ReasonCode: "recovered-complete",
+		BillingContext: *recovered.Task.PrivateData.BillingContext, TargetOperationStatus: model.TaskSubmissionOperationStatusSucceeded,
+	})
+	require.NoError(t, err)
+}
+
+func TestTaskSubmissionPipeline_AutomaticSubscriptionEligibilityEdges(t *testing.T) {
+	t.Run("due reset restores quota before selection", func(t *testing.T) {
+		db := setupTaskSubmissionTestDB(t)
+		fixture := newTaskSubmissionTestFixture(t, db, "reset-enough", 0, 100)
+		user := fixture.User
+		user.SetSetting(relaykitdto.UserSetting{BillingPreference: "subscription_only"})
+		require.NoError(t, db.Model(&user).Update("setting", user.Setting).Error)
+		plan := model.SubscriptionPlan{Title: "daily", Enabled: true, TotalAmount: 100, DurationUnit: "month", DurationValue: 1, QuotaResetPeriod: model.SubscriptionResetDaily}
+		require.NoError(t, db.Create(&plan).Error)
+		sub := model.UserSubscription{UserId: user.Id, PlanId: plan.Id, AmountTotal: 100, AmountUsed: 100, Status: "active", EndTime: 1<<31 - 1, LastResetTime: 1, NextResetTime: 1, AllowWalletOverflow: true}
+		require.NoError(t, db.Create(&sub).Error)
+		result, err := ExecuteTaskSubmissionPipeline(context.Background(), TaskSubmissionPipelineInput{
+			DB: db, OperationID: fixture.Operation.ID, AttemptID: fixture.Attempt.ID, UserID: user.Id, TokenID: fixture.Token.Id,
+			ChannelID: fixture.Attempt.ChannelID, Quota: 50, BillingContext: ingressBillingContext(50),
+			Dispatcher: func(context.Context, *model.TaskSubmissionOperation, *model.TaskSubmissionAttempt) (*TaskProviderDispatchResult, error) {
+				return &TaskProviderDispatchResult{Status: TaskProviderDispatchStatusUnknown}, nil
+			},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "subscription", result.ReserveReceipt.BillingSource)
+		require.NoError(t, db.First(&sub, sub.Id).Error)
+		assert.Equal(t, int64(50), sub.AmountUsed)
+	})
+
+	t.Run("due reset remains insufficient", func(t *testing.T) {
+		db := setupTaskSubmissionTestDB(t)
+		fixture := newTaskSubmissionTestFixture(t, db, "reset-insufficient", 0, 100)
+		user := fixture.User
+		user.SetSetting(relaykitdto.UserSetting{BillingPreference: "subscription_only"})
+		require.NoError(t, db.Model(&user).Update("setting", user.Setting).Error)
+		plan := model.SubscriptionPlan{Title: "daily-small", Enabled: true, TotalAmount: 10, DurationUnit: "month", DurationValue: 1, QuotaResetPeriod: model.SubscriptionResetDaily}
+		require.NoError(t, db.Create(&plan).Error)
+		sub := model.UserSubscription{UserId: user.Id, PlanId: plan.Id, AmountTotal: 10, AmountUsed: 10, Status: "active", EndTime: 1<<31 - 1, LastResetTime: 1, NextResetTime: 1, AllowWalletOverflow: true}
+		require.NoError(t, db.Create(&sub).Error)
+		dispatched := false
+		_, err := ExecuteTaskSubmissionPipeline(context.Background(), TaskSubmissionPipelineInput{
+			DB: db, OperationID: fixture.Operation.ID, AttemptID: fixture.Attempt.ID, UserID: user.Id, TokenID: fixture.Token.Id,
+			ChannelID: fixture.Attempt.ChannelID, Quota: 50, BillingContext: ingressBillingContext(50),
+			Dispatcher: func(context.Context, *model.TaskSubmissionOperation, *model.TaskSubmissionAttempt) (*TaskProviderDispatchResult, error) {
+				dispatched = true
+				return nil, nil
+			},
+		})
+		require.ErrorIs(t, err, model.ErrTaskQuotaReservationInsufficientQuota)
+		assert.False(t, dispatched)
+		require.NoError(t, db.First(&sub, sub.Id).Error)
+		assert.Equal(t, int64(10), sub.AmountUsed, "failed reservation rolls back the reset with the transaction")
+	})
+
+	for _, tc := range []struct {
+		name          string
+		createSub     bool
+		allowOverflow bool
+		wallet        int
+		wantSource    string
+		wantErr       bool
+	}{
+		{name: "no subscription falls back to wallet", wallet: 100, wantSource: "wallet"},
+		{name: "insufficient subscription allows wallet overflow", createSub: true, allowOverflow: true, wallet: 100, wantSource: "wallet"},
+		{name: "insufficient subscription blocks wallet overflow", createSub: true, allowOverflow: false, wallet: 100, wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db := setupTaskSubmissionTestDB(t)
+			fixture := newTaskSubmissionTestFixture(t, db, tc.name, tc.wallet, 100)
+			user := fixture.User
+			user.SetSetting(relaykitdto.UserSetting{BillingPreference: "subscription_first"})
+			require.NoError(t, db.Model(&user).Update("setting", user.Setting).Error)
+			if tc.createSub {
+				plan := model.SubscriptionPlan{Title: "small", Enabled: true, TotalAmount: 10, DurationUnit: "month", DurationValue: 1}
+				require.NoError(t, db.Create(&plan).Error)
+				require.NoError(t, db.Create(&model.UserSubscription{UserId: user.Id, PlanId: plan.Id, AmountTotal: 10, Status: "active", EndTime: 1<<31 - 1, AllowWalletOverflow: tc.allowOverflow}).Error)
+			}
+			dispatched := false
+			result, err := ExecuteTaskSubmissionPipeline(context.Background(), TaskSubmissionPipelineInput{
+				DB: db, OperationID: fixture.Operation.ID, AttemptID: fixture.Attempt.ID, UserID: user.Id, TokenID: fixture.Token.Id,
+				ChannelID: fixture.Attempt.ChannelID, Quota: 50, BillingContext: ingressBillingContext(50),
+				Dispatcher: func(context.Context, *model.TaskSubmissionOperation, *model.TaskSubmissionAttempt) (*TaskProviderDispatchResult, error) {
+					dispatched = true
+					return &TaskProviderDispatchResult{Status: TaskProviderDispatchStatusUnknown}, nil
+				},
+			})
+			if tc.wantErr {
+				require.ErrorIs(t, err, model.ErrTaskQuotaReservationInsufficientQuota)
+				assert.False(t, dispatched)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantSource, result.ReserveReceipt.BillingSource)
+		})
+	}
+}
+
+func TestTaskSubmissionPipeline_T3CASFailureRollsBackTaskInsert(t *testing.T) {
+	for _, table := range []string{"task_submission_attempts", "task_submission_operations"} {
+		t.Run(table, func(t *testing.T) {
+			db := setupTaskSubmissionTestDB(t)
+			fixture := newTaskSubmissionTestFixture(t, db, "t3-rollback-"+table, 1000, 500)
+			billingContext := ingressBillingContext(100)
+			_, err := ExecuteTaskSubmissionPipeline(context.Background(), TaskSubmissionPipelineInput{
+				DB: db, OperationID: fixture.Operation.ID, AttemptID: fixture.Attempt.ID, UserID: fixture.User.Id, TokenID: fixture.Token.Id,
+				ChannelID: fixture.Attempt.ChannelID, Quota: 100, BillingSource: "wallet", BillingContext: billingContext,
+				Dispatcher: func(_ context.Context, op *model.TaskSubmissionOperation, attempt *model.TaskSubmissionAttempt) (*TaskProviderDispatchResult, error) {
+					identifier := attempt.ID
+					if table == "task_submission_operations" {
+						identifier = op.ID
+					}
+					require.NoError(t, db.Exec("UPDATE "+table+" SET lock_version = lock_version + 1 WHERE id = ?", identifier).Error)
+					return &TaskProviderDispatchResult{Status: TaskProviderDispatchStatusAccepted, ProviderTaskID: "t3-upstream", TaskCandidate: acceptedTaskCandidateForTest(op, attempt, "t3-upstream", 100, billingContext)}, nil
+				},
+			})
+			require.Error(t, err)
+			var count int64
+			require.NoError(t, db.Model(&model.Task{}).Count(&count).Error)
+			assert.Zero(t, count)
+		})
+	}
+}
+
+func TestTaskSubmissionPipeline_TrueFreeBypassesFundingEligibility(t *testing.T) {
+	for _, brokenSubscription := range []bool{false, true} {
+		name := "no_subscription"
+		if brokenSubscription {
+			name = "exhausted_missing_plan_pending_reset"
+		}
+		t.Run(name, func(t *testing.T) {
+			db := setupTaskSubmissionTestDB(t)
+			fixture := newTaskSubmissionTestFixture(t, db, "free-bypass-"+name, 0, 0)
+			user := fixture.User
+			user.SetSetting(relaykitdto.UserSetting{BillingPreference: "subscription_only"})
+			require.NoError(t, db.Model(&user).Update("setting", user.Setting).Error)
+			var sub model.UserSubscription
+			if brokenSubscription {
+				sub = model.UserSubscription{UserId: user.Id, PlanId: 999999, AmountTotal: 10, AmountUsed: 10, Status: "active", EndTime: 1<<31 - 1, NextResetTime: 1, AllowWalletOverflow: false}
+				require.NoError(t, db.Create(&sub).Error)
+			}
+			result, err := ExecuteTaskSubmissionPipeline(context.Background(), TaskSubmissionPipelineInput{
+				DB: db, OperationID: fixture.Operation.ID, AttemptID: fixture.Attempt.ID, UserID: user.Id, TokenID: fixture.Token.Id,
+				ChannelID: fixture.Attempt.ChannelID, Quota: 0, FreeModel: true, BillingContext: ingressBillingContext(0),
+				Dispatcher: func(context.Context, *model.TaskSubmissionOperation, *model.TaskSubmissionAttempt) (*TaskProviderDispatchResult, error) {
+					return &TaskProviderDispatchResult{Status: TaskProviderDispatchStatusUnknown}, nil
+				},
+			})
+			require.NoError(t, err)
+			assert.Equal(t, int64(0), result.ReserveReceipt.Quota)
+			assert.Equal(t, "wallet_only", result.ReserveReceipt.BillingPreference)
+			assert.Equal(t, "wallet", result.ReserveReceipt.BillingSource)
+			assert.Zero(t, result.ReserveReceipt.SubscriptionID)
+			var token model.Token
+			require.NoError(t, db.First(&token, fixture.Token.Id).Error)
+			assert.Zero(t, token.RemainQuota)
+			if brokenSubscription {
+				var unchanged model.UserSubscription
+				require.NoError(t, db.First(&unchanged, sub.Id).Error)
+				assert.Equal(t, int64(10), unchanged.AmountUsed)
+				assert.Equal(t, int64(1), unchanged.NextResetTime)
+			}
+		})
+	}
 }

@@ -1316,6 +1316,41 @@ func maybeResetUserSubscriptionWithPlanTx(tx *gorm.DB, sub *UserSubscription, pl
 	return tx.Save(sub).Error
 }
 
+// selectActiveUserSubscriptionForPreConsumeTx is the shared transaction-scoped
+// subscription eligibility boundary used by legacy and durable pre-consume.
+// It preserves the historical active/end_time query and applies due plan resets
+// before deciding whether a subscription can cover amount.
+func selectActiveUserSubscriptionForPreConsumeTx(tx *gorm.DB, userID int, amount int64, now int64) (*UserSubscription, bool, bool, error) {
+	if tx == nil || userID <= 0 || amount < 0 {
+		return nil, false, false, errors.New("invalid subscription eligibility input")
+	}
+	var subscriptions []UserSubscription
+	if err := lockForUpdate(tx).
+		Where("user_id = ? AND status = ? AND end_time > ?", userID, "active", now).
+		Order("end_time asc, id asc").Find(&subscriptions).Error; err != nil {
+		return nil, false, false, err
+	}
+	allowWalletOverflow := true
+	for index := range subscriptions {
+		subscription := &subscriptions[index]
+		if !subscription.AllowWalletOverflow {
+			allowWalletOverflow = false
+		}
+		plan, err := getSubscriptionPlanByIdTx(tx, subscription.PlanId)
+		if err != nil {
+			return nil, len(subscriptions) > 0, allowWalletOverflow, err
+		}
+		if err := maybeResetUserSubscriptionWithPlanTx(tx, subscription, plan, now); err != nil {
+			return nil, len(subscriptions) > 0, allowWalletOverflow, err
+		}
+		if subscription.AmountTotal == 0 || subscription.AmountUsed <= subscription.AmountTotal-amount {
+			selected := *subscription
+			return &selected, true, allowWalletOverflow, nil
+		}
+	}
+	return nil, len(subscriptions) > 0, allowWalletOverflow, nil
+}
+
 // PreConsumeUserSubscription pre-consumes from any active subscription total quota.
 func PreConsumeUserSubscription(requestId string, userId int, modelName string, quotaType int, amount int64) (*SubscriptionPreConsumeResult, error) {
 	if userId <= 0 {
@@ -1353,66 +1388,45 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			return nil
 		}
 
-		var subs []UserSubscription
-		if err := lockForUpdate(tx).
-			Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now).
-			Order("end_time asc, id asc").
-			Find(&subs).Error; err != nil {
+		sub, hasActive, _, err := selectActiveUserSubscriptionForPreConsumeTx(tx, userId, amount, now)
+		if err != nil {
 			return err
 		}
-		if len(subs) == 0 {
+		if !hasActive {
 			return errors.New("no active subscription")
 		}
-		for _, candidate := range subs {
-			sub := candidate
-			plan, err := getSubscriptionPlanByIdTx(tx, sub.PlanId)
-			if err != nil {
-				return err
-			}
-			if err := maybeResetUserSubscriptionWithPlanTx(tx, &sub, plan, now); err != nil {
-				return err
-			}
-			usedBefore := sub.AmountUsed
-			if sub.AmountTotal > 0 {
-				remain := sub.AmountTotal - usedBefore
-				if remain < amount {
-					continue
-				}
-			}
-			record := &SubscriptionPreConsumeRecord{
-				RequestId:          requestId,
-				UserId:             userId,
-				UserSubscriptionId: sub.Id,
-				PreConsumed:        amount,
-				Status:             "consumed",
-			}
-			if err := tx.Create(record).Error; err != nil {
-				var dup SubscriptionPreConsumeRecord
-				if err2 := tx.Where("request_id = ?", requestId).First(&dup).Error; err2 == nil {
-					if dup.Status == "refunded" {
-						return errors.New("subscription pre-consume already refunded")
-					}
-					returnValue.UserSubscriptionId = sub.Id
-					returnValue.PreConsumed = dup.PreConsumed
-					returnValue.AmountTotal = sub.AmountTotal
-					returnValue.AmountUsedBefore = sub.AmountUsed
-					returnValue.AmountUsedAfter = sub.AmountUsed
-					return nil
-				}
-				return err
-			}
-			sub.AmountUsed += amount
-			if err := tx.Save(&sub).Error; err != nil {
-				return err
-			}
-			returnValue.UserSubscriptionId = sub.Id
-			returnValue.PreConsumed = amount
-			returnValue.AmountTotal = sub.AmountTotal
-			returnValue.AmountUsedBefore = usedBefore
-			returnValue.AmountUsedAfter = sub.AmountUsed
-			return nil
+		if sub == nil {
+			return fmt.Errorf("subscription quota insufficient, need=%d", amount)
 		}
-		return fmt.Errorf("subscription quota insufficient, need=%d", amount)
+		usedBefore := sub.AmountUsed
+		record := &SubscriptionPreConsumeRecord{
+			RequestId: requestId, UserId: userId, UserSubscriptionId: sub.Id, PreConsumed: amount, Status: "consumed",
+		}
+		if err := tx.Create(record).Error; err != nil {
+			var dup SubscriptionPreConsumeRecord
+			if err2 := tx.Where("request_id = ?", requestId).First(&dup).Error; err2 == nil {
+				if dup.Status == "refunded" {
+					return errors.New("subscription pre-consume already refunded")
+				}
+				returnValue.UserSubscriptionId = sub.Id
+				returnValue.PreConsumed = dup.PreConsumed
+				returnValue.AmountTotal = sub.AmountTotal
+				returnValue.AmountUsedBefore = sub.AmountUsed
+				returnValue.AmountUsedAfter = sub.AmountUsed
+				return nil
+			}
+			return err
+		}
+		sub.AmountUsed += amount
+		if err := tx.Save(sub).Error; err != nil {
+			return err
+		}
+		returnValue.UserSubscriptionId = sub.Id
+		returnValue.PreConsumed = amount
+		returnValue.AmountTotal = sub.AmountTotal
+		returnValue.AmountUsedBefore = usedBefore
+		returnValue.AmountUsedAfter = sub.AmountUsed
+		return nil
 	})
 	if err != nil {
 		return nil, err
