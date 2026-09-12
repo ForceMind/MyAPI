@@ -753,7 +753,7 @@ ID / 名称 / 状态：未开始、进行中、待验证、审查未通过、已
 - D02（主库唯一可消费权威、Redis 可重建投影）与 D03（历史不明差异人工核查）已决定，但尚未切换或执行历史迁移。
 - 默认两个开关均关闭且没有 durable 历史数据时，这些发现不能描述为生产事故；M5 的共享 schema/cache 逻辑仍会生效，不能据此忽略修复和复验。
 
-### 当前独立复核发现与 Phase A / WP1、WP2-A-core 状态
+### 当前独立复核发现与 Phase A / WP1、WP2-A-entry 状态
 
 Phase A / WP1 历史记录保留：`da6a59a` 为代码基础，文档基础为 `ba80b8b`。P1-2 固定 wallet、P1-6 Task candidate 原子落库及恢复、P1-7 quota clamp 后拒绝上游请求已在该基础上落盘。
 
@@ -761,25 +761,25 @@ P1（必须先修复）：
 
 1. P1-1 Redis 投影缺失：未处理。
 2. P1-2 固定 wallet：已在 `da6a59a` 基础上落盘。
-3. P1-3 终态先落库后结算、失败后不可恢复：核心原子账务、terminal observation 与 recovery core 已在 `779901cf0a2f3a793980785ee6b5612fc58a575b` 落盘；核心完成、入口待收口，不能完整关闭。
-4. P1-4 统计漏记或出现负减：统计证据已在 `779901cf0a2f3a793980785ee6b5612fc58a575b` 落盘；核心完成、入口待收口，不能完整关闭。
-5. P1-5 Outbox 在事务外创建且错误被吞掉：三 mutation Outbox 已在 `779901cf0a2f3a793980785ee6b5612fc58a575b` 落盘；核心完成、入口待收口，不能完整关闭。
+3. P1-3 终态先落库后结算、失败后不可恢复：完整 durable 范围已在 WP2-A-core `779901cf0a2f3a793980785ee6b5612fc58a575b` 和 WP2-A-entry `f9bd6c04b1153390d2d9a0e423480925dc4e5c9d` 落盘，覆盖 core 与全部 polling/realtime terminal 入口。
+4. P1-4 统计漏记或出现负减：完整 durable 范围已在上述 WP2-A-core/WP2-A-entry 落盘。
+5. P1-5 Outbox 在事务外创建且错误被吞掉：完整 durable 范围已在上述 WP2-A-core/WP2-A-entry 落盘。
 6. P1-6 Task candidate 非原子落库及恢复不完整：已在 `da6a59a` 基础上落盘。
 7. P1-7 quota clamp 后仍继续请求上游：已在 `da6a59a` 基础上落盘。
 
-所有 terminal 入口覆盖尚未完成：timeout、空 upstream、Suno 成功/失败及渠道失败、Video 渠道失败、批量错误。因此 P1-3/P1-4/P1-5 仅为“核心完成、入口待收口”。
+P1-3/P1-4/P1-5 的 terminal 入口收口已完成。legacy safety 边界已修复 HTTP、error、taskID、polling disposition/backoff、复合键和 schema fail-closed。
 
 P2（随后处理）：
 
 1. 日志消费侧缺少去重：未处理。
-2. settlement/refund 静默截断：核心已改为 manual review。
+2. settlement/refund 静默截断：core 已关闭。
 
-Phase A / WP1 新增合同：自动资金来源冻结；`free` / `nonfree` 的 zero 分离；Task candidate 原子落库；历史 `unknown` 显式安全分类恢复；fingerprint v2 兼容 v1；后端 i18n 和 `LOG_DB` 边界。P1-1、P1-3/P1-4/P1-5 的入口收口及日志消费侧去重尚未完成，因此不得将 M1-M5、WP1 或 WP2-A 描述为全部完成或完整闭环。
+Phase A / WP1 新增合同：自动资金来源冻结；`free` / `nonfree` 的 zero 分离；Task candidate 原子落库；历史 `unknown` 显式安全分类恢复；fingerprint v2 兼容 v1；后端 i18n 和 `LOG_DB` 边界。P1-1 与日志消费侧去重尚未完成，因此不得将 M1-M5、WP1 或 WP2-A 描述为全部完成或完整端到端闭环。
 
 ### 验证、CI 和授权边界
 
-- `779901cf0a2f3a793980785ee6b5612fc58a575b` 已通过 Sol 独立审查，以及 Terra 定向测试、`-race`、`go vet`、`relaykit` 独立构建和 SQLite 验证；这不是 MySQL / PostgreSQL 实库迁移并发或整体验收的替代。
-- MySQL 5.7 / PostgreSQL 9.6 尚未实测。开发分支推送后仍须核验 `779901cf0a2f3a793980785ee6b5612fc58a575b` 的精确 SHA CI；历史 `main` CI 不得替代该证据。
+- WP2-A-entry `f9bd6c04b1153390d2d9a0e423480925dc4e5c9d`（core `779901c`）已通过 Sol 独立复审，以及 Terra 定向测试、`-race`、`go vet`、`relaykit` 独立构建和 SQLite 验证；这不是 MySQL / PostgreSQL 实库迁移并发或整体验收的替代。
+- MySQL 5.7 / PostgreSQL 9.6 实测及 `f9bd6c04b1153390d2d9a0e423480925dc4e5c9d` 的精确 SHA CI 待验；历史 `main` CI 不得替代该证据。
 - 默认 gate 保持关闭。Linux、生产、M6 真实切换、发布、真实数据处理和 UI 重做均未获授权。
 
 ### 后续工作包与职责
@@ -787,9 +787,9 @@ Phase A / WP1 新增合同：自动资金来源冻结；`free` / `nonfree` 的 z
 | 工作包 | 目标 | 责任 |
 | --- | --- | --- |
 | WP1 correctness | `da6a59a` / `ba80b8b` 记录的基础：P1-2、P1-6、P1-7 已落盘 | Sol 主要实现；Terra 测试/文档；主代理复核 |
-| WP2-A-core | `779901cf0a2f3a793980785ee6b5612fc58a575b`：P1-3 原子账务、terminal observation/recovery core，P1-4 统计证据，P1-5 三 mutation Outbox；核心完成、入口待收口 | Sol 主要实现；Terra 测试/文档；主代理复核 |
-| WP2-A-entry | 收口 timeout、空 upstream、Suno 成功/失败及渠道失败、Video 渠道失败、批量错误等 terminal 入口 | Sol 主要实现；Terra 测试/文档；主代理复核 |
-| WP2-B | 在 WP2-A-entry 后处理后续 WP2 范围 | Sol 主要实现；Terra 测试/文档；主代理复核 |
-| WP3 C03b 写入 / Redis bridge-drain-epoch | 完成权威写入与 Redis 过渡、排空、epoch 合同 | Sol 主要实现；Terra 测试/文档；主代理复核 |
+| WP2-A-core | `779901cf0a2f3a793980785ee6b5612fc58a575b`：P1-3 原子账务、terminal observation/recovery core，P1-4 统计证据，P1-5 三 mutation Outbox | Sol 主要实现；Terra 测试/文档；主代理复核 |
+| WP2-A-entry | `f9bd6c04b1153390d2d9a0e423480925dc4e5c9d`（core `779901c`）：完成全部 polling/realtime terminal 入口，并修复 legacy safety 边界 | Sol 主要实现；Terra 测试/文档；主代理复核 |
+| WP2-B | 日志消费侧去重 | Sol 主要实现；Terra 测试/文档；主代理复核 |
+| WP3 Redis / 全写入 | P1-1 Redis 投影及权威全写入、Redis bridge-drain-epoch | Sol 主要实现；Terra 测试/文档；主代理复核 |
 | WP4 恢复操作面 | 提供安全、可审计的恢复和人工处置入口 | Sol 主要实现；Terra 测试/文档；主代理复核 |
 | WP5 独立验证与计划同步 | 完成独立复核、验证证据及文档状态同步 | Terra 测试/文档；主代理最终复核 |

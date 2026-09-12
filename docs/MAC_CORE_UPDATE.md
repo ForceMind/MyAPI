@@ -52,18 +52,18 @@
 | M5 | C03b：Redis 余额投影与权威账务变更内核 | 实现子范围存在 | 共享 schema/cache 逻辑仍会生效 | 当前独立复核未通过 | 未启用 |
 | M6 | 真实切换评审与上线准备 | 未开始 | 未开始 | 未开始 | 未授权 |
 
-### 2026-09-12 Phase A / WP1 与 WP2-A-core 状态
+### 2026-09-12 Phase A / WP1 与 WP2-A-entry 状态
 
 - Phase A / WP1 历史记录保留：`da6a59a` 为代码基础，文档基础为 `ba80b8b`。P1-2 固定 wallet、P1-6 Task candidate 原子落库及恢复、P1-7 quota clamp 后拒绝上游请求已在该基础上落盘。
-- WP2-A-core 已提交为 `779901cf0a2f3a793980785ee6b5612fc58a575b`：P1-3 的核心原子账务、terminal observation 与 recovery core，P1-4 的统计证据，以及 P1-5 的三 mutation Outbox 均已落盘。
-- `779901cf0a2f3a793980785ee6b5612fc58a575b` 已通过 Sol 独立审查，以及 Terra 定向测试、`-race`、`go vet`、`relaykit` 独立构建和 SQLite 验证。P1-3/P1-4/P1-5 只能标记为“核心完成、入口待收口”，不得完整关闭：timeout、空 upstream、Suno 成功/失败及渠道失败、Video 渠道失败、批量错误等 terminal 入口覆盖尚未完成。
-- P1-1 Redis 投影仍未处理。P2 settlement/refund 静默截断核心已改为 manual review；日志消费侧去重仍未处理。因此 M1-M5、WP1 和 WP2-A 均不得描述为“全部完成”或完整闭环。
+- WP2-A-core 已提交为 `779901cf0a2f3a793980785ee6b5612fc58a575b`；WP2-A-entry 已提交为 `f9bd6c04b1153390d2d9a0e423480925dc4e5c9d`，其 core 为 `779901c`。P1-3/P1-4/P1-5 的完整 durable 范围（core 与全部 polling/realtime terminal 入口）均已落盘。
+- 该范围已通过 Sol 独立复审，以及 Terra 定向测试、`-race`、`go vet`、`relaykit` 独立构建和 SQLite 验证。legacy safety 边界已修复 HTTP、error、taskID、polling disposition/backoff、复合键和 schema fail-closed。
+- P1-1 Redis 投影仍未处理。P2 settlement/refund 静默截断 core 已关闭；日志消费侧去重仍未处理。因此 M1-M5、WP1 和 WP2-A 不得描述为全部完成或完整端到端闭环。
 
 默认 gate 保持关闭；无 durable 历史数据时，未处理项不能描述为生产事故；但 M5 的共享 schema/cache 逻辑仍会生效，必须在切换前修复并复验。Linux、生产和 M6 未获授权。
 
-MySQL 5.7 / PostgreSQL 9.6 尚未实测。开发分支推送后仍须核验 `779901cf0a2f3a793980785ee6b5612fc58a575b` 的精确 SHA CI；历史 `main` CI 不能替代该证据。
+MySQL 5.7 / PostgreSQL 9.6 实测及 `f9bd6c04b1153390d2d9a0e423480925dc4e5c9d` 的精确 SHA CI 均待验；历史 `main` CI 不能替代该证据。
 
-下一执行点：**WP2-A-entry**，收口尚未覆盖的 terminal 入口；之后执行 **WP2-B**。其后才继续 WP3 C03b 写入与 Redis bridge-drain-epoch、WP4 恢复操作面、WP5 独立验证与计划同步。Sol 负责主要实现，Terra 负责测试/文档，主代理负责最终复核。
+下一执行点：**WP2-B**，处理日志消费侧去重；随后执行 **WP3** Redis/全写入。之后才继续 WP4 恢复操作面、WP5 独立验证与计划同步。Sol 负责主要实现，Terra 负责测试/文档，主代理负责最终复核。
 
 ## 禁止事项
 
