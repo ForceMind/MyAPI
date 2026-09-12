@@ -788,59 +788,62 @@ Claude Messages 转发和 Antigravity 请求边界，不从 Console 限额或 in
 
 ---
 
-## 2026-09-10 最新 Mac 核心更新交接与决策（追加记录）
+## 2026-09-12 最新 Mac 核心更新交接与决策（追加记录）
 
 本节仅增加最新交接和已选定决策，不改写上述历史计划、历史状态或完成证据。发生冲突时，本节适用于本次 Mac 首批执行。
 
-- 实施分支：`codex/mac-durable-accounting`；基线：`f6536ca96126415f74d239165fd688589bd54af9`。
-- PR #1 已于 2026-09-08 合入 `main`；主代理已 API 核实 CI `34186651121` 十个 job 成功。Mac 44 项 CLI 纯逻辑测试通过。这些是历史/局部证据，不表示当前首批实现、整体验收或真实切换已经完成。
+- 实施分支：`codex/mac-durable-accounting`；WP2-B 基线：`953428d6b2b85a6230ed01e3efa2b214f6222ba5`；本地代码提交：`33e14c063a3c9128f48f3acf9a0cd0e8683afb19`。精确 SHA CI 待推送后触发。
+- PR #1 于 2026-09-08 合入 `main` 及其 CI、Mac 44 项 CLI 纯逻辑测试均为历史/局部证据。WP2-B 已通过 Sol 最终独立审查，以及 Terra 181 项定向测试、4 项 race、`go vet`、`relaykit` 独立构建和 SQLite 验证；这些不表示外部方言验收或真实切换已完成。
 - 用户已授权：B3-A1 保持 gate-off，优先 T1 reserve + receipt，随后仅推进直接相关的 B2/B3/C03b 和配置。不完整重做 UI、Linux 部署、发布和真实数据操作均不在范围内。
 - 本次授权下选定 D02：主库为唯一可消费权威，Redis 为可重建投影；选定 D03：历史不明差异进入人工核查，禁止自动扣款、退款、补扣或补退。该决策不表示迁移已执行；真实切换仍须在验收完成后另行明确授权。
-- 资源与验证：串行使用 `GOMAXPROCS=1`、`GOMEMLIMIT=768MiB`；后续验证目标为相关定向 Go 测试、Go 全量、race 和 SQLite/MySQL/PostgreSQL 三库 CI。本机为 Go 1.27、Bun 1.4、Node 26.7，尚未整体验收，且 `Docker` 不在 `PATH`。本机没有已确认的 `systemd` 硬限额，不能声称存在整个进程组的硬限制。
+- 资源与验证：串行使用 `GOMAXPROCS=1`、`GOMEMLIMIT=768MiB`；MySQL 5.7、PostgreSQL 9.6、ClickHouse 24.8 实库验证及精确 SHA CI 尚待。`Docker` 不在 `PATH`；本机没有已确认的 `systemd` 硬限额，不能声称存在整个进程组的硬限制。
 - 规划采用 Sol/high（ultra 不可用）；主代理协调，文档采用 Terra/medium，后续安排独立审查。持久 Goal 曾被创建，但本记录不据此声称有新实现或验证。
 
 ---
 
 ## 2026-09-12 Mac durable accounting 审计（优先于本次范围内的早期完成表述）
 
-本记录保留早期历史证据，但以 2026-09-12 的独立审计状态为准；不得把“实现子范围存在”写成完整闭环或全部完成。
+本记录保留早期历史证据，但以 2026-09-12 的当前代码、独立审查和已执行验证为准；不得把 gate-off 代码、SQLite 验证或历史 CI 写成生产切换或外部方言验收。
 
 ### 基线、范围和状态口径
 
-- 分支：`codex/mac-durable-accounting`；审计范围：`f6536ca96126415f74d239165fd688589bd54af9..1d5bc446d68b776ba4ff3cf4878cdbb5925f7362`，共 7 个提交。
-- 本地/远端开发分支均为 `1d5bc446d68b776ba4ff3cf4878cdbb5925f7362`；`VERSION` 为 `0.1.1`。
-- 阶段状态固定拆分为：**代码**、**接线**、**验证**、**生产启用**。M1-M5 均为“实现子范围存在 / 当前独立复核未通过”；M6 未授权。不得用已有代码、历史 CI 或单项定向测试代替其余三个状态字段。
+- 分支：`codex/mac-durable-accounting`；本次 WP2-B 基线为 `953428d6b2b85a6230ed01e3efa2b214f6222ba5`，代码提交为 `33e14c063a3c9128f48f3acf9a0cd0e8683afb19`。
+- `33e14c063a3c9128f48f3acf9a0cd0e8683afb19` 的精确 SHA CI 尚待推送后触发；远端仍在基线时，历史 `main` 或基线 CI 均不能替代该证据。`VERSION` 保持 `0.1.1`。
+- 阶段状态固定拆分为：**代码**、**接线**、**验证**、**生产启用**。M1-M4 的当前 gate-off 代码和接线已落盘并完成本机验证；M5 的 P1-1 Redis 投影与权威全写入仍待 WP3；M6 未授权。
 - D02（主库唯一可消费权威、Redis 可重建投影）与 D03（历史不明差异人工核查）已决定，但尚未切换或执行历史迁移。
-- 默认两个开关均关闭且没有 durable 历史数据时，这些发现不能描述为生产事故；M5 的共享 schema/cache 逻辑仍会生效，不能据此忽略修复和复验。
+- 默认 gate 保持关闭。Linux、生产、M6 真实切换、发布、真实数据处理和 UI 重做均未获授权。
 
-### 当前独立复核发现与 Phase A / WP1、WP2-A-entry 状态
+### Phase A / WP1、WP2-A 与 WP2-B 状态
 
 Phase A / WP1 历史记录保留：`da6a59a` 为代码基础，文档基础为 `ba80b8b`。P1-2 固定 wallet、P1-6 Task candidate 原子落库及恢复、P1-7 quota clamp 后拒绝上游请求已在该基础上落盘。
 
+WP2-A-core `779901cf0a2f3a793980785ee6b5612fc58a575b` 与 WP2-A-entry `f9bd6c04b1153390d2d9a0e423480925dc4e5c9d` 已完成 P1-3/P1-4/P1-5 的 durable core 和全部 polling/realtime terminal 入口。WP2-B `33e14c063a3c9128f48f3acf9a0cd0e8683afb19` 已完成日志 `billing_event` 消费去重，并落盘：
+
+- 稳定 canonical、row key 和 digest；
+- event 清理、关系库/ClickHouse quarantine 与轻量 startup fail-closed；
+- 持久 backfill 的 SystemTask、fence 和索引阶段；
+- ClickHouse identity 与 materialize 恢复。
+
 P1（必须先修复）：
 
-1. P1-1 Redis 投影缺失：未处理。
+1. P1-1 Redis 投影与权威全写入：未处理，归入 WP3。
 2. P1-2 固定 wallet：已在 `da6a59a` 基础上落盘。
-3. P1-3 终态先落库后结算、失败后不可恢复：完整 durable 范围已在 WP2-A-core `779901cf0a2f3a793980785ee6b5612fc58a575b` 和 WP2-A-entry `f9bd6c04b1153390d2d9a0e423480925dc4e5c9d` 落盘，覆盖 core 与全部 polling/realtime terminal 入口。
-4. P1-4 统计漏记或出现负减：完整 durable 范围已在上述 WP2-A-core/WP2-A-entry 落盘。
-5. P1-5 Outbox 在事务外创建且错误被吞掉：完整 durable 范围已在上述 WP2-A-core/WP2-A-entry 落盘。
+3. P1-3 终态先落库后结算、失败后不可恢复：已在 WP2-A-core/WP2-A-entry 落盘。
+4. P1-4 统计漏记或出现负减：已在 WP2-A-core/WP2-A-entry 落盘。
+5. P1-5 Outbox 在事务外创建且错误被吞掉：已在 WP2-A-core/WP2-A-entry 落盘。
 6. P1-6 Task candidate 非原子落库及恢复不完整：已在 `da6a59a` 基础上落盘。
 7. P1-7 quota clamp 后仍继续请求上游：已在 `da6a59a` 基础上落盘。
 
-P1-3/P1-4/P1-5 的 terminal 入口收口已完成。legacy safety 边界已修复 HTTP、error、taskID、polling disposition/backoff、复合键和 schema fail-closed。
-
 P2（随后处理）：
 
-1. 日志消费侧缺少去重：未处理。
+1. 日志 `billing_event` 消费去重：当前代码完成；MySQL 5.7、PostgreSQL 9.6 和 ClickHouse 24.8 实库验证待验。
 2. settlement/refund 静默截断：core 已关闭。
-
-Phase A / WP1 新增合同：自动资金来源冻结；`free` / `nonfree` 的 zero 分离；Task candidate 原子落库；历史 `unknown` 显式安全分类恢复；fingerprint v2 兼容 v1；后端 i18n 和 `LOG_DB` 边界。P1-1 与日志消费侧去重尚未完成，因此不得将 M1-M5、WP1 或 WP2-A 描述为全部完成或完整端到端闭环。
 
 ### 验证、CI 和授权边界
 
-- WP2-A-entry `f9bd6c04b1153390d2d9a0e423480925dc4e5c9d`（core `779901c`）已通过 Sol 独立复审，以及 Terra 定向测试、`-race`、`go vet`、`relaykit` 独立构建和 SQLite 验证；这不是 MySQL / PostgreSQL 实库迁移并发或整体验收的替代。
-- MySQL 5.7 / PostgreSQL 9.6 实测及 `f9bd6c04b1153390d2d9a0e423480925dc4e5c9d` 的精确 SHA CI 待验；历史 `main` CI 不得替代该证据。
-- 默认 gate 保持关闭。Linux、生产、M6 真实切换、发布、真实数据处理和 UI 重做均未获授权。
+- Sol 已完成 WP2-B 最终独立审查。
+- Terra 已通过 181 项定向测试、4 项 race、`go vet`、`relaykit` 独立构建和 SQLite 验证。
+- MySQL 5.7、PostgreSQL 9.6 和 ClickHouse 24.8 实库验证尚未执行；`33e14c063a3c9128f48f3acf9a0cd0e8683afb19` 的精确 SHA CI 待推送。上述待验项不影响“当前代码完成”的 P2 标记，但阻止外部方言验收和生产资格表述。
 
 ### 后续工作包与职责
 
@@ -849,7 +852,7 @@ Phase A / WP1 新增合同：自动资金来源冻结；`free` / `nonfree` 的 z
 | WP1 correctness | `da6a59a` / `ba80b8b` 记录的基础：P1-2、P1-6、P1-7 已落盘 | Sol 主要实现；Terra 测试/文档；主代理复核 |
 | WP2-A-core | `779901cf0a2f3a793980785ee6b5612fc58a575b`：P1-3 原子账务、terminal observation/recovery core，P1-4 统计证据，P1-5 三 mutation Outbox | Sol 主要实现；Terra 测试/文档；主代理复核 |
 | WP2-A-entry | `f9bd6c04b1153390d2d9a0e423480925dc4e5c9d`（core `779901c`）：完成全部 polling/realtime terminal 入口，并修复 legacy safety 边界 | Sol 主要实现；Terra 测试/文档；主代理复核 |
-| WP2-B | 日志消费侧去重 | Sol 主要实现；Terra 测试/文档；主代理复核 |
-| WP3 Redis / 全写入 | P1-1 Redis 投影及权威全写入、Redis bridge-drain-epoch | Sol 主要实现；Terra 测试/文档；主代理复核 |
+| WP2-B | `33e14c063a3c9128f48f3acf9a0cd0e8683afb19`：日志消费去重、canonical/row key/digest、quarantine、backfill/recovery；当前代码完成，外部方言待验 | Sol 主要实现；Terra 测试/文档；主代理复核 |
+| WP3 C03b | P1-1 Redis 投影与权威全写入；先完成 writer inventory 迁移，再处理 Redis bridge / drain / epoch | Sol 主要实现；Terra 测试/文档；主代理复核 |
 | WP4 恢复操作面 | 提供安全、可审计的恢复和人工处置入口 | Sol 主要实现；Terra 测试/文档；主代理复核 |
-| WP5 独立验证与计划同步 | 完成独立复核、验证证据及文档状态同步 | Terra 测试/文档；主代理最终复核 |
+| WP5 独立验证与计划同步 | 完成独立复核、外部方言/CI 证据及文档状态同步 | Terra 测试/文档；主代理最终复核 |

@@ -5,11 +5,11 @@
 ## 当前基线与已知事实
 
 - 实施分支：`codex/mac-durable-accounting`。
-- 审计范围：`f6536ca96126415f74d239165fd688589bd54af9..1d5bc446d68b776ba4ff3cf4878cdbb5925f7362`，共 7 个提交。
-- 本地/远端开发分支均指向 `1d5bc446d68b776ba4ff3cf4878cdbb5925f7362`；`VERSION` 为 `0.1.1`。
-- `f6536ca96126415f74d239165fd688589bd54af9` 及其此前 `main` CI 记录仅为历史证据，不能替代本审计范围末端 SHA 的验证。
-- Mac 的 44 项 CLI 纯逻辑测试已通过。该结果不覆盖本次后续实现，也不等同于整体验收。
-- 当前本机工具版本为 Go 1.27、Bun 1.4、Node 26.7；尚未进行整体验收。`Docker` 不在当前 `PATH`，因此未做容器相关验证。
+- WP2-B 审计范围：`953428d6b2b85a6230ed01e3efa2b214f6222ba5..33e14c063a3c9128f48f3acf9a0cd0e8683afb19`，共 1 个提交。
+- 本地开发分支指向 `33e14c063a3c9128f48f3acf9a0cd0e8683afb19`，远端开发分支仍为基线 `953428d6b2b85a6230ed01e3efa2b214f6222ba5`；`VERSION` 为 `0.1.1`。
+- 基线及此前 `main` CI 仅为历史证据，不能替代 `33e14c063a3c9128f48f3acf9a0cd0e8683afb19` 推送后产生的精确 SHA CI。
+- Sol 最终独立审查已完成；Terra 已通过 181 项定向测试、4 项 race、`go vet`、`relaykit` 独立构建和 SQLite 验证。该结果不等同于外部方言或整体验收。
+- 当前本机工具版本为 Go 1.27、Bun 1.4、Node 26.7。MySQL 5.7、PostgreSQL 9.6 和 ClickHouse 24.8 实库验证尚未执行；`Docker` 不在当前 `PATH`，因此未做容器相关验证。
 - 主代理已创建本次核心更新的持久 Goal，状态为进行中；阶段验收以本表和实际证据为准。
 - Git HTTPS 连接已复查恢复：`git ls-remote origin refs/heads/main` 成功，返回上述基线。另已找到 Node 22.23.2，可显式使用而不修改全局环境。
 
@@ -44,26 +44,27 @@
 
 | 阶段 | 范围 | 代码 | 接线 | 验证 | 生产启用 |
 | --- | --- | --- | --- | --- | --- |
-| M0 | 基线、授权边界、D02/D03 决策入档 | 已入档 | 不适用 | 文档一致性待本次检查 | 未启用 |
-| M1 | B3-A1 T1 reserve + receipt，gate-off | 实现子范围存在 | 仅限 gate-off 范围 | 当前独立复核未通过 | 未启用 |
-| M2 | B3-A2 与 B2-2B/C：终态结算、释放、异步调度与状态机 | 实现子范围存在 | 存在部分接线，未证明闭环 | 当前独立复核未通过 | 未启用 |
-| M3 | 异步恢复、日志 Outbox 与一致性审计 | 实现子范围存在 | 存在部分接线，未证明可恢复投递 | 当前独立复核未通过 | 未启用 |
-| M4 | 系统任务、恢复执行、持久入口协议与控制器接入 | 实现子范围存在 | 存在部分接线，未证明端到端正确性 | 当前独立复核未通过 | 未启用 |
-| M5 | C03b：Redis 余额投影与权威账务变更内核 | 实现子范围存在 | 共享 schema/cache 逻辑仍会生效 | 当前独立复核未通过 | 未启用 |
+| M0 | 基线、授权边界、D02/D03 决策入档 | 已入档 | 不适用 | 文档一致性已检查 | 未启用 |
+| M1 | B3-A1 T1 reserve + receipt，gate-off | 已落盘 | 仅限 gate-off 范围 | 本机验证通过；外部方言待验 | 未启用 |
+| M2 | B3-A2 与 B2-2B/C：终态结算、释放、异步调度与状态机 | 已落盘 | gate-off 范围内已接线 | 本机验证通过；外部方言待验 | 未启用 |
+| M3 | 异步恢复、日志 Outbox、一致性审计与消费去重 | 已落盘 | gate-off 范围内已接线 | 本机验证通过；外部方言待验 | 未启用 |
+| M4 | 系统任务、恢复执行、持久入口协议、backfill 与控制器接入 | 已落盘 | gate-off 范围内已接线 | 本机验证通过；外部方言待验 | 未启用 |
+| M5 | C03b：Redis 余额投影与权威全写入 | P1-1 未处理 | 共享 schema/cache 逻辑仍会生效 | 待 WP3 | 未启用 |
 | M6 | 真实切换评审与上线准备 | 未开始 | 未开始 | 未开始 | 未授权 |
 
-### 2026-09-12 Phase A / WP1 与 WP2-A-entry 状态
+### 2026-09-12 Phase A / WP1、WP2-B 状态
 
+- 基线为 `953428d6b2b85a6230ed01e3efa2b214f6222ba5`；WP2-B 代码已提交为 `33e14c063a3c9128f48f3acf9a0cd0e8683afb19`。精确 SHA 的 CI 尚待推送后触发，远端基线不能替代该证据。
 - Phase A / WP1 历史记录保留：`da6a59a` 为代码基础，文档基础为 `ba80b8b`。P1-2 固定 wallet、P1-6 Task candidate 原子落库及恢复、P1-7 quota clamp 后拒绝上游请求已在该基础上落盘。
-- WP2-A-core 已提交为 `779901cf0a2f3a793980785ee6b5612fc58a575b`；WP2-A-entry 已提交为 `f9bd6c04b1153390d2d9a0e423480925dc4e5c9d`，其 core 为 `779901c`。P1-3/P1-4/P1-5 的完整 durable 范围（core 与全部 polling/realtime terminal 入口）均已落盘。
-- 该范围已通过 Sol 独立复审，以及 Terra 定向测试、`-race`、`go vet`、`relaykit` 独立构建和 SQLite 验证。legacy safety 边界已修复 HTTP、error、taskID、polling disposition/backoff、复合键和 schema fail-closed。
-- P1-1 Redis 投影仍未处理。P2 settlement/refund 静默截断 core 已关闭；日志消费侧去重仍未处理。因此 M1-M5、WP1 和 WP2-A 不得描述为全部完成或完整端到端闭环。
+- WP2-A-core `779901cf0a2f3a793980785ee6b5612fc58a575b` 与 WP2-A-entry `f9bd6c04b1153390d2d9a0e423480925dc4e5c9d` 已完成 P1-3/P1-4/P1-5 的 durable core 和全部 polling/realtime terminal 入口；WP2-B 在其上完成日志 `billing_event` 消费去重。
+- WP2-B 已落盘稳定 canonical、row key 和 digest，事件清理，关系库/ClickHouse quarantine，轻量 startup fail-closed，持久 backfill 的 SystemTask、fence 和索引阶段，以及 ClickHouse identity 与 materialize 恢复。
+- Sol 已完成最终独立审查。Terra 已通过 181 项定向测试、4 项 race、`go vet`、`relaykit` 独立构建和 SQLite 验证。
+- P2 日志消费去重标为当前代码完成；MySQL 5.7、PostgreSQL 9.6 和 ClickHouse 24.8 实库验证尚未执行。P2 settlement/refund 静默截断 core 已关闭。
+- P1 仅剩 Redis 投影与权威全写入，归入 WP3。不得将外部方言待验、精确 SHA CI 待推送或 gate-off 状态表述为生产资格。
 
-默认 gate 保持关闭；无 durable 历史数据时，未处理项不能描述为生产事故；但 M5 的共享 schema/cache 逻辑仍会生效，必须在切换前修复并复验。Linux、生产和 M6 未获授权。
+默认 gate 保持关闭。Linux、生产、M6 真实切换、发布、真实数据处理和 UI 重做均未获授权。
 
-MySQL 5.7 / PostgreSQL 9.6 实测及 `f9bd6c04b1153390d2d9a0e423480925dc4e5c9d` 的精确 SHA CI 均待验；历史 `main` CI 不能替代该证据。
-
-下一执行点：**WP2-B**，处理日志消费侧去重；随后执行 **WP3** Redis/全写入。之后才继续 WP4 恢复操作面、WP5 独立验证与计划同步。Sol 负责主要实现，Terra 负责测试/文档，主代理负责最终复核。
+下一执行点：**WP3 C03b writer inventory 迁移**，随后处理 Redis **bridge / drain / epoch**。之后才继续 WP4 恢复操作面、WP5 独立验证与计划同步。Sol 负责主要实现，Terra 负责测试/文档，主代理负责最终复核。
 
 ## 禁止事项
 
