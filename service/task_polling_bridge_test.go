@@ -49,9 +49,13 @@ func setupBridgeTestDB(t *testing.T) *gorm.DB {
 		&model.TaskBillingEvent{},
 		&model.TaskBillingLogOutbox{},
 		&model.QuotaMutationReceipt{},
+		&model.QuotaWriterEpoch{},
+		&model.QuotaProjectionObligation{},
 		&model.Log{},
 	)
 	require.NoError(t, err)
+	require.NoError(t, model.EnsureQuotaWriterEpochStateWithDB(db))
+	setServiceQuotaWriterMode(t, db, model.QuotaWriterModeAuthoritative, 1)
 
 	ch := model.Channel{
 		Id:   101,

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -11,21 +12,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const userCacheSchemaVersion = 4
+const userCacheSchemaVersion = 5
 
 type UserBase struct {
-	Id            int    `json:"id"`
-	Group         string `json:"group"`
-	AccountTierID string `json:"account_tier_id"`
-	Email         string `json:"email"`
-	Quota         int    `json:"quota"`
-	Status        int    `json:"status"`
-	Role          int    `json:"role"`
-	Username      string `json:"username"`
-	Setting       string `json:"setting"`
-	AuthVersion   int64  `json:"-"`
-	CacheSchema   int    `json:"-"`
-	QuotaVersion  int64  `json:"quota_version"`
+	Id               int    `json:"id"`
+	Group            string `json:"group"`
+	AccountTierID    string `json:"account_tier_id"`
+	Email            string `json:"email"`
+	Quota            int    `json:"quota"`
+	Status           int    `json:"status"`
+	Role             int    `json:"role"`
+	Username         string `json:"username"`
+	Setting          string `json:"setting"`
+	AuthVersion      int64  `json:"-"`
+	CacheSchema      int    `json:"-"`
+	QuotaVersion     int64  `json:"quota_version"`
+	QuotaWriterEpoch int64  `json:"-"`
 }
 
 func (user *UserBase) WriteContext(c *gin.Context) {
@@ -73,7 +75,11 @@ func HydrateUserQuotaCache(userId int, quota int, quotaVersion int64) error {
 	if !common.RedisEnabled || userId <= 0 {
 		return nil
 	}
-	return hydrateUserQuotaCacheRedis(userId, quota, quotaVersion)
+	state, err := GetQuotaWriterEpochState(DB)
+	if err != nil {
+		return err
+	}
+	return hydrateUserQuotaCacheRedisAtEpoch(userId, quota, quotaVersion, state.Epoch)
 }
 
 // invalidateUserCache clears user cache
@@ -141,8 +147,13 @@ func cacheGetUserBase(userId int) (*UserBase, error) {
 	if err != nil {
 		return nil, err
 	}
-	if userCache.Id != userId || userCache.CacheSchema != userCacheSchemaVersion || userCache.AuthVersion <= 0 {
+	if userCache.Id != userId || userCache.CacheSchema != userCacheSchemaVersion || userCache.AuthVersion <= 0 || userCache.QuotaWriterEpoch <= 0 {
 		return nil, fmt.Errorf("user cache schema is stale")
+	}
+	redisEpoch, epochErr := common.RDB.Get(context.Background(), quotaWriterEpochRedisKey).Int64()
+	if epochErr != nil || redisEpoch != userCache.QuotaWriterEpoch {
+		_ = invalidateUserCache(userId)
+		return nil, ErrQuotaWriterEpochMismatch
 	}
 	floor, err := getUserAuthVersionFloor(userId)
 	if err != nil {

@@ -109,6 +109,7 @@ func TestRedisBatchReserveNeverFallsBackToStaleDatabaseBalance(t *testing.T) {
 	common.BatchUpdateEnabled = true
 
 	user := createReserveTestUser(t, 10)
+	require.NoError(t, populateUserCache(user))
 	reserved, err := TryReserveUserQuota(user.Id, 8)
 	require.NoError(t, err)
 	assert.True(t, reserved)
@@ -122,6 +123,8 @@ func TestRedisBatchReserveNeverFallsBackToStaleDatabaseBalance(t *testing.T) {
 	assert.Equal(t, 2, cachedUser.Quota)
 
 	token := createReserveTestToken(t, 9)
+	_, err = GetTokenByKey(token.Key, true)
+	require.NoError(t, err)
 	reserved, err = TryReserveTokenQuota(token.Id, token.Key, 7, false)
 	require.NoError(t, err)
 	assert.True(t, reserved)
@@ -225,4 +228,51 @@ func TestTokenCacheInitPreservesLiveQuotaAndFenceBlocksStaleSnapshot(t *testing.
 	cached, err = cacheGetTokenByKey(token.Key)
 	require.NoError(t, err)
 	assert.Equal(t, 100, cached.RemainQuota)
+}
+
+func TestBatchQuotaReserveCacheFailureNeverFallsBackToStaleDB(t *testing.T) {
+	truncateTables(t)
+	resetBatchUpdateTestState(t)
+	server := useUserCacheMiniRedis(t)
+	setQuotaWriterStateForTest(t, DB, QuotaWriterModeLegacy, 1)
+	common.BatchUpdateEnabled = true
+
+	user := createReserveTestUser(t, 100)
+	require.NoError(t, populateUserCache(user))
+	server.HSet(getUserCacheKey(user.Id), "Quota", "10")
+	addNewRecord(BatchUpdateTypeUserQuota, user.Id, -90)
+
+	token := createReserveTestToken(t, 100)
+	_, err := GetTokenByKey(token.Key, true)
+	require.NoError(t, err)
+	server.HSet(getTokenCacheKey(token.Key), "RemainQuota", "10")
+	addNewRecord(BatchUpdateTypeTokenQuota, token.Id, -90)
+
+	server.Del(getUserCacheKey(user.Id))
+	reserved, err := TryReserveUserQuota(user.Id, 20)
+	assert.False(t, reserved)
+	assert.ErrorIs(t, err, ErrBatchQuotaCacheUnavailable)
+	assert.Equal(t, 100, getUserQuotaFromDB(t, user.Id))
+
+	server.Del(getTokenCacheKey(token.Key))
+	reserved, err = TryReserveTokenQuota(token.Id, token.Key, 20, false)
+	assert.False(t, reserved)
+	assert.ErrorIs(t, err, ErrBatchQuotaCacheUnavailable)
+	assert.Equal(t, 100, getTokenFromDB(t, token.Id).RemainQuota)
+
+	require.NoError(t, populateUserCache(user))
+	server.HSet(getUserCacheKey(user.Id), "Quota", "10")
+	_, err = GetTokenByKey(token.Key, true)
+	require.NoError(t, err)
+	server.HSet(getTokenCacheKey(token.Key), "RemainQuota", "10")
+	require.NoError(t, common.RDB.Set(t.Context(), quotaWriterEpochRedisKey, 2, 0).Err())
+
+	reserved, err = TryReserveUserQuota(user.Id, 20)
+	assert.False(t, reserved)
+	assert.ErrorIs(t, err, ErrBatchQuotaCacheUnavailable)
+	assert.Equal(t, 100, getUserQuotaFromDB(t, user.Id))
+	reserved, err = TryReserveTokenQuota(token.Id, token.Key, 20, false)
+	assert.False(t, reserved)
+	assert.ErrorIs(t, err, ErrBatchQuotaCacheUnavailable)
+	assert.Equal(t, 100, getTokenFromDB(t, token.Id).RemainQuota)
 }

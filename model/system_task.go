@@ -31,6 +31,7 @@ const (
 	SystemTaskTypeChannelQuotaSnapshotSync = "channel_quota_snapshot_sync"
 	SystemTaskTypeTaskRecovery             = "task_recovery"
 	SystemTaskTypeTaskBillingOutbox        = "task_billing_outbox"
+	SystemTaskTypeQuotaProjectionRecovery  = "quota_projection_recovery"
 	SystemTaskTypeLogProjectionBackfill    = "log_projection_backfill"
 )
 

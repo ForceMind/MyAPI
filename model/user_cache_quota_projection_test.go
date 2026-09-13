@@ -16,67 +16,67 @@ func TestUserCacheQuotaProjectionAntiRollback(t *testing.T) {
 	server := useUserCacheMiniRedis(t)
 	ctx := context.Background()
 
-	const userID = 9101
+	const (
+		userID       = 9101
+		initialEpoch = int64(10)
+	)
 	key := getUserCacheKey(userID)
 
-	// 1. Pre-populate a live user hash in Redis with QuotaVersion=10 and Quota=1000
+	// 1. Pre-populate a complete live user hash and the matching global epoch.
 	initialHash := map[string]string{
-		"Id":            strconv.Itoa(userID),
-		"Group":         "default",
-		"AccountTierID": "standard",
-		"Email":         "user@example.com",
-		"Status":        strconv.Itoa(common.UserStatusEnabled),
-		"Role":          strconv.Itoa(common.RoleCommonUser),
-		"Username":      "tester",
-		"Setting":       "{}",
-		"AuthVersion":   "1",
-		"CacheSchema":   strconv.Itoa(userCacheSchemaVersion),
-		"Quota":         "1000",
-		"QuotaVersion":  "10",
+		"Id":               strconv.Itoa(userID),
+		"Group":            "default",
+		"AccountTierID":    "standard",
+		"Email":            "user@example.com",
+		"Status":           strconv.Itoa(common.UserStatusEnabled),
+		"Role":             strconv.Itoa(common.RoleCommonUser),
+		"Username":         "tester",
+		"Setting":          "{}",
+		"AuthVersion":      "1",
+		"CacheSchema":      strconv.Itoa(userCacheSchemaVersion),
+		"Quota":            "1000",
+		"QuotaVersion":     "10",
+		"QuotaWriterEpoch": strconv.FormatInt(initialEpoch, 10),
 	}
 	require.NoError(t, common.RDB.HSet(ctx, key, initialHash).Err())
+	require.NoError(t, common.RDB.Set(ctx, quotaWriterEpochRedisKey, initialEpoch, 0).Err())
 	require.NoError(t, common.RDB.Expire(ctx, key, time.Minute).Err())
 
-	// 2. Out-of-order hydration with older QuotaVersion=8 and Quota=800 must be dropped (anti-rollback)
-	err := HydrateUserQuotaCache(userID, 800, 8)
-	require.NoError(t, err)
+	// 2. A lower epoch is rejected even with a higher QuotaVersion.
+	require.NoError(t, hydrateUserQuotaCacheRedisAtEpoch(userID, 800, 99, initialEpoch-1))
+	assert.Equal(t, "1000", server.HGet(key, "Quota"), "lower epoch must not roll back the cache")
+	assert.Equal(t, "10", server.HGet(key, "QuotaVersion"))
+	assert.Equal(t, "10", server.HGet(key, "QuotaWriterEpoch"))
 
-	quotaVal, err := common.RDB.HGet(ctx, key, "Quota").Result()
+	// 3. A higher epoch wins even with a lower QuotaVersion.
+	const currentEpoch = initialEpoch + 1
+	require.NoError(t, hydrateUserQuotaCacheRedisAtEpoch(userID, 900, 1, currentEpoch))
+	assert.Equal(t, "900", server.HGet(key, "Quota"))
+	assert.Equal(t, "1", server.HGet(key, "QuotaVersion"))
+	assert.Equal(t, strconv.FormatInt(currentEpoch, 10), server.HGet(key, "QuotaWriterEpoch"))
+	globalEpoch, err := server.Get(quotaWriterEpochRedisKey)
 	require.NoError(t, err)
-	assert.Equal(t, "1000", quotaVal, "stale quota must not roll back the cache")
+	assert.Equal(t, strconv.FormatInt(currentEpoch, 10), globalEpoch)
 
-	qvVal, err := common.RDB.HGet(ctx, key, "QuotaVersion").Result()
-	require.NoError(t, err)
-	assert.Equal(t, "10", qvVal, "stale quota version must not roll back the cache")
+	// 4. Within one epoch, only a strictly higher QuotaVersion is accepted.
+	require.NoError(t, hydrateUserQuotaCacheRedisAtEpoch(userID, 1200, 2, currentEpoch))
+	assert.Equal(t, "1200", server.HGet(key, "Quota"))
+	assert.Equal(t, "2", server.HGet(key, "QuotaVersion"))
 
-	// 2b. Equal QuotaVersion=10 with different Quota=900 must also be dropped (anti-rollback against live decrements)
-	err = HydrateUserQuotaCache(userID, 900, 10)
-	require.NoError(t, err)
+	// 5. Equal epoch and QuotaVersion must not overwrite a live projection.
+	require.NoError(t, hydrateUserQuotaCacheRedisAtEpoch(userID, 1100, 2, currentEpoch))
+	assert.Equal(t, "1200", server.HGet(key, "Quota"), "same version must not overwrite live quota")
+	assert.Equal(t, "2", server.HGet(key, "QuotaVersion"))
 
-	quotaVal, err = common.RDB.HGet(ctx, key, "Quota").Result()
-	require.NoError(t, err)
-	assert.Equal(t, "1000", quotaVal, "equal quota version must not overwrite live quota")
+	// 6. An old snapshot arriving after the advance cannot roll back the cache.
+	require.NoError(t, hydrateUserQuotaCacheRedisAtEpoch(userID, 700, 100, initialEpoch))
+	assert.Equal(t, "1200", server.HGet(key, "Quota"), "old snapshot must not roll back the cache")
+	assert.Equal(t, "2", server.HGet(key, "QuotaVersion"))
+	assert.Equal(t, strconv.FormatInt(currentEpoch, 10), server.HGet(key, "QuotaWriterEpoch"))
 
-	// 3. Newer hydration with QuotaVersion=11 and Quota=1200 must advance the cache projection
-	err = HydrateUserQuotaCache(userID, 1200, 11)
-	require.NoError(t, err)
-
-	quotaVal, err = common.RDB.HGet(ctx, key, "Quota").Result()
-	require.NoError(t, err)
-	assert.Equal(t, "1200", quotaVal, "newer quota projection must be applied")
-
-	qvVal, err = common.RDB.HGet(ctx, key, "QuotaVersion").Result()
-	require.NoError(t, err)
-	assert.Equal(t, "11", qvVal, "newer quota version must advance")
-
-	// 4. InvalidateUserQuotaCache removes the cache key
-	err = InvalidateUserQuotaCache(userID)
-	require.NoError(t, err)
-	assert.False(t, server.Exists(key), "invalidation must clear cache")
-
-	// 5. Hydration on cold/missing cache must not create an incomplete or partial hash
-	err = HydrateUserQuotaCache(userID, 1500, 12)
-	require.NoError(t, err)
+	// 7. Hydration on a missing cache must not create an incomplete hash.
+	require.NoError(t, common.RDB.Del(ctx, key).Err())
+	require.NoError(t, hydrateUserQuotaCacheRedisAtEpoch(userID, 1500, 3, currentEpoch))
 	assert.False(t, server.Exists(key), "hydration on missing cache must not create a partial hash")
 }
 

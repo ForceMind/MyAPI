@@ -110,9 +110,12 @@ func durableSettleTaskOnCompleteUsingContext(ctx context.Context, pollingContext
 	if manualReview {
 		return true, model.ErrTaskTerminalObservationManualReview
 	}
-	_, err = model.ApplyTaskTerminalObservation(model.DB, observation.ID)
+	applied, err := model.ApplyTaskTerminalObservation(model.DB, observation.ID)
 	if err != nil {
 		return true, fmt.Errorf("apply terminal settlement observation: %w", err)
+	}
+	if applied != nil && applied.Receipt != nil {
+		_ = model.ProjectQuotaMutationReceipt(ctx, model.DB, applied.Receipt)
 	}
 	if reloadErr := model.DB.First(task, task.ID).Error; reloadErr != nil {
 		return true, reloadErr
@@ -150,9 +153,12 @@ func durableReleaseTaskOnFailureUsingContext(ctx context.Context, pollingContext
 	if err != nil {
 		return true, err
 	}
-	_, err = model.ApplyTaskTerminalObservation(model.DB, observation.ID)
+	applied, err := model.ApplyTaskTerminalObservation(model.DB, observation.ID)
 	if err != nil {
 		return true, fmt.Errorf("apply terminal failure observation: %w", err)
+	}
+	if applied != nil && applied.Receipt != nil {
+		_ = model.ProjectQuotaMutationReceipt(ctx, model.DB, applied.Receipt)
 	}
 	if reloadErr := model.DB.First(task, task.ID).Error; reloadErr != nil {
 		return true, reloadErr

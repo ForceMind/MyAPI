@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -37,21 +38,23 @@ var userQuotaMutationReceiptCreateMarker = &userQuotaMutationReceiptCreateMarker
 // UserQuotaMutationReceipt represents an immutable, auditable mutation receipt for a user's quota.
 // BusinessEventKey enforces exact replay deduplication and conflict detection.
 type UserQuotaMutationReceipt struct {
-	ID                 int64  `json:"id" gorm:"primaryKey"`
-	ReceiptVersion     int    `json:"receipt_version" gorm:"not null;<-:create"`
-	MutationType       string `json:"mutation_type" gorm:"type:varchar(32);not null;index:idx_user_quota_mutation_lookup,priority:2;<-:create"`
-	BusinessEventKey   string `json:"business_event_key" gorm:"type:varchar(128);not null;uniqueIndex:uidx_user_quota_mutation_key;<-:create"`
-	RequestFingerprint string `json:"request_fingerprint" gorm:"type:char(64);not null;<-:create"`
-	UserID             int    `json:"user_id" gorm:"not null;index:idx_user_quota_mutation_lookup,priority:1;<-:create"`
-	Delta              int64  `json:"delta" gorm:"type:bigint;not null;<-:create"`
-	QuotaBefore        int    `json:"quota_before" gorm:"not null;<-:create"`
-	QuotaAfter         int    `json:"quota_after" gorm:"not null;<-:create"`
-	QuotaVersionBefore int64  `json:"quota_version_before" gorm:"type:bigint;not null;<-:create"`
-	QuotaVersionAfter  int64  `json:"quota_version_after" gorm:"type:bigint;not null;<-:create"`
-	ReasonCode         string `json:"reason_code" gorm:"type:varchar(64);not null;<-:create"`
-	OperatorUserID     int    `json:"operator_user_id" gorm:"not null;default:0;<-:create"`
-	Metadata           string `json:"metadata" gorm:"type:text;not null;<-:create"`
-	CreatedAt          int64  `json:"created_at" gorm:"type:bigint;not null;index;<-:create"`
+	ID                 int64                     `json:"id" gorm:"primaryKey"`
+	ReceiptVersion     int                       `json:"receipt_version" gorm:"not null;<-:create"`
+	WriterEpoch        int64                     `json:"writer_epoch" gorm:"type:bigint;<-:create"`
+	MutationType       string                    `json:"mutation_type" gorm:"type:varchar(32);not null;index:idx_user_quota_mutation_lookup,priority:2;<-:create"`
+	BusinessEventKey   string                    `json:"business_event_key" gorm:"type:varchar(128);not null;uniqueIndex:uidx_user_quota_mutation_key;<-:create"`
+	RequestFingerprint string                    `json:"request_fingerprint" gorm:"type:char(64);not null;<-:create"`
+	UserID             int                       `json:"user_id" gorm:"not null;index:idx_user_quota_mutation_lookup,priority:1;<-:create"`
+	Delta              int64                     `json:"delta" gorm:"type:bigint;not null;<-:create"`
+	QuotaBefore        int                       `json:"quota_before" gorm:"not null;<-:create"`
+	QuotaAfter         int                       `json:"quota_after" gorm:"not null;<-:create"`
+	QuotaVersionBefore int64                     `json:"quota_version_before" gorm:"type:bigint;not null;<-:create"`
+	QuotaVersionAfter  int64                     `json:"quota_version_after" gorm:"type:bigint;not null;<-:create"`
+	ReasonCode         string                    `json:"reason_code" gorm:"type:varchar(64);not null;<-:create"`
+	OperatorUserID     int                       `json:"operator_user_id" gorm:"not null;default:0;<-:create"`
+	Metadata           string                    `json:"metadata" gorm:"type:text;not null;<-:create"`
+	After              QuotaMutationUserSnapshot `json:"after" gorm:"type:text;<-:create"`
+	CreatedAt          int64                     `json:"created_at" gorm:"type:bigint;not null;index;<-:create"`
 }
 
 func (UserQuotaMutationReceipt) TableName() string {
@@ -226,6 +229,9 @@ func mutateUserQuotaAuthoritative(tx *gorm.DB, input UserQuotaMutationInput) (*U
 		if existing.RequestFingerprint != fingerprint {
 			return nil, false, ErrUserQuotaMutationConflict
 		}
+		if _, err := ensureQuotaProjectionObligation(tx, existing); err != nil {
+			return nil, false, err
+		}
 		return existing, true, nil
 	}
 
@@ -247,7 +253,15 @@ func mutateUserQuotaAuthoritative(tx *gorm.DB, input UserQuotaMutationInput) (*U
 		if existing.RequestFingerprint != fingerprint {
 			return nil, false, ErrUserQuotaMutationConflict
 		}
+		if _, err := ensureQuotaProjectionObligation(tx, existing); err != nil {
+			return nil, false, err
+		}
 		return existing, true, nil
+	}
+
+	writerState, err := requireDurableQuotaWriterEpoch(tx)
+	if err != nil {
+		return nil, false, err
 	}
 
 	if user.Status != common.UserStatusEnabled || !quotaMutationVersionValid(user.QuotaVersion) {
@@ -283,6 +297,7 @@ func mutateUserQuotaAuthoritative(tx *gorm.DB, input UserQuotaMutationInput) (*U
 	// 5. Create immutable receipt
 	receipt := &UserQuotaMutationReceipt{
 		ReceiptVersion:     UserQuotaMutationReceiptVersion,
+		WriterEpoch:        writerState.Epoch,
 		MutationType:       normalized.MutationType,
 		BusinessEventKey:   normalized.BusinessEventKey,
 		RequestFingerprint: fingerprint,
@@ -295,9 +310,18 @@ func mutateUserQuotaAuthoritative(tx *gorm.DB, input UserQuotaMutationInput) (*U
 		ReasonCode:         normalized.ReasonCode,
 		OperatorUserID:     normalized.OperatorUserID,
 		Metadata:           metadataStr,
+		After: func() QuotaMutationUserSnapshot {
+			after := user
+			after.Quota = newQuota
+			after.QuotaVersion = newQuotaVersion
+			return quotaMutationUserSnapshot(&after)
+		}(),
 	}
 
 	if err := userQuotaMutationReceiptCreateDB(tx).Create(receipt).Error; err != nil {
+		return nil, false, err
+	}
+	if _, err := ensureQuotaProjectionObligation(tx, receipt); err != nil {
 		return nil, false, err
 	}
 
@@ -325,20 +349,19 @@ func MutateUserQuota(db *gorm.DB, input UserQuotaMutationInput) (*UserQuotaMutat
 	}
 
 	var receipt *UserQuotaMutationReceipt
-	var isReplay bool
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var err error
-		receipt, isReplay, err = mutateUserQuotaAuthoritative(tx, input)
+		receipt, _, err = mutateUserQuotaAuthoritative(tx, input)
 		return err
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	// Post-commit safe cache hydration with anti-rollback (skip on replay to avoid overwriting live decremented quota)
-	if common.RedisEnabled && receipt != nil && !isReplay {
-		_ = HydrateUserQuotaCache(receipt.UserID, receipt.QuotaAfter, receipt.QuotaVersionAfter)
+	// Redis/network work is strictly post-commit. A failure is recorded on the
+	// durable obligation and never changes the acknowledged main-ledger result.
+	if receipt != nil {
+		_ = ProjectQuotaMutationReceipt(context.Background(), db, receipt)
 	}
-
 	return receipt, nil
 }

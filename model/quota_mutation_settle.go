@@ -74,12 +74,19 @@ func ReleaseTaskQuotaReservation(tx *gorm.DB, input TaskQuotaReleaseInput) (*Quo
 	if reserveReceipt == nil {
 		return nil, ErrTaskQuotaReservationNotFound
 	}
+	writerState, err := requireQuotaProjectionEpoch(tx, reserveReceipt.WriterEpoch)
+	if err != nil {
+		return nil, err
+	}
 	if (input.RequireStatisticsEvidence || reserveReceipt.RequestFingerprintVersion >= 2) && (!reserveReceipt.StatisticsApplied || reserveReceipt.StatisticsVersion != 1) {
 		return nil, ErrTaskTerminalObservationManualReview
 	}
 
 	var result *QuotaMutationReceipt
 	err = taskRecoveryAtomicTransaction(tx, "task_quota_release", func(writeDB *gorm.DB) error {
+		if _, err := requireQuotaProjectionEpoch(writeDB, writerState.Epoch); err != nil {
+			return err
+		}
 		databaseNow, err := taskRecoveryDBTimestamp(writeDB)
 		if err != nil {
 			return err
@@ -156,6 +163,9 @@ func ReleaseTaskQuotaReservation(tx *gorm.DB, input TaskQuotaReleaseInput) (*Quo
 		} else if existing != nil {
 			if existing.RequestFingerprint != fingerprint {
 				return ErrTaskQuotaReservationConflict
+			}
+			if _, err := ensureQuotaProjectionObligation(writeDB, existing); err != nil {
+				return err
 			}
 			result = existing
 			return nil
@@ -235,6 +245,7 @@ func ReleaseTaskQuotaReservation(tx *gorm.DB, input TaskQuotaReleaseInput) (*Quo
 
 		receipt := &QuotaMutationReceipt{
 			ReceiptVersion:              quotaMutationReceiptVersion,
+			WriterEpoch:                 writerState.Epoch,
 			MutationType:                string(TaskBillingEventTypeRefund),
 			MutationKey:                 event.EventKey,
 			RequestFingerprint:          fingerprint,
@@ -267,6 +278,9 @@ func ReleaseTaskQuotaReservation(tx *gorm.DB, input TaskQuotaReleaseInput) (*Quo
 			return err
 		}
 		if _, err := createTaskMutationOutbox(writeDB, event, receipt, "task quota released"); err != nil {
+			return err
+		}
+		if _, err := ensureQuotaProjectionObligation(writeDB, receipt); err != nil {
 			return err
 		}
 
@@ -314,12 +328,19 @@ func SettleTaskQuotaReservation(tx *gorm.DB, input TaskQuotaSettlementInput) (*Q
 	if reserveReceipt == nil {
 		return nil, ErrTaskQuotaReservationNotFound
 	}
+	writerState, err := requireQuotaProjectionEpoch(tx, reserveReceipt.WriterEpoch)
+	if err != nil {
+		return nil, err
+	}
 	if (input.RequireStatisticsEvidence || reserveReceipt.RequestFingerprintVersion >= 2) && (!reserveReceipt.StatisticsApplied || reserveReceipt.StatisticsVersion != 1) {
 		return nil, ErrTaskTerminalObservationManualReview
 	}
 
 	var result *QuotaMutationReceipt
 	err = taskRecoveryAtomicTransaction(tx, "task_quota_settle", func(writeDB *gorm.DB) error {
+		if _, err := requireQuotaProjectionEpoch(writeDB, writerState.Epoch); err != nil {
+			return err
+		}
 		databaseNow, err := taskRecoveryDBTimestamp(writeDB)
 		if err != nil {
 			return err
@@ -396,6 +417,9 @@ func SettleTaskQuotaReservation(tx *gorm.DB, input TaskQuotaSettlementInput) (*Q
 		} else if existing != nil {
 			if existing.RequestFingerprint != fingerprint {
 				return ErrTaskQuotaReservationConflict
+			}
+			if _, err := ensureQuotaProjectionObligation(writeDB, existing); err != nil {
+				return err
 			}
 			result = existing
 			return nil
@@ -479,6 +503,7 @@ func SettleTaskQuotaReservation(tx *gorm.DB, input TaskQuotaSettlementInput) (*Q
 
 		receipt := &QuotaMutationReceipt{
 			ReceiptVersion:              quotaMutationReceiptVersion,
+			WriterEpoch:                 writerState.Epoch,
 			MutationType:                string(TaskBillingEventTypeTerminalSettlement),
 			MutationKey:                 event.EventKey,
 			RequestFingerprint:          fingerprint,
@@ -511,6 +536,9 @@ func SettleTaskQuotaReservation(tx *gorm.DB, input TaskQuotaSettlementInput) (*Q
 			return err
 		}
 		if _, err := createTaskMutationOutbox(writeDB, event, receipt, "task quota settled"); err != nil {
+			return err
+		}
+		if _, err := ensureQuotaProjectionObligation(writeDB, receipt); err != nil {
 			return err
 		}
 

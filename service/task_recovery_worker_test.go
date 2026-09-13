@@ -43,9 +43,14 @@ func setupRecoveryTestDB(t *testing.T) *gorm.DB {
 		&model.TaskBillingEvent{},
 		&model.TaskBillingLogOutbox{},
 		&model.QuotaMutationReceipt{},
+		&model.UserQuotaMutationReceipt{},
+		&model.QuotaWriterEpoch{},
+		&model.QuotaProjectionObligation{},
 		&model.Log{},
 	)
 	require.NoError(t, err)
+	require.NoError(t, model.EnsureQuotaWriterEpochStateWithDB(db))
+	setServiceQuotaWriterMode(t, db, model.QuotaWriterModeAuthoritative, 1)
 	require.NoError(t, db.Create(&model.Channel{Id: 101, Name: "recovery-test"}).Error)
 	return db
 }
@@ -262,6 +267,9 @@ func TestTaskRecoveryWorker_RecoverStaleUnfinished_Reserved_SafeCancel(t *testin
 	releaseReceipt, err := model.FindTaskQuotaReceipt(db, fixture.Operation.ID, string(model.TaskBillingEventTypeRefund), fixture.User.Id, fixture.Token.Id)
 	require.NoError(t, err)
 	assert.Equal(t, "local.stale_reservation_timeout", releaseReceipt.EvidenceID)
+	var releaseProjection model.QuotaProjectionObligation
+	require.NoError(t, db.Where("receipt_kind = ? AND receipt_id = ?", "task", releaseReceipt.ID).First(&releaseProjection).Error)
+	assert.GreaterOrEqual(t, releaseProjection.Attempts, 1, "stale release must invoke projection after commit")
 
 	// Assert refund receipt and billing event exist
 	storedReceipt, err := model.FindTaskQuotaReceipt(db, op.ID, string(model.TaskBillingEventTypeRefund), fixture.User.Id, fixture.Token.Id)
@@ -420,6 +428,11 @@ func TestRecoverTerminalObservationsBadRecordDoesNotBlockLater(t *testing.T) {
 	require.NoError(t, db.First(&storedGood, goodObservation.ID).Error)
 	assert.Equal(t, model.TaskTerminalObservationManualReview, storedBad.State)
 	assert.Equal(t, model.TaskTerminalObservationApplied, storedGood.State)
+	terminalReceipt, err := model.FindTaskQuotaReceipt(db, good.Operation.ID, string(model.TaskBillingEventTypeTerminalSettlement), good.User.Id, good.Token.Id)
+	require.NoError(t, err)
+	var terminalProjection model.QuotaProjectionObligation
+	require.NoError(t, db.Where("receipt_kind = ? AND receipt_id = ?", "task", terminalReceipt.ID).First(&terminalProjection).Error)
+	assert.GreaterOrEqual(t, terminalProjection.Attempts, 1, "terminal recovery must invoke projection after commit")
 }
 
 func TestRecoverTerminalObservationsTransientErrorContinuesAndAggregates(t *testing.T) {

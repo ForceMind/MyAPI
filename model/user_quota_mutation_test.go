@@ -13,6 +13,7 @@ import (
 
 func createTestUserForQuotaMutation(t *testing.T, id int, initialQuota int) *User {
 	t.Helper()
+	setQuotaWriterStateForTest(t, DB, QuotaWriterModeAuthoritative, 1)
 	user := &User{
 		Id:           id,
 		Username:     fmt.Sprintf("test-mutation-user-%d", id),
@@ -433,4 +434,3 @@ func TestUserQuotaMutationReplayDoesNotOverwriteLiveCache(t *testing.T) {
 	assert.Equal(t, "2600", server.HGet(key, "Quota"), "replay must not roll back decremented live cache balance")
 	assert.Equal(t, "1", server.HGet(key, "QuotaVersion"))
 }
-

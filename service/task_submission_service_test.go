@@ -18,6 +18,14 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+func setServiceQuotaWriterMode(t *testing.T, db *gorm.DB, mode model.QuotaWriterMode, epoch int64) {
+	t.Helper()
+	require.NoError(t, model.EnsureQuotaWriterEpochStateWithDB(db))
+	require.NoError(t, db.Model(&model.QuotaWriterEpoch{}).Where("id = ?", 1).Updates(map[string]interface{}{
+		"mode": string(mode), "epoch": epoch, "lock_version": gorm.Expr("lock_version + ?", 1),
+	}).Error)
+}
+
 func setupTaskSubmissionTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	t.Setenv("TASK_RECOVERY_IDEMPOTENCY_SECRET", strings.Repeat("1a", 32))
@@ -44,12 +52,25 @@ func setupTaskSubmissionTestDB(t *testing.T) *gorm.DB {
 		&model.TaskBillingEvent{},
 		&model.TaskBillingLogOutbox{},
 		&model.QuotaMutationReceipt{},
+		&model.QuotaWriterEpoch{},
+		&model.QuotaProjectionObligation{},
 		&model.Log{},
 	)
 	require.NoError(t, err)
+	require.NoError(t, model.EnsureQuotaWriterEpochStateWithDB(db))
+	setServiceQuotaWriterMode(t, db, model.QuotaWriterModeAuthoritative, 1)
 	require.NoError(t, model.EnsureLogProjectionSchemaWithDB(db))
 	require.NoError(t, db.Create(&model.Channel{Id: 101, Name: "submission-test"}).Error)
 	return db
+}
+
+func requireTaskProjectionAttempt(t *testing.T, db *gorm.DB, receipt *model.QuotaMutationReceipt) {
+	t.Helper()
+	require.NotNil(t, receipt)
+	var obligation model.QuotaProjectionObligation
+	require.NoError(t, db.Where("receipt_kind = ? AND receipt_id = ?", "task", receipt.ID).First(&obligation).Error)
+	assert.Equal(t, receipt.MutationKey, obligation.EventKey)
+	assert.GreaterOrEqual(t, obligation.Attempts, 1, "service boundary must invoke post-commit projection")
 }
 
 type taskSubmissionTestFixture struct {
@@ -188,6 +209,7 @@ func TestTaskSubmissionPipeline_Accepted(t *testing.T) {
 	require.NotNil(t, result.ReserveReceipt)
 	assert.Equal(t, string(model.TaskBillingEventTypeReserve), result.ReserveReceipt.MutationType)
 	assert.Nil(t, result.ReleaseReceipt)
+	requireTaskProjectionAttempt(t, db, result.ReserveReceipt)
 
 	// Verify balances remained deducted
 	var user model.User
@@ -261,6 +283,8 @@ func TestTaskSubmissionPipeline_Rejected(t *testing.T) {
 	assert.Equal(t, int64(100), result.ReleaseReceipt.Quota)
 	assert.Equal(t, "local.dispatch_rejected", result.ReleaseReceipt.EvidenceID)
 	assert.Equal(t, 1, result.ReleaseReceipt.EvidenceVersion)
+	requireTaskProjectionAttempt(t, db, result.ReserveReceipt)
+	requireTaskProjectionAttempt(t, db, result.ReleaseReceipt)
 
 	// Verify balances were fully refunded
 	var user model.User

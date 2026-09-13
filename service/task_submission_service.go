@@ -160,6 +160,7 @@ func ExecuteTaskSubmissionPipeline(ctx context.Context, input TaskSubmissionPipe
 	if err != nil {
 		return nil, fmt.Errorf("task quota reservation failed: %w", err)
 	}
+	_ = model.ProjectQuotaMutationReceipt(ctx, db, reserveReceipt)
 
 	// 2. T2 Outbound: atomically transition operation and attempt to dispatching in a DB transaction
 	err = db.Transaction(func(tx *gorm.DB) error {
@@ -351,6 +352,9 @@ func ExecuteTaskSubmissionPipeline(ctx context.Context, input TaskSubmissionPipe
 	}
 	if err != nil {
 		return nil, fmt.Errorf("task submission outcome processing failed: %w", err)
+	}
+	if releaseReceipt != nil {
+		_ = model.ProjectQuotaMutationReceipt(ctx, db, releaseReceipt)
 	}
 
 	// Reload latest operation and attempt state

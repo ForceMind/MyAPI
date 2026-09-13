@@ -42,12 +42,19 @@ local function validTimestamp(value)
   return integerText(value) and string.sub(value, 1, 1) ~= '-'
     and (#value < 19 or (#value == 19 and value <= '9223372036854775807'))
 end
-if #KEYS ~= 1 or #ARGV ~= 3 or not integerText(ARGV[2]) or ARGV[2] == '0'
-  or string.sub(ARGV[2], 1, 1) == '-' then
+if #KEYS ~= 2 or #ARGV ~= 4 or not integerText(ARGV[2]) or ARGV[2] == '0'
+  or string.sub(ARGV[2], 1, 1) == '-' or not integerText(ARGV[4])
+  or string.sub(ARGV[4], 1, 1) == '-' or ARGV[4] == '0' then
   return -2
 end
 local amount = quotaInteger(ARGV[1])
 if amount == nil then return -2 end
+local globalEpoch = redis.call('GET', KEYS[2])
+if not globalEpoch then
+  redis.call('SET', KEYS[2], ARGV[4])
+elseif globalEpoch ~= ARGV[4] then
+  return -3
+end
 `, common.MinQuota, common.MaxQuota)
 
 var userQuotaReserveScript = quotaCacheScriptPrelude + `
@@ -56,6 +63,7 @@ if redis.call('HGET', KEYS[1], 'Id') ~= ARGV[2]
   or redis.call('HGET', KEYS[1], 'CacheSchema') ~= ARGV[3] then
   return -1
 end
+if redis.call('HGET', KEYS[1], 'QuotaWriterEpoch') ~= ARGV[4] then return -3 end
 local quota = quotaInteger(redis.call('HGET', KEYS[1], 'Quota'))
 if quota == nil then return -1 end
 if quota < amount then
@@ -70,6 +78,7 @@ if redis.call('HGET', KEYS[1], 'Id') ~= ARGV[2]
   or redis.call('HGET', KEYS[1], 'CacheSchema') ~= ARGV[3] then
   return -1
 end
+if redis.call('HGET', KEYS[1], 'QuotaWriterEpoch') ~= ARGV[4] then return -3 end
 local quota = quotaInteger(redis.call('HGET', KEYS[1], 'Quota'))
 if quota == nil then return -1 end
 if not inRange(quota + amount) then return -2 end
@@ -81,6 +90,7 @@ if amount < 0 or not validTimestamp(ARGV[3]) then return -2 end
 if redis.call('HGET', KEYS[1], 'Id') ~= ARGV[2] then
   return -1
 end
+if redis.call('HGET', KEYS[1], 'QuotaWriterEpoch') ~= ARGV[4] then return -3 end
 local remain = quotaInteger(redis.call('HGET', KEYS[1], 'RemainQuota'))
 local used = quotaInteger(redis.call('HGET', KEYS[1], 'UsedQuota'))
 if remain == nil or used == nil then return -1 end
@@ -98,6 +108,7 @@ if not validTimestamp(ARGV[3]) then return -2 end
 if redis.call('HGET', KEYS[1], 'Id') ~= ARGV[2] then
   return -1
 end
+if redis.call('HGET', KEYS[1], 'QuotaWriterEpoch') ~= ARGV[4] then return -3 end
 local remain = quotaInteger(redis.call('HGET', KEYS[1], 'RemainQuota'))
 local used = quotaInteger(redis.call('HGET', KEYS[1], 'UsedQuota'))
 if remain == nil or used == nil then return -1 end
@@ -112,6 +123,8 @@ func quotaResultFromLua(result int, err error) (cacheQuotaResult, error) {
 		return cacheQuotaMiss, err
 	}
 	switch result {
+	case -3:
+		return cacheQuotaMiss, ErrQuotaWriterEpochMismatch
 	case -2:
 		return cacheQuotaMiss, errInvalidQuotaCacheOperation
 	case 1:
@@ -127,36 +140,72 @@ func cacheTryReserveUserQuota(userID int, amount int64) (cacheQuotaResult, error
 	if amount < 0 || amount > common.MaxQuota {
 		return cacheQuotaMiss, errInvalidQuotaCacheOperation
 	}
+	epoch, err := quotaWriterEpochForLegacyCache(DB)
+	if err != nil {
+		_ = invalidateUserCache(userID)
+		return cacheQuotaMiss, err
+	}
 	result, err := common.RDB.Eval(context.Background(), userQuotaReserveScript,
-		[]string{getUserCacheKey(userID)}, amount, userID, userCacheSchemaVersion).Int()
-	return quotaResultFromLua(result, err)
+		[]string{getUserCacheKey(userID), quotaWriterEpochRedisKey}, amount, userID, userCacheSchemaVersion, epoch).Int()
+	parsed, parseErr := quotaResultFromLua(result, err)
+	if errors.Is(parseErr, ErrQuotaWriterEpochMismatch) {
+		_ = invalidateUserCache(userID)
+	}
+	return parsed, parseErr
 }
 
 func cacheApplyUserQuotaDelta(userID int, delta int64) (cacheQuotaResult, error) {
 	if delta < common.MinQuota || delta > common.MaxQuota {
 		return cacheQuotaMiss, errInvalidQuotaCacheOperation
 	}
+	epoch, err := quotaWriterEpochForLegacyCache(DB)
+	if err != nil {
+		_ = invalidateUserCache(userID)
+		return cacheQuotaMiss, err
+	}
 	result, err := common.RDB.Eval(context.Background(), userQuotaDeltaScript,
-		[]string{getUserCacheKey(userID)}, delta, userID, userCacheSchemaVersion).Int()
-	return quotaResultFromLua(result, err)
+		[]string{getUserCacheKey(userID), quotaWriterEpochRedisKey}, delta, userID, userCacheSchemaVersion, epoch).Int()
+	parsed, parseErr := quotaResultFromLua(result, err)
+	if errors.Is(parseErr, ErrQuotaWriterEpochMismatch) {
+		_ = invalidateUserCache(userID)
+	}
+	return parsed, parseErr
 }
 
 func cacheTryReserveTokenQuota(id int, key string, amount int64) (cacheQuotaResult, error) {
 	if amount < 0 || amount > common.MaxQuota {
 		return cacheQuotaMiss, errInvalidQuotaCacheOperation
 	}
+	epoch, err := quotaWriterEpochForLegacyCache(DB)
+	if err != nil {
+		_ = invalidateTokenCacheForMutation(key)
+		return cacheQuotaMiss, err
+	}
 	result, err := common.RDB.Eval(context.Background(), tokenQuotaReserveScript,
-		[]string{getTokenCacheKey(key)}, amount, id, common.GetTimestamp()).Int()
-	return quotaResultFromLua(result, err)
+		[]string{getTokenCacheKey(key), quotaWriterEpochRedisKey}, amount, id, common.GetTimestamp(), epoch).Int()
+	parsed, parseErr := quotaResultFromLua(result, err)
+	if errors.Is(parseErr, ErrQuotaWriterEpochMismatch) {
+		_ = invalidateTokenCacheForMutation(key)
+	}
+	return parsed, parseErr
 }
 
 func cacheApplyTokenQuotaDelta(id int, key string, delta int64) (cacheQuotaResult, error) {
 	if delta < common.MinQuota || delta > common.MaxQuota {
 		return cacheQuotaMiss, errInvalidQuotaCacheOperation
 	}
+	epoch, err := quotaWriterEpochForLegacyCache(DB)
+	if err != nil {
+		_ = invalidateTokenCacheForMutation(key)
+		return cacheQuotaMiss, err
+	}
 	result, err := common.RDB.Eval(context.Background(), tokenQuotaDeltaScript,
-		[]string{getTokenCacheKey(key)}, delta, id, common.GetTimestamp()).Int()
-	return quotaResultFromLua(result, err)
+		[]string{getTokenCacheKey(key), quotaWriterEpochRedisKey}, delta, id, common.GetTimestamp(), epoch).Int()
+	parsed, parseErr := quotaResultFromLua(result, err)
+	if errors.Is(parseErr, ErrQuotaWriterEpochMismatch) {
+		_ = invalidateTokenCacheForMutation(key)
+	}
+	return parsed, parseErr
 }
 
 // persistUserQuotaDelta 把已在缓存侧预扣成功的增量落库；批量模式下入队，
@@ -229,11 +278,21 @@ func TryReserveUserQuota(id int, quota int) (bool, error) {
 		return true, nil
 	}
 	if !common.RedisEnabled {
+		if common.BatchUpdateEnabled {
+			return false, ErrBatchQuotaCacheUnavailable
+		}
 		return reserveUserQuotaDB(id, quota)
 	}
 
 	result, err := cacheTryReserveUserQuota(id, int64(quota))
-	if err == nil && result == cacheQuotaMiss {
+	if errors.Is(err, ErrLegacyQuotaWriterModeDisabled) {
+		return false, err
+	}
+	if common.BatchUpdateEnabled {
+		if err != nil || result == cacheQuotaMiss {
+			return false, fmt.Errorf("%w: user cache reserve: %v", ErrBatchQuotaCacheUnavailable, err)
+		}
+	} else if err == nil && result == cacheQuotaMiss {
 		if _, hydrateErr := GetUserCache(id); hydrateErr == nil {
 			result, err = cacheTryReserveUserQuota(id, int64(quota))
 		}
@@ -241,7 +300,13 @@ func TryReserveUserQuota(id int, quota int) (bool, error) {
 	if errors.Is(err, errInvalidQuotaCacheOperation) {
 		return false, err
 	}
+	if errors.Is(err, ErrLegacyQuotaWriterModeDisabled) {
+		return false, err
+	}
 	if err != nil || result == cacheQuotaMiss {
+		if common.BatchUpdateEnabled {
+			return false, fmt.Errorf("%w: user cache reserve: %v", ErrBatchQuotaCacheUnavailable, err)
+		}
 		if err != nil {
 			common.SysLog("user quota cache reserve unavailable, falling back to database: " + err.Error())
 		}
@@ -272,15 +337,46 @@ func TryReserveTokenQuota(id int, key string, quota int, unlimited bool) (bool, 
 	if quota == 0 {
 		return true, nil
 	}
-	if unlimited {
-		return true, DecreaseTokenQuota(id, key, quota)
-	}
 	if !common.RedisEnabled {
+		if common.BatchUpdateEnabled {
+			return false, ErrBatchQuotaCacheUnavailable
+		}
+		if unlimited {
+			return true, decreaseTokenQuota(id, quota)
+		}
 		return reserveTokenQuotaDB(id, quota)
 	}
 
+	if unlimited {
+		result, err := cacheApplyTokenQuotaDelta(id, key, int64(-quota))
+		if errors.Is(err, ErrLegacyQuotaWriterModeDisabled) {
+			return false, err
+		}
+		if common.BatchUpdateEnabled && (err != nil || result == cacheQuotaMiss) {
+			return false, fmt.Errorf("%w: unlimited token cache reserve: %v", ErrBatchQuotaCacheUnavailable, err)
+		}
+		if err != nil || result == cacheQuotaMiss {
+			return true, decreaseTokenQuota(id, quota)
+		}
+		if err = persistTokenQuotaDelta(id, -quota); err != nil {
+			compensated, compensateErr := cacheApplyTokenQuotaDelta(id, key, int64(quota))
+			if compensateErr != nil || compensated != cacheQuotaOK {
+				common.SysError(fmt.Sprintf("failed to compensate reserved unlimited token quota: result=%d error=%v", compensated, compensateErr))
+			}
+			return false, err
+		}
+		return true, nil
+	}
+
 	result, err := cacheTryReserveTokenQuota(id, key, int64(quota))
-	if err == nil && result == cacheQuotaMiss {
+	if errors.Is(err, ErrLegacyQuotaWriterModeDisabled) {
+		return false, err
+	}
+	if common.BatchUpdateEnabled {
+		if err != nil || result == cacheQuotaMiss {
+			return false, fmt.Errorf("%w: token cache reserve: %v", ErrBatchQuotaCacheUnavailable, err)
+		}
+	} else if err == nil && result == cacheQuotaMiss {
 		if _, hydrateErr := GetTokenByKey(key, true); hydrateErr == nil {
 			result, err = cacheTryReserveTokenQuota(id, key, int64(quota))
 		}
@@ -288,7 +384,13 @@ func TryReserveTokenQuota(id int, key string, quota int, unlimited bool) (bool, 
 	if errors.Is(err, errInvalidQuotaCacheOperation) {
 		return false, err
 	}
+	if errors.Is(err, ErrLegacyQuotaWriterModeDisabled) {
+		return false, err
+	}
 	if err != nil || result == cacheQuotaMiss {
+		if common.BatchUpdateEnabled {
+			return false, fmt.Errorf("%w: token cache reserve: %v", ErrBatchQuotaCacheUnavailable, err)
+		}
 		if err != nil {
 			common.SysLog("token quota cache reserve unavailable, falling back to database: " + err.Error())
 		}

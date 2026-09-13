@@ -100,6 +100,23 @@ type QuotaMutationUserSnapshot struct {
 	AccountTierID string `json:"account_tier_id"`
 }
 
+func (snapshot *QuotaMutationUserSnapshot) Scan(value interface{}) error {
+	*snapshot = QuotaMutationUserSnapshot{}
+	data, err := taskRecoveryTextValue(value)
+	if err != nil || len(data) == 0 {
+		return err
+	}
+	return common.Unmarshal(data, snapshot)
+}
+
+func (snapshot QuotaMutationUserSnapshot) Value() (driver.Value, error) {
+	data, err := common.Marshal(snapshot)
+	if err != nil {
+		return nil, err
+	}
+	return string(data), nil
+}
+
 // QuotaMutationTokenSnapshot omits Key, AutoGroups and IP restrictions. Those
 // values are credentials or routing policy inputs, not quota mutation state.
 type QuotaMutationTokenSnapshot struct {
@@ -171,6 +188,7 @@ func (snapshot QuotaMutationAccountSnapshot) Value() (driver.Value, error) {
 type QuotaMutationReceipt struct {
 	ID                          int64                        `json:"id" gorm:"primaryKey"`
 	ReceiptVersion              int                          `json:"receipt_version" gorm:"not null;<-:create"`
+	WriterEpoch                 int64                        `json:"writer_epoch" gorm:"type:bigint;<-:create"`
 	MutationType                string                       `json:"mutation_type" gorm:"type:varchar(32);not null;default:'reserve';uniqueIndex:uidx_quota_mutation_receipt_op_type,priority:2;<-:create"`
 	MutationKey                 string                       `json:"mutation_key" gorm:"type:varchar(128);not null;uniqueIndex:uidx_quota_mutation_receipt_key;<-:create"`
 	RequestFingerprint          string                       `json:"request_fingerprint" gorm:"type:char(64);not null;<-:create"`
@@ -347,6 +365,9 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 		if existing.RequestFingerprint != fingerprint {
 			return nil, ErrTaskQuotaReservationConflict
 		}
+		if _, err := ensureQuotaProjectionObligation(tx, existing); err != nil {
+			return nil, err
+		}
 		return existing, nil
 	}
 
@@ -418,8 +439,16 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 			if existing.RequestFingerprint != fingerprint {
 				return ErrTaskQuotaReservationConflict
 			}
+			if _, err := ensureQuotaProjectionObligation(writeDB, existing); err != nil {
+				return err
+			}
 			result = existing
 			return nil
+		}
+
+		writerState, err := requireDurableQuotaWriterEpoch(writeDB)
+		if err != nil {
+			return err
 		}
 
 		var subscription *UserSubscription
@@ -601,6 +630,7 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 
 		receipt := &QuotaMutationReceipt{
 			ReceiptVersion:              quotaMutationReceiptVersion,
+			WriterEpoch:                 writerState.Epoch,
 			MutationType:                string(TaskBillingEventTypeReserve),
 			MutationKey:                 event.EventKey,
 			RequestFingerprint:          fingerprint,
@@ -634,6 +664,9 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 			return err
 		}
 		if _, err := createTaskMutationOutbox(writeDB, event, receipt, "task quota reserved"); err != nil {
+			return err
+		}
+		if _, err := ensureQuotaProjectionObligation(writeDB, receipt); err != nil {
 			return err
 		}
 
@@ -938,13 +971,20 @@ func quotaMutationInt32Value(value int) bool {
 	return int64(value) >= int64(common.MinQuota) && int64(value) <= int64(common.MaxQuota)
 }
 
+func quotaMutationUserSnapshot(user *User) QuotaMutationUserSnapshot {
+	if user == nil {
+		return QuotaMutationUserSnapshot{}
+	}
+	return QuotaMutationUserSnapshot{
+		ID: user.Id, Status: user.Status, Role: user.Role, Quota: user.Quota,
+		UsedQuota: user.UsedQuota, RequestCount: user.RequestCount, QuotaVersion: user.QuotaVersion,
+		Group: user.Group, AccountTierID: user.AccountTierID,
+	}
+}
+
 func quotaMutationSnapshot(user *User, token *Token, subscription *UserSubscription) QuotaMutationAccountSnapshot {
 	snapshot := QuotaMutationAccountSnapshot{
-		User: QuotaMutationUserSnapshot{
-			ID: user.Id, Status: user.Status, Role: user.Role, Quota: user.Quota,
-			UsedQuota: user.UsedQuota, RequestCount: user.RequestCount, QuotaVersion: user.QuotaVersion,
-			Group: user.Group, AccountTierID: user.AccountTierID,
-		},
+		User: quotaMutationUserSnapshot(user),
 		Token: QuotaMutationTokenSnapshot{
 			ID: token.Id, UserID: token.UserId, Status: token.Status, CreatedTime: token.CreatedTime,
 			AccessedTime: token.AccessedTime, ExpiredTime: token.ExpiredTime, RemainQuota: token.RemainQuota,

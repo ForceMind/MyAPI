@@ -60,10 +60,15 @@ func TestMain(m *testing.M) {
 		&SystemTaskLock{},
 		&QuotaMutationReceipt{},
 		&UserQuotaMutationReceipt{},
+		&QuotaWriterEpoch{},
+		&QuotaProjectionObligation{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}
 	_ = registerTaskRecoveryGormGuards(db)
+	if err := EnsureQuotaWriterEpochStateWithDB(db); err != nil {
+		panic("failed to initialize quota writer epoch: " + err.Error())
+	}
 
 	os.Exit(m.Run())
 }
@@ -93,6 +98,7 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM system_instances")
 		DB.Exec("DELETE FROM system_task_locks")
 		DB.Exec("DELETE FROM system_tasks")
+		DB.Exec("DELETE FROM quota_projection_obligations")
 		DB.Exec("DELETE FROM user_quota_mutation_receipts")
 		DB.Exec("DELETE FROM quota_mutation_receipts")
 	})

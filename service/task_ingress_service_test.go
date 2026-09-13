@@ -50,9 +50,13 @@ func setupTaskIngressTestDB(t *testing.T) *gorm.DB {
 		&model.TaskBillingEvent{},
 		&model.TaskBillingLogOutbox{},
 		&model.QuotaMutationReceipt{},
+		&model.QuotaWriterEpoch{},
+		&model.QuotaProjectionObligation{},
 		&model.Log{},
 	)
 	require.NoError(t, err)
+	require.NoError(t, model.EnsureQuotaWriterEpochStateWithDB(db))
+	setServiceQuotaWriterMode(t, db, model.QuotaWriterModeAuthoritative, 1)
 	require.NoError(t, db.Create(&model.Channel{Id: 10, Name: "ingress-test", Status: common.ChannelStatusEnabled}).Error)
 	return db
 }

@@ -98,6 +98,9 @@ func b2SubmissionModels() []interface{} {
 		&TaskBillingEvent{},
 		&TaskBillingLogOutbox{},
 		&QuotaMutationReceipt{},
+		&UserQuotaMutationReceipt{},
+		&QuotaWriterEpoch{},
+		&QuotaProjectionObligation{},
 		&Log{},
 		&BillingLogProjectionIdentity{},
 	}
@@ -128,9 +131,12 @@ func migrateB2SubmissionFixture(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	require.NoError(t, db.AutoMigrate(b2SubmissionModels()...))
 	require.NoError(t, EnsureLogProjectionSchemaWithDB(db))
+	require.NoError(t, EnsureQuotaWriterEpochStateWithDB(db))
 	// Startup migrations are intentionally repeatable on existing installs.
 	require.NoError(t, db.AutoMigrate(b2SubmissionModels()...))
 	require.NoError(t, EnsureLogProjectionSchemaWithDB(db))
+	require.NoError(t, EnsureQuotaWriterEpochStateWithDB(db))
+	setQuotaWriterStateForTest(t, db, QuotaWriterModeAuthoritative, 1)
 
 	for _, model := range []interface{}{
 		&TaskRecoveryIdentity{},

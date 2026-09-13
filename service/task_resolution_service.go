@@ -187,6 +187,9 @@ func ResolveOperationProviderVerified(ctx context.Context, input ProviderVerifie
 		if err != nil {
 			return nil, err
 		}
+		if applied != nil && applied.Receipt != nil {
+			_ = model.ProjectQuotaMutationReceipt(ctx, db, applied.Receipt)
+		}
 		if err := db.First(&op, op.ID).Error; err != nil {
 			return nil, err
 		}
@@ -325,6 +328,9 @@ func ResolveOperationProviderVerified(ctx context.Context, input ProviderVerifie
 		return nil, err
 	}
 
+	if releaseReceipt != nil {
+		_ = model.ProjectQuotaMutationReceipt(ctx, db, releaseReceipt)
+	}
 	if err := db.Where("id = ?", op.ID).First(&op).Error; err != nil {
 		return nil, fmt.Errorf("reload final operation failed: %w", err)
 	}
@@ -619,6 +625,9 @@ func ResolveOperationManualAudit(ctx context.Context, input ManualAuditResolutio
 					_ = db.Where("id = ?", attempt.ID).First(attempt)
 				}
 				existingReceipt, _ := model.FindTaskQuotaReceipt(db, op.ID, string(model.TaskBillingEventTypeRefund), op.UserID, op.TokenID)
+				if existingReceipt != nil {
+					_ = model.ProjectQuotaMutationReceipt(ctx, db, existingReceipt)
+				}
 				return &ManualAuditResolutionResult{
 					Operation:      &op,
 					Attempt:        attempt,
@@ -630,6 +639,9 @@ func ResolveOperationManualAudit(ctx context.Context, input ManualAuditResolutio
 		return nil, err
 	}
 
+	if releaseReceipt != nil {
+		_ = model.ProjectQuotaMutationReceipt(ctx, db, releaseReceipt)
+	}
 	if err := db.Where("id = ?", op.ID).First(&op).Error; err != nil {
 		return nil, fmt.Errorf("reload final operation failed: %w", err)
 	}

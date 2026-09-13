@@ -323,6 +323,8 @@ func migrateDB() error {
 		&TaskBillingLogOutbox{},
 		&QuotaMutationReceipt{},
 		&UserQuotaMutationReceipt{},
+		&QuotaWriterEpoch{},
+		&QuotaProjectionObligation{},
 		&Model{},
 		&Vendor{},
 		&PrefillGroup{},
@@ -367,6 +369,12 @@ func migrateDB() error {
 		return err
 	}
 	if err := ensureQuotaMutationReceiptSchema(); err != nil {
+		return err
+	}
+	if err := EnsureQuotaWriterEpochStateWithDB(DB); err != nil {
+		return err
+	}
+	if err := InitializeQuotaProjectionObligationsWithDB(DB); err != nil {
 		return err
 	}
 	if err := ensureTaskTerminalObservationSchemaWithDB(DB); err != nil {
@@ -416,6 +424,8 @@ func migrateDBFast() error {
 		{&TaskBillingLogOutbox{}, "TaskBillingLogOutbox"},
 		{&QuotaMutationReceipt{}, "QuotaMutationReceipt"},
 		{&UserQuotaMutationReceipt{}, "UserQuotaMutationReceipt"},
+		{&QuotaWriterEpoch{}, "QuotaWriterEpoch"},
+		{&QuotaProjectionObligation{}, "QuotaProjectionObligation"},
 		{&Model{}, "Model"},
 		{&Vendor{}, "Vendor"},
 		{&PrefillGroup{}, "PrefillGroup"},
@@ -465,6 +475,12 @@ func migrateDBFast() error {
 		return err
 	}
 	if err := ensureQuotaMutationReceiptSchema(); err != nil {
+		return err
+	}
+	if err := EnsureQuotaWriterEpochStateWithDB(DB); err != nil {
+		return err
+	}
+	if err := InitializeQuotaProjectionObligationsWithDB(DB); err != nil {
 		return err
 	}
 	if err := ensureTaskTerminalObservationSchemaWithDB(DB); err != nil {

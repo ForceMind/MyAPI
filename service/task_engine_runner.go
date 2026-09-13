@@ -32,6 +32,7 @@ type TaskEngineReport struct {
 	StaleUnfinishedRecovered  int           `json:"stale_unfinished_recovered"`
 	ExpiredBillingReclaimed   int           `json:"expired_billing_reclaimed"`
 	OutboxDelivered           int           `json:"outbox_delivered"`
+	QuotaProjectionProcessed  int           `json:"quota_projection_processed"`
 	Duration                  time.Duration `json:"duration"`
 	Errors                    []string      `json:"errors,omitempty"`
 }
@@ -229,6 +230,13 @@ func (r *TaskEngineRunner) RunOnce(ctx context.Context) TaskEngineReport {
 	for _, err := range recErrs {
 		if err != nil {
 			report.Errors = append(report.Errors, err.Error())
+		}
+	}
+	if r.recoveryWorker != nil && ctx.Err() == nil {
+		projected, projectionErr := r.recoveryWorker.RecoverQuotaProjectionObligations(ctx, r.db)
+		report.QuotaProjectionProcessed = projected
+		if projectionErr != nil {
+			report.Errors = append(report.Errors, projectionErr.Error())
 		}
 	}
 

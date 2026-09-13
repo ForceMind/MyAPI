@@ -20,11 +20,13 @@ func TestQuotaScriptsRejectPartialMutation(t *testing.T) {
 			server := useUserCacheMiniRedis(t)
 			ctx := context.Background()
 			key := "quota-script-fixture"
-			before := map[string]string{"Id": "42", "RemainQuota": "100", "UsedQuota": "bad", "AccessedTime": "99", "Name": "preserve"}
+			writerEpoch := int64(7)
+			before := map[string]string{"Id": "42", "RemainQuota": "100", "UsedQuota": "bad", "AccessedTime": "99", "Name": "preserve", "QuotaWriterEpoch": strconv.FormatInt(writerEpoch, 10)}
 			require.NoError(t, common.RDB.HSet(ctx, key, before).Err())
+			require.NoError(t, common.RDB.Set(ctx, quotaWriterEpochRedisKey, writerEpoch, 0).Err())
 			require.NoError(t, common.RDB.Expire(ctx, key, time.Minute).Err())
 			ttl := server.TTL(key)
-			result, err := common.RDB.Eval(ctx, script.source, []string{key}, 10, 42, 123).Int()
+			result, err := common.RDB.Eval(ctx, script.source, []string{key, quotaWriterEpochRedisKey}, 10, 42, 123, writerEpoch).Int()
 			status, err := quotaResultFromLua(result, err)
 			assert.NoError(t, err)
 			assert.Equal(t, cacheQuotaMiss, status, "malformed cache is not insufficient balance or a successful debit")
@@ -64,15 +66,17 @@ func TestQuotaScriptsRejectInvalidAmountsWithoutMutation(t *testing.T) {
 				server := useUserCacheMiniRedis(t)
 				ctx := context.Background()
 				key := "quota-script-fixture"
-				before := map[string]string{"Id": "42", "CacheSchema": strconv.Itoa(userCacheSchemaVersion), "Quota": "100", "RemainQuota": "100", "UsedQuota": "20", "AccessedTime": "99"}
+				writerEpoch := int64(7)
+				before := map[string]string{"Id": "42", "CacheSchema": strconv.Itoa(userCacheSchemaVersion), "Quota": "100", "RemainQuota": "100", "UsedQuota": "20", "AccessedTime": "99", "QuotaWriterEpoch": strconv.FormatInt(writerEpoch, 10)}
 				require.NoError(t, common.RDB.HSet(ctx, key, before).Err())
+				require.NoError(t, common.RDB.Set(ctx, quotaWriterEpochRedisKey, writerEpoch, 0).Err())
 				require.NoError(t, common.RDB.Expire(ctx, key, time.Minute).Err())
 				ttl := server.TTL(key)
 				third := userCacheSchemaVersion
 				if script.token {
 					third = 123
 				}
-				result, evalErr := common.RDB.Eval(ctx, script.source, []string{key}, amount, 42, third).Int()
+				result, evalErr := common.RDB.Eval(ctx, script.source, []string{key, quotaWriterEpochRedisKey}, amount, 42, third, writerEpoch).Int()
 				status, err := quotaResultFromLua(result, evalErr)
 				assert.Error(t, err, "invalid amount must not be classified as a valid balance result")
 				assert.NotEqual(t, cacheQuotaOK, status)

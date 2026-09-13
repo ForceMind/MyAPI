@@ -251,6 +251,7 @@ func (w *TaskRecoveryWorker) RecoverStaleUnfinished(ctx context.Context, db *gor
 				continue
 			}
 			if receipt != nil {
+				_ = model.ProjectQuotaMutationReceipt(ctx, db, receipt)
 				recoveredCount++
 			}
 
@@ -322,6 +323,19 @@ func (w *TaskRecoveryWorker) RecoverExpiredBillingEvents(ctx context.Context, db
 	return recoveredCount, nil
 }
 
+// RecoverQuotaProjectionObligations replays one due projection batch. The model
+// gate is checked again inside the runner and defaults off.
+func (w *TaskRecoveryWorker) RecoverQuotaProjectionObligations(ctx context.Context, db *gorm.DB) (int, error) {
+	if db == nil {
+		db = model.DB
+	}
+	if db == nil {
+		return 0, gorm.ErrInvalidDB
+	}
+	workerID, _, _, batchSize, _ := w.resolveConfig()
+	return model.RunQuotaProjectionObligations(ctx, db, workerID+"_quota_projection", batchSize)
+}
+
 // RecoverTerminalObservations applies durable terminal observations and imports
 // only provable historical terminal Task projections. It never recalculates price.
 func (w *TaskRecoveryWorker) RecoverTerminalObservations(ctx context.Context, db *gorm.DB) (int, error) {
@@ -353,7 +367,8 @@ func (w *TaskRecoveryWorker) RecoverTerminalObservations(ctx context.Context, db
 		if err := ctx.Err(); err != nil {
 			return processed, errors.Join(append(passErrors, err)...)
 		}
-		if _, err := model.ApplyTaskTerminalObservation(db, observations[index].ID); err != nil {
+		applied, err := model.ApplyTaskTerminalObservation(db, observations[index].ID)
+		if err != nil {
 			if !errors.Is(err, model.ErrTaskTerminalObservationManualReview) {
 				if markErr := model.MarkTaskTerminalObservationRetryable(db, observations[index].ID, observations[index].LockVersion, 30); markErr != nil {
 					passErrors = append(passErrors, fmt.Errorf("apply observation %d: %v; mark retryable: %w", observations[index].ID, err, markErr))
@@ -367,6 +382,9 @@ func (w *TaskRecoveryWorker) RecoverTerminalObservations(ctx context.Context, db
 				passErrors = append(passErrors, fmt.Errorf("apply observation %d: %w", observations[index].ID, err))
 			}
 			continue
+		}
+		if applied != nil && applied.Receipt != nil {
+			_ = model.ProjectQuotaMutationReceipt(ctx, db, applied.Receipt)
 		}
 		processed++
 	}
