@@ -1,15 +1,24 @@
 # Mac 核心大更新：实施交接与阶段清单
 
-更新日期：2026-09-12。本文记录本次获批 Mac 首批工作的实施边界和最新审计；不是已完成、已迁移或已启用的证明。
+更新日期：2026-09-13。本文记录本次获批 Mac 首批工作的实施边界和最新审计；不是已完成、已迁移或已启用的证明。
 
 ## 当前基线与已知事实
 
+## 2026-09-13 WP3-A durable 基础交接（优先于早期 WP3 待处理表述）
+
+- 实施分支保持 `codex/mac-durable-accounting`；WP3-A 基线为 `73dc53d`，代码提交为 `522bce4b125ccd91c391f7bcbb7e9a935fa17731`。该精确 SHA 的 CI 仍待推送后触发。
+- WP3-A 只关闭原 Redis 投影 P1 的 **durable 基础**，不表示 Redis 全写入迁移、真实切换或生产资格完成。已落盘并经 Sol 独立复审的 target-aware planner 采用 fail-closed 行为。
+- 已落盘的基础包括：`QuotaWriterEpoch` 的 legacy / bridge / authoritative 状态；durable mode 互斥；batch cache fail-closed；receipt 与同一事务内 projection obligation；Redis epoch + QV hydrate；生产 obligation recovery `SystemTask`；以及 manual backoff / repair。
+- Terra 已完成 model/service 的完整验证，以及 race、`go vet`、`relaykit` 独立构建、SQLite 和 miniredis 验证。MySQL 5.7、PostgreSQL 9.6 与真实 Redis 尚未验证。
+- legacy writer 注册尚未迁移，cluster drain / inflight proof 缺失。因此不得切换至 authoritative，也不得开启 gate。Linux、生产和 M6 仍未授权。
+- 下一执行点为 WP3-B/C：先迁移普通 `BillingSession`、`User` + `Token` 的 reserve / settle / refund 与 batch queue，再处理充值、兑换、签到、admin 和 subscription credits。
+
 - 实施分支：`codex/mac-durable-accounting`。
-- WP2-B 审计范围：`953428d6b2b85a6230ed01e3efa2b214f6222ba5..33e14c063a3c9128f48f3acf9a0cd0e8683afb19`，共 1 个提交。
-- 本地开发分支指向 `33e14c063a3c9128f48f3acf9a0cd0e8683afb19`，远端开发分支仍为基线 `953428d6b2b85a6230ed01e3efa2b214f6222ba5`；`VERSION` 为 `0.1.1`。
-- 基线及此前 `main` CI 仅为历史证据，不能替代 `33e14c063a3c9128f48f3acf9a0cd0e8683afb19` 推送后产生的精确 SHA CI。
-- Sol 最终独立审查已完成；Terra 已通过 181 项定向测试、4 项 race、`go vet`、`relaykit` 独立构建和 SQLite 验证。该结果不等同于外部方言或整体验收。
-- 当前本机工具版本为 Go 1.27、Bun 1.4、Node 26.7。MySQL 5.7、PostgreSQL 9.6 和 ClickHouse 24.8 实库验证尚未执行；`Docker` 不在当前 `PATH`，因此未做容器相关验证。
+- WP3-A 审计范围：`73dc53d..522bce4b125ccd91c391f7bcbb7e9a935fa17731`，共 1 个提交。
+- 本地开发分支指向 `522bce4b125ccd91c391f7bcbb7e9a935fa17731`，WP3-A 基线为 `73dc53d`；`VERSION` 为 `0.1.1`。
+- 基线及此前 `main` CI 仅为历史证据，不能替代 `522bce4b125ccd91c391f7bcbb7e9a935fa17731` 推送后产生的精确 SHA CI。
+- Sol 已独立复审 target-aware planner 的 fail-closed 实现；Terra 已完成 model/service 完整验证，以及 race、`go vet`、`relaykit` 独立构建、SQLite 和 miniredis 验证。该结果不等同于外部方言、真实 Redis 或整体验收。
+- 当前本机工具版本为 Go 1.27、Bun 1.4、Node 26.7。MySQL 5.7、PostgreSQL 9.6 和真实 Redis 验证尚未执行；`Docker` 不在当前 `PATH`，因此未做容器相关验证。
 - 主代理已创建本次核心更新的持久 Goal，状态为进行中；阶段验收以本表和实际证据为准。
 - Git HTTPS 连接已复查恢复：`git ls-remote origin refs/heads/main` 成功，返回上述基线。另已找到 Node 22.23.2，可显式使用而不修改全局环境。
 
@@ -49,7 +58,7 @@
 | M2 | B3-A2 与 B2-2B/C：终态结算、释放、异步调度与状态机 | 已落盘 | gate-off 范围内已接线 | 本机验证通过；外部方言待验 | 未启用 |
 | M3 | 异步恢复、日志 Outbox、一致性审计与消费去重 | 已落盘 | gate-off 范围内已接线 | 本机验证通过；外部方言待验 | 未启用 |
 | M4 | 系统任务、恢复执行、持久入口协议、backfill 与控制器接入 | 已落盘 | gate-off 范围内已接线 | 本机验证通过；外部方言待验 | 未启用 |
-| M5 | C03b：Redis 余额投影与权威全写入 | P1-1 未处理 | 共享 schema/cache 逻辑仍会生效 | 待 WP3 | 未启用 |
+| M5 | C03b：Redis 余额投影与权威全写入 | WP3-A durable 基础已落盘；writer 迁移未完成 | gate-off；不得 authoritative | 本机验证通过；MySQL/PG/真实 Redis 待验 | 未启用 |
 | M6 | 真实切换评审与上线准备 | 未开始 | 未开始 | 未开始 | 未授权 |
 
 ### 2026-09-12 Phase A / WP1、WP2-B 状态
@@ -60,11 +69,11 @@
 - WP2-B 已落盘稳定 canonical、row key 和 digest，事件清理，关系库/ClickHouse quarantine，轻量 startup fail-closed，持久 backfill 的 SystemTask、fence 和索引阶段，以及 ClickHouse identity 与 materialize 恢复。
 - Sol 已完成最终独立审查。Terra 已通过 181 项定向测试、4 项 race、`go vet`、`relaykit` 独立构建和 SQLite 验证。
 - P2 日志消费去重标为当前代码完成；MySQL 5.7、PostgreSQL 9.6 和 ClickHouse 24.8 实库验证尚未执行。P2 settlement/refund 静默截断 core 已关闭。
-- P1 仅剩 Redis 投影与权威全写入，归入 WP3。不得将外部方言待验、精确 SHA CI 待推送或 gate-off 状态表述为生产资格。
+- 2026-09-12 时 P1 仅剩 Redis 投影与权威全写入，归入 WP3；2026-09-13 的 WP3-A durable 基础状态以本文开头记录为准。不得将外部方言待验、精确 SHA CI 待推送或 gate-off 状态表述为生产资格。
 
 默认 gate 保持关闭。Linux、生产、M6 真实切换、发布、真实数据处理和 UI 重做均未获授权。
 
-下一执行点：**WP3 C03b writer inventory 迁移**，随后处理 Redis **bridge / drain / epoch**。之后才继续 WP4 恢复操作面、WP5 独立验证与计划同步。Sol 负责主要实现，Terra 负责测试/文档，主代理负责最终复核。
+下一执行点：**WP3-B/C**，先迁移普通 `BillingSession`、`User` + `Token` 的 reserve / settle / refund 与 batch queue，再处理充值、兑换、签到、admin 和 subscription credits。legacy writer 注册未迁移且 cluster drain / inflight proof 缺失前，不得切换 authoritative 或开启 gate。
 
 ## 禁止事项
 

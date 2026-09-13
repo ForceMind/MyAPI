@@ -788,9 +788,18 @@ Claude Messages 转发和 Antigravity 请求边界，不从 Console 限额或 in
 
 ---
 
+## 2026-09-13 WP3-A durable 基础交接（优先于早期 WP3 待处理表述）
+
+- 实施分支保持 `codex/mac-durable-accounting`；WP3-A 基线为 `73dc53d`，代码提交为 `522bce4b125ccd91c391f7bcbb7e9a935fa17731`。该精确 SHA 的 CI 仍待推送后触发。
+- WP3-A 只关闭原 Redis 投影 P1 的 **durable 基础**，不表示 Redis 全写入迁移、真实切换或生产资格完成。已落盘并经 Sol 独立复审的 target-aware planner 采用 fail-closed 行为。
+- 已落盘的基础包括：`QuotaWriterEpoch` 的 legacy / bridge / authoritative 状态；durable mode 互斥；batch cache fail-closed；receipt 与同一事务内 projection obligation；Redis epoch + QV hydrate；生产 obligation recovery `SystemTask`；以及 manual backoff / repair。
+- Terra 已完成 model/service 的完整验证，以及 race、`go vet`、`relaykit` 独立构建、SQLite 和 miniredis 验证。MySQL 5.7、PostgreSQL 9.6 与真实 Redis 尚未验证。
+- legacy writer 注册尚未迁移，cluster drain / inflight proof 缺失。因此不得切换至 authoritative，也不得开启 gate。Linux、生产和 M6 仍未授权。
+- 下一执行点为 WP3-B/C：先迁移普通 `BillingSession`、`User` + `Token` 的 reserve / settle / refund 与 batch queue，再处理充值、兑换、签到、admin 和 subscription credits。
+
 ## 2026-09-12 最新 Mac 核心更新交接与决策（追加记录）
 
-本节仅增加最新交接和已选定决策，不改写上述历史计划、历史状态或完成证据。发生冲突时，本节适用于本次 Mac 首批执行。
+本节记录 2026-09-12 的交接和已选定决策，不改写上述历史计划、历史状态或完成证据。发生冲突时，2026-09-13 WP3-A 记录优先于本节。
 
 - 实施分支：`codex/mac-durable-accounting`；WP2-B 基线：`953428d6b2b85a6230ed01e3efa2b214f6222ba5`；本地代码提交：`33e14c063a3c9128f48f3acf9a0cd0e8683afb19`。精确 SHA CI 待推送后触发。
 - PR #1 于 2026-09-08 合入 `main` 及其 CI、Mac 44 项 CLI 纯逻辑测试均为历史/局部证据。WP2-B 已通过 Sol 最终独立审查，以及 Terra 181 项定向测试、4 项 race、`go vet`、`relaykit` 独立构建和 SQLite 验证；这些不表示外部方言验收或真实切换已完成。
@@ -809,7 +818,7 @@ Claude Messages 转发和 Antigravity 请求边界，不从 Console 限额或 in
 
 - 分支：`codex/mac-durable-accounting`；本次 WP2-B 基线为 `953428d6b2b85a6230ed01e3efa2b214f6222ba5`，代码提交为 `33e14c063a3c9128f48f3acf9a0cd0e8683afb19`。
 - `33e14c063a3c9128f48f3acf9a0cd0e8683afb19` 的精确 SHA CI 尚待推送后触发；远端仍在基线时，历史 `main` 或基线 CI 均不能替代该证据。`VERSION` 保持 `0.1.1`。
-- 阶段状态固定拆分为：**代码**、**接线**、**验证**、**生产启用**。M1-M4 的当前 gate-off 代码和接线已落盘并完成本机验证；M5 的 P1-1 Redis 投影与权威全写入仍待 WP3；M6 未授权。
+- 阶段状态固定拆分为：**代码**、**接线**、**验证**、**生产启用**。2026-09-12 时，M1-M4 的 gate-off 代码和接线已落盘并完成本机验证，M5 的 P1-1 Redis 投影与权威全写入仍待 WP3；2026-09-13 WP3-A durable 基础状态以本文件优先记录为准；M6 未授权。
 - D02（主库唯一可消费权威、Redis 可重建投影）与 D03（历史不明差异人工核查）已决定，但尚未切换或执行历史迁移。
 - 默认 gate 保持关闭。Linux、生产、M6 真实切换、发布、真实数据处理和 UI 重做均未获授权。
 
@@ -826,7 +835,7 @@ WP2-A-core `779901cf0a2f3a793980785ee6b5612fc58a575b` 与 WP2-A-entry `f9bd6c04b
 
 P1（必须先修复）：
 
-1. P1-1 Redis 投影与权威全写入：未处理，归入 WP3。
+1. P1-1 Redis 投影与权威全写入：2026-09-12 时未处理，归入 WP3；2026-09-13 WP3-A 已关闭其 durable 基础，writer 迁移、cluster drain / inflight proof 与 authoritative/gate 条件仍未完成。
 2. P1-2 固定 wallet：已在 `da6a59a` 基础上落盘。
 3. P1-3 终态先落库后结算、失败后不可恢复：已在 WP2-A-core/WP2-A-entry 落盘。
 4. P1-4 统计漏记或出现负减：已在 WP2-A-core/WP2-A-entry 落盘。
@@ -853,6 +862,7 @@ P2（随后处理）：
 | WP2-A-core | `779901cf0a2f3a793980785ee6b5612fc58a575b`：P1-3 原子账务、terminal observation/recovery core，P1-4 统计证据，P1-5 三 mutation Outbox | Sol 主要实现；Terra 测试/文档；主代理复核 |
 | WP2-A-entry | `f9bd6c04b1153390d2d9a0e423480925dc4e5c9d`（core `779901c`）：完成全部 polling/realtime terminal 入口，并修复 legacy safety 边界 | Sol 主要实现；Terra 测试/文档；主代理复核 |
 | WP2-B | `33e14c063a3c9128f48f3acf9a0cd0e8683afb19`：日志消费去重、canonical/row key/digest、quarantine、backfill/recovery；当前代码完成，外部方言待验 | Sol 主要实现；Terra 测试/文档；主代理复核 |
-| WP3 C03b | P1-1 Redis 投影与权威全写入；先完成 writer inventory 迁移，再处理 Redis bridge / drain / epoch | Sol 主要实现；Terra 测试/文档；主代理复核 |
+| WP3-A C03b durable 基础 | `73dc53d..522bce4b125ccd91c391f7bcbb7e9a935fa17731`：P1-1 durable 基础、epoch/mode/obligation/recovery 与 fail-closed planner 已落盘；不得 authoritative 或开 gate | Sol 独立复审；Terra 完整 model/service、race/vet/relaykit/SQLite/miniredis 验证；主代理复核 |
+| WP3-B/C | 迁移普通 `BillingSession`、`User` + `Token` reserve / settle / refund 与 batch queue；随后充值、兑换、签到、admin、subscription credits | Sol 主要实现；Terra 测试/文档；主代理复核 |
 | WP4 恢复操作面 | 提供安全、可审计的恢复和人工处置入口 | Sol 主要实现；Terra 测试/文档；主代理复核 |
 | WP5 独立验证与计划同步 | 完成独立复核、外部方言/CI 证据及文档状态同步 | Terra 测试/文档；主代理最终复核 |
