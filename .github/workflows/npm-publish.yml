@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: myapi-npm-publish-${{ inputs.tag }}
+  group: myapi-stable-latest-publication
   cancel-in-progress: false
 
 jobs:
@@ -44,7 +44,7 @@ jobs:
             echo "::error::NPM publishing is disabled or not explicitly confirmed"
             exit 1
           fi
-          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+          if ! node tools/release/semver.mjs validate-tag "$RELEASE_TAG"; then
             echo "::error::tag must be an exact semantic version beginning with v"
             exit 1
           fi
@@ -84,6 +84,38 @@ jobs:
           GITHUB_REF_TYPE: tag
           GITHUB_REF_NAME: ${{ inputs.tag }}
         run: npm run release:state
+      - name: Select npm dist-tag
+        id: dist-tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if [[ "${RELEASE_TAG#v}" == *-* ]]; then
+            echo "tag=beta" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Refuse npm latest rollback
+        if: ${{ steps.dist-tag.outputs.tag == 'latest' }}
+        env:
+          CANDIDATE_VERSION: ${{ inputs.tag }}
+        run: |
+          set +e
+          current_json="$(npm view @forcemind/myapi dist-tags --json 2>npm-query-error.txt)"
+          query_status=$?
+          set -e
+          if [[ "$query_status" -ne 0 ]]; then
+            if grep -q 'E404' npm-query-error.txt; then
+              exit 0
+            fi
+            cat npm-query-error.txt >&2
+            echo "::error::could not determine the current npm latest version"
+            exit 1
+          fi
+          current_version="$(node -e 'const tags = JSON.parse(process.argv[1]); process.stdout.write(typeof tags.latest === "string" ? tags.latest : "")' "$current_json")"
+          if [[ -n "$current_version" ]] && ! node tools/release/semver.mjs can-advance-stable-latest "${CANDIDATE_VERSION#v}" "$current_version"; then
+            echo "::error::refusing to move npm latest from $current_version to $CANDIDATE_VERSION"
+            exit 1
+          fi
       - name: Test backend
         run: |
           go test ./model ./controller ./middleware
@@ -105,4 +137,4 @@ jobs:
           node --version
           npm --version
       - name: Publish with provenance
-        run: npm publish --access public --provenance
+        run: npm publish --access public --provenance --tag "${{ steps.dist-tag.outputs.tag }}"

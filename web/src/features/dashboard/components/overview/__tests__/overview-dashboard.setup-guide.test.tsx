@@ -44,17 +44,21 @@ vi.mock('@/features/dashboard/hooks/use-status-data', () => ({
 }))
 
 vi.mock('@/components/page-transition', () => ({
-  CardStaggerContainer: (props: { children?: ReactNode; className?: string }) => (
-    <div className={props.className}>{props.children}</div>
-  ),
+  CardStaggerContainer: (props: {
+    children?: ReactNode
+    className?: string
+  }) => <div className={props.className}>{props.children}</div>,
   CardStaggerItem: (props: { children?: ReactNode; className?: string }) => (
     <div className={props.className}>{props.children}</div>
   ),
 }))
 
-vi.mock('@/features/dashboard/components/overview/account-quota-changes-panel', () => ({
-  AccountQuotaChangesPanel: () => null,
-}))
+vi.mock(
+  '@/features/dashboard/components/overview/account-quota-changes-panel',
+  () => ({
+    AccountQuotaChangesPanel: () => null,
+  })
+)
 vi.mock('@/features/dashboard/components/overview/announcements-panel', () => ({
   AnnouncementsPanel: () => null,
 }))
@@ -64,9 +68,12 @@ vi.mock('@/features/dashboard/components/overview/api-info-panel', () => ({
 vi.mock('@/features/dashboard/components/overview/faq-panel', () => ({
   FAQPanel: () => null,
 }))
-vi.mock('@/features/dashboard/components/overview/performance-health-panel', () => ({
-  PerformanceHealthPanel: () => null,
-}))
+vi.mock(
+  '@/features/dashboard/components/overview/performance-health-panel',
+  () => ({
+    PerformanceHealthPanel: () => null,
+  })
+)
 vi.mock('@/features/dashboard/components/overview/summary-cards', () => ({
   SummaryCards: () => null,
 }))
@@ -135,13 +142,19 @@ describe('overview setup guide edition and role gating', () => {
     renderDashboard()
 
     if (SELF_USE_MINIMAL) {
-      expect(screen.queryByText('Configure upstream channels')).not.toBeInTheDocument()
-      expect(screen.queryByRole('link', { name: 'Channels' })).not.toBeInTheDocument()
+      expect(
+        screen.queryByText('Configure upstream channels')
+      ).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('link', { name: 'Channels' })
+      ).not.toBeInTheDocument()
       expect(getChannels).not.toHaveBeenCalled()
       return
     }
 
-    expect(await screen.findByText('Configure upstream channels')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Configure upstream channels')
+    ).toBeInTheDocument()
     await waitFor(() => {
       expect(getChannels).toHaveBeenCalledWith({ p: 1, page_size: 1 })
     })
@@ -152,7 +165,9 @@ describe('overview setup guide edition and role gating', () => {
     const { unmount } = renderDashboard()
 
     await waitFor(() => expect(getApiKeys).toHaveBeenCalled())
-    expect(screen.queryByText('Configure upstream channels')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Configure upstream channels')
+    ).not.toBeInTheDocument()
     expect(getChannels).not.toHaveBeenCalled()
 
     unmount()
@@ -161,7 +176,9 @@ describe('overview setup guide edition and role gating', () => {
     renderDashboard()
 
     await waitFor(() => expect(getApiKeys).toHaveBeenCalled())
-    expect(screen.queryByText('Configure upstream channels')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Configure upstream channels')
+    ).not.toBeInTheDocument()
     expect(getChannels).not.toHaveBeenCalled()
   })
 })

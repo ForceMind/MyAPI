@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/setting/operation_setting"
 )
 
 // PaymentOptionKey is a field owned by the payment runtime. The constants use
@@ -69,6 +70,8 @@ const (
 	PaymentOptionComplianceConfirmedAt  PaymentOptionKey = "payment_setting.compliance_confirmed_at"
 	PaymentOptionComplianceConfirmedBy  PaymentOptionKey = "payment_setting.compliance_confirmed_by"
 	PaymentOptionComplianceConfirmedIP  PaymentOptionKey = "payment_setting.compliance_confirmed_ip"
+	PaymentOptionUserFundingMode        PaymentOptionKey = "user_funding_setting.mode"
+	PaymentOptionUserFundingEpoch       PaymentOptionKey = "user_funding_setting.epoch"
 	PaymentOptionWebhookKeyringMetadata PaymentOptionKey = "payment_runtime.webhook_keyring_metadata"
 )
 
@@ -360,6 +363,7 @@ const (
 	paymentValueUnconstrained paymentValueConstraint = iota
 	paymentValuePositiveInteger
 	paymentValuePositiveNumber
+	paymentValueUserFundingMode
 )
 
 type paymentOptionSpec struct {
@@ -418,6 +422,8 @@ var paymentOptionSpecs = map[PaymentOptionKey]paymentOptionSpec{
 	PaymentOptionComplianceConfirmedAt:       {kind: PaymentValueInteger},
 	PaymentOptionComplianceConfirmedBy:       {kind: PaymentValueInteger},
 	PaymentOptionComplianceConfirmedIP:       {kind: PaymentValueString, sensitive: true},
+	PaymentOptionUserFundingMode:             {kind: PaymentValueString, constraint: paymentValueUserFundingMode},
+	PaymentOptionUserFundingEpoch:            {kind: PaymentValueInteger},
 	PaymentOptionWebhookKeyringMetadata:      {kind: PaymentValueKeyringMetadata},
 }
 
@@ -439,6 +445,12 @@ func validatedPaymentValue(key PaymentOptionKey, value PaymentValue) (PaymentVal
 		}
 	case paymentValuePositiveNumber:
 		if value.numberValue <= 0 || math.IsNaN(value.numberValue) || math.IsInf(value.numberValue, 0) {
+			return PaymentValue{}, ErrPaymentRuntimeInvalidValue
+		}
+	case paymentValueUserFundingMode:
+		switch value.stringValue {
+		case string(operation_setting.UserFundingModeEnabled), string(operation_setting.UserFundingModeRetirement), string(operation_setting.UserFundingModeDisabled):
+		default:
 			return PaymentValue{}, ErrPaymentRuntimeInvalidValue
 		}
 	}

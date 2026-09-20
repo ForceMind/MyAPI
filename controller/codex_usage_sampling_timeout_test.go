@@ -87,7 +87,7 @@ func TestCodexSamplingHonorsShorterCallerDeadlineAndRecordsTimeout(t *testing.T)
 	previousDB := model.DB
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.ChannelQuotaSnapshot{}))
+	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}))
 	model.DB = db
 	t.Cleanup(func() { model.DB = previousDB })
 	client, err := service.GetHttpClientWithProxy("")
@@ -104,10 +104,12 @@ func TestCodexSamplingHonorsShorterCallerDeadlineAndRecordsTimeout(t *testing.T)
 		return nil, context.DeadlineExceeded
 	})
 	baseURL := "https://quota-fixture.invalid"
-	err = sampleCodexChannelUsage(ctx, &model.Channel{
+	channel := &model.Channel{
 		Id: 43, Type: constant.ChannelTypeCodex, BaseURL: &baseURL,
 		Key: `{"access_token":"fixture-access","account_id":"fixture-account"}`,
-	})
+	}
+	require.NoError(t, db.Create(channel).Error)
+	err = sampleCodexChannelUsage(ctx, channel)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	var snapshot model.ChannelQuotaSnapshot
 	require.NoError(t, db.Where("channel_id = ?", 43).First(&snapshot).Error)
@@ -127,7 +129,9 @@ func TestCodexSamplingRefreshWriteFailureIsReportedAndSafelyRecorded(t *testing.
 		Key: `{"access_token":"fixture-access","refresh_token":"fixture-refresh","account_id":"fixture-account"}`}
 	require.NoError(t, db.Create(channel).Error)
 	require.NoError(t, db.Callback().Update().Before("gorm:update").Register("fixture_reject_credential_update", func(tx *gorm.DB) {
-		tx.AddError(errors.New("fixture credential write unavailable"))
+		if tx.Statement.Schema != nil && tx.Statement.Schema.Table == "channels" && tx.Statement.Changed("Key") {
+			tx.AddError(errors.New("fixture credential write unavailable"))
+		}
 	}))
 	client, err := service.GetHttpClientWithProxy("")
 	require.NoError(t, err)
@@ -167,7 +171,9 @@ func TestManualCodexUsageFailsAndRecordsCredentialPersistenceError(t *testing.T)
 		Key: `{"access_token":"fixture-access","refresh_token":"fixture-refresh","account_id":"fixture-account"}`}
 	require.NoError(t, db.Create(channel).Error)
 	require.NoError(t, db.Callback().Update().Before("gorm:update").Register("fixture_reject_manual_credential_update", func(tx *gorm.DB) {
-		tx.AddError(errors.New("fixture credential write unavailable"))
+		if tx.Statement.Schema != nil && tx.Statement.Schema.Table == "channels" && tx.Statement.Changed("Key") {
+			tx.AddError(errors.New("fixture credential write unavailable"))
+		}
 	}))
 	client, err := service.GetHttpClientWithProxy("")
 	require.NoError(t, err)
@@ -223,6 +229,9 @@ func TestCodexSamplingSavesRotatedCredentialsAfterRequestCancellation(t *testing
 	defer cancel()
 	writes := 0
 	require.NoError(t, db.Callback().Update().Before("gorm:update").Register("fixture_inspect_credential_context", func(tx *gorm.DB) {
+		if tx.Statement.Schema == nil || tx.Statement.Schema.Table != "channels" || !tx.Statement.Changed("Key") {
+			return
+		}
 		writes++
 		require.ErrorIs(t, ctx.Err(), context.Canceled)
 		require.NoError(t, tx.Statement.Context.Err())

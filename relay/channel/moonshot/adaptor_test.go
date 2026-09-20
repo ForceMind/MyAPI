@@ -49,12 +49,12 @@ func TestConvertOpenAIRequestKimiK26KeepsOmittedTemperatureOmitted(t *testing.T)
 
 func TestConvertOpenAIRequestOtherMoonshotModelKeepsTemperature(t *testing.T) {
 	request := &dto.GeneralOpenAIRequest{
-		Model:       "kimi-k2.5",
+		Model:       "kimi-k3",
 		Temperature: common.GetPointer[float64](0.7),
 	}
 	info := &relaycommon.RelayInfo{
 		ChannelMeta: &relaycommon.ChannelMeta{
-			UpstreamModelName: "kimi-k2.5",
+			UpstreamModelName: "kimi-k3",
 		},
 	}
 

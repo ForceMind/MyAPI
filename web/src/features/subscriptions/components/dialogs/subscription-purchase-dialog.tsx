@@ -36,6 +36,10 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { formatQuota } from '@/lib/format'
+import {
+  isUserFundingUnavailableError,
+  USER_FUNDING_UNAVAILABLE_MESSAGE_KEY,
+} from '@/lib/self-use-build'
 import { DEFAULT_CURRENCY_CONFIG } from '@/stores/system-config-store'
 
 import {
@@ -73,6 +77,10 @@ export function SubscriptionPurchaseDialog(props: Props) {
   const { currency } = useSystemConfig()
   const [paying, setPaying] = useState(false)
   const [selectedEpayMethod, setSelectedEpayMethod] = useState('')
+  const paymentErrorMessage = (error: unknown) =>
+    isUserFundingUnavailableError(error)
+      ? t(USER_FUNDING_UNAVAILABLE_MESSAGE_KEY)
+      : t('Payment request failed')
 
   useEffect(() => {
     if (props.open && props.epayMethods && props.epayMethods.length > 0) {
@@ -129,8 +137,8 @@ export function SubscriptionPurchaseDialog(props: Props) {
             : t('Payment request failed')
         )
       }
-    } catch {
-      toast.error(t('Payment request failed'))
+    } catch (error) {
+      toast.error(paymentErrorMessage(error))
     } finally {
       setPaying(false)
     }
@@ -151,8 +159,8 @@ export function SubscriptionPurchaseDialog(props: Props) {
             : t('Payment request failed')
         )
       }
-    } catch {
-      toast.error(t('Payment request failed'))
+    } catch (error) {
+      toast.error(paymentErrorMessage(error))
     } finally {
       setPaying(false)
     }
@@ -174,8 +182,8 @@ export function SubscriptionPurchaseDialog(props: Props) {
             : t('Payment request failed')
         )
       }
-    } catch {
-      toast.error(t('Payment request failed'))
+    } catch (error) {
+      toast.error(paymentErrorMessage(error))
     } finally {
       setPaying(false)
     }
@@ -222,8 +230,8 @@ export function SubscriptionPurchaseDialog(props: Props) {
             : t('Payment request failed')
         )
       }
-    } catch {
-      toast.error(t('Payment request failed'))
+    } catch (error) {
+      toast.error(paymentErrorMessage(error))
     } finally {
       setPaying(false)
     }
@@ -248,8 +256,8 @@ export function SubscriptionPurchaseDialog(props: Props) {
             : t('Payment request failed')
         )
       }
-    } catch {
-      toast.error(t('Payment request failed'))
+    } catch (error) {
+      toast.error(paymentErrorMessage(error))
     } finally {
       setPaying(false)
     }
@@ -405,12 +413,10 @@ export function SubscriptionPurchaseDialog(props: Props) {
             {hasEpay && (
               <div className='grid grid-cols-[minmax(0,1fr)_auto] gap-2'>
                 <Select
-                  items={[
-                    ...(props.epayMethods || []).map((m) => ({
-                      value: m.type,
-                      label: m.name || m.type,
-                    })),
-                  ]}
+                  items={(props.epayMethods || []).map((m) => ({
+                    value: m.type,
+                    label: m.name || m.type,
+                  }))}
                   value={selectedEpayMethod}
                   onValueChange={(v) => v !== null && setSelectedEpayMethod(v)}
                   disabled={limitReached}

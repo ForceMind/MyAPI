@@ -323,8 +323,8 @@ func (w *TaskRecoveryWorker) RecoverExpiredBillingEvents(ctx context.Context, db
 	return recoveredCount, nil
 }
 
-// RecoverQuotaProjectionObligations replays one due projection batch. The model
-// gate is checked again inside the runner and defaults off.
+// RecoverQuotaProjectionObligations replays one due projection batch together
+// with account refund recovery obligations. The shared model gate defaults off.
 func (w *TaskRecoveryWorker) RecoverQuotaProjectionObligations(ctx context.Context, db *gorm.DB) (int, error) {
 	if db == nil {
 		db = model.DB
@@ -333,7 +333,23 @@ func (w *TaskRecoveryWorker) RecoverQuotaProjectionObligations(ctx context.Conte
 		return 0, gorm.ErrInvalidDB
 	}
 	workerID, _, _, batchSize, _ := w.resolveConfig()
-	return model.RunQuotaProjectionObligations(ctx, db, workerID+"_quota_projection", batchSize)
+	projected, projectionErr := model.RunQuotaProjectionObligations(ctx, db, workerID+"_quota_projection", batchSize)
+	refunded, refundErr := model.RunAccountQuotaTerminalRecoveryObligations(ctx, db, workerID+"_account_refund", batchSize)
+	return projected + refunded, errors.Join(projectionErr, refundErr)
+}
+
+func (w *TaskRecoveryWorker) RecoverAccountQuotaRefundFacts(ctx context.Context, db *gorm.DB) (int, error) {
+	if db == nil {
+		db = model.DB
+	}
+	if db == nil {
+		return 0, gorm.ErrInvalidDB
+	}
+	workerID, _, _, batchSize, _ := w.resolveConfig()
+	intents, intentErr := model.RunAccountQuotaSettlementIntents(ctx, db, workerID+"_account_settlement_intent", batchSize)
+	refunded, refundErr := model.RunAccountQuotaRefundFacts(ctx, db, workerID+"_account_refund_fact", batchSize)
+	settled, settleErr := model.RunAccountQuotaSettlementFacts(ctx, db, workerID+"_account_settlement_fact", batchSize)
+	return intents + refunded + settled, errors.Join(intentErr, refundErr, settleErr)
 }
 
 // RecoverTerminalObservations applies durable terminal observations and imports

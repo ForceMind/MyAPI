@@ -9,7 +9,12 @@ import (
 	"github.com/ForceMind/MyAPI/common"
 )
 
-const tokenCacheSchemaVersion = 1
+// tokenCacheSchemaVersion is bumped whenever a cached token gains a field
+// that affects authorization. Version 2 adds AccessProfileID: treating an old
+// projection as complete would make a cache hit silently fall back to the
+// legacy Group and could evaluate a different access profile from the one
+// persisted on the token.
+const tokenCacheSchemaVersion = 2
 
 func getTokenCacheKey(key string) string {
 	return fmt.Sprintf("token:%s", common.GenerateHMAC(key))
@@ -56,6 +61,10 @@ func invalidateTokenCacheForMutation(key string) error {
 // field of a live hash.
 // 返回值：0=被 fence 拦截，1=完成初始化，2=哈希已存在，仅刷新 TTL。
 func cacheInitToken(token Token) (int, error) {
+	return cacheInitTokenWithQuotaBalanceOwner(token, nil)
+}
+
+func cacheInitTokenWithQuotaBalanceOwner(token Token, balanceLock *quotaBalanceSubjectLock) (int, error) {
 	if !common.RedisEnabled {
 		return 0, nil
 	}
@@ -67,8 +76,20 @@ func cacheInitToken(token Token) (int, error) {
 	if token.AllowIps != nil {
 		allowIps = *token.AllowIps
 	}
+	balanceLockKey, err := quotaBalanceSubjectLockKey(BatchUpdateTypeTokenQuota, token.Id)
+	if err != nil {
+		return 0, err
+	}
+	balanceLockToken := ""
+	if balanceLock != nil {
+		balanceLockToken = balanceLock.Token
+	}
 	const script = `
-if redis.call('EXISTS', KEYS[2]) == 1 then
+local balanceOwner = redis.call('GET', KEYS[4])
+if (balanceOwner and balanceOwner ~= ARGV[21]) or (not balanceOwner and ARGV[21] ~= '') then
+  return 4
+end
+if redis.call('EXISTS', KEYS[2]) == 1 and ARGV[21] == '' then
   return 0
 end
 local incomingEpoch = tonumber(ARGV[20])
@@ -96,12 +117,18 @@ redis.call('HSET', KEYS[1],
   'UnlimitedQuota', ARGV[8], 'ModelLimitsEnabled', ARGV[9], 'ModelLimits', ARGV[10],
   'AllowIps', ARGV[11], 'Group', ARGV[12], 'CrossGroupRetry', ARGV[13],
   'AutoGroups', ARGV[14], 'RemainQuota', ARGV[15], 'UsedQuota', ARGV[16],
-  'QuotaVersion', ARGV[18], 'CacheSchema', ARGV[19], 'QuotaWriterEpoch', ARGV[20])
+  'QuotaVersion', ARGV[18], 'CacheSchema', ARGV[19], 'QuotaWriterEpoch', ARGV[20],
+  'AccessProfileID', ARGV[22])
 redis.call('EXPIRE', KEYS[1], ARGV[17])
+if ARGV[21] ~= '' then
+  redis.call('DEL', KEYS[2])
+end
 return 1`
 
-	result, err := common.RDB.Eval(context.Background(), script, []string{
-		getTokenCacheKey(token.Key), getTokenCacheFenceKey(token.Key), quotaWriterEpochRedisKey,
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	result, err := common.RDB.Eval(ctx, script, []string{
+		getTokenCacheKey(token.Key), getTokenCacheFenceKey(token.Key), quotaWriterEpochRedisKey, balanceLockKey,
 	},
 		token.Id, token.UserId, token.Status, token.Name,
 		token.CreatedTime, token.AccessedTime, token.ExpiredTime,
@@ -110,9 +137,14 @@ return 1`
 		token.AutoGroups, token.RemainQuota, token.UsedQuota,
 		tokenCacheTTLSeconds(), strconv.FormatInt(token.QuotaVersion, 10), tokenCacheSchemaVersion,
 		strconv.FormatInt(state.Epoch, 10),
+		balanceLockToken,
+		token.AccessProfileID,
 	).Int()
 	if result == 3 && err == nil {
 		return result, ErrQuotaWriterEpochMismatch
+	}
+	if result == 4 && err == nil {
+		return result, ErrQuotaBalanceMutationUnknown
 	}
 	return result, err
 }

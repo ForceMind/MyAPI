@@ -4,8 +4,11 @@
 
 当前 `myapi upgrade` 是显式 Legacy Docker 操作：它会校验版本、备份 `deploy/.env`、拉取固定 GHCR 镜像、等待健康检查，并在失败时恢复环境文件和旧镜像。它不会替管理员猜测数据库类型，也不会自动复制生产数据库；“旧镜像已恢复”不等于数据库已安全回退。
 
-当前 GHCR 镜像由推送新的 `vX.Y.Z` tag 自动触发 GitHub Actions 构建；Full 与 Legacy LAN
-分别发布到 `ghcr.io/forcemind/myapi` 和 `ghcr.io/forcemind/myapi-lan`。`myapi up`
+当前 GHCR 发行须由维护者对已有 SemVer tag 显式发起 `workflow_dispatch`，并通过 `PUBLISH`、专用环境和
+GHCR gate；推送 tag 不会自动发布。Full 与 Legacy LAN 分别使用
+`ghcr.io/forcemind/myapi` 和 `ghcr.io/forcemind/myapi-lan`。预发布（如 `v0.2.0-beta.1`）只写不可变
+version/arch tag，不移动稳定 latest；稳定 latest 仅在版本单调、Full/LAN+arch digest、OCI
+provenance/SBOM 与 Cosign 预检通过后提升。`myapi up`
 和 `myapi upgrade` 只使用版本固定的 GHCR tag（除非明确选择本地构建），不会把
 普通分支提交或可变 `latest` 当成升级目标。历史 `v0.1.0` 与 `v0.1.1` tag 已锁定，
 不得重用或手动重跑发布。
@@ -66,8 +69,8 @@ S5-P 分析 worker 在维护开始时停止提交新的模型请求；已经发�
 数据库副本，按上面的回滚步骤处理。
 
 发布 workflow 会在构建前检查版本 tag 和架构 tag 是否已经存在；如果存在就失败，
-要求创建新的 SemVer tag，不覆盖已发布镜像。`latest` 和分支滚动 tag 仍是明确的
-可变入口，不应作为生产升级目标。如需避免版本 tag 在拉取后被重新指向，可在副本升级时增加 `--pin-digest`，或在
+要求创建新的 SemVer tag，不覆盖已发布镜像。稳定 `latest` 是受单调 promotion 保护的可变入口，预发布不会触碰它，
+且两者都不应作为生产升级目标。如需避免版本 tag 在拉取后被重新指向，可在副本升级时增加 `--pin-digest`，或在
 `deploy/.env` 设置 `MYAPI_PIN_IMAGE_DIGEST=true`。CLI 会先拉取版本 tag，再读取本机
 `RepoDigests`，严格校验 `repo@sha256:<64 hex>` 后把该 digest 写回环境文件；若同时
 使用 `--verify-signature`，cosign 会验证最终 digest。解析失败会触发原环境回滚。

@@ -6,6 +6,7 @@ Licensed under the GNU Affero General Public License version 3 or later.
 */
 import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
+import { parseReleaseTag, parseSemVer } from '../release/semver.mjs'
 
 function git(args) {
   const result = spawnSync('git', args, { encoding: 'utf8', shell: false })
@@ -30,6 +31,9 @@ if (version !== metadata.version) {
   throw new Error(
     `VERSION (${version || 'empty'}) does not match package.json (${metadata.version})`
   )
+}
+if (!parseSemVer(metadata.version)) {
+  throw new Error(`package.json version ${metadata.version} is not valid SemVer`)
 }
 
 const expectedImageVersion = `v${metadata.version}`
@@ -71,6 +75,9 @@ if (protectedLegacyTags.has(expectedTag)) {
 }
 
 const requestedTag = process.env.MYAPI_RELEASE_TAG?.trim() || expectedTag
+if (!parseReleaseTag(requestedTag)) {
+  throw new Error(`requested release tag ${requestedTag || 'empty'} is not valid SemVer`)
+}
 if (requestedTag !== expectedTag) {
   throw new Error(`requested release tag ${requestedTag} does not match ${expectedTag}`)
 }

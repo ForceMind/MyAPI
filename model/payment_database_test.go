@@ -227,11 +227,15 @@ func runS2APaymentDatabaseMatrix(t *testing.T, db *gorm.DB, databaseType common.
 		common.SetDatabaseTypes(previousMainType, previousLogType)
 		common.RedisEnabled, common.BatchUpdateEnabled, common.QuotaPerUnit = previousRedis, previousBatch, previousQuotaUnit
 		initCol()
+		if previousDB != nil {
+			_ = RefreshUserQuotaBusinessSchemaCapability(previousDB)
+		}
 	})
 	if databaseType == common.DatabaseTypeMySQL {
 		require.NoError(t, checkMySQLChineseSupport(db), "fixture database must support Chinese before migration")
 	}
 	require.NoError(t, db.AutoMigrate(&User{}, &SubscriptionPlan{}, &SubscriptionOrder{}, &UserSubscription{}, &SubscriptionPreConsumeRecord{}, &TopUp{}, &Log{}))
+	require.NoError(t, RefreshUserQuotaBusinessSchemaCapability(db))
 	if databaseType == common.DatabaseTypeMySQL {
 		require.NoError(t, checkMySQLChineseSupport(db), "fixture tables must support Chinese after migration")
 	}
@@ -256,9 +260,9 @@ func runS2APaymentDatabaseMatrix(t *testing.T, db *gorm.DB, databaseType common.
 			var before int64
 			require.NoError(t, db.Model(&UserSubscription{}).Count(&before).Error)
 			beforeTime := GetDBTimestamp()
-			require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "fixture", PaymentProviderStripe, ""))
+			require.NoError(t, CompleteSubscriptionOrderTrusted(order.TradeNo, "fixture", PaymentProviderStripe, ""))
 			assertS2APaymentLogDelta(t, db, user.Id, logsBefore, expectedLog)
-			require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "fixture", PaymentProviderStripe, ""))
+			require.NoError(t, CompleteSubscriptionOrderTrusted(order.TradeNo, "fixture", PaymentProviderStripe, ""))
 			assertS2APaymentLogDelta(t, db, user.Id, logsBefore, expectedLog)
 			var after int64
 			require.NoError(t, db.Model(&UserSubscription{}).Count(&after).Error)
@@ -284,7 +288,7 @@ func runS2APaymentDatabaseMatrix(t *testing.T, db *gorm.DB, databaseType common.
 				tx.AddError(writeErr)
 			}
 		}))
-		assert.ErrorIs(t, CompleteSubscriptionOrder(order.TradeNo, "fixture", PaymentProviderStripe, ""), writeErr)
+		assert.ErrorIs(t, CompleteSubscriptionOrderTrusted(order.TradeNo, "fixture", PaymentProviderStripe, ""), writeErr)
 		assertS2APaymentLogDelta(t, db, user.Id, logsBefore)
 		require.NoError(t, db.Callback().Update().Remove("test:s2a-order-save"))
 		require.NoError(t, db.First(&order, order.Id).Error)
@@ -294,7 +298,7 @@ func runS2APaymentDatabaseMatrix(t *testing.T, db *gorm.DB, databaseType common.
 		require.NoError(t, db.Model(&TopUp{}).Where("trade_no = ?", order.TradeNo).Count(&topups).Error)
 		assert.Equal(t, before, after)
 		assert.Zero(t, topups)
-		require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "fixture", PaymentProviderStripe, ""))
+		require.NoError(t, CompleteSubscriptionOrderTrusted(order.TradeNo, "fixture", PaymentProviderStripe, ""))
 		assertS2APaymentLogDelta(t, db, user.Id, logsBefore, fmt.Sprintf("订阅购买成功，套餐: %s，支付金额: 2.00，支付方式: %s", plan.Title, PaymentMethodStripe))
 	})
 
@@ -356,14 +360,14 @@ func runS2APaymentDatabaseMatrix(t *testing.T, db *gorm.DB, databaseType common.
 			topup := TopUp{UserId: user.Id, Amount: 2, Money: 2, TradeNo: "s2a-stripe-" + outcome, PaymentMethod: PaymentMethodStripe, PaymentProvider: PaymentProviderStripe, Status: common.TopUpStatusPending}
 			require.NoError(t, db.Create(&topup).Error)
 			logsBefore := s2aPaymentLogs(t, db, user.Id)
-			second := func() error { return Recharge(topup.TradeNo, "fixture-customer", "127.0.0.1") }
+			second := func() error { return RechargeTrusted(topup.TradeNo, "fixture-customer", "127.0.0.1") }
 			if outcome == "late-failure" {
 				second = func() error {
-					return UpdatePendingTopUpStatus(topup.TradeNo, PaymentProviderStripe, common.TopUpStatusFailed)
+					return UpdatePendingTopUpStatusTrusted(topup.TradeNo, PaymentProviderStripe, common.TopUpStatusFailed)
 				}
 			}
 			firstErr, secondErr := runS2APaymentReplay(t, db, "top_ups",
-				func() error { return Recharge(topup.TradeNo, "fixture-customer", "127.0.0.1") }, second)
+				func() error { return RechargeTrusted(topup.TradeNo, "fixture-customer", "127.0.0.1") }, second)
 			require.NoError(t, firstErr)
 			if outcome == "late-failure" {
 				assert.ErrorIs(t, secondErr, ErrTopUpStatusInvalid)

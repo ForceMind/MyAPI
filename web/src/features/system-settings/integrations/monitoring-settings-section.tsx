@@ -53,6 +53,7 @@ import { SettingsSection } from '../components/settings-section'
 import { useResetForm } from '../hooks/use-reset-form'
 import { useUpdateOption } from '../hooks/use-update-option'
 import { safeNumberFieldProps } from '../utils/numeric-field'
+import { ChannelQuotaAlertDeliverySection } from './channel-quota-alert-delivery-section'
 
 const createMonitoringSchema = (t: (key: string) => string) => {
   const numericString = z.string().refine((value) => {
@@ -138,8 +139,7 @@ function parseQuotaAlertSettings(raw: string | undefined) {
         typeof parsed.cooldown_seconds === 'number'
           ? parsed.cooldown_seconds
           : defaultQuotaAlertSettings.cooldown_seconds,
-      notify_on_recovery:
-        parsed.notify_on_recovery === true,
+      notify_on_recovery: parsed.notify_on_recovery === true,
     }
     if (
       Number.isFinite(settings.warning_percent) &&
@@ -318,7 +318,7 @@ export function MonitoringSettingsSection({
             )}
           />
 
-          <div className='grid gap-3 rounded-lg border bg-muted/20 p-4'>
+          <div className='bg-muted/20 grid gap-3 rounded-lg border p-4'>
             <div>
               <h4 className='font-medium'>{t('Provider quota alerts')}</h4>
               <p className='text-muted-foreground mt-1 text-xs'>
@@ -362,7 +362,9 @@ export function MonitoringSettingsSection({
                       />
                     </FormControl>
                     <FormDescription>
-                      {t('Show a warning when available quota falls below this percentage of total.')}
+                      {t(
+                        'Show a warning when available quota falls below this percentage of total.'
+                      )}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -385,7 +387,9 @@ export function MonitoringSettingsSection({
                       />
                     </FormControl>
                     <FormDescription>
-                      {t('Show a critical state below this percentage; it must be lower than the warning threshold.')}
+                      {t(
+                        'Show a critical state below this percentage; it must be lower than the warning threshold.'
+                      )}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -398,7 +402,9 @@ export function MonitoringSettingsSection({
                 name='channel_quota_alert.cooldown_seconds'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('Notification cooldown (seconds)')}</FormLabel>
+                    <FormLabel>
+                      {t('Notification cooldown (seconds)')}
+                    </FormLabel>
                     <FormControl>
                       <Input
                         type='number'
@@ -410,7 +416,9 @@ export function MonitoringSettingsSection({
                       />
                     </FormControl>
                     <FormDescription>
-                      {t('Deduplicate repeated warning or critical notifications for this period. No notification is sent until a notifier is configured.')}
+                      {t(
+                        'Deduplicate repeated warning or critical notifications for this period. No notification is sent until a notifier is configured.'
+                      )}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -424,7 +432,9 @@ export function MonitoringSettingsSection({
                     <SettingsSwitchContent>
                       <FormLabel>{t('Notify when quota recovers')}</FormLabel>
                       <FormDescription>
-                        {t('Record a healthy transition after warning or critical status; outbound delivery remains disabled.')}
+                        {t(
+                          'Record a healthy transition after warning or critical status; outbound delivery remains disabled.'
+                        )}
                       </FormDescription>
                     </SettingsSwitchContent>
                     <FormControl>
@@ -440,7 +450,9 @@ export function MonitoringSettingsSection({
             </div>
           </div>
 
-          <div className='grid gap-3 rounded-lg border bg-muted/20 p-4'>
+          <ChannelQuotaAlertDeliverySection />
+
+          <div className='bg-muted/20 grid gap-3 rounded-lg border p-4'>
             <div>
               <h4 className='font-medium'>{t('Provider quota sampling')}</h4>
               <p className='text-muted-foreground mt-1 text-xs'>
@@ -455,9 +467,13 @@ export function MonitoringSettingsSection({
               render={({ field }) => (
                 <SettingsSwitchItem>
                   <SettingsSwitchContent>
-                    <FormLabel>{t('Enable automatic quota sampling')}</FormLabel>
+                    <FormLabel>
+                      {t('Enable automatic quota sampling')}
+                    </FormLabel>
                     <FormDescription>
-                      {t('Disable only if upstream balance requests should never run automatically.')}
+                      {t(
+                        'Disable only if upstream balance requests should never run automatically.'
+                      )}
                     </FormDescription>
                   </SettingsSwitchContent>
                   <FormControl>
@@ -510,7 +526,9 @@ export function MonitoringSettingsSection({
                       />
                     </FormControl>
                     <FormDescription>
-                      {t('Caps each run to protect upstream services and local resources.')}
+                      {t(
+                        'Caps each run to protect upstream services and local resources.'
+                      )}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

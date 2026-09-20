@@ -44,7 +44,11 @@ import {
 } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
-import { useUpdateOption } from '../hooks/use-update-option'
+import {
+  toTypedBulkItem,
+  useTypedBulkRevision,
+  useUpdateTypedBulkOptions,
+} from '../hooks/use-typed-bulk-options'
 import {
   formatJsonForTextarea,
   normalizeJsonString,
@@ -95,7 +99,8 @@ type ClaudeSettingsCardProps = {
 
 export function ClaudeSettingsCard({ defaultValues }: ClaudeSettingsCardProps) {
   const { t } = useTranslation()
-  const updateOption = useUpdateOption()
+  const updateTypedBulk = useUpdateTypedBulkOptions()
+  useTypedBulkRevision()
   const normalizedDefaultsRef = useRef<FlatClaudeSettings>({
     'claude.model_headers_settings': normalizeJsonString(
       defaultValues.claude.model_headers_settings
@@ -175,9 +180,9 @@ export function ClaudeSettingsCard({ defaultValues }: ClaudeSettingsCardProps) {
       return
     }
 
-    for (const key of updates) {
-      await updateOption.mutateAsync({ key, value: normalized[key] })
-    }
+    await updateTypedBulk.mutateAsync(
+      updates.map((key) => toTypedBulkItem(key, normalized[key]))
+    )
   }
 
   return (
@@ -187,7 +192,7 @@ export function ClaudeSettingsCard({ defaultValues }: ClaudeSettingsCardProps) {
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
           <SettingsPageFormActions
             onSave={form.handleSubmit(onSubmit)}
-            isSaving={updateOption.isPending}
+            isSaving={updateTypedBulk.isPending}
           />
           <FormField
             control={form.control}

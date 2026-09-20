@@ -8,12 +8,12 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// FundingSource — 资金来源接口（钱包 or 订阅）
+// FundingSource — 资金来源接口（钱包、订阅或免费模型）
 // ---------------------------------------------------------------------------
 
 // FundingSource 抽象了预扣费的资金来源。
 type FundingSource interface {
-	// Source 返回资金来源标识："wallet" 或 "subscription"
+	// Source 返回资金来源标识："wallet"、"subscription" 或 "free"
 	Source() string
 	// PreConsume 从该资金来源预扣 amount 额度
 	PreConsume(amount int) error
@@ -22,6 +22,13 @@ type FundingSource interface {
 	// Refund 退还所有预扣费
 	Refund() error
 }
+
+type FreeFunding struct{}
+
+func (*FreeFunding) Source() string       { return BillingSourceFree }
+func (*FreeFunding) PreConsume(int) error { return nil }
+func (*FreeFunding) Settle(int) error     { return nil }
+func (*FreeFunding) Refund() error        { return nil }
 
 // ---------------------------------------------------------------------------
 // WalletFunding — 钱包资金来源实现

@@ -179,7 +179,6 @@ func assertQuotaMutationReceiptMigrated(t *testing.T, db *gorm.DB) {
 	require.Error(t, rawInsertDup.Error)
 }
 
-
 func TestTaskQuotaReservationLegacyMigrationSQLite(t *testing.T) {
 	db := openB2SubmissionSQLite(t)
 	createTaskQuotaLegacyFixture(t, db)
@@ -328,5 +327,3 @@ func TestUserQuotaMutationReceiptMigrationConfiguredDatabases(t *testing.T) {
 		})
 	}
 }
-
-

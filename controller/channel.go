@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -97,12 +98,175 @@ func GetChannelOps(c *gin.Context) {
 	})
 }
 
+const (
+	channelCachePublishPendingCode = "channel_cache_publish_pending"
+	channelOperationConflictCode   = "channel_operation_conflict"
+	channelOperationKeyInvalidCode = "channel_operation_key_invalid"
+)
+
+func refreshChannelCacheAfterWrite() (state model.ChannelCachePublicationState) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			common.SysError(fmt.Sprintf("InitChannelCache panic after committed write: %v", recovered))
+			state = model.GetChannelCachePublicationState()
+		}
+	}()
+	if err := model.InitChannelCache(); err != nil {
+		common.SysError("failed to refresh channel cache after committed write: " + err.Error())
+	}
+	return model.GetChannelCachePublicationState()
+}
+
+func channelCommittedResponse(message string, data any, state model.ChannelCachePublicationState) gin.H {
+	response := gin.H{
+		"success":                 true,
+		"message":                 message,
+		"committed":               true,
+		"cache_pending":           state.CachePending,
+		"data_generation":         state.DataGeneration,
+		"published_generation":    state.PublishedGeneration,
+		"cluster_committed_epoch": state.ClusterCommittedEpoch,
+		"local_published_epoch":   state.LocalPublishedEpoch,
+		"cache_enabled":           state.CacheEnabled,
+	}
+	if state.CachePending {
+		response["code"] = channelCachePublishPendingCode
+	}
+	if data != nil {
+		response["data"] = data
+	}
+	return response
+}
+
+func committedChannelCacheState(err error) (model.ChannelCachePublicationState, bool) {
+	if !model.IsChannelCacheRefreshError(err) {
+		return model.ChannelCachePublicationState{}, false
+	}
+	common.SysError(err.Error())
+	return model.GetChannelCachePublicationState(), true
+}
+
+func channelOperationError(c *gin.Context, err error) bool {
+	status := http.StatusInternalServerError
+	code := ""
+	switch {
+	case errors.Is(err, model.ErrChannelOperationConflict):
+		status = http.StatusConflict
+		code = channelOperationConflictCode
+	case errors.Is(err, model.ErrChannelOperationKeyInvalid):
+		status = http.StatusBadRequest
+		code = channelOperationKeyInvalidCode
+	default:
+		return false
+	}
+	c.JSON(status, gin.H{
+		"success": false,
+		"code":    code,
+		"message": common.TranslateMessage(c, i18n.MsgInvalidParams),
+	})
+	return true
+}
+
+const (
+	channelRoutingPreviewInvalidParamsCode        = "routing_preview_invalid_params"
+	channelRoutingPreviewAutoGroupUnsupportedCode = "routing_preview_auto_group_unsupported"
+	channelRoutingPreviewDatabaseErrorCode        = "routing_preview_database_error"
+	channelRoutingPreviewAffinityNotEvaluatedCode = "routing_preview_affinity_not_evaluated"
+)
+
+type channelRoutingPreviewCandidate struct {
+	ID              int     `json:"id"`
+	Name            string  `json:"name"`
+	Type            int     `json:"type"`
+	Weight          uint    `json:"weight"`
+	EffectiveWeight uint    `json:"effective_weight"`
+	ExpectedShare   float64 `json:"expected_share"`
+}
+
+type channelRoutingPreviewTier struct {
+	Priority      int64                            `json:"priority"`
+	FallbackIndex int                              `json:"fallback_index"`
+	Channels      []channelRoutingPreviewCandidate `json:"channels"`
+}
+
+func GetChannelRoutingPreview(c *gin.Context) {
+	group := strings.TrimSpace(c.Query("group"))
+	modelName := strings.TrimSpace(c.Query("model"))
+	requestPath := strings.TrimSpace(c.Query("request_path"))
+	if group == "" || modelName == "" {
+		channelRoutingPreviewError(c, http.StatusBadRequest, channelRoutingPreviewInvalidParamsCode, i18n.MsgInvalidParams)
+		return
+	}
+	if strings.EqualFold(group, "auto") {
+		channelRoutingPreviewError(c, http.StatusBadRequest, channelRoutingPreviewAutoGroupUnsupportedCode, i18n.MsgInvalidParams)
+		return
+	}
+
+	snapshot, err := model.GetRuntimeChannelRoutingPolicy(group, modelName, requestPath)
+	if err != nil {
+		common.SysError("failed to build channel routing preview: " + err.Error())
+		channelRoutingPreviewError(c, http.StatusInternalServerError, channelRoutingPreviewDatabaseErrorCode, i18n.MsgDatabaseError)
+		return
+	}
+	tiers := make([]channelRoutingPreviewTier, 0, len(snapshot.Policy.Tiers))
+	for fallbackIndex, tier := range snapshot.Policy.Tiers {
+		channels := make([]channelRoutingPreviewCandidate, 0, len(tier.Candidates))
+		for _, candidate := range tier.Candidates {
+			channels = append(channels, channelRoutingPreviewCandidate{
+				ID:              candidate.ChannelID,
+				Name:            candidate.ChannelName,
+				Type:            candidate.ChannelType,
+				Weight:          candidate.Weight,
+				EffectiveWeight: candidate.EffectiveWeight,
+				ExpectedShare:   candidate.ExpectedShare,
+			})
+		}
+		tiers = append(tiers, channelRoutingPreviewTier{
+			Priority:      tier.Priority,
+			FallbackIndex: fallbackIndex,
+			Channels:      channels,
+		})
+	}
+
+	common.ApiSuccess(c, gin.H{
+		"group":                   group,
+		"model":                   modelName,
+		"request_path":            requestPath,
+		"tiers":                   tiers,
+		"source":                  snapshot.Source,
+		"generation":              snapshot.Generation,
+		"data_generation":         snapshot.DataGeneration,
+		"published_generation":    snapshot.PublishedGeneration,
+		"cluster_committed_epoch": snapshot.ClusterCommittedEpoch,
+		"local_published_epoch":   snapshot.LocalPublishedEpoch,
+		"cache_enabled":           snapshot.CacheEnabled,
+		"cache_pending":           snapshot.CachePending,
+		"affinity": gin.H{
+			"evaluated":        false,
+			"precedence":       "before_priority_weight",
+			"explanation_code": channelRoutingPreviewAffinityNotEvaluatedCode,
+		},
+	})
+}
+
+func channelRoutingPreviewError(c *gin.Context, status int, code string, messageKey string) {
+	c.JSON(status, gin.H{
+		"success": false,
+		"code":    code,
+		"message": common.TranslateMessage(c, messageKey),
+	})
+}
+
 func GetAllChannels(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
 	channelData := make([]*model.Channel, 0)
 	idSort, _ := strconv.ParseBool(c.Query("id_sort"))
-	sortOptions := model.NewChannelSortOptions(c.Query("sort_by"), c.Query("sort_order"), idSort)
 	enableTagMode, _ := strconv.ParseBool(c.Query("tag_mode"))
+	sortBy := c.Query("sort_by")
+	if enableTagMode && (strings.EqualFold(sortBy, "priority") || strings.EqualFold(sortBy, "weight")) {
+		sortBy = ""
+	}
+	sortOptions := model.NewChannelSortOptions(sortBy, c.Query("sort_order"), idSort)
 	groupFilter := model.NormalizeChannelGroupFilter(c.Query("group"))
 	statusParam := c.Query("status")
 	// statusFilter: -1 all, 1 enabled, 0 disabled (include auto & manual)
@@ -258,18 +422,19 @@ func FetchUpstreamModels(c *gin.Context) {
 
 func FixChannelsAbilities(c *gin.Context) {
 	success, fails, err := model.FixAbility()
+	cacheState := model.GetChannelCachePublicationState()
 	if err != nil {
-		common.ApiError(c, err)
-		return
+		var committed bool
+		cacheState, committed = committedChannelCacheState(err)
+		if !committed {
+			common.ApiError(c, err)
+			return
+		}
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data": gin.H{
-			"success": success,
-			"fails":   fails,
-		},
-	})
+	c.JSON(http.StatusOK, channelCommittedResponse("", gin.H{
+		"success": success,
+		"fails":   fails,
+	}, cacheState))
 }
 
 func SearchChannels(c *gin.Context) {
@@ -279,8 +444,12 @@ func SearchChannels(c *gin.Context) {
 	statusParam := c.Query("status")
 	statusFilter := parseStatusFilter(statusParam)
 	idSort, _ := strconv.ParseBool(c.Query("id_sort"))
-	sortOptions := model.NewChannelSortOptions(c.Query("sort_by"), c.Query("sort_order"), idSort)
 	enableTagMode, _ := strconv.ParseBool(c.Query("tag_mode"))
+	sortBy := c.Query("sort_by")
+	if enableTagMode && (strings.EqualFold(sortBy, "priority") || strings.EqualFold(sortBy, "weight")) {
+		sortBy = ""
+	}
+	sortOptions := model.NewChannelSortOptions(sortBy, c.Query("sort_order"), idSort)
 	channelData := make([]*model.Channel, 0)
 	if enableTagMode {
 		tags, err := model.SearchTags(keyword, group, modelKeyword, idSort)
@@ -626,7 +795,6 @@ func AddChannel(c *gin.Context) {
 		return
 	}
 
-	addChannelRequest.Channel.CreatedTime = common.GetTimestamp()
 	keys := make([]string, 0)
 	switch addChannelRequest.Mode {
 	case "multi_to_single":
@@ -696,21 +864,39 @@ func AddChannel(c *gin.Context) {
 		}
 		channels = append(channels, *localChannel)
 	}
-	err = model.BatchInsertChannels(channels)
+	fingerprint, err := model.FingerprintChannelOperation(struct {
+		Mode     string          `json:"mode"`
+		Channels []model.Channel `json:"channels"`
+	}{Mode: addChannelRequest.Mode, Channels: channels})
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	model.InitChannelCache()
-	recordManageAudit(c, "channel.create", map[string]interface{}{
-		"name":  addChannelRequest.Channel.Name,
-		"type":  addChannelRequest.Channel.Type,
-		"count": len(channels),
-	})
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-	})
+	result, replayed, err := model.BatchInsertChannelsWithOperation(
+		c.Request.Context(),
+		channels,
+		c.GetHeader("Idempotency-Key"),
+		fingerprint,
+	)
+	if err != nil {
+		if channelOperationError(c, err) {
+			return
+		}
+		common.ApiError(c, err)
+		return
+	}
+	cacheState := refreshChannelCacheAfterWrite()
+	if !replayed {
+		recordManageAudit(c, "channel.create", map[string]interface{}{
+			"name":  addChannelRequest.Channel.Name,
+			"type":  addChannelRequest.Channel.Type,
+			"count": len(result.IDs),
+		})
+	}
+	c.JSON(http.StatusOK, channelCommittedResponse("", gin.H{
+		"ids":      result.IDs,
+		"replayed": replayed,
+	}, cacheState))
 	return
 }
 
@@ -731,7 +917,7 @@ func DeleteChannel(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	model.InitChannelCache()
+	cacheState := refreshChannelCacheAfterWrite()
 	if channelLookupFailed {
 		service.ResetProxyClientCache()
 	} else {
@@ -741,10 +927,7 @@ func DeleteChannel(c *gin.Context) {
 		"id":   id,
 		"name": channelName,
 	})
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-	})
+	c.JSON(http.StatusOK, channelCommittedResponse("", nil, cacheState))
 	return
 }
 
@@ -754,18 +937,14 @@ func DeleteDisabledChannel(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	model.InitChannelCache()
+	cacheState := refreshChannelCacheAfterWrite()
 	if rows > 0 {
 		service.ResetProxyClientCache()
 	}
 	recordManageAudit(c, "channel.delete_disabled", map[string]interface{}{
 		"count": rows,
 	})
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    rows,
-	})
+	c.JSON(http.StatusOK, channelCommittedResponse("", rows, cacheState))
 	return
 }
 
@@ -796,14 +975,11 @@ func DisableTagChannels(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	model.InitChannelCache()
+	cacheState := refreshChannelCacheAfterWrite()
 	recordManageAudit(c, "channel.tag_disable", map[string]interface{}{
 		"tag": channelTag.Tag,
 	})
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-	})
+	c.JSON(http.StatusOK, channelCommittedResponse("", nil, cacheState))
 	return
 }
 
@@ -822,14 +998,11 @@ func EnableTagChannels(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	model.InitChannelCache()
+	cacheState := refreshChannelCacheAfterWrite()
 	recordManageAudit(c, "channel.tag_enable", map[string]interface{}{
 		"tag": channelTag.Tag,
 	})
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-	})
+	c.JSON(http.StatusOK, channelCommittedResponse("", nil, cacheState))
 	return
 }
 
@@ -882,14 +1055,11 @@ func EditTagChannels(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	model.InitChannelCache()
+	cacheState := refreshChannelCacheAfterWrite()
 	recordManageAudit(c, "channel.tag_edit", map[string]interface{}{
 		"tag": channelTag.Tag,
 	})
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-	})
+	c.JSON(http.StatusOK, channelCommittedResponse("", nil, cacheState))
 	return
 }
 
@@ -913,18 +1083,14 @@ func DeleteChannelBatch(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	model.InitChannelCache()
+	cacheState := refreshChannelCacheAfterWrite()
 	if deletedCount > 0 {
 		service.ResetProxyClientCache()
 	}
 	recordManageAudit(c, "channel.delete_batch", map[string]interface{}{
 		"count": deletedCount,
 	})
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    deletedCount,
-	})
+	c.JSON(http.StatusOK, channelCommittedResponse("", deletedCount, cacheState))
 	return
 }
 
@@ -1089,7 +1255,7 @@ func UpdateChannel(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	model.InitChannelCache()
+	cacheState := refreshChannelCacheAfterWrite()
 	if proxyChanged {
 		service.InvalidateProxyClient(originProxy)
 	}
@@ -1117,11 +1283,7 @@ func UpdateChannel(c *gin.Context) {
 	})
 	channel.Key = ""
 	clearChannelInfo(&channel.Channel)
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    channel,
-	})
+	c.JSON(http.StatusOK, channelCommittedResponse("", channel, cacheState))
 	return
 }
 
@@ -1136,20 +1298,22 @@ func UpdateChannelStatus(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
-	changed := model.UpdateChannelStatus(id, "", req.Status, "manual operation")
-	if changed {
-		model.InitChannelCache()
+	changed, err := model.UpdateChannelStatusWithError(id, "", req.Status, "manual operation")
+	cacheState := model.GetChannelCachePublicationState()
+	if err != nil {
+		var committed bool
+		cacheState, committed = committedChannelCacheState(err)
+		if !committed {
+			common.ApiError(c, err)
+			return
+		}
 	}
 	recordManageAudit(c, "channel.status_update", map[string]interface{}{
 		"id":      id,
 		"status":  req.Status,
 		"changed": changed,
 	})
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    changed,
-	})
+	c.JSON(http.StatusOK, channelCommittedResponse("", changed, cacheState))
 }
 
 func BatchUpdateChannelStatus(c *gin.Context) {
@@ -1158,25 +1322,22 @@ func BatchUpdateChannelStatus(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
-	changedCount := 0
-	for _, id := range req.Ids {
-		if model.UpdateChannelStatus(id, "", req.Status, "manual batch operation") {
-			changedCount++
+	changedCount, err := model.UpdateChannelStatusesWithError(req.Ids, req.Status, "manual batch operation")
+	cacheState := model.GetChannelCachePublicationState()
+	if err != nil {
+		var committed bool
+		cacheState, committed = committedChannelCacheState(err)
+		if !committed {
+			common.ApiError(c, err)
+			return
 		}
-	}
-	if changedCount > 0 {
-		model.InitChannelCache()
 	}
 	recordManageAudit(c, "channel.status_update_batch", map[string]interface{}{
 		"count":  changedCount,
 		"total":  len(req.Ids),
 		"status": req.Status,
 	})
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    changedCount,
-	})
+	c.JSON(http.StatusOK, channelCommittedResponse("", changedCount, cacheState))
 }
 
 func isManageableChannelStatus(status int) bool {
@@ -1344,15 +1505,11 @@ func BatchSetChannelTag(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	model.InitChannelCache()
+	cacheState := refreshChannelCacheAfterWrite()
 	recordManageAudit(c, "channel.tag_batch_set", map[string]interface{}{
 		"count": len(channelBatch.Ids),
 	})
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    len(channelBatch.Ids),
-	})
+	c.JSON(http.StatusOK, channelCommittedResponse("", len(channelBatch.Ids), cacheState))
 	return
 }
 
@@ -1406,58 +1563,64 @@ func GetTagModels(c *gin.Context) {
 func CopyChannel(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": "invalid id"})
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
 
 	suffix := c.DefaultQuery("suffix", "_复制")
 	resetBalance := true
 	if rbStr := c.DefaultQuery("reset_balance", "true"); rbStr != "" {
-		if v, err := strconv.ParseBool(rbStr); err == nil {
-			resetBalance = v
+		if value, parseErr := strconv.ParseBool(rbStr); parseErr == nil {
+			resetBalance = value
 		}
 	}
-
-	// fetch original channel with key
-	origin, err := model.GetChannelById(id, true)
+	fingerprint, err := model.FingerprintChannelOperation(struct {
+		SourceID     int    `json:"source_id"`
+		Suffix       string `json:"suffix"`
+		ResetBalance bool   `json:"reset_balance"`
+	}{SourceID: id, Suffix: suffix, ResetBalance: resetBalance})
 	if err != nil {
-		common.SysError("failed to get channel by id: " + err.Error())
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取渠道信息失败，请稍后重试"})
+		common.ApiError(c, err)
 		return
 	}
-
-	// clone channel
-	clone := *origin // shallow copy is sufficient as we will overwrite primitives
-	clone.Id = 0     // let DB auto-generate
-	clone.CreatedTime = common.GetTimestamp()
-	clone.Name = origin.Name + suffix
-	clone.TestTime = 0
-	clone.ResponseTime = 0
-	if resetBalance {
-		clone.Balance = 0
-		clone.UsedQuota = 0
-	}
-
-	if err := clone.ValidateSettings(); err != nil {
-		common.SysError("failed to validate cloned channel: " + err.Error())
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": "Failed to copy channel: invalid channel settings"})
-		return
-	}
-
-	// insert
-	if err := clone.Insert(); err != nil {
+	result, replayed, err := model.CopyChannelWithOperation(
+		c.Request.Context(),
+		id,
+		suffix,
+		resetBalance,
+		c.GetHeader("Idempotency-Key"),
+		fingerprint,
+	)
+	if err != nil {
+		if channelOperationError(c, err) {
+			return
+		}
 		common.SysError("failed to clone channel: " + err.Error())
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": "复制渠道失败，请稍后重试"})
+		common.ApiError(c, err)
 		return
 	}
-	model.InitChannelCache()
-	recordManageAudit(c, "channel.copy", map[string]interface{}{
-		"sourceId": id,
-		"id":       clone.Id,
-		"name":     clone.Name,
-	})
-	// success
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": gin.H{"id": clone.Id}})
+	if len(result.IDs) != 1 {
+		common.ApiError(c, errors.New("copy channel operation returned an invalid result"))
+		return
+	}
+	cacheState := refreshChannelCacheAfterWrite()
+	service.InvalidateProxyClient(result.SourceProxy)
+	if !replayed {
+		name := ""
+		if len(result.Names) == 1 {
+			name = result.Names[0]
+		}
+		recordManageAudit(c, "channel.copy", map[string]interface{}{
+			"sourceId": id,
+			"id":       result.IDs[0],
+			"name":     name,
+		})
+	}
+	c.JSON(http.StatusOK, channelCommittedResponse("", gin.H{
+		"id":       result.IDs[0],
+		"ids":      result.IDs,
+		"replayed": replayed,
+	}, cacheState))
 }
 
 // MultiKeyManageRequest represents the request for multi-key management operations
@@ -1687,11 +1850,7 @@ func ManageMultiKeys(c *gin.Context) {
 			return
 		}
 
-		model.InitChannelCache()
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"message": "密钥已禁用",
-		})
+		c.JSON(http.StatusOK, channelCommittedResponse("密钥已禁用", nil, refreshChannelCacheAfterWrite()))
 		return
 
 	case "enable_key":
@@ -1729,11 +1888,7 @@ func ManageMultiKeys(c *gin.Context) {
 			return
 		}
 
-		model.InitChannelCache()
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"message": "密钥已启用",
-		})
+		c.JSON(http.StatusOK, channelCommittedResponse("密钥已启用", nil, refreshChannelCacheAfterWrite()))
 		return
 
 	case "enable_all_keys":
@@ -1753,11 +1908,11 @@ func ManageMultiKeys(c *gin.Context) {
 			return
 		}
 
-		model.InitChannelCache()
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"message": fmt.Sprintf("已启用 %d 个密钥", enabledCount),
-		})
+		c.JSON(http.StatusOK, channelCommittedResponse(
+			fmt.Sprintf("已启用 %d 个密钥", enabledCount),
+			nil,
+			refreshChannelCacheAfterWrite(),
+		))
 		return
 
 	case "disable_all_keys":
@@ -1800,11 +1955,11 @@ func ManageMultiKeys(c *gin.Context) {
 			return
 		}
 
-		model.InitChannelCache()
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"message": fmt.Sprintf("已禁用 %d 个密钥", disabledCount),
-		})
+		c.JSON(http.StatusOK, channelCommittedResponse(
+			fmt.Sprintf("已禁用 %d 个密钥", disabledCount),
+			nil,
+			refreshChannelCacheAfterWrite(),
+		))
 		return
 
 	case "delete_key":
@@ -1880,11 +2035,7 @@ func ManageMultiKeys(c *gin.Context) {
 			return
 		}
 
-		model.InitChannelCache()
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"message": "密钥已删除",
-		})
+		c.JSON(http.StatusOK, channelCommittedResponse("密钥已删除", nil, refreshChannelCacheAfterWrite()))
 		return
 
 	case "delete_disabled_keys":
@@ -1948,12 +2099,11 @@ func ManageMultiKeys(c *gin.Context) {
 			return
 		}
 
-		model.InitChannelCache()
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"message": fmt.Sprintf("已删除 %d 个自动禁用的密钥", deletedCount),
-			"data":    deletedCount,
-		})
+		c.JSON(http.StatusOK, channelCommittedResponse(
+			fmt.Sprintf("已删除 %d 个自动禁用的密钥", deletedCount),
+			deletedCount,
+			refreshChannelCacheAfterWrite(),
+		))
 		return
 
 	default:

@@ -276,8 +276,7 @@ docker run --name my-api -d --restart always \
 > [!TIP]
 > **Default Docker image:** `ghcr.io/forcemind/myapi:<version>` (built by GitHub Actions; set `MYAPI_IMAGE` to a published tag to upgrade). Set `MYAPI_BUILD_LOCAL=true` to build locally.
 
-Pushing a new `vX.Y.Z` release tag automatically builds and pushes the multi-architecture
-GHCR image; update `MYAPI_IMAGE` to the new tag before running the deployment update.
+GHCR releases are manually dispatched for an existing version tag and require `PUBLISH`, the release environment, and the release gate; pushing a tag does not publish. Prereleases use immutable tags and never update stable `latest`; deploy only a published version tag or digest.
 
 ### 📋 Deployment Requirements
 

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -13,6 +14,7 @@ import (
 const (
 	BillingSourceWallet       = "wallet"
 	BillingSourceSubscription = "subscription"
+	BillingSourceFree         = "free"
 )
 
 // PreConsumeBilling 根据用户计费偏好创建 BillingSession 并执行预扣费。
@@ -71,12 +73,22 @@ func SettleBilling(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, actualQuo
 			))
 		}
 
-		if err := relayInfo.Billing.Settle(actualQuota); err != nil {
+		if contextual, ok := relayInfo.Billing.(interface {
+			SettleWithContext(context.Context, int) error
+		}); ok {
+			requestCtx := context.Background()
+			if ctx != nil && ctx.Request != nil {
+				requestCtx = ctx.Request.Context()
+			}
+			if err := contextual.SettleWithContext(requestCtx, actualQuota); err != nil {
+				return err
+			}
+		} else if err := relayInfo.Billing.Settle(actualQuota); err != nil {
 			return err
 		}
 
 		// 发送额度通知（订阅计费使用订阅剩余额度）
-		if actualQuota != 0 {
+		if actualQuota != 0 && relayInfo.BillingSource != BillingSourceFree {
 			if relayInfo.BillingSource == BillingSourceSubscription {
 				checkAndSendSubscriptionQuotaNotify(relayInfo)
 			} else {
@@ -89,7 +101,13 @@ func SettleBilling(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, actualQuo
 	// 回退：无 BillingSession 时使用旧路径
 	quotaDelta := actualQuota - relayInfo.FinalPreConsumedQuota
 	if quotaDelta != 0 {
-		return PostConsumeQuota(relayInfo, quotaDelta, relayInfo.FinalPreConsumedQuota, true)
+		// 与 BillingSession legacy 结算 fact 键（"billing-settlement:{requestID}:v1"）
+		// 按业务命名空间对齐；authoritative 模式下经 receipt 内核按该键幂等。
+		_, err := postConsumeQuotaWithEvent(relayInfo, quotaDelta, relayInfo.FinalPreConsumedQuota, true, postConsumeQuotaEvent{
+			Namespace:  "billing-settlement",
+			ReasonCode: "billing_settlement",
+		})
+		return err
 	}
 	return nil
 }

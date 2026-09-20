@@ -51,7 +51,12 @@ import {
 } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
-import { useUpdateOption } from '../hooks/use-update-option'
+import {
+  toTypedBulkItem,
+  useTypedBulkRevision,
+  useUpdateTypedBulkOptions,
+} from '../hooks/use-typed-bulk-options'
+import type { TypedBulkOptionItem } from '../types'
 
 const ssrfSchema = z.object({
   fetch_setting: z.object({
@@ -159,7 +164,8 @@ const isEqual = (a: unknown, b: unknown) => {
 
 export function SSRFSection({ defaultValues }: SSRFSectionProps) {
   const { t } = useTranslation()
-  const updateOption = useUpdateOption()
+  const updateTypedBulk = useUpdateTypedBulkOptions()
+  useTypedBulkRevision()
   const baselineRef = useRef<NormalizedSSRFValues>(
     normalizeDefaults(defaultValues)
   )
@@ -190,13 +196,21 @@ export function SSRFSection({ defaultValues }: SSRFSectionProps) {
       return
     }
 
-    for (const key of updates) {
+    const items: TypedBulkOptionItem[] = updates.map((key) => {
       const value = normalized[key]
-      await updateOption.mutateAsync({
-        key,
-        value: Array.isArray(value) ? JSON.stringify(value) : value,
-      })
-    }
+      if (key === 'fetch_setting.allowed_ports') {
+        // The backend field is []string, so the typed bulk string_list form
+        // carries stringified ports instead of the legacy numeric JSON text.
+        return {
+          key,
+          type: 'string_list',
+          value: (value as number[]).map((port) => String(port)),
+        }
+      }
+      return toTypedBulkItem(key, value)
+    })
+
+    await updateTypedBulk.mutateAsync(items)
 
     baselineRef.current = normalized
   }
@@ -210,7 +224,7 @@ export function SSRFSection({ defaultValues }: SSRFSectionProps) {
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
           <SettingsPageFormActions
             onSave={form.handleSubmit(onSubmit)}
-            isSaving={updateOption.isPending}
+            isSaving={updateTypedBulk.isPending}
             saveLabel='Save SSRF settings'
           />
           <FormField

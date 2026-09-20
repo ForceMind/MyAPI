@@ -20,16 +20,23 @@ type AccessProfileMetadata struct {
 	ModelAllowlist   []string `json:"model_allowlist,omitempty"`
 	FallbackProfiles []string `json:"fallback_profiles,omitempty"`
 	Enabled          bool     `json:"enabled"`
+	// Known records whether the stable ID exists in the current registry. It is
+	// internal policy state and is intentionally omitted from API metadata.
+	Known bool `json:"-"`
 }
 
 // AccountTierMetadata gives the legacy user group a separate account-level
 // meaning. Account tiers and key access profiles intentionally have different
 // identities even when old installations use the same names (default/vip).
 type AccountTierMetadata struct {
-	ID          string `json:"id"`
-	Kind        string `json:"kind"`
-	Label       string `json:"label"`
-	Description string `json:"description"`
+	ID             string   `json:"id"`
+	Kind           string   `json:"kind"`
+	Label          string   `json:"label"`
+	Description    string   `json:"description"`
+	RouteGroups    []string `json:"route_groups,omitempty"`
+	ModelAllowlist []string `json:"model_allowlist,omitempty"`
+	Enabled        bool     `json:"enabled"`
+	Known          bool     `json:"-"`
 }
 
 // EffectiveAccessProfileID returns the stable identity for a token while
@@ -146,6 +153,17 @@ func MigrateAccessProfileIdentifiers() error {
 }
 
 func ResolveAccessProfile(groupName, configuredDescription string) AccessProfileMetadata {
+	return resolveAccessProfile(groupName, configuredDescription, setting.GetAccessProfileSetting())
+}
+
+// ResolveAccessProfileWithSnapshot resolves a key policy against one detached
+// registry generation. Callers that need to evaluate a tier and profile for a
+// single request must pass the same snapshot to both resolvers.
+func ResolveAccessProfileWithSnapshot(groupName, configuredDescription string, registry *setting.AccessProfileSetting) AccessProfileMetadata {
+	return resolveAccessProfile(groupName, configuredDescription, registry)
+}
+
+func resolveAccessProfile(groupName, configuredDescription string, registry *setting.AccessProfileSetting) AccessProfileMetadata {
 	profile := AccessProfileMetadata{
 		ID:          groupName,
 		Kind:        "custom",
@@ -170,16 +188,23 @@ func ResolveAccessProfile(groupName, configuredDescription string) AccessProfile
 		profile.Label = "Automatic routing"
 		profile.Description = "Tries eligible channel groups in order and can fail over when enabled."
 	}
-	if configured, ok := setting.GetAccessProfileDefinition(profile.ID); ok {
+	if registry != nil {
+		configured, ok := registry.Profiles[profile.ID]
+		if !ok {
+			return profile
+		}
+		profile.Known = true
 		if strings.TrimSpace(configured.Label) != "" {
 			profile.Label = configured.Label
 		}
 		if strings.TrimSpace(configured.Description) != "" {
 			profile.Description = configured.Description
 		}
-		profile.RouteGroups = append([]string(nil), configured.RouteGroups...)
-		profile.ModelAllowlist = append([]string(nil), configured.ModelAllowlist...)
-		profile.FallbackProfiles = append([]string(nil), configured.FallbackProfiles...)
+		// Preserve the configured list presence: an explicitly empty list
+		// means "deny everything" under D04 and must not collapse into nil.
+		profile.RouteGroups = appendStringList(configured.RouteGroups)
+		profile.ModelAllowlist = appendStringList(configured.ModelAllowlist)
+		profile.FallbackProfiles = appendStringList(configured.FallbackProfiles)
 		if configured.Enabled != nil {
 			profile.Enabled = *configured.Enabled
 		}
@@ -187,33 +212,57 @@ func ResolveAccessProfile(groupName, configuredDescription string) AccessProfile
 	return profile
 }
 
+func appendStringList(values []string) []string {
+	if values == nil {
+		return nil
+	}
+	return append([]string{}, values...)
+}
+
 // ResolveAccessProfileID resolves an explicitly persisted profile identity.
 // Stable built-in IDs are mapped through their legacy groups so configured
 // labels and policy metadata remain consistent; unknown IDs remain readable as
 // custom profiles during the compatibility period.
 func ResolveAccessProfileID(profileID, fallbackGroup, configuredDescription string) AccessProfileMetadata {
+	return ResolveAccessProfileIDWithSnapshot(profileID, fallbackGroup, configuredDescription, setting.GetAccessProfileSetting())
+}
+
+// ResolveAccessProfileIDWithSnapshot resolves an explicit stable identity
+// without reading a second registry generation.
+func ResolveAccessProfileIDWithSnapshot(profileID, fallbackGroup, configuredDescription string, registry *setting.AccessProfileSetting) AccessProfileMetadata {
 	id := strings.TrimSpace(profileID)
 	if id == "" {
-		return ResolveAccessProfile(fallbackGroup, configuredDescription)
+		return resolveAccessProfile(fallbackGroup, configuredDescription, registry)
 	}
 	switch id {
 	case "standard":
-		return ResolveAccessProfile("default", configuredDescription)
+		return resolveAccessProfile("default", configuredDescription, registry)
 	case "priority":
-		return ResolveAccessProfile("vip", configuredDescription)
+		return resolveAccessProfile("vip", configuredDescription, registry)
 	case "automatic":
-		return ResolveAccessProfile("auto", configuredDescription)
+		return resolveAccessProfile("auto", configuredDescription, registry)
 	default:
-		return ResolveAccessProfile(id, configuredDescription)
+		return resolveAccessProfile(id, configuredDescription, registry)
 	}
 }
 
 func ResolveAccountTier(groupName, configuredDescription string) AccountTierMetadata {
+	return resolveAccountTier(groupName, configuredDescription, setting.GetAccessProfileSetting())
+}
+
+// ResolveAccountTierWithSnapshot resolves the account half of a request
+// policy against the caller-provided detached registry generation.
+func ResolveAccountTierWithSnapshot(groupName, configuredDescription string, registry *setting.AccessProfileSetting) AccountTierMetadata {
+	return resolveAccountTier(groupName, configuredDescription, registry)
+}
+
+func resolveAccountTier(groupName, configuredDescription string, registry *setting.AccessProfileSetting) AccountTierMetadata {
 	tier := AccountTierMetadata{
 		ID:          groupName,
 		Kind:        "custom",
 		Label:       groupName,
 		Description: configuredDescription,
+		Enabled:     true,
 	}
 	switch groupName {
 	case "", "default":
@@ -227,6 +276,24 @@ func ResolveAccountTier(groupName, configuredDescription string) AccountTierMeta
 		tier.Label = "Priority account"
 		tier.Description = "Uses the priority account quota, channel eligibility, and feature rules."
 	}
+	if registry != nil {
+		configured, ok := registry.AccountTiers[tier.ID]
+		if !ok {
+			return tier
+		}
+		tier.Known = true
+		if strings.TrimSpace(configured.Label) != "" {
+			tier.Label = configured.Label
+		}
+		if strings.TrimSpace(configured.Description) != "" {
+			tier.Description = configured.Description
+		}
+		tier.RouteGroups = appendStringList(configured.RouteGroups)
+		tier.ModelAllowlist = appendStringList(configured.ModelAllowlist)
+		if configured.Enabled != nil {
+			tier.Enabled = *configured.Enabled
+		}
+	}
 	return tier
 }
 
@@ -235,13 +302,19 @@ func ResolveAccountTier(groupName, configuredDescription string) AccountTierMeta
 // mapped to their canonical labels; custom identifiers remain visible as
 // custom tiers so administrators can explain them consistently across APIs.
 func ResolveAccountTierID(id, configuredDescription string) AccountTierMetadata {
+	return ResolveAccountTierIDWithSnapshot(id, configuredDescription, setting.GetAccessProfileSetting())
+}
+
+// ResolveAccountTierIDWithSnapshot resolves a persisted tier identity against
+// one detached registry generation.
+func ResolveAccountTierIDWithSnapshot(id, configuredDescription string, registry *setting.AccessProfileSetting) AccountTierMetadata {
 	id = strings.TrimSpace(id)
 	switch id {
 	case "", "standard":
-		return ResolveAccountTier("default", configuredDescription)
+		return resolveAccountTier("default", configuredDescription, registry)
 	case "priority":
-		return ResolveAccountTier("vip", configuredDescription)
+		return resolveAccountTier("vip", configuredDescription, registry)
 	default:
-		return ResolveAccountTier(id, configuredDescription)
+		return resolveAccountTier(id, configuredDescription, registry)
 	}
 }

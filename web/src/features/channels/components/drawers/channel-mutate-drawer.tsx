@@ -180,8 +180,8 @@ import {
 import type { Channel } from '../../types'
 import { useChannels } from '../channels-provider'
 import { AdvancedCustomEditorDialog } from '../dialogs/advanced-custom-editor-dialog'
-import { CodexOAuthDialog } from '../dialogs/codex-oauth-dialog'
 import { CodexLocalAuthDialog } from '../dialogs/codex-local-auth-dialog'
+import { CodexOAuthDialog } from '../dialogs/codex-oauth-dialog'
 import { FetchModelsDialog } from '../dialogs/fetch-models-dialog'
 import {
   MissingModelsConfirmationDialog,
@@ -273,6 +273,16 @@ const ADVANCED_SETTINGS_CHILD_SECTION_IDS: string[] = Object.values(
 )
 const ADVANCED_CUSTOM_ROUTE_TYPE_PREVIEW_LIMIT = 3
 const UPSTREAM_DETECTED_MODEL_PREVIEW_LIMIT = 8
+
+// Kimi (Moonshot, type 25) base URL presets. 'kimi-coding-plan' is a special
+// base resolved by the backend (constant.ChannelSpecialBases).
+const MOONSHOT_DEFAULT_BASE_URL = 'https://api.moonshot.cn'
+const MOONSHOT_BASE_URL_PRESETS: ReadonlySet<string> = new Set([
+  MOONSHOT_DEFAULT_BASE_URL,
+  'https://api.moonshot.ai',
+  'kimi-coding-plan',
+])
+const MOONSHOT_CUSTOM_BASE_URL_VALUE = 'custom'
 const SENSITIVE_FORM_FIELDS = [
   'type',
   'base_url',
@@ -799,6 +809,8 @@ export function ChannelMutateDrawer({
     }
   }, [open, resetDoubaoApiUnlock])
 
+  const [moonshotCustomBaseUrl, setMoonshotCustomBaseUrl] = useState(false)
+
   const applyConnectionInfo = useCallback(
     (connectionInfo: ChannelConnectionInfo) => {
       form.setValue('key', connectionInfo.key, {
@@ -1294,6 +1306,14 @@ export function ChannelMutateDrawer({
       }
     }
 
+    // Type 25 (Kimi/Moonshot) - set default base_url
+    if (currentType === 25) {
+      const currentBaseUrlValue = form.getValues('base_url')
+      if (!currentBaseUrlValue || currentBaseUrlValue === '') {
+        form.setValue('base_url', MOONSHOT_DEFAULT_BASE_URL)
+      }
+    }
+
     // Type 18 (Xunfei) - set default other (version)
     if (currentType === 18) {
       const currentOther = form.getValues('other')
@@ -1302,6 +1322,19 @@ export function ChannelMutateDrawer({
       }
     }
   }, [currentType, isEditing, form])
+
+  // Kimi (Moonshot, type 25): show the custom base URL input only when the
+  // saved value is not one of the presets. Re-derives when the drawer opens,
+  // channel data loads, or the channel type changes.
+  useEffect(() => {
+    if (!open || currentType !== 25) return
+    const value = form.getValues('base_url')
+    setMoonshotCustomBaseUrl(
+      typeof value === 'string' &&
+        value !== '' &&
+        !MOONSHOT_BASE_URL_PRESETS.has(value)
+    )
+  }, [open, channelData, currentType, form])
 
   useEffect(() => {
     if (currentType !== 45 || currentBaseUrl !== 'doubao-coding-plan') return
@@ -2805,8 +2838,115 @@ export function ChannelMutateDrawer({
                               />
                             )}
 
+                            {/* Kimi (Moonshot) (type 25) */}
+                            {currentType === 25 && (
+                              <FormField
+                                control={form.control}
+                                name='base_url'
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>{t('Base URL')}</FormLabel>
+                                    <Select
+                                      items={[
+                                        {
+                                          value: MOONSHOT_DEFAULT_BASE_URL,
+                                          label: t(MOONSHOT_DEFAULT_BASE_URL),
+                                        },
+                                        {
+                                          value: 'https://api.moonshot.ai',
+                                          label: t('https://api.moonshot.ai'),
+                                        },
+                                        {
+                                          value: 'kimi-coding-plan',
+                                          label: t('kimi-coding-plan'),
+                                        },
+                                        {
+                                          value: MOONSHOT_CUSTOM_BASE_URL_VALUE,
+                                          label: t('Custom'),
+                                        },
+                                      ]}
+                                      onValueChange={(value) => {
+                                        if (
+                                          value ===
+                                          MOONSHOT_CUSTOM_BASE_URL_VALUE
+                                        ) {
+                                          setMoonshotCustomBaseUrl(true)
+                                          if (
+                                            !field.value ||
+                                            MOONSHOT_BASE_URL_PRESETS.has(
+                                              field.value
+                                            )
+                                          ) {
+                                            field.onChange('')
+                                          }
+                                          return
+                                        }
+                                        setMoonshotCustomBaseUrl(false)
+                                        field.onChange(value)
+                                      }}
+                                      value={
+                                        moonshotCustomBaseUrl
+                                          ? MOONSHOT_CUSTOM_BASE_URL_VALUE
+                                          : field.value ||
+                                            MOONSHOT_DEFAULT_BASE_URL
+                                      }
+                                    >
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent
+                                        alignItemWithTrigger={false}
+                                      >
+                                        <SelectGroup>
+                                          <SelectItem
+                                            value={MOONSHOT_DEFAULT_BASE_URL}
+                                          >
+                                            {t(MOONSHOT_DEFAULT_BASE_URL)}
+                                          </SelectItem>
+                                          <SelectItem value='https://api.moonshot.ai'>
+                                            {t('https://api.moonshot.ai')}
+                                          </SelectItem>
+                                          <SelectItem value='kimi-coding-plan'>
+                                            {t('kimi-coding-plan')}
+                                          </SelectItem>
+                                          <SelectItem
+                                            value={
+                                              MOONSHOT_CUSTOM_BASE_URL_VALUE
+                                            }
+                                          >
+                                            {t('Custom')}
+                                          </SelectItem>
+                                        </SelectGroup>
+                                      </SelectContent>
+                                    </Select>
+                                    {moonshotCustomBaseUrl && (
+                                      <Input
+                                        className='mt-2'
+                                        placeholder={t(
+                                          FIELD_PLACEHOLDERS.BASE_URL
+                                        )}
+                                        name={field.name}
+                                        value={field.value}
+                                        onChange={field.onChange}
+                                        onBlur={field.onBlur}
+                                        ref={field.ref}
+                                      />
+                                    )}
+                                    <FormDescription>
+                                      {moonshotCustomBaseUrl
+                                        ? t('Enter custom API endpoint URL')
+                                        : t('Select the Kimi API endpoint')}
+                                    </FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            )}
+
                             {/* General base_url for other types */}
-                            {![3, 8, 22, 36, 45].includes(currentType) && (
+                            {![3, 8, 22, 25, 36, 45].includes(currentType) && (
                               <FormField
                                 control={form.control}
                                 name='base_url'
@@ -3763,7 +3903,9 @@ export function ChannelMutateDrawer({
                                       />
                                     </FormControl>
                                     <FormDescription>
-                                      {t(FIELD_DESCRIPTIONS.PRIORITY)}
+                                      {t(
+                                        'Higher values form earlier fallback tiers. Retries move to lower priority tiers.'
+                                      )}
                                     </FormDescription>
                                     <FormMessage />
                                   </FormItem>
@@ -3787,7 +3929,9 @@ export function ChannelMutateDrawer({
                                       />
                                     </FormControl>
                                     <FormDescription>
-                                      {t(FIELD_DESCRIPTIONS.WEIGHT)}
+                                      {t(
+                                        'Within one priority tier, positive weights split traffic proportionally. If all weights are zero, traffic is split evenly; zero receives no traffic when any positive weight exists.'
+                                      )}
                                     </FormDescription>
                                     <FormMessage />
                                   </FormItem>

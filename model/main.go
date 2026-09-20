@@ -52,6 +52,13 @@ func initCol() {
 	}
 }
 
+// InitColumnNamesForTest initializes the dialect-aware column identifiers for
+// test fixtures that swap model.DB without running InitDB/InitLogDB. It only
+// re-runs initCol and is a no-op for already-initialized processes.
+func InitColumnNamesForTest() {
+	initCol()
+}
+
 var DB *gorm.DB
 
 var LOG_DB *gorm.DB
@@ -221,6 +228,10 @@ func InitDB() (err error) {
 					return fmt.Errorf("task recovery database identity verification failed: %w", err)
 				}
 			}
+			if err := RefreshUserQuotaBusinessSchemaCapability(DB); err != nil {
+				return fmt.Errorf("detect user quota business writer schema: %w", err)
+			}
+			RefreshAccountQuotaSettlementIntentSchemaCapability(DB)
 			return nil
 		}
 		if common.UsingMainDatabase(common.DatabaseTypeMySQL) {
@@ -230,6 +241,7 @@ func InitDB() (err error) {
 		if err := migrateDB(); err != nil {
 			return err
 		}
+		accountQuotaSettlementIntentSchemaReady.Store(true)
 		if common.IsTaskRecoveryIdentityRequired() {
 			if err := EnsureTaskRecoveryIdentity(DB); err != nil {
 				return fmt.Errorf("task recovery database identity verification failed: %w", err)
@@ -302,6 +314,13 @@ func migrateDB() error {
 	err := DB.AutoMigrate(
 		&Channel{},
 		&ChannelQuotaSnapshot{},
+		&ChannelQuotaAlertState{},
+		&ChannelQuotaAlertEvent{},
+		&PromptLearningPolicy{},
+		&PromptLearningSample{},
+		&PromptLearningRun{},
+		&PromptInstructionVersion{},
+		&PromptInstructionApplication{},
 		&Token{},
 		&User{},
 		&UserSession{},
@@ -323,8 +342,20 @@ func migrateDB() error {
 		&TaskBillingLogOutbox{},
 		&QuotaMutationReceipt{},
 		&UserQuotaMutationReceipt{},
+		&AccountQuotaMutationReceipt{},
+		&AccountQuotaReservationHead{},
+		&AccountQuotaTerminalRecoveryObligation{},
+		&AccountQuotaRefundFact{},
+		&AccountQuotaSettlementIntent{},
+		&AccountQuotaSettlementFact{},
+		&QuotaBalanceBatchDrain{},
+		&QuotaBalanceBatchSubject{},
+		&QuotaWorkCursor{},
 		&QuotaWriterEpoch{},
 		&QuotaProjectionObligation{},
+		&QuotaWriterModeTransition{},
+		&OptionRemediation{},
+		&OptionRemediationBackup{},
 		&Model{},
 		&Vendor{},
 		&PrefillGroup{},
@@ -332,6 +363,9 @@ func migrateDB() error {
 		&TwoFA{},
 		&TwoFABackupCode{},
 		&Checkin{},
+		&InviteRewardGrant{},
+		&AffQuotaTransfer{},
+		&AdminQuotaAdjustment{},
 		&SubscriptionOrder{},
 		&UserSubscription{},
 		&SubscriptionPreConsumeRecord{},
@@ -374,6 +408,9 @@ func migrateDB() error {
 	if err := EnsureQuotaWriterEpochStateWithDB(DB); err != nil {
 		return err
 	}
+	if err := EnsureQuotaMaintenanceBackfillCursorsWithDB(DB); err != nil {
+		return err
+	}
 	if err := InitializeQuotaProjectionObligationsWithDB(DB); err != nil {
 		return err
 	}
@@ -403,6 +440,11 @@ func migrateDBFast() error {
 	}{
 		{&Channel{}, "Channel"},
 		{&ChannelQuotaSnapshot{}, "ChannelQuotaSnapshot"},
+		{&PromptLearningPolicy{}, "PromptLearningPolicy"},
+		{&PromptLearningSample{}, "PromptLearningSample"},
+		{&PromptLearningRun{}, "PromptLearningRun"},
+		{&PromptInstructionVersion{}, "PromptInstructionVersion"},
+		{&PromptInstructionApplication{}, "PromptInstructionApplication"},
 		{&Token{}, "Token"},
 		{&User{}, "User"},
 		{&UserSession{}, "UserSession"},
@@ -424,8 +466,20 @@ func migrateDBFast() error {
 		{&TaskBillingLogOutbox{}, "TaskBillingLogOutbox"},
 		{&QuotaMutationReceipt{}, "QuotaMutationReceipt"},
 		{&UserQuotaMutationReceipt{}, "UserQuotaMutationReceipt"},
+		{&AccountQuotaMutationReceipt{}, "AccountQuotaMutationReceipt"},
+		{&AccountQuotaReservationHead{}, "AccountQuotaReservationHead"},
+		{&AccountQuotaTerminalRecoveryObligation{}, "AccountQuotaTerminalRecoveryObligation"},
+		{&AccountQuotaRefundFact{}, "AccountQuotaRefundFact"},
+		{&AccountQuotaSettlementIntent{}, "AccountQuotaSettlementIntent"},
+		{&AccountQuotaSettlementFact{}, "AccountQuotaSettlementFact"},
+		{&QuotaBalanceBatchDrain{}, "QuotaBalanceBatchDrain"},
+		{&QuotaBalanceBatchSubject{}, "QuotaBalanceBatchSubject"},
+		{&QuotaWorkCursor{}, "QuotaWorkCursor"},
 		{&QuotaWriterEpoch{}, "QuotaWriterEpoch"},
 		{&QuotaProjectionObligation{}, "QuotaProjectionObligation"},
+		{&QuotaWriterModeTransition{}, "QuotaWriterModeTransition"},
+		{&OptionRemediation{}, "OptionRemediation"},
+		{&OptionRemediationBackup{}, "OptionRemediationBackup"},
 		{&Model{}, "Model"},
 		{&Vendor{}, "Vendor"},
 		{&PrefillGroup{}, "PrefillGroup"},
@@ -433,6 +487,9 @@ func migrateDBFast() error {
 		{&TwoFA{}, "TwoFA"},
 		{&TwoFABackupCode{}, "TwoFABackupCode"},
 		{&Checkin{}, "Checkin"},
+		{&InviteRewardGrant{}, "InviteRewardGrant"},
+		{&AffQuotaTransfer{}, "AffQuotaTransfer"},
+		{&AdminQuotaAdjustment{}, "AdminQuotaAdjustment"},
 		{&SubscriptionOrder{}, "SubscriptionOrder"},
 		{&UserSubscription{}, "UserSubscription"},
 		{&SubscriptionPreConsumeRecord{}, "SubscriptionPreConsumeRecord"},
@@ -478,6 +535,9 @@ func migrateDBFast() error {
 		return err
 	}
 	if err := EnsureQuotaWriterEpochStateWithDB(DB); err != nil {
+		return err
+	}
+	if err := EnsureQuotaMaintenanceBackfillCursorsWithDB(DB); err != nil {
 		return err
 	}
 	if err := InitializeQuotaProjectionObligationsWithDB(DB); err != nil {

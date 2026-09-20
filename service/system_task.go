@@ -12,6 +12,7 @@ import (
 	"github.com/ForceMind/MyAPI/model"
 
 	"github.com/bytedance/gopkg/util/gopool"
+	"gorm.io/gorm"
 )
 
 const (
@@ -213,7 +214,30 @@ func StartLogCleanupTask(targetTimestamp int64) (*model.SystemTask, error) {
 // bool is true only when a new pending row was created; false means an active
 // task of the same type already exists and was returned.
 func EnqueueSystemTask(taskType string, payload any) (*model.SystemTask, bool, error) {
-	activeTask, err := model.GetActiveSystemTask(taskType)
+	return EnqueueSystemTaskContext(context.Background(), taskType, payload)
+}
+
+// EnqueueSystemTaskContext is the bounded/context-aware enqueue path for
+// accounting recovery. The task is only a scanner wake-up; durable business
+// identity belongs in the corresponding inbox table.
+func EnqueueSystemTaskContext(ctx context.Context, taskType string, payload any) (*model.SystemTask, bool, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if model.DB == nil {
+		return nil, false, gorm.ErrInvalidDB
+	}
+	db := model.DB.WithContext(ctx)
+	findActive := func() (*model.SystemTask, error) {
+		var task model.SystemTask
+		err := db.Where("type = ? AND status IN ?", taskType, []model.SystemTaskStatus{model.SystemTaskStatusPending, model.SystemTaskStatusRunning}).
+			Order("id desc").First(&task).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return &task, err
+	}
+	activeTask, err := findActive()
 	if err != nil {
 		return nil, false, err
 	}
@@ -221,9 +245,25 @@ func EnqueueSystemTask(taskType string, payload any) (*model.SystemTask, bool, e
 		return activeTask, false, nil
 	}
 
-	task, err := model.CreateSystemTask(taskType, payload, nil)
+	taskID, err := model.GenerateSystemTaskID()
 	if err != nil {
-		activeTask, activeErr := model.GetActiveSystemTask(taskType)
+		return nil, false, err
+	}
+	payloadText := ""
+	if payload != nil {
+		data, marshalErr := common.Marshal(payload)
+		if marshalErr != nil {
+			return nil, false, marshalErr
+		}
+		payloadText = string(data)
+	}
+	task := &model.SystemTask{
+		TaskID: taskID, Type: taskType, Status: model.SystemTaskStatusPending,
+		ActiveKey: &taskType, Payload: payloadText,
+	}
+	err = db.Create(task).Error
+	if err != nil {
+		activeTask, activeErr := findActive()
 		if activeErr == nil && activeTask != nil {
 			return activeTask, false, nil
 		}

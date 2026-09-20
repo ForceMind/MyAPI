@@ -138,6 +138,10 @@ type RelayInfo struct {
 	SubscriptionPlanTitle string
 	// RequestId is used for idempotent pre-consume/refund
 	RequestId string
+	// RealtimeConsumeSeq 记录 realtime 流式连接内的计费次数。同一连接的多个
+	// response.done 共享 RequestId，该序号为 authoritative 配额写入提供
+	// 稳定的按次幂等键后缀。
+	RealtimeConsumeSeq int
 	// SubscriptionAmountTotal / SubscriptionAmountUsedAfterPreConsume are used to compute remaining in logs.
 	SubscriptionAmountTotal               int64
 	SubscriptionAmountUsedAfterPreConsume int64

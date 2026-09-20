@@ -17,7 +17,7 @@ version: '3.4' # For compatibility with older Docker versions
 services:
   my-api:
     # MYAPI_IMAGE is canonical. NEW_API_IMAGE is accepted for old .env files.
-    image: ${MYAPI_IMAGE:-${NEW_API_IMAGE:-ghcr.io/forcemind/myapi:v0.1.1}}
+    image: ${MYAPI_IMAGE:-${NEW_API_IMAGE:-ghcr.io/forcemind/myapi:v0.2.0-beta.1}}
     container_name: my-api
     restart: always
     # Optional safety limits; override in .env for larger installations.

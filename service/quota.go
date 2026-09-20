@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -147,7 +148,14 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 		return fmt.Errorf("token quota is not enough, token remain quota: %s, need quota: %s", logger.FormatQuota(token.RemainQuota), logger.FormatQuota(quota))
 	}
 
-	err = PostConsumeQuota(relayInfo, quota, 0, false)
+	// realtime 流式连接在一次 RequestId 内可能多次计费（每个 response.done
+	// 一次），authoritative 幂等键需要连接内稳定的按次序号。
+	relayInfo.RealtimeConsumeSeq++
+	_, err = postConsumeQuotaWithEvent(relayInfo, quota, 0, false, postConsumeQuotaEvent{
+		Namespace:  "realtime",
+		Qualifier:  strconv.Itoa(relayInfo.RealtimeConsumeSeq),
+		ReasonCode: "realtime_consume",
+	})
 	if err != nil {
 		return err
 	}
@@ -395,6 +403,11 @@ func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, u
 	})
 }
 
+// PreConsumeTokenQuota 仅服务 legacy 计费路径（BillingSession.preConsume /
+// reserveToken）。authoritative 模式下 BillingSession 的 token 预扣经
+// ReserveAccountQuota 内核完成（见 newAuthoritativeBillingSession）；
+// model.TryReserveTokenQuota 在非 legacy 模式下经 requireLegacyQuotaWriterCall
+// fail-closed，二者共同保证本函数不会在 authoritative/bridge 模式下生效。
 func PreConsumeTokenQuota(relayInfo *relaycommon.RelayInfo, quota int) error {
 	if quota < 0 {
 		return errors.New("quota 不能为负数！")
@@ -422,12 +435,76 @@ type postConsumeQuotaResult struct {
 	TokenApplied   bool
 }
 
+// postConsumeQuotaEvent 携带 authoritative 配额写入所需的持久业务身份。
+// Namespace 按 caller 区分（如 "billing-settlement" / "realtime" /
+// "violation-fee"），与请求 ID 组合成稳定幂等键；Qualifier 用于同一请求内
+// 存在多次独立计费的场景（realtime 流式连接的按次序号）。
+// ReasonCode 为稳定的英文 snake_case 审计码。
+type postConsumeQuotaEvent struct {
+	Namespace  string
+	Qualifier  string
+	ReasonCode string
+}
+
+// postConsumeQuotaWriterMode 解析当前配额 writer 模式。尚未迁移 epoch 表的
+// 数据库（pre-WP3 或隔离测试夹具）按 legacy 处理，与 NewBillingSession 一致。
+func postConsumeQuotaWriterMode() (model.QuotaWriterMode, error) {
+	if model.DB == nil || !model.DB.Migrator().HasTable(&model.QuotaWriterEpoch{}) {
+		return model.QuotaWriterModeLegacy, nil
+	}
+	state, err := model.GetQuotaWriterEpochState(model.DB)
+	if err != nil {
+		return "", err
+	}
+	return model.QuotaWriterMode(state.Mode), nil
+}
+
 func PostConsumeQuota(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int, sendEmail bool) error {
 	_, err := postConsumeQuotaWithResult(relayInfo, quota, preConsumedQuota, sendEmail)
 	return err
 }
 
 func postConsumeQuotaWithResult(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int, sendEmail bool) (result postConsumeQuotaResult, err error) {
+	// 未迁移的 caller（如 midjourney 任务计费）不提供稳定业务键：保持 legacy
+	// 直写机制；非 legacy 模式下由 model 层 legacy 守卫 fail-closed，
+	// 行为与迁移前完全一致。
+	return postConsumeQuotaWithEvent(relayInfo, quota, preConsumedQuota, sendEmail, postConsumeQuotaEvent{})
+}
+
+// postConsumeQuotaWithEvent 按配额 writer 模式分发后结算直写：
+//   - legacy：与迁移前相同的写入机制与结果（含缓存投影）；
+//   - authoritative：经 QuotaMutationContext WithContext 壳进入 receipt 内核，
+//     以 Namespace + 请求 ID（+ Qualifier）构成的稳定业务键幂等；
+//   - bridge：fail-closed，受控切换由后续批次处理。
+func postConsumeQuotaWithEvent(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int, sendEmail bool, event postConsumeQuotaEvent) (result postConsumeQuotaResult, err error) {
+	if event.Namespace != "" {
+		var mode model.QuotaWriterMode
+		mode, err = postConsumeQuotaWriterMode()
+		if err != nil {
+			return result, err
+		}
+		switch mode {
+		case model.QuotaWriterModeLegacy:
+			// fall through to the legacy writer below
+		case model.QuotaWriterModeAuthoritative:
+			result, err = postConsumeQuotaAuthoritative(relayInfo, quota, event)
+			if err == nil && sendEmail && (quota+preConsumedQuota) != 0 {
+				checkAndSendQuotaNotify(relayInfo, quota, preConsumedQuota)
+			}
+			return result, err
+		default:
+			return result, model.ErrDurableQuotaWriterModeDisabled
+		}
+	}
+	result, err = postConsumeQuotaLegacy(relayInfo, quota)
+	if err == nil && sendEmail && (quota+preConsumedQuota) != 0 {
+		checkAndSendQuotaNotify(relayInfo, quota, preConsumedQuota)
+	}
+	return result, err
+}
+
+// postConsumeQuotaLegacy 保持迁移前的 legacy 写入机制与结果，不做任何模式分发。
+func postConsumeQuotaLegacy(relayInfo *relaycommon.RelayInfo, quota int) (result postConsumeQuotaResult, err error) {
 
 	// 1) Consume from wallet quota OR subscription item
 	if relayInfo != nil && relayInfo.BillingSource == BillingSourceSubscription {
@@ -466,10 +543,57 @@ func postConsumeQuotaWithResult(relayInfo *relaycommon.RelayInfo, quota int, pre
 		result.TokenApplied = true
 	}
 
-	if sendEmail {
-		if (quota + preConsumedQuota) != 0 {
-			checkAndSendQuotaNotify(relayInfo, quota, preConsumedQuota)
+	return result, nil
+}
+
+// postConsumeQuotaAuthoritative 经 receipt 内核完成 user/token 直写，余额结果
+// 与 legacy 路径一致；同一事件键重放幂等，键冲突（不同金额）显式报错。
+func postConsumeQuotaAuthoritative(relayInfo *relaycommon.RelayInfo, quota int, event postConsumeQuotaEvent) (result postConsumeQuotaResult, err error) {
+	requestID := ""
+	if relayInfo != nil {
+		requestID = strings.TrimSpace(relayInfo.RequestId)
+	}
+	if requestID == "" {
+		// authoritative 写入必须以稳定请求身份幂等；缺失时 fail-closed。
+		return result, errors.Join(model.ErrAccountQuotaMutationInvalidInput,
+			errors.New("authoritative post-consume requires a stable request id"))
+	}
+	eventKey := event.Namespace + ":" + requestID
+	if event.Qualifier != "" {
+		eventKey += ":" + event.Qualifier
+	}
+	if relayInfo.BillingSource == BillingSourceSubscription {
+		// 订阅资金源的直写没有 receipt 内核入口（订阅经 Reserve/Settle 链计费），
+		// 订阅场景的 authoritative 后结算由后续批次处理，本路径 fail-closed。
+		return result, model.ErrDurableQuotaWriterModeDisabled
+	}
+	mutation := model.QuotaMutationContext{EventKey: eventKey, ReasonCode: event.ReasonCode}
+	// 零差额在 legacy 路径下是余额无操作（quota ± 0）；内核拒绝零增量收据，
+	// 因此跳过内核调用但保持 Applied 标记与 legacy 一致。
+	if quota != 0 {
+		if quota > 0 {
+			err = model.DecreaseUserQuotaWithContext(mutation, relayInfo.UserId, quota)
+		} else {
+			err = model.IncreaseUserQuotaWithContext(mutation, relayInfo.UserId, -quota)
 		}
+		if err != nil {
+			return result, err
+		}
+	}
+	result.FundingApplied = true
+
+	if !relayInfo.IsPlayground {
+		if quota != 0 {
+			if quota > 0 {
+				err = model.DecreaseTokenQuotaWithContext(mutation, relayInfo.TokenId, relayInfo.TokenKey, quota)
+			} else {
+				err = model.IncreaseTokenQuotaWithContext(mutation, relayInfo.TokenId, relayInfo.TokenKey, -quota)
+			}
+			if err != nil {
+				return result, err
+			}
+		}
+		result.TokenApplied = true
 	}
 
 	return result, nil

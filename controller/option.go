@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -121,6 +122,45 @@ type OptionUpdateRequest struct {
 	Value any    `json:"value"`
 }
 
+type PaymentFundingOptionsUpdateRequest struct {
+	Values map[string]any `json:"values"`
+}
+
+func optionUpdateValueString(value any) string {
+	switch typed := value.(type) {
+	case bool:
+		return common.Interface2String(typed)
+	case float64:
+		return common.Interface2String(typed)
+	case int:
+		return common.Interface2String(typed)
+	default:
+		return fmt.Sprintf("%v", value)
+	}
+}
+
+func UpdatePaymentFundingOptions(c *gin.Context) {
+	var request PaymentFundingOptionsUpdateRequest
+	if err := common.DecodeJson(c.Request.Body, &request); err != nil || len(request.Values) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的参数"})
+		return
+	}
+	values := make(map[string]string, len(request.Values))
+	keys := make([]string, 0, len(request.Values))
+	for key, value := range request.Values {
+		values[key] = optionUpdateValueString(value)
+		keys = append(keys, key)
+	}
+	state, err := model.UpdatePaymentFundingOptionsBulk(values)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	sort.Strings(keys)
+	recordManageAudit(c, "option.payment_funding_bulk_update", map[string]interface{}{"keys": keys})
+	common.ApiSuccess(c, gin.H{"mode": state.Mode, "epoch": state.Epoch})
+}
+
 func UpdateOption(c *gin.Context) {
 	var option OptionUpdateRequest
 	err := common.DecodeJson(c.Request.Body, &option)
@@ -131,15 +171,13 @@ func UpdateOption(c *gin.Context) {
 		})
 		return
 	}
-	switch option.Value.(type) {
-	case bool:
-		option.Value = common.Interface2String(option.Value.(bool))
-	case float64:
-		option.Value = common.Interface2String(option.Value.(float64))
-	case int:
-		option.Value = common.Interface2String(option.Value.(int))
-	default:
-		option.Value = fmt.Sprintf("%v", option.Value)
+	option.Value = optionUpdateValueString(option.Value)
+	if model.IsPaymentFundingOptionKey(option.Key) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "支付与用户资金设置必须通过批量接口更新",
+		})
+		return
 	}
 	switch option.Key {
 	case "QuotaForInviter", "QuotaForInvitee":

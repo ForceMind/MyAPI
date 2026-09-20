@@ -1,9 +1,6 @@
 name: Build MyAPI release images
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       tag:
@@ -20,12 +17,12 @@ on:
           - 'PUBLISH'
 
 concurrency:
-  group: myapi-ghcr-publish-${{ inputs.tag || github.ref_name }}
+  group: myapi-stable-latest-publication
   cancel-in-progress: false
 
 jobs:
   build_single_arch:
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.confirm == 'PUBLISH' }}
+    if: ${{ inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_GHCR_RELEASE == 'true' }}
     name: Build & push (${{ matrix.edition }}, ${{ matrix.arch }})
     strategy:
       fail-fast: false
@@ -57,23 +54,24 @@ jobs:
       contents: read
       packages: write
       id-token: write
+    environment: ghcr-release
 
     steps:
       - name: Check out
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
-          ref: ${{ inputs.tag != '' && format('refs/tags/{0}', inputs.tag) || github.ref }}
+          ref: refs/tags/${{ inputs.tag }}
           persist-credentials: false
 
       - name: Resolve tag & write VERSION
         id: version
         env:
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          RELEASE_TAG: ${{ inputs.tag }}
           IMAGE_REPOSITORY: ${{ matrix.image_repository }}
         run: |
           TAG="$RELEASE_TAG"
-          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+          if ! node tools/release/semver.mjs validate-tag "$TAG"; then
             echo "::error::Tag must be an exact semantic version beginning with v"
             exit 1
           fi
@@ -98,15 +96,16 @@ jobs:
             echo "::error::VERSION and package.json must match ${EXPECTED_VERSION}"
             exit 1
           fi
-          LATEST_TAG=""
-          if [[ "$TAG" != *-* ]]; then
-            LATEST_TAG="${IMAGE_REPOSITORY}:latest-${{ matrix.arch }}"
+          IS_PRERELEASE=false
+          if [[ "$TAG" == *-* ]]; then
+            IS_PRERELEASE=true
           fi
           echo "TAG=${TAG}" >> $GITHUB_ENV
           echo "IMAGE_REPOSITORY=${IMAGE_REPOSITORY}" >> $GITHUB_ENV
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "sha=${TAG_SHA}" >> $GITHUB_OUTPUT
           echo "image_repository=${IMAGE_REPOSITORY}" >> $GITHUB_OUTPUT
-          echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
+          echo "prerelease=${IS_PRERELEASE}" >> $GITHUB_OUTPUT
           # VERSION is the distribution semver without the tag's leading v.
           # Keep the container's embedded/frontend version consistent with
           # package.json and the release workflow contract.
@@ -145,6 +144,35 @@ jobs:
             fi
           done
 
+      - name: Refuse stable latest rollback
+        if: ${{ !contains(inputs.tag, '-') }}
+        env:
+          CANDIDATE_VERSION: ${{ steps.version.outputs.tag }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          package_name="${IMAGE_REPOSITORY##*/}"
+          owner_type="$(gh api "/users/${GITHUB_REPOSITORY_OWNER}" --jq '.type')"
+          if [[ "$owner_type" == "Organization" ]]; then
+            package_base="/orgs/${GITHUB_REPOSITORY_OWNER}/packages"
+          elif [[ "$owner_type" == "User" ]]; then
+            package_base="/users/${GITHUB_REPOSITORY_OWNER}/packages"
+          else
+            echo "::error::unsupported GHCR owner type: $owner_type"
+            exit 1
+          fi
+          packages_json="$(gh api "${package_base}?package_type=container&per_page=100" --paginate --slurp)"
+          package_exists="$(node -e 'const pages = JSON.parse(process.argv[1]); const values = pages.flat(); process.stdout.write(String(values.some((value) => value.name === process.argv[2])))' "$packages_json" "$package_name")"
+          if [[ "$package_exists" != "true" ]]; then
+            exit 0
+          fi
+          versions_json="$(gh api "${package_base}/container/${package_name}/versions?per_page=100" --paginate --slurp)"
+          current_tag="$(printf '%s' "$versions_json" | node tools/release/semver.mjs latest-stable-container-tag)"
+          if [[ -n "$current_tag" ]] && ! node tools/release/semver.mjs can-advance-stable-latest "${CANDIDATE_VERSION#v}" "${current_tag#v}"; then
+            echo "::error::refusing to move GHCR latest from $current_tag to $CANDIDATE_VERSION"
+            exit 1
+          fi
+
       - name: Extract metadata (labels)
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
@@ -160,13 +188,12 @@ jobs:
           push: true
           tags: |
             ${{ steps.version.outputs.image_repository }}:${{ env.TAG }}-${{ matrix.arch }}
-            ${{ steps.version.outputs.latest_tag }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             MYAPI_EDITION=${{ matrix.edition }}
             MYAPI_BRAND_NAME=MyAPI
             MYAPI_BRAND_LOGO=/myapi-logo-v1.png
-            MYAPI_BUILD_ID=${{ github.sha }}
+            MYAPI_BUILD_ID=${{ steps.version.outputs.sha }}
             MYAPI_BUILD_PARALLELISM=2
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -200,7 +227,7 @@ jobs:
           retention-days: 7
 
   create_manifests:
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.confirm == 'PUBLISH' }}
+    if: ${{ inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_GHCR_RELEASE == 'true' }}
     name: Create multi-arch manifests (${{ matrix.edition }})
     needs: [build_single_arch]
     strategy:
@@ -216,11 +243,18 @@ jobs:
     permissions:
       packages: write
       id-token: write
+    environment: ghcr-release
 
     steps:
+      - name: Check out verified tag
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
       - name: Set version
         run: |
-          echo "TAG=${{ inputs.tag || github.ref_name }}" >> $GITHUB_ENV
+          echo "TAG=${{ inputs.tag }}" >> $GITHUB_ENV
           echo "IMAGE_REPOSITORY=${{ matrix.image_repository }}" >> $GITHUB_ENV
 
       - name: Log in to GitHub Container Registry
@@ -263,23 +297,12 @@ jobs:
             "${IMAGE_REPOSITORY}@${amd64}" \
             "${IMAGE_REPOSITORY}@${arm64}"
 
-      - name: Create & push manifest (latest stable)
-        if: ${{ !contains(inputs.tag || github.ref_name, '-') }}
-        run: |
-          docker buildx imagetools create \
-            -t "${IMAGE_REPOSITORY}:latest" \
-            "${IMAGE_REPOSITORY}@${amd64}" \
-            "${IMAGE_REPOSITORY}@${arm64}"
-
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Sign manifests with cosign
         run: |
           cosign sign --yes "${IMAGE_REPOSITORY}:${TAG}"
-          if [[ "$TAG" != *-* ]]; then
-            cosign sign --yes "${IMAGE_REPOSITORY}:latest"
-          fi
 
       - name: Manifest summary
         run: |
@@ -287,3 +310,97 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           docker buildx imagetools inspect "${IMAGE_REPOSITORY}:${TAG}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+  promote_latest:
+    name: Promote stable GHCR latest tags
+    needs: [create_manifests]
+    if: ${{ needs.create_manifests.result == 'success' && !contains(inputs.tag, '-') && inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_GHCR_RELEASE == 'true' }}
+    runs-on: ubuntu-latest
+    environment: ghcr-release
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Check out verified tag
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@c99871dec2022cc055c062a10cc1a1310835ceb4 # v4.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Verify promotion tools
+        run: |
+          docker buildx version
+          cosign version
+      - name: Download immutable image digests
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: myapi-image-digest-*
+          path: promotion-digests
+          merge-multiple: false
+      - name: Promote all stable latest tags
+        env:
+          CANDIDATE_TAG: ${{ inputs.tag }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          updated=()
+          trap 'echo "::error::stable GHCR promotion stopped; retry the same workflow run. Updated items: ${updated[*]:-none}"' ERR
+          owner_type="$(gh api "/users/${GITHUB_REPOSITORY_OWNER}" --jq '.type')"
+          if [[ "$owner_type" == "Organization" ]]; then
+            package_base="/orgs/${GITHUB_REPOSITORY_OWNER}/packages"
+          elif [[ "$owner_type" == "User" ]]; then
+            package_base="/users/${GITHUB_REPOSITORY_OWNER}/packages"
+          else
+            echo "::error::unsupported GHCR owner type: $owner_type"
+            exit 1
+          fi
+          repositories=(ghcr.io/forcemind/myapi ghcr.io/forcemind/myapi-lan)
+          editions=(full lan)
+          for index in "${!repositories[@]}"; do
+            image_repository="${repositories[$index]}"
+            edition="${editions[$index]}"
+            package_name="${image_repository##*/}"
+            versions_json="$(gh api "${package_base}/container/${package_name}/versions?per_page=100" --paginate --slurp)"
+            current_tag="$(printf '%s' "$versions_json" | node tools/release/semver.mjs latest-stable-container-tag)"
+            action="$(node tools/release/semver.mjs stable-latest-action "${CANDIDATE_TAG#v}" "${current_tag#v}")"
+            if [[ "$action" == "reject" ]]; then
+              echo "::error::refusing to move GHCR latest from $current_tag to $CANDIDATE_TAG"
+              exit 1
+            fi
+            for arch in amd64 arm64; do
+              digest_file="promotion-digests/myapi-image-digest-${edition}-${arch}/digest"
+              repository_file="promotion-digests/myapi-image-digest-${edition}-${arch}/repository"
+              tag_file="promotion-digests/myapi-image-digest-${edition}-${arch}/tag"
+              expected_digest="$(tr -d '[:space:]' < "$digest_file")"
+              [[ "$expected_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+              [[ "$(tr -d '[:space:]' < "$repository_file")" == "$image_repository" ]]
+              [[ "$(tr -d '[:space:]' < "$tag_file")" == "$CANDIDATE_TAG" ]]
+              source_root_digest="$(docker buildx imagetools inspect "${image_repository}:${CANDIDATE_TAG}-${arch}" --format '{{.Digest}}')"
+              [[ "$source_root_digest" == "$expected_digest" ]]
+              docker buildx imagetools inspect "${image_repository}:${CANDIDATE_TAG}-${arch}" --raw > "promotion-${edition}-${arch}.json"
+            done
+            version_raw="$(docker buildx imagetools inspect "${image_repository}:${CANDIDATE_TAG}" --raw)"
+            node -e 'const fs=require("fs"); const edition=process.argv[1]; const input={versionRaw:process.argv[2],sources:{}}; for (const arch of ["amd64","arm64"]) { const artifact=fs.readFileSync(`promotion-digests/myapi-image-digest-${edition}-${arch}/digest`,"utf8").trim(); input.sources[arch]={artifactDigest:artifact,rootDigest:artifact,raw:fs.readFileSync(`promotion-${edition}-${arch}.json`,"utf8")}; } process.stdout.write(JSON.stringify(input))' "$edition" "$version_raw" | node tools/release/oci-manifest.mjs
+          done
+          for image_repository in "${repositories[@]}"; do
+            docker buildx imagetools create -t "${image_repository}:latest-amd64" "${image_repository}:${CANDIDATE_TAG}-amd64"
+            updated+=("${image_repository}:latest-amd64")
+            docker buildx imagetools create -t "${image_repository}:latest-arm64" "${image_repository}:${CANDIDATE_TAG}-arm64"
+            updated+=("${image_repository}:latest-arm64")
+            docker buildx imagetools create -t "${image_repository}:latest" "${image_repository}:${CANDIDATE_TAG}-amd64" "${image_repository}:${CANDIDATE_TAG}-arm64"
+            updated+=("${image_repository}:latest")
+            cosign sign --yes "${image_repository}:latest-amd64"
+            cosign sign --yes "${image_repository}:latest-arm64"
+            cosign sign --yes "${image_repository}:latest"
+          done

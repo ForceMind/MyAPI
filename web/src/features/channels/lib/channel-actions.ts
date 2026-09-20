@@ -38,17 +38,64 @@ import {
   updateAllChannelsBalance,
 } from '../api'
 import { CHANNEL_STATUS, ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
-import type { ChannelTestResponse, CopyChannelParams } from '../types'
+import type {
+  ChannelCommitState,
+  ChannelTestResponse,
+  CopyChannelParams,
+} from '../types'
 
 // ============================================================================
 // Query Keys
 // ============================================================================
+
+export type ChannelOperationAttempt = {
+  fingerprint: string
+  operationKey: string
+}
+
+export function createChannelOperationKey(): string {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID()
+  }
+  const bytes = new Uint8Array(16)
+  globalThis.crypto.getRandomValues(bytes)
+  return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join(
+    ''
+  )
+}
+
+export function resolveChannelOperationAttempt(
+  previous: ChannelOperationAttempt | null,
+  fingerprint: string
+): ChannelOperationAttempt {
+  if (previous?.fingerprint === fingerprint) {
+    return previous
+  }
+  return { fingerprint, operationKey: createChannelOperationKey() }
+}
+
+export function notifyChannelMutationSuccess(
+  response: ChannelCommitState,
+  message: string
+): void {
+  if (response.cache_pending) {
+    toast.warning(message, {
+      description: i18next.t(
+        'The database change is committed, but runtime routing cache publication is pending.'
+      ),
+    })
+    return
+  }
+  toast.success(message)
+}
 
 export const channelsQueryKeys = {
   all: ['channels'] as const,
   lists: () => [...channelsQueryKeys.all, 'list'] as const,
   list: (params: Record<string, unknown>) =>
     [...channelsQueryKeys.lists(), params] as const,
+  routingPreview: (params: object) =>
+    [...channelsQueryKeys.lists(), 'routing-preview', params] as const,
   details: () => [...channelsQueryKeys.all, 'detail'] as const,
   detail: (id: number) => [...channelsQueryKeys.details(), id] as const,
 }
@@ -122,7 +169,10 @@ export async function handleEnableChannel(
   try {
     const response = await updateChannelStatus(id, CHANNEL_STATUS.ENABLED)
     if (response.success) {
-      toast.success(i18next.t(SUCCESS_MESSAGES.ENABLED))
+      notifyChannelMutationSuccess(
+        response,
+        i18next.t(SUCCESS_MESSAGES.ENABLED)
+      )
       queryClient?.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
       onSuccess?.()
     } else {
@@ -147,7 +197,10 @@ export async function handleDisableChannel(
       CHANNEL_STATUS.MANUAL_DISABLED
     )
     if (response.success) {
-      toast.success(i18next.t(SUCCESS_MESSAGES.DISABLED))
+      notifyChannelMutationSuccess(
+        response,
+        i18next.t(SUCCESS_MESSAGES.DISABLED)
+      )
       queryClient?.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
       onSuccess?.()
     } else {
@@ -185,7 +238,10 @@ export async function handleDeleteChannel(
   try {
     const response = await deleteChannel(id)
     if (response.success) {
-      toast.success(i18next.t(SUCCESS_MESSAGES.DELETED))
+      notifyChannelMutationSuccess(
+        response,
+        i18next.t(SUCCESS_MESSAGES.DELETED)
+      )
       queryClient?.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
       onSuccess?.()
     } else {
@@ -212,7 +268,8 @@ export async function handleUpdateChannelField(
       // Show success toast with field name
       const fieldLabel =
         fieldName.charAt(0).toUpperCase() + fieldName.slice(1).toLowerCase()
-      toast.success(
+      notifyChannelMutationSuccess(
+        response,
         i18next.t('{{field}} updated to {{value}}', {
           field: fieldLabel,
           value,
@@ -245,7 +302,8 @@ export async function handleUpdateTagField(
       // Show success toast with field name
       const fieldLabel =
         fieldName.charAt(0).toUpperCase() + fieldName.slice(1).toLowerCase()
-      toast.success(
+      notifyChannelMutationSuccess(
+        response,
         i18next.t('{{field}} updated to {{value}} for tag: {{tag}}', {
           field: fieldLabel,
           value,
@@ -348,7 +406,7 @@ export async function handleCopyChannel(
   try {
     const response = await copyChannel(id, params)
     if (response.success) {
-      toast.success(i18next.t(SUCCESS_MESSAGES.COPIED))
+      notifyChannelMutationSuccess(response, i18next.t(SUCCESS_MESSAGES.COPIED))
       queryClient?.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
       onSuccess?.(response.data?.id ?? 0)
     } else {
@@ -379,7 +437,8 @@ export async function handleBatchDelete(
   try {
     const response = await batchDeleteChannels({ ids })
     if (response.success) {
-      toast.success(
+      notifyChannelMutationSuccess(
+        response,
         i18next.t('{{count}} channel(s) deleted', {
           count: response.data || ids.length,
         })
@@ -409,23 +468,17 @@ export async function handleBatchEnable(
 
   try {
     const response = await batchUpdateChannelStatus(ids, CHANNEL_STATUS.ENABLED)
-    const successCount = response.success ? response.data || 0 : 0
-    const failCount = ids.length - successCount
-
-    if (successCount > 0) {
-      toast.success(
-        i18next.t('{{count}} channel(s) enabled', { count: successCount })
+    if (response.success) {
+      notifyChannelMutationSuccess(
+        response,
+        i18next.t('{{count}} channel(s) enabled', {
+          count: response.data || 0,
+        })
       )
       queryClient?.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
       onSuccess?.()
-    }
-
-    if (!response.success) {
+    } else {
       toast.error(response.message || i18next.t('Failed to enable channels'))
-    } else if (failCount > 0) {
-      toast.error(
-        i18next.t('{{count}} channel(s) failed to enable', { count: failCount })
-      )
     }
   } catch {
     toast.error(i18next.t('Failed to enable channels'))
@@ -450,25 +503,17 @@ export async function handleBatchDisable(
       ids,
       CHANNEL_STATUS.MANUAL_DISABLED
     )
-    const successCount = response.success ? response.data || 0 : 0
-    const failCount = ids.length - successCount
-
-    if (successCount > 0) {
-      toast.success(
-        i18next.t('{{count}} channel(s) disabled', { count: successCount })
+    if (response.success) {
+      notifyChannelMutationSuccess(
+        response,
+        i18next.t('{{count}} channel(s) disabled', {
+          count: response.data || 0,
+        })
       )
       queryClient?.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
       onSuccess?.()
-    }
-
-    if (!response.success) {
+    } else {
       toast.error(response.message || i18next.t('Failed to disable channels'))
-    } else if (failCount > 0) {
-      toast.error(
-        i18next.t('{{count}} channel(s) failed to disable', {
-          count: failCount,
-        })
-      )
     }
   } catch {
     toast.error(i18next.t('Failed to disable channels'))
@@ -492,7 +537,10 @@ export async function handleBatchSetTag(
   try {
     const response = await batchSetChannelTag({ ids, tag })
     if (response.success) {
-      toast.success(i18next.t(SUCCESS_MESSAGES.TAG_SET))
+      notifyChannelMutationSuccess(
+        response,
+        i18next.t(SUCCESS_MESSAGES.TAG_SET)
+      )
       queryClient?.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
       onSuccess?.()
     } else {
@@ -518,7 +566,8 @@ export async function handleEnableTagChannels(
   try {
     const response = await enableTagChannels(tag)
     if (response.success) {
-      toast.success(
+      notifyChannelMutationSuccess(
+        response,
         i18next.t('Enabled all channels with tag: {{tag}}', { tag })
       )
       queryClient?.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
@@ -544,7 +593,8 @@ export async function handleDisableTagChannels(
   try {
     const response = await disableTagChannels(tag)
     if (response.success) {
-      toast.success(
+      notifyChannelMutationSuccess(
+        response,
         i18next.t('Disabled all channels with tag: {{tag}}', { tag })
       )
       queryClient?.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
@@ -573,7 +623,8 @@ export async function handleDeleteAllDisabled(
   try {
     const response = await deleteDisabledChannels()
     if (response.success) {
-      toast.success(
+      notifyChannelMutationSuccess(
+        response,
         i18next.t('{{count}} disabled channel(s) deleted', {
           count: response.data || 0,
         })
@@ -600,7 +651,8 @@ export async function handleFixAbilities(
   try {
     const response = await fixChannelAbilities()
     if (response.success && response.data) {
-      toast.success(
+      notifyChannelMutationSuccess(
+        response,
         i18next.t(
           'Channel consistency repaired: {{success}} succeeded, {{fails}} failed',
           {

@@ -488,17 +488,6 @@ func fetchAdvancedCustomUpstreamModelIDs(channel *model.Channel, baseURL string)
 	return parseOpenAIModelIDs(body)
 }
 
-func updateChannelUpstreamModelSettings(channel *model.Channel, settings dto.ChannelOtherSettings, updateModels bool) error {
-	channel.SetOtherSettings(settings)
-	updates := map[string]interface{}{
-		"settings": channel.OtherSettings,
-	}
-	if updateModels {
-		updates["models"] = channel.Models
-	}
-	return model.DB.Model(&model.Channel{}).Where("id = ?", channel.Id).Updates(updates).Error
-}
-
 func checkAndPersistChannelUpstreamModelUpdates(
 	channel *model.Channel,
 	settings *dto.ChannelOtherSettings,
@@ -514,51 +503,79 @@ func checkAndPersistChannelUpstreamModelUpdates(
 		}
 	}
 
-	pendingAddModels, pendingRemoveModels, fetchErr := collectPendingUpstreamModelChanges(channel, *settings)
-	settings.UpstreamModelUpdateLastCheckTime = now
+	upstreamModels, fetchErr := fetchChannelUpstreamModelIDs(channel)
+	updated, modelsChanged, mutationErr := model.UpdateChannelRoutingState(
+		context.Background(),
+		channel.Id,
+		func(latest *model.Channel) (bool, error) {
+			latestSettings := latest.GetOtherSettings()
+			if !force {
+				minInterval := getUpstreamModelUpdateMinCheckIntervalSeconds()
+				if latestSettings.UpstreamModelUpdateLastCheckTime > 0 &&
+					now-latestSettings.UpstreamModelUpdateLastCheckTime < minInterval {
+					*settings = latestSettings
+					return false, nil
+				}
+			}
+			latestSettings.UpstreamModelUpdateLastCheckTime = now
+			if fetchErr != nil {
+				latest.SetOtherSettings(latestSettings)
+				*settings = latestSettings
+				return false, nil
+			}
+
+			pendingAddModels, pendingRemoveModels := collectPendingUpstreamModelChangesFromModels(
+				latest.GetModels(),
+				upstreamModels,
+				latestSettings.UpstreamModelUpdateIgnoredModels,
+				normalizeChannelModelMapping(latest),
+			)
+			changed := false
+			if allowAutoApply && latestSettings.UpstreamModelUpdateAutoSyncEnabled && len(pendingAddModels) > 0 {
+				originModels := normalizeModelNames(latest.GetModels())
+				mergedModels := mergeModelNames(originModels, pendingAddModels)
+				if len(mergedModels) > len(originModels) {
+					latest.Models = strings.Join(mergedModels, ",")
+					autoAdded = len(mergedModels) - len(originModels)
+					changed = true
+				}
+				latestSettings.UpstreamModelUpdateLastDetectedModels = []string{}
+			} else {
+				latestSettings.UpstreamModelUpdateLastDetectedModels = pendingAddModels
+			}
+			latestSettings.UpstreamModelUpdateLastRemovedModels = pendingRemoveModels
+			latest.SetOtherSettings(latestSettings)
+			*settings = latestSettings
+			return changed, nil
+		},
+	)
+	if mutationErr != nil {
+		return false, 0, mutationErr
+	}
+	if updated != nil {
+		*channel = *updated
+	}
 	if fetchErr != nil {
-		if err = updateChannelUpstreamModelSettings(channel, *settings, false); err != nil {
-			return false, 0, err
-		}
 		return false, 0, fetchErr
-	}
-
-	if allowAutoApply && settings.UpstreamModelUpdateAutoSyncEnabled && len(pendingAddModels) > 0 {
-		originModels := normalizeModelNames(channel.GetModels())
-		mergedModels := mergeModelNames(originModels, pendingAddModels)
-		if len(mergedModels) > len(originModels) {
-			channel.Models = strings.Join(mergedModels, ",")
-			autoAdded = len(mergedModels) - len(originModels)
-			modelsChanged = true
-		}
-		settings.UpstreamModelUpdateLastDetectedModels = []string{}
-	} else {
-		settings.UpstreamModelUpdateLastDetectedModels = pendingAddModels
-	}
-	settings.UpstreamModelUpdateLastRemovedModels = pendingRemoveModels
-
-	if err = updateChannelUpstreamModelSettings(channel, *settings, modelsChanged); err != nil {
-		return false, autoAdded, err
-	}
-	if modelsChanged {
-		if err = channel.UpdateAbilities(nil); err != nil {
-			return true, autoAdded, err
-		}
 	}
 	return modelsChanged, autoAdded, nil
 }
 
-func refreshChannelRuntimeCache() {
-	if common.MemoryCacheEnabled {
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					common.SysLog(fmt.Sprintf("InitChannelCache panic: %v", r))
-				}
-			}()
-			model.InitChannelCache()
-		}()
+func refreshChannelRuntimeCache() (state model.ChannelCachePublicationState, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("InitChannelCache panic: %v", recovered)
+			common.SysError(err.Error())
+			state = model.GetChannelCachePublicationState()
+		}
+	}()
+
+	err = model.InitChannelCache()
+	state = model.GetChannelCachePublicationState()
+	if err != nil {
+		common.SysError("failed to refresh channel cache after upstream model update: " + err.Error())
 	}
+	return state, err
 }
 
 func shouldSendUpstreamModelUpdateNotification(now int64, changedChannels int, failedChannels int) bool {
@@ -661,12 +678,18 @@ func buildUpstreamModelUpdateTaskNotificationContent(
 }
 
 type upstreamModelUpdateSummary struct {
-	CheckedChannels      int `json:"checked_channels"`
-	ChangedChannels      int `json:"changed_channels"`
-	DetectedAddModels    int `json:"detected_add_models"`
-	DetectedRemoveModels int `json:"detected_remove_models"`
-	FailedChannels       int `json:"failed_channels"`
-	AutoAddedModels      int `json:"auto_added_models"`
+	CheckedChannels       int    `json:"checked_channels"`
+	ChangedChannels       int    `json:"changed_channels"`
+	DetectedAddModels     int    `json:"detected_add_models"`
+	DetectedRemoveModels  int    `json:"detected_remove_models"`
+	FailedChannels        int    `json:"failed_channels"`
+	AutoAddedModels       int    `json:"auto_added_models"`
+	CacheEnabled          bool   `json:"cache_enabled"`
+	CachePending          bool   `json:"cache_pending"`
+	DataGeneration        uint64 `json:"data_generation"`
+	PublishedGeneration   uint64 `json:"published_generation"`
+	ClusterCommittedEpoch int64  `json:"cluster_committed_epoch"`
+	LocalPublishedEpoch   int64  `json:"local_published_epoch"`
 }
 
 // runChannelUpstreamModelUpdateTaskOnce runs one synchronous upstream model
@@ -677,7 +700,7 @@ type upstreamModelUpdateSummary struct {
 // scheduled job calls (force=false, allowAutoApply=true); the manual "detect
 // all" trigger calls (force=true, allowAutoApply=false) so it always re-checks
 // and only stages changes for explicit review.
-func runChannelUpstreamModelUpdateTaskOnce(ctx context.Context, force bool, allowAutoApply bool, report func(processed, total int)) upstreamModelUpdateSummary {
+func runChannelUpstreamModelUpdateTaskOnce(ctx context.Context, force bool, allowAutoApply bool, report func(processed, total int)) (upstreamModelUpdateSummary, error) {
 	checkedChannels := 0
 	failedChannels := 0
 	failedChannelIDs := make([]int, 0)
@@ -792,17 +815,25 @@ scanLoop:
 		report(int(totalChannels), int(totalChannels)) // mark complete only when the full scan finished
 	}
 
-	if refreshNeeded {
-		refreshChannelRuntimeCache()
+	cacheState := model.GetChannelCachePublicationState()
+	var cacheRefreshErr error
+	if refreshNeeded || cacheState.CachePending {
+		cacheState, cacheRefreshErr = refreshChannelRuntimeCache()
 	}
 
 	summary := upstreamModelUpdateSummary{
-		CheckedChannels:      checkedChannels,
-		ChangedChannels:      changedChannels,
-		DetectedAddModels:    detectedAddModels,
-		DetectedRemoveModels: detectedRemoveModels,
-		FailedChannels:       failedChannels,
-		AutoAddedModels:      autoAddedModels,
+		CheckedChannels:       checkedChannels,
+		ChangedChannels:       changedChannels,
+		DetectedAddModels:     detectedAddModels,
+		DetectedRemoveModels:  detectedRemoveModels,
+		FailedChannels:        failedChannels,
+		AutoAddedModels:       autoAddedModels,
+		CacheEnabled:          cacheState.CacheEnabled,
+		CachePending:          cacheState.CachePending,
+		DataGeneration:        cacheState.DataGeneration,
+		PublishedGeneration:   cacheState.PublishedGeneration,
+		ClusterCommittedEpoch: cacheState.ClusterCommittedEpoch,
+		LocalPublishedEpoch:   cacheState.LocalPublishedEpoch,
 	}
 
 	if checkedChannels > 0 || common.DebugEnabled {
@@ -824,7 +855,7 @@ scanLoop:
 				changedChannels,
 				failedChannels,
 			))
-			return summary
+			return summary, cacheRefreshErr
 		}
 		service.NotifyUpstreamModelUpdateWatchers(
 			"上游模型巡检通知",
@@ -841,7 +872,7 @@ scanLoop:
 			),
 		)
 	}
-	return summary
+	return summary, cacheRefreshErr
 }
 
 func ApplyChannelUpstreamModelUpdates(c *gin.Context) {
@@ -863,10 +894,7 @@ func ApplyChannelUpstreamModelUpdates(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	beforeSettings := channel.GetOtherSettings()
-	ignoredModels := intersectModelNames(req.IgnoreModels, beforeSettings.UpstreamModelUpdateLastDetectedModels)
-
-	addedModels, removedModels, remainingModels, remainingRemoveModels, modelsChanged, err := applyChannelUpstreamModelUpdates(
+	addedModels, removedModels, ignoredModels, remainingModels, remainingRemoveModels, modelsChanged, err := applyChannelUpstreamModelUpdates(
 		channel,
 		req.AddModels,
 		req.IgnoreModels,
@@ -877,27 +905,24 @@ func ApplyChannelUpstreamModelUpdates(c *gin.Context) {
 		return
 	}
 
-	if modelsChanged {
-		refreshChannelRuntimeCache()
+	cacheState := model.GetChannelCachePublicationState()
+	if modelsChanged || cacheState.CachePending {
+		cacheState, _ = refreshChannelRuntimeCache()
 	}
 
 	recordManageAudit(c, "channel.upstream_apply", map[string]interface{}{
 		"id": channel.Id,
 	})
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data": gin.H{
-			"id":                      channel.Id,
-			"added_models":            addedModels,
-			"removed_models":          removedModels,
-			"ignored_models":          ignoredModels,
-			"remaining_models":        remainingModels,
-			"remaining_remove_models": remainingRemoveModels,
-			"models":                  channel.Models,
-			"settings":                channel.OtherSettings,
-		},
-	})
+	c.JSON(http.StatusOK, channelCommittedResponse("", gin.H{
+		"id":                      channel.Id,
+		"added_models":            addedModels,
+		"removed_models":          removedModels,
+		"ignored_models":          ignoredModels,
+		"remaining_models":        remainingModels,
+		"remaining_remove_models": remainingRemoveModels,
+		"models":                  channel.Models,
+		"settings":                channel.OtherSettings,
+	}, cacheState))
 }
 
 func DetectChannelUpstreamModelUpdates(c *gin.Context) {
@@ -926,22 +951,19 @@ func DetectChannelUpstreamModelUpdates(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	if modelsChanged {
-		refreshChannelRuntimeCache()
+	cacheState := model.GetChannelCachePublicationState()
+	if modelsChanged || cacheState.CachePending {
+		cacheState, _ = refreshChannelRuntimeCache()
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data": detectChannelUpstreamModelUpdatesResult{
-			ChannelID:       channel.Id,
-			ChannelName:     channel.Name,
-			AddModels:       normalizeModelNames(settings.UpstreamModelUpdateLastDetectedModels),
-			RemoveModels:    normalizeModelNames(settings.UpstreamModelUpdateLastRemovedModels),
-			LastCheckTime:   settings.UpstreamModelUpdateLastCheckTime,
-			AutoAddedModels: autoAdded,
-		},
-	})
+	c.JSON(http.StatusOK, channelCommittedResponse("", detectChannelUpstreamModelUpdatesResult{
+		ChannelID:       channel.Id,
+		ChannelName:     channel.Name,
+		AddModels:       normalizeModelNames(settings.UpstreamModelUpdateLastDetectedModels),
+		RemoveModels:    normalizeModelNames(settings.UpstreamModelUpdateLastRemovedModels),
+		LastCheckTime:   settings.UpstreamModelUpdateLastCheckTime,
+		AutoAddedModels: autoAdded,
+	}, cacheState))
 }
 
 func applyChannelUpstreamModelUpdates(
@@ -952,46 +974,51 @@ func applyChannelUpstreamModelUpdates(
 ) (
 	addedModels []string,
 	removedModels []string,
+	ignoredModels []string,
 	remainingModels []string,
 	remainingRemoveModels []string,
 	modelsChanged bool,
 	err error,
 ) {
-	settings := channel.GetOtherSettings()
-	pendingAddModels := normalizeModelNames(settings.UpstreamModelUpdateLastDetectedModels)
-	pendingRemoveModels := normalizeModelNames(settings.UpstreamModelUpdateLastRemovedModels)
-	addModels := intersectModelNames(addModelsInput, pendingAddModels)
-	ignoreModels := intersectModelNames(ignoreModelsInput, pendingAddModels)
-	removeModels := intersectModelNames(removeModelsInput, pendingRemoveModels)
-	removeModels = subtractModelNames(removeModels, addModels)
+	updated, modelsChanged, err := model.UpdateChannelRoutingState(
+		context.Background(),
+		channel.Id,
+		func(latest *model.Channel) (bool, error) {
+			settings := latest.GetOtherSettings()
+			pendingAddModels := normalizeModelNames(settings.UpstreamModelUpdateLastDetectedModels)
+			pendingRemoveModels := normalizeModelNames(settings.UpstreamModelUpdateLastRemovedModels)
+			addedModels = intersectModelNames(addModelsInput, pendingAddModels)
+			ignoredModels = intersectModelNames(ignoreModelsInput, pendingAddModels)
+			removedModels = intersectModelNames(removeModelsInput, pendingRemoveModels)
+			removedModels = subtractModelNames(removedModels, addedModels)
 
-	originModels := normalizeModelNames(channel.GetModels())
-	nextModels := applySelectedModelChanges(originModels, addModels, removeModels)
-	modelsChanged = !slices.Equal(originModels, nextModels)
-	if modelsChanged {
-		channel.Models = strings.Join(nextModels, ",")
-	}
+			originModels := normalizeModelNames(latest.GetModels())
+			nextModels := applySelectedModelChanges(originModels, addedModels, removedModels)
+			changed := !slices.Equal(originModels, nextModels)
+			if changed {
+				latest.Models = strings.Join(nextModels, ",")
+			}
 
-	settings.UpstreamModelUpdateIgnoredModels = mergeModelNames(settings.UpstreamModelUpdateIgnoredModels, ignoreModels)
-	if len(addModels) > 0 {
-		settings.UpstreamModelUpdateIgnoredModels = subtractModelNames(settings.UpstreamModelUpdateIgnoredModels, addModels)
+			settings.UpstreamModelUpdateIgnoredModels = mergeModelNames(settings.UpstreamModelUpdateIgnoredModels, ignoredModels)
+			if len(addedModels) > 0 {
+				settings.UpstreamModelUpdateIgnoredModels = subtractModelNames(settings.UpstreamModelUpdateIgnoredModels, addedModels)
+			}
+			remainingModels = subtractModelNames(pendingAddModels, append(addedModels, ignoredModels...))
+			remainingRemoveModels = subtractModelNames(pendingRemoveModels, removedModels)
+			settings.UpstreamModelUpdateLastDetectedModels = remainingModels
+			settings.UpstreamModelUpdateLastRemovedModels = remainingRemoveModels
+			settings.UpstreamModelUpdateLastCheckTime = common.GetTimestamp()
+			latest.SetOtherSettings(settings)
+			return changed, nil
+		},
+	)
+	if err != nil {
+		return nil, nil, nil, nil, nil, false, err
 	}
-	remainingModels = subtractModelNames(pendingAddModels, append(addModels, ignoreModels...))
-	remainingRemoveModels = subtractModelNames(pendingRemoveModels, removeModels)
-	settings.UpstreamModelUpdateLastDetectedModels = remainingModels
-	settings.UpstreamModelUpdateLastRemovedModels = remainingRemoveModels
-	settings.UpstreamModelUpdateLastCheckTime = common.GetTimestamp()
-
-	if err := updateChannelUpstreamModelSettings(channel, settings, modelsChanged); err != nil {
-		return nil, nil, nil, nil, false, err
+	if updated != nil {
+		*channel = *updated
 	}
-
-	if modelsChanged {
-		if err := channel.UpdateAbilities(nil); err != nil {
-			return addModels, removeModels, remainingModels, remainingRemoveModels, true, err
-		}
-	}
-	return addModels, removeModels, remainingModels, remainingRemoveModels, modelsChanged, nil
+	return addedModels, removedModels, ignoredModels, remainingModels, remainingRemoveModels, modelsChanged, nil
 }
 
 func collectPendingApplyUpstreamModelChanges(settings dto.ChannelOtherSettings) (pendingAddModels []string, pendingRemoveModels []string) {
@@ -1045,7 +1072,7 @@ func ApplyAllChannelUpstreamModelUpdates(c *gin.Context) {
 				continue
 			}
 
-			addedModels, removedModels, remainingModels, remainingRemoveModels, modelsChanged, err := applyChannelUpstreamModelUpdates(
+			addedModels, removedModels, _, remainingModels, remainingRemoveModels, modelsChanged, err := applyChannelUpstreamModelUpdates(
 				channel,
 				pendingAddModels,
 				nil,
@@ -1075,24 +1102,21 @@ func ApplyAllChannelUpstreamModelUpdates(c *gin.Context) {
 		}
 	}
 
-	if refreshNeeded {
-		refreshChannelRuntimeCache()
+	cacheState := model.GetChannelCachePublicationState()
+	if refreshNeeded || cacheState.CachePending {
+		cacheState, _ = refreshChannelRuntimeCache()
 	}
 
 	recordManageAudit(c, "channel.upstream_apply_all", map[string]interface{}{
 		"count": len(results),
 	})
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data": gin.H{
-			"processed_channels": len(results),
-			"added_models":       addedModelCount,
-			"removed_models":     removedModelCount,
-			"failed_channel_ids": failed,
-			"results":            results,
-		},
-	})
+	c.JSON(http.StatusOK, channelCommittedResponse("", gin.H{
+		"processed_channels": len(results),
+		"added_models":       addedModelCount,
+		"removed_models":     removedModelCount,
+		"failed_channel_ids": failed,
+		"results":            results,
+	}, cacheState))
 }
 
 // DetectAllChannelUpstreamModelUpdates enqueues a model_update system task

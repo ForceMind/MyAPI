@@ -47,7 +47,11 @@ import {
 } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
-import { useUpdateOption } from '../hooks/use-update-option'
+import {
+  toTypedBulkItem,
+  useTypedBulkRevision,
+  useUpdateTypedBulkOptions,
+} from '../hooks/use-typed-bulk-options'
 
 const thinkingBlacklistExample = JSON.stringify(
   ['moonshotai/kimi-k2-thinking', 'kimi-k2-thinking'],
@@ -140,7 +144,8 @@ type GlobalSettingsCardProps = {
 
 export function GlobalSettingsCard({ defaultValues }: GlobalSettingsCardProps) {
   const { t } = useTranslation()
-  const updateOption = useUpdateOption()
+  const updateTypedBulk = useUpdateTypedBulkOptions()
+  useTypedBulkRevision()
 
   const form = useForm<
     GlobalModelSettingsFormInput,
@@ -170,12 +175,9 @@ export function GlobalSettingsCard({ defaultValues }: GlobalSettingsCardProps) {
       return
     }
 
-    for (const [key, value] of updates) {
-      await updateOption.mutateAsync({
-        key,
-        value,
-      })
-    }
+    await updateTypedBulk.mutateAsync(
+      updates.map(([key, value]) => toTypedBulkItem(key, value))
+    )
   }
 
   return (
@@ -184,7 +186,7 @@ export function GlobalSettingsCard({ defaultValues }: GlobalSettingsCardProps) {
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
           <SettingsPageFormActions
             onSave={form.handleSubmit(onSubmit)}
-            isSaving={updateOption.isPending}
+            isSaving={updateTypedBulk.isPending}
           />
           <FormField
             control={form.control}

@@ -225,13 +225,21 @@ type SubscriptionOrder struct {
 	CompleteTime    int64  `json:"complete_time"`
 
 	ProviderPayload string `json:"provider_payload" gorm:"type:text"`
+	FundingEpoch    uint64 `json:"funding_epoch" gorm:"not null;default:0;index"`
 }
 
-func (o *SubscriptionOrder) Insert() error {
+func (o *SubscriptionOrder) Insert(expectedEpoch ...uint64) error {
 	if o.CreateTime == 0 {
 		o.CreateTime = common.GetTimestamp()
 	}
-	return DB.Create(o).Error
+	return DB.Transaction(func(tx *gorm.DB) error {
+		state, err := requireUserFundingEnabledTx(tx, expectedUserFundingEpoch(expectedEpoch))
+		if err != nil {
+			return err
+		}
+		o.FundingEpoch = state.Epoch
+		return tx.Create(o).Error
+	})
 }
 
 func (o *SubscriptionOrder) Update() error {
@@ -582,7 +590,23 @@ func refreshSubscriptionUserGroupCache(userId int, operation string) {
 // Complete a subscription order (idempotent). Creates a UserSubscription snapshot from the plan.
 // expectedPaymentProvider guards against cross-gateway callback attacks (empty skips the check).
 // actualPaymentMethod updates the order's PaymentMethod to reflect the real payment type used (empty skips update).
-func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedPaymentProvider string, actualPaymentMethod string) error {
+func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedPaymentProvider string, actualPaymentMethod string, decision UserFundingWebhookDecision) error {
+	return completeSubscriptionOrder(tradeNo, providerPayload, expectedPaymentProvider, actualPaymentMethod, &decision)
+}
+
+func CompleteSubscriptionOrderTrusted(tradeNo string, providerPayload string, expectedPaymentProvider string, actualPaymentMethod string) error {
+	return completeSubscriptionOrder(tradeNo, providerPayload, expectedPaymentProvider, actualPaymentMethod, nil)
+}
+
+func ExpireSubscriptionOrder(tradeNo string, expectedPaymentProvider string, decision UserFundingWebhookDecision) error {
+	return expireSubscriptionOrder(tradeNo, expectedPaymentProvider, &decision)
+}
+
+func ExpireSubscriptionOrderTrusted(tradeNo string, expectedPaymentProvider string) error {
+	return expireSubscriptionOrder(tradeNo, expectedPaymentProvider, nil)
+}
+
+func completeSubscriptionOrder(tradeNo string, providerPayload string, expectedPaymentProvider string, actualPaymentMethod string, decision *UserFundingWebhookDecision) error {
 	if tradeNo == "" {
 		return errors.New("tradeNo is empty")
 	}
@@ -596,6 +620,10 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 	var logPaymentMethod string
 	var upgradeGroup string
 	err := DB.Transaction(func(tx *gorm.DB) error {
+		state, stateErr := userFundingStateForWebhookTx(tx, decision)
+		if stateErr != nil {
+			return stateErr
+		}
 		var order SubscriptionOrder
 		if err := lockForUpdate(tx).Where(refCol+" = ?", tradeNo).First(&order).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -605,6 +633,12 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 		}
 		if expectedPaymentProvider != "" && order.PaymentProvider != expectedPaymentProvider {
 			return ErrPaymentMethodMismatch
+		}
+		if err := validateUserFundingWebhookDecisionTx(
+			state, decision, UserFundingOrderSubscription,
+			order.Id, order.FundingEpoch, order.TradeNo, order.PaymentProvider,
+		); err != nil {
+			return err
 		}
 		if order.Status == common.TopUpStatusSuccess {
 			return nil
@@ -682,6 +716,7 @@ func upsertSubscriptionTopUpTx(tx *gorm.DB, order *SubscriptionOrder) error {
 				CreateTime:    order.CreateTime,
 				CompleteTime:  now,
 				Status:        common.TopUpStatusSuccess,
+				FundingEpoch:  order.FundingEpoch,
 			}
 			return tx.Create(&topup).Error
 		}
@@ -701,7 +736,7 @@ func upsertSubscriptionTopUpTx(tx *gorm.DB, order *SubscriptionOrder) error {
 	return tx.Save(&topup).Error
 }
 
-func ExpireSubscriptionOrder(tradeNo string, expectedPaymentProvider string) error {
+func expireSubscriptionOrder(tradeNo string, expectedPaymentProvider string, decision *UserFundingWebhookDecision) error {
 	if tradeNo == "" {
 		return errors.New("tradeNo is empty")
 	}
@@ -710,6 +745,10 @@ func ExpireSubscriptionOrder(tradeNo string, expectedPaymentProvider string) err
 		refCol = `"trade_no"`
 	}
 	return DB.Transaction(func(tx *gorm.DB) error {
+		state, stateErr := userFundingStateForWebhookTx(tx, decision)
+		if stateErr != nil {
+			return stateErr
+		}
 		var order SubscriptionOrder
 		if err := lockForUpdate(tx).Where(refCol+" = ?", tradeNo).First(&order).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -719,6 +758,12 @@ func ExpireSubscriptionOrder(tradeNo string, expectedPaymentProvider string) err
 		}
 		if expectedPaymentProvider != "" && order.PaymentProvider != expectedPaymentProvider {
 			return ErrPaymentMethodMismatch
+		}
+		if err := validateUserFundingWebhookDecisionTx(
+			state, decision, UserFundingOrderSubscription,
+			order.Id, order.FundingEpoch, order.TradeNo, order.PaymentProvider,
+		); err != nil {
+			return err
 		}
 		if order.Status != common.TopUpStatusPending {
 			return nil
@@ -774,8 +819,23 @@ func calcSubscriptionBalanceQuota(priceAmount float64) (int, error) {
 	return common.QuotaFromDecimalStrict(quota)
 }
 
+// subscriptionWalletMutationInput builds the authoritative receipt identity for
+// a balance-paid subscription order. The trade number is the durable order
+// identity, so the wallet debit receipt commits atomically with the order row
+// and an exact replay of the same order can never debit twice.
+func subscriptionWalletMutationInput(userId int, plan *SubscriptionPlan, tradeNo string, quota int) UserQuotaMutationInput {
+	return UserQuotaMutationInput{
+		UserID: userId, Delta: -int64(quota), MutationType: "subscription_wallet",
+		BusinessEventKey: fmt.Sprintf("subscription-wallet:%s", tradeNo),
+		ReasonCode:       "subscription_balance_purchase",
+		Metadata:         map[string]interface{}{"plan_id": plan.Id, "trade_no": tradeNo},
+	}
+}
+
 // PurchaseSubscriptionWithBalance creates a subscription by deducting the user's wallet quota.
-func PurchaseSubscriptionWithBalance(userId int, planId int) error {
+// 模式分发：legacy 保持迁移前直写；authoritative 经 receipt 内核扣减，
+// 事件键 "subscription-wallet:{tradeNo}" 与订单行同事务提交；bridge fail-closed。
+func PurchaseSubscriptionWithBalance(userId int, planId int, expectedEpoch ...uint64) error {
 	if userId <= 0 || planId <= 0 {
 		return errors.New("invalid userId or planId")
 	}
@@ -784,7 +844,13 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) error {
 	var logMoney float64
 	var chargedQuota int
 	var upgradeGroup string
+	var quotaReceipt *UserQuotaMutationReceipt
+	authoritative := false
 	err := DB.Transaction(func(tx *gorm.DB) error {
+		state, err := requireUserFundingEnabledTx(tx, expectedUserFundingEpoch(expectedEpoch))
+		if err != nil {
+			return err
+		}
 		plan, err := getSubscriptionPlanByIdTx(tx, planId)
 		if err != nil {
 			return err
@@ -804,17 +870,40 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) error {
 			return err
 		}
 
+		now := common.GetTimestamp()
+		tradeNo := fmt.Sprintf("SUBBALUSR%dNO%s%d", userId, common.GetRandomString(6), time.Now().UnixNano())
+
 		var user User
 		if err := lockForUpdate(tx).Where("id = ?", userId).First(&user).Error; err != nil {
 			return err
 		}
-		if requiredQuota > 0 && user.Quota < requiredQuota {
-			return errors.New("余额不足")
-		}
 		if requiredQuota > 0 {
-			if err := tx.Model(&User{}).Where("id = ?", userId).
-				Update("quota", gorm.Expr("quota - ?", requiredQuota)).Error; err != nil {
+			mode, err := businessUserQuotaWriterMode(tx)
+			if err != nil {
 				return err
+			}
+			switch mode {
+			case QuotaWriterModeAuthoritative:
+				receipt, _, mutateErr := mutateUserQuotaAuthoritative(tx, subscriptionWalletMutationInput(userId, plan, tradeNo, requiredQuota))
+				if mutateErr != nil {
+					if errors.Is(mutateErr, ErrInsufficientUserQuota) {
+						return errors.New("余额不足")
+					}
+					return mutateErr
+				}
+				quotaReceipt = receipt
+				authoritative = true
+			case QuotaWriterModeLegacy:
+				if user.Quota < requiredQuota {
+					return errors.New("余额不足")
+				}
+				if err := tx.Model(&User{}).Where("id = ?", userId).
+					Update("quota", gorm.Expr("quota - ?", requiredQuota)).Error; err != nil {
+					return err
+				}
+			default:
+				// bridge：本迁移点 fail-closed，等待受控切换，不做静默 legacy 直写。
+				return ErrDurableQuotaWriterModeDisabled
 			}
 		}
 
@@ -823,8 +912,6 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) error {
 			return err
 		}
 
-		now := common.GetTimestamp()
-		tradeNo := fmt.Sprintf("SUBBALUSR%dNO%s%d", userId, common.GetRandomString(6), time.Now().UnixNano())
 		order := &SubscriptionOrder{
 			UserId:          userId,
 			PlanId:          plan.Id,
@@ -836,6 +923,7 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) error {
 			CreateTime:      now,
 			CompleteTime:    now,
 			ProviderPayload: fmt.Sprintf("charged_quota=%d", requiredQuota),
+			FundingEpoch:    state.Epoch,
 		}
 		if err := tx.Create(order).Error; err != nil {
 			return err
@@ -854,8 +942,13 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) error {
 	}
 
 	if chargedQuota > 0 {
-		if err := cacheDecrUserQuota(userId, int64(chargedQuota)); err != nil {
-			common.SysLog("failed to decrease user quota cache after subscription balance purchase: " + err.Error())
+		if authoritative {
+			// Redis/网络投影严格在提交后；失败只记录在持久 obligation 上。
+			projectBusinessUserQuotaReceipt(DB, quotaReceipt)
+		} else {
+			if err := cacheDecrUserQuota(userId, int64(chargedQuota)); err != nil {
+				common.SysLog("failed to decrease user quota cache after subscription balance purchase: " + err.Error())
+			}
 		}
 	}
 	if upgradeGroup != "" {

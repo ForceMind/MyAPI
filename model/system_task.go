@@ -28,11 +28,13 @@ const (
 	// SystemTaskTypeChannelQuotaSnapshotSync periodically samples normalized
 	// upstream account balances. Sampling is enabled by default; an explicit
 	// environment override takes precedence over the administrator setting.
-	SystemTaskTypeChannelQuotaSnapshotSync = "channel_quota_snapshot_sync"
-	SystemTaskTypeTaskRecovery             = "task_recovery"
-	SystemTaskTypeTaskBillingOutbox        = "task_billing_outbox"
-	SystemTaskTypeQuotaProjectionRecovery  = "quota_projection_recovery"
-	SystemTaskTypeLogProjectionBackfill    = "log_projection_backfill"
+	SystemTaskTypeChannelQuotaSnapshotSync   = "channel_quota_snapshot_sync"
+	SystemTaskTypeTaskRecovery               = "task_recovery"
+	SystemTaskTypeTaskBillingOutbox          = "task_billing_outbox"
+	SystemTaskTypeQuotaProjectionRecovery    = "quota_projection_recovery"
+	SystemTaskTypeAccountQuotaRefundRecovery = "account_quota_refund_recovery"
+	SystemTaskTypeQuotaMaintenanceBackfill   = "quota_maintenance_backfill"
+	SystemTaskTypeLogProjectionBackfill      = "log_projection_backfill"
 )
 
 var ErrSystemTaskLockLost = errors.New("system task lock lost")

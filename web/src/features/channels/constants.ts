@@ -49,7 +49,7 @@ export const CHANNEL_TYPES = {
   22: 'FastGPT',
   23: 'Tencent',
   24: 'Gemini',
-  25: 'Moonshot',
+  25: 'Kimi (Moonshot)',
   26: 'Zhipu V4',
   27: 'Perplexity',
   31: 'LingYiWanWu',
@@ -371,8 +371,6 @@ export const FIELD_DESCRIPTIONS = {
   GROUP: 'User groups that can access this channel. ',
   MODEL_MAPPING:
     'Map request model names to actual provider model names (JSON format)',
-  PRIORITY: 'Higher priority channels are selected first',
-  WEIGHT: 'Used for load balancing. Higher weight = more requests',
   TEST_MODEL: 'Model to use when testing channel connectivity',
   AUTO_BAN: 'Automatically disable channel on repeated failures',
   STATUS_CODE_MAPPING: 'Map response status codes (JSON format)',

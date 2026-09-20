@@ -125,10 +125,18 @@ func TestQuotaWriterEpochMigrationAndFailClosedPlan(t *testing.T) {
 	audit, err := CanEnableDurableQuotaWrites(context.Background(), db)
 	require.NoError(t, err)
 	assert.False(t, audit.CanEnable)
-	assert.False(t, audit.AllWritersMigrated)
+	assert.True(t, audit.AllWritersMigrated)
+	registeredWriterNames := make([]string, 0, len(audit.Writers))
+	for _, writer := range audit.Writers {
+		registeredWriterNames = append(registeredWriterNames, writer.Name)
+	}
+	assert.NotContains(t, registeredWriterNames, "delta_update_user_quota", "unused delegating helpers are not production writer registrations")
+	assert.NotContains(t, audit.MissingOrFailedChecks, "production_writer_registration")
 	assert.Contains(t, audit.MissingOrFailedChecks, "redis_epoch")
 	assert.Contains(t, audit.MissingOrFailedChecks, "cluster_drain_ack")
-	assert.Contains(t, audit.MissingOrFailedChecks, "inflight_zero")
+	assert.NotContains(t, audit.MissingOrFailedChecks, "inflight_zero", "an idle process has no in-flight sessions")
+	assert.True(t, audit.InflightZero)
+	assert.Zero(t, audit.InflightSessions)
 }
 
 func TestQuotaWriterModeTransitionPlanDoesNotOverflowExhaustedEpoch(t *testing.T) {
@@ -585,7 +593,7 @@ func TestQuotaWriterTransitionPlannerIsTargetAwareAndFailClosed(t *testing.T) {
 	assert.NotContains(t, plan.Validation, "bridge_mode_required")
 	assert.Contains(t, plan.Validation, "durable_write_audit_failed")
 	assert.Contains(t, plan.Audit.MissingOrFailedChecks, "cluster_drain_ack")
-	assert.Contains(t, plan.Audit.MissingOrFailedChecks, "inflight_zero")
+	assert.NotContains(t, plan.Audit.MissingOrFailedChecks, "inflight_zero", "an idle process has no in-flight sessions")
 
 	setQuotaWriterStateForTest(t, db, QuotaWriterModeAuthoritative, 7)
 	downgrade, err := PlanQuotaWriterModeTransition(context.Background(), db, QuotaWriterModeBridge)

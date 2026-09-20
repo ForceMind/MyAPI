@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"errors"
+	"net/http"
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
@@ -8,6 +10,7 @@ import (
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type Setup struct {
@@ -44,131 +47,84 @@ func GetSetup(c *gin.Context) {
 }
 
 func PostSetup(c *gin.Context) {
-	// Check if setup is already completed
 	if constant.Setup {
-		c.JSON(200, gin.H{
-			"success": false,
-			"message": "系统已经初始化完成",
-		})
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "系统已经初始化完成"})
 		return
 	}
-
-	// Check if root user already exists
 	rootExists := model.RootUserExists()
-
 	var req SetupRequest
-	err := c.ShouldBindJSON(&req)
-	if err != nil {
-		c.JSON(200, gin.H{
-			"success": false,
-			"message": "请求参数有误",
-		})
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "请求参数有误"})
 		return
 	}
 
-	// If root doesn't exist, validate and create admin account
+	var hashedPassword string
 	if !rootExists {
-		// Validate username length: max 12 characters to align with model.User validation
 		if len(req.Username) > 12 {
-			c.JSON(200, gin.H{
-				"success": false,
-				"message": "用户名长度不能超过12个字符",
-			})
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "用户名长度不能超过12个字符"})
 			return
 		}
-		// Validate password
 		if req.Password != req.ConfirmPassword {
-			c.JSON(200, gin.H{
-				"success": false,
-				"message": "两次输入的密码不一致",
-			})
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "两次输入的密码不一致"})
 			return
 		}
-
 		if len(req.Password) < 8 {
-			c.JSON(200, gin.H{
-				"success": false,
-				"message": "密码长度至少为8个字符",
-			})
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "密码长度至少为8个字符"})
 			return
 		}
-
-		// Create root user
-		hashedPassword, err := common.Password2Hash(req.Password)
+		var err error
+		hashedPassword, err = common.Password2Hash(req.Password)
 		if err != nil {
-			c.JSON(200, gin.H{
-				"success": false,
-				"message": "系统错误: " + err.Error(),
-			})
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "系统错误: " + err.Error()})
 			return
 		}
-		rootUser := model.User{
-			Username:    req.Username,
-			Password:    hashedPassword,
-			Role:        common.RoleRootUser,
-			Status:      common.UserStatusEnabled,
-			DisplayName: "Root User",
-			AccessToken: nil,
-			Quota:       100000000,
+	}
+
+	fundingMode := operation_setting.UserFundingModeEnabled
+	if req.SelfUseModeEnabled {
+		fundingMode = operation_setting.UserFundingModeDisabled
+	}
+	var fundingState model.UserFundingStateSnapshot
+	err := model.DB.Transaction(func(tx *gorm.DB) error {
+		var rootCount int64
+		if err := tx.Model(&model.User{}).Where("role = ?", common.RoleRootUser).Count(&rootCount).Error; err != nil {
+			return err
 		}
-		err = model.DB.Create(&rootUser).Error
+		if rootCount == 0 {
+			if hashedPassword == "" {
+				return errors.New("root account validation is stale")
+			}
+			rootUser := model.User{
+				Username:    req.Username,
+				Password:    hashedPassword,
+				Role:        common.RoleRootUser,
+				Status:      common.UserStatusEnabled,
+				DisplayName: "Root User",
+				Quota:       100000000,
+				AffCode:     common.GetRandomString(8),
+			}
+			if err := tx.Create(&rootUser).Error; err != nil {
+				return err
+			}
+		}
+		var err error
+		fundingState, err = model.PersistSetupFundingOptionsTx(tx, req.SelfUseModeEnabled, req.DemoSiteEnabled, fundingMode)
 		if err != nil {
-			c.JSON(200, gin.H{
-				"success": false,
-				"message": "创建管理员账号失败: " + err.Error(),
-			})
-			return
+			return err
 		}
-	}
-
-	// Set operation modes
-	operation_setting.SelfUseModeEnabled = req.SelfUseModeEnabled
-	operation_setting.DemoSiteEnabled = req.DemoSiteEnabled
-
-	// Save operation modes to database for persistence
-	err = model.UpdateOption("SelfUseModeEnabled", boolToString(req.SelfUseModeEnabled))
-	if err != nil {
-		c.JSON(200, gin.H{
-			"success": false,
-			"message": "保存自用模式设置失败: " + err.Error(),
-		})
-		return
-	}
-
-	err = model.UpdateOption("DemoSiteEnabled", boolToString(req.DemoSiteEnabled))
-	if err != nil {
-		c.JSON(200, gin.H{
-			"success": false,
-			"message": "保存演示站点模式设置失败: " + err.Error(),
-		})
-		return
-	}
-
-	// Update setup status
-	constant.Setup = true
-
-	setup := model.Setup{
-		Version:       common.Version,
-		InitializedAt: time.Now().Unix(),
-	}
-	err = model.DB.Create(&setup).Error
-	if err != nil {
-		c.JSON(200, gin.H{
-			"success": false,
-			"message": "系统初始化失败: " + err.Error(),
-		})
-		return
-	}
-
-	c.JSON(200, gin.H{
-		"success": true,
-		"message": "系统初始化成功",
+		return tx.Create(&model.Setup{
+			Version:       common.Version,
+			InitializedAt: time.Now().Unix(),
+		}).Error
 	})
-}
-
-func boolToString(b bool) string {
-	if b {
-		return "true"
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "系统初始化失败: " + err.Error()})
+		return
 	}
-	return "false"
+	if err := model.PublishSetupFundingOptions(req.SelfUseModeEnabled, req.DemoSiteEnabled, fundingState); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "系统配置发布失败: " + err.Error()})
+		return
+	}
+	constant.Setup = true
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "系统初始化成功"})
 }

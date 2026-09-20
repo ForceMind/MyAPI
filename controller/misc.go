@@ -13,6 +13,7 @@ import (
 	"github.com/ForceMind/MyAPI/middleware"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/oauth"
+	"github.com/ForceMind/MyAPI/service"
 	"github.com/ForceMind/MyAPI/setting"
 	"github.com/ForceMind/MyAPI/setting/console_setting"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
@@ -51,6 +52,8 @@ func GetStatus(c *gin.Context) {
 	generalSetting := operation_setting.GetGeneralSetting()
 	discordSetting := system_setting.GetDiscordSettings()
 	oidcSetting := system_setting.GetOIDCSettings()
+	userFunding := service.CurrentUserFundingSnapshot()
+	paymentConfig := setting.CapturePaymentConfig()
 
 	data := gin.H{
 		"version":                     common.Version,
@@ -96,9 +99,9 @@ func GetStatus(c *gin.Context) {
 		"password_register_enabled":     common.PasswordRegisterEnabled,
 		"default_use_auto_group":        setting.DefaultUseAutoGroup,
 
-		"usd_exchange_rate": operation_setting.USDExchangeRate,
-		"price":             operation_setting.Price,
-		"stripe_unit_price": setting.StripeUnitPrice,
+		"usd_exchange_rate": paymentConfig.USDExchangeRate(),
+		"price":             paymentConfig.Price(),
+		"stripe_unit_price": paymentConfig.StripeUnitPrice(),
 
 		// 面板启用开关
 		"api_info_enabled":      cs.ApiInfoEnabled,
@@ -125,6 +128,8 @@ func GetStatus(c *gin.Context) {
 		"user_agreement_enabled":      legalSetting.UserAgreement != "",
 		"privacy_policy_enabled":      legalSetting.PrivacyPolicy != "",
 		"checkin_enabled":             operation_setting.GetCheckinSetting().Enabled,
+		"user_funding_mode":           userFunding.State.Mode,
+		"user_funding_capabilities":   userFunding.Capabilities,
 	}
 
 	// 根据启用状态注入可选内容

@@ -134,11 +134,12 @@ func TestSubscriptionOnlyPaymentWebhooksFulfillExactlyOnce(t *testing.T) {
 	}
 }
 
-func TestSubscriptionOnlyPaymentWebhooksRejectIncompleteConfiguration(t *testing.T) {
+func TestSubscriptionOnlyPaymentWebhooksUseVerificationConfiguration(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
 		configure func()
 		deliver   func(*testing.T) int
+		expected  int
 	}{
 		{
 			name:      "stripe api missing",
@@ -146,6 +147,7 @@ func TestSubscriptionOnlyPaymentWebhooksRejectIncompleteConfiguration(t *testing
 			deliver: func(t *testing.T) int {
 				return deliverStripeFixture(t, "checkout.session.completed", "subscription-disabled", "complete", setting.StripeWebhookSecret)
 			},
+			expected: http.StatusOK,
 		},
 		{
 			name:      "stripe signature secret missing",
@@ -153,16 +155,21 @@ func TestSubscriptionOnlyPaymentWebhooksRejectIncompleteConfiguration(t *testing
 			deliver: func(t *testing.T) int {
 				return deliverStripeFixture(t, "checkout.session.completed", "subscription-disabled", "complete", "fixture")
 			},
+			expected: http.StatusGone,
 		},
 		{
 			name:      "creem api missing",
 			configure: func() { setting.CreemApiKey = "" },
-			deliver:   func(t *testing.T) int { return deliverCreemSubscriptionFixture(t, "subscription-disabled", "fixture") },
+			deliver: func(t *testing.T) int {
+				return deliverCreemSubscriptionFixture(t, "subscription-disabled", setting.CreemWebhookSecret)
+			},
+			expected: http.StatusOK,
 		},
 		{
 			name:      "creem signature secret missing",
 			configure: func() { setting.CreemWebhookSecret = "" },
 			deliver:   func(t *testing.T) int { return deliverCreemSubscriptionFixture(t, "subscription-disabled", "fixture") },
+			expected:  http.StatusGone,
 		},
 		{
 			name: "compliance false",
@@ -172,6 +179,7 @@ func TestSubscriptionOnlyPaymentWebhooksRejectIncompleteConfiguration(t *testing
 			deliver: func(t *testing.T) int {
 				return deliverStripeFixture(t, "checkout.session.completed", "subscription-disabled", "complete", setting.StripeWebhookSecret)
 			},
+			expected: http.StatusOK,
 		},
 		{
 			name: "terms expired",
@@ -181,13 +189,14 @@ func TestSubscriptionOnlyPaymentWebhooksRejectIncompleteConfiguration(t *testing
 			deliver: func(t *testing.T) int {
 				return deliverCreemSubscriptionFixture(t, "subscription-disabled", setting.CreemWebhookSecret)
 			},
+			expected: http.StatusOK,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			db := paymentWebhookTestDB(t)
 			subscriptionWebhookSettings(t)
 			tc.configure()
-			assert.Equal(t, http.StatusForbidden, tc.deliver(t))
+			assert.Equal(t, tc.expected, tc.deliver(t))
 			assert.Zero(t, subscriptionEntitlementCount(t, db))
 		})
 	}

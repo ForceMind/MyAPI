@@ -120,6 +120,8 @@ export interface SystemStatus {
     turnstile_site_key?: string
     email_verification?: boolean
     self_use_mode_enabled?: boolean
+    user_funding_mode?: import('@/lib/self-use-build').UserFundingMode
+    user_funding_capabilities?: import('@/lib/self-use-build').UserFundingCapabilities
     display_in_currency?: boolean
     display_token_stat_enabled?: boolean
     quota_per_unit?: number
@@ -165,6 +167,8 @@ export interface SystemStatus {
   turnstile_site_key?: string
   email_verification?: boolean
   self_use_mode_enabled?: boolean
+  user_funding_mode?: import('@/lib/self-use-build').UserFundingMode
+  user_funding_capabilities?: import('@/lib/self-use-build').UserFundingCapabilities
   display_in_currency?: boolean
   display_token_stat_enabled?: boolean
   quota_per_unit?: number

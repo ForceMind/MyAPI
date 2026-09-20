@@ -36,14 +36,35 @@ export function IconMyapi({ size = 20, ...props }: IconMyapiProps) {
       {...props}
     >
       <defs>
-        <linearGradient id={gradientId} x1='3' y1='3' x2='21' y2='21' gradientUnits='userSpaceOnUse'>
+        <linearGradient
+          id={gradientId}
+          x1='3'
+          y1='3'
+          x2='21'
+          y2='21'
+          gradientUnits='userSpaceOnUse'
+        >
           <stop stopColor='#67EDB1' />
           <stop offset='.5' stopColor='#2FD3E1' />
           <stop offset='1' stopColor='#2E68EA' />
         </linearGradient>
       </defs>
-      <rect x='1.5' y='1.5' width='21' height='21' rx='6' fill={`url(#${gradientId})`} />
-      <path d='m6.5 16.5 2.25-8 3.25 5 3.25-5 2.25 8' fill='none' stroke='white' strokeLinecap='round' strokeLinejoin='round' strokeWidth='1.9' />
+      <rect
+        x='1.5'
+        y='1.5'
+        width='21'
+        height='21'
+        rx='6'
+        fill={`url(#${gradientId})`}
+      />
+      <path
+        d='m6.5 16.5 2.25-8 3.25 5 3.25-5 2.25 8'
+        fill='none'
+        stroke='white'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+        strokeWidth='1.9'
+      />
     </svg>
   )
 }

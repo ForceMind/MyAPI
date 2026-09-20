@@ -7,6 +7,7 @@ import (
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
+	"github.com/ForceMind/MyAPI/service"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	"github.com/ForceMind/MyAPI/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
@@ -30,6 +31,10 @@ type SubscriptionBalancePayRequest struct {
 // ---- User APIs ----
 
 func GetSubscriptionPlans(c *gin.Context) {
+	if !service.CurrentUserFundingSnapshot().Capabilities.CanPurchaseSubscription {
+		common.ApiSuccess(c, []SubscriptionPlanDTO{})
+		return
+	}
 	if !operation_setting.IsPaymentComplianceConfirmed() {
 		common.ApiSuccess(c, []SubscriptionPlanDTO{})
 		return
@@ -109,7 +114,7 @@ func SubscriptionRequestBalancePay(c *gin.Context) {
 		return
 	}
 
-	if err := model.PurchaseSubscriptionWithBalance(userId, req.PlanId); err != nil {
+	if err := model.PurchaseSubscriptionWithBalance(userId, req.PlanId, userFundingEpoch(c)); err != nil {
 		common.ApiError(c, err)
 		return
 	}

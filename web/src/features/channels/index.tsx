@@ -28,18 +28,35 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  ADMIN_PERMISSION_ACTIONS,
+  ADMIN_PERMISSION_RESOURCES,
+  hasPermission,
+} from '@/lib/admin-permissions'
 import { ROLE } from '@/lib/roles'
-import { useAuthStore } from '@/stores/auth-store'
+import { useAuthStore, type AuthUser } from '@/stores/auth-store'
 
 import { getChannelOps } from './api'
 import { ChannelQuotaChangesPanel } from './components/channel-quota-changes-panel'
+import { ChannelRoutingPreview } from './components/channel-routing-preview'
 import { ChannelsDialogs } from './components/channels-dialogs'
 import { ChannelsPrimaryButtons } from './components/channels-primary-buttons'
 import { ChannelsProvider } from './components/channels-provider'
 import { ChannelsTable } from './components/channels-table'
 
+function canViewChannelRoutingPreview(
+  user: AuthUser | null | undefined
+): boolean {
+  return hasPermission(
+    user,
+    ADMIN_PERMISSION_RESOURCES.CHANNEL,
+    ADMIN_PERMISSION_ACTIONS.READ
+  )
+}
+
 export function Channels() {
   const { t } = useTranslation()
+  const currentUser = useAuthStore((state) => state.auth.user)
   const isRoot = useAuthStore(
     (state) => state.auth.user?.role === ROLE.SUPER_ADMIN
   )
@@ -50,6 +67,7 @@ export function Channels() {
     staleTime: 5 * 60 * 1000,
   })
   const retryTimes = channelOpsQuery.data?.data?.retry_times
+  const canReadChannels = canViewChannelRoutingPreview(currentUser)
   const retryLabel =
     typeof retryTimes === 'number' ? `${t('Max Retries')}: ${retryTimes}` : null
   let retryBadge = null
@@ -101,6 +119,7 @@ export function Channels() {
         <SectionPageLayout.Content>
           <div className='min-w-0'>
             <ChannelQuotaChangesPanel />
+            {canReadChannels ? <ChannelRoutingPreview /> : null}
             <ChannelsTable />
           </div>
         </SectionPageLayout.Content>

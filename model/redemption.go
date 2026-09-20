@@ -134,7 +134,7 @@ func GetRedemptionById(id int) (*Redemption, error) {
 	return &redemption, err
 }
 
-func Redeem(key string, userId int) (quota int, err error) {
+func Redeem(key string, userId int, expectedEpoch ...uint64) (quota int, err error) {
 	if key == "" {
 		return 0, errors.New("未提供兑换码")
 	}
@@ -148,12 +148,34 @@ func Redeem(key string, userId int) (quota int, err error) {
 		keyCol = `"key"`
 	}
 	common.RandomSleep()
+	var quotaReceipt *UserQuotaMutationReceipt
+	var replayed bool
 	err = DB.Transaction(func(tx *gorm.DB) error {
+		if _, err := requireUserFundingEnabledTx(tx, expectedUserFundingEpoch(expectedEpoch)); err != nil {
+			return err
+		}
 		err := lockForUpdate(tx).Where(keyCol+" = ?", key).First(redemption).Error
 		if err != nil {
 			return errors.New("无效的兑换码")
 		}
+		mode, err := businessUserQuotaWriterMode(tx)
+		if err != nil {
+			return err
+		}
+		mutationInput := UserQuotaMutationInput{
+			UserID: userId, Delta: int64(redemption.Quota), MutationType: "redemption",
+			BusinessEventKey: fmt.Sprintf("redemption:%d", redemption.Id), ReasonCode: "redemption_credit",
+			Metadata: map[string]interface{}{"redemption_id": redemption.Id},
+		}
 		if redemption.Status != common.RedemptionCodeStatusEnabled {
+			if mode == QuotaWriterModeAuthoritative && redemption.Status == common.RedemptionCodeStatusUsed {
+				if redemption.UsedUserId != userId {
+					return ErrUserQuotaMutationConflict
+				}
+				quotaReceipt, err = replayBusinessUserQuotaMutationAuthoritative(tx, mutationInput)
+				replayed = err == nil
+				return err
+			}
 			return errors.New("该兑换码已被使用")
 		}
 		if redemption.ExpiredTime != 0 && redemption.ExpiredTime < common.GetTimestamp() {
@@ -175,13 +197,24 @@ func Redeem(key string, userId int) (quota int, err error) {
 		if result.RowsAffected == 0 {
 			return errors.New("该兑换码已被使用")
 		}
+		if mode == QuotaWriterModeAuthoritative {
+			quotaReceipt, replayed, _, err = mutateBusinessUserQuotaIfAuthoritative(tx, mutationInput)
+			return err
+		}
 		return tx.Model(&User{}).Where("id = ?", userId).Update("quota", gorm.Expr("quota + ?", redemption.Quota)).Error
 	})
 	if err != nil {
 		common.SysError("redemption failed: " + err.Error())
-		return 0, ErrRedeemFailed
+		return 0, errors.Join(ErrRedeemFailed, err)
 	}
-	syncCreditUserQuotaCache(userId, redemption.Quota, "redemption")
+	if quotaReceipt != nil {
+		projectBusinessUserQuotaReceipt(DB, quotaReceipt)
+	} else {
+		syncCreditUserQuotaCache(userId, redemption.Quota, "redemption")
+	}
+	if replayed {
+		return redemption.Quota, nil
+	}
 	RecordLog(userId, LogTypeTopup, fmt.Sprintf("通过兑换码充值 %s，兑换码ID %d", logger.LogQuota(redemption.Quota), redemption.Id))
 	return redemption.Quota, nil
 }

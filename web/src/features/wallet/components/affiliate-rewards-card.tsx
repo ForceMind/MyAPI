@@ -33,6 +33,7 @@ interface AffiliateRewardsCardProps {
   user: UserWalletData | null
   affiliateLink: string
   onTransfer: () => void
+  canTransfer?: boolean
   complianceConfirmed?: boolean
   loading?: boolean
 }
@@ -41,6 +42,7 @@ export function AffiliateRewardsCard({
   user,
   affiliateLink,
   onTransfer,
+  canTransfer = true,
   complianceConfirmed = true,
   loading,
 }: AffiliateRewardsCardProps) {
@@ -112,7 +114,7 @@ export function AffiliateRewardsCard({
             tooltip={t('Copy referral link')}
             aria-label={t('Copy referral link')}
           />
-          {hasRewards && (
+          {hasRewards && canTransfer ? (
             <Button
               onClick={onTransfer}
               disabled={!complianceConfirmed}
@@ -121,9 +123,9 @@ export function AffiliateRewardsCard({
             >
               {t('Transfer to Balance')}
             </Button>
-          )}
+          ) : null}
         </div>
-        {!complianceConfirmed ? (
+        {canTransfer && !complianceConfirmed ? (
           <p className='text-muted-foreground text-xs lg:col-span-3'>
             {t(
               'Referral reward transfer is disabled until the administrator confirms compliance terms.'

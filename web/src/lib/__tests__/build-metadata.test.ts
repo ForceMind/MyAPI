@@ -24,7 +24,9 @@ describe('runtime build metadata', () => {
     const revision = getBuildRevision()
 
     expect(revision).toBe(`rv.9.8.7.${buildId}.2k6e8r7p`)
-    expect(revision).toMatch(/^rv\.[0-9A-Za-z._-]+\.[0-9A-Za-z._-]+\.[0-9a-z]+$/)
+    expect(revision).toMatch(
+      /^rv\.[0-9A-Za-z._-]+\.[0-9A-Za-z._-]+\.[0-9a-z]+$/
+    )
     expect(revision).not.toMatch(/secret|token|cookie|jwt/i)
   })
 

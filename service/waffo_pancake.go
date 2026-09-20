@@ -73,17 +73,10 @@ func (e *WaffoPancakeWebhookEvent) NormalizedEventType() string {
 	return e.EventType
 }
 
-// newWaffoPancakeClient builds an SDK client from persisted settings. The
-// runtime checkout / webhook paths use this; configuration endpoints use
-// newWaffoPancakeClientFromCreds so the operator can verify typed-but-not-
-// yet-saved credentials.
-func newWaffoPancakeClient() (*pancake.Client, error) {
-	return pancake.New(pancake.Config{
-		MerchantID: setting.WaffoPancakeMerchantID,
-		PrivateKey: setting.WaffoPancakePrivateKey,
-	})
-}
-
+// newWaffoPancakeClientFromCreds builds an SDK client from explicit
+// credentials. Runtime checkout / webhook paths resolve the credentials from
+// a payment runtime snapshot; configuration endpoints pass typed-but-not-
+// yet-saved credentials so the operator can verify them before saving.
 func newWaffoPancakeClientFromCreds(merchantID, privateKey string) (*pancake.Client, error) {
 	if strings.TrimSpace(merchantID) == "" || strings.TrimSpace(privateKey) == "" {
 		return nil, fmt.Errorf("merchant id and private key are required")
@@ -97,7 +90,17 @@ func newWaffoPancakeClientFromCreds(merchantID, privateKey string) (*pancake.Cli
 // CreateWaffoPancakeCheckoutSession creates an Authenticated-mode checkout
 // session: the order is bound to BuyerIdentity (stable per user) so it stays
 // attributable even if the buyer edits the email on Waffo's checkout form.
+// It captures a fresh payment runtime snapshot; order handlers that already
+// captured one should call CreateWaffoPancakeCheckoutSessionWithPaymentConfig
+// so the credentials come from the same generation as the rest of the request.
 func CreateWaffoPancakeCheckoutSession(ctx context.Context, params *WaffoPancakeCreateSessionParams) (*WaffoPancakeCheckoutSession, error) {
+	return CreateWaffoPancakeCheckoutSessionWithPaymentConfig(ctx, setting.CapturePaymentConfig(), params)
+}
+
+// CreateWaffoPancakeCheckoutSessionWithPaymentConfig is
+// CreateWaffoPancakeCheckoutSession with merchant credentials read from the
+// supplied payment runtime snapshot.
+func CreateWaffoPancakeCheckoutSessionWithPaymentConfig(ctx context.Context, paymentConfig setting.PaymentConfig, params *WaffoPancakeCreateSessionParams) (*WaffoPancakeCheckoutSession, error) {
 	if params == nil {
 		return nil, fmt.Errorf("missing checkout params")
 	}
@@ -107,7 +110,7 @@ func CreateWaffoPancakeCheckoutSession(ctx context.Context, params *WaffoPancake
 	if strings.TrimSpace(params.OrderMerchantExternalID) == "" {
 		return nil, fmt.Errorf("missing order merchant external id")
 	}
-	client, err := newWaffoPancakeClient()
+	client, err := newWaffoPancakeClientFromCreds(paymentConfig.WaffoPancakeMerchantID(), paymentConfig.WaffoPancakePrivateKey())
 	if err != nil {
 		return nil, fmt.Errorf("build Waffo Pancake client: %w", err)
 	}

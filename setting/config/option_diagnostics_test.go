@@ -72,3 +72,36 @@ func TestConfigManagerAssessOptionDiagnosticUsesStableCodes(t *testing.T) {
 
 	require.Equal(t, "registered_field", manager.AssessOptionDiagnostic("scalar.enabled", "true").KeyClass)
 }
+
+func TestConfigManagerOptionDiagnosticFieldKindIsMetadataOnly(t *testing.T) {
+	manager := NewConfigManager()
+	manager.Register("scalar", &optionDiagnosticsScalarConfig{})
+	manager.Register("map", optionDiagnosticsMapConfig{})
+	manager.Register("validated", optionDiagnosticsValidatingMapConfig{})
+	manager.Register("described", optionDiagnosticsDescribingMapConfig{})
+
+	for _, testCase := range []struct {
+		key, kind string
+		ok        bool
+	}{
+		{"scalar.enabled", "boolean", true},
+		{"scalar.count", "integer", true},
+		{"scalar.ratio", "finite_number", true},
+		{"scalar.names", "json", true},
+		{"described.enabled", "boolean", true},
+		{"described.names", "json", true},
+		{"scalar.missing", "", false},
+		{"missing.value", "", false},
+		{"map.value", "", false},
+		{"validated.level", "", false},
+		{"scalar..enabled", "", false},
+		{"flat", "", false},
+		{"scalar." + string([]byte{0xff}), "", false},
+	} {
+		t.Run(testCase.key, func(t *testing.T) {
+			kind, ok := manager.OptionDiagnosticFieldKind(testCase.key)
+			assert.Equal(t, testCase.ok, ok)
+			assert.Equal(t, testCase.kind, kind)
+		})
+	}
+}

@@ -44,7 +44,11 @@ import {
 } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
-import { useUpdateOption } from '../hooks/use-update-option'
+import {
+  toTypedBulkItem,
+  useTypedBulkRevision,
+  useUpdateTypedBulkOptions,
+} from '../hooks/use-typed-bulk-options'
 import {
   formatJsonForTextarea,
   normalizeJsonString,
@@ -114,7 +118,8 @@ type GeminiSettingsCardProps = {
 
 export function GeminiSettingsCard({ defaultValues }: GeminiSettingsCardProps) {
   const { t } = useTranslation()
-  const updateOption = useUpdateOption()
+  const updateTypedBulk = useUpdateTypedBulkOptions()
+  useTypedBulkRevision()
   const normalizedDefaultsRef = useRef<FlatGeminiSettings>({
     'gemini.safety_settings': normalizeJsonString(
       defaultValues.gemini.safety_settings
@@ -220,12 +225,9 @@ export function GeminiSettingsCard({ defaultValues }: GeminiSettingsCardProps) {
       return
     }
 
-    for (const key of updates) {
-      await updateOption.mutateAsync({
-        key,
-        value: normalized[key],
-      })
-    }
+    await updateTypedBulk.mutateAsync(
+      updates.map((key) => toTypedBulkItem(key, normalized[key]))
+    )
   }
 
   const imaginePlaceholder = useMemo(
@@ -239,7 +241,7 @@ export function GeminiSettingsCard({ defaultValues }: GeminiSettingsCardProps) {
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
           <SettingsPageFormActions
             onSave={form.handleSubmit(onSubmit)}
-            isSaving={updateOption.isPending}
+            isSaving={updateTypedBulk.isPending}
           />
           <FormField
             control={form.control}

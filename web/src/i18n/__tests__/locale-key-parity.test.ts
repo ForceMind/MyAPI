@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import en from '../locales/en.json'
@@ -7,8 +8,8 @@ import fr from '../locales/fr.json'
 import ja from '../locales/ja.json'
 import ru from '../locales/ru.json'
 import vi from '../locales/vi.json'
-import zh from '../locales/zh.json'
 import zhTW from '../locales/zh-TW.json'
+import zh from '../locales/zh.json'
 
 const baseKeys = Object.keys(en.translation).sort()
 const localeResources = [
@@ -52,13 +53,22 @@ describe('shipped quota page translation coverage', () => {
       keys.add(match[2])
     }
   }
-  it.each(allLocaleResources)('%s covers actual quota surface literals', (_locale, resource) => {
-    expect([...keys].filter((key) => !(key in resource.translation))).toEqual([])
-  })
+  it.each(allLocaleResources)(
+    '%s covers actual quota surface literals',
+    (_locale, resource) => {
+      expect([...keys].filter((key) => !(key in resource.translation))).toEqual(
+        []
+      )
+    }
+  )
   it('renders the new quota consumption explanations in Simplified Chinese', () => {
     const labels = zh.translation as Record<string, string>
     for (const key of keys) {
-      if (/consumption|sampling gap|quota baseline|Quota series|quota window|Weekly window|Daily window/i.test(key)) {
+      if (
+        /consumption|sampling gap|quota baseline|Quota series|quota window|Weekly window|Daily window/i.test(
+          key
+        )
+      ) {
         expect(labels[key], key).toMatch(/[\u3400-\u9fff]/)
       }
     }
@@ -263,10 +273,13 @@ const quotaAnalyticsLabelsRequiringLocalization = [
 ] as const
 
 describe('locale key parity', () => {
-  it.each(localeResources)('%s contains every English translation key', (_locale, resource) => {
-    const missing = baseKeys.filter((key) => !(key in resource.translation))
-    expect(missing).toEqual([])
-  })
+  it.each(localeResources)(
+    '%s contains every English translation key',
+    (_locale, resource) => {
+      const missing = baseKeys.filter((key) => !(key in resource.translation))
+      expect(missing).toEqual([])
+    }
+  )
 
   it.each(allLocaleResources)(
     '%s contains every quota analytics key',

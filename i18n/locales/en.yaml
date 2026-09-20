@@ -115,6 +115,11 @@ quota.exceed_max: "Quota value exceeds valid range"
 quota.insufficient: "Insufficient quota"
 quota.warning_invalid: "Invalid warning type"
 quota.threshold_gt_zero: "Warning threshold must be greater than 0"
+quota_writer.invalid_target_mode: "Invalid quota writer target mode"
+quota_writer.transition_conflict: "Quota writer epoch changed; refresh and retry"
+quota_writer.transition_invalid: "This quota writer mode transition is not allowed"
+quota_writer.preconditions_failed: "Quota writer transition preconditions are not met"
+quota_writer.post_audit_failed: "Quota writer post-transition audit failed; manual recovery required"
 
 # Subscription messages
 subscription.not_enabled: "Subscription plan is not enabled"
@@ -141,6 +146,17 @@ payment.webhook_not_configured: "Webhook is not configured"
 payment.price_id_not_configured: "StripePriceId is not configured for this plan"
 payment.creem_not_configured: "CreemProductId is not configured for this plan"
 payment.compliance_required: "Payment, redemption, subscription, and invitation reward features are disabled. The administrator must confirm compliance terms before enabling them."
+
+# Option typed bulk messages
+option.typed_bulk_invalid_body: "Invalid typed bulk request body."
+option.typed_bulk_unknown_key: "Unknown managed option key: {{.Key}}."
+option.typed_bulk_duplicate_key: "Option key appears more than once in the bulk request: {{.Key}}."
+option.typed_bulk_invalid_value: "Invalid value for option {{.Key}}: {{.Reason}}"
+option.typed_bulk_item_count: "A typed bulk request must contain between 1 and {{.Max}} items."
+option.typed_bulk_revision_conflict: "These settings were changed by someone else (expected revision {{.Expected}}, current revision {{.Actual}}). Reload the page and try again."
+option.typed_bulk_publish_failed: "Settings were saved, but publishing them to the runtime was aborted: {{.Reason}}"
+option.typed_bulk_internal: "Failed to save settings. Please try again later."
+option.disk_cache_rebuild_failed: "Failed to apply the saved disk cache directory and capacity settings. The previous disk cache configuration is still in effect: {{.Reason}}"
 
 # Topup messages
 topup.not_provided: "Payment order number not provided"
@@ -272,6 +288,7 @@ distributor.invalid_playground_request: "Invalid playground request: {{.Error}}"
 distributor.group_access_denied: "No permission to access this group"
 distributor.get_channel_failed: "Failed to get available channel for model {{.Model}} under group {{.Group}} (distributor): {{.Error}}"
 distributor.no_available_channel: "No available channel for model {{.Model}} under group {{.Group}} (distributor)"
+distributor.policy_denied: "Access denied by account or key access policy under group {{.Group}}"
 distributor.invalid_midjourney_request: "Invalid Midjourney request: {{.Error}}"
 distributor.invalid_request_parse_model: "Invalid request, unable to parse model"
 

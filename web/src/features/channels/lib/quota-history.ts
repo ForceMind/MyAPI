@@ -330,16 +330,17 @@ export function buildQuotaHistoryTrend(
   const values = points.map((point) => point.value).filter(finite)
   const lastPlotted = [...points].reverse().find((point) => finite(point.value))
   const lastRaw = rawPoints.at(-1)
+  const hasExplicitCurrent = Object.hasOwn(data, 'current')
   const current = data.current
-  const latestStatus = current?.status ?? lastRaw?.status ?? null
+  const latestCarrier = hasExplicitCurrent ? current : lastRaw
+  const latestStatus = hasExplicitCurrent
+    ? (current?.status ?? 'unavailable')
+    : (lastRaw?.status ?? null)
   let latestValue: number | null = null
-  if (!intervalMetric && latestStatus === 'success') {
-    const carrier = current ?? lastRaw
-    if (carrier) {
-      latestValue = numberOrNull(
-        carrier[metric as 'available' | 'used' | 'total']
-      )
-    }
+  if (!intervalMetric && latestStatus === 'success' && latestCarrier) {
+    latestValue = numberOrNull(
+      latestCarrier[metric as 'available' | 'used' | 'total']
+    )
   }
   const metricSummary = intervalMetric
     ? undefined
@@ -383,14 +384,12 @@ export function buildQuotaHistoryTrend(
     metric,
     points,
     latest: {
-      observedAt:
-        current?.observed_at ??
-        lastRaw?.observed_at ??
-        lastRaw?.timestamp ??
-        null,
+      observedAt: hasExplicitCurrent
+        ? (current?.observed_at ?? null)
+        : (lastRaw?.observed_at ?? lastRaw?.timestamp ?? null),
       status: latestStatus,
       value: latestValue,
-      errorCode: current?.error_code ?? lastRaw?.error_code,
+      errorCode: hasExplicitCurrent ? current?.error_code : lastRaw?.error_code,
     },
     latestPlotted:
       lastPlotted && finite(lastPlotted.value)

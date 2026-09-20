@@ -37,6 +37,14 @@ export type UpdateOptionRequest = {
 export type UpdateOptionResponse = {
   success: boolean
   message: string
+  data?: {
+    mode?: 'enabled' | 'retirement' | 'disabled'
+    epoch?: number
+  }
+}
+
+export type PaymentFundingOptionsUpdateRequest = {
+  values: Record<string, string | boolean | number>
 }
 
 export type ConfirmPaymentComplianceResponse = {
@@ -284,6 +292,7 @@ export type BillingSettings = {
   AutoGroups: string
   MaxTokenAutoGroups: number
   DefaultUseAutoGroup: boolean
+  'user_funding_setting.mode': 'enabled' | 'retirement' | 'disabled'
   'group_ratio_setting.group_special_usable_group': string
   'access_profile_setting.profiles': string
   PayAddress: string
@@ -454,5 +463,41 @@ export type UpstreamRatiosResponse = {
   data: {
     differences: DifferencesMap
     test_results: TestResult[]
+  }
+}
+
+// Typed bulk options API (PUT /api/option/typed-bulk), see
+// docs/OPTION_TYPED_BULK_API.md for the frozen backend contract.
+export type TypedBulkOptionType =
+  | 'string'
+  | 'number'
+  | 'boolean'
+  | 'string_list'
+
+export type TypedBulkOptionItem = {
+  key: string
+  type: TypedBulkOptionType
+  value: string | number | boolean | string[]
+}
+
+export type TypedBulkOptionsUpdateRequest = {
+  expected_revision?: number
+  items: TypedBulkOptionItem[]
+}
+
+export type TypedBulkOptionsUpdateResponse = {
+  success: boolean
+  message: string
+  data?: {
+    revision: number
+    applied: string[]
+  }
+}
+
+export type TypedBulkRevisionResponse = {
+  success: boolean
+  message: string
+  data?: {
+    revision: number
   }
 }

@@ -321,7 +321,7 @@ type recordingBillingSettler struct {
 
 func (*recordingBillingSettler) Settle(int) error { return nil }
 
-func (*recordingBillingSettler) Refund(*gin.Context) {}
+func (*recordingBillingSettler) Refund(*gin.Context) error { return nil }
 
 func (*recordingBillingSettler) NeedsRefund() bool { return false }
 
@@ -449,6 +449,7 @@ func TestPrepareTieredBillingForSelectedGroupTopUpArrearsAllowsNegativeBalance(t
 
 	relayInfo := &relaycommon.RelayInfo{
 		UserId:                userID,
+		RequestId:             "tiered-arrears-settlement",
 		IsPlayground:          true,
 		FinalPreConsumedQuota: 50_000,
 		TieredBillingSnapshot: &billingexpr.BillingSnapshot{

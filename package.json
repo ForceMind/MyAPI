@@ -1,6 +1,6 @@
 {
   "name": "@forcemind/myapi",
-  "version": "0.1.1",
+  "version": "0.2.0-beta.1",
   "description": "MyAPI self-hosting CLI and complete source distribution.",
   "type": "module",
   "bin": {
@@ -82,7 +82,7 @@
     "runtime:probe": "node tools/runtime/auth-probe.mjs",
     "runtime:probe:test": "node --test tools/runtime/*.test.mjs",
     "runtime:check": "node tools/runtime/check.mjs",
-    "release:workflow:check": "node tools/release/check.mjs",
+    "release:workflow:check": "node --test tools/release/*.test.mjs && node tools/release/check.mjs",
     "source:manifest": "node tools/npm/generate-source-manifest.mjs",
     "pack:check": "node tools/npm/check-pack.mjs",
     "release:state": "node tools/npm/check-release-state.mjs",

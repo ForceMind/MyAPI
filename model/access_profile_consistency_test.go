@@ -188,6 +188,73 @@ func TestUpdateOptionPersistsCanonicalAccessProfiles(t *testing.T) {
 	assert.Equal(t, stored.Value, unchanged.Value)
 }
 
+func TestUpdateOptionPersistsCanonicalAccountTiers(t *testing.T) {
+	db := accessProfileTestDB(t)
+	require.NoError(t, db.AutoMigrate(&Option{}))
+	original, err := common.Marshal(setting.GetAccessProfileSetting().AccountTiers)
+	require.NoError(t, err)
+	common.OptionMapRWMutex.Lock()
+	previousMap := common.OptionMap
+	common.OptionMap = make(map[string]string)
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		require.NoError(t, setting.UpdateAccountTierDefinitionsByJSONString(string(original)))
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap = previousMap
+		common.OptionMapRWMutex.Unlock()
+	})
+	const key = "access_profile_setting.account_tiers"
+	require.NoError(t, UpdateOption(key, `{" standard ":{"label":"Standard","route_groups":[" default "]}}`))
+	var stored Option
+	require.NoError(t, db.First(&stored, Option{Key: key}).Error)
+	var tiers map[string]setting.AccountTierDefinition
+	require.NoError(t, common.UnmarshalJsonStr(stored.Value, &tiers))
+	assert.Contains(t, tiers, "standard")
+	assert.NotContains(t, tiers, " standard ")
+	assert.Equal(t, []string{"default"}, tiers["standard"].RouteGroups)
+	common.OptionMapRWMutex.RLock()
+	assert.Equal(t, stored.Value, common.OptionMap[key])
+	common.OptionMapRWMutex.RUnlock()
+	assert.Equal(t, stored.Value, config.GlobalConfig.ExportAllConfigs()[key])
+	assert.ErrorContains(t, UpdateOption(key, `{"standard":{"label":"One"}," standard ":{"label":"Two"}}`), "unique after trimming")
+	var unchanged Option
+	require.NoError(t, db.First(&unchanged, Option{Key: key}).Error)
+	assert.Equal(t, stored.Value, unchanged.Value)
+}
+
+func TestOptionReloadPublishesAccountTierAndProfileRegistry(t *testing.T) {
+	db := accessProfileTestDB(t)
+	require.NoError(t, db.AutoMigrate(&Option{}))
+	original := setting.GetAccessProfileSetting()
+	originalProfiles, err := common.Marshal(original.Profiles)
+	require.NoError(t, err)
+	originalTiers, err := common.Marshal(original.AccountTiers)
+	require.NoError(t, err)
+	common.OptionMapRWMutex.Lock()
+	previousMap := common.OptionMap
+	common.OptionMap = make(map[string]string)
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{
+			"access_profile_setting.profiles":      string(originalProfiles),
+			"access_profile_setting.account_tiers": string(originalTiers),
+		}))
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap = previousMap
+		common.OptionMapRWMutex.Unlock()
+	})
+	require.NoError(t, db.Create(&Option{Key: "access_profile_setting.profiles", Value: `{"standard":{"label":"Reloaded profile","route_groups":["group-a"]}}`}).Error)
+	require.NoError(t, db.Create(&Option{Key: "access_profile_setting.account_tiers", Value: `{"standard":{"label":"Reloaded tier","model_allowlist":["gpt-5"]}}`}).Error)
+
+	loadOptionsFromDatabase()
+
+	registry := setting.GetAccessProfileSetting()
+	assert.Equal(t, "Reloaded profile", registry.Profiles["standard"].Label)
+	assert.Equal(t, []string{"group-a"}, registry.Profiles["standard"].RouteGroups)
+	assert.Equal(t, "Reloaded tier", registry.AccountTiers["standard"].Label)
+	assert.Equal(t, []string{"gpt-5"}, registry.AccountTiers["standard"].ModelAllowlist)
+}
+
 func TestUpdateOptionPersistenceFailureDoesNotPublish(t *testing.T) {
 	for _, failure := range []string{"create-new", "save-new", "save-existing"} {
 		t.Run(failure, func(t *testing.T) {

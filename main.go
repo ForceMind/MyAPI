@@ -157,6 +157,7 @@ func main() {
 	// schedules and executes them. Master-only execution and the UpdateTask
 	// switch are enforced inside the runner and each handler's Enabled().
 	controller.RegisterScheduledSystemTasks()
+	service.StartChannelQuotaAlertDeliveryWorker()
 	service.StartSystemTaskRunner()
 
 	if os.Getenv("BATCH_UPDATE_ENABLED") == "true" {
@@ -336,6 +337,12 @@ func InitResources() error {
 		}
 	}
 	model.InitOptionMap()
+
+	// 重启即生效：启动时按已保存的配置代重建磁盘缓存放置（目录/容量）。
+	// 运行时的普通保存不做这一步——放置字段只在维护重建端点或此处生效。
+	if _, err := common.RebuildDiskCache(); err != nil {
+		common.SysError("failed to apply saved disk cache placement at startup: " + err.Error())
+	}
 
 	// 清理旧的磁盘缓存文件
 	common.CleanupOldCacheFiles()

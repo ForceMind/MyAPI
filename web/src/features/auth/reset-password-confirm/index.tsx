@@ -105,6 +105,21 @@ export function ResetPasswordConfirm({
     }
   }
 
+  const hasNewPassword = Boolean(newPassword)
+  const primaryAction = hasNewPassword
+    ? () => navigate({ to: '/sign-in', replace: true })
+    : handleSubmit
+  const primaryDisabled =
+    !hasNewPassword && (loading || isActive || !isValidResetLink)
+  let primaryActionLabel = t('auth.resetPasswordConfirm.confirm')
+  if (hasNewPassword) {
+    primaryActionLabel = t('auth.resetPasswordConfirm.backToLogin')
+  } else if (isActive) {
+    primaryActionLabel = t('auth.resetPasswordConfirm.retry', {
+      seconds: secondsLeft,
+    })
+  }
+
   return (
     <AuthLayout>
       <div className='w-full space-y-8'>
@@ -170,22 +185,10 @@ export function ResetPasswordConfirm({
 
           <Button
             className='w-full'
-            onClick={
-              newPassword
-                ? () => navigate({ to: '/sign-in', replace: true })
-                : handleSubmit
-            }
-            disabled={
-              newPassword ? false : loading || isActive || !isValidResetLink
-            }
+            onClick={primaryAction}
+            disabled={primaryDisabled}
           >
-            {newPassword
-              ? t('auth.resetPasswordConfirm.backToLogin')
-              : isActive
-                ? t('auth.resetPasswordConfirm.retry', {
-                    seconds: secondsLeft,
-                  })
-                : t('auth.resetPasswordConfirm.confirm')}
+            {primaryActionLabel}
           </Button>
 
           {!newPassword && (

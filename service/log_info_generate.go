@@ -210,6 +210,16 @@ func appendBillingInfo(relayInfo *relaycommon.RelayInfo, other map[string]interf
 		// Wallet quota is not deducted when billed from subscription.
 		other["wallet_quota_deducted"] = 0
 	}
+	if session, ok := relayInfo.Billing.(*BillingSession); ok {
+		if settlement := session.settlementAuditInfo(); settlement != nil {
+			adminInfo, ok := other["admin_info"].(map[string]interface{})
+			if !ok || adminInfo == nil {
+				adminInfo = map[string]interface{}{}
+				other["admin_info"] = adminInfo
+			}
+			adminInfo["billing_settlement"] = settlement
+		}
+	}
 }
 
 func appendRequestConversionChain(relayInfo *relaycommon.RelayInfo, other map[string]interface{}) {

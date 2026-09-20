@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // withSystemTaskRegistry swaps the package registry for the given handlers for
@@ -270,4 +271,23 @@ func TestEnqueueSystemTaskReportsCreatedAndExistingActive(t *testing.T) {
 	require.True(t, created)
 	require.NotNil(t, second)
 	assert.NotEqual(t, first.TaskID, second.TaskID)
+}
+
+func TestEnqueueSystemTaskContextHonorsDeadline(t *testing.T) {
+	truncate(t)
+	const callbackName = "test:system_task_enqueue_deadline"
+	require.NoError(t, model.DB.Callback().Query().Before("gorm:query").Register(callbackName, func(tx *gorm.DB) {
+		if tx.Statement.Table != "system_tasks" {
+			return
+		}
+		<-tx.Statement.Context.Done()
+		tx.AddError(tx.Statement.Context.Err())
+	}))
+	t.Cleanup(func() { _ = model.DB.Callback().Query().Remove(callbackName) })
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Millisecond)
+	defer cancel()
+	started := time.Now()
+	_, _, err := EnqueueSystemTaskContext(ctx, "test_enqueue_timeout", nil)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Less(t, time.Since(started), time.Second)
 }

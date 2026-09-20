@@ -181,6 +181,69 @@ export interface ChannelOpsResponse {
   }
 }
 
+export interface ChannelCommitState {
+  committed?: boolean
+  cache_pending?: boolean
+  cache_enabled?: boolean
+  data_generation?: number
+  published_generation?: number
+  cluster_committed_epoch?: number
+  local_published_epoch?: number
+  code?: string
+}
+
+export interface ChannelMutationResponse<T = never> extends ChannelCommitState {
+  success: boolean
+  message?: string
+  data?: T
+}
+
+export interface ChannelRoutingPreviewParams {
+  group: string
+  model: string
+  request_path?: string
+}
+
+export interface ChannelRoutingPreviewCandidate {
+  id: number
+  name: string
+  type: number
+  weight: number
+  effective_weight: number
+  expected_share: number
+}
+
+export interface ChannelRoutingPreviewTier {
+  priority: number
+  fallback_index: number
+  channels: ChannelRoutingPreviewCandidate[]
+}
+
+export interface ChannelRoutingPreviewResponse {
+  success: boolean
+  code?: string
+  message?: string
+  data?: {
+    group: string
+    model: string
+    request_path: string
+    tiers: ChannelRoutingPreviewTier[]
+    source: 'cache' | 'database'
+    generation: number
+    data_generation: number
+    published_generation: number
+    cluster_committed_epoch: number
+    local_published_epoch: number
+    cache_enabled: boolean
+    cache_pending: boolean
+    affinity: {
+      evaluated: false
+      precedence: 'before_priority_weight'
+      explanation_code: 'routing_preview_affinity_not_evaluated'
+    }
+  }
+}
+
 export interface ChannelTestResponse {
   success: boolean
   message?: string
@@ -411,7 +474,7 @@ export interface ChannelQuotaHistoryData {
     status: string
     error_code?: string
     event_source?: string
-  }
+  } | null
   unit?: string
   currency?: string
   metric_type?: string
@@ -505,19 +568,76 @@ export interface ChannelQuotaSamplingStatusResponse {
   data?: ChannelQuotaSamplingStatusData
 }
 
+export interface ChannelQuotaAlertDeliveryStatus {
+  policy_enabled: boolean
+  configured: boolean
+  endpoint_host?: string
+  https_only: boolean
+  redirects_allowed: boolean
+  timeout_ms: number
+  max_attempts: number
+}
+
+export interface ChannelQuotaAlertDeliveryEvent {
+  id: number
+  event_key: string
+  snapshot_id: number
+  channel_id: number
+  status: string
+  kind: string
+  state: string
+  attempt_count: number
+  next_attempt_at?: number
+  last_error_code?: string
+  last_error_at?: number
+  delivered_at?: number
+  observed_at: number
+  created_at: number
+  updated_at: number
+}
+
+export interface ChannelQuotaAlertDeliveryEventsResponse {
+  success: boolean
+  message?: string
+  data?: {
+    items: ChannelQuotaAlertDeliveryEvent[]
+    total: number
+    page: number
+    page_size: number
+  }
+}
+
+export interface ChannelQuotaAlertDeliveryStatusResponse {
+  success: boolean
+  message?: string
+  data?: ChannelQuotaAlertDeliveryStatus
+}
+
+export interface ChannelQuotaAlertDeliveryRunSummary {
+  enabled: boolean
+  claimed: number
+  delivered: number
+  retryable: number
+  quarantined: number
+}
+
+export interface ChannelQuotaAlertDeliveryRunResponse {
+  success: boolean
+  message?: string
+  data?: ChannelQuotaAlertDeliveryRunSummary
+}
+
 export interface FetchModelsResponse {
   success: boolean
   message?: string
   data?: string[]
 }
 
-export interface CopyChannelResponse {
-  success: boolean
-  message?: string
-  data?: {
-    id: number
-  }
-}
+export type CopyChannelResponse = ChannelMutationResponse<{
+  id: number
+  ids: number[]
+  replayed: boolean
+}>
 
 // ============================================================================
 // Multi-Key Management Types
@@ -565,6 +685,7 @@ export type ChannelSortBy =
   | 'id'
   | 'name'
   | 'priority'
+  | 'weight'
   | 'balance'
   | 'response_time'
   | 'test_time'
@@ -604,6 +725,7 @@ export interface ChannelTestParams {
 export interface CopyChannelParams {
   suffix?: string
   reset_balance?: boolean
+  operation_key?: string
 }
 
 export interface MultiKeyManageParams {

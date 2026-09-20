@@ -145,6 +145,7 @@ export interface ManageUserQuotaPayload {
   action: 'add_quota'
   mode: QuotaAdjustMode
   value: number
+  request_id: string
 }
 
 // ============================================================================

@@ -91,6 +91,25 @@ func TestUserQuotaMutationBasic(t *testing.T) {
 	assert.Equal(t, int64(2), updatedUser.QuotaVersion)
 }
 
+func TestUserQuotaMutationExclusiveUpperBoundIsAtomic(t *testing.T) {
+	truncateTables(t)
+	user := createTestUserForQuotaMutation(t, 8010, 900)
+	input := UserQuotaMutationInput{
+		UserID: user.Id, Delta: 100, MutationType: "topup", BusinessEventKey: "topup:exclusive-bound",
+		ReasonCode: "topup_credit", MaxQuotaExclusive: 1000,
+	}
+	receipt, err := MutateUserQuota(DB, input)
+	assert.Nil(t, receipt)
+	require.ErrorIs(t, err, ErrUserQuotaUpperBoundExceeded)
+	var reloaded User
+	require.NoError(t, DB.First(&reloaded, user.Id).Error)
+	assert.Equal(t, 900, reloaded.Quota)
+	assert.Zero(t, reloaded.QuotaVersion)
+	var count int64
+	require.NoError(t, DB.Model(&UserQuotaMutationReceipt{}).Where("business_event_key = ?", input.BusinessEventKey).Count(&count).Error)
+	assert.Zero(t, count)
+}
+
 func TestUserQuotaMutationIdempotencyAndConflict(t *testing.T) {
 	truncateTables(t)
 	user := createTestUserForQuotaMutation(t, 8002, 500)

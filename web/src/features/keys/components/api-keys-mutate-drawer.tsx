@@ -168,35 +168,30 @@ export function ApiKeysMutateDrawer({
   const persistedAccessProfile = isUpdate
     ? (apiKeyData?.data?.access_profile ?? currentRow?.access_profile)
     : undefined
-  const groups = useMemo<ApiKeyGroupOption[]>(
-    () => {
-      const options: ApiKeyGroupOption[] = Object.entries(
-        groupsData?.data || {}
-      ).map(
-        ([key, info]) => ({
-          value: key,
-          label: getAccessProfileLabel(key, info.profile, t),
-          desc: [
-            getAccessProfileDescription(key, info.profile, t),
-            getAccessProfilePolicyHint(info.profile, t),
-          ]
-            .filter(Boolean)
-            .join(' · '),
-          ratio: info.ratio,
-          profileId: info.profile?.id,
-        })
-      )
-      const preserved = getPreservedAccessProfileOption(
-        options,
-        persistedGroup,
-        persistedAccessProfile,
-        t
-      )
-      if (preserved) options.push(preserved)
-      return options
-    },
-    [groupsData, persistedAccessProfile, persistedGroup, t]
-  )
+  const groups = useMemo<ApiKeyGroupOption[]>(() => {
+    const options: ApiKeyGroupOption[] = Object.entries(
+      groupsData?.data || {}
+    ).map(([key, info]) => ({
+      value: key,
+      label: getAccessProfileLabel(key, info.profile, t),
+      desc: [
+        getAccessProfileDescription(key, info.profile, t),
+        getAccessProfilePolicyHint(info.profile, t),
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      ratio: info.ratio,
+      profileId: info.profile?.id,
+    }))
+    const preserved = getPreservedAccessProfileOption(
+      options,
+      persistedGroup,
+      persistedAccessProfile,
+      t
+    )
+    if (preserved) options.push(preserved)
+    return options
+  }, [groupsData, persistedAccessProfile, persistedGroup, t])
   const backendHasAuto = groups.some((g) => g.value === 'auto')
   const availableAutoGroupNames = useMemo(
     () => groups.filter((group) => group.value !== 'auto').map((g) => g.value),
@@ -295,10 +290,14 @@ export function ApiKeysMutateDrawer({
 
   const syncAccessProfileId = (group: string) => {
     const option = groups.find((candidate) => candidate.value === group)
-    form.setValue('access_profile_id', option?.profileId || group || 'standard', {
-      shouldDirty: true,
-      shouldValidate: false,
-    })
+    form.setValue(
+      'access_profile_id',
+      option?.profileId || group || 'standard',
+      {
+        shouldDirty: true,
+        shouldValidate: false,
+      }
+    )
   }
 
   // Correct group after groups load: if the form value is not in available groups, fall back

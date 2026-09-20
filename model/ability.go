@@ -1,14 +1,14 @@
 package model
 
 import (
+	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"sync"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
-	"github.com/ForceMind/MyAPI/relaykit/dto"
+	"github.com/ForceMind/MyAPI/setting/ratio_setting"
 
 	"github.com/samber/lo"
 	"gorm.io/gorm"
@@ -60,332 +60,393 @@ func GetAllEnableAbilities() []Ability {
 	return abilities
 }
 
-func getPriority(group string, model string, retry int) (int, error) {
-
-	var priorities []int
-	err := DB.Model(&Ability{}).
-		Select("DISTINCT(priority)").
-		Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true).
-		Order("priority DESC").              // 按优先级降序排序
-		Pluck("priority", &priorities).Error // Pluck用于将查询的结果直接扫描到一个切片中
-
+func GetChannelRoutingPolicy(group string, modelName string, requestPath string) (ChannelRoutingPolicy, error) {
+	candidates, _, err := loadChannelRoutingCandidates(group, modelName, requestPath)
 	if err != nil {
-		// 处理错误
-		return 0, err
+		return ChannelRoutingPolicy{}, err
 	}
-
-	if len(priorities) == 0 {
-		// 如果没有查询到优先级，则返回错误
-		return 0, errors.New("数据库一致性被破坏")
-	}
-
-	// 确定要使用的优先级
-	var priorityToUse int
-	if retry >= len(priorities) {
-		// 如果重试次数大于优先级数，则使用最小的优先级
-		priorityToUse = priorities[len(priorities)-1]
-	} else {
-		priorityToUse = priorities[retry]
-	}
-	return priorityToUse, nil
+	return BuildChannelRoutingPolicy(candidates), nil
 }
 
-func getChannelQuery(group string, model string, retry int) (*gorm.DB, error) {
-	maxPrioritySubQuery := DB.Model(&Ability{}).Select("MAX(priority)").Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true)
-	channelQuery := DB.Where(commonGroupCol+" = ? and model = ? and enabled = ? and priority = (?)", group, model, true, maxPrioritySubQuery)
-	if retry != 0 {
-		priority, err := getPriority(group, model, retry)
+// GetRuntimeChannelRoutingPolicy returns the same routing view used by runtime
+// selection. Cache-backed reads use one last-good published snapshot; database
+// reads use one joined statement for channels and abilities.
+func GetRuntimeChannelRoutingPolicy(group string, modelName string, requestPath string) (ChannelRoutingPolicySnapshot, error) {
+	if common.MemoryCacheEnabled {
+		channelSyncLock.RLock()
+		policy := getCachedChannelRoutingPolicy(group, modelName, requestPath)
+		localPublishedEpoch := channelCachePublishedEpoch
+		channelSyncLock.RUnlock()
+
+		clusterCommittedEpoch, err := GetCommittedChannelRoutingEpoch(DB)
 		if err != nil {
-			return nil, err
-		} else {
-			channelQuery = DB.Where(commonGroupCol+" = ? and model = ? and enabled = ? and priority = ?", group, model, true, priority)
+			return ChannelRoutingPolicySnapshot{}, err
 		}
+		observeCommittedChannelRoutingEpoch(clusterCommittedEpoch)
+		return ChannelRoutingPolicySnapshot{
+			Policy:                policy,
+			Source:                ChannelRoutingSourceCache,
+			Generation:            localPublishedEpoch,
+			DataGeneration:        uint64(clusterCommittedEpoch),
+			PublishedGeneration:   uint64(localPublishedEpoch),
+			ClusterCommittedEpoch: clusterCommittedEpoch,
+			LocalPublishedEpoch:   localPublishedEpoch,
+			CacheEnabled:          true,
+			CachePending:          localPublishedEpoch < clusterCommittedEpoch,
+		}, nil
 	}
 
-	return channelQuery, nil
+	candidates, snapshotEpoch, err := loadChannelRoutingCandidates(group, modelName, requestPath)
+	if err != nil {
+		return ChannelRoutingPolicySnapshot{}, err
+	}
+	channelSyncLock.RLock()
+	localPublishedEpoch := channelCachePublishedEpoch
+	channelSyncLock.RUnlock()
+	return ChannelRoutingPolicySnapshot{
+		Policy:                BuildChannelRoutingPolicy(candidates),
+		Source:                ChannelRoutingSourceDatabase,
+		Generation:            snapshotEpoch,
+		DataGeneration:        uint64(snapshotEpoch),
+		PublishedGeneration:   uint64(localPublishedEpoch),
+		ClusterCommittedEpoch: snapshotEpoch,
+		LocalPublishedEpoch:   localPublishedEpoch,
+		CacheEnabled:          false,
+		CachePending:          false,
+	}, nil
 }
 
-func GetChannel(group string, model string, retry int, requestPath string) (*Channel, error) {
-	var abilities []Ability
+type channelRoutingCandidateRow struct {
+	AbilityModel    string `gorm:"column:ability_model"`
+	ChannelID       int    `gorm:"column:channel_id"`
+	ChannelName     string `gorm:"column:channel_name"`
+	ChannelType     int    `gorm:"column:channel_type"`
+	ChannelSettings string `gorm:"column:channel_settings"`
+	Priority        *int64 `gorm:"column:priority"`
+	Weight          uint   `gorm:"column:weight"`
+}
 
-	var err error = nil
-	channelQuery, err := getChannelQuery(group, model, retry)
-	if err != nil {
-		return nil, err
+func loadChannelRoutingCandidates(group string, modelName string, requestPath string) ([]ChannelRoutingCandidate, int64, error) {
+	if err := ensureChannelRoutingSchema(DB); err != nil {
+		return nil, 0, err
 	}
-	if common.UsingMainDatabase(common.DatabaseTypeSQLite) || common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
-		err = channelQuery.Order("weight DESC").Find(&abilities).Error
-	} else {
-		err = channelQuery.Order("weight DESC").Find(&abilities).Error
-	}
-	if err != nil {
-		return nil, err
-	}
-	abilities = filterAbilitiesByRequestPathAndModel(abilities, requestPath, model)
-	channel := Channel{}
-	if len(abilities) > 0 {
-		// Randomly choose one
-		weightSum := uint(0)
-		for _, ability_ := range abilities {
-			weightSum += ability_.Weight + 10
+	for attempt := 0; attempt < 16; attempt++ {
+		beforeEpoch, err := GetCommittedChannelRoutingEpoch(DB)
+		if err != nil {
+			return nil, 0, err
 		}
-		// Randomly choose one
-		weight := common.GetRandomInt(int(weightSum))
-		for _, ability_ := range abilities {
-			weight -= int(ability_.Weight) + 10
-			//log.Printf("weight: %d, ability weight: %d", weight, *ability_.Weight)
-			if weight <= 0 {
-				channel.Id = ability_.ChannelId
-				break
+		candidates, err := queryChannelRoutingCandidates(group, modelName, requestPath)
+		if err != nil {
+			return nil, 0, err
+		}
+		afterEpoch, err := GetCommittedChannelRoutingEpoch(DB)
+		if err != nil {
+			return nil, 0, err
+		}
+		if beforeEpoch == afterEpoch {
+			return candidates, afterEpoch, nil
+		}
+	}
+	return nil, 0, errors.New("channel routing policy changed too frequently")
+}
+
+func queryChannelRoutingCandidates(group string, modelName string, requestPath string) ([]ChannelRoutingCandidate, error) {
+	normalizedModel := ratio_setting.FormatMatchingModelName(modelName)
+	abilityModels := []string{modelName}
+	if normalizedModel != "" && normalizedModel != modelName {
+		abilityModels = append(abilityModels, normalizedModel)
+	}
+
+	rows := make([]channelRoutingCandidateRow, 0)
+	groupColumn := "abilities.`group`"
+	if DB.Dialector.Name() == "postgres" {
+		groupColumn = `abilities."group"`
+	}
+	selectColumns := "abilities.model AS ability_model, " +
+		"abilities.channel_id AS channel_id, " +
+		"abilities.priority AS priority, " +
+		"abilities.weight AS weight, " +
+		"channels.name AS channel_name, " +
+		"channels.type AS channel_type, " +
+		"channels.settings AS channel_settings"
+	if err := DB.Table("abilities").
+		Select(selectColumns).
+		Joins("JOIN channels ON channels.id = abilities.channel_id").
+		Where(groupColumn+" = ? AND abilities.model IN ? AND abilities.enabled = ? AND channels.status = ?", group, abilityModels, true, common.ChannelStatusEnabled).
+		Order("abilities.priority DESC").
+		Order("abilities.channel_id ASC").
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	exactCandidates := make([]ChannelRoutingCandidate, 0, len(rows))
+	normalizedCandidates := make([]ChannelRoutingCandidate, 0, len(rows))
+	exactSeen := make(map[int]struct{}, len(rows))
+	normalizedSeen := make(map[int]struct{}, len(rows))
+	for _, row := range rows {
+		if row.ChannelType == constant.ChannelTypeAdvancedCustom {
+			config, parseErr := parseChannelAdvancedCustomRoutingConfig(&Channel{
+				Id:            row.ChannelID,
+				Type:          row.ChannelType,
+				OtherSettings: row.ChannelSettings,
+			})
+			if parseErr != nil || config == nil {
+				continue
+			}
+			if requestPath != "" && !config.SupportsPathForModel(requestPath, modelName) {
+				continue
 			}
 		}
-	} else {
-		return nil, nil
+		priority := int64(0)
+		if row.Priority != nil {
+			priority = *row.Priority
+		}
+		candidate := ChannelRoutingCandidate{
+			ChannelID:   row.ChannelID,
+			ChannelName: row.ChannelName,
+			ChannelType: row.ChannelType,
+			Priority:    priority,
+			Weight:      row.Weight,
+		}
+		if row.AbilityModel == modelName {
+			if _, duplicate := exactSeen[row.ChannelID]; duplicate {
+				continue
+			}
+			exactSeen[row.ChannelID] = struct{}{}
+			exactCandidates = append(exactCandidates, candidate)
+			continue
+		}
+		if _, duplicate := normalizedSeen[row.ChannelID]; duplicate {
+			continue
+		}
+		normalizedSeen[row.ChannelID] = struct{}{}
+		normalizedCandidates = append(normalizedCandidates, candidate)
 	}
-	err = DB.First(&channel, "id = ?", channel.Id).Error
-	return &channel, err
+	if len(exactCandidates) > 0 {
+		return exactCandidates, nil
+	}
+	return normalizedCandidates, nil
 }
 
-// filterAbilitiesByRequestPathAndModel restricts candidates by request path and
-// model for the DB (non-memory-cache) selection path. Only Advanced Custom
-// (type 58) channels are path-checked: kept only when one of their routes matches
-// requestPath and model; all other channel types always pass. When requestPath is
-// empty, filtering is skipped.
-func filterAbilitiesByRequestPathAndModel(abilities []Ability, requestPath string, model string) []Ability {
-	if requestPath == "" || len(abilities) == 0 {
-		return abilities
+func GetChannel(group string, modelName string, retry int, requestPath string) (*Channel, error) {
+	policy, err := GetChannelRoutingPolicy(group, modelName, requestPath)
+	if err != nil {
+		return nil, err
 	}
-
-	channelIds := make([]int, 0, len(abilities))
-	seen := make(map[int]struct{}, len(abilities))
-	for _, ability := range abilities {
-		if _, ok := seen[ability.ChannelId]; ok {
-			continue
-		}
-		seen[ability.ChannelId] = struct{}{}
-		channelIds = append(channelIds, ability.ChannelId)
+	channelID, found, err := SelectChannelFromRoutingPolicy(policy, retry)
+	if err != nil || !found {
+		return nil, err
 	}
-
-	var channels []*Channel
-	if err := DB.Where("id IN ?", channelIds).Find(&channels).Error; err != nil {
-		// On error, fall back to unfiltered candidates to avoid blocking selection
-		return abilities
+	channel := &Channel{}
+	if err := DB.First(channel, "id = ?", channelID).Error; err != nil {
+		return nil, err
 	}
+	return channel, nil
+}
 
-	advancedConfigs := make(map[int]*dto.AdvancedCustomConfig)
-	for _, channel := range channels {
-		if channel.Type == constant.ChannelTypeAdvancedCustom {
-			advancedConfigs[channel.Id] = channel.GetOtherSettings().AdvancedCustom
-		}
-	}
-
-	filtered := make([]Ability, 0, len(abilities))
-	for _, ability := range abilities {
-		config, isAdvancedCustom := advancedConfigs[ability.ChannelId]
-		if !isAdvancedCustom {
-			filtered = append(filtered, ability)
-			continue
-		}
-		if config != nil && config.SupportsPathForModel(requestPath, model) {
-			filtered = append(filtered, ability)
+func (channel *Channel) buildAbilities() []Ability {
+	models := strings.Split(channel.Models, ",")
+	groups := strings.Split(channel.Group, ",")
+	abilitySet := make(map[string]struct{})
+	abilities := make([]Ability, 0, len(models))
+	for _, modelName := range models {
+		for _, group := range groups {
+			key := group + "|" + modelName
+			if _, exists := abilitySet[key]; exists {
+				continue
+			}
+			abilitySet[key] = struct{}{}
+			abilities = append(abilities, Ability{
+				Group:     group,
+				Model:     modelName,
+				ChannelId: channel.Id,
+				Enabled:   channel.Status == common.ChannelStatusEnabled,
+				Priority:  channel.Priority,
+				Weight:    uint(channel.GetWeight()),
+				Tag:       channel.Tag,
+			})
 		}
 	}
-	return filtered
+	return abilities
+}
+
+func (channel *Channel) addAbilitiesWithDB(db *gorm.DB) (bool, error) {
+	if db == nil {
+		return false, gorm.ErrInvalidDB
+	}
+	abilities := channel.buildAbilities()
+	if len(abilities) == 0 {
+		return false, nil
+	}
+	for _, chunk := range lo.Chunk(abilities, 50) {
+		if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&chunk).Error; err != nil {
+			return false, err
+		}
+	}
+	return true, nil
 }
 
 func (channel *Channel) AddAbilities(tx *gorm.DB) error {
-	models_ := strings.Split(channel.Models, ",")
-	groups_ := strings.Split(channel.Group, ",")
-	abilitySet := make(map[string]struct{})
-	abilities := make([]Ability, 0, len(models_))
-	for _, model := range models_ {
-		for _, group := range groups_ {
-			key := group + "|" + model
-			if _, exists := abilitySet[key]; exists {
-				continue
-			}
-			abilitySet[key] = struct{}{}
-			ability := Ability{
-				Group:     group,
-				Model:     model,
-				ChannelId: channel.Id,
-				Enabled:   channel.Status == common.ChannelStatusEnabled,
-				Priority:  channel.Priority,
-				Weight:    uint(channel.GetWeight()),
-				Tag:       channel.Tag,
-			}
-			abilities = append(abilities, ability)
-		}
-	}
-	if len(abilities) == 0 {
-		return nil
-	}
-	// choose DB or provided tx
-	useDB := DB
 	if tx != nil {
-		useDB = tx
-	}
-	for _, chunk := range lo.Chunk(abilities, 50) {
-		err := useDB.Clauses(clause.OnConflict{DoNothing: true}).Create(&chunk).Error
-		if err != nil {
+		changed, err := channel.addAbilitiesWithDB(tx)
+		if err != nil || !changed || isChannelRoutingManagedTransaction(tx) {
 			return err
 		}
+		if err := ensureChannelRoutingSchema(DB); err != nil {
+			return err
+		}
+		_, err = advanceChannelRoutingEpoch(tx)
+		return err
 	}
-	return nil
+	_, _, err := runChannelRoutingTransaction(context.Background(), func(tx *gorm.DB) (bool, error) {
+		return channel.addAbilitiesWithDB(tx)
+	})
+	return err
 }
 
 func (channel *Channel) DeleteAbilities() error {
-	return DB.Where("channel_id = ?", channel.Id).Delete(&Ability{}).Error
+	_, _, err := runChannelRoutingTransaction(context.Background(), func(tx *gorm.DB) (bool, error) {
+		result := tx.Where("channel_id = ?", channel.Id).Delete(&Ability{})
+		return result.RowsAffected > 0, result.Error
+	})
+	return err
 }
 
-// UpdateAbilities updates abilities of this channel.
-// Make sure the channel is completed before calling this function.
-func (channel *Channel) UpdateAbilities(tx *gorm.DB) error {
-	isNewTx := false
-	// 如果没有传入事务，创建新的事务
+func (channel *Channel) replaceAbilitiesWithDB(tx *gorm.DB) error {
 	if tx == nil {
-		tx = DB.Begin()
-		if tx.Error != nil {
-			return tx.Error
-		}
-		isNewTx = true
-		defer func() {
-			if r := recover(); r != nil {
-				tx.Rollback()
-			}
-		}()
+		return gorm.ErrInvalidDB
 	}
-
-	// First delete all abilities of this channel
-	err := tx.Where("channel_id = ?", channel.Id).Delete(&Ability{}).Error
-	if err != nil {
-		if isNewTx {
-			tx.Rollback()
-		}
+	if err := tx.Where("channel_id = ?", channel.Id).Delete(&Ability{}).Error; err != nil {
 		return err
 	}
+	_, err := channel.addAbilitiesWithDB(tx)
+	return err
+}
 
-	// Then add new abilities
-	models_ := strings.Split(channel.Models, ",")
-	groups_ := strings.Split(channel.Group, ",")
-	abilitySet := make(map[string]struct{})
-	abilities := make([]Ability, 0, len(models_))
-	for _, model := range models_ {
-		for _, group := range groups_ {
-			key := group + "|" + model
-			if _, exists := abilitySet[key]; exists {
-				continue
-			}
-			abilitySet[key] = struct{}{}
-			ability := Ability{
-				Group:     group,
-				Model:     model,
-				ChannelId: channel.Id,
-				Enabled:   channel.Status == common.ChannelStatusEnabled,
-				Priority:  channel.Priority,
-				Weight:    uint(channel.GetWeight()),
-				Tag:       channel.Tag,
-			}
-			abilities = append(abilities, ability)
+// UpdateAbilities updates abilities of this channel. A caller-owned transaction
+// is responsible for advancing the routing epoch; standalone updates do so in
+// the same transaction as the ability replacement.
+func (channel *Channel) UpdateAbilities(tx *gorm.DB) error {
+	if tx != nil {
+		if err := channel.replaceAbilitiesWithDB(tx); err != nil {
+			return err
 		}
-	}
-
-	if len(abilities) > 0 {
-		for _, chunk := range lo.Chunk(abilities, 50) {
-			err = tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&chunk).Error
-			if err != nil {
-				if isNewTx {
-					tx.Rollback()
-				}
-				return err
-			}
+		if isChannelRoutingManagedTransaction(tx) {
+			return nil
 		}
+		if err := ensureChannelRoutingSchema(DB); err != nil {
+			return err
+		}
+		_, err := advanceChannelRoutingEpoch(tx)
+		return err
 	}
-
-	// 如果是新创建的事务，需要提交
-	if isNewTx {
-		return tx.Commit().Error
-	}
-
-	return nil
+	_, _, err := runChannelRoutingTransaction(context.Background(), func(tx *gorm.DB) (bool, error) {
+		return true, channel.replaceAbilitiesWithDB(tx)
+	})
+	return err
 }
 
 func UpdateAbilityStatus(channelId int, status bool) error {
-	return DB.Model(&Ability{}).Where("channel_id = ?", channelId).Select("enabled").Update("enabled", status).Error
+	_, _, err := runChannelRoutingTransaction(context.Background(), func(tx *gorm.DB) (bool, error) {
+		result := tx.Model(&Ability{}).Where("channel_id = ?", channelId).Select("enabled").Update("enabled", status)
+		return result.RowsAffected > 0, result.Error
+	})
+	return err
+}
+
+func updateAbilityStatusWithDB(db *gorm.DB, channelId int, status bool) error {
+	if db == nil {
+		return gorm.ErrInvalidDB
+	}
+	return db.Model(&Ability{}).Where("channel_id = ?", channelId).Select("enabled").Update("enabled", status).Error
 }
 
 func UpdateAbilityStatusByTag(tag string, status bool) error {
-	return DB.Model(&Ability{}).Where("tag = ?", tag).Select("enabled").Update("enabled", status).Error
+	_, _, err := runChannelRoutingTransaction(context.Background(), func(tx *gorm.DB) (bool, error) {
+		result := tx.Model(&Ability{}).Where("tag = ?", tag).Select("enabled").Update("enabled", status)
+		return result.RowsAffected > 0, result.Error
+	})
+	return err
+}
+
+func updateAbilityStatusByTagWithDB(db *gorm.DB, tag string, status bool) error {
+	if db == nil {
+		return gorm.ErrInvalidDB
+	}
+	return db.Model(&Ability{}).Where("tag = ?", tag).Select("enabled").Update("enabled", status).Error
 }
 
 func UpdateAbilityByTag(tag string, newTag *string, priority *int64, weight *uint) error {
-	ability := Ability{}
+	_, _, err := runChannelRoutingTransaction(context.Background(), func(tx *gorm.DB) (bool, error) {
+		updates := make(map[string]any)
+		if newTag != nil {
+			updates["tag"] = newTag
+		}
+		if priority != nil {
+			updates["priority"] = priority
+		}
+		if weight != nil {
+			updates["weight"] = *weight
+		}
+		if len(updates) == 0 {
+			return false, nil
+		}
+		result := tx.Model(&Ability{}).Where("tag = ?", tag).Updates(updates)
+		return result.RowsAffected > 0, result.Error
+	})
+	return err
+}
+
+func updateAbilityByTagWithDB(db *gorm.DB, tag string, newTag *string, priority *int64, weight *uint) error {
+	if db == nil {
+		return gorm.ErrInvalidDB
+	}
+	updates := make(map[string]any)
 	if newTag != nil {
-		ability.Tag = newTag
+		updates["tag"] = newTag
 	}
 	if priority != nil {
-		ability.Priority = priority
+		updates["priority"] = priority
 	}
 	if weight != nil {
-		ability.Weight = *weight
+		updates["weight"] = *weight
 	}
-	return DB.Model(&Ability{}).Where("tag = ?", tag).Updates(ability).Error
+	if len(updates) == 0 {
+		return nil
+	}
+	return db.Model(&Ability{}).Where("tag = ?", tag).Updates(updates).Error
 }
 
 var fixLock = sync.Mutex{}
 
 func FixAbility() (int, int, error) {
-	lock := fixLock.TryLock()
-	if !lock {
+	if !fixLock.TryLock() {
 		return 0, 0, errors.New("已经有一个修复任务在运行中，请稍后再试")
 	}
 	defer fixLock.Unlock()
 
-	// truncate abilities table
-	if common.UsingMainDatabase(common.DatabaseTypeSQLite) {
-		err := DB.Exec("DELETE FROM abilities").Error
-		if err != nil {
-			common.SysLog(fmt.Sprintf("Delete abilities failed: %s", err.Error()))
-			return 0, 0, err
-		}
-	} else {
-		err := DB.Exec("TRUNCATE TABLE abilities").Error
-		if err != nil {
-			common.SysLog(fmt.Sprintf("Truncate abilities failed: %s", err.Error()))
-			return 0, 0, err
-		}
-	}
 	var channels []*Channel
-	// Find all channels
-	err := DB.Model(&Channel{}).Find(&channels).Error
-	if err != nil {
+	if err := DB.Find(&channels).Error; err != nil {
 		return 0, 0, err
 	}
-	if len(channels) == 0 {
-		return 0, 0, nil
-	}
-	successCount := 0
-	failCount := 0
-	for _, chunk := range lo.Chunk(channels, 50) {
-		ids := lo.Map(chunk, func(c *Channel, _ int) int { return c.Id })
-		// Delete all abilities of this channel
-		err = DB.Where("channel_id IN ?", ids).Delete(&Ability{}).Error
-		if err != nil {
-			common.SysLog(fmt.Sprintf("Delete abilities failed: %s", err.Error()))
-			failCount += len(chunk)
-			continue
+	_, changed, err := runChannelRoutingTransaction(context.Background(), func(tx *gorm.DB) (bool, error) {
+		if err := tx.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&Ability{}).Error; err != nil {
+			return false, err
 		}
-		// Then add new abilities
-		for _, channel := range chunk {
-			err = channel.AddAbilities(nil)
-			if err != nil {
-				common.SysLog(fmt.Sprintf("Add abilities for channel %d failed: %s", channel.Id, err.Error()))
-				failCount++
-			} else {
-				successCount++
+		for _, channel := range channels {
+			if _, err := channel.addAbilitiesWithDB(tx); err != nil {
+				return false, err
 			}
 		}
+		return true, nil
+	})
+	if err != nil {
+		return 0, len(channels), err
 	}
-	InitChannelCache()
-	return successCount, failCount, nil
+	if changed {
+		if err := InitChannelCache(); err != nil {
+			return len(channels), 0, &ChannelCacheRefreshError{Err: err}
+		}
+	}
+	return len(channels), 0, nil
 }

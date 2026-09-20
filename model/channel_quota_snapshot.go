@@ -11,7 +11,21 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
+
+// ChannelQuotaAccountRef returns a non-reversible reference to an upstream
+// account identity. Empty inputs intentionally remain unknown rather than
+// collapsing unrelated credentials into a shared identity.
+func ChannelQuotaAccountRef(provider, accountID string) string {
+	provider = strings.TrimSpace(provider)
+	accountID = strings.TrimSpace(accountID)
+	if provider == "" || accountID == "" {
+		return ""
+	}
+	digest := sha256.Sum256([]byte(provider + "\x00" + accountID))
+	return hex.EncodeToString(digest[:])
+}
 
 // ChannelQuotaAggregateRow is the redacted projection used by the global
 // quota-change view. It deliberately contains no channel key, settings, or
@@ -99,7 +113,7 @@ func ListChannelQuotaAggregateRows(ctx context.Context, start, end int64, channe
 // are intentionally not persisted here.
 type ChannelQuotaSnapshot struct {
 	Id         int      `json:"id" gorm:"primaryKey"`
-	ChannelId  int      `json:"channel_id" gorm:"index:idx_channel_quota_observed,priority:1;index:idx_channel_quota_metric,priority:1;index:idx_channel_quota_dedupe,priority:1"`
+	ChannelId  int      `json:"channel_id" gorm:"index:idx_channel_quota_observed,priority:1;index:idx_channel_quota_metric,priority:1;index:idx_channel_quota_dedupe,priority:1;index:idx_channel_quota_sample,priority:1"`
 	ObservedAt int64    `json:"observed_at" gorm:"bigint;index:idx_channel_quota_observed,priority:2;index:idx_channel_quota_metric,priority:4;index:idx_channel_quota_retention;index:idx_channel_quota_dedupe,priority:2"`
 	Available  float64  `json:"available"`
 	Used       *float64 `json:"used,omitempty"`
@@ -115,12 +129,18 @@ type ChannelQuotaSnapshot struct {
 	WindowSeconds int64  `json:"window_seconds,omitempty" gorm:"bigint;index:idx_channel_quota_dedupe,priority:8"`
 	ResetAt       int64  `json:"reset_at,omitempty" gorm:"bigint;index:idx_channel_quota_dedupe,priority:9"`
 	Source        string `json:"source,omitempty" gorm:"size:64;index:idx_channel_quota_dedupe,priority:10"`
-	Status        string `json:"status" gorm:"size:16;default:'success';index"`
-	ErrorCode     string `json:"error_code,omitempty" gorm:"size:64"`
-	ErrorMessage  string `json:"error_message,omitempty" gorm:"size:255"`
+	SampleID      string `json:"sample_id,omitempty" gorm:"size:36;index:idx_channel_quota_sample,priority:2;<-:create"`
+	// AccountRef is a non-reversible, provider-namespaced reference to a
+	// confirmed upstream account identity. It is empty when the sampler cannot
+	// prove account ownership; such snapshots must never be merged with a known
+	// account's alert state.
+	AccountRef   string `json:"-" gorm:"size:64;index:idx_channel_quota_dedupe,priority:11"`
+	Status       string `json:"status" gorm:"size:16;default:'success';index"`
+	ErrorCode    string `json:"error_code,omitempty" gorm:"size:64"`
+	ErrorMessage string `json:"error_message,omitempty" gorm:"size:255"`
 	// DedupeKey is nullable so AutoMigrate can add it without rewriting old
-	// rows. New rows use a unique digest of the complete series identity and
-	// observation time, allowing concurrent samplers to converge safely on all
+	// rows. New rows use a unique digest of the sample id, complete series
+	// identity, and observation time, allowing concurrent samplers to converge on all
 	// supported SQL dialects without a wide dialect-sensitive composite index.
 	// Keep the column definition free of a unique constraint. SQLite cannot
 	// add a UNIQUE column with ALTER TABLE during AutoMigrate; the migration
@@ -166,23 +186,383 @@ func (ChannelQuotaSnapshot) TableName() string {
 	return "channel_quota_snapshots"
 }
 
-// RecordChannelQuotaSnapshot appends a normalized quota observation. It is
-// safe to call when the database has not been initialized (for example in
-// lightweight controller tests).
-func RecordChannelQuotaSnapshot(snapshot *ChannelQuotaSnapshot) error {
-	return RecordChannelQuotaSnapshotWithContext(context.Background(), snapshot)
+// ChannelQuotaSnapshotAbsenceMarker configures the non-value event appended for
+// a series that was present in the previous successful sample but is absent
+// from the new successful sample.
+type ChannelQuotaSnapshotAbsenceMarker struct {
+	Status       string
+	ErrorCode    string
+	ErrorMessage string
 }
 
-// RecordChannelQuotaSnapshotWithContext bounds both deduplication queries and
-// insertion, including time spent waiting for an available database connection.
-func RecordChannelQuotaSnapshotWithContext(ctx context.Context, snapshot *ChannelQuotaSnapshot) error {
-	if snapshot == nil || DB == nil {
+// ChannelQuotaSnapshotBatchOptions controls atomic provider-sample recording.
+// PreviousSources limits absence detection to the provider's stable source
+// family. AbsenceMarker may be nil for providers without window lifecycles.
+type ChannelQuotaSnapshotBatchOptions struct {
+	PreviousSources []string
+	AbsenceMarker   *ChannelQuotaSnapshotAbsenceMarker
+}
+
+// ListLatestSuccessfulChannelQuotaSnapshotBatch returns every successful
+// series from the latest successful immutable sample. Legacy rows without a
+// sample id fall back to their second-resolution observation boundary.
+func ListLatestSuccessfulChannelQuotaSnapshotBatch(ctx context.Context, channelID int, metricType string, sources []string) ([]ChannelQuotaSnapshot, error) {
+	if DB == nil {
+		return nil, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return listLatestChannelQuotaSnapshotBatchWithDB(
+		DB.WithContext(ctx), channelID, nil, 0, 0, metricType, sources, []string{"success"},
+	)
+}
+
+// ListLatestChannelQuotaSnapshotBatch returns every row from the latest sample
+// event in the selected range. It is used for current-state responses so two
+// responses observed in the same second remain separate.
+func ListLatestChannelQuotaSnapshotBatch(ctx context.Context, channelID int, start, end int64, metricType string) ([]ChannelQuotaSnapshot, error) {
+	if DB == nil {
+		return nil, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return listLatestChannelQuotaSnapshotBatchWithDB(
+		DB.WithContext(ctx), channelID, nil, start, end, metricType, nil, nil,
+	)
+}
+
+func listLatestChannelQuotaSnapshotBatchWithDB(db *gorm.DB, channelID int, accountRef *string, start, end int64, metricType string, sources, statuses []string) ([]ChannelQuotaSnapshot, error) {
+	query := db.Model(&ChannelQuotaSnapshot{}).Where("channel_id = ?", channelID)
+	if accountRef != nil {
+		if *accountRef == "" {
+			query = query.Where("(account_ref = ? OR account_ref IS NULL)", "")
+		} else {
+			query = query.Where("account_ref = ?", *accountRef)
+		}
+	}
+	if start > 0 {
+		query = query.Where("observed_at >= ?", start)
+	}
+	if end > 0 {
+		query = query.Where("observed_at <= ?", end)
+	}
+	if metricType != "" {
+		query = query.Where("metric_type = ?", metricType)
+	}
+	if len(sources) > 0 {
+		query = query.Where("source IN ?", sources)
+	}
+	if len(statuses) > 0 {
+		query = query.Where("status IN ?", statuses)
+	}
+	var latest ChannelQuotaSnapshot
+	if err := query.Order("observed_at DESC, id DESC").First(&latest).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return []ChannelQuotaSnapshot{}, nil
+		}
+		return nil, err
+	}
+	batchQuery := db.Model(&ChannelQuotaSnapshot{}).Where("channel_id = ?", channelID)
+	if accountRef != nil {
+		if *accountRef == "" {
+			batchQuery = batchQuery.Where("(account_ref = ? OR account_ref IS NULL)", "")
+		} else {
+			batchQuery = batchQuery.Where("account_ref = ?", *accountRef)
+		}
+	}
+	if metricType != "" {
+		batchQuery = batchQuery.Where("metric_type = ?", metricType)
+	}
+	if len(sources) > 0 {
+		batchQuery = batchQuery.Where("source IN ?", sources)
+	}
+	if len(statuses) > 0 {
+		batchQuery = batchQuery.Where("status IN ?", statuses)
+	}
+	if latest.SampleID != "" {
+		batchQuery = batchQuery.Where("sample_id = ?", latest.SampleID)
+	} else {
+		batchQuery = batchQuery.Where("(sample_id = ? OR sample_id IS NULL) AND observed_at = ?", "", latest.ObservedAt)
+	}
+	var snapshots []ChannelQuotaSnapshot
+	if err := batchQuery.Order("id ASC").Find(&snapshots).Error; err != nil {
+		return nil, err
+	}
+	return snapshots, nil
+}
+
+const channelQuotaSnapshotBatchTransactionAttempts = 5
+
+// RecordChannelQuotaSnapshotBatchWithContext atomically reads the previous
+// successful sample, derives absence markers, and writes the complete immutable
+// sample. A replay with the same sample id is accepted only when its provider
+// rows are byte-for-byte equivalent at the normalized field level.
+func RecordChannelQuotaSnapshotBatchWithContext(ctx context.Context, snapshots []ChannelQuotaSnapshot, options ChannelQuotaSnapshotBatchOptions) error {
+	if len(snapshots) == 0 || DB == nil {
 		return nil
 	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	db := DB.WithContext(ctx)
+	normalized := make([]ChannelQuotaSnapshot, len(snapshots))
+	copy(normalized, snapshots)
+	channelID := normalized[0].ChannelId
+	observedAt := normalized[0].ObservedAt
+	sampleID := strings.TrimSpace(normalized[0].SampleID)
+	if channelID <= 0 || observedAt <= 0 || sampleID == "" || len(sampleID) > 36 {
+		return fmt.Errorf("channel quota snapshot batch requires channel_id, observed_at, and sample_id")
+	}
+	if options.AbsenceMarker != nil && (options.AbsenceMarker.Status == "" || options.AbsenceMarker.Status == "success") {
+		return fmt.Errorf("channel quota absence marker requires a non-success status")
+	}
+	for index := range normalized {
+		if normalized[index].ChannelId != channelID || normalized[index].ObservedAt != observedAt || strings.TrimSpace(normalized[index].SampleID) != sampleID {
+			return fmt.Errorf("channel quota snapshot batch identity mismatch")
+		}
+		normalized[index].SampleID = sampleID
+		if err := normalizeChannelQuotaSnapshot(&normalized[index]); err != nil {
+			return err
+		}
+	}
+
+	var lastErr error
+	for attempt := 0; attempt < channelQuotaSnapshotBatchTransactionAttempts; attempt++ {
+		err := DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if err := lockChannelQuotaSnapshotBatch(tx, channelID); err != nil {
+				return err
+			}
+			var existing []ChannelQuotaSnapshot
+			if err := tx.Where("channel_id = ? AND sample_id = ?", channelID, sampleID).Order("id ASC").Find(&existing).Error; err != nil {
+				return err
+			}
+			if len(existing) > 0 {
+				if channelQuotaSnapshotBatchEquivalent(normalized, existing, options.AbsenceMarker) {
+					return nil
+				}
+				return fmt.Errorf("channel quota snapshot sample_id conflicts with existing batch")
+			}
+
+			complete := normalized
+			if options.AbsenceMarker != nil && channelQuotaSnapshotsContainSuccess(normalized) {
+				previous, err := listLatestChannelQuotaSnapshotBatchWithDB(
+					tx, channelID, &normalized[0].AccountRef, 0, 0, normalized[0].MetricType, options.PreviousSources, []string{"success"},
+				)
+				if err != nil {
+					return err
+				}
+				complete, err = appendChannelQuotaSnapshotAbsenceMarkers(normalized, previous, *options.AbsenceMarker)
+				if err != nil {
+					return err
+				}
+			}
+			for index := range complete {
+				if err := recordChannelQuotaSnapshotWithDB(tx, &complete[index]); err != nil {
+					return err
+				}
+				if err := recordChannelQuotaAlertForSnapshot(tx, &complete[index]); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		if !channelQuotaSnapshotBatchRetryable(DB, err) || attempt+1 == channelQuotaSnapshotBatchTransactionAttempts {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Duration(attempt+1) * 5 * time.Millisecond):
+		}
+	}
+	return lastErr
+}
+
+func lockChannelQuotaSnapshotBatch(tx *gorm.DB, channelID int) error {
+	var channel Channel
+	if tx.Dialector.Name() != "sqlite" {
+		return lockForUpdate(tx).Select("id").Where("id = ?", channelID).First(&channel).Error
+	}
+	// SQLite has no SELECT FOR UPDATE. A no-op row update acquires its write
+	// lock before the previous-sample read, so a competing batch retries the
+	// entire transaction against the newly committed predecessor.
+	if err := tx.Model(&Channel{}).Where("id = ?", channelID).UpdateColumn("id", gorm.Expr("id")).Error; err != nil {
+		// Some lightweight controller tests migrate only the snapshot table. The
+		// production schema always has channels, but absence of that optional
+		// coordination row should not make a failure marker impossible to save.
+		if !strings.Contains(strings.ToLower(err.Error()), "no such table: channels") {
+			return err
+		}
+		return nil
+	}
+	return tx.Select("id").Where("id = ?", channelID).First(&channel).Error
+}
+
+func channelQuotaSnapshotBatchRetryable(db *gorm.DB, err error) bool {
+	if db == nil || err == nil || db.Dialector == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	switch db.Dialector.Name() {
+	case "sqlite":
+		return strings.Contains(message, "sqlite_busy") || strings.Contains(message, "sqlite_locked") ||
+			strings.Contains(message, "database is locked") || strings.Contains(message, "database table is locked")
+	case "mysql":
+		return strings.Contains(message, "error 1213") || strings.Contains(message, "error 1205") ||
+			strings.Contains(message, "deadlock found") || strings.Contains(message, "lock wait timeout")
+	case "postgres":
+		return strings.Contains(message, "sqlstate 40001") || strings.Contains(message, "sqlstate 40p01")
+	default:
+		return false
+	}
+}
+
+func channelQuotaSnapshotsContainSuccess(snapshots []ChannelQuotaSnapshot) bool {
+	for _, snapshot := range snapshots {
+		if snapshot.Status == "success" {
+			return true
+		}
+	}
+	return false
+}
+
+type channelQuotaSnapshotSeriesIdentity struct {
+	AccountRef    string
+	MetricType    string
+	WindowType    string
+	Source        string
+	PlanType      string
+	Unit          string
+	Currency      string
+	WindowSeconds int64
+}
+
+func channelQuotaSnapshotSeriesKey(snapshot ChannelQuotaSnapshot) channelQuotaSnapshotSeriesIdentity {
+	return channelQuotaSnapshotSeriesIdentity{
+		AccountRef: snapshot.AccountRef,
+		MetricType: snapshot.MetricType, WindowType: snapshot.WindowType, Source: snapshot.Source,
+		PlanType: snapshot.PlanType, Unit: snapshot.Unit, Currency: snapshot.Currency,
+		WindowSeconds: snapshot.WindowSeconds,
+	}
+}
+
+func appendChannelQuotaSnapshotAbsenceMarkers(current, previous []ChannelQuotaSnapshot, marker ChannelQuotaSnapshotAbsenceMarker) ([]ChannelQuotaSnapshot, error) {
+	currentSeries := make(map[channelQuotaSnapshotSeriesIdentity]struct{}, len(current))
+	for _, snapshot := range current {
+		if snapshot.Status == "success" {
+			currentSeries[channelQuotaSnapshotSeriesKey(snapshot)] = struct{}{}
+		}
+	}
+	complete := make([]ChannelQuotaSnapshot, len(current), len(current)+len(previous))
+	copy(complete, current)
+	marked := make(map[channelQuotaSnapshotSeriesIdentity]struct{}, len(previous))
+	for _, snapshot := range previous {
+		series := channelQuotaSnapshotSeriesKey(snapshot)
+		if snapshot.Status != "success" {
+			continue
+		}
+		if _, exists := currentSeries[series]; exists {
+			continue
+		}
+		if _, exists := marked[series]; exists {
+			continue
+		}
+		marked[series] = struct{}{}
+		absence := ChannelQuotaSnapshot{
+			ChannelId: current[0].ChannelId, ObservedAt: current[0].ObservedAt, SampleID: current[0].SampleID,
+			AccountRef: snapshot.AccountRef, MetricType: snapshot.MetricType, WindowType: snapshot.WindowType, Source: snapshot.Source,
+			PlanType: snapshot.PlanType, Unit: snapshot.Unit, Currency: snapshot.Currency,
+			WindowSeconds: snapshot.WindowSeconds, ResetAt: snapshot.ResetAt, Status: marker.Status,
+			ErrorCode: marker.ErrorCode, ErrorMessage: marker.ErrorMessage,
+		}
+		if err := normalizeChannelQuotaSnapshot(&absence); err != nil {
+			return nil, err
+		}
+		complete = append(complete, absence)
+	}
+	return complete, nil
+}
+
+func channelQuotaSnapshotBatchEquivalent(expected, existing []ChannelQuotaSnapshot, absenceMarker *ChannelQuotaSnapshotAbsenceMarker) bool {
+	counts := make(map[string]int, len(expected))
+	for index := range expected {
+		counts[channelQuotaSnapshotContentKey(&expected[index])]++
+	}
+	actualCount := 0
+	for index := range existing {
+		if absenceMarker != nil && existing[index].Status == absenceMarker.Status && existing[index].ErrorCode == absenceMarker.ErrorCode {
+			continue
+		}
+		key := channelQuotaSnapshotContentKey(&existing[index])
+		if counts[key] == 0 {
+			return false
+		}
+		counts[key]--
+		actualCount++
+	}
+	if actualCount != len(expected) {
+		return false
+	}
+	for _, count := range counts {
+		if count != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func channelQuotaSnapshotContentKey(snapshot *ChannelQuotaSnapshot) string {
+	used, total := "nil", "nil"
+	if snapshot.Used != nil {
+		used = strconv.FormatUint(math.Float64bits(*snapshot.Used), 10)
+	}
+	if snapshot.Total != nil {
+		total = strconv.FormatUint(math.Float64bits(*snapshot.Total), 10)
+	}
+	return strings.Join([]string{
+		strconv.Itoa(snapshot.ChannelId), strconv.FormatInt(snapshot.ObservedAt, 10), snapshot.SampleID, snapshot.AccountRef,
+		snapshot.MetricType, snapshot.WindowType, snapshot.Source, snapshot.PlanType, snapshot.Unit, snapshot.Currency,
+		strconv.FormatInt(snapshot.WindowSeconds, 10), strconv.FormatInt(snapshot.ResetAt, 10), snapshot.Status,
+		snapshot.ErrorCode, snapshot.ErrorMessage, strconv.FormatUint(math.Float64bits(snapshot.Available), 10), used, total,
+	}, "\x00")
+}
+
+func recordChannelQuotaSnapshotWithDB(db *gorm.DB, snapshot *ChannelQuotaSnapshot) error {
+	if err := normalizeChannelQuotaSnapshot(snapshot); err != nil {
+		return err
+	}
+	var existing ChannelQuotaSnapshot
+	if err := db.Where("dedupe_key = ?", *snapshot.DedupeKey).Order("id ASC").First(&existing).Error; err == nil {
+		snapshot.Id = existing.Id
+		snapshot.CreatedAt = existing.CreatedAt
+		return nil
+	} else if err != gorm.ErrRecordNotFound {
+		return err
+	}
+	result := db.Clauses(clause.OnConflict{DoNothing: true}).Create(snapshot)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected > 0 {
+		return nil
+	}
+	if err := db.Where("dedupe_key = ?", *snapshot.DedupeKey).Order("id ASC").First(&existing).Error; err != nil {
+		return err
+	}
+	snapshot.Id = existing.Id
+	snapshot.CreatedAt = existing.CreatedAt
+	return nil
+}
+
+func normalizeChannelQuotaSnapshot(snapshot *ChannelQuotaSnapshot) error {
+	if snapshot == nil {
+		return fmt.Errorf("nil quota snapshot")
+	}
 	if math.IsNaN(snapshot.Available) || math.IsInf(snapshot.Available, 0) {
 		return fmt.Errorf("invalid quota snapshot available value")
 	}
@@ -212,10 +592,33 @@ func RecordChannelQuotaSnapshotWithContext(ctx context.Context, snapshot *Channe
 	}
 	dedupeKey := channelQuotaSnapshotDedupeKey(snapshot)
 	snapshot.DedupeKey = &dedupeKey
-	// A sampler retry can produce the same observation more than once. Query
-	// the complete series identity before inserting so all supported SQL
-	// dialects converge on one point per channel/series/time bucket without
-	// requiring a dialect-specific upsert or rewriting existing rows.
+	return nil
+}
+
+// RecordChannelQuotaSnapshot appends a normalized quota observation. It is
+// safe to call when the database has not been initialized (for example in
+// lightweight controller tests).
+func RecordChannelQuotaSnapshot(snapshot *ChannelQuotaSnapshot) error {
+	return RecordChannelQuotaSnapshotWithContext(context.Background(), snapshot)
+}
+
+// RecordChannelQuotaSnapshotWithContext bounds both deduplication queries and
+// insertion, including time spent waiting for an available database connection.
+func RecordChannelQuotaSnapshotWithContext(ctx context.Context, snapshot *ChannelQuotaSnapshot) error {
+	if snapshot == nil || DB == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	db := DB.WithContext(ctx)
+	if err := normalizeChannelQuotaSnapshot(snapshot); err != nil {
+		return err
+	}
+	dedupeKey := *snapshot.DedupeKey
+	// Legacy callers without sample ids retain one point per series/time bucket.
+	// Batch-aware callers include sample_id so separate same-second provider
+	// responses remain distinct while an exact batch replay is idempotent.
 	var existing ChannelQuotaSnapshot
 	lookup := db.Where(
 		"channel_id = ? AND observed_at = ? AND metric_type = ? AND window_type = ? AND source = ? AND plan_type = ? AND unit = ? AND currency = ? AND window_seconds = ? AND reset_at = ?",
@@ -229,7 +632,18 @@ func RecordChannelQuotaSnapshotWithContext(ctx context.Context, snapshot *Channe
 		snapshot.Currency,
 		snapshot.WindowSeconds,
 		snapshot.ResetAt,
-	).Order("id ASC").First(&existing)
+	)
+	if snapshot.AccountRef == "" {
+		lookup = lookup.Where("(account_ref = ? OR account_ref IS NULL)", "")
+	} else {
+		lookup = lookup.Where("account_ref = ?", snapshot.AccountRef)
+	}
+	if snapshot.SampleID == "" {
+		lookup = lookup.Where("sample_id = ? OR sample_id IS NULL", "")
+	} else {
+		lookup = lookup.Where("sample_id = ?", snapshot.SampleID)
+	}
+	lookup = lookup.Order("id ASC").First(&existing)
 	if lookup.Error == nil {
 		snapshot.Id = existing.Id
 		snapshot.CreatedAt = existing.CreatedAt
@@ -265,6 +679,8 @@ func channelQuotaSnapshotDedupeKey(snapshot *ChannelQuotaSnapshot) string {
 		snapshot.Currency,
 		strconv.FormatInt(snapshot.WindowSeconds, 10),
 		strconv.FormatInt(snapshot.ResetAt, 10),
+		snapshot.SampleID,
+		snapshot.AccountRef,
 	}
 	var builder strings.Builder
 	for _, part := range parts {
@@ -327,10 +743,10 @@ func ListChannelQuotaSnapshots(channelID int, start, end int64, metricType, wind
 	}, limit)
 }
 
-// ListChannelQuotaSnapshotsWithQuery returns the most recent bounded
-// observations in oldest-first order, optionally constrained to one complete
-// provider series. It is intentionally additive so older callers keep their
-// existing behavior when they do not need series metadata.
+// ListChannelQuotaSnapshotsWithQuery returns the most recent bounded batches
+// in oldest-first order, optionally constrained to one complete provider
+// series. It is intentionally additive so older callers keep their existing
+// behavior when they do not need series metadata.
 func ListChannelQuotaSnapshotsWithQuery(channelID int, start, end int64, filter ChannelQuotaSnapshotQuery, limit int) ([]ChannelQuotaSnapshot, error) {
 	if DB == nil {
 		return nil, gorm.ErrInvalidDB
@@ -339,15 +755,55 @@ func ListChannelQuotaSnapshotsWithQuery(channelID int, start, end int64, filter 
 		limit = 2000
 	}
 	query := channelQuotaSnapshotQuery(DB.Model(&ChannelQuotaSnapshot{}).Where("channel_id = ?", channelID), start, end, filter)
-	var snapshots []ChannelQuotaSnapshot
-	err := query.Order("observed_at DESC, id DESC").Limit(limit).Find(&snapshots).Error
-	if err != nil {
+	// A provider sample is immutable and may contain multiple rows (for
+	// example Codex primary and secondary windows). Read one extra row to find
+	// the batch boundary, then expand every selected batch before returning. A
+	// row limit must never expose only half of a sample.
+	var candidates []ChannelQuotaSnapshot
+	if err := query.Order("observed_at DESC, id DESC").Limit(limit + 1).Find(&candidates).Error; err != nil {
 		return nil, err
 	}
-	for left, right := 0, len(snapshots)-1; left < right; left, right = left+1, right-1 {
-		snapshots[left], snapshots[right] = snapshots[right], snapshots[left]
+	if len(candidates) == 0 {
+		return []ChannelQuotaSnapshot{}, nil
 	}
-	return snapshots, err
+	selected := make([]ChannelQuotaSnapshot, 0, limit)
+	selectedKeys := make(map[string]struct{}, limit)
+	for _, candidate := range candidates {
+		key := channelQuotaSnapshotBatchKey(candidate)
+		if _, exists := selectedKeys[key]; exists {
+			continue
+		}
+		if len(selected) == limit {
+			break
+		}
+		selectedKeys[key] = struct{}{}
+		selected = append(selected, candidate)
+	}
+
+	conditions := make([]string, 0, len(selected))
+	args := make([]any, 0, len(selected)*2)
+	for _, batch := range selected {
+		if batch.SampleID != "" {
+			conditions = append(conditions, "sample_id = ?")
+			args = append(args, batch.SampleID)
+			continue
+		}
+		conditions = append(conditions, "(sample_id = ? OR sample_id IS NULL) AND observed_at = ?")
+		args = append(args, "", batch.ObservedAt)
+	}
+	batchQuery := channelQuotaSnapshotQuery(DB.Model(&ChannelQuotaSnapshot{}).Where("channel_id = ?", channelID), start, end, filter)
+	var snapshots []ChannelQuotaSnapshot
+	if err := batchQuery.Where("("+strings.Join(conditions, ") OR (")+")", args...).Order("observed_at ASC, id ASC").Find(&snapshots).Error; err != nil {
+		return nil, err
+	}
+	return snapshots, nil
+}
+
+func channelQuotaSnapshotBatchKey(snapshot ChannelQuotaSnapshot) string {
+	if snapshot.SampleID != "" {
+		return "sample:" + snapshot.SampleID
+	}
+	return "legacy:" + strconv.FormatInt(snapshot.ObservedAt, 10)
 }
 
 // CountChannelQuotaSnapshotsWithQuery counts every observation in a selected

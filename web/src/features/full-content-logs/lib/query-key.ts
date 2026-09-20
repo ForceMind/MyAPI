@@ -18,5 +18,12 @@ export function getFullContentLogsQueryKey(
   userId: number | null,
   sessionId: string | null
 ) {
-  return ['full-content-logs', 'list', userId, sessionId, page, filters] as const
+  return [
+    'full-content-logs',
+    'list',
+    userId,
+    sessionId,
+    page,
+    filters,
+  ] as const
 }

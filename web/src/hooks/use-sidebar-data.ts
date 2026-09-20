@@ -50,12 +50,7 @@ import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
 export function useSidebarData(): SidebarData {
   const { t } = useTranslation()
 
-  const hiddenSelfUseItems = new Set([
-    '/wallet',
-    '/users',
-    '/redemption-codes',
-    '/subscriptions',
-  ])
+  const hiddenSelfUseItems = new Set(['/users', '/redemption-codes'])
 
   const navGroups: SidebarData['navGroups'] = [
     {

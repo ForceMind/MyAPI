@@ -78,6 +78,9 @@ var (
 	ChannelQuotaAlertCriticalPercent  = DefaultChannelQuotaAlertCriticalPercent
 	ChannelQuotaAlertCooldownSeconds  = DefaultChannelQuotaAlertCooldownSeconds
 	ChannelQuotaAlertNotifyOnRecovery = DefaultChannelQuotaAlertNotifyOnRecovery
+	// Webhook delivery is disabled until an administrator configures an HTTPS URL.
+	ChannelQuotaAlertWebhookURL    = ""
+	ChannelQuotaAlertWebhookSecret = ""
 )
 
 var OptionMap map[string]string

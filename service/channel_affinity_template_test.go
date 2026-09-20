@@ -8,7 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ForceMind/MyAPI/common"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
+	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -19,6 +21,27 @@ func buildChannelAffinityTemplateContextForTest(meta channelAffinityMeta) *gin.C
 	ctx, _ := gin.CreateTestContext(rec)
 	setChannelAffinityContext(ctx, meta)
 	return ctx
+}
+
+// patchChannelAffinityRulesForTest 通过配置管理器发布新的规则代并在测试结束
+// 时恢复原代。channel_affinity_setting 是不可变代配置，直接改 getter 返回的
+// 分离快照不会影响运行时，必须走与保存通道相同的发布路径。
+func patchChannelAffinityRulesForTest(t *testing.T, patched, original []operation_setting.ChannelAffinityRule) {
+	t.Helper()
+	cfg := config.GlobalConfig.Get("channel_affinity_setting")
+	require.NotNil(t, cfg)
+
+	publish := func(rules []operation_setting.ChannelAffinityRule) {
+		encoded, err := common.Marshal(rules)
+		require.NoError(t, err)
+		require.NoError(t, config.UpdateConfigFromMap(cfg, map[string]string{
+			"rules": string(encoded),
+		}))
+	}
+	publish(patched)
+	t.Cleanup(func() {
+		publish(original)
+	})
 }
 
 func TestApplyChannelAffinityOverrideTemplate_NoTemplate(t *testing.T) {
@@ -215,10 +238,8 @@ func TestGetPreferredChannelByAffinity_RequestHeaderKeySource(t *testing.T) {
 
 	setting := operation_setting.GetChannelAffinitySetting()
 	originalRules := setting.Rules
-	setting.Rules = append([]operation_setting.ChannelAffinityRule{rule}, originalRules...)
-	t.Cleanup(func() {
-		setting.Rules = originalRules
-	})
+	patchedRules := append([]operation_setting.ChannelAffinityRule{rule}, originalRules...)
+	patchChannelAffinityRulesForTest(t, patchedRules, originalRules)
 
 	rec := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(rec)

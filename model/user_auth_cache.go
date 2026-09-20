@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/ForceMind/MyAPI/common"
 
@@ -46,6 +47,10 @@ func userAuthFenceTTLSeconds() int {
 }
 
 func writeUserCache(user *UserBase, includeQuota bool) error {
+	return writeUserCacheWithQuotaBalanceOwner(user, includeQuota, nil)
+}
+
+func writeUserCacheWithQuotaBalanceOwner(user *UserBase, includeQuota bool, balanceLock *quotaBalanceSubjectLock) error {
 	if user == nil || user.Id <= 0 || !common.RedisEnabled {
 		return nil
 	}
@@ -63,7 +68,19 @@ func writeUserCache(user *UserBase, includeQuota bool) error {
 		includeQuotaArg = "1"
 	}
 	ttl := userCacheTTLSeconds()
+	balanceLockKey, err := quotaBalanceSubjectLockKey(BatchUpdateTypeUserQuota, user.Id)
+	if err != nil {
+		return err
+	}
+	balanceLockToken := ""
+	if balanceLock != nil {
+		balanceLockToken = balanceLock.Token
+	}
 	const script = `
+local balanceOwner = redis.call('GET', KEYS[5])
+if (balanceOwner and balanceOwner ~= ARGV[16]) or (not balanceOwner and ARGV[16] ~= '') then
+  return 3
+end
 local incoming = tonumber(ARGV[1])
 local incomingEpoch = tonumber(ARGV[14])
 local globalEpoch = tonumber(redis.call('GET', KEYS[4]) or '0')
@@ -105,10 +122,12 @@ if ARGV[11] == '1' then
 end
 redis.call('EXPIRE', KEYS[1], ARGV[15])
 return 1`
-	result, err := common.RDB.Eval(context.Background(), script,
-		[]string{getUserCacheKey(user.Id), getUserAuthFenceKey(user.Id), getUserAuthVersionKey(user.Id), quotaWriterEpochRedisKey},
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	result, err := common.RDB.Eval(ctx, script,
+		[]string{getUserCacheKey(user.Id), getUserAuthFenceKey(user.Id), getUserAuthVersionKey(user.Id), quotaWriterEpochRedisKey, balanceLockKey},
 		user.AuthVersion, user.Id, user.Group, user.AccountTierID, user.Email, user.Status, user.Role,
-		user.Username, user.Setting, user.CacheSchema, includeQuotaArg, user.Quota, user.QuotaVersion, user.QuotaWriterEpoch, ttl,
+		user.Username, user.Setting, user.CacheSchema, includeQuotaArg, user.Quota, user.QuotaVersion, user.QuotaWriterEpoch, ttl, balanceLockToken,
 	).Int()
 	if err != nil {
 		return err
@@ -118,6 +137,9 @@ return 1`
 	}
 	if result == 2 {
 		return ErrQuotaWriterEpochMismatch
+	}
+	if result == 3 {
+		return ErrQuotaBalanceMutationUnknown
 	}
 	return nil
 }

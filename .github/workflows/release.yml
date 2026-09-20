@@ -15,7 +15,7 @@ on:
         type: string
 
 concurrency:
-  group: myapi-release-${{ inputs.tag }}
+  group: myapi-stable-latest-publication
   cancel-in-progress: false
 
 jobs:
@@ -31,6 +31,7 @@ jobs:
       tag: ${{ steps.validate.outputs.tag }}
       sha: ${{ steps.validate.outputs.sha }}
       version: ${{ steps.validate.outputs.version }}
+      prerelease: ${{ steps.validate.outputs.prerelease }}
     steps:
       - name: Checkout requested tag
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -49,7 +50,7 @@ jobs:
             echo "::error::Release is disabled or not explicitly confirmed. Set MYAPI_ENABLE_RELEASE=true and enter PUBLISH only after approval."
             exit 1
           fi
-          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+          if ! node tools/release/semver.mjs validate-tag "$RELEASE_TAG"; then
             echo "::error::Tag must be an exact semantic version beginning with v"
             exit 1
           fi
@@ -81,6 +82,11 @@ jobs:
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "sha=$TAG_SHA" >> "$GITHUB_OUTPUT"
           echo "version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$TAG_VERSION" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
 
   linux:
     name: Linux Release
@@ -89,7 +95,7 @@ jobs:
     environment: github-release
     timeout-minutes: 45
     permissions:
-      contents: write
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -131,16 +137,14 @@ jobs:
       - name: Generate checksums
         run: sha256sum my-api-* > checksums-linux.txt
 
-      - name: Release
-        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
+      - name: Upload Linux release assets
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
-          tag_name: ${{ needs.prepare.outputs.tag }}
-          target_commitish: ${{ needs.prepare.outputs.sha }}
-          files: |
+          name: myapi-release-linux
+          path: |
             my-api-*
             checksums-linux.txt
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          if-no-files-found: error
 
   macos:
     name: macOS Release
@@ -149,7 +153,7 @@ jobs:
     environment: github-release
     timeout-minutes: 45
     permissions:
-      contents: write
+      contents: read
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -185,16 +189,14 @@ jobs:
       - name: Generate checksums
         run: shasum -a 256 my-api-macos-* > checksums-macos.txt
 
-      - name: Release
-        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
+      - name: Upload macOS release assets
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
-          tag_name: ${{ needs.prepare.outputs.tag }}
-          target_commitish: ${{ needs.prepare.outputs.sha }}
-          files: |
+          name: myapi-release-macos
+          path: |
             my-api-macos-*
             checksums-macos.txt
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          if-no-files-found: error
 
   windows:
     name: Windows Release
@@ -203,7 +205,7 @@ jobs:
     environment: github-release
     timeout-minutes: 45
     permissions:
-      contents: write
+      contents: read
     runs-on: windows-latest
     defaults:
       run:
@@ -241,13 +243,65 @@ jobs:
       - name: Generate checksums
         run: sha256sum my-api-*.exe > checksums-windows.txt
 
+      - name: Upload Windows release assets
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-release-windows
+          path: |
+            my-api-*.exe
+            checksums-windows.txt
+          if-no-files-found: error
+
+  finalize:
+    name: Create MyAPI GitHub Release
+    needs: [prepare, linux, macos, windows]
+    if: ${{ needs.prepare.result == 'success' && needs.linux.result == 'success' && needs.macos.result == 'success' && needs.windows.result == 'success' && inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_RELEASE == 'true' }}
+    environment: github-release
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out verified tag
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - name: Download platform release assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: myapi-release-*
+          path: release-assets
+          merge-multiple: false
+      - name: Refuse stable latest rollback
+        if: ${{ needs.prepare.outputs.prerelease != 'true' }}
+        env:
+          CANDIDATE_VERSION: ${{ needs.prepare.outputs.version }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          releases_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --paginate --slurp 2>release-query-error.txt)"
+          query_status=$?
+          set -e
+          if [[ "$query_status" -ne 0 ]]; then
+            cat release-query-error.txt >&2
+            echo "::error::could not determine the current GitHub stable release"
+            exit 1
+          fi
+          current_tag="$(printf '%s' "$releases_json" | node tools/release/semver.mjs latest-stable-release-tag)"
+          if [[ -n "$current_tag" ]] && ! node tools/release/semver.mjs can-advance-stable-latest "$CANDIDATE_VERSION" "${current_tag#v}"; then
+            echo "::error::refusing to move GitHub latest from $current_tag to v$CANDIDATE_VERSION"
+            exit 1
+          fi
       - name: Release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
           target_commitish: ${{ needs.prepare.outputs.sha }}
+          prerelease: ${{ needs.prepare.outputs.prerelease == 'true' }}
+          make_latest: ${{ needs.prepare.outputs.prerelease == 'true' && 'false' || 'true' }}
           files: |
-            my-api-*.exe
-            checksums-windows.txt
+            release-assets/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

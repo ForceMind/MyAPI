@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { type TopNavLink } from '../types'
+import type { TopNavLink } from '../types'
 
 /**
  * Default top navigation links
@@ -28,3 +28,13 @@ import { type TopNavLink } from '../types'
  * If you need fallback links, add them here.
  */
 export const defaultTopNavLinks: TopNavLink[] = []
+
+export function withTopNavLinkKeys(links: TopNavLink[]) {
+  const occurrences = new Map<string, number>()
+  return links.map((link) => {
+    const identity = `${link.href}-${link.title}`
+    const occurrence = occurrences.get(identity) ?? 0
+    occurrences.set(identity, occurrence + 1)
+    return { ...link, key: `${identity}-${occurrence}` }
+  })
+}

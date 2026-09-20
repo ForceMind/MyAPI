@@ -22,9 +22,13 @@ import type {
   ConfirmPaymentComplianceResponse,
   FetchUpstreamRatiosRequest,
   LogCleanupTask,
+  PaymentFundingOptionsUpdateRequest,
   SystemOptionsResponse,
   SystemTaskListResponse,
   SystemTaskResponse,
+  TypedBulkOptionsUpdateRequest,
+  TypedBulkOptionsUpdateResponse,
+  TypedBulkRevisionResponse,
   UpdateOptionRequest,
   UpdateOptionResponse,
   UpstreamChannelsResponse,
@@ -38,6 +42,36 @@ export async function getSystemOptions() {
 
 export async function updateSystemOption(request: UpdateOptionRequest) {
   const res = await api.put<UpdateOptionResponse>('/api/option/', request)
+  return res.data
+}
+
+export async function getOptionsTypedBulkRevision() {
+  const res = await api.get<TypedBulkRevisionResponse>(
+    '/api/option/typed-bulk/revision'
+  )
+  return res.data
+}
+
+export async function updateOptionsTypedBulk(
+  request: TypedBulkOptionsUpdateRequest
+) {
+  // skipErrorHandler: the mutation hook owns 409/400 presentation so the
+  // global interceptor does not double-toast.
+  const res = await api.put<TypedBulkOptionsUpdateResponse>(
+    '/api/option/typed-bulk',
+    request,
+    { skipErrorHandler: true }
+  )
+  return res.data
+}
+
+export async function updatePaymentFundingOptions(
+  request: PaymentFundingOptionsUpdateRequest
+) {
+  const res = await api.put<UpdateOptionResponse>(
+    '/api/option/payment-funding',
+    request
+  )
   return res.data
 }
 

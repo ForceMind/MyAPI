@@ -87,7 +87,7 @@ func relayTaskDurable(c *gin.Context, opKind string, originID string) {
 		channel, channelErr = getChannel(c, relayInfo, retryParam)
 		if channelErr != nil {
 			logger.LogError(c, channelErr.Error())
-			respondTaskError(c, service.TaskErrorWrapperLocal(channelErr.Err, "get_channel_failed", http.StatusInternalServerError))
+			respondTaskError(c, taskChannelSelectionError(channelErr))
 			return
 		}
 	}
@@ -95,6 +95,10 @@ func relayTaskDurable(c *gin.Context, opKind string, originID string) {
 		if fullCh, err := model.GetChannelById(channel.Id, true); err == nil && fullCh != nil {
 			channel = fullCh
 		}
+	}
+	if policyErr := middleware.EnforceAccessPolicyForSelectedGroup(c, currentRelayPolicyGroup(c, relayInfo.TokenGroup), relayInfo.OriginModelName); policyErr != nil {
+		respondTaskError(c, service.TaskErrorWrapperLocal(policyErr.Err, "access_policy_denied", policyErr.StatusCode))
+		return
 	}
 	addUsedChannel(c, channel.Id)
 	if setupErr := middleware.SetupContextForSelectedChannel(c, channel, relayInfo.OriginModelName); setupErr != nil {

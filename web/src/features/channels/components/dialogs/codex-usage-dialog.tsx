@@ -64,8 +64,8 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
 import {
+  getCodexQuotaSeries,
   getCodexResetCredits,
-  getChannelQuotaChanges,
   resetCodexUsage,
   type CodexResetCreditsResponse,
 } from '../../api'
@@ -269,14 +269,27 @@ function sortResetCredits(credits: CodexResetCredit[]): CodexResetCredit[] {
   })
 }
 
+type ResolvedRateLimitWindowKind =
+  | 'five_hour'
+  | 'weekly'
+  | 'daily'
+  | 'primary'
+  | 'secondary'
+
+type ResolvedRateLimitWindow = {
+  kind: ResolvedRateLimitWindowKind
+  slot: 'primary' | 'secondary'
+  window: CodexRateLimitWindow
+}
+
 function classifyWindowByDuration(
   windowData?: CodexRateLimitWindow | null
-): 'weekly' | 'fiveHour' | null {
+): 'five_hour' | 'weekly' | 'daily' | null {
   const seconds = Number(windowData?.limit_window_seconds)
-  if (!Number.isFinite(seconds) || seconds <= 0) {
-    return null
-  }
-  return seconds >= 24 * 60 * 60 ? 'weekly' : 'fiveHour'
+  if (seconds === 5 * 60 * 60) return 'five_hour'
+  if (seconds === 7 * 24 * 60 * 60) return 'weekly'
+  if (seconds === 24 * 60 * 60) return 'daily'
+  return null
 }
 
 type RateLimitSource = {
@@ -284,49 +297,30 @@ type RateLimitSource = {
   rate_limit?: CodexRateLimit
 }
 
-function resolveRateLimitWindows(data: RateLimitSource | null): {
-  fiveHourWindow: CodexRateLimitWindow | null
-  weeklyWindow: CodexRateLimitWindow | null
-} {
-  const rateLimit = data?.rate_limit ?? {}
-  const primary = rateLimit?.primary_window ?? null
-  const secondary = rateLimit?.secondary_window ?? null
-  const windows = [primary, secondary].filter(Boolean) as CodexRateLimitWindow[]
-  const planType = normalizePlanType(data?.plan_type ?? rateLimit?.plan_type)
-
-  let fiveHourWindow: CodexRateLimitWindow | null = null
-  let weeklyWindow: CodexRateLimitWindow | null = null
-
-  for (const w of windows) {
-    const bucket = classifyWindowByDuration(w)
-    if (bucket === 'fiveHour' && !fiveHourWindow) {
-      fiveHourWindow = w
-      continue
+function resolveRateLimitWindows(
+  data: RateLimitSource | null
+): ResolvedRateLimitWindow[] {
+  const rateLimit = data?.rate_limit
+  const candidates = [
+    { slot: 'primary' as const, window: rateLimit?.primary_window },
+    { slot: 'secondary' as const, window: rateLimit?.secondary_window },
+  ]
+  return candidates.flatMap(({ slot, window }) => {
+    if (
+      !window ||
+      typeof window !== 'object' ||
+      Object.keys(window).length === 0
+    ) {
+      return []
     }
-    if (bucket === 'weekly' && !weeklyWindow) {
-      weeklyWindow = w
-    }
-  }
-
-  if (planType === 'free') {
-    if (!weeklyWindow) {
-      weeklyWindow = primary ?? secondary ?? null
-    }
-    return { fiveHourWindow: null, weeklyWindow }
-  }
-
-  if (!fiveHourWindow && !weeklyWindow) {
-    return { fiveHourWindow: primary, weeklyWindow: secondary }
-  }
-
-  if (!fiveHourWindow) {
-    fiveHourWindow = windows.find((w) => w !== weeklyWindow) ?? null
-  }
-  if (!weeklyWindow) {
-    weeklyWindow = windows.find((w) => w !== fiveHourWindow) ?? null
-  }
-
-  return { fiveHourWindow, weeklyWindow }
+    return [
+      {
+        kind: classifyWindowByDuration(window) ?? slot,
+        slot,
+        window,
+      },
+    ]
+  })
 }
 
 const PLAN_TYPE_BADGE: Record<
@@ -512,19 +506,31 @@ function RateLimitWindow(props: RateLimitWindowProps) {
   )
 }
 
-function RateLimitWindowGrid(props: {
-  fiveHourWindow?: CodexRateLimitWindow | null
-  weeklyWindow?: CodexRateLimitWindow | null
-}) {
-  const { t } = useTranslation()
+function rateLimitWindowTitle(
+  kind: ResolvedRateLimitWindowKind,
+  t: (key: string) => string
+): string {
+  if (kind === 'five_hour') return t('5-Hour Window')
+  if (kind === 'weekly') return t('Weekly Window')
+  if (kind === 'daily') return t('Daily window')
+  if (kind === 'primary') return t('Primary window')
+  return t('Secondary window')
+}
 
+function RateLimitWindowGrid(props: { windows: ResolvedRateLimitWindow[] }) {
+  const { t } = useTranslation()
+  if (props.windows.length === 0) {
+    return null
+  }
   return (
     <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
-      <RateLimitWindow
-        title={t('5-Hour Window')}
-        window={props.fiveHourWindow}
-      />
-      <RateLimitWindow title={t('Weekly Window')} window={props.weeklyWindow} />
+      {props.windows.map((item) => (
+        <RateLimitWindow
+          key={item.slot}
+          title={rateLimitWindowTitle(item.kind, t)}
+          window={item.window}
+        />
+      ))}
     </div>
   )
 }
@@ -562,7 +568,7 @@ type RateLimitGroupSectionProps = {
 
 function RateLimitGroupSection(props: RateLimitGroupSectionProps) {
   const { t } = useTranslation()
-  const { fiveHourWindow, weeklyWindow } = resolveRateLimitWindows(props.source)
+  const windows = resolveRateLimitWindows(props.source)
   const statusBadge = getUsageStatusBadge(props.source?.rate_limit, t)
 
   return (
@@ -580,10 +586,7 @@ function RateLimitGroupSection(props: RateLimitGroupSectionProps) {
           </span>
         </div>
       ) : null}
-      <RateLimitWindowGrid
-        fiveHourWindow={fiveHourWindow}
-        weeklyWindow={weeklyWindow}
-      />
+      <RateLimitWindowGrid windows={windows} />
     </section>
   )
 }
@@ -907,10 +910,8 @@ export function CodexUsageHistoryPanel(props: {
       time.params,
     ],
     queryFn: () =>
-      getChannelQuotaChanges({
+      getCodexQuotaSeries({
         ...time.params,
-        channel_ids: String(props.channelId),
-        metric_type: 'codex_rate_limit',
         limit: 100,
       }),
     enabled: props.open && Boolean(props.channelId),
@@ -929,8 +930,16 @@ export function CodexUsageHistoryPanel(props: {
       item.channel_id === props.channelId &&
       item.metric_type === 'codex_rate_limit'
   )
+  const latestSeries = [...series].sort(
+    (left, right) => (right.observed_at ?? 0) - (left.observed_at ?? 0)
+  )
+  const latestActiveSeries =
+    latestSeries.find(
+      (item) => item.status === undefined || item.status === 'success'
+    ) ?? latestSeries[0]
   const selected =
-    series.find((item) => quotaSeriesKey(item) === selectedKey) ?? series[0]
+    series.find((item) => quotaSeriesKey(item) === selectedKey) ??
+    latestActiveSeries
   // An empty time range must retain the controls so the user can expand it.
   const fallback = {
     channel_id: props.channelId ?? 0,
@@ -953,6 +962,11 @@ export function CodexUsageHistoryPanel(props: {
           <AlertDescription>{t('Please try again later.')}</AlertDescription>
         </Alert>
       ) : null}
+      <div className='text-muted-foreground text-xs leading-5'>
+        {t(
+          'Historical series keep their recorded plan and window. Changing plans does not rewrite history.'
+        )}
+      </div>
       {series.length > 1 ? (
         <label className='grid min-w-0 gap-1 text-xs'>
           <span>{t('Quota window type')}</span>
@@ -964,8 +978,15 @@ export function CodexUsageHistoryPanel(props: {
           >
             {series.map((item) => (
               <option key={quotaSeriesKey(item)} value={quotaSeriesKey(item)}>
+                {t('Historical window')}:{' '}
                 {quotaWindowLabel(item.window_type, t)}
-                {item.plan_type ? ` · ${item.plan_type}` : ''}
+                {Number.isFinite(Number(item.window_seconds)) &&
+                Number(item.window_seconds) > 0
+                  ? ` · ${formatDurationSeconds(item.window_seconds, t)}`
+                  : ''}
+                {item.plan_type
+                  ? ` · ${t('Historical plan')}: ${item.plan_type}`
+                  : ''}
               </option>
             ))}
           </select>
@@ -1046,7 +1067,7 @@ export function CodexUsageDialog({
     channelLabelId = ` (#${channelId})`
   }
   const channelLabel = `${channelLabelName}${channelLabelId}`
-  const { fiveHourWindow, weeklyWindow } = resolveRateLimitWindows(payload)
+  const baseRateLimitWindows = resolveRateLimitWindows(payload)
 
   const errorMessage =
     response?.success === false
@@ -1348,14 +1369,13 @@ export function CodexUsageDialog({
             <div className='flex flex-col gap-3'>
               <SectionHeading
                 title={t('Base Limits')}
-                description={t('Base rate limit windows for this account.')}
+                description={t(
+                  'Current windows come only from the latest upstream response. Their durations are reported by that response.'
+                )}
               >
                 {getUsageStatusBadge(rateLimit, t)}
               </SectionHeading>
-              <RateLimitWindowGrid
-                fiveHourWindow={fiveHourWindow}
-                weeklyWindow={weeklyWindow}
-              />
+              <RateLimitWindowGrid windows={baseRateLimitWindows} />
             </div>
 
             {additionalRateLimits.length > 0 ? (

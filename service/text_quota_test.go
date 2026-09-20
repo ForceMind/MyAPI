@@ -64,10 +64,10 @@ func (s *textQuotaTestSettler) Settle(quota int) error {
 	}
 	return nil
 }
-func (s *textQuotaTestSettler) Refund(*gin.Context)      {}
-func (s *textQuotaTestSettler) NeedsRefund() bool        { return false }
-func (s *textQuotaTestSettler) GetPreConsumedQuota() int { return s.preConsumed }
-func (s *textQuotaTestSettler) Reserve(int) error        { return nil }
+func (s *textQuotaTestSettler) Refund(*gin.Context) error { return nil }
+func (s *textQuotaTestSettler) NeedsRefund() bool         { return false }
+func (s *textQuotaTestSettler) GetPreConsumedQuota() int  { return s.preConsumed }
+func (s *textQuotaTestSettler) Reserve(int) error         { return nil }
 
 func TestPostTextConsumeQuotaOverflowDoesNotRefundPreconsume(t *testing.T) {
 	truncate(t)

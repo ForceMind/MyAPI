@@ -324,7 +324,7 @@ function CommonLogsCard<TData>({
       <div className='flex min-w-0 items-center justify-between gap-3'>
         <CompactCell
           cell={modelCell}
-          className='min-w-0 flex-1 [&_.flex-col]:min-w-0 [&_.flex-col]:max-w-full'
+          className='min-w-0 flex-1 [&_.flex-col]:max-w-full [&_.flex-col]:min-w-0'
         />
         <CompactCell
           cell={quotaCell}

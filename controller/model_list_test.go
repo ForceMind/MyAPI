@@ -86,7 +86,15 @@ func initModelListColumnNames(t *testing.T) {
 	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
 	require.NoError(t, os.Setenv("SQL_DSN", "local"))
 
+	bootstrapDB, err := gorm.Open(sqlite.Open(common.SQLitePath), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, bootstrapDB.AutoMigrate(&model.Log{}))
+	require.NoError(t, model.EnsureLogProjectionSchemaWithDB(bootstrapDB))
+
 	require.NoError(t, model.InitDB())
+	if sqlDB, err := bootstrapDB.DB(); err == nil {
+		_ = sqlDB.Close()
+	}
 	if model.DB != nil {
 		sqlDB, err := model.DB.DB()
 		if err == nil {

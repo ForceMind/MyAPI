@@ -12,7 +12,7 @@ import (
 	"github.com/ForceMind/MyAPI/setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stripe/stripe-go/v81"
-	"github.com/stripe/stripe-go/v81/checkout/session"
+	"github.com/stripe/stripe-go/v81/client"
 	"github.com/thanhpk/randstr"
 )
 
@@ -44,11 +44,12 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 		common.ApiErrorMsg(c, "该套餐未配置 StripePriceId")
 		return
 	}
-	if !strings.HasPrefix(setting.StripeApiSecret, "sk_") && !strings.HasPrefix(setting.StripeApiSecret, "rk_") {
+	paymentConfig := setting.CapturePaymentConfig()
+	if !strings.HasPrefix(paymentConfig.StripeApiSecret(), "sk_") && !strings.HasPrefix(paymentConfig.StripeApiSecret(), "rk_") {
 		common.ApiErrorMsg(c, "Stripe 未配置或密钥无效")
 		return
 	}
-	if setting.StripeWebhookSecret == "" {
+	if paymentConfig.StripeWebhookSecret() == "" {
 		common.ApiErrorMsg(c, "Stripe Webhook 未配置")
 		return
 	}
@@ -79,7 +80,7 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 	reference := fmt.Sprintf("sub-stripe-ref-%d-%d-%s", user.Id, time.Now().UnixMilli(), randstr.String(4))
 	referenceId := "sub_ref_" + common.Sha1([]byte(reference))
 
-	payLink, err := genStripeSubscriptionLink(referenceId, user.StripeCustomer, user.Email, plan.StripePriceId)
+	payLink, err := genStripeSubscriptionLink(paymentConfig, referenceId, user.StripeCustomer, user.Email, plan.StripePriceId)
 	if err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("Stripe 订阅支付链接创建失败 trade_no=%s plan_id=%d error=%q", referenceId, plan.Id, err.Error()))
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "拉起支付失败"})
@@ -96,7 +97,7 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 		CreateTime:      time.Now().Unix(),
 		Status:          common.TopUpStatusPending,
 	}
-	if err := order.Insert(); err != nil {
+	if err := order.Insert(userFundingEpoch(c)); err != nil {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "创建订单失败"})
 		return
 	}
@@ -109,8 +110,9 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 	})
 }
 
-func genStripeSubscriptionLink(referenceId string, customerId string, email string, priceId string) (string, error) {
-	stripe.Key = setting.StripeApiSecret
+func genStripeSubscriptionLink(paymentConfig setting.PaymentConfig, referenceId string, customerId string, email string, priceId string) (string, error) {
+	// Per-request client built from the snapshot secret; see genStripeLink.
+	stripeClient := client.New(paymentConfig.StripeApiSecret(), nil)
 
 	params := &stripe.CheckoutSessionParams{
 		ClientReferenceID: stripe.String(referenceId),
@@ -134,7 +136,7 @@ func genStripeSubscriptionLink(referenceId string, customerId string, email stri
 		params.Customer = stripe.String(customerId)
 	}
 
-	result, err := session.New(params)
+	result, err := stripeClient.CheckoutSessions.New(params)
 	if err != nil {
 		return "", err
 	}

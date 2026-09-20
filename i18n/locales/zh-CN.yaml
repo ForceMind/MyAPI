@@ -116,6 +116,11 @@ quota.exceed_max: "额度值超出有效范围"
 quota.insufficient: "额度不足"
 quota.warning_invalid: "无效的预警类型"
 quota.threshold_gt_zero: "预警阈值必须大于0"
+quota_writer.invalid_target_mode: "无效的配额写入目标模式"
+quota_writer.transition_conflict: "配额写入 epoch 已变化，请刷新后重试"
+quota_writer.transition_invalid: "不允许该配额写入模式切换"
+quota_writer.preconditions_failed: "配额写入模式切换前置条件未满足"
+quota_writer.post_audit_failed: "配额写入切换后审计失败，需要人工恢复"
 
 # Subscription messages
 subscription.not_enabled: "套餐未启用"
@@ -142,6 +147,17 @@ payment.webhook_not_configured: "Webhook 未配置"
 payment.price_id_not_configured: "该套餐未配置 StripePriceId"
 payment.creem_not_configured: "该套餐未配置 CreemProductId"
 payment.compliance_required: "支付、兑换码、订阅计划和邀请返利功能已禁用。管理员需先确认合规声明后方可启用。"
+
+# Option typed bulk messages
+option.typed_bulk_invalid_body: "批量设置请求体无效。"
+option.typed_bulk_unknown_key: "未知的受管配置键：{{.Key}}。"
+option.typed_bulk_duplicate_key: "批量请求中配置键重复：{{.Key}}。"
+option.typed_bulk_invalid_value: "配置项 {{.Key}} 的值无效：{{.Reason}}"
+option.typed_bulk_item_count: "批量设置请求必须包含 1 到 {{.Max}} 个配置项。"
+option.typed_bulk_revision_conflict: "这些设置已被他人修改（期望版本 {{.Expected}}，当前版本 {{.Actual}}）。请重新加载页面后重试。"
+option.typed_bulk_publish_failed: "设置已保存，但发布到运行时被中止：{{.Reason}}"
+option.typed_bulk_internal: "保存设置失败，请稍后重试。"
+option.disk_cache_rebuild_failed: "按已保存的磁盘缓存目录与容量配置重建失败，原磁盘缓存配置仍在生效：{{.Reason}}"
 
 # Topup messages
 topup.not_provided: "未提供支付单号"
@@ -273,6 +289,7 @@ distributor.invalid_playground_request: "无效的playground请求，{{.Error}}"
 distributor.group_access_denied: "无权访问该分组"
 distributor.get_channel_failed: "获取分组 {{.Group}} 下模型 {{.Model}} 的可用渠道失败（distributor）：{{.Error}}"
 distributor.no_available_channel: "分组 {{.Group}} 下模型 {{.Model}} 无可用渠道（distributor）"
+distributor.policy_denied: "账户或密钥访问策略拒绝了分组 {{.Group}} 下的访问"
 distributor.invalid_midjourney_request: "无效的midjourney请求，{{.Error}}"
 distributor.invalid_request_parse_model: "无效的请求，无法解析模型"
 

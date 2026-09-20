@@ -196,17 +196,15 @@ describe('API key group combobox Auto effect', () => {
     render(<Harness initialValue='vip' />)
 
     const trigger = getTrigger()
-    const selectedDescription = trigger.querySelector<HTMLElement>(
-      '.line-clamp-2'
-    )
+    const selectedDescription =
+      trigger.querySelector<HTMLElement>('.line-clamp-2')
     expect(selectedDescription).toHaveTextContent('Priority group')
     expect(selectedDescription).toHaveClass('break-words')
 
     fireEvent.click(trigger)
     const vipOption = getCommandItem('Priority group')
-    const optionDescription = vipOption.querySelector<HTMLElement>(
-      '.line-clamp-2'
-    )
+    const optionDescription =
+      vipOption.querySelector<HTMLElement>('.line-clamp-2')
     expect(optionDescription).toHaveTextContent('Priority group')
     expect(optionDescription).toHaveClass('break-words')
   })

@@ -56,6 +56,7 @@ const BILLING_SECTIONS = [
   { id: 'currency', titleKey: 'Currency & Display' },
   { id: 'model-pricing', titleKey: 'Model Pricing' },
   { id: 'group-pricing', titleKey: 'Group Pricing' },
+  { id: 'quota-writer', titleKey: 'Quota Writer Mode' },
   { id: 'payment', titleKey: 'Payment Gateway', selfUseHidden: true },
   { id: 'checkin', titleKey: 'Check-in Rewards', selfUseHidden: true },
 ] as const

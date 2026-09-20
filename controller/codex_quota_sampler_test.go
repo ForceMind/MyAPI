@@ -63,7 +63,7 @@ func TestSampleCodexChannelUsagePersistsNormalizedWindows(t *testing.T) {
 	previousDB := model.DB
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.ChannelQuotaSnapshot{}))
+	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}))
 	model.DB = db
 	t.Cleanup(func() { model.DB = previousDB })
 
@@ -89,6 +89,7 @@ func TestSampleCodexChannelUsagePersistsNormalizedWindows(t *testing.T) {
 		Key:     `{"access_token":"test-access","account_id":"account-1","type":"codex"}`,
 		BaseURL: &baseURL,
 	}
+	require.NoError(t, db.Create(channel).Error)
 	require.NoError(t, sampleCodexChannelUsage(context.Background(), channel))
 
 	var snapshots []model.ChannelQuotaSnapshot
@@ -97,6 +98,8 @@ func TestSampleCodexChannelUsagePersistsNormalizedWindows(t *testing.T) {
 	require.Equal(t, "codex_rate_limit", snapshots[0].MetricType)
 	require.Equal(t, "success", snapshots[0].Status)
 	require.Equal(t, "team", snapshots[0].PlanType)
+	require.NotEmpty(t, snapshots[0].SampleID)
+	require.Equal(t, snapshots[0].SampleID, snapshots[1].SampleID)
 	require.NotNil(t, snapshots[0].Total)
 	require.Equal(t, float64(100), *snapshots[0].Total)
 
@@ -114,7 +117,7 @@ func TestSampleCodexChannelUsageRecordsTransportFailure(t *testing.T) {
 	previousDB := model.DB
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.ChannelQuotaSnapshot{}))
+	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}))
 	model.DB = db
 	t.Cleanup(func() { model.DB = previousDB })
 
@@ -125,19 +128,21 @@ func TestSampleCodexChannelUsageRecordsTransportFailure(t *testing.T) {
 		Key:     `{"access_token":"test-access","account_id":"account-1","type":"codex"}`,
 		BaseURL: &baseURL,
 	}
+	require.NoError(t, db.Create(channel).Error)
 	require.Error(t, sampleCodexChannelUsage(context.Background(), channel))
 
 	var snapshot model.ChannelQuotaSnapshot
 	require.NoError(t, db.Where("channel_id = ?", channel.Id).First(&snapshot).Error)
 	require.Equal(t, "error", snapshot.Status)
 	require.Equal(t, "upstream_transport", snapshot.ErrorCode)
+	require.NotEmpty(t, snapshot.SampleID)
 }
 
 func TestSampleCodexChannelUsageClassifiesSuccessfulUnsupportedPayload(t *testing.T) {
 	previousDB := model.DB
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.ChannelQuotaSnapshot{}))
+	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}))
 	model.DB = db
 	t.Cleanup(func() { model.DB = previousDB })
 
@@ -155,6 +160,8 @@ func TestSampleCodexChannelUsageClassifiesSuccessfulUnsupportedPayload(t *testin
 		Key:     `{"access_token":"test-access","account_id":"account-1","type":"codex"}`,
 		BaseURL: &baseURL,
 	}
+
+	require.NoError(t, db.Create(channel).Error)
 
 	err = sampleCodexChannelUsage(context.Background(), channel)
 	var classified *channelQuotaSamplingError

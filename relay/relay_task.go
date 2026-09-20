@@ -88,6 +88,29 @@ func ResolveOriginTask(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskErr
 	if ch.Status != common.ChannelStatusEnabled {
 		return service.TaskErrorWrapperLocal(errors.New("the channel of the origin task is disabled"), "task_channel_disable", http.StatusBadRequest)
 	}
+	// A remix is bound to the origin task's channel, but an auto key may have
+	// changed its eligible groups since that task was created. Resolve the
+	// actual ability group now and retain it in context so every later policy
+	// check evaluates the group that will serve the locked request, never the
+	// literal "auto" selector.
+	originGroup := strings.TrimSpace(originTask.Group)
+	if originGroup == "" || !model.IsChannelEnabledForGroupModel(originGroup, info.OriginModelName, ch.Id) {
+		return service.TaskErrorWrapperLocal(errors.New("origin task channel group is no longer available"), "task_origin_group_unavailable", http.StatusForbidden)
+	}
+	if info.TokenGroup == "auto" {
+		eligibleGroups := service.GetRequestAutoGroups(c, info.UserGroup)
+		eligible := false
+		for _, group := range eligibleGroups {
+			if group == originGroup {
+				eligible = true
+				break
+			}
+		}
+		if !eligible {
+			return service.TaskErrorWrapperLocal(errors.New("origin task group is not available to this key"), "task_origin_group_access_denied", http.StatusForbidden)
+		}
+	}
+	common.SetContextKey(c, constant.ContextKeyAutoGroup, originGroup)
 	info.LockedChannel = ch
 
 	if originTask.ChannelId != info.ChannelId {

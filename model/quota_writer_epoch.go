@@ -67,6 +67,7 @@ func EnsureQuotaWriterEpochStateWithDB(db *gorm.DB) error {
 	if db == nil {
 		return gorm.ErrInvalidDB
 	}
+	publishExpectation, _ := captureUserQuotaBusinessPublishExpectation(db)
 	now, err := taskRecoveryDBTimestamp(db)
 	if err != nil {
 		return err
@@ -75,8 +76,18 @@ func EnsureQuotaWriterEpochStateWithDB(db *gorm.DB) error {
 	if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&candidate).Error; err != nil {
 		return err
 	}
-	_, err = GetQuotaWriterEpochState(db)
-	return err
+	if _, err = GetQuotaWriterEpochState(db); err != nil {
+		return err
+	}
+	if err := EnsureQuotaMaintenanceBackfillCursorsWithDB(db); err != nil {
+		return err
+	}
+	if publishExpectation != nil {
+		if err := publishUserQuotaBusinessSchemaReady(publishExpectation); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func GetQuotaWriterEpochState(db *gorm.DB) (*QuotaWriterEpoch, error) {
@@ -85,7 +96,7 @@ func GetQuotaWriterEpochState(db *gorm.DB) (*QuotaWriterEpoch, error) {
 	}
 	var state QuotaWriterEpoch
 	if err := db.Where("id = ?", quotaWriterEpochSingletonID).First(&state).Error; err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrQuotaWriterEpochUnavailable, err)
+		return nil, fmt.Errorf("%w: %w", ErrQuotaWriterEpochUnavailable, err)
 	}
 	if state.SchemaVersion != QuotaWriterEpochSchemaVersion || !validQuotaWriterMode(QuotaWriterMode(state.Mode)) || state.Epoch <= 0 || state.LockVersion <= 0 {
 		return nil, fmt.Errorf("%w: invalid persisted state", ErrQuotaWriterEpochUnavailable)
@@ -111,6 +122,17 @@ func requireDurableQuotaWriterEpoch(db *gorm.DB) (*QuotaWriterEpoch, error) {
 	}
 	if QuotaWriterMode(state.Mode) != QuotaWriterModeAuthoritative {
 		return nil, ErrDurableQuotaWriterModeDisabled
+	}
+	ctx := context.Background()
+	if db.Statement != nil && db.Statement.Context != nil {
+		ctx = db.Statement.Context
+	}
+	complete, err := QuotaMaintenanceBackfillsComplete(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	if !complete {
+		return nil, ErrQuotaMaintenanceBackfillIncomplete
 	}
 	return state, nil
 }
@@ -145,42 +167,85 @@ type QuotaWriterRegistration struct {
 	Migrated bool   `json:"migrated"`
 }
 
-// ProductionQuotaWriterRegistrations is deliberately explicit. WP3-A only
-// migrates durable task receipts and the public MutateUserQuota wrapper; every
-// legacy writer remains false until its owning WP3-B/C migration is complete.
+// ProductionQuotaWriterRegistrations is deliberately explicit. WP3-A migrated
+// durable task receipts and MutateUserQuota. WP3-B1 routes every production
+// BillingSession lifecycle through authoritative account receipts and durable
+// terminal facts. WP3-B2 wired the business credit paths (topup / redemption /
+// checkin / invite / aff) into the authoritative receipt kernel. WP3-B3 migrated
+// the subscription wallet purchase debit and the admin quota endpoints.
+//
+// The remaining legacy generic writers keep Migrated=true only where every
+// production caller was verified per-caller to be either mode-dispatched or
+// reachable solely on legacy-only paths with the model-layer
+// requireLegacyQuotaWriterCall guard closing non-legacy modes:
+//   - increase_user_quota / decrease_user_quota: callers are credit_edge
+//     (mode-dispatched), postConsumeQuotaLegacy (mode-dispatched),
+//     WalletFunding settle/refund and BillingSession reserve/rollback
+//     (legacy-only reachable), taskAdjustFunding (legacy settlement-fact
+//     gated), RefundMidjourneyQuota (mode-dispatched); the former admin
+//     endpoint callers were migrated in WP3-B3.
+//   - try_reserve_user_quota: only WalletFunding.PreConsume (legacy-only
+//     reachable; guarded).
+//   - increase_token_quota / decrease_token_quota: callers are
+//     postConsumeQuotaLegacy (mode-dispatched), taskAdjustTokenQuota (legacy
+//     settlement-fact gated), refundMidjourneyTokenQuota (mode-dispatched).
+//   - try_reserve_token_quota: only PreConsumeTokenQuota (legacy-only
+//     reachable; guarded).
+//   - subscription_wallet_overflow: the balance-paid purchase debit is
+//     mode-dispatched in PurchaseSubscriptionWithBalance (receipt key
+//     "subscription-wallet:{tradeNo}", bridge fail-closed); overflow wallet
+//     writes are reachable only via the legacy BillingSession/task legacy
+//     facts (guarded) or the authoritative Reserve kernels; subscription-side
+//     writes keep their existing CAS + upstream idempotency
+//     (SubscriptionPreConsumeRecord / settlement facts).
+//   - admin_quota_mutations: all three operations share the durable
+//     admin_quota_adjustments identity with mode dispatch (WP3-B3).
+//
+// DeltaUpdateUserQuota is intentionally absent: repository-wide caller
+// analysis found only the helper definition, which delegates to the registered
+// increase/decrease writers. This table inventories production write paths
+// that must be migrated, not unused convenience helpers.
 func ProductionQuotaWriterRegistrations() []QuotaWriterRegistration {
 	return []QuotaWriterRegistration{
 		{Name: "durable_task_receipts", Migrated: true},
 		{Name: "mutate_user_quota", Migrated: true},
-		{Name: "increase_user_quota", Migrated: false},
-		{Name: "decrease_user_quota", Migrated: false},
-		{Name: "delta_update_user_quota", Migrated: false},
-		{Name: "try_reserve_user_quota", Migrated: false},
-		{Name: "increase_token_quota", Migrated: false},
-		{Name: "decrease_token_quota", Migrated: false},
-		{Name: "try_reserve_token_quota", Migrated: false},
-		{Name: "credit_recharge_redemption_checkin", Migrated: false},
-		{Name: "subscription_wallet_overflow", Migrated: false},
-		{Name: "billing_session_callers", Migrated: false},
-		{Name: "admin_quota_mutations", Migrated: false},
+		{Name: "increase_user_quota", Migrated: true},
+		{Name: "decrease_user_quota", Migrated: true},
+		{Name: "try_reserve_user_quota", Migrated: true},
+		{Name: "increase_token_quota", Migrated: true},
+		{Name: "decrease_token_quota", Migrated: true},
+		{Name: "try_reserve_token_quota", Migrated: true},
+		{Name: "credit_recharge_redemption_checkin", Migrated: true},
+		{Name: "subscription_wallet_overflow", Migrated: true},
+		{Name: "billing_session_callers", Migrated: true},
+		{Name: "admin_quota_mutations", Migrated: true},
 	}
 }
 
 type DurableQuotaWriteAudit struct {
-	CanEnable             bool                      `json:"can_enable"`
-	State                 *QuotaWriterEpoch         `json:"state,omitempty"`
-	Writers               []QuotaWriterRegistration `json:"writers"`
-	AllWritersMigrated    bool                      `json:"all_writers_migrated"`
-	BatchQueueEmpty       bool                      `json:"batch_queue_empty"`
-	ProjectionPending     int64                     `json:"projection_pending"`
-	RedisEpochConsistent  bool                      `json:"redis_epoch_consistent"`
-	ClusterDrainAck       bool                      `json:"cluster_drain_ack"`
-	InflightZero          bool                      `json:"inflight_zero"`
-	MissingOrFailedChecks []string                  `json:"missing_or_failed_checks,omitempty"`
+	CanEnable                bool                      `json:"can_enable"`
+	State                    *QuotaWriterEpoch         `json:"state,omitempty"`
+	Writers                  []QuotaWriterRegistration `json:"writers"`
+	AllWritersMigrated       bool                      `json:"all_writers_migrated"`
+	BatchQueueEmpty          bool                      `json:"batch_queue_empty"`
+	ProjectionPending        int64                     `json:"projection_pending"`
+	BalanceDrainPending      int64                     `json:"balance_drain_pending"`
+	BalanceDrainInflightZero bool                      `json:"balance_drain_inflight_zero"`
+	MaintenanceBackfillDone  bool                      `json:"maintenance_backfill_done"`
+	RedisEpochConsistent     bool                      `json:"redis_epoch_consistent"`
+	ClusterDrainAck          bool                      `json:"cluster_drain_ack"`
+	InflightSessions         int64                     `json:"inflight_sessions"`
+	InflightZero             bool                      `json:"inflight_zero"`
+	MissingOrFailedChecks    []string                  `json:"missing_or_failed_checks,omitempty"`
 }
 
+// quotaWriterRegistrationsForAudit is the audit's view of the writer
+// registration table. Tests override it to exercise the gated apply path; the
+// production table itself is unchanged.
+var quotaWriterRegistrationsForAudit = ProductionQuotaWriterRegistrations
+
 func quotaBatchQueueEmpty() bool {
-	for i := 0; i < BatchUpdateTypeCount; i++ {
+	for _, i := range []int{BatchUpdateTypeUserQuota, BatchUpdateTypeTokenQuota} {
 		batchUpdateLocks[i].Lock()
 		empty := len(batchUpdateStores[i]) == 0
 		batchUpdateLocks[i].Unlock()
@@ -239,7 +304,7 @@ func redisQuotaEpochConsistent(ctx context.Context, expected int64) (bool, error
 // CanEnableDurableQuotaWrites is a fail-closed audit only. It never changes a
 // gate, mode, epoch, cache, queue, or obligation.
 func CanEnableDurableQuotaWrites(ctx context.Context, db *gorm.DB) (DurableQuotaWriteAudit, error) {
-	audit := DurableQuotaWriteAudit{Writers: ProductionQuotaWriterRegistrations()}
+	audit := DurableQuotaWriteAudit{Writers: quotaWriterRegistrationsForAudit()}
 	state, err := GetQuotaWriterEpochState(db)
 	if err != nil {
 		audit.MissingOrFailedChecks = append(audit.MissingOrFailedChecks, "writer_epoch_state")
@@ -260,6 +325,28 @@ func CanEnableDurableQuotaWrites(ctx context.Context, db *gorm.DB) (DurableQuota
 	if !audit.BatchQueueEmpty {
 		audit.MissingOrFailedChecks = append(audit.MissingOrFailedChecks, "batch_queue_empty")
 	}
+	balanceDrainPending, balanceInflight, drainErr := quotaBalanceBatchDrainAudit(db)
+	if drainErr != nil {
+		audit.MissingOrFailedChecks = append(audit.MissingOrFailedChecks, "balance_drain_state")
+		return audit, drainErr
+	}
+	audit.BalanceDrainPending = balanceDrainPending
+	audit.BalanceDrainInflightZero = !balanceInflight && balanceDrainPending == 0
+	if balanceDrainPending != 0 {
+		audit.MissingOrFailedChecks = append(audit.MissingOrFailedChecks, "balance_drain_pending")
+	}
+	if !audit.BalanceDrainInflightZero {
+		audit.MissingOrFailedChecks = append(audit.MissingOrFailedChecks, "balance_drain_inflight_zero")
+	}
+	backfillComplete, backfillErr := QuotaMaintenanceBackfillsComplete(ctx, db)
+	if backfillErr != nil {
+		audit.MissingOrFailedChecks = append(audit.MissingOrFailedChecks, "maintenance_backfill")
+		return audit, backfillErr
+	}
+	audit.MaintenanceBackfillDone = backfillComplete
+	if !backfillComplete {
+		audit.MissingOrFailedChecks = append(audit.MissingOrFailedChecks, "maintenance_backfill")
+	}
 	if err := db.Model(&QuotaProjectionObligation{}).Where("state <> ?", string(QuotaProjectionObligationStateApplied)).Count(&audit.ProjectionPending).Error; err != nil {
 		audit.MissingOrFailedChecks = append(audit.MissingOrFailedChecks, "projection_pending")
 		return audit, err
@@ -278,11 +365,26 @@ func CanEnableDurableQuotaWrites(ctx context.Context, db *gorm.DB) (DurableQuota
 			audit.MissingOrFailedChecks = append(audit.MissingOrFailedChecks, "redis_epoch")
 		}
 	}
-	// WP3-A has no distributed drain/inflight proof source. Missing evidence is
-	// explicit and fail-closed; local process state must never stand in for it.
-	audit.MissingOrFailedChecks = append(audit.MissingOrFailedChecks, "cluster_drain_ack", "inflight_zero")
+	// A distributed transition requires an explicit operator acknowledgement,
+	// persisted in the Option table and bound to the current epoch. The
+	// process-local in-flight session counter completes the picture for this
+	// process; multi-process fleets are covered by the acknowledgement.
+	ackValid, ackErr := quotaWriterClusterDrainAckValid(db, state.Epoch)
+	if ackErr != nil {
+		audit.MissingOrFailedChecks = append(audit.MissingOrFailedChecks, "cluster_drain_ack")
+		return audit, ackErr
+	}
+	audit.ClusterDrainAck = ackValid
+	if !ackValid {
+		audit.MissingOrFailedChecks = append(audit.MissingOrFailedChecks, "cluster_drain_ack")
+	}
+	audit.InflightSessions = QuotaWriterInflightSessions()
+	audit.InflightZero = audit.InflightSessions == 0
+	if !audit.InflightZero {
+		audit.MissingOrFailedChecks = append(audit.MissingOrFailedChecks, "inflight_zero")
+	}
 	audit.CanEnable = audit.AllWritersMigrated && audit.ClusterDrainAck && audit.InflightZero &&
-		audit.BatchQueueEmpty && audit.ProjectionPending == 0 && audit.RedisEpochConsistent
+		audit.BatchQueueEmpty && audit.BalanceDrainInflightZero && audit.MaintenanceBackfillDone && audit.ProjectionPending == 0 && audit.RedisEpochConsistent
 	return audit, nil
 }
 

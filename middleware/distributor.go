@@ -39,6 +39,8 @@ func Distribute() func(c *gin.Context) {
 			abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorInvalidRequest, map[string]any{"Error": err.Error()}))
 			return
 		}
+		usingGroup := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
+		selectGroup := ""
 		if ok {
 			id, err := strconv.Atoi(channelId.(string))
 			if err != nil {
@@ -82,8 +84,6 @@ func Distribute() func(c *gin.Context) {
 					abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorModelNameRequired))
 					return
 				}
-				var selectGroup string
-				usingGroup := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
 				// check path is /pg/chat/completions
 				if strings.HasPrefix(c.Request.URL.Path, "/pg/chat/completions") {
 					playgroundRequest := &dto.PlayGroundRequest{}
@@ -159,6 +159,21 @@ func Distribute() func(c *gin.Context) {
 						return
 					}
 				}
+
+			}
+		}
+		if shouldSelectChannel && channel != nil {
+			// S3/D04 access policy hook: the legacy channel selection above is
+			// the authority. Automatic routing resolves its final group in
+			// selectGroup, so policy comparison must use that group rather than
+			// the request's "auto" selector. This also covers an explicitly
+			// selected channel before its first upstream dispatch.
+			policyGroup := usingGroup
+			if selectGroup != "" {
+				policyGroup = selectGroup
+			}
+			if applyAccessPolicyDecision(c, policyGroup, modelRequest.Model) {
+				return
 			}
 		}
 		common.SetContextKey(c, constant.ContextKeyRequestStartTime, time.Now())

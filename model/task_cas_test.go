@@ -60,6 +60,14 @@ func TestMain(m *testing.M) {
 		&SystemTaskLock{},
 		&QuotaMutationReceipt{},
 		&UserQuotaMutationReceipt{},
+		&AccountQuotaMutationReceipt{},
+		&AccountQuotaReservationHead{},
+		&AccountQuotaTerminalRecoveryObligation{},
+		&AccountQuotaRefundFact{},
+		&AccountQuotaSettlementFact{},
+		&QuotaBalanceBatchDrain{},
+		&QuotaBalanceBatchSubject{},
+		&QuotaWorkCursor{},
 		&QuotaWriterEpoch{},
 		&QuotaProjectionObligation{},
 	); err != nil {
@@ -98,7 +106,14 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM system_instances")
 		DB.Exec("DELETE FROM system_task_locks")
 		DB.Exec("DELETE FROM system_tasks")
+		DB.Exec("DELETE FROM account_quota_settlement_facts")
+		DB.Exec("DELETE FROM quota_balance_batch_subjects")
 		DB.Exec("DELETE FROM quota_projection_obligations")
+		DB.Exec("DELETE FROM quota_balance_batch_drains")
+		DB.Exec("DELETE FROM quota_work_cursors")
+		DB.Exec("DELETE FROM account_quota_reservation_heads")
+		DB.Exec("DELETE FROM account_quota_terminal_recovery_obligations")
+		DB.Exec("DELETE FROM account_quota_mutation_receipts")
 		DB.Exec("DELETE FROM user_quota_mutation_receipts")
 		DB.Exec("DELETE FROM quota_mutation_receipts")
 	})

@@ -125,8 +125,9 @@ type diskStorage struct {
 }
 
 func newDiskStorage(data []byte, cachePath string) (*diskStorage, error) {
-	// 使用统一的缓存目录管理
-	filePath, file, err := CreateDiskCacheFile(DiskCacheTypeBody)
+	// 使用调用方决策时生效代快照携带的缓存根目录；
+	// 不得在此重读全局配置，否则一次决策的目录选择会与判定时不一致。
+	filePath, file, err := CreateDiskCacheFileIn(DiskCacheTypeBody, cachePath)
 	if err != nil {
 		return nil, err
 	}
@@ -157,8 +158,8 @@ func newDiskStorage(data []byte, cachePath string) (*diskStorage, error) {
 }
 
 func newDiskStorageFromReader(reader io.Reader, maxBytes int64, cachePath string) (*diskStorage, error) {
-	// 使用统一的缓存目录管理
-	filePath, file, err := CreateDiskCacheFile(DiskCacheTypeBody)
+	// 与 newDiskStorage 相同：目录以构造时传入的生效代快照为准。
+	filePath, file, err := CreateDiskCacheFileIn(DiskCacheTypeBody, cachePath)
 	if err != nil {
 		return nil, err
 	}
@@ -285,13 +286,15 @@ func (d *diskStorage) IsDisk() bool {
 // CreateBodyStorage 根据数据大小创建合适的存储
 func CreateBodyStorage(data []byte) (BodyStorage, error) {
 	size := int64(len(data))
-	threshold := GetDiskCacheThresholdBytes()
+	// 单次决策读取同一生效代快照：enabled/threshold/max/path 来自同一代。
+	config := GetDiskCacheConfig()
+	threshold := int64(config.ThresholdMB) << 20
 
 	// 检查是否应该使用磁盘缓存
-	if IsDiskCacheEnabled() &&
+	if config.Enabled &&
 		size >= threshold &&
-		IsDiskCacheAvailable(size) {
-		storage, err := newDiskStorage(data, GetDiskCachePath())
+		isDiskCacheAvailableFor(config, size) {
+		storage, err := newDiskStorage(data, config.Path)
 		if err != nil {
 			// 如果磁盘存储失败，回退到内存存储
 			SysError(fmt.Sprintf("failed to create disk storage, falling back to memory: %v", err))
@@ -303,16 +306,25 @@ func CreateBodyStorage(data []byte) (BodyStorage, error) {
 	return newMemoryStorage(data), nil
 }
 
+// isDiskCacheAvailableFor 按给定生效代快照检查容量是否足够。
+func isDiskCacheAvailableFor(config DiskCacheConfig, requestSize int64) bool {
+	maxBytes := int64(config.MaxSizeMB) << 20
+	currentUsage := atomic.LoadInt64(&diskCacheStats.CurrentDiskUsageBytes)
+	return currentUsage+requestSize <= maxBytes
+}
+
 // CreateBodyStorageFromReader 从 Reader 创建存储（用于大请求的流式处理）
 func CreateBodyStorageFromReader(reader io.Reader, contentLength int64, maxBytes int64) (BodyStorage, error) {
-	threshold := GetDiskCacheThresholdBytes()
+	// 单次决策读取同一生效代快照。
+	config := GetDiskCacheConfig()
+	threshold := int64(config.ThresholdMB) << 20
 
 	// 如果启用了磁盘缓存且内容长度超过阈值，直接使用磁盘存储
-	if IsDiskCacheEnabled() &&
+	if config.Enabled &&
 		contentLength > 0 &&
 		contentLength >= threshold &&
-		IsDiskCacheAvailable(contentLength) {
-		storage, err := newDiskStorageFromReader(reader, maxBytes, GetDiskCachePath())
+		isDiskCacheAvailableFor(config, contentLength) {
+		storage, err := newDiskStorageFromReader(reader, maxBytes, config.Path)
 		if err != nil {
 			if IsRequestBodyTooLargeError(err) {
 				return nil, err

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -173,6 +174,8 @@ func InitOptionMap() {
 	common.OptionMap["ChannelQuotaSyncEnabled"] = "true"
 	common.OptionMap["ChannelQuotaSyncIntervalMinutes"] = "1"
 	common.OptionMap["ChannelQuotaSyncMaxChannels"] = "100"
+	common.OptionMap["ChannelQuotaAlertWebhookURL"] = common.ChannelQuotaAlertWebhookURL
+	common.OptionMap["ChannelQuotaAlertWebhookSecret"] = common.ChannelQuotaAlertWebhookSecret
 	if quotaAlertJSON, err := common.MarshalChannelQuotaAlertSettings(common.ChannelQuotaAlertSettings{
 		Enabled:          common.ChannelQuotaAlertEnabled,
 		WarningPercent:   common.ChannelQuotaAlertWarningPercent,
@@ -258,8 +261,26 @@ func loadOptionsFromDatabaseLocked() {
 	rateLimitValues := make(map[string]string)
 	groupRatioValues := make(map[string]string, len(groupRatioOptionPairs)*2)
 	passkeyValues := make(map[string]string)
+	userFundingValues := make(map[string]string, 2)
+	accessProfileValues := make(map[string]string, 2)
+	paymentFundingLoadFailed := false
 	var serverAddress *string
 	for _, option := range options {
+		if option.Key == UserFundingStateOptionKey {
+			continue
+		}
+		if option.Key == typedBulkRevisionOptionKey {
+			// Internal typed bulk CAS counter: never published to OptionMap.
+			continue
+		}
+		if field, ok := accessProfileSettingField(option.Key); ok {
+			accessProfileValues[field] = option.Value
+			continue
+		}
+		if strings.HasPrefix(option.Key, "user_funding_setting.") {
+			userFundingValues[strings.TrimPrefix(option.Key, "user_funding_setting.")] = option.Value
+			continue
+		}
 		if _, ok := groupRatioOptionPairForKey(option.Key); ok {
 			groupRatioValues[option.Key] = option.Value
 			continue
@@ -279,7 +300,24 @@ func loadOptionsFromDatabaseLocked() {
 		}
 		err := updateOptionMap(option.Key, option.Value)
 		if err != nil {
+			if IsPaymentFundingOptionKey(option.Key) {
+				paymentFundingLoadFailed = true
+			}
 			common.SysLog("failed to update option map: " + err.Error())
+		}
+	}
+	if len(accessProfileValues) > 0 {
+		registry := config.GlobalConfig.Get("access_profile_setting")
+		if registry == nil {
+			common.SysLog("failed to load access profile settings: registry is not registered")
+		} else if err := config.UpdateConfigFromMap(registry, accessProfileValues); err != nil {
+			common.SysLog("failed to publish access profile settings from database: " + err.Error())
+		} else {
+			common.OptionMapRWMutex.Lock()
+			for field, value := range accessProfileValues {
+				common.OptionMap["access_profile_setting."+field] = value
+			}
+			common.OptionMapRWMutex.Unlock()
 		}
 	}
 	for _, pair := range groupRatioOptionPairs {
@@ -292,6 +330,27 @@ func loadOptionsFromDatabaseLocked() {
 	}
 	if err := publishPasskeyAndServerAddressOptions(serverAddress, passkeyValues); err != nil {
 		common.SysLog("failed to update Passkey and ServerAddress options: " + err.Error())
+	}
+	if len(userFundingValues) > 0 {
+		cfg := config.GlobalConfig.Get("user_funding_setting")
+		if cfg != nil {
+			updateErr := config.UpdateConfigFromMap(cfg, userFundingValues)
+			published := operation_setting.GetUserFundingSetting()
+			if paymentFundingLoadFailed {
+				_ = operation_setting.PublishUserFundingSnapshot(operation_setting.UserFundingModeDisabled, published.Epoch)
+				published = operation_setting.GetUserFundingSetting()
+			}
+			common.OptionMapRWMutex.Lock()
+			common.OptionMap[operation_setting.UserFundingModeOptionKey] = string(published.Mode)
+			common.OptionMap[operation_setting.UserFundingEpochOptionKey] = strconv.FormatUint(published.Epoch, 10)
+			common.OptionMapRWMutex.Unlock()
+			if updateErr != nil {
+				common.SysLog("failed to update user funding options; mode forced disabled: " + updateErr.Error())
+			}
+			if paymentFundingLoadFailed {
+				common.SysLog("failed to load payment funding options; mode forced disabled")
+			}
+		}
 	}
 }
 
@@ -386,6 +445,9 @@ func validateOptionValue(key string, value string) error {
 	}
 	if key == "access_profile_setting.profiles" {
 		return setting.ValidateAccessProfileDefinitionsJSON(value)
+	}
+	if key == "access_profile_setting.account_tiers" {
+		return setting.ValidateAccountTierDefinitionsJSON(value)
 	}
 	parts := strings.SplitN(key, ".", 2)
 	if len(parts) == 2 {
@@ -537,6 +599,19 @@ func UpdateOptionsBulk(values map[string]string) error {
 	if len(values) == 0 {
 		return nil
 	}
+	// Only the explicit funding-mode key is allowed to enter the funding
+	// state transition path. Payment configuration can be saved alongside
+	// ordinary options without changing mode, epoch, or retirement cutoffs;
+	// callers that change the mode must use the dedicated funding bulk API.
+	if _, changesFundingMode := values[operation_setting.UserFundingModeOptionKey]; changesFundingMode {
+		for key := range values {
+			if !IsPaymentFundingOptionKey(key) {
+				return errors.New("user funding mode cannot be mixed with unrelated options")
+			}
+		}
+		_, err := UpdatePaymentFundingOptionsBulk(values)
+		return err
+	}
 	normalized := make(map[string]string, len(values)+len(groupRatioOptionPairs)*2)
 	groupRatioValues := make(map[string]string, len(groupRatioOptionPairs))
 	passkeyValues := make(map[string]string)
@@ -622,7 +697,33 @@ func UpdateOptionsBulk(values map[string]string) error {
 	if err != nil {
 		return err
 	}
+	accessProfileValues := make(map[string]string)
+	for key, value := range normalized {
+		if field, ok := accessProfileSettingField(key); ok {
+			accessProfileValues[field] = value
+		}
+	}
+	if len(accessProfileValues) > 0 {
+		registry := config.GlobalConfig.Get("access_profile_setting")
+		if registry == nil {
+			return errors.New("access profile setting is not registered")
+		}
+		// Profiles and account tiers are one entitlement registry. Publish all
+		// keys from this database commit together so an in-flight request cannot
+		// combine a tier from one generation with a profile from another.
+		if err := config.UpdateConfigFromMap(registry, accessProfileValues); err != nil {
+			return err
+		}
+		common.OptionMapRWMutex.Lock()
+		for field, value := range accessProfileValues {
+			common.OptionMap["access_profile_setting."+field] = value
+		}
+		common.OptionMapRWMutex.Unlock()
+	}
 	for k, v := range normalized {
+		if _, accessProfileKey := accessProfileSettingField(k); accessProfileKey {
+			continue
+		}
 		if _, ok := passkeyOptionConfigKey(k); ok {
 			continue
 		}
@@ -658,13 +759,43 @@ func UpdateOptionsBulk(values map[string]string) error {
 	return nil
 }
 
-func updateOptionMap(key string, value string) (err error) {
+func accessProfileSettingField(key string) (string, bool) {
+	switch key {
+	case "access_profile_setting.profiles":
+		return "profiles", true
+	case "access_profile_setting.account_tiers":
+		return "account_tiers", true
+	default:
+		return "", false
+	}
+}
+
+func updateOptionMap(key string, value string) error {
+	return updateOptionMapWithRuntimeBridge(key, value, true)
+}
+
+// updateOptionMapWithoutRuntimeBridge performs the legacy per-key publication
+// (OptionMap plus package-level variables) without touching the payment
+// runtime. The payment funding bulk uses it so the whole group can enter the
+// runtime as a single candidate after every key has published successfully.
+func updateOptionMapWithoutRuntimeBridge(key string, value string) error {
+	return updateOptionMapWithRuntimeBridge(key, value, false)
+}
+
+func updateOptionMapWithRuntimeBridge(key string, value string, bridgePaymentRuntime bool) (err error) {
 	value, err = normalizeOptionValue(key, value)
 	if err != nil {
 		return err
 	}
 	if err = validateOptionValue(key, value); err != nil {
 		return err
+	}
+	var preparedPaymentMutation *setting.PaymentMutation
+	if bridgePaymentRuntime {
+		preparedPaymentMutation, err = prepareCommittedPaymentMutation(key, value)
+		if err != nil {
+			return err
+		}
 	}
 	if pair, ok := groupRatioOptionPairForKey(key); ok {
 		return publishGroupRatioOptionPair(pair, value)
@@ -681,6 +812,16 @@ func updateOptionMap(key string, value string) (err error) {
 		// Publish exactly once through the profile registry's synchronization;
 		// the generic reflective writer must never see its mutable fields.
 		if err := setting.UpdateAccessProfileDefinitionsByJSONString(value); err != nil {
+			return err
+		}
+		common.OptionMap[key] = value
+		return nil
+	}
+	if key == "access_profile_setting.account_tiers" {
+		// Account tiers share the same registry as key profiles. Publish through
+		// its managed candidate path so the persisted option, OptionMap and
+		// runtime snapshot retain the same canonical representation.
+		if err := setting.UpdateAccountTierDefinitionsByJSONString(value); err != nil {
 			return err
 		}
 		common.OptionMap[key] = value
@@ -829,6 +970,10 @@ func updateOptionMap(key string, value string) (err error) {
 		common.ChannelQuotaAlertWarningPercent, err = strconv.ParseFloat(strings.TrimSpace(value), 64)
 	case common.ChannelQuotaAlertCriticalPercentOptionKey:
 		common.ChannelQuotaAlertCriticalPercent, err = strconv.ParseFloat(strings.TrimSpace(value), 64)
+	case "ChannelQuotaAlertWebhookURL":
+		common.ChannelQuotaAlertWebhookURL = strings.TrimSpace(value)
+	case "ChannelQuotaAlertWebhookSecret":
+		common.ChannelQuotaAlertWebhookSecret = value
 	case "EmailDomainWhitelist":
 		common.EmailDomainWhitelist = strings.Split(value, ",")
 	case "SMTPServer":
@@ -1063,6 +1208,13 @@ func updateOptionMap(key string, value string) (err error) {
 			common.OptionMap[common.ChannelQuotaAlertSettingsOptionKey] = settingsJSON
 		}
 	}
+	if err == nil && preparedPaymentMutation != nil {
+		// The payment runtime generation is the authoritative read for payment
+		// order and webhook paths. Publishing here, after the legacy writes
+		// succeeded, keeps the OptionMap rollback above tied to the same
+		// failure: a failed runtime publish also restores the OptionMap entry.
+		err = paymentRuntimePublishMutation(*preparedPaymentMutation)
+	}
 	return err
 }
 
@@ -1072,6 +1224,9 @@ func normalizeOptionValue(key, value string) (string, error) {
 	}
 	if key == "access_profile_setting.profiles" {
 		return setting.NormalizeAccessProfileDefinitionsJSON(value)
+	}
+	if key == "access_profile_setting.account_tiers" {
+		return setting.NormalizeAccountTierDefinitionsJSON(value)
 	}
 	if strings.TrimSpace(value) != "null" {
 		return value, nil
@@ -1228,6 +1383,10 @@ func handleConfigUpdate(key, value string) (bool, error) {
 
 	// 特定配置的后处理
 	if configName == "performance_setting" {
+		// 保存只发布新配置代：热字段（启用/阈值/监控）立即生效；
+		// 磁盘放置字段（disk_cache_path / disk_cache_max_size_mb）不在此迁移，
+		// 须经 POST /api/option/disk_cache/rebuild 维护重建或重启生效
+		// （D14/D15 合同：避免普通保存偷偷迁移正在使用的磁盘缓存）。
 		performance_setting.UpdateAndSync()
 	} else if configName == "billing_setting" {
 		InvalidatePricingCache()

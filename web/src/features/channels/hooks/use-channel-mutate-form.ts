@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useMutation } from '@tanstack/react-query'
+import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -32,9 +33,11 @@ import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
 import {
   transformFormDataToCreatePayload,
   transformFormDataToUpdatePayload,
+  resolveChannelOperationAttempt,
+  notifyChannelMutationSuccess,
   type ChannelFormValues,
 } from '../lib'
-import type { Channel } from '../types'
+import type { Channel, ChannelMutationResponse } from '../types'
 
 type UseChannelMutateFormParams = {
   currentRow?: Channel | null
@@ -82,6 +85,10 @@ function getErrorMessage(error: unknown): string | undefined {
 
 export function useChannelMutateForm(props: UseChannelMutateFormParams) {
   const { t } = useTranslation()
+  const createOperationRef = useRef<{
+    fingerprint: string
+    operationKey: string
+  } | null>(null)
   const currentUser = useAuthStore((s) => s.auth.user)
   const canEditSensitive = hasPermission(
     currentUser,
@@ -90,7 +97,12 @@ export function useChannelMutateForm(props: UseChannelMutateFormParams) {
   )
 
   return useMutation({
-    mutationFn: async (data: ChannelFormValues): Promise<string> => {
+    mutationFn: async (
+      data: ChannelFormValues
+    ): Promise<{
+      messageKey: string
+      response: ChannelMutationResponse<unknown>
+    }> => {
       if (props.isEditing && props.currentRow) {
         const payload = transformFormDataToUpdatePayload(
           data,
@@ -122,18 +134,25 @@ export function useChannelMutateForm(props: UseChannelMutateFormParams) {
         if (!response.success) {
           throw new Error(response.message || t(ERROR_MESSAGES.UPDATE_FAILED))
         }
-        return SUCCESS_MESSAGES.UPDATED
+        return { messageKey: SUCCESS_MESSAGES.UPDATED, response }
       }
 
       const payload = transformFormDataToCreatePayload(data)
-      const response = await createChannel(payload)
+      const fingerprint = JSON.stringify(payload)
+      const operation = resolveChannelOperationAttempt(
+        createOperationRef.current,
+        fingerprint
+      )
+      createOperationRef.current = operation
+      const response = await createChannel(payload, operation.operationKey)
       if (!response.success) {
         throw new Error(response.message || t(ERROR_MESSAGES.CREATE_FAILED))
       }
-      return SUCCESS_MESSAGES.CREATED
+      createOperationRef.current = null
+      return { messageKey: SUCCESS_MESSAGES.CREATED, response }
     },
-    onSuccess: (messageKey) => {
-      toast.success(t(messageKey))
+    onSuccess: ({ messageKey, response }) => {
+      notifyChannelMutationSuccess(response, t(messageKey))
       props.onSuccess()
     },
     onError: (error: unknown) => {

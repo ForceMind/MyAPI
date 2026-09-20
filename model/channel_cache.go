@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -15,239 +13,398 @@ import (
 	"github.com/ForceMind/MyAPI/logger"
 	"github.com/ForceMind/MyAPI/relaykit/dto"
 	"github.com/ForceMind/MyAPI/setting/ratio_setting"
+	"gorm.io/gorm"
 )
 
-var group2model2channels map[string]map[string][]int // enabled channel
-var channelsIDM map[int]*Channel                     // all channels include disabled
+var group2model2channels map[string]map[string][]int // enabled channel IDs from abilities
+var group2model2routingCandidates map[string]map[string][]ChannelRoutingCandidate
+var channelsIDM map[int]*Channel // all channels include disabled
 // channel2advancedCustomConfig caches parsed Advanced Custom (type 58) configs so
 // path-aware selection avoids re-parsing JSON per request. Refreshed on full sync.
 var channel2advancedCustomConfig map[int]*dto.AdvancedCustomConfig
 var channelSyncLock sync.RWMutex
+var channelCacheRefreshLock sync.Mutex
+var channelCacheDataGeneration uint64
+var channelCachePublishGeneration uint64
+var channelCacheObservedCommittedEpoch int64
+var channelCachePublishedEpoch int64
+var channelCacheDB *gorm.DB
+
+const (
+	ChannelRoutingSourceCache    = "cache"
+	ChannelRoutingSourceDatabase = "database"
+)
+
+// ChannelCachePublicationState reports whether the runtime routing cache has
+// published the latest committed channel/ability generation.
+type ChannelCachePublicationState struct {
+	DataGeneration        uint64 `json:"data_generation"`
+	PublishedGeneration   uint64 `json:"published_generation"`
+	ClusterCommittedEpoch int64  `json:"cluster_committed_epoch"`
+	LocalPublishedEpoch   int64  `json:"local_published_epoch"`
+	CacheEnabled          bool   `json:"cache_enabled"`
+	CachePending          bool   `json:"cache_pending"`
+}
+
+// ChannelCacheRefreshError means the database mutation committed, but the
+// runtime cache could not publish that committed generation.
+type ChannelCacheRefreshError struct {
+	Err error
+}
+
+func (e *ChannelCacheRefreshError) Error() string {
+	return "channel data committed but cache refresh failed: " + e.Err.Error()
+}
+
+func (e *ChannelCacheRefreshError) Unwrap() error {
+	return e.Err
+}
+
+func IsChannelCacheRefreshError(err error) bool {
+	var refreshErr *ChannelCacheRefreshError
+	return errors.As(err, &refreshErr)
+}
 
 // channelCredentialCacheGeneration fences full-cache snapshots against
 // credential writes that commit while InitChannelCache is reading the DB.
 // It is protected by channelSyncLock.
 var channelCredentialCacheGeneration uint64
 
-func InitChannelCache() {
-	if !common.MemoryCacheEnabled {
-		InvalidatePricingCache()
-		return
+type channelCacheSnapshotRow struct {
+	Channel
+	AbilityChannelID *int    `gorm:"column:ability_channel_id"`
+	AbilityGroup     *string `gorm:"column:ability_group"`
+	AbilityModel     *string `gorm:"column:ability_model"`
+	AbilityEnabled   *bool   `gorm:"column:ability_enabled"`
+	AbilityPriority  *int64  `gorm:"column:ability_priority"`
+	AbilityWeight    *uint   `gorm:"column:ability_weight"`
+}
+
+func InitChannelCache() error {
+	if DB == nil {
+		return gorm.ErrInvalidDB
 	}
+	channelSyncLock.Lock()
+	if channelCacheDB != DB {
+		channelCacheDB = DB
+		channelCacheObservedCommittedEpoch = 0
+		channelCachePublishedEpoch = 0
+		channelCacheDataGeneration = 0
+		channelCachePublishGeneration = 0
+	}
+	channelSyncLock.Unlock()
+	if err := ensureChannelRoutingSchema(DB); err != nil {
+		return err
+	}
+	if !common.MemoryCacheEnabled {
+		if committedEpoch, err := GetCommittedChannelRoutingEpoch(DB); err == nil {
+			observeCommittedChannelRoutingEpoch(committedEpoch)
+		}
+		InvalidatePricingCache()
+		return nil
+	}
+
+	channelCacheRefreshLock.Lock()
+	defer channelCacheRefreshLock.Unlock()
+
 	for {
 		channelSyncLock.RLock()
-		readGeneration := channelCredentialCacheGeneration
+		credentialGeneration := channelCredentialCacheGeneration
 		channelSyncLock.RUnlock()
 
-		newChannelId2channel := make(map[int]*Channel)
-		newChannel2advancedCustomConfig := make(map[int]*dto.AdvancedCustomConfig)
-		var channels []*Channel
-		DB.Find(&channels)
-		for _, channel := range channels {
-			newChannelId2channel[channel.Id] = channel
-			if channel.Type == constant.ChannelTypeAdvancedCustom {
-				if config := channel.GetOtherSettings().AdvancedCustom; config != nil {
-					newChannel2advancedCustomConfig[channel.Id] = config
-				}
-			}
+		rows, snapshotEpoch, err := loadChannelCacheSnapshot()
+		if err != nil {
+			common.SysError("failed to load channel cache snapshot: " + err.Error())
+			return err
 		}
-		var abilities []*Ability
-		DB.Find(&abilities)
-		groups := make(map[string]bool)
-		for _, ability := range abilities {
-			groups[ability.Group] = true
-		}
-		newGroup2model2channels := make(map[string]map[string][]int)
-		for group := range groups {
-			newGroup2model2channels[group] = make(map[string][]int)
-		}
-		for _, channel := range channels {
-			if channel.Status != common.ChannelStatusEnabled {
-				continue // skip disabled channels
-			}
-			groups := strings.Split(channel.Group, ",")
-			for _, group := range groups {
-				models := strings.Split(channel.Models, ",")
-				for _, model := range models {
-					if _, ok := newGroup2model2channels[group][model]; !ok {
-						newGroup2model2channels[group][model] = make([]int, 0)
-					}
-					newGroup2model2channels[group][model] = append(newGroup2model2channels[group][model], channel.Id)
-				}
-			}
-		}
+		newChannelIDToChannel, newGroup2Model2Channels, newGroup2Model2RoutingCandidates, newChannel2AdvancedCustomConfig := buildChannelCacheSnapshot(rows)
 
-		// sort by priority
-		for group, model2channels := range newGroup2model2channels {
-			for model, channels := range model2channels {
-				sort.Slice(channels, func(i, j int) bool {
-					return newChannelId2channel[channels[i]].GetPriority() > newChannelId2channel[channels[j]].GetPriority()
-				})
-				newGroup2model2channels[group][model] = channels
-			}
+		latestEpoch, err := GetCommittedChannelRoutingEpoch(DB)
+		if err != nil {
+			return err
+		}
+		if latestEpoch != snapshotEpoch {
+			continue
 		}
 
 		channelSyncLock.Lock()
-		if channelCredentialCacheGeneration != readGeneration {
+		if channelCredentialCacheGeneration != credentialGeneration {
 			channelSyncLock.Unlock()
 			continue
 		}
-		group2model2channels = newGroup2model2channels
-		//channelsIDM = newChannelId2channel
-		for i, channel := range newChannelId2channel {
+		for id, channel := range newChannelIDToChannel {
 			if channel.ChannelInfo.IsMultiKey {
 				channel.Keys = channel.GetKeys()
 				if channel.ChannelInfo.MultiKeyMode == constant.MultiKeyModePolling {
-					if oldChannel, ok := channelsIDM[i]; ok {
-						// 存在旧的渠道，如果是多key且轮询，保留轮询索引信息
-						if oldChannel.ChannelInfo.IsMultiKey && oldChannel.ChannelInfo.MultiKeyMode == constant.MultiKeyModePolling {
-							channel.ChannelInfo.MultiKeyPollingIndex = oldChannel.ChannelInfo.MultiKeyPollingIndex
-						}
+					if oldChannel, ok := channelsIDM[id]; ok && oldChannel.ChannelInfo.IsMultiKey && oldChannel.ChannelInfo.MultiKeyMode == constant.MultiKeyModePolling {
+						channel.ChannelInfo.MultiKeyPollingIndex = oldChannel.ChannelInfo.MultiKeyPollingIndex
 					}
 				}
 			}
 		}
-		channelsIDM = newChannelId2channel
-		channel2advancedCustomConfig = newChannel2advancedCustomConfig
+		group2model2channels = newGroup2Model2Channels
+		group2model2routingCandidates = newGroup2Model2RoutingCandidates
+		channelsIDM = newChannelIDToChannel
+		channel2advancedCustomConfig = newChannel2AdvancedCustomConfig
+		if snapshotEpoch > channelCacheObservedCommittedEpoch {
+			channelCacheObservedCommittedEpoch = snapshotEpoch
+		}
+		channelCachePublishedEpoch = snapshotEpoch
+		channelCacheDataGeneration = uint64(channelCacheObservedCommittedEpoch)
+		channelCachePublishGeneration = uint64(channelCachePublishedEpoch)
 		channelSyncLock.Unlock()
 		break
 	}
+
 	// Lock ordering: InvalidatePricingCache acquires updatePricingLock, and
 	// GetPricing (holding updatePricingLock) nests channelSyncLock.RLock via
 	// loadPricingAdvancedCustomConfigs. channelSyncLock MUST be released before
 	// invalidating the pricing cache, otherwise the reversed order deadlocks.
 	InvalidatePricingCache()
 	common.SysLog("channels synced from database")
+	return nil
+}
+
+func loadChannelCacheSnapshot() ([]channelCacheSnapshotRow, int64, error) {
+	groupColumn := "`group`"
+	if DB.Dialector.Name() == "postgres" {
+		groupColumn = `"group"`
+	}
+	selectColumns := "channels.*, " +
+		"abilities.channel_id AS ability_channel_id, " +
+		"abilities." + groupColumn + " AS ability_group, " +
+		"abilities.model AS ability_model, " +
+		"abilities.enabled AS ability_enabled, " +
+		"abilities.priority AS ability_priority, " +
+		"abilities.weight AS ability_weight"
+	for attempt := 0; attempt < 16; attempt++ {
+		beforeEpoch, err := GetCommittedChannelRoutingEpoch(DB)
+		if err != nil {
+			return nil, 0, err
+		}
+		rows := make([]channelCacheSnapshotRow, 0)
+		if err := DB.Table("channels").
+			Select(selectColumns).
+			Joins("LEFT JOIN abilities ON abilities.channel_id = channels.id").
+			Order("channels.id ASC").
+			Find(&rows).Error; err != nil {
+			return nil, 0, err
+		}
+		afterEpoch, err := GetCommittedChannelRoutingEpoch(DB)
+		if err != nil {
+			return nil, 0, err
+		}
+		if beforeEpoch == afterEpoch {
+			return rows, afterEpoch, nil
+		}
+	}
+	return nil, 0, errors.New("channel routing snapshot changed too frequently")
+}
+
+func buildChannelCacheSnapshot(rows []channelCacheSnapshotRow) (
+	map[int]*Channel,
+	map[string]map[string][]int,
+	map[string]map[string][]ChannelRoutingCandidate,
+	map[int]*dto.AdvancedCustomConfig,
+) {
+	newChannelIDToChannel := make(map[int]*Channel)
+	newChannel2AdvancedCustomConfig := make(map[int]*dto.AdvancedCustomConfig)
+	for i := range rows {
+		row := &rows[i]
+		if _, exists := newChannelIDToChannel[row.Id]; exists {
+			continue
+		}
+		channelCopy := row.Channel
+		newChannelIDToChannel[row.Id] = &channelCopy
+		if row.Type != constant.ChannelTypeAdvancedCustom {
+			continue
+		}
+		config, err := parseChannelAdvancedCustomRoutingConfig(&channelCopy)
+		if err == nil && config != nil {
+			newChannel2AdvancedCustomConfig[row.Id] = config
+		}
+	}
+
+	newGroup2Model2Channels := make(map[string]map[string][]int)
+	newGroup2Model2RoutingCandidates := make(map[string]map[string][]ChannelRoutingCandidate)
+	seenCandidates := make(map[string]map[string]map[int]struct{})
+	for i := range rows {
+		row := &rows[i]
+		if row.AbilityChannelID == nil || row.AbilityGroup == nil || row.AbilityModel == nil || row.AbilityEnabled == nil || !*row.AbilityEnabled {
+			continue
+		}
+		channel, ok := newChannelIDToChannel[*row.AbilityChannelID]
+		if !ok || channel.Status != common.ChannelStatusEnabled {
+			continue
+		}
+		if channel.Type == constant.ChannelTypeAdvancedCustom && newChannel2AdvancedCustomConfig[channel.Id] == nil {
+			continue
+		}
+
+		group := *row.AbilityGroup
+		modelName := *row.AbilityModel
+		if newGroup2Model2Channels[group] == nil {
+			newGroup2Model2Channels[group] = make(map[string][]int)
+			newGroup2Model2RoutingCandidates[group] = make(map[string][]ChannelRoutingCandidate)
+			seenCandidates[group] = make(map[string]map[int]struct{})
+		}
+		if seenCandidates[group][modelName] == nil {
+			seenCandidates[group][modelName] = make(map[int]struct{})
+		}
+		if _, duplicate := seenCandidates[group][modelName][channel.Id]; duplicate {
+			continue
+		}
+		seenCandidates[group][modelName][channel.Id] = struct{}{}
+
+		priority := int64(0)
+		if row.AbilityPriority != nil {
+			priority = *row.AbilityPriority
+		}
+		weight := uint(0)
+		if row.AbilityWeight != nil {
+			weight = *row.AbilityWeight
+		}
+		newGroup2Model2Channels[group][modelName] = append(newGroup2Model2Channels[group][modelName], channel.Id)
+		newGroup2Model2RoutingCandidates[group][modelName] = append(
+			newGroup2Model2RoutingCandidates[group][modelName],
+			ChannelRoutingCandidate{
+				ChannelID:   channel.Id,
+				ChannelName: channel.Name,
+				ChannelType: channel.Type,
+				Priority:    priority,
+				Weight:      weight,
+			},
+		)
+	}
+
+	for group, model2Channels := range newGroup2Model2Channels {
+		for modelName, channelIDs := range model2Channels {
+			sort.Ints(channelIDs)
+			newGroup2Model2Channels[group][modelName] = channelIDs
+			candidates := newGroup2Model2RoutingCandidates[group][modelName]
+			sort.Slice(candidates, func(i, j int) bool {
+				if candidates[i].Priority != candidates[j].Priority {
+					return candidates[i].Priority > candidates[j].Priority
+				}
+				return candidates[i].ChannelID < candidates[j].ChannelID
+			})
+			newGroup2Model2RoutingCandidates[group][modelName] = candidates
+		}
+	}
+	return newChannelIDToChannel, newGroup2Model2Channels, newGroup2Model2RoutingCandidates, newChannel2AdvancedCustomConfig
+}
+
+func GetChannelCachePublicationState() ChannelCachePublicationState {
+	state, _ := LoadChannelCachePublicationState()
+	return state
+}
+
+func LoadChannelCachePublicationState() (ChannelCachePublicationState, error) {
+	if DB == nil {
+		channelSyncLock.RLock()
+		state := channelCachePublicationStateLocked()
+		channelSyncLock.RUnlock()
+		return state, gorm.ErrInvalidDB
+	}
+	committedEpoch, err := GetCommittedChannelRoutingEpoch(DB)
+	if err != nil {
+		channelSyncLock.RLock()
+		state := channelCachePublicationStateLocked()
+		channelSyncLock.RUnlock()
+		return state, err
+	}
+	observeCommittedChannelRoutingEpoch(committedEpoch)
+	channelSyncLock.RLock()
+	state := channelCachePublicationStateLocked()
+	channelSyncLock.RUnlock()
+	return state, nil
+}
+
+func channelCachePublicationStateLocked() ChannelCachePublicationState {
+	return ChannelCachePublicationState{
+		DataGeneration:        uint64(channelCacheObservedCommittedEpoch),
+		PublishedGeneration:   uint64(channelCachePublishedEpoch),
+		ClusterCommittedEpoch: channelCacheObservedCommittedEpoch,
+		LocalPublishedEpoch:   channelCachePublishedEpoch,
+		CacheEnabled:          common.MemoryCacheEnabled,
+		CachePending:          common.MemoryCacheEnabled && channelCachePublishedEpoch < channelCacheObservedCommittedEpoch,
+	}
 }
 
 func SyncChannelCache(frequency int) {
 	for {
 		time.Sleep(time.Duration(frequency) * time.Second)
 		common.SysLog("syncing channels from database")
-		InitChannelCache()
+		if err := InitChannelCache(); err != nil {
+			common.SysError("failed to sync channels from database: " + err.Error())
+		}
 	}
 }
 
-func GetRandomSatisfiedChannel(group string, model string, retry int, requestPath string) (*Channel, error) {
-	// if memory cache is disabled, get channel directly from database
+func GetRandomSatisfiedChannel(group string, modelName string, retry int, requestPath string) (*Channel, error) {
 	if !common.MemoryCacheEnabled {
-		return GetChannel(group, model, retry, requestPath)
+		return GetChannel(group, modelName, retry, requestPath)
 	}
 
 	channelSyncLock.RLock()
 	defer channelSyncLock.RUnlock()
 
-	// First, try to find channels with the exact model name.
-	channels := filterChannelsByRequestPathAndModel(group2model2channels[group][model], requestPath, model)
-
-	// If no channels found, try to find channels with the normalized model name.
-	if len(channels) == 0 {
-		normalizedModel := ratio_setting.FormatMatchingModelName(model)
-		channels = filterChannelsByRequestPathAndModel(group2model2channels[group][normalizedModel], requestPath, model)
+	policy := getCachedChannelRoutingPolicy(group, modelName, requestPath)
+	channelID, found, err := SelectChannelFromRoutingPolicy(policy, retry)
+	if err != nil || !found {
+		return nil, err
 	}
-
-	if len(channels) == 0 {
-		return nil, nil
+	channel, ok := channelsIDM[channelID]
+	if !ok {
+		return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelID)
 	}
-
-	if len(channels) == 1 {
-		if channel, ok := channelsIDM[channels[0]]; ok {
-			return channel, nil
-		}
-		return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channels[0])
-	}
-
-	uniquePriorities := make(map[int]bool)
-	for _, channelId := range channels {
-		if channel, ok := channelsIDM[channelId]; ok {
-			uniquePriorities[int(channel.GetPriority())] = true
-		} else {
-			return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelId)
-		}
-	}
-	var sortedUniquePriorities []int
-	for priority := range uniquePriorities {
-		sortedUniquePriorities = append(sortedUniquePriorities, priority)
-	}
-	sort.Sort(sort.Reverse(sort.IntSlice(sortedUniquePriorities)))
-
-	if retry >= len(uniquePriorities) {
-		retry = len(uniquePriorities) - 1
-	}
-	targetPriority := int64(sortedUniquePriorities[retry])
-
-	// get the priority for the given retry number
-	var sumWeight = 0
-	var targetChannels []*Channel
-	for _, channelId := range channels {
-		if channel, ok := channelsIDM[channelId]; ok {
-			if channel.GetPriority() == targetPriority {
-				sumWeight += channel.GetWeight()
-				targetChannels = append(targetChannels, channel)
-			}
-		} else {
-			return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelId)
-		}
-	}
-
-	if len(targetChannels) == 0 {
-		return nil, errors.New(fmt.Sprintf("no channel found, group: %s, model: %s, priority: %d", group, model, targetPriority))
-	}
-
-	// smoothing factor and adjustment
-	smoothingFactor := 1
-	smoothingAdjustment := 0
-
-	if sumWeight == 0 {
-		// when all channels have weight 0, set sumWeight to the number of channels and set smoothing adjustment to 100
-		// each channel's effective weight = 100
-		sumWeight = len(targetChannels) * 100
-		smoothingAdjustment = 100
-	} else if sumWeight/len(targetChannels) < 10 {
-		// when the average weight is less than 10, set smoothing factor to 100
-		smoothingFactor = 100
-	}
-
-	// Calculate the total weight of all channels up to endIdx
-	totalWeight := sumWeight * smoothingFactor
-
-	// Generate a random value in the range [0, totalWeight)
-	randomWeight := rand.Intn(totalWeight)
-
-	// Find a channel based on its weight
-	for _, channel := range targetChannels {
-		randomWeight -= channel.GetWeight()*smoothingFactor + smoothingAdjustment
-		if randomWeight < 0 {
-			return channel, nil
-		}
-	}
-	// return null if no channel is not found
-	return nil, errors.New("channel not found")
+	return channel, nil
 }
 
-// filterChannelsByRequestPathAndModel restricts candidates by request path and
-// model. Only Advanced Custom (type 58) channels are path-checked: they are kept
-// only when one of their configured routes matches requestPath and model. All
-// other channel types always pass. When requestPath is empty, filtering is skipped.
-// Caller must hold channelSyncLock (read lock). The cached slice is never mutated.
-func filterChannelsByRequestPathAndModel(channels []int, requestPath string, model string) []int {
-	if requestPath == "" || len(channels) == 0 {
-		return channels
+func getCachedChannelRoutingPolicy(group string, modelName string, requestPath string) ChannelRoutingPolicy {
+	candidates := filterRoutingCandidatesByRequestPathAndModel(
+		group2model2routingCandidates[group][modelName],
+		requestPath,
+		modelName,
+	)
+	if len(candidates) == 0 {
+		normalizedModel := ratio_setting.FormatMatchingModelName(modelName)
+		if normalizedModel != "" && normalizedModel != modelName {
+			candidates = filterRoutingCandidatesByRequestPathAndModel(
+				group2model2routingCandidates[group][normalizedModel],
+				requestPath,
+				modelName,
+			)
+		}
 	}
-	filtered := make([]int, 0, len(channels))
-	for _, channelId := range channels {
-		channel, ok := channelsIDM[channelId]
+	return BuildChannelRoutingPolicy(candidates)
+}
+
+// filterRoutingCandidatesByRequestPathAndModel excludes Advanced Custom
+// channels whose settings are missing, invalid, or do not serve the requested
+// path/model. The cached candidate slice is never mutated.
+func filterRoutingCandidatesByRequestPathAndModel(candidates []ChannelRoutingCandidate, requestPath string, modelName string) []ChannelRoutingCandidate {
+	if len(candidates) == 0 {
+		return candidates
+	}
+	filtered := make([]ChannelRoutingCandidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		channel, ok := channelsIDM[candidate.ChannelID]
 		if !ok {
-			// keep it so the downstream consistency error is raised as before
-			filtered = append(filtered, channelId)
+			// Keep the candidate so the downstream consistency error is preserved.
+			filtered = append(filtered, candidate)
 			continue
 		}
 		if channel.Type != constant.ChannelTypeAdvancedCustom {
-			filtered = append(filtered, channelId)
+			filtered = append(filtered, candidate)
 			continue
 		}
-		if config := channel2advancedCustomConfig[channelId]; config != nil && config.SupportsPathForModel(requestPath, model) {
-			filtered = append(filtered, channelId)
+		config := channel2advancedCustomConfig[candidate.ChannelID]
+		if config == nil {
+			continue
+		}
+		if requestPath == "" || config.SupportsPathForModel(requestPath, modelName) {
+			filtered = append(filtered, candidate)
 		}
 	}
 	return filtered
@@ -285,27 +442,27 @@ func CacheGetChannelInfo(id int) (*ChannelInfo, error) {
 	return &c.ChannelInfo, nil
 }
 
-func CacheUpdateChannelStatus(id int, status int) {
-	if !common.MemoryCacheEnabled {
-		return
-	}
-	channelSyncLock.Lock()
-	defer channelSyncLock.Unlock()
-	if channel, ok := channelsIDM[id]; ok {
-		channel.Status = status
-	}
-	if status != common.ChannelStatusEnabled {
-		// delete the channel from group2model2channels
-		for group, model2channels := range group2model2channels {
-			for model, channels := range model2channels {
-				for i, channelId := range channels {
-					if channelId == id {
-						// remove the channel from the slice
-						group2model2channels[group][model] = append(channels[:i], channels[i+1:]...)
-						break
-					}
+func removeChannelFromRoutingCacheLocked(channelID int) {
+	for group, model2Channels := range group2model2channels {
+		for modelName, channelIDs := range model2Channels {
+			filtered := channelIDs[:0]
+			for _, id := range channelIDs {
+				if id != channelID {
+					filtered = append(filtered, id)
 				}
 			}
+			group2model2channels[group][modelName] = filtered
+		}
+	}
+	for group, model2Candidates := range group2model2routingCandidates {
+		for modelName, candidates := range model2Candidates {
+			filtered := candidates[:0]
+			for _, candidate := range candidates {
+				if candidate.ChannelID != channelID {
+					filtered = append(filtered, candidate)
+				}
+			}
+			group2model2routingCandidates[group][modelName] = filtered
 		}
 	}
 }
@@ -335,10 +492,29 @@ func CacheUpdateChannel(channel *Channel) {
 	}
 	delete(channel2advancedCustomConfig, channel.Id)
 	if channel.Type == constant.ChannelTypeAdvancedCustom {
-		if config := channel.GetOtherSettings().AdvancedCustom; config != nil {
+		config, err := parseChannelAdvancedCustomRoutingConfig(channel)
+		if err == nil && config != nil {
 			channel2advancedCustomConfig[channel.Id] = config
 		}
 	}
+	if channel.Status != common.ChannelStatusEnabled {
+		removeChannelFromRoutingCacheLocked(channel.Id)
+	} else {
+		for _, model2Candidates := range group2model2routingCandidates {
+			for modelName, candidates := range model2Candidates {
+				for i := range candidates {
+					if candidates[i].ChannelID == channel.Id {
+						candidates[i].ChannelName = channel.Name
+						candidates[i].ChannelType = channel.Type
+					}
+				}
+				model2Candidates[modelName] = candidates
+			}
+		}
+	}
+	channelCachePublishedEpoch = channelCacheObservedCommittedEpoch
+	channelCacheDataGeneration = uint64(channelCacheObservedCommittedEpoch)
+	channelCachePublishGeneration = uint64(channelCachePublishedEpoch)
 	logger.LogDebug(nil, "CacheUpdateChannel after: id=%d, name=%s, status=%d, polling_index=%d", channel.Id, channel.Name, channel.Status, channel.ChannelInfo.MultiKeyPollingIndex)
 	// Lock ordering: do NOT hold channelSyncLock while calling
 	// InvalidatePricingCache. GetPricing acquires updatePricingLock first and then

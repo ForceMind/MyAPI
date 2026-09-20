@@ -15,6 +15,7 @@ const (
 	ContextKeyTokenKey               ContextKey = "token_key"
 	ContextKeyTokenId                ContextKey = "token_id"
 	ContextKeyTokenGroup             ContextKey = "token_group"
+	ContextKeyAccessProfileID        ContextKey = "access_profile_id"
 	ContextKeyTokenSpecificChannelId ContextKey = "specific_channel_id"
 	ContextKeyTokenModelLimitEnabled ContextKey = "token_model_limit_enabled"
 	ContextKeyTokenModelLimit        ContextKey = "token_model_limit"
@@ -52,6 +53,9 @@ const (
 	ContextKeyUserGroup   ContextKey = "user_group"
 	ContextKeyUsingGroup  ContextKey = "group"
 	ContextKeyUserName    ContextKey = "username"
+	// ContextKeyAccountTierID carries the user's stable account-tier identity
+	// from the user cache into the access policy hook.
+	ContextKeyAccountTierID ContextKey = "account_tier_id"
 
 	ContextKeyLocalCountTokens ContextKey = "local_count_tokens"
 

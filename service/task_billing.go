@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"strings"
@@ -52,6 +54,7 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 		other["is_model_mapped"] = true
 		other["upstream_model_name"] = info.UpstreamModelName
 	}
+	appendBillingInfo(info, other)
 	attachQuotaSaturation(c, info, other)
 	model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{
 		ChannelId: info.ChannelId,
@@ -119,6 +122,116 @@ func taskAdjustTokenQuota(ctx context.Context, task *model.Task, delta int) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// legacy 持久事实幂等
+// ---------------------------------------------------------------------------
+
+// taskLegacyFactModeEnabled 报告当前是否应经 legacy-kind 持久事实完成 Task/MJ
+// 账务写入。仅 legacy writer 模式启用：authoritative 模式由 receipt 内核或
+// durable 任务管道负责，bridge 及其余状态回落到既有直写（在 model 层 legacy
+// 守卫 fail-closed），行为与迁移前一致。
+func taskLegacyFactModeEnabled() bool {
+	mode, err := postConsumeQuotaWriterMode()
+	return err == nil && mode == model.QuotaWriterModeLegacy
+}
+
+// legacySettlementFactOutcome 描述一次 legacy-kind 结算事实的解析结果。
+type legacySettlementFactOutcome int
+
+const (
+	// legacySettlementFactFailed 事实未能应用到 applied：调用方保留持久标记以待重试。
+	legacySettlementFactFailed legacySettlementFactOutcome = iota
+	// legacySettlementFactApplied 本次调用完成了资金与令牌写入。
+	legacySettlementFactApplied
+	// legacySettlementFactReplayed 事实在此调用前已应用：仅重放可重放的后续步骤。
+	legacySettlementFactReplayed
+)
+
+// applyLegacySettlementFact 确保并应用一条 legacy-kind 结算事实（钱包或订阅）。
+// 事实身份在首次创建时确定；后续调用先按事件键加载既有事实，并只校验不随余额
+// 变化的稳定字段（资金来源/金额/主体）。ApplyToken 由创建时的令牌 used_quota
+// 预检决定，应用后余额已变化，重放无法重算同一输入，故不参与校验。稳定字段
+// 冲突（如同键不同差额）fail-closed；已 applied 的事实判为重放，不重复写余额；
+// 租约被并发调用方持有时按未应用处理，由持有人在后续重试中完成。workerID 标识
+// 租约持有者，需有界且稳定。
+func applyLegacySettlementFact(ctx context.Context, factInput model.AccountQuotaSettlementFactInput, workerID string) legacySettlementFactOutcome {
+	fact, err := model.FindAccountQuotaSettlementFactByEventKey(model.DB, factInput.EventKey)
+	if err != nil {
+		logger.LogError(ctx, fmt.Sprintf("持久结算事实查询失败 key=%s: %s", factInput.EventKey, err.Error()))
+		return legacySettlementFactFailed
+	}
+	if fact == nil {
+		fact, err = model.EnsureAccountQuotaSettlementFact(ctx, model.DB, factInput)
+		if err != nil {
+			logger.LogError(ctx, fmt.Sprintf("持久结算事实登记失败 key=%s: %s", factInput.EventKey, err.Error()))
+			return legacySettlementFactFailed
+		}
+	} else if fact.Kind != factInput.Kind || fact.Delta != factInput.Delta || fact.UserID != factInput.UserID ||
+		fact.SubscriptionID != factInput.SubscriptionID || fact.RequestID != factInput.RequestID {
+		logger.LogError(ctx, fmt.Sprintf("持久结算事实身份冲突 key=%s", factInput.EventKey))
+		return legacySettlementFactFailed
+	}
+	if fact.State == model.AccountQuotaSettlementApplied {
+		return legacySettlementFactReplayed
+	}
+	stored, recoverErr := model.RecoverAccountQuotaSettlementFact(ctx, model.DB, fact, workerID)
+	if stored != nil && stored.State == model.AccountQuotaSettlementApplied {
+		return legacySettlementFactApplied
+	}
+	if recoverErr != nil {
+		logger.LogError(ctx, fmt.Sprintf("持久结算事实应用失败 key=%s: %s", factInput.EventKey, recoverErr.Error()))
+	} else {
+		logger.LogWarn(ctx, fmt.Sprintf("持久结算事实等待并发应用 key=%s", factInput.EventKey))
+	}
+	return legacySettlementFactFailed
+}
+
+// taskFactEventKey 将有界事实事件键映射到任务身份。TaskID/MjId 最长 191 字符，
+// 可能超过事实键 128 字符上限；超限时以 sha256 摘要保持键的确定性与稳定性。
+func taskFactEventKey(prefix, taskID string) string {
+	if len(prefix)+len(taskID) <= 128 {
+		return prefix + taskID
+	}
+	sum := sha256.Sum256([]byte(taskID))
+	return prefix + "sha256:" + hex.EncodeToString(sum[:])
+}
+
+// taskFactRequestID 将任务身份压缩进事实 RequestID 的 64 字符上限。
+func taskFactRequestID(taskID string) string {
+	if len(taskID) <= 64 {
+		return taskID
+	}
+	sum := sha256.Sum256([]byte(taskID))
+	return hex.EncodeToString(sum[:])
+}
+
+// taskSettlementFactInput 构建 Task 结算/退款共用的 legacy-kind 事实输入。
+// delta > 0 为补扣，delta < 0 为退还。令牌侧仅在令牌可解析且应用后 used_quota
+// 不为负时随事实应用：事实内核拒绝负 used，而 legacy 直写允许（used_quota 可
+// 转负），该边界由调用方在事实应用后走 taskAdjustTokenQuota 保持迁移前结果。
+// 令牌不可解析时跳过令牌侧，与 taskAdjustTokenQuota 的语义一致。
+func taskSettlementFactInput(ctx context.Context, task *model.Task, eventKey string, delta int) model.AccountQuotaSettlementFactInput {
+	input := model.AccountQuotaSettlementFactInput{
+		EventKey:  eventKey,
+		RequestID: taskFactRequestID(task.TaskID),
+		Kind:      model.AccountQuotaSettlementKindLegacyWallet,
+		UserID:    task.UserId,
+		Delta:     int64(delta),
+	}
+	if taskIsSubscription(task) {
+		input.Kind = model.AccountQuotaSettlementKindLegacySubscription
+		input.SubscriptionID = task.PrivateData.SubscriptionId
+	}
+	if task.PrivateData.TokenId > 0 {
+		if token, err := model.GetTokenById(task.PrivateData.TokenId); err == nil && token.Key != "" &&
+			int64(token.UsedQuota)+int64(delta) >= 0 {
+			input.TokenID = task.PrivateData.TokenId
+			input.ApplyToken = true
+		}
+	}
+	return input
+}
+
 // taskBillingOther 从 task 的 BillingContext 构建日志 Other 字段。
 func taskBillingOther(task *model.Task, resolved ...*model.TaskBillingContext) map[string]interface{} {
 	other := make(map[string]interface{})
@@ -182,6 +295,12 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) bool 
 		return true
 	}
 
+	if task.TaskID != "" && taskLegacyFactModeEnabled() {
+		return refundTaskQuotaLegacyFact(ctx, task, quota, reason)
+	}
+
+	// 非 legacy 模式或无稳定任务身份：保持迁移前直写机制；非 legacy 模式下由
+	// model 层 legacy 守卫 fail-closed，行为与迁移前一致。
 	// 1. 退还资金来源（钱包或订阅）
 	if err := taskAdjustFunding(task, -quota); err != nil {
 		logger.LogWarn(ctx, fmt.Sprintf("退还资金来源失败 task %s: %s", task.TaskID, err.Error()))
@@ -213,6 +332,52 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) bool 
 
 	// 5. 资金退款完成后再清除持久化标记。
 	// 回写失败必须显式告警，避免漏掉潜在的重复退款风险。
+	task.Quota = 0
+	if err := task.UpdateQuota(); err != nil {
+		logger.LogError(ctx, fmt.Sprintf("退款成功但清除 task quota 失败 task %s: %s", task.TaskID, err.Error()))
+	}
+	return true
+}
+
+// refundTaskQuotaLegacyFact 以持久事实 "task-refund:{taskID}" 执行 legacy 全额退款。
+// 退款事实先行：同一 taskID 的重复轮询/重复退款经事实指纹幂等，不多退不多扣；
+// 统计列与退款日志只在事实首次应用时执行；清除 task.Quota 是可重放的后续步骤，
+// 回写失败不会开启重复退款窗口（重试按重放处理，仅补齐清零）。
+// legacy 流程中一次任务只发生一次终态退款（状态 CAS 守卫），因此退款键无需
+// 区分阶段；同键不同指纹（金额/资金来源变化）在 Ensure 处冲突并 fail-closed。
+func refundTaskQuotaLegacyFact(ctx context.Context, task *model.Task, quota int, reason string) bool {
+	factInput := taskSettlementFactInput(ctx, task, taskFactEventKey("task-refund:", task.TaskID), -quota)
+	switch applyLegacySettlementFact(ctx, factInput, "task-polling:"+taskFactRequestID(task.TaskID)) {
+	case legacySettlementFactFailed:
+		return false
+	case legacySettlementFactApplied:
+		// 事实未覆盖令牌侧（used_quota 会转负的 legacy 宽容边界）时，按迁移前
+		// 直写机制退还令牌额度；重放不会进入此分支，不会重复退还。
+		if !factInput.ApplyToken {
+			taskAdjustTokenQuota(ctx, task, -quota)
+		}
+		// 回减预扣时累计的用户和渠道用量，请求次数保持不变
+		model.UpdateUserUsedQuota(task.UserId, -quota)
+		model.UpdateChannelUsedQuota(task.ChannelId, -quota)
+
+		// 记录日志
+		other := taskBillingOther(task)
+		other["task_id"] = task.TaskID
+		other["reason"] = reason
+		model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
+			UserId:    task.UserId,
+			LogType:   model.LogTypeRefund,
+			Content:   "",
+			ChannelId: task.ChannelId,
+			ModelName: taskModelName(task),
+			Quota:     quota,
+			TokenId:   task.PrivateData.TokenId,
+			Group:     task.Group,
+			Other:     other,
+		})
+	}
+
+	// 清除持久化标记是可重放步骤：失败仅告警，下次重试按重放补齐。
 	task.Quota = 0
 	if err := task.UpdateQuota(); err != nil {
 		logger.LogError(ctx, fmt.Sprintf("退款成功但清除 task quota 失败 task %s: %s", task.TaskID, err.Error()))
@@ -259,6 +424,7 @@ func recalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	}
 	preConsumedQuota := task.Quota
 	quotaDelta := actualQuota - preConsumedQuota
+	settleReplayed := false
 
 	if quotaDelta == 0 {
 		logger.LogInfo(ctx, fmt.Sprintf("任务 %s 预扣费准确（%s，%s）",
@@ -275,23 +441,49 @@ func recalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 			reason,
 		))
 
-		// 调整资金来源
-		if err := taskAdjustFunding(task, quotaDelta); err != nil {
-			logger.LogError(ctx, fmt.Sprintf("差额结算资金调整失败 task %s: %s", task.TaskID, err.Error()))
-			return
-		}
+		if task.TaskID != "" && taskLegacyFactModeEnabled() {
+			// legacy 持久事实 "task-settle:{taskID}"：重复轮询/重试按同一事实
+			// 幂等收敛。legacy 流程中一次任务只在终态结算一次（状态 CAS 守卫），
+			// 键无需区分阶段；同键不同指纹在 Ensure 处冲突并 fail-closed。
+			factInput := taskSettlementFactInput(ctx, task, taskFactEventKey("task-settle:", task.TaskID), quotaDelta)
+			switch applyLegacySettlementFact(ctx, factInput, "task-polling:"+taskFactRequestID(task.TaskID)) {
+			case legacySettlementFactFailed:
+				return
+			case legacySettlementFactApplied:
+				// 事实未覆盖令牌侧（used_quota 会转负的 legacy 宽容边界）时，
+				// 按迁移前直写机制调整令牌额度；重放不会进入此分支。
+				if !factInput.ApplyToken {
+					taskAdjustTokenQuota(ctx, task, quotaDelta)
+				}
+			case legacySettlementFactReplayed:
+				settleReplayed = true
+			}
+		} else {
+			// 调整资金来源
+			if err := taskAdjustFunding(task, quotaDelta); err != nil {
+				logger.LogError(ctx, fmt.Sprintf("差额结算资金调整失败 task %s: %s", task.TaskID, err.Error()))
+				return
+			}
 
-		// 调整令牌额度
-		taskAdjustTokenQuota(ctx, task, quotaDelta)
+			// 调整令牌额度
+			taskAdjustTokenQuota(ctx, task, quotaDelta)
+		}
 
 		task.Quota = actualQuota
 		if err := task.UpdateQuota(); err != nil {
 			logger.LogError(ctx, fmt.Sprintf("差额结算回写 quota 失败 task %s: %s", task.TaskID, err.Error()))
 		}
 
-		// 提交阶段已经累计过一次请求；结算阶段只调整最终用量。
-		model.UpdateUserUsedQuota(task.UserId, quotaDelta)
-		model.UpdateChannelUsedQuota(task.ChannelId, quotaDelta)
+		if !settleReplayed {
+			// 提交阶段已经累计过一次请求；结算阶段只调整最终用量。
+			model.UpdateUserUsedQuota(task.UserId, quotaDelta)
+			model.UpdateChannelUsedQuota(task.ChannelId, quotaDelta)
+		}
+	}
+
+	if settleReplayed {
+		// 重放仅补齐 task.Quota 回写；结算日志已在事实首次应用时记录。
+		return
 	}
 
 	var logType int

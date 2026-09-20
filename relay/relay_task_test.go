@@ -20,6 +20,8 @@ import (
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	relayconstant "github.com/ForceMind/MyAPI/relay/constant"
 	"github.com/ForceMind/MyAPI/service"
+	"github.com/ForceMind/MyAPI/setting"
+	"github.com/ForceMind/MyAPI/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -32,6 +34,58 @@ type trackedLegacyTaskSubmitBody struct {
 	reader    io.Reader
 	bytesRead int
 	closed    bool
+}
+
+func TestResolveOriginTaskRejectsAutoKeyWhenLockedRemixGroupIsNoLongerEligible(t *testing.T) {
+	previousDB := model.DB
+	previousMemoryCache := common.MemoryCacheEnabled
+	previousMainDatabaseType, previousLogDatabaseType := common.MainDatabaseType(), common.LogDatabaseType()
+	originalUsableGroups := setting.UserUsableGroups2JSONString()
+	originalGroupRatios := ratio_setting.GroupRatio2JSONString()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: gormlogger.Default.LogMode(gormlogger.Silent)})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	require.NoError(t, db.AutoMigrate(&model.Task{}, &model.Channel{}, &model.Ability{}))
+	model.DB = db
+	common.SetMainDatabaseType(common.DatabaseTypeSQLite)
+	model.InitColumnNamesForTest()
+	common.MemoryCacheEnabled = false
+	t.Cleanup(func() {
+		model.DB = previousDB
+		common.MemoryCacheEnabled = previousMemoryCache
+		common.SetDatabaseTypes(previousMainDatabaseType, previousLogDatabaseType)
+		model.InitColumnNamesForTest()
+		require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(originalUsableGroups))
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(originalGroupRatios))
+		require.NoError(t, sqlDB.Close())
+	})
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"group-a":"Group A","group-b":"Group B"}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"group-a":1,"group-b":1}`))
+
+	priority := int64(0)
+	weight := uint(1)
+	channel := model.Channel{Id: 71, Type: constant.ChannelTypeOpenAI, Name: "origin", Key: "origin-key", Status: common.ChannelStatusEnabled, Group: "group-b", Models: "policy-model", Priority: &priority, Weight: &weight}
+	require.NoError(t, db.Create(&channel).Error)
+	require.NoError(t, db.Create(&model.Ability{Group: "group-b", Model: "policy-model", ChannelId: channel.Id, Enabled: true, Priority: &priority, Weight: weight}).Error)
+	origin := model.Task{TaskID: "origin-remix", UserId: 17, Group: "group-b", ChannelId: channel.Id, Properties: model.Properties{OriginModelName: "policy-model"}}
+	require.NoError(t, db.Create(&origin).Error)
+	assert.True(t, model.IsChannelEnabledForGroupModel("group-b", "policy-model", channel.Id))
+
+	gin.SetMode(gin.TestMode)
+	context, _ := gin.CreateTestContext(httptest.NewRecorder())
+	context.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/origin-remix/remix", nil)
+	context.Params = gin.Params{{Key: "video_id", Value: "origin-remix"}}
+	common.SetContextKey(context, constant.ContextKeyTokenAutoGroups, []string{"group-a"})
+	info := &relaycommon.RelayInfo{UserId: origin.UserId, UserGroup: "default", TokenGroup: "auto", TaskRelayInfo: &relaycommon.TaskRelayInfo{}}
+
+	taskErr := ResolveOriginTask(context, info)
+
+	require.NotNil(t, taskErr)
+	assert.Equal(t, http.StatusForbidden, taskErr.StatusCode)
+	assert.Equal(t, "task_origin_group_access_denied", taskErr.Code)
+	assert.Nil(t, info.LockedChannel)
 }
 
 func (body *trackedLegacyTaskSubmitBody) Read(data []byte) (int, error) {
@@ -143,11 +197,13 @@ func setupRealtimeDurableTask(t *testing.T, channelType int, outcome model.TaskS
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.Channel{}, &model.UserSubscription{}, &model.Task{}, &model.TaskRecoveryIdentity{}, &model.TaskSubmissionOperation{}, &model.TaskSubmissionAttempt{}, &model.TaskTerminalObservation{}, &model.TaskBillingEvent{}, &model.TaskBillingLogOutbox{}, &model.QuotaMutationReceipt{}, &model.Log{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.Channel{}, &model.UserSubscription{}, &model.Task{}, &model.TaskRecoveryIdentity{}, &model.TaskSubmissionOperation{}, &model.TaskSubmissionAttempt{}, &model.TaskTerminalObservation{}, &model.TaskBillingEvent{}, &model.TaskBillingLogOutbox{}, &model.QuotaMutationReceipt{}, &model.AccountQuotaMutationReceipt{}, &model.AccountQuotaReservationHead{}, &model.QuotaBalanceBatchDrain{}, &model.QuotaWorkCursor{}, &model.QuotaWriterEpoch{}, &model.QuotaProjectionObligation{}, &model.Log{}))
 	oldDB, oldLogDB := model.DB, model.LOG_DB
 	model.DB, model.LOG_DB = db, db
 	t.Cleanup(func() { model.DB, model.LOG_DB = oldDB, oldLogDB })
 	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+	require.NoError(t, model.EnsureQuotaWriterEpochStateWithDB(db))
+	require.NoError(t, db.Model(&model.QuotaWriterEpoch{}).Where("id = ?", 1).Updates(map[string]any{"mode": string(model.QuotaWriterModeAuthoritative), "epoch": 1, "lock_version": gorm.Expr("lock_version + ?", 1)}).Error)
 
 	user := model.User{Username: fmt.Sprintf("rt-user-%d-%s", channelType, outcome), AffCode: fmt.Sprintf("rt-aff-%d-%s", channelType, outcome), Password: "x", Status: common.UserStatusEnabled, Quota: 1000}
 	require.NoError(t, db.Create(&user).Error)

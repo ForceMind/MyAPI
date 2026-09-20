@@ -16,11 +16,22 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { Link } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
+
 import { Main } from '@/components/layout'
 import {
   CardStaggerContainer,
   CardStaggerItem,
 } from '@/components/page-transition'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { useStatus } from '@/hooks/use-status'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -36,6 +47,7 @@ import { TwoFACard } from './components/two-fa-card'
 import { useProfile } from './hooks'
 
 export function Profile() {
+  const { t } = useTranslation()
   const { profile, loading, refreshProfile } = useProfile()
   const { status } = useStatus()
   const permissions = useAuthStore((s) => s.auth.user?.permissions)
@@ -63,6 +75,24 @@ export function Profile() {
                   loading={loading}
                   onProfileUpdate={refreshProfile}
                 />
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t('Prompt learning workspace')}</CardTitle>
+                    <CardDescription>
+                      {t(
+                        'Review authorized learning settings and instruction versions.'
+                      )}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button
+                      render={<Link to='/prompt-learning' />}
+                      variant='outline'
+                    >
+                      {t('Open prompt learning')}
+                    </Button>
+                  </CardContent>
+                </Card>
                 <LanguagePreferencesCard
                   profile={profile}
                   onProfileUpdate={refreshProfile}

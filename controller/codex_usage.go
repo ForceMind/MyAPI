@@ -17,6 +17,7 @@ import (
 	"github.com/ForceMind/MyAPI/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func GetCodexChannelUsage(c *gin.Context) {
@@ -101,52 +102,35 @@ func GetCodexChannelUsageHistory(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	pointsByTimestamp := make(map[int64]gin.H, len(snapshots))
-	pointOrder := make([]int64, 0, len(snapshots))
+	currentSnapshots, err := model.ListLatestChannelQuotaSnapshotBatch(
+		c.Request.Context(), id, start, end, "codex_rate_limit",
+	)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pointsByBatch := make(map[string]gin.H, len(snapshots))
+	pointOrder := make([]string, 0, len(snapshots))
 	successCount, errorCount, unsupportedCount := 0, 0, 0
 	for _, snapshot := range snapshots {
-		point, exists := pointsByTimestamp[snapshot.ObservedAt]
+		batchKey := codexHistoryBatchKey(snapshot)
+		point, exists := pointsByBatch[batchKey]
 		if !exists {
-			point = gin.H{"timestamp": snapshot.ObservedAt, "status": snapshot.Status}
-			pointsByTimestamp[snapshot.ObservedAt] = point
-			pointOrder = append(pointOrder, snapshot.ObservedAt)
-		}
-		if snapshot.PlanType != "" {
-			point["plan_type"] = snapshot.PlanType
-		}
-		if snapshot.Status == "success" {
-			successCount++
-			kind := ""
-			if strings.HasSuffix(snapshot.Source, "_primary") {
-				kind = "primary"
-			} else if strings.HasSuffix(snapshot.Source, "_secondary") {
-				kind = "secondary"
+			point = gin.H{"timestamp": snapshot.ObservedAt}
+			if snapshot.SampleID != "" {
+				point["sample_id"] = snapshot.SampleID
 			}
-			if kind != "" {
-				if snapshot.Used != nil && finiteQuotaValue(*snapshot.Used) {
-					point[kind+"_used_percent"] = *snapshot.Used
-				}
-				if finiteQuotaValue(snapshot.Available) {
-					point[kind+"_available_percent"] = snapshot.Available
-				}
-				if snapshot.ResetAt > 0 {
-					point[kind+"_reset_at"] = snapshot.ResetAt
-				}
-				point[kind+"_window_type"] = snapshot.WindowType
-				point[kind+"_window_seconds"] = snapshot.WindowSeconds
-			}
-		} else if snapshot.Status == "unsupported" {
-			unsupportedCount++
-		} else {
-			errorCount++
+			pointsByBatch[batchKey] = point
+			pointOrder = append(pointOrder, batchKey)
 		}
-		if snapshot.ErrorCode != "" {
-			point["error_code"] = snapshot.ErrorCode
-		}
+		success, failed, unsupported := applyCodexUsageHistorySnapshot(point, snapshot)
+		successCount += success
+		errorCount += failed
+		unsupportedCount += unsupported
 	}
 	points := make([]gin.H, 0, len(pointOrder))
-	for _, timestamp := range pointOrder {
-		points = append(points, pointsByTimestamp[timestamp])
+	for _, batchKey := range pointOrder {
+		points = append(points, pointsByBatch[batchKey])
 	}
 	dataQuality := gin.H{"success_count": successCount, "error_count": errorCount, "unsupported_count": unsupportedCount}
 	if len(snapshots) > 1 {
@@ -155,8 +139,22 @@ func GetCodexChannelUsageHistory(c *gin.Context) {
 		dataQuality["span_seconds"] = int64(0)
 	}
 	var current gin.H
-	if len(points) > 0 {
-		current = points[len(points)-1]
+	if len(currentSnapshots) > 0 {
+		current = gin.H{"timestamp": currentSnapshots[0].ObservedAt}
+		if currentSnapshots[0].SampleID != "" {
+			current["sample_id"] = currentSnapshots[0].SampleID
+		}
+		for _, snapshot := range currentSnapshots {
+			applyCodexUsageHistorySnapshot(current, snapshot)
+		}
+		for _, kind := range []string{"primary", "secondary"} {
+			if current[kind+"_status"] != "unavailable" {
+				continue
+			}
+			if lastSeenAt := lastCodexPointObservation(points, kind+"_used_percent"); lastSeenAt > 0 {
+				current[kind+"_last_seen_at"] = lastSeenAt
+			}
+		}
 	}
 	primaryFirst, primaryLast := firstCodexPointValue(points, "primary_used_percent")
 	secondaryFirst, secondaryLast := firstCodexPointValue(points, "secondary_used_percent")
@@ -168,8 +166,8 @@ func GetCodexChannelUsageHistory(c *gin.Context) {
 		summary["secondary_change_percent"] = *secondaryLast - *secondaryFirst
 	}
 	latestObservedAt := int64(0)
-	if len(snapshots) > 0 {
-		latestObservedAt = snapshots[len(snapshots)-1].ObservedAt
+	if len(currentSnapshots) > 0 {
+		latestObservedAt = currentSnapshots[0].ObservedAt
 	}
 	summary["latest_observed_at"] = latestObservedAt
 	response := gin.H{
@@ -178,6 +176,82 @@ func GetCodexChannelUsageHistory(c *gin.Context) {
 		"summary": summary,
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": response})
+}
+
+func codexHistoryBatchKey(snapshot model.ChannelQuotaSnapshot) string {
+	if snapshot.SampleID != "" {
+		return "sample:" + snapshot.SampleID
+	}
+	return "legacy:" + strconv.FormatInt(snapshot.ObservedAt, 10)
+}
+
+func applyCodexUsageHistorySnapshot(point gin.H, snapshot model.ChannelQuotaSnapshot) (success, failed, unsupported int) {
+	kind := codexSnapshotWindowKind(snapshot.Source)
+	switch {
+	case snapshot.Status == "success":
+		point["status"] = "success"
+		if snapshot.PlanType != "" {
+			point["plan_type"] = snapshot.PlanType
+		}
+		if kind != "" {
+			if snapshot.Used != nil && finiteQuotaValue(*snapshot.Used) {
+				point[kind+"_used_percent"] = *snapshot.Used
+			}
+			if finiteQuotaValue(snapshot.Available) {
+				point[kind+"_available_percent"] = snapshot.Available
+			}
+			if snapshot.ResetAt > 0 {
+				point[kind+"_reset_at"] = snapshot.ResetAt
+			}
+			point[kind+"_window_type"] = snapshot.WindowType
+			point[kind+"_window_seconds"] = snapshot.WindowSeconds
+			point[kind+"_status"] = "success"
+		}
+		return 1, 0, 0
+	case snapshot.ErrorCode == "window_absent" && kind != "":
+		if _, hasCurrentValue := point[kind+"_used_percent"]; !hasCurrentValue {
+			point[kind+"_status"] = "unavailable"
+			point[kind+"_ended_at"] = snapshot.ObservedAt
+			point[kind+"_error_code"] = snapshot.ErrorCode
+		}
+		if _, hasStatus := point["status"]; !hasStatus {
+			point["status"] = "unsupported"
+		}
+		return 0, 0, 1
+	case snapshot.Status == "unsupported":
+		point["status"] = "unsupported"
+		if snapshot.ErrorCode != "" {
+			point["error_code"] = snapshot.ErrorCode
+		}
+		return 0, 0, 1
+	default:
+		point["status"] = "error"
+		if snapshot.ErrorCode != "" {
+			point["error_code"] = snapshot.ErrorCode
+		}
+		return 0, 1, 0
+	}
+}
+
+func codexSnapshotWindowKind(source string) string {
+	if strings.HasSuffix(source, "_primary") {
+		return "primary"
+	}
+	if strings.HasSuffix(source, "_secondary") {
+		return "secondary"
+	}
+	return ""
+}
+
+func lastCodexPointObservation(points []gin.H, key string) int64 {
+	for index := len(points) - 1; index >= 0; index-- {
+		if _, exists := points[index][key]; !exists {
+			continue
+		}
+		timestamp, _ := points[index]["timestamp"].(int64)
+		return timestamp
+	}
+	return 0
 }
 
 func firstCodexPointValue(points []gin.H, key string) (*float64, *float64) {
@@ -403,8 +477,50 @@ func newChannelQuotaSamplingError(queryErr, persistErr error) error {
 }
 
 func recordCodexUsageSnapshots(channelID, statusCode int, body []byte) error {
-	snapshots := normalizeCodexUsageSnapshots(channelID, time.Now().Unix(), statusCode, body)
-	return recordQuotaSamplingSnapshots(snapshots)
+	return recordCodexUsageSnapshotsForAccount(channelID, "", statusCode, body)
+}
+
+func recordCodexUsageSnapshotsForAccount(channelID int, accountID string, statusCode int, body []byte) error {
+	return recordCodexUsageSnapshotsAtForAccount(channelID, accountID, time.Now().Unix(), statusCode, body)
+}
+
+func recordCodexUsageSnapshotsAt(channelID int, observedAt int64, statusCode int, body []byte) error {
+	return recordCodexUsageSnapshotsAtForAccount(channelID, "", observedAt, statusCode, body)
+}
+
+func recordCodexUsageSnapshotsAtForAccount(channelID int, accountID string, observedAt int64, statusCode int, body []byte) error {
+	return recordCodexUsageSnapshotsAtWithSampleIDForAccount(channelID, accountID, observedAt, uuid.NewString(), statusCode, body)
+}
+
+func recordCodexUsageSnapshotsAtWithSampleID(channelID int, observedAt int64, sampleID string, statusCode int, body []byte) error {
+	return recordCodexUsageSnapshotsAtWithSampleIDForAccount(channelID, "", observedAt, sampleID, statusCode, body)
+}
+
+func recordCodexUsageSnapshotsAtWithSampleIDForAccount(channelID int, accountID string, observedAt int64, sampleID string, statusCode int, body []byte) error {
+	snapshots := normalizeCodexUsageSnapshots(channelID, observedAt, statusCode, body)
+	accountRef := model.ChannelQuotaAccountRef("codex", accountID)
+	for index := range snapshots {
+		snapshots[index].AccountRef = accountRef
+	}
+	return recordCodexSnapshotBatch(snapshots, sampleID)
+}
+
+func recordCodexSnapshotBatch(snapshots []model.ChannelQuotaSnapshot, sampleID string) error {
+	if len(snapshots) == 0 {
+		return nil
+	}
+	for index := range snapshots {
+		snapshots[index].SampleID = sampleID
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), channelQuotaPersistenceTimeout)
+	defer cancel()
+	return model.RecordChannelQuotaSnapshotBatchWithContext(ctx, snapshots, model.ChannelQuotaSnapshotBatchOptions{
+		PreviousSources: []string{"codex_wham_usage_primary", "codex_wham_usage_secondary"},
+		AbsenceMarker: &model.ChannelQuotaSnapshotAbsenceMarker{
+			Status: "unsupported", ErrorCode: "window_absent",
+			ErrorMessage: "rate limit window absent from latest successful usage response",
+		},
+	})
 }
 
 const channelQuotaPersistenceTimeout = 5 * time.Second
@@ -430,7 +546,7 @@ func recordCodexCredentialPersistenceFailure(channelID int) error {
 	snapshots := normalizeCodexUsageSnapshots(channelID, time.Now().Unix(), 0, nil)
 	snapshots[0].ErrorCode = "credential_persist_failed"
 	snapshots[0].ErrorMessage = "refreshed quota credentials could not be saved"
-	return recordQuotaSamplingSnapshots(snapshots)
+	return recordCodexSnapshotBatch(snapshots, uuid.NewString())
 }
 
 // sampleCodexChannelUsage records one normalized official WHAM usage sample for
@@ -478,7 +594,12 @@ func sampleCodexChannelUsage(ctx context.Context, ch *model.Channel) error {
 			}
 			err = refreshErr
 		} else {
-			statusCode, body, err = service.FetchCodexWhamUsage(ctx, client, ch.GetBaseURL(), refreshedKey.AccessToken, refreshedKey.AccountID)
+			accountID = strings.TrimSpace(refreshedKey.AccountID)
+			if accountID == "" {
+				persistErr := recordCodexUsageSnapshots(ch.Id, 0, nil)
+				return newChannelQuotaSamplingError(errors.New("refreshed Codex credential is missing account_id"), persistErr)
+			}
+			statusCode, body, err = service.FetchCodexWhamUsage(ctx, client, ch.GetBaseURL(), refreshedKey.AccessToken, accountID)
 		}
 	}
 	if err != nil {
@@ -492,10 +613,10 @@ func sampleCodexChannelUsage(ctx context.Context, ch *model.Channel) error {
 		}
 		// Persist the safe failure marker independently of the expired request
 		// context, so a timed-out account yields its turn in the next batch.
-		persistErr := recordQuotaSamplingSnapshots(snapshots)
+		persistErr := recordCodexSnapshotBatch(snapshots, uuid.NewString())
 		return newChannelQuotaSamplingError(err, persistErr)
 	}
-	persistErr := recordCodexUsageSnapshots(ch.Id, statusCode, body)
+	persistErr := recordCodexUsageSnapshotsForAccount(ch.Id, accountID, statusCode, body)
 	if statusCode < 200 || statusCode >= 300 {
 		return newChannelQuotaSamplingError(fmt.Errorf("Codex usage upstream status %d", statusCode), persistErr)
 	}
@@ -594,14 +715,17 @@ func finiteCodexPercent(value float64) bool {
 }
 
 func codexWindowType(seconds int64) string {
-	switch {
-	case seconds >= 7*24*60*60:
-		return "weekly"
-	case seconds >= 24*60*60:
-		return "daily"
-	case seconds > 0:
+	switch seconds {
+	case 5 * 60 * 60:
 		return "five_hour"
+	case 7 * 24 * 60 * 60:
+		return "weekly"
+	case 24 * 60 * 60:
+		return "daily"
 	default:
+		if seconds > 0 {
+			return "custom"
+		}
 		return "unknown"
 	}
 }

@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -184,17 +185,31 @@ func TestInitChannelCacheRetriesSnapshotAfterCredentialGenerationChanges(t *test
 	channelSyncLock.Lock()
 	previousChannelsIDM := channelsIDM
 	previousGroups := group2model2channels
+	previousRoutingCandidates := group2model2routingCandidates
 	previousAdvancedConfigs := channel2advancedCustomConfig
 	previousGeneration := channelCredentialCacheGeneration
+	previousDataGeneration := channelCacheDataGeneration
+	previousPublishGeneration := channelCachePublishGeneration
+	previousObservedEpoch := channelCacheObservedCommittedEpoch
+	previousPublishedEpoch := channelCachePublishedEpoch
 	channelsIDM = map[int]*Channel{channel.Id: channel}
 	channelCredentialCacheGeneration = 0
+	channelCacheDataGeneration = 0
+	channelCachePublishGeneration = 0
+	channelCacheObservedCommittedEpoch = 0
+	channelCachePublishedEpoch = 0
 	channelSyncLock.Unlock()
 	t.Cleanup(func() {
 		channelSyncLock.Lock()
 		channelsIDM = previousChannelsIDM
 		group2model2channels = previousGroups
+		group2model2routingCandidates = previousRoutingCandidates
 		channel2advancedCustomConfig = previousAdvancedConfigs
 		channelCredentialCacheGeneration = previousGeneration
+		channelCacheDataGeneration = previousDataGeneration
+		channelCachePublishGeneration = previousPublishGeneration
+		channelCacheObservedCommittedEpoch = previousObservedEpoch
+		channelCachePublishedEpoch = previousPublishedEpoch
 		channelSyncLock.Unlock()
 		DB = previousDB
 		common.MemoryCacheEnabled = previousMemoryCacheEnabled
@@ -205,15 +220,14 @@ func TestInitChannelCacheRetriesSnapshotAfterCredentialGenerationChanges(t *test
 	releaseSnapshot := make(chan struct{})
 	var channelReads atomic.Int32
 	require.NoError(t, db.Callback().Query().After("gorm:query").Register("test:block_first_channel_cache_snapshot", func(tx *gorm.DB) {
-		if tx.Statement.Table == "channels" && channelReads.Add(1) == 1 {
+		if strings.Contains(tx.Statement.SQL.String(), "JOIN abilities") && channelReads.Add(1) == 1 {
 			close(firstSnapshotRead)
 			<-releaseSnapshot
 		}
 	}))
-	initDone := make(chan struct{})
+	initDone := make(chan error, 1)
 	go func() {
-		InitChannelCache()
-		close(initDone)
+		initDone <- InitChannelCache()
 	}()
 	<-firstSnapshotRead
 
@@ -221,7 +235,7 @@ func TestInitChannelCacheRetriesSnapshotAfterCredentialGenerationChanges(t *test
 	require.NoError(t, err)
 	require.True(t, updated)
 	close(releaseSnapshot)
-	<-initDone
+	require.NoError(t, <-initDone)
 
 	assert.GreaterOrEqual(t, channelReads.Load(), int32(2))
 	cached, err := CacheGetChannel(channel.Id)

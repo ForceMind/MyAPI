@@ -133,6 +133,15 @@ const (
 	MsgQuotaThresholdGtZero = "quota.threshold_gt_zero"
 )
 
+// Quota writer mode transition messages
+const (
+	MsgQuotaWriterInvalidTargetMode   = "quota_writer.invalid_target_mode"
+	MsgQuotaWriterTransitionConflict  = "quota_writer.transition_conflict"
+	MsgQuotaWriterTransitionInvalid   = "quota_writer.transition_invalid"
+	MsgQuotaWriterPreconditionsFailed = "quota_writer.preconditions_failed"
+	MsgQuotaWriterPostAuditFailed     = "quota_writer.post_audit_failed"
+)
+
 // Subscription related messages
 const (
 	MsgSubscriptionNotEnabled       = "subscription.not_enabled"
@@ -161,6 +170,23 @@ const (
 	MsgPaymentPriceIdNotConfig   = "payment.price_id_not_configured"
 	MsgPaymentCreemNotConfig     = "payment.creem_not_configured"
 	MsgPaymentComplianceRequired = "payment.compliance_required"
+)
+
+// Option typed bulk messages
+const (
+	MsgOptionTypedBulkInvalidBody      = "option.typed_bulk_invalid_body"
+	MsgOptionTypedBulkUnknownKey       = "option.typed_bulk_unknown_key"
+	MsgOptionTypedBulkDuplicateKey     = "option.typed_bulk_duplicate_key"
+	MsgOptionTypedBulkInvalidValue     = "option.typed_bulk_invalid_value"
+	MsgOptionTypedBulkItemCount        = "option.typed_bulk_item_count"
+	MsgOptionTypedBulkRevisionConflict = "option.typed_bulk_revision_conflict"
+	MsgOptionTypedBulkPublishFailed    = "option.typed_bulk_publish_failed"
+	MsgOptionTypedBulkInternal         = "option.typed_bulk_internal"
+)
+
+// Option maintenance messages
+const (
+	MsgOptionDiskCacheRebuildFailed = "option.disk_cache_rebuild_failed"
 )
 
 // Topup related messages
@@ -324,6 +350,7 @@ const (
 	MsgDistributorGroupAccessDenied       = "distributor.group_access_denied"
 	MsgDistributorGetChannelFailed        = "distributor.get_channel_failed"
 	MsgDistributorNoAvailableChannel      = "distributor.no_available_channel"
+	MsgDistributorPolicyDenied            = "distributor.policy_denied"
 	MsgDistributorInvalidMidjourney       = "distributor.invalid_midjourney_request"
 	MsgDistributorInvalidParseModel       = "distributor.invalid_request_parse_model"
 )

@@ -10,11 +10,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
-import { getChannelQuotaChanges, getChannelQuotaHistory } from '../../../api'
-import { CodexUsageHistoryPanel } from '../codex-usage-dialog'
+import { getChannelQuotaHistory, getCodexQuotaSeries } from '../../../api'
+import { CodexUsageDialog, CodexUsageHistoryPanel } from '../codex-usage-dialog'
 
 vi.mock('../../../api', () => ({
-  getChannelQuotaChanges: vi.fn(),
+  getCodexQuotaSeries: vi.fn(),
   getChannelQuotaHistory: vi.fn(),
   getCodexResetCredits: vi.fn(),
   resetCodexUsage: vi.fn(),
@@ -28,12 +28,16 @@ const primary = {
   plan_type: 'team',
   unit: 'percent',
   window_seconds: 18000,
+  observed_at: 200,
+  status: 'success',
 }
 const secondary = {
   ...primary,
   source: 'codex_wham_usage_secondary',
   window_type: 'weekly',
   window_seconds: 604800,
+  observed_at: 100,
+  status: 'success',
 }
 
 function renderHistory() {
@@ -45,6 +49,41 @@ function renderHistory() {
       <CodexUsageHistoryPanel channelId={12} open />
     </QueryClientProvider>
   )
+}
+
+function renderUsage(data: Record<string, unknown>) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  const content = (nextData: Record<string, unknown>) => (
+    <QueryClientProvider client={queryClient}>
+      <CodexUsageDialog
+        open
+        onOpenChange={vi.fn()}
+        channelId={12}
+        channelName='Codex'
+        response={{ success: true, upstream_status: 200, data: nextData }}
+      />
+    </QueryClientProvider>
+  )
+  const view = render(content(data))
+  return {
+    ...view,
+    rerenderUsage: (nextData: Record<string, unknown>) =>
+      view.rerender(content(nextData)),
+    rerenderUsageFailure: (message: string) =>
+      view.rerender(
+        <QueryClientProvider client={queryClient}>
+          <CodexUsageDialog
+            open
+            onOpenChange={vi.fn()}
+            channelId={12}
+            channelName='Codex'
+            response={{ success: false, message }}
+          />
+        </QueryClientProvider>
+      ),
+  }
 }
 
 describe('Codex usage history uses the unified detailed chart', () => {
@@ -60,7 +99,7 @@ describe('Codex usage history uses the unified detailed chart', () => {
       height: 288,
       toJSON: () => ({}),
     })
-    vi.mocked(getChannelQuotaChanges).mockResolvedValue({
+    vi.mocked(getCodexQuotaSeries).mockResolvedValue({
       success: true,
       data: { items: [primary, secondary] },
     })
@@ -98,7 +137,7 @@ describe('Codex usage history uses the unified detailed chart', () => {
   })
 
   test('retains time and metric controls when no observations exist', async () => {
-    vi.mocked(getChannelQuotaChanges).mockResolvedValue({
+    vi.mocked(getCodexQuotaSeries).mockResolvedValue({
       success: true,
       data: { items: [] },
     })
@@ -114,8 +153,32 @@ describe('Codex usage history uses the unified detailed chart', () => {
     expect(screen.getByLabelText('Chart style')).toBeEnabled()
   })
 
+  test('defaults to the newest active series instead of an unavailable newer series', async () => {
+    vi.mocked(getCodexQuotaSeries).mockResolvedValue({
+      success: true,
+      data: {
+        items: [
+          { ...secondary, observed_at: 300, status: 'unavailable' },
+          { ...primary, observed_at: 200, status: 'success' },
+        ],
+      },
+    })
+
+    renderHistory()
+    await screen.findByTestId('quota-history-chart-bar')
+    await waitFor(() =>
+      expect(getChannelQuotaHistory).toHaveBeenCalledWith(
+        12,
+        expect.objectContaining({
+          source: primary.source,
+          window_type: primary.window_type,
+        })
+      )
+    )
+  })
+
   test('reports series endpoint failure without presenting it as zero consumption', async () => {
-    vi.mocked(getChannelQuotaChanges).mockRejectedValue(
+    vi.mocked(getCodexQuotaSeries).mockRejectedValue(
       new Error('history endpoint unavailable')
     )
     vi.mocked(getChannelQuotaHistory).mockResolvedValue({
@@ -174,6 +237,21 @@ describe('Codex usage history uses the unified detailed chart', () => {
   test('passes window, granularity, custom dates and refresh through to the history endpoint', async () => {
     renderHistory()
     await screen.findByTestId('quota-history-chart-bar')
+    expect(
+      screen.getByText(
+        'Historical series keep their recorded plan and window. Changing plans does not rewrite history.'
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('option', {
+        name: 'Historical window: 5-hour window · 5h 0m · Historical plan: team',
+      })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('option', {
+        name: 'Historical window: Weekly window · 168h 0m · Historical plan: team',
+      })
+    ).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Codex quota window'), {
       target: {
         value:
@@ -224,5 +302,88 @@ describe('Codex usage history uses the unified detailed chart', () => {
     await waitFor(() =>
       expect(getChannelQuotaHistory).toHaveBeenCalledTimes(previousCalls + 1)
     )
+  })
+})
+
+describe('Codex current usage window classification', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.clearAllMocks()
+  })
+
+  test('uses exact provider durations and removes the old five-hour window after a single-weekly plan response', () => {
+    const view = renderUsage({
+      plan_type: 'free',
+      rate_limit: {
+        primary_window: { used_percent: 25, limit_window_seconds: 18000 },
+        secondary_window: {
+          used_percent: 60,
+          limit_window_seconds: 604800,
+        },
+      },
+    })
+    expect(screen.getByText('5-Hour Window')).toBeInTheDocument()
+    expect(screen.getByText('Weekly Window')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Current windows come only from the latest upstream response. Their durations are reported by that response.'
+      )
+    ).toBeInTheDocument()
+
+    view.rerenderUsage({
+      plan_type: 'plus',
+      rate_limit: {
+        primary_window: {
+          used_percent: 30,
+          limit_window_seconds: 604800,
+        },
+      },
+    })
+    expect(screen.queryByText('5-Hour Window')).not.toBeInTheDocument()
+    expect(screen.getByText('Weekly Window')).toBeInTheDocument()
+
+    view.rerenderUsageFailure('Latest Codex usage refresh failed')
+    expect(screen.queryByText('Weekly Window')).not.toBeInTheDocument()
+    expect(screen.queryByText('5-Hour Window')).not.toBeInTheDocument()
+    expect(
+      screen.getByText('Latest Codex usage refresh failed')
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'History trend' }))
+    expect(screen.getByTestId('codex-usage-history-panel')).toBeInTheDocument()
+  })
+
+  test('does not let free plan metadata guess an unknown short window as weekly or five-hour', () => {
+    renderUsage({
+      plan_type: 'free',
+      rate_limit: {
+        primary_window: { used_percent: 10, limit_window_seconds: 7200 },
+      },
+    })
+    expect(screen.getByText('Primary window')).toBeInTheDocument()
+    expect(screen.queryByText('5-Hour Window')).not.toBeInTheDocument()
+    expect(screen.queryByText('Weekly Window')).not.toBeInTheDocument()
+  })
+
+  test('renders an exact one-day provider window as daily', () => {
+    renderUsage({
+      plan_type: 'team',
+      rate_limit: {
+        secondary_window: { used_percent: 15, limit_window_seconds: 86400 },
+      },
+    })
+    expect(screen.getByText('Daily window')).toBeInTheDocument()
+    expect(screen.queryByText('5-Hour Window')).not.toBeInTheDocument()
+    expect(screen.queryByText('Weekly Window')).not.toBeInTheDocument()
+  })
+
+  test('renders a single weekly account without inventing a missing five-hour card', () => {
+    renderUsage({
+      plan_type: 'free',
+      rate_limit: {
+        primary_window: { used_percent: 20, limit_window_seconds: 604800 },
+      },
+    })
+    expect(screen.getByText('Weekly Window')).toBeInTheDocument()
+    expect(screen.queryByText('5-Hour Window')).not.toBeInTheDocument()
   })
 })

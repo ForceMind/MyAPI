@@ -32,8 +32,9 @@ const (
 )
 
 const (
-	quotaProjectionReceiptKindTask = "task"
-	quotaProjectionReceiptKindUser = "user"
+	quotaProjectionReceiptKindTask    = "task"
+	quotaProjectionReceiptKindUser    = "user"
+	quotaProjectionReceiptKindAccount = "account"
 )
 
 var (
@@ -310,6 +311,18 @@ func loadQuotaProjectionSnapshot(db *gorm.DB, obligation *QuotaProjectionObligat
 		if receipt.After.User.ID != receipt.UserID || receipt.After.Token.ID != receipt.TokenID ||
 			receipt.After.User.QuotaVersion != obligation.ExpectedUserVersion || receipt.After.Token.QuotaVersion != obligation.ExpectedTokenVersion {
 			return descriptor, QuotaMutationAccountSnapshot{}, fmt.Errorf("task receipt after snapshot does not match projection identity")
+		}
+		return descriptor, receipt.After, nil
+	}
+	if obligation.ReceiptKind == quotaProjectionReceiptKindAccount {
+		var receipt AccountQuotaMutationReceipt
+		if err := db.Where("id = ?", obligation.ReceiptID).First(&receipt).Error; err != nil {
+			return quotaProjectionReceiptDescriptor{}, QuotaMutationAccountSnapshot{}, err
+		}
+		descriptor := receipt.quotaProjectionDescriptor()
+		if receipt.After.User.ID != receipt.UserID || receipt.After.Token.ID != receipt.TokenID ||
+			receipt.After.User.QuotaVersion != obligation.ExpectedUserVersion || receipt.After.Token.QuotaVersion != obligation.ExpectedTokenVersion {
+			return descriptor, QuotaMutationAccountSnapshot{}, fmt.Errorf("account receipt after snapshot does not match projection identity")
 		}
 		return descriptor, receipt.After, nil
 	}

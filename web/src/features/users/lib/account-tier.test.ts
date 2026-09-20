@@ -1,7 +1,10 @@
 import { describe, expect, test } from 'vitest'
 
 import { getAccountTierId } from './account-tier'
-import { transformFormDataToPayload, transformUserToFormDefaults } from './user-form'
+import {
+  transformFormDataToPayload,
+  transformUserToFormDefaults,
+} from './user-form'
 
 describe('account tier form identity', () => {
   test('maps legacy groups to stable account tier IDs', () => {
@@ -25,6 +28,8 @@ describe('account tier form identity', () => {
       role: 1,
     })
     expect(defaults.account_tier_id).toBe('team-enterprise')
-    expect(transformFormDataToPayload(defaults, 1).account_tier_id).toBe('team-enterprise')
+    expect(transformFormDataToPayload(defaults, 1).account_tier_id).toBe(
+      'team-enterprise'
+    )
   })
 })

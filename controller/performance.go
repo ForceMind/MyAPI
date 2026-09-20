@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -62,10 +63,17 @@ type PerformanceConfig struct {
 	DiskCacheEnabled bool `json:"disk_cache_enabled"`
 	// 磁盘缓存阈值（MB）
 	DiskCacheThresholdMB int `json:"disk_cache_threshold_mb"`
-	// 磁盘缓存最大大小（MB）
+	// 磁盘缓存最大大小（MB，配置代/已保存值）
 	DiskCacheMaxSizeMB int `json:"disk_cache_max_size_mb"`
-	// 磁盘缓存路径
+	// 磁盘缓存路径（配置代/已保存值）
 	DiskCachePath string `json:"disk_cache_path"`
+	// ActiveDiskCacheMaxSizeMB 生效代磁盘缓存最大大小（MB）
+	ActiveDiskCacheMaxSizeMB int `json:"active_disk_cache_max_size_mb"`
+	// ActiveDiskCachePath 生效代磁盘缓存路径
+	ActiveDiskCachePath string `json:"active_disk_cache_path"`
+	// DiskCacheRebuildRequired 为 true 表示路径/容量已保存但未生效，
+	// 需要 POST /api/option/disk_cache/rebuild 维护重建或重启
+	DiskCacheRebuildRequired bool `json:"disk_cache_rebuild_required"`
 	// 是否在容器中运行
 	IsRunningInContainer bool `json:"is_running_in_container"`
 
@@ -92,19 +100,24 @@ func GetPerformanceStats(c *gin.Context) {
 	// 获取磁盘缓存目录信息
 	diskCacheInfo := getDiskCacheInfo()
 
-	// 获取配置信息
-	diskConfig := common.GetDiskCacheConfig()
+	// 获取配置信息：diskConfig 为配置代（已保存值），activeDiskConfig 为生效代。
+	// 两者并列返回，便于核对“已保存未生效”的磁盘放置字段。
+	diskConfig := common.GetDiskCacheDesiredConfig()
+	activeDiskConfig := common.GetDiskCacheConfig()
 	monitorConfig := common.GetPerformanceMonitorConfig()
 	config := PerformanceConfig{
-		DiskCacheEnabled:       diskConfig.Enabled,
-		DiskCacheThresholdMB:   diskConfig.ThresholdMB,
-		DiskCacheMaxSizeMB:     diskConfig.MaxSizeMB,
-		DiskCachePath:          diskConfig.Path,
-		IsRunningInContainer:   common.IsRunningInContainer(),
-		MonitorEnabled:         monitorConfig.Enabled,
-		MonitorCPUThreshold:    monitorConfig.CPUThreshold,
-		MonitorMemoryThreshold: monitorConfig.MemoryThreshold,
-		MonitorDiskThreshold:   monitorConfig.DiskThreshold,
+		DiskCacheEnabled:         diskConfig.Enabled,
+		DiskCacheThresholdMB:     diskConfig.ThresholdMB,
+		DiskCacheMaxSizeMB:       diskConfig.MaxSizeMB,
+		DiskCachePath:            diskConfig.Path,
+		ActiveDiskCacheMaxSizeMB: activeDiskConfig.MaxSizeMB,
+		ActiveDiskCachePath:      activeDiskConfig.Path,
+		DiskCacheRebuildRequired: common.DiskCachePlacementPending(),
+		IsRunningInContainer:     common.IsRunningInContainer(),
+		MonitorEnabled:           monitorConfig.Enabled,
+		MonitorCPUThreshold:      monitorConfig.CPUThreshold,
+		MonitorMemoryThreshold:   monitorConfig.MemoryThreshold,
+		MonitorDiskThreshold:     monitorConfig.DiskThreshold,
 	}
 
 	// 获取磁盘空间信息
@@ -162,6 +175,35 @@ func ResetPerformanceStats(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "统计信息已重置",
+	})
+}
+
+// RebuildDiskCache 按已保存的配置代重建磁盘缓存放置（维护操作）。
+//
+// 保存性能设置只更新配置代：热字段（启用/阈值）立即生效，磁盘目录与容量
+// （disk_cache_path / disk_cache_max_size_mb）不迁移正在使用的缓存。
+// 本端点是放置字段的显式生效路径（带排空语义）：先校验新目录可创建可写，
+// 成功后一次性换入新生效代；失败保留旧生效代并返回错误。
+// 已打开的磁盘缓存实例按绝对路径管理自己的文件，不受换代影响。
+func RebuildDiskCache(c *gin.Context) {
+	active, err := common.RebuildDiskCache()
+	if err != nil {
+		common.ApiErrorI18n(c, i18n.MsgOptionDiskCacheRebuildFailed, map[string]any{
+			"Reason": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data": gin.H{
+			"active_disk_cache_path":        active.Path,
+			"active_disk_cache_max_size_mb": active.MaxSizeMB,
+			"disk_cache_rebuild_required":   common.DiskCachePlacementPending(),
+			"disk_cache_enabled":            active.Enabled,
+			"disk_cache_threshold_mb":       active.ThresholdMB,
+		},
 	})
 }
 

@@ -22,7 +22,7 @@ func TestUpdatePendingTopUpStatusRejectsStaleRead(t *testing.T) {
 			topUp.Status = common.TopUpStatusPending
 		}
 	}))
-	err := UpdatePendingTopUpStatus(order.TradeNo, PaymentProviderStripe, common.TopUpStatusFailed)
+	err := UpdatePendingTopUpStatusTrusted(order.TradeNo, PaymentProviderStripe, common.TopUpStatusFailed)
 	require.NoError(t, db.Callback().Query().Remove("fixture:stale-pending"))
 	assert.ErrorIs(t, err, ErrTopUpStatusInvalid)
 	require.NoError(t, db.First(&order, order.Id).Error)
@@ -35,7 +35,7 @@ func TestUpdatePendingTopUpStatusPreservesDatabaseFailure(t *testing.T) {
 	db := accessProfileTestDB(t)
 	injected := errors.New("injected read failure")
 	require.NoError(t, db.Callback().Query().Before("gorm:query").Register("fixture:read-failure", func(tx *gorm.DB) { tx.AddError(injected) }))
-	err := UpdatePendingTopUpStatus("stripe-order", PaymentProviderStripe, common.TopUpStatusFailed)
+	err := UpdatePendingTopUpStatusTrusted("stripe-order", PaymentProviderStripe, common.TopUpStatusFailed)
 	assert.ErrorIs(t, err, injected)
 	assert.NotErrorIs(t, err, ErrTopUpNotFound)
 }

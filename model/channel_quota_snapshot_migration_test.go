@@ -27,6 +27,8 @@ func TestEnsureChannelQuotaSnapshotDedupeIndexSQLite(t *testing.T) {
 	// Simulate an existing installation whose table predates dedupe_key.
 	require.NoError(t, DB.Exec(`CREATE TABLE channel_quota_snapshots (id INTEGER PRIMARY KEY, available REAL)`).Error)
 	require.NoError(t, DB.AutoMigrate(&ChannelQuotaSnapshot{}))
+	require.True(t, DB.Migrator().HasColumn(&ChannelQuotaSnapshot{}, "SampleID"))
+	require.True(t, DB.Migrator().HasIndex(&ChannelQuotaSnapshot{}, "idx_channel_quota_sample"))
 	require.NoError(t, ensureChannelQuotaSnapshotDedupeIndex())
 	require.True(t, DB.Migrator().HasIndex(&ChannelQuotaSnapshot{}, "idx_channel_quota_dedupe_key"))
 

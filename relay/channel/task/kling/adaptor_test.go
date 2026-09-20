@@ -80,7 +80,7 @@ func TestMain(m *testing.M) {
 	common.BatchUpdateEnabled = false
 	common.LogConsumeEnabled = true
 	common.DataExportEnabled = false
-	if err := db.AutoMigrate(&model.Task{}, &model.User{}, &model.Channel{}, &model.Token{}, &model.Log{}); err != nil {
+	if err := db.AutoMigrate(&model.Task{}, &model.User{}, &model.Channel{}, &model.Token{}, &model.Log{}, &model.BillingLogProjectionIdentity{}, &model.AccountQuotaSettlementFact{}); err != nil {
 		panic("failed to migrate Kling test database: " + err.Error())
 	}
 	exitCode := m.Run()
@@ -90,7 +90,7 @@ func TestMain(m *testing.M) {
 
 func resetKlingPollingTestDB(t *testing.T) {
 	t.Helper()
-	for _, table := range []string{"logs", "tasks", "tokens", "channels", "users"} {
+	for _, table := range []string{"account_quota_settlement_facts", "billing_log_projection_identities", "logs", "tasks", "tokens", "channels", "users"} {
 		require.NoError(t, model.DB.Exec("DELETE FROM "+table).Error)
 	}
 }

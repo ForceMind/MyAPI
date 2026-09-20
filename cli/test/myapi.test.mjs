@@ -33,6 +33,15 @@ const cli = path.join(repositoryRoot, 'cli/myapi.mjs')
 const packageVersion = JSON.parse(
   readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
 ).version
+const escapedPackageVersion = packageVersion.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const defaultFullImagePattern = new RegExp(
+  `^MYAPI_IMAGE=ghcr\\.io/forcemind/myapi:v${escapedPackageVersion}$`,
+  'm'
+)
+const defaultLANImagePattern = new RegExp(
+  `^MYAPI_IMAGE=ghcr\\.io/forcemind/myapi-lan:v${escapedPackageVersion}$`,
+  'm'
+)
 const temporaryRoots = []
 
 function runCli(...args) {
@@ -151,7 +160,7 @@ test('init copies source without runtime data and configure protects secrets', (
 
   const envPath = path.join(project, 'deploy/.env')
   const env = readFileSync(envPath, 'utf8')
-  assert.match(env, /^MYAPI_IMAGE=ghcr\.io\/forcemind\/myapi:v0\.1\.1$/m)
+  assert.match(env, defaultFullImagePattern)
   assert.match(env, /^MYAPI_BUILD_LOCAL=false$/m)
   assert.match(env, /^MYAPI_PUBLIC_URL=https:\/\/myapi\.example\.test$/m)
   assert.match(env, /^MYAPI_BRAND_NAME=MyAPI$/m)
@@ -190,7 +199,7 @@ test('upgrade validates the release version before touching deployment state', (
     /semantic version/
   )
   const env = readFileSync(path.join(project, 'deploy/.env'), 'utf8')
-  assert.match(env, /^MYAPI_IMAGE=ghcr\.io\/forcemind\/myapi:v0\.1\.1$/m)
+  assert.match(env, defaultFullImagePattern)
   assert.equal(existsSync(path.join(project, 'backups')), false)
 })
 
@@ -516,7 +525,7 @@ test('signature verification fails closed before changing deployment state', () 
     /requires MYAPI_COSIGN_CERTIFICATE_IDENTITY/
   )
   const env = readFileSync(path.join(project, 'deploy/.env'), 'utf8')
-  assert.match(env, /^MYAPI_IMAGE=ghcr\.io\/forcemind\/myapi:v0\.1\.1$/m)
+  assert.match(env, defaultFullImagePattern)
   assert.equal(existsSync(path.join(project, 'backups')), false)
 })
 
@@ -588,7 +597,7 @@ test('lan init creates a loopback-only LAN deployment without exposing credentia
   const output = runCli('lan', 'init', project)
   const env = readFileSync(path.join(project, 'deploy/.env'), 'utf8')
 
-  assert.match(env, /^MYAPI_IMAGE=ghcr\.io\/forcemind\/myapi-lan:v0\.1\.1$/m)
+  assert.match(env, defaultLANImagePattern)
   assert.match(env, /^MYAPI_EDITION=lan$/m)
   assert.match(env, /^MYAPI_BIND_ADDRESS=127\.0\.0\.1$/m)
   assert.match(env, /^MYAPI_ALLOW_LAN=false$/m)

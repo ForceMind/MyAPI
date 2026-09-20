@@ -58,6 +58,7 @@ const defaultBillingSettings: BillingSettings = {
   AutoGroups: '',
   MaxTokenAutoGroups: 5,
   DefaultUseAutoGroup: false,
+  'user_funding_setting.mode': 'enabled',
   'group_ratio_setting.group_special_usable_group': '{}',
   'access_profile_setting.profiles': '{}',
   PayAddress: '',

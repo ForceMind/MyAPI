@@ -50,6 +50,12 @@ func setupDurableRelayTestDB(t *testing.T) *gorm.DB {
 		_ = sqlDB.Close()
 		model.DB = oldDB
 		model.LOG_DB = oldLogDB
+		if oldDB != nil {
+			// Best-effort restore of the process-global quota schema
+			// capability to the previous main database; a stale or closed
+			// old DB fails closed, which is safe for later fixtures.
+			_ = model.RefreshUserQuotaBusinessSchemaCapability(oldDB)
+		}
 	})
 
 	err = db.AutoMigrate(
@@ -62,14 +68,22 @@ func setupDurableRelayTestDB(t *testing.T) *gorm.DB {
 		&model.TaskRecoveryIdentity{},
 		&model.TaskSubmissionOperation{},
 		&model.TaskSubmissionAttempt{},
+		&model.TaskTerminalObservation{},
 		&model.TaskBillingEvent{},
 		&model.TaskBillingLogOutbox{},
 		&model.QuotaMutationReceipt{},
+		&model.QuotaWriterEpoch{},
+		&model.QuotaProjectionObligation{},
 		&model.Log{},
 	)
 	require.NoError(t, err)
 	model.DB = db
 	model.LOG_DB = db
+	require.NoError(t, model.EnsureQuotaWriterEpochStateWithDB(db))
+	require.NoError(t, db.Model(&model.QuotaWriterEpoch{}).Where("id = ?", 1).Updates(map[string]interface{}{
+		"mode": string(model.QuotaWriterModeAuthoritative), "epoch": 1, "lock_version": gorm.Expr("lock_version + ?", 1),
+	}).Error)
+	require.NoError(t, model.EnsureLogProjectionSchemaWithDB(db))
 	return db
 }
 

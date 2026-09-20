@@ -75,6 +75,7 @@ import {
   isTagAggregateRow,
   type TagRow,
 } from '../lib'
+import { isChannelSortDisabledInTagMode } from '../lib/channel-routing'
 import { parseUpstreamUpdateMeta } from '../lib/upstream-update-utils'
 import type { Channel } from '../types'
 import { ChannelRowActionsLayoutContext } from './channel-row-actions-context'
@@ -555,11 +556,12 @@ export function BalanceCell({ channel }: { channel: Channel }) {
             }
             setCodexUsageResponse(res)
           } catch (error) {
-            toast.error(
+            const message =
               error instanceof Error
                 ? error.message
                 : t('Failed to fetch usage')
-            )
+            setCodexUsageResponse({ success: false, message })
+            toast.error(message)
           } finally {
             setIsUpdating(false)
           }
@@ -587,11 +589,13 @@ export function BalanceCell({ channel }: { channel: Channel }) {
 export function useChannelsColumns(
   options: {
     enableSelection?: boolean
+    tagMode?: boolean
   } = {}
 ): ColumnDef<Channel>[] {
   const { t, i18n } = useTranslation()
   const { sensitiveVisible } = useChannels()
   const enableSelection = options.enableSelection ?? true
+  const tagMode = options.tagMode ?? false
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   // The column definitions only depend on the translation function, the active
   // locale, and sensitive-data visibility. Memoizing keeps the array (and every
@@ -1117,6 +1121,7 @@ export function useChannelsColumns(
         meta: { mobileHidden: true },
         cell: ({ row }) => <PriorityCell channel={row.original} />,
         size: 100,
+        enableSorting: !isChannelSortDisabledInTagMode('priority', tagMode),
       },
 
       // Weight column
@@ -1126,7 +1131,7 @@ export function useChannelsColumns(
         meta: { mobileHidden: true },
         cell: ({ row }) => <WeightCell channel={row.original} />,
         size: 90,
-        enableSorting: false,
+        enableSorting: !isChannelSortDisabledInTagMode('weight', tagMode),
       },
 
       // Balance column (Used/Remaining)
@@ -1225,6 +1230,6 @@ export function useChannelsColumns(
         meta: { pinned: 'right' as const },
       },
     ],
-    [enableSelection, t, locale, sensitiveVisible]
+    [enableSelection, tagMode, t, locale, sensitiveVisible]
   )
 }

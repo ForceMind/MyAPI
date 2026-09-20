@@ -1,6 +1,12 @@
 package operation_setting
 
-import "github.com/ForceMind/MyAPI/setting/config"
+import (
+	"sync"
+	"sync/atomic"
+
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/setting/config"
+)
 
 type ChannelAffinityKeySource struct {
 	Type string `json:"type"` // context_int, context_string, request_header, gjson
@@ -149,10 +155,123 @@ var channelAffinitySetting = ChannelAffinitySetting{
 	},
 }
 
-func init() {
-	config.GlobalConfig.Register("channel_affinity_setting", &channelAffinitySetting)
+// channelAffinitySettingGeneration 发布后不可变。
+// 规则匹配一次读取整代（Enabled/Rules/DefaultTTLSeconds），不得在代切换期间混代。
+type channelAffinitySettingGeneration struct {
+	setting ChannelAffinitySetting
 }
 
+// managedChannelAffinitySetting 持有注册到通用配置管理器的同步运行时快照。
+type managedChannelAffinitySetting struct {
+	writeMutex sync.Mutex
+	current    atomic.Pointer[channelAffinitySettingGeneration]
+}
+
+func cloneChannelAffinitySetting(setting ChannelAffinitySetting) ChannelAffinitySetting {
+	clone := ChannelAffinitySetting{
+		Enabled:               setting.Enabled,
+		SwitchOnSuccess:       setting.SwitchOnSuccess,
+		KeepOnChannelDisabled: setting.KeepOnChannelDisabled,
+		MaxEntries:            setting.MaxEntries,
+		DefaultTTLSeconds:     setting.DefaultTTLSeconds,
+	}
+	if setting.Rules != nil {
+		clone.Rules = make([]ChannelAffinityRule, len(setting.Rules))
+		for i, rule := range setting.Rules {
+			clone.Rules[i] = cloneChannelAffinityRule(rule)
+		}
+	}
+	return clone
+}
+
+func cloneChannelAffinityRule(rule ChannelAffinityRule) ChannelAffinityRule {
+	clone := rule
+	if rule.ModelRegex != nil {
+		clone.ModelRegex = append([]string{}, rule.ModelRegex...)
+	}
+	if rule.PathRegex != nil {
+		clone.PathRegex = append([]string{}, rule.PathRegex...)
+	}
+	if rule.UserAgentInclude != nil {
+		clone.UserAgentInclude = append([]string{}, rule.UserAgentInclude...)
+	}
+	if rule.KeySources != nil {
+		clone.KeySources = append([]ChannelAffinityKeySource{}, rule.KeySources...)
+	}
+	if rule.ParamOverrideTemplate != nil {
+		// ParamOverrideTemplate 是 JSON 型数据（规则经 JSON 配置进出），
+		// 用 JSON 往返做深拷贝，保证发布后代不可变。
+		if encoded, err := common.Marshal(rule.ParamOverrideTemplate); err == nil {
+			var fresh map[string]interface{}
+			if err := common.Unmarshal(encoded, &fresh); err == nil {
+				clone.ParamOverrideTemplate = fresh
+			}
+		}
+	}
+	return clone
+}
+
+func newManagedChannelAffinitySetting(initial ChannelAffinitySetting) *managedChannelAffinitySetting {
+	state := &managedChannelAffinitySetting{}
+	state.current.Store(&channelAffinitySettingGeneration{setting: cloneChannelAffinitySetting(initial)})
+	return state
+}
+
+func (s *managedChannelAffinitySetting) snapshot() ChannelAffinitySetting {
+	if s != nil {
+		if current := s.current.Load(); current != nil {
+			return cloneChannelAffinitySetting(current.setting)
+		}
+	}
+	return cloneChannelAffinitySetting(channelAffinitySetting)
+}
+
+func (s *managedChannelAffinitySetting) candidate(values map[string]string) (ChannelAffinitySetting, error) {
+	candidate := s.snapshot()
+	if err := config.UpdateConfigFromMap(&candidate, values); err != nil {
+		return ChannelAffinitySetting{}, err
+	}
+	return candidate, nil
+}
+
+func (s *managedChannelAffinitySetting) ExportConfigMap() (map[string]string, error) {
+	setting := s.snapshot()
+	return config.ConfigToMap(&setting)
+}
+
+func (s *managedChannelAffinitySetting) ValidateConfigMap(values map[string]string) error {
+	_, err := s.candidate(values)
+	return err
+}
+
+func (s *managedChannelAffinitySetting) UpdateConfigMap(values map[string]string) error {
+	s.writeMutex.Lock()
+	defer s.writeMutex.Unlock()
+
+	candidate, err := s.candidate(values)
+	if err != nil {
+		return err
+	}
+	s.current.Store(&channelAffinitySettingGeneration{setting: cloneChannelAffinitySetting(candidate)})
+	return nil
+}
+
+var channelAffinitySettingState = newManagedChannelAffinitySetting(channelAffinitySetting)
+
+var _ config.ValidatingMapConfig = (*managedChannelAffinitySetting)(nil)
+
+func init() {
+	config.GlobalConfig.Register("channel_affinity_setting", channelAffinitySettingState)
+}
+
+// GetChannelAffinitySetting 获取渠道亲和设置的分离快照。
+// 返回值是当代配置的深拷贝；调用方修改它不会影响运行时状态。
+//
+// 生效语义（D14/D15 合同）：Enabled/Rules 等匹配字段保存后即对新请求生效；
+// MaxEntries/DefaultTTLSeconds 只更新配置代——运行中的亲和缓存容量/TTL 在
+// 显式维护重建（POST /api/option/channel_affinity_cache/rebuild）或重启后
+// 才按新代参数重建。
 func GetChannelAffinitySetting() *ChannelAffinitySetting {
-	return &channelAffinitySetting
+	setting := channelAffinitySettingState.snapshot()
+	return &setting
 }

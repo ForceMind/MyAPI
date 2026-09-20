@@ -426,7 +426,8 @@ func GenerateAccessToken(c *gin.Context) {
 }
 
 type TransferAffQuotaRequest struct {
-	Quota int `json:"quota" binding:"required"`
+	Quota     int    `json:"quota" binding:"required"`
+	RequestId string `json:"request_id" binding:"required"`
 }
 
 func TransferAffQuota(c *gin.Context) {
@@ -445,7 +446,11 @@ func TransferAffQuota(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	err = user.TransferAffQuotaToQuota(tran.Quota)
+	if len(tran.RequestId) > 64 {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+	err = user.TransferAffQuotaToQuota(tran.Quota, tran.RequestId, userFundingEpoch(c))
 	if err != nil {
 		common.ApiErrorI18n(c, i18n.MsgUserTransferFailed, map[string]any{"Error": err.Error()})
 		return
@@ -510,19 +515,19 @@ func buildSelfUserData(user *model.User) map[string]interface{} {
 	permissions := calculateUserPermissions(user.Role)
 	permissions["admin_permissions"] = authz.Capabilities(user.Id, user.Role)
 	return map[string]interface{}{
-		"id":                user.Id,
-		"username":          user.Username,
-		"display_name":      user.DisplayName,
-		"role":              user.Role,
-		"status":            user.Status,
-		"email":             user.Email,
-		"github_id":         user.GitHubId,
-		"discord_id":        user.DiscordId,
-		"oidc_id":           user.OidcId,
-		"wechat_id":         user.WeChatId,
-		"telegram_id":       user.TelegramId,
-		"group":             user.Group,
-		"account_tier_id":   func() string {
+		"id":           user.Id,
+		"username":     user.Username,
+		"display_name": user.DisplayName,
+		"role":         user.Role,
+		"status":       user.Status,
+		"email":        user.Email,
+		"github_id":    user.GitHubId,
+		"discord_id":   user.DiscordId,
+		"oidc_id":      user.OidcId,
+		"wechat_id":    user.WeChatId,
+		"telegram_id":  user.TelegramId,
+		"group":        user.Group,
+		"account_tier_id": func() string {
 			if strings.TrimSpace(user.AccountTierID) != "" {
 				return user.AccountTierID
 			}
@@ -1120,10 +1125,11 @@ func updateAdminPermissionsForUserInTx(c *gin.Context, tx *gorm.DB, userID int, 
 }
 
 type ManageRequest struct {
-	Id     int    `json:"id"`
-	Action string `json:"action"`
-	Value  int    `json:"value"`
-	Mode   string `json:"mode"`
+	Id        int    `json:"id"`
+	Action    string `json:"action"`
+	Value     int    `json:"value"`
+	Mode      string `json:"mode"`
+	RequestId string `json:"request_id"`
 }
 
 // ManageUser Only admin user can do this
@@ -1206,13 +1212,18 @@ func ManageUser(c *gin.Context) {
 		}
 		user.Role = common.RoleCommonUser
 	case "add_quota":
+		requestId := strings.TrimSpace(req.RequestId)
+		if requestId == "" || len(requestId) > 64 {
+			common.ApiError(c, errors.New("request_id 必填且长度不能超过 64"))
+			return
+		}
 		switch req.Mode {
 		case "add":
 			if req.Value <= 0 {
 				common.ApiErrorI18n(c, i18n.MsgUserQuotaChangeZero)
 				return
 			}
-			if err := model.IncreaseUserQuota(user.Id, req.Value, true); err != nil {
+			if _, _, err := model.AdminAdjustUserQuota(c.GetInt("id"), user.Id, model.AdminQuotaAdjustmentOperationAdd, req.Value, requestId); err != nil {
 				common.ApiError(c, err)
 				return
 			}
@@ -1224,7 +1235,7 @@ func ManageUser(c *gin.Context) {
 				common.ApiErrorI18n(c, i18n.MsgUserQuotaChangeZero)
 				return
 			}
-			if err := model.DecreaseUserQuota(user.Id, req.Value, true); err != nil {
+			if _, _, err := model.AdminAdjustUserQuota(c.GetInt("id"), user.Id, model.AdminQuotaAdjustmentOperationSubtract, req.Value, requestId); err != nil {
 				common.ApiError(c, err)
 				return
 			}
@@ -1232,13 +1243,13 @@ func ManageUser(c *gin.Context) {
 				"quota": logger.LogQuota(req.Value),
 			})
 		case "override":
-			oldQuota := user.Quota
-			if err := model.DB.Model(&model.User{}).Where("id = ?", user.Id).Update("quota", req.Value).Error; err != nil {
+			adjustment, _, err := model.AdminAdjustUserQuota(c.GetInt("id"), user.Id, model.AdminQuotaAdjustmentOperationOverride, req.Value, requestId)
+			if err != nil {
 				common.ApiError(c, err)
 				return
 			}
 			recordManageAuditFor(c, user.Id, "user.quota_override", map[string]interface{}{
-				"from": logger.LogQuota(oldQuota),
+				"from": logger.LogQuota(int(adjustment.AppliedQuotaBefore)),
 				"to":   logger.LogQuota(req.Value),
 			})
 		default:
@@ -1416,7 +1427,7 @@ func TopUp(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	quota, err := model.Redeem(req.Key, id)
+	quota, err := model.Redeem(req.Key, id, userFundingEpoch(c))
 	if err != nil {
 		// 不向用户暴露兑换失败的细分原因，避免攻击者根据错误类型判断兑换码状态。
 		common.ApiErrorI18n(c, i18n.MsgRedeemFailed)

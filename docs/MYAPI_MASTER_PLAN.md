@@ -1,5 +1,7 @@
 # MyAPI 总体产品与工程计划
 
+> 2026-09-15 当前执行入口：[完整首个预发布执行计划](FULL_PRERELEASE_EXECUTION_PLAN.md)。首个预发布须完成本总体计划全部必选功能；采用 Sol/Terra 分工及按风险精简验证。下文历史状态保留，当前事实以新计划与实时证据为准。
+
 > 文档状态：执行基线与路线图
 >
 > 基线复核日期：2026-09-06（历史阶段记录保留；S5-P 与发行/安装/更新 P0 合同已纳入；仅有未接线的 S5-P P1a/P1b 纯内核、S5-Q P2A occurrence identity、C09-N1 legal/perf/general/console/checkin immutable generation/C09-N5a 只读诊断、B2-2B0/B1a/B1b gate-off 基元、Release Manifest schema-1/未受信 raw-bytes evidence/输入硬化与 D2A 纯安装状态子范围，完整功能尚未实现）

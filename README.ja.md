@@ -275,8 +275,7 @@ docker run --name my-api -d --restart always \
 > [!TIP]
 > **既定のDockerイメージ:** `ghcr.io/forcemind/myapi:<version>`（GitHub Actionsで生成。更新時は公開済みタグに`MYAPI_IMAGE`を変更）。ローカルビルドには`MYAPI_BUILD_LOCAL=true`を設定してください。
 
-`vX.Y.Z` タグをプッシュすると、GitHub Actions が GHCR のマルチアーキテクチャ
-イメージを自動的にビルドして公開します。デプロイ前に `MYAPI_IMAGE` を更新してください。
+GHCR リリースは既存のバージョン tag に対して手動で実行し、`PUBLISH`、release environment、release gate を必要とします。tag の push だけでは公開されません。プレリリースは不変 tag を使用し、安定版 `latest` を更新しません。デプロイには公開済みのバージョン tag または digest のみを使用してください。
 
 ### 📋 デプロイ要件
 
