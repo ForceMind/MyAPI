@@ -4,7 +4,7 @@ services:
     # read-only fallback; the CLI and install script normalize the legacy
     # public URL before invoking this file, then the required check below
     # prevents an empty origin.
-    image: ${MYAPI_IMAGE:-${NEW_API_IMAGE:-ghcr.io/forcemind/myapi:v0.2.0-beta.1}}
+    image: ${MYAPI_IMAGE:-${NEW_API_IMAGE:-ghcr.io/forcemind/myapi:v0.2.0-beta.2}}
     container_name: my-api
     restart: always
     # Keep workstation and small-server deployments bounded by default. These
