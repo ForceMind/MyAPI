@@ -7,5 +7,7 @@ export function resolveSetupGuideExpanded(
   setupComplete: boolean,
   manualExpanded: boolean | null
 ): boolean {
-  return setupStatusReady && !setupComplete && (manualExpanded ?? true)
+  // The overview starts with active operational information. New and
+  // returning users can expand the guide when they need it.
+  return setupStatusReady && !setupComplete && (manualExpanded ?? false)
 }

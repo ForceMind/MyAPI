@@ -61,13 +61,13 @@ try {
   async function checkChart(scope, style) {
     await scope.getByLabel(label('Chart style'), { exact: true }).selectOption(style)
     const chart = scope.getByTestId(`quota-history-chart-${style}`)
-    const shape = { line: '.recharts-line-curve', area: '.recharts-area-area', bar: '.recharts-bar-rectangle' }[style]
+    const shape = { line: '.recharts-line-curve', area: '.recharts-area-area', bar: '.recharts-bar-rectangle', scatter: '.recharts-scatter-symbol' }[style]
     await chart.locator(shape).first().waitFor({ state: 'visible' })
     const bounds = await chart.boundingBox()
     assert(bounds && bounds.width > 150 && bounds.height > 100, `real ${style} chart has a usable size`)
   }
   async function checkControls(scope) {
-    for (const style of ['line', 'area', 'bar']) await checkChart(scope, style)
+    for (const style of ['line', 'area', 'bar', 'scatter']) await checkChart(scope, style)
     await scope.getByLabel(label('Metric'), { exact: true }).selectOption('rate_per_minute')
     await checkChart(scope, 'line')
     assert((await scope.innerText()).includes(label('Estimated consumption per minute')), 'estimated rate label is localized')
@@ -139,7 +139,7 @@ try {
   assert(changeRequests.some((request) => request.range === '24h' && request.rate_window === '3600' && request.ewma_half_life === '1800' && request.overview_points === '48' && request.limit === '4' && request.sort === 'observed_desc'), 'overview uses one bounded analysis query')
   await overview.screenshot({ path: resolve(output, 'overview-quota-summary.png') })
 
-  await page.goto(`${origin}/channels`, { waitUntil: 'networkidle' })
+  await page.goto(`${origin}/channels?tab=quota`, { waitUntil: 'networkidle' })
   await trend().waitFor({ state: 'visible' })
   await checkControls(trend())
   await trend().screenshot({ path: resolve(output, 'channel-consumption.png') })
@@ -206,7 +206,7 @@ try {
 
   for (const viewport of [{ width: 320, height: 740 }, { width: 390, height: 844 }, { width: 1280, height: 600 }]) {
     await page.setViewportSize(viewport)
-    await page.goto(`${origin}/channels`, { waitUntil: 'networkidle' })
+    await page.goto(`${origin}/channels?tab=quota`, { waitUntil: 'networkidle' })
     await trend().waitFor({ state: 'visible' })
     await checkChart(trend(), 'bar')
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `no page overflow at ${viewport.width}`)
@@ -230,7 +230,7 @@ try {
   }
   assert.deepEqual([...unexpected], [], 'all application endpoints have explicit fixtures')
   assert.deepEqual(errors, [], 'no browser runtime errors')
-  console.log('Quota browser regression passed: compact overview summary/sparkline; detailed line/area/bar and analysis controls; latest-error history; 320px/390px/low-height layout. Synthetic fixtures only.')
+  console.log('Quota browser regression passed: compact overview summary/sparkline; detailed line/area/bar/scatter and analysis controls; latest-error history; 320px/390px/low-height layout. Synthetic fixtures only.')
 } catch (error) {
   if (page) {
     await page.screenshot({ path: resolve(output, 'failure.png'), fullPage: true }).catch(() => {})

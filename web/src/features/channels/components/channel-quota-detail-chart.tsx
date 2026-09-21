@@ -49,7 +49,7 @@ function isMetric(value: string): value is QuotaHistoryMetric {
 }
 
 function isChartStyle(value: string): value is QuotaHistoryChartStyle {
-  return ['line', 'area', 'bar'].includes(value)
+  return ['line', 'area', 'bar', 'scatter'].includes(value)
 }
 
 function isAnalysisMethod(value: string): value is ChannelQuotaAnalysisMethod {

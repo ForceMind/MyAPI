@@ -99,6 +99,27 @@ func TestAccessProfileLegacyColumnIntroductionRecovers(t *testing.T) {
 	}
 }
 
+func TestAccessProfileMigrationDefaultsWhenLegacyGroupsAreAbsent(t *testing.T) {
+	db := accessProfileTestDB(t)
+	require.NoError(t, db.Exec("CREATE TABLE users (id INTEGER PRIMARY KEY, account_tier_id varchar(64))").Error)
+	require.NoError(t, db.Exec("CREATE TABLE tokens (id INTEGER PRIMARY KEY, access_profile_id varchar(64))").Error)
+	require.NoError(t, db.Exec("INSERT INTO users (id) VALUES (1)").Error)
+	require.NoError(t, db.Exec("INSERT INTO tokens (id) VALUES (1)").Error)
+
+	require.NoError(t, MigrateAccessProfileIdentifiers())
+
+	var user struct {
+		AccountTierID string `gorm:"column:account_tier_id"`
+	}
+	var token struct {
+		AccessProfileID string `gorm:"column:access_profile_id"`
+	}
+	require.NoError(t, db.Table("users").Where("id = ?", 1).Take(&user).Error)
+	require.NoError(t, db.Table("tokens").Where("id = ?", 1).Take(&token).Error)
+	assert.Equal(t, "standard", user.AccountTierID)
+	assert.Equal(t, "standard", token.AccessProfileID)
+}
+
 func TestAccessProfileStartupMigratesLegacyBeforeApplyingDefaults(t *testing.T) {
 	for _, startup := range []struct {
 		name string

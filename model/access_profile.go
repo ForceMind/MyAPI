@@ -103,8 +103,12 @@ func MigrateAccessProfileIdentifiers() error {
 			AccountTierID string `gorm:"column:account_tier_id"`
 		}
 		if tx.Migrator().HasTable(&User{}) {
+			selectColumns := "id, account_tier_id"
+			if tx.Migrator().HasColumn(&User{}, "Group") {
+				selectColumns = "id, " + groupColumn + " AS legacy_group, account_tier_id"
+			}
 			if err := tx.Unscoped().Model(&User{}).
-				Select("id, "+groupColumn+" AS legacy_group, account_tier_id").
+				Select(selectColumns).
 				Where("account_tier_id IS NULL OR TRIM(account_tier_id) = ''").
 				FindInBatches(&users, batchSize, func(batchTx *gorm.DB, _ int) error {
 					for _, user := range users {
@@ -129,8 +133,12 @@ func MigrateAccessProfileIdentifiers() error {
 			AccessProfileID string `gorm:"column:access_profile_id"`
 		}
 		if tx.Migrator().HasTable(&Token{}) {
+			selectColumns := "id, access_profile_id"
+			if tx.Migrator().HasColumn(&Token{}, "Group") {
+				selectColumns = "id, " + groupColumn + " AS legacy_group, access_profile_id"
+			}
 			if err := tx.Unscoped().Model(&Token{}).
-				Select("id, "+groupColumn+" AS legacy_group, access_profile_id").
+				Select(selectColumns).
 				Where("access_profile_id IS NULL OR TRIM(access_profile_id) = ''").
 				FindInBatches(&tokens, batchSize, func(batchTx *gorm.DB, _ int) error {
 					for _, token := range tokens {

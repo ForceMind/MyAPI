@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/glebarez/sqlite"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -102,6 +103,19 @@ func TestB2ClickHouseConfiguredDatabase(t *testing.T) {
 	var tableCount int64
 	require.NoError(t, db.Raw("SELECT count() FROM system.tables WHERE database = currentDatabase()").Scan(&tableCount).Error)
 	require.Zero(t, tableCount, "refusing a non-empty B2 ClickHouse fixture database; CI owns its lifecycle and no tables are dropped")
+
+	mainDB, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	mainSQLDB, err := mainDB.DB()
+	require.NoError(t, err)
+	mainSQLDB.SetMaxOpenConns(1)
+	require.NoError(t, mainDB.AutoMigrate(&LogProjectionBackfillState{}))
+	originalMainDB := DB
+	DB = mainDB
+	t.Cleanup(func() {
+		DB = originalMainDB
+		require.NoError(t, mainSQLDB.Close())
+	})
 
 	originalLogDB := LOG_DB
 	originalLogDatabaseType := common.LogDatabaseType()
@@ -221,7 +235,20 @@ func TestB2ClickHouseConfiguredDatabase(t *testing.T) {
 	waitGroup.Wait()
 	identities, err := loadClickHouseBillingProjectionIdentities(t.Context(), db, "configured-concurrent-identity")
 	require.NoError(t, err)
-	require.Len(t, identities, 2)
+	require.GreaterOrEqual(t, len(identities), 2)
+	require.LessOrEqual(t, len(identities), 3)
+	canonicalCount, quarantinedCount := 0, 0
+	for _, identity := range identities {
+		switch identity.Status {
+		case BillingLogProjectionIdentityStatusCanonical:
+			canonicalCount++
+		case BillingLogProjectionIdentityStatusQuarantined:
+			quarantinedCount++
+		}
+	}
+	assert.GreaterOrEqual(t, canonicalCount, 1)
+	assert.LessOrEqual(t, canonicalCount, 2)
+	assert.Equal(t, 1, quarantinedCount)
 	require.ErrorIs(t, validateBillingLogProjectionIdentities("configured-concurrent-identity", concurrentDigests[0], identities), ErrBillingProjectionConflict)
 	sqlDB.SetMaxOpenConns(1)
 

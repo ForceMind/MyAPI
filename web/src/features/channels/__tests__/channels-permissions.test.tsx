@@ -17,6 +17,23 @@ import { useAuthStore } from '@/stores/auth-store'
 import { getChannelOps, getChannelRoutingPreview } from '../api'
 import { Channels } from '../index'
 
+const routeMock = vi.hoisted(() => ({
+  navigate: vi.fn(),
+  search: {} as { tab?: 'channels' | 'quota' | 'routing' },
+}))
+
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/react-router')>()
+  return {
+    ...actual,
+    Link: (props: { children: ReactNode }) => props.children,
+    getRouteApi: () => ({
+      useSearch: () => routeMock.search,
+      useNavigate: () => routeMock.navigate,
+    }),
+  }
+})
+
 vi.mock('../api', () => ({
   getChannelOps: vi.fn(),
   getChannelRoutingPreview: vi.fn(),
@@ -60,6 +77,7 @@ function renderChannels() {
 describe('channel routing preview permission boundary', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    routeMock.search = {}
     vi.mocked(getChannelOps).mockResolvedValue({
       success: true,
       data: { retry_times: 0 },
@@ -67,6 +85,7 @@ describe('channel routing preview permission boundary', () => {
   })
 
   test('does not mount or query the routing preview after channel read is revoked', () => {
+    routeMock.search = { tab: 'routing' }
     useAuthStore.getState().auth.setUser({
       id: 1,
       username: 'admin',
@@ -80,7 +99,8 @@ describe('channel routing preview permission boundary', () => {
     expect(getChannelRoutingPreview).not.toHaveBeenCalled()
   })
 
-  test('mounts the routing preview for the root role', () => {
+  test('mounts the routing preview for the root role on the traffic allocation tab', async () => {
+    routeMock.search = { tab: 'routing' }
     useAuthStore.getState().auth.setUser({
       id: 1,
       username: 'root',
@@ -89,6 +109,6 @@ describe('channel routing preview permission boundary', () => {
 
     renderChannels()
 
-    expect(screen.getByText('Routing Preview')).toBeInTheDocument()
+    expect(await screen.findByText('Routing Preview')).toBeInTheDocument()
   })
 })

@@ -210,7 +210,7 @@ export function quotaPredictionTiming(
 }
 
 export type QuotaHistoryMetric = ChannelQuotaHistoryMetric
-export type QuotaHistoryChartStyle = 'line' | 'area' | 'bar'
+export type QuotaHistoryChartStyle = 'line' | 'area' | 'bar' | 'scatter'
 export interface QuotaHistoryTrendPoint {
   timestamp: number
   observedAt: number

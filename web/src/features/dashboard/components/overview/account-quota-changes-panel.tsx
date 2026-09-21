@@ -203,7 +203,7 @@ export function AccountQuotaChangesPanel() {
           <Button
             variant='ghost'
             size='sm'
-            render={<Link to='/channels' />}
+            render={<Link to='/channels' search={{ tab: 'quota' }} />}
             nativeButton={false}
           >
             {t('Channels')}

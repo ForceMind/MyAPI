@@ -258,7 +258,7 @@ describe('quota history trend', () => {
       )
     }
   )
-  test('renders the selected line, area, and bar chart styles as real SVG paths through controlled options', async () => {
+  test('renders the selected line, area, bar, and scatter chart styles through controlled options', async () => {
     const { container } = render(
       <ControlledTrend
         data={makeHistory([
@@ -293,6 +293,16 @@ describe('quota history trend', () => {
       expect(
         container.querySelector('.recharts-bar-rectangle path')
       ).toHaveAttribute('d')
+    )
+
+    fireEvent.change(screen.getByLabelText('Chart style'), {
+      target: { value: 'scatter' },
+    })
+    expect(
+      screen.getByTestId('quota-history-chart-scatter')
+    ).toBeInTheDocument()
+    await waitFor(() =>
+      expect(container.querySelector('.recharts-scatter-symbol')).toBeTruthy()
     )
   })
 

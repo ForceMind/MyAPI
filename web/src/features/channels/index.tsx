@@ -17,12 +17,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { getRouteApi, Link } from '@tanstack/react-router'
 import { Settings2 } from 'lucide-react'
+import { lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Tooltip,
   TooltipContent,
@@ -37,12 +39,22 @@ import { ROLE } from '@/lib/roles'
 import { useAuthStore, type AuthUser } from '@/stores/auth-store'
 
 import { getChannelOps } from './api'
-import { ChannelQuotaChangesPanel } from './components/channel-quota-changes-panel'
-import { ChannelRoutingPreview } from './components/channel-routing-preview'
 import { ChannelsDialogs } from './components/channels-dialogs'
 import { ChannelsPrimaryButtons } from './components/channels-primary-buttons'
 import { ChannelsProvider } from './components/channels-provider'
 import { ChannelsTable } from './components/channels-table'
+
+const ChannelQuotaChangesPanel = lazy(() =>
+  import('./components/channel-quota-changes-panel').then((module) => ({
+    default: module.ChannelQuotaChangesPanel,
+  }))
+)
+const ChannelRoutingPreview = lazy(() =>
+  import('./components/channel-routing-preview').then((module) => ({
+    default: module.ChannelRoutingPreview,
+  }))
+)
+const route = getRouteApi('/_authenticated/channels/')
 
 function canViewChannelRoutingPreview(
   user: AuthUser | null | undefined
@@ -56,6 +68,8 @@ function canViewChannelRoutingPreview(
 
 export function Channels() {
   const { t } = useTranslation()
+  const search = route.useSearch()
+  const navigate = route.useNavigate()
   const currentUser = useAuthStore((state) => state.auth.user)
   const isRoot = useAuthStore(
     (state) => state.auth.user?.role === ROLE.SUPER_ADMIN
@@ -68,6 +82,8 @@ export function Channels() {
   })
   const retryTimes = channelOpsQuery.data?.data?.retry_times
   const canReadChannels = canViewChannelRoutingPreview(currentUser)
+  const tab =
+    search.tab ?? (search.quotaChannelId != null ? 'quota' : 'channels')
   const retryLabel =
     typeof retryTimes === 'number' ? `${t('Max Retries')}: ${retryTimes}` : null
   let retryBadge = null
@@ -114,14 +130,50 @@ export function Channels() {
           </span>
         </SectionPageLayout.Title>
         <SectionPageLayout.Actions>
-          <ChannelsPrimaryButtons />
+          {tab === 'channels' ? <ChannelsPrimaryButtons /> : null}
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
-          <div className='min-w-0'>
-            <ChannelQuotaChangesPanel />
-            {canReadChannels ? <ChannelRoutingPreview /> : null}
-            <ChannelsTable />
-          </div>
+          <Tabs
+            value={tab}
+            onValueChange={(value) => {
+              if (
+                value === 'channels' ||
+                value === 'quota' ||
+                value === 'routing'
+              ) {
+                void navigate({
+                  search: (previous) => ({ ...previous, tab: value }),
+                })
+              }
+            }}
+            className='min-w-0 gap-5'
+          >
+            <TabsList
+              className='w-full sm:w-fit'
+              aria-label={t('Channel sections')}
+            >
+              <TabsTrigger value='channels'>
+                {t('Channel management')}
+              </TabsTrigger>
+              <TabsTrigger value='quota'>{t('Quota analysis')}</TabsTrigger>
+              <TabsTrigger value='routing'>
+                {t('Traffic Allocation')}
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value='channels'>
+              <ChannelsTable />
+            </TabsContent>
+            <TabsContent value='quota'>
+              <Suspense fallback={<p>{t('Loading')}</p>}>
+                <ChannelQuotaChangesPanel />
+              </Suspense>
+            </TabsContent>
+            <TabsContent value='routing'>
+              <Suspense fallback={<p>{t('Loading')}</p>}>
+                {canReadChannels ? <ChannelRoutingPreview /> : null}
+              </Suspense>
+            </TabsContent>
+          </Tabs>
         </SectionPageLayout.Content>
       </SectionPageLayout>
 

@@ -1,6 +1,6 @@
 {
   "name": "@forcemind/myapi",
-  "version": "0.2.0-beta.1",
+  "version": "0.2.0-beta.2",
   "description": "MyAPI self-hosting CLI and complete source distribution.",
   "type": "module",
   "bin": {

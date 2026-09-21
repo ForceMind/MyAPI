@@ -69,12 +69,13 @@ func TestS2CQuotaConfiguredRedis(t *testing.T) {
 		for _, scenario := range []string{"valid", "negative", "missing-argument", "fraction", "oversized", "missing-field", "malformed-field", "noncanonical-field", "result-overflow"} {
 			t.Run(operation.name+"/"+scenario, func(t *testing.T) {
 				key := "myapi:s2c:" + operation.name + ":" + scenario
-				before := map[string]string{"Id": "42", "CacheSchema": strconv.Itoa(userCacheSchemaVersion), "Quota": "100", "RemainQuota": "100", "UsedQuota": "20", "AccessedTime": "99", "Name": "preserve"}
+				writerEpoch := int64(7)
+				before := map[string]string{"Id": "42", "CacheSchema": strconv.Itoa(userCacheSchemaVersion), "Quota": "100", "RemainQuota": "100", "UsedQuota": "20", "AccessedTime": "99", "Name": "preserve", "QuotaWriterEpoch": strconv.FormatInt(writerEpoch, 10)}
 				third := userCacheSchemaVersion
 				if operation.token {
 					third = 123
 				}
-				args := []interface{}{10, 42, third}
+				args := []interface{}{10, 42, third, writerEpoch}
 				want := 1
 				field := "Quota"
 				if operation.token {
@@ -112,10 +113,11 @@ func TestS2CQuotaConfiguredRedis(t *testing.T) {
 					}
 				}
 				require.NoError(t, client.HSet(ctx, key, before).Err())
+				require.NoError(t, client.Set(ctx, quotaWriterEpochRedisKey, writerEpoch, 0).Err())
 				require.NoError(t, client.Expire(ctx, key, time.Minute).Err())
 				expires, err := client.Do(ctx, "PEXPIRETIME", key).Int64()
 				require.NoError(t, err)
-				result, err := client.Eval(ctx, operation.script, []string{key}, args...).Int()
+				result, err := client.Eval(ctx, operation.script, []string{key, quotaWriterEpochRedisKey}, args...).Int()
 				require.NoError(t, err)
 				assert.Equal(t, want, result)
 				expected := make(map[string]string, len(before))

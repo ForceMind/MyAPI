@@ -8,6 +8,7 @@ License, or (at your option) any later version.
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -57,6 +58,12 @@ vi.mock(
   '@/features/dashboard/components/overview/account-quota-changes-panel',
   () => ({
     AccountQuotaChangesPanel: () => null,
+  })
+)
+vi.mock(
+  '@/features/dashboard/components/overview/operational-attention-panel',
+  () => ({
+    OperationalAttentionPanel: () => null,
   })
 )
 vi.mock('@/features/dashboard/components/overview/announcements-panel', () => ({
@@ -137,8 +144,9 @@ describe('overview setup guide edition and role gating', () => {
     useAuthStore.getState().auth.setUser(null)
   })
 
-  test('shows the channel setup step only to a permitted full-build administrator', async () => {
+  test('keeps the guide collapsed until a permitted full-build administrator expands it', async () => {
     setUser(ROLE.ADMIN, true)
+    const user = userEvent.setup()
     renderDashboard()
 
     if (SELF_USE_MINIMAL) {
@@ -153,11 +161,18 @@ describe('overview setup guide edition and role gating', () => {
     }
 
     expect(
-      await screen.findByText('Configure upstream channels')
+      await screen.findByText('Setup guide is collapsed. Expand it anytime.')
     ).toBeInTheDocument()
+    expect(
+      screen.queryByText('Configure upstream channels')
+    ).not.toBeInTheDocument()
     await waitFor(() => {
       expect(getChannels).toHaveBeenCalledWith({ p: 1, page_size: 1 })
     })
+    await user.click(screen.getByRole('button', { name: 'Show setup guide' }))
+    expect(
+      await screen.findByText('Configure upstream channels')
+    ).toBeInTheDocument()
   })
 
   test('does not request or show the channel step for regular users or denied admins', async () => {

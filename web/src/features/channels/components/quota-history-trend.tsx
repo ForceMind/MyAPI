@@ -15,9 +15,11 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  ComposedChart,
   Line,
   LineChart,
   ReferenceLine,
+  Scatter,
   Tooltip,
   XAxis,
   YAxis,
@@ -77,7 +79,12 @@ const METRICS: QuotaHistoryMetric[] = [
   'consumption',
   'rate_per_minute',
 ]
-const CHART_STYLES: QuotaHistoryChartStyle[] = ['line', 'area', 'bar']
+const CHART_STYLES: QuotaHistoryChartStyle[] = [
+  'line',
+  'area',
+  'bar',
+  'scatter',
+]
 
 type Translate = (key: string, options?: Record<string, unknown>) => string
 
@@ -128,6 +135,7 @@ function metricLabel(metric: QuotaHistoryMetric, t: Translate) {
 function chartStyleLabel(chartStyle: QuotaHistoryChartStyle, t: Translate) {
   if (chartStyle === 'line') return t('Line')
   if (chartStyle === 'area') return t('Area')
+  if (chartStyle === 'scatter') return t('Scatter')
   return t('Bar')
 }
 
@@ -596,6 +604,18 @@ function QuotaHistoryChart(props: {
           isAnimationActive={false}
         />
       </AreaChart>
+    )
+  }
+  if (props.chartStyle === 'scatter') {
+    return (
+      <ComposedChart data={chartData} margin={margin}>
+        {commonAxes}
+        <Scatter
+          dataKey='value'
+          fill='var(--color-value)'
+          isAnimationActive={false}
+        />
+      </ComposedChart>
     )
   }
   return (

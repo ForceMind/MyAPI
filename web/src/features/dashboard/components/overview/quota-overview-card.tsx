@@ -300,7 +300,11 @@ export function QuotaOverviewCard(props: { item: ChannelQuotaChangeItem }) {
           render={
             <Link
               to='/channels'
-              search={{ filter: item.name, quotaChannelId: item.channel_id }}
+              search={{
+                filter: item.name,
+                quotaChannelId: item.channel_id,
+                tab: 'quota',
+              }}
             />
           }
           nativeButton={false}

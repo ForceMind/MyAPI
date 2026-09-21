@@ -68,6 +68,7 @@ import { AccountQuotaChangesPanel } from './account-quota-changes-panel'
 import { AnnouncementsPanel } from './announcements-panel'
 import { ApiInfoPanel } from './api-info-panel'
 import { FAQPanel } from './faq-panel'
+import { OperationalAttentionPanel } from './operational-attention-panel'
 import { PerformanceHealthPanel } from './performance-health-panel'
 import { SummaryCards } from './summary-cards'
 import { UptimePanel } from './uptime-panel'
@@ -498,6 +499,7 @@ export function OverviewDashboard() {
   const usedQuota = Number(user?.used_quota ?? 0)
   const isAdmin = Boolean(user?.role && user.role >= ROLE.ADMIN)
   const canReadChannels = hasPermission(user, 'channel', 'read')
+  const canReadOperationalChannels = isAdmin && canReadChannels
 
   const apiKeysQuery = useQuery({
     queryKey: ['dashboard', 'overview', 'api-keys'],
@@ -693,7 +695,7 @@ export function OverviewDashboard() {
   return (
     <div className='flex flex-col gap-4'>
       {setupGuideExpanded && (
-        <CardStaggerContainer className='grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
+        <CardStaggerContainer className='order-4 grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
           <CardStaggerItem className='bg-card h-full overflow-hidden rounded-2xl border shadow-xs'>
             <div className='relative h-full overflow-hidden p-4 sm:p-5'>
               <SetupGuideBackdrop />
@@ -770,7 +772,7 @@ export function OverviewDashboard() {
         </CardStaggerContainer>
       )}
       {!setupGuideExpanded && setupStatusReady && !setupComplete && (
-        <CardStaggerContainer>
+        <CardStaggerContainer className='order-4'>
           <CardStaggerItem className='bg-card overflow-hidden rounded-2xl border shadow-xs'>
             <div className='relative overflow-hidden px-4 py-3 sm:px-5'>
               <SetupGuideBackdrop compact />
@@ -816,14 +818,25 @@ export function OverviewDashboard() {
           </CardStaggerItem>
         </CardStaggerContainer>
       )}
-      <SummaryCards />
+      <div className='order-1'>
+        <SummaryCards />
+      </div>
 
-      <AccountQuotaChangesPanel />
+      {canReadOperationalChannels ? (
+        <CardStaggerContainer className='order-2 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
+          <CardStaggerItem className='min-w-0'>
+            <AccountQuotaChangesPanel />
+          </CardStaggerItem>
+          <CardStaggerItem className='min-w-0'>
+            <OperationalAttentionPanel />
+          </CardStaggerItem>
+        </CardStaggerContainer>
+      ) : null}
 
       {showContentPanels && (
         <CardStaggerContainer
           className={cn(
-            'grid grid-cols-1 gap-4',
+            'order-5 grid grid-cols-1 gap-4',
             showLeftContentPanels &&
               showUptimePanel &&
               'xl:grid-cols-[minmax(0,1fr)_22rem]'
