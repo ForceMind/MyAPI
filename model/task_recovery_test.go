@@ -25,6 +25,8 @@ var errInjectedTaskSubmissionIntentAttemptPanic = errors.New("injected task subm
 var errInjectedTaskSubmissionIntentSavepoint = errors.New("injected task submission intent savepoint failure")
 var errInjectedTaskSubmissionIntentRollback = errors.New("injected task submission intent rollback failure")
 
+const b2SubmissionFixtureUserID = 1_000_000
+
 func TestValidTaskSubmissionPublicID(t *testing.T) {
 	assert.True(t, ValidTaskSubmissionPublicID("task_"+strings.Repeat("a", taskSubmissionPublicIDRandomLength)))
 	for _, invalid := range []string{
@@ -109,9 +111,9 @@ func b2SubmissionModels() []interface{} {
 func ensureB2SubmissionOwner(t *testing.T, db *gorm.DB, tokenID int) {
 	t.Helper()
 	var user User
-	err := db.Where("id = ?", 11).First(&user).Error
+	err := db.Where("id = ?", b2SubmissionFixtureUserID).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		user = User{Id: 11, Username: "b2-fixture-user", Password: "fixture-password", DisplayName: "B2 Fixture"}
+		user = User{Id: b2SubmissionFixtureUserID, Username: "b2-fixture-user", Password: "fixture-password", DisplayName: "B2 Fixture"}
 		require.NoError(t, db.Create(&user).Error)
 	} else {
 		require.NoError(t, err)
@@ -168,7 +170,7 @@ func newB2SubmissionOperation(t *testing.T, tokenID int, method, kind, rawKey, c
 	keyHash, err := HashTaskSubmissionIdempotencyKey(rawKey)
 	require.NoError(t, err)
 	return &TaskSubmissionOperation{
-		UserID:             11,
+		UserID:             b2SubmissionFixtureUserID,
 		TokenID:            tokenID,
 		HTTPMethod:         method,
 		OperationKind:      kind,

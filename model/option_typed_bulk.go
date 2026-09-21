@@ -184,7 +184,7 @@ type typedBulkPrepared struct {
 // no typed bulk has committed yet). It backs the form-loading GET endpoint.
 func CurrentTypedBulkRevision() (int64, error) {
 	var option Option
-	err := DB.Where("key = ?", typedBulkRevisionOptionKey).First(&option).Error
+	err := optionKeyQuery(DB, typedBulkRevisionOptionKey).First(&option).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return 0, nil
 	}
@@ -374,7 +374,7 @@ func normalizeTypedBulkOptions(items []TypedBulkOption) (*typedBulkPrepared, err
 // taking a FOR UPDATE row lock on databases that support it.
 func readTypedBulkRevisionTx(tx *gorm.DB) (current int64, exists bool, err error) {
 	var option Option
-	query := lockForUpdate(tx.Where("key = ?", typedBulkRevisionOptionKey))
+	query := lockForUpdate(optionKeyQuery(tx, typedBulkRevisionOptionKey))
 	err = query.First(&option).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return 0, false, nil
@@ -404,8 +404,7 @@ func bumpTypedBulkRevisionTx(tx *gorm.DB, current int64, exists bool) (int64, er
 		}
 		return next, nil
 	}
-	result := tx.Model(&Option{}).
-		Where("key = ?", typedBulkRevisionOptionKey).
+	result := optionKeyQuery(tx.Model(&Option{}), typedBulkRevisionOptionKey).
 		Where("value = ?", strconv.FormatInt(current, 10)).
 		Update("value", nextRaw)
 	if result.Error != nil {

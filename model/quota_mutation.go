@@ -215,7 +215,7 @@ type QuotaMutationReceipt struct {
 	StatisticsVersion           int                          `json:"statistics_version,omitempty" gorm:"not null;default:0;<-:create"`
 	StatisticsApplied           bool                         `json:"statistics_applied,omitempty" gorm:"not null;default:false;<-:create"`
 	EvidenceID                  string                       `json:"evidence_id,omitempty" gorm:"type:varchar(191);not null;default:'';<-:create"`
-	EvidenceHash                string                       `json:"evidence_hash,omitempty" gorm:"type:char(64);not null;default:'';<-:create"`
+	EvidenceHash                string                       `json:"evidence_hash,omitempty" gorm:"type:varchar(64);not null;default:'';<-:create"`
 	EvidenceVersion             int                          `json:"evidence_version,omitempty" gorm:"not null;default:0;<-:create"`
 	BillingContext              TaskQuotaBillingContext      `json:"billing_context" gorm:"type:text;not null;<-:create"`
 	Before                      QuotaMutationAccountSnapshot `json:"before" gorm:"column:before_snapshot;type:text;not null;<-:create"`
@@ -225,6 +225,14 @@ type QuotaMutationReceipt struct {
 
 func (QuotaMutationReceipt) TableName() string {
 	return "quota_mutation_receipts"
+}
+
+func (receipt *QuotaMutationReceipt) AfterFind(_ *gorm.DB) error {
+	// PostgreSQL pads empty CHAR(64) values from older schemas. Evidence hashes
+	// are exact hex strings, so trim only the legacy padding before validating
+	// the immutable receipt snapshot.
+	receipt.EvidenceHash = strings.TrimSpace(receipt.EvidenceHash)
+	return nil
 }
 
 func (receipt *QuotaMutationReceipt) BeforeCreate(tx *gorm.DB) error {

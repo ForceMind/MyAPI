@@ -164,7 +164,7 @@ func loadQuotaWriterClusterDrainAck(db *gorm.DB) (*QuotaWriterClusterDrainAck, e
 		return nil, nil
 	}
 	var option Option
-	result := db.Where("key = ?", quotaWriterClusterDrainAckOptionKey).Limit(1).Find(&option)
+	result := optionKeyQuery(db, quotaWriterClusterDrainAckOptionKey).Limit(1).Find(&option)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -453,12 +453,12 @@ func finishQuotaWriterTransition(ctx context.Context, db *gorm.DB, transition *Q
 // ---------------------------------------------------------------------------
 
 type QuotaWriterDrainReport struct {
-	Rounds              int   `json:"rounds"`
-	BatchQueueRemaining int   `json:"batch_queue_remaining"`
-	BalanceDrainPending int64 `json:"balance_drain_pending"`
-	BalanceDrainInflight bool `json:"balance_drain_inflight"`
-	ProjectionPending   int64 `json:"projection_pending"`
-	Complete            bool  `json:"complete"`
+	Rounds               int   `json:"rounds"`
+	BatchQueueRemaining  int   `json:"batch_queue_remaining"`
+	BalanceDrainPending  int64 `json:"balance_drain_pending"`
+	BalanceDrainInflight bool  `json:"balance_drain_inflight"`
+	ProjectionPending    int64 `json:"projection_pending"`
+	Complete             bool  `json:"complete"`
 }
 
 func quotaWriterBatchQueueRemaining() int {

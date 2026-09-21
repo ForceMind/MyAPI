@@ -25,6 +25,12 @@ type Option struct {
 	Value string `json:"value"`
 }
 
+// optionKeyQuery keeps the reserved options.key column quoted by GORM on all
+// supported databases.
+func optionKeyQuery(tx *gorm.DB, key string) *gorm.DB {
+	return tx.Where(&Option{Key: key})
+}
+
 const (
 	groupRatioOptionKey            = "GroupRatio"
 	groupRatioOptionAlias          = "group_ratio_setting.group_ratio"

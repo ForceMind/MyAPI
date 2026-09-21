@@ -782,7 +782,7 @@ func applyOptionRemediationItem(db *gorm.DB, operatorUserId int, item OptionReme
 			// would wrongly match, so MySQL gets an explicit BINARY
 			// comparison; PostgreSQL and SQLite comparisons are already
 			// case-sensitive by default.
-			query := tx.Model(&Option{}).Where("key = ?", item.Key)
+			query := optionKeyQuery(tx.Model(&Option{}), item.Key)
 			if common.UsingMainDatabase(common.DatabaseTypeMySQL) {
 				query = query.Where("BINARY `value` = ?", plan.oldValue)
 			} else {

@@ -1624,7 +1624,7 @@ type TaskBillingEvent struct {
 	ResolutionSource  string                  `json:"resolution_source,omitempty" gorm:"type:varchar(32);<-:create"`
 	AuditCommandID    string                  `json:"audit_command_id,omitempty" gorm:"type:varchar(48);<-:create"`
 	EvidenceID        string                  `json:"evidence_id,omitempty" gorm:"type:varchar(191);not null;default:'';<-:create"`
-	EvidenceHash      string                  `json:"evidence_hash,omitempty" gorm:"type:char(64);not null;default:'';<-:create"`
+	EvidenceHash      string                  `json:"evidence_hash,omitempty" gorm:"type:varchar(64);not null;default:'';<-:create"`
 	EvidenceVersion   int                     `json:"evidence_version,omitempty" gorm:"not null;default:0;<-:create"`
 	StatisticsVersion int                     `json:"statistics_version,omitempty" gorm:"not null;default:0;<-:create"`
 	StatisticsApplied bool                    `json:"statistics_applied,omitempty" gorm:"not null;default:false;<-:create"`
@@ -1640,6 +1640,15 @@ type TaskBillingEvent struct {
 	LockVersion       int64                   `json:"lock_version" gorm:"type:bigint;not null;<-:create"`
 	CreatedAt         int64                   `json:"created_at" gorm:"type:bigint;index;<-:create"`
 	UpdatedAt         int64                   `json:"updated_at" gorm:"type:bigint;<-:create"`
+}
+
+func (event *TaskBillingEvent) AfterFind(_ *gorm.DB) error {
+	// Older PostgreSQL installations stored this value in CHAR(64), which
+	// pads an empty value with spaces. Evidence hashes are exact hex strings,
+	// so whitespace has no valid meaning and must not poison the v1 payload
+	// equality check.
+	event.EvidenceHash = strings.TrimSpace(event.EvidenceHash)
+	return nil
 }
 
 func (event *TaskBillingEvent) BeforeCreate(tx *gorm.DB) error {

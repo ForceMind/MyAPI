@@ -44,7 +44,7 @@ type TaskTerminalObservation struct {
 	RequestID               string                       `gorm:"type:varchar(64);not null;default:''"`
 	ResolutionSource        string                       `gorm:"type:varchar(32);not null;default:''"`
 	EvidenceID              string                       `gorm:"type:varchar(191);not null;default:''"`
-	EvidenceHash            string                       `gorm:"type:char(64);not null;default:''"`
+	EvidenceHash            string                       `gorm:"type:varchar(64);not null;default:''"`
 	EvidenceVersion         int                          `gorm:"not null;default:0"`
 	ResultURL               string                       `gorm:"type:text"`
 	TaskData                string                       `json:"-" gorm:"type:text"`
@@ -57,7 +57,7 @@ type TaskTerminalObservation struct {
 	ClampOriginal           string                       `gorm:"type:varchar(64);not null;default:''"`
 	ClampClamped            int                          `gorm:"not null;default:0"`
 	ConflictCount           int                          `gorm:"not null;default:0"`
-	LastConflictFingerprint string                       `gorm:"type:char(64);not null;default:''"`
+	LastConflictFingerprint string                       `gorm:"type:varchar(64);not null;default:''"`
 	Fingerprint             string                       `gorm:"type:char(64);not null"`
 	State                   TaskTerminalObservationState `gorm:"type:varchar(24);not null;index"`
 	AppliedAt               *int64                       `gorm:"type:bigint"`
@@ -89,6 +89,15 @@ type TaskTerminalObservationInput struct {
 	OperationalResultURL string
 	TaskUpstreamID       string
 	QuotaClamp           *common.QuotaClamp
+}
+
+func (observation *TaskTerminalObservation) AfterFind(_ *gorm.DB) error {
+	// PostgreSQL pads empty CHAR(64) values from older schemas. These fields
+	// are either empty or exact hex digests, so trimming legacy padding keeps
+	// the immutable-state checks portable without accepting malformed hashes.
+	observation.EvidenceHash = strings.TrimSpace(observation.EvidenceHash)
+	observation.LastConflictFingerprint = strings.TrimSpace(observation.LastConflictFingerprint)
+	return nil
 }
 
 func CreateOrLoadTaskTerminalObservation(db *gorm.DB, input TaskTerminalObservationInput) (*TaskTerminalObservation, error) {
@@ -492,6 +501,13 @@ func applyTaskStatistics(tx *gorm.DB, userID, channelID int, delta int64, reques
 	}
 	if userResult.RowsAffected != 1 {
 		return ErrTaskTerminalObservationManualReview
+	}
+	// A zero-cost request still increments the user's request count, but it
+	// does not change the channel quota. MySQL reports zero affected rows for
+	// a no-op UPDATE, unlike PostgreSQL and SQLite, so issuing that statement
+	// would incorrectly require manual review.
+	if delta == 0 {
+		return nil
 	}
 	query := tx.Model(&Channel{}).Where("id = ?", channelID)
 	if delta > 0 {

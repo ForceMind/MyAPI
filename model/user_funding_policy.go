@@ -85,7 +85,7 @@ func decodeUserFundingState(raw string) UserFundingStateSnapshot {
 
 func validateUserFundingStateProjectionTx(tx *gorm.DB, state UserFundingStateSnapshot) (UserFundingStateSnapshot, error) {
 	var modeOption Option
-	if err := tx.Where("key = ?", operation_setting.UserFundingModeOptionKey).First(&modeOption).Error; err == nil {
+	if err := optionKeyQuery(tx, operation_setting.UserFundingModeOptionKey).First(&modeOption).Error; err == nil {
 		mode, normalizeErr := operation_setting.NormalizeUserFundingMode(operation_setting.UserFundingMode(modeOption.Value))
 		if normalizeErr != nil || mode != state.Mode {
 			return failClosedUserFundingState(state.Epoch), nil
@@ -95,7 +95,7 @@ func validateUserFundingStateProjectionTx(tx *gorm.DB, state UserFundingStateSna
 	}
 
 	var epochOption Option
-	if err := tx.Where("key = ?", operation_setting.UserFundingEpochOptionKey).First(&epochOption).Error; err == nil {
+	if err := optionKeyQuery(tx, operation_setting.UserFundingEpochOptionKey).First(&epochOption).Error; err == nil {
 		epoch, parseErr := strconv.ParseUint(epochOption.Value, 10, 64)
 		if parseErr != nil || epoch != state.Epoch {
 			return failClosedUserFundingState(state.Epoch), nil
@@ -115,7 +115,7 @@ func legacyUserFundingStateTx(tx *gorm.DB) (UserFundingStateSnapshot, error) {
 	// Older installations may have persisted only SelfUseModeEnabled. A
 	// missing funding-state row must not turn a self-use deployment back on.
 	var selfUseOption Option
-	selfUseErr := tx.Where("key = ?", "SelfUseModeEnabled").First(&selfUseOption).Error
+	selfUseErr := optionKeyQuery(tx, "SelfUseModeEnabled").First(&selfUseOption).Error
 	if selfUseErr != nil && !errors.Is(selfUseErr, gorm.ErrRecordNotFound) {
 		return failClosedUserFundingState(0), selfUseErr
 	}
@@ -129,7 +129,7 @@ func legacyUserFundingStateTx(tx *gorm.DB) (UserFundingStateSnapshot, error) {
 		}
 	}
 	var modeOption Option
-	modeErr := tx.Where("key = ?", operation_setting.UserFundingModeOptionKey).First(&modeOption).Error
+	modeErr := optionKeyQuery(tx, operation_setting.UserFundingModeOptionKey).First(&modeOption).Error
 	if modeErr != nil && !errors.Is(modeErr, gorm.ErrRecordNotFound) {
 		return failClosedUserFundingState(0), modeErr
 	}
@@ -142,7 +142,7 @@ func legacyUserFundingStateTx(tx *gorm.DB) (UserFundingStateSnapshot, error) {
 	}
 
 	var epochOption Option
-	epochErr := tx.Where("key = ?", operation_setting.UserFundingEpochOptionKey).First(&epochOption).Error
+	epochErr := optionKeyQuery(tx, operation_setting.UserFundingEpochOptionKey).First(&epochOption).Error
 	if epochErr != nil && !errors.Is(epochErr, gorm.ErrRecordNotFound) {
 		return failClosedUserFundingState(0), epochErr
 	}
@@ -161,7 +161,7 @@ func readUserFundingStateTx(tx *gorm.DB, lockAndEnsure bool) (UserFundingStateSn
 		return failClosedUserFundingState(0), nil, gorm.ErrInvalidDB
 	}
 	var option Option
-	query := tx.Where("key = ?", UserFundingStateOptionKey)
+	query := optionKeyQuery(tx, UserFundingStateOptionKey)
 	if lockAndEnsure {
 		query = lockForUpdate(query)
 	}
@@ -190,8 +190,7 @@ func readUserFundingStateTx(tx *gorm.DB, lockAndEnsure bool) (UserFundingStateSn
 	if lockAndEnsure {
 		// SQLite has no SELECT FOR UPDATE. A no-op UPDATE obtains the writer
 		// reservation while MySQL/PostgreSQL retain their row lock.
-		if err := tx.Model(&Option{}).
-			Where("key = ?", UserFundingStateOptionKey).
+		if err := optionKeyQuery(tx.Model(&Option{}), UserFundingStateOptionKey).
 			UpdateColumn("value", gorm.Expr("value")).Error; err != nil {
 			return failClosedUserFundingState(0), nil, err
 		}
@@ -294,7 +293,7 @@ func saveUserFundingStateTx(tx *gorm.DB, option *Option, state UserFundingStateS
 	if err != nil {
 		return err
 	}
-	if err := tx.Model(&Option{}).Where("key = ?", UserFundingStateOptionKey).Update("value", raw).Error; err != nil {
+	if err := optionKeyQuery(tx.Model(&Option{}), UserFundingStateOptionKey).Update("value", raw).Error; err != nil {
 		return err
 	}
 	for key, value := range map[string]string{
@@ -302,10 +301,10 @@ func saveUserFundingStateTx(tx *gorm.DB, option *Option, state UserFundingStateS
 		operation_setting.UserFundingEpochOptionKey: strconv.FormatUint(state.Epoch, 10),
 	} {
 		stored := Option{Key: key}
-		if err := tx.Where("key = ?", key).FirstOrCreate(&stored, Option{Key: key}).Error; err != nil {
+		if err := optionKeyQuery(tx, key).FirstOrCreate(&stored, Option{Key: key}).Error; err != nil {
 			return err
 		}
-		if err := tx.Model(&Option{}).Where("key = ?", key).Update("value", value).Error; err != nil {
+		if err := optionKeyQuery(tx.Model(&Option{}), key).Update("value", value).Error; err != nil {
 			return err
 		}
 	}
@@ -328,7 +327,7 @@ func InitializeUserFundingStateTx(tx *gorm.DB, mode operation_setting.UserFundin
 		operation_setting.UserFundingEpochOptionKey: strconv.FormatUint(state.Epoch, 10),
 	} {
 		stored := Option{Key: key, Value: value}
-		if err := tx.Where("key = ?", key).Assign("value", value).FirstOrCreate(&stored).Error; err != nil {
+		if err := optionKeyQuery(tx, key).Assign("value", value).FirstOrCreate(&stored).Error; err != nil {
 			return state, err
 		}
 	}
