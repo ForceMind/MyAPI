@@ -155,6 +155,7 @@ try {
   await page.reload({ waitUntil: 'networkidle' })
 
   // Exercise the existing channel-row entry, rather than a test-only component.
+  await page.getByRole('tab', { name: label('Channel management'), exact: true }).click()
   await page.getByRole('button', { name: label('Open menu'), exact: true }).last().click()
   await page.getByRole('menuitem', { name: label('Query Balance'), exact: true }).click()
   const dialog = page.getByRole('dialog')
