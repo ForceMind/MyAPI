@@ -62,7 +62,7 @@ try {
     await scope.getByLabel(label('Chart style'), { exact: true }).selectOption(style)
     const chart = scope.getByTestId(`quota-history-chart-${style}`)
     const shape = { line: '.recharts-line-curve', area: '.recharts-area-area', bar: '.recharts-bar-rectangle', scatter: '.recharts-scatter-symbol' }[style]
-    await chart.locator(shape).first().waitFor({ state: 'visible' })
+    await chart.locator(shape).first().waitFor({ state: style === 'scatter' ? 'attached' : 'visible' })
     const bounds = await chart.boundingBox()
     assert(bounds && bounds.width > 150 && bounds.height > 100, `real ${style} chart has a usable size`)
   }

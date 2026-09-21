@@ -1785,7 +1785,7 @@ func FindClickHouseCanonicalProjectionMutations(ctx context.Context, db *gorm.DB
 	}
 	var mutations []ClickHouseProjectionMutation
 	err := db.WithContext(ctx).Raw(
-		"SELECT mutation_id, command, create_time, is_done, latest_fail_reason FROM system.mutations WHERE database = currentDatabase() AND table = ? AND positionCaseInsensitive(command, ?) > 0 AND toUnixTimestamp64Milli(create_time) >= ? ORDER BY create_time, mutation_id",
+		"SELECT mutation_id, command, create_time, is_done, latest_fail_reason FROM system.mutations WHERE database = currentDatabase() AND table = ? AND positionCaseInsensitive(command, ?) > 0 AND toUnixTimestamp(create_time) * 1000 >= ? ORDER BY create_time, mutation_id",
 		"logs", clickHouseProjectionMutationCommand(), requestedAtMillis-1000,
 	).Scan(&mutations).Error
 	return mutations, err

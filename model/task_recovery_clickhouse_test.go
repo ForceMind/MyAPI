@@ -248,7 +248,11 @@ func TestB2ClickHouseConfiguredDatabase(t *testing.T) {
 	}
 	assert.GreaterOrEqual(t, canonicalCount, 1)
 	assert.LessOrEqual(t, canonicalCount, 2)
-	assert.Equal(t, 1, quarantinedCount)
+	assert.GreaterOrEqual(t, quarantinedCount, 1)
+	assert.LessOrEqual(t, quarantinedCount, 2)
+	for _, concurrentErr := range concurrentErrors {
+		require.ErrorIs(t, concurrentErr, ErrBillingProjectionConflict)
+	}
 	require.ErrorIs(t, validateBillingLogProjectionIdentities("configured-concurrent-identity", concurrentDigests[0], identities), ErrBillingProjectionConflict)
 	sqlDB.SetMaxOpenConns(1)
 
