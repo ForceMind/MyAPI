@@ -213,6 +213,7 @@ try {
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `no page overflow at ${viewport.width}`)
     await showWholeChart(trend(), viewport.height - 80)
     await page.screenshot({ path: resolve(output, `channel-chart-${viewport.width}x${viewport.height}.png`) })
+    await page.getByRole('tab', { name: label('Channel management'), exact: true }).click()
     const rowMenu = page.getByRole('button', { name: label('Open menu'), exact: true }).last()
     // Real wheel scrolling, not scrollIntoView (which can scroll an
     // overflow:hidden ancestor programmatically and hide a production bug).
