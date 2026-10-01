@@ -2,6 +2,8 @@
 
 本节是当前入口；下方旧 Linux 模板只保留历史，不作为当前目录、授权或完成状态。启动提示词见 [CODEX_HANDOFF_PROMPT.md](CODEX_HANDOFF_PROMPT.md)，R1 需求及逐批证据见 [NEXT_USABLE_VERSION.md](NEXT_USABLE_VERSION.md)。不重新规划 F1–F8，不重做已完成批次。
 
+**同步阻断（2026-10-02）：** 本地源码快照提交 `f93695873c4413d42a48fe1af302bee3bc70be98`，共 232 个文件（含继承的商业支付 WIP）。公开推送被自动安全审核拒绝，要求负责人明确批准这批内容向公开仓库外发；没有绕过或执行推送。`codex/r1-handoff-20261002` 目前仅本地，不假定 GitHub 已存在。下述分支是待同步目标，远端 main 未被本任务写入。交接文档阻断记录另以本地后续提交保存。
+
 ## Git 与工作树
 
 - 仓库 `https://github.com/ForceMind/MyAPI`；交接分支 `codex/r1-handoff-20261002`，未封版源码快照。提交通过 `git rev-parse HEAD` 与远端同名分支回读，本文不填写自引用 SHA。
@@ -37,6 +39,7 @@
 ## 验证与下一迭代
 
 - 2026-10-02 交接复核：Gitleaks 8.30.1 官方校验和通过，扫描暂存补丁约 1.27MB 未发现秘密（只覆盖本次差异，不是全历史无秘密保证）；暂存 diff 检查通过。relaykit 使用 `GOWORK=off GOMAXPROCS=1 GOMEMLIMIT=768MiB go build ./...` 独立构建退出 0。
+- GitHub API 确认基线 `57ec31a58fc737ba2be0601e4102123436c3d938` 已存在于公开仓库；源码快照仅在其上新增一个提交，不夹带额外未核查的祖先历史。未因推送拒绝改变仓库可见性、换工具外发或隐藏商业 WIP。
 - 同日重跑上述未知结算合同，1.770s 退出 1，missing/estimated 两项仍失败、reported 对照通过；未修改生产行为或隐藏失败。GitHub API 回读仓库为 PUBLIC，快照范围为候选源码与交接文档，不发布制品。
 - 逐批命令/日期见 R1 卡，按变化范围复用，不是当前全部仓库绿色或独立审查。最后 controller/router 全包 2.048s/1.017s、相关 race/vet 通过；最后 service 全包 6.977s 退出 1，仅上述两项红灯，后续该包源码未变。
 - 最后官网来源 UI 14/14 合同、typecheck/lint、构建 2.06s 通过；新增七语言键 missingCount=0，历史未翻译项未整体补完。沿用既有 UI 组件、会话隔离与指定 i18n 脚本，未增加项目依赖。
