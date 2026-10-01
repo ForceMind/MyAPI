@@ -1,4 +1,8 @@
 # English translations
+quota_history.series_required: "Select an account series for multi-account quota history"
+quota_history.invalid_series: "Invalid quota history series"
+quota_history.series_not_found: "No matching account series was found in this channel and time range"
+quota_history.selection_too_large: "Too many quota observations; select a shorter time range"
 
 # Common messages
 common.invalid_params: "Invalid parameters"
@@ -32,6 +36,11 @@ auth.user_id_format_error: "Unauthorized, New-Api-User header format error"
 auth.user_id_mismatch: "Unauthorized, New-Api-User does not match logged in user"
 auth.user_banned: "User has been banned"
 auth.insufficient_privilege: "Unauthorized, insufficient privileges"
+codex_oauth.model_name_too_long: "A model name is too long (maximum 255 bytes). Correct the channel before completing Codex login; the authorization code was not used."
+codex_oauth.invalid_create: "Invalid Codex channel creation request"
+codex_oauth.invalid_settings: "Invalid Codex channel settings"
+payment.manual_complete_quota_unit_unresolved: "This order has no valid quota unit snapshot. Reconcile its original payment and pricing rules before crediting; current settings cannot be used."
+payment.pricing_unavailable: "Pricing is temporarily unavailable. No payment request was created; retry after configuration recovery."
 
 # Token messages
 token.name_too_long: "Token name is too long"

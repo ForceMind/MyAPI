@@ -57,6 +57,56 @@ func createFundingPolicyUser(t *testing.T, db *gorm.DB) User {
 	return user
 }
 
+func TestDisabledCommercialFundingKeepsUserAndTokenQuotaLimits(t *testing.T) {
+	db, _ := userFundingPolicyTestDB(t, operation_setting.UserFundingModeDisabled)
+	require.NoError(t, db.AutoMigrate(&Token{}))
+	oldBatch := common.BatchUpdateEnabled
+	common.BatchUpdateEnabled = false
+	t.Cleanup(func() { common.BatchUpdateEnabled = oldBatch })
+	user := createFundingPolicyUser(t, db)
+	require.NoError(t, IncreaseUserQuota(user.Id, 200, true))
+	token := Token{UserId: user.Id, Key: "self-use-quota-fixture", Status: common.TokenStatusEnabled, ExpiredTime: -1, RemainQuota: 80}
+	require.NoError(t, token.Insert())
+
+	reserved, err := TryReserveUserQuota(user.Id, 60)
+	require.NoError(t, err)
+	require.True(t, reserved)
+	reserved, err = TryReserveTokenQuota(token.Id, token.Key, 60, false)
+	require.NoError(t, err)
+	require.True(t, reserved)
+	reserved, err = TryReserveUserQuota(user.Id, 1141)
+	require.NoError(t, err)
+	assert.False(t, reserved)
+	reserved, err = TryReserveTokenQuota(token.Id, token.Key, 21, false)
+	require.NoError(t, err)
+	assert.False(t, reserved)
+	require.NoError(t, db.First(&user, user.Id).Error)
+	require.NoError(t, db.First(&token, token.Id).Error)
+	assert.Equal(t, 1140, user.Quota)
+	assert.Equal(t, 20, token.RemainQuota)
+	assert.Equal(t, 60, token.UsedQuota)
+	state, err := GetUserFundingStateSnapshot()
+	require.NoError(t, err)
+	assert.Equal(t, operation_setting.UserFundingModeDisabled, state.Mode)
+}
+
+func TestPersistedCommercialFundingModeSurvivesDisabledDefault(t *testing.T) {
+	for _, mode := range []operation_setting.UserFundingMode{operation_setting.UserFundingModeEnabled, operation_setting.UserFundingModeDisabled} {
+		t.Run(string(mode), func(t *testing.T) {
+			db, original := userFundingPolicyTestDB(t, mode)
+			state, err := GetUserFundingStateSnapshot()
+			require.NoError(t, err)
+			assert.Equal(t, original, state)
+			// The legacy projection predates the canonical state row and must
+			// also retain the administrator's explicit persisted choice.
+			require.NoError(t, db.Where("key = ?", UserFundingStateOptionKey).Delete(&Option{}).Error)
+			state, err = GetUserFundingStateSnapshot()
+			require.NoError(t, err)
+			assert.Equal(t, original, state)
+		})
+	}
+}
+
 func TestUserFundingRetirementBarrierAndCutoff(t *testing.T) {
 	db, enabled := userFundingPolicyTestDB(t, operation_setting.UserFundingModeEnabled)
 	user := createFundingPolicyUser(t, db)

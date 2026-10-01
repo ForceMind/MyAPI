@@ -15,6 +15,7 @@ import (
 	"github.com/ForceMind/MyAPI/model"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/relaykit/dto"
+	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -61,6 +62,43 @@ func authoritativeRelay(user *model.User, token *model.Token, requestID string) 
 	return &relaycommon.RelayInfo{UserId: user.Id, TokenId: token.Id, TokenKey: token.Key, TokenUnlimited: token.UnlimitedQuota,
 		RequestId: requestID, OriginModelName: "fixture-model", UserQuota: user.Quota,
 		UserSetting: dto.UserSetting{BillingPreference: "wallet_only"}}
+}
+
+func TestDisabledCommercialModuleKeepsBillingSessionAndQuotaRejections(t *testing.T) {
+	db := setupAuthoritativeBillingDB(t)
+	require.NoError(t, db.AutoMigrate(&model.Option{}))
+	oldFunding := operation_setting.GetUserFundingSetting()
+	t.Cleanup(func() {
+		require.NoError(t, operation_setting.PublishUserFundingSnapshot(oldFunding.Mode, oldFunding.Epoch))
+	})
+	var state model.UserFundingStateSnapshot
+	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+		var err error
+		state, err = model.InitializeUserFundingStateTx(tx, operation_setting.UserFundingModeDisabled)
+		return err
+	}))
+	require.NoError(t, model.PublishUserFundingState(state))
+	user, token := seedAuthoritativeBilling(t, db, "self-use", 1000, 100, false)
+	session, apiErr := NewBillingSession(nil, authoritativeRelay(user, token, "self-use-request"), 60)
+	require.Nil(t, apiErr)
+	require.NoError(t, session.Settle(50))
+	require.NoError(t, db.First(user, user.Id).Error)
+	require.NoError(t, db.First(token, token.Id).Error)
+	assert.Equal(t, 950, user.Quota)
+	assert.Equal(t, 50, token.RemainQuota)
+	assert.Equal(t, 50, token.UsedQuota)
+
+	_, apiErr = NewBillingSession(nil, authoritativeRelay(user, token, "self-use-token-over-limit"), 51)
+	require.NotNil(t, apiErr)
+	// Unlimited keys still cannot bypass the user's own quota.
+	require.NoError(t, db.Model(token).Update("unlimited_quota", true).Error)
+	token.UnlimitedQuota = true
+	_, apiErr = NewBillingSession(nil, authoritativeRelay(user, token, "self-use-user-over-limit"), 951)
+	require.NotNil(t, apiErr)
+	require.NoError(t, db.First(user, user.Id).Error)
+	require.NoError(t, db.First(token, token.Id).Error)
+	assert.Equal(t, 950, user.Quota)
+	assert.Equal(t, 50, token.RemainQuota)
 }
 
 func TestAuthoritativeBillingSessionFullLifecycle(t *testing.T) {

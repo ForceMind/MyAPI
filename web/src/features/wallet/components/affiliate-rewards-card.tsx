@@ -36,6 +36,7 @@ interface AffiliateRewardsCardProps {
   canTransfer?: boolean
   complianceConfirmed?: boolean
   loading?: boolean
+  historyOnly?: boolean
 }
 
 export function AffiliateRewardsCard({
@@ -45,6 +46,7 @@ export function AffiliateRewardsCard({
   canTransfer = true,
   complianceConfirmed = true,
   loading,
+  historyOnly = false,
 }: AffiliateRewardsCardProps) {
   const { t } = useTranslation()
   if (loading) {
@@ -73,10 +75,10 @@ export function AffiliateRewardsCard({
           </IconBadge>
           <div className='min-w-0'>
             <h3 className='truncate text-sm font-semibold'>
-              {t('Referral Program')}
+              {historyOnly ? t('Funding history') : t('Referral Program')}
             </h3>
             <p className='text-muted-foreground line-clamp-1 text-xs'>
-              {t(
+              {historyOnly ? t('History and recovery') : t(
                 'Earn rewards when users join through your referral link. Transfer accumulated rewards to your balance anytime.'
               )}
             </p>
@@ -100,7 +102,7 @@ export function AffiliateRewardsCard({
           ))}
         </div>
 
-        <div className='flex items-center gap-2'>
+        {!historyOnly && <div className='flex items-center gap-2'>
           <Input
             value={affiliateLink}
             readOnly
@@ -124,7 +126,7 @@ export function AffiliateRewardsCard({
               {t('Transfer to Balance')}
             </Button>
           ) : null}
-        </div>
+        </div>}
         {canTransfer && !complianceConfirmed ? (
           <p className='text-muted-foreground text-xs lg:col-span-3'>
             {t(

@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -47,7 +48,7 @@ var groupRatioOptionPairs = []groupRatioOptionPair{
 
 // optionMutationLock orders database snapshots/commits and their in-process
 // publication. Its production implementation is a non-reentrant mutex.
-var optionMutationLock sync.Locker = &sync.Mutex{}
+var optionMutationLock sync.Locker = &pricingOptionMutationLock{}
 
 func AllOption() ([]*Option, error) {
 	var options []*Option
@@ -255,11 +256,14 @@ func loadOptionsFromDatabase() {
 func loadOptionsFromDatabaseLocked() {
 	options, err := AllOption()
 	if err != nil {
+		markPricingRuntimeUnavailable()
 		common.SysLog("failed to load options from database: " + err.Error())
 		return
 	}
 	rateLimitValues := make(map[string]string)
 	groupRatioValues := make(map[string]string, len(groupRatioOptionPairs)*2)
+	modelPricingValues := make(map[string]string)
+	pricingLoadFailed := false
 	passkeyValues := make(map[string]string)
 	userFundingValues := make(map[string]string, 2)
 	accessProfileValues := make(map[string]string, 2)
@@ -289,6 +293,10 @@ func loadOptionsFromDatabaseLocked() {
 			rateLimitValues[option.Key] = option.Value
 			continue
 		}
+		if isModelPricingOptionKey(option.Key) {
+			modelPricingValues[option.Key] = option.Value
+			continue
+		}
 		if configKey, ok := passkeyOptionConfigKey(option.Key); ok {
 			passkeyValues[configKey] = option.Value
 			continue
@@ -300,11 +308,17 @@ func loadOptionsFromDatabaseLocked() {
 		}
 		err := updateOptionMap(option.Key, option.Value)
 		if err != nil {
+			if isPricingRuntimeOptionKey(option.Key) {
+				pricingLoadFailed = true
+			}
 			if IsPaymentFundingOptionKey(option.Key) {
 				paymentFundingLoadFailed = true
 			}
 			common.SysLog("failed to update option map: " + err.Error())
 		}
+	}
+	if err := publishModelPricingOptions(modelPricingValues); err != nil {
+		pricingLoadFailed = true
 	}
 	if len(accessProfileValues) > 0 {
 		registry := config.GlobalConfig.Get("access_profile_setting")
@@ -321,7 +335,9 @@ func loadOptionsFromDatabaseLocked() {
 		}
 	}
 	for _, pair := range groupRatioOptionPairs {
-		publishLoadedGroupRatioOptionPair(pair, groupRatioValues)
+		if err := publishLoadedGroupRatioOptionPair(pair, groupRatioValues); err != nil {
+			pricingLoadFailed = true
+		}
 	}
 	if len(rateLimitValues) > 0 {
 		if err := publishModelRequestRateLimitOptions(rateLimitValues, nil); err != nil {
@@ -352,6 +368,11 @@ func loadOptionsFromDatabaseLocked() {
 			}
 		}
 	}
+	if pricingLoadFailed || paymentFundingLoadFailed {
+		markPricingRuntimeUnavailable()
+	} else {
+		clearPricingRuntimeUnavailable()
+	}
 }
 
 func SyncOptions(frequency int) {
@@ -363,6 +384,14 @@ func SyncOptions(frequency int) {
 }
 
 func validateOptionValue(key string, value string) error {
+	if key == "QuotaPerUnit" {
+		unit, err := strconv.ParseFloat(value, 64)
+		// GetTrustQuota uses ten units; both it and one unit must fit quota storage.
+		if err != nil || math.IsNaN(unit) || math.IsInf(unit, 0) ||
+			unit < 1 || unit > float64(common.MaxQuota/10) {
+			return gorm.ErrInvalidData
+		}
+	}
 	if err := common.ValidateChannelQuotaAlertOptionValue(key, value); err != nil {
 		return err
 	}
@@ -675,6 +704,20 @@ func UpdateOptionsBulk(values map[string]string) error {
 		}
 		rateLimitConfig = &config
 	}
+	modelPricingValues := make(map[string]string)
+	hasPricingRuntime := false
+	for key, value := range normalized {
+		if isPricingRuntimeOptionKey(key) {
+			hasPricingRuntime = true
+		}
+		if isModelPricingOptionKey(key) {
+			modelPricingValues[key] = value
+		}
+	}
+	if err := validateModelPricingOptions(modelPricingValues); err != nil {
+		return err
+	}
+	readyToCommit := false
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		keys := make([]string, 0, len(normalized))
 		for key := range normalized {
@@ -692,11 +735,21 @@ func UpdateOptionsBulk(values map[string]string) error {
 				return err
 			}
 		}
+		readyToCommit = true
 		return nil
 	})
 	if err != nil {
+		if readyToCommit && hasPricingRuntime {
+			markPricingRuntimeUnavailable()
+		}
 		return err
 	}
+	runtimePublished := false
+	defer func() {
+		if hasPricingRuntime && !runtimePublished {
+			markPricingRuntimeUnavailable()
+		}
+	}()
 	accessProfileValues := make(map[string]string)
 	for key, value := range normalized {
 		if field, ok := accessProfileSettingField(key); ok {
@@ -721,6 +774,9 @@ func UpdateOptionsBulk(values map[string]string) error {
 		common.OptionMapRWMutex.Unlock()
 	}
 	for k, v := range normalized {
+		if isModelPricingOptionKey(k) {
+			continue
+		}
 		if _, accessProfileKey := accessProfileSettingField(k); accessProfileKey {
 			continue
 		}
@@ -741,6 +797,9 @@ func UpdateOptionsBulk(values map[string]string) error {
 			return err
 		}
 	}
+	if err := publishModelPricingOptions(modelPricingValues); err != nil {
+		return err
+	}
 	for _, pair := range groupRatioOptionPairs {
 		if value, ok := groupRatioValues[pair.canonical]; ok {
 			if err := publishGroupRatioOptionPair(pair, value); err != nil {
@@ -756,6 +815,7 @@ func UpdateOptionsBulk(values map[string]string) error {
 	if err := publishPasskeyAndServerAddressOptions(serverAddress, passkeyValues); err != nil {
 		return err
 	}
+	runtimePublished = true
 	return nil
 }
 
@@ -783,6 +843,11 @@ func updateOptionMapWithoutRuntimeBridge(key string, value string) error {
 }
 
 func updateOptionMapWithRuntimeBridge(key string, value string, bridgePaymentRuntime bool) (err error) {
+	defer func() {
+		if err != nil && isPricingRuntimeOptionKey(key) {
+			markPricingRuntimeUnavailable()
+		}
+	}()
 	value, err = normalizeOptionValue(key, value)
 	if err != nil {
 		return err
@@ -1305,7 +1370,7 @@ func publishGroupRatioOptionPair(pair groupRatioOptionPair, value string) error 
 	return nil
 }
 
-func publishLoadedGroupRatioOptionPair(pair groupRatioOptionPair, values map[string]string) {
+func publishLoadedGroupRatioOptionPair(pair groupRatioOptionPair, values map[string]string) error {
 	canonicalValue, hasCanonical := values[pair.canonical]
 	aliasValue, hasAlias := values[pair.alias]
 
@@ -1349,7 +1414,15 @@ func publishLoadedGroupRatioOptionPair(pair groupRatioOptionPair, values map[str
 	}
 	if err := publishGroupRatioOptionPair(pair, selected); err != nil {
 		common.SysLog(fmt.Sprintf("failed to publish last valid %s runtime snapshot: %v", pair.canonical, err))
+		return err
 	}
+	if (hasCanonical || hasAlias) && canonicalErr != nil && (!hasAlias || aliasErr != nil) {
+		return errors.Join(canonicalErr, aliasErr)
+	}
+	if !hasCanonical && hasAlias && aliasErr != nil {
+		return aliasErr
+	}
+	return nil
 }
 
 // handleConfigUpdate 处理分层配置更新，返回是否已处理

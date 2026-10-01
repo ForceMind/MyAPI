@@ -114,6 +114,8 @@ export interface ToolSurchargeItem {
 }
 
 export interface LogOtherData {
+  usage_accuracy?: string
+  reasoning_tokens?: number
   admin_info?: {
     is_multi_key?: boolean
     multi_key_index?: number

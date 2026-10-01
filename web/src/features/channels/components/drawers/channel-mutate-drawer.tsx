@@ -3330,14 +3330,16 @@ export function ChannelMutateDrawer({
                                 channelId={
                                   isEditing ? channelId || undefined : undefined
                                 }
-                                onKeyGenerated={(key) => {
-                                  form.setValue('key', key, {
-                                    shouldDirty: true,
-                                    shouldValidate: true,
-                                  })
-                                }}
+                                getCreatePayload={
+                                  isEditing
+                                    ? undefined
+                                    : getCodexLocalImportCreatePayload
+                                }
                                 onCredentialSaved={() => {
-                                  if (!channelId) return
+                                  if (!channelId) {
+                                    handleSuccess()
+                                    return
+                                  }
                                   void queryClient.invalidateQueries({
                                     queryKey:
                                       channelsQueryKeys.detail(channelId),

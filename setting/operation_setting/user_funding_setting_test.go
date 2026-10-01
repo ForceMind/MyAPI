@@ -17,7 +17,7 @@ func TestUserFundingSettingDefaultsAndValidation(t *testing.T) {
 		require.NoError(t, config.UpdateConfigFromMap(setting, baseline))
 	})
 
-	assert.Equal(t, UserFundingModeEnabled, GetUserFundingMode())
+	assert.Equal(t, UserFundingModeDisabled, GetUserFundingMode())
 	for _, mode := range []UserFundingMode{UserFundingModeEnabled, UserFundingModeRetirement, UserFundingModeDisabled} {
 		require.NoError(t, SetUserFundingMode(mode))
 		assert.Equal(t, mode, GetUserFundingMode())

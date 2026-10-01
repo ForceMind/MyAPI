@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
+	"time"
 
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/setting"
@@ -84,6 +86,7 @@ func newWaffoPancakeClientFromCreds(merchantID, privateKey string) (*pancake.Cli
 	return pancake.New(pancake.Config{
 		MerchantID: merchantID,
 		PrivateKey: privateKey,
+		HTTPClient: &http.Client{Timeout: 30 * time.Second, Transport: waffoPancakeBoundedTransport{base: http.DefaultTransport}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
 	})
 }
 
@@ -101,6 +104,11 @@ func CreateWaffoPancakeCheckoutSession(ctx context.Context, params *WaffoPancake
 // CreateWaffoPancakeCheckoutSession with merchant credentials read from the
 // supplied payment runtime snapshot.
 func CreateWaffoPancakeCheckoutSessionWithPaymentConfig(ctx context.Context, paymentConfig setting.PaymentConfig, params *WaffoPancakeCreateSessionParams) (*WaffoPancakeCheckoutSession, error) {
+	return CreateWaffoPancakeCheckoutSessionWithCredentials(ctx, paymentConfig.WaffoPancakeMerchantID(), paymentConfig.WaffoPancakePrivateKey(), params)
+}
+
+// Callers resolve effective legacy/runtime credentials before external I/O.
+func CreateWaffoPancakeCheckoutSessionWithCredentials(ctx context.Context, merchantID, privateKey string, params *WaffoPancakeCreateSessionParams) (*WaffoPancakeCheckoutSession, error) {
 	if params == nil {
 		return nil, fmt.Errorf("missing checkout params")
 	}
@@ -110,7 +118,7 @@ func CreateWaffoPancakeCheckoutSessionWithPaymentConfig(ctx context.Context, pay
 	if strings.TrimSpace(params.OrderMerchantExternalID) == "" {
 		return nil, fmt.Errorf("missing order merchant external id")
 	}
-	client, err := newWaffoPancakeClientFromCreds(paymentConfig.WaffoPancakeMerchantID(), paymentConfig.WaffoPancakePrivateKey())
+	client, err := newWaffoPancakeClientFromCreds(merchantID, privateKey)
 	if err != nil {
 		return nil, fmt.Errorf("build Waffo Pancake client: %w", err)
 	}

@@ -3,6 +3,13 @@ package i18n
 // Message keys for i18n translations
 // Use these constants instead of hardcoded strings
 
+const (
+	MsgQuotaHistorySeriesRequired    = "quota_history.series_required"
+	MsgQuotaHistoryInvalidSeries     = "quota_history.invalid_series"
+	MsgQuotaHistorySeriesNotFound    = "quota_history.series_not_found"
+	MsgQuotaHistorySelectionTooLarge = "quota_history.selection_too_large"
+)
+
 // Common error messages
 const (
 	MsgInvalidParams     = "common.invalid_params"
@@ -41,6 +48,12 @@ const (
 	MsgAuthUserBanned            = "auth.user_banned"
 	MsgAuthInsufficientPrivilege = "auth.insufficient_privilege"
 )
+
+const MsgCodexOAuthModelNameTooLong = "codex_oauth.model_name_too_long"
+const MsgCodexOAuthInvalidCreate = "codex_oauth.invalid_create"
+const MsgCodexOAuthInvalidSettings = "codex_oauth.invalid_settings"
+const MsgPaymentManualCompleteQuotaUnitUnresolved = "payment.manual_complete_quota_unit_unresolved"
+const MsgPaymentPricingUnavailable = "payment.pricing_unavailable"
 
 // Token related messages
 const (

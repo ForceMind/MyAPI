@@ -507,6 +507,8 @@ export interface ChannelQuotaHistoryResponse {
  */
 export interface ChannelQuotaChangeItem {
   channel_id: number
+  /** Stable, non-reversible identity for one account quota series. */
+  series_id?: string
   name: string
   account_label?: string
   metric_type?: string
@@ -540,6 +542,9 @@ export interface ChannelQuotaChangeItem {
 export interface ChannelQuotaChangesData {
   items: ChannelQuotaChangeItem[]
   range?: string
+  /** Server-selected query window in Unix seconds, shared by every series. */
+  start?: number
+  end?: number
   generated_at?: number
   rate_window_seconds?: number
   ewma_half_life_seconds?: number

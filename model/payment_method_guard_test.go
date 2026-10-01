@@ -55,14 +55,15 @@ func insertSubscriptionOrderForPaymentGuardTest(t *testing.T, tradeNo string, us
 func insertTopUpForPaymentGuardTest(t *testing.T, tradeNo string, userID int, paymentProvider string) {
 	t.Helper()
 	topUp := &TopUp{
-		UserId:          userID,
-		Amount:          2,
-		Money:           9.99,
-		TradeNo:         tradeNo,
-		PaymentMethod:   paymentProvider,
-		PaymentProvider: paymentProvider,
-		Status:          common.TopUpStatusPending,
-		CreateTime:      time.Now().Unix(),
+		UserId:               userID,
+		Amount:               2,
+		Money:                9.99,
+		TradeNo:              tradeNo,
+		PaymentMethod:        paymentProvider,
+		PaymentProvider:      paymentProvider,
+		QuotaPerUnitSnapshot: paymentFixtureQuotaUnitSnapshot(),
+		Status:               common.TopUpStatusPending,
+		CreateTime:           time.Now().Unix(),
 	}
 	require.NoError(t, DB.Create(topUp).Error)
 }
@@ -177,14 +178,15 @@ func TestExpireSubscriptionOrder_RejectsMismatchedPaymentProvider(t *testing.T) 
 func createEpayTestOrder(t *testing.T, userId int, tradeNo string, provider string, status string) TopUp {
 	t.Helper()
 	topUp := TopUp{
-		UserId:          userId,
-		Amount:          2,
-		Money:           10.0,
-		TradeNo:         tradeNo,
-		PaymentMethod:   "alipay",
-		PaymentProvider: provider,
-		CreateTime:      common.GetTimestamp(),
-		Status:          status,
+		UserId:               userId,
+		Amount:               2,
+		Money:                10.0,
+		TradeNo:              tradeNo,
+		PaymentMethod:        "alipay",
+		PaymentProvider:      provider,
+		QuotaPerUnitSnapshot: paymentFixtureQuotaUnitSnapshot(),
+		CreateTime:           common.GetTimestamp(),
+		Status:               status,
 	}
 	require.NoError(t, DB.Create(&topUp).Error)
 	return topUp

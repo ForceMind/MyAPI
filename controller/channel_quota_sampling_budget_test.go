@@ -168,6 +168,7 @@ func TestQuotaSnapshotSyncStopsAfterCanceledAttemptAndPersistsFailure(t *testing
 		model.DB = previousDB
 		common.RequestInterval = previousInterval
 	})
+	setupChannelQuotaIdentityFixture(t, db)
 	baseURL := "https://quota-fixture.invalid"
 	channels := []model.Channel{
 		{Id: 10, Type: constant.ChannelTypeCustom, BaseURL: &baseURL, Key: "fixture", Status: common.ChannelStatusEnabled},

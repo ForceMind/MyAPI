@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import i18next from 'i18next'
 import type React from 'react'
 import { beforeAll, describe, expect, test } from 'vitest'
@@ -42,6 +43,40 @@ describe('log cost display', () => {
       'Deducted by subscription': 'Deducted by subscription',
       'Includes tool-call surcharge': 'Includes tool-call surcharge',
     })
+  })
+
+  test('shows an estimate marker beside a nonzero cost', () => {
+    renderCost({ quota: 12500, other: { usage_accuracy: 'estimated' } })
+    expect(screen.getByText('Estimated usage')).toBeInTheDocument()
+  })
+
+  test('shows unknown usage even when the recorded cost is zero', () => {
+    renderCost({ quota: 0, other: { usage_accuracy: 'unknown' } })
+    expect(screen.getByText('Usage unknown')).toBeInTheDocument()
+  })
+
+  test('does not treat old records without provenance as confirmed usage', () => {
+    renderCost({ quota: 12500, other: null })
+    expect(screen.getByText('Usage provenance unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('Reported usage')).not.toBeInTheDocument()
+  })
+
+  test('does not interpret unrecognized provenance as reported usage', () => {
+    renderCost({ quota: 12500, other: { usage_accuracy: 'invalid-source' } })
+    expect(screen.getByText('Usage provenance unavailable')).toBeInTheDocument()
+  })
+
+  test('explains reported usage through a keyboard-accessible tooltip', async () => {
+    const user = userEvent.setup()
+    renderCost({ quota: 12500, other: { usage_accuracy: 'reported' } })
+    await user.tab()
+    expect(screen.getByText('Reported usage')).toHaveFocus()
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Token usage was reported by upstream; the provider bill has not been reconciled.')
+  })
+
+  test('keeps provenance out of non-consumption costs', () => {
+    renderCost({ quota: 12500, other: null, showUsageAccuracy: false })
+    expect(screen.queryByText('Usage provenance unavailable')).not.toBeInTheDocument()
   })
 
   test('keeps the regular cost visible and adds an accessible surcharge marker', () => {

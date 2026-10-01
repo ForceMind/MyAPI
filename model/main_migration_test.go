@@ -82,7 +82,13 @@ func useB2MainMigrationSQLite(t *testing.T) *gorm.DB {
 
 func assertB2RecoveryMainSchema(t *testing.T, db *gorm.DB) {
 	t.Helper()
+	assert.True(t, db.Migrator().HasColumn(&Channel{}, "QuotaSamplingCursor"), "missing managed quota expansion cursor")
 	for _, model := range []interface{}{
+		&ChannelQuotaSnapshot{},
+		&ChannelQuotaIdentityKeyRegistry{},
+		&ChannelQuotaIdentityKeyVersion{},
+		&ChannelQuotaIdentityAlias{},
+		&ChannelQuotaSamplingTarget{},
 		&TaskRecoveryIdentity{},
 		&TaskSubmissionOperation{},
 		&TaskSubmissionAttempt{},
@@ -102,8 +108,14 @@ func assertB2RecoveryMainSchema(t *testing.T, db *gorm.DB) {
 		{&TaskBillingEvent{}, "uidx_task_billing_event_id"},
 		{&TaskBillingEvent{}, "uidx_task_billing_event_key"},
 		{&TaskBillingLogOutbox{}, "uidx_task_billing_outbox_event"},
+		{&ChannelQuotaIdentityKeyVersion{}, "uidx_channel_quota_identity_key_fingerprint"},
+		{&ChannelQuotaIdentityAlias{}, "uidx_channel_quota_identity_alias"},
+		{&ChannelQuotaSamplingTarget{}, "uidx_channel_quota_sampling_target"},
 	} {
 		assert.True(t, db.Migrator().HasIndex(index.model, index.name), "missing index %s", index.name)
+	}
+	for _, column := range []string{"SubjectRef", "IdentityQuality", "AccountRef"} {
+		assert.True(t, db.Migrator().HasColumn(&ChannelQuotaSnapshot{}, column), "missing quota snapshot column %s", column)
 	}
 }
 

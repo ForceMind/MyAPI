@@ -56,7 +56,9 @@ vi.mock('@/components/page-transition', () => ({
 vi.mock(
   '@/features/dashboard/components/overview/account-quota-changes-panel',
   () => ({
-    AccountQuotaChangesPanel: () => null,
+    AccountQuotaChangesPanel: () => (
+      <section aria-label='Account quota changes' />
+    ),
   })
 )
 vi.mock('@/features/dashboard/components/overview/announcements-panel', () => ({
@@ -75,8 +77,14 @@ vi.mock(
   })
 )
 vi.mock('@/features/dashboard/components/overview/summary-cards', () => ({
-  SummaryCards: () => null,
+  SummaryCards: () => <section aria-label='Usage summary' />,
 }))
+vi.mock(
+  '@/features/dashboard/components/overview/recent-activity-panel',
+  () => ({
+    RecentActivityPanel: () => <section aria-label='Recent activity' />,
+  })
+)
 vi.mock('@/features/dashboard/components/overview/uptime-panel', () => ({
   UptimePanel: () => null,
 }))
@@ -181,4 +189,31 @@ describe('overview setup guide edition and role gating', () => {
     ).not.toBeInTheDocument()
     expect(getChannels).not.toHaveBeenCalled()
   })
+
+  test.each([
+    ['administrator', ROLE.ADMIN],
+    ['regular user', ROLE.USER],
+  ])(
+    '%s sees operational content before setup and no sales prompts',
+    async (_, role) => {
+      setUser(role)
+      renderDashboard()
+
+      const recent = screen.getByRole('region', { name: 'Recent activity' })
+      const summary = screen.getByRole('region', { name: 'Usage summary' })
+      const guide = await screen.findByText('Get started')
+
+      expect(
+        recent.compareDocumentPosition(guide) & Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy()
+      expect(
+        summary.compareDocumentPosition(guide) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy()
+      expect(screen.queryByText('Add credits')).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('link', { name: 'Pricing' })
+      ).not.toBeInTheDocument()
+    }
+  )
 })

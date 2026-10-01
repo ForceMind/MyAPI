@@ -17,21 +17,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
-import { ArrowRight, Flame, ShieldCheck, TrendingDown } from 'lucide-react'
+import { Flame, ShieldCheck, TrendingDown } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { StaggerContainer, StaggerItem } from '@/components/page-transition'
-import { Button } from '@/components/ui/button'
 import { getUserQuotaDates } from '@/features/dashboard/api'
 import { useSummaryCardsConfig } from '@/features/dashboard/hooks/use-dashboard-config'
 import { buildQueryParams } from '@/features/dashboard/lib/filters'
 import type { QuotaDataItem } from '@/features/dashboard/types'
 import { useStatus } from '@/hooks/use-status'
+import { useFundingPresentation } from '@/hooks/use-funding-presentation'
 import { getCurrencyLabel, isCurrencyDisplayEnabled } from '@/lib/currency'
 import { formatNumber, formatQuota } from '@/lib/format'
-import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
 import { computeTimeRange } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
@@ -142,6 +140,7 @@ export function SummaryCards() {
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
   const { status, loading } = useStatus()
+  const { commercialEnabled } = useFundingPresentation()
 
   const summaryTimeRange = useMemo(() => computeTimeRange(1), [])
   const summaryQueryParams = useMemo(
@@ -241,7 +240,7 @@ export function SummaryCards() {
     todayUsageDisplay,
     currencyEnabled,
     currencyLabel,
-  }).map((config, index) => {
+  }).filter((config) => commercialEnabled || config.key !== 'balance').map((config, index) => {
     const tones = ['accent-1', 'accent-2', 'accent-3'] as const
 
     return {
@@ -261,16 +260,16 @@ export function SummaryCards() {
 
   return (
     <div className='bg-card overflow-hidden rounded-2xl border shadow-xs'>
-      <div className='grid xl:grid-cols-[minmax(0,1fr)_19rem]'>
+      <div className={commercialEnabled ? 'grid xl:grid-cols-[minmax(0,1fr)_19rem]' : 'grid'}>
         <div className='flex flex-col gap-2.5 p-3 sm:gap-3 sm:p-5'>
           <div className='flex flex-wrap items-start justify-between gap-3'>
             <div className='flex flex-col gap-1'>
               <h3 className='text-sm font-semibold sm:text-base'>
                 {t('Usage at a glance')}
               </h3>
-              <p className='text-muted-foreground text-xs sm:text-sm'>
+              {commercialEnabled && <p className='text-muted-foreground text-xs sm:text-sm'>
                 {t('Monitor balance, usage, and request volume')}
-              </p>
+              </p>}
               {usageTrendUnavailable ? (
                 <p className='text-destructive text-xs' role='alert'>
                   {t('Usage data is temporarily unavailable.')}
@@ -300,7 +299,7 @@ export function SummaryCards() {
           </StaggerContainer>
         </div>
 
-        <div className='flex flex-col justify-between gap-3 border-t bg-[linear-gradient(135deg,color-mix(in_oklch,var(--overview-accent-2)_12%,var(--background))_0%,color-mix(in_oklch,oklch(0.82_0.04_155)_8%,var(--background))_48%,color-mix(in_oklch,var(--overview-accent-1)_7%,var(--background))_100%)] p-3 sm:gap-4 sm:p-5 xl:border-t-0 xl:border-l'>
+        {commercialEnabled && <div className='flex flex-col justify-between gap-3 border-t bg-[linear-gradient(135deg,color-mix(in_oklch,var(--overview-accent-2)_12%,var(--background))_0%,color-mix(in_oklch,oklch(0.82_0.04_155)_8%,var(--background))_48%,color-mix(in_oklch,var(--overview-accent-1)_7%,var(--background))_100%)] p-3 sm:gap-4 sm:p-5 xl:border-t-0 xl:border-l'>
           <div className='flex flex-col gap-2 sm:gap-3'>
             <div className='flex items-center justify-between'>
               <span className='text-muted-foreground text-xs font-medium'>
@@ -367,17 +366,7 @@ export function SummaryCards() {
               </div>
             </div>
           </div>
-
-          <Button
-            className='justify-between'
-            render={
-              SELF_USE_MINIMAL ? <Link to='/keys' /> : <Link to='/wallet' />
-            }
-          >
-            <span>{SELF_USE_MINIMAL ? t('API Keys') : t('Wallet')}</span>
-            <ArrowRight data-icon='inline-end' />
-          </Button>
-        </div>
+        </div>}
       </div>
     </div>
   )

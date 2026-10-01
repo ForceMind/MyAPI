@@ -71,6 +71,7 @@ func TestRecordChannelQuotaSnapshotDeduplicatesSeriesTimeBucket(t *testing.T) {
 	now := time.Now().Unix()
 	first := &ChannelQuotaSnapshot{
 		ChannelId:     904,
+		AccountRef:    ChannelQuotaAccountRef("codex", "dedupe-fixture-account"),
 		ObservedAt:    now,
 		Available:     80,
 		MetricType:    "rate_limit",
@@ -267,9 +268,9 @@ func TestLatestChannelQuotaSnapshotBatchReadsLegacyNullSampleID(t *testing.T) {
 	})
 	require.NoError(t, DB.Exec(`
 		INSERT INTO channel_quota_snapshots
-		(channel_id, observed_at, available, unit, currency, metric_type, window_type, plan_type, window_seconds, reset_at, source, status, sample_id, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
-		908, 100, 80, "percent", "", "codex_rate_limit", "five_hour", "", 0, 0, "codex_wham_usage_primary", "success", time.Now(),
+		(channel_id, observed_at, available, unit, currency, metric_type, window_type, plan_type, window_seconds, reset_at, source, status, account_ref, sample_id, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+		908, 100, 80, "percent", "", "codex_rate_limit", "five_hour", "", 0, 0, "codex_wham_usage_primary", "success", ChannelQuotaAccountRef("codex", "legacy-null-sample"), time.Now(),
 	).Error)
 
 	latest, err := ListLatestChannelQuotaSnapshotBatch(context.Background(), 908, 99, 101, "codex_rate_limit")
@@ -280,6 +281,7 @@ func TestLatestChannelQuotaSnapshotBatchReadsLegacyNullSampleID(t *testing.T) {
 	duplicate := &ChannelQuotaSnapshot{
 		ChannelId: 908, ObservedAt: 100, Available: 80, Unit: "percent", MetricType: "codex_rate_limit",
 		WindowType: "five_hour", Source: "codex_wham_usage_primary", Status: "success",
+		AccountRef: ChannelQuotaAccountRef("codex", "legacy-null-sample"),
 	}
 	require.NoError(t, RecordChannelQuotaSnapshot(duplicate))
 	var count int64
@@ -333,7 +335,7 @@ func TestListChannelQuotaSnapshotsForHistoryKeepsFullRangeOrReportsIncomplete(t 
 
 func TestDeleteOldChannelQuotaSnapshotBatchHonorsCutoffAndLimit(t *testing.T) {
 	require.NotNil(t, DB)
-	require.NoError(t, DB.AutoMigrate(&ChannelQuotaSnapshot{}))
+	require.NoError(t, DB.AutoMigrate(&ChannelQuotaSnapshot{}, &ChannelQuotaAlertEvent{}))
 	require.NoError(t, DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&ChannelQuotaSnapshot{}).Error)
 	t.Cleanup(func() {
 		require.NoError(t, DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&ChannelQuotaSnapshot{}).Error)
@@ -388,6 +390,15 @@ func TestChannelQuotaAccountRefIsStableAndNonReversible(t *testing.T) {
 	require.NotEqual(t, first, ChannelQuotaAccountRef("codex", "account-456"))
 	require.Empty(t, ChannelQuotaAccountRef("codex", ""))
 	require.Empty(t, ChannelQuotaAccountRef("", "account-123"))
+}
+
+func TestRecordChannelQuotaSnapshotRejectsRawLegacyIdentity(t *testing.T) {
+	require.NoError(t, DB.AutoMigrate(&ChannelQuotaSnapshot{}))
+	err := RecordChannelQuotaSnapshot(&ChannelQuotaSnapshot{
+		ChannelId: 999, ObservedAt: time.Now().Unix(), AccountRef: "raw-account-id",
+		Available: 1, Status: "success",
+	})
+	require.ErrorContains(t, err, "invalid legacy channel quota account reference")
 }
 
 func TestRecordChannelQuotaSnapshotSeparatesAccountReferences(t *testing.T) {

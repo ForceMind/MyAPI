@@ -72,13 +72,8 @@ func (*StripeAdaptor) RequestAmount(c *gin.Context, req *StripePayRequest) {
 }
 
 func (*StripeAdaptor) RequestPay(c *gin.Context, req *StripePayRequest) {
-	paymentConfig := setting.CapturePaymentConfig()
 	if req.PaymentMethod != model.PaymentMethodStripe {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "不支持的支付渠道"})
-		return
-	}
-	if req.Amount < getStripeMinTopup(paymentConfig) {
-		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("充值数量不能小于 %d", getStripeMinTopup(paymentConfig)), "data": 10})
 		return
 	}
 	if req.Amount > 10000 {
@@ -102,32 +97,32 @@ func (*StripeAdaptor) RequestPay(c *gin.Context, req *StripePayRequest) {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "用户不存在"})
 		return
 	}
-	chargedMoney := GetChargedAmount(float64(req.Amount), *user)
-	if rejectInvalidCreditedQuota(c, id,
-		decimal.NewFromFloat(chargedMoney).Mul(decimal.NewFromFloat(common.QuotaPerUnit)),
-	) {
+	quote, err := captureStripeOrderQuote(req.Amount, *user, req.SuccessURL, req.CancelURL)
+	if err != nil {
+		respondTopUpPricingUnavailable(c)
+		return
+	}
+	if req.Amount < quote.minimum {
+		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("充值数量不能小于 %d", quote.minimum), "data": 10})
+		return
+	}
+	if rejectInvalidCreditedQuota(c, id, quote.creditedQuota) {
 		return
 	}
 
 	reference := fmt.Sprintf("new-api-ref-%d-%d-%s", user.Id, time.Now().UnixMilli(), randstr.String(4))
 	referenceId := "ref_" + common.Sha1([]byte(reference))
 
-	payLink, err := genStripeLink(paymentConfig, referenceId, user.StripeCustomer, user.Email, req.Amount, req.SuccessURL, req.CancelURL)
-	if err != nil {
-		logger.LogError(c.Request.Context(), fmt.Sprintf("Stripe 创建 Checkout Session 失败 user_id=%d trade_no=%s amount=%d error_type=%T", id, referenceId, req.Amount, err))
-		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "拉起支付失败"})
-		return
-	}
-
 	topUp := &model.TopUp{
-		UserId:          id,
-		Amount:          req.Amount,
-		Money:           chargedMoney,
-		TradeNo:         referenceId,
-		PaymentMethod:   model.PaymentMethodStripe,
-		PaymentProvider: model.PaymentProviderStripe,
-		CreateTime:      time.Now().Unix(),
-		Status:          common.TopUpStatusPending,
+		UserId:               id,
+		Amount:               req.Amount,
+		Money:                quote.chargedMoney,
+		QuotaPerUnitSnapshot: quote.unitSnapshot,
+		TradeNo:              referenceId,
+		PaymentMethod:        model.PaymentMethodStripe,
+		PaymentProvider:      model.PaymentProviderStripe,
+		CreateTime:           time.Now().Unix(),
+		Status:               common.TopUpStatusPending,
 	}
 	err = topUp.Insert(userFundingEpoch(c))
 	if err != nil {
@@ -135,7 +130,15 @@ func (*StripeAdaptor) RequestPay(c *gin.Context, req *StripePayRequest) {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "创建订单失败"})
 		return
 	}
-	logger.LogInfo(c.Request.Context(), fmt.Sprintf("Stripe 充值订单创建成功 user_id=%d trade_no=%s amount=%d money=%.2f", id, referenceId, req.Amount, chargedMoney))
+	payLink, err := genStripeLinkFromValues(c.Request.Context(), quote.apiSecret, quote.priceID, quote.promotionCodes, referenceId, user.StripeCustomer, user.Email, req.Amount, quote.successURL, quote.cancelURL)
+	if err != nil {
+		// Stripe may have created a session before a timeout/lost response.
+		// Keep the durable order pending for signed callback/reconciliation.
+		logger.LogError(c.Request.Context(), fmt.Sprintf("Stripe Checkout result unavailable user_id=%d trade_no=%s error_type=%T", id, referenceId, err))
+		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "拉起支付失败"})
+		return
+	}
+	logger.LogInfo(c.Request.Context(), fmt.Sprintf("Stripe 充值订单创建成功 user_id=%d trade_no=%s amount=%d money=%.2f", id, referenceId, req.Amount, quote.chargedMoney))
 	c.JSON(http.StatusOK, gin.H{
 		"message": "success",
 		"data": gin.H{
@@ -338,7 +341,11 @@ func sessionExpired(ctx context.Context, event stripe.Event, decision service.Us
 //
 // Returns the checkout session URL or an error if the session creation fails.
 func genStripeLink(paymentConfig setting.PaymentConfig, referenceId string, customerId string, email string, amount int64, successURL string, cancelURL string) (string, error) {
-	apiSecret := paymentConfig.StripeApiSecret()
+	return genStripeLinkFromValues(context.Background(), paymentConfig.StripeApiSecret(), paymentConfig.StripePriceId(), paymentConfig.StripePromotionCodesEnabled(), referenceId, customerId, email, amount, successURL, cancelURL)
+}
+
+// Values passed here have already been resolved, including legacy fallbacks.
+func genStripeLinkFromValues(ctx context.Context, apiSecret, priceID string, promotionCodes bool, referenceId, customerId, email string, amount int64, successURL, cancelURL string) (string, error) {
 	if !strings.HasPrefix(apiSecret, "sk_") && !strings.HasPrefix(apiSecret, "rk_") {
 		return "", fmt.Errorf("无效的Stripe API密钥")
 	}
@@ -362,13 +369,15 @@ func genStripeLink(paymentConfig setting.PaymentConfig, referenceId string, cust
 		CancelURL:         stripe.String(cancelURL),
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			{
-				Price:    stripe.String(paymentConfig.StripePriceId()),
+				Price:    stripe.String(priceID),
 				Quantity: stripe.Int64(amount),
 			},
 		},
 		Mode:                stripe.String(string(stripe.CheckoutSessionModePayment)),
-		AllowPromotionCodes: stripe.Bool(paymentConfig.StripePromotionCodesEnabled()),
+		AllowPromotionCodes: stripe.Bool(promotionCodes),
 	}
+	params.Context = ctx
+	params.SetIdempotencyKey(referenceId)
 
 	if "" == customerId {
 		if "" != email {

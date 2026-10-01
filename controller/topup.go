@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/logger"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/service"
@@ -209,25 +210,33 @@ func getMinTopup(paymentConfig setting.PaymentConfig) int64 {
 }
 
 func getTopUpQuota(amount int64) (int, error) {
+	return topUpQuotaForSnapshot(amount, common.QuotaPerUnit, operation_setting.GetQuotaDisplayType())
+}
+
+func topUpQuotaForSnapshot(amount int64, unit float64, displayType string) (int, error) {
 	quota := decimal.NewFromInt(amount)
-	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
-		quotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
+	if displayType == operation_setting.QuotaDisplayTypeTokens {
+		quotaPerUnit := decimal.NewFromFloat(unit)
 		quota = decimal.NewFromInt(quota.Div(quotaPerUnit).IntPart()).Mul(quotaPerUnit)
 	} else {
-		quota = quota.Mul(decimal.NewFromFloat(common.QuotaPerUnit))
+		quota = quota.Mul(decimal.NewFromFloat(unit))
 	}
 	return common.QuotaFromDecimalStrict(quota)
 }
 
 func getMaxTopUpAmount() int64 {
-	if common.QuotaPerUnit <= 0 {
+	return maxTopUpAmountForSnapshot(common.QuotaPerUnit, operation_setting.GetQuotaDisplayType())
+}
+
+func maxTopUpAmountForSnapshot(unit float64, displayType string) int64 {
+	if unit <= 0 {
 		return 0
 	}
-	quotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
+	quotaPerUnit := decimal.NewFromFloat(unit)
 	maxStoredAmount := decimal.NewFromInt(common.MaxQuota - 1).
 		Div(quotaPerUnit).
 		Floor()
-	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
+	if displayType == operation_setting.QuotaDisplayTypeTokens {
 		return maxStoredAmount.Add(decimal.NewFromInt(1)).
 			Mul(quotaPerUnit).
 			Ceil().
@@ -249,11 +258,15 @@ func validateCreditedQuota(quota decimal.Decimal) (int, error) {
 }
 
 func validateTopUpQuota(amount int64) (int, error) {
-	quota, err := getTopUpQuota(amount)
+	return validateTopUpQuotaForSnapshot(amount, common.QuotaPerUnit, operation_setting.GetQuotaDisplayType())
+}
+
+func validateTopUpQuotaForSnapshot(amount int64, unit float64, displayType string) (int, error) {
+	quota, err := topUpQuotaForSnapshot(amount, unit, displayType)
 	if err == nil && quota > 0 {
 		return quota, nil
 	}
-	maxAmount := getMaxTopUpAmount()
+	maxAmount := maxTopUpAmountForSnapshot(unit, displayType)
 	if maxAmount > 0 && amount > maxAmount {
 		return 0, fmt.Errorf("单笔充值数量不能大于 %d", maxAmount)
 	}
@@ -285,19 +298,23 @@ func rejectInvalidTopUpQuota(c *gin.Context, userId int, amount int64) bool {
 }
 
 func RequestEpay(c *gin.Context) {
-	paymentConfig := setting.CapturePaymentConfig()
 	var req EpayRequest
 	err := c.ShouldBindJSON(&req)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "参数错误"})
 		return
 	}
-	if req.Amount < getMinTopup(paymentConfig) {
-		c.JSON(http.StatusOK, gin.H{"message": "error", "data": fmt.Sprintf("充值数量不能小于 %d", getMinTopup(paymentConfig))})
+	quote, err := captureEpayQuoteContext(req.Amount, req.PaymentMethod)
+	if err != nil {
+		respondTopUpPricingUnavailable(c)
+		return
+	}
+	if req.Amount < quote.minimum {
+		c.JSON(http.StatusOK, gin.H{"message": "error", "data": fmt.Sprintf("充值数量不能小于 %d", quote.minimum)})
 		return
 	}
 	id := c.GetInt("id")
-	if rejectInvalidTopUpQuota(c, id, req.Amount) {
+	if rejectInvalidTopUpQuotaForSnapshot(c, id, req.Amount, quote.unit, quote.displayType) {
 		return
 	}
 
@@ -306,28 +323,45 @@ func RequestEpay(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "获取用户分组失败"})
 		return
 	}
-	payMoney := getPayMoney(req.Amount, group, paymentConfig)
+	payMoney, err := quote.payMoney(req.Amount, group)
+	if err != nil {
+		respondTopUpPricingUnavailable(c)
+		return
+	}
 	if payMoney < 0.01 {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "充值金额过低"})
 		return
 	}
 
-	if !operation_setting.ContainsPayMethod(req.PaymentMethod) {
+	if !quote.methodAllowed {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "支付方式不存在"})
 		return
 	}
 
-	callBackAddress := service.GetCallbackAddressFromPaymentConfig(paymentConfig)
-	returnUrl, _ := url.Parse(paymentReturnPath("/usage-logs"))
-	notifyUrl, _ := url.Parse(callBackAddress + "/api/user/epay/notify")
+	returnUrl, returnErr := url.Parse(quote.returnURL)
+	notifyUrl, notifyErr := url.Parse(quote.callbackAddress + "/api/user/epay/notify")
+	if returnErr != nil || notifyErr != nil {
+		respondTopUpPricingUnavailable(c)
+		return
+	}
 	tradeNo := fmt.Sprintf("%s%d", common.GetRandomString(6), time.Now().Unix())
 	tradeNo = fmt.Sprintf("USR%dNO%s", id, tradeNo)
-	client := GetEpayClient(paymentConfig)
+	client := quote.client
 	if client == nil {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "当前管理员未配置支付信息"})
 		return
 	}
-	uri, params, err := client.Purchase(&epay.PurchaseArgs{
+	topUp := &model.TopUp{
+		UserId: id, Amount: quote.storedAmount(req.Amount), Money: payMoney, TradeNo: tradeNo,
+		PaymentMethod: req.PaymentMethod, PaymentProvider: model.PaymentProviderEpay,
+		QuotaPerUnitSnapshot: quote.unitSnapshot, CreateTime: time.Now().Unix(), Status: common.TopUpStatusPending,
+	}
+	if err := topUp.Insert(userFundingEpoch(c)); err != nil {
+		logger.LogError(c.Request.Context(), fmt.Sprintf("epay order creation failed user_id=%d trade_no=%s error_type=%T", id, tradeNo, err))
+		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "创建订单失败"})
+		return
+	}
+	uri, params, err := epayPurchase(client, &epay.PurchaseArgs{
 		Type:           req.PaymentMethod,
 		ServiceTradeNo: tradeNo,
 		Name:           fmt.Sprintf("TUC%d", req.Amount),
@@ -337,33 +371,16 @@ func RequestEpay(c *gin.Context) {
 		ReturnUrl:      returnUrl,
 	})
 	if err != nil {
-		logger.LogError(c.Request.Context(), fmt.Sprintf("易支付 拉起支付失败 user_id=%d trade_no=%s payment_method=%s amount=%d error=%q", id, tradeNo, req.PaymentMethod, req.Amount, err.Error()))
+		// Purchase only signs local parameters; no remote checkout exists on
+		// this error, so a conditional pending-to-failed transition is safe.
+		if markErr := model.UpdatePendingTopUpStatusTrusted(tradeNo, model.PaymentProviderEpay, common.TopUpStatusFailed); markErr != nil {
+			logger.LogError(c.Request.Context(), fmt.Sprintf("epay order failure marking failed trade_no=%s error_type=%T", tradeNo, markErr))
+		}
+		logger.LogError(c.Request.Context(), fmt.Sprintf("epay parameter generation failed user_id=%d trade_no=%s error_type=%T", id, tradeNo, err))
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "拉起支付失败"})
 		return
 	}
-	amount := req.Amount
-	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
-		dAmount := decimal.NewFromInt(int64(amount))
-		dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
-		amount = dAmount.Div(dQuotaPerUnit).IntPart()
-	}
-	topUp := &model.TopUp{
-		UserId:          id,
-		Amount:          amount,
-		Money:           payMoney,
-		TradeNo:         tradeNo,
-		PaymentMethod:   req.PaymentMethod,
-		PaymentProvider: model.PaymentProviderEpay,
-		CreateTime:      time.Now().Unix(),
-		Status:          common.TopUpStatusPending,
-	}
-	err = topUp.Insert(userFundingEpoch(c))
-	if err != nil {
-		logger.LogError(c.Request.Context(), fmt.Sprintf("易支付 创建充值订单失败 user_id=%d trade_no=%s payment_method=%s amount=%d error=%q", id, tradeNo, req.PaymentMethod, req.Amount, err.Error()))
-		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "创建订单失败"})
-		return
-	}
-	logger.LogInfo(c.Request.Context(), fmt.Sprintf("易支付 充值订单创建成功 user_id=%d trade_no=%s payment_method=%s amount=%d money=%.2f uri=%q params=%q", id, tradeNo, req.PaymentMethod, req.Amount, payMoney, uri, common.GetJsonString(params)))
+	logger.LogInfo(c.Request.Context(), fmt.Sprintf("epay order created user_id=%d trade_no=%s amount=%d money=%.2f", id, tradeNo, req.Amount, payMoney))
 	c.JSON(http.StatusOK, gin.H{"message": "success", "data": params, "url": uri})
 }
 
@@ -470,7 +487,6 @@ func EpayNotify(c *gin.Context) {
 }
 
 func RequestAmount(c *gin.Context) {
-	paymentConfig := setting.CapturePaymentConfig()
 	var req AmountRequest
 	err := c.ShouldBindJSON(&req)
 	if err != nil {
@@ -478,12 +494,17 @@ func RequestAmount(c *gin.Context) {
 		return
 	}
 
-	if req.Amount < getMinTopup(paymentConfig) {
-		c.JSON(http.StatusOK, gin.H{"message": "error", "data": fmt.Sprintf("充值数量不能小于 %d", getMinTopup(paymentConfig))})
+	quote, err := captureEpayQuoteContext(req.Amount, "")
+	if err != nil {
+		respondTopUpPricingUnavailable(c)
+		return
+	}
+	if req.Amount < quote.minimum {
+		c.JSON(http.StatusOK, gin.H{"message": "error", "data": fmt.Sprintf("充值数量不能小于 %d", quote.minimum)})
 		return
 	}
 	id := c.GetInt("id")
-	if rejectInvalidTopUpQuota(c, id, req.Amount) {
+	if rejectInvalidTopUpQuotaForSnapshot(c, id, req.Amount, quote.unit, quote.displayType) {
 		return
 	}
 	group, err := model.GetUserGroup(id, true)
@@ -491,7 +512,11 @@ func RequestAmount(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "获取用户分组失败"})
 		return
 	}
-	payMoney := getPayMoney(req.Amount, group, paymentConfig)
+	payMoney, err := quote.payMoney(req.Amount, group)
+	if err != nil {
+		respondTopUpPricingUnavailable(c)
+		return
+	}
 	if payMoney <= 0.01 {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "充值金额过低"})
 		return
@@ -566,6 +591,10 @@ func AdminCompleteTopUp(c *gin.Context) {
 	defer UnlockOrder(req.TradeNo)
 
 	if err := model.ManualCompleteTopUp(req.TradeNo, c.ClientIP()); err != nil {
+		if errors.Is(err, model.ErrTopUpQuotaUnitUnresolved) {
+			c.JSON(http.StatusConflict, gin.H{"success": false, "code": "TOPUP_QUOTA_UNIT_UNRESOLVED", "message": common.TranslateMessage(c, i18n.MsgPaymentManualCompleteQuotaUnitUnresolved)})
+			return
+		}
 		common.ApiError(c, err)
 		return
 	}

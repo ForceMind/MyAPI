@@ -26,6 +26,7 @@ import (
 	"github.com/ForceMind/MyAPI/service"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
 
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
 	"github.com/gin-gonic/gin"
@@ -72,8 +73,9 @@ var errChannelQuotaUnsupported = errors.New("channel quota unsupported")
 const channelBalanceRequestTimeout = 30 * time.Second
 
 type channelBalanceResult struct {
-	Balance     float64
-	RawResponse string
+	Balance           float64
+	RawResponse       string
+	ProviderAccountID string
 }
 
 type OpenAIUsageResponse struct {
@@ -266,24 +268,29 @@ func updateChannelAPI2GPTBalance(ctx context.Context, channel *model.Channel) (f
 }
 
 func updateChannelSiliconFlowBalance(ctx context.Context, channel *model.Channel) (float64, error) {
+	result, err := queryChannelSiliconFlowBalance(ctx, channel)
+	return result.Balance, err
+}
+
+func queryChannelSiliconFlowBalance(ctx context.Context, channel *model.Channel) (channelBalanceResult, error) {
 	url := "https://api.siliconflow.cn/v1/user/info"
 	body, err := GetResponseBody(ctx, "GET", url, channel, GetAuthHeader(channel.Key))
 	if err != nil {
-		return 0, err
+		return channelBalanceResult{}, err
 	}
 	response := SiliconFlowUsageResponse{}
 	err = common.Unmarshal(body, &response)
 	if err != nil {
-		return 0, err
+		return channelBalanceResult{}, err
 	}
 	if response.Code != 20000 {
-		return 0, fmt.Errorf("code: %d, message: %s", response.Code, response.Message)
+		return channelBalanceResult{}, fmt.Errorf("code: %d, message: %s", response.Code, response.Message)
 	}
 	balance, err := strconv.ParseFloat(response.Data.TotalBalance, 64)
 	if err != nil {
-		return 0, err
+		return channelBalanceResult{}, err
 	}
-	return balance, nil
+	return channelBalanceResult{Balance: balance, ProviderAccountID: strings.TrimSpace(response.Data.ID)}, nil
 }
 
 func updateChannelDeepSeekBalance(ctx context.Context, channel *model.Channel) (float64, error) {
@@ -500,6 +507,31 @@ func updateChannelBalanceWithContext(ctx context.Context, channel *model.Channel
 	return result, newChannelQuotaSamplingError(nil, channel.UpdateBalanceWithContext(persistCtx, result.Balance))
 }
 
+func queryChannelBalanceForCredential(ctx context.Context, channel *model.Channel, credential string) (channelBalanceResult, error) {
+	if channel == nil || strings.TrimSpace(credential) == "" {
+		return channelBalanceResult{}, errors.New("missing quota sampling credential")
+	}
+	copyChannel := *channel
+	copyChannel.Key = credential
+	if copyChannel.Type == constant.ChannelTypeAdvancedCustom {
+		return fetchAdvancedCustomBalance(ctx, &copyChannel)
+	}
+	if copyChannel.Type == constant.ChannelTypeSiliconFlow {
+		return queryChannelSiliconFlowBalance(ctx, &copyChannel)
+	}
+	balance, err := updateStandardChannelBalance(ctx, &copyChannel)
+	return channelBalanceResult{Balance: balance}, err
+}
+
+func resolveQuotaSamplingIdentity(ctx context.Context, channelType int, identityKind string, material []byte) (model.ChannelQuotaResolvedIdentity, error) {
+	keyring, err := common.LoadChannelQuotaIdentityKeyring()
+	if err != nil {
+		return model.ChannelQuotaResolvedIdentity{}, err
+	}
+	provider := "channel_type_" + strconv.Itoa(channelType)
+	return model.ResolveChannelQuotaIdentity(ctx, model.DB, keyring, provider, identityKind, material)
+}
+
 // withChannelPollingLock runs one channel operation while holding the same
 // non-reentrant lock used by the scheduled sampler and multi-key state flow.
 // Keeping the operation as a callback makes it explicit that all related work
@@ -549,6 +581,69 @@ func recordChannelBalanceSnapshot(channel *model.Channel, result channelBalanceR
 		MetricType: "balance",
 		WindowType: "none",
 		Source:     fmt.Sprintf("channel_type_%d", channel.Type),
+	}
+	if queryErr != nil {
+		if errors.Is(queryErr, errChannelQuotaUnsupported) {
+			snapshot.Status = "unsupported"
+			snapshot.ErrorCode = "quota_unsupported"
+			snapshot.ErrorMessage = "provider does not expose a supported balance endpoint"
+		} else if errors.Is(queryErr, context.DeadlineExceeded) {
+			snapshot.Status = "error"
+			snapshot.ErrorCode = "upstream_timeout"
+			snapshot.ErrorMessage = "quota sampling request timed out"
+		} else if errors.Is(queryErr, context.Canceled) {
+			snapshot.Status = "error"
+			snapshot.ErrorCode = "sampling_canceled"
+			snapshot.ErrorMessage = "quota sampling request canceled"
+		} else {
+			snapshot.Status = "error"
+			snapshot.ErrorCode = "query_failed"
+			snapshot.ErrorMessage = "balance query failed"
+		}
+		return recordQuotaSamplingSnapshots([]model.ChannelQuotaSnapshot{*snapshot})
+	}
+	if result.RawResponse != "" {
+		snapshot.Status = "unsupported"
+		snapshot.ErrorCode = "unstructured_response"
+		snapshot.ErrorMessage = "upstream did not return a numeric balance"
+		return recordQuotaSamplingSnapshots([]model.ChannelQuotaSnapshot{*snapshot})
+	}
+	if math.IsNaN(result.Balance) || math.IsInf(result.Balance, 0) {
+		snapshot.Status = "error"
+		snapshot.ErrorCode = "invalid_balance"
+		snapshot.ErrorMessage = "upstream returned an invalid balance"
+		return recordQuotaSamplingSnapshots([]model.ChannelQuotaSnapshot{*snapshot})
+	}
+	snapshot.Available = result.Balance
+	return recordQuotaSamplingSnapshots([]model.ChannelQuotaSnapshot{*snapshot})
+}
+
+func recordChannelBalanceSnapshotWithIdentity(channel *model.Channel, result channelBalanceResult, queryErr error, identity model.ChannelQuotaResolvedIdentity, sampleID string, identityErr error) error {
+	if channel == nil {
+		return nil
+	}
+	persistCtx, cancel := context.WithTimeout(context.Background(), channelQuotaPersistenceTimeout)
+	defer cancel()
+	observedAt, err := model.ReadDatabaseUnixTime(persistCtx, model.DB)
+	if err != nil {
+		return err
+	}
+	snapshot := &model.ChannelQuotaSnapshot{
+		ChannelId:       channel.Id,
+		ObservedAt:      observedAt,
+		SampleID:        sampleID,
+		SubjectRef:      identity.SubjectRef,
+		IdentityQuality: identity.Quality,
+		Unit:            "usd",
+		MetricType:      "balance",
+		WindowType:      "none",
+		Source:          fmt.Sprintf("channel_type_%d", channel.Type),
+	}
+	if identityErr != nil || identity.SubjectRef == "" {
+		snapshot.Status = "error"
+		snapshot.ErrorCode = "identity_unavailable"
+		snapshot.ErrorMessage = "quota sampling identity is unavailable"
+		return recordQuotaSamplingSnapshots([]model.ChannelQuotaSnapshot{*snapshot})
 	}
 	if queryErr != nil {
 		if errors.Is(queryErr, errChannelQuotaUnsupported) {
@@ -1925,18 +2020,158 @@ func UpdateAllChannelsBalance(c *gin.Context) {
 	return
 }
 
-// runChannelQuotaSnapshotSyncOnce samples enabled single-key channels using
+const channelQuotaSamplingPerChannelDefault = 4
+const channelQuotaSamplingPerChannelHardMax = 32
+
+type channelQuotaSamplingCandidate struct {
+	channel    *model.Channel
+	credential string
+	identity   model.ChannelQuotaResolvedIdentity
+	target     model.ChannelQuotaSamplingTarget
+}
+
+func buildChannelQuotaSamplingCandidates(ctx context.Context, channels []*model.Channel) ([]channelQuotaSamplingCandidate, int, error) {
+	keyring, err := common.LoadChannelQuotaIdentityKeyring()
+	if err != nil {
+		return nil, 0, err
+	}
+	perChannel := make([][]channelQuotaSamplingCandidate, 0, len(channels))
+	totalTargets := 0
+	for _, channel := range channels {
+		if channel == nil {
+			continue
+		}
+		keys := channel.GetEnabledQuotaSamplingKeys()
+		sort.Strings(keys)
+		excessKeys := 0
+		var expansion []model.ChannelQuotaSamplingExpansion
+		completeCredentialSet := len(keys) <= channelQuotaSamplingPerChannelHardMax
+		if !completeCredentialSet {
+			excessKeys = len(keys) - channelQuotaSamplingPerChannelHardMax
+			if channel.QuotaSamplingCursor < 0 {
+				return nil, 0, errors.New("invalid quota expansion cursor")
+			}
+			start := int(channel.QuotaSamplingCursor % int64(len(keys)))
+			selected := make([]string, channelQuotaSamplingPerChannelHardMax)
+			for index := range selected {
+				selected[index] = keys[(start+index)%len(keys)]
+			}
+			expansion = []model.ChannelQuotaSamplingExpansion{{ExpectedCursor: channel.QuotaSamplingCursor, NextCursor: int64((start + len(selected)) % len(keys))}}
+			keys = selected
+		}
+		bySubject := make(map[string]channelQuotaSamplingCandidate, len(keys))
+		identities := make([]model.ChannelQuotaSamplingIdentity, 0, len(keys))
+		for _, credential := range keys {
+			identity, resolveErr := model.ResolveChannelQuotaIdentity(ctx, model.DB, keyring, "channel_type_"+strconv.Itoa(channel.Type), common.ChannelQuotaIdentityKindCredential, []byte(credential))
+			if resolveErr != nil {
+				return nil, 0, resolveErr
+			}
+			identities = append(identities, model.ChannelQuotaSamplingIdentity{SubjectRef: identity.SubjectRef, IdentityQuality: identity.Quality})
+			bySubject[identity.SubjectRef] = channelQuotaSamplingCandidate{channel: channel, credential: credential, identity: identity}
+		}
+		targets, syncErr := model.SyncChannelQuotaSamplingTargets(ctx, model.DB, channel.Id, channel.Key, completeCredentialSet, identities, expansion...)
+		if syncErr != nil {
+			return nil, 0, syncErr
+		}
+		if len(expansion) == 1 {
+			channel.QuotaSamplingCursor = expansion[0].NextCursor
+		}
+		targets = collapseConfirmedQuotaSamplingTargets(targets)
+		totalTargets += len(targets) + excessKeys
+		if len(targets) > channelQuotaSamplingPerChannelDefault {
+			targets = targets[:channelQuotaSamplingPerChannelDefault]
+		}
+		channelCandidates := make([]channelQuotaSamplingCandidate, 0, len(targets))
+		for _, target := range targets {
+			candidate, ok := bySubject[target.SubjectRef]
+			if !ok {
+				continue
+			}
+			candidate.target = target
+			channelCandidates = append(channelCandidates, candidate)
+		}
+		perChannel = append(perChannel, channelCandidates)
+	}
+	candidates := make([]channelQuotaSamplingCandidate, 0)
+	for round := 0; round < channelQuotaSamplingPerChannelDefault; round++ {
+		for _, channelCandidates := range perChannel {
+			if round < len(channelCandidates) {
+				candidates = append(candidates, channelCandidates[round])
+			}
+		}
+	}
+	return candidates, totalTargets, nil
+}
+
+func collapseConfirmedQuotaSamplingTargets(targets []model.ChannelQuotaSamplingTarget) []model.ChannelQuotaSamplingTarget {
+	result := make([]model.ChannelQuotaSamplingTarget, 0, len(targets))
+	confirmedIndex := make(map[string]int)
+	for _, target := range targets {
+		if target.ConfirmedSubjectRef == "" {
+			result = append(result, target)
+			continue
+		}
+		index, exists := confirmedIndex[target.ConfirmedSubjectRef]
+		if !exists {
+			confirmedIndex[target.ConfirmedSubjectRef] = len(result)
+			result = append(result, target)
+			continue
+		}
+		if quotaSamplingTargetPreference(target) < quotaSamplingTargetPreference(result[index]) ||
+			(quotaSamplingTargetPreference(target) == quotaSamplingTargetPreference(result[index]) && target.SubjectRef < result[index].SubjectRef) {
+			result[index] = target
+		}
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].LastAttemptAt != result[j].LastAttemptAt {
+			return result[i].LastAttemptAt < result[j].LastAttemptAt
+		}
+		return result[i].SubjectRef < result[j].SubjectRef
+	})
+	return result
+}
+
+func quotaSamplingTargetPreference(target model.ChannelQuotaSamplingTarget) int {
+	switch target.LastResult {
+	case "sampled":
+		return 0
+	case "duplicate":
+		return 1
+	case "":
+		return 2
+	case "unsupported":
+		return 3
+	case "busy":
+		return 4
+	default:
+		return 5
+	}
+}
+
+func markQuotaSamplingAttempt(channelID int, subjectRef, result, confirmedSubjectRef string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), channelQuotaPersistenceTimeout)
+	defer cancel()
+	return model.MarkChannelQuotaSamplingTargetAttempt(ctx, model.DB, channelID, subjectRef, result, confirmedSubjectRef)
+}
+
+// runChannelQuotaSnapshotSyncOnce samples enabled credential targets using
 // the normalized balance query path.  The per-channel polling lock prevents a
 // scheduled pass from racing with a manual balance query or multi-key state
 // update.  A busy channel is skipped and retried on the next scheduled pass;
 // this avoids waiting behind a potentially slow provider request.
 func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, report func(processed, total int)) (summary channelQuotaSnapshotSyncSummary, runErr error) {
+	credentialAttempts := 0
+	perChannelBudgetExhausted := false
+	candidateLimitReached := false
 	defer func() {
-		summary.Deferred = summary.Considered - summary.Sampled - summary.Failed - summary.Skipped
+		summary.Deferred = summary.Considered - summary.Sampled - summary.Failed - summary.DuplicateAccountObservations
 		if summary.Deferred < 0 {
 			summary.Deferred = 0
 		}
-		summary.BudgetExhausted = errors.Is(runErr, context.DeadlineExceeded)
+		summary.DeferredKeys = summary.Deferred
+		summary.BudgetExhausted = errors.Is(runErr, context.DeadlineExceeded) ||
+			(summary.DeferredKeys > 0 && (credentialAttempts >= maxChannels || perChannelBudgetExhausted))
+		summary.SourceComplete = runErr == nil && summary.DeferredKeys == 0 && !summary.BudgetExhausted && !candidateLimitReached
 	}()
 	if ctx == nil {
 		ctx = context.Background()
@@ -1952,22 +2187,33 @@ func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, repor
 	if err != nil {
 		return summary, err
 	}
-	// The model query selects single-key accounts by their oldest recorded
-	// attempt. Keep extra candidates so busy polling locks do not prevent other
-	// accounts from being sampled, with a hard cap on actual provider requests.
-	summary.Considered = len(channels)
+	candidateLimitReached = len(channels) >= fetchLimit
+	candidates, totalTargets, err := buildChannelQuotaSamplingCandidates(ctx, channels)
+	if err != nil {
+		for _, channel := range channels {
+			_ = recordChannelBalanceSnapshotWithIdentity(channel, channelBalanceResult{}, err, model.ChannelQuotaResolvedIdentity{}, uuid.NewString(), err)
+		}
+		return summary, err
+	}
+	perChannelBudgetExhausted = totalTargets > len(candidates)
+	// Keep extra candidates so busy polling locks cannot block other accounts.
+	// The budget counts credential attempts: a provider query may require more
+	// than one HTTP request (balance/usage, or OAuth refresh plus retry).
+	summary.Considered = totalTargets
 	if report != nil {
 		report(0, summary.Considered)
 	}
 	var firstPersistErr error
-	for index, channel := range channels {
-		if summary.Sampled+summary.Failed >= maxChannels {
+	confirmedAccounts := make(map[string]string)
+	for index, candidate := range candidates {
+		channel := candidate.channel
+		if credentialAttempts >= maxChannels {
 			break
 		}
 		if err := ctx.Err(); err != nil {
 			return summary, err
 		}
-		if channel == nil || channel.Status != common.ChannelStatusEnabled || channel.ChannelInfo.IsMultiKey {
+		if channel == nil || channel.Status != common.ChannelStatusEnabled {
 			summary.Skipped++
 			if report != nil {
 				report(index+1, summary.Considered)
@@ -1977,6 +2223,12 @@ func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, repor
 		lock := model.GetChannelPollingLock(channel.Id)
 		if !lock.TryLock() {
 			summary.Skipped++
+			if markErr := markQuotaSamplingAttempt(channel.Id, candidate.identity.SubjectRef, "busy", ""); markErr != nil {
+				summary.PersistFailed++
+				if firstPersistErr == nil {
+					firstPersistErr = markErr
+				}
+			}
 			if report != nil {
 				report(index+1, summary.Considered)
 			}
@@ -1984,28 +2236,93 @@ func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, repor
 		}
 		var queryErr error
 		var persistErr error
+		duplicateAccount := false
+		confirmedSubjectForTarget := ""
+		credentialAttempts++
 		if channel.Type == constant.ChannelTypeCodex {
 			// Codex OAuth exposes subscription windows through the official WHAM
 			// usage endpoint rather than the generic balance endpoint. Keep this
 			// branch inside the same bounded polling lock and sampler budget.
-			samplingErr := sampleCodexChannelUsage(ctx, channel)
+			attemptIdentity := candidate.identity
+			samplingErr := sampleCodexCredentialUsage(ctx, channel, candidate.credential, candidate.identity, func(subjectRef string) bool {
+				confirmedSubjectForTarget = subjectRef
+				accountKey := strconv.Itoa(channel.Id) + "\x00" + subjectRef
+				if _, exists := confirmedAccounts[accountKey]; exists {
+					duplicateAccount = true
+					return false
+				}
+				confirmedAccounts[accountKey] = candidate.identity.SubjectRef
+				return true
+			}, func(subjectRef string) {
+				accountKey := strconv.Itoa(channel.Id) + "\x00" + subjectRef
+				if confirmedAccounts[accountKey] == candidate.identity.SubjectRef {
+					delete(confirmedAccounts, accountKey)
+				}
+				if confirmedSubjectForTarget == subjectRef {
+					confirmedSubjectForTarget = ""
+				}
+			}, &attemptIdentity)
+			if attemptIdentity.SubjectRef != candidate.identity.SubjectRef {
+				persistErr = errors.Join(persistErr, markQuotaSamplingAttempt(
+					channel.Id, candidate.identity.SubjectRef, "rotated", "",
+				))
+				persistCtx, persistCancel := context.WithTimeout(context.Background(), channelQuotaPersistenceTimeout)
+				persistErr = errors.Join(persistErr, model.EnsureChannelQuotaSamplingTarget(
+					persistCtx, model.DB, channel.Id,
+					model.ChannelQuotaSamplingIdentity{SubjectRef: attemptIdentity.SubjectRef, IdentityQuality: attemptIdentity.Quality},
+				))
+				persistCancel()
+				candidate.identity = attemptIdentity
+			}
 			queryErr = samplingErr
 			var classifiedErr *channelQuotaSamplingError
 			if errors.As(samplingErr, &classifiedErr) {
 				queryErr = classifiedErr.QueryErr
-				persistErr = classifiedErr.PersistErr
+				persistErr = errors.Join(persistErr, classifiedErr.PersistErr)
 			}
 		} else {
-			result, balanceErr := updateChannelBalanceWithContext(ctx, channel)
+			requestCtx, cancel := context.WithTimeout(ctx, channelBalanceRequestTimeout)
+			result, balanceErr := queryChannelBalanceForCredential(requestCtx, channel, candidate.credential)
+			cancel()
 			queryErr = balanceErr
-			var classifiedErr *channelQuotaSamplingError
-			if errors.As(balanceErr, &classifiedErr) {
-				queryErr, persistErr = classifiedErr.QueryErr, classifiedErr.PersistErr
+			observationIdentity := candidate.identity
+			if balanceErr == nil && result.ProviderAccountID != "" {
+				observationIdentity, balanceErr = resolveQuotaSamplingIdentity(ctx, channel.Type, common.ChannelQuotaIdentityKindProviderAccount, []byte(result.ProviderAccountID))
+				queryErr = balanceErr
+				if balanceErr == nil {
+					confirmedSubjectForTarget = observationIdentity.SubjectRef
+				}
 			}
-			persistErr = errors.Join(persistErr, recordChannelBalanceSnapshot(channel, result, queryErr))
+			if queryErr == nil && observationIdentity.Quality == model.ChannelQuotaIdentityQualityProviderConfirmed {
+				accountKey := strconv.Itoa(channel.Id) + "\x00" + observationIdentity.SubjectRef
+				if _, exists := confirmedAccounts[accountKey]; exists {
+					duplicateAccount = true
+				}
+			}
+			if !duplicateAccount {
+				persistErr = recordChannelBalanceSnapshotWithIdentity(channel, result, queryErr, observationIdentity, uuid.NewString(), nil)
+				if persistErr == nil && queryErr == nil && observationIdentity.Quality == model.ChannelQuotaIdentityQualityProviderConfirmed {
+					accountKey := strconv.Itoa(channel.Id) + "\x00" + observationIdentity.SubjectRef
+					confirmedAccounts[accountKey] = candidate.identity.SubjectRef
+				}
+			}
 		}
 		lock.Unlock()
-		if queryErr != nil {
+		resultState := "sampled"
+		if duplicateAccount {
+			resultState = "duplicate"
+		} else if queryErr != nil {
+			resultState = "failed"
+			if errors.Is(queryErr, errChannelQuotaUnsupported) {
+				resultState = "unsupported"
+			}
+		}
+		if markErr := markQuotaSamplingAttempt(channel.Id, candidate.identity.SubjectRef, resultState, confirmedSubjectForTarget); markErr != nil {
+			persistErr = errors.Join(persistErr, markErr)
+		}
+		if duplicateAccount {
+			summary.DuplicateAccountObservations++
+		} else if queryErr != nil {
 			summary.Failed++
 			if errors.Is(queryErr, context.DeadlineExceeded) {
 				summary.TimedOut++
@@ -2028,7 +2345,7 @@ func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, repor
 		if err := ctx.Err(); err != nil {
 			return summary, errors.Join(err, firstPersistErr)
 		}
-		if common.RequestInterval > 0 && index+1 < len(channels) && summary.Sampled+summary.Failed < maxChannels {
+		if common.RequestInterval > 0 && index+1 < len(candidates) && credentialAttempts < maxChannels {
 			delay := common.RequestInterval
 			// Do not let a legacy request interval turn a bounded task into a
 			// multi-hour run. Operators needing a slower cadence should configure

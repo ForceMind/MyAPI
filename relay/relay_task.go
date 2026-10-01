@@ -14,6 +14,7 @@ import (
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/dto"
+	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/relay/channel"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
@@ -114,7 +115,17 @@ func ResolveOriginTask(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskErr
 	info.LockedChannel = ch
 
 	if originTask.ChannelId != info.ChannelId {
-		key, _, newAPIError := ch.GetNextEnabledKey()
+		var excluded map[int]bool
+		if ch.Type == constant.ChannelTypeCodex {
+			var eligible bool
+			excluded, eligible, err = service.CodexQuotaEligibleKeys(c.Request.Context(), ch)
+			if err != nil || !eligible {
+				return service.TaskErrorWrapperLocal(errors.New(i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{
+					"Group": originGroup, "Model": info.OriginModelName,
+				})), "channel_no_available_key", http.StatusServiceUnavailable)
+			}
+		}
+		key, _, newAPIError := ch.GetNextEnabledKeyExcluding(excluded)
 		if newAPIError != nil {
 			return service.TaskErrorWrapper(newAPIError, "channel_no_available_key", newAPIError.StatusCode)
 		}

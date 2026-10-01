@@ -80,10 +80,9 @@ func PostSetup(c *gin.Context) {
 		}
 	}
 
-	fundingMode := operation_setting.UserFundingModeEnabled
-	if req.SelfUseModeEnabled {
-		fundingMode = operation_setting.UserFundingModeDisabled
-	}
+	// Installation mode does not grant permission to sell credit. Commercial
+	// funding is an optional module and requires explicit enablement after setup.
+	fundingMode := operation_setting.UserFundingModeDisabled
 	var fundingState model.UserFundingStateSnapshot
 	err := model.DB.Transaction(func(tx *gorm.DB) error {
 		var rootCount int64

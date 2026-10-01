@@ -45,6 +45,35 @@ func TestUpdateChannelCredentialIfUnchanged(t *testing.T) {
 	assert.Equal(t, "new-secret", stored.Key)
 }
 
+func TestUpdateChannelCredentialElementIfUnchangedPreservesOtherKeys(t *testing.T) {
+	previousDB := DB
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&Channel{}))
+	DB = db
+	t.Cleanup(func() { DB = previousDB })
+
+	newline := &Channel{Type: 48, Key: "old\nother", Status: common.ChannelStatusEnabled, ChannelInfo: ChannelInfo{IsMultiKey: true}}
+	require.NoError(t, db.Create(newline).Error)
+	updated, err := UpdateChannelCredentialElementIfUnchanged(context.Background(), newline.Id, newline.Type, "old", "new")
+	require.NoError(t, err)
+	require.True(t, updated)
+	require.NoError(t, db.First(newline, newline.Id).Error)
+	require.Equal(t, "new\nother", newline.Key)
+
+	oldJSON := `{"access_token":"old","account_id":"account"}`
+	newJSON := `{"access_token":"new","account_id":"account"}`
+	jsonChannel := &Channel{Type: 48, Key: "[" + oldJSON + `,{"access_token":"other","account_id":"other"}]`, Status: common.ChannelStatusEnabled, ChannelInfo: ChannelInfo{IsMultiKey: true}}
+	require.NoError(t, db.Create(jsonChannel).Error)
+	updated, err = UpdateChannelCredentialElementIfUnchanged(context.Background(), jsonChannel.Id, jsonChannel.Type, oldJSON, newJSON)
+	require.NoError(t, err)
+	require.True(t, updated)
+	require.NoError(t, db.First(jsonChannel, jsonChannel.Id).Error)
+	require.Contains(t, jsonChannel.Key, `"access_token":"new"`)
+	require.Contains(t, jsonChannel.Key, `"access_token":"other"`)
+	require.NotContains(t, jsonChannel.Key, `"access_token":"old"`)
+}
+
 func TestUpdateChannelCredentialIfUnchangedConfirmsIdempotentZeroRows(t *testing.T) {
 	previousDB := DB
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})

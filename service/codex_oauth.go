@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/model"
 )
 
 const (
@@ -48,6 +50,82 @@ func RefreshCodexOAuthTokenWithProxy(ctx context.Context, refreshToken string, p
 		return nil, err
 	}
 	return refreshCodexOAuthToken(ctx, client, codexOAuthTokenURL, codexOAuthClientID, refreshToken)
+}
+
+// RefreshCodexChannelCredentialElement rotates one expected credential without
+// replacing a channel's other keys. The credential gate and distributed lease
+// serialize refresh-token use; stale replacement is rejected without overwriting
+// other credentials. Reordering preserves the matching credential's identity.
+func RefreshCodexChannelCredentialElement(ctx context.Context, channelID int, expectedCredential, proxyURL string) (*CodexOAuthKey, error) {
+	if channelID <= 0 || strings.TrimSpace(expectedCredential) == "" {
+		return nil, errors.New("invalid Codex channel credential target")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var refreshed *CodexOAuthKey
+	err := model.WithChannelCredentialUpdateGate(ctx, channelID, func(gateCtx context.Context) error {
+		lease, err := acquireCodexCredentialRefreshLease(gateCtx, channelID)
+		if err != nil {
+			return err
+		}
+		defer lease.release()
+		channel, err := model.GetChannelById(channelID, true)
+		if err != nil {
+			return err
+		}
+		if channel.Type != constant.ChannelTypeCodex {
+			return errors.New("channel type is not Codex")
+		}
+		matches := 0
+		credentials := []string{channel.Key}
+		if channel.ChannelInfo.IsMultiKey {
+			credentials = channel.GetKeys()
+		}
+		for _, candidate := range credentials {
+			if candidate == expectedCredential {
+				matches++
+			}
+		}
+		if matches == 0 {
+			return errors.New("codex credential changed before refresh")
+		}
+		if matches != 1 {
+			return errors.New("duplicate Codex credential target")
+		}
+		key, err := parseCodexOAuthKey(expectedCredential)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(key.RefreshToken) == "" {
+			return errors.New("codex channel: refresh_token is required to refresh credential")
+		}
+		refreshCtx, cancel := context.WithTimeout(gateCtx, 10*time.Second)
+		result, err := RefreshCodexOAuthTokenWithProxy(refreshCtx, key.RefreshToken, proxyURL)
+		cancel()
+		if err != nil {
+			return err
+		}
+		key.AccessToken, key.RefreshToken = result.AccessToken, result.RefreshToken
+		key.LastRefresh = time.Now().Format(time.RFC3339)
+		key.Expired = result.ExpiresAt.Format(time.RFC3339)
+		encoded, err := common.Marshal(key)
+		if err != nil {
+			return err
+		}
+		persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(gateCtx), codexCredentialPersistenceTimeout)
+		defer persistCancel()
+		updated, err := model.UpdateChannelCredentialElementIfUnchanged(persistCtx, channelID, constant.ChannelTypeCodex, expectedCredential, string(encoded))
+		if err != nil {
+			return &CodexCredentialPersistenceError{err: err}
+		}
+		if !updated {
+			return &CodexCredentialPersistenceError{err: errors.New("codex credential changed during refresh")}
+		}
+		refreshed = key
+		return nil
+	})
+	return refreshed, err
 }
 
 func ExchangeCodexAuthorizationCode(ctx context.Context, code string, verifier string) (*CodexOAuthTokenResult, error) {

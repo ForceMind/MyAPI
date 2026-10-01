@@ -64,6 +64,7 @@ const BILLING_SECTIONS = [
 const MODEL_SECTIONS = [
   { id: 'global', titleKey: 'Global Model Configuration' },
   { id: 'routing-reliability', titleKey: 'Routing Reliability' },
+  { id: 'openai-pricing-source', titleKey: 'OpenAI official pricing source' },
   { id: 'gemini', titleKey: 'Gemini' },
   { id: 'claude', titleKey: 'Claude' },
   { id: 'grok', titleKey: 'Grok' },

@@ -1,3 +1,55 @@
+# My API 当前开发交接（2026-10-02）
+
+本节是当前入口；下方旧 Linux 模板只保留历史，不作为当前目录、授权或完成状态。启动提示词见 [CODEX_HANDOFF_PROMPT.md](CODEX_HANDOFF_PROMPT.md)，R1 需求及逐批证据见 [NEXT_USABLE_VERSION.md](NEXT_USABLE_VERSION.md)。不重新规划 F1–F8，不重做已完成批次。
+
+## Git 与工作树
+
+- 仓库 `https://github.com/ForceMind/MyAPI`；交接分支 `codex/r1-handoff-20261002`，未封版源码快照。提交通过 `git rev-parse HEAD` 与远端同名分支回读，本文不填写自引用 SHA。
+- 基线 `57ec31a58fc737ba2be0601e4102123436c3d938`；交接前远端 main 是 `f6536ca96126415f74d239165fd688589bd54af9`，不是该基线。不要先 pull/rebase main，也不要强推或直接覆盖 main；集成与合并另行授权。
+- 候选 `/Users/wxx110/.codex/worktrees/next-usable-candidate/MyAPI`：交接开始时 detached HEAD，229 个修改/新增文件条目。快照包含从原工作树继承的商业支付 WIP 及候选 R1 改动，不把全部差异称为本次新增或已验收。
+- 主目录 `/Users/wxx110/工作/Prive/MyAPI` 当时干净，分支 `codex/mac-durable-accounting`，仍在基线，没有被候选覆盖。
+- 原 `/Users/wxx110/.codex/worktrees/2daa/MyAPI` 保留全部 WIP，只读保护，不 reset/stash/clean、归档或整包搬入。候选不等于原工作树全部成果。
+- `VERSION` 仍为 `0.2.0-beta.1`；历史 tag 不代表本候选发布。此次只提交/推送交接源码与文档，不创建 tag、PR、合并、镜像或部署；不包含 `.env`、数据库、真实日志、凭据、依赖缓存和构建产物。
+- 本轮读取 Goal 返回 null，没有创建自动化或子智能体；下一模型先查目标，不声称旧 Goal 仍持续运行。
+
+## 已有成果与边界
+
+|流程|已有候选成果|未完成/待验|
+|---|---|---|
+|自用 UI|新安装商业默认 disabled；关闭模式隐藏购买推广/当前余额；首页概览简化，用户/Key/历史恢复入口保留|旧模式不强改；三种新预算未实现；商业启用资格未验收|
+|额度及渠道|同图细线与系列选择，多 Key 采样/身份隔离，Codex 历史按 series_id，测试复用成功 model/endpoint/stream，确切耗尽 429 避让|专用历史无新 UI 选择入口；真实账户、容器 OAuth/刷新、上游测试/路由计数待验|
+|usage/实时|Responses 明确零值不覆盖，冻结 usage/reasoning/cache 明细；日志来源标签；冻结单位/模型/工具倍率；实时累计预留及重复扣费修正|未知/部分/畸形 usage 未收口；reported 不等于账单核对；实时有界汇总不是持久逐 response 证据|
+|官网价格|固定官网抓取/严格十进制解析；Root 保存不可变 SHA256 来源版本及按摘要读取；独立参考成本计算和 Root 页面|保存不等于发布；未应用有效价格或 Key 预算；差异确认、管理员锁、原子发布/回滚、档位/上下文/地区/工具/多模态资格未完成|
+
+商业支付代码仅保留默认关闭模块及历史恢复，不继续扩展支付商，不宣称可以安全收款，不建设动态插件框架。
+
+## 红灯和规则确认
+
+`go test -p 1 ./service -run '^TestPerTokenSettlementRequiresReportedUsage$' -count=1` 中缺 usage、Estimated usage 合同失败：预留 100 后仍确定扣费 100/120；reported 对照正常扣费 120。service 全包不能宣称通过，历史绿色已被新合同推翻。禁止删测试/放宽断言、猜零价或自动退款制造绿色。
+
+先集中确认两条规则，未确认前不实施关键副作用：
+
+1. 严格费用/Token 预算 Key 遇到未知 usage，是否暂停后续请求、保留预留，等待可靠 usage 或授权人工恢复？少量预留或继续估算不保证硬限额；固定按次/独立工具费用分别处理。
+2. 百分比是账户剩余安全阈值，还是每个 Key 在各账户窗口内独立消耗预算？共享账户差值不能可靠归属 Key，不伪造逐请求百分比。
+
+原 2daa 的 usage_unknown 冻结/审计/恢复未纳入候选，legacy 保留仍有进程内边界；不得整包复制来冒充持久保证。改结算前读 `pkg/billingexpr/expr.md`，核对预留生命周期、writer 模式与权限。
+
+## 验证与下一迭代
+
+- 2026-10-02 交接复核：Gitleaks 8.30.1 官方校验和通过，扫描暂存补丁约 1.27MB 未发现秘密（只覆盖本次差异，不是全历史无秘密保证）；暂存 diff 检查通过。relaykit 使用 `GOWORK=off GOMAXPROCS=1 GOMEMLIMIT=768MiB go build ./...` 独立构建退出 0。
+- 同日重跑上述未知结算合同，1.770s 退出 1，missing/estimated 两项仍失败、reported 对照通过；未修改生产行为或隐藏失败。GitHub API 回读仓库为 PUBLIC，快照范围为候选源码与交接文档，不发布制品。
+- 逐批命令/日期见 R1 卡，按变化范围复用，不是当前全部仓库绿色或独立审查。最后 controller/router 全包 2.048s/1.017s、相关 race/vet 通过；最后 service 全包 6.977s 退出 1，仅上述两项红灯，后续该包源码未变。
+- 最后官网来源 UI 14/14 合同、typecheck/lint、构建 2.06s 通过；新增七语言键 missingCount=0，历史未翻译项未整体补完。沿用既有 UI 组件、会话隔离与指定 i18n 脚本，未增加项目依赖。
+- 320/390/768/1440 合成浏览器稳定布局、保存反馈、失败隐藏旧表、按摘要读取及键盘滚动已观察。`http://127.0.0.1:8769/system-settings/models/openai-pricing-source` 只是本机静态构建+合成 API，进程可能结束，不是后端持久化证明。
+- SQLite 和跨库声明/合同代码有部分证据；MySQL 5.7/PostgreSQL 9.6 实库、当前交接 SHA 的 CI、真实容器/OAuth/上游账单、升级/恢复/回滚未验收。relaykit 独立构建历史证据在 R1 卡，新改其 API 后须 `GOWORK=off go build ./...`。
+- 官网曾实取不等于当前价格相同。截图留在本机会话可视化目录，未入 Git：`r1-saved-price-source.jpg` / `r1-saved-price-source-mobile.jpg`。
+
+接管先执行 `pwd`、`git status --short --branch`、`git remote -v`、`git log -5 --oneline`、`git rev-parse HEAD`；确认远端交接分支，不切 main 丢失候选。读取本节、R1 卡和 AGENTS 后只定位本轮必需代码。
+
+下一迭代优先“正常结算 → 未知待核对 → 权限恢复 → 幂等限额”的完整可操作闭环，依赖上述规则确认。缺确认先安全诊断，不继续无限增加价格辅助能力/支付功能。随后接价格发布和费用/Token 预算，百分比按确认口径最后接入。每版固定范围、查看入口、验收和停止条件，额外需求放下一版。
+
+## 历史归档：旧 Linux 模板（不用于当前接管）
+
 # My API 新对话启动提示词（Linux 源码开发）
 
 编制日期：2026-09-05；2026-09-06 增补产品、发行与 S5-P 交接事项。将下方文本作为负责人指令复制到在 `/root/myapi` 打开的新对话。

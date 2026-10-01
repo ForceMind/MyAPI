@@ -142,6 +142,11 @@ type RelayInfo struct {
 	// response.done 共享 RequestId，该序号为 authoritative 配额写入提供
 	// 稳定的按次幂等键后缀。
 	RealtimeConsumeSeq int
+	// RealtimeQuotedQuota is the cumulative quota of successfully reserved
+	// realtime segments. It extends the existing billing reservation instead
+	// of charging each segment again outside that session.
+	RealtimeQuotedQuota   int
+	RealtimeTieredPricing *RealtimeTieredPricing
 	// SubscriptionAmountTotal / SubscriptionAmountUsedAfterPreConsume are used to compute remaining in logs.
 	SubscriptionAmountTotal               int64
 	SubscriptionAmountUsedAfterPreConsume int64
@@ -188,6 +193,20 @@ type RelayInfo struct {
 	*ResponsesUsageInfo
 	*ChannelMeta
 	*TaskRelayInfo
+}
+
+// RealtimeTieredPricing holds bounded totals, not an unbounded response list.
+// Quotes remain known even if extending the billing reservation fails.
+type RealtimeTieredPricing struct {
+	Quota        int
+	Responses    int
+	InputTokens  int
+	OutputTokens int
+	TotalTokens  int
+	Incomplete   bool
+	ExprHash     string
+	QuotaPerUnit float64
+	GroupRatio   float64
 }
 
 func (info *RelayInfo) InitChannelMeta(c *gin.Context) {

@@ -117,6 +117,7 @@ func TestChannelQuotaSnapshotSyncSamplesStandardChannelAndRecordsFailure(t *test
 			db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 			require.NoError(t, err)
 			require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}))
+			setupChannelQuotaIdentityFixture(t, db)
 			model.DB = db
 
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

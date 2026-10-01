@@ -194,6 +194,7 @@ func UpdatePaymentFundingOptionsBulk(values map[string]string) (UserFundingState
 	defer optionMutationLock.Unlock()
 
 	var next UserFundingStateSnapshot
+	readyToCommit := false
 	err = DB.Transaction(func(tx *gorm.DB) error {
 		current, option, err := readUserFundingStateTx(tx, true)
 		if err != nil {
@@ -228,11 +229,22 @@ func UpdatePaymentFundingOptionsBulk(values map[string]string) (UserFundingState
 		if err := persistOptionValuesTx(tx, persisted); err != nil {
 			return err
 		}
-		return saveUserFundingStateTx(tx, option, next)
+		writeErr := saveUserFundingStateTx(tx, option, next)
+		readyToCommit = writeErr == nil
+		return writeErr
 	})
 	if err != nil {
+		if readyToCommit {
+			markPricingRuntimeUnavailable()
+		}
 		return failClosedUserFundingState(0), err
 	}
+	runtimePublished := false
+	defer func() {
+		if !runtimePublished {
+			markPricingRuntimeUnavailable()
+		}
+	}()
 
 	mutations, err := buildPaymentFundingMutations(normalized, next)
 	if err != nil {
@@ -273,6 +285,7 @@ func UpdatePaymentFundingOptionsBulk(values map[string]string) (UserFundingState
 		return next, err
 	}
 	candidatePublished = true
+	runtimePublished = true
 	return next, nil
 }
 

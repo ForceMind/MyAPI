@@ -264,6 +264,45 @@ func appendFinalRequestFormat(relayInfo *relaycommon.RelayInfo, other map[string
 func GenerateWssOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.RealtimeUsage, modelRatio, groupRatio, completionRatio, audioRatio, audioCompletionRatio, modelPrice, userGroupRatio float64) map[string]interface{} {
 	info := GenerateTextOtherInfo(ctx, relayInfo, modelRatio, groupRatio, completionRatio, 0, 0.0, modelPrice, userGroupRatio)
 	info["ws"] = true
+	info["realtime_cached_tokens"] = usage.InputTokenDetails.CachedTokens
+	info["image_input"] = usage.InputTokenDetails.ImageTokens
+	info["image_output"] = usage.OutputTokenDetails.ImageTokens
+	info["cache_details_quality"] = "unrecorded"
+	if usage.InputTokenDetails.CachedTokens < 0 || usage.InputTokenDetails.CachedTokens > usage.InputTokens {
+		info["cache_details_quality"] = "invalid"
+	}
+	if cached := usage.InputTokenDetails.CachedTokensDetails; cached != nil {
+		remaining := usage.InputTokenDetails.CachedTokens
+		valid := remaining >= 0 && remaining <= usage.InputTokens
+		complete := true
+		for _, part := range []struct {
+			name  string
+			count *int
+			limit int
+		}{
+			{"cached_text_tokens", cached.TextTokens, usage.InputTokenDetails.TextTokens},
+			{"cached_audio_tokens", cached.AudioTokens, usage.InputTokenDetails.AudioTokens},
+			{"cached_image_tokens", cached.ImageTokens, usage.InputTokenDetails.ImageTokens},
+		} {
+			if part.count == nil {
+				complete = false
+				continue
+			}
+			count := *part.count
+			info[part.name] = count
+			if count < 0 || count > remaining || count > part.limit {
+				valid = false
+				continue
+			}
+			remaining -= count
+		}
+		info["cache_details_quality"] = "partial"
+		if !valid {
+			info["cache_details_quality"] = "invalid"
+		} else if complete && remaining == 0 {
+			info["cache_details_quality"] = "complete"
+		}
+	}
 	info["audio_input"] = usage.InputTokenDetails.AudioTokens
 	info["audio_output"] = usage.OutputTokenDetails.AudioTokens
 	info["text_input"] = usage.InputTokenDetails.TextTokens

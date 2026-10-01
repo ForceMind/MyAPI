@@ -16,6 +16,12 @@ const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css
 assert(existsSync(resolve(root, 'index.html')), 'Build the frontend before browser regression')
 const server = createServer((request, response) => {
   const pathname = new URL(request.url || '/', 'http://localhost').pathname
+  if (pathname.startsWith('/api/')) {
+    const payload = quotaFixtures().response(new URL(request.url || '/', 'http://localhost'))
+    response.writeHead(payload?.fixture_http_status || (payload ? 200 : 501), { 'content-type': 'application/json', 'cache-control': 'no-store' })
+    response.end(JSON.stringify(payload || { success: false, message: 'Unconfigured browser fixture' }))
+    return
+  }
   let path
   try { path = resolve(root, `.${decodeURIComponent(pathname)}`) } catch { response.writeHead(400).end(); return }
   if (!path.startsWith(`${root}${sep}`) && path !== root) { response.writeHead(403).end(); return }
@@ -23,6 +29,12 @@ const server = createServer((request, response) => {
   response.writeHead(200, { 'content-type': mime[extname(path)] || 'application/octet-stream', 'cache-control': 'no-store' })
   createReadStream(path).pipe(response)
 })
+if (process.env.MYAPI_BROWSER_MANUAL === '1') {
+  const port = Number(process.env.MYAPI_BROWSER_PORT || 8766)
+  await new Promise((done) => server.listen(port, '127.0.0.1', done))
+  console.log(`Synthetic browser fixture available at http://127.0.0.1:${server.address().port}`)
+  await new Promise(() => {})
+}
 const driver = process.env.MYAPI_PLAYWRIGHT_MODULE
 const { chromium } = await import(driver ? pathToFileURL(resolve(driver)).href : 'playwright')
 let browser

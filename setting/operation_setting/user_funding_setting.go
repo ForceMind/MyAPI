@@ -27,7 +27,7 @@ type UserFundingSetting struct {
 }
 
 var defaultUserFundingSetting = UserFundingSetting{
-	Mode:  UserFundingModeEnabled,
+	Mode:  UserFundingModeDisabled,
 	Epoch: 0,
 }
 

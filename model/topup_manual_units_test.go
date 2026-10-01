@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/ForceMind/MyAPI/common"
@@ -11,17 +12,24 @@ import (
 	"gorm.io/gorm"
 )
 
+// These fixtures represent newly created orders with a known creation unit.
+// Legacy/no-snapshot tests must use direct Create and leave the field empty.
+func paymentFixtureQuotaUnitSnapshot() string {
+	return strconv.FormatFloat(common.QuotaPerUnit, 'g', -1, 64)
+}
+
 func createManualUnitsTopUp(t *testing.T, userID int, tradeNo, method, provider string, amount int64, money float64) TopUp {
 	t.Helper()
 	topUp := TopUp{
-		UserId:          userID,
-		Amount:          amount,
-		Money:           money,
-		TradeNo:         tradeNo,
-		PaymentMethod:   method,
-		PaymentProvider: provider,
-		CreateTime:      common.GetTimestamp(),
-		Status:          common.TopUpStatusPending,
+		UserId:               userID,
+		Amount:               amount,
+		Money:                money,
+		TradeNo:              tradeNo,
+		PaymentMethod:        method,
+		PaymentProvider:      provider,
+		QuotaPerUnitSnapshot: strconv.FormatFloat(common.QuotaPerUnit, 'g', -1, 64),
+		CreateTime:           common.GetTimestamp(),
+		Status:               common.TopUpStatusPending,
 	}
 	require.NoError(t, DB.Create(&topUp).Error)
 	return topUp

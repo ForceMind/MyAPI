@@ -7,6 +7,30 @@ import (
 	"github.com/ForceMind/MyAPI/relaykit/dto"
 )
 
+// responsesUsageForBilling keeps the provider's original counters separate
+// from the Chat-style projection used by settlement. Presence is meaningful:
+// an explicitly returned zero usage must not be replaced with an estimate.
+func responsesUsageForBilling(raw *dto.Usage) dto.Usage {
+	billing := dto.CloneBillingUsage(&dto.BillingUsage{
+		Source:      dto.BillingUsageSourceOAIResponses,
+		Semantic:    dto.BillingUsageSemanticOpenAI,
+		OpenAIUsage: raw,
+	})
+	usage := *dto.CloneBillingUsage(billing).OpenAIUsage
+	usage.PromptTokens = usage.InputTokens
+	usage.CompletionTokens = usage.OutputTokens
+	if usage.InputTokensDetails != nil {
+		usage.PromptTokensDetails = dto.CloneInputTokenDetails(*usage.InputTokensDetails)
+	}
+	if usage.OutputTokensDetails != nil {
+		usage.CompletionTokenDetails = *usage.OutputTokensDetails
+	}
+	usage.BillingUsage = billing
+	usage.UsageSource = billing.Source
+	usage.UsageSemantic = billing.Semantic
+	return usage
+}
+
 func applyUsagePostProcessing(info *relaycommon.RelayInfo, usage *dto.Usage, responseBody []byte) {
 	if info == nil || usage == nil {
 		return

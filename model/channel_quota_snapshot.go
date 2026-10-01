@@ -27,28 +27,84 @@ func ChannelQuotaAccountRef(provider, accountID string) string {
 	return hex.EncodeToString(digest[:])
 }
 
+const (
+	channelQuotaIdentityDomain = "myapi/channel-quota/identity/v1"
+	channelQuotaSeriesDomain   = "myapi/channel-quota/series/v1"
+)
+
+func channelQuotaDigest(domain string, parts ...string) string {
+	var builder strings.Builder
+	for _, part := range append([]string{domain}, parts...) {
+		fmt.Fprintf(&builder, "%d:", len(part))
+		builder.WriteString(part)
+	}
+	digest := sha256.Sum256([]byte(builder.String()))
+	return hex.EncodeToString(digest[:])
+}
+
+// ChannelQuotaSnapshotIdentity returns a fixed-domain digest used only for
+// grouping. New rows use the persistent subject namespace. Historical rows
+// with only AccountRef remain readable in a distinct legacy namespace and are
+// never equated with a new subject. Empty or malformed identities fail closed.
+func ChannelQuotaSnapshotIdentity(snapshot ChannelQuotaSnapshot) (string, string, bool) {
+	subjectRef := strings.TrimSpace(snapshot.SubjectRef)
+	quality := strings.TrimSpace(snapshot.IdentityQuality)
+	if subjectRef != "" {
+		if !canonicalChannelQuotaIdentitySubject(subjectRef) ||
+			(quality != ChannelQuotaIdentityQualityProviderConfirmed && quality != ChannelQuotaIdentityQualityCredentialScoped) {
+			return "", "", false
+		}
+		return channelQuotaDigest(channelQuotaIdentityDomain, "subject_ref", quality, subjectRef), quality, true
+	}
+	if quality != "" {
+		return "", "", false
+	}
+	accountRef := strings.TrimSpace(snapshot.AccountRef)
+	if !canonicalLowerHex(accountRef, 64) {
+		return "", "", false
+	}
+	return channelQuotaDigest(channelQuotaIdentityDomain, "legacy_account_ref", accountRef), ChannelQuotaIdentityQualityProviderConfirmed, true
+}
+
+// ChannelQuotaSnapshotSeriesID is the only identity emitted by aggregate
+// APIs. It is stable across processes and keyring rotation but cannot be used
+// to recover SubjectRef or the historical AccountRef.
+func ChannelQuotaSnapshotSeriesID(snapshot ChannelQuotaSnapshot) string {
+	identity, _, ok := ChannelQuotaSnapshotIdentity(snapshot)
+	if !ok {
+		return ""
+	}
+	return channelQuotaDigest(channelQuotaSeriesDomain,
+		strconv.Itoa(snapshot.ChannelId), identity, snapshot.MetricType, snapshot.WindowType,
+		snapshot.Source, snapshot.PlanType, snapshot.Unit, snapshot.Currency,
+		strconv.FormatInt(snapshot.WindowSeconds, 10))
+}
+
 // ChannelQuotaAggregateRow is the redacted projection used by the global
 // quota-change view. It deliberately contains no channel key, settings, or
 // upstream response data. Account identity is represented by the channel's
 // operator-provided name and stable numeric id.
 type ChannelQuotaAggregateRow struct {
-	ID            int      `gorm:"column:id"`
-	ChannelID     int      `gorm:"column:channel_id"`
-	ChannelName   string   `gorm:"column:channel_name"`
-	ObservedAt    int64    `gorm:"column:observed_at"`
-	Available     float64  `gorm:"column:available"`
-	Used          *float64 `gorm:"column:used"`
-	Total         *float64 `gorm:"column:total"`
-	Unit          string   `gorm:"column:unit"`
-	Currency      string   `gorm:"column:currency"`
-	MetricType    string   `gorm:"column:metric_type"`
-	WindowType    string   `gorm:"column:window_type"`
-	PlanType      string   `gorm:"column:plan_type"`
-	WindowSeconds int64    `gorm:"column:window_seconds"`
-	ResetAt       int64    `gorm:"column:reset_at"`
-	Source        string   `gorm:"column:source"`
-	Status        string   `gorm:"column:status"`
-	ErrorCode     string   `gorm:"column:error_code"`
+	ID              int      `gorm:"column:id"`
+	ChannelID       int      `gorm:"column:channel_id"`
+	ChannelName     string   `gorm:"column:channel_name"`
+	SubjectRef      string   `json:"-" gorm:"column:subject_ref"`
+	IdentityQuality string   `json:"-" gorm:"column:identity_quality"`
+	AccountRef      string   `json:"-" gorm:"column:account_ref"`
+	ObservedAt      int64    `gorm:"column:observed_at"`
+	Available       float64  `gorm:"column:available"`
+	Used            *float64 `gorm:"column:used"`
+	Total           *float64 `gorm:"column:total"`
+	Unit            string   `gorm:"column:unit"`
+	Currency        string   `gorm:"column:currency"`
+	MetricType      string   `gorm:"column:metric_type"`
+	WindowType      string   `gorm:"column:window_type"`
+	PlanType        string   `gorm:"column:plan_type"`
+	WindowSeconds   int64    `gorm:"column:window_seconds"`
+	ResetAt         int64    `gorm:"column:reset_at"`
+	Source          string   `gorm:"column:source"`
+	Status          string   `gorm:"column:status"`
+	ErrorCode       string   `gorm:"column:error_code"`
 }
 
 const maxChannelQuotaAggregateRows = 200000
@@ -67,6 +123,7 @@ func ListChannelQuotaAggregateRows(ctx context.Context, start, end int64, channe
 	query := DB.WithContext(ctx).
 		Table("channel_quota_snapshots AS snapshots").
 		Select(`snapshots.id, snapshots.channel_id, channels.name AS channel_name,
+			snapshots.subject_ref, snapshots.identity_quality, snapshots.account_ref,
 			snapshots.observed_at, snapshots.available, snapshots.used, snapshots.total,
 			snapshots.unit, snapshots.currency, snapshots.metric_type, snapshots.window_type,
 			snapshots.plan_type, snapshots.window_seconds, snapshots.reset_at, snapshots.source,
@@ -130,6 +187,11 @@ type ChannelQuotaSnapshot struct {
 	ResetAt       int64  `json:"reset_at,omitempty" gorm:"bigint;index:idx_channel_quota_dedupe,priority:9"`
 	Source        string `json:"source,omitempty" gorm:"size:64;index:idx_channel_quota_dedupe,priority:10"`
 	SampleID      string `json:"sample_id,omitempty" gorm:"size:36;index:idx_channel_quota_sample,priority:2;<-:create"`
+	// SubjectRef is a persistent opaque identity resolved by the deployment
+	// key registry. It and IdentityQuality are internal authorization/accounting
+	// metadata and must never be serialized by quota APIs.
+	SubjectRef      string `json:"-" gorm:"type:char(43);index"`
+	IdentityQuality string `json:"-" gorm:"type:varchar(24);index"`
 	// AccountRef is a non-reversible, provider-namespaced reference to a
 	// confirmed upstream account identity. It is empty when the sampler cannot
 	// prove account ownership; such snapshots must never be merged with a known
@@ -168,9 +230,12 @@ func DeleteOldChannelQuotaSnapshotBatch(ctx context.Context, cutoff int64, limit
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
+	// Keep the latest per-account routing evidence; retention is not recovery.
+	protectedRoutes := protectedCodexRoutingEvidenceQuery(DB.WithContext(ctx))
 	var ids []int
 	if err := DB.WithContext(ctx).Model(&ChannelQuotaSnapshot{}).
 		Where("observed_at < ?", cutoff).
+		Where("id NOT IN (?)", protectedRoutes).
 		Order("observed_at ASC, id ASC").
 		Limit(limit).Pluck("id", &ids).Error; err != nil {
 		return 0, err
@@ -203,6 +268,35 @@ type ChannelQuotaSnapshotBatchOptions struct {
 	AbsenceMarker   *ChannelQuotaSnapshotAbsenceMarker
 }
 
+type channelQuotaSnapshotIdentityFilter struct {
+	subjectRef      string
+	identityQuality string
+	accountRef      string
+	legacy          bool
+	known           bool
+}
+
+func channelQuotaSnapshotIdentityFilterFor(snapshot ChannelQuotaSnapshot) channelQuotaSnapshotIdentityFilter {
+	_, _, known := ChannelQuotaSnapshotIdentity(snapshot)
+	if !known {
+		return channelQuotaSnapshotIdentityFilter{}
+	}
+	if snapshot.SubjectRef != "" {
+		return channelQuotaSnapshotIdentityFilter{subjectRef: snapshot.SubjectRef, identityQuality: snapshot.IdentityQuality, known: true}
+	}
+	return channelQuotaSnapshotIdentityFilter{accountRef: snapshot.AccountRef, legacy: true, known: true}
+}
+
+func applyChannelQuotaSnapshotIdentityFilter(query *gorm.DB, identity channelQuotaSnapshotIdentityFilter) *gorm.DB {
+	if !identity.known {
+		return query.Where("1 = 0")
+	}
+	if identity.legacy {
+		return query.Where("(subject_ref = ? OR subject_ref IS NULL) AND (identity_quality = ? OR identity_quality IS NULL) AND account_ref = ?", "", "", identity.accountRef)
+	}
+	return query.Where("subject_ref = ? AND identity_quality = ?", identity.subjectRef, identity.identityQuality)
+}
+
 // ListLatestSuccessfulChannelQuotaSnapshotBatch returns every successful
 // series from the latest successful immutable sample. Legacy rows without a
 // sample id fall back to their second-resolution observation boundary.
@@ -233,14 +327,10 @@ func ListLatestChannelQuotaSnapshotBatch(ctx context.Context, channelID int, sta
 	)
 }
 
-func listLatestChannelQuotaSnapshotBatchWithDB(db *gorm.DB, channelID int, accountRef *string, start, end int64, metricType string, sources, statuses []string) ([]ChannelQuotaSnapshot, error) {
+func listLatestChannelQuotaSnapshotBatchWithDB(db *gorm.DB, channelID int, identity *channelQuotaSnapshotIdentityFilter, start, end int64, metricType string, sources, statuses []string) ([]ChannelQuotaSnapshot, error) {
 	query := db.Model(&ChannelQuotaSnapshot{}).Where("channel_id = ?", channelID)
-	if accountRef != nil {
-		if *accountRef == "" {
-			query = query.Where("(account_ref = ? OR account_ref IS NULL)", "")
-		} else {
-			query = query.Where("account_ref = ?", *accountRef)
-		}
+	if identity != nil {
+		query = applyChannelQuotaSnapshotIdentityFilter(query, *identity)
 	}
 	if start > 0 {
 		query = query.Where("observed_at >= ?", start)
@@ -265,12 +355,8 @@ func listLatestChannelQuotaSnapshotBatchWithDB(db *gorm.DB, channelID int, accou
 		return nil, err
 	}
 	batchQuery := db.Model(&ChannelQuotaSnapshot{}).Where("channel_id = ?", channelID)
-	if accountRef != nil {
-		if *accountRef == "" {
-			batchQuery = batchQuery.Where("(account_ref = ? OR account_ref IS NULL)", "")
-		} else {
-			batchQuery = batchQuery.Where("account_ref = ?", *accountRef)
-		}
+	if identity != nil {
+		batchQuery = applyChannelQuotaSnapshotIdentityFilter(batchQuery, *identity)
 	}
 	if metricType != "" {
 		batchQuery = batchQuery.Where("metric_type = ?", metricType)
@@ -317,6 +403,8 @@ func RecordChannelQuotaSnapshotBatchWithContext(ctx context.Context, snapshots [
 	if options.AbsenceMarker != nil && (options.AbsenceMarker.Status == "" || options.AbsenceMarker.Status == "success") {
 		return fmt.Errorf("channel quota absence marker requires a non-success status")
 	}
+	batchIdentity := ""
+	batchIdentityKnown := false
 	for index := range normalized {
 		if normalized[index].ChannelId != channelID || normalized[index].ObservedAt != observedAt || strings.TrimSpace(normalized[index].SampleID) != sampleID {
 			return fmt.Errorf("channel quota snapshot batch identity mismatch")
@@ -324,6 +412,12 @@ func RecordChannelQuotaSnapshotBatchWithContext(ctx context.Context, snapshots [
 		normalized[index].SampleID = sampleID
 		if err := normalizeChannelQuotaSnapshot(&normalized[index]); err != nil {
 			return err
+		}
+		identity, _, known := ChannelQuotaSnapshotIdentity(normalized[index])
+		if index == 0 {
+			batchIdentity, batchIdentityKnown = identity, known
+		} else if known != batchIdentityKnown || known && identity != batchIdentity {
+			return fmt.Errorf("channel quota snapshot batch cannot mix identities")
 		}
 	}
 
@@ -346,15 +440,29 @@ func RecordChannelQuotaSnapshotBatchWithContext(ctx context.Context, snapshots [
 
 			complete := normalized
 			if options.AbsenceMarker != nil && channelQuotaSnapshotsContainSuccess(normalized) {
-				previous, err := listLatestChannelQuotaSnapshotBatchWithDB(
-					tx, channelID, &normalized[0].AccountRef, 0, 0, normalized[0].MetricType, options.PreviousSources, []string{"success"},
-				)
-				if err != nil {
-					return err
+				currentByIdentity := make(map[string][]ChannelQuotaSnapshot)
+				filters := make(map[string]channelQuotaSnapshotIdentityFilter)
+				for _, snapshot := range normalized {
+					identityRef, _, known := ChannelQuotaSnapshotIdentity(snapshot)
+					if snapshot.Status != "success" || !known {
+						continue
+					}
+					currentByIdentity[identityRef] = append(currentByIdentity[identityRef], snapshot)
+					filters[identityRef] = channelQuotaSnapshotIdentityFilterFor(snapshot)
 				}
-				complete, err = appendChannelQuotaSnapshotAbsenceMarkers(normalized, previous, *options.AbsenceMarker)
-				if err != nil {
-					return err
+				for identityRef, current := range currentByIdentity {
+					identityFilter := filters[identityRef]
+					previous, err := listLatestChannelQuotaSnapshotBatchWithDB(
+						tx, channelID, &identityFilter, 0, 0, current[0].MetricType, options.PreviousSources, []string{"success"},
+					)
+					if err != nil {
+						return err
+					}
+					expanded, err := appendChannelQuotaSnapshotAbsenceMarkers(current, previous, *options.AbsenceMarker)
+					if err != nil {
+						return err
+					}
+					complete = append(complete, expanded[len(current):]...)
 				}
 			}
 			for index := range complete {
@@ -432,7 +540,7 @@ func channelQuotaSnapshotsContainSuccess(snapshots []ChannelQuotaSnapshot) bool 
 }
 
 type channelQuotaSnapshotSeriesIdentity struct {
-	AccountRef    string
+	IdentityRef   string
 	MetricType    string
 	WindowType    string
 	Source        string
@@ -443,9 +551,10 @@ type channelQuotaSnapshotSeriesIdentity struct {
 }
 
 func channelQuotaSnapshotSeriesKey(snapshot ChannelQuotaSnapshot) channelQuotaSnapshotSeriesIdentity {
+	identityRef, _, _ := ChannelQuotaSnapshotIdentity(snapshot)
 	return channelQuotaSnapshotSeriesIdentity{
-		AccountRef: snapshot.AccountRef,
-		MetricType: snapshot.MetricType, WindowType: snapshot.WindowType, Source: snapshot.Source,
+		IdentityRef: identityRef,
+		MetricType:  snapshot.MetricType, WindowType: snapshot.WindowType, Source: snapshot.Source,
 		PlanType: snapshot.PlanType, Unit: snapshot.Unit, Currency: snapshot.Currency,
 		WindowSeconds: snapshot.WindowSeconds,
 	}
@@ -475,7 +584,8 @@ func appendChannelQuotaSnapshotAbsenceMarkers(current, previous []ChannelQuotaSn
 		marked[series] = struct{}{}
 		absence := ChannelQuotaSnapshot{
 			ChannelId: current[0].ChannelId, ObservedAt: current[0].ObservedAt, SampleID: current[0].SampleID,
-			AccountRef: snapshot.AccountRef, MetricType: snapshot.MetricType, WindowType: snapshot.WindowType, Source: snapshot.Source,
+			SubjectRef: snapshot.SubjectRef, IdentityQuality: snapshot.IdentityQuality, AccountRef: snapshot.AccountRef,
+			MetricType: snapshot.MetricType, WindowType: snapshot.WindowType, Source: snapshot.Source,
 			PlanType: snapshot.PlanType, Unit: snapshot.Unit, Currency: snapshot.Currency,
 			WindowSeconds: snapshot.WindowSeconds, ResetAt: snapshot.ResetAt, Status: marker.Status,
 			ErrorCode: marker.ErrorCode, ErrorMessage: marker.ErrorMessage,
@@ -524,8 +634,9 @@ func channelQuotaSnapshotContentKey(snapshot *ChannelQuotaSnapshot) string {
 	if snapshot.Total != nil {
 		total = strconv.FormatUint(math.Float64bits(*snapshot.Total), 10)
 	}
+	identity, quality, _ := ChannelQuotaSnapshotIdentity(*snapshot)
 	return strings.Join([]string{
-		strconv.Itoa(snapshot.ChannelId), strconv.FormatInt(snapshot.ObservedAt, 10), snapshot.SampleID, snapshot.AccountRef,
+		strconv.Itoa(snapshot.ChannelId), strconv.FormatInt(snapshot.ObservedAt, 10), snapshot.SampleID, identity, quality,
 		snapshot.MetricType, snapshot.WindowType, snapshot.Source, snapshot.PlanType, snapshot.Unit, snapshot.Currency,
 		strconv.FormatInt(snapshot.WindowSeconds, 10), strconv.FormatInt(snapshot.ResetAt, 10), snapshot.Status,
 		snapshot.ErrorCode, snapshot.ErrorMessage, strconv.FormatUint(math.Float64bits(snapshot.Available), 10), used, total,
@@ -535,6 +646,9 @@ func channelQuotaSnapshotContentKey(snapshot *ChannelQuotaSnapshot) string {
 func recordChannelQuotaSnapshotWithDB(db *gorm.DB, snapshot *ChannelQuotaSnapshot) error {
 	if err := normalizeChannelQuotaSnapshot(snapshot); err != nil {
 		return err
+	}
+	if snapshot.DedupeKey == nil {
+		return db.Create(snapshot).Error
 	}
 	var existing ChannelQuotaSnapshot
 	if err := db.Where("dedupe_key = ?", *snapshot.DedupeKey).Order("id ASC").First(&existing).Error; err == nil {
@@ -590,8 +704,28 @@ func normalizeChannelQuotaSnapshot(snapshot *ChannelQuotaSnapshot) error {
 	if snapshot.Status == "" {
 		snapshot.Status = "success"
 	}
-	dedupeKey := channelQuotaSnapshotDedupeKey(snapshot)
-	snapshot.DedupeKey = &dedupeKey
+	snapshot.SubjectRef = strings.TrimSpace(snapshot.SubjectRef)
+	snapshot.IdentityQuality = strings.TrimSpace(snapshot.IdentityQuality)
+	snapshot.AccountRef = strings.TrimSpace(snapshot.AccountRef)
+	if snapshot.AccountRef != "" && !canonicalLowerHex(snapshot.AccountRef, 64) {
+		return fmt.Errorf("invalid legacy channel quota account reference")
+	}
+	if snapshot.SubjectRef != "" {
+		if !canonicalChannelQuotaIdentitySubject(snapshot.SubjectRef) ||
+			(snapshot.IdentityQuality != ChannelQuotaIdentityQualityProviderConfirmed && snapshot.IdentityQuality != ChannelQuotaIdentityQualityCredentialScoped) {
+			return fmt.Errorf("invalid channel quota subject identity")
+		}
+	} else if snapshot.IdentityQuality != "" {
+		return fmt.Errorf("channel quota identity quality requires a subject")
+	}
+	if _, _, ok := ChannelQuotaSnapshotIdentity(*snapshot); ok {
+		dedupeKey := channelQuotaSnapshotDedupeKey(snapshot)
+		snapshot.DedupeKey = &dedupeKey
+	} else {
+		// Unknown identities remain storable for diagnostics, but NULL prevents
+		// a unique-key collision from silently merging unrelated credentials.
+		snapshot.DedupeKey = nil
+	}
 	return nil
 }
 
@@ -615,6 +749,9 @@ func RecordChannelQuotaSnapshotWithContext(ctx context.Context, snapshot *Channe
 	if err := normalizeChannelQuotaSnapshot(snapshot); err != nil {
 		return err
 	}
+	if snapshot.DedupeKey == nil {
+		return db.Create(snapshot).Error
+	}
 	dedupeKey := *snapshot.DedupeKey
 	// Legacy callers without sample ids retain one point per series/time bucket.
 	// Batch-aware callers include sample_id so separate same-second provider
@@ -633,11 +770,7 @@ func RecordChannelQuotaSnapshotWithContext(ctx context.Context, snapshot *Channe
 		snapshot.WindowSeconds,
 		snapshot.ResetAt,
 	)
-	if snapshot.AccountRef == "" {
-		lookup = lookup.Where("(account_ref = ? OR account_ref IS NULL)", "")
-	} else {
-		lookup = lookup.Where("account_ref = ?", snapshot.AccountRef)
-	}
+	lookup = applyChannelQuotaSnapshotIdentityFilter(lookup, channelQuotaSnapshotIdentityFilterFor(*snapshot))
 	if snapshot.SampleID == "" {
 		lookup = lookup.Where("sample_id = ? OR sample_id IS NULL", "")
 	} else {
@@ -668,6 +801,10 @@ func RecordChannelQuotaSnapshotWithContext(ctx context.Context, snapshot *Channe
 }
 
 func channelQuotaSnapshotDedupeKey(snapshot *ChannelQuotaSnapshot) string {
+	identity, quality, ok := ChannelQuotaSnapshotIdentity(*snapshot)
+	if !ok {
+		identity = "unidentified"
+	}
 	parts := []string{
 		strconv.Itoa(snapshot.ChannelId),
 		strconv.FormatInt(snapshot.ObservedAt, 10),
@@ -680,7 +817,8 @@ func channelQuotaSnapshotDedupeKey(snapshot *ChannelQuotaSnapshot) string {
 		strconv.FormatInt(snapshot.WindowSeconds, 10),
 		strconv.FormatInt(snapshot.ResetAt, 10),
 		snapshot.SampleID,
-		snapshot.AccountRef,
+		identity,
+		quality,
 	}
 	var builder strings.Builder
 	for _, part := range parts {
@@ -703,15 +841,21 @@ func channelQuotaSnapshotDedupeKey(snapshot *ChannelQuotaSnapshot) string {
 // was requested. Callers that need a single series can first resolve the
 // latest row and then fill the omitted fields from its metadata.
 type ChannelQuotaSnapshotQuery struct {
+	// IdentityScoped requires an exact internal subject or legacy account
+	// reference without making unrelated series metadata fields exact.
+	IdentityScoped bool
 	// ExactIdentity makes resolved empty metadata values meaningful instead of
 	// treating them as wildcards that could mix units or subscription plans.
 	ExactIdentity bool
 	// EventMetadata allows missing metadata on a failed provider query while
 	// rejecting failures that explicitly identify another plan or window.
-	EventMetadata bool
-	MetricType    string
-	WindowType    string
-	Source        string
+	EventMetadata   bool
+	SubjectRef      string
+	IdentityQuality string
+	AccountRef      string
+	MetricType      string
+	WindowType      string
+	Source          string
 	// Sources is a multi-source selector for callers that need a small,
 	// explicit source family (for example a Codex window and its generic
 	// failure marker). It takes precedence over Source when non-empty.
@@ -856,6 +1000,10 @@ func channelQuotaSnapshotQuery(query *gorm.DB, start, end int64, filter ChannelQ
 	}
 	if end > 0 {
 		query = query.Where("observed_at <= ?", end)
+	}
+	if filter.IdentityScoped {
+		identity := channelQuotaSnapshotIdentityFilterFor(ChannelQuotaSnapshot{SubjectRef: filter.SubjectRef, IdentityQuality: filter.IdentityQuality, AccountRef: filter.AccountRef})
+		query = applyChannelQuotaSnapshotIdentityFilter(query, identity)
 	}
 	if filter.ExactIdentity || filter.MetricType != "" {
 		query = query.Where("metric_type = ?", filter.MetricType)

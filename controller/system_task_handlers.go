@@ -114,14 +114,17 @@ func channelQuotaOptionValue(key string) string {
 }
 
 type channelQuotaSnapshotSyncSummary struct {
-	Considered      int  `json:"considered"`
-	Sampled         int  `json:"sampled"`
-	Failed          int  `json:"failed"`
-	Unsupported     int  `json:"unsupported,omitempty"`
-	Skipped         int  `json:"skipped"`
-	TimedOut        int  `json:"timed_out,omitempty"`
-	Deferred        int  `json:"deferred,omitempty"`
-	BudgetExhausted bool `json:"budget_exhausted,omitempty"`
+	Considered                   int  `json:"considered"`
+	Sampled                      int  `json:"sampled"`
+	Failed                       int  `json:"failed"`
+	Unsupported                  int  `json:"unsupported,omitempty"`
+	Skipped                      int  `json:"skipped"`
+	TimedOut                     int  `json:"timed_out,omitempty"`
+	Deferred                     int  `json:"deferred,omitempty"`
+	DeferredKeys                 int  `json:"deferred_keys,omitempty"`
+	DuplicateAccountObservations int  `json:"duplicate_account_observations,omitempty"`
+	SourceComplete               bool `json:"source_complete"`
+	BudgetExhausted              bool `json:"budget_exhausted,omitempty"`
 	// PersistFailed counts successful/failed provider observations that could
 	// not be appended to the history table. It is kept separate from Failed,
 	// which only describes an upstream balance query failure.

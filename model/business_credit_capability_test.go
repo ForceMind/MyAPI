@@ -40,7 +40,7 @@ func prepareBusinessCreditCapabilityFixture(t *testing.T) (topUpUser, redemption
 	for _, user := range users {
 		require.NoError(t, DB.Create(user).Error)
 	}
-	order := &TopUp{UserId: users[0].Id, Amount: 1, Money: 1, TradeNo: "capability-topup-order", PaymentMethod: "alipay", PaymentProvider: PaymentProviderEpay, Status: common.TopUpStatusPending}
+	order := &TopUp{UserId: users[0].Id, Amount: 1, Money: 1, TradeNo: "capability-topup-order", PaymentMethod: "alipay", PaymentProvider: PaymentProviderEpay, QuotaPerUnitSnapshot: "100", Status: common.TopUpStatusPending}
 	require.NoError(t, DB.Create(order).Error)
 	redemption = &Redemption{Name: "capability-redemption", Key: "90000000000000000000000000000001", Status: common.RedemptionCodeStatusEnabled, Quota: 25}
 	require.NoError(t, DB.Create(redemption).Error)

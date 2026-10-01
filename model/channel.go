@@ -28,20 +28,23 @@ type Channel struct {
 	Key                string  `json:"key" gorm:"not null"`
 	OpenAIOrganization *string `json:"openai_organization"`
 	TestModel          *string `json:"test_model"`
-	Status             int     `json:"status" gorm:"default:1"`
-	Name               string  `json:"name" gorm:"index"`
-	Weight             *uint   `json:"weight" gorm:"default:0"`
-	CreatedTime        int64   `json:"created_time" gorm:"bigint"`
-	TestTime           int64   `json:"test_time" gorm:"bigint"`
-	ResponseTime       int     `json:"response_time"` // in milliseconds
-	BaseURL            *string `json:"base_url" gorm:"column:base_url;default:''"`
-	Other              string  `json:"other"`
-	Balance            float64 `json:"balance"` // in USD
-	BalanceUpdatedTime int64   `json:"balance_updated_time" gorm:"bigint"`
-	Models             string  `json:"models"`
-	Group              string  `json:"group" gorm:"type:varchar(64);default:'default'"`
-	UsedQuota          int64   `json:"used_quota" gorm:"bigint;default:0"`
-	ModelMapping       *string `json:"model_mapping" gorm:"type:text"`
+	// Managed by successful detailed tests, never accepted from channel edit payloads.
+	LastSuccessfulTestOptions string  `json:"-" gorm:"type:text"`
+	QuotaSamplingCursor       int64   `json:"-" gorm:"not null;default:0"`
+	Status                    int     `json:"status" gorm:"default:1"`
+	Name                      string  `json:"name" gorm:"index"`
+	Weight                    *uint   `json:"weight" gorm:"default:0"`
+	CreatedTime               int64   `json:"created_time" gorm:"bigint"`
+	TestTime                  int64   `json:"test_time" gorm:"bigint"`
+	ResponseTime              int     `json:"response_time"` // in milliseconds
+	BaseURL                   *string `json:"base_url" gorm:"column:base_url;default:''"`
+	Other                     string  `json:"other"`
+	Balance                   float64 `json:"balance"` // in USD
+	BalanceUpdatedTime        int64   `json:"balance_updated_time" gorm:"bigint"`
+	Models                    string  `json:"models"`
+	Group                     string  `json:"group" gorm:"type:varchar(64);default:'default'"`
+	UsedQuota                 int64   `json:"used_quota" gorm:"bigint;default:0"`
+	ModelMapping              *string `json:"model_mapping" gorm:"type:text"`
 	//MaxInputTokens     *int    `json:"max_input_tokens" gorm:"default:0"`
 	StatusCodeMapping *string `json:"status_code_mapping" gorm:"type:varchar(1024);default:''"`
 	Priority          *int64  `json:"priority" gorm:"bigint;default:0"`
@@ -184,8 +187,18 @@ func (c ChannelInfo) Value() (driver.Value, error) {
 
 // Scan implements sql.Scanner interface
 func (c *ChannelInfo) Scan(value interface{}) error {
-	bytesValue, _ := value.([]byte)
-	return common.Unmarshal(bytesValue, c)
+	if value == nil {
+		*c = ChannelInfo{}
+		return nil
+	}
+	switch v := value.(type) {
+	case []byte:
+		return common.Unmarshal(v, c)
+	case string:
+		return common.UnmarshalJsonStr(v, c)
+	default:
+		return fmt.Errorf("unsupported channel metadata type: %T", value)
+	}
 }
 
 func (channel *Channel) GetKeys() []string {
@@ -212,9 +225,112 @@ func (channel *Channel) GetKeys() []string {
 	return keys
 }
 
+// GetEnabledQuotaSamplingKeys returns the concrete credentials eligible for
+// scheduled quota sampling. Disabled multi-key entries are excluded and raw
+// indexes never leave this model boundary.
+func (channel *Channel) GetEnabledQuotaSamplingKeys() []string {
+	if !channel.ChannelInfo.IsMultiKey {
+		if strings.TrimSpace(channel.Key) == "" {
+			return nil
+		}
+		return []string{channel.Key}
+	}
+	keys := channel.GetKeys()
+	result := make([]string, 0, len(keys))
+	seen := make(map[string]struct{}, len(keys))
+	for index, key := range keys {
+		normalized := strings.TrimSpace(key)
+		if normalized == "" {
+			continue
+		}
+		if channel.ChannelInfo.IsMultiKey && channel.ChannelInfo.MultiKeyStatusList != nil {
+			if status, ok := channel.ChannelInfo.MultiKeyStatusList[index]; ok && status != common.ChannelStatusEnabled {
+				continue
+			}
+		}
+		if _, exists := seen[normalized]; exists {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		result = append(result, key)
+	}
+	return result
+}
+
+// UpdateChannelCredentialElementIfUnchanged replaces exactly one credential
+// in a multi-key JSON array or newline list. The whole persisted field remains
+// the database CAS authority; edits between its read and write lose safely.
+func UpdateChannelCredentialElementIfUnchanged(ctx context.Context, channelID, channelType int, expected, replacement string) (bool, error) {
+	if DB == nil || channelID <= 0 || expected == "" || replacement == "" {
+		return false, gorm.ErrInvalidDB
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var channel Channel
+	if err := DB.WithContext(ctx).Where("id = ? AND type = ?", channelID, channelType).First(&channel).Error; err != nil {
+		return false, err
+	}
+	if !channel.ChannelInfo.IsMultiKey {
+		return UpdateChannelCredentialIfUnchanged(ctx, channelID, channelType, expected, replacement)
+	}
+	current := channel.Key
+	updated := ""
+	trimmed := strings.TrimSpace(current)
+	if strings.HasPrefix(trimmed, "[") {
+		var values []json.RawMessage
+		if err := common.Unmarshal([]byte(trimmed), &values); err != nil {
+			return false, err
+		}
+		found := false
+		for index := range values {
+			if string(values[index]) == expected {
+				if found {
+					return false, errors.New("duplicate expected channel credential")
+				}
+				values[index] = json.RawMessage(replacement)
+				found = true
+			}
+		}
+		if !found {
+			return false, nil
+		}
+		encoded, err := common.Marshal(values)
+		if err != nil {
+			return false, err
+		}
+		updated = string(encoded)
+	} else {
+		values := strings.Split(strings.Trim(current, "\n"), "\n")
+		found := false
+		for index := range values {
+			if values[index] == expected {
+				if found {
+					return false, errors.New("duplicate expected channel credential")
+				}
+				values[index] = replacement
+				found = true
+			}
+		}
+		if !found {
+			return false, nil
+		}
+		updated = strings.Join(values, "\n")
+	}
+	return UpdateChannelCredentialIfUnchanged(ctx, channelID, channelType, current, updated)
+}
+
 func (channel *Channel) GetNextEnabledKey() (string, int, *types.NewAPIError) {
+	return channel.GetNextEnabledKeyExcluding(nil)
+}
+
+// GetNextEnabledKeyExcluding omits request-scoped quota holds without disabling keys.
+func (channel *Channel) GetNextEnabledKeyExcluding(excluded map[int]bool) (string, int, *types.NewAPIError) {
 	// If not in multi-key mode, return the original key string directly.
 	if !channel.ChannelInfo.IsMultiKey {
+		if excluded[0] {
+			return "", 0, types.NewError(errors.New("no quota-eligible keys"), types.ErrorCodeChannelNoAvailableKey)
+		}
 		return channel.Key, 0, nil
 	}
 
@@ -244,7 +360,7 @@ func (channel *Channel) GetNextEnabledKey() (string, int, *types.NewAPIError) {
 	// Collect indexes of enabled keys
 	enabledIdx := make([]int, 0, len(keys))
 	for i := range keys {
-		if getStatus(i) == common.ChannelStatusEnabled {
+		if getStatus(i) == common.ChannelStatusEnabled && !excluded[i] {
 			enabledIdx = append(enabledIdx, i)
 		}
 	}
@@ -284,7 +400,7 @@ func (channel *Channel) GetNextEnabledKey() (string, int, *types.NewAPIError) {
 		}
 		for i := 0; i < len(keys); i++ {
 			idx := (start + i) % len(keys)
-			if getStatus(idx) == common.ChannelStatusEnabled {
+			if getStatus(idx) == common.ChannelStatusEnabled && !excluded[idx] {
 				// update polling index for next call (point to the next position)
 				channel.ChannelInfo.MultiKeyPollingIndex = (idx + 1) % len(keys)
 				return keys[idx], idx, nil
@@ -360,7 +476,7 @@ func (channel *Channel) GetAutoBan() bool {
 
 func (channel *Channel) Save() error {
 	_, _, err := runChannelRoutingTransaction(context.Background(), func(tx *gorm.DB) (bool, error) {
-		if err := tx.Save(channel).Error; err != nil {
+		if err := tx.Omit("last_successful_test_options", "quota_sampling_cursor").Save(channel).Error; err != nil {
 			return false, err
 		}
 		return true, channel.UpdateAbilities(tx)
@@ -407,7 +523,7 @@ func GetAllChannels(startIdx int, num int, selectAll bool, idSort bool, sortOpti
 	return channels, err
 }
 
-// GetChannelsForQuotaSnapshotSync returns a bounded set of enabled single-key channels
+// GetChannelsForQuotaSnapshotSync returns a bounded set of enabled channels
 // with credentials available to the internal sampler.  It intentionally does
 // not expose this projection through an API; callers use it only for the
 // provider request and must not serialize the returned Key field. Every recorded
@@ -417,9 +533,9 @@ func GetChannelsForQuotaSnapshotSync(limit int) ([]*Channel, error) {
 	return GetChannelsForQuotaSnapshotSyncContext(context.Background(), limit)
 }
 
-// GetChannelsForQuotaSnapshotSyncContext filters multi-key rows in the database
-// before its single bounded result query. Excluded rows cannot consume pages or
-// repeatedly exhaust a batch deadline before an eligible account is reached.
+// GetChannelsForQuotaSnapshotSyncContext includes valid single/multi-key rows
+// and orders channels by their last credential attempt, then legacy history.
+// Within a channel, the scheduler independently chooses its oldest targets.
 func GetChannelsForQuotaSnapshotSyncContext(ctx context.Context, limit int) ([]*Channel, error) {
 	if DB == nil {
 		return nil, gorm.ErrInvalidDB
@@ -433,19 +549,43 @@ func GetChannelsForQuotaSnapshotSyncContext(ctx context.Context, limit int) ([]*
 	if limit > 4000 {
 		limit = 4000
 	}
-	condition, err := channelQuotaSingleKeyCondition(common.MainDatabaseType())
+	condition, err := channelQuotaSamplingMetadataCondition(common.MainDatabaseType())
 	if err != nil {
 		return nil, err
 	}
 	channels := make([]*Channel, 0, limit)
-	// Every selected row is known to be single-key. Do not deserialize legacy
-	// NULL ChannelInfo values through its JSON scanner; the zero value is the
-	// same single-key mode and no multi-key fields are needed by this sampler.
-	err = DB.WithContext(ctx).Omit("channel_info").
-		Where("status = ?", common.ChannelStatusEnabled).Where(condition).
-		Order("COALESCE((SELECT MAX(observed_at) FROM channel_quota_snapshots WHERE channel_quota_snapshots.channel_id = channels.id), 0) ASC").
+	channelAttemptOrder := "COALESCE((SELECT MAX(last_attempt_at) FROM channel_quota_sampling_targets WHERE channel_quota_sampling_targets.channel_id = channels.id), (SELECT MAX(observed_at) FROM channel_quota_snapshots WHERE channel_quota_snapshots.channel_id = channels.id), 0) ASC"
+	err = DB.WithContext(ctx).
+		Where("status = ?", common.ChannelStatusEnabled).Not(map[string]interface{}{"key": ""}).
+		Where(condition).
+		Order(channelAttemptOrder).
 		Order("channels.id ASC").Limit(limit).Find(&channels).Error
 	return channels, err
+}
+
+// channelQuotaSamplingMetadataCondition accepts legacy NULL metadata and valid
+// object metadata whose is_multi_key member is absent or boolean. Malformed
+// metadata is excluded before scan so it cannot abort the bounded scheduler.
+func channelQuotaSamplingMetadataCondition(databaseType common.DatabaseType) (string, error) {
+	switch databaseType {
+	case common.DatabaseTypeSQLite:
+		return `CASE WHEN channel_info IS NULL THEN 1
+			WHEN json_valid(CAST(channel_info AS TEXT)) THEN
+				CASE WHEN json_type(CAST(channel_info AS TEXT)) = 'object'
+				AND (json_type(CAST(channel_info AS TEXT), '$.is_multi_key') IS NULL
+				OR json_type(CAST(channel_info AS TEXT), '$.is_multi_key') IN ('true', 'false')) THEN 1 ELSE 0 END
+			ELSE 0 END = 1`, nil
+	case common.DatabaseTypeMySQL:
+		return `(channel_info IS NULL OR (JSON_TYPE(channel_info) = 'OBJECT' AND
+			(JSON_EXTRACT(channel_info, '$.is_multi_key') IS NULL OR
+			JSON_TYPE(JSON_EXTRACT(channel_info, '$.is_multi_key')) = 'BOOLEAN')))`, nil
+	case common.DatabaseTypePostgreSQL:
+		return `(channel_info IS NULL OR (json_typeof(channel_info) = 'object' AND
+			(channel_info->'is_multi_key' IS NULL OR
+			json_typeof(channel_info->'is_multi_key') = 'boolean')))`, nil
+	default:
+		return "", fmt.Errorf("unsupported quota sampling database type: %s", databaseType)
+	}
 }
 
 // Native JSON columns on MySQL/PostgreSQL and SQLite JSON stored as TEXT/BLOB
@@ -657,7 +797,7 @@ func (channel *Channel) Update() error {
 		}
 	}
 	_, _, err := runChannelRoutingTransaction(context.Background(), func(tx *gorm.DB) (bool, error) {
-		if err := tx.Model(channel).Updates(channel).Error; err != nil {
+		if err := tx.Model(channel).Omit("last_successful_test_options", "quota_sampling_cursor").Updates(channel).Error; err != nil {
 			return false, err
 		}
 		if err := tx.Model(channel).First(channel, "id = ?", channel.Id).Error; err != nil {

@@ -660,11 +660,8 @@ func validateChannel(channel *model.Channel, isAdd bool) error {
 			return fmt.Errorf("channel cannot be empty")
 		}
 
-		// 检查模型名称长度是否超过 255
-		for _, m := range channel.GetModels() {
-			if len(m) > 255 {
-				return fmt.Errorf("模型名称过长: %s", m)
-			}
+		if err := validateChannelModelNames(channel); err != nil {
+			return err
 		}
 	}
 
@@ -704,6 +701,15 @@ func validateChannel(channel *model.Channel, isAdd bool) error {
 		}
 	}
 
+	return nil
+}
+
+func validateChannelModelNames(channel *model.Channel) error {
+	for _, name := range channel.GetModels() {
+		if len(name) > 255 {
+			return fmt.Errorf("模型名称过长: %s", name)
+		}
+	}
 	return nil
 }
 

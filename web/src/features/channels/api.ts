@@ -79,6 +79,15 @@ export type CodexUsageHistoryPoint = {
 
 export type CodexUsageHistoryData = {
   channel_id?: number
+  series_id?: string
+  identity_quality?: 'provider_confirmed' | 'credential_scoped' | 'unavailable'
+  data_quality?: {
+    identity_unavailable_count?: number
+    success_count?: number
+    error_count?: number
+    unsupported_count?: number
+    span_seconds?: number
+  }
   start?: number
   end?: number
   points: CodexUsageHistoryPoint[]
@@ -92,6 +101,7 @@ export type CodexUsageHistoryData = {
 export type CodexUsageHistoryResponse = {
   success: boolean
   message?: string
+  code?: string
   data?: CodexUsageHistoryData
 }
 
@@ -107,7 +117,6 @@ export type CodexOAuthCompleteResponse = {
   success: boolean
   message?: string
   data?: {
-    key?: string
     channel_id?: number
     account_id?: string
     email?: string
@@ -316,6 +325,14 @@ export async function testChannel(
   id: number,
   params?: { model?: string; endpoint_type?: string; stream?: boolean }
 ): Promise<ChannelTestResponse> {
+  if (params?.model) {
+    const res = await api.post(
+      `/api/channel/test/${id}`,
+      params,
+      channelActionConfig()
+    )
+    return res.data
+  }
   const res = await api.get(
     `/api/channel/test/${id}`,
     channelActionConfig({ params })
@@ -560,12 +577,13 @@ export async function startCodexOAuth(
 
 export async function completeCodexOAuth(
   input: string,
-  channelId?: number
+  channelId?: number,
+  create?: AddChannelRequest
 ): Promise<CodexOAuthCompleteResponse> {
   const path = channelId
     ? `/api/channel/${channelId}/codex/oauth/complete`
     : '/api/channel/codex/oauth/complete'
-  const res = await api.post(path, { input }, channelActionConfig())
+  const res = await api.post(path, { input, create }, channelActionConfig())
   return res.data
 }
 
@@ -632,6 +650,7 @@ export async function getCodexUsageHistory(
   params: {
     range?: '24h' | '7d' | '30d' | '90d'
     limit?: number
+    series_id?: string
   } = {}
 ): Promise<CodexUsageHistoryResponse> {
   const res = await api.get(

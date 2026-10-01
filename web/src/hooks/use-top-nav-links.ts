@@ -20,6 +20,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useStatus } from '@/hooks/use-status'
+import { resolveDocsLink } from '@/lib/build-branding'
 import { parseHeaderNavModulesFromStatus } from '@/lib/nav-modules'
 import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
 import { useAuthStore } from '@/stores/auth-store'
@@ -56,8 +57,7 @@ export function useTopNavLinks(): TopNavLink[] {
     )
   }, [status])
 
-  // Documentation link (may be external)
-  const docsLink: string | undefined = status?.docs_link as string | undefined
+  const docsLink = resolveDocsLink(status?.docs_link)
 
   const isAuthed = !!auth?.user
 
@@ -76,6 +76,7 @@ export function useTopNavLinks(): TopNavLink[] {
   // Pricing
   const pricing = modules?.pricing
   if (
+    isAuthed &&
     !SELF_USE_MINIMAL &&
     pricing &&
     typeof pricing === 'object' &&
@@ -88,6 +89,7 @@ export function useTopNavLinks(): TopNavLink[] {
   // Rankings
   const rankings = modules?.rankings
   if (
+    isAuthed &&
     !SELF_USE_MINIMAL &&
     rankings &&
     typeof rankings === 'object' &&
@@ -99,11 +101,7 @@ export function useTopNavLinks(): TopNavLink[] {
 
   // Docs (supports external links)
   if (modules?.docs !== false) {
-    if (docsLink) {
-      links.push({ title: t('Docs'), href: docsLink, external: true })
-    } else {
-      links.push({ title: t('Docs'), href: '/docs' })
-    }
+    links.push({ title: t('Docs'), ...docsLink })
   }
 
   // About

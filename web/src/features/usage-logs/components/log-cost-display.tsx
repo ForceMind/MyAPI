@@ -32,10 +32,12 @@ import { formatLogQuota } from '@/lib/format'
 
 import { hasToolSurcharge } from '../lib/format'
 import type { LogOtherData } from '../types'
+import { UsageAccuracyBadge } from './usage-accuracy-badge'
 
 interface LogCostDisplayProps {
   quota: number
   other: LogOtherData | null
+  showUsageAccuracy?: boolean
 }
 
 function splitQuotaDisplay(value: string): { prefix: string; amount: string } {
@@ -125,19 +127,23 @@ export function LogCostDisplay(props: LogCostDisplayProps) {
     return (
       <div className='flex flex-col gap-0.5'>
         <QuotaBadge quota={props.quota} />
+        {props.showUsageAccuracy !== false && <UsageAccuracyBadge accuracy={props.other?.usage_accuracy} />}
       </div>
     )
   }
 
   return (
     <TooltipProvider>
-      <div className='inline-flex items-center gap-1'>
+      <div className='flex flex-col items-start gap-0.5'>
+        <div className='inline-flex items-center gap-1'>
         {isSubscription ? (
           <SubscriptionBadge quota={props.quota} />
         ) : (
           <QuotaBadge quota={props.quota} />
         )}
         {showToolSurcharge ? <ToolSurchargeMarker /> : null}
+        </div>
+        {props.showUsageAccuracy !== false && <UsageAccuracyBadge accuracy={props.other?.usage_accuracy} />}
       </div>
     </TooltipProvider>
   )

@@ -268,6 +268,9 @@ func SetApiRouter(router *gin.Engine) {
 		ratioSyncRoute.Use(middleware.RootAuth())
 		{
 			ratioSyncRoute.GET("/channels", controller.GetSyncableChannels)
+			ratioSyncRoute.GET("/openai", middleware.CriticalRateLimit(), controller.GetOpenAIOfficialPricing)
+			ratioSyncRoute.POST("/openai/versions", middleware.DisableCache(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.SaveOpenAIOfficialPriceSource)
+			ratioSyncRoute.GET("/openai/versions/:digest", middleware.DisableCache(), middleware.CriticalRateLimit(), controller.GetFrozenOpenAIOfficialPriceSource)
 			ratioSyncRoute.POST("/fetch", controller.FetchUpstreamRatios)
 		}
 		registerChannelRoutes(apiRouter)
@@ -311,7 +314,9 @@ func SetApiRouter(router *gin.Engine) {
 		logRoute := apiRouter.Group("/log")
 		logRoute.GET("/", middleware.AdminAuth(), controller.GetAllLogs)
 		logRoute.GET("/stat", middleware.AdminAuth(), controller.GetLogsStat)
+		logRoute.GET("/overview", middleware.DisableCache(), middleware.AdminAuth(), controller.GetAdminRecentLogOverview)
 		logRoute.GET("/self/stat", middleware.UserAuth(), controller.GetLogsSelfStat)
+		logRoute.GET("/self/overview", middleware.DisableCache(), middleware.UserAuth(), controller.GetUserRecentLogOverview)
 		logRoute.GET("/channel_affinity_usage_cache", middleware.AdminAuth(), controller.GetChannelAffinityUsageCacheStats)
 		logRoute.GET("/search", middleware.AdminAuth(), controller.SearchAllLogs)
 		logRoute.GET("/self", middleware.UserAuth(), controller.GetUserLogs)

@@ -839,6 +839,9 @@ func applyOptionRemediationItem(db *gorm.DB, operatorUserId int, item OptionReme
 	// typed bulk writer); the registry row is flipped to failed so the
 	// operator sees the divergence instead of a silent drift.
 	if err := optionRemediationPublish(item.Key, plan.newValue); err != nil {
+		if isPricingRuntimeOptionKey(item.Key) {
+			markPricingRuntimeUnavailable()
+		}
 		common.SysError("option remediation publication failed after commit for key " + item.Key + ": " + err.Error())
 		result.Status = OptionRemediationApplyFailed
 		result.Reason = "publish_failed"

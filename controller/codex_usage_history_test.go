@@ -96,11 +96,11 @@ func TestCodexUsageTransitionEndsMissingSeriesWithoutDeletingHistory(t *testing.
 			"primary_window":{"used_percent":30,"reset_at":1901200000,"limit_window_seconds":604800}
 		}
 	}`)
-	require.NoError(t, recordCodexUsageSnapshotsAtWithSampleID(981, observedAt, "sample-dual", 200, dualWindow))
-	require.NoError(t, recordCodexUsageSnapshotsAtWithSampleID(981, observedAt, "sample-single", 200, singleWeekly))
+	require.NoError(t, recordCodexUsageSnapshotsAtWithSampleIDForAccount(981, "fixture-account", observedAt, "sample-dual", 200, dualWindow))
+	require.NoError(t, recordCodexUsageSnapshotsAtWithSampleIDForAccount(981, "fixture-account", observedAt, "sample-single", 200, singleWeekly))
 	// An exact replay uses the immutable sample id and cannot duplicate or change
 	// the committed provider rows and absence markers.
-	require.NoError(t, recordCodexUsageSnapshotsAtWithSampleID(981, observedAt, "sample-single", 200, singleWeekly))
+	require.NoError(t, recordCodexUsageSnapshotsAtWithSampleIDForAccount(981, "fixture-account", observedAt, "sample-single", 200, singleWeekly))
 
 	var snapshots []model.ChannelQuotaSnapshot
 	require.NoError(t, db.Where("channel_id = ?", 981).Order("observed_at ASC, id ASC").Find(&snapshots).Error)
@@ -109,6 +109,7 @@ func TestCodexUsageTransitionEndsMissingSeriesWithoutDeletingHistory(t *testing.
 	markers := make(map[string]model.ChannelQuotaSnapshot)
 	successes := 0
 	for _, snapshot := range snapshots {
+		require.Equal(t, model.ChannelQuotaAccountRef("codex", "fixture-account"), snapshot.AccountRef)
 		if snapshot.Status == "success" {
 			successes++
 			continue
@@ -181,6 +182,25 @@ func TestCodexUsageTransitionEndsMissingSeriesWithoutDeletingHistory(t *testing.
 	require.Equal(t, "success", currentWeekly.Status)
 	require.NotNil(t, currentWeekly.CurrentAvailable)
 	require.InDelta(t, 70, *currentWeekly.CurrentAvailable, 0.001)
+}
+
+func TestCodexUsageTransitionWithoutAccountDoesNotInventAbsentWindows(t *testing.T) {
+	db := setupCodexUsageHistoryTestDB(t, 988)
+	observedAt := time.Now().Unix() - 10
+	dualWindow := []byte(`{"rate_limit":{"primary_window":{"used_percent":25,"limit_window_seconds":18000},"secondary_window":{"used_percent":60,"limit_window_seconds":604800}}}`)
+	singleWeekly := []byte(`{"rate_limit":{"primary_window":{"used_percent":30,"limit_window_seconds":604800}}}`)
+
+	require.NoError(t, recordCodexUsageSnapshotsAtWithSampleID(988, observedAt, "unknown-dual", 200, dualWindow))
+	require.NoError(t, recordCodexUsageSnapshotsAtWithSampleID(988, observedAt+1, "unknown-single", 200, singleWeekly))
+
+	var snapshots []model.ChannelQuotaSnapshot
+	require.NoError(t, db.Where("channel_id = ?", 988).Order("id ASC").Find(&snapshots).Error)
+	require.Len(t, snapshots, 3)
+	for _, snapshot := range snapshots {
+		require.Empty(t, snapshot.AccountRef)
+		require.Empty(t, model.ChannelQuotaSnapshotSeriesID(snapshot))
+		require.Equal(t, "success", snapshot.Status)
+	}
 }
 
 func TestCodexUsageSameSecondSuccessThenErrorUsesLatestBatchOnlyForCurrent(t *testing.T) {

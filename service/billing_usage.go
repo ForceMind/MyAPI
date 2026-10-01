@@ -58,12 +58,34 @@ func appendUsageBillingPathForLog(other map[string]interface{}, isLocalCountToke
 	if other == nil {
 		return
 	}
+	path := usageBillingPathForLog(isLocalCountTokens, usage)
+	effectiveUsage, hasSource := usageFromBillingUsage(usage)
+	if !hasSource {
+		effectiveUsage = usage
+	}
+	// Public provenance is useful even after admin-only metadata is stripped.
+	// "reported" means the provider supplied usage, not that a final bill was
+	// independently reconciled. Missing usage must never be labelled actual.
+	accuracy := "reported"
+	switch {
+	case usage == nil:
+		accuracy = "unknown"
+	case path == usageBillingPathLocal || path == usageBillingPathOpenAIEstimated ||
+		path == usageBillingPathAnthropicEstimated || path == usageBillingPathGeminiEstimated:
+		accuracy = "estimated"
+	case !hasSource && !dto.HasOpenAIUsageTokens(usage):
+		accuracy = "unknown"
+	}
+	other["usage_accuracy"] = accuracy
+	if effectiveUsage != nil && effectiveUsage.CompletionTokenDetails.ReasoningTokens > 0 {
+		other["reasoning_tokens"] = effectiveUsage.CompletionTokenDetails.ReasoningTokens
+	}
 	adminInfo, ok := other["admin_info"].(map[string]interface{})
 	if !ok || adminInfo == nil {
 		adminInfo = make(map[string]interface{})
 		other["admin_info"] = adminInfo
 	}
-	adminInfo["usage_billing_path"] = usageBillingPathForLog(isLocalCountTokens, usage)
+	adminInfo["usage_billing_path"] = path
 }
 
 func usageFromBillingUsage(usage *dto.Usage) (*dto.Usage, bool) {
@@ -97,7 +119,7 @@ func usageFromBillingUsage(usage *dto.Usage) (*dto.Usage, bool) {
 }
 
 func usageFromOpenAIBillingUsage(billingUsage *dto.BillingUsage) *dto.Usage {
-	usage := *billingUsage.OpenAIUsage
+	usage := *dto.CloneBillingUsage(billingUsage).OpenAIUsage
 	if usage.PromptTokens == 0 && usage.InputTokens > 0 {
 		usage.PromptTokens = usage.InputTokens
 	}
@@ -114,6 +136,9 @@ func usageFromOpenAIBillingUsage(billingUsage *dto.BillingUsage) *dto.Usage {
 		usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
 	}
 	if inputDetails := usage.InputTokensDetails; inputDetails != nil {
+		if usage.PromptTokensDetails.CachedTokensDetails == nil {
+			usage.PromptTokensDetails.CachedTokensDetails = dto.CloneInputTokenDetails(*inputDetails).CachedTokensDetails
+		}
 		if usage.PromptTokensDetails.CachedTokens == 0 && inputDetails.CachedTokens > 0 {
 			usage.PromptTokensDetails.CachedTokens = inputDetails.CachedTokens
 		}
@@ -135,6 +160,20 @@ func usageFromOpenAIBillingUsage(billingUsage *dto.BillingUsage) *dto.Usage {
 	}
 	if usage.PromptTokensDetails.CachedTokens == 0 && usage.PromptCacheHitTokens > 0 {
 		usage.PromptTokensDetails.CachedTokens = usage.PromptCacheHitTokens
+	}
+	if outputDetails := usage.OutputTokensDetails; outputDetails != nil {
+		if usage.CompletionTokenDetails.ReasoningTokens == 0 {
+			usage.CompletionTokenDetails.ReasoningTokens = outputDetails.ReasoningTokens
+		}
+		if usage.CompletionTokenDetails.TextTokens == 0 {
+			usage.CompletionTokenDetails.TextTokens = outputDetails.TextTokens
+		}
+		if usage.CompletionTokenDetails.ImageTokens == 0 {
+			usage.CompletionTokenDetails.ImageTokens = outputDetails.ImageTokens
+		}
+		if usage.CompletionTokenDetails.AudioTokens == 0 {
+			usage.CompletionTokenDetails.AudioTokens = outputDetails.AudioTokens
+		}
 	}
 	usage.UsageSemantic = dto.BillingUsageSemanticOpenAI
 	usage.UsageSource = billingUsage.Source

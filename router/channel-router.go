@@ -14,6 +14,7 @@ type permissionRoute struct {
 	path       string
 	permission authz.Permission
 	middleware []gin.HandlerFunc
+	rateLimit  func() func(*gin.Context)
 	handler    gin.HandlerFunc
 }
 
@@ -33,6 +34,9 @@ func registerChannelRoutes(apiRouter *gin.RouterGroup) {
 	for _, route := range channelPermissionRoutes {
 		handlers := []gin.HandlerFunc{middleware.RequirePermission(route.permission)}
 		handlers = append(handlers, route.middleware...)
+		if route.rateLimit != nil {
+			handlers = append(handlers, route.rateLimit())
+		}
 		handlers = append(handlers, route.handler)
 		channelRoute.Handle(route.method, route.path, handlers...)
 	}
@@ -49,7 +53,8 @@ var channelPermissionRoutes = []permissionRoute{
 	{method: http.MethodGet, path: "/routing-preview", permission: authz.ChannelRead, handler: controller.GetChannelRoutingPreview},
 	{method: http.MethodGet, path: "/:id", permission: authz.ChannelRead, handler: controller.GetChannel},
 	{method: http.MethodGet, path: "/test", permission: authz.ChannelOperate, handler: controller.TestAllChannels},
-	{method: http.MethodGet, path: "/test/:id", permission: authz.ChannelOperate, handler: controller.TestChannel},
+	{method: http.MethodGet, path: "/test/:id", permission: authz.ChannelOperate, middleware: []gin.HandlerFunc{middleware.DisableCache()}, handler: controller.TestChannel},
+	{method: http.MethodPost, path: "/test/:id", permission: authz.ChannelOperate, middleware: []gin.HandlerFunc{middleware.DisableCache(), middleware.DashboardSessionOriginGuard()}, rateLimit: middleware.CriticalRateLimit, handler: controller.TestChannel},
 	{method: http.MethodGet, path: "/update_balance", permission: authz.ChannelOperate, handler: controller.UpdateAllChannelsBalance},
 	{method: http.MethodGet, path: "/update_balance/:id", permission: authz.ChannelOperate, handler: controller.UpdateChannelBalance},
 	{method: http.MethodGet, path: "/:id/quota/history", permission: authz.ChannelRead, handler: controller.GetChannelQuotaHistory},
@@ -66,10 +71,10 @@ var channelPermissionRoutes = []permissionRoute{
 	{method: http.MethodPost, path: "/fix", permission: authz.ChannelOperate, handler: controller.FixChannelsAbilities},
 	{method: http.MethodGet, path: "/fetch_models/:id", permission: authz.ChannelOperate, handler: controller.FetchUpstreamModels},
 	{method: http.MethodPost, path: "/fetch_models", permission: authz.ChannelSensitiveWrite, handler: controller.FetchModels},
-	{method: http.MethodPost, path: "/codex/oauth/start", permission: authz.ChannelSensitiveWrite, handler: controller.StartCodexOAuth},
-	{method: http.MethodPost, path: "/codex/oauth/complete", permission: authz.ChannelSensitiveWrite, handler: controller.CompleteCodexOAuth},
-	{method: http.MethodPost, path: "/:id/codex/oauth/start", permission: authz.ChannelSensitiveWrite, handler: controller.StartCodexOAuthForChannel},
-	{method: http.MethodPost, path: "/:id/codex/oauth/complete", permission: authz.ChannelSensitiveWrite, handler: controller.CompleteCodexOAuthForChannel},
+	{method: http.MethodPost, path: "/codex/oauth/start", permission: authz.ChannelSensitiveWrite, middleware: []gin.HandlerFunc{middleware.DisableCache(), middleware.DashboardSessionOriginGuard()}, rateLimit: middleware.CriticalRateLimit, handler: controller.StartCodexOAuth},
+	{method: http.MethodPost, path: "/codex/oauth/complete", permission: authz.ChannelSensitiveWrite, middleware: []gin.HandlerFunc{middleware.DisableCache(), middleware.DashboardSessionOriginGuard()}, rateLimit: middleware.CriticalRateLimit, handler: controller.CompleteCodexOAuth},
+	{method: http.MethodPost, path: "/:id/codex/oauth/start", permission: authz.ChannelSensitiveWrite, middleware: []gin.HandlerFunc{middleware.DisableCache(), middleware.DashboardSessionOriginGuard()}, rateLimit: middleware.CriticalRateLimit, handler: controller.StartCodexOAuthForChannel},
+	{method: http.MethodPost, path: "/:id/codex/oauth/complete", permission: authz.ChannelSensitiveWrite, middleware: []gin.HandlerFunc{middleware.DisableCache(), middleware.DashboardSessionOriginGuard()}, rateLimit: middleware.CriticalRateLimit, handler: controller.CompleteCodexOAuthForChannel},
 	{method: http.MethodPost, path: "/:id/codex/refresh", permission: authz.ChannelSensitiveWrite, handler: controller.RefreshCodexChannelCredential},
 	{
 		method: http.MethodGet, path: "/codex/local-auth/status", permission: authz.ChannelSensitiveWrite,

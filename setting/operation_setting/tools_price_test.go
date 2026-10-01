@@ -93,6 +93,25 @@ func TestToolPriceCustomFunctionHasNoHardcodedFallback(t *testing.T) {
 	assert.Equal(t, 0.0, GetToolPrice("lookup_customer"))
 }
 
+func TestCapturedToolPricesKeepModelPrecedenceAndGeneration(t *testing.T) {
+	preserveToolPrices(t)
+	replaceToolPricesForTest(map[string]float64{
+		"web_search_preview:gpt-4o*":      30,
+		"web_search_preview:gpt-4o-mini*": 0,
+		"custom_tool:special*":            7,
+	})
+	mini := CaptureToolPricesForModel("gpt-4o-mini")
+	special := CaptureToolPricesForModel("special-v2")
+	assert.Equal(t, 0.0, mini["web_search_preview"])
+	assert.Equal(t, 7.0, special["custom_tool"])
+	assert.Equal(t, 150.0, mini["image_generation"])
+	SetToolPriceForTest("web_search_preview:gpt-4o-mini*", 50)
+	assert.Equal(t, 0.0, mini["web_search_preview"])
+	assert.Equal(t, 50.0, GetToolPriceForModel("web_search_preview", "gpt-4o-mini"))
+	mini["image_generation"] = 99
+	assert.Equal(t, 150.0, GetToolPrice("image_generation"), "caller cannot mutate the live generation")
+}
+
 func TestValidateToolPricesJSON(t *testing.T) {
 	valid := []string{
 		`{}`,

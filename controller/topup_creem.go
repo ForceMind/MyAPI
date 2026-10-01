@@ -6,9 +6,12 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
@@ -68,7 +71,6 @@ type CreemAdaptor struct {
 }
 
 func (*CreemAdaptor) RequestPay(c *gin.Context, req *CreemPayRequest) {
-	paymentConfig := setting.CapturePaymentConfig()
 	if req.PaymentMethod != model.PaymentMethodCreem {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "不支持的支付渠道"})
 		return
@@ -79,24 +81,18 @@ func (*CreemAdaptor) RequestPay(c *gin.Context, req *CreemPayRequest) {
 		return
 	}
 
-	// 解析产品列表
-	var products []CreemProduct
-	err := common.Unmarshal([]byte(paymentConfig.CreemProducts()), &products)
+	quote, err := captureCreemOrderQuote(req.ProductId)
 	if err != nil {
+		if errors.Is(err, model.ErrPricingRuntimeUnavailable) {
+			respondTopUpPricingUnavailable(c)
+			return
+		}
 		logger.LogError(c.Request.Context(), fmt.Sprintf("Creem 产品配置解析失败 user_id=%d error_type=%T", c.GetInt("id"), err))
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "产品配置错误"})
 		return
 	}
 
-	// 查找对应的产品
-	var selectedProduct *CreemProduct
-	for _, product := range products {
-		if product.ProductId == req.ProductId {
-			selectedProduct = &product
-			break
-		}
-	}
-
+	selectedProduct := quote.product
 	if selectedProduct == nil {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "产品不存在"})
 		return
@@ -125,6 +121,8 @@ func (*CreemAdaptor) RequestPay(c *gin.Context, req *CreemPayRequest) {
 		TradeNo:         referenceId,
 		PaymentMethod:   model.PaymentMethodCreem,
 		PaymentProvider: model.PaymentProviderCreem,
+		CreemProductID:  selectedProduct.ProductId,
+		CreemCurrency:   strings.ToUpper(strings.TrimSpace(selectedProduct.Currency)),
 		CreateTime:      time.Now().Unix(),
 		Status:          common.TopUpStatusPending,
 	}
@@ -136,7 +134,7 @@ func (*CreemAdaptor) RequestPay(c *gin.Context, req *CreemPayRequest) {
 	}
 
 	// 创建支付链接，传入用户邮箱
-	checkoutUrl, err := genCreemLink(c.Request.Context(), paymentConfig, referenceId, selectedProduct, user.Email, user.Username)
+	checkoutUrl, err := genCreemLinkFromValues(c.Request.Context(), quote.apiKey, quote.testMode, referenceId, selectedProduct, user.Email, user.Username)
 	if err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("Creem 创建支付链接失败 user_id=%d trade_no=%s product_id=%s error_type=%T", id, referenceId, selectedProduct.ProductId, err))
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "拉起支付失败"})
@@ -300,12 +298,16 @@ func handleCheckoutCompleted(c *gin.Context, event *CreemWebhookEvent, decision 
 			c.Status(http.StatusOK)
 			return
 		}
-		err = model.RechargeCreem(referenceId, event.Object.Customer.Email, event.Object.Customer.Name, c.ClientIP(), decision)
+		err = model.RechargeCreem(referenceId, event.Object.Customer.Email, event.Object.Customer.Name, c.ClientIP(), decision, model.CreemPaymentSource{ProductID: event.Object.Product.Id, OrderProductID: event.Object.Order.Product, Currency: event.Object.Order.Currency})
 	default:
 		c.Status(http.StatusOK)
 		return
 	}
 	if err != nil {
+		if errors.Is(err, model.ErrPaymentMethodMismatch) {
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
 		if service.IsUserFundingWebhookAcknowledge(err) {
 			c.Status(http.StatusOK)
 			return
@@ -332,14 +334,56 @@ type CreemCheckoutResponse struct {
 }
 
 func genCreemLink(ctx context.Context, paymentConfig setting.PaymentConfig, referenceId string, product *CreemProduct, email string, username string) (string, error) {
-	apiKey := paymentConfig.CreemApiKey()
+	return genCreemLinkFromValues(ctx, paymentConfig.CreemApiKey(), paymentConfig.CreemTestMode(), referenceId, product, email, username)
+}
+
+type creemOrderQuote struct {
+	apiKey   string
+	testMode bool
+	product  *CreemProduct
+}
+
+func captureCreemOrderQuote(productID string) (creemOrderQuote, error) {
+	release, err := model.AcquirePricingRuntimeRead()
+	if err != nil {
+		return creemOrderQuote{}, err
+	}
+	defer release()
+	config := setting.CapturePaymentConfig()
+	quote := creemOrderQuote{apiKey: config.CreemApiKey(), testMode: config.CreemTestMode()}
+	if quote.apiKey == "" {
+		return quote, model.ErrPricingRuntimeUnavailable
+	}
+	var products []CreemProduct
+	if err := common.UnmarshalJsonStr(config.CreemProducts(), &products); err != nil {
+		return quote, err
+	}
+	for _, product := range products {
+		if product.ProductId != productID {
+			continue
+		}
+		if quote.product != nil {
+			return creemOrderQuote{}, model.ErrPricingRuntimeUnavailable
+		}
+		if len(product.ProductId) > 128 || len(product.Currency) > 16 || math.IsNaN(product.Price) || math.IsInf(product.Price, 0) || product.Price < 0 {
+			return creemOrderQuote{}, model.ErrPricingRuntimeUnavailable
+		}
+		copyProduct := product
+		quote.product = &copyProduct
+	}
+	return quote, nil
+}
+
+const maxPaymentCheckoutResponseBytes int64 = 1 << 20
+
+func genCreemLinkFromValues(ctx context.Context, apiKey string, testMode bool, referenceId string, product *CreemProduct, email, username string) (string, error) {
 	if apiKey == "" {
 		return "", fmt.Errorf("未配置Creem API密钥")
 	}
 
 	// 根据测试模式选择 API 端点
 	apiUrl := "https://api.creem.io/v1/checkouts"
-	if paymentConfig.CreemTestMode() {
+	if testMode {
 		apiUrl = "https://test-api.creem.io/v1/checkouts"
 		logger.LogInfo(ctx, fmt.Sprintf("Creem 使用测试环境 api_url=%s", apiUrl))
 	}
@@ -368,7 +412,7 @@ func genCreemLink(ctx context.Context, paymentConfig setting.PaymentConfig, refe
 	}
 
 	// 创建 HTTP 请求
-	req, err := http.NewRequest("POST", apiUrl, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(ctx, "POST", apiUrl, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return "", fmt.Errorf("创建HTTP请求失败: %T", err)
 	}
@@ -377,22 +421,26 @@ func genCreemLink(ctx context.Context, paymentConfig setting.PaymentConfig, refe
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-api-key", apiKey)
 
-	logger.LogInfo(ctx, fmt.Sprintf("Creem 支付请求已发送 api_url=%s product_id=%s trade_no=%s", apiUrl, product.ProductId, referenceId))
+	logger.LogInfo(ctx, fmt.Sprintf("Creem 准备创建支付链接 api_url=%s product_id=%s trade_no=%s", apiUrl, product.ProductId, referenceId))
 
 	// 发送请求
 	client := &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout:       30 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("发送HTTP请求失败: %T", err)
+		return "", fmt.Errorf("Creem checkout request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	// 读取响应
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxPaymentCheckoutResponseBytes+1))
 	if err != nil {
 		return "", fmt.Errorf("读取响应失败: %T", err)
+	}
+	if int64(len(body)) > maxPaymentCheckoutResponseBytes {
+		return "", fmt.Errorf("Creem checkout response exceeds limit")
 	}
 
 	logger.LogInfo(ctx, fmt.Sprintf("Creem API 响应已收到 trade_no=%s status_code=%d body_bytes=%d", referenceId, resp.StatusCode, len(body)))

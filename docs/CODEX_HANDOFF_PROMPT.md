@@ -1,3 +1,29 @@
+# My API 新对话/新模型提示词（2026-10-02）
+
+复制下段接管当前 R1。详细事实见 [NEXT_SESSION_HANDOFF.md](NEXT_SESSION_HANDOFF.md)。下方旧设备模板只保留历史，不执行其中冲突的范围和状态声明。
+
+```text
+你接管 My API 的 R1 自用版。先读 AGENTS.md、docs/NEXT_SESSION_HANDOFF.md、docs/NEXT_USABLE_VERSION.md，再核对 pwd、Git 分支/HEAD/工作树/远端，不重做已完成批次，不重新规划 F1–F8。
+
+GitHub：https://github.com/ForceMind/MyAPI
+交接分支：codex/r1-handoff-20261002（未封版快照，不可当作可部署版本）。
+本机候选：/Users/wxx110/.codex/worktrees/next-usable-candidate/MyAPI。
+基线：57ec31a58fc737ba2be0601e4102123436c3d938；实际提交以分支及远端回读为准。
+主目录未被候选覆盖；原 /Users/wxx110/.codex/worktrees/2daa/MyAPI 只读保护全部 WIP。不要 reset/stash/clean/强制 checkout，不先 pull/rebase main。
+
+主体自用：保留用户归属/权限/汇总及每个 API Key 的额度管理。商业默认关闭，无充值余额概念；已有商店/充值/订阅仅保留可选模块及历史恢复，不扩展支付商/动态插件框架。三种新预算是实际 API 费用、实际 Token 总量、账户百分比。缓存与 reasoning 是包含子项不重复计数；费用按实际分类和冻结版本，OpenAI 来源须为官网；订阅渠道 API 等价成本只标参考。
+
+保留已有首页/概览、细线账户图、成功测试选项复用、确切耗尽 429 避让、OAuth 接线、usage 来源展示、冻结价格和实时重复扣费修正、官网来源获取/保存/读取页面。来源保存不是有效价格发布，三种预算尚未实现。
+
+先收口 service/usage_settlement_contract_test.go 中 TestPerTokenSettlementRequiresReportedUsage 的 missing/estimated 两项红灯，不能删测试、放宽断言、把未知计零/退款或估算成精确。先集中问我：严格费用/Token 预算 Key 遇到未知 usage 是否暂停后续请求并保留预留等待可靠证据/授权恢复？账户百分比是剩余安全阈值还是各 Key 的窗口预算？共享账户差值不能归属 Key。未确认前不实施关键副作用。改结算前读 pkg/billingexpr/expr.md，不整包复制原 WIP。
+
+一次一个有界版本，先报告本轮范围、可查看入口、依赖、验收及停止条件；优先正常结算—未知待核对—权限恢复—幂等限额闭环，再接价格发布和费用/Token 预算，百分比按确认规则接入。默认单智能体，查已有 Goal 后按 AGENTS 承接；不创建自动化/子任务。最小有意义验证，复用适用证据，避免无限扩大支付、价格辅助功能或测试工程。
+
+当前 service 不全绿；MySQL/PostgreSQL 实库、当前 SHA 的 CI、真实容器/OAuth/账户/账单、升级回滚未验收。8769 预览只是合成 API。不得宣称 R1 完成或可部署。沿既有批准范围实现/验证/更新文档；新批次推送、合并、发布、部署及真实账户操作取得对应授权。先完成只读接管核对，给出下一迭代，不立即开始大范围扩展。
+```
+
+## 历史归档：旧设备提示词（不用于当前接管）
+
 # 新设备 Codex 启动提示词
 
 将下面整段复制到新 Mac 的 Codex 新对话中。它只描述工作范围和仓库事实，不包含任何

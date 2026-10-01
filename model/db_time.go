@@ -1,9 +1,21 @@
 package model
 
 import (
+	"context"
 	"github.com/ForceMind/MyAPI/common"
 	"gorm.io/gorm"
 )
+
+// ReadDatabaseUnixTime never substitutes a node clock when the database clock fails.
+func ReadDatabaseUnixTime(ctx context.Context, db *gorm.DB) (int64, error) {
+	if db == nil {
+		return 0, gorm.ErrInvalidDB
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return taskRecoveryDBTimestamp(db.WithContext(ctx))
+}
 
 // GetDBTimestamp returns a UNIX timestamp from database time.
 // Falls back to application time on error.

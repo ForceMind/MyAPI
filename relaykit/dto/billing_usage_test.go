@@ -63,6 +63,60 @@ func TestNewEstimatedGeminiChatBillingUsage(t *testing.T) {
 	assert.Equal(t, 18, billingUsage.GeminiUsageMetadata.TotalTokenCount)
 }
 
+func TestResponsesOutputDetailsSurviveBillingSnapshot(t *testing.T) {
+	var usage Usage
+	require.NoError(t, kitutil.Unmarshal([]byte(`{"input_tokens":100,"output_tokens":10,"total_tokens":110,"output_tokens_details":{"reasoning_tokens":4}}`), &usage))
+	require.NotNil(t, usage.OutputTokensDetails)
+	assert.Equal(t, 4, usage.OutputTokensDetails.ReasoningTokens)
+	billing := NewOpenAIResponsesBillingUsage(&usage)
+	require.NotNil(t, billing)
+	usage.OutputTokensDetails.ReasoningTokens = 9
+	assert.Equal(t, 4, billing.OpenAIUsage.OutputTokensDetails.ReasoningTokens)
+	clone := CloneBillingUsage(billing)
+	billing.OpenAIUsage.OutputTokensDetails.ReasoningTokens = 7
+	assert.Equal(t, 4, clone.OpenAIUsage.OutputTokensDetails.ReasoningTokens)
+	assert.Equal(t, 10, clone.OpenAIUsage.OutputTokens)
+	data, err := kitutil.Marshal(clone.OpenAIUsage)
+	require.NoError(t, err)
+	var roundTrip Usage
+	require.NoError(t, kitutil.Unmarshal(data, &roundTrip))
+	require.NotNil(t, roundTrip.OutputTokensDetails)
+	assert.Equal(t, 4, roundTrip.OutputTokensDetails.ReasoningTokens)
+}
+
+func TestCacheModalitiesSurviveIndependentBillingSnapshots(t *testing.T) {
+	var raw Usage
+	require.NoError(t, kitutil.Unmarshal([]byte(`{"input_tokens":100,"output_tokens":10,"input_tokens_details":{"cached_tokens":40,"cached_tokens_details":{"text_tokens":25,"audio_tokens":10,"image_tokens":5}}}`), &raw))
+	require.NotNil(t, raw.InputTokensDetails)
+	require.NotNil(t, raw.InputTokensDetails.CachedTokensDetails)
+	billing := NewOpenAIResponsesBillingUsage(&raw)
+	require.NotNil(t, billing)
+	*raw.InputTokensDetails.CachedTokensDetails.AudioTokens = 99
+	assert.Equal(t, 10, *billing.OpenAIUsage.InputTokensDetails.CachedTokensDetails.AudioTokens)
+	clone := CloneBillingUsage(billing)
+	*billing.OpenAIUsage.InputTokensDetails.CachedTokensDetails.TextTokens = 88
+	assert.Equal(t, 25, *clone.OpenAIUsage.InputTokensDetails.CachedTokensDetails.TextTokens)
+	assert.Equal(t, 5, *clone.OpenAIUsage.InputTokensDetails.CachedTokensDetails.ImageTokens)
+	data, err := kitutil.Marshal(clone.OpenAIUsage)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"cached_tokens_details"`)
+	assert.NotContains(t, string(data), `"audio_tokens":99`)
+	var zero InputTokenDetails
+	data, err = kitutil.Marshal(zero)
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), `"cached_tokens_details"`)
+	zero.CachedTokensDetails = NewCachedTokenDetails(0, 0, 0)
+	data, err = kitutil.Marshal(zero)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"cached_tokens_details":{"text_tokens":0,"audio_tokens":0,"image_tokens":0}`)
+	// Chat-style prompt details must also be isolated, not only Responses.
+	raw.PromptTokensDetails = CloneInputTokenDetails(*clone.OpenAIUsage.InputTokensDetails)
+	chat := NewOpenAIChatBillingUsage(&raw)
+	require.NotNil(t, chat)
+	*raw.PromptTokensDetails.CachedTokensDetails.ImageTokens = 77
+	assert.Equal(t, 5, *chat.OpenAIUsage.PromptTokensDetails.CachedTokensDetails.ImageTokens)
+}
+
 func TestBillingUsageJSONUsesProtocolNamedFields(t *testing.T) {
 	billingUsage := &BillingUsage{
 		OpenAIUsage:         &Usage{PromptTokens: 1, BillingUsage: NewClaudeMessagesBillingUsage(&ClaudeUsage{InputTokens: 9})},

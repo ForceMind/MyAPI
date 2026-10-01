@@ -55,6 +55,29 @@ func GetUserLogs(c *gin.Context) {
 	return
 }
 
+func GetAdminRecentLogOverview(c *gin.Context) {
+	overview, err := model.GetAdminRecentLogOverview(model.LOG_DB)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, overview)
+}
+
+func GetUserRecentLogOverview(c *gin.Context) {
+	userID := c.GetInt("id")
+	if userID <= 0 {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	overview, err := model.GetUserRecentLogOverview(model.LOG_DB, userID)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, overview)
+}
+
 // Deprecated: SearchAllLogs 已废弃，前端未使用该接口。
 func SearchAllLogs(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{

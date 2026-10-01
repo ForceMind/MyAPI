@@ -405,6 +405,7 @@ func TestCalculateTextQuotaSummaryUsesOpenAIResponsesInputTokenDetails(t *testin
 		InputTokensDetails: &dto.InputTokenDetails{
 			CachedTokens: 40,
 		},
+		OutputTokensDetails: &dto.OutputTokenDetails{ReasoningTokens: 4},
 	}
 	convertedUsage := &dto.Usage{
 		PromptTokens:     100,
@@ -418,10 +419,13 @@ func TestCalculateTextQuotaSummaryUsesOpenAIResponsesInputTokenDetails(t *testin
 
 	effectiveUsage := effectiveBillingUsage(convertedUsage)
 	require.Equal(t, 40, effectiveUsage.PromptTokensDetails.CachedTokens)
+	require.Equal(t, 4, effectiveUsage.CompletionTokenDetails.ReasoningTokens)
 	require.Zero(t, convertedUsage.BillingUsage.OpenAIUsage.PromptTokensDetails.CachedTokens)
 
 	summary := calculateTextQuotaSummary(ctx, relayInfo, effectiveUsage)
 	require.Equal(t, 40, summary.CacheTokens)
+	require.Equal(t, 10, summary.CompletionTokens)
+	require.Equal(t, 110, summary.TotalTokens)
 	// 60 uncached input + 40*0.25 cached input + 10*2 output = 90.
 	require.Equal(t, 90, summary.Quota)
 }
@@ -514,6 +518,44 @@ func TestAppendUsageBillingPathForLogWritesAdminInfo(t *testing.T) {
 	adminInfo, ok = other["admin_info"].(map[string]interface{})
 	require.True(t, ok)
 	require.Equal(t, usageBillingPathLocal, adminInfo["usage_billing_path"])
+}
+
+func TestUsageLogProvenanceDistinguishesReportedEstimatedAndUnknown(t *testing.T) {
+	estimated := dto.NewOpenAIResponsesBillingUsage(&dto.Usage{InputTokens: 100, OutputTokens: 10})
+	estimated.Estimated = true
+	for _, tc := range []struct {
+		name  string
+		local bool
+		usage *dto.Usage
+		want  string
+	}{
+		{"missing", false, nil, "unknown"},
+		{"missing with local flag", true, nil, "unknown"},
+		{"empty legacy usage", false, &dto.Usage{}, "unknown"},
+		{"empty billing envelope", false, &dto.Usage{BillingUsage: &dto.BillingUsage{Source: dto.BillingUsageSourceOAIResponses}}, "unknown"},
+		{"local estimate", true, &dto.Usage{PromptTokens: 100}, "estimated"},
+		{"responses estimate", false, &dto.Usage{BillingUsage: estimated}, "estimated"},
+		{"reported", false, &dto.Usage{BillingUsage: dto.NewOpenAIResponsesBillingUsage(&dto.Usage{InputTokens: 100})}, "reported"},
+		{"explicit reported zero", false, &dto.Usage{BillingUsage: &dto.BillingUsage{Source: dto.BillingUsageSourceOAIResponses, OpenAIUsage: &dto.Usage{}}}, "reported"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			other := map[string]interface{}{}
+			appendUsageBillingPathForLog(other, tc.local, tc.usage)
+			require.Equal(t, tc.want, other["usage_accuracy"])
+		})
+	}
+}
+
+func TestUsageLogPreservesResponsesReasoningBreakdown(t *testing.T) {
+	other := map[string]interface{}{}
+	usage := &dto.Usage{BillingUsage: dto.NewOpenAIResponsesBillingUsage(&dto.Usage{
+		InputTokens: 100, OutputTokens: 10, TotalTokens: 110,
+		OutputTokensDetails: &dto.OutputTokenDetails{ReasoningTokens: 4},
+	})}
+	appendUsageBillingPathForLog(other, false, usage)
+	require.Equal(t, "reported", other["usage_accuracy"])
+	require.Equal(t, 4, other["reasoning_tokens"])
+	require.Equal(t, 10, usage.BillingUsage.OpenAIUsage.OutputTokens)
 }
 
 func TestCacheWriteTokensTotal(t *testing.T) {

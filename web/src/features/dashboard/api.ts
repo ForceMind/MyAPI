@@ -22,12 +22,30 @@ import type { TimeGranularity } from '@/lib/time'
 import type {
   FlowQuotaDataItem,
   QuotaDataItem,
+  RecentLogOverview,
   UptimeGroupResult,
 } from './types'
 
 // ============================================================================
 // Dashboard APIs
 // ============================================================================
+
+type RecentLogOverviewResponse = {
+  success: boolean
+  data?: RecentLogOverview
+  message?: string
+}
+
+export async function getRecentLogOverview(
+  isAdmin: boolean
+): Promise<RecentLogOverviewResponse> {
+  const endpoint = isAdmin ? '/api/log/overview' : '/api/log/self/overview'
+  const response = await api.get<RecentLogOverviewResponse>(endpoint, {
+    skipBusinessError: true,
+    skipErrorHandler: true,
+  })
+  return response.data
+}
 
 // ----------------------------------------------------------------------------
 // Quota & Usage Data

@@ -19,10 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 import { describe, expect, it } from 'vitest'
 
 import {
+  MYAPI_DOCS_URL,
   getBuildBrandLogo,
   getBuildBrandNameOverride,
   resolveBrandLogo,
   resolveBrandName,
+  resolveDocsLink,
 } from '@/lib/build-branding'
 
 describe('build-time branding', () => {
@@ -72,5 +74,31 @@ describe('build-time branding', () => {
     expect(resolveBrandLogo('/logo.png', '/myapi-logo-v1.png')).toBe(
       getBuildBrandLogo('/myapi-logo-v1.png')
     )
+  })
+})
+
+describe('documentation link fallback', () => {
+  it.each([undefined, '  ', 'javascript:alert(1)', '//docs.example.test'])(
+    'uses the project README when the runtime link is missing or unsafe: %s',
+    (value) => {
+      expect(resolveDocsLink(value)).toEqual({
+        href: MYAPI_DOCS_URL,
+        external: true,
+      })
+    }
+  )
+
+  it('keeps an explicit site-relative documentation path in the app', () => {
+    expect(resolveDocsLink('/custom-docs')).toEqual({
+      href: '/custom-docs',
+      external: false,
+    })
+  })
+
+  it('keeps an explicit HTTPS documentation URL external', () => {
+    expect(resolveDocsLink('https://docs.example.test')).toEqual({
+      href: 'https://docs.example.test',
+      external: true,
+    })
   })
 })

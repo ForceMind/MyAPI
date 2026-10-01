@@ -441,6 +441,13 @@ func UpdateOptionsTypedBulk(items []TypedBulkOption, expectedRevision *int64) (i
 	defer optionMutationLock.Unlock()
 
 	var newRevision int64
+	hasPricing := false
+	for key := range prepared.values {
+		if isPricingRuntimeOptionKey(key) {
+			hasPricing = true
+		}
+	}
+	readyToCommit := false
 	err = DB.Transaction(func(tx *gorm.DB) error {
 		current, exists, err := readTypedBulkRevisionTx(tx)
 		if err != nil {
@@ -453,9 +460,13 @@ func UpdateOptionsTypedBulk(items []TypedBulkOption, expectedRevision *int64) (i
 			return err
 		}
 		newRevision, err = bumpTypedBulkRevisionTx(tx, current, exists)
+		readyToCommit = err == nil
 		return err
 	})
 	if err != nil {
+		if readyToCommit && hasPricing {
+			markPricingRuntimeUnavailable()
+		}
 		return 0, nil, err
 	}
 
@@ -467,6 +478,9 @@ func UpdateOptionsTypedBulk(items []TypedBulkOption, expectedRevision *int64) (i
 	for _, family := range families {
 		registered := config.GlobalConfig.Get(family)
 		if err := typedBulkFamilyPublish(registered, prepared.familyValues[family]); err != nil {
+			if hasPricing {
+				markPricingRuntimeUnavailable()
+			}
 			common.SysError(fmt.Sprintf("typed bulk: aborted group publication at family %s; that family and later families stay on the previous runtime generation: %v", family, err))
 			return 0, nil, fmt.Errorf("%w: %s: %w", ErrTypedBulkPublishFailed, family, err)
 		}

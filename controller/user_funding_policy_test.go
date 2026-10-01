@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -130,40 +131,44 @@ func TestStatusAndTopUpInfoExposeMatchingCapabilities(t *testing.T) {
 	assert.Equal(t, status["user_funding_capabilities"], topup["user_funding_capabilities"])
 }
 
-func TestSelfUseSetupInitializesUserFundingDisabled(t *testing.T) {
-	db := paymentWebhookTestDB(t)
-	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.Setup{}))
-	require.NoError(t, db.Model(&model.User{}).Where("id = ?", 1).Update("aff_code", "fixture-aff").Error)
-	common.OptionMapRWMutex.Lock()
-	originalOptionMap := common.OptionMap
-	common.OptionMap = map[string]string{}
-	common.OptionMapRWMutex.Unlock()
-	t.Cleanup(func() {
-		common.OptionMapRWMutex.Lock()
-		common.OptionMap = originalOptionMap
-		common.OptionMapRWMutex.Unlock()
-	})
-	originalSetup := constant.Setup
-	constant.Setup = false
-	t.Cleanup(func() { constant.Setup = originalSetup })
+func TestSetupInitializesUserFundingDisabled(t *testing.T) {
+	for _, selfUse := range []bool{true, false} {
+		t.Run(strconv.FormatBool(selfUse), func(t *testing.T) {
+			db := paymentWebhookTestDB(t)
+			require.NoError(t, db.AutoMigrate(&model.Option{}, &model.Setup{}))
+			require.NoError(t, db.Model(&model.User{}).Where("id = ?", 1).Update("aff_code", "fixture-aff").Error)
+			common.OptionMapRWMutex.Lock()
+			originalOptionMap := common.OptionMap
+			common.OptionMap = map[string]string{}
+			common.OptionMapRWMutex.Unlock()
+			t.Cleanup(func() {
+				common.OptionMapRWMutex.Lock()
+				common.OptionMap = originalOptionMap
+				common.OptionMapRWMutex.Unlock()
+			})
+			originalSetup := constant.Setup
+			constant.Setup = false
+			t.Cleanup(func() { constant.Setup = originalSetup })
 
-	response := httptest.NewRecorder()
-	context, _ := gin.CreateTestContext(response)
-	context.Request = httptest.NewRequest(http.MethodPost, "/api/setup", strings.NewReader(`{
+			response := httptest.NewRecorder()
+			context, _ := gin.CreateTestContext(response)
+			context.Request = httptest.NewRequest(http.MethodPost, "/api/setup", strings.NewReader(`{
         "username":"root-wp3",
         "password":"password123",
         "confirmPassword":"password123",
-        "SelfUseModeEnabled":true,
+        "SelfUseModeEnabled":`+strconv.FormatBool(selfUse)+`,
         "DemoSiteEnabled":false
     }`))
-	context.Request.Header.Set("Content-Type", "application/json")
-	PostSetup(context)
+			context.Request.Header.Set("Content-Type", "application/json")
+			PostSetup(context)
 
-	require.Equal(t, http.StatusOK, response.Code)
-	assert.Equal(t, operation_setting.UserFundingModeDisabled, operation_setting.GetUserFundingMode())
-	var option model.Option
-	require.NoError(t, db.Where("key = ?", "user_funding_setting.mode").First(&option).Error)
-	assert.Equal(t, "disabled", option.Value)
+			require.Equal(t, http.StatusOK, response.Code)
+			assert.Equal(t, operation_setting.UserFundingModeDisabled, operation_setting.GetUserFundingMode())
+			var option model.Option
+			require.NoError(t, db.Where("key = ?", "user_funding_setting.mode").First(&option).Error)
+			assert.Equal(t, "disabled", option.Value)
+		})
+	}
 }
 
 func TestRetirementStripeCallbackSettlesPendingAndAcknowledgesUnknownDuplicate(t *testing.T) {
@@ -172,9 +177,10 @@ func TestRetirementStripeCallbackSettlesPendingAndAcknowledgesUnknownDuplicate(t
 	tradeNo := "stripe-retirement"
 	require.NoError(t, db.Create(&model.TopUp{
 		UserId: 1, TradeNo: tradeNo, Amount: 1, Money: 1,
-		PaymentProvider: model.PaymentProviderStripe,
-		PaymentMethod:   model.PaymentMethodStripe,
-		Status:          common.TopUpStatusPending,
+		PaymentProvider:      model.PaymentProviderStripe,
+		PaymentMethod:        model.PaymentMethodStripe,
+		QuotaPerUnitSnapshot: webhookFixtureQuotaUnitSnapshot(),
+		Status:               common.TopUpStatusPending,
 	}).Error)
 	setUserFundingModeForTest(t, operation_setting.UserFundingModeRetirement)
 
@@ -192,14 +198,18 @@ func TestRetirementWaffoPancakeCallbackSettlesPendingAndAcknowledgesUnknownDupli
 	tradeNo := "WAFFO_PANCAKE-retirement"
 	require.NoError(t, db.Create(&model.TopUp{
 		UserId: 1, TradeNo: tradeNo, Amount: 1,
-		PaymentProvider: model.PaymentProviderWaffoPancake,
-		Status:          common.TopUpStatusPending,
+		PaymentProvider:      model.PaymentProviderWaffoPancake,
+		QuotaPerUnitSnapshot: webhookFixtureQuotaUnitSnapshot(),
+		WaffoPancakeStoreID:  "STO_synthetic", WaffoPancakeProductID: "PROD_synthetic", WaffoPancakeCurrency: "USD",
+		Status: common.TopUpStatusPending,
 	}).Error)
 	setUserFundingModeForTest(t, operation_setting.UserFundingModeRetirement)
 	event := &service.WaffoPancakeWebhookEvent{
+		StoreID:   "STO_synthetic",
 		EventType: "order.completed",
 		Mode:      "test",
 		Data: service.WaffoPancakeWebhookData{
+			Currency:                      "USD",
 			OrderMerchantExternalID:       tradeNo,
 			MerchantProvidedBuyerIdentity: "my-api-user-1",
 		},

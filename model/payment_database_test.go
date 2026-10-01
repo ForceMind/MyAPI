@@ -357,7 +357,7 @@ func runS2APaymentDatabaseMatrix(t *testing.T, db *gorm.DB, databaseType common.
 		t.Run(replayMode+"-stripe-"+outcome, func(t *testing.T) {
 			require.NoError(t, db.First(&user, user.Id).Error)
 			beforeQuota := user.Quota
-			topup := TopUp{UserId: user.Id, Amount: 2, Money: 2, TradeNo: "s2a-stripe-" + outcome, PaymentMethod: PaymentMethodStripe, PaymentProvider: PaymentProviderStripe, Status: common.TopUpStatusPending}
+			topup := TopUp{UserId: user.Id, Amount: 2, Money: 2, TradeNo: "s2a-stripe-" + outcome, PaymentMethod: PaymentMethodStripe, PaymentProvider: PaymentProviderStripe, QuotaPerUnitSnapshot: paymentFixtureQuotaUnitSnapshot(), Status: common.TopUpStatusPending}
 			require.NoError(t, db.Create(&topup).Error)
 			logsBefore := s2aPaymentLogs(t, db, user.Id)
 			second := func() error { return RechargeTrusted(topup.TradeNo, "fixture-customer", "127.0.0.1") }

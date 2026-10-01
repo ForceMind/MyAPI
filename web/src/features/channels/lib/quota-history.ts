@@ -438,6 +438,7 @@ export function quotaWindowLabel(
 
 export function quotaSeriesKey(item: {
   channel_id: number
+  series_id?: string
   metric_type?: string
   source?: string
   window_type?: string
@@ -446,6 +447,9 @@ export function quotaSeriesKey(item: {
   currency?: string
   window_seconds?: number
 }): string {
+  if (item.series_id && /^[0-9a-f]{64}$/.test(item.series_id)) {
+    return item.series_id
+  }
   return [
     item.channel_id,
     item.metric_type,

@@ -83,6 +83,7 @@ import {
   isTimingLogType,
 } from '../../lib/utils'
 import { USAGE_BILLING_PATH, type LogOtherData } from '../../types'
+import { UsageAccuracyBadge } from '../usage-accuracy-badge'
 
 // Maps a channel-update changed-field token (as recorded by the backend audit)
 // to its i18n label key for display in the audit details.
@@ -616,6 +617,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
       title={
         <>
           {t('Log Details')}
+          {isConsume && <UsageAccuracyBadge accuracy={other?.usage_accuracy} />}
           <StatusBadge
             label={t(typeConfig.label)}
             variant={typeConfig.color as StatusBadgeProps['variant']}
@@ -631,7 +633,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
         isTieredBilling ? 'sm:max-w-4xl lg:max-w-5xl' : 'sm:max-w-lg'
       )}
       headerClassName='max-sm:gap-1'
-      titleClassName='flex items-center gap-2 text-base'
+      titleClassName='flex flex-wrap items-center gap-2 text-base'
       descriptionClassName='sr-only'
       contentHeight='min(72dvh, 720px)'
       bodyClassName='pr-2 sm:pr-4'

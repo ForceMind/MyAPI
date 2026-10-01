@@ -18,6 +18,18 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type { TimeGranularity } from '@/lib/time'
 
+export interface RecentLogOverviewItem {
+  id: number
+  created_at: number
+  model_name: string
+  username?: string
+}
+
+export interface RecentLogOverview {
+  requests: RecentLogOverviewItem[]
+  errors: RecentLogOverviewItem[]
+}
+
 // ============================================================================
 // Quota & Usage Data Types
 // ============================================================================

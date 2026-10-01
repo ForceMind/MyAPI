@@ -23,6 +23,7 @@ import { SectionPageLayout } from '@/components/layout'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useStatus } from '@/hooks/use-status'
+import { useFundingPresentation } from '@/hooks/use-funding-presentation'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { getSelf } from '@/lib/api'
 import {
@@ -87,6 +88,7 @@ export function Wallet(props: WalletProps) {
   const [showSubscriptionPanel, setShowSubscriptionPanel] = useState(true)
 
   const { status } = useStatus()
+  const fundingPresentation = useFundingPresentation()
   const { currency } = useSystemConfig()
   const { topupInfo, presetAmounts, loading: topupLoading } = useTopupInfo()
   const fundingCapabilities = resolveUserFundingCapabilities(topupInfo)
@@ -94,18 +96,19 @@ export function Wallet(props: WalletProps) {
     topupInfo,
     topupLoading
   )
+  const commerceReady = fundingCapabilitiesReady && fundingPresentation.commercialEnabled && fundingCapabilities.epoch === fundingPresentation.capabilities.epoch
   const showTopUpActions =
-    fundingCapabilitiesReady &&
+    commerceReady &&
     (fundingCapabilities.can_top_up || fundingCapabilities.can_redeem)
-  const canTopUp = fundingCapabilitiesReady && fundingCapabilities.can_top_up
-  const canRedeem = fundingCapabilitiesReady && fundingCapabilities.can_redeem
+  const canTopUp = commerceReady && fundingCapabilities.can_top_up
+  const canRedeem = commerceReady && fundingCapabilities.can_redeem
   const canTransferAffiliateRewards =
-    fundingCapabilitiesReady &&
+    commerceReady &&
     fundingCapabilities.can_transfer_affiliate_rewards
   const canPurchaseSubscription =
-    fundingCapabilitiesReady && fundingCapabilities.can_purchase_subscription
+    commerceReady && fundingCapabilities.can_purchase_subscription
   let fundingStatusMessage = ''
-  if (!fundingCapabilitiesReady) {
+  if (!fundingCapabilitiesReady || (!commerceReady && fundingCapabilities.mode === 'enabled')) {
     fundingStatusMessage = t(
       'User funding status is not ready. Funding actions remain disabled until the server confirms them.'
     )
@@ -326,10 +329,10 @@ export function Wallet(props: WalletProps) {
   return (
     <>
       <SectionPageLayout>
-        <SectionPageLayout.Title>{t('Wallet')}</SectionPageLayout.Title>
+        <SectionPageLayout.Title>{commerceReady ? t('Wallet') : t('Funding history')}</SectionPageLayout.Title>
         <SectionPageLayout.Content>
           <div className='mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-5'>
-            <WalletStatsCard user={user} loading={userLoading} />
+            <WalletStatsCard user={user} loading={userLoading} showBalance={commerceReady} />
 
             {!showTopUpActions ? (
               <Alert>
@@ -400,6 +403,7 @@ export function Wallet(props: WalletProps) {
             </div>
 
             <AffiliateRewardsCard
+              historyOnly={!commerceReady}
               user={user}
               affiliateLink={affiliateLink}
               onTransfer={() => setTransferDialogOpen(true)}

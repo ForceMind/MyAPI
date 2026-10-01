@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -105,6 +106,19 @@ func Distribute() func(c *gin.Context) {
 				if preferredChannelID, found := service.GetPreferredChannelByAffinity(c, modelRequest.Model, usingGroup); found {
 					affinityUsable := false
 					preferred, err := model.CacheGetChannel(preferredChannelID)
+					if err == nil && preferred != nil && preferred.Status == common.ChannelStatusEnabled && preferred.Type == constant.ChannelTypeCodex {
+						_, usable, quotaErr := service.CodexQuotaEligibleKeys(c.Request.Context(), preferred)
+						if quotaErr != nil {
+							abortWithOpenAiMessage(c, http.StatusServiceUnavailable, i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{
+								"Group": usingGroup, "Model": modelRequest.Model,
+							}), types.ErrorCodeGetChannelFailed)
+							return
+						}
+						if !usable {
+							service.ClearCurrentChannelAffinityCache(c)
+							preferred = nil
+						}
+					}
 					if err == nil && preferred != nil && preferred.Status == common.ChannelStatusEnabled &&
 						channelSupportsRequestPath(preferred, c.Request.URL.Path, modelRequest.Model) {
 						if usingGroup == "auto" {
@@ -177,7 +191,12 @@ func Distribute() func(c *gin.Context) {
 			}
 		}
 		common.SetContextKey(c, constant.ContextKeyRequestStartTime, time.Now())
-		SetupContextForSelectedChannel(c, channel, modelRequest.Model)
+		if setupErr := SetupContextForSelectedChannel(c, channel, modelRequest.Model); setupErr != nil {
+			abortWithOpenAiMessage(c, http.StatusServiceUnavailable, i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{
+				"Group": usingGroup, "Model": modelRequest.Model,
+			}), setupErr.GetErrorCode())
+			return
+		}
 		c.Next()
 		if channel != nil && c.Writer != nil && c.Writer.Status() < http.StatusBadRequest {
 			service.RecordChannelAffinity(c, channel.Id)
@@ -454,9 +473,42 @@ func getTaskOriginModelName(c *gin.Context) string {
 }
 
 func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, modelName string) *types.NewAPIError {
+	return setupContextForSelectedChannel(c, channel, modelName, false, nil)
+}
+
+// SetupContextForFixedChannelKey restores a trusted execution's exact key
+// position without advancing round-robin state. It keeps the normal disabled
+// key and provider-quota gates; callers must still authorize channel/model.
+func SetupContextForFixedChannelKey(c *gin.Context, channel *model.Channel, modelName string, index int) *types.NewAPIError {
+	return setupContextForSelectedChannel(c, channel, modelName, false, &index)
+}
+
+// SetupContextForChannelTest allows an explicit administrator diagnostic to
+// probe a held account. Ordinary relay dispatch still uses the quota gate;
+// the independent WHAM sampler also remains able to observe recovery.
+func SetupContextForChannelTest(c *gin.Context, channel *model.Channel, modelName string) *types.NewAPIError {
+	return setupContextForSelectedChannel(c, channel, modelName, true, nil)
+}
+
+func setupContextForSelectedChannel(c *gin.Context, channel *model.Channel, modelName string, quotaProbe bool, fixedIndex *int) *types.NewAPIError {
 	c.Set("original_model", modelName) // for retry
 	if channel == nil {
 		return types.NewError(errors.New("channel is nil"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+	}
+	var excluded map[int]bool
+	if channel.Type == constant.ChannelTypeCodex && !quotaProbe {
+		routingCtx := context.Background()
+		if c.Request != nil {
+			routingCtx = c.Request.Context()
+		}
+		eligible := false
+		var err error
+		excluded, eligible, err = service.CodexQuotaEligibleKeys(routingCtx, channel)
+		if err != nil || !eligible {
+			return types.NewErrorWithStatusCode(errors.New(i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{
+				"Group": common.GetContextKeyString(c, constant.ContextKeyUsingGroup), "Model": modelName,
+			})), types.ErrorCodeChannelNoAvailableKey, http.StatusServiceUnavailable, types.ErrOptionWithSkipRetry())
+		}
 	}
 	common.SetContextKey(c, constant.ContextKeyChannelId, channel.Id)
 	common.SetContextKey(c, constant.ContextKeyChannelName, channel.Name)
@@ -478,9 +530,26 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	common.SetContextKey(c, constant.ContextKeyChannelModelMapping, channel.GetModelMapping())
 	common.SetContextKey(c, constant.ContextKeyChannelStatusCodeMapping, channel.GetStatusCodeMapping())
 
-	key, index, newAPIError := channel.GetNextEnabledKey()
-	if newAPIError != nil {
-		return newAPIError
+	var key string
+	var index int
+	if fixedIndex == nil {
+		var newAPIError *types.NewAPIError
+		key, index, newAPIError = channel.GetNextEnabledKeyExcluding(excluded)
+		if newAPIError != nil {
+			return newAPIError
+		}
+	} else {
+		keys := []string{channel.Key}
+		if channel.ChannelInfo.IsMultiKey {
+			keys = channel.GetKeys()
+		}
+		index = *fixedIndex
+		status, hasStatus := channel.ChannelInfo.MultiKeyStatusList[index]
+		if index < 0 || index >= len(keys) || strings.TrimSpace(keys[index]) == "" || excluded[index] ||
+			(channel.ChannelInfo.IsMultiKey && hasStatus && status != common.ChannelStatusEnabled) {
+			return types.NewError(errors.New("no enabled keys"), types.ErrorCodeChannelNoAvailableKey, types.ErrOptionWithSkipRetry())
+		}
+		key = keys[index]
 	}
 	if channel.ChannelInfo.IsMultiKey {
 		common.SetContextKey(c, constant.ContextKeyChannelIsMultiKey, true)

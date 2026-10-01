@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -129,12 +130,16 @@ func TestStripeWebhookMissingDataObjectRejected(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, response.Code)
 }
 
+func webhookFixtureQuotaUnitSnapshot() string {
+	return strconv.FormatFloat(common.QuotaPerUnit, 'g', -1, 64)
+}
+
 func TestStripeWebhookDatabaseFailureIsRetryable(t *testing.T) {
 	for _, fault := range []string{"subscription-read", "topup-read", "wallet-write", "topup-write", "commit", "failed-write", "expired-read"} {
 		t.Run(fault, func(t *testing.T) {
 			db := paymentWebhookTestDB(t)
 			stripeWebhookFixture(t)
-			order := model.TopUp{UserId: 1, TradeNo: "stripe-fixture", Money: 1, Amount: 1, PaymentProvider: model.PaymentProviderStripe, PaymentMethod: model.PaymentMethodStripe, Status: common.TopUpStatusPending}
+			order := model.TopUp{UserId: 1, TradeNo: "stripe-fixture", Money: 1, Amount: 1, PaymentProvider: model.PaymentProviderStripe, PaymentMethod: model.PaymentMethodStripe, QuotaPerUnitSnapshot: webhookFixtureQuotaUnitSnapshot(), Status: common.TopUpStatusPending}
 			require.NoError(t, db.Create(&order).Error)
 			eventType, status := "checkout.session.completed", "complete"
 			if fault == "failed-write" {
@@ -202,7 +207,7 @@ func TestStripeWebhookDatabaseFailureIsRetryable(t *testing.T) {
 func TestStripeWebhookProtectsSuccessfulAndForeignOrders(t *testing.T) {
 	db := paymentWebhookTestDB(t)
 	stripeWebhookFixture(t)
-	order := model.TopUp{UserId: 1, TradeNo: "stripe-success", Money: 1, Amount: 1, PaymentProvider: model.PaymentProviderStripe, Status: common.TopUpStatusPending}
+	order := model.TopUp{UserId: 1, TradeNo: "stripe-success", Money: 1, Amount: 1, PaymentProvider: model.PaymentProviderStripe, QuotaPerUnitSnapshot: webhookFixtureQuotaUnitSnapshot(), Status: common.TopUpStatusPending}
 	require.NoError(t, db.Create(&order).Error)
 	assert.Equal(t, http.StatusBadRequest, deliverStripeFixture(t, "checkout.session.completed", order.TradeNo, "complete", "wrong-secret"))
 	assert.Equal(t, http.StatusOK, deliverStripeFixture(t, "checkout.session.completed", order.TradeNo, "complete", setting.StripeWebhookSecret))

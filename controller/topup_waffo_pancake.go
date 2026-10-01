@@ -46,7 +46,19 @@ func RequestWaffoPancakeAmount(c *gin.Context) {
 		return
 	}
 
-	payMoney := getWaffoPancakePayMoney(req.Amount, group, paymentConfig)
+	quote, err := capturePancakeOrderQuote(req.Amount, group)
+	if err != nil {
+		respondTopUpPricingUnavailable(c)
+		return
+	}
+	if req.Amount < quote.minimum {
+		c.JSON(http.StatusOK, gin.H{"message": "error", "data": fmt.Sprintf("充值数量不能小于 %d", quote.minimum)})
+		return
+	}
+	if rejectInvalidTopUpQuotaForSnapshot(c, id, req.Amount, quote.unit, quote.displayType) {
+		return
+	}
+	payMoney := quote.money
 	if payMoney <= 0.01 {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "充值金额过低"})
 		return
@@ -377,7 +389,19 @@ func RequestWaffoPancakePay(c *gin.Context) {
 		return
 	}
 
-	payMoney := getWaffoPancakePayMoney(req.Amount, group, paymentConfig)
+	quote, err := capturePancakeOrderQuote(req.Amount, group)
+	if err != nil {
+		respondTopUpPricingUnavailable(c)
+		return
+	}
+	if req.Amount < quote.minimum {
+		c.JSON(http.StatusOK, gin.H{"message": "error", "data": fmt.Sprintf("充值数量不能小于 %d", quote.minimum)})
+		return
+	}
+	if rejectInvalidTopUpQuotaForSnapshot(c, id, req.Amount, quote.unit, quote.displayType) {
+		return
+	}
+	payMoney := quote.money
 	if payMoney < 0.01 {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "充值金额过低"})
 		return
@@ -385,14 +409,18 @@ func RequestWaffoPancakePay(c *gin.Context) {
 
 	tradeNo := fmt.Sprintf("WAFFO_PANCAKE-%d-%d-%s", id, time.Now().UnixMilli(), randstr.String(6))
 	topUp := &model.TopUp{
-		UserId:          id,
-		Amount:          normalizeWaffoPancakeTopUpAmount(req.Amount),
-		Money:           payMoney,
-		TradeNo:         tradeNo,
-		PaymentMethod:   model.PaymentMethodWaffoPancake,
-		PaymentProvider: model.PaymentProviderWaffoPancake,
-		CreateTime:      time.Now().Unix(),
-		Status:          common.TopUpStatusPending,
+		UserId:                id,
+		Amount:                quote.amount,
+		QuotaPerUnitSnapshot:  quote.unitSnapshot,
+		WaffoPancakeStoreID:   quote.storeID,
+		WaffoPancakeProductID: quote.productID,
+		WaffoPancakeCurrency:  "USD",
+		Money:                 payMoney,
+		TradeNo:               tradeNo,
+		PaymentMethod:         model.PaymentMethodWaffoPancake,
+		PaymentProvider:       model.PaymentProviderWaffoPancake,
+		CreateTime:            time.Now().Unix(),
+		Status:                common.TopUpStatusPending,
 	}
 	if err := topUp.Insert(userFundingEpoch(c)); err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("Waffo Pancake 创建充值订单失败 user_id=%d trade_no=%s amount=%d error_type=%T", id, tradeNo, req.Amount, err))
@@ -401,8 +429,8 @@ func RequestWaffoPancakePay(c *gin.Context) {
 	}
 
 	expiresInSeconds := 45 * 60
-	session, err := service.CreateWaffoPancakeCheckoutSessionWithPaymentConfig(c.Request.Context(), paymentConfig, &service.WaffoPancakeCreateSessionParams{
-		ProductID:     paymentConfig.WaffoPancakeProductID(),
+	session, err := service.CreateWaffoPancakeCheckoutSessionWithCredentials(c.Request.Context(), quote.merchantID, quote.privateKey, &service.WaffoPancakeCreateSessionParams{
+		ProductID:     quote.productID,
 		BuyerIdentity: getWaffoPancakeBuyerIdentity(user),
 		PriceSnapshot: &service.WaffoPancakePriceSnapshot{
 			Amount:      formatWaffoPancakeAmount(payMoney),
@@ -414,8 +442,8 @@ func RequestWaffoPancakePay(c *gin.Context) {
 	})
 	if err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("Waffo Pancake 创建结账会话失败 user_id=%d trade_no=%s error_type=%T", id, tradeNo, err))
-		topUp.Status = common.TopUpStatusFailed
-		_ = topUp.Update()
+		// The remote session may exist despite an unknown response. Keep the
+		// persisted pending order available for signed callback/reconciliation.
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "拉起支付失败"})
 		return
 	}
@@ -515,9 +543,14 @@ func fulfillWaffoPancakeWebhook(c *gin.Context, event *service.WaffoPancakeWebho
 	if decision.Kind() == service.UserFundingOrderSubscription {
 		err = model.CompleteSubscriptionOrder(tradeNo, payload, model.PaymentProviderWaffoPancake, "", decision)
 	} else {
-		err = model.RechargeWaffoPancake(tradeNo, decision)
+		err = model.RechargeWaffoPancake(tradeNo, decision, model.WaffoPancakePaymentSource{StoreID: event.StoreID, Currency: event.Data.Currency})
 	}
 	if err != nil {
+		if errors.Is(err, model.ErrTopUpPaymentSourceUnresolved) || errors.Is(err, model.ErrPaymentMethodMismatch) {
+			logger.LogWarn(c.Request.Context(), fmt.Sprintf("Pancake payment source unresolved trade_no=%s error_type=%T", tradeNo, err))
+			c.String(http.StatusOK, "OK")
+			return
+		}
 		if service.IsUserFundingWebhookAcknowledge(err) {
 			c.String(http.StatusOK, "OK")
 			return

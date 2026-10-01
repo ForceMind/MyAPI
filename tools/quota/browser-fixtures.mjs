@@ -108,17 +108,47 @@ export function quotaFixtures({ latestError = false } = {}) {
     remark: '', settings: '{}', priority: 0,
     channel_info: { is_multi_key: false, multi_key_size: 0, multi_key_polling_index: 0, multi_key_mode: 'random' },
   }
-  const user = { id: 1, username: 'browser-fixture', display_name: '浏览器回归', role: 100, status: 1, group: 'default', language: 'zhCN', quota: 1000, used_quota: 0, request_count: 1 }
+  const ordinary = process.env.MYAPI_BROWSER_ORDINARY === '1'
+  const user = { id: ordinary ? 2 : 1, username: ordinary ? 'ordinary-browser-fixture' : 'browser-fixture', display_name: '浏览器回归', role: ordinary ? 1 : 100, status: 1, group: 'default', language: 'zhCN', quota: 1000, used_quota: 0, request_count: 1 }
   const ok = (data) => ({ success: true, data })
+  const fundingMode = process.env.MYAPI_BROWSER_FUNDING_MODE || 'disabled'
+  const funding = { mode: fundingMode, epoch: 1, ready: true,
+    can_top_up: fundingMode === 'enabled', can_redeem: fundingMode === 'enabled',
+    can_transfer_affiliate_rewards: fundingMode === 'enabled', can_purchase_subscription: fundingMode === 'enabled',
+    can_view_funding_history: true }
   return { item, history, response(url) {
     const path = url.pathname.replace(/\/$/, '')
+    if (path === '/api/user/auth/refresh' && process.env.MYAPI_BROWSER_ANONYMOUS === '1') return { success: false, message: 'Synthetic visitor' }
     if (path === '/api/user/auth/refresh') return ok({
       access_token: 'synthetic-browser-session-not-a-credential', token_type: 'Bearer', access_expires_at: now + 3600, user,
       session: { sid: 'synthetic-browser-session', current: true, login_method: 'test', ip: '127.0.0.1', user_agent: 'browser regression', created_at: start, last_active_at: now, expires_at: now + 3600 },
     })
     if (path === '/api/user/self') return ok(user)
     if (path === '/api/setup') return ok({ status: true })
-    if (path === '/api/status') return ok({ system_name: 'MyAPI', version: 'browser-fixture', start_time: start, api_info_enabled: false, announcements_enabled: false, faq_enabled: false, uptime_kuma_enabled: false, quota_per_unit: 500000, display_in_currency: false })
+    if (path === '/api/option') return ok([])
+    if (path === '/api/ratio_sync/openai/versions') return this.response(new URL('/api/ratio_sync/openai', url))
+    if (path.startsWith('/api/ratio_sync/openai/versions/')) {
+      if (path.endsWith('/' + 'f'.repeat(64))) return this.response(new URL('/api/ratio_sync/openai', url))
+      return { fixture_http_status: 404, success: false, message: 'Synthetic version missing' }
+    }
+    if (path === '/api/ratio_sync/openai') return ok({
+      source_url: 'https://developers.openai.com/api/docs/pricing.md', fetched_at: now,
+      content_sha256: 'f'.repeat(64), currency: 'USD', unit_tokens: 1000000,
+      service_tier: 'standard', scope: 'text-token-price-source-not-published',
+      models: [
+        { model: 'fixture-cached-model', source_label: 'fixture-cached-model (<272K context length)',
+          short_context: { input_usd_per_million: '2.00', cached_input_usd_per_million: '0.00', cache_write_usd_per_million: '2.50', output_usd_per_million: '10.00' },
+          long_context: { input_usd_per_million: '4.00', cached_input_usd_per_million: '0.20', cache_write_usd_per_million: '5.00', output_usd_per_million: '15.00' } },
+        { model: 'fixture-no-cache', source_label: 'fixture-no-cache',
+          short_context: { input_usd_per_million: '0.005', cached_input_usd_per_million: null, cache_write_usd_per_million: null, output_usd_per_million: '0.25' }, long_context: null },
+      ],
+    })
+    if (path === '/api/home_page_content') return ok('')
+    if (path === '/api/status') return ok({ system_name: 'MyAPI', version: 'browser-fixture', start_time: start, api_info_enabled: false, announcements_enabled: false, faq_enabled: false, uptime_kuma_enabled: false, quota_per_unit: 500000, display_in_currency: false, user_funding_mode: fundingMode, user_funding_capabilities: funding })
+    if (path === '/api/user/topup/info') return ok({ user_funding_mode: fundingMode, user_funding_capabilities: funding, min_topup: 1, payment_types: [], payment_compliance_confirmed: false })
+    if (path === '/api/user/aff') return ok('synthetic-history-no-new-referral')
+    if (path === '/api/subscription/self') return ok({ subscriptions: [], expired_subscriptions: [], billing_preference: 'wallet_only' })
+    if (path === '/api/user/topup/self' || path === '/api/user/topup') return ok({ items: [{ id:1, user_id:1, trade_no:'synthetic-old-order', amount:1, money:1, payment_method:'stripe', create_time:now-40*86400, complete_time:now-40*86400, status:'success' }], total:1, page:1, page_size:10 })
     if (path === '/api/channel/quota/status') return ok({ enabled: true, interval_seconds: 60, max_channels: 2 })
     if (path === '/api/channel/codex/local-auth/status') return ok({
       state: 'ready', platform: 'darwin', environment: 'native',
@@ -129,12 +159,22 @@ export function quotaFixtures({ latestError = false } = {}) {
     })
     if (path === '/api/channel/quota/changes') {
       const requestedOverviewPoints = Number(url.searchParams.get('overview_points') || 0)
+      const overviewItem = {
+        ...item,
+        ...(requestedOverviewPoints > 0 ? {} : { overview_points: undefined }),
+      }
+      const multiSeries = process.env.MYAPI_BROWSER_MULTISERIES === '1'
       return ok({
-        items: [{
-          ...item,
-          ...(requestedOverviewPoints > 0 ? {} : { overview_points: undefined }),
-        }],
+        items: multiSeries ? [
+          { ...overviewItem, name: 'Shared Codex channel', account_label: 'Shared Codex channel', series_id: 'a'.repeat(64) },
+          { ...overviewItem, name: 'Shared Codex channel', account_label: 'Shared Codex channel', series_id: 'b'.repeat(64), current_available: 58,
+            overview_points: overviewItem.overview_points?.map((point) => ({ ...point, available: point.available == null ? null : point.available - 27 })) },
+          { ...overviewItem, channel_id: 2, name: 'Other provider channel', account_label: 'Other account', series_id: 'c'.repeat(64), current_available: 41,
+            overview_points: overviewItem.overview_points?.map((point) => ({ ...point, available: point.available == null ? null : point.available - 44 })) },
+        ] : [overviewItem],
         range: url.searchParams.get('range') || '24h',
+        start: now - 24 * 60 * 60,
+        end: now,
         generated_at: now,
         rate_window_seconds: Number(url.searchParams.get('rate_window') || 86400),
         ewma_half_life_seconds: Number(url.searchParams.get('ewma_half_life') || 43200),
@@ -156,7 +196,30 @@ export function quotaFixtures({ latestError = false } = {}) {
     if (path === '/api/user/passkey') return ok({ enabled: false, credentials: [] })
     if (path === '/api/token' || path === '/api/token/search') return ok({ items: [], total: 0, page: 1, page_size: 10 })
     if (path.startsWith('/api/data') || path === '/api/uptime/status') return ok([])
+    if (path === '/api/log' || path === '/api/log/self') return ok({
+      items: ['reported', 'estimated', 'unknown', null].map((accuracy, index) => ({
+        id: 10 + index, user_id: 1, created_at: now - index * 60,
+        type: 2, content: 'Synthetic usage provenance fixture', username: 'browser-fixture',
+        token_name: 'fixture-key', model_name: `fixture-${accuracy || 'legacy'}`,
+        quota: accuracy === 'unknown' ? 0 : 12500,
+        prompt_tokens: accuracy === 'unknown' ? 0 : 100,
+        completion_tokens: accuracy === 'unknown' ? 0 : 10,
+        use_time: 1, is_stream: true, channel: 1, channel_name: 'Codex Fixture',
+        token_id: 1, group: 'default', ip: '',
+        other: JSON.stringify({ ...(accuracy ? { usage_accuracy: accuracy } : {}),
+          cache_tokens: accuracy === 'unknown' ? 0 : 40, reasoning_tokens: accuracy === 'unknown' ? 0 : 4,
+          model_ratio: 1, completion_ratio: 2, cache_ratio: 0.1, group_ratio: 1 }),
+      })), total: 4, page: 1, page_size: 20,
+    })
     if (path === '/api/log/stat' || path === '/api/log/self/stat') return ok({ quota: 0, rpm: 0, tpm: 0, count: 0 })
+    if (path === '/api/log/overview') return ok({
+      requests: [{ id: 1, created_at: now - 120, model_name: 'gpt-5-codex', username: 'browser-fixture' }],
+      errors: [{ id: 2, created_at: now - 60, model_name: 'failed-model', username: 'browser-fixture' }],
+    })
+    if (path === '/api/log/self/overview') return ok({
+      requests: [{ id: 1, created_at: now - 120, model_name: 'gpt-5-codex' }],
+      errors: [{ id: 2, created_at: now - 60, model_name: 'failed-model' }],
+    })
     if (path === '/api/perf-metrics/summary') return ok({ models: [] })
     if (path === '/api/notice') return ok('')
     return null

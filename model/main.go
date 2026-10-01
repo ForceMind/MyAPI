@@ -232,6 +232,9 @@ func InitDB() (err error) {
 				return fmt.Errorf("detect user quota business writer schema: %w", err)
 			}
 			RefreshAccountQuotaSettlementIntentSchemaCapability(DB)
+			if err := ensureConfiguredChannelQuotaIdentityKeyring(); err != nil {
+				return err
+			}
 			return nil
 		}
 		if common.UsingMainDatabase(common.DatabaseTypeMySQL) {
@@ -246,6 +249,9 @@ func InitDB() (err error) {
 			if err := EnsureTaskRecoveryIdentity(DB); err != nil {
 				return fmt.Errorf("task recovery database identity verification failed: %w", err)
 			}
+		}
+		if err := ensureConfiguredChannelQuotaIdentityKeyring(); err != nil {
+			return err
 		}
 		return nil
 	} else {
@@ -313,9 +319,14 @@ func migrateDB() error {
 
 	err := DB.AutoMigrate(
 		&Channel{},
+		&OfficialPriceVersion{},
 		&ChannelQuotaSnapshot{},
 		&ChannelQuotaAlertState{},
 		&ChannelQuotaAlertEvent{},
+		&ChannelQuotaIdentityKeyRegistry{},
+		&ChannelQuotaIdentityKeyVersion{},
+		&ChannelQuotaIdentityAlias{},
+		&ChannelQuotaSamplingTarget{},
 		&PromptLearningPolicy{},
 		&PromptLearningSample{},
 		&PromptLearningRun{},
@@ -439,7 +450,12 @@ func migrateDBFast() error {
 		name  string
 	}{
 		{&Channel{}, "Channel"},
+		{&OfficialPriceVersion{}, "OfficialPriceVersion"},
 		{&ChannelQuotaSnapshot{}, "ChannelQuotaSnapshot"},
+		{&ChannelQuotaIdentityKeyRegistry{}, "ChannelQuotaIdentityKeyRegistry"},
+		{&ChannelQuotaIdentityKeyVersion{}, "ChannelQuotaIdentityKeyVersion"},
+		{&ChannelQuotaIdentityAlias{}, "ChannelQuotaIdentityAlias"},
+		{&ChannelQuotaSamplingTarget{}, "ChannelQuotaSamplingTarget"},
 		{&PromptLearningPolicy{}, "PromptLearningPolicy"},
 		{&PromptLearningSample{}, "PromptLearningSample"},
 		{&PromptLearningRun{}, "PromptLearningRun"},
@@ -556,6 +572,21 @@ func migrateDBFast() error {
 		}
 	}
 	common.SysLog("database migrated")
+	return nil
+}
+
+// Keep every node on the same registered identity keyring before sampling.
+func ensureConfiguredChannelQuotaIdentityKeyring() error {
+	if os.Getenv(common.ChannelQuotaIdentityKeysEnv) == "" {
+		return nil
+	}
+	keyring, err := common.LoadChannelQuotaIdentityKeyring()
+	if err != nil {
+		return fmt.Errorf("channel quota identity key configuration is invalid: %w", err)
+	}
+	if err := EnsureChannelQuotaIdentityKeyring(context.Background(), DB, keyring); err != nil {
+		return fmt.Errorf("channel quota identity key registry validation failed: %w", err)
+	}
 	return nil
 }
 

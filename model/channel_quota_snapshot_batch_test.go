@@ -36,7 +36,8 @@ func codexQuotaSnapshotForTest(channelID int, observedAt int64, sampleID, source
 	total := float64(100)
 	return ChannelQuotaSnapshot{
 		ChannelId: channelID, ObservedAt: observedAt, SampleID: sampleID,
-		Available: available, Used: &used, Total: &total, Unit: "percent",
+		AccountRef: ChannelQuotaAccountRef("codex", "batch-fixture-account"),
+		Available:  available, Used: &used, Total: &total, Unit: "percent",
 		MetricType: "codex_rate_limit", WindowType: windowType, WindowSeconds: windowSeconds,
 		PlanType: planType, Source: source, Status: "success",
 	}
@@ -187,6 +188,17 @@ func TestRecordChannelQuotaSnapshotBatchRejectsConflictingSampleReplay(t *testin
 		codexQuotaSnapshotForTest(914, observedAt, "sample-conflict", "codex_wham_usage_primary", "team", "five_hour", 18000, 40),
 	}
 	require.ErrorContains(t, RecordChannelQuotaSnapshotBatchWithContext(context.Background(), conflict, options), "sample_id conflicts")
+}
+
+func TestRecordChannelQuotaSnapshotBatchRejectsMixedIdentities(t *testing.T) {
+	_ = setupChannelQuotaBatchSQLite(t, 915)
+	observedAt := time.Now().Unix()
+	rows := []ChannelQuotaSnapshot{
+		codexQuotaSnapshotForTest(915, observedAt, "sample-mixed", "codex_wham_usage_primary", "plus", "five_hour", 18000, 10),
+		codexQuotaSnapshotForTest(915, observedAt, "sample-mixed", "codex_wham_usage_secondary", "plus", "weekly", 604800, 20),
+	}
+	rows[1].AccountRef = ChannelQuotaAccountRef("codex", "different-account")
+	require.ErrorContains(t, RecordChannelQuotaSnapshotBatchWithContext(context.Background(), rows, codexQuotaBatchOptionsForTest()), "cannot mix identities")
 }
 
 func TestChannelQuotaSnapshotBatchConfiguredMySQLAndPostgres(t *testing.T) {

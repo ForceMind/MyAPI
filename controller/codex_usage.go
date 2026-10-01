@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/relay/channel/codex"
 	"github.com/ForceMind/MyAPI/service"
@@ -34,6 +36,7 @@ func GetCodexChannelUsage(c *gin.Context) {
 // usage endpoint. It reuses the bounded history response contract while
 // enforcing the Codex metric scope for callers that do not pass a filter.
 func GetCodexChannelUsageHistory(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		common.ApiError(c, err)
@@ -52,9 +55,23 @@ func GetCodexChannelUsageHistory(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "channel type is not Codex"})
 		return
 	}
-	if channel.ChannelInfo.IsMultiKey {
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": "multi-key channel is not supported"})
+	requestedSeriesID := strings.TrimSpace(c.Query("series_id"))
+	if channel.ChannelInfo.IsMultiKey && requestedSeriesID == "" {
+		c.JSON(http.StatusOK, gin.H{"success": false, "code": "quota_history_series_required", "message": common.TranslateMessage(c, i18n.MsgQuotaHistorySeriesRequired)})
 		return
+	}
+	if requestedSeriesID != "" {
+		valid := len(requestedSeriesID) == 64
+		for _, char := range requestedSeriesID {
+			if (char < '0' || char > '9') && (char < 'a' || char > 'f') {
+				valid = false
+				break
+			}
+		}
+		if !valid {
+			c.JSON(http.StatusOK, gin.H{"success": false, "code": "quota_history_invalid_series", "message": common.TranslateMessage(c, i18n.MsgQuotaHistoryInvalidSeries)})
+			return
+		}
 	}
 	now := time.Now().Unix()
 	end, start := now, now-30*24*60*60
@@ -97,14 +114,52 @@ func GetCodexChannelUsageHistory(c *gin.Context) {
 	if limit > 2000 {
 		limit = 2000
 	}
-	snapshots, err := model.ListChannelQuotaSnapshots(id, start, end, "codex_rate_limit", strings.TrimSpace(query.Get("window_type")), limit)
+	filter := model.ChannelQuotaSnapshotQuery{MetricType: "codex_rate_limit", WindowType: strings.TrimSpace(query.Get("window_type"))}
+	candidates, err := model.ListChannelQuotaSnapshotsForHistory(c.Request.Context(), id, start, end, filter, maxQuotaHistoryRawObservations)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	currentSnapshots, err := model.ListLatestChannelQuotaSnapshotBatch(
-		c.Request.Context(), id, start, end, "codex_rate_limit",
-	)
+	if !candidates.Complete {
+		c.JSON(http.StatusOK, gin.H{"success": false, "code": "quota_history_selection_too_large", "message": common.TranslateMessage(c, i18n.MsgQuotaHistorySelectionTooLarge)})
+		return
+	}
+	unknownIdentityCount := 0
+	var selected *model.ChannelQuotaSnapshot
+	identityQuality := "unavailable"
+	for index := len(candidates.Snapshots) - 1; index >= 0; index-- {
+		snapshot := candidates.Snapshots[index]
+		seriesID := model.ChannelQuotaSnapshotSeriesID(snapshot)
+		if seriesID == "" {
+			unknownIdentityCount++
+			continue
+		}
+		if selected == nil && (requestedSeriesID == "" || requestedSeriesID == seriesID) {
+			selected = &snapshot
+		}
+	}
+	if requestedSeriesID != "" && selected == nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "code": "quota_history_series_not_found", "message": common.TranslateMessage(c, i18n.MsgQuotaHistorySeriesNotFound)})
+		return
+	}
+	if selected != nil {
+		filter.IdentityScoped = true
+		filter.SubjectRef, filter.IdentityQuality, filter.AccountRef = selected.SubjectRef, selected.IdentityQuality, selected.AccountRef
+		_, identityQuality, _ = model.ChannelQuotaSnapshotIdentity(*selected)
+	}
+	// Legacy single-key observations with no identity remain readable, but are
+	// explicitly unscoped. Once identity exists, unknown rows never get assigned
+	// to that account, even when they are newer than its last known observation.
+	snapshots, err := model.ListChannelQuotaSnapshotsWithQuery(id, start, end, filter, limit)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	currentFilter := filter
+	// A window selector limits historical points, not the account's latest
+	// observation: a generic provider failure must still replace old success.
+	currentFilter.WindowType = ""
+	currentSnapshots, err := model.ListChannelQuotaSnapshotsWithQuery(id, start, end, currentFilter, 1)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -132,7 +187,7 @@ func GetCodexChannelUsageHistory(c *gin.Context) {
 	for _, batchKey := range pointOrder {
 		points = append(points, pointsByBatch[batchKey])
 	}
-	dataQuality := gin.H{"success_count": successCount, "error_count": errorCount, "unsupported_count": unsupportedCount}
+	dataQuality := gin.H{"success_count": successCount, "error_count": errorCount, "unsupported_count": unsupportedCount, "identity_unavailable_count": unknownIdentityCount}
 	if len(snapshots) > 1 {
 		dataQuality["span_seconds"] = snapshots[len(snapshots)-1].ObservedAt - snapshots[0].ObservedAt
 	} else {
@@ -172,8 +227,12 @@ func GetCodexChannelUsageHistory(c *gin.Context) {
 	summary["latest_observed_at"] = latestObservedAt
 	response := gin.H{
 		"channel_id": id, "start": start, "end": end, "limit": limit,
-		"points": points, "current": current, "data_quality": dataQuality,
+		"identity_quality": identityQuality,
+		"points":           points, "current": current, "data_quality": dataQuality,
 		"summary": summary,
+	}
+	if selected != nil {
+		response["series_id"] = model.ChannelQuotaSnapshotSeriesID(*selected)
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": response})
 }
@@ -360,7 +419,9 @@ func fetchCodexChannelWhamData(
 	if err != nil {
 		common.SysError(logPrefix + ": " + err.Error())
 		if recordUsage {
-			recordCodexUsageSnapshots(channelId, 0, nil)
+			if persistErr := recordManualCodexUsageSnapshots(ctx, ch, ch.Key, accountID, 0, nil); persistErr != nil {
+				common.SysError("failed to record Codex usage snapshot: " + persistErr.Error())
+			}
 		}
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": userMessage})
 		return
@@ -381,11 +442,20 @@ func fetchCodexChannelWhamData(
 		} else {
 			ctx2, cancel2 := context.WithTimeout(c.Request.Context(), 15*time.Second)
 			defer cancel2()
-			statusCode, body, err = fetch(ctx2, client, ch.GetBaseURL(), refreshedKey.AccessToken, refreshedKey.AccountID)
+			accountID = strings.TrimSpace(refreshedKey.AccountID)
+			encodedKey, encodeErr := common.Marshal(refreshedKey)
+			if encodeErr != nil {
+				common.ApiError(c, encodeErr)
+				return
+			}
+			ch.Key = string(encodedKey)
+			statusCode, body, err = fetch(ctx2, client, ch.GetBaseURL(), refreshedKey.AccessToken, accountID)
 			if err != nil {
 				common.SysError(logPrefix + " after refresh: " + err.Error())
 				if recordUsage {
-					recordCodexUsageSnapshots(channelId, 0, nil)
+					if persistErr := recordManualCodexUsageSnapshots(ctx2, ch, ch.Key, accountID, 0, nil); persistErr != nil {
+						common.SysError("failed to record Codex usage snapshot: " + persistErr.Error())
+					}
 				}
 				c.JSON(http.StatusOK, gin.H{"success": false, "message": userMessage})
 				return
@@ -400,7 +470,11 @@ func fetchCodexChannelWhamData(
 
 	ok := statusCode >= 200 && statusCode < 300
 	if recordUsage {
-		recordCodexUsageSnapshots(channelId, statusCode, body)
+		if persistErr := recordManualCodexUsageSnapshots(ctx, ch, ch.Key, accountID, statusCode, body); persistErr != nil {
+			common.SysError("failed to record Codex usage snapshot: " + persistErr.Error())
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": userMessage})
+			return
+		}
 	}
 	resp := gin.H{
 		"success":         ok,
@@ -476,6 +550,42 @@ func newChannelQuotaSamplingError(queryErr, persistErr error) error {
 	return &channelQuotaSamplingError{QueryErr: queryErr, PersistErr: persistErr}
 }
 
+// Manual WHAM reads must persist the same account identity used by routing.
+// A successful supported response confirms account scope; failures remain
+// credential-scoped and cannot make another account appear exhausted.
+func recordManualCodexUsageSnapshots(ctx context.Context, channel *model.Channel, credential, accountID string, statusCode int, body []byte) error {
+	if channel == nil {
+		return errors.New("nil Codex channel")
+	}
+	supported := statusCode >= 200 && statusCode < 300 && codexUsageResponseSupportsRateLimit(statusCode, body)
+	if strings.TrimSpace(accountID) == "" && supported {
+		return errors.New("Codex usage account identity is unavailable")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	persistCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), channelQuotaPersistenceTimeout)
+	defer cancel()
+	observedAt, err := model.ReadDatabaseUnixTime(persistCtx, model.DB)
+	if err != nil {
+		return err
+	}
+	if os.Getenv(common.ChannelQuotaIdentityKeysEnv) == "" {
+		return recordCodexUsageSnapshotsAtForAccount(channel.Id, accountID, observedAt, statusCode, body)
+	}
+	kind := common.ChannelQuotaIdentityKindCredential
+	material := []byte(credential)
+	if supported {
+		kind = common.ChannelQuotaIdentityKindProviderAccount
+		material = []byte(accountID)
+	}
+	identity, err := resolveQuotaSamplingIdentity(persistCtx, channel.Type, kind, material)
+	if err != nil {
+		return err
+	}
+	return recordCodexUsageSnapshotsForIdentity(channel.Id, identity, observedAt, uuid.NewString(), statusCode, body)
+}
+
 func recordCodexUsageSnapshots(channelID, statusCode int, body []byte) error {
 	return recordCodexUsageSnapshotsForAccount(channelID, "", statusCode, body)
 }
@@ -501,6 +611,15 @@ func recordCodexUsageSnapshotsAtWithSampleIDForAccount(channelID int, accountID 
 	accountRef := model.ChannelQuotaAccountRef("codex", accountID)
 	for index := range snapshots {
 		snapshots[index].AccountRef = accountRef
+	}
+	return recordCodexSnapshotBatch(snapshots, sampleID)
+}
+
+func recordCodexUsageSnapshotsForIdentity(channelID int, identity model.ChannelQuotaResolvedIdentity, observedAt int64, sampleID string, statusCode int, body []byte) error {
+	snapshots := normalizeCodexUsageSnapshots(channelID, observedAt, statusCode, body)
+	for index := range snapshots {
+		snapshots[index].SubjectRef = identity.SubjectRef
+		snapshots[index].IdentityQuality = identity.Quality
 	}
 	return recordCodexSnapshotBatch(snapshots, sampleID)
 }
@@ -549,6 +668,17 @@ func recordCodexCredentialPersistenceFailure(channelID int) error {
 	return recordCodexSnapshotBatch(snapshots, uuid.NewString())
 }
 
+func recordCodexCredentialPersistenceFailureForIdentity(channelID int, identity model.ChannelQuotaResolvedIdentity, observedAt int64, sampleID string) error {
+	snapshots := normalizeCodexUsageSnapshots(channelID, observedAt, 0, nil)
+	for index := range snapshots {
+		snapshots[index].SubjectRef = identity.SubjectRef
+		snapshots[index].IdentityQuality = identity.Quality
+	}
+	snapshots[0].ErrorCode = "credential_persist_failed"
+	snapshots[0].ErrorMessage = "refreshed quota credentials could not be saved"
+	return recordCodexSnapshotBatch(snapshots, sampleID)
+}
+
 // sampleCodexChannelUsage records one normalized official WHAM usage sample for
 // the bounded background quota sampler. It deliberately shares the same
 // endpoint and normalization contract as the admin usage view, but never
@@ -559,51 +689,100 @@ func sampleCodexChannelUsage(ctx context.Context, ch *model.Channel) error {
 	if ch == nil {
 		return fmt.Errorf("nil Codex channel")
 	}
+	identity, identityErr := resolveQuotaSamplingIdentity(ctx, ch.Type, common.ChannelQuotaIdentityKindCredential, []byte(ch.Key))
+	if identityErr != nil {
+		snapshots := normalizeCodexUsageSnapshots(ch.Id, time.Now().Unix(), 0, nil)
+		snapshots[0].ErrorCode = "identity_unavailable"
+		snapshots[0].ErrorMessage = "quota sampling identity is unavailable"
+		return newChannelQuotaSamplingError(identityErr, recordCodexSnapshotBatch(snapshots, uuid.NewString()))
+	}
+	return sampleCodexCredentialUsage(ctx, ch, ch.Key, identity, nil, nil, nil)
+}
+
+func sampleCodexCredentialUsage(ctx context.Context, ch *model.Channel, credential string, credentialIdentity model.ChannelQuotaResolvedIdentity, acceptConfirmedAccount func(string) bool, releaseConfirmedAccount func(string), resolvedCredentialIdentity *model.ChannelQuotaResolvedIdentity) error {
+	if ch == nil {
+		return fmt.Errorf("nil Codex channel")
+	}
 	if ctx == nil {
 		ctx = context.Background()
+	}
+	if resolvedCredentialIdentity != nil {
+		*resolvedCredentialIdentity = credentialIdentity
 	}
 	// One deadline covers the original request, credential refresh and retry.
 	// Never renew the budget after a 401 or let the relay's unlimited timeout
 	// keep the background sampler and channel polling lock occupied forever.
 	ctx, cancel := context.WithTimeout(ctx, codexQuotaSamplingRequestTimeout)
 	defer cancel()
-	oauthKey, err := codex.ParseOAuthKey(strings.TrimSpace(ch.Key))
+	sampleID := uuid.NewString()
+	observedAt, clockErr := model.ReadDatabaseUnixTime(ctx, model.DB)
+	if clockErr != nil {
+		return newChannelQuotaSamplingError(clockErr, nil)
+	}
+	persist := func(identity model.ChannelQuotaResolvedIdentity, statusCode int, body []byte) error {
+		persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), channelQuotaPersistenceTimeout)
+		defer persistCancel()
+		completedAt, err := model.ReadDatabaseUnixTime(persistCtx, model.DB)
+		if err != nil {
+			return err
+		}
+		return recordCodexUsageSnapshotsForIdentity(ch.Id, identity, completedAt, sampleID, statusCode, body)
+	}
+	oauthKey, err := codex.ParseOAuthKey(strings.TrimSpace(credential))
 	if err != nil {
-		persistErr := recordCodexUsageSnapshots(ch.Id, 0, nil)
+		persistErr := persist(credentialIdentity, 0, nil)
 		return newChannelQuotaSamplingError(fmt.Errorf("parse Codex OAuth key: %w", err), persistErr)
 	}
 	accessToken := strings.TrimSpace(oauthKey.AccessToken)
 	accountID := strings.TrimSpace(oauthKey.AccountID)
 	if accessToken == "" || accountID == "" {
-		persistErr := recordCodexUsageSnapshots(ch.Id, 0, nil)
+		persistErr := persist(credentialIdentity, 0, nil)
 		return newChannelQuotaSamplingError(fmt.Errorf("Codex OAuth key is missing access_token or account_id"), persistErr)
 	}
 	client, err := service.GetHttpClientWithProxy(ch.GetSetting().Proxy)
 	if err != nil {
-		persistErr := recordCodexUsageSnapshots(ch.Id, 0, nil)
+		persistErr := persist(credentialIdentity, 0, nil)
 		return newChannelQuotaSamplingError(err, persistErr)
 	}
 	statusCode, body, err := service.FetchCodexWhamUsage(ctx, client, ch.GetBaseURL(), accessToken, accountID)
 	if err == nil && (statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden) && strings.TrimSpace(oauthKey.RefreshToken) != "" {
-		refreshedKey, _, refreshErr := service.RefreshCodexChannelCredential(ctx, ch.Id, service.CodexCredentialRefreshOptions{ExpectedKey: &ch.Key})
+		refreshedKey, refreshErr := service.RefreshCodexChannelCredentialElement(ctx, ch.Id, credential, ch.GetSetting().Proxy)
 		if refreshErr != nil {
 			var persistErr *service.CodexCredentialPersistenceError
 			if errors.As(refreshErr, &persistErr) {
-				snapshotErr := recordCodexCredentialPersistenceFailure(ch.Id)
+				snapshotErr := recordCodexCredentialPersistenceFailureForIdentity(ch.Id, credentialIdentity, observedAt, sampleID)
 				return newChannelQuotaSamplingError(errors.New("Codex credential refresh could not be persisted"), errors.Join(persistErr, snapshotErr))
 			}
 			err = refreshErr
 		} else {
+			encodedCredential, encodeErr := common.Marshal(refreshedKey)
+			if encodeErr != nil {
+				return newChannelQuotaSamplingError(encodeErr, persist(credentialIdentity, 0, nil))
+			}
+			identityCtx, identityCancel := context.WithTimeout(context.WithoutCancel(ctx), channelQuotaPersistenceTimeout)
+			refreshedIdentity, identityErr := resolveQuotaSamplingIdentity(identityCtx, ch.Type, common.ChannelQuotaIdentityKindCredential, encodedCredential)
+			identityCancel()
+			if identityErr != nil {
+				return newChannelQuotaSamplingError(identityErr, persist(credentialIdentity, 0, nil))
+			}
+			credentialIdentity = refreshedIdentity
+			if resolvedCredentialIdentity != nil {
+				*resolvedCredentialIdentity = refreshedIdentity
+			}
 			accountID = strings.TrimSpace(refreshedKey.AccountID)
 			if accountID == "" {
-				persistErr := recordCodexUsageSnapshots(ch.Id, 0, nil)
+				persistErr := persist(credentialIdentity, 0, nil)
 				return newChannelQuotaSamplingError(errors.New("refreshed Codex credential is missing account_id"), persistErr)
 			}
 			statusCode, body, err = service.FetchCodexWhamUsage(ctx, client, ch.GetBaseURL(), refreshedKey.AccessToken, accountID)
 		}
 	}
 	if err != nil {
-		snapshots := normalizeCodexUsageSnapshots(ch.Id, time.Now().Unix(), 0, nil)
+		snapshots := normalizeCodexUsageSnapshots(ch.Id, observedAt, 0, nil)
+		for index := range snapshots {
+			snapshots[index].SubjectRef = credentialIdentity.SubjectRef
+			snapshots[index].IdentityQuality = credentialIdentity.Quality
+		}
 		if errors.Is(err, context.DeadlineExceeded) {
 			snapshots[0].ErrorCode = "upstream_timeout"
 			snapshots[0].ErrorMessage = "quota sampling request timed out"
@@ -613,11 +792,11 @@ func sampleCodexChannelUsage(ctx context.Context, ch *model.Channel) error {
 		}
 		// Persist the safe failure marker independently of the expired request
 		// context, so a timed-out account yields its turn in the next batch.
-		persistErr := recordCodexSnapshotBatch(snapshots, uuid.NewString())
+		persistErr := recordCodexSnapshotBatch(snapshots, sampleID)
 		return newChannelQuotaSamplingError(err, persistErr)
 	}
-	persistErr := recordCodexUsageSnapshotsForAccount(ch.Id, accountID, statusCode, body)
 	if statusCode < 200 || statusCode >= 300 {
+		persistErr := persist(credentialIdentity, statusCode, body)
 		return newChannelQuotaSamplingError(fmt.Errorf("Codex usage upstream status %d", statusCode), persistErr)
 	}
 	// A successful HTTP response is not necessarily a usable quota sample.  In
@@ -626,7 +805,20 @@ func sampleCodexChannelUsage(ctx context.Context, ch *model.Channel) error {
 	// those observations as unsupported so the scheduled sampler reports them
 	// in Unsupported instead of falsely counting them as Sampled.
 	if !codexUsageResponseSupportsRateLimit(statusCode, body) {
+		persistErr := persist(credentialIdentity, statusCode, body)
 		return newChannelQuotaSamplingError(errChannelQuotaUnsupported, persistErr)
+	}
+	observationIdentity, confirmErr := resolveQuotaSamplingIdentity(ctx, ch.Type, common.ChannelQuotaIdentityKindProviderAccount, []byte(accountID))
+	if confirmErr != nil {
+		return newChannelQuotaSamplingError(confirmErr, persist(credentialIdentity, statusCode, body))
+	}
+	confirmedSubject := observationIdentity.SubjectRef
+	if acceptConfirmedAccount != nil && !acceptConfirmedAccount(confirmedSubject) {
+		return nil
+	}
+	persistErr := persist(observationIdentity, statusCode, body)
+	if persistErr != nil && releaseConfirmedAccount != nil {
+		releaseConfirmedAccount(confirmedSubject)
 	}
 	return newChannelQuotaSamplingError(nil, persistErr)
 }
