@@ -540,6 +540,9 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 		}
 	}
 
+	if err := service.PrepareTextUsageDispatch(c, req, info); err != nil {
+		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgTextUsageDispatchPending)), types.ErrorCode("usage_dispatch_unresolved"), http.StatusServiceUnavailable, types.ErrOptionWithSkipRetry())
+	}
 	resp, err := relayClient.Do(req)
 	if err != nil {
 		logger.LogError(c, "do request failed: "+err.Error())
@@ -548,6 +551,7 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 	if resp == nil {
 		return nil, errors.New("resp is nil")
 	}
+	service.ObserveTextUsageDispatchResponse(info, resp.StatusCode)
 	if common2.DebugEnabled {
 		policy := service.NormalizeHTTPTransportPolicy(info.ChannelSetting)
 		logger.LogDebug(c, fmt.Sprintf(

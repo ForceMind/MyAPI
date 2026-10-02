@@ -39,6 +39,10 @@ type BillingSession struct {
 	refundIntentErr            error
 	settlementPending          bool
 	usageUnknown               bool
+	usageHoldPersisted         bool
+	textDispatchTracked        bool
+	textDispatchPossible       bool
+	textDispatchFinalizing     bool
 	legacyUsageJournal         bool
 	settlementIntentReady      bool
 	settlementInput            *model.AccountQuotaSettlementFactInput
@@ -430,7 +434,7 @@ func (s *BillingSession) Refund(c *gin.Context) (resultErr error) {
 		}
 	}()
 	s.mu.Lock()
-	if s.usageUnknown {
+	if s.usageUnknown || s.textDispatchPossible && !s.settled && !s.refunded {
 		s.mu.Unlock()
 		return model.ErrAccountQuotaUsageUnresolved
 	}
@@ -573,7 +577,7 @@ func (s *BillingSession) NeedsRefund() bool {
 }
 
 func (s *BillingSession) needsRefundLocked() bool {
-	if s.usageUnknown {
+	if s.usageUnknown || s.textDispatchPossible {
 		return false
 	}
 	if s.writerMode == model.QuotaWriterModeAuthoritative || s.writerMode == model.QuotaWriterModeBridge {

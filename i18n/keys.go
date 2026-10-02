@@ -1,6 +1,7 @@
 package i18n
 
 const (
+	MsgTextUsageDispatchPending    = "usage_dispatch.pending"
 	MsgTokenBudgetUnsupported      = "token_budget.unsupported"
 	MsgTokenBudgetPending          = "token_budget.pending"
 	MsgTokenBudgetExceeded         = "token_budget.exceeded"

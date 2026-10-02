@@ -34,10 +34,13 @@ func (s *BillingSession) HoldUnknownUsage(parent context.Context, reason string,
 		}
 		ctx, cancel := billingOperationContext(parent, 5*time.Second)
 		defer cancel()
-		return model.UpdateLegacyUsageReservation(ctx, model.DB, s.relayInfo.RequestId,
+		err := model.UpdateLegacyUsageReservation(ctx, model.DB, s.relayInfo.RequestId,
 			int64(s.preConsumedQuota), int64(s.tokenConsumed), model.LegacyUsageUnknown, reason, nil, metadata...)
+		s.usageHoldPersisted = err == nil
+		return err
 	}
 	_, err := model.HoldAccountQuotaUnknownUsage(parent, model.DB, s.reserveReceipt.RequestID, s.reserveReceipt.ID, reason, metadata...)
+	s.usageHoldPersisted = err == nil
 	return err
 }
 

@@ -1,3 +1,4 @@
+usage_dispatch.pending: "该请求不能再次发送，请先核对其用量结算状态。"
 # Chinese (Simplified) translations
 token_budget.unsupported: "此严格 Token 预算仅支持 OpenAI 官方 Responses 纯文本请求，须明确 max_output_tokens 并采用非免费的按 Token 计价"
 token_budget.pending: "此 Key 有尚未处理的用量预留，后续请求已暂停"

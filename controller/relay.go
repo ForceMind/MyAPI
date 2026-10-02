@@ -180,10 +180,11 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	defer func() {
 		budgetHeld := service.FinalizeTokenBudgetDispatch(c, relayInfo)
+		usageHeld := service.FinalizeTextUsageDispatch(c, relayInfo)
 		// Only return quota if downstream failed and quota was actually pre-consumed
 		if newAPIError != nil {
 			newAPIError = service.NormalizeViolationFeeError(newAPIError)
-			if relayInfo.Billing != nil && !budgetHeld {
+			if relayInfo.Billing != nil && !budgetHeld && !usageHeld {
 				if refundErr := relayInfo.Billing.Refund(c); refundErr != nil {
 					logBillingRefundFailure(c, "relay", refundErr)
 				}
@@ -250,7 +251,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 		newAPIError = service.NormalizeViolationFeeError(newAPIError)
 		relayInfo.LastError = newAPIError
-		if (relayInfo.StrictTokenBudget && strings.HasPrefix(string(newAPIError.GetErrorCode()), "token_budget_")) || strings.HasPrefix(string(newAPIError.GetErrorCode()), "account_threshold_") {
+		if (relayInfo.StrictTokenBudget && strings.HasPrefix(string(newAPIError.GetErrorCode()), "token_budget_")) || strings.HasPrefix(string(newAPIError.GetErrorCode()), "account_threshold_") || isTextUsageDispatchGuardError(newAPIError) {
 			break
 		}
 
@@ -258,6 +259,9 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			break
 		}
 
+		if service.FinalizeTextUsageDispatch(c, relayInfo) {
+			break
+		}
 		if relayInfo.StrictTokenBudget || !shouldRetry(c, newAPIError, common.RetryTimes-retryParam.GetRetry()) {
 			break
 		}
@@ -366,6 +370,10 @@ func currentRelayPolicyGroup(c *gin.Context, fallback string) string {
 		return selectedGroup
 	}
 	return fallback
+}
+
+func isTextUsageDispatchGuardError(err *types.NewAPIError) bool {
+	return err != nil && err.GetErrorType() == types.ErrorTypeNewAPIError && err.GetErrorCode() == types.ErrorCode("usage_dispatch_unresolved") && types.IsSkipRetryError(err)
 }
 
 func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) bool {

@@ -1,3 +1,4 @@
+usage_dispatch.pending: "This request cannot be sent again. Check its usage settlement status first."
 # English translations
 token_budget.unsupported: "This strict Token budget supports only official OpenAI Responses text requests with explicit max_output_tokens and non-free per-token pricing"
 token_budget.pending: "This key has an unresolved usage reservation. Further requests are paused"
