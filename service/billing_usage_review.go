@@ -110,7 +110,7 @@ func recordPendingBillingSettlement(ctx *gin.Context, info *relaycommon.RelayInf
 		map[string]interface{}{"settlement_status": "pending_review", "actual_quota": nil, "reserved_quota": info.FinalPreConsumedQuota})
 }
 
-func holdUnverifiedTextUsage(ctx *gin.Context, info *relaycommon.RelayInfo, reason string, summary textQuotaSummary) {
+func usageReviewPricingEvidence(info *relaycommon.RelayInfo, summary textQuotaSummary) ([]byte, error) {
 	// Preserve independently known tool obligations and frozen pricing inputs;
 	// never serialize request headers, prompts, API keys or raw model output.
 	var knownRealtimeQuota *int
@@ -133,10 +133,21 @@ func holdUnverifiedTextUsage(ctx *gin.Context, info *relaycommon.RelayInfo, reas
 		UnitCaptured        bool                         `json:"quota_unit_captured"`
 		KnownRealtimeQuota  *int                         `json:"known_realtime_quota,omitempty"`
 		FrozenTieredPricing *billingexpr.BillingSnapshot `json:"frozen_tiered_pricing,omitempty"`
-	}{1, info.OriginModelName, requestQuotaUnit(info.PriceData), summary.ModelRatio, summary.CompletionRatio, summary.GroupRatio, summary.ToolSurchargeItems, info.PriceData.QuotedQuotaUnit(0) > 0, knownRealtimeQuota, frozenTieredPricing})
+		StrictTokenBudget   bool                         `json:"strict_token_budget,omitempty"`
+	}{1, info.OriginModelName, requestQuotaUnit(info.PriceData), summary.ModelRatio, summary.CompletionRatio, summary.GroupRatio, summary.ToolSurchargeItems, info.PriceData.QuotedQuotaUnit(0) > 0, knownRealtimeQuota, frozenTieredPricing, info.StrictTokenBudget})
 	if len(metadata) > 16384 {
 		metadataErr = fmt.Errorf("usage review pricing metadata exceeds limit")
 	}
+	return metadata, metadataErr
+}
+
+func holdUnverifiedTextUsage(ctx *gin.Context, info *relaycommon.RelayInfo, reason string, summary textQuotaSummary) {
+	if info.StrictTokenBudget {
+		if err := HoldTokenBudgetUsage(ctx.Request.Context(), info, reason); err != nil {
+			logger.LogError(ctx, "token budget remains unresolved: "+err.Error())
+		}
+	}
+	metadata, metadataErr := usageReviewPricingEvidence(info, summary)
 	var holdErr error
 	if session, ok := info.Billing.(*BillingSession); ok {
 		parent := context.Background()

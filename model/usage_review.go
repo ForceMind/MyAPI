@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -32,19 +33,21 @@ func ValidateUsageReviewSchema(db *gorm.DB) error {
 // UsageReviewDecision is the immutable evidence reference for a manual
 // resolution. It contains no prompts, credentials or provider response bodies.
 type UsageReviewDecision struct {
-	ID                int64  `json:"id" gorm:"primaryKey"`
-	RequestID         string `json:"request_id" gorm:"type:varchar(64);not null;uniqueIndex"`
-	ActorID           int    `json:"actor_id" gorm:"not null"`
-	UserID            int    `json:"user_id" gorm:"not null"`
-	TokenID           int    `json:"token_id" gorm:"not null"`
-	ChannelID         int    `json:"channel_id" gorm:"not null"`
-	ModelName         string `json:"model_name" gorm:"size:512"`
-	ActualQuota       int64  `json:"actual_quota" gorm:"type:bigint;not null"`
-	EvidenceReference string `json:"evidence_reference" gorm:"size:2048;not null"`
-	EvidenceDigest    string `json:"evidence_digest" gorm:"type:char(64);not null"`
-	CreatedAt         int64  `json:"created_at" gorm:"type:bigint;not null"`
-	StatisticsApplied bool   `json:"statistics_applied" gorm:"not null"`
-	LogProjected      bool   `json:"log_projected" gorm:"not null;index"`
+	ActualInputTokens  *int64 `json:"actual_input_tokens,omitempty" gorm:"type:bigint"`
+	ActualOutputTokens *int64 `json:"actual_output_tokens,omitempty" gorm:"type:bigint"`
+	ID                 int64  `json:"id" gorm:"primaryKey"`
+	RequestID          string `json:"request_id" gorm:"type:varchar(64);not null;uniqueIndex"`
+	ActorID            int    `json:"actor_id" gorm:"not null"`
+	UserID             int    `json:"user_id" gorm:"not null"`
+	TokenID            int    `json:"token_id" gorm:"not null"`
+	ChannelID          int    `json:"channel_id" gorm:"not null"`
+	ModelName          string `json:"model_name" gorm:"size:512"`
+	ActualQuota        int64  `json:"actual_quota" gorm:"type:bigint;not null"`
+	EvidenceReference  string `json:"evidence_reference" gorm:"size:2048;not null"`
+	EvidenceDigest     string `json:"evidence_digest" gorm:"type:char(64);not null"`
+	CreatedAt          int64  `json:"created_at" gorm:"type:bigint;not null"`
+	StatisticsApplied  bool   `json:"statistics_applied" gorm:"not null"`
+	LogProjected       bool   `json:"log_projected" gorm:"not null;index"`
 }
 
 func (UsageReviewDecision) TableName() string            { return "usage_review_decisions" }
@@ -52,19 +55,20 @@ func (*UsageReviewDecision) BeforeUpdate(*gorm.DB) error { return ErrAccountQuot
 func (*UsageReviewDecision) BeforeDelete(*gorm.DB) error { return ErrAccountQuotaReceiptImmutable }
 
 type UsageReviewDetail struct {
-	RequestID        string               `json:"request_id"`
-	UserID           int                  `json:"user_id"`
-	TokenID          int                  `json:"token_id"`
-	ChannelID        int                  `json:"channel_id"`
-	ModelName        string               `json:"model_name"`
-	Writer           string               `json:"writer"`
-	State            string               `json:"state"`
-	ReservedQuota    int64                `json:"reserved_quota"`
-	ActualQuota      *int64               `json:"actual_quota"`
-	Reason           string               `json:"reason"`
-	ReviewMetadata   string               `json:"review_metadata"`
-	ReserveReceiptID int64                `json:"reserve_receipt_id,omitempty"`
-	Decision         *UsageReviewDecision `json:"decision,omitempty"`
+	TokenBudget      *TokenBudgetReservation `json:"token_budget,omitempty"`
+	RequestID        string                  `json:"request_id"`
+	UserID           int                     `json:"user_id"`
+	TokenID          int                     `json:"token_id"`
+	ChannelID        int                     `json:"channel_id"`
+	ModelName        string                  `json:"model_name"`
+	Writer           string                  `json:"writer"`
+	State            string                  `json:"state"`
+	ReservedQuota    int64                   `json:"reserved_quota"`
+	ActualQuota      *int64                  `json:"actual_quota"`
+	Reason           string                  `json:"reason"`
+	ReviewMetadata   string                  `json:"review_metadata"`
+	ReserveReceiptID int64                   `json:"reserve_receipt_id,omitempty"`
+	Decision         *UsageReviewDecision    `json:"decision,omitempty"`
 }
 
 func GetUsageReview(ctx context.Context, db *gorm.DB, actorID int, requestID string) (*UsageReviewDetail, error) {
@@ -134,6 +138,22 @@ func GetUsageReview(ctx context.Context, db *gorm.DB, actorID int, requestID str
 	} else {
 		return nil, err
 	}
+	var pricingFlags struct {
+		StrictTokenBudget bool `json:"strict_token_budget"`
+	}
+	if common.UnmarshalJsonStr(view.ReviewMetadata, &pricingFlags) == nil && pricingFlags.StrictTokenBudget {
+		var budget TokenBudgetReservation
+		if err := db.WithContext(ctx).First(&budget, "request_id = ?", requestID).Error; err != nil {
+			return nil, err
+		}
+		if budget.RequestID != requestID || budget.TokenID != view.TokenID || budget.UserID != view.UserID {
+			return nil, ErrTokenBudgetConflict
+		}
+		if actor.Role != common.RoleRootUser {
+			budget.EvidenceReference = ""
+		}
+		view.TokenBudget = &budget
+	}
 	if actor.Role == common.RoleRootUser {
 		var decision UsageReviewDecision
 		err := db.WithContext(ctx).Where("request_id = ?", requestID).First(&decision).Error
@@ -146,7 +166,12 @@ func GetUsageReview(ctx context.Context, db *gorm.DB, actorID int, requestID str
 	return view, nil
 }
 
-func ReconcileUsageReview(ctx context.Context, db *gorm.DB, actorID int, requestID string, actual int64, evidence string) (*UsageReviewDetail, error) {
+type UsageReviewTokenCounts struct {
+	Input  int64
+	Output int64
+}
+
+func ReconcileUsageReview(ctx context.Context, db *gorm.DB, actorID int, requestID string, actual int64, evidence string, tokenCounts ...UsageReviewTokenCounts) (*UsageReviewDetail, error) {
 	if db == nil {
 		return nil, gorm.ErrInvalidDB
 	}
@@ -164,11 +189,34 @@ func ReconcileUsageReview(ctx context.Context, db *gorm.DB, actorID int, request
 	if err != nil {
 		return nil, err
 	}
+	if len(tokenCounts) > 1 || (view.TokenBudget != nil) != (len(tokenCounts) == 1) {
+		return nil, ErrTokenBudgetInvalid
+	}
+	if len(tokenCounts) == 1 {
+		counts := tokenCounts[0]
+		if counts.Input < 0 || counts.Output < 0 || counts.Input > int64(common.MaxQuota) || counts.Output > int64(common.MaxQuota)-counts.Input {
+			return nil, ErrTokenBudgetInvalid
+		}
+		if view.TokenBudget.State == TokenBudgetPrepared || view.TokenBudget.State == TokenBudgetCancelled {
+			return nil, ErrTokenBudgetPending
+		}
+		if view.TokenBudget.State == TokenBudgetSettled && (view.TokenBudget.ActualInput == nil || view.TokenBudget.ActualOutput == nil || *view.TokenBudget.ActualInput != counts.Input || *view.TokenBudget.ActualOutput != counts.Output) {
+			return nil, ErrTokenBudgetConflict
+		}
+	}
 	if err := validateReviewedQuotaObligations(view.ReviewMetadata, actual); err != nil {
 		return nil, err
 	}
 	if view.State != AccountQuotaTerminalRecoveryUsageUnknown && view.State != LegacyUsageReviewPending && view.Decision == nil {
 		return nil, ErrAccountQuotaUsageUnresolved
+	}
+	// Freeze automatic token settlement before committing a manual decision.
+	// If a concurrent relay settled first, fail before changing quota and let
+	// the caller reload the now-known actual counts. No User lock is held here.
+	if view.TokenBudget != nil && view.TokenBudget.State == TokenBudgetSent {
+		if _, err := MutateTokenBudgetRequest(ctx, db, TokenBudgetMutation{TokenID: view.TokenID, RequestID: requestID, Action: "hold", Reason: "manual_review"}); err != nil {
+			return nil, err
+		}
 	}
 	encoded, err := common.Marshal(struct {
 		RequestID   string
@@ -178,6 +226,15 @@ func ReconcileUsageReview(ctx context.Context, db *gorm.DB, actorID int, request
 	}{requestID, actorID, actual, evidence})
 	if err != nil {
 		return nil, err
+	}
+	if len(tokenCounts) == 1 {
+		encoded, err = common.Marshal(struct {
+			Review json.RawMessage
+			Tokens UsageReviewTokenCounts
+		}{encoded, tokenCounts[0]})
+		if err != nil {
+			return nil, err
+		}
 	}
 	digest := sha256.Sum256(encoded)
 	hash := hex.EncodeToString(digest[:])
@@ -189,6 +246,9 @@ func ReconcileUsageReview(ctx context.Context, db *gorm.DB, actorID int, request
 			return nil, timeErr
 		}
 		candidate := UsageReviewDecision{RequestID: requestID, ActorID: actorID, UserID: view.UserID, TokenID: view.TokenID, ChannelID: view.ChannelID, ModelName: view.ModelName, ActualQuota: actual, EvidenceReference: evidence, EvidenceDigest: hash, CreatedAt: now}
+		if len(tokenCounts) == 1 {
+			candidate.ActualInputTokens, candidate.ActualOutputTokens = &tokenCounts[0].Input, &tokenCounts[0].Output
+		}
 		createErr := db.WithContext(ctx).Create(&candidate).Error
 		if createErr != nil {
 			if readErr := db.WithContext(ctx).Where("request_id = ?", requestID).First(&decision).Error; readErr != nil {
@@ -203,12 +263,18 @@ func ReconcileUsageReview(ctx context.Context, db *gorm.DB, actorID int, request
 	if decision.ActorID != actorID || decision.ActualQuota != actual || decision.EvidenceDigest != hash || decision.EvidenceReference != evidence {
 		return nil, ErrAccountQuotaMutationConflict
 	}
+	if len(tokenCounts) == 1 && (decision.ActualInputTokens == nil || decision.ActualOutputTokens == nil || *decision.ActualInputTokens != tokenCounts[0].Input || *decision.ActualOutputTokens != tokenCounts[0].Output) {
+		return nil, ErrTokenBudgetConflict
+	}
 	if view.Writer == "authoritative" {
 		_, err = ResolveAccountQuotaUnknownUsage(ctx, db, actorID, AccountQuotaTerminalInput{RequestID: requestID, ReserveReceiptID: view.ReserveReceiptID, ActualQuota: actual}, hash)
 	} else {
 		_, err = ResolveLegacyUnknownUsage(ctx, db, actorID, requestID, actual, hash)
 	}
 	if err != nil {
+		return nil, err
+	}
+	if err := finalizeUsageReviewTokenBudget(ctx, db, &decision); err != nil {
 		return nil, err
 	}
 	return GetUsageReview(ctx, db, actorID, requestID)

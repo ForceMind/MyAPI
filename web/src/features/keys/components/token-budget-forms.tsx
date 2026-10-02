@@ -1,0 +1,170 @@
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useId } from 'react'
+import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
+
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+
+import {
+  tokenBudgetPolicySchema,
+  tokenBudgetCancelSchema,
+  type TokenBudgetPolicyValues,
+  type TokenBudgetCancelValues,
+} from '../lib/token-budget-schema'
+import type { TokenBudgetView } from '../token-budget-api'
+
+export function TokenBudgetPolicyForm(props: {
+  policy: TokenBudgetView['policy']
+  busy: boolean
+  locked: boolean
+  onSubmit: (value: TokenBudgetPolicyValues) => void
+}) {
+  const { t } = useTranslation()
+  const id = useId()
+  const form = useForm<TokenBudgetPolicyValues>({
+    resolver: zodResolver(
+      tokenBudgetPolicySchema.refine(
+        (value) => !value.enabled || Number(value.limit) >= props.policy.used,
+        { path: ['limit'], message: 'Limit is below confirmed usage' }
+      )
+    ),
+    defaultValues: {
+      enabled: props.policy.enabled,
+      limit: String(props.policy.limit),
+      confirmed: false,
+    },
+  })
+  return (
+    <form
+      onSubmit={form.handleSubmit((value) => {
+        if (!props.busy) props.onSubmit(value)
+      })}
+    >
+      <FieldGroup>
+        <Field orientation='horizontal'>
+          <Checkbox
+            id={`${id}-enabled`}
+            checked={form.watch('enabled')}
+            onCheckedChange={(value) =>
+              form.setValue('enabled', value === true)
+            }
+            disabled={props.busy || props.locked}
+          />
+          <FieldLabel htmlFor={`${id}-enabled`}>
+            {t('Enable strict Token budget')}
+          </FieldLabel>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={`${id}-limit`}>
+            {t('Token total limit')}
+          </FieldLabel>
+          <Input
+            id={`${id}-limit`}
+            inputMode='numeric'
+            {...form.register('limit')}
+            disabled={props.busy}
+            readOnly={props.locked}
+            aria-invalid={!!form.formState.errors.limit}
+          />
+          {form.formState.errors.limit && (
+            <FieldError>{t('Please enter a valid number')}</FieldError>
+          )}
+        </Field>
+        <Field orientation='horizontal'>
+          <Checkbox
+            id={`${id}-confirmed`}
+            checked={form.watch('confirmed')}
+            onCheckedChange={(value) =>
+              form.setValue('confirmed', value === true, {
+                shouldValidate: true,
+              })
+            }
+            disabled={props.busy || props.locked}
+          />
+          <FieldLabel htmlFor={`${id}-confirmed`}>
+            {t(
+              'I confirm all running instances support this budget and I understand its request restrictions.'
+            )}
+          </FieldLabel>
+        </Field>
+        {form.formState.errors.confirmed && (
+          <FieldError>{t('Required')}</FieldError>
+        )}
+        <Button type='submit' disabled={props.busy}>
+          {props.busy ? t('Processing...') : t('Save')}
+        </Button>
+      </FieldGroup>
+    </form>
+  )
+}
+
+export function TokenBudgetCancelForm(props: {
+  busy: boolean
+  locked: boolean
+  onSubmit: (value: TokenBudgetCancelValues) => void
+}) {
+  const { t } = useTranslation()
+  const id = useId()
+  const form = useForm<TokenBudgetCancelValues>({
+    resolver: zodResolver(tokenBudgetCancelSchema),
+    defaultValues: { evidence: '', confirmed: false },
+  })
+  return (
+    <form
+      onSubmit={form.handleSubmit((value) => {
+        if (!props.busy) props.onSubmit(value)
+      })}
+    >
+      <FieldGroup>
+        <Field>
+          <FieldLabel htmlFor={`${id}-evidence`}>
+            {t('Evidence reference')}
+          </FieldLabel>
+          <Input
+            id={`${id}-evidence`}
+            {...form.register('evidence')}
+            disabled={props.busy}
+            readOnly={props.locked}
+            maxLength={2048}
+            autoComplete='off'
+            aria-invalid={!!form.formState.errors.evidence}
+          />
+          {form.formState.errors.evidence && (
+            <FieldError>{t('Required')}</FieldError>
+          )}
+        </Field>
+        <Field orientation='horizontal'>
+          <Checkbox
+            id={`${id}-confirmed`}
+            checked={form.watch('confirmed')}
+            onCheckedChange={(value) =>
+              form.setValue('confirmed', value === true, {
+                shouldValidate: true,
+              })
+            }
+            disabled={props.busy || props.locked}
+          />
+          <FieldLabel htmlFor={`${id}-confirmed`}>
+            {t(
+              'I confirm the request was never dispatched. Release only its reservation.'
+            )}
+          </FieldLabel>
+        </Field>
+        {form.formState.errors.confirmed && (
+          <FieldError>{t('Required')}</FieldError>
+        )}
+        <Button type='submit' disabled={props.busy}>
+          {props.busy ? t('Processing...') : t('Cancel undispatched request')}
+        </Button>
+      </FieldGroup>
+    </form>
+  )
+}

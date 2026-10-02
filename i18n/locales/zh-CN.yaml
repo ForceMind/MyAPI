@@ -1,4 +1,9 @@
 # Chinese (Simplified) translations
+token_budget.unsupported: "此严格 Token 预算仅支持 OpenAI 官方 Responses 纯文本请求，须明确 max_output_tokens 并采用非免费的按 Token 计价"
+token_budget.pending: "此 Key 有尚未处理的 Token 预留，后续请求已暂停"
+token_budget.exceeded: "本次请求的 Token 预留上限超过可用预算"
+token_budget.count_unavailable: "无法取得可靠的上游输入 Token 数，生成请求未发出"
+token_budget.unavailable: "无法核验 Token 预算，生成请求未发出"
 # 中文（简体）翻译文件
 
 # Common messages

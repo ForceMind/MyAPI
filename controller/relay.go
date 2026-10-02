@@ -179,10 +179,11 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	}
 
 	defer func() {
+		budgetHeld := service.FinalizeTokenBudgetDispatch(c, relayInfo)
 		// Only return quota if downstream failed and quota was actually pre-consumed
 		if newAPIError != nil {
 			newAPIError = service.NormalizeViolationFeeError(newAPIError)
-			if relayInfo.Billing != nil {
+			if relayInfo.Billing != nil && !budgetHeld {
 				if refundErr := relayInfo.Billing.Refund(c); refundErr != nil {
 					logBillingRefundFailure(c, "relay", refundErr)
 				}
@@ -212,6 +213,10 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		addUsedChannel(c, channel.Id)
 		if billingErr := service.PrepareTieredBillingForSelectedGroup(c, relayInfo); billingErr != nil {
 			newAPIError = billingErr
+			break
+		}
+		if budgetErr := service.ValidateTokenBudgetSelectedChannel(relayInfo); budgetErr != nil {
+			newAPIError = service.TokenBudgetRelayError(c, budgetErr)
 			break
 		}
 
@@ -245,12 +250,15 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 		newAPIError = service.NormalizeViolationFeeError(newAPIError)
 		relayInfo.LastError = newAPIError
+		if relayInfo.StrictTokenBudget && strings.HasPrefix(string(newAPIError.GetErrorCode()), "token_budget_") {
+			break
+		}
 
 		if markerErr := processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError); markerErr != nil {
 			break
 		}
 
-		if !shouldRetry(c, newAPIError, common.RetryTimes-retryParam.GetRetry()) {
+		if relayInfo.StrictTokenBudget || !shouldRetry(c, newAPIError, common.RetryTimes-retryParam.GetRetry()) {
 			break
 		}
 	}

@@ -235,6 +235,9 @@ func InitDB() (err error) {
 			if err := ValidateUsageReviewSchema(DB); err != nil {
 				return err
 			}
+			if err := ValidateTokenBudgetSchema(DB); err != nil {
+				return err
+			}
 			if err := ensureConfiguredChannelQuotaIdentityKeyring(); err != nil {
 				return err
 			}

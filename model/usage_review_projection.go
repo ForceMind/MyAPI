@@ -13,7 +13,7 @@ import (
 
 // A committed terminal receipt is the authority. A saved manual decision alone
 // never authorizes statistics or a consumption-log projection.
-func verifyUsageReviewTerminal(tx *gorm.DB, decision *UsageReviewDecision) error {
+func verifyUsageReviewQuotaTerminal(tx *gorm.DB, decision *UsageReviewDecision) error {
 	var head AccountQuotaReservationHead
 	err := tx.Where("request_id = ?", decision.RequestID).First(&head).Error
 	if err == nil {
@@ -45,6 +45,58 @@ func verifyUsageReviewTerminal(tx *gorm.DB, decision *UsageReviewDecision) error
 	return nil
 }
 
+func verifyUsageReviewTerminal(tx *gorm.DB, decision *UsageReviewDecision) error {
+	if err := verifyUsageReviewQuotaTerminal(tx, decision); err != nil {
+		return err
+	}
+	if decision.ActualInputTokens == nil && decision.ActualOutputTokens == nil {
+		return nil
+	}
+	if decision.ActualInputTokens == nil || decision.ActualOutputTokens == nil || *decision.ActualInputTokens < 0 || *decision.ActualOutputTokens < 0 || *decision.ActualInputTokens > int64(common.MaxQuota) || *decision.ActualOutputTokens > int64(common.MaxQuota)-*decision.ActualInputTokens {
+		return ErrTokenBudgetInvalid
+	}
+	var budget TokenBudgetReservation
+	if err := tx.First(&budget, "request_id = ?", decision.RequestID).Error; err != nil {
+		return err
+	}
+	if budget.RequestID != decision.RequestID || budget.UserID != decision.UserID || budget.TokenID != decision.TokenID {
+		return ErrTokenBudgetConflict
+	}
+	if budget.State != TokenBudgetSettled {
+		return ErrAccountQuotaUsageUnresolved
+	}
+	if budget.ActualInput == nil || budget.ActualOutput == nil || *budget.ActualInput != *decision.ActualInputTokens || *budget.ActualOutput != *decision.ActualOutputTokens {
+		return ErrTokenBudgetConflict
+	}
+	if budget.ReviewedBy != 0 && (budget.ReviewedBy != decision.ActorID || budget.EvidenceReference != decision.EvidenceReference) {
+		return ErrTokenBudgetConflict
+	}
+	return nil
+}
+
+// The saved immutable decision is the recovery intent for both units. Quota
+// must finish first; token finalization is replayable and remains blocking on
+// failure. Do this before projection locks to retain User -> Token lock order.
+func finalizeUsageReviewTokenBudget(ctx context.Context, db *gorm.DB, decision *UsageReviewDecision) error {
+	if decision.ActualInputTokens == nil && decision.ActualOutputTokens == nil {
+		return nil
+	}
+	if decision.ActualInputTokens == nil || decision.ActualOutputTokens == nil {
+		return ErrTokenBudgetInvalid
+	}
+	if err := verifyUsageReviewQuotaTerminal(db.WithContext(ctx), decision); err != nil {
+		return err
+	}
+	if err := verifyUsageReviewTerminal(db.WithContext(ctx), decision); err == nil {
+		return nil
+	} else if !errors.Is(err, ErrAccountQuotaUsageUnresolved) {
+		return err
+	}
+	_, err := MutateTokenBudgetRequest(ctx, db, TokenBudgetMutation{TokenID: decision.TokenID, RequestID: decision.RequestID, Action: "reconcile",
+		Input: *decision.ActualInputTokens, Output: *decision.ActualOutputTokens, ActorID: decision.ActorID, Evidence: decision.EvidenceReference})
+	return err
+}
+
 // ProjectUsageReviewDecision applies counters exactly once on the primary DB,
 // then projects a stable event to the log DB. The existing log canonicalization
 // deduplicates repeated deliveries after a lost cross-database acknowledgement.
@@ -56,6 +108,12 @@ func ProjectUsageReviewDecision(ctx context.Context, db, logDB *gorm.DB, decisio
 		ctx = context.Background()
 	}
 	var decision UsageReviewDecision
+	if err := db.WithContext(ctx).First(&decision, decisionID).Error; err != nil {
+		return err
+	}
+	if err := finalizeUsageReviewTokenBudget(ctx, db, &decision); err != nil {
+		return err
+	}
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := lockForUpdate(tx).First(&decision, decisionID).Error; err != nil {
 			return err
@@ -108,7 +166,7 @@ func ProjectUsageReviewDecision(ctx context.Context, db, logDB *gorm.DB, decisio
 	if decision.LogProjected {
 		return nil
 	}
-	metadata, err := common.Marshal(map[string]interface{}{"settlement_status": "manually_reconciled", "usage_accuracy": "unknown", "actual_quota": decision.ActualQuota, "token_counts_confirmed": false, "review_decision_id": decision.ID})
+	metadata, err := common.Marshal(map[string]interface{}{"settlement_status": "manually_reconciled", "usage_accuracy": "unknown", "actual_quota": decision.ActualQuota, "token_counts_confirmed": decision.ActualInputTokens != nil, "review_decision_id": decision.ID})
 	if err != nil {
 		return err
 	}
@@ -117,6 +175,9 @@ func ProjectUsageReviewDecision(ctx context.Context, db, logDB *gorm.DB, decisio
 		ModelName: decision.ModelName,
 		Type:      LogTypeConsume, Content: "usage_manually_reconciled", Quota: int(decision.ActualQuota), RequestId: decision.RequestID,
 		BillingEventID: hex.EncodeToString(hash[:]), Other: string(metadata)}
+	if decision.ActualInputTokens != nil && decision.ActualOutputTokens != nil {
+		record.PromptTokens, record.CompletionTokens = int(*decision.ActualInputTokens), int(*decision.ActualOutputTokens)
+	}
 	if err := CreateLog(logDB.WithContext(ctx), record); err != nil {
 		return err
 	}

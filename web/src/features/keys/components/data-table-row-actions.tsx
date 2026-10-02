@@ -27,6 +27,7 @@ import {
   Copy,
   Link,
   Loader2,
+  Gauge,
 } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -230,6 +231,25 @@ export function DataTableRowActions<TData>({
           <Edit />
         </TooltipTrigger>
         <TooltipContent>{t('Edit')}</TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant='ghost'
+              size='icon-sm'
+              aria-label={t('Strict Token budget')}
+              onClick={() => {
+                setCurrentRow(apiKey)
+                setOpen('budget')
+              }}
+            />
+          }
+        >
+          <Gauge className='size-4' />
+        </TooltipTrigger>
+        <TooltipContent>{t('Strict Token budget')}</TooltipContent>
       </Tooltip>
 
       <DataTableRowActionMenu

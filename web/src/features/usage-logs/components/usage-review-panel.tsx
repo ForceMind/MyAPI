@@ -1,35 +1,12 @@
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useId } from 'react'
-import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
 import { useAuthStore } from '@/stores/auth-store'
 
-import {
-  getUsageReview,
-  reconcileUsageReview,
-  type UsageReview,
-} from '../usage-review-api'
-
-const formSchema = z.object({
-  amount: z
-    .string()
-    .regex(/^\d+$/)
-    .refine((value) => Number(value) <= 2147483647),
-  evidence: z.string().trim().min(1).max(2048),
-  confirmed: z.boolean().refine((value) => value),
-})
+import type { UsageReviewFormValues } from '../lib/usage-review-schema'
+import { getUsageReview, reconcileUsageReview } from '../usage-review-api'
+import { UsageReviewForm } from './usage-review-form'
 
 export function UsageReviewPanel(props: { requestId: string }) {
   const userId = useAuthStore((state) => state.auth.user?.id)
@@ -60,11 +37,14 @@ function UsageReviewSession(props: {
     refetchOnWindowFocus: false,
   })
   const mutation = useMutation({
-    mutationFn: (values: z.infer<typeof formSchema>) =>
+    mutationFn: (values: UsageReviewFormValues) =>
       reconcileUsageReview(
         props.requestId,
         Number(values.amount),
-        values.evidence
+        values.evidence,
+        values.requiresTokens
+          ? { input: Number(values.input), output: Number(values.output) }
+          : undefined
       ),
     retry: false,
     onSuccess: (data) => client.setQueryData(queryKey, data),
@@ -89,10 +69,13 @@ function UsageReviewSession(props: {
     )
   }
   if (!query.data) return <p role='status'>{t('Loading...')}</p>
-  const resolved = query.data.actual_quota !== null
+  const tokenPending =
+    !!query.data.token_budget && query.data.token_budget.state !== 'settled'
+  const resolved = query.data.actual_quota !== null && !tokenPending
   const canResolve =
     props.role === 100 &&
-    ['usage_unknown', 'review_pending'].includes(query.data.state)
+    (['usage_unknown', 'review_pending'].includes(query.data.state) ||
+      tokenPending)
   return (
     <section
       className='min-w-0 space-y-3 rounded-md border p-3'
@@ -105,7 +88,7 @@ function UsageReviewSession(props: {
         {t('Reserved quota (internal units)')}:{' '}
         {query.data.reserved_quota.toLocaleString()}
       </p>
-      {resolved && (
+      {query.data.actual_quota !== null && (
         <p className='text-sm'>
           {t('Confirmed quota (internal units)')}:{' '}
           {query.data.actual_quota?.toLocaleString()}
@@ -125,93 +108,5 @@ function UsageReviewSession(props: {
         />
       )}
     </section>
-  )
-}
-
-function UsageReviewForm(props: {
-  review: UsageReview
-  busy: boolean
-  onSubmit: (values: z.infer<typeof formSchema>) => void
-}) {
-  const { t } = useTranslation()
-  const id = useId()
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      amount: props.review.decision
-        ? String(props.review.decision.actual_quota)
-        : '',
-      evidence: props.review.decision?.evidence_reference ?? '',
-      confirmed: false,
-    },
-  })
-  return (
-    <form
-      onSubmit={form.handleSubmit((values) => {
-        if (!props.busy) props.onSubmit(values)
-      })}
-    >
-      <FieldGroup>
-        <p className='text-muted-foreground text-xs'>
-          {t(
-            'Use verified usage and the frozen request price. Do not enter an estimate or credentials.'
-          )}
-        </p>
-        <Field>
-          <FieldLabel htmlFor={`${id}-amount`}>
-            {t('Confirmed quota (internal units)')}
-          </FieldLabel>
-          <Input
-            id={`${id}-amount`}
-            inputMode='numeric'
-            {...form.register('amount')}
-            disabled={props.busy}
-            readOnly={!!props.review.decision}
-            aria-invalid={!!form.formState.errors.amount}
-          />
-          {form.formState.errors.amount && (
-            <FieldError>{t('Please enter a valid number')}</FieldError>
-          )}
-        </Field>
-        <Field>
-          <FieldLabel htmlFor={`${id}-evidence`}>
-            {t('Evidence reference')}
-          </FieldLabel>
-          <Input
-            id={`${id}-evidence`}
-            {...form.register('evidence')}
-            disabled={props.busy}
-            readOnly={!!props.review.decision}
-            maxLength={2048}
-            autoComplete='off'
-            aria-invalid={!!form.formState.errors.evidence}
-          />
-          {form.formState.errors.evidence && (
-            <FieldError>{t('Required')}</FieldError>
-          )}
-        </Field>
-        <Field orientation='horizontal'>
-          <Checkbox
-            id={`${id}-confirmed`}
-            checked={form.watch('confirmed')}
-            onCheckedChange={(checked) =>
-              form.setValue('confirmed', checked === true, {
-                shouldValidate: true,
-              })
-            }
-            disabled={props.busy}
-          />
-          <FieldLabel htmlFor={`${id}-confirmed`}>
-            {t('I verified the evidence and frozen pricing.')}
-          </FieldLabel>
-        </Field>
-        {form.formState.errors.confirmed && (
-          <FieldError>{t('Required')}</FieldError>
-        )}
-        <Button type='submit' disabled={props.busy}>
-          {props.busy ? t('Processing...') : t('Confirm reconciliation')}
-        </Button>
-      </FieldGroup>
-    </form>
   )
 }

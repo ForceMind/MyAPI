@@ -423,6 +423,14 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 
 	adminRejectReason := common.GetContextKeyString(ctx, constant.ContextKeyAdminRejectReason)
 	summary := calculateTextQuotaSummary(ctx, relayInfo, billingUsage)
+	if err := SettleTokenBudgetUsage(ctx, relayInfo, originUsage); err != nil {
+		reason := textUsageReviewReason(ctx, originUsage)
+		if reason == "" {
+			reason = "partial"
+		}
+		holdUnverifiedTextUsage(ctx, relayInfo, reason, summary)
+		return
+	}
 	if !relayInfo.PriceData.UsePrice {
 		if reason := publishedPriceUsageReviewReason(ctx, relayInfo, originUsage); reason != "" {
 			holdUnverifiedTextUsage(ctx, relayInfo, reason, summary)

@@ -34,7 +34,7 @@ func seedTokenBudgetDB(t *testing.T, db *gorm.DB) {
 }
 
 func budgetReservationFixture(id string) TokenBudgetReservation {
-	return TokenBudgetReservation{RequestID: id, TokenID: 11, UserID: 2, ChannelID: 7, ModelName: "budget-fixture", PayloadSHA256: strings.Repeat("b", 64), InputTokens: 10, MaxOutputTokens: 20}
+	return TokenBudgetReservation{RequestID: id, TokenID: 11, UserID: 2, ChannelID: 7, ModelName: "budget-fixture", BoundSource: TokenBudgetBoundOpenAIResponses, PayloadSHA256: strings.Repeat("b", 64), InputTokens: 10, MaxOutputTokens: 20}
 }
 
 func TestTokenBudgetPersistentLifecycle(t *testing.T) {

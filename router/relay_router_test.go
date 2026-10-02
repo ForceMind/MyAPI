@@ -118,6 +118,6 @@ func setupRelayRouterTestDB(t *testing.T) {
 	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
 	model.InitColumnNamesForTest()
 	model.DB, model.LOG_DB = db, db
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.Ability{}, &model.Log{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.TokenBudget{}, &model.Ability{}, &model.Log{}))
 	require.NoError(t, model.EnsureLogProjectionSchemaWithDB(db))
 }

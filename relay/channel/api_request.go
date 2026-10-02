@@ -498,6 +498,12 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 	// transparent stream retries.
 	relayClient := *client
 	relayClient.CheckRedirect = keepUpstreamRedirectResponse
+	if err := service.PrepareTokenBudgetDispatch(c, &relayClient, req, info); err != nil {
+		return nil, service.TokenBudgetRelayError(c, err)
+	}
+	if info.StrictTokenBudget {
+		req = req.WithContext(c.Request.Context())
+	}
 	if common2.DebugEnabled && req != nil && req.URL != nil {
 		policy := service.NormalizeHTTPTransportPolicy(info.ChannelSetting)
 		logger.LogDebug(c, fmt.Sprintf(

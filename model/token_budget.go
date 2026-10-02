@@ -15,6 +15,8 @@ import (
 // The maximum keeps integer JSON values exact in the existing browser client.
 const MaxTokenBudget int64 = 1<<53 - 1
 
+const TokenBudgetBoundOpenAIResponses = "openai_responses_input_tokens"
+
 const (
 	TokenBudgetPrepared  = "prepared"
 	TokenBudgetSent      = "sent"
@@ -32,6 +34,28 @@ var (
 	ErrTokenBudgetDuplicate = errors.New("token budget request has already been admitted")
 )
 
+func ValidateTokenBudgetSchema(db *gorm.DB) error {
+	if db == nil {
+		return gorm.ErrInvalidDB
+	}
+	for _, entity := range []any{&TokenBudget{}, &TokenBudgetReservation{}, &TokenBudgetPolicyChange{}} {
+		if !db.Migrator().HasTable(entity) {
+			return errors.New("token budget schema migration is required")
+		}
+	}
+	for _, column := range []string{"bound_source", "pricing_evidence"} {
+		if !db.Migrator().HasColumn(&TokenBudgetReservation{}, column) {
+			return errors.New("token budget evidence migration is required")
+		}
+	}
+	for _, column := range []string{"actual_input_tokens", "actual_output_tokens"} {
+		if !db.Migrator().HasColumn(&UsageReviewDecision{}, column) {
+			return errors.New("token budget review migration is required")
+		}
+	}
+	return nil
+}
+
 type TokenBudget struct {
 	TokenID          int    `json:"token_id" gorm:"primaryKey;autoIncrement:false"`
 	UserID           int    `json:"user_id" gorm:"not null;index"`
@@ -46,6 +70,8 @@ type TokenBudget struct {
 // A pre-dispatch record remains blocking even if persisting an unknown marker
 // fails. There is intentionally no lease expiry or automatic refund of Sent.
 type TokenBudgetReservation struct {
+	PricingEvidence   string `json:"-" gorm:"type:text"`
+	BoundSource       string `json:"bound_source" gorm:"type:varchar(64);not null;default:''"`
 	RequestID         string `json:"request_id" gorm:"type:varchar(64);primaryKey"`
 	TokenID           int    `json:"token_id" gorm:"not null;index"`
 	UserID            int    `json:"user_id" gorm:"not null;index"`
@@ -191,6 +217,7 @@ func LookupTokenBudget(ctx context.Context, db *gorm.DB, tokenID int) (*TokenBud
 type TokenBudgetView struct {
 	Policy  TokenBudget             `json:"policy"`
 	Pending *TokenBudgetReservation `json:"pending"`
+	Review  *UsageReviewDetail      `json:"review,omitempty"`
 }
 
 func ReadTokenBudget(ctx context.Context, db *gorm.DB, actorID, tokenID int) (*TokenBudgetView, error) {
@@ -242,6 +269,12 @@ func ReadTokenBudget(ctx context.Context, db *gorm.DB, actorID, tokenID int) (*T
 		pending.EvidenceReference = ""
 	}
 	view.Pending = &pending
+	if pending.State != TokenBudgetPrepared {
+		view.Review, err = GetUsageReview(ctx, db, actorID, pending.RequestID)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return view, nil
 }
 
@@ -329,7 +362,7 @@ func ReserveTokenBudget(ctx context.Context, db *gorm.DB, input TokenBudgetReser
 	}
 	id, err := normalizeAccountRequestID(input.RequestID)
 	if err != nil || id != input.RequestID || input.UserID <= 0 || input.TokenID <= 0 || input.ChannelID <= 0 ||
-		input.ModelName == "" || len(input.ModelName) > 512 || !validBudgetDigest(input.PayloadSHA256) ||
+		input.ModelName == "" || len(input.ModelName) > 512 || len(input.PricingEvidence) > 16384 || input.BoundSource != TokenBudgetBoundOpenAIResponses || !validBudgetDigest(input.PayloadSHA256) ||
 		input.InputTokens < 0 || input.InputTokens > int64(common.MaxQuota) || input.MaxOutputTokens <= 0 || input.MaxOutputTokens > int64(common.MaxQuota) {
 		return ErrTokenBudgetInvalid
 	}
@@ -365,8 +398,8 @@ func ReserveTokenBudget(ctx context.Context, db *gorm.DB, input TokenBudgetReser
 		}
 		// Do not accept caller-provided terminal fields, timestamps or state.
 		row := TokenBudgetReservation{RequestID: id, TokenID: input.TokenID, UserID: input.UserID,
-			ChannelID: input.ChannelID, ModelName: input.ModelName, PayloadSHA256: input.PayloadSHA256,
-			InputTokens: input.InputTokens, MaxOutputTokens: input.MaxOutputTokens, Reserved: bound,
+			ChannelID: input.ChannelID, ModelName: input.ModelName, PayloadSHA256: input.PayloadSHA256, BoundSource: input.BoundSource,
+			InputTokens: input.InputTokens, MaxOutputTokens: input.MaxOutputTokens, Reserved: bound, PricingEvidence: input.PricingEvidence,
 			State: TokenBudgetPrepared, CreatedAt: now, UpdatedAt: now}
 		if err := tx.Create(&row).Error; err != nil {
 			return err

@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -36,12 +37,13 @@ func TestR1UsageReviewConfiguredDatabases(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, pool.Ping())
 			t.Cleanup(func() { require.NoError(t, pool.Close()) })
-			entities := []any{&User{}, &Token{}, &SubscriptionPlan{}, &UserSubscription{}, &AccountQuotaMutationReceipt{}, &AccountQuotaReservationHead{}, &AccountQuotaTerminalRecoveryObligation{}, &AccountQuotaSettlementIntent{}, &AccountQuotaSettlementFact{}, &AccountQuotaRefundFact{}, &QuotaWriterEpoch{}, &QuotaProjectionObligation{}, &QuotaWorkCursor{}, &LegacyUsageReservation{}, &UsageReviewDecision{}, &Log{}, &BillingLogProjectionIdentity{}}
+			entities := []any{&User{}, &Token{}, &SubscriptionPlan{}, &UserSubscription{}, &AccountQuotaMutationReceipt{}, &AccountQuotaReservationHead{}, &AccountQuotaTerminalRecoveryObligation{}, &AccountQuotaSettlementIntent{}, &AccountQuotaSettlementFact{}, &AccountQuotaRefundFact{}, &QuotaWriterEpoch{}, &QuotaProjectionObligation{}, &QuotaWorkCursor{}, &LegacyUsageReservation{}, &UsageReviewDecision{}, &Log{}, &BillingLogProjectionIdentity{}, &TokenBudget{}, &TokenBudgetReservation{}, &TokenBudgetPolicyChange{}}
 			require.NoError(t, db.AutoMigrate(entities...))
 			// Repeat the schemas changed by this iteration. Unrelated legacy
 			// tables have application-specific migrations outside this fixture.
 			require.NoError(t, db.AutoMigrate(&AccountQuotaTerminalRecoveryObligation{}, &LegacyUsageReservation{}, &UsageReviewDecision{}))
 			require.NoError(t, ValidateUsageReviewSchema(db))
+			require.NoError(t, ValidateTokenBudgetSchema(db))
 			oldDB, oldLogDB := DB, LOG_DB
 			oldRedis := common.RedisEnabled
 			oldMain, oldLog := common.MainDatabaseType(), common.LogDatabaseType()
@@ -92,6 +94,62 @@ func TestR1UsageReviewConfiguredDatabases(t *testing.T) {
 			var terminals int64
 			require.NoError(t, db.Model(&AccountQuotaMutationReceipt{}).Where("request_id = ? AND phase = ?", namespace, AccountQuotaPhaseSettle).Count(&terminals).Error)
 			assert.EqualValues(t, 1, terminals)
+			tokenBudgetCoupledReviewDatabaseContract(t, db, root.Id, user.Id, token.Id, namespace+"b")
 		})
 	}
+}
+
+// Reuses the real configured database fixture to verify the two ledgers and
+// projection recover from persisted evidence, with no live billing session.
+func tokenBudgetCoupledReviewDatabaseContract(t *testing.T, db *gorm.DB, rootID, userID, tokenID int, requestID string) {
+	t.Helper()
+	ctx := context.Background()
+	_, err := ConfigureTokenBudget(ctx, db, rootID, TokenBudgetPolicyInput{ID: fmt.Sprintf("%064x", time.Now().UnixNano()), TokenID: tokenID, Enabled: true, Limit: 100})
+	require.NoError(t, err)
+	_, err = ReserveAccountQuota(ctx, db, AccountQuotaReserveInput{RequestID: requestID, UserID: userID, TokenID: tokenID, RequestedQuota: 100, BillingPreference: "wallet_only", BillingContext: AccountBillingContext{Version: 1, OriginModelName: "r1-fixture", BillingPreference: "wallet_only"}})
+	require.NoError(t, err)
+	require.NoError(t, ReserveTokenBudget(ctx, db, TokenBudgetReservation{RequestID: requestID, UserID: userID, TokenID: tokenID, ChannelID: 7, ModelName: "r1-fixture", PayloadSHA256: strings.Repeat("a", 64), BoundSource: TokenBudgetBoundOpenAIResponses, InputTokens: 10, MaxOutputTokens: 20, PricingEvidence: `{"strict_token_budget":true}`}))
+	_, err = MutateTokenBudgetRequest(ctx, db, TokenBudgetMutation{TokenID: tokenID, RequestID: requestID, Action: "send"})
+	require.NoError(t, err)
+	view, err := PrepareTokenBudgetUsageReview(ctx, db, rootID, tokenID, requestID)
+	require.NoError(t, err)
+	require.NotNil(t, view.TokenBudget)
+	_, err = ReconcileUsageReview(ctx, db, rootID, requestID, 20, "synthetic cross-ledger proof")
+	require.ErrorIs(t, err, ErrTokenBudgetInvalid)
+	counts := UsageReviewTokenCounts{Input: 10, Output: 5}
+	// A lost decision write keeps both reservations. Once manual review starts,
+	// late automatic usage cannot race ahead and settle different token counts.
+	injected := errors.New("synthetic decision persistence interruption")
+	callback := "r1:token-budget-review-failure"
+	require.NoError(t, db.Callback().Create().Before("gorm:create").Register(callback, func(tx *gorm.DB) {
+		if tx.Statement.Schema != nil && tx.Statement.Schema.Name == "UsageReviewDecision" {
+			tx.AddError(injected)
+		}
+	}))
+	_, err = ReconcileUsageReview(ctx, db, rootID, requestID, 20, "synthetic cross-ledger proof", counts)
+	require.Error(t, err)
+	require.NoError(t, db.Callback().Create().Remove(callback))
+	_, err = MutateTokenBudgetRequest(ctx, db, TokenBudgetMutation{TokenID: tokenID, RequestID: requestID, Action: "settle", Input: 10, Output: 6})
+	require.ErrorIs(t, err, ErrTokenBudgetPending)
+	for range 2 {
+		view, err = ReconcileUsageReview(ctx, db, rootID, requestID, 20, "synthetic cross-ledger proof", counts)
+		require.NoError(t, err)
+		require.NoError(t, ProjectUsageReviewDecision(ctx, db, db, view.Decision.ID))
+	}
+	budget, err := ReadTokenBudget(ctx, db, rootID, tokenID)
+	require.NoError(t, err)
+	assert.EqualValues(t, 15, budget.Policy.Used)
+	assert.Zero(t, budget.Policy.Reserved)
+	assert.Nil(t, budget.Pending)
+	var logs []Log
+	require.NoError(t, db.Where("request_id = ? AND type = ?", requestID, LogTypeConsume).Find(&logs).Error)
+	require.Len(t, logs, 1)
+	assert.Equal(t, 10, logs[0].PromptTokens)
+	assert.Equal(t, 5, logs[0].CompletionTokens)
+	assert.Contains(t, logs[0].Other, `"token_counts_confirmed":true`)
+	var user User
+	require.NoError(t, db.First(&user, userID).Error)
+	assert.Equal(t, 860, user.Quota)
+	assert.Equal(t, 140, user.UsedQuota)
+	assert.Equal(t, 2, user.RequestCount)
 }

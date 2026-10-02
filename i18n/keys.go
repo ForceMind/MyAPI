@@ -1,5 +1,13 @@
 package i18n
 
+const (
+	MsgTokenBudgetUnsupported      = "token_budget.unsupported"
+	MsgTokenBudgetPending          = "token_budget.pending"
+	MsgTokenBudgetExceeded         = "token_budget.exceeded"
+	MsgTokenBudgetCountUnavailable = "token_budget.count_unavailable"
+	MsgTokenBudgetUnavailable      = "token_budget.unavailable"
+)
+
 // Message keys for i18n translations
 // Use these constants instead of hardcoded strings
 

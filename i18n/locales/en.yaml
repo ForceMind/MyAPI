@@ -1,4 +1,9 @@
 # English translations
+token_budget.unsupported: "This strict Token budget supports only official OpenAI Responses text requests with explicit max_output_tokens and non-free per-token pricing"
+token_budget.pending: "This key has an unresolved Token reservation. Further requests are paused"
+token_budget.exceeded: "The reserved Token upper bound exceeds the available budget"
+token_budget.count_unavailable: "A reliable upstream input Token count is unavailable. The generation request was not sent"
+token_budget.unavailable: "The Token budget could not be verified. The generation request was not sent"
 quota_history.series_required: "Select an account series for multi-account quota history"
 quota_history.invalid_series: "Invalid quota history series"
 quota_history.series_not_found: "No matching account series was found in this channel and time range"

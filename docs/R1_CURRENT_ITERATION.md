@@ -1,5 +1,34 @@
 # R1 接管与当前迭代（2026-10-02）
 
+## 当前候选：严格 Token 运行时与操作闭环（2026-10-02 23:12 北京时间）
+
+上一检查点 `36e72a2436dfca3d206fe53824aeccfe8cd35d7a` 的 [CI 37011043799](https://github.com/ForceMind/MyAPI/actions/runs/37011043799) 十项成功；其中 B2 日志明确记录独立预算合同 SQLite 0.33s / MySQL 0.24s / PostgreSQL 0.27s PASS。它只验证未接线基础，不能替代当前批次验收。本节优先于下文历史状态。
+
+### 本批范围和入口
+
+- Key 管理 → 每行“严格 Token 预算”入口：所有者/Root 读取，Root 设置上限或关闭；显示已用、预留、上限、未决请求。仅统计启用期间准入的请求，历史/停用期间不补记；停用不会清零已用。原内部 quota 限额继续有效，不能把它当 Token 或金额。
+- `GET/PUT /api/token/:id/budget`、`POST /api/token/:id/budget/recover`；写入口保留 Root、同源、显式确认、限流和严格请求体验证。Root 必须确认所有运行实例均支持预算；当前没有跨版本集群能力检测，禁止混跑旧实例来宣称硬限制。
+- 首批仅官方 OpenAI 固定 `https://api.openai.com/v1/responses`、无状态纯文本、明确 `max_output_tokens`、非免费按 Token 内部计价。固定官方 `/v1/responses/input_tokens` 预检最终模型/载荷，拒绝重定向、不安全 TLS/自定义 TLS 拨号、cookie jar、覆盖头/参数及不支持载荷。只保存载荷摘要、边界来源、计数和定价证据，不保存 prompt/凭据。依据[官方计数说明](https://developers.openai.com/api/docs/guides/token-counting)，未调用真实账户验证该接口的权限、稳定性或计费。
+- 不支持 Chat、外部上下文、工具、多模态、兼容代理、订阅渠道、按次或免费请求时明确拒绝。每 Key 最多一笔未决；不得重试已发送生成，也不使用本地估算作为上限。模型发现 GET 不被未决预算阻断。
+- 发送前持久保存原 quota 对应的定价证据和 Token 预留；正常按实际输入+输出结算，缓存/reasoning 不重复加。计数缺失/越界/发送失败保留预留，后续准入暂停；只有 prepared 未发送证据允许取消。
+- 两种 quota writer 均复用既有持久恢复事实。Root 对已发送请求须提供实际输入/输出、内部 quota 和可靠证据；保存同一不可变决定，并分别幂等完成 quota、Token 与单次日志/统计。人工决定写入前冻结 Token 自动结算，迟到响应不能抢写不同实际数；写入失败仍保留预留。崩溃丢失 hold 可从发送前持久定价证据恢复，不依赖内存 BillingSession。
+- 未发送取消先原子保存 Token 取消审计和旧 quota 退款意图，再由旧恢复器完成；提交后恢复失败返回待完成状态，不能当作已经全退。未知/已发请求不走该路径。
+- UI 复用现有核对表单。未确认/取消不写；提交中禁止重复及关闭；结果不明锁定原参数，以相同操作 ID 重试；所有者不展示 Root 操作，切换身份清除草稿。恢复入口同时显示/收集 Token 与 quota 单位，不把订阅参考成本当实际账单。
+
+### 验证与交付边界
+
+- 本地 Go 全包、go vet、前端构建通过；最终定向 race 的 model/service/router 均通过。新 service fixture 等待自身异步 metrics/通知 worker 结束后再恢复 DB/Redis 全局变量（先初始化既有常驻通知清理 worker），修复 race 发现的测试清理竞争，不禁用业务断言或加盲等。原 `TestPerTokenSettlementRequiresReportedUsage` 文件及断言未修改。
+- 变更文件（含未跟踪新增源码）Gitleaks 扫描仅命中继承的 Auth-Version 常量，已与 HEAD 同行逐字核对；没有新增凭据发现。全目录扫描包含历史/生成内容的发现不等于本次新增，也不宣称全仓秘密扫描无告警。
+- 本地前端 119 文件 / 558 测试通过，TypeScript 与本批 12 个 TS 文件定向 lint 通过。全仓 lint 存在继承的 `funding-presentation.test.tsx:44` 缺花括号错误及两处旧 warning，本批未改该文件，不宣称全仓 lint 通过。
+- 新增两种 writer 的发送/正常/未知/取消/丢失 hold 恢复测试、TLS 本地计数 fixture、真实路由鉴权/同源/无限旧额度不可绕过测试。无真实上游请求。
+- 复用 R1 三库合同新增双账本恢复、决定写入中断、迟到结算拒绝及单次实际 Token 日志；本地 SQLite 通过，新增 MySQL/PostgreSQL 要看本批 exact-head CI。
+- 复用既有 Chromium 合成浏览器脚本新增 Key 页确认/取消/实际数必填/恢复/重载和 320/1280px；本批尚待 CI，合成页面不能代替真实账号/生产验证。
+- 本批源码和上述文档需同一提交同步；准确 HEAD/CI 通过远端回读和 PR #2 查看，不在文档自写本提交 SHA。不得把“代码已接”改写成“全部验收完成”。
+
+### 停止条件及后续
+
+先完成本批构建、定向并发/静态检查、源码文档同步及新 SHA 的十项 CI，修复新增失败，再交付受限 Token 闭环证据。随后沿现有 R1 接实际费用预算、再接账户/窗口剩余安全阈值；不扩大价格辅助、支付或 F1–F8 范围。费用和百分比未实现，真实容器/OAuth/账户/账单、升级及生产回滚未验收，混版本部署不支持；整个 R1 仍不具备完成/可部署声明资格。
+
 ## 下一有界迭代：严格 Token 预算闭环（2026-10-02 20:37 北京时间）
 
 前置 `7295ce14ae369fa68bdc3348a924aac270c5bd23` 的 [CI 37006732955](https://github.com/ForceMind/MyAPI/actions/runs/37006732955) 十项全部成功；Chat 用量证据修复已经通过，不再重复该批。
