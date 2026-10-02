@@ -94,3 +94,9 @@
 - ClickHouse 并发隔离合同已走过前次失败点；后续发现 system.mutations.create_time 是 [DateTime](https://clickhouse.com/docs/reference/system-tables/mutations)，需先显式转 DateTime64 才能使用毫秒函数。保留原时间窗口与 mutation ID 追踪语义，待实库重验。
 - 当前结算闭环继续收口原始字段存在性：Responses、其流式终态及 compaction 的空 usage、缺输入/输出、null 计数、矛盾 total 明确标记 incomplete 并进入既有 partial 待核对路径；明确输入/输出均为零仍可正常作为上游证据。新直接边界合同已先红后绿，双 writer 持久化合同新增 partial，原 missing/estimated/reported 合同未改。此节点不宣称 Chat、Claude、Gemini 等所有格式的字段存在性已完成，也未引入新费用/Token 预算。
 - service/OpenAI 完整本地回归 9.634s/0.058s，通过；relaykit dto 测试和独立构建通过。最终本地根模块 `go test -p 1 ./...` 退出 0，字段存在性/双 writer 定向 race service/OpenAI 3.965s/1.096s 与受影响 vet 通过。原始缺字段合同已复现失败后修复，数据库编解码/证据类型/零统计合同通过。实际浏览器与三库修复仍待新 CI；没有合并、发布或部署。
+
+### 第三轮 CI
+
+- `9f1cd45` 已同步；CI `36986957335` 的 ClickHouse 实库和前端完整步骤通过，包含实际 Chromium 合成额度图表/响应式回归。此证据仍不替代真实账号、账单或容器 OAuth。
+- B2 的 MySQL 共享合同全部通过；PostgreSQL 前述 JSON、证据与统计失败消失，仅剩历史夹具显式 ID 未推进 sequence、后续自动生成用户撞到已有 ID 11。测试导入夹具后仅在隔离 PostgreSQL 中按已导入最大 ID 对齐三张表序列；不修改生产 ID 逻辑或跳过唯一性断言。
+- 该序列夹具修复仍待下一次远端验证，R1 新待核对三库步骤此前因 B2 首步失败被跳过，不能提前记为通过。

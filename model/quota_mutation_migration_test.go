@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -51,6 +52,14 @@ func createTaskQuotaLegacyFixture(t *testing.T, db *gorm.DB) {
 	require.NoError(t, db.Create(&taskQuotaLegacyUser{Id: 41001, Username: "qr-legacy", Password: "synthetic-fixture", AffCode: "qr-legacy", Quota: 900, UsedQuota: 100}).Error)
 	require.NoError(t, db.Create(&taskQuotaLegacyToken{Id: 41001, UserId: 41001, Key: "qr-legacy", RemainQuota: 700, UsedQuota: 300}).Error)
 	require.NoError(t, db.Create(&taskQuotaLegacySubscription{Id: 41001, UserId: 41001, AmountTotal: 1200, AmountUsed: 400}).Error)
+	if db.Dialector.Name() == "postgres" {
+		// This isolated fixture imports explicit historical IDs. PostgreSQL
+		// sequences do not advance for those inserts (unlike MySQL/SQLite),
+		// so align them before the shared contract creates fresh subjects.
+		for _, table := range []string{"users", "tokens", "user_subscriptions"} {
+			require.NoError(t, db.Exec(fmt.Sprintf("SELECT setval(pg_get_serial_sequence('%s', 'id'), (SELECT MAX(id) FROM %s), true)", table, table)).Error)
+		}
+	}
 }
 
 func assertTaskQuotaLegacyFixtureMigrated(t *testing.T, db *gorm.DB) {
