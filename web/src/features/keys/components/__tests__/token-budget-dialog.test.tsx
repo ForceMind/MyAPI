@@ -496,6 +496,13 @@ test('saves an account safety threshold in exact basis points and rejects mixed 
   await user.click(
     screen.getByRole('checkbox', { name: 'Enable strict Token budget' })
   )
+  await waitFor(() =>
+    expect(
+      screen.queryByText(
+        'Account thresholds cannot be combined with Token or USD budgets on this key.'
+      )
+    ).not.toBeInTheDocument()
+  )
   await user.click(screen.getByRole('button', { name: 'Save' }))
   await waitFor(() => expect(api.put).toHaveBeenCalledTimes(1))
   expect(vi.mocked(api.put).mock.calls[0]?.[1]).toMatchObject({

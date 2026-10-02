@@ -145,16 +145,21 @@ export async function checkTokenBudgetBrowser({ page, origin, output, label, fix
   await dialog.getByText(label('Account thresholds cannot be combined with Token or USD budgets on this key.'), { exact: true }).waitFor()
   assert.equal(fixture.writes.length, 4, 'mixed provider budget modes cannot save')
   await dialog.getByRole('checkbox', { name: label('Enable USD fee budget'), exact: true }).uncheck()
+  await dialog.getByText(label('Account thresholds cannot be combined with Token or USD budgets on this key.'), { exact: true }).waitFor({ state: 'hidden' })
   await dialog.getByLabel(label('Minimum remaining percentage'), { exact: true }).fill('20.01')
   await dialog.getByLabel(label('Maximum observation age (seconds)'), { exact: true }).fill('120')
   for (const width of [320, 1280]) {
     await page.setViewportSize({ width, height: 900 })
-    await dialog.getByLabel(label('Minimum remaining percentage'), { exact: true }).scrollIntoViewIfNeeded()
     await page.evaluate(async () => {
       await Promise.all(document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity).map((animation) => animation.finished.catch(() => {})))
     })
     const size = await dialog.evaluate((element) => ({ width: element.getBoundingClientRect().width, scroll: element.scrollWidth, client: element.clientWidth }))
     assert(size.width <= width && size.scroll <= size.client + 1, `account threshold fits ${width}px: ${JSON.stringify(size)}`)
+    const thresholdInput = dialog.getByLabel(label('Minimum remaining percentage'), { exact: true })
+    await thresholdInput.scrollIntoViewIfNeeded()
+    const inputBox = await thresholdInput.boundingBox()
+    const dialogBox = await dialog.boundingBox()
+    assert(inputBox && dialogBox && inputBox.y >= dialogBox.y && inputBox.y + inputBox.height <= dialogBox.y + dialogBox.height, `threshold input is scroll-accessible at ${width}px`)
     await dialog.screenshot({ path: resolve(output, `account-threshold-${width}.png`) })
   }
   await Promise.all([

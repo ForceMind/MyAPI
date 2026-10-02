@@ -68,9 +68,10 @@ export function TokenBudgetPolicyForm(props: {
           <Checkbox
             id={`${id}-enabled`}
             checked={form.watch('enabled')}
-            onCheckedChange={(value) =>
+            onCheckedChange={(value) => {
               form.setValue('enabled', value === true)
-            }
+              void form.trigger('accountThresholdEnabled')
+            }}
             disabled={props.busy || props.locked}
           />
           <FieldLabel htmlFor={`${id}-enabled`}>
@@ -97,9 +98,10 @@ export function TokenBudgetPolicyForm(props: {
           <Checkbox
             id={`${id}-fee-enabled`}
             checked={form.watch('feeEnabled')}
-            onCheckedChange={(value) =>
+            onCheckedChange={(value) => {
               form.setValue('feeEnabled', value === true)
-            }
+              void form.trigger('accountThresholdEnabled')
+            }}
             disabled={props.busy || props.locked}
           />
           <FieldLabel htmlFor={`${id}-fee-enabled`}>
@@ -149,9 +151,10 @@ export function TokenBudgetPolicyForm(props: {
             <Checkbox
               id={`${id}-threshold-enabled`}
               checked={form.watch('accountThresholdEnabled')}
-              onCheckedChange={(value) =>
+              onCheckedChange={(value) => {
                 form.setValue('accountThresholdEnabled', value === true)
-              }
+                void form.trigger('accountThresholdEnabled')
+              }}
               disabled={props.busy || props.locked}
             />
             <FieldLabel htmlFor={`${id}-threshold-enabled`}>
