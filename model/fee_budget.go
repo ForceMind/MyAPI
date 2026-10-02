@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"github.com/ForceMind/MyAPI/common"
 	"regexp"
 
 	"github.com/shopspring/decimal"
@@ -43,6 +44,12 @@ type FeeBudgetPolicyInput struct {
 }
 
 func validateFeeBudgetState(budget *TokenBudget) error {
+	if !common.ValidAccountQuotaThreshold(common.AccountQuotaThreshold{MinimumRemainingBPS: budget.AccountMinRemainingBPS, MaxAgeSeconds: budget.AccountMaxAgeSeconds}) {
+		return ErrAccountQuotaThresholdInvalid
+	}
+	if budget.AccountThresholdEnabled && (budget.Enabled || budget.FeeEnabled) {
+		return ErrAccountQuotaThresholdCombination
+	}
 	for _, value := range []string{budget.FeeLimitUSD, budget.FeeUsedUSD, budget.FeeReservedUSD} {
 		if _, err := feeBudgetDecimal(value); err != nil {
 			return err

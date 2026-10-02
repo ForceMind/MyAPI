@@ -46,6 +46,11 @@ export function TokenBudgetPolicyForm(props: {
     ),
     defaultValues: {
       enabled: props.policy.enabled,
+      accountThresholdEnabled: props.policy.account_threshold_enabled,
+      minimumRemainingPercent: String(
+        props.policy.account_min_remaining_bps / 100
+      ),
+      maxAgeSeconds: String(props.policy.account_max_age_seconds),
       feeEnabled: props.policy.fee_enabled,
       feeLimit: props.policy.fee_limit_usd,
       limit: String(props.policy.limit),
@@ -126,6 +131,77 @@ export function TokenBudgetPolicyForm(props: {
         <p className='text-muted-foreground text-xs'>
           {t('Fee requests must explicitly set service_tier=default.')}
         </p>
+        <fieldset className='min-w-0 space-y-3 rounded-md border p-3'>
+          <legend className='px-1 text-sm'>
+            {t('Account safety threshold')}
+          </legend>
+          <p className='text-muted-foreground text-xs'>
+            {t(
+              'Native Codex only. Each account window must have fresh evidence above this threshold before dispatch. Missing, expired or reset observations block the account.'
+            )}
+          </p>
+          <p className='text-muted-foreground text-xs'>
+            {t(
+              'This is not a per-key budget and cannot guarantee the remaining percentage after a request.'
+            )}
+          </p>
+          <Field orientation='horizontal'>
+            <Checkbox
+              id={`${id}-threshold-enabled`}
+              checked={form.watch('accountThresholdEnabled')}
+              onCheckedChange={(value) =>
+                form.setValue('accountThresholdEnabled', value === true)
+              }
+              disabled={props.busy || props.locked}
+            />
+            <FieldLabel htmlFor={`${id}-threshold-enabled`}>
+              {t('Enable account safety threshold')}
+            </FieldLabel>
+          </Field>
+          {form.formState.errors.accountThresholdEnabled && (
+            <FieldError>
+              {t(
+                'Account thresholds cannot be combined with Token or USD budgets on this key.'
+              )}
+            </FieldError>
+          )}
+          <Field>
+            <FieldLabel htmlFor={`${id}-threshold-percent`}>
+              {t('Minimum remaining percentage')}
+            </FieldLabel>
+            <Input
+              id={`${id}-threshold-percent`}
+              inputMode='decimal'
+              maxLength={6}
+              {...form.register('minimumRemainingPercent')}
+              disabled={props.busy}
+              readOnly={props.locked}
+              aria-invalid={!!form.formState.errors.minimumRemainingPercent}
+            />
+            {form.formState.errors.minimumRemainingPercent && (
+              <FieldError>
+                {t('Use 0 to 100 percent with at most two decimal places.')}
+              </FieldError>
+            )}
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={`${id}-threshold-age`}>
+              {t('Maximum observation age (seconds)')}
+            </FieldLabel>
+            <Input
+              id={`${id}-threshold-age`}
+              inputMode='numeric'
+              maxLength={4}
+              {...form.register('maxAgeSeconds')}
+              disabled={props.busy}
+              readOnly={props.locked}
+              aria-invalid={!!form.formState.errors.maxAgeSeconds}
+            />
+            {form.formState.errors.maxAgeSeconds && (
+              <FieldError>{t('Use 30 to 3600 seconds.')}</FieldError>
+            )}
+          </Field>
+        </fieldset>
         <Field orientation='horizontal'>
           <Checkbox
             id={`${id}-confirmed`}

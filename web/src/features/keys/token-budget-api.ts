@@ -10,6 +10,9 @@ const budgetViewSchema = z.object({
     token_id: z.number().int().positive(),
     user_id: z.number().int().positive(),
     enabled: z.boolean(),
+    account_threshold_enabled: z.boolean(),
+    account_min_remaining_bps: z.number().int().min(0).max(10000),
+    account_max_age_seconds: z.number().int().min(30).max(3600),
     fee_enabled: z.boolean(),
     fee_limit_usd: usdAmountSchema,
     fee_used_usd: usdAmountSchema,
@@ -46,6 +49,11 @@ export type TokenBudgetCommand =
         limit: number
         confirmed: true
         fee: { enabled: boolean; limit_usd: string }
+        account_threshold: {
+          enabled: boolean
+          minimum_remaining_bps: number
+          max_age_seconds: number
+        }
       }
     }
   | {

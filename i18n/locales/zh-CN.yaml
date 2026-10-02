@@ -320,3 +320,8 @@ quota_history.selection_too_large: "额度记录过多，请缩短时间范围"
 
 fee_budget.exceeded: "本次请求的 USD 预留超过可用费用预算"
 fee_budget.evidence: "无法核验适用的冻结官网价格，生成请求未发出"
+
+account_threshold.unavailable: "没有新鲜完整的账户窗口证据满足此 Key 的阈值，生成请求未发出"
+
+account_threshold.combination: "账户阈值目前仅支持原生 Codex 账户，不能与直连 API 的 Token 或 USD 限额同时启用"
+account_threshold.invalid: "账户阈值须为 0–100%，采样有效期须为 30–3600 秒"

@@ -132,3 +132,78 @@ func TestTokenBudgetActualRoutesAndUnlimitedKeyAdmission(t *testing.T) {
 	assert.Equal(t, 2, generations, "fee-only policies remain enforced even with the Token limit disabled")
 
 }
+
+func TestAccountThresholdPolicyActualRoutesAndAdmission(t *testing.T) {
+	setupRelayRouterTestDB(t)
+	require.NoError(t, i18n.Init())
+	db := model.DB
+	require.NoError(t, db.AutoMigrate(&model.TokenBudgetPolicyChange{}))
+	oldMemory, oldCritical, oldGlobal := common.MemoryCacheEnabled, common.CriticalRateLimitEnable, common.GlobalApiRateLimitEnable
+	common.MemoryCacheEnabled, common.CriticalRateLimitEnable, common.GlobalApiRateLimitEnable = false, false, false
+	t.Cleanup(func() {
+		common.MemoryCacheEnabled, common.CriticalRateLimitEnable, common.GlobalApiRateLimitEnable = oldMemory, oldCritical, oldGlobal
+	})
+	var ownerID int
+	for _, entry := range []struct {
+		name string
+		role int
+	}{{"root", common.RoleRootUser}, {"owner", common.RoleCommonUser}} {
+		pat := "threshold-pat-" + entry.name
+		user := model.User{Username: pat, AffCode: pat, Role: entry.role, Status: common.UserStatusEnabled, Quota: 10000, AccessToken: &pat}
+		require.NoError(t, db.Create(&user).Error)
+		if entry.name == "owner" {
+			ownerID = user.Id
+		}
+	}
+	key := model.Token{UserId: ownerID, Key: "thresholdrelayfixture", Status: common.TokenStatusEnabled, ExpiredTime: -1, UnlimitedQuota: true}
+	require.NoError(t, db.Create(&key).Error)
+	engine := gin.New()
+	engine.Use(func(c *gin.Context) { common.SetContextKey(c, constant.ContextKeyAuditLogged, true); c.Next() })
+	SetApiRouter(engine)
+	engine.POST("/v1/responses", middleware.TokenAuth(), func(c *gin.Context) {
+		policy, active := common.AccountQuotaThresholdFromContext(c.Request.Context())
+		require.True(t, active)
+		assert.Equal(t, key.Id, policy.TokenID)
+		assert.Equal(t, 2001, policy.MinimumRemainingBPS)
+		assert.EqualValues(t, 120, policy.MaxAgeSeconds)
+		assert.False(t, common.GetContextKeyBool(c, constant.ContextKeyStrictTokenBudget))
+		c.Status(http.StatusNoContent)
+	})
+	request := func(method, path, auth, origin, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, "http://myapi.local"+path, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+auth)
+		if origin != "" {
+			req.Header.Set("Origin", origin)
+		}
+		response := httptest.NewRecorder()
+		engine.ServeHTTP(response, req)
+		return response
+	}
+	path := fmt.Sprintf("/api/token/%d/budget", key.Id)
+	body := `{"id":"` + strings.Repeat("e", 64) + `","expected_revision":0,"enabled":false,"limit":0,"confirmed":true,"account_threshold":{"enabled":true,"minimum_remaining_bps":2001,"max_age_seconds":120}}`
+	assert.Equal(t, http.StatusForbidden, request(http.MethodPut, path, "threshold-pat-owner", "http://myapi.local", body).Code)
+	for _, origin := range []string{"", "http://evil.invalid"} {
+		assert.Equal(t, http.StatusForbidden, request(http.MethodPut, path, "threshold-pat-root", origin, body).Code)
+	}
+	for _, invalid := range []string{
+		strings.Replace(body, `"max_age_seconds":120`, `"max_age_seconds":0`, 1),
+		strings.Replace(body, `,"max_age_seconds":120`, "", 1),
+		strings.Replace(body, `"minimum_remaining_bps":2001`, `"minimum_remaining_bps":20.01`, 1),
+		strings.Replace(body, `"enabled":false`, `"enabled":true`, 1),
+		strings.Replace(body, `"confirmed":true`, `"confirmed":false`, 1),
+	} {
+		assert.Equal(t, http.StatusBadRequest, request(http.MethodPut, path, "threshold-pat-root", "http://myapi.local", invalid).Code)
+	}
+	for range 2 {
+		response := request(http.MethodPut, path, "threshold-pat-root", "http://myapi.local", body)
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	}
+	var audits int64
+	require.NoError(t, db.Model(&model.TokenBudgetPolicyChange{}).Count(&audits).Error)
+	assert.EqualValues(t, 1, audits)
+	response := request(http.MethodGet, path, "threshold-pat-owner", "", "")
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.Contains(t, response.Body.String(), `"account_threshold_enabled":true`)
+	assert.Equal(t, http.StatusNoContent, request(http.MethodPost, "/v1/responses", "sk-thresholdrelayfixture", "", "{}").Code)
+}

@@ -106,7 +106,8 @@ func Distribute() func(c *gin.Context) {
 				if preferredChannelID, found := service.GetPreferredChannelByAffinity(c, modelRequest.Model, usingGroup); found {
 					affinityUsable := false
 					preferred, err := model.CacheGetChannel(preferredChannelID)
-					if err == nil && preferred != nil && preferred.Status == common.ChannelStatusEnabled && preferred.Type == constant.ChannelTypeCodex {
+					_, thresholdActive := common.AccountQuotaThresholdFromContext(c.Request.Context())
+					if err == nil && preferred != nil && preferred.Status == common.ChannelStatusEnabled && (preferred.Type == constant.ChannelTypeCodex || thresholdActive) {
 						_, usable, quotaErr := service.CodexQuotaEligibleKeys(c.Request.Context(), preferred)
 						if quotaErr != nil {
 							abortWithOpenAiMessage(c, http.StatusServiceUnavailable, i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{
@@ -496,7 +497,11 @@ func setupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 		return types.NewError(errors.New("channel is nil"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
 	var excluded map[int]bool
-	if channel.Type == constant.ChannelTypeCodex && !quotaProbe {
+	thresholdActive := false
+	if c.Request != nil {
+		_, thresholdActive = common.AccountQuotaThresholdFromContext(c.Request.Context())
+	}
+	if (channel.Type == constant.ChannelTypeCodex && !quotaProbe) || thresholdActive {
 		routingCtx := context.Background()
 		if c.Request != nil {
 			routingCtx = c.Request.Context()

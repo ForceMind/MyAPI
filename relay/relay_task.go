@@ -116,7 +116,8 @@ func ResolveOriginTask(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskErr
 
 	if originTask.ChannelId != info.ChannelId {
 		var excluded map[int]bool
-		if ch.Type == constant.ChannelTypeCodex {
+		_, thresholdActive := common.AccountQuotaThresholdFromContext(c.Request.Context())
+		if ch.Type == constant.ChannelTypeCodex || thresholdActive {
 			var eligible bool
 			excluded, eligible, err = service.CodexQuotaEligibleKeys(c.Request.Context(), ch)
 			if err != nil || !eligible {

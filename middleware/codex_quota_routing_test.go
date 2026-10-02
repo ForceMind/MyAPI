@@ -384,3 +384,62 @@ func TestCodexQuotaAffinityBypassesExhaustedAccountForHealthyChannel(t *testing.
 	assert.Equal(t, "fallback", fallback.Name)
 	assert.NotEqual(t, preferredID, fallback.Id)
 }
+
+func TestAccountThresholdPinnedFixedAndDiagnosticCannotBypassLowWindow(t *testing.T) {
+	db := setupCodexQuotaMiddlewareDB(t)
+	baseURL := "https://chatgpt.com"
+	channel := &model.Channel{Type: constant.ChannelTypeCodex, BaseURL: &baseURL, Name: "threshold accounts", Status: common.ChannelStatusEnabled, Models: "gpt-5-codex", Group: "default", Key: `{"access_token":"fixture-a","account_id":"threshold-low"}` + "\n" + `{"access_token":"fixture-b","account_id":"threshold-high"}`, ChannelInfo: model.ChannelInfo{IsMultiKey: true, MultiKeySize: 2, MultiKeyMode: constant.MultiKeyModePolling}}
+	require.NoError(t, db.Create(channel).Error)
+	now, err := model.ReadDatabaseUnixTime(context.Background(), db)
+	require.NoError(t, err)
+	for _, account := range []struct {
+		id   string
+		used float64
+	}{{"threshold-low", 90}, {"threshold-high", 10}} {
+		total := float64(100)
+		used := account.used
+		require.NoError(t, db.Create(&model.ChannelQuotaSnapshot{ChannelId: channel.Id, AccountRef: model.ChannelQuotaAccountRef("codex", account.id), ObservedAt: now, SampleID: account.id, Available: 100 - used, Used: &used, Total: &total, MetricType: "codex_rate_limit", WindowType: "five_hour", WindowSeconds: 18000, ResetAt: now + 18000, Source: "codex_wham_usage_primary", Status: "success", Unit: "percent", CodexThresholdQualified: true}).Error)
+	}
+	attach := func(c *gin.Context) {
+		c.Request = c.Request.WithContext(common.WithAccountQuotaThreshold(c.Request.Context(), common.AccountQuotaThreshold{MinimumRemainingBPS: 2000, MaxAgeSeconds: 300}))
+		common.SetContextKey(c, constant.ContextKeyUsingGroup, "default")
+	}
+	for _, index := range []int{0, 1} {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+		attach(c)
+		err := SetupContextForFixedChannelKey(c, channel, "gpt-5-codex", index)
+		if index == 0 {
+			require.NotNil(t, err)
+			assert.Empty(t, common.GetContextKeyString(c, constant.ContextKeyChannelKey))
+		} else {
+			require.Nil(t, err)
+			assert.Contains(t, common.GetContextKeyString(c, constant.ContextKeyChannelKey), "threshold-high")
+		}
+	}
+	low := *channel
+	low.Key = strings.Split(channel.Key, "\n")[0]
+	low.ChannelInfo = model.ChannelInfo{}
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	attach(c)
+	require.NotNil(t, SetupContextForChannelTest(c, &low, "gpt-5-codex"), "a token-bound policy cannot borrow the administrator diagnostic bypass")
+	selected := ""
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		attach(c)
+		common.SetContextKey(c, constant.ContextKeyTokenSpecificChannelId, strconv.Itoa(channel.Id))
+		c.Next()
+	})
+	router.Use(Distribute())
+	router.POST("/v1/responses", func(c *gin.Context) {
+		selected = common.GetContextKeyString(c, constant.ContextKeyChannelKey)
+		c.Status(http.StatusOK)
+	})
+	req := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"model":"gpt-5-codex","input":"hello"}`))
+	req.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, req)
+	assert.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	assert.Contains(t, selected, "threshold-high")
+}

@@ -43,7 +43,7 @@ func ValidateTokenBudgetSchema(db *gorm.DB) error {
 			return errors.New("token budget schema migration is required")
 		}
 	}
-	for _, column := range []string{"fee_enabled", "fee_limit_usd", "fee_used_usd", "fee_reserved_usd"} {
+	for _, column := range []string{"fee_enabled", "fee_limit_usd", "fee_used_usd", "fee_reserved_usd", "account_threshold_enabled", "account_min_remaining_bps", "account_max_age_seconds"} {
 		if !db.Migrator().HasColumn(&TokenBudget{}, column) {
 			return errors.New("fee budget schema migration is required")
 		}
@@ -52,6 +52,9 @@ func ValidateTokenBudgetSchema(db *gorm.DB) error {
 		if !db.Migrator().HasColumn(&TokenBudgetReservation{}, column) {
 			return errors.New("token budget evidence migration is required")
 		}
+	}
+	if !db.Migrator().HasColumn(&ChannelQuotaSnapshot{}, "codex_threshold_qualified") {
+		return errors.New("account threshold sampling migration is required")
 	}
 	for _, column := range []string{"actual_input_tokens", "actual_output_tokens", "actual_fee_usd"} {
 		if !db.Migrator().HasColumn(&UsageReviewDecision{}, column) {
@@ -62,18 +65,21 @@ func ValidateTokenBudgetSchema(db *gorm.DB) error {
 }
 
 type TokenBudget struct {
-	FeeEnabled       bool   `json:"fee_enabled" gorm:"not null;default:false"`
-	FeeLimitUSD      string `json:"fee_limit_usd" gorm:"type:varchar(128);not null;default:'0'"`
-	FeeUsedUSD       string `json:"fee_used_usd" gorm:"type:varchar(128);not null;default:'0'"`
-	FeeReservedUSD   string `json:"fee_reserved_usd" gorm:"type:varchar(128);not null;default:'0'"`
-	TokenID          int    `json:"token_id" gorm:"primaryKey;autoIncrement:false"`
-	UserID           int    `json:"user_id" gorm:"not null;index"`
-	Enabled          bool   `json:"enabled" gorm:"not null"`
-	Limit            int64  `json:"limit" gorm:"column:token_limit;type:bigint;not null"`
-	Used             int64  `json:"used" gorm:"type:bigint;not null"`
-	Reserved         int64  `json:"reserved" gorm:"type:bigint;not null"`
-	PendingRequestID string `json:"pending_request_id" gorm:"type:varchar(64);not null"`
-	Revision         int64  `json:"revision" gorm:"type:bigint;not null"`
+	AccountThresholdEnabled bool   `json:"account_threshold_enabled" gorm:"not null;default:false"`
+	AccountMinRemainingBPS  int    `json:"account_min_remaining_bps" gorm:"not null;default:0"`
+	AccountMaxAgeSeconds    int64  `json:"account_max_age_seconds" gorm:"not null;default:300"`
+	FeeEnabled              bool   `json:"fee_enabled" gorm:"not null;default:false"`
+	FeeLimitUSD             string `json:"fee_limit_usd" gorm:"type:varchar(128);not null;default:'0'"`
+	FeeUsedUSD              string `json:"fee_used_usd" gorm:"type:varchar(128);not null;default:'0'"`
+	FeeReservedUSD          string `json:"fee_reserved_usd" gorm:"type:varchar(128);not null;default:'0'"`
+	TokenID                 int    `json:"token_id" gorm:"primaryKey;autoIncrement:false"`
+	UserID                  int    `json:"user_id" gorm:"not null;index"`
+	Enabled                 bool   `json:"enabled" gorm:"not null"`
+	Limit                   int64  `json:"limit" gorm:"column:token_limit;type:bigint;not null"`
+	Used                    int64  `json:"used" gorm:"type:bigint;not null"`
+	Reserved                int64  `json:"reserved" gorm:"type:bigint;not null"`
+	PendingRequestID        string `json:"pending_request_id" gorm:"type:varchar(64);not null"`
+	Revision                int64  `json:"revision" gorm:"type:bigint;not null"`
 }
 
 // A pre-dispatch record remains blocking even if persisting an unknown marker
@@ -153,7 +159,7 @@ func lockTokenBudget(tx *gorm.DB, tokenID int, allowDeleted bool) (*TokenBudget,
 	var budget TokenBudget
 	err := lockForUpdate(tx).First(&budget, "token_id = ?", tokenID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return &TokenBudget{TokenID: tokenID, UserID: token.UserId, FeeLimitUSD: "0", FeeUsedUSD: "0", FeeReservedUSD: "0"}, nil
+		return &TokenBudget{TokenID: tokenID, UserID: token.UserId, FeeLimitUSD: "0", FeeUsedUSD: "0", FeeReservedUSD: "0", AccountMinRemainingBPS: 2000, AccountMaxAgeSeconds: 300}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -176,7 +182,7 @@ func saveTokenBudget(tx *gorm.DB, budget *TokenBudget, previous int64) error {
 	}
 	result := tx.Model(&TokenBudget{}).Where("token_id = ? AND revision = ?", budget.TokenID, previous).
 		Updates(map[string]any{"enabled": budget.Enabled, "token_limit": budget.Limit, "used": budget.Used,
-			"reserved": budget.Reserved, "pending_request_id": budget.PendingRequestID, "revision": budget.Revision, "fee_enabled": budget.FeeEnabled, "fee_limit_usd": budget.FeeLimitUSD, "fee_used_usd": budget.FeeUsedUSD, "fee_reserved_usd": budget.FeeReservedUSD})
+			"reserved": budget.Reserved, "pending_request_id": budget.PendingRequestID, "revision": budget.Revision, "fee_enabled": budget.FeeEnabled, "fee_limit_usd": budget.FeeLimitUSD, "fee_used_usd": budget.FeeUsedUSD, "fee_reserved_usd": budget.FeeReservedUSD, "account_threshold_enabled": budget.AccountThresholdEnabled, "account_min_remaining_bps": budget.AccountMinRemainingBPS, "account_max_age_seconds": budget.AccountMaxAgeSeconds})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -202,12 +208,13 @@ func eligibleTokenBudgetSubject(tx *gorm.DB, tokenID, userID int) error {
 }
 
 type TokenBudgetPolicyInput struct {
-	Fee              *FeeBudgetPolicyInput `json:"fee,omitempty"`
-	ID               string                `json:"id"`
-	TokenID          int                   `json:"token_id"`
-	ExpectedRevision int64                 `json:"expected_revision"`
-	Enabled          bool                  `json:"enabled"`
-	Limit            int64                 `json:"limit"`
+	AccountThreshold *AccountQuotaThresholdPolicyInput `json:"account_threshold,omitempty"`
+	Fee              *FeeBudgetPolicyInput             `json:"fee,omitempty"`
+	ID               string                            `json:"id"`
+	TokenID          int                               `json:"token_id"`
+	ExpectedRevision int64                             `json:"expected_revision"`
+	Enabled          bool                              `json:"enabled"`
+	Limit            int64                             `json:"limit"`
 }
 
 // LookupTokenBudget is an internal admission read. A missing row means the
@@ -271,7 +278,7 @@ func ReadTokenBudget(ctx context.Context, db *gorm.DB, actorID, tokenID int) (*T
 		return nil, err
 	}
 	if budget == nil {
-		budget = &TokenBudget{TokenID: tokenID, UserID: token.UserId, FeeLimitUSD: "0", FeeUsedUSD: "0", FeeReservedUSD: "0"}
+		budget = &TokenBudget{TokenID: tokenID, UserID: token.UserId, FeeLimitUSD: "0", FeeUsedUSD: "0", FeeReservedUSD: "0", AccountMinRemainingBPS: 2000, AccountMaxAgeSeconds: 300}
 	}
 	if budget.UserID != token.UserId {
 		return nil, ErrTokenBudgetConflict
@@ -309,6 +316,13 @@ func ConfigureTokenBudget(ctx context.Context, db *gorm.DB, actorID int, input T
 	}
 	if !validBudgetDigest(input.ID) || input.TokenID <= 0 || input.ExpectedRevision < 0 || input.Limit < 0 || input.Limit > MaxTokenBudget {
 		return nil, ErrTokenBudgetInvalid
+	}
+	if input.AccountThreshold != nil {
+		copy := *input.AccountThreshold
+		if !common.ValidAccountQuotaThreshold(common.AccountQuotaThreshold{MinimumRemainingBPS: copy.MinimumRemainingBPS, MaxAgeSeconds: copy.MaxAgeSeconds}) {
+			return nil, ErrAccountQuotaThresholdInvalid
+		}
+		input.AccountThreshold = &copy
 	}
 	if input.Fee != nil {
 		value := *input.Fee
@@ -367,6 +381,12 @@ func ConfigureTokenBudget(ctx context.Context, db *gorm.DB, actorID int, input T
 				}
 			}
 			budget.FeeEnabled, budget.FeeLimitUSD = input.Fee.Enabled, input.Fee.LimitUSD
+		}
+		if input.AccountThreshold != nil {
+			budget.AccountThresholdEnabled, budget.AccountMinRemainingBPS, budget.AccountMaxAgeSeconds = input.AccountThreshold.Enabled, input.AccountThreshold.MinimumRemainingBPS, input.AccountThreshold.MaxAgeSeconds
+		}
+		if budget.AccountThresholdEnabled && (input.Enabled || budget.FeeEnabled) {
+			return ErrAccountQuotaThresholdCombination
 		}
 		previous := budget.Revision
 		budget.Enabled, budget.Limit, budget.Revision = input.Enabled, input.Limit, previous+1

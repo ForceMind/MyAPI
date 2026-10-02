@@ -60,7 +60,12 @@ func ReconcileUsageReview(c *gin.Context) {
 
 func usageReviewError(c *gin.Context, err error) {
 	status, code := http.StatusInternalServerError, "usage_review_unavailable"
+	message := i18n.MsgOperationFailed
 	switch {
+	case errors.Is(err, model.ErrAccountQuotaThresholdCombination):
+		status, code, message = http.StatusBadRequest, "account_threshold_mode_conflict", i18n.MsgAccountThresholdCombination
+	case errors.Is(err, model.ErrAccountQuotaThresholdInvalid):
+		status, code, message = http.StatusBadRequest, "account_threshold_invalid", i18n.MsgAccountThresholdInvalid
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		status, code = http.StatusNotFound, "usage_review_not_found"
 	case errors.Is(err, model.ErrAccountQuotaMutationIneligible):
@@ -70,5 +75,5 @@ func usageReviewError(c *gin.Context, err error) {
 	case errors.Is(err, model.ErrAccountQuotaMutationConflict), errors.Is(err, model.ErrAccountQuotaUsageUnresolved), errors.Is(err, model.ErrAccountQuotaSettlementPending), errors.Is(err, model.ErrTokenBudgetConflict), errors.Is(err, model.ErrTokenBudgetPending):
 		status, code = http.StatusConflict, "usage_review_conflict"
 	}
-	c.JSON(status, gin.H{"success": false, "code": code, "message": common.TranslateMessage(c, i18n.MsgOperationFailed)})
+	c.JSON(status, gin.H{"success": false, "code": code, "message": common.TranslateMessage(c, message)})
 }

@@ -391,3 +391,10 @@ const (
 	MsgFeeBudgetExceeded = "fee_budget.exceeded"
 	MsgFeeBudgetEvidence = "fee_budget.evidence"
 )
+
+const MsgAccountThresholdUnavailable = "account_threshold.unavailable"
+
+const (
+	MsgAccountThresholdCombination = "account_threshold.combination"
+	MsgAccountThresholdInvalid     = "account_threshold.invalid"
+)

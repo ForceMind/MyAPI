@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { resolve } from 'node:path'
 
 export function tokenBudgetBrowserFixture() {
-  const policy = { token_id: 1, user_id: 1, enabled: false, limit: 100, used: 0, reserved: 0, pending_request_id: '', revision: 0, fee_enabled: false, fee_limit_usd: '0', fee_used_usd: '0', fee_reserved_usd: '0' }
+  const policy = { account_threshold_enabled: false, account_min_remaining_bps: 2000, account_max_age_seconds: 300, token_id: 1, user_id: 1, enabled: false, limit: 100, used: 0, reserved: 0, pending_request_id: '', revision: 0, fee_enabled: false, fee_limit_usd: '0', fee_used_usd: '0', fee_reserved_usd: '0' }
   const state = { policy, pending: null }
   const writes = []
   let sequence = 0
@@ -42,7 +42,7 @@ export function tokenBudgetBrowserFixture() {
           assert.equal(body.confirmed, true)
           assert.equal(body.expected_revision, policy.revision)
           assert.match(body.id, /^[a-f0-9]{64}$/)
-          Object.assign(policy, { enabled: body.enabled, limit: body.limit, fee_enabled: body.fee.enabled, fee_limit_usd: body.fee.limit_usd, revision: policy.revision + 1 })
+          Object.assign(policy, { account_threshold_enabled: body.account_threshold.enabled, account_min_remaining_bps: body.account_threshold.minimum_remaining_bps, account_max_age_seconds: body.account_threshold.max_age_seconds, enabled: body.enabled, limit: body.limit, fee_enabled: body.fee.enabled, fee_limit_usd: body.fee.limit_usd, revision: policy.revision + 1 })
         }
       }
       await route.fulfill({ json: { success: true, data: state } })
@@ -138,5 +138,35 @@ export async function checkTokenBudgetBrowser({ page, origin, output, label, fix
   await page.getByRole('button', { name: label('API Key usage budgets'), exact: true }).click()
   await page.getByRole('dialog').getByText(tiny, { exact: true }).waitFor()
   assert.equal(fixture.writes.length, 4, 'fee recovery is not resubmitted by reload')
+  dialog = page.getByRole('dialog')
+  await dialog.getByRole('checkbox', { name: label('Enable account safety threshold'), exact: true }).check()
+  await dialog.getByRole('checkbox', { name: label('I confirm all running instances support this budget and I understand its request restrictions.'), exact: true }).check()
+  await dialog.getByRole('button', { name: label('Save'), exact: true }).click()
+  await dialog.getByText(label('Account thresholds cannot be combined with Token or USD budgets on this key.'), { exact: true }).waitFor()
+  assert.equal(fixture.writes.length, 4, 'mixed provider budget modes cannot save')
+  await dialog.getByRole('checkbox', { name: label('Enable USD fee budget'), exact: true }).uncheck()
+  await dialog.getByLabel(label('Minimum remaining percentage'), { exact: true }).fill('20.01')
+  await dialog.getByLabel(label('Maximum observation age (seconds)'), { exact: true }).fill('120')
+  for (const width of [320, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    await dialog.getByLabel(label('Minimum remaining percentage'), { exact: true }).scrollIntoViewIfNeeded()
+    await page.evaluate(async () => {
+      await Promise.all(document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity).map((animation) => animation.finished.catch(() => {})))
+    })
+    const size = await dialog.evaluate((element) => ({ width: element.getBoundingClientRect().width, scroll: element.scrollWidth, client: element.clientWidth }))
+    assert(size.width <= width && size.scroll <= size.client + 1, `account threshold fits ${width}px: ${JSON.stringify(size)}`)
+    await dialog.screenshot({ path: resolve(output, `account-threshold-${width}.png`) })
+  }
+  await Promise.all([
+    page.waitForResponse((response) => response.url().endsWith('/api/token/1/budget') && response.request().method() === 'PUT'),
+    dialog.getByRole('button', { name: label('Save'), exact: true }).click(),
+  ])
+  assert.equal(fixture.writes.length, 5)
+  assert.deepEqual(fixture.writes[4].account_threshold, { enabled: true, minimum_remaining_bps: 2001, max_age_seconds: 120 })
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: label('API Key usage budgets'), exact: true }).click()
+  await page.getByRole('dialog').getByText('20.01%', { exact: true }).waitFor()
+  assert.equal(fixture.writes.length, 5, 'threshold reload never rewrites policy')
+
 
 }

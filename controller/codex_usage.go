@@ -470,7 +470,7 @@ func fetchCodexChannelWhamData(
 
 	ok := statusCode >= 200 && statusCode < 300
 	if recordUsage {
-		if persistErr := recordManualCodexUsageSnapshots(ctx, ch, ch.Key, accountID, statusCode, body); persistErr != nil {
+		if persistErr := recordManualCodexUsageSnapshots(ctx, ch, ch.Key, accountID, statusCode, body, service.CodexQuotaSourceQualified(client, ch.GetBaseURL())); persistErr != nil {
 			common.SysError("failed to record Codex usage snapshot: " + persistErr.Error())
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": userMessage})
 			return
@@ -503,9 +503,9 @@ type codexUsageRateLimit struct {
 }
 
 type codexUsageRateLimitWindow struct {
-	UsedPercent        float64 `json:"used_percent"`
-	ResetAt            int64   `json:"reset_at"`
-	LimitWindowSeconds int64   `json:"limit_window_seconds"`
+	UsedPercent        *float64 `json:"used_percent"`
+	ResetAt            int64    `json:"reset_at"`
+	LimitWindowSeconds int64    `json:"limit_window_seconds"`
 }
 
 // channelQuotaSamplingError keeps an upstream query failure separate from a
@@ -553,7 +553,7 @@ func newChannelQuotaSamplingError(queryErr, persistErr error) error {
 // Manual WHAM reads must persist the same account identity used by routing.
 // A successful supported response confirms account scope; failures remain
 // credential-scoped and cannot make another account appear exhausted.
-func recordManualCodexUsageSnapshots(ctx context.Context, channel *model.Channel, credential, accountID string, statusCode int, body []byte) error {
+func recordManualCodexUsageSnapshots(ctx context.Context, channel *model.Channel, credential, accountID string, statusCode int, body []byte, nativeSource ...bool) error {
 	if channel == nil {
 		return errors.New("nil Codex channel")
 	}
@@ -571,7 +571,7 @@ func recordManualCodexUsageSnapshots(ctx context.Context, channel *model.Channel
 		return err
 	}
 	if os.Getenv(common.ChannelQuotaIdentityKeysEnv) == "" {
-		return recordCodexUsageSnapshotsAtForAccount(channel.Id, accountID, observedAt, statusCode, body)
+		return recordQualifiedCodexUsageSnapshotsForAccount(channel.Id, accountID, observedAt, uuid.NewString(), statusCode, body, len(nativeSource) == 1 && nativeSource[0])
 	}
 	kind := common.ChannelQuotaIdentityKindCredential
 	material := []byte(credential)
@@ -583,7 +583,7 @@ func recordManualCodexUsageSnapshots(ctx context.Context, channel *model.Channel
 	if err != nil {
 		return err
 	}
-	return recordCodexUsageSnapshotsForIdentity(channel.Id, identity, observedAt, uuid.NewString(), statusCode, body)
+	return recordQualifiedCodexUsageSnapshotsForIdentity(channel.Id, identity, observedAt, uuid.NewString(), statusCode, body, len(nativeSource) == 1 && nativeSource[0])
 }
 
 func recordCodexUsageSnapshots(channelID, statusCode int, body []byte) error {
@@ -607,7 +607,12 @@ func recordCodexUsageSnapshotsAtWithSampleID(channelID int, observedAt int64, sa
 }
 
 func recordCodexUsageSnapshotsAtWithSampleIDForAccount(channelID int, accountID string, observedAt int64, sampleID string, statusCode int, body []byte) error {
+	return recordQualifiedCodexUsageSnapshotsForAccount(channelID, accountID, observedAt, sampleID, statusCode, body, false)
+}
+
+func recordQualifiedCodexUsageSnapshotsForAccount(channelID int, accountID string, observedAt int64, sampleID string, statusCode int, body []byte, nativeSource bool) error {
 	snapshots := normalizeCodexUsageSnapshots(channelID, observedAt, statusCode, body)
+	qualifyCodexThresholdSnapshots(snapshots, statusCode, body, nativeSource)
 	accountRef := model.ChannelQuotaAccountRef("codex", accountID)
 	for index := range snapshots {
 		snapshots[index].AccountRef = accountRef
@@ -616,7 +621,12 @@ func recordCodexUsageSnapshotsAtWithSampleIDForAccount(channelID int, accountID 
 }
 
 func recordCodexUsageSnapshotsForIdentity(channelID int, identity model.ChannelQuotaResolvedIdentity, observedAt int64, sampleID string, statusCode int, body []byte) error {
+	return recordQualifiedCodexUsageSnapshotsForIdentity(channelID, identity, observedAt, sampleID, statusCode, body, false)
+}
+
+func recordQualifiedCodexUsageSnapshotsForIdentity(channelID int, identity model.ChannelQuotaResolvedIdentity, observedAt int64, sampleID string, statusCode int, body []byte, nativeSource bool) error {
 	snapshots := normalizeCodexUsageSnapshots(channelID, observedAt, statusCode, body)
+	qualifyCodexThresholdSnapshots(snapshots, statusCode, body, nativeSource)
 	for index := range snapshots {
 		snapshots[index].SubjectRef = identity.SubjectRef
 		snapshots[index].IdentityQuality = identity.Quality
@@ -719,6 +729,7 @@ func sampleCodexCredentialUsage(ctx context.Context, ch *model.Channel, credenti
 	if clockErr != nil {
 		return newChannelQuotaSamplingError(clockErr, nil)
 	}
+	nativeSource := false
 	persist := func(identity model.ChannelQuotaResolvedIdentity, statusCode int, body []byte) error {
 		persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), channelQuotaPersistenceTimeout)
 		defer persistCancel()
@@ -726,7 +737,7 @@ func sampleCodexCredentialUsage(ctx context.Context, ch *model.Channel, credenti
 		if err != nil {
 			return err
 		}
-		return recordCodexUsageSnapshotsForIdentity(ch.Id, identity, completedAt, sampleID, statusCode, body)
+		return recordQualifiedCodexUsageSnapshotsForIdentity(ch.Id, identity, completedAt, sampleID, statusCode, body, nativeSource)
 	}
 	oauthKey, err := codex.ParseOAuthKey(strings.TrimSpace(credential))
 	if err != nil {
@@ -744,6 +755,7 @@ func sampleCodexCredentialUsage(ctx context.Context, ch *model.Channel, credenti
 		persistErr := persist(credentialIdentity, 0, nil)
 		return newChannelQuotaSamplingError(err, persistErr)
 	}
+	nativeSource = service.CodexQuotaSourceQualified(client, ch.GetBaseURL())
 	statusCode, body, err := service.FetchCodexWhamUsage(ctx, client, ch.GetBaseURL(), accessToken, accountID)
 	if err == nil && (statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden) && strings.TrimSpace(oauthKey.RefreshToken) != "" {
 		refreshedKey, refreshErr := service.RefreshCodexChannelCredentialElement(ctx, ch.Id, credential, ch.GetSetting().Proxy)
@@ -856,6 +868,9 @@ func normalizeCodexUsageSnapshots(channelID int, observedAt int64, statusCode in
 			ErrorCode: errorCode, ErrorMessage: errorMessage,
 		}}
 	}
+	if _, err := common.CanonicalJSONObjectDigest(body); err != nil {
+		return []model.ChannelQuotaSnapshot{{ChannelId: channelID, ObservedAt: observedAt, MetricType: "codex_rate_limit", WindowType: "none", Unit: "percent", Source: "codex_wham_usage", Status: "unsupported", ErrorCode: "invalid_payload", ErrorMessage: "usage response contained ambiguous or invalid JSON"}}
+	}
 	var payload codexUsagePayload
 	if err := common.Unmarshal(body, &payload); err != nil || payload.RateLimit == nil {
 		return []model.ChannelQuotaSnapshot{{
@@ -869,6 +884,13 @@ func normalizeCodexUsageSnapshots(channelID int, observedAt int64, statusCode in
 	if planType == "" {
 		planType = strings.TrimSpace(payload.RateLimit.PlanType)
 	}
+	// An invalid present window is not an absent window. Preserve an error
+	// rather than showing omitted usage as 0% or retiring prior exhaustion.
+	for _, window := range []*codexUsageRateLimitWindow{payload.RateLimit.PrimaryWindow, payload.RateLimit.SecondaryWindow} {
+		if window != nil && (window.UsedPercent == nil || !finiteCodexPercent(*window.UsedPercent)) {
+			return []model.ChannelQuotaSnapshot{{ChannelId: channelID, ObservedAt: observedAt, MetricType: "codex_rate_limit", WindowType: "none", Unit: "percent", Source: "codex_wham_usage", Status: "unsupported", ErrorCode: "invalid_payload", ErrorMessage: "usage response contained an invalid or missing window percentage"}}
+		}
+	}
 	snapshots := make([]model.ChannelQuotaSnapshot, 0, 2)
 	for _, item := range []struct {
 		window *codexUsageRateLimitWindow
@@ -877,10 +899,10 @@ func normalizeCodexUsageSnapshots(channelID int, observedAt int64, statusCode in
 		{payload.RateLimit.PrimaryWindow, "primary"},
 		{payload.RateLimit.SecondaryWindow, "secondary"},
 	} {
-		if item.window == nil || !finiteCodexPercent(item.window.UsedPercent) {
+		if item.window == nil {
 			continue
 		}
-		used := item.window.UsedPercent
+		used := *item.window.UsedPercent
 		available := 100 - used
 		windowType := codexWindowType(item.window.LimitWindowSeconds)
 		snapshots = append(snapshots, model.ChannelQuotaSnapshot{

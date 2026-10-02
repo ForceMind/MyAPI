@@ -20,12 +20,18 @@ func checkTokenBudgetAdmission(c *gin.Context, token *model.Token) bool {
 		abortWithOpenAiMessage(c, http.StatusServiceUnavailable, common.TranslateMessage(c, i18n.MsgDatabaseError), types.ErrorCode("token_budget_unavailable"))
 		return false
 	}
-	if budget == nil || (!budget.Enabled && !budget.FeeEnabled) {
+	if budget == nil {
 		return true
 	}
 	if budget.UserID != token.UserId {
 		abortWithOpenAiMessage(c, http.StatusForbidden, common.TranslateMessage(c, i18n.MsgOperationFailed), types.ErrorCode("token_budget_identity_conflict"))
 		return false
+	}
+	if budget.AccountThresholdEnabled {
+		c.Request = c.Request.WithContext(common.WithAccountQuotaThreshold(c.Request.Context(), common.AccountQuotaThreshold{TokenID: token.Id, Revision: budget.Revision, MinimumRemainingBPS: budget.AccountMinRemainingBPS, MaxAgeSeconds: budget.AccountMaxAgeSeconds}))
+	}
+	if !budget.Enabled && !budget.FeeEnabled {
+		return true
 	}
 	// Model discovery is not a generation. Other routes are unsupported until
 	// their own reliable pre-send bound and complete settlement are connected.

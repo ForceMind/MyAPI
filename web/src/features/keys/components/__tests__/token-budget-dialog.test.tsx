@@ -16,6 +16,9 @@ const initial = {
     token_id: 3,
     user_id: 2,
     enabled: false,
+    account_threshold_enabled: false,
+    account_min_remaining_bps: 2000,
+    account_max_age_seconds: 300,
     fee_enabled: false,
     fee_limit_usd: '0',
     fee_used_usd: '0',
@@ -442,4 +445,94 @@ test('USD policy and recovery retain tiny decimal strings without Number convers
     actual_input_tokens: 10,
     actual_output_tokens: 5,
   })
+})
+
+test('saves an account safety threshold in exact basis points and rejects mixed strict modes', async () => {
+  const user = userEvent.setup()
+  vi.mocked(api.put).mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        ...initial,
+        policy: {
+          ...initial.policy,
+          account_threshold_enabled: true,
+          account_min_remaining_bps: 2001,
+          account_max_age_seconds: 120,
+          revision: 1,
+        },
+      },
+    },
+  })
+  renderBudget()
+  await user.click(
+    await screen.findByRole('checkbox', {
+      name: 'Enable account safety threshold',
+    })
+  )
+  const percent = screen.getByLabelText('Minimum remaining percentage')
+  await user.clear(percent)
+  await user.type(percent, '20.001')
+  await user.click(screen.getByRole('checkbox', { name: confirmedPolicy }))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  expect(api.put).not.toHaveBeenCalled()
+  await user.clear(percent)
+  await user.type(percent, '20.01')
+  await user.clear(screen.getByLabelText('Maximum observation age (seconds)'))
+  await user.type(
+    screen.getByLabelText('Maximum observation age (seconds)'),
+    '120'
+  )
+  await user.click(
+    screen.getByRole('checkbox', { name: 'Enable strict Token budget' })
+  )
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  expect(api.put).not.toHaveBeenCalled()
+  expect(
+    screen.getByText(
+      'Account thresholds cannot be combined with Token or USD budgets on this key.'
+    )
+  ).toBeVisible()
+  await user.click(
+    screen.getByRole('checkbox', { name: 'Enable strict Token budget' })
+  )
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(api.put).toHaveBeenCalledTimes(1))
+  expect(vi.mocked(api.put).mock.calls[0]?.[1]).toMatchObject({
+    enabled: false,
+    fee: { enabled: false },
+    account_threshold: {
+      enabled: true,
+      minimum_remaining_bps: 2001,
+      max_age_seconds: 120,
+    },
+  })
+  expect(await screen.findByText('20.01%')).toBeVisible()
+})
+
+test('shows account threshold and freshness to the owner without editable controls', async () => {
+  useAuthStore
+    .getState()
+    .auth.setUser({ id: 2, username: 'fixture-owner', role: 1 })
+  vi.mocked(api.get).mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        ...initial,
+        policy: {
+          ...initial.policy,
+          account_threshold_enabled: true,
+          account_min_remaining_bps: 2000,
+          account_max_age_seconds: 300,
+        },
+      },
+    },
+  })
+  renderBudget()
+  expect(await screen.findByText('20%')).toBeVisible()
+  expect(screen.getByText('300')).toBeVisible()
+  expect(
+    screen.queryByRole('checkbox', { name: 'Enable account safety threshold' })
+  ).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
 })

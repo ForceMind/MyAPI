@@ -175,6 +175,10 @@ func tokenBudgetStatelessText(value any) bool {
 // Inspect cached transports rather than trusting only the current global TLS
 // switch: a client created before a settings change can retain its old policy.
 func tokenBudgetVerifiedTransport(rt http.RoundTripper) bool {
+	return verifiedUpstreamTransport(rt, "api.openai.com")
+}
+
+func verifiedUpstreamTransport(rt http.RoundTripper, host string) bool {
 	if rt == nil {
 		rt = http.DefaultTransport
 	}
@@ -184,13 +188,13 @@ func tokenBudgetVerifiedTransport(rt http.RoundTripper) bool {
 			return false
 		}
 		config := transport.TLSClientConfig
-		return config == nil || (!config.InsecureSkipVerify && (config.ServerName == "" || config.ServerName == "api.openai.com"))
+		return config == nil || (!config.InsecureSkipVerify && (config.ServerName == "" || config.ServerName == host))
 	case *shardedRoundTripper:
 		if transport == nil || len(transport.shards) == 0 {
 			return false
 		}
 		for _, shard := range transport.shards {
-			if !tokenBudgetVerifiedTransport(shard) {
+			if shard == nil || !verifiedUpstreamTransport(shard, host) {
 				return false
 			}
 		}

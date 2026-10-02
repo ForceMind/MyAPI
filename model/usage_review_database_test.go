@@ -37,7 +37,7 @@ func TestR1UsageReviewConfiguredDatabases(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, pool.Ping())
 			t.Cleanup(func() { require.NoError(t, pool.Close()) })
-			entities := []any{&User{}, &Token{}, &SubscriptionPlan{}, &UserSubscription{}, &AccountQuotaMutationReceipt{}, &AccountQuotaReservationHead{}, &AccountQuotaTerminalRecoveryObligation{}, &AccountQuotaSettlementIntent{}, &AccountQuotaSettlementFact{}, &AccountQuotaRefundFact{}, &QuotaWriterEpoch{}, &QuotaProjectionObligation{}, &QuotaWorkCursor{}, &LegacyUsageReservation{}, &UsageReviewDecision{}, &Log{}, &BillingLogProjectionIdentity{}, &TokenBudget{}, &TokenBudgetReservation{}, &TokenBudgetPolicyChange{}}
+			entities := []any{&User{}, &Token{}, &SubscriptionPlan{}, &UserSubscription{}, &AccountQuotaMutationReceipt{}, &AccountQuotaReservationHead{}, &AccountQuotaTerminalRecoveryObligation{}, &AccountQuotaSettlementIntent{}, &AccountQuotaSettlementFact{}, &AccountQuotaRefundFact{}, &QuotaWriterEpoch{}, &QuotaProjectionObligation{}, &QuotaWorkCursor{}, &LegacyUsageReservation{}, &UsageReviewDecision{}, &Log{}, &BillingLogProjectionIdentity{}, &TokenBudget{}, &TokenBudgetReservation{}, &TokenBudgetPolicyChange{}, &ChannelQuotaSnapshot{}}
 			require.NoError(t, db.AutoMigrate(entities...))
 			// Repeat the schemas changed by this iteration. Unrelated legacy
 			// tables have application-specific migrations outside this fixture.

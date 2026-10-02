@@ -35,7 +35,12 @@ func UpdateTokenBudget(c *gin.Context) {
 		Enabled          *bool  `json:"enabled"`
 		Limit            *int64 `json:"limit"`
 		Confirmed        bool   `json:"confirmed"`
-		Fee              *struct {
+		AccountThreshold *struct {
+			Enabled             *bool  `json:"enabled"`
+			MinimumRemainingBPS *int   `json:"minimum_remaining_bps"`
+			MaxAgeSeconds       *int64 `json:"max_age_seconds"`
+		} `json:"account_threshold"`
+		Fee *struct {
 			Enabled  *bool   `json:"enabled"`
 			LimitUSD *string `json:"limit_usd"`
 		} `json:"fee"`
@@ -53,7 +58,16 @@ func UpdateTokenBudget(c *gin.Context) {
 		}
 		fee = &model.FeeBudgetPolicyInput{Enabled: *request.Fee.Enabled, LimitUSD: *request.Fee.LimitUSD}
 	}
-	_, err = model.ConfigureTokenBudget(c.Request.Context(), model.DB, c.GetInt("id"), model.TokenBudgetPolicyInput{ID: request.ID, TokenID: tokenID, ExpectedRevision: request.ExpectedRevision, Enabled: *request.Enabled, Limit: *request.Limit, Fee: fee})
+	var threshold *model.AccountQuotaThresholdPolicyInput
+	if request.AccountThreshold != nil {
+		value := request.AccountThreshold
+		if value.Enabled == nil || value.MinimumRemainingBPS == nil || value.MaxAgeSeconds == nil {
+			usageReviewError(c, model.ErrAccountQuotaThresholdInvalid)
+			return
+		}
+		threshold = &model.AccountQuotaThresholdPolicyInput{Enabled: *value.Enabled, MinimumRemainingBPS: *value.MinimumRemainingBPS, MaxAgeSeconds: *value.MaxAgeSeconds}
+	}
+	_, err = model.ConfigureTokenBudget(c.Request.Context(), model.DB, c.GetInt("id"), model.TokenBudgetPolicyInput{ID: request.ID, TokenID: tokenID, ExpectedRevision: request.ExpectedRevision, Enabled: *request.Enabled, Limit: *request.Limit, Fee: fee, AccountThreshold: threshold})
 	if err != nil {
 		usageReviewError(c, err)
 		return

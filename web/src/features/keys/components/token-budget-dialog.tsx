@@ -13,6 +13,7 @@ import {
 import { UsageReviewForm } from '@/features/usage-logs/components/usage-review-form'
 import { useAuthStore } from '@/stores/auth-store'
 
+import { percentageToBasisPoints } from '../lib/token-budget-schema'
 import {
   createTokenBudgetOperationId,
   getTokenBudget,
@@ -113,33 +114,35 @@ function TokenBudgetSession(props: {
             )}
           </DialogDescription>
         </DialogHeader>
+        {!data?.policy.account_threshold_enabled && (
+          <>
+            <p className='text-muted-foreground text-xs'>
+              {t(
+                'Only official OpenAI Responses text requests with explicit max_output_tokens and per-token pricing are supported.'
+              )}
+            </p>
+            <details className='text-xs'>
+              <summary className='cursor-pointer'>
+                {t('Supported request fields')}
+              </summary>
+              <p className='mt-2 font-mono break-words'>
+                model, input, instructions, max_output_tokens, stream, store,
+                service_tier
+              </p>
+              <p className='mt-2'>
+                {t(
+                  'Tools, images, external context, free or per-call pricing, and subscription channels are not supported by this strict mode.'
+                )}
+              </p>
+            </details>
+          </>
+        )}
         <p className='text-muted-foreground text-xs'>
-          {t(
-            'Only official OpenAI Responses text requests with explicit max_output_tokens and per-token pricing are supported.'
-          )}
+          {t('Existing quota limits remain active.')}
         </p>
-        <details className='text-xs'>
-          <summary className='cursor-pointer'>
-            {t('Supported request fields')}
-          </summary>
-          <p className='mt-2 font-mono break-words'>
-            model, input, instructions, max_output_tokens, stream, store,
-            service_tier
-          </p>
-          <p className='mt-2'>
-            {t(
-              'Tools, images, external context, free or per-call pricing, and subscription channels are not supported by this strict mode.'
-            )}
-          </p>
-        </details>
         <p className='text-muted-foreground text-xs'>
           {t(
-            'Existing quota limits remain active. Account-percentage limits are not included.'
-          )}
-        </p>
-        <p className='text-muted-foreground text-xs'>
-          {t(
-            'Token counts are tracked while either budget is enabled; USD costs are tracked only while the fee budget is enabled. Earlier usage is not backfilled.'
+            'Token counts are tracked while Token or USD budgets are enabled; USD costs only while fee budgets are enabled. Account thresholds do not track per-key usage. Earlier usage is not backfilled.'
           )}
         </p>
         {query.isError && <p role='alert'>{t('Operation failed')}</p>}
@@ -147,10 +150,37 @@ function TokenBudgetSession(props: {
         {data && (
           <>
             <p className='text-sm'>
-              {data.policy.enabled || data.policy.fee_enabled
+              {data.policy.enabled ||
+              data.policy.fee_enabled ||
+              data.policy.account_threshold_enabled
                 ? t('Enabled')
                 : t('Disabled')}
             </p>
+            <section className='min-w-0 space-y-2 rounded-md border p-3 text-sm'>
+              <p>
+                {t('Account safety threshold')}:{' '}
+                {data.policy.account_threshold_enabled
+                  ? t('Enabled')
+                  : t('Disabled')}
+              </p>
+              <dl className='grid grid-cols-2 gap-2'>
+                <div>
+                  <dt>{t('Minimum remaining percentage')}</dt>
+                  <dd>{data.policy.account_min_remaining_bps / 100}%</dd>
+                </div>
+                <div>
+                  <dt>{t('Maximum observation age (seconds)')}</dt>
+                  <dd>{data.policy.account_max_age_seconds}</dd>
+                </div>
+              </dl>
+              {data.policy.account_threshold_enabled && (
+                <p className='text-muted-foreground text-xs'>
+                  {t(
+                    'Native Codex only. Each account window must have fresh evidence above this threshold before dispatch. Missing, expired or reset observations block the account.'
+                  )}
+                </p>
+              )}
+            </section>
             <dl className='grid min-w-0 grid-cols-3 gap-2 text-sm'>
               <div className='min-w-0'>
                 <dt>{t('Used tokens')}</dt>
@@ -284,6 +314,13 @@ function TokenBudgetSession(props: {
                       enabled: value.enabled,
                       limit: Number(value.limit),
                       confirmed: true,
+                      account_threshold: {
+                        enabled: value.accountThresholdEnabled,
+                        minimum_remaining_bps: percentageToBasisPoints(
+                          value.minimumRemainingPercent
+                        ),
+                        max_age_seconds: Number(value.maxAgeSeconds),
+                      },
                       fee: {
                         enabled: value.feeEnabled,
                         limit_usd: value.feeLimit,

@@ -319,3 +319,8 @@ task.quota_out_of_range: "Task billing quantity is out of range"
 
 fee_budget.exceeded: "The USD reservation exceeds the available fee budget"
 fee_budget.evidence: "The applicable frozen official price could not be verified. The generation request was not sent"
+
+account_threshold.unavailable: "No fresh, complete account-window evidence satisfies this key threshold; the generation request was not sent"
+
+account_threshold.combination: "Account thresholds currently support native Codex accounts and cannot be combined with direct API Token or USD limits"
+account_threshold.invalid: "The account threshold must be 0–100%, with an observation age of 30–3600 seconds"

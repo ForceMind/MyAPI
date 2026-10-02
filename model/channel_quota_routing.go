@@ -17,6 +17,7 @@ const (
 var ErrCodexQuotaRouteIdentity = errors.New("Codex quota routing identity is unavailable")
 
 type CodexQuotaRouteState struct {
+	ReasonCode string
 	Blocked    bool
 	ResetAt    int64
 	ObservedAt int64

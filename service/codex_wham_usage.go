@@ -30,6 +30,12 @@ func readCodexWhamResponse(resp *http.Response) ([]byte, error) {
 	return body, nil
 }
 
+// Percentage gates accept only authenticated native-origin observations.
+// Compatibility proxies keep their existing history/diagnostic behavior.
+func CodexQuotaSourceQualified(client *http.Client, baseURL string) bool {
+	return client != nil && client.Jar == nil && !common.TLSInsecureSkipVerify && strings.TrimRight(strings.TrimSpace(baseURL), "/") == "https://chatgpt.com" && verifiedUpstreamTransport(client.Transport, "chatgpt.com")
+}
+
 func FetchCodexWhamUsage(
 	ctx context.Context,
 	client *http.Client,
@@ -59,7 +65,9 @@ func FetchCodexWhamUsage(
 	}
 	setCodexWhamRequestHeaders(req, at, aid)
 
-	resp, err := client.Do(req)
+	safeClient := *client
+	safeClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	resp, err := safeClient.Do(req)
 	if err != nil {
 		return 0, nil, err
 	}

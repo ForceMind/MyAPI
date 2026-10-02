@@ -250,7 +250,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 		newAPIError = service.NormalizeViolationFeeError(newAPIError)
 		relayInfo.LastError = newAPIError
-		if relayInfo.StrictTokenBudget && strings.HasPrefix(string(newAPIError.GetErrorCode()), "token_budget_") {
+		if (relayInfo.StrictTokenBudget && strings.HasPrefix(string(newAPIError.GetErrorCode()), "token_budget_")) || strings.HasPrefix(string(newAPIError.GetErrorCode()), "account_threshold_") {
 			break
 		}
 
