@@ -35,6 +35,8 @@ export interface AuthUser {
   status?: number
   group?: string
   quota?: number
+  self_use_no_balance?: boolean
+  usage_policy_revision?: number
   used_quota?: number
   request_count?: number
   aff_code?: string

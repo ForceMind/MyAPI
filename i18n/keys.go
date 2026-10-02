@@ -398,3 +398,5 @@ const (
 	MsgAccountThresholdCombination = "account_threshold.combination"
 	MsgAccountThresholdInvalid     = "account_threshold.invalid"
 )
+
+const MsgSelfUseUnsupported = "self_use.unsupported"

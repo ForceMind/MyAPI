@@ -392,8 +392,14 @@ function BillingBreakdown(props: {
   }
 
   rows.push({
-    label: t('Total Cost'),
-    value: formatLogQuota(log.quota),
+    label:
+      other.billing_source === 'self_use'
+        ? t('Internal usage units')
+        : t('Total Cost'),
+    value:
+      other.billing_source === 'self_use'
+        ? log.quota.toLocaleString()
+        : formatLogQuota(log.quota),
   })
 
   if (rows.length === 0) return null

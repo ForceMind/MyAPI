@@ -7,6 +7,7 @@ import { extname, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { quotaFixtures } from './browser-fixtures.mjs'
 import { tokenBudgetBrowserFixture, checkTokenBudgetBrowser } from './token-budget-browser.mjs'
+import { userUsagePolicyBrowserFixture, checkUserUsagePolicyBrowser } from './user-usage-policy-browser.mjs'
 
 // The shipped overview compares multiple stable account identities in one plot.
 process.env.MYAPI_BROWSER_MULTISERIES = '1'
@@ -57,10 +58,12 @@ try {
   const reviewSubmissions = []
   const publicationSubmissions = []
   const budgetFixture = tokenBudgetBrowserFixture()
+  const userPolicyFixture = userUsagePolicyBrowserFixture()
   const publication = { revision: 0, locked: false, active: false, receipts: [] }
   await context.route('**/api/**', async (route) => {
     const url = new URL(route.request().url())
     if (await budgetFixture.route(route, url)) return
+    if (await userPolicyFixture.route(route, url)) return
     if (url.pathname.endsWith('/publication-preview')) {
       const expression = 'v1:len <= 272000 ? tier("short", p * 2 + c * 10 + cr * 0 + cc * 2.5) : tier("long", p * 4 + c * 15 + cr * 0.2 + cc * 5)'
       await route.fulfill({ json: { success: true, data: { source_sha256: 'f'.repeat(64), expected_digest: 'a'.repeat(64), revision: publication.revision, rows: [
@@ -376,6 +379,7 @@ try {
   assert.equal(publicationSubmissions[1].action, 'rollback')
   assert.equal(publicationSubmissions[1].rollback_of, publicationSubmissions[0].id)
   await checkTokenBudgetBrowser({ page, origin, output, label, fixture: budgetFixture })
+  await checkUserUsagePolicyBrowser({ page, origin, output, label, fixture: userPolicyFixture })
   assert.deepEqual([...unexpected], [], 'all application endpoints have explicit fixtures')
   assert.deepEqual(errors, [], 'no browser runtime errors')
   console.log('Quota browser regression passed: compact overview summary/sparkline; detailed line/area/bar and analysis controls; latest-error history; 320px/390px/low-height layout. Synthetic fixtures only.')

@@ -66,6 +66,7 @@ test('stored enabled placeholder cannot reopen commerce and disabled server repl
     wrapper: wrapper(),
   })
   expect(result.current.commercialEnabled).toBe(false)
+  expect(result.current.ready).toBe(false)
   expect(result.current.capabilities.mode).toBe('enabled')
   expect(result.current.capabilities.ready).toBe(true)
   await act(async () => {
@@ -73,6 +74,7 @@ test('stored enabled placeholder cannot reopen commerce and disabled server repl
   })
   await waitFor(() => expect(result.current.capabilities.mode).toBe('disabled'))
   expect(result.current.commercialEnabled).toBe(false)
+  expect(result.current.ready).toBe(true)
 })
 
 test('confirmed enabled state opens presentation but a failed refresh closes it', async () => {

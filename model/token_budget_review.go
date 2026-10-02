@@ -123,6 +123,8 @@ func CancelTokenBudgetBeforeSend(ctx context.Context, db *gorm.DB, actorID, toke
 			}
 			input.EventKey, input.TokenQuota = "billing-refund:"+requestID+":v2", legacy.TokenReservedQuota
 			switch legacy.FundingSource {
+			case BillingSourceSelfUse:
+				input.Kind = AccountQuotaRefundFactKindLegacySelfUse
 			case "wallet":
 				input.Kind, input.WalletQuota = AccountQuotaRefundFactKindLegacyWallet, legacy.ReservedQuota
 			case "subscription":

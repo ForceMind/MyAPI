@@ -161,3 +161,13 @@ describe('log cost display', () => {
     ).toHaveAttribute('data-tool-surcharge-indicator', 'true')
   })
 })
+
+test('self-use metering never presents its internal units as a wallet deduction', () => {
+  renderCost({
+    quota: 100,
+    other: { billing_source: 'self_use', usage_accuracy: 'reported' },
+  })
+  expect(screen.getByText('Self-use metering')).toBeVisible()
+  expect(screen.getByText('100 Internal usage units')).toBeVisible()
+  expect(screen.queryByText(formatLogQuota(100))).not.toBeInTheDocument()
+})

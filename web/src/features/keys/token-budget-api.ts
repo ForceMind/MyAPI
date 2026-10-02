@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { usageReviewSchema } from '@/features/usage-logs/usage-review-api'
 import { api } from '@/lib/api'
 import { usdAmountSchema } from '@/lib/exact-usd'
+import { createOperationId } from '@/lib/operation-id'
 
 const count = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER)
 const budgetViewSchema = z.object({
@@ -70,11 +71,7 @@ export type TokenBudgetCommand =
       }
     }
 
-export function createTokenBudgetOperationId(): string {
-  return Array.from(crypto.getRandomValues(new Uint8Array(32)), (value) =>
-    value.toString(16).padStart(2, '0')
-  ).join('')
-}
+export const createTokenBudgetOperationId = createOperationId
 
 function parseBudget(payload: unknown, tokenId: number): TokenBudgetView {
   const view = z

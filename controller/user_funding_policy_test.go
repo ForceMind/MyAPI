@@ -167,6 +167,12 @@ func TestSetupInitializesUserFundingDisabled(t *testing.T) {
 			var option model.Option
 			require.NoError(t, db.Where("key = ?", "user_funding_setting.mode").First(&option).Error)
 			assert.Equal(t, "disabled", option.Value)
+			var owner model.User
+			require.NoError(t, db.Where("username = ?", "root-wp3").First(&owner).Error)
+			assert.Zero(t, owner.Quota, "self-use setup must not manufacture a wallet balance")
+			assert.True(t, owner.SelfUseNoBalance)
+			assert.EqualValues(t, 1, owner.UsagePolicyRevision)
+
 		})
 	}
 }

@@ -30,6 +30,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { useFundingPresentation } from '@/hooks/use-funding-presentation'
 import { formatQuota, formatTimestamp } from '@/lib/format'
 
 import {
@@ -45,6 +46,7 @@ import { UserQuotaCell } from './user-quota-cell'
 
 export function useUsersColumns(): ColumnDef<User>[] {
   const { t } = useTranslation()
+  const funding = useFundingPresentation()
   return [
     {
       id: 'select',
@@ -167,7 +169,18 @@ export function useUsersColumns(): ColumnDef<User>[] {
       header: t('Quota'),
       cell: ({ row }) => {
         const user = row.original
-        return <UserQuotaCell used={user.used_quota} remaining={user.quota} />
+        return (
+          <UserQuotaCell
+            used={user.used_quota}
+            remaining={user.quota}
+            noBalance={
+              user.self_use_no_balance === true &&
+              funding.ready &&
+              funding.capabilities.mode === 'disabled'
+            }
+            policyPending={user.self_use_no_balance === true && !funding.ready}
+          />
+        )
       },
       size: 300,
       minSize: 260,

@@ -325,3 +325,5 @@ account_threshold.unavailable: "沒有新鮮完整的帳戶窗口證據滿足此
 
 account_threshold.combination: "帳戶閾值目前僅支援原生 Codex 帳戶，不能與直連 API 的 Token 或 USD 限額同時啟用"
 account_threshold.invalid: "帳戶閾值須為 0–100%，取樣有效期須為 30–3600 秒"
+
+self_use.unsupported: "非儲值自用策略目前僅支援 Chat 與 Responses 請求。"

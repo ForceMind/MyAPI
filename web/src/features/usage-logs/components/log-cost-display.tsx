@@ -129,6 +129,21 @@ export function LogCostDisplay(props: LogCostDisplayProps) {
     return <UsageAccuracyBadge accuracy='pending_review' />
   }
 
+  if (props.other?.billing_source === 'self_use') {
+    return (
+      <div className='flex flex-col gap-0.5'>
+        <Badge variant='outline'>{t('Self-use metering')}</Badge>
+        <span className='text-muted-foreground text-xs'>
+          {props.quota.toLocaleString()} {t('Internal usage units')}
+        </span>
+        {reference && <Badge variant='outline'>{t('Reference cost')}</Badge>}
+        {props.showUsageAccuracy !== false && (
+          <UsageAccuracyBadge accuracy={props.other?.usage_accuracy} />
+        )}
+      </div>
+    )
+  }
+
   if (!isSubscription && !showToolSurcharge) {
     return (
       <div className='flex flex-col gap-0.5'>

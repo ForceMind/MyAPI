@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/logger"
 	"github.com/ForceMind/MyAPI/model"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
@@ -156,6 +157,8 @@ func (s *BillingSession) SettleWithContext(parent context.Context, actualQuota i
 		UserID: s.relayInfo.UserId, TokenID: s.relayInfo.TokenId, Delta: int64(delta), ApplyToken: !s.relayInfo.IsPlayground,
 	}
 	switch funding := s.funding.(type) {
+	case *SelfUseFunding:
+		factInput.Kind = model.AccountQuotaSettlementKindLegacySelfUse
 	case *WalletFunding:
 		factInput.Kind = model.AccountQuotaSettlementKindLegacyWallet
 	case *SubscriptionFunding:
@@ -388,7 +391,7 @@ func (s *BillingSession) settlementAuditInfo() map[string]interface{} {
 	if s.settlementInput != nil {
 		info["event_key"] = s.settlementInput.EventKey
 		actualQuota := s.settlementInput.ActualQuota
-		if s.settlementInput.Kind == model.AccountQuotaSettlementKindLegacyWallet || s.settlementInput.Kind == model.AccountQuotaSettlementKindLegacySubscription {
+		if s.settlementInput.Kind == model.AccountQuotaSettlementKindLegacySelfUse || s.settlementInput.Kind == model.AccountQuotaSettlementKindLegacyWallet || s.settlementInput.Kind == model.AccountQuotaSettlementKindLegacySubscription {
 			actualQuota = int64(s.preConsumedQuota) + s.settlementInput.Delta
 		}
 		info["actual_quota"] = actualQuota
@@ -470,6 +473,11 @@ func (s *BillingSession) Refund(c *gin.Context) (resultErr error) {
 			EventKey: "billing-refund:" + requestID + ":v1", Kind: model.AccountQuotaRefundFactKindAuthoritative,
 			RequestID: requestID, ReserveReceiptID: s.reserveReceipt.ID, AuditKey: "upstream-failure:" + requestID,
 			WriterEpoch: s.reserveReceipt.WriterEpoch, UserID: s.reserveReceipt.UserID, TokenID: s.reserveReceipt.TokenID,
+		}
+	} else if _, ok := s.funding.(*SelfUseFunding); ok {
+		factInput = model.AccountQuotaRefundFactInput{
+			EventKey: "billing-refund:" + requestID + ":v2", Kind: model.AccountQuotaRefundFactKindLegacySelfUse,
+			RequestID: requestID, UserID: s.relayInfo.UserId, TokenID: s.relayInfo.TokenId, TokenQuota: int64(s.tokenConsumed),
 		}
 	} else if funding, ok := s.funding.(*WalletFunding); ok {
 		factInput = model.AccountQuotaRefundFactInput{
@@ -774,6 +782,8 @@ func (s *BillingSession) preConsume(c *gin.Context, quota int) *types.NewAPIErro
 // legacy 模式下 fail-closed。无需在此重复守卫。
 func (s *BillingSession) reserveFunding(delta int) error {
 	switch funding := s.funding.(type) {
+	case *SelfUseFunding:
+		return nil
 	case *WalletFunding:
 		// 与结算补扣（SettleBilling 正差额 → WalletFunding.Settle）语义一致：
 		// 全额无条件扣减，余额不足的部分记为欠费（余额可为负），不中断请求，
@@ -829,6 +839,9 @@ func (s *BillingSession) reserveToken(delta int) error {
 
 // shouldTrust 统一信任额度检查，适用于钱包和订阅。
 func (s *BillingSession) shouldTrust(c *gin.Context) bool {
+	if s.funding.Source() == BillingSourceSelfUse {
+		return false
+	}
 	// 异步任务（ForcePreConsume=true）必须预扣全额，不允许信任旁路
 	if s.relayInfo.ForcePreConsume {
 		return false
@@ -930,6 +943,8 @@ func newAuthoritativeBillingSession(c *gin.Context, relayInfo *relaycommon.Relay
 			funding.PlanId, funding.PlanTitle = planInfo.PlanId, planInfo.PlanTitle
 		}
 		session.funding = funding
+	} else if receipt.BillingSource == BillingSourceSelfUse {
+		session.funding = &SelfUseFunding{}
 	} else if receipt.BillingSource == BillingSourceWallet {
 		session.funding = &WalletFunding{userId: receipt.UserID, consumed: int(receipt.AppliedQuota)}
 	} else {
@@ -969,6 +984,12 @@ func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 		}
 		session.legacyUsageJournal = true
 	}
+	if apiErr == nil && session != nil && session.funding.Source() == BillingSourceSelfUse && (c == nil || !SupportsSelfUseMeteredRequest(c.Request)) {
+		// Middleware alone is not sufficient: Root may change policy while a
+		// request is being admitted. Validate the captured source before send.
+		refundErr := session.Refund(c)
+		return nil, types.NewErrorWithStatusCode(errors.Join(errors.New(i18n.T(c, i18n.MsgSelfUseUnsupported)), refundErr), types.ErrorCode("self_use_unsupported_request"), http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+	}
 	if apiErr == nil && session != nil {
 		model.TrackQuotaWriterInflightStart()
 		session.inflightTracked = true
@@ -1003,6 +1024,18 @@ func newBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 			}
 		}
 	}()
+
+	claim, claimErr := model.FindLegacyUsageReservation(claimCtx, model.DB, relayInfo.RequestId)
+	if claimErr != nil {
+		return nil, types.NewError(claimErr, types.ErrorCodeUpdateDataError, types.ErrOptionWithSkipRetry())
+	}
+	if claim.FundingSource == model.BillingSourceSelfUse {
+		session := &BillingSession{relayInfo: relayInfo, funding: &SelfUseFunding{}}
+		if apiErr := session.preConsume(c, preConsumedQuota); apiErr != nil {
+			return nil, apiErr
+		}
+		return session, nil
+	}
 
 	pref := common.NormalizeBillingPreference(relayInfo.UserSetting.BillingPreference)
 

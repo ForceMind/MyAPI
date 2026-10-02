@@ -479,6 +479,9 @@ func TokenAuth() func(c *gin.Context) {
 		if err != nil {
 			return
 		}
+		if !checkUserUsageAdmission(c, token) {
+			return
+		}
 		if !checkTokenBudgetAdmission(c, token) {
 			return
 		}

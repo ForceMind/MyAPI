@@ -582,6 +582,11 @@ func postConsumeQuotaWithResult(relayInfo *relaycommon.RelayInfo, quota int, pre
 //     以 Namespace + 请求 ID（+ Qualifier）构成的稳定业务键幂等；
 //   - bridge：fail-closed，受控切换由后续批次处理。
 func postConsumeQuotaWithEvent(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int, sendEmail bool, event postConsumeQuotaEvent) (result postConsumeQuotaResult, err error) {
+	if relayInfo != nil && relayInfo.BillingSource == BillingSourceSelfUse {
+		// This source must use its captured session/receipt. Old direct writers
+		// must not fall through to a wallet debit when no session is available.
+		return result, model.ErrAccountQuotaUsageUnresolved
+	}
 	if event.Namespace != "" {
 		var mode model.QuotaWriterMode
 		mode, err = postConsumeQuotaWriterMode()
@@ -705,6 +710,9 @@ func postConsumeQuotaAuthoritative(relayInfo *relaycommon.RelayInfo, quota int, 
 }
 
 func checkAndSendQuotaNotify(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int) {
+	if relayInfo == nil || relayInfo.BillingSource == BillingSourceSelfUse {
+		return
+	}
 	gopool.Go(func() {
 		userSetting := relayInfo.UserSetting
 		threshold := common.QuotaRemindThreshold

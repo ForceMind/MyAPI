@@ -324,3 +324,5 @@ account_threshold.unavailable: "No fresh, complete account-window evidence satis
 
 account_threshold.combination: "Account thresholds currently support native Codex accounts and cannot be combined with direct API Token or USD limits"
 account_threshold.invalid: "The account threshold must be 0–100%, with an observation age of 30–3600 seconds"
+
+self_use.unsupported: "No-balance self-use currently supports Chat and Responses requests only."

@@ -38,7 +38,33 @@ func ClaimLegacyUsageRequest(ctx context.Context, db *gorm.DB, requestID string,
 		return err
 	}
 	row := LegacyUsageReservation{RequestID: id, UserID: userID, TokenID: tokenID, FundingSource: "pending", State: LegacyUsagePreparing, LockVersion: 1, CreatedAt: now, UpdatedAt: now}
-	return db.WithContext(ctx).Create(&row).Error
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var user User
+		if err := lockForUpdate(tx).First(&user, userID).Error; err != nil {
+			return err
+		}
+		if user.Status != common.UserStatusEnabled {
+			return ErrAccountQuotaMutationIneligible
+		}
+		if tokenID > 0 {
+			var token Token
+			if err := lockForUpdate(tx).First(&token, tokenID).Error; err != nil {
+				return err
+			}
+			if token.UserId != userID || token.Status != common.TokenStatusEnabled || token.ExpiredTime != -1 && token.ExpiredTime <= now {
+				return ErrAccountQuotaMutationIneligible
+			}
+		}
+		eligible, err := selfUseNoBalanceAdmissionTx(tx, &user)
+		if err != nil {
+			return err
+		}
+		if eligible {
+			row.FundingSource = BillingSourceSelfUse
+			row.UsagePolicyRevision = user.UsagePolicyRevision
+		}
+		return tx.Create(&row).Error
+	})
 }
 
 func BindLegacyUsageReservation(ctx context.Context, db *gorm.DB, input LegacyUsageReservation) error {
@@ -48,7 +74,7 @@ func BindLegacyUsageReservation(ctx context.Context, db *gorm.DB, input LegacyUs
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if input.FundingSource != "wallet" && input.FundingSource != "subscription" && input.FundingSource != "free" {
+	if input.FundingSource != "wallet" && input.FundingSource != "subscription" && input.FundingSource != "free" && input.FundingSource != BillingSourceSelfUse {
 		return ErrAccountQuotaMutationInvalidInput
 	}
 	if (input.FundingSource == "subscription") != (input.SubscriptionID > 0) || validateAccountQuotaValue(input.ReservedQuota) != nil || validateAccountQuotaValue(input.TokenReservedQuota) != nil {
@@ -58,6 +84,9 @@ func BindLegacyUsageReservation(ctx context.Context, db *gorm.DB, input LegacyUs
 		var row LegacyUsageReservation
 		if err := lockForUpdate(tx).Where("request_id = ?", input.RequestID).First(&row).Error; err != nil {
 			return err
+		}
+		if (row.FundingSource == BillingSourceSelfUse) != (input.FundingSource == BillingSourceSelfUse) || row.FundingSource == BillingSourceSelfUse && row.UsagePolicyRevision <= 0 {
+			return ErrAccountQuotaMutationConflict
 		}
 		if row.RequestID != input.RequestID || row.UserID != input.UserID || row.TokenID != input.TokenID || row.State != LegacyUsagePreparing {
 			return ErrAccountQuotaMutationConflict
@@ -95,25 +124,26 @@ func FailLegacyUsageAdmission(ctx context.Context, db *gorm.DB, requestID string
 // existing settlement/refund facts. ReservedQuota is NOT a confirmed charge;
 // ActualQuota remains NULL until a known settlement completes.
 type LegacyUsageReservation struct {
-	ID                 int64  `json:"id" gorm:"primaryKey"`
-	RequestID          string `json:"request_id" gorm:"type:varchar(64);not null;uniqueIndex"`
-	UserID             int    `json:"user_id" gorm:"not null;index"`
-	TokenID            int    `json:"token_id" gorm:"not null;index"`
-	ChannelID          int    `json:"channel_id" gorm:"not null;default:0"`
-	ModelName          string `json:"model_name" gorm:"size:512"`
-	FundingSource      string `json:"funding_source" gorm:"type:varchar(32);not null"`
-	SubscriptionID     int    `json:"subscription_id" gorm:"not null;default:0"`
-	ReservedQuota      int64  `json:"reserved_quota" gorm:"type:bigint;not null"`
-	TokenReservedQuota int64  `json:"token_reserved_quota" gorm:"type:bigint;not null"`
-	ActualQuota        *int64 `json:"actual_quota" gorm:"type:bigint"`
-	State              string `json:"state" gorm:"type:varchar(16);not null;index"`
-	Reason             string `json:"reason" gorm:"type:varchar(32);not null"`
-	ReviewMetadata     string `json:"review_metadata,omitempty" gorm:"type:text"`
-	ReviewedBy         int    `json:"reviewed_by" gorm:"not null;default:0"`
-	EvidenceDigest     string `json:"evidence_digest" gorm:"type:varchar(64);not null;default:''"`
-	LockVersion        int64  `json:"lock_version" gorm:"type:bigint;not null"`
-	CreatedAt          int64  `json:"created_at" gorm:"type:bigint;not null"`
-	UpdatedAt          int64  `json:"updated_at" gorm:"type:bigint;not null"`
+	UsagePolicyRevision int64  `json:"-" gorm:"type:bigint;not null;default:0"`
+	ID                  int64  `json:"id" gorm:"primaryKey"`
+	RequestID           string `json:"request_id" gorm:"type:varchar(64);not null;uniqueIndex"`
+	UserID              int    `json:"user_id" gorm:"not null;index"`
+	TokenID             int    `json:"token_id" gorm:"not null;index"`
+	ChannelID           int    `json:"channel_id" gorm:"not null;default:0"`
+	ModelName           string `json:"model_name" gorm:"size:512"`
+	FundingSource       string `json:"funding_source" gorm:"type:varchar(32);not null"`
+	SubscriptionID      int    `json:"subscription_id" gorm:"not null;default:0"`
+	ReservedQuota       int64  `json:"reserved_quota" gorm:"type:bigint;not null"`
+	TokenReservedQuota  int64  `json:"token_reserved_quota" gorm:"type:bigint;not null"`
+	ActualQuota         *int64 `json:"actual_quota" gorm:"type:bigint"`
+	State               string `json:"state" gorm:"type:varchar(16);not null;index"`
+	Reason              string `json:"reason" gorm:"type:varchar(32);not null"`
+	ReviewMetadata      string `json:"review_metadata,omitempty" gorm:"type:text"`
+	ReviewedBy          int    `json:"reviewed_by" gorm:"not null;default:0"`
+	EvidenceDigest      string `json:"evidence_digest" gorm:"type:varchar(64);not null;default:''"`
+	LockVersion         int64  `json:"lock_version" gorm:"type:bigint;not null"`
+	CreatedAt           int64  `json:"created_at" gorm:"type:bigint;not null"`
+	UpdatedAt           int64  `json:"updated_at" gorm:"type:bigint;not null"`
 }
 
 func (LegacyUsageReservation) TableName() string { return "legacy_usage_reservations" }
@@ -272,10 +302,16 @@ func validateLegacyUsageSettlement(tx *gorm.DB, input AccountQuotaSettlementFact
 	var row LegacyUsageReservation
 	err := lockForUpdate(tx).Where("request_id = ?", input.RequestID).First(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
+		if input.Kind == AccountQuotaSettlementKindLegacySelfUse {
+			return ErrAccountQuotaMutationConflict
+		}
 		return nil
 	} // Pre-upgrade request.
 	if err != nil {
 		return err
+	}
+	if (row.FundingSource == BillingSourceSelfUse) != (input.Kind == AccountQuotaSettlementKindLegacySelfUse) || row.FundingSource == BillingSourceSelfUse && row.UsagePolicyRevision <= 0 {
+		return ErrAccountQuotaMutationConflict
 	}
 	if row.RequestID != input.RequestID || row.UserID != input.UserID || row.TokenID != input.TokenID || row.SubscriptionID != input.SubscriptionID {
 		return ErrAccountQuotaMutationConflict
@@ -369,6 +405,9 @@ func ResolveLegacyUnknownUsage(ctx context.Context, db *gorm.DB, actorID int, re
 			return tx.Model(&LegacyUsageReservation{}).Where("id = ? AND state = ?", record.ID, LegacyUsageReviewPending).Update("state", LegacyUsageSettled).Error
 		}
 		kind := AccountQuotaSettlementKindLegacyWallet
+		if record.FundingSource == BillingSourceSelfUse {
+			kind = AccountQuotaSettlementKindLegacySelfUse
+		}
 		if record.FundingSource == "subscription" {
 			kind = AccountQuotaSettlementKindLegacySubscription
 		}
@@ -397,4 +436,28 @@ func ResolveLegacyUnknownUsage(ctx context.Context, db *gorm.DB, actorID int, re
 		}
 	}
 	return FindLegacyUsageReservation(ctx, db, requestID)
+}
+
+// A non-financial claim can release Token reservations only. Never let a
+// generic legacy wallet fact mint a wallet credit for this request.
+func validateLegacySelfUseRefund(tx *gorm.DB, requestID, kind string, userID, tokenID int, walletQuota int64) error {
+	var row LegacyUsageReservation
+	err := tx.Where("request_id = ?", requestID).First(&row).Error
+	selfUse := kind == AccountQuotaRefundFactKindLegacySelfUse
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		if selfUse {
+			return ErrAccountQuotaMutationConflict
+		}
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if (row.FundingSource == BillingSourceSelfUse) != selfUse {
+		return ErrAccountQuotaMutationConflict
+	}
+	if selfUse && (walletQuota != 0 || row.UsagePolicyRevision <= 0 || row.UserID != userID || row.TokenID != tokenID) {
+		return ErrAccountQuotaMutationConflict
+	}
+	return nil
 }

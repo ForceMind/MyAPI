@@ -179,6 +179,20 @@ func ProjectUsageReviewDecision(ctx context.Context, db, logDB *gorm.DB, decisio
 		return nil
 	}
 	other := map[string]interface{}{"settlement_status": "manually_reconciled", "usage_accuracy": "unknown", "actual_quota": decision.ActualQuota, "token_counts_confirmed": decision.ActualInputTokens != nil, "review_decision_id": decision.ID}
+	// Keep historical wallet/subscription projection payloads byte-stable.
+	// New self-use events must retain their frozen non-financial identity.
+	var selfUseHeads int64
+	if err := db.WithContext(ctx).Model(&AccountQuotaReservationHead{}).Where("request_id = ? AND user_id = ? AND token_id = ? AND billing_source = ?", decision.RequestID, decision.UserID, decision.TokenID, BillingSourceSelfUse).Count(&selfUseHeads).Error; err != nil {
+		return err
+	}
+	if selfUseHeads == 0 {
+		if err := db.WithContext(ctx).Model(&LegacyUsageReservation{}).Where("request_id = ? AND user_id = ? AND token_id = ? AND funding_source = ? AND usage_policy_revision > 0", decision.RequestID, decision.UserID, decision.TokenID, BillingSourceSelfUse).Count(&selfUseHeads).Error; err != nil {
+			return err
+		}
+	}
+	if selfUseHeads > 0 {
+		other["billing_source"] = BillingSourceSelfUse
+	}
 	if decision.ActualFeeUSD != nil {
 		other["confirmed_api_usage_cost_usd"], other["api_usage_cost_scope"] = *decision.ActualFeeUSD, "root_verified_usage_cost_not_invoice"
 	}

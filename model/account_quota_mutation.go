@@ -456,6 +456,13 @@ func applyAccountQuotaBalances(tx *gorm.DB, before, after QuotaMutationAccountSn
 }
 
 func selectAccountBillingSource(tx *gorm.DB, user *User, preference string, walletQuota, subscriptionQuota int64, now int64) (string, *UserSubscription, error) {
+	eligible, err := selfUseNoBalanceAdmissionTx(tx, user)
+	if err != nil {
+		return "", nil, err
+	}
+	if eligible {
+		return BillingSourceSelfUse, nil, nil
+	}
 	walletAvailable := int64(user.Quota) >= walletQuota
 	if preference == "wallet_only" || (preference == "wallet_first" && walletAvailable) {
 		if walletAvailable {
@@ -1183,6 +1190,8 @@ func ExtendAccountQuotaReservation(ctx context.Context, db *gorm.DB, reserveRece
 			if subscription == nil || (subscription.AmountTotal > 0 && subscription.AmountUsed > subscription.AmountTotal-delta) {
 				return nil, ErrAccountQuotaMutationInsufficient
 			}
+		case BillingSourceSelfUse:
+			// The reservation already captured a non-financial source.
 		case "free":
 			return nil, ErrAccountQuotaMutationInvalidInput
 		default:

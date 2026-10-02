@@ -47,6 +47,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { UserSubscriptionsDialog } from '@/features/subscriptions/components/dialogs/user-subscriptions-dialog'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { manageUser, resetUserPasskey, resetUserTwoFA } from '../api'
 import {
@@ -58,6 +59,7 @@ import {
 import { getUserActionMessage } from '../lib'
 import type { User, ManageUserAction } from '../types'
 import { UserBindingDialog } from './dialogs/user-binding-dialog'
+import { UserUsagePolicyDialog } from './user-usage-policy-dialog'
 import { useUsers } from './users-provider'
 
 interface DataTableRowActionsProps {
@@ -72,6 +74,10 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const [resetTwoFAOpen, setResetTwoFAOpen] = useState(false)
   const [bindingDialogOpen, setBindingDialogOpen] = useState(false)
   const [subscriptionsDialogOpen, setSubscriptionsDialogOpen] = useState(false)
+  const [usagePolicyOpen, setUsagePolicyOpen] = useState(false)
+  const canEditUsagePolicy = useAuthStore(
+    (state) => state.auth.user?.role === 100
+  )
 
   const handleEdit = () => {
     setCurrentRow(user)
@@ -161,6 +167,16 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         ariaLabel={t('Open menu')}
         contentClassName='w-48'
       >
+        {canEditUsagePolicy && (
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault()
+              setUsagePolicyOpen(true)
+            }}
+          >
+            {t('User usage policy')}
+          </DropdownMenuItem>
+        )}
         {isDisabled ? (
           <DropdownMenuItem onClick={() => handleManage('enable')}>
             {t('Enable')}
@@ -287,6 +303,14 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         confirmText={t('Reset 2FA')}
         handleConfirm={handleResetTwoFA}
       />
+
+      {usagePolicyOpen && (
+        <UserUsagePolicyDialog
+          userId={user.id}
+          onClose={() => setUsagePolicyOpen(false)}
+          onSaved={triggerRefresh}
+        />
+      )}
 
       <UserBindingDialog
         open={bindingDialogOpen}

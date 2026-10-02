@@ -70,9 +70,9 @@ func usageReviewError(c *gin.Context, err error) {
 		status, code = http.StatusNotFound, "usage_review_not_found"
 	case errors.Is(err, model.ErrAccountQuotaMutationIneligible):
 		status, code = http.StatusForbidden, "usage_review_forbidden"
-	case errors.Is(err, model.ErrAccountQuotaMutationInvalidInput), errors.Is(err, model.ErrTokenBudgetInvalid), errors.Is(err, model.ErrTokenBudgetExceeded), errors.Is(err, model.ErrFeeBudgetInvalid), errors.Is(err, model.ErrFeeBudgetExceeded):
+	case errors.Is(err, model.ErrUserUsagePolicyInvalid), errors.Is(err, model.ErrAccountQuotaMutationInvalidInput), errors.Is(err, model.ErrTokenBudgetInvalid), errors.Is(err, model.ErrTokenBudgetExceeded), errors.Is(err, model.ErrFeeBudgetInvalid), errors.Is(err, model.ErrFeeBudgetExceeded):
 		status, code = http.StatusBadRequest, "usage_review_invalid_input"
-	case errors.Is(err, model.ErrAccountQuotaMutationConflict), errors.Is(err, model.ErrAccountQuotaUsageUnresolved), errors.Is(err, model.ErrAccountQuotaSettlementPending), errors.Is(err, model.ErrTokenBudgetConflict), errors.Is(err, model.ErrTokenBudgetPending):
+	case errors.Is(err, model.ErrUserUsagePolicyConflict), errors.Is(err, model.ErrAccountQuotaMutationConflict), errors.Is(err, model.ErrAccountQuotaUsageUnresolved), errors.Is(err, model.ErrAccountQuotaSettlementPending), errors.Is(err, model.ErrTokenBudgetConflict), errors.Is(err, model.ErrTokenBudgetPending):
 		status, code = http.StatusConflict, "usage_review_conflict"
 	}
 	c.JSON(status, gin.H{"success": false, "code": code, "message": common.TranslateMessage(c, message)})

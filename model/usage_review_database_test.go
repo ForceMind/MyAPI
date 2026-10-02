@@ -37,7 +37,7 @@ func TestR1UsageReviewConfiguredDatabases(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, pool.Ping())
 			t.Cleanup(func() { require.NoError(t, pool.Close()) })
-			entities := []any{&User{}, &Token{}, &SubscriptionPlan{}, &UserSubscription{}, &AccountQuotaMutationReceipt{}, &AccountQuotaReservationHead{}, &AccountQuotaTerminalRecoveryObligation{}, &AccountQuotaSettlementIntent{}, &AccountQuotaSettlementFact{}, &AccountQuotaRefundFact{}, &QuotaWriterEpoch{}, &QuotaProjectionObligation{}, &QuotaWorkCursor{}, &LegacyUsageReservation{}, &UsageReviewDecision{}, &Log{}, &BillingLogProjectionIdentity{}, &TokenBudget{}, &TokenBudgetReservation{}, &TokenBudgetPolicyChange{}, &ChannelQuotaSnapshot{}}
+			entities := []any{&User{}, &Token{}, &SubscriptionPlan{}, &UserSubscription{}, &AccountQuotaMutationReceipt{}, &AccountQuotaReservationHead{}, &AccountQuotaTerminalRecoveryObligation{}, &AccountQuotaSettlementIntent{}, &AccountQuotaSettlementFact{}, &AccountQuotaRefundFact{}, &QuotaWriterEpoch{}, &QuotaProjectionObligation{}, &QuotaWorkCursor{}, &LegacyUsageReservation{}, &UsageReviewDecision{}, &Log{}, &BillingLogProjectionIdentity{}, &TokenBudget{}, &TokenBudgetReservation{}, &TokenBudgetPolicyChange{}, &ChannelQuotaSnapshot{}, &UserUsagePolicyChange{}, &Option{}}
 			require.NoError(t, db.AutoMigrate(entities...))
 			// Repeat the schemas changed by this iteration. Unrelated legacy
 			// tables have application-specific migrations outside this fixture.
@@ -54,6 +54,7 @@ func TestR1UsageReviewConfiguredDatabases(t *testing.T) {
 				DB, LOG_DB = oldDB, oldLogDB
 				common.RedisEnabled = oldRedis
 				common.SetDatabaseTypes(oldMain, oldLog)
+				InitColumnNamesForTest()
 			})
 			require.NoError(t, EnsureQuotaWriterEpochStateWithDB(db))
 			epoch, err := GetQuotaWriterEpochState(db)
@@ -96,6 +97,7 @@ func TestR1UsageReviewConfiguredDatabases(t *testing.T) {
 			assert.EqualValues(t, 1, terminals)
 			tokenBudgetCoupledReviewDatabaseContract(t, db, root.Id, user.Id, token.Id, namespace+"b")
 			feeBudgetCoupledReviewDatabaseContract(t, db, root.Id, user.Id, token.Id, namespace+"f")
+			selfUseCoupledReviewDatabaseContract(t, db, root.Id, namespace)
 		})
 	}
 }

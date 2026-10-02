@@ -17,6 +17,7 @@ import (
 const (
 	AccountQuotaSettlementKindAuthoritative      = "authoritative"
 	AccountQuotaSettlementKindLegacyWallet       = "legacy_wallet"
+	AccountQuotaSettlementKindLegacySelfUse      = "legacy_self_use"
 	AccountQuotaSettlementKindLegacySubscription = "legacy_subscription"
 
 	AccountQuotaSettlementPending      = "pending"
@@ -143,7 +144,7 @@ func normalizeAccountQuotaSettlementInput(input AccountQuotaSettlementFactInput)
 			validateAccountQuotaValue(input.ActualQuota) != nil || input.Delta != 0 || input.ApplyToken {
 			return input, "", ErrAccountQuotaMutationInvalidInput
 		}
-	case AccountQuotaSettlementKindLegacyWallet:
+	case AccountQuotaSettlementKindLegacyWallet, AccountQuotaSettlementKindLegacySelfUse:
 		if input.SubscriptionID != 0 || input.ReserveReceiptID != 0 || input.WriterEpoch != 0 || input.ActualQuota != 0 ||
 			input.Delta == 0 || input.Delta < -int64(common.MaxQuota) || input.Delta > int64(common.MaxQuota) {
 			return input, "", ErrAccountQuotaMutationInvalidInput
@@ -479,6 +480,9 @@ func applyAccountQuotaSettlementFunding(ctx context.Context, db *gorm.DB, fact *
 			return ErrAccountQuotaTerminalRecoveryConflict
 		}
 		switch current.Kind {
+		case AccountQuotaSettlementKindLegacySelfUse:
+			// Non-financial source: the audited claim is validated above. Only the
+			// existing Token quota leg is applied; no user wallet delta is created.
 		case AccountQuotaSettlementKindLegacyWallet:
 			var user User
 			if err := lockForUpdate(tx).Where("id = ?", current.UserID).First(&user).Error; err != nil {

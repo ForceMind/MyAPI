@@ -89,15 +89,17 @@ func (snapshot TaskQuotaBillingContext) Value() (driver.Value, error) {
 // contains the complete account state needed to audit or project this quota
 // mutation without consulting a mutable cache.
 type QuotaMutationUserSnapshot struct {
-	ID            int    `json:"id"`
-	Status        int    `json:"status"`
-	Role          int    `json:"role"`
-	Quota         int    `json:"quota"`
-	UsedQuota     int    `json:"used_quota"`
-	RequestCount  int    `json:"request_count"`
-	QuotaVersion  int64  `json:"quota_version"`
-	Group         string `json:"group"`
-	AccountTierID string `json:"account_tier_id"`
+	SelfUseNoBalance    bool   `json:"self_use_no_balance,omitempty"`
+	UsagePolicyRevision int64  `json:"usage_policy_revision,omitempty"`
+	ID                  int    `json:"id"`
+	Status              int    `json:"status"`
+	Role                int    `json:"role"`
+	Quota               int    `json:"quota"`
+	UsedQuota           int    `json:"used_quota"`
+	RequestCount        int    `json:"request_count"`
+	QuotaVersion        int64  `json:"quota_version"`
+	Group               string `json:"group"`
+	AccountTierID       string `json:"account_tier_id"`
 }
 
 func (snapshot *QuotaMutationUserSnapshot) Scan(value interface{}) error {
@@ -973,7 +975,7 @@ func quotaMutationInt32Value(value int) bool {
 
 func quotaMutationUserSnapshot(user *User) QuotaMutationUserSnapshot {
 	if user == nil {
-		return QuotaMutationUserSnapshot{}
+		return QuotaMutationUserSnapshot{SelfUseNoBalance: user.SelfUseNoBalance, UsagePolicyRevision: user.UsagePolicyRevision}
 	}
 	return QuotaMutationUserSnapshot{
 		ID: user.Id, Status: user.Status, Role: user.Role, Quota: user.Quota,
