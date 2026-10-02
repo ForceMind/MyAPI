@@ -196,10 +196,16 @@ export function quotaFixtures({ latestError = false } = {}) {
     if (path === '/api/user/passkey') return ok({ enabled: false, credentials: [] })
     if (path === '/api/token' || path === '/api/token/search') return ok({ items: [], total: 0, page: 1, page_size: 10 })
     if (path.startsWith('/api/data') || path === '/api/uptime/status') return ok([])
+    if (process.env.MYAPI_BROWSER_USAGE_REVIEW === '1' && path.startsWith('/api/usage-review/usage-review-fixture')) return ok({
+      request_id: 'usage-review-fixture', user_id: 1, token_id: 1,
+      state: path.endsWith('/reconcile') ? 'settled' : 'usage_unknown',
+      reserved_quota: 100, actual_quota: path.endsWith('/reconcile') ? 120 : null,
+    })
     if (path === '/api/log' || path === '/api/log/self') return ok({
       items: ['reported', 'estimated', 'unknown', null].map((accuracy, index) => ({
         id: 10 + index, user_id: 1, created_at: now - index * 60,
-        type: 2, content: 'Synthetic usage provenance fixture', username: 'browser-fixture',
+        type: process.env.MYAPI_BROWSER_USAGE_REVIEW === '1' && accuracy === 'unknown' ? 5 : 2, content: 'Synthetic usage provenance fixture', username: 'browser-fixture',
+        ...(process.env.MYAPI_BROWSER_USAGE_REVIEW === '1' && accuracy === 'unknown' ? { request_id: 'usage-review-fixture' } : {}),
         token_name: 'fixture-key', model_name: `fixture-${accuracy || 'legacy'}`,
         quota: accuracy === 'unknown' ? 0 : 12500,
         prompt_tokens: accuracy === 'unknown' ? 0 : 100,
@@ -207,6 +213,7 @@ export function quotaFixtures({ latestError = false } = {}) {
         use_time: 1, is_stream: true, channel: 1, channel_name: 'Codex Fixture',
         token_id: 1, group: 'default', ip: '',
         other: JSON.stringify({ ...(accuracy ? { usage_accuracy: accuracy } : {}),
+          ...(process.env.MYAPI_BROWSER_USAGE_REVIEW === '1' && accuracy === 'unknown' ? { settlement_status: 'pending_review', actual_quota: null, reserved_quota: 100 } : {}),
           cache_tokens: accuracy === 'unknown' ? 0 : 40, reasoning_tokens: accuracy === 'unknown' ? 0 : 4,
           model_ratio: 1, completion_ratio: 2, cache_ratio: 0.1, group_ratio: 1 }),
       })), total: 4, page: 1, page_size: 20,

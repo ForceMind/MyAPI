@@ -37,6 +37,8 @@ type BillingSession struct {
 	refundRecoveryScheduled    bool
 	refundIntentErr            error
 	settlementPending          bool
+	usageUnknown               bool
+	legacyUsageJournal         bool
 	settlementIntentReady      bool
 	settlementInput            *model.AccountQuotaSettlementFactInput
 	settlementInputFingerprint string
@@ -97,10 +99,19 @@ func (s *BillingSession) Settle(actualQuota int) error {
 // SettleWithContext preserves context values but detaches request cancellation.
 // Once upstream usage is known, settlement is an accounting obligation that
 // must be persisted even if the client disconnects.
-func (s *BillingSession) SettleWithContext(parent context.Context, actualQuota int) error {
+func (s *BillingSession) SettleWithContext(parent context.Context, actualQuota int) (resultErr error) {
 	defer s.finishInflight()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	defer func() {
+		if resultErr == nil && s.settled && s.legacyUsageJournal {
+			amount := int64(actualQuota)
+			resultErr = s.completeLegacyUsageJournal(parent, model.LegacyUsageSettled, &amount)
+		}
+	}()
+	if s.usageUnknown {
+		return model.ErrAccountQuotaUsageUnresolved
+	}
 	if s.settled {
 		if s.settledActualQuotaSet && s.settledActualQuota == actualQuota {
 			return nil
@@ -406,9 +417,20 @@ func (s *BillingSession) settlementAuditInfo() map[string]interface{} {
 // Refund records a durable failure fact before applying a refund. A nil result
 // proves the refund is terminally applied; ErrAccountQuotaRefundPending proves
 // that recovery is durable but not complete.
-func (s *BillingSession) Refund(c *gin.Context) error {
+func (s *BillingSession) Refund(c *gin.Context) (resultErr error) {
 	defer s.finishInflight()
+	defer func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if resultErr == nil && s.refunded && s.legacyUsageJournal {
+			resultErr = s.completeLegacyUsageJournal(context.Background(), model.LegacyUsageRefunded, nil)
+		}
+	}()
 	s.mu.Lock()
+	if s.usageUnknown {
+		s.mu.Unlock()
+		return model.ErrAccountQuotaUsageUnresolved
+	}
 	if s.settled || s.refunded || s.settlementPending || s.reserveReceipt == nil && (s.writerMode == model.QuotaWriterModeAuthoritative || s.writerMode == model.QuotaWriterModeBridge) {
 		s.mu.Unlock()
 		return nil
@@ -543,6 +565,9 @@ func (s *BillingSession) NeedsRefund() bool {
 }
 
 func (s *BillingSession) needsRefundLocked() bool {
+	if s.usageUnknown {
+		return false
+	}
 	if s.writerMode == model.QuotaWriterModeAuthoritative || s.writerMode == model.QuotaWriterModeBridge {
 		return !s.settled && !s.refunded && !s.refundRecoveryScheduled && s.reserveReceipt != nil && s.reserveReceipt.AppliedQuota > 0
 	}
@@ -567,9 +592,22 @@ func (s *BillingSession) GetPreConsumedQuota() int {
 	return s.preConsumedQuota
 }
 
-func (s *BillingSession) Reserve(targetQuota int) error {
+func (s *BillingSession) Reserve(targetQuota int) (resultErr error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	previous := s.preConsumedQuota
+	defer func() {
+		if resultErr == nil && s.legacyUsageJournal && s.preConsumedQuota != previous {
+			resultErr = s.completeLegacyUsageJournal(context.Background(), model.LegacyUsagePrepared, nil)
+			if resultErr != nil {
+				s.usageUnknown = true
+				s.settlementPending = true
+			}
+		}
+	}()
+	if s.usageUnknown {
+		return model.ErrAccountQuotaUsageUnresolved
+	}
 
 	if s.writerMode == model.QuotaWriterModeAuthoritative || s.writerMode == model.QuotaWriterModeBridge {
 		if s.writerMode != model.QuotaWriterModeAuthoritative {
@@ -763,7 +801,7 @@ func (s *BillingSession) reserveFunding(delta int) error {
 }
 
 // rollbackFundingReserve 与 reserveFunding 同处 legacy Reserve 分支，可达性守卫相同
-//（见 reserveFunding 注释）；保持 legacy 回滚语义。
+// （见 reserveFunding 注释）；保持 legacy 回滚语义。
 func (s *BillingSession) rollbackFundingReserve(delta int) {
 	switch funding := s.funding.(type) {
 	case *WalletFunding:
@@ -904,7 +942,33 @@ func newAuthoritativeBillingSession(c *gin.Context, relayInfo *relaycommon.Relay
 // NewBillingSession 根据用户计费偏好创建 BillingSession，处理 subscription_first / wallet_first 的回退。
 // 创建成功的会话计入 quota writer 进程级在途计数，由 Settle/Refund 收尾对称归还。
 func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preConsumedQuota int) (*BillingSession, *types.NewAPIError) {
+	if relayInfo == nil || strings.TrimSpace(relayInfo.RequestId) == "" || strings.TrimSpace(relayInfo.RequestId) != relayInfo.RequestId || len(relayInfo.RequestId) > 64 {
+		return nil, types.NewError(model.ErrAccountQuotaMutationInvalidInput, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
 	session, apiErr := newBillingSession(c, relayInfo, preConsumedQuota)
+	if apiErr == nil && session != nil && session.reserveReceipt == nil {
+		ctx, cancel := billingOperationContext(context.Background(), 5*time.Second)
+		defer cancel()
+		channelID := 0
+		if relayInfo.ChannelMeta != nil {
+			channelID = relayInfo.ChannelId
+		}
+		err := model.BindLegacyUsageReservation(ctx, model.DB, model.LegacyUsageReservation{
+			RequestID: relayInfo.RequestId, UserID: relayInfo.UserId, TokenID: relayInfo.TokenId,
+			ChannelID:     channelID,
+			ModelName:     relayInfo.OriginModelName,
+			FundingSource: session.funding.Source(), SubscriptionID: relayInfo.SubscriptionId,
+			ReservedQuota: int64(session.preConsumedQuota), TokenReservedQuota: int64(session.tokenConsumed),
+		})
+		if err != nil {
+			// No upstream send has occurred. Refund this failed admission through
+			// the existing durable refund path, never a guessed usage settlement.
+			refundErr := session.Refund(c)
+			_ = model.FailLegacyUsageAdmission(ctx, model.DB, relayInfo.RequestId)
+			return nil, types.NewError(errors.Join(err, refundErr), types.ErrorCodeUpdateDataError, types.ErrOptionWithSkipRetry())
+		}
+		session.legacyUsageJournal = true
+	}
 	if apiErr == nil && session != nil {
 		model.TrackQuotaWriterInflightStart()
 		session.inflightTracked = true
@@ -912,7 +976,7 @@ func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 	return session, apiErr
 }
 
-func newBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preConsumedQuota int) (*BillingSession, *types.NewAPIError) {
+func newBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preConsumedQuota int) (createdSession *BillingSession, creationError *types.NewAPIError) {
 	if relayInfo == nil {
 		return nil, types.NewError(fmt.Errorf("relayInfo is nil"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 	}
@@ -927,6 +991,18 @@ func newBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 	if mode != model.QuotaWriterModeLegacy {
 		return newAuthoritativeBillingSession(c, relayInfo, preConsumedQuota, mode)
 	}
+	claimCtx, cancelClaim := billingOperationContext(context.Background(), 5*time.Second)
+	defer cancelClaim()
+	if err := model.ClaimLegacyUsageRequest(claimCtx, model.DB, relayInfo.RequestId, relayInfo.UserId, relayInfo.TokenId); err != nil {
+		return nil, types.NewError(err, types.ErrorCodeUpdateDataError, types.ErrOptionWithSkipRetry())
+	}
+	defer func() {
+		if creationError != nil {
+			if err := model.FailLegacyUsageAdmission(claimCtx, model.DB, relayInfo.RequestId); err != nil {
+				common.SysError("legacy admission journal requires recovery")
+			}
+		}
+	}()
 
 	pref := common.NormalizeBillingPreference(relayInfo.UserSetting.BillingPreference)
 

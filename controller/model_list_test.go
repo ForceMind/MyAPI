@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
@@ -64,43 +63,12 @@ func setupModelListControllerTestDB(t *testing.T) *gorm.DB {
 
 func initModelListColumnNames(t *testing.T) {
 	t.Helper()
-
-	originalIsMasterNode := common.IsMasterNode
-	originalSQLitePath := common.SQLitePath
-	originalMainDatabaseType := common.MainDatabaseType()
-	originalLogDatabaseType := common.LogDatabaseType()
-	originalSQLDSN, hadSQLDSN := os.LookupEnv("SQL_DSN")
-	defer func() {
-		common.IsMasterNode = originalIsMasterNode
-		common.SQLitePath = originalSQLitePath
-		common.SetDatabaseTypes(originalMainDatabaseType, originalLogDatabaseType)
-		if hadSQLDSN {
-			require.NoError(t, os.Setenv("SQL_DSN", originalSQLDSN))
-		} else {
-			require.NoError(t, os.Unsetenv("SQL_DSN"))
-		}
-	}()
-
-	common.IsMasterNode = false
-	common.SQLitePath = fmt.Sprintf("file:%s_init?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))
+	originalMain, originalLog := common.MainDatabaseType(), common.LogDatabaseType()
 	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
-	require.NoError(t, os.Setenv("SQL_DSN", "local"))
-
-	bootstrapDB, err := gorm.Open(sqlite.Open(common.SQLitePath), &gorm.Config{})
-	require.NoError(t, err)
-	require.NoError(t, bootstrapDB.AutoMigrate(&model.Log{}))
-	require.NoError(t, model.EnsureLogProjectionSchemaWithDB(bootstrapDB))
-
-	require.NoError(t, model.InitDB())
-	if sqlDB, err := bootstrapDB.DB(); err == nil {
-		_ = sqlDB.Close()
-	}
-	if model.DB != nil {
-		sqlDB, err := model.DB.DB()
-		if err == nil {
-			_ = sqlDB.Close()
-		}
-	}
+	// This fixture needs quoting constants, not a partial replica schema.
+	// Use the existing dedicated initializer instead of starting InitDB.
+	model.InitColumnNamesForTest()
+	common.SetDatabaseTypes(originalMain, originalLog)
 }
 
 func withTieredBillingConfig(t *testing.T, modes map[string]string, exprs map[string]string) {

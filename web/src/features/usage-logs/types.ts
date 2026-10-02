@@ -114,6 +114,9 @@ export interface ToolSurchargeItem {
 }
 
 export interface LogOtherData {
+  settlement_status?: string
+  actual_quota?: number | null
+  reserved_quota?: number
   usage_accuracy?: string
   reasoning_tokens?: number
   admin_info?: {

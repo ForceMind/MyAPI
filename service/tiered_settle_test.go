@@ -374,6 +374,7 @@ func TestPrepareTieredBillingForSelectedGroupStartsBillingAfterFreeGroup(t *test
 
 	relayInfo := &relaycommon.RelayInfo{
 		UserId:          userID,
+		RequestId:       "tiered-paid-group-after-free",
 		IsPlayground:    true,
 		ForcePreConsume: true,
 		OriginModelName: "gpt-test",

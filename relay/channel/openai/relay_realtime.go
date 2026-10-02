@@ -216,14 +216,18 @@ func preConsumeUsage(ctx *gin.Context, info *relaycommon.RelayInfo, usage *dto.R
 	totalUsage.OutputTokenDetails.AudioTokens += usage.OutputTokenDetails.AudioTokens
 	totalUsage.OutputTokenDetails.ImageTokens += usage.OutputTokenDetails.ImageTokens
 	if len(reported) > 0 && reported[0] {
+		info.RealtimeReportedUsage = true
 		if err := service.RecordRealtimeTieredResponse(info, usage); err != nil {
 			return err
 		}
-	} else if info.TieredBillingSnapshot != nil {
-		if info.RealtimeTieredPricing == nil {
-			info.RealtimeTieredPricing = &relaycommon.RealtimeTieredPricing{}
+	} else {
+		info.RealtimeUsageUnverified = true
+		if info.TieredBillingSnapshot != nil {
+			if info.RealtimeTieredPricing == nil {
+				info.RealtimeTieredPricing = &relaycommon.RealtimeTieredPricing{}
+			}
+			info.RealtimeTieredPricing.Incomplete = true
 		}
-		info.RealtimeTieredPricing.Incomplete = true
 	}
 	// Preserve known counts for final settlement even if extending the
 	// reservation fails. The reader owns clearing the completed bucket.

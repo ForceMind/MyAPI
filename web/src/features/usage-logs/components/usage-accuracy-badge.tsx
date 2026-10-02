@@ -18,6 +18,13 @@ export function UsageAccuracyBadge(props: { accuracy: unknown }) {
   )
   let variant: 'outline' | 'secondary' | 'warning' | 'destructive' = 'secondary'
   switch (props.accuracy) {
+    case 'pending_review':
+      label = t('Usage pending review')
+      description = t(
+        'No actual charge is confirmed. The reservation is retained until reconciliation.'
+      )
+      variant = 'warning'
+      break
     case 'reported':
       label = t('Reported usage')
       description = t(

@@ -80,7 +80,7 @@ func TestMain(m *testing.M) {
 	common.BatchUpdateEnabled = false
 	common.LogConsumeEnabled = true
 	common.DataExportEnabled = false
-	if err := db.AutoMigrate(&model.Task{}, &model.User{}, &model.Channel{}, &model.Token{}, &model.Log{}, &model.BillingLogProjectionIdentity{}, &model.AccountQuotaSettlementFact{}); err != nil {
+	if err := db.AutoMigrate(&model.Task{}, &model.User{}, &model.Channel{}, &model.Token{}, &model.Log{}, &model.BillingLogProjectionIdentity{}, &model.AccountQuotaSettlementFact{}, &model.LegacyUsageReservation{}); err != nil {
 		panic("failed to migrate Kling test database: " + err.Error())
 	}
 	exitCode := m.Run()

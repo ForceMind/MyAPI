@@ -232,6 +232,9 @@ func InitDB() (err error) {
 				return fmt.Errorf("detect user quota business writer schema: %w", err)
 			}
 			RefreshAccountQuotaSettlementIntentSchemaCapability(DB)
+			if err := ValidateUsageReviewSchema(DB); err != nil {
+				return err
+			}
 			if err := ensureConfiguredChannelQuotaIdentityKeyring(); err != nil {
 				return err
 			}
@@ -358,6 +361,8 @@ func migrateDB() error {
 		&AccountQuotaTerminalRecoveryObligation{},
 		&AccountQuotaRefundFact{},
 		&AccountQuotaSettlementIntent{},
+		&LegacyUsageReservation{},
+		&UsageReviewDecision{},
 		&AccountQuotaSettlementFact{},
 		&QuotaBalanceBatchDrain{},
 		&QuotaBalanceBatchSubject{},
@@ -487,6 +492,8 @@ func migrateDBFast() error {
 		{&AccountQuotaTerminalRecoveryObligation{}, "AccountQuotaTerminalRecoveryObligation"},
 		{&AccountQuotaRefundFact{}, "AccountQuotaRefundFact"},
 		{&AccountQuotaSettlementIntent{}, "AccountQuotaSettlementIntent"},
+		{&LegacyUsageReservation{}, "LegacyUsageReservation"},
+		{&UsageReviewDecision{}, "UsageReviewDecision"},
 		{&AccountQuotaSettlementFact{}, "AccountQuotaSettlementFact"},
 		{&QuotaBalanceBatchDrain{}, "QuotaBalanceBatchDrain"},
 		{&QuotaBalanceBatchSubject{}, "QuotaBalanceBatchSubject"},

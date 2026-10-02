@@ -817,8 +817,17 @@ func terminalAccountQuotaDeltas(reserve *AccountQuotaMutationReceipt, actualQuot
 }
 
 func applyAccountQuotaTerminal(ctx context.Context, db *gorm.DB, input AccountQuotaTerminalInput, phase string) (*AccountQuotaMutationReceipt, error) {
+	return applyAccountQuotaTerminalReviewed(ctx, db, input, phase, 0)
+}
+
+func applyAccountQuotaTerminalReviewed(ctx context.Context, db *gorm.DB, input AccountQuotaTerminalInput, phase string, reviewActorID int) (*AccountQuotaMutationReceipt, error) {
 	if db == nil {
 		return nil, gorm.ErrInvalidDB
+	}
+	if reviewActorID > 0 {
+		if err := authorizeUsageReviewer(db, reviewActorID); err != nil {
+			return nil, err
+		}
 	}
 	ctx, cancel := accountQuotaOperationContext(ctx, 5*time.Second)
 	defer cancel()
@@ -944,6 +953,11 @@ func applyAccountQuotaTerminal(ctx context.Context, db *gorm.DB, input AccountQu
 		now, err := taskRecoveryDBTimestamp(tx)
 		if err != nil {
 			return nil, err
+		}
+		if reviewActorID > 0 {
+			if err := reopenReviewedUsageTx(tx, &head, reviewActorID, normalized.ActualQuota); err != nil {
+				return nil, err
+			}
 		}
 		deltas, appliedQuota, err := terminalAccountQuotaDeltas(&current, normalized.ActualQuota, phase)
 		if err != nil {

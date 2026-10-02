@@ -15,6 +15,7 @@ import (
 
 const (
 	AccountQuotaTerminalRecoveryOpen          = "open"
+	AccountQuotaTerminalRecoveryUsageUnknown  = "usage_unknown"
 	AccountQuotaTerminalRecoveryRefundPending = "refund_pending"
 	AccountQuotaTerminalRecoveryPending       = AccountQuotaTerminalRecoveryRefundPending
 	AccountQuotaTerminalRecoveryClaimed       = "claimed"
@@ -50,6 +51,7 @@ type AccountQuotaTerminalRecoveryObligation struct {
 	TerminalReceiptID  int64  `json:"terminal_receipt_id" gorm:"type:bigint;not null;default:0;index"`
 	Attempts           int    `json:"attempts" gorm:"not null;default:0"`
 	LastError          string `json:"last_error" gorm:"type:text;not null"`
+	ReviewMetadata     string `json:"review_metadata,omitempty" gorm:"type:text"`
 	NextAttemptAt      int64  `json:"next_attempt_at" gorm:"type:bigint;not null;default:0;index"`
 	LeaseOwner         string `json:"lease_owner" gorm:"type:varchar(128);not null;default:''"`
 	LeaseUntil         int64  `json:"lease_until" gorm:"type:bigint;not null;default:0;index"`

@@ -55,6 +55,23 @@ describe('log cost display', () => {
     expect(screen.getByText('Usage unknown')).toBeInTheDocument()
   })
 
+  test('shows pending review instead of a zero actual charge', () => {
+    const rendered = renderCost({
+      quota: 0,
+      other: {
+        settlement_status: 'pending_review',
+        actual_quota: null,
+        usage_accuracy: 'unknown',
+      },
+    })
+    expect(screen.getByText('Usage pending review')).toBeInTheDocument()
+    expect(
+      normalizedText(rendered.container.textContent).includes(
+        normalizedText(formatLogQuota(0))
+      )
+    ).toBe(false)
+  })
+
   test('does not treat old records without provenance as confirmed usage', () => {
     renderCost({ quota: 12500, other: null })
     expect(screen.getByText('Usage provenance unavailable')).toBeInTheDocument()
@@ -71,12 +88,16 @@ describe('log cost display', () => {
     renderCost({ quota: 12500, other: { usage_accuracy: 'reported' } })
     await user.tab()
     expect(screen.getByText('Reported usage')).toHaveFocus()
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Token usage was reported by upstream; the provider bill has not been reconciled.')
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'Token usage was reported by upstream; the provider bill has not been reconciled.'
+    )
   })
 
   test('keeps provenance out of non-consumption costs', () => {
     renderCost({ quota: 12500, other: null, showUsageAccuracy: false })
-    expect(screen.queryByText('Usage provenance unavailable')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Usage provenance unavailable')
+    ).not.toBeInTheDocument()
   })
 
   test('keeps the regular cost visible and adds an accessible surcharge marker', () => {

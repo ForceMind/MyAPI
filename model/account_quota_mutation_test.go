@@ -27,7 +27,7 @@ func openAccountQuotaTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(8)
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	require.NoError(t, db.AutoMigrate(&User{}, &Token{}, &SubscriptionPlan{}, &UserSubscription{}, &UserQuotaMutationReceipt{}, &AccountQuotaMutationReceipt{}, &AccountQuotaReservationHead{}, &AccountQuotaTerminalRecoveryObligation{}, &AccountQuotaRefundFact{}, &QuotaWorkCursor{}, &QuotaWriterEpoch{}, &QuotaProjectionObligation{}))
+	require.NoError(t, db.AutoMigrate(&User{}, &Token{}, &SubscriptionPlan{}, &UserSubscription{}, &UserQuotaMutationReceipt{}, &AccountQuotaMutationReceipt{}, &AccountQuotaReservationHead{}, &AccountQuotaTerminalRecoveryObligation{}, &LegacyUsageReservation{}, &AccountQuotaRefundFact{}, &QuotaWorkCursor{}, &QuotaWriterEpoch{}, &QuotaProjectionObligation{}))
 	require.NoError(t, EnsureQuotaWriterEpochStateWithDB(db))
 	setQuotaWriterStateForTest(t, db, QuotaWriterModeAuthoritative, 7)
 	oldRedisEnabled, oldRDB := common.RedisEnabled, common.RDB

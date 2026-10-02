@@ -84,6 +84,7 @@ import {
 } from '../../lib/utils'
 import { USAGE_BILLING_PATH, type LogOtherData } from '../../types'
 import { UsageAccuracyBadge } from '../usage-accuracy-badge'
+import { UsageReviewPanel } from '../usage-review-panel'
 
 // Maps a channel-update changed-field token (as recorded by the backend audit)
 // to its i18n label key for display in the audit details.
@@ -639,6 +640,11 @@ export function DetailsDialog(props: DetailsDialogProps) {
       bodyClassName='pr-2 sm:pr-4'
     >
       <div className='w-full max-w-full min-w-0 space-y-2.5 overflow-x-hidden py-1 sm:space-y-3'>
+        {props.open &&
+          props.log.request_id &&
+          other?.settlement_status === 'pending_review' && (
+            <UsageReviewPanel requestId={props.log.request_id} />
+          )}
         {/* Overview section - key identifiers */}
         <div className='min-w-0 space-y-1'>
           {props.log.request_id && (

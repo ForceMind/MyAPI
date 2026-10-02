@@ -53,6 +53,8 @@ func TestMain(m *testing.M) {
 		&model.SystemTask{},
 		&model.SystemTaskLock{},
 		&model.AccountQuotaSettlementFact{},
+		&model.LegacyUsageReservation{},
+		&model.UsageReviewDecision{},
 		&model.QuotaWorkCursor{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
@@ -79,6 +81,8 @@ func truncate(t *testing.T) {
 		model.DB.Exec("DELETE FROM system_task_locks")
 		model.DB.Exec("DELETE FROM system_tasks")
 		model.DB.Exec("DELETE FROM account_quota_settlement_facts")
+		model.DB.Exec("DELETE FROM legacy_usage_reservations")
+		model.DB.Exec("DELETE FROM usage_review_decisions")
 		model.DB.Exec("DELETE FROM quota_work_cursors")
 	})
 }

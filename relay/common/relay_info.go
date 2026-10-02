@@ -145,8 +145,10 @@ type RelayInfo struct {
 	// RealtimeQuotedQuota is the cumulative quota of successfully reserved
 	// realtime segments. It extends the existing billing reservation instead
 	// of charging each segment again outside that session.
-	RealtimeQuotedQuota   int
-	RealtimeTieredPricing *RealtimeTieredPricing
+	RealtimeQuotedQuota     int
+	RealtimeTieredPricing   *RealtimeTieredPricing
+	RealtimeUsageUnverified bool
+	RealtimeReportedUsage   bool
 	// SubscriptionAmountTotal / SubscriptionAmountUsedAfterPreConsume are used to compute remaining in logs.
 	SubscriptionAmountTotal               int64
 	SubscriptionAmountUsedAfterPreConsume int64

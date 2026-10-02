@@ -123,11 +123,17 @@ export function LogCostDisplay(props: LogCostDisplayProps) {
   const isSubscription = props.other?.billing_source === 'subscription'
   const showToolSurcharge = hasToolSurcharge(props.other)
 
+  if (props.other?.settlement_status === 'pending_review') {
+    return <UsageAccuracyBadge accuracy='pending_review' />
+  }
+
   if (!isSubscription && !showToolSurcharge) {
     return (
       <div className='flex flex-col gap-0.5'>
         <QuotaBadge quota={props.quota} />
-        {props.showUsageAccuracy !== false && <UsageAccuracyBadge accuracy={props.other?.usage_accuracy} />}
+        {props.showUsageAccuracy !== false && (
+          <UsageAccuracyBadge accuracy={props.other?.usage_accuracy} />
+        )}
       </div>
     )
   }
@@ -136,14 +142,16 @@ export function LogCostDisplay(props: LogCostDisplayProps) {
     <TooltipProvider>
       <div className='flex flex-col items-start gap-0.5'>
         <div className='inline-flex items-center gap-1'>
-        {isSubscription ? (
-          <SubscriptionBadge quota={props.quota} />
-        ) : (
-          <QuotaBadge quota={props.quota} />
-        )}
-        {showToolSurcharge ? <ToolSurchargeMarker /> : null}
+          {isSubscription ? (
+            <SubscriptionBadge quota={props.quota} />
+          ) : (
+            <QuotaBadge quota={props.quota} />
+          )}
+          {showToolSurcharge ? <ToolSurchargeMarker /> : null}
         </div>
-        {props.showUsageAccuracy !== false && <UsageAccuracyBadge accuracy={props.other?.usage_accuracy} />}
+        {props.showUsageAccuracy !== false && (
+          <UsageAccuracyBadge accuracy={props.other?.usage_accuracy} />
+        )}
       </div>
     </TooltipProvider>
   )

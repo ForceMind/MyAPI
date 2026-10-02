@@ -39,7 +39,7 @@ func setupPostConsumeModeDB(t *testing.T, mode model.QuotaWriterMode) *gorm.DB {
 	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.SubscriptionPlan{}, &model.UserSubscription{}, &model.Channel{},
 		&model.UserQuotaMutationReceipt{}, &model.AccountQuotaMutationReceipt{}, &model.AccountQuotaReservationHead{},
 		&model.AccountQuotaTerminalRecoveryObligation{}, &model.AccountQuotaRefundFact{}, &model.AccountQuotaSettlementIntent{},
-		&model.AccountQuotaSettlementFact{}, &model.SystemTask{}, &model.SystemTaskLock{},
+		&model.AccountQuotaSettlementFact{}, &model.LegacyUsageReservation{}, &model.SystemTask{}, &model.SystemTaskLock{},
 		&model.QuotaWriterEpoch{}, &model.QuotaProjectionObligation{}, &model.QuotaBalanceBatchDrain{}, &model.QuotaBalanceBatchSubject{}, &model.QuotaWorkCursor{}))
 	require.True(t, model.RefreshAccountQuotaSettlementIntentSchemaCapability(db))
 	require.NoError(t, model.EnsureQuotaWriterEpochStateWithDB(db))
@@ -53,7 +53,11 @@ func setupPostConsumeModeDB(t *testing.T, mode model.QuotaWriterMode) *gorm.DB {
 	model.InitColumnNamesForTest()
 	common.RedisEnabled, common.RDB = false, nil
 	common.BatchUpdateEnabled = false
-	t.Cleanup(func() { model.DB = oldDB; common.RedisEnabled, common.RDB = oldRedis, oldRDB; common.BatchUpdateEnabled = oldBatch })
+	t.Cleanup(func() {
+		model.DB = oldDB
+		common.RedisEnabled, common.RDB = oldRedis, oldRDB
+		common.BatchUpdateEnabled = oldBatch
+	})
 	return db
 }
 
