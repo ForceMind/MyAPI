@@ -20,6 +20,7 @@ type taskQuotaLegacyUser struct {
 	AccessToken *string
 	Quota       int
 	UsedQuota   int
+	Group       string
 }
 
 func (taskQuotaLegacyUser) TableName() string { return "users" }
@@ -30,6 +31,7 @@ type taskQuotaLegacyToken struct {
 	Key         string
 	RemainQuota int
 	UsedQuota   int
+	Group       string
 }
 
 func (taskQuotaLegacyToken) TableName() string { return "tokens" }

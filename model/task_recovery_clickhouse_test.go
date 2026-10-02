@@ -221,8 +221,25 @@ func TestB2ClickHouseConfiguredDatabase(t *testing.T) {
 	waitGroup.Wait()
 	identities, err := loadClickHouseBillingProjectionIdentities(t.Context(), db, "configured-concurrent-identity")
 	require.NoError(t, err)
-	require.Len(t, identities, 2)
-	require.ErrorIs(t, validateBillingLogProjectionIdentities("configured-concurrent-identity", concurrentDigests[0], identities), ErrBillingProjectionConflict)
+	// ClickHouse appends immutable quarantine evidence. Concurrent observers
+	// may record different reasons, so physical row count is not a contract.
+	// Both digests must become unusable and subsequent retries must remain so.
+	conflicts, quarantined := 0, false
+	for _, concurrentErr := range concurrentErrors {
+		if concurrentErr != nil {
+			require.ErrorIs(t, concurrentErr, ErrBillingProjectionConflict)
+			conflicts++
+		}
+	}
+	require.Positive(t, conflicts, "conflicting digests cannot both succeed")
+	for _, identity := range identities {
+		quarantined = quarantined || identity.Status == BillingLogProjectionIdentityStatusQuarantined
+	}
+	require.True(t, quarantined, "a conflict must persist its quarantine")
+	for _, digest := range concurrentDigests {
+		require.ErrorIs(t, validateBillingLogProjectionIdentities("configured-concurrent-identity", digest, identities), ErrBillingProjectionConflict)
+		require.ErrorIs(t, EnsureClickHouseBillingProjectionIdentity(t.Context(), db, "configured-concurrent-identity", digest), ErrBillingProjectionConflict)
+	}
 	sqlDB.SetMaxOpenConns(1)
 
 	for _, fixture := range []struct {
