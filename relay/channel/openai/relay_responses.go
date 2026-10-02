@@ -41,6 +41,7 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 	usage := dto.Usage{}
 	if responsesResponse.Usage != nil {
 		usage = responsesUsageForBilling(responsesResponse.Usage)
+		markResponsesUsageEvidence(&usage, responseBody, false)
 	}
 	// Count actual tool invocations from Output (not tool declarations).
 	for _, output := range responsesResponse.Output {
@@ -95,6 +96,7 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 			if streamResponse.Response != nil {
 				if streamResponse.Response.Usage != nil {
 					*usage = responsesUsageForBilling(streamResponse.Response.Usage)
+					markResponsesUsageEvidence(usage, []byte(data), true)
 					hasUpstreamUsage = true
 				}
 				if !imageCommitted {
@@ -118,6 +120,7 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 		case "response.failed", "response.incomplete", "response.cancelled", "response.canceled":
 			if streamResponse.Response != nil && streamResponse.Response.Usage != nil {
 				*usage = responsesUsageForBilling(streamResponse.Response.Usage)
+				markResponsesUsageEvidence(usage, []byte(data), true)
 				hasUpstreamUsage = true
 			}
 			if !imageCommitted {

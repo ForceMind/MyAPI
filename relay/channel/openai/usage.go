@@ -7,6 +7,47 @@ import (
 	"github.com/ForceMind/MyAPI/relaykit/dto"
 )
 
+// Preserve JSON field presence at the native Responses boundary. The shared
+// Usage counters are values for compatibility; decoding a missing/null field
+// into zero is not evidence of an actual zero-token response.
+func markResponsesUsageEvidence(usage *dto.Usage, body []byte, stream bool) {
+	type counters struct {
+		Input  *int `json:"input_tokens"`
+		Output *int `json:"output_tokens"`
+		Total  *int `json:"total_tokens"`
+	}
+	var envelope struct {
+		Usage    *counters `json:"usage"`
+		Response *struct {
+			Usage *counters `json:"usage"`
+		} `json:"response"`
+	}
+	if usage == nil || usage.BillingUsage == nil {
+		return
+	}
+	usage.BillingUsage.Incomplete = true
+	if err := common.Unmarshal(body, &envelope); err != nil {
+		return
+	}
+	evidence := envelope.Usage
+	if stream {
+		if envelope.Response == nil {
+			return
+		}
+		evidence = envelope.Response.Usage
+	}
+	if evidence == nil || evidence.Input == nil || evidence.Output == nil {
+		return
+	}
+	if *evidence.Input < 0 || *evidence.Input > common.MaxQuota || *evidence.Output < 0 || *evidence.Output > common.MaxQuota {
+		return
+	}
+	if evidence.Total != nil && int64(*evidence.Total) != int64(*evidence.Input)+int64(*evidence.Output) {
+		return
+	}
+	usage.BillingUsage.Incomplete = false
+}
+
 // responsesUsageForBilling keeps the provider's original counters separate
 // from the Chat-style projection used by settlement. Presence is meaningful:
 // an explicitly returned zero usage must not be replaced with an estimate.

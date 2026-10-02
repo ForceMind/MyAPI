@@ -43,8 +43,8 @@ func TestBillingUnknownUsagePersistsAndBlocksSessionTerminals(t *testing.T) {
 
 func TestTextUnknownUsagePersistsAcrossBothWriterModes(t *testing.T) {
 	for _, mode := range []model.QuotaWriterMode{model.QuotaWriterModeLegacy, model.QuotaWriterModeAuthoritative} {
-		for _, estimated := range []bool{false, true} {
-			t.Run(string(mode)+map[bool]string{false: "-missing", true: "-estimated"}[estimated], func(t *testing.T) {
+		for _, source := range []string{"missing", "estimated", "partial"} {
+			t.Run(string(mode)+"-"+source, func(t *testing.T) {
 				db := setupPostConsumeModeDB(t, mode)
 				user, token := seedAuthoritativeBilling(t, db, "text-hold", 1000, 1000, false)
 				info := authoritativeRelay(user, token, "text-hold-request")
@@ -59,9 +59,10 @@ func TestTextUnknownUsagePersistsAcrossBothWriterModes(t *testing.T) {
 				require.Nil(t, apiErr)
 				info.Billing = session
 				var usage *dto.Usage
-				if estimated {
+				if source != "missing" {
 					billing := dto.NewOpenAIResponsesBillingUsage(&dto.Usage{InputTokens: 100, OutputTokens: 10, TotalTokens: 110})
-					billing.Estimated = true
+					billing.Estimated = source == "estimated"
+					billing.Incomplete = source == "partial"
 					usage = &dto.Usage{BillingUsage: billing}
 				}
 				PostTextConsumeQuota(ctx, info, usage, nil)

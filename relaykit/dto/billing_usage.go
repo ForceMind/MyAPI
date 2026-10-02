@@ -15,6 +15,7 @@ type BillingUsage struct {
 	Source              string               `json:"source,omitempty"`
 	Semantic            string               `json:"semantic,omitempty"`
 	Estimated           bool                 `json:"estimated,omitempty"`
+	Incomplete          bool                 `json:"incomplete,omitempty"`
 	OpenAIUsage         *Usage               `json:"openai_usage,omitempty"`
 	ClaudeUsage         *ClaudeUsage         `json:"claude_usage,omitempty"`
 	GeminiUsageMetadata *GeminiUsageMetadata `json:"gemini_usage_metadata,omitempty"`

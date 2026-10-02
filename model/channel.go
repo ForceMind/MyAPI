@@ -182,7 +182,13 @@ func ApplyChannelGroupFilter(query *gorm.DB, group string) *gorm.DB {
 
 // Value implements driver.Valuer interface
 func (c ChannelInfo) Value() (driver.Value, error) {
-	return common.Marshal(&c)
+	data, err := common.Marshal(&c)
+	if err != nil {
+		return nil, err
+	}
+	// Text binds as JSON across drivers; []byte becomes bytea in PostgreSQL's
+	// simple protocol and is not valid input for a JSON column.
+	return string(data), nil
 }
 
 // Scan implements sql.Scanner interface

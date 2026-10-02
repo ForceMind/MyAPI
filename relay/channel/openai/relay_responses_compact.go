@@ -33,6 +33,7 @@ func OaiResponsesCompactionHandler(c *gin.Context, resp *http.Response) (*dto.Us
 	usage := dto.Usage{}
 	if compactResp.Usage != nil {
 		usage = responsesUsageForBilling(compactResp.Usage)
+		markResponsesUsageEvidence(&usage, responseBody, false)
 	}
 
 	return &usage, nil

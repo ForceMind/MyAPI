@@ -222,6 +222,9 @@ func runBusinessCreditConfiguredDatabaseContract(t *testing.T, db *gorm.DB) {
 	}
 	order := TopUp{UserId: users[0].Id, Amount: 2, Money: 2, TradeNo: "b2-credit-topup-order", PaymentMethod: "alipay", PaymentProvider: PaymentProviderEpay, Status: common.TopUpStatusPending}
 	rollbackOrder := TopUp{UserId: users[1].Id, Amount: 2, Money: 2, TradeNo: "b2-credit-rollback-order", PaymentMethod: "alipay", PaymentProvider: PaymentProviderEpay, Status: common.TopUpStatusPending}
+	// These are new synthetic orders with a known quoted unit, not unresolved
+	// historical orders. Do not bypass the production historical-order guard.
+	order.QuotaPerUnitSnapshot, rollbackOrder.QuotaPerUnitSnapshot = "100", "100"
 	require.NoError(t, db.Create(&order).Error)
 	require.NoError(t, db.Create(&rollbackOrder).Error)
 	_, err := RechargeEpayTrusted(order.TradeNo, "alipay", "127.0.0.1")

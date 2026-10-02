@@ -47,6 +47,9 @@ func textUsageReviewReason(ctx *gin.Context, usage *dto.Usage) string {
 	if usage.BillingUsage != nil && usage.BillingUsage.Estimated {
 		return "estimated"
 	}
+	if usage.BillingUsage != nil && usage.BillingUsage.Incomplete {
+		return "partial"
+	}
 	effective, hasSource := usageFromBillingUsage(usage)
 	if usage.BillingUsage != nil && usage.BillingUsage.OpenAIUsage != nil {
 		if details := usage.BillingUsage.OpenAIUsage.InputTokensDetails; details != nil {

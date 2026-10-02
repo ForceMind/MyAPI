@@ -4,6 +4,7 @@ export function quotaFixtures({ latestError = false } = {}) {
   const now = Math.floor(Date.now() / 1000)
   const start = now - 600
   const series = {
+    series_id: 'a'.repeat(64),
     channel_id: 1, name: 'Codex · 浏览器测试', account_label: 'Codex',
     metric_type: 'codex_rate_limit', window_type: 'weekly',
     source: 'codex_wham_usage_primary', plan_type: 'pro',
@@ -87,7 +88,7 @@ export function quotaFixtures({ latestError = false } = {}) {
     peak_abs_change_per_minute: 2, peak_drop_per_minute: 2, peak_increase_per_minute: 0,
   }
   const history = {
-    ...series, start, end: now, series_id: 'synthetic-weekly', limit: 5000,
+    ...series, start, end: now, limit: 5000,
     granularity: 'minute', timezone_offset: -480, points, current,
     raw_observations: points.length, available_points: points.length,
     returned_points: points.length, source_complete: true, points_complete: true,

@@ -7,6 +7,9 @@ import { extname, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { quotaFixtures } from './browser-fixtures.mjs'
 
+// The shipped overview compares multiple stable account identities in one plot.
+process.env.MYAPI_BROWSER_MULTISERIES = '1'
+
 const repo = fileURLToPath(new URL('../../', import.meta.url))
 const root = resolve(repo, 'web/dist')
 const output = resolve(process.env.MYAPI_BROWSER_ARTIFACTS || `${repo}/.local-tests/quota-browser`)
@@ -138,7 +141,23 @@ try {
     assert(box && box.y >= 99 && box.y + box.height <= bottomLimit + 1, 'the whole chart, including its time axis, is reachable by real scrolling')
   }
   await page.goto(`${origin}/dashboard/overview`, { waitUntil: 'networkidle' })
-  const overview = page.getByTestId('quota-overview-card').first()
+  const comparison = page.getByTestId('codex-account-quota-chart')
+  await comparison.getByTestId('quota-comparison-chart').waitFor({ state: 'visible' })
+  const lines = comparison.getByTestId('quota-comparison-line')
+  assert.equal(await lines.count(), 3, 'three distinct account identities share the overview time axis')
+  for (const line of await lines.all()) assert.equal(await line.getAttribute('stroke-width'), '1.5', 'account series remain thin lines')
+  assert.equal(await page.getByTestId('quota-overview-card').count(), 0, 'details start collapsed')
+  const legend = comparison.getByTestId('quota-comparison-legend').getByRole('button').first()
+  await legend.click()
+  await comparison.locator('[data-testid="quota-comparison-line"][data-series-key="' + 'a'.repeat(64) + '"]').waitFor({ state: 'hidden' })
+  assert.equal(await legend.getAttribute('aria-pressed'), 'false')
+  assert.equal(await lines.count(), 2, 'hiding one account preserves the other account lines')
+  await legend.click()
+  await comparison.locator('[data-testid="quota-comparison-line"][data-series-key="' + 'a'.repeat(64) + '"]').waitFor({ state: 'visible' })
+  assert.equal(await lines.count(), 3)
+  await comparison.screenshot({ path: resolve(output, 'overview-account-comparison.png') })
+  await comparison.getByRole('button', { name: label('Show details'), exact: true }).click()
+  const overview = comparison.getByTestId('quota-overview-card').first()
   await overview.waitFor({ state: 'visible' })
   const overviewText = await overview.innerText()
   for (const key of ['Remaining quota', 'Latest observed interval', 'Average consumption per minute', 'Estimated consumption per hour', 'Estimated time from analysis point']) {
@@ -148,8 +167,10 @@ try {
   for (const key of ['Time range', 'Chart granularity', 'Metric', 'Chart style', 'Analysis window', 'EWMA half-life']) {
     assert.equal(await overview.getByLabel(label(key), { exact: true }).count(), 0, `overview omits detailed ${key} control`)
   }
-  assert(changeRequests.some((request) => request.range === '24h' && request.rate_window === '3600' && request.ewma_half_life === '1800' && request.overview_points === '48' && request.limit === '4' && request.sort === 'observed_desc'), 'overview uses one bounded analysis query')
+  assert(changeRequests.some((request) => request.range === '24h' && request.rate_window === '3600' && request.ewma_half_life === '1800' && request.overview_points === '48' && request.limit === '64' && request.sort === 'observed_desc'), 'overview uses one bounded analysis query')
   await overview.screenshot({ path: resolve(output, 'overview-quota-summary.png') })
+  await comparison.getByRole('button', { name: label('Hide details'), exact: true }).click()
+  await overview.waitFor({ state: 'hidden' })
 
   await page.goto(`${origin}/channels`, { waitUntil: 'networkidle' })
   await trend().waitFor({ state: 'visible' })

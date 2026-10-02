@@ -1624,7 +1624,7 @@ type TaskBillingEvent struct {
 	ResolutionSource  string                  `json:"resolution_source,omitempty" gorm:"type:varchar(32);<-:create"`
 	AuditCommandID    string                  `json:"audit_command_id,omitempty" gorm:"type:varchar(48);<-:create"`
 	EvidenceID        string                  `json:"evidence_id,omitempty" gorm:"type:varchar(191);not null;default:'';<-:create"`
-	EvidenceHash      string                  `json:"evidence_hash,omitempty" gorm:"type:char(64);not null;default:'';<-:create"`
+	EvidenceHash      string                  `json:"evidence_hash,omitempty" gorm:"type:varchar(64);not null;default:'';<-:create"`
 	EvidenceVersion   int                     `json:"evidence_version,omitempty" gorm:"not null;default:0;<-:create"`
 	StatisticsVersion int                     `json:"statistics_version,omitempty" gorm:"not null;default:0;<-:create"`
 	StatisticsApplied bool                    `json:"statistics_applied,omitempty" gorm:"not null;default:false;<-:create"`

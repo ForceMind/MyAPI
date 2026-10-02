@@ -105,7 +105,7 @@ func normalizePaymentFundingOptions(values map[string]string) (map[string]string
 
 func optionValueTx(tx *gorm.DB, key string) (string, bool, error) {
 	var option Option
-	if err := tx.Where("key = ?", key).First(&option).Error; err != nil {
+	if err := tx.Where(map[string]interface{}{"key": key}).First(&option).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return "", false, nil
 		}
@@ -142,10 +142,10 @@ func persistOptionValuesTx(tx *gorm.DB, values map[string]string) error {
 	for _, key := range keys {
 		value := values[key]
 		stored := Option{Key: key}
-		if err := tx.Where("key = ?", key).FirstOrCreate(&stored, Option{Key: key}).Error; err != nil {
+		if err := tx.Where(map[string]interface{}{"key": key}).FirstOrCreate(&stored, Option{Key: key}).Error; err != nil {
 			return err
 		}
-		if err := tx.Model(&Option{}).Where("key = ?", key).Update("value", value).Error; err != nil {
+		if err := tx.Model(&Option{}).Where(map[string]interface{}{"key": key}).Update("value", value).Error; err != nil {
 			return err
 		}
 	}

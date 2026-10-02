@@ -85,3 +85,12 @@
 - Redis 实库脚本已有双 key 与 writer epoch 契约，旧直调测试仍传一 key/三参数。夹具改为真实当前契约，并新增缺失/过期 epoch 的拒绝及 epoch 不变断言；保留原数值、溢出与 TTL 断言。
 - ClickHouse 并发会追加隔离证据，物理行数依竞争顺序变化。用明确的业务不变量替换固定两行假设：至少一方报告冲突、隔离持久化、两种 digest 均拒绝且重试仍拒绝；不改变生产隔离语义。
 - 上述实库修复尚待下一次 CI，不能将 SQLite 或静态检查称为实库通过；完整 CI 与 R1 发布门槛仍未完成。
+
+### 第二轮 CI 与后续有界修复
+
+- `11c581f` 已同步，第二轮 CI `36984804453` 的 Redis 额度脚本、身份/选项、支付/订阅、限流、桌面和发行合同通过；前端 542 项测试与构建通过后，实际浏览器检查才暴露旧夹具没有稳定账户身份、且仍期待旧卡片默认展开的问题。修正合成身份并以现有多账户同图、细线、图例开关和详情展开行为验收，保持产品界面不回退。
+- B2 继续运行后暴露真实兼容问题：MySQL 对加零更新返回零个“更改行”，不应误判为主体不存在；零统计改为锁定验证主体存在。PostgreSQL simple protocol 下 ChannelInfo 必须绑定 JSON 文本，不能绑定 bytea；新增编解码回归。可选证据空 hash 改用 varchar(64)，避免 [PostgreSQL char(n) 补空格](https://www.postgresql.org/docs/current/datatype-character.html) 破坏空证据哨兵；保持严格证据校验，不裁剪或接受畸形 hash。
+- 既有资金模式 options 查询改用 GORM 列条件，避免 MySQL 保留字 key 未引用。历史订单未冻结单位继续拒绝确定入账；实库新订单夹具显式使用合成报价单位 100。只修既有兼容与验收，不增加支付功能。
+- ClickHouse 并发隔离合同已走过前次失败点；后续发现 system.mutations.create_time 是 [DateTime](https://clickhouse.com/docs/reference/system-tables/mutations)，需先显式转 DateTime64 才能使用毫秒函数。保留原时间窗口与 mutation ID 追踪语义，待实库重验。
+- 当前结算闭环继续收口原始字段存在性：Responses、其流式终态及 compaction 的空 usage、缺输入/输出、null 计数、矛盾 total 明确标记 incomplete 并进入既有 partial 待核对路径；明确输入/输出均为零仍可正常作为上游证据。新直接边界合同已先红后绿，双 writer 持久化合同新增 partial，原 missing/estimated/reported 合同未改。此节点不宣称 Chat、Claude、Gemini 等所有格式的字段存在性已完成，也未引入新费用/Token 预算。
+- service/OpenAI 完整本地回归 9.634s/0.058s，通过；relaykit dto 测试和独立构建通过。最终本地根模块 `go test -p 1 ./...` 退出 0，字段存在性/双 writer 定向 race service/OpenAI 3.965s/1.096s 与受影响 vet 通过。原始缺字段合同已复现失败后修复，数据库编解码/证据类型/零统计合同通过。实际浏览器与三库修复仍待新 CI；没有合并、发布或部署。
