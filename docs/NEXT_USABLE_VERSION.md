@@ -2,7 +2,7 @@
 
 ## 2026-10-02 恢复开发后的最新状态
 
-同步更新：`d3ab154` 已在 `codex/r1-usage-review-20261002`，草稿 PR #2 已启动 CI，存在待修复红灯；并未封版。完整结果和修复说明见 [R1_CURRENT_ITERATION.md](R1_CURRENT_ITERATION.md)。
+同步更新：`f03911d` 已在 `codex/r1-usage-review-20261002`，草稿 PR #2 的 CI `36987698281` 10 项全部成功，包含待核对恢复三库合同；并未封版。新增恢复表单浏览器步骤按后续提交单独验收。完整结果与残余边界见 [R1_CURRENT_ITERATION.md](R1_CURRENT_ITERATION.md)。
 
 负责人已授权沿既有 R1 继续实现和验证。严格未知用量暂停/保留预留与逐账户剩余安全阈值规则已确定；三种预算与有效价格发布仍待后续接线。当前基于 `71277bf` 的未推送工作树加入结算/待核对/授权恢复候选，原 missing/estimated 合同已转绿，完整进展、验证范围和阻塞见 [R1_CURRENT_ITERATION.md](R1_CURRENT_ITERATION.md)。下文旧记录按日期保留，不能覆盖此状态。
 

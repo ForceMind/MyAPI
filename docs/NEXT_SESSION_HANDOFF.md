@@ -2,7 +2,7 @@
 
 ## 2026-10-02 后续接管状态（本节优先）
 
-本轮源码已同步为 `d3ab154`，位于 `codex/r1-usage-review-20261002`；[草稿 PR #2](https://github.com/ForceMind/MyAPI/pull/2) 正在既有 CI 中验收。首次 CI 暴露旧迁移/Redis 夹具、ClickHouse 并发证据计数与概览漏译，正在逐项修复。下文“未推送”描述是早期记录，最新证据见 [R1_CURRENT_ITERATION.md](R1_CURRENT_ITERATION.md)。
+本轮绿色检查点为 `f03911d`，位于 `codex/r1-usage-review-20261002`；[草稿 PR #2](https://github.com/ForceMind/MyAPI/pull/2) 的 CI `36987698281` 10 项全部成功，R1 待核对、渠道身份及官网来源存取的三库用例实际通过。恢复表单新增浏览器步骤仍需按后续提交验收。下文“未推送”和旧红灯是早期记录，最新边界见 [R1_CURRENT_ITERATION.md](R1_CURRENT_ITERATION.md)。R1 新预算、有效价格发布和真实部署验收尚未完成。
 
 负责人已恢复 R1 范围内的实现、隔离验证与文档更新，并授权选择安全可落地的业务规则。已明确：严格费用/Token 预算的未知用量暂停后续请求、保留预留等待证据或授权核对；百分比采用逐账户/窗口的剩余安全阈值，不伪造逐 Key 百分比消耗。**这是确定的规则，实际费用/Token 预算及准入联锁仍未完成。**
 

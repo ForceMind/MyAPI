@@ -53,10 +53,12 @@ try {
   let latestError = false
   const historyRequests = []
   const changeRequests = []
+  const reviewSubmissions = []
   await context.route('**/api/**', async (route) => {
     const url = new URL(route.request().url())
     if (url.pathname.endsWith('/quota/history')) historyRequests.push(Object.fromEntries(url.searchParams))
     if (url.pathname.endsWith('/quota/changes')) changeRequests.push(Object.fromEntries(url.searchParams))
+    if (url.pathname === '/api/usage-review/usage-review-fixture/reconcile' && route.request().method() === 'POST') reviewSubmissions.push(route.request().postDataJSON())
     const response = quotaFixtures({ latestError }).response(url)
     if (!response) unexpected.add(`${route.request().method()} ${url.pathname}`)
     await route.fulfill({ status: response ? 200 : 501, json: response || { success: false, message: 'Unconfigured browser fixture' } })
@@ -261,6 +263,32 @@ try {
     assert(reachable, 'channel actions are not obscured by a fixed footer or clipped chart')
     await page.screenshot({ path: resolve(output, `channels-${viewport.width}x${viewport.height}.png`), fullPage: true })
   }
+  // Exercise the actual log-details recovery form with synthetic API evidence.
+  // This proves UI behavior only; the Go/database contracts own authorization
+  // and real settlement/idempotency evidence.
+  process.env.MYAPI_BROWSER_USAGE_REVIEW = '1'
+  await page.goto(`${origin}/usage-logs/common`, { waitUntil: 'networkidle' })
+  const unknownRow = page.getByRole('row').filter({ has: page.getByText('fixture-unknown', { exact: true }) })
+  await unknownRow.getByText(label('Usage pending review'), { exact: true }).waitFor({ state: 'visible' })
+  await unknownRow.getByTitle(label('Click to view full details')).click()
+  const reviewDialog = page.getByRole('dialog').filter({ has: page.getByLabel(label('Evidence reference'), { exact: true }) })
+  await reviewDialog.getByLabel(label('Confirmed quota (internal units)'), { exact: true }).fill('120')
+  await reviewDialog.getByLabel(label('Evidence reference'), { exact: true }).fill('synthetic-verified-usage-evidence')
+  await reviewDialog.getByRole('button', { name: label('Confirm reconciliation'), exact: true }).click()
+  await reviewDialog.getByText(label('Required'), { exact: true }).waitFor({ state: 'visible' })
+  assert.equal(reviewSubmissions.length, 0, 'recovery cannot submit without explicit evidence confirmation')
+  await reviewDialog.screenshot({ path: resolve(output, 'usage-review-evidence-required.png') })
+  await reviewDialog.getByRole('checkbox', { name: label('I verified the evidence and frozen pricing.'), exact: true }).check()
+  // The form disappears after success, so keep a dialog locator independent
+  // of form controls when checking the returned resolved state.
+  await reviewDialog.getByRole('button', { name: label('Confirm reconciliation'), exact: true }).click()
+  const resolvedDialog = page.getByRole('dialog').filter({ has: page.getByText(label('Reconciled'), { exact: true }) })
+  await resolvedDialog.getByText(label('Reconciled'), { exact: true }).waitFor({ state: 'visible' })
+  assert.deepEqual(reviewSubmissions, [{ actual_quota: 120, evidence_reference: 'synthetic-verified-usage-evidence', confirmed_reliable_evidence: true }])
+  assert.equal(await resolvedDialog.getByRole('button', { name: label('Confirm reconciliation'), exact: true }).count(), 0, 'resolved evidence cannot be submitted again from the form')
+  await resolvedDialog.screenshot({ path: resolve(output, 'usage-review-resolved.png') })
+  await page.keyboard.press('Escape')
+  await resolvedDialog.waitFor({ state: 'hidden' })
   assert.deepEqual([...unexpected], [], 'all application endpoints have explicit fixtures')
   assert.deepEqual(errors, [], 'no browser runtime errors')
   console.log('Quota browser regression passed: compact overview summary/sparkline; detailed line/area/bar and analysis controls; latest-error history; 320px/390px/low-height layout. Synthetic fixtures only.')
