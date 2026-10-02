@@ -449,6 +449,9 @@ func UpdateOptionsTypedBulk(items []TypedBulkOption, expectedRevision *int64) (i
 	}
 	readyToCommit := false
 	err = DB.Transaction(func(tx *gorm.DB) error {
+		if err := validateLockedPriceChangesTx(tx, prepared.values); err != nil {
+			return err
+		}
 		current, exists, err := readTypedBulkRevisionTx(tx)
 		if err != nil {
 			return err

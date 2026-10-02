@@ -323,6 +323,7 @@ func migrateDB() error {
 	err := DB.AutoMigrate(
 		&Channel{},
 		&OfficialPriceVersion{},
+		&PricePublication{},
 		&ChannelQuotaSnapshot{},
 		&ChannelQuotaAlertState{},
 		&ChannelQuotaAlertEvent{},
@@ -456,6 +457,7 @@ func migrateDBFast() error {
 	}{
 		{&Channel{}, "Channel"},
 		{&OfficialPriceVersion{}, "OfficialPriceVersion"},
+		{&PricePublication{}, "PricePublication"},
 		{&ChannelQuotaSnapshot{}, "ChannelQuotaSnapshot"},
 		{&ChannelQuotaIdentityKeyRegistry{}, "ChannelQuotaIdentityKeyRegistry"},
 		{&ChannelQuotaIdentityKeyVersion{}, "ChannelQuotaIdentityKeyVersion"},
