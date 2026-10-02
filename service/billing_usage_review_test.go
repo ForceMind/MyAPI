@@ -43,6 +43,17 @@ func TestBillingUnknownUsagePersistsAndBlocksSessionTerminals(t *testing.T) {
 	assert.Equal(t, 900, token.RemainQuota)
 }
 
+func TestPartialUsageProvenanceDoesNotClaimReportedActual(t *testing.T) {
+	usage := &dto.Usage{BillingUsage: &dto.BillingUsage{
+		Source: dto.BillingUsageSourceOAIChat, Semantic: dto.BillingUsageSemanticOpenAI,
+		Incomplete: true, OpenAIUsage: &dto.Usage{PromptTokens: 10},
+	}}
+	other := map[string]interface{}{}
+	appendUsageBillingPathForLog(other, false, usage)
+	assert.Equal(t, "unknown", other["usage_accuracy"])
+	assert.Equal(t, "partial", textUsageReviewReason(nil, usage))
+}
+
 func TestTextUnknownUsagePersistsAcrossBothWriterModes(t *testing.T) {
 	for _, mode := range []model.QuotaWriterMode{model.QuotaWriterModeLegacy, model.QuotaWriterModeAuthoritative} {
 		for _, source := range []string{"missing", "estimated", "partial"} {

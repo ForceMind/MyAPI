@@ -68,3 +68,115 @@ func TestResponsesUsageEvidenceDistinguishesMissingCountersFromReportedZero(t *t
 		}
 	}
 }
+
+func TestChatUsageEvidencePreservesZeroAndPartialCounters(t *testing.T) {
+	oldTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() { constant.StreamingTimeout = oldTimeout })
+	for _, stream := range []bool{false, true} {
+		for _, sample := range []struct {
+			name, raw string
+			partial   bool
+		}{
+			{"explicit zero", `{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0}`, false},
+			{"zero input", `{"prompt_tokens":0,"completion_tokens":4,"total_tokens":4}`, false},
+			{"empty", `{}`, true},
+			{"missing input", `{"completion_tokens":4}`, true},
+			{"missing output", `{"prompt_tokens":10}`, true},
+			{"null input", `{"prompt_tokens":null,"completion_tokens":4}`, true},
+			{"contradictory total", `{"prompt_tokens":10,"completion_tokens":4,"total_tokens":0}`, true},
+		} {
+			name := "json/"
+			if stream {
+				name = "stream/"
+			}
+			t.Run(name+sample.name, func(t *testing.T) {
+				c, _ := gin.CreateTestContext(httptest.NewRecorder())
+				c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+				info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{ChannelType: constant.ChannelTypeOpenAI}, DisablePing: true, RelayFormat: types.RelayFormatOpenAI}
+				info.SetEstimatePromptTokens(99)
+				body := `{"id":"fixture","choices":[],"usage":` + sample.raw + `}`
+				contentType := "application/json"
+				handler := OpenaiHandler
+				if stream {
+					body = "data: " + body + "\n\ndata: [DONE]\n\n"
+					contentType = "text/event-stream"
+					handler = OaiStreamHandler
+				}
+				usage, apiErr := handler(c, info, &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {contentType}}, Body: io.NopCloser(strings.NewReader(body))})
+				require.Nil(t, apiErr)
+				require.NotNil(t, usage)
+				require.NotNil(t, usage.BillingUsage)
+				assert.Equal(t, sample.partial, usage.BillingUsage.Incomplete)
+				assert.False(t, usage.BillingUsage.Estimated)
+				var raw dto.Usage
+				require.NoError(t, common.UnmarshalJsonStr(sample.raw, &raw))
+				assert.Equal(t, raw.PromptTokens, usage.PromptTokens)
+				assert.Equal(t, raw.CompletionTokens, usage.CompletionTokens)
+			})
+		}
+	}
+}
+
+func TestChatUsageMissingIsEstimatedAndNeverSentAsInternalEvidence(t *testing.T) {
+	oldTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() { constant.StreamingTimeout = oldTimeout })
+	for _, stream := range []bool{false, true} {
+		body := `{"id":"fixture","choices":[]}`
+		if stream {
+			body = "data: " + body + "\n\ndata: [DONE]\n\n"
+		}
+		c, recorder, response, info := newResponsesChatTestContext(t, body, stream)
+		info.SetEstimatePromptTokens(99)
+		handler := OpenaiHandler
+		if stream {
+			handler = OaiStreamHandler
+		}
+		usage, apiErr := handler(c, info, response)
+		require.Nil(t, apiErr)
+		require.NotNil(t, usage.BillingUsage)
+		assert.True(t, usage.BillingUsage.Estimated)
+		assert.Equal(t, 99, usage.PromptTokens)
+		assert.NotContains(t, recorder.Body.String(), "billing_usage")
+	}
+}
+
+func TestChatStreamPreservesTerminalUsageEvidence(t *testing.T) {
+	oldTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() { constant.StreamingTimeout = oldTimeout })
+	for _, sample := range []struct {
+		name, model, chunks string
+		partial, estimated  bool
+		input               int
+	}{
+		{"intermediate is not final", "gpt-test", "data: {\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":4}}\n\ndata: {\"choices\":[]}\n\n", false, true, 99},
+		{"audio penultimate zero", "gpt-audio", "data: {\"usage\":{\"prompt_tokens\":0,\"completion_tokens\":0}}\n\ndata: {\"choices\":[]}\n\n", false, false, 0},
+		{"final partial supersedes audio", "gpt-audio", "data: {\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":4}}\n\ndata: {\"usage\":{\"prompt_tokens\":15}}\n\n", true, false, 15},
+	} {
+		t.Run(sample.name, func(t *testing.T) {
+			c, _, response, info := newResponsesChatTestContext(t, sample.chunks+"data: [DONE]\n\n", true)
+			info.UpstreamModelName = sample.model
+			info.SetEstimatePromptTokens(99)
+			usage, apiErr := OaiStreamHandler(c, info, response)
+			require.Nil(t, apiErr)
+			require.NotNil(t, usage.BillingUsage)
+			assert.Equal(t, sample.partial, usage.BillingUsage.Incomplete)
+			assert.Equal(t, sample.estimated, usage.BillingUsage.Estimated)
+			assert.Equal(t, sample.input, usage.PromptTokens)
+		})
+	}
+}
+
+func TestChatUsageEvidenceFreezesIncludedSubcategories(t *testing.T) {
+	usage := &dto.Usage{PromptTokens: 100, CompletionTokens: 10, TotalTokens: 110,
+		PromptTokensDetails:    dto.InputTokenDetails{CachedTokens: 40},
+		CompletionTokenDetails: dto.OutputTokenDetails{ReasoningTokens: 4}}
+	require.True(t, captureChatUsageEvidence(usage, []byte(`{"usage":{"prompt_tokens":100,"completion_tokens":10,"total_tokens":110}}`)))
+	usage.PromptTokensDetails.CachedTokens = 99
+	usage.CompletionTokenDetails.ReasoningTokens = 9
+	assert.Equal(t, 40, usage.BillingUsage.OpenAIUsage.PromptTokensDetails.CachedTokens)
+	assert.Equal(t, 4, usage.BillingUsage.OpenAIUsage.CompletionTokenDetails.ReasoningTokens)
+	assert.Equal(t, 110, usage.BillingUsage.OpenAIUsage.TotalTokens)
+}

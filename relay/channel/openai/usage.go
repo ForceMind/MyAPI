@@ -7,6 +7,37 @@ import (
 	"github.com/ForceMind/MyAPI/relaykit/dto"
 )
 
+// A present Chat usage object, including an explicit all-zero one, is upstream
+// evidence. Missing counters remain partial; they are never replaced with a
+// local estimate. Ignore any upstream-supplied internal billing envelope.
+func captureChatUsageEvidence(usage *dto.Usage, body []byte) bool {
+	var envelope struct {
+		Usage *struct {
+			Input  *int `json:"prompt_tokens"`
+			Output *int `json:"completion_tokens"`
+			Total  *int `json:"total_tokens"`
+		} `json:"usage"`
+	}
+	if usage == nil || common.Unmarshal(body, &envelope) != nil || envelope.Usage == nil {
+		return false
+	}
+	evidence := envelope.Usage
+	complete := evidence.Input != nil && evidence.Output != nil
+	if complete {
+		complete = *evidence.Input >= 0 && *evidence.Input <= common.MaxQuota &&
+			*evidence.Output >= 0 && *evidence.Output <= common.MaxQuota &&
+			int64(*evidence.Input)+int64(*evidence.Output) <= int64(common.MaxQuota)
+		if complete && evidence.Total != nil {
+			complete = complete && int64(*evidence.Total) == int64(*evidence.Input)+int64(*evidence.Output)
+		}
+	}
+	usage.BillingUsage = dto.CloneBillingUsage(&dto.BillingUsage{
+		Source: dto.BillingUsageSourceOAIChat, Semantic: dto.BillingUsageSemanticOpenAI,
+		Incomplete: !complete, OpenAIUsage: usage,
+	})
+	return true
+}
+
 // Preserve JSON field presence at the native Responses boundary. The shared
 // Usage counters are values for compatibility; decoding a missing/null field
 // into zero is not evidence of an actual zero-token response.

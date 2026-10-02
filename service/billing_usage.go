@@ -70,6 +70,8 @@ func appendUsageBillingPathForLog(other map[string]interface{}, isLocalCountToke
 	switch {
 	case usage == nil:
 		accuracy = "unknown"
+	case usage.BillingUsage != nil && usage.BillingUsage.Incomplete:
+		accuracy = "unknown"
 	case path == usageBillingPathLocal || path == usageBillingPathOpenAIEstimated ||
 		path == usageBillingPathAnthropicEstimated || path == usageBillingPathGeminiEstimated:
 		accuracy = "estimated"
