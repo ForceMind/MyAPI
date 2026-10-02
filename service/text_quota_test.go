@@ -302,6 +302,7 @@ func TestCalculateTextQuotaSummaryUsesClaudeBillingUsageBeforeTopLevelUsage(t *t
 	require.Equal(t, 12, summary.CacheCreationTokens5m)
 	require.Equal(t, 8, summary.CacheCreationTokens1h)
 	require.Equal(t, 118, summary.Quota)
+	require.Equal(t, 127, summary.TotalTokens, "native text input excludes cache; normalized total counts it once")
 }
 
 func TestCalculateTextQuotaSummaryUsesGeminiBillingUsageBeforeTopLevelUsage(t *testing.T) {

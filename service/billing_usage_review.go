@@ -51,6 +51,16 @@ func textUsageReviewReason(ctx *gin.Context, usage *dto.Usage) string {
 	if usage.BillingUsage != nil && usage.BillingUsage.Incomplete {
 		return "partial"
 	}
+	if usage.BillingUsage != nil && usage.BillingUsage.ClaudeUsage != nil {
+		raw := usage.BillingUsage.ClaudeUsage
+		// Validate native TTL aliases before normalization can fold or clamp
+		// them. Out-of-bound evidence is unresolved, never a certain charge.
+		for _, value := range []int{raw.InputTokens, raw.OutputTokens, raw.CacheReadInputTokens, raw.CacheCreationInputTokens, raw.ClaudeCacheCreation5mTokens, raw.ClaudeCacheCreation1hTokens, raw.GetCacheCreation5mTokens(), raw.GetCacheCreation1hTokens()} {
+			if value < 0 || int64(value) > int64(common.MaxQuota) {
+				return "invalid"
+			}
+		}
+	}
 	effective, hasSource := usageFromBillingUsage(usage)
 	if usage.BillingUsage != nil && usage.BillingUsage.OpenAIUsage != nil {
 		if details := usage.BillingUsage.OpenAIUsage.InputTokensDetails; details != nil {

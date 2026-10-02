@@ -32,19 +32,21 @@ type BillingUsage struct {
 }
 
 func NewClaudeMessagesBillingUsage(usage *ClaudeUsage) *BillingUsage {
-	if !HasClaudeUsageTokens(usage) {
+	if usage == nil || !HasClaudeUsageTokens(usage) && !usage.RawUsageObserved {
 		return nil
 	}
 	return &BillingUsage{
 		Source:      BillingUsageSourceClaudeMessages,
 		Semantic:    BillingUsageSemanticAnthropic,
+		Incomplete:  usage.RawUsageObserved && (!usage.InputTokensReported || !usage.OutputTokensReported || usage.InvalidTokenEvidence),
 		ClaudeUsage: cloneClaudeUsage(usage),
 	}
 }
 
 // HasClaudeUsageTokens mirrors HasOpenAIUsageTokens/HasGeminiUsageMetadataTokens:
-// an all-zero ClaudeUsage must not become a BillingUsage, otherwise it would take
-// precedence during settlement and zero out a non-zero top-level usage.
+// an unproven programmatic all-zero DTO must not override compatibility usage.
+// NewClaudeMessagesBillingUsage separately retains raw explicit-zero evidence
+// and raw missing/null evidence, which have different settlement meanings.
 func HasClaudeUsageTokens(usage *ClaudeUsage) bool {
 	if usage == nil {
 		return false

@@ -151,10 +151,13 @@ func countClaudeStreamBillableTools(c *gin.Context, info *relaycommon.RelayInfo,
 }
 
 func HandleStreamFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, claudeInfo *ClaudeResponseInfo) {
+	completeReported := claudeInfo.RawUsageObserved && claudeInfo.InputTokensReported && claudeInfo.FinalOutputTokensReported && !claudeInfo.InvalidTokenEvidence
+	estimated := false
 	if claudeInfo.Usage.PromptTokens == 0 {
 		//上游出错
 	}
-	if claudeInfo.Usage.CompletionTokens == 0 || !claudeInfo.Done {
+	if !completeReported && (claudeInfo.Usage.CompletionTokens == 0 || !claudeInfo.Done) {
+		estimated = true
 		if common.DebugEnabled {
 			common.SysLog("claude response usage is not complete, maybe upstream error")
 		}
@@ -174,6 +177,13 @@ func HandleStreamFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, clau
 	}
 	if claudeInfo.Usage != nil && claudeInfo.Usage.BillingUsage == nil {
 		claudeInfo.Usage.BillingUsage = dto.NewClaudeMessagesBillingUsage(buildMessageDeltaPatchUsage(nil, claudeInfo))
+	}
+
+	if estimated {
+		if claudeInfo.Usage.BillingUsage == nil {
+			claudeInfo.Usage.BillingUsage = &dto.BillingUsage{Source: dto.BillingUsageSourceClaudeMessages, Semantic: dto.BillingUsageSemanticAnthropic}
+		}
+		claudeInfo.Usage.BillingUsage.Estimated = true
 	}
 
 	if info.RelayFormat == types.RelayFormatClaude {

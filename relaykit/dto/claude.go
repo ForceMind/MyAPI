@@ -569,6 +569,11 @@ func (c *ClaudeResponse) GetClaudeError() *types.ClaudeError {
 }
 
 type ClaudeUsage struct {
+	// Private raw-field evidence. JSON cannot manufacture these proof flags.
+	RawUsageObserved         bool                      `json:"-"`
+	InputTokensReported      bool                      `json:"-"`
+	OutputTokensReported     bool                      `json:"-"`
+	InvalidTokenEvidence     bool                      `json:"-"`
 	InputTokens              int                       `json:"input_tokens"`
 	CacheCreationInputTokens int                       `json:"cache_creation_input_tokens"`
 	CacheReadInputTokens     int                       `json:"cache_read_input_tokens"`

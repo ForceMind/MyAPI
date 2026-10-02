@@ -1,5 +1,27 @@
 # R1 接管与当前迭代（2026-10-02）
 
+## Claude 原始用量与流终态证据候选（2026-10-03 06:17 北京时间）
+
+前置 `8121b9ed801b31dff1a40ea559b1611775a8e510` 的 [CI37066909385](https://github.com/ForceMind/MyAPI/actions/runs/37066909385) 十项全部成功。自用/预算/恢复联合三库SQLite0.41s/MySQL1.16s/PostgreSQL5.43s，基础预算三库0.09s/0.17s/0.64s；568前端测试及跨布局保留表单/确认/刷新Chromium通过，320/1280px截图已核看。合并测试树与HEAD树相同。
+
+本轮只审查并修复现有 Claude Messages 适配器的用量证据，不扩大严格 Token/USD 支持渠道、价格来源或商业功能。代码审查发现非流式整数零值无法证明字段存在，流开始用量/缺终态与文本估算可能获得 reported 来源；先以原始JSON及流事件测试复现，再复用 Incomplete/Estimated 和既有待核对/Root恢复流程，不新建结算writer。
+
+- 依赖：已在05:40完整重读 pkg/billingexpr/expr.md。[Anthropic streaming](https://platform.claude.com/docs/en/build-with-claude/streaming)说明 message_delta 的用量为累计值；[prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)规定原生 input_tokens 不含单列缓存，归一化输入总数须只加一次缓存。保留现有表达式及来源冻结规则。
+- 范围：非流式缺失/null输入输出、明确零计数；流开始/累计最终输出/中断/非终态/估算；上游JSON不能伪造内部证据。保持缓存与reasoning子项不重复计数，保留既有格式转换和缓存TTL回归。
+- 查看入口仍为用量日志的来源/待核对及Root证据恢复；不新增页面或开放未经资格验收的预算组合。
+- 验收和停止条件：新增合同先红后绿，原始missing/estimated合同不改，根模块及独立relaykit回归/构建、定向race和同SHA远端CI通过后同步结果。本轮不操作真实账户/OAuth或部署；已知独立旧批迁移race时限与真实验收边界保留。
+
+### 本批实现与证据
+
+- 有效JSON里的原生输入/输出计数保留缺失/null与明确0的区别。字段证据为内部JSON忽略字段；上游不能注入这些证明，也不能提供受信任 billing_usage。无原始证据的程序内兼容构造保留旧行为，避免将空兼容DTO覆盖已有用量。
+- 流开始快照不当终态；只有明确输入与带停止原因的累计最终输出形成可结算证据。输入/输出累计值倒退、缺字段和后续不完整事件保持待核对，后一次空事件不能留下上一份“完整”快照。显示端文本估算必须标Estimated，不能变成实际费用；明确上报零值不被本地估算覆盖。
+- 保留原生缓存分类和TTL结构，累计输出取最终值而非逐帧求和；合同验证原生输入10+读取20+写入30+输出5归一化为65，不把写入总数与TTL拆分再相加。
+- 验证发现仅有缓存的已报告请求被旧“原生纯文本输入+输出”门禁误判为零用量。对冻结Claude来源，非空用量判断补入缓存一次；缓存-only合成合同先复现0计费，再修为既有配置对应50内部单位，已有118计价断言保留。明确零用量的日志不再误报未收到usage。
+- 原生缓存TTL别名的负数/超出既有计数边界，在归一化前检查；新增合同先复现超界值被饱和成确定扣费，再修为待核对，不能用clamp或猜零代替证据。
+- 最终根模块完整go test/vet通过，service/Claude定向race1.603s/1.068s通过；独立relaykit全量测试/build/vet及dto/转换器race通过。原始 service/usage_settlement_contract_test.go 文件无变化；变更文件秘密扫描无发现。本批无UI、数据库结构或预算资格扩展，新增合同为适配器与service测试；三库复用现有恢复合同，不冒充新增Claude真实账单或实库调用证据。
+- 本批源码/四份交接文档同批同步后，必须核验新SHA CI。前端无改动，复用前置568测试与已核看响应式页面证据，同时保留CI既有前端回归。未纳入本批的解码/传输失败及其他供应商字段资格继续按整版验收矩阵核对；不把本批称为所有供应商已完成。
+
+
 ## 自用策略响应式弹窗补修（2026-10-03 05:24 北京时间）
 
 源码/四份文档已同批同步至 `26940486007b8fa2d097c2cbcbfcbd12fd9a84c5`，62文件。其 [CI37065906993](https://github.com/ForceMind/MyAPI/actions/runs/37065906993) 新增自用双writer与Token/USD恢复联合合同三库已实际通过：SQLite0.35s、MySQL0.94s、PostgreSQL5.31s；策略基础合同0.08s/0.14s/0.61s通过。合并测试树与HEAD树 `174fbe2a75164150f0912f5ff3ba574dc919581e` 一致。

@@ -267,19 +267,22 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 
 	summary.PromptTokens = usage.PromptTokens
 	summary.CompletionTokens = usage.CompletionTokens
-	// Add before converting to int: overflowing the native sum would make a
-	// billable request appear empty and refund its pre-consumed quota.
-	totalTokens, totalClamp := common.QuotaFromDecimalChecked(
-		decimal.NewFromInt(int64(usage.PromptTokens)).Add(decimal.NewFromInt(int64(usage.CompletionTokens))),
-	)
-	summary.TotalTokens = totalTokens
-	noteQuotaClamp(relayInfo, totalClamp)
 	summary.CacheTokens = usage.PromptTokensDetails.CachedTokens
 	summary.CacheCreationTokens = usage.PromptTokensDetails.CacheCreationTokensTotal()
 	summary.CacheCreationTokens5m = usage.ClaudeCacheCreation5mTokens
 	summary.CacheCreationTokens1h = usage.ClaudeCacheCreation1hTokens
 	summary.ImageTokens = usage.PromptTokensDetails.ImageTokens
 	summary.AudioTokens = usage.PromptTokensDetails.AudioTokens
+	// Native Claude input excludes cache. Count each cache category once for
+	// the nonempty-usage gate; cache-only requests are not reported zero usage.
+	// Keep the billing prompt count and frozen category prices unchanged.
+	total := decimal.NewFromInt(int64(usage.PromptTokens)).Add(decimal.NewFromInt(int64(usage.CompletionTokens)))
+	if summary.IsClaudeUsageSemantic && usage.BillingUsage != nil && usage.BillingUsage.ClaudeUsage != nil {
+		total = total.Add(decimal.NewFromInt(int64(summary.CacheTokens))).Add(decimal.NewFromInt(int64(cacheWriteTokensTotal(summary))))
+	}
+	totalTokens, totalClamp := common.QuotaFromDecimalChecked(total)
+	summary.TotalTokens = totalTokens
+	noteQuotaClamp(relayInfo, totalClamp)
 	legacyClaudeDerived := isLegacyClaudeDerivedOpenAIUsage(relayInfo, usage)
 	isOpenRouterClaudeBilling := relayInfo.ChannelMeta != nil &&
 		relayInfo.ChannelType == constant.ChannelTypeOpenRouter &&
@@ -471,7 +474,8 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		extraContent = append(extraContent, fmt.Sprintf("Audio Input 花费 %s", logger.LogQuota(common.QuotaFromDecimal(q))))
 	}
 
-	if !summary.hasBillableUsage() {
+	reportedZero := !summary.hasBillableUsage() && originUsage != nil && originUsage.BillingUsage != nil && textUsageReviewReason(ctx, originUsage) == ""
+	if !summary.hasBillableUsage() && !reportedZero {
 		extraContent = append(extraContent, "上游没有返回计费信息，无法扣费（可能是上游超时）")
 		logger.LogError(ctx, fmt.Sprintf("total tokens is 0, cannot consume quota, userId %d, channelId %d, tokenId %d, model %s， pre-consumed quota %d", relayInfo.UserId, relayInfo.ChannelId, relayInfo.TokenId, summary.ModelName, relayInfo.FinalPreConsumedQuota))
 	}
