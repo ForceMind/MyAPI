@@ -555,6 +555,9 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		InjectTieredBillingInfo(other, relayInfo, tieredResult)
 	}
 
+	if relayInfo.ConfirmedAPIUsageCost != nil {
+		other["confirmed_api_usage_cost"] = relayInfo.ConfirmedAPIUsageCost
+	}
 	attachQuotaSaturation(ctx, relayInfo, other)
 
 	model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{

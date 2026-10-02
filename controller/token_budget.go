@@ -35,13 +35,25 @@ func UpdateTokenBudget(c *gin.Context) {
 		Enabled          *bool  `json:"enabled"`
 		Limit            *int64 `json:"limit"`
 		Confirmed        bool   `json:"confirmed"`
+		Fee              *struct {
+			Enabled  *bool   `json:"enabled"`
+			LimitUSD *string `json:"limit_usd"`
+		} `json:"fee"`
 	}
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4096)
 	if err != nil || tokenID <= 0 || c.Request.URL.RawQuery != "" || common.DecodeJsonStrict(c.Request.Body, &request) != nil || request.Enabled == nil || request.Limit == nil || !request.Confirmed {
 		usageReviewError(c, model.ErrTokenBudgetInvalid)
 		return
 	}
-	_, err = model.ConfigureTokenBudget(c.Request.Context(), model.DB, c.GetInt("id"), model.TokenBudgetPolicyInput{ID: request.ID, TokenID: tokenID, ExpectedRevision: request.ExpectedRevision, Enabled: *request.Enabled, Limit: *request.Limit})
+	var fee *model.FeeBudgetPolicyInput
+	if request.Fee != nil {
+		if request.Fee.Enabled == nil || request.Fee.LimitUSD == nil {
+			usageReviewError(c, model.ErrFeeBudgetInvalid)
+			return
+		}
+		fee = &model.FeeBudgetPolicyInput{Enabled: *request.Fee.Enabled, LimitUSD: *request.Fee.LimitUSD}
+	}
+	_, err = model.ConfigureTokenBudget(c.Request.Context(), model.DB, c.GetInt("id"), model.TokenBudgetPolicyInput{ID: request.ID, TokenID: tokenID, ExpectedRevision: request.ExpectedRevision, Enabled: *request.Enabled, Limit: *request.Limit, Fee: fee})
 	if err != nil {
 		usageReviewError(c, err)
 		return
@@ -53,13 +65,14 @@ func RecoverTokenBudget(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	tokenID, err := strconv.Atoi(c.Param("id"))
 	var request struct {
-		RequestID   string `json:"request_id"`
-		Action      string `json:"action"`
-		ActualQuota *int64 `json:"actual_quota"`
-		Input       *int64 `json:"actual_input_tokens"`
-		Output      *int64 `json:"actual_output_tokens"`
-		Evidence    string `json:"evidence_reference"`
-		Confirmed   bool   `json:"confirmed_reliable_evidence"`
+		RequestID   string  `json:"request_id"`
+		Action      string  `json:"action"`
+		ActualQuota *int64  `json:"actual_quota"`
+		FeeUSD      *string `json:"actual_fee_usd"`
+		Input       *int64  `json:"actual_input_tokens"`
+		Output      *int64  `json:"actual_output_tokens"`
+		Evidence    string  `json:"evidence_reference"`
+		Confirmed   bool    `json:"confirmed_reliable_evidence"`
 	}
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4096)
 	if err != nil || tokenID <= 0 || c.Request.URL.RawQuery != "" || common.DecodeJsonStrict(c.Request.Body, &request) != nil || !request.Confirmed {
@@ -67,7 +80,7 @@ func RecoverTokenBudget(c *gin.Context) {
 		return
 	}
 	if request.Action == "cancel_not_sent" {
-		if request.Input != nil || request.Output != nil || request.ActualQuota != nil {
+		if request.Input != nil || request.Output != nil || request.ActualQuota != nil || request.FeeUSD != nil {
 			usageReviewError(c, model.ErrTokenBudgetInvalid)
 			return
 		}
@@ -90,12 +103,20 @@ func RecoverTokenBudget(c *gin.Context) {
 			usageReviewError(c, model.ErrTokenBudgetInvalid)
 			return
 		}
-		_, err := model.PrepareTokenBudgetUsageReview(c.Request.Context(), model.DB, c.GetInt("id"), tokenID, request.RequestID)
+		if request.FeeUSD != nil {
+			normalized, err := model.NormalizeFeeBudgetUSD(*request.FeeUSD)
+			if err != nil {
+				usageReviewError(c, err)
+				return
+			}
+			request.FeeUSD = &normalized
+		}
+		_, err := model.PrepareTokenBudgetUsageReview(c.Request.Context(), model.DB, c.GetInt("id"), tokenID, request.RequestID, request.FeeUSD)
 		if err != nil {
 			usageReviewError(c, err)
 			return
 		}
-		view, err := model.ReconcileUsageReview(c.Request.Context(), model.DB, c.GetInt("id"), request.RequestID, *request.ActualQuota, request.Evidence, model.UsageReviewTokenCounts{Input: *request.Input, Output: *request.Output})
+		view, err := model.ReconcileUsageReview(c.Request.Context(), model.DB, c.GetInt("id"), request.RequestID, *request.ActualQuota, request.Evidence, model.UsageReviewTokenCounts{Input: *request.Input, Output: *request.Output, FeeUSD: request.FeeUSD})
 		if err != nil {
 			usageReviewError(c, err)
 			return

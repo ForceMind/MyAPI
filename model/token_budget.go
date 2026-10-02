@@ -43,12 +43,17 @@ func ValidateTokenBudgetSchema(db *gorm.DB) error {
 			return errors.New("token budget schema migration is required")
 		}
 	}
-	for _, column := range []string{"bound_source", "pricing_evidence"} {
+	for _, column := range []string{"fee_enabled", "fee_limit_usd", "fee_used_usd", "fee_reserved_usd"} {
+		if !db.Migrator().HasColumn(&TokenBudget{}, column) {
+			return errors.New("fee budget schema migration is required")
+		}
+	}
+	for _, column := range []string{"bound_source", "pricing_evidence", "fee_enabled", "fee_reserved_usd", "fee_price_evidence", "actual_fee_usd", "observed_fee_usd", "request_service_tier"} {
 		if !db.Migrator().HasColumn(&TokenBudgetReservation{}, column) {
 			return errors.New("token budget evidence migration is required")
 		}
 	}
-	for _, column := range []string{"actual_input_tokens", "actual_output_tokens"} {
+	for _, column := range []string{"actual_input_tokens", "actual_output_tokens", "actual_fee_usd"} {
 		if !db.Migrator().HasColumn(&UsageReviewDecision{}, column) {
 			return errors.New("token budget review migration is required")
 		}
@@ -57,6 +62,10 @@ func ValidateTokenBudgetSchema(db *gorm.DB) error {
 }
 
 type TokenBudget struct {
+	FeeEnabled       bool   `json:"fee_enabled" gorm:"not null;default:false"`
+	FeeLimitUSD      string `json:"fee_limit_usd" gorm:"type:varchar(128);not null;default:'0'"`
+	FeeUsedUSD       string `json:"fee_used_usd" gorm:"type:varchar(128);not null;default:'0'"`
+	FeeReservedUSD   string `json:"fee_reserved_usd" gorm:"type:varchar(128);not null;default:'0'"`
 	TokenID          int    `json:"token_id" gorm:"primaryKey;autoIncrement:false"`
 	UserID           int    `json:"user_id" gorm:"not null;index"`
 	Enabled          bool   `json:"enabled" gorm:"not null"`
@@ -70,28 +79,34 @@ type TokenBudget struct {
 // A pre-dispatch record remains blocking even if persisting an unknown marker
 // fails. There is intentionally no lease expiry or automatic refund of Sent.
 type TokenBudgetReservation struct {
-	PricingEvidence   string `json:"-" gorm:"type:text"`
-	BoundSource       string `json:"bound_source" gorm:"type:varchar(64);not null;default:''"`
-	RequestID         string `json:"request_id" gorm:"type:varchar(64);primaryKey"`
-	TokenID           int    `json:"token_id" gorm:"not null;index"`
-	UserID            int    `json:"user_id" gorm:"not null;index"`
-	ChannelID         int    `json:"channel_id" gorm:"not null"`
-	ModelName         string `json:"model_name" gorm:"size:512;not null"`
-	PayloadSHA256     string `json:"payload_sha256" gorm:"type:varchar(64);not null"`
-	InputTokens       int64  `json:"input_tokens_bound" gorm:"type:bigint;not null"`
-	MaxOutputTokens   int64  `json:"max_output_tokens" gorm:"type:bigint;not null"`
-	Reserved          int64  `json:"reserved" gorm:"type:bigint;not null"`
-	State             string `json:"state" gorm:"type:varchar(16);not null;index"`
-	ActualInput       *int64 `json:"actual_input" gorm:"type:bigint"`
-	ActualOutput      *int64 `json:"actual_output" gorm:"type:bigint"`
-	ObservedInput     *int64 `json:"observed_input" gorm:"type:bigint"`
-	ObservedOutput    *int64 `json:"observed_output" gorm:"type:bigint"`
-	Reason            string `json:"reason" gorm:"type:varchar(64);not null"`
-	ReviewedBy        int    `json:"reviewed_by" gorm:"not null"`
-	EvidenceReference string `json:"evidence_reference,omitempty" gorm:"size:2048;not null"`
-	EvidenceDigest    string `json:"evidence_digest" gorm:"type:varchar(64);not null"`
-	CreatedAt         int64  `json:"created_at" gorm:"type:bigint;not null"`
-	UpdatedAt         int64  `json:"updated_at" gorm:"type:bigint;not null"`
+	RequestServiceTier string  `json:"request_service_tier" gorm:"type:varchar(32);not null;default:''"`
+	ObservedFeeUSD     *string `json:"observed_fee_usd" gorm:"type:varchar(128)"`
+	FeeEnabled         bool    `json:"fee_enabled" gorm:"not null;default:false"`
+	FeeReservedUSD     string  `json:"fee_reserved_usd" gorm:"type:varchar(128);not null;default:'0'"`
+	ActualFeeUSD       *string `json:"actual_fee_usd" gorm:"type:varchar(128)"`
+	FeePriceEvidence   string  `json:"-" gorm:"type:text"`
+	PricingEvidence    string  `json:"-" gorm:"type:text"`
+	BoundSource        string  `json:"bound_source" gorm:"type:varchar(64);not null;default:''"`
+	RequestID          string  `json:"request_id" gorm:"type:varchar(64);primaryKey"`
+	TokenID            int     `json:"token_id" gorm:"not null;index"`
+	UserID             int     `json:"user_id" gorm:"not null;index"`
+	ChannelID          int     `json:"channel_id" gorm:"not null"`
+	ModelName          string  `json:"model_name" gorm:"size:512;not null"`
+	PayloadSHA256      string  `json:"payload_sha256" gorm:"type:varchar(64);not null"`
+	InputTokens        int64   `json:"input_tokens_bound" gorm:"type:bigint;not null"`
+	MaxOutputTokens    int64   `json:"max_output_tokens" gorm:"type:bigint;not null"`
+	Reserved           int64   `json:"reserved" gorm:"type:bigint;not null"`
+	State              string  `json:"state" gorm:"type:varchar(16);not null;index"`
+	ActualInput        *int64  `json:"actual_input" gorm:"type:bigint"`
+	ActualOutput       *int64  `json:"actual_output" gorm:"type:bigint"`
+	ObservedInput      *int64  `json:"observed_input" gorm:"type:bigint"`
+	ObservedOutput     *int64  `json:"observed_output" gorm:"type:bigint"`
+	Reason             string  `json:"reason" gorm:"type:varchar(64);not null"`
+	ReviewedBy         int     `json:"reviewed_by" gorm:"not null"`
+	EvidenceReference  string  `json:"evidence_reference,omitempty" gorm:"size:2048;not null"`
+	EvidenceDigest     string  `json:"evidence_digest" gorm:"type:varchar(64);not null"`
+	CreatedAt          int64   `json:"created_at" gorm:"type:bigint;not null"`
+	UpdatedAt          int64   `json:"updated_at" gorm:"type:bigint;not null"`
 }
 
 type TokenBudgetPolicyChange struct {
@@ -138,7 +153,7 @@ func lockTokenBudget(tx *gorm.DB, tokenID int, allowDeleted bool) (*TokenBudget,
 	var budget TokenBudget
 	err := lockForUpdate(tx).First(&budget, "token_id = ?", tokenID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return &TokenBudget{TokenID: tokenID, UserID: token.UserId}, nil
+		return &TokenBudget{TokenID: tokenID, UserID: token.UserId, FeeLimitUSD: "0", FeeUsedUSD: "0", FeeReservedUSD: "0"}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -149,6 +164,9 @@ func lockTokenBudget(tx *gorm.DB, tokenID int, allowDeleted bool) (*TokenBudget,
 	if budget.Limit < 0 || budget.Used < 0 || budget.Reserved < 0 || budget.Limit > MaxTokenBudget || budget.Used > MaxTokenBudget || budget.Reserved > MaxTokenBudget || budget.Revision <= 0 || budget.Revision >= MaxTokenBudget {
 		return nil, ErrTokenBudgetConflict
 	}
+	if err := validateFeeBudgetState(&budget); err != nil {
+		return nil, err
+	}
 	return &budget, nil
 }
 
@@ -158,7 +176,7 @@ func saveTokenBudget(tx *gorm.DB, budget *TokenBudget, previous int64) error {
 	}
 	result := tx.Model(&TokenBudget{}).Where("token_id = ? AND revision = ?", budget.TokenID, previous).
 		Updates(map[string]any{"enabled": budget.Enabled, "token_limit": budget.Limit, "used": budget.Used,
-			"reserved": budget.Reserved, "pending_request_id": budget.PendingRequestID, "revision": budget.Revision})
+			"reserved": budget.Reserved, "pending_request_id": budget.PendingRequestID, "revision": budget.Revision, "fee_enabled": budget.FeeEnabled, "fee_limit_usd": budget.FeeLimitUSD, "fee_used_usd": budget.FeeUsedUSD, "fee_reserved_usd": budget.FeeReservedUSD})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -184,11 +202,12 @@ func eligibleTokenBudgetSubject(tx *gorm.DB, tokenID, userID int) error {
 }
 
 type TokenBudgetPolicyInput struct {
-	ID               string `json:"id"`
-	TokenID          int    `json:"token_id"`
-	ExpectedRevision int64  `json:"expected_revision"`
-	Enabled          bool   `json:"enabled"`
-	Limit            int64  `json:"limit"`
+	Fee              *FeeBudgetPolicyInput `json:"fee,omitempty"`
+	ID               string                `json:"id"`
+	TokenID          int                   `json:"token_id"`
+	ExpectedRevision int64                 `json:"expected_revision"`
+	Enabled          bool                  `json:"enabled"`
+	Limit            int64                 `json:"limit"`
 }
 
 // LookupTokenBudget is an internal admission read. A missing row means the
@@ -209,6 +228,9 @@ func LookupTokenBudget(ctx context.Context, db *gorm.DB, tokenID int) (*TokenBud
 		return nil, nil
 	}
 	if err != nil {
+		return nil, err
+	}
+	if err := validateFeeBudgetState(&budget); err != nil {
 		return nil, err
 	}
 	return &budget, nil
@@ -249,7 +271,7 @@ func ReadTokenBudget(ctx context.Context, db *gorm.DB, actorID, tokenID int) (*T
 		return nil, err
 	}
 	if budget == nil {
-		budget = &TokenBudget{TokenID: tokenID, UserID: token.UserId}
+		budget = &TokenBudget{TokenID: tokenID, UserID: token.UserId, FeeLimitUSD: "0", FeeUsedUSD: "0", FeeReservedUSD: "0"}
 	}
 	if budget.UserID != token.UserId {
 		return nil, ErrTokenBudgetConflict
@@ -287,6 +309,15 @@ func ConfigureTokenBudget(ctx context.Context, db *gorm.DB, actorID int, input T
 	}
 	if !validBudgetDigest(input.ID) || input.TokenID <= 0 || input.ExpectedRevision < 0 || input.Limit < 0 || input.Limit > MaxTokenBudget {
 		return nil, ErrTokenBudgetInvalid
+	}
+	if input.Fee != nil {
+		value := *input.Fee
+		var err error
+		value.LimitUSD, err = NormalizeFeeBudgetUSD(value.LimitUSD)
+		if err != nil {
+			return nil, err
+		}
+		input.Fee = &value
 	}
 	digest, err := budgetDigest(struct {
 		Actor int
@@ -328,6 +359,14 @@ func ConfigureTokenBudget(ctx context.Context, db *gorm.DB, actorID int, input T
 		before, err := common.Marshal(budget)
 		if err != nil {
 			return err
+		}
+		if input.Fee != nil {
+			if input.Fee.Enabled {
+				if err := feeBudgetFits(input.Fee.LimitUSD, budget.FeeUsedUSD, "0"); err != nil {
+					return err
+				}
+			}
+			budget.FeeEnabled, budget.FeeLimitUSD = input.Fee.Enabled, input.Fee.LimitUSD
 		}
 		previous := budget.Revision
 		budget.Enabled, budget.Limit, budget.Revision = input.Enabled, input.Limit, previous+1
@@ -371,7 +410,7 @@ func ReserveTokenBudget(ctx context.Context, db *gorm.DB, input TokenBudgetReser
 		if err != nil {
 			return err
 		}
-		if !budget.Enabled || budget.UserID != input.UserID {
+		if (!budget.Enabled && !budget.FeeEnabled) || budget.UserID != input.UserID {
 			return ErrTokenBudgetConflict
 		}
 		if err := eligibleTokenBudgetSubject(tx, input.TokenID, input.UserID); err != nil {
@@ -389,15 +428,36 @@ func ReserveTokenBudget(ctx context.Context, db *gorm.DB, input TokenBudgetReser
 			return ErrTokenBudgetPending
 		}
 		bound := input.InputTokens + input.MaxOutputTokens
-		if budget.Used > budget.Limit || bound > budget.Limit-budget.Used {
+		if budget.Enabled && (budget.Used > budget.Limit || bound > budget.Limit-budget.Used) {
 			return ErrTokenBudgetExceeded
+		}
+		feeReserved := "0"
+		if budget.FeeEnabled != input.FeeEnabled {
+			return ErrTokenBudgetConflict
+		}
+		if budget.FeeEnabled {
+			if input.RequestServiceTier != "default" {
+				return ErrFeeBudgetInvalid
+			}
+			if len(input.FeePriceEvidence) == 0 || len(input.FeePriceEvidence) > 16384 {
+				return ErrFeeBudgetInvalid
+			}
+			if _, err := common.CanonicalJSONObjectDigest([]byte(input.FeePriceEvidence)); err != nil {
+				return ErrFeeBudgetInvalid
+			}
+			if err := feeBudgetFits(budget.FeeLimitUSD, budget.FeeUsedUSD, input.FeeReservedUSD); err != nil {
+				return err
+			}
+			feeReserved = input.FeeReservedUSD
+		} else if (input.FeeReservedUSD != "" && input.FeeReservedUSD != "0") || input.FeePriceEvidence != "" {
+			return ErrFeeBudgetInvalid
 		}
 		now, err := taskRecoveryDBTimestamp(tx)
 		if err != nil {
 			return err
 		}
 		// Do not accept caller-provided terminal fields, timestamps or state.
-		row := TokenBudgetReservation{RequestID: id, TokenID: input.TokenID, UserID: input.UserID,
+		row := TokenBudgetReservation{RequestServiceTier: input.RequestServiceTier, FeeEnabled: budget.FeeEnabled, FeeReservedUSD: feeReserved, FeePriceEvidence: input.FeePriceEvidence, RequestID: id, TokenID: input.TokenID, UserID: input.UserID,
 			ChannelID: input.ChannelID, ModelName: input.ModelName, PayloadSHA256: input.PayloadSHA256, BoundSource: input.BoundSource,
 			InputTokens: input.InputTokens, MaxOutputTokens: input.MaxOutputTokens, Reserved: bound, PricingEvidence: input.PricingEvidence,
 			State: TokenBudgetPrepared, CreatedAt: now, UpdatedAt: now}
@@ -405,7 +465,7 @@ func ReserveTokenBudget(ctx context.Context, db *gorm.DB, input TokenBudgetReser
 			return err
 		}
 		previous := budget.Revision
-		budget.PendingRequestID, budget.Reserved, budget.Revision = id, bound, previous+1
+		budget.PendingRequestID, budget.Reserved, budget.Revision, budget.FeeReservedUSD = id, bound, previous+1, feeReserved
 		return saveTokenBudget(tx, budget, previous)
 	})
 }
@@ -413,6 +473,7 @@ func ReserveTokenBudget(ctx context.Context, db *gorm.DB, input TokenBudgetReser
 // Mutations serialize through the budget before reading the request. A sent
 // request can never be released through the pre-dispatch cancellation action.
 type TokenBudgetMutation struct {
+	FeeUSD    *string
 	TokenID   int
 	RequestID string
 	Action    string
@@ -450,6 +511,16 @@ func MutateTokenBudgetRequest(ctx context.Context, db *gorm.DB, input TokenBudge
 	default:
 		return nil, ErrTokenBudgetInvalid
 	}
+	if input.FeeUSD != nil {
+		if input.Action != "settle" && input.Action != "reconcile" {
+			return nil, ErrFeeBudgetInvalid
+		}
+		normalized, err := NormalizeFeeBudgetUSD(*input.FeeUSD)
+		if err != nil {
+			return nil, err
+		}
+		input.FeeUSD = &normalized
+	}
 	input.Evidence = strings.TrimSpace(input.Evidence)
 	manual := input.Action == "reconcile" || (input.Action == "cancel" && input.ActorID > 0)
 	if manual && (input.ActorID <= 0 || input.Evidence == "" || len(input.Evidence) > 2048) {
@@ -480,9 +551,16 @@ func MutateTokenBudgetRequest(ctx context.Context, db *gorm.DB, input TokenBudge
 		if row.RequestID != id || row.TokenID != input.TokenID || row.UserID != budget.UserID {
 			return ErrTokenBudgetConflict
 		}
+		terminal := input.Action == "settle" || input.Action == "reconcile"
+		if terminal && row.FeeEnabled != (input.FeeUSD != nil) {
+			return ErrFeeBudgetInvalid
+		}
 		if row.State == TokenBudgetSettled {
 			if (input.Action != "settle" && input.Action != "reconcile") || row.ActualInput == nil || row.ActualOutput == nil ||
 				*row.ActualInput != input.Input || *row.ActualOutput != input.Output || row.ReviewedBy != input.ActorID || row.EvidenceReference != input.Evidence {
+				return ErrTokenBudgetConflict
+			}
+			if row.FeeEnabled && (row.ActualFeeUSD == nil || *row.ActualFeeUSD != *input.FeeUSD) {
 				return ErrTokenBudgetConflict
 			}
 			result = &row
@@ -495,7 +573,7 @@ func MutateTokenBudgetRequest(ctx context.Context, db *gorm.DB, input TokenBudge
 			result = &row
 			return nil
 		}
-		if budget.PendingRequestID != id || budget.Reserved != row.Reserved {
+		if budget.PendingRequestID != id || budget.Reserved != row.Reserved || budget.FeeEnabled != row.FeeEnabled || budget.FeeReservedUSD != row.FeeReservedUSD {
 			return ErrTokenBudgetConflict
 		}
 		if row.State == TokenBudgetUnknown && input.Action == "hold" {
@@ -549,6 +627,29 @@ func MutateTokenBudgetRequest(ctx context.Context, db *gorm.DB, input TokenBudge
 				committedError = ErrTokenBudgetBound
 				break
 			}
+			if row.FeeEnabled {
+				actualFee, err := feeBudgetDecimal(*input.FeeUSD)
+				if err != nil {
+					return err
+				}
+				reservedFee, err := feeBudgetDecimal(row.FeeReservedUSD)
+				if err != nil {
+					return err
+				}
+				if input.Action == "settle" && actualFee.GreaterThan(reservedFee) {
+					row.State, row.Reason = TokenBudgetUnknown, "fee_bound_mismatch"
+					row.ObservedInput, row.ObservedOutput, row.ObservedFeeUSD = &input.Input, &input.Output, input.FeeUSD
+					updates["observed_input"], updates["observed_output"], updates["observed_fee_usd"] = input.Input, input.Output, *input.FeeUSD
+					committedError = ErrTokenBudgetBound
+					break
+				}
+				budget.FeeUsedUSD, err = feeBudgetAdd(budget.FeeUsedUSD, *input.FeeUSD)
+				if err != nil {
+					return err
+				}
+				row.ActualFeeUSD = input.FeeUSD
+				updates["actual_fee_usd"] = *input.FeeUSD
+			}
 			actual := input.Input + input.Output
 			if budget.Used > MaxTokenBudget-actual {
 				return ErrTokenBudgetInvalid
@@ -565,11 +666,20 @@ func MutateTokenBudgetRequest(ctx context.Context, db *gorm.DB, input TokenBudge
 			if err != nil {
 				return err
 			}
+			if row.FeeEnabled {
+				row.EvidenceDigest, err = budgetDigest(struct {
+					TokenDigest string
+					FeeUSD      string
+				}{row.EvidenceDigest, *input.FeeUSD})
+				if err != nil {
+					return err
+				}
+			}
 			updates["actual_input"], updates["actual_output"] = input.Input, input.Output
 			updates["reviewed_by"], updates["evidence_reference"], updates["evidence_digest"] = row.ReviewedBy, row.EvidenceReference, row.EvidenceDigest
 		}
 		if row.State == TokenBudgetSettled || row.State == TokenBudgetCancelled {
-			budget.PendingRequestID, budget.Reserved = "", 0
+			budget.PendingRequestID, budget.Reserved, budget.FeeReservedUSD = "", 0, "0"
 		}
 		row.UpdatedAt, err = taskRecoveryDBTimestamp(tx)
 		if err != nil {

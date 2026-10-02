@@ -95,6 +95,7 @@ func TestR1UsageReviewConfiguredDatabases(t *testing.T) {
 			require.NoError(t, db.Model(&AccountQuotaMutationReceipt{}).Where("request_id = ? AND phase = ?", namespace, AccountQuotaPhaseSettle).Count(&terminals).Error)
 			assert.EqualValues(t, 1, terminals)
 			tokenBudgetCoupledReviewDatabaseContract(t, db, root.Id, user.Id, token.Id, namespace+"b")
+			feeBudgetCoupledReviewDatabaseContract(t, db, root.Id, user.Id, token.Id, namespace+"f")
 		})
 	}
 }
@@ -152,4 +153,45 @@ func tokenBudgetCoupledReviewDatabaseContract(t *testing.T, db *gorm.DB, rootID,
 	assert.Equal(t, 860, user.Quota)
 	assert.Equal(t, 140, user.UsedQuota)
 	assert.Equal(t, 2, user.RequestCount)
+}
+
+func feeBudgetCoupledReviewDatabaseContract(t *testing.T, db *gorm.DB, rootID, userID, tokenID int, requestID string) {
+	t.Helper()
+	ctx := context.Background()
+	policy, err := LookupTokenBudget(ctx, db, tokenID)
+	require.NoError(t, err)
+	_, err = ConfigureTokenBudget(ctx, db, rootID, TokenBudgetPolicyInput{ID: fmt.Sprintf("%064x", time.Now().UnixNano()), TokenID: tokenID, ExpectedRevision: policy.Revision, Enabled: true, Limit: 100, Fee: &FeeBudgetPolicyInput{Enabled: true, LimitUSD: "0.001"}})
+	require.NoError(t, err)
+	_, err = ReserveAccountQuota(ctx, db, AccountQuotaReserveInput{RequestID: requestID, UserID: userID, TokenID: tokenID, RequestedQuota: 100, BillingPreference: "wallet_only", BillingContext: AccountBillingContext{Version: 1, OriginModelName: "r1-fixture", BillingPreference: "wallet_only"}})
+	require.NoError(t, err)
+	require.NoError(t, ReserveTokenBudget(ctx, db, TokenBudgetReservation{RequestID: requestID, UserID: userID, TokenID: tokenID, ChannelID: 7, ModelName: "r1-fixture", PayloadSHA256: strings.Repeat("a", 64), BoundSource: TokenBudgetBoundOpenAIResponses, InputTokens: 10, MaxOutputTokens: 20, PricingEvidence: `{"strict_token_budget":true}`, RequestServiceTier: "default", FeeEnabled: true, FeeReservedUSD: "0.0003", FeePriceEvidence: `{"scope":"synthetic-three-db"}`}))
+	_, err = MutateTokenBudgetRequest(ctx, db, TokenBudgetMutation{TokenID: tokenID, RequestID: requestID, Action: "send"})
+	require.NoError(t, err)
+	_, err = PrepareTokenBudgetUsageReview(ctx, db, rootID, tokenID, requestID)
+	require.ErrorIs(t, err, ErrFeeBudgetInvalid)
+	before, err := GetUsageReview(ctx, db, rootID, requestID)
+	require.NoError(t, err)
+	assert.Equal(t, AccountQuotaTerminalRecoveryOpen, before.State, "missing fee evidence cannot mutate the old quota lifecycle")
+	amount := "0.00012"
+	_, err = PrepareTokenBudgetUsageReview(ctx, db, rootID, tokenID, requestID, &amount)
+	require.NoError(t, err)
+	for range 2 {
+		view, err := ReconcileUsageReview(ctx, db, rootID, requestID, 20, "verified USD fixture evidence", UsageReviewTokenCounts{Input: 10, Output: 5, FeeUSD: &amount})
+		require.NoError(t, err)
+		require.NoError(t, ProjectUsageReviewDecision(ctx, db, db, view.Decision.ID))
+	}
+	policy, err = LookupTokenBudget(ctx, db, tokenID)
+	require.NoError(t, err)
+	assert.Equal(t, amount, policy.FeeUsedUSD)
+	assert.Equal(t, "0", policy.FeeReservedUSD)
+	assert.EqualValues(t, 30, policy.Used)
+	var logs []Log
+	require.NoError(t, db.Where("request_id = ? AND type = ?", requestID, LogTypeConsume).Find(&logs).Error)
+	require.Len(t, logs, 1)
+	assert.Contains(t, logs[0].Other, `"confirmed_api_usage_cost_usd":"0.00012"`)
+	var user User
+	require.NoError(t, db.First(&user, userID).Error)
+	assert.Equal(t, 840, user.Quota)
+	assert.Equal(t, 160, user.UsedQuota)
+	assert.Equal(t, 3, user.RequestCount)
 }

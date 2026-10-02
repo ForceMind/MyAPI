@@ -50,6 +50,9 @@ func verifyUsageReviewTerminal(tx *gorm.DB, decision *UsageReviewDecision) error
 		return err
 	}
 	if decision.ActualInputTokens == nil && decision.ActualOutputTokens == nil {
+		if decision.ActualFeeUSD != nil {
+			return ErrFeeBudgetInvalid
+		}
 		return nil
 	}
 	if decision.ActualInputTokens == nil || decision.ActualOutputTokens == nil || *decision.ActualInputTokens < 0 || *decision.ActualOutputTokens < 0 || *decision.ActualInputTokens > int64(common.MaxQuota) || *decision.ActualOutputTokens > int64(common.MaxQuota)-*decision.ActualInputTokens {
@@ -62,10 +65,16 @@ func verifyUsageReviewTerminal(tx *gorm.DB, decision *UsageReviewDecision) error
 	if budget.RequestID != decision.RequestID || budget.UserID != decision.UserID || budget.TokenID != decision.TokenID {
 		return ErrTokenBudgetConflict
 	}
+	if budget.FeeEnabled != (decision.ActualFeeUSD != nil) {
+		return ErrFeeBudgetInvalid
+	}
 	if budget.State != TokenBudgetSettled {
 		return ErrAccountQuotaUsageUnresolved
 	}
 	if budget.ActualInput == nil || budget.ActualOutput == nil || *budget.ActualInput != *decision.ActualInputTokens || *budget.ActualOutput != *decision.ActualOutputTokens {
+		return ErrTokenBudgetConflict
+	}
+	if budget.FeeEnabled && (budget.ActualFeeUSD == nil || *budget.ActualFeeUSD != *decision.ActualFeeUSD) {
 		return ErrTokenBudgetConflict
 	}
 	if budget.ReviewedBy != 0 && (budget.ReviewedBy != decision.ActorID || budget.EvidenceReference != decision.EvidenceReference) {
@@ -79,6 +88,9 @@ func verifyUsageReviewTerminal(tx *gorm.DB, decision *UsageReviewDecision) error
 // failure. Do this before projection locks to retain User -> Token lock order.
 func finalizeUsageReviewTokenBudget(ctx context.Context, db *gorm.DB, decision *UsageReviewDecision) error {
 	if decision.ActualInputTokens == nil && decision.ActualOutputTokens == nil {
+		if decision.ActualFeeUSD != nil {
+			return ErrFeeBudgetInvalid
+		}
 		return nil
 	}
 	if decision.ActualInputTokens == nil || decision.ActualOutputTokens == nil {
@@ -92,7 +104,7 @@ func finalizeUsageReviewTokenBudget(ctx context.Context, db *gorm.DB, decision *
 	} else if !errors.Is(err, ErrAccountQuotaUsageUnresolved) {
 		return err
 	}
-	_, err := MutateTokenBudgetRequest(ctx, db, TokenBudgetMutation{TokenID: decision.TokenID, RequestID: decision.RequestID, Action: "reconcile",
+	_, err := MutateTokenBudgetRequest(ctx, db, TokenBudgetMutation{TokenID: decision.TokenID, RequestID: decision.RequestID, Action: "reconcile", FeeUSD: decision.ActualFeeUSD,
 		Input: *decision.ActualInputTokens, Output: *decision.ActualOutputTokens, ActorID: decision.ActorID, Evidence: decision.EvidenceReference})
 	return err
 }
@@ -166,7 +178,11 @@ func ProjectUsageReviewDecision(ctx context.Context, db, logDB *gorm.DB, decisio
 	if decision.LogProjected {
 		return nil
 	}
-	metadata, err := common.Marshal(map[string]interface{}{"settlement_status": "manually_reconciled", "usage_accuracy": "unknown", "actual_quota": decision.ActualQuota, "token_counts_confirmed": decision.ActualInputTokens != nil, "review_decision_id": decision.ID})
+	other := map[string]interface{}{"settlement_status": "manually_reconciled", "usage_accuracy": "unknown", "actual_quota": decision.ActualQuota, "token_counts_confirmed": decision.ActualInputTokens != nil, "review_decision_id": decision.ID}
+	if decision.ActualFeeUSD != nil {
+		other["confirmed_api_usage_cost_usd"], other["api_usage_cost_scope"] = *decision.ActualFeeUSD, "root_verified_usage_cost_not_invoice"
+	}
+	metadata, err := common.Marshal(other)
 	if err != nil {
 		return err
 	}

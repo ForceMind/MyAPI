@@ -24,10 +24,16 @@ export function UsageReviewForm(props: {
   busy: boolean
   locked?: boolean
   requireTokenCounts?: boolean
+  requireFee?: boolean
   onSubmit: (values: UsageReviewFormValues) => void
 }) {
   const { t } = useTranslation()
   const id = useId()
+  const requiresFee =
+    props.requireFee ?? !!props.review.token_budget?.fee_enabled
+  const feeUSD =
+    props.review.decision?.actual_fee_usd ??
+    props.review.token_budget?.actual_fee_usd
   const requiresTokens = props.requireTokenCounts ?? !!props.review.token_budget
   const input =
     props.review.decision?.actual_input_tokens ??
@@ -44,11 +50,24 @@ export function UsageReviewForm(props: {
       input: input == null ? '' : String(input),
       output: output == null ? '' : String(output),
       requiresTokens,
+      requiresFee,
+      feeUSD: feeUSD ?? '',
       evidence: props.review.decision?.evidence_reference ?? '',
       confirmed: false,
     },
   })
   const locked = props.locked || !!props.review.decision
+  let confirmation = t('I verified the evidence and frozen pricing.')
+  if (requiresTokens) {
+    confirmation = t(
+      'I verified that the request ended and the actual token counts and frozen pricing are correct.'
+    )
+  }
+  if (requiresFee) {
+    confirmation = t(
+      'I verified that the request ended and the actual token counts, USD cost and frozen pricing are correct.'
+    )
+  }
   return (
     <form
       onSubmit={form.handleSubmit((values) => {
@@ -113,6 +132,25 @@ export function UsageReviewForm(props: {
             </Field>
           </div>
         )}
+        {requiresFee && (
+          <Field>
+            <FieldLabel htmlFor={`${id}-fee-usd`}>
+              {t('Confirmed API usage cost (USD)')}
+            </FieldLabel>
+            <Input
+              id={`${id}-fee-usd`}
+              inputMode='decimal'
+              {...form.register('feeUSD')}
+              disabled={props.busy}
+              readOnly={locked || feeUSD != null}
+              maxLength={128}
+              aria-invalid={!!form.formState.errors.feeUSD}
+            />
+            {form.formState.errors.feeUSD && (
+              <FieldError>{t('Please enter a valid number')}</FieldError>
+            )}
+          </Field>
+        )}
         <Field>
           <FieldLabel htmlFor={`${id}-evidence`}>
             {t('Evidence reference')}
@@ -141,13 +179,7 @@ export function UsageReviewForm(props: {
             }
             disabled={props.busy || !!props.locked}
           />
-          <FieldLabel htmlFor={`${id}-confirmed`}>
-            {requiresTokens
-              ? t(
-                  'I verified that the request ended and the actual token counts and frozen pricing are correct.'
-                )
-              : t('I verified the evidence and frozen pricing.')}
-          </FieldLabel>
+          <FieldLabel htmlFor={`${id}-confirmed`}>{confirmation}</FieldLabel>
         </Field>
         {form.formState.errors.confirmed && (
           <FieldError>{t('Required')}</FieldError>

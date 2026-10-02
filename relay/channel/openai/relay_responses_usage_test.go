@@ -106,3 +106,35 @@ func TestResponsesHandlersPreserveRawCacheUsageForSettlement(t *testing.T) {
 		})
 	}
 }
+
+func TestResponsesFeeEvidenceKeepsCachePresenceAndImmutableIdentity(t *testing.T) {
+	for _, stream := range []bool{false, true} {
+		for _, details := range []string{`{"cached_tokens":0,"cache_write_tokens":0}`, `{"cached_tokens":0}`, `{"cached_tokens":null,"cache_write_tokens":0}`} {
+			body := `{"model":"fee-fixture","service_tier":"default","usage":{"input_tokens":10,"output_tokens":0,"input_tokens_details":` + details + `}}`
+			if stream {
+				body = `{"type":"response.completed","response":` + body + `}`
+			}
+			usage := responsesUsageForBilling(&dto.Usage{InputTokens: 10})
+			markResponsesUsageEvidence(&usage, []byte(body), stream)
+			require.False(t, usage.BillingUsage.Incomplete)
+			evidence := usage.BillingUsage.ResponsesTextEvidence
+			require.NotNil(t, evidence)
+			assert.Equal(t, "fee-fixture", evidence.Model)
+			assert.Equal(t, "default", evidence.ServiceTier)
+			assert.Equal(t, strings.Contains(details, `"cache_write_tokens"`), evidence.CacheWrite != nil)
+			assert.Equal(t, !strings.Contains(details, `null`), evidence.CacheRead != nil)
+			clone := dto.CloneBillingUsage(usage.BillingUsage)
+			if evidence.CacheRead != nil {
+				*evidence.CacheRead = 9
+				assert.Zero(t, *clone.ResponsesTextEvidence.CacheRead)
+			}
+			if evidence.CacheWrite != nil {
+				*evidence.CacheWrite = 9
+				assert.Zero(t, *clone.ResponsesTextEvidence.CacheWrite)
+			}
+		}
+	}
+	usage := responsesUsageForBilling(&dto.Usage{InputTokens: 10})
+	markResponsesUsageEvidence(&usage, []byte(`{"model":"fee-fixture","usage":{"input_tokens":10,"output_tokens":0,"input_tokens_details":{"cached_tokens":0,"cached_tokens":9,"cache_write_tokens":0}}}`), false)
+	assert.Nil(t, usage.BillingUsage.ResponsesTextEvidence, "ambiguous raw JSON cannot qualify exact fees")
+}

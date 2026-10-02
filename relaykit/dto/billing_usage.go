@@ -11,14 +11,24 @@ const (
 	BillingUsageSemanticOpenAI    = "openai"
 )
 
+// ResponsesTextEvidence retains raw field presence for strict fee accounting.
+// Value-only compatibility DTO counters cannot prove an omitted cache count is zero.
+type ResponsesTextEvidence struct {
+	Model       string `json:"model"`
+	ServiceTier string `json:"service_tier"`
+	CacheRead   *int   `json:"cache_read"`
+	CacheWrite  *int   `json:"cache_write"`
+}
+
 type BillingUsage struct {
-	Source              string               `json:"source,omitempty"`
-	Semantic            string               `json:"semantic,omitempty"`
-	Estimated           bool                 `json:"estimated,omitempty"`
-	Incomplete          bool                 `json:"incomplete,omitempty"`
-	OpenAIUsage         *Usage               `json:"openai_usage,omitempty"`
-	ClaudeUsage         *ClaudeUsage         `json:"claude_usage,omitempty"`
-	GeminiUsageMetadata *GeminiUsageMetadata `json:"gemini_usage_metadata,omitempty"`
+	ResponsesTextEvidence *ResponsesTextEvidence `json:"responses_text_evidence,omitempty"`
+	Source                string                 `json:"source,omitempty"`
+	Semantic              string                 `json:"semantic,omitempty"`
+	Estimated             bool                   `json:"estimated,omitempty"`
+	Incomplete            bool                   `json:"incomplete,omitempty"`
+	OpenAIUsage           *Usage                 `json:"openai_usage,omitempty"`
+	ClaudeUsage           *ClaudeUsage           `json:"claude_usage,omitempty"`
+	GeminiUsageMetadata   *GeminiUsageMetadata   `json:"gemini_usage_metadata,omitempty"`
 }
 
 func NewClaudeMessagesBillingUsage(usage *ClaudeUsage) *BillingUsage {
@@ -141,6 +151,18 @@ func CloneBillingUsage(usage *BillingUsage) *BillingUsage {
 		return nil
 	}
 	clone := *usage
+	if usage.ResponsesTextEvidence != nil {
+		evidence := *usage.ResponsesTextEvidence
+		if evidence.CacheRead != nil {
+			value := *evidence.CacheRead
+			evidence.CacheRead = &value
+		}
+		if evidence.CacheWrite != nil {
+			value := *evidence.CacheWrite
+			evidence.CacheWrite = &value
+		}
+		clone.ResponsesTextEvidence = &evidence
+	}
 	clone.OpenAIUsage = cloneOpenAIUsage(usage.OpenAIUsage)
 	clone.ClaudeUsage = cloneClaudeUsage(usage.ClaudeUsage)
 	if usage.GeminiUsageMetadata != nil {

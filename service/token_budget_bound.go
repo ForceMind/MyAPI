@@ -141,7 +141,7 @@ func CountTokenBudgetBound(ctx context.Context, client *http.Client, req *http.R
 		_ = req.Body.Close()
 	}
 	req.Body, req.ContentLength, req.GetBody = io.NopCloser(bytes.NewReader(body)), int64(len(body)), nil
-	return &model.TokenBudgetReservation{RequestID: info.RequestId, TokenID: info.TokenId, UserID: info.UserId,
+	return &model.TokenBudgetReservation{RequestServiceTier: request.ServiceTier, RequestID: info.RequestId, TokenID: info.TokenId, UserID: info.UserId,
 		ChannelID: info.ChannelId, ModelName: request.Model, PayloadSHA256: hex.EncodeToString(digest[:]), BoundSource: model.TokenBudgetBoundOpenAIResponses,
 		InputTokens: *count.InputTokens, MaxOutputTokens: *request.MaxOutput}, nil
 }

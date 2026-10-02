@@ -5988,6 +5988,18 @@
     "Zero retention": "Zero retention",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "API Key usage budgets": "API Key usage budgets",
+    "Enable USD fee budget": "Enable USD fee budget",
+    "USD total limit": "USD total limit",
+    "Used USD": "Used USD",
+    "Reserved USD": "Reserved USD",
+    "Confirmed API usage cost (USD)": "Confirmed API usage cost (USD)",
+    "Existing quota limits remain active. Account-percentage limits are not included.": "Existing quota limits remain active. Account-percentage limits are not included.",
+    "Token counts are tracked while either budget is enabled; USD costs are tracked only while the fee budget is enabled. Earlier usage is not backfilled.": "Token counts are tracked while either budget is enabled; USD costs are tracked only while the fee budget is enabled. Earlier usage is not backfilled.",
+    "USD cost is calculated from actual classified tokens and the frozen published official price. It is not a provider invoice.": "USD cost is calculated from actual classified tokens and the frozen published official price. It is not a provider invoice.",
+    "Fee budgets require an exact reported model, Standard tier and explicit cache-read/write counts; missing evidence pauses this key.": "Fee budgets require an exact reported model, Standard tier and explicit cache-read/write counts; missing evidence pauses this key.",
+    "I verified that the request ended and the actual token counts, USD cost and frozen pricing are correct.": "I verified that the request ended and the actual token counts, USD cost and frozen pricing are correct.",
+    "Fee requests must explicitly set service_tier=default.": "Fee requests must explicitly set service_tier=default."
   }
 }

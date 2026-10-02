@@ -5988,6 +5988,18 @@
     "Zero retention": "Без хранения данных",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "API Key usage budgets": "Бюджеты использования API-ключа",
+    "Enable USD fee budget": "Включить бюджет расходов USD",
+    "USD total limit": "Общий лимит USD",
+    "Used USD": "Использовано USD",
+    "Reserved USD": "Зарезервировано USD",
+    "Confirmed API usage cost (USD)": "Подтверждённая стоимость API (USD)",
+    "Existing quota limits remain active. Account-percentage limits are not included.": "Существующие лимиты действуют. Процентные ограничения аккаунта не включены.",
+    "Token counts are tracked while either budget is enabled; USD costs are tracked only while the fee budget is enabled. Earlier usage is not backfilled.": "Токены учитываются при любом включённом бюджете; расходы USD — только при включённом денежном бюджете. История не восстанавливается.",
+    "USD cost is calculated from actual classified tokens and the frozen published official price. It is not a provider invoice.": "Стоимость USD рассчитывается по фактическим категориям токенов и опубликованной официальной цене, зафиксированной для запроса. Это не счёт провайдера.",
+    "Fee budgets require an exact reported model, Standard tier and explicit cache-read/write counts; missing evidence pauses this key.": "Денежный бюджет требует совпадающую модель, уровень Standard и явные счётчики чтения/записи кеша. При нехватке данных ключ приостанавливается.",
+    "I verified that the request ended and the actual token counts, USD cost and frozen pricing are correct.": "Я проверил завершение запроса, фактические токены, стоимость USD и зафиксированные цены.",
+    "Fee requests must explicitly set service_tier=default.": "Для запросов с денежным бюджетом необходимо явно задать service_tier=default."
   }
 }

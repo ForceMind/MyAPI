@@ -12,6 +12,7 @@ import {
   FieldLabel,
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { usdLessThan } from '@/lib/exact-usd'
 
 import {
   tokenBudgetPolicySchema,
@@ -31,13 +32,22 @@ export function TokenBudgetPolicyForm(props: {
   const id = useId()
   const form = useForm<TokenBudgetPolicyValues>({
     resolver: zodResolver(
-      tokenBudgetPolicySchema.refine(
-        (value) => !value.enabled || Number(value.limit) >= props.policy.used,
-        { path: ['limit'], message: 'Limit is below confirmed usage' }
-      )
+      tokenBudgetPolicySchema
+        .refine(
+          (value) => !value.enabled || Number(value.limit) >= props.policy.used,
+          { path: ['limit'], message: 'Limit is below confirmed usage' }
+        )
+        .refine(
+          (value) =>
+            !value.feeEnabled ||
+            !usdLessThan(value.feeLimit, props.policy.fee_used_usd),
+          { path: ['feeLimit'], message: 'Limit is below confirmed usage' }
+        )
     ),
     defaultValues: {
       enabled: props.policy.enabled,
+      feeEnabled: props.policy.fee_enabled,
+      feeLimit: props.policy.fee_limit_usd,
       limit: String(props.policy.limit),
       confirmed: false,
     },
@@ -78,6 +88,44 @@ export function TokenBudgetPolicyForm(props: {
             <FieldError>{t('Please enter a valid number')}</FieldError>
           )}
         </Field>
+        <Field orientation='horizontal'>
+          <Checkbox
+            id={`${id}-fee-enabled`}
+            checked={form.watch('feeEnabled')}
+            onCheckedChange={(value) =>
+              form.setValue('feeEnabled', value === true)
+            }
+            disabled={props.busy || props.locked}
+          />
+          <FieldLabel htmlFor={`${id}-fee-enabled`}>
+            {t('Enable USD fee budget')}
+          </FieldLabel>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={`${id}-fee-limit`}>
+            {t('USD total limit')}
+          </FieldLabel>
+          <Input
+            id={`${id}-fee-limit`}
+            inputMode='decimal'
+            {...form.register('feeLimit')}
+            disabled={props.busy}
+            readOnly={props.locked}
+            maxLength={128}
+            aria-invalid={!!form.formState.errors.feeLimit}
+          />
+          {form.formState.errors.feeLimit && (
+            <FieldError>{t('Please enter a valid number')}</FieldError>
+          )}
+        </Field>
+        <p className='text-muted-foreground text-xs'>
+          {t(
+            'Fee budgets require an exact reported model, Standard tier and explicit cache-read/write counts; missing evidence pauses this key.'
+          )}
+        </p>
+        <p className='text-muted-foreground text-xs'>
+          {t('Fee requests must explicitly set service_tier=default.')}
+        </p>
         <Field orientation='horizontal'>
           <Checkbox
             id={`${id}-confirmed`}

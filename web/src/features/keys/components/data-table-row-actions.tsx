@@ -239,7 +239,7 @@ export function DataTableRowActions<TData>({
             <Button
               variant='ghost'
               size='icon-sm'
-              aria-label={t('Strict Token budget')}
+              aria-label={t('API Key usage budgets')}
               onClick={() => {
                 setCurrentRow(apiKey)
                 setOpen('budget')
@@ -249,7 +249,7 @@ export function DataTableRowActions<TData>({
         >
           <Gauge className='size-4' />
         </TooltipTrigger>
-        <TooltipContent>{t('Strict Token budget')}</TooltipContent>
+        <TooltipContent>{t('API Key usage budgets')}</TooltipContent>
       </Tooltip>
 
       <DataTableRowActionMenu

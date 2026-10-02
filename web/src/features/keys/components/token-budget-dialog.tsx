@@ -106,7 +106,7 @@ function TokenBudgetSession(props: {
         showCloseButton={!mutation.isPending}
       >
         <DialogHeader>
-          <DialogTitle>{t('Strict Token budget')}</DialogTitle>
+          <DialogTitle>{t('API Key usage budgets')}</DialogTitle>
           <DialogDescription>
             {t(
               'Actual input plus output tokens. Cache and reasoning are already included.'
@@ -134,12 +134,12 @@ function TokenBudgetSession(props: {
         </details>
         <p className='text-muted-foreground text-xs'>
           {t(
-            'Existing quota limits remain active. This is not a fee or account-percentage budget.'
+            'Existing quota limits remain active. Account-percentage limits are not included.'
           )}
         </p>
         <p className='text-muted-foreground text-xs'>
           {t(
-            'Only requests admitted while this budget is enabled are counted. Historical usage is not backfilled.'
+            'Token counts are tracked while either budget is enabled; USD costs are tracked only while the fee budget is enabled. Earlier usage is not backfilled.'
           )}
         </p>
         {query.isError && <p role='alert'>{t('Operation failed')}</p>}
@@ -147,7 +147,9 @@ function TokenBudgetSession(props: {
         {data && (
           <>
             <p className='text-sm'>
-              {data.policy.enabled ? t('Enabled') : t('Disabled')}
+              {data.policy.enabled || data.policy.fee_enabled
+                ? t('Enabled')
+                : t('Disabled')}
             </p>
             <dl className='grid min-w-0 grid-cols-3 gap-2 text-sm'>
               <div className='min-w-0'>
@@ -163,12 +165,43 @@ function TokenBudgetSession(props: {
                 </dd>
               </div>
               <div className='min-w-0'>
-                <dt>{t('Token total limit')}</dt>
+                <dt>
+                  {t('Token total limit')}
+                  {!data.policy.enabled && ` (${t('Disabled')})`}
+                </dt>
                 <dd className='font-medium break-all'>
                   {data.policy.limit.toLocaleString()}
                 </dd>
               </div>
             </dl>
+            <dl className='grid min-w-0 grid-cols-3 gap-2 text-sm'>
+              <div className='min-w-0'>
+                <dt>{t('Used USD')}</dt>
+                <dd className='font-medium break-all'>
+                  {data.policy.fee_used_usd}
+                </dd>
+              </div>
+              <div className='min-w-0'>
+                <dt>{t('Reserved USD')}</dt>
+                <dd className='font-medium break-all'>
+                  {data.policy.fee_reserved_usd}
+                </dd>
+              </div>
+              <div className='min-w-0'>
+                <dt>
+                  {t('USD total limit')}
+                  {!data.policy.fee_enabled && ` (${t('Disabled')})`}
+                </dt>
+                <dd className='font-medium break-all'>
+                  {data.policy.fee_limit_usd}
+                </dd>
+              </div>
+            </dl>
+            <p className='text-muted-foreground text-xs'>
+              {t(
+                'USD cost is calculated from actual classified tokens and the frozen published official price. It is not a provider invoice.'
+              )}
+            </p>
             {pending && (
               <section className='min-w-0 space-y-2 rounded-md border p-3'>
                 <p className='font-medium'>
@@ -212,6 +245,7 @@ function TokenBudgetSession(props: {
                       key={`${pending.request_id}:${data.review.decision?.id ?? 0}`}
                       review={data.review}
                       requireTokenCounts
+                      requireFee={pending.fee_enabled}
                       busy={busy}
                       locked={locked}
                       onSubmit={(value) =>
@@ -225,6 +259,9 @@ function TokenBudgetSession(props: {
                             actual_quota: Number(value.amount),
                             actual_input_tokens: Number(value.input),
                             actual_output_tokens: Number(value.output),
+                            ...(value.requiresFee
+                              ? { actual_fee_usd: value.feeUSD }
+                              : {}),
                           },
                         })
                       }
@@ -247,6 +284,10 @@ function TokenBudgetSession(props: {
                       enabled: value.enabled,
                       limit: Number(value.limit),
                       confirmed: true,
+                      fee: {
+                        enabled: value.feeEnabled,
+                        limit_usd: value.feeLimit,
+                      },
                     },
                   })
                 }

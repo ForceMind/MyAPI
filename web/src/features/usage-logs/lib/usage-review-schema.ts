@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { usdAmountSchema } from '@/lib/exact-usd'
+
 export const usageReviewFormSchema = z
   .object({
     amount: z
@@ -9,6 +11,8 @@ export const usageReviewFormSchema = z
     input: z.string(),
     output: z.string(),
     requiresTokens: z.boolean(),
+    requiresFee: z.boolean(),
+    feeUSD: z.string(),
     evidence: z
       .string()
       .trim()
@@ -18,6 +22,13 @@ export const usageReviewFormSchema = z
     confirmed: z.boolean().refine((value) => value),
   })
   .superRefine((value, context) => {
+    if (value.requiresFee && !usdAmountSchema.safeParse(value.feeUSD).success) {
+      context.addIssue({
+        code: 'custom',
+        path: ['feeUSD'],
+        message: 'Invalid USD amount',
+      })
+    }
     if (!value.requiresTokens) return
     for (const key of ['input', 'output'] as const) {
       if (!/^\d+$/.test(value[key]) || Number(value[key]) > 2147483647) {

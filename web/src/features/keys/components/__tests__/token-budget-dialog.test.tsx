@@ -16,6 +16,10 @@ const initial = {
     token_id: 3,
     user_id: 2,
     enabled: false,
+    fee_enabled: false,
+    fee_limit_usd: '0',
+    fee_used_usd: '0',
+    fee_reserved_usd: '0',
     limit: 100,
     used: 0,
     reserved: 0,
@@ -193,6 +197,8 @@ test('requires actual input and output counts before reconciling a dispatched re
           state: 'usage_unknown',
           reserved: 30,
           model_name: 'fixture',
+          fee_enabled: false,
+          fee_reserved_usd: '0',
         },
         review: {
           request_id: 'request-fixture',
@@ -265,6 +271,8 @@ test('cancels a proven undispatched request without sending invented zero usage'
           state: 'prepared',
           reserved: 30,
           model_name: 'fixture',
+          fee_enabled: false,
+          fee_reserved_usd: '0',
         },
       },
     },
@@ -321,4 +329,117 @@ test('rejects a response for another key and does not render its edit form', asy
   renderBudget()
   expect(await screen.findByRole('alert')).toHaveTextContent('Operation failed')
   expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+})
+
+test('USD policy and recovery retain tiny decimal strings without Number conversion', async () => {
+  const user = userEvent.setup()
+  const tiny = '0.00000000000000000000000036'
+  vi.mocked(api.put).mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        ...initial,
+        policy: {
+          ...initial.policy,
+          fee_enabled: true,
+          fee_limit_usd: tiny,
+          revision: 1,
+        },
+      },
+    },
+  })
+  const rendered = renderBudget()
+  await user.click(
+    await screen.findByRole('checkbox', { name: 'Enable USD fee budget' })
+  )
+  await user.clear(screen.getByLabelText('USD total limit'))
+  await user.type(screen.getByLabelText('USD total limit'), tiny)
+  await user.click(screen.getByRole('checkbox', { name: confirmedPolicy }))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(api.put).toHaveBeenCalledTimes(1))
+  expect(vi.mocked(api.put).mock.calls[0]?.[1]).toMatchObject({
+    enabled: false,
+    fee: { enabled: true, limit_usd: tiny },
+  })
+  rendered.unmount()
+  vi.mocked(api.get).mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        policy: {
+          ...initial.policy,
+          fee_enabled: true,
+          fee_limit_usd: '1',
+          fee_reserved_usd: '0.001',
+          reserved: 30,
+          pending_request_id: 'fee-review',
+          revision: 4,
+        },
+        pending: {
+          request_id: 'fee-review',
+          token_id: 3,
+          user_id: 2,
+          state: 'usage_unknown',
+          reserved: 30,
+          model_name: 'fixture',
+          fee_enabled: true,
+          fee_reserved_usd: '0.001',
+        },
+        review: {
+          request_id: 'fee-review',
+          token_id: 3,
+          user_id: 2,
+          state: 'usage_unknown',
+          reserved_quota: 100,
+          actual_quota: null,
+        },
+      },
+    },
+  })
+  vi.mocked(api.post).mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        ...initial,
+        policy: {
+          ...initial.policy,
+          fee_enabled: true,
+          fee_limit_usd: '1',
+          fee_used_usd: tiny,
+          used: 15,
+          revision: 5,
+        },
+      },
+    },
+  })
+  renderBudget()
+  await user.type(
+    await screen.findByLabelText('Confirmed quota (internal units)'),
+    '20'
+  )
+  await user.type(screen.getByLabelText('Confirmed input tokens'), '10')
+  await user.type(screen.getByLabelText('Confirmed output tokens'), '5')
+  await user.type(
+    screen.getByLabelText('Evidence reference'),
+    'verified exact USD evidence'
+  )
+  await user.click(
+    screen.getByRole('checkbox', {
+      name: 'I verified that the request ended and the actual token counts, USD cost and frozen pricing are correct.',
+    })
+  )
+  await user.click(
+    screen.getByRole('button', { name: 'Confirm reconciliation' })
+  )
+  expect(api.post).not.toHaveBeenCalled()
+  await user.type(screen.getByLabelText('Confirmed API usage cost (USD)'), tiny)
+  await user.click(
+    screen.getByRole('button', { name: 'Confirm reconciliation' })
+  )
+  await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
+  expect(vi.mocked(api.post).mock.calls[0]?.[1]).toMatchObject({
+    actual_fee_usd: tiny,
+    actual_input_tokens: 10,
+    actual_output_tokens: 5,
+  })
 })

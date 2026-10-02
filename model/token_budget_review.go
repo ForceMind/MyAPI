@@ -11,7 +11,7 @@ import (
 // A Root-confirmed review can recover a lost post-dispatch hold using the
 // pricing evidence saved before dispatch. It never releases the token reserve
 // or manufactures a terminal amount; the ordinary audited review follows.
-func PrepareTokenBudgetUsageReview(ctx context.Context, db *gorm.DB, actorID, tokenID int, requestID string) (*UsageReviewDetail, error) {
+func PrepareTokenBudgetUsageReview(ctx context.Context, db *gorm.DB, actorID, tokenID int, requestID string, feeUSD ...*string) (*UsageReviewDetail, error) {
 	if db == nil {
 		return nil, gorm.ErrInvalidDB
 	}
@@ -27,6 +27,18 @@ func PrepareTokenBudgetUsageReview(ctx context.Context, db *gorm.DB, actorID, to
 	}
 	if budget.RequestID != requestID || budget.TokenID != tokenID || budget.BoundSource != TokenBudgetBoundOpenAIResponses {
 		return nil, ErrTokenBudgetConflict
+	}
+	if len(feeUSD) > 1 || budget.FeeEnabled != (len(feeUSD) == 1 && feeUSD[0] != nil) {
+		return nil, ErrFeeBudgetInvalid
+	}
+	if budget.FeeEnabled {
+		normalized, err := NormalizeFeeBudgetUSD(*feeUSD[0])
+		if err != nil {
+			return nil, err
+		}
+		if budget.ActualFeeUSD != nil && *budget.ActualFeeUSD != normalized {
+			return nil, ErrTokenBudgetConflict
+		}
 	}
 	if budget.State != TokenBudgetSent && budget.State != TokenBudgetUnknown && budget.State != TokenBudgetSettled {
 		return nil, ErrTokenBudgetPending

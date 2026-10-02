@@ -20,7 +20,7 @@ func checkTokenBudgetAdmission(c *gin.Context, token *model.Token) bool {
 		abortWithOpenAiMessage(c, http.StatusServiceUnavailable, common.TranslateMessage(c, i18n.MsgDatabaseError), types.ErrorCode("token_budget_unavailable"))
 		return false
 	}
-	if budget == nil || !budget.Enabled {
+	if budget == nil || (!budget.Enabled && !budget.FeeEnabled) {
 		return true
 	}
 	if budget.UserID != token.UserId {
@@ -40,8 +40,12 @@ func checkTokenBudgetAdmission(c *gin.Context, token *model.Token) bool {
 		abortWithOpenAiMessage(c, http.StatusConflict, common.TranslateMessage(c, i18n.MsgTokenBudgetPending), types.ErrorCode("token_budget_pending"))
 		return false
 	}
-	if budget.Used >= budget.Limit {
+	if budget.Enabled && budget.Used >= budget.Limit {
 		abortWithOpenAiMessage(c, http.StatusForbidden, common.TranslateMessage(c, i18n.MsgTokenBudgetExceeded), types.ErrorCode("token_budget_exceeded"))
+		return false
+	}
+	if model.CheckFeeBudgetAdmission(budget) != nil {
+		abortWithOpenAiMessage(c, http.StatusForbidden, common.TranslateMessage(c, i18n.MsgFeeBudgetExceeded), types.ErrorCode("token_budget_fee_exceeded"))
 		return false
 	}
 	common.SetContextKey(c, constant.ContextKeyStrictTokenBudget, true)

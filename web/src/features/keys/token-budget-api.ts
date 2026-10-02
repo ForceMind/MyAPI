@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { usageReviewSchema } from '@/features/usage-logs/usage-review-api'
 import { api } from '@/lib/api'
+import { usdAmountSchema } from '@/lib/exact-usd'
 
 const count = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER)
 const budgetViewSchema = z.object({
@@ -9,6 +10,10 @@ const budgetViewSchema = z.object({
     token_id: z.number().int().positive(),
     user_id: z.number().int().positive(),
     enabled: z.boolean(),
+    fee_enabled: z.boolean(),
+    fee_limit_usd: usdAmountSchema,
+    fee_used_usd: usdAmountSchema,
+    fee_reserved_usd: usdAmountSchema,
     limit: count,
     used: count,
     reserved: count,
@@ -23,6 +28,9 @@ const budgetViewSchema = z.object({
       state: z.enum(['prepared', 'sent', 'usage_unknown']),
       reserved: count,
       model_name: z.string(),
+      fee_enabled: z.boolean(),
+      fee_reserved_usd: usdAmountSchema,
+      actual_fee_usd: usdAmountSchema.nullish(),
     })
     .nullable(),
   review: usageReviewSchema.optional(),
@@ -37,6 +45,7 @@ export type TokenBudgetCommand =
         enabled: boolean
         limit: number
         confirmed: true
+        fee: { enabled: boolean; limit_usd: string }
       }
     }
   | {
@@ -49,6 +58,7 @@ export type TokenBudgetCommand =
         actual_quota?: number
         actual_input_tokens?: number
         actual_output_tokens?: number
+        actual_fee_usd?: string
       }
     }
 
@@ -73,7 +83,9 @@ function parseBudget(payload: unknown, tokenId: number): TokenBudgetView {
     (view.pending.request_id !== view.policy.pending_request_id ||
       view.pending.token_id !== tokenId ||
       view.pending.user_id !== view.policy.user_id ||
-      view.pending.reserved !== view.policy.reserved)
+      view.pending.reserved !== view.policy.reserved ||
+      view.pending.fee_enabled !== view.policy.fee_enabled ||
+      view.pending.fee_reserved_usd !== view.policy.fee_reserved_usd)
   ) {
     throw new Error('Token budget reservation mismatch')
   }

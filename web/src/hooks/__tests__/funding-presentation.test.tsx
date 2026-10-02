@@ -40,8 +40,9 @@ beforeEach(() => {
   })
 })
 afterEach(() => {
-  if (originalStorage)
+  if (originalStorage) {
     Object.defineProperty(window, 'localStorage', originalStorage)
+  }
 })
 function wrapper() {
   const client = new QueryClient({

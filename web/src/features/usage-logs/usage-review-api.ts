@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { api } from '@/lib/api'
+import { usdAmountSchema } from '@/lib/exact-usd'
 
 const quota = z.number().int().min(0).max(2147483647)
 export const usageReviewSchema = z.object({
@@ -18,6 +19,8 @@ export const usageReviewSchema = z.object({
       state: z.string(),
       actual_input: quota.nullable(),
       actual_output: quota.nullable(),
+      fee_enabled: z.boolean(),
+      actual_fee_usd: usdAmountSchema.nullish(),
     })
     .optional(),
   decision: z
@@ -27,6 +30,7 @@ export const usageReviewSchema = z.object({
       evidence_reference: z.string(),
       actual_input_tokens: quota.optional(),
       actual_output_tokens: quota.optional(),
+      actual_fee_usd: usdAmountSchema.optional(),
     })
     .optional(),
 })
@@ -66,7 +70,7 @@ export async function reconcileUsageReview(
   requestId: string,
   actualQuota: number,
   evidence: string,
-  tokens?: { input: number; output: number }
+  tokens?: { input: number; output: number; feeUSD?: string }
 ): Promise<UsageReview> {
   const response = await api.post(
     `/api/usage-review/${encodeURIComponent(requestId)}/reconcile`,
@@ -78,6 +82,9 @@ export async function reconcileUsageReview(
         ? {
             actual_input_tokens: tokens.input,
             actual_output_tokens: tokens.output,
+            ...(tokens.feeUSD !== undefined
+              ? { actual_fee_usd: tokens.feeUSD }
+              : {}),
           }
         : {}),
     },

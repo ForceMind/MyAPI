@@ -43,7 +43,11 @@ function UsageReviewSession(props: {
         Number(values.amount),
         values.evidence,
         values.requiresTokens
-          ? { input: Number(values.input), output: Number(values.output) }
+          ? {
+              input: Number(values.input),
+              output: Number(values.output),
+              ...(values.requiresFee ? { feeUSD: values.feeUSD } : {}),
+            }
           : undefined
       ),
     retry: false,

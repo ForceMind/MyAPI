@@ -386,3 +386,8 @@ const (
 	MsgCustomOAuthBindingNotFound   = "custom_oauth.binding_not_found"
 	MsgCustomOAuthProviderIdInvalid = "custom_oauth.provider_id_field_invalid"
 )
+
+const (
+	MsgFeeBudgetExceeded = "fee_budget.exceeded"
+	MsgFeeBudgetEvidence = "fee_budget.evidence"
+)

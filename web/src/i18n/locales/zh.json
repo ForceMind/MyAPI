@@ -5988,6 +5988,18 @@
     "Zero retention": "零数据保留",
     "Zhipu": "智谱",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "API Key usage budgets": "API Key 用量预算",
+    "Enable USD fee budget": "启用 USD 费用预算",
+    "USD total limit": "USD 总额上限",
+    "Used USD": "已用 USD",
+    "Reserved USD": "预留 USD",
+    "Confirmed API usage cost (USD)": "已确认 API 用量费用（USD）",
+    "Existing quota limits remain active. Account-percentage limits are not included.": "原有用量限额仍生效，此处不含账户百分比限制。",
+    "Token counts are tracked while either budget is enabled; USD costs are tracked only while the fee budget is enabled. Earlier usage is not backfilled.": "任一预算启用时记录 Token；仅费用预算启用时记录 USD 费用。不回填此前用量。",
+    "USD cost is calculated from actual classified tokens and the frozen published official price. It is not a provider invoice.": "USD 费用按实际分类 Token 和请求冻结的已发布官网价格计算，不代表上游账单。",
+    "Fee budgets require an exact reported model, Standard tier and explicit cache-read/write counts; missing evidence pauses this key.": "费用预算要求上游明确报告匹配的模型、Standard 档位及缓存读写计数；缺少证据将暂停此 Key。",
+    "I verified that the request ended and the actual token counts, USD cost and frozen pricing are correct.": "我已核实请求结束，实际 Token 数、USD 费用及冻结计价均正确。",
+    "Fee requests must explicitly set service_tier=default.": "费用预算请求必须明确设置 service_tier=default。"
   }
 }

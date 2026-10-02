@@ -1,7 +1,11 @@
 import { z } from 'zod'
 
+import { usdAmountSchema } from '@/lib/exact-usd'
+
 export const tokenBudgetPolicySchema = z.object({
   enabled: z.boolean(),
+  feeEnabled: z.boolean(),
+  feeLimit: usdAmountSchema,
   limit: z
     .string()
     .regex(/^\d+$/)

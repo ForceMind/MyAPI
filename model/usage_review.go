@@ -33,21 +33,22 @@ func ValidateUsageReviewSchema(db *gorm.DB) error {
 // UsageReviewDecision is the immutable evidence reference for a manual
 // resolution. It contains no prompts, credentials or provider response bodies.
 type UsageReviewDecision struct {
-	ActualInputTokens  *int64 `json:"actual_input_tokens,omitempty" gorm:"type:bigint"`
-	ActualOutputTokens *int64 `json:"actual_output_tokens,omitempty" gorm:"type:bigint"`
-	ID                 int64  `json:"id" gorm:"primaryKey"`
-	RequestID          string `json:"request_id" gorm:"type:varchar(64);not null;uniqueIndex"`
-	ActorID            int    `json:"actor_id" gorm:"not null"`
-	UserID             int    `json:"user_id" gorm:"not null"`
-	TokenID            int    `json:"token_id" gorm:"not null"`
-	ChannelID          int    `json:"channel_id" gorm:"not null"`
-	ModelName          string `json:"model_name" gorm:"size:512"`
-	ActualQuota        int64  `json:"actual_quota" gorm:"type:bigint;not null"`
-	EvidenceReference  string `json:"evidence_reference" gorm:"size:2048;not null"`
-	EvidenceDigest     string `json:"evidence_digest" gorm:"type:char(64);not null"`
-	CreatedAt          int64  `json:"created_at" gorm:"type:bigint;not null"`
-	StatisticsApplied  bool   `json:"statistics_applied" gorm:"not null"`
-	LogProjected       bool   `json:"log_projected" gorm:"not null;index"`
+	ActualFeeUSD       *string `json:"actual_fee_usd,omitempty" gorm:"type:varchar(128)"`
+	ActualInputTokens  *int64  `json:"actual_input_tokens,omitempty" gorm:"type:bigint"`
+	ActualOutputTokens *int64  `json:"actual_output_tokens,omitempty" gorm:"type:bigint"`
+	ID                 int64   `json:"id" gorm:"primaryKey"`
+	RequestID          string  `json:"request_id" gorm:"type:varchar(64);not null;uniqueIndex"`
+	ActorID            int     `json:"actor_id" gorm:"not null"`
+	UserID             int     `json:"user_id" gorm:"not null"`
+	TokenID            int     `json:"token_id" gorm:"not null"`
+	ChannelID          int     `json:"channel_id" gorm:"not null"`
+	ModelName          string  `json:"model_name" gorm:"size:512"`
+	ActualQuota        int64   `json:"actual_quota" gorm:"type:bigint;not null"`
+	EvidenceReference  string  `json:"evidence_reference" gorm:"size:2048;not null"`
+	EvidenceDigest     string  `json:"evidence_digest" gorm:"type:char(64);not null"`
+	CreatedAt          int64   `json:"created_at" gorm:"type:bigint;not null"`
+	StatisticsApplied  bool    `json:"statistics_applied" gorm:"not null"`
+	LogProjected       bool    `json:"log_projected" gorm:"not null;index"`
 }
 
 func (UsageReviewDecision) TableName() string            { return "usage_review_decisions" }
@@ -167,6 +168,7 @@ func GetUsageReview(ctx context.Context, db *gorm.DB, actorID int, requestID str
 }
 
 type UsageReviewTokenCounts struct {
+	FeeUSD *string `json:"fee_usd,omitempty"`
 	Input  int64
 	Output int64
 }
@@ -194,6 +196,20 @@ func ReconcileUsageReview(ctx context.Context, db *gorm.DB, actorID int, request
 	}
 	if len(tokenCounts) == 1 {
 		counts := tokenCounts[0]
+		if view.TokenBudget.FeeEnabled != (counts.FeeUSD != nil) {
+			return nil, ErrFeeBudgetInvalid
+		}
+		if counts.FeeUSD != nil {
+			normalized, err := NormalizeFeeBudgetUSD(*counts.FeeUSD)
+			if err != nil {
+				return nil, err
+			}
+			counts.FeeUSD = &normalized
+			tokenCounts = []UsageReviewTokenCounts{counts}
+			if view.TokenBudget.ActualFeeUSD != nil && *view.TokenBudget.ActualFeeUSD != normalized {
+				return nil, ErrTokenBudgetConflict
+			}
+		}
 		if counts.Input < 0 || counts.Output < 0 || counts.Input > int64(common.MaxQuota) || counts.Output > int64(common.MaxQuota)-counts.Input {
 			return nil, ErrTokenBudgetInvalid
 		}
@@ -247,7 +263,7 @@ func ReconcileUsageReview(ctx context.Context, db *gorm.DB, actorID int, request
 		}
 		candidate := UsageReviewDecision{RequestID: requestID, ActorID: actorID, UserID: view.UserID, TokenID: view.TokenID, ChannelID: view.ChannelID, ModelName: view.ModelName, ActualQuota: actual, EvidenceReference: evidence, EvidenceDigest: hash, CreatedAt: now}
 		if len(tokenCounts) == 1 {
-			candidate.ActualInputTokens, candidate.ActualOutputTokens = &tokenCounts[0].Input, &tokenCounts[0].Output
+			candidate.ActualInputTokens, candidate.ActualOutputTokens, candidate.ActualFeeUSD = &tokenCounts[0].Input, &tokenCounts[0].Output, tokenCounts[0].FeeUSD
 		}
 		createErr := db.WithContext(ctx).Create(&candidate).Error
 		if createErr != nil {
@@ -264,6 +280,9 @@ func ReconcileUsageReview(ctx context.Context, db *gorm.DB, actorID int, request
 		return nil, ErrAccountQuotaMutationConflict
 	}
 	if len(tokenCounts) == 1 && (decision.ActualInputTokens == nil || decision.ActualOutputTokens == nil || *decision.ActualInputTokens != tokenCounts[0].Input || *decision.ActualOutputTokens != tokenCounts[0].Output) {
+		return nil, ErrTokenBudgetConflict
+	}
+	if len(tokenCounts) == 1 && ((decision.ActualFeeUSD == nil) != (tokenCounts[0].FeeUSD == nil) || (decision.ActualFeeUSD != nil && *decision.ActualFeeUSD != *tokenCounts[0].FeeUSD)) {
 		return nil, ErrTokenBudgetConflict
 	}
 	if view.Writer == "authoritative" {

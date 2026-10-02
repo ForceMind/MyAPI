@@ -23,6 +23,10 @@ func TokenBudgetRelayError(c *gin.Context, err error) *types.NewAPIError {
 	switch {
 	case errors.Is(err, ErrTokenBudgetUnsupported):
 		status, code, message = http.StatusBadRequest, "token_budget_unsupported_request", i18n.MsgTokenBudgetUnsupported
+	case errors.Is(err, model.ErrFeeBudgetExceeded):
+		status, code, message = http.StatusForbidden, "token_budget_fee_exceeded", i18n.MsgFeeBudgetExceeded // gitleaks:allow public error-code identifier, not a credential
+	case errors.Is(err, ErrFeeBudgetEvidence):
+		code, message = "token_budget_fee_evidence", i18n.MsgFeeBudgetEvidence // gitleaks:allow public error-code identifier, not a credential
 	case errors.Is(err, model.ErrTokenBudgetExceeded):
 		status, code, message = http.StatusForbidden, "token_budget_exceeded", i18n.MsgTokenBudgetExceeded
 	case errors.Is(err, model.ErrTokenBudgetPending), errors.Is(err, model.ErrTokenBudgetConflict), errors.Is(err, model.ErrTokenBudgetDuplicate):
@@ -61,6 +65,18 @@ func PrepareTokenBudgetDispatch(c *gin.Context, client *http.Client, req *http.R
 	if err != nil {
 		return err
 	}
+	policy, err := model.LookupTokenBudget(c.Request.Context(), model.DB, info.TokenId)
+	if err != nil {
+		return err
+	}
+	if policy == nil {
+		return model.ErrTokenBudgetConflict
+	}
+	if policy.FeeEnabled {
+		if err := freezeFeeBudgetPrice(c.Request.Context(), model.DB, info, bound); err != nil {
+			return err
+		}
+	}
 	evidence, err := usageReviewPricingEvidence(info, calculateTextQuotaSummary(c, info, nil))
 	if err != nil {
 		return err
@@ -98,7 +114,29 @@ func SettleTokenBudgetUsage(ctx *gin.Context, info *relaycommon.RelayInfo, usage
 	actual := usage.BillingUsage.OpenAIUsage
 	operation, cancel := billingOperationContext(ctx.Request.Context(), 5*time.Second)
 	defer cancel()
-	_, err := model.MutateTokenBudgetRequest(operation, model.DB, model.TokenBudgetMutation{TokenID: info.TokenId, RequestID: info.RequestId, Action: "settle", Input: int64(actual.InputTokens), Output: int64(actual.OutputTokens)})
+	var row model.TokenBudgetReservation
+	if err := model.DB.WithContext(operation).First(&row, "request_id = ?", info.RequestId).Error; err != nil {
+		return err
+	}
+	if row.RequestID != info.RequestId || row.TokenID != info.TokenId || row.UserID != info.UserId {
+		return model.ErrTokenBudgetConflict
+	}
+	var feeUSD *string
+	if row.FeeEnabled {
+		amount, err := calculateFeeBudgetUSD(&row, usage)
+		if err != nil {
+			return err
+		}
+		feeUSD = &amount
+	}
+	_, err := model.MutateTokenBudgetRequest(operation, model.DB, model.TokenBudgetMutation{TokenID: info.TokenId, RequestID: info.RequestId, Action: "settle", Input: int64(actual.InputTokens), Output: int64(actual.OutputTokens), FeeUSD: feeUSD})
+	if err == nil && feeUSD != nil {
+		var price feeBudgetPriceEvidence
+		if err := common.UnmarshalJsonStr(row.FeePriceEvidence, &price); err != nil {
+			return err
+		}
+		info.ConfirmedAPIUsageCost = map[string]string{"amount_usd": *feeUSD, "currency": "USD", "scope": feeBudgetPriceScope, "publication_id": price.PublicationID, "source_sha256": price.SourceSHA256}
+	}
 	return err
 }
 

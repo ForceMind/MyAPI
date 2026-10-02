@@ -57,6 +57,7 @@ func markResponsesUsageEvidence(usage *dto.Usage, body []byte, stream bool) {
 		return
 	}
 	usage.BillingUsage.Incomplete = true
+	captureResponsesTextEvidence(usage, body, stream)
 	if err := common.Unmarshal(body, &envelope); err != nil {
 		return
 	}
@@ -77,6 +78,44 @@ func markResponsesUsageEvidence(usage *dto.Usage, body []byte, stream bool) {
 		return
 	}
 	usage.BillingUsage.Incomplete = false
+}
+
+// Fee qualification uses the native provider boundary, not client-supplied
+// billing fields or zero defaults in compatibility counters. Ambiguous JSON
+// leaves fee evidence absent without changing the existing Token-only contract.
+func captureResponsesTextEvidence(usage *dto.Usage, body []byte, stream bool) {
+	usage.BillingUsage.ResponsesTextEvidence = nil
+	if _, err := common.CanonicalJSONObjectDigest(body); err != nil {
+		return
+	}
+	type response struct {
+		Model       string `json:"model"`
+		ServiceTier string `json:"service_tier"`
+		Usage       *struct {
+			Details *struct {
+				CacheRead  *int `json:"cached_tokens"`
+				CacheWrite *int `json:"cache_write_tokens"`
+			} `json:"input_tokens_details"`
+		} `json:"usage"`
+	}
+	var outer struct {
+		response
+		Response *response `json:"response"`
+	}
+	if common.Unmarshal(body, &outer) != nil {
+		return
+	}
+	evidence := &outer.response
+	if stream {
+		evidence = outer.Response
+	}
+	if evidence == nil || evidence.Usage == nil || evidence.Usage.Details == nil {
+		return
+	}
+	usage.BillingUsage.ResponsesTextEvidence = &dto.ResponsesTextEvidence{
+		Model: evidence.Model, ServiceTier: evidence.ServiceTier,
+		CacheRead: evidence.Usage.Details.CacheRead, CacheWrite: evidence.Usage.Details.CacheWrite,
+	}
 }
 
 // responsesUsageForBilling keeps the provider's original counters separate

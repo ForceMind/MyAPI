@@ -81,6 +81,8 @@ type TokenCountMeta struct {
 }
 
 type RelayInfo struct {
+	ConfirmedAPIUsageCost map[string]string
+
 	TokenId           int
 	TokenKey          string
 	TokenGroup        string
