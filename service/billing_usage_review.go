@@ -9,6 +9,7 @@ import (
 	"github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/logger"
 	"github.com/ForceMind/MyAPI/model"
+	"github.com/ForceMind/MyAPI/pkg/billingexpr"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/relaykit/dto"
 	"github.com/gin-gonic/gin"
@@ -117,17 +118,22 @@ func holdUnverifiedTextUsage(ctx *gin.Context, info *relaycommon.RelayInfo, reas
 		amount := state.Quota
 		knownRealtimeQuota = &amount
 	}
+	var frozenTieredPricing *billingexpr.BillingSnapshot
+	if snapshot := info.TieredBillingSnapshot; snapshot != nil && snapshot.OfficialPricePublicationID != "" {
+		frozenTieredPricing = snapshot
+	}
 	metadata, metadataErr := common.Marshal(struct {
-		Version            int                 `json:"version"`
-		Model              string              `json:"model"`
-		QuotaUnit          float64             `json:"quota_unit"`
-		ModelRatio         float64             `json:"model_ratio"`
-		CompletionRatio    float64             `json:"completion_ratio"`
-		GroupRatio         float64             `json:"group_ratio"`
-		KnownTools         []ToolSurchargeItem `json:"known_tool_obligations,omitempty"`
-		UnitCaptured       bool                `json:"quota_unit_captured"`
-		KnownRealtimeQuota *int                `json:"known_realtime_quota,omitempty"`
-	}{1, info.OriginModelName, requestQuotaUnit(info.PriceData), summary.ModelRatio, summary.CompletionRatio, summary.GroupRatio, summary.ToolSurchargeItems, info.PriceData.QuotedQuotaUnit(0) > 0, knownRealtimeQuota})
+		Version             int                          `json:"version"`
+		Model               string                       `json:"model"`
+		QuotaUnit           float64                      `json:"quota_unit"`
+		ModelRatio          float64                      `json:"model_ratio"`
+		CompletionRatio     float64                      `json:"completion_ratio"`
+		GroupRatio          float64                      `json:"group_ratio"`
+		KnownTools          []ToolSurchargeItem          `json:"known_tool_obligations,omitempty"`
+		UnitCaptured        bool                         `json:"quota_unit_captured"`
+		KnownRealtimeQuota  *int                         `json:"known_realtime_quota,omitempty"`
+		FrozenTieredPricing *billingexpr.BillingSnapshot `json:"frozen_tiered_pricing,omitempty"`
+	}{1, info.OriginModelName, requestQuotaUnit(info.PriceData), summary.ModelRatio, summary.CompletionRatio, summary.GroupRatio, summary.ToolSurchargeItems, info.PriceData.QuotedQuotaUnit(0) > 0, knownRealtimeQuota, frozenTieredPricing})
 	if len(metadata) > 16384 {
 		metadataErr = fmt.Errorf("usage review pricing metadata exceeds limit")
 	}
@@ -154,6 +160,7 @@ func holdUnverifiedTextUsage(ctx *gin.Context, info *relaycommon.RelayInfo, reas
 	if reason != "estimated" {
 		other["usage_accuracy"] = "unknown"
 	}
+	InjectTieredBillingInfo(other, info, nil)
 	// Error/review records are excluded from confirmed consume aggregates. The
 	// explicit NULL actual_quota is not a zero-priced consumption record.
 	model.RecordErrorLog(ctx, info.UserId, info.ChannelId, info.OriginModelName, ctx.GetString("token_name"),

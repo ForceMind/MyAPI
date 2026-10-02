@@ -84,7 +84,9 @@ test('manual source fetch preserves decimal prices and distinguishes unquoted va
     screen.getByRole('table', { name: 'OpenAI official pricing source' })
   ).toHaveFocus()
   expect(
-    screen.getByText('Source preview only. Effective prices are unchanged.')
+    screen.getByText(
+      'Fetching or saving a source does not change effective prices.'
+    )
   ).toBeInTheDocument()
   expect(api.put).not.toHaveBeenCalled()
   expect(api.post).not.toHaveBeenCalled()
@@ -185,7 +187,9 @@ test('explicit save sends no client prices and displays the returned frozen sour
   )
   expect(await screen.findByText(frozen.content_sha256)).toBeInTheDocument()
   expect(
-    screen.getByText('Frozen source loaded. Effective prices are unchanged.')
+    screen.getByText(
+      'Frozen source loaded. Publishing requires a separate confirmation.'
+    )
   ).toBeInTheDocument()
   expect(api.post).toHaveBeenCalledWith(
     '/api/ratio_sync/openai/versions',
@@ -243,10 +247,12 @@ test('explicit saved version read uses its own prices and can retry a failed ver
   await userEvent.click(read)
   expect(await screen.findByText('$2.00')).toBeInTheDocument()
   expect(
-    vi.mocked(api.get).mock.calls.every(
-      ([url]) =>
-        url === `/api/ratio_sync/openai/versions/${fixture.content_sha256}`
-    )
+    vi
+      .mocked(api.get)
+      .mock.calls.every(
+        ([url]) =>
+          url === `/api/ratio_sync/openai/versions/${fixture.content_sha256}`
+      )
   ).toBe(true)
 })
 

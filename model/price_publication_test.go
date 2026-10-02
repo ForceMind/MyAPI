@@ -8,6 +8,7 @@ import (
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/setting/billing_setting"
+	"github.com/ForceMind/MyAPI/setting/ratio_setting"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -46,6 +47,8 @@ func TestPricePublicationAtomicApplyIdempotencyAndRollback(t *testing.T) {
 	receipt, err := ApplyPricePublication(ctx, command)
 	require.NoError(t, err)
 	assert.Equal(t, command.ID, receipt.ID)
+	require.ErrorIs(t, DB.Model(receipt).Update("actor_id", 2).Error, ErrPricePublicationImmutable)
+	require.ErrorIs(t, DB.Delete(receipt).Error, ErrPricePublicationImmutable)
 	assert.Equal(t, "tiered_expr", billing_setting.GetBillingMode("fixture"))
 	after, err := ReadPricePublicationSnapshot(ctx)
 	require.NoError(t, err)
@@ -151,4 +154,24 @@ func TestPricePublicationRejectsStaleOrReusedIdentity(t *testing.T) {
 	first.ActorID = 2
 	_, err = ApplyPricePublication(ctx, first)
 	require.ErrorIs(t, err, ErrPricePublicationConflict)
+}
+
+func TestPricePublicationRejectsInterveningRatioEdits(t *testing.T) {
+	previousRatios := ratio_setting.ModelRatio2JSONString()
+	t.Cleanup(func() { require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(previousRatios)) })
+	ctx, source := pricePublicationTestSetup(t)
+	command := publicationCommandForTest(t, ctx, "a", source)
+	require.NoError(t, UpdateOption("ModelRatio", `{"untouched":3}`))
+	_, err := ApplyPricePublication(ctx, command)
+	require.ErrorIs(t, err, ErrPricePublicationConflict, "reviewed configuration must include legacy price changes")
+	command = publicationCommandForTest(t, ctx, "a", source)
+	_, err = ApplyPricePublication(ctx, command)
+	require.NoError(t, err)
+	require.NoError(t, UpdateOption("ModelRatio", `{"untouched":4}`))
+	rollback := publicationCommandForTest(t, ctx, "b", source)
+	rollback.Action = "rollback"
+	rollback.RollbackOf = command.ID
+	rollback.Changes = nil
+	_, err = ApplyPricePublication(ctx, rollback)
+	require.ErrorIs(t, err, ErrPricePublicationConflict, "rollback cannot hide a later manual ratio change")
 }

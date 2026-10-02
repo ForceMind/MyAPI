@@ -394,7 +394,7 @@ func CalcOpenRouterCacheCreateTokens(usage dto.Usage, priceData types.PriceData)
 
 func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage, extraContent string) {
 	if usage == nil || !relayInfo.PriceData.UsePrice {
-		if reason := textUsageReviewReason(ctx, usage); reason != "" {
+		if reason := publishedPriceUsageReviewReason(ctx, relayInfo, usage); reason != "" {
 			holdUnverifiedTextUsage(ctx, relayInfo, reason, calculateTextQuotaSummary(ctx, relayInfo, effectiveBillingUsage(usage)))
 			return
 		}

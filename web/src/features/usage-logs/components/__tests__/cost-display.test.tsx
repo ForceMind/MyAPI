@@ -37,6 +37,30 @@ function normalizedText(value: string | null): string {
 }
 
 describe('log cost display', () => {
+  test('published tariff amounts remain reference costs on API and subscription records', () => {
+    const reference = {
+      publication_id: 'a'.repeat(64),
+      source_sha256: 'b'.repeat(64),
+      expression_sha256: 'c'.repeat(64),
+      scope: 'reference_tariff_not_upstream_invoice',
+    }
+    const view = renderCost({
+      quota: 12500,
+      other: { official_price_source: reference },
+    })
+    expect(screen.getByText('Reference cost')).toBeInTheDocument()
+    view.rerender(
+      <LogCostDisplay
+        quota={12500}
+        other={{
+          official_price_source: reference,
+          billing_source: 'subscription',
+        }}
+      />
+    )
+    expect(screen.getByText('Reference cost')).toBeInTheDocument()
+    expect(screen.getByText('Subscription')).toBeInTheDocument()
+  })
   beforeAll(() => {
     i18next.addResourceBundle('en', 'translation', {
       Subscription: 'Subscription',

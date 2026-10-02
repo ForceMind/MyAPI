@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useIsMutating,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -23,6 +28,7 @@ import {
   saveOfficialOpenAIPriceSource,
 } from './openai-official-pricing-api'
 import { OpenAIPriceVersionForm } from './openai-price-version-form'
+import { PricePublicationPanel } from './price-publication-panel'
 
 export function OpenAIOfficialPricingSection() {
   const userID = useAuthStore((state) => state.auth.user?.id)
@@ -38,6 +44,14 @@ function PriceSourceSession(props: {
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const publicationsPending = useIsMutating({
+    mutationKey: [
+      'openai-price-publication',
+      props.userID,
+      props.role,
+      'write',
+    ],
+  })
   const [selection, setSelection] = useState<
     { kind: 'latest' } | { kind: 'frozen'; digest: string }
   >({ kind: 'latest' })
@@ -75,7 +89,7 @@ function PriceSourceSession(props: {
       setSelection({ kind: 'frozen', digest: data.content_sha256 })
     },
   })
-  const busy = query.isFetching || save.isPending
+  const busy = query.isFetching || save.isPending || publicationsPending > 0
   const readSource = (digest?: string) => {
     save.reset()
     const next = digest
@@ -119,7 +133,7 @@ function PriceSourceSession(props: {
     <SettingsSection title={title} className='min-w-0'>
       <Alert>
         <AlertDescription>
-          {t('Source preview only. Effective prices are unchanged.')}
+          {t('Fetching or saving a source does not change effective prices.')}
         </AlertDescription>
       </Alert>
       <div className='flex flex-wrap items-center gap-3'>
@@ -146,6 +160,14 @@ function PriceSourceSession(props: {
         </a>
       </div>
       <OpenAIPriceVersionForm disabled={busy} onRead={readSource} />
+      {selection.kind === 'frozen' && query.data && !query.isError && (
+        <PricePublicationPanel
+          key={selection.digest}
+          digest={selection.digest}
+          userID={props.userID}
+          role={props.role}
+        />
+      )}
       {save.isError && (
         <Alert role='alert' variant='destructive'>
           <AlertDescription>
@@ -155,7 +177,9 @@ function PriceSourceSession(props: {
       )}
       {selection.kind === 'frozen' && query.data && !query.isError && (
         <p className='text-muted-foreground text-sm'>
-          {t('Frozen source loaded. Effective prices are unchanged.')}
+          {t(
+            'Frozen source loaded. Publishing requires a separate confirmation.'
+          )}
         </p>
       )}
       {query.isError && (

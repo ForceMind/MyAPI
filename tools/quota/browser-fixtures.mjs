@@ -137,7 +137,7 @@ export function quotaFixtures({ latestError = false } = {}) {
       content_sha256: 'f'.repeat(64), currency: 'USD', unit_tokens: 1000000,
       service_tier: 'standard', scope: 'text-token-price-source-not-published',
       models: [
-        { model: 'fixture-cached-model', source_label: 'fixture-cached-model (<272K context length)',
+        { model: 'fixture-cached-model', source_label: 'fixture-cached-model',
           short_context: { input_usd_per_million: '2.00', cached_input_usd_per_million: '0.00', cache_write_usd_per_million: '2.50', output_usd_per_million: '10.00' },
           long_context: { input_usd_per_million: '4.00', cached_input_usd_per_million: '0.20', cache_write_usd_per_million: '5.00', output_usd_per_million: '15.00' } },
         { model: 'fixture-no-cache', source_label: 'fixture-no-cache',

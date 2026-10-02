@@ -369,6 +369,14 @@ func InjectTieredBillingInfo(other map[string]interface{}, relayInfo *relaycommo
 	}
 	other["billing_mode"] = "tiered_expr"
 	other["expr_b64"] = base64.StdEncoding.EncodeToString([]byte(snap.ExprString))
+	if snap.OfficialPricePublicationID != "" {
+		other["official_price_source"] = map[string]string{
+			"publication_id":    snap.OfficialPricePublicationID,
+			"source_sha256":     snap.OfficialPriceSourceSHA256,
+			"expression_sha256": snap.ExprHash,
+			"scope":             "reference_tariff_not_upstream_invoice",
+		}
+	}
 	if result != nil {
 		other["matched_tier"] = result.MatchedTier
 		if len(result.RequestRules) > 0 {

@@ -54,8 +54,36 @@ try {
   const historyRequests = []
   const changeRequests = []
   const reviewSubmissions = []
+  const publicationSubmissions = []
+  const publication = { revision: 0, locked: false, active: false, receipts: [] }
   await context.route('**/api/**', async (route) => {
     const url = new URL(route.request().url())
+    if (url.pathname.endsWith('/publication-preview')) {
+      const expression = 'v1:len <= 272000 ? tier("short", p * 2 + c * 10 + cr * 0 + cc * 2.5) : tier("long", p * 4 + c * 15 + cr * 0.2 + cc * 5)'
+      await route.fulfill({ json: { success: true, data: { source_sha256: 'f'.repeat(64), expected_digest: 'a'.repeat(64), revision: publication.revision, rows: [
+        { model: 'fixture-cached-model', current_mode: publication.active ? 'tiered_expr' : 'ratio', current_expression: publication.active ? expression : '', locked: publication.locked, eligible: !publication.locked,
+          candidate: { model: 'fixture-cached-model', expression, expression_sha256: 'b'.repeat(64), source_sha256: 'f'.repeat(64) } },
+        { model: 'fixture-no-cache', current_mode: 'ratio', current_expression: '', locked: false, eligible: false, candidate: null },
+      ] } } })
+      return
+    }
+    if (url.pathname === '/api/ratio_sync/openai/publications') {
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON()
+        assert.equal(body.confirmed, true)
+        assert.match(body.id, /^[0-9a-f]{64}$/)
+        publicationSubmissions.push(body)
+        publication.revision++
+        publication.active = body.action === 'publish'
+        publication.locked = publication.active
+        const receipt = { id: body.id, actor_id: 1, action: body.action, revision: publication.revision, created_at: Math.floor(Date.now() / 1000) }
+        publication.receipts.unshift(receipt)
+        await route.fulfill({ json: { success: true, data: { receipt, runtime_ready: true } } })
+      } else {
+        await route.fulfill({ json: { success: true, data: { expected_digest: 'a'.repeat(64), runtime_ready: true, snapshot: { state: { revision: publication.revision } }, receipts: publication.receipts } } })
+      }
+      return
+    }
     if (url.pathname.endsWith('/quota/history')) historyRequests.push(Object.fromEntries(url.searchParams))
     if (url.pathname.endsWith('/quota/changes')) changeRequests.push(Object.fromEntries(url.searchParams))
     if (url.pathname === '/api/usage-review/usage-review-fixture/reconcile' && route.request().method() === 'POST') reviewSubmissions.push(route.request().postDataJSON())
@@ -289,6 +317,42 @@ try {
   await resolvedDialog.screenshot({ path: resolve(output, 'usage-review-resolved.png') })
   await page.keyboard.press('Escape')
   await resolvedDialog.waitFor({ state: 'hidden' })
+  // Reuse this isolated Chromium harness for the source -> publication ->
+  // guarded rollback UI. SQL/authorization behavior is tested by Go contracts.
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto(`${origin}/system-settings/models/openai-pricing-source`, { waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: label('Save official source version'), exact: true }).click()
+  await page.getByRole('button', { name: label('Effective price publication'), exact: true }).click()
+  const publicationPanel = page.getByRole('region', { name: label('Effective price publication'), exact: true })
+  const reviewPrice = publicationPanel.getByRole('button', { name: `${label('Review price change')}: fixture-cached-model`, exact: true })
+  await reviewPrice.click()
+  await publicationPanel.getByRole('button', { name: label('Confirm'), exact: true }).click()
+  await publicationPanel.getByText(label('Required'), { exact: true }).waitFor({ state: 'visible' })
+  assert.equal(publicationSubmissions.length, 0, 'source save and unchecked confirmation never publish prices')
+  await publicationPanel.getByRole('checkbox', { name: label('I reviewed this price change and its reference-only scope.'), exact: true }).check()
+  await publicationPanel.getByRole('button', { name: label('Confirm'), exact: true }).click()
+  await publicationPanel.getByText(label('Price operation saved.'), { exact: true }).waitFor({ state: 'visible' })
+  await publicationPanel.getByRole('button', { name: `${label('Unlock')}: fixture-cached-model`, exact: true }).waitFor({ state: 'visible' })
+  assert.equal(publicationSubmissions.length, 1)
+  assert.equal(publicationSubmissions[0].action, 'publish')
+  assert.equal(publicationSubmissions[0].source_sha256, 'f'.repeat(64))
+  assert.deepEqual(publicationSubmissions[0].models, [{ model: 'fixture-cached-model', locked: true }])
+  for (const width of [320, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'price publication has no page-wide horizontal overflow')
+    await page.screenshot({ path: resolve(output, `price-publication-${width}.png`), fullPage: true })
+  }
+  await publicationPanel.getByRole('button', { name: `${label('Rollback')}: ${publicationSubmissions[0].id}`, exact: true }).click()
+  await publicationPanel.getByRole('button', { name: label('Confirm'), exact: true }).click()
+  await publicationPanel.getByText(label('Required'), { exact: true }).waitFor({ state: 'visible' })
+  assert.equal(publicationSubmissions.length, 1, 'rollback requires its own explicit confirmation')
+  await publicationPanel.getByRole('checkbox', { name: label('I reviewed this price change and its reference-only scope.'), exact: true }).check()
+  await publicationPanel.getByRole('button', { name: label('Confirm'), exact: true }).click()
+  await publicationPanel.getByText(label('Price operation saved.'), { exact: true }).waitFor({ state: 'visible' })
+  assert.equal(publicationSubmissions.length, 2)
+  assert.equal(publicationSubmissions[1].action, 'rollback')
+  assert.equal(publicationSubmissions[1].rollback_of, publicationSubmissions[0].id)
   assert.deepEqual([...unexpected], [], 'all application endpoints have explicit fixtures')
   assert.deepEqual(errors, [], 'no browser runtime errors')
   console.log('Quota browser regression passed: compact overview summary/sparkline; detailed line/area/bar and analysis controls; latest-error history; 320px/390px/low-height layout. Synthetic fixtures only.')

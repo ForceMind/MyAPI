@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/tooltip'
 import { formatLogQuota } from '@/lib/format'
 
-import { hasToolSurcharge } from '../lib/format'
+import { hasToolSurcharge, readPublishedPriceReference } from '../lib/format'
 import type { LogOtherData } from '../types'
 import { UsageAccuracyBadge } from './usage-accuracy-badge'
 
@@ -120,6 +120,8 @@ function SubscriptionBadge(props: { quota: number }) {
 }
 
 export function LogCostDisplay(props: LogCostDisplayProps) {
+  const { t } = useTranslation()
+  const reference = readPublishedPriceReference(props.other)
   const isSubscription = props.other?.billing_source === 'subscription'
   const showToolSurcharge = hasToolSurcharge(props.other)
 
@@ -131,6 +133,7 @@ export function LogCostDisplay(props: LogCostDisplayProps) {
     return (
       <div className='flex flex-col gap-0.5'>
         <QuotaBadge quota={props.quota} />
+        {reference && <Badge variant='outline'>{t('Reference cost')}</Badge>}
         {props.showUsageAccuracy !== false && (
           <UsageAccuracyBadge accuracy={props.other?.usage_accuracy} />
         )}
@@ -148,6 +151,7 @@ export function LogCostDisplay(props: LogCostDisplayProps) {
             <QuotaBadge quota={props.quota} />
           )}
           {showToolSurcharge ? <ToolSurchargeMarker /> : null}
+          {reference && <Badge variant='outline'>{t('Reference cost')}</Badge>}
         </div>
         {props.showUsageAccuracy !== false && (
           <UsageAccuracyBadge accuracy={props.other?.usage_accuracy} />

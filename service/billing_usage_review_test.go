@@ -3,12 +3,14 @@ package service
 import (
 	"context"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/model"
+	"github.com/ForceMind/MyAPI/pkg/billingexpr"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/relaykit/dto"
 	hosttypes "github.com/ForceMind/MyAPI/types"
@@ -52,6 +54,8 @@ func TestTextUnknownUsagePersistsAcrossBothWriterModes(t *testing.T) {
 				info.ChannelMeta = &relaycommon.ChannelMeta{ChannelId: 77}
 				info.PriceData = hosttypes.PriceData{ModelRatio: 1, CompletionRatio: 2, GroupRatioInfo: hosttypes.GroupRatioInfo{GroupRatio: 1}}
 				info.SetEstimatePromptTokens(100)
+				info.TieredBillingSnapshot = &billingexpr.BillingSnapshot{BillingMode: "tiered_expr", ExprString: "p * 2", ExprHash: billingexpr.ExprHashString("p * 2"),
+					OfficialPricePublicationID: strings.Repeat("a", 64), OfficialPriceSourceSHA256: strings.Repeat("b", 64)}
 				ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 				ctx.Request = httptest.NewRequest("POST", "/v1/responses", nil)
 				ctx.Set(common.RequestIdKey, info.RequestId)
@@ -84,12 +88,14 @@ func TestTextUnknownUsagePersistsAcrossBothWriterModes(t *testing.T) {
 					assert.Nil(t, record.ActualQuota)
 					assert.EqualValues(t, 100, record.ReservedQuota)
 					assert.Contains(t, record.ReviewMetadata, "quota_unit")
+					assert.Contains(t, record.ReviewMetadata, `"official_price_source_sha256":"`+strings.Repeat("b", 64)+`"`)
 				} else {
 					var record model.AccountQuotaTerminalRecoveryObligation
 					require.NoError(t, db.Where("request_id = ?", info.RequestId).First(&record).Error)
 					assert.Equal(t, model.AccountQuotaTerminalRecoveryUsageUnknown, record.State)
 					assert.Zero(t, record.TerminalReceiptID)
 					assert.Contains(t, record.ReviewMetadata, "quota_unit")
+					assert.Contains(t, record.ReviewMetadata, `"official_price_source_sha256":"`+strings.Repeat("b", 64)+`"`)
 				}
 			})
 		}

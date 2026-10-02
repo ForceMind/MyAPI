@@ -20,8 +20,11 @@ const pricePublicationStateKey = "official_price_publication_state"
 const publicationModeKey = "billing_setting.billing_mode"
 const publicationExpressionKey = "billing_setting.billing_expr"
 
+var publicationRatioOptionKeys = []string{"ModelRatio", "ModelPrice", "CompletionRatio", "CacheRatio", "CreateCacheRatio", "ImageRatio", "AudioRatio", "AudioCompletionRatio"}
+
 var ErrPricePublicationConflict = errors.New("price publication has changed")
 var ErrPricePublicationLocked = errors.New("model price is locked")
+var ErrPricePublicationImmutable = errors.New("price publication receipt is immutable")
 
 // PricePublication is immutable. The before/after evidence includes the whole
 // pricing generation; rollback requires an exact match, so it cannot overwrite
@@ -35,7 +38,11 @@ type PricePublication struct {
 	BeforeJSON    string `gorm:"size:1048576" json:"-"`
 	AfterJSON     string `gorm:"size:1048576" json:"-"`
 	CreatedAt     int64  `json:"created_at"`
+	Revision      int64  `json:"revision"`
 }
+
+func (*PricePublication) BeforeUpdate(*gorm.DB) error { return ErrPricePublicationImmutable }
+func (*PricePublication) BeforeDelete(*gorm.DB) error { return ErrPricePublicationImmutable }
 
 type PublishedModelPrice struct {
 	PublicationID    string `json:"publication_id"`
@@ -95,9 +102,10 @@ func publishPricePublicationState(raw string) error {
 }
 
 type PricePublicationSnapshot struct {
-	Modes       map[string]string     `json:"modes"`
-	Expressions map[string]string     `json:"expressions"`
-	State       PricePublicationState `json:"state"`
+	Modes             map[string]string     `json:"modes"`
+	Expressions       map[string]string     `json:"expressions"`
+	State             PricePublicationState `json:"state"`
+	OtherPriceOptions map[string]string     `json:"other_price_options"`
 }
 
 type PricePublicationChange struct {
@@ -139,11 +147,14 @@ func readPricePublicationSnapshotTx(tx *gorm.DB, locked bool) (*PricePublication
 		}
 		tx = lockForUpdate(tx)
 	}
+	// Do not create absent ratio rows: absence preserves built-in defaults.
+	// All participating writers first lock the three coordination rows above.
+	keys = append(keys, publicationRatioOptionKeys...)
 	var rows []Option
 	if err := tx.Where(map[string]interface{}{"key": keys}).Order(clause.OrderByColumn{Column: clause.Column{Name: "key"}}).Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	result := &PricePublicationSnapshot{Modes: map[string]string{}, Expressions: map[string]string{}, State: PricePublicationState{Models: map[string]PublishedModelPrice{}}}
+	result := &PricePublicationSnapshot{Modes: map[string]string{}, Expressions: map[string]string{}, State: PricePublicationState{Models: map[string]PublishedModelPrice{}}, OtherPriceOptions: map[string]string{}}
 	for _, row := range rows {
 		var target any
 		switch row.Key {
@@ -153,6 +164,9 @@ func readPricePublicationSnapshotTx(tx *gorm.DB, locked bool) (*PricePublication
 			target = &result.Expressions
 		case pricePublicationStateKey:
 			target = &result.State
+		default:
+			result.OtherPriceOptions[row.Key] = row.Value
+			continue
 		}
 		if row.Value == "" {
 			continue
@@ -185,7 +199,13 @@ func ReadPricePublicationSnapshot(ctx context.Context) (*PricePublicationSnapsho
 func validateLockedPriceChangesTx(tx *gorm.DB, values map[string]string) error {
 	_, modeChanged := values[publicationModeKey]
 	_, expressionChanged := values[publicationExpressionKey]
-	if !modeChanged && !expressionChanged {
+	otherPriceChanged := false
+	for _, key := range publicationRatioOptionKeys {
+		if _, ok := values[key]; ok {
+			otherPriceChanged = true
+		}
+	}
+	if !modeChanged && !expressionChanged && !otherPriceChanged {
 		return nil
 	}
 	before, err := readPricePublicationSnapshotTx(tx, true)
@@ -278,6 +298,9 @@ func ApplyPricePublication(ctx context.Context, command PricePublicationCommand)
 		if err != nil {
 			return err
 		}
+		if len(beforeJSON) > MaxOfficialPriceDocumentBytes {
+			return fmt.Errorf("price publication evidence exceeds capacity")
+		}
 		after := *before
 		if command.Action == "rollback" {
 			var target PricePublication
@@ -295,6 +318,9 @@ func ApplyPricePublication(ctx context.Context, command PricePublicationCommand)
 			for _, change := range command.Changes {
 				binding := after.State.Models[change.Model]
 				if command.Action == "lock" {
+					if after.Modes[change.Model] != "tiered_expr" {
+						return fmt.Errorf("price locks require expression pricing")
+					}
 					if change.Expression != "" || change.SourceSHA256 != "" {
 						return fmt.Errorf("lock cannot change a price")
 					}
@@ -338,7 +364,10 @@ func ApplyPricePublication(ctx context.Context, command PricePublicationCommand)
 		if err != nil {
 			return err
 		}
-		result = PricePublication{ID: command.ID, RequestDigest: requestDigest, ActorID: command.ActorID, Action: command.Action, RollbackOf: command.RollbackOf, BeforeJSON: string(beforeJSON), AfterJSON: string(afterJSON), CreatedAt: time.Now().UTC().Unix()}
+		if len(afterJSON) > MaxOfficialPriceDocumentBytes {
+			return fmt.Errorf("price publication evidence exceeds capacity")
+		}
+		result = PricePublication{ID: command.ID, RequestDigest: requestDigest, ActorID: command.ActorID, Action: command.Action, RollbackOf: command.RollbackOf, BeforeJSON: string(beforeJSON), AfterJSON: string(afterJSON), CreatedAt: time.Now().UTC().Unix(), Revision: after.State.Revision}
 		if err := tx.Create(&result).Error; err != nil {
 			return err
 		}

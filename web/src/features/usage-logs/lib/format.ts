@@ -486,3 +486,21 @@ export function renderAuditContent(
   if (!template) return null
   return t(template, (op.params ?? {}) as Record<string, unknown>)
 }
+export function readPublishedPriceReference(other: LogOtherData | null) {
+  const source = other?.official_price_source
+  if (!source || source.scope !== 'reference_tariff_not_upstream_invoice') {
+    return null
+  }
+  if (
+    ![
+      source.publication_id,
+      source.source_sha256,
+      source.expression_sha256,
+    ].every(
+      (value) => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value)
+    )
+  ) {
+    return null
+  }
+  return source
+}

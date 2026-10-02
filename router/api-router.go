@@ -273,6 +273,9 @@ func SetApiRouter(router *gin.Engine) {
 			ratioSyncRoute.GET("/openai", middleware.CriticalRateLimit(), controller.GetOpenAIOfficialPricing)
 			ratioSyncRoute.POST("/openai/versions", middleware.DisableCache(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.SaveOpenAIOfficialPriceSource)
 			ratioSyncRoute.GET("/openai/versions/:digest", middleware.DisableCache(), middleware.CriticalRateLimit(), controller.GetFrozenOpenAIOfficialPriceSource)
+			ratioSyncRoute.GET("/openai/versions/:digest/publication-preview", middleware.DisableCache(), middleware.CriticalRateLimit(), controller.PreviewOpenAIPricePublication)
+			ratioSyncRoute.GET("/openai/publications", middleware.DisableCache(), controller.GetPricePublicationState)
+			ratioSyncRoute.POST("/openai/publications", middleware.DisableCache(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.ApplyOpenAIPricePublication)
 			ratioSyncRoute.POST("/fetch", controller.FetchUpstreamRatios)
 		}
 		registerChannelRoutes(apiRouter)

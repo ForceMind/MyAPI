@@ -59,6 +59,10 @@ type BillingSnapshot struct {
 	EstimatedTier             string  `json:"estimated_tier"`
 	QuotaPerUnit              float64 `json:"quota_per_unit"`
 	ExprVersion               int     `json:"expr_version"`
+	// These are provenance for the frozen administrator tariff, not evidence
+	// of an actual upstream invoice or a subscription account deduction.
+	OfficialPricePublicationID string `json:"official_price_publication_id,omitempty"`
+	OfficialPriceSourceSHA256  string `json:"official_price_source_sha256,omitempty"`
 }
 
 // TieredResult holds everything needed after running tiered settlement.

@@ -114,6 +114,12 @@ export interface ToolSurchargeItem {
 }
 
 export interface LogOtherData {
+  official_price_source?: {
+    publication_id: string
+    source_sha256: string
+    expression_sha256: string
+    scope: string
+  }
   settlement_status?: string
   actual_quota?: number | null
   reserved_quota?: number

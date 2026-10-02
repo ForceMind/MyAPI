@@ -10,6 +10,7 @@ import (
 	"github.com/ForceMind/MyAPI/pkg/billingexpr"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/relaykit/types"
+	"github.com/ForceMind/MyAPI/service"
 	"github.com/ForceMind/MyAPI/setting/billing_setting"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	"github.com/ForceMind/MyAPI/setting/ratio_setting"
@@ -351,7 +352,14 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, promptT
 		ExprVersion:               billingexpr.ExprVersion(exprStr),
 	}
 	info.TieredBillingSnapshot = snapshot
+	if published, ok := model.PublishedModelPriceForExpression(info.OriginModelName, exprStr); ok {
+		snapshot.OfficialPricePublicationID = published.PublicationID
+		snapshot.OfficialPriceSourceSHA256 = published.SourceSHA256
+	}
 	info.BillingRequestInput = &requestInput
+	if err := service.ValidatePublishedPriceRequest(info); err != nil {
+		return hosttypes.PriceData{}, err
+	}
 
 	priceData := hosttypes.PriceData{
 		FreeModel:         freeModel,

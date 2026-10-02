@@ -76,6 +76,7 @@ import {
   getResponseTimeColor,
   getReasoningEffortVariant,
   renderAuditContent,
+  readPublishedPriceReference,
 } from '../../lib/format'
 import {
   getLogTypeConfig,
@@ -484,6 +485,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
   const details = props.log.content ?? ''
   const other = parseLogOther(props.log.other)
+  const publishedPrice = readPublishedPriceReference(other)
   const typeConfig = getLogTypeConfig(props.log.type)
 
   const isViolation = isViolationFeeLog(other)
@@ -647,6 +649,26 @@ export function DetailsDialog(props: DetailsDialogProps) {
           )}
         {/* Overview section - key identifiers */}
         <div className='min-w-0 space-y-1'>
+          {publishedPrice && (
+            <>
+              <DetailRow
+                label={t('Price publication ID')}
+                value={publishedPrice.publication_id}
+                mono
+              />
+              <DetailRow
+                label={t('Saved source SHA256')}
+                value={publishedPrice.source_sha256}
+                mono
+              />
+              <DetailRow
+                label={t('Reference cost')}
+                value={t(
+                  'Standard text reference tariffs only, not actual upstream bills. Multimodal, tools and other tiers are unsupported.'
+                )}
+              />
+            </>
+          )}
           {props.log.request_id && (
             <DetailRow
               label={t('Request ID')}
