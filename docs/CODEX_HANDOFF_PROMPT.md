@@ -7,7 +7,7 @@
 
 GitHub：https://github.com/ForceMind/MyAPI
 交接分支：codex/r1-handoff-20261002（未封版快照，不可当作可部署版本）。
-同步状态：目前仅本地。源码快照 f93695873c4413d42a48fe1af302bee3bc70be98 共 232 个文件，公开推送被安全审核拒绝，需明确批准含继承商业 WIP 的公开外发，不绕过审核；不要假定远端已有该分支。
+同步状态：负责人再次明确要求推送后，交接分支已成功同步 GitHub。源码快照 f93695873c4413d42a48fe1af302bee3bc70be98 共 232 个文件，含继承商业 WIP；另有交接文档提交，最新 HEAD 以远端同名分支回读为准。未合并、发布、部署，不能把推送成功当作 CI/真实业务验收。
 本机候选：/Users/wxx110/.codex/worktrees/next-usable-candidate/MyAPI。
 基线：57ec31a58fc737ba2be0601e4102123436c3d938；实际提交以分支及远端回读为准。
 主目录未被候选覆盖；原 /Users/wxx110/.codex/worktrees/2daa/MyAPI 只读保护全部 WIP。不要 reset/stash/clean/强制 checkout，不先 pull/rebase main。
