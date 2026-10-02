@@ -339,10 +339,29 @@ try {
   assert.deepEqual(publicationSubmissions[0].models, [{ model: 'fixture-cached-model', locked: true }])
   for (const width of [320, 1280]) {
     await page.setViewportSize({ width, height: 900 })
-    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
-    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'price publication has no page-wide horizontal overflow')
+    // Responsive sidebar/layout transitions can outlive the first two frames.
+    // Wait for finite animations, not an arbitrary sleep, before measuring the
+    // settled viewport. The original no-overflow assertion remains unchanged.
+    await page.evaluate(async () => {
+      await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+      await Promise.all(document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity).map((animation) => animation.finished.catch(() => {})))
+      await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+    })
+    const layout = await page.evaluate(() => ({
+      width: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+      overflow: [...document.querySelectorAll('body *')].filter((element) => element.getClientRects().length && element.getBoundingClientRect().right > innerWidth + 1).slice(0, 20).map((element) => ({
+        tag: element.tagName, className: String(element.className), text: element.textContent?.trim().slice(0, 70),
+        width: element.getBoundingClientRect().width, right: element.getBoundingClientRect().right,
+        overflowX: getComputedStyle(element).overflowX, minWidth: getComputedStyle(element).minWidth,
+      })),
+    }))
+    assert(layout.scrollWidth <= layout.width + 1, `price publication has no page-wide horizontal overflow: ${JSON.stringify(layout)}`)
     await page.screenshot({ path: resolve(output, `price-publication-${width}.png`), fullPage: true })
   }
+  // Stored history/rollback must survive a reload without fetching the
+  // upstream source again (including when the provider is unavailable).
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: label('Effective price publication'), exact: true }).click()
   await publicationPanel.getByRole('button', { name: `${label('Rollback')}: ${publicationSubmissions[0].id}`, exact: true }).click()
   await publicationPanel.getByRole('button', { name: label('Confirm'), exact: true }).click()
   await publicationPanel.getByText(label('Required'), { exact: true }).waitFor({ state: 'visible' })

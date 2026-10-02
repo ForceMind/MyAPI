@@ -59,6 +59,43 @@ function renderSource() {
   )
 }
 
+test('stored publication history remains reachable without fetching an upstream source', async () => {
+  const publicationID = 'd'.repeat(64)
+  vi.mocked(api.get).mockImplementation((url) => {
+    if (url !== '/api/ratio_sync/openai/publications') {
+      throw new Error('unexpected upstream source fetch')
+    }
+    return Promise.resolve({
+      data: {
+        success: true,
+        data: {
+          expected_digest: 'b'.repeat(64),
+          runtime_ready: true,
+          snapshot: { state: { revision: 1 } },
+          receipts: [
+            {
+              id: publicationID,
+              actor_id: 1,
+              action: 'publish',
+              created_at: 1700000000,
+              revision: 1,
+            },
+          ],
+        },
+      },
+    })
+  })
+  renderSource()
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Effective price publication' })
+  )
+  expect(
+    await screen.findByRole('button', { name: `Rollback: ${publicationID}` })
+  ).toBeEnabled()
+  expect(api.get).toHaveBeenCalledTimes(1)
+  expect(api.post).not.toHaveBeenCalled()
+})
+
 test('manual source fetch preserves decimal prices and distinguishes unquoted values from zero without writes', async () => {
   vi.mocked(api.get).mockResolvedValue({
     data: { success: true, data: fixture },
@@ -79,6 +116,10 @@ test('manual source fetch preserves decimal prices and distinguishes unquoted va
   await userEvent.tab()
   await userEvent.tab()
   await userEvent.tab()
+  await userEvent.tab()
+  expect(
+    screen.getByRole('button', { name: 'Effective price publication' })
+  ).toHaveFocus()
   await userEvent.tab()
   expect(
     screen.getByRole('table', { name: 'OpenAI official pricing source' })

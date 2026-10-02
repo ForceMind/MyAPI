@@ -160,14 +160,16 @@ function PriceSourceSession(props: {
         </a>
       </div>
       <OpenAIPriceVersionForm disabled={busy} onRead={readSource} />
-      {selection.kind === 'frozen' && query.data && !query.isError && (
-        <PricePublicationPanel
-          key={selection.digest}
-          digest={selection.digest}
-          userID={props.userID}
-          role={props.role}
-        />
-      )}
+      <PricePublicationPanel
+        key={selection.kind === 'frozen' ? selection.digest : 'history'}
+        digest={
+          selection.kind === 'frozen' && query.data && !query.isError
+            ? selection.digest
+            : undefined
+        }
+        userID={props.userID}
+        role={props.role}
+      />
       {save.isError && (
         <Alert role='alert' variant='destructive'>
           <AlertDescription>
