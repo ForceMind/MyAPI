@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
 
+import { UserUsagePolicyDialog } from './components/user-usage-policy-dialog'
 import { UsersDeleteDialog } from './components/users-delete-dialog'
 import { UsersMutateDrawer } from './components/users-mutate-drawer'
 import { UsersPrimaryButtons } from './components/users-primary-buttons'
@@ -28,7 +29,7 @@ import { UsersTable } from './components/users-table'
 
 function UsersContent() {
   const { t } = useTranslation()
-  const { open, setOpen, currentRow } = useUsers()
+  const { open, setOpen, currentRow, triggerRefresh } = useUsers()
 
   return (
     <>
@@ -47,6 +48,13 @@ function UsersContent() {
         onOpenChange={(isOpen) => !isOpen && setOpen(null)}
         currentRow={open === 'update' ? currentRow || undefined : undefined}
       />
+      {open === 'usage-policy' && currentRow && (
+        <UserUsagePolicyDialog
+          userId={currentRow.id}
+          onClose={() => setOpen(null)}
+          onSaved={triggerRefresh}
+        />
+      )}
       <UsersDeleteDialog />
     </>
   )

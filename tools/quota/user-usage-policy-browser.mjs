@@ -61,6 +61,7 @@ export async function checkUserUsagePolicyBrowser({ page, origin, output, label,
     await page.evaluate(async () => {
       await Promise.all(document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity).map((animation) => animation.finished.catch(() => {})))
     })
+    assert(await dialog.getByRole('checkbox', { name: label('Use Key limits without a user wallet'), exact: true }).isChecked(), `unsaved policy survives the ${width}px table layout switch`)
     const size = await dialog.evaluate((element) => ({ width: element.getBoundingClientRect().width, scroll: element.scrollWidth, client: element.clientWidth }))
     assert(size.width <= width && size.scroll <= size.client + 1, `user policy fits ${width}px: ${JSON.stringify(size)}`)
     await dialog.screenshot({ path: resolve(output, `user-usage-policy-${width}.png`) })
