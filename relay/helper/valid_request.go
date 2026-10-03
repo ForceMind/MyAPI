@@ -25,6 +25,9 @@ func GetAndValidateRequest(c *gin.Context, format types.RelayFormat) (request dt
 	case types.RelayFormatOpenAI:
 		request, err = GetAndValidateTextRequest(c, relayMode)
 	case types.RelayFormatGemini:
+		if err := validateGeminiOperation(c.Request.URL.Path); err != nil {
+			return nil, err
+		}
 		if strings.Contains(c.Request.URL.Path, ":embedContent") {
 			request, err = GetAndValidateGeminiEmbeddingRequest(c)
 		} else if strings.Contains(c.Request.URL.Path, ":batchEmbedContents") {
@@ -55,6 +58,34 @@ func GetAndValidateRequest(c *gin.Context, format types.RelayFormat) (request dt
 		return nil, fmt.Errorf("unsupported relay format: %s", format)
 	}
 	return request, err
+}
+
+// Native wildcard routes must not turn a tokenizer/unknown operation into a
+// generation request. Validate before parsing its body or reserving any quota.
+// The historical bare-model default and internal channel tests stay unchanged.
+func validateGeminiOperation(requestPath string) error {
+	var resource string
+	switch {
+	case strings.HasPrefix(requestPath, "/v1beta/models/"):
+		resource = strings.TrimPrefix(requestPath, "/v1beta/models/")
+	case strings.HasPrefix(requestPath, "/v1/models/"):
+		resource = strings.TrimPrefix(requestPath, "/v1/models/")
+	default:
+		return nil
+	}
+	if !strings.Contains(resource, ":") {
+		return nil
+	}
+	model, action, ok := strings.Cut(resource, ":")
+	if !ok || model == "" || strings.Contains(action, ":") {
+		return errors.New("unsupported Gemini operation")
+	}
+	switch action {
+	case "generateContent", "streamGenerateContent", "embedContent", "batchEmbedContents", "predict":
+		return nil
+	default:
+		return errors.New("unsupported Gemini operation")
+	}
 }
 
 func GetAndValidAudioRequest(c *gin.Context, relayMode int) (*dto.AudioRequest, error) {

@@ -1,5 +1,17 @@
 # R1 接管与当前迭代（2026-10-02）
 
+## Gemini 显式操作准入补修（2026-10-03 13:23 北京时间）
+
+2026-10-03 13:23 北京时间：100429f的CI37098159180十项及Docker37098159164 Full/SQLite-WAL恢复全部成功，此前跳过的backend race均已执行通过，三库恢复0.47/1.00/4.18s。本批仅阻止Gemini原生通配入口将countTokens或未知action当生成请求：在读体、估算、预留和发送前校验显式操作；既有生成/流式/embedding/predict及无后缀默认、内部诊断保持。正确JSON请求头的回归先红后绿，拒绝路径读体次数为0；定向helper/Gemini及race通过，完整根Go/vet通过。无新增计数端点、价格/预算资格、数据库或前端变化，新SHA CI及Full镜像待验。详见R1_CURRENT_ITERATION最新节，真实账户和跨版本验收边界保留。
+
+- 前置[CI37098159180](https://github.com/ForceMind/MyAPI/actions/runs/37098159180)十项及[Docker37098159164](https://github.com/ForceMind/MyAPI/actions/runs/37098159164)全过；合并67552ed树214226538775d01243fc03b840cb4b7b27a30061与100429f相同。旧ebc8e41并发确认失败记录不覆盖。
+- [Gemini官方countTokens](https://ai.google.dev/api/tokens)是独立分词计数操作。旧解析器接受带contents的countTokens，而适配器按模型/stream重新构造生成action，不能把这种接受当作已支持计数。先补明确拒绝，不新增上游请求、默认零价或转换计数结果。
+- 仅检查已有/v1beta/models/及/v1/models/内显式冒号操作。精确允许当前generateContent、streamGenerateContent、embedContent、batchEmbedContents、predict；未知、空后缀、伪前缀/多冒号拒绝。既有无后缀默认与内部渠道测试路径不变，不重构模型转换。
+- 首次测试夹具遗漏Content-Type，产生contents校验失败，不能作为计数误受理的有效复现。修正为application/json后，在未加门禁时7个非法操作均被接受；加门禁后全部拒绝且没有读体。既有7种有效/兼容路径保持通过。没有删除断言或以空内容掩盖问题。
+- helper/Gemini全包2.637s/0.130s、定向race1.059s和完整根Go通过；无relaykit API、前端、数据库或结算变化，原missing/estimated文件未改。最终根vet通过；秘密扫描及新SHA CI证据按同步结果续记。
+- 可查看入口为原生Gemini API错误响应；不提供新的页面/开关。停止条件为本6文件源码/交接文档同步、精确SHA CI及现有Full/SQLite副本恢复通过。真实Gemini账户账单、OAuth、目标部署与跨版本升级/回滚仍未验，R1不可部署。
+
+
 ## 既有并发退款用例确认时序补修（2026-10-03 12:53 北京时间）
 
 2026-10-03 12:53 北京时间：ebc8e41的Docker37096798991 Full/SQLite-WAL恢复成功，主CI37096798994九项成功、Backend在旧TestRefundMidjourneyQuotaLegacyFactConcurrent失败（期望4个成功返回、实际3），其后race跳过。原用例本地30次和完整service5次未重现；加入300ms受控慢写稳定复现同类失败（仅1个确认，金额/日志/幂等断言仍通过）：等待者先耗尽50轮，真正持有者仍在执行。本补修只调整测试确认顺序，首轮4调用仍并发，全部返回后重放pending；每调用总上限仍50、间隔仍2ms，保留4确认和全部原金额/单事实/单日志断言，增加慢处理者确实产生pending的断言。普通与慢写各30轮、race3轮、完整service/vet通过；无退款生产逻辑改动，新SHA CI待验。
