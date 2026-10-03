@@ -12,6 +12,7 @@ const (
 
 const (
 	RealtimeEventTypeResponseDone                   = "response.done"
+	RealtimeEventTypeResponseCreated                = "response.created"
 	RealtimeEventTypeSessionUpdated                 = "session.updated"
 	RealtimeEventTypeSessionCreated                 = "session.created"
 	RealtimeEventResponseAudioDelta                 = "response.audio.delta"
@@ -34,7 +35,9 @@ type RealtimeEvent struct {
 }
 
 type RealtimeResponse struct {
-	Usage *RealtimeUsage `json:"usage"`
+	ID     string         `json:"id,omitempty"`
+	Status string         `json:"status,omitempty"`
+	Usage  *RealtimeUsage `json:"usage"`
 }
 
 type RealtimeUsage struct {
@@ -50,16 +53,18 @@ type RealtimeUsage struct {
 }
 
 type RealtimeSession struct {
-	Modalities              []string                `json:"modalities"`
-	Instructions            string                  `json:"instructions"`
-	Voice                   string                  `json:"voice"`
-	InputAudioFormat        string                  `json:"input_audio_format"`
-	OutputAudioFormat       string                  `json:"output_audio_format"`
-	InputAudioTranscription InputAudioTranscription `json:"input_audio_transcription"`
-	TurnDetection           interface{}             `json:"turn_detection"`
-	Tools                   []RealTimeTool          `json:"tools"`
-	ToolChoice              string                  `json:"tool_choice"`
-	Temperature             float64                 `json:"temperature"`
+	// Derived only from raw session settings; never accepted as wire metadata.
+	AutomaticResponseDisabled bool                    `json:"-"`
+	Modalities                []string                `json:"modalities"`
+	Instructions              string                  `json:"instructions"`
+	Voice                     string                  `json:"voice"`
+	InputAudioFormat          string                  `json:"input_audio_format"`
+	OutputAudioFormat         string                  `json:"output_audio_format"`
+	InputAudioTranscription   InputAudioTranscription `json:"input_audio_transcription"`
+	TurnDetection             interface{}             `json:"turn_detection"`
+	Tools                     []RealTimeTool          `json:"tools"`
+	ToolChoice                string                  `json:"tool_choice"`
+	Temperature               float64                 `json:"temperature"`
 	//MaxResponseOutputTokens int                     `json:"max_response_output_tokens"`
 }
 

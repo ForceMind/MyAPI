@@ -252,3 +252,104 @@ func TestRealtimeAggregationRejectsOverflowWithoutPartialCounters(t *testing.T) 
 	assert.True(t, info.RealtimeUsageUnverified)
 	assert.False(t, info.RealtimeReportedUsage)
 }
+
+func TestRealtimePendingResponseCannotBorrowEarlierReportedUsage(t *testing.T) {
+	for _, mode := range []string{"client requested", "server started"} {
+		t.Run(mode, func(t *testing.T) {
+			client, downstream := realtimeSocketPair(t)
+			upstream, provider := realtimeSocketPair(t)
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest("GET", "/v1/realtime", nil)
+			info := &relaycommon.RelayInfo{ClientWs: downstream, TargetWs: upstream, StartTime: time.Now(), ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "fixture-model"}, UsePrice: true, PriceData: hosttypes.PriceData{UsePrice: true}}
+			finished := make(chan *dto.RealtimeUsage, 1)
+			go func() { _, usage := OpenaiRealtimeHandler(ctx, info); finished <- usage }()
+			valid := []byte(`{"type":"response.done","response":{"id":"finished-response","usage":{"total_tokens":8,"input_tokens":8,"output_tokens":0,"input_token_details":{"text_tokens":8}}}}`)
+			require.NoError(t, provider.WriteMessage(websocket.TextMessage, valid))
+			_, _, err := client.ReadMessage()
+			require.NoError(t, err)
+			if mode == "client requested" {
+				require.NoError(t, client.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.create","event_id":"new-request"}`)))
+				_, _, err = provider.ReadMessage()
+			} else {
+				require.NoError(t, provider.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.created","response":{"id":"unfinished-response","status":"in_progress"}}`)))
+				_, _, err = client.ReadMessage()
+			}
+			require.NoError(t, err, "pending work was actually forwarded")
+			require.NoError(t, provider.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), time.Now().Add(5*time.Second)))
+			usage := <-finished
+			require.NotNil(t, usage)
+			assert.Equal(t, 8, usage.TotalTokens, "do not invent or erase token counts")
+			assert.True(t, info.RealtimeUsageUnverified, "earlier completed response does not prove later inference was free")
+			assert.True(t, usage.UsageIncomplete)
+		})
+	}
+}
+
+func TestRealtimeLifecycleWireCompletionAndAutomaticAmbiguity(t *testing.T) {
+	for _, mode := range []string{"manual complete", "automatic concurrent complete", "automatic concurrent partial", "manual audio disabled", "mixed audio unknown"} {
+		t.Run(mode, func(t *testing.T) {
+			client, downstream := realtimeSocketPair(t)
+			upstream, provider := realtimeSocketPair(t)
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest("GET", "/v1/realtime", nil)
+			info := &relaycommon.RelayInfo{ClientWs: downstream, TargetWs: upstream, StartTime: time.Now(), InputAudioFormat: "pcm16",
+				ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "fixture-model"}, UsePrice: true, PriceData: hosttypes.PriceData{UsePrice: true}}
+			finished := make(chan *dto.RealtimeUsage, 1)
+			go func() { _, usage := OpenaiRealtimeHandler(ctx, info); finished <- usage }()
+			detection := `{"type":"server_vad"}`
+			if mode == "manual audio disabled" {
+				detection = "null"
+			}
+			session := []byte(`{"type":"session.created","session":{"turn_detection":` + detection + `}}`)
+			require.NoError(t, provider.WriteMessage(websocket.TextMessage, session))
+			_, forwarded, err := client.ReadMessage()
+			require.NoError(t, err)
+			assert.Equal(t, session, forwarded)
+			if mode != "manual complete" {
+				audio := []byte(`{"type":"input_audio_buffer.append","audio":"AAAAAA=="}`)
+				require.NoError(t, client.WriteMessage(websocket.TextMessage, audio))
+				_, forwarded, err = provider.ReadMessage()
+				require.NoError(t, err)
+				assert.Equal(t, audio, forwarded)
+			}
+			concurrent := strings.HasPrefix(mode, "automatic concurrent")
+			if !concurrent {
+				request := []byte(`{"type":"response.create"}`)
+				require.NoError(t, client.WriteMessage(websocket.TextMessage, request))
+				_, forwarded, err = provider.ReadMessage()
+				require.NoError(t, err)
+				assert.Equal(t, request, forwarded)
+			}
+			ids := []string{"a"}
+			if concurrent {
+				ids = append(ids, "b")
+			}
+			for _, id := range ids {
+				created := []byte(`{"type":"response.created","response":{"id":"` + id + `","status":"in_progress"}}`)
+				require.NoError(t, provider.WriteMessage(websocket.TextMessage, created))
+				_, forwarded, err = client.ReadMessage()
+				require.NoError(t, err)
+				assert.Equal(t, created, forwarded)
+			}
+			completed := 0
+			for index := len(ids) - 1; index >= 0; index-- {
+				if mode == "automatic concurrent partial" && completed == 1 {
+					break
+				}
+				done := []byte(`{"type":"response.done","response":{"id":"` + ids[index] + `","status":"completed","usage":{"input_tokens":8,"output_tokens":0,"total_tokens":8,"input_token_details":{"text_tokens":8}}}}`)
+				require.NoError(t, provider.WriteMessage(websocket.TextMessage, done))
+				_, forwarded, err = client.ReadMessage()
+				require.NoError(t, err)
+				assert.Equal(t, done, forwarded)
+				completed++
+			}
+			require.NoError(t, provider.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), time.Now().Add(5*time.Second)))
+			usage := <-finished
+			require.NotNil(t, usage)
+			assert.Equal(t, completed*8, usage.TotalTokens)
+			unknown := mode == "automatic concurrent partial" || mode == "mixed audio unknown"
+			assert.Equal(t, unknown, info.RealtimeUsageUnverified)
+			assert.Equal(t, unknown, usage.UsageIncomplete)
+		})
+	}
+}

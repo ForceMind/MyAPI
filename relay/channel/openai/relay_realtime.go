@@ -38,10 +38,14 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*types.
 	var stateMu sync.Mutex
 	var readers sync.WaitGroup
 	localUsage, sumUsage := &dto.RealtimeUsage{}, &dto.RealtimeUsage{}
+	var lifecycle realtimeResponseLifecycle
 
 	handleClient := func(event *dto.RealtimeEvent) error {
 		stateMu.Lock()
 		defer stateMu.Unlock()
+		if err := lifecycle.observeClient(event); err != nil {
+			return err
+		}
 		if event.Type == dto.RealtimeEventTypeSessionUpdate && event.Session != nil && event.Session.Tools != nil {
 			info.RealtimeTools = event.Session.Tools
 		}
@@ -60,6 +64,11 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*types.
 		stateMu.Lock()
 		defer stateMu.Unlock()
 		info.SetFirstResponseTime()
+		if err := lifecycle.observeTarget(event); err != nil {
+			info.RealtimeUsageUnverified = true
+			sumUsage.UsageIncomplete = true
+			return err
+		}
 		switch event.Type {
 		case dto.RealtimeEventTypeResponseDone:
 			if event.Response == nil {
@@ -180,6 +189,10 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*types.
 	}
 	if terminalErr != nil {
 		logger.LogError(c, "realtime error: "+terminalErr.Error())
+	}
+	if lifecycle.needsReview() {
+		info.RealtimeUsageUnverified = true
+		sumUsage.UsageIncomplete = true
 	}
 	if localUsage.TotalTokens != 0 {
 		if err := preConsumeUsage(c, info, localUsage, sumUsage); err != nil {

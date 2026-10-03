@@ -1,5 +1,19 @@
 # R1 接管与当前迭代（2026-10-02）
 
+2026-10-03 19:13 北京时间：d4ec4f5十项CI/三项Docker已全过；下一Realtime在途/断线候选本地验证完成，尚待同批同步与新SHA验收。两类先报告8再发起/开始新回复而无终态的真实隔离WS合同先红后绿，结束时保留已知计数并进入既有待核对；created/done按活动ID匹配，取消请求不能替代终态，正常及并发乱序完成保留。待接受请求和活动回复各最多128、ID512字节，完成即删除活动记录；自动音频与手动请求无法关联时不猜归属，保持未知，服务端明确关闭自动创建的手动音频可正常完成。适配器定向0.033s、adapter/service race1.124/5.369s、独立DTO race1.017s、完整根Go/vet与独立relaykit全测/build/vet全部通过；正常原帧不重写，无DB/UI/新预算或费用规则。仍不是完整进程崩溃恢复或真实供应商账单验收，持续核查R1独立缺口，不把剩余都归为等待外部实例。
+
+## Realtime 在途回复与断线待核对（2026-10-03 18:59 北京时间，进行中）
+
+前置d4ec4f5的CI37117349816十项与Docker37117349812三项全通过，合并94997116树5770b853与HEAD一致；既有三库恢复0.51/1.43/5.27s、schema0.06/0.54/11.00s，最终model race23.647s。新批独立叠加，不覆盖该次原始usage证据结果。
+
+- 新复现：先收到已完成8 Token，随后客户端response.create已转发或服务端response.created已转发，但正常关闭前无该后续response.done；两种隔离WebSocket合同均发现UsageIncomplete/RealtimeUsageUnverified仍为false。诊断用Go overlay，不改前置已验提交；最初夹具缺ChannelMeta导致提前panic已纠正，有效红例证明实际转发后才关闭。
+- 当前范围：只在现有Realtime处理器跟踪待接受请求与服务端在途response ID，断线仍有未完成证据则保留已知计数并转已有待核对。完成/取消必须以正确response.done及原始usage为准；不以response.cancel或正常关闭猜0，不引入新费用、预算资格、DB、UI、价格框架或持久账本。
+- 并发与边界：活动ID只保留在途集合，完成即移除，待接受请求和活动回复各最多128个、ID最多512字节；越界保守中止并保留未决，不保存无界会话历史。已出现created后不允许无匹配ID的done替其他回复结算，未知/错误证据不可被后续合法段清洗。
+- 自动VAD与手动请求可能并行；官方协议不提供所有创建请求到created事件的直接关联，不能用任意自动回复抵消未确认的手动请求。没有自动音频输入的手动链、仅自动回复链及服务端明确关闭自动创建后开始的手动音频链可逐条核对；发生无法归属的自动/手动混合则保持未知，不能虚称精确。有效服务端会话设置才建立自动关闭证据，客户端自己声称不算。
+- 依据：[OpenAI官方Realtime类型/事件](https://github.com/openai/openai-node/blob/main/src/resources/realtime/realtime.ts)：response.create触发推理，created表示in_progress，done承载最终状态；out-of-band回复允许并行，cancel仍需等done。沿用前批已完整读取的billingexpr/expr.md，不改变逐Response冻结计价。
+- 验收/入口：relay/channel/openai的生命周期合同与真实隔离WebSocket、独立DTO会话字段证据；验证正常/零用量/取消/并发乱序/重复或未知ID/未终态断线/混合歧义，既有service双writer待核对保持。相关race、完整Go/独立模块和准确SHA CI通过，源码与文档同批同步后关闭本小批；真实账号/OAuth/账单仍独立未验。
+
+
 2026-10-03 18:39 北京时间：Realtime原始证据候选已完成本地验证，尚待同批推送/新SHA CI。四个缺失/矛盾JSON合同先红后绿，不确定用量保留预留；新增双writer实际900余额/100预留及拒绝退款/结算证明。真实隔离WS已知段后空usage、类型错、坏JSON、缺response均保留原计数并标待核对；累计先整体验证再提交，溢出不部分写。明确0/完整文本与逐Response计价保持，表达式使用cr才要求缓存总数明确。最终完整根Go/vet、独立relaykit全测/build/vet通过；service/OpenAI定向0.291/0.030s、race5.152/1.087s，DTO race1.039s。旧冻结报价夹具通知快照1000触发异步通知和全局单位恢复竞争，仅将通知快照置高，实际数据库1000、200收费/日志/零退款断言全保留，复验通过。原missing/estimated文件不变，不扩新预算资格、DB/UI、支付或价格框架。
 
 ## Realtime 原始用量证据收口（2026-10-03 18:23 北京时间，进行中）
