@@ -54,7 +54,10 @@ function PendingUsageReviewSession(props: { actorId: number }) {
         {t('Pending requests')}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className='max-h-[85dvh] min-w-0 overflow-y-auto sm:max-w-2xl'>
+        <DialogContent
+          className='max-h-[85dvh] min-w-0 overflow-y-auto sm:max-w-2xl'
+          showCloseButton={false}
+        >
           <DialogHeader>
             <DialogTitle>{t('Pending requests')}</DialogTitle>
             <DialogDescription>
@@ -140,6 +143,9 @@ function PendingUsageReviewSession(props: { actorId: number }) {
               </Button>
             </div>
           )}
+          <Button variant='outline' onClick={() => setOpen(false)}>
+            {t('Close')}
+          </Button>
         </DialogContent>
       </Dialog>
     </>

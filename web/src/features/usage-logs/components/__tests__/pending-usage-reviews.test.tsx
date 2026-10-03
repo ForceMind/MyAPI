@@ -111,3 +111,15 @@ test('removes root data and controls when the authenticated role changes', async
   ).not.toBeInTheDocument()
   expect(api.post).not.toHaveBeenCalled()
 })
+
+test('provides an explicit close action on the pending request list without writing', async () => {
+  const user = userEvent.setup()
+  renderPending()
+  await user.click(screen.getByRole('button', { name: 'Pending requests' }))
+  await screen.findByRole('button', { name: 'Request ID: pending-without-log' })
+  await user.click(screen.getByRole('button', { name: 'Close' }))
+  await waitFor(() =>
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  )
+  expect(api.post).not.toHaveBeenCalled()
+})
