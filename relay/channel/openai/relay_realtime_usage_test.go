@@ -206,3 +206,49 @@ func TestRealtimeCacheAggregationDoesNotFillUnknownPartsOrAliasSource(t *testing
 	assert.Equal(t, 2, total.InputTokenDetails.ImageTokens)
 	assert.Equal(t, 1, total.OutputTokenDetails.ImageTokens)
 }
+
+func TestRealtimeRawInvalidSegmentKeepsEarlierCountsButPreventsConfirmedSettlement(t *testing.T) {
+	for _, raw := range []string{
+		`{"type":"response.done","response":{"usage":{}}}`,
+		`{"type":"response.done","response":{"usage":{"total_tokens":"invalid"}}}`,
+		`{"type":"response.done"}`,
+		`{invalid`,
+	} {
+		t.Run(raw, func(t *testing.T) {
+			client, downstream := realtimeSocketPair(t)
+			upstream, provider := realtimeSocketPair(t)
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest("GET", "/v1/realtime", nil)
+			info := &relaycommon.RelayInfo{ClientWs: downstream, TargetWs: upstream, StartTime: time.Now(), UsePrice: true, PriceData: hosttypes.PriceData{UsePrice: true}}
+			finished := make(chan *dto.RealtimeUsage, 1)
+			go func() { _, usage := OpenaiRealtimeHandler(ctx, info); finished <- usage }()
+			valid := []byte(`{"type":"response.done","response":{"usage":{"total_tokens":8,"input_tokens":8,"output_tokens":0,"input_token_details":{"text_tokens":8}}}}`)
+			require.NoError(t, provider.WriteMessage(websocket.TextMessage, valid))
+			_, forwarded, err := client.ReadMessage()
+			require.NoError(t, err)
+			assert.Equal(t, valid, forwarded)
+			require.NoError(t, provider.WriteMessage(websocket.TextMessage, []byte(raw)))
+			usage := <-finished
+			require.NotNil(t, usage)
+			assert.Equal(t, 8, usage.InputTokens)
+			assert.Equal(t, 8, usage.TotalTokens)
+			assert.True(t, usage.UsageIncomplete)
+			assert.True(t, info.RealtimeUsageUnverified)
+		})
+	}
+}
+
+func TestRealtimeAggregationRejectsOverflowWithoutPartialCounters(t *testing.T) {
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	info := &relaycommon.RelayInfo{UsePrice: true, PriceData: hosttypes.PriceData{UsePrice: true}}
+	total := &dto.RealtimeUsage{TotalTokens: 2147483647, InputTokens: 2147483647,
+		InputTokenDetails: dto.InputTokenDetails{TextTokens: 2147483647, CachedTokens: 1, CachedTokensDetails: dto.NewCachedTokenDetails(1, 0, 0)}}
+	usage := &dto.RealtimeUsage{TotalTokens: 1, InputTokens: 1, InputTokenDetails: dto.InputTokenDetails{TextTokens: 1, CachedTokens: 1, CachedTokensDetails: dto.NewCachedTokenDetails(1, 0, 0)}}
+	require.Error(t, preConsumeUsage(ctx, info, usage, total, true))
+	assert.Equal(t, 2147483647, total.TotalTokens)
+	assert.Equal(t, 2147483647, total.InputTokenDetails.TextTokens)
+	assert.Equal(t, 1, *total.InputTokenDetails.CachedTokensDetails.TextTokens)
+	assert.True(t, total.UsageIncomplete)
+	assert.True(t, info.RealtimeUsageUnverified)
+	assert.False(t, info.RealtimeReportedUsage)
+}

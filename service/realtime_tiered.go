@@ -21,7 +21,11 @@ func RecordRealtimeTieredResponse(info *relaycommon.RelayInfo, usage *dto.Realti
 		info.RealtimeTieredPricing = &relaycommon.RealtimeTieredPricing{ExprHash: snap.ExprHash, QuotaPerUnit: snap.QuotaPerUnit, GroupRatio: snap.GroupRatio}
 	}
 	state := info.RealtimeTieredPricing
-	if usage == nil || snap.ExprHash != billingexpr.ExprHashString(snap.ExprString) ||
+	if usage != nil && usage.RawUsageObserved && usage.InputTokens > 0 && !usage.CachedTokensReported && billingexpr.UsedVars(snap.ExprString)["cr"] {
+		state.Incomplete = true
+		return fmt.Errorf("realtime cache pricing lacks reported cache count")
+	}
+	if usage == nil || usage.UsageIncomplete || snap.ExprHash != billingexpr.ExprHashString(snap.ExprString) ||
 		state.ExprHash != snap.ExprHash || state.QuotaPerUnit != snap.QuotaPerUnit || state.GroupRatio != snap.GroupRatio {
 		state.Incomplete = true
 		return fmt.Errorf("realtime tiered quote lacks stable usage or expression")

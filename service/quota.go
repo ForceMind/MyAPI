@@ -207,6 +207,12 @@ func PostWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, mod
 		if relayInfo.RealtimeUsageUnverified {
 			reason = "estimated"
 		}
+		if usage.UsageIncomplete {
+			reason = "partial"
+		}
+		if snapshot := relayInfo.TieredBillingSnapshot; snapshot != nil && usage.RawUsageObserved && usage.InputTokens > 0 && !usage.CachedTokensReported && billingexpr.UsedVars(snapshot.ExprString)["cr"] {
+			reason = "partial"
+		}
 		if state := relayInfo.RealtimeTieredPricing; state != nil && state.Incomplete {
 			reason = "partial"
 		}

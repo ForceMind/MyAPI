@@ -3,6 +3,7 @@ package openai
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/ForceMind/MyAPI/common"
@@ -62,6 +63,8 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*types.
 		switch event.Type {
 		case dto.RealtimeEventTypeResponseDone:
 			if event.Response == nil {
+				info.RealtimeUsageUnverified = true
+				sumUsage.UsageIncomplete = true
 				return fmt.Errorf("response.done is missing response")
 			}
 			if event.Response.Usage != nil {
@@ -129,6 +132,12 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*types.
 			}
 			event := &dto.RealtimeEvent{}
 			if err := common.Unmarshal(message, event); err != nil {
+				if label == "target" {
+					stateMu.Lock()
+					info.RealtimeUsageUnverified = true
+					sumUsage.UsageIncomplete = true
+					stateMu.Unlock()
+				}
 				errChan <- fmt.Errorf("error unmarshalling message: %w", err)
 				return
 			}
@@ -185,18 +194,34 @@ func preConsumeUsage(ctx *gin.Context, info *relaycommon.RelayInfo, usage *dto.R
 		return fmt.Errorf("invalid usage pointer")
 	}
 
-	totalUsage.TotalTokens += usage.TotalTokens
-	totalUsage.InputTokens += usage.InputTokens
-	totalUsage.OutputTokens += usage.OutputTokens
-	totalUsage.InputTokenDetails.CachedTokens += usage.InputTokenDetails.CachedTokens
-	totalUsage.InputTokenDetails.TextTokens += usage.InputTokenDetails.TextTokens
-	totalUsage.InputTokenDetails.AudioTokens += usage.InputTokenDetails.AudioTokens
-	totalUsage.InputTokenDetails.ImageTokens += usage.InputTokenDetails.ImageTokens
+	if usage.UsageIncomplete {
+		info.RealtimeUsageUnverified = true
+		totalUsage.UsageIncomplete = true
+		return fmt.Errorf("realtime usage lacks complete reported counts")
+	}
+
+	// Validate the whole addition before publishing it. A rejected segment must
+	// not wrap counts or partially change a previously known aggregate.
+	next := *totalUsage
+	next.InputTokenDetails = dto.CloneInputTokenDetails(totalUsage.InputTokenDetails)
+	values := []struct {
+		destination *int
+		delta       int
+	}{
+		{&next.TotalTokens, usage.TotalTokens}, {&next.InputTokens, usage.InputTokens}, {&next.OutputTokens, usage.OutputTokens},
+		{&next.InputTokenDetails.CachedTokens, usage.InputTokenDetails.CachedTokens},
+		{&next.InputTokenDetails.TextTokens, usage.InputTokenDetails.TextTokens},
+		{&next.InputTokenDetails.AudioTokens, usage.InputTokenDetails.AudioTokens},
+		{&next.InputTokenDetails.ImageTokens, usage.InputTokenDetails.ImageTokens},
+		{&next.OutputTokenDetails.TextTokens, usage.OutputTokenDetails.TextTokens},
+		{&next.OutputTokenDetails.AudioTokens, usage.OutputTokenDetails.AudioTokens},
+		{&next.OutputTokenDetails.ImageTokens, usage.OutputTokenDetails.ImageTokens},
+	}
 	if cached := usage.InputTokenDetails.CachedTokensDetails; cached != nil {
-		if totalUsage.InputTokenDetails.CachedTokensDetails == nil {
-			totalUsage.InputTokenDetails.CachedTokensDetails = &dto.CachedTokenDetails{}
+		if next.InputTokenDetails.CachedTokensDetails == nil {
+			next.InputTokenDetails.CachedTokensDetails = &dto.CachedTokenDetails{}
 		}
-		totalCached := totalUsage.InputTokenDetails.CachedTokensDetails
+		totalCached := next.InputTokenDetails.CachedTokensDetails
 		for _, part := range []struct {
 			source      *int
 			destination **int
@@ -209,12 +234,21 @@ func preConsumeUsage(ctx *gin.Context, info *relaycommon.RelayInfo, usage *dto.R
 			if *part.destination == nil {
 				*part.destination = common.GetPointer(0)
 			}
-			**part.destination += *part.source
+			values = append(values, struct {
+				destination *int
+				delta       int
+			}{*part.destination, *part.source})
 		}
 	}
-	totalUsage.OutputTokenDetails.TextTokens += usage.OutputTokenDetails.TextTokens
-	totalUsage.OutputTokenDetails.AudioTokens += usage.OutputTokenDetails.AudioTokens
-	totalUsage.OutputTokenDetails.ImageTokens += usage.OutputTokenDetails.ImageTokens
+	for _, value := range values {
+		if *value.destination < 0 || *value.destination > math.MaxInt32 || value.delta < 0 || value.delta > math.MaxInt32-*value.destination {
+			info.RealtimeUsageUnverified = true
+			totalUsage.UsageIncomplete = true
+			return fmt.Errorf("realtime usage accumulation exceeds supported counts")
+		}
+		*value.destination += value.delta
+	}
+	*totalUsage = next
 	if len(reported) > 0 && reported[0] {
 		info.RealtimeReportedUsage = true
 		if err := service.RecordRealtimeTieredResponse(info, usage); err != nil {

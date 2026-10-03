@@ -67,7 +67,9 @@ func TestAudioAndRealtimeFixedPriceSettlementKeepsQuote(t *testing.T) {
 			settler := &textQuotaTestSettler{preConsumed: 200}
 			info := &relaycommon.RelayInfo{
 				ChannelMeta: &relaycommon.ChannelMeta{ChannelId: 89},
-				UserId:      89, UserQuota: 1000, StartTime: time.Now(), OriginModelName: "audio-unit-fixture",
+				// Notification snapshot stays above the warning threshold; database
+				// quota and all frozen-price/accounting assertions remain unchanged.
+				UserId: 89, UserQuota: 1 << 30, StartTime: time.Now(), OriginModelName: "audio-unit-fixture",
 				Billing: settler, FinalPreConsumedQuota: 200,
 				PriceData: hosttypes.PriceData{UsePrice: true, ModelPrice: 2, GroupRatioInfo: hosttypes.GroupRatioInfo{GroupRatio: 1}},
 			}
