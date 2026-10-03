@@ -75,6 +75,12 @@ record(
 )
 
 record(
+  'upgrade refuses automatic image rollback after target startup was attempted',
+  includes(cli, ['targetStartAttempted = true', 'if (targetStartAttempted)', 'database may have changed', 'automatic image rollback was not attempted', 'No database restore was performed']) &&
+    includes(tests, ['upgrade does not restart the old image after target startup may have migrated the database']),
+)
+
+record(
   'installer validates compose configuration before pull/build',
   includes(installer, ['docker compose', 'config --quiet', 'MYAPI_CPU_LIMIT', 'MYAPI_MEMORY_LIMIT']),
 )

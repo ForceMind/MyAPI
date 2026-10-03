@@ -1,5 +1,17 @@
 # My API 升级、切换与恢复演练
 
+## R1 升级失败边界（2026-10-03）
+
+新版本启动后可能已经自动迁移数据库，健康检查失败不证明数据仍与旧镜像兼容。
+
+- 在尝试目标 `compose up` **之前**发生拉取、digest解析等失败：仍恢复原环境文件并健康检查旧部署。
+- 一旦尝试目标启动（包括超时、命令结果不明）：保留目标环境文件及部署现场，返回失败；**不自动改回旧镜像、不自动重新启动旧部署**。
+- `backups/*.env` 只保存原环境文件，不是数据库备份。CLI 不创建或恢复数据库备份，也不能确认数据库是否已迁移。
+- 此时先核对目标容器状态、停止写入并保留失败证据；需要回退时，必须先在获准副本上验证并恢复升级前的数据库备份，再按明确授权恢复对应旧镜像和环境。不要让旧二进制直接连接可能已迁移的数据库。
+- `upgrade --dry-run --json` 会报告 `rollbackPolicy=manual-database-verification-after-target-start`；这只是安全策略说明，不是容器或数据库演练通过。
+
+本次故障注入只使用临时项目和假Docker程序，验证启动前/后的不同边界及0600环境备份，不替代实际容器、OAuth、账户、账单或生产恢复验收。
+
 > 当前状态：本页前半部分记录当前 Legacy Docker 升级事实；统一 Release Manifest、原生/Desktop 更新、产品形态切换、持久 journal 和数据库安全回退仍未实现。现有 schema-1 纯结构 selector 不读取受信资产、不安装或更新，参见 [发行制品、安装与更新合同](RELEASE_MANIFEST.md)。
 
 当前 `myapi upgrade` 是显式 Legacy Docker 操作：它会校验版本、备份 `deploy/.env`、拉取固定 GHCR 镜像、等待健康检查，并在失败时恢复环境文件和旧镜像。它不会替管理员猜测数据库类型，也不会自动复制生产数据库；“旧镜像已恢复”不等于数据库已安全回退。
@@ -73,7 +85,7 @@ S5-P 分析 worker 在维护开始时停止提交新的模型请求；已经发�
 且两者都不应作为生产升级目标。如需避免版本 tag 在拉取后被重新指向，可在副本升级时增加 `--pin-digest`，或在
 `deploy/.env` 设置 `MYAPI_PIN_IMAGE_DIGEST=true`。CLI 会先拉取版本 tag，再读取本机
 `RepoDigests`，严格校验 `repo@sha256:<64 hex>` 后把该 digest 写回环境文件；若同时
-使用 `--verify-signature`，cosign 会验证最终 digest。解析失败会触发原环境回滚。
+使用 `--verify-signature`，cosign 会验证最终 digest。解析失败发生在目标启动前，仍会触发原环境回滚。
 该选项不是 dry-run 的一部分，dry-run 不访问 Docker 或 GHCR。
 
 `--dry-run` 是升级前的安全门，不等同于数据库恢复测试。恢复测试必须使用复制出的 SQLite 文件或经批准的
@@ -97,7 +109,7 @@ CLI 的环境文件和旧部署回滚路径可以在没有 Docker daemon、GHCR 
 在源码仓库执行：
 
 ```bash
-node --test --test-name-pattern="upgrade restores the environment" cli/test/myapi.test.mjs
+node --test --test-name-pattern="upgrade (restores the environment|does not restart the old image)" cli/test/myapi.test.mjs
 ```
 
 这个测试只证明 CLI 的失败处理和文件权限（环境备份为 `0600`）；它不能替代副本上的真实镜像健康检查或数据库
@@ -110,7 +122,7 @@ node --test --test-name-pattern="upgrade restores the environment" cli/test/myap
 - 新镜像健康检查通过前保留旧镜像和旧数据卷；不要强制移动现有 tag。
 - 升级失败时保留 CLI 输出、容器状态和备份校验和，再人工决定是否回滚。
 
-当前 CLI 的自动回滚范围是环境文件和镜像部署状态；数据库备份/恢复仍需按组织的 PostgreSQL/SQLite 运维流程执行。本页是演练清单，不会触发任何生产操作。
+当前 CLI 仅在目标启动尚未尝试时自动恢复环境文件和旧部署；一旦尝试目标启动，就不自动回退镜像或环境文件，必须先人工核验数据库。数据库备份/恢复仍需按组织的 PostgreSQL/SQLite 运维流程执行。本页是演练清单，不会触发任何生产操作。
 
 ## 最近一次本机副本演练
 

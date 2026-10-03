@@ -260,6 +260,7 @@ test('upgrade dry-run validates a copy without writing files or invoking Docker'
   assert.equal(result.edition, 'full')
   assert.equal(result.targetImage, 'ghcr.io/forcemind/myapi:v0.2.0')
   assert.equal(result.imageSource, 'ghcr-pull')
+  assert.equal(result.rollbackPolicy, 'manual-database-verification-after-target-start')
   assert.deepEqual(result.writes, [])
   assert.deepEqual(result.dockerOperations, [])
   assert.equal(readFileSync(envPath, 'utf8'), before)
@@ -358,6 +359,41 @@ test('upgrade restores the environment and reruns the old deployment after a pul
   assert.equal(dockerCalls.length, 2)
   assert.match(dockerCalls[0], /pull my-api/)
   assert.match(dockerCalls[1], /up -d --force-recreate --wait --wait-timeout 120/)
+})
+
+test('upgrade does not restart the old image after target startup may have migrated the database', () => {
+  const root = temporaryRoot()
+  const project = path.join(root, 'source')
+  const fakeBin = path.join(root, 'bin')
+  const dockerLog = path.join(root, 'docker.log')
+  mkdirSync(fakeBin)
+  const fakeDocker = path.join(fakeBin, 'docker')
+  writeFileSync(fakeDocker, '#!/bin/sh\n' +
+    'set -eu\n' +
+    'printf "%s\\n" "$*" >> "$MYAPI_FAKE_DOCKER_LOG"\n' +
+    'case " $* " in *" up "*) exit 42 ;; esac\n', { mode: 0o700 })
+  chmodSync(fakeDocker, 0o700)
+  runCli('init', project)
+  runCli('configure', '--project-dir', project, '--public-url', 'https://myapi.example.test')
+  const envPath = path.join(project, 'deploy/.env')
+  const before = readFileSync(envPath, 'utf8')
+  assert.throws(() => runCliWithEnv({ PATH: `${fakeBin}:${process.env.PATH || ''}`, MYAPI_FAKE_DOCKER_LOG: dockerLog },
+    'upgrade', '--project-dir', project, '--version', 'v0.2.0'), (error) => {
+      assert.match(String(error.stderr), /database may have changed/)
+      assert.match(String(error.stderr), /automatic image rollback was not attempted/)
+      return true
+    })
+  const dockerCalls = readFileSync(dockerLog, 'utf8').trim().split(/\r?\n/)
+  assert.equal(dockerCalls.length, 2, 'only pull and the attempted target startup are allowed')
+  assert.match(dockerCalls[0], /pull my-api/)
+  assert.match(dockerCalls[1], /up -d --force-recreate --wait --wait-timeout 120/)
+  const current = readFileSync(envPath, 'utf8')
+  assert.match(current, /^MYAPI_IMAGE=ghcr\.io\/forcemind\/myapi:v0\.2\.0$/m)
+  assert.equal(statSync(envPath).mode & 0o777, 0o600)
+  const backups = readdirSync(path.join(project, 'backups'))
+  assert.equal(backups.length, 1)
+  assert.equal(readFileSync(path.join(project, 'backups', backups[0]), 'utf8'), before)
+  assert.equal(statSync(path.join(project, 'backups', backups[0])).mode & 0o777, 0o600)
 })
 
 test('upgrade can pin the pulled image to its repository digest', () => {
