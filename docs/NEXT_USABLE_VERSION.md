@@ -1,5 +1,33 @@
 # My API 当前修复版交付清单
 
+## 本轮代码核对结论（2026-10-04 00:01 北京时间）
+
+既定R1六项在下述限定支持范围内均已有代码实现与自动化证据；本轮逐项核对入口、权限、正常/异常路径及合同，未发现新的已证实代码缺口。此前已复现的结算、派送、恢复、迁移、UI和OAuth缺陷已分批修复。**代码侧核对完成；真实验收按负责人要求暂缓；R1整版仍未封版，未合并、发布或部署。** 不把历史F1–F8、R2、商业支付启用或未纳入协议扩为本轮已交付内容。
+
+- 运行源码基线：`3337553110c423d70f3e9133f664f729323015f2`，树`30da551e74ca21ddecab97138772c6b52d4fa80a`。准确HEAD的[CI37133546782](https://github.com/ForceMind/MyAPI/actions/runs/37133546782)十项、[Docker37133546820](https://github.com/ForceMind/MyAPI/actions/runs/37133546820)三项全部成功；合并测试7eba4a1a树与HEAD相同。Backend全部选定race实际执行，末model23.892s；原三库R1 .47/.95/3.44s、schema .03/.44/10.16s。前端122文件580测试及合成Chromium窄屏/低高度流程通过。不是全量race或真实上游验收。
+- 本轮额外只读核对公开官网：原15秒fetch首次超时，未放宽应用超时；随后同一正式函数回归5.980s成功，40个型号，原文SHA256为`0d9fb6b240209bb7b5a05d1d6ce0b8a796e0924b7e34c5ab183a3f1f890febe6`。对准确原文运行现有候选资格判定（离线0.035s），7个通过，33个因报价/型号限定等不满足当前合同而拒绝。只读来源不是有效价格发布，未改运行报价或用户预算。
+- 当时合格的价格候选：`gpt-6-astra`、`gpt-6.1-sol`、`gpt-6-luna`、`gpt-6-sol`、`gpt-5.6-sol`、`gpt-5.6-terra`、`gpt-5.6-luna`。这不是账户访问资格、真实费用或所有调用形态可用证明；每次发布仍须验证服务端保存原文、限定条件与Root确认。
+- [官方价格来源](https://developers.openai.com/api/docs/pricing)、[官方Token计数说明](https://developers.openai.com/api/docs/guides/token-counting)、[官方缓存包含关系](https://developers.openai.com/api/docs/guides/prompt-caching)已与当前代码边界核对。使用最终请求的原生计数；缓存读取/写入和reasoning不再重复加进父项。计数/价格档位或原始用量证据不符时待核对，不猜价或自动退款。
+
+### 六项代码入口与合同索引
+
+| R1项 | 源码入口与可查看位置 | 直接合同与异常覆盖 |
+|---|---|---|
+| Key预算、商业关闭、自用计量 | `/keys`、用户策略、通用用量日志；[路由权限](../router/api-router.go)、[严格Token](../service/token_budget.go)、[冻结费用](../service/fee_budget_price.go)、[自用路径](../service/self_use_request.go)、[账户阈值](../model/account_quota_threshold.go) | [实际预算路由](../router/token_budget_test.go)、[恢复权限](../router/usage_review_test.go)、[自用双writer](../service/self_use_billing_test.go)、[费用reported/unknown](../service/fee_budget_test.go)、[三库恢复](../model/usage_review_database_test.go)：保留未知/权限恢复/幂等，明确0与缺失分开 |
+| 多账户额度同图 | `/dashboard`及渠道详情；[同图面板](../web/src/features/dashboard/components/overview/account-quota-changes-panel.tsx)、[历史与账户接口](../controller/codex_usage.go) | [同图合同](../web/src/features/dashboard/components/overview/__tests__/account-quota-changes-panel.test.tsx)：双渠道三账户细线、身份切换隔离、来源/币种不混加、失败/未知不冒充0；[历史合同](../controller/codex_usage_history_test.go)保留同秒不同批次 |
+| 简洁首页/概览 | `/`、`/dashboard`；[首页](../web/src/features/home/index.tsx)、[概览](../web/src/features/dashboard/components/overview/overview-dashboard.tsx) | [首页角色合同](../web/src/features/home/__tests__/home.test.tsx)、[概览权限合同](../web/src/features/dashboard/components/overview/__tests__/overview-dashboard.setup-guide.test.tsx)：访客、普通用户、管理员入口，设置失败可重试，自定义首页保留 |
+| 容器Codex网页登录/刷新 | `/channels`中Codex登录；[接口注册](../router/channel-router.go)、[授权流程](../controller/codex_oauth.go)、[刷新](../service/codex_credential_refresh.go) | [实际路由安全链](../router/codex_oauth_security_test.go)、[状态绑定/保存不回传凭据](../controller/codex_oauth_test.go)、[旋转并发/取消](../service/codex_credential_refresh_test.go)、[禁重定向](../service/codex_oauth_redirect_test.go)、[有效期](../service/codex_oauth_expiry_test.go)及单/多账户异常不覆盖 |
+| 成功测试选项复用 | 渠道详细POST测试、快捷GET复用；[控制器](../controller/channel-test.go)、[条件保存](../model/channel_test_options.go) | [正常复用/失败保留](../controller/channel_test_options_test.go)、[模型/类型更改拒绝及旧快照保护](../model/channel_test_options_test.go)；权限、Origin、no-store及限流仍在路由，不通过放宽429制造成功 |
+| 确切耗尽429避让 | 渠道选路、最终发送前及账户窗口；[精确标记](../service/codex_quota_limit.go)、[选路](../service/codex_quota_routing.go)、[窗口/恢复](../model/channel_quota_routing.go) | [多Key/健康回退](../service/codex_quota_routing_test.go)、[不永久禁用渠道](../controller/codex_quota_routing_marker_test.go)、[重置/每窗口/同秒/未来样本](../model/channel_quota_routing_test.go)：泛化429不当耗尽，共享账户差值不归属某Key |
+
+### 保留的支持边界与后续状态
+
+- 严格Token/USD只支持已纳入的官方原生Responses纯文本及可靠计数/实际用量/适用冻结价；USD要求明确default服务档位。未知暂停和保留仍有效。Codex百分比是独立账户窗口安全阈值，不能与当前直连Token/USD资格在同Key混开。
+- 非充值自用路径只承诺现有已纳入的Chat/Responses/compact等入口；不要把旧余额兼容或Realtime安全修复当成新自用协议资格。订阅渠道API等价成本仅参考，不是实际发票。
+- LAN源码安装、Full合成容器、固定71277bf源码升级及原备份恢复已有证据；默认`0.2.0-beta.1`镜像仍是旧发行版，克隆R1后默认拉镜像不会自动变成R1。安装边界见[R1_INSTALLATION_CHECK](R1_INSTALLATION_CHECK.md)。
+- 真实OAuth/账户采样与重置/429/账单、目标Full HTTPS、其他旧版本/数据库升级及生产回滚均保持“未验/暂缓”，不追问已暂缓的实例问题，也不自动调用真实账号或付费请求。
+- 下一步只继续处理可复现的既定R1缺口或明确的新反馈；不为持续工作重做已通过批次，不通过堆叠合成测试代替真实证据。发现问题先复现，再按有界批修复并同步文档/准确HEAD结果。发布、部署和扩范围仍须独立明确授权。
+
 2026-10-03 23:29 北京时间：ea56fc2重定向批已通过CI37132233162十项和Docker37132233246三项，合并c76f4aa5树68cd35ed与HEAD一致；原三库R1 1.35/3.79/6.14s、schema .05/1.33/14.05s、末model race15.686s，无失败作业重跑。用户明确暂缓真实验收，不再等待测试实例，继续既定R1独立查错。
 
 本批仅修OAuth有效期整数换算：两个入口原先接受超出time.Duration可表示秒数的expires_in，出现1734年或已经过期的成功结果；新增单/多凭据集成红例0.067s还证明该异常结果会替换本地记录。现统一用int64读取秒数，在纳秒换算前拒绝非正或不可表示值，不饱和、不猜默认有效期，也不设猜测的供应商最大期限。缺失/null/0/负数、上界及越界、正常有效期、单/多账户不覆盖、原取消/并发旋转保持，定向service/controller0.127/0.129s通过，最终service/controller相关race2.317/2.819s通过，完整根Go/vet通过（service14.174/controller3.146s，未变包复用缓存）。若提供方已经旋转，保留本地原记录不代表旧凭据仍可用或已自动恢复。无真实凭据/请求、UI、DB结构、TLS/代理、预算/计价或relaykit变更；准确新SHA CI待验，不等同R1封版或部署。
@@ -38,25 +66,25 @@
 
 2026-10-03 16:44 北京时间：81db217的主CI37109685228九项成功，B2新增旧迁移schema合同在PostgreSQL9.6的CacheApplied断言失败，SQLite/MySQL通过；原450及201条恢复/跨页race已在Backend通过，Docker37109685169两项全过。当前补修识别旧schema的全空白定长指纹，保持原旧缓存已应用约定；当前schema不凭空白推断已应用。64空格夹具先红后绿，增加精确payload指纹断言，输出合成旧列长度以核对实库差异。定向0.423s/race3.229s、完整根Go/vet及workflow检查通过，新SHA实库待验，不删除原失败或标整版完成。
 
-## 当前 R1 六项执行表（2026-10-03 23:29 北京时间）
+## 当前 R1 六项执行表（2026-10-04 00:01 北京时间）
 
 本表维护当前状态；后面的逐日记录保留原始失败与当时结论，不能把历史“未实现”或“已通过”当作本次提交的状态。最新远端结果见 [PR #2](https://github.com/ForceMind/MyAPI/pull/2)，本轮详情见 [R1_CURRENT_ITERATION](R1_CURRENT_ITERATION.md)。
 
-|既定 R1 项|当前代码与已有证据|仍需收口/验收|
-|---|---|---|
-|API Key 预算、商业默认关闭|零余额自用、Key旧限额、未知保留/暂停、Root幂等恢复、价格发布/冻结、实际Token/USD和账户阈值已接线；三库合同和合成浏览器通过|严格Token/USD限定合格官方原生Responses纯文本；Codex百分比是账户窗口安全阈值，不能混开不同资格。legacy追加预留和WebSocket持久派送均三库/准确SHA通过；完整reported分段检查点、崩溃后已知费用下限已在7964cf7准确SHA/三库通过。真实用量/费用对照、未纳入协议不得宣称已支持|
-|多渠道多账户额度同图|细线同图、账户/窗口系列选择、统一历史/趋势已有；后台多Key采样、身份隔离及确切429证据保留|Codex未知/真实0展示已收口，580测试及320/1280截图通过；真实账户重置/采样仍需验。专用原始usage历史API无独立新页面，不因接口存在就重复造图|
-|简洁首页和概览|已有角色入口、去商业展示、活动和概览组件；合成Chromium验证通过|目标环境真实会话/历史数据和实际使用验收，不能把合成浏览器称生产验证|
-|容器Codex网页登录|授权状态绑定、新建渠道、凭据条件更新、限时刷新与采样已有代码及回归|凭据POST重定向ea56fc2准确SHA全过；当前修有效期溢出及保存前拒绝，本地定向/race/完整验证通过，新SHA CI待验；真实OAuth授权、过期/刷新/重放及并发改钥仍未验，按用户要求暂缓，不阻塞独立开发|
-|连接测试复用成功选项|model/endpoint/stream成功保存复用，失败保留，POST同源/no-store/限流保留|真实上游验证；配置限流导致429须如实显示，不能为“通过”放宽限流|
-|耗尽账户避让|确切耗尽429持久化、身份/新鲜度/重置保护、选路与发送前门禁已有；三库及代码回归通过|真实账号请求计数、重置后的恢复和目标部署验证，不按共享账户差值归属单Key|
+|既定 R1 项|代码侧状态|当前代码与已有证据|使用/证据边界（真实验收暂缓）|
+|---|---|---|---|
+|API Key 预算、商业默认关闭|限定范围已实现，自动化通过|零余额自用、Key旧限额、未知保留/暂停、Root幂等恢复、价格发布/冻结、实际Token/USD和账户阈值已接线；三库合同和合成浏览器通过|严格Token/USD限定合格官方原生Responses纯文本；Codex百分比是账户窗口安全阈值，不能混开不同资格。legacy追加预留和WebSocket持久派送均三库/准确SHA通过；完整reported分段检查点、崩溃后已知费用下限已在7964cf7准确SHA/三库通过。真实用量/费用对照、未纳入协议不得宣称已支持|
+|多渠道多账户额度同图|限定范围已实现，自动化通过|细线同图、账户/窗口系列选择、统一历史/趋势已有；后台多Key采样、身份隔离及确切429证据保留|Codex未知/真实0展示已收口，580测试及320/1280截图通过；真实账户重置/采样仍需验。专用原始usage历史API无独立新页面，不因接口存在就重复造图|
+|简洁首页和概览|限定范围已实现，自动化通过|已有角色入口、去商业展示、活动和概览组件；合成Chromium验证通过|目标环境真实会话/历史数据和实际使用验收，不能把合成浏览器称生产验证|
+|容器Codex网页登录|限定范围已实现，自动化通过|授权状态绑定、新建渠道、凭据条件更新、限时刷新与采样已有代码及回归|凭据POST重定向ea56fc2准确SHA全过；有效期溢出及保存前拒绝3337553也已准确SHA全过；真实OAuth授权、过期/刷新/重放及并发改钥仍未验，按用户要求暂缓，不阻塞独立开发|
+|连接测试复用成功选项|限定范围已实现，自动化通过|model/endpoint/stream成功保存复用，失败保留，POST同源/no-store/限流保留|真实上游验证；配置限流导致429须如实显示，不能为“通过”放宽限流|
+|耗尽账户避让|限定范围已实现，自动化通过|确切耗尽429持久化、身份/新鲜度/重置保护、选路与发送前门禁已有；三库及代码回归通过|真实账号请求计数、重置后的恢复和目标部署验证，不按共享账户差值归属单Key|
 
 ### 当前收口顺序与交付门槛
 
 1. 已收口：额度“未知与真实0”展示；9610234的组件/类型/lint/构建、320/1280px浏览器和10项CI已过，代码/文档同步
 2. 已收口：迁移扫描/中断续跑和PG定长空白兼容；e14fbb4十项CI、原450及201条相关race24.291s、新schema三库和LAN/Full均通过，原期限/金额/断言不变
 3. 已收口：固定71277bf交接源码→13add0f同树源码的SQLite迁移，以及原备份→旧源码恢复；原用户/Key/单日志身份、限额与零余额策略不变。Docker37112438620三项和CI37112438675十项通过；不是已发布版本CLI升级或生产回滚
-4. 当前独立开发：Realtime原始usage d4ec4f5、在途身份/断线c00bfe1、握手取消e7db850、legacy原子扩预留0b391bc、持久派送f77c10d均已准确SHA十项CI/三项Docker通过；分段检查点及恢复下限7964cf7也已准确SHA通过。OAuth重定向ea56fc2准确SHA也已全过。当前只修OAuth有效期溢出及异常结果保存，先红后绿候选本地完整验证通过，待准确SHA CI。复用既有账务，不清除派送标记来扩额，不把未知尾段冒充已知。真实OAuth、账户采样/429、账单与目标Full HTTPS是并行未验项，需要具体实例与授权；不阻塞独立修复，也不以合成测试冒充真实验收
+4. 已收口并复核：Realtime原始usage d4ec4f5、在途身份/断线c00bfe1、握手取消e7db850、legacy原子扩预留0b391bc、持久派送f77c10d均已准确SHA十项CI/三项Docker通过；分段检查点及恢复下限7964cf7也已准确SHA通过。OAuth重定向ea56fc2准确SHA也已全过。有效期溢出及异常结果保存3337553也已准确SHA全过。本轮六项源码/权限/合同核对完成，未发现新的已证实缺口；后续仅按可复现问题继续有界修复。复用既有账务，不清除派送标记来扩额，不把未知尾段冒充已知。真实OAuth、账户采样/429、账单与目标Full HTTPS是并行未验项，需要具体实例与授权；不阻塞独立修复，也不以合成测试冒充真实验收
 5. 六项验收未闭合前不封版、不宣称可部署；合并/发布/部署仍需明确授权。R2、旧F1–F8、支付商和动态插件不进入本轮
 
 安装入口和默认旧版本风险见 [R1_INSTALLATION_CHECK](R1_INSTALLATION_CHECK.md)。84b1c5b已通过10项CI、LAN实际源码安装与Full/SQLite恢复；9610234的580前端/截图和10项CI已过；迁移批e14fbb4现已全绿；源码快照升级批13add0f亦已取得10项CI与3项Docker成功证据。没有将“等待用户选测试机”继续作为独立开发的阻塞。
