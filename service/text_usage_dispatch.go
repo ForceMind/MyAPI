@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/ForceMind/MyAPI/model"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
+	"github.com/ForceMind/MyAPI/relaykit/dto"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,9 +18,15 @@ func textUsageDispatchSession(c *gin.Context, info *relaycommon.RelayInfo) *Bill
 	}
 	// Query parameters cannot bypass a guard for the same billable route.
 	switch c.Request.URL.Path {
-	case "/v1/chat/completions", "/v1/responses", "/v1/responses/compact":
+	case "/v1/chat/completions", "/v1/completions", "/v1/messages", "/v1/responses", "/v1/responses/compact":
 	default:
-		return nil
+		// Existing Gemini wildcard routes select generation from the validated
+		// request, and the adaptor constructs the upstream action itself. Checking
+		// just a URL action suffix would leave alternate accepted spellings unguarded.
+		generation, ok := info.Request.(*dto.GeminiChatRequest)
+		if !ok || generation == nil || (!strings.HasPrefix(c.Request.URL.Path, "/v1beta/models/") && !strings.HasPrefix(c.Request.URL.Path, "/v1/models/")) {
+			return nil
+		}
 	}
 	session, _ := info.Billing.(*BillingSession)
 	return session

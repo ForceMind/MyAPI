@@ -132,3 +132,44 @@ func TestOrdinaryTextTransportDoesNotSendWithoutDurableEvidence(t *testing.T) {
 	assert.True(t, service.FinalizeTextUsageDispatch(ctx, info))
 	require.ErrorIs(t, info.Billing.Refund(ctx), model.ErrAccountQuotaUsageUnresolved)
 }
+
+func TestNativeTextTransportDoesNotReplayOrRefundAcceptedPost(t *testing.T) {
+	for _, path := range []string{"/v1/messages", "/v1beta/models/gemini-fixture:generateContent"} {
+		t.Run(path, func(t *testing.T) {
+			service.InitHttpClient()
+			var calls atomic.Int32
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodGet {
+					_, _ = io.WriteString(w, "warm")
+					return
+				}
+				calls.Add(1)
+				_, _ = io.Copy(io.Discard, r.Body)
+				connection, _, err := w.(http.Hijacker).Hijack()
+				if err == nil {
+					_ = connection.Close()
+				}
+			}))
+			defer upstream.Close()
+			warm, err := service.GetHttpClient().Get(upstream.URL)
+			require.NoError(t, err)
+			_, _ = io.Copy(io.Discard, warm.Body)
+			require.NoError(t, warm.Body.Close())
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest("POST", path+"?trace=fixture", nil)
+			info := textDispatchTransportFixture(t, ctx)
+			if path != "/v1/messages" {
+				info.Request = &dto.GeminiChatRequest{}
+			}
+			request, err := http.NewRequest("POST", upstream.URL, bytes.NewReader([]byte("synthetic")))
+			require.NoError(t, err)
+			request.Header.Set("Idempotency-Key", "synthetic-native-dispatch")
+			_, err = doRequest(ctx, request, info)
+			require.Error(t, err)
+			assert.EqualValues(t, 1, calls.Load())
+			assert.Nil(t, request.GetBody)
+			assert.True(t, service.FinalizeTextUsageDispatch(ctx, info))
+			require.ErrorIs(t, info.Billing.Refund(ctx), model.ErrAccountQuotaUsageUnresolved)
+		})
+	}
+}

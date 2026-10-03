@@ -1,5 +1,18 @@
 # R1 接管与当前迭代（2026-10-02）
 
+## 已有原生文本发送保护候选（2026-10-03 12:28 北京时间）
+
+2026-10-03 12:28 北京时间：ddf60f9的CI37095413909十项及Docker37095413817真实Full/SQLite-WAL恢复全部成功，三库恢复0.50/1.48/5.50s，新Gemini原始用量合同已通过。本批仅将现有发送不确定性保护接到已有/v1/messages、/v1/completions和已验证Gemini生成请求的/v1beta/models/、/v1/models/入口；Gemini适配器自己构造上游action，因此不能仅凭URL后缀决定是否保护。复用现有持久派送、未知保留预留、Root恢复，不改变路由权限、无余额自用或严格预算资格。新作用域/双writer幂等恢复先红后绿，真实HTTP假上游接收断连仅1次、不退款；service/channel定向race6.153/2.047s通过，完整根Go/vet复验通过，新SHA CI/镜像待验。
+
+- 前置[CI37095413909](https://github.com/ForceMind/MyAPI/actions/runs/37095413909)十项和[Docker37095413817](https://github.com/ForceMind/MyAPI/actions/runs/37095413817)全过。合并02d86bc的树0ab04a7ccd53b5222f4abef1f987512cf9c18be5与HEAD一致，镜像sha256:ac9df295762a966029b3696874dc66ed4d8bd809861ecc480519296c9886794c仅CI加载。Gemini新增合同为原始数据/流测试，容器实际请求夹具是合成OpenAI，不冒充真实Gemini账单。
+- 范围：只复用现有BillingSession的普通按Token HTTP文本发送保护。Claude Messages、旧Completions加入准确路径；原生Gemini限定已有models命名空间且请求已经解析成非nil GeminiChatRequest。不是新增端点，也不改变现有适配器选择动作的逻辑，查询参数和已接受的替代路径拼法不能跳过计费保护。
+- 先持久保存派送和冻结计价再调用HTTP；未知网络/读体失败不得自动重发、退款或把估算当实际。已有确定拒绝及429、发送前取消沿用原逻辑。严格Token/USD仍走原独立journal，按次和诊断保持排除，不扩大原生自用支持资格。
+- 作用域、legacy/authoritative四条原生/旧文本路径的未知预留与Root20单位恢复重复执行、真实复用连接+幂等头的接收后断连已验证。新合同先红，原代码未标记派送而保留GetBody；补修后GET、诊断、按次、严格预算、错误请求类型/命名空间仍不误纳入，真实假上游仅一个POST且拒绝自动退款。
+- service/channel相关回归1.611/0.190s、原生路径定向race6.153/2.047s通过；完整根Go/vet复验通过。无前端、数据库结构、relaykit实现或资金语义变更，沿用已有效的三库/恢复机制，不重写前批。原missing/estimated文件未改。
+- 可查看入口仍是用量日志、Root待核对与现有审计恢复；没有新设置或无证据自动恢复。停止条件为源码/四份交接文档同步及新SHA CI、现有Full/副本恢复通过，失败只修本有界批。
+- 原生embedding、audio、WebSocket、异步任务以及所有供应商组合并未因此自动获得此HTTP文本保护声明；真实账户/OAuth/账单、目标部署及跨版本升级恢复仍未验，R1不可封版部署。
+
+
 ## Gemini 原始用量与终态证据候选（2026-10-03 12:00 北京时间）
 
 2026-10-03 12:00 北京时间：7110b9f的CI37092951200十项及Docker37092951223真实Full/SQLite-WAL同镜像恢复全部成功，三库恢复0.40/1.11/5.00s、574前端与Chromium通过。本批只补Gemini有效JSON原始用量/流终态证据：缺失/null/矛盾计数和分类进入既有待核对，明确0不替成本地估算；清除上游注入billing_usage；流要求原始候选结束及对应最终用量，倒退/坏尾部/迟到未完候选拒绝确定计费。缓存与thought按既有包含关系只算一次，不扩大严格Token/USD价格资格或支付。新增DTO/适配器/service合同先红后绿；定向race通过，独立relaykit全测/build/vet通过，最后迟到候选边界补修后完整根Go/vet再次通过。原missing/estimated文件未改，源码文档尚待同批同步，新SHA CI/Full镜像待验。
