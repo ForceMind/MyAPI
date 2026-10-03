@@ -136,7 +136,7 @@ func NewEstimatedGeminiChatBillingUsage(usage *Usage) *BillingUsage {
 }
 
 func newGeminiChatBillingUsage(metadata *GeminiUsageMetadata, estimated bool) *BillingUsage {
-	if !HasGeminiUsageMetadataTokens(metadata) {
+	if !HasGeminiUsageEvidence(metadata) {
 		return nil
 	}
 	usageMetadata := cloneGeminiUsageMetadata(*metadata)
@@ -144,6 +144,7 @@ func newGeminiChatBillingUsage(metadata *GeminiUsageMetadata, estimated bool) *B
 		Source:              BillingUsageSourceGeminiChat,
 		Semantic:            BillingUsageSemanticGemini,
 		Estimated:           estimated,
+		Incomplete:          metadata.RawUsageObserved && (!metadata.PromptTokensReported || !metadata.CandidatesTokensReported || !metadata.TotalTokensReported || metadata.InvalidTokenEvidence),
 		GeminiUsageMetadata: &usageMetadata,
 	}
 }

@@ -1,5 +1,21 @@
 # R1 接管与当前迭代（2026-10-02）
 
+## Gemini 原始用量与终态证据候选（2026-10-03 12:00 北京时间）
+
+2026-10-03 12:00 北京时间：7110b9f的CI37092951200十项及Docker37092951223真实Full/SQLite-WAL同镜像恢复全部成功，三库恢复0.40/1.11/5.00s、574前端与Chromium通过。本批只补Gemini有效JSON原始用量/流终态证据：缺失/null/矛盾计数和分类进入既有待核对，明确0不替成本地估算；清除上游注入billing_usage；流要求原始候选结束及对应最终用量，倒退/坏尾部/迟到未完候选拒绝确定计费。缓存与thought按既有包含关系只算一次，不扩大严格Token/USD价格资格或支付。新增DTO/适配器/service合同先红后绿；定向race通过，独立relaykit全测/build/vet通过，最后迟到候选边界补修后完整根Go/vet再次通过。原missing/estimated文件未改，源码文档尚待同批同步，新SHA CI/Full镜像待验。
+
+- 前置恢复镜像合并05f4179树1c48180f1b60334bbf7e56612133ab9d534396b0与HEAD相同；镜像sha256:1e72f1da41479dffd28124b1321b040ed5dcf3a9c91c0e3b5d8eb51d74969c9d只在CI加载，没有发布。根Go/vet/race、26运行探针与新恢复真实流程均已验，不重做前批。
+- 依赖：11:30完整读取pkg/billingexpr/expr.md。复用BillingUsage.Incomplete/Estimated和现有普通Key待核对/Root审计恢复，不新建writer、表、价格或预算模式。查看入口仍为用量日志及Root待核对；冻结用量语义不把提供商JSON内的billing_usage当可信内部证明。
+- 原始input/candidates/total区分缺失/null和明确0；校验负数、总数矛盾、缓存超输入、分类缺数字与分类总数越界，保留程序构造DTO兼容。归一化thought合入输出一次，缓存仍在输入内；不因零值用估算覆盖可靠证据，不把矛盾total改写成推算total来收费。
+- 流仅采信提供商原始finishReason及对应/之后的完整用量；转换器自行补发的终态不构成证明。累计倒退、解析失败、空坏尾部、晚出现的未完成候选不能沿用旧终态账单。缺输出时原本地估算展示仍可用，但明确Estimated并进入待核对，绝非实际费用。
+- 实际复现：缺输入/输出/total及矛盾total仍确定结算；明确零用量被当缺失；提供商可注入内部billing_usage；无终态、旧usage、倒退与坏尾部被当最终值。新增合同先红后绿，后续复核又以迟到候选/null尾部先红后修。当前adapter/service race1.061/1.491s，dto/converter race1.023/1.071s通过；末轮完整根Go/vet再次通过，变更文件秘密扫描无发现。
+- 旧“缺候选计数”测试的结构体序列化实际写出了0，夹具改成真正省略字段，所有原断言保留。Golden的15总数与10+5+2矛盾，保留原计数并仅新增incomplete标记；克隆夹具不制造原本不存在的零用量证明，不批量重写快照。原service/usage_settlement_contract_test.go未改。
+- 同仓R1分支的现有Docker smoke增加Go路径触发，确保新的后端源码也构建并运行实际Full/副本恢复；仍限一个Full、push:false、私有合成数据，无新测试平台或真实供应商调用。新SHA十项CI、该镜像和新增合同通过后结束本有界批，失败只修当前范围。
+- 范围限制：此处覆盖有效JSON的Gemini计数和现有流处理，不把其他供应商、所有原生路由的派送/读体失败都宣称已保护。严格Token/USD仍仅先前资格；真实Gemini账户/账单、OAuth、目标部署及跨版本升级恢复尚未验收，R1不可封版。
+
+参考：[Google Gemini usage字段](https://ai.google.dev/api/generate-content#UsageMetadata)，prompt包含缓存、thought需区分原候选输出；这不是对真实账单的验证。
+
+
 ## 恢复工作流上下文补修（2026-10-03 11:20 北京时间）
 
 2026-10-03 11:20 北京时间：18eb5cb的Docker配置在调度前失败（37092770363，无执行job），原因是job级env不能引用runner.temp。改为run步骤用RUNNER_TEMP建立准确0700目录，成功创建后通过GITHUB_ENV传给后续步骤；新增回归防止再放回job env。26探针与workflow32合同通过，恢复尚未真正重跑，新SHA运行证据待同步后核验，不把调度失败称容器启动。

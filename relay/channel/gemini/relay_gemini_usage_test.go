@@ -461,6 +461,13 @@ func TestGeminiChatHandlerPromptOnlyUsageMetadataEstimatesCompletionTokens(t *te
 
 	body, err := common.Marshal(payload)
 	require.NoError(t, err)
+	// This fixture means a missing candidate count, not an explicitly reported
+	// zero (the compatibility struct serializes zero-valued integer fields).
+	var wire map[string]interface{}
+	require.NoError(t, common.Unmarshal(body, &wire))
+	delete(wire["usageMetadata"].(map[string]interface{}), "candidatesTokenCount")
+	body, err = common.Marshal(wire)
+	require.NoError(t, err)
 
 	resp := &http.Response{
 		Body: io.NopCloser(bytes.NewReader(body)),

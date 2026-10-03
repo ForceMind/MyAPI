@@ -1,5 +1,7 @@
 # My API 当前开发交接（2026-10-02）
 
+2026-10-03 12:00 北京时间：7110b9f的CI37092951200十项及Docker37092951223真实Full/SQLite-WAL同镜像恢复全部成功，三库恢复0.40/1.11/5.00s、574前端与Chromium通过。本批只补Gemini有效JSON原始用量/流终态证据：缺失/null/矛盾计数和分类进入既有待核对，明确0不替成本地估算；清除上游注入billing_usage；流要求原始候选结束及对应最终用量，倒退/坏尾部/迟到未完候选拒绝确定计费。缓存与thought按既有包含关系只算一次，不扩大严格Token/USD价格资格或支付。新增DTO/适配器/service合同先红后绿；定向race通过，独立relaykit全测/build/vet通过，最后迟到候选边界补修后完整根Go/vet再次通过。原missing/estimated文件未改，源码文档尚待同批同步，新SHA CI/Full镜像待验。
+
 2026-10-03 11:20 北京时间：18eb5cb的Docker配置在调度前失败（37092770363，无执行job），原因是job级env不能引用runner.temp。改为run步骤用RUNNER_TEMP建立准确0700目录，成功创建后通过GITHUB_ENV传给后续步骤；新增回归防止再放回job env。26探针与workflow32合同通过，恢复尚未真正重跑，新SHA运行证据待同步后核验，不把调度失败称容器启动。
 
 2026-10-03 11:16 北京时间：9269139的Docker37092219301在副本检查SMOKE_RESTORE_DATABASE_MISSING失败，未启动恢复实例，源实例恢复运行。Docker官方说明docker cp不能复制tmpfs，本轮原/data正是tmpfs；空副本被拒绝。本补修将仅本次CI合成实例的数据放入RUNNER_TEMP下准确run/edition/SHA专属0700目录，源与恢复容器以runner UID/GID运行，保留loopback、CPU/内存和日志上限。复制前额外核验实际/data为准确bind源，拒绝tmpfs/其他目录；清理先移除所有权匹配容器，再按准确路径删除自己创建的数据目录。25探针（增加tmpfs拒绝）及workflow32合同通过，真实恢复仍待新SHA复验。
