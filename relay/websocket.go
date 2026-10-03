@@ -1,8 +1,12 @@
 package relay
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/i18n"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/relaykit/dto"
 	"github.com/ForceMind/MyAPI/relaykit/types"
@@ -33,6 +37,10 @@ func WssHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types.
 	if resp != nil {
 		info.TargetWs = resp.(*websocket.Conn)
 		defer info.TargetWs.Close()
+	}
+	defer service.FinalizeRealtimeUsageDispatch(c, info)
+	if err := service.PrepareRealtimeUsageDispatch(c, info); err != nil {
+		return types.NewErrorWithStatusCode(errors.New(common.TranslateMessage(c, i18n.MsgTextUsageDispatchPending)), types.ErrorCode("usage_dispatch_unresolved"), http.StatusServiceUnavailable, types.ErrOptionWithSkipRetry())
 	}
 
 	usage, newAPIError := adaptor.DoResponse(c, nil, info)

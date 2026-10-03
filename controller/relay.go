@@ -180,7 +180,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	defer func() {
 		budgetHeld := service.FinalizeTokenBudgetDispatch(c, relayInfo)
-		usageHeld := service.FinalizeTextUsageDispatch(c, relayInfo)
+		usageHeld := service.FinalizeTextUsageDispatch(c, relayInfo) || service.FinalizeRealtimeUsageDispatch(c, relayInfo)
 		// Only return quota if downstream failed and quota was actually pre-consumed
 		if newAPIError != nil {
 			newAPIError = service.NormalizeViolationFeeError(newAPIError)
@@ -259,7 +259,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			break
 		}
 
-		if service.FinalizeTextUsageDispatch(c, relayInfo) {
+		if service.FinalizeTextUsageDispatch(c, relayInfo) || service.FinalizeRealtimeUsageDispatch(c, relayInfo) {
 			break
 		}
 		if relayInfo.StrictTokenBudget || !shouldRetry(c, newAPIError, common.RetryTimes-retryParam.GetRetry()) {

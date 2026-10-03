@@ -101,6 +101,7 @@ func TestR1UsageReviewConfiguredDatabases(t *testing.T) {
 			selfUseCoupledReviewDatabaseContract(t, db, root.Id, namespace)
 			textDispatchRecoveryDatabaseContract(t, db, root.Id, namespace)
 			verifyLegacyUsageExtension(t, db, namespace+"e")
+			verifyRealtimeDispatchExtension(t, db, namespace+"w")
 		})
 	}
 }

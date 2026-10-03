@@ -41,6 +41,7 @@ type BillingSession struct {
 	usageUnknown               bool
 	usageHoldPersisted         bool
 	textDispatchTracked        bool
+	realtimeDispatchTracked    bool
 	textDispatchPossible       bool
 	textDispatchFinalizing     bool
 	legacyUsageJournal         bool
@@ -614,7 +615,7 @@ func (s *BillingSession) Reserve(targetQuota int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	previous := s.preConsumedQuota
-	if s.usageUnknown || s.textDispatchPossible {
+	if s.usageUnknown || s.textDispatchPossible && !s.realtimeDispatchTracked {
 		return model.ErrAccountQuotaUsageUnresolved
 	}
 	if !s.settled && !s.refunded && (s.settlementPending || s.refundRecoveryScheduled || s.settlementInput != nil || s.fundingSettled) {

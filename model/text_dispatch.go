@@ -29,10 +29,49 @@ func TextDispatchPending(metadata string) (bool, error) {
 	return *pending, nil
 }
 
+// Only the server-recorded Realtime protocol permits segmented reservations
+// while dispatch remains pending. HTTP and malformed evidence stay blocked.
+func RealtimeDispatchPending(metadata string) (bool, error) {
+	if pending, err := TextDispatchPending(metadata); err != nil || !pending {
+		return false, err
+	}
+	var evidence struct {
+		Version  int             `json:"version"`
+		Strict   json.RawMessage `json:"strict_token_budget"`
+		Protocol *string         `json:"dispatch_protocol"`
+	}
+	if common.UnmarshalJsonStr(metadata, &evidence) != nil {
+		return false, ErrAccountQuotaUsageUnresolved
+	}
+	if evidence.Protocol == nil {
+		return false, nil
+	}
+	if evidence.Version != 1 || *evidence.Protocol != "openai_realtime" {
+		return false, ErrAccountQuotaUsageUnresolved
+	}
+	if len(evidence.Strict) > 0 {
+		var strict *bool
+		if common.Unmarshal(evidence.Strict, &strict) != nil || strict == nil || *strict {
+			return false, ErrAccountQuotaUsageUnresolved
+		}
+	}
+	return true, nil
+}
+
 // SetTextDispatchEvidence records an attempt before the network call, or clears
 // it only after a known raw refusal. It changes no balance or actual usage.
 // Existing writer rows and locks serialize it against terminal mutations.
 func SetTextDispatchEvidence(ctx context.Context, db *gorm.DB, requestID string, userID, tokenID int, reserveID int64, pricing string, pending bool) error {
+	return setUsageDispatchEvidence(ctx, db, requestID, userID, tokenID, reserveID, pricing, pending, false)
+}
+
+// Realtime never clears its pending marker to extend a reservation. Only a
+// confirmed settlement or the existing authorized review closes its lifecycle.
+func SetRealtimeDispatchEvidence(ctx context.Context, db *gorm.DB, requestID string, userID, tokenID int, reserveID int64, pricing string) error {
+	return setUsageDispatchEvidence(ctx, db, requestID, userID, tokenID, reserveID, pricing, true, true)
+}
+
+func setUsageDispatchEvidence(ctx context.Context, db *gorm.DB, requestID string, userID, tokenID int, reserveID int64, pricing string, pending, realtime bool) error {
 	if db == nil {
 		return gorm.ErrInvalidDB
 	}
@@ -55,6 +94,12 @@ func SetTextDispatchEvidence(ctx context.Context, db *gorm.DB, requestID string,
 		}
 		if common.UnmarshalJsonStr(pricing, &flags) != nil || flags.Version != 1 || flags.Strict || flags.Pending {
 			return ErrAccountQuotaMutationInvalidInput
+		}
+		if _, present := evidence["dispatch_protocol"]; present {
+			return ErrAccountQuotaMutationInvalidInput
+		}
+		if realtime {
+			evidence["dispatch_protocol"] = json.RawMessage(`"openai_realtime"`)
 		}
 	}
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -108,6 +153,9 @@ func SetTextDispatchEvidence(ctx context.Context, db *gorm.DB, requestID string,
 			return ErrAccountQuotaUsageUnresolved
 		}
 		if !pending {
+			if realtimePending, err := RealtimeDispatchPending(old); err != nil || realtimePending {
+				return ErrAccountQuotaUsageUnresolved
+			}
 			if !wasPending {
 				return nil
 			}

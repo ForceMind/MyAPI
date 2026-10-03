@@ -158,7 +158,9 @@ func updateAccountQuotaLifecycleReservation(tx *gorm.DB, head *AccountQuotaReser
 		obligation.RequestFingerprint != head.ReserveFingerprint || obligation.LockVersion <= 0 {
 		return ErrAccountQuotaMutationTerminal
 	}
-	if pending, err := TextDispatchPending(obligation.ReviewMetadata); err != nil || pending {
+	pending, err := TextDispatchPending(obligation.ReviewMetadata)
+	realtime, realtimeErr := RealtimeDispatchPending(obligation.ReviewMetadata)
+	if err != nil || realtimeErr != nil || pending && !realtime {
 		return ErrAccountQuotaUsageUnresolved
 	}
 	result := tx.Model(&AccountQuotaTerminalRecoveryObligation{}).

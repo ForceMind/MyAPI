@@ -72,7 +72,9 @@ func ExtendLegacyUsageReservation(ctx context.Context, db *gorm.DB, requestID st
 		if validateAccountQuotaValue(row.ReservedQuota) != nil || validateAccountQuotaValue(row.TokenReservedQuota) != nil {
 			return ErrAccountQuotaMutationInvalidInput
 		}
-		if pending, err := TextDispatchPending(row.ReviewMetadata); err != nil || pending {
+		pending, err := TextDispatchPending(row.ReviewMetadata)
+		realtime, realtimeErr := RealtimeDispatchPending(row.ReviewMetadata)
+		if err != nil || realtimeErr != nil || pending && !realtime {
 			return ErrAccountQuotaUsageUnresolved
 		}
 		// A durable terminal intent owns its captured amounts even while

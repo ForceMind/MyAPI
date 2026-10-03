@@ -91,6 +91,9 @@ func ObserveTextUsageDispatchResponse(info *relaycommon.RelayInfo, status int) {
 	}
 	session.mu.Lock()
 	defer session.mu.Unlock()
+	if session.realtimeDispatchTracked {
+		return
+	}
 	if session.textDispatchTracked && !session.usageUnknown {
 		reserveID := int64(0)
 		if session.reserveReceipt != nil {
@@ -124,6 +127,10 @@ func TextUsageDispatchNeedsReview(info *relaycommon.RelayInfo) bool {
 // in-memory reservation remains protected from settlement and refund.
 func FinalizeTextUsageDispatch(c *gin.Context, info *relaycommon.RelayInfo) bool {
 	session := textUsageDispatchSession(c, info)
+	return finalizeUsageDispatch(c, info, session)
+}
+
+func finalizeUsageDispatch(c *gin.Context, info *relaycommon.RelayInfo, session *BillingSession) bool {
 	if session == nil {
 		return false
 	}
