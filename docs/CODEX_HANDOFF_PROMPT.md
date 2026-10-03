@@ -1,5 +1,7 @@
 # My API 新对话/新模型提示词（2026-10-02）
 
+2026-10-03 15:36 北京时间：84b1c5b的CI37105753537十项和Docker37105753570两项全绿，LAN原脚本实际构建/健康/初始化登录及Full/SQLite-WAL恢复均通过。本批按R1额度展示收口：Codex当前窗口缺失/null/非数值/越界用量明确显示未知，不显示0%或数值进度条，实际0保留；仅前端展示，不改账户门禁或结算。六个新增回归先红后绿，前端122文件580测试/类型/lint/构建通过，新增320/1280px未知→真实0浏览器检查待新SHA CI。NEXT_USABLE_VERSION开头已整理当前六项执行表；继续既定R1，不等待用户选择环境，不扩历史F1–F8。
+
 2026-10-03 15:12 北京时间：df1ddbe的真实LAN安装在源码镜像构建完成、容器启动后健康失败（Docker37105072138/job111151865218）；原Full/SQLite恢复通过。发现Compose无条件传入PUBLIC_URL作为Secure Cookie可信来源，与LAN HTTP/非Secure模式冲突。当前仅补安装接线：CLI/脚本从最终模式派生可信来源，LAN HTTP明确为空、HTTPS Secure保留准确来源，Full拒绝关闭Secure；Compose保留显式空值，LAN初始化配置同样写空。不放宽应用Cookie/Origin校验或健康等待。四项合同先红后绿，CLI81、运行27、LAN、升级19/发行32及Bash通过；新SHA实际安装与CI待验，详见R1_INSTALLATION_CHECK.md。
 
 2026-10-03 14:59 北京时间：负责人将自行经GitHub安装，并要求先在我们的环境试验。f6ae1d1的CI37099811366十项及Docker37099811371 Full/同镜像恢复已全过；但默认安装仍拉旧v0.2.0-beta.1，R1草稿未发布。当前只增既有Docker smoke内的真实LAN源码安装job：临时私有配置、准确SHA本地构建、原install.sh、健康/镜像/loopback/资源限制和全新初始化认证；保留原Full探针。工作机无Docker，不能把本地静态检查当安装成功；CLI77、运行27、发行workflow10及32合同、LAN和Bash/YAML通过，新SHA真实脚本待验。安装入口及整版剩余边界见R1_INSTALLATION_CHECK.md，不新增系统安装器或发布。

@@ -21,7 +21,7 @@
 5. 复用既有隔离探针完成全新初始化、匿名拒绝、LAN 自用模式、登录、管理员日志和额度接口读取；仅使用临时合成账号，不调用真实模型。
 6. 清理只针对准确 Compose 项目；不上传配置、数据库或日志，不登录镜像仓库、不发布镜像。
 
-当前修补：df1ddbe 的真实安装 job111151865218 已构建镜像并启动容器，但健康失败；原 Full/SQLite 恢复 job111151865317 通过。Compose 无条件将 HTTP FRONTEND 来源同时作为 Secure Cookie 信任来源，而应用明确拒绝 false+非空可信来源。安装器/CLI 现在从最终 Cookie 模式派生独立可信来源：LAN HTTP 明确为空，HTTPS Secure 保留原准确来源，Full 显式拒绝关闭 Secure；不放宽服务端检查。Compose 使用单横线默认表达式保留显式空值，生成 LAN 配置也写入空值以支持直接 Compose。四个 CLI/脚本合同先红后绿，CLI81、运行27、LAN、升级19和发行32合同通过，新SHA真实安装待验。
+当前修补：df1ddbe 的真实安装 job111151865218 已构建镜像并启动容器，但健康失败；原 Full/SQLite 恢复 job111151865317 通过。Compose 无条件将 HTTP FRONTEND 来源同时作为 Secure Cookie 信任来源，而应用明确拒绝 false+非空可信来源。安装器/CLI 现在从最终 Cookie 模式派生独立可信来源：LAN HTTP 明确为空，HTTPS Secure 保留原准确来源，Full 显式拒绝关闭 Secure；不放宽服务端检查。Compose 使用单横线默认表达式保留显式空值，生成 LAN 配置也写入空值以支持直接 Compose。四个 CLI/脚本合同先红后绿，CLI81、运行27、LAN、升级19和发行32合同通过，84b1c5b的[CI37105753537](https://github.com/ForceMind/MyAPI/actions/runs/37105753537)十项及[Docker37105753570](https://github.com/ForceMind/MyAPI/actions/runs/37105753570)LAN原脚本/Full恢复两job已于15:30全部验收成功；合并e2f655fd的树0c595d6e6065e37eed5a3db23e9d45c079e7330a与HEAD相同。LAN实际初始化/登录及Full容器SQLite恢复通过，既有恢复合同在SQLite/MySQL/PostgreSQL分别0.52/1.55/5.76s通过；不是跨版本验收。
 
 前批提交前本地证据：Bash 语法、LAN 合同检查、CLI 77 测试、运行探针 27 测试、发行 workflow 10 测试通过；YAML 两 job 解析通过。当前工作机没有 Docker/Podman，不能声称本地已经完成容器安装。真实安装结果必须以本批 GitHub Docker smoke 的 `LAN source installer and fresh SQLite` job 为准，提交后的终态记录在 PR 中。
 

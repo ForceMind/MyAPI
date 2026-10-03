@@ -54,6 +54,8 @@ try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, locale: 'zh-CN', reducedMotion: 'reduce', timezoneId: 'Asia/Shanghai' })
   await context.addInitScript(() => { localStorage.setItem('i18nextLng', 'zhCN'); localStorage.setItem('theme', 'light') })
   let latestError = false
+  let currentUsageMissing = false
+  let currentUsagePercent = 15
   const historyRequests = []
   const changeRequests = []
   const reviewSubmissions = []
@@ -96,7 +98,7 @@ try {
     if (url.pathname.endsWith('/quota/history')) historyRequests.push(Object.fromEntries(url.searchParams))
     if (url.pathname.endsWith('/quota/changes')) changeRequests.push(Object.fromEntries(url.searchParams))
     if (url.pathname === '/api/usage-review/usage-review-fixture/reconcile' && route.request().method() === 'POST') reviewSubmissions.push(route.request().postDataJSON())
-    const response = quotaFixtures({ latestError }).response(url)
+    const response = quotaFixtures({ latestError, currentUsageMissing, currentUsagePercent }).response(url)
     if (!response) unexpected.add(`${route.request().method()} ${url.pathname}`)
     await route.fulfill({ status: response ? 200 : 501, json: response || { success: false, message: 'Unconfigured browser fixture' } })
   })
@@ -230,6 +232,25 @@ try {
   await page.getByRole('button', { name: label('Open menu'), exact: true }).last().click()
   await page.getByRole('menuitem', { name: label('Query Balance'), exact: true }).click()
   const dialog = page.getByRole('dialog')
+  await dialog.getByText('15%', { exact: true }).waitFor({ state: 'visible' })
+  currentUsageMissing = true
+  await dialog.getByRole('button', { name: label('Refresh'), exact: true }).click()
+  await dialog.getByText(label('Unknown'), { exact: true }).waitFor({ state: 'visible' })
+  assert.equal(await dialog.getByRole('progressbar').count(), 0, 'missing upstream percent is not a zero-valued meter')
+  for (const width of [1280, 320]) {
+    await page.setViewportSize({ width, height: 850 })
+    await dialog.getByText(label('Unknown'), { exact: true }).waitFor({ state: 'visible' })
+    const box = await dialog.boundingBox()
+    assert(box && box.width <= width && box.x >= 0 && box.x + box.width <= width + 1, 'unknown quota stays within the viewport')
+    await dialog.screenshot({ path: resolve(output, `codex-current-unknown-${width}.png`) })
+  }
+  currentUsageMissing = false
+  currentUsagePercent = 0
+  await dialog.getByRole('button', { name: label('Refresh'), exact: true }).click()
+  await dialog.getByText('0%', { exact: true }).waitFor({ state: 'visible' })
+  assert.equal(await dialog.getByRole('progressbar').getAttribute('aria-valuenow'), '0', 'explicit upstream zero remains a known value')
+  assert.equal(await dialog.getByText(label('Unknown'), { exact: true }).count(), 0)
+  await page.setViewportSize({ width: 1280, height: 720 })
   await dialog.getByRole('tab', { name: label('History trend'), exact: true }).click()
   const dialogTrend = dialog.getByTestId('quota-history-trend').first()
   await dialogTrend.waitFor({ state: 'visible' })

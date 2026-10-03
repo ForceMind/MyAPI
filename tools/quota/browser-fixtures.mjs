@@ -1,6 +1,6 @@
 // Explicit synthetic fixtures for browser regression only. No production data,
 // usable credentials, or upstream calls are used by this harness.
-export function quotaFixtures({ latestError = false } = {}) {
+export function quotaFixtures({ latestError = false, currentUsageMissing = false, currentUsagePercent = 15 } = {}) {
   const now = Math.floor(Date.now() / 1000)
   const start = now - 600
   const series = {
@@ -183,7 +183,7 @@ export function quotaFixtures({ latestError = false } = {}) {
       })
     }
     if (path === '/api/channel/1/quota/history') return ok({ ...history, granularity: url.searchParams.get('granularity') || 'auto' })
-    if (path === '/api/channel/1/codex/usage') return ok({ plan_type: 'pro', rate_limit: { allowed: true, limit_reached: false, primary_window: { used_percent: 15, reset_at: now + 86400, limit_window_seconds: 604800 } } })
+    if (path === '/api/channel/1/codex/usage') return ok({ plan_type: 'pro', rate_limit: { allowed: true, limit_reached: false, primary_window: { ...(currentUsageMissing ? {} : { used_percent: currentUsagePercent }), reset_at: now + 86400, limit_window_seconds: 604800 } } })
     if (path === '/api/channel/1/codex/usage/reset-credits') return ok({ credits: [], available_count: 0 })
     if (path === '/api/channel/ops') return ok({ retry_times: 0 })
     if (path === '/api/channel/1') return ok(channel)

@@ -153,11 +153,6 @@ type CodexUsageDialogProps = {
   isRefreshing?: boolean
 }
 
-function clampPercent(value: unknown): number {
-  const v = Number(value)
-  return Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 0
-}
-
 function formatUnixSeconds(unixSeconds: unknown): string {
   const v = Number(unixSeconds)
   return Number.isFinite(v) && v > 0 ? formatTimestampToDate(v) : '-'
@@ -370,7 +365,15 @@ function getResetCreditStatusBadge(
 }
 
 function windowLabel(windowData?: CodexRateLimitWindow | null) {
-  const percent = clampPercent(windowData?.used_percent)
+  const percent = windowData?.used_percent
+  if (
+    typeof percent !== 'number' ||
+    !Number.isFinite(percent) ||
+    percent < 0 ||
+    percent > 100
+  ) {
+    return { percent: null, variant: 'neutral' as const }
+  }
   let variant: StatusBadgeProps['variant'] = 'info'
   if (percent >= 95) {
     variant = 'danger'
@@ -440,6 +443,8 @@ function RateLimitWindow(props: RateLimitWindowProps) {
     typeof props.window === 'object' &&
     Object.keys(props.window).length > 0
   const { percent, variant } = windowLabel(props.window)
+  let usageLabel = '-'
+  if (hasData) usageLabel = percent === null ? t('Unknown') : `${percent}%`
 
   return (
     <Card size='sm' className='gap-0 py-0'>
@@ -463,7 +468,7 @@ function RateLimitWindow(props: RateLimitWindowProps) {
                 percentTextClassName[variant ?? 'neutral']
               )}
             >
-              {hasData ? `${percent}%` : '-'}
+              {usageLabel}
             </div>
             <div className='text-muted-foreground mt-1 text-[11px]'>
               {t('Used')}
@@ -472,7 +477,7 @@ function RateLimitWindow(props: RateLimitWindowProps) {
         </div>
       </CardHeader>
       <CardContent className='p-3 pt-0'>
-        {hasData ? (
+        {percent !== null ? (
           <Progress
             value={percent}
             aria-label={`${props.title} usage: ${percent}%`}
