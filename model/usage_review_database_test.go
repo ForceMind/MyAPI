@@ -62,6 +62,7 @@ func TestR1UsageReviewConfiguredDatabases(t *testing.T) {
 			setQuotaWriterStateForTest(t, db, QuotaWriterModeAuthoritative, epoch.Epoch+1)
 			// Timestamp namespaces fixture rows only; no timing assertions or sleeps.
 			namespace := fmt.Sprintf("r1%x", time.Now().UnixNano())
+			verifyTextDispatchTransitions(t, db, namespace+"td")
 			user := User{Username: namespace, AffCode: namespace, Password: "fixture-password", Role: common.RoleCommonUser, Status: common.UserStatusEnabled, Quota: 1000, AuthVersion: 1}
 			require.NoError(t, db.Create(&user).Error)
 			token := Token{UserId: user.Id, Key: namespace, Status: common.TokenStatusEnabled, RemainQuota: 1000, ExpiredTime: -1}

@@ -13,6 +13,7 @@ import (
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -185,6 +186,54 @@ func TestTextDispatchHoldWriteFailureStaysProtectedAndRetries(t *testing.T) {
 			assert.Equal(t, "usage_unknown", view.State)
 			assert.Nil(t, view.ActualQuota)
 			uq, remaining, used := loadPostConsumeBalances(t, db, user, token)
+			assert.Equal(t, 900, uq)
+			assert.Equal(t, 900, remaining)
+			assert.Equal(t, 100, used)
+		})
+	}
+}
+
+func TestTextDispatchSurvivesLossOfLiveSession(t *testing.T) {
+	for _, mode := range []model.QuotaWriterMode{model.QuotaWriterModeLegacy, model.QuotaWriterModeAuthoritative} {
+		t.Run(string(mode), func(t *testing.T) {
+			db := setupPostConsumeModeDB(t, mode)
+			user, token := seedAuthoritativeBilling(t, db, "dispatch-reopen", 1000, 1000, false)
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+			info := authoritativeRelay(user, token, "dispatch-reopen")
+			info.ChannelMeta = &relaycommon.ChannelMeta{}
+			session, apiErr := NewBillingSession(ctx, info, 100)
+			require.Nil(t, apiErr)
+			info.Billing = session
+			t.Cleanup(session.finishInflight)
+			request, err := http.NewRequest("POST", "https://example.invalid/synthetic", strings.NewReader("synthetic"))
+			require.NoError(t, err)
+			require.NoError(t, PrepareTextUsageDispatch(ctx, request, info))
+			var database struct{ File string }
+			require.NoError(t, db.Raw("PRAGMA database_list").Scan(&database).Error)
+			require.NotEmpty(t, database.File)
+			reopened, err := gorm.Open(sqlite.Open(database.File), &gorm.Config{})
+			require.NoError(t, err)
+			pool, err := reopened.DB()
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = pool.Close() })
+			// No finalizer, in-memory flags, timer, or zero-use guess participates.
+			if mode == model.QuotaWriterModeLegacy {
+				row, err := model.FindLegacyUsageReservation(context.Background(), reopened, info.RequestId)
+				require.NoError(t, err)
+				pending, err := model.TextDispatchPending(row.ReviewMetadata)
+				require.NoError(t, err)
+				assert.True(t, pending)
+				_, err = model.EnsureAccountQuotaRefundFact(context.Background(), reopened, model.AccountQuotaRefundFactInput{RequestID: info.RequestId, EventKey: "billing-refund:dispatch-reopen:v1", Kind: model.AccountQuotaRefundFactKindLegacyWallet, UserID: user.Id, TokenID: token.Id, WalletQuota: 100, TokenQuota: 100})
+				require.ErrorIs(t, err, model.ErrAccountQuotaUsageUnresolved)
+			} else {
+				require.NoError(t, model.InitializeAccountQuotaReservationHeadsWithDB(reopened))
+				receipt, err := model.FindAccountQuotaReserveReceipt(reopened, info.RequestId)
+				require.NoError(t, err)
+				_, err = model.RefundAccountQuota(context.Background(), reopened, model.AccountQuotaTerminalInput{RequestID: info.RequestId, ReserveReceiptID: receipt.ID, AuditKey: "unsafe-restart-refund"})
+				require.ErrorIs(t, err, model.ErrAccountQuotaUsageUnresolved)
+			}
+			uq, remaining, used := loadPostConsumeBalances(t, reopened, user, token)
 			assert.Equal(t, 900, uq)
 			assert.Equal(t, 900, remaining)
 			assert.Equal(t, 100, used)

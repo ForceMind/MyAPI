@@ -158,6 +158,9 @@ func updateAccountQuotaLifecycleReservation(tx *gorm.DB, head *AccountQuotaReser
 		obligation.RequestFingerprint != head.ReserveFingerprint || obligation.LockVersion <= 0 {
 		return ErrAccountQuotaMutationTerminal
 	}
+	if pending, err := TextDispatchPending(obligation.ReviewMetadata); err != nil || pending {
+		return ErrAccountQuotaUsageUnresolved
+	}
 	result := tx.Model(&AccountQuotaTerminalRecoveryObligation{}).
 		Where("id = ? AND state = ? AND lock_version = ?", obligation.ID, AccountQuotaTerminalRecoveryOpen, obligation.LockVersion).
 		Updates(map[string]interface{}{"reserve_receipt_id": receipt.ID, "lock_version": obligation.LockVersion + 1, "updated_at": now})
@@ -184,6 +187,9 @@ func closeAccountQuotaLifecycle(tx *gorm.DB, head *AccountQuotaReservationHead, 
 			return ErrAccountQuotaMutationTerminal
 		}
 	case AccountQuotaPhaseRefund:
+		if pending, err := TextDispatchPending(obligation.ReviewMetadata); err != nil || pending {
+			return ErrAccountQuotaUsageUnresolved
+		}
 		if obligation.State == AccountQuotaTerminalRecoveryOpen {
 			if obligation.RequestFingerprint != head.ReserveFingerprint {
 				return ErrAccountQuotaTerminalRecoveryConflict
@@ -407,6 +413,9 @@ func EnsureAccountQuotaRefundRecovery(ctx context.Context, db *gorm.DB, input Ac
 			}
 			obligation = &stored
 			return nil
+		}
+		if pending, err := TextDispatchPending(stored.ReviewMetadata); err != nil || pending {
+			return ErrAccountQuotaUsageUnresolved
 		}
 		recoveryFingerprint, err := accountQuotaTerminalRecoveryFingerprint(normalized, lockedHead.WriterEpoch)
 		if err != nil {

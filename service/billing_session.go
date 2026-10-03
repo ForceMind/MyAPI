@@ -617,7 +617,7 @@ func (s *BillingSession) Reserve(targetQuota int) (resultErr error) {
 			}
 		}
 	}()
-	if s.usageUnknown {
+	if s.usageUnknown || s.textDispatchPossible {
 		return model.ErrAccountQuotaUsageUnresolved
 	}
 

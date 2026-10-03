@@ -341,6 +341,9 @@ func validateLegacyUsageRefund(tx *gorm.DB, requestID string) error {
 	if row.RequestID != requestID {
 		return ErrAccountQuotaMutationConflict
 	}
+	if pending, err := TextDispatchPending(row.ReviewMetadata); err != nil || pending {
+		return ErrAccountQuotaUsageUnresolved
+	}
 	if row.State != LegacyUsagePrepared && row.State != LegacyUsageRefunded && row.State != LegacyUsagePreparing && row.State != LegacyUsageAdmissionFailed {
 		return ErrAccountQuotaUsageUnresolved
 	}

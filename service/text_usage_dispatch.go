@@ -1,7 +1,9 @@
 package service
 
 import (
+	"context"
 	"net/http"
+	"time"
 
 	"github.com/ForceMind/MyAPI/model"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
@@ -22,9 +24,9 @@ func textUsageDispatchSession(c *gin.Context, info *relaycommon.RelayInfo) *Bill
 	return session
 }
 
-// This live-request guard supplements, never replaces, the durable strict
-// Token/USD dispatch journal. A process crash still needs separate evidence;
-// there is no timer-based release or inferred zero-use settlement here.
+// Ordinary text dispatch preserves evidence on existing writer rows before
+// sending. The separate strict Token/USD journal is unchanged. Neither path
+// treats a timeout or process crash as evidence of zero consumption.
 func PrepareTextUsageDispatch(c *gin.Context, request *http.Request, info *relaycommon.RelayInfo) error {
 	session := textUsageDispatchSession(c, info)
 	if session == nil {
@@ -44,7 +46,20 @@ func PrepareTextUsageDispatch(c *gin.Context, request *http.Request, info *relay
 	if session.settled || session.refunded || session.usageUnknown || session.settlementPending || session.refundRecoveryScheduled || session.settlementInput != nil || session.fundingSettled || session.textDispatchPossible {
 		return model.ErrAccountQuotaUsageUnresolved
 	}
+	metadata, err := usageReviewPricingEvidence(info, calculateTextQuotaSummary(c, info, nil))
+	if err != nil {
+		return err
+	}
 	session.textDispatchTracked, session.textDispatchPossible = true, true
+	reserveID := int64(0)
+	if session.reserveReceipt != nil {
+		reserveID = session.reserveReceipt.ID
+	}
+	ctx, cancel := billingOperationContext(c.Request.Context(), 5*time.Second)
+	defer cancel()
+	if err := model.SetTextDispatchEvidence(ctx, model.DB, info.RequestId, info.UserId, info.TokenId, reserveID, string(metadata), true); err != nil {
+		return err // Outcome may be uncertain; finalization retains and reviews it.
+	}
 	request.GetBody = nil // Do not transparently replay an ambiguous paid POST.
 	return nil
 }
@@ -69,6 +84,15 @@ func ObserveTextUsageDispatchResponse(info *relaycommon.RelayInfo, status int) {
 	session.mu.Lock()
 	defer session.mu.Unlock()
 	if session.textDispatchTracked && !session.usageUnknown {
+		reserveID := int64(0)
+		if session.reserveReceipt != nil {
+			reserveID = session.reserveReceipt.ID
+		}
+		ctx, cancel := billingOperationContext(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := model.SetTextDispatchEvidence(ctx, model.DB, info.RequestId, info.UserId, info.TokenId, reserveID, "", false); err != nil {
+			return
+		}
 		session.textDispatchPossible = false
 	}
 }
