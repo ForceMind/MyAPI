@@ -11,6 +11,14 @@ const image = `myapi:smoke-full-${sha}`
 const target = `myapi-smoke-restore-full-${sha}`
 const json = (data) => new Response(JSON.stringify({ success: true, data }))
 
+test('smoke resolves runner-local storage inside a run step, not unavailable job env context', () => {
+  const workflow = readFileSync(new URL('../../.github/workflows/docker-smoke.yml', import.meta.url), 'utf8')
+  const jobEnv = workflow.slice(workflow.indexOf('    env:\n'), workflow.indexOf('    steps:\n'))
+  assert.equal(jobEnv.includes('runner.'), false)
+  assert.ok(workflow.includes('export SMOKE_DATA_DIR="$RUNNER_TEMP/myapi-smoke-data-${MYAPI_SMOKE_EDITION}-${GITHUB_SHA}"'))
+  assert.ok(workflow.indexOf('mkdir -m 700 "$SMOKE_DATA_DIR"') < workflow.indexOf('echo "SMOKE_DATA_DIR=$SMOKE_DATA_DIR" >> "$GITHUB_ENV"'))
+})
+
 function fixture(t, overrides = {}) {
   const temp = mkdtempSync(path.join(os.tmpdir(), 'myapi-restore-test-'))
   t.after(() => rmSync(temp, { recursive: true, force: true }))

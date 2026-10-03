@@ -36,7 +36,6 @@ jobs:
       SMOKE_CONTAINER: myapi-smoke-${{ matrix.edition }}-${{ github.sha }}
       SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-${{ matrix.edition }}-${{ github.sha }}
       SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-${{ matrix.edition }}-${{ github.sha }}
-      SMOKE_DATA_DIR: ${{ runner.temp }}/myapi-smoke-data-${{ matrix.edition }}-${{ github.sha }}
       SMOKE_IMAGE: myapi:smoke-${{ matrix.edition }}-${{ github.sha }}
 
     steps:
@@ -81,7 +80,9 @@ jobs:
         run: |
           set -euo pipefail
           export SESSION_SECRET="$(openssl rand -hex 32)"
+          export SMOKE_DATA_DIR="$RUNNER_TEMP/myapi-smoke-data-${MYAPI_SMOKE_EDITION}-${GITHUB_SHA}"
           mkdir -m 700 "$SMOKE_DATA_DIR"
+          echo "SMOKE_DATA_DIR=$SMOKE_DATA_DIR" >> "$GITHUB_ENV"
           docker run --detach \
             --name "$SMOKE_CONTAINER" \
             --label "io.myapi.smoke.sha=${GITHUB_SHA}" \
