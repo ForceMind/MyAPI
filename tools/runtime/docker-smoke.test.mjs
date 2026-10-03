@@ -64,6 +64,9 @@ test('synthetic OpenAI listener only allows explicit loopback or Docker namespac
 })
 
 test('relay fixture verifies exact wallet, key, usage, log and redaction contracts without reporting credentials', async () => {
+  let persisted = 0
+  let generatedPassword
+  let createdPassword
   let controlReads = 0
   let consumeReads = 0
   const optionKeys = []
@@ -76,6 +79,16 @@ test('relay fixture verifies exact wallet, key, usage, log and redaction contrac
     isolated: true,
     upstreamBaseUrl: 'http://127.0.0.1:19090',
     fullContentExpected: true,
+    verifyPersistence: async (credentials) => {
+      assert.equal(controlReads, 2)
+      assert.equal(credentials.username, 'smokeadmin')
+      assert.equal(credentials.password, 'root-secret')
+      assert.equal(credentials.userName, 'smokeuser')
+      generatedPassword = credentials.userPassword
+      assert.equal(generatedPassword, createdPassword)
+      persisted += 1
+      return { name: 'synthetic persistence continuation', ok: true }
+    },
     fetchImpl: async (url, options = {}) => {
       assert.equal(options.redirect, 'error')
       const parsed = new URL(url)
@@ -106,6 +119,7 @@ test('relay fixture verifies exact wallet, key, usage, log and redaction contrac
           optionKeys.push([body.key, body.value])
           return json({ success: true })
         case 'POST /api/user/':
+          createdPassword = body.password
           assert.equal(auth, 'Bearer root-session')
           assert.equal(body.username, 'smokeuser')
           assert.equal(body.role, 1)
@@ -191,6 +205,8 @@ test('relay fixture verifies exact wallet, key, usage, log and redaction contrac
     ['GroupGroupRatio', '{}'], ['LogConsumeEnabled', 'true'],
   ])
   assert.equal(controlReads, 2)
+  assert.equal(persisted, 1)
+  assert.equal(JSON.stringify(report).includes(generatedPassword), false)
   assert.equal(report.passed, true)
   assert.equal(report.checks.every((check) => check.ok === true), true)
   for (const privateValue of ['root-secret', 'root-session', 'ordinary-session', 'restricted-api-key', 'synthetic-request-log-value', 'synthetic-upstream-key', 'synthetic-response-header-secret']) {

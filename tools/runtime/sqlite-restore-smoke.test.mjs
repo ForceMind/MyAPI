@@ -30,7 +30,7 @@ function fixture(t, overrides = {}) {
     if (args[0] === 'inspect') {
       if (args[2].includes('Labels')) return overrides.foreign ? 'foreign' : sha
       if (args[2] === '{{.State.Running}}') return 'true'
-      if (args[2] === '{{.Config.Image}}') return image
+      if (args[2] === '{{.Config.Image}}') return overrides.handoff ? 'myapi:handoff-71277bf6055ce68b8cd1d11f1d10f1907d7696fd' : image
       if (args[2].includes('.Mounts')) return overrides.tmpfs ? 'tmpfs:' : `bind:${env.SMOKE_DATA_DIR}`
     }
     if (args[0] === 'ps') return overrides.existing ? target : ''
@@ -43,7 +43,7 @@ function fixture(t, overrides = {}) {
     if (args[0] === 'run') {
       assert.equal(args.includes('--privileged'), false)
       assert.ok(args.includes('127.0.0.1:18081:3000'))
-      assert.equal(args.at(-1), image)
+      assert.equal(args.at(-1), overrides.handoff && commands.filter((c) => c[0] === 'run').length === 2 ? 'myapi:handoff-71277bf6055ce68b8cd1d11f1d10f1907d7696fd' : image)
       assert.match(commandEnv.SESSION_SECRET, /^[a-f0-9]{64}$/)
       assert.equal(args.includes(commandEnv.SESSION_SECRET), false)
       const dir = args[args.indexOf('--mount') + 1].match(/^type=bind,src=(.*),dst=\/data$/)[1]
@@ -90,11 +90,13 @@ test('copy failure unpauses source without starting a restore; failed verificati
 
 test('uncertain clone removal retains its private directory instead of unlinking a live mount', async (t) => {
   const f = fixture(t)
+  let removals = 0
   const runDocker = (args, env) => {
-    if (args[0] === 'rm') throw new Error('SMOKE_RESTORE_DOCKER_FAILED')
+    if (args[0] === 'rm') { removals += 1; throw new Error('SMOKE_RESTORE_DOCKER_FAILED') }
     return f.runDocker(args, env)
   }
   await assert.rejects(withRestoredSQLite({ ...f, runDocker, sha, edition: 'full', verify: async () => {} }), /DOCKER_FAILED/)
+  assert.equal(removals, 1)
   const names = readdirSync(f.temp)
   assert.equal(names.length, 1)
   assert.equal(statSync(path.join(f.temp, names[0])).mode & 0o777, 0o700)
@@ -147,4 +149,31 @@ test('restore refuses changed quota, Key or log identity and never resends a bil
       restore: (verify) => verify('http://127.0.0.1:18081') }), /SMOKE_RESTORE_STATE_MISMATCH/)
     assert.equal(f.countRelays(), 0)
   }
+})
+
+// This path must never reuse the migrated directory for the older binary.
+test('handoff upgrade and old-image recovery each start from the untouched pre-upgrade snapshot', async (t) => {
+  const f = fixture(t, { handoff: true })
+  f.env.MYAPI_SMOKE_HANDOFF_UPGRADE = '1'
+  const phases = []
+  await withRestoredSQLite({ ...f, sha, edition: 'full', handoffUpgrade: true, verify: async (url, phase) => {
+    assert.equal(url, 'http://127.0.0.1:18081')
+    phases.push(phase)
+  } })
+  assert.deepEqual(phases, ['upgraded', 'restored'])
+  const runs = f.commands.filter((args) => args[0] === 'run')
+  assert.equal(runs.length, 2)
+  assert.notEqual(runs[0][runs[0].indexOf('--mount') + 1], runs[1][runs[1].indexOf('--mount') + 1])
+  assert.equal(f.commands.filter((args) => args[0] === 'rm').length, 2)
+  assert.deepEqual(readdirSync(f.temp), [])
+})
+
+test('handoff recovery requires separate opt-in and does not start old image after failed upgrade verification', async (t) => {
+  const denied = fixture(t, { handoff: true })
+  await assert.rejects(withRestoredSQLite({ ...denied, sha, edition: 'full', handoffUpgrade: true, verify: async () => {} }), /SCOPE_REJECTED/)
+  assert.equal(denied.commands.some((args) => args[0] === 'pause'), false)
+  const failed = fixture(t, { handoff: true })
+  failed.env.MYAPI_SMOKE_HANDOFF_UPGRADE = '1'
+  await assert.rejects(withRestoredSQLite({ ...failed, sha, edition: 'full', handoffUpgrade: true, verify: async () => { throw new Error('snapshot mismatch') } }), /snapshot mismatch/)
+  assert.equal(failed.commands.filter((args) => args[0] === 'run').length, 1)
 })

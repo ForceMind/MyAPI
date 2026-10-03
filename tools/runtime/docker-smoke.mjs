@@ -82,6 +82,7 @@ export async function probeRelayFixture({
   fetchImpl = globalThis.fetch,
   upstreamBaseUrl,
   fullContentExpected = false,
+  verifyPersistence,
 } = {}) {
   if (!isolated) throw new Error('ISOLATED_SMOKE_OPT_IN_REQUIRED')
   const origin = validateSmokeTarget(baseUrl, edition, sha)
@@ -269,6 +270,9 @@ export async function probeRelayFixture({
     throw new Error('SMOKE_FIXTURE_UPSTREAM_MISMATCH')
   }
 
+  // Optional CI-only continuation keeps synthetic credentials in memory.
+  // They must never become part of the serializable report.
+  const persistence = verifyPersistence ? await verifyPersistence({ username, password, userName: fixture.userName, userPassword: fixtureUserPassword }) : null
   return { passed: true, checks: [
     { name: 'synthetic ordinary user wallet, key and channel usage', ok: true },
     { name: 'single associated consume log hides admin metadata', ok: true },
@@ -276,6 +280,7 @@ export async function probeRelayFixture({
     fullContentCheck,
     { name: 'anonymous relay rejected without upstream request', ok: true, status: anonymous.status },
     { name: 'synthetic upstream request contract', ok: true },
+    ...(persistence ? [persistence] : []),
   ] }
 }
 

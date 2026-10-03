@@ -103,7 +103,7 @@ jobs:
     # A bounded R1 acceptance trigger, not a release or a general fork runner.
     # Manual Full/LAN coverage remains available unchanged.
     if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/r1-usage-review-20261002')
-    name: ${{ matrix.edition }} isolated image and SQLite smoke
+    name: ${{ matrix.edition }} ${{ matrix.scenario }} image and SQLite smoke
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
@@ -111,6 +111,10 @@ jobs:
       max-parallel: 1
       matrix:
         edition: ${{ fromJSON(github.event_name == 'pull_request' && '["full"]' || '["full","lan"]') }}
+        scenario: [fresh]
+        include:
+          - edition: full
+            scenario: handoff
     env:
       MYAPI_SMOKE_EDITION: ${{ matrix.edition }}
       MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
@@ -119,6 +123,7 @@ jobs:
       SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-${{ matrix.edition }}-${{ github.sha }}
       SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-${{ matrix.edition }}-${{ github.sha }}
       SMOKE_IMAGE: myapi:smoke-${{ matrix.edition }}-${{ github.sha }}
+      SMOKE_SOURCE_IMAGE: ${{ matrix.scenario == 'handoff' && 'myapi:handoff-71277bf6055ce68b8cd1d11f1d10f1907d7696fd' || format('myapi:smoke-{0}-{1}', matrix.edition, github.sha) }}
 
     steps:
       - name: Check out
@@ -158,6 +163,31 @@ jobs:
           cache-from: type=gha,scope=smoke-${{ matrix.edition }}
           cache-to: type=gha,mode=min,scope=smoke-${{ matrix.edition }}
 
+      # Checkout after the current build so historical source never enters its context.
+      - name: Check out fixed handoff source
+        if: matrix.scenario == 'handoff'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: 71277bf6055ce68b8cd1d11f1d10f1907d7696fd
+          path: .handoff-source
+          persist-credentials: false
+
+      - name: Build fixed handoff source image
+        if: matrix.scenario == 'handoff'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .handoff-source
+          load: true
+          push: false
+          platforms: linux/amd64
+          tags: myapi:handoff-71277bf6055ce68b8cd1d11f1d10f1907d7696fd
+          build-args: |
+            MYAPI_EDITION=full
+            MYAPI_BUILD_ID=71277bf6055ce68b8cd1d11f1d10f1907d7696fd
+            MYAPI_BUILD_PARALLELISM=2
+          cache-from: type=gha,scope=smoke-handoff
+          cache-to: type=gha,mode=min,scope=smoke-handoff
+
       - name: Start isolated SQLite container
         run: |
           set -euo pipefail
@@ -186,7 +216,7 @@ jobs:
             --env SESSION_SECRET \
             --health-cmd='wget -q -O - http://127.0.0.1:3000/api/status | grep -q '"'"'"success"[[:space:]]*:[[:space:]]*true'"'"'' \
             --health-interval=3s --health-timeout=2s --health-retries=10 --health-start-period=20s \
-            "$SMOKE_IMAGE"
+            "$SMOKE_SOURCE_IMAGE"
 
       - name: Wait for health and verify status
         run: |
@@ -242,17 +272,26 @@ jobs:
           exit 1
 
       - name: Install isolated browser test runtime
+        if: matrix.scenario == 'fresh'
         run: |
           npm install --prefix "$RUNNER_TEMP/myapi-smoke-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1
           "$RUNNER_TEMP/myapi-smoke-browser/node_modules/.bin/playwright" install --with-deps chromium
 
       - name: Verify fresh setup, authentication and real frontend
+        if: matrix.scenario == 'fresh'
         env:
           MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-smoke-browser/node_modules/playwright/index.mjs
           MYAPI_FAKE_UPSTREAM_URL: http://127.0.0.1:19090
           MYAPI_SMOKE_FULL_CONTENT: '1'
           MYAPI_SMOKE_RESTORE: '1'
         run: node tools/runtime/docker-smoke.mjs
+
+      - name: Verify handoff migration and original-backup recovery
+        if: matrix.scenario == 'handoff'
+        env:
+          MYAPI_SMOKE_HANDOFF_UPGRADE: '1'
+          MYAPI_SMOKE_RESTORE: '1'
+        run: node tools/runtime/handoff-upgrade-smoke.mjs
 
       - name: Record safe image identity
         run: |

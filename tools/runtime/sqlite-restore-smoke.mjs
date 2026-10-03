@@ -1,4 +1,5 @@
-// CI-only, same-image recovery of synthetic data. Never accepts a deployment path.
+// CI-only recovery of synthetic data. Never accepts a deployment path.
+export const handoffSHA = '71277bf6055ce68b8cd1d11f1d10f1907d7696fd'
 import { spawnSync } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
@@ -21,29 +22,31 @@ function databaseDigest(directory) {
 
 // Pause all writers while copying the whole /data directory, including WAL.
 // This is a crash-consistent snapshot, not a graceful shutdown or an upgrade.
-export async function withRestoredSQLite({ sha, edition, env = process.env, runDocker = docker, verify } = {}) {
+export async function withRestoredSQLite({ sha, edition, env = process.env, runDocker = docker, verify, handoffUpgrade = false } = {}) {
   if (env.GITHUB_ACTIONS !== 'true' || env.MYAPI_ISOLATED_SMOKE !== '1' || env.MYAPI_SMOKE_RESTORE !== '1' ||
       !/^[a-f0-9]{40}$/.test(sha || '') || !['full', 'lan'].includes(edition) ||
       !path.isAbsolute(env.RUNNER_TEMP || '') || typeof verify !== 'function') throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
+  if (handoffUpgrade && (env.MYAPI_SMOKE_HANDOFF_UPGRADE !== '1' || edition !== 'full')) throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
   const source = `myapi-smoke-${edition}-${sha}`
   const image = `myapi:smoke-${edition}-${sha}`
+  const sourceImage = handoffUpgrade ? `myapi:handoff-${handoffSHA}` : image
   const target = `myapi-smoke-restore-${edition}-${sha}`
   if (env.SMOKE_CONTAINER !== source || env.SMOKE_IMAGE !== image) throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
   const sourceData = path.join(env.RUNNER_TEMP, `myapi-smoke-data-${edition}-${sha}`)
   if (env.SMOKE_DATA_DIR !== sourceData) throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
   const owned = (name) => runDocker(['inspect', '--format', '{{index .Config.Labels "io.myapi.smoke.sha"}}', name]) === sha
   if (!owned(source) || runDocker(['inspect', '--format', '{{.State.Running}}', source]) !== 'true' ||
-      runDocker(['inspect', '--format', '{{.Config.Image}}', source]) !== image) throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
+      runDocker(['inspect', '--format', '{{.Config.Image}}', source]) !== sourceImage) throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
   const mount = runDocker(['inspect', '--format', '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Type}}:{{.Source}}{{end}}{{end}}', source])
   if (mount !== `bind:${sourceData}`) throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
   if (runDocker(['ps', '-a', '--filter', `name=^${target}$`, '--format', '{{.Names}}']) !== '') throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
   const workspace = mkdtempSync(path.join(env.RUNNER_TEMP, 'myapi-sqlite-restore-'))
   chmodSync(workspace, 0o700)
   const backup = path.join(workspace, 'backup')
-  const restored = path.join(workspace, 'restored')
   mkdirSync(backup, { mode: 0o700 })
   let paused = false
   let started = false
+  let removalUncertain = false
   try {
     // Set the flag before the call: an uncertain pause outcome still needs cleanup.
     paused = true
@@ -52,25 +55,37 @@ export async function withRestoredSQLite({ sha, edition, env = process.env, runD
     runDocker(['unpause', source])
     paused = false
     const digest = databaseDigest(backup)
-    cpSync(backup, restored, { recursive: true })
-    chmodSync(restored, 0o700)
-    if (JSON.stringify(databaseDigest(restored)) !== JSON.stringify(digest)) throw new Error('SMOKE_RESTORE_COPY_MISMATCH')
-    const restoreEnv = { ...env, SESSION_SECRET: randomBytes(32).toString('hex') }
-    started = true
-    runDocker(['run', '--detach', '--name', target, '--label', `io.myapi.smoke.sha=${sha}`,
-      '--user', `${process.getuid()}:${process.getgid()}`,
-      '--publish', '127.0.0.1:18081:3000', '--cpus', '1', '--memory', '768m', '--pids-limit', '256',
-      '--mount', `type=bind,src=${restored},dst=/data`, '--env', `MYAPI_EDITION=${edition}`,
-      '--env', 'MEMORY_CACHE_ENABLED=false', '--env', 'SESSION_COOKIE_SECURE=false', '--env', 'TRUSTED_PROXIES=none',
-      '--env', 'SQL_MAX_OPEN_CONNS=1', '--env', 'SQL_MAX_IDLE_CONNS=1', '--env', 'GOMEMLIMIT=512MiB',
-      '--env', 'SESSION_SECRET', image], restoreEnv)
-    const result = await verify('http://127.0.0.1:18081')
-    if (JSON.stringify(databaseDigest(backup)) !== JSON.stringify(digest)) throw new Error('SMOKE_RESTORE_COPY_MISMATCH')
+    const phases = handoffUpgrade ? ['upgraded', 'restored'] : ['restored']
+    let result
+    for (const phase of phases) {
+      const restored = path.join(workspace, phase)
+      const restoreImage = handoffUpgrade && phase === 'restored' ? sourceImage : image
+      cpSync(backup, restored, { recursive: true })
+      chmodSync(restored, 0o700)
+      if (JSON.stringify(databaseDigest(restored)) !== JSON.stringify(digest)) throw new Error('SMOKE_RESTORE_COPY_MISMATCH')
+      const restoreEnv = { ...env, SESSION_SECRET: randomBytes(32).toString('hex') }
+      started = true
+      runDocker(['run', '--detach', '--name', target, '--label', `io.myapi.smoke.sha=${sha}`,
+        '--user', `${process.getuid()}:${process.getgid()}`,
+        '--publish', '127.0.0.1:18081:3000', '--cpus', '1', '--memory', '768m', '--pids-limit', '256',
+        '--mount', `type=bind,src=${restored},dst=/data`, '--env', `MYAPI_EDITION=${edition}`,
+        '--env', 'MEMORY_CACHE_ENABLED=false', '--env', 'SESSION_COOKIE_SECURE=false', '--env', 'TRUSTED_PROXIES=none',
+        '--env', 'SQL_MAX_OPEN_CONNS=1', '--env', 'SQL_MAX_IDLE_CONNS=1', '--env', 'GOMEMLIMIT=512MiB',
+        '--env', 'SESSION_SECRET', restoreImage], restoreEnv)
+      result = await verify('http://127.0.0.1:18081', phase)
+      if (JSON.stringify(databaseDigest(backup)) !== JSON.stringify(digest)) throw new Error('SMOKE_RESTORE_COPY_MISMATCH')
+      if (!owned(target)) throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
+      removalUncertain = true
+      runDocker(['rm', '--force', target])
+      removalUncertain = false
+      started = false
+    }
     return result
   } finally {
     // Only exact, labeled resources from this run are eligible for cleanup.
     // If removal is uncertain, retain the directory rather than unlinking a live mount.
     if (paused && owned(source)) runDocker(['unpause', source])
+    if (removalUncertain) throw new Error('SMOKE_RESTORE_DOCKER_FAILED')
     if (started) {
       if (!owned(target)) throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
       runDocker(['rm', '--force', target])
