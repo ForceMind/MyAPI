@@ -129,3 +129,108 @@ test('clears an unfinished recovery form when the signed-in user changes', async
     screen.queryByRole('button', { name: 'Confirm reconciliation' })
   ).not.toBeInTheDocument()
 })
+
+test('requires finished-request confirmation to recover a persisted open dispatch', async () => {
+  const user = userEvent.setup()
+  vi.mocked(api.get).mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        ...fixture,
+        state: 'open',
+        text_dispatch_pending: true,
+        can_recover_text_dispatch: true,
+      },
+    },
+  })
+  vi.mocked(api.post).mockResolvedValue({
+    data: {
+      success: true,
+      data: { ...fixture, state: 'applied', actual_quota: 20 },
+    },
+  })
+  renderReview()
+  const amount = await screen.findByLabelText(
+    'Confirmed quota (internal units)'
+  )
+  await user.type(amount, '20')
+  await user.type(
+    screen.getByLabelText('Evidence reference'),
+    'synthetic completed request'
+  )
+  await user.click(
+    screen.getByRole('button', { name: 'Confirm reconciliation' })
+  )
+  expect(api.post).not.toHaveBeenCalled()
+  await user.click(
+    screen.getByRole('checkbox', {
+      name: 'I verified that the request ended and the actual usage and frozen pricing are correct.',
+    })
+  )
+  await user.click(
+    screen.getByRole('button', { name: 'Confirm reconciliation' })
+  )
+  expect(await screen.findByText('Reconciled')).toBeInTheDocument()
+  expect(api.post).toHaveBeenCalledWith(
+    '/api/usage-review/review-fixture/recover-dispatch',
+    {
+      actual_quota: 20,
+      evidence_reference: 'synthetic completed request',
+      confirmed_reliable_evidence: true,
+      confirmed_request_finished: true,
+    },
+    { skipErrorHandler: true }
+  )
+})
+
+test('retries the same dispatch recovery after a lost response even if refresh shows the held state', async () => {
+  const user = userEvent.setup()
+  vi.mocked(api.get).mockResolvedValueOnce({
+    data: {
+      success: true,
+      data: { ...fixture, state: 'open', can_recover_text_dispatch: true },
+    },
+  })
+  vi.mocked(api.post)
+    .mockRejectedValueOnce(new Error('synthetic acknowledgement loss'))
+    .mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: { ...fixture, state: 'applied', actual_quota: 20 },
+      },
+    })
+  renderReview()
+  await user.type(
+    await screen.findByLabelText('Confirmed quota (internal units)'),
+    '20'
+  )
+  await user.type(
+    screen.getByLabelText('Evidence reference'),
+    'unchanged synthetic evidence'
+  )
+  await user.click(
+    screen.getByRole('checkbox', {
+      name: 'I verified that the request ended and the actual usage and frozen pricing are correct.',
+    })
+  )
+  await user.click(
+    screen.getByRole('button', { name: 'Confirm reconciliation' })
+  )
+  expect(await screen.findByText('Operation failed')).toBeInTheDocument()
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: 'Confirm reconciliation' })
+    ).toBeEnabled()
+  )
+  expect(
+    screen.getByLabelText('Confirmed quota (internal units)')
+  ).toHaveAttribute('readonly')
+  await user.click(
+    screen.getByRole('button', { name: 'Confirm reconciliation' })
+  )
+  expect(await screen.findByText('Reconciled')).toBeInTheDocument()
+  expect(api.post).toHaveBeenCalledTimes(2)
+  expect(vi.mocked(api.post).mock.calls[1]).toEqual(
+    vi.mocked(api.post).mock.calls[0]
+  )
+})

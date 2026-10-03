@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/i18n"
@@ -76,4 +77,52 @@ func usageReviewError(c *gin.Context, err error) {
 		status, code = http.StatusConflict, "usage_review_conflict"
 	}
 	c.JSON(status, gin.H{"success": false, "code": code, "message": common.TranslateMessage(c, message)})
+}
+
+func GetPendingUsageReviews(c *gin.Context) {
+	for key, values := range c.Request.URL.Query() {
+		if (key != "writer" && key != "after") || len(values) != 1 {
+			usageReviewError(c, model.ErrAccountQuotaMutationInvalidInput)
+			return
+		}
+	}
+	writer := c.DefaultQuery("writer", "authoritative")
+	after, err := strconv.ParseInt(c.DefaultQuery("after", "0"), 10, 64)
+	if err != nil || after < 0 {
+		usageReviewError(c, model.ErrAccountQuotaMutationInvalidInput)
+		return
+	}
+	result, err := model.ListPendingUsageReviews(c.Request.Context(), model.DB, c.GetInt("id"), writer, after)
+	if err != nil {
+		usageReviewError(c, err)
+		return
+	}
+	common.ApiSuccess(c, result)
+}
+
+func RecoverTextDispatchUsage(c *gin.Context) {
+	var request struct {
+		ActualQuota               *int64 `json:"actual_quota"`
+		EvidenceReference         string `json:"evidence_reference"`
+		ConfirmedReliableEvidence bool   `json:"confirmed_reliable_evidence"`
+		ConfirmedRequestFinished  bool   `json:"confirmed_request_finished"`
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4096)
+	if len(c.Request.URL.Query()) != 0 || common.DecodeJsonStrict(c.Request.Body, &request) != nil || request.ActualQuota == nil || !request.ConfirmedReliableEvidence || !request.ConfirmedRequestFinished {
+		usageReviewError(c, model.ErrAccountQuotaMutationInvalidInput)
+		return
+	}
+	result, err := model.RecoverTextDispatchUsage(c.Request.Context(), model.DB, c.GetInt("id"), c.Param("request_id"), *request.ActualQuota, request.EvidenceReference)
+	if err != nil {
+		usageReviewError(c, err)
+		return
+	}
+	if result.Decision != nil {
+		if err := model.ProjectUsageReviewDecision(c.Request.Context(), model.DB, model.LOG_DB, result.Decision.ID); err != nil {
+			logger.LogWarn(c, "usage review projection remains pending")
+		} else if refreshed, err := model.GetUsageReview(c.Request.Context(), model.DB, c.GetInt("id"), c.Param("request_id")); err == nil {
+			result = refreshed
+		}
+	}
+	common.ApiSuccess(c, result)
 }

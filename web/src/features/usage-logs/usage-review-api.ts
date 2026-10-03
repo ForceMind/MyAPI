@@ -5,6 +5,9 @@ import { usdAmountSchema } from '@/lib/exact-usd'
 
 const quota = z.number().int().min(0).max(2147483647)
 export const usageReviewSchema = z.object({
+  review_metadata: z.string().optional(),
+  text_dispatch_pending: z.boolean().optional(),
+  can_recover_text_dispatch: z.boolean().optional(),
   request_id: z.string(),
   user_id: z.number().int(),
   token_id: z.number().int(),
@@ -91,4 +94,43 @@ export async function reconcileUsageReview(
     { skipErrorHandler: true }
   )
   return parseReview(response.data, requestId)
+}
+
+export async function recoverTextDispatchUsage(
+  requestId: string,
+  actualQuota: number,
+  evidence: string
+): Promise<UsageReview> {
+  const response = await api.post(
+    `/api/usage-review/${encodeURIComponent(requestId)}/recover-dispatch`,
+    {
+      actual_quota: actualQuota,
+      evidence_reference: evidence,
+      confirmed_reliable_evidence: true,
+      confirmed_request_finished: true,
+    },
+    { skipErrorHandler: true }
+  )
+  return parseReview(response.data, requestId)
+}
+
+export async function getPendingUsageReviews(
+  writer: 'authoritative' | 'legacy',
+  after: string,
+  signal?: AbortSignal
+) {
+  const response = await api.get('/api/usage-reviews/pending', {
+    params: { writer, after },
+    signal,
+    skipErrorHandler: true,
+  })
+  return z
+    .object({
+      success: z.literal(true),
+      data: z.object({
+        items: z.array(usageReviewSchema),
+        next_after: z.string().regex(/^\d*$/),
+      }),
+    })
+    .parse(response.data).data
 }

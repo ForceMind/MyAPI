@@ -99,6 +99,7 @@ func TestR1UsageReviewConfiguredDatabases(t *testing.T) {
 			tokenBudgetCoupledReviewDatabaseContract(t, db, root.Id, user.Id, token.Id, namespace+"b")
 			feeBudgetCoupledReviewDatabaseContract(t, db, root.Id, user.Id, token.Id, namespace+"f")
 			selfUseCoupledReviewDatabaseContract(t, db, root.Id, namespace)
+			textDispatchRecoveryDatabaseContract(t, db, root.Id, namespace)
 		})
 	}
 }

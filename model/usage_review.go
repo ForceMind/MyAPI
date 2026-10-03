@@ -56,20 +56,22 @@ func (*UsageReviewDecision) BeforeUpdate(*gorm.DB) error { return ErrAccountQuot
 func (*UsageReviewDecision) BeforeDelete(*gorm.DB) error { return ErrAccountQuotaReceiptImmutable }
 
 type UsageReviewDetail struct {
-	TokenBudget      *TokenBudgetReservation `json:"token_budget,omitempty"`
-	RequestID        string                  `json:"request_id"`
-	UserID           int                     `json:"user_id"`
-	TokenID          int                     `json:"token_id"`
-	ChannelID        int                     `json:"channel_id"`
-	ModelName        string                  `json:"model_name"`
-	Writer           string                  `json:"writer"`
-	State            string                  `json:"state"`
-	ReservedQuota    int64                   `json:"reserved_quota"`
-	ActualQuota      *int64                  `json:"actual_quota"`
-	Reason           string                  `json:"reason"`
-	ReviewMetadata   string                  `json:"review_metadata"`
-	ReserveReceiptID int64                   `json:"reserve_receipt_id,omitempty"`
-	Decision         *UsageReviewDecision    `json:"decision,omitempty"`
+	TextDispatchPending    bool                    `json:"text_dispatch_pending"`
+	CanRecoverTextDispatch bool                    `json:"can_recover_text_dispatch"`
+	TokenBudget            *TokenBudgetReservation `json:"token_budget,omitempty"`
+	RequestID              string                  `json:"request_id"`
+	UserID                 int                     `json:"user_id"`
+	TokenID                int                     `json:"token_id"`
+	ChannelID              int                     `json:"channel_id"`
+	ModelName              string                  `json:"model_name"`
+	Writer                 string                  `json:"writer"`
+	State                  string                  `json:"state"`
+	ReservedQuota          int64                   `json:"reserved_quota"`
+	ActualQuota            *int64                  `json:"actual_quota"`
+	Reason                 string                  `json:"reason"`
+	ReviewMetadata         string                  `json:"review_metadata"`
+	ReserveReceiptID       int64                   `json:"reserve_receipt_id,omitempty"`
+	Decision               *UsageReviewDecision    `json:"decision,omitempty"`
 }
 
 func GetUsageReview(ctx context.Context, db *gorm.DB, actorID int, requestID string) (*UsageReviewDetail, error) {
@@ -139,6 +141,8 @@ func GetUsageReview(ctx context.Context, db *gorm.DB, actorID int, requestID str
 	} else {
 		return nil, err
 	}
+	view.TextDispatchPending, _ = TextDispatchPending(view.ReviewMetadata)
+	view.CanRecoverTextDispatch = view.TextDispatchPending && (view.State == LegacyUsagePrepared || view.State == AccountQuotaTerminalRecoveryOpen)
 	var pricingFlags struct {
 		StrictTokenBudget bool `json:"strict_token_budget"`
 	}
@@ -189,6 +193,9 @@ func ReconcileUsageReview(ctx context.Context, db *gorm.DB, actorID int, request
 	}
 	view, err := GetUsageReview(ctx, db, actorID, requestID)
 	if err != nil {
+		return nil, err
+	}
+	if err := validateTextDispatchRecoveryDecision(view.ReviewMetadata, actorID, actual, evidence); err != nil {
 		return nil, err
 	}
 	if len(tokenCounts) > 1 || (view.TokenBudget != nil) != (len(tokenCounts) == 1) {

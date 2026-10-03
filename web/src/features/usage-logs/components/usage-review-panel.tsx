@@ -1,11 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/stores/auth-store'
 
 import type { UsageReviewFormValues } from '../lib/usage-review-schema'
-import { getUsageReview, reconcileUsageReview } from '../usage-review-api'
+import {
+  getUsageReview,
+  reconcileUsageReview,
+  recoverTextDispatchUsage,
+} from '../usage-review-api'
 import { UsageReviewForm } from './usage-review-form'
 
 export function UsageReviewPanel(props: { requestId: string }) {
@@ -36,22 +41,50 @@ function UsageReviewSession(props: {
     retry: false,
     refetchOnWindowFocus: false,
   })
+  const [locked, setLocked] = useState(false)
+  const operation = useRef<{
+    values: UsageReviewFormValues
+    recover: boolean
+  } | null>(null)
   const mutation = useMutation({
-    mutationFn: (values: UsageReviewFormValues) =>
-      reconcileUsageReview(
+    mutationFn: (values: UsageReviewFormValues) => {
+      operation.current ??= {
+        values: { ...values },
+        recover: !!query.data?.can_recover_text_dispatch,
+      }
+      setLocked(true)
+      const command = operation.current
+      if (command.recover) {
+        return recoverTextDispatchUsage(
+          props.requestId,
+          Number(command.values.amount),
+          command.values.evidence
+        )
+      }
+      return reconcileUsageReview(
         props.requestId,
-        Number(values.amount),
-        values.evidence,
-        values.requiresTokens
+        Number(command.values.amount),
+        command.values.evidence,
+        command.values.requiresTokens
           ? {
-              input: Number(values.input),
-              output: Number(values.output),
-              ...(values.requiresFee ? { feeUSD: values.feeUSD } : {}),
+              input: Number(command.values.input),
+              output: Number(command.values.output),
+              ...(command.values.requiresFee
+                ? { feeUSD: command.values.feeUSD }
+                : {}),
             }
           : undefined
-      ),
+      )
+    },
     retry: false,
-    onSuccess: (data) => client.setQueryData(queryKey, data),
+    onSuccess: (data) => {
+      client.setQueryData(queryKey, data)
+      void client.invalidateQueries({
+        queryKey: ['pending-usage-reviews', props.userId],
+      })
+      operation.current = null
+      setLocked(false)
+    },
     onError: () => {
       void client.invalidateQueries({ queryKey })
     },
@@ -78,7 +111,8 @@ function UsageReviewSession(props: {
   const resolved = query.data.actual_quota !== null && !tokenPending
   const canResolve =
     props.role === 100 &&
-    (['usage_unknown', 'review_pending'].includes(query.data.state) ||
+    (query.data.can_recover_text_dispatch ||
+      ['usage_unknown', 'review_pending'].includes(query.data.state) ||
       tokenPending)
   return (
     <section
@@ -98,6 +132,14 @@ function UsageReviewSession(props: {
           {query.data.actual_quota?.toLocaleString()}
         </p>
       )}
+      {props.role === 100 && query.data.review_metadata && (
+        <details className='min-w-0 text-xs'>
+          <summary>{t('Frozen pricing evidence')}</summary>
+          <pre className='max-h-48 overflow-auto break-all whitespace-pre-wrap'>
+            {query.data.review_metadata}
+          </pre>
+        </details>
+      )}
       {mutation.isError && (
         <p role='alert' className='text-destructive text-sm'>
           {t('Operation failed')}
@@ -107,6 +149,8 @@ function UsageReviewSession(props: {
         <UsageReviewForm
           key={query.data.decision?.id ?? 0}
           review={query.data}
+          locked={locked}
+          requireFinished={!!query.data.can_recover_text_dispatch}
           busy={mutation.isPending || query.isFetching}
           onSubmit={(values) => mutation.mutate(values)}
         />

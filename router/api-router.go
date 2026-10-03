@@ -207,6 +207,8 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/option/diagnostics", middleware.DisableCache(), middleware.RootAuth(), controller.GetOptionDiagnostics)
 		apiRouter.GET("/user/:id/usage-policy", middleware.DisableCache(), middleware.UserAuth(), controller.GetUserUsagePolicy)
 		apiRouter.PUT("/user/:id/usage-policy", middleware.DisableCache(), middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.UpdateUserUsagePolicy)
+		apiRouter.GET("/usage-reviews/pending", middleware.DisableCache(), middleware.RootAuth(), controller.GetPendingUsageReviews)
+		apiRouter.POST("/usage-review/:request_id/recover-dispatch", middleware.DisableCache(), middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.RecoverTextDispatchUsage)
 		apiRouter.GET("/usage-review/:request_id", middleware.DisableCache(), middleware.UserAuth(), controller.GetUsageReview)
 		apiRouter.POST("/usage-review/:request_id/reconcile", middleware.DisableCache(), middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.ReconcileUsageReview)
 		apiRouter.POST("/option/diagnostics/remediate/dry-run", middleware.DisableCache(), middleware.RootAuth(), controller.OptionRemediateDryRun)

@@ -25,6 +25,7 @@ export function UsageReviewForm(props: {
   locked?: boolean
   requireTokenCounts?: boolean
   requireFee?: boolean
+  requireFinished?: boolean
   onSubmit: (values: UsageReviewFormValues) => void
 }) {
   const { t } = useTranslation()
@@ -58,6 +59,11 @@ export function UsageReviewForm(props: {
   })
   const locked = props.locked || !!props.review.decision
   let confirmation = t('I verified the evidence and frozen pricing.')
+  if (props.requireFinished) {
+    confirmation = t(
+      'I verified that the request ended and the actual usage and frozen pricing are correct.'
+    )
+  }
   if (requiresTokens) {
     confirmation = t(
       'I verified that the request ended and the actual token counts and frozen pricing are correct.'

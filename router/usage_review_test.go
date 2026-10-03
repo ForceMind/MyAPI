@@ -25,7 +25,7 @@ func TestUsageReviewActualRouteOwnershipAndRecovery(t *testing.T) {
 	require.NoError(t, err)
 	pool, err := db.DB()
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Log{}, &model.LegacyUsageReservation{}, &model.UsageReviewDecision{}, &model.AccountQuotaReservationHead{}, &model.AccountQuotaTerminalRecoveryObligation{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Log{}, &model.LegacyUsageReservation{}, &model.UsageReviewDecision{}, &model.AccountQuotaReservationHead{}, &model.AccountQuotaTerminalRecoveryObligation{}, &model.AccountQuotaSettlementIntent{}, &model.AccountQuotaSettlementFact{}))
 	oldDB, oldLogDB := model.DB, model.LOG_DB
 	oldRedis, oldMemory := common.RedisEnabled, common.MemoryCacheEnabled
 	oldMain, oldLog := common.MainDatabaseType(), common.LogDatabaseType()
@@ -62,10 +62,13 @@ func TestUsageReviewActualRouteOwnershipAndRecovery(t *testing.T) {
 	engine := gin.New()
 	engine.Use(func(c *gin.Context) { common.SetContextKey(c, constant.ContextKeyAuditLogged, true); c.Next() })
 	SetApiRouter(engine)
-	request := func(method, identity, origin, body string) *httptest.ResponseRecorder {
+	request := func(method, identity, origin, body string, override ...string) *httptest.ResponseRecorder {
 		path := "http://myapi.local/api/usage-review/review-request"
 		if method == http.MethodPost {
 			path += "/reconcile"
+		}
+		if len(override) == 1 {
+			path = "http://myapi.local" + override[0]
 		}
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
@@ -106,4 +109,24 @@ func TestUsageReviewActualRouteOwnershipAndRecovery(t *testing.T) {
 	assert.Equal(t, root.Id, record.ReviewedBy)
 	conflict := strings.Replace(body, `"actual_quota":100`, `"actual_quota":120`, 1)
 	assert.Equal(t, http.StatusConflict, request(http.MethodPost, "root", "http://myapi.local", conflict).Code)
+	_, err = model.PrepareLegacyUsageReservation(context.Background(), db, model.LegacyUsageReservation{RequestID: "dispatch-route", UserID: owner.Id, TokenID: 42, FundingSource: "wallet", ReservedQuota: 100, TokenReservedQuota: 100})
+	require.NoError(t, err)
+	require.NoError(t, model.SetTextDispatchEvidence(context.Background(), db, "dispatch-route", owner.Id, 42, 0, `{"version":1}`, true))
+	pendingPath := "/api/usage-reviews/pending?writer=legacy&after=0"
+	for _, actor := range []string{"owner", "admin"} {
+		assert.Equal(t, http.StatusForbidden, request(http.MethodGet, actor, "", "", pendingPath).Code)
+	}
+	assert.Equal(t, http.StatusOK, request(http.MethodGet, "root", "", "", pendingPath).Code)
+	assert.Equal(t, http.StatusBadRequest, request(http.MethodGet, "root", "", "", pendingPath+"&limit=999999").Code)
+	recoverPath := "/api/usage-review/dispatch-route/recover-dispatch"
+	for _, actor := range []string{"owner", "admin"} {
+		assert.Equal(t, http.StatusForbidden, request(http.MethodPost, actor, "http://myapi.local", body, recoverPath).Code)
+	}
+	assert.Equal(t, http.StatusForbidden, request(http.MethodPost, "root", "http://evil.invalid", body, recoverPath).Code)
+	assert.Equal(t, http.StatusBadRequest, request(http.MethodPost, "root", "http://myapi.local", body, recoverPath).Code)
+	recoveryBody := strings.TrimSuffix(body, "}") + `,"confirmed_request_finished":true}`
+	for range 2 {
+		assert.Equal(t, http.StatusOK, request(http.MethodPost, "root", "http://myapi.local", recoveryBody, recoverPath).Code)
+	}
+
 }
