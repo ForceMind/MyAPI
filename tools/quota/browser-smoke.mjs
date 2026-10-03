@@ -239,7 +239,13 @@ try {
   assert.equal(await dialog.getByRole('progressbar').count(), 0, 'missing upstream percent is not a zero-valued meter')
   for (const width of [1280, 320]) {
     await page.setViewportSize({ width, height: 850 })
-    await dialog.getByText(label('Unknown'), { exact: true }).waitFor({ state: 'visible' })
+    const unknownUsage = dialog.getByText(label('Unknown'), { exact: true })
+    await unknownUsage.scrollIntoViewIfNeeded()
+    assert(await unknownUsage.evaluate((element) => {
+      const rect = element.getBoundingClientRect()
+      const visible = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+      return visible === element || element.contains(visible)
+    }), 'unknown usage is actually visible, not below the scroll area or covered by the footer')
     const box = await dialog.boundingBox()
     assert(box && box.width <= width && box.x >= 0 && box.x + box.width <= width + 1, 'unknown quota stays within the viewport')
     await dialog.screenshot({ path: resolve(output, `codex-current-unknown-${width}.png`) })
