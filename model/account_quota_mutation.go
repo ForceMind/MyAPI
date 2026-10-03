@@ -1424,6 +1424,11 @@ func backfillAccountQuotaReceiptChain(db *gorm.DB, requestID string) (*AccountQu
 				terminal = &copyReceipt
 			}
 		}
+		// A short keyset page has already reached the end of this receipt
+		// chain. Avoid an extra empty query for every single-receipt request.
+		if len(receipts) < accountQuotaMigrationBatchSize {
+			break
+		}
 	}
 	if root == nil || current == nil {
 		return nil, nil, nil, ErrAccountQuotaMutationConflict
@@ -1460,7 +1465,9 @@ func InitializeAccountQuotaReservationHeadsWithDB(db *gorm.DB) error {
 		var roots []AccountQuotaMutationReceipt
 		remaining := accountQuotaMigrationRunBudget - processed
 		batchSize := min(accountQuotaMigrationBatchSize, remaining)
-		if err := db.Where("phase = ? AND id > ?", AccountQuotaPhaseReserve, cursor).
+		// The outer scan only needs chain identity; full JSON receipt fields
+		// are loaded and verified once by backfillAccountQuotaReceiptChain.
+		if err := db.Select("id", "request_id").Where("phase = ? AND id > ?", AccountQuotaPhaseReserve, cursor).
 			Order("id ASC").Limit(batchSize).Find(&roots).Error; err != nil {
 			return err
 		}

@@ -122,7 +122,7 @@ func (legacyQuotaBalanceBatchDrain) TableName() string { return "quota_balance_b
 
 func runAccountQuotaConfiguredSchemaContract(t *testing.T, db *gorm.DB) {
 	t.Helper()
-	for _, table := range []interface{}{&AccountQuotaTerminalRecoveryObligation{}, &AccountQuotaReservationHead{}, &AccountQuotaMutationReceipt{}, &AccountQuotaSettlementIntent{}, &AccountQuotaSettlementFact{}, &QuotaBalanceBatchDrain{}, &QuotaBalanceBatchSubject{}} {
+	for _, table := range []interface{}{&AccountQuotaTerminalRecoveryObligation{}, &AccountQuotaReservationHead{}, &AccountQuotaMutationReceipt{}, &AccountQuotaSettlementIntent{}, &AccountQuotaSettlementFact{}, &QuotaBalanceBatchDrain{}, &QuotaBalanceBatchSubject{}, &QuotaWorkCursor{}} {
 		require.NoError(t, db.Migrator().DropTable(table))
 	}
 	require.NoError(t, db.AutoMigrate(&legacyAccountQuotaMutationReceipt{}, &legacyQuotaBalanceBatchDrain{}))
@@ -269,7 +269,9 @@ func runAccountQuotaConfiguredSchemaContract(t *testing.T, db *gorm.DB) {
 
 func TestAccountQuotaConfiguredSchemaSQLite(t *testing.T) {
 	db := openB2SubmissionSQLite(t)
-	runAccountQuotaConfiguredSchemaContract(t, db)
+	for range 2 {
+		runAccountQuotaConfiguredSchemaContract(t, db)
+	}
 }
 
 func TestAccountQuotaConfiguredSchemaMySQLAndPostgres(t *testing.T) {
