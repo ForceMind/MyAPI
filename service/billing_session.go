@@ -490,10 +490,16 @@ func (s *BillingSession) Refund(c *gin.Context) (resultErr error) {
 			WalletQuota: int64(funding.consumed), TokenQuota: int64(s.tokenConsumed),
 		}
 	} else if funding, ok := s.funding.(*SubscriptionFunding); ok {
+		subscriptionReserved := funding.preConsumed
+		if s.legacyUsageJournal {
+			// Atomic extensions raise both the usage journal and the existing
+			// subscription pre-consume record to this cumulative amount.
+			subscriptionReserved += int64(s.extraReserved)
+		}
 		factInput = model.AccountQuotaRefundFactInput{
 			EventKey: "billing-refund:" + requestID + ":v2", Kind: model.AccountQuotaRefundFactKindLegacySubscription,
 			RequestID: requestID, UserID: s.relayInfo.UserId, TokenID: s.relayInfo.TokenId, SubscriptionID: funding.subscriptionId,
-			SubscriptionQuota: funding.preConsumed, TokenQuota: int64(s.tokenConsumed),
+			SubscriptionQuota: subscriptionReserved, TokenQuota: int64(s.tokenConsumed),
 		}
 	} else {
 		s.refunded = true
@@ -604,20 +610,14 @@ func (s *BillingSession) GetPreConsumedQuota() int {
 	return s.preConsumedQuota
 }
 
-func (s *BillingSession) Reserve(targetQuota int) (resultErr error) {
+func (s *BillingSession) Reserve(targetQuota int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	previous := s.preConsumedQuota
-	defer func() {
-		if resultErr == nil && s.legacyUsageJournal && s.preConsumedQuota != previous {
-			resultErr = s.completeLegacyUsageJournal(context.Background(), model.LegacyUsagePrepared, nil)
-			if resultErr != nil {
-				s.usageUnknown = true
-				s.settlementPending = true
-			}
-		}
-	}()
 	if s.usageUnknown || s.textDispatchPossible {
+		return model.ErrAccountQuotaUsageUnresolved
+	}
+	if !s.settled && !s.refunded && (s.settlementPending || s.refundRecoveryScheduled || s.settlementInput != nil || s.fundingSettled) {
 		return model.ErrAccountQuotaUsageUnresolved
 	}
 
@@ -656,6 +656,23 @@ func (s *BillingSession) Reserve(targetQuota int) (resultErr error) {
 
 	delta := targetQuota - s.preConsumedQuota
 	if delta <= 0 {
+		return nil
+	}
+	if s.legacyUsageJournal {
+		row, err := model.ExtendLegacyUsageReservation(context.Background(), model.DB, s.relayInfo.RequestId,
+			s.relayInfo.UserId, s.relayInfo.TokenId, int64(targetQuota), !s.relayInfo.IsPlayground)
+		if err != nil {
+			if errors.Is(err, model.ErrAccountQuotaUsageUnresolved) {
+				s.usageUnknown, s.settlementPending = true, true
+			}
+			return err
+		}
+		s.preConsumedQuota, s.tokenConsumed = int(row.ReservedQuota), int(row.TokenReservedQuota)
+		s.extraReserved += s.preConsumedQuota - previous
+		if funding, ok := s.funding.(*WalletFunding); ok {
+			funding.consumed = s.preConsumedQuota
+		}
+		s.syncRelayInfo()
 		return nil
 	}
 
