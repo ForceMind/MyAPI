@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { runRuntimeProbe } from './auth-probe.mjs'
+import { verifySQLiteRestore, withRestoredSQLite } from './sqlite-restore-smoke.mjs'
 
 export function validateSmokeTarget(baseUrl, edition, sha) {
   let target
@@ -353,7 +354,7 @@ export async function probeSelfUseRelayFixture({ baseUrl, edition, sha, username
 
 export async function probeFreshSQLite({
   baseUrl, edition, sha, isolated = false, relayFixture = false, fullContentExpected = false,
-  upstreamBaseUrl, fetchImpl = globalThis.fetch,
+  upstreamBaseUrl, fetchImpl = globalThis.fetch, restoreFixture,
 }) {
   if (!isolated) throw new Error('ISOLATED_SMOKE_OPT_IN_REQUIRED')
   const origin = validateSmokeTarget(baseUrl, edition, sha)
@@ -406,6 +407,9 @@ export async function probeFreshSQLite({
   const selfUse = relayFixture
     ? await probeSelfUseRelayFixture({ baseUrl: origin, edition, sha, username, password, isolated, fetchImpl, upstreamBaseUrl })
     : null
+  const restoreCheck = relayFixture && restoreFixture
+    ? await restoreFixture({ baseUrl: origin, edition, sha, username, password, fetchImpl })
+    : null
   return { command: 'docker:smoke', sha, edition, database: 'fresh-sqlite',
     passed: probe.passed && (relay?.passed ?? true) && (selfUse?.passed ?? true), checks: [
       { name: 'fresh SQLite initialization', ok: true },
@@ -414,6 +418,7 @@ export async function probeFreshSQLite({
       ...probe.checks,
       ...(relay?.checks || []),
       ...(selfUse?.checks || []),
+      ...(restoreCheck ? [restoreCheck] : []),
     ] }
 }
 
@@ -465,7 +470,10 @@ async function main() {
     const edition = process.env.MYAPI_SMOKE_EDITION
     const upstreamBaseUrl = process.env.MYAPI_FAKE_UPSTREAM_URL
     const report = await probeFreshSQLite({ baseUrl, sha, edition, isolated: true, relayFixture: true,
-      fullContentExpected: process.env.MYAPI_SMOKE_FULL_CONTENT === '1', upstreamBaseUrl })
+      fullContentExpected: process.env.MYAPI_SMOKE_FULL_CONTENT === '1', upstreamBaseUrl,
+      restoreFixture: process.env.MYAPI_SMOKE_RESTORE === '1'
+        ? (args) => verifySQLiteRestore({ ...args, restore: (verify) => withRestoredSQLite({ sha, edition, verify }) })
+        : undefined })
     if (report.passed) report.checks.push(await probeFrontend(baseUrl, sha,
       readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim(), process.env.MYAPI_PLAYWRIGHT_MODULE))
     console.log(JSON.stringify(report, null, 2))
@@ -492,6 +500,8 @@ async function main() {
       'SMOKE_SELF_USE_POLICY_MISMATCH', 'SMOKE_SELF_USE_RELAY_FAILED', 'SMOKE_SELF_USE_USAGE_MISMATCH',
       'SMOKE_SELF_USE_LOG_MISMATCH', 'SMOKE_SELF_USE_UPSTREAM_MISMATCH',
       'SMOKE_SELF_USE_WALLET_MISMATCH', 'SMOKE_SELF_USE_COUNTER_MISMATCH', 'SMOKE_SELF_USE_KEY_MISMATCH',
+      'SMOKE_RESTORE_SCOPE_REJECTED', 'SMOKE_RESTORE_DOCKER_FAILED', 'SMOKE_RESTORE_DATABASE_MISSING',
+      'SMOKE_RESTORE_COPY_MISMATCH', 'SMOKE_RESTORE_API_FAILED', 'SMOKE_RESTORE_STATE_MISMATCH', 'SMOKE_RESTORE_READINESS_FAILED',
       'SMOKE_BROWSER_MODULE_REQUIRED', 'SMOKE_FRONTEND_HTTP_FAILED',
       'SMOKE_FRONTEND_BUILD_MISMATCH', 'SMOKE_FRONTEND_RUNTIME_ERROR',
       'SMOKE_FRONTEND_FORM_UNAVAILABLE', 'ISOLATED_CI_SMOKE_ONLY'])
