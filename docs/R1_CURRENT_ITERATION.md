@@ -1,5 +1,17 @@
 # R1 接管与当前迭代（2026-10-02）
 
+## Full 隔离容器验收候选（2026-10-03 10:18 北京时间）
+
+前置 `006bb7e29f34cf1cec462285da8795d1809fe94c` 的 [CI37087751202](https://github.com/ForceMind/MyAPI/actions/runs/37087751202) 十项全部成功；CLI77、升级合同19、打包2719文件、574前端与Chromium通过，恢复三库SQLite0.53s/MySQL1.51s/PostgreSQL5.52s。合并测试树与HEAD树 `18031d8e5243a1d06b57a8f4a29aaaa3953d1faf` 一致。本地提交后clean-tree清单及打包也通过，保留既有门禁。
+
+- 范围与依赖：复用既有 `.github/workflows/docker-smoke.yml`，只对同仓 `codex/r1-usage-review-20261002` PR相关路径变化自动构建Full。手动Full/LAN矩阵保留，不新建测试平台，不触发发布。只读仓库权限、push:false、临时SQLite、loopback入口、合成上游、资源限制及按所有权清理保持。
+- 原普通用户有限余额请求仍需通过；增加新初始化Root零余额自用请求。先确认商业资金模式disabled及显式策略，再使用有限Key发一条合成Chat。验证实际15单位、Key剩985、用户余额仍0、统计一次、唯一self_use日志与上游总数2；预留上限1000覆盖已有500预消费下限，不把Key设无限。
+- 入口：GitHub Actions的Docker build smoke运行及固定脱敏探针报告。现有真实容器登录页、构建身份和Chromium检查保留；这不同于其他CI的合成页面。
+- 本地19项探针单测、runtime合同、release workflow合同32/32以及YAML/只读权限/no-publish检查通过；没有本地Docker，实际镜像构建与运行尚未验证。没有Go/前端业务改动，复用已有效的前置证据。
+- 停止条件：源码和文档同步，同SHA CI与Full隔离镜像构建、初始化、旧用户和Root请求、真实前端探针全部通过。失败只修本有界迭代，不放宽数量/费用/权限断言。下一批再处理隔离升级/备份恢复证据。
+- 仍未验真实OAuth、用户提供的账户/账单、目标部署和升级回滚；本探针仅使用合成账户和固定假上游，不产生真实API费用，不授权生产部署。R1仍不可封版部署。
+
+
 ## 升级失败回退门禁候选（2026-10-03 09:49 北京时间）
 
 前置 `eba51bc5609cec0bbd82c91f7e9a5def39fd883d` 的 [CI37085595918](https://github.com/ForceMind/MyAPI/actions/runs/37085595918) 十项全过；574前端测试及Root恢复分页/关闭/确认/刷新Chromium通过，320/1280px截图已核看。新增恢复三库逐项PASS，联合SQLite0.46s/MySQL1.71s/PostgreSQL4.75s，合并树与HEAD树 `ee70f64023c61e098a672c133e97101a6f600d61` 一致。

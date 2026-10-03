@@ -264,6 +264,78 @@ export async function probeRelayFixture({
   ] }
 }
 
+// The ordinary wallet fixture above stays intact. This separate request proves
+// the R1 zero-wallet admission path against the same isolated application.
+export async function probeSelfUseRelayFixture({ baseUrl, edition, sha, username, password, isolated = false, upstreamBaseUrl, fetchImpl = globalThis.fetch } = {}) {
+  if (!isolated) throw new Error('ISOLATED_SMOKE_OPT_IN_REQUIRED')
+  const origin = validateSmokeTarget(baseUrl, edition, sha)
+  const upstream = validateFixtureUpstreamTarget(upstreamBaseUrl)
+  if (!username || !password) throw new Error('SMOKE_FIXTURE_AUTH_UNAVAILABLE')
+  const json = async (pathname, options = {}) => {
+    const response = await fetchImpl(origin + pathname, { ...options, redirect: 'error', signal: AbortSignal.timeout(10_000) })
+    return { status: response.status, body: await response.json().catch(() => null), headers: response.headers }
+  }
+  const success = async (code, pathname, options) => {
+    const result = await json(pathname, options)
+    if (!fixtureSuccess(result)) throw new Error(code)
+    return result
+  }
+  const control = async () => {
+    const response = await fetchImpl(upstream + '/__smoke__/control', { redirect: 'error', signal: AbortSignal.timeout(10_000) })
+    if (response.status !== 200) throw new Error('SMOKE_SELF_USE_UPSTREAM_MISMATCH')
+    return response.json()
+  }
+  if ((await control()).count !== 1) throw new Error('SMOKE_SELF_USE_UPSTREAM_MISMATCH')
+  const login = await success('SMOKE_FIXTURE_ROOT_LOGIN_FAILED', '/api/user/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }),
+  })
+  const accessToken = login.body.data?.access_token
+  if (typeof accessToken !== 'string' || !accessToken) throw new Error('SMOKE_FIXTURE_ROOT_LOGIN_FAILED')
+  const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+  const status = await success('SMOKE_SELF_USE_POLICY_MISMATCH', '/api/status')
+  const before = await success('SMOKE_SELF_USE_POLICY_MISMATCH', '/api/user/self', { headers })
+  const user = before.body.data
+  if (status.body.data?.user_funding_mode !== 'disabled' || !Number.isInteger(user?.id) || user.id <= 0 ||
+      user.role !== 100 || user.quota !== 0 || user.self_use_no_balance !== true || user.used_quota !== 0 || user.request_count !== 0) {
+    throw new Error('SMOKE_SELF_USE_POLICY_MISMATCH')
+  }
+  const keyName = 'smoke-self-use-key'
+  const keyLimit = 1000 // Above the existing 500-token pre-consume floor.
+  await success('SMOKE_FIXTURE_KEY_CREATE_FAILED', '/api/token/', { method: 'POST', headers,
+    body: JSON.stringify({ name: keyName, remain_quota: keyLimit, unlimited_quota: false, model_limits_enabled: true,
+      model_limits: fixture.model, group: 'default', expired_time: -1 }),
+  })
+  const listed = await success('SMOKE_FIXTURE_KEY_LOOKUP_FAILED', `/api/token/search?keyword=${keyName}&p=1&page_size=10`, { headers })
+  const key = findFixtureItem(fixturePageItems(listed), (item) => item.name === keyName)
+  if (!Number.isInteger(key?.id) || key.id <= 0) throw new Error('SMOKE_FIXTURE_KEY_LOOKUP_FAILED')
+  const keyResult = await success('SMOKE_FIXTURE_KEY_RETRIEVE_FAILED', `/api/token/${key.id}/key`, { method: 'POST', headers })
+  const secret = keyResult.body.data?.key
+  if (typeof secret !== 'string' || !secret) throw new Error('SMOKE_FIXTURE_KEY_RETRIEVE_FAILED')
+  const relay = await json('/v1/chat/completions', { method: 'POST', headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: fixture.model, messages: [{ role: 'user', content: 'synthetic zero-wallet request' }], max_tokens: 8, stream: false }),
+  })
+  if (relay.status !== 200 || relay.body?.usage?.prompt_tokens !== 10 || relay.body?.usage?.completion_tokens !== 5 || relay.body?.usage?.total_tokens !== 15) throw new Error('SMOKE_SELF_USE_RELAY_FAILED')
+  const requestId = relay.headers.get('x-oneapi-request-id')
+  if (typeof requestId !== 'string' || !requestId) throw new Error('SMOKE_FIXTURE_REQUEST_ID_MISSING')
+  const after = await success('SMOKE_SELF_USE_USAGE_MISMATCH', '/api/user/self', { headers })
+  const token = await success('SMOKE_SELF_USE_USAGE_MISMATCH', `/api/token/${key.id}`, { headers })
+  if (after.body.data?.quota !== 0 || after.body.data?.self_use_no_balance !== true || after.body.data?.used_quota !== fixture.usageQuota || after.body.data?.request_count !== 1 ||
+      token.body.data?.remain_quota !== keyLimit - fixture.usageQuota || token.body.data?.used_quota !== fixture.usageQuota) throw new Error('SMOKE_SELF_USE_USAGE_MISMATCH')
+  const logs = await success('SMOKE_SELF_USE_LOG_MISMATCH', `/api/log/self?type=2&request_id=${encodeURIComponent(requestId)}&p=1&page_size=100`, { headers })
+  const rows = fixturePageItems(logs)
+  let other
+  try { other = JSON.parse(rows[0]?.other || '{}') } catch { throw new Error('SMOKE_SELF_USE_LOG_MISMATCH') }
+  if (logs.body.data?.total !== 1 || rows.length !== 1 || rows[0].request_id !== requestId || rows[0].user_id !== user.id ||
+      rows[0].token_id !== key.id || rows[0].quota !== fixture.usageQuota || other.billing_source !== 'self_use') throw new Error('SMOKE_SELF_USE_LOG_MISMATCH')
+  const observed = await control()
+  if (observed.count !== 2 || observed.request_ok !== true) throw new Error('SMOKE_SELF_USE_UPSTREAM_MISMATCH')
+  return { passed: true, checks: [
+    { name: 'fresh Root uses explicit zero-wallet policy with commercial funding disabled', ok: true },
+    { name: 'zero-wallet relay keeps user balance zero and debits finite Key allowance once', ok: true },
+    { name: 'one self-use consume log and one additional synthetic upstream request', ok: true },
+  ] }
+}
+
 export async function probeFreshSQLite({
   baseUrl, edition, sha, isolated = false, relayFixture = false, fullContentExpected = false,
   upstreamBaseUrl, fetchImpl = globalThis.fetch,
@@ -316,13 +388,17 @@ export async function probeFreshSQLite({
   const relay = relayFixture
     ? await probeRelayFixture({ baseUrl: origin, edition, sha, username, password, isolated, fetchImpl, fullContentExpected, upstreamBaseUrl })
     : null
+  const selfUse = relayFixture
+    ? await probeSelfUseRelayFixture({ baseUrl: origin, edition, sha, username, password, isolated, fetchImpl, upstreamBaseUrl })
+    : null
   return { command: 'docker:smoke', sha, edition, database: 'fresh-sqlite',
-    passed: probe.passed && (relay?.passed ?? true), checks: [
+    passed: probe.passed && (relay?.passed ?? true) && (selfUse?.passed ?? true), checks: [
       { name: 'fresh SQLite initialization', ok: true },
       { name: 'anonymous self rejected', ok: true, status: anonymous.status },
       { name: 'runtime self-use mode', ok: true },
       ...probe.checks,
       ...(relay?.checks || []),
+      ...(selfUse?.checks || []),
     ] }
 }
 
@@ -398,6 +474,8 @@ async function main() {
       'SMOKE_FIXTURE_FULL_CONTENT_REDACTION_MISMATCH',
       'SMOKE_FIXTURE_UPSTREAM_NOT_FRESH',
       'SMOKE_FIXTURE_UPSTREAM_MISMATCH',
+      'SMOKE_SELF_USE_POLICY_MISMATCH', 'SMOKE_SELF_USE_RELAY_FAILED', 'SMOKE_SELF_USE_USAGE_MISMATCH',
+      'SMOKE_SELF_USE_LOG_MISMATCH', 'SMOKE_SELF_USE_UPSTREAM_MISMATCH',
       'SMOKE_BROWSER_MODULE_REQUIRED', 'SMOKE_FRONTEND_HTTP_FAILED',
       'SMOKE_FRONTEND_BUILD_MISMATCH', 'SMOKE_FRONTEND_RUNTIME_ERROR',
       'SMOKE_FRONTEND_FORM_UNAVAILABLE', 'ISOLATED_CI_SMOKE_ONLY'])
