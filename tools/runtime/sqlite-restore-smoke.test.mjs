@@ -15,13 +15,15 @@ function fixture(t, overrides = {}) {
   const temp = mkdtempSync(path.join(os.tmpdir(), 'myapi-restore-test-'))
   t.after(() => rmSync(temp, { recursive: true, force: true }))
   const commands = []
-  const env = { GITHUB_ACTIONS: 'true', MYAPI_ISOLATED_SMOKE: '1', MYAPI_SMOKE_RESTORE: '1', RUNNER_TEMP: temp, SMOKE_CONTAINER: source, SMOKE_IMAGE: image }
+  const env = { GITHUB_ACTIONS: 'true', MYAPI_ISOLATED_SMOKE: '1', MYAPI_SMOKE_RESTORE: '1', RUNNER_TEMP: temp, SMOKE_CONTAINER: source, SMOKE_IMAGE: image,
+    SMOKE_DATA_DIR: path.join(temp, `myapi-smoke-data-full-${sha}`) }
   const runDocker = (args, commandEnv) => {
     commands.push(args)
     if (args[0] === 'inspect') {
       if (args[2].includes('Labels')) return overrides.foreign ? 'foreign' : sha
       if (args[2] === '{{.State.Running}}') return 'true'
       if (args[2] === '{{.Config.Image}}') return image
+      if (args[2].includes('.Mounts')) return overrides.tmpfs ? 'tmpfs:' : `bind:${env.SMOKE_DATA_DIR}`
     }
     if (args[0] === 'ps') return overrides.existing ? target : ''
     if (args[0] === 'cp') {
@@ -60,7 +62,7 @@ test('SQLite restore pauses only the owned fixture and copies DB plus WAL into a
 })
 
 test('SQLite restore rejects foreign ownership, existing target and missing opt-in before mutation', async (t) => {
-  for (const options of [{ foreign: true }, { existing: true }, { optOut: true }]) {
+  for (const options of [{ foreign: true }, { existing: true }, { optOut: true }, { tmpfs: true }]) {
     const f = fixture(t, options)
     if (options.optOut) f.env.MYAPI_SMOKE_RESTORE = '0'
     await assert.rejects(withRestoredSQLite({ ...f, sha, edition: 'full', verify: async () => {} }), /SMOKE_RESTORE_SCOPE_REJECTED/)

@@ -29,9 +29,13 @@ export async function withRestoredSQLite({ sha, edition, env = process.env, runD
   const image = `myapi:smoke-${edition}-${sha}`
   const target = `myapi-smoke-restore-${edition}-${sha}`
   if (env.SMOKE_CONTAINER !== source || env.SMOKE_IMAGE !== image) throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
+  const sourceData = path.join(env.RUNNER_TEMP, `myapi-smoke-data-${edition}-${sha}`)
+  if (env.SMOKE_DATA_DIR !== sourceData) throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
   const owned = (name) => runDocker(['inspect', '--format', '{{index .Config.Labels "io.myapi.smoke.sha"}}', name]) === sha
   if (!owned(source) || runDocker(['inspect', '--format', '{{.State.Running}}', source]) !== 'true' ||
       runDocker(['inspect', '--format', '{{.Config.Image}}', source]) !== image) throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
+  const mount = runDocker(['inspect', '--format', '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Type}}:{{.Source}}{{end}}{{end}}', source])
+  if (mount !== `bind:${sourceData}`) throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
   if (runDocker(['ps', '-a', '--filter', `name=^${target}$`, '--format', '{{.Names}}']) !== '') throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
   const workspace = mkdtempSync(path.join(env.RUNNER_TEMP, 'myapi-sqlite-restore-'))
   chmodSync(workspace, 0o700)
@@ -54,6 +58,7 @@ export async function withRestoredSQLite({ sha, edition, env = process.env, runD
     const restoreEnv = { ...env, SESSION_SECRET: randomBytes(32).toString('hex') }
     started = true
     runDocker(['run', '--detach', '--name', target, '--label', `io.myapi.smoke.sha=${sha}`,
+      '--user', `${process.getuid()}:${process.getgid()}`,
       '--publish', '127.0.0.1:18081:3000', '--cpus', '1', '--memory', '768m', '--pids-limit', '256',
       '--mount', `type=bind,src=${restored},dst=/data`, '--env', `MYAPI_EDITION=${edition}`,
       '--env', 'MEMORY_CACHE_ENABLED=false', '--env', 'SESSION_COOKIE_SECURE=false', '--env', 'TRUSTED_PROXIES=none',

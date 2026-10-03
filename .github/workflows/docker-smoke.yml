@@ -36,6 +36,7 @@ jobs:
       SMOKE_CONTAINER: myapi-smoke-${{ matrix.edition }}-${{ github.sha }}
       SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-${{ matrix.edition }}-${{ github.sha }}
       SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-${{ matrix.edition }}-${{ github.sha }}
+      SMOKE_DATA_DIR: ${{ runner.temp }}/myapi-smoke-data-${{ matrix.edition }}-${{ github.sha }}
       SMOKE_IMAGE: myapi:smoke-${{ matrix.edition }}-${{ github.sha }}
 
     steps:
@@ -80,13 +81,15 @@ jobs:
         run: |
           set -euo pipefail
           export SESSION_SECRET="$(openssl rand -hex 32)"
+          mkdir -m 700 "$SMOKE_DATA_DIR"
           docker run --detach \
             --name "$SMOKE_CONTAINER" \
             --label "io.myapi.smoke.sha=${GITHUB_SHA}" \
+            --user "$(id -u):$(id -g)" \
             --publish 127.0.0.1:18080:3000 \
             --publish 127.0.0.1:19090:19090 \
             --cpus 1 --memory 768m --pids-limit 256 \
-            --tmpfs /data:rw,noexec,nosuid,size=128m \
+            --mount "type=bind,src=$SMOKE_DATA_DIR,dst=/data" \
             --env MYAPI_EDITION="$MYAPI_SMOKE_EDITION" \
             --env MEMORY_CACHE_ENABLED=false \
             --env FULL_CONTENT_LOG_ENABLED=true \
@@ -194,4 +197,7 @@ jobs:
           fi
           if [[ "$(docker inspect --format '{{index .Config.Labels "io.myapi.smoke.sha"}}' "$SMOKE_CONTAINER" 2>/dev/null)" == "$GITHUB_SHA" ]]; then
             docker rm --force "$SMOKE_CONTAINER" >/dev/null
+            if [[ "$SMOKE_DATA_DIR" == "$RUNNER_TEMP/myapi-smoke-data-${MYAPI_SMOKE_EDITION}-${GITHUB_SHA}" ]]; then
+              rm -rf -- "$SMOKE_DATA_DIR"
+            fi
           fi
