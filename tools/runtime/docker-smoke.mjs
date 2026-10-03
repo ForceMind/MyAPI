@@ -136,7 +136,7 @@ export async function probeRelayFixture({
   if (!Number.isInteger(user?.id) || user.id <= 0) throw new Error('SMOKE_FIXTURE_USER_LOOKUP_FAILED')
   await expectSuccess('SMOKE_FIXTURE_WALLET_OVERRIDE_FAILED', '/api/user/manage', {
     method: 'POST', headers: rootHeaders,
-    body: JSON.stringify({ id: user.id, action: 'add_quota', mode: 'override', value: fixture.walletQuota }),
+    body: JSON.stringify({ id: user.id, action: 'add_quota', mode: 'override', value: fixture.walletQuota, request_id: `smoke-wallet-${sha}-${user.id}` }),
   })
   const userLogin = await expectSuccess('SMOKE_FIXTURE_USER_LOGIN_FAILED', '/api/user/login', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },

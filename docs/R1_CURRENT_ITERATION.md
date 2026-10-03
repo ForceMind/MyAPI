@@ -1,5 +1,11 @@
 # R1 接管与当前迭代（2026-10-02）
 
+## 旧余额容器夹具幂等编号补修（2026-10-03 10:27 北京时间）
+
+2026-10-03 10:27 北京时间：1635cd7已同步，Docker37089544065真实Full镜像构建、启动和健康检查成功，但旧余额夹具在额度设置失败，尚未到新Root探针或前端。定位为旧脚本漏传ManageUser必填request_id；本小批只补按构建SHA/测试用户固定的幂等编号，保持余额/Key/日志断言，不改生产接口或开启商业模式。回归先红后绿，19项探针、runtime13及workflow32合同通过；源码文档同批同步后重跑实际容器，不宣称1635cd7全绿。
+
+运行链接：https://github.com/ForceMind/MyAPI/actions/runs/37089544065 。固定错误SMOKE_FIXTURE_WALLET_OVERRIDE_FAILED；应用与假上游均running/exit0/无OOM。原始失败保留，不打印认证信息或放宽断言。当前CI37089544049尚未核验终态，后续以新SHA为准，真实账户及部署边界不变。
+
 ## Full 隔离容器验收候选（2026-10-03 10:18 北京时间）
 
 前置 `006bb7e29f34cf1cec462285da8795d1809fe94c` 的 [CI37087751202](https://github.com/ForceMind/MyAPI/actions/runs/37087751202) 十项全部成功；CLI77、升级合同19、打包2719文件、574前端与Chromium通过，恢复三库SQLite0.53s/MySQL1.51s/PostgreSQL5.52s。合并测试树与HEAD树 `18031d8e5243a1d06b57a8f4a29aaaa3953d1faf` 一致。本地提交后clean-tree清单及打包也通过，保留既有门禁。

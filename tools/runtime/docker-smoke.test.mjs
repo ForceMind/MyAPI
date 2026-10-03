@@ -116,7 +116,7 @@ test('relay fixture verifies exact wallet, key, usage, log and redaction contrac
           return json({ success: true, data: { items: [{ id: 11, username: 'smokeuser', role: 1 }] } })
         case 'POST /api/user/manage':
           assert.equal(auth, 'Bearer root-session')
-          assert.deepEqual(body, { id: 11, action: 'add_quota', mode: 'override', value: 1_000_000 })
+          assert.deepEqual(body, { id: 11, action: 'add_quota', mode: 'override', value: 1_000_000, request_id: `smoke-wallet-${sha}-11` })
           return json({ success: true })
         case 'POST /api/token/':
           assert.equal(auth, 'Bearer ordinary-session')
