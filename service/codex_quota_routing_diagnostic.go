@@ -94,6 +94,7 @@ func inspectCodexQuotaRouting(ctx context.Context, channel *model.Channel, inclu
 	if includeDetails {
 		diagnostic.Keys = make([]CodexQuotaKeyDiagnostic, 0, len(keys))
 	}
+	threshold, thresholdActive := common.AccountQuotaThresholdFromContext(ctx)
 	accountStates := make(map[string]model.CodexQuotaRouteState, len(keys))
 	for index, key := range keys {
 		item := CodexQuotaKeyDiagnostic{Index: index}
@@ -138,10 +139,39 @@ func inspectCodexQuotaRouting(ctx context.Context, channel *model.Channel, inclu
 			if err != nil {
 				return nil, err
 			}
+			if thresholdActive && !state.Blocked {
+				checked, err := model.ReadCodexAccountThresholdState(ctx, model.DB, subjectRef, legacyRef, routingNow, threshold)
+				if err != nil {
+					return nil, err
+				}
+				state.Blocked, state.ReasonCode, state.ObservedAt, state.ResetAt = !checked.Eligible, checked.Reason, checked.ObservedAt, checked.ResetAt
+				if state.Blocked {
+					state.Source = "codex_account_threshold"
+				}
+			}
 			accountStates[accountID] = state
+		}
+		if thresholdActive && !state.Blocked && keyring != nil {
+			credentialIdentity, found, err := model.LookupChannelQuotaIdentity(ctx, model.DB, *keyring, "channel_type_"+strconv.Itoa(channel.Type), common.ChannelQuotaIdentityKindCredential, []byte(key))
+			if err != nil {
+				return nil, err
+			}
+			if found {
+				failed, err := model.CodexThresholdCredentialFailedAfter(ctx, model.DB, credentialIdentity.SubjectRef, state.ObservedAt)
+				if err != nil {
+					return nil, err
+				}
+				if failed {
+					state.Blocked = true
+					state.ReasonCode = "threshold_credential_unavailable"
+				}
+			}
 		}
 		if state.Blocked {
 			item.ReasonCode = CodexRouteKeyQuotaExhausted
+			if state.ReasonCode != "" {
+				item.ReasonCode = state.ReasonCode
+			}
 			item.ResetAt, item.ObservedAt, item.Source = state.ResetAt, state.ObservedAt, state.Source
 			diagnostic.excluded[index] = true
 		} else {

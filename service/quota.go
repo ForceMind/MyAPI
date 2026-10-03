@@ -198,6 +198,32 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 
 func PostWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, modelName string,
 	usage *dto.RealtimeUsage, extraContent string) {
+	if usage == nil {
+		holdUnverifiedTextUsage(ctx, relayInfo, "missing", calculateTextQuotaSummary(ctx, relayInfo, nil))
+		return
+	}
+	if !relayInfo.PriceData.UsePrice {
+		reason := ""
+		if relayInfo.RealtimeUsageUnverified {
+			reason = "estimated"
+		}
+		if usage.UsageIncomplete {
+			reason = "partial"
+		}
+		if snapshot := relayInfo.TieredBillingSnapshot; snapshot != nil && usage.RawUsageObserved && usage.InputTokens > 0 && !usage.CachedTokensReported && billingexpr.UsedVars(snapshot.ExprString)["cr"] {
+			reason = "partial"
+		}
+		if state := relayInfo.RealtimeTieredPricing; state != nil && state.Incomplete {
+			reason = "partial"
+		}
+		if usage.TotalTokens == 0 && !relayInfo.RealtimeReportedUsage {
+			reason = "missing"
+		}
+		if reason != "" {
+			holdUnverifiedTextUsage(ctx, relayInfo, reason, calculateTextQuotaSummary(ctx, relayInfo, nil))
+			return
+		}
+	}
 
 	var tieredResult *billingexpr.TieredResult
 	var tieredUsedVars map[string]bool
@@ -289,13 +315,16 @@ func PostWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, mod
 		logContent += "（可能是上游超时）"
 		logger.LogError(ctx, fmt.Sprintf("total tokens is 0, cannot consume quota, userId %d, channelId %d, "+
 			"tokenId %d, model %s， pre-consumed quota %d", relayInfo.UserId, relayInfo.ChannelId, relayInfo.TokenId, modelName, relayInfo.FinalPreConsumedQuota))
-	} else {
-		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, quota)
-		model.UpdateChannelUsedQuota(relayInfo.ChannelId, quota)
 	}
 
 	if err := SettleBilling(ctx, relayInfo, quota); err != nil {
 		logger.LogError(ctx, "error settling billing: "+err.Error())
+		recordPendingBillingSettlement(ctx, relayInfo)
+		return
+	}
+	if totalTokens > 0 {
+		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, quota)
+		model.UpdateChannelUsedQuota(relayInfo.ChannelId, quota)
 	}
 
 	logModel := modelName
@@ -334,28 +363,35 @@ func CalcOpenRouterCacheCreateTokens(usage dto.Usage, priceData types.PriceData)
 	if priceData.CacheCreationRatio == 1 {
 		return 0, nil
 	}
-	quotaPrice := priceData.ModelRatio / requestQuotaUnit(priceData)
-	promptCacheCreatePrice := quotaPrice * priceData.CacheCreationRatio
-	promptCacheReadPrice := quotaPrice * priceData.CacheRatio
-	completionPrice := quotaPrice * priceData.CompletionRatio
-	denominator := promptCacheCreatePrice - quotaPrice
-	if denominator == 0 || math.IsNaN(denominator) || math.IsInf(denominator, 0) {
+	unit := requestQuotaUnit(priceData)
+	cost, ok := usage.Cost.(float64)
+	if !ok || unit <= 0 {
+		return 0, fmt.Errorf("invalid OpenRouter cache creation cost or quota unit")
+	}
+	for _, value := range []float64{unit, cost, priceData.ModelRatio, priceData.CacheCreationRatio, priceData.CacheRatio, priceData.CompletionRatio} {
+		if math.IsNaN(value) || math.IsInf(value, 0) {
+			return 0, fmt.Errorf("invalid OpenRouter cache creation price")
+		}
+	}
+	// Algebraically identical to the previous estimate, but keep decimal
+	// coefficients exact and cancel the common quota unit before division.
+	// Float subtraction made an exact 100-token result truncate to 99.
+	modelRatio := decimal.NewFromFloat(priceData.ModelRatio)
+	denominator := modelRatio.Mul(decimal.NewFromFloat(priceData.CacheCreationRatio).Sub(decimal.NewFromInt(1)))
+	if denominator.IsZero() {
 		return 0, fmt.Errorf("invalid OpenRouter cache creation price denominator")
 	}
-
-	cost, _ := usage.Cost.(float64)
-	totalPromptTokens := float64(usage.PromptTokens)
-	completionTokens := float64(usage.CompletionTokens)
-	promptCacheReadTokens := float64(usage.PromptTokensDetails.CachedTokens)
-
-	raw := (cost -
-		totalPromptTokens*quotaPrice +
-		promptCacheReadTokens*(quotaPrice-promptCacheReadPrice) -
-		completionTokens*completionPrice) / denominator
-	if math.IsNaN(raw) || math.IsInf(raw, 0) || raw < 0 {
+	numerator := decimal.NewFromFloat(cost).Mul(decimal.NewFromFloat(unit)).
+		Sub(decimal.NewFromInt(int64(usage.PromptTokens)).Mul(modelRatio)).
+		Add(decimal.NewFromInt(int64(usage.PromptTokensDetails.CachedTokens)).Mul(modelRatio).Mul(decimal.NewFromInt(1).Sub(decimal.NewFromFloat(priceData.CacheRatio)))).
+		Sub(decimal.NewFromInt(int64(usage.CompletionTokens)).Mul(modelRatio).Mul(decimal.NewFromFloat(priceData.CompletionRatio)))
+	if numerator.Sign()*denominator.Sign() < 0 {
 		return 0, fmt.Errorf("invalid OpenRouter cache creation token estimate")
 	}
-	quota, clamp := common.QuotaFromFloatChecked(raw)
+	// Integer quotient preserves the existing truncation contract without
+	// rounding a fractional estimate into an extra token.
+	raw, _ := numerator.QuoRem(denominator, 0)
+	quota, clamp := common.QuotaFromDecimalChecked(raw)
 	if clamp != nil {
 		return 0, clamp
 	}
@@ -363,7 +399,12 @@ func CalcOpenRouterCacheCreateTokens(usage dto.Usage, priceData types.PriceData)
 }
 
 func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage, extraContent string) {
-
+	if usage == nil || !relayInfo.PriceData.UsePrice {
+		if reason := publishedPriceUsageReviewReason(ctx, relayInfo, usage); reason != "" {
+			holdUnverifiedTextUsage(ctx, relayInfo, reason, calculateTextQuotaSummary(ctx, relayInfo, effectiveBillingUsage(usage)))
+			return
+		}
+	}
 	var tieredUsedVars map[string]bool
 	if snap := relayInfo.TieredBillingSnapshot; snap != nil {
 		tieredUsedVars = billingexpr.UsedVars(snap.ExprString)
@@ -432,13 +473,16 @@ func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, u
 		logContent += "（可能是上游超时）"
 		logger.LogError(ctx, fmt.Sprintf("total tokens is 0, cannot consume quota, userId %d, channelId %d, "+
 			"tokenId %d, model %s， pre-consumed quota %d", relayInfo.UserId, relayInfo.ChannelId, relayInfo.TokenId, relayInfo.OriginModelName, relayInfo.FinalPreConsumedQuota))
-	} else {
-		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, quota)
-		model.UpdateChannelUsedQuota(relayInfo.ChannelId, quota)
 	}
 
 	if err := SettleBilling(ctx, relayInfo, quota); err != nil {
 		logger.LogError(ctx, "error settling billing: "+err.Error())
+		recordPendingBillingSettlement(ctx, relayInfo)
+		return
+	}
+	if totalTokens > 0 {
+		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, quota)
+		model.UpdateChannelUsedQuota(relayInfo.ChannelId, quota)
 	}
 
 	logModel := relayInfo.OriginModelName
@@ -544,6 +588,11 @@ func postConsumeQuotaWithResult(relayInfo *relaycommon.RelayInfo, quota int, pre
 //     以 Namespace + 请求 ID（+ Qualifier）构成的稳定业务键幂等；
 //   - bridge：fail-closed，受控切换由后续批次处理。
 func postConsumeQuotaWithEvent(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int, sendEmail bool, event postConsumeQuotaEvent) (result postConsumeQuotaResult, err error) {
+	if relayInfo != nil && relayInfo.BillingSource == BillingSourceSelfUse {
+		// This source must use its captured session/receipt. Old direct writers
+		// must not fall through to a wallet debit when no session is available.
+		return result, model.ErrAccountQuotaUsageUnresolved
+	}
 	if event.Namespace != "" {
 		var mode model.QuotaWriterMode
 		mode, err = postConsumeQuotaWriterMode()
@@ -667,6 +716,9 @@ func postConsumeQuotaAuthoritative(relayInfo *relaycommon.RelayInfo, quota int, 
 }
 
 func checkAndSendQuotaNotify(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int) {
+	if relayInfo == nil || relayInfo.BillingSource == BillingSourceSelfUse {
+		return
+	}
 	gopool.Go(func() {
 		userSetting := relayInfo.UserSetting
 		threshold := common.QuotaRemindThreshold

@@ -23,6 +23,15 @@ type FundingSource interface {
 	Refund() error
 }
 
+// SelfUseFunding is metered, not free: pricing/usage/Key reservations remain
+// active, while the captured policy does not consume a user wallet.
+type SelfUseFunding struct{}
+
+func (*SelfUseFunding) Source() string       { return BillingSourceSelfUse }
+func (*SelfUseFunding) PreConsume(int) error { return nil }
+func (*SelfUseFunding) Settle(int) error     { return nil }
+func (*SelfUseFunding) Refund() error        { return nil }
+
 type FreeFunding struct{}
 
 func (*FreeFunding) Source() string       { return BillingSourceFree }

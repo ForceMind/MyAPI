@@ -36,17 +36,20 @@ func TestBillingSessionInflightTrackingSymmetric(t *testing.T) {
 	// Settle error wrap-up (missing request id on a non-zero delta) still
 	// releases the counter via the deferred finish.
 	requestlessRelay := &relaycommon.RelayInfo{UserId: user.Id, TokenId: token.Id, TokenKey: token.Key,
-		RequestId: "", OriginModelName: "fixture-model", UserQuota: user.Quota,
+		RequestId: "inflight-lost-settle-id", OriginModelName: "fixture-model", UserQuota: user.Quota,
 		UserSetting: dto.UserSetting{BillingPreference: "wallet_only"}}
 	settleSession, apiErr := NewBillingSession(overflowTestGinContext(), requestlessRelay, 100)
 	require.Nil(t, apiErr)
+	requestlessRelay.RequestId = ""
 	assert.Equal(t, baseline+1, model.QuotaWriterInflightSessions())
 	require.Error(t, settleSession.Settle(50))
 	assert.Equal(t, baseline, model.QuotaWriterInflightSessions())
 
 	// Refund error wrap-up (missing request id) also releases the counter.
+	requestlessRelay.RequestId = "inflight-lost-refund-id"
 	refundSession, apiErr := NewBillingSession(overflowTestGinContext(), requestlessRelay, 100)
 	require.Nil(t, apiErr)
+	requestlessRelay.RequestId = ""
 	assert.Equal(t, baseline+1, model.QuotaWriterInflightSessions())
 	require.Error(t, refundSession.Refund(nil))
 	assert.Equal(t, baseline, model.QuotaWriterInflightSessions())

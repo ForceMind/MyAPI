@@ -81,6 +81,8 @@ type TokenCountMeta struct {
 }
 
 type RelayInfo struct {
+	ConfirmedAPIUsageCost map[string]string
+
 	TokenId           int
 	TokenKey          string
 	TokenGroup        string
@@ -123,7 +125,8 @@ type RelayInfo struct {
 	ForcePreConsume bool
 	// Billing 是计费会话，封装了预扣费/结算/退款的统一生命周期。
 	// 初始免费组可为 nil；若 auto 重试切换到付费组，会在发送前创建。
-	Billing BillingSettler
+	Billing           BillingSettler
+	StrictTokenBudget bool
 	// BillingSource indicates whether this request is billed from wallet quota or subscription.
 	// "" or "wallet" => wallet; "subscription" => subscription
 	BillingSource string
@@ -145,8 +148,11 @@ type RelayInfo struct {
 	// RealtimeQuotedQuota is the cumulative quota of successfully reserved
 	// realtime segments. It extends the existing billing reservation instead
 	// of charging each segment again outside that session.
-	RealtimeQuotedQuota   int
-	RealtimeTieredPricing *RealtimeTieredPricing
+	RealtimeQuotedQuota     int
+	RealtimeTieredPricing   *RealtimeTieredPricing
+	RealtimeCheckpoint      *hosttypes.RealtimeUsageCheckpoint
+	RealtimeUsageUnverified bool
+	RealtimeReportedUsage   bool
 	// SubscriptionAmountTotal / SubscriptionAmountUsedAfterPreConsume are used to compute remaining in logs.
 	SubscriptionAmountTotal               int64
 	SubscriptionAmountUsedAfterPreConsume int64
@@ -539,10 +545,11 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 
 		OriginModelName: common.GetContextKeyString(c, constant.ContextKeyOriginalModel),
 
-		TokenId:        common.GetContextKeyInt(c, constant.ContextKeyTokenId),
-		TokenKey:       common.GetContextKeyString(c, constant.ContextKeyTokenKey),
-		TokenUnlimited: common.GetContextKeyBool(c, constant.ContextKeyTokenUnlimited),
-		TokenGroup:     tokenGroup,
+		TokenId:           common.GetContextKeyInt(c, constant.ContextKeyTokenId),
+		StrictTokenBudget: common.GetContextKeyBool(c, constant.ContextKeyStrictTokenBudget),
+		TokenKey:          common.GetContextKeyString(c, constant.ContextKeyTokenKey),
+		TokenUnlimited:    common.GetContextKeyBool(c, constant.ContextKeyTokenUnlimited),
+		TokenGroup:        tokenGroup,
 
 		isFirstResponse: true,
 		RelayMode:       relayconstant.Path2RelayMode(c.Request.URL.Path),

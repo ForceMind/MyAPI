@@ -51,6 +51,7 @@
     "billing_usage": {
       "source": "gemini_chat",
       "semantic": "gemini",
+      "incomplete": true,
       "gemini_usage_metadata": {
         "promptTokenCount": 10,
         "toolUsePromptTokenCount": 0,

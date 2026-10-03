@@ -333,7 +333,7 @@ func GetAllUsers(c *gin.Context) {
 	}
 
 	pageInfo.SetTotal(int(total))
-	pageInfo.SetItems(users)
+	pageInfo.SetItems(userUsagePolicyRows(users))
 
 	common.ApiSuccess(c, pageInfo)
 	return
@@ -363,7 +363,7 @@ func SearchUsers(c *gin.Context) {
 	}
 
 	pageInfo.SetTotal(int(total))
-	pageInfo.SetItems(users)
+	pageInfo.SetItems(userUsagePolicyRows(users))
 	common.ApiSuccess(c, pageInfo)
 	return
 }
@@ -392,7 +392,7 @@ func GetUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
-		"data":    user,
+		"data":    userUsagePolicyReadView{User: user, SelfUseNoBalance: user.SelfUseNoBalance, UsagePolicyRevision: user.UsagePolicyRevision},
 	})
 	return
 }
@@ -533,19 +533,21 @@ func buildSelfUserData(user *model.User) map[string]interface{} {
 			}
 			return model.EffectiveAccountTierID(user.Group)
 		}(),
-		"quota":             user.Quota,
-		"used_quota":        user.UsedQuota,
-		"request_count":     user.RequestCount,
-		"aff_code":          user.AffCode,
-		"aff_count":         user.AffCount,
-		"aff_quota":         user.AffQuota,
-		"aff_history_quota": user.AffHistoryQuota,
-		"inviter_id":        user.InviterId,
-		"linux_do_id":       user.LinuxDOId,
-		"setting":           user.Setting,
-		"stripe_customer":   user.StripeCustomer,
-		"sidebar_modules":   userSetting.SidebarModules, // 正确提取sidebar_modules字段
-		"permissions":       permissions,
+		"self_use_no_balance":   user.SelfUseNoBalance,
+		"usage_policy_revision": user.UsagePolicyRevision,
+		"quota":                 user.Quota,
+		"used_quota":            user.UsedQuota,
+		"request_count":         user.RequestCount,
+		"aff_code":              user.AffCode,
+		"aff_count":             user.AffCount,
+		"aff_quota":             user.AffQuota,
+		"aff_history_quota":     user.AffHistoryQuota,
+		"inviter_id":            user.InviterId,
+		"linux_do_id":           user.LinuxDOId,
+		"setting":               user.Setting,
+		"stripe_customer":       user.StripeCustomer,
+		"sidebar_modules":       userSetting.SidebarModules, // 正确提取sidebar_modules字段
+		"permissions":           permissions,
 	}
 }
 

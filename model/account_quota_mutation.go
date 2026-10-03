@@ -456,6 +456,13 @@ func applyAccountQuotaBalances(tx *gorm.DB, before, after QuotaMutationAccountSn
 }
 
 func selectAccountBillingSource(tx *gorm.DB, user *User, preference string, walletQuota, subscriptionQuota int64, now int64) (string, *UserSubscription, error) {
+	eligible, err := selfUseNoBalanceAdmissionTx(tx, user)
+	if err != nil {
+		return "", nil, err
+	}
+	if eligible {
+		return BillingSourceSelfUse, nil, nil
+	}
 	walletAvailable := int64(user.Quota) >= walletQuota
 	if preference == "wallet_only" || (preference == "wallet_first" && walletAvailable) {
 		if walletAvailable {
@@ -817,8 +824,17 @@ func terminalAccountQuotaDeltas(reserve *AccountQuotaMutationReceipt, actualQuot
 }
 
 func applyAccountQuotaTerminal(ctx context.Context, db *gorm.DB, input AccountQuotaTerminalInput, phase string) (*AccountQuotaMutationReceipt, error) {
+	return applyAccountQuotaTerminalReviewed(ctx, db, input, phase, 0)
+}
+
+func applyAccountQuotaTerminalReviewed(ctx context.Context, db *gorm.DB, input AccountQuotaTerminalInput, phase string, reviewActorID int) (*AccountQuotaMutationReceipt, error) {
 	if db == nil {
 		return nil, gorm.ErrInvalidDB
+	}
+	if reviewActorID > 0 {
+		if err := authorizeUsageReviewer(db, reviewActorID); err != nil {
+			return nil, err
+		}
 	}
 	ctx, cancel := accountQuotaOperationContext(ctx, 5*time.Second)
 	defer cancel()
@@ -944,6 +960,11 @@ func applyAccountQuotaTerminal(ctx context.Context, db *gorm.DB, input AccountQu
 		now, err := taskRecoveryDBTimestamp(tx)
 		if err != nil {
 			return nil, err
+		}
+		if reviewActorID > 0 {
+			if err := reopenReviewedUsageTx(tx, &head, reviewActorID, normalized.ActualQuota); err != nil {
+				return nil, err
+			}
 		}
 		deltas, appliedQuota, err := terminalAccountQuotaDeltas(&current, normalized.ActualQuota, phase)
 		if err != nil {
@@ -1169,6 +1190,8 @@ func ExtendAccountQuotaReservation(ctx context.Context, db *gorm.DB, reserveRece
 			if subscription == nil || (subscription.AmountTotal > 0 && subscription.AmountUsed > subscription.AmountTotal-delta) {
 				return nil, ErrAccountQuotaMutationInsufficient
 			}
+		case BillingSourceSelfUse:
+			// The reservation already captured a non-financial source.
 		case "free":
 			return nil, ErrAccountQuotaMutationInvalidInput
 		default:
@@ -1401,6 +1424,11 @@ func backfillAccountQuotaReceiptChain(db *gorm.DB, requestID string) (*AccountQu
 				terminal = &copyReceipt
 			}
 		}
+		// A short keyset page has already reached the end of this receipt
+		// chain. Avoid an extra empty query for every single-receipt request.
+		if len(receipts) < accountQuotaMigrationBatchSize {
+			break
+		}
 	}
 	if root == nil || current == nil {
 		return nil, nil, nil, ErrAccountQuotaMutationConflict
@@ -1437,7 +1465,9 @@ func InitializeAccountQuotaReservationHeadsWithDB(db *gorm.DB) error {
 		var roots []AccountQuotaMutationReceipt
 		remaining := accountQuotaMigrationRunBudget - processed
 		batchSize := min(accountQuotaMigrationBatchSize, remaining)
-		if err := db.Where("phase = ? AND id > ?", AccountQuotaPhaseReserve, cursor).
+		// The outer scan only needs chain identity; full JSON receipt fields
+		// are loaded and verified once by backfillAccountQuotaReceiptChain.
+		if err := db.Select("id", "request_id").Where("phase = ? AND id > ?", AccountQuotaPhaseReserve, cursor).
 			Order("id ASC").Limit(batchSize).Find(&roots).Error; err != nil {
 			return err
 		}

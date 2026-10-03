@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -14,6 +15,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 )
+
+// MaxRequestTokens is the existing max_tokens-family validation bound, shared
+// with final outbound request checks so overrides cannot bypass that limit.
+const MaxRequestTokens = math.MaxInt32 / 2
 
 type HasPrompt interface {
 	GetPrompt() string

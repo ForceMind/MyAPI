@@ -33,7 +33,7 @@ func setupAuthoritativeBillingDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(4)
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.SubscriptionPlan{}, &model.UserSubscription{},
+	require.NoError(t, db.AutoMigrate(&model.UsageReviewDecision{}, &model.LegacyUsageReservation{}, &model.User{}, &model.Token{}, &model.SubscriptionPlan{}, &model.UserSubscription{},
 		&model.AccountQuotaMutationReceipt{}, &model.AccountQuotaReservationHead{}, &model.AccountQuotaTerminalRecoveryObligation{}, &model.AccountQuotaRefundFact{}, &model.AccountQuotaSettlementIntent{}, &model.AccountQuotaSettlementFact{}, &model.SystemTask{}, &model.SystemTaskLock{},
 		&model.QuotaWriterEpoch{}, &model.QuotaProjectionObligation{}, &model.QuotaBalanceBatchDrain{}, &model.QuotaBalanceBatchSubject{}, &model.QuotaWorkCursor{}))
 	require.True(t, model.RefreshAccountQuotaSettlementIntentSchemaCapability(db))

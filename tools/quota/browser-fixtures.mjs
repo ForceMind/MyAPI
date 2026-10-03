@@ -1,9 +1,10 @@
 // Explicit synthetic fixtures for browser regression only. No production data,
 // usable credentials, or upstream calls are used by this harness.
-export function quotaFixtures({ latestError = false } = {}) {
+export function quotaFixtures({ latestError = false, currentUsageMissing = false, currentUsagePercent = 15 } = {}) {
   const now = Math.floor(Date.now() / 1000)
   const start = now - 600
   const series = {
+    series_id: 'a'.repeat(64),
     channel_id: 1, name: 'Codex · 浏览器测试', account_label: 'Codex',
     metric_type: 'codex_rate_limit', window_type: 'weekly',
     source: 'codex_wham_usage_primary', plan_type: 'pro',
@@ -87,7 +88,7 @@ export function quotaFixtures({ latestError = false } = {}) {
     peak_abs_change_per_minute: 2, peak_drop_per_minute: 2, peak_increase_per_minute: 0,
   }
   const history = {
-    ...series, start, end: now, series_id: 'synthetic-weekly', limit: 5000,
+    ...series, start, end: now, limit: 5000,
     granularity: 'minute', timezone_offset: -480, points, current,
     raw_observations: points.length, available_points: points.length,
     returned_points: points.length, source_complete: true, points_complete: true,
@@ -136,7 +137,7 @@ export function quotaFixtures({ latestError = false } = {}) {
       content_sha256: 'f'.repeat(64), currency: 'USD', unit_tokens: 1000000,
       service_tier: 'standard', scope: 'text-token-price-source-not-published',
       models: [
-        { model: 'fixture-cached-model', source_label: 'fixture-cached-model (<272K context length)',
+        { model: 'fixture-cached-model', source_label: 'fixture-cached-model',
           short_context: { input_usd_per_million: '2.00', cached_input_usd_per_million: '0.00', cache_write_usd_per_million: '2.50', output_usd_per_million: '10.00' },
           long_context: { input_usd_per_million: '4.00', cached_input_usd_per_million: '0.20', cache_write_usd_per_million: '5.00', output_usd_per_million: '15.00' } },
         { model: 'fixture-no-cache', source_label: 'fixture-no-cache',
@@ -182,7 +183,7 @@ export function quotaFixtures({ latestError = false } = {}) {
       })
     }
     if (path === '/api/channel/1/quota/history') return ok({ ...history, granularity: url.searchParams.get('granularity') || 'auto' })
-    if (path === '/api/channel/1/codex/usage') return ok({ plan_type: 'pro', rate_limit: { allowed: true, limit_reached: false, primary_window: { used_percent: 15, reset_at: now + 86400, limit_window_seconds: 604800 } } })
+    if (path === '/api/channel/1/codex/usage') return ok({ plan_type: 'pro', rate_limit: { allowed: true, limit_reached: false, primary_window: { ...(currentUsageMissing ? {} : { used_percent: currentUsagePercent }), reset_at: now + 86400, limit_window_seconds: 604800 } } })
     if (path === '/api/channel/1/codex/usage/reset-credits') return ok({ credits: [], available_count: 0 })
     if (path === '/api/channel/ops') return ok({ retry_times: 0 })
     if (path === '/api/channel/1') return ok(channel)
@@ -196,10 +197,16 @@ export function quotaFixtures({ latestError = false } = {}) {
     if (path === '/api/user/passkey') return ok({ enabled: false, credentials: [] })
     if (path === '/api/token' || path === '/api/token/search') return ok({ items: [], total: 0, page: 1, page_size: 10 })
     if (path.startsWith('/api/data') || path === '/api/uptime/status') return ok([])
+    if (process.env.MYAPI_BROWSER_USAGE_REVIEW === '1' && path.startsWith('/api/usage-review/usage-review-fixture')) return ok({
+      request_id: 'usage-review-fixture', user_id: 1, token_id: 1,
+      state: path.endsWith('/reconcile') ? 'settled' : 'usage_unknown',
+      reserved_quota: 100, actual_quota: path.endsWith('/reconcile') ? 120 : null,
+    })
     if (path === '/api/log' || path === '/api/log/self') return ok({
       items: ['reported', 'estimated', 'unknown', null].map((accuracy, index) => ({
         id: 10 + index, user_id: 1, created_at: now - index * 60,
-        type: 2, content: 'Synthetic usage provenance fixture', username: 'browser-fixture',
+        type: process.env.MYAPI_BROWSER_USAGE_REVIEW === '1' && accuracy === 'unknown' ? 5 : 2, content: 'Synthetic usage provenance fixture', username: 'browser-fixture',
+        ...(process.env.MYAPI_BROWSER_USAGE_REVIEW === '1' && accuracy === 'unknown' ? { request_id: 'usage-review-fixture' } : {}),
         token_name: 'fixture-key', model_name: `fixture-${accuracy || 'legacy'}`,
         quota: accuracy === 'unknown' ? 0 : 12500,
         prompt_tokens: accuracy === 'unknown' ? 0 : 100,
@@ -207,6 +214,7 @@ export function quotaFixtures({ latestError = false } = {}) {
         use_time: 1, is_stream: true, channel: 1, channel_name: 'Codex Fixture',
         token_id: 1, group: 'default', ip: '',
         other: JSON.stringify({ ...(accuracy ? { usage_accuracy: accuracy } : {}),
+          ...(process.env.MYAPI_BROWSER_USAGE_REVIEW === '1' && accuracy === 'unknown' ? { settlement_status: 'pending_review', actual_quota: null, reserved_quota: 100 } : {}),
           cache_tokens: accuracy === 'unknown' ? 0 : 40, reasoning_tokens: accuracy === 'unknown' ? 0 : 4,
           model_ratio: 1, completion_ratio: 2, cache_ratio: 0.1, group_ratio: 1 }),
       })), total: 4, page: 1, page_size: 20,

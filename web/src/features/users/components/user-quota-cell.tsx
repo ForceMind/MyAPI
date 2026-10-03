@@ -31,6 +31,8 @@ import { cn } from '@/lib/utils'
 type UserQuotaCellProps = {
   used: number
   remaining: number
+  noBalance?: boolean
+  policyPending?: boolean
 }
 
 function getQuotaProgressColor(percentage: number): string {
@@ -41,6 +43,24 @@ function getQuotaProgressColor(percentage: number): string {
 
 export function UserQuotaCell(props: UserQuotaCellProps) {
   const { t } = useTranslation()
+  if (props.policyPending) {
+    return (
+      <StatusBadge
+        label={t('Unavailable')}
+        variant='neutral'
+        copyable={false}
+      />
+    )
+  }
+  if (props.noBalance) {
+    return (
+      <StatusBadge
+        label={t('No user allowance cap')}
+        variant='neutral'
+        copyable={false}
+      />
+    )
+  }
   const total = props.used + props.remaining
   const percentage = total > 0 ? (props.remaining / total) * 100 : 0
   const formattedRemaining = formatQuota(props.remaining)

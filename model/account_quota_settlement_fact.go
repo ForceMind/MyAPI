@@ -17,6 +17,7 @@ import (
 const (
 	AccountQuotaSettlementKindAuthoritative      = "authoritative"
 	AccountQuotaSettlementKindLegacyWallet       = "legacy_wallet"
+	AccountQuotaSettlementKindLegacySelfUse      = "legacy_self_use"
 	AccountQuotaSettlementKindLegacySubscription = "legacy_subscription"
 
 	AccountQuotaSettlementPending      = "pending"
@@ -143,7 +144,7 @@ func normalizeAccountQuotaSettlementInput(input AccountQuotaSettlementFactInput)
 			validateAccountQuotaValue(input.ActualQuota) != nil || input.Delta != 0 || input.ApplyToken {
 			return input, "", ErrAccountQuotaMutationInvalidInput
 		}
-	case AccountQuotaSettlementKindLegacyWallet:
+	case AccountQuotaSettlementKindLegacyWallet, AccountQuotaSettlementKindLegacySelfUse:
 		if input.SubscriptionID != 0 || input.ReserveReceiptID != 0 || input.WriterEpoch != 0 || input.ActualQuota != 0 ||
 			input.Delta == 0 || input.Delta < -int64(common.MaxQuota) || input.Delta > int64(common.MaxQuota) {
 			return input, "", ErrAccountQuotaMutationInvalidInput
@@ -283,6 +284,9 @@ func EnsureAccountQuotaSettlementIntent(ctx context.Context, db *gorm.DB, input 
 	if err := validateAuthoritativeSettlementFactSubject(ctx, db, normalized); err != nil {
 		return nil, err
 	}
+	if err := validateLegacyUsageSettlement(db.WithContext(ctx), normalized); err != nil {
+		return nil, err
+	}
 	var stored AccountQuotaSettlementIntent
 	result := db.WithContext(ctx).Where("event_key = ?", normalized.EventKey).Limit(1).Find(&stored)
 	if result.Error != nil {
@@ -349,6 +353,9 @@ func EnsureAccountQuotaSettlementFact(ctx context.Context, db *gorm.DB, input Ac
 		return nil, err
 	}
 	if err := validateAuthoritativeSettlementFactSubject(ctx, db, normalized); err != nil {
+		return nil, err
+	}
+	if err := validateLegacyUsageSettlement(db.WithContext(ctx), normalized); err != nil {
 		return nil, err
 	}
 	var stored AccountQuotaSettlementFact
@@ -466,10 +473,16 @@ func applyAccountQuotaSettlementFunding(ctx context.Context, db *gorm.DB, fact *
 		if current.FundingApplied {
 			return nil
 		}
+		if err := validateLegacyUsageSettlement(tx, AccountQuotaSettlementFactInput{RequestID: current.RequestID, Kind: current.Kind, UserID: current.UserID, TokenID: current.TokenID, SubscriptionID: current.SubscriptionID, Delta: current.Delta}); err != nil {
+			return err
+		}
 		if current.State != AccountQuotaSettlementClaimed || current.LeaseOwner != fact.LeaseOwner || current.LockVersion != fact.LockVersion {
 			return ErrAccountQuotaTerminalRecoveryConflict
 		}
 		switch current.Kind {
+		case AccountQuotaSettlementKindLegacySelfUse:
+			// Non-financial source: the audited claim is validated above. Only the
+			// existing Token quota leg is applied; no user wallet delta is created.
 		case AccountQuotaSettlementKindLegacyWallet:
 			var user User
 			if err := lockForUpdate(tx).Where("id = ?", current.UserID).First(&user).Error; err != nil {
@@ -579,6 +592,9 @@ func applyAccountQuotaSettlementToken(ctx context.Context, db *gorm.DB, fact *Ac
 		}
 		if current.TokenApplied && current.State == AccountQuotaSettlementApplied {
 			return nil
+		}
+		if err := validateLegacyUsageSettlement(tx, AccountQuotaSettlementFactInput{RequestID: current.RequestID, Kind: current.Kind, UserID: current.UserID, TokenID: current.TokenID, SubscriptionID: current.SubscriptionID, Delta: current.Delta}); err != nil {
+			return err
 		}
 		if !current.FundingApplied || current.State != AccountQuotaSettlementClaimed || current.LeaseOwner != fact.LeaseOwner {
 			return ErrAccountQuotaTerminalRecoveryConflict

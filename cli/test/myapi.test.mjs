@@ -260,6 +260,7 @@ test('upgrade dry-run validates a copy without writing files or invoking Docker'
   assert.equal(result.edition, 'full')
   assert.equal(result.targetImage, 'ghcr.io/forcemind/myapi:v0.2.0')
   assert.equal(result.imageSource, 'ghcr-pull')
+  assert.equal(result.rollbackPolicy, 'manual-database-verification-after-target-start')
   assert.deepEqual(result.writes, [])
   assert.deepEqual(result.dockerOperations, [])
   assert.equal(readFileSync(envPath, 'utf8'), before)
@@ -358,6 +359,41 @@ test('upgrade restores the environment and reruns the old deployment after a pul
   assert.equal(dockerCalls.length, 2)
   assert.match(dockerCalls[0], /pull my-api/)
   assert.match(dockerCalls[1], /up -d --force-recreate --wait --wait-timeout 120/)
+})
+
+test('upgrade does not restart the old image after target startup may have migrated the database', () => {
+  const root = temporaryRoot()
+  const project = path.join(root, 'source')
+  const fakeBin = path.join(root, 'bin')
+  const dockerLog = path.join(root, 'docker.log')
+  mkdirSync(fakeBin)
+  const fakeDocker = path.join(fakeBin, 'docker')
+  writeFileSync(fakeDocker, '#!/bin/sh\n' +
+    'set -eu\n' +
+    'printf "%s\\n" "$*" >> "$MYAPI_FAKE_DOCKER_LOG"\n' +
+    'case " $* " in *" up "*) exit 42 ;; esac\n', { mode: 0o700 })
+  chmodSync(fakeDocker, 0o700)
+  runCli('init', project)
+  runCli('configure', '--project-dir', project, '--public-url', 'https://myapi.example.test')
+  const envPath = path.join(project, 'deploy/.env')
+  const before = readFileSync(envPath, 'utf8')
+  assert.throws(() => runCliWithEnv({ PATH: `${fakeBin}:${process.env.PATH || ''}`, MYAPI_FAKE_DOCKER_LOG: dockerLog },
+    'upgrade', '--project-dir', project, '--version', 'v0.2.0'), (error) => {
+      assert.match(String(error.stderr), /database may have changed/)
+      assert.match(String(error.stderr), /automatic image rollback was not attempted/)
+      return true
+    })
+  const dockerCalls = readFileSync(dockerLog, 'utf8').trim().split(/\r?\n/)
+  assert.equal(dockerCalls.length, 2, 'only pull and the attempted target startup are allowed')
+  assert.match(dockerCalls[0], /pull my-api/)
+  assert.match(dockerCalls[1], /up -d --force-recreate --wait --wait-timeout 120/)
+  const current = readFileSync(envPath, 'utf8')
+  assert.match(current, /^MYAPI_IMAGE=ghcr\.io\/forcemind\/myapi:v0\.2\.0$/m)
+  assert.equal(statSync(envPath).mode & 0o777, 0o600)
+  const backups = readdirSync(path.join(project, 'backups'))
+  assert.equal(backups.length, 1)
+  assert.equal(readFileSync(path.join(project, 'backups', backups[0]), 'utf8'), before)
+  assert.equal(statSync(path.join(project, 'backups', backups[0])).mode & 0o777, 0o600)
 })
 
 test('upgrade can pin the pulled image to its repository digest', () => {
@@ -602,6 +638,7 @@ test('lan init creates a loopback-only LAN deployment without exposing credentia
   assert.match(env, /^MYAPI_BIND_ADDRESS=127\.0\.0\.1$/m)
   assert.match(env, /^MYAPI_ALLOW_LAN=false$/m)
   assert.match(env, /^MYAPI_PUBLIC_URL=http:\/\/localhost:3000$/m)
+  assert.match(env, /^MYAPI_SESSION_COOKIE_TRUSTED_URL=$/m)
   assert.match(output, /Loopback-only mode/)
   assert.match(output, /never reads local credential files/)
   assert.doesNotMatch(output, /SESSION_SECRET|sk-[A-Za-z0-9]|oauth/i)
@@ -719,4 +756,59 @@ test('lan init rejects public and invalid listener addresses', () => {
       /private IPv4 address/
     )
   }
+})
+
+for (const settings of [
+  { name: 'LAN HTTP', edition: 'lan', secure: 'false', origin: 'http://127.0.0.1:3000', trusted: '' },
+  { name: 'LAN HTTPS', edition: 'lan', secure: 'true', origin: 'https://127.0.0.1:3000', trusted: 'https://127.0.0.1:3000' },
+  { name: 'Full HTTPS', edition: 'full', secure: 'true', origin: 'https://api.example.test', trusted: 'https://api.example.test' },
+]) {
+  test(`CLI and installer keep ${settings.name} cookie inputs consistent`, () => {
+    const root = temporaryRoot()
+    const project = path.join(root, 'project')
+    runCli('init', project)
+    runCli('configure', '--project-dir', project, '--public-url', 'https://api.example.test')
+    const envPath = path.join(project, 'deploy/.env')
+    let config = readFileSync(envPath, 'utf8')
+    for (const [key, value] of Object.entries({
+      MYAPI_EDITION: settings.edition,
+      MYAPI_SESSION_COOKIE_SECURE: settings.secure,
+      MYAPI_PUBLIC_URL: settings.origin,
+    })) config = config.replace(new RegExp(`^${key}=.*$`, 'm'), `${key}=${value}`)
+    writeFileSync(envPath, config, { mode: 0o600 })
+    const bin = path.join(root, 'bin')
+    const log = path.join(root, 'cookie-inputs')
+    mkdirSync(bin)
+    const fakeDocker = path.join(bin, 'docker')
+    writeFileSync(fakeDocker, '#!/bin/sh\nset -eu\nprintf "%s|%s|%s\\n" "${MYAPI_SESSION_COOKIE_SECURE-unset}" "${MYAPI_SESSION_COOKIE_TRUSTED_URL-unset}" "${MYAPI_PUBLIC_URL-unset}" >> "$MYAPI_COOKIE_TEST_LOG"\n', { mode: 0o700 })
+    const env = { ...process.env, PATH: `${bin}:${process.env.PATH || ''}`, MYAPI_COOKIE_TEST_LOG: log,
+      MYAPI_SESSION_COOKIE_TRUSTED_URL: 'https://stale.example.test' }
+    const expected = `${settings.secure}|${settings.trusted}|${settings.origin}`
+    runCliWithEnv(env, 'up', '--project-dir', project)
+    const cliLines = readFileSync(log, 'utf8').trim().split('\n')
+    assert.ok(cliLines.length > 0)
+    assert.ok(cliLines.every((line) => line === expected), cliLines.join('\n'))
+    writeFileSync(log, '')
+    execFileSync('bash', [path.join(project, 'deploy/install.sh')], { cwd: project, env, encoding: 'utf8' })
+    const installerLines = readFileSync(log, 'utf8').trim().split('\n')
+    assert.ok(installerLines.length > 0)
+    assert.ok(installerLines.every((line) => line === expected), installerLines.join('\n'))
+  })
+}
+
+test('Full refuses non-Secure cookies before invoking Docker', () => {
+  const root = temporaryRoot()
+  const project = path.join(root, 'project')
+  runCli('init', project)
+  runCli('configure', '--project-dir', project, '--public-url', 'https://api.example.test')
+  const envPath = path.join(project, 'deploy/.env')
+  writeFileSync(envPath, readFileSync(envPath, 'utf8').replace(/^MYAPI_SESSION_COOKIE_SECURE=.*$/m, 'MYAPI_SESSION_COOKIE_SECURE=false'), { mode: 0o600 })
+  const bin = path.join(root, 'bin')
+  const log = path.join(root, 'called')
+  mkdirSync(bin)
+  writeFileSync(path.join(bin, 'docker'), '#!/bin/sh\nprintf called >> "$MYAPI_COOKIE_TEST_LOG"\n', { mode: 0o700 })
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH || ''}`, MYAPI_COOKIE_TEST_LOG: log }
+  assert.throws(() => runCliWithEnv(env, 'up', '--project-dir', project), /full edition requires MYAPI_SESSION_COOKIE_SECURE=true/)
+  assert.throws(() => execFileSync('bash', [path.join(project, 'deploy/install.sh')], { env, encoding: 'utf8' }), /full edition requires MYAPI_SESSION_COOKIE_SECURE=true/)
+  assert.equal(existsSync(log), false)
 })

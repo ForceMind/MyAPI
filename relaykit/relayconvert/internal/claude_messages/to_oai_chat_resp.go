@@ -13,12 +13,17 @@ import (
 )
 
 type ClaudeResponseInfo struct {
-	ResponseId   string
-	Created      int64
-	Model        string
-	ResponseText strings.Builder
-	Usage        *dto.Usage
-	Done         bool
+	// Stream billing requires raw input and a terminal cumulative output count.
+	RawUsageObserved          bool
+	InputTokensReported       bool
+	FinalOutputTokensReported bool
+	InvalidTokenEvidence      bool
+	ResponseId                string
+	Created                   int64
+	Model                     string
+	ResponseText              strings.Builder
+	Usage                     *dto.Usage
+	Done                      bool
 }
 
 func StopReasonClaudeToOpenAI(reason string) string {
@@ -343,6 +348,14 @@ func FormatClaudeResponseInfo(claudeResponse *dto.ClaudeResponse, oaiResponse *d
 		}
 
 		if claudeResponse.Message != nil && claudeResponse.Message.Usage != nil {
+			if usage := claudeResponse.Message.Usage; usage.RawUsageObserved {
+				if claudeInfo.RawUsageObserved {
+					claudeInfo.InvalidTokenEvidence = true
+				}
+				claudeInfo.RawUsageObserved = true
+				claudeInfo.InputTokensReported = usage.InputTokensReported
+				claudeInfo.InvalidTokenEvidence = claudeInfo.InvalidTokenEvidence || usage.InvalidTokenEvidence
+			}
 			claudeInfo.Usage.PromptTokens = claudeResponse.Message.Usage.InputTokens
 			claudeInfo.Usage.UsageSemantic = "anthropic"
 			claudeInfo.Usage.PromptTokensDetails.CachedTokens = claudeResponse.Message.Usage.CacheReadInputTokens
@@ -350,7 +363,7 @@ func FormatClaudeResponseInfo(claudeResponse *dto.ClaudeResponse, oaiResponse *d
 			claudeInfo.Usage.ClaudeCacheCreation5mTokens = claudeResponse.Message.Usage.GetCacheCreation5mTokens()
 			claudeInfo.Usage.ClaudeCacheCreation1hTokens = claudeResponse.Message.Usage.GetCacheCreation1hTokens()
 			claudeInfo.Usage.CompletionTokens = claudeResponse.Message.Usage.OutputTokens
-			claudeInfo.Usage.BillingUsage = claudeBillingUsageFromSemanticUsage(claudeInfo.Usage)
+			claudeInfo.Usage.BillingUsage = claudeStreamBillingUsage(claudeInfo)
 		}
 	} else if claudeResponse.Type == "content_block_delta" {
 		if claudeResponse.Delta != nil {
@@ -362,9 +375,21 @@ func FormatClaudeResponseInfo(claudeResponse *dto.ClaudeResponse, oaiResponse *d
 			}
 		}
 	} else if claudeResponse.Type == "message_delta" {
+		if claudeInfo.RawUsageObserved {
+			claudeInfo.FinalOutputTokensReported = false
+		}
 		if claudeResponse.Usage != nil {
+			if usage := claudeResponse.Usage; usage.RawUsageObserved {
+				if usage.OutputTokensReported && usage.OutputTokens < claudeInfo.Usage.CompletionTokens || usage.InputTokensReported && claudeInfo.InputTokensReported && usage.InputTokens < claudeInfo.Usage.PromptTokens {
+					claudeInfo.InvalidTokenEvidence = true
+				}
+				claudeInfo.RawUsageObserved = true
+				claudeInfo.InputTokensReported = claudeInfo.InputTokensReported || usage.InputTokensReported
+				claudeInfo.FinalOutputTokensReported = usage.OutputTokensReported && claudeResponse.Delta != nil && claudeResponse.Delta.StopReason != nil && strings.TrimSpace(*claudeResponse.Delta.StopReason) != ""
+				claudeInfo.InvalidTokenEvidence = claudeInfo.InvalidTokenEvidence || usage.InvalidTokenEvidence
+			}
 			claudeInfo.Usage.UsageSemantic = "anthropic"
-			if claudeResponse.Usage.InputTokens > 0 {
+			if claudeResponse.Usage.InputTokens > 0 || claudeResponse.Usage.InputTokensReported {
 				claudeInfo.Usage.PromptTokens = claudeResponse.Usage.InputTokens
 			}
 			if claudeResponse.Usage.CacheReadInputTokens > 0 {
@@ -379,11 +404,14 @@ func FormatClaudeResponseInfo(claudeResponse *dto.ClaudeResponse, oaiResponse *d
 			if cacheCreation1h := claudeResponse.Usage.GetCacheCreation1hTokens(); cacheCreation1h > 0 {
 				claudeInfo.Usage.ClaudeCacheCreation1hTokens = cacheCreation1h
 			}
-			if claudeResponse.Usage.OutputTokens > 0 {
+			if claudeResponse.Usage.OutputTokens > 0 || claudeResponse.Usage.OutputTokensReported {
 				claudeInfo.Usage.CompletionTokens = claudeResponse.Usage.OutputTokens
 			}
 			claudeInfo.Usage.TotalTokens = claudeInfo.Usage.PromptTokens + claudeInfo.Usage.CompletionTokens
-			claudeInfo.Usage.BillingUsage = claudeBillingUsageFromSemanticUsage(claudeInfo.Usage)
+			claudeInfo.Usage.BillingUsage = claudeStreamBillingUsage(claudeInfo)
+		}
+		if claudeInfo.RawUsageObserved {
+			claudeInfo.Usage.BillingUsage = claudeStreamBillingUsage(claudeInfo)
 		}
 
 		claudeInfo.Done = true
@@ -397,4 +425,16 @@ func FormatClaudeResponseInfo(claudeResponse *dto.ClaudeResponse, oaiResponse *d
 		oaiResponse.Model = claudeInfo.Model
 	}
 	return true
+}
+
+func claudeStreamBillingUsage(info *ClaudeResponseInfo) *dto.BillingUsage {
+	billing := claudeBillingUsageFromSemanticUsage(info.Usage)
+	if !info.RawUsageObserved {
+		return billing
+	}
+	if billing == nil {
+		billing = &dto.BillingUsage{Source: dto.BillingUsageSourceClaudeMessages, Semantic: dto.BillingUsageSemanticAnthropic, ClaudeUsage: &dto.ClaudeUsage{}}
+	}
+	billing.Incomplete = !info.InputTokensReported || !info.FinalOutputTokensReported || info.InvalidTokenEvidence
+	return billing
 }

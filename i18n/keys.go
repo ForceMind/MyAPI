@@ -1,5 +1,14 @@
 package i18n
 
+const (
+	MsgTextUsageDispatchPending    = "usage_dispatch.pending"
+	MsgTokenBudgetUnsupported      = "token_budget.unsupported"
+	MsgTokenBudgetPending          = "token_budget.pending"
+	MsgTokenBudgetExceeded         = "token_budget.exceeded"
+	MsgTokenBudgetCountUnavailable = "token_budget.count_unavailable"
+	MsgTokenBudgetUnavailable      = "token_budget.unavailable"
+)
+
 // Message keys for i18n translations
 // Use these constants instead of hardcoded strings
 
@@ -378,3 +387,17 @@ const (
 	MsgCustomOAuthBindingNotFound   = "custom_oauth.binding_not_found"
 	MsgCustomOAuthProviderIdInvalid = "custom_oauth.provider_id_field_invalid"
 )
+
+const (
+	MsgFeeBudgetExceeded = "fee_budget.exceeded"
+	MsgFeeBudgetEvidence = "fee_budget.evidence"
+)
+
+const MsgAccountThresholdUnavailable = "account_threshold.unavailable"
+
+const (
+	MsgAccountThresholdCombination = "account_threshold.combination"
+	MsgAccountThresholdInvalid     = "account_threshold.invalid"
+)
+
+const MsgSelfUseUnsupported = "self_use.unsupported"

@@ -9,6 +9,7 @@ export function useFundingPresentation() {
   const capabilities = resolveUserFundingCapabilities(status)
   return {
     capabilities,
+    ready: confirmed && capabilities.ready,
     commercialEnabled:
       confirmed && capabilities.ready && capabilities.mode === 'enabled',
   }

@@ -63,29 +63,6 @@ var DB *gorm.DB
 
 var LOG_DB *gorm.DB
 
-func createRootAccountIfNeed() error {
-	var user User
-	//if user.Status != common.UserStatusEnabled {
-	if err := DB.First(&user).Error; err != nil {
-		common.SysLog("no user exists, create a root user for you: username is root, password is 123456")
-		hashedPassword, err := common.Password2Hash("123456")
-		if err != nil {
-			return err
-		}
-		rootUser := User{
-			Username:    "root",
-			Password:    hashedPassword,
-			Role:        common.RoleRootUser,
-			Status:      common.UserStatusEnabled,
-			DisplayName: "Root User",
-			AccessToken: nil,
-			Quota:       100000000,
-		}
-		DB.Create(&rootUser)
-	}
-	return nil
-}
-
 func CheckSetup() {
 	setup := GetSetup()
 	if setup == nil {
@@ -232,6 +209,15 @@ func InitDB() (err error) {
 				return fmt.Errorf("detect user quota business writer schema: %w", err)
 			}
 			RefreshAccountQuotaSettlementIntentSchemaCapability(DB)
+			if err := ValidateUsageReviewSchema(DB); err != nil {
+				return err
+			}
+			if err := ValidateTokenBudgetSchema(DB); err != nil {
+				return err
+			}
+			if err := ValidateUserUsagePolicySchema(DB); err != nil {
+				return err
+			}
 			if err := ensureConfiguredChannelQuotaIdentityKeyring(); err != nil {
 				return err
 			}
@@ -320,6 +306,7 @@ func migrateDB() error {
 	err := DB.AutoMigrate(
 		&Channel{},
 		&OfficialPriceVersion{},
+		&PricePublication{},
 		&ChannelQuotaSnapshot{},
 		&ChannelQuotaAlertState{},
 		&ChannelQuotaAlertEvent{},
@@ -358,6 +345,12 @@ func migrateDB() error {
 		&AccountQuotaTerminalRecoveryObligation{},
 		&AccountQuotaRefundFact{},
 		&AccountQuotaSettlementIntent{},
+		&LegacyUsageReservation{},
+		&UsageReviewDecision{},
+		&TokenBudget{},
+		&TokenBudgetReservation{},
+		&TokenBudgetPolicyChange{},
+		&UserUsagePolicyChange{},
 		&AccountQuotaSettlementFact{},
 		&QuotaBalanceBatchDrain{},
 		&QuotaBalanceBatchSubject{},
@@ -451,6 +444,7 @@ func migrateDBFast() error {
 	}{
 		{&Channel{}, "Channel"},
 		{&OfficialPriceVersion{}, "OfficialPriceVersion"},
+		{&PricePublication{}, "PricePublication"},
 		{&ChannelQuotaSnapshot{}, "ChannelQuotaSnapshot"},
 		{&ChannelQuotaIdentityKeyRegistry{}, "ChannelQuotaIdentityKeyRegistry"},
 		{&ChannelQuotaIdentityKeyVersion{}, "ChannelQuotaIdentityKeyVersion"},
@@ -487,6 +481,12 @@ func migrateDBFast() error {
 		{&AccountQuotaTerminalRecoveryObligation{}, "AccountQuotaTerminalRecoveryObligation"},
 		{&AccountQuotaRefundFact{}, "AccountQuotaRefundFact"},
 		{&AccountQuotaSettlementIntent{}, "AccountQuotaSettlementIntent"},
+		{&LegacyUsageReservation{}, "LegacyUsageReservation"},
+		{&UsageReviewDecision{}, "UsageReviewDecision"},
+		{&TokenBudget{}, "TokenBudget"},
+		{&TokenBudgetReservation{}, "TokenBudgetReservation"},
+		{&TokenBudgetPolicyChange{}, "TokenBudgetPolicyChange"},
+		{&UserUsagePolicyChange{}, "UserUsagePolicyChange"},
 		{&AccountQuotaSettlementFact{}, "AccountQuotaSettlementFact"},
 		{&QuotaBalanceBatchDrain{}, "QuotaBalanceBatchDrain"},
 		{&QuotaBalanceBatchSubject{}, "QuotaBalanceBatchSubject"},

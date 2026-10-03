@@ -6,6 +6,12 @@ import { createReadStream, existsSync, mkdirSync, readFileSync, statSync } from 
 import { extname, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { quotaFixtures } from './browser-fixtures.mjs'
+import { tokenBudgetBrowserFixture, checkTokenBudgetBrowser } from './token-budget-browser.mjs'
+import { pendingUsageReviewBrowserFixture, checkPendingUsageReviewBrowser } from './pending-usage-review-browser.mjs'
+import { userUsagePolicyBrowserFixture, checkUserUsagePolicyBrowser } from './user-usage-policy-browser.mjs'
+
+// The shipped overview compares multiple stable account identities in one plot.
+process.env.MYAPI_BROWSER_MULTISERIES = '1'
 
 const repo = fileURLToPath(new URL('../../', import.meta.url))
 const root = resolve(repo, 'web/dist')
@@ -48,13 +54,51 @@ try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, locale: 'zh-CN', reducedMotion: 'reduce', timezoneId: 'Asia/Shanghai' })
   await context.addInitScript(() => { localStorage.setItem('i18nextLng', 'zhCN'); localStorage.setItem('theme', 'light') })
   let latestError = false
+  let currentUsageMissing = false
+  let currentUsagePercent = 15
   const historyRequests = []
   const changeRequests = []
+  const reviewSubmissions = []
+  const publicationSubmissions = []
+  const budgetFixture = tokenBudgetBrowserFixture()
+  const userPolicyFixture = userUsagePolicyBrowserFixture()
+  const pendingReviewFixture = pendingUsageReviewBrowserFixture()
+  const publication = { revision: 0, locked: false, active: false, receipts: [] }
   await context.route('**/api/**', async (route) => {
     const url = new URL(route.request().url())
+    if (await budgetFixture.route(route, url)) return
+    if (await userPolicyFixture.route(route, url)) return
+    if (await pendingReviewFixture.route(route, url)) return
+    if (url.pathname.endsWith('/publication-preview')) {
+      const expression = 'v1:len <= 272000 ? tier("short", p * 2 + c * 10 + cr * 0 + cc * 2.5) : tier("long", p * 4 + c * 15 + cr * 0.2 + cc * 5)'
+      await route.fulfill({ json: { success: true, data: { source_sha256: 'f'.repeat(64), expected_digest: 'a'.repeat(64), revision: publication.revision, rows: [
+        { model: 'fixture-cached-model', current_mode: publication.active ? 'tiered_expr' : 'ratio', current_expression: publication.active ? expression : '', locked: publication.locked, eligible: !publication.locked,
+          candidate: { model: 'fixture-cached-model', expression, expression_sha256: 'b'.repeat(64), source_sha256: 'f'.repeat(64) } },
+        { model: 'fixture-no-cache', current_mode: 'ratio', current_expression: '', locked: false, eligible: false, candidate: null },
+      ] } } })
+      return
+    }
+    if (url.pathname === '/api/ratio_sync/openai/publications') {
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON()
+        assert.equal(body.confirmed, true)
+        assert.match(body.id, /^[0-9a-f]{64}$/)
+        publicationSubmissions.push(body)
+        publication.revision++
+        publication.active = body.action === 'publish'
+        publication.locked = publication.active
+        const receipt = { id: body.id, actor_id: 1, action: body.action, revision: publication.revision, created_at: Math.floor(Date.now() / 1000) }
+        publication.receipts.unshift(receipt)
+        await route.fulfill({ json: { success: true, data: { receipt, runtime_ready: true } } })
+      } else {
+        await route.fulfill({ json: { success: true, data: { expected_digest: 'a'.repeat(64), runtime_ready: true, snapshot: { state: { revision: publication.revision } }, receipts: publication.receipts } } })
+      }
+      return
+    }
     if (url.pathname.endsWith('/quota/history')) historyRequests.push(Object.fromEntries(url.searchParams))
     if (url.pathname.endsWith('/quota/changes')) changeRequests.push(Object.fromEntries(url.searchParams))
-    const response = quotaFixtures({ latestError }).response(url)
+    if (url.pathname === '/api/usage-review/usage-review-fixture/reconcile' && route.request().method() === 'POST') reviewSubmissions.push(route.request().postDataJSON())
+    const response = quotaFixtures({ latestError, currentUsageMissing, currentUsagePercent }).response(url)
     if (!response) unexpected.add(`${route.request().method()} ${url.pathname}`)
     await route.fulfill({ status: response ? 200 : 501, json: response || { success: false, message: 'Unconfigured browser fixture' } })
   })
@@ -138,7 +182,23 @@ try {
     assert(box && box.y >= 99 && box.y + box.height <= bottomLimit + 1, 'the whole chart, including its time axis, is reachable by real scrolling')
   }
   await page.goto(`${origin}/dashboard/overview`, { waitUntil: 'networkidle' })
-  const overview = page.getByTestId('quota-overview-card').first()
+  const comparison = page.getByTestId('codex-account-quota-chart')
+  await comparison.getByTestId('quota-comparison-chart').waitFor({ state: 'visible' })
+  const lines = comparison.getByTestId('quota-comparison-line')
+  assert.equal(await lines.count(), 3, 'three distinct account identities share the overview time axis')
+  for (const line of await lines.all()) assert.equal(await line.getAttribute('stroke-width'), '1.5', 'account series remain thin lines')
+  assert.equal(await page.getByTestId('quota-overview-card').count(), 0, 'details start collapsed')
+  const legend = comparison.getByTestId('quota-comparison-legend').getByRole('button').first()
+  await legend.click()
+  await comparison.locator('[data-testid="quota-comparison-line"][data-series-key="' + 'a'.repeat(64) + '"]').waitFor({ state: 'hidden' })
+  assert.equal(await legend.getAttribute('aria-pressed'), 'false')
+  assert.equal(await lines.count(), 2, 'hiding one account preserves the other account lines')
+  await legend.click()
+  await comparison.locator('[data-testid="quota-comparison-line"][data-series-key="' + 'a'.repeat(64) + '"]').waitFor({ state: 'visible' })
+  assert.equal(await lines.count(), 3)
+  await comparison.screenshot({ path: resolve(output, 'overview-account-comparison.png') })
+  await comparison.getByRole('button', { name: label('Show details'), exact: true }).click()
+  const overview = comparison.getByTestId('quota-overview-card').first()
   await overview.waitFor({ state: 'visible' })
   const overviewText = await overview.innerText()
   for (const key of ['Remaining quota', 'Latest observed interval', 'Average consumption per minute', 'Estimated consumption per hour', 'Estimated time from analysis point']) {
@@ -148,8 +208,10 @@ try {
   for (const key of ['Time range', 'Chart granularity', 'Metric', 'Chart style', 'Analysis window', 'EWMA half-life']) {
     assert.equal(await overview.getByLabel(label(key), { exact: true }).count(), 0, `overview omits detailed ${key} control`)
   }
-  assert(changeRequests.some((request) => request.range === '24h' && request.rate_window === '3600' && request.ewma_half_life === '1800' && request.overview_points === '48' && request.limit === '4' && request.sort === 'observed_desc'), 'overview uses one bounded analysis query')
+  assert(changeRequests.some((request) => request.range === '24h' && request.rate_window === '3600' && request.ewma_half_life === '1800' && request.overview_points === '48' && request.limit === '64' && request.sort === 'observed_desc'), 'overview uses one bounded analysis query')
   await overview.screenshot({ path: resolve(output, 'overview-quota-summary.png') })
+  await comparison.getByRole('button', { name: label('Hide details'), exact: true }).click()
+  await overview.waitFor({ state: 'hidden' })
 
   await page.goto(`${origin}/channels`, { waitUntil: 'networkidle' })
   await trend().waitFor({ state: 'visible' })
@@ -170,6 +232,31 @@ try {
   await page.getByRole('button', { name: label('Open menu'), exact: true }).last().click()
   await page.getByRole('menuitem', { name: label('Query Balance'), exact: true }).click()
   const dialog = page.getByRole('dialog')
+  await dialog.getByText('15%', { exact: true }).waitFor({ state: 'visible' })
+  currentUsageMissing = true
+  await dialog.getByRole('button', { name: label('Refresh'), exact: true }).click()
+  await dialog.getByText(label('Unknown'), { exact: true }).waitFor({ state: 'visible' })
+  assert.equal(await dialog.getByRole('progressbar').count(), 0, 'missing upstream percent is not a zero-valued meter')
+  for (const width of [1280, 320]) {
+    await page.setViewportSize({ width, height: 850 })
+    const unknownUsage = dialog.getByText(label('Unknown'), { exact: true })
+    await unknownUsage.scrollIntoViewIfNeeded()
+    assert(await unknownUsage.evaluate((element) => {
+      const rect = element.getBoundingClientRect()
+      const visible = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+      return visible === element || element.contains(visible)
+    }), 'unknown usage is actually visible, not below the scroll area or covered by the footer')
+    const box = await dialog.boundingBox()
+    assert(box && box.width <= width && box.x >= 0 && box.x + box.width <= width + 1, 'unknown quota stays within the viewport')
+    await dialog.screenshot({ path: resolve(output, `codex-current-unknown-${width}.png`) })
+  }
+  currentUsageMissing = false
+  currentUsagePercent = 0
+  await dialog.getByRole('button', { name: label('Refresh'), exact: true }).click()
+  await dialog.getByText('0%', { exact: true }).waitFor({ state: 'visible' })
+  assert.equal(await dialog.getByRole('progressbar').getAttribute('aria-valuenow'), '0', 'explicit upstream zero remains a known value')
+  assert.equal(await dialog.getByText(label('Unknown'), { exact: true }).count(), 0)
+  await page.setViewportSize({ width: 1280, height: 720 })
   await dialog.getByRole('tab', { name: label('History trend'), exact: true }).click()
   const dialogTrend = dialog.getByTestId('quota-history-trend').first()
   await dialogTrend.waitFor({ state: 'visible' })
@@ -240,6 +327,90 @@ try {
     assert(reachable, 'channel actions are not obscured by a fixed footer or clipped chart')
     await page.screenshot({ path: resolve(output, `channels-${viewport.width}x${viewport.height}.png`), fullPage: true })
   }
+  // Exercise the actual log-details recovery form with synthetic API evidence.
+  // This proves UI behavior only; the Go/database contracts own authorization
+  // and real settlement/idempotency evidence.
+  process.env.MYAPI_BROWSER_USAGE_REVIEW = '1'
+  await page.goto(`${origin}/usage-logs/common`, { waitUntil: 'networkidle' })
+  const unknownRow = page.getByRole('row').filter({ has: page.getByText('fixture-unknown', { exact: true }) })
+  await unknownRow.getByText(label('Usage pending review'), { exact: true }).waitFor({ state: 'visible' })
+  await unknownRow.getByTitle(label('Click to view full details')).click()
+  const reviewDialog = page.getByRole('dialog').filter({ has: page.getByLabel(label('Evidence reference'), { exact: true }) })
+  await reviewDialog.getByLabel(label('Confirmed quota (internal units)'), { exact: true }).fill('120')
+  await reviewDialog.getByLabel(label('Evidence reference'), { exact: true }).fill('synthetic-verified-usage-evidence')
+  await reviewDialog.getByRole('button', { name: label('Confirm reconciliation'), exact: true }).click()
+  await reviewDialog.getByText(label('Required'), { exact: true }).waitFor({ state: 'visible' })
+  assert.equal(reviewSubmissions.length, 0, 'recovery cannot submit without explicit evidence confirmation')
+  await reviewDialog.screenshot({ path: resolve(output, 'usage-review-evidence-required.png') })
+  await reviewDialog.getByRole('checkbox', { name: label('I verified the evidence and frozen pricing.'), exact: true }).check()
+  // The form disappears after success, so keep a dialog locator independent
+  // of form controls when checking the returned resolved state.
+  await reviewDialog.getByRole('button', { name: label('Confirm reconciliation'), exact: true }).click()
+  const resolvedDialog = page.getByRole('dialog').filter({ has: page.getByText(label('Reconciled'), { exact: true }) })
+  await resolvedDialog.getByText(label('Reconciled'), { exact: true }).waitFor({ state: 'visible' })
+  assert.deepEqual(reviewSubmissions, [{ actual_quota: 120, evidence_reference: 'synthetic-verified-usage-evidence', confirmed_reliable_evidence: true }])
+  assert.equal(await resolvedDialog.getByRole('button', { name: label('Confirm reconciliation'), exact: true }).count(), 0, 'resolved evidence cannot be submitted again from the form')
+  await resolvedDialog.screenshot({ path: resolve(output, 'usage-review-resolved.png') })
+  await page.keyboard.press('Escape')
+  await resolvedDialog.waitFor({ state: 'hidden' })
+  // Reuse this isolated Chromium harness for the source -> publication ->
+  // guarded rollback UI. SQL/authorization behavior is tested by Go contracts.
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto(`${origin}/system-settings/models/openai-pricing-source`, { waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: label('Save official source version'), exact: true }).click()
+  await page.getByRole('button', { name: label('Effective price publication'), exact: true }).click()
+  const publicationPanel = page.getByRole('region', { name: label('Effective price publication'), exact: true })
+  const reviewPrice = publicationPanel.getByRole('button', { name: `${label('Review price change')}: fixture-cached-model`, exact: true })
+  await reviewPrice.click()
+  await publicationPanel.getByRole('button', { name: label('Confirm'), exact: true }).click()
+  await publicationPanel.getByText(label('Required'), { exact: true }).waitFor({ state: 'visible' })
+  assert.equal(publicationSubmissions.length, 0, 'source save and unchecked confirmation never publish prices')
+  await publicationPanel.getByRole('checkbox', { name: label('I reviewed this price change and its reference-only scope.'), exact: true }).check()
+  await publicationPanel.getByRole('button', { name: label('Confirm'), exact: true }).click()
+  await publicationPanel.getByText(label('Price operation saved.'), { exact: true }).waitFor({ state: 'visible' })
+  await publicationPanel.getByRole('button', { name: `${label('Unlock')}: fixture-cached-model`, exact: true }).waitFor({ state: 'visible' })
+  assert.equal(publicationSubmissions.length, 1)
+  assert.equal(publicationSubmissions[0].action, 'publish')
+  assert.equal(publicationSubmissions[0].source_sha256, 'f'.repeat(64))
+  assert.deepEqual(publicationSubmissions[0].models, [{ model: 'fixture-cached-model', locked: true }])
+  for (const width of [320, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    // Responsive sidebar/layout transitions can outlive the first two frames.
+    // Wait for finite animations, not an arbitrary sleep, before measuring the
+    // settled viewport. The original no-overflow assertion remains unchanged.
+    await page.evaluate(async () => {
+      await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+      await Promise.all(document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity).map((animation) => animation.finished.catch(() => {})))
+      await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+    })
+    const layout = await page.evaluate(() => ({
+      width: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+      overflow: [...document.querySelectorAll('body *')].filter((element) => element.getClientRects().length && element.getBoundingClientRect().right > innerWidth + 1).slice(0, 20).map((element) => ({
+        tag: element.tagName, className: String(element.className), text: element.textContent?.trim().slice(0, 70),
+        width: element.getBoundingClientRect().width, right: element.getBoundingClientRect().right,
+        overflowX: getComputedStyle(element).overflowX, minWidth: getComputedStyle(element).minWidth,
+      })),
+    }))
+    assert(layout.scrollWidth <= layout.width + 1, `price publication has no page-wide horizontal overflow: ${JSON.stringify(layout)}`)
+    await page.screenshot({ path: resolve(output, `price-publication-${width}.png`), fullPage: true })
+  }
+  // Stored history/rollback must survive a reload without fetching the
+  // upstream source again (including when the provider is unavailable).
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: label('Effective price publication'), exact: true }).click()
+  await publicationPanel.getByRole('button', { name: `${label('Rollback')}: ${publicationSubmissions[0].id}`, exact: true }).click()
+  await publicationPanel.getByRole('button', { name: label('Confirm'), exact: true }).click()
+  await publicationPanel.getByText(label('Required'), { exact: true }).waitFor({ state: 'visible' })
+  assert.equal(publicationSubmissions.length, 1, 'rollback requires its own explicit confirmation')
+  await publicationPanel.getByRole('checkbox', { name: label('I reviewed this price change and its reference-only scope.'), exact: true }).check()
+  await publicationPanel.getByRole('button', { name: label('Confirm'), exact: true }).click()
+  await publicationPanel.getByText(label('Price operation saved.'), { exact: true }).waitFor({ state: 'visible' })
+  assert.equal(publicationSubmissions.length, 2)
+  assert.equal(publicationSubmissions[1].action, 'rollback')
+  assert.equal(publicationSubmissions[1].rollback_of, publicationSubmissions[0].id)
+  await checkTokenBudgetBrowser({ page, origin, output, label, fixture: budgetFixture })
+  await checkUserUsagePolicyBrowser({ page, origin, output, label, fixture: userPolicyFixture })
+  await checkPendingUsageReviewBrowser({ page, origin, output, label, fixture: pendingReviewFixture })
   assert.deepEqual([...unexpected], [], 'all application endpoints have explicit fixtures')
   assert.deepEqual(errors, [], 'no browser runtime errors')
   console.log('Quota browser regression passed: compact overview summary/sparkline; detailed line/area/bar and analysis controls; latest-error history; 320px/390px/low-height layout. Synthetic fixtures only.')

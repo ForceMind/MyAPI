@@ -20,7 +20,7 @@ func UsageFromGeminiMetadata(metadata *dto.GeminiUsageMetadata, fallbackPromptTo
 	}
 
 	promptTokens := metadata.PromptTokenCount + metadata.ToolUsePromptTokenCount
-	if promptTokens <= 0 && fallbackPromptTokens > 0 {
+	if promptTokens <= 0 && fallbackPromptTokens > 0 && (!metadata.RawUsageObserved || !metadata.PromptTokensReported || metadata.InvalidTokenEvidence) {
 		promptTokens = fallbackPromptTokens
 	}
 

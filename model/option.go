@@ -264,12 +264,17 @@ func loadOptionsFromDatabaseLocked() {
 	groupRatioValues := make(map[string]string, len(groupRatioOptionPairs)*2)
 	modelPricingValues := make(map[string]string)
 	pricingLoadFailed := false
+	publicationState := ""
 	passkeyValues := make(map[string]string)
 	userFundingValues := make(map[string]string, 2)
 	accessProfileValues := make(map[string]string, 2)
 	paymentFundingLoadFailed := false
 	var serverAddress *string
 	for _, option := range options {
+		if option.Key == pricePublicationStateKey {
+			publicationState = option.Value
+			continue
+		}
 		if option.Key == UserFundingStateOptionKey {
 			continue
 		}
@@ -318,6 +323,9 @@ func loadOptionsFromDatabaseLocked() {
 		}
 	}
 	if err := publishModelPricingOptions(modelPricingValues); err != nil {
+		pricingLoadFailed = true
+	}
+	if err := publishPricePublicationState(publicationState); err != nil {
 		pricingLoadFailed = true
 	}
 	if len(accessProfileValues) > 0 {
@@ -625,6 +633,9 @@ func UpdateOption(key string, value string) error {
 // is touched — safe for callers that must commit a set of related options
 // atomically (e.g. payment gateway binding).
 func UpdateOptionsBulk(values map[string]string) error {
+	if _, reserved := values[pricePublicationStateKey]; reserved {
+		return errors.New("price publication metadata is not an editable option")
+	}
 	if len(values) == 0 {
 		return nil
 	}
@@ -719,6 +730,9 @@ func UpdateOptionsBulk(values map[string]string) error {
 	}
 	readyToCommit := false
 	err := DB.Transaction(func(tx *gorm.DB) error {
+		if err := validateLockedPriceChangesTx(tx, normalized); err != nil {
+			return err
+		}
 		keys := make([]string, 0, len(normalized))
 		for key := range normalized {
 			keys = append(keys, key)

@@ -2,6 +2,16 @@ name: Docker build smoke
 
 on:
   workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - '.github/workflows/docker-smoke.yml'
+      - 'tools/runtime/**'
+      - 'Dockerfile'
+      - 'deploy/install.sh'
+      - 'deploy/docker-compose.yml'
+      - 'deploy/.env.example'
+      - '**.go'
 
 permissions:
   contents: read
@@ -11,22 +21,109 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  installer-local-build:
+    # Exercise the actual source installer, separately from the direct-run probe.
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/r1-usage-review-20261002')
+    name: LAN source installer and fresh SQLite
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      COMPOSE_PROJECT_NAME: myapi-install-${{ github.sha }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+
+      - name: Prepare isolated installer configuration
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ ! -e deploy/.env ]]
+          if docker container inspect my-api >/dev/null 2>&1; then
+            echo 'Refusing to replace an existing installer target' >&2
+            exit 1
+          fi
+          docker compose version
+          export MYAPI_INSTALLER_ROOT="$RUNNER_TEMP/myapi-install-${GITHUB_SHA}"
+          mkdir -m 700 "$MYAPI_INSTALLER_ROOT"
+          echo "MYAPI_INSTALLER_ROOT=$MYAPI_INSTALLER_ROOT" >> "$GITHUB_ENV"
+          {
+            printf 'MYAPI_IMAGE=local/myapi:install-%s\n' "$GITHUB_SHA"
+            printf 'MYAPI_EDITION=lan\nMYAPI_BUILD_LOCAL=true\n'
+            printf 'MYAPI_PORT=18082\nMYAPI_BIND_ADDRESS=127.0.0.1\nMYAPI_ALLOW_LAN=false\n'
+            printf 'MYAPI_PUBLIC_URL=http://127.0.0.1:18082\nMYAPI_SESSION_COOKIE_SECURE=false\n'
+            printf 'MYAPI_DATA_DIR=%s/data\nMYAPI_LOGS_DIR=%s/logs\n' "$MYAPI_INSTALLER_ROOT" "$MYAPI_INSTALLER_ROOT"
+            printf 'MYAPI_CPU_LIMIT=2\nMYAPI_MEMORY_LIMIT=2g\nMYAPI_BUILD_PARALLELISM=2\n'
+            printf 'SESSION_SECRET=%s\n' "$(openssl rand -hex 32)"
+          } > deploy/.env
+
+      - name: Run the source installer
+        run: bash deploy/install.sh
+
+      - name: Verify installed image, isolation and fresh setup
+        run: |
+          set -euo pipefail
+          [[ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' my-api)" == "$COMPOSE_PROJECT_NAME" ]]
+          [[ "$(docker inspect --format '{{.Image}}' my-api)" == "$(docker image inspect --format '{{.Id}}' "local/myapi:install-$GITHUB_SHA")" ]]
+          [[ "$(docker inspect --format '{{.State.Health.Status}}' my-api)" == 'healthy' ]]
+          [[ "$(docker inspect --format '{{(index (index .NetworkSettings.Ports "3000/tcp") 0).HostIp}}' my-api)" == '127.0.0.1' ]]
+          [[ "$(docker inspect --format '{{.HostConfig.Memory}}' my-api)" == '2147483648' ]]
+          [[ "$(docker inspect --format '{{.HostConfig.NanoCpus}}' my-api)" == '2000000000' ]]
+          node --input-type=module <<'JS'
+          import { probeFreshSQLite } from './tools/runtime/docker-smoke.mjs'
+          try {
+            const report = await probeFreshSQLite({ baseUrl: 'http://127.0.0.1:18082', edition: 'lan', sha: process.env.GITHUB_SHA, isolated: true })
+            console.log(JSON.stringify(report, null, 2))
+            if (!report.passed) process.exitCode = 1
+          } catch {
+            console.error('INSTALLER_FRESH_SETUP_PROBE_FAILED')
+            process.exitCode = 1
+          }
+          JS
+
+      - name: Safe installer diagnostics
+        if: failure()
+        run: |
+          docker inspect --format 'status={{.State.Status}} exit_code={{.State.ExitCode}} oom_killed={{.State.OOMKilled}}' my-api 2>/dev/null || true
+
+      - name: Remove only this installer instance
+        if: always()
+        run: |
+          if [[ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' my-api 2>/dev/null)" == "$COMPOSE_PROJECT_NAME" ]]; then
+            docker compose --env-file deploy/.env -f deploy/docker-compose.yml down
+          fi
+
   build-and-healthcheck:
-    name: ${{ matrix.edition }} isolated image and SQLite smoke
+    # A bounded R1 acceptance trigger, not a release or a general fork runner.
+    # Manual Full/LAN coverage remains available unchanged.
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/r1-usage-review-20261002')
+    name: ${{ matrix.edition }} ${{ matrix.scenario }} image and SQLite smoke
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
       fail-fast: false
       max-parallel: 1
       matrix:
-        edition: [full, lan]
+        edition: ${{ fromJSON(github.event_name == 'pull_request' && '["full"]' || '["full","lan"]') }}
+        scenario: [fresh]
+        include:
+          - edition: full
+            scenario: handoff
     env:
       MYAPI_SMOKE_EDITION: ${{ matrix.edition }}
       MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
       MYAPI_ISOLATED_SMOKE: '1'
       SMOKE_CONTAINER: myapi-smoke-${{ matrix.edition }}-${{ github.sha }}
       SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-${{ matrix.edition }}-${{ github.sha }}
+      SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-${{ matrix.edition }}-${{ github.sha }}
       SMOKE_IMAGE: myapi:smoke-${{ matrix.edition }}-${{ github.sha }}
+      SMOKE_SOURCE_IMAGE: ${{ matrix.scenario == 'handoff' && 'myapi:handoff-71277bf6055ce68b8cd1d11f1d10f1907d7696fd' || format('myapi:smoke-{0}-{1}', matrix.edition, github.sha) }}
 
     steps:
       - name: Check out
@@ -66,17 +163,46 @@ jobs:
           cache-from: type=gha,scope=smoke-${{ matrix.edition }}
           cache-to: type=gha,mode=min,scope=smoke-${{ matrix.edition }}
 
+      # Checkout after the current build so historical source never enters its context.
+      - name: Check out fixed handoff source
+        if: matrix.scenario == 'handoff'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: 71277bf6055ce68b8cd1d11f1d10f1907d7696fd
+          path: .handoff-source
+          persist-credentials: false
+
+      - name: Build fixed handoff source image
+        if: matrix.scenario == 'handoff'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .handoff-source
+          load: true
+          push: false
+          platforms: linux/amd64
+          tags: myapi:handoff-71277bf6055ce68b8cd1d11f1d10f1907d7696fd
+          build-args: |
+            MYAPI_EDITION=full
+            MYAPI_BUILD_ID=71277bf6055ce68b8cd1d11f1d10f1907d7696fd
+            MYAPI_BUILD_PARALLELISM=2
+          cache-from: type=gha,scope=smoke-handoff
+          cache-to: type=gha,mode=min,scope=smoke-handoff
+
       - name: Start isolated SQLite container
         run: |
           set -euo pipefail
           export SESSION_SECRET="$(openssl rand -hex 32)"
+          export SMOKE_DATA_DIR="$RUNNER_TEMP/myapi-smoke-data-${MYAPI_SMOKE_EDITION}-${GITHUB_SHA}"
+          mkdir -m 700 "$SMOKE_DATA_DIR"
+          echo "SMOKE_DATA_DIR=$SMOKE_DATA_DIR" >> "$GITHUB_ENV"
           docker run --detach \
             --name "$SMOKE_CONTAINER" \
             --label "io.myapi.smoke.sha=${GITHUB_SHA}" \
+            --user "$(id -u):$(id -g)" \
             --publish 127.0.0.1:18080:3000 \
             --publish 127.0.0.1:19090:19090 \
             --cpus 1 --memory 768m --pids-limit 256 \
-            --tmpfs /data:rw,noexec,nosuid,size=128m \
+            --mount "type=bind,src=$SMOKE_DATA_DIR,dst=/data" \
             --env MYAPI_EDITION="$MYAPI_SMOKE_EDITION" \
             --env MEMORY_CACHE_ENABLED=false \
             --env FULL_CONTENT_LOG_ENABLED=true \
@@ -90,7 +216,7 @@ jobs:
             --env SESSION_SECRET \
             --health-cmd='wget -q -O - http://127.0.0.1:3000/api/status | grep -q '"'"'"success"[[:space:]]*:[[:space:]]*true'"'"'' \
             --health-interval=3s --health-timeout=2s --health-retries=10 --health-start-period=20s \
-            "$SMOKE_IMAGE"
+            "$SMOKE_SOURCE_IMAGE"
 
       - name: Wait for health and verify status
         run: |
@@ -146,16 +272,26 @@ jobs:
           exit 1
 
       - name: Install isolated browser test runtime
+        if: matrix.scenario == 'fresh'
         run: |
           npm install --prefix "$RUNNER_TEMP/myapi-smoke-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1
           "$RUNNER_TEMP/myapi-smoke-browser/node_modules/.bin/playwright" install --with-deps chromium
 
       - name: Verify fresh setup, authentication and real frontend
+        if: matrix.scenario == 'fresh'
         env:
           MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-smoke-browser/node_modules/playwright/index.mjs
           MYAPI_FAKE_UPSTREAM_URL: http://127.0.0.1:19090
           MYAPI_SMOKE_FULL_CONTENT: '1'
+          MYAPI_SMOKE_RESTORE: '1'
         run: node tools/runtime/docker-smoke.mjs
+
+      - name: Verify handoff migration and original-backup recovery
+        if: matrix.scenario == 'handoff'
+        env:
+          MYAPI_SMOKE_HANDOFF_UPGRADE: '1'
+          MYAPI_SMOKE_RESTORE: '1'
+        run: node tools/runtime/handoff-upgrade-smoke.mjs
 
       - name: Record safe image identity
         run: |
@@ -170,13 +306,20 @@ jobs:
         run: |
           docker inspect --format 'status={{.State.Status}} exit_code={{.State.ExitCode}} oom_killed={{.State.OOMKilled}}' "$SMOKE_CONTAINER" 2>/dev/null || true
           docker inspect --format 'status={{.State.Status}} exit_code={{.State.ExitCode}} oom_killed={{.State.OOMKilled}}' "$SMOKE_FAKE_UPSTREAM_CONTAINER" 2>/dev/null || true
+          docker inspect --format 'status={{.State.Status}} exit_code={{.State.ExitCode}} oom_killed={{.State.OOMKilled}}' "$SMOKE_RESTORE_CONTAINER" 2>/dev/null || true
 
       - name: Remove smoke containers
         if: always()
         run: |
+          if [[ "$(docker inspect --format '{{index .Config.Labels "io.myapi.smoke.sha"}}' "$SMOKE_RESTORE_CONTAINER" 2>/dev/null)" == "$GITHUB_SHA" ]]; then
+            docker rm --force "$SMOKE_RESTORE_CONTAINER" >/dev/null
+          fi
           if [[ "$(docker inspect --format '{{index .Config.Labels "io.myapi.smoke.sha"}}' "$SMOKE_FAKE_UPSTREAM_CONTAINER" 2>/dev/null)" == "$GITHUB_SHA" ]]; then
             docker rm --force "$SMOKE_FAKE_UPSTREAM_CONTAINER" >/dev/null
           fi
           if [[ "$(docker inspect --format '{{index .Config.Labels "io.myapi.smoke.sha"}}' "$SMOKE_CONTAINER" 2>/dev/null)" == "$GITHUB_SHA" ]]; then
             docker rm --force "$SMOKE_CONTAINER" >/dev/null
+            if [[ "$SMOKE_DATA_DIR" == "$RUNNER_TEMP/myapi-smoke-data-${MYAPI_SMOKE_EDITION}-${GITHUB_SHA}" ]]; then
+              rm -rf -- "$SMOKE_DATA_DIR"
+            fi
           fi

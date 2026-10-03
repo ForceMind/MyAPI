@@ -76,6 +76,7 @@ import {
   getResponseTimeColor,
   getReasoningEffortVariant,
   renderAuditContent,
+  readPublishedPriceReference,
 } from '../../lib/format'
 import {
   getLogTypeConfig,
@@ -84,6 +85,7 @@ import {
 } from '../../lib/utils'
 import { USAGE_BILLING_PATH, type LogOtherData } from '../../types'
 import { UsageAccuracyBadge } from '../usage-accuracy-badge'
+import { UsageReviewPanel } from '../usage-review-panel'
 
 // Maps a channel-update changed-field token (as recorded by the backend audit)
 // to its i18n label key for display in the audit details.
@@ -390,8 +392,14 @@ function BillingBreakdown(props: {
   }
 
   rows.push({
-    label: t('Total Cost'),
-    value: formatLogQuota(log.quota),
+    label:
+      other.billing_source === 'self_use'
+        ? t('Internal usage units')
+        : t('Total Cost'),
+    value:
+      other.billing_source === 'self_use'
+        ? log.quota.toLocaleString()
+        : formatLogQuota(log.quota),
   })
 
   if (rows.length === 0) return null
@@ -483,6 +491,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
   const details = props.log.content ?? ''
   const other = parseLogOther(props.log.other)
+  const publishedPrice = readPublishedPriceReference(other)
   const typeConfig = getLogTypeConfig(props.log.type)
 
   const isViolation = isViolationFeeLog(other)
@@ -639,8 +648,33 @@ export function DetailsDialog(props: DetailsDialogProps) {
       bodyClassName='pr-2 sm:pr-4'
     >
       <div className='w-full max-w-full min-w-0 space-y-2.5 overflow-x-hidden py-1 sm:space-y-3'>
+        {props.open &&
+          props.log.request_id &&
+          other?.settlement_status === 'pending_review' && (
+            <UsageReviewPanel requestId={props.log.request_id} />
+          )}
         {/* Overview section - key identifiers */}
         <div className='min-w-0 space-y-1'>
+          {publishedPrice && (
+            <>
+              <DetailRow
+                label={t('Price publication ID')}
+                value={publishedPrice.publication_id}
+                mono
+              />
+              <DetailRow
+                label={t('Saved source SHA256')}
+                value={publishedPrice.source_sha256}
+                mono
+              />
+              <DetailRow
+                label={t('Reference cost')}
+                value={t(
+                  'Standard text reference tariffs only, not actual upstream bills. Multimodal, tools and other tiers are unsupported.'
+                )}
+              />
+            </>
+          )}
           {props.log.request_id && (
             <DetailRow
               label={t('Request ID')}

@@ -311,6 +311,53 @@ describe('Codex current usage window classification', () => {
     vi.clearAllMocks()
   })
 
+  test.each([
+    ['missing', undefined],
+    ['null', null],
+    ['numeric string', '0'],
+    ['negative', -1],
+    ['above 100', 101],
+  ])(
+    'shows unknown rather than a numeric quota for %s usage',
+    (_name, usedPercent) => {
+      renderUsage({
+        plan_type: 'pro',
+        rate_limit: {
+          allowed: true,
+          primary_window: {
+            used_percent: usedPercent,
+            limit_window_seconds: 604800,
+          },
+        },
+      })
+      expect(screen.getByText('Weekly Window')).toBeInTheDocument()
+      expect(screen.getByText('Unknown')).toBeInTheDocument()
+      expect(screen.queryByText('0%')).not.toBeInTheDocument()
+      expect(screen.queryByText('100%')).not.toBeInTheDocument()
+      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    }
+  )
+
+  test('keeps reported zero and replaces it with unknown when the next sample omits usage', () => {
+    const view = renderUsage({
+      plan_type: 'pro',
+      rate_limit: {
+        primary_window: { used_percent: 0, limit_window_seconds: 604800 },
+      },
+    })
+    expect(screen.getByText('0%')).toBeInTheDocument()
+    expect(
+      screen.getByRole('progressbar', { name: 'Weekly Window usage: 0%' })
+    ).toHaveAttribute('aria-valuenow', '0')
+    view.rerenderUsage({
+      plan_type: 'pro',
+      rate_limit: { primary_window: { limit_window_seconds: 604800 } },
+    })
+    expect(screen.getByText('Unknown')).toBeInTheDocument()
+    expect(screen.queryByText('0%')).not.toBeInTheDocument()
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+  })
+
   test('uses exact provider durations and removes the old five-hour window after a single-weekly plan response', () => {
     const view = renderUsage({
       plan_type: 'free',

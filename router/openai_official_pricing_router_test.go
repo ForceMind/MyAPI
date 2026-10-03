@@ -55,7 +55,7 @@ func TestOfficialPricingSnapshotRouteRequiresRoot(t *testing.T) {
 	t.Cleanup(func() { gin.SetMode(previousMode) })
 	engine := gin.New()
 	SetApiRouter(engine)
-	auditWritten := make(chan struct{}, 2)
+	auditWritten := make(chan struct{}, 4)
 	require.NoError(t, db.Callback().Create().After("gorm:create").Register("pricing-router-audit-complete", func(tx *gorm.DB) {
 		if tx.Statement.Schema != nil && tx.Statement.Schema.Name == "Log" && tx.Error == nil {
 			auditWritten <- struct{}{}
@@ -73,6 +73,9 @@ func TestOfficialPricingSnapshotRouteRequiresRoot(t *testing.T) {
 			{http.MethodGet, "/api/ratio_sync/openai"},
 			{http.MethodPost, "/api/ratio_sync/openai/versions"},
 			{http.MethodGet, "/api/ratio_sync/openai/versions/" + strings.Repeat("a", 64)},
+			{http.MethodGet, "/api/ratio_sync/openai/versions/" + strings.Repeat("a", 64) + "/publication-preview"},
+			{http.MethodGet, "/api/ratio_sync/openai/publications"},
+			{http.MethodPost, "/api/ratio_sync/openai/publications"},
 		} {
 			response := httptest.NewRecorder()
 			request := httptest.NewRequest(endpoint.method, endpoint.path, nil)
@@ -84,21 +87,23 @@ func TestOfficialPricingSnapshotRouteRequiresRoot(t *testing.T) {
 		}
 	}
 	for _, origin := range []string{"", "http://cross-site.invalid"} {
-		response := httptest.NewRecorder()
-		request := httptest.NewRequest(http.MethodPost, "http://myapi.local/api/ratio_sync/openai/versions", nil)
-		request.Header.Set("Authorization", "Bearer pricing-source-root")
-		if origin != "" {
-			request.Header.Set("Origin", origin)
+		for _, path := range []string{"/api/ratio_sync/openai/versions", "/api/ratio_sync/openai/publications"} {
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, "http://myapi.local"+path, nil)
+			request.Header.Set("Authorization", "Bearer pricing-source-root")
+			if origin != "" {
+				request.Header.Set("Origin", origin)
+			}
+			engine.ServeHTTP(response, request)
+			assert.Equal(t, http.StatusForbidden, response.Code, "Root authentication must not bypass origin guard")
+			assert.Contains(t, strings.Split(response.Header().Get("Cache-Control"), ", "), "no-store")
 		}
-		engine.ServeHTTP(response, request)
-		assert.Equal(t, http.StatusForbidden, response.Code, "Root authentication must not bypass origin guard")
-		assert.Contains(t, strings.Split(response.Header().Get("Cache-Control"), ", "), "no-store")
 	}
 	// Authentication records rejected Root writes asynchronously. Wait for
 	// their real DB writes before restoring global DB/cache fixture state.
 	auditContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	for range 2 {
+	for range 4 {
 		select {
 		case <-auditWritten:
 		case <-auditContext.Done():

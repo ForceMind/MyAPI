@@ -18,7 +18,7 @@ import (
 )
 
 func TestRefreshCodexCredentialElementPreservesOtherAccountsAndRejectsConflicts(t *testing.T) {
-	for _, scenario := range []string{"rotate one account", "single formatted credential", "request canceled after rotation", "changed before refresh", "changed during refresh", "duplicate credential"} {
+	for _, scenario := range []string{"rotate one account", "single formatted credential", "request canceled after rotation", "changed before refresh", "changed during refresh", "duplicate credential", "invalid expiry", "single invalid expiry"} {
 		t.Run(scenario, func(t *testing.T) {
 			db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 			require.NoError(t, err)
@@ -32,7 +32,7 @@ func TestRefreshCodexCredentialElementPreservesOtherAccountsAndRejectsConflicts(
 			old := `{"access_token":"synthetic-old","refresh_token":"synthetic-refresh","account_id":"account-a"}`
 			other := `{"access_token":"synthetic-other","refresh_token":"synthetic-other-refresh","account_id":"account-b"}`
 			channel := model.Channel{Type: constant.ChannelTypeCodex, Key: "[" + old + "," + other + "]", ChannelInfo: model.ChannelInfo{IsMultiKey: true}}
-			if scenario == "single formatted credential" {
+			if scenario == "single formatted credential" || scenario == "single invalid expiry" {
 				old = " " + strings.ReplaceAll(old, ",", ",\n") + " "
 				channel.Key, channel.ChannelInfo.IsMultiKey = old, false
 			}
@@ -60,9 +60,18 @@ func TestRefreshCodexCredentialElementPreservesOtherAccountsAndRejectsConflicts(
 				if scenario == "request canceled after rotation" {
 					cancel()
 				}
-				return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Request: request, Body: io.NopCloser(strings.NewReader(`{"access_token":"synthetic-new","refresh_token":"synthetic-new-refresh","expires_in":3600}`))}, nil
+				payload := `{"access_token":"synthetic-new","refresh_token":"synthetic-new-refresh","expires_in":3600}`
+				if strings.Contains(scenario, "invalid expiry") {
+					payload = strings.Replace(payload, "3600", "9223372036854775807", 1)
+				}
+				return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Request: request, Body: io.NopCloser(strings.NewReader(payload))}, nil
 			})
-			refreshed, err := RefreshCodexChannelCredentialElement(ctx, channel.Id, old, "")
+			var refreshed *CodexOAuthKey
+			if scenario == "single invalid expiry" {
+				refreshed, _, err = RefreshCodexChannelCredential(ctx, channel.Id, CodexCredentialRefreshOptions{ExpectedKey: &old})
+			} else {
+				refreshed, err = RefreshCodexChannelCredentialElement(ctx, channel.Id, old, "")
+			}
 			var persisted model.Channel
 			require.NoError(t, db.First(&persisted, channel.Id).Error)
 			switch scenario {
@@ -78,6 +87,11 @@ func TestRefreshCodexCredentialElementPreservesOtherAccountsAndRejectsConflicts(
 					assert.Equal(t, other, persisted.GetKeys()[1])
 				}
 				assert.NotContains(t, persisted.Key, "synthetic-old")
+				assert.Equal(t, 1, requests)
+			case "invalid expiry", "single invalid expiry":
+				assert.Error(t, err)
+				assert.Nil(t, refreshed)
+				assert.Equal(t, channel.Key, persisted.Key, "invalid expiry must not poison persisted credentials")
 				assert.Equal(t, 1, requests)
 			case "changed during refresh":
 				var persistenceErr *CodexCredentialPersistenceError

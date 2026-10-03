@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/tooltip'
 import { formatLogQuota } from '@/lib/format'
 
-import { hasToolSurcharge } from '../lib/format'
+import { hasToolSurcharge, readPublishedPriceReference } from '../lib/format'
 import type { LogOtherData } from '../types'
 import { UsageAccuracyBadge } from './usage-accuracy-badge'
 
@@ -120,14 +120,38 @@ function SubscriptionBadge(props: { quota: number }) {
 }
 
 export function LogCostDisplay(props: LogCostDisplayProps) {
+  const { t } = useTranslation()
+  const reference = readPublishedPriceReference(props.other)
   const isSubscription = props.other?.billing_source === 'subscription'
   const showToolSurcharge = hasToolSurcharge(props.other)
+
+  if (props.other?.settlement_status === 'pending_review') {
+    return <UsageAccuracyBadge accuracy='pending_review' />
+  }
+
+  if (props.other?.billing_source === 'self_use') {
+    return (
+      <div className='flex flex-col gap-0.5'>
+        <Badge variant='outline'>{t('Self-use metering')}</Badge>
+        <span className='text-muted-foreground text-xs'>
+          {props.quota.toLocaleString()} {t('Internal usage units')}
+        </span>
+        {reference && <Badge variant='outline'>{t('Reference cost')}</Badge>}
+        {props.showUsageAccuracy !== false && (
+          <UsageAccuracyBadge accuracy={props.other?.usage_accuracy} />
+        )}
+      </div>
+    )
+  }
 
   if (!isSubscription && !showToolSurcharge) {
     return (
       <div className='flex flex-col gap-0.5'>
         <QuotaBadge quota={props.quota} />
-        {props.showUsageAccuracy !== false && <UsageAccuracyBadge accuracy={props.other?.usage_accuracy} />}
+        {reference && <Badge variant='outline'>{t('Reference cost')}</Badge>}
+        {props.showUsageAccuracy !== false && (
+          <UsageAccuracyBadge accuracy={props.other?.usage_accuracy} />
+        )}
       </div>
     )
   }
@@ -136,14 +160,17 @@ export function LogCostDisplay(props: LogCostDisplayProps) {
     <TooltipProvider>
       <div className='flex flex-col items-start gap-0.5'>
         <div className='inline-flex items-center gap-1'>
-        {isSubscription ? (
-          <SubscriptionBadge quota={props.quota} />
-        ) : (
-          <QuotaBadge quota={props.quota} />
-        )}
-        {showToolSurcharge ? <ToolSurchargeMarker /> : null}
+          {isSubscription ? (
+            <SubscriptionBadge quota={props.quota} />
+          ) : (
+            <QuotaBadge quota={props.quota} />
+          )}
+          {showToolSurcharge ? <ToolSurchargeMarker /> : null}
+          {reference && <Badge variant='outline'>{t('Reference cost')}</Badge>}
         </div>
-        {props.showUsageAccuracy !== false && <UsageAccuracyBadge accuracy={props.other?.usage_accuracy} />}
+        {props.showUsageAccuracy !== false && (
+          <UsageAccuracyBadge accuracy={props.other?.usage_accuracy} />
+        )}
       </div>
     </TooltipProvider>
   )

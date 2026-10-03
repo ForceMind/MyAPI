@@ -3,6 +3,9 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
+
+	"github.com/ForceMind/MyAPI/common"
 
 	"github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/model"
@@ -20,7 +23,18 @@ func CodexQuotaEligibleKeys(ctx context.Context, channel *model.Channel) (map[in
 		return nil, false, ErrCodexQuotaRoutingUnavailable
 	}
 	if channel.Type != constant.ChannelTypeCodex {
+		if _, active := common.AccountQuotaThresholdFromContext(ctx); active {
+			return nil, false, nil
+		}
 		return nil, true, nil
+	}
+	if policy, active := common.AccountQuotaThresholdFromContext(ctx); active {
+		if !common.ValidAccountQuotaThreshold(policy) {
+			return nil, false, model.ErrAccountQuotaThresholdInvalid
+		}
+		if !accountThresholdChannelSupported(channel) {
+			return nil, false, nil
+		}
 	}
 	diagnostic, err := inspectCodexQuotaRouting(ctx, channel, false)
 	if err != nil {
@@ -31,7 +45,8 @@ func CodexQuotaEligibleKeys(ctx context.Context, channel *model.Channel) (map[in
 
 func getRandomQuotaSatisfiedChannel(ctx context.Context, group, modelName string, retry int, requestPath string) (*model.Channel, error) {
 	channel, err := model.GetRandomSatisfiedChannel(group, modelName, retry, requestPath)
-	if err != nil || channel == nil || channel.Type != constant.ChannelTypeCodex {
+	_, thresholdActive := common.AccountQuotaThresholdFromContext(ctx)
+	if err != nil || channel == nil || (channel.Type != constant.ChannelTypeCodex && !thresholdActive) {
 		return channel, err
 	}
 	_, usable, err := CodexQuotaEligibleKeys(ctx, channel)
@@ -45,7 +60,7 @@ func getRandomQuotaSatisfiedChannel(ctx context.Context, group, modelName string
 	filtered := make([]model.ChannelRoutingCandidate, 0)
 	for _, tier := range view.Policy.Tiers {
 		for _, candidate := range tier.Candidates {
-			if candidate.ChannelType == constant.ChannelTypeCodex {
+			if candidate.ChannelType == constant.ChannelTypeCodex || thresholdActive {
 				candidateChannel, lookupErr := model.CacheGetChannel(candidate.ChannelID)
 				if lookupErr != nil {
 					return nil, lookupErr
@@ -67,4 +82,8 @@ func getRandomQuotaSatisfiedChannel(ctx context.Context, group, modelName string
 		return nil, err
 	}
 	return model.CacheGetChannel(channelID)
+}
+
+func accountThresholdChannelSupported(channel *model.Channel) bool {
+	return channel != nil && channel.Type == constant.ChannelTypeCodex && !common.TLSInsecureSkipVerify && strings.TrimRight(strings.TrimSpace(channel.GetBaseURL()), "/") == "https://chatgpt.com" && len(channel.GetHeaderOverride()) == 0 && len(channel.GetParamOverride()) == 0
 }

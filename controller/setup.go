@@ -94,13 +94,15 @@ func PostSetup(c *gin.Context) {
 				return errors.New("root account validation is stale")
 			}
 			rootUser := model.User{
-				Username:    req.Username,
-				Password:    hashedPassword,
-				Role:        common.RoleRootUser,
-				Status:      common.UserStatusEnabled,
-				DisplayName: "Root User",
-				Quota:       100000000,
-				AffCode:     common.GetRandomString(8),
+				Username:            req.Username,
+				Password:            hashedPassword,
+				Role:                common.RoleRootUser,
+				Status:              common.UserStatusEnabled,
+				DisplayName:         "Root User",
+				Quota:               0,
+				SelfUseNoBalance:    true,
+				UsagePolicyRevision: 1,
+				AffCode:             common.GetRandomString(8),
 			}
 			if err := tx.Create(&rootUser).Error; err != nil {
 				return err

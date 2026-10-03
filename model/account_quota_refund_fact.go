@@ -16,6 +16,7 @@ import (
 const (
 	AccountQuotaRefundFactKindAuthoritative      = "authoritative"
 	AccountQuotaRefundFactKindLegacyWallet       = "legacy_wallet"
+	AccountQuotaRefundFactKindLegacySelfUse      = "legacy_self_use"
 	AccountQuotaRefundFactKindLegacySubscription = "legacy_subscription"
 
 	AccountQuotaRefundFactPending   = "pending"
@@ -123,6 +124,10 @@ func normalizeAccountQuotaRefundFactInput(input AccountQuotaRefundFactInput) (Ac
 		if input.SubscriptionID != 0 || input.SubscriptionQuota != 0 || input.WalletQuota == 0 && input.TokenQuota == 0 {
 			return input, "", ErrAccountQuotaMutationInvalidInput
 		}
+	case AccountQuotaRefundFactKindLegacySelfUse:
+		if input.SubscriptionID != 0 || input.SubscriptionQuota != 0 || input.WalletQuota != 0 || input.TokenQuota <= 0 {
+			return input, "", ErrAccountQuotaMutationInvalidInput
+		}
 	case AccountQuotaRefundFactKindLegacySubscription:
 		if input.SubscriptionID <= 0 || input.SubscriptionQuota <= 0 || input.WalletQuota != 0 {
 			return input, "", ErrAccountQuotaMutationInvalidInput
@@ -177,6 +182,14 @@ func EnsureAccountQuotaRefundFact(ctx context.Context, db *gorm.DB, input Accoun
 	normalized, fingerprint, err := normalizeAccountQuotaRefundFactInput(input)
 	if err != nil {
 		return nil, err
+	}
+	if normalized.Kind != AccountQuotaRefundFactKindAuthoritative {
+		if err := validateLegacySelfUseRefund(db.WithContext(ctx), normalized.RequestID, normalized.Kind, normalized.UserID, normalized.TokenID, normalized.WalletQuota); err != nil {
+			return nil, err
+		}
+		if err := validateLegacyUsageRefund(db.WithContext(ctx), normalized.RequestID); err != nil {
+			return nil, err
+		}
 	}
 	var existing AccountQuotaRefundFact
 	result := db.WithContext(ctx).Where("event_key = ?", normalized.EventKey).Limit(1).Find(&existing)
@@ -396,6 +409,12 @@ func applyLegacyWalletRefundFact(ctx context.Context, db *gorm.DB, claimed *Acco
 	}
 	defer releaseQuotaBalanceSubjectLock(tokenLock)
 	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := validateLegacySelfUseRefund(tx, claimed.RequestID, claimed.Kind, claimed.UserID, claimed.TokenID, claimed.WalletQuota); err != nil {
+			return err
+		}
+		if err := validateLegacyUsageRefund(tx, claimed.RequestID); err != nil {
+			return err
+		}
 		var fact AccountQuotaRefundFact
 		if err := lockForUpdate(tx).Where("id = ?", claimed.ID).First(&fact).Error; err != nil {
 			return err
@@ -458,6 +477,9 @@ func applyLegacySubscriptionRefundFact(ctx context.Context, db *gorm.DB, claimed
 	}
 	defer releaseQuotaBalanceSubjectLock(tokenLock)
 	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := validateLegacyUsageRefund(tx, claimed.RequestID); err != nil {
+			return err
+		}
 		var fact AccountQuotaRefundFact
 		if err := lockForUpdate(tx).Where("id = ?", claimed.ID).First(&fact).Error; err != nil {
 			return err
@@ -564,14 +586,14 @@ func RecoverAccountQuotaRefundFact(ctx context.Context, db *gorm.DB, fact *Accou
 		} else {
 			terminal, err = RefundAccountQuota(ctx, db, input)
 		}
-	case AccountQuotaRefundFactKindLegacyWallet:
+	case AccountQuotaRefundFactKindLegacyWallet, AccountQuotaRefundFactKindLegacySelfUse:
 		err = applyLegacyWalletRefundFact(ctx, db, claimed)
 	case AccountQuotaRefundFactKindLegacySubscription:
 		err = applyLegacySubscriptionRefundFact(ctx, db, claimed)
 	default:
 		err = ErrAccountQuotaMutationInvalidInput
 	}
-	legacyFact := claimed.Kind == AccountQuotaRefundFactKindLegacyWallet || claimed.Kind == AccountQuotaRefundFactKindLegacySubscription
+	legacyFact := claimed.Kind == AccountQuotaRefundFactKindLegacySelfUse || claimed.Kind == AccountQuotaRefundFactKindLegacyWallet || claimed.Kind == AccountQuotaRefundFactKindLegacySubscription
 	if legacyFact && err == nil {
 		var stored AccountQuotaRefundFact
 		if readErr := db.WithContext(ctx).First(&stored, claimed.ID).Error; readErr != nil {

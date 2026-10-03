@@ -1,4 +1,10 @@
+usage_dispatch.pending: "该请求不能再次发送，请先核对其用量结算状态。"
 # Chinese (Simplified) translations
+token_budget.unsupported: "此严格 Token 预算仅支持 OpenAI 官方 Responses 纯文本请求，须明确 max_output_tokens 并采用非免费的按 Token 计价"
+token_budget.pending: "此 Key 有尚未处理的用量预留，后续请求已暂停"
+token_budget.exceeded: "本次请求的 Token 预留上限超过可用预算"
+token_budget.count_unavailable: "无法取得可靠的上游输入 Token 数，生成请求未发出"
+token_budget.unavailable: "无法核验 Token 预算，生成请求未发出"
 # 中文（简体）翻译文件
 
 # Common messages
@@ -312,3 +318,13 @@ quota_history.series_required: "请选择多账户额度历史的账户系列"
 quota_history.invalid_series: "额度历史系列标识无效"
 quota_history.series_not_found: "当前渠道和时间范围内没有匹配的账户系列"
 quota_history.selection_too_large: "额度记录过多，请缩短时间范围"
+
+fee_budget.exceeded: "本次请求的 USD 预留超过可用费用预算"
+fee_budget.evidence: "无法核验适用的冻结官网价格，生成请求未发出"
+
+account_threshold.unavailable: "没有新鲜完整的账户窗口证据满足此 Key 的阈值，生成请求未发出"
+
+account_threshold.combination: "账户阈值目前仅支持原生 Codex 账户，不能与直连 API 的 Token 或 USD 限额同时启用"
+account_threshold.invalid: "账户阈值须为 0–100%，采样有效期须为 30–3600 秒"
+
+self_use.unsupported: "非充值自用策略目前仅支持 Chat 和 Responses 请求。"

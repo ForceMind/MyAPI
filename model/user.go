@@ -96,11 +96,14 @@ type User struct {
 	TelegramId       string  `json:"telegram_id" gorm:"column:telegram_id;index"`
 	VerificationCode string  `json:"verification_code" gorm:"-:all"`                         // this field is only for Email verification, don't save it to database!
 	AccessToken      *string `json:"-" gorm:"type:char(32);column:access_token;uniqueIndex"` // this token is for system management
-	Quota            int     `json:"quota" gorm:"type:int;default:0"`
-	QuotaVersion     int64   `json:"-" gorm:"type:bigint;not null;default:0"`
-	UsedQuota        int     `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
-	RequestCount     int     `json:"request_count" gorm:"type:int;default:0;"`               // request number
-	Group            string  `json:"group" gorm:"type:varchar(64);default:'default'"`
+	// Private policy: public user/profile DTOs cannot toggle funding behavior.
+	SelfUseNoBalance    bool   `json:"-" gorm:"not null;default:false"`
+	UsagePolicyRevision int64  `json:"-" gorm:"type:bigint;not null;default:0"`
+	Quota               int    `json:"quota" gorm:"type:int;default:0"`
+	QuotaVersion        int64  `json:"-" gorm:"type:bigint;not null;default:0"`
+	UsedQuota           int    `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
+	RequestCount        int    `json:"request_count" gorm:"type:int;default:0;"`               // request number
+	Group               string `json:"group" gorm:"type:varchar(64);default:'default'"`
 	// AccountTierID is the explicit account-level identity introduced alongside
 	// the legacy group compatibility field. Routing still reads Group until the
 	// independent account-tier policy is configured.

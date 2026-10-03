@@ -1,4 +1,10 @@
+usage_dispatch.pending: "此請求不能再次傳送，請先核對其用量結算狀態。"
 # Chinese (Traditional) translations
+token_budget.unsupported: "此嚴格 Token 預算僅支援 OpenAI 官方 Responses 純文字請求，須明確指定 max_output_tokens 並採用非免費的按 Token 計價"
+token_budget.pending: "此 Key 有尚未處理的用量預留，後續請求已暫停"
+token_budget.exceeded: "本次請求的 Token 預留上限超過可用預算"
+token_budget.count_unavailable: "無法取得可靠的上游輸入 Token 數，生成請求未送出"
+token_budget.unavailable: "無法核驗 Token 預算，生成請求未送出"
 # 中文（繁體）翻譯檔案
 
 # Common messages
@@ -312,3 +318,13 @@ quota_history.series_required: "請選擇多帳戶額度歷史的帳戶系列"
 quota_history.invalid_series: "額度歷史系列識別碼無效"
 quota_history.series_not_found: "目前渠道與時間範圍內沒有匹配的帳戶系列"
 quota_history.selection_too_large: "額度記錄過多，請縮短時間範圍"
+
+fee_budget.exceeded: "本次請求的 USD 預留超過可用費用預算"
+fee_budget.evidence: "無法核驗適用的凍結官網價格，生成請求未發出"
+
+account_threshold.unavailable: "沒有新鮮完整的帳戶窗口證據滿足此 Key 的閾值，生成請求未發出"
+
+account_threshold.combination: "帳戶閾值目前僅支援原生 Codex 帳戶，不能與直連 API 的 Token 或 USD 限額同時啟用"
+account_threshold.invalid: "帳戶閾值須為 0–100%，取樣有效期須為 30–3600 秒"
+
+self_use.unsupported: "非儲值自用策略目前僅支援 Chat 與 Responses 請求。"

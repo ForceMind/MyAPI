@@ -1784,8 +1784,10 @@ func FindClickHouseCanonicalProjectionMutations(ctx context.Context, db *gorm.DB
 		return nil, errors.New("ClickHouse projection materialization request time is required")
 	}
 	var mutations []ClickHouseProjectionMutation
+	// system.mutations.create_time is DateTime (second precision), not
+	// DateTime64. Promote it explicitly before the millisecond conversion.
 	err := db.WithContext(ctx).Raw(
-		"SELECT mutation_id, command, create_time, is_done, latest_fail_reason FROM system.mutations WHERE database = currentDatabase() AND table = ? AND positionCaseInsensitive(command, ?) > 0 AND toUnixTimestamp64Milli(create_time) >= ? ORDER BY create_time, mutation_id",
+		"SELECT mutation_id, command, create_time, is_done, latest_fail_reason FROM system.mutations WHERE database = currentDatabase() AND table = ? AND positionCaseInsensitive(command, ?) > 0 AND toUnixTimestamp64Milli(toDateTime64(create_time, 3)) >= ? ORDER BY create_time, mutation_id",
 		"logs", clickHouseProjectionMutationCommand(), requestedAtMillis-1000,
 	).Scan(&mutations).Error
 	return mutations, err

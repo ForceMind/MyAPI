@@ -84,6 +84,10 @@ func TestRealtimeSegmentsUseBillingReservationInsteadOfDoubleCharge(t *testing.T
 			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 			ctx.Request = httptest.NewRequest("GET", "/v1/realtime", nil)
 			require.Nil(t, PreConsumeBilling(ctx, 100, info))
+			// Legacy admission refreshes the notification snapshot from the DB.
+			// Keep that non-accounting snapshot high after admission as well;
+			// actual user/key balances and all settlement assertions stay intact.
+			info.UserQuota = 1 << 30
 			usage := &dto.RealtimeUsage{InputTokens: 38, TotalTokens: 38,
 				InputTokenDetails: dto.InputTokenDetails{TextTokens: 38}}
 			for range 3 { // three distinct provider responses, not a replay

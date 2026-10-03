@@ -322,6 +322,14 @@ func runTaskQuotaReservationContract(t *testing.T, db *gorm.DB) {
 		require.NotNil(t, receipt)
 		assert.Equal(t, int64(0), receipt.Quota)
 		assertTaskQuotaWallet(t, db, zeroInput, 1000, 500, 0, 0) // QuotaVersion unchanged
+		var zeroUser User
+		require.NoError(t, db.First(&zeroUser, zeroInput.UserID).Error)
+		assert.Equal(t, 1, zeroUser.RequestCount, "a zero charge still counts its single reserved request")
+		require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+			return applyTaskStatistics(tx, zeroInput.UserID, zeroInput.ChannelID, 0, 0)
+		}))
+		require.NoError(t, db.First(&zeroUser, zeroInput.UserID).Error)
+		assert.Equal(t, 1, zeroUser.RequestCount, "a no-op statistics projection must not add a request")
 
 		replay, err := ReserveTaskQuota(db, zeroInput)
 		require.NoError(t, err)

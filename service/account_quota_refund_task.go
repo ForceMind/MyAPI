@@ -37,6 +37,9 @@ func (accountQuotaRefundRecoveryHandler) Run(ctx context.Context, task *model.Sy
 		worker.BatchSize = payload.BatchSize
 	}
 	processed, recoveryErr := worker.RecoverAccountQuotaRefundFacts(ctx, model.DB)
+	projected, projectionErr := model.RunUsageReviewProjections(ctx, model.DB, model.LOG_DB, worker.BatchSize)
+	processed += projected
+	recoveryErr = errors.Join(recoveryErr, projectionErr)
 	finishQuotaProjectionSystemTask(task, runnerID, processed, recoveryErr)
 }
 

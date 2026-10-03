@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -418,6 +419,11 @@ func TestRefundMidjourneyQuotaDualModeIdempotent(t *testing.T) {
 }
 
 func TestRefundMidjourneyQuotaLegacyFactConcurrent(t *testing.T) {
+	t.Run("concurrent", func(t *testing.T) { testMidjourneyLegacyRefundConcurrent(t, false) })
+	t.Run("slow-owner", func(t *testing.T) { testMidjourneyLegacyRefundConcurrent(t, true) })
+}
+
+func testMidjourneyLegacyRefundConcurrent(t *testing.T, slowOwner bool) {
 	db := setupTaskBillingModeDB(t, model.QuotaWriterModeLegacy)
 	ctx := context.Background()
 	user, token := seedAuthoritativeBilling(t, db, "mj-refund-race", 10000, 5000, false)
@@ -432,6 +438,17 @@ func TestRefundMidjourneyQuotaLegacyFactConcurrent(t *testing.T) {
 	require.True(t, billed)
 	seedChargedAccounting(t, user.Id, 73, token.Id, chargedQuota, 1)
 
+	if slowOwner {
+		// A lease owner may still be doing legitimate database work while other
+		// callers observe pending. Simulate latency, not a failed money write.
+		var delayed atomic.Bool
+		require.NoError(t, db.Callback().Update().Before("gorm:update").Register("slow-refund-owner", func(tx *gorm.DB) {
+			if tx.Statement.Schema != nil && tx.Statement.Schema.Table == "users" && delayed.CompareAndSwap(false, true) {
+				time.Sleep(300 * time.Millisecond)
+			}
+		}))
+	}
+
 	// 并发 poll/notify 各自携带过期 task.Quota：事实状态机收敛，最多退一次。
 	const workers = 4
 	var wg sync.WaitGroup
@@ -440,25 +457,36 @@ func TestRefundMidjourneyQuotaLegacyFactConcurrent(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ok := false
-			for attempt := 0; attempt < 50 && !ok; attempt++ {
-				stale := getMidjourneyTask(t, task.Id)
-				stale.Quota = chargedQuota
-				ok = RefundMidjourneyQuota(ctx, &stale, "构图失败")
-				if !ok {
-					time.Sleep(2 * time.Millisecond)
-				}
-			}
-			results <- ok
+			stale := getMidjourneyTask(t, task.Id)
+			stale.Quota = chargedQuota
+			results <- RefundMidjourneyQuota(ctx, &stale, "构图失败")
 		}()
 	}
 	wg.Wait()
 	close(results)
 	succeeded := 0
+	pending := 0
 	for ok := range results {
+		if !ok {
+			pending++
+		}
+		// A pending return is legitimate while the concurrent lease owner is
+		// still executing. Confirm/replay after all initial calls have returned,
+		// retaining the original per-caller total of 50 attempts and 2ms retry.
+		for attempt := 1; attempt < 50 && !ok; attempt++ {
+			stale := getMidjourneyTask(t, task.Id)
+			stale.Quota = chargedQuota
+			ok = RefundMidjourneyQuota(ctx, &stale, "构图失败")
+			if !ok {
+				time.Sleep(2 * time.Millisecond)
+			}
+		}
 		if ok {
 			succeeded++
 		}
+	}
+	if slowOwner {
+		assert.Positive(t, pending, "slow owner must exercise a pending concurrent caller")
 	}
 	assert.Equal(t, workers, succeeded)
 	assert.Equal(t, 10000, getUserQuota(t, user.Id))

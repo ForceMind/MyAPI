@@ -44,6 +44,8 @@ export const userSchema = z.object({
   email: z.string().optional(),
   quota: z.number(),
   used_quota: z.number(),
+  self_use_no_balance: z.boolean().optional(),
+  usage_policy_revision: z.number().int().min(0).optional(),
   request_count: z.number(),
   group: z.string(),
   account_tier_id: z.string().nullish().default('standard'),
@@ -152,4 +154,4 @@ export interface ManageUserQuotaPayload {
 // Dialog Types
 // ============================================================================
 
-export type UsersDialogType = 'create' | 'update' | 'delete'
+export type UsersDialogType = 'create' | 'update' | 'delete' | 'usage-policy'

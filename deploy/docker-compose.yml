@@ -29,7 +29,9 @@ services:
       # install.sh and the CLI normalize a legacy NEW_API_PUBLIC_URL into the
       # canonical environment before invoking Compose. Keep a required check
       # here so direct Compose runs cannot start with an empty public origin.
-      SESSION_COOKIE_TRUSTED_URL: ${MYAPI_PUBLIC_URL:?MYAPI_PUBLIC_URL is required; run myapi migrate for legacy settings}
+      # The single '-' preserves the explicit empty value for local HTTP.
+      # An unset value retains the historical Full HTTPS default.
+      SESSION_COOKIE_TRUSTED_URL: ${MYAPI_SESSION_COOKIE_TRUSTED_URL-${MYAPI_PUBLIC_URL:?MYAPI_PUBLIC_URL is required; run myapi migrate for legacy settings}}
       FRONTEND_BASE_URL: ${MYAPI_PUBLIC_URL:?MYAPI_PUBLIC_URL is required; run myapi migrate for legacy settings}
       TRUSTED_PROXIES: 172.16.0.0/12
       ERROR_LOG_ENABLED: "true"

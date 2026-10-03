@@ -59,6 +59,43 @@ function renderSource() {
   )
 }
 
+test('stored publication history remains reachable without fetching an upstream source', async () => {
+  const publicationID = 'd'.repeat(64)
+  vi.mocked(api.get).mockImplementation((url) => {
+    if (url !== '/api/ratio_sync/openai/publications') {
+      throw new Error('unexpected upstream source fetch')
+    }
+    return Promise.resolve({
+      data: {
+        success: true,
+        data: {
+          expected_digest: 'b'.repeat(64),
+          runtime_ready: true,
+          snapshot: { state: { revision: 1 } },
+          receipts: [
+            {
+              id: publicationID,
+              actor_id: 1,
+              action: 'publish',
+              created_at: 1700000000,
+              revision: 1,
+            },
+          ],
+        },
+      },
+    })
+  })
+  renderSource()
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Effective price publication' })
+  )
+  expect(
+    await screen.findByRole('button', { name: `Rollback: ${publicationID}` })
+  ).toBeEnabled()
+  expect(api.get).toHaveBeenCalledTimes(1)
+  expect(api.post).not.toHaveBeenCalled()
+})
+
 test('manual source fetch preserves decimal prices and distinguishes unquoted values from zero without writes', async () => {
   vi.mocked(api.get).mockResolvedValue({
     data: { success: true, data: fixture },
@@ -81,10 +118,16 @@ test('manual source fetch preserves decimal prices and distinguishes unquoted va
   await userEvent.tab()
   await userEvent.tab()
   expect(
+    screen.getByRole('button', { name: 'Effective price publication' })
+  ).toHaveFocus()
+  await userEvent.tab()
+  expect(
     screen.getByRole('table', { name: 'OpenAI official pricing source' })
   ).toHaveFocus()
   expect(
-    screen.getByText('Source preview only. Effective prices are unchanged.')
+    screen.getByText(
+      'Fetching or saving a source does not change effective prices.'
+    )
   ).toBeInTheDocument()
   expect(api.put).not.toHaveBeenCalled()
   expect(api.post).not.toHaveBeenCalled()
@@ -185,7 +228,9 @@ test('explicit save sends no client prices and displays the returned frozen sour
   )
   expect(await screen.findByText(frozen.content_sha256)).toBeInTheDocument()
   expect(
-    screen.getByText('Frozen source loaded. Effective prices are unchanged.')
+    screen.getByText(
+      'Frozen source loaded. Publishing requires a separate confirmation.'
+    )
   ).toBeInTheDocument()
   expect(api.post).toHaveBeenCalledWith(
     '/api/ratio_sync/openai/versions',
@@ -243,10 +288,12 @@ test('explicit saved version read uses its own prices and can retry a failed ver
   await userEvent.click(read)
   expect(await screen.findByText('$2.00')).toBeInTheDocument()
   expect(
-    vi.mocked(api.get).mock.calls.every(
-      ([url]) =>
-        url === `/api/ratio_sync/openai/versions/${fixture.content_sha256}`
-    )
+    vi
+      .mocked(api.get)
+      .mock.calls.every(
+        ([url]) =>
+          url === `/api/ratio_sync/openai/versions/${fixture.content_sha256}`
+      )
   ).toBe(true)
 })
 

@@ -44,7 +44,7 @@ type TaskTerminalObservation struct {
 	RequestID               string                       `gorm:"type:varchar(64);not null;default:''"`
 	ResolutionSource        string                       `gorm:"type:varchar(32);not null;default:''"`
 	EvidenceID              string                       `gorm:"type:varchar(191);not null;default:''"`
-	EvidenceHash            string                       `gorm:"type:char(64);not null;default:''"`
+	EvidenceHash            string                       `gorm:"type:varchar(64);not null;default:''"`
 	EvidenceVersion         int                          `gorm:"not null;default:0"`
 	ResultURL               string                       `gorm:"type:text"`
 	TaskData                string                       `json:"-" gorm:"type:text"`
@@ -57,7 +57,7 @@ type TaskTerminalObservation struct {
 	ClampOriginal           string                       `gorm:"type:varchar(64);not null;default:''"`
 	ClampClamped            int                          `gorm:"not null;default:0"`
 	ConflictCount           int                          `gorm:"not null;default:0"`
-	LastConflictFingerprint string                       `gorm:"type:char(64);not null;default:''"`
+	LastConflictFingerprint string                       `gorm:"type:varchar(64);not null;default:''"`
 	Fingerprint             string                       `gorm:"type:char(64);not null"`
 	State                   TaskTerminalObservationState `gorm:"type:varchar(24);not null;index"`
 	AppliedAt               *int64                       `gorm:"type:bigint"`
@@ -486,7 +486,14 @@ func applyTaskStatistics(tx *gorm.DB, userID, channelID int, delta int64, reques
 		userQuery = userQuery.Where("request_count <= ?", common.MaxQuota-requestDelta)
 		updates["request_count"] = gorm.Expr("request_count + ?", requestDelta)
 	}
-	userResult := userQuery.Updates(updates)
+	var userResult *gorm.DB
+	if delta == 0 && requestDelta == 0 {
+		// MySQL reports changed rows, so a valid no-op UPDATE returns zero.
+		// Verify the subject exists under lock instead of misclassifying it.
+		userResult = lockForUpdate(userQuery).Select("id").Take(&User{})
+	} else {
+		userResult = userQuery.Updates(updates)
+	}
 	if userResult.Error != nil {
 		return userResult.Error
 	}
@@ -500,7 +507,12 @@ func applyTaskStatistics(tx *gorm.DB, userID, channelID int, delta int64, reques
 	if delta < 0 {
 		query = query.Where("used_quota >= ?", int64(math.MinInt64)-delta)
 	}
-	channelResult := query.Update("used_quota", gorm.Expr("used_quota + ?", delta))
+	var channelResult *gorm.DB
+	if delta == 0 {
+		channelResult = lockForUpdate(query).Select("id").Take(&Channel{})
+	} else {
+		channelResult = query.Update("used_quota", gorm.Expr("used_quota + ?", delta))
+	}
 	if channelResult.Error != nil {
 		return channelResult.Error
 	}

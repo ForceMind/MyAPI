@@ -37,6 +37,30 @@ function normalizedText(value: string | null): string {
 }
 
 describe('log cost display', () => {
+  test('published tariff amounts remain reference costs on API and subscription records', () => {
+    const reference = {
+      publication_id: 'a'.repeat(64),
+      source_sha256: 'b'.repeat(64),
+      expression_sha256: 'c'.repeat(64),
+      scope: 'reference_tariff_not_upstream_invoice',
+    }
+    const view = renderCost({
+      quota: 12500,
+      other: { official_price_source: reference },
+    })
+    expect(screen.getByText('Reference cost')).toBeInTheDocument()
+    view.rerender(
+      <LogCostDisplay
+        quota={12500}
+        other={{
+          official_price_source: reference,
+          billing_source: 'subscription',
+        }}
+      />
+    )
+    expect(screen.getByText('Reference cost')).toBeInTheDocument()
+    expect(screen.getByText('Subscription')).toBeInTheDocument()
+  })
   beforeAll(() => {
     i18next.addResourceBundle('en', 'translation', {
       Subscription: 'Subscription',
@@ -55,6 +79,23 @@ describe('log cost display', () => {
     expect(screen.getByText('Usage unknown')).toBeInTheDocument()
   })
 
+  test('shows pending review instead of a zero actual charge', () => {
+    const rendered = renderCost({
+      quota: 0,
+      other: {
+        settlement_status: 'pending_review',
+        actual_quota: null,
+        usage_accuracy: 'unknown',
+      },
+    })
+    expect(screen.getByText('Usage pending review')).toBeInTheDocument()
+    expect(
+      normalizedText(rendered.container.textContent).includes(
+        normalizedText(formatLogQuota(0))
+      )
+    ).toBe(false)
+  })
+
   test('does not treat old records without provenance as confirmed usage', () => {
     renderCost({ quota: 12500, other: null })
     expect(screen.getByText('Usage provenance unavailable')).toBeInTheDocument()
@@ -71,12 +112,16 @@ describe('log cost display', () => {
     renderCost({ quota: 12500, other: { usage_accuracy: 'reported' } })
     await user.tab()
     expect(screen.getByText('Reported usage')).toHaveFocus()
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Token usage was reported by upstream; the provider bill has not been reconciled.')
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'Token usage was reported by upstream; the provider bill has not been reconciled.'
+    )
   })
 
   test('keeps provenance out of non-consumption costs', () => {
     renderCost({ quota: 12500, other: null, showUsageAccuracy: false })
-    expect(screen.queryByText('Usage provenance unavailable')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Usage provenance unavailable')
+    ).not.toBeInTheDocument()
   })
 
   test('keeps the regular cost visible and adds an accessible surcharge marker', () => {
@@ -115,4 +160,14 @@ describe('log cost display', () => {
       screen.getByRole('img', { name: 'Includes tool-call surcharge' })
     ).toHaveAttribute('data-tool-surcharge-indicator', 'true')
   })
+})
+
+test('self-use metering never presents its internal units as a wallet deduction', () => {
+  renderCost({
+    quota: 100,
+    other: { billing_source: 'self_use', usage_accuracy: 'reported' },
+  })
+  expect(screen.getByText('Self-use metering')).toBeVisible()
+  expect(screen.getByText('100 Internal usage units')).toBeVisible()
+  expect(screen.queryByText(formatLogQuota(100))).not.toBeInTheDocument()
 })
