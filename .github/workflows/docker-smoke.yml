@@ -8,6 +8,9 @@ on:
       - '.github/workflows/docker-smoke.yml'
       - 'tools/runtime/**'
       - 'Dockerfile'
+      - 'deploy/install.sh'
+      - 'deploy/docker-compose.yml'
+      - 'deploy/.env.example'
       - '**.go'
 
 permissions:
@@ -18,6 +21,84 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  installer-local-build:
+    # Exercise the actual source installer, separately from the direct-run probe.
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/r1-usage-review-20261002')
+    name: LAN source installer and fresh SQLite
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      COMPOSE_PROJECT_NAME: myapi-install-${{ github.sha }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+
+      - name: Prepare isolated installer configuration
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ ! -e deploy/.env ]]
+          if docker container inspect my-api >/dev/null 2>&1; then
+            echo 'Refusing to replace an existing installer target' >&2
+            exit 1
+          fi
+          docker compose version
+          export MYAPI_INSTALLER_ROOT="$RUNNER_TEMP/myapi-install-${GITHUB_SHA}"
+          mkdir -m 700 "$MYAPI_INSTALLER_ROOT"
+          echo "MYAPI_INSTALLER_ROOT=$MYAPI_INSTALLER_ROOT" >> "$GITHUB_ENV"
+          {
+            printf 'MYAPI_IMAGE=local/myapi:install-%s\n' "$GITHUB_SHA"
+            printf 'MYAPI_EDITION=lan\nMYAPI_BUILD_LOCAL=true\n'
+            printf 'MYAPI_PORT=18082\nMYAPI_BIND_ADDRESS=127.0.0.1\nMYAPI_ALLOW_LAN=false\n'
+            printf 'MYAPI_PUBLIC_URL=http://127.0.0.1:18082\nMYAPI_SESSION_COOKIE_SECURE=false\n'
+            printf 'MYAPI_DATA_DIR=%s/data\nMYAPI_LOGS_DIR=%s/logs\n' "$MYAPI_INSTALLER_ROOT" "$MYAPI_INSTALLER_ROOT"
+            printf 'MYAPI_CPU_LIMIT=2\nMYAPI_MEMORY_LIMIT=2g\nMYAPI_BUILD_PARALLELISM=2\n'
+            printf 'SESSION_SECRET=%s\n' "$(openssl rand -hex 32)"
+          } > deploy/.env
+
+      - name: Run the unmodified source installer
+        run: bash deploy/install.sh
+
+      - name: Verify installed image, isolation and fresh setup
+        run: |
+          set -euo pipefail
+          [[ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' my-api)" == "$COMPOSE_PROJECT_NAME" ]]
+          [[ "$(docker inspect --format '{{.Image}}' my-api)" == "$(docker image inspect --format '{{.Id}}' "local/myapi:install-$GITHUB_SHA")" ]]
+          [[ "$(docker inspect --format '{{.State.Health.Status}}' my-api)" == 'healthy' ]]
+          [[ "$(docker inspect --format '{{(index (index .NetworkSettings.Ports "3000/tcp") 0).HostIp}}' my-api)" == '127.0.0.1' ]]
+          [[ "$(docker inspect --format '{{.HostConfig.Memory}}' my-api)" == '2147483648' ]]
+          [[ "$(docker inspect --format '{{.HostConfig.NanoCpus}}' my-api)" == '2000000000' ]]
+          node --input-type=module <<'JS'
+          import { probeFreshSQLite } from './tools/runtime/docker-smoke.mjs'
+          try {
+            const report = await probeFreshSQLite({ baseUrl: 'http://127.0.0.1:18082', edition: 'lan', sha: process.env.GITHUB_SHA, isolated: true })
+            console.log(JSON.stringify(report, null, 2))
+            if (!report.passed) process.exitCode = 1
+          } catch {
+            console.error('INSTALLER_FRESH_SETUP_PROBE_FAILED')
+            process.exitCode = 1
+          }
+          JS
+
+      - name: Safe installer diagnostics
+        if: failure()
+        run: |
+          docker inspect --format 'status={{.State.Status}} exit_code={{.State.ExitCode}} oom_killed={{.State.OOMKilled}}' my-api 2>/dev/null || true
+
+      - name: Remove only this installer instance
+        if: always()
+        run: |
+          if [[ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' my-api 2>/dev/null)" == "$COMPOSE_PROJECT_NAME" ]]; then
+            docker compose --env-file deploy/.env -f deploy/docker-compose.yml down
+          fi
+
   build-and-healthcheck:
     # A bounded R1 acceptance trigger, not a release or a general fork runner.
     # Manual Full/LAN coverage remains available unchanged.

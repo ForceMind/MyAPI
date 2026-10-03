@@ -35,6 +35,8 @@
 
 ## MyAPI 自建发行版
 
+> **R1 开发快照：** R1 尚未发布。安装脚本默认镜像仍是 `v0.2.0-beta.1`，不会自动安装本分支源码。请先看[安装入口与验收边界](./docs/R1_INSTALLATION_CHECK.md)；源码安装脚本需要完整检出目录和配置，不是单独下载即可运行的一键安装器。
+
 <img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
 
 本仓库提供 **MyAPI** 自建 CLI 与完整源码发行包，面向 rc.25 技术兼容基线（API/协议契约，不是 UI 模板）。

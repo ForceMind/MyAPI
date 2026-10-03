@@ -1,5 +1,11 @@
 # R1 接管与当前迭代（2026-10-02）
 
+## 原安装脚本隔离试验（2026-10-03 14:59 北京时间）
+
+2026-10-03 14:59 北京时间：负责人将自行经GitHub安装，并要求先在我们的环境试验。f6ae1d1的CI37099811366十项及Docker37099811371 Full/同镜像恢复已全过；但默认安装仍拉旧v0.2.0-beta.1，R1草稿未发布。当前只增既有Docker smoke内的真实LAN源码安装job：临时私有配置、准确SHA本地构建、原install.sh、健康/镜像/loopback/资源限制和全新初始化认证；保留原Full探针。工作机无Docker，不能把本地静态检查当安装成功；CLI77、运行27、发行workflow10及32合同、LAN和Bash/YAML通过，新SHA真实脚本待验。安装入口及整版剩余边界见R1_INSTALLATION_CHECK.md，不新增系统安装器或发布。
+
+范围、依赖、查看入口、验收及停止条件统一见 [R1安装验收](R1_INSTALLATION_CHECK.md)。本批只改隔离workflow、对应安全合同和文档，未更改安装器/后端/预算/前端业务；同仓R1分支或手动触发，contents只读，无真实账号、镜像发布或用户机器操作。不能把GitHub旧beta Release或main当本轮R1；原草稿仍未合并。
+
 ## Gemini 显式操作准入补修（2026-10-03 13:23 北京时间）
 
 2026-10-03 13:23 北京时间：100429f的CI37098159180十项及Docker37098159164 Full/SQLite-WAL恢复全部成功，此前跳过的backend race均已执行通过，三库恢复0.47/1.00/4.18s。本批仅阻止Gemini原生通配入口将countTokens或未知action当生成请求：在读体、估算、预留和发送前校验显式操作；既有生成/流式/embedding/predict及无后缀默认、内部诊断保持。正确JSON请求头的回归先红后绿，拒绝路径读体次数为0；定向helper/Gemini及race通过，完整根Go/vet通过。无新增计数端点、价格/预算资格、数据库或前端变化，新SHA CI及Full镜像待验。详见R1_CURRENT_ITERATION最新节，真实账户和跨版本验收边界保留。
