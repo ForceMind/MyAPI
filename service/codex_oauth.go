@@ -25,6 +25,8 @@ const (
 	codexOAuthScope        = "openid profile email offline_access"
 	codexJWTClaimPath      = "https://api.openai.com/auth"
 	defaultHTTPTimeout     = 20 * time.Second
+	// Representation bound for seconds -> nanoseconds, not a provider policy.
+	maxCodexOAuthLifetimeSeconds = int64((1<<63 - 1) / time.Second)
 )
 
 type CodexOAuthTokenResult struct {
@@ -204,7 +206,7 @@ func refreshCodexOAuthToken(
 	var payload struct {
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
-		ExpiresIn    int    `json:"expires_in"`
+		ExpiresIn    int64  `json:"expires_in"`
 	}
 
 	if err := common.DecodeJson(resp.Body, &payload); err != nil {
@@ -214,8 +216,8 @@ func refreshCodexOAuthToken(
 		return nil, fmt.Errorf("codex oauth refresh failed: status=%d", resp.StatusCode)
 	}
 
-	if strings.TrimSpace(payload.AccessToken) == "" || strings.TrimSpace(payload.RefreshToken) == "" || payload.ExpiresIn <= 0 {
-		return nil, errors.New("codex oauth refresh response missing fields")
+	if strings.TrimSpace(payload.AccessToken) == "" || strings.TrimSpace(payload.RefreshToken) == "" || payload.ExpiresIn <= 0 || payload.ExpiresIn > maxCodexOAuthLifetimeSeconds {
+		return nil, errors.New("codex oauth refresh response missing or invalid fields")
 	}
 
 	return &CodexOAuthTokenResult{
@@ -266,7 +268,7 @@ func exchangeCodexAuthorizationCode(
 	var payload struct {
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
-		ExpiresIn    int    `json:"expires_in"`
+		ExpiresIn    int64  `json:"expires_in"`
 	}
 	if err := common.DecodeJson(resp.Body, &payload); err != nil {
 		return nil, err
@@ -274,8 +276,8 @@ func exchangeCodexAuthorizationCode(
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return nil, fmt.Errorf("codex oauth code exchange failed: status=%d", resp.StatusCode)
 	}
-	if strings.TrimSpace(payload.AccessToken) == "" || strings.TrimSpace(payload.RefreshToken) == "" || payload.ExpiresIn <= 0 {
-		return nil, errors.New("codex oauth token response missing fields")
+	if strings.TrimSpace(payload.AccessToken) == "" || strings.TrimSpace(payload.RefreshToken) == "" || payload.ExpiresIn <= 0 || payload.ExpiresIn > maxCodexOAuthLifetimeSeconds {
+		return nil, errors.New("codex oauth token response missing or invalid fields")
 	}
 	return &CodexOAuthTokenResult{
 		AccessToken:  strings.TrimSpace(payload.AccessToken),
