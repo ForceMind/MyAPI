@@ -1,6 +1,6 @@
 # R1 安装入口与验收边界
 
-更新：2026-10-03 14:58 北京时间。R1 尚未封版、合并或发布；本文不是生产部署批准。
+更新：2026-10-03 15:12 北京时间。R1 尚未封版、合并或发布；本文不是生产部署批准。
 
 ## 先分清会装到什么
 
@@ -16,12 +16,14 @@
 
 1. GitHub 临时 runner 检出当前 PR 测试树，拒绝覆盖已有 `deploy/.env` 或同名 `my-api` 容器。
 2. 生成仅本次试验的私有配置；选择 `MYAPI_BUILD_LOCAL=true` 和按当前 SHA 命名的 `local/myapi` 镜像，避免拉旧发行镜像。随机会话秘密不输出，`.env` 被 Docker 构建上下文排除。
-3. 真正执行未修改的 `bash deploy/install.sh`，由脚本完成 Compose 校验、源码构建、启动及有界健康等待。
+3. 真正执行仓库中的 `bash deploy/install.sh`，由脚本完成 Compose 校验、源码构建、启动及有界健康等待。
 4. 核验容器确实使用刚构建镜像、准确 Compose 项目、健康、只监听 `127.0.0.1:18082`，运行限制为 2 CPU / 2 GiB。
 5. 复用既有隔离探针完成全新初始化、匿名拒绝、LAN 自用模式、登录、管理员日志和额度接口读取；仅使用临时合成账号，不调用真实模型。
 6. 清理只针对准确 Compose 项目；不上传配置、数据库或日志，不登录镜像仓库、不发布镜像。
 
-本批提交前本地证据：Bash 语法、LAN 合同检查、CLI 77 测试、运行探针 27 测试、发行 workflow 10 测试通过；YAML 两 job 解析通过。当前工作机没有 Docker/Podman，不能声称本地已经完成容器安装。真实安装结果必须以本批 GitHub Docker smoke 的 `LAN source installer and fresh SQLite` job 为准，提交后的终态记录在 PR 中。
+当前修补：df1ddbe 的真实安装 job111151865218 已构建镜像并启动容器，但健康失败；原 Full/SQLite 恢复 job111151865317 通过。Compose 无条件将 HTTP FRONTEND 来源同时作为 Secure Cookie 信任来源，而应用明确拒绝 false+非空可信来源。安装器/CLI 现在从最终 Cookie 模式派生独立可信来源：LAN HTTP 明确为空，HTTPS Secure 保留原准确来源，Full 显式拒绝关闭 Secure；不放宽服务端检查。Compose 使用单横线默认表达式保留显式空值，生成 LAN 配置也写入空值以支持直接 Compose。四个 CLI/脚本合同先红后绿，CLI81、运行27、LAN、升级19和发行32合同通过，新SHA真实安装待验。
+
+前批提交前本地证据：Bash 语法、LAN 合同检查、CLI 77 测试、运行探针 27 测试、发行 workflow 10 测试通过；YAML 两 job 解析通过。当前工作机没有 Docker/Podman，不能声称本地已经完成容器安装。真实安装结果必须以本批 GitHub Docker smoke 的 `LAN source installer and fresh SQLite` job 为准，提交后的终态记录在 PR 中。
 
 前置 `f6ae1d1` 的 [CI37099811366](https://github.com/ForceMind/MyAPI/actions/runs/37099811366) 十项和 [Docker37099811371](https://github.com/ForceMind/MyAPI/actions/runs/37099811371) Full/SQLite-WAL 同镜像恢复已通过；此前容器通过是直接启动镜像，不替代本批安装脚本证据。
 

@@ -1,5 +1,11 @@
 # R1 接管与当前迭代（2026-10-02）
 
+## LAN 安装 Cookie 接线补修（2026-10-03 15:12 北京时间）
+
+2026-10-03 15:12 北京时间：df1ddbe的真实LAN安装在源码镜像构建完成、容器启动后健康失败（Docker37105072138/job111151865218）；原Full/SQLite恢复通过。发现Compose无条件传入PUBLIC_URL作为Secure Cookie可信来源，与LAN HTTP/非Secure模式冲突。当前仅补安装接线：CLI/脚本从最终模式派生可信来源，LAN HTTP明确为空、HTTPS Secure保留准确来源，Full拒绝关闭Secure；Compose保留显式空值，LAN初始化配置同样写空。不放宽应用Cookie/Origin校验或健康等待。四项合同先红后绿，CLI81、运行27、LAN、升级19/发行32及Bash通过；新SHA实际安装与CI待验，详见R1_INSTALLATION_CHECK.md。
+
+错误在初始化前由common.InitSessionCookieSettings拒绝，不能删除校验换取启动。保留原Full安全模式，修复只影响部署配置生成/传递。四合同覆盖LAN HTTP、LAN HTTPS、Full HTTPS、Full禁用Secure提前拒绝，以及陈旧进程环境不得污染派生来源；沿用原真实安装job重验，不替换为假Docker。前置失败和未完成真实OAuth/账单/跨版本恢复边界继续保留。
+
 ## 原安装脚本隔离试验（2026-10-03 14:59 北京时间）
 
 2026-10-03 14:59 北京时间：负责人将自行经GitHub安装，并要求先在我们的环境试验。f6ae1d1的CI37099811366十项及Docker37099811371 Full/同镜像恢复已全过；但默认安装仍拉旧v0.2.0-beta.1，R1草稿未发布。当前只增既有Docker smoke内的真实LAN源码安装job：临时私有配置、准确SHA本地构建、原install.sh、健康/镜像/loopback/资源限制和全新初始化认证；保留原Full探针。工作机无Docker，不能把本地静态检查当安装成功；CLI77、运行27、发行workflow10及32合同、LAN和Bash/YAML通过，新SHA真实脚本待验。安装入口及整版剩余边界见R1_INSTALLATION_CHECK.md，不新增系统安装器或发布。

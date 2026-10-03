@@ -225,6 +225,22 @@ if [[ "$MYAPI_EDITION" == "lan" && "$MYAPI_PUBLIC_URL" == http://* && "$MYAPI_SE
   export MYAPI_SESSION_COOKIE_SECURE
 fi
 
+if [[ "$MYAPI_SESSION_COOKIE_SECURE" != "true" && "$MYAPI_SESSION_COOKIE_SECURE" != "false" ]]; then
+  echo "MYAPI_SESSION_COOKIE_SECURE must be true or false." >&2
+  exit 1
+fi
+if [[ "$MYAPI_EDITION" == "full" && "$MYAPI_SESSION_COOKIE_SECURE" != "true" ]]; then
+  echo "full edition requires MYAPI_SESSION_COOKIE_SECURE=true." >&2
+  exit 1
+fi
+# The application's trusted-origin list belongs only to Secure HTTPS cookies.
+# Keep FRONTEND_BASE_URL for LAN HTTP, but explicitly clear this separate input.
+MYAPI_SESSION_COOKIE_TRUSTED_URL=""
+if [[ "$MYAPI_SESSION_COOKIE_SECURE" == "true" ]]; then
+  MYAPI_SESSION_COOKIE_TRUSTED_URL="$MYAPI_PUBLIC_URL"
+fi
+export MYAPI_SESSION_COOKIE_TRUSTED_URL
+
 resolve_deploy_path() {
   case "$1" in
     /*) printf '%s\n' "$1" ;;

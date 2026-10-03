@@ -179,6 +179,14 @@ function composeEnvironment(values) {
   ]) {
     if (values[key] !== undefined && values[key] !== '') environment[key] = values[key]
   }
+  const edition = values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION
+  const secure = values.MYAPI_SESSION_COOKIE_SECURE || (edition === 'lan' ? 'false' : 'true')
+  environment.MYAPI_SESSION_COOKIE_SECURE = secure
+  // Insecure local cookies must not carry the HTTPS-only trusted-origin list.
+  // Derive both inputs from this configuration, never from stale process env.
+  environment.MYAPI_SESSION_COOKIE_TRUSTED_URL = secure === 'true'
+    ? deploymentValue(values, 'MYAPI_PUBLIC_URL') || ''
+    : ''
   return environment
 }
 
@@ -195,6 +203,12 @@ function validateRuntimeConfiguration(values) {
   const edition = values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION
   if (!['full', 'lan'].includes(edition)) {
     errors.push('MYAPI_EDITION must be full or lan')
+  }
+  const secure = values.MYAPI_SESSION_COOKIE_SECURE || (edition === 'lan' ? 'false' : 'true')
+  if (!['true', 'false'].includes(secure)) {
+    errors.push('MYAPI_SESSION_COOKIE_SECURE must be true or false')
+  } else if (edition === 'full' && secure !== 'true') {
+    errors.push('full edition requires MYAPI_SESSION_COOKIE_SECURE=true')
   }
   const publicUrl = deploymentValue(values, 'MYAPI_PUBLIC_URL') || ''
   const lanPlaceholder =
@@ -646,6 +660,7 @@ function writeLANEnvironment(projectRoot, options) {
   contents = setEnvValue(contents, 'MYAPI_ALLOW_LAN', isLoopbackBindAddress(options.bindAddress) ? 'false' : 'true')
   contents = setEnvValue(contents, 'MYAPI_PORT', options.port)
   contents = setEnvValue(contents, 'MYAPI_SESSION_COOKIE_SECURE', 'false')
+  contents = setEnvValue(contents, 'MYAPI_SESSION_COOKIE_TRUSTED_URL', '')
   const publicHost = lanPublicHost(options.bindAddress)
   contents = setEnvValue(contents, 'MYAPI_PUBLIC_URL', `http://${publicHost}:${options.port}`)
   writeFileSync(paths.envFile, contents, { mode: 0o600 })

@@ -63,7 +63,7 @@ jobs:
             printf 'SESSION_SECRET=%s\n' "$(openssl rand -hex 32)"
           } > deploy/.env
 
-      - name: Run the unmodified source installer
+      - name: Run the source installer
         run: bash deploy/install.sh
 
       - name: Verify installed image, isolation and fresh setup
