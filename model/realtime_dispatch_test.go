@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ForceMind/MyAPI/common"
+	hosttypes "github.com/ForceMind/MyAPI/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -59,6 +60,23 @@ func verifyRealtimeDispatchExtension(t *testing.T, db *gorm.DB, prefix string) {
 				receiptID = receipt.ID
 			}
 			require.NoError(t, SetRealtimeDispatchEvidence(ctx, db, id, user.Id, token.Id, receiptID, pricing))
+			checkpoint := hosttypes.RealtimeUsageCheckpoint{Responses: 1, Quota: 8, Input: 8, Total: 8, InputText: 8}
+			for range 2 {
+				require.NoError(t, RecordRealtimeUsageCheckpoint(ctx, db, id, user.Id, token.Id, receiptID, checkpoint))
+			}
+			for _, changed := range []hosttypes.RealtimeUsageCheckpoint{
+				{Responses: 1, Quota: 9, Input: 9, Total: 9, InputText: 9},
+				{Responses: 3, Quota: 20, Input: 20, Total: 20, InputText: 20},
+				{Responses: 2, Quota: 7, Input: 9, Total: 9, InputText: 9},
+				{Responses: 2, Quota: 9, Input: 7, Total: 7, InputText: 7},
+			} {
+				require.ErrorIs(t, RecordRealtimeUsageCheckpoint(ctx, db, id, user.Id, token.Id, receiptID, changed), ErrAccountQuotaMutationConflict)
+			}
+			malformed := checkpoint
+			malformed.Total++
+			require.ErrorIs(t, RecordRealtimeUsageCheckpoint(ctx, db, id, user.Id, token.Id, receiptID, malformed), ErrAccountQuotaMutationInvalidInput)
+			require.Error(t, RecordRealtimeUsageCheckpoint(ctx, db, id, user.Id+100000, token.Id, receiptID, checkpoint))
+
 			require.ErrorIs(t, SetTextDispatchEvidence(ctx, db, id, user.Id, token.Id, receiptID, "", false), ErrAccountQuotaUsageUnresolved)
 			for range 2 {
 				if mode == QuotaWriterModeLegacy {
@@ -72,6 +90,8 @@ func verifyRealtimeDispatchExtension(t *testing.T, db *gorm.DB, prefix string) {
 				}
 				require.NoError(t, err)
 			}
+			checkpoint = hosttypes.RealtimeUsageCheckpoint{Responses: 2, Quota: 20, Input: 20, Total: 20, InputText: 20}
+			require.NoError(t, RecordRealtimeUsageCheckpoint(ctx, db, id, user.Id, token.Id, receiptID, checkpoint))
 			var metadata string
 			if mode == QuotaWriterModeLegacy {
 				row, err := FindLegacyUsageReservation(ctx, db, id)
@@ -90,6 +110,18 @@ func verifyRealtimeDispatchExtension(t *testing.T, db *gorm.DB, prefix string) {
 			pending, err := RealtimeDispatchPending(metadata)
 			require.NoError(t, err)
 			assert.True(t, pending)
+			var saved struct {
+				Checkpoint hosttypes.RealtimeUsageCheckpoint `json:"realtime_usage_checkpoint"`
+				Quota      int                               `json:"known_realtime_quota"`
+				ModelRatio float64                           `json:"model_ratio"`
+			}
+			require.NoError(t, common.UnmarshalJsonStr(metadata, &saved))
+			assert.Equal(t, checkpoint, saved.Checkpoint)
+			assert.Equal(t, 20, saved.Quota)
+			assert.Equal(t, 1.0, saved.ModelRatio, "checkpoint must preserve the frozen quote")
+			require.ErrorIs(t, validateReviewedQuotaObligations(metadata, 19), ErrAccountQuotaMutationConflict)
+			require.NoError(t, validateReviewedQuotaObligations(metadata, 20))
+
 			require.NoError(t, db.First(&user, user.Id).Error)
 			require.NoError(t, db.First(&token, token.Id).Error)
 			assert.Equal(t, 800, user.Quota)
@@ -103,4 +135,26 @@ func TestRealtimeDispatchExtensionsKeepDurableProtection(t *testing.T) {
 	db := openAccountQuotaTestDB(t)
 	require.NoError(t, db.AutoMigrate(&AccountQuotaSettlementIntent{}, &AccountQuotaSettlementFact{}))
 	verifyRealtimeDispatchExtension(t, db, "rt-ext-")
+}
+
+func TestRealtimeCheckpointReviewRejectsMalformedEvidence(t *testing.T) {
+	checkpoint := hosttypes.RealtimeUsageCheckpoint{Responses: 1, Quota: 8, Input: 8, Total: 8, InputText: 8}
+	for _, scenario := range []string{"missing-floor", "mismatch", "invalid-counts"} {
+		t.Run(scenario, func(t *testing.T) {
+			evidence := map[string]any{"realtime_usage_checkpoint": checkpoint, "known_realtime_quota": 8}
+			switch scenario {
+			case "missing-floor":
+				delete(evidence, "known_realtime_quota")
+			case "mismatch":
+				evidence["known_realtime_quota"] = 7
+			case "invalid-counts":
+				bad := checkpoint
+				bad.InputText = 9
+				evidence["realtime_usage_checkpoint"] = bad
+			}
+			raw, err := common.Marshal(evidence)
+			require.NoError(t, err)
+			require.ErrorIs(t, validateReviewedQuotaObligations(string(raw), 100), ErrAccountQuotaUsageUnresolved)
+		})
+	}
 }

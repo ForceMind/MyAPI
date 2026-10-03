@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/ForceMind/MyAPI/common"
+	hosttypes "github.com/ForceMind/MyAPI/types"
 	"gorm.io/gorm"
 )
 
@@ -62,16 +63,34 @@ func RealtimeDispatchPending(metadata string) (bool, error) {
 // it only after a known raw refusal. It changes no balance or actual usage.
 // Existing writer rows and locks serialize it against terminal mutations.
 func SetTextDispatchEvidence(ctx context.Context, db *gorm.DB, requestID string, userID, tokenID int, reserveID int64, pricing string, pending bool) error {
-	return setUsageDispatchEvidence(ctx, db, requestID, userID, tokenID, reserveID, pricing, pending, false)
+	return setUsageDispatchEvidence(ctx, db, requestID, userID, tokenID, reserveID, pricing, pending, false, nil)
 }
 
 // Realtime never clears its pending marker to extend a reservation. Only a
 // confirmed settlement or the existing authorized review closes its lifecycle.
 func SetRealtimeDispatchEvidence(ctx context.Context, db *gorm.DB, requestID string, userID, tokenID int, reserveID int64, pricing string) error {
-	return setUsageDispatchEvidence(ctx, db, requestID, userID, tokenID, reserveID, pricing, true, true)
+	return setUsageDispatchEvidence(ctx, db, requestID, userID, tokenID, reserveID, pricing, true, true, nil)
 }
 
-func setUsageDispatchEvidence(ctx context.Context, db *gorm.DB, requestID string, userID, tokenID int, reserveID int64, pricing string, pending, realtime bool) error {
+func RecordRealtimeUsageCheckpoint(ctx context.Context, db *gorm.DB, requestID string, userID, tokenID int, reserveID int64, checkpoint hosttypes.RealtimeUsageCheckpoint) error {
+	return setUsageDispatchEvidence(ctx, db, requestID, userID, tokenID, reserveID, "", true, true, &checkpoint)
+}
+
+func validRealtimeCheckpoint(c *hosttypes.RealtimeUsageCheckpoint) bool {
+	if c == nil || c.Responses <= 0 {
+		return false
+	}
+	for _, value := range []int{c.Responses, c.Quota, c.Input, c.Output, c.Total, c.InputText, c.InputAudio, c.InputImage, c.OutputText, c.OutputAudio, c.OutputImage} {
+		if value < 0 || value > common.MaxQuota {
+			return false
+		}
+	}
+	return int64(c.Input)+int64(c.Output) == int64(c.Total) &&
+		int64(c.InputText)+int64(c.InputAudio)+int64(c.InputImage) == int64(c.Input) &&
+		int64(c.OutputText)+int64(c.OutputAudio)+int64(c.OutputImage) == int64(c.Output)
+}
+
+func setUsageDispatchEvidence(ctx context.Context, db *gorm.DB, requestID string, userID, tokenID int, reserveID int64, pricing string, pending, realtime bool, checkpoint *hosttypes.RealtimeUsageCheckpoint) error {
 	if db == nil {
 		return gorm.ErrInvalidDB
 	}
@@ -83,7 +102,10 @@ func setUsageDispatchEvidence(ctx context.Context, db *gorm.DB, requestID string
 		ctx = context.Background()
 	}
 	var evidence map[string]json.RawMessage
-	if pending {
+	if checkpoint != nil && (!pending || !realtime || !validRealtimeCheckpoint(checkpoint)) {
+		return ErrAccountQuotaMutationInvalidInput
+	}
+	if pending && checkpoint == nil {
 		if len(pricing) == 0 || len(pricing) > 16384 || common.UnmarshalJsonStr(pricing, &evidence) != nil || evidence == nil {
 			return ErrAccountQuotaMutationInvalidInput
 		}
@@ -149,7 +171,50 @@ func setUsageDispatchEvidence(ctx context.Context, db *gorm.DB, requestID string
 		if err != nil {
 			return err
 		}
-		if pending && wasPending {
+		if checkpoint != nil {
+			realtimePending, err := RealtimeDispatchPending(old)
+			if err != nil || !wasPending || !realtimePending || common.UnmarshalJsonStr(old, &evidence) != nil || evidence == nil {
+				return ErrAccountQuotaUsageUnresolved
+			}
+			var saved struct {
+				Checkpoint *hosttypes.RealtimeUsageCheckpoint `json:"realtime_usage_checkpoint"`
+				Quota      *int                               `json:"known_realtime_quota"`
+			}
+			if common.UnmarshalJsonStr(old, &saved) != nil || saved.Quota != nil && *saved.Quota > checkpoint.Quota {
+				return ErrAccountQuotaMutationConflict
+			}
+			previous := hosttypes.RealtimeUsageCheckpoint{}
+			if saved.Checkpoint != nil {
+				if !validRealtimeCheckpoint(saved.Checkpoint) || saved.Quota == nil || *saved.Quota != saved.Checkpoint.Quota {
+					return ErrAccountQuotaUsageUnresolved
+				}
+				previous = *saved.Checkpoint
+				if previous == *checkpoint {
+					return nil
+				}
+			}
+			if checkpoint.Responses != previous.Responses+1 {
+				return ErrAccountQuotaMutationConflict
+			}
+			for _, pair := range [][2]int{{previous.Quota, checkpoint.Quota}, {previous.Input, checkpoint.Input}, {previous.Output, checkpoint.Output}, {previous.Total, checkpoint.Total},
+				{previous.InputText, checkpoint.InputText}, {previous.InputAudio, checkpoint.InputAudio}, {previous.InputImage, checkpoint.InputImage},
+				{previous.OutputText, checkpoint.OutputText}, {previous.OutputAudio, checkpoint.OutputAudio}, {previous.OutputImage, checkpoint.OutputImage}} {
+				if pair[1] < pair[0] {
+					return ErrAccountQuotaMutationConflict
+				}
+			}
+			raw, err := common.Marshal(checkpoint)
+			if err != nil {
+				return err
+			}
+			evidence["realtime_usage_checkpoint"] = raw
+			raw, err = common.Marshal(checkpoint.Quota)
+			if err != nil {
+				return err
+			}
+			evidence["known_realtime_quota"] = raw
+		}
+		if pending && wasPending && checkpoint == nil {
 			return ErrAccountQuotaUsageUnresolved
 		}
 		if !pending {

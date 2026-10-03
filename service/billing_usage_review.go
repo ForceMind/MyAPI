@@ -12,6 +12,7 @@ import (
 	"github.com/ForceMind/MyAPI/pkg/billingexpr"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/relaykit/dto"
+	hosttypes "github.com/ForceMind/MyAPI/types"
 	"github.com/gin-gonic/gin"
 )
 
@@ -131,23 +132,28 @@ func usageReviewPricingEvidence(info *relaycommon.RelayInfo, summary textQuotaSu
 		amount := state.Quota
 		knownRealtimeQuota = &amount
 	}
+	if checkpoint := info.RealtimeCheckpoint; checkpoint != nil {
+		amount := checkpoint.Quota
+		knownRealtimeQuota = &amount
+	}
 	var frozenTieredPricing *billingexpr.BillingSnapshot
 	if snapshot := info.TieredBillingSnapshot; snapshot != nil && snapshot.OfficialPricePublicationID != "" {
 		frozenTieredPricing = snapshot
 	}
 	metadata, metadataErr := common.Marshal(struct {
-		Version             int                          `json:"version"`
-		Model               string                       `json:"model"`
-		QuotaUnit           float64                      `json:"quota_unit"`
-		ModelRatio          float64                      `json:"model_ratio"`
-		CompletionRatio     float64                      `json:"completion_ratio"`
-		GroupRatio          float64                      `json:"group_ratio"`
-		KnownTools          []ToolSurchargeItem          `json:"known_tool_obligations,omitempty"`
-		UnitCaptured        bool                         `json:"quota_unit_captured"`
-		KnownRealtimeQuota  *int                         `json:"known_realtime_quota,omitempty"`
-		FrozenTieredPricing *billingexpr.BillingSnapshot `json:"frozen_tiered_pricing,omitempty"`
-		StrictTokenBudget   bool                         `json:"strict_token_budget,omitempty"`
-	}{1, info.OriginModelName, requestQuotaUnit(info.PriceData), summary.ModelRatio, summary.CompletionRatio, summary.GroupRatio, summary.ToolSurchargeItems, info.PriceData.QuotedQuotaUnit(0) > 0, knownRealtimeQuota, frozenTieredPricing, info.StrictTokenBudget})
+		Version             int                                `json:"version"`
+		Model               string                             `json:"model"`
+		QuotaUnit           float64                            `json:"quota_unit"`
+		ModelRatio          float64                            `json:"model_ratio"`
+		CompletionRatio     float64                            `json:"completion_ratio"`
+		GroupRatio          float64                            `json:"group_ratio"`
+		KnownTools          []ToolSurchargeItem                `json:"known_tool_obligations,omitempty"`
+		UnitCaptured        bool                               `json:"quota_unit_captured"`
+		KnownRealtimeQuota  *int                               `json:"known_realtime_quota,omitempty"`
+		FrozenTieredPricing *billingexpr.BillingSnapshot       `json:"frozen_tiered_pricing,omitempty"`
+		StrictTokenBudget   bool                               `json:"strict_token_budget,omitempty"`
+		RealtimeCheckpoint  *hosttypes.RealtimeUsageCheckpoint `json:"realtime_usage_checkpoint,omitempty"`
+	}{1, info.OriginModelName, requestQuotaUnit(info.PriceData), summary.ModelRatio, summary.CompletionRatio, summary.GroupRatio, summary.ToolSurchargeItems, info.PriceData.QuotedQuotaUnit(0) > 0, knownRealtimeQuota, frozenTieredPricing, info.StrictTokenBudget, info.RealtimeCheckpoint})
 	if len(metadata) > 16384 {
 		metadataErr = fmt.Errorf("usage review pricing metadata exceeds limit")
 	}

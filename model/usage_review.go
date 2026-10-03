@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/ForceMind/MyAPI/common"
+	hosttypes "github.com/ForceMind/MyAPI/types"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
@@ -313,11 +314,12 @@ func validateReviewedQuotaObligations(metadata string, actual int64) error {
 		return nil
 	}
 	var evidence struct {
-		IncompletePricingEvidence bool    `json:"incomplete_pricing_evidence"`
-		QuotaUnit                 float64 `json:"quota_unit"`
-		UnitCaptured              bool    `json:"quota_unit_captured"`
-		GroupRatio                float64 `json:"group_ratio"`
-		KnownRealtimeQuota        *int64  `json:"known_realtime_quota"`
+		IncompletePricingEvidence bool                               `json:"incomplete_pricing_evidence"`
+		QuotaUnit                 float64                            `json:"quota_unit"`
+		UnitCaptured              bool                               `json:"quota_unit_captured"`
+		GroupRatio                float64                            `json:"group_ratio"`
+		KnownRealtimeQuota        *int64                             `json:"known_realtime_quota"`
+		RealtimeCheckpoint        *hosttypes.RealtimeUsageCheckpoint `json:"realtime_usage_checkpoint"`
 		Tools                     []struct {
 			Count int64   `json:"count"`
 			Price float64 `json:"price"`
@@ -327,6 +329,9 @@ func validateReviewedQuotaObligations(metadata string, actual int64) error {
 		return ErrAccountQuotaMutationInvalidInput
 	}
 	if evidence.IncompletePricingEvidence {
+		return ErrAccountQuotaUsageUnresolved
+	}
+	if evidence.RealtimeCheckpoint != nil && (!validRealtimeCheckpoint(evidence.RealtimeCheckpoint) || evidence.KnownRealtimeQuota == nil || int64(evidence.RealtimeCheckpoint.Quota) != *evidence.KnownRealtimeQuota) {
 		return ErrAccountQuotaUsageUnresolved
 	}
 	if evidence.KnownRealtimeQuota != nil && (*evidence.KnownRealtimeQuota < 0 || actual < *evidence.KnownRealtimeQuota) {

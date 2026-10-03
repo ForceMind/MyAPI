@@ -33,7 +33,8 @@ import (
 
 func TestRealtimeDispatchSurvivesProcessExit(t *testing.T) {
 	if os.Getenv("MYAPI_REALTIME_CRASH_CHILD") == "1" {
-		complete := os.Getenv("MYAPI_REALTIME_COMPLETE") == "1"
+		scenario := os.Getenv("MYAPI_REALTIME_SCENARIO")
+		complete := scenario == "complete"
 		db, err := gorm.Open(sqlite.Open(os.Getenv("MYAPI_REALTIME_CRASH_DB")), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 		require.NoError(t, err)
 		model.DB, model.LOG_DB = db, db
@@ -55,6 +56,10 @@ func TestRealtimeDispatchSurvivesProcessExit(t *testing.T) {
 		}))
 		client, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(downstream.URL, "http"), nil)
 		require.NoError(t, err)
+		// Keep both fixture endpoints owned until the relay has fully settled.
+		// Otherwise the unused client can be collected and close mid-response.
+		defer client.Close()
+		defer downstream.Close()
 		peer := <-accepted
 		ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 		ctx.Request = httptest.NewRequest("GET", "/v1/realtime?model=fixture-model", nil)
@@ -78,6 +83,17 @@ func TestRealtimeDispatchSurvivesProcessExit(t *testing.T) {
 		done := make(chan *types.NewAPIError, 1)
 		go func() { done <- WssHelper(ctx, info) }()
 		require.NoError(t, client.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.create"}`)))
+		if scenario == "known-crash" {
+			require.NoError(t, client.SetReadDeadline(time.Now().Add(15*time.Second)))
+			for {
+				_, frame, err := client.ReadMessage()
+				require.NoError(t, err)
+				if strings.Contains(string(frame), `"type":"response.done"`) {
+					break
+				}
+			}
+			require.NoError(t, client.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.create"}`)))
+		}
 		if complete {
 			require.NoError(t, client.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.create"}`)))
 		}
@@ -94,12 +110,13 @@ func TestRealtimeDispatchSurvivesProcessExit(t *testing.T) {
 		return
 	}
 	for _, mode := range []model.QuotaWriterMode{model.QuotaWriterModeLegacy, model.QuotaWriterModeAuthoritative} {
-		for _, complete := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%s/complete=%t", mode, complete), func(t *testing.T) {
+		for _, scenario := range []string{"crash", "complete", "known-crash"} {
+			t.Run(fmt.Sprintf("%s/%s", mode, scenario), func(t *testing.T) {
+				complete := scenario == "complete"
 				path := filepath.Join(t.TempDir(), "crash.db")
 				db, err := gorm.Open(sqlite.Open(path), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 				require.NoError(t, err)
-				require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.Channel{}, &model.Log{}, &model.SubscriptionPlan{}, &model.UserSubscription{}, &model.LegacyUsageReservation{}, &model.AccountQuotaMutationReceipt{}, &model.AccountQuotaReservationHead{}, &model.AccountQuotaTerminalRecoveryObligation{}, &model.AccountQuotaSettlementIntent{}, &model.AccountQuotaSettlementFact{}, &model.AccountQuotaRefundFact{}, &model.QuotaWriterEpoch{}, &model.QuotaProjectionObligation{}, &model.QuotaWorkCursor{}))
+				require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.Channel{}, &model.Log{}, &model.SubscriptionPlan{}, &model.UserSubscription{}, &model.LegacyUsageReservation{}, &model.AccountQuotaMutationReceipt{}, &model.AccountQuotaReservationHead{}, &model.AccountQuotaTerminalRecoveryObligation{}, &model.AccountQuotaSettlementIntent{}, &model.AccountQuotaSettlementFact{}, &model.AccountQuotaRefundFact{}, &model.QuotaWriterEpoch{}, &model.QuotaProjectionObligation{}, &model.QuotaWorkCursor{}, &model.UsageReviewDecision{}, &model.TokenBudget{}, &model.TokenBudgetReservation{}, &model.TokenBudgetPolicyChange{}))
 				require.NoError(t, model.EnsureQuotaWriterEpochStateWithDB(db))
 				require.NoError(t, db.Model(&model.QuotaWriterEpoch{}).Where("id = ?", 1).Updates(map[string]any{"mode": string(mode), "epoch": 17}).Error)
 				user := model.User{Username: "crash-user", AffCode: "crash-user", Status: common.UserStatusEnabled, Quota: 1000}
@@ -123,6 +140,18 @@ func TestRealtimeDispatchSurvivesProcessExit(t *testing.T) {
 						received <- "read-error:" + err.Error()
 						return
 					}
+					if scenario == "known-crash" {
+						created := `{"type":"response.created","response":{"id":"known","status":"in_progress"}}`
+						done := `{"type":"response.done","response":{"id":"known","status":"completed","usage":{"total_tokens":8,"input_tokens":8,"output_tokens":0,"input_token_details":{"text_tokens":8,"audio_tokens":0},"output_token_details":{"text_tokens":0,"audio_tokens":0}}}}`
+						if conn.WriteMessage(websocket.TextMessage, []byte(created)) != nil || conn.WriteMessage(websocket.TextMessage, []byte(done)) != nil {
+							return
+						}
+						_, message, err = conn.ReadMessage()
+						if err != nil {
+							received <- "read-error:" + err.Error()
+							return
+						}
+					}
 					received <- string(message)
 					_, _, err = conn.ReadMessage()
 					if !complete || err != nil {
@@ -140,9 +169,7 @@ func TestRealtimeDispatchSurvivesProcessExit(t *testing.T) {
 				defer server.Close()
 				cmd := exec.Command(os.Args[0], "-test.run=^TestRealtimeDispatchSurvivesProcessExit$", "-test.v")
 				cmd.Env = append(os.Environ(), "MYAPI_REALTIME_CRASH_CHILD=1", "MYAPI_REALTIME_CRASH_DB="+path, "MYAPI_REALTIME_CRASH_UPSTREAM="+server.URL)
-				if complete {
-					cmd.Env = append(cmd.Env, "MYAPI_REALTIME_COMPLETE=1")
-				}
+				cmd.Env = append(cmd.Env, "MYAPI_REALTIME_SCENARIO="+scenario)
 				var output bytes.Buffer
 				cmd.Stdout = &output
 				cmd.Stderr = &output
@@ -228,6 +255,45 @@ func TestRealtimeDispatchSurvivesProcessExit(t *testing.T) {
 				require.NoError(t, reopened.First(&token, token.Id).Error)
 				assert.Equal(t, 900, user.Quota)
 				assert.Equal(t, 900, token.RemainQuota)
+
+				if scenario == "known-crash" {
+					var evidence struct {
+						Checkpoint hosttypes.RealtimeUsageCheckpoint `json:"realtime_usage_checkpoint"`
+						Quota      int                               `json:"known_realtime_quota"`
+					}
+					require.NoError(t, common.UnmarshalJsonStr(metadata, &evidence))
+					assert.Equal(t, hosttypes.RealtimeUsageCheckpoint{Responses: 1, Quota: 8, Input: 8, Total: 8, InputText: 8}, evidence.Checkpoint)
+					assert.Equal(t, 8, evidence.Quota)
+					oldDB, oldLogDB := model.DB, model.LOG_DB
+					model.DB, model.LOG_DB = reopened, reopened
+					defer func() { model.DB, model.LOG_DB = oldDB, oldLogDB }()
+					require.True(t, model.RefreshAccountQuotaSettlementIntentSchemaCapability(reopened))
+					root := model.User{Username: "known-root", AffCode: "known-root", Role: common.RoleRootUser, Status: common.UserStatusEnabled}
+					require.NoError(t, reopened.Create(&root).Error)
+					_, reviewErr := model.RecoverTextDispatchUsage(context.Background(), reopened, root.Id, "ws-crash-request", 0, "synthetic ended session evidence")
+					require.ErrorIs(t, reviewErr, model.ErrAccountQuotaMutationConflict, "known work cannot disappear after restart")
+					require.NoError(t, reopened.First(&user, user.Id).Error)
+					require.NoError(t, reopened.First(&token, token.Id).Error)
+					assert.Equal(t, 900, user.Quota)
+					assert.Equal(t, 900, token.RemainQuota)
+					for range 2 {
+						_, reviewErr = model.RecoverTextDispatchUsage(context.Background(), reopened, root.Id, "ws-crash-request", 8, "synthetic final evidence: first response eight, second no consumption")
+						require.NoError(t, reviewErr)
+					}
+					require.NoError(t, reopened.First(&user, user.Id).Error)
+					require.NoError(t, reopened.First(&token, token.Id).Error)
+					assert.Equal(t, 992, user.Quota)
+					assert.Equal(t, 992, token.RemainQuota)
+					assert.Equal(t, 8, token.UsedQuota)
+					reserveID := int64(0)
+					if mode == model.QuotaWriterModeAuthoritative {
+						var row model.AccountQuotaTerminalRecoveryObligation
+						require.NoError(t, reopened.Where("request_id = ?", "ws-crash-request").First(&row).Error)
+						reserveID = row.ReserveReceiptID
+					}
+					require.Error(t, model.RecordRealtimeUsageCheckpoint(context.Background(), reopened, "ws-crash-request", user.Id, token.Id, reserveID, evidence.Checkpoint), "late checkpoint cannot overwrite manual terminal ownership")
+
+				}
 			})
 		}
 	}

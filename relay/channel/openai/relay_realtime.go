@@ -267,6 +267,11 @@ func preConsumeUsage(ctx *gin.Context, info *relaycommon.RelayInfo, usage *dto.R
 		if err := service.RecordRealtimeTieredResponse(info, usage); err != nil {
 			return err
 		}
+		if err := service.RecordRealtimeUsageCheckpoint(ctx, info, usage); err != nil {
+			info.RealtimeUsageUnverified = true
+			totalUsage.UsageIncomplete = true
+			return err
+		}
 	} else {
 		info.RealtimeUsageUnverified = true
 		if info.TieredBillingSnapshot != nil {

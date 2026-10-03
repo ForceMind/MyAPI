@@ -150,6 +150,7 @@ type RelayInfo struct {
 	// of charging each segment again outside that session.
 	RealtimeQuotedQuota     int
 	RealtimeTieredPricing   *RealtimeTieredPricing
+	RealtimeCheckpoint      *hosttypes.RealtimeUsageCheckpoint
 	RealtimeUsageUnverified bool
 	RealtimeReportedUsage   bool
 	// SubscriptionAmountTotal / SubscriptionAmountUsedAfterPreConsume are used to compute remaining in logs.
