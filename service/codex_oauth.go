@@ -290,10 +290,14 @@ func getCodexOAuthHTTPClient(proxyURL string) (*http.Client, error) {
 		return nil, err
 	}
 	if baseClient == nil {
-		return &http.Client{Timeout: defaultHTTPTimeout}, nil
+		baseClient = &http.Client{}
 	}
 	clientCopy := *baseClient
 	clientCopy.Timeout = defaultHTTPTimeout
+	// Token POST bodies contain authorization codes, PKCE verifiers or refresh
+	// credentials. The fixed token endpoint must not replay them at a Location,
+	// including same-origin redirects. Keep the shared relay policy unchanged.
+	clientCopy.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	return &clientCopy, nil
 }
 
