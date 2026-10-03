@@ -317,16 +317,25 @@ export async function probeSelfUseRelayFixture({ baseUrl, edition, sha, username
   if (relay.status !== 200 || relay.body?.usage?.prompt_tokens !== 10 || relay.body?.usage?.completion_tokens !== 5 || relay.body?.usage?.total_tokens !== 15) throw new Error('SMOKE_SELF_USE_RELAY_FAILED')
   const requestId = relay.headers.get('x-oneapi-request-id')
   if (typeof requestId !== 'string' || !requestId) throw new Error('SMOKE_FIXTURE_REQUEST_ID_MISSING')
-  const after = await success('SMOKE_SELF_USE_USAGE_MISMATCH', '/api/user/self', { headers })
-  const token = await success('SMOKE_SELF_USE_USAGE_MISMATCH', `/api/token/${key.id}`, { headers })
-  if (after.body.data?.quota !== 0 || after.body.data?.self_use_no_balance !== true || after.body.data?.used_quota !== fixture.usageQuota || after.body.data?.request_count !== 1 ||
-      token.body.data?.remain_quota !== keyLimit - fixture.usageQuota || token.body.data?.used_quota !== fixture.usageQuota) throw new Error('SMOKE_SELF_USE_USAGE_MISMATCH')
-  const logs = await success('SMOKE_SELF_USE_LOG_MISMATCH', `/api/log/self?type=2&request_id=${encodeURIComponent(requestId)}&p=1&page_size=100`, { headers })
+  // Receiving the response body does not prove the server's post-response
+  // settlement has finished. Wait only for its durable consume-log witness;
+  // never resend the relay or accept partial/estimated accounting.
+  let logs
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    logs = await success('SMOKE_SELF_USE_LOG_MISMATCH', `/api/log/self?type=2&request_id=${encodeURIComponent(requestId)}&p=1&page_size=100`, { headers })
+    if (logs.body.data?.total !== 0 || fixturePageItems(logs).length !== 0) break
+    if (attempt < 49) await new Promise((resolve) => setTimeout(resolve, 100))
+  }
   const rows = fixturePageItems(logs)
   let other
   try { other = JSON.parse(rows[0]?.other || '{}') } catch { throw new Error('SMOKE_SELF_USE_LOG_MISMATCH') }
   if (logs.body.data?.total !== 1 || rows.length !== 1 || rows[0].request_id !== requestId || rows[0].user_id !== user.id ||
       rows[0].token_id !== key.id || rows[0].quota !== fixture.usageQuota || other.billing_source !== 'self_use') throw new Error('SMOKE_SELF_USE_LOG_MISMATCH')
+  const after = await success('SMOKE_SELF_USE_USAGE_MISMATCH', '/api/user/self', { headers })
+  const token = await success('SMOKE_SELF_USE_USAGE_MISMATCH', `/api/token/${key.id}`, { headers })
+  if (after.body.data?.quota !== 0 || after.body.data?.self_use_no_balance !== true) throw new Error('SMOKE_SELF_USE_WALLET_MISMATCH')
+  if (after.body.data?.used_quota !== fixture.usageQuota || after.body.data?.request_count !== 1) throw new Error('SMOKE_SELF_USE_COUNTER_MISMATCH')
+  if (token.body.data?.remain_quota !== keyLimit - fixture.usageQuota || token.body.data?.used_quota !== fixture.usageQuota) throw new Error('SMOKE_SELF_USE_KEY_MISMATCH')
   const observed = await control()
   if (observed.count !== 2 || observed.request_ok !== true) throw new Error('SMOKE_SELF_USE_UPSTREAM_MISMATCH')
   return { passed: true, checks: [
@@ -476,6 +485,7 @@ async function main() {
       'SMOKE_FIXTURE_UPSTREAM_MISMATCH',
       'SMOKE_SELF_USE_POLICY_MISMATCH', 'SMOKE_SELF_USE_RELAY_FAILED', 'SMOKE_SELF_USE_USAGE_MISMATCH',
       'SMOKE_SELF_USE_LOG_MISMATCH', 'SMOKE_SELF_USE_UPSTREAM_MISMATCH',
+      'SMOKE_SELF_USE_WALLET_MISMATCH', 'SMOKE_SELF_USE_COUNTER_MISMATCH', 'SMOKE_SELF_USE_KEY_MISMATCH',
       'SMOKE_BROWSER_MODULE_REQUIRED', 'SMOKE_FRONTEND_HTTP_FAILED',
       'SMOKE_FRONTEND_BUILD_MISMATCH', 'SMOKE_FRONTEND_RUNTIME_ERROR',
       'SMOKE_FRONTEND_FORM_UNAVAILABLE', 'ISOLATED_CI_SMOKE_ONLY'])

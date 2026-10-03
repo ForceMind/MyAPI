@@ -294,6 +294,7 @@ for (const failure of ['setup', 'anonymous', 'mode', 'login']) {
 test('zero-wallet fixture verifies finite Key accounting and a self-use log without exposing credentials', async () => {
   let controls = 0
   let selfReads = 0
+  let logReads = 0
   let relays = 0
   const report = await probeSelfUseRelayFixture({ baseUrl, edition: 'full', sha, username: 'smokeadmin', password: 'synthetic-root-password', isolated: true, upstreamBaseUrl: 'http://127.0.0.1:19090',
     fetchImpl: async (url, options = {}) => {
@@ -312,6 +313,7 @@ test('zero-wallet fixture verifies finite Key accounting and a self-use log with
         case 'GET /api/user/self':
           assert.equal(auth, 'Bearer synthetic-root-session')
           selfReads += 1
+          if (selfReads > 1) assert.equal(logReads, 2, 'read final counters only after the post-response consume log exists')
           return json({ success: true, data: { id: 1, role: 100, quota: 0, self_use_no_balance: true, used_quota: selfReads === 1 ? 0 : 15, request_count: selfReads === 1 ? 0 : 1 } })
         case 'POST /api/token/':
           assert.equal(auth, 'Bearer synthetic-root-session')
@@ -330,6 +332,8 @@ test('zero-wallet fixture verifies finite Key accounting and a self-use log with
         case 'GET /api/token/22': return json({ success: true, data: { remain_quota: 985, used_quota: 15 } })
         case 'GET /api/log/self':
           assert.equal(parsed.searchParams.get('request_id'), 'self-use-fixture')
+          logReads += 1
+          if (logReads === 1) return json({ success: true, data: { total: 0, items: [] } })
           return json({ success: true, data: { total: 1, items: [{ request_id: 'self-use-fixture', user_id: 1, token_id: 22, quota: 15, other: '{"billing_source":"self_use"}' }] } })
         default: assert.fail('unexpected synthetic self-use request')
       }
@@ -338,6 +342,7 @@ test('zero-wallet fixture verifies finite Key accounting and a self-use log with
   assert.equal(report.passed, true)
   assert.equal(relays, 1)
   assert.equal(controls, 2)
+  assert.equal(logReads, 2)
   for (const secret of ['synthetic-root-password', 'synthetic-root-session', 'synthetic-self-use-key-secret', 'self-use-fixture']) assert.equal(JSON.stringify(report).includes(secret), false)
 })
 
