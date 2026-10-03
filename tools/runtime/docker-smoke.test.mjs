@@ -65,6 +65,7 @@ test('synthetic OpenAI listener only allows explicit loopback or Docker namespac
 
 test('relay fixture verifies exact wallet, key, usage, log and redaction contracts without reporting credentials', async () => {
   let controlReads = 0
+  let consumeReads = 0
   const optionKeys = []
   const report = await probeRelayFixture({
     baseUrl,
@@ -152,6 +153,7 @@ test('relay fixture verifies exact wallet, key, usage, log and redaction contrac
           })
         }
         case 'GET /api/user/11':
+          assert.equal(consumeReads, 2, 'wallet counters require the completed consume-log witness too')
           assert.equal(auth, 'Bearer root-session')
           return json({ success: true, data: { quota: 999_985, used_quota: 15, request_count: 1 } })
         case 'GET /api/token/12':
@@ -163,6 +165,8 @@ test('relay fixture verifies exact wallet, key, usage, log and redaction contrac
         case 'GET /api/log/self':
           assert.equal(auth, 'Bearer ordinary-session')
           assert.equal(parsed.searchParams.get('request_id'), 'request-fixture')
+          consumeReads += 1
+          if (consumeReads === 1) return json({ success: true, data: { total: 0, items: [] } })
           return json({ success: true, data: { total: 1, items: [{ user_id: 11, token_id: 12, channel: 13, request_id: 'request-fixture', quota: 15, prompt_tokens: 10, completion_tokens: 5, other: '{}' }] } })
         case 'GET /api/log/':
           assert.equal(auth, 'Bearer root-session')

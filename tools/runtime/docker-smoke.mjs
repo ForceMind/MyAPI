@@ -48,6 +48,20 @@ function fixturePageItems(response) {
   return Array.isArray(response.body?.data?.items) ? response.body.data.items : []
 }
 
+// Both relay paths write their response before final settlement/statistics.
+// Only a valid empty page can be retried; no relay request is retried here.
+async function waitForConsumeLog(success, code, requestId, headers) {
+  let result
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    result = await success(code, `/api/log/self?type=2&request_id=${encodeURIComponent(requestId)}&p=1&page_size=100`, { headers })
+    const data = result.body.data
+    if (!Array.isArray(data?.items)) throw new Error(code)
+    if (data.total !== 0 || data.items.length !== 0) return result
+    if (attempt < 49) await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  throw new Error(code)
+}
+
 function findFixtureItem(items, predicate) {
   const matches = items.filter(predicate)
   return matches.length === 1 ? matches[0] : null
@@ -194,18 +208,7 @@ export async function probeRelayFixture({
   const requestId = relay.headers.get('x-oneapi-request-id')
   if (typeof requestId !== 'string' || requestId.length === 0) throw new Error('SMOKE_FIXTURE_REQUEST_ID_MISSING')
 
-  const userState = await expectSuccess('SMOKE_FIXTURE_USAGE_MISMATCH', `/api/user/${user.id}`, { headers: rootHeaders })
-  const tokenState = await expectSuccess('SMOKE_FIXTURE_USAGE_MISMATCH', `/api/token/${apiKey.id}`, { headers: userHeaders })
-  const channelState = await expectSuccess('SMOKE_FIXTURE_USAGE_MISMATCH', `/api/channel/${channel.id}`, { headers: rootHeaders })
-  const usedChannel = channelState.body.data
-  if (userState.body.data?.quota !== fixture.walletQuota - fixture.usageQuota ||
-      userState.body.data?.used_quota !== fixture.usageQuota || userState.body.data?.request_count !== 1 ||
-      tokenState.body.data?.remain_quota !== fixture.walletQuota - fixture.usageQuota ||
-      tokenState.body.data?.used_quota !== fixture.usageQuota || usedChannel?.used_quota !== fixture.usageQuota) {
-    throw new Error('SMOKE_FIXTURE_USAGE_MISMATCH')
-  }
-
-  const logs = await expectSuccess('SMOKE_FIXTURE_CONSUME_LOG_MISMATCH', `/api/log/self?type=2&request_id=${encodeURIComponent(requestId)}&p=1&page_size=100`, { headers: userHeaders })
+  const logs = await waitForConsumeLog(expectSuccess, 'SMOKE_FIXTURE_CONSUME_LOG_MISMATCH', requestId, userHeaders)
   const consumeLogs = fixturePageItems(logs)
   const consumeLog = consumeLogs.length === 1 ? consumeLogs[0] : null
   let other
@@ -218,6 +221,17 @@ export async function probeRelayFixture({
   const rootLogs = await expectSuccess('SMOKE_FIXTURE_CONSUME_LOG_MISMATCH', `/api/log/?type=2&request_id=${encodeURIComponent(requestId)}&p=1&page_size=100`, { headers: rootHeaders })
   if (rootLogs.body.data?.total !== 1 || fixturePageItems(rootLogs).length !== 1 || fixturePageItems(rootLogs)[0]?.request_id !== requestId) {
     throw new Error('SMOKE_FIXTURE_CONSUME_LOG_MISMATCH')
+  }
+
+  const userState = await expectSuccess('SMOKE_FIXTURE_USAGE_MISMATCH', `/api/user/${user.id}`, { headers: rootHeaders })
+  const tokenState = await expectSuccess('SMOKE_FIXTURE_USAGE_MISMATCH', `/api/token/${apiKey.id}`, { headers: userHeaders })
+  const channelState = await expectSuccess('SMOKE_FIXTURE_USAGE_MISMATCH', `/api/channel/${channel.id}`, { headers: rootHeaders })
+  const usedChannel = channelState.body.data
+  if (userState.body.data?.quota !== fixture.walletQuota - fixture.usageQuota ||
+      userState.body.data?.used_quota !== fixture.usageQuota || userState.body.data?.request_count !== 1 ||
+      tokenState.body.data?.remain_quota !== fixture.walletQuota - fixture.usageQuota ||
+      tokenState.body.data?.used_quota !== fixture.usageQuota || usedChannel?.used_quota !== fixture.usageQuota) {
+    throw new Error('SMOKE_FIXTURE_USAGE_MISMATCH')
   }
 
   const fullContent = await json(`/api/full-content-logs/${encodeURIComponent(requestId)}`, { headers: userHeaders })
@@ -317,15 +331,7 @@ export async function probeSelfUseRelayFixture({ baseUrl, edition, sha, username
   if (relay.status !== 200 || relay.body?.usage?.prompt_tokens !== 10 || relay.body?.usage?.completion_tokens !== 5 || relay.body?.usage?.total_tokens !== 15) throw new Error('SMOKE_SELF_USE_RELAY_FAILED')
   const requestId = relay.headers.get('x-oneapi-request-id')
   if (typeof requestId !== 'string' || !requestId) throw new Error('SMOKE_FIXTURE_REQUEST_ID_MISSING')
-  // Receiving the response body does not prove the server's post-response
-  // settlement has finished. Wait only for its durable consume-log witness;
-  // never resend the relay or accept partial/estimated accounting.
-  let logs
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    logs = await success('SMOKE_SELF_USE_LOG_MISMATCH', `/api/log/self?type=2&request_id=${encodeURIComponent(requestId)}&p=1&page_size=100`, { headers })
-    if (logs.body.data?.total !== 0 || fixturePageItems(logs).length !== 0) break
-    if (attempt < 49) await new Promise((resolve) => setTimeout(resolve, 100))
-  }
+  const logs = await waitForConsumeLog(success, 'SMOKE_SELF_USE_LOG_MISMATCH', requestId, headers)
   const rows = fixturePageItems(logs)
   let other
   try { other = JSON.parse(rows[0]?.other || '{}') } catch { throw new Error('SMOKE_SELF_USE_LOG_MISMATCH') }
