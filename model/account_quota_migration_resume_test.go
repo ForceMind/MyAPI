@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/glebarez/sqlite"
@@ -121,4 +122,38 @@ func TestAccountQuotaMigrationReadsTerminalBeyondFullReceiptPage(t *testing.T) {
 	assert.Equal(t, AccountQuotaTerminalRecoveryApplied, obligation.State)
 	assert.Equal(t, previousID, obligation.TerminalReceiptID)
 	assert.EqualValues(t, 1, obligation.ActualQuota)
+}
+
+func TestQuotaBalanceMigrationRecognizesPaddedLegacyFingerprintWithoutInferringCurrentCacheState(t *testing.T) {
+	for _, version := range []int{1, quotaBalanceBatchDrainSchemaVersion} {
+		t.Run(fmt.Sprintf("schema-%d", version), func(t *testing.T) {
+			db := openB2SubmissionSQLite(t)
+			require.NoError(t, db.AutoMigrate(&QuotaBalanceBatchDrain{}, &QuotaBalanceBatchSubject{}, &QuotaWorkCursor{}))
+			generation := QuotaBalanceBatchDrain{
+				SchemaVersion: version, GenerationKey: "padded-fingerprint", WriterEpoch: 1,
+				Payload:            QuotaBalanceBatchPayload{UserQuota: map[int]int{10: -5}},
+				PayloadFingerprint: strings.Repeat(" ", 64), State: quotaBalanceBatchDrainPending,
+				CreatedAt: 1, UpdatedAt: 1,
+			}
+			require.NoError(t, db.Create(&generation).Error)
+			for range 2 {
+				require.NoError(t, InitializeQuotaBalanceBatchDrainsWithDB(db))
+			}
+			var stored QuotaBalanceBatchDrain
+			require.NoError(t, db.First(&stored, generation.ID).Error)
+			assert.Equal(t, quotaBalanceBatchDrainSchemaVersion, stored.SchemaVersion)
+			assert.Equal(t, generation.Payload, stored.Payload)
+			if version == 1 {
+				fingerprint, err := quotaBalanceBatchPayloadFingerprint(stored.Payload)
+				require.NoError(t, err)
+				assert.Equal(t, fingerprint, stored.PayloadFingerprint)
+				assert.True(t, stored.CacheApplied)
+				require.NoError(t, validateQuotaBalanceGenerationIdentity(&stored, &stored))
+			} else {
+				assert.False(t, stored.CacheApplied, "already-current rows cannot gain cache-application evidence from padding")
+				assert.Equal(t, generation.PayloadFingerprint, stored.PayloadFingerprint)
+				require.ErrorIs(t, validateQuotaBalanceGenerationIdentity(&stored, &stored), ErrQuotaBalanceGenerationConflict)
+			}
+		})
+	}
 }

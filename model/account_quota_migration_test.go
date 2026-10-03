@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -186,8 +187,15 @@ func runAccountQuotaConfiguredSchemaContract(t *testing.T, db *gorm.DB) {
 	}
 	require.NoError(t, db.Create(&legacyDrain).Error)
 
-	for range 2 {
+	for iteration := 0; iteration < 2; iteration++ {
 		require.NoError(t, db.AutoMigrate(&AccountQuotaMutationReceipt{}, &AccountQuotaReservationHead{}, &AccountQuotaTerminalRecoveryObligation{}, &AccountQuotaSettlementIntent{}, &AccountQuotaSettlementFact{}, &QuotaBalanceBatchDrain{}, &QuotaBalanceBatchSubject{}, &QuotaWorkCursor{}))
+		if iteration == 0 {
+			var before QuotaBalanceBatchDrain
+			require.NoError(t, db.First(&before, legacyDrain.ID).Error)
+			t.Logf("legacy fingerprint bytes=%d trimmed=%d schema=%d cache_applied=%v", len(before.PayloadFingerprint), len(strings.TrimSpace(before.PayloadFingerprint)), before.SchemaVersion, before.CacheApplied)
+			assert.Empty(t, strings.TrimSpace(before.PayloadFingerprint))
+			assert.False(t, before.CacheApplied)
+		}
 		require.NoError(t, InitializeAccountQuotaReservationHeadsWithDB(db))
 		require.NoError(t, InitializeQuotaBalanceBatchDrainsWithDB(db))
 	}
@@ -243,6 +251,9 @@ func runAccountQuotaConfiguredSchemaContract(t *testing.T, db *gorm.DB) {
 	var drain QuotaBalanceBatchDrain
 	require.NoError(t, db.First(&drain, legacyDrain.ID).Error)
 	assert.Len(t, drain.PayloadFingerprint, 64)
+	payloadFingerprint, err := quotaBalanceBatchPayloadFingerprint(drain.Payload)
+	require.NoError(t, err)
+	assert.Equal(t, payloadFingerprint, drain.PayloadFingerprint)
 	assert.True(t, drain.CacheApplied)
 	assert.EqualValues(t, 1, drain.LockVersion)
 	assert.Equal(t, quotaBalanceBatchDrainSchemaVersion, drain.SchemaVersion)

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -1900,7 +1901,11 @@ func InitializeQuotaBalanceBatchDrainsWithDB(db *gorm.DB) error {
 					updates["payload"] = generation.Payload
 				}
 			}
-			if len(generation.PayloadFingerprint) != 64 || updates["payload"] != nil {
+			// PostgreSQL CHAR(64) returns an empty legacy column as padding.
+			// Only the legacy schema proves the old cache-applied convention;
+			// padding in an already-current row must not manufacture that proof.
+			missingLegacyFingerprint := legacySchema && strings.TrimSpace(generation.PayloadFingerprint) == ""
+			if missingLegacyFingerprint || len(generation.PayloadFingerprint) != 64 || updates["payload"] != nil {
 				fingerprint, err := quotaBalanceBatchPayloadFingerprint(generation.Payload)
 				if err != nil {
 					return err
