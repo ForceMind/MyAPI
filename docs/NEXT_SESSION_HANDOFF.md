@@ -1,5 +1,7 @@
 # My API 当前开发交接（2026-10-02）
 
+2026-10-03 12:53 北京时间：ebc8e41的Docker37096798991 Full/SQLite-WAL恢复成功，主CI37096798994九项成功、Backend在旧TestRefundMidjourneyQuotaLegacyFactConcurrent失败（期望4个成功返回、实际3），其后race跳过。原用例本地30次和完整service5次未重现；加入300ms受控慢写稳定复现同类失败（仅1个确认，金额/日志/幂等断言仍通过）：等待者先耗尽50轮，真正持有者仍在执行。本补修只调整测试确认顺序，首轮4调用仍并发，全部返回后重放pending；每调用总上限仍50、间隔仍2ms，保留4确认和全部原金额/单事实/单日志断言，增加慢处理者确实产生pending的断言。普通与慢写各30轮、race3轮、完整service/vet通过；无退款生产逻辑改动，新SHA CI待验。
+
 2026-10-03 12:28 北京时间：ddf60f9的CI37095413909十项及Docker37095413817真实Full/SQLite-WAL恢复全部成功，三库恢复0.50/1.48/5.50s，新Gemini原始用量合同已通过。本批仅将现有发送不确定性保护接到已有/v1/messages、/v1/completions和已验证Gemini生成请求的/v1beta/models/、/v1/models/入口；Gemini适配器自己构造上游action，因此不能仅凭URL后缀决定是否保护。复用现有持久派送、未知保留预留、Root恢复，不改变路由权限、无余额自用或严格预算资格。新作用域/双writer幂等恢复先红后绿，真实HTTP假上游接收断连仅1次、不退款；service/channel定向race6.153/2.047s通过，完整根Go/vet复验通过，新SHA CI/镜像待验。
 
 2026-10-03 12:00 北京时间：7110b9f的CI37092951200十项及Docker37092951223真实Full/SQLite-WAL同镜像恢复全部成功，三库恢复0.40/1.11/5.00s、574前端与Chromium通过。本批只补Gemini有效JSON原始用量/流终态证据：缺失/null/矛盾计数和分类进入既有待核对，明确0不替成本地估算；清除上游注入billing_usage；流要求原始候选结束及对应最终用量，倒退/坏尾部/迟到未完候选拒绝确定计费。缓存与thought按既有包含关系只算一次，不扩大严格Token/USD价格资格或支付。新增DTO/适配器/service合同先红后绿；定向race通过，独立relaykit全测/build/vet通过，最后迟到候选边界补修后完整根Go/vet再次通过。原missing/estimated文件未改，源码文档尚待同批同步，新SHA CI/Full镜像待验。
