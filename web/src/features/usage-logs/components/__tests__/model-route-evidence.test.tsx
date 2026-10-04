@@ -47,14 +47,24 @@ const log: UsageLog = {
   }),
 }
 describe('actual model route evidence', () => {
-  test('administrator sees recorded target endpoint reason and configuration', () => {
-    render(<DetailsDialog log={log} isAdmin open onOpenChange={() => {}} />)
-    expect(screen.getByText('Actual route evidence')).toBeInTheDocument()
-    expect(screen.getByText('private-target')).toBeInTheDocument()
-    expect(screen.getByText('/v1/responses')).toBeInTheDocument()
-    expect(screen.getByText('explicit_exact')).toBeInTheDocument()
-    expect(screen.getByText('config-evidence')).toBeInTheDocument()
-  })
+  test.each([2, 5])(
+    'administrator sees recorded target endpoint reason and configuration for log type %s',
+    (type) => {
+      render(
+        <DetailsDialog
+          log={{ ...log, type }}
+          isAdmin
+          open
+          onOpenChange={() => {}}
+        />
+      )
+      expect(screen.getByText('Actual route evidence')).toBeInTheDocument()
+      expect(screen.getByText('private-target')).toBeInTheDocument()
+      expect(screen.getByText('/v1/responses')).toBeInTheDocument()
+      expect(screen.getByText('explicit_exact')).toBeInTheDocument()
+      expect(screen.getByText('config-evidence')).toBeInTheDocument()
+    }
+  )
   test('nonadministrator never sees admin route evidence even if response contains it', () => {
     render(
       <DetailsDialog log={log} isAdmin={false} open onOpenChange={() => {}} />

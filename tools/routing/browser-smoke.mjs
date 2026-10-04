@@ -165,15 +165,32 @@ try {
     await reach(target)
     await assertLayout(`routing-preview-${width}x640`)
   }
-  await page.setViewportSize({ width: 1280, height: 640 })
-  await page.goto(`${origin}/usage-logs/common`, { waitUntil: 'networkidle' })
-  await page.getByTitle(label('Click to view full details')).first().click()
-  const details = page.getByRole('dialog').filter({ hasText: label('Actual route evidence') })
+  // Desktop cells and mobile cards own separate dialog state. Open details
+  // through each layout's real entry point after resizing, rather than assuming
+  // a cell-owned dialog survives that component being unmounted.
   for (const width of [320, 1280]) {
     await page.setViewportSize({ width, height: 640 })
+    await page.goto(`${origin}/usage-logs/common`, { waitUntil: 'networkidle' })
+    const openDetails = page.getByTitle(label('Click to view full details')).first()
+    await reach(openDetails)
+    await openDetails.click()
+    const details = page.getByRole('dialog').filter({ hasText: label('Actual route evidence') })
+    await details.waitFor({ state: 'visible' })
     await reach(details.getByText('synthetic-config-evidence', { exact: true }))
-    assert((await details.innerText()).includes('upstream-updated'))
+    for (const [field, value] of [
+      ['Request Model', 'public-model'],
+      ['Upstream model', 'upstream-updated'],
+      ['Endpoint', '/v1/responses'],
+      ['Route reason', 'explicit_exact'],
+      ['Channel ID', '1'],
+      ['Configuration digest', 'synthetic-config-evidence'],
+    ]) {
+      const evidenceRow = details.getByText(label(field), { exact: true }).locator('..')
+      assert.equal(await evidenceRow.getByText(value, { exact: true }).count(), 1, `${field}: actual route evidence matches at ${width}px`)
+    }
     await assertLayout(`actual-route-log-${width}x640`)
+    await page.keyboard.press('Escape')
+    await details.waitFor({ state: 'hidden' })
   }
   assert.deepEqual([...unexpected], [], 'every application endpoint has an explicit fixture')
   assert.deepEqual(errors, [], 'no browser runtime errors')
