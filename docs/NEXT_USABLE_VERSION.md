@@ -7,6 +7,9 @@
 [MYAPI_MASTER_PLAN](MYAPI_MASTER_PLAN.md)。以下 beta.3/R1 证据保留为历史基线，
 不作为 beta.4 已完成或新协议预算资格的证明。
 
+负责人已确认后续独立完整UI重构节点（核心功能齐备后、Desktop前），当前仅纳入主计划，
+不属于beta.4已交付范围，也未启动UI实现。
+
 # My API 当前修复版交付清单
 
 > 2026-10-04 分版本交接：本文件继续记录已发布beta.3/R1的实现、支持资格和证据，不等于全项目计划。后续版本以[完整分版本计划](MYAPI_MASTER_PLAN.md)为入口，下一版beta.4是模型发现/识别/基础路由完整流程，尚未在此次文档交接中实现。新agent先读[当前提示词](CODEX_HANDOFF_PROMPT.md)与[Git交接](NEXT_SESSION_HANDOFF.md)，不要把下方历史红灯或未实现状态当当前事实。
