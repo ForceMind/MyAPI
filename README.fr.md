@@ -1,472 +1,137 @@
-<div align="center">
+# My API
 
-![MyAPI](/web/public/myapi-logo-v1.png)
+Une passerelle d’API d’IA auto-hébergée pour vos comptes, modèles et applications.
 
-# MyAPI
+[English](README.md) · [简体中文](README.zh_CN.md) · [繁體中文](README.zh_TW.md) · [Français](README.fr.md) · [日本語](README.ja.md)
 
-🍥 **Passerelle de modèles étendus de nouvelle génération et système de gestion d'actifs d'IA**
+My API réunit connexions amont, clés API clientes, permissions et suivi d’utilisation dans une console. L’usage personnel est prioritaire, avec partage contrôlé à une petite équipe. Les modules commerciaux sont désactivés sur les nouvelles installations : aucun rechargement d’un portefeuille interne n’est requis. Utilisateurs, permissions et limites restent actifs.
 
-<p align="center">
-  <a href="./README.zh_CN.md">简体中文</a> |
-  <a href="./README.zh_TW.md">繁體中文</a> |
-  <a href="./README.md">English</a> |
-  <strong>Français</strong> |
-  <a href="./README.ja.md">日本語</a>
-</p>
+## Fonctions et limites
 
-<p align="center">
-  <a href="https://raw.githubusercontent.com/ForceMind/MyAPI/main/LICENSE">
-    <img src="https://img.shields.io/github/license/ForceMind/MyAPI?color=brightgreen" alt="license">
-  </a><!--
-  --><a href="https://github.com/ForceMind/MyAPI/releases/latest">
-    <img src="https://img.shields.io/github/v/release/ForceMind/MyAPI?color=brightgreen&include_prereleases" alt="release">
-  </a>
-</p>
+- Configurer des canaux et leurs modèles avec les adaptateurs existants : API compatibles OpenAI, Responses, Claude Messages, Gemini, Codex, entre autres. Les fonctionnalités dépendent de l’adaptateur et du compte amont.
+- Attribuer une clé distincte à chaque application/utilisateur, avec modèles, profil d’accès et limites applicables. Conserver les identifiants amont sur le serveur.
+- Consulter requêtes, erreurs, utilisation et observations de quota disponibles, sans confondre données manquantes, échecs et remise à zéro d’une fenêtre.
+- Tester explicitement modèle, endpoint et mode streaming ; réutiliser les derniers paramètres ayant réussi lorsque cela s’applique.
+- Choisir SQLite, MySQL ou PostgreSQL. La console est disponible en anglais, chinois simplifié/traditionnel, français, japonais, russe et vietnamien.
 
-<p align="center">
-  <a href="#-démarrage-rapide">Démarrage rapide</a> •
-  <a href="#-fonctionnalités-clés">Fonctionnalités clés</a> •
-  <a href="#-déploiement">Déploiement</a> •
-  <a href="#-documentation">Documentation</a> •
-  <a href="#-aide-support">Aide</a>
-</p>
+Les budgets stricts Token/USD concernent uniquement les chemins qualifiés Responses natifs officiels, en texte seul. L’USD exige aussi un tarif figé applicable et un niveau de service pris en charge. Alias, conversions, outils et multimodalité ne sont pas automatiquement éligibles. Le pourcentage Codex est un seuil de sécurité du compte/de sa fenêtre, pas un registre de consommation par clé. Le coût API équivalent d’un abonnement est indicatif, pas une facture réelle. Une utilisation inconnue ou estimée n’est pas un zéro constaté.
 
-</div>
+## Versions
 
-## Distribution auto-hébergée MyAPI
+État au 2026-10-04 :
 
-<img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
+- **Préversion publiée : `v0.2.0-beta.3`**, images Full et LAN historique pour Linux amd64/arm64. Le [registre de publication](docs/RELEASE_BETA_3.md) contient source, digests, signatures et limites de validation.
+- **beta.4 : source de développement vérifiée, non publiée.** Découverte des modèles, correspondances explicites, aperçu du routage, distribution et journaux dans un périmètre limité ; absents des images beta.3.
+- **beta.5 : candidat local uniquement.** Ordonnancement des comptes, refroidissement temporaire, basculement borné et explication des tentatives ne sont pas publiés. La vérification distante de ce candidat sur trois bases et Chromium reste à faire.
 
-Ce dépôt fournit le CLI d'auto-hébergement **MyAPI** et une distribution
-complète du code source basée sur la référence de compatibilité technique rc.25
-(contrats API/protocole, pas un modèle d’interface). La couche
-de distribution utilise le slug machine my-api; les contrats API, SSE, base de
-données et protocoles amont restent compatibles. Les mentions de licence,
-NOTICE et d'attribution tierce restent dans les fichiers juridiques du dépôt.
+La préversion n’est pas une garantie d’aptitude à la production. OAuth réel, réinitialisation/429, rapprochement des factures et HTTPS du serveur cible restent partiellement ou non validés. La santé d’un conteneur ne valide pas un fournisseur réel. Les images par défaut restent beta.3, même depuis une branche de développement. L’installateur/mise à jour unifié Lite/Desktop n’est pas livré ; des artefacts desktop ne prouvent pas une validation sur appareil réel.
+
+## Installer la préversion publiée
+
+Parcours recommandé : **Full sur Linux, image Docker épinglée, SQLite, écoute locale derrière votre proxy HTTPS**.
+
+Prérequis : Linux amd64/arm64, Git, Bash, Docker fonctionnel, Compose v2 prenant en charge `up --wait --wait-timeout`, accès au dépôt et à GitHub/GHCR, stockage persistant et origine HTTPS sous votre contrôle. Le proxy doit cibler `http://127.0.0.1:3000`. Les exemples de secrets nécessitent OpenSSL. Go, Bun, Node.js, Redis et serveur de base séparé ne sont pas nécessaires ici. Les limites de 2 CPU / 2 GiB sont des plafonds du conteneur, pas des minima matériels mesurés.
+
+### 1. Récupérer les fichiers
+
+Pour une installation neuve dans un nouveau dossier uniquement ; ne remplacez pas le `.env` d’une instance existante :
 
 ```bash
-npx @forcemind/myapi init ./myapi-source
-npx @forcemind/myapi configure \
-  --project-dir ./myapi-source \
-  --public-url https://api.your-domain.com
-npx @forcemind/myapi doctor --project-dir ./myapi-source
-```
-
-> **État de publication :** le paquet NPM n'est pas encore publié officiellement.
-> En attendant, exécutez les mêmes commandes avec `node cli/myapi.mjs ...` depuis
-> une copie du dépôt (ou utilisez une archive empaquetée localement) ; `npx` ne
-> peut pas récupérer automatiquement ce dépôt privé.
-
-Consultez le [guide de distribution MyAPI](./docs/MYAPI_DISTRIBUTION.md) pour le
-déploiement, l'adoption des données, la validation et la publication.
-
-## 📝 Description du projet
-
-> [!IMPORTANT]
-> - Ce projet est exclusivement destiné aux scénarios de passerelle API d'IA légalement autorisés, d'authentification organisationnelle, de gestion multi-modèles, d'analyse d'utilisation, de comptabilisation des coûts et de déploiement privé.
-> - Les utilisateurs doivent obtenir légalement les clés API, comptes, services de modèles et autorisations d'interface en amont, et doivent respecter les conditions d'utilisation en amont et les lois et réglementations applicables.
-> - Les utilisateurs doivent s'assurer que leur utilisation est conforme aux conditions d'utilisation en amont et aux lois et réglementations applicables.
-> - Lors de la fourniture de services d'IA générative au public, les utilisateurs doivent se conformer aux exigences réglementaires applicables et remplir toutes les obligations d'enregistrement, de licence, de sécurité du contenu, de vérification d'identité, de conservation des journaux, de fiscalité et d'autorisation en amont requises par leur juridiction.
-
----
-
-## 🙏 Remerciements
-
-MyAPI conserve les références tierces lorsque leurs API ou licences l'exigent.
-Consultez LICENSE, NOTICE et les métadonnées des dépendances pour les mentions
-complètes. Aucun client tiers ni contenu sponsorisé n'est activé par défaut.
-
----
-
-## 🚀 Démarrage rapide
-
-### Utilisation de Docker Compose (recommandé)
-
-```bash
-# Cloner le projet
-git clone https://github.com/ForceMind/MyAPI.git my-api
+git clone --branch v0.2.0-beta.3 --single-branch https://github.com/ForceMind/MyAPI.git my-api
 cd my-api
-
-# Modifier la configuration docker-compose.yml
-nano docker-compose.yml
-
-# Démarrer le service
-docker-compose up -d
+umask 077
+cp deploy/.env.example deploy/.env
+chmod 600 deploy/.env
 ```
 
-<details>
-<summary><strong>Utilisation des commandes Docker</strong></summary>
+### 2. Configurer
+
+Modifiez `deploy/.env`. Remplacez l’origine d’exemple par votre origine HTTPS exacte, sans chemin API ; l’installateur refuse les domaines de remplacement `example.com` :
+
+```dotenv
+MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.3
+MYAPI_BUILD_LOCAL=false
+MYAPI_EDITION=full
+MYAPI_BIND_ADDRESS=127.0.0.1
+MYAPI_ALLOW_LAN=false
+MYAPI_SESSION_COOKIE_SECURE=true
+MYAPI_PUBLIC_URL=https://api.example.com
+FULL_CONTENT_LOG_ENABLED=false
+```
+
+Pour une nouvelle instance, générez un `SESSION_SECRET` et copiez le résultat dans votre éditeur privé ; au moins 48 caractères sont requis :
 
 ```bash
-# Build the local image (for local development only)
-docker build -t local/my-api:custom-rc25 .
-
-# Utilisation de SQLite (par défaut)
-docker run --name my-api -d --restart always \
-  -p 3000:3000 \
-  -e TZ=Asia/Shanghai \
-  -v ./data:/data \
-  local/my-api:custom-rc25
-
-# Utilisation de MySQL
-docker run --name my-api -d --restart always \
-  -p 3000:3000 \
-  -e SQL_DSN="root:123456@tcp(localhost:3306)/myapi" \
-  -e TZ=Asia/Shanghai \
-  -v ./data:/data \
-  local/my-api:custom-rc25
+openssl rand -hex 32
 ```
 
-> **💡 Astuce:** `-v ./data:/data` sauvegardera les données dans le dossier `data` du répertoire actuel, vous pouvez également le changer en chemin absolu comme `-v /your/custom/path:/data`
-
-</details>
-
----
-
-🎉 Après le déploiement, visitez `http://localhost:3000` pour commencer à utiliser!
-
-> [!WARNING]
-> Lorsque vous exploitez ce projet en tant que service public d'IA générative ou service de revente d'API, les utilisateurs doivent d'abord remplir toutes les obligations requises en matière d'enregistrement, de licence, de sécurité du contenu, de vérification d'identité, de conservation des journaux, de fiscalité, de paiement et d'autorisation en amont.
-
-📖 Pour plus de méthodes de déploiement, veuillez vous référer à [Guide de déploiement](./DEPLOYMENT_CUSTOM.md)
-
----
-
-## 📚 Documentation
-
-<div align="center">
-
-### 📖 [Documentation officielle](https://github.com/ForceMind/MyAPI/tree/main/docs) | [![Demander à DeepWiki](https://deepwiki.com/badge.svg)](https://github.com/ForceMind/MyAPI/discussions)
-
-</div>
-
-**Navigation rapide:**
-
-| Catégorie | Lien |
-|------|------|
-| 🚀 Guide de déploiement | [Documentation d'installation](./DEPLOYMENT_CUSTOM.md) |
-| ⚙️ Configuration de l'environnement | [Variables d'environnement](./DEPLOYMENT_CUSTOM.md) |
-| 📡 Documentation de l'API | [Documentation de l'API](./docs/openapi/relay.json) |
-| 📊 Utilisation de l'organisation Claude | [Limites de l'API officielle](./docs/CLAUDE_USAGE_REPORT.md) |
-| 🧭 Plan produit et technique | [Plan directeur MyAPI](./docs/MYAPI_MASTER_PLAN.md) |
-| ✅ Preuves d'achèvement | [Audit d'achèvement](./docs/COMPLETION_AUDIT.md) |
-| 🖥️ LAN Lite et bureau | [Guide LAN Lite](./docs/LAN_LITE.md) |
-| 🍎 Développement macOS | [Guide de développement macOS](./docs/DEVELOPMENT_ON_MACOS.md) |
-| 🧭 Relais Codex pour nouvel appareil | [Prompt de relais copiable](./docs/CODEX_HANDOFF_PROMPT.md) |
-| ❓ FAQ | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
-| 💬 Interaction avec la communauté | [Canaux de communication](https://github.com/ForceMind/MyAPI/discussions) |
-
----
-
-## ✨ Fonctionnalités clés
-
-> Pour les fonctionnalités détaillées, veuillez vous référer à [Présentation des fonctionnalités](https://github.com/ForceMind/MyAPI/tree/main/docs) |
-
-### 🎨 Fonctions principales
-
-| Fonctionnalité | Description |
-|------|------|
-| 🎨 Nouvelle interface utilisateur | Conception d'interface utilisateur moderne |
-| 🌍 Multilingue | Prend en charge le chinois simplifié, le chinois traditionnel, l'anglais, le français et le japonais |
-| 🔄 Compatibilité des données | Compatible avec les migrations de données existantes |
-| 📈 Tableau de bord des données | Console visuelle et analyse statistique |
-| 🔒 Gestion des permissions | Regroupement de jetons, restrictions de modèles, gestion des utilisateurs |
-
-### 💰 Comptabilisation et facturation des usages autorisés
-
-- ✅ Rechargement interne et allocation de quotas pour les scénarios légalement autorisés (EPay, Stripe)
-- ✅ Comptabilisation des coûts par requête, par utilisation et par hit de cache au niveau organisationnel
-- ✅ Statistiques de facturation du cache pour OpenAI, Azure, DeepSeek, Claude, Qwen et les modèles pris en charge
-- ✅ Politiques de facturation flexibles pour la gestion interne ou les clients entreprise autorisés
-
-### 🔐 Autorisation et sécurité
-
-- 😈 Connexion par autorisation Discord
-- 🤖 Connexion par autorisation LinuxDO
-- 📱 Connexion par autorisation Telegram
-- 🔑 Authentification unifiée OIDC
-
-### 🚀 Fonctionnalités avancées
-
-**Prise en charge des formats d'API:**
-- ⚡ [OpenAI Responses](./docs/openapi/relay.json)
-- ⚡ [OpenAI Realtime API](./docs/openapi/relay.json) (y compris Azure)
-- ⚡ [Claude Messages](./docs/openapi/relay.json)
-- ⚡ [Google Gemini](./docs/openapi/relay.json)
-- 🔄 [Modèles Rerank](./docs/openapi/relay.json) (Cohere, Jina)
-
-**Routage intelligent:**
-- ⚖️ Sélection aléatoire pondérée des canaux
-- 🔄 Nouvelle tentative automatique en cas d'échec
-- 🚦 Limitation du débit du modèle pour les utilisateurs
-
-**Conversion de format:**
-- 🔄 **OpenAI Compatible ⇄ Claude Messages**
-- 🔄 **OpenAI Compatible → Google Gemini**
-- 🔄 **Google Gemini → OpenAI Compatible**
-- 🔄 **OpenAI Compatible ⇄ OpenAI Responses** - Pris en charge via l'adaptateur de compatibilité Responses
-- 🔄 **Fonctionnalité de la pensée au contenu**
-
-**Prise en charge de l'effort de raisonnement:**
-
-<details>
-<summary>Voir la configuration détaillée</summary>
-
-**Modèles de la série OpenAI :**
-- `o3-mini-high` - Effort de raisonnement élevé
-- `o3-mini-medium` - Effort de raisonnement moyen
-- `o3-mini-low` - Effort de raisonnement faible
-- `gpt-5-high` - Effort de raisonnement élevé
-- `gpt-5-medium` - Effort de raisonnement moyen
-- `gpt-5-low` - Effort de raisonnement faible
-
-**Modèles de pensée de Claude:**
-- `claude-3-7-sonnet-20250219-thinking` - Activer le mode de pensée
-
-**Modèles de la série Google Gemini:**
-- `gemini-2.5-flash-thinking` - Activer le mode de pensée
-- `gemini-2.5-flash-nothinking` - Désactiver le mode de pensée
-- `gemini-2.5-pro-thinking` - Activer le mode de pensée
-- `gemini-2.5-pro-thinking-128` - Activer le mode de pensée avec budget de pensée de 128 tokens
-- Vous pouvez également ajouter les suffixes `-low`, `-medium` ou `-high` aux modèles Gemini pour fixer le niveau d’effort de raisonnement (sans suffixe de budget supplémentaire).
-
-</details>
-
----
-
-## 🤖 Prise en charge des modèles
-
-> Pour les détails, veuillez vous référer à [Documentation de l'API - Interface de passerelle](./docs/openapi/relay.json)
-
-| Type de modèle | Description | Documentation |
-|---------|------|------|
-| 🤖 OpenAI-Compatible | Modèles compatibles OpenAI | [Documentation](./docs/openapi/relay.json) |
-| 🤖 OpenAI Responses | Format OpenAI Responses | [Documentation](./docs/openapi/relay.json) |
-| 🎨 Midjourney-Proxy | [Midjourney-Proxy(Plus)](https://github.com/novicezk/midjourney-proxy) | [Documentation](./docs/openapi/relay.json) |
-| 🎵 Suno-API | [Suno API](https://github.com/Suno-API/Suno-API) | [Documentation](./docs/openapi/relay.json) |
-| 🔄 Rerank | Cohere, Jina | [Documentation](./docs/openapi/relay.json) |
-| 💬 Claude | Format Messages | [Documentation](./docs/openapi/relay.json) |
-| 🌐 Gemini | Format Google Gemini | [Documentation](./docs/openapi/relay.json) |
-| 🔧 Dify | Mode ChatFlow | - |
-| 🎯 Amont personnalisé | Configuration des points d'accès amont légalement autorisés | - |
-
-### 📡 Interfaces prises en charge
-
-<details>
-<summary>Voir la liste complète des interfaces</summary>
-
-- [Interface de discussion (Chat Completions)](./docs/openapi/relay.json)
-- [Interface de réponse (Responses)](./docs/openapi/relay.json)
-- [Interface d'image (Image)](./docs/openapi/relay.json)
-- [Interface audio (Audio)](./docs/openapi/relay.json)
-- [Interface vidéo (Video)](./docs/openapi/relay.json)
-- [Interface d'incorporation (Embeddings)](./docs/openapi/relay.json)
-- [Interface de rerank (Rerank)](./docs/openapi/relay.json)
-- [Conversation en temps réel (Realtime)](./docs/openapi/relay.json)
-- [Discussion Claude](./docs/openapi/relay.json)
-- [Discussion Google Gemini](./docs/openapi/relay.json)
-
-</details>
-
----
-
-## 🚢 Déploiement
-
-> [!TIP]
-> **Image Docker par défaut :** `ghcr.io/forcemind/myapi:<version>` (construite par GitHub Actions ; modifiez `MYAPI_IMAGE` vers un tag publié pour mettre à niveau). Définissez `MYAPI_BUILD_LOCAL=true` pour construire localement.
-
-Les versions GHCR sont lancées manuellement pour un tag existant et exigent `PUBLISH`, l’environnement de release et le gate associé ; pousser un tag ne publie pas. Les préversions utilisent des tags immuables et ne mettent jamais à jour le `latest` stable ; déployez uniquement un tag de version publié ou un digest.
-
-### 📋 Exigences de déploiement
-
-| Composant | Exigence |
-|------|------|
-| **Base de données locale** | SQLite (Docker doit monter le répertoire `/data`)|
-| **Base de données distante | MySQL ≥ 5.7.8 ou PostgreSQL ≥ 9.6 |
-| **Moteur de conteneur** | Docker / Docker Compose |
-| **Architecture système** | 64 bits uniquement (amd64 / arm64) ; les systèmes 32 bits ne sont pas pris en charge |
-
-### ⚙️ Configuration des variables d'environnement
-
-<details>
-<summary>Configuration courante des variables d'environnement</summary>
-
-| Nom de variable | Description | Valeur par défaut |
-|--------|------|--------|
-| `SESSION_SECRET` | Secret de signature d’authentification, identique sur tous les nœuds | - |
-| `SESSION_COOKIE_SECURE` | `false`/non défini désactive l’OriginGuard de refresh/logout pour les proxys HTTP locaux ; `true` active le cookie Secure et le contrôle strict de l’Origin | `false` |
-| `SESSION_COOKIE_TRUSTED_URL` | Obligatoire en mode Secure : Origins HTTPS exactes autorisées pour refresh/logout, séparées par des virgules ; ce n’est pas une liste CORS relay | - |
-| `TRUSTED_PROXIES` | Variable absente/vide : approuve le bouclage, les réseaux RFC 1918 et l’ULA IPv6 avec un avertissement au démarrage ; `none` n’approuve aucun proxy ; une liste IP/CIDR explicite remplace les valeurs par défaut | `127.0.0.0/8, ::1, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, fc00::/7` |
-| `USER_SESSION_ACTIVE_LIMIT` | Nombre maximal de Sessions de connexion actives par utilisateur | `50` |
-| `USER_SESSION_ISSUANCE_LIMIT` | Nombre maximal de Sessions créées par utilisateur dans la fenêtre, y compris les Sessions révoquées | `100` |
-| `USER_SESSION_ISSUANCE_WINDOW_SECONDS` | Fenêtre de comptage des Sessions ; limitée à la durée de conservation des Sessions révoquées si elle est supérieure | `86400` |
-| `USER_SESSION_REVOKED_RETENTION_DAYS` | Conservation en jours des Sessions révoquées pour l’audit et le comptage | `7` |
-| `USER_SESSION_HOURLY_ALERT_THRESHOLD` | Seuil global horaire déclenchant uniquement une alerte, sans bloquer les connexions | `5000` |
-| `CRYPTO_SECRET` | Secret HMAC des clés de cache ; les nœuds partageant Redis doivent utiliser la même valeur effective | Par défaut, `SESSION_SECRET` |
-| `SQL_DSN` | Chaine de connexion à la base de données | - |
-| `REDIS_CONN_STRING` | Chaine de connexion Redis | - |
-| `STREAMING_TIMEOUT` | Délai d'expiration du streaming (secondes) | `300` |
-| `STREAM_SCANNER_MAX_BUFFER_MB` | Taille max du buffer par ligne (Mo) pour le scanner SSE ; à augmenter quand les sorties image/base64 sont très volumineuses (ex. images 4K) | `64` |
-| `MAX_REQUEST_BODY_MB` | Taille maximale du corps de requête (Mo, comptée **après décompression** ; évite les requêtes énormes/zip bombs qui saturent la mémoire). Dépassement ⇒ `413` | `32` |
-| `AZURE_DEFAULT_API_VERSION` | Version de l'API Azure | `2025-04-01-preview` |
-| `ERROR_LOG_ENABLED` | Interrupteur du journal d'erreurs | `false` |
-| `PYROSCOPE_URL` | Adresse du serveur Pyroscope | - |
-| `PYROSCOPE_APP_NAME` | Nom de l'application Pyroscope | `my-api` |
-| `PYROSCOPE_BASIC_AUTH_USER` | Utilisateur Basic Auth Pyroscope | - |
-| `PYROSCOPE_BASIC_AUTH_PASSWORD` | Mot de passe Basic Auth Pyroscope | - |
-| `PYROSCOPE_MUTEX_RATE` | Taux d'échantillonnage mutex Pyroscope | `5` |
-| `PYROSCOPE_BLOCK_RATE` | Taux d'échantillonnage block Pyroscope | `5` |
-| `HOSTNAME` | Nom d'hôte tagué pour Pyroscope | `my-api` |
-
-📖 **Configuration complète:** [Documentation des variables d'environnement](./DEPLOYMENT_CUSTOM.md)
-
-</details>
-
-### 🔧 Méthodes de déploiement
-
-<details>
-<summary><strong>Méthode 1: Docker Compose (recommandé)</strong></summary>
+Pour l’échantillonnage de quota multi-comptes, générez un secret indépendant et affectez `active:v1:` suivi du résultat à `CHANNEL_QUOTA_IDENTITY_KEYS` :
 
 ```bash
-# Cloner le projet
-git clone https://github.com/ForceMind/MyAPI.git my-api
-cd my-api
-
-# Modifier la configuration
-nano docker-compose.yml
-
-# Démarrer le service
-docker-compose up -d
+openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n'
 ```
 
-</details>
+Un trousseau vide désactive l’échantillonnage dépendant de l’identité. Conservez le trousseau complet avec les sauvegardes ; partagez-le entre instances utilisant la même base. Ne régénérez pas les secrets lors d’une mise à niveau et ne les publiez jamais dans Git ou un signalement. `.env` contient des valeurs littérales `KEY=VALUE`, sans substitution shell. Les chemins par défaut sont `deploy/data/` et `deploy/logs/`, montés dans `/data` et `/app/logs`.
 
-<details>
-<summary><strong>Méthode 2: Commandes Docker</strong></summary>
+### 3. Démarrer
 
-**Utilisation de SQLite:**
 ```bash
-docker run --name my-api -d --restart always \
-  -p 3000:3000 \
-  -e TZ=Asia/Shanghai \
-  -v ./data:/data \
-  local/my-api:custom-rc25
+bash deploy/install.sh
 ```
 
-**Utilisation de MySQL:**
+Le script valide la configuration, récupère l’image, démarre et attend au plus 120 secondes la santé du conteneur. Il n’installe pas Docker, les certificats, le proxy ou les règles de pare-feu. Ouvrez votre origine HTTPS, initialisez le compte administrateur et vérifiez connexion, version et revision dans les informations système. Full utilise des cookies Secure : HTTP localhost n’est pas l’adresse de connexion recommandée.
+
+Pour un usage local/privé, consultez le [guide LAN historique](docs/LAN_LITE.md) et utilisez `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.3`. Le partage LAN doit être activé explicitement.
+
+## Première requête
+
+1. Dans Channels (`/channels`), choisissez fournisseur, endpoint et identifiants autorisés. Dans un conteneur, Codex utilise le parcours de connexion web ; les fichiers de connexion de l’hôte ne sont pas accessibles.
+2. Récupérez les modèles si possible ou saisissez l’ID exact. Vérifiez modèles activés, groupe/profil et correspondances. La découverte n’accorde aucune permission et ne prouve pas le fonctionnement. Le parcours beta.4 amélioré exige sa source de développement.
+3. Testez une petite requête avec modèle, endpoint et streaming explicites. Le test contacte l’amont et peut consommer du quota ou être facturé ; utilisez un contenu non sensible.
+4. Créez une clé cliente limitée aux besoins de l’application, jamais une copie de la clé amont ou du jeton administrateur.
+5. Pour un client compatible OpenAI, utilisez votre origine HTTPS suivie de `/v1`, la clé cliente et le nom public activé. Les autres protocoles utilisent leurs endpoints documentés. Commencez par une courte requête.
+6. Consultez Usage Logs (`/usage-logs/common`) : statut, modèle, preuves d’utilisation et coûts applicables. Les builds de développement avec preuves de routage permettent aux administrateurs de vérifier la cible ; un aperçu ne garantit ni le prochain choix aléatoire ni l’admission d’une clé.
+
+En cas d’échec, vérifiez endpoint, modèle, identifiants, permissions et quota avant d’augmenter les tentatives. Conservez les états inconnus jusqu’à vérification fiable.
+
+## Maintenance et restauration
+
+Le [modèle de déploiement](deploy/.env.example) et les [variables du service](.env.example) sont deux couches distinctes : une variable ajoutée à `.env` n’est pas automatiquement transmise au conteneur. Pour une base externe ou Redis, vérifiez [Compose](deploy/docker-compose.yml). SQLite est le choix par défaut. MySQL ≥ 5.7.8 et PostgreSQL ≥ 9.6 sont des bases de compatibilité ; utilisez une version entretenue appropriée et testez les migrations. Redis est facultatif ; les sessions et limites multi-nœuds exigent une configuration spécifique.
+
+Le CLI source demande Node.js ≥ 20. Ce guide utilise le CLI du dépôt récupéré et ne dépend pas de l’installation d’un paquet depuis NPM :
+
 ```bash
-docker run --name my-api -d --restart always \
-  -p 3000:3000 \
-  -e SQL_DSN="root:123456@tcp(localhost:3306)/myapi" \
-  -e TZ=Asia/Shanghai \
-  -v ./data:/data \
-  local/my-api:custom-rc25
+node cli/myapi.mjs help
+node cli/myapi.mjs doctor --project-dir .
+node cli/myapi.mjs status --project-dir .
+node cli/myapi.mjs logs --project-dir .
 ```
 
-> **💡 Explication du chemin:**
-> - `./data:/data` - Chemin relatif, données sauvegardées dans le dossier data du répertoire actuel
-> - Vous pouvez également utiliser un chemin absolu, par exemple : `/your/custom/path:/data`
+`doctor` ne valide pas les fournisseurs réels ; les journaux peuvent être sensibles. `install`, `switch` et `rollback` ne sont pas des commandes disponibles.
 
-</details>
+Avant toute mise à niveau, relevez version/digest, revision, chemins et configuration. Sauvegardez la base de façon cohérente (y compris le WAL SQLite si applicable), les secrets, le trousseau complet et les journaux nécessaires. Vérifiez la restauration sur une copie isolée, puis testez la version publiée cible. Exemple de précontrôle en lecture seule pour passer une ancienne instance à beta.3 :
 
-<details>
-<summary><strong>Méthode 3: Panneau BaoTa</strong></summary>
+```bash
+node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.3 --dry-run --json
+```
 
-1. Installez le panneau BaoTa (version ≥ 9.2.0)
-2. Recherchez **MyAPI** dans le magasin d'applications
-3. Installation en un clic
+Suivez le [guide de répétition et restauration](docs/UPGRADE_REHEARSAL.md). La sauvegarde `.env` du CLI n’est pas une sauvegarde de base. Après une tentative de démarrage cible, le CLI ne redémarre pas automatiquement l’ancienne image : la base a pu migrer. Restaurez une sauvegarde vérifiée antérieure avant un binaire incompatible. Ne supprimez pas les volumes ni les écritures non résolues pour revenir en arrière ; évitez `latest` et les versions seulement planifiées.
 
-📖 [Tutoriel avec des images](./docs/installation/BT.md)
+## Sécurité et documentation
 
-</details>
+Gardez l’écoute locale et vérifiez HTTPS, proxys de confiance, inscriptions, rôles et clés avant partage. Utilisez uniquement les comptes/API autorisés, en respectant conditions amont et lois applicables ; les services publics peuvent imposer des obligations supplémentaires. Le modèle livré active les journaux de contenu complet, désactivés dans l’exemple ci-dessus. Avant activation, définissez droits, rétention et sauvegardes : le masquage ne garantit pas l’absence de données privées dans les prompts/réponses. L’échantillonnage peut contacter l’amont en arrière-plan. Excluez secrets, fichiers OAuth, bases et journaux privés de Git et des signalements.
 
-### ⚠️ Considérations sur le déploiement multi-machines
+- [Publication et preuves](docs/RELEASE_BETA_3.md) · [Déploiement](DEPLOYMENT_CUSTOM.md) · [LAN](docs/LAN_LITE.md)
+- [Restauration](docs/UPGRADE_REHEARSAL.md) · [Validation d’installation](docs/R1_INSTALLATION_CHECK.md)
+- [API relay](docs/openapi/relay.json) · [API de gestion](docs/openapi/api.json)
+- [Analyse des quotas](docs/QUOTA_ANALYTICS.md) · [Usage organisationnel Claude](docs/CLAUDE_USAGE_REPORT.md)
+- [Authentification](docs/authentication.md) · [Journaux de contenu](docs/FULL_CONTENT_LOGGING_CUSTOM.md)
+- [Signaler un problème](https://github.com/ForceMind/MyAPI/issues) : version/revision, déploiement et reproduction expurgée
 
-> [!WARNING]
-> - Tous les nœuds doivent utiliser la même base de données principale et la même valeur `SESSION_SECRET` ; sinon les Access Tokens, sessions Refresh et flux d’authentification temporaires ne peuvent pas être vérifiés de façon cohérente.
-> - Les nœuds connectés au même Redis doivent aussi utiliser le même `CRYPTO_SECRET`, faute de quoi les empreintes de clé de cache diffèrent et les entrées partagées ne peuvent pas être réutilisées de façon cohérente.
+Contributeurs : [plan et comptes rendus de développement](docs/MYAPI_MASTER_PLAN.md). Certains guides détaillés sont en chinois.
 
-La base de données fait autorité pour les Sessions de connexion et pour les limites actives/d’émission par utilisateur. Les entrées Session de Redis sont des caches de courte durée dont le TTL suit `SYNC_FREQUENCY` (60 secondes par défaut), sans jamais dépasser la durée de vie restante de la Session.
+## Licence et crédits
 
-| Topologie Redis | Propagation des Sessions | Limitation de débit |
-| --- | --- | --- |
-| Redis partagé | Les révocations et publications de version se propagent normalement immédiatement | Les quotas Redis sont partagés entre les nœuds |
-| Redis indépendant par nœud | Les nœuds se resynchronisent depuis la base dans le délai effectif de `SYNC_FREQUENCY` ; un nouveau Token issu d’une rotation peut recevoir temporairement une réponse 401 sur un nœud dont le cache est obsolète | Chaque nœud possède son propre quota ; la capacité agrégée peut donc atteindre environ la limite configurée multipliée par le nombre de nœuds |
-| Sans Redis | Chaque validation de Session consulte directement la base de données | Les limites en mémoire sont indépendantes sur chaque nœud |
+My API est une distribution modifiée de travaux open source amont, avec des modifications de distribution par ForceMind. Licence [GNU AGPLv3](LICENSE) ; [NOTICE](NOTICE) précise les auteurs amont et les conditions additionnelles de l’article 7, notamment le crédit frontend visible et le lien vers le projet original dans les interfaces modifiées. Préservez les mentions et identifiez les modifications ; le changement de marque n’annule pas ces obligations. L’usage réseau d’une version modifiée peut aussi imposer la fourniture du code source correspondant.
 
-Réduire `SYNC_FREQUENCY` raccourcit la fenêtre d’obsolescence avec des Redis indépendants, mais ajoute une lecture de Session par clé primaire, par SID actif, par nœud et par TTL. Ces garanties donnent une obsolescence bornée à l’authentification Session ; les limites et les autres caches du plan de contrôle adossés à Redis restent dépendants de la topologie.
-
-Consultez [Authentification utilisateur et sessions de connexion](./docs/authentication.md) pour les contrats de token, de vérification Origin et de PAT.
-
-### 🔄 Nouvelle tentative de canal et cache
-
-**Configuration de la nouvelle tentative:** `Paramètres → Paramètres de fonctionnement → Paramètres généraux → Nombre de tentatives en cas d'échec`
-
-**Configuration du cache:**
-- `REDIS_CONN_STRING`: Cache Redis (recommandé)
-- `MEMORY_CACHE_ENABLED`: Cache mémoire
-
----
-
-## 🔗 Projets connexes
-
-### Projets en amont
-
-| Projet | Description |
-|------|------|
-| [Midjourney-Proxy](https://github.com/novicezk/midjourney-proxy) | Prise en charge de l'interface Midjourney |
-
-### Outils d'accompagnement
-
-Le panneau d'administration MyAPI permet de consulter les quotas de clés et les
-journaux d'audit. La version par défaut ne fait pas la promotion d'outils tiers.
-
----
-
-## 💬 Aide et support
-
-### 📖 Ressources de documentation
-
-| Ressource | Lien |
-|------|------|
-| 📘 FAQ | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
-| 💬 Interaction avec la communauté | [Canaux de communication](https://github.com/ForceMind/MyAPI/discussions) |
-| 🐛 Commentaires sur les problèmes | [Commentaires sur les problèmes](https://github.com/ForceMind/MyAPI/issues) |
-| 📚 Documentation complète | [Documentation officielle](https://github.com/ForceMind/MyAPI/tree/main/docs) |
-
-### 🤝 Guide de contribution
-
-Bienvenue à toutes les formes de contribution!
-
-- 🐛 Signaler des bogues
-- 💡 Proposer de nouvelles fonctionnalités
-- 📝 Améliorer la documentation
-- 🔧 Soumettre du code
-
----
-
-## 📜 Licence
-
-Ce projet est sous licence [GNU Affero General Public License v3.0 (AGPLv3)](./LICENSE).
-
-MyAPI est une distribution indépendante, avec des adaptateurs de compatibilité pour les données et contrats d’API existants.
-
-Les obligations d'attribution et de l'article 7 de l'AGPLv3 sont documentées
-dans LICENSE et NOTICE; consultez-les avant de redistribuer une version modifiée.
-Si votre organisation ne peut pas accepter l'AGPLv3, demandez conseil à votre
-équipe juridique avant toute utilisation.
-
-
----
-
-<div align="center">
-
-### 💖 Merci d'utiliser MyAPI
-
-Si ce projet vous est utile, bienvenue à nous donner une ⭐️ Étoile！
-
-**[Documentation officielle](https://github.com/ForceMind/MyAPI/tree/main/docs)** • **[Commentaires sur les problèmes](https://github.com/ForceMind/MyAPI/issues)** • **[Dernière version](https://github.com/ForceMind/MyAPI/releases)**
-
-<sub>Construit avec ❤️ par ForceMind</sub>
-
-</div>
+Les [licences tierces](THIRD-PARTY-LICENSES.md) recensent les dépendances. Conservez les mentions applicables avec images, binaires, bundles frontend et packages desktop, dont celles d’Electron/Chromium le cas échéant. Consultez les conditions complètes avant utilisation ou redistribution.

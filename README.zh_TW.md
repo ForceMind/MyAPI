@@ -1,464 +1,137 @@
-<div align="center">
+# My API
 
-![MyAPI](/web/public/myapi-logo-v1.png)
+將自己的上游帳號、模型與應用程式，接入可自行部署的 AI API 閘道。
 
-# MyAPI
+[English](README.md) · [简体中文](README.zh_CN.md) · [繁體中文](README.zh_TW.md) · [Français](README.fr.md) · [日本語](README.ja.md)
 
-🍥 **新一代大模型網關與AI資產管理系統**
+My API 集中管理渠道、下游 API Key、權限與用量，優先服務個人自用，也可受控地分享給少量使用者。新安裝預設關閉商業模組，不要求先儲值內部錢包；使用者、Key、權限與用量限制仍然保留。
 
-<p align="center">
-  繁體中文 |
-  <a href="./README.zh_CN.md">简体中文</a> |
-  <a href="./README.md">English</a> |
-  <a href="./README.fr.md">Français</a> |
-  <a href="./README.ja.md">日本語</a>
-</p>
+## 功能與邊界
 
-<p align="center">
-  <a href="https://raw.githubusercontent.com/ForceMind/MyAPI/main/LICENSE">
-    <img src="https://img.shields.io/github/license/ForceMind/MyAPI?color=brightgreen" alt="license">
-  </a><!--
-  --><a href="https://github.com/ForceMind/MyAPI/releases/latest">
-    <img src="https://img.shields.io/github/v/release/ForceMind/MyAPI?color=brightgreen&include_prereleases" alt="release">
-  </a>
-</p>
+- 接入 OpenAI 相容 API、Responses、Claude Messages、Gemini、Codex 等既有適配器，明確設定開放模型。支援範圍取決於適配器與上游帳號。
+- 為每個應用程式或使用者分配獨立下游 Key，限制模型、存取方案與適用用量；上游憑據保留在伺服器。
+- 查看請求、錯誤、用量與受支援供應商的額度觀測，區分缺失、失敗及視窗重設。
+- 選擇模型、端點與串流模式測試渠道，在適用時重用最近成功選項。
+- SQLite、MySQL、PostgreSQL 三選一。介面支援英、簡中、繁中、法、日、俄、越七種語言。
 
-<p align="center">
-  <a href="#-快速開始">快速開始</a> •
-  <a href="#-主要特性">主要特性</a> •
-  <a href="#-部署">部署</a> •
-  <a href="#-文件">文件</a> •
-  <a href="#-幫助支援">幫助</a>
-</p>
+嚴格 Token/USD 預算目前只限已取得資格的官方原生 Responses 純文字路徑；USD 另需適用的凍結價格與服務級別。模型別名、轉換、工具或多模態不會自動取得資格。Codex 百分比是帳戶/視窗剩餘量的安全門檻，不是逐 Key 的共享訂閱消耗帳本。訂閱 API 等價成本僅供參考，不等於實際帳單；未知或估算用量也不等於實際零用量。
 
-</div>
+## 版本狀態
 
-## MyAPI 自建發行版
+截至 2026-10-04：
 
-<img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
+- **`v0.2.0-beta.3` 已預發布**：Linux amd64/arm64 Full 與舊版 LAN 映像；[發布記錄](docs/RELEASE_BETA_3.md)提供來源、digest、簽章與驗證範圍。
+- **beta.4 僅已驗證開發原始碼，未發布**：限定的模型發現、映射、預覽、分發和日誌流程不在 beta.3 映像內。
+- **beta.5 僅本機開發候選**：帳戶排程、暫時冷卻、有界故障切換與嘗試說明尚未發布，該候選的遠端三資料庫與 Chromium 驗證仍待完成。
 
-本倉庫提供 **MyAPI** 自建 CLI 與完整原始碼發行包，採用 rc.25 技術相容基線（API/協定契約，不是 UI 模板）。
-發行層統一使用 my-api 機器識別；API、SSE、資料庫與上游協議契約保持相容。
-所需的授權條款、NOTICE 與第三方歸屬文字保存在倉庫法律文件中。
+預發布不表示已適合正式營運。真實 OAuth、額度重設/429、帳單核對與目標 HTTPS 驗收仍有限或未完成。容器健康不等於上游驗收；取得開發原始碼也不會改變預設 beta.3 映像。統一 Lite/Desktop 安裝更新器尚未交付，桌面建置成功不等於實機驗收。
+
+## 安裝已發布版本
+
+推薦 **Linux Full、固定版本 Docker 映像、SQLite、回環監聽加 HTTPS 反向代理**。
+
+需要 Linux amd64/arm64、Git、Bash、Docker daemon，以及支援 `up --wait --wait-timeout` 的 Compose v2；另需倉庫讀取權限、GitHub/GHCR 連線、持久儲存與自己的 HTTPS Origin。反代指向 `http://127.0.0.1:3000`。下列密鑰生成使用 OpenSSL。映像安裝不需要 Go、Bun、Node.js、Redis 或獨立資料庫。預設 2 CPU / 2 GiB 是容器資源上限，不是測得的最低硬體需求。
+
+### 1. 取得部署檔案
+
+僅用於新目錄的全新安裝；既有實例不得覆寫 `.env`：
 
 ```bash
-npx @forcemind/myapi init ./myapi-source
-npx @forcemind/myapi configure \
-  --project-dir ./myapi-source \
-  --public-url https://api.your-domain.com
-npx @forcemind/myapi doctor --project-dir ./myapi-source
-```
-
-> **目前發布狀態：** NPM 套件尚未正式發布。在維護者發布前，請於源碼檢出目錄將上述
-> 指令替換為 `node cli/myapi.mjs ...`，或使用本地打包的 tarball；私有倉庫無法由
-> `npx` 自動取得。
-
-部署、既有資料接管、驗證與發布步驟請參閱
-[MyAPI 發行說明](./docs/MYAPI_DISTRIBUTION.md)。
-
-## 📝 項目說明
-
-> [!IMPORTANT]
-> - 本專案僅面向合法授權的 AI API 閘道、組織內部鑑權、多模型管理、用量統計、成本核算和私有化部署場景。
-> - 使用者必須合法取得上游 API Key、帳號、模型服務或介面權限，並遵守上游服務條款及適用法律法規。
-> - 使用者應確保其使用方式符合上游服務條款及適用法律法規。
-> - 面向公眾提供生成式人工智慧服務時，使用者應遵守[《生成式人工智慧服務管理暫行辦法》](http://www.cac.gov.cn/2023-07/13/c_1690898327029107.htm)等監管要求，自行完成所在司法轄區要求的備案、許可、內容安全、實名、日誌留存、稅務和上游授權等合規義務。
-
----
-
-## 🙏 致謝
-
-MyAPI 僅在介面或授權條款要求時保留第三方引用。完整通知請查看 LICENSE、NOTICE
-與依賴元資料；預設發行版不啟用第三方客戶端或贊助推廣。
-
----
-
-## 🚀 快速開始
-
-### 使用 Docker Compose（推薦）
-
-```bash
-# 複製項目
-git clone https://github.com/ForceMind/MyAPI.git my-api
+git clone --branch v0.2.0-beta.3 --single-branch https://github.com/ForceMind/MyAPI.git my-api
 cd my-api
-
-# 編輯 docker-compose.yml 配置
-nano docker-compose.yml
-
-# 啟動服務
-docker-compose up -d
+umask 077
+cp deploy/.env.example deploy/.env
+chmod 600 deploy/.env
 ```
 
-<details>
-<summary><strong>使用 Docker 命令</strong></summary>
+### 2. 設定
+
+編輯 `deploy/.env`，將範例改為自己的準確 HTTPS Origin，不含 API 路徑。安裝器會拒絕 `example.com` 佔位值：
+
+```dotenv
+MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.3
+MYAPI_BUILD_LOCAL=false
+MYAPI_EDITION=full
+MYAPI_BIND_ADDRESS=127.0.0.1
+MYAPI_ALLOW_LAN=false
+MYAPI_SESSION_COOKIE_SECURE=true
+MYAPI_PUBLIC_URL=https://api.example.com
+FULL_CONTENT_LOG_ENABLED=false
+```
+
+生成新實例的 `SESSION_SECRET`，用私有編輯器填入結果；至少 48 字元：
 
 ```bash
-# Build the local image (for local development only)
-docker build -t local/my-api:custom-rc25 .
-
-# 使用 SQLite（預設）
-docker run --name my-api -d --restart always \
-  -p 3000:3000 \
-  -e TZ=Asia/Shanghai \
-  -v ./data:/data \
-  local/my-api:custom-rc25
-
-# 使用 MySQL
-docker run --name my-api -d --restart always \
-  -p 3000:3000 \
-  -e SQL_DSN="root:123456@tcp(localhost:3306)/myapi" \
-  -e TZ=Asia/Shanghai \
-  -v ./data:/data \
-  local/my-api:custom-rc25
+openssl rand -hex 32
 ```
 
-> **💡 提示：** `-v ./data:/data` 會將數據保存在當前目錄的 `data` 資料夾中，你也可以改為絕對路徑如 `-v /your/custom/path:/data`
-
-</details>
-
----
-
-🎉 部署完成後，訪問 `http://localhost:3000` 即可使用！
-
-> [!WARNING]
-> 將本專案作為面向公眾的生成式 AI 服務或 API 轉售服務運營時，使用者應先完成備案、內容安全、實名、日誌留存、稅務、支付和上游授權等合規義務。
-
-📖 更多部署方式請參考 [部署指南](./DEPLOYMENT_CUSTOM.md)
-
----
-
-## 📚 文件
-
-<div align="center">
-
-### 📖 [官方文件](https://github.com/ForceMind/MyAPI/tree/main/docs) | [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://github.com/ForceMind/MyAPI/discussions)
-
-</div>
-
-**快速導航：**
-
-| 分類 | 連結 |
-|------|------|
-| 🚀 部署指南 | [安裝文件](./DEPLOYMENT_CUSTOM.md) |
-| ⚙️ 環境配置 | [環境變數](./DEPLOYMENT_CUSTOM.md) |
-| 📡 接口文件 | [API 文件](./docs/openapi/relay.json) |
-| 📊 Claude 組織用量 | [官方 API 邊界](./docs/CLAUDE_USAGE_REPORT.md) |
-| 🧭 產品與工程計畫 | [MyAPI 總體計畫](./docs/MYAPI_MASTER_PLAN.md) |
-| ✅ 完成度證據 | [完成度稽核](./docs/COMPLETION_AUDIT.md) |
-| 🖥️ LAN Lite 與桌面版 | [LAN Lite 指南](./docs/LAN_LITE.md) |
-| 🍎 macOS 開發遷移 | [macOS 開發指南](./docs/DEVELOPMENT_ON_MACOS.md) |
-| 🧭 新裝置 Codex 交接 | [可複製的交接提示詞](./docs/CODEX_HANDOFF_PROMPT.md) |
-| ❓ 常見問題 | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
-| 💬 社群交流 | [交流管道](https://github.com/ForceMind/MyAPI/discussions) |
-
----
-
-## ✨ 主要特性
-
-> 詳細特性請參考 [特性說明](https://github.com/ForceMind/MyAPI/tree/main/docs)
-
-### 🎨 核心功能
-
-| 特性 | 說明 |
-|------|------|
-| 🎨 全新 UI | 現代化的用戶界面設計 |
-| 🌍 多語言 | 支援簡體中文、繁體中文、英文、法語、日語 |
-| 🔄 數據兼容 | 支援既有資料遷移與相容 |
-| 📈 數據看板 | 視覺化控制檯與統計分析 |
-| 🔒 權限管理 | 令牌分組、模型限制、用戶管理 |
-
-### 💰 授權用量與成本管理
-
-- ✅ 合法授權場景下的內部儲值與額度分配（易支付、Stripe）
-- ✅ 組織內按次、按量或快取命中成本核算
-- ✅ 支援 OpenAI、Azure、DeepSeek、Claude、Qwen 等模型的快取計費統計
-- ✅ 面向內部管理或企業客戶的靈活計費策略配置
-
-### 🔐 授權與安全
-
-- 😈 Discord 授權登錄
-- 🤖 LinuxDO 授權登錄
-- 📱 Telegram 授權登錄
-- 🔑 OIDC 統一認證
-
-### 🚀 高級功能
-
-**API 格式支援：**
-- ⚡ [OpenAI Responses](./docs/openapi/relay.json)
-- ⚡ [OpenAI Realtime API](./docs/openapi/relay.json)（含 Azure）
-- ⚡ [Claude Messages](./docs/openapi/relay.json)
-- ⚡ [Google Gemini](./docs/openapi/relay.json)
-- 🔄 [Rerank 模型](./docs/openapi/relay.json)（Cohere、Jina）
-
-**智慧路由：**
-- ⚖️ 管道加權隨機
-- 🔄 失敗自動重試
-- 🚦 用戶級別模型限流
-
-**格式轉換：**
-- 🔄 **OpenAI Compatible ⇄ Claude Messages**
-- 🔄 **OpenAI Compatible → Google Gemini**
-- 🔄 **Google Gemini → OpenAI Compatible**
-- 🔄 **OpenAI Compatible ⇄ OpenAI Responses** - 透過 Responses 相容轉接器支援
-- 🔄 **思考轉內容功能**
-
-**Reasoning Effort 支援：**
-
-<details>
-<summary>查看詳細配置</summary>
-
-**OpenAI 系列模型：**
-- `o3-mini-high` - High reasoning effort
-- `o3-mini-medium` - Medium reasoning effort
-- `o3-mini-low` - Low reasoning effort
-- `gpt-5-high` - High reasoning effort
-- `gpt-5-medium` - Medium reasoning effort
-- `gpt-5-low` - Low reasoning effort
-
-**Claude 思考模型：**
-- `claude-3-7-sonnet-20250219-thinking` - 啟用思考模式
-
-**Google Gemini 系列模型：**
-- `gemini-2.5-flash-thinking` - 啟用思考模式
-- `gemini-2.5-flash-nothinking` - 禁用思考模式
-- `gemini-2.5-pro-thinking` - 啟用思考模式
-- `gemini-2.5-pro-thinking-128` - 啟用思考模式，並設置思考預算為128tokens
-- 也可以直接在 Gemini 模型名稱後追加 `-low` / `-medium` / `-high` 來控制思考力道（無需再設置思考預算後綴）
-
-</details>
-
----
-
-## 🤖 模型支援
-
-> 詳情請參考 [接口文件 - 閘道接口](./docs/openapi/relay.json)
-
-| 模型類型 | 說明 | 文件 |
-|---------|------|------|
-| 🤖 OpenAI-Compatible | OpenAI 兼容模型 | [文件](./docs/openapi/relay.json) |
-| 🤖 OpenAI Responses | OpenAI Responses 格式 | [文件](./docs/openapi/relay.json) |
-| 🎨 Midjourney-Proxy | [Midjourney-Proxy(Plus)](https://github.com/novicezk/midjourney-proxy) | [文件](./docs/openapi/relay.json) |
-| 🎵 Suno-API | [Suno API](https://github.com/Suno-API/Suno-API) | [文件](./docs/openapi/relay.json) |
-| 🔄 Rerank | Cohere、Jina | [文件](./docs/openapi/relay.json) |
-| 💬 Claude | Messages 格式 | [文件](./docs/openapi/relay.json) |
-| 🌐 Gemini | Google Gemini 格式 | [文件](./docs/openapi/relay.json) |
-| 🔧 Dify | ChatFlow 模式 | - |
-| 🎯 自訂上游 | 支援配置合法授權的上游介面位址 | - |
-
-### 📡 支援的接口
-
-<details>
-<summary>查看完整接口列表</summary>
-
-- [聊天接口 (Chat Completions)](./docs/openapi/relay.json)
-- [響應接口 (Responses)](./docs/openapi/relay.json)
-- [圖像接口 (Image)](./docs/openapi/relay.json)
-- [音訊接口 (Audio)](./docs/openapi/relay.json)
-- [影片接口 (Video)](./docs/openapi/relay.json)
-- [嵌入接口 (Embeddings)](./docs/openapi/relay.json)
-- [重排序接口 (Rerank)](./docs/openapi/relay.json)
-- [即時對話 (Realtime)](./docs/openapi/relay.json)
-- [Claude 聊天](./docs/openapi/relay.json)
-- [Google Gemini 聊天](./docs/openapi/relay.json)
-
-</details>
-
----
-
-## 🚢 部署
-
-> [!TIP]
-> **預設 Docker 映像：** `ghcr.io/forcemind/myapi:<version>`（由 GitHub Actions 產生，升級時將 `MYAPI_IMAGE` 改為已發布的版本標籤）。如需本地建置，請設定 `MYAPI_BUILD_LOCAL=true`。
-
-GHCR 發行僅由維護者對既有版本 tag 手動發起，並要求 `PUBLISH`、專用環境和發布 gate；推送 tag 不會自動發布。預發布使用不可變 tag，不會更新穩定 `latest`；部署時只使用已發布的版本 tag 或 digest。
-
-### 📋 部署要求
-
-| 組件 | 要求 |
-|------|------|
-| **本地資料庫** | SQLite（Docker 需掛載 `/data` 目錄）|
-| **遠端資料庫** | MySQL ≥ 5.7.8 或 PostgreSQL ≥ 9.6 |
-| **容器引擎** | Docker / Docker Compose |
-| **系統架構** | 僅支援 64 位元系統（amd64 / arm64），不支援 32 位元系統 |
-
-### ⚙️ 環境變數配置
-
-<details>
-<summary>常用環境變數配置</summary>
-
-| 變數名 | 說明                                                           | 預設值 |
-|--------|--------------------------------------------------------------|--------|
-| `SESSION_SECRET` | 鑑權簽章密鑰；所有節點必須保持一致                                           | - |
-| `SESSION_COOKIE_SECURE` | `false`/未設定時關閉 refresh/logout OriginGuard 以相容本機 HTTP 開發代理；`true` 時啟用 Secure Cookie 和嚴格 Origin 驗證 | `false` |
-| `SESSION_COOKIE_TRUSTED_URL` | Secure 模式必填：允許呼叫 refresh/logout 的精確 HTTPS Origin，多個值以英文逗號分隔；不是 relay CORS 白名單 | - |
-| `TRUSTED_PROXIES` | 未設定/留空時信任本機回送、RFC1918 和 IPv6 ULA 並輸出啟動警告；`none` 不信任任何代理；明確指定的代理 IP/CIDR 清單會完整取代預設值 | `127.0.0.0/8, ::1, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, fc00::/7` |
-| `USER_SESSION_ACTIVE_LIMIT` | 單一用戶最大活躍登入 Session 數 | `50` |
-| `USER_SESSION_ISSUANCE_LIMIT` | 單一用戶在簽發視窗內可建立的 Session 總數，包含已撤銷 Session | `100` |
-| `USER_SESSION_ISSUANCE_WINDOW_SECONDS` | Session 簽發計數視窗（秒）；高於 revoked 保留期時自動限制 | `86400` |
-| `USER_SESSION_REVOKED_RETENTION_DAYS` | revoked Session 用於稽核與簽發計數的保留天數 | `7` |
-| `USER_SESSION_HOURLY_ALERT_THRESHOLD` | 全域每小時 Session 簽發告警門檻；只告警，不拒絕登入 | `5000` |
-| `CRYPTO_SECRET` | 快取鍵 HMAC 密鑰；共用 Redis 的節點必須使用相同有效值 | 預設跟隨 `SESSION_SECRET` |
-| `SQL_DSN` | 資料庫連接字符串                                                     | - |
-| `REDIS_CONN_STRING` | Redis 連接字符串                                                  | - |
-| `STREAMING_TIMEOUT` | 流式超時時間（秒）                                                    | `300` |
-| `STREAM_SCANNER_MAX_BUFFER_MB` | 流式掃描器單行最大緩衝（MB），圖像生成等超大 `data:` 片段（如 4K 圖片 base64）需適當調大 | `64` |
-| `MAX_REQUEST_BODY_MB` | 請求體最大大小（MB，**解壓縮後**計；防止超大請求/zip bomb 導致記憶體暴漲），超過將返回 `413` | `32` |
-| `AZURE_DEFAULT_API_VERSION` | Azure API 版本                                                 | `2025-04-01-preview` |
-| `ERROR_LOG_ENABLED` | 錯誤日誌開關                                                       | `false` |
-| `PYROSCOPE_URL` | Pyroscope 服務位址                                            | - |
-| `PYROSCOPE_APP_NAME` | Pyroscope 應用名                                        | `my-api` |
-| `PYROSCOPE_BASIC_AUTH_USER` | Pyroscope Basic Auth 用戶名                        | - |
-| `PYROSCOPE_BASIC_AUTH_PASSWORD` | Pyroscope Basic Auth 密碼                  | - |
-| `PYROSCOPE_MUTEX_RATE` | Pyroscope mutex 採樣率                               | `5` |
-| `PYROSCOPE_BLOCK_RATE` | Pyroscope block 採樣率                               | `5` |
-| `HOSTNAME` | Pyroscope 標籤裡的主機名                                          | `my-api` |
-
-📖 **完整配置：** [環境變數文件](./DEPLOYMENT_CUSTOM.md)
-
-</details>
-
-### 🔧 部署方式
-
-<details>
-<summary><strong>方式 1：Docker Compose（推薦）</strong></summary>
+若需多帳戶額度取樣，再生成獨立密鑰，將 `CHANNEL_QUOTA_IDENTITY_KEYS` 填為 `active:v1:` 加上結果：
 
 ```bash
-# 複製項目
-git clone https://github.com/ForceMind/MyAPI.git my-api
-cd my-api
-
-# 編輯配置
-nano docker-compose.yml
-
-# 啟動服務
-docker-compose up -d
+openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n'
 ```
 
-</details>
+空密鑰環會停用依賴身分的取樣。共用資料庫的實例須共用完整密鑰環，並與資料庫安全備份。升級時保留原秘密，不重新生成、不提交 Git、不貼入回報。`.env` 只接受字面 `KEY=VALUE`，不執行 shell 替換。預設資料與日誌在 `deploy/data/`、`deploy/logs/`，掛載至 `/data`、`/app/logs`。
 
-<details>
-<summary><strong>方式 2：Docker 命令</strong></summary>
+### 3. 啟動
 
-**使用 SQLite：**
 ```bash
-docker run --name my-api -d --restart always \
-  -p 3000:3000 \
-  -e TZ=Asia/Shanghai \
-  -v ./data:/data \
-  local/my-api:custom-rc25
+bash deploy/install.sh
 ```
 
-**使用 MySQL：**
+腳本校驗設定、拉取映像、啟動並最多等待 120 秒的健康檢查；不安裝 Docker、申請憑證、設定代理或防火牆。開啟設定的 HTTPS 地址，完成初始化及管理員帳號建立，確認登入與「系統資訊」的版本/revision。Full 使用 Secure Cookie，不建議從 HTTP localhost 登入。
+
+僅本機或私網使用，請參閱[舊版 LAN 指南](docs/LAN_LITE.md)，選用 `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.3`；LAN 分享須明確開啟。
+
+## 第一次呼叫
+
+1. 在「渠道」(`/channels`) 選擇正確供應商、地址與合法憑據。容器 Codex 使用現有網頁登入流程，無法讀取宿主登入檔案。
+2. 取得模型或手填準確 ID，確認啟用模型、分組/存取方案與映射。發現不等於授權或成功；增強 beta.4 流程需要對應開發原始碼。
+3. 明確選模型、端點及串流模式做一次小型測試；這會聯絡上游，可能消耗額度或產生費用，請用非敏感輸入。
+4. 為應用建立最小權限下游 Key，不分享上游憑據或管理員登入令牌。
+5. OpenAI 相容客戶端使用 HTTPS Origin 加 `/v1`、下游 Key 和已啟用的公共模型名；其他協定使用其文件端點。先送簡短請求。
+6. 到「用量日誌」(`/usage-logs/common`) 查看狀態、模型、用量證據與費用；開發版的管理員路由詳情可核對目標。預覽不保證隨機結果或某個 Key 准入。
+
+失敗先檢查端點、模型、憑據、權限及上游額度，再考慮重試。結果不明時保留待核對狀態。
+
+## 維護與恢復
+
+[部署模板](deploy/.env.example)與[執行環境變數](.env.example)是不同層；任意加入 `.env` 的變數不會自動傳入容器，外部資料庫/Redis 設定須核對 [Compose](deploy/docker-compose.yml)。SQLite 為預設；MySQL ≥ 5.7.8、PostgreSQL ≥ 9.6 是相容基線，應選適當維護版本。Redis 可選，多節點的會話與限流需另行設定。
+
+原始碼 CLI 需要 Node.js ≥ 20。本指南使用已取得倉庫中的 CLI，不依賴從 NPM 安裝套件：
+
 ```bash
-docker run --name my-api -d --restart always \
-  -p 3000:3000 \
-  -e SQL_DSN="root:123456@tcp(localhost:3306)/myapi" \
-  -e TZ=Asia/Shanghai \
-  -v ./data:/data \
-  local/my-api:custom-rc25
+node cli/myapi.mjs help
+node cli/myapi.mjs doctor --project-dir .
+node cli/myapi.mjs status --project-dir .
+node cli/myapi.mjs logs --project-dir .
 ```
 
-> **💡 路徑說明：**
-> - `./data:/data` - 相對路徑，數據保存在當前目錄的 data 資料夾
-> - 也可使用絕對路徑，如：`/your/custom/path:/data`
+`doctor` 不等於真實上游驗收，日誌可能含敏感資訊；`install`、`switch`、`rollback` 尚非可用命令。
 
-</details>
+升級前記錄版本/digest、revision、路徑與設定，備份一致的資料庫（包含適用的 SQLite WAL）、秘密、完整密鑰環和必要日誌。在隔離副本驗證恢復，再演練已發布的目標版本。例如舊實例升級至 beta.3 的只讀預檢：
 
-<details>
-<summary><strong>方式 3：寶塔面板</strong></summary>
+```bash
+node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.3 --dry-run --json
+```
 
-1. 安裝寶塔面板（≥ 9.2.0 版本）
-2. 在應用商店搜尋 **MyAPI**
-3. 一鍵安裝
+依[升級與恢復指南](docs/UPGRADE_REHEARSAL.md)完成實際操作。CLI 的 `.env` 備份不是資料庫備份；嘗試目標啟動後不會自動重啟舊映像，資料庫可能已遷移。使用不相容舊程式前須恢復已驗證的升級前備份。勿刪資料卷、清空待核對記錄，或讓舊程式直接開啟新資料庫。
 
-📖 [圖文教學](./docs/installation/BT.md)
+## 安全與文件
 
-</details>
+保留回環監聽，分享前檢查 HTTPS、可信代理、註冊、角色及 Key 權限。只使用合法授權帳號/API，遵守上游條款與適用法律；對外服務需另行處理合規義務。部署模板預設開啟完整內容日誌，本頁範例已關閉；若啟用，先設定權限、保留期限和備份，脫敏不保證內容沒有隱私。額度取樣會在背景聯絡上游。秘密、OAuth 檔案、資料庫及私有日誌不可放進 Git 或問題回報。
 
-### ⚠️ 多機部署注意事項
+- [發布與驗證](docs/RELEASE_BETA_3.md) · [部署](DEPLOYMENT_CUSTOM.md) · [LAN](docs/LAN_LITE.md)
+- [恢復](docs/UPGRADE_REHEARSAL.md) · [安裝驗收](docs/R1_INSTALLATION_CHECK.md)
+- [Relay API](docs/openapi/relay.json) · [管理 API](docs/openapi/api.json)
+- [額度分析](docs/QUOTA_ANALYTICS.md) · [Claude 組織用量](docs/CLAUDE_USAGE_REPORT.md)
+- [認證](docs/authentication.md) · [內容日誌](docs/FULL_CONTENT_LOGGING_CUSTOM.md)
+- [問題回報](https://github.com/ForceMind/MyAPI/issues)：附版本/revision、部署方式與脫敏重現步驟
 
-> [!WARNING]
-> - 所有節點必須使用同一個主資料庫，並設定相同的 `SESSION_SECRET`；否則 Access Token、Refresh 工作階段和臨時鑑權流程無法一致驗證。
-> - 連線至同一個 Redis 的節點還必須設定相同的 `CRYPTO_SECRET`，否則節點產生的快取鍵摘要不一致，無法正確共用快取。
+開發者入口：[開發計畫與實作記錄](docs/MYAPI_MASTER_PLAN.md)。
 
-登入 Session 和單一使用者的活躍數／簽發數限制均以資料庫為權威。Redis 中的 Session 僅為短期快取，TTL 跟隨 `SYNC_FREQUENCY`（預設 60 秒），且不會超過 Session 的剩餘有效期。
+## 授權與致謝
 
-| Redis 拓撲 | Session 狀態傳播 | 限流語義 |
-| --- | --- | --- |
-| 所有節點共用 Redis | 撤銷和版本發布通常即時傳播 | Redis 限流額度在節點間共用 |
-| 每個節點使用獨立 Redis | 最遲在有效 `SYNC_FREQUENCY` 內回源資料庫並收斂；版本輪換後，新 Token 在持有舊快取的節點上可能短暫傳回 401 | 每個節點獨立計數，叢集總額度最壞約為單一節點門檻乘以節點數 |
-| 不使用 Redis | 每次 Session 驗證都直接讀取資料庫 | 各節點使用獨立的記憶體限流額度 |
+My API 是基於上游開源工作的修改發行版，ForceMind 負責相應發行修改。採用 [GNU AGPLv3](LICENSE)；[NOTICE](NOTICE) 保留上游歸屬及第 7 節附加條件，包括修改版介面中必須可見的前端署名與原專案連結。保留通知並標明修改；品牌變更不免除義務，修改版網路服務亦可能涉及對應原始碼提供要求。
 
-縮短 `SYNC_FREQUENCY` 可減少獨立 Redis 的陳舊視窗，但每個活躍 SID 在每個節點上會依該 TTL 增加一次資料庫主鍵查詢。上述保證只讓 Session 鑑權在不同拓撲下維持有界陳舊；限流和其他 Redis 控制面快取仍受拓撲影響。
-
-Token、Origin 驗證和 PAT 契約請參閱[使用者鑑權與登入工作階段](./docs/authentication.md)。
-
-### 🔄 管道重試與快取
-
-**重試配置：** `設置 → 運營設置 → 通用設置 → 失敗重試次數`
-
-**快取配置：**
-- `REDIS_CONN_STRING`：Redis 快取（推薦）
-- `MEMORY_CACHE_ENABLED`：記憶體快取
-
----
-
-## 🔗 相關項目
-
-### 上游項目
-
-| 項目 | 說明 |
-|------|------|
-| [Midjourney-Proxy](https://github.com/novicezk/midjourney-proxy) | Midjourney 接口支援 |
-
-### 配套工具
-
-可直接使用 MyAPI 管理後台查詢 Key 額度與稽核日誌；預設發行版不推廣第三方工具。
-
----
-
-## 💬 幫助支援
-
-### 📖 文件資源
-
-| 資源 | 連結 |
-|------|------|
-| 📘 常見問題 | [FAQ](https://github.com/ForceMind/MyAPI/discussions) |
-| 💬 社群交流 | [交流管道](https://github.com/ForceMind/MyAPI/discussions) |
-| 🐛 回饋問題 | [問題回饋](https://github.com/ForceMind/MyAPI/issues) |
-| 📚 完整文件 | [官方文件](https://github.com/ForceMind/MyAPI/tree/main/docs) |
-
-### 🤝 貢獻指南
-
-歡迎各種形式的貢獻！
-
-- 🐛 報告 Bug
-- 💡 提出新功能
-- 📝 改進文件
-- 🔧 提交程式碼
-
----
-
-## 📜 許可證
-
-本項目採用 [GNU Affero 通用公共許可證 v3.0 (AGPLv3)](./LICENSE) 授權。
-
-MyAPI 是獨立的發行版，並透過相容適配器支援既有資料與 API 契約。
-
-AGPLv3 第 7 節及歸屬義務記錄在 LICENSE 與 NOTICE 中；重新發布修改版本前請先閱讀。
-如果您的組織無法接受 AGPLv3 義務，請在使用前諮詢法律顧問。
-
-
----
-
-<div align="center">
-
-### 💖 感謝使用 MyAPI
-
-如果這個項目對你有幫助，歡迎給我們一個 ⭐️ Star！
-
-**[官方文件](https://github.com/ForceMind/MyAPI/tree/main/docs)** • **[問題回饋](https://github.com/ForceMind/MyAPI/issues)** • **[最新發布](https://github.com/ForceMind/MyAPI/releases)**
-
-<sub>Built with ❤️ by ForceMind</sub>
-
-</div>
+[第三方授權](THIRD-PARTY-LICENSES.md)列出依賴歸屬。分發映像、二進位、前端及桌面包時保留適用通知，包括相關 Electron/Chromium 通知；使用或再分發前閱讀完整條款。
