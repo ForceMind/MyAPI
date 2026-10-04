@@ -35,7 +35,7 @@
 
 ## MyAPI 自建发行版
 
-> **R1 开发快照：** R1 尚未发布。安装脚本默认镜像仍是 `v0.2.0-beta.1`，不会自动安装本分支源码。请先看[安装入口与验收边界](./docs/R1_INSTALLATION_CHECK.md)；源码安装脚本需要完整检出目录和配置，不是单独下载即可运行的一键安装器。
+> **R1 beta.3 发布候选：** 部署默认版本已统一为 `v0.2.0-beta.3`。发布结果、支持范围及剩余真实验收见[beta.3 发布记录](./docs/RELEASE_BETA_3.md)。部署请使用准确发行 tag，避免检出旧 `main`。
 
 <img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
 

@@ -35,7 +35,7 @@
 
 ## MyAPI self-hosted distribution
 
-> **R1 development snapshot:** R1 is not a published release. The default installer image is still `v0.2.0-beta.1`, not this branch's source. See [installation scope and acceptance status](./docs/R1_INSTALLATION_CHECK.md) before choosing a version; the source installer requires a complete checkout and configuration.
+> **R1 beta.3 release candidate:** Deployment defaults target `v0.2.0-beta.3`. Publication status, supported scope, and remaining live acceptance are recorded in [the beta.3 release record](./docs/RELEASE_BETA_3.md). Use the exact release tag rather than `main` when deploying.
 
 <img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
 

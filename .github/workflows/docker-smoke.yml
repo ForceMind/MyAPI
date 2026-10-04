@@ -61,6 +61,7 @@ jobs:
             printf 'MYAPI_DATA_DIR=%s/data\nMYAPI_LOGS_DIR=%s/logs\n' "$MYAPI_INSTALLER_ROOT" "$MYAPI_INSTALLER_ROOT"
             printf 'MYAPI_CPU_LIMIT=2\nMYAPI_MEMORY_LIMIT=2g\nMYAPI_BUILD_PARALLELISM=2\n'
             printf 'SESSION_SECRET=%s\n' "$(openssl rand -hex 32)"
+            printf 'CHANNEL_QUOTA_IDENTITY_KEYS=active:installer:%s\n' "$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')"
           } > deploy/.env
 
       - name: Run the source installer
@@ -76,8 +77,13 @@ jobs:
           [[ "$(docker inspect --format '{{.HostConfig.Memory}}' my-api)" == '2147483648' ]]
           [[ "$(docker inspect --format '{{.HostConfig.NanoCpus}}' my-api)" == '2000000000' ]]
           node --input-type=module <<'JS'
+          import { execFileSync } from 'node:child_process'
+          import { readFileSync } from 'node:fs'
           import { probeFreshSQLite } from './tools/runtime/docker-smoke.mjs'
           try {
+            const expected = readFileSync('deploy/.env', 'utf8').split('\n').find(line => line.startsWith('CHANNEL_QUOTA_IDENTITY_KEYS='))
+            const installed = JSON.parse(execFileSync('docker', ['inspect', '--format', '{{json .Config.Env}}', 'my-api'], { encoding: 'utf8' }))
+            if (!expected || !installed.includes(expected)) throw new Error('INSTALLER_IDENTITY_KEY_NOT_FORWARDED')
             const report = await probeFreshSQLite({ baseUrl: 'http://127.0.0.1:18082', edition: 'lan', sha: process.env.GITHUB_SHA, isolated: true })
             console.log(JSON.stringify(report, null, 2))
             if (!report.passed) process.exitCode = 1
