@@ -35,7 +35,7 @@
 
 ## MyAPI 自建发行版
 
-> **R1 beta.3 发布候选：** 部署默认版本已统一为 `v0.2.0-beta.3`。发布结果、支持范围及剩余真实验收见[beta.3 发布记录](./docs/RELEASE_BETA_3.md)。部署请使用准确发行 tag，避免检出旧 `main`。
+> **R1 beta.3 预发布：** 部署默认版本已统一为 `v0.2.0-beta.3`。发布结果、支持范围及剩余真实验收见[beta.3 发布记录](./docs/RELEASE_BETA_3.md)。部署请使用准确发行 tag，避免检出旧 `main`。
 
 <img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
 

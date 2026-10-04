@@ -35,7 +35,7 @@
 
 ## MyAPI self-hosted distribution
 
-> **R1 beta.3 release candidate:** Deployment defaults target `v0.2.0-beta.3`. Publication status, supported scope, and remaining live acceptance are recorded in [the beta.3 release record](./docs/RELEASE_BETA_3.md). Use the exact release tag rather than `main` when deploying.
+> **R1 beta.3 prerelease:** Deployment defaults target `v0.2.0-beta.3`. Publication status, supported scope, and remaining live acceptance are recorded in [the beta.3 release record](./docs/RELEASE_BETA_3.md). Use the exact release tag rather than `main` when deploying.
 
 <img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
 

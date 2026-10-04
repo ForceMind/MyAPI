@@ -11,23 +11,41 @@
 
 ## 当前进度
 
+候选提交已同步：`2f2717bffe580baf23820480a7d40d54e676199e`，远端回读一致。
+[本批 CI](https://github.com/ForceMind/MyAPI/actions/runs/37165610684)十项和
+[Docker smoke](https://github.com/ForceMind/MyAPI/actions/runs/37165610681)三项全部成功。
+PR 合并测试树 `3311a73425ac6b2e1292aee4a1968babd85a5cf8` 与候选源码树一致；
+LAN 原安装脚本实际验证了密钥传入，Full fresh 与固定旧源码升级/备份恢复通过。
+不可变 tag `v0.2.0-beta.3` 已创建并推送，剥离后的远端 SHA 与候选一致，
+干净源码/tag/版本检查通过。
+
+发布任务已接受：[GitHub 预发布](https://github.com/ForceMind/MyAPI/actions/runs/37166338851)、
+[GHCR Full/LAN](https://github.com/ForceMind/MyAPI/actions/runs/37166352633)。
+两者从准确 tag 运行，`headSha` 均为候选；均已成功，发布与回读完成。
+
+GitHub 预发布任务已成功，Release 回读为 `isPrerelease=true`、`isDraft=false`，
+`targetCommitish` 为候选 SHA。三个校验和文件及 Linux amd64/arm64、macOS、Windows
+四个二进制共七项资产已上传，平台校验和与 GitHub 返回的四项二进制 SHA256 digest
+逐项一致。未在目标机器运行这些二进制。GHCR 四项架构构建及两项多架构清单全部成功，
+stable/latest 提升步骤跳过；匿名回读和独立 Sigstore 验证均通过。
+
 1. 版本和默认镜像统一为 `0.2.0-beta.3`；部署 Compose 补齐
    `CHANNEL_QUOTA_IDENTITY_KEYS` 传入，示例及操作说明同步更新。
-2. 待完成候选提交的部署合同、准确提交 CI 与 Docker smoke。
-   LAN 原安装脚本试验将生成隔离临时身份密钥，并在不输出密钥的条件下核对容器接收值。
-3. 门禁通过后创建并推送不可变 tag，再依次调用 `release.yml` 和
+2. 已完成候选提交的部署合同、准确提交 CI 与 Docker smoke。
+   LAN 原安装脚本使用隔离临时身份密钥，在不输出密钥的条件下核对容器接收值。
+3. 门禁通过后已创建并推送不可变 tag，调用 `release.yml` 和
    `docker-build.yml`，参数 `tag=v0.2.0-beta.3`、`confirm=PUBLISH`。
-4. 回读 Release 资产、tag SHA、两种镜像的签名及多架构 digest，记录结果。
+4. Release 资产、tag SHA、两种镜像签名及多架构 digest 已回读并记录。
 
 ## 已有证据与支持边界
 
 基线的 [CI 十项](https://github.com/ForceMind/MyAPI/actions/runs/37135514670)及
 [Docker 三项](https://github.com/ForceMind/MyAPI/actions/runs/37135514678)成功。
-本批源码没有业务逻辑或数据库变更；新版本仍须取得自己的准确提交结果。
+本批没有业务逻辑或数据库变更，已取得自己的准确提交 CI、容器及发行结果。
 
 本地发布准备验证已通过：CLI 81/81、发行与安装工作流测试 11/11、发行合同 32/32、
 升级合同 19/19、Bash 语法、三份 YAML 解析、版本/默认镜像一致性及差异检查。
-本机没有 Docker，实际容器密钥传入验证交给本批 Docker smoke。
+本机没有 Docker，实际容器密钥传入验证已由本批 Docker smoke 完成。
 `SOURCE_MANIFEST.json` 属于 NPM 打包期产物，按既有 CI 在干净检出上重新生成并核验；
 不把仓库中旧打包清单当作本次镜像或二进制来源证据，也不发布 NPM。
 
@@ -35,6 +53,26 @@ R1 六项限定范围的实现及自动化证据见 [当前交付表](NEXT_USABL
 严格 Token/USD 预算限于已纳入的官方原生 Responses 纯文本和适用冻结报价；
 Codex 百分比属于独立账户窗口安全阈值。真实 OAuth、窗口重置/429、账单及目标
 Full HTTPS 验收此前暂缓，发布预发布制品不改变这些未验状态。
+
+## 制品回读结果
+
+最终回读记录时间：2026-10-04 09:12 北京时间。
+
+| 镜像 | 不可变多架构 digest | 架构与版本 |
+| --- | --- | --- |
+| `ghcr.io/forcemind/myapi:v0.2.0-beta.3` | `sha256:cdcf26dbad757ff06af11ca2e5889e76931ac0a78d4bdd272e38b95e58d3ce41` | Linux amd64/arm64；`v0.2.0-beta.3` |
+| `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.3` | `sha256:d9a27a0f144cd8a5369051c2129708d62c549aa09a581811bb0b7758cc0c4609` | Linux amd64/arm64；`v0.2.0-beta.3` |
+
+四个架构的 OCI revision 均为 `2f2717bffe580baf23820480a7d40d54e676199e`，
+version 和 edition 分别与目标一致。使用独立下载、官方 SHA256 已核验的 Sigstore
+cosign v3.1.3 对两个不可变多架构 digest 进行 keyless 验证，均退出 0；
+证书 identity 精确限定为
+`https://github.com/ForceMind/MyAPI/.github/workflows/docker-build.yml@refs/tags/v0.2.0-beta.3`，
+issuer 精确限定为 `https://token.actions.githubusercontent.com`。签名声明中的 digest
+与匿名注册表回读一致，验证使用空 Docker 配置，没有借用本机注册表凭据。
+
+自动 tag 桌面构建的 macOS/Windows 两项也通过，仅留 Actions 制品，发布步骤跳过；
+不宣称桌面实机验收或额外发布。分支仍保留草稿 PR #2，没有合并或部署真实服务。
 
 ## 镜像部署入口
 
