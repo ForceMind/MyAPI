@@ -131,3 +131,20 @@ refreshing，不返回成功。新增三库合同保留普通成功、明确空�
 ASCII及多字节超长ID。非空列表中缺失/null/空/仅空白ID，以及有效/无效混合项，
 在严格发现入口整体拒绝，不伪装为空或部分成功；旧普通OpenAI fetch兼容行为保留。
 model/controller/service 定向验证通过，其他数据库与浏览器仍等待修正SHA的CI。
+
+## 第二轮准确提交结果（2026-10-04）
+
+修正提交 `986466a82ceee3bb79da8309ca309d5c09c04d75` 已推送并回读，tree
+`57b6ba24d2c5ac6e33de915188b007b07a29e237`。CI `37187911595` 中
+SQLite/MySQL5.7/PostgreSQL9.6 的目录容量、模型ID长度、路由与 CAS 合同实际通过；
+Docker `37187911592` 的 fresh、handoff/恢复、LAN安装三作业通过。
+这些仍是隔离数据库/合成上游证据，不是目标生产环境验收。
+
+原有 quota Chromium 已通过，确认上一轮语言别名崩溃已修复。新 routing Chromium
+首次运行，在新增第二条路由的“端点”选择器定位处失败，保留原精确断言与截图，
+修复标签关联后再验证完整流程，不能把此前未运行步骤称已通过。
+
+后端普通全测通过，但新增路由 race 验证暴露测试清理生命周期问题：实际 Relay 的
+异步 performance worker 尚未完成，fixture 已恢复全局 Redis 状态，发生数据竞争。
+修复在请求返回后等待既有 worker 完成，再允许 fixture 清理；不删除 race 检查、
+不禁用实际 Relay 记录，也不凭固定睡眠猜测任务已结束。修正后的准确提交仍待 CI。

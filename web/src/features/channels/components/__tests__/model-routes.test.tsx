@@ -152,4 +152,69 @@ describe('explicit model route editor', () => {
       )
     ).toBeInTheDocument()
   })
+  test('endpoint and match selectors have exact accessible names and change route values', async () => {
+    render(<Editor initial={JSON.stringify({ model_routes: [route] })} />)
+    const endpoint = screen.getByLabelText('Endpoint', { exact: true })
+    const match = screen.getByLabelText('Match mode', { exact: true })
+    expect(endpoint).toHaveAccessibleName('Endpoint')
+    expect(match).toHaveAccessibleName('Match mode')
+    await userEvent.selectOptions(endpoint, '/v1/chat/completions')
+    await userEvent.selectOptions(match, 'prefix')
+    expect(endpoint).toHaveValue('/v1/chat/completions')
+    expect(match).toHaveValue('prefix')
+  })
+
+  test('select labels remain unique and correctly associated after route removal and insertion', async () => {
+    render(
+      <Editor
+        initial={JSON.stringify({
+          model_routes: [route, { ...route, public_model: 'other' }],
+        })}
+      />
+    )
+    const initialEndpoints = screen.getAllByLabelText('Endpoint', {
+      exact: true,
+    }) as HTMLSelectElement[]
+    const initialMatches = screen.getAllByLabelText('Match mode', {
+      exact: true,
+    }) as HTMLSelectElement[]
+    const retainedEndpointId = initialEndpoints[1].id
+    const retainedMatchId = initialMatches[1].id
+    expect(
+      new Set(
+        [...initialEndpoints, ...initialMatches].map((select) => select.id)
+      ).size
+    ).toBe(4)
+    for (const select of initialEndpoints) {
+      expect(select.labels?.[0]?.textContent).toBe('Endpoint')
+      expect(select.labels?.[0]?.htmlFor).toBe(select.id)
+    }
+    for (const select of initialMatches) {
+      expect(select.labels?.[0]?.textContent).toBe('Match mode')
+      expect(select.labels?.[0]?.htmlFor).toBe(select.id)
+    }
+    await userEvent.click(
+      screen.getAllByRole('button', { name: 'Remove route' })[0]
+    )
+    expect(screen.getByLabelText('Endpoint', { exact: true })).toHaveAttribute(
+      'id',
+      retainedEndpointId
+    )
+    expect(
+      screen.getByLabelText('Match mode', { exact: true })
+    ).toHaveAttribute('id', retainedMatchId)
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Add model route' })
+    )
+    const endpoints = screen.getAllByLabelText('Endpoint', {
+      exact: true,
+    }) as HTMLSelectElement[]
+    expect(endpoints[0].id).toBe(retainedEndpointId)
+    expect(endpoints[1].id).not.toBe(initialEndpoints[0].id)
+    expect(endpoints[1].id).not.toBe(retainedEndpointId)
+    expect(endpoints[1].labels?.[0]?.htmlFor).toBe(endpoints[1].id)
+    await userEvent.selectOptions(endpoints[1], '/v1/chat/completions')
+    expect(endpoints[0]).toHaveValue('/v1/responses')
+    expect(endpoints[1]).toHaveValue('/v1/chat/completions')
+  })
 })

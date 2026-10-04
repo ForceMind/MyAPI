@@ -6,7 +6,7 @@ it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
-import { useRef } from 'react'
+import { useId, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,7 @@ export function ChannelModelRoutes(props: {
   onChange: (settings: string) => void
 }) {
   const { t } = useTranslation()
+  const editorId = useId()
   const rowIds = useRef<number[]>([])
   const nextRowId = useRef(0)
   let settings: Record<string, unknown>
@@ -131,9 +132,12 @@ export function ChannelModelRoutes(props: {
               }
             />
           </label>
-          <label className='space-y-1 text-sm'>
-            {t('Endpoint')}
+          <div className='space-y-1 text-sm'>
+            <label htmlFor={`${editorId}-endpoint-${rowIds.current[index]}`}>
+              {t('Endpoint')}
+            </label>
             <select
+              id={`${editorId}-endpoint-${rowIds.current[index]}`}
               className='bg-background block h-9 w-full rounded border px-2'
               value={route.endpoint}
               onChange={(event) =>
@@ -158,10 +162,13 @@ export function ChannelModelRoutes(props: {
                 </option>
               )}
             </select>
-          </label>
-          <label className='space-y-1 text-sm'>
-            {t('Match mode')}
+          </div>
+          <div className='space-y-1 text-sm'>
+            <label htmlFor={`${editorId}-match-${rowIds.current[index]}`}>
+              {t('Match mode')}
+            </label>
             <select
+              id={`${editorId}-match-${rowIds.current[index]}`}
               className='bg-background block h-9 w-full rounded border px-2'
               value={route.match}
               onChange={(event) =>
@@ -180,7 +187,7 @@ export function ChannelModelRoutes(props: {
               <option value='exact'>{t('Exact')}</option>
               <option value='prefix'>{t('Prefix')}</option>
             </select>
-          </label>
+          </div>
           <label className='space-y-1 text-sm'>
             {t('Priority')}
             <Input

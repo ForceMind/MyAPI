@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
@@ -16,6 +17,7 @@ import (
 	"github.com/ForceMind/MyAPI/relaykit/dto"
 	"github.com/ForceMind/MyAPI/service"
 	"github.com/ForceMind/MyAPI/setting/ratio_setting"
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
@@ -98,6 +100,9 @@ func TestModelRouteActualApplicationFlow(t *testing.T) {
 		req.Header.Set("Origin", "http://myapi.local")
 		response := httptest.NewRecorder()
 		engine.ServeHTTP(response, req)
+		// Relay records failed-request performance asynchronously. Complete those
+		// workers before this fixture restores process-wide Redis/database state.
+		require.Eventually(t, func() bool { return gopool.WorkerCount() == 0 }, 5*time.Second, time.Millisecond)
 		return response
 	}
 	for _, id := range channelIDs {
