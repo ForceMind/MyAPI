@@ -96,20 +96,54 @@ try {
   }
   async function reach(locator) {
     await locator.waitFor({ state: 'visible' })
+    let geometry
     for (let step = 0; step < 50; step++) {
-      const box = await locator.boundingBox()
-      const viewport = page.viewportSize()
-      const reachable = await locator.evaluate(element => {
+      geometry = await locator.evaluate(element => {
         const rect = element.getBoundingClientRect()
         const target = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
-        return target === element || element.contains(target)
+        let horizontal = null
+        // Read the actual scrollport, not the viewport alone: desktop logs
+        // intentionally keep their wide columns inside an overflow-auto table.
+        // Never scroll overflow:hidden ancestors or mutate DOM scroll offsets.
+        for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+          if (!/^(auto|scroll)$/.test(getComputedStyle(ancestor).overflowX) || ancestor.scrollWidth <= ancestor.clientWidth + 1) continue
+          const bounds = ancestor.getBoundingClientRect()
+          const left = Math.max(0, bounds.left + ancestor.clientLeft)
+          const right = Math.min(innerWidth, bounds.left + ancestor.clientLeft + ancestor.clientWidth)
+          const top = Math.max(65, bounds.top)
+          const bottom = Math.min(innerHeight - 75, bounds.bottom)
+          if (right - left < 20 || bottom - top < 20) continue
+          if (rect.left < left - 1 || rect.right > right + 1) {
+            horizontal = {
+              x: (left + right) / 2,
+              y: Math.min(bottom - 8, Math.max(top + 8, rect.y + rect.height / 2)),
+              delta: rect.right > right ? Math.min(400, rect.right - right + 16) : -Math.min(400, left - rect.left + 16),
+              scrollLeft: ancestor.scrollLeft,
+              clientWidth: ancestor.clientWidth,
+              scrollWidth: ancestor.scrollWidth,
+            }
+            break
+          }
+        }
+        return {
+          box: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+          viewport: { width: innerWidth, height: innerHeight },
+          reachable: target === element || element.contains(target),
+          horizontal,
+        }
       })
-      if (reachable && box.y >= 65 && box.y + box.height <= viewport.height - 75) return
-      await page.mouse.move(Math.min(viewport.width - 40, Math.max(40, box.x + box.width / 2)), viewport.height / 2)
-      await page.mouse.wheel(0, box.y < 65 ? -260 : 260)
+      const { box, viewport, reachable, horizontal } = geometry
+      if (reachable && !horizontal && box.y >= 65 && box.y + box.height <= viewport.height - 75) return
+      if (horizontal) {
+        await page.mouse.move(horizontal.x, horizontal.y)
+        await page.mouse.wheel(horizontal.delta, 0)
+      } else {
+        await page.mouse.move(Math.min(viewport.width - 40, Math.max(40, box.x + box.width / 2)), viewport.height / 2)
+        await page.mouse.wheel(0, box.y < 65 ? -260 : 260)
+      }
       await settled()
     }
-    throw new Error(`Control unreachable through real scrolling: ${await locator.textContent()}`)
+    throw new Error(`Control unreachable through real scrolling: ${await locator.textContent()}; geometry=${JSON.stringify(geometry)}`)
   }
   async function assertLayout(name) {
     await settled()
