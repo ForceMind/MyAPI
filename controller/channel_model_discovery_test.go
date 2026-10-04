@@ -36,11 +36,23 @@ func TestChannelModelDiscoveryHTTPPersistence(t *testing.T) {
 	model.DB = db
 	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
 	t.Cleanup(func() { model.DB = oldDB; common.SetDatabaseTypes(oldMain, oldLog); require.NoError(t, pool.Close()) })
+	malformedEntries := map[int32]string{
+		8:  `{"data":[{}]}`,
+		9:  `{"data":[null]}`,
+		10: `{"data":[{"id":""}]}`,
+		11: `{"data":[{"id":null}]}`,
+		12: `{"data":[{"id":"   "}]}`,
+		13: `{"data":[{"id":"partial-must-not-persist"},{}]}`,
+	}
 	var mode atomic.Int32
 	started, resume := make(chan struct{}, 1), make(chan struct{}, 1)
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/models" || r.Header.Get("Authorization") != "Bearer synthetic-secret" {
 			http.Error(w, "unexpected request", 400)
+			return
+		}
+		if malformed, exists := malformedEntries[mode.Load()]; exists {
+			_, _ = fmt.Fprint(w, malformed)
 			return
 		}
 		switch mode.Load() {
@@ -50,6 +62,19 @@ func TestChannelModelDiscoveryHTTPPersistence(t *testing.T) {
 			_, _ = fmt.Fprint(w, `{"data":[]}`)
 		case 3:
 			_, _ = fmt.Fprint(w, `{"error":{"message":"synthetic-secret"}}`)
+		case 6:
+			ids := make([]OpenAIModel, 255)
+			for i := range ids {
+				ids[i].ID = fmt.Sprintf("%03d-", i) + strings.Repeat("x", 251)
+			}
+			body, err := common.Marshal(map[string]any{"data": ids})
+			if err != nil {
+				http.Error(w, "synthetic encoding failed", 500)
+				return
+			}
+			_, _ = w.Write(body)
+		case 7:
+			_, _ = fmt.Fprintf(w, `{"data":[{"id":"%s"}]}`, strings.Repeat("x", 256))
 		case 5:
 			started <- struct{}{}
 			<-r.Context().Done()
@@ -102,6 +127,17 @@ func TestChannelModelDiscoveryHTTPPersistence(t *testing.T) {
 	assert.Equal(t, view.Models, repeated.Models)
 	require.NoError(t, db.First(&channel, channel.Id).Error)
 	assert.Equal(t, "enabled-only", channel.Models)
+
+	for _, invalidMode := range []int32{6, 7, 8, 9, 10, 11, 12, 13} {
+		mode.Store(invalidMode)
+		success, rejected := decode(request(http.MethodPost, channel.Id))
+		assert.False(t, success, "valid HTTP response containing invalid persistence evidence must fail safely")
+		assert.Equal(t, "failed", rejected.Status)
+		assert.True(t, rejected.Stale)
+		assert.Equal(t, view.Models, rejected.Models)
+		assert.Equal(t, repeated.FetchedAt, rejected.FetchedAt)
+		assert.Equal(t, view.Source, rejected.Source)
+	}
 	mode.Store(1)
 	ok, failed := decode(request(http.MethodPost, channel.Id))
 	assert.False(t, ok)

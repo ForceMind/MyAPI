@@ -177,7 +177,7 @@ func FetchCodexModels(
 	for _, item := range *result.Models {
 		slug := strings.TrimSpace(item.Slug)
 		if slug == "" {
-			continue
+			return resp.StatusCode, nil, fmt.Errorf("Codex Models response contains an invalid model ID")
 		}
 		if _, ok := seen[slug]; ok {
 			continue

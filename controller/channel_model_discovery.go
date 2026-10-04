@@ -48,6 +48,9 @@ func channelModelDiscovery(c *gin.Context, refresh bool) {
 		writeChannelModelDiscoveryError(c, err)
 		return
 	}
+	if refresh && snapshot.Status == "failed" {
+		succeeded = false
+	}
 	c.JSON(http.StatusOK, gin.H{"success": succeeded, "data": snapshot})
 }
 

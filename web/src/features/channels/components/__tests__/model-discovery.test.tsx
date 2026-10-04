@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AxiosError } from 'axios'
+import i18next from 'i18next'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { useAuthStore } from '@/stores/auth-store'
@@ -196,4 +197,32 @@ describe('model discovery evidence', () => {
     expect(screen.queryByText('private-late-result')).not.toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Loading...')
   })
+  test.each([
+    ['zhCN', 'zh-CN'],
+    ['zhTW', 'zh-TW'],
+  ])(
+    'saved discovery timestamps render for interface language %s',
+    async (language, locale) => {
+      await i18next.changeLanguage(language)
+      try {
+        vi.mocked(getChannelModelDiscovery).mockResolvedValue({
+          success: true,
+          data: evidence,
+        })
+        renderDiscovery()
+        await screen.findByText('upstream-one')
+        const timestamp = new Date(evidence.fetched_at * 1000).toLocaleString(
+          locale
+        )
+        expect(
+          screen.getAllByText(timestamp, { normalizer: (text) => text })
+        ).toHaveLength(2)
+        expect(
+          screen.getByRole('button', { name: 'Refresh model discovery' })
+        ).toBeEnabled()
+      } finally {
+        await i18next.changeLanguage('en')
+      }
+    }
+  )
 })

@@ -21,6 +21,13 @@ import (
 // disables a model, changes routing, or rewrites persisted evidence.
 const ChannelModelDiscoveryFreshnessSeconds int64 = 30 * 60
 
+// Persist the same bounded catalogue on every database. MySQL TEXT is limited
+// to 65,535 bytes; measure the encoded JSON, including escaping, not raw IDs.
+const (
+	channelModelDiscoveryMaxJSONBytes = 65535
+	channelModelDiscoveryMaxIDBytes   = 255
+)
+
 // ChannelModelDiscovery is server-owned evidence, never a routing permission.
 // Both fingerprints are private digests; credentials and responses are not stored.
 type ChannelModelDiscovery struct {
@@ -204,8 +211,13 @@ func CompleteChannelModelDiscovery(ctx context.Context, attempt ChannelModelDisc
 		if succeeded {
 			unique := make(map[string]struct{}, len(models))
 			ids := make([]string, 0, len(models))
+			validModels := true
 			for _, id := range models {
 				id = strings.TrimSpace(id)
+				if len(id) > channelModelDiscoveryMaxIDBytes {
+					validModels = false
+					break
+				}
 				if id != "" {
 					if _, exists := unique[id]; !exists {
 						unique[id] = struct{}{}
@@ -218,13 +230,18 @@ func CompleteChannelModelDiscovery(ctx context.Context, attempt ChannelModelDisc
 			if err != nil {
 				return err
 			}
-			row.ModelsJSON, row.Source = string(data), ChannelModelDiscoverySource(&channel)
-			row.EvidenceFingerprint = attempt.Fingerprint
-			row.FetchedAt = time.Now().Unix()
-			row.Status = "success"
-			if len(ids) == 0 {
-				row.Status = "empty"
+			if validModels && len(data) <= channelModelDiscoveryMaxJSONBytes {
+				row.ModelsJSON, row.Source = string(data), ChannelModelDiscoverySource(&channel)
+				row.EvidenceFingerprint = attempt.Fingerprint
+				row.FetchedAt = time.Now().Unix()
+				row.Status = "success"
+				if len(ids) == 0 {
+					row.Status = "empty"
+				}
 			}
+			// Invalid/oversized evidence commits only a terminal failure. It
+			// must never reach the database as an oversized replacement, nor
+			// leave the attempt refreshing after a dialect-specific error.
 		}
 		row.CheckedAt = time.Now().Unix()
 		if previous.Status != "refreshing" {

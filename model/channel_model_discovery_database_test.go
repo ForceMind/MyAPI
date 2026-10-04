@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -64,6 +65,46 @@ func TestChannelModelDiscoveryConfiguredDatabases(t *testing.T) {
 			assert.Equal(t, []string{"a", "b"}, view.Models)
 			assert.False(t, view.Stale)
 			assert.Equal(t, "success", view.Status)
+
+			oversizedIDs := make([]string, 255)
+			for i := range oversizedIDs {
+				oversizedIDs[i] = fmt.Sprintf("%03d-", i) + strings.Repeat("x", 251)
+			}
+			escapedIDs := make([]string, 50)
+			for i := range escapedIDs {
+				escapedIDs[i] = fmt.Sprintf("%03d-", i) + strings.Repeat("<", 251)
+			}
+			for _, invalid := range []struct {
+				name string
+				ids  []string
+			}{
+				{"catalogue exceeds MySQL TEXT", oversizedIDs},
+				{"escaped catalogue exceeds MySQL TEXT", escapedIDs},
+				{"model ID exceeds 255 bytes", []string{strings.Repeat("x", 256)}},
+				{"multibyte model ID exceeds 255 bytes", []string{strings.Repeat("界", 86)}},
+			} {
+				t.Run(invalid.name, func(t *testing.T) {
+					attempt, err := BeginChannelModelDiscovery(ctx, channel.Id)
+					require.NoError(t, err)
+					applied, err := CompleteChannelModelDiscovery(ctx, attempt, invalid.ids, true)
+					require.NoError(t, err)
+					require.True(t, applied)
+					rejected, err := GetChannelModelDiscovery(ctx, channel.Id)
+					require.NoError(t, err)
+					assert.Equal(t, "failed", rejected.Status)
+					assert.True(t, rejected.Stale)
+					assert.Equal(t, view.Models, rejected.Models)
+					assert.Equal(t, view.Source, rejected.Source)
+					assert.Equal(t, view.FetchedAt, rejected.FetchedAt)
+				})
+			}
+			// Resume a valid attempt so the existing replay tests still start
+			// from a successfully committed catalogue.
+			first, err = BeginChannelModelDiscovery(ctx, channel.Id)
+			require.NoError(t, err)
+			applied, err = CompleteChannelModelDiscovery(ctx, first, []string{"a", "b"}, true)
+			require.NoError(t, err)
+			require.True(t, applied)
 
 			// Fixed fixture times prove replay performs no timestamp rewrite,
 			// without sleeping or depending on same-second execution.
@@ -138,6 +179,20 @@ func TestChannelModelDiscoveryConfiguredDatabases(t *testing.T) {
 			assert.Equal(t, "configuration_changed", view.Status)
 			assert.True(t, view.Stale)
 			assert.Equal(t, []string{"new"}, view.Models)
+
+			// 254 distinct 255-byte IDs encode to 65,533 bytes, just below
+			// the common TEXT limit. Valid evidence must not be over-rejected.
+			boundary, err := BeginChannelModelDiscovery(ctx, channel.Id)
+			require.NoError(t, err)
+			applied, err = CompleteChannelModelDiscovery(ctx, boundary, oversizedIDs[:254], true)
+			require.NoError(t, err)
+			require.True(t, applied)
+			boundaryView, err := GetChannelModelDiscovery(ctx, channel.Id)
+			require.NoError(t, err)
+			assert.Equal(t, "success", boundaryView.Status)
+			assert.False(t, boundaryView.Stale)
+			require.Len(t, boundaryView.Models, 254)
+			assert.Equal(t, oversizedIDs[:254], boundaryView.Models)
 			empty, err := BeginChannelModelDiscovery(ctx, channel.Id)
 			require.NoError(t, err)
 			applied, err = CompleteChannelModelDiscovery(ctx, empty, nil, true)

@@ -12,6 +12,7 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
+import { toIntlLocale } from '@/i18n/languages'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { getChannelModelDiscovery, refreshChannelModelDiscovery } from '../api'
@@ -135,7 +136,7 @@ export function ChannelModelDiscovery(props: {
                 <dd className='inline'>
                   {evidence.fetched_at
                     ? new Date(evidence.fetched_at * 1000).toLocaleString(
-                        i18n.language
+                        toIntlLocale(i18n.language)
                       )
                     : t('Never')}
                 </dd>
@@ -147,7 +148,7 @@ export function ChannelModelDiscovery(props: {
                 <dd className='inline'>
                   {evidence.checked_at
                     ? new Date(evidence.checked_at * 1000).toLocaleString(
-                        i18n.language
+                        toIntlLocale(i18n.language)
                       )
                     : t('Never')}
                 </dd>

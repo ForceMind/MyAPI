@@ -23,6 +23,12 @@ func TestFetchCodexModelsDistinguishesEmptyFromMissingEvidence(t *testing.T) {
 		{name: "missing catalogue", body: `{}`, invalid: true},
 		{name: "null catalogue", body: `{"models":null}`, invalid: true},
 		{name: "invalid catalogue", body: `{"models":"wrong"}`, invalid: true},
+		{name: "missing slug", body: `{"models":[{}]}`, invalid: true},
+		{name: "null entry", body: `{"models":[null]}`, invalid: true},
+		{name: "empty slug", body: `{"models":[{"slug":""}]}`, invalid: true},
+		{name: "null slug", body: `{"models":[{"slug":null}]}`, invalid: true},
+		{name: "whitespace slug", body: `{"models":[{"slug":"   "}]}`, invalid: true},
+		{name: "mixed valid and missing slug", body: `{"models":[{"slug":"partial-must-not-persist"},{}]}`, invalid: true},
 		{name: "valid unique IDs", body: `{"models":[{"slug":"codex-model"},{"slug":"codex-model"},{"slug":"other-model"}]}`, want: []string{"codex-model", "other-model"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {

@@ -465,6 +465,11 @@ func fetchChannelUpstreamModelIDsWithContext(ctx context.Context, channel *model
 		if result.Data == nil {
 			return nil, errors.New("model discovery response is missing data")
 		}
+		for _, item := range *result.Data {
+			if strings.TrimSpace(item.ID) == "" {
+				return nil, errors.New("model discovery response contains an invalid model ID")
+			}
+		}
 		return normalizeModelNames(lo.Map(*result.Data, func(item OpenAIModel, _ int) string { return item.ID })), nil
 	}
 
