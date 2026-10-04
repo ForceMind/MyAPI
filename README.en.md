@@ -1,15 +1,55 @@
+<p align="center">
+  <img src="web/public/myapi-logo-v1.png" alt="My API logo" width="144" />
+</p>
+
 # My API
 
-A self-hosted AI API gateway for your own accounts, models, and applications.
+A self-hosted AI API gateway for model services, application access, and usage management.
 
 [English](README.md) · [简体中文](README.zh_CN.md) · [繁體中文](README.zh_TW.md) · [Français](README.fr.md) · [日本語](README.ja.md)
 
-My API brings upstream connections, downstream API keys, access controls, and usage records into one web console. It is designed for personal use first, with controlled sharing to a small team. New installations keep commercial modules off: using your own upstream accounts does not require topping up an internal wallet. Users, permissions, key limits, and usage tracking still apply.
+My API brings model-service connections, application API keys, access controls, and usage records into one web console. It is designed for personal use first, with controlled sharing to a small team. New installations keep commercial modules off: using your own model-service accounts does not require topping up an internal wallet. Users, permissions, key limits, and usage tracking still apply.
+
+## Technology stack
+
+![Go](https://img.shields.io/badge/Go-00ADD8?style=flat-square&logo=go&logoColor=white)
+![Gin](https://img.shields.io/badge/Gin-008ECF?style=flat-square)
+![GORM](https://img.shields.io/badge/GORM-607D8B?style=flat-square)
+![React 19](https://img.shields.io/badge/React-19-149ECA?style=flat-square&logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Rsbuild](https://img.shields.io/badge/Rsbuild-FF6B35?style=flat-square)
+
+![Tailwind CSS 4](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
+![Base UI](https://img.shields.io/badge/Base_UI-111827?style=flat-square)
+![Bun](https://img.shields.io/badge/Bun-14151A?style=flat-square&logo=bun&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat-square&logo=sqlite&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=flat-square&logo=mysql&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat-square&logo=redis&logoColor=white)
+![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)
+
+- **Backend:** Go (`go.mod`: 1.25.1), Gin for HTTP routing, and GORM for database access
+- **Web console:** React 19, TypeScript, Rsbuild, Tailwind CSS 4, and Base UI; Bun manages frontend dependencies and scripts
+- **Storage:** SQLite by default, or MySQL/PostgreSQL; Redis is optional for shared caching and rate limiting
+- **Deployment:** Docker images and Docker Compose; the image-based installation does not require a local frontend or Go toolchain
+
+### How requests flow
+
+```text
+Application + API key → My API authentication and access checks
+                      → Model/channel selection → Model service
+                      ← Response / stream       ←
+                        Usage and error records
+```
+
+The web console configures channels, models, users, and keys. The Go service checks each request, selects an eligible channel, calls the configured model service, and records the available usage evidence. Provider credentials stay on the server. Protocol and budget eligibility remain subject to the limits below.
+
+Versions describe the repository manifests, not a promise of support for every future dependency version. See [backend dependencies](go.mod), [frontend dependencies](web/package.json), and [container build](Dockerfile).
 
 ## What you can do
 
-- Connect supported upstream providers and configure the models each channel exposes. Existing adapters include OpenAI-compatible APIs, Responses, Claude Messages, Gemini, and Codex; endpoint and feature support depend on the selected adapter and upstream account.
-- Give each application or user a separate downstream API key, with its own permitted models, access profile, and applicable usage limits. Keep upstream credentials on the server.
+- Connect supported model providers and configure the models each channel exposes. Existing adapters include OpenAI-compatible APIs, Responses, Claude Messages, Gemini, and Codex; endpoint and feature support depend on the selected adapter and model-service account.
+- Give each application or user a separate application API key, with its own permitted models, access profile, and applicable usage limits. Keep provider credentials on the server.
 - Inspect requests, errors, usage, and supported provider quota observations. Account charts retain missing, failed, and reset states instead of presenting them as zero consumption.
 - Test a channel with an explicit model, endpoint, and streaming mode; reuse the most recent successful test options where applicable.
 - Run with SQLite, or configure MySQL/PostgreSQL for a suitable deployment. These are alternatives, not three required services.
@@ -41,7 +81,7 @@ The recommended starting point is **Full on Linux, using the pinned Docker image
 - Linux amd64 or arm64, Git, Bash, and a working Docker daemon
 - Docker Compose v2 with support for `up --wait --wait-timeout`
 - An HTTPS origin you control and a reverse proxy forwarding it to `http://127.0.0.1:3000`
-- Repository read access and network access to GitHub/GHCR; authorized upstream credentials for later use
+- Repository read access and network access to GitHub/GHCR; authorized provider credentials for later use
 - Persistent storage for the database, logs, and backups; OpenSSL for the secret-generation examples below
 
 Go, Bun, Node.js, Redis, and a separate database server are **not required for this image-based installation**. The template caps the container at 2 CPUs and 2 GiB of memory; these are resource limits, not measured minimum hardware requirements. Allow additional host and storage capacity for your workload.
@@ -105,14 +145,14 @@ For local or private-network use instead, follow the [legacy LAN guide](docs/LAN
 
 ## Make your first request
 
-1. **Add an upstream channel.** In Channels (`/channels`), choose the actual provider type and enter its authorized endpoint and credentials. For Codex in a container, use the supported browser-login flow; the container cannot read your host's login files.
-2. **Enable a model.** Fetch models where supported or enter an exact upstream model ID. Confirm the channel's enabled models, group/access compatibility, and any explicit mapping. Discovery alone does not grant access or prove a model works. The enhanced beta.4 discovery/routing workflow requires its development source, not the beta.3 image.
-3. **Run one small channel test.** Select the model, supported endpoint, and streaming mode explicitly. Tests contact the upstream and can consume quota or incur charges. Start with non-sensitive input.
-4. **Create a downstream API key.** Use a separate key for your application, grant only the needed models/access profile, and choose only limits supported by that channel. Do not distribute the upstream key or an administrator login token.
+1. **Add a model-service channel.** In Channels (`/channels`), choose the actual provider type and enter its authorized endpoint and credentials. For Codex in a container, use the supported browser-login flow; the container cannot read your host's login files.
+2. **Enable a model.** Fetch models where supported or enter an exact provider model ID. Confirm the channel's enabled models, group/access compatibility, and any explicit mapping. Discovery alone does not grant access or prove a model works. The enhanced beta.4 discovery/routing workflow requires its development source, not the beta.3 image.
+3. **Run one small channel test.** Select the model, supported endpoint, and streaming mode explicitly. Tests contact the model service and can consume quota or incur charges. Start with non-sensitive input.
+4. **Create a application API key.** Use a separate key for your application, grant only the needed models/access profile, and choose only limits supported by that channel. Do not distribute the provider key or an administrator login token.
 5. **Configure your client.** For an OpenAI-compatible client, use your HTTPS origin followed by `/v1`, the downstream key, and the exact enabled public model name. Other protocols must use their documented endpoints. Send one short request before enabling a workload.
 6. **Inspect the result.** Check Usage Logs (`/usage-logs/common`) for status, model, usage evidence, and applicable cost information. Administrators can inspect additional details. In development builds with routing evidence, also verify the selected channel and mapped target; a routing preview does not guarantee the next random choice or a particular key's admission.
 
-If a test fails, check provider type, endpoint, credentials, enabled model, key permissions, and upstream quota before increasing retry counts. Keep an unresolved usage record unresolved until you have reliable evidence.
+If a test fails, check provider type, endpoint, credentials, enabled model, key permissions, and provider quota before increasing retry counts. Keep an unresolved usage record unresolved until you have reliable evidence.
 
 ## Configuration and operations
 
@@ -129,7 +169,7 @@ node cli/myapi.mjs status --project-dir .
 node cli/myapi.mjs logs --project-dir .
 ```
 
-`doctor` checks configuration and tool availability; it is not live upstream acceptance. Logs may contain sensitive data. The CLI does not provide the planned `install`, `switch`, or `rollback` commands.
+`doctor` checks configuration and tool availability; it is not live model-service acceptance. Logs may contain sensitive data. The CLI does not provide the planned `install`, `switch`, or `rollback` commands.
 
 ### Upgrade, backup, and recovery
 
@@ -150,7 +190,7 @@ Do not delete data volumes, reset unresolved accounting records, or point an old
 - Keep the initial loopback binding; expose only the intended HTTPS proxy. Review trusted proxies, registration, user roles, and API-key access before sharing the instance.
 - Use only accounts and APIs you are authorized to access, in accordance with provider terms and applicable law. Public services and resale may require additional compliance measures; installing this project does not satisfy those obligations.
 - The shipped deployment template enables full-content logging. The example above deliberately disables it. If you enable it, review [content logging](docs/FULL_CONTENT_LOGGING_CUSTOM.md), access permissions, retention, and backups. Redaction cannot guarantee that prompts or outputs contain no personal or confidential data.
-- Quota sampling may contact upstream services in the background. Review monitoring settings and supported-provider boundaries before adding real credentials.
+- Quota sampling may contact model services in the background. Review monitoring settings and supported-provider boundaries before adding real credentials.
 - Keep secrets, OAuth files, databases, and private logs out of Git, screenshots, issue reports, and shared archives. Redact diagnostics before reporting a problem.
 
 ## Documentation and help
@@ -165,8 +205,6 @@ Do not delete data volumes, reset unresolved accounting records, or point an old
 
 Contributors: see the [development plan and implementation records](docs/MYAPI_MASTER_PLAN.md). Historical development notes are separate from these installation instructions.
 
-## License and credits
+## License and notices
 
-My API is a modified distribution of upstream open-source work, with distribution changes by ForceMind. It is licensed under [GNU AGPLv3](LICENSE); see [NOTICE](NOTICE) for upstream authorship and the additional Section 7 attribution requirements, including the required visible frontend credit and original-project link in modified user interfaces. Preserve those notices and mark modifications; branding changes do not remove these obligations. Network use of modified versions may also trigger corresponding-source obligations under the license.
-
-[Third-party licenses](THIRD-PARTY-LICENSES.md) document dependency credits. Preserve applicable notices in redistributed images, binaries, frontend bundles, and desktop packages, including Electron/Chromium notices where relevant. Review the full license terms before use or redistribution.
+Licensed under [GNU AGPLv3](LICENSE). [NOTICE](NOTICE) specifies additional Section 7 terms and required legal/UI attribution; [third-party licenses](THIRD-PARTY-LICENSES.md) document dependency notices. Preserve applicable notices, identify modifications, and comply with corresponding-source obligations when distributing or providing modified versions over a network. Desktop distributions must also retain applicable Electron/Chromium notices. Review the full terms before use or redistribution.

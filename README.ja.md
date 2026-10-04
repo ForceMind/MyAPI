@@ -1,15 +1,55 @@
+<p align="center">
+  <img src="web/public/myapi-logo-v1.png" alt="My API logo" width="144" />
+</p>
+
 # My API
 
-自分のアカウント、モデル、アプリをまとめるセルフホスト型 AI API ゲートウェイ。
+モデルサービス、アプリのアクセス、権限、使用量を一元管理するセルフホスト型 AI API ゲートウェイ。
 
 [English](README.md) · [简体中文](README.zh_CN.md) · [繁體中文](README.zh_TW.md) · [Français](README.fr.md) · [日本語](README.ja.md)
 
-My API は上流接続、下流 API キー、権限、使用量を一つの管理画面にまとめます。個人利用を優先し、少人数への管理された共有にも対応します。新規インストールでは商用モジュールが無効で、内部ウォレットへのチャージは不要です。ユーザー管理、権限、キーの制限と使用量記録は引き続き有効です。
+My API はモデルサービス接続、アプリ用 API キー、権限、使用量を一つの管理画面にまとめます。個人利用を優先し、少人数への管理された共有にも対応します。新規インストールでは商用モジュールが無効で、内部ウォレットへのチャージは不要です。ユーザー管理、権限、キーの制限と使用量記録は引き続き有効です。
+
+## 技術スタック
+
+![Go](https://img.shields.io/badge/Go-00ADD8?style=flat-square&logo=go&logoColor=white)
+![Gin](https://img.shields.io/badge/Gin-008ECF?style=flat-square)
+![GORM](https://img.shields.io/badge/GORM-607D8B?style=flat-square)
+![React 19](https://img.shields.io/badge/React-19-149ECA?style=flat-square&logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Rsbuild](https://img.shields.io/badge/Rsbuild-FF6B35?style=flat-square)
+
+![Tailwind CSS 4](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
+![Base UI](https://img.shields.io/badge/Base_UI-111827?style=flat-square)
+![Bun](https://img.shields.io/badge/Bun-14151A?style=flat-square&logo=bun&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat-square&logo=sqlite&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=flat-square&logo=mysql&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat-square&logo=redis&logoColor=white)
+![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)
+
+- **バックエンド：** Go（`go.mod` は 1.25.1）、HTTP ルーティングに Gin、データアクセスに GORM
+- **管理画面：** React 19、TypeScript、Rsbuild、Tailwind CSS 4、Base UI。Bun でフロントエンド依存関係とスクリプトを管理
+- **ストレージ：** 既定は SQLite、または MySQL/PostgreSQL。共有キャッシュとレート制限向け Redis は任意
+- **配置：** Docker イメージと Docker Compose。イメージ導入にはローカルの Go/フロントエンドビルド環境は不要
+
+### リクエストの流れ
+
+```text
+アプリ + API キー → My API の認証・権限チェック
+                 → モデル・チャネル選択 → モデルサービス
+                 ← 応答 / ストリーム    ←
+                   使用量・エラー記録
+```
+
+管理画面でチャネル、モデル、ユーザー、キーを設定します。Go サービスは権限を確認し、利用可能なチャネルを選んでモデルサービスを呼び出し、取得できる使用量の根拠を記録します。サービスの認証情報はサーバーに保持し、プロトコルと予算には以下の制約が適用されます。
+
+バージョンはリポジトリの宣言に基づき、将来の全バージョンの互換性は保証しません。[サーバー依存関係](go.mod)、[画面の依存関係](web/package.json)、[コンテナビルド](Dockerfile)を参照してください。
 
 ## 機能と制約
 
-- OpenAI 互換 API、Responses、Claude Messages、Gemini、Codex などの既存アダプターでチャネルと公開モデルを設定できます。実際の機能はアダプターと上流アカウントに依存します。
-- アプリやユーザーごとに下流キーを発行し、モデル、アクセスプロファイル、適用可能な使用量制限を設定できます。上流認証情報はサーバーに保持します。
+- OpenAI 互換 API、Responses、Claude Messages、Gemini、Codex などの既存アダプターでチャネルと公開モデルを設定できます。実際の機能はアダプターとモデルサービスアカウントに依存します。
+- アプリやユーザーごとにアプリ用キーを発行し、モデル、アクセスプロファイル、適用可能な使用量制限を設定できます。モデルサービス認証情報はサーバーに保持します。
 - リクエスト、エラー、使用量、対応プロバイダーのクォータ観測を確認できます。欠測、失敗、期間のリセットをゼロ消費と区別します。
 - モデル、エンドポイント、ストリーミングを指定してテストし、適用可能な場合は直近の成功設定を再利用できます。
 - SQLite、MySQL、PostgreSQL から一つを選択できます。画面は英語、簡体字・繁体字中国語、フランス語、日本語、ロシア語、ベトナム語に対応します。
@@ -24,7 +64,7 @@ My API は上流接続、下流 API キー、権限、使用量を一つの管�
 - **beta.4：検証済み開発ソース、未公開**。限定されたモデル検出、明示的マッピング、ルーティングプレビュー、送信、ログの機能で、beta.3 イメージには含まれません。
 - **beta.5：ローカル開発候補のみ**。アカウント選択、一時クールダウン、上限付きフェイルオーバー、試行説明は未公開です。この候補自体のリモート三種類の DB と Chromium 検証は未完了です。
 
-プレリリースは本番運用の保証ではありません。実アカウント OAuth、クォータのリセット/429、請求照合、対象サーバーの HTTPS 検証は限定的または未実施です。コンテナの正常性だけでは実上流を検証できません。開発ソースを取得しても既定イメージは beta.3 のままです。統一 Lite/Desktop インストーラー・更新機能は未提供で、デスクトップ成果物のビルド成功も実機検証を意味しません。
+プレリリースは本番運用の保証ではありません。実アカウント OAuth、クォータのリセット/429、請求照合、対象サーバーの HTTPS 検証は限定的または未実施です。コンテナの正常性だけでは実際のモデルサービスを検証できません。開発ソースを取得しても既定イメージは beta.3 のままです。統一 Lite/Desktop インストーラー・更新機能は未提供で、デスクトップ成果物のビルド成功も実機検証を意味しません。
 
 ## 公開版のインストール
 
@@ -87,12 +127,12 @@ bash deploy/install.sh
 
 1. Channels (`/channels`) で正しいプロバイダー、URL、認可済み認証情報を設定します。コンテナの Codex は既存の Web ログイン経路を使い、ホストのログインファイルは読めません。
 2. 対応する場合はモデル一覧を取得し、それ以外は正確な ID を入力します。有効モデル、グループ/アクセスプロファイル、マッピングを確認してください。検出だけでは権限や動作は保証されず、拡張 beta.4 機能には開発ソースが必要です。
-3. モデル、対応エンドポイント、ストリーミングを明示し、小さなテストを実行します。上流への接続でクォータ消費や料金が発生し得るため、非機密入力を使います。
-4. アプリ専用の最小権限の下流キーを作成します。上流キーや管理者ログイントークンを共有しないでください。
-5. OpenAI 互換クライアントでは HTTPS Origin に `/v1` を付け、下流キーと有効な公開モデル名を指定します。他のプロトコルは対応文書のエンドポイントを使い、まず短いリクエストを送ります。
+3. モデル、対応エンドポイント、ストリーミングを明示し、小さなテストを実行します。モデルサービスへの接続でクォータ消費や料金が発生し得るため、非機密入力を使います。
+4. アプリ専用の最小権限のアプリ用キーを作成します。モデルサービスキーや管理者ログイントークンを共有しないでください。
+5. OpenAI 互換クライアントでは HTTPS Origin に `/v1` を付け、アプリ用キーと有効な公開モデル名を指定します。他のプロトコルは対応文書のエンドポイントを使い、まず短いリクエストを送ります。
 6. Usage Logs (`/usage-logs/common`) で状態、モデル、使用量の根拠、適用コストを確認します。ルーティング証拠を持つ開発版では管理者が送信先も確認できますが、プレビューは次のランダム選択や特定キーの利用許可を保証しません。
 
-失敗時はエンドポイント、モデル、認証情報、権限、上流クォータを確認してから再試行を検討してください。根拠がない不明結果は要確認のまま保持します。
+失敗時はエンドポイント、モデル、認証情報、権限、モデルサービスクォータを確認してから再試行を検討してください。根拠がない不明結果は要確認のまま保持します。
 
 ## 保守と復元
 
@@ -107,7 +147,7 @@ node cli/myapi.mjs status --project-dir .
 node cli/myapi.mjs logs --project-dir .
 ```
 
-`doctor` は実上流の検証ではなく、ログは機密情報を含む可能性があります。`install`、`switch`、`rollback` は未実装のコマンドです。
+`doctor` は実際のモデルサービスの検証ではなく、ログは機密情報を含む可能性があります。`install`、`switch`、`rollback` は未実装のコマンドです。
 
 更新前に version/digest、revision、パス、設定を記録し、一貫した DB バックアップ（必要な SQLite WAL を含む）、秘密値、完全なキーリング、必要なログを保存します。隔離コピーで復元を確認してから、公開済み対象バージョンを試してください。旧インスタンスを beta.3 に更新する場合の読取専用事前確認例：
 
@@ -119,7 +159,7 @@ node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.3 
 
 ## セキュリティと文書
 
-ループバック待受を保ち、共有前に HTTPS、信頼するプロキシ、登録、役割、キー権限を確認します。認可されたアカウント/API のみ使い、上流規約と適用法に従ってください。公開サービスでは別の適法性確認が必要な場合があります。配置テンプレートは全文ログが既定で有効ですが、上記例では無効化しています。有効にする前に権限、保存期間、バックアップを確認してください。マスキングだけでは入力/出力の個人・機密情報をすべて除去できません。クォータ観測はバックグラウンドで上流に接続する場合があります。秘密値、OAuth ファイル、DB、私有ログを Git や不具合報告に含めないでください。
+ループバック待受を保ち、共有前に HTTPS、信頼するプロキシ、登録、役割、キー権限を確認します。認可されたアカウント/API のみ使い、モデルサービス規約と適用法に従ってください。公開サービスでは別の適法性確認が必要な場合があります。配置テンプレートは全文ログが既定で有効ですが、上記例では無効化しています。有効にする前に権限、保存期間、バックアップを確認してください。マスキングだけでは入力/出力の個人・機密情報をすべて除去できません。クォータ観測はバックグラウンドでモデルサービスに接続する場合があります。秘密値、OAuth ファイル、DB、私有ログを Git や不具合報告に含めないでください。
 
 - [公開と検証記録](docs/RELEASE_BETA_3.md) · [配置](DEPLOYMENT_CUSTOM.md) · [LAN](docs/LAN_LITE.md)
 - [復元](docs/UPGRADE_REHEARSAL.md) · [インストール検証](docs/R1_INSTALLATION_CHECK.md)
@@ -130,8 +170,6 @@ node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.3 
 
 開発者向け：[開発計画と実装記録](docs/MYAPI_MASTER_PLAN.md)。詳細文書の一部は中国語です。
 
-## ライセンスと謝辞
+## ライセンスと法的通知
 
-My API は上流オープンソースを変更した配布版で、ForceMind が配布に関する変更を行っています。[GNU AGPLv3](LICENSE) に従い、[NOTICE](NOTICE) に上流著作者と第 7 条の追加条件を記載しています。変更版 UI の可視なフロントエンド帰属表示と原プロジェクトへのリンクも対象です。通知を保持して変更を明示してください。ブランド変更は義務を免除せず、変更版のネットワーク提供では対応ソース提供義務も生じ得ます。
-
-[第三者ライセンス](THIRD-PARTY-LICENSES.md)に依存関係の帰属を記載しています。イメージ、バイナリー、フロントエンド、デスクトップ配布物に適用通知を保持し、該当する Electron/Chromium 通知も残してください。利用・再配布前に全文を確認してください。
+[GNU AGPLv3](LICENSE) に従います。[NOTICE](NOTICE) に第 7 条の追加条件と必須の法的・UI 帰属表示、[第三者ライセンス](THIRD-PARTY-LICENSES.md)に依存関係の通知を記載しています。配布または変更版のネットワーク提供では、適用通知の保持、変更の明示、対応ソースの提供義務を遵守してください。デスクトップ配布では該当する Electron/Chromium 通知も保持します。利用・再配布前に全文を確認してください。

@@ -1,15 +1,55 @@
+<p align="center">
+  <img src="web/public/myapi-logo-v1.png" alt="My API logo" width="144" />
+</p>
+
 # My API
 
-Une passerelle d’API d’IA auto-hébergée pour vos comptes, modèles et applications.
+Une passerelle d’API d’IA auto-hébergée pour les services de modèles, l’accès des applications et le suivi d’utilisation.
 
 [English](README.md) · [简体中文](README.zh_CN.md) · [繁體中文](README.zh_TW.md) · [Français](README.fr.md) · [日本語](README.ja.md)
 
-My API réunit connexions amont, clés API clientes, permissions et suivi d’utilisation dans une console. L’usage personnel est prioritaire, avec partage contrôlé à une petite équipe. Les modules commerciaux sont désactivés sur les nouvelles installations : aucun rechargement d’un portefeuille interne n’est requis. Utilisateurs, permissions et limites restent actifs.
+My API réunit connexions aux services de modèles, clés API clientes, permissions et suivi d’utilisation dans une console. L’usage personnel est prioritaire, avec partage contrôlé à une petite équipe. Les modules commerciaux sont désactivés sur les nouvelles installations : aucun rechargement d’un portefeuille interne n’est requis. Utilisateurs, permissions et limites restent actifs.
+
+## Technologies
+
+![Go](https://img.shields.io/badge/Go-00ADD8?style=flat-square&logo=go&logoColor=white)
+![Gin](https://img.shields.io/badge/Gin-008ECF?style=flat-square)
+![GORM](https://img.shields.io/badge/GORM-607D8B?style=flat-square)
+![React 19](https://img.shields.io/badge/React-19-149ECA?style=flat-square&logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Rsbuild](https://img.shields.io/badge/Rsbuild-FF6B35?style=flat-square)
+
+![Tailwind CSS 4](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
+![Base UI](https://img.shields.io/badge/Base_UI-111827?style=flat-square)
+![Bun](https://img.shields.io/badge/Bun-14151A?style=flat-square&logo=bun&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat-square&logo=sqlite&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=flat-square&logo=mysql&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat-square&logo=redis&logoColor=white)
+![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)
+
+- **Serveur :** Go (`go.mod` : 1.25.1), routage HTTP avec Gin et accès aux données avec GORM
+- **Console web :** React 19, TypeScript, Rsbuild, Tailwind CSS 4 et Base UI ; Bun gère les dépendances et scripts frontend
+- **Stockage :** SQLite par défaut, ou MySQL/PostgreSQL ; Redis est facultatif pour le cache partagé et les limites de débit
+- **Déploiement :** images Docker et Docker Compose ; l’installation par image ne nécessite pas de chaîne de compilation Go/frontend locale
+
+### Parcours d’une requête
+
+```text
+Application + clé API → My API : authentification et permissions
+                     → Sélection modèle/canal → Service de modèles
+                     ← Réponse / streaming    ←
+                       Utilisation et erreurs
+```
+
+La console configure canaux, modèles, utilisateurs et clés. Le serveur Go vérifie les permissions, choisit un canal admissible, appelle le service configuré et enregistre les preuves d’utilisation disponibles. Les identifiants du service restent sur le serveur ; les limites de protocole et de budget décrites ci-dessous s’appliquent.
+
+Les versions reflètent les manifestes du dépôt, sans garantie pour toutes les versions futures. Voir [dépendances serveur](go.mod), [dépendances frontend](web/package.json) et [construction du conteneur](Dockerfile).
 
 ## Fonctions et limites
 
-- Configurer des canaux et leurs modèles avec les adaptateurs existants : API compatibles OpenAI, Responses, Claude Messages, Gemini, Codex, entre autres. Les fonctionnalités dépendent de l’adaptateur et du compte amont.
-- Attribuer une clé distincte à chaque application/utilisateur, avec modèles, profil d’accès et limites applicables. Conserver les identifiants amont sur le serveur.
+- Configurer des canaux et leurs modèles avec les adaptateurs existants : API compatibles OpenAI, Responses, Claude Messages, Gemini, Codex, entre autres. Les fonctionnalités dépendent de l’adaptateur et du compte du fournisseur.
+- Attribuer une clé distincte à chaque application/utilisateur, avec modèles, profil d’accès et limites applicables. Conserver les identifiants du fournisseur sur le serveur.
 - Consulter requêtes, erreurs, utilisation et observations de quota disponibles, sans confondre données manquantes, échecs et remise à zéro d’une fenêtre.
 - Tester explicitement modèle, endpoint et mode streaming ; réutiliser les derniers paramètres ayant réussi lorsque cela s’applique.
 - Choisir SQLite, MySQL ou PostgreSQL. La console est disponible en anglais, chinois simplifié/traditionnel, français, japonais, russe et vietnamien.
@@ -87,8 +127,8 @@ Pour un usage local/privé, consultez le [guide LAN historique](docs/LAN_LITE.md
 
 1. Dans Channels (`/channels`), choisissez fournisseur, endpoint et identifiants autorisés. Dans un conteneur, Codex utilise le parcours de connexion web ; les fichiers de connexion de l’hôte ne sont pas accessibles.
 2. Récupérez les modèles si possible ou saisissez l’ID exact. Vérifiez modèles activés, groupe/profil et correspondances. La découverte n’accorde aucune permission et ne prouve pas le fonctionnement. Le parcours beta.4 amélioré exige sa source de développement.
-3. Testez une petite requête avec modèle, endpoint et streaming explicites. Le test contacte l’amont et peut consommer du quota ou être facturé ; utilisez un contenu non sensible.
-4. Créez une clé cliente limitée aux besoins de l’application, jamais une copie de la clé amont ou du jeton administrateur.
+3. Testez une petite requête avec modèle, endpoint et streaming explicites. Le test contacte le service de modèles et peut consommer du quota ou être facturé ; utilisez un contenu non sensible.
+4. Créez une clé cliente limitée aux besoins de l’application, jamais une copie de la clé du fournisseur ou du jeton administrateur.
 5. Pour un client compatible OpenAI, utilisez votre origine HTTPS suivie de `/v1`, la clé cliente et le nom public activé. Les autres protocoles utilisent leurs endpoints documentés. Commencez par une courte requête.
 6. Consultez Usage Logs (`/usage-logs/common`) : statut, modèle, preuves d’utilisation et coûts applicables. Les builds de développement avec preuves de routage permettent aux administrateurs de vérifier la cible ; un aperçu ne garantit ni le prochain choix aléatoire ni l’admission d’une clé.
 
@@ -119,7 +159,7 @@ Suivez le [guide de répétition et restauration](docs/UPGRADE_REHEARSAL.md). La
 
 ## Sécurité et documentation
 
-Gardez l’écoute locale et vérifiez HTTPS, proxys de confiance, inscriptions, rôles et clés avant partage. Utilisez uniquement les comptes/API autorisés, en respectant conditions amont et lois applicables ; les services publics peuvent imposer des obligations supplémentaires. Le modèle livré active les journaux de contenu complet, désactivés dans l’exemple ci-dessus. Avant activation, définissez droits, rétention et sauvegardes : le masquage ne garantit pas l’absence de données privées dans les prompts/réponses. L’échantillonnage peut contacter l’amont en arrière-plan. Excluez secrets, fichiers OAuth, bases et journaux privés de Git et des signalements.
+Gardez l’écoute locale et vérifiez HTTPS, proxys de confiance, inscriptions, rôles et clés avant partage. Utilisez uniquement les comptes/API autorisés, en respectant conditions du fournisseur et lois applicables ; les services publics peuvent imposer des obligations supplémentaires. Le modèle livré active les journaux de contenu complet, désactivés dans l’exemple ci-dessus. Avant activation, définissez droits, rétention et sauvegardes : le masquage ne garantit pas l’absence de données privées dans les prompts/réponses. L’échantillonnage peut contacter le service de modèles en arrière-plan. Excluez secrets, fichiers OAuth, bases et journaux privés de Git et des signalements.
 
 - [Publication et preuves](docs/RELEASE_BETA_3.md) · [Déploiement](DEPLOYMENT_CUSTOM.md) · [LAN](docs/LAN_LITE.md)
 - [Restauration](docs/UPGRADE_REHEARSAL.md) · [Validation d’installation](docs/R1_INSTALLATION_CHECK.md)
@@ -130,8 +170,6 @@ Gardez l’écoute locale et vérifiez HTTPS, proxys de confiance, inscriptions,
 
 Contributeurs : [plan et comptes rendus de développement](docs/MYAPI_MASTER_PLAN.md). Certains guides détaillés sont en chinois.
 
-## Licence et crédits
+## Licence et mentions légales
 
-My API est une distribution modifiée de travaux open source amont, avec des modifications de distribution par ForceMind. Licence [GNU AGPLv3](LICENSE) ; [NOTICE](NOTICE) précise les auteurs amont et les conditions additionnelles de l’article 7, notamment le crédit frontend visible et le lien vers le projet original dans les interfaces modifiées. Préservez les mentions et identifiez les modifications ; le changement de marque n’annule pas ces obligations. L’usage réseau d’une version modifiée peut aussi imposer la fourniture du code source correspondant.
-
-Les [licences tierces](THIRD-PARTY-LICENSES.md) recensent les dépendances. Conservez les mentions applicables avec images, binaires, bundles frontend et packages desktop, dont celles d’Electron/Chromium le cas échéant. Consultez les conditions complètes avant utilisation ou redistribution.
+Licence [GNU AGPLv3](LICENSE). [NOTICE](NOTICE) précise les conditions additionnelles de l’article 7 et les attributions légales/d’interface obligatoires ; les [licences tierces](THIRD-PARTY-LICENSES.md) regroupent les mentions des dépendances. Préservez les mentions applicables, identifiez les modifications et respectez les obligations de fourniture du code source correspondant lors de la distribution ou de l’accès réseau aux versions modifiées. Les distributions desktop doivent aussi conserver les mentions Electron/Chromium applicables. Consultez les conditions complètes avant utilisation ou redistribution.
