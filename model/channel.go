@@ -23,11 +23,12 @@ import (
 )
 
 type Channel struct {
-	Id                 int     `json:"id"`
-	Type               int     `json:"type" gorm:"default:0"`
-	Key                string  `json:"key" gorm:"not null"`
-	OpenAIOrganization *string `json:"openai_organization"`
-	TestModel          *string `json:"test_model"`
+	RoutingConfigDigest string  `json:"routing_config_digest,omitempty" gorm:"-"`
+	Id                  int     `json:"id"`
+	Type                int     `json:"type" gorm:"default:0"`
+	Key                 string  `json:"key" gorm:"not null"`
+	OpenAIOrganization  *string `json:"openai_organization"`
+	TestModel           *string `json:"test_model"`
 	// Managed by successful detailed tests, never accepted from channel edit payloads.
 	LastSuccessfulTestOptions string  `json:"-" gorm:"type:text"`
 	QuotaSamplingCursor       int64   `json:"-" gorm:"not null;default:0"`
@@ -763,7 +764,9 @@ func (channel *Channel) Insert() error {
 	return err
 }
 
-func (channel *Channel) Update() error {
+func (channel *Channel) Update() error { return channel.UpdateWithRoutingConfig("") }
+
+func (channel *Channel) UpdateWithRoutingConfig(expected string) error {
 	// If this is a multi-key channel, recalculate MultiKeySize based on the current key list to avoid inconsistency after editing keys
 	if channel.ChannelInfo.IsMultiKey {
 		var keyStr string
@@ -803,6 +806,15 @@ func (channel *Channel) Update() error {
 		}
 	}
 	_, _, err := runChannelRoutingTransaction(context.Background(), func(tx *gorm.DB) (bool, error) {
+		if expected != "" {
+			var current Channel
+			if err := lockForUpdate(tx).First(&current, channel.Id).Error; err != nil {
+				return false, err
+			}
+			if ChannelRoutingConfigDigest(&current) != expected {
+				return false, ErrModelRouteConfigChanged
+			}
+		}
 		if err := tx.Model(channel).Omit("last_successful_test_options", "quota_sampling_cursor").Updates(channel).Error; err != nil {
 			return false, err
 		}
@@ -1292,6 +1304,9 @@ func (channel *Channel) ValidateSettings() error {
 		if err != nil {
 			return err
 		}
+	}
+	if err := ValidateChannelModelRoutes(channel.Type, channelOtherSettings.ModelRoutes); err != nil {
+		return err
 	}
 	if channel.Type == constant.ChannelTypeAdvancedCustom {
 		if channelOtherSettings.AdvancedCustom == nil {

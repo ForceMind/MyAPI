@@ -66,6 +66,7 @@ const (
 )
 
 type ChannelOtherSettings struct {
+	ModelRoutes []ModelRoute `json:"model_routes,omitempty"`
 	AzureResponsesVersion                 string                `json:"azure_responses_version,omitempty"`
 	VertexKeyType                         VertexKeyType         `json:"vertex_key_type,omitempty"` // "json" or "api_key"
 	OpenRouterEnterprise                  *bool                 `json:"openrouter_enterprise,omitempty"`

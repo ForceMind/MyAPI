@@ -193,6 +193,10 @@ func Distribute() func(c *gin.Context) {
 		}
 		common.SetContextKey(c, constant.ContextKeyRequestStartTime, time.Now())
 		if setupErr := SetupContextForSelectedChannel(c, channel, modelRequest.Model); setupErr != nil {
+			if setupErr.StatusCode >= 400 && setupErr.StatusCode < 500 {
+				abortWithOpenAiMessage(c, setupErr.StatusCode, setupErr.Error(), setupErr.GetErrorCode())
+				return
+			}
 			abortWithOpenAiMessage(c, http.StatusServiceUnavailable, i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{
 				"Group": usingGroup, "Model": modelRequest.Model,
 			}), setupErr.GetErrorCode())
@@ -211,6 +215,10 @@ func Distribute() func(c *gin.Context) {
 func channelSupportsRequestPath(channel *model.Channel, requestPath string, requestModel string) bool {
 	if channel == nil {
 		return false
+	}
+	if model.IsBasicModelRouteChannel(channel.Type) {
+		_, err := model.ResolveChannelModelRoute(channel, requestModel, requestPath)
+		return err == nil
 	}
 	if channel.Type != constant.ChannelTypeAdvancedCustom {
 		return true
@@ -496,6 +504,10 @@ func setupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	if channel == nil {
 		return types.NewError(errors.New("channel is nil"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
+	common.SetContextKey(c, constant.ContextKeyChannelModelMapping, channel.GetModelMapping())
+	if routeErr := prepareSelectedModelRoute(c, channel, modelName, quotaProbe); routeErr != nil {
+		return routeErr
+	}
 	var excluded map[int]bool
 	thresholdActive := false
 	if c.Request != nil {
@@ -532,7 +544,6 @@ func setupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 		common.SetContextKey(c, constant.ContextKeyChannelOrganization, *channel.OpenAIOrganization)
 	}
 	common.SetContextKey(c, constant.ContextKeyChannelAutoBan, channel.GetAutoBan())
-	common.SetContextKey(c, constant.ContextKeyChannelModelMapping, channel.GetModelMapping())
 	common.SetContextKey(c, constant.ContextKeyChannelStatusCodeMapping, channel.GetStatusCodeMapping())
 
 	var key string

@@ -86,6 +86,9 @@ jobs:
           -run '^Test(InMemoryRateLimiter|NewUsesProvidedRedisClient|Allow(RecoversAfterRedisScriptFlush|SetsAndRenewsBucketTTL|RejectsInvalidConfigWithoutWritingBucket|LuaValidationAndInvalidBucketStateDoNotWrite)|UpdateTopupGroupRatio|ValidateTopupGroupRatio|RWMap|LoadFromJsonString|Chats|UserUsableGroups|UpdateAutoGroups|UpdatePayMethods|UpdateConfigFromMap|ValidateConfigFromMap|ConfigManager|ToolPrice|GetClaudeSettings|ClaudeManagedConfig|RelayInfoKeepsCapturedClaudeSettingsDuringConcurrentPublish|ManagedMonitorSetting|GetMonitorSetting|MonitorSetting_|ValidateGeminiThinking|ValidateRatioMapJSON|ValidateNestedRatioMapJSON|RatioJSON|GroupRatio|ManagedGroupRatio|ValidateGroupSpecialUsableGroup|GetGroupSpecialUsableGroup|GetUserUsableGroups|GetUserModelsExpandsAutoGroups|LoadGroupRatio|LoadInvalidGroupRatio|UpdateGroupRatio|InitOptionMapPublishesAlias|GroupSpecialUsableGroupRemains|ExposedData|UpdateModelRequest|ModelRequest|ResolveModelRequest|ValidateModelRequest|EnabledModelRequest|RateLimitTyped|ValidateOptionValue|GenericConfig|ModelSemanticConfig|AuxiliaryOption|NullCollection|MalformedD07|UpdateOptionsBulk|LoadOptionsRejects|RateLimitPersistence|ModelRedisRateLimit|MemoryModelRateLimit|UpdateOptionRatioPersistence|ConfirmPaymentCompliance|S2PaymentComplianceBulkRollbackSQLite).*$'
           -count=1 -timeout=180s
 
+      - name: Verify model discovery and route identity under race detector
+        run: go test -race -p 1 ./model ./middleware ./controller ./service ./router -run '^Test(ChannelModel|SelectedModelRoute|ModelRoute|ExplicitModelRoutes)' -count=1 -timeout=180s
+
       - name: Verify io.net and cache codec boundaries under race detector
         env:
           GOMAXPROCS: '1'
@@ -259,6 +262,7 @@ jobs:
         run: |
           go test -p 1 ./model -run '^Test(ChannelQuotaIdentity|OfficialPriceVersion|R1UsageReview|PricePublication|TokenBudget)ConfiguredDatabases$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestAccountQuotaConfiguredSchema(MySQLAndPostgres|SQLite)$' -count=1 -timeout=180s -v
+          go test -p 1 ./model -run '^TestChannelModel(Discovery|Route)ConfiguredDatabases$' -count=1 -timeout=180s -v
 
   b2-clickhouse:
     name: B2 ClickHouse log migration regression
@@ -420,6 +424,23 @@ jobs:
           MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-quota-browser-artifacts
           NODE_OPTIONS: '--max-old-space-size=768'
         run: node tools/quota/browser-smoke.mjs
+
+      - name: Verify model discovery and routing workflow in real Chromium
+        working-directory: .
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs
+          MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-routing-browser-artifacts
+          NODE_OPTIONS: '--max-old-space-size=768'
+        run: node tools/routing/browser-smoke.mjs
+
+      - name: Upload routing browser screenshots
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-routing-browser-${{ github.sha }}
+          path: ${{ runner.temp }}/myapi-routing-browser-artifacts/*.png
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Upload quota browser screenshots
         if: always()

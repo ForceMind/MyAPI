@@ -19,6 +19,10 @@ For commercial licensing, please contact support@quantumnous.com
 // Static translation keys that don't get picked up by the t('...') regex.
 // These cover dynamic labels (e.g. constants, configs) that are passed into t at runtime.
 export const STATIC_I18N_KEYS = [
+  'Each route requires a public model, upstream model, endpoint, match mode, and integer priority.',
+  'Model routes support only OpenAI and Codex channels.',
+  'Codex routes require Responses.',
+  'Conflicting model routes have the same match, endpoint, and priority.',
   // Header navigation
   'Home',
   'Console',

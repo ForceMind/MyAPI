@@ -395,6 +395,14 @@ func filterRoutingCandidatesByRequestPathAndModel(candidates []ChannelRoutingCan
 			filtered = append(filtered, candidate)
 			continue
 		}
+		if IsBasicModelRouteChannel(channel.Type) {
+			route, err := ResolveChannelModelRoute(channel, modelName, requestPath)
+			if err != nil {
+				candidate.RouteError = err.Error()
+			} else {
+				candidate.ModelRoute = &route
+			}
+		}
 		if channel.Type != constant.ChannelTypeAdvancedCustom {
 			filtered = append(filtered, candidate)
 			continue

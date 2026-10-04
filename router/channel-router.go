@@ -43,6 +43,8 @@ func registerChannelRoutes(apiRouter *gin.RouterGroup) {
 }
 
 var channelPermissionRoutes = []permissionRoute{
+	{method: http.MethodGet, path: "/model-discovery/:id", permission: authz.ChannelRead, middleware: []gin.HandlerFunc{middleware.DisableCache()}, handler: controller.GetChannelModelDiscovery},
+	{method: http.MethodPost, path: "/model-discovery/:id", permission: authz.ChannelOperate, middleware: []gin.HandlerFunc{middleware.DisableCache(), middleware.DashboardSessionOriginGuard()}, rateLimit: middleware.CriticalRateLimit, handler: controller.RefreshChannelModelDiscovery},
 	{method: http.MethodGet, path: "/", permission: authz.ChannelRead, handler: controller.GetAllChannels},
 	{method: http.MethodGet, path: "/quota/changes", permission: authz.ChannelRead, handler: controller.GetChannelQuotaChanges},
 	{method: http.MethodGet, path: "/quota/status", permission: authz.ChannelRead, handler: controller.GetChannelQuotaSamplingStatus},

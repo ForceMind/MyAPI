@@ -14,6 +14,8 @@ import (
 // ChannelRoutingCandidate is the non-sensitive input used to build the runtime
 // routing policy and the administrator routing preview.
 type ChannelRoutingCandidate struct {
+	ModelRoute  *ChannelModelRoute
+	RouteError  string
 	ChannelID   int
 	ChannelName string
 	ChannelType int
@@ -38,7 +40,8 @@ type ChannelRoutingTier struct {
 
 // ChannelRoutingPolicy is ordered from the highest priority tier to the lowest.
 type ChannelRoutingPolicy struct {
-	Tiers []ChannelRoutingTier
+	Rejected []ChannelRoutingCandidate
+	Tiers    []ChannelRoutingTier
 }
 
 // ChannelRoutingPolicySnapshot identifies the source and committed generation
@@ -85,7 +88,12 @@ func BuildChannelRoutingPolicy(candidates []ChannelRoutingCandidate) ChannelRout
 
 	candidatesByPriority := make(map[int64][]ChannelRoutingCandidate)
 	priorities := make([]int64, 0)
+	rejected := make([]ChannelRoutingCandidate, 0)
 	for _, candidate := range candidates {
+		if candidate.RouteError != "" {
+			rejected = append(rejected, candidate)
+			continue
+		}
 		if _, exists := candidatesByPriority[candidate.Priority]; !exists {
 			priorities = append(priorities, candidate.Priority)
 		}
@@ -95,7 +103,7 @@ func BuildChannelRoutingPolicy(candidates []ChannelRoutingCandidate) ChannelRout
 		return priorities[i] > priorities[j]
 	})
 
-	policy := ChannelRoutingPolicy{Tiers: make([]ChannelRoutingTier, 0, len(priorities))}
+	policy := ChannelRoutingPolicy{Tiers: make([]ChannelRoutingTier, 0, len(priorities)), Rejected: rejected}
 	for _, priority := range priorities {
 		tierCandidates := candidatesByPriority[priority]
 		sort.Slice(tierCandidates, func(i, j int) bool {

@@ -34,6 +34,7 @@ import type {
   ChannelQuotaHistoryRange,
   ChannelQuotaSamplingStatusResponse,
   ChannelOpsResponse,
+  ChannelModelDiscoveryResponse,
   ChannelRoutingPreviewParams,
   ChannelRoutingPreviewResponse,
   ChannelQuotaHistoryResponse,
@@ -975,5 +976,26 @@ export async function getPrefillGroups(
   data?: Array<{ id: number; name: string; items: string | string[] }>
 }> {
   const res = await api.get('/api/prefill_group', { params: { type } })
+  return res.data
+}
+
+export async function getChannelModelDiscovery(
+  id: number
+): Promise<ChannelModelDiscoveryResponse> {
+  const res = await api.get(
+    `/api/channel/model-discovery/${id}`,
+    channelActionConfig()
+  )
+  return res.data
+}
+
+export async function refreshChannelModelDiscovery(
+  id: number
+): Promise<ChannelModelDiscoveryResponse> {
+  const res = await api.post(
+    `/api/channel/model-discovery/${id}`,
+    undefined,
+    channelActionConfig()
+  )
   return res.data
 }

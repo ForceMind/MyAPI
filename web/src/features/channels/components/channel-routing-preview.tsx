@@ -103,6 +103,10 @@ export function ChannelRoutingPreview() {
     errorMessage = t("You don't have necessary permission")
   } else if (errorCode === 'routing_preview_database_error') {
     errorMessage = t('Routing preview is temporarily unavailable.')
+  } else if (errorCode === 'routing_preview_model_route_conflict') {
+    errorMessage = t(
+      'Conflicting model routes have the same match, endpoint, and priority.'
+    )
   } else if (errorCode === 'routing_preview_network_error') {
     errorMessage = t('Unable to reach the server. Try again.')
   }
@@ -285,6 +289,26 @@ export function ChannelRoutingPreview() {
                         <div className='text-muted-foreground text-xs'>
                           #{channel.id} · {t(getChannelTypeLabel(channel.type))}
                         </div>
+                        {channel.upstream_model && (
+                          <div className='break-all'>
+                            {t('Upstream model')}: {channel.upstream_model}
+                          </div>
+                        )}
+                        {channel.request_path && (
+                          <div className='break-all'>
+                            {t('Endpoint')}: {channel.request_path}
+                          </div>
+                        )}
+                        {channel.route_reason && (
+                          <div className='break-all'>
+                            {t('Route reason')}: {channel.route_reason}
+                          </div>
+                        )}
+                        {channel.config_digest && (
+                          <div className='text-xs break-all'>
+                            {t('Configuration digest')}: {channel.config_digest}
+                          </div>
+                        )}
                       </div>
                       <span>
                         {t('Weight')}: {channel.weight}
@@ -304,6 +328,11 @@ export function ChannelRoutingPreview() {
           </div>
         ) : null}
 
+        <p className='text-muted-foreground text-xs'>
+          {t(
+            'This saved channel/group/model preview does not verify API Key permissions, strict budget eligibility, prices, login state, account quota, or request success.'
+          )}
+        </p>
         <p className='text-muted-foreground text-xs'>
           {t(
             'Affinity is checked before priority and weight routing when a request matches an existing cached affinity mapping. This preview does not evaluate, read, or write affinity state.'

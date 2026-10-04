@@ -126,6 +126,14 @@ export interface LogOtherData {
   usage_accuracy?: string
   reasoning_tokens?: number
   admin_info?: {
+    model_route?: {
+      requested_model: string
+      upstream_model: string
+      endpoint: string
+      reason: string
+      channel_id: number
+      config_digest: string
+    }
     is_multi_key?: boolean
     multi_key_index?: number
     use_channel?: number[]

@@ -178,6 +178,8 @@ import {
   collectNewDisallowedStatusCodeRedirects,
 } from '../../lib/status-code-risk-guard'
 import type { Channel } from '../../types'
+import { ChannelModelDiscovery } from '../channel-model-discovery'
+import { ChannelModelRoutes } from '../channel-model-routes'
 import { useChannels } from '../channels-provider'
 import { AdvancedCustomEditorDialog } from '../dialogs/advanced-custom-editor-dialog'
 import { CodexLocalAuthDialog } from '../dialogs/codex-local-auth-dialog'
@@ -678,12 +680,22 @@ export function ChannelMutateDrawer({
   const channelId = currentRow?.id ?? null
   const sensitiveLocked = isEditing && !canEditSensitive
 
+  const initializedChannelRef = useRef<number | null>(null)
   // Fetch channel details if editing
-  const { data: channelData, isLoading: isChannelLoading } = useQuery({
+  const {
+    data: channelData,
+    isLoading: isDetailLoading,
+    isFetching: isDetailFetching,
+  } = useQuery({
     queryKey: channelsQueryKeys.detail(channelId || 0),
     queryFn: () => getChannel(channelId || 0),
-    enabled: isEditing && Boolean(channelId),
+    enabled: open && isEditing && Boolean(channelId),
   })
+
+  const isChannelLoading =
+    isEditing &&
+    (isDetailLoading ||
+      (isDetailFetching && initializedChannelRef.current !== channelId))
 
   // Fetch available groups
   const { data: groupsData, isLoading: isLoadingGroups } = useQuery({
@@ -1270,9 +1282,20 @@ export function ChannelMutateDrawer({
     upstreamUpdateMeta.detectedModels.length -
     upstreamDetectedModelsPreview.length
 
-  // Load channel data into form when editing
+  // Keep the editor bound to its original snapshot until it is closed.
   useEffect(() => {
+    if (!open) {
+      initializedChannelRef.current = null
+      return
+    }
+    if (
+      isEditing &&
+      (isDetailFetching || initializedChannelRef.current === channelId)
+    ) {
+      return
+    }
     if (isEditing && channelData?.data) {
+      initializedChannelRef.current = channelId
       const defaults = transformChannelToFormDefaults(channelData.data)
       form.reset(defaults)
       setAdvancedSettingsOpen(
@@ -1292,7 +1315,7 @@ export function ChannelMutateDrawer({
       initialModelMappingRef.current = ''
       initialStatusCodeMappingRef.current = ''
     }
-  }, [isEditing, channelData, form])
+  }, [open, isEditing, channelData, channelId, isDetailFetching, form])
 
   // Handle type change - set default values for specific types
   useEffect(() => {
@@ -3498,6 +3521,10 @@ export function ChannelMutateDrawer({
                       className='scroll-mt-4'
                     >
                       <ChannelModelsSection>
+                        <ChannelModelDiscovery
+                          channelId={channelId}
+                          disabled={isSubmitting}
+                        />
                         <div className='space-y-5'>
                           <div className='border-border/60 bg-muted/10 rounded-lg border p-4'>
                             <FormField
@@ -3856,6 +3883,19 @@ export function ChannelMutateDrawer({
                             />
                           </div>
                         </div>
+                        {(currentType === 1 || currentType === 57) && (
+                          <ChannelModelRoutes
+                            settings={currentSettings || '{}'}
+                            type={currentType}
+                            disabled={isSubmitting || sensitiveLocked}
+                            onChange={(settings) =>
+                              form.setValue('settings', settings, {
+                                shouldDirty: true,
+                                shouldValidate: true,
+                              })
+                            }
+                          />
+                        )}
                       </ChannelModelsSection>
                     </div>
 

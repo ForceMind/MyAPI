@@ -1077,6 +1077,39 @@ export function DetailsDialog(props: DetailsDialogProps) {
           />
         )}
 
+        {props.isAdmin && other?.admin_info?.model_route && (
+          <DetailSection label={t('Actual route evidence')}>
+            <DetailRow
+              label={t('Request Model')}
+              value={other.admin_info.model_route.requested_model}
+              mono
+            />
+            <DetailRow
+              label={t('Upstream model')}
+              value={other.admin_info.model_route.upstream_model}
+              mono
+            />
+            <DetailRow
+              label={t('Endpoint')}
+              value={other.admin_info.model_route.endpoint}
+              mono
+            />
+            <DetailRow
+              label={t('Route reason')}
+              value={other.admin_info.model_route.reason}
+            />
+            <DetailRow
+              label={t('Channel ID')}
+              value={String(other.admin_info.model_route.channel_id)}
+              mono
+            />
+            <DetailRow
+              label={t('Configuration digest')}
+              value={other.admin_info.model_route.config_digest}
+              mono
+            />
+          </DetailSection>
+        )}
         {/* Model mapping */}
         {other?.is_model_mapped && other?.upstream_model_name && (
           <DetailSection label={t('Model Mapping')}>

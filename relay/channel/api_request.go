@@ -495,6 +495,9 @@ func keepUpstreamRedirectResponse(_ *http.Request, _ []*http.Request) error {
 }
 
 func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http.Response, error) {
+	if err := service.ValidateModelRouteDispatch(c, req, info); err != nil {
+		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgInvalidParams)), types.ErrorCode(err.Error()), http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+	}
 	client, err := service.GetHttpClientWithProxySettings(info.ChannelSetting.Proxy, info.ChannelSetting)
 	if err != nil {
 		return nil, fmt.Errorf("new proxy http client failed: %w", err)

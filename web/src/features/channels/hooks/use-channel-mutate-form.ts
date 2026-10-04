@@ -37,6 +37,7 @@ import {
   notifyChannelMutationSuccess,
   type ChannelFormValues,
 } from '../lib'
+import { isModelRouteConfigChanged } from '../lib/channel-form-errors'
 import type { Channel, ChannelMutationResponse } from '../types'
 
 type UseChannelMutateFormParams = {
@@ -156,6 +157,14 @@ export function useChannelMutateForm(props: UseChannelMutateFormParams) {
       props.onSuccess()
     },
     onError: (error: unknown) => {
+      if (isModelRouteConfigChanged(error)) {
+        toast.error(
+          t(
+            'Routing configuration changed. Close and reopen the channel, review the latest settings, then apply your changes.'
+          )
+        )
+        return
+      }
       toast.error(getErrorMessage(error) || t(ERROR_MESSAGES.CREATE_FAILED))
     },
   })

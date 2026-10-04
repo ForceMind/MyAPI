@@ -43,41 +43,47 @@ func CodexQuotaEligibleKeys(ctx context.Context, channel *model.Channel) (map[in
 	return diagnostic.excluded, diagnostic.HasEligibleKey, nil
 }
 
-func getRandomQuotaSatisfiedChannel(ctx context.Context, group, modelName string, retry int, requestPath string) (*model.Channel, error) {
-	channel, err := model.GetRandomSatisfiedChannel(group, modelName, retry, requestPath)
-	_, thresholdActive := common.AccountQuotaThresholdFromContext(ctx)
-	if err != nil || channel == nil || (channel.Type != constant.ChannelTypeCodex && !thresholdActive) {
-		return channel, err
-	}
-	_, usable, err := CodexQuotaEligibleKeys(ctx, channel)
-	if err != nil || usable {
-		return channel, err
-	}
+// GetAvailableChannelRoutingPolicy applies the existing account eligibility gate
+// to the shared model/endpoint policy. Preview and selection use this same view;
+// final dispatch rechecks account state because observations can change.
+func GetAvailableChannelRoutingPolicy(ctx context.Context, group, modelName, requestPath string) (model.ChannelRoutingPolicySnapshot, error) {
 	view, err := model.GetRuntimeChannelRoutingPolicy(group, modelName, requestPath)
+	if err != nil {
+		return view, err
+	}
+	_, thresholdActive := common.AccountQuotaThresholdFromContext(ctx)
+	candidates := make([]model.ChannelRoutingCandidate, 0)
+	rejected := view.Policy.Rejected
+	for _, tier := range view.Policy.Tiers {
+		for _, candidate := range tier.Candidates {
+			value := candidate.ChannelRoutingCandidate
+			if candidate.ChannelType == constant.ChannelTypeCodex || thresholdActive {
+				channel, lookupErr := model.CacheGetChannel(candidate.ChannelID)
+				if lookupErr != nil {
+					value.RouteError = "channel_state_unavailable"
+				} else {
+					_, usable, checkErr := CodexQuotaEligibleKeys(ctx, channel)
+					if checkErr != nil {
+						value.RouteError = "account_state_unavailable"
+					} else if !usable {
+						value.RouteError = "account_not_eligible"
+					}
+				}
+			}
+			candidates = append(candidates, value)
+		}
+	}
+	candidates = append(candidates, rejected...)
+	view.Policy = model.BuildChannelRoutingPolicy(candidates)
+	return view, nil
+}
+
+func getRandomQuotaSatisfiedChannel(ctx context.Context, group, modelName string, retry int, requestPath string) (*model.Channel, error) {
+	view, err := GetAvailableChannelRoutingPolicy(ctx, group, modelName, requestPath)
 	if err != nil {
 		return nil, err
 	}
-	filtered := make([]model.ChannelRoutingCandidate, 0)
-	for _, tier := range view.Policy.Tiers {
-		for _, candidate := range tier.Candidates {
-			if candidate.ChannelType == constant.ChannelTypeCodex || thresholdActive {
-				candidateChannel, lookupErr := model.CacheGetChannel(candidate.ChannelID)
-				if lookupErr != nil {
-					return nil, lookupErr
-				}
-				_, candidateUsable, checkErr := CodexQuotaEligibleKeys(ctx, candidateChannel)
-				if checkErr != nil {
-					return nil, checkErr
-				}
-				if !candidateUsable {
-					continue
-				}
-			}
-			filtered = append(filtered, candidate.ChannelRoutingCandidate)
-		}
-	}
-	policy := model.BuildChannelRoutingPolicy(filtered)
-	channelID, found, err := model.SelectChannelFromRoutingPolicy(policy, retry)
+	channelID, found, err := model.SelectChannelFromRoutingPolicy(view.Policy, retry)
 	if err != nil || !found {
 		return nil, err
 	}

@@ -175,6 +175,10 @@ const (
 )
 
 type channelRoutingPreviewCandidate struct {
+	UpstreamModel   string  `json:"upstream_model,omitempty"`
+	RouteReason     string  `json:"route_reason,omitempty"`
+	RequestPath     string  `json:"request_path,omitempty"`
+	ConfigDigest    string  `json:"config_digest,omitempty"`
 	ID              int     `json:"id"`
 	Name            string  `json:"name"`
 	Type            int     `json:"type"`
@@ -202,7 +206,7 @@ func GetChannelRoutingPreview(c *gin.Context) {
 		return
 	}
 
-	snapshot, err := model.GetRuntimeChannelRoutingPolicy(group, modelName, requestPath)
+	snapshot, err := service.GetAvailableChannelRoutingPolicy(c.Request.Context(), group, modelName, requestPath)
 	if err != nil {
 		common.SysError("failed to build channel routing preview: " + err.Error())
 		channelRoutingPreviewError(c, http.StatusInternalServerError, channelRoutingPreviewDatabaseErrorCode, i18n.MsgDatabaseError)
@@ -212,7 +216,12 @@ func GetChannelRoutingPreview(c *gin.Context) {
 	for fallbackIndex, tier := range snapshot.Policy.Tiers {
 		channels := make([]channelRoutingPreviewCandidate, 0, len(tier.Candidates))
 		for _, candidate := range tier.Candidates {
+			route := model.ChannelModelRoute{}
+			if candidate.ModelRoute != nil {
+				route = *candidate.ModelRoute
+			}
 			channels = append(channels, channelRoutingPreviewCandidate{
+				UpstreamModel: route.UpstreamModel, RouteReason: route.Reason, RequestPath: route.Endpoint, ConfigDigest: route.ConfigDigest,
 				ID:              candidate.ChannelID,
 				Name:            candidate.ChannelName,
 				Type:            candidate.ChannelType,
@@ -228,7 +237,16 @@ func GetChannelRoutingPreview(c *gin.Context) {
 		})
 	}
 
+	rejected := make([]gin.H, 0, len(snapshot.Policy.Rejected))
+	for _, candidate := range snapshot.Policy.Rejected {
+		if candidate.RouteError == model.ErrModelRouteConflict.Error() {
+			channelRoutingPreviewError(c, http.StatusConflict, "routing_preview_model_route_conflict", i18n.MsgInvalidParams)
+			return
+		}
+		rejected = append(rejected, gin.H{"id": candidate.ChannelID, "name": candidate.ChannelName, "reason": candidate.RouteError})
+	}
 	common.ApiSuccess(c, gin.H{
+		"rejected":                rejected,
 		"group":                   group,
 		"model":                   modelName,
 		"request_path":            requestPath,
@@ -575,6 +593,7 @@ func GetChannel(c *gin.Context) {
 		return
 	}
 	if channel != nil {
+		channel.RoutingConfigDigest = model.ChannelRoutingConfigDigest(channel)
 		clearChannelInfo(channel)
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -1102,8 +1121,9 @@ func DeleteChannelBatch(c *gin.Context) {
 
 type PatchChannel struct {
 	model.Channel
-	MultiKeyMode *string `json:"multi_key_mode"`
-	KeyMode      *string `json:"key_mode"` // 多key模式下密钥覆盖或者追加
+	ExpectedRoutingConfig string  `json:"expected_routing_config"`
+	MultiKeyMode          *string `json:"multi_key_mode"`
+	KeyMode               *string `json:"key_mode"` // 多key模式下密钥覆盖或者追加
 }
 
 type ChannelStatusRequest struct {
@@ -1137,14 +1157,6 @@ func UpdateChannel(c *gin.Context) {
 	}
 	clearChannelReadOnlyFields(&channel, requestData)
 
-	// 使用统一的校验函数
-	if err := validateChannel(&channel.Channel, false); err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
 	// Preserve existing ChannelInfo to ensure multi-key channels keep correct state even if the client does not send ChannelInfo in the request.
 	originChannel, err := model.GetChannelById(channel.Id, true)
 	if err != nil {
@@ -1153,6 +1165,26 @@ func UpdateChannel(c *gin.Context) {
 			"message": err.Error(),
 		})
 		return
+	}
+	validationChannel := channel.Channel
+	if _, provided := requestData["type"]; !provided {
+		validationChannel.Type = originChannel.Type
+	}
+	// 使用统一的校验函数
+	if err := validateChannel(&validationChannel, false); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+	if len(originChannel.GetOtherSettings().ModelRoutes) > 0 || len(channel.GetOtherSettings().ModelRoutes) > 0 {
+		for _, field := range []string{"models", "model_mapping", "settings", "group", "priority", "weight", "type"} {
+			if _, changed := requestData[field]; changed && channel.ExpectedRoutingConfig == "" {
+				c.JSON(http.StatusConflict, gin.H{"success": false, "code": "model_route_config_changed", "message": common.TranslateMessage(c, i18n.MsgInvalidParams)})
+				return
+			}
+		}
 	}
 	originProxy := originChannel.GetSetting().Proxy
 	proxyChanged := false
@@ -1256,7 +1288,11 @@ func UpdateChannel(c *gin.Context) {
 			// 覆盖模式：直接使用新密钥（默认行为，不需要特殊处理）
 		}
 	}
-	err = channel.Update()
+	err = channel.UpdateWithRoutingConfig(channel.ExpectedRoutingConfig)
+	if errors.Is(err, model.ErrModelRouteConfigChanged) {
+		c.JSON(http.StatusConflict, gin.H{"success": false, "code": "model_route_config_changed", "message": common.TranslateMessage(c, i18n.MsgInvalidParams)})
+		return
+	}
 	if err != nil {
 		common.ApiError(c, err)
 		return

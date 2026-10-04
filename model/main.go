@@ -305,6 +305,7 @@ func migrateDB() error {
 
 	err := DB.AutoMigrate(
 		&Channel{},
+		&ChannelModelDiscovery{},
 		&OfficialPriceVersion{},
 		&PricePublication{},
 		&ChannelQuotaSnapshot{},
@@ -443,6 +444,7 @@ func migrateDBFast() error {
 		name  string
 	}{
 		{&Channel{}, "Channel"},
+		{&ChannelModelDiscovery{}, "ChannelModelDiscovery"},
 		{&OfficialPriceVersion{}, "OfficialPriceVersion"},
 		{&PricePublication{}, "PricePublication"},
 		{&ChannelQuotaSnapshot{}, "ChannelQuotaSnapshot"},

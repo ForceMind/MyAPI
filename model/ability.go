@@ -117,13 +117,15 @@ func GetRuntimeChannelRoutingPolicy(group string, modelName string, requestPath 
 }
 
 type channelRoutingCandidateRow struct {
-	AbilityModel    string `gorm:"column:ability_model"`
-	ChannelID       int    `gorm:"column:channel_id"`
-	ChannelName     string `gorm:"column:channel_name"`
-	ChannelType     int    `gorm:"column:channel_type"`
-	ChannelSettings string `gorm:"column:channel_settings"`
-	Priority        *int64 `gorm:"column:priority"`
-	Weight          uint   `gorm:"column:weight"`
+	AbilityModel    string  `gorm:"column:ability_model"`
+	ChannelID       int     `gorm:"column:channel_id"`
+	ChannelName     string  `gorm:"column:channel_name"`
+	ChannelType     int     `gorm:"column:channel_type"`
+	ChannelSettings string  `gorm:"column:channel_settings"`
+	ChannelModels   string  `gorm:"column:channel_models"`
+	ChannelMapping  *string `gorm:"column:channel_mapping"`
+	Priority        *int64  `gorm:"column:priority"`
+	Weight          uint    `gorm:"column:weight"`
 }
 
 func loadChannelRoutingCandidates(group string, modelName string, requestPath string) ([]ChannelRoutingCandidate, int64, error) {
@@ -168,7 +170,7 @@ func queryChannelRoutingCandidates(group string, modelName string, requestPath s
 		"abilities.weight AS weight, " +
 		"channels.name AS channel_name, " +
 		"channels.type AS channel_type, " +
-		"channels.settings AS channel_settings"
+		"channels.settings AS channel_settings, channels.models AS channel_models, channels.model_mapping AS channel_mapping"
 	if err := DB.Table("abilities").
 		Select(selectColumns).
 		Joins("JOIN channels ON channels.id = abilities.channel_id").
@@ -207,6 +209,14 @@ func queryChannelRoutingCandidates(group string, modelName string, requestPath s
 			ChannelType: row.ChannelType,
 			Priority:    priority,
 			Weight:      row.Weight,
+		}
+		if IsBasicModelRouteChannel(row.ChannelType) {
+			route, err := ResolveChannelModelRoute(&Channel{Id: row.ChannelID, Type: row.ChannelType, Models: row.ChannelModels, ModelMapping: row.ChannelMapping, OtherSettings: row.ChannelSettings}, modelName, requestPath)
+			if err != nil {
+				candidate.RouteError = err.Error()
+			} else {
+				candidate.ModelRoute = &route
+			}
 		}
 		if row.AbilityModel == modelName {
 			if _, duplicate := exactSeen[row.ChannelID]; duplicate {

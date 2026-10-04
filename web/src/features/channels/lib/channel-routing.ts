@@ -65,6 +65,7 @@ export function createChannelRoutingPercentFormatter(
 }
 
 export type ChannelRoutingPreviewErrorCode =
+  | 'routing_preview_model_route_conflict'
   | 'routing_preview_invalid_params'
   | 'routing_preview_auto_group_unsupported'
   | 'routing_preview_permission_denied'
@@ -73,6 +74,7 @@ export type ChannelRoutingPreviewErrorCode =
   | 'routing_preview_request_failed'
 
 const ROUTING_PREVIEW_ERROR_CODES = new Set<ChannelRoutingPreviewErrorCode>([
+  'routing_preview_model_route_conflict',
   'routing_preview_invalid_params',
   'routing_preview_auto_group_unsupported',
   'routing_preview_database_error',

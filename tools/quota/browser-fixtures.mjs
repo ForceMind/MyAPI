@@ -186,6 +186,7 @@ export function quotaFixtures({ latestError = false, currentUsageMissing = false
     if (path === '/api/channel/1/codex/usage') return ok({ plan_type: 'pro', rate_limit: { allowed: true, limit_reached: false, primary_window: { ...(currentUsageMissing ? {} : { used_percent: currentUsagePercent }), reset_at: now + 86400, limit_window_seconds: 604800 } } })
     if (path === '/api/channel/1/codex/usage/reset-credits') return ok({ credits: [], available_count: 0 })
     if (path === '/api/channel/ops') return ok({ retry_times: 0 })
+    if (path === '/api/channel/model-discovery/1') return ok({ models: ['gpt-5-codex'], source: 'codex_models', status: 'success', fetched_at: now, checked_at: now, stale: false })
     if (path === '/api/channel/1') return ok(channel)
     if (path === '/api/channel' || path === '/api/channel/search') return ok({ items: [channel], total: 1, page: 1, page_size: 10, type_counts: { 57: 1 } })
     if (path === '/api/group') return ok(['default'])

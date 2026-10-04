@@ -332,8 +332,10 @@ func sanitizeAdvancedCustomRequestError(err error, key string, requestURL string
 	return errors.New(message)
 }
 
-func getFetchModelsResponseBody(method string, requestURL string, channel *model.Channel, headers http.Header) ([]byte, error) {
-	request, err := http.NewRequest(method, requestURL, nil)
+func getFetchModelsResponseBody(ctx context.Context, method string, requestURL string, channel *model.Channel, headers http.Header) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	request, err := http.NewRequestWithContext(ctx, method, requestURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -357,10 +359,22 @@ func getFetchModelsResponseBody(method string, requestURL string, channel *model
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("status code: %d", response.StatusCode)
 	}
-	return io.ReadAll(response.Body)
+	const maxModelDiscoveryResponseBytes = 4 << 20
+	body, err := io.ReadAll(io.LimitReader(response.Body, maxModelDiscoveryResponseBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(body) > maxModelDiscoveryResponseBytes {
+		return nil, errors.New("model discovery response exceeds limit")
+	}
+	return body, nil
 }
 
 func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
+	return fetchChannelUpstreamModelIDsWithContext(context.Background(), channel, false)
+}
+
+func fetchChannelUpstreamModelIDsWithContext(ctx context.Context, channel *model.Channel, requireModelData bool) ([]string, error) {
 	baseURL := constant.ChannelBaseURLs[channel.Type]
 	if channel.GetBaseURL() != "" {
 		baseURL = channel.GetBaseURL()
@@ -391,7 +405,7 @@ func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
 	}
 
 	if channel.Type == constant.ChannelTypeAdvancedCustom {
-		return fetchAdvancedCustomUpstreamModelIDs(channel, baseURL)
+		return fetchAdvancedCustomUpstreamModelIDs(ctx, channel, baseURL)
 	}
 
 	if channel.Type == constant.ChannelTypeCodex {
@@ -435,9 +449,23 @@ func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
 		return nil, sanitizeFetchModelsError(err, key)
 	}
 
-	body, err := getFetchModelsResponseBody(http.MethodGet, url, channel, headers)
+	body, err := getFetchModelsResponseBody(ctx, http.MethodGet, url, channel, headers)
 	if err != nil {
 		return nil, sanitizeAdvancedCustomRequestError(err, key, url)
+	}
+
+	// A valid empty catalogue is evidence; a missing/null data field is not.
+	if requireModelData && channel.Type == constant.ChannelTypeOpenAI {
+		var result struct {
+			Data *[]OpenAIModel `json:"data"`
+		}
+		if err := common.Unmarshal(body, &result); err != nil {
+			return nil, err
+		}
+		if result.Data == nil {
+			return nil, errors.New("model discovery response is missing data")
+		}
+		return normalizeModelNames(lo.Map(*result.Data, func(item OpenAIModel, _ int) string { return item.ID })), nil
 	}
 
 	var result OpenAIModelsResponse
@@ -453,7 +481,7 @@ func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
 	return normalizeModelNames(ids), nil
 }
 
-func fetchAdvancedCustomUpstreamModelIDs(channel *model.Channel, baseURL string) ([]string, error) {
+func fetchAdvancedCustomUpstreamModelIDs(ctx context.Context, channel *model.Channel, baseURL string) ([]string, error) {
 	key, _, apiErr := channel.GetNextEnabledKey()
 	if apiErr != nil {
 		return nil, fmt.Errorf("获取渠道密钥失败: %w", apiErr)
@@ -481,7 +509,7 @@ func fetchAdvancedCustomUpstreamModelIDs(channel *model.Channel, baseURL string)
 		return nil, sanitizeFetchModelsError(err, key)
 	}
 
-	body, err := getFetchModelsResponseBody(http.MethodGet, url, channel, headers)
+	body, err := getFetchModelsResponseBody(ctx, http.MethodGet, url, channel, headers)
 	if err != nil {
 		return nil, sanitizeFetchModelsError(err, key)
 	}
@@ -531,7 +559,7 @@ func checkAndPersistChannelUpstreamModelUpdates(
 				normalizeChannelModelMapping(latest),
 			)
 			changed := false
-			if allowAutoApply && latestSettings.UpstreamModelUpdateAutoSyncEnabled && len(pendingAddModels) > 0 {
+			if allowAutoApply && latestSettings.UpstreamModelUpdateAutoSyncEnabled && len(latestSettings.ModelRoutes) == 0 && len(pendingAddModels) > 0 {
 				originModels := normalizeModelNames(latest.GetModels())
 				mergedModels := mergeModelNames(originModels, pendingAddModels)
 				if len(mergedModels) > len(originModels) {

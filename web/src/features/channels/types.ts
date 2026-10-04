@@ -35,6 +35,7 @@ export const channelInfoSchema = z.object({
 export type ChannelInfo = z.infer<typeof channelInfoSchema>
 
 export const channelSchema = z.object({
+  routing_config_digest: z.string().optional(),
   id: z.number(),
   type: z.number(),
   key: z.string(),
@@ -204,7 +205,32 @@ export interface ChannelRoutingPreviewParams {
   request_path?: string
 }
 
+export interface ChannelModelDiscovery {
+  models: string[]
+  source: 'openai_models' | 'codex_models' | 'manual'
+  status:
+    | 'never_checked'
+    | 'manual_unverified'
+    | 'refreshing'
+    | 'success'
+    | 'empty'
+    | 'failed'
+    | 'configuration_changed'
+  fetched_at: number
+  checked_at: number
+  stale: boolean
+}
+
+export interface ChannelModelDiscoveryResponse {
+  success: boolean
+  data?: ChannelModelDiscovery
+}
+
 export interface ChannelRoutingPreviewCandidate {
+  upstream_model?: string
+  route_reason?: string
+  request_path?: string
+  config_digest?: string
   id: number
   name: string
   type: number

@@ -63,6 +63,10 @@ describe('channel routing preview', () => {
               {
                 id: 1,
                 name: 'Primary channel',
+                upstream_model: 'real-upstream',
+                request_path: '/v1/responses',
+                route_reason: 'explicit_exact',
+                config_digest: 'snapshot-digest',
                 type: 1,
                 weight: 20,
                 effective_weight: 20,
@@ -105,6 +109,14 @@ describe('channel routing preview', () => {
     })
     expect(await screen.findByText('Primary channel')).toBeInTheDocument()
     expect(screen.getByText('Zero channel')).toBeInTheDocument()
+    expect(
+      screen.getByText('Upstream model: real-upstream')
+    ).toBeInTheDocument()
+    expect(screen.getByText('Endpoint: /v1/responses')).toBeInTheDocument()
+    expect(screen.getByText('Route reason: explicit_exact')).toBeInTheDocument()
+    expect(
+      screen.getByText('Configuration digest: snapshot-digest')
+    ).toBeInTheDocument()
     expect(
       screen.getByRole('heading', { name: 'Priority 100' })
     ).toBeInTheDocument()
