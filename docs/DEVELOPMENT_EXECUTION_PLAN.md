@@ -1,5 +1,7 @@
 # MyAPI 开发执行计划
 
+> 2026-10-04 最新总体顺序与范围见[完整分版本计划](MYAPI_MASTER_PLAN.md)，接手见[当前交接](NEXT_SESSION_HANDOFF.md)。本页原阶段、分工、目录和未完成描述是历史记录，不作为新版实施入口；技术合同按实际适用范围复用，不重做旧成果。下一建议版为beta.4模型发现/识别/基础路由。
+
 > 2026-09-06 当前执行入口：[全项目完成执行计划](PROJECT_COMPLETION_EXECUTION_PLAN.md)。Full/Lite/Desktop、S5-P 与统一发行/安装/更新的 P0 合同见 [总体产品计划](MYAPI_MASTER_PLAN.md)、[发行制品合同](RELEASE_MANIFEST.md)、[提示词学习专题](PROMPT_LEARNING.md)。
 > 当前在 Linux 源码分支 `codex/b2-durable-submissions` 保留 B2-1 已完成当前范围的 CI/审查证据；Ali、Doubao、Gemini、Hailuo、Jimeng、Kling、Sora、Suno、Vertex、Vidu 的 B2-2A parser 仅在 HTTP 200 时由 legacy `DoResponse` 调用，gate-off 非 200 由 parser 前共享 bridge 处理。Task 单个 outbound attempt 的 one-shot body、3xx 不跟随、客户幂等头隔离及 Vertex OAuth JWT 换取的无重定向子范围已受限验证/独立审查；durable 提交仍未接线，B2-2B0 现有无 caller 的严格协议、T0 原子基元、Full Content 字段级脱敏、owner-scoped 只读 GET、B1a 严格 JSON 和 B1b video form/multipart 请求指纹，真正 POST 仍等待 D02/B3-A。C09-N1 `legal`/`perf_metrics_setting`/`general_setting`/`console_setting`/`checkin_setting`/`token_setting`/`quota_setting`/`grok`/`qwen`/`fetch_setting`/`discord`/`oidc` immutable generation、C09-N2a `PaymentRuntime`、C09-N5a 只读配置诊断、S5-P P1a/P1b 指纹、S5-Q P2A occurrence identity、Release Manifest schema-1/未受信 raw-bytes evidence/输入硬化和 D2A 纯安装状态均是有限本地子范围；下一主链仍是 C03b-0 决策与 B3-A；
 > 本文原 Mac 环境与阶段记录为历史证据，不代表本机可并行运行全量验证。

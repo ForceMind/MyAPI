@@ -37,6 +37,8 @@
 
 > **R1 beta.3 prerelease:** Deployment defaults target `v0.2.0-beta.3`. Publication status, supported scope, and remaining live acceptance are recorded in [the beta.3 release record](./docs/RELEASE_BETA_3.md). Use the exact release tag rather than `main` when deploying.
 
+> **Development handoff (2026-10-04):** The [versioned master plan](./docs/MYAPI_MASTER_PLAN.md), [handoff record](./docs/NEXT_SESSION_HANDOFF.md), and [new-agent prompt](./docs/CODEX_HANDOFF_PROMPT.md) are on `codex/r1-usage-review-20261002`. The next planned version is beta.4: upstream model discovery, identification, mapping, routing preview, dispatch, and traceability. Future version labels are plans, not released artifacts.
+
 <img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
 
 This repository ships the **MyAPI** self-hosting CLI and complete source

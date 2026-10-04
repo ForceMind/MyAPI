@@ -37,6 +37,8 @@
 
 > **R1 beta.3 预发布：** 部署默认版本已统一为 `v0.2.0-beta.3`。发布结果、支持范围及剩余真实验收见[beta.3 发布记录](./docs/RELEASE_BETA_3.md)。部署请使用准确发行 tag，避免检出旧 `main`。
 
+> **2026-10-04 开发交接：** [完整分版本计划](./docs/MYAPI_MASTER_PLAN.md)、[交接记录](./docs/NEXT_SESSION_HANDOFF.md)、[新agent提示词](./docs/CODEX_HANDOFF_PROMPT.md)位于 `codex/r1-usage-review-20261002`。下一建议版beta.4交付上游模型发现、识别、映射、路由预览、实际分发及日志归因。未来版本号仅是计划，不是已发布制品。
+
 <img src="./web/public/myapi-logo-v1.png" alt="MyAPI" width="160" />
 
 本仓库提供 **MyAPI** 自建 CLI 与完整源码发行包，面向 rc.25 技术兼容基线（API/协议契约，不是 UI 模板）。

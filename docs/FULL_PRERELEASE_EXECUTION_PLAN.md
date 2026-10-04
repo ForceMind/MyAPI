@@ -1,5 +1,7 @@
 # My API 完整首个预发布执行计划
 
+> 2026-10-04：本文件是历史完整首版合同与证据索引，不再作为当前版本执行顺序。新完整计划见[MYAPI_MASTER_PLAN.md](MYAPI_MASTER_PLAN.md)，接手见[NEXT_SESSION_HANDOFF.md](NEXT_SESSION_HANDOFF.md)。旧R1–R5、Sol/Terra分工及“全部目标完成才交首个预发布”不覆盖后来确认的自用逐版交付；安全、数据与适用技术合同仍须遵守。beta.3已预发布，下一建议版是beta.4模型发现/识别/基础路由，不重做已验收功能或自动扩所有后续阶段。
+
 计划版本：2026-09-15-full-beta-v1。状态：执行中；2026-09-15 已进入 A0，不执行未经单独授权的外部发布或生产部署。
 
 > 最新交接：用户已要求移交 Claude，Codex 实现代理已中断；当前仍在 A1，详见 [Claude 接手记录](CLAUDE_HANDOFF.md)。WP3-B2 最后一轮 capability CAS 与前端第22批已于 2026-09-15 完成验收（见 A1 进度）；最新 Goal 查询为 null，以下 Goal 及测试描述保留为历史进度，不代表当前全部变更通过。
