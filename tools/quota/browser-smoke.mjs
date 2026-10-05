@@ -64,11 +64,41 @@ try {
   const userPolicyFixture = userUsagePolicyBrowserFixture()
   const pendingReviewFixture = pendingUsageReviewBrowserFixture()
   const publication = { revision: 0, locked: false, active: false, receipts: [] }
+  const sourceChecks = { enabled: false, attempts: 0, writes: [], status: 'failed', stale: true, successAt: 1790000000 }
   await context.route('**/api/**', async (route) => {
     const url = new URL(route.request().url())
     if (await budgetFixture.route(route, url)) return
     if (await userPolicyFixture.route(route, url)) return
     if (await pendingReviewFixture.route(route, url)) return
+    if (url.pathname === '/api/ratio_sync/openai/check') {
+      if (route.request().method() === 'POST') {
+        assert.deepEqual(route.request().postDataJSON(), {}, 'manual check cannot submit prices')
+        sourceChecks.attempts++
+        sourceChecks.status = sourceChecks.attempts === 1 ? 'succeeded' : 'failed'
+        sourceChecks.stale = sourceChecks.attempts !== 1
+        if (sourceChecks.attempts === 1) sourceChecks.successAt = 1791001000
+        await route.fulfill({ json: { success: true, data: { created: sourceChecks.attempts === 1, task: { task_id: 'synthetic-price-check', status: sourceChecks.status } } } })
+      } else await route.fulfill({ json: { success: true, data: {
+        enabled: sourceChecks.enabled, interval_seconds: 86400, stale_after_seconds: 259200, stale: sourceChecks.stale,
+        last_attempt_at: 1791001000, last_attempt_status: sourceChecks.status, last_task_id: 'synthetic-price-check', last_error_code: sourceChecks.status === 'failed' ? 'source_unavailable' : '',
+        last_success_at: sourceChecks.successAt, next_check_at: 0, source_sha256: 'f'.repeat(64), source_fetched_at: 1789000000,
+        pending_source_sha256: 'f'.repeat(64), expected_digest: 'a'.repeat(64), revision: publication.revision,
+        diff_total: 2, diff_truncated: false, diff_review_required: true, diff_counts: { addition: 1, change: 0, removal: 0, unqualified: 1, unchanged: 0 },
+        diff: [
+          { model: 'gpt-6.1-sol', model_name_truncated: false, change: 'addition', current_mode: 'ratio', current_expression_sha256: '', candidate: { model: 'gpt-6.1-sol', expression: 'synthetic-candidate', expression_sha256: 'b'.repeat(64), source_sha256: 'f'.repeat(64) }, locked: false, eligible: true, pending_review: true },
+          { model: 'fixture-no-cache', model_name_truncated: false, change: 'unqualified', current_mode: 'ratio', current_expression_sha256: '', candidate: null, locked: true, eligible: false, pending_review: true },
+        ],
+      } } })
+      return
+    }
+    if (url.pathname.replace(/\/$/, '') === '/api/option' && route.request().method() === 'PUT' && route.request().postDataJSON()?.key === 'OpenAIOfficialPriceCheckEnabled') {
+      const body = route.request().postDataJSON()
+      assert(['true', 'false'].includes(body.value))
+      sourceChecks.writes.push(body)
+      sourceChecks.enabled = body.value === 'true'
+      await route.fulfill({ json: { success: true } })
+      return
+    }
     if (url.pathname.endsWith('/publication-preview')) {
       const expression = 'v1:len <= 272000 ? tier("short", p * 2 + c * 10 + cr * 0 + cc * 2.5) : tier("long", p * 4 + c * 15 + cr * 0.2 + cc * 5)'
       await route.fulfill({ json: { success: true, data: { source_sha256: 'f'.repeat(64), expected_digest: 'a'.repeat(64), revision: publication.revision, rows: [
@@ -408,6 +438,37 @@ try {
   assert.equal(publicationSubmissions.length, 2)
   assert.equal(publicationSubmissions[1].action, 'rollback')
   assert.equal(publicationSubmissions[1].rollback_of, publicationSubmissions[0].id)
+  // Source checks are synthetic and default-off; successful unchanged evidence
+  // has its own check time and failed refresh retains the saved version.
+  await page.getByRole('button', { name: label('Effective price publication'), exact: true }).click()
+  await page.getByRole('button', { name: label('Official source checks'), exact: true }).click()
+  const sourcePanel = page.getByRole('region', { name: label('Official source checks'), exact: true })
+  await sourcePanel.getByText(label('Stale source evidence'), { exact: true }).waitFor()
+  assert.equal(sourceChecks.writes.length, 0, 'opening checks does not enable the schedule')
+  await sourcePanel.getByRole('button', { name: label('Check official source now'), exact: true }).click()
+  await sourcePanel.getByText(label('Fresh source evidence'), { exact: true }).waitFor()
+  await sourcePanel.getByText('f'.repeat(64), { exact: true }).waitFor()
+  await sourcePanel.getByRole('button', { name: label('Check official source now'), exact: true }).click()
+  await sourcePanel.getByText(label('The last source check failed. The last good source and effective prices are retained.'), { exact: true }).waitFor()
+  await sourcePanel.getByText('f'.repeat(64), { exact: true }).waitFor()
+  assert.equal(publicationSubmissions.length, 2, 'checking never publishes or rolls back prices')
+  for (const width of [320, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.evaluate(async () => {
+      await Promise.all(document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity).map((animation) => animation.finished.catch(() => {})))
+      await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+    })
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `source checks fit ${width}px without page-wide overflow`)
+    const diff = sourcePanel.getByRole('table', { name: label('Source check differences'), exact: true })
+    await diff.getByText('gpt-6.1-sol', { exact: true }).waitFor()
+    await sourcePanel.screenshot({ path: resolve(output, `price-source-check-${width}.png`) })
+  }
+  await sourcePanel.getByRole('button', { name: label('Enable daily source checks'), exact: true }).click()
+  await sourcePanel.getByRole('button', { name: label('Disable daily source checks'), exact: true }).click()
+  await sourcePanel.getByRole('button', { name: label('Enable daily source checks'), exact: true }).waitFor()
+  assert.deepEqual(sourceChecks.writes.map((write) => write.value), ['true', 'false'])
+  assert.equal(sourceChecks.enabled, false, 'synthetic schedule is returned to default-off')
+  assert.equal(sourceChecks.attempts, 2)
   await checkTokenBudgetBrowser({ page, origin, output, label, fixture: budgetFixture })
   await checkUserUsagePolicyBrowser({ page, origin, output, label, fixture: userPolicyFixture })
   await checkPendingUsageReviewBrowser({ page, origin, output, label, fixture: pendingReviewFixture })

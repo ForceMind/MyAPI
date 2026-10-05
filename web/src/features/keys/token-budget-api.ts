@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { tokenBudgetEvidenceSchema } from '@/features/usage-logs/lib/token-budget-evidence'
 import { usageReviewSchema } from '@/features/usage-logs/usage-review-api'
 import { api } from '@/lib/api'
 import { usdAmountSchema } from '@/lib/exact-usd'
@@ -24,8 +25,8 @@ const budgetViewSchema = z.object({
     pending_request_id: z.string(),
     revision: count,
   }),
-  pending: z
-    .object({
+  pending: tokenBudgetEvidenceSchema
+    .extend({
       request_id: z.string(),
       token_id: z.number().int().positive(),
       user_id: z.number().int().positive(),

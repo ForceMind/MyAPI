@@ -62,6 +62,9 @@ export function PricePublicationPanel(props: {
     onSuccess: () => {
       setChange(null)
       void client.invalidateQueries({ queryKey: queryPrefix })
+      void client.invalidateQueries({
+        queryKey: ['openai-price-check', props.userID, props.role],
+      })
     },
   })
   if (props.role !== 100) return null

@@ -95,11 +95,15 @@ func TestTokenBudgetActualRoutesAndUnlimitedKeyAdmission(t *testing.T) {
 	require.NoError(t, db.Model(&model.TokenBudgetPolicyChange{}).Count(&audits).Error)
 	assert.EqualValues(t, 1, audits)
 	assert.Equal(t, http.StatusNoContent, request(http.MethodPost, "/v1/responses", "sk-budgetrelayfixture", "", "{}").Code)
-	for _, unsupported := range []string{"/v1/chat/completions", "/mj/submit/imagine"} {
+	// These handlers inspect authentication/admission only. The actual native
+	// protocol/model/payload gates are exercised by TestChatBudgetActualApplicationFlow.
+	assert.Equal(t, http.StatusNoContent, request(http.MethodPost, "/v1/chat/completions", "sk-budgetrelayfixture", "", "{}").Code)
+	for _, unsupported := range []string{"/v1/chat/completions?extra=1", "/v1/responses?extra=1", "/mj/submit/imagine"} {
 		assert.Equal(t, http.StatusBadRequest, request(http.MethodPost, unsupported, "sk-budgetrelayfixture", "", "{}").Code)
 	}
 	require.NoError(t, model.ReserveTokenBudget(context.Background(), db, model.TokenBudgetReservation{RequestID: "route-budget-request", TokenID: key.Id, UserID: ownerID, ChannelID: 7, ModelName: "fixture", InputTokens: 10, MaxOutputTokens: 20, PayloadSHA256: strings.Repeat("b", 64), BoundSource: model.TokenBudgetBoundOpenAIResponses}))
 	assert.Equal(t, http.StatusConflict, request(http.MethodPost, "/v1/responses", "sk-budgetrelayfixture", "", "{}").Code)
+	assert.Equal(t, http.StatusConflict, request(http.MethodPost, "/v1/chat/completions", "sk-budgetrelayfixture", "", "{}").Code)
 	assert.Equal(t, http.StatusNoContent, request(http.MethodGet, "/v1/models", "sk-budgetrelayfixture", "", "").Code)
 	_, err := model.MutateTokenBudgetRequest(context.Background(), db, model.TokenBudgetMutation{TokenID: key.Id, RequestID: "route-budget-request", Action: "send"})
 	require.NoError(t, err)
@@ -110,7 +114,7 @@ func TestTokenBudgetActualRoutesAndUnlimitedKeyAdmission(t *testing.T) {
 	_, err = model.ConfigureTokenBudget(context.Background(), db, rootID, model.TokenBudgetPolicyInput{ID: strings.Repeat("c", 64), TokenID: key.Id, ExpectedRevision: policy.Revision, Enabled: true, Limit: 30})
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusForbidden, request(http.MethodPost, "/v1/responses", "sk-budgetrelayfixture", "", "{}").Code)
-	assert.Equal(t, 1, generations, "unlimited legacy quota and alternate relay paths cannot bypass the new budget")
+	assert.Equal(t, 2, generations, "unlimited legacy quota and alternate relay paths cannot bypass the new budget")
 	policy, err = model.LookupTokenBudget(context.Background(), db, key.Id)
 	require.NoError(t, err)
 	feeBody := fmt.Sprintf(`{"id":"%s","expected_revision":%d,"enabled":false,"limit":30,"confirmed":true,"fee":{"enabled":true,"limit_usd":"0.000300"}}`, strings.Repeat("d", 64), policy.Revision)
@@ -120,7 +124,7 @@ func TestTokenBudgetActualRoutesAndUnlimitedKeyAdmission(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 	assert.Contains(t, response.Body.String(), `"fee_limit_usd":"0.0003"`)
 	assert.Equal(t, http.StatusNoContent, request(http.MethodPost, "/v1/responses", "sk-budgetrelayfixture", "", "{}").Code)
-	assert.Equal(t, http.StatusBadRequest, request(http.MethodPost, "/v1/chat/completions", "sk-budgetrelayfixture", "", "{}").Code)
+	assert.Equal(t, http.StatusNoContent, request(http.MethodPost, "/v1/chat/completions", "sk-budgetrelayfixture", "", "{}").Code)
 	require.NoError(t, model.ReserveTokenBudget(context.Background(), db, model.TokenBudgetReservation{RequestID: "route-fee-request", TokenID: key.Id, UserID: ownerID, ChannelID: 7, ModelName: "fixture", InputTokens: 10, MaxOutputTokens: 20, PayloadSHA256: strings.Repeat("b", 64), BoundSource: model.TokenBudgetBoundOpenAIResponses, RequestServiceTier: "default", FeeEnabled: true, FeeReservedUSD: "0.0003", FeePriceEvidence: `{"scope":"synthetic-route"}`}))
 	_, err = model.MutateTokenBudgetRequest(context.Background(), db, model.TokenBudgetMutation{TokenID: key.Id, RequestID: "route-fee-request", Action: "send"})
 	require.NoError(t, err)
@@ -129,7 +133,8 @@ func TestTokenBudgetActualRoutesAndUnlimitedKeyAdmission(t *testing.T) {
 	response = request(http.MethodPost, "/v1/responses", "sk-budgetrelayfixture", "", "{}")
 	assert.Equal(t, http.StatusForbidden, response.Code)
 	assert.Contains(t, response.Body.String(), "token_budget_fee_exceeded")
-	assert.Equal(t, 2, generations, "fee-only policies remain enforced even with the Token limit disabled")
+	assert.Equal(t, http.StatusForbidden, request(http.MethodPost, "/v1/chat/completions", "sk-budgetrelayfixture", "", "{}").Code)
+	assert.Equal(t, 4, generations, "fee-only policies remain enforced even with the Token limit disabled")
 
 }
 

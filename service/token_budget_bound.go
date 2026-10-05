@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	ErrTokenBudgetUnsupported      = errors.New("strict token budget requires supported official Responses text input and an explicit output limit")
+	ErrTokenBudgetUnsupported      = errors.New("strict token budget requires qualified official text input and an explicit output limit")
 	ErrTokenBudgetCountUnavailable = errors.New("reliable input token count is unavailable")
 )
 
@@ -34,7 +34,7 @@ func CountTokenBudgetBound(ctx context.Context, client *http.Client, req *http.R
 	if client == nil || client.Jar != nil || req == nil || req.URL == nil || req.GetBody == nil || info == nil || info.ChannelMeta == nil ||
 		info.ChannelType != constant.ChannelTypeOpenAI || info.ChannelId <= 0 || info.TokenId <= 0 || info.UserId <= 0 ||
 		common.TLSInsecureSkipVerify || !tokenBudgetVerifiedTransport(client.Transport) || req.Method != http.MethodPost || req.URL.Scheme != "https" || req.URL.Host != "api.openai.com" ||
-		req.URL.EscapedPath() != "/v1/responses" || req.URL.RawQuery != "" || req.URL.User != nil ||
+		(req.URL.EscapedPath() != "/v1/responses" && req.URL.EscapedPath() != "/v1/chat/completions") || req.URL.RawQuery != "" || req.URL.User != nil ||
 		(req.Host != "" && req.Host != "api.openai.com") || len(info.HeadersOverride) != 0 || len(info.ParamOverride) != 0 ||
 		req.Header.Get("OpenAI-Beta") != "" || req.Header.Get("Content-Encoding") != "" || req.Header.Get("Cookie") != "" {
 		return nil, ErrTokenBudgetUnsupported
@@ -49,7 +49,7 @@ func CountTokenBudgetBound(ctx context.Context, client *http.Client, req *http.R
 	}
 	defer reader.Close()
 	body, err := io.ReadAll(io.LimitReader(reader, (1<<20)+1))
-	if err != nil {
+	if err != nil || len(body) > 1<<20 {
 		return nil, ErrTokenBudgetUnsupported
 	}
 	digest, err := common.CanonicalJSONObjectDigest(body)
@@ -59,6 +59,9 @@ func CountTokenBudgetBound(ctx context.Context, client *http.Client, req *http.R
 	var fields map[string]json.RawMessage
 	if common.Unmarshal(body, &fields) != nil {
 		return nil, ErrTokenBudgetUnsupported
+	}
+	if req.URL.EscapedPath() == "/v1/chat/completions" {
+		return boundOpenAIChatText(req, info, body, fields, digest)
 	}
 	// Only a complete, stateless text request is eligible in this first strict
 	// slice. Unsupported keys are rejected, never removed from the sent request.

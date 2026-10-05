@@ -1,6 +1,6 @@
 usage_dispatch.pending: "This request cannot be sent again. Check its usage settlement status first."
 # English translations
-token_budget.unsupported: "This strict Token budget supports only official OpenAI Responses text requests with explicit max_output_tokens and non-free per-token pricing"
+token_budget.unsupported: "This strict budget requires qualified official OpenAI Responses text or gpt-6.1-sol Chat text with an explicit output limit and non-free per-token pricing; Chat reserves its full 1,050,000-token context bound"
 token_budget.pending: "This key has an unresolved usage reservation. Further requests are paused"
 token_budget.exceeded: "The reserved Token upper bound exceeds the available budget"
 token_budget.count_unavailable: "A reliable upstream input Token count is unavailable. The generation request was not sent"

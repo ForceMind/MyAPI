@@ -19,15 +19,17 @@ var ErrFeeBudgetEvidence = errors.New("strict USD budget requires complete usage
 const feeBudgetPriceScope = "official_standard_text_usage_cost_not_invoice"
 
 type feeBudgetPriceEvidence struct {
-	Version          int                      `json:"version"`
-	Currency         string                   `json:"currency"`
-	Scope            string                   `json:"scope"`
-	Model            string                   `json:"model"`
-	Profile          string                   `json:"profile"`
-	PublicationID    string                   `json:"publication_id"`
-	SourceSHA256     string                   `json:"source_sha256"`
-	ExpressionSHA256 string                   `json:"expression_sha256"`
-	Rates            OpenAIOfficialTokenRates `json:"rates"`
+	LongRates                  *OpenAIOfficialTokenRates `json:"long_rates,omitempty"`
+	ShortContextMaxInputTokens int64                     `json:"short_context_max_input_tokens,omitempty"`
+	Version                    int                       `json:"version"`
+	Currency                   string                    `json:"currency"`
+	Scope                      string                    `json:"scope"`
+	Model                      string                    `json:"model"`
+	Profile                    string                    `json:"profile"`
+	PublicationID              string                    `json:"publication_id"`
+	SourceSHA256               string                    `json:"source_sha256"`
+	ExpressionSHA256           string                    `json:"expression_sha256"`
+	Rates                      OpenAIOfficialTokenRates  `json:"rates"`
 }
 
 // Explicit service_tier=default is required: omission is auto and can select
@@ -64,6 +66,9 @@ func freezeFeeBudgetPrice(ctx context.Context, db *gorm.DB, info *relaycommon.Re
 	binding, ok := published.State.Models[bound.ModelName]
 	if !ok || binding.PublicationID != receipt.ID || binding.SourceSHA256 != source.ContentSHA256 || binding.ExpressionSHA256 != snapshot.ExprHash || published.Expressions[bound.ModelName] != snapshot.ExprString || published.Modes[bound.ModelName] != "tiered_expr" {
 		return ErrFeeBudgetEvidence
+	}
+	if bound.BoundSource == model.TokenBudgetBoundOpenAIChat {
+		return freezeChatFeeBudgetPrice(source, receipt.ID, snapshot.ExprHash, bound)
 	}
 	var rates OpenAIOfficialTokenRates
 	profile := "short"
@@ -115,6 +120,9 @@ func freezeFeeBudgetPrice(ctx context.Context, db *gorm.DB, info *relaycommon.Re
 // Presence, provider/model/tier, and the persisted publication are separate
 // qualification gates; no missing cache category is guessed as zero.
 func calculateFeeBudgetUSD(row *model.TokenBudgetReservation, usage *dto.Usage) (string, error) {
+	if row != nil && row.BoundSource == model.TokenBudgetBoundOpenAIChat {
+		return calculateChatFeeBudgetUSD(row, usage)
+	}
 	if row == nil || !row.FeeEnabled || row.RequestServiceTier != "default" || usage == nil || usage.BillingUsage == nil {
 		return "", ErrFeeBudgetEvidence
 	}

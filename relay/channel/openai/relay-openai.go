@@ -11,6 +11,7 @@ import (
 	"github.com/ForceMind/MyAPI/logger"
 	"github.com/ForceMind/MyAPI/relay/channel/openrouter"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
+	relayconstant "github.com/ForceMind/MyAPI/relay/constant"
 	"github.com/ForceMind/MyAPI/relay/helper"
 	"github.com/ForceMind/MyAPI/relaykit/dto"
 	"github.com/ForceMind/MyAPI/relaykit/relayconvert"
@@ -108,6 +109,17 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	}
 
 	defer service.CloseResponseBodyGracefully(resp)
+	if info.StrictTokenBudget && info.RelayMode == relayconstant.RelayModeChatCompletions {
+		original := c.Writer
+		observed := &strictChatWriteObserver{ResponseWriter: original}
+		c.Writer = observed
+		defer func() {
+			c.Writer = original
+			if observed.failed.Load() && info.StreamStatus != nil {
+				info.StreamStatus.RecordError("strict Chat downstream write failed")
+			}
+		}()
+	}
 
 	model := info.UpstreamModelName
 	var responseId string
@@ -122,6 +134,7 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	var secondLastStreamData string
 	seenStreamToolCalls := make(map[string]struct{})
 	var streamFunctionCallNames []string
+	var strictEvidence strictChatStreamEvidence
 
 	helper.StreamScannerHandler(c, resp, info, func(data string, sr *helper.StreamResult) {
 		if lastStreamData != "" {
@@ -131,6 +144,9 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 			}
 		}
 		if len(data) > 0 {
+			if info.StrictTokenBudget {
+				strictEvidence.observe(common.StringToByteSlice(data), info.UpstreamModelName)
+			}
 			secondLastStreamData = lastStreamData
 			lastStreamData = data
 			collectStreamFunctionCallNames(data, seenStreamToolCalls, &streamFunctionCallNames)
@@ -184,6 +200,9 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 		usage.BillingUsage = dto.CloneBillingUsage(&dto.BillingUsage{Source: dto.BillingUsageSourceOAIChat, Semantic: dto.BillingUsageSemanticOpenAI, Estimated: true, OpenAIUsage: usage})
 	}
 
+	if info.StrictTokenBudget && usage.BillingUsage != nil && (strictEvidence.invalid || !strictEvidence.seenUsage) {
+		usage.BillingUsage.ChatTextEvidence = nil
+	}
 	for _, name := range streamFunctionCallNames {
 		info.CountBillableToolCall(dto.BuildInCallFunctionCall, name)
 	}

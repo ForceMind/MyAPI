@@ -1,6 +1,6 @@
 usage_dispatch.pending: "此請求不能再次傳送，請先核對其用量結算狀態。"
 # Chinese (Traditional) translations
-token_budget.unsupported: "此嚴格 Token 預算僅支援 OpenAI 官方 Responses 純文字請求，須明確指定 max_output_tokens 並採用非免費的按 Token 計價"
+token_budget.unsupported: "嚴格預算僅支援合格的官方 OpenAI Responses 純文字或 gpt-6.1-sol Chat 純文字，須明確輸出上限並採非免費按 Token 計價；Chat 按完整 1,050,000 Token 上下文上界預留"
 token_budget.pending: "此 Key 有尚未處理的用量預留，後續請求已暫停"
 token_budget.exceeded: "本次請求的 Token 預留上限超過可用預算"
 token_budget.count_unavailable: "無法取得可靠的上游輸入 Token 數，生成請求未送出"

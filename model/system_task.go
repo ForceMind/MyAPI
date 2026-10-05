@@ -22,6 +22,7 @@ const (
 	SystemTaskTypeLogCleanup                  = "log_cleanup"
 	SystemTaskTypeChannelTest                 = "channel_test"
 	SystemTaskTypeModelUpdate                 = "model_update"
+	SystemTaskTypeOpenAIPriceCheck            = "openai_official_price_check"
 	SystemTaskTypeMidjourneyPoll              = "midjourney_poll"
 	SystemTaskTypeAsyncTaskPoll               = "async_task_poll"
 	SystemTaskTypeChannelQuotaSnapshotCleanup = "channel_quota_snapshot_cleanup"

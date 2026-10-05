@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"github.com/ForceMind/MyAPI/model"
 	"io"
 	"net/http"
 	"os"
@@ -155,5 +156,8 @@ func TestOfficialPricingLiveSourceContract(t *testing.T) {
 		assert.NotEmpty(t, model.ShortContext.Input)
 		assert.NotEmpty(t, model.ShortContext.Output)
 	}
+	candidate, err := BuildOpenAIPricePublicationCandidate(snapshot, model.TokenBudgetOpenAIChatModel)
+	require.NoError(t, err, "the additional strict Chat model must pass the same saved-source publication qualification")
+	assert.Equal(t, 272000, candidate.ShortContextMaxInputTokens)
 	t.Logf("public source models=%d sha256=%s", len(snapshot.Models), snapshot.ContentSHA256)
 }

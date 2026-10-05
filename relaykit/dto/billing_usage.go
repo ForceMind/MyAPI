@@ -20,7 +20,22 @@ type ResponsesTextEvidence struct {
 	CacheWrite  *int   `json:"cache_write"`
 }
 
+// ChatTextEvidence is created only by the native adapter from unambiguous raw
+// JSON. Counts are actual prompt/completion fields, not compatibility estimates.
+type ChatTextEvidence struct {
+	Model            string `json:"model"`
+	ServiceTier      string `json:"service_tier"`
+	PromptTokens     int    `json:"prompt_tokens"`
+	CompletionTokens int    `json:"completion_tokens"`
+	TotalTokens      int    `json:"total_tokens"`
+	CacheRead        *int   `json:"cache_read"`
+	CacheWrite       *int   `json:"cache_write"`
+	Reasoning        *int   `json:"reasoning"`
+	Stream           bool   `json:"stream"`
+}
+
 type BillingUsage struct {
+	ChatTextEvidence      *ChatTextEvidence      `json:"chat_text_evidence,omitempty"`
 	ResponsesTextEvidence *ResponsesTextEvidence `json:"responses_text_evidence,omitempty"`
 	Source                string                 `json:"source,omitempty"`
 	Semantic              string                 `json:"semantic,omitempty"`
@@ -154,6 +169,22 @@ func CloneBillingUsage(usage *BillingUsage) *BillingUsage {
 		return nil
 	}
 	clone := *usage
+	if usage.ChatTextEvidence != nil {
+		evidence := *usage.ChatTextEvidence
+		if evidence.CacheRead != nil {
+			value := *evidence.CacheRead
+			evidence.CacheRead = &value
+		}
+		if evidence.CacheWrite != nil {
+			value := *evidence.CacheWrite
+			evidence.CacheWrite = &value
+		}
+		if evidence.Reasoning != nil {
+			value := *evidence.Reasoning
+			evidence.Reasoning = &value
+		}
+		clone.ChatTextEvidence = &evidence
+	}
 	if usage.ResponsesTextEvidence != nil {
 		evidence := *usage.ResponsesTextEvidence
 		if evidence.CacheRead != nil {

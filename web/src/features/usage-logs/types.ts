@@ -126,6 +126,7 @@ export interface LogOtherData {
   usage_accuracy?: string
   reasoning_tokens?: number
   admin_info?: {
+    token_budget?: import('./lib/token-budget-evidence').TokenBudgetEvidenceData
     model_route?: {
       requested_model: string
       upstream_model: string

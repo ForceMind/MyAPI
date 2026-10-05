@@ -198,6 +198,9 @@ func holdUnverifiedTextUsage(ctx *gin.Context, info *relaycommon.RelayInfo, reas
 		other["usage_accuracy"] = "unknown"
 	}
 	InjectTieredBillingInfo(other, info, nil)
+	if info.TokenBudgetAudit != nil {
+		other["admin_info"] = map[string]interface{}{"token_budget": info.TokenBudgetAudit}
+	}
 	// Error/review records are excluded from confirmed consume aggregates. The
 	// explicit NULL actual_quota is not a zero-priced consumption record.
 	model.RecordErrorLog(ctx, info.UserId, info.ChannelId, info.OriginModelName, ctx.GetString("token_name"),

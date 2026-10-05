@@ -15,7 +15,18 @@ import (
 // The maximum keeps integer JSON values exact in the existing browser client.
 const MaxTokenBudget int64 = 1<<53 - 1
 
-const TokenBudgetBoundOpenAIResponses = "openai_responses_input_tokens"
+const (
+	TokenBudgetBoundOpenAIResponses = "openai_responses_input_tokens"
+	TokenBudgetBoundOpenAIChat      = "openai_chat_context_window"
+	// Exact reviewed native model contract, not a tokenizer estimate or wildcard.
+	TokenBudgetOpenAIChatModel           = "gpt-6.1-sol"
+	TokenBudgetOpenAIChatContext   int64 = 1050000
+	TokenBudgetOpenAIChatMaxOutput int64 = 128000
+)
+
+func validTokenBudgetBoundSource(source string) bool {
+	return source == TokenBudgetBoundOpenAIResponses || source == TokenBudgetBoundOpenAIChat
+}
 
 const (
 	TokenBudgetPrepared  = "prepared"
@@ -421,8 +432,12 @@ func ReserveTokenBudget(ctx context.Context, db *gorm.DB, input TokenBudgetReser
 	}
 	id, err := normalizeAccountRequestID(input.RequestID)
 	if err != nil || id != input.RequestID || input.UserID <= 0 || input.TokenID <= 0 || input.ChannelID <= 0 ||
-		input.ModelName == "" || len(input.ModelName) > 512 || len(input.PricingEvidence) > 16384 || input.BoundSource != TokenBudgetBoundOpenAIResponses || !validBudgetDigest(input.PayloadSHA256) ||
+		input.ModelName == "" || len(input.ModelName) > 512 || len(input.PricingEvidence) > 16384 || !validTokenBudgetBoundSource(input.BoundSource) || !validBudgetDigest(input.PayloadSHA256) ||
 		input.InputTokens < 0 || input.InputTokens > int64(common.MaxQuota) || input.MaxOutputTokens <= 0 || input.MaxOutputTokens > int64(common.MaxQuota) {
+		return ErrTokenBudgetInvalid
+	}
+	if input.BoundSource == TokenBudgetBoundOpenAIChat &&
+		(input.ModelName != TokenBudgetOpenAIChatModel || input.InputTokens != TokenBudgetOpenAIChatContext || input.MaxOutputTokens > TokenBudgetOpenAIChatMaxOutput) {
 		return ErrTokenBudgetInvalid
 	}
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -448,6 +463,10 @@ func ReserveTokenBudget(ctx context.Context, db *gorm.DB, input TokenBudgetReser
 			return ErrTokenBudgetPending
 		}
 		bound := input.InputTokens + input.MaxOutputTokens
+		if input.BoundSource == TokenBudgetBoundOpenAIChat {
+			// The documented context contains both input and generated tokens.
+			bound = TokenBudgetOpenAIChatContext
+		}
 		if budget.Enabled && (budget.Used > budget.Limit || bound > budget.Limit-budget.Used) {
 			return ErrTokenBudgetExceeded
 		}
@@ -640,7 +659,15 @@ func MutateTokenBudgetRequest(ctx context.Context, db *gorm.DB, input TokenBudge
 			if input.Action == "reconcile" && row.State != TokenBudgetSent && row.State != TokenBudgetUnknown {
 				return ErrTokenBudgetConflict
 			}
-			if input.Action == "settle" && (input.Input != row.InputTokens || input.Output > row.MaxOutputTokens) {
+			withinBound := input.Input == row.InputTokens && input.Output <= row.MaxOutputTokens
+			if row.BoundSource == TokenBudgetBoundOpenAIChat {
+				withinBound = row.ModelName == TokenBudgetOpenAIChatModel && row.InputTokens == TokenBudgetOpenAIChatContext &&
+					row.Reserved == TokenBudgetOpenAIChatContext && row.MaxOutputTokens <= TokenBudgetOpenAIChatMaxOutput &&
+					input.Input <= row.InputTokens && input.Output <= row.MaxOutputTokens && input.Input+input.Output <= row.Reserved
+			} else if row.BoundSource != TokenBudgetBoundOpenAIResponses {
+				return ErrTokenBudgetConflict
+			}
+			if input.Action == "settle" && !withinBound {
 				row.State, row.Reason = TokenBudgetUnknown, "bound_mismatch"
 				row.ObservedInput, row.ObservedOutput = &input.Input, &input.Output
 				updates["observed_input"], updates["observed_output"] = input.Input, input.Output

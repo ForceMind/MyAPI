@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { TokenBudgetEvidence } from '@/features/usage-logs/components/token-budget-evidence'
 import { UsageReviewForm } from '@/features/usage-logs/components/usage-review-form'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -118,7 +119,12 @@ function TokenBudgetSession(props: {
           <>
             <p className='text-muted-foreground text-xs'>
               {t(
-                'Only official OpenAI Responses text requests with explicit max_output_tokens and per-token pricing are supported.'
+                'Strict budgets support official OpenAI Responses text and native Chat text for exact model gpt-6.1-sol with per-token pricing.'
+              )}
+            </p>
+            <p className='text-muted-foreground text-xs'>
+              {t(
+                'Chat reserves 1,050,000 total tokens for input and completion, including reasoning. This is a conservative bound, not measured usage or a tokenizer estimate. Even a small request can fail if the remaining budget cannot cover this bound.'
               )}
             </p>
             <details className='text-xs'>
@@ -126,8 +132,22 @@ function TokenBudgetSession(props: {
                 {t('Supported request fields')}
               </summary>
               <p className='mt-2 font-mono break-words'>
-                model, input, instructions, max_output_tokens, stream, store,
-                service_tier
+                Responses: model, input, instructions, max_output_tokens,
+                stream, store, service_tier
+              </p>
+              <p className='mt-2 font-mono break-words'>
+                Chat: model, messages, max_completion_tokens, n, stream,
+                stream_options, store, service_tier
+              </p>
+              <p className='mt-2'>
+                {t(
+                  'Responses requires explicit max_output_tokens. Chat requires explicit max_completion_tokens from 1 to 128,000 and n omitted or 1; streaming requires stream_options.include_usage=true.'
+                )}
+              </p>
+              <p className='mt-2'>
+                {t(
+                  'Chat USD budgets require service_tier=default, exact published short/long prices frozen at dispatch, and explicit cache-read and cache-write usage counters, including zero. Missing evidence retains the reservation for review.'
+                )}
               </p>
               <p className='mt-2'>
                 {t(
@@ -250,6 +270,7 @@ function TokenBudgetSession(props: {
                     'Further requests remain paused until this reservation is resolved.'
                   )}
                 </p>
+                <TokenBudgetEvidence evidence={pending} />
                 {props.role === 100 && pending.state === 'prepared' && (
                   <TokenBudgetCancelForm
                     key={pending.request_id}

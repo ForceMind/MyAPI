@@ -1,3 +1,28 @@
+## 当前执行：beta.6 官方 Chat 文本资格候选（2026-10-05）
+
+beta.5 已按准确源码与文档 HEAD 收口。本轮承接既有主计划，仅实现官方原生
+Chat Completions 的首个精确模型 `gpt-6.1-sol`，以及默认关闭的官网来源检查；
+资格合同、官方证据、验证和停止边界见 [beta.6 交付卡](BETA_6_DELIVERY_CARD.md)。
+实现以已核对 `ab8da0e` 为基线，保留 beta.3–5、MyAPI 命名和法律通知。
+
+- Chat 按官方 1,050,000 总上下文上界预留，显式输出上限不重复相加；本地 tokenizer
+  不冒充实际计数。缺失、矛盾、非文本、非适用档位或未完整结束的流保留待核对
+- USD 复用发布/冻结来源并冻结两档价格，实际输入选档；明确缓存读/写和 reasoning
+  包含关系。来源保存、价格发布、预算资格和真实账单核对分别对待
+- 来源检查复用现有 SystemTask 和固定安全客户端，默认关闭，启用后 24 小时检查，
+  72 小时无成功核验提示过期。只保存来源及差异待确认，不自动发布或替换锁定价
+- 原入口 `/keys`、`/usage-logs/common`、`/channels` 与
+  `/system-settings/models/openai-pricing-source` 同版补齐解释和七语言
+
+独立资金合同/实现复核、本地根 Go 全测/vet/build、独立 relaykit、定向 race、
+19 个实际合成 HTTP 场景、七语言及前端定向测试/typecheck/build均已通过。
+准确新 HEAD 三库/Chromium/全 CI 仍须完成后才标本版限定交付。
+未合并 main、未创建 tag、未发行或部署，VERSION/默认镜像仍为已发布 beta.3；
+真实账号、真实提供方账单、目标环境和生产升级/回退保持未验。
+不在本版扩媒体、第三方估价、逐 Key Codex 百分比账本或完整 UI 重构。
+
+下方 beta.5 及更早的“停止/等待下一版”是保留历史，不覆盖本节当前 beta.6 执行。
+
 ## 当前交付：beta.5 限定源码候选通过（2026-10-05）
 
 源码候选 [`2720806`](https://github.com/ForceMind/MyAPI/commit/2720806390bf44732da4b07d276f4e0f03d5778e)（tree `bb4d0ac17b67258412a2b05248dd8e5604e5ae8b`）已在原开发分支推送并回读。[CI 十作业](https://github.com/ForceMind/MyAPI/actions/runs/37314110213)、[Docker 三作业](https://github.com/ForceMind/MyAPI/actions/runs/37314110258)及[静态官网检查](https://github.com/ForceMind/MyAPI/actions/runs/37314110295)全部成功。PR 测试合并 `32149da39c34307b55a052b04bc0d80611993c58` 的 tree 与该源码一致。

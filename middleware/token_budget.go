@@ -38,7 +38,7 @@ func checkTokenBudgetAdmission(c *gin.Context, token *model.Token) bool {
 	if c.Request.Method == http.MethodGet && (c.Request.URL.Path == "/v1/models" || strings.HasPrefix(c.Request.URL.Path, "/v1/models/") || c.Request.URL.Path == "/v1beta/models" || c.Request.URL.Path == "/v1beta/openai/models") {
 		return true
 	}
-	if c.Request.Method != http.MethodPost || c.Request.URL.Path != "/v1/responses" || c.Request.URL.RawQuery != "" {
+	if c.Request.Method != http.MethodPost || (c.Request.URL.Path != "/v1/responses" && c.Request.URL.Path != "/v1/chat/completions") || c.Request.URL.RawQuery != "" {
 		abortWithOpenAiMessage(c, http.StatusBadRequest, common.TranslateMessage(c, i18n.MsgTokenBudgetUnsupported), types.ErrorCode("token_budget_unsupported_request"))
 		return false
 	}

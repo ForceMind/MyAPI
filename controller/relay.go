@@ -218,6 +218,12 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			newAPIError = channelErr
 			break
 		}
+		// Strict eligibility is checked before entering the protocol helper.
+		// Capture the already-selected channel here; the helper will refresh the
+		// same context before model conversion and final outbound qualification.
+		if relayInfo.StrictTokenBudget {
+			relayInfo.InitChannelMeta(c)
+		}
 		addUsedChannel(c, channel.Id)
 		failover.StartAttempt(c)
 		if billingErr := service.PrepareTieredBillingForSelectedGroup(c, relayInfo); billingErr != nil {

@@ -41,10 +41,10 @@ func ValidateTokenBudgetSelectedChannel(info *relaycommon.RelayInfo) error {
 	if info == nil || !info.StrictTokenBudget {
 		return nil
 	}
-	// The first strict slice is native, stateless Responses with ordinary
+	// Native Responses and the reviewed Chat text slice require ordinary
 	// per-token quota billing. Other billing paths stay unchanged and cannot
 	// silently bypass this opt-in policy.
-	if info.ChannelMeta == nil || info.ChannelType != constant.ChannelTypeOpenAI || info.RelayMode != relayconstant.RelayModeResponses ||
+	if info.ChannelMeta == nil || info.ChannelType != constant.ChannelTypeOpenAI || (info.RelayMode != relayconstant.RelayModeResponses && info.RelayMode != relayconstant.RelayModeChatCompletions) ||
 		info.Billing == nil || info.PriceData.FreeModel || info.PriceData.UsePrice {
 		return ErrTokenBudgetUnsupported
 	}
@@ -55,7 +55,7 @@ func PrepareTokenBudgetDispatch(c *gin.Context, client *http.Client, req *http.R
 	if info == nil || !info.StrictTokenBudget {
 		return nil
 	}
-	if c == nil || c.Request == nil {
+	if c == nil || c.Request == nil || c.Request.URL == nil || req == nil || req.URL == nil || c.Request.URL.EscapedPath() != req.URL.EscapedPath() {
 		return ErrTokenBudgetUnsupported
 	}
 	if err := ValidateTokenBudgetSelectedChannel(info); err != nil {
@@ -87,6 +87,15 @@ func PrepareTokenBudgetDispatch(c *gin.Context, client *http.Client, req *http.R
 	if err := model.ReserveTokenBudget(ctx, model.DB, *bound); err != nil {
 		return err
 	}
+	total := bound.InputTokens + bound.MaxOutputTokens
+	if bound.BoundSource == model.TokenBudgetBoundOpenAIChat {
+		total = model.TokenBudgetOpenAIChatContext
+	}
+	info.TokenBudgetAudit = map[string]interface{}{"bound_source": bound.BoundSource, "input_tokens_bound": bound.InputTokens,
+		"max_output_tokens": bound.MaxOutputTokens, "reserved": total, "fee_reserved_usd": "0"}
+	if bound.FeeEnabled {
+		info.TokenBudgetAudit["fee_reserved_usd"] = bound.FeeReservedUSD
+	}
 	_, err = model.MutateTokenBudgetRequest(ctx, model.DB, model.TokenBudgetMutation{TokenID: info.TokenId, RequestID: info.RequestId, Action: "send"})
 	return err
 }
@@ -108,10 +117,9 @@ func SettleTokenBudgetUsage(ctx *gin.Context, info *relaycommon.RelayInfo, usage
 	if reason := textUsageReviewReason(ctx, usage); reason != "" {
 		return model.ErrTokenBudgetPending
 	}
-	if usage == nil || usage.BillingUsage == nil || usage.BillingUsage.Source != dto.BillingUsageSourceOAIResponses || usage.BillingUsage.OpenAIUsage == nil {
+	if usage == nil || usage.BillingUsage == nil || usage.BillingUsage.OpenAIUsage == nil {
 		return model.ErrTokenBudgetPending
 	}
-	actual := usage.BillingUsage.OpenAIUsage
 	operation, cancel := billingOperationContext(ctx.Request.Context(), 5*time.Second)
 	defer cancel()
 	var row model.TokenBudgetReservation
@@ -119,6 +127,29 @@ func SettleTokenBudgetUsage(ctx *gin.Context, info *relaycommon.RelayInfo, usage
 		return err
 	}
 	if row.RequestID != info.RequestId || row.TokenID != info.TokenId || row.UserID != info.UserId {
+		return model.ErrTokenBudgetConflict
+	}
+	actual := usage.BillingUsage.OpenAIUsage
+	input, output := int64(actual.InputTokens), int64(actual.OutputTokens)
+	switch row.BoundSource {
+	case model.TokenBudgetBoundOpenAIResponses:
+		if usage.BillingUsage.Source != dto.BillingUsageSourceOAIResponses {
+			return model.ErrTokenBudgetPending
+		}
+	case model.TokenBudgetBoundOpenAIChat:
+		evidence, err := qualifiedChatBudgetUsage(&row, usage)
+		if err != nil {
+			return err
+		}
+		if evidence.Stream != info.IsStream || info.IsStream &&
+			(info.StreamStatus == nil || info.StreamStatus.EndReason != relaycommon.StreamEndReasonDone || info.StreamStatus.EndError != nil || info.StreamStatus.HasErrors() || ctx.Request.Context().Err() != nil) {
+			return model.ErrTokenBudgetPending
+		}
+		if info.TieredBillingSnapshot != nil && info.TieredBillingSnapshot.OfficialPricePublicationID != "" && (evidence.CacheRead == nil || evidence.CacheWrite == nil || evidence.ServiceTier != "default") {
+			return model.ErrTokenBudgetPending
+		}
+		input, output = int64(evidence.PromptTokens), int64(evidence.CompletionTokens)
+	default:
 		return model.ErrTokenBudgetConflict
 	}
 	var feeUSD *string
@@ -129,7 +160,16 @@ func SettleTokenBudgetUsage(ctx *gin.Context, info *relaycommon.RelayInfo, usage
 		}
 		feeUSD = &amount
 	}
-	_, err := model.MutateTokenBudgetRequest(operation, model.DB, model.TokenBudgetMutation{TokenID: info.TokenId, RequestID: info.RequestId, Action: "settle", Input: int64(actual.InputTokens), Output: int64(actual.OutputTokens), FeeUSD: feeUSD})
+	_, err := model.MutateTokenBudgetRequest(operation, model.DB, model.TokenBudgetMutation{TokenID: info.TokenId, RequestID: info.RequestId, Action: "settle", Input: input, Output: output, FeeUSD: feeUSD})
+	if err == nil {
+		if info.TokenBudgetAudit == nil {
+			info.TokenBudgetAudit = map[string]interface{}{}
+		}
+		info.TokenBudgetAudit["actual_input"], info.TokenBudgetAudit["actual_output"] = input, output
+		if feeUSD != nil {
+			info.TokenBudgetAudit["actual_fee_usd"] = *feeUSD
+		}
+	}
 	if err == nil && feeUSD != nil {
 		var price feeBudgetPriceEvidence
 		if err := common.UnmarshalJsonStr(row.FeePriceEvidence, &price); err != nil {

@@ -375,7 +375,7 @@ func runWithLeaseHeartbeat(task *model.SystemTask, runnerID string, fn func(ctx 
 	defer ticker.Stop()
 	done := make(chan struct{})
 	var quotaCanceled <-chan struct{}
-	if task.Type == model.SystemTaskTypeChannelQuotaSnapshotSync {
+	if task.Type == model.SystemTaskTypeChannelQuotaSnapshotSync || task.Type == model.SystemTaskTypeOpenAIPriceCheck {
 		quotaCanceled = ctx.Done()
 	}
 
@@ -400,7 +400,7 @@ func runWithLeaseHeartbeat(task *model.SystemTask, runnerID string, fn func(ctx 
 }
 
 func renewSystemTaskLease(ctx context.Context, task *model.SystemTask, runnerID string) error {
-	if task.Type != model.SystemTaskTypeChannelQuotaSnapshotSync {
+	if task.Type != model.SystemTaskTypeChannelQuotaSnapshotSync && task.Type != model.SystemTaskTypeOpenAIPriceCheck {
 		return model.RenewSystemTaskLockWithFence(context.Background(), task.TaskID, runnerID, task.FenceToken, systemTaskLockUntil())
 	}
 	// This context is canceled when runWithLeaseHeartbeat's handler returns,

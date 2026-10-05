@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { api } from '@/lib/api'
 import { usdAmountSchema } from '@/lib/exact-usd'
 
+import { tokenBudgetEvidenceSchema } from './lib/token-budget-evidence'
+
 const quota = z.number().int().min(0).max(2147483647)
 export const usageReviewSchema = z.object({
   review_metadata: z.string().optional(),
@@ -14,8 +16,8 @@ export const usageReviewSchema = z.object({
   state: z.string(),
   reserved_quota: quota,
   actual_quota: quota.nullable(),
-  token_budget: z
-    .object({
+  token_budget: tokenBudgetEvidenceSchema
+    .extend({
       request_id: z.string(),
       token_id: z.number().int(),
       user_id: z.number().int(),

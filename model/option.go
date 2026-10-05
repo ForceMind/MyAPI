@@ -173,6 +173,7 @@ func InitOptionMap() {
 	// the administrator monitoring settings page. Environment variables remain
 	// deployment-level overrides for operators that need a hard disable/bound.
 	common.OptionMap["ChannelQuotaSyncEnabled"] = "true"
+	common.OptionMap[OpenAIOfficialPriceCheckEnabledOptionKey] = "false"
 	common.OptionMap["ChannelQuotaSyncIntervalMinutes"] = "1"
 	common.OptionMap["ChannelQuotaSyncMaxChannels"] = "100"
 	common.OptionMap["ChannelQuotaAlertWebhookURL"] = common.ChannelQuotaAlertWebhookURL
@@ -462,6 +463,9 @@ func validateOptionValue(key string, value string) error {
 		return setting.ValidateChatsJSON(value)
 	case "UserUsableGroups":
 		return setting.ValidateUserUsableGroupsJSON(value)
+	}
+	if key == OpenAIOfficialPriceCheckEnabledOptionKey && value != "true" && value != "false" {
+		return gorm.ErrInvalidData
 	}
 	if key == "ChannelQuotaSyncEnabled" {
 		if _, err := strconv.ParseBool(strings.TrimSpace(value)); err != nil {

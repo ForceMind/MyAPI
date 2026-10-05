@@ -234,3 +234,39 @@ test('retries the same dispatch recovery after a lost response even if refresh s
     vi.mocked(api.post).mock.calls[0]
   )
 })
+
+test('pending Chat review preserves bounds and explicit zero without treating missing actual output as zero', async () => {
+  vi.mocked(api.get).mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        ...fixture,
+        token_budget: {
+          request_id: fixture.request_id,
+          user_id: 2,
+          token_id: 3,
+          state: 'usage_unknown',
+          fee_enabled: false,
+          bound_source: 'openai_chat_context_window',
+          input_tokens_bound: 1050000,
+          max_output_tokens: 128000,
+          reserved: 1050000,
+          actual_input: 0,
+          actual_output: null,
+        },
+      },
+    },
+  })
+  renderReview()
+  expect(
+    await screen.findByRole('region', { name: 'Reservation and actual usage' })
+  ).toBeInTheDocument()
+  expect(screen.getAllByText('1,050,000')).toHaveLength(2)
+  expect(screen.getAllByText('Not confirmed')).toHaveLength(2)
+  expect(screen.getByLabelText('Confirmed input tokens')).toHaveValue('0')
+  expect(screen.getByLabelText('Confirmed input tokens')).toHaveAttribute(
+    'readonly'
+  )
+  expect(screen.getByLabelText('Confirmed output tokens')).toHaveValue('')
+  expect(api.post).not.toHaveBeenCalled()
+})

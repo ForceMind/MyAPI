@@ -27,6 +27,7 @@ import {
   fetchFrozenOpenAIPriceSource,
   saveOfficialOpenAIPriceSource,
 } from './openai-official-pricing-api'
+import { OpenAIPriceCheckPanel } from './openai-price-check-panel'
 import { OpenAIPriceVersionForm } from './openai-price-version-form'
 import { PricePublicationPanel } from './price-publication-panel'
 
@@ -282,6 +283,12 @@ function PriceSourceSession(props: {
           </div>
         </>
       )}
+      <OpenAIPriceCheckPanel
+        userID={props.userID}
+        role={props.role}
+        disabled={busy}
+        onRead={readSource}
+      />
     </SettingsSection>
   )
 }

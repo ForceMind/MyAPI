@@ -17,19 +17,23 @@ import (
 )
 
 func feePriceFixture(t *testing.T, db *gorm.DB) *billingexpr.BillingSnapshot {
+	return feePriceFixtureForModel(t, db, "fixture-model")
+}
+
+func feePriceFixtureForModel(t *testing.T, db *gorm.DB, modelName string) *billingexpr.BillingSnapshot {
 	t.Helper()
 	require.NoError(t, db.AutoMigrate(&model.OfficialPriceVersion{}, &model.PricePublication{}))
-	source := publicationSourceFixture(publicationDocumentFixture())
+	source := publicationSourceFixture(strings.ReplaceAll(publicationDocumentFixture(), "fixture-model", modelName))
 	source.FetchedAt = 100
 	frozen, err := FreezeOpenAIPriceSource(context.Background(), db, source)
 	require.NoError(t, err)
-	candidate, err := BuildOpenAIPricePublicationCandidate(frozen, "fixture-model")
+	candidate, err := BuildOpenAIPricePublicationCandidate(frozen, modelName)
 	require.NoError(t, err)
 	id := strings.Repeat("f", 64)
-	after, err := common.Marshal(model.PricePublicationSnapshot{Modes: map[string]string{"fixture-model": "tiered_expr"}, Expressions: map[string]string{"fixture-model": candidate.Expression}, State: model.PricePublicationState{Models: map[string]model.PublishedModelPrice{"fixture-model": {PublicationID: id, SourceSHA256: frozen.ContentSHA256, ExpressionSHA256: candidate.ExpressionSHA256}}}})
+	after, err := common.Marshal(model.PricePublicationSnapshot{Modes: map[string]string{modelName: "tiered_expr"}, Expressions: map[string]string{modelName: candidate.Expression}, State: model.PricePublicationState{Models: map[string]model.PublishedModelPrice{modelName: {PublicationID: id, SourceSHA256: frozen.ContentSHA256, ExpressionSHA256: candidate.ExpressionSHA256}}}})
 	require.NoError(t, err)
 	require.NoError(t, db.Create(&model.PricePublication{ID: id, Action: "publish", ActorID: 1, AfterJSON: string(after)}).Error)
-	return &billingexpr.BillingSnapshot{BillingMode: "tiered_expr", ModelName: "fixture-model", ExprString: candidate.Expression, ExprHash: candidate.ExpressionSHA256, ExprVersion: 1, GroupRatio: 1, QuotaPerUnit: 500000, OfficialPricePublicationID: id, OfficialPriceSourceSHA256: frozen.ContentSHA256}
+	return &billingexpr.BillingSnapshot{BillingMode: "tiered_expr", ModelName: modelName, ExprString: candidate.Expression, ExprHash: candidate.ExpressionSHA256, ExprVersion: 1, GroupRatio: 1, QuotaPerUnit: 500000, OfficialPricePublicationID: id, OfficialPriceSourceSHA256: frozen.ContentSHA256}
 }
 
 func feeUsageFixture() *dto.Usage {

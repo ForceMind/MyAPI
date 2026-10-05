@@ -3,15 +3,16 @@ import assert from 'node:assert/strict'
 import { resolve } from 'node:path'
 
 export function tokenBudgetBrowserFixture() {
-  const policy = { account_threshold_enabled: false, account_min_remaining_bps: 2000, account_max_age_seconds: 300, token_id: 1, user_id: 1, enabled: false, limit: 100, used: 0, reserved: 0, pending_request_id: '', revision: 0, fee_enabled: false, fee_limit_usd: '0', fee_used_usd: '0', fee_reserved_usd: '0' }
+  const policy = { account_threshold_enabled: false, account_min_remaining_bps: 2000, account_max_age_seconds: 300, token_id: 1, user_id: 1, enabled: false, limit: 2000000, used: 0, reserved: 0, pending_request_id: '', revision: 0, fee_enabled: false, fee_limit_usd: '0', fee_used_usd: '0', fee_reserved_usd: '0' }
   const state = { policy, pending: null }
   const writes = []
   let sequence = 0
   return {
     writes,
-    hold() {
-      Object.assign(policy, { reserved: 30, pending_request_id: `budget-browser-fixture-${++sequence}`, fee_reserved_usd: policy.fee_enabled ? '0.0003' : '0', revision: policy.revision + 1 })
-      state.pending = { request_id: policy.pending_request_id, token_id: 1, user_id: 1, state: 'usage_unknown', reserved: 30, model_name: 'fixture-model', fee_enabled: policy.fee_enabled, fee_reserved_usd: policy.fee_reserved_usd }
+    hold(chat = false) {
+      const reserved = chat ? 1050000 : 30
+      Object.assign(policy, { reserved, pending_request_id: `budget-browser-fixture-${++sequence}`, fee_reserved_usd: policy.fee_enabled ? '0.0003' : '0', revision: policy.revision + 1 })
+      state.pending = { request_id: policy.pending_request_id, token_id: 1, user_id: 1, state: 'usage_unknown', reserved, model_name: chat ? 'gpt-6.1-sol' : 'fixture-model', ...(chat ? { bound_source: 'openai_chat_context_window', input_tokens_bound: 1050000, max_output_tokens: 128000 } : {}), fee_enabled: policy.fee_enabled, fee_reserved_usd: policy.fee_reserved_usd }
       state.review = { request_id: policy.pending_request_id, token_id: 1, user_id: 1, state: 'usage_unknown', reserved_quota: 100, actual_quota: null }
     },
     async route(route, url) {
@@ -59,6 +60,9 @@ export async function checkTokenBudgetBrowser({ page, origin, output, label, fix
   }
   await page.setViewportSize({ width: 1280, height: 900 })
   let dialog = await open()
+  await dialog.getByText(label('Chat reserves 1,050,000 total tokens for input and completion, including reasoning. This is a conservative bound, not measured usage or a tokenizer estimate. Even a small request can fail if the remaining budget cannot cover this bound.'), { exact: true }).waitFor()
+  await dialog.getByText(label('Supported request fields'), { exact: true }).click()
+  await dialog.getByText(label('Responses requires explicit max_output_tokens. Chat requires explicit max_completion_tokens from 1 to 128,000 and n omitted or 1; streaming requires stream_options.include_usage=true.'), { exact: true }).waitFor()
   await dialog.getByRole('button', { name: label('Save'), exact: true }).click()
   await dialog.getByText(label('Required'), { exact: true }).waitFor()
   assert.equal(fixture.writes.length, 0, 'opening or unchecked confirmation does not change a budget')
@@ -74,8 +78,11 @@ export async function checkTokenBudgetBrowser({ page, origin, output, label, fix
   await dialog.getByRole('checkbox', { name: label('I confirm all running instances support this budget and I understand its request restrictions.'), exact: true }).waitFor()
   assert.equal(fixture.writes.length, 1)
   await page.keyboard.press('Escape')
-  fixture.hold()
+  fixture.hold(true)
   dialog = await open()
+  const boundPanel = dialog.getByRole('region', { name: label('Reservation and actual usage'), exact: true })
+  await boundPanel.getByText('openai_chat_context_window', { exact: false }).waitFor()
+  assert.equal(await boundPanel.getByText(label('Not confirmed'), { exact: true }).count(), 3, 'reservation is not rendered as actual input or output')
   await dialog.getByLabel(label('Confirmed quota (internal units)'), { exact: true }).fill('20')
   await dialog.getByLabel(label('Evidence reference'), { exact: true }).fill('verified synthetic terminal fixture')
   await dialog.getByRole('checkbox', { name: label('I verified that the request ended and the actual token counts and frozen pricing are correct.'), exact: true }).check()

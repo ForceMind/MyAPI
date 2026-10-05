@@ -11,6 +11,7 @@ import {
   reconcileUsageReview,
   recoverTextDispatchUsage,
 } from '../usage-review-api'
+import { TokenBudgetEvidence } from './token-budget-evidence'
 import { UsageReviewForm } from './usage-review-form'
 
 export function UsageReviewPanel(props: { requestId: string }) {
@@ -131,6 +132,9 @@ function UsageReviewSession(props: {
           {t('Confirmed quota (internal units)')}:{' '}
           {query.data.actual_quota?.toLocaleString()}
         </p>
+      )}
+      {query.data.token_budget && (
+        <TokenBudgetEvidence evidence={query.data.token_budget} />
       )}
       {props.role === 100 && query.data.review_metadata && (
         <details className='min-w-0 text-xs'>

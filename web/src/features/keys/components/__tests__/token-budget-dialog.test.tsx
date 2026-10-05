@@ -543,3 +543,25 @@ test('shows account threshold and freshness to the owner without editable contro
   ).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
 })
+
+test('request details explain native Chat limits and conservative bounds before enabling a budget', async () => {
+  renderBudget()
+  await screen.findByRole('button', { name: 'Save' })
+  await userEvent.click(screen.getByText('Supported request fields'))
+  expect(
+    screen.getByText(
+      'Responses requires explicit max_output_tokens. Chat requires explicit max_completion_tokens from 1 to 128,000 and n omitted or 1; streaming requires stream_options.include_usage=true.'
+    )
+  ).toBeVisible()
+  expect(
+    screen.getByText(
+      'Chat reserves 1,050,000 total tokens for input and completion, including reasoning. This is a conservative bound, not measured usage or a tokenizer estimate. Even a small request can fail if the remaining budget cannot cover this bound.'
+    )
+  ).toBeVisible()
+  expect(
+    screen.getByText(
+      'Chat USD budgets require service_tier=default, exact published short/long prices frozen at dispatch, and explicit cache-read and cache-write usage counters, including zero. Missing evidence retains the reservation for review.'
+    )
+  ).toBeVisible()
+  expect(api.put).not.toHaveBeenCalled()
+})

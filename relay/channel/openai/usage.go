@@ -32,7 +32,8 @@ func captureChatUsageEvidence(usage *dto.Usage, body []byte) bool {
 		}
 	}
 	usage.BillingUsage = dto.CloneBillingUsage(&dto.BillingUsage{
-		Source: dto.BillingUsageSourceOAIChat, Semantic: dto.BillingUsageSemanticOpenAI,
+		ChatTextEvidence: captureChatTextEvidence(body),
+		Source:           dto.BillingUsageSourceOAIChat, Semantic: dto.BillingUsageSemanticOpenAI,
 		Incomplete: !complete, OpenAIUsage: usage,
 	})
 	return true

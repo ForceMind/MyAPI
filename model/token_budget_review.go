@@ -25,7 +25,7 @@ func PrepareTokenBudgetUsageReview(ctx context.Context, db *gorm.DB, actorID, to
 	if err := db.WithContext(ctx).First(&budget, "request_id = ?", requestID).Error; err != nil {
 		return nil, err
 	}
-	if budget.RequestID != requestID || budget.TokenID != tokenID || budget.BoundSource != TokenBudgetBoundOpenAIResponses {
+	if budget.RequestID != requestID || budget.TokenID != tokenID || !validTokenBudgetBoundSource(budget.BoundSource) {
 		return nil, ErrTokenBudgetConflict
 	}
 	if len(feeUSD) > 1 || budget.FeeEnabled != (len(feeUSD) == 1 && feeUSD[0] != nil) {

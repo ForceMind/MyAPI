@@ -84,6 +84,7 @@ import {
   isTimingLogType,
 } from '../../lib/utils'
 import { USAGE_BILLING_PATH, type LogOtherData } from '../../types'
+import { TokenBudgetEvidence } from '../token-budget-evidence'
 import { UsageAccuracyBadge } from '../usage-accuracy-badge'
 import { UsageReviewPanel } from '../usage-review-panel'
 
@@ -653,6 +654,9 @@ export function DetailsDialog(props: DetailsDialogProps) {
           other?.settlement_status === 'pending_review' && (
             <UsageReviewPanel requestId={props.log.request_id} />
           )}
+        {props.isAdmin && other?.admin_info?.token_budget && (
+          <TokenBudgetEvidence evidence={other.admin_info.token_budget} />
+        )}
         {/* Overview section - key identifiers */}
         <div className='min-w-0 space-y-1'>
           {publishedPrice && (
@@ -1171,9 +1175,12 @@ export function DetailsDialog(props: DetailsDialogProps) {
                       attempt.cooldown_seconds > 0 && (
                         <div className='flex min-w-0 flex-col gap-1 text-xs wrap-break-word'>
                           <p>
-                            {t('Future-request account hold: {{seconds}} seconds', {
-                              seconds: attempt.cooldown_seconds,
-                            })}
+                            {t(
+                              'Future-request account hold: {{seconds}} seconds',
+                              {
+                                seconds: attempt.cooldown_seconds,
+                              }
+                            )}
                           </p>
                           <p className='text-muted-foreground'>
                             {t(

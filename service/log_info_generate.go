@@ -117,6 +117,9 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 	}
 	AppendChannelAffinityAdminInfo(ctx, adminInfo)
 	AppendRelayFailoverAdminInfo(ctx, adminInfo)
+	if relayInfo.TokenBudgetAudit != nil {
+		adminInfo["token_budget"] = relayInfo.TokenBudgetAudit
+	}
 
 	other["admin_info"] = adminInfo
 	appendRequestPath(ctx, relayInfo, other)

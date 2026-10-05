@@ -38,6 +38,7 @@ func TestTokenBudgetConfiguredDatabases(t *testing.T) {
 			seedTokenBudgetDB(t, db)
 			require.NoError(t, db.AutoMigrate(&TokenBudget{}, &TokenBudgetReservation{}, &TokenBudgetPolicyChange{}))
 			tokenBudgetLifecycleContract(t, db)
+			tokenBudgetChatLifecycleContract(t, db)
 			feeBudgetConfiguredLifecycle(t, db)
 			accountQuotaThresholdConfiguredContract(t, db)
 		})
