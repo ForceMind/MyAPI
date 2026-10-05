@@ -143,38 +143,62 @@ try {
   page.on('pageerror', (error) => errors.push(error.message))
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
   mkdirSync(output, { recursive: true })
-  // Same bounded wheel/hit-test approach as the routing journey. This checks
-  // real viewport reachability, including the diff table's horizontal scrollport.
+  // Read actual viewport and clipping scrollports. Edge/center hit tests also
+  // detect sticky headers or overlays without inventing fixed safety margins.
+  async function sourceControlGeometry(locator) {
+    return locator.evaluate((element) => {
+      const rect = element.getBoundingClientRect()
+      const bounds = { left: 0, right: innerWidth, top: 0, bottom: innerHeight }
+      for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+        const style = getComputedStyle(ancestor)
+        const clip = ancestor.getBoundingClientRect()
+        if (/^(auto|scroll|hidden|clip)$/.test(style.overflowX)) {
+          bounds.left = Math.max(bounds.left, clip.left + ancestor.clientLeft)
+          bounds.right = Math.min(bounds.right, clip.left + ancestor.clientLeft + ancestor.clientWidth)
+        }
+        if (/^(auto|scroll|hidden|clip)$/.test(style.overflowY)) {
+          bounds.top = Math.max(bounds.top, clip.top + ancestor.clientTop)
+          bounds.bottom = Math.min(bounds.bottom, clip.top + ancestor.clientTop + ancestor.clientHeight)
+        }
+      }
+      const hit = (x, y) => {
+        const target = document.elementFromPoint(x, y)
+        return target === element || element.contains(target)
+      }
+      const centerX = rect.x + rect.width / 2
+      const centerY = rect.y + rect.height / 2
+      const insetX = Math.min(1, rect.width / 2)
+      const insetY = Math.min(1, rect.height / 2)
+      const hitTop = hit(centerX, rect.top + insetY)
+      const hitCenter = hit(centerX, centerY)
+      const hitBottom = hit(centerX, rect.bottom - insetY)
+      const hitLeft = hit(rect.left + insetX, centerY)
+      const hitRight = hit(rect.right - insetX, centerY)
+      const verticalVisible = rect.top >= bounds.top && rect.bottom <= bounds.bottom
+      const fullyVisible = rect.width > 0 && rect.height > 0 && verticalVisible && rect.left >= bounds.left && rect.right <= bounds.right
+      let horizontal = null
+      if (verticalVisible && (rect.left < bounds.left || rect.right > bounds.right)) {
+        horizontal = { x: (bounds.left + bounds.right) / 2, y: centerY, delta: rect.right > bounds.right ? Math.min(260, rect.right - bounds.right + 16) : -Math.min(260, bounds.left - rect.left + 16) }
+      }
+      return { x: rect.x, y: rect.y, width: rect.width, bottom: rect.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight, bounds, fullyVisible, hitTop, hitCenter, hitBottom, hitLeft, hitRight, reachable: fullyVisible && hitTop && hitCenter && hitBottom && hitLeft && hitRight, horizontal }
+    })
+  }
   async function reachSourceControl(locator) {
     await locator.waitFor({ state: 'visible' })
     let geometry
     for (let step = 0; step < 50; step++) {
-      geometry = await locator.evaluate((element) => {
-        const rect = element.getBoundingClientRect()
-        const top = 75
-        const bottom = innerHeight - 75
-        const target = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
-        let horizontal = null
-        if (rect.top >= top && rect.bottom <= bottom) {
-          for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
-            if (!/^(auto|scroll)$/.test(getComputedStyle(ancestor).overflowX) || ancestor.scrollWidth <= ancestor.clientWidth + 1) continue
-            const bounds = ancestor.getBoundingClientRect()
-            const left = Math.max(0, bounds.left + ancestor.clientLeft)
-            const right = Math.min(innerWidth, bounds.left + ancestor.clientLeft + ancestor.clientWidth)
-            if (right - left < 20 || (rect.left >= left - 1 && rect.right <= right + 1)) continue
-            horizontal = { x: (left + right) / 2, y: rect.y + rect.height / 2, delta: rect.right > right ? Math.min(260, rect.right - right + 16) : -Math.min(260, left - rect.left + 16) }
-            break
-          }
-        }
-        return { x: rect.x, y: rect.y, width: rect.width, bottom: rect.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight, reachable: target === element || element.contains(target), horizontal }
-      })
-      if (geometry.reachable && !geometry.horizontal && geometry.y >= 75 && geometry.bottom <= geometry.viewportHeight - 75) return
+      geometry = await sourceControlGeometry(locator)
+      if (geometry.reachable) return
       if (geometry.horizontal) {
         await page.mouse.move(geometry.horizontal.x, geometry.horizontal.y)
         await page.mouse.wheel(geometry.horizontal.delta, 0)
       } else {
         await page.mouse.move(Math.min(geometry.viewportWidth - 40, Math.max(40, geometry.x + geometry.width / 2)), geometry.viewportHeight / 2)
-        await page.mouse.wheel(0, geometry.y < 75 ? -220 : 220)
+        const centerY = (geometry.y + geometry.bottom) / 2
+        const visibleCenterY = (Math.max(0, geometry.bounds.top) + Math.min(geometry.viewportHeight, geometry.bounds.bottom)) / 2
+        // A top-covered control must move down, even when its y is positive.
+        // Center-directed wheel deltas avoid bouncing across a sticky header.
+        await page.mouse.wheel(0, Math.max(-220, Math.min(220, centerY - visibleCenterY)) || -1)
       }
       await page.evaluate(async () => {
         await Promise.all(document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity).map((animation) => animation.finished.catch(() => {})))
@@ -514,8 +538,8 @@ try {
     await reachSourceControl(reviewSource)
     // This is a viewport screenshot after real scrolling, not a clipped image
     // of a tall offscreen panel. The table's status cells and action are in view.
-    const lowerBounds = await Promise.all([locked.boundingBox(), reviewSource.boundingBox()])
-    assert(lowerBounds.every((box) => box && box.y >= 75 && box.y + box.height <= 825), `diff status and review action are jointly visible at ${width}px`)
+    const lowerGeometry = await Promise.all([sourceControlGeometry(locked), sourceControlGeometry(reviewSource)])
+    assert(lowerGeometry.every((geometry) => geometry.reachable), `diff status and review action are jointly unclipped and unoccluded at ${width}px: ${JSON.stringify(lowerGeometry)}`)
     await page.screenshot({ path: resolve(output, `price-source-check-diff-actions-${width}.png`) })
     const publicationCount = publicationSubmissions.length
     await Promise.all([
