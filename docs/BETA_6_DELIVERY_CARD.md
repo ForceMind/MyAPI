@@ -216,3 +216,65 @@ The new accurate commit must complete **all** CI, including the previously cance
 and skipped legacy groups. Preserve the first-run record; do not re-label cancellation
 or a prior screenshot as final acceptance. Real account/invoice/deployment limitations
 and the one-protocol stop boundary remain unchanged.
+
+
+## Follow-up CI evidence and retained failure (2026-10-05)
+
+Commit [`320b2e1`](https://github.com/ForceMind/MyAPI/commit/320b2e11a32db595dcdf9cdac1faec0c5db1d6ba)
+completed [all Backend groups](https://github.com/ForceMind/MyAPI/actions/runs/37346213329/job/111885307582)
+in 15m32s, including the previously cancelled billing/logging race (33s) and
+skipped durable-submission race (27s). The 20-minute orchestration allowance is
+therefore supported by an actual complete run, without weakening test deadlines
+or production limits. Its three-database contracts, Docker and website also passed.
+Frontend's 131 files / 684 tests and build/typecheck passed, but the newly added
+browser reachability helper incorrectly required a fixed 75px bottom margin:
+a visible review button ending at 826.5px failed the artificial 825px cutoff in a
+900px viewport. The routing browser step was consequently skipped, not passed.
+
+Commit [`5bf8382`](https://github.com/ForceMind/MyAPI/commit/5bf83828c430e641b7f43120a5b459ad088acacd)
+changed only that browser helper. Actual viewport/ancestor clipping plus five
+hit-test points replace the fixed margin; bounded native wheel interaction,
+normal clicks, joint status/action visibility and no-publication assertions remain.
+Independent static review found no material blocker. Its [Frontend job](https://github.com/ForceMind/MyAPI/actions/runs/37348369636/job/111892648608)
+passed all 684 tests, typecheck/build and both real Chromium journeys. The
+[40 synthetic quota screenshots](https://github.com/ForceMind/MyAPI/actions/runs/37348369636/artifacts/11360829834)
+include lower diff models/status/actions, saved-source review at 320/1280, and
+mobile source-check enable/disable controls ending disabled. Independent pixel
+review found the previously missing lower mobile controls readable and unobscured.
+Token recovery screenshots show reservation versus actual values, but omit the
+top protocol scope and conservative small-request warning; dedicated top captures
+are added in the following candidate, not claimed from these images.
+
+The same 5bf8382 run passed nine CI jobs, actual three-database contracts,
+[Docker three jobs](https://github.com/ForceMind/MyAPI/actions/runs/37348369517) and
+[website](https://github.com/ForceMind/MyAPI/actions/runs/37348369593), but is **not**
+an all-CI pass. [Backend](https://github.com/ForceMind/MyAPI/actions/runs/37348369636/job/111892648168)
+failed in the complete root module test: the synthetic Chat EOF scenario expected
+200 and received pre-dispatch 503 `token_budget_unavailable`; an adjacent async
+audit message reported SQLite `readonly` (1032). Later race groups were skipped.
+This failure remains recorded and must be diagnosed before acceptance; prior
+Backend success is not a substitute for the final exact-head result.
+
+The bounded diagnosis reproduced a specific test-isolation defect at CI's
+`GOMAXPROCS=1`: the preceding channel permission fixture left six asynchronous
+admin-audit workers running, owned only `model.DB` but not `model.LOG_DB`, and
+closed/restored state before those workers finished. The following Chat fixture
+accepted that nonzero worker baseline during its own cleanup, allowing work to
+cross fixture lifetimes. Deleted-file audit writes (1032) were reproduced; the
+original admission 503 was not independently reproduced and is not attributed
+solely from an adjacent log line.
+
+The next candidate changes only those two test fixtures: the predecessor owns a
+synthetic Log table and both database handles, blocks real audit inserts until
+cleanup, then drains and verifies all six rows before teardown; Chat drains to
+zero before restoring its settings and database. The deterministic audit regression
+was red when the new drain was removed (expected six rows, found zero). Endpoint,
+origin, rate-limit, budget and unknown-retention assertions remain unchanged;
+no production guard, reservation rule, test timeout or CI race group is relaxed.
+
+Final fixture verification passed: complete router package at CI's single-CPU
+setting (7.314s), three fresh-process predecessor-to-Chat runs (0.729s / 0.725s /
+0.878s), Chat-only ten repetitions (7.313s), and affected race checks (6.958s,
+180-second test ceiling). Temporary diagnostics were removed. The top protocol
+scope/warning screenshot extension also passed Node syntax and independent static
+review. These local checks do not replace the next exact-head full CI.

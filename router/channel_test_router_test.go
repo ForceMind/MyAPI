@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
@@ -13,6 +14,7 @@ import (
 	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/service/authz"
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -30,21 +32,43 @@ func TestChannelConnectionRoutesSeparateOneClickFromOriginGuardedDetailedTests(t
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Channel{}))
-	previousDB := model.DB
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Channel{}, &model.Log{}))
+	require.NoError(t, model.EnsureLogProjectionSchemaWithDB(db))
+	previousDB, previousLogDB := model.DB, model.LOG_DB
 	previousRedis, previousMemory := common.RedisEnabled, common.MemoryCacheEnabled
 	previousMode := gin.Mode()
 	previousLimitEnabled, previousLimitCount, previousLimitDuration := common.CriticalRateLimitEnable, common.CriticalRateLimitNum, common.CriticalRateLimitDuration
-	model.DB = db
+	model.DB, model.LOG_DB = db, db
 	common.RedisEnabled, common.MemoryCacheEnabled = false, false
 	common.CriticalRateLimitEnable, common.CriticalRateLimitNum, common.CriticalRateLimitDuration = true, 3, 60
 	gin.SetMode(gin.TestMode)
+	auditStarted, releaseAudits := make(chan struct{}, 1), make(chan struct{})
+	auditRequests := int64(0)
+	require.NoError(t, db.Callback().Create().Before("gorm:begin_transaction").Register("fixture:block_admin_audits", func(tx *gorm.DB) {
+		if tx.Statement.Table != "logs" {
+			return
+		}
+		select {
+		case auditStarted <- struct{}{}:
+		default:
+		}
+		<-releaseAudits
+	}))
 	t.Cleanup(func() {
-		model.DB = previousDB
-		common.RedisEnabled, common.MemoryCacheEnabled = previousRedis, previousMemory
-		gin.SetMode(previousMode)
-		common.CriticalRateLimitEnable, common.CriticalRateLimitNum, common.CriticalRateLimitDuration = previousLimitEnabled, previousLimitCount, previousLimitDuration
-		require.NoError(t, sqlDB.Close())
+		defer func() {
+			model.DB, model.LOG_DB = previousDB, previousLogDB
+			common.RedisEnabled, common.MemoryCacheEnabled = previousRedis, previousMemory
+			gin.SetMode(previousMode)
+			common.CriticalRateLimitEnable, common.CriticalRateLimitNum, common.CriticalRateLimitDuration = previousLimitEnabled, previousLimitCount, previousLimitDuration
+			require.NoError(t, sqlDB.Close())
+		}()
+		close(releaseAudits)
+		// Admin POSTs enqueue audit writes. Finish those while this fixture still
+		// owns the process-wide database, before restoring or closing it.
+		require.Eventually(t, func() bool { return gopool.WorkerCount() == 0 }, 5*time.Second, time.Millisecond)
+		var auditCount int64
+		require.NoError(t, db.Model(&model.Log{}).Where("type = ?", model.LogTypeManage).Count(&auditCount).Error)
+		require.Equal(t, auditRequests, auditCount, "queued audits must finish in their own fixture before teardown")
 	})
 
 	pat := "channel-test-route-pat"
@@ -64,6 +88,7 @@ func TestChannelConnectionRoutesSeparateOneClickFromOriginGuardedDetailedTests(t
 	assert.Contains(t, missingResponse.Header().Get("Cache-Control"), "no-store")
 
 	request := func(origin, body string) *httptest.ResponseRecorder {
+		auditRequests++
 		req := httptest.NewRequest(http.MethodPost, "http://myapi.local/api/channel/test/"+strconv.Itoa(channel.Id), strings.NewReader(body))
 		req.Header.Set("Authorization", "Bearer "+pat)
 		req.Header.Set("Content-Type", "application/json")
@@ -92,4 +117,11 @@ func TestChannelConnectionRoutesSeparateOneClickFromOriginGuardedDetailedTests(t
 	require.NotNil(t, limited)
 	assert.Equal(t, http.StatusTooManyRequests, limited.Code)
 	assert.Contains(t, limited.Header().Get("Cache-Control"), "no-store")
+	// Hold an actual audit until cleanup, so the test covers worker lifetime as
+	// well as the endpoint's origin and rate-limit checks without timing sleeps.
+	select {
+	case <-auditStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("admin request did not enqueue an audit")
+	}
 }

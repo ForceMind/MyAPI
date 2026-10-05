@@ -60,7 +60,48 @@ export async function checkTokenBudgetBrowser({ page, origin, output, label, fix
   }
   await page.setViewportSize({ width: 1280, height: 900 })
   let dialog = await open()
-  await dialog.getByText(label('Chat reserves 1,050,000 total tokens for input and completion, including reasoning. This is a conservative bound, not measured usage or a tokenizer estimate. Even a small request can fail if the remaining budget cannot cover this bound.'), { exact: true }).waitFor()
+  const qualification = [
+    dialog.getByText(`${label('Official OpenAI Responses')}: max_output_tokens`, { exact: true }),
+    dialog.getByText(`${label('Official OpenAI Chat')} · ${label('Exact Match')}: gpt-6.1-sol · max_completion_tokens`, { exact: true }),
+    dialog.getByText(label('Chat reserves 1,050,000 total tokens for input and completion, including reasoning. This is a conservative bound, not measured usage or a tokenizer estimate. Even a small request can fail if the remaining budget cannot cover this bound.'), { exact: true }),
+  ]
+  for (const item of qualification) await item.waitFor({ state: 'visible' })
+  for (const width of [320, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    let geometry
+    for (let step = 0; step < 20; step++) {
+      await page.evaluate(async () => {
+        await Promise.all(document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity).map((animation) => animation.finished.catch(() => {})))
+        await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+      })
+      geometry = await Promise.all(qualification.map((item) => item.evaluate((element) => {
+        const rect = element.getBoundingClientRect()
+        const dialog = element.closest('[role="dialog"]')
+        if (!dialog) return { reachable: false }
+        const clip = dialog.getBoundingClientRect()
+        const left = Math.max(0, clip.left + dialog.clientLeft)
+        const right = Math.min(innerWidth, clip.left + dialog.clientLeft + dialog.clientWidth)
+        const top = Math.max(0, clip.top + dialog.clientTop)
+        const bottom = Math.min(innerHeight, clip.top + dialog.clientTop + dialog.clientHeight)
+        const fullyVisible = rect.width > 0 && rect.height > 0 && rect.left >= left && rect.right <= right && rect.top >= top && rect.bottom <= bottom
+        const hits = [rect.top + Math.min(1, rect.height / 2), rect.y + rect.height / 2, rect.bottom - Math.min(1, rect.height / 2)].map((y) => {
+          const target = document.elementFromPoint(rect.x + rect.width / 2, y)
+          return target === element || element.contains(target)
+        })
+        return { x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom, fullyVisible, hits, reachable: fullyVisible && hits.every(Boolean) }
+      })))
+      if (geometry.every((item) => item.reachable)) break
+      const bounds = await dialog.boundingBox()
+      assert(bounds, 'budget qualification dialog has layout bounds')
+      // Return to the top content with native wheel input if autofocus or a
+      // responsive layout change left the dialog's own scrollport lower down.
+      await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+      await page.mouse.wheel(0, -220)
+    }
+    assert(geometry.every((item) => item.reachable), `both protocol scopes and the conservative small-request warning are jointly unclipped and unoccluded at ${width}px: ${JSON.stringify(geometry)}`)
+    await page.screenshot({ path: resolve(output, `token-budget-qualification-${width}.png`) })
+  }
+  assert.equal(fixture.writes.length, 0, 'qualification screenshots do not change budget policy')
   await dialog.getByText(label('Supported request fields'), { exact: true }).click()
   await dialog.getByText(label('Responses requires explicit max_output_tokens. Chat requires explicit max_completion_tokens from 1 to 128,000 and n omitted or 1; streaming requires stream_options.include_usage=true.'), { exact: true }).waitFor()
   await dialog.getByRole('button', { name: label('Save'), exact: true }).click()

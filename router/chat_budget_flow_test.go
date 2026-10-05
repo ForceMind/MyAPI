@@ -186,9 +186,10 @@ func setupChatBudgetFlow(t *testing.T) *chatBudgetFlowFixture {
 		(*fixture.serve.Load())(w, r)
 	})
 	t.Cleanup(service.SetHttpClientForTest(client))
-	workers := gopool.WorkerCount()
 	t.Cleanup(func() {
-		require.Eventually(t, func() bool { return gopool.WorkerCount() <= workers }, 5*time.Second, time.Millisecond)
+		// No persistent workers belong to this fixture. Drain every request before
+		// restoring process-wide settings or closing its temporary database.
+		require.Eventually(t, func() bool { return gopool.WorkerCount() == 0 }, 5*time.Second, time.Millisecond)
 	})
 	fixture.publish(t, chatFlowPriceDocument, strings.Repeat("a", 64))
 	return fixture
