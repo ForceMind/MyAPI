@@ -1,3 +1,22 @@
+## 当前交付：beta.5 限定源码候选通过（2026-10-05）
+
+源码候选 [`2720806`](https://github.com/ForceMind/MyAPI/commit/2720806390bf44732da4b07d276f4e0f03d5778e)（tree `bb4d0ac17b67258412a2b05248dd8e5604e5ae8b`）已在原开发分支推送并回读。[CI 十作业](https://github.com/ForceMind/MyAPI/actions/runs/37314110213)、[Docker 三作业](https://github.com/ForceMind/MyAPI/actions/runs/37314110258)及[静态官网检查](https://github.com/ForceMind/MyAPI/actions/runs/37314110295)全部成功。PR 测试合并 `32149da39c34307b55a052b04bc0d80611993c58` 的 tree 与该源码一致。
+
+- 根 Go vet/build/完整模块测试、全部既有 race 作业与独立 `GOWORK=off` relaykit build/test/vet 通过
+- SQLite、MySQL 5.7、PostgreSQL 9.6 实库的 RelayAccountHold 持久化/重开/并发/清理、TokenBudget、双 writer R1 派送及恢复、额度 schema、模型发现/路由合同通过，没有用 SQLite 代替其余引擎
+- 前端 127 文件/645 测试、typecheck、生产构建、旧 quota Chromium 与完整 320/1280 路由/有序尝试日志 Chromium 通过；[当前路由截图](https://github.com/ForceMind/MyAPI/actions/runs/37314110213/artifacts/11348060615)使用合成数据，不能冒充真实账号验收
+- S1/S2-A 数据库、ClickHouse、Redis 两作业、Desktop 与发行合同通过；Docker 的 LAN/fresh/handoff 合成安装检查通过，未执行发行或部署
+
+失败与修正保留：首个组合源码 `018e453` 的前端/Chromium及 Docker 已通过，但 [B2 作业](https://github.com/ForceMind/MyAPI/actions/runs/37312853364/job/111772264022)在 PostgreSQL fixture 清理时出现 `sql: database is closed`。原因是测试复用带有自有连接池的 PostgreSQL dialector，所谓重开连接实际共享原池，关闭后令原连接无法清表。`2720806` 只修正 `model/relay_account_hold_test.go`：每次 SQLite/MySQL/PostgreSQL 打开均创建新 dialector，并证明关闭重开池后原池仍可用；原断言全部保留、生产代码未改。独立复核和本地定向 race/SQLite/vet通过，随后上述准确源码的三库与完整 CI 全部通过。首轮旧 backend 因新提交被取消，不把取消步骤计作成功。
+
+接续时先读 [beta.5 交付卡](BETA_5_DELIVERY_CARD.md)与 [主计划](MYAPI_MASTER_PLAN.md)，保护任何并发 WIP，核对当前分支/远端。不要重做 beta.4/5 已验证功能，也不要把下方历史未提交或等待授权状态当作当前事实。
+
+本次交付是 beta.5 限定源码候选，未合并 main、未创建 tag、未发布新制品、未部署。VERSION/默认镜像仍为已发布 beta.3；真实 OAuth、账户窗口/429、账单与目标环境、生产升级/回退仍未验。保留 MyAPI 命名、既有 README 和来源/法律说明；品牌或界面调整不证明完整原始源码替换。本版停止扩展，后续按主计划逐版冻结范围，不混入 beta.6 费用资格或完整 UI 重构。
+
+本节覆盖下方历史“本地未提交/待同步/待三库与 CI”的状态。当前文档提交仅同步已验证源码的结果，不改变运行时、测试、工作流或依赖；文档 HEAD 自己的检查状态另在 PR 回读，不把源码绿灯冒充文档 HEAD。
+
+## 以下为保留的交接历史
+
 # 当前接续：beta.5 组合候选待准确HEAD验收（2026-10-05）
 
 本节优先于下方历史交接。第一批重试安全与第二批有界期限、持久账户冷却、

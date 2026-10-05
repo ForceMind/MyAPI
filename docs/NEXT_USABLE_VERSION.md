@@ -1,3 +1,15 @@
+## 当前交付：beta.5 限定源码候选通过（2026-10-05）
+
+源码候选 [`2720806`](https://github.com/ForceMind/MyAPI/commit/2720806390bf44732da4b07d276f4e0f03d5778e)（tree `bb4d0ac17b67258412a2b05248dd8e5604e5ae8b`）已在原开发分支推送并回读。[CI 十作业](https://github.com/ForceMind/MyAPI/actions/runs/37314110213)、[Docker 三作业](https://github.com/ForceMind/MyAPI/actions/runs/37314110258)及[静态官网检查](https://github.com/ForceMind/MyAPI/actions/runs/37314110295)全部成功。PR 测试合并 `32149da39c34307b55a052b04bc0d80611993c58` 的 tree 与该源码一致。
+
+查看入口仍为 `/channels` 的路由预览与 `/usage-logs/common` 的管理员尝试详情；共享期限和失败冷却均默认 0 关闭。支持范围、配置、恢复与完整证据见 [beta.5 交付卡](BETA_5_DELIVERY_CARD.md)。
+
+本次交付是 beta.5 限定源码候选，未合并 main、未创建 tag、未发布新制品、未部署。VERSION/默认镜像仍为已发布 beta.3；真实 OAuth、账户窗口/429、账单与目标环境、生产升级/回退仍未验。保留 MyAPI 命名、既有 README 和来源/法律说明；品牌或界面调整不证明完整原始源码替换。本版停止扩展，后续按主计划逐版冻结范围，不混入 beta.6 费用资格或完整 UI 重构。
+
+本节覆盖下方历史“本地未提交/待同步/待三库与 CI”的状态。当前文档提交仅同步已验证源码的结果，不改变运行时、测试、工作流或依赖；文档 HEAD 自己的检查状态另在 PR 回读，不把源码绿灯冒充文档 HEAD。
+
+## 以下为保留的版本历史
+
 # 当前开发：0.2.0-beta.5（实施中）
 
 2026-10-04 北京时间17:56获准继续；本版交付卡见 [BETA_5_DELIVERY_CARD](BETA_5_DELIVERY_CARD.md)。
