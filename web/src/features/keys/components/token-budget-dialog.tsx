@@ -118,9 +118,11 @@ function TokenBudgetSession(props: {
         {!data?.policy.account_threshold_enabled && (
           <>
             <p className='text-muted-foreground text-xs'>
-              {t(
-                'Strict budgets support official OpenAI Responses text and native Chat text for exact model gpt-6.1-sol with per-token pricing.'
-              )}
+              {t('Official OpenAI Responses')}: max_output_tokens
+            </p>
+            <p className='text-muted-foreground text-xs'>
+              {t('Official OpenAI Chat')} · {t('Exact Match')}: gpt-6.1-sol ·
+              max_completion_tokens
             </p>
             <p className='text-muted-foreground text-xs'>
               {t(

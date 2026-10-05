@@ -143,6 +143,46 @@ try {
   page.on('pageerror', (error) => errors.push(error.message))
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
   mkdirSync(output, { recursive: true })
+  // Same bounded wheel/hit-test approach as the routing journey. This checks
+  // real viewport reachability, including the diff table's horizontal scrollport.
+  async function reachSourceControl(locator) {
+    await locator.waitFor({ state: 'visible' })
+    let geometry
+    for (let step = 0; step < 50; step++) {
+      geometry = await locator.evaluate((element) => {
+        const rect = element.getBoundingClientRect()
+        const top = 75
+        const bottom = innerHeight - 75
+        const target = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
+        let horizontal = null
+        if (rect.top >= top && rect.bottom <= bottom) {
+          for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+            if (!/^(auto|scroll)$/.test(getComputedStyle(ancestor).overflowX) || ancestor.scrollWidth <= ancestor.clientWidth + 1) continue
+            const bounds = ancestor.getBoundingClientRect()
+            const left = Math.max(0, bounds.left + ancestor.clientLeft)
+            const right = Math.min(innerWidth, bounds.left + ancestor.clientLeft + ancestor.clientWidth)
+            if (right - left < 20 || (rect.left >= left - 1 && rect.right <= right + 1)) continue
+            horizontal = { x: (left + right) / 2, y: rect.y + rect.height / 2, delta: rect.right > right ? Math.min(260, rect.right - right + 16) : -Math.min(260, left - rect.left + 16) }
+            break
+          }
+        }
+        return { x: rect.x, y: rect.y, width: rect.width, bottom: rect.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight, reachable: target === element || element.contains(target), horizontal }
+      })
+      if (geometry.reachable && !geometry.horizontal && geometry.y >= 75 && geometry.bottom <= geometry.viewportHeight - 75) return
+      if (geometry.horizontal) {
+        await page.mouse.move(geometry.horizontal.x, geometry.horizontal.y)
+        await page.mouse.wheel(geometry.horizontal.delta, 0)
+      } else {
+        await page.mouse.move(Math.min(geometry.viewportWidth - 40, Math.max(40, geometry.x + geometry.width / 2)), geometry.viewportHeight / 2)
+        await page.mouse.wheel(0, geometry.y < 75 ? -220 : 220)
+      }
+      await page.evaluate(async () => {
+        await Promise.all(document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity).map((animation) => animation.finished.catch(() => {})))
+        await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+      })
+    }
+    throw new Error(`Source control unreachable through real scrolling: ${await locator.textContent()}; geometry=${JSON.stringify(geometry)}`)
+  }
   const trend = () => page.getByTestId('quota-history-trend').first()
   async function checkChart(scope, style) {
     await scope.getByLabel(label('Chart style'), { exact: true }).selectOption(style)
@@ -460,12 +500,59 @@ try {
     })
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `source checks fit ${width}px without page-wide overflow`)
     const diff = sourcePanel.getByRole('table', { name: label('Source check differences'), exact: true })
-    await diff.getByText('gpt-6.1-sol', { exact: true }).waitFor()
     await sourcePanel.screenshot({ path: resolve(output, `price-source-check-${width}.png`) })
+    const addedModel = diff.getByText('gpt-6.1-sol', { exact: true })
+    const unqualifiedRow = diff.getByRole('row').filter({ hasText: 'fixture-no-cache' })
+    await reachSourceControl(addedModel)
+    await reachSourceControl(unqualifiedRow.getByText('fixture-no-cache', { exact: true }))
+    assert.equal(await unqualifiedRow.getByText(label('Source not qualified'), { exact: true }).count(), 2, 'the unqualified diff has both change and status evidence')
+    await page.screenshot({ path: resolve(output, `price-source-check-diff-models-${width}.png`) })
+    const locked = unqualifiedRow.getByText(label('Locked'), { exact: true })
+    await reachSourceControl(locked)
+    await reachSourceControl(unqualifiedRow.getByText(label('Pending review'), { exact: true }))
+    const reviewSource = sourcePanel.getByRole('button', { name: label('Review saved source'), exact: true })
+    await reachSourceControl(reviewSource)
+    // This is a viewport screenshot after real scrolling, not a clipped image
+    // of a tall offscreen panel. The table's status cells and action are in view.
+    const lowerBounds = await Promise.all([locked.boundingBox(), reviewSource.boundingBox()])
+    assert(lowerBounds.every((box) => box && box.y >= 75 && box.y + box.height <= 825), `diff status and review action are jointly visible at ${width}px`)
+    await page.screenshot({ path: resolve(output, `price-source-check-diff-actions-${width}.png`) })
+    const publicationCount = publicationSubmissions.length
+    await Promise.all([
+      page.waitForResponse((response) => response.url().endsWith(`/api/ratio_sync/openai/versions/${'f'.repeat(64)}`) && response.request().method() === 'GET'),
+      reviewSource.click(),
+    ])
+    await page.getByText(label('Frozen source loaded. Publishing requires a separate confirmation.'), { exact: true }).waitFor()
+    const frozenPrices = page.getByRole('table', { name: label('OpenAI official pricing source'), exact: true })
+    await reachSourceControl(frozenPrices.getByRole('cell').filter({ hasText: 'fixture-cached-model' }).first())
+    const publicationToggle = page.getByRole('button', { name: label('Effective price publication'), exact: true })
+    await reachSourceControl(publicationToggle)
+    if (await publicationToggle.getAttribute('aria-expanded') === 'false') await publicationToggle.click()
+    await reachSourceControl(publicationPanel.getByRole('button', { name: `${label('Review price change')}: fixture-cached-model`, exact: true }))
+    assert.equal(publicationSubmissions.length, publicationCount, 'reviewing the saved source never publishes, unlocks or rolls back prices')
+    await page.screenshot({ path: resolve(output, `price-source-check-review-${width}.png`) })
+    await reachSourceControl(publicationToggle)
+    await publicationToggle.click()
+    const sourceToggle = page.getByRole('button', { name: label('Official source checks'), exact: true })
+    await reachSourceControl(sourceToggle)
+    await sourceToggle.click()
+    await sourcePanel.waitFor({ state: 'hidden' })
+    await sourceToggle.click()
+    await reachSourceControl(sourcePanel.getByText(label('The last source check failed. The last good source and effective prices are retained.'), { exact: true }))
+    await sourcePanel.getByText('f'.repeat(64), { exact: true }).waitFor()
+    if (width === 320) {
+      const enable = sourcePanel.getByRole('button', { name: label('Enable daily source checks'), exact: true })
+      await reachSourceControl(enable)
+      await enable.click()
+      const disable = sourcePanel.getByRole('button', { name: label('Disable daily source checks'), exact: true })
+      await reachSourceControl(disable)
+      await disable.click()
+      await reachSourceControl(enable)
+      assert.equal(sourceChecks.enabled, false, 'narrow-layout schedule controls return the synthetic schedule to off')
+      assert.equal(publicationSubmissions.length, publicationCount, 'narrow-layout checks never change effective prices')
+      await page.screenshot({ path: resolve(output, 'price-source-check-controls-320.png') })
+    }
   }
-  await sourcePanel.getByRole('button', { name: label('Enable daily source checks'), exact: true }).click()
-  await sourcePanel.getByRole('button', { name: label('Disable daily source checks'), exact: true }).click()
-  await sourcePanel.getByRole('button', { name: label('Enable daily source checks'), exact: true }).waitFor()
   assert.deepEqual(sourceChecks.writes.map((write) => write.value), ['true', 'false'])
   assert.equal(sourceChecks.enabled, false, 'synthetic schedule is returned to default-off')
   assert.equal(sourceChecks.attempts, 2)

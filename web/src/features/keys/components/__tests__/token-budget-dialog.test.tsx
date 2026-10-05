@@ -544,6 +544,30 @@ test('shows account threshold and freshness to the owner without editable contro
   expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
 })
 
+test('protocol scope applies the exact gpt-6.1-sol model only to native Chat and preserves Responses qualification', async () => {
+  renderBudget()
+  await screen.findByRole('button', { name: 'Save' })
+  const responses = screen.getByText(/^Official OpenAI Responses:/)
+  const chat = screen.getByText(/^Official OpenAI Chat ·/)
+  expect(responses).toHaveTextContent('max_output_tokens')
+  expect(responses).not.toHaveTextContent('gpt-6.1-sol')
+  expect(responses).not.toHaveTextContent('Exact Match')
+  expect(chat).toHaveTextContent('Exact Match: gpt-6.1-sol')
+  expect(chat).toHaveTextContent('max_completion_tokens')
+  expect(
+    screen.queryByText(
+      'Strict budgets support official OpenAI Responses text and native Chat text for exact model gpt-6.1-sol with per-token pricing.'
+    )
+  ).not.toBeInTheDocument()
+  await userEvent.click(screen.getByText('Supported request fields'))
+  expect(
+    screen.getByText(
+      'Tools, images, external context, free or per-call pricing, and subscription channels are not supported by this strict mode.'
+    )
+  ).toBeVisible()
+  expect(api.put).not.toHaveBeenCalled()
+})
+
 test('request details explain native Chat limits and conservative bounds before enabling a budget', async () => {
   renderBudget()
   await screen.findByRole('button', { name: 'Save' })

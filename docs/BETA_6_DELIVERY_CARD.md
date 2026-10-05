@@ -171,3 +171,48 @@ or target deployment. All source-check schedules remain disabled during developm
 - Read reservation versus actual counts in Key pending details, administrator
   usage-log details and the existing recovery panel. Absent actual values remain
   unconfirmed, including after interrupted or contradictory provider evidence
+
+
+## First exact-head CI and bounded follow-up (2026-10-05)
+
+First source commit [`6b9ec98`](https://github.com/ForceMind/MyAPI/commit/6b9ec987a7cdb8fccdcd4f3fa2c9e5824eb04bff),
+tree `49933c30e43b553eec960f2c123728f7151e7c40`, was pushed and read back.
+Its PR test merge `6e2d929d1550fcf52b8ae8137bf15452eadf8920` has the same tree.
+
+- [CI run](https://github.com/ForceMind/MyAPI/actions/runs/37343269172): nine jobs
+  succeeded; Backend was cancelled at 15m17s, so this run is **not** an all-CI pass
+- [Backend log](https://github.com/ForceMind/MyAPI/actions/runs/37343269172/job/111875406691):
+  root vet 179s, root/relaykit tests 260s, publication-order race 168s,
+  settings/request race 134s, route-identity race 85s, new beta.6 race 36s.
+  All those stages passed. The following legacy billing/logging race was cancelled
+  after 21s and the final durable-submission race skipped. No assertion failure was
+  reported before cancellation. The serial job reached its former 15-minute budget
+- The follow-up raises only Backend's bounded job orchestration allowance from
+  15 to 20 minutes. Every test group, assertion, race detector, individual 180-second
+  test deadline, production timeout, resource setting and permission is retained
+- [Three-database job](https://github.com/ForceMind/MyAPI/actions/runs/37343269172/job/111875407207)
+  passed actual SQLite/MySQL/PostgreSQL TokenBudget (including Chat context/zero/
+  concurrency/hold/recovery) and OpenAIPriceCheck lease/fence/save/cancel contracts,
+  plus existing R1, publication, migration, routing and account contracts
+- [Frontend job](https://github.com/ForceMind/MyAPI/actions/runs/37343269172/job/111875407449)
+  passed 131 files / 683 tests, typecheck/build and both real Chromium journeys.
+  [Quota screenshots](https://github.com/ForceMind/MyAPI/actions/runs/37343269172/artifacts/11360155320)
+  are synthetic. Independent pixel review passed the visible regions; the first
+  320px source screenshot did not include the lower diff/review controls
+- [Docker three jobs](https://github.com/ForceMind/MyAPI/actions/runs/37343269180)
+  and [static website](https://github.com/ForceMind/MyAPI/actions/runs/37343269196)
+  succeeded; no image was released or deployed
+
+The bounded follow-up also makes existing translated labels visibly separate the
+unchanged Responses scope from the single exact Chat model. Its semantic test,
+34 focused frontend tests, typecheck/lint/format/build passed without locale or
+money-path changes. The existing browser journey now actually wheel-scrolls to
+the diff models/status/actions at 320/1280, opens saved-source review without a
+publication write, and exercises schedule enable/disable at 320 with final state
+off. Additional lower-viewport screenshots are required from its new exact-head
+CI. Node syntax passed locally; local Chromium was not run.
+
+The new accurate commit must complete **all** CI, including the previously cancelled
+and skipped legacy groups. Preserve the first-run record; do not re-label cancellation
+or a prior screenshot as final acceptance. Real account/invoice/deployment limitations
+and the one-protocol stop boundary remain unchanged.

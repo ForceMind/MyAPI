@@ -19,7 +19,10 @@ jobs:
     name: Backend vet, build, and test
     if: github.event.action != 'closed' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The complete serial cold-cache suite reached the former 15-minute limit
+    # after the new beta.6 race group passed. Keep every group and its own
+    # 180-second test deadline; allow bounded orchestration time for all of them.
+    timeout-minutes: 20
     env:
       GOWORK: 'off'
       GOMAXPROCS: '1'
