@@ -2,15 +2,63 @@
 
 ## Status and boundary
 
-2026-10-05: qualification and implementation received independent static review;
-local backend/frontend verification passed; exact-new-head CI acceptance remains pending. Base `ab8da0ef2feb429022f7b0e4ae1447c66d9f1b41`
-is the verified beta.5 documentation head. Preserve beta.3–5 behavior and evidence.
+2026-10-05: the bounded source candidate `94c23f811e7f4ce3d851218fd2627bcb01d0b758`
+passed all exact-head CI, Docker and website checks. Qualification and money-path
+implementation received independent static review. Base
+`ab8da0ef2feb429022f7b0e4ae1447c66d9f1b41` is the verified beta.5 documentation head;
+beta.3–5 behavior and evidence remain preserved. The final documentation-only
+head must be checked separately in PR #2; source green is not its CI evidence.
 The development branch and Draft PR #2 continue; no main merge, tag, release,
 deployment, real account or paid API call is part of this candidate. VERSION and
 default images remain the published beta.3 until separately authorized release.
 
 This is the bounded next step in [the master plan](MYAPI_MASTER_PLAN.md#beta6实际费用与严格预算扩展),
 not an additional gateway, ledger, provider pricing service or full UI redesign.
+
+## Verified source closure
+
+Source [`94c23f8`](https://github.com/ForceMind/MyAPI/commit/94c23f811e7f4ce3d851218fd2627bcb01d0b758)
+has tree `c5ea55a4f7733029b6077534fa02437ff0d4bc5c`; branch and Draft PR were read
+back after a non-forced update. PR test merge
+`7a6d518d4c123f811400aca86b88b858fe027fe4` has the same tree.
+
+- [CI, all ten jobs](https://github.com/ForceMind/MyAPI/actions/runs/37351413998):
+  root vet/build/full module tests, independent relaykit, all original race groups
+  and new Chat/source-check race boundaries passed. Backend completed in 15m12s
+- [Database job](https://github.com/ForceMind/MyAPI/actions/runs/37351413998/job/111902896777)
+  passed actual SQLite, MySQL 5.7 and PostgreSQL 9.6 TokenBudget and price-check
+  lease/fence/save/cancel contracts, plus existing R1/publication/routing/account
+  and migration contracts. SQLite was not substituted for the other engines
+- [Frontend](https://github.com/ForceMind/MyAPI/actions/runs/37351413998/job/111902896737)
+  passed 131 files / 684 tests, typecheck/build and both real quota/routing Chromium
+  journeys. Seven-language rendering and the existing permission/log isolation
+  tests are retained. [42 synthetic quota images](https://github.com/ForceMind/MyAPI/actions/runs/37351413998/artifacts/11363090989)
+  include the top protocol scope and complete conservative-bound warning at
+  320/1280, lower source diff/status/review actions and the mobile schedule controls.
+  Actual pixels were checked: Responses retains its own line, only Chat carries
+  the exact model, and the 1,050,000-token small-request warning is fully readable
+- [Docker, all three jobs](https://github.com/ForceMind/MyAPI/actions/runs/37351413996)
+  and [static website](https://github.com/ForceMind/MyAPI/actions/runs/37351413989)
+  passed, including synthetic LAN/fresh/handoff installation checks. These are not
+  a release, deployment or production upgrade/rollback acceptance
+- The prior failed/cancelled runs below remain historical evidence. In particular,
+  the original intermittent admission 503 was not independently reproduced; the
+  proven async audit fixture isolation defect has a deterministic red/green test.
+  The corrected exact source completed the full root tests and all later race groups
+
+| Path | Strict budget qualification after beta.6 |
+| --- | --- |
+| Existing qualified native official Responses text | Preserved exact input count and frozen v1 evidence; no newly inferred models |
+| Native official Chat text, exact `gpt-6.1-sol` | Conservative context reservation; complete raw actual usage; for USD, applicable exact frozen short/long Standard prices and explicit cache categories |
+| Ordinary compatible Chat/Responses requests | Existing behavior retained; compatibility alone grants no strict financial qualification |
+| Other models, proxies, media, tools, prediction, ambiguous tiers/counters | No new strict qualification; reject unsupported admission or retain unknown dispatched reservation as applicable |
+| Subscription-channel equivalent cost | Reference only, never a reconciled provider invoice or per-Key account-percentage ledger |
+
+The one-protocol/source-review closed loop is now the beta.6 stopping point.
+Next planned beta.7 remains user/Key model/upstream policy, revocation and in-app
+quota events via the existing accesspolicy/outbox. It starts with its own bounded
+contract; this closure does not authorize external recipients, credentials,
+release, main merge or real-account billing tests.
 
 ## Qualification contract
 
@@ -147,7 +195,8 @@ Current completed local evidence (not exact-head CI):
   actual application coverage. Missing local godotenv cache was restored from the
   official Go registry at the existing locked version; dependency manifests did not change
 
-MySQL/PostgreSQL, actual Chromium and complete exact-new-head CI are not yet claimed.
+At that local-only checkpoint, MySQL/PostgreSQL, actual Chromium and exact-head CI
+were not yet claimed; the verified source closure above now supplies those checks.
 No synthetic fixture is evidence of a paid upstream call, reconciled provider invoice
 or target deployment. All source-check schedules remain disabled during development.
 
