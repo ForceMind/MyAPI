@@ -228,7 +228,7 @@ export function Home() {
               className='bg-primary size-2 rounded-full'
               aria-hidden='true'
             />
-            My API · {t('Self-hosted gateway')}
+            MyAPI · {t('Self-hosted gateway')}
           </div>
           <div
             className={

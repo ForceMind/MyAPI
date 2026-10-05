@@ -65,6 +65,8 @@ describe('default self-hosted home', () => {
   test('shows a three-step start path without promising protected actions to visitors', () => {
     render(<Home />)
 
+    expect(screen.getByText('MyAPI · Self-hosted gateway')).toBeInTheDocument()
+
     const steps = screen.getByRole('region', {
       name: 'Three steps to get started',
     })
