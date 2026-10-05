@@ -1,14 +1,14 @@
 <p align="center">
-  <img src="web/public/myapi-logo-v1.png" alt="My API logo" width="144" />
+  <img src="web/public/myapi-logo-v1.png" alt="MyAPI logo" width="144" />
 </p>
 
-# My API
+# MyAPI
 
 A self-hosted AI API gateway for model services, application access, and usage management.
 
 [English](README.md) · [简体中文](README.zh_CN.md) · [繁體中文](README.zh_TW.md) · [Français](README.fr.md) · [日本語](README.ja.md)
 
-My API brings model-service connections, application API keys, access controls, and usage records into one web console. It is designed for personal use first, with controlled sharing to a small team. New installations keep commercial modules off: using your own model-service accounts does not require topping up an internal wallet. Users, permissions, key limits, and usage tracking still apply.
+MyAPI brings model-service connections, application API keys, access controls, and usage records into one web console. It is designed for personal use first, with controlled sharing to a small team. New installations keep commercial modules off: using your own model-service accounts does not require topping up an internal wallet. Users, permissions, key limits, and usage tracking still apply.
 
 ## Technology stack
 
@@ -36,7 +36,7 @@ My API brings model-service connections, application API keys, access controls, 
 ### How requests flow
 
 ```text
-Application + API key → My API authentication and access checks
+Application + API key → MyAPI authentication and access checks
                       → Model/channel selection → Model service
                       ← Response / stream       ←
                         Usage and error records

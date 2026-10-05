@@ -1,14 +1,14 @@
 <p align="center">
-  <img src="web/public/myapi-logo-v1.png" alt="My API logo" width="144" />
+  <img src="web/public/myapi-logo-v1.png" alt="MyAPI logo" width="144" />
 </p>
 
-# My API
+# MyAPI
 
 统一管理模型服务、应用接入、权限与用量的自建 AI API 网关。
 
 [English](README.md) · [简体中文](README.zh_CN.md) · [繁體中文](README.zh_TW.md) · [Français](README.fr.md) · [日本語](README.ja.md)
 
-My API 将渠道接入、应用 API Key、权限和用量记录集中在一个管理界面中，优先满足个人自用，也支持受控地分享给少量用户。新安装默认关闭商业模块，使用自己的模型服务账号不需要先充值内部钱包；用户管理、权限、Key 限制和用量统计仍然保留。
+MyAPI 将渠道接入、应用 API Key、权限和用量记录集中在一个管理界面中，优先满足个人自用，也支持受控地分享给少量用户。新安装默认关闭商业模块，使用自己的模型服务账号不需要先充值内部钱包；用户管理、权限、Key 限制和用量统计仍然保留。
 
 ## 技术栈
 
@@ -36,7 +36,7 @@ My API 将渠道接入、应用 API Key、权限和用量记录集中在一个�
 ### 请求如何流转
 
 ```text
-应用 + API Key → My API 身份认证与权限检查
+应用 + API Key → MyAPI 身份认证与权限检查
               → 模型与渠道选择 → 模型服务
               ← 响应 / 流式输出 ←
                 用量与错误记录

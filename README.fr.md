@@ -1,14 +1,14 @@
 <p align="center">
-  <img src="web/public/myapi-logo-v1.png" alt="My API logo" width="144" />
+  <img src="web/public/myapi-logo-v1.png" alt="MyAPI logo" width="144" />
 </p>
 
-# My API
+# MyAPI
 
 Une passerelle d’API d’IA auto-hébergée pour les services de modèles, l’accès des applications et le suivi d’utilisation.
 
 [English](README.md) · [简体中文](README.zh_CN.md) · [繁體中文](README.zh_TW.md) · [Français](README.fr.md) · [日本語](README.ja.md)
 
-My API réunit connexions aux services de modèles, clés API clientes, permissions et suivi d’utilisation dans une console. L’usage personnel est prioritaire, avec partage contrôlé à une petite équipe. Les modules commerciaux sont désactivés sur les nouvelles installations : aucun rechargement d’un portefeuille interne n’est requis. Utilisateurs, permissions et limites restent actifs.
+MyAPI réunit connexions aux services de modèles, clés API clientes, permissions et suivi d’utilisation dans une console. L’usage personnel est prioritaire, avec partage contrôlé à une petite équipe. Les modules commerciaux sont désactivés sur les nouvelles installations : aucun rechargement d’un portefeuille interne n’est requis. Utilisateurs, permissions et limites restent actifs.
 
 ## Technologies
 
@@ -36,7 +36,7 @@ My API réunit connexions aux services de modèles, clés API clientes, permissi
 ### Parcours d’une requête
 
 ```text
-Application + clé API → My API : authentification et permissions
+Application + clé API → MyAPI : authentification et permissions
                      → Sélection modèle/canal → Service de modèles
                      ← Réponse / streaming    ←
                        Utilisation et erreurs

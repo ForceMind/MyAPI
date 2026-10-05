@@ -1,14 +1,14 @@
 <p align="center">
-  <img src="web/public/myapi-logo-v1.png" alt="My API logo" width="144" />
+  <img src="web/public/myapi-logo-v1.png" alt="MyAPI logo" width="144" />
 </p>
 
-# My API
+# MyAPI
 
 統一管理模型服務、應用程式存取、權限與用量的自建 AI API 閘道。
 
 [English](README.md) · [简体中文](README.zh_CN.md) · [繁體中文](README.zh_TW.md) · [Français](README.fr.md) · [日本語](README.ja.md)
 
-My API 集中管理渠道、應用程式 API Key、權限與用量，優先服務個人自用，也可受控地分享給少量使用者。新安裝預設關閉商業模組，不要求先儲值內部錢包；使用者、Key、權限與用量限制仍然保留。
+MyAPI 集中管理渠道、應用程式 API Key、權限與用量，優先服務個人自用，也可受控地分享給少量使用者。新安裝預設關閉商業模組，不要求先儲值內部錢包；使用者、Key、權限與用量限制仍然保留。
 
 ## 技術棧
 
@@ -36,7 +36,7 @@ My API 集中管理渠道、應用程式 API Key、權限與用量，優先服�
 ### 請求流程
 
 ```text
-應用程式 + API Key → My API 身分驗證與權限檢查
+應用程式 + API Key → MyAPI 身分驗證與權限檢查
                   → 模型與渠道選擇 → 模型服務
                   ← 回應 / 串流輸出 ←
                     用量與錯誤記錄
