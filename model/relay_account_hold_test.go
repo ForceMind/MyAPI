@@ -20,17 +20,20 @@ import (
 func TestRelayAccountHoldConfiguredDatabases(t *testing.T) {
 	for _, engine := range []struct{ name, env string }{{"sqlite", ""}, {"mysql", "MYAPI_B2_MYSQL_DSN"}, {"postgres", "MYAPI_B2_POSTGRES_DSN"}} {
 		t.Run(engine.name, func(t *testing.T) {
-			var dialect gorm.Dialector = sqlite.Open(t.TempDir() + "/holds.db")
-			if engine.env != "" {
+			sqlitePath := t.TempDir() + "/holds.db"
+			newDialect := func() gorm.Dialector {
+				if engine.env == "" {
+					return sqlite.Open(sqlitePath)
+				}
 				if os.Getenv("MYAPI_B2_DATABASE_TESTS") != "1" {
 					t.Skip("requires explicitly configured disposable B2 database")
 				}
-				var err error
-				dialect, err = b2SubmissionDatabaseDialector(engine.name, strings.TrimSpace(os.Getenv(engine.env)))
+				dialect, err := b2SubmissionDatabaseDialector(engine.name, strings.TrimSpace(os.Getenv(engine.env)))
 				require.NoError(t, err)
+				return dialect
 			}
 			cfg := &gorm.Config{NamingStrategy: schema.NamingStrategy{TablePrefix: fmt.Sprintf("rh_%d_", time.Now().UnixNano())}}
-			db, err := gorm.Open(dialect, cfg)
+			db, err := gorm.Open(newDialect(), cfg)
 			require.NoError(t, err)
 			sqlDB, err := db.DB()
 			require.NoError(t, err)
@@ -89,15 +92,18 @@ func TestRelayAccountHoldConfiguredDatabases(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, holds, 1)
 			// A fresh connection (restart) observes the persisted hold without extending it.
-			reopened, err := gorm.Open(dialect, cfg)
+			// The PostgreSQL fixture dialector owns its pool, so create a new one too.
+			reopened, err := gorm.Open(newDialect(), cfg)
 			require.NoError(t, err)
 			reopenedSQL, err := reopened.DB()
 			require.NoError(t, err)
-			defer reopenedSQL.Close()
+			t.Cleanup(func() { assert.NoError(t, reopenedSQL.Close()) })
 			holds, err = ReadRelayAccountHolds(ctx, reopened, channel)
 			require.NoError(t, err)
 			require.Len(t, holds, 1)
 			assert.Equal(t, first, holds[0].Until)
+			require.NoError(t, reopenedSQL.Close())
+			require.NoError(t, sqlDB.Ping(), "closing the reopened connection must not close the original pool")
 			routed := *channel
 			routed.OtherSettings = `{"model_routes":[{"public_model":"public","upstream_model":"a","match":"exact"}]}`
 			require.NoError(t, db.Model(&Channel{}).Where("id = ?", channel.Id).Update("settings", `{"model_routes":[{"public_model":"public","upstream_model":"b","match":"exact"}]}`).Error)
