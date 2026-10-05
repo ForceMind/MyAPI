@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
@@ -101,6 +102,17 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		// startGroupIndex: 开始搜索的分组索引
 		startGroupIndex := 0
 		crossGroupRetry := common.GetContextKeyBool(param.Ctx, constant.ContextKeyTokenCrossGroupRetry)
+		if state := RelayFailoverFromContext(routingCtx); state != nil && len(state.Attempts) > 0 && !crossGroupRetry {
+			// Initial selection may scan empty groups. Once an attempt has run,
+			// disabling cross-group retry pins selection to its actual group,
+			// including a group chosen by affinity without a routing-loop index.
+			selectedGroup := common.GetContextKeyString(param.Ctx, constant.ContextKeyAutoGroup)
+			if !slices.Contains(autoGroups, selectedGroup) {
+				return nil, selectedGroup, nil
+			}
+			channel, err := getRandomQuotaSatisfiedChannel(routingCtx, selectedGroup, param.ModelName, param.GetRetry(), param.RequestPath)
+			return channel, selectedGroup, err
+		}
 
 		if lastGroupIndex, exists := common.GetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex); exists {
 			if idx, ok := lastGroupIndex.(int); ok {

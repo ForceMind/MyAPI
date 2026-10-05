@@ -51,26 +51,11 @@ func GetAvailableChannelRoutingPolicy(ctx context.Context, group, modelName, req
 	if err != nil {
 		return view, err
 	}
-	_, thresholdActive := common.AccountQuotaThresholdFromContext(ctx)
 	candidates := make([]model.ChannelRoutingCandidate, 0)
 	rejected := view.Policy.Rejected
 	for _, tier := range view.Policy.Tiers {
 		for _, candidate := range tier.Candidates {
-			value := candidate.ChannelRoutingCandidate
-			if candidate.ChannelType == constant.ChannelTypeCodex || thresholdActive {
-				channel, lookupErr := model.CacheGetChannel(candidate.ChannelID)
-				if lookupErr != nil {
-					value.RouteError = "channel_state_unavailable"
-				} else {
-					_, usable, checkErr := CodexQuotaEligibleKeys(ctx, channel)
-					if checkErr != nil {
-						value.RouteError = "account_state_unavailable"
-					} else if !usable {
-						value.RouteError = "account_not_eligible"
-					}
-				}
-			}
-			candidates = append(candidates, value)
+			candidates = append(candidates, evaluateRelayRoutingCandidate(ctx, candidate.ChannelRoutingCandidate, requestPath))
 		}
 	}
 	candidates = append(candidates, rejected...)
@@ -78,10 +63,60 @@ func GetAvailableChannelRoutingPolicy(ctx context.Context, group, modelName, req
 	return view, nil
 }
 
+// evaluateRelayRoutingCandidate intersects quota, transient health and request
+// exclusions once. Preview and runtime selection consume the same result.
+func evaluateRelayRoutingCandidate(ctx context.Context, value model.ChannelRoutingCandidate, path string) model.ChannelRoutingCandidate {
+	state := RelayFailoverFromContext(ctx)
+	if state != nil && (value.ModelRoute == nil || value.ModelRoute.UpstreamModel != state.Target) {
+		value.RouteError = "retry_target_mismatch"
+		return value
+	}
+	_, thresholdActive := common.AccountQuotaThresholdFromContext(ctx)
+	needsQuota := value.ChannelType == constant.ChannelTypeCodex || thresholdActive
+	needsHealth := common.RelayFailureCooldownSeconds > 0 && (value.ChannelType == constant.ChannelTypeOpenAI || value.ChannelType == constant.ChannelTypeCodex)
+	if !needsQuota && !needsHealth && state == nil {
+		return value
+	}
+	channel, err := model.CacheGetChannel(value.ChannelID)
+	if err != nil {
+		value.RouteError = "channel_state_unavailable"
+		return value
+	}
+	excluded, eligible, err := CodexQuotaEligibleKeys(ctx, channel)
+	if err != nil {
+		value.RouteError = "account_state_unavailable"
+		return value
+	}
+	if !eligible {
+		value.RouteError = "account_not_eligible"
+		return value
+	}
+	excluded, eligible, recovery, err := RelayCooldownEligibleKeys(ctx, channel, path, excluded)
+	value.CooldownUntil = recovery
+	if err != nil {
+		value.RouteError = "account_state_unavailable"
+		return value
+	}
+	if !eligible {
+		value.RouteError = "account_not_eligible"
+		if recovery > 0 {
+			value.RouteError = "account_cooling_down"
+		}
+		return value
+	}
+	if _, eligible := RelayFailoverEligibleKeys(ctx, channel, excluded); !eligible {
+		value.RouteError = "request_failed_credentials"
+	}
+	return value
+}
+
 func getRandomQuotaSatisfiedChannel(ctx context.Context, group, modelName string, retry int, requestPath string) (*model.Channel, error) {
 	view, err := GetAvailableChannelRoutingPolicy(ctx, group, modelName, requestPath)
 	if err != nil {
 		return nil, err
+	}
+	if RelayFailoverFromContext(ctx) != nil {
+		retry = 0
 	}
 	channelID, found, err := model.SelectChannelFromRoutingPolicy(view.Policy, retry)
 	if err != nil || !found {

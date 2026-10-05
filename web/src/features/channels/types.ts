@@ -227,6 +227,8 @@ export interface ChannelModelDiscoveryResponse {
 }
 
 export interface ChannelRoutingPreviewCandidate {
+  // Earliest hold expiry among cooling credentials, even if others remain eligible.
+  cooldown_until?: number
   upstream_model?: string
   route_reason?: string
   request_path?: string
@@ -254,6 +256,16 @@ export interface ChannelRoutingPreviewResponse {
     model: string
     request_path: string
     tiers: ChannelRoutingPreviewTier[]
+    rejected?: {
+      id: number
+      name: string
+      reason: string
+      cooldown_until?: number
+    }[]
+    scheduling?: {
+      failover_timeout_seconds: number
+      failure_cooldown_seconds: number
+    }
     source: 'cache' | 'database'
     generation: number
     data_generation: number
@@ -266,6 +278,7 @@ export interface ChannelRoutingPreviewResponse {
       evaluated: false
       precedence: 'before_priority_weight'
       explanation_code: 'routing_preview_affinity_not_evaluated'
+      account_binding?: 'confirmed_success_only'
     }
   }
 }

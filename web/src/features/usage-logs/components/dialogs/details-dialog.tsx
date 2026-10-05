@@ -1110,6 +1110,84 @@ export function DetailsDialog(props: DetailsDialogProps) {
             />
           </DetailSection>
         )}
+        {props.isAdmin && !!other?.admin_info?.relay_attempts?.length && (
+          <DetailSection label={t('Relay attempts')}>
+            <p className='text-muted-foreground text-xs wrap-break-word'>
+              {t(
+                'Attempts are shown in recorded order. Selected means current at log time, not confirmed completion. Key indexes start at 0 and may change when keys are reordered.'
+              )}
+            </p>
+            <ol aria-label={t('Relay attempts')} className='min-w-0 space-y-3'>
+              {other.admin_info.relay_attempts.map((attempt, index) => {
+                let outcome = t('Unknown outcome')
+                switch (attempt.outcome) {
+                  case 'selected':
+                    outcome = t('Selected at log time')
+                    break
+                  case 'refused':
+                    outcome = t('Refused')
+                    break
+                  case 'retryable_refusal':
+                    outcome = t('Refused; retry allowed')
+                    break
+                  case 'failed':
+                    outcome = t('Failed')
+                    break
+                  case 'completed':
+                    outcome = t('Completed')
+                    break
+                }
+                return (
+                  // Log snapshots are immutable ordered evidence with no attempt ID.
+                  // oxlint-disable-next-line react/no-array-index-key
+                  <li key={index} className='min-w-0 space-y-1'>
+                    <p className='text-xs font-medium'>
+                      {t('Attempt {{number}}', { number: index + 1 })}
+                    </p>
+                    <DetailRow
+                      label={t('Channel ID')}
+                      value={String(attempt.channel_id)}
+                      mono
+                    />
+                    <DetailRow
+                      label={t('Key index (0-based)')}
+                      value={String(attempt.key_index)}
+                      mono
+                    />
+                    <DetailRow
+                      label={t('Upstream model')}
+                      value={attempt.upstream_model}
+                      mono
+                    />
+                    <DetailRow label={t('Outcome')} value={outcome} />
+                    {attempt.status != null && attempt.status > 0 && (
+                      <DetailRow
+                        label={t('Failure HTTP status')}
+                        value={String(attempt.status)}
+                        mono
+                      />
+                    )}
+                    {attempt.cooldown_seconds != null &&
+                      attempt.cooldown_seconds > 0 && (
+                        <div className='flex min-w-0 flex-col gap-1 text-xs wrap-break-word'>
+                          <p>
+                            {t('Future-request account hold: {{seconds}} seconds', {
+                              seconds: attempt.cooldown_seconds,
+                            })}
+                          </p>
+                          <p className='text-muted-foreground'>
+                            {t(
+                              "This temporary hold is recorded for later requests. It does not prove quota exhaustion or extend this request's retry window."
+                            )}
+                          </p>
+                        </div>
+                      )}
+                  </li>
+                )
+              })}
+            </ol>
+          </DetailSection>
+        )}
         {/* Model mapping */}
         {other?.is_model_mapped && other?.upstream_model_name && (
           <DetailSection label={t('Model Mapping')}>

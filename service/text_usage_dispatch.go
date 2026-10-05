@@ -13,7 +13,10 @@ import (
 )
 
 func textUsageDispatchSession(c *gin.Context, info *relaycommon.RelayInfo) *BillingSession {
-	if c == nil || c.Request == nil || c.Request.URL == nil || c.Request.Method != http.MethodPost || info == nil || info.StrictTokenBudget || info.PriceData.UsePrice || info.IsChannelTest {
+	if c == nil || c.Request == nil || c.Request.URL == nil || c.Request.Method != http.MethodPost || info == nil || info.StrictTokenBudget || info.IsChannelTest {
+		return nil
+	}
+	if info.PriceData.UsePrice && RelayFailoverFromContext(c.Request.Context()) == nil {
 		return nil
 	}
 	// Query parameters cannot bypass a guard for the same billable route.

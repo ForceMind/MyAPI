@@ -134,6 +134,14 @@ export interface LogOtherData {
       channel_id: number
       config_digest: string
     }
+    relay_attempts?: {
+      channel_id: number
+      key_index: number
+      upstream_model: string
+      outcome: string
+      status?: number
+      cooldown_seconds?: number
+    }[]
     is_multi_key?: boolean
     multi_key_index?: number
     use_channel?: number[]

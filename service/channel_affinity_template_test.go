@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/model"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
@@ -214,6 +215,11 @@ func TestExtractChannelAffinityValue_RequestHeader(t *testing.T) {
 }
 
 func TestGetPreferredChannelByAffinity_RequestHeaderKeySource(t *testing.T) {
+	db := setupChannelSelectAutoGroupsTest(t)
+	createChannelSelectAutoGroupsChannel(t, db, 9528, "default", "gpt-5")
+	channel, err := model.GetChannelById(9528, true)
+	require.NoError(t, err)
+	require.NoError(t, model.InitChannelCache())
 	gin.SetMode(gin.TestMode)
 
 	rule := operation_setting.ChannelAffinityRule{
@@ -246,6 +252,11 @@ func TestGetPreferredChannelByAffinity_RequestHeaderKeySource(t *testing.T) {
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 	ctx.Request.Header.Set("X-Affinity-Key", affinityValue)
 
+	_, found := GetPreferredChannelByAffinity(ctx, "gpt-5", "default")
+	require.False(t, found, "legacy integer entry without companion must fall back normally")
+	accounts := getChannelAffinityCacheInstance().accounts
+	require.NoError(t, accounts.SetWithTTL(cacheKeySuffix, channelAccountAffinity{ChannelID: 9528, Identity: RelayAccountIdentity(channel, channel.Key)}, time.Minute))
+	t.Cleanup(func() { _, _ = accounts.DeleteMany([]string{cacheKeySuffix}) })
 	channelID, found := GetPreferredChannelByAffinity(ctx, "gpt-5", "default")
 	require.True(t, found)
 	require.Equal(t, 9528, channelID)
@@ -285,6 +296,11 @@ func TestClearCurrentChannelAffinityCache(t *testing.T) {
 }
 
 func TestChannelAffinityHitCodexTemplatePassHeadersEffective(t *testing.T) {
+	db := setupChannelSelectAutoGroupsTest(t)
+	createChannelSelectAutoGroupsChannel(t, db, 9527, "default", "gpt-5")
+	channel, err := model.GetChannelById(9527, true)
+	require.NoError(t, err)
+	require.NoError(t, model.InitChannelCache())
 	gin.SetMode(gin.TestMode)
 
 	setting := operation_setting.GetChannelAffinitySetting()
@@ -302,6 +318,9 @@ func TestChannelAffinityHitCodexTemplatePassHeadersEffective(t *testing.T) {
 
 	affinityValue := fmt.Sprintf("pc-hit-%d", time.Now().UnixNano())
 	cacheKeySuffix := buildChannelAffinityCacheKeySuffix(*codexRule, "gpt-5", "default", affinityValue)
+	accounts := getChannelAffinityCacheInstance().accounts
+	require.NoError(t, accounts.SetWithTTL(cacheKeySuffix, channelAccountAffinity{ChannelID: 9527, Identity: RelayAccountIdentity(channel, channel.Key)}, time.Minute))
+	t.Cleanup(func() { _, _ = accounts.DeleteMany([]string{cacheKeySuffix}) })
 
 	cache := getChannelAffinityCache()
 	require.NoError(t, cache.SetWithTTL(cacheKeySuffix, 9527, time.Minute))
@@ -339,7 +358,7 @@ func TestChannelAffinityHitCodexTemplatePassHeadersEffective(t *testing.T) {
 		},
 	}
 
-	_, err := relaycommon.ApplyParamOverrideWithRelayInfo([]byte(`{"model":"gpt-5"}`), info)
+	_, err = relaycommon.ApplyParamOverrideWithRelayInfo([]byte(`{"model":"gpt-5"}`), info)
 	require.NoError(t, err)
 	require.True(t, info.UseRuntimeHeadersOverride)
 

@@ -14,13 +14,14 @@ import (
 // ChannelRoutingCandidate is the non-sensitive input used to build the runtime
 // routing policy and the administrator routing preview.
 type ChannelRoutingCandidate struct {
-	ModelRoute  *ChannelModelRoute
-	RouteError  string
-	ChannelID   int
-	ChannelName string
-	ChannelType int
-	Priority    int64
-	Weight      uint
+	CooldownUntil int64
+	ModelRoute    *ChannelModelRoute
+	RouteError    string
+	ChannelID     int
+	ChannelName   string
+	ChannelType   int
+	Priority      int64
+	Weight        uint
 }
 
 // ChannelRoutingCandidatePolicy describes one candidate's effective share

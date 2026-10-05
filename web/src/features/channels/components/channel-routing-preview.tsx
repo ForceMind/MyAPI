@@ -22,6 +22,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { toIntlLocale } from '@/i18n/languages'
 
 import { getChannelRoutingPreview } from '../api'
 import { channelsQueryKeys, getChannelTypeLabel } from '../lib'
@@ -30,6 +31,41 @@ import {
   resolveChannelRoutingPreviewErrorCode,
 } from '../lib/channel-routing'
 import type { ChannelRoutingPreviewParams } from '../types'
+
+function AccountHoldExpiry(props: { timestamp?: number }) {
+  const { t, i18n } = useTranslation()
+  const formatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(
+        toIntlLocale(i18n.resolvedLanguage || i18n.language),
+        {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          timeZoneName: 'short',
+        }
+      ),
+    [i18n.language, i18n.resolvedLanguage]
+  )
+  if (
+    props.timestamp == null ||
+    !Number.isFinite(props.timestamp) ||
+    props.timestamp <= 0 ||
+    props.timestamp > 8_640_000_000_000
+  ) {
+    return null
+  }
+  return (
+    <p className='text-muted-foreground text-xs wrap-break-word'>
+      {t('Next account hold expiry: {{time}}', {
+        time: formatter.format(props.timestamp * 1000),
+      })}
+    </p>
+  )
+}
 
 export function ChannelRoutingPreview() {
   const { t, i18n } = useTranslation()
@@ -93,6 +129,12 @@ export function ChannelRoutingPreview() {
       ? previewQuery.data.data
       : undefined
   const tiers = previewData?.tiers ?? []
+  const rejected = previewData?.rejected ?? []
+  const hasAccountCooldown =
+    rejected.some((channel) => channel.reason === 'account_cooling_down') ||
+    tiers.some((tier) =>
+      tier.channels.some((channel) => (channel.cooldown_until ?? 0) > 0)
+    )
 
   let errorMessage = t('Unable to load routing preview.')
   if (errorCode === 'routing_preview_invalid_params') {
@@ -241,6 +283,46 @@ export function ChannelRoutingPreview() {
           </Alert>
         ) : null}
 
+        {previewData?.scheduling ? (
+          <section
+            className='flex min-w-0 flex-col gap-2 text-sm wrap-break-word'
+            aria-labelledby='routing-scheduling-title'
+          >
+            <h3 id='routing-scheduling-title' className='font-medium'>
+              {t('Failover scheduling')}
+            </h3>
+            <p>
+              {previewData.scheduling.failover_timeout_seconds === 0
+                ? t('Total failover deadline is disabled (0 seconds).')
+                : t('Total failover deadline: {{seconds}} seconds', {
+                    seconds: previewData.scheduling.failover_timeout_seconds,
+                  })}
+            </p>
+            <p>
+              {previewData.scheduling.failure_cooldown_seconds === 0
+                ? t('Failure cooldown is disabled (0 seconds).')
+                : t('Failure cooldown: {{seconds}} seconds', {
+                    seconds: previewData.scheduling.failure_cooldown_seconds,
+                  })}
+            </p>
+            <p className='text-muted-foreground text-xs'>
+              {t(
+                'Configurable ranges: deadline 0–3600 seconds, cooldown 0–300 seconds. Zero disables each setting.'
+              )}
+            </p>
+            <p className='text-muted-foreground text-xs'>
+              {t(
+                'These settings are separate from RELAY_TIMEOUT and do not change its legacy behavior.'
+              )}
+            </p>
+            <p className='text-muted-foreground text-xs'>
+              {t(
+                'Relay attempts share this deadline. Durable cleanup or settlement may finish after cancellation.'
+              )}
+            </p>
+          </section>
+        ) : null}
+
         {errorCode ? (
           <Alert variant='destructive'>
             <AlertDescription>{errorMessage}</AlertDescription>
@@ -249,9 +331,11 @@ export function ChannelRoutingPreview() {
 
         {previewQuery.isSuccess && !businessError && tiers.length === 0 ? (
           <p className='text-muted-foreground text-sm'>
-            {t(
-              'No matching enabled channels were found for this routing preview.'
-            )}
+            {rejected.length > 0
+              ? t('No eligible channels remain in this routing snapshot.')
+              : t(
+                  'No matching enabled channels were found for this routing preview.'
+                )}
           </p>
         ) : null}
 
@@ -309,6 +393,17 @@ export function ChannelRoutingPreview() {
                             {t('Configuration digest')}: {channel.config_digest}
                           </div>
                         )}
+                        {channel.cooldown_until != null &&
+                        channel.cooldown_until > 0 ? (
+                          <div className='mt-1 flex min-w-0 flex-col gap-1 wrap-break-word'>
+                            <p>
+                              {t('Some accounts are temporarily cooling down.')}
+                            </p>
+                            <AccountHoldExpiry
+                              timestamp={channel.cooldown_until}
+                            />
+                          </div>
+                        ) : null}
                       </div>
                       <span>
                         {t('Weight')}: {channel.weight}
@@ -326,6 +421,57 @@ export function ChannelRoutingPreview() {
               </section>
             ))}
           </div>
+        ) : null}
+
+        {rejected.length > 0 ? (
+          <section className='min-w-0' aria-labelledby='routing-excluded-title'>
+            <h3
+              id='routing-excluded-title'
+              className='mb-2 text-sm font-medium'
+            >
+              {t('Excluded channels')}
+            </h3>
+            <ul
+              aria-label={t('Excluded channels')}
+              className='flex min-w-0 flex-col gap-2'
+            >
+              {rejected.map((channel) => (
+                <li
+                  key={channel.id}
+                  className='bg-muted/30 flex min-w-0 flex-col gap-1 rounded-md px-3 py-2 text-sm'
+                >
+                  <p className='font-medium break-all'>{channel.name}</p>
+                  <p className='text-muted-foreground text-xs'>#{channel.id}</p>
+                  <p className='wrap-break-word'>
+                    {channel.reason === 'account_cooling_down'
+                      ? t(
+                          'Remaining eligible accounts are temporarily cooling down.'
+                        )
+                      : t('Excluded from this routing snapshot.')}
+                  </p>
+                  {channel.reason === 'account_cooling_down' ? (
+                    <AccountHoldExpiry timestamp={channel.cooldown_until} />
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {previewData?.scheduling || hasAccountCooldown ? (
+          <p className='text-muted-foreground text-xs wrap-break-word'>
+            {t(
+              'Account cooldown is a temporary hold. Its expiry does not clear authoritative Codex exhaustion or guarantee eligibility; fresh credentials, permissions, budget, and account windows still apply.'
+            )}
+          </p>
+        ) : null}
+
+        {previewData?.affinity?.account_binding === 'confirmed_success_only' ? (
+          <p className='text-muted-foreground text-xs wrap-break-word'>
+            {t(
+              'Account affinity is saved only after confirmed success. This preview has no session input and does not evaluate or update account affinity. Every request still checks current credentials, permissions, budget, and account windows.'
+            )}
+          </p>
         ) : null}
 
         <p className='text-muted-foreground text-xs'>

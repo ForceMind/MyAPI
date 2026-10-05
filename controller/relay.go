@@ -79,6 +79,9 @@ func geminiRelayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewA
 func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	requestId := c.GetString(common.RequestIdKey)
+	failover := service.BeginRelayFailover(c)
+	defer failover.Close()
+	c.Set("relay_success", false)
 	//group := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
 	//originalModel := common.GetContextKeyString(c, constant.ContextKeyOriginalModel)
 
@@ -203,8 +206,12 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	relayInfo.RetryIndex = 0
 	relayInfo.LastError = nil
 
-	for ; retryParam.GetRetry() <= common.RetryTimes; retryParam.IncreaseRetry() {
-		relayInfo.RetryIndex = retryParam.GetRetry()
+	maxRetries := common.RetryTimes
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			retryParam.IncreaseRetry()
+		}
+		relayInfo.RetryIndex = attempt
 		channel, channelErr := getChannel(c, relayInfo, retryParam)
 		if channelErr != nil {
 			logger.LogError(c, channelErr.Error())
@@ -212,6 +219,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			break
 		}
 		addUsedChannel(c, channel.Id)
+		failover.StartAttempt(c)
 		if billingErr := service.PrepareTieredBillingForSelectedGroup(c, relayInfo); billingErr != nil {
 			newAPIError = billingErr
 			break
@@ -246,12 +254,22 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 		if newAPIError == nil {
 			relayInfo.LastError = nil
+			streamOK := relayInfo.StreamStatus == nil || (relayInfo.StreamStatus.IsNormalEnd() && !relayInfo.StreamStatus.HasErrors())
+			if streamOK && !c.GetBool("relay_completion_unverified") && !service.TextUsageDispatchNeedsReview(relayInfo) {
+				c.Set("relay_success", true)
+				failover.FinishAttempt(c, "completed", 0, false)
+			}
 			return
 		}
 
 		newAPIError = service.NormalizeViolationFeeError(newAPIError)
 		relayInfo.LastError = newAPIError
-		if (relayInfo.StrictTokenBudget && strings.HasPrefix(string(newAPIError.GetErrorCode()), "token_budget_")) || strings.HasPrefix(string(newAPIError.GetErrorCode()), "account_threshold_") || isTextUsageDispatchGuardError(newAPIError) {
+		outcome := "failed"
+		if failover != nil && failover.ResponseRefused {
+			outcome = "refused"
+		}
+		failover.FinishAttempt(c, outcome, newAPIError.StatusCode, false)
+		if (relayInfo.StrictTokenBudget && strings.HasPrefix(string(newAPIError.GetErrorCode()), "token_budget_")) || strings.HasPrefix(string(newAPIError.GetErrorCode()), "account_threshold_") || isTextUsageDispatchGuardError(newAPIError) || newAPIError.GetErrorType() == types.ErrorTypeNewAPIError && newAPIError.GetErrorCode() == types.ErrorCode("relay_eligibility_changed") {
 			break
 		}
 
@@ -262,9 +280,10 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		if service.FinalizeTextUsageDispatch(c, relayInfo) || service.FinalizeRealtimeUsageDispatch(c, relayInfo) {
 			break
 		}
-		if relayInfo.StrictTokenBudget || !shouldRetry(c, newAPIError, common.RetryTimes-retryParam.GetRetry()) {
+		if relayInfo.StrictTokenBudget || !shouldRetry(c, newAPIError, maxRetries-attempt) {
 			break
 		}
+		failover.FinishAttempt(c, "retryable_refusal", newAPIError.StatusCode, true)
 	}
 
 	useChannel := c.GetStringSlice("use_channel")
@@ -380,20 +399,27 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	if openaiErr == nil {
 		return false
 	}
-	if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
+	if retryTimes <= 0 || types.IsSkipRetryError(openaiErr) || service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
 		return false
+	}
+	if c != nil {
+		if c.Writer != nil && c.Writer.Written() {
+			return false
+		}
+		if c.Request != nil {
+			if c.Request.Context().Err() != nil {
+				return false
+			}
+			if state := service.RelayFailoverFromContext(c.Request.Context()); state != nil && state.DispatchPossible {
+				return false
+			}
+		}
+		if _, ok := c.Get("specific_channel_id"); ok {
+			return false
+		}
 	}
 	if types.IsChannelError(openaiErr) {
 		return true
-	}
-	if types.IsSkipRetryError(openaiErr) {
-		return false
-	}
-	if retryTimes <= 0 {
-		return false
-	}
-	if _, ok := c.Get("specific_channel_id"); ok {
-		return false
 	}
 	code := openaiErr.StatusCode
 	if code >= 200 && code < 300 {
@@ -452,6 +478,7 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 			adminInfo["multi_key_index"] = common.GetContextKeyInt(c, constant.ContextKeyChannelMultiKeyIndex)
 		}
 		service.AppendChannelAffinityAdminInfo(c, adminInfo)
+		service.AppendRelayFailoverAdminInfo(c, adminInfo)
 		other["admin_info"] = adminInfo
 		startTime := common.GetContextKeyTime(c, constant.ContextKeyRequestStartTime)
 		if startTime.IsZero() {

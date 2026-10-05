@@ -88,6 +88,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 	}
 
 	var preConsumedQuota int
+	var preConsumedTokens int
 	var modelRatio float64
 	var completionRatio float64
 	var cacheRatio float64
@@ -99,7 +100,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 	var audioCompletionRatio float64
 	var freeModel bool
 	if !usePrice {
-		preConsumedTokens := common.Max(promptTokens, common.PreConsumedQuota)
+		preConsumedTokens = common.Max(promptTokens, common.PreConsumedQuota)
 		if meta.MaxTokens != 0 {
 			preConsumedTokens += meta.MaxTokens
 		}
@@ -170,6 +171,9 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		CacheCreation5mRatio: cacheCreationRatio5m,
 		CacheCreation1hRatio: cacheCreationRatio1h,
 		QuotaToPreConsume:    preConsumedQuota,
+	}
+	if err := priceData.CapturePreConsumeTokens(preConsumedTokens); err != nil {
+		return hosttypes.PriceData{}, err
 	}
 	if err := priceData.CaptureQuotaUnit(common.QuotaPerUnit); err != nil {
 		return hosttypes.PriceData{}, err

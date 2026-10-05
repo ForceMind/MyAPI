@@ -203,7 +203,8 @@ func Distribute() func(c *gin.Context) {
 			return
 		}
 		c.Next()
-		if channel != nil && c.Writer != nil && c.Writer.Status() < http.StatusBadRequest {
+		_, hasRelayOutcome := c.Get("relay_success")
+		if channel != nil && c.Writer != nil && c.Writer.Status() < http.StatusBadRequest && (!hasRelayOutcome || c.GetBool("relay_success")) {
 			service.RecordChannelAffinity(c, channel.Id)
 		}
 	}
@@ -527,6 +528,21 @@ func setupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 			})), types.ErrorCodeChannelNoAvailableKey, http.StatusServiceUnavailable, types.ErrOptionWithSkipRetry())
 		}
 	}
+	if c.Request != nil && !quotaProbe {
+		var eligible bool
+		var err error
+		excluded, eligible, _, err = service.RelayCooldownEligibleKeys(c.Request.Context(), channel, c.Request.URL.Path, excluded)
+		if err != nil || !eligible {
+			return types.NewError(errors.New("no eligible keys"), types.ErrorCodeChannelNoAvailableKey, types.ErrOptionWithSkipRetry())
+		}
+	}
+	if c.Request != nil {
+		var eligible bool
+		excluded, eligible = service.RelayFailoverEligibleKeys(c.Request.Context(), channel, excluded)
+		if !eligible {
+			return types.NewError(errors.New("no eligible keys"), types.ErrorCodeChannelNoAvailableKey, types.ErrOptionWithSkipRetry())
+		}
+	}
 	common.SetContextKey(c, constant.ContextKeyChannelId, channel.Id)
 	common.SetContextKey(c, constant.ContextKeyChannelName, channel.Name)
 	common.SetContextKey(c, constant.ContextKeyChannelType, channel.Type)
@@ -534,12 +550,15 @@ func setupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	common.SetContextKey(c, constant.ContextKeyChannelSetting, channel.GetSetting())
 	common.SetContextKey(c, constant.ContextKeyChannelOtherSetting, channel.GetOtherSettings())
 	paramOverride := channel.GetParamOverride()
+	c.Set("relay_channel_param_override", channel.GetParamOverride())
+	c.Set("relay_channel_config_digest", model.RelayChannelConfigDigest(channel))
 	headerOverride := channel.GetHeaderOverride()
 	if mergedParam, applied := service.ApplyChannelAffinityOverrideTemplate(c, paramOverride); applied {
 		paramOverride = mergedParam
 	}
 	common.SetContextKey(c, constant.ContextKeyChannelParamOverride, paramOverride)
 	common.SetContextKey(c, constant.ContextKeyChannelHeaderOverride, headerOverride)
+	common.SetContextKey(c, constant.ContextKeyChannelOrganization, "")
 	if nil != channel.OpenAIOrganization && *channel.OpenAIOrganization != "" {
 		common.SetContextKey(c, constant.ContextKeyChannelOrganization, *channel.OpenAIOrganization)
 	}
@@ -548,6 +567,11 @@ func setupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 
 	var key string
 	var index int
+	if fixedIndex == nil && !quotaProbe {
+		if preferred := service.PreferredChannelAccountIndex(c, channel); preferred != nil && !excluded[*preferred] {
+			fixedIndex = preferred
+		}
+	}
 	if fixedIndex == nil {
 		var newAPIError *types.NewAPIError
 		key, index, newAPIError = channel.GetNextEnabledKeyExcluding(excluded)
@@ -567,9 +591,9 @@ func setupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 		}
 		key = keys[index]
 	}
+	common.SetContextKey(c, constant.ContextKeyChannelMultiKeyIndex, index)
 	if channel.ChannelInfo.IsMultiKey {
 		common.SetContextKey(c, constant.ContextKeyChannelIsMultiKey, true)
-		common.SetContextKey(c, constant.ContextKeyChannelMultiKeyIndex, index)
 	} else {
 		// 必须设置为 false，否则在重试到单个 key 的时候会导致日志显示错误
 		common.SetContextKey(c, constant.ContextKeyChannelIsMultiKey, false)

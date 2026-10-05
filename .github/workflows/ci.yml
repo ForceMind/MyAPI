@@ -87,7 +87,7 @@ jobs:
           -count=1 -timeout=180s
 
       - name: Verify model discovery and route identity under race detector
-        run: go test -race -p 1 ./model ./middleware ./controller ./service ./router -run '^Test(ChannelModel|SelectedModelRoute|ModelRoute|ExplicitModelRoutes)' -count=1 -timeout=180s
+        run: go test -race -p 1 ./model ./middleware ./controller ./service ./router -run '^Test(ChannelModel|SelectedModelRoute|ModelRoute|ExplicitModelRoutes|RelayFailover|RelayCooldown|RelayAccountHold|RelayHoldConfigDigest|ChannelAccountAffinity|RetrySafety|FixedPriceTextDispatch|TextDispatchSurvivesLossOfLiveSession)' -count=1 -timeout=180s
 
       - name: Verify io.net and cache codec boundaries under race detector
         env:
@@ -260,7 +260,7 @@ jobs:
           MYAPI_B2_MYSQL_DSN: root:b2-fixture-password@tcp(127.0.0.1:${{ job.services.mysql.ports[3306] }})/myapi_b2_test?charset=utf8mb4&parseTime=true
           MYAPI_B2_POSTGRES_DSN: host=127.0.0.1 port=${{ job.services.postgres.ports[5432] }} user=postgres password=b2-fixture-password dbname=myapi_b2_test sslmode=disable
         run: |
-          go test -p 1 ./model -run '^Test(ChannelQuotaIdentity|OfficialPriceVersion|R1UsageReview|PricePublication|TokenBudget)ConfiguredDatabases$' -count=1 -timeout=180s -v
+          go test -p 1 ./model -run '^Test(ChannelQuotaIdentity|OfficialPriceVersion|R1UsageReview|PricePublication|TokenBudget|RelayAccountHold)ConfiguredDatabases$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestAccountQuotaConfiguredSchema(MySQLAndPostgres|SQLite)$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestChannelModel(Discovery|Route)ConfiguredDatabases$' -count=1 -timeout=180s -v
 

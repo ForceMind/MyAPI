@@ -500,6 +500,16 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		extraContent = append(extraContent, fmt.Sprintf("模型 %s", summary.ModelName))
 	}
 
+	if ctx != nil && ctx.Request != nil {
+		if state := RelayFailoverFromContext(ctx.Request.Context()); state != nil {
+			outcome := "completed"
+			if relayInfo.IsStream && textUsageReviewReason(ctx, originUsage) != "" || relayInfo.StreamStatus != nil && (!relayInfo.StreamStatus.IsNormalEnd() || relayInfo.StreamStatus.HasErrors()) {
+				ctx.Set("relay_completion_unverified", true)
+				outcome = "failed"
+			}
+			state.FinishAttempt(ctx, outcome, 0, false)
+		}
+	}
 	logContent := strings.Join(extraContent, ", ")
 	var other map[string]interface{}
 	if summary.IsClaudeUsageSemantic {

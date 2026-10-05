@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -194,49 +195,106 @@ func TestTextDispatchHoldWriteFailureStaysProtectedAndRetries(t *testing.T) {
 }
 
 func TestTextDispatchSurvivesLossOfLiveSession(t *testing.T) {
+	for _, fixedPrice := range []bool{false, true} {
+		for _, mode := range []model.QuotaWriterMode{model.QuotaWriterModeLegacy, model.QuotaWriterModeAuthoritative} {
+			t.Run(fmt.Sprintf("%s/fixed=%t", mode, fixedPrice), func(t *testing.T) {
+				db := setupPostConsumeModeDB(t, mode)
+				user, token := seedAuthoritativeBilling(t, db, "dispatch-reopen", 1000, 1000, false)
+				ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+				ctx.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+				info := authoritativeRelay(user, token, "dispatch-reopen")
+				info.ChannelMeta = &relaycommon.ChannelMeta{}
+				if fixedPrice {
+					ctx.Set("model_route", map[string]any{"upstream_model": "synthetic"})
+					require.NotNil(t, BeginRelayFailover(ctx))
+					info.PriceData.UsePrice = true
+					info.PriceData.ModelPrice = 0.01
+				}
+				session, apiErr := NewBillingSession(ctx, info, 100)
+				require.Nil(t, apiErr)
+				info.Billing = session
+				t.Cleanup(session.finishInflight)
+				request, err := http.NewRequest("POST", "https://example.invalid/synthetic", strings.NewReader("synthetic"))
+				require.NoError(t, err)
+				require.NoError(t, PrepareTextUsageDispatch(ctx, request, info))
+				var database struct{ File string }
+				require.NoError(t, db.Raw("PRAGMA database_list").Scan(&database).Error)
+				require.NotEmpty(t, database.File)
+				reopened, err := gorm.Open(sqlite.Open(database.File), &gorm.Config{})
+				require.NoError(t, err)
+				pool, err := reopened.DB()
+				require.NoError(t, err)
+				t.Cleanup(func() { _ = pool.Close() })
+				// No finalizer, in-memory flags, timer, or zero-use guess participates.
+				if mode == model.QuotaWriterModeLegacy {
+					row, err := model.FindLegacyUsageReservation(context.Background(), reopened, info.RequestId)
+					require.NoError(t, err)
+					pending, err := model.TextDispatchPending(row.ReviewMetadata)
+					require.NoError(t, err)
+					assert.True(t, pending)
+					_, err = model.EnsureAccountQuotaRefundFact(context.Background(), reopened, model.AccountQuotaRefundFactInput{RequestID: info.RequestId, EventKey: "billing-refund:dispatch-reopen:v1", Kind: model.AccountQuotaRefundFactKindLegacyWallet, UserID: user.Id, TokenID: token.Id, WalletQuota: 100, TokenQuota: 100})
+					require.ErrorIs(t, err, model.ErrAccountQuotaUsageUnresolved)
+				} else {
+					require.NoError(t, model.InitializeAccountQuotaReservationHeadsWithDB(reopened))
+					receipt, err := model.FindAccountQuotaReserveReceipt(reopened, info.RequestId)
+					require.NoError(t, err)
+					_, err = model.RefundAccountQuota(context.Background(), reopened, model.AccountQuotaTerminalInput{RequestID: info.RequestId, ReserveReceiptID: receipt.ID, AuditKey: "unsafe-restart-refund"})
+					require.ErrorIs(t, err, model.ErrAccountQuotaUsageUnresolved)
+				}
+				uq, remaining, used := loadPostConsumeBalances(t, reopened, user, token)
+				assert.Equal(t, 900, uq)
+				assert.Equal(t, 900, remaining)
+				assert.Equal(t, 100, used)
+			})
+		}
+	}
+}
+
+func TestFixedPriceTextDispatchUnknownRetainsReservation(t *testing.T) {
 	for _, mode := range []model.QuotaWriterMode{model.QuotaWriterModeLegacy, model.QuotaWriterModeAuthoritative} {
 		t.Run(string(mode), func(t *testing.T) {
 			db := setupPostConsumeModeDB(t, mode)
-			user, token := seedAuthoritativeBilling(t, db, "dispatch-reopen", 1000, 1000, false)
+			require.NoError(t, db.AutoMigrate(&model.UsageReviewDecision{}, &model.TokenBudget{}, &model.TokenBudgetReservation{}, &model.TokenBudgetPolicyChange{}, &model.Log{}))
+			user, token := seedAuthoritativeBilling(t, db, "fixed-dispatch", 1000, 1000, false)
 			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
-			ctx.Request = httptest.NewRequest("POST", "/v1/responses", nil)
-			info := authoritativeRelay(user, token, "dispatch-reopen")
-			info.ChannelMeta = &relaycommon.ChannelMeta{}
+			ctx.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+			ctx.Set("model_route", map[string]any{"upstream_model": "fixed"})
+			require.NotNil(t, BeginRelayFailover(ctx))
+			info := authoritativeRelay(user, token, "fixed-dispatch-request")
+			info.ChannelMeta = &relaycommon.ChannelMeta{UpstreamModelName: "fixed"}
+			info.PriceData.UsePrice = true
+			info.PriceData.ModelPrice = 0.01
+			info.StartTime = time.Now()
 			session, apiErr := NewBillingSession(ctx, info, 100)
 			require.Nil(t, apiErr)
 			info.Billing = session
-			t.Cleanup(session.finishInflight)
-			request, err := http.NewRequest("POST", "https://example.invalid/synthetic", strings.NewReader("synthetic"))
+			request, err := http.NewRequest("POST", "https://synthetic.invalid/v1/chat/completions", strings.NewReader(`{"model":"fixed"}`))
 			require.NoError(t, err)
 			require.NoError(t, PrepareTextUsageDispatch(ctx, request, info))
-			var database struct{ File string }
-			require.NoError(t, db.Raw("PRAGMA database_list").Scan(&database).Error)
-			require.NotEmpty(t, database.File)
-			reopened, err := gorm.Open(sqlite.Open(database.File), &gorm.Config{})
+			ObserveTextUsageDispatchResponse(info, 503)
+			require.True(t, FinalizeTextUsageDispatch(ctx, info))
+			require.ErrorIs(t, session.Refund(ctx), model.ErrAccountQuotaUsageUnresolved)
+			review, err := model.GetUsageReview(context.Background(), db, user.Id, info.RequestId)
 			require.NoError(t, err)
-			pool, err := reopened.DB()
-			require.NoError(t, err)
-			t.Cleanup(func() { _ = pool.Close() })
-			// No finalizer, in-memory flags, timer, or zero-use guess participates.
-			if mode == model.QuotaWriterModeLegacy {
-				row, err := model.FindLegacyUsageReservation(context.Background(), reopened, info.RequestId)
+			require.Equal(t, "usage_unknown", review.State)
+			require.EqualValues(t, 100, review.ReservedQuota)
+			require.Nil(t, review.ActualQuota)
+			require.Contains(t, review.ReviewMetadata, `"fixed_price":true`)
+			uq, remaining, consumed := loadPostConsumeBalances(t, db, user, token)
+			require.Equal(t, 900, uq)
+			require.Equal(t, 900, remaining)
+			require.Equal(t, 100, consumed)
+			root := model.User{Username: "fixed-root", AffCode: "fixed-root", Role: common.RoleRootUser, Status: common.UserStatusEnabled}
+			require.NoError(t, db.Create(&root).Error)
+			for range 2 {
+				result, err := model.ReconcileUsageReview(context.Background(), db, root.Id, info.RequestId, 20, "verified synthetic terminal fixed-price charge")
 				require.NoError(t, err)
-				pending, err := model.TextDispatchPending(row.ReviewMetadata)
-				require.NoError(t, err)
-				assert.True(t, pending)
-				_, err = model.EnsureAccountQuotaRefundFact(context.Background(), reopened, model.AccountQuotaRefundFactInput{RequestID: info.RequestId, EventKey: "billing-refund:dispatch-reopen:v1", Kind: model.AccountQuotaRefundFactKindLegacyWallet, UserID: user.Id, TokenID: token.Id, WalletQuota: 100, TokenQuota: 100})
-				require.ErrorIs(t, err, model.ErrAccountQuotaUsageUnresolved)
-			} else {
-				require.NoError(t, model.InitializeAccountQuotaReservationHeadsWithDB(reopened))
-				receipt, err := model.FindAccountQuotaReserveReceipt(reopened, info.RequestId)
-				require.NoError(t, err)
-				_, err = model.RefundAccountQuota(context.Background(), reopened, model.AccountQuotaTerminalInput{RequestID: info.RequestId, ReserveReceiptID: receipt.ID, AuditKey: "unsafe-restart-refund"})
-				require.ErrorIs(t, err, model.ErrAccountQuotaUsageUnresolved)
+				require.NoError(t, model.ProjectUsageReviewDecision(context.Background(), db, db, result.Decision.ID))
 			}
-			uq, remaining, used := loadPostConsumeBalances(t, reopened, user, token)
-			assert.Equal(t, 900, uq)
-			assert.Equal(t, 900, remaining)
-			assert.Equal(t, 100, used)
+			uq, remaining, consumed = loadPostConsumeBalances(t, db, user, token)
+			require.Equal(t, 980, uq)
+			require.Equal(t, 980, remaining)
+			require.Equal(t, 20, consumed)
 		})
 	}
 }

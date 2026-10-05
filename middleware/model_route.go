@@ -10,6 +10,7 @@ import (
 	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/relaykit/types"
+	"github.com/ForceMind/MyAPI/service"
 	"github.com/ForceMind/MyAPI/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 )
@@ -29,6 +30,9 @@ func prepareSelectedModelRoute(c *gin.Context, channel *model.Channel, requested
 	}
 	if endpoint != "/v1/chat/completions" && endpoint != "/v1/responses" {
 		return nil
+	}
+	if state := service.RelayFailoverFromContext(c.Request.Context()); state != nil && route.UpstreamModel != state.Target {
+		return types.NewErrorWithStatusCode(errors.New(common.TranslateMessage(c, i18n.MsgInvalidParams)), types.ErrorCode("retry_target_mismatch"), http.StatusBadRequest, types.ErrOptionWithSkipRetry())
 	}
 	if !diagnostic {
 		if !slices.Contains(channel.GetModels(), requested) && !slices.Contains(channel.GetModels(), ratio_setting.FormatMatchingModelName(requested)) {

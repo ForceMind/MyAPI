@@ -55,3 +55,34 @@ func TestPriceDataToolPricesAreCopiedAndValidated(t *testing.T) {
 	_, captured = price.QuotedToolPrice("missing")
 	assert.True(t, captured, "an empty captured generation is not a legacy caller")
 }
+
+func TestPriceDataPreConsumeTokensSnapshot(t *testing.T) {
+	var price PriceData
+	_, _, captured := price.QuotedPreConsumeTokens()
+	require.False(t, captured)
+	price.GroupRatioInfo.GroupRatio = 0
+	require.NoError(t, price.CapturePreConsumeTokens(510))
+	copy := price
+	price.GroupRatioInfo.GroupRatio = 2
+	tokens, group, captured := copy.QuotedPreConsumeTokens()
+	require.True(t, captured)
+	assert.Equal(t, 510, tokens)
+	assert.Zero(t, group, "a free initial group must retain the paid token estimate")
+	for _, invalid := range []struct {
+		name   string
+		tokens int
+		group  float64
+	}{
+		{"negative tokens", -1, 1}, {"negative ratio", 1, -1},
+		{"nan ratio", 1, math.NaN()}, {"infinite ratio", 1, math.Inf(1)},
+	} {
+		t.Run(invalid.name, func(t *testing.T) {
+			price.GroupRatioInfo.GroupRatio = invalid.group
+			require.Error(t, price.CapturePreConsumeTokens(invalid.tokens))
+			tokens, group, captured := price.QuotedPreConsumeTokens()
+			require.True(t, captured)
+			assert.Equal(t, 510, tokens)
+			assert.Zero(t, group)
+		})
+	}
+}

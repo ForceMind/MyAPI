@@ -175,6 +175,7 @@ const (
 )
 
 type channelRoutingPreviewCandidate struct {
+	CooldownUntil   int64   `json:"cooldown_until,omitempty"`
 	UpstreamModel   string  `json:"upstream_model,omitempty"`
 	RouteReason     string  `json:"route_reason,omitempty"`
 	RequestPath     string  `json:"request_path,omitempty"`
@@ -221,7 +222,7 @@ func GetChannelRoutingPreview(c *gin.Context) {
 				route = *candidate.ModelRoute
 			}
 			channels = append(channels, channelRoutingPreviewCandidate{
-				UpstreamModel: route.UpstreamModel, RouteReason: route.Reason, RequestPath: route.Endpoint, ConfigDigest: route.ConfigDigest,
+				CooldownUntil: candidate.CooldownUntil, UpstreamModel: route.UpstreamModel, RouteReason: route.Reason, RequestPath: route.Endpoint, ConfigDigest: route.ConfigDigest,
 				ID:              candidate.ChannelID,
 				Name:            candidate.ChannelName,
 				Type:            candidate.ChannelType,
@@ -243,10 +244,11 @@ func GetChannelRoutingPreview(c *gin.Context) {
 			channelRoutingPreviewError(c, http.StatusConflict, "routing_preview_model_route_conflict", i18n.MsgInvalidParams)
 			return
 		}
-		rejected = append(rejected, gin.H{"id": candidate.ChannelID, "name": candidate.ChannelName, "reason": candidate.RouteError})
+		rejected = append(rejected, gin.H{"id": candidate.ChannelID, "name": candidate.ChannelName, "reason": candidate.RouteError, "cooldown_until": candidate.CooldownUntil})
 	}
 	common.ApiSuccess(c, gin.H{
 		"rejected":                rejected,
+		"scheduling":              gin.H{"failover_timeout_seconds": common.RelayFailoverTimeoutSeconds, "failure_cooldown_seconds": common.RelayFailureCooldownSeconds},
 		"group":                   group,
 		"model":                   modelName,
 		"request_path":            requestPath,
@@ -260,6 +262,7 @@ func GetChannelRoutingPreview(c *gin.Context) {
 		"cache_enabled":           snapshot.CacheEnabled,
 		"cache_pending":           snapshot.CachePending,
 		"affinity": gin.H{
+			"account_binding":  "confirmed_success_only",
 			"evaluated":        false,
 			"precedence":       "before_priority_weight",
 			"explanation_code": channelRoutingPreviewAffinityNotEvaluatedCode,

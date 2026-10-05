@@ -141,6 +141,10 @@ func usageReviewPricingEvidence(info *relaycommon.RelayInfo, summary textQuotaSu
 		frozenTieredPricing = snapshot
 	}
 	metadata, metadataErr := common.Marshal(struct {
+		FixedPrice          bool                               `json:"fixed_price,omitempty"`
+		ModelPrice          float64                            `json:"model_price,omitempty"`
+		PriceRatios         map[string]float64                 `json:"price_ratios,omitempty"`
+		UpstreamModel       string                             `json:"upstream_model,omitempty"`
 		Version             int                                `json:"version"`
 		Model               string                             `json:"model"`
 		QuotaUnit           float64                            `json:"quota_unit"`
@@ -153,7 +157,7 @@ func usageReviewPricingEvidence(info *relaycommon.RelayInfo, summary textQuotaSu
 		FrozenTieredPricing *billingexpr.BillingSnapshot       `json:"frozen_tiered_pricing,omitempty"`
 		StrictTokenBudget   bool                               `json:"strict_token_budget,omitempty"`
 		RealtimeCheckpoint  *hosttypes.RealtimeUsageCheckpoint `json:"realtime_usage_checkpoint,omitempty"`
-	}{1, info.OriginModelName, requestQuotaUnit(info.PriceData), summary.ModelRatio, summary.CompletionRatio, summary.GroupRatio, summary.ToolSurchargeItems, info.PriceData.QuotedQuotaUnit(0) > 0, knownRealtimeQuota, frozenTieredPricing, info.StrictTokenBudget, info.RealtimeCheckpoint})
+	}{info.PriceData.UsePrice, info.PriceData.ModelPrice, info.PriceData.OtherRatios(), info.GetUpstreamModelName(), 1, info.OriginModelName, requestQuotaUnit(info.PriceData), summary.ModelRatio, summary.CompletionRatio, summary.GroupRatio, summary.ToolSurchargeItems, info.PriceData.QuotedQuotaUnit(0) > 0, knownRealtimeQuota, frozenTieredPricing, info.StrictTokenBudget, info.RealtimeCheckpoint})
 	if len(metadata) > 16384 {
 		metadataErr = fmt.Errorf("usage review pricing metadata exceeds limit")
 	}
@@ -161,6 +165,9 @@ func usageReviewPricingEvidence(info *relaycommon.RelayInfo, summary textQuotaSu
 }
 
 func holdUnverifiedTextUsage(ctx *gin.Context, info *relaycommon.RelayInfo, reason string, summary textQuotaSummary) {
+	if ctx != nil {
+		ctx.Set("relay_completion_unverified", true)
+	}
 	if info.StrictTokenBudget {
 		if err := HoldTokenBudgetUsage(ctx.Request.Context(), info, reason); err != nil {
 			logger.LogError(ctx, "token budget remains unresolved: "+err.Error())

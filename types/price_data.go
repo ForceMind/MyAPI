@@ -28,10 +28,32 @@ type PriceData struct {
 	otherRatios          map[string]float64
 	quotaUnitSnapshot    float64
 	toolPricesSnapshot   map[string]float64
+	preConsumeTokens     *int
+	preConsumeGroupRatio float64
 	UsePrice             bool
 	Quota                int // 按次计费的最终额度（MJ / Task）
 	QuotaToPreConsume    int // 按量计费的预消耗额度
 	GroupRatioInfo       GroupRatioInfo
+}
+
+// CapturePreConsumeTokens freezes the non-tiered estimate and its initial
+// group. Retries can reprice that estimate without reading live token defaults
+// or model prices, including when the first group's ratio was zero.
+func (p *PriceData) CapturePreConsumeTokens(tokens int) error {
+	group := p.GroupRatioInfo.GroupRatio
+	if tokens < 0 || group < 0 || math.IsNaN(group) || math.IsInf(group, 0) {
+		return fmt.Errorf("pre-consume estimate and group ratio must be non-negative and finite")
+	}
+	p.preConsumeTokens = &tokens
+	p.preConsumeGroupRatio = group
+	return nil
+}
+
+func (p *PriceData) QuotedPreConsumeTokens() (tokens int, groupRatio float64, captured bool) {
+	if p.preConsumeTokens == nil {
+		return 0, 0, false
+	}
+	return *p.preConsumeTokens, p.preConsumeGroupRatio, true
 }
 
 // CaptureQuotaUnit seals the currency conversion for this request. The field

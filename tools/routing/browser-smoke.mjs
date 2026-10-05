@@ -70,11 +70,14 @@ try {
     else if (path === '/api/channel/routing-preview') {
       assert.equal(url.searchParams.get('model'), 'public-model')
       assert.equal(url.searchParams.get('request_path'), '/v1/responses')
-      response = { success: true, data: { group: 'default', model: 'public-model', request_path: '/v1/responses', source: 'database', generation: 1, data_generation: 1, published_generation: 1, cluster_committed_epoch: 1, local_published_epoch: 1, cache_enabled: false, cache_pending: false, affinity: { evaluated: false }, tiers: [{ priority: 0, fallback_index: 0, channels: [{ id: 1, name: channel.name, type: 1, weight: 1, effective_weight: 1, expected_share: 1, upstream_model: JSON.parse(channel.settings).model_routes[0].upstream_model, request_path: '/v1/responses', route_reason: 'explicit_exact', config_digest: 'synthetic-config-evidence' }] }] } }
+      response = { success: true, data: { group: 'default', model: 'public-model', request_path: '/v1/responses', source: 'database', generation: 1, data_generation: 1, published_generation: 1, cluster_committed_epoch: 1, local_published_epoch: 1, cache_enabled: false, cache_pending: false, scheduling: { failover_timeout_seconds: 30, failure_cooldown_seconds: 20 }, rejected: [{ id: 2, name: "Synthetic cooling account", reason: "account_cooling_down", cooldown_until: 1924992000 }], affinity: { evaluated: false, account_binding: "confirmed_success_only" }, tiers: [{ priority: 0, fallback_index: 0, channels: [{ id: 1, name: channel.name, cooldown_until: 1924992000, type: 1, weight: 1, effective_weight: 1, expected_share: 1, upstream_model: JSON.parse(channel.settings).model_routes[0].upstream_model, request_path: '/v1/responses', route_reason: 'explicit_exact', config_digest: 'synthetic-config-evidence' }] }] } }
     } else if (path === '/api/log' || path === '/api/log/self') {
       const fixture = quotaFixtures().response(url)
       const log = fixture.data.items[0]
-      response = { success: true, data: { ...fixture.data, total: 1, items: [{ ...log, type: 5, model_name: 'public-model', content: 'Synthetic route evidence', other: JSON.stringify({ admin_info: { model_route: { requested_model: 'public-model', upstream_model: 'upstream-updated', endpoint: '/v1/responses', reason: 'explicit_exact', channel_id: 1, config_digest: 'synthetic-config-evidence' } } }) }] } }
+      response = { success: true, data: { ...fixture.data, total: 1, items: [{ ...log, type: 2, model_name: 'public-model', content: 'Synthetic route and relay attempt evidence', other: JSON.stringify({ admin_info: { model_route: { requested_model: 'public-model', upstream_model: 'upstream-updated', endpoint: '/v1/responses', reason: 'explicit_exact', channel_id: 1, config_digest: 'synthetic-config-evidence' }, relay_attempts: [
+        { channel_id: 1, key_index: 0, upstream_model: 'upstream-updated', outcome: 'retryable_refusal', status: 429, cooldown_seconds: 20 },
+        { channel_id: 1, key_index: 1, upstream_model: 'upstream-updated', outcome: 'completed' },
+      ] } }) }] } }
     } else response = quotaFixtures().response(url)
     if (!response) unexpected.add(`${route.request().method()} ${path}`)
     await route.fulfill({ status: response ? 200 : 501, json: response || { success: false, message: 'Unconfigured routing fixture' } })
@@ -197,6 +200,8 @@ try {
     await page.getByRole('button', { name: label('Preview routing'), exact: true }).click()
     const target = page.getByText(`${label('Upstream model')}: upstream-updated`, { exact: true })
     await reach(target)
+    await page.getByText(label('Some accounts are temporarily cooling down.'), { exact: true }).waitFor({ state: 'visible' })
+    await page.getByText(label('Remaining eligible accounts are temporarily cooling down.'), { exact: true }).waitFor({ state: 'visible' })
     await assertLayout(`routing-preview-${width}x640`)
   }
   // Desktop cells and mobile cards own separate dialog state. Open details
@@ -211,6 +216,7 @@ try {
     const details = page.getByRole('dialog').filter({ hasText: label('Actual route evidence') })
     await details.waitFor({ state: 'visible' })
     await reach(details.getByText('synthetic-config-evidence', { exact: true }))
+    const routeEvidence = details.getByText(label('Actual route evidence'), { exact: true }).locator('..')
     for (const [field, value] of [
       ['Request Model', 'public-model'],
       ['Upstream model', 'upstream-updated'],
@@ -219,16 +225,42 @@ try {
       ['Channel ID', '1'],
       ['Configuration digest', 'synthetic-config-evidence'],
     ]) {
-      const evidenceRow = details.getByText(label(field), { exact: true }).locator('..')
+      const evidenceRow = routeEvidence.getByText(label(field), { exact: true }).locator('..')
       assert.equal(await evidenceRow.getByText(value, { exact: true }).count(), 1, `${field}: actual route evidence matches at ${width}px`)
     }
     await assertLayout(`actual-route-log-${width}x640`)
+    const attempts = details.getByRole('list', { name: label('Relay attempts'), exact: true })
+    await attempts.waitFor({ state: 'visible' })
+    const attemptRows = attempts.getByRole('listitem')
+    assert.equal(await attemptRows.count(), 2, 'both synthetic attempts are shown in recorded order')
+    for (const [index, outcome] of [[0, 'Refused; retry allowed'], [1, 'Completed']]) {
+      const attempt = attemptRows.nth(index)
+      const outcomeLabel = attempt.getByText(label(outcome), { exact: true })
+      await reach(outcomeLabel)
+      for (const [field, value] of [
+        ['Channel ID', '1'],
+        ['Key index (0-based)', String(index)],
+        ['Upstream model', 'upstream-updated'],
+      ]) {
+        const row = attempt.getByText(label(field), { exact: true }).locator('..')
+        assert.equal(await row.getByText(value, { exact: true }).count(), 1, `attempt ${index + 1}: ${field} matches at ${width}px`)
+      }
+      assert(await outcomeLabel.isVisible(), `attempt ${index + 1}: recorded outcome is visible at ${width}px`)
+    }
+    const holdExplanation = attemptRows.first().getByText(label("This temporary hold is recorded for later requests. It does not prove quota exhaustion or extend this request's retry window."), { exact: true })
+    await reach(holdExplanation)
+    assert(await holdExplanation.isVisible(), 'temporary hold explanation is visible without an exhaustion claim')
+    const failureStatus = attemptRows.first().getByText(label('Failure HTTP status'), { exact: true }).locator('..')
+    assert.equal(await failureStatus.getByText('429', { exact: true }).count(), 1, 'refused attempt retains its recorded failure status')
+    assert.equal(await attemptRows.last().getByText(label('Failure HTTP status'), { exact: true }).count(), 0, 'completed attempt does not invent a failure status')
+    assert(await attempts.evaluate(element => element.scrollWidth <= element.clientWidth + 1), `${width}px: attempt evidence does not overflow its drawer`)
+    await assertLayout(`relay-attempt-log-${width}x640`)
     await page.keyboard.press('Escape')
     await details.waitFor({ state: 'hidden' })
   }
   assert.deepEqual([...unexpected], [], 'every application endpoint has an explicit fixture')
   assert.deepEqual(errors, [], 'no browser runtime errors')
-  console.log('Routing browser regression passed: discovery failure/empty/recovery, actual drawer save/conflict, saved preview, admin log, 320/1280px. Synthetic fixtures only.')
+  console.log('Routing browser regression passed: discovery failure/empty/recovery, actual drawer save/conflict, saved preview, admin route/ordered attempt log, 320/1280px. Synthetic fixtures only.')
 } catch (error) {
   if (page) {
     await page.screenshot({ path: resolve(output, 'failure.png'), fullPage: true }).catch(() => {})
