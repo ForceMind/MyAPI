@@ -1,5 +1,94 @@
 # beta.7 delivery card: assigned access and in-app quota events
 
+## Current closure: bounded beta.7 source qualified (2026-10-06)
+
+This section supersedes the pending states in the retained history below.
+The final source checkpoint is
+[`5dcbd35a5ecc40461e2b8e344f2bd92e9c2332bb`](https://github.com/ForceMind/MyAPI/commit/5dcbd35a5ecc40461e2b8e344f2bd92e9c2332bb),
+tree `d849ee0c8b4c640f8690141fe6d2dfab11b49dd8`, on the authorized development
+branch. Exact-parent non-force publication and remote readback were verified.
+Its test-merge commit `107de1b1218ceef2636aac84967a17703e297ab4` has the same tree.
+
+All [ten CI jobs](https://github.com/ForceMind/MyAPI/actions/runs/37479905564),
+[three Docker smoke jobs](https://github.com/ForceMind/MyAPI/actions/runs/37479905681)
+and the [static-site check](https://github.com/ForceMind/MyAPI/actions/runs/37479905306)
+passed. This includes root tests/vet/build, independent `GOWORK=off` relaykit,
+all configured race groups, real disposable SQLite/MySQL 5.7/PostgreSQL 9.6,
+the default-preservation regression, 137 frontend test files / 750 tests, frontend typecheck/build
+and all three real Chromium quota/routing/access journeys. The access journey
+passed at 320/1280 widths with repeated preview/save, conflict refresh, revocation,
+ordinary-owner denial, event filtering and stale-row removal after a refresh error.
+Its [ten synthetic screenshots](https://github.com/ForceMind/MyAPI/actions/runs/37479905564/artifacts/11420903163) were inspected, including
+the owner view reached through its repaired first-click menu and post-conflict
+screen without the blank toast.
+Synthetic browser and upstream fixtures are not real-account acceptance.
+
+### Operator entry points and scope
+
+- `/users`: authorized administrators manage user constraints and that user's
+  Key constraints. Preview is read-only. Public model, upstream model and channel
+  dimensions are labeled separately. Null inherits, empty denies and disabled
+  denies; user/Key/legacy rules intersect. Removal requires an authorized admin
+  CAS operation and can restore access allowed by all remaining rules
+- `/keys`: the owner sees their Key's available public models and redacted
+  denial reasons. Ordinary editing cannot erase the admin envelope. Scope IDs,
+  private channel identities and secret availability are not exposed here
+- `/channels`: administrators with the existing channel-read permission can inspect
+  same-account/window low, exhausted and recovery events. Each immutable event
+  keeps its original time/window/reset evidence after snapshot retention cleanup.
+  Root-only external delivery controls remain separate; this work enabled no target
+- Admission and supported final dispatch read durable current identity,
+  ownership, assignment and target evidence, failing closed on unavailable data.
+  Support is type1 OpenAI Chat/Responses and type57 Codex Responses. Other assigned
+  paths fail closed; final model proof requires unambiguous JSON within 1 MiB.
+  Unsupported direct-SDK requests admitted while unassigned can finish. A request
+  past the final local check or already accepted upstream cannot be recalled
+
+### Migration and recovery
+
+The assignment table, monotonic removal tombstones, event evidence/order/cooldown
+fields and native observation proof bit passed the three-engine contracts.
+Existing Keys are not automatically given per-Key assignments; an explicitly
+assigned user envelope still applies to them. Preview never enrolls or grants
+access. Preexisting native Codex observations remain unqualified. Upgrade every
+application instance and complete schema migration before using assignments.
+Old application binaries do not enforce these constraints, so
+reverting to one is not a safe policy rollback. Use the existing authorized
+admin CAS workflow to change/remove a constraint; retain the usual backup and
+target-environment migration/rollback acceptance requirements.
+
+The PostgreSQL selection is driver v1.5.4/GORM v1.25.5 with pgx unchanged. It
+removes the reproduced catalog scan amplification under the original 180-second
+contract while preserving real-model defaults and stored rows on repeat migration.
+The rejected v1.5.3 default-normalization regression and every previous timeout
+remain documented below. The final source's first B2 attempt passed. Beta.6's
+separate timeout followed by a passing same-head retry is retained without
+retroactively assigning it this newly demonstrated cause.
+
+The original lost-workspace evidence is not reused as a current pass. Recovered
+source, the test-only settings fixture, strict-budget no-replay compatibility,
+owner-menu lifecycle and local conflict-error ownership were freshly tested and
+independently reviewed. Strict Token/USD fee, reservation, settlement and unknown
+hold semantics remain unchanged; no timeout or assertion was weakened.
+
+### Stop and handoff
+
+Configuration → preview → supported request → denial/revocation → in-app event
+history is qualified within the frozen contract. Stop beta.7 feature expansion.
+The five final plan/handoff documents synchronize this source result only; their
+own published HEAD must receive independent CI readback and is not covered by the
+source result above. PR #2 remains Draft/OPEN; VERSION/default images still refer
+to released beta.3. No main merge, tag, release or deployment occurred. Real
+accounts, provider invoices and production migration/rollback remain unverified.
+Full UI redesign is the next separate planned node, with its own bounded kickoff;
+commercial tiers, email/SMS, dynamic plugins, credentials and paid/media calls
+were not added. External webhook completion awaits separately authorized target
+and credentials and does not block this in-app closure. Existing naming, README,
+source-replacement limits, legal notices and the older recovery worktree/index
+are preserved.
+
+## Retained implementation and qualification history
+
 ## Final inline-error ownership correction (2026-10-06)
 
 The PostgreSQL correction `ee8e1fb3` passed all ten CI jobs, three Docker smoke
