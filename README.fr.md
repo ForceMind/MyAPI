@@ -60,7 +60,7 @@ Les budgets stricts Token/USD concernent uniquement les chemins qualifiés Respo
 
 État au 2026-10-04 :
 
-- **Préversion publiée : `v0.2.0-beta.3`**, images Full et LAN historique pour Linux amd64/arm64. Le [registre de publication](docs/RELEASE_BETA_3.md) contient source, digests, signatures et limites de validation.
+- **Candidat de préversion : `v0.2.0-beta.7`.** Cette préversion cumulative regroupe les travaux beta.4–7 ; tant que le tag et les workflows de publication ne sont pas terminés, `v0.2.0-beta.3` reste la dernière préversion publiée. Le périmètre, les preuves et les limites sont consignés dans le [registre beta.7](docs/RELEASE_BETA_7.md).
 - **beta.4 : source de développement vérifiée, non publiée.** Découverte des modèles, correspondances explicites, aperçu du routage, distribution et journaux dans un périmètre limité ; absents des images beta.3.
 - **beta.5 : candidat local uniquement.** Ordonnancement des comptes, refroidissement temporaire, basculement borné et explication des tentatives ne sont pas publiés. La vérification distante de ce candidat sur trois bases et Chromium reste à faire.
 
@@ -77,7 +77,7 @@ Prérequis : Linux amd64/arm64, Git, Bash, Docker fonctionnel, Compose v2 prenan
 Pour une installation neuve dans un nouveau dossier uniquement ; ne remplacez pas le `.env` d’une instance existante :
 
 ```bash
-git clone --branch v0.2.0-beta.3 --single-branch https://github.com/ForceMind/MyAPI.git my-api
+git clone --branch v0.2.0-beta.7 --single-branch https://github.com/ForceMind/MyAPI.git my-api
 cd my-api
 umask 077
 cp deploy/.env.example deploy/.env
@@ -89,7 +89,7 @@ chmod 600 deploy/.env
 Modifiez `deploy/.env`. Remplacez l’origine d’exemple par votre origine HTTPS exacte, sans chemin API ; l’installateur refuse les domaines de remplacement `example.com` :
 
 ```dotenv
-MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.3
+MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.7
 MYAPI_BUILD_LOCAL=false
 MYAPI_EDITION=full
 MYAPI_BIND_ADDRESS=127.0.0.1
@@ -121,7 +121,7 @@ bash deploy/install.sh
 
 Le script valide la configuration, récupère l’image, démarre et attend au plus 120 secondes la santé du conteneur. Il n’installe pas Docker, les certificats, le proxy ou les règles de pare-feu. Ouvrez votre origine HTTPS, initialisez le compte administrateur et vérifiez connexion, version et revision dans les informations système. Full utilise des cookies Secure : HTTP localhost n’est pas l’adresse de connexion recommandée.
 
-Pour un usage local/privé, consultez le [guide LAN historique](docs/LAN_LITE.md) et utilisez `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.3`. Le partage LAN doit être activé explicitement.
+Pour un usage local/privé, consultez le [guide LAN historique](docs/LAN_LITE.md) et utilisez `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.7`. Le partage LAN doit être activé explicitement.
 
 ## Première requête
 
@@ -152,7 +152,7 @@ node cli/myapi.mjs logs --project-dir .
 Avant toute mise à niveau, relevez version/digest, revision, chemins et configuration. Sauvegardez la base de façon cohérente (y compris le WAL SQLite si applicable), les secrets, le trousseau complet et les journaux nécessaires. Vérifiez la restauration sur une copie isolée, puis testez la version publiée cible. Exemple de précontrôle en lecture seule pour passer une ancienne instance à beta.3 :
 
 ```bash
-node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.3 --dry-run --json
+node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.7 --dry-run --json
 ```
 
 Suivez le [guide de répétition et restauration](docs/UPGRADE_REHEARSAL.md). La sauvegarde `.env` du CLI n’est pas une sauvegarde de base. Après une tentative de démarrage cible, le CLI ne redémarre pas automatiquement l’ancienne image : la base a pu migrer. Restaurez une sauvegarde vérifiée antérieure avant un binaire incompatible. Ne supprimez pas les volumes ni les écritures non résolues pour revenir en arrière ; évitez `latest` et les versions seulement planifiées.
@@ -161,7 +161,7 @@ Suivez le [guide de répétition et restauration](docs/UPGRADE_REHEARSAL.md). La
 
 Gardez l’écoute locale et vérifiez HTTPS, proxys de confiance, inscriptions, rôles et clés avant partage. Utilisez uniquement les comptes/API autorisés, en respectant conditions du fournisseur et lois applicables ; les services publics peuvent imposer des obligations supplémentaires. Le modèle livré active les journaux de contenu complet, désactivés dans l’exemple ci-dessus. Avant activation, définissez droits, rétention et sauvegardes : le masquage ne garantit pas l’absence de données privées dans les prompts/réponses. L’échantillonnage peut contacter le service de modèles en arrière-plan. Excluez secrets, fichiers OAuth, bases et journaux privés de Git et des signalements.
 
-- [Publication et preuves](docs/RELEASE_BETA_3.md) · [Déploiement](DEPLOYMENT_CUSTOM.md) · [LAN](docs/LAN_LITE.md)
+- [Publication et preuves](docs/RELEASE_BETA_7.md) · [Déploiement](DEPLOYMENT_CUSTOM.md) · [LAN](docs/LAN_LITE.md)
 - [Restauration](docs/UPGRADE_REHEARSAL.md) · [Validation d’installation](docs/R1_INSTALLATION_CHECK.md)
 - [API relay](docs/openapi/relay.json) · [API de gestion](docs/openapi/api.json)
 - [Analyse des quotas](docs/QUOTA_ANALYTICS.md) · [Usage organisationnel Claude](docs/CLAUDE_USAGE_REPORT.md)

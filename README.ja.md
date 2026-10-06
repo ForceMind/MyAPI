@@ -60,7 +60,7 @@ MyAPI はモデルサービス接続、アプリ用 API キー、権限、使用
 
 2026-10-04 時点：
 
-- **公開済みプレリリース：`v0.2.0-beta.3`**。Linux amd64/arm64 用 Full と従来 LAN イメージ。[公開記録](docs/RELEASE_BETA_3.md)にソース、digest、署名、検証範囲を記載しています。
+- **プレリリース候補：`v0.2.0-beta.7`。** beta.4–7 の作業を累積した候補です。タグとリリースワークフローが完了するまでは `v0.2.0-beta.3` が最後に公開済みのプレリリースです。範囲・検証証拠・公開境界は [beta.7 リリース記録](docs/RELEASE_BETA_7.md) に記載します。
 - **beta.4：検証済み開発ソース、未公開**。限定されたモデル検出、明示的マッピング、ルーティングプレビュー、送信、ログの機能で、beta.3 イメージには含まれません。
 - **beta.5：ローカル開発候補のみ**。アカウント選択、一時クールダウン、上限付きフェイルオーバー、試行説明は未公開です。この候補自体のリモート三種類の DB と Chromium 検証は未完了です。
 
@@ -77,7 +77,7 @@ Linux amd64/arm64、Git、Bash、稼働する Docker、`up --wait --wait-timeout
 新しいディレクトリへの新規インストール専用です。既存 `.env` を上書きしないでください。
 
 ```bash
-git clone --branch v0.2.0-beta.3 --single-branch https://github.com/ForceMind/MyAPI.git my-api
+git clone --branch v0.2.0-beta.7 --single-branch https://github.com/ForceMind/MyAPI.git my-api
 cd my-api
 umask 077
 cp deploy/.env.example deploy/.env
@@ -89,7 +89,7 @@ chmod 600 deploy/.env
 `deploy/.env` を編集します。例の Origin は、自分の正確な HTTPS Origin に置き換え、API パスは含めません。`example.com` の仮ドメインはインストーラーで拒否されます。
 
 ```dotenv
-MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.3
+MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.7
 MYAPI_BUILD_LOCAL=false
 MYAPI_EDITION=full
 MYAPI_BIND_ADDRESS=127.0.0.1
@@ -121,7 +121,7 @@ bash deploy/install.sh
 
 設定の検証、イメージ取得、起動、最大 120 秒の正常性待機を行います。Docker の導入、証明書取得、プロキシ・ファイアウォール設定は行いません。設定した HTTPS URL を開き、初期化と管理者作成を完了し、ログインとシステム情報の version/revision を確認してください。Full は Secure Cookie を使うため、HTTP localhost は推奨ログイン先ではありません。
 
-ローカル/私設 LAN で使う場合は[従来 LAN ガイド](docs/LAN_LITE.md)と `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.3` を使用します。LAN 共有は明示的に有効化してください。
+ローカル/私設 LAN で使う場合は[従来 LAN ガイド](docs/LAN_LITE.md)と `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.7` を使用します。LAN 共有は明示的に有効化してください。
 
 ## 最初の呼び出し
 
@@ -152,7 +152,7 @@ node cli/myapi.mjs logs --project-dir .
 更新前に version/digest、revision、パス、設定を記録し、一貫した DB バックアップ（必要な SQLite WAL を含む）、秘密値、完全なキーリング、必要なログを保存します。隔離コピーで復元を確認してから、公開済み対象バージョンを試してください。旧インスタンスを beta.3 に更新する場合の読取専用事前確認例：
 
 ```bash
-node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.3 --dry-run --json
+node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.7 --dry-run --json
 ```
 
 実操作は[更新・復元ガイド](docs/UPGRADE_REHEARSAL.md)に従います。CLI の `.env` バックアップは DB バックアップではありません。対象起動を試みた後は DB が移行済みの可能性があるため、旧イメージを自動再起動しません。互換性のない旧バイナリーを起動する前に、検証済み更新前 DB を復元してください。ボリュームや未解決記録の削除で復旧しようとせず、`latest` や計画段階のバージョンも使わないでください。
@@ -161,7 +161,7 @@ node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.3 
 
 ループバック待受を保ち、共有前に HTTPS、信頼するプロキシ、登録、役割、キー権限を確認します。認可されたアカウント/API のみ使い、モデルサービス規約と適用法に従ってください。公開サービスでは別の適法性確認が必要な場合があります。配置テンプレートは全文ログが既定で有効ですが、上記例では無効化しています。有効にする前に権限、保存期間、バックアップを確認してください。マスキングだけでは入力/出力の個人・機密情報をすべて除去できません。クォータ観測はバックグラウンドでモデルサービスに接続する場合があります。秘密値、OAuth ファイル、DB、私有ログを Git や不具合報告に含めないでください。
 
-- [公開と検証記録](docs/RELEASE_BETA_3.md) · [配置](DEPLOYMENT_CUSTOM.md) · [LAN](docs/LAN_LITE.md)
+- [公開と検証記録](docs/RELEASE_BETA_7.md) · [配置](DEPLOYMENT_CUSTOM.md) · [LAN](docs/LAN_LITE.md)
 - [復元](docs/UPGRADE_REHEARSAL.md) · [インストール検証](docs/R1_INSTALLATION_CHECK.md)
 - [Relay API](docs/openapi/relay.json) · [管理 API](docs/openapi/api.json)
 - [クォータ分析](docs/QUOTA_ANALYTICS.md) · [Claude 組織使用量](docs/CLAUDE_USAGE_REPORT.md)

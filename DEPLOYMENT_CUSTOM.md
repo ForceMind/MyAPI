@@ -63,11 +63,11 @@ HTTPS 反代需另行配置为实际域名到 `http://127.0.0.1:3000`。部署�
 
 ### 已发布镜像部署
 
-本批目标为 `v0.2.0-beta.3`，发布结果以[发布记录](docs/RELEASE_BETA_3.md)为准。
+本批目标为 `v0.2.0-beta.7`。发布完成前 `v0.2.0-beta.3` 仍是最后已发布预览版；beta.7 的范围、验证证据与发布边界以[beta.7 发布记录](docs/RELEASE_BETA_7.md)为准。
 部署前确认 GitHub Release 和 Full/LAN 镜像均已成功；下面使用准确发行 tag。
 
 ```bash
-git clone --branch v0.2.0-beta.3 --single-branch https://github.com/ForceMind/MyAPI.git my-api
+git clone --branch v0.2.0-beta.7 --single-branch https://github.com/ForceMind/MyAPI.git my-api
 cd my-api
 
 cp deploy/.env.example deploy/.env

@@ -66,7 +66,7 @@ Codex 百分比是账户/窗口剩余量的安全阈值，不是共享订阅在�
 
 截至 2026-10-04：
 
-- **已发布预览版：`v0.2.0-beta.3`。** 提供 Linux amd64/arm64 的 Full 和旧版 LAN 镜像。源码、制品、镜像 digest、签名及验证范围见 [beta.3 发布记录](docs/RELEASE_BETA_3.md)。
+- **预发布候选：`v0.2.0-beta.7`。** 这是累计包含 beta.4–7 工作的候选版本；在标签与发布工作流完成前，`v0.2.0-beta.3` 仍是最后一个已发布预览版。范围、验证证据与发布边界见 [beta.7 发布记录](docs/RELEASE_BETA_7.md)。
 - **beta.4：源码与限定自动化已通过，未发布。** 包含限定范围的模型发现、显式映射、路由预览、实际分发和日志流程，不包含在 beta.3 镜像里。
 - **beta.5：仅本地开发候选。** 多账户调度、临时冷却、有界故障切换及尝试说明尚未发布；该候选自己的远端三数据库及 Chromium 验证仍待完成。
 
@@ -91,7 +91,7 @@ Codex 百分比是账户/窗口剩余量的安全阈值，不是共享订阅在�
 以下操作只用于**新目录中的全新安装**：
 
 ```bash
-git clone --branch v0.2.0-beta.3 --single-branch https://github.com/ForceMind/MyAPI.git my-api
+git clone --branch v0.2.0-beta.7 --single-branch https://github.com/ForceMind/MyAPI.git my-api
 cd my-api
 umask 077
 cp deploy/.env.example deploy/.env
@@ -105,7 +105,7 @@ chmod 600 deploy/.env
 编辑 `deploy/.env`，保留以下选项，将示例地址改为自己的准确 HTTPS Origin，不带 API 路径：
 
 ```dotenv
-MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.3
+MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.7
 MYAPI_BUILD_LOCAL=false
 MYAPI_EDITION=full
 MYAPI_BIND_ADDRESS=127.0.0.1
@@ -141,7 +141,7 @@ bash deploy/install.sh
 
 打开配置的 **HTTPS 地址**，完成初始化并创建管理员账号。Full 使用 Secure Cookie，不应把 `http://localhost:3000` 当作推荐登录地址。加入真实账户前，先确认能登录，并在「系统信息」核对运行版本及 revision。
 
-只在本机或私网使用时，另按[旧版 LAN 指南](docs/LAN_LITE.md)选择已发布的 `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.3`。局域网共享需要明确开启。统一 Lite/Desktop 安装器及更新器尚未交付，桌面构建产物也不代表实机验收完成。
+只在本机或私网使用时，另按[旧版 LAN 指南](docs/LAN_LITE.md)选择已发布的 `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.7`。局域网共享需要明确开启。统一 Lite/Desktop 安装器及更新器尚未交付，桌面构建产物也不代表实机验收完成。
 
 ## 完成第一次调用
 
@@ -178,7 +178,7 @@ node cli/myapi.mjs logs --project-dir .
 3. 在副本中演练目标版本的登录、渠道、Key、受控请求、日志和恢复。CLI 支持只读预检；例如为旧实例演练升级至已发布 beta.3：
 
    ```bash
-   node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.3 --dry-run --json
+   node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.7 --dry-run --json
    ```
 
 4. 实际切换按[升级演练与恢复指南](docs/UPGRADE_REHEARSAL.md)执行。CLI 保存的 `.env` **不是数据库备份**。一旦尝试启动目标版本，数据库可能已经迁移，CLI 不会自动启动旧镜像；启动不兼容旧程序前，必须恢复经过验证的升级前数据库备份。
@@ -195,7 +195,7 @@ node cli/myapi.mjs logs --project-dir .
 
 ## 文档与帮助
 
-- [beta.3 制品与发布证据](docs/RELEASE_BETA_3.md)
+- [beta.3 制品与发布证据](docs/RELEASE_BETA_7.md)
 - [部署配置](DEPLOYMENT_CUSTOM.md) · [旧版 LAN](docs/LAN_LITE.md)
 - [升级与恢复](docs/UPGRADE_REHEARSAL.md) · [安装验收记录](docs/R1_INSTALLATION_CHECK.md)
 - [Relay API](docs/openapi/relay.json) · [管理 API](docs/openapi/api.json)
