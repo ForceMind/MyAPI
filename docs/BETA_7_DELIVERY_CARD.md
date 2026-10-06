@@ -1,5 +1,36 @@
 # beta.7 delivery card: assigned access and in-app quota events
 
+## Bounded PostgreSQL catalog correction (2026-10-06)
+
+The owner-menu correction `e33be806` passed the unchanged real Chromium access
+and event journey, alongside the existing quota and routing journeys. Database
+qualification remains a separate gate.
+
+The PostgreSQL experiment identified the expensive metadata join directly:
+the old constraint-column branch scanned 6,214 catalog attribute rows 34 times,
+rejecting about 8.93 million constraint/column pairs. The upstream tightened
+join limits it to the target relation's 40 attributes once. This preserves the
+returned metadata while removing the measured catalog scan amplification.
+
+The repository now selects PostgreSQL driver v1.5.4 with its declared GORM
+v1.25.5 requirement. The dependency patch changes only those two version pins
+and adds their four checksum entries; pgx remains v5.9.2. An earlier isolated
+v1.5.3 experiment was rejected during review because its quoted-default parser
+adds repeated SET DEFAULT operations for existing nonempty string defaults,
+including quota units/status and fee strings. No unsupported GORM downgrade or
+local driver fork is used.
+
+The unchanged PostgreSQL 9.6 B2 contract passes in 27.247 seconds with the
+selected pair under the same 180-second deadline. The new real-model migration
+contract fails v1.5.3 and passes v1.5.4: repeated AutoMigrate preserves raw server
+default metadata, complete stored rows and values supplied by omitted-column
+INSERTs, with no repeated SET DEFAULT for unchanged fields. It covers quota
+snapshots, Token/USD budgets and reservations, including empty-string defaults.
+Its owned schema cannot clean up existing fixture tables. The same contract is
+included in CI; complete root, SQLite/MySQL 5.7/PostgreSQL 9.6 and exact-head
+qualification are still required before closure. Fee formulas, reservation,
+settlement and recovery authorization are unchanged; no prior failure is erased.
+
 ## Exact-head findings and owner-menu correction (2026-10-06)
 
 The complete source candidate `03d0c67f` was published through separate fixture,

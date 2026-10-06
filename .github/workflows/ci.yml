@@ -272,6 +272,7 @@ jobs:
           go test -p 1 ./model -run '^Test(ChannelQuotaIdentity|OfficialPriceVersion|R1UsageReview|PricePublication|TokenBudget|RelayAccountHold|OpenAIPriceCheck|ChannelQuotaAlert)ConfiguredDatabases$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestAccountQuotaConfiguredSchema(MySQLAndPostgres|SQLite)$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestChannelModel(Discovery|Route)ConfiguredDatabases$' -count=1 -timeout=180s -v
+          go test -p 1 ./model -run '^TestPostgresRepeatedMigrationPreservesDefaults$' -count=1 -timeout=180s -v
 
   b2-clickhouse:
     name: B2 ClickHouse log migration regression
