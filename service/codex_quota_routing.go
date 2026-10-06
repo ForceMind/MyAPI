@@ -66,6 +66,10 @@ func GetAvailableChannelRoutingPolicy(ctx context.Context, group, modelName, req
 // evaluateRelayRoutingCandidate intersects quota, transient health and request
 // exclusions once. Preview and runtime selection consume the same result.
 func evaluateRelayRoutingCandidate(ctx context.Context, value model.ChannelRoutingCandidate, path string) model.ChannelRoutingCandidate {
+	value = assignedAccessRoutingCandidate(ctx, value, path)
+	if value.RouteError != "" {
+		return value
+	}
 	state := RelayFailoverFromContext(ctx)
 	if state != nil && (value.ModelRoute == nil || value.ModelRoute.UpstreamModel != state.Target) {
 		value.RouteError = "retry_target_mismatch"

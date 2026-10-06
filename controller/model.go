@@ -252,6 +252,11 @@ func ListModels(c *gin.Context, modelType int) {
 		}
 		userModelNames = append(userModelNames, modelName)
 	}
+	userModelNames, _, err = filterModelsByAssignedAccess(c, ownerGroups, userModelNames)
+	if err != nil {
+		assignedAccessPolicyError(c, err)
+		return
+	}
 
 	ownerByModel := map[string]string{}
 	if len(ownerGroups) > 0 {
@@ -329,6 +334,20 @@ func EnabledListModels(c *gin.Context) {
 
 func RetrieveModel(c *gin.Context, modelType int) {
 	modelId := c.Param("model")
+	groups, err := getModelListGroups(c)
+	if err != nil {
+		assignedAccessPolicyError(c, err)
+		return
+	}
+	allowed, _, err := projectModelsByAssignedAccess(c, groups.ownerGroups, []string{modelId}, true)
+	if err != nil {
+		assignedAccessPolicyError(c, err)
+		return
+	}
+	if len(allowed) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"message": "model_not_found", "type": "invalid_request_error", "code": "model_not_found"}})
+		return
+	}
 	if aiModel, ok := openAIModelsMap[modelId]; ok {
 		switch modelType {
 		case constant.ChannelTypeAnthropic:

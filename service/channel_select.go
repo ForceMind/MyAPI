@@ -89,6 +89,10 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	if param.Ctx != nil && param.Ctx.Request != nil {
 		routingCtx = param.Ctx.Request.Context()
 	}
+	routingCtx, err = assignedAccessRoutingContext(param.Ctx, routingCtx)
+	if err != nil {
+		return nil, param.TokenGroup, err
+	}
 	selectGroup := param.TokenGroup
 	userGroup := common.GetContextKeyString(param.Ctx, constant.ContextKeyUserGroup)
 
@@ -111,6 +115,9 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 				return nil, selectedGroup, nil
 			}
 			channel, err := getRandomQuotaSatisfiedChannel(routingCtx, selectedGroup, param.ModelName, param.GetRetry(), param.RequestPath)
+			if state, ok := routingCtx.Value(assignedAccessRoutingContextKey{}).(AssignedAccessState); ok && state.Assigned() && channel == nil && err == nil {
+				err = ErrAssignedAccessDenied
+			}
 			return channel, selectedGroup, err
 		}
 
@@ -177,6 +184,9 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		if err != nil {
 			return nil, param.TokenGroup, err
 		}
+	}
+	if state, ok := routingCtx.Value(assignedAccessRoutingContextKey{}).(AssignedAccessState); ok && state.Assigned() && channel == nil {
+		return nil, selectGroup, ErrAssignedAccessDenied
 	}
 	return channel, selectGroup, nil
 }

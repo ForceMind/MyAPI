@@ -701,6 +701,11 @@ func GetUserModels(c *gin.Context) {
 		}
 	}
 	modelNames := service.GetGroupsEnabledModels(groupsToQuery)
+	modelNames, accessModels, accessErr := filterModelsByAssignedAccess(c, groupsToQuery, modelNames)
+	if accessErr != nil {
+		assignedAccessPolicyError(c, accessErr)
+		return
+	}
 	capabilities, capabilityErr := getPlaygroundModelCapabilities(modelNames, groupsToQuery)
 	if capabilityErr != nil {
 		common.SysLog(fmt.Sprintf("get playground model capabilities failed: %v", capabilityErr))
@@ -711,6 +716,7 @@ func GetUserModels(c *gin.Context) {
 		"message":      "",
 		"data":         modelNames,
 		"capabilities": capabilities,
+		"access":       accessModels,
 	})
 }
 

@@ -106,6 +106,9 @@ func Distribute() func(c *gin.Context) {
 				if preferredChannelID, found := service.GetPreferredChannelByAffinity(c, modelRequest.Model, usingGroup); found {
 					affinityUsable := false
 					preferred, err := model.CacheGetChannel(preferredChannelID)
+					if err == nil && preferred != nil && service.ValidateAssignedAccessSelection(c, preferred, modelRequest.Model) != nil {
+						preferred = nil
+					}
 					_, thresholdActive := common.AccountQuotaThresholdFromContext(c.Request.Context())
 					if err == nil && preferred != nil && preferred.Status == common.ChannelStatusEnabled && (preferred.Type == constant.ChannelTypeCodex || thresholdActive) {
 						_, usable, quotaErr := service.CodexQuotaEligibleKeys(c.Request.Context(), preferred)
@@ -156,6 +159,10 @@ func Distribute() func(c *gin.Context) {
 						Retry:       common.GetPointer(0),
 					})
 					if err != nil {
+						if errors.Is(err, service.ErrAssignedAccessDenied) {
+							abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorPolicyDenied, map[string]any{"Group": common.GetContextKeyString(c, constant.ContextKeyUsingGroup)}), types.ErrorCodeAccessDenied)
+							return
+						}
 						showGroup := usingGroup
 						if usingGroup == "auto" {
 							showGroup = fmt.Sprintf("auto(%s)", selectGroup)
@@ -504,6 +511,11 @@ func setupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	c.Set("original_model", modelName) // for retry
 	if channel == nil {
 		return types.NewError(errors.New("channel is nil"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+	}
+	if !quotaProbe {
+		if err := service.ValidateAssignedAccessSelection(c, channel, modelName); err != nil {
+			return types.NewError(errors.New(i18n.T(c, i18n.MsgDistributorPolicyDenied, map[string]any{"Group": common.GetContextKeyString(c, constant.ContextKeyUsingGroup)})), types.ErrorCodeAccessDenied, types.ErrOptionWithStatusCode(http.StatusForbidden), types.ErrOptionWithSkipRetry())
+		}
 	}
 	common.SetContextKey(c, constant.ContextKeyChannelModelMapping, channel.GetModelMapping())
 	if routeErr := prepareSelectedModelRoute(c, channel, modelName, quotaProbe); routeErr != nil {

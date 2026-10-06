@@ -399,6 +399,9 @@ func DoWssRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 		targetHeader.Set(key, value)
 	}
 	targetHeader.Set("Content-Type", c.Request.Header.Get("Content-Type"))
+	if err := service.ValidateAssignedAccessDispatch(c, nil, info); err != nil {
+		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgDistributorPolicyDenied, map[string]any{"Group": info.UsingGroup})), types.ErrorCodeAccessDenied, http.StatusForbidden, types.ErrOptionWithSkipRetry())
+	}
 	targetConn, err := dialWebsocketWithContext(c.Request.Context(), websocket.DefaultDialer, fullRequestURL, targetHeader)
 	if err != nil {
 		return nil, fmt.Errorf("dial failed to %s: %w", common.SanitizeURLForLog(fullRequestURL), err)
@@ -495,6 +498,9 @@ func keepUpstreamRedirectResponse(_ *http.Request, _ []*http.Request) error {
 }
 
 func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http.Response, error) {
+	if err := service.ValidateAssignedAccessDispatch(c, req, info); err != nil {
+		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgDistributorPolicyDenied, map[string]any{"Group": info.UsingGroup})), types.ErrorCodeAccessDenied, http.StatusForbidden, types.ErrOptionWithSkipRetry())
+	}
 	if err := service.ValidateModelRouteDispatch(c, req, info); err != nil {
 		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgInvalidParams)), types.ErrorCode(err.Error()), http.StatusBadRequest, types.ErrOptionWithSkipRetry())
 	}
@@ -553,6 +559,9 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 
 	if err := service.ValidateRelayFailoverDispatch(c, info); err != nil {
 		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgInvalidParams)), types.ErrorCode("relay_eligibility_changed"), http.StatusForbidden, types.ErrOptionWithSkipRetry())
+	}
+	if err := service.ValidateAssignedAccessDispatch(c, req, info); err != nil {
+		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgDistributorPolicyDenied, map[string]any{"Group": info.UsingGroup})), types.ErrorCodeAccessDenied, http.StatusForbidden, types.ErrOptionWithSkipRetry())
 	}
 	if err := service.PrepareTextUsageDispatch(c, req, info); err != nil {
 		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgTextUsageDispatchPending)), types.ErrorCode("usage_dispatch_unresolved"), http.StatusServiceUnavailable, types.ErrOptionWithSkipRetry())
