@@ -2,19 +2,21 @@ package relay
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/dto"
+	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/relay/channel"
-	"github.com/ForceMind/MyAPI/relay/channel/task/taskcommon"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	relayconstant "github.com/ForceMind/MyAPI/relay/constant"
 	"github.com/ForceMind/MyAPI/relay/helper"
@@ -87,10 +89,44 @@ func ResolveOriginTask(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskErr
 	if ch.Status != common.ChannelStatusEnabled {
 		return service.TaskErrorWrapperLocal(errors.New("the channel of the origin task is disabled"), "task_channel_disable", http.StatusBadRequest)
 	}
+	// A remix is bound to the origin task's channel, but an auto key may have
+	// changed its eligible groups since that task was created. Resolve the
+	// actual ability group now and retain it in context so every later policy
+	// check evaluates the group that will serve the locked request, never the
+	// literal "auto" selector.
+	originGroup := strings.TrimSpace(originTask.Group)
+	if originGroup == "" || !model.IsChannelEnabledForGroupModel(originGroup, info.OriginModelName, ch.Id) {
+		return service.TaskErrorWrapperLocal(errors.New("origin task channel group is no longer available"), "task_origin_group_unavailable", http.StatusForbidden)
+	}
+	if info.TokenGroup == "auto" {
+		eligibleGroups := service.GetRequestAutoGroups(c, info.UserGroup)
+		eligible := false
+		for _, group := range eligibleGroups {
+			if group == originGroup {
+				eligible = true
+				break
+			}
+		}
+		if !eligible {
+			return service.TaskErrorWrapperLocal(errors.New("origin task group is not available to this key"), "task_origin_group_access_denied", http.StatusForbidden)
+		}
+	}
+	common.SetContextKey(c, constant.ContextKeyAutoGroup, originGroup)
 	info.LockedChannel = ch
 
 	if originTask.ChannelId != info.ChannelId {
-		key, _, newAPIError := ch.GetNextEnabledKey()
+		var excluded map[int]bool
+		_, thresholdActive := common.AccountQuotaThresholdFromContext(c.Request.Context())
+		if ch.Type == constant.ChannelTypeCodex || thresholdActive {
+			var eligible bool
+			excluded, eligible, err = service.CodexQuotaEligibleKeys(c.Request.Context(), ch)
+			if err != nil || !eligible {
+				return service.TaskErrorWrapperLocal(errors.New(i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{
+					"Group": originGroup, "Model": info.OriginModelName,
+				})), "channel_no_available_key", http.StatusServiceUnavailable)
+			}
+		}
+		key, _, newAPIError := ch.GetNextEnabledKeyExcluding(excluded)
 		if newAPIError != nil {
 			return service.TaskErrorWrapper(newAPIError, "channel_no_available_key", newAPIError.StatusCode)
 		}
@@ -274,10 +310,24 @@ type legacyTaskSubmitResponseAdapter interface {
 }
 
 func resolveLegacyTaskSubmitResponse(c *gin.Context, adaptor legacyTaskSubmitResponseAdapter, resp *http.Response, info *relaycommon.RelayInfo) (string, []byte, *dto.TaskError) {
-	if resp.StatusCode != http.StatusOK {
+	if resp == nil || resp.StatusCode != http.StatusOK {
 		return "", nil, legacyTaskSubmitHTTPStatusError(resp)
 	}
 	return adaptor.DoResponse(c, resp, info)
+}
+
+// ResolveLegacyTaskSubmitResponse is the exported compatibility boundary for resolving
+// a legacy task submission response into a task ID, task data, or error.
+// It isolates the client writer so legacy DoResponse cannot taint durable responses.
+func ResolveLegacyTaskSubmitResponse(c *gin.Context, adaptor channel.TaskAdaptor, resp *http.Response, info *relaycommon.RelayInfo) (string, []byte, *dto.TaskError) {
+	isolatedCtx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	if c != nil {
+		isolatedCtx.Request = c.Request
+		for k, v := range c.Keys {
+			isolatedCtx.Set(k, v)
+		}
+	}
+	return resolveLegacyTaskSubmitResponse(isolatedCtx, adaptor, resp, info)
 }
 
 // legacyTaskSubmitHTTPStatusError is the compatibility boundary for the
@@ -430,7 +480,7 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 	isOpenAIVideoAPI := strings.HasPrefix(c.Request.RequestURI, "/v1/videos/")
 
 	// Gemini/Vertex 支持实时查询：用户 fetch 时直接从上游拉取最新状态
-	if realtimeResp := tryRealtimeFetch(originTask, isOpenAIVideoAPI); len(realtimeResp) > 0 {
+	if realtimeResp := tryRealtimeFetch(c.Request.Context(), originTask, isOpenAIVideoAPI); len(realtimeResp) > 0 {
 		respBody = realtimeResp
 		return
 	}
@@ -469,9 +519,14 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 // tryRealtimeFetch 尝试从上游实时拉取 Gemini/Vertex 任务状态。
 // 仅当渠道类型为 Gemini 或 Vertex 时触发；其他渠道或出错时返回 nil。
 // 当非 OpenAI Video API 时，还会构建自定义格式的响应体。
-func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
+var getRealtimeTaskAdaptor = func(platform constant.TaskPlatform) service.TaskPollingAdaptor {
+	return GetTaskAdaptor(platform)
+}
+
+func tryRealtimeFetch(ctx context.Context, task *model.Task, isOpenAIVideoAPI bool) []byte {
 	channelModel, err := model.GetChannelById(task.ChannelId, true)
 	if err != nil {
+		_ = service.DeferTaskPolling(ctx, task, false, "realtime_channel_unavailable")
 		return nil
 	}
 	if channelModel.Type != constant.ChannelTypeVertexAi && channelModel.Type != constant.ChannelTypeGemini {
@@ -483,61 +538,36 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 		baseURL = channelModel.GetBaseURL()
 	}
 	proxy := channelModel.GetSetting().Proxy
-	adaptor := GetTaskAdaptor(constant.TaskPlatform(strconv.Itoa(channelModel.Type)))
+	adaptor := getRealtimeTaskAdaptor(constant.TaskPlatform(strconv.Itoa(channelModel.Type)))
 	if adaptor == nil {
+		_ = service.DeferTaskPolling(ctx, task, true, "realtime_adaptor_unavailable")
 		return nil
 	}
 
-	resp, err := adaptor.FetchTask(baseURL, channelModel.Key, map[string]any{
+	key := task.PrivateData.Key
+	if key == "" {
+		key = channelModel.Key
+	}
+	resp, err := adaptor.FetchTask(baseURL, key, map[string]any{
 		"task_id": task.GetUpstreamTaskID(),
 		"action":  task.Action,
 	}, proxy)
 	if err != nil || resp == nil {
+		_ = service.DeferTaskPolling(ctx, task, false, "realtime_fetch_failed")
 		return nil
 	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil
-	}
-
-	ti, err := adaptor.ParseTaskResult(body)
-	if err != nil || ti == nil {
+	if err := service.ApplyRealtimeTaskPollingResponse(ctx, adaptor, channelModel, task, resp); err != nil {
 		return nil
 	}
 
-	snap := task.Snapshot()
-
-	// 将上游最新状态更新到 task
-	if ti.Status != "" {
-		task.Status = model.TaskStatus(ti.Status)
-	}
-	if ti.Progress != "" {
-		task.Progress = ti.Progress
-	}
-	if strings.HasPrefix(ti.Url, "data:") {
-		// data: URI — kept in Data, not ResultURL
-	} else if ti.Url != "" {
-		task.PrivateData.ResultURL = ti.Url
-	} else if task.Status == model.TaskStatusSuccess {
-		// No URL from adaptor — construct proxy URL using public task ID
-		task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)
-	}
-
-	if !snap.Equal(task.Snapshot()) {
-		_, _ = task.UpdateWithStatus(snap.Status)
-	}
-
-	// OpenAI Video API 由调用者的 ConvertToOpenAIVideo 分支处理
+	// OpenAI Video API 由调用者的 ConvertToOpenAIVideo 分支处理。
 	if isOpenAIVideoAPI {
 		return nil
 	}
 
-	// 非 OpenAI Video API: 构建自定义格式响应
-	format := detectVideoFormat(body)
 	out := map[string]any{
 		"error":    nil,
-		"format":   format,
+		"format":   detectVideoFormat(task.Data),
 		"metadata": nil,
 		"status":   mapTaskStatusToSimple(task.Status),
 		"task_id":  task.TaskID,

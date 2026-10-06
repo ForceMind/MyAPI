@@ -49,6 +49,9 @@ func patchGeminiZeroCompletionUsage(c *gin.Context, info *relaycommon.RelayInfo,
 	if responseText == "" && imageCount == 0 {
 		return
 	}
+	if proof := usage.BillingUsage; proof != nil && !proof.Incomplete && proof.GeminiUsageMetadata != nil && proof.GeminiUsageMetadata.RawUsageObserved {
+		return // Explicit reliable zero is not replaced by local token estimates.
+	}
 	estimated := service.ResponseText2Usage(c, responseText, info.UpstreamModelName, usage.PromptTokens)
 	usage.CompletionTokens = estimated.CompletionTokens
 	if imageCount != 0 && usage.CompletionTokens == 0 {
@@ -90,7 +93,7 @@ func markGeminiGoogleSearchCall(c *gin.Context, response *dto.GeminiChatResponse
 
 func buildUsageFromGeminiResponse(c *gin.Context, info *relaycommon.RelayInfo, response *dto.GeminiChatResponse) dto.Usage {
 	metadata := response.GetUsageMetadata()
-	if dto.HasGeminiUsageMetadataTokens(metadata) {
+	if dto.HasGeminiUsageEvidence(metadata) {
 		usage := buildUsageFromGeminiMetadata(metadata, info.GetEstimatePromptTokens())
 		patchGeminiZeroCompletionUsage(c, info, &usage, geminiResponseUsageText(response), geminiResponseInlineImageCount(response))
 		return usage
@@ -148,11 +151,13 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 	var usage = &dto.Usage{}
 	var imageCount int
 	var hasBillableUsageMetadata bool
+	var evidence geminiStreamUsageEvidence
 	responseText := strings.Builder{}
 
 	helper.StreamScannerHandler(c, resp, info, func(data string, sr *helper.StreamResult) {
 		var geminiResponse dto.GeminiChatResponse
 		if err := common.UnmarshalJsonStr(data, &geminiResponse); err != nil {
+			evidence.invalid = true
 			sr.Stop(fmt.Errorf("unmarshal: %w", err))
 			return
 		}
@@ -162,6 +167,7 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		}
 
 		markGeminiGoogleSearchCall(c, &geminiResponse)
+		evidence.observe(&geminiResponse)
 
 		// 统计图片数量
 		for _, candidate := range geminiResponse.Candidates {
@@ -176,7 +182,7 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		}
 
 		// 更新使用量统计
-		if metadata := geminiResponse.GetUsageMetadata(); dto.HasGeminiUsageMetadataTokens(metadata) {
+		if metadata := geminiResponse.GetUsageMetadata(); dto.HasGeminiUsageEvidence(metadata) {
 			mappedUsage := buildUsageFromGeminiMetadata(metadata, info.GetEstimatePromptTokens())
 			*usage = mappedUsage
 			hasBillableUsageMetadata = true
@@ -200,6 +206,9 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		}
 		attachEstimatedGeminiBillingUsage(usage)
 	} else {
+		if usage.BillingUsage != nil && evidence.incomplete() {
+			usage.BillingUsage.Incomplete = true
+		}
 		patchGeminiZeroCompletionUsage(c, info, usage, responseText.String(), imageCount)
 	}
 

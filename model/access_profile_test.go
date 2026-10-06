@@ -5,7 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/setting"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -83,6 +85,54 @@ func TestResolveAccountTierIDPreservesStableAndCustomIdentity(t *testing.T) {
 	require.Equal(t, "team-enterprise", custom.ID)
 	require.Equal(t, "custom", custom.Kind)
 	require.Equal(t, "Custom team tier", custom.Description)
+}
+
+func TestResolveAccountTierAppliesPolicyDefinition(t *testing.T) {
+	original, err := common.Marshal(setting.GetAccessProfileSetting().AccountTiers)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, setting.UpdateAccountTierDefinitionsByJSONString(string(original))) })
+	require.NoError(t, setting.UpdateAccountTierDefinitionsByJSONString(`{
+		"standard":{"label":"Standard policy"},
+		"team":{"label":"Team policy","description":"Restricted","route_groups":[],"model_allowlist":["gpt-5"],"enabled":false}
+	}`))
+
+	standard := ResolveAccountTierID("standard", "")
+	assert.True(t, standard.Known)
+	assert.True(t, standard.Enabled)
+	assert.Nil(t, standard.RouteGroups)
+	assert.Nil(t, standard.ModelAllowlist)
+
+	team := ResolveAccountTierID("team", "")
+	assert.True(t, team.Known)
+	assert.False(t, team.Enabled)
+	assert.Equal(t, "Team policy", team.Label)
+	assert.Equal(t, "Restricted", team.Description)
+	assert.NotNil(t, team.RouteGroups)
+	assert.Empty(t, team.RouteGroups)
+	assert.Equal(t, []string{"gpt-5"}, team.ModelAllowlist)
+
+	unknown := ResolveAccountTierID("unknown", "")
+	assert.False(t, unknown.Known)
+	assert.True(t, unknown.Enabled)
+}
+
+func TestResolveAccessProfileReportsRegistryResolution(t *testing.T) {
+	original, err := common.Marshal(setting.GetAccessProfileSetting().Profiles)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, setting.UpdateAccessProfileDefinitionsByJSONString(string(original))) })
+	require.NoError(t, setting.UpdateAccessProfileDefinitionsByJSONString(`{
+		"known":{"label":"Known"},
+		"disabled":{"label":"Disabled","enabled":false}
+	}`))
+
+	known := ResolveAccessProfileID("known", "default", "")
+	assert.True(t, known.Known)
+	assert.True(t, known.Enabled)
+	disabled := ResolveAccessProfileID("disabled", "default", "")
+	assert.True(t, disabled.Known)
+	assert.False(t, disabled.Enabled)
+	unknown := ResolveAccessProfileID("unknown", "default", "")
+	assert.False(t, unknown.Known)
 }
 
 func TestResolveAccessProfileIDUsesExplicitStableIdentity(t *testing.T) {
@@ -177,4 +227,5 @@ func TestUserEditPreservesExplicitAccountTierID(t *testing.T) {
 	var got User
 	require.NoError(t, DB.First(&got, user.Id).Error)
 	require.Equal(t, "team-enterprise", got.AccountTierID)
+	assert.Greater(t, got.AuthVersion, user.AuthVersion)
 }

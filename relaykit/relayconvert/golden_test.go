@@ -225,6 +225,8 @@ func fixtureResponses() map[types.RelayFormat]any {
 		"usage": {"input_tokens": 10, "output_tokens": 5, "cache_read_input_tokens": 3, "cache_creation_input_tokens": 2}
 	}`, claude)
 
+	// Retain the contradictory total (15 versus 10+5+2): the response
+	// golden must mark billing evidence incomplete without rewriting counts.
 	gemini := &dto.GeminiChatResponse{}
 	mustUnmarshalFixture(`{
 		"candidates": [{
@@ -425,6 +427,11 @@ func deepCopyFixture(t *testing.T, v any) any {
 	case *dto.GeminiChatResponse:
 		out := &dto.GeminiChatResponse{}
 		require.NoError(t, json.Unmarshal(data, out))
+		// Marshal's historical non-omitempty metadata field must not manufacture
+		// explicit-zero provider evidence while cloning an absent-usage fixture.
+		if v.(*dto.GeminiChatResponse).GetUsageMetadata() == nil {
+			out.UsageMetadata = dto.GeminiUsageMetadata{}
+		}
 		return out
 	case *dto.OpenAIResponsesResponse:
 		out := &dto.OpenAIResponsesResponse{}

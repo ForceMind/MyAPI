@@ -1,6 +1,8 @@
 package router
 
 import (
+	"strings"
+
 	"github.com/ForceMind/MyAPI/controller"
 	"github.com/ForceMind/MyAPI/middleware"
 
@@ -14,7 +16,7 @@ import (
 func SetApiRouter(router *gin.Engine) {
 	apiRouter := router.Group("/api")
 	apiRouter.Use(func(c *gin.Context) {
-		if c.Request.URL.Path == "/api/option/diagnostics" {
+		if c.Request.URL.Path == "/api/option/diagnostics" || strings.HasPrefix(c.Request.URL.Path, "/api/option/diagnostics/") {
 			c.Header("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0")
 			c.Header("Pragma", "no-cache")
 			c.Header("Expires", "0")
@@ -108,18 +110,24 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.GET("/aff", controller.GetAffCode)
 				selfRoute.GET("/topup/info", controller.GetTopUpInfo)
 				selfRoute.GET("/topup/self", controller.GetUserTopUps)
-				selfRoute.POST("/topup", middleware.CriticalRateLimit(), controller.TopUp)
-				selfRoute.POST("/pay", middleware.CriticalRateLimit(), controller.RequestEpay)
-				selfRoute.POST("/amount", controller.RequestAmount)
-				selfRoute.POST("/stripe/pay", middleware.CriticalRateLimit(), controller.RequestStripePay)
-				selfRoute.POST("/stripe/amount", controller.RequestStripeAmount)
-				selfRoute.POST("/creem/pay", middleware.CriticalRateLimit(), controller.RequestCreemPay)
-				selfRoute.POST("/waffo/amount", controller.RequestWaffoAmount)
-				selfRoute.POST("/waffo/pay", middleware.CriticalRateLimit(), controller.RequestWaffoPay)
-				selfRoute.POST("/waffo-pancake/amount", controller.RequestWaffoPancakeAmount)
-				selfRoute.POST("/waffo-pancake/pay", middleware.CriticalRateLimit(), controller.RequestWaffoPancakePay)
-				selfRoute.POST("/aff_transfer", middleware.UserCriticalRateLimit("aff-transfer"), controller.TransferAffQuota)
+				selfRoute.POST("/topup", controller.UserFundingMutationGate, middleware.CriticalRateLimit(), controller.TopUp)
+				selfRoute.POST("/pay", controller.UserFundingMutationGate, middleware.CriticalRateLimit(), controller.RequestEpay)
+				selfRoute.POST("/amount", controller.UserFundingMutationGate, controller.RequestAmount)
+				selfRoute.POST("/stripe/pay", controller.UserFundingMutationGate, middleware.CriticalRateLimit(), controller.RequestStripePay)
+				selfRoute.POST("/stripe/amount", controller.UserFundingMutationGate, controller.RequestStripeAmount)
+				selfRoute.POST("/creem/pay", controller.UserFundingMutationGate, middleware.CriticalRateLimit(), controller.RequestCreemPay)
+				selfRoute.POST("/waffo/amount", controller.UserFundingMutationGate, controller.RequestWaffoAmount)
+				selfRoute.POST("/waffo/pay", controller.UserFundingMutationGate, middleware.CriticalRateLimit(), controller.RequestWaffoPay)
+				selfRoute.POST("/waffo-pancake/amount", controller.UserFundingMutationGate, controller.RequestWaffoPancakeAmount)
+				selfRoute.POST("/waffo-pancake/pay", controller.UserFundingMutationGate, middleware.CriticalRateLimit(), controller.RequestWaffoPancakePay)
+				selfRoute.POST("/aff_transfer", controller.UserFundingMutationGate, middleware.UserCriticalRateLimit("aff-transfer"), controller.TransferAffQuota)
 				selfRoute.PUT("/setting", controller.UpdateUserSetting)
+				selfRoute.GET("/prompt-learning", middleware.DisableCache(), controller.GetPromptLearningPolicy)
+				selfRoute.PUT("/prompt-learning", middleware.CriticalRateLimit(), middleware.DisableCache(), middleware.DashboardSessionOriginGuard(), controller.UpdatePromptLearningPolicy)
+				selfRoute.GET("/prompt-learning/versions", middleware.DisableCache(), controller.ListPromptLearningVersions)
+				selfRoute.POST("/prompt-learning/versions", middleware.CriticalRateLimit(), middleware.DisableCache(), middleware.DashboardSessionOriginGuard(), controller.CreatePromptLearningVersion)
+				selfRoute.GET("/prompt-learning/runs", middleware.DisableCache(), controller.ListPromptLearningRuns)
+				selfRoute.POST("/prompt-learning/runs/:id/cancel", middleware.CriticalRateLimit(), middleware.DisableCache(), middleware.DashboardSessionOriginGuard(), controller.CancelPromptLearningRun)
 
 				// 2FA routes
 				selfRoute.GET("/2fa/status", controller.Get2FAStatus)
@@ -167,11 +175,11 @@ func SetApiRouter(router *gin.Engine) {
 			subscriptionRoute.GET("/plans", controller.GetSubscriptionPlans)
 			subscriptionRoute.GET("/self", controller.GetSubscriptionSelf)
 			subscriptionRoute.PUT("/self/preference", controller.UpdateSubscriptionPreference)
-			subscriptionRoute.POST("/balance/pay", middleware.CriticalRateLimit(), controller.SubscriptionRequestBalancePay)
-			subscriptionRoute.POST("/epay/pay", middleware.CriticalRateLimit(), controller.SubscriptionRequestEpay)
-			subscriptionRoute.POST("/stripe/pay", middleware.CriticalRateLimit(), controller.SubscriptionRequestStripePay)
-			subscriptionRoute.POST("/creem/pay", middleware.CriticalRateLimit(), controller.SubscriptionRequestCreemPay)
-			subscriptionRoute.POST("/waffo-pancake/pay", middleware.CriticalRateLimit(), controller.SubscriptionRequestWaffoPancakePay)
+			subscriptionRoute.POST("/balance/pay", controller.UserFundingMutationGate, middleware.CriticalRateLimit(), controller.SubscriptionRequestBalancePay)
+			subscriptionRoute.POST("/epay/pay", controller.UserFundingMutationGate, middleware.CriticalRateLimit(), controller.SubscriptionRequestEpay)
+			subscriptionRoute.POST("/stripe/pay", controller.UserFundingMutationGate, middleware.CriticalRateLimit(), controller.SubscriptionRequestStripePay)
+			subscriptionRoute.POST("/creem/pay", controller.UserFundingMutationGate, middleware.CriticalRateLimit(), controller.SubscriptionRequestCreemPay)
+			subscriptionRoute.POST("/waffo-pancake/pay", controller.UserFundingMutationGate, middleware.CriticalRateLimit(), controller.SubscriptionRequestWaffoPancakePay)
 		}
 		subscriptionAdminRoute := apiRouter.Group("/subscription/admin")
 		subscriptionAdminRoute.Use(middleware.AdminAuth())
@@ -197,21 +205,48 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/subscription/epay/return", controller.SubscriptionEpayReturn)
 		apiRouter.POST("/subscription/epay/return", anonymousRequestBodyLimit, controller.SubscriptionEpayReturn)
 		apiRouter.GET("/option/diagnostics", middleware.DisableCache(), middleware.RootAuth(), controller.GetOptionDiagnostics)
+		apiRouter.GET("/user/:id/usage-policy", middleware.DisableCache(), middleware.UserAuth(), controller.GetUserUsagePolicy)
+		apiRouter.PUT("/user/:id/usage-policy", middleware.DisableCache(), middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.UpdateUserUsagePolicy)
+		apiRouter.GET("/usage-reviews/pending", middleware.DisableCache(), middleware.RootAuth(), controller.GetPendingUsageReviews)
+		apiRouter.POST("/usage-review/:request_id/recover-dispatch", middleware.DisableCache(), middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.RecoverTextDispatchUsage)
+		apiRouter.GET("/usage-review/:request_id", middleware.DisableCache(), middleware.UserAuth(), controller.GetUsageReview)
+		apiRouter.POST("/usage-review/:request_id/reconcile", middleware.DisableCache(), middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.ReconcileUsageReview)
+		apiRouter.POST("/option/diagnostics/remediate/dry-run", middleware.DisableCache(), middleware.RootAuth(), controller.OptionRemediateDryRun)
+		apiRouter.POST("/option/diagnostics/remediate/apply", middleware.DisableCache(), middleware.RootAuth(), controller.OptionRemediateApply)
+		apiRouter.GET("/option/diagnostics/remediations", middleware.DisableCache(), middleware.RootAuth(), controller.GetOptionRemediations)
 
 		optionRoute := apiRouter.Group("/option")
 		optionRoute.Use(middleware.RootAuth())
 		{
 			optionRoute.GET("/", controller.GetOptions)
 			optionRoute.PUT("/", controller.UpdateOption)
+			optionRoute.PUT("/payment-funding", controller.UpdatePaymentFundingOptions)
+			optionRoute.PUT("/typed-bulk", controller.UpdateOptionsTypedBulk)
+			optionRoute.GET("/typed-bulk/revision", controller.GetOptionsTypedBulkRevision)
 			optionRoute.POST("/payment_compliance", controller.ConfirmPaymentCompliance)
 			optionRoute.GET("/channel_affinity_cache", controller.GetChannelAffinityCacheStats)
 			optionRoute.DELETE("/channel_affinity_cache", controller.ClearChannelAffinityCache)
+			// 维护重建：按配置代重建亲和缓存（容量/TTL 的显式生效路径）
+			optionRoute.POST("/channel_affinity_cache/rebuild", controller.RebuildChannelAffinityCache)
+			// 维护重建：按配置代重建磁盘缓存放置（目录/容量的显式生效路径）
+			optionRoute.POST("/disk_cache/rebuild", controller.RebuildDiskCache)
 			optionRoute.POST("/rest_model_ratio", controller.ResetModelRatio)
 			optionRoute.GET("/waffo-pancake/catalog", controller.ListWaffoPancakeCatalog)
 			optionRoute.POST("/waffo-pancake/pair", controller.CreateWaffoPancakePair)
 			optionRoute.POST("/waffo-pancake/save", controller.SaveWaffoPancake)
 			optionRoute.POST("/waffo-pancake/subscription-product", controller.CreateWaffoPancakeSubscriptionProduct)
 			optionRoute.GET("/waffo-pancake/subscription-product-options", controller.ListWaffoPancakeSubscriptionProductOptions)
+		}
+
+		// Quota writer mode transition operations (admin)
+		quotaWriterRoute := apiRouter.Group("/quota-writer")
+		quotaWriterRoute.Use(middleware.AdminAuth())
+		{
+			quotaWriterRoute.GET("/status", controller.GetQuotaWriterStatus)
+			quotaWriterRoute.GET("/plan", controller.GetQuotaWriterTransitionPlan)
+			quotaWriterRoute.POST("/apply", controller.ApplyQuotaWriterModeTransition)
+			quotaWriterRoute.GET("/transitions", controller.GetQuotaWriterTransitions)
+			quotaWriterRoute.POST("/drain", controller.DriveQuotaWriterDrains)
 		}
 
 		// Custom OAuth provider management (root only)
@@ -239,9 +274,18 @@ func SetApiRouter(router *gin.Engine) {
 		ratioSyncRoute.Use(middleware.RootAuth())
 		{
 			ratioSyncRoute.GET("/channels", controller.GetSyncableChannels)
+			ratioSyncRoute.GET("/openai", middleware.CriticalRateLimit(), controller.GetOpenAIOfficialPricing)
+			ratioSyncRoute.GET("/openai/check", middleware.DisableCache(), controller.GetOpenAIPriceCheckStatus)
+			ratioSyncRoute.POST("/openai/check", middleware.DisableCache(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.CreateOpenAIPriceCheck)
+			ratioSyncRoute.POST("/openai/versions", middleware.DisableCache(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.SaveOpenAIOfficialPriceSource)
+			ratioSyncRoute.GET("/openai/versions/:digest", middleware.DisableCache(), middleware.CriticalRateLimit(), controller.GetFrozenOpenAIOfficialPriceSource)
+			ratioSyncRoute.GET("/openai/versions/:digest/publication-preview", middleware.DisableCache(), middleware.CriticalRateLimit(), controller.PreviewOpenAIPricePublication)
+			ratioSyncRoute.GET("/openai/publications", middleware.DisableCache(), controller.GetPricePublicationState)
+			ratioSyncRoute.POST("/openai/publications", middleware.DisableCache(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.ApplyOpenAIPricePublication)
 			ratioSyncRoute.POST("/fetch", controller.FetchUpstreamRatios)
 		}
 		registerChannelRoutes(apiRouter)
+		registerAssignedAccessPolicyRoutes(apiRouter)
 		registerAuthzRoutes(apiRouter)
 		tokenRoute := apiRouter.Group("/token")
 		tokenRoute.Use(middleware.UserAuth())
@@ -250,6 +294,9 @@ func SetApiRouter(router *gin.Engine) {
 			tokenRoute.GET("/search", middleware.SearchRateLimit(), controller.SearchTokens)
 			tokenRoute.GET("/auto-groups", controller.GetTokenAutoGroups)
 			tokenRoute.GET("/:id", controller.GetToken)
+			tokenRoute.GET("/:id/budget", middleware.DisableCache(), controller.GetTokenBudget)
+			tokenRoute.PUT("/:id/budget", middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), middleware.DisableCache(), controller.UpdateTokenBudget)
+			tokenRoute.POST("/:id/budget/recover", middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), middleware.DisableCache(), controller.RecoverTokenBudget)
 			tokenRoute.POST("/:id/key", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.GetTokenKey)
 			tokenRoute.POST("/", controller.AddToken)
 			tokenRoute.PUT("/", controller.UpdateToken)
@@ -282,7 +329,9 @@ func SetApiRouter(router *gin.Engine) {
 		logRoute := apiRouter.Group("/log")
 		logRoute.GET("/", middleware.AdminAuth(), controller.GetAllLogs)
 		logRoute.GET("/stat", middleware.AdminAuth(), controller.GetLogsStat)
+		logRoute.GET("/overview", middleware.DisableCache(), middleware.AdminAuth(), controller.GetAdminRecentLogOverview)
 		logRoute.GET("/self/stat", middleware.UserAuth(), controller.GetLogsSelfStat)
+		logRoute.GET("/self/overview", middleware.DisableCache(), middleware.UserAuth(), controller.GetUserRecentLogOverview)
 		logRoute.GET("/channel_affinity_usage_cache", middleware.AdminAuth(), controller.GetChannelAffinityUsageCacheStats)
 		logRoute.GET("/search", middleware.AdminAuth(), controller.SearchAllLogs)
 		logRoute.GET("/self", middleware.UserAuth(), controller.GetUserLogs)

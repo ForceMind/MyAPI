@@ -17,11 +17,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import i18next from 'i18next'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { getSelf } from '@/lib/api'
+import {
+  isUserFundingUnavailableError,
+  USER_FUNDING_UNAVAILABLE_MESSAGE_KEY,
+} from '@/lib/self-use-build'
 
 import { getAffiliateCode, transferAffiliateQuota } from '../api'
 import { generateAffiliateLink } from '../lib'
@@ -36,6 +40,13 @@ export function useAffiliate() {
   const [loading, setLoading] = useState(true)
   const [transferring, setTransferring] = useState(false)
   const { copyToClipboard } = useCopyToClipboard()
+  // Idempotency key of the in-flight transfer attempt. Generated once per
+  // attempt, reused by retries of that same attempt, and cleared on success
+  // so the next attempt mints a fresh id.
+  const transferAttemptRef = useRef<{
+    quota: number
+    requestId: string
+  } | null>(null)
 
   // Fetch affiliate code
   const fetchAffiliateCode = useCallback(async () => {
@@ -63,20 +74,39 @@ export function useAffiliate() {
 
   // Transfer affiliate quota to balance
   const transferQuota = useCallback(async (quota: number): Promise<boolean> => {
+    if (
+      !transferAttemptRef.current ||
+      transferAttemptRef.current.quota !== quota
+    ) {
+      transferAttemptRef.current = { quota, requestId: crypto.randomUUID() }
+    }
+    const requestId = transferAttemptRef.current.requestId
     try {
       setTransferring(true)
-      const response = await transferAffiliateQuota({ quota })
+      const response = await transferAffiliateQuota({
+        quota,
+        request_id: requestId,
+      })
 
       if (response.success) {
+        transferAttemptRef.current = null
         toast.success(response.message || i18next.t('Transfer successful'))
         await getSelf()
         return true
       }
 
-      toast.error(response.message || i18next.t('Transfer failed'))
+      toast.error(
+        isUserFundingUnavailableError(response)
+          ? i18next.t(USER_FUNDING_UNAVAILABLE_MESSAGE_KEY)
+          : response.message || i18next.t('Transfer failed')
+      )
       return false
-    } catch (_error) {
-      toast.error(i18next.t('Transfer failed'))
+    } catch (error) {
+      toast.error(
+        isUserFundingUnavailableError(error)
+          ? i18next.t(USER_FUNDING_UNAVAILABLE_MESSAGE_KEY)
+          : i18next.t('Transfer failed')
+      )
       return false
     } finally {
       setTransferring(false)

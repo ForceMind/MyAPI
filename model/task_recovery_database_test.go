@@ -4,9 +4,12 @@ import (
 	"errors"
 	"net"
 	"os"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -144,21 +147,160 @@ func TestB2SubmissionConfiguredDatabases(t *testing.T) {
 				initCol()
 			})
 			legacy := createB2LegacyLogsFixture(t, db)
-			require.NoError(t, migrateDB())
+			createTaskQuotaLegacyFixture(t, db)
+			require.ErrorIs(t, migrateDB(), ErrLogProjectionMaintenanceRequired)
+			assertTaskQuotaLegacyFixtureMigrated(t, db)
 			assertB2RecoveryMainSchema(t, db)
-			assertB2LegacyLogsMigrated(t, db, legacy)
-			require.NoError(t, migrateDBFast())
+			assertLegacyLogsStartupRequiresMaintenance(t, db, legacy)
+			require.ErrorIs(t, migrateDBFast(), ErrLogProjectionMaintenanceRequired)
+			assertTaskQuotaLegacyFixtureMigrated(t, db)
 			assertB2RecoveryMainSchema(t, db)
+			assertLegacyLogsStartupRequiresMaintenance(t, db, legacy)
+			require.ErrorIs(t, migrateLOGDB(), ErrLogProjectionMaintenanceRequired)
+			assertLegacyLogsStartupRequiresMaintenance(t, db, legacy)
+			// The configured database fixture then models the explicit operator
+			// maintenance step before exercising online index creation and backfill.
+			require.NoError(t, EnsureLogProjectionSchemaWithDB(db))
 			assertB2LegacyLogsMigrated(t, db, legacy)
-			require.NoError(t, migrateLOGDB())
-			assertB2LegacyLogsMigrated(t, db, legacy)
+			var mysqlLockWait, mysqlInnoDBLockWait int64
+			var postgresLockTimeout string
+			if engine.name == "mysql" {
+				require.NoError(t, db.Raw("SELECT @@SESSION.lock_wait_timeout").Scan(&mysqlLockWait).Error)
+				require.NoError(t, db.Raw("SELECT @@SESSION.innodb_lock_wait_timeout").Scan(&mysqlInnoDBLockWait).Error)
+			} else {
+				require.NoError(t, db.Raw("SHOW lock_timeout").Scan(&postgresLockTimeout).Error)
+			}
+			runLogProjectionBackfillDatabaseContract(t, db)
+			if engine.name == "mysql" {
+				var restoredLockWait, restoredInnoDBLockWait int64
+				require.NoError(t, db.Raw("SELECT @@SESSION.lock_wait_timeout").Scan(&restoredLockWait).Error)
+				require.NoError(t, db.Raw("SELECT @@SESSION.innodb_lock_wait_timeout").Scan(&restoredInnoDBLockWait).Error)
+				assert.Equal(t, mysqlLockWait, restoredLockWait)
+				assert.Equal(t, mysqlInnoDBLockWait, restoredInnoDBLockWait)
+			} else {
+				var restoredLockTimeout string
+				require.NoError(t, db.Raw("SHOW lock_timeout").Scan(&restoredLockTimeout).Error)
+				assert.Equal(t, postgresLockTimeout, restoredLockTimeout)
+			}
+			runLogDedupDatabaseContract(t, db)
 			sqlDB.SetMaxOpenConns(2)
 			runB2TaskRecoveryIdentityConcurrentContract(t, db)
 			sqlDB.SetMaxOpenConns(1)
 			runB2SubmissionDatabaseContract(t, db)
 			runB2TaskOperationQueryDatabaseContract(t, db)
+			t.Run("quota-reservation", func(t *testing.T) { runTaskQuotaReservationContract(t, db) })
+			t.Run("quota-commit-acknowledgement", func(t *testing.T) { runTaskQuotaCommitAcknowledgementContract(t, db) })
+			t.Run("business-credit-receipts", func(t *testing.T) { runBusinessCreditConfiguredDatabaseContract(t, db) })
 		})
 	}
+}
+
+func runBusinessCreditConfiguredDatabaseContract(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	previousQuotaPerUnit := common.QuotaPerUnit
+	common.QuotaPerUnit = 100
+	t.Cleanup(func() { common.QuotaPerUnit = previousQuotaPerUnit })
+	configureFixedCheckinAward(t, 25)
+	setQuotaWriterStateForTest(t, db, QuotaWriterModeAuthoritative, 901)
+	var fundingState UserFundingStateSnapshot
+	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+		var err error
+		fundingState, err = InitializeUserFundingStateTx(tx, operation_setting.UserFundingModeEnabled)
+		return err
+	}))
+	require.NoError(t, PublishUserFundingState(fundingState))
+
+	users := []User{
+		{Id: 910001, Username: "b2-credit-topup", AffCode: "b2-credit-topup-aff", Status: common.UserStatusEnabled},
+		{Id: 910002, Username: "b2-credit-rollback", AffCode: "b2-credit-rollback-aff", Status: common.UserStatusEnabled},
+		{Id: 910003, Username: "b2-credit-redeem", AffCode: "b2-credit-redeem-aff", Status: common.UserStatusEnabled},
+		{Id: 910004, Username: "b2-credit-other", AffCode: "b2-credit-other-aff", Status: common.UserStatusEnabled},
+		{Id: 910005, Username: "b2-credit-checkin", AffCode: "b2-credit-checkin-aff", Status: common.UserStatusEnabled},
+	}
+	for index := range users {
+		require.NoError(t, db.Create(&users[index]).Error)
+	}
+	order := TopUp{UserId: users[0].Id, Amount: 2, Money: 2, TradeNo: "b2-credit-topup-order", PaymentMethod: "alipay", PaymentProvider: PaymentProviderEpay, Status: common.TopUpStatusPending}
+	rollbackOrder := TopUp{UserId: users[1].Id, Amount: 2, Money: 2, TradeNo: "b2-credit-rollback-order", PaymentMethod: "alipay", PaymentProvider: PaymentProviderEpay, Status: common.TopUpStatusPending}
+	// These are new synthetic orders with a known quoted unit, not unresolved
+	// historical orders. Do not bypass the production historical-order guard.
+	order.QuotaPerUnitSnapshot, rollbackOrder.QuotaPerUnitSnapshot = "100", "100"
+	require.NoError(t, db.Create(&order).Error)
+	require.NoError(t, db.Create(&rollbackOrder).Error)
+	_, err := RechargeEpayTrusted(order.TradeNo, "alipay", "127.0.0.1")
+	require.NoError(t, err)
+	alreadyDone, err := RechargeEpayTrusted(order.TradeNo, "alipay", "127.0.0.1")
+	require.NoError(t, err)
+	assert.True(t, alreadyDone)
+	var topUpReceipt UserQuotaMutationReceipt
+	eventKey, err := topUpBusinessEventKey(&order)
+	require.NoError(t, err)
+	require.NoError(t, db.Where("business_event_key = ?", eventKey).First(&topUpReceipt).Error)
+	assert.EqualValues(t, 200, topUpReceipt.Delta)
+
+	const callbackName = "test:configured_business_credit_receipt_failure"
+	require.NoError(t, db.Callback().Create().Before("gorm:create").Register(callbackName, func(tx *gorm.DB) {
+		if receipt, ok := tx.Statement.Dest.(*UserQuotaMutationReceipt); ok && receipt.UserID == users[1].Id {
+			tx.AddError(errors.New("configured receipt failure"))
+		}
+	}))
+	t.Cleanup(func() { _ = db.Callback().Create().Remove(callbackName) })
+	_, err = RechargeEpayTrusted(rollbackOrder.TradeNo, "alipay", "127.0.0.1")
+	require.Error(t, err)
+	require.NoError(t, db.Callback().Create().Remove(callbackName))
+	var storedRollback TopUp
+	require.NoError(t, db.Where("id = ?", rollbackOrder.Id).First(&storedRollback).Error)
+	assert.Equal(t, common.TopUpStatusPending, storedRollback.Status)
+	var rollbackUser User
+	require.NoError(t, db.First(&rollbackUser, users[1].Id).Error)
+	assert.Zero(t, rollbackUser.Quota)
+
+	redemption := Redemption{Name: "b2-credit-redemption", Key: "80000000000000000000000000000001", Status: common.RedemptionCodeStatusEnabled, Quota: 30}
+	require.NoError(t, db.Create(&redemption).Error)
+	_, err = Redeem(redemption.Key, users[2].Id)
+	require.NoError(t, err)
+	_, err = Redeem(redemption.Key, users[2].Id)
+	require.NoError(t, err)
+	_, err = Redeem(redemption.Key, users[3].Id)
+	require.ErrorIs(t, err, ErrUserQuotaMutationConflict)
+
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(4)
+	firstCheckin, err := UserCheckin(users[4].Id)
+	require.NoError(t, err)
+	replayedCheckin, err := UserCheckin(users[4].Id)
+	require.NoError(t, err)
+	assert.Equal(t, firstCheckin.Id, replayedCheckin.Id)
+	const checkinWorkers = 4
+	var wait sync.WaitGroup
+	errorsByWorker := make(chan error, checkinWorkers)
+	wait.Add(checkinWorkers)
+	for range checkinWorkers {
+		go func() {
+			defer wait.Done()
+			_, checkinErr := UserCheckin(users[4].Id)
+			errorsByWorker <- checkinErr
+		}()
+	}
+	wait.Wait()
+	close(errorsByWorker)
+	successes := 0
+	for checkinErr := range errorsByWorker {
+		if checkinErr == nil {
+			successes++
+		}
+	}
+	assert.Equal(t, checkinWorkers, successes)
+	var checkinCount, checkinReceiptCount int64
+	require.NoError(t, db.Model(&Checkin{}).Where("user_id = ?", users[4].Id).Count(&checkinCount).Error)
+	require.NoError(t, db.Model(&UserQuotaMutationReceipt{}).Where("business_event_key = ?", "checkin:910005:"+time.Now().Format("2006-01-02")).Count(&checkinReceiptCount).Error)
+	assert.EqualValues(t, 1, checkinCount)
+	assert.EqualValues(t, 1, checkinReceiptCount)
+	var checkinUser User
+	require.NoError(t, db.First(&checkinUser, users[4].Id).Error)
+	assert.Equal(t, 25, checkinUser.Quota)
+	sqlDB.SetMaxOpenConns(1)
 }
 
 // createB2LegacyLogsFixture builds the oldest supported B2 log shape before
@@ -195,11 +337,12 @@ func createB2LegacyLogsFixture(t *testing.T, db *gorm.DB) b2LegacyLog {
 
 func assertB2LegacyLogsMigrated(t *testing.T, db *gorm.DB, legacy b2LegacyLog) {
 	t.Helper()
-	require.True(t, db.Migrator().HasColumn(&Log{}, "BillingEventID"))
+	for _, column := range []string{"BillingEventID", "BillingProjectionDigest", "LogRowKey"} {
+		require.True(t, db.Migrator().HasColumn(&Log{}, column), "missing column %s", column)
+	}
 	for _, index := range []string{
 		"idx_logs_request_id",
 		"idx_logs_upstream_request_id",
-		"idx_logs_billing_event_id",
 	} {
 		require.True(t, db.Migrator().HasIndex(&Log{}, index), "missing index %s", index)
 	}
@@ -227,6 +370,8 @@ func assertB2LegacyLogsMigrated(t *testing.T, db *gorm.DB, legacy b2LegacyLog) {
 	assert.Equal(t, legacy.UpstreamRequestId, historical.UpstreamRequestId)
 	assert.Equal(t, legacy.Other, historical.Other)
 	assert.Empty(t, historical.BillingEventID)
+	assert.Empty(t, historical.BillingProjectionDigest)
+	assert.Empty(t, historical.LogRowKey)
 }
 
 // migrateB2LegacyLogsFixture exercises the production log migration against
@@ -236,15 +381,17 @@ func migrateB2LegacyLogsFixture(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	legacy := createB2LegacyLogsFixture(t, db)
 	require.NoError(t, db.AutoMigrate(&Log{}))
+	require.NoError(t, EnsureLogProjectionSchemaWithDB(db))
 	assertB2LegacyLogsMigrated(t, db, legacy)
 
 	// Startup migrations must remain safe to repeat after an upgrade.
 	require.NoError(t, db.AutoMigrate(&Log{}))
+	require.NoError(t, EnsureLogProjectionSchemaWithDB(db))
 	require.True(t, db.Migrator().HasTable(&Log{}))
-	require.True(t, db.Migrator().HasIndex(&Log{}, "idx_logs_billing_event_id"))
+	require.False(t, db.Migrator().HasIndex(&Log{}, "idx_logs_billing_canonical"))
 
 	current := Log{Content: "current-b2-log"}
-	require.NoError(t, db.Create(&current).Error)
+	require.NoError(t, CreateLog(db, &current))
 	require.NotZero(t, current.Id)
 	assert.NotEqual(t, legacy.Id, current.Id)
 }

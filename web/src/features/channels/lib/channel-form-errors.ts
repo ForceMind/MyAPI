@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import axios from 'axios'
 import type { FieldPath } from 'react-hook-form'
 
 import type { ChannelFormValues } from './channel-form'
@@ -67,5 +68,13 @@ export function hasAdvancedSettingsErrors(
 ): boolean {
   return Object.keys(errors).some((fieldName) =>
     isAdvancedSettingsField(fieldName)
+  )
+}
+
+export function isModelRouteConfigChanged(error: unknown): boolean {
+  return (
+    axios.isAxiosError<{ code?: string }>(error) &&
+    error.response?.status === 409 &&
+    error.response.data?.code === 'model_route_config_changed'
   )
 }

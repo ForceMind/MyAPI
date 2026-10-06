@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,6 +17,8 @@ import (
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/i18n"
+	"github.com/ForceMind/MyAPI/logger"
 	"github.com/ForceMind/MyAPI/middleware"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/pkg/billingexpr"
@@ -39,6 +42,12 @@ type testResult struct {
 	context     *gin.Context
 	localErr    error
 	newAPIError *types.NewAPIError
+}
+
+type channelTestRequest struct {
+	Model        string `json:"model"`
+	EndpointType string `json:"endpoint_type"`
+	Stream       bool   `json:"stream"`
 }
 
 func normalizeChannelTestEndpoint(channel *model.Channel, endpointType string) string {
@@ -167,7 +176,7 @@ func testChannel(ctx context.Context, channel *model.Channel, testUserID int, te
 	group, _ := model.GetUserGroup(testUserID, false)
 	c.Set("group", group)
 
-	newAPIError := middleware.SetupContextForSelectedChannel(c, channel, testModel)
+	newAPIError := middleware.SetupContextForChannelTest(c, channel, testModel)
 	if newAPIError != nil {
 		return testResult{
 			context:     c,
@@ -678,6 +687,35 @@ func shouldUseStreamForAutomaticChannelTest(channel *model.Channel) bool {
 	return channel != nil && channel.Type == constant.ChannelTypeCodex
 }
 
+// A request without manual choices is the one-click test. It replays the
+// latest successful detailed test for this channel when its model and type
+// are still current. Explicit choices never inherit stale settings.
+func resolveChannelTestOptions(channel *model.Channel, query url.Values) (model.ChannelTestOptions, error) {
+	options := model.ChannelTestOptions{
+		Model:        strings.TrimSpace(query.Get("model")),
+		EndpointType: strings.TrimSpace(query.Get("endpoint_type")),
+		ChannelType:  channel.Type,
+	}
+	options.Stream, _ = strconv.ParseBool(query.Get("stream"))
+	if query.Has("model") || query.Has("endpoint_type") || query.Has("stream") {
+		return options, nil
+	}
+
+	saved, err := model.GetLastSuccessfulChannelTestOptions(channel.Id)
+	if err != nil {
+		return options, err
+	}
+	if saved != nil && saved.ChannelType == channel.Type {
+		for _, availableModel := range channel.GetModels() {
+			if strings.TrimSpace(availableModel) == saved.Model {
+				return *saved, nil
+			}
+		}
+	}
+	options.Stream = shouldUseStreamForAutomaticChannelTest(channel)
+	return options, nil
+}
+
 func detectErrorMessageFromJSONBytes(jsonBytes []byte) string {
 	if len(jsonBytes) == 0 {
 		return ""
@@ -870,9 +908,33 @@ func TestChannel(c *gin.Context) {
 	//		go func() { _ = channel.SaveChannelInfo() }()
 	//	}
 	//}()
-	testModel := c.Query("model")
-	endpointType := c.Query("endpoint_type")
-	isStream, _ := strconv.ParseBool(c.Query("stream"))
+	var options model.ChannelTestOptions
+	rememberOnSuccess := false
+	if c.Request.Method == http.MethodPost {
+		var request channelTestRequest
+		body := http.MaxBytesReader(c.Writer, c.Request.Body, 4096)
+		if err := common.DecodeJsonStrict(body, &request); err != nil {
+			common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+			return
+		}
+		options = model.ChannelTestOptions{
+			Model:        strings.TrimSpace(request.Model),
+			EndpointType: strings.TrimSpace(request.EndpointType),
+			Stream:       request.Stream,
+			ChannelType:  channel.Type,
+		}
+		if options.Model == "" || len(options.Model) > 1024 || len(options.EndpointType) > 128 {
+			common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+			return
+		}
+		rememberOnSuccess = true
+	} else {
+		options, err = resolveChannelTestOptions(channel, c.Request.URL.Query())
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
 	testUserID, err := resolveChannelTestUserID(c)
 	if err != nil {
 		common.ApiError(c, err)
@@ -883,7 +945,7 @@ func TestChannel(c *gin.Context) {
 	if c.Request != nil {
 		requestCtx = c.Request.Context()
 	}
-	result := testChannel(requestCtx, channel, testUserID, testModel, endpointType, isStream)
+	result := testChannel(requestCtx, channel, testUserID, options.Model, options.EndpointType, options.Stream)
 	if result.localErr != nil {
 		resp := gin.H{
 			"success": false,
@@ -909,11 +971,19 @@ func TestChannel(c *gin.Context) {
 		})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
+	response := gin.H{
 		"success": true,
 		"message": "",
 		"time":    consumedTime,
-	})
+	}
+	if rememberOnSuccess {
+		response["options_saved"] = true
+		if err := model.SaveLastSuccessfulChannelTestOptions(channelId, options); err != nil {
+			logger.LogWarn(c.Request.Context(), fmt.Sprintf("successful channel test options were not saved channel_id=%d error_type=%T", channelId, err))
+			response["options_saved"] = false
+		}
+	}
+	c.JSON(http.StatusOK, response)
 }
 
 // channelTestSummary records the outcome of one channel test cycle so the
@@ -958,8 +1028,11 @@ func testChannelForHealthCheck(ctx context.Context, channel *model.Channel, test
 		summary.Failed++
 	}
 
-	if allowDisable && isChannelEnabled && shouldBanChannel && channel.GetAutoBan() {
-		processChannelError(result.context, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(result.context, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError)
+	knownUsageLimit := channel.Type == constant.ChannelTypeCodex && service.IsCodexUsageLimitError(newAPIError)
+	if knownUsageLimit {
+		_ = processChannelError(result.context, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(result.context, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError)
+	} else if allowDisable && isChannelEnabled && shouldBanChannel && channel.GetAutoBan() {
+		_ = processChannelError(result.context, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(result.context, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError)
 		summary.Disabled++
 	}
 

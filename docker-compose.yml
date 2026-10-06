@@ -17,7 +17,7 @@ version: '3.4' # For compatibility with older Docker versions
 services:
   my-api:
     # MYAPI_IMAGE is canonical. NEW_API_IMAGE is accepted for old .env files.
-    image: ${MYAPI_IMAGE:-${NEW_API_IMAGE:-ghcr.io/forcemind/myapi:v0.1.1}}
+    image: ${MYAPI_IMAGE:-${NEW_API_IMAGE:-ghcr.io/forcemind/myapi:v0.2.0-beta.7}}
     container_name: my-api
     restart: always
     # Optional safety limits; override in .env for larger installations.
@@ -54,6 +54,7 @@ services:
       - CHANNEL_QUOTA_SYNC_ENABLED=${CHANNEL_QUOTA_SYNC_ENABLED:-}
       - CHANNEL_QUOTA_SYNC_INTERVAL=${CHANNEL_QUOTA_SYNC_INTERVAL:-}
       - CHANNEL_QUOTA_SYNC_MAX_CHANNELS=${CHANNEL_QUOTA_SYNC_MAX_CHANNELS:-}
+      - CHANNEL_QUOTA_IDENTITY_KEYS=${CHANNEL_QUOTA_IDENTITY_KEYS:-}
       - CHANNEL_QUOTA_ALERT_ENABLED=${CHANNEL_QUOTA_ALERT_ENABLED:-false}
       - CHANNEL_QUOTA_ALERT_WARNING_PERCENT=${CHANNEL_QUOTA_ALERT_WARNING_PERCENT:-20}
       - CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT=${CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT:-10}

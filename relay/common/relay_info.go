@@ -81,6 +81,9 @@ type TokenCountMeta struct {
 }
 
 type RelayInfo struct {
+	ConfirmedAPIUsageCost map[string]string
+	TokenBudgetAudit      map[string]interface{}
+
 	TokenId           int
 	TokenKey          string
 	TokenGroup        string
@@ -123,7 +126,8 @@ type RelayInfo struct {
 	ForcePreConsume bool
 	// Billing 是计费会话，封装了预扣费/结算/退款的统一生命周期。
 	// 初始免费组可为 nil；若 auto 重试切换到付费组，会在发送前创建。
-	Billing BillingSettler
+	Billing           BillingSettler
+	StrictTokenBudget bool
 	// BillingSource indicates whether this request is billed from wallet quota or subscription.
 	// "" or "wallet" => wallet; "subscription" => subscription
 	BillingSource string
@@ -138,6 +142,18 @@ type RelayInfo struct {
 	SubscriptionPlanTitle string
 	// RequestId is used for idempotent pre-consume/refund
 	RequestId string
+	// RealtimeConsumeSeq 记录 realtime 流式连接内的计费次数。同一连接的多个
+	// response.done 共享 RequestId，该序号为 authoritative 配额写入提供
+	// 稳定的按次幂等键后缀。
+	RealtimeConsumeSeq int
+	// RealtimeQuotedQuota is the cumulative quota of successfully reserved
+	// realtime segments. It extends the existing billing reservation instead
+	// of charging each segment again outside that session.
+	RealtimeQuotedQuota     int
+	RealtimeTieredPricing   *RealtimeTieredPricing
+	RealtimeCheckpoint      *hosttypes.RealtimeUsageCheckpoint
+	RealtimeUsageUnverified bool
+	RealtimeReportedUsage   bool
 	// SubscriptionAmountTotal / SubscriptionAmountUsedAfterPreConsume are used to compute remaining in logs.
 	SubscriptionAmountTotal               int64
 	SubscriptionAmountUsedAfterPreConsume int64
@@ -184,6 +200,20 @@ type RelayInfo struct {
 	*ResponsesUsageInfo
 	*ChannelMeta
 	*TaskRelayInfo
+}
+
+// RealtimeTieredPricing holds bounded totals, not an unbounded response list.
+// Quotes remain known even if extending the billing reservation fails.
+type RealtimeTieredPricing struct {
+	Quota        int
+	Responses    int
+	InputTokens  int
+	OutputTokens int
+	TotalTokens  int
+	Incomplete   bool
+	ExprHash     string
+	QuotaPerUnit float64
+	GroupRatio   float64
 }
 
 func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
@@ -516,10 +546,11 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 
 		OriginModelName: common.GetContextKeyString(c, constant.ContextKeyOriginalModel),
 
-		TokenId:        common.GetContextKeyInt(c, constant.ContextKeyTokenId),
-		TokenKey:       common.GetContextKeyString(c, constant.ContextKeyTokenKey),
-		TokenUnlimited: common.GetContextKeyBool(c, constant.ContextKeyTokenUnlimited),
-		TokenGroup:     tokenGroup,
+		TokenId:           common.GetContextKeyInt(c, constant.ContextKeyTokenId),
+		StrictTokenBudget: common.GetContextKeyBool(c, constant.ContextKeyStrictTokenBudget),
+		TokenKey:          common.GetContextKeyString(c, constant.ContextKeyTokenKey),
+		TokenUnlimited:    common.GetContextKeyBool(c, constant.ContextKeyTokenUnlimited),
+		TokenGroup:        tokenGroup,
 
 		isFirstResponse: true,
 		RelayMode:       relayconstant.Path2RelayMode(c.Request.URL.Path),

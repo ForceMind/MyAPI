@@ -11,21 +11,42 @@ import (
 func TestTokenAutoGroupsRoundTripThroughRedisHashCache(t *testing.T) {
 	useUserCacheMiniRedis(t)
 	token := Token{
-		Id:         42,
-		UserId:     7,
-		Key:        "token-auto-groups-cache-key",
-		Name:       "auto-cache",
-		Group:      "auto",
-		AutoGroups: `["vip","default"]`,
+		Id:              42,
+		UserId:          7,
+		Key:             "token-auto-groups-cache-key",
+		Name:            "auto-cache",
+		Group:           "auto",
+		AccessProfileID: "restricted-profile",
+		AutoGroups:      `["vip","default"]`,
 	}
 
 	require.NoError(t, cacheSetTokenForTest(token))
 	cached, err := cacheGetTokenByKey(token.Key)
 	require.NoError(t, err)
 	assert.Equal(t, token.AutoGroups, cached.AutoGroups)
+	assert.Equal(t, token.AccessProfileID, cached.AccessProfileID)
 	groups, err := cached.GetAutoGroups()
 	require.NoError(t, err)
 	assert.Equal(t, []string{"vip", "default"}, groups)
+}
+
+func TestTokenCacheDropsOlderSchemaBeforeItCanLoseAccessProfile(t *testing.T) {
+	server := useUserCacheMiniRedis(t)
+	token := Token{
+		Id:              43,
+		UserId:          7,
+		Key:             "token-profile-schema-cache-key",
+		Name:            "profile-cache",
+		Group:           "default",
+		AccessProfileID: "restricted-profile",
+	}
+
+	require.NoError(t, cacheSetTokenForTest(token))
+	server.HSet(getTokenCacheKey(token.Key), "CacheSchema", "1")
+
+	_, err := cacheGetTokenByKey(token.Key)
+	require.ErrorIs(t, err, ErrQuotaWriterEpochMismatch)
+	assert.False(t, server.Exists(getTokenCacheKey(token.Key)))
 }
 
 func TestTokenUpdateSynchronouslyNarrowsPreheatedAutoGroupsCache(t *testing.T) {

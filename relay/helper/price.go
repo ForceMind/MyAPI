@@ -10,6 +10,7 @@ import (
 	"github.com/ForceMind/MyAPI/pkg/billingexpr"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/relaykit/types"
+	"github.com/ForceMind/MyAPI/service"
 	"github.com/ForceMind/MyAPI/setting/billing_setting"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	"github.com/ForceMind/MyAPI/setting/ratio_setting"
@@ -71,6 +72,11 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) hostty
 }
 
 func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens int, meta *types.TokenCountMeta) (hosttypes.PriceData, error) {
+	release, err := model.AcquirePricingRuntimeRead()
+	if err != nil {
+		return hosttypes.PriceData{}, err
+	}
+	defer release()
 	modelPrice, usePrice := ratio_setting.GetModelPrice(info.OriginModelName, false)
 
 	groupRatioInfo := HandleGroupRatio(c, info)
@@ -82,6 +88,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 	}
 
 	var preConsumedQuota int
+	var preConsumedTokens int
 	var modelRatio float64
 	var completionRatio float64
 	var cacheRatio float64
@@ -93,7 +100,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 	var audioCompletionRatio float64
 	var freeModel bool
 	if !usePrice {
-		preConsumedTokens := common.Max(promptTokens, common.PreConsumedQuota)
+		preConsumedTokens = common.Max(promptTokens, common.PreConsumedQuota)
 		if meta.MaxTokens != 0 {
 			preConsumedTokens += meta.MaxTokens
 		}
@@ -165,6 +172,15 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		CacheCreation1hRatio: cacheCreationRatio1h,
 		QuotaToPreConsume:    preConsumedQuota,
 	}
+	if err := priceData.CapturePreConsumeTokens(preConsumedTokens); err != nil {
+		return hosttypes.PriceData{}, err
+	}
+	if err := priceData.CaptureQuotaUnit(common.QuotaPerUnit); err != nil {
+		return hosttypes.PriceData{}, err
+	}
+	if err := priceData.CaptureToolPrices(operation_setting.CaptureToolPricesForModel(info.OriginModelName)); err != nil {
+		return hosttypes.PriceData{}, err
+	}
 	if usePrice {
 		for name, ratio := range meta.BillingRatios {
 			priceData.AddOtherRatio(name, ratio)
@@ -186,6 +202,11 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 
 // ModelPriceHelperPerCall 按次/按量计费的 PriceHelper (MJ、Task)
 func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (hosttypes.PriceData, error) {
+	release, err := model.AcquirePricingRuntimeRead()
+	if err != nil {
+		return hosttypes.PriceData{}, err
+	}
+	defer release()
 	groupRatioInfo := HandleGroupRatio(c, info)
 
 	modelPrice, success := ratio_setting.GetModelPrice(info.OriginModelName, true)
@@ -250,10 +271,21 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (hostt
 		Quota:          quota,
 		GroupRatioInfo: groupRatioInfo,
 	}
+	if err := priceData.CaptureQuotaUnit(common.QuotaPerUnit); err != nil {
+		return hosttypes.PriceData{}, err
+	}
+	if err := priceData.CaptureToolPrices(operation_setting.CaptureToolPricesForModel(info.OriginModelName)); err != nil {
+		return hosttypes.PriceData{}, err
+	}
 	return priceData, nil
 }
 
 func HasModelBillingConfig(modelName string) bool {
+	release, err := model.AcquirePricingRuntimeRead()
+	if err != nil {
+		return false
+	}
+	defer release()
 	if _, ok := ratio_setting.GetModelPrice(modelName, false); ok {
 		return true
 	}
@@ -324,12 +356,25 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, promptT
 		ExprVersion:               billingexpr.ExprVersion(exprStr),
 	}
 	info.TieredBillingSnapshot = snapshot
+	if published, ok := model.PublishedModelPriceForExpression(info.OriginModelName, exprStr); ok {
+		snapshot.OfficialPricePublicationID = published.PublicationID
+		snapshot.OfficialPriceSourceSHA256 = published.SourceSHA256
+	}
 	info.BillingRequestInput = &requestInput
+	if err := service.ValidatePublishedPriceRequest(info); err != nil {
+		return hosttypes.PriceData{}, err
+	}
 
 	priceData := hosttypes.PriceData{
 		FreeModel:         freeModel,
 		GroupRatioInfo:    groupRatioInfo,
 		QuotaToPreConsume: preConsumedQuota,
+	}
+	if err := priceData.CaptureQuotaUnit(snapshot.QuotaPerUnit); err != nil {
+		return hosttypes.PriceData{}, err
+	}
+	if err := priceData.CaptureToolPrices(operation_setting.CaptureToolPricesForModel(info.OriginModelName)); err != nil {
+		return hosttypes.PriceData{}, err
 	}
 
 	logger.LogDebug(c, "model_price_helper_tiered result: model=%s preConsume=%d quotaBeforeGroup=%.2f groupRatio=%.2f tier=%s", info.OriginModelName, preConsumedQuota, quotaBeforeGroup, groupRatioInfo.GroupRatio, trace.MatchedTier)

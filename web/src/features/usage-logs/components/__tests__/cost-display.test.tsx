@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import i18next from 'i18next'
 import type React from 'react'
 import { beforeAll, describe, expect, test } from 'vitest'
@@ -36,12 +37,91 @@ function normalizedText(value: string | null): string {
 }
 
 describe('log cost display', () => {
+  test('published tariff amounts remain reference costs on API and subscription records', () => {
+    const reference = {
+      publication_id: 'a'.repeat(64),
+      source_sha256: 'b'.repeat(64),
+      expression_sha256: 'c'.repeat(64),
+      scope: 'reference_tariff_not_upstream_invoice',
+    }
+    const view = renderCost({
+      quota: 12500,
+      other: { official_price_source: reference },
+    })
+    expect(screen.getByText('Reference cost')).toBeInTheDocument()
+    view.rerender(
+      <LogCostDisplay
+        quota={12500}
+        other={{
+          official_price_source: reference,
+          billing_source: 'subscription',
+        }}
+      />
+    )
+    expect(screen.getByText('Reference cost')).toBeInTheDocument()
+    expect(screen.getByText('Subscription')).toBeInTheDocument()
+  })
   beforeAll(() => {
     i18next.addResourceBundle('en', 'translation', {
       Subscription: 'Subscription',
       'Deducted by subscription': 'Deducted by subscription',
       'Includes tool-call surcharge': 'Includes tool-call surcharge',
     })
+  })
+
+  test('shows an estimate marker beside a nonzero cost', () => {
+    renderCost({ quota: 12500, other: { usage_accuracy: 'estimated' } })
+    expect(screen.getByText('Estimated usage')).toBeInTheDocument()
+  })
+
+  test('shows unknown usage even when the recorded cost is zero', () => {
+    renderCost({ quota: 0, other: { usage_accuracy: 'unknown' } })
+    expect(screen.getByText('Usage unknown')).toBeInTheDocument()
+  })
+
+  test('shows pending review instead of a zero actual charge', () => {
+    const rendered = renderCost({
+      quota: 0,
+      other: {
+        settlement_status: 'pending_review',
+        actual_quota: null,
+        usage_accuracy: 'unknown',
+      },
+    })
+    expect(screen.getByText('Usage pending review')).toBeInTheDocument()
+    expect(
+      normalizedText(rendered.container.textContent).includes(
+        normalizedText(formatLogQuota(0))
+      )
+    ).toBe(false)
+  })
+
+  test('does not treat old records without provenance as confirmed usage', () => {
+    renderCost({ quota: 12500, other: null })
+    expect(screen.getByText('Usage provenance unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('Reported usage')).not.toBeInTheDocument()
+  })
+
+  test('does not interpret unrecognized provenance as reported usage', () => {
+    renderCost({ quota: 12500, other: { usage_accuracy: 'invalid-source' } })
+    expect(screen.getByText('Usage provenance unavailable')).toBeInTheDocument()
+  })
+
+  test('explains reported usage through a keyboard-accessible tooltip', async () => {
+    const user = userEvent.setup()
+    renderCost({ quota: 12500, other: { usage_accuracy: 'reported' } })
+    await user.tab()
+    expect(screen.getByText('Reported usage')).toHaveFocus()
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'Token usage was reported by upstream; the provider bill has not been reconciled.'
+    )
+  })
+
+  test('keeps provenance out of non-consumption costs', () => {
+    renderCost({ quota: 12500, other: null, showUsageAccuracy: false })
+    expect(
+      screen.queryByText('Usage provenance unavailable')
+    ).not.toBeInTheDocument()
   })
 
   test('keeps the regular cost visible and adds an accessible surcharge marker', () => {
@@ -80,4 +160,14 @@ describe('log cost display', () => {
       screen.getByRole('img', { name: 'Includes tool-call surcharge' })
     ).toHaveAttribute('data-tool-surcharge-indicator', 'true')
   })
+})
+
+test('self-use metering never presents its internal units as a wallet deduction', () => {
+  renderCost({
+    quota: 100,
+    other: { billing_source: 'self_use', usage_accuracy: 'reported' },
+  })
+  expect(screen.getByText('Self-use metering')).toBeVisible()
+  expect(screen.getByText('100 Internal usage units')).toBeVisible()
+  expect(screen.queryByText(formatLogQuota(100))).not.toBeInTheDocument()
 })

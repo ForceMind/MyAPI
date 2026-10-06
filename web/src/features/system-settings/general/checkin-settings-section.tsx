@@ -41,7 +41,12 @@ import {
 } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
-import { useUpdateOption } from '../hooks/use-update-option'
+import {
+  toTypedBulkItem,
+  useTypedBulkRevision,
+  useUpdateTypedBulkOptions,
+} from '../hooks/use-typed-bulk-options'
+import type { TypedBulkOptionItem } from '../types'
 
 const schema = z.object({
   enabled: z.boolean(),
@@ -61,7 +66,8 @@ export function CheckinSettingsSection({
   }
 }) {
   const { t } = useTranslation()
-  const updateOption = useUpdateOption()
+  const updateTypedBulk = useUpdateTypedBulkOptions()
+  useTypedBulkRevision()
 
   const form = useForm<Values>({
     resolver: zodResolver(schema) as unknown as Resolver<Values>,
@@ -76,37 +82,26 @@ export function CheckinSettingsSection({
   const enabled = form.watch('enabled')
 
   async function onSubmit(values: Values) {
-    const updates: Array<{ key: string; value: string }> = []
+    const items: TypedBulkOptionItem[] = []
 
     if (values.enabled !== defaultValues.enabled) {
-      updates.push({
-        key: 'checkin_setting.enabled',
-        value: String(values.enabled),
-      })
+      items.push(toTypedBulkItem('checkin_setting.enabled', values.enabled))
     }
 
     if (values.minQuota !== defaultValues.minQuota) {
-      updates.push({
-        key: 'checkin_setting.min_quota',
-        value: String(values.minQuota),
-      })
+      items.push(toTypedBulkItem('checkin_setting.min_quota', values.minQuota))
     }
 
     if (values.maxQuota !== defaultValues.maxQuota) {
-      updates.push({
-        key: 'checkin_setting.max_quota',
-        value: String(values.maxQuota),
-      })
+      items.push(toTypedBulkItem('checkin_setting.max_quota', values.maxQuota))
     }
 
-    if (updates.length === 0) {
+    if (items.length === 0) {
       toast.info(t('No changes to save'))
       return
     }
 
-    for (const update of updates) {
-      await updateOption.mutateAsync(update)
-    }
+    await updateTypedBulk.mutateAsync(items)
 
     form.reset(values)
   }
@@ -117,7 +112,7 @@ export function CheckinSettingsSection({
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)} autoComplete='off'>
           <SettingsPageFormActions
             onSave={form.handleSubmit(onSubmit)}
-            isSaving={updateOption.isPending || isSubmitting}
+            isSaving={updateTypedBulk.isPending || isSubmitting}
             isSaveDisabled={!isDirty}
             saveLabel='Save check-in settings'
           />
@@ -138,7 +133,7 @@ export function CheckinSettingsSection({
                   <Switch
                     checked={field.value}
                     onCheckedChange={field.onChange}
-                    disabled={updateOption.isPending || isSubmitting}
+                    disabled={updateTypedBulk.isPending || isSubmitting}
                   />
                 </FormControl>
               </SettingsSwitchItem>

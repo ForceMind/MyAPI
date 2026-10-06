@@ -20,13 +20,11 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import {
   ArrowRight,
-  BookOpen,
   Check,
   ChevronDown,
   ChevronUp,
   Circle,
   Copy,
-  CreditCard,
   FileText,
   KeyRound,
   ListChecks,
@@ -64,11 +62,12 @@ import {
   useDashboardContentVisibility,
 } from '../../hooks/use-status-data'
 import { resolveSetupGuideExpanded } from '../../lib/setup-guide'
-import { AnnouncementsPanel } from './announcements-panel'
 import { AccountQuotaChangesPanel } from './account-quota-changes-panel'
+import { AnnouncementsPanel } from './announcements-panel'
 import { ApiInfoPanel } from './api-info-panel'
 import { FAQPanel } from './faq-panel'
 import { PerformanceHealthPanel } from './performance-health-panel'
+import { RecentActivityPanel } from './recent-activity-panel'
 import { SummaryCards } from './summary-cards'
 import { UptimePanel } from './uptime-panel'
 
@@ -90,13 +89,7 @@ const SETUP_GUIDE_CODE_PATTERN = [
   '}',
 ].join('\n')
 
-type DashboardActionPath =
-  | '/keys'
-  | '/wallet'
-  | '/playground'
-  | '/channels'
-  | '/usage-logs'
-  | '/pricing'
+type DashboardActionPath = '/keys' | '/playground' | '/channels' | '/usage-logs'
 
 interface StartStep {
   title: string
@@ -139,9 +132,13 @@ function getSavedSetupGuideExpanded(userId?: number): boolean | null {
   if (typeof window === 'undefined') return null
   const storageKey = getSetupGuideStorageKey(userId)
   if (!storageKey) return null
-  const saved = window.localStorage.getItem(storageKey)
-  if (saved === 'expanded') return true
-  if (saved === 'collapsed') return false
+  try {
+    const saved = window.localStorage?.getItem(storageKey)
+    if (saved === 'expanded') return true
+    if (saved === 'collapsed') return false
+  } catch {
+    // Restricted storage must not block the overview.
+  }
   return null
 }
 
@@ -152,7 +149,14 @@ function saveSetupGuideExpanded(
   if (typeof window === 'undefined') return
   const storageKey = getSetupGuideStorageKey(userId)
   if (!storageKey) return
-  window.localStorage.setItem(storageKey, expanded ? 'expanded' : 'collapsed')
+  try {
+    window.localStorage?.setItem(
+      storageKey,
+      expanded ? 'expanded' : 'collapsed'
+    )
+  } catch {
+    // The guide still works without a persisted preference.
+  }
 }
 
 function getCurrentOrigin(): string {
@@ -494,8 +498,6 @@ export function OverviewDashboard() {
   }, [user?.id])
 
   const requestCount = Number(user?.request_count ?? 0)
-  const remainQuota = Number(user?.quota ?? 0)
-  const usedQuota = Number(user?.used_quota ?? 0)
   const isAdmin = Boolean(user?.role && user.role >= ROLE.ADMIN)
   const canReadChannels = hasPermission(user, 'channel', 'read')
 
@@ -546,24 +548,15 @@ export function OverviewDashboard() {
         ? [
             {
               title: t('Configure upstream channels'),
-              description: t('Add at least one provider channel for team traffic'),
+              description: t(
+                'Add at least one provider channel for team traffic'
+              ),
               to: '/channels' as const,
               icon: RadioTower,
               completed: (channelsQuery.data?.data?.total ?? 0) > 0,
             },
           ]
         : []),
-      ...(SELF_USE_MINIMAL
-        ? []
-        : [
-            {
-              title: t('Add credits'),
-              description: t('Keep enough balance before production traffic'),
-              to: '/wallet' as const,
-              icon: CreditCard,
-              completed: remainQuota > 0 || usedQuota > 0,
-            },
-          ]),
       {
         title: t('Send a request'),
         description: t('Verify routing with Playground or your client'),
@@ -577,10 +570,8 @@ export function OverviewDashboard() {
       channelsQuery.data?.data?.total,
       isAdmin,
       preferredKey,
-      remainQuota,
       requestCount,
       t,
-      usedQuota,
     ]
   )
 
@@ -609,16 +600,6 @@ export function OverviewDashboard() {
         to: '/usage-logs',
         icon: FileText,
       },
-      ...(SELF_USE_MINIMAL
-        ? []
-        : [
-            {
-              title: t('Pricing'),
-              description: t('Review model rates before scaling traffic'),
-              to: '/pricing' as const,
-              icon: BookOpen,
-            },
-          ]),
     ],
     [t]
   )
@@ -690,6 +671,9 @@ export function OverviewDashboard() {
 
   return (
     <div className='flex flex-col gap-4'>
+      <RecentActivityPanel />
+      <SummaryCards />
+      <AccountQuotaChangesPanel />
       {setupGuideExpanded && (
         <CardStaggerContainer className='grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
           <CardStaggerItem className='bg-card h-full overflow-hidden rounded-2xl border shadow-xs'>
@@ -708,7 +692,7 @@ export function OverviewDashboard() {
                       </h3>
                       <p className='text-muted-foreground max-w-xl text-sm leading-relaxed'>
                         {t(
-                          'A focused home for keys, balance, routing, and service health.'
+                          'A focused home for keys, usage, routing, and service health.'
                         )}
                       </p>
                     </div>
@@ -814,10 +798,6 @@ export function OverviewDashboard() {
           </CardStaggerItem>
         </CardStaggerContainer>
       )}
-      <SummaryCards />
-
-      <AccountQuotaChangesPanel />
-
       {showContentPanels && (
         <CardStaggerContainer
           className={cn(

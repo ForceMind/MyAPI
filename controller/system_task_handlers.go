@@ -24,9 +24,13 @@ import (
 func RegisterScheduledSystemTasks() {
 	service.RegisterSystemTaskHandler(channelTestHandler{})
 	service.RegisterSystemTaskHandler(modelUpdateHandler{})
+	service.RegisterSystemTaskHandler(service.OpenAIPriceCheckHandler{})
 	service.RegisterSystemTaskHandler(channelQuotaSnapshotSyncHandler{})
 	service.RegisterSystemTaskHandler(midjourneyPollHandler{})
 	service.RegisterSystemTaskHandler(asyncTaskPollHandler{})
+	service.RegisterSystemTaskHandler(taskRecoveryHandler{})
+	service.RegisterSystemTaskHandler(taskBillingOutboxHandler{})
+	service.RegisterSystemTaskHandler(logProjectionBackfillHandler{})
 }
 
 const (
@@ -111,14 +115,17 @@ func channelQuotaOptionValue(key string) string {
 }
 
 type channelQuotaSnapshotSyncSummary struct {
-	Considered      int  `json:"considered"`
-	Sampled         int  `json:"sampled"`
-	Failed          int  `json:"failed"`
-	Unsupported     int  `json:"unsupported,omitempty"`
-	Skipped         int  `json:"skipped"`
-	TimedOut        int  `json:"timed_out,omitempty"`
-	Deferred        int  `json:"deferred,omitempty"`
-	BudgetExhausted bool `json:"budget_exhausted,omitempty"`
+	Considered                   int  `json:"considered"`
+	Sampled                      int  `json:"sampled"`
+	Failed                       int  `json:"failed"`
+	Unsupported                  int  `json:"unsupported,omitempty"`
+	Skipped                      int  `json:"skipped"`
+	TimedOut                     int  `json:"timed_out,omitempty"`
+	Deferred                     int  `json:"deferred,omitempty"`
+	DeferredKeys                 int  `json:"deferred_keys,omitempty"`
+	DuplicateAccountObservations int  `json:"duplicate_account_observations,omitempty"`
+	SourceComplete               bool `json:"source_complete"`
+	BudgetExhausted              bool `json:"budget_exhausted,omitempty"`
 	// PersistFailed counts successful/failed provider observations that could
 	// not be appended to the history table. It is kept separate from Failed,
 	// which only describes an upstream balance query failure.
@@ -263,7 +270,11 @@ func (modelUpdateHandler) Run(ctx context.Context, task *model.SystemTask, runne
 		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, nil, err)
 		return
 	}
-	summary := runChannelUpstreamModelUpdateTaskOnce(ctx, payload.Manual, !payload.Manual, service.NewSystemTaskProgressReporter(task, runnerID))
+	summary, err := runChannelUpstreamModelUpdateTaskOnce(ctx, payload.Manual, !payload.Manual, service.NewSystemTaskProgressReporter(task, runnerID))
+	if err != nil {
+		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, summary, fmt.Errorf("retryable channel cache publication failure: %w", err))
+		return
+	}
 	finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, summary, nil)
 }
 
@@ -306,6 +317,127 @@ func (asyncTaskPollHandler) NewPayload() any { return nil }
 func (asyncTaskPollHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
 	summary := service.RunTaskPollingOnce(ctx, service.NewSystemTaskProgressReporter(task, runnerID))
 	finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, summary, nil)
+}
+
+// TaskRecoverySummary records the result of one task recovery pass.
+type TaskRecoverySummary struct {
+	RecoveredDispatching   int `json:"recovered_dispatching"`
+	RecoveredUnfinished    int `json:"recovered_unfinished"`
+	RecoveredBillingEvents int `json:"recovered_billing_events"`
+}
+
+type taskRecoveryHandler struct{}
+
+func (taskRecoveryHandler) Type() string { return model.SystemTaskTypeTaskRecovery }
+
+func (taskRecoveryHandler) Enabled() bool {
+	return common.IsTaskRecoveryObligationRecoveryEnabled()
+}
+
+func (taskRecoveryHandler) Interval() time.Duration {
+	if val := strings.TrimSpace(os.Getenv("TASK_RECOVERY_INTERVAL_SECONDS")); val != "" {
+		if sec, err := strconv.Atoi(val); err == nil && sec >= 5 {
+			return time.Duration(sec) * time.Second
+		}
+	}
+	return 30 * time.Second
+}
+
+func (taskRecoveryHandler) NewPayload() any { return nil }
+
+func (taskRecoveryHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
+	runner := service.NewTaskEngineRunner(service.TaskEngineConfig{
+		WorkerID: runnerID,
+	}, model.DB)
+	dispatchCount, unfinCount, billingCount, errs := runner.RunRecoveryPass(ctx)
+	summary := TaskRecoverySummary{
+		RecoveredDispatching:   dispatchCount,
+		RecoveredUnfinished:    unfinCount,
+		RecoveredBillingEvents: billingCount,
+	}
+	if len(errs) > 0 {
+		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, summary, errs[0])
+		return
+	}
+	finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, summary, nil)
+}
+
+// TaskBillingOutboxSummary records the delivery count of one outbox pass.
+type TaskBillingOutboxSummary struct {
+	DeliveredCount int `json:"delivered_count"`
+}
+
+type taskBillingOutboxHandler struct{}
+
+func (taskBillingOutboxHandler) Type() string { return model.SystemTaskTypeTaskBillingOutbox }
+
+func (taskBillingOutboxHandler) Enabled() bool {
+	return common.IsTaskRecoveryObligationRecoveryEnabled()
+}
+
+func (taskBillingOutboxHandler) Interval() time.Duration {
+	if val := strings.TrimSpace(os.Getenv("TASK_BILLING_OUTBOX_INTERVAL_SECONDS")); val != "" {
+		if sec, err := strconv.Atoi(val); err == nil && sec >= 2 {
+			return time.Duration(sec) * time.Second
+		}
+	}
+	return 10 * time.Second
+}
+
+func (taskBillingOutboxHandler) NewPayload() any { return nil }
+
+func (taskBillingOutboxHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
+	runner := service.NewTaskEngineRunner(service.TaskEngineConfig{
+		WorkerID: runnerID,
+	}, model.DB)
+	delivered, err := runner.RunOutboxPass(ctx)
+	summary := TaskBillingOutboxSummary{DeliveredCount: delivered}
+	if err != nil {
+		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, summary, err)
+		return
+	}
+	finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, summary, nil)
+}
+
+type logProjectionBackfillHandler struct{}
+
+func (logProjectionBackfillHandler) Type() string {
+	return model.SystemTaskTypeLogProjectionBackfill
+}
+
+func (logProjectionBackfillHandler) Enabled() bool {
+	return service.ShouldScheduleLogProjectionBackfill(context.Background(), model.DB)
+}
+
+func (logProjectionBackfillHandler) Interval() time.Duration { return 10 * time.Second }
+
+func (logProjectionBackfillHandler) NewPayload() any { return nil }
+
+func (logProjectionBackfillHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
+	// A task may have been queued before an operator closes the obligation gate.
+	// Re-check at execution time so gate-off never touches migration state or logs.
+	if !common.IsTaskRecoveryObligationRecoveryEnabled() {
+		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, service.LogProjectionBackfillBatchResult{
+			Status: "gate_off",
+			NoOp:   true,
+		}, nil)
+		return
+	}
+
+	result, err := service.RunLogProjectionBackfillBatch(
+		ctx,
+		model.DB,
+		model.LOG_DB,
+		task.TaskID,
+		runnerID,
+		task.FenceToken,
+		service.DefaultLogProjectionBackfillBatchSize,
+	)
+	if err != nil {
+		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, result, err)
+		return
+	}
+	finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, result, nil)
 }
 
 func finishSystemTaskHandler(task *model.SystemTask, runnerID string, status model.SystemTaskStatus, result any, runErr error) {

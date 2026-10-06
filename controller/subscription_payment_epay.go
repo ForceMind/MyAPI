@@ -11,6 +11,7 @@ import (
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/service"
+	"github.com/ForceMind/MyAPI/setting"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
@@ -63,7 +64,8 @@ func SubscriptionRequestEpay(c *gin.Context) {
 		}
 	}
 
-	callBackAddress := service.GetCallbackAddress()
+	paymentConfig := setting.CapturePaymentConfig()
+	callBackAddress := service.GetCallbackAddressFromPaymentConfig(paymentConfig)
 	returnUrl, err := url.Parse(callBackAddress + "/api/subscription/epay/return")
 	if err != nil {
 		common.ApiErrorMsg(c, "回调地址配置错误")
@@ -78,7 +80,7 @@ func SubscriptionRequestEpay(c *gin.Context) {
 	tradeNo := fmt.Sprintf("%s%d", common.GetRandomString(6), time.Now().Unix())
 	tradeNo = fmt.Sprintf("SUBUSR%dNO%s", userId, tradeNo)
 
-	client := GetEpayClient()
+	client := GetEpayClient(paymentConfig)
 	if client == nil {
 		common.ApiErrorMsg(c, "当前管理员未配置支付信息")
 		return
@@ -94,7 +96,7 @@ func SubscriptionRequestEpay(c *gin.Context) {
 		CreateTime:      time.Now().Unix(),
 		Status:          common.TopUpStatusPending,
 	}
-	if err := order.Insert(); err != nil {
+	if err := order.Insert(userFundingEpoch(c)); err != nil {
 		common.ApiErrorMsg(c, "创建订单失败")
 		return
 	}
@@ -108,7 +110,7 @@ func SubscriptionRequestEpay(c *gin.Context) {
 		ReturnUrl:      returnUrl,
 	})
 	if err != nil {
-		_ = model.ExpireSubscriptionOrder(tradeNo, model.PaymentProviderEpay)
+		_ = model.ExpireSubscriptionOrderTrusted(tradeNo, model.PaymentProviderEpay)
 		common.ApiErrorMsg(c, "拉起支付失败")
 		return
 	}
@@ -116,6 +118,7 @@ func SubscriptionRequestEpay(c *gin.Context) {
 }
 
 func SubscriptionEpayNotify(c *gin.Context) {
+	paymentConfig := setting.CapturePaymentConfig()
 	var params map[string]string
 
 	if c.Request.Method == "POST" {
@@ -141,9 +144,9 @@ func SubscriptionEpayNotify(c *gin.Context) {
 		return
 	}
 
-	client := GetEpayClient()
+	client := GetEpayClient(paymentConfig)
 	if client == nil {
-		_, _ = c.Writer.Write([]byte("fail"))
+		c.Status(http.StatusGone)
 		return
 	}
 	verifyInfo, err := client.Verify(params)
@@ -152,15 +155,24 @@ func SubscriptionEpayNotify(c *gin.Context) {
 		return
 	}
 
-	if verifyInfo.TradeStatus != epay.StatusTradeSuccess {
+	decision, decisionErr := service.DecideUserFundingWebhook(verifyInfo.ServiceTradeNo, model.PaymentProviderEpay)
+	if decisionErr != nil {
 		_, _ = c.Writer.Write([]byte("fail"))
+		return
+	}
+	if !decision.ShouldSettle() || decision.Kind() != service.UserFundingOrderSubscription || verifyInfo.TradeStatus != epay.StatusTradeSuccess {
+		_, _ = c.Writer.Write([]byte("success"))
 		return
 	}
 
 	LockOrder(verifyInfo.ServiceTradeNo)
 	defer UnlockOrder(verifyInfo.ServiceTradeNo)
 
-	if err := model.CompleteSubscriptionOrder(verifyInfo.ServiceTradeNo, common.GetJsonString(verifyInfo), model.PaymentProviderEpay, verifyInfo.Type); err != nil {
+	if err := model.CompleteSubscriptionOrder(verifyInfo.ServiceTradeNo, common.GetJsonString(verifyInfo), model.PaymentProviderEpay, verifyInfo.Type, decision); err != nil {
+		if service.IsUserFundingWebhookAcknowledge(err) {
+			_, _ = c.Writer.Write([]byte("success"))
+			return
+		}
 		_, _ = c.Writer.Write([]byte("fail"))
 		return
 	}
@@ -171,6 +183,7 @@ func SubscriptionEpayNotify(c *gin.Context) {
 // SubscriptionEpayReturn handles browser return after payment.
 // It verifies the payload and completes the order, then redirects to console.
 func SubscriptionEpayReturn(c *gin.Context) {
+	paymentConfig := setting.CapturePaymentConfig()
 	var params map[string]string
 
 	if c.Request.Method == "POST" {
@@ -196,7 +209,7 @@ func SubscriptionEpayReturn(c *gin.Context) {
 		return
 	}
 
-	client := GetEpayClient()
+	client := GetEpayClient(paymentConfig)
 	if client == nil {
 		c.Redirect(http.StatusFound, paymentReturnPath("/wallet?pay=fail"))
 		return
@@ -206,10 +219,19 @@ func SubscriptionEpayReturn(c *gin.Context) {
 		c.Redirect(http.StatusFound, paymentReturnPath("/wallet?pay=fail"))
 		return
 	}
+	decision, decisionErr := service.DecideUserFundingWebhook(verifyInfo.ServiceTradeNo, model.PaymentProviderEpay)
+	if decisionErr != nil {
+		c.Redirect(http.StatusFound, paymentReturnPath("/wallet?pay=fail"))
+		return
+	}
 	if verifyInfo.TradeStatus == epay.StatusTradeSuccess {
+		if !decision.ShouldSettle() || decision.Kind() != service.UserFundingOrderSubscription {
+			c.Redirect(http.StatusFound, paymentReturnPath("/wallet?pay=fail"))
+			return
+		}
 		LockOrder(verifyInfo.ServiceTradeNo)
 		defer UnlockOrder(verifyInfo.ServiceTradeNo)
-		if err := model.CompleteSubscriptionOrder(verifyInfo.ServiceTradeNo, common.GetJsonString(verifyInfo), model.PaymentProviderEpay, verifyInfo.Type); err != nil {
+		if err := model.CompleteSubscriptionOrder(verifyInfo.ServiceTradeNo, common.GetJsonString(verifyInfo), model.PaymentProviderEpay, verifyInfo.Type, decision); err != nil {
 			c.Redirect(http.StatusFound, paymentReturnPath("/wallet?pay=fail"))
 			return
 		}

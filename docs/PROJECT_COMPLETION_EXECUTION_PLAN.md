@@ -1,8 +1,34 @@
 # My API 全项目完成执行计划与交接基线
 
+> 2026-10-04 最新入口：[完整分版本计划](MYAPI_MASTER_PLAN.md)、[当前交接](NEXT_SESSION_HANDOFF.md)。本文件保留详细合同和历史成果，不按下方旧范围/阶段重启全项目。当前beta.3已预发布，下一建议版beta.4收口模型发现、识别与基础路由；先核对实际代码和可复用证据。
+
+> 2026-09-15 首个预发布范围和执行顺序见 [完整首个预发布执行计划](FULL_PRERELEASE_EXECUTION_PLAN.md)。本文件继续提供详细需求/业务契约和历史证据；不再以旧 gate-off 子范围作为首版完成标准。生产启用仍需明确授权。
+
 编制日期：2026-09-05；2026-09-06 纳入 Full/Lite/Desktop 定位、S5-P 提示词学习与版本中心、统一发行/安装/更新 P0 合同。适用源码目录：`/root/myapi`。
 
 本文是负责人要求的新一轮完整计划，供新对话实施；编制本文件不等于下面所有设计已获批准或功能已经实现。已确认的 B2-0 合同继续有效；标为“建议”的商业、恢复和产品选择须在相应阶段落实为决策记录。本文不授权部署、发布、生产操作或处理历史真实账务。
+
+## 2026-09-13 WP3-A durable 基础交接（优先于早期 WP3 待处理表述）
+
+- 实施分支保持 `codex/mac-durable-accounting`；WP3-A 基线为 `73dc53d`，代码提交为 `522bce4b125ccd91c391f7bcbb7e9a935fa17731`。该精确 SHA 的 CI 仍待推送后触发。
+- WP3-A 只关闭原 Redis 投影 P1 的 **durable 基础**，不表示 Redis 全写入迁移、真实切换或生产资格完成。已落盘并经 Sol 独立复审的 target-aware planner 采用 fail-closed 行为。
+- 已落盘的基础包括：`QuotaWriterEpoch` 的 legacy / bridge / authoritative 状态；durable mode 互斥；batch cache fail-closed；receipt 与同一事务内 projection obligation；Redis epoch + QV hydrate；生产 obligation recovery `SystemTask`；以及 manual backoff / repair。
+- Terra 已完成 model/service 的完整验证，以及 race、`go vet`、`relaykit` 独立构建、SQLite 和 miniredis 验证。MySQL 5.7、PostgreSQL 9.6 与真实 Redis 尚未验证。
+- legacy writer 注册尚未迁移，cluster drain / inflight proof 缺失。因此不得切换至 authoritative，也不得开启 gate。Linux、生产和 M6 仍未授权。
+- 下一执行点为 WP3-B/C：先迁移普通 `BillingSession`、`User` + `Token` 的 reserve / settle / refund 与 batch queue，再处理充值、兑换、签到、admin 和 subscription credits。
+
+## 0. 2026-09-12 最新执行分支与授权交接（优先于历史状态）
+
+本节为 2026-09-12 的历史交接；2026-09-13 WP3-A 状态以其上方记录为准。下文的旧分支、旧 SHA、2026-09-05/06 状态和历史“待决定”描述保留作证据，不覆盖对应日期的交接。
+
+- 当前实施分支为 `codex/mac-durable-accounting`；WP2-B 基线为 `953428d6b2b85a6230ed01e3efa2b214f6222ba5`，本地代码提交为 `33e14c063a3c9128f48f3acf9a0cd0e8683afb19`。精确 SHA CI 待推送后触发。
+- PR #1 于 2026-09-08 合入 `main` 及其 CI、Mac 44 项 CLI 纯逻辑测试均为历史证据。WP2-B 已通过 Sol 最终独立审查，以及 Terra 181 项定向测试、4 项 race、`go vet`、`relaykit` 独立构建和 SQLite 验证；这些均不代替 MySQL 5.7、PostgreSQL 9.6 和 ClickHouse 24.8 实库验证。
+- 用户已授权首批按顺序实施：保持 **B3-A1 gate-off**，先做 **T1 reserve + receipt**，再做直接相关的 **B2/B3/C03b** 与配置。不得不完整重做 UI；不得部署 Linux、发布、使用真实数据或执行真实切换。
+- 用户在本次授权下选定 D02/D03 建议值：主库是唯一可消费权威，Redis 是可重建投影；历史无法证明的差异进入人工核查，不自动扣款、退款、补扣或补退。该选择不是历史迁移已经执行的声明。真实切换必须先完成验收并取得单独明确授权。
+- 本机已知为 Go 1.27、Bun 1.4、Node 26.7，尚未整体验收；`Docker` 不在 `PATH`。资源按 `GOMAXPROCS=1`、`GOMEMLIMIT=768MiB` 串行控制。本机没有已确认的 `systemd` 硬限额，不能将这些 Go 设置表述为整个进程组硬限制。
+- 已完成的本机验证以 WP2-B 审计节为准；MySQL 5.7、PostgreSQL 9.6、ClickHouse 24.8 实库验证和精确 SHA CI 仍待执行。
+- 规划模型为 Sol/high（ultra 当前不可用）；实际由主代理协调，文档工作为 Terra/medium，后续安排独立审查。持久 Goal 曾被创建，但当前文档交接不以其证明任何新实现或验收。
+
 
 ## 1. 阅读路径、事实来源与最终目标
 
@@ -725,3 +751,62 @@ ID / 名称 / 状态：未开始、进行中、待验证、审查未通过、已
 7. C03b-0 决定后进入 B3-A，按第 4 节关键路径持续完成。每个阶段保留完整终态目标，不将较容易通过的子集当作全项目完成。
 
 本计划编制完成的标准只是“新执行者能定位现场、理解合同、知道下一步和全部退出条件”，不表示项目功能完成。
+
+---
+
+## 2026-09-12 Mac durable accounting 审计（优先于本次范围内的早期完成表述）
+
+本记录保留早期历史证据，但以 2026-09-12 的当前代码、独立审查和已执行验证为准；不得把 gate-off 代码、SQLite 验证或历史 CI 写成生产切换或外部方言验收。
+
+### 基线、范围和状态口径
+
+- 分支：`codex/mac-durable-accounting`；本次 WP2-B 基线为 `953428d6b2b85a6230ed01e3efa2b214f6222ba5`，代码提交为 `33e14c063a3c9128f48f3acf9a0cd0e8683afb19`。
+- `33e14c063a3c9128f48f3acf9a0cd0e8683afb19` 的精确 SHA CI 尚待推送后触发；远端仍在基线时，历史 `main` 或基线 CI 均不能替代该证据。`VERSION` 保持 `0.1.1`。
+- 阶段状态固定拆分为：**代码**、**接线**、**验证**、**生产启用**。2026-09-12 时，M1-M4 的 gate-off 代码和接线已落盘并完成本机验证，M5 的 P1-1 Redis 投影与权威全写入仍待 WP3；2026-09-13 WP3-A durable 基础状态以本文件优先记录为准；M6 未授权。
+- D02（主库唯一可消费权威、Redis 可重建投影）与 D03（历史不明差异人工核查）已决定，但尚未切换或执行历史迁移。
+- 默认 gate 保持关闭。Linux、生产、M6 真实切换、发布、真实数据处理和 UI 重做均未获授权。
+
+### Phase A / WP1、WP2-A 与 WP2-B 状态
+
+Phase A / WP1 历史记录保留：`da6a59a` 为代码基础，文档基础为 `ba80b8b`。P1-2 固定 wallet、P1-6 Task candidate 原子落库及恢复、P1-7 quota clamp 后拒绝上游请求已在该基础上落盘。
+
+WP2-A-core `779901cf0a2f3a793980785ee6b5612fc58a575b` 与 WP2-A-entry `f9bd6c04b1153390d2d9a0e423480925dc4e5c9d` 已完成 P1-3/P1-4/P1-5 的 durable core 和全部 polling/realtime terminal 入口。WP2-B `33e14c063a3c9128f48f3acf9a0cd0e8683afb19` 已完成日志 `billing_event` 消费去重，并落盘：
+
+- 稳定 canonical、row key 和 digest；
+- event 清理、关系库/ClickHouse quarantine 与轻量 startup fail-closed；
+- 持久 backfill 的 SystemTask、fence 和索引阶段；
+- ClickHouse identity 与 materialize 恢复。
+
+P1（必须先修复）：
+
+1. P1-1 Redis 投影与权威全写入：2026-09-12 时未处理，归入 WP3；2026-09-13 WP3-A 已关闭其 durable 基础，writer 迁移、cluster drain / inflight proof 与 authoritative/gate 条件仍未完成。
+2. P1-2 固定 wallet：已在 `da6a59a` 基础上落盘。
+3. P1-3 终态先落库后结算、失败后不可恢复：已在 WP2-A-core/WP2-A-entry 落盘。
+4. P1-4 统计漏记或出现负减：已在 WP2-A-core/WP2-A-entry 落盘。
+5. P1-5 Outbox 在事务外创建且错误被吞掉：已在 WP2-A-core/WP2-A-entry 落盘。
+6. P1-6 Task candidate 非原子落库及恢复不完整：已在 `da6a59a` 基础上落盘。
+7. P1-7 quota clamp 后仍继续请求上游：已在 `da6a59a` 基础上落盘。
+
+P2（随后处理）：
+
+1. 日志 `billing_event` 消费去重：当前代码完成；MySQL 5.7、PostgreSQL 9.6 和 ClickHouse 24.8 实库验证待验。
+2. settlement/refund 静默截断：core 已关闭。
+
+### 验证、CI 和授权边界
+
+- Sol 已完成 WP2-B 最终独立审查。
+- Terra 已通过 181 项定向测试、4 项 race、`go vet`、`relaykit` 独立构建和 SQLite 验证。
+- MySQL 5.7、PostgreSQL 9.6 和 ClickHouse 24.8 实库验证尚未执行；`33e14c063a3c9128f48f3acf9a0cd0e8683afb19` 的精确 SHA CI 待推送。上述待验项不影响“当前代码完成”的 P2 标记，但阻止外部方言验收和生产资格表述。
+
+### 后续工作包与职责
+
+| 工作包 | 目标 | 责任 |
+| --- | --- | --- |
+| WP1 correctness | `da6a59a` / `ba80b8b` 记录的基础：P1-2、P1-6、P1-7 已落盘 | Sol 主要实现；Terra 测试/文档；主代理复核 |
+| WP2-A-core | `779901cf0a2f3a793980785ee6b5612fc58a575b`：P1-3 原子账务、terminal observation/recovery core，P1-4 统计证据，P1-5 三 mutation Outbox | Sol 主要实现；Terra 测试/文档；主代理复核 |
+| WP2-A-entry | `f9bd6c04b1153390d2d9a0e423480925dc4e5c9d`（core `779901c`）：完成全部 polling/realtime terminal 入口，并修复 legacy safety 边界 | Sol 主要实现；Terra 测试/文档；主代理复核 |
+| WP2-B | `33e14c063a3c9128f48f3acf9a0cd0e8683afb19`：日志消费去重、canonical/row key/digest、quarantine、backfill/recovery；当前代码完成，外部方言待验 | Sol 主要实现；Terra 测试/文档；主代理复核 |
+| WP3-A C03b durable 基础 | `73dc53d..522bce4b125ccd91c391f7bcbb7e9a935fa17731`：P1-1 durable 基础、epoch/mode/obligation/recovery 与 fail-closed planner 已落盘；不得 authoritative 或开 gate | Sol 独立复审；Terra 完整 model/service、race/vet/relaykit/SQLite/miniredis 验证；主代理复核 |
+| WP3-B/C | 迁移普通 `BillingSession`、`User` + `Token` reserve / settle / refund 与 batch queue；随后充值、兑换、签到、admin、subscription credits | Sol 主要实现；Terra 测试/文档；主代理复核 |
+| WP4 恢复操作面 | 提供安全、可审计的恢复和人工处置入口 | Sol 主要实现；Terra 测试/文档；主代理复核 |
+| WP5 独立验证与计划同步 | 完成独立复核、外部方言/CI 证据及文档状态同步 | Terra 测试/文档；主代理最终复核 |

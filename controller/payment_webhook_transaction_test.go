@@ -6,12 +6,14 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/setting"
+	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -27,14 +29,39 @@ func paymentWebhookTestDB(t *testing.T) *gorm.DB {
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.TopUp{}, &model.Log{}, &model.SubscriptionOrder{}, &model.SubscriptionPlan{}, &model.UserSubscription{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.TopUp{}, &model.Log{}, &model.Option{}, &model.SubscriptionOrder{}, &model.SubscriptionPlan{}, &model.UserSubscription{}))
 	oldDB, oldLogDB, oldRedis := model.DB, model.LOG_DB, common.RedisEnabled
 	oldMainType, oldLogType := common.MainDatabaseType(), common.LogDatabaseType()
 	model.DB, model.LOG_DB, common.RedisEnabled = db, db, false
 	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+	require.NoError(t, model.RefreshUserQuotaBusinessSchemaCapability(db))
+	originalFunding := operation_setting.GetUserFundingSetting()
+	common.OptionMapRWMutex.Lock()
+	originalOptionMap := common.OptionMap
+	if common.OptionMap == nil {
+		common.OptionMap = map[string]string{}
+	}
+	common.OptionMapRWMutex.Unlock()
+	var fundingState model.UserFundingStateSnapshot
+	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+		var err error
+		fundingState, err = model.InitializeUserFundingStateTx(tx, operation_setting.UserFundingModeEnabled)
+		return err
+	}))
+	require.NoError(t, model.PublishUserFundingState(fundingState))
 	t.Cleanup(func() {
 		model.DB, model.LOG_DB, common.RedisEnabled = oldDB, oldLogDB, oldRedis
 		common.SetDatabaseTypes(oldMainType, oldLogType)
+		if oldDB != nil {
+			// Best-effort restore of the process-global quota schema capability
+			// to the previous main database; a stale or closed old DB fails
+			// closed, which is the safe default for later fixtures.
+			_ = model.RefreshUserQuotaBusinessSchemaCapability(oldDB)
+		}
+		require.NoError(t, operation_setting.PublishUserFundingSnapshot(originalFunding.Mode, originalFunding.Epoch))
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap = originalOptionMap
+		common.OptionMapRWMutex.Unlock()
 		require.NoError(t, sqlDB.Close())
 	})
 	require.NoError(t, db.Create(&model.User{Id: 1, Username: "webhook-fixture", Quota: 100}).Error)
@@ -90,12 +117,29 @@ func deliverStripeFixture(t *testing.T, eventType, tradeNo, status, secret strin
 	return response.Code
 }
 
+func TestStripeWebhookMissingDataObjectRejected(t *testing.T) {
+	stripeWebhookFixture(t)
+	payload := []byte(`{"id":"evt_fixture","object":"event","type":"checkout.session.completed"}`)
+	signed := webhook.GenerateTestSignedPayload(&webhook.UnsignedPayload{Payload: payload, Secret: setting.StripeWebhookSecret})
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/stripe/webhook", strings.NewReader(string(payload)))
+	request.Header.Set("Stripe-Signature", signed.Header)
+	router := gin.New()
+	router.POST("/api/stripe/webhook", StripeWebhook)
+	router.ServeHTTP(response, request)
+	assert.Equal(t, http.StatusBadRequest, response.Code)
+}
+
+func webhookFixtureQuotaUnitSnapshot() string {
+	return strconv.FormatFloat(common.QuotaPerUnit, 'g', -1, 64)
+}
+
 func TestStripeWebhookDatabaseFailureIsRetryable(t *testing.T) {
 	for _, fault := range []string{"subscription-read", "topup-read", "wallet-write", "topup-write", "commit", "failed-write", "expired-read"} {
 		t.Run(fault, func(t *testing.T) {
 			db := paymentWebhookTestDB(t)
 			stripeWebhookFixture(t)
-			order := model.TopUp{UserId: 1, TradeNo: "stripe-fixture", Money: 1, Amount: 1, PaymentProvider: model.PaymentProviderStripe, PaymentMethod: model.PaymentMethodStripe, Status: common.TopUpStatusPending}
+			order := model.TopUp{UserId: 1, TradeNo: "stripe-fixture", Money: 1, Amount: 1, PaymentProvider: model.PaymentProviderStripe, PaymentMethod: model.PaymentMethodStripe, QuotaPerUnitSnapshot: webhookFixtureQuotaUnitSnapshot(), Status: common.TopUpStatusPending}
 			require.NoError(t, db.Create(&order).Error)
 			eventType, status := "checkout.session.completed", "complete"
 			if fault == "failed-write" {
@@ -163,7 +207,7 @@ func TestStripeWebhookDatabaseFailureIsRetryable(t *testing.T) {
 func TestStripeWebhookProtectsSuccessfulAndForeignOrders(t *testing.T) {
 	db := paymentWebhookTestDB(t)
 	stripeWebhookFixture(t)
-	order := model.TopUp{UserId: 1, TradeNo: "stripe-success", Money: 1, Amount: 1, PaymentProvider: model.PaymentProviderStripe, Status: common.TopUpStatusPending}
+	order := model.TopUp{UserId: 1, TradeNo: "stripe-success", Money: 1, Amount: 1, PaymentProvider: model.PaymentProviderStripe, QuotaPerUnitSnapshot: webhookFixtureQuotaUnitSnapshot(), Status: common.TopUpStatusPending}
 	require.NoError(t, db.Create(&order).Error)
 	assert.Equal(t, http.StatusBadRequest, deliverStripeFixture(t, "checkout.session.completed", order.TradeNo, "complete", "wrong-secret"))
 	assert.Equal(t, http.StatusOK, deliverStripeFixture(t, "checkout.session.completed", order.TradeNo, "complete", setting.StripeWebhookSecret))

@@ -19,7 +19,9 @@ For commercial licensing, please contact support@quantumnous.com
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
+import { AccessPolicyDialog } from '@/features/access-policy/components/access-policy-dialog'
 
+import { UserUsagePolicyDialog } from './components/user-usage-policy-dialog'
 import { UsersDeleteDialog } from './components/users-delete-dialog'
 import { UsersMutateDrawer } from './components/users-mutate-drawer'
 import { UsersPrimaryButtons } from './components/users-primary-buttons'
@@ -28,7 +30,7 @@ import { UsersTable } from './components/users-table'
 
 function UsersContent() {
   const { t } = useTranslation()
-  const { open, setOpen, currentRow } = useUsers()
+  const { open, setOpen, currentRow, triggerRefresh } = useUsers()
 
   return (
     <>
@@ -47,6 +49,20 @@ function UsersContent() {
         onOpenChange={(isOpen) => !isOpen && setOpen(null)}
         currentRow={open === 'update' ? currentRow || undefined : undefined}
       />
+      {open === 'usage-policy' && currentRow && (
+        <UserUsagePolicyDialog
+          userId={currentRow.id}
+          onClose={() => setOpen(null)}
+          onSaved={triggerRefresh}
+        />
+      )}
+      {open === 'access-policy' && currentRow && (
+        <AccessPolicyDialog
+          userId={currentRow.id}
+          onClose={() => setOpen(null)}
+          onSaved={triggerRefresh}
+        />
+      )}
       <UsersDeleteDialog />
     </>
   )

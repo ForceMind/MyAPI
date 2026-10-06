@@ -114,7 +114,35 @@ export interface ToolSurchargeItem {
 }
 
 export interface LogOtherData {
+  official_price_source?: {
+    publication_id: string
+    source_sha256: string
+    expression_sha256: string
+    scope: string
+  }
+  settlement_status?: string
+  actual_quota?: number | null
+  reserved_quota?: number
+  usage_accuracy?: string
+  reasoning_tokens?: number
   admin_info?: {
+    token_budget?: import('./lib/token-budget-evidence').TokenBudgetEvidenceData
+    model_route?: {
+      requested_model: string
+      upstream_model: string
+      endpoint: string
+      reason: string
+      channel_id: number
+      config_digest: string
+    }
+    relay_attempts?: {
+      channel_id: number
+      key_index: number
+      upstream_model: string
+      outcome: string
+      status?: number
+      cooldown_seconds?: number
+    }[]
     is_multi_key?: boolean
     multi_key_index?: number
     use_channel?: number[]

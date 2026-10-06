@@ -14,6 +14,7 @@ import (
 	"github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/logger"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
+	relayconstant "github.com/ForceMind/MyAPI/relay/constant"
 	"github.com/ForceMind/MyAPI/service"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
 
@@ -274,6 +275,10 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 					return
 				}
 			} else {
+				if info.StrictTokenBudget && info.RelayMode == relayconstant.RelayModeChatCompletions && data != "[DONE]" {
+					info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonScannerErr, fmt.Errorf("invalid strict Chat stream terminator"))
+					return
+				}
 				info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonDone, nil)
 				logger.LogDebug(c, "received [DONE], stopping scanner")
 				return

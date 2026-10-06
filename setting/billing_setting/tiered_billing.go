@@ -1,7 +1,10 @@
 package billing_setting
 
 import (
+	"errors"
 	"fmt"
+	"math"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -24,6 +27,8 @@ type BillingSetting struct {
 	BillingMode map[string]string `json:"billing_mode"`
 	BillingExpr map[string]string `json:"billing_expr"`
 }
+
+var ErrInvalidBillingExpression = errors.New("invalid billing expression")
 
 var defaultBillingSetting = BillingSetting{
 	BillingMode: make(map[string]string),
@@ -116,6 +121,16 @@ func (s *managedBillingSetting) candidate(values map[string]string) (BillingSett
 	}
 	if err := config.UpdateConfigFromMap(&candidate, values); err != nil {
 		return BillingSetting{}, err
+	}
+	if _, updatingExpressions := values[BillingExprField]; updatingExpressions {
+		for model, expression := range candidate.BillingExpr {
+			if strings.TrimSpace(expression) == "" {
+				continue
+			}
+			if err := SmokeTestExpr(expression); err != nil {
+				return BillingSetting{}, fmt.Errorf("%w for model %q: %v", ErrInvalidBillingExpression, model, err)
+			}
+		}
 	}
 	return candidate, nil
 }
@@ -227,6 +242,9 @@ func smokeTestExpr(exprStr string) error {
 			result, _, err := billingexpr.RunExprWithRequest(exprStr, v, request)
 			if err != nil {
 				return fmt.Errorf("vector {p=%g, c=%g}: run failed: %w", v.P, v.C, err)
+			}
+			if math.IsNaN(result) || math.IsInf(result, 0) {
+				return fmt.Errorf("vector {p=%g, c=%g}: result is not finite", v.P, v.C)
 			}
 			if result < 0 {
 				return fmt.Errorf("vector {p=%g, c=%g}: result %f < 0", v.P, v.C, result)

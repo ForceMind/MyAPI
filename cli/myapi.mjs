@@ -179,6 +179,14 @@ function composeEnvironment(values) {
   ]) {
     if (values[key] !== undefined && values[key] !== '') environment[key] = values[key]
   }
+  const edition = values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION
+  const secure = values.MYAPI_SESSION_COOKIE_SECURE || (edition === 'lan' ? 'false' : 'true')
+  environment.MYAPI_SESSION_COOKIE_SECURE = secure
+  // Insecure local cookies must not carry the HTTPS-only trusted-origin list.
+  // Derive both inputs from this configuration, never from stale process env.
+  environment.MYAPI_SESSION_COOKIE_TRUSTED_URL = secure === 'true'
+    ? deploymentValue(values, 'MYAPI_PUBLIC_URL') || ''
+    : ''
   return environment
 }
 
@@ -195,6 +203,12 @@ function validateRuntimeConfiguration(values) {
   const edition = values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION
   if (!['full', 'lan'].includes(edition)) {
     errors.push('MYAPI_EDITION must be full or lan')
+  }
+  const secure = values.MYAPI_SESSION_COOKIE_SECURE || (edition === 'lan' ? 'false' : 'true')
+  if (!['true', 'false'].includes(secure)) {
+    errors.push('MYAPI_SESSION_COOKIE_SECURE must be true or false')
+  } else if (edition === 'full' && secure !== 'true') {
+    errors.push('full edition requires MYAPI_SESSION_COOKIE_SECURE=true')
   }
   const publicUrl = deploymentValue(values, 'MYAPI_PUBLIC_URL') || ''
   const lanPlaceholder =
@@ -646,6 +660,7 @@ function writeLANEnvironment(projectRoot, options) {
   contents = setEnvValue(contents, 'MYAPI_ALLOW_LAN', isLoopbackBindAddress(options.bindAddress) ? 'false' : 'true')
   contents = setEnvValue(contents, 'MYAPI_PORT', options.port)
   contents = setEnvValue(contents, 'MYAPI_SESSION_COOKIE_SECURE', 'false')
+  contents = setEnvValue(contents, 'MYAPI_SESSION_COOKIE_TRUSTED_URL', '')
   const publicHost = lanPublicHost(options.bindAddress)
   contents = setEnvValue(contents, 'MYAPI_PUBLIC_URL', `http://${publicHost}:${options.port}`)
   writeFileSync(paths.envFile, contents, { mode: 0o600 })
@@ -1057,6 +1072,7 @@ function printUpgradeDryRun(plan, args) {
     signatureVerification: plan.verifySignature ? 'requested-not-executed' : 'not-requested',
     imagePinning: plan.pinDigest ? 'requested-not-executed' : 'not-requested',
     imageResolution: plan.pinDigest ? 'digest-after-pull' : 'tag',
+    rollbackPolicy: 'manual-database-verification-after-target-start',
     checks: ['deployment-files', 'environment', 'runtime-configuration'],
     writes: [],
     dockerOperations: [],
@@ -1076,6 +1092,7 @@ function printUpgradeDryRun(plan, args) {
   )
   console.log(`Digest pinning: ${result.imagePinning === 'requested-not-executed' ? 'requested (resolved after pull)' : 'not requested'}`)
   console.log('Preflight: deployment files, environment, and runtime configuration passed.')
+  console.log('After target startup is attempted, automatic image rollback is disabled. Verify the database backup before any downgrade.')
   console.log('Next step: run the same command without --dry-run only on an approved copy.')
 }
 
@@ -1097,6 +1114,7 @@ function upgradeDeployment(args) {
   writeFileSync(backupPath, originalContents, { mode: 0o600 })
   chmodSync(backupPath, 0o600)
 
+  let targetStartAttempted = false
   try {
     const updatedContents = setEnvValue(originalContents, 'MYAPI_IMAGE', image)
     writeFileSync(paths.envFile, updatedContents, { mode: 0o600 })
@@ -1115,12 +1133,19 @@ function upgradeDeployment(args) {
       chmodSync(paths.envFile, 0o600)
     }
     updatedValues = { ...plan.targetValues, MYAPI_IMAGE: deployedImage }
+    // Compose may start the target and migrate its database before returning
+    // an error or timing out. Never restart an old binary against that data.
+    targetStartAttempted = true
     run('docker', composeArguments(paths, ['up', '-d', '--force-recreate', '--wait', '--wait-timeout', '120']), {
       cwd: paths.projectRoot,
       env: composeEnvironment(updatedValues),
     })
     console.log(`MyAPI upgraded to ${deployedImage}. Environment backup: ${backupPath}`)
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (targetStartAttempted) {
+      throw new Error(`${message}; target startup was attempted and the database may have changed; automatic image rollback was not attempted. Target configuration was retained. Inspect the deployment and restore a verified pre-upgrade database backup before starting the previous image. No database restore was performed. Original environment backup: ${backupPath}`)
+    }
     writeFileSync(paths.envFile, originalContents, { mode: 0o600 })
     chmodSync(paths.envFile, 0o600)
     let rollbackError
@@ -1133,7 +1158,6 @@ function upgradeDeployment(args) {
     } catch (rollbackFailure) {
       rollbackError = rollbackFailure
     }
-    const message = error instanceof Error ? error.message : String(error)
     if (rollbackError) {
       throw new Error(`${message}; automatic rollback failed: ${rollbackError.message}`)
     }

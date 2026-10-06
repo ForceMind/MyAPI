@@ -205,7 +205,7 @@ export function Footer(props: FooterProps) {
     <footer
       className={cn('border-border/40 relative z-10 border-t', props.className)}
     >
-      <div className='mx-auto max-w-6xl px-6 py-12 md:py-16'>
+      <div className='mx-auto max-w-6xl px-6 py-8 md:py-10'>
         <div className='flex flex-col justify-between gap-10 md:flex-row md:gap-16'>
           {/* Brand column */}
           <div className='shrink-0'>
@@ -220,7 +220,7 @@ export function Footer(props: FooterProps) {
               </span>
             </Link>
             <p className='text-muted-foreground/60 mt-3 max-w-[200px] text-xs leading-relaxed'>
-              {t('Powerful API Management Platform')}
+              {t('Self-hosted gateway')}
             </p>
           </div>
 
@@ -245,17 +245,21 @@ export function Footer(props: FooterProps) {
           )}
         </div>
 
-        {/* Copyright + optional legal links inline on the left, project
-            attribution on the right; wraps on narrow screens. */}
-        <div className='border-border/30 mt-12 flex flex-col items-center justify-between gap-x-3 gap-y-2 border-t pt-6 sm:flex-row'>
-          <div className='text-muted-foreground/40 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs sm:justify-start'>
-            <span>
-              &copy; {currentYear} {displayName}.{' '}
-              {props.copyright ?? t('footer.defaultCopyright')}
-            </span>
+        <div className='border-border/30 mt-8 flex flex-wrap items-center gap-x-2 gap-y-1 border-t pt-5 text-xs'>
+          <ProjectAttribution currentYear={currentYear} inline />
+          {props.copyright && (
+            <>
+              <span aria-hidden='true' className='text-muted-foreground/30'>
+                ·
+              </span>
+              <span className='text-muted-foreground/45'>
+                &copy; {currentYear} {displayName}. {props.copyright}
+              </span>
+            </>
+          )}
+          <div className='text-muted-foreground/45 flex flex-wrap items-center gap-x-2 gap-y-1'>
             <LegalLinks leadingSeparator />
           </div>
-          <ProjectAttribution currentYear={currentYear} />
         </div>
       </div>
     </footer>

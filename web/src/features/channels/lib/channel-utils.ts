@@ -77,7 +77,7 @@ export function getChannelTypeIcon(type: number): string {
     18: 'Spark', // Xunfei
     23: 'Hunyuan', // Tencent
     19: 'Ai360', // 360
-    25: 'Moonshot', // Moonshot
+    25: 'Kimi (Moonshot)', // Kimi (Moonshot)
     31: 'Yi', // LingYiWanWu
     35: 'Minimax', // MiniMax
     45: 'Volcengine', // VolcEngine

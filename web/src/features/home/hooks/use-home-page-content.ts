@@ -16,9 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import i18next from 'i18next'
-import { useEffect, useState } from 'react'
-import { toast } from 'sonner'
+import { useCallback, useEffect, useState } from 'react'
 
 import { isHttpUrl } from '@/lib/content-format'
 
@@ -34,51 +32,87 @@ const STORAGE_KEY = 'home_page_content'
 export function useHomePageContent(): HomePageContentResult {
   const [content, setContent] = useState<string>('')
   const [isLoaded, setIsLoaded] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const [retrying, setRetrying] = useState(false)
+  const [requestVersion, setRequestVersion] = useState(0)
+  const retry = useCallback(
+    () => setRequestVersion((version) => version + 1),
+    []
+  )
 
   useEffect(() => {
     let mounted = true
 
     const loadContent = async () => {
-      // Load from localStorage first for immediate display
-      const cached = localStorage.getItem(STORAGE_KEY)
-      if (cached && mounted) {
-        setContent(cached)
+      if (requestVersion > 0) setRetrying(true)
+      // Browser storage is an optional cache, not a prerequisite for the
+      // configured home page or the default self-hosted entry point.
+      let cached: string | null = null
+      if (requestVersion === 0) {
+        try {
+          cached = localStorage.getItem(STORAGE_KEY)
+        } catch {
+          // Private or restricted browsers may deny access to localStorage.
+        }
+        if (cached && mounted) {
+          setContent(cached)
+        }
       }
 
       try {
         const response = await getHomePageContent()
-        const { success, data } = response
-
         if (!mounted) return
 
-        if (success && data) {
-          setContent(data)
-          localStorage.setItem(STORAGE_KEY, data)
+        if (
+          response?.success &&
+          typeof response.data === 'string' &&
+          response.data
+        ) {
+          setContent(response.data)
+          setFailed(false)
+          try {
+            localStorage.setItem(STORAGE_KEY, response.data)
+          } catch {
+            // The server result remains valid without a browser cache.
+          }
         } else {
-          // Clear content if API returns empty
+          // Missing or malformed server responses are not an intentional
+          // empty custom home. Never publish stale cached administrator HTML.
           setContent('')
-          localStorage.removeItem(STORAGE_KEY)
+          setFailed(!(response?.success && response.data === ''))
+          try {
+            localStorage.removeItem(STORAGE_KEY)
+          } catch {
+            // Cache cleanup failure must not replace the default home.
+          }
         }
-      } catch (error) {
+      } catch {
         if (!mounted) return
-        // eslint-disable-next-line no-console
-        console.error('Failed to load home page content:', error)
-        toast.error(i18next.t('Failed to load home page content'))
+        // A failed authoritative read must not publish an old administrator
+        // URL or HTML page from this browser's optional cache.
+        setContent('')
+        setFailed(true)
+        try {
+          localStorage.removeItem(STORAGE_KEY)
+        } catch {
+          // Restricted storage must not prevent the safe default home.
+        }
       } finally {
         if (mounted) {
           setIsLoaded(true)
+          setRetrying(false)
         }
       }
     }
 
-    loadContent()
+    void loadContent()
 
     return () => {
       mounted = false
     }
-  }, [])
+  }, [requestVersion])
 
   const isUrl = isHttpUrl(content)
 
-  return { content, isLoaded, isUrl }
+  return { content, isLoaded, isUrl, failed, retrying, retry }
 }

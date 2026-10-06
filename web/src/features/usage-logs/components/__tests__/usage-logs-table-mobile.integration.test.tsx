@@ -16,24 +16,24 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { ReactNode } from 'react'
-import { render, screen } from '@testing-library/react'
+import { useQuery } from '@tanstack/react-query'
 import type { Cell, Table } from '@tanstack/react-table'
+import { render, screen } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
-import { useQuery } from '@tanstack/react-query'
-import { useMediaQuery } from '@/hooks'
 import { useDataTable } from '@/components/data-table'
+import { useMediaQuery } from '@/hooks'
 
-import type { UsageLog } from '../../data/schema'
 import { LOG_TYPE_ENUM } from '../../constants'
+import type { UsageLog } from '../../data/schema'
 import { UsageLogsTable } from '../usage-logs-table'
 
 /** Keep the page shell real so this test exercises DataTablePage's mobile slot. */
 vi.mock('@/components/data-table', async () => {
-  const actual = await vi.importActual<typeof import('@/components/data-table')>(
-    '@/components/data-table'
-  )
+  const actual = await vi.importActual<
+    typeof import('@/components/data-table')
+  >('@/components/data-table')
   return {
     ...actual,
     DataTableRow: () => null,
@@ -152,11 +152,7 @@ function makeTable(): Table<Record<string, unknown>> {
     makeCell('token_name', 'research-key', row),
     makeCell('use_time', '1s', row),
     makeCell('prompt_tokens', '10', row),
-    makeCell(
-      'content',
-      <button type='button'>View content</button>,
-      row
-    ),
+    makeCell('content', <button type='button'>View content</button>, row),
   ]
 
   return {
@@ -192,6 +188,8 @@ describe('usage logs mobile integration', () => {
     render(<UsageLogsTable logCategory='common' />)
 
     expect(screen.getByText('gpt-5')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'View content' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'View content' })
+    ).toBeInTheDocument()
   })
 })

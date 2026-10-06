@@ -31,7 +31,7 @@ import {
   CommandList,
   CommandSeparator,
 } from '@/components/ui/command'
-import { useSearch } from '@/context/search-provider'
+import { useSearch } from '@/context/search-context'
 import { useTheme } from '@/context/theme-provider'
 import { useSidebarData } from '@/hooks/use-sidebar-data'
 
@@ -57,6 +57,7 @@ export function CommandMenu() {
     },
     [setOpen]
   )
+  const groupKeyCounts = new Map<string, number>()
 
   return (
     <CommandDialog modal open={open} onOpenChange={setOpen}>
@@ -65,42 +66,73 @@ export function CommandMenu() {
         <CommandList>
           <ScrollArea className='h-72 pe-1'>
             <CommandEmpty>{t('No results found.')}</CommandEmpty>
-            {navGroups.map((group) => (
-              <CommandGroup key={group.id || group.title} heading={group.title}>
-                {group.items.map((navItem, i) => {
-                  if (navItem.url)
-                    return (
-                      <CommandItem
-                        key={`${navItem.url}-${i}`}
-                        value={navItem.title}
-                        onSelect={() => {
-                          runCommand(() => navigate({ to: navItem.url }))
-                        }}
-                      >
-                        <div className='flex size-4 items-center justify-center'>
-                          <ArrowRight className='text-muted-foreground/80 size-2' />
-                        </div>
-                        {navItem.title}
-                      </CommandItem>
-                    )
+            {navGroups.map((group) => {
+              const groupIdentity = group.id
+                ? `id:${group.id}`
+                : `title:${group.title}`
+              const groupOccurrence = groupKeyCounts.get(groupIdentity) ?? 0
+              groupKeyCounts.set(groupIdentity, groupOccurrence + 1)
+              const commandKeyCounts = new Map<string, number>()
 
-                  return navItem.items?.map((subItem, i) => (
-                    <CommandItem
-                      key={`${navItem.title}-${subItem.url}-${i}`}
-                      value={`${navItem.title}-${subItem.url}`}
-                      onSelect={() => {
-                        runCommand(() => navigate({ to: subItem.url }))
-                      }}
-                    >
-                      <div className='flex size-4 items-center justify-center'>
-                        <ArrowRight className='text-muted-foreground/80 size-2' />
-                      </div>
-                      {navItem.title} <ChevronRight /> {subItem.title}
-                    </CommandItem>
-                  ))
-                })}
-              </CommandGroup>
-            ))}
+              return (
+                <CommandGroup
+                  key={`${groupIdentity}:${groupOccurrence}`}
+                  heading={group.title}
+                >
+                  {group.items.map((navItem) => {
+                    if (navItem.url) {
+                      const commandIdentity = `url:${navItem.url}`
+                      const commandOccurrence =
+                        commandKeyCounts.get(commandIdentity) ?? 0
+                      commandKeyCounts.set(
+                        commandIdentity,
+                        commandOccurrence + 1
+                      )
+
+                      return (
+                        <CommandItem
+                          key={`${commandIdentity}:${commandOccurrence}`}
+                          value={navItem.title}
+                          onSelect={() => {
+                            runCommand(() => navigate({ to: navItem.url }))
+                          }}
+                        >
+                          <div className='flex size-4 items-center justify-center'>
+                            <ArrowRight className='text-muted-foreground/80 size-2' />
+                          </div>
+                          {navItem.title}
+                        </CommandItem>
+                      )
+                    }
+
+                    return navItem.items?.map((subItem) => {
+                      const commandIdentity = `url:${subItem.url}`
+                      const commandOccurrence =
+                        commandKeyCounts.get(commandIdentity) ?? 0
+                      commandKeyCounts.set(
+                        commandIdentity,
+                        commandOccurrence + 1
+                      )
+
+                      return (
+                        <CommandItem
+                          key={`${commandIdentity}:${commandOccurrence}`}
+                          value={`${navItem.title}-${subItem.url}`}
+                          onSelect={() => {
+                            runCommand(() => navigate({ to: subItem.url }))
+                          }}
+                        >
+                          <div className='flex size-4 items-center justify-center'>
+                            <ArrowRight className='text-muted-foreground/80 size-2' />
+                          </div>
+                          {navItem.title} <ChevronRight /> {subItem.title}
+                        </CommandItem>
+                      )
+                    })
+                  })}
+                </CommandGroup>
+              )
+            })}
             <CommandSeparator />
             <CommandGroup heading='Theme'>
               <CommandItem onSelect={() => runCommand(() => setTheme('light'))}>

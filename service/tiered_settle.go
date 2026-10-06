@@ -3,6 +3,7 @@ package service
 import (
 	"net/http"
 
+	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/pkg/billingexpr"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/relaykit/dto"
@@ -119,10 +120,14 @@ func refreshTieredBillingGroup(relayInfo *relaycommon.RelayInfo) (*billingexpr.B
 }
 
 // PrepareTieredBillingForSelectedGroup refreshes routing-dependent billing
-// state before an upstream attempt. An existing session reserves any higher
+// state for tiered, token and fixed-price quotes before an upstream attempt.
+// An existing session reserves any higher
 // estimate before sending. If the initial group was free and skipped
 // pre-consume, switching to a paid group creates the session at that point.
 func PrepareTieredBillingForSelectedGroup(c *gin.Context, relayInfo *relaycommon.RelayInfo) *types.NewAPIError {
+	if err := ValidatePublishedPriceSelectedChannel(c, relayInfo); err != nil {
+		return types.NewErrorWithStatusCode(err, types.ErrorCodeModelPriceError, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+	}
 	snap, err := refreshTieredBillingGroup(relayInfo)
 	if err != nil {
 		return types.NewErrorWithStatusCode(
@@ -132,10 +137,35 @@ func PrepareTieredBillingForSelectedGroup(c *gin.Context, relayInfo *relaycommon
 			types.ErrOptionWithSkipRetry(),
 		)
 	}
-	if snap == nil {
+	if relayInfo == nil {
 		return nil
 	}
-	if snap.GroupRatio == 0 {
+	groupRatio := relayInfo.PriceData.GroupRatioInfo.GroupRatio
+	var estimatedQuota int
+	if snap != nil {
+		estimatedQuota = snap.EstimatedQuotaAfterGroup
+	} else {
+		price := &relayInfo.PriceData
+		tokens, quotedGroup, captured := price.QuotedPreConsumeTokens()
+		if !captured || quotedGroup == groupRatio {
+			return nil
+		}
+		// A zero model price remains free even when the routing group changes.
+		// Preserve the original truncation and multiplication order.
+		quota := float64(tokens) * (price.ModelRatio * groupRatio)
+		if price.UsePrice {
+			quota = price.ApplyOtherRatiosToFloat(price.ModelPrice * requestQuotaUnit(*price) * groupRatio)
+		}
+		estimatedQuota, err = common.QuotaFromFloatStrict(quota)
+		if err != nil {
+			return types.NewErrorWithStatusCode(err, types.ErrorCodeModelPriceError, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+		}
+		price.QuotaToPreConsume = estimatedQuota
+		if price.UsePrice && price.ModelPrice == 0 || !price.UsePrice && price.ModelRatio == 0 {
+			return nil
+		}
+	}
+	if groupRatio == 0 {
 		// Paid-to-free keeps FreeModel as-is: FreeModel means "pre-consume was
 		// skipped", which is not true once a session exists, and settlement
 		// already yields 0 for a zero group ratio.
@@ -147,9 +177,9 @@ func PrepareTieredBillingForSelectedGroup(c *gin.Context, relayInfo *relaycommon
 	relayInfo.PriceData.FreeModel = false
 
 	if relayInfo.Billing == nil {
-		return PreConsumeBilling(c, snap.EstimatedQuotaAfterGroup, relayInfo)
+		return PreConsumeBilling(c, estimatedQuota, relayInfo)
 	}
-	if err := relayInfo.Billing.Reserve(snap.EstimatedQuotaAfterGroup); err != nil {
+	if err := relayInfo.Billing.Reserve(estimatedQuota); err != nil {
 		return types.NewError(err, types.ErrorCodeUpdateDataError, types.ErrOptionWithSkipRetry())
 	}
 	relayInfo.FinalPreConsumedQuota = relayInfo.Billing.GetPreConsumedQuota()

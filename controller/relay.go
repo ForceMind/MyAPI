@@ -12,6 +12,7 @@ import (
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
 	taskdto "github.com/ForceMind/MyAPI/dto"
+	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/logger"
 	"github.com/ForceMind/MyAPI/middleware"
 	"github.com/ForceMind/MyAPI/model"
@@ -32,6 +33,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
+
+func logBillingRefundFailure(c *gin.Context, scope string, err error) {
+	if errors.Is(err, model.ErrAccountQuotaRefundManualRequired) || errors.Is(err, model.ErrAccountQuotaRefundFactUnknown) {
+		logger.LogError(c, scope+" billing refund requires manual verification: "+err.Error())
+		return
+	}
+	logger.LogWarn(c, scope+" durable billing refund pending: "+err.Error())
+}
 
 func relayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIError {
 	var err *types.NewAPIError
@@ -71,6 +80,9 @@ func geminiRelayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewA
 func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	requestId := c.GetString(common.RequestIdKey)
+	failover := service.BeginRelayFailover(c)
+	defer failover.Close()
+	c.Set("relay_success", false)
 	//group := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
 	//originalModel := common.GetContextKeyString(c, constant.ContextKeyOriginalModel)
 
@@ -171,11 +183,15 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	}
 
 	defer func() {
+		budgetHeld := service.FinalizeTokenBudgetDispatch(c, relayInfo)
+		usageHeld := service.FinalizeTextUsageDispatch(c, relayInfo) || service.FinalizeRealtimeUsageDispatch(c, relayInfo)
 		// Only return quota if downstream failed and quota was actually pre-consumed
 		if newAPIError != nil {
 			newAPIError = service.NormalizeViolationFeeError(newAPIError)
-			if relayInfo.Billing != nil {
-				relayInfo.Billing.Refund(c)
+			if relayInfo.Billing != nil && !budgetHeld && !usageHeld {
+				if refundErr := relayInfo.Billing.Refund(c); refundErr != nil {
+					logBillingRefundFailure(c, "relay", refundErr)
+				}
 			}
 			service.ChargeViolationFeeIfNeeded(c, relayInfo, newAPIError)
 		}
@@ -191,17 +207,32 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	relayInfo.RetryIndex = 0
 	relayInfo.LastError = nil
 
-	for ; retryParam.GetRetry() <= common.RetryTimes; retryParam.IncreaseRetry() {
-		relayInfo.RetryIndex = retryParam.GetRetry()
+	maxRetries := common.RetryTimes
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			retryParam.IncreaseRetry()
+		}
+		relayInfo.RetryIndex = attempt
 		channel, channelErr := getChannel(c, relayInfo, retryParam)
 		if channelErr != nil {
 			logger.LogError(c, channelErr.Error())
 			newAPIError = channelErr
 			break
 		}
+		// Strict eligibility is checked before entering the protocol helper.
+		// Capture the already-selected channel here; the helper will refresh the
+		// same context before model conversion and final outbound qualification.
+		if relayInfo.StrictTokenBudget {
+			relayInfo.InitChannelMeta(c)
+		}
 		addUsedChannel(c, channel.Id)
+		failover.StartAttempt(c)
 		if billingErr := service.PrepareTieredBillingForSelectedGroup(c, relayInfo); billingErr != nil {
 			newAPIError = billingErr
+			break
+		}
+		if budgetErr := service.ValidateTokenBudgetSelectedChannel(relayInfo); budgetErr != nil {
+			newAPIError = service.TokenBudgetRelayError(c, budgetErr)
 			break
 		}
 
@@ -230,17 +261,36 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 		if newAPIError == nil {
 			relayInfo.LastError = nil
+			streamOK := relayInfo.StreamStatus == nil || (relayInfo.StreamStatus.IsNormalEnd() && !relayInfo.StreamStatus.HasErrors())
+			if streamOK && !c.GetBool("relay_completion_unverified") && !service.TextUsageDispatchNeedsReview(relayInfo) {
+				c.Set("relay_success", true)
+				failover.FinishAttempt(c, "completed", 0, false)
+			}
 			return
 		}
 
 		newAPIError = service.NormalizeViolationFeeError(newAPIError)
 		relayInfo.LastError = newAPIError
-
-		processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError)
-
-		if !shouldRetry(c, newAPIError, common.RetryTimes-retryParam.GetRetry()) {
+		outcome := "failed"
+		if failover != nil && failover.ResponseRefused {
+			outcome = "refused"
+		}
+		failover.FinishAttempt(c, outcome, newAPIError.StatusCode, false)
+		if (relayInfo.StrictTokenBudget && strings.HasPrefix(string(newAPIError.GetErrorCode()), "token_budget_")) || strings.HasPrefix(string(newAPIError.GetErrorCode()), "account_threshold_") || isTextUsageDispatchGuardError(newAPIError) || newAPIError.GetErrorType() == types.ErrorTypeNewAPIError && newAPIError.GetErrorCode() == types.ErrorCode("relay_eligibility_changed") {
 			break
 		}
+
+		if markerErr := processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError); markerErr != nil {
+			break
+		}
+
+		if service.FinalizeTextUsageDispatch(c, relayInfo) || service.FinalizeRealtimeUsageDispatch(c, relayInfo) {
+			break
+		}
+		if relayInfo.StrictTokenBudget || !shouldRetry(c, newAPIError, maxRetries-attempt) {
+			break
+		}
+		failover.FinishAttempt(c, "retryable_refusal", newAPIError.StatusCode, true)
 	}
 
 	useChannel := c.GetStringSlice("use_channel")
@@ -299,6 +349,13 @@ func fastTokenCountMetaForPricing(request dto.Request) *types.TokenCountMeta {
 
 func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service.RetryParam) (*model.Channel, *types.NewAPIError) {
 	if info.ChannelMeta == nil {
+		if policyErr := middleware.EnforceAccessPolicyForSelectedGroup(
+			c,
+			currentRelayPolicyGroup(c, common.GetContextKeyString(c, constant.ContextKeyUsingGroup)),
+			info.OriginModelName,
+		); policyErr != nil {
+			return nil, policyErr
+		}
 		autoBan := c.GetBool("auto_ban")
 		autoBanInt := 1
 		if !autoBan {
@@ -313,10 +370,16 @@ func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service
 	}
 	channel, selectGroup, err := service.CacheGetRandomSatisfiedChannel(retryParam)
 	if err != nil {
+		if errors.Is(err, service.ErrAssignedAccessDenied) {
+			return nil, types.NewError(errors.New(common.TranslateMessage(c, i18n.MsgDistributorPolicyDenied, map[string]any{"Group": selectGroup})), types.ErrorCodeAccessDenied, types.ErrOptionWithStatusCode(http.StatusForbidden), types.ErrOptionWithSkipRetry())
+		}
 		return nil, types.NewError(fmt.Errorf("获取分组 %s 下模型 %s 的可用渠道失败（retry）: %s", selectGroup, info.OriginModelName, err.Error()), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
 	if channel == nil {
 		return nil, types.NewError(fmt.Errorf("分组 %s 下模型 %s 的可用渠道不存在（retry）", selectGroup, info.OriginModelName), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+	}
+	if policyErr := middleware.EnforceAccessPolicyForSelectedGroup(c, selectGroup, info.OriginModelName); policyErr != nil {
+		return nil, policyErr
 	}
 
 	info.PriceData.GroupRatioInfo = helper.HandleGroupRatio(c, info)
@@ -328,24 +391,45 @@ func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service
 	return channel, nil
 }
 
+// currentRelayPolicyGroup returns the actual auto-routing group when one was
+// selected. Locked-channel retries do not call CacheGetRandomSatisfiedChannel,
+// so they must preserve the final group that the original selection recorded.
+func currentRelayPolicyGroup(c *gin.Context, fallback string) string {
+	if selectedGroup := common.GetContextKeyString(c, constant.ContextKeyAutoGroup); selectedGroup != "" {
+		return selectedGroup
+	}
+	return fallback
+}
+
+func isTextUsageDispatchGuardError(err *types.NewAPIError) bool {
+	return err != nil && err.GetErrorType() == types.ErrorTypeNewAPIError && err.GetErrorCode() == types.ErrorCode("usage_dispatch_unresolved") && types.IsSkipRetryError(err)
+}
+
 func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) bool {
 	if openaiErr == nil {
 		return false
 	}
-	if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
+	if retryTimes <= 0 || types.IsSkipRetryError(openaiErr) || service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
 		return false
+	}
+	if c != nil {
+		if c.Writer != nil && c.Writer.Written() {
+			return false
+		}
+		if c.Request != nil {
+			if c.Request.Context().Err() != nil {
+				return false
+			}
+			if state := service.RelayFailoverFromContext(c.Request.Context()); state != nil && state.DispatchPossible {
+				return false
+			}
+		}
+		if _, ok := c.Get("specific_channel_id"); ok {
+			return false
+		}
 	}
 	if types.IsChannelError(openaiErr) {
 		return true
-	}
-	if types.IsSkipRetryError(openaiErr) {
-		return false
-	}
-	if retryTimes <= 0 {
-		return false
-	}
-	if _, ok := c.Get("specific_channel_id"); ok {
-		return false
 	}
 	code := openaiErr.StatusCode
 	if code >= 200 && code < 300 {
@@ -360,11 +444,19 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	return operation_setting.ShouldRetryByStatusCode(code)
 }
 
-func processChannelError(c *gin.Context, channelError types.ChannelError, err *types.NewAPIError) {
+func processChannelError(c *gin.Context, channelError types.ChannelError, err *types.NewAPIError) error {
 	logger.LogError(c, fmt.Sprintf("channel error (channel #%d, status code: %d): %s", channelError.ChannelId, err.StatusCode, common.LocalLogPreview(err.Error())))
+	usageLimit := channelError.ChannelType == constant.ChannelTypeCodex && service.IsCodexUsageLimitError(err)
+	var markerErr error
+	if usageLimit {
+		markerErr = service.RecordCodexUsageLimit(c.Request.Context(), channelError.ChannelId, channelError.UsingKey)
+		if markerErr != nil {
+			logger.LogError(c, "failed to persist Codex usage-limit routing marker: "+markerErr.Error())
+		}
+	}
 	// 不要使用context获取渠道信息，异步处理时可能会出现渠道信息不一致的情况
 	// do not use context to get channel info, there may be inconsistent channel info when processing asynchronously
-	if service.ShouldDisableChannel(err) && channelError.AutoBan {
+	if !usageLimit && service.ShouldDisableChannel(err) && channelError.AutoBan {
 		gopool.Go(func() {
 			service.DisableChannel(channelError, err.ErrorWithStatusCode())
 		})
@@ -396,6 +488,7 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 			adminInfo["multi_key_index"] = common.GetContextKeyInt(c, constant.ContextKeyChannelMultiKeyIndex)
 		}
 		service.AppendChannelAffinityAdminInfo(c, adminInfo)
+		service.AppendRelayFailoverAdminInfo(c, adminInfo)
 		other["admin_info"] = adminInfo
 		startTime := common.GetContextKeyTime(c, constant.ContextKeyRequestStartTime)
 		if startTime.IsZero() {
@@ -404,7 +497,7 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 		useTimeSeconds := int(time.Since(startTime).Seconds())
 		model.RecordErrorLog(c, userId, channelId, modelName, tokenName, err.MaskSensitiveErrorWithStatusCode(), tokenId, useTimeSeconds, common.GetContextKeyBool(c, constant.ContextKeyIsStream), userGroup, other)
 	}
-
+	return markerErr
 }
 
 func RelayMidjourney(c *gin.Context) {
@@ -490,6 +583,15 @@ func RelayTaskFetch(c *gin.Context) {
 }
 
 func RelayTask(c *gin.Context) {
+	if common.IsTaskRecoveryNewSubmissionEnabled() {
+		if opKind, originID, ok := service.DetectTaskOperationKind(c.Request.Method, c.Request.URL.Path, map[string]string{"video_id": c.Param("video_id")}); ok {
+			if service.HasTaskSubmissionIdempotencyHeader(c.Request.Header) {
+				relayTaskDurable(c, opKind, originID)
+				return
+			}
+		}
+	}
+
 	relayInfo, err := relaycommon.GenRelayInfo(c, types.RelayFormatTask, nil, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, &taskdto.TaskError{
@@ -509,7 +611,9 @@ func RelayTask(c *gin.Context) {
 	var taskErr *taskdto.TaskError
 	defer func() {
 		if taskErr != nil && relayInfo.Billing != nil {
-			relayInfo.Billing.Refund(c)
+			if refundErr := relayInfo.Billing.Refund(c); refundErr != nil {
+				logBillingRefundFailure(c, "task", refundErr)
+			}
 		}
 	}()
 
@@ -526,6 +630,10 @@ func RelayTask(c *gin.Context) {
 
 		if lockedCh, ok := relayInfo.LockedChannel.(*model.Channel); ok && lockedCh != nil {
 			channel = lockedCh
+			if policyErr := middleware.EnforceAccessPolicyForSelectedGroup(c, currentRelayPolicyGroup(c, relayInfo.TokenGroup), relayInfo.OriginModelName); policyErr != nil {
+				taskErr = service.TaskErrorWrapperLocal(policyErr.Err, "access_policy_denied", policyErr.StatusCode)
+				break
+			}
 			if retryParam.GetRetry() > 0 {
 				if setupErr := middleware.SetupContextForSelectedChannel(c, channel, relayInfo.OriginModelName); setupErr != nil {
 					taskErr = service.TaskErrorWrapperLocal(setupErr.Err, "setup_locked_channel_failed", http.StatusInternalServerError)
@@ -537,7 +645,7 @@ func RelayTask(c *gin.Context) {
 			channel, channelErr = getChannel(c, relayInfo, retryParam)
 			if channelErr != nil {
 				logger.LogError(c, channelErr.Error())
-				taskErr = service.TaskErrorWrapperLocal(channelErr.Err, "get_channel_failed", http.StatusInternalServerError)
+				taskErr = taskChannelSelectionError(channelErr)
 				break
 			}
 		}
@@ -560,10 +668,12 @@ func RelayTask(c *gin.Context) {
 		}
 
 		if !taskErr.LocalError {
-			processChannelError(c,
+			if markerErr := processChannelError(c,
 				*types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey,
 					common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()),
-				types.NewOpenAIError(taskErr.Error, types.ErrorCodeBadResponseStatusCode, taskErr.StatusCode))
+				types.NewOpenAIError(taskErr.Error, types.ErrorCodeBadResponseStatusCode, taskErr.StatusCode)); markerErr != nil {
+				break
+			}
 		}
 
 		if !shouldRetryTaskRelay(c, channel.Id, taskErr, common.RetryTimes-retryParam.GetRetry()) {
@@ -602,6 +712,17 @@ func RelayTask(c *gin.Context) {
 	if taskErr != nil {
 		respondTaskError(c, taskErr)
 	}
+}
+
+func taskChannelSelectionError(channelErr *types.NewAPIError) *taskdto.TaskError {
+	if channelErr == nil {
+		return service.TaskErrorWrapperLocal(errors.New("channel selection failed"), "get_channel_failed", http.StatusInternalServerError)
+	}
+	code := "get_channel_failed"
+	if channelErr.GetErrorCode() == types.ErrorCodeAccessDenied {
+		code = "access_policy_denied"
+	}
+	return service.TaskErrorWrapperLocal(channelErr.Err, code, channelErr.StatusCode)
 }
 
 // respondTaskError 统一输出 Task 错误响应（含 429 限流提示改写）

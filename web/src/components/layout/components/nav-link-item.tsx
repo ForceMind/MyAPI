@@ -74,15 +74,23 @@ export function NavLinkList({
   className,
   itemClassName,
 }: NavLinkListProps) {
+  const linkKeyCounts = new Map<string, number>()
+
   return (
     <>
-      {links.map((link, index) => (
-        <NavLinkItem
-          key={index}
-          link={link}
-          className={cn(className, itemClassName)}
-        />
-      ))}
+      {links.map((link) => {
+        const linkIdentity = `${link.external ? 'external' : 'internal'}:${link.href}`
+        const linkOccurrence = linkKeyCounts.get(linkIdentity) ?? 0
+        linkKeyCounts.set(linkIdentity, linkOccurrence + 1)
+
+        return (
+          <NavLinkItem
+            key={`${linkIdentity}:${linkOccurrence}`}
+            link={link}
+            className={cn(className, itemClassName)}
+          />
+        )
+      })}
     </>
   )
 }

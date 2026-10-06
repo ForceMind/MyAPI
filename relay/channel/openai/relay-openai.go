@@ -11,6 +11,7 @@ import (
 	"github.com/ForceMind/MyAPI/logger"
 	"github.com/ForceMind/MyAPI/relay/channel/openrouter"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
+	relayconstant "github.com/ForceMind/MyAPI/relay/constant"
 	"github.com/ForceMind/MyAPI/relay/helper"
 	"github.com/ForceMind/MyAPI/relaykit/dto"
 	"github.com/ForceMind/MyAPI/relaykit/relayconvert"
@@ -108,6 +109,17 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	}
 
 	defer service.CloseResponseBodyGracefully(resp)
+	if info.StrictTokenBudget && info.RelayMode == relayconstant.RelayModeChatCompletions {
+		original := c.Writer
+		observed := &strictChatWriteObserver{ResponseWriter: original}
+		c.Writer = observed
+		defer func() {
+			c.Writer = original
+			if observed.failed.Load() && info.StreamStatus != nil {
+				info.StreamStatus.RecordError("strict Chat downstream write failed")
+			}
+		}()
+	}
 
 	model := info.UpstreamModelName
 	var responseId string
@@ -118,12 +130,11 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	var toolCount int
 	var usage = &dto.Usage{}
 	var lastStreamData string
-	var secondLastStreamData string // 存储倒数第二个stream data，用于音频模型
+	var usageStreamData string
+	var secondLastStreamData string
 	seenStreamToolCalls := make(map[string]struct{})
 	var streamFunctionCallNames []string
-
-	// 检查是否为音频模型
-	isAudioModel := strings.Contains(strings.ToLower(model), "audio")
+	var strictEvidence strictChatStreamEvidence
 
 	helper.StreamScannerHandler(c, resp, info, func(data string, sr *helper.StreamResult) {
 		if lastStreamData != "" {
@@ -133,11 +144,10 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 			}
 		}
 		if len(data) > 0 {
-			// 对音频模型，保存倒数第二个stream data
-			if isAudioModel && lastStreamData != "" {
-				secondLastStreamData = lastStreamData
+			if info.StrictTokenBudget {
+				strictEvidence.observe(common.StringToByteSlice(data), info.UpstreamModelName)
 			}
-
+			secondLastStreamData = lastStreamData
 			lastStreamData = data
 			collectStreamFunctionCallNames(data, seenStreamToolCalls, &streamFunctionCallNames)
 			if err := processTokenData(info.RelayMode, data, &responseTextBuilder, &toolCount); err != nil {
@@ -147,22 +157,22 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 		}
 	})
 
-	// 对音频模型，从倒数第二个stream data中提取usage信息
-	if isAudioModel && secondLastStreamData != "" {
-		var streamResp struct {
+	// Keep the existing terminal boundary: Chat's last chunk, or the audio
+	// protocol's penultimate usage. Arbitrary intermediate usage is not final.
+	usageStreamData = lastStreamData
+	if strings.Contains(strings.ToLower(model), "audio") && secondLastStreamData != "" {
+		var chunk struct {
 			Usage *dto.Usage `json:"usage"`
 		}
-		err := common.Unmarshal([]byte(secondLastStreamData), &streamResp)
-		if err == nil && streamResp.Usage != nil && service.ValidUsage(streamResp.Usage) {
-			usage = streamResp.Usage
-			containStreamUsage = true
-
-			if common.DebugEnabled {
-				logger.LogDebug(c, "Audio model usage extracted from second last SSE: PromptTokens=%d, CompletionTokens=%d, TotalTokens=%d, InputTokens=%d, OutputTokens=%d",
-					usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens,
-					usage.InputTokens, usage.OutputTokens)
-			}
+		if common.UnmarshalJsonStr(secondLastStreamData, &chunk) == nil && chunk.Usage != nil {
+			usage, usageStreamData, containStreamUsage = chunk.Usage, secondLastStreamData, true
 		}
+	}
+	var finalChunk struct {
+		Usage *dto.Usage `json:"usage"`
+	}
+	if common.UnmarshalJsonStr(lastStreamData, &finalChunk) == nil && finalChunk.Usage != nil {
+		usageStreamData = lastStreamData
 	}
 
 	// 处理最后的响应
@@ -184,12 +194,22 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	}
 
 	applyUsagePostProcessing(info, usage, common.StringToByteSlice(lastStreamData))
+	if containStreamUsage {
+		captureChatUsageEvidence(usage, common.StringToByteSlice(usageStreamData))
+	} else {
+		usage.BillingUsage = dto.CloneBillingUsage(&dto.BillingUsage{Source: dto.BillingUsageSourceOAIChat, Semantic: dto.BillingUsageSemanticOpenAI, Estimated: true, OpenAIUsage: usage})
+	}
 
+	if info.StrictTokenBudget && usage.BillingUsage != nil && (strictEvidence.invalid || !strictEvidence.seenUsage) {
+		usage.BillingUsage.ChatTextEvidence = nil
+	}
 	for _, name := range streamFunctionCallNames {
 		info.CountBillableToolCall(dto.BuildInCallFunctionCall, name)
 	}
 
-	HandleFinalResponse(c, info, lastStreamData, responseId, createAt, model, systemFingerprint, usage, containStreamUsage)
+	clientUsage := *usage
+	clientUsage.BillingUsage = nil
+	HandleFinalResponse(c, info, lastStreamData, responseId, createAt, model, systemFingerprint, &clientUsage, containStreamUsage)
 
 	return usage, nil
 }
@@ -272,7 +292,7 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 	}
 
 	usageModified := false
-	if simpleResponse.Usage.PromptTokens == 0 {
+	if !captureChatUsageEvidence(&simpleResponse.Usage, responseBody) {
 		completionTokens := simpleResponse.Usage.CompletionTokens
 		if completionTokens == 0 {
 			for _, choice := range simpleResponse.Choices {
@@ -289,6 +309,13 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 	}
 
 	applyUsagePostProcessing(info, &simpleResponse.Usage, responseBody)
+	if usageModified {
+		simpleResponse.Usage.BillingUsage = dto.CloneBillingUsage(&dto.BillingUsage{Source: dto.BillingUsageSourceOAIChat, Semantic: dto.BillingUsageSemanticOpenAI, Estimated: true, OpenAIUsage: &simpleResponse.Usage})
+	} else {
+		captureChatUsageEvidence(&simpleResponse.Usage, responseBody)
+	}
+	billingUsage := simpleResponse.Usage.BillingUsage
+	simpleResponse.Usage.BillingUsage = nil
 
 	switch info.RelayFormat {
 	case types.RelayFormatOpenAI:
@@ -333,5 +360,6 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 
+	simpleResponse.Usage.BillingUsage = billingUsage
 	return &simpleResponse.Usage, nil
 }

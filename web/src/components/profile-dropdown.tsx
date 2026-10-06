@@ -37,11 +37,13 @@ import { useUserDisplay } from '@/hooks/use-user-display'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { ROLE } from '@/lib/roles'
 import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
+import { useFundingPresentation } from '@/hooks/use-funding-presentation'
 import { useAuthStore } from '@/stores/auth-store'
 
 const avatarFallbackClassName = 'font-semibold text-white'
 
 export function ProfileDropdown() {
+  const { commercialEnabled } = useFundingPresentation()
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [open, setOpen] = useDialogState()
@@ -111,7 +113,7 @@ export function ProfileDropdown() {
           {!SELF_USE_MINIMAL && isWalletVisible && (
             <DropdownMenuItem onClick={() => navigate({ to: '/wallet' })}>
               <Wallet className='size-4' />
-              {t('Wallet')}
+              {commercialEnabled ? t('Wallet') : t('Funding history')}
             </DropdownMenuItem>
           )}
 

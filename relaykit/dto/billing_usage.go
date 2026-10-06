@@ -11,29 +11,57 @@ const (
 	BillingUsageSemanticOpenAI    = "openai"
 )
 
+// ResponsesTextEvidence retains raw field presence for strict fee accounting.
+// Value-only compatibility DTO counters cannot prove an omitted cache count is zero.
+type ResponsesTextEvidence struct {
+	Model       string `json:"model"`
+	ServiceTier string `json:"service_tier"`
+	CacheRead   *int   `json:"cache_read"`
+	CacheWrite  *int   `json:"cache_write"`
+}
+
+// ChatTextEvidence is created only by the native adapter from unambiguous raw
+// JSON. Counts are actual prompt/completion fields, not compatibility estimates.
+type ChatTextEvidence struct {
+	Model            string `json:"model"`
+	ServiceTier      string `json:"service_tier"`
+	PromptTokens     int    `json:"prompt_tokens"`
+	CompletionTokens int    `json:"completion_tokens"`
+	TotalTokens      int    `json:"total_tokens"`
+	CacheRead        *int   `json:"cache_read"`
+	CacheWrite       *int   `json:"cache_write"`
+	Reasoning        *int   `json:"reasoning"`
+	Stream           bool   `json:"stream"`
+}
+
 type BillingUsage struct {
-	Source              string               `json:"source,omitempty"`
-	Semantic            string               `json:"semantic,omitempty"`
-	Estimated           bool                 `json:"estimated,omitempty"`
-	OpenAIUsage         *Usage               `json:"openai_usage,omitempty"`
-	ClaudeUsage         *ClaudeUsage         `json:"claude_usage,omitempty"`
-	GeminiUsageMetadata *GeminiUsageMetadata `json:"gemini_usage_metadata,omitempty"`
+	ChatTextEvidence      *ChatTextEvidence      `json:"chat_text_evidence,omitempty"`
+	ResponsesTextEvidence *ResponsesTextEvidence `json:"responses_text_evidence,omitempty"`
+	Source                string                 `json:"source,omitempty"`
+	Semantic              string                 `json:"semantic,omitempty"`
+	Estimated             bool                   `json:"estimated,omitempty"`
+	Incomplete            bool                   `json:"incomplete,omitempty"`
+	OpenAIUsage           *Usage                 `json:"openai_usage,omitempty"`
+	ClaudeUsage           *ClaudeUsage           `json:"claude_usage,omitempty"`
+	GeminiUsageMetadata   *GeminiUsageMetadata   `json:"gemini_usage_metadata,omitempty"`
 }
 
 func NewClaudeMessagesBillingUsage(usage *ClaudeUsage) *BillingUsage {
-	if !HasClaudeUsageTokens(usage) {
+	if usage == nil || !HasClaudeUsageTokens(usage) && !usage.RawUsageObserved {
 		return nil
 	}
 	return &BillingUsage{
 		Source:      BillingUsageSourceClaudeMessages,
 		Semantic:    BillingUsageSemanticAnthropic,
+		Incomplete:  usage.RawUsageObserved && (!usage.InputTokensReported || !usage.OutputTokensReported || usage.InvalidTokenEvidence),
 		ClaudeUsage: cloneClaudeUsage(usage),
 	}
 }
 
 // HasClaudeUsageTokens mirrors HasOpenAIUsageTokens/HasGeminiUsageMetadataTokens:
-// an all-zero ClaudeUsage must not become a BillingUsage, otherwise it would take
-// precedence during settlement and zero out a non-zero top-level usage.
+// an unproven programmatic all-zero DTO must not override compatibility usage.
+// NewClaudeMessagesBillingUsage separately retains raw explicit-zero evidence
+// and raw missing/null evidence, which have different settlement meanings.
 func HasClaudeUsageTokens(usage *ClaudeUsage) bool {
 	if usage == nil {
 		return false
@@ -123,7 +151,7 @@ func NewEstimatedGeminiChatBillingUsage(usage *Usage) *BillingUsage {
 }
 
 func newGeminiChatBillingUsage(metadata *GeminiUsageMetadata, estimated bool) *BillingUsage {
-	if !HasGeminiUsageMetadataTokens(metadata) {
+	if !HasGeminiUsageEvidence(metadata) {
 		return nil
 	}
 	usageMetadata := cloneGeminiUsageMetadata(*metadata)
@@ -131,6 +159,7 @@ func newGeminiChatBillingUsage(metadata *GeminiUsageMetadata, estimated bool) *B
 		Source:              BillingUsageSourceGeminiChat,
 		Semantic:            BillingUsageSemanticGemini,
 		Estimated:           estimated,
+		Incomplete:          metadata.RawUsageObserved && (!metadata.PromptTokensReported || !metadata.CandidatesTokensReported || !metadata.TotalTokensReported || metadata.InvalidTokenEvidence),
 		GeminiUsageMetadata: &usageMetadata,
 	}
 }
@@ -140,6 +169,34 @@ func CloneBillingUsage(usage *BillingUsage) *BillingUsage {
 		return nil
 	}
 	clone := *usage
+	if usage.ChatTextEvidence != nil {
+		evidence := *usage.ChatTextEvidence
+		if evidence.CacheRead != nil {
+			value := *evidence.CacheRead
+			evidence.CacheRead = &value
+		}
+		if evidence.CacheWrite != nil {
+			value := *evidence.CacheWrite
+			evidence.CacheWrite = &value
+		}
+		if evidence.Reasoning != nil {
+			value := *evidence.Reasoning
+			evidence.Reasoning = &value
+		}
+		clone.ChatTextEvidence = &evidence
+	}
+	if usage.ResponsesTextEvidence != nil {
+		evidence := *usage.ResponsesTextEvidence
+		if evidence.CacheRead != nil {
+			value := *evidence.CacheRead
+			evidence.CacheRead = &value
+		}
+		if evidence.CacheWrite != nil {
+			value := *evidence.CacheWrite
+			evidence.CacheWrite = &value
+		}
+		clone.ResponsesTextEvidence = &evidence
+	}
 	clone.OpenAIUsage = cloneOpenAIUsage(usage.OpenAIUsage)
 	clone.ClaudeUsage = cloneClaudeUsage(usage.ClaudeUsage)
 	if usage.GeminiUsageMetadata != nil {
@@ -155,9 +212,14 @@ func cloneOpenAIUsage(usage *Usage) *Usage {
 	}
 	clone := *usage
 	clone.BillingUsage = nil
+	clone.PromptTokensDetails = CloneInputTokenDetails(usage.PromptTokensDetails)
 	if usage.InputTokensDetails != nil {
-		inputTokensDetails := *usage.InputTokensDetails
+		inputTokensDetails := CloneInputTokenDetails(*usage.InputTokensDetails)
 		clone.InputTokensDetails = &inputTokensDetails
+	}
+	if usage.OutputTokensDetails != nil {
+		outputTokensDetails := *usage.OutputTokensDetails
+		clone.OutputTokensDetails = &outputTokensDetails
 	}
 	return &clone
 }

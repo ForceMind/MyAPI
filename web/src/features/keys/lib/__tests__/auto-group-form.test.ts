@@ -20,13 +20,13 @@ import type { TFunction } from 'i18next'
 import { describe, expect, test } from 'vitest'
 
 import { apiKeySchema, type ApiKey } from '../../types'
+import { getPreservedAccessProfileOption } from '../access-profile'
 import {
   getApiKeyFormDefaultValues,
   getApiKeyFormSchema,
   transformApiKeyToFormDefaults,
   transformFormDataToPayload,
 } from '../api-key-form'
-import { getPreservedAccessProfileOption } from '../access-profile'
 
 const t = ((key: string, options?: Record<string, unknown>) => {
   if (options?.max !== undefined) {
@@ -81,7 +81,9 @@ describe('API key Auto group form mapping', () => {
     expect(
       getPreservedAccessProfileOption(options, 'team-legacy', undefined, t)
     ).toBeNull()
-    expect(getPreservedAccessProfileOption(options, '', undefined, t)).toBeNull()
+    expect(
+      getPreservedAccessProfileOption(options, '', undefined, t)
+    ).toBeNull()
   })
 
   test('preserves access profile policy metadata from the API', () => {

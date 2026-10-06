@@ -12,6 +12,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// setDiskCacheConfigForTest 保存新配置代并立即维护重建，使放置字段
+// （Path/MaxSizeMB）进入生效代。等价于保存后调用维护重建端点。
+func setDiskCacheConfigForTest(t *testing.T, config DiskCacheConfig) {
+	t.Helper()
+	SetDiskCacheConfig(config)
+	_, err := RebuildDiskCache()
+	require.NoError(t, err)
+}
+
 func TestReplaceRequestBodyKeepsEveryReplayPathConsistent(t *testing.T) {
 	for _, testCase := range []struct {
 		name       string
@@ -33,9 +42,9 @@ func TestReplaceRequestBodyKeepsEveryReplayPathConsistent(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			originalConfig := GetDiskCacheConfig()
-			SetDiskCacheConfig(testCase.config(t.TempDir()))
-			t.Cleanup(func() { SetDiskCacheConfig(originalConfig) })
+			originalConfig := GetDiskCacheDesiredConfig()
+			setDiskCacheConfigForTest(t, testCase.config(t.TempDir()))
+			t.Cleanup(func() { setDiskCacheConfigForTest(t, originalConfig) })
 			baseline := GetDiskCacheStats()
 
 			original := []byte(`{"model":"old-model","prompt":"old prompt"}`)
@@ -135,9 +144,9 @@ func TestReplaceRequestBodyKeepsEveryReplayPathConsistent(t *testing.T) {
 }
 
 func TestReplaceRequestBodyRejectsNilRequestWithoutChangingCache(t *testing.T) {
-	originalConfig := GetDiskCacheConfig()
-	SetDiskCacheConfig(DiskCacheConfig{Enabled: false, ThresholdMB: 10, MaxSizeMB: 1024})
-	t.Cleanup(func() { SetDiskCacheConfig(originalConfig) })
+	originalConfig := GetDiskCacheDesiredConfig()
+	setDiskCacheConfigForTest(t, DiskCacheConfig{Enabled: false, ThresholdMB: 10, MaxSizeMB: 1024})
+	t.Cleanup(func() { setDiskCacheConfigForTest(t, originalConfig) })
 
 	context, _ := gin.CreateTestContext(httptest.NewRecorder())
 	oldStorage, err := CreateBodyStorage([]byte(`{"old":true}`))

@@ -28,6 +28,7 @@ import { useMediaQuery } from '@/hooks'
 import { useSidebarConfig } from '@/hooks/use-sidebar-config'
 
 import { UserInfoDialog } from './components/dialogs/user-info-dialog'
+import { PendingUsageReviews } from './components/pending-usage-reviews'
 import {
   type LogsViewScope,
   UsageLogsProvider,
@@ -132,6 +133,7 @@ function UsageLogsContent() {
         </SectionPageLayout.Title>
         {canManageScope && (
           <SectionPageLayout.Actions>
+            {activeCategory === 'common' && <PendingUsageReviews />}
             <Tabs value={viewScope} onValueChange={handleViewScopeChange}>
               <TabsList>
                 <TabsTrigger value='all'>{t('All')}</TabsTrigger>

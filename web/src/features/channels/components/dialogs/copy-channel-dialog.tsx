@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQueryClient } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
@@ -27,7 +27,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-import { handleCopyChannel } from '../../lib'
+import { resolveChannelOperationAttempt, handleCopyChannel } from '../../lib'
 import { useChannels } from '../channels-provider'
 
 type CopyChannelDialogProps = {
@@ -45,10 +45,24 @@ export function CopyChannelDialog({
   const [suffix, setSuffix] = useState('_copy')
   const [resetBalance, setResetBalance] = useState(true)
   const [isCopying, setIsCopying] = useState(false)
+  const operationRef = useRef<{
+    fingerprint: string
+    operationKey: string
+  } | null>(null)
 
   if (!currentRow) return null
 
   const handleCopy = async () => {
+    const fingerprint = JSON.stringify({
+      channelId: currentRow.id,
+      suffix,
+      resetBalance,
+    })
+    const operation = resolveChannelOperationAttempt(
+      operationRef.current,
+      fingerprint
+    )
+    operationRef.current = operation
     setIsCopying(true)
 
     await handleCopyChannel(
@@ -56,10 +70,12 @@ export function CopyChannelDialog({
       {
         suffix,
         reset_balance: resetBalance,
+        operation_key: operation.operationKey,
       },
       queryClient,
       () => {
         onOpenChange(false)
+        operationRef.current = null
         setSuffix('_copy')
         setResetBalance(true)
       }
@@ -71,7 +87,12 @@ export function CopyChannelDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          operationRef.current = null
+        }
+        onOpenChange(nextOpen)
+      }}
       title={t('Copy Channel')}
       description={
         <>

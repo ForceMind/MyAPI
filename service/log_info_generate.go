@@ -112,7 +112,14 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 		adminInfo["local_count_tokens"] = isLocalCountTokens
 	}
 
+	if route, ok := ctx.Get("model_route"); ok && route != nil {
+		adminInfo["model_route"] = route
+	}
 	AppendChannelAffinityAdminInfo(ctx, adminInfo)
+	AppendRelayFailoverAdminInfo(ctx, adminInfo)
+	if relayInfo.TokenBudgetAudit != nil {
+		adminInfo["token_budget"] = relayInfo.TokenBudgetAudit
+	}
 
 	other["admin_info"] = adminInfo
 	appendRequestPath(ctx, relayInfo, other)
@@ -210,6 +217,16 @@ func appendBillingInfo(relayInfo *relaycommon.RelayInfo, other map[string]interf
 		// Wallet quota is not deducted when billed from subscription.
 		other["wallet_quota_deducted"] = 0
 	}
+	if session, ok := relayInfo.Billing.(*BillingSession); ok {
+		if settlement := session.settlementAuditInfo(); settlement != nil {
+			adminInfo, ok := other["admin_info"].(map[string]interface{})
+			if !ok || adminInfo == nil {
+				adminInfo = map[string]interface{}{}
+				other["admin_info"] = adminInfo
+			}
+			adminInfo["billing_settlement"] = settlement
+		}
+	}
 }
 
 func appendRequestConversionChain(relayInfo *relaycommon.RelayInfo, other map[string]interface{}) {
@@ -254,6 +271,45 @@ func appendFinalRequestFormat(relayInfo *relaycommon.RelayInfo, other map[string
 func GenerateWssOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.RealtimeUsage, modelRatio, groupRatio, completionRatio, audioRatio, audioCompletionRatio, modelPrice, userGroupRatio float64) map[string]interface{} {
 	info := GenerateTextOtherInfo(ctx, relayInfo, modelRatio, groupRatio, completionRatio, 0, 0.0, modelPrice, userGroupRatio)
 	info["ws"] = true
+	info["realtime_cached_tokens"] = usage.InputTokenDetails.CachedTokens
+	info["image_input"] = usage.InputTokenDetails.ImageTokens
+	info["image_output"] = usage.OutputTokenDetails.ImageTokens
+	info["cache_details_quality"] = "unrecorded"
+	if usage.InputTokenDetails.CachedTokens < 0 || usage.InputTokenDetails.CachedTokens > usage.InputTokens {
+		info["cache_details_quality"] = "invalid"
+	}
+	if cached := usage.InputTokenDetails.CachedTokensDetails; cached != nil {
+		remaining := usage.InputTokenDetails.CachedTokens
+		valid := remaining >= 0 && remaining <= usage.InputTokens
+		complete := true
+		for _, part := range []struct {
+			name  string
+			count *int
+			limit int
+		}{
+			{"cached_text_tokens", cached.TextTokens, usage.InputTokenDetails.TextTokens},
+			{"cached_audio_tokens", cached.AudioTokens, usage.InputTokenDetails.AudioTokens},
+			{"cached_image_tokens", cached.ImageTokens, usage.InputTokenDetails.ImageTokens},
+		} {
+			if part.count == nil {
+				complete = false
+				continue
+			}
+			count := *part.count
+			info[part.name] = count
+			if count < 0 || count > remaining || count > part.limit {
+				valid = false
+				continue
+			}
+			remaining -= count
+		}
+		info["cache_details_quality"] = "partial"
+		if !valid {
+			info["cache_details_quality"] = "invalid"
+		} else if complete && remaining == 0 {
+			info["cache_details_quality"] = "complete"
+		}
+	}
 	info["audio_input"] = usage.InputTokenDetails.AudioTokens
 	info["audio_output"] = usage.OutputTokenDetails.AudioTokens
 	info["text_input"] = usage.InputTokenDetails.TextTokens
@@ -320,6 +376,14 @@ func InjectTieredBillingInfo(other map[string]interface{}, relayInfo *relaycommo
 	}
 	other["billing_mode"] = "tiered_expr"
 	other["expr_b64"] = base64.StdEncoding.EncodeToString([]byte(snap.ExprString))
+	if snap.OfficialPricePublicationID != "" {
+		other["official_price_source"] = map[string]string{
+			"publication_id":    snap.OfficialPricePublicationID,
+			"source_sha256":     snap.OfficialPriceSourceSHA256,
+			"expression_sha256": snap.ExprHash,
+			"scope":             "reference_tariff_not_upstream_invoice",
+		}
+	}
 	if result != nil {
 		other["matched_tier"] = result.MatchedTier
 		if len(result.RequestRules) > 0 {

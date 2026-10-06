@@ -36,6 +36,7 @@ import {
   stringifyAdvancedCustomConfig,
   validateAdvancedCustomConfig,
 } from './advanced-custom'
+import { validateModelRoutes } from './model-routes'
 
 // ============================================================================
 // Form Validation Schema
@@ -198,6 +199,7 @@ function addRequiredIssue(
 
 export const channelFormSchema = z
   .object({
+    routing_config_digest: z.string().optional(),
     name: z.string().min(1, ERROR_MESSAGES.REQUIRED_NAME),
     type: z.number().min(0, ERROR_MESSAGES.REQUIRED_TYPE),
     base_url: z.string().optional(),
@@ -284,6 +286,8 @@ export const channelFormSchema = z
     upstream_model_update_ignored_models: z.string().optional(),
   })
   .superRefine((data, ctx) => {
+    const routeError = validateModelRoutes(data.settings, data.type)
+    if (routeError) addRequiredIssue(ctx, 'settings', routeError)
     if (
       [3, 8, 36, 45, CHANNEL_TYPE_NEW_API].includes(data.type) &&
       !data.base_url?.trim()
@@ -553,6 +557,7 @@ export function transformChannelToFormDefaults(
   }
 
   return {
+    routing_config_digest: channel.routing_config_digest,
     name: channel.name || '',
     type: channel.type,
     base_url: channel.base_url || '',
@@ -830,8 +835,9 @@ export function transformFormDataToCreatePayload(formData: ChannelFormValues): {
 export function transformFormDataToUpdatePayload(
   formData: ChannelFormValues,
   channelId: number
-): Partial<Channel> {
-  const payload: Partial<Channel> = {
+): Partial<Channel> & { expected_routing_config?: string } {
+  const payload: Partial<Channel> & { expected_routing_config?: string } = {
+    expected_routing_config: formData.routing_config_digest,
     id: channelId,
     name: formData.name,
     type: formData.type,

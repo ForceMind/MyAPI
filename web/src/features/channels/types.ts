@@ -35,6 +35,7 @@ export const channelInfoSchema = z.object({
 export type ChannelInfo = z.infer<typeof channelInfoSchema>
 
 export const channelSchema = z.object({
+  routing_config_digest: z.string().optional(),
   id: z.number(),
   type: z.number(),
   key: z.string(),
@@ -178,6 +179,107 @@ export interface ChannelOpsResponse {
   message?: string
   data?: {
     retry_times: number
+  }
+}
+
+export interface ChannelCommitState {
+  committed?: boolean
+  cache_pending?: boolean
+  cache_enabled?: boolean
+  data_generation?: number
+  published_generation?: number
+  cluster_committed_epoch?: number
+  local_published_epoch?: number
+  code?: string
+}
+
+export interface ChannelMutationResponse<T = never> extends ChannelCommitState {
+  success: boolean
+  message?: string
+  data?: T
+}
+
+export interface ChannelRoutingPreviewParams {
+  group: string
+  model: string
+  request_path?: string
+}
+
+export interface ChannelModelDiscovery {
+  models: string[]
+  source: 'openai_models' | 'codex_models' | 'manual'
+  status:
+    | 'never_checked'
+    | 'manual_unverified'
+    | 'refreshing'
+    | 'success'
+    | 'empty'
+    | 'failed'
+    | 'configuration_changed'
+  fetched_at: number
+  checked_at: number
+  stale: boolean
+}
+
+export interface ChannelModelDiscoveryResponse {
+  success: boolean
+  data?: ChannelModelDiscovery
+}
+
+export interface ChannelRoutingPreviewCandidate {
+  // Earliest hold expiry among cooling credentials, even if others remain eligible.
+  cooldown_until?: number
+  upstream_model?: string
+  route_reason?: string
+  request_path?: string
+  config_digest?: string
+  id: number
+  name: string
+  type: number
+  weight: number
+  effective_weight: number
+  expected_share: number
+}
+
+export interface ChannelRoutingPreviewTier {
+  priority: number
+  fallback_index: number
+  channels: ChannelRoutingPreviewCandidate[]
+}
+
+export interface ChannelRoutingPreviewResponse {
+  success: boolean
+  code?: string
+  message?: string
+  data?: {
+    group: string
+    model: string
+    request_path: string
+    tiers: ChannelRoutingPreviewTier[]
+    rejected?: {
+      id: number
+      name: string
+      reason: string
+      cooldown_until?: number
+    }[]
+    scheduling?: {
+      failover_timeout_seconds: number
+      failure_cooldown_seconds: number
+    }
+    source: 'cache' | 'database'
+    generation: number
+    data_generation: number
+    published_generation: number
+    cluster_committed_epoch: number
+    local_published_epoch: number
+    cache_enabled: boolean
+    cache_pending: boolean
+    affinity: {
+      evaluated: false
+      precedence: 'before_priority_weight'
+      explanation_code: 'routing_preview_affinity_not_evaluated'
+      account_binding?: 'confirmed_success_only'
+    }
   }
 }
 
@@ -411,7 +513,7 @@ export interface ChannelQuotaHistoryData {
     status: string
     error_code?: string
     event_source?: string
-  }
+  } | null
   unit?: string
   currency?: string
   metric_type?: string
@@ -444,6 +546,8 @@ export interface ChannelQuotaHistoryResponse {
  */
 export interface ChannelQuotaChangeItem {
   channel_id: number
+  /** Stable, non-reversible identity for one account quota series. */
+  series_id?: string
   name: string
   account_label?: string
   metric_type?: string
@@ -477,6 +581,9 @@ export interface ChannelQuotaChangeItem {
 export interface ChannelQuotaChangesData {
   items: ChannelQuotaChangeItem[]
   range?: string
+  /** Server-selected query window in Unix seconds, shared by every series. */
+  start?: number
+  end?: number
   generated_at?: number
   rate_window_seconds?: number
   ewma_half_life_seconds?: number
@@ -505,19 +612,93 @@ export interface ChannelQuotaSamplingStatusResponse {
   data?: ChannelQuotaSamplingStatusData
 }
 
+export interface ChannelQuotaAlertDeliveryStatus {
+  policy_enabled: boolean
+  configured: boolean
+  endpoint_host?: string
+  https_only: boolean
+  redirects_allowed: boolean
+  timeout_ms: number
+  max_attempts: number
+}
+
+export interface ChannelQuotaAlertEvidence {
+  version: number
+  snapshot_id: number
+  channel_id: number
+  observed_at: number
+  available: number
+  total: number
+  unit: string
+  currency?: string
+  metric_type: string
+  window_type: string
+  window_seconds?: number
+  reset_at?: number
+}
+
+export interface ChannelQuotaAlertDeliveryEvent {
+  series_ref?: string
+  evidence?: ChannelQuotaAlertEvidence | null
+  id: number
+  event_key: string
+  snapshot_id: number
+  channel_id: number
+  status: string
+  kind: string
+  state: string
+  attempt_count: number
+  next_attempt_at?: number
+  last_error_code?: string
+  last_error_at?: number
+  delivered_at?: number
+  observed_at: number
+  created_at: number
+  updated_at: number
+}
+
+export interface ChannelQuotaAlertDeliveryEventsResponse {
+  success: boolean
+  message?: string
+  data?: {
+    items: ChannelQuotaAlertDeliveryEvent[]
+    total: number
+    page: number
+    page_size: number
+  }
+}
+
+export interface ChannelQuotaAlertDeliveryStatusResponse {
+  success: boolean
+  message?: string
+  data?: ChannelQuotaAlertDeliveryStatus
+}
+
+export interface ChannelQuotaAlertDeliveryRunSummary {
+  enabled: boolean
+  claimed: number
+  delivered: number
+  retryable: number
+  quarantined: number
+}
+
+export interface ChannelQuotaAlertDeliveryRunResponse {
+  success: boolean
+  message?: string
+  data?: ChannelQuotaAlertDeliveryRunSummary
+}
+
 export interface FetchModelsResponse {
   success: boolean
   message?: string
   data?: string[]
 }
 
-export interface CopyChannelResponse {
-  success: boolean
-  message?: string
-  data?: {
-    id: number
-  }
-}
+export type CopyChannelResponse = ChannelMutationResponse<{
+  id: number
+  ids: number[]
+  replayed: boolean
+}>
 
 // ============================================================================
 // Multi-Key Management Types
@@ -565,6 +746,7 @@ export type ChannelSortBy =
   | 'id'
   | 'name'
   | 'priority'
+  | 'weight'
   | 'balance'
   | 'response_time'
   | 'test_time'
@@ -604,6 +786,7 @@ export interface ChannelTestParams {
 export interface CopyChannelParams {
   suffix?: string
   reset_balance?: boolean
+  operation_key?: string
 }
 
 export interface MultiKeyManageParams {

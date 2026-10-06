@@ -19,14 +19,20 @@ import (
 var modelRateLimitTestUserSequence atomic.Int64
 
 func TestModelRedisRateLimitUsesUTCRegardlessOfLocalTimezone(t *testing.T) {
-	redisServer, redisClient := useRateLimitMiniRedis(t)
+	_, redisClient := useRateLimitMiniRedis(t)
 	previousLocation := time.Local
 	time.Local = time.FixedZone("test-utc-plus-eight", 8*60*60)
 	t.Cleanup(func() { time.Local = previousLocation })
 
 	ctx := context.Background()
 	recordKey := "rateLimit:model-utc-record"
-	recordRedisRequest(ctx, redisClient, recordKey, 2, 60)
+	token := newModelSuccessReservationToken()
+	reserved, err := reserveRedisModelSuccess(ctx, redisClient, recordKey, token, 2, 60, time.Now().UTC())
+	require.NoError(t, err)
+	require.True(t, reserved)
+	committed, err := commitRedisModelSuccess(ctx, redisClient, recordKey, token, 2, 60, time.Now().UTC())
+	require.NoError(t, err)
+	require.True(t, committed)
 	recorded, err := redisClient.LIndex(ctx, recordKey, 0).Result()
 	require.NoError(t, err)
 	recordedAt, err := time.Parse(modelRateLimitTimeFormat, recorded)
@@ -35,9 +41,9 @@ func TestModelRedisRateLimitUsesUTCRegardlessOfLocalTimezone(t *testing.T) {
 
 	checkKey := "rateLimit:model-utc-check"
 	withinWindow := time.Now().UTC().Add(-30 * time.Second).Format(modelRateLimitTimeFormat)
-	_, err = redisServer.Push(checkKey, withinWindow, withinWindow)
+	_, err = redisClient.LPush(ctx, checkKey, withinWindow, withinWindow).Result()
 	require.NoError(t, err)
-	allowed, err := checkRedisRateLimit(ctx, redisClient, checkKey, 2, 60)
+	allowed, err := reserveRedisModelSuccess(ctx, redisClient, checkKey, newModelSuccessReservationToken(), 2, 60, time.Now().UTC())
 	require.NoError(t, err)
 	assert.False(t, allowed, "an existing UTC timestamp inside the window must remain limited on a non-UTC host")
 }

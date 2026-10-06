@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ForceMind/MyAPI/common"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -87,14 +88,21 @@ func b2SubmissionModels() []interface{} {
 	return []interface{}{
 		&User{},
 		&Token{},
+		&Channel{},
 		&UserSubscription{},
 		&Task{},
 		&TaskRecoveryIdentity{},
 		&TaskSubmissionOperation{},
 		&TaskSubmissionAttempt{},
+		&TaskTerminalObservation{},
 		&TaskBillingEvent{},
 		&TaskBillingLogOutbox{},
+		&QuotaMutationReceipt{},
+		&UserQuotaMutationReceipt{},
+		&QuotaWriterEpoch{},
+		&QuotaProjectionObligation{},
 		&Log{},
+		&BillingLogProjectionIdentity{},
 	}
 }
 
@@ -122,8 +130,13 @@ func ensureB2SubmissionOwner(t *testing.T, db *gorm.DB, tokenID int) {
 func migrateB2SubmissionFixture(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	require.NoError(t, db.AutoMigrate(b2SubmissionModels()...))
+	require.NoError(t, EnsureLogProjectionSchemaWithDB(db))
+	require.NoError(t, EnsureQuotaWriterEpochStateWithDB(db))
 	// Startup migrations are intentionally repeatable on existing installs.
 	require.NoError(t, db.AutoMigrate(b2SubmissionModels()...))
+	require.NoError(t, EnsureLogProjectionSchemaWithDB(db))
+	require.NoError(t, EnsureQuotaWriterEpochStateWithDB(db))
+	setQuotaWriterStateForTest(t, db, QuotaWriterModeAuthoritative, 1)
 
 	for _, model := range []interface{}{
 		&TaskRecoveryIdentity{},
@@ -145,7 +158,6 @@ func migrateB2SubmissionFixture(t *testing.T, db *gorm.DB) {
 		{&TaskBillingEvent{}, "uidx_task_billing_event_id"},
 		{&TaskBillingEvent{}, "uidx_task_billing_event_key"},
 		{&TaskBillingLogOutbox{}, "uidx_task_billing_outbox_event"},
-		{&Log{}, "idx_logs_billing_event_id"},
 	} {
 		require.True(t, db.Migrator().HasIndex(index.model, index.name), "missing index %s", index.name)
 	}
@@ -224,6 +236,15 @@ func b2BillingLogPayload(event *TaskBillingEvent) TaskBillingLogPayload {
 
 func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 	t.Helper()
+	previousLogDB, previousLogType := LOG_DB, common.LogDatabaseType()
+	LOG_DB = db
+	common.SetLogDatabaseType(common.DatabaseType(db.Dialector.Name()))
+	initCol()
+	t.Cleanup(func() {
+		LOG_DB = previousLogDB
+		common.SetLogDatabaseType(previousLogType)
+		initCol()
+	})
 	t.Setenv("TASK_RECOVERY_IDEMPOTENCY_SECRET", strings.Repeat("1a", 32))
 	realDatabaseNow, err := taskRecoveryDBTimestamp(db)
 	require.NoError(t, err)
@@ -1498,11 +1519,21 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 		// Log delivery is at-least-once. Its projection key is indexed but not
 		// unique, so a retry remains writable and readers can deduplicate it.
 		for i := 0; i < 2; i++ {
-			require.NoError(t, db.Create(&Log{BillingEventID: event.EventID, RequestId: "log-replay"}).Error)
+			require.NoError(t, CreateLog(db, &Log{
+				BillingEventID: event.EventID,
+				RequestId:      "log-replay",
+				CreatedAt:      1_700_000_000,
+			}))
 		}
-		var replayCount int64
-		require.NoError(t, db.Model(&Log{}).Where("billing_event_id = ?", event.EventID).Count(&replayCount).Error)
-		assert.Equal(t, int64(2), replayCount)
+		var replays []Log
+		require.NoError(t, db.Where("billing_event_id = ?", event.EventID).Order("id").Find(&replays).Error)
+		require.Len(t, replays, 2)
+		assert.Equal(t, replays[0].BillingProjectionDigest, replays[1].BillingProjectionDigest)
+		assert.NotEqual(t, replays[0].LogRowKey, replays[1].LogRowKey)
+		visible, total, err := GetAllLogs(LogTypeUnknown, 0, 0, "", "", "", 0, 10, 0, "", "log-replay", "")
+		require.NoError(t, err)
+		assert.EqualValues(t, 1, total)
+		require.Len(t, visible, 1)
 	})
 
 	t.Run("billing-processing-leases-are-owned-due-and-reclaimable", func(t *testing.T) {

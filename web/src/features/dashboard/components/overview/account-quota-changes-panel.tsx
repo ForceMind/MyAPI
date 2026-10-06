@@ -40,7 +40,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { PanelWrapper } from '../ui/panel-wrapper'
 import { CodexAccountQuotaChart } from './codex-account-quota-chart'
 
-const OVERVIEW_LIMIT = 4
+const OVERVIEW_LIMIT = 64
 const OVERVIEW_RANGE = '24h' as const
 const OVERVIEW_RATE_WINDOW_SECONDS = 60 * 60
 const OVERVIEW_EWMA_HALF_LIFE_SECONDS = 30 * 60
@@ -165,8 +165,9 @@ export function AccountQuotaChangesPanel() {
   } else if (status === 403) {
     errorMessage = t('Your account does not have permission to read channels.')
   }
-  const items = (query.data?.data?.items ?? []).slice(0, OVERVIEW_LIMIT)
+  const items = query.data?.data?.items ?? []
   const incomplete = query.data?.data?.source_complete === false
+  const truncated = query.data?.data?.items_complete === false
 
   return (
     <PanelWrapper
@@ -241,6 +242,16 @@ export function AccountQuotaChangesPanel() {
           <AlertDescription>
             {t(
               'Some quota series are missing. Narrow the time range to load complete history.'
+            )}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {!queryFailed && truncated ? (
+        <Alert>
+          <AlertTitle>{t('More quota series available')}</AlertTitle>
+          <AlertDescription>
+            {t(
+              'Some quota series are not shown here. Open Channels for the full list.'
             )}
           </AlertDescription>
         </Alert>

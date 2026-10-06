@@ -25,11 +25,18 @@ import type {
   BatchSetTagParams,
   Channel,
   ChannelBalanceResponse,
+  ChannelMutationResponse,
   ChannelQuotaChangesResponse,
+  ChannelQuotaAlertDeliveryEventsResponse,
+  ChannelQuotaAlertDeliveryRunResponse,
+  ChannelQuotaAlertDeliveryStatusResponse,
   ChannelQuotaHistoryGranularity,
   ChannelQuotaHistoryRange,
   ChannelQuotaSamplingStatusResponse,
   ChannelOpsResponse,
+  ChannelModelDiscoveryResponse,
+  ChannelRoutingPreviewParams,
+  ChannelRoutingPreviewResponse,
   ChannelQuotaHistoryResponse,
   ChannelTestResponse,
   CopyChannelParams,
@@ -73,6 +80,15 @@ export type CodexUsageHistoryPoint = {
 
 export type CodexUsageHistoryData = {
   channel_id?: number
+  series_id?: string
+  identity_quality?: 'provider_confirmed' | 'credential_scoped' | 'unavailable'
+  data_quality?: {
+    identity_unavailable_count?: number
+    success_count?: number
+    error_count?: number
+    unsupported_count?: number
+    span_seconds?: number
+  }
   start?: number
   end?: number
   points: CodexUsageHistoryPoint[]
@@ -86,6 +102,7 @@ export type CodexUsageHistoryData = {
 export type CodexUsageHistoryResponse = {
   success: boolean
   message?: string
+  code?: string
   data?: CodexUsageHistoryData
 }
 
@@ -101,7 +118,6 @@ export type CodexOAuthCompleteResponse = {
   success: boolean
   message?: string
   data?: {
-    key?: string
     channel_id?: number
     account_id?: string
     email?: string
@@ -190,13 +206,33 @@ export async function getChannelOps(): Promise<ChannelOpsResponse> {
 }
 
 /**
+ * Preview the read-only runtime routing tiers for one explicit group and model.
+ */
+export async function getChannelRoutingPreview(
+  params: ChannelRoutingPreviewParams
+): Promise<ChannelRoutingPreviewResponse> {
+  const res = await api.get(
+    '/api/channel/routing-preview',
+    channelActionConfig({ params })
+  )
+  return res.data
+}
+
+/**
  * Create new channel(s)
  * Supports single, batch, and multi-key modes
  */
 export async function createChannel(
-  data: AddChannelRequest
-): Promise<{ success: boolean; message?: string }> {
-  const res = await api.post('/api/channel', data, channelActionConfig())
+  data: AddChannelRequest,
+  operationKey?: string
+): Promise<ChannelMutationResponse<{ ids: number[]; replayed: boolean }>> {
+  const res = await api.post(
+    '/api/channel',
+    data,
+    channelActionConfig({
+      headers: operationKey ? { 'Idempotency-Key': operationKey } : undefined,
+    })
+  )
   return res.data
 }
 
@@ -206,7 +242,7 @@ export async function createChannel(
 export async function updateChannel(
   id: number,
   data: Partial<Channel>
-): Promise<{ success: boolean; message?: string; data?: Channel }> {
+): Promise<ChannelMutationResponse<Channel>> {
   const res = await api.put(
     '/api/channel/',
     { id, ...data },
@@ -221,7 +257,7 @@ export async function updateChannel(
 export async function updateChannelStatus(
   id: number,
   status: number
-): Promise<{ success: boolean; message?: string; data?: boolean }> {
+): Promise<ChannelMutationResponse<boolean>> {
   const res = await api.post(
     `/api/channel/${id}/status`,
     { status },
@@ -236,7 +272,7 @@ export async function updateChannelStatus(
 export async function batchUpdateChannelStatus(
   ids: number[],
   status: number
-): Promise<{ success: boolean; message?: string; data?: number }> {
+): Promise<ChannelMutationResponse<number>> {
   const res = await api.post(
     '/api/channel/status/batch',
     { ids, status },
@@ -250,7 +286,7 @@ export async function batchUpdateChannelStatus(
  */
 export async function deleteChannel(
   id: number
-): Promise<{ success: boolean; message?: string }> {
+): Promise<ChannelMutationResponse> {
   const res = await api.delete(`/api/channel/${id}`, channelActionConfig())
   return res.data
 }
@@ -260,7 +296,7 @@ export async function deleteChannel(
  */
 export async function batchDeleteChannels(
   data: BatchDeleteParams
-): Promise<{ success: boolean; message?: string; data?: number }> {
+): Promise<ChannelMutationResponse<number>> {
   const res = await api.post('/api/channel/batch', data, channelActionConfig())
   return res.data
 }
@@ -270,7 +306,7 @@ export async function batchDeleteChannels(
  */
 export async function batchSetChannelTag(
   data: BatchSetTagParams
-): Promise<{ success: boolean; message?: string; data?: number }> {
+): Promise<ChannelMutationResponse<number>> {
   const res = await api.post(
     '/api/channel/batch/tag',
     data,
@@ -290,6 +326,14 @@ export async function testChannel(
   id: number,
   params?: { model?: string; endpoint_type?: string; stream?: boolean }
 ): Promise<ChannelTestResponse> {
+  if (params?.model) {
+    const res = await api.post(
+      `/api/channel/test/${id}`,
+      params,
+      channelActionConfig()
+    )
+    return res.data
+  }
   const res = await api.get(
     `/api/channel/test/${id}`,
     channelActionConfig({ params })
@@ -402,6 +446,49 @@ export async function getChannelQuotaSamplingStatus(
   return res.data
 }
 
+export async function getChannelQuotaAlertDeliveryEvents(
+  params: {
+    p?: number
+    page_size?: number
+    state?: string
+  } = {}
+): Promise<ChannelQuotaAlertDeliveryEventsResponse> {
+  const res = await api.get('/api/channel/quota/alerts', {
+    ...channelActionConfig(),
+    params,
+  })
+  return res.data
+}
+
+export async function getChannelQuotaAlertDeliveryStatus(): Promise<ChannelQuotaAlertDeliveryStatusResponse> {
+  const res = await api.get(
+    '/api/channel/quota/alerts/delivery',
+    channelActionConfig()
+  )
+  return res.data
+}
+
+export async function updateChannelQuotaAlertDeliverySettings(request: {
+  webhook_url: string
+  webhook_secret: string
+}): Promise<ChannelQuotaAlertDeliveryStatusResponse> {
+  const res = await api.put(
+    '/api/channel/quota/alerts/delivery',
+    request,
+    channelActionConfig()
+  )
+  return res.data
+}
+
+export async function runChannelQuotaAlertDelivery(): Promise<ChannelQuotaAlertDeliveryRunResponse> {
+  const res = await api.post(
+    '/api/channel/quota/alerts/delivery/run',
+    undefined,
+    channelActionConfig()
+  )
+  return res.data
+}
+
 /**
  * Fetch available models from upstream provider
  */
@@ -422,10 +509,14 @@ export async function copyChannel(
   id: number,
   params: CopyChannelParams = {}
 ): Promise<CopyChannelResponse> {
+  const { operation_key: operationKey, ...queryParams } = params
   const res = await api.post(
     `/api/channel/copy/${id}`,
     null,
-    channelActionConfig({ params })
+    channelActionConfig({
+      params: queryParams,
+      headers: operationKey ? { 'Idempotency-Key': operationKey } : undefined,
+    })
   )
   return res.data
 }
@@ -433,11 +524,9 @@ export async function copyChannel(
 /**
  * Fix channel abilities
  */
-export async function fixChannelAbilities(): Promise<{
-  success: boolean
-  message?: string
-  data?: { success: number; fails: number }
-}> {
+export async function fixChannelAbilities(): Promise<
+  ChannelMutationResponse<{ success: number; fails: number }>
+> {
   const res = await api.post(
     '/api/channel/fix',
     undefined,
@@ -449,11 +538,9 @@ export async function fixChannelAbilities(): Promise<{
 /**
  * Delete all disabled channels
  */
-export async function deleteDisabledChannels(): Promise<{
-  success: boolean
-  message?: string
-  data?: number
-}> {
+export async function deleteDisabledChannels(): Promise<
+  ChannelMutationResponse<number>
+> {
   const res = await api.delete('/api/channel/disabled', channelActionConfig())
   return res.data
 }
@@ -491,12 +578,13 @@ export async function startCodexOAuth(
 
 export async function completeCodexOAuth(
   input: string,
-  channelId?: number
+  channelId?: number,
+  create?: AddChannelRequest
 ): Promise<CodexOAuthCompleteResponse> {
   const path = channelId
     ? `/api/channel/${channelId}/codex/oauth/complete`
     : '/api/channel/codex/oauth/complete'
-  const res = await api.post(path, { input }, channelActionConfig())
+  const res = await api.post(path, { input, create }, channelActionConfig())
   return res.data
 }
 
@@ -563,6 +651,7 @@ export async function getCodexUsageHistory(
   params: {
     range?: '24h' | '7d' | '30d' | '90d'
     limit?: number
+    series_id?: string
   } = {}
 ): Promise<CodexUsageHistoryResponse> {
   const res = await api.get(
@@ -638,12 +727,12 @@ export async function getMultiKeyStatus(
 export async function enableMultiKey(
   channelId: number,
   keyIndex: number
-): Promise<{ success: boolean; message?: string }> {
+): Promise<ChannelMutationResponse> {
   return manageMultiKeys({
     channel_id: channelId,
     action: 'enable_key',
     key_index: keyIndex,
-  }) as Promise<{ success: boolean; message?: string }>
+  }) as Promise<ChannelMutationResponse>
 }
 
 /**
@@ -652,12 +741,12 @@ export async function enableMultiKey(
 export async function disableMultiKey(
   channelId: number,
   keyIndex: number
-): Promise<{ success: boolean; message?: string }> {
+): Promise<ChannelMutationResponse> {
   return manageMultiKeys({
     channel_id: channelId,
     action: 'disable_key',
     key_index: keyIndex,
-  }) as Promise<{ success: boolean; message?: string }>
+  }) as Promise<ChannelMutationResponse>
 }
 
 /**
@@ -666,12 +755,12 @@ export async function disableMultiKey(
 export async function deleteMultiKey(
   channelId: number,
   keyIndex: number
-): Promise<{ success: boolean; message?: string }> {
+): Promise<ChannelMutationResponse> {
   return manageMultiKeys({
     channel_id: channelId,
     action: 'delete_key',
     key_index: keyIndex,
-  }) as Promise<{ success: boolean; message?: string }>
+  }) as Promise<ChannelMutationResponse>
 }
 
 /**
@@ -679,11 +768,11 @@ export async function deleteMultiKey(
  */
 export async function enableAllMultiKeys(
   channelId: number
-): Promise<{ success: boolean; message?: string }> {
+): Promise<ChannelMutationResponse> {
   return manageMultiKeys({
     channel_id: channelId,
     action: 'enable_all_keys',
-  }) as Promise<{ success: boolean; message?: string }>
+  }) as Promise<ChannelMutationResponse>
 }
 
 /**
@@ -691,11 +780,11 @@ export async function enableAllMultiKeys(
  */
 export async function disableAllMultiKeys(
   channelId: number
-): Promise<{ success: boolean; message?: string }> {
+): Promise<ChannelMutationResponse> {
   return manageMultiKeys({
     channel_id: channelId,
     action: 'disable_all_keys',
-  }) as Promise<{ success: boolean; message?: string }>
+  }) as Promise<ChannelMutationResponse>
 }
 
 /**
@@ -703,11 +792,11 @@ export async function disableAllMultiKeys(
  */
 export async function deleteDisabledMultiKeys(
   channelId: number
-): Promise<{ success: boolean; message?: string; data?: number }> {
+): Promise<ChannelMutationResponse<number>> {
   return manageMultiKeys({
     channel_id: channelId,
     action: 'delete_disabled_keys',
-  }) as Promise<{ success: boolean; message?: string; data?: number }>
+  }) as Promise<ChannelMutationResponse<number>>
 }
 
 // ============================================================================
@@ -719,7 +808,7 @@ export async function deleteDisabledMultiKeys(
  */
 export async function enableTagChannels(
   tag: string
-): Promise<{ success: boolean; message?: string }> {
+): Promise<ChannelMutationResponse> {
   const res = await api.post(
     '/api/channel/tag/enabled',
     { tag },
@@ -733,7 +822,7 @@ export async function enableTagChannels(
  */
 export async function disableTagChannels(
   tag: string
-): Promise<{ success: boolean; message?: string }> {
+): Promise<ChannelMutationResponse> {
   const res = await api.post(
     '/api/channel/tag/disabled',
     { tag },
@@ -747,7 +836,7 @@ export async function disableTagChannels(
  */
 export async function editTagChannels(
   params: TagOperationParams
-): Promise<{ success: boolean; message?: string }> {
+): Promise<ChannelMutationResponse> {
   const res = await api.put('/api/channel/tag', params, channelActionConfig())
   return res.data
 }
@@ -887,5 +976,38 @@ export async function getPrefillGroups(
   data?: Array<{ id: number; name: string; items: string | string[] }>
 }> {
   const res = await api.get('/api/prefill_group', { params: { type } })
+  return res.data
+}
+
+export async function getChannelModelDiscovery(
+  id: number
+): Promise<ChannelModelDiscoveryResponse> {
+  const res = await api.get(
+    `/api/channel/model-discovery/${id}`,
+    channelActionConfig()
+  )
+  return res.data
+}
+
+export async function refreshChannelModelDiscovery(
+  id: number
+): Promise<ChannelModelDiscoveryResponse> {
+  const res = await api.post(
+    `/api/channel/model-discovery/${id}`,
+    undefined,
+    channelActionConfig()
+  )
+  return res.data
+}
+
+export async function getChannelQuotaEvents(
+  params: { p: number; page_size: number; status?: string },
+  signal?: AbortSignal
+): Promise<ChannelQuotaAlertDeliveryEventsResponse> {
+  const res = await api.get('/api/channel/quota/events', {
+    ...channelActionConfig(),
+    params,
+    signal,
+  })
   return res.data
 }

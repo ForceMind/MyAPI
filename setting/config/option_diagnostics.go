@@ -83,6 +83,78 @@ func (cm *ConfigManager) AssessOptionDiagnostic(key, value string) OptionDiagnos
 	return OptionDiagnosticAssessment{KeyClass: "unknown_field"}
 }
 
+// OptionDiagnosticFieldKind reports the stable storage kind class of a
+// registered configuration field: "boolean", "integer", "unsigned_integer",
+// "finite_number", "string", "json", or "unsupported". ok is false for keys
+// that are not registered fields. The lookup walks the same schema-only path
+// as AssessOptionDiagnostic: it never reads a configured value and never
+// invokes a configuration validator.
+func (cm *ConfigManager) OptionDiagnosticFieldKind(key string) (kind string, ok bool) {
+	if !validOptionDiagnosticKey(key) {
+		return "", false
+	}
+	prefix, field, dotted := strings.Cut(key, ".")
+	if !dotted || field == "" || strings.Contains(field, ".") {
+		return "", false
+	}
+	registered := cm.Get(prefix)
+	if registered == nil {
+		return "", false
+	}
+	schema := registered
+	if managed, isManaged := registered.(MapConfig); isManaged {
+		describable, describes := managed.(DiagnosticSchemaMapConfig)
+		if !describes {
+			return "", false
+		}
+		schema = describable.DiagnosticSchema()
+	}
+	typ := reflect.TypeOf(schema)
+	for typ != nil && typ.Kind() == reflect.Ptr {
+		typ = typ.Elem()
+	}
+	if typ == nil || typ.Kind() != reflect.Struct {
+		return "", false
+	}
+	for index := 0; index < typ.NumField(); index++ {
+		fieldType := typ.Field(index)
+		if !fieldType.IsExported() {
+			continue
+		}
+		fieldKey := strings.Split(fieldType.Tag.Get("json"), ",")[0]
+		if fieldKey == "-" {
+			continue
+		}
+		if fieldKey == "" {
+			fieldKey = fieldType.Name
+		}
+		if fieldKey != field {
+			continue
+		}
+		return optionDiagnosticFieldKindClass(fieldType.Type.Kind()), true
+	}
+	return "", false
+}
+
+func optionDiagnosticFieldKindClass(kind reflect.Kind) string {
+	switch kind {
+	case reflect.Bool:
+		return "boolean"
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return "integer"
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return "unsigned_integer"
+	case reflect.Float32, reflect.Float64:
+		return "finite_number"
+	case reflect.String:
+		return "string"
+	case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Struct:
+		return "json"
+	default:
+		return "unsupported"
+	}
+}
+
 func validOptionDiagnosticKey(key string) bool {
 	if !utf8.ValidString(key) || key == "" || utf8.RuneCountInString(key) > OptionDiagnosticMaxKeyChars || strings.HasPrefix(key, ".") || strings.HasSuffix(key, ".") || strings.Contains(key, "..") {
 		return false

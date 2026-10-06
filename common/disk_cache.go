@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,44 +28,51 @@ const (
 	legacyDiskCacheDir = "new-api-body-cache"
 )
 
+// diskCacheBaseDir 解析缓存根目录：空路径表示系统临时目录。
+func diskCacheBaseDir(cachePath string) string {
+	if cachePath == "" {
+		return os.TempDir()
+	}
+	return cachePath
+}
+
+// diskCacheDirFor 返回指定缓存根目录下的规范缓存目录。
+func diskCacheDirFor(cachePath string) string {
+	return filepath.Join(diskCacheBaseDir(cachePath), diskCacheDir)
+}
+
 func diskCacheDirs() []string {
 	cachePath := GetDiskCachePath()
-	if cachePath == "" {
-		cachePath = os.TempDir()
-	}
-	canonical := filepath.Join(cachePath, diskCacheDir)
-	legacy := filepath.Join(cachePath, legacyDiskCacheDir)
+	base := diskCacheBaseDir(cachePath)
+	canonical := filepath.Join(base, diskCacheDir)
+	legacy := filepath.Join(base, legacyDiskCacheDir)
 	if canonical == legacy {
 		return []string{canonical}
 	}
 	return []string{canonical, legacy}
 }
 
-// GetDiskCacheDir 获取统一的磁盘缓存目录
-// 注意：每次调用都会重新计算，以响应配置变化
+// GetDiskCacheDir 获取统一的磁盘缓存目录（生效代）
+// 注意：每次调用都会按生效代重新计算
 func GetDiskCacheDir() string {
-	cachePath := GetDiskCachePath()
-	if cachePath == "" {
-		cachePath = os.TempDir()
-	}
-	return filepath.Join(cachePath, diskCacheDir)
+	return diskCacheDirFor(GetDiskCachePath())
 }
 
-// EnsureDiskCacheDir 确保缓存目录存在
+// EnsureDiskCacheDir 确保缓存目录存在（生效代目录）
 func EnsureDiskCacheDir() error {
 	dir := GetDiskCacheDir()
 	return os.MkdirAll(dir, 0755)
 }
 
-// CreateDiskCacheFile 创建磁盘缓存文件
-// cacheType: 缓存类型（body/file）
-// 返回文件路径和文件句柄
-func CreateDiskCacheFile(cacheType DiskCacheType) (string, *os.File, error) {
-	if err := EnsureDiskCacheDir(); err != nil {
+// CreateDiskCacheFileIn 在指定缓存根目录下创建磁盘缓存文件。
+// cachePath 为空时使用系统临时目录。传入的路径必须来自调用方决策时
+// 使用的同一生效代快照，保证一次决策的目录选择一致。
+func CreateDiskCacheFileIn(cacheType DiskCacheType, cachePath string) (string, *os.File, error) {
+	dir := diskCacheDirFor(cachePath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return "", nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
-	dir := GetDiskCacheDir()
 	filename := fmt.Sprintf("%s-%s-%d.tmp", cacheType, uuid.New().String()[:8], time.Now().UnixNano())
 	filePath := filepath.Join(dir, filename)
 
@@ -74,6 +82,13 @@ func CreateDiskCacheFile(cacheType DiskCacheType) (string, *os.File, error) {
 	}
 
 	return filePath, file, nil
+}
+
+// CreateDiskCacheFile 创建磁盘缓存文件（使用生效代目录）
+// cacheType: 缓存类型（body/file）
+// 返回文件路径和文件句柄
+func CreateDiskCacheFile(cacheType DiskCacheType) (string, *os.File, error) {
+	return CreateDiskCacheFileIn(cacheType, GetDiskCachePath())
 }
 
 // WriteDiskCacheFile 写入数据到磁盘缓存文件
@@ -189,14 +204,18 @@ func GetDiskCacheInfo() (fileCount int, totalSize int64, err error) {
 	return fileCount, totalSize, firstErr
 }
 
-// ShouldUseDiskCache 判断是否应该使用磁盘缓存
+// ShouldUseDiskCache 判断是否应该使用磁盘缓存。
+// 单次决策读取同一生效代快照，enabled/threshold/max 来自同一代，不混代。
 func ShouldUseDiskCache(dataSize int64) bool {
-	if !IsDiskCacheEnabled() {
+	config := GetDiskCacheConfig()
+	if !config.Enabled {
 		return false
 	}
-	threshold := GetDiskCacheThresholdBytes()
+	threshold := int64(config.ThresholdMB) << 20
 	if dataSize < threshold {
 		return false
 	}
-	return IsDiskCacheAvailable(dataSize)
+	maxBytes := int64(config.MaxSizeMB) << 20
+	currentUsage := atomic.LoadInt64(&diskCacheStats.CurrentDiskUsageBytes)
+	return currentUsage+dataSize <= maxBytes
 }

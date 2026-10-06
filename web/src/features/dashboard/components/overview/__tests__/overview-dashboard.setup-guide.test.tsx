@@ -44,17 +44,23 @@ vi.mock('@/features/dashboard/hooks/use-status-data', () => ({
 }))
 
 vi.mock('@/components/page-transition', () => ({
-  CardStaggerContainer: (props: { children?: ReactNode; className?: string }) => (
-    <div className={props.className}>{props.children}</div>
-  ),
+  CardStaggerContainer: (props: {
+    children?: ReactNode
+    className?: string
+  }) => <div className={props.className}>{props.children}</div>,
   CardStaggerItem: (props: { children?: ReactNode; className?: string }) => (
     <div className={props.className}>{props.children}</div>
   ),
 }))
 
-vi.mock('@/features/dashboard/components/overview/account-quota-changes-panel', () => ({
-  AccountQuotaChangesPanel: () => null,
-}))
+vi.mock(
+  '@/features/dashboard/components/overview/account-quota-changes-panel',
+  () => ({
+    AccountQuotaChangesPanel: () => (
+      <section aria-label='Account quota changes' />
+    ),
+  })
+)
 vi.mock('@/features/dashboard/components/overview/announcements-panel', () => ({
   AnnouncementsPanel: () => null,
 }))
@@ -64,12 +70,21 @@ vi.mock('@/features/dashboard/components/overview/api-info-panel', () => ({
 vi.mock('@/features/dashboard/components/overview/faq-panel', () => ({
   FAQPanel: () => null,
 }))
-vi.mock('@/features/dashboard/components/overview/performance-health-panel', () => ({
-  PerformanceHealthPanel: () => null,
-}))
+vi.mock(
+  '@/features/dashboard/components/overview/performance-health-panel',
+  () => ({
+    PerformanceHealthPanel: () => null,
+  })
+)
 vi.mock('@/features/dashboard/components/overview/summary-cards', () => ({
-  SummaryCards: () => null,
+  SummaryCards: () => <section aria-label='Usage summary' />,
 }))
+vi.mock(
+  '@/features/dashboard/components/overview/recent-activity-panel',
+  () => ({
+    RecentActivityPanel: () => <section aria-label='Recent activity' />,
+  })
+)
 vi.mock('@/features/dashboard/components/overview/uptime-panel', () => ({
   UptimePanel: () => null,
 }))
@@ -135,13 +150,19 @@ describe('overview setup guide edition and role gating', () => {
     renderDashboard()
 
     if (SELF_USE_MINIMAL) {
-      expect(screen.queryByText('Configure upstream channels')).not.toBeInTheDocument()
-      expect(screen.queryByRole('link', { name: 'Channels' })).not.toBeInTheDocument()
+      expect(
+        screen.queryByText('Configure upstream channels')
+      ).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('link', { name: 'Channels' })
+      ).not.toBeInTheDocument()
       expect(getChannels).not.toHaveBeenCalled()
       return
     }
 
-    expect(await screen.findByText('Configure upstream channels')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Configure upstream channels')
+    ).toBeInTheDocument()
     await waitFor(() => {
       expect(getChannels).toHaveBeenCalledWith({ p: 1, page_size: 1 })
     })
@@ -152,7 +173,9 @@ describe('overview setup guide edition and role gating', () => {
     const { unmount } = renderDashboard()
 
     await waitFor(() => expect(getApiKeys).toHaveBeenCalled())
-    expect(screen.queryByText('Configure upstream channels')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Configure upstream channels')
+    ).not.toBeInTheDocument()
     expect(getChannels).not.toHaveBeenCalled()
 
     unmount()
@@ -161,7 +184,36 @@ describe('overview setup guide edition and role gating', () => {
     renderDashboard()
 
     await waitFor(() => expect(getApiKeys).toHaveBeenCalled())
-    expect(screen.queryByText('Configure upstream channels')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Configure upstream channels')
+    ).not.toBeInTheDocument()
     expect(getChannels).not.toHaveBeenCalled()
   })
+
+  test.each([
+    ['administrator', ROLE.ADMIN],
+    ['regular user', ROLE.USER],
+  ])(
+    '%s sees operational content before setup and no sales prompts',
+    async (_, role) => {
+      setUser(role)
+      renderDashboard()
+
+      const recent = screen.getByRole('region', { name: 'Recent activity' })
+      const summary = screen.getByRole('region', { name: 'Usage summary' })
+      const guide = await screen.findByText('Get started')
+
+      expect(
+        recent.compareDocumentPosition(guide) & Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy()
+      expect(
+        summary.compareDocumentPosition(guide) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy()
+      expect(screen.queryByText('Add credits')).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('link', { name: 'Pricing' })
+      ).not.toBeInTheDocument()
+    }
+  )
 })

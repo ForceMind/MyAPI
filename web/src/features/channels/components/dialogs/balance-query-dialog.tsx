@@ -76,9 +76,10 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
       }
       setCodexUsageResponse(res)
     } catch (error: unknown) {
-      toast.error(
+      const message =
         error instanceof Error ? error.message : t('Failed to fetch usage')
-      )
+      setCodexUsageResponse({ success: false, message })
+      toast.error(message)
     } finally {
       setIsQuerying(false)
     }

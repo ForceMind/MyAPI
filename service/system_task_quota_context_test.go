@@ -44,6 +44,12 @@ func TestQuotaTaskProgressAndLeaseRespectRunDeadlineWhenPoolIsFull(t *testing.T)
 		defer cancel()
 		require.ErrorIs(t, renewSystemTaskLease(ctx, task, "fixture-runner"), context.DeadlineExceeded)
 	})
+	t.Run("price check lease canceled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		priceTask := &model.SystemTask{TaskID: "fixture-price-task", Type: model.SystemTaskTypeOpenAIPriceCheck}
+		require.ErrorIs(t, renewSystemTaskLease(ctx, priceTask, "fixture-runner"), context.Canceled)
+	})
 }
 
 func TestQuotaTaskWritesHaveFiniteBudgetsWithoutChangingLegacyRenewal(t *testing.T) {
@@ -61,17 +67,23 @@ func TestQuotaTaskWritesHaveFiniteBudgetsWithoutChangingLegacyRenewal(t *testing
 	task := &model.SystemTask{TaskID: "fixture-quota-task", Type: model.SystemTaskTypeChannelQuotaSnapshotSync}
 	NewSystemTaskProgressReporterWithContext(context.Background(), task, "fixture-runner")(0, 2)
 	require.ErrorIs(t, renewSystemTaskLease(context.Background(), task, "fixture-runner"), stop)
+	task.Type = model.SystemTaskTypeOpenAIPriceCheck
+	require.ErrorIs(t, renewSystemTaskLease(context.Background(), task, "fixture-runner"), stop)
 	task.Type = model.SystemTaskTypeChannelTest
 	require.ErrorIs(t, renewSystemTaskLease(context.Background(), task, "fixture-runner"), stop)
 	NewSystemTaskProgressReporter(task, "fixture-runner")(0, 2)
-	require.Equal(t, []bool{true, true, false, false}, deadlines)
+	require.Equal(t, []bool{true, true, true, false, false}, deadlines)
 }
 
 func TestQuotaTaskCompletionCancelsLeaseContext(t *testing.T) {
-	var runContext context.Context
-	runWithLeaseHeartbeat(&model.SystemTask{TaskID: "fixture-quota-task", Type: model.SystemTaskTypeChannelQuotaSnapshotSync}, "fixture-runner", func(ctx context.Context) {
-		runContext = ctx
-	})
-	require.NotNil(t, runContext)
-	require.ErrorIs(t, runContext.Err(), context.Canceled)
+	for _, taskType := range []string{model.SystemTaskTypeChannelQuotaSnapshotSync, model.SystemTaskTypeOpenAIPriceCheck} {
+		t.Run(taskType, func(t *testing.T) {
+			var runContext context.Context
+			runWithLeaseHeartbeat(&model.SystemTask{TaskID: "fixture-bounded-task", Type: taskType}, "fixture-runner", func(ctx context.Context) {
+				runContext = ctx
+			})
+			require.NotNil(t, runContext)
+			require.ErrorIs(t, runContext.Err(), context.Canceled)
+		})
+	}
 }

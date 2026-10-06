@@ -27,6 +27,7 @@ import {
   Copy,
   Link,
   Loader2,
+  Gauge,
 } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -232,12 +233,39 @@ export function DataTableRowActions<TData>({
         <TooltipContent>{t('Edit')}</TooltipContent>
       </Tooltip>
 
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant='ghost'
+              size='icon-sm'
+              aria-label={t('API Key usage budgets')}
+              onClick={() => {
+                setCurrentRow(apiKey)
+                setOpen('budget')
+              }}
+            />
+          }
+        >
+          <Gauge className='size-4' />
+        </TooltipTrigger>
+        <TooltipContent>{t('API Key usage budgets')}</TooltipContent>
+      </Tooltip>
+
       <DataTableRowActionMenu
         ariaLabel={t('Open menu')}
         contentClassName='w-[200px]'
         modal={false}
         onOpenChange={handleMenuOpenChange}
       >
+        <DropdownMenuItem
+          onClick={() => {
+            setCurrentRow(apiKey)
+            setOpen('access-policy')
+          }}
+        >
+          {t('Assigned access')}
+        </DropdownMenuItem>
         <DropdownMenuItem
           onClick={async () => {
             const realKey = getCachedRealKey()

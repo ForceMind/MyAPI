@@ -205,14 +205,15 @@ npm pack --dry-run --json
 npm publish --dry-run --access public --registry=https://registry.npmjs.org/
 ```
 
-当前 Docker 镜像 workflow 会在推送符合 `vX.Y.Z` 的版本 tag 后自动运行，矩阵构建并推送
-Full 与 Legacy LAN 两个多架构镜像；稳定版本分别更新各自的 `latest`，预发布 tag
-不会覆盖 `latest`。也可以通过 `workflow_dispatch` 指定已有 tag 手动重跑，但必须在
-`confirm` 输入中选择 `PUBLISH`；默认的 `NO` 会跳过所有推送 job。不要手动重跑旧的
-`v0.1.1` tag；workflow 会校验
-tag、`VERSION` 和 `package.json.version` 完全一致，不会移动既有 tag。构建前还会检查
-GHCR 的版本和架构 tag；任一已存在就拒绝覆盖，必须创建新的 SemVer tag。稳定版
-`latest` 与分支滚动 tag 是有意保留的可变别名，生产升级应使用版本 tag 或 digest。
+当前 Docker、GitHub Release 与 NPM workflow 均不会由 tag push 自动触发发布。维护者必须通过
+`workflow_dispatch` 选择已有 tag、填写 `PUBLISH`、通过对应环境并开启专用 gate。workflow 校验 tag、
+`VERSION`、`package.json.version` 与 commit SHA 精确一致；历史 `v0.1.0`、`v0.1.1` 不可重用。
+
+`v0.2.0-beta.1` 等预发布只进入受控预发布通道：GitHub Release 标记 prerelease 且不成为 latest，NPM 使用
+`beta` dist-tag，GHCR 只生成不可变版本/架构 tag，不触碰稳定 latest。稳定 promotion 需对 Full/Legacy LAN、
+amd64/arm64 的 digest、OCI platform child、provenance/SBOM attestation 与 Cosign 先完成预检，再在全局串行
+门禁中一次提升各 rolling latest；较旧稳定版不能回滚 GitHub/NPM/GHCR latest。生产升级仍应使用版本 tag 或 digest，
+不使用可变 latest。
 CLI 会从 `package.json.version` 生成新项目的 Full 默认镜像，安装脚本会从根目录
 `VERSION` 生成默认 tag；发布工作流会校验 tag、`VERSION` 与
 `package.json.version` 的一致性，避免版本升级后初始化流程意外拉取旧镜像。当前

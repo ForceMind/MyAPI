@@ -47,6 +47,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { UserSubscriptionsDialog } from '@/features/subscriptions/components/dialogs/user-subscriptions-dialog'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { manageUser, resetUserPasskey, resetUserTwoFA } from '../api'
 import {
@@ -72,6 +73,12 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const [resetTwoFAOpen, setResetTwoFAOpen] = useState(false)
   const [bindingDialogOpen, setBindingDialogOpen] = useState(false)
   const [subscriptionsDialogOpen, setSubscriptionsDialogOpen] = useState(false)
+  const canEditAssignedAccess = useAuthStore(
+    (state) => (state.auth.user?.role ?? 0) >= 10
+  )
+  const canEditUsagePolicy = useAuthStore(
+    (state) => state.auth.user?.role === 100
+  )
 
   const handleEdit = () => {
     setCurrentRow(user)
@@ -161,6 +168,28 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         ariaLabel={t('Open menu')}
         contentClassName='w-48'
       >
+        {canEditAssignedAccess && (
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault()
+              setCurrentRow(user)
+              setOpen('access-policy')
+            }}
+          >
+            {t('Assigned access')}
+          </DropdownMenuItem>
+        )}
+        {canEditUsagePolicy && (
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault()
+              setCurrentRow(user)
+              setOpen('usage-policy')
+            }}
+          >
+            {t('User usage policy')}
+          </DropdownMenuItem>
+        )}
         {isDisabled ? (
           <DropdownMenuItem onClick={() => handleManage('enable')}>
             {t('Enable')}

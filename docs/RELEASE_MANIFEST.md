@@ -21,6 +21,26 @@ cleanup plan。它们不拉取/解析 manifest、不验证 canonical bytes、签
 此前 schema-1 结构校验/ fresh-install 选择的 11 个合成 Node 用例、raw-bytes evidence 的 9 个合成 Node 用例及 Legacy 画像的 7 个合成 Node 用例均已在单核/768MiB 受限服务中通过，独立只读审查修复后无 P1/P2/P3。新增 manifest/installation-state 输入硬化已由受限串行 Node 定向测试 28/28 覆盖并经独立只读审查，无 P1/P2/P3。已有证据绝不外推为 NPM 安装、下载、签名验证、更新、
 切换、回退或正式发行已可用。
 
+## 当前发布通道合同（本地验证，未发布）
+
+当前 Release、NPM 和 GHCR 均只允许维护者对**已有** SemVer tag 发起手动
+`workflow_dispatch`，并要求对应的 `PUBLISH`、专用环境和各自的启用变量。推送 tag
+不会自动发布 GHCR。候选 tag、`VERSION`、`package.json.version` 与 tag commit SHA 必须精确一致；历史
+`v0.1.0`、`v0.1.1` 已受保护，不能重用。
+
+`v0.2.0-beta.1` 这类预发布允许进入受控预发布通道：GitHub Release 必须标记 prerelease 且不能成为 latest；NPM
+使用 `beta` dist-tag；GHCR 只写不可变版本/架构 tag，不能移动任何稳定 `latest` 引用。稳定版本的
+GitHub/NPM/GHCR latest promotion 受全局串行和单调版本检查保护：较旧版本不能回滚 latest。
+
+GHCR 的 Full 与 Legacy LAN、amd64 与 arm64 先分别构建不可变制品并上传 digest evidence。promotion 在
+全量预检后才一次更新 `latest-amd64`、`latest-arm64`、`latest`；预检核对 OCI 平台 child、artifact digest、
+version manifest、provenance/SBOM attestation 与 Cosign。原生 Linux/macOS/Windows job 只上传 artifact，唯一
+finalize job 在三平台全部成功后才创建 GitHub Release。
+
+`npm run release:workflow:check` 是 dependency-free 的本地合同检查和 fixture 测试，不访问 GitHub、NPM 或
+GHCR。它证明 workflow 结构与输入规则，不证明 registry 状态、OIDC/Cosign 权限、真实 attestation、网络失败
+处理或中断后的 promotion 重跑；这些仍需在已授权的干净 tag 环境验收。
+
 ## 1. 目标与当前差距
 
 My API 后续以一个用户入口提供四种可选择交付：Full 服务器、Lite 服务器、个人电脑 Lite、Desktop（Lite 的桌面安装形态）。它们共享业务核心、数据库语义、必要资源、版本号与恢复合同；用户只安装所选形态需要的运行制品。

@@ -39,15 +39,15 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
-import { tryPrettyJson } from '@/lib/utils'
 
 import { completeCodexOAuth, startCodexOAuth } from '../../api'
+import type { AddChannelRequest } from '../../types'
 
 type CodexOAuthDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   channelId?: number
-  onKeyGenerated: (key: string) => void
+  getCreatePayload?: () => Promise<AddChannelRequest | null>
   onCredentialSaved?: () => void
 }
 
@@ -75,6 +75,11 @@ export function CodexOAuthDialog(props: CodexOAuthDialogProps) {
   const handleStart = async () => {
     setState((previous) => ({ ...previous, isStarting: true }))
     try {
+      if (!props.channelId && !(await props.getCreatePayload?.())) {
+        throw new Error(
+          t('Complete the required channel fields before import.')
+        )
+      }
       const response = await startCodexOAuth(props.channelId)
       if (!response.success) {
         throw new Error(response.message || t('Failed to start Codex login'))
@@ -118,20 +123,25 @@ export function CodexOAuthDialog(props: CodexOAuthDialogProps) {
     if (!input) return
     setState((previous) => ({ ...previous, isCompleting: true }))
     try {
-      const response = await completeCodexOAuth(input, props.channelId)
+      const create = props.channelId
+        ? undefined
+        : await props.getCreatePayload?.()
+      if (!props.channelId && !create) {
+        throw new Error(
+          t('Complete the required channel fields before import.')
+        )
+      }
+      const response = await completeCodexOAuth(
+        input,
+        props.channelId,
+        create ?? undefined
+      )
       if (!response.success) {
         throw new Error(response.message || t('Codex authorization failed'))
       }
 
-      if (props.channelId) {
-        props.onCredentialSaved?.()
-        toast.success(t('Codex credential saved'))
-      } else {
-        const rawKey = response.data?.key || ''
-        if (!rawKey) throw new Error(t('Missing generated credential'))
-        props.onKeyGenerated(tryPrettyJson(rawKey))
-        toast.success(t('Codex credential filled into the channel form'))
-      }
+      props.onCredentialSaved?.()
+      toast.success(t('Codex credential saved'))
       props.onOpenChange(false)
     } catch (error) {
       toast.error(
@@ -150,9 +160,7 @@ export function CodexOAuthDialog(props: CodexOAuthDialogProps) {
           <DialogDescription>
             {props.channelId
               ? t('The new credential will be saved directly to this channel.')
-              : t(
-                  'The generated credential will be filled into the channel form.'
-                )}
+              : t('The channel will be created after login.')}
           </DialogDescription>
         </DialogHeader>
 

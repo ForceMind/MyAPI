@@ -12,6 +12,7 @@ import (
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/middleware"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/relay/channel/codex"
@@ -22,8 +23,11 @@ import (
 
 const codexOAuthFlowTTL = 10 * time.Minute
 
+var exchangeCodexOAuthCode = service.ExchangeCodexAuthorizationCodeWithProxy
+
 type codexOAuthCompleteRequest struct {
-	Input string `json:"input"`
+	Input  string             `json:"input"`
+	Create *AddChannelRequest `json:"create,omitempty"`
 }
 
 type codexOAuthFlowPayload struct {
@@ -36,10 +40,6 @@ func parseCodexAuthorizationInput(input string) (code string, state string, err 
 	if v == "" {
 		return "", "", errors.New("empty input")
 	}
-	if strings.Contains(v, "#") {
-		parts := strings.SplitN(v, "#", 2)
-		return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), nil
-	}
 	if strings.Contains(v, "code=") {
 		if parsed, parseErr := url.Parse(v); parseErr == nil {
 			query := parsed.Query()
@@ -47,9 +47,19 @@ func parseCodexAuthorizationInput(input string) (code string, state string, err 
 				return parsedCode, strings.TrimSpace(query.Get("state")), nil
 			}
 		}
-		if query, parseErr := url.ParseQuery(v); parseErr == nil {
-			return strings.TrimSpace(query.Get("code")), strings.TrimSpace(query.Get("state")), nil
+		queryInput := v
+		if fragment := strings.IndexByte(queryInput, '#'); fragment >= 0 {
+			queryInput = queryInput[:fragment]
 		}
+		if query, parseErr := url.ParseQuery(queryInput); parseErr == nil {
+			if parsedCode := strings.TrimSpace(query.Get("code")); parsedCode != "" {
+				return parsedCode, strings.TrimSpace(query.Get("state")), nil
+			}
+		}
+	}
+	if strings.Contains(v, "#") {
+		parts := strings.SplitN(v, "#", 2)
+		return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), nil
 	}
 	return v, "", nil
 }
@@ -144,6 +154,26 @@ func completeCodexOAuthWithChannelID(c *gin.Context, channelID int) {
 		common.ApiError(c, err)
 		return
 	}
+	if channelID == 0 {
+		if req.Create == nil || req.Create.Mode != "single" || req.Create.Channel == nil ||
+			req.Create.Channel.Id != 0 || req.Create.Channel.Type != constant.ChannelTypeCodex ||
+			req.Create.Channel.ChannelInfo.IsMultiKey || strings.TrimSpace(req.Create.Channel.Key) != "" ||
+			req.Create.BatchAddSetKeyPrefix2Name {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": common.TranslateMessage(c, i18n.MsgCodexOAuthInvalidCreate)})
+			return
+		}
+		if err := req.Create.Channel.ValidateSettings(); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": common.TranslateMessage(c, i18n.MsgCodexOAuthInvalidSettings)})
+			return
+		}
+		if err := validateChannelModelNames(req.Create.Channel); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": common.TranslateMessage(c, i18n.MsgCodexOAuthModelNameTooLong)})
+			return
+		}
+	} else if req.Create != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": common.TranslateMessage(c, i18n.MsgCodexOAuthInvalidCreate)})
+		return
+	}
 	code, state, err := parseCodexAuthorizationInput(req.Input)
 	if err != nil || code == "" || state == "" {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "invalid Codex callback URL"})
@@ -160,6 +190,8 @@ func completeCodexOAuthWithChannelID(c *gin.Context, channelID int) {
 		}
 		targetChannel = ch
 		channelProxy = ch.GetSetting().Proxy
+	} else {
+		channelProxy = req.Create.Channel.GetSetting().Proxy
 	}
 
 	flowMatch := model.AuthFlowMatch{
@@ -185,7 +217,7 @@ func completeCodexOAuthWithChannelID(c *gin.Context, channelID int) {
 	}
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
 	defer cancel()
-	tokenRes, err := service.ExchangeCodexAuthorizationCodeWithProxy(ctx, code, flowPayload.Verifier, channelProxy)
+	tokenRes, err := exchangeCodexOAuthCode(ctx, code, flowPayload.Verifier, channelProxy)
 	if err != nil {
 		common.SysError("failed to exchange codex authorization code: " + err.Error())
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "Codex authorization failed; start again"})
@@ -245,8 +277,21 @@ func completeCodexOAuthWithChannelID(c *gin.Context, channelID int) {
 		return
 	}
 
-	data["key"] = string(encoded)
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "generated", "data": data})
+	channel := req.Create.Channel
+	channel.Key = string(encoded)
+	channel.CreatedTime = common.GetTimestamp()
+	if err := validateChannel(channel, true); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	if err := model.InsertChannelWithAbilities(c.Request.Context(), channel); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	model.InitChannelCache()
+	recordManageAudit(c, "channel.codex_oauth.create", map[string]interface{}{"channel_id": channel.Id})
+	data["channel_id"] = channel.Id
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "saved", "data": data})
 }
 
 func getCodexOAuthChannel(channelID int) (*model.Channel, error) {

@@ -84,6 +84,20 @@ func parseTaskSubmissionProtocolWithHasher(headers http.Header, method, operatio
 	}, nil
 }
 
+// HasTaskSubmissionIdempotencyHeader returns true if headers contain any
+// canonical or alias form of the idempotency key header (e.g., Idempotency-Key,
+// X-Idempotency-Key, or case/underscore variants).
+func HasTaskSubmissionIdempotencyHeader(headers http.Header) bool {
+	for name := range headers {
+		normalizedName := strings.ToLower(strings.ReplaceAll(name, "_", "-"))
+		if normalizedName == strings.ToLower(taskSubmissionIdempotencyHeader) ||
+			normalizedName == strings.ToLower(taskSubmissionIdempotencyHeaderAlias) {
+			return true
+		}
+	}
+	return false
+}
+
 func removeTaskSubmissionIdempotencyKey(headers http.Header) {
 	for name := range headers {
 		if strings.EqualFold(name, taskSubmissionIdempotencyHeader) {

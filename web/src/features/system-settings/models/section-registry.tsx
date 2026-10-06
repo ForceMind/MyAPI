@@ -25,6 +25,7 @@ import { GeminiSettingsCard } from './gemini-settings-card'
 import { GlobalSettingsCard } from './global-settings-card'
 import { GrokSettingsCard } from './grok-settings-card'
 import { RoutingReliabilitySection } from './routing-reliability-section'
+import { OpenAIOfficialPricingSection } from './openai-official-pricing-section'
 
 function formatJsonForEditor(value: string, fallback: string) {
   const raw = (value ?? '').toString().trim()
@@ -37,6 +38,11 @@ function formatJsonForEditor(value: string, fallback: string) {
 }
 
 const MODELS_SECTIONS = [
+  {
+    id: 'openai-pricing-source',
+    titleKey: 'OpenAI official pricing source',
+    build: () => <OpenAIOfficialPricingSection />,
+  },
   {
     id: 'global',
     titleKey: 'Global Model Configuration',

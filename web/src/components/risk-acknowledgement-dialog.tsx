@@ -65,7 +65,7 @@ type RiskAcknowledgementDialogProps = {
 }
 
 function getRequiredTextRows(text: string) {
-  return Math.max(1, Math.ceil(Array.from(text).length / 42))
+  return Math.max(1, Math.ceil([...text].length / 42))
 }
 
 export function RiskAcknowledgementDialog({
@@ -162,6 +162,9 @@ export function RiskAcknowledgementDialog({
     : typedText.length > 0
 
   const canConfirm = allChecked && typedMatched && !isLoading
+  const itemKeyCounts = new Map<string, number>()
+  const checklistKeyCounts = new Map<string, number>()
+  const requiredTextPartKeyCounts = new Map<string, number>()
 
   const handleChecklistChange = (index: number, checked: boolean) => {
     setCheckedItems((previous) => {
@@ -202,9 +205,12 @@ export function RiskAcknowledgementDialog({
         <div className='min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-4 sm:px-6'>
           {items.length > 0 ? (
             <ol className='border-border/70 bg-muted/30 text-foreground list-decimal space-y-2 rounded-lg border px-4 py-3 pl-8 text-sm leading-6 sm:px-5 sm:py-4 sm:pl-9'>
-              {items.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
+              {items.map((item) => {
+                const itemOccurrence = itemKeyCounts.get(item) ?? 0
+                itemKeyCounts.set(item, itemOccurrence + 1)
+
+                return <li key={`${item}:${itemOccurrence}`}>{item}</li>
+              })}
             </ol>
           ) : null}
 
@@ -212,8 +218,13 @@ export function RiskAcknowledgementDialog({
             <div className='border-border/70 bg-muted/30 space-y-3 rounded-lg border p-3 sm:p-4'>
               {checklist.map((item, index) => {
                 const id = `risk-acknowledgement-${index}`
+                const itemOccurrence = checklistKeyCounts.get(item) ?? 0
+                checklistKeyCounts.set(item, itemOccurrence + 1)
                 return (
-                  <div key={item} className='flex items-start gap-3'>
+                  <div
+                    key={`${item}:${itemOccurrence}`}
+                    className='flex items-start gap-3'
+                  >
                     <Checkbox
                       id={id}
                       checked={checkedItems[index] ?? false}
@@ -244,17 +255,29 @@ export function RiskAcknowledgementDialog({
               </div>
               {hasSegmentedRequiredText ? (
                 <div className='flex flex-col gap-2'>
-                  {normalizedRequiredTextParts.map((part, index) =>
-                    part.type === 'static' ? (
-                      <span
-                        key={`static-${index}`}
-                        className='text-muted-foreground bg-background/70 border-border w-fit rounded-md border px-2 py-1.5 font-mono text-sm select-none'
-                      >
-                        {part.text}
-                      </span>
-                    ) : (
+                  {normalizedRequiredTextParts.map((part) => {
+                    const partIdentity = `${part.type}:${part.text}:${part.placeholder ?? ''}`
+                    const partOccurrence =
+                      requiredTextPartKeyCounts.get(partIdentity) ?? 0
+                    requiredTextPartKeyCounts.set(
+                      partIdentity,
+                      partOccurrence + 1
+                    )
+
+                    if (part.type === 'static') {
+                      return (
+                        <span
+                          key={`${partIdentity}:${partOccurrence}`}
+                          className='text-muted-foreground bg-background/70 border-border w-fit rounded-md border px-2 py-1.5 font-mono text-sm select-none'
+                        >
+                          {part.text}
+                        </span>
+                      )
+                    }
+
+                    return (
                       <Textarea
-                        key={`input-${index}`}
+                        key={`${partIdentity}:${partOccurrence}`}
                         value={typedTextParts[part.inputIndex ?? 0] ?? ''}
                         onChange={(event) =>
                           handleTextPartChange(
@@ -275,7 +298,7 @@ export function RiskAcknowledgementDialog({
                         className='min-h-10 resize-none overflow-hidden font-mono text-sm leading-6'
                       />
                     )
-                  )}
+                  })}
                 </div>
               ) : (
                 <Textarea

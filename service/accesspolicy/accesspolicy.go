@@ -114,10 +114,12 @@ type LegacyPriceOutcome struct {
 
 // LegacyOutcome is the complete legacy outcome that this preparatory core
 // preserves. Accepted allow/group/price values are not trimmed, sorted, or
-// otherwise rewritten.
+// otherwise rewritten. UsingModel carries the model the legacy path resolved;
+// it participates in policy comparison but is not a billing input.
 type LegacyOutcome struct {
 	Allow      bool               `json:"allow"`
 	UsingGroup string             `json:"using_group,omitempty"`
+	UsingModel string             `json:"using_model,omitempty"`
 	Price      LegacyPriceOutcome `json:"price"`
 }
 
@@ -224,7 +226,8 @@ func Evaluate(input EvaluationInput) (PolicyDecision, error) {
 	findings = appendReferenceFinding(findings, "access_profile", snapshot.AccessProfile)
 	findings = appendDanglingFindings(findings, "model", snapshot.AllowedModels, availableModels)
 	findings = appendDanglingFindings(findings, "route", snapshot.AllowedRoutes, availableRoutes)
-	findings = appendPolicyDifferenceFinding(findings, snapshot.AllowedGroups, legacy.UsingGroup)
+	findings = appendPolicyDifferenceFinding(findings, snapshot.AllowedGroups, legacy.UsingGroup, "legacy_group_difference")
+	findings = appendPolicyDifferenceFinding(findings, snapshot.AllowedModels, legacy.UsingModel, "legacy_model_difference")
 	if snapshot.Mode == PolicyModeEnforce {
 		findings = append(findings, Finding{Code: "enforcement_not_available"})
 	}
@@ -310,6 +313,9 @@ func normalizeStringList(input StringList, maxLength int, stableID bool) (String
 
 func validateAndCopyLegacyOutcome(input LegacyOutcome) (LegacyOutcome, error) {
 	if input.UsingGroup != "" && !isStableID(input.UsingGroup, MaxGroupLength) {
+		return LegacyOutcome{}, ErrInvalidLegacyOutcome
+	}
+	if input.UsingModel != "" && !isSafePolicyText(input.UsingModel, MaxModelLength) {
 		return LegacyOutcome{}, ErrInvalidLegacyOutcome
 	}
 	if !isCanonicalRatio(input.Price.ModelRatio) || !isCanonicalRatio(input.Price.GroupRatio) {
@@ -410,16 +416,16 @@ func appendDanglingFindings(findings []Finding, subject string, requested, avail
 	return findings
 }
 
-func appendPolicyDifferenceFinding(findings []Finding, allowedGroups StringList, legacyGroup string) []Finding {
-	if legacyGroup == "" || allowedGroups.Presence == ListPresenceAbsent {
+func appendPolicyDifferenceFinding(findings []Finding, allowed StringList, legacyValue, code string) []Finding {
+	if legacyValue == "" || allowed.Presence == ListPresenceAbsent {
 		return findings
 	}
-	for _, group := range allowedGroups.Values {
-		if group == legacyGroup {
+	for _, value := range allowed.Values {
+		if value == legacyValue {
 			return findings
 		}
 	}
-	return append(findings, Finding{Code: "legacy_group_difference", Subject: legacyGroup})
+	return append(findings, Finding{Code: code, Subject: legacyValue})
 }
 
 func canonicalFindings(input []Finding) []Finding {

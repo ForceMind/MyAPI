@@ -153,7 +153,7 @@ function RemainingSparkline(props: { item: ChannelQuotaChangeItem }) {
               points={line}
               fill='none'
               stroke='currentColor'
-              strokeWidth='6'
+              strokeWidth='1.5'
               strokeLinecap='round'
               strokeLinejoin='round'
               vectorEffect='non-scaling-stroke'
@@ -162,7 +162,7 @@ function RemainingSparkline(props: { item: ChannelQuotaChangeItem }) {
               <circle
                 cx={singlePoint.x}
                 cy={singlePoint.y}
-                r='3'
+                r='2'
                 fill='currentColor'
                 vectorEffect='non-scaling-stroke'
               />

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	common2 "github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/logger"
 	"github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/relay/constant"
@@ -373,6 +374,12 @@ func DoFormRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBod
 }
 
 func DoWssRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody io.Reader) (*websocket.Conn, error) {
+	if c == nil || c.Request == nil {
+		return nil, errors.New("invalid websocket request context")
+	}
+	if err := c.Request.Context().Err(); err != nil {
+		return nil, err
+	}
 	fullRequestURL, err := a.GetRequestURL(info)
 	if err != nil {
 		return nil, fmt.Errorf("get request url failed: %w", err)
@@ -392,7 +399,10 @@ func DoWssRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 		targetHeader.Set(key, value)
 	}
 	targetHeader.Set("Content-Type", c.Request.Header.Get("Content-Type"))
-	targetConn, _, err := websocket.DefaultDialer.Dial(fullRequestURL, targetHeader)
+	if err := service.ValidateAssignedAccessDispatch(c, nil, info); err != nil {
+		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgDistributorPolicyDenied, map[string]any{"Group": info.UsingGroup})), types.ErrorCodeAccessDenied, http.StatusForbidden, types.ErrOptionWithSkipRetry())
+	}
+	targetConn, err := dialWebsocketWithContext(c.Request.Context(), websocket.DefaultDialer, fullRequestURL, targetHeader)
 	if err != nil {
 		return nil, fmt.Errorf("dial failed to %s: %w", common.SanitizeURLForLog(fullRequestURL), err)
 	}
@@ -488,6 +498,12 @@ func keepUpstreamRedirectResponse(_ *http.Request, _ []*http.Request) error {
 }
 
 func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http.Response, error) {
+	if err := service.ValidateAssignedAccessDispatch(c, req, info); err != nil {
+		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgDistributorPolicyDenied, map[string]any{"Group": info.UsingGroup})), types.ErrorCodeAccessDenied, http.StatusForbidden, types.ErrOptionWithSkipRetry())
+	}
+	if err := service.ValidateModelRouteDispatch(c, req, info); err != nil {
+		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgInvalidParams)), types.ErrorCode(err.Error()), http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+	}
 	client, err := service.GetHttpClientWithProxySettings(info.ChannelSetting.Proxy, info.ChannelSetting)
 	if err != nil {
 		return nil, fmt.Errorf("new proxy http client failed: %w", err)
@@ -498,6 +514,18 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 	// transparent stream retries.
 	relayClient := *client
 	relayClient.CheckRedirect = keepUpstreamRedirectResponse
+	if err := service.ValidateAccountQuotaThresholdDispatch(c.Request.Context(), &relayClient, req, info); err != nil {
+		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgAccountThresholdUnavailable)), types.ErrorCode("account_threshold_unavailable"), http.StatusServiceUnavailable, types.ErrOptionWithSkipRetry())
+	}
+	if err := service.ValidateRelayFailoverDispatch(c, info); err != nil {
+		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgInvalidParams)), types.ErrorCode("relay_eligibility_changed"), http.StatusForbidden, types.ErrOptionWithSkipRetry())
+	}
+	if err := service.PrepareTokenBudgetDispatch(c, &relayClient, req, info); err != nil {
+		return nil, service.TokenBudgetRelayError(c, err)
+	}
+	// Keep the caller-owned request identity: dispatch guards remove its replay
+	// hook as well as propagating cancellation to the transport.
+	*req = *req.WithContext(c.Request.Context())
 	if common2.DebugEnabled && req != nil && req.URL != nil {
 		policy := service.NormalizeHTTPTransportPolicy(info.ChannelSetting)
 		logger.LogDebug(c, fmt.Sprintf(
@@ -529,7 +557,24 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 		}
 	}
 
+	if err := service.ValidateRelayFailoverDispatch(c, info); err != nil {
+		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgInvalidParams)), types.ErrorCode("relay_eligibility_changed"), http.StatusForbidden, types.ErrOptionWithSkipRetry())
+	}
+	if err := service.ValidateAssignedAccessDispatch(c, req, info); err != nil {
+		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgDistributorPolicyDenied, map[string]any{"Group": info.UsingGroup})), types.ErrorCodeAccessDenied, http.StatusForbidden, types.ErrOptionWithSkipRetry())
+	}
+	if err := service.PrepareTextUsageDispatch(c, req, info); err != nil {
+		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgTextUsageDispatchPending)), types.ErrorCode("usage_dispatch_unresolved"), http.StatusServiceUnavailable, types.ErrOptionWithSkipRetry())
+	}
+	if state := service.RelayFailoverFromContext(c.Request.Context()); state != nil {
+		if err := req.Context().Err(); err != nil {
+			return nil, err
+		}
+		state.DispatchPossible = true
+		req.GetBody = nil
+	}
 	resp, err := relayClient.Do(req)
+	service.ObserveRelayTransientFailure(c, resp, err)
 	if err != nil {
 		logger.LogError(c, "do request failed: "+err.Error())
 		return nil, types.NewError(err, types.ErrorCodeDoRequestFailed, types.ErrOptionWithHideErrMsg("upstream error: do request failed"))
@@ -537,6 +582,8 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 	if resp == nil {
 		return nil, errors.New("resp is nil")
 	}
+	service.ObserveTextUsageDispatchResponse(info, resp.StatusCode)
+	service.ObserveRelayFailoverResponse(c, resp.StatusCode)
 	if common2.DebugEnabled {
 		policy := service.NormalizeHTTPTransportPolicy(info.ChannelSetting)
 		logger.LogDebug(c, fmt.Sprintf(

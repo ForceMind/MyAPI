@@ -4,7 +4,7 @@ services:
     # read-only fallback; the CLI and install script normalize the legacy
     # public URL before invoking this file, then the required check below
     # prevents an empty origin.
-    image: ${MYAPI_IMAGE:-${NEW_API_IMAGE:-ghcr.io/forcemind/myapi:v0.1.1}}
+    image: ${MYAPI_IMAGE:-${NEW_API_IMAGE:-ghcr.io/forcemind/myapi:v0.2.0-beta.7}}
     container_name: my-api
     restart: always
     # Keep workstation and small-server deployments bounded by default. These
@@ -29,7 +29,9 @@ services:
       # install.sh and the CLI normalize a legacy NEW_API_PUBLIC_URL into the
       # canonical environment before invoking Compose. Keep a required check
       # here so direct Compose runs cannot start with an empty public origin.
-      SESSION_COOKIE_TRUSTED_URL: ${MYAPI_PUBLIC_URL:?MYAPI_PUBLIC_URL is required; run myapi migrate for legacy settings}
+      # The single '-' preserves the explicit empty value for local HTTP.
+      # An unset value retains the historical Full HTTPS default.
+      SESSION_COOKIE_TRUSTED_URL: ${MYAPI_SESSION_COOKIE_TRUSTED_URL-${MYAPI_PUBLIC_URL:?MYAPI_PUBLIC_URL is required; run myapi migrate for legacy settings}}
       FRONTEND_BASE_URL: ${MYAPI_PUBLIC_URL:?MYAPI_PUBLIC_URL is required; run myapi migrate for legacy settings}
       TRUSTED_PROXIES: 172.16.0.0/12
       ERROR_LOG_ENABLED: "true"
@@ -42,6 +44,7 @@ services:
       CHANNEL_QUOTA_SYNC_ENABLED: ${CHANNEL_QUOTA_SYNC_ENABLED:-}
       CHANNEL_QUOTA_SYNC_INTERVAL: ${CHANNEL_QUOTA_SYNC_INTERVAL:-}
       CHANNEL_QUOTA_SYNC_MAX_CHANNELS: ${CHANNEL_QUOTA_SYNC_MAX_CHANNELS:-}
+      CHANNEL_QUOTA_IDENTITY_KEYS: ${CHANNEL_QUOTA_IDENTITY_KEYS:-}
       CHANNEL_QUOTA_ALERT_ENABLED: ${CHANNEL_QUOTA_ALERT_ENABLED:-false}
       CHANNEL_QUOTA_ALERT_WARNING_PERCENT: ${CHANNEL_QUOTA_ALERT_WARNING_PERCENT:-20}
       CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT: ${CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT:-10}

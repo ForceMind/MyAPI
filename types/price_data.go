@@ -26,10 +26,74 @@ type PriceData struct {
 	AudioRatio           float64
 	AudioCompletionRatio float64
 	otherRatios          map[string]float64
+	quotaUnitSnapshot    float64
+	toolPricesSnapshot   map[string]float64
+	preConsumeTokens     *int
+	preConsumeGroupRatio float64
 	UsePrice             bool
 	Quota                int // 按次计费的最终额度（MJ / Task）
 	QuotaToPreConsume    int // 按量计费的预消耗额度
 	GroupRatioInfo       GroupRatioInfo
+}
+
+// CapturePreConsumeTokens freezes the non-tiered estimate and its initial
+// group. Retries can reprice that estimate without reading live token defaults
+// or model prices, including when the first group's ratio was zero.
+func (p *PriceData) CapturePreConsumeTokens(tokens int) error {
+	group := p.GroupRatioInfo.GroupRatio
+	if tokens < 0 || group < 0 || math.IsNaN(group) || math.IsInf(group, 0) {
+		return fmt.Errorf("pre-consume estimate and group ratio must be non-negative and finite")
+	}
+	p.preConsumeTokens = &tokens
+	p.preConsumeGroupRatio = group
+	return nil
+}
+
+func (p *PriceData) QuotedPreConsumeTokens() (tokens int, groupRatio float64, captured bool) {
+	if p.preConsumeTokens == nil {
+		return 0, 0, false
+	}
+	return *p.preConsumeTokens, p.preConsumeGroupRatio, true
+}
+
+// CaptureQuotaUnit seals the currency conversion for this request. The field
+// is private so invalid/untrusted PriceData cannot assign a snapshot directly.
+func (p *PriceData) CaptureQuotaUnit(unit float64) error {
+	if unit <= 0 || math.IsNaN(unit) || math.IsInf(unit, 0) {
+		return fmt.Errorf("quota unit must be positive and finite")
+	}
+	p.quotaUnitSnapshot = unit
+	return nil
+}
+
+// QuotedQuotaUnit preserves old internal callers without a captured unit;
+// quote helpers always capture one before returning a request PriceData.
+func (p *PriceData) QuotedQuotaUnit(legacyUnit float64) float64 {
+	if p.quotaUnitSnapshot != 0 {
+		return p.quotaUnitSnapshot
+	}
+	return legacyUnit
+}
+
+func (p *PriceData) CaptureToolPrices(prices map[string]float64) error {
+	snapshot := make(map[string]float64, len(prices))
+	for name, price := range prices {
+		if price < 0 || math.IsNaN(price) || math.IsInf(price, 0) {
+			return fmt.Errorf("tool price must be non-negative and finite")
+		}
+		snapshot[name] = price
+	}
+	p.toolPricesSnapshot = snapshot
+	return nil
+}
+
+// The bool reports whether the entire price generation was captured, not
+// whether this tool exists. Absent tools in a captured generation cost zero.
+func (p *PriceData) QuotedToolPrice(name string) (float64, bool) {
+	if p.toolPricesSnapshot == nil {
+		return 0, false
+	}
+	return p.toolPricesSnapshot[name], true
 }
 
 func (p *PriceData) AddOtherRatio(key string, ratio float64) {

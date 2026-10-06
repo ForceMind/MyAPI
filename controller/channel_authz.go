@@ -82,12 +82,13 @@ var channelOperationalFields = map[string]struct{}{
 // channelReadOnlyFields lists server-managed/accounting fields that the general
 // channel edit endpoint must ignore even if a client sends them.
 var channelReadOnlyFields = map[string]struct{}{
-	"created_time":         {},
-	"test_time":            {},
-	"response_time":        {},
-	"balance":              {},
-	"balance_updated_time": {},
-	"used_quota":           {},
+	"routing_config_digest": {},
+	"created_time":          {},
+	"test_time":             {},
+	"response_time":         {},
+	"balance":               {},
+	"balance_updated_time":  {},
+	"used_quota":            {},
 }
 
 func clearChannelReadOnlyFields(channel *PatchChannel, requestData map[string]any) {
@@ -118,19 +119,20 @@ func clearChannelReadOnlyFields(channel *PatchChannel, requestData map[string]an
 // to the fail-closed branch and is treated as sensitive. The
 // TestChannelFieldsAreClassified guard test enforces this.
 var channelNonSensitiveFields = map[string]struct{}{
-	"id":                  {},
-	"test_model":          {},
-	"name":                {},
-	"weight":              {},
-	"models":              {},
-	"group":               {},
-	"model_mapping":       {},
-	"status_code_mapping": {},
-	"priority":            {},
-	"auto_ban":            {},
-	"other_info":          {},
-	"tag":                 {},
-	"remark":              {},
-	"channel_info":        {},
-	"multi_key_mode":      {},
+	"expected_routing_config": {},
+	"id":                      {},
+	"test_model":              {},
+	"name":                    {},
+	"weight":                  {},
+	"models":                  {},
+	"group":                   {},
+	"model_mapping":           {},
+	"status_code_mapping":     {},
+	"priority":                {},
+	"auto_ban":                {},
+	"other_info":              {},
+	"tag":                     {},
+	"remark":                  {},
+	"channel_info":            {},
+	"multi_key_mode":          {},
 }

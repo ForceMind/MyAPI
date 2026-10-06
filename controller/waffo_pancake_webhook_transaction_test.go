@@ -44,9 +44,9 @@ func TestWaffoPancakeWebhookDatabaseFailureIsRetryable(t *testing.T) {
 					require.NoError(t, db.Create(&plan).Error)
 					require.NoError(t, db.Create(&model.SubscriptionOrder{UserId: 1, PlanId: plan.Id, TradeNo: tradeNo, PaymentProvider: model.PaymentProviderWaffoPancake, Status: common.TopUpStatusPending}).Error)
 				} else {
-					require.NoError(t, db.Create(&model.TopUp{UserId: 1, TradeNo: tradeNo, Amount: 1, PaymentProvider: model.PaymentProviderWaffoPancake, Status: common.TopUpStatusPending}).Error)
+					require.NoError(t, db.Create(&model.TopUp{UserId: 1, TradeNo: tradeNo, Amount: 1, PaymentProvider: model.PaymentProviderWaffoPancake, QuotaPerUnitSnapshot: webhookFixtureQuotaUnitSnapshot(), WaffoPancakeStoreID: "STO_synthetic", WaffoPancakeProductID: "PROD_synthetic", WaffoPancakeCurrency: "USD", Status: common.TopUpStatusPending}).Error)
 				}
-				event := &service.WaffoPancakeWebhookEvent{EventType: "order.completed", Mode: "test", Data: service.WaffoPancakeWebhookData{OrderMerchantExternalID: tradeNo, MerchantProvidedBuyerIdentity: "my-api-user-1"}}
+				event := &service.WaffoPancakeWebhookEvent{StoreID: "STO_synthetic", EventType: "order.completed", Mode: "test", Data: service.WaffoPancakeWebhookData{Currency: "USD", OrderMerchantExternalID: tradeNo, MerchantProvidedBuyerIdentity: "my-api-user-1"}}
 				injected := errors.New("injected pancake database failure")
 				var restore func()
 				switch fault {

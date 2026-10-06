@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -44,12 +44,20 @@ export function UserQuotaDialog(props: UserQuotaDialogProps) {
   const [mode, setMode] = useState<QuotaAdjustMode>('add')
   const [amount, setAmount] = useState('')
   const [loading, setLoading] = useState(false)
+  // 每次尝试（同一组参数）生成一次 request_id；失败重试复用同一标识，
+  // 使服务端按 (user, request_id) 幂等，成功或参数变化后重新生成。
+  const attemptRef = useRef<{
+    userId: number
+    mode: QuotaAdjustMode
+    value: number
+    requestId: string
+  } | null>(null)
 
   const { meta: currencyMeta } = getCurrencyDisplay()
   const currencyLabel = getCurrencyLabel()
   const tokensOnly = currencyMeta.kind === 'tokens'
 
-  const amountValue = parseFloat(amount) || 0
+  const amountValue = Number.parseFloat(amount) || 0
   const quotaValue = parseQuotaFromDollars(Math.abs(amountValue))
 
   const getPreviewText = () => {
@@ -77,13 +85,29 @@ export function UserQuotaDialog(props: UserQuotaDialogProps) {
     try {
       const value =
         mode === 'override' ? parseQuotaFromDollars(amountValue) : quotaValue
+      const submitValue = mode === 'override' ? value : Math.abs(value)
+      if (
+        !attemptRef.current ||
+        attemptRef.current.userId !== props.userId ||
+        attemptRef.current.mode !== mode ||
+        attemptRef.current.value !== submitValue
+      ) {
+        attemptRef.current = {
+          userId: props.userId,
+          mode,
+          value: submitValue,
+          requestId: crypto.randomUUID(),
+        }
+      }
       const result = await adjustUserQuota({
         id: props.userId,
         action: 'add_quota',
         mode,
-        value: mode === 'override' ? value : Math.abs(value),
+        value: submitValue,
+        request_id: attemptRef.current.requestId,
       })
       if (result.success) {
+        attemptRef.current = null
         toast.success(t('Quota adjusted successfully'))
         setAmount('')
         setMode('add')
@@ -134,28 +158,32 @@ export function UserQuotaDialog(props: UserQuotaDialogProps) {
         <div className='space-y-2'>
           <Label>{t('Mode')}</Label>
           <div className='flex gap-1'>
-            {(['add', 'subtract', 'override'] as const).map((m) => (
-              <Button
-                key={m}
-                type='button'
-                variant='outline'
-                size='sm'
-                className={cn(
-                  mode === m &&
-                    'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground'
-                )}
-                onClick={() => {
-                  setMode(m)
-                  setAmount('')
-                }}
-              >
-                {m === 'add'
-                  ? t('Add')
-                  : m === 'subtract'
-                    ? t('Subtract')
-                    : t('Override')}
-              </Button>
-            ))}
+            {(['add', 'subtract', 'override'] as const).map((m) => {
+              let labelKey = 'Override'
+              if (m === 'add') {
+                labelKey = 'Add'
+              } else if (m === 'subtract') {
+                labelKey = 'Subtract'
+              }
+              return (
+                <Button
+                  key={m}
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  className={cn(
+                    mode === m &&
+                      'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground'
+                  )}
+                  onClick={() => {
+                    setMode(m)
+                    setAmount('')
+                  }}
+                >
+                  {t(labelKey)}
+                </Button>
+              )
+            })}
           </div>
         </div>
 

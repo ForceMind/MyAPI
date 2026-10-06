@@ -17,6 +17,20 @@ func GetChannelAffinityCacheStats(c *gin.Context) {
 	})
 }
 
+// RebuildChannelAffinityCache 按当前配置代重建亲和缓存（维护操作）。
+//
+// 保存 channel_affinity_setting 只更新配置代；max_entries / default_ttl_seconds
+// 须经本端点（或重启）才进入生效缓存实例。重建原子换入新实例：
+// 进行中的请求继续使用旧实例直到结束，新请求使用新代参数构造的实例。
+func RebuildChannelAffinityCache(c *gin.Context) {
+	params := service.RebuildChannelAffinityCache()
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    params,
+	})
+}
+
 func ClearChannelAffinityCache(c *gin.Context) {
 	all := strings.TrimSpace(c.Query("all"))
 	ruleName := strings.TrimSpace(c.Query("rule_name"))

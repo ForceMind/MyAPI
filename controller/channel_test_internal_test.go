@@ -158,7 +158,7 @@ func TestCopyChannelRejectsInvalidLegacyProxySettings(t *testing.T) {
 
 	CopyChannel(ctx)
 
-	assert.Contains(t, recorder.Body.String(), "invalid channel settings")
+	assert.Contains(t, recorder.Body.String(), "invalid cloned channel settings")
 	var channelCount int64
 	require.NoError(t, db.Model(&model.Channel{}).Count(&channelCount).Error)
 	assert.Equal(t, int64(1), channelCount)

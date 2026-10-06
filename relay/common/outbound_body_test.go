@@ -135,14 +135,20 @@ func TestNewOutboundJSONBody_GetBodyReadersAreIndependent(t *testing.T) {
 // not parallel: it temporarily lowers the global disk-cache threshold so the
 // payload takes the diskStorage path.
 func TestNewOutboundJSONBody_GetBodyReadersAreIndependent_DiskStorage(t *testing.T) {
-	prev := common.GetDiskCacheConfig()
+	prev := common.GetDiskCacheDesiredConfig()
 	common.SetDiskCacheConfig(common.DiskCacheConfig{
 		Enabled:     true,
 		ThresholdMB: 0,
 		MaxSizeMB:   64,
 		Path:        t.TempDir(),
 	})
-	defer common.SetDiskCacheConfig(prev)
+	// 磁盘缓存目录/容量属于放置字段：保存后须经维护重建才进入生效代。
+	_, err := common.RebuildDiskCache()
+	require.NoError(t, err)
+	defer func() {
+		common.SetDiskCacheConfig(prev)
+		_, _ = common.RebuildDiskCache()
+	}()
 
 	payload := []byte(`{"model":"test-model","input":"abcdefghijklmnopqrstuvwxyz"}`)
 

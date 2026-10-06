@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/ForceMind/MyAPI/common"
 
@@ -46,10 +47,19 @@ func userAuthFenceTTLSeconds() int {
 }
 
 func writeUserCache(user *UserBase, includeQuota bool) error {
+	return writeUserCacheWithQuotaBalanceOwner(user, includeQuota, nil)
+}
+
+func writeUserCacheWithQuotaBalanceOwner(user *UserBase, includeQuota bool, balanceLock *quotaBalanceSubjectLock) error {
 	if user == nil || user.Id <= 0 || !common.RedisEnabled {
 		return nil
 	}
+	state, err := GetQuotaWriterEpochState(DB)
+	if err != nil {
+		return err
+	}
 	user.CacheSchema = userCacheSchemaVersion
+	user.QuotaWriterEpoch = state.Epoch
 	if user.AuthVersion <= 0 {
 		return fmt.Errorf("invalid user auth version")
 	}
@@ -58,8 +68,28 @@ func writeUserCache(user *UserBase, includeQuota bool) error {
 		includeQuotaArg = "1"
 	}
 	ttl := userCacheTTLSeconds()
+	balanceLockKey, err := quotaBalanceSubjectLockKey(BatchUpdateTypeUserQuota, user.Id)
+	if err != nil {
+		return err
+	}
+	balanceLockToken := ""
+	if balanceLock != nil {
+		balanceLockToken = balanceLock.Token
+	}
 	const script = `
+local balanceOwner = redis.call('GET', KEYS[5])
+if (balanceOwner and balanceOwner ~= ARGV[16]) or (not balanceOwner and ARGV[16] ~= '') then
+  return 3
+end
 local incoming = tonumber(ARGV[1])
+local incomingEpoch = tonumber(ARGV[14])
+local globalEpoch = tonumber(redis.call('GET', KEYS[4]) or '0')
+if globalEpoch > incomingEpoch then
+  return 2
+end
+if globalEpoch < incomingEpoch then
+  redis.call('SET', KEYS[4], ARGV[14])
+end
 local pending = tonumber(redis.call('GET', KEYS[2]) or '0')
 local committed = tonumber(redis.call('GET', KEYS[3]) or '0')
 local current = tonumber(redis.call('HGET', KEYS[1], 'AuthVersion') or '0')
@@ -72,6 +102,9 @@ end
 if pending > 0 and pending <= incoming then
   redis.call('DEL', KEYS[2])
 end
+if redis.call('EXISTS', KEYS[1]) == 1 and redis.call('HGET', KEYS[1], 'CacheSchema') ~= ARGV[10] then
+  redis.call('DEL', KEYS[1])
+end
 if ARGV[11] == '0' and redis.call('EXISTS', KEYS[1]) == 0 then
   return 1
 end
@@ -79,15 +112,22 @@ redis.call('HSET', KEYS[1],
   'Id', ARGV[2], 'Group', ARGV[3], 'AccountTierID', ARGV[4], 'Email', ARGV[5],
   'Status', ARGV[6], 'Role', ARGV[7], 'Username', ARGV[8],
   'Setting', ARGV[9], 'AuthVersion', ARGV[1], 'CacheSchema', ARGV[10])
-if ARGV[11] == '1' and redis.call('HEXISTS', KEYS[1], 'Quota') == 0 then
-  redis.call('HSET', KEYS[1], 'Quota', ARGV[12])
+if ARGV[11] == '1' then
+  local incomingQV = tonumber(ARGV[13] or '0')
+  local currentQV = tonumber(redis.call('HGET', KEYS[1], 'QuotaVersion') or '-1')
+  local currentEpoch = tonumber(redis.call('HGET', KEYS[1], 'QuotaWriterEpoch') or '-1')
+  if currentEpoch == -1 or incomingEpoch > currentEpoch or (incomingEpoch == currentEpoch and incomingQV > currentQV) then
+    redis.call('HSET', KEYS[1], 'Quota', ARGV[12], 'QuotaVersion', ARGV[13], 'QuotaWriterEpoch', ARGV[14])
+  end
 end
-redis.call('EXPIRE', KEYS[1], ARGV[13])
+redis.call('EXPIRE', KEYS[1], ARGV[15])
 return 1`
-	result, err := common.RDB.Eval(context.Background(), script,
-		[]string{getUserCacheKey(user.Id), getUserAuthFenceKey(user.Id), getUserAuthVersionKey(user.Id)},
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	result, err := common.RDB.Eval(ctx, script,
+		[]string{getUserCacheKey(user.Id), getUserAuthFenceKey(user.Id), getUserAuthVersionKey(user.Id), quotaWriterEpochRedisKey, balanceLockKey},
 		user.AuthVersion, user.Id, user.Group, user.AccountTierID, user.Email, user.Status, user.Role,
-		user.Username, user.Setting, user.CacheSchema, includeQuotaArg, user.Quota, ttl,
+		user.Username, user.Setting, user.CacheSchema, includeQuotaArg, user.Quota, user.QuotaVersion, user.QuotaWriterEpoch, ttl, balanceLockToken,
 	).Int()
 	if err != nil {
 		return err
@@ -95,7 +135,60 @@ return 1`
 	if result == 0 {
 		return ErrUserAuthCachePending
 	}
+	if result == 2 {
+		return ErrQuotaWriterEpochMismatch
+	}
+	if result == 3 {
+		return ErrQuotaBalanceMutationUnknown
+	}
 	return nil
+}
+
+const hydrateUserQuotaCacheScript = `
+if redis.call('EXISTS', KEYS[1]) == 0 then
+  return 2
+end
+if redis.call('HGET', KEYS[1], 'Id') ~= ARGV[1] or redis.call('HGET', KEYS[1], 'CacheSchema') ~= ARGV[2] then
+  redis.call('DEL', KEYS[1])
+  return 2
+end
+local incomingEpoch = tonumber(ARGV[5])
+local globalEpoch = tonumber(redis.call('GET', KEYS[2]) or '0')
+if globalEpoch > incomingEpoch then
+  return 0
+end
+if globalEpoch < incomingEpoch then
+  redis.call('SET', KEYS[2], ARGV[5])
+end
+local currentEpoch = tonumber(redis.call('HGET', KEYS[1], 'QuotaWriterEpoch') or '-1')
+if currentEpoch == -1 then
+  redis.call('DEL', KEYS[1])
+  return 2
+end
+local currentQV = tonumber(redis.call('HGET', KEYS[1], 'QuotaVersion') or '-1')
+local incomingQV = tonumber(ARGV[4])
+if incomingEpoch < currentEpoch or (incomingEpoch == currentEpoch and incomingQV <= currentQV) then
+  redis.call('EXPIRE', KEYS[1], ARGV[6])
+  return 0
+end
+redis.call('HSET', KEYS[1], 'Quota', ARGV[3], 'QuotaVersion', ARGV[4], 'QuotaWriterEpoch', ARGV[5])
+redis.call('EXPIRE', KEYS[1], ARGV[6])
+return 1`
+
+func hydrateUserQuotaCacheRedisAtEpoch(userId int, quota int, quotaVersion, writerEpoch int64) error {
+	if !common.RedisEnabled || userId <= 0 {
+		return nil
+	}
+	if common.RDB == nil || writerEpoch <= 0 || quotaVersion < 0 {
+		return ErrQuotaWriterEpochUnavailable
+	}
+	ttl := userCacheTTLSeconds()
+	_, err := common.RDB.Eval(context.Background(), hydrateUserQuotaCacheScript,
+		[]string{getUserCacheKey(userId), quotaWriterEpochRedisKey},
+		strconv.Itoa(userId), strconv.Itoa(userCacheSchemaVersion), strconv.Itoa(quota),
+		strconv.FormatInt(quotaVersion, 10), strconv.FormatInt(writerEpoch, 10), ttl,
+	).Int()
+	return err
 }
 
 func getUserAuthVersionFloor(userId int) (int64, error) {

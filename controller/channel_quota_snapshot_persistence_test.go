@@ -19,7 +19,7 @@ func TestChannelQuotaSnapshotSyncSummaryIncludesPersistenceFailures(t *testing.T
 		PersistFailed: 2,
 	})
 	require.NoError(t, err)
-	require.JSONEq(t, `{"considered":3,"sampled":2,"failed":1,"skipped":0,"persist_failed":2}`, string(payload))
+	require.JSONEq(t, `{"considered":3,"sampled":2,"failed":1,"skipped":0,"source_complete":false,"persist_failed":2}`, string(payload))
 }
 
 func TestChannelQuotaSnapshotSyncSummaryIncludesUnsupportedCount(t *testing.T) {
@@ -29,7 +29,7 @@ func TestChannelQuotaSnapshotSyncSummaryIncludesUnsupportedCount(t *testing.T) {
 		Unsupported: 1,
 	})
 	require.NoError(t, err)
-	require.JSONEq(t, `{"considered":2,"sampled":0,"failed":1,"unsupported":1,"skipped":0,"persist_failed":0}`, string(payload))
+	require.JSONEq(t, `{"considered":2,"sampled":0,"failed":1,"unsupported":1,"skipped":0,"source_complete":false,"persist_failed":0}`, string(payload))
 }
 
 func TestRecordChannelBalanceSnapshotReturnsPersistenceError(t *testing.T) {

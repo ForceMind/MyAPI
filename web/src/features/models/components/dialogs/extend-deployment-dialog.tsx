@@ -48,15 +48,24 @@ export function ExtendDeploymentDialog({
   const queryClient = useQueryClient()
   const [hours, setHours] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const validDeploymentId =
+    deploymentId === null || deploymentId === '' || deploymentId === 0
+      ? null
+      : deploymentId
 
   useEffect(() => {
     if (open) setHours(1)
   }, [open])
 
   const { data: detailsRes, isLoading: isLoadingDetails } = useQuery({
-    queryKey: ['deployment-details-for-extend', deploymentId],
-    queryFn: () => (deploymentId ? getDeployment(deploymentId) : null),
-    enabled: open && deploymentId !== null,
+    queryKey: ['deployment-details-for-extend', validDeploymentId],
+    queryFn: () => {
+      if (validDeploymentId === null) {
+        return null
+      }
+      return getDeployment(validDeploymentId)
+    },
+    enabled: open && validDeploymentId !== null,
   })
 
   const details = detailsRes?.data
@@ -96,7 +105,12 @@ export function ExtendDeploymentDialog({
     isLoading: isLoadingPrice,
     isFetching: isFetchingPrice,
   } = useQuery({
-    queryKey: ['deployment-extend-price', deploymentId, hours, priceParams],
+    queryKey: [
+      'deployment-extend-price',
+      validDeploymentId,
+      hours,
+      priceParams,
+    ],
     queryFn: () =>
       priceParams
         ? estimatePrice({
@@ -130,10 +144,13 @@ export function ExtendDeploymentDialog({
     return `${String(total)} ${String(currency).toUpperCase()}`.trim()
   }, [priceRes])
 
-  const canSubmit = Boolean(deploymentId) && hours > 0 && !isSubmitting
+  const canSubmit = validDeploymentId !== null && hours > 0 && !isSubmitting
 
   const onSubmit = async () => {
-    if (!deploymentId) return
+    if (validDeploymentId === null) {
+      toast.error(t('Operation failed'))
+      return
+    }
     const h = toInt(hours, 1)
     if (h <= 0) {
       toast.error(t('Please enter a valid duration'))
@@ -141,7 +158,7 @@ export function ExtendDeploymentDialog({
     }
     setIsSubmitting(true)
     try {
-      const res = await extendDeployment(deploymentId, h)
+      const res = await extendDeployment(validDeploymentId, h)
       if (res.success) {
         toast.success(t('Extended successfully'))
         queryClient.invalidateQueries({
@@ -157,6 +174,18 @@ export function ExtendDeploymentDialog({
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  let priceDisplay: React.ReactNode = t('Not available')
+  if (isLoadingPrice || isFetchingPrice) {
+    priceDisplay = (
+      <span className='inline-flex items-center gap-2'>
+        <Loader2 className='h-4 w-4 animate-spin' />
+        {t('Calculating...')}
+      </span>
+    )
+  } else if (priceParams) {
+    priceDisplay = priceSummary || t('Not available')
   }
 
   return (
@@ -190,7 +219,7 @@ export function ExtendDeploymentDialog({
         <div className='space-y-4'>
           <div className='text-muted-foreground text-sm'>
             {t('Deployment ID')}:{' '}
-            <span className='font-mono'>{deploymentId}</span>
+            <span className='font-mono'>{validDeploymentId ?? '—'}</span>
           </div>
 
           <div className='space-y-2'>
@@ -210,18 +239,7 @@ export function ExtendDeploymentDialog({
 
           <div className='space-y-1'>
             <div className='text-sm font-medium'>{t('Estimated cost')}</div>
-            <div className='text-muted-foreground text-sm'>
-              {isLoadingPrice || isFetchingPrice ? (
-                <span className='inline-flex items-center gap-2'>
-                  <Loader2 className='h-4 w-4 animate-spin' />
-                  {t('Calculating...')}
-                </span>
-              ) : priceParams ? (
-                priceSummary || t('Not available')
-              ) : (
-                t('Not available')
-              )}
-            </div>
+            <div className='text-muted-foreground text-sm'>{priceDisplay}</div>
             {!priceParams ? (
               <div className='text-muted-foreground text-xs'>
                 {t('Unable to estimate price for this deployment.')}

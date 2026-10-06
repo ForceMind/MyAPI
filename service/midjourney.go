@@ -60,6 +60,9 @@ func PrepareMidjourneyTaskBilling(relayInfo *relaycommon.RelayInfo, task *model.
 }
 
 // SettleMidjourneyTaskBilling charges a persisted legacy task and records the applied stages.
+// 稳定业务键为 "mj-billing:{mjId}"（mjId 缺失时回退请求 ID）：legacy 模式保持
+// 迁移前直写机制与余额结果；authoritative 模式经 receipt 内核按事件键幂等；
+// bridge 模式 fail-closed。
 func SettleMidjourneyTaskBilling(relayInfo *relaycommon.RelayInfo, task *model.Midjourney, prepared bool) (bool, error) {
 	if !prepared {
 		return false, nil
@@ -71,7 +74,14 @@ func SettleMidjourneyTaskBilling(relayInfo *relaycommon.RelayInfo, task *model.M
 		return false, errors.New("Midjourney task must be persisted before billing")
 	}
 
-	result, billingErr := postConsumeQuotaWithResult(relayInfo, task.Quota, 0, true)
+	billingInfo := *relayInfo
+	if task.MjId != "" {
+		billingInfo.RequestId = task.MjId
+	}
+	result, billingErr := postConsumeQuotaWithEvent(&billingInfo, task.Quota, 0, true, postConsumeQuotaEvent{
+		Namespace:  "mj-billing",
+		ReasonCode: "mj_task_billing",
+	})
 	if !result.FundingApplied {
 		task.Quota = 0
 		task.TokenId = 0
@@ -93,10 +103,29 @@ func SettleMidjourneyTaskBilling(relayInfo *relaycommon.RelayInfo, task *model.M
 }
 
 // RefundMidjourneyQuota reverses every accounting element recorded for a billed legacy task.
+// 幂等护栏不再只依赖 task.Quota 内存值：legacy 模式经持久退款事实
+// "mj-refund:{mjId}"，authoritative 模式经同键 receipt，重复 notify/并发 poll
+// 下最多退一次；bridge 模式 fail-closed。UpdateWithStatus CAS 仍是并发入口守卫。
 func RefundMidjourneyQuota(ctx context.Context, task *model.Midjourney, reason string) bool {
 	quota := task.Quota
 	if quota == 0 {
 		return true
+	}
+
+	if task.MjId != "" {
+		if mode, modeErr := postConsumeQuotaWriterMode(); modeErr == nil {
+			switch mode {
+			case model.QuotaWriterModeLegacy:
+				return refundMidjourneyQuotaLegacyFact(ctx, task, quota, reason)
+			case model.QuotaWriterModeAuthoritative:
+				return refundMidjourneyQuotaAuthoritative(ctx, task, quota, reason)
+			default:
+				// bridge：fail-closed，保留 quota 标记等待受控切换。
+				logger.LogError(ctx, fmt.Sprintf("Midjourney 退款在当前配额 writer 模式下不可用 task %s", task.MjId))
+				return false
+			}
+		}
+		// 模式解析失败回落迁移前直写；model 层守卫决定最终成败。
 	}
 
 	if err := model.IncreaseUserQuota(task.UserId, quota, false); err != nil {
@@ -104,15 +133,35 @@ func RefundMidjourneyQuota(ctx context.Context, task *model.Midjourney, reason s
 		return false
 	}
 
-	if task.TokenId > 0 {
-		tokenKey := resolveTokenKey(ctx, task.TokenId, task.MjId)
-		if tokenKey != "" {
-			if err := model.IncreaseTokenQuota(task.TokenId, tokenKey, quota); err != nil {
-				logger.LogWarn(ctx, fmt.Sprintf("退还 Midjourney 令牌额度失败 task %s: %s", task.MjId, err.Error()))
-			}
-		}
-	}
+	refundMidjourneyTokenQuota(ctx, task, quota)
 
+	refundMidjourneyUsageAndLog(task, quota, reason)
+
+	task.Quota = 0
+	if err := task.UpdateBillingState(); err != nil {
+		logger.LogError(ctx, fmt.Sprintf("Midjourney 退款成功但清除 quota 失败 task %s: %s", task.MjId, err.Error()))
+	}
+	return true
+}
+
+// refundMidjourneyTokenQuota 按迁移前直写机制退还 Midjourney 令牌额度
+// （best-effort，失败仅告警）。legacy 直写允许 used_quota 转负。
+func refundMidjourneyTokenQuota(ctx context.Context, task *model.Midjourney, quota int) {
+	if task.TokenId <= 0 {
+		return
+	}
+	tokenKey := resolveTokenKey(ctx, task.TokenId, task.MjId)
+	if tokenKey == "" {
+		return
+	}
+	if err := model.IncreaseTokenQuota(task.TokenId, tokenKey, quota); err != nil {
+		logger.LogWarn(ctx, fmt.Sprintf("退还 Midjourney 令牌额度失败 task %s: %s", task.MjId, err.Error()))
+	}
+}
+
+// refundMidjourneyUsageAndLog 回减用户/渠道用量并记录退款日志。统计列保持现状
+// 语义，只在退款事实首次应用时执行一次。
+func refundMidjourneyUsageAndLog(task *model.Midjourney, quota int, reason string) {
 	billingChannelId := task.GetBillingChannelId()
 	model.UpdateUserUsedQuota(task.UserId, -quota)
 	model.UpdateChannelUsedQuota(billingChannelId, -quota)
@@ -129,6 +178,71 @@ func RefundMidjourneyQuota(ctx context.Context, task *model.Midjourney, reason s
 			"reason":  reason,
 		},
 	})
+}
+
+// refundMidjourneyQuotaLegacyFact 以持久退款事实 "mj-refund:{mjId}" 执行 legacy
+// 退款：事实先行保证最多退一次；清除 task.Quota 是可重放步骤，失败不开启重复
+// 退款窗口。Midjourney 在 Prepare 阶段已拒绝订阅计费，因此恒为 legacy_wallet。
+func refundMidjourneyQuotaLegacyFact(ctx context.Context, task *model.Midjourney, quota int, reason string) bool {
+	factInput := model.AccountQuotaSettlementFactInput{
+		EventKey:  taskFactEventKey("mj-refund:", task.MjId),
+		RequestID: taskFactRequestID(task.MjId),
+		Kind:      model.AccountQuotaSettlementKindLegacyWallet,
+		UserID:    task.UserId,
+		Delta:     -int64(quota),
+	}
+	if task.TokenId > 0 {
+		// 事实内核拒绝负 used_quota，而 legacy 直写允许转负；仅在应用后
+		// used 不为负时让事实覆盖令牌侧，否则由 legacy 直写回退保持迁移前结果。
+		if token, err := model.GetTokenById(task.TokenId); err == nil && token.Key != "" &&
+			int64(token.UsedQuota) >= int64(quota) {
+			factInput.TokenID = task.TokenId
+			factInput.ApplyToken = true
+		}
+	}
+	switch applyLegacySettlementFact(ctx, factInput, "mj-polling:"+taskFactRequestID(task.MjId)) {
+	case legacySettlementFactFailed:
+		return false
+	case legacySettlementFactApplied:
+		if !factInput.ApplyToken {
+			refundMidjourneyTokenQuota(ctx, task, quota)
+		}
+		refundMidjourneyUsageAndLog(task, quota, reason)
+	}
+
+	task.Quota = 0
+	if err := task.UpdateBillingState(); err != nil {
+		logger.LogError(ctx, fmt.Sprintf("Midjourney 退款成功但清除 quota 失败 task %s: %s", task.MjId, err.Error()))
+	}
+	return true
+}
+
+// refundMidjourneyQuotaAuthoritative 经 receipt 内核退还 authoritative 模式的
+// Midjourney 计费。退款与结算共用同一命名空间的不同事件键：结算收据
+// "mj-billing:{mjId}"，退款收据 "mj-refund:{mjId}"（user/token 各自收据表可
+// 复用同键）。同键重放幂等；重放仅补齐 task.Quota 清零，不重复回减统计列。
+func refundMidjourneyQuotaAuthoritative(ctx context.Context, task *model.Midjourney, quota int, reason string) bool {
+	eventKey := taskFactEventKey("mj-refund:", task.MjId)
+	existing, err := model.FindUserQuotaMutationReceiptByEventKey(model.DB, eventKey)
+	if err != nil {
+		logger.LogError(ctx, fmt.Sprintf("查询 Midjourney 退款收据失败 task %s: %s", task.MjId, err.Error()))
+		return false
+	}
+	if existing == nil {
+		mutation := model.QuotaMutationContext{Context: ctx, EventKey: eventKey, ReasonCode: "mj_task_refund"}
+		if err := model.IncreaseUserQuotaWithContext(mutation, task.UserId, quota); err != nil {
+			logger.LogWarn(ctx, fmt.Sprintf("退还 Midjourney 用户额度失败 task %s: %s", task.MjId, err.Error()))
+			return false
+		}
+		if task.TokenId > 0 {
+			if tokenKey := resolveTokenKey(ctx, task.TokenId, task.MjId); tokenKey != "" {
+				if err := model.IncreaseTokenQuotaWithContext(mutation, task.TokenId, tokenKey, quota); err != nil {
+					logger.LogWarn(ctx, fmt.Sprintf("退还 Midjourney 令牌额度失败 task %s: %s", task.MjId, err.Error()))
+				}
+			}
+		}
+		refundMidjourneyUsageAndLog(task, quota, reason)
+	}
 
 	task.Quota = 0
 	if err := task.UpdateBillingState(); err != nil {

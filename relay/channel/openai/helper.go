@@ -12,7 +12,6 @@ import (
 	"github.com/ForceMind/MyAPI/relaykit/dto"
 	"github.com/ForceMind/MyAPI/relaykit/relayconvert"
 	"github.com/ForceMind/MyAPI/relaykit/types"
-	"github.com/ForceMind/MyAPI/service"
 
 	"github.com/samber/lo"
 
@@ -146,7 +145,7 @@ func handleLastResponse(lastStreamData string, responseId *string, createAt *int
 	*systemFingerprint = lastStreamResponse.GetSystemFingerprint()
 	*model = lastStreamResponse.Model
 
-	if service.ValidUsage(lastStreamResponse.Usage) {
+	if lastStreamResponse.Usage != nil {
 		*containStreamUsage = true
 		*usage = lastStreamResponse.Usage
 		if !info.ShouldIncludeUsage {

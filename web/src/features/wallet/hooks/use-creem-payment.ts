@@ -20,6 +20,11 @@ import i18next from 'i18next'
 import { useState, useCallback } from 'react'
 import { toast } from 'sonner'
 
+import {
+  isUserFundingUnavailableError,
+  USER_FUNDING_UNAVAILABLE_MESSAGE_KEY,
+} from '@/lib/self-use-build'
+
 import { requestCreemPayment, isApiSuccess } from '../api'
 
 /**
@@ -42,10 +47,18 @@ export function useCreemPayment() {
         return true
       }
 
-      toast.error(response.message || i18next.t('Payment request failed'))
+      toast.error(
+        isUserFundingUnavailableError(response)
+          ? i18next.t(USER_FUNDING_UNAVAILABLE_MESSAGE_KEY)
+          : response.message || i18next.t('Payment request failed')
+      )
       return false
-    } catch (_error) {
-      toast.error(i18next.t('Payment request failed'))
+    } catch (error) {
+      toast.error(
+        isUserFundingUnavailableError(error)
+          ? i18next.t(USER_FUNDING_UNAVAILABLE_MESSAGE_KEY)
+          : i18next.t('Payment request failed')
+      )
       return false
     } finally {
       setProcessing(false)

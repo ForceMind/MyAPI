@@ -56,6 +56,7 @@ const BILLING_SECTIONS = [
   { id: 'currency', titleKey: 'Currency & Display' },
   { id: 'model-pricing', titleKey: 'Model Pricing' },
   { id: 'group-pricing', titleKey: 'Group Pricing' },
+  { id: 'quota-writer', titleKey: 'Quota Writer Mode' },
   { id: 'payment', titleKey: 'Payment Gateway', selfUseHidden: true },
   { id: 'checkin', titleKey: 'Check-in Rewards', selfUseHidden: true },
 ] as const
@@ -63,6 +64,7 @@ const BILLING_SECTIONS = [
 const MODEL_SECTIONS = [
   { id: 'global', titleKey: 'Global Model Configuration' },
   { id: 'routing-reliability', titleKey: 'Routing Reliability' },
+  { id: 'openai-pricing-source', titleKey: 'OpenAI official pricing source' },
   { id: 'gemini', titleKey: 'Gemini' },
   { id: 'claude', titleKey: 'Claude' },
   { id: 'grok', titleKey: 'Grok' },

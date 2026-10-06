@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { probeFreshSQLite, probeRelayFixture, validateSmokeTarget } from './docker-smoke.mjs'
+import { probeFreshSQLite, probeRelayFixture, probeSelfUseRelayFixture, validateSmokeTarget } from './docker-smoke.mjs'
 import { fakeOpenAIListenHost, startFakeOpenAI } from './fake-openai.mjs'
 
 const sha = 'a'.repeat(40)
@@ -64,7 +64,11 @@ test('synthetic OpenAI listener only allows explicit loopback or Docker namespac
 })
 
 test('relay fixture verifies exact wallet, key, usage, log and redaction contracts without reporting credentials', async () => {
+  let persisted = 0
+  let generatedPassword
+  let createdPassword
   let controlReads = 0
+  let consumeReads = 0
   const optionKeys = []
   const report = await probeRelayFixture({
     baseUrl,
@@ -75,6 +79,16 @@ test('relay fixture verifies exact wallet, key, usage, log and redaction contrac
     isolated: true,
     upstreamBaseUrl: 'http://127.0.0.1:19090',
     fullContentExpected: true,
+    verifyPersistence: async (credentials) => {
+      assert.equal(controlReads, 2)
+      assert.equal(credentials.username, 'smokeadmin')
+      assert.equal(credentials.password, 'root-secret')
+      assert.equal(credentials.userName, 'smokeuser')
+      generatedPassword = credentials.userPassword
+      assert.equal(generatedPassword, createdPassword)
+      persisted += 1
+      return { name: 'synthetic persistence continuation', ok: true }
+    },
     fetchImpl: async (url, options = {}) => {
       assert.equal(options.redirect, 'error')
       const parsed = new URL(url)
@@ -105,6 +119,7 @@ test('relay fixture verifies exact wallet, key, usage, log and redaction contrac
           optionKeys.push([body.key, body.value])
           return json({ success: true })
         case 'POST /api/user/':
+          createdPassword = body.password
           assert.equal(auth, 'Bearer root-session')
           assert.equal(body.username, 'smokeuser')
           assert.equal(body.role, 1)
@@ -116,7 +131,7 @@ test('relay fixture verifies exact wallet, key, usage, log and redaction contrac
           return json({ success: true, data: { items: [{ id: 11, username: 'smokeuser', role: 1 }] } })
         case 'POST /api/user/manage':
           assert.equal(auth, 'Bearer root-session')
-          assert.deepEqual(body, { id: 11, action: 'add_quota', mode: 'override', value: 1_000_000 })
+          assert.deepEqual(body, { id: 11, action: 'add_quota', mode: 'override', value: 1_000_000, request_id: `smoke-wallet-${sha}-11` })
           return json({ success: true })
         case 'POST /api/token/':
           assert.equal(auth, 'Bearer ordinary-session')
@@ -152,6 +167,7 @@ test('relay fixture verifies exact wallet, key, usage, log and redaction contrac
           })
         }
         case 'GET /api/user/11':
+          assert.equal(consumeReads, 2, 'wallet counters require the completed consume-log witness too')
           assert.equal(auth, 'Bearer root-session')
           return json({ success: true, data: { quota: 999_985, used_quota: 15, request_count: 1 } })
         case 'GET /api/token/12':
@@ -163,6 +179,8 @@ test('relay fixture verifies exact wallet, key, usage, log and redaction contrac
         case 'GET /api/log/self':
           assert.equal(auth, 'Bearer ordinary-session')
           assert.equal(parsed.searchParams.get('request_id'), 'request-fixture')
+          consumeReads += 1
+          if (consumeReads === 1) return json({ success: true, data: { total: 0, items: [] } })
           return json({ success: true, data: { total: 1, items: [{ user_id: 11, token_id: 12, channel: 13, request_id: 'request-fixture', quota: 15, prompt_tokens: 10, completion_tokens: 5, other: '{}' }] } })
         case 'GET /api/log/':
           assert.equal(auth, 'Bearer root-session')
@@ -187,6 +205,8 @@ test('relay fixture verifies exact wallet, key, usage, log and redaction contrac
     ['GroupGroupRatio', '{}'], ['LogConsumeEnabled', 'true'],
   ])
   assert.equal(controlReads, 2)
+  assert.equal(persisted, 1)
+  assert.equal(JSON.stringify(report).includes(generatedPassword), false)
   assert.equal(report.passed, true)
   assert.equal(report.checks.every((check) => check.ok === true), true)
   for (const privateValue of ['root-secret', 'root-session', 'ordinary-session', 'restricted-api-key', 'synthetic-request-log-value', 'synthetic-upstream-key', 'synthetic-response-header-secret']) {
@@ -289,3 +309,77 @@ for (const failure of ['setup', 'anonymous', 'mode', 'login']) {
     }
   })
 }
+
+
+test('zero-wallet fixture verifies finite Key accounting and a self-use log without exposing credentials', async () => {
+  let controls = 0
+  let selfReads = 0
+  let logReads = 0
+  let relays = 0
+  const report = await probeSelfUseRelayFixture({ baseUrl, edition: 'full', sha, username: 'smokeadmin', password: 'synthetic-root-password', isolated: true, upstreamBaseUrl: 'http://127.0.0.1:19090',
+    fetchImpl: async (url, options = {}) => {
+      assert.equal(options.redirect, 'error')
+      const parsed = new URL(url)
+      if (parsed.origin === 'http://127.0.0.1:19090') {
+        controls += 1
+        return json({ count: controls, request_ok: true })
+      }
+      assert.equal(parsed.origin, baseUrl)
+      const body = options.body ? JSON.parse(options.body) : null
+      const auth = options.headers?.Authorization
+      switch (`${options.method || 'GET'} ${parsed.pathname}`) {
+        case 'POST /api/user/login': return json({ success: true, data: { access_token: 'synthetic-root-session' } })
+        case 'GET /api/status': return json({ success: true, data: { user_funding_mode: 'disabled' } })
+        case 'GET /api/user/self':
+          assert.equal(auth, 'Bearer synthetic-root-session')
+          selfReads += 1
+          if (selfReads > 1) assert.equal(logReads, 2, 'read final counters only after the post-response consume log exists')
+          return json({ success: true, data: { id: 1, role: 100, quota: 0, self_use_no_balance: true, used_quota: selfReads === 1 ? 0 : 15, request_count: selfReads === 1 ? 0 : 1 } })
+        case 'POST /api/token/':
+          assert.equal(auth, 'Bearer synthetic-root-session')
+          assert.equal(body.name, 'smoke-self-use-key')
+          assert.equal(body.unlimited_quota, false)
+          assert.equal(body.remain_quota, 1000)
+          return json({ success: true })
+        case 'GET /api/token/search': return json({ success: true, data: { items: [{ id: 22, name: 'smoke-self-use-key' }] } })
+        case 'POST /api/token/22/key': return json({ success: true, data: { key: 'synthetic-self-use-key-secret' } })
+        case 'POST /v1/chat/completions':
+          assert.equal(auth, 'Bearer synthetic-self-use-key-secret')
+          assert.equal(body.model, 'smoke-model')
+          assert.equal(body.max_tokens, 8)
+          relays += 1
+          return new Response(JSON.stringify({ usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } }), { status: 200, headers: { 'X-Oneapi-Request-Id': 'self-use-fixture' } })
+        case 'GET /api/token/22': return json({ success: true, data: { remain_quota: 985, used_quota: 15 } })
+        case 'GET /api/log/self':
+          assert.equal(parsed.searchParams.get('request_id'), 'self-use-fixture')
+          logReads += 1
+          if (logReads === 1) return json({ success: true, data: { total: 0, items: [] } })
+          return json({ success: true, data: { total: 1, items: [{ request_id: 'self-use-fixture', user_id: 1, token_id: 22, quota: 15, other: '{"billing_source":"self_use"}' }] } })
+        default: assert.fail('unexpected synthetic self-use request')
+      }
+    },
+  })
+  assert.equal(report.passed, true)
+  assert.equal(relays, 1)
+  assert.equal(controls, 2)
+  assert.equal(logReads, 2)
+  for (const secret of ['synthetic-root-password', 'synthetic-root-session', 'synthetic-self-use-key-secret', 'self-use-fixture']) assert.equal(JSON.stringify(report).includes(secret), false)
+})
+
+test('zero-wallet fixture refuses non-isolated targets and a Root that was granted a wallet', async () => {
+  let keyWrites = 0
+  await assert.rejects(probeSelfUseRelayFixture({ baseUrl, edition: 'full', sha }), /OPT_IN_REQUIRED/)
+  await assert.rejects(probeSelfUseRelayFixture({ baseUrl, edition: 'full', sha, username: 'root', password: 'synthetic', isolated: true, upstreamBaseUrl: 'https://example.invalid' }), /INVALID_SMOKE_UPSTREAM_TARGET/)
+  await assert.rejects(probeSelfUseRelayFixture({ baseUrl, edition: 'full', sha, username: 'smokeadmin', password: 'synthetic', isolated: true, upstreamBaseUrl: 'http://127.0.0.1:19090',
+    fetchImpl: async (url, options = {}) => {
+      const parsed = new URL(url)
+      if (parsed.origin === 'http://127.0.0.1:19090') return json({ count: 1 })
+      if (parsed.pathname === '/api/user/login') return json({ success: true, data: { access_token: 'synthetic-root-session' } })
+      if (parsed.pathname === '/api/status') return json({ success: true, data: { user_funding_mode: 'disabled' } })
+      if (parsed.pathname === '/api/user/self') return json({ success: true, data: { id: 1, role: 100, quota: 100000000, self_use_no_balance: true, used_quota: 0, request_count: 0 } })
+      if (options.method === 'POST') keyWrites += 1
+      assert.fail('unsafe fixture must stop before writing')
+    },
+  }), /SMOKE_SELF_USE_POLICY_MISMATCH/)
+  assert.equal(keyWrites, 0)
+})

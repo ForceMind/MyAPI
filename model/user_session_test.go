@@ -619,13 +619,17 @@ func TestUserUpdateBumpsAuthVersionOnlyForAuthorizationChanges(t *testing.T) {
 	require.NoError(t, user.Update(false))
 	assert.Equal(t, int64(1), user.AuthVersion)
 
-	user.Group = "vip"
+	user.AccountTierID = "priority"
 	require.NoError(t, user.Update(false))
 	assert.Equal(t, int64(2), user.AuthVersion)
 
-	user.Role = common.RoleAdminUser
+	user.Group = "vip"
 	require.NoError(t, user.Update(false))
 	assert.Equal(t, int64(3), user.AuthVersion)
+
+	user.Role = common.RoleAdminUser
+	require.NoError(t, user.Update(false))
+	assert.Equal(t, int64(4), user.AuthVersion)
 }
 
 func TestPasswordResetBumpsAuthVersionAndRevokesSessions(t *testing.T) {

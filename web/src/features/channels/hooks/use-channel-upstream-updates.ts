@@ -22,6 +22,7 @@ import { toast } from 'sonner'
 
 import { api, type ApiRequestConfig } from '@/lib/api'
 
+import { notifyChannelMutationSuccess } from '../lib/channel-actions'
 import { normalizeModelList } from '../lib/upstream-update-utils'
 
 const upstreamUpdateRequestConfig = {
@@ -31,9 +32,9 @@ const upstreamUpdateRequestConfig = {
 
 function getManualIgnoredModelCount(settings: unknown): number {
   let parsed: Record<string, unknown> | null = null
-  if (settings && typeof settings === 'object')
+  if (settings && typeof settings === 'object') {
     parsed = settings as Record<string, unknown>
-  else if (typeof settings === 'string') {
+  } else if (typeof settings === 'string') {
     try {
       parsed = JSON.parse(settings)
     } catch {
@@ -126,13 +127,15 @@ export function useChannelUpstreamUpdates(refresh: () => Promise<void>) {
           },
           upstreamUpdateRequestConfig
         )
-        const { success, message, data } = res.data || {}
+        const response = res.data || {}
+        const { success, message, data } = response
         if (!success) {
           toast.error(message || t('Operation failed'))
           return
         }
 
-        toast.success(
+        notifyChannelMutationSuccess(
+          response,
           t(
             'Upstream model updates applied: {{added}} added, {{removed}} removed, {{ignored}} ignored this time, {{totalIgnored}} total ignored models',
             {
@@ -171,13 +174,15 @@ export function useChannelUpstreamUpdates(refresh: () => Promise<void>) {
         {},
         upstreamUpdateRequestConfig
       )
-      const { success, message, data } = res.data || {}
+      const response = res.data || {}
+      const { success, message, data } = response
       if (!success) {
         toast.error(message || t('Batch processing failed'))
         return
       }
 
-      toast.success(
+      notifyChannelMutationSuccess(
+        response,
         t(
           'Batch upstream model updates applied: {{channels}} channels, {{added}} added, {{removed}} removed, {{fails}} failed',
           {
@@ -215,13 +220,15 @@ export function useChannelUpstreamUpdates(refresh: () => Promise<void>) {
           { id: ch.id },
           upstreamUpdateRequestConfig
         )
-        const { success, message, data } = res.data || {}
+        const response = res.data || {}
+        const { success, message, data } = response
         if (!success) {
           toast.error(message || t('Detection failed'))
           return
         }
 
-        toast.success(
+        notifyChannelMutationSuccess(
+          response,
           t('Detection complete: {{add}} to add, {{remove}} to remove', {
             add: data?.add_models?.length || 0,
             remove: data?.remove_models?.length || 0,

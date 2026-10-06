@@ -88,7 +88,7 @@ func TestPaymentWebhookLogPrivacy(t *testing.T) {
 		for _, mode := range []string{"valid", "missing", "invalid", "signed malformed"} {
 			t.Run(provider.name+"/"+mode, func(t *testing.T) {
 				logs := capturePaymentPrivacyLogs(t)
-				body := []byte(`{"id":"evt_fixture","object":"event","type":"fixture.ignored","eventType":"fixture.ignored","customer":{"email":"private-email@example.test","name":"private-customer-name"},"metadata":{"token":"private-body-token","buyer_identity":"private-buyer-identity"}}`)
+				body := []byte(`{"id":"evt_fixture","object":"event","type":"fixture.ignored","eventType":"fixture.ignored","data":{"object":{"customer":{"email":"private-email@example.test","name":"private-customer-name"},"metadata":{"token":"private-body-token","buyer_identity":"private-buyer-identity"}}},"customer":{"email":"private-email@example.test","name":"private-customer-name"},"metadata":{"token":"private-body-token","buyer_identity":"private-buyer-identity"}}`)
 				if provider.name == "creem" {
 					body = []byte(`{"id":"evt_fixture","eventType":"fixture.ignored","object":{"customer":{"email":"private-email@example.test","name":"private-customer-name"},"metadata":{"token":"private-body-token","buyer_identity":"private-buyer-identity"}}}`)
 				}
@@ -182,7 +182,7 @@ func TestCreemRequestAndResponseLogPrivacy(t *testing.T) {
 		return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"id":"checkout_fixture","checkout_url":"` + checkoutURL + `","customer_email":"private-email@example.test"}`))}, nil
 	})
 	t.Cleanup(func() { http.DefaultTransport = transport })
-	checkout, err := genCreemLink(context.Background(), "trade_fixture", &CreemProduct{ProductId: "product_fixture", Name: "fixture", Quota: 25}, "private-email@example.test", "private-customer-name")
+	checkout, err := genCreemLink(context.Background(), setting.CapturePaymentConfig(), "trade_fixture", &CreemProduct{ProductId: "product_fixture", Name: "fixture", Quota: 25}, "private-email@example.test", "private-customer-name")
 	require.NoError(t, err)
 	assert.Equal(t, checkoutURL, checkout)
 	for _, secret := range []string{"private-body-token", "private-email@example.test", "private-customer-name", "private-checkout-token", checkoutURL} {
@@ -196,7 +196,7 @@ func TestCreemMissingSecretVerifierLogPrivacy(t *testing.T) {
 	for _, testMode := range []bool{false, true} {
 		logs := capturePaymentPrivacyLogs(t)
 		setting.CreemTestMode = testMode
-		assert.Equal(t, testMode, verifyCreemSignature("private-body-token", "private-signature-token", ""))
+		assert.Equal(t, testMode, verifyCreemSignature("private-body-token", "private-signature-token", setting.CapturePaymentConfig()))
 		assert.NotContains(t, logs.String(), "private-body-token")
 		assert.NotContains(t, logs.String(), "private-signature-token")
 		assert.Contains(t, logs.String(), "secret")

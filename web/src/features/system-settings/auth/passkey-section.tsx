@@ -52,7 +52,11 @@ import {
 } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
-import { useUpdateOption } from '../hooks/use-update-option'
+import {
+  toTypedBulkItem,
+  useTypedBulkRevision,
+  useUpdateTypedBulkOptions,
+} from '../hooks/use-typed-bulk-options'
 
 type AttachmentPreference = '' | 'platform' | 'cross-platform'
 type AttachmentSelectValue = 'none' | 'platform' | 'cross-platform'
@@ -140,7 +144,8 @@ interface PasskeySectionProps {
 export function PasskeySection(props: PasskeySectionProps) {
   const { t } = useTranslation()
   const buildBrandName = getBuildBrandNameOverride()
-  const updateOption = useUpdateOption()
+  const updateTypedBulk = useUpdateTypedBulkOptions()
+  useTypedBulkRevision()
 
   const formDefaults = useMemo(
     () => buildFormDefaults(props.defaultValues),
@@ -176,12 +181,9 @@ export function PasskeySection(props: PasskeySectionProps) {
       return
     }
 
-    for (const key of changedKeys) {
-      await updateOption.mutateAsync({
-        key,
-        value: normalized[key],
-      })
-    }
+    await updateTypedBulk.mutateAsync(
+      changedKeys.map((key) => toTypedBulkItem(key, normalized[key]))
+    )
 
     baselineRef.current = normalized
     baselineSerializedRef.current = JSON.stringify(normalized)
@@ -194,7 +196,7 @@ export function PasskeySection(props: PasskeySectionProps) {
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
           <SettingsPageFormActions
             onSave={form.handleSubmit(onSubmit)}
-            isSaving={updateOption.isPending}
+            isSaving={updateTypedBulk.isPending}
           />
           <FormField
             control={form.control}

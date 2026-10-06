@@ -41,14 +41,13 @@ func InsertChannelWithAbilities(ctx context.Context, channel *Channel) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	err := DB.WithContext(ctx).
-		Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)}).
-		Transaction(func(tx *gorm.DB) error {
-			if err := tx.Create(channel).Error; err != nil {
-				return sanitizeDBError(err)
-			}
-			return sanitizeDBError(channel.AddAbilities(tx))
-		})
+	_, _, err := runChannelRoutingTransaction(ctx, func(tx *gorm.DB) (bool, error) {
+		tx = tx.Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)})
+		if err := tx.Create(channel).Error; err != nil {
+			return false, sanitizeDBError(err)
+		}
+		return true, sanitizeDBError(channel.AddAbilities(tx))
+	})
 	return sanitizeDBError(err)
 }
 

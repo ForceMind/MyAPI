@@ -96,10 +96,14 @@ type User struct {
 	TelegramId       string  `json:"telegram_id" gorm:"column:telegram_id;index"`
 	VerificationCode string  `json:"verification_code" gorm:"-:all"`                         // this field is only for Email verification, don't save it to database!
 	AccessToken      *string `json:"-" gorm:"type:char(32);column:access_token;uniqueIndex"` // this token is for system management
-	Quota            int     `json:"quota" gorm:"type:int;default:0"`
-	UsedQuota        int     `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
-	RequestCount     int     `json:"request_count" gorm:"type:int;default:0;"`               // request number
-	Group            string  `json:"group" gorm:"type:varchar(64);default:'default'"`
+	// Private policy: public user/profile DTOs cannot toggle funding behavior.
+	SelfUseNoBalance    bool   `json:"-" gorm:"not null;default:false"`
+	UsagePolicyRevision int64  `json:"-" gorm:"type:bigint;not null;default:0"`
+	Quota               int    `json:"quota" gorm:"type:int;default:0"`
+	QuotaVersion        int64  `json:"-" gorm:"type:bigint;not null;default:0"`
+	UsedQuota           int    `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
+	RequestCount        int    `json:"request_count" gorm:"type:int;default:0;"`               // request number
+	Group               string `json:"group" gorm:"type:varchar(64);default:'default'"`
 	// AccountTierID is the explicit account-level identity introduced alongside
 	// the legacy group compatibility field. Routing still reads Group until the
 	// independent account-tier policy is configured.
@@ -185,6 +189,7 @@ func (user *User) ToBaseUser() *UserBase {
 		Email:         user.Email,
 		AuthVersion:   user.AuthVersion,
 		CacheSchema:   userCacheSchemaVersion,
+		QuotaVersion:  user.QuotaVersion,
 	}
 	return cache
 }
@@ -655,58 +660,6 @@ func HardDeleteUserById(id int) error {
 	return user.HardDelete()
 }
 
-func inviteUser(inviterId int) error {
-	result := DB.Model(&User{}).Where("id = ?", inviterId).Updates(map[string]interface{}{
-		"aff_count":   gorm.Expr("aff_count + ?", 1),
-		"aff_quota":   gorm.Expr("aff_quota + ?", common.QuotaForInviter),
-		"aff_history": gorm.Expr("aff_history + ?", common.QuotaForInviter),
-	})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
-}
-
-func (user *User) TransferAffQuotaToQuota(quota int) error {
-	// 检查quota是否小于最小额度
-	if float64(quota) < common.QuotaPerUnit {
-		return fmt.Errorf("转移额度最小为%s！", logger.LogQuota(common.QuotaFromFloat(common.QuotaPerUnit)))
-	}
-
-	// 开始数据库事务
-	tx := DB.Begin()
-	if tx.Error != nil {
-		return tx.Error
-	}
-	defer tx.Rollback() // 确保在函数退出时事务能回滚
-
-	// 加锁查询用户以确保数据一致性
-	err := lockForUpdate(tx).First(user, user.Id).Error
-	if err != nil {
-		return err
-	}
-
-	// 再次检查用户的AffQuota是否足够
-	if user.AffQuota < quota {
-		return errors.New("邀请额度不足！")
-	}
-
-	// 更新用户额度
-	user.AffQuota -= quota
-	user.Quota += quota
-
-	// 保存用户状态
-	if err := tx.Save(user).Error; err != nil {
-		return err
-	}
-
-	// 提交事务
-	return tx.Commit().Error
-}
-
 func (user *User) prepareForInsert(tx *gorm.DB) error {
 	if user.AccountTierID == "" {
 		user.AccountTierID = EffectiveAccountTierID(user.Group)
@@ -769,17 +722,7 @@ func (user *User) Insert(inviterId int) error {
 			if err := user.prepareForInsert(tx); err != nil {
 				return err
 			}
-			user.Quota = common.QuotaForNewUser
-			user.AffCode = common.GetRandomString(4)
-
-			// 初始化用户设置，包括默认的边栏配置
-			if user.Setting == "" {
-				defaultSetting := dto.UserSetting{}
-				// 这里暂时不设置SidebarModules，因为需要在用户创建后根据角色设置
-				user.SetSetting(defaultSetting)
-			}
-
-			return mapEmailConstraintError(tx.Create(user).Error)
+			return insertUserWithInitialQuotaTx(tx, user)
 		})
 	}); err != nil {
 		return err
@@ -808,15 +751,14 @@ func (user *User) finishInsert(inviterId int) {
 	if common.QuotaForNewUser > 0 {
 		RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("新用户注册赠送 %s", logger.LogQuota(common.QuotaForNewUser)))
 	}
+	projectNewUserQuotaReceipt(user.Id)
 	if inviterId != 0 && operation_setting.IsPaymentComplianceConfirmed() {
 		if common.QuotaForInvitee > 0 {
-			_ = IncreaseUserQuota(user.Id, common.QuotaForInvitee, true)
-			RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("使用邀请码赠送 %s", logger.LogQuota(common.QuotaForInvitee)))
+			grantInviteeQuotaReward(user.Id)
 		}
 		if common.QuotaForInviter > 0 {
-			//_ = IncreaseUserQuota(inviterId, common.QuotaForInviter)
 			RecordLog(inviterId, LogTypeSystem, fmt.Sprintf("邀请用户赠送 %s", logger.LogQuota(common.QuotaForInviter)))
-			_ = inviteUser(inviterId)
+			_ = inviteUser(inviterId, user.Id)
 		}
 	}
 }
@@ -833,16 +775,7 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 		if err := user.prepareForInsert(tx); err != nil {
 			return err
 		}
-		user.Quota = common.QuotaForNewUser
-		user.AffCode = common.GetRandomString(4)
-
-		// 初始化用户设置
-		if user.Setting == "" {
-			defaultSetting := dto.UserSetting{}
-			user.SetSetting(defaultSetting)
-		}
-
-		return mapEmailConstraintError(tx.Create(user).Error)
+		return insertUserWithInitialQuotaTx(tx, user)
 	})
 }
 
@@ -865,14 +798,14 @@ func (user *User) FinalizeOAuthUserCreation(inviterId int) {
 	if common.QuotaForNewUser > 0 {
 		RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("新用户注册赠送 %s", logger.LogQuota(common.QuotaForNewUser)))
 	}
+	projectNewUserQuotaReceipt(user.Id)
 	if inviterId != 0 && operation_setting.IsPaymentComplianceConfirmed() {
 		if common.QuotaForInvitee > 0 {
-			_ = IncreaseUserQuota(user.Id, common.QuotaForInvitee, true)
-			RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("使用邀请码赠送 %s", logger.LogQuota(common.QuotaForInvitee)))
+			grantInviteeQuotaReward(user.Id)
 		}
 		if common.QuotaForInviter > 0 {
 			RecordLog(inviterId, LogTypeSystem, fmt.Sprintf("邀请用户赠送 %s", logger.LogQuota(common.QuotaForInviter)))
-			_ = inviteUser(inviterId)
+			_ = inviteUser(inviterId, user.Id)
 		}
 	}
 }
@@ -941,7 +874,8 @@ func (user *User) UpdateWithTx(tx *gorm.DB, updatePassword bool) error {
 	authChanged := (updatePassword && current.Password != newUser.Password) ||
 		(newUser.Role != 0 && current.Role != newUser.Role) ||
 		(newUser.Status != 0 && current.Status != newUser.Status) ||
-		(newUser.Group != "" && current.Group != newUser.Group)
+		(newUser.Group != "" && current.Group != newUser.Group) ||
+		current.AccountTierID != requestedTier
 	if authChanged {
 		newUser.AuthVersion, err = IncrementUserAuthVersionWithTx(tx, user.Id)
 		if err != nil {
@@ -1026,7 +960,9 @@ func (user *User) EditWithTx(tx *gorm.DB, updatePassword bool) error {
 		updates["group"] = current.Group
 		updates["account_tier_id"] = requestedTier
 	}
-	authChanged := (updatePassword && current.Password != newUser.Password) || current.Group != persistedGroup
+	authChanged := (updatePassword && current.Password != newUser.Password) ||
+		current.Group != persistedGroup ||
+		current.AccountTierID != requestedTier
 	if authChanged {
 		newUser.AuthVersion, err = IncrementUserAuthVersionWithTx(tx, user.Id)
 		if err != nil {
@@ -1462,18 +1398,38 @@ func GetUserSetting(id int, fromDB bool) (settingMap dto.UserSetting, err error)
 }
 
 func IncreaseUserQuota(id int, quota int, db bool) (err error) {
+	if err := requireLegacyQuotaWriterCall(); err != nil {
+		return err
+	}
 	if quota < 0 {
 		return errors.New("quota 不能为负数！")
 	}
-	gopool.Go(func() {
-		err := cacheIncrUserQuota(id, int64(quota))
-		if err != nil {
-			common.SysLog("failed to increase user quota: " + err.Error())
-		}
-	})
 	if !db && common.BatchUpdateEnabled {
-		addNewRecord(BatchUpdateTypeUserQuota, id, quota)
+		if !common.RedisEnabled || common.RDB == nil {
+			return ErrBatchQuotaCacheUnavailable
+		}
+		result, err := applyLegacyBalanceCacheMutation(BatchUpdateTypeUserQuota, id, quota, "",
+			func(generationKey, lockToken string) (cacheQuotaResult, error) {
+				return cacheApplyUserQuotaDeltaJournaled(id, int64(quota), generationKey, lockToken)
+			},
+			func(generationKey, lockToken string) (cacheQuotaResult, error) {
+				return compensateUserQuotaDeltaJournaled(id, -int64(quota), generationKey, lockToken)
+			})
+		if err != nil || result != cacheQuotaOK {
+			if errors.Is(err, ErrQuotaBalanceMutationUnknown) || errors.Is(err, ErrQuotaBalanceSubjectBusy) {
+				return err
+			}
+			return fmt.Errorf("%w: user cache increase: result=%d error=%v", ErrBatchQuotaCacheUnavailable, result, err)
+		}
 		return nil
+	}
+	if common.RedisEnabled {
+		gopool.Go(func() {
+			err := cacheIncrUserQuota(id, int64(quota))
+			if err != nil {
+				common.SysLog("failed to increase user quota: " + err.Error())
+			}
+		})
 	}
 	return increaseUserQuota(id, quota)
 }
@@ -1487,18 +1443,38 @@ func increaseUserQuota(id int, quota int) (err error) {
 }
 
 func DecreaseUserQuota(id int, quota int, db bool) (err error) {
+	if err := requireLegacyQuotaWriterCall(); err != nil {
+		return err
+	}
 	if quota < 0 {
 		return errors.New("quota 不能为负数！")
 	}
-	gopool.Go(func() {
-		err := cacheDecrUserQuota(id, int64(quota))
-		if err != nil {
-			common.SysLog("failed to decrease user quota: " + err.Error())
-		}
-	})
 	if !db && common.BatchUpdateEnabled {
-		addNewRecord(BatchUpdateTypeUserQuota, id, -quota)
+		if !common.RedisEnabled || common.RDB == nil {
+			return ErrBatchQuotaCacheUnavailable
+		}
+		result, err := applyLegacyBalanceCacheMutation(BatchUpdateTypeUserQuota, id, -quota, "",
+			func(generationKey, lockToken string) (cacheQuotaResult, error) {
+				return cacheApplyUserQuotaDeltaJournaled(id, -int64(quota), generationKey, lockToken)
+			},
+			func(generationKey, lockToken string) (cacheQuotaResult, error) {
+				return compensateUserQuotaDeltaJournaled(id, int64(quota), generationKey, lockToken)
+			})
+		if err != nil || result != cacheQuotaOK {
+			if errors.Is(err, ErrQuotaBalanceMutationUnknown) || errors.Is(err, ErrQuotaBalanceSubjectBusy) {
+				return err
+			}
+			return fmt.Errorf("%w: user cache decrease: result=%d error=%v", ErrBatchQuotaCacheUnavailable, result, err)
+		}
 		return nil
+	}
+	if common.RedisEnabled {
+		gopool.Go(func() {
+			err := cacheDecrUserQuota(id, int64(quota))
+			if err != nil {
+				common.SysLog("failed to decrease user quota: " + err.Error())
+			}
+		})
 	}
 	return decreaseUserQuota(id, quota)
 }

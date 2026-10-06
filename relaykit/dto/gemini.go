@@ -504,6 +504,12 @@ func (r *GeminiChatResponse) GetUsageMetadata() *GeminiUsageMetadata {
 }
 
 type GeminiUsageMetadata struct {
+	// Private wire evidence; upstream JSON cannot manufacture proof flags.
+	RawUsageObserved           bool                        `json:"-"`
+	PromptTokensReported       bool                        `json:"-"`
+	CandidatesTokensReported   bool                        `json:"-"`
+	TotalTokensReported        bool                        `json:"-"`
+	InvalidTokenEvidence       bool                        `json:"-"`
 	PromptTokenCount           int                         `json:"promptTokenCount"`
 	ToolUsePromptTokenCount    int                         `json:"toolUsePromptTokenCount"`
 	CandidatesTokenCount       int                         `json:"candidatesTokenCount"`

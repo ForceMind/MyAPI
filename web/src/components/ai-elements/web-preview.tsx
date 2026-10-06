@@ -212,7 +212,7 @@ export const WebPreviewBody = ({
     <div className='flex-1'>
       <iframe
         className={cn('size-full', className)}
-        sandbox='allow-scripts allow-same-origin allow-forms allow-popups allow-presentation'
+        sandbox='allow-scripts allow-forms'
         src={(src ?? url) || undefined}
         title={t('Preview')}
         {...props}
@@ -238,6 +238,13 @@ export const WebPreviewConsole = ({
 }: WebPreviewConsoleProps) => {
   const { t } = useTranslation()
   const { consoleOpen, setConsoleOpen } = useWebPreview()
+  const duplicateLogKeys = new Map<string, number>()
+  const logItems = logs.map((log) => {
+    const baseKey = `${log.timestamp.getTime()}-${log.level}-${log.message}`
+    const occurrence = duplicateLogKeys.get(baseKey) ?? 0
+    duplicateLogKeys.set(baseKey, occurrence + 1)
+    return { key: `${baseKey}-${occurrence}`, log }
+  })
 
   return (
     <Collapsible
@@ -272,7 +279,7 @@ export const WebPreviewConsole = ({
           {logs.length === 0 ? (
             <p className='text-muted-foreground'>{t('No console output')}</p>
           ) : (
-            logs.map((log, index) => (
+            logItems.map(({ key, log }) => (
               <div
                 className={cn(
                   'text-xs',
@@ -280,7 +287,7 @@ export const WebPreviewConsole = ({
                   log.level === 'warn' && 'text-warning',
                   log.level === 'log' && 'text-foreground'
                 )}
-                key={`${log.timestamp.getTime()}-${index}`}
+                key={key}
               >
                 <span className='text-muted-foreground'>
                   {dayjs(log.timestamp).format('HH:mm:ss')}

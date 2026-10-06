@@ -40,7 +40,7 @@ vi.mock('@/stores/auth-store', () => ({
 }))
 
 vi.mock('@/components/layout', () => {
-  const Slot = ({ children }: { children?: ReactNode }) => <>{children}</>
+  const Slot = ({ children }: { children?: ReactNode }) => <div>{children}</div>
   const Layout = ({ children }: { children?: ReactNode }) => (
     <main>{children}</main>
   )
@@ -86,7 +86,7 @@ vi.mock('@/components/ui/tabs', () => ({
   ),
   TabsList: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   TabsTrigger: ({ children }: { children?: ReactNode }) => (
-    <button>{children}</button>
+    <button type='button'>{children}</button>
   ),
 }))
 

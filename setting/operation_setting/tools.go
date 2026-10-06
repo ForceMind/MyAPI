@@ -274,8 +274,28 @@ func (s *managedToolPriceSetting) getPriceForModel(toolName, modelName string) f
 	if state == nil {
 		return 0
 	}
-	idx := &state.index
+	return state.index.priceForModel(toolName, modelName)
+}
 
+// CaptureToolPricesForModel resolves every configured/built-in tool from one
+// immutable generation, including explicit zero overrides. New tool settings
+// published later must not change a request already priced with this map.
+func CaptureToolPricesForModel(modelName string) map[string]float64 {
+	prices := make(map[string]float64)
+	state := toolPriceSetting.current.Load()
+	if state == nil {
+		return prices
+	}
+	for name := range state.index.defaults {
+		prices[name] = state.index.priceForModel(name, modelName)
+	}
+	for name := range state.index.prefixes {
+		prices[name] = state.index.priceForModel(name, modelName)
+	}
+	return prices
+}
+
+func (idx *toolPriceIndex) priceForModel(toolName, modelName string) float64 {
 	if entries, ok := idx.prefixes[toolName]; ok && modelName != "" {
 		for _, e := range entries {
 			if strings.HasPrefix(modelName, e.prefix) {

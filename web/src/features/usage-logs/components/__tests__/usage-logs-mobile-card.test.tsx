@@ -1,3 +1,5 @@
+import type { Cell, Table } from '@tanstack/react-table'
+import { render, screen } from '@testing-library/react'
 /*
 Copyright (C) 2026 ForceMind
 
@@ -7,14 +9,12 @@ the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
 import type { ReactNode } from 'react'
-import { render, screen } from '@testing-library/react'
-import type { Cell, Table } from '@tanstack/react-table'
 import { describe, expect, test } from 'vitest'
 
-import type { UsageLog } from '../../data/schema'
 import { LOG_TYPE_ENUM } from '../../constants'
-import { UsageLogsProvider } from '../usage-logs-provider'
+import type { UsageLog } from '../../data/schema'
 import { UsageLogsMobileList } from '../usage-logs-mobile-card'
+import { UsageLogsProvider } from '../usage-logs-provider'
 
 function makeCell(
   id: string,
@@ -31,8 +31,13 @@ function makeCell(
   } as unknown as Cell<UsageLog, unknown>
 }
 
-function makeTable({ includeContent = true, rows = true } = {}): Table<UsageLog> {
-  if (!rows) return { getRowModel: () => ({ rows: [] }) } as unknown as Table<UsageLog>
+function makeTable({
+  includeContent = true,
+  rows = true,
+} = {}): Table<UsageLog> {
+  if (!rows) {
+    return { getRowModel: () => ({ rows: [] }) } as unknown as Table<UsageLog>
+  }
 
   const original: UsageLog = {
     id: 1,
@@ -69,20 +74,27 @@ function makeTable({ includeContent = true, rows = true } = {}): Table<UsageLog>
     makeCell('prompt_tokens', '10', row),
     makeCell('content', <button type='button'>View content</button>, row),
   ]
-  const visibleCells = includeContent ? allCells : allCells.filter((cell) => cell.column.id !== 'content')
+  const visibleCells = includeContent
+    ? allCells
+    : allCells.filter((cell) => cell.column.id !== 'content')
   return {
     getRowModel: () => ({
-      rows: [{
-        id: 'row-1',
-        original,
-        getVisibleCells: () => visibleCells,
-        getAllCells: () => allCells,
-      }],
+      rows: [
+        {
+          id: 'row-1',
+          original,
+          getVisibleCells: () => visibleCells,
+          getAllCells: () => allCells,
+        },
+      ],
     }),
   } as unknown as Table<UsageLog>
 }
 
-function renderList(table: Table<UsageLog>, props: Record<string, unknown> = {}) {
+function renderList(
+  table: Table<UsageLog>,
+  props: Record<string, unknown> = {}
+) {
   return render(
     <UsageLogsProvider>
       <UsageLogsMobileList table={table} logCategory='common' {...props} />
@@ -95,12 +107,18 @@ describe('usage logs mobile list', () => {
     renderList(makeTable({ includeContent: false }))
 
     expect(screen.getByText('gpt-5')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'View content' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'View content' })
+    ).toBeInTheDocument()
   })
 
   test('renders loading and empty states without a table row', () => {
-    const { rerender } = renderList(makeTable({ rows: false }), { isLoading: true })
-    expect(document.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0)
+    const { rerender } = renderList(makeTable({ rows: false }), {
+      isLoading: true,
+    })
+    expect(
+      document.querySelectorAll('[data-slot="skeleton"]').length
+    ).toBeGreaterThan(0)
 
     rerender(
       <UsageLogsProvider>

@@ -53,6 +53,10 @@ func TestChannelQuotaChangesRouteUsesReadPermission(t *testing.T) {
 	assertChannelRoutePermission(t, http.MethodGet, "/quota/status", authz.ChannelRead, controller.GetChannelQuotaSamplingStatus)
 }
 
+func TestChannelRoutingPreviewRouteUsesReadPermission(t *testing.T) {
+	assertChannelRoutePermission(t, http.MethodGet, "/routing-preview", authz.ChannelRead, controller.GetChannelRoutingPreview)
+}
+
 func TestCodexLocalAuthRoutesUseSensitiveWritePermission(t *testing.T) {
 	assertChannelRoutePermission(t, http.MethodGet, "/codex/local-auth/status", authz.ChannelSensitiveWrite, controller.GetCodexLocalAuthStatus)
 	assertChannelRoutePermission(t, http.MethodPost, "/codex/local-auth/import", authz.ChannelSensitiveWrite, controller.ImportCodexLocalAuth)
@@ -226,4 +230,68 @@ func findChannelPermissionRoute(t *testing.T, path string) permissionRoute {
 	}
 	t.Fatalf("route %s not found", path)
 	return permissionRoute{}
+}
+
+func TestChannelRoutingPreviewActualAuthChain(t *testing.T) {
+	previousDB, previousLogDB := model.DB, model.LOG_DB
+	previousRedis, previousMemoryCache := common.RedisEnabled, common.MemoryCacheEnabled
+	previousSessionSecret := common.SessionSecret
+	db, err := gorm.Open(sqlite.Open("file:channel-routing-auth?mode=memory&cache=shared"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(
+		&model.User{}, &model.UserSession{}, &model.Log{}, &model.Channel{}, &model.Ability{},
+		&model.CasbinRule{}, &model.AuthzRole{},
+	))
+	model.DB, model.LOG_DB = db, db
+	common.RedisEnabled = false
+	common.MemoryCacheEnabled = false
+	common.SessionSecret = "channel-routing-auth-secret"
+	previousMaster := common.IsMasterNode
+	common.IsMasterNode = true
+	require.NoError(t, authz.Init(db))
+	t.Setenv("MYAPI_EDITION", middleware.EditionFull)
+	t.Cleanup(func() {
+		model.DB, model.LOG_DB = previousDB, previousLogDB
+		common.RedisEnabled = previousRedis
+		common.MemoryCacheEnabled = previousMemoryCache
+		common.SessionSecret = previousSessionSecret
+		common.IsMasterNode = previousMaster
+	})
+
+	admin := &model.User{
+		Username: "routing-admin", Password: "unused", Role: common.RoleAdminUser,
+		Status: common.UserStatusEnabled, Group: "default", AuthVersion: 1,
+		AffCode: "routing-admin-aff",
+	}
+	require.NoError(t, db.Create(admin).Error)
+	user := &model.User{
+		Username: "routing-user", Password: "unused", Role: common.RoleCommonUser,
+		Status: common.UserStatusEnabled, Group: "default", AuthVersion: 1,
+		AffCode: "routing-user-aff",
+	}
+	require.NoError(t, db.Create(user).Error)
+	_, adminToken := createCodexLocalRouteSession(t, admin)
+	_, userToken := createCodexLocalRouteSession(t, user)
+
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	registerChannelRoutes(engine.Group("/api"))
+	request := func(token string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "http://myapi.local/api/channel/routing-preview?group=default&model=gpt-test", nil)
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		response := httptest.NewRecorder()
+		engine.ServeHTTP(response, req)
+		return response
+	}
+
+	unauthenticated := request("")
+	assert.Equal(t, http.StatusUnauthorized, unauthenticated.Code)
+	forbidden := request(userToken)
+	assert.Equal(t, http.StatusForbidden, forbidden.Code)
+	authorized := request(adminToken)
+	assert.Equal(t, http.StatusOK, authorized.Code)
+	assert.Contains(t, authorized.Body.String(), `"source":"database"`)
+	assert.Contains(t, authorized.Body.String(), `"cluster_committed_epoch":`)
 }

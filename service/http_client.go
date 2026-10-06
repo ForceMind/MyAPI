@@ -131,6 +131,15 @@ func GetHttpClient() *http.Client {
 	return httpClient
 }
 
+// SetHttpClientForTest overrides the package-level HTTP client for deterministic unit testing.
+func SetHttpClientForTest(client *http.Client) func() {
+	prev := httpClient
+	httpClient = client
+	return func() {
+		httpClient = prev
+	}
+}
+
 // GetSSRFProtectedHTTPClient 返回带拨号时 SSRF 校验的客户端。
 // ssrfProtectedHTTPClient 由 InitHttpClient 在启动时初始化，运行期只读。
 func GetSSRFProtectedHTTPClient() *http.Client {

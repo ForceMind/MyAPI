@@ -137,7 +137,7 @@ function ModelBadgeContent(props: ModelBadgeProps) {
         props.className
       )}
     >
-      <span className='flex min-w-0 max-w-full items-center gap-1.5'>
+      <span className='flex max-w-full min-w-0 items-center gap-1.5'>
         {provider && (
           <span
             className='flex h-[18px] w-[18px] shrink-0 items-center justify-center'

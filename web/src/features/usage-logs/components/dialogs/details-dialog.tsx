@@ -76,6 +76,7 @@ import {
   getResponseTimeColor,
   getReasoningEffortVariant,
   renderAuditContent,
+  readPublishedPriceReference,
 } from '../../lib/format'
 import {
   getLogTypeConfig,
@@ -83,6 +84,9 @@ import {
   isTimingLogType,
 } from '../../lib/utils'
 import { USAGE_BILLING_PATH, type LogOtherData } from '../../types'
+import { TokenBudgetEvidence } from '../token-budget-evidence'
+import { UsageAccuracyBadge } from '../usage-accuracy-badge'
+import { UsageReviewPanel } from '../usage-review-panel'
 
 // Maps a channel-update changed-field token (as recorded by the backend audit)
 // to its i18n label key for display in the audit details.
@@ -389,8 +393,14 @@ function BillingBreakdown(props: {
   }
 
   rows.push({
-    label: t('Total Cost'),
-    value: formatLogQuota(log.quota),
+    label:
+      other.billing_source === 'self_use'
+        ? t('Internal usage units')
+        : t('Total Cost'),
+    value:
+      other.billing_source === 'self_use'
+        ? log.quota.toLocaleString()
+        : formatLogQuota(log.quota),
   })
 
   if (rows.length === 0) return null
@@ -482,6 +492,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
   const details = props.log.content ?? ''
   const other = parseLogOther(props.log.other)
+  const publishedPrice = readPublishedPriceReference(other)
   const typeConfig = getLogTypeConfig(props.log.type)
 
   const isViolation = isViolationFeeLog(other)
@@ -616,6 +627,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
       title={
         <>
           {t('Log Details')}
+          {isConsume && <UsageAccuracyBadge accuracy={other?.usage_accuracy} />}
           <StatusBadge
             label={t(typeConfig.label)}
             variant={typeConfig.color as StatusBadgeProps['variant']}
@@ -631,14 +643,42 @@ export function DetailsDialog(props: DetailsDialogProps) {
         isTieredBilling ? 'sm:max-w-4xl lg:max-w-5xl' : 'sm:max-w-lg'
       )}
       headerClassName='max-sm:gap-1'
-      titleClassName='flex items-center gap-2 text-base'
+      titleClassName='flex flex-wrap items-center gap-2 text-base'
       descriptionClassName='sr-only'
       contentHeight='min(72dvh, 720px)'
       bodyClassName='pr-2 sm:pr-4'
     >
       <div className='w-full max-w-full min-w-0 space-y-2.5 overflow-x-hidden py-1 sm:space-y-3'>
+        {props.open &&
+          props.log.request_id &&
+          other?.settlement_status === 'pending_review' && (
+            <UsageReviewPanel requestId={props.log.request_id} />
+          )}
+        {props.isAdmin && other?.admin_info?.token_budget && (
+          <TokenBudgetEvidence evidence={other.admin_info.token_budget} />
+        )}
         {/* Overview section - key identifiers */}
         <div className='min-w-0 space-y-1'>
+          {publishedPrice && (
+            <>
+              <DetailRow
+                label={t('Price publication ID')}
+                value={publishedPrice.publication_id}
+                mono
+              />
+              <DetailRow
+                label={t('Saved source SHA256')}
+                value={publishedPrice.source_sha256}
+                mono
+              />
+              <DetailRow
+                label={t('Reference cost')}
+                value={t(
+                  'Standard text reference tariffs only, not actual upstream bills. Multimodal, tools and other tiers are unsupported.'
+                )}
+              />
+            </>
+          )}
           {props.log.request_id && (
             <DetailRow
               label={t('Request ID')}
@@ -1041,6 +1081,120 @@ export function DetailsDialog(props: DetailsDialogProps) {
           />
         )}
 
+        {props.isAdmin && other?.admin_info?.model_route && (
+          <DetailSection label={t('Actual route evidence')}>
+            <DetailRow
+              label={t('Request Model')}
+              value={other.admin_info.model_route.requested_model}
+              mono
+            />
+            <DetailRow
+              label={t('Upstream model')}
+              value={other.admin_info.model_route.upstream_model}
+              mono
+            />
+            <DetailRow
+              label={t('Endpoint')}
+              value={other.admin_info.model_route.endpoint}
+              mono
+            />
+            <DetailRow
+              label={t('Route reason')}
+              value={other.admin_info.model_route.reason}
+            />
+            <DetailRow
+              label={t('Channel ID')}
+              value={String(other.admin_info.model_route.channel_id)}
+              mono
+            />
+            <DetailRow
+              label={t('Configuration digest')}
+              value={other.admin_info.model_route.config_digest}
+              mono
+            />
+          </DetailSection>
+        )}
+        {props.isAdmin && !!other?.admin_info?.relay_attempts?.length && (
+          <DetailSection label={t('Relay attempts')}>
+            <p className='text-muted-foreground text-xs wrap-break-word'>
+              {t(
+                'Attempts are shown in recorded order. Selected means current at log time, not confirmed completion. Key indexes start at 0 and may change when keys are reordered.'
+              )}
+            </p>
+            <ol aria-label={t('Relay attempts')} className='min-w-0 space-y-3'>
+              {other.admin_info.relay_attempts.map((attempt, index) => {
+                let outcome = t('Unknown outcome')
+                switch (attempt.outcome) {
+                  case 'selected':
+                    outcome = t('Selected at log time')
+                    break
+                  case 'refused':
+                    outcome = t('Refused')
+                    break
+                  case 'retryable_refusal':
+                    outcome = t('Refused; retry allowed')
+                    break
+                  case 'failed':
+                    outcome = t('Failed')
+                    break
+                  case 'completed':
+                    outcome = t('Completed')
+                    break
+                }
+                return (
+                  // Log snapshots are immutable ordered evidence with no attempt ID.
+                  // oxlint-disable-next-line react/no-array-index-key
+                  <li key={index} className='min-w-0 space-y-1'>
+                    <p className='text-xs font-medium'>
+                      {t('Attempt {{number}}', { number: index + 1 })}
+                    </p>
+                    <DetailRow
+                      label={t('Channel ID')}
+                      value={String(attempt.channel_id)}
+                      mono
+                    />
+                    <DetailRow
+                      label={t('Key index (0-based)')}
+                      value={String(attempt.key_index)}
+                      mono
+                    />
+                    <DetailRow
+                      label={t('Upstream model')}
+                      value={attempt.upstream_model}
+                      mono
+                    />
+                    <DetailRow label={t('Outcome')} value={outcome} />
+                    {attempt.status != null && attempt.status > 0 && (
+                      <DetailRow
+                        label={t('Failure HTTP status')}
+                        value={String(attempt.status)}
+                        mono
+                      />
+                    )}
+                    {attempt.cooldown_seconds != null &&
+                      attempt.cooldown_seconds > 0 && (
+                        <div className='flex min-w-0 flex-col gap-1 text-xs wrap-break-word'>
+                          <p>
+                            {t(
+                              'Future-request account hold: {{seconds}} seconds',
+                              {
+                                seconds: attempt.cooldown_seconds,
+                              }
+                            )}
+                          </p>
+                          <p className='text-muted-foreground'>
+                            {t(
+                              "This temporary hold is recorded for later requests. It does not prove quota exhaustion or extend this request's retry window."
+                            )}
+                          </p>
+                        </div>
+                      )}
+                  </li>
+                )
+              })}
+            </ol>
+          </DetailSection>
+        )}
         {/* Model mapping */}
         {other?.is_model_mapped && other?.upstream_model_name && (
           <DetailSection label={t('Model Mapping')}>

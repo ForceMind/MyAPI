@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -11,20 +12,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const userCacheSchemaVersion = 3
+const userCacheSchemaVersion = 5
 
 type UserBase struct {
-	Id            int    `json:"id"`
-	Group         string `json:"group"`
-	AccountTierID string `json:"account_tier_id"`
-	Email         string `json:"email"`
-	Quota         int    `json:"quota"`
-	Status        int    `json:"status"`
-	Role          int    `json:"role"`
-	Username      string `json:"username"`
-	Setting       string `json:"setting"`
-	AuthVersion   int64  `json:"-"`
-	CacheSchema   int    `json:"-"`
+	Id               int    `json:"id"`
+	Group            string `json:"group"`
+	AccountTierID    string `json:"account_tier_id"`
+	Email            string `json:"email"`
+	Quota            int    `json:"quota"`
+	Status           int    `json:"status"`
+	Role             int    `json:"role"`
+	Username         string `json:"username"`
+	Setting          string `json:"setting"`
+	AuthVersion      int64  `json:"-"`
+	CacheSchema      int    `json:"-"`
+	QuotaVersion     int64  `json:"quota_version"`
+	QuotaWriterEpoch int64  `json:"-"`
 }
 
 func (user *UserBase) WriteContext(c *gin.Context) {
@@ -34,6 +37,7 @@ func (user *UserBase) WriteContext(c *gin.Context) {
 	common.SetContextKey(c, constant.ContextKeyUserEmail, user.Email)
 	common.SetContextKey(c, constant.ContextKeyUserName, user.Username)
 	common.SetContextKey(c, constant.ContextKeyUserSetting, user.GetSetting())
+	common.SetContextKey(c, constant.ContextKeyAccountTierID, user.AccountTierID)
 }
 
 func (user *UserBase) GetSetting() dto.UserSetting {
@@ -58,6 +62,25 @@ func userCacheTTLSeconds() int {
 		return 60
 	}
 	return ttl
+}
+
+// InvalidateUserQuotaCache clears user cache
+func InvalidateUserQuotaCache(userId int) error {
+	return invalidateUserCache(userId)
+}
+
+// HydrateUserQuotaCache updates user quota projection in Redis with version anti-rollback.
+// If the cache key does not exist or has an older schema, it does nothing (allowing GetUserCache to hydrate cleanly).
+// If incoming QuotaVersion is older than cached, it rejects/drops to prevent version rollback.
+func HydrateUserQuotaCache(userId int, quota int, quotaVersion int64) error {
+	if !common.RedisEnabled || userId <= 0 {
+		return nil
+	}
+	state, err := GetQuotaWriterEpochState(DB)
+	if err != nil {
+		return err
+	}
+	return hydrateUserQuotaCacheRedisAtEpoch(userId, quota, quotaVersion, state.Epoch)
 }
 
 // invalidateUserCache clears user cache
@@ -125,8 +148,13 @@ func cacheGetUserBase(userId int) (*UserBase, error) {
 	if err != nil {
 		return nil, err
 	}
-	if userCache.Id != userId || userCache.CacheSchema != userCacheSchemaVersion || userCache.AuthVersion <= 0 {
+	if userCache.Id != userId || userCache.CacheSchema != userCacheSchemaVersion || userCache.AuthVersion <= 0 || userCache.QuotaWriterEpoch <= 0 {
 		return nil, fmt.Errorf("user cache schema is stale")
+	}
+	redisEpoch, epochErr := common.RDB.Get(context.Background(), quotaWriterEpochRedisKey).Int64()
+	if epochErr != nil || redisEpoch != userCache.QuotaWriterEpoch {
+		_ = invalidateUserCache(userId)
+		return nil, ErrQuotaWriterEpochMismatch
 	}
 	floor, err := getUserAuthVersionFloor(userId)
 	if err != nil {

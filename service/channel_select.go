@@ -1,7 +1,9 @@
 package service
 
 import (
+	"context"
 	"errors"
+	"slices"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
@@ -83,6 +85,14 @@ func (p *RetryParam) ResetRetryNextTry() {
 func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, error) {
 	var channel *model.Channel
 	var err error
+	routingCtx := context.Background()
+	if param.Ctx != nil && param.Ctx.Request != nil {
+		routingCtx = param.Ctx.Request.Context()
+	}
+	routingCtx, err = assignedAccessRoutingContext(param.Ctx, routingCtx)
+	if err != nil {
+		return nil, param.TokenGroup, err
+	}
 	selectGroup := param.TokenGroup
 	userGroup := common.GetContextKeyString(param.Ctx, constant.ContextKeyUserGroup)
 
@@ -96,6 +106,20 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		// startGroupIndex: 开始搜索的分组索引
 		startGroupIndex := 0
 		crossGroupRetry := common.GetContextKeyBool(param.Ctx, constant.ContextKeyTokenCrossGroupRetry)
+		if state := RelayFailoverFromContext(routingCtx); state != nil && len(state.Attempts) > 0 && !crossGroupRetry {
+			// Initial selection may scan empty groups. Once an attempt has run,
+			// disabling cross-group retry pins selection to its actual group,
+			// including a group chosen by affinity without a routing-loop index.
+			selectedGroup := common.GetContextKeyString(param.Ctx, constant.ContextKeyAutoGroup)
+			if !slices.Contains(autoGroups, selectedGroup) {
+				return nil, selectedGroup, nil
+			}
+			channel, err := getRandomQuotaSatisfiedChannel(routingCtx, selectedGroup, param.ModelName, param.GetRetry(), param.RequestPath)
+			if state, ok := routingCtx.Value(assignedAccessRoutingContextKey{}).(AssignedAccessState); ok && state.Assigned() && channel == nil && err == nil {
+				err = ErrAssignedAccessDenied
+			}
+			return channel, selectedGroup, err
+		}
 
 		if lastGroupIndex, exists := common.GetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex); exists {
 			if idx, ok := lastGroupIndex.(int); ok {
@@ -115,7 +139,10 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			}
 			logger.LogDebug(param.Ctx, "Auto selecting group: %s, priorityRetry: %d", autoGroup, priorityRetry)
 
-			channel, _ = model.GetRandomSatisfiedChannel(autoGroup, param.ModelName, priorityRetry, param.RequestPath)
+			channel, err = getRandomQuotaSatisfiedChannel(routingCtx, autoGroup, param.ModelName, priorityRetry, param.RequestPath)
+			if err != nil {
+				return nil, autoGroup, err
+			}
 			if channel == nil {
 				// Current group has no available channel for this model, try next group
 				// 当前分组没有该模型的可用渠道，尝试下一个分组
@@ -153,10 +180,13 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			break
 		}
 	} else {
-		channel, err = model.GetRandomSatisfiedChannel(param.TokenGroup, param.ModelName, param.GetRetry(), param.RequestPath)
+		channel, err = getRandomQuotaSatisfiedChannel(routingCtx, param.TokenGroup, param.ModelName, param.GetRetry(), param.RequestPath)
 		if err != nil {
 			return nil, param.TokenGroup, err
 		}
+	}
+	if state, ok := routingCtx.Value(assignedAccessRoutingContextKey{}).(AssignedAccessState); ok && state.Assigned() && channel == nil {
+		return nil, selectGroup, ErrAssignedAccessDenied
 	}
 	return channel, selectGroup, nil
 }

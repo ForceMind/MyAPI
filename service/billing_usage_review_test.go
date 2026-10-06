@@ -1,0 +1,345 @@
+package service
+
+import (
+	"context"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/model"
+	"github.com/ForceMind/MyAPI/pkg/billingexpr"
+	relaycommon "github.com/ForceMind/MyAPI/relay/common"
+	"github.com/ForceMind/MyAPI/relaykit/dto"
+	hosttypes "github.com/ForceMind/MyAPI/types"
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestBillingUnknownUsagePersistsAndBlocksSessionTerminals(t *testing.T) {
+	db := setupAuthoritativeBillingDB(t)
+	user, token := seedAuthoritativeBilling(t, db, "usage-review", 1000, 1000, false)
+	session, apiErr := NewBillingSession(nil, authoritativeRelay(user, token, "usage-review-session"), 100)
+	require.Nil(t, apiErr)
+	require.NoError(t, session.HoldUnknownUsage(context.Background(), "estimated"))
+	assert.False(t, session.NeedsRefund())
+	require.ErrorIs(t, session.Settle(120), model.ErrAccountQuotaUsageUnresolved)
+	require.ErrorIs(t, session.Refund(nil), model.ErrAccountQuotaUsageUnresolved)
+	require.ErrorIs(t, session.Reserve(150), model.ErrAccountQuotaUsageUnresolved)
+	blocked, err := model.AccountQuotaUsageNeedsReview(context.Background(), db, token.Id)
+	require.NoError(t, err)
+	assert.True(t, blocked)
+	// A new model call does not inherit process-local session flags.
+	_, err = model.RefundAccountQuota(context.Background(), db, model.AccountQuotaTerminalInput{
+		RequestID: "usage-review-session", ReserveReceiptID: session.reserveReceipt.ID, AuditKey: "fresh-worker-refund",
+	})
+	require.Error(t, err)
+	require.NoError(t, db.First(user, user.Id).Error)
+	require.NoError(t, db.First(token, token.Id).Error)
+	assert.Equal(t, 900, user.Quota)
+	assert.Equal(t, 900, token.RemainQuota)
+}
+
+func TestPartialUsageProvenanceDoesNotClaimReportedActual(t *testing.T) {
+	usage := &dto.Usage{BillingUsage: &dto.BillingUsage{
+		Source: dto.BillingUsageSourceOAIChat, Semantic: dto.BillingUsageSemanticOpenAI,
+		Incomplete: true, OpenAIUsage: &dto.Usage{PromptTokens: 10},
+	}}
+	other := map[string]interface{}{}
+	appendUsageBillingPathForLog(other, false, usage)
+	assert.Equal(t, "unknown", other["usage_accuracy"])
+	assert.Equal(t, "partial", textUsageReviewReason(nil, usage))
+}
+
+func TestTextUnknownUsagePersistsAcrossBothWriterModes(t *testing.T) {
+	for _, mode := range []model.QuotaWriterMode{model.QuotaWriterModeLegacy, model.QuotaWriterModeAuthoritative} {
+		for _, source := range []string{"missing", "estimated", "partial"} {
+			t.Run(string(mode)+"-"+source, func(t *testing.T) {
+				db := setupPostConsumeModeDB(t, mode)
+				user, token := seedAuthoritativeBilling(t, db, "text-hold", 1000, 1000, false)
+				info := authoritativeRelay(user, token, "text-hold-request")
+				info.StartTime = time.Now()
+				info.ChannelMeta = &relaycommon.ChannelMeta{ChannelId: 77}
+				info.PriceData = hosttypes.PriceData{ModelRatio: 1, CompletionRatio: 2, GroupRatioInfo: hosttypes.GroupRatioInfo{GroupRatio: 1}}
+				info.SetEstimatePromptTokens(100)
+				info.TieredBillingSnapshot = &billingexpr.BillingSnapshot{BillingMode: "tiered_expr", ExprString: "p * 2", ExprHash: billingexpr.ExprHashString("p * 2"),
+					OfficialPricePublicationID: strings.Repeat("a", 64), OfficialPriceSourceSHA256: strings.Repeat("b", 64)}
+				ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+				ctx.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+				ctx.Set(common.RequestIdKey, info.RequestId)
+				session, apiErr := NewBillingSession(ctx, info, 100)
+				require.Nil(t, apiErr)
+				info.Billing = session
+				var usage *dto.Usage
+				if source != "missing" {
+					billing := dto.NewOpenAIResponsesBillingUsage(&dto.Usage{InputTokens: 100, OutputTokens: 10, TotalTokens: 110})
+					billing.Estimated = source == "estimated"
+					billing.Incomplete = source == "partial"
+					usage = &dto.Usage{BillingUsage: billing}
+				}
+				PostTextConsumeQuota(ctx, info, usage, nil)
+				// A later call with reported usage cannot bypass a held session
+				// or manufacture confirmed statistics before audited reconciliation.
+				PostTextConsumeQuota(ctx, info, &dto.Usage{BillingUsage: dto.NewOpenAIResponsesBillingUsage(&dto.Usage{InputTokens: 100, OutputTokens: 10, TotalTokens: 110})}, nil)
+				require.ErrorIs(t, session.Settle(120), model.ErrAccountQuotaUsageUnresolved)
+				require.ErrorIs(t, session.Refund(ctx), model.ErrAccountQuotaUsageUnresolved)
+				require.NoError(t, db.First(user, user.Id).Error)
+				require.NoError(t, db.First(token, token.Id).Error)
+				assert.Equal(t, 900, user.Quota)
+				assert.Zero(t, user.UsedQuota)
+				assert.Zero(t, user.RequestCount)
+				assert.Equal(t, 900, token.RemainQuota)
+				if mode == model.QuotaWriterModeLegacy {
+					record, err := model.FindLegacyUsageReservation(context.Background(), db, info.RequestId)
+					require.NoError(t, err)
+					assert.Equal(t, model.LegacyUsageUnknown, record.State)
+					assert.Nil(t, record.ActualQuota)
+					assert.EqualValues(t, 100, record.ReservedQuota)
+					assert.Contains(t, record.ReviewMetadata, "quota_unit")
+					assert.Contains(t, record.ReviewMetadata, `"official_price_source_sha256":"`+strings.Repeat("b", 64)+`"`)
+				} else {
+					var record model.AccountQuotaTerminalRecoveryObligation
+					require.NoError(t, db.Where("request_id = ?", info.RequestId).First(&record).Error)
+					assert.Equal(t, model.AccountQuotaTerminalRecoveryUsageUnknown, record.State)
+					assert.Zero(t, record.TerminalReceiptID)
+					assert.Contains(t, record.ReviewMetadata, "quota_unit")
+					assert.Contains(t, record.ReviewMetadata, `"official_price_source_sha256":"`+strings.Repeat("b", 64)+`"`)
+				}
+			})
+		}
+	}
+}
+
+func TestTextUsageEvidenceRejectsContradictoryCategories(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		usage  dto.Usage
+		reason string
+	}{
+		{"included cache and reasoning", dto.Usage{InputTokens: 100, OutputTokens: 10, TotalTokens: 110, InputTokensDetails: &dto.InputTokenDetails{CachedTokens: 40}, OutputTokensDetails: &dto.OutputTokenDetails{ReasoningTokens: 4}}, ""},
+		{"negative cache", dto.Usage{InputTokens: 100, OutputTokens: 10, TotalTokens: 110, InputTokensDetails: &dto.InputTokenDetails{CachedTokens: -1}}, "invalid"},
+		{"overlapping cache categories", dto.Usage{InputTokens: 100, OutputTokens: 10, TotalTokens: 110, InputTokensDetails: &dto.InputTokenDetails{CachedTokens: 70, CacheWriteTokens: 40}}, "invalid"},
+		{"reasoning exceeds output", dto.Usage{InputTokens: 100, OutputTokens: 10, TotalTokens: 110, OutputTokensDetails: &dto.OutputTokenDetails{ReasoningTokens: 11}}, "invalid"},
+		{"inconsistent total", dto.Usage{InputTokens: 100, OutputTokens: 10, TotalTokens: 111}, "invalid"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			usage := &dto.Usage{BillingUsage: dto.NewOpenAIResponsesBillingUsage(&tc.usage)}
+			assert.Equal(t, tc.reason, textUsageReviewReason(ctx, usage))
+		})
+	}
+}
+
+func TestReportedUsageOverridesEarlierLocalEstimateMarker(t *testing.T) {
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	common.SetContextKey(ctx, constant.ContextKeyLocalCountTokens, true)
+	usage := &dto.Usage{BillingUsage: dto.NewOpenAIResponsesBillingUsage(&dto.Usage{InputTokens: 100, OutputTokens: 10, TotalTokens: 110})}
+	assert.Empty(t, textUsageReviewReason(ctx, usage))
+	usage.BillingUsage.Estimated = true
+	assert.Equal(t, "estimated", textUsageReviewReason(ctx, usage))
+	assert.Equal(t, "estimated", textUsageReviewReason(ctx, &dto.Usage{PromptTokens: 100, CompletionTokens: 10}))
+	zero := &dto.Usage{BillingUsage: &dto.BillingUsage{Source: dto.BillingUsageSourceOAIResponses, Semantic: dto.BillingUsageSemanticOpenAI, OpenAIUsage: &dto.Usage{}}}
+	assert.Empty(t, textUsageReviewReason(ctx, zero), "explicit reported zero must not become an estimate")
+}
+
+func TestAudioAndRealtimeUnverifiedUsageNeverBecomesConfirmed(t *testing.T) {
+	for _, mode := range []string{"audio-missing", "realtime-missing", "realtime-estimated"} {
+		t.Run(mode, func(t *testing.T) {
+			truncate(t)
+			seedUser(t, 92, 1000)
+			seedChannel(t, 92)
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest("POST", "/v1/realtime", nil)
+			settler := &textQuotaTestSettler{preConsumed: 100}
+			info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{ChannelId: 92}, UserId: 92, OriginModelName: "unverified-fixture", StartTime: time.Now(), Billing: settler, FinalPreConsumedQuota: 100,
+				PriceData: hosttypes.PriceData{ModelRatio: 1, CompletionRatio: 2, GroupRatioInfo: hosttypes.GroupRatioInfo{GroupRatio: 1}}}
+			require.NoError(t, info.PriceData.CaptureQuotaUnit(1000))
+			require.NotPanics(t, func() {
+				if mode == "audio-missing" {
+					PostAudioConsumeQuota(ctx, info, nil, "")
+					return
+				}
+				var usage *dto.RealtimeUsage
+				if mode == "realtime-estimated" {
+					info.RealtimeUsageUnverified = true
+					usage = &dto.RealtimeUsage{InputTokens: 10, OutputTokens: 5, TotalTokens: 15, InputTokenDetails: dto.InputTokenDetails{TextTokens: 10}, OutputTokenDetails: dto.OutputTokenDetails{TextTokens: 5}}
+				}
+				PostWssConsumeQuota(ctx, info, info.OriginModelName, usage, "")
+			})
+			assert.Empty(t, settler.settled)
+			assert.Zero(t, settler.refund)
+		})
+	}
+}
+
+func TestLegacyUsageAdmissionClaimsRequestBeforeAnyDuplicateReserve(t *testing.T) {
+	db := setupPostConsumeModeDB(t, model.QuotaWriterModeLegacy)
+	user, token := seedAuthoritativeBilling(t, db, "claim-before-reserve", 1000, 1000, false)
+	start := make(chan struct{})
+	results := make(chan *BillingSession, 2)
+	for range 2 {
+		go func() {
+			<-start
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+			info := authoritativeRelay(user, token, "duplicate-admission")
+			info.ForcePreConsume = true
+			session, apiErr := NewBillingSession(ctx, info, 100)
+			if apiErr != nil {
+				results <- nil
+				return
+			}
+			results <- session
+		}()
+	}
+	close(start)
+	var winner *BillingSession
+	winners := 0
+	for range 2 {
+		if session := <-results; session != nil {
+			winner = session
+			winners++
+		}
+	}
+	require.Equal(t, 1, winners)
+	require.NoError(t, winner.HoldUnknownUsage(context.Background(), "missing"))
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	_, apiErr := NewBillingSession(ctx, authoritativeRelay(user, token, "duplicate-admission"), 100)
+	require.NotNil(t, apiErr)
+	require.NoError(t, db.First(user, user.Id).Error)
+	require.NoError(t, db.First(token, token.Id).Error)
+	assert.Equal(t, 900, user.Quota)
+	assert.Equal(t, 900, token.RemainQuota)
+	assert.Equal(t, 100, token.UsedQuota)
+}
+
+func TestRealtimeRawIncompleteUsageIsHeldForReview(t *testing.T) {
+	for _, raw := range []string{
+		`{}`,
+		`{"total_tokens":0,"input_tokens":null,"output_tokens":0}`,
+		`{"total_tokens":15,"input_tokens":10,"output_tokens":5}`,
+		`{"total_tokens":16,"input_tokens":10,"output_tokens":5,"input_token_details":{"text_tokens":10},"output_token_details":{"text_tokens":5}}`,
+	} {
+		t.Run(raw, func(t *testing.T) {
+			truncate(t)
+			seedUser(t, 92, 1000)
+			seedChannel(t, 92)
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest("GET", "/v1/realtime", nil)
+			settler := &textQuotaTestSettler{preConsumed: 100}
+			info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{ChannelId: 92}, UserId: 92, OriginModelName: "raw-realtime-fixture", StartTime: time.Now(), Billing: settler, FinalPreConsumedQuota: 100,
+				RealtimeReportedUsage: true, PriceData: hosttypes.PriceData{ModelRatio: 1, CompletionRatio: 2, GroupRatioInfo: hosttypes.GroupRatioInfo{GroupRatio: 1}}}
+			require.NoError(t, info.PriceData.CaptureQuotaUnit(1000))
+			var usage dto.RealtimeUsage
+			require.NoError(t, common.Unmarshal([]byte(raw), &usage))
+			PostWssConsumeQuota(ctx, info, info.OriginModelName, &usage, "")
+			assert.Empty(t, settler.settled, "absent or contradictory raw usage is not confirmed zero or actual cost")
+			assert.Zero(t, settler.refund)
+		})
+	}
+}
+
+func TestRealtimeRawExplicitZeroAndCompleteTextRemainConfirmed(t *testing.T) {
+	for _, tc := range []struct {
+		name, raw string
+		quota     int
+	}{
+		{"zero", `{"total_tokens":0,"input_tokens":0,"output_tokens":0}`, 0},
+		{"text", `{"total_tokens":15,"input_tokens":10,"output_tokens":5,"input_token_details":{"text_tokens":10},"output_token_details":{"text_tokens":5}}`, 20},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			truncate(t)
+			seedUser(t, 92, 1000)
+			seedChannel(t, 92)
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest("GET", "/v1/realtime", nil)
+			settler := &textQuotaTestSettler{preConsumed: 100}
+			info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{ChannelId: 92}, UserId: 92, UserQuota: 1 << 30, OriginModelName: "raw-realtime-fixture", StartTime: time.Now(), Billing: settler, FinalPreConsumedQuota: 100,
+				RealtimeReportedUsage: true, PriceData: hosttypes.PriceData{ModelRatio: 1, CompletionRatio: 2, GroupRatioInfo: hosttypes.GroupRatioInfo{GroupRatio: 1}}}
+			require.NoError(t, info.PriceData.CaptureQuotaUnit(1000))
+			var usage dto.RealtimeUsage
+			require.NoError(t, common.Unmarshal([]byte(tc.raw), &usage))
+			PostWssConsumeQuota(ctx, info, info.OriginModelName, &usage, "")
+			assert.Equal(t, []int{tc.quota}, settler.settled)
+			assert.Equal(t, 100-tc.quota, settler.refund)
+		})
+	}
+}
+
+func TestRealtimeCacheExpressionRequiresReportedCacheCount(t *testing.T) {
+	for _, cache := range []string{"", `,"cached_tokens":0`} {
+		t.Run(cache, func(t *testing.T) {
+			truncate(t)
+			seedUser(t, 92, 1000)
+			seedChannel(t, 92)
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest("GET", "/v1/realtime", nil)
+			settler := &textQuotaTestSettler{preConsumed: 100}
+			expression := `p + cr * 0.1 + c`
+			info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{ChannelId: 92}, UserId: 92, UserQuota: 1 << 30, OriginModelName: "raw-realtime-fixture", StartTime: time.Now(), Billing: settler, FinalPreConsumedQuota: 100,
+				RealtimeReportedUsage: true, PriceData: hosttypes.PriceData{ModelRatio: 1, GroupRatioInfo: hosttypes.GroupRatioInfo{GroupRatio: 1}},
+				TieredBillingSnapshot: &billingexpr.BillingSnapshot{BillingMode: "tiered_expr", ExprString: expression, ExprHash: billingexpr.ExprHashString(expression), QuotaPerUnit: 1_000_000, GroupRatio: 1}}
+			require.NoError(t, info.PriceData.CaptureQuotaUnit(1_000_000))
+			var usage dto.RealtimeUsage
+			require.NoError(t, common.Unmarshal([]byte(`{"total_tokens":8,"input_tokens":8,"output_tokens":0,"input_token_details":{"text_tokens":8`+cache+`}}`), &usage))
+			err := RecordRealtimeTieredResponse(info, &usage)
+			PostWssConsumeQuota(ctx, info, info.OriginModelName, &usage, "")
+			if cache == "" {
+				require.Error(t, err)
+				assert.Empty(t, settler.settled)
+				assert.Zero(t, settler.refund)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, []int{8}, settler.settled)
+			}
+		})
+	}
+}
+
+func TestRealtimeRawUnknownPersistsAcrossBothWriterModes(t *testing.T) {
+	for _, mode := range []model.QuotaWriterMode{model.QuotaWriterModeLegacy, model.QuotaWriterModeAuthoritative} {
+		t.Run(string(mode), func(t *testing.T) {
+			db := setupPostConsumeModeDB(t, mode)
+			user, token := seedAuthoritativeBilling(t, db, "realtime-raw-hold", 1000, 1000, false)
+			info := authoritativeRelay(user, token, "realtime-raw-hold-request")
+			info.StartTime = time.Now()
+			info.ChannelMeta = &relaycommon.ChannelMeta{ChannelId: 77}
+			info.PriceData = hosttypes.PriceData{ModelRatio: 1, CompletionRatio: 2, GroupRatioInfo: hosttypes.GroupRatioInfo{GroupRatio: 1}}
+			require.NoError(t, info.PriceData.CaptureQuotaUnit(1000))
+			info.RealtimeReportedUsage = true
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest("GET", "/v1/realtime", nil)
+			ctx.Set(common.RequestIdKey, info.RequestId)
+			session, apiErr := NewBillingSession(ctx, info, 100)
+			require.Nil(t, apiErr)
+			info.Billing = session
+			var usage dto.RealtimeUsage
+			require.NoError(t, common.Unmarshal([]byte(`{}`), &usage))
+			PostWssConsumeQuota(ctx, info, info.OriginModelName, &usage, "")
+			assert.False(t, session.NeedsRefund())
+			require.ErrorIs(t, session.Settle(0), model.ErrAccountQuotaUsageUnresolved)
+			require.ErrorIs(t, session.Refund(ctx), model.ErrAccountQuotaUsageUnresolved)
+			require.NoError(t, db.First(user, user.Id).Error)
+			require.NoError(t, db.First(token, token.Id).Error)
+			assert.Equal(t, 900, user.Quota)
+			assert.Equal(t, 900, token.RemainQuota)
+			assert.Zero(t, user.UsedQuota)
+			assert.Zero(t, user.RequestCount)
+			if mode == model.QuotaWriterModeLegacy {
+				record, err := model.FindLegacyUsageReservation(context.Background(), db, info.RequestId)
+				require.NoError(t, err)
+				assert.Equal(t, model.LegacyUsageUnknown, record.State)
+				assert.Nil(t, record.ActualQuota)
+				assert.EqualValues(t, 100, record.ReservedQuota)
+			} else {
+				var record model.AccountQuotaTerminalRecoveryObligation
+				require.NoError(t, db.Where("request_id = ?", info.RequestId).First(&record).Error)
+				assert.Equal(t, model.AccountQuotaTerminalRecoveryUsageUnknown, record.State)
+				assert.Zero(t, record.TerminalReceiptID)
+			}
+		})
+	}
+}

@@ -11,18 +11,26 @@ import { describe, expect, test, vi } from 'vitest'
 import { api } from '@/lib/api'
 
 import {
+  copyChannel,
+  createChannel,
   getChannelQuotaChanges,
+  getChannelQuotaAlertDeliveryEvents,
+  getChannelQuotaAlertDeliveryStatus,
   getChannelQuotaHistory,
+  getChannelRoutingPreview,
   getChannelQuotaSamplingStatus,
   getCodexLocalAuthStatus,
   importCodexLocalAuthForChannel,
   importCodexLocalAuthForNewChannel,
+  runChannelQuotaAlertDelivery,
+  updateChannelQuotaAlertDeliverySettings,
 } from './api'
 
 vi.mock('@/lib/api', () => ({
   api: {
     get: vi.fn(),
     post: vi.fn(),
+    put: vi.fn(),
   },
 }))
 
@@ -50,6 +58,62 @@ describe('channel quota API authentication behavior', () => {
         }),
       })
     )
+  })
+
+  test('forwards persistent operation keys for create and copy retries', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: { success: true } } as never)
+
+    await createChannel(
+      { mode: 'single', channel: { name: 'A', type: 1, key: 'secret' } },
+      'create-operation-key'
+    )
+    await copyChannel(12, {
+      suffix: '-copy',
+      reset_balance: true,
+      operation_key: 'copy-operation-key',
+    })
+
+    expect(api.post).toHaveBeenNthCalledWith(
+      1,
+      '/api/channel',
+      { mode: 'single', channel: { name: 'A', type: 1, key: 'secret' } },
+      expect.objectContaining({
+        headers: { 'Idempotency-Key': 'create-operation-key' },
+      })
+    )
+    expect(api.post).toHaveBeenNthCalledWith(
+      2,
+      '/api/channel/copy/12',
+      null,
+      expect.objectContaining({
+        params: { suffix: '-copy', reset_balance: true },
+        headers: { 'Idempotency-Key': 'copy-operation-key' },
+      })
+    )
+  })
+
+  test('forwards explicit routing preview parameters', async () => {
+    vi.mocked(api.post).mockClear()
+    vi.mocked(api.get).mockResolvedValueOnce({
+      data: { success: true, data: { tiers: [] } },
+    } as never)
+
+    await getChannelRoutingPreview({
+      group: 'default',
+      model: 'gpt-test',
+      request_path: '/v1/responses',
+    })
+
+    expect(api.get).toHaveBeenLastCalledWith('/api/channel/routing-preview', {
+      skipBusinessError: true,
+      skipErrorHandler: true,
+      params: {
+        group: 'default',
+        model: 'gpt-test',
+        request_path: '/v1/responses',
+      },
+    })
+    expect(api.post).not.toHaveBeenCalled()
   })
 
   test('keeps the standard auth refresh path for quota changes', async () => {
@@ -82,6 +146,59 @@ describe('channel quota API authentication behavior', () => {
     expect(config.skipAuthRefresh).toBeUndefined()
     expect(config.skipErrorHandler).toBe(true)
     expect(config.skipBusinessError).toBe(true)
+  })
+
+  test('uses protected quota alert delivery endpoints for status, history, configuration, and manual runs', async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: { success: true } } as never)
+    vi.mocked(api.put).mockResolvedValue({ data: { success: true } } as never)
+    vi.mocked(api.post).mockResolvedValue({ data: { success: true } } as never)
+
+    await getChannelQuotaAlertDeliveryStatus()
+    await getChannelQuotaAlertDeliveryEvents({
+      p: 2,
+      page_size: 10,
+      state: 'retryable',
+    })
+    await updateChannelQuotaAlertDeliverySettings({
+      webhook_url: 'https://alerts.example.com/quota',
+      webhook_secret: '0123456789abcdef',
+    })
+    await runChannelQuotaAlertDelivery()
+
+    expect(api.get).toHaveBeenNthCalledWith(
+      1,
+      '/api/channel/quota/alerts/delivery',
+      expect.objectContaining({
+        skipBusinessError: true,
+        skipErrorHandler: true,
+      })
+    )
+    expect(api.get).toHaveBeenNthCalledWith(
+      2,
+      '/api/channel/quota/alerts',
+      expect.objectContaining({
+        params: { p: 2, page_size: 10, state: 'retryable' },
+      })
+    )
+    expect(api.put).toHaveBeenCalledWith(
+      '/api/channel/quota/alerts/delivery',
+      {
+        webhook_url: 'https://alerts.example.com/quota',
+        webhook_secret: '0123456789abcdef',
+      },
+      expect.objectContaining({
+        skipBusinessError: true,
+        skipErrorHandler: true,
+      })
+    )
+    expect(api.post).toHaveBeenCalledWith(
+      '/api/channel/quota/alerts/delivery/run',
+      undefined,
+      expect.objectContaining({
+        skipBusinessError: true,
+        skipErrorHandler: true,
+      })
+    )
   })
 
   test('uses protected local-auth endpoints and forwards a security proof only for imports', async () => {

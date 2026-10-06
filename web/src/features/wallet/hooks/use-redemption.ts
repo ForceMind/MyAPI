@@ -22,6 +22,10 @@ import { toast } from 'sonner'
 
 import { getSelf } from '@/lib/api'
 import { formatQuota } from '@/lib/format'
+import {
+  isUserFundingUnavailableError,
+  USER_FUNDING_UNAVAILABLE_MESSAGE_KEY,
+} from '@/lib/self-use-build'
 
 import { redeemTopupCode } from '../api'
 
@@ -53,10 +57,18 @@ export function useRedemption() {
         return true
       }
 
-      toast.error(response.message || i18next.t('Redemption failed'))
+      toast.error(
+        isUserFundingUnavailableError(response)
+          ? i18next.t(USER_FUNDING_UNAVAILABLE_MESSAGE_KEY)
+          : response.message || i18next.t('Redemption failed')
+      )
       return false
-    } catch (_error) {
-      toast.error(i18next.t('Redemption failed'))
+    } catch (error) {
+      toast.error(
+        isUserFundingUnavailableError(error)
+          ? i18next.t(USER_FUNDING_UNAVAILABLE_MESSAGE_KEY)
+          : i18next.t('Redemption failed')
+      )
       return false
     } finally {
       setRedeeming(false)

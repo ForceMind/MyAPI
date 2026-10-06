@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -34,6 +35,7 @@ func TestCodexSamplingSharesOneDeadlineAcrossUsageRefreshAndRetry(t *testing.T) 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}, &model.SystemTaskLock{}))
+	setupChannelQuotaIdentityFixture(t, db)
 	model.DB = db
 	common.MemoryCacheEnabled = false
 	t.Cleanup(func() {
@@ -87,7 +89,8 @@ func TestCodexSamplingHonorsShorterCallerDeadlineAndRecordsTimeout(t *testing.T)
 	previousDB := model.DB
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.ChannelQuotaSnapshot{}))
+	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}))
+	setupChannelQuotaIdentityFixture(t, db)
 	model.DB = db
 	t.Cleanup(func() { model.DB = previousDB })
 	client, err := service.GetHttpClientWithProxy("")
@@ -104,10 +107,12 @@ func TestCodexSamplingHonorsShorterCallerDeadlineAndRecordsTimeout(t *testing.T)
 		return nil, context.DeadlineExceeded
 	})
 	baseURL := "https://quota-fixture.invalid"
-	err = sampleCodexChannelUsage(ctx, &model.Channel{
+	channel := &model.Channel{
 		Id: 43, Type: constant.ChannelTypeCodex, BaseURL: &baseURL,
 		Key: `{"access_token":"fixture-access","account_id":"fixture-account"}`,
-	})
+	}
+	require.NoError(t, db.Create(channel).Error)
+	err = sampleCodexChannelUsage(ctx, channel)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	var snapshot model.ChannelQuotaSnapshot
 	require.NoError(t, db.Where("channel_id = ?", 43).First(&snapshot).Error)
@@ -120,6 +125,7 @@ func TestCodexSamplingRefreshWriteFailureIsReportedAndSafelyRecorded(t *testing.
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}, &model.SystemTaskLock{}))
+	setupChannelQuotaIdentityFixture(t, db)
 	model.DB = db
 	t.Cleanup(func() { model.DB = previousDB })
 	baseURL := "https://quota-fixture.invalid"
@@ -127,7 +133,9 @@ func TestCodexSamplingRefreshWriteFailureIsReportedAndSafelyRecorded(t *testing.
 		Key: `{"access_token":"fixture-access","refresh_token":"fixture-refresh","account_id":"fixture-account"}`}
 	require.NoError(t, db.Create(channel).Error)
 	require.NoError(t, db.Callback().Update().Before("gorm:update").Register("fixture_reject_credential_update", func(tx *gorm.DB) {
-		tx.AddError(errors.New("fixture credential write unavailable"))
+		if tx.Statement.Schema != nil && tx.Statement.Schema.Table == "channels" && tx.Statement.Changed("Key") {
+			tx.AddError(errors.New("fixture credential write unavailable"))
+		}
 	}))
 	client, err := service.GetHttpClientWithProxy("")
 	require.NoError(t, err)
@@ -160,6 +168,7 @@ func TestManualCodexUsageFailsAndRecordsCredentialPersistenceError(t *testing.T)
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}, &model.SystemTaskLock{}))
+	setupChannelQuotaIdentityFixture(t, db)
 	model.DB, common.MemoryCacheEnabled = db, false
 	t.Cleanup(func() { model.DB, common.MemoryCacheEnabled = previousDB, previousCache })
 	baseURL := "https://manual-quota-fixture.invalid"
@@ -167,7 +176,9 @@ func TestManualCodexUsageFailsAndRecordsCredentialPersistenceError(t *testing.T)
 		Key: `{"access_token":"fixture-access","refresh_token":"fixture-refresh","account_id":"fixture-account"}`}
 	require.NoError(t, db.Create(channel).Error)
 	require.NoError(t, db.Callback().Update().Before("gorm:update").Register("fixture_reject_manual_credential_update", func(tx *gorm.DB) {
-		tx.AddError(errors.New("fixture credential write unavailable"))
+		if tx.Statement.Schema != nil && tx.Statement.Schema.Table == "channels" && tx.Statement.Changed("Key") {
+			tx.AddError(errors.New("fixture credential write unavailable"))
+		}
 	}))
 	client, err := service.GetHttpClientWithProxy("")
 	require.NoError(t, err)
@@ -213,16 +224,21 @@ func TestCodexSamplingSavesRotatedCredentialsAfterRequestCancellation(t *testing
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}, &model.SystemTaskLock{}))
+	setupChannelQuotaIdentityFixture(t, db)
 	model.DB, common.MemoryCacheEnabled = db, false
 	t.Cleanup(func() { model.DB, common.MemoryCacheEnabled = previousDB, previousCache })
 	baseURL := "https://quota-fixture.invalid"
 	channel := &model.Channel{Id: 45, Type: constant.ChannelTypeCodex, BaseURL: &baseURL,
 		Key: `{"access_token":"fixture-access","refresh_token":"fixture-refresh","account_id":"fixture-account"}`}
+	oldCredential := channel.Key
 	require.NoError(t, db.Create(channel).Error)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	writes := 0
 	require.NoError(t, db.Callback().Update().Before("gorm:update").Register("fixture_inspect_credential_context", func(tx *gorm.DB) {
+		if tx.Statement.Schema == nil || tx.Statement.Schema.Table != "channels" || !tx.Statement.Changed("Key") {
+			return
+		}
 		writes++
 		require.ErrorIs(t, ctx.Err(), context.Canceled)
 		require.NoError(t, tx.Statement.Context.Err())
@@ -256,4 +272,12 @@ func TestCodexSamplingSavesRotatedCredentialsAfterRequestCancellation(t *testing
 	var snapshot model.ChannelQuotaSnapshot
 	require.NoError(t, db.First(&snapshot).Error)
 	require.Equal(t, "sampling_canceled", snapshot.ErrorCode)
+	keyring, err := common.LoadChannelQuotaIdentityKeyring()
+	require.NoError(t, err)
+	oldIdentity, err := model.ResolveChannelQuotaIdentity(context.Background(), db, keyring, "channel_type_"+strconv.Itoa(channel.Type), common.ChannelQuotaIdentityKindCredential, []byte(oldCredential))
+	require.NoError(t, err)
+	newIdentity, err := model.ResolveChannelQuotaIdentity(context.Background(), db, keyring, "channel_type_"+strconv.Itoa(channel.Type), common.ChannelQuotaIdentityKindCredential, []byte(stored.Key))
+	require.NoError(t, err)
+	require.Equal(t, newIdentity.SubjectRef, snapshot.SubjectRef)
+	require.NotEqual(t, oldIdentity.SubjectRef, snapshot.SubjectRef)
 }

@@ -19,8 +19,55 @@ Homebrew/Bun/Go/Node、Docker Desktop、Electron、LAN Lite 和服务器数据�
 
 ## 新机器安装
 
+### 当前 R1 源码部署
+
+R1 开发分支为 `codex/r1-usage-review-20261002`。现有 `v0.2.0-beta.1`
+和 `v0.2.0-beta.2` 镜像不包含本轮 R1；部署当前源码时必须显式选择本地构建。
+完整检出仓库后执行：
+
 ```bash
-git clone https://github.com/ForceMind/MyAPI.git my-api
+git clone --branch codex/r1-usage-review-20261002 --single-branch https://github.com/ForceMind/MyAPI.git my-api-r1
+cd my-api-r1
+git rev-parse HEAD
+umask 077
+cp deploy/.env.example deploy/.env
+```
+
+编辑 `deploy/.env`，服务器 Full HTTPS 部署至少设置：
+
+```dotenv
+MYAPI_IMAGE=local/myapi:r1
+MYAPI_BUILD_LOCAL=true
+MYAPI_EDITION=full
+MYAPI_BIND_ADDRESS=127.0.0.1
+MYAPI_ALLOW_LAN=false
+MYAPI_SESSION_COOKIE_SECURE=true
+MYAPI_PUBLIC_URL=https://你的实际域名
+```
+
+另设置独立随机的 `SESSION_SECRET`（至少 48 字符），并在使用多账户额度采样时
+设置 `CHANNEL_QUOTA_IDENTITY_KEYS=active:v1:<独立的base64url密钥>`。
+新实例可用 `openssl rand -hex 32` 生成会话秘密，用
+`openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n'` 生成独立身份密钥；
+只写入服务器私有配置，不提交到 Git。已有数据库升级必须保留原会话秘密和完整身份
+密钥环，不重新生成；同一数据库的各实例使用相同密钥环，并随数据库安全备份。
+
+配置完成后执行 `bash deploy/install.sh`。脚本从当前检出源码构建镜像并等待健康检查；
+HTTPS 反代需另行配置为实际域名到 `http://127.0.0.1:3000`。部署时记录源码 SHA，
+启动后检查登录、渠道及额度采样；健康成功只证明服务启动。
+
+升级已有实例前，先按 [升级演练](docs/UPGRADE_REHEARSAL.md)备份数据库、WAL、配置和
+旧镜像，并用独立副本验证。回滚使用升级前备份；旧二进制不要直接打开已经迁移的数据库。
+真实 OAuth、账户窗口、账单与目标 HTTPS 验收仍见
+[R1 安装与验收清单](docs/R1_INSTALLATION_CHECK.md#下一步真实验收记录)。
+
+### 已发布镜像部署
+
+本批目标为 `v0.2.0-beta.7`。发布完成前 `v0.2.0-beta.3` 仍是最后已发布预览版；beta.7 的范围、验证证据与发布边界以[beta.7 发布记录](docs/RELEASE_BETA_7.md)为准。
+部署前确认 GitHub Release 和 Full/LAN 镜像均已成功；下面使用准确发行 tag。
+
+```bash
+git clone --branch v0.2.0-beta.7 --single-branch https://github.com/ForceMind/MyAPI.git my-api
 cd my-api
 
 cp deploy/.env.example deploy/.env
@@ -31,6 +78,7 @@ cp deploy/.env.example deploy/.env
 - 设置随机的 `SESSION_SECRET`；
 - 将 `MYAPI_PUBLIC_URL` 改为实际 HTTPS 域名；
 - 如需修改宿主机端口，修改 `MYAPI_PORT`。
+- 多账户额度采样需设置独立的 `CHANNEL_QUOTA_IDENTITY_KEYS`；已有数据库保留原密钥环。
 - `MYAPI_BRAND_NAME` 和 `MYAPI_BRAND_LOGO` 为可选的构建默认品牌，默认分别为
   `MyAPI` 和 `/myapi-logo-v1.png`；运行时站点设置中的自定义值优先。
 

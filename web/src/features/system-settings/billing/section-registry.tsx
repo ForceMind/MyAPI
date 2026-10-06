@@ -23,6 +23,7 @@ import { PricingSection } from '../general/pricing-section'
 import { QuotaSettingsSection } from '../general/quota-settings-section'
 import { PaymentSettingsSection } from '../integrations/payment-settings-section'
 import { RatioSettingsCard } from '../models/ratio-settings-card'
+import { QuotaWriterSection } from '../quota-writer/components/quota-writer-section'
 import type { BillingSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 
@@ -135,6 +136,7 @@ const BILLING_SECTIONS = [
     build: (settings: BillingSettings) => (
       <PaymentSettingsSection
         defaultValues={{
+          UserFundingMode: settings['user_funding_setting.mode'],
           PayAddress: settings.PayAddress,
           EpayId: settings.EpayId,
           EpayKey: settings.EpayKey,
@@ -188,6 +190,11 @@ const BILLING_SECTIONS = [
         }}
       />
     ),
+  },
+  {
+    id: 'quota-writer',
+    titleKey: 'Quota Writer Mode',
+    build: () => <QuotaWriterSection />,
   },
   {
     id: 'checkin',

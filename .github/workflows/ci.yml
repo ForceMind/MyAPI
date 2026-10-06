@@ -19,7 +19,10 @@ jobs:
     name: Backend vet, build, and test
     if: github.event.action != 'closed' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The complete serial cold-cache suite reached the former 15-minute limit
+    # after the new beta.6 race group passed. Keep every group and its own
+    # 180-second test deadline; allow bounded orchestration time for all of them.
+    timeout-minutes: 20
     env:
       GOWORK: 'off'
       GOMAXPROCS: '1'
@@ -86,6 +89,15 @@ jobs:
           -run '^Test(InMemoryRateLimiter|NewUsesProvidedRedisClient|Allow(RecoversAfterRedisScriptFlush|SetsAndRenewsBucketTTL|RejectsInvalidConfigWithoutWritingBucket|LuaValidationAndInvalidBucketStateDoNotWrite)|UpdateTopupGroupRatio|ValidateTopupGroupRatio|RWMap|LoadFromJsonString|Chats|UserUsableGroups|UpdateAutoGroups|UpdatePayMethods|UpdateConfigFromMap|ValidateConfigFromMap|ConfigManager|ToolPrice|GetClaudeSettings|ClaudeManagedConfig|RelayInfoKeepsCapturedClaudeSettingsDuringConcurrentPublish|ManagedMonitorSetting|GetMonitorSetting|MonitorSetting_|ValidateGeminiThinking|ValidateRatioMapJSON|ValidateNestedRatioMapJSON|RatioJSON|GroupRatio|ManagedGroupRatio|ValidateGroupSpecialUsableGroup|GetGroupSpecialUsableGroup|GetUserUsableGroups|GetUserModelsExpandsAutoGroups|LoadGroupRatio|LoadInvalidGroupRatio|UpdateGroupRatio|InitOptionMapPublishesAlias|GroupSpecialUsableGroupRemains|ExposedData|UpdateModelRequest|ModelRequest|ResolveModelRequest|ValidateModelRequest|EnabledModelRequest|RateLimitTyped|ValidateOptionValue|GenericConfig|ModelSemanticConfig|AuxiliaryOption|NullCollection|MalformedD07|UpdateOptionsBulk|LoadOptionsRejects|RateLimitPersistence|ModelRedisRateLimit|MemoryModelRateLimit|UpdateOptionRatioPersistence|ConfirmPaymentCompliance|S2PaymentComplianceBulkRollbackSQLite).*$'
           -count=1 -timeout=180s
 
+      - name: Verify model discovery and route identity under race detector
+        run: go test -race -p 1 ./model ./middleware ./controller ./service ./router -run '^Test(ChannelModel|SelectedModelRoute|ModelRoute|ExplicitModelRoutes|RelayFailover|RelayCooldown|RelayAccountHold|RelayHoldConfigDigest|ChannelAccountAffinity|RetrySafety|FixedPriceTextDispatch|TextDispatchSurvivesLossOfLiveSession)' -count=1 -timeout=180s
+
+      - name: Verify native Chat budget and price check boundaries under race detector
+        run: go test -race -p 1 ./model ./service ./controller ./relay/channel/openai ./router -run '^Test(TokenBudgetChat|StrictChat|OpenAIPriceCheck|ChatBudget|QuotaTask)' -count=1 -timeout=180s
+
+      - name: Verify assigned access and in-app account events under race detector
+        run: go test -race -p 1 ./model ./service/accesspolicy ./service ./middleware ./controller ./router ./relay/channel -run '^Test(AssignedAccess|AssignedPolicy|AssignedModelRoute|NormalizeAssigned|EvaluateAssigned|ChannelQuotaAlert|ChannelQuotaEvents|CodexEventObservation|ListChannelQuotaAlert)' -count=1 -timeout=180s
+
       - name: Verify io.net and cache codec boundaries under race detector
         env:
           GOMAXPROCS: '1'
@@ -99,7 +111,7 @@ jobs:
       - name: Verify durable submission model under race detector
         env:
           GOMAXPROCS: '1'
-        run: go test -race -p 1 ./model -run '^TestB2SubmissionSQLite$' -count=1 -timeout=180s
+        run: go test -race -p 1 ./model -run '^Test(B2SubmissionSQLite|TaskQuotaReservation.*|AccountQuotaAndBalanceMigrationsUseBoundedKeysetBatches|AccountQuotaMigrationResumesPartialHeadAfterDatabaseReopen|AccountQuotaMigrationReadsTerminalBeyondFullReceiptPage|QuotaBalanceMigrationRecognizesPaddedLegacyFingerprintWithoutInferringCurrentCacheState)$' -count=1 -timeout=180s
 
   s1-databases:
     name: S1 identity and options database regression
@@ -149,7 +161,7 @@ jobs:
         env:
           MYAPI_S1_MYSQL_DSN: root:s1-fixture-password@tcp(127.0.0.1:${{ job.services.mysql.ports[3306] }})/myapi_s1_test?charset=utf8mb4&parseTime=true
           MYAPI_S1_POSTGRES_DSN: host=127.0.0.1 port=${{ job.services.postgres.ports[5432] }} user=postgres password=s1-fixture-password dbname=myapi_s1_test sslmode=disable
-        run: go test -p 1 ./model -run '^TestAccessProfileConfiguredDatabases$' -count=1 -timeout=180s -v
+        run: go test -p 1 ./model -run '^Test(AccessProfile|AssignedAccessPolicy)ConfiguredDatabases$' -count=1 -timeout=180s -v
 
   s2a-databases:
     name: S2-A payment and subscription database regression
@@ -251,6 +263,16 @@ jobs:
           MYAPI_B2_MYSQL_DSN: root:b2-fixture-password@tcp(127.0.0.1:${{ job.services.mysql.ports[3306] }})/myapi_b2_test?charset=utf8mb4&parseTime=true
           MYAPI_B2_POSTGRES_DSN: host=127.0.0.1 port=${{ job.services.postgres.ports[5432] }} user=postgres password=b2-fixture-password dbname=myapi_b2_test sslmode=disable
         run: go test -p 1 ./model -run '^TestB2SubmissionConfiguredDatabases$' -count=1 -timeout=180s -v
+
+      - name: Verify quota identity migration and account projection on disposable databases
+        env:
+          MYAPI_B2_MYSQL_DSN: root:b2-fixture-password@tcp(127.0.0.1:${{ job.services.mysql.ports[3306] }})/myapi_b2_test?charset=utf8mb4&parseTime=true
+          MYAPI_B2_POSTGRES_DSN: host=127.0.0.1 port=${{ job.services.postgres.ports[5432] }} user=postgres password=b2-fixture-password dbname=myapi_b2_test sslmode=disable
+        run: |
+          go test -p 1 ./model -run '^Test(ChannelQuotaIdentity|OfficialPriceVersion|R1UsageReview|PricePublication|TokenBudget|RelayAccountHold|OpenAIPriceCheck|ChannelQuotaAlert)ConfiguredDatabases$' -count=1 -timeout=180s -v
+          go test -p 1 ./model -run '^TestAccountQuotaConfiguredSchema(MySQLAndPostgres|SQLite)$' -count=1 -timeout=180s -v
+          go test -p 1 ./model -run '^TestChannelModel(Discovery|Route)ConfiguredDatabases$' -count=1 -timeout=180s -v
+          go test -p 1 ./model -run '^TestPostgresRepeatedMigrationPreservesDefaults$' -count=1 -timeout=180s -v
 
   b2-clickhouse:
     name: B2 ClickHouse log migration regression
@@ -412,6 +434,40 @@ jobs:
           MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-quota-browser-artifacts
           NODE_OPTIONS: '--max-old-space-size=768'
         run: node tools/quota/browser-smoke.mjs
+
+      - name: Verify model discovery and routing workflow in real Chromium
+        working-directory: .
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs
+          MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-routing-browser-artifacts
+          NODE_OPTIONS: '--max-old-space-size=768'
+        run: node tools/routing/browser-smoke.mjs
+
+      - name: Verify assigned access and account events in real Chromium
+        working-directory: .
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs
+          MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-access-browser-artifacts
+          NODE_OPTIONS: '--max-old-space-size=768'
+        run: node tools/access-policy/browser-smoke.mjs
+
+      - name: Upload assigned access browser screenshots
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-access-browser-${{ github.sha }}
+          path: ${{ runner.temp }}/myapi-access-browser-artifacts/*.png
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload routing browser screenshots
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-routing-browser-${{ github.sha }}
+          path: ${{ runner.temp }}/myapi-routing-browser-artifacts/*.png
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Upload quota browser screenshots
         if: always()

@@ -167,6 +167,196 @@ describe('account quota changes dashboard panel', () => {
     expect(getChannelQuotaSamplingStatus).not.toHaveBeenCalled()
   })
 
+  test('compares two channels and three accounts as thin independent lines', async () => {
+    vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
+      success: true,
+      data: {
+        start: 100,
+        end: 200,
+        items: [
+          {
+            channel_id: 12,
+            series_id: 'a'.repeat(64),
+            name: 'Shared channel',
+            account_label: 'Shared channel',
+            metric_type: 'codex_rate_limit',
+            window_type: 'weekly',
+            unit: 'percent',
+            status: 'success',
+            current_available: 72,
+            overview_points: [
+              { timestamp: 100, available: 80, continuity_break: false },
+              { timestamp: 200, available: 72, continuity_break: false },
+            ],
+          },
+          {
+            channel_id: 12,
+            series_id: 'b'.repeat(64),
+            name: 'Shared channel',
+            account_label: 'Shared channel',
+            metric_type: 'codex_rate_limit',
+            window_type: 'weekly',
+            unit: 'percent',
+            status: 'success',
+            current_available: 58,
+            overview_points: [
+              { timestamp: 100, available: 66, continuity_break: false },
+              { timestamp: 200, available: 58, continuity_break: false },
+            ],
+          },
+          {
+            channel_id: 13,
+            series_id: 'c'.repeat(64),
+            name: 'Other channel',
+            account_label: 'Other account',
+            metric_type: 'codex_rate_limit',
+            window_type: 'weekly',
+            unit: 'percent',
+            status: 'success',
+            current_available: 41,
+            overview_points: [
+              { timestamp: 100, available: 50, continuity_break: false },
+              { timestamp: 200, available: 41, continuity_break: false },
+            ],
+          },
+        ],
+      },
+    })
+
+    renderPanel()
+
+    const lines = await screen.findAllByTestId('quota-comparison-line')
+    expect(lines).toHaveLength(3)
+    expect(new Set(lines.map((line) => line.dataset.seriesKey))).toEqual(
+      new Set(['a'.repeat(64), 'b'.repeat(64), 'c'.repeat(64)])
+    )
+    for (const line of lines) {
+      expect(line).toHaveAttribute('stroke-width', '1.5')
+      expect(line).toHaveAttribute('vector-effect', 'non-scaling-stroke')
+    }
+    expect(
+      screen.getByRole('button', { name: /Shared channel.*Account aaaaaaaa/i })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /Shared channel.*Account bbbbbbbb/i })
+    ).toBeInTheDocument()
+    expect(getChannelQuotaChanges).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 64, overview_points: 48 })
+    )
+  })
+
+  test('keeps unidentified same-channel observations out of the comparison chart', async () => {
+    vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
+      success: true,
+      data: {
+        items: [
+          {
+            channel_id: 12,
+            name: 'Unidentified channel',
+            unit: 'percent',
+            status: 'success',
+            current_available: 80,
+            overview_points: [
+              { timestamp: 100, available: 80, continuity_break: false },
+            ],
+          },
+          {
+            channel_id: 12,
+            name: 'Unidentified channel',
+            unit: 'percent',
+            status: 'success',
+            current_available: 60,
+            overview_points: [
+              { timestamp: 200, available: 60, continuity_break: false },
+            ],
+          },
+        ],
+      },
+    })
+
+    renderPanel()
+
+    expect(
+      await screen.findByText('Unidentified quota history')
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByTestId('quota-comparison-chart')
+    ).not.toBeInTheDocument()
+    expect(screen.queryAllByTestId('quota-overview-card')).toHaveLength(0)
+  })
+
+  test('explains unidentified percentage observations even without drawable points', async () => {
+    vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
+      success: true,
+      data: {
+        items: [
+          {
+            channel_id: 12,
+            name: 'Unidentified channel',
+            unit: 'percent',
+            status: 'unavailable',
+            current_available: null,
+          },
+        ],
+      },
+    })
+
+    renderPanel()
+
+    expect(
+      await screen.findByText('Unidentified quota history')
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByTestId('quota-comparison-chart')
+    ).not.toBeInTheDocument()
+  })
+
+  test('keeps an identified line visible when other observations are unidentified', async () => {
+    vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
+      success: true,
+      data: {
+        items: [
+          {
+            channel_id: 12,
+            series_id: 'e'.repeat(64),
+            name: 'Known account',
+            unit: 'percent',
+            status: 'success',
+            current_available: 72,
+            overview_points: [
+              { timestamp: 100, available: 80, continuity_break: false },
+              { timestamp: 200, available: 72, continuity_break: false },
+            ],
+          },
+          {
+            channel_id: 12,
+            name: 'Unknown account',
+            unit: 'percent',
+            status: 'success',
+            current_available: 58,
+            overview_points: [
+              { timestamp: 100, available: 66, continuity_break: false },
+              { timestamp: 200, available: 58, continuity_break: false },
+            ],
+          },
+        ],
+      },
+    })
+
+    renderPanel()
+
+    expect(
+      await screen.findByText('Unidentified quota history')
+    ).toBeInTheDocument()
+    expect(screen.getAllByTestId('quota-comparison-line')).toHaveLength(1)
+    expect(screen.getByTestId('quota-comparison-line')).toHaveAttribute(
+      'data-series-key',
+      'e'.repeat(64)
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Show details' }))
+    expect(screen.getAllByTestId('quota-overview-card')).toHaveLength(1)
+  })
+
   test('does not reuse quota data across login identities', async () => {
     vi.mocked(getChannelQuotaChanges)
       .mockResolvedValueOnce({
@@ -308,13 +498,14 @@ describe('account quota changes dashboard panel', () => {
     ).toHaveAttribute('href', '/channels')
   })
 
-  test('renders one compact analysis card without advanced controls or duplicate requests', async () => {
+  test('shows one comparison chart and preserves the detailed analysis on demand', async () => {
     vi.mocked(getChannelQuotaChanges).mockResolvedValueOnce({
       success: true,
       data: {
         items: [
           {
             channel_id: 12,
+            series_id: 'd'.repeat(64),
             name: 'Codex production channel',
             account_label: 'Codex team account',
             metric_type: 'codex_rate_limit',
@@ -344,6 +535,9 @@ describe('account quota changes dashboard panel', () => {
     expect(
       await screen.findByTestId('codex-account-quota-chart')
     ).toBeInTheDocument()
+    expect(screen.getByTestId('quota-comparison-chart')).toBeInTheDocument()
+    expect(screen.queryByTestId('quota-overview-card')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show details' }))
     const sparkline = screen.getByTestId('quota-overview-sparkline')
     expect(sparkline).toBeInTheDocument()
     expect(
@@ -354,6 +548,10 @@ describe('account quota changes dashboard panel', () => {
     expect(
       within(sparkline).getAllByTestId('quota-overview-sparkline-segment')
     ).toHaveLength(2)
+    expect(sparkline.querySelector('polyline')).toHaveAttribute(
+      'stroke-width',
+      '1.5'
+    )
     const renderedPointCount = [
       ...sparkline.querySelectorAll('polyline'),
     ].reduce(
@@ -362,25 +560,22 @@ describe('account quota changes dashboard panel', () => {
       0
     )
     expect(renderedPointCount).toBe(4)
-    expect(screen.getByText('72.0%')).toBeInTheDocument()
+    expect(screen.getAllByText('72.0%')).toHaveLength(2)
     expect(screen.getByText('3.00 percentage points/min')).toBeInTheDocument()
     expect(screen.getByText('1.50 percentage points/min')).toBeInTheDocument()
     expect(screen.getByText('90.00 percentage points/hour')).toBeInTheDocument()
-    expect(screen.getByText('75%')).toBeInTheDocument()
+    expect(screen.getAllByText('75%').length).toBeGreaterThan(0)
     expect(screen.getByText('Reset before depletion')).toBeInTheDocument()
     expect(
       screen.getByText('Estimated time from analysis point: 2.5 minutes')
     ).toBeInTheDocument()
-    expect(screen.queryByLabelText('Time range')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Chart granularity')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Metric')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Chart style')).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('quota-comparison-line')).toHaveLength(2)
     expect(getChannelQuotaChanges).toHaveBeenCalledWith(
       expect.objectContaining({
         range: '24h',
         rate_window: 3600,
         overview_points: 48,
-        limit: 4,
+        limit: 64,
         sort: 'observed_desc',
       })
     )
@@ -395,6 +590,7 @@ describe('account quota changes dashboard panel', () => {
         items: [
           {
             channel_id: 13,
+            series_id: 'f'.repeat(64),
             name: 'Interrupted account',
             unit: 'percent',
             status: 'success',
@@ -412,6 +608,7 @@ describe('account quota changes dashboard panel', () => {
 
     renderPanel()
 
+    fireEvent.click(await screen.findByRole('button', { name: 'Show details' }))
     const sparkline = await screen.findByRole('img', {
       name: /Remaining quota trend from 90\.0% to 80\.0%, .+ across 1 continuous segment$/,
     })
@@ -435,6 +632,7 @@ describe('account quota changes dashboard panel', () => {
         items: [
           {
             channel_id: 12,
+            series_id: '1'.repeat(64),
             name: 'Past prediction account',
             unit: 'percent',
             current_available: 0,
@@ -587,6 +785,7 @@ describe('account quota changes dashboard panel', () => {
           },
           {
             channel_id: 22,
+            series_id: '2'.repeat(64),
             name: 'Percent account',
             change_per_minute: 100,
             abs_change_per_minute: 100,
@@ -717,7 +916,7 @@ describe('account quota changes dashboard panel', () => {
       ).not.toBeInTheDocument()
     )
     expect(getChannelQuotaChanges).toHaveBeenLastCalledWith(
-      expect.objectContaining({ range: '24h', rate_window: 3600, limit: 4 })
+      expect.objectContaining({ range: '24h', rate_window: 3600, limit: 64 })
     )
   })
 

@@ -26,6 +26,7 @@ For commercial licensing, please contact support@quantumnous.com
 export interface ApiResponse<T = unknown> {
   success?: boolean
   message?: string
+  code?: string
   data?: T
 }
 
@@ -120,6 +121,10 @@ export interface WaffoPayMethod {
  * Topup configuration information
  */
 export interface TopupInfo {
+  /** Server-authoritative user funding mode */
+  user_funding_mode?: import('@/lib/self-use-build').UserFundingMode
+  /** Non-sensitive funding capabilities shared with /api/status */
+  user_funding_capabilities?: import('@/lib/self-use-build').UserFundingCapabilities
   /** Whether online topup is enabled */
   enable_online_topup: boolean
   /** Whether Stripe topup is enabled */
@@ -218,6 +223,12 @@ export interface AmountRequest {
 export interface AffiliateTransferRequest {
   /** Quota amount to transfer */
   quota: number
+  /**
+   * Client-generated idempotency key for this transfer attempt. Retries of
+   * the same attempt must reuse the same id so the backend never moves quota
+   * twice.
+   */
+  request_id: string
 }
 
 /**

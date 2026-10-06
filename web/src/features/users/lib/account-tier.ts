@@ -23,7 +23,10 @@ import type { TFunction } from 'i18next'
  * intact for compatibility while giving administrators an explicit product
  * meaning in the UI.
  */
-export function getAccountTierLabel(group: string | undefined, t: TFunction): string {
+export function getAccountTierLabel(
+  group: string | undefined,
+  t: TFunction
+): string {
   switch ((group || 'default').trim().toLowerCase()) {
     case 'default':
       return t('Standard account')
@@ -34,19 +37,31 @@ export function getAccountTierLabel(group: string | undefined, t: TFunction): st
   }
 }
 
-export function getAccountTierDescription(group: string | undefined, t: TFunction): string {
+export function getAccountTierDescription(
+  group: string | undefined,
+  t: TFunction
+): string {
   switch ((group || 'default').trim().toLowerCase()) {
     case 'default':
-      return t('Controls this user account’s channel eligibility and billing tier.')
+      return t(
+        'Controls this user account’s channel eligibility and billing tier.'
+      )
     case 'vip':
-      return t('Priority account tier with the channel eligibility and billing rules configured for vip.')
+      return t(
+        'Priority account tier with the channel eligibility and billing rules configured for vip.'
+      )
     default:
-      return t('Custom account tier; its channel eligibility and billing rules come from administrator settings.')
+      return t(
+        'Custom account tier; its channel eligibility and billing rules come from administrator settings.'
+      )
   }
 }
 
 /** Resolve the stable account-tier identity used by the API payload. */
-export function getAccountTierId(group: string | undefined, explicitId?: string): string {
+export function getAccountTierId(
+  group: string | undefined,
+  explicitId?: string
+): string {
   const persisted = explicitId?.trim()
   if (persisted) return persisted
   switch ((group || 'default').trim().toLowerCase()) {

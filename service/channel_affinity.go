@@ -7,9 +7,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/pkg/cachex"
 	"github.com/ForceMind/MyAPI/relaykit/dto"
 	"github.com/ForceMind/MyAPI/relaykit/types"
@@ -31,14 +33,26 @@ const (
 )
 
 var (
-	channelAffinityCacheOnce sync.Once
-	channelAffinityCache     *cachex.HybridCache[int]
+	// channelAffinityCacheState 持有当前生效的亲和缓存实例（原子换入/换出）。
+	// 保存配置只更新配置代；容量/TTL 变更须经显式维护重建
+	// （RebuildChannelAffinityCache）或重启才进入生效实例。
+	channelAffinityCacheState   atomic.Value // *channelAffinityCacheInstance
+	channelAffinityCacheBuildMu sync.Mutex
 
 	channelAffinityUsageCacheStatsOnce  sync.Once
 	channelAffinityUsageCacheStatsCache *cachex.HybridCache[ChannelAffinityUsageCacheCounters]
 
 	channelAffinityRegexCache sync.Map // map[string]*regexp.Regexp
 )
+
+// channelAffinityCacheInstance 是按某一代配置构造的亲和缓存实例。
+// capacity/defaultTTLSeconds 记录构造时使用的生效参数，供统计端点与配置代核对。
+type channelAffinityCacheInstance struct {
+	cache             *cachex.HybridCache[int]
+	accounts          *cachex.HybridCache[channelAccountAffinity]
+	capacity          int
+	defaultTTLSeconds int
+}
 
 type channelAffinityMeta struct {
 	CacheKey       string
@@ -76,21 +90,44 @@ type ChannelAffinityCacheStats struct {
 	ByRuleName    map[string]int `json:"by_rule_name"`
 	CacheCapacity int            `json:"cache_capacity"`
 	CacheAlgo     string         `json:"cache_algo"`
+	// ActiveCacheCapacity 当前生效缓存实例构造时使用的容量参数。
+	ActiveCacheCapacity int `json:"active_cache_capacity"`
+	// ActiveDefaultTTLSeconds 当前生效缓存实例构造时使用的默认 TTL（秒）。
+	ActiveDefaultTTLSeconds int `json:"active_default_ttl_seconds"`
+	// ConfiguredMaxEntries 配置代（最近保存）的 max_entries。
+	ConfiguredMaxEntries int `json:"configured_max_entries"`
+	// ConfiguredDefaultTTLSeconds 配置代（最近保存）的 default_ttl_seconds。
+	ConfiguredDefaultTTLSeconds int `json:"configured_default_ttl_seconds"`
+	// RebuildRequired 为 true 表示容量/TTL 已保存但未生效，需要维护重建或重启。
+	RebuildRequired bool `json:"rebuild_required"`
 }
 
-func getChannelAffinityCache() *cachex.HybridCache[int] {
-	channelAffinityCacheOnce.Do(func() {
-		setting := operation_setting.GetChannelAffinitySetting()
-		capacity := setting.MaxEntries
-		if capacity <= 0 {
-			capacity = 100_000
-		}
-		defaultTTLSeconds := setting.DefaultTTLSeconds
-		if defaultTTLSeconds <= 0 {
-			defaultTTLSeconds = 3600
-		}
+// buildChannelAffinityCacheInstance 按当前配置代构造缓存实例。
+// 只在持有 channelAffinityCacheBuildMu 时调用。
+func buildChannelAffinityCacheInstance() *channelAffinityCacheInstance {
+	setting := operation_setting.GetChannelAffinitySetting()
+	capacity := setting.MaxEntries
+	if capacity <= 0 {
+		capacity = 100_000
+	}
+	defaultTTLSeconds := setting.DefaultTTLSeconds
+	if defaultTTLSeconds <= 0 {
+		defaultTTLSeconds = 3600
+	}
 
-		channelAffinityCache = cachex.NewHybridCache[int](cachex.HybridCacheConfig[int]{
+	return &channelAffinityCacheInstance{
+		accounts: cachex.NewHybridCache[channelAccountAffinity](cachex.HybridCacheConfig[channelAccountAffinity]{
+			Namespace:    cachex.Namespace("new-api:channel_affinity_accounts:v1"),
+			Redis:        common.RDB,
+			RedisEnabled: func() bool { return common.RedisEnabled && common.RDB != nil },
+			RedisCodec:   cachex.JSONCodec[channelAccountAffinity]{},
+			Memory: func() *hot.HotCache[string, channelAccountAffinity] {
+				return hot.NewHotCache[string, channelAccountAffinity](hot.LRU, capacity).WithTTL(time.Duration(defaultTTLSeconds) * time.Second).WithJanitor().Build()
+			},
+		}),
+		capacity:          capacity,
+		defaultTTLSeconds: defaultTTLSeconds,
+		cache: cachex.NewHybridCache[int](cachex.HybridCacheConfig[int]{
 			Namespace: cachex.Namespace(channelAffinityCacheNamespace),
 			Redis:     common.RDB,
 			RedisEnabled: func() bool {
@@ -103,9 +140,67 @@ func getChannelAffinityCache() *cachex.HybridCache[int] {
 					WithJanitor().
 					Build()
 			},
-		})
-	})
-	return channelAffinityCache
+		}),
+	}
+}
+
+func getChannelAffinityCacheInstance() *channelAffinityCacheInstance {
+	if instance, ok := channelAffinityCacheState.Load().(*channelAffinityCacheInstance); ok && instance != nil {
+		return instance
+	}
+	channelAffinityCacheBuildMu.Lock()
+	defer channelAffinityCacheBuildMu.Unlock()
+	if instance, ok := channelAffinityCacheState.Load().(*channelAffinityCacheInstance); ok && instance != nil {
+		return instance
+	}
+	instance := buildChannelAffinityCacheInstance()
+	channelAffinityCacheState.Store(instance)
+	return instance
+}
+
+func getChannelAffinityCache() *cachex.HybridCache[int] {
+	return getChannelAffinityCacheInstance().cache
+}
+
+// ChannelAffinityCacheParams 描述亲和缓存实例的生效参数。
+type ChannelAffinityCacheParams struct {
+	Capacity          int  `json:"capacity"`
+	DefaultTTLSeconds int  `json:"default_ttl_seconds"`
+	RebuildRequired   bool `json:"rebuild_required"`
+}
+
+// RebuildChannelAffinityCache 按当前配置代立即重建亲和缓存（维护操作）。
+//
+// 线程安全：新实例构造完成后一次性原子换入；换入前已取到旧实例指针的
+// 进行中请求继续使用旧实例直到结束（不迁移），新请求使用新实例。
+// 内存模式下旧实例条目随实例一起废弃（相当于清空重建）；Redis 模式下
+// 容量/TTL 本就只影响内存回退层，Redis 键不受影响。
+//
+// 返回重建后的生效参数。
+func RebuildChannelAffinityCache() ChannelAffinityCacheParams {
+	channelAffinityCacheBuildMu.Lock()
+	instance := buildChannelAffinityCacheInstance()
+	channelAffinityCacheState.Store(instance)
+	channelAffinityCacheBuildMu.Unlock()
+	return ChannelAffinityCacheParams{
+		Capacity:          instance.capacity,
+		DefaultTTLSeconds: instance.defaultTTLSeconds,
+		RebuildRequired:   channelAffinityCacheRebuildRequired(instance),
+	}
+}
+
+// channelAffinityCacheRebuildRequired 核对生效实例参数与配置代是否一致。
+func channelAffinityCacheRebuildRequired(instance *channelAffinityCacheInstance) bool {
+	setting := operation_setting.GetChannelAffinitySetting()
+	configuredCapacity := setting.MaxEntries
+	if configuredCapacity <= 0 {
+		configuredCapacity = 100_000
+	}
+	configuredTTL := setting.DefaultTTLSeconds
+	if configuredTTL <= 0 {
+		configuredTTL = 3600
+	}
+	return instance.capacity != configuredCapacity || instance.defaultTTLSeconds != configuredTTL
 }
 
 func GetChannelAffinityCacheStats() ChannelAffinityCacheStats {
@@ -120,6 +215,7 @@ func GetChannelAffinityCacheStats() ChannelAffinityCacheStats {
 	}
 
 	cache := getChannelAffinityCache()
+	instance := getChannelAffinityCacheInstance()
 	mainCap, _ := cache.Capacity()
 	mainAlgo, _ := cache.Algorithm()
 
@@ -192,11 +288,26 @@ func GetChannelAffinityCacheStats() ChannelAffinityCacheStats {
 		ByRuleName:    byRuleName,
 		CacheCapacity: mainCap,
 		CacheAlgo:     mainAlgo,
+
+		ActiveCacheCapacity:         instance.capacity,
+		ActiveDefaultTTLSeconds:     instance.defaultTTLSeconds,
+		ConfiguredMaxEntries:        setting.MaxEntries,
+		ConfiguredDefaultTTLSeconds: setting.DefaultTTLSeconds,
+		RebuildRequired:             channelAffinityCacheRebuildRequired(instance),
 	}
 }
 
 func ClearChannelAffinityCacheAll() int {
-	cache := getChannelAffinityCache()
+	instance := getChannelAffinityCacheInstance()
+	accounts := instance.accounts
+	if keys, err := accounts.Keys(); err == nil {
+		if _, err = accounts.DeleteMany(keys); err != nil {
+			common.SysError("account affinity cache clear failed")
+		}
+	} else {
+		common.SysError("account affinity cache list failed")
+	}
+	cache := instance.cache
 	keys, err := cache.Keys()
 	if err != nil {
 		common.SysError(fmt.Sprintf("channel affinity cache list keys failed: err=%v", err))
@@ -237,7 +348,11 @@ func ClearChannelAffinityCacheByRuleName(ruleName string) (int, error) {
 		return 0, fmt.Errorf("该规则未启用 include_rule_name，无法按规则清空缓存")
 	}
 
-	cache := getChannelAffinityCache()
+	instance := getChannelAffinityCacheInstance()
+	cache := instance.cache
+	if _, err := instance.accounts.DeleteByPrefix(ruleName); err != nil {
+		return 0, err
+	}
 	deleted, err := cache.DeleteByPrefix(ruleName)
 	if err != nil {
 		return 0, err
@@ -510,6 +625,7 @@ func appendChannelAffinityTemplateAdminInfo(c *gin.Context, meta channelAffinity
 	if anyInfo, ok := c.Get(ginKeyChannelAffinityLogInfo); ok {
 		if info, ok := anyInfo.(map[string]interface{}); ok {
 			info["override_template"] = templateInfo
+
 			c.Set(ginKeyChannelAffinityLogInfo, info)
 			return
 		}
@@ -609,13 +725,21 @@ func GetPreferredChannelByAffinity(c *gin.Context, modelName string, usingGroup 
 			RequestPath:    path,
 		})
 
-		cache := getChannelAffinityCache()
+		instance := getChannelAffinityCacheInstance()
+		cache := instance.cache
 		channelID, found, err := cache.Get(cacheKeySuffix)
 		if err != nil {
 			common.SysError(fmt.Sprintf("channel affinity cache get failed: key=%s, err=%v", cacheKeyFull, err))
 			return 0, false
 		}
 		if found {
+			if path == "/v1/chat/completions" || path == "/v1/responses" {
+				channel, lookupErr := model.CacheGetChannel(channelID)
+				if lookupErr != nil || channel == nil || !eligibleChannelAccountAffinity(c, channel, cacheKeySuffix, instance) {
+					c.Set(ginKeyChannelAffinitySkipRetry, false)
+					return 0, false
+				}
+			}
 			return channelID, true
 		}
 		return 0, false
@@ -650,7 +774,12 @@ func ClearCurrentChannelAffinityCache(c *gin.Context) bool {
 		return false
 	}
 
-	cache := getChannelAffinityCache()
+	instance := getChannelAffinityCacheInstance()
+	cache := instance.cache
+	suffix := strings.TrimPrefix(cacheKey, channelAffinityCacheNamespace+":")
+	if _, err := instance.accounts.DeleteMany([]string{suffix}); err != nil {
+		common.SysError("account affinity cache delete failed")
+	}
 	deleted, err := cache.DeleteMany([]string{cacheKey})
 	if err != nil {
 		common.SysError(fmt.Sprintf("channel affinity cache delete current failed: err=%v", err))
@@ -696,6 +825,11 @@ func MarkChannelAffinityUsed(c *gin.Context, selectedGroup string, channelID int
 		"key_hint":       meta.KeyHint,
 		"key_fp":         meta.KeyFingerprint,
 	}
+	if value, ok := c.Get(accountAffinityIndexKey); ok {
+		if binding, ok := value.(channelAccountAffinity); ok && binding.ChannelID == channelID {
+			info["account_binding"] = "confirmed_success"
+		}
+	}
 	c.Set(ginKeyChannelAffinityLogInfo, info)
 }
 
@@ -723,6 +857,16 @@ func RecordChannelAffinity(c *gin.Context, channelID int) {
 			channelID = successChannelID
 		}
 	}
+	if c != nil && c.Request != nil {
+		if raw, ok := c.Get(relayDispatchChannelKey); ok {
+			if selected, ok := raw.(*model.Channel); ok && RelayAccountSchedulingSupported(selected, c.Request.URL.Path) {
+				if !c.GetBool("relay_success") {
+					return
+				}
+				channelID = selected.Id
+			}
+		}
+	}
 	cacheKey, ttlSeconds, ok := getChannelAffinityContext(c)
 	if !ok {
 		return
@@ -733,7 +877,9 @@ func RecordChannelAffinity(c *gin.Context, channelID int) {
 	if ttlSeconds <= 0 {
 		ttlSeconds = 3600
 	}
-	cache := getChannelAffinityCache()
+	instance := getChannelAffinityCacheInstance()
+	cache := instance.cache
+	recordChannelAccountAffinity(c, channelID, cacheKey, time.Duration(ttlSeconds)*time.Second, instance)
 	if err := cache.SetWithTTL(cacheKey, channelID, time.Duration(ttlSeconds)*time.Second); err != nil {
 		common.SysError(fmt.Sprintf("channel affinity cache set failed: key=%s, err=%v", cacheKey, err))
 	}

@@ -47,6 +47,9 @@ type quotaChangeDataQuality struct {
 
 type quotaChangeItem struct {
 	ChannelID              int                             `json:"channel_id"`
+	SeriesID               string                          `json:"series_id"`
+	IdentityQuality        string                          `json:"identity_quality"`
+	IdentityConfirmed      bool                            `json:"identity_confirmed"`
 	Name                   string                          `json:"name"`
 	AccountLabel           string                          `json:"account_label"`
 	MetricType             string                          `json:"metric_type"`
@@ -81,14 +84,17 @@ type quotaChangeItem struct {
 }
 
 type quotaChangeGroupKey struct {
-	ChannelID     int
-	MetricType    string
-	WindowType    string
-	Source        string
-	PlanType      string
-	Unit          string
-	Currency      string
-	WindowSeconds int64
+	ChannelID         int
+	IdentityRef       string
+	IdentityQuality   string
+	UnidentifiedRowID int
+	MetricType        string
+	WindowType        string
+	Source            string
+	PlanType          string
+	Unit              string
+	Currency          string
+	WindowSeconds     int64
 }
 
 // GetChannelQuotaChanges returns one redacted trend item per channel/metric/
@@ -267,7 +273,13 @@ func buildQuotaChangeItemsWithAnalysis(rows []model.ChannelQuotaAggregateRow, an
 func buildQuotaChangeItemsLightweight(rows []model.ChannelQuotaAggregateRow) ([]quotaChangeItem, quotaChangeDataQuality) {
 	groups := make(map[quotaChangeGroupKey][]model.ChannelQuotaAggregateRow)
 	keyFor := func(row model.ChannelQuotaAggregateRow) quotaChangeGroupKey {
-		return quotaChangeGroupKey{row.ChannelID, row.MetricType, row.WindowType, row.Source, row.PlanType, row.Unit, row.Currency, row.WindowSeconds}
+		snapshot := quotaChangeSnapshot(row)
+		identityRef, quality, known := model.ChannelQuotaSnapshotIdentity(snapshot)
+		key := quotaChangeGroupKey{ChannelID: row.ChannelID, IdentityRef: identityRef, IdentityQuality: quality, MetricType: row.MetricType, WindowType: row.WindowType, Source: row.Source, PlanType: row.PlanType, Unit: row.Unit, Currency: row.Currency, WindowSeconds: row.WindowSeconds}
+		if !known {
+			key.UnidentifiedRowID = row.ID
+		}
+		return key
 	}
 	global := quotaChangeDataQuality{}
 	for _, row := range rows {
@@ -293,13 +305,16 @@ func buildQuotaChangeItemsLightweight(rows []model.ChannelQuotaAggregateRow) ([]
 	// A generic provider failure has no plan/window identity. Attach it as an
 	// event to known matching series; it is not an additional account.
 	type accountKey struct {
-		channelID  int
-		metricType string
+		channelID   int
+		metricType  string
+		identityRef string
 	}
 	accounts := make(map[accountKey][]quotaChangeGroupKey)
 	for key := range groups {
-		account := accountKey{key.ChannelID, key.MetricType}
-		accounts[account] = append(accounts[account], key)
+		if key.IdentityRef != "" {
+			account := accountKey{key.ChannelID, key.MetricType, key.IdentityRef}
+			accounts[account] = append(accounts[account], key)
+		}
 	}
 	orphanEvents := make(map[quotaChangeGroupKey][]model.ChannelQuotaAggregateRow)
 	for _, row := range rows {
@@ -307,7 +322,8 @@ func buildQuotaChangeItemsLightweight(rows []model.ChannelQuotaAggregateRow) ([]
 			continue
 		}
 		matched := false
-		for _, key := range accounts[accountKey{row.ChannelID, row.MetricType}] {
+		rowKey := keyFor(row)
+		for _, key := range accounts[accountKey{row.ChannelID, row.MetricType, rowKey.IdentityRef}] {
 			if key.Source != row.Source && !(strings.TrimSuffix(key.Source, "_primary") == row.Source || strings.TrimSuffix(key.Source, "_secondary") == row.Source) {
 				continue
 			}
@@ -330,8 +346,7 @@ func buildQuotaChangeItemsLightweight(rows []model.ChannelQuotaAggregateRow) ([]
 			matched = true
 		}
 		if !matched {
-			key := keyFor(row)
-			orphanEvents[key] = append(orphanEvents[key], row)
+			orphanEvents[rowKey] = append(orphanEvents[rowKey], row)
 		}
 	}
 	for key, events := range orphanEvents {
@@ -370,8 +385,11 @@ func buildQuotaChangeItem(rows []model.ChannelQuotaAggregateRow) quotaChangeItem
 	if name == "" {
 		name = "Channel #" + strconv.Itoa(latest.ChannelID)
 	}
+	_, identityQuality, identityKnown := model.ChannelQuotaSnapshotIdentity(quotaChangeSnapshot(identity))
 	item := quotaChangeItem{
-		ChannelID: latest.ChannelID, Name: name, AccountLabel: name,
+		ChannelID: latest.ChannelID, SeriesID: model.ChannelQuotaSnapshotSeriesID(quotaChangeSnapshot(identity)),
+		IdentityQuality: identityQuality, IdentityConfirmed: identityKnown && identityQuality == model.ChannelQuotaIdentityQualityProviderConfirmed,
+		Name: name, AccountLabel: name,
 		MetricType: identity.MetricType, WindowType: identity.WindowType, Source: identity.Source,
 		Unit: identity.Unit, Currency: identity.Currency, PlanType: identity.PlanType,
 		WindowSeconds: identity.WindowSeconds,
@@ -483,6 +501,7 @@ func finalizeQuotaChangeItems(items []quotaChangeItem, sortValue string, limit i
 
 func quotaChangeSnapshot(row model.ChannelQuotaAggregateRow) model.ChannelQuotaSnapshot {
 	return model.ChannelQuotaSnapshot{Id: row.ID, ChannelId: row.ChannelID, ObservedAt: row.ObservedAt,
+		SubjectRef: row.SubjectRef, IdentityQuality: row.IdentityQuality, AccountRef: row.AccountRef,
 		Available: row.Available, Used: row.Used, Total: row.Total, Unit: row.Unit, Currency: row.Currency,
 		MetricType: row.MetricType, WindowType: row.WindowType, Source: row.Source, PlanType: row.PlanType,
 		WindowSeconds: row.WindowSeconds, ResetAt: row.ResetAt, Status: row.Status, ErrorCode: row.ErrorCode}

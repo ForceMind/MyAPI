@@ -148,16 +148,19 @@ func FetchCodexModels(
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, (4<<20)+1))
 	if err != nil {
 		return resp.StatusCode, nil, err
+	}
+	if len(body) > 4<<20 {
+		return resp.StatusCode, nil, fmt.Errorf("Codex Models response exceeds limit")
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return resp.StatusCode, nil, nil
 	}
 
 	var result struct {
-		Models []struct {
+		Models *[]struct {
 			Slug string `json:"slug"`
 		} `json:"models"`
 	}
@@ -165,12 +168,16 @@ func FetchCodexModels(
 		return resp.StatusCode, nil, err
 	}
 
-	seen := make(map[string]struct{}, len(result.Models))
-	models = make([]string, 0, len(result.Models))
-	for _, item := range result.Models {
+	if result.Models == nil {
+		return resp.StatusCode, nil, fmt.Errorf("Codex Models response is missing models")
+	}
+
+	seen := make(map[string]struct{}, len(*result.Models))
+	models = make([]string, 0, len(*result.Models))
+	for _, item := range *result.Models {
 		slug := strings.TrimSpace(item.Slug)
 		if slug == "" {
-			continue
+			return resp.StatusCode, nil, fmt.Errorf("Codex Models response contains an invalid model ID")
 		}
 		if _, ok := seen[slug]; ok {
 			continue

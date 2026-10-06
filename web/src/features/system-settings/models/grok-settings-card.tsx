@@ -42,7 +42,11 @@ import {
 } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
-import { useUpdateOption } from '../hooks/use-update-option'
+import {
+  toTypedBulkItem,
+  useTypedBulkRevision,
+  useUpdateTypedBulkOptions,
+} from '../hooks/use-typed-bulk-options'
 import { safeNumberFieldProps } from '../utils/numeric-field'
 
 const XAI_VIOLATION_FEE_DOC_URL =
@@ -87,7 +91,8 @@ interface Props {
 
 export function GrokSettingsCard(props: Props) {
   const { t } = useTranslation()
-  const updateOption = useUpdateOption()
+  const updateTypedBulk = useUpdateTypedBulkOptions()
+  useTypedBulkRevision()
 
   const formDefaults = useMemo(
     () => buildFormDefaults(props.defaultValues),
@@ -123,12 +128,9 @@ export function GrokSettingsCard(props: Props) {
       return
     }
 
-    for (const key of changedKeys) {
-      await updateOption.mutateAsync({
-        key,
-        value: normalized[key],
-      })
-    }
+    await updateTypedBulk.mutateAsync(
+      changedKeys.map((key) => toTypedBulkItem(key, normalized[key]))
+    )
 
     baselineRef.current = normalized
     baselineSerializedRef.current = JSON.stringify(normalized)
@@ -143,7 +145,7 @@ export function GrokSettingsCard(props: Props) {
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
           <SettingsPageFormActions
             onSave={form.handleSubmit(onSubmit)}
-            isSaving={updateOption.isPending}
+            isSaving={updateTypedBulk.isPending}
           />
           <FormField
             control={form.control}

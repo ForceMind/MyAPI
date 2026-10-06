@@ -12,6 +12,7 @@ import (
 	"github.com/ForceMind/MyAPI/model"
 
 	"github.com/bytedance/gopkg/util/gopool"
+	"gorm.io/gorm"
 )
 
 const (
@@ -103,14 +104,18 @@ type LogCleanupPayload struct {
 }
 
 type LogCleanupState struct {
-	Total     int64 `json:"total"`
-	Processed int64 `json:"processed"`
-	Progress  int   `json:"progress"`
-	Remaining int64 `json:"remaining"`
+	Total     int64    `json:"total"`
+	Processed int64    `json:"processed"`
+	Progress  int      `json:"progress"`
+	Remaining int64    `json:"remaining"`
+	Skipped   int64    `json:"skipped,omitempty"`
+	Errors    []string `json:"errors,omitempty"`
 }
 
 type LogCleanupResult struct {
-	DeletedCount int64 `json:"deleted_count"`
+	DeletedCount int64    `json:"deleted_count"`
+	SkippedCount int64    `json:"skipped_count,omitempty"`
+	Errors       []string `json:"errors,omitempty"`
 }
 
 var (
@@ -209,7 +214,30 @@ func StartLogCleanupTask(targetTimestamp int64) (*model.SystemTask, error) {
 // bool is true only when a new pending row was created; false means an active
 // task of the same type already exists and was returned.
 func EnqueueSystemTask(taskType string, payload any) (*model.SystemTask, bool, error) {
-	activeTask, err := model.GetActiveSystemTask(taskType)
+	return EnqueueSystemTaskContext(context.Background(), taskType, payload)
+}
+
+// EnqueueSystemTaskContext is the bounded/context-aware enqueue path for
+// accounting recovery. The task is only a scanner wake-up; durable business
+// identity belongs in the corresponding inbox table.
+func EnqueueSystemTaskContext(ctx context.Context, taskType string, payload any) (*model.SystemTask, bool, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if model.DB == nil {
+		return nil, false, gorm.ErrInvalidDB
+	}
+	db := model.DB.WithContext(ctx)
+	findActive := func() (*model.SystemTask, error) {
+		var task model.SystemTask
+		err := db.Where("type = ? AND status IN ?", taskType, []model.SystemTaskStatus{model.SystemTaskStatusPending, model.SystemTaskStatusRunning}).
+			Order("id desc").First(&task).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return &task, err
+	}
+	activeTask, err := findActive()
 	if err != nil {
 		return nil, false, err
 	}
@@ -217,9 +245,25 @@ func EnqueueSystemTask(taskType string, payload any) (*model.SystemTask, bool, e
 		return activeTask, false, nil
 	}
 
-	task, err := model.CreateSystemTask(taskType, payload, nil)
+	taskID, err := model.GenerateSystemTaskID()
 	if err != nil {
-		activeTask, activeErr := model.GetActiveSystemTask(taskType)
+		return nil, false, err
+	}
+	payloadText := ""
+	if payload != nil {
+		data, marshalErr := common.Marshal(payload)
+		if marshalErr != nil {
+			return nil, false, marshalErr
+		}
+		payloadText = string(data)
+	}
+	task := &model.SystemTask{
+		TaskID: taskID, Type: taskType, Status: model.SystemTaskStatusPending,
+		ActiveKey: &taskType, Payload: payloadText,
+	}
+	err = db.Create(task).Error
+	if err != nil {
+		activeTask, activeErr := findActive()
 		if activeErr == nil && activeTask != nil {
 			return activeTask, false, nil
 		}
@@ -331,7 +375,7 @@ func runWithLeaseHeartbeat(task *model.SystemTask, runnerID string, fn func(ctx 
 	defer ticker.Stop()
 	done := make(chan struct{})
 	var quotaCanceled <-chan struct{}
-	if task.Type == model.SystemTaskTypeChannelQuotaSnapshotSync {
+	if task.Type == model.SystemTaskTypeChannelQuotaSnapshotSync || task.Type == model.SystemTaskTypeOpenAIPriceCheck {
 		quotaCanceled = ctx.Done()
 	}
 
@@ -356,14 +400,14 @@ func runWithLeaseHeartbeat(task *model.SystemTask, runnerID string, fn func(ctx 
 }
 
 func renewSystemTaskLease(ctx context.Context, task *model.SystemTask, runnerID string) error {
-	if task.Type != model.SystemTaskTypeChannelQuotaSnapshotSync {
-		return model.RenewSystemTaskLock(task.TaskID, runnerID, systemTaskLockUntil())
+	if task.Type != model.SystemTaskTypeChannelQuotaSnapshotSync && task.Type != model.SystemTaskTypeOpenAIPriceCheck {
+		return model.RenewSystemTaskLockWithFence(context.Background(), task.TaskID, runnerID, task.FenceToken, systemTaskLockUntil())
 	}
 	// This context is canceled when runWithLeaseHeartbeat's handler returns,
 	// including an in-flight renewal waiting for a database connection.
 	writeCtx, cancel := context.WithTimeout(ctx, quotaSystemTaskWriteTimeout)
 	defer cancel()
-	return model.RenewSystemTaskLockWithContext(writeCtx, task.TaskID, runnerID, systemTaskLockUntil())
+	return model.RenewSystemTaskLockWithFence(writeCtx, task.TaskID, runnerID, task.FenceToken, systemTaskLockUntil())
 }
 
 func runLogCleanupTask(ctx context.Context, task *model.SystemTask, runnerID string) {
@@ -392,6 +436,17 @@ func runLogCleanupTask(ctx context.Context, task *model.SystemTask, runnerID str
 			failSystemTask(task, runnerID, err)
 			return
 		}
+		skipped, err := model.CountUnsafeOldLogs(ctx, payload.TargetTimestamp)
+		if err != nil {
+			failSystemTask(task, runnerID, err)
+			return
+		}
+		state.Skipped = skipped
+		if skipped > 0 {
+			state.Errors = []string{fmt.Sprintf("%d old log rows could not be safely located and were skipped", skipped)}
+		} else {
+			state.Errors = nil
+		}
 		syncLogCleanupStateFromRemaining(&state, remaining)
 		if err := model.UpdateSystemTaskState(task.TaskID, runnerID, state); err != nil {
 			logSystemTaskLockError(ctx, task, err)
@@ -407,10 +462,15 @@ func runLogCleanupTask(ctx context.Context, task *model.SystemTask, runnerID str
 		// rows cannot be removed and we fail instead of busy-looping.
 		progressed := false
 		for state.Remaining > 0 {
-			rowsAffected, err := model.DeleteOldLogBatch(ctx, payload.TargetTimestamp, payload.BatchSize)
+			batchResult, err := model.DeleteOldLogBatchDetailed(ctx, payload.TargetTimestamp, payload.BatchSize)
 			if err != nil {
 				failSystemTask(task, runnerID, err)
 				return
+			}
+			rowsAffected := batchResult.Deleted
+			if batchResult.Skipped > 0 {
+				state.Skipped += batchResult.Skipped
+				state.Errors = append(state.Errors, batchResult.Errors...)
 			}
 			if rowsAffected == 0 {
 				break
@@ -450,7 +510,11 @@ func runLogCleanupTask(ctx context.Context, task *model.SystemTask, runnerID str
 		return
 	}
 
-	result := LogCleanupResult{DeletedCount: state.Processed}
+	result := LogCleanupResult{
+		DeletedCount: state.Processed,
+		SkippedCount: state.Skipped,
+		Errors:       state.Errors,
+	}
 	if err := model.FinishSystemTask(task.TaskID, runnerID, model.SystemTaskStatusSucceeded, result, ""); err != nil {
 		logSystemTaskLockError(ctx, task, err)
 	}

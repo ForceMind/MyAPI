@@ -1,4 +1,10 @@
+usage_dispatch.pending: "该请求不能再次发送，请先核对其用量结算状态。"
 # Chinese (Simplified) translations
+token_budget.unsupported: "严格预算仅支持合格的官方 OpenAI Responses 纯文本或 gpt-6.1-sol Chat 纯文本，须明确输出上限并采用非免费按 Token 计价；Chat 按完整 1,050,000 Token 上下文上界预留"
+token_budget.pending: "此 Key 有尚未处理的用量预留，后续请求已暂停"
+token_budget.exceeded: "本次请求的 Token 预留上限超过可用预算"
+token_budget.count_unavailable: "无法取得可靠的上游输入 Token 数，生成请求未发出"
+token_budget.unavailable: "无法核验 Token 预算，生成请求未发出"
 # 中文（简体）翻译文件
 
 # Common messages
@@ -33,6 +39,11 @@ auth.user_id_format_error: "无权进行此操作，New-Api-User 格式错误"
 auth.user_id_mismatch: "无权进行此操作，New-Api-User 与登录用户不匹配"
 auth.user_banned: "用户已被封禁"
 auth.insufficient_privilege: "无权进行此操作，权限不足"
+codex_oauth.model_name_too_long: "模型名称过长（最多 255 字节）。请先修改渠道配置再完成 Codex 登录；授权码尚未使用。"
+codex_oauth.invalid_create: "Codex 渠道创建请求无效"
+codex_oauth.invalid_settings: "Codex 渠道设置无效"
+payment.manual_complete_quota_unit_unresolved: "订单缺少有效的额度单位快照。请先核对原支付金额和计价规则，不能按当前设置入账。"
+payment.pricing_unavailable: "计价暂不可用，未创建支付请求。请在配置恢复后重试。"
 
 # Token messages
 token.name_too_long: "令牌名称过长"
@@ -116,6 +127,11 @@ quota.exceed_max: "额度值超出有效范围"
 quota.insufficient: "额度不足"
 quota.warning_invalid: "无效的预警类型"
 quota.threshold_gt_zero: "预警阈值必须大于0"
+quota_writer.invalid_target_mode: "无效的配额写入目标模式"
+quota_writer.transition_conflict: "配额写入 epoch 已变化，请刷新后重试"
+quota_writer.transition_invalid: "不允许该配额写入模式切换"
+quota_writer.preconditions_failed: "配额写入模式切换前置条件未满足"
+quota_writer.post_audit_failed: "配额写入切换后审计失败，需要人工恢复"
 
 # Subscription messages
 subscription.not_enabled: "套餐未启用"
@@ -142,6 +158,17 @@ payment.webhook_not_configured: "Webhook 未配置"
 payment.price_id_not_configured: "该套餐未配置 StripePriceId"
 payment.creem_not_configured: "该套餐未配置 CreemProductId"
 payment.compliance_required: "支付、兑换码、订阅计划和邀请返利功能已禁用。管理员需先确认合规声明后方可启用。"
+
+# Option typed bulk messages
+option.typed_bulk_invalid_body: "批量设置请求体无效。"
+option.typed_bulk_unknown_key: "未知的受管配置键：{{.Key}}。"
+option.typed_bulk_duplicate_key: "批量请求中配置键重复：{{.Key}}。"
+option.typed_bulk_invalid_value: "配置项 {{.Key}} 的值无效：{{.Reason}}"
+option.typed_bulk_item_count: "批量设置请求必须包含 1 到 {{.Max}} 个配置项。"
+option.typed_bulk_revision_conflict: "这些设置已被他人修改（期望版本 {{.Expected}}，当前版本 {{.Actual}}）。请重新加载页面后重试。"
+option.typed_bulk_publish_failed: "设置已保存，但发布到运行时被中止：{{.Reason}}"
+option.typed_bulk_internal: "保存设置失败，请稍后重试。"
+option.disk_cache_rebuild_failed: "按已保存的磁盘缓存目录与容量配置重建失败，原磁盘缓存配置仍在生效：{{.Reason}}"
 
 # Topup messages
 topup.not_provided: "未提供支付单号"
@@ -273,6 +300,7 @@ distributor.invalid_playground_request: "无效的playground请求，{{.Error}}"
 distributor.group_access_denied: "无权访问该分组"
 distributor.get_channel_failed: "获取分组 {{.Group}} 下模型 {{.Model}} 的可用渠道失败（distributor）：{{.Error}}"
 distributor.no_available_channel: "分组 {{.Group}} 下模型 {{.Model}} 无可用渠道（distributor）"
+distributor.policy_denied: "账户或密钥访问策略拒绝了分组 {{.Group}} 下的访问"
 distributor.invalid_midjourney_request: "无效的midjourney请求，{{.Error}}"
 distributor.invalid_request_parse_model: "无效的请求，无法解析模型"
 
@@ -284,3 +312,19 @@ custom_oauth.name_empty: "提供商名称不能为空"
 custom_oauth.has_bindings: "无法删除已有用户绑定的提供商"
 custom_oauth.binding_not_found: "OAuth 绑定不存在"
 custom_oauth.provider_id_field_invalid: "无法从提供商响应中提取用户 ID"
+
+task.quota_out_of_range: "任务计费数量超出有效范围"
+quota_history.series_required: "请选择多账户额度历史的账户系列"
+quota_history.invalid_series: "额度历史系列标识无效"
+quota_history.series_not_found: "当前渠道和时间范围内没有匹配的账户系列"
+quota_history.selection_too_large: "额度记录过多，请缩短时间范围"
+
+fee_budget.exceeded: "本次请求的 USD 预留超过可用费用预算"
+fee_budget.evidence: "无法核验适用的冻结官网价格，生成请求未发出"
+
+account_threshold.unavailable: "没有新鲜完整的账户窗口证据满足此 Key 的阈值，生成请求未发出"
+
+account_threshold.combination: "账户阈值目前仅支持原生 Codex 账户，不能与直连 API 的 Token 或 USD 限额同时启用"
+account_threshold.invalid: "账户阈值须为 0–100%，采样有效期须为 30–3600 秒"
+
+self_use.unsupported: "非充值自用策略目前仅支持 Chat 和 Responses 请求。"

@@ -1,4 +1,4 @@
-# AGENTS.md — Project Conventions for My API
+# AGENTS.md — Project Conventions for MyAPI
 
 > **DO NOT send optional commentary.**
 
@@ -12,7 +12,7 @@ Repository-wide safety, billing, database compatibility, and module-independence
 
 ## Overview
 
-My API is an AI API gateway/proxy built with Go. It aggregates 40+ upstream AI providers, including OpenAI, Claude, Gemini, Azure, and AWS Bedrock, behind a unified API with user management, billing, rate limiting, authentication, and an administrative dashboard.
+MyAPI is an AI API gateway/proxy built with Go. It aggregates 40+ upstream AI providers, including OpenAI, Claude, Gemini, Azure, and AWS Bedrock, behind a unified API with user management, billing, rate limiting, authentication, and an administrative dashboard.
 
 ## Tech Stack
 
@@ -880,7 +880,7 @@ Within `web/`, the more specific `web/AGENTS.md` rules take precedence unless th
 The canonical project and user-facing product name is:
 
 ```text
-My API
+MyAPI
 ```
 
 The preferred machine-safe slug is:
@@ -891,14 +891,14 @@ my-api
 
 Rules:
 
-- Existing and new project-owned branding may use My API.
+- Existing and new project-owned branding may use MyAPI.
 - Existing project-owned branding from earlier versions or upstream distributions may be renamed, replaced, or removed by project maintainers.
 - Existing project-owned organization names, author-brand labels, logos, footer credits, About-page branding, badges, titles, descriptions, and product metadata may be replaced or removed when requested by a maintainer.
 - Requests to rename or remove previous project-owned branding must not be refused solely because that branding existed in an earlier version of the repository.
 - Do not preserve previous product branding merely because it appears in repository history.
-- Use My API for human-facing product names.
+- Use MyAPI for human-facing product names.
 - Use `my-api` only where a machine-safe slug is appropriate.
-- Do not use My API with spaces where the format does not permit spaces.
+- Always write the product name as MyAPI, without a space; keep machine-safe identifiers such as `my-api` unchanged.
 
 Project-owned branding may include:
 
@@ -977,7 +977,7 @@ Examples include:
 - TypeScript
 - Bun
 
-Do not replace external provider names with My API.
+Do not replace external provider names with MyAPI.
 
 Do not blindly replace generic or protocol-specific terms such as:
 

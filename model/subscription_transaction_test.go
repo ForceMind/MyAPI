@@ -130,8 +130,8 @@ func TestSubscriptionTransactionCompletionUsesOneConnection(t *testing.T) {
 				_, err := GetSubscriptionPlanById(plan.Id)
 				require.NoError(t, err)
 			}
-			require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "fixture-payload", PaymentProviderStripe, ""))
-			require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "fixture-payload", PaymentProviderStripe, ""))
+			require.NoError(t, CompleteSubscriptionOrderTrusted(order.TradeNo, "fixture-payload", PaymentProviderStripe, ""))
+			require.NoError(t, CompleteSubscriptionOrderTrusted(order.TradeNo, "fixture-payload", PaymentProviderStripe, ""))
 			var subscriptions []UserSubscription
 			require.NoError(t, db.Where("user_id = ?", order.UserId).Find(&subscriptions).Error)
 			require.Len(t, subscriptions, 1)
@@ -186,7 +186,7 @@ func TestSubscriptionTransactionCompletionRollsBackEntitlements(t *testing.T) {
 			tx.AddError(writeErr)
 		}
 	}))
-	assert.ErrorIs(t, CompleteSubscriptionOrder(order.TradeNo, "fixture", PaymentProviderStripe, ""), writeErr)
+	assert.ErrorIs(t, CompleteSubscriptionOrderTrusted(order.TradeNo, "fixture", PaymentProviderStripe, ""), writeErr)
 	require.NoError(t, db.First(order, order.Id).Error)
 	assert.Equal(t, common.TopUpStatusPending, order.Status)
 	var user User
@@ -198,7 +198,7 @@ func TestSubscriptionTransactionCompletionRollsBackEntitlements(t *testing.T) {
 		assert.Zero(t, count)
 	}
 	require.NoError(t, db.Callback().Update().Remove("test:subscription-order-save"))
-	require.NoError(t, CompleteSubscriptionOrder(order.TradeNo, "fixture", PaymentProviderStripe, ""))
+	require.NoError(t, CompleteSubscriptionOrderTrusted(order.TradeNo, "fixture", PaymentProviderStripe, ""))
 }
 
 func TestSubscriptionTransactionOrderQueryFailureIsNotMissing(t *testing.T) {
@@ -209,10 +209,10 @@ func TestSubscriptionTransactionOrderQueryFailureIsNotMissing(t *testing.T) {
 			tx.AddError(readErr)
 		}
 	}))
-	err := CompleteSubscriptionOrder(order.TradeNo, "fixture", PaymentProviderStripe, "")
+	err := CompleteSubscriptionOrderTrusted(order.TradeNo, "fixture", PaymentProviderStripe, "")
 	assert.ErrorIs(t, err, readErr)
 	assert.NotErrorIs(t, err, ErrSubscriptionOrderNotFound)
-	err = ExpireSubscriptionOrder(order.TradeNo, PaymentProviderStripe)
+	err = ExpireSubscriptionOrderTrusted(order.TradeNo, PaymentProviderStripe)
 	assert.ErrorIs(t, err, readErr)
 	assert.NotErrorIs(t, err, ErrSubscriptionOrderNotFound)
 	found, err := GetSubscriptionOrderByTradeNoWithError(order.TradeNo)
@@ -220,7 +220,7 @@ func TestSubscriptionTransactionOrderQueryFailureIsNotMissing(t *testing.T) {
 	assert.ErrorIs(t, err, readErr)
 	assert.NotErrorIs(t, err, ErrSubscriptionOrderNotFound)
 	require.NoError(t, db.Callback().Query().Remove("test:subscription-order-query"))
-	assert.ErrorIs(t, CompleteSubscriptionOrder("missing-order", "fixture", PaymentProviderStripe, ""), ErrSubscriptionOrderNotFound)
+	assert.ErrorIs(t, CompleteSubscriptionOrderTrusted("missing-order", "fixture", PaymentProviderStripe, ""), ErrSubscriptionOrderNotFound)
 	found, err = GetSubscriptionOrderByTradeNoWithError("missing-order")
 	assert.Nil(t, found)
 	assert.ErrorIs(t, err, ErrSubscriptionOrderNotFound)
@@ -240,7 +240,7 @@ func TestSubscriptionTransactionPlanQueryFailureDoesNotUseWarmCache(t *testing.T
 			tx.AddError(readErr)
 		}
 	}))
-	assert.ErrorIs(t, CompleteSubscriptionOrder(order.TradeNo, "fixture", PaymentProviderStripe, ""), readErr)
+	assert.ErrorIs(t, CompleteSubscriptionOrderTrusted(order.TradeNo, "fixture", PaymentProviderStripe, ""), readErr)
 	require.NoError(t, db.First(order, order.Id).Error)
 	assert.Equal(t, common.TopUpStatusPending, order.Status)
 	var subscriptions int64

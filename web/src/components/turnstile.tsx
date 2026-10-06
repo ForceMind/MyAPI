@@ -40,19 +40,34 @@ export function Turnstile({
   className,
 }: TurnstileProps) {
   const ref = useRef<HTMLDivElement | null>(null)
+  const renderedSiteKeyRef = useRef<string | null>(null)
+  const onVerifyRef = useRef(onVerify)
+  const onExpireRef = useRef(onExpire)
+
+  useEffect(() => {
+    onVerifyRef.current = onVerify
+    onExpireRef.current = onExpire
+  }, [onVerify, onExpire])
 
   useEffect(() => {
     const render = () => {
-      if (!ref.current || !window.turnstile) return
+      if (
+        !ref.current ||
+        !window.turnstile ||
+        renderedSiteKeyRef.current === siteKey
+      ) {
+        return
+      }
       try {
         window.turnstile.render(ref.current, {
           sitekey: siteKey,
-          callback: (token: string) => onVerify(token),
-          'error-callback': () => onExpire?.(),
-          'expired-callback': () => onExpire?.(),
+          callback: (token: string) => onVerifyRef.current(token),
+          'error-callback': () => onExpireRef.current?.(),
+          'expired-callback': () => onExpireRef.current?.(),
         })
+        renderedSiteKeyRef.current = siteKey
       } catch {
-        /* empty */
+        onExpireRef.current?.()
       }
     }
 
@@ -61,16 +76,41 @@ export function Turnstile({
       return
     }
     const scriptId = 'cf-turnstile'
-    if (document.getElementById(scriptId)) return
-    const s = document.createElement('script')
-    s.id = scriptId
-    s.src =
-      'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
-    s.async = true
-    s.defer = true
-    s.onload = () => render()
-    document.head.appendChild(s)
-  }, [siteKey, onVerify, onExpire])
+    let script = document.querySelector<HTMLScriptElement>(`#${scriptId}`)
+    if (!script) {
+      script = document.createElement('script')
+      script.id = scriptId
+      script.src =
+        'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+      script.async = true
+      script.defer = true
+    }
+
+    const handleLoad = () => {
+      script.dataset.turnstileLoadState = 'loaded'
+      render()
+    }
+    const handleError = () => {
+      script.dataset.turnstileLoadState = 'error'
+      onExpireRef.current?.()
+    }
+
+    if (script.dataset.turnstileLoadState === 'error') {
+      handleError()
+      return
+    }
+
+    script.addEventListener('load', handleLoad, { once: true })
+    script.addEventListener('error', handleError, { once: true })
+    if (!script.isConnected) {
+      document.head.appendChild(script)
+    }
+
+    return () => {
+      script.removeEventListener('load', handleLoad)
+      script.removeEventListener('error', handleError)
+    }
+  }, [siteKey])
 
   return <div ref={ref} className={className} />
 }

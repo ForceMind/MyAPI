@@ -272,6 +272,67 @@ describe('quota history server contract', () => {
     expect(trend.hasIncompleteData).toBe(true)
   })
 
+  test('keeps the legacy last-point fallback only when the current field is absent', () => {
+    const trend = buildQuotaHistoryTrend(
+      history([{ timestamp: 100, status: 'success', available: 80 }]),
+      'available'
+    )
+    expect(trend.latest).toEqual({
+      observedAt: 100,
+      status: 'success',
+      value: 80,
+      errorCode: undefined,
+    })
+  })
+
+  test('does not reuse a historical value when the server explicitly reports no current sample', () => {
+    const trend = buildQuotaHistoryTrend(
+      history([{ timestamp: 100, status: 'success', available: 80 }], {
+        current: null,
+      }),
+      'available'
+    )
+    expect(trend.latest).toEqual({
+      observedAt: null,
+      status: 'unavailable',
+      value: null,
+      errorCode: undefined,
+    })
+    expect(trend.latestPlotted).toEqual({ timestamp: 100, value: 80 })
+  })
+
+  test('keeps the last plotted value while an absence marker ends the current window', () => {
+    const trend = buildQuotaHistoryTrend(
+      history(
+        [
+          { timestamp: 100, status: 'success', available: 80 },
+          {
+            timestamp: 200,
+            status: 'unsupported',
+            error_code: 'window_absent',
+          },
+        ],
+        {
+          current: {
+            observed_at: 200,
+            status: 'unsupported',
+            error_code: 'window_absent',
+          },
+        }
+      ),
+      'available'
+    )
+    expect(trend.points.map((point) => point.value)).toEqual([80, null])
+    expect(trend.latest).toMatchObject({
+      observedAt: 200,
+      status: 'unsupported',
+      value: null,
+      errorCode: 'window_absent',
+    })
+    expect(trend.latestPlotted).toEqual({ timestamp: 100, value: 80 })
+    expect(trend.coverage.unsupportedCount).toBe(1)
+  })
+
   test('preserves post-reset balances with a gap and does not fill unobserved consumption', () => {
     const data = history([
       { timestamp: 100, status: 'success', available: 50 },

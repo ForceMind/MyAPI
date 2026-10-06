@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/model"
 )
 
 const (
@@ -23,6 +25,8 @@ const (
 	codexOAuthScope        = "openid profile email offline_access"
 	codexJWTClaimPath      = "https://api.openai.com/auth"
 	defaultHTTPTimeout     = 20 * time.Second
+	// Representation bound for seconds -> nanoseconds, not a provider policy.
+	maxCodexOAuthLifetimeSeconds = int64((1<<63 - 1) / time.Second)
 )
 
 type CodexOAuthTokenResult struct {
@@ -48,6 +52,82 @@ func RefreshCodexOAuthTokenWithProxy(ctx context.Context, refreshToken string, p
 		return nil, err
 	}
 	return refreshCodexOAuthToken(ctx, client, codexOAuthTokenURL, codexOAuthClientID, refreshToken)
+}
+
+// RefreshCodexChannelCredentialElement rotates one expected credential without
+// replacing a channel's other keys. The credential gate and distributed lease
+// serialize refresh-token use; stale replacement is rejected without overwriting
+// other credentials. Reordering preserves the matching credential's identity.
+func RefreshCodexChannelCredentialElement(ctx context.Context, channelID int, expectedCredential, proxyURL string) (*CodexOAuthKey, error) {
+	if channelID <= 0 || strings.TrimSpace(expectedCredential) == "" {
+		return nil, errors.New("invalid Codex channel credential target")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var refreshed *CodexOAuthKey
+	err := model.WithChannelCredentialUpdateGate(ctx, channelID, func(gateCtx context.Context) error {
+		lease, err := acquireCodexCredentialRefreshLease(gateCtx, channelID)
+		if err != nil {
+			return err
+		}
+		defer lease.release()
+		channel, err := model.GetChannelById(channelID, true)
+		if err != nil {
+			return err
+		}
+		if channel.Type != constant.ChannelTypeCodex {
+			return errors.New("channel type is not Codex")
+		}
+		matches := 0
+		credentials := []string{channel.Key}
+		if channel.ChannelInfo.IsMultiKey {
+			credentials = channel.GetKeys()
+		}
+		for _, candidate := range credentials {
+			if candidate == expectedCredential {
+				matches++
+			}
+		}
+		if matches == 0 {
+			return errors.New("codex credential changed before refresh")
+		}
+		if matches != 1 {
+			return errors.New("duplicate Codex credential target")
+		}
+		key, err := parseCodexOAuthKey(expectedCredential)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(key.RefreshToken) == "" {
+			return errors.New("codex channel: refresh_token is required to refresh credential")
+		}
+		refreshCtx, cancel := context.WithTimeout(gateCtx, 10*time.Second)
+		result, err := RefreshCodexOAuthTokenWithProxy(refreshCtx, key.RefreshToken, proxyURL)
+		cancel()
+		if err != nil {
+			return err
+		}
+		key.AccessToken, key.RefreshToken = result.AccessToken, result.RefreshToken
+		key.LastRefresh = time.Now().Format(time.RFC3339)
+		key.Expired = result.ExpiresAt.Format(time.RFC3339)
+		encoded, err := common.Marshal(key)
+		if err != nil {
+			return err
+		}
+		persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(gateCtx), codexCredentialPersistenceTimeout)
+		defer persistCancel()
+		updated, err := model.UpdateChannelCredentialElementIfUnchanged(persistCtx, channelID, constant.ChannelTypeCodex, expectedCredential, string(encoded))
+		if err != nil {
+			return &CodexCredentialPersistenceError{err: err}
+		}
+		if !updated {
+			return &CodexCredentialPersistenceError{err: errors.New("codex credential changed during refresh")}
+		}
+		refreshed = key
+		return nil
+	})
+	return refreshed, err
 }
 
 func ExchangeCodexAuthorizationCode(ctx context.Context, code string, verifier string) (*CodexOAuthTokenResult, error) {
@@ -126,7 +206,7 @@ func refreshCodexOAuthToken(
 	var payload struct {
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
-		ExpiresIn    int    `json:"expires_in"`
+		ExpiresIn    int64  `json:"expires_in"`
 	}
 
 	if err := common.DecodeJson(resp.Body, &payload); err != nil {
@@ -136,8 +216,8 @@ func refreshCodexOAuthToken(
 		return nil, fmt.Errorf("codex oauth refresh failed: status=%d", resp.StatusCode)
 	}
 
-	if strings.TrimSpace(payload.AccessToken) == "" || strings.TrimSpace(payload.RefreshToken) == "" || payload.ExpiresIn <= 0 {
-		return nil, errors.New("codex oauth refresh response missing fields")
+	if strings.TrimSpace(payload.AccessToken) == "" || strings.TrimSpace(payload.RefreshToken) == "" || payload.ExpiresIn <= 0 || payload.ExpiresIn > maxCodexOAuthLifetimeSeconds {
+		return nil, errors.New("codex oauth refresh response missing or invalid fields")
 	}
 
 	return &CodexOAuthTokenResult{
@@ -188,7 +268,7 @@ func exchangeCodexAuthorizationCode(
 	var payload struct {
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
-		ExpiresIn    int    `json:"expires_in"`
+		ExpiresIn    int64  `json:"expires_in"`
 	}
 	if err := common.DecodeJson(resp.Body, &payload); err != nil {
 		return nil, err
@@ -196,8 +276,8 @@ func exchangeCodexAuthorizationCode(
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return nil, fmt.Errorf("codex oauth code exchange failed: status=%d", resp.StatusCode)
 	}
-	if strings.TrimSpace(payload.AccessToken) == "" || strings.TrimSpace(payload.RefreshToken) == "" || payload.ExpiresIn <= 0 {
-		return nil, errors.New("codex oauth token response missing fields")
+	if strings.TrimSpace(payload.AccessToken) == "" || strings.TrimSpace(payload.RefreshToken) == "" || payload.ExpiresIn <= 0 || payload.ExpiresIn > maxCodexOAuthLifetimeSeconds {
+		return nil, errors.New("codex oauth token response missing or invalid fields")
 	}
 	return &CodexOAuthTokenResult{
 		AccessToken:  strings.TrimSpace(payload.AccessToken),
@@ -212,10 +292,14 @@ func getCodexOAuthHTTPClient(proxyURL string) (*http.Client, error) {
 		return nil, err
 	}
 	if baseClient == nil {
-		return &http.Client{Timeout: defaultHTTPTimeout}, nil
+		baseClient = &http.Client{}
 	}
 	clientCopy := *baseClient
 	clientCopy.Timeout = defaultHTTPTimeout
+	// Token POST bodies contain authorization codes, PKCE verifiers or refresh
+	// credentials. The fixed token endpoint must not replay them at a Location,
+	// including same-origin redirects. Keep the shared relay policy unchanged.
+	clientCopy.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	return &clientCopy, nil
 }
 

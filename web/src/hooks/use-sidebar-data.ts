@@ -40,6 +40,7 @@ import { useTranslation } from 'react-i18next'
 import type { SidebarData } from '@/components/layout/types'
 import { ROLE } from '@/lib/roles'
 import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
+import { useFundingPresentation } from './use-funding-presentation'
 
 /**
  * Root navigation groups for the application sidebar.
@@ -49,13 +50,9 @@ import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
  */
 export function useSidebarData(): SidebarData {
   const { t } = useTranslation()
+  const { commercialEnabled } = useFundingPresentation()
 
-  const hiddenSelfUseItems = new Set([
-    '/wallet',
-    '/users',
-    '/redemption-codes',
-    '/subscriptions',
-  ])
+  const hiddenSelfUseItems = new Set(['/redemption-codes'])
 
   const navGroups: SidebarData['navGroups'] = [
     {
@@ -112,7 +109,7 @@ export function useSidebarData(): SidebarData {
       title: t('Personal'),
       items: [
         {
-          title: t('Wallet'),
+          title: commercialEnabled ? t('Wallet') : t('Funding history'),
           url: '/wallet',
           icon: Wallet,
         },
@@ -173,6 +170,16 @@ export function useSidebarData(): SidebarData {
       ],
     },
   ]
+
+  if (!commercialEnabled) {
+    const admin = navGroups.find((group) => group.id === 'admin')
+    if (admin) {
+      const historyItems = admin.items.filter((item) => item.url === '/redemption-codes' || item.url === '/subscriptions')
+      admin.items = admin.items.filter((item) => item.url !== '/redemption-codes' && item.url !== '/subscriptions')
+      const links = historyItems.flatMap((item) => item.url ? [{ title: item.title, url: item.url }] : [])
+      if (links.length > 0) admin.items.push({ title: t('History and recovery'), items: links })
+    }
+  }
 
   if (!SELF_USE_MINIMAL) {
     return { navGroups }

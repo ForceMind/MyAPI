@@ -1,18 +1,18 @@
 package router
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"strings"
 	"testing"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func TestListModelsSupportsOpenAIAndGeminiAuthentication(t *testing.T) {
@@ -92,35 +92,32 @@ func TestListModelsSupportsOpenAIAndGeminiAuthentication(t *testing.T) {
 func setupRelayRouterTestDB(t *testing.T) {
 	t.Helper()
 
+	originalGinMode := gin.Mode()
 	gin.SetMode(gin.TestMode)
-	originalIsMasterNode := common.IsMasterNode
+	originalDB := model.DB
+	originalLogDB := model.LOG_DB
 	originalRedisEnabled := common.RedisEnabled
-	originalSQLitePath := common.SQLitePath
 	originalMainDatabaseType := common.MainDatabaseType()
 	originalLogDatabaseType := common.LogDatabaseType()
-	originalSQLDSN, hadSQLDSN := os.LookupEnv("SQL_DSN")
-
-	common.IsMasterNode = false
-	common.RedisEnabled = false
-	common.SQLitePath = fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))
-	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
-	require.NoError(t, os.Setenv("SQL_DSN", "local"))
-	require.NoError(t, model.InitDB())
-	model.LOG_DB = model.DB
-	require.NoError(t, model.DB.AutoMigrate(&model.User{}, &model.Token{}, &model.Ability{}))
-
-	t.Cleanup(func() {
-		if sqlDB, err := model.DB.DB(); err == nil {
-			_ = sqlDB.Close()
-		}
-		common.IsMasterNode = originalIsMasterNode
-		common.RedisEnabled = originalRedisEnabled
-		common.SQLitePath = originalSQLitePath
-		common.SetDatabaseTypes(originalMainDatabaseType, originalLogDatabaseType)
-		if hadSQLDSN {
-			require.NoError(t, os.Setenv("SQL_DSN", originalSQLDSN))
-		} else {
-			require.NoError(t, os.Unsetenv("SQL_DSN"))
-		}
+	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/relay-router.db"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
 	})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		gin.SetMode(originalGinMode)
+		model.DB = originalDB
+		model.LOG_DB = originalLogDB
+		common.RedisEnabled = originalRedisEnabled
+		common.SetDatabaseTypes(originalMainDatabaseType, originalLogDatabaseType)
+		require.NoError(t, sqlDB.Close())
+	})
+
+	common.RedisEnabled = false
+	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+	model.InitColumnNamesForTest()
+	model.DB, model.LOG_DB = db, db
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.AssignedAccessPolicy{}, &model.Channel{}, &model.TokenBudget{}, &model.Ability{}, &model.Log{}))
+	require.NoError(t, model.EnsureLogProjectionSchemaWithDB(db))
 }

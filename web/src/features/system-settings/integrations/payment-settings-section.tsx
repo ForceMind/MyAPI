@@ -44,11 +44,18 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
-import { confirmPaymentCompliance } from '../api'
+import { confirmPaymentCompliance, updatePaymentFundingOptions } from '../api'
 import {
   SettingsForm,
   SettingsSwitchContent,
@@ -56,7 +63,6 @@ import {
 } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
-import { useUpdateOption } from '../hooks/use-update-option'
 import { safeNumberFieldProps } from '../utils/numeric-field'
 import { AmountDiscountVisualEditor } from './amount-discount-visual-editor'
 import { AmountOptionsVisualEditor } from './amount-options-visual-editor'
@@ -95,6 +101,7 @@ function isHttpOriginUrl(value: string) {
 }
 
 const paymentSchema = z.object({
+  UserFundingMode: z.enum(['enabled', 'retirement', 'disabled']),
   PayAddress: z.string().refine((value) => {
     const trimmed = value.trim()
     if (!trimmed) return true
@@ -223,7 +230,9 @@ export function PaymentSettingsSection({
 }: PaymentSettingsSectionProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const updateOption = useUpdateOption()
+  const updatePaymentFundingMutation = useMutation({
+    mutationFn: updatePaymentFundingOptions,
+  })
   const initialFormValues = React.useMemo<PaymentFormValues>(
     () => ({
       ...defaultValues,
@@ -418,6 +427,7 @@ export function PaymentSettingsSection({
 
   const onSubmit = async (values: PaymentFormValues) => {
     const sanitized = {
+      UserFundingMode: values.UserFundingMode,
       PayAddress: removeTrailingSlash(values.PayAddress),
       EpayId: values.EpayId.trim(),
       EpayKey: values.EpayKey.trim(),
@@ -460,6 +470,7 @@ export function PaymentSettingsSection({
     }
 
     const initial = {
+      UserFundingMode: initialRef.current.UserFundingMode,
       PayAddress: removeTrailingSlash(initialRef.current.PayAddress),
       EpayId: initialRef.current.EpayId.trim(),
       EpayKey: initialRef.current.EpayKey.trim(),
@@ -507,6 +518,13 @@ export function PaymentSettingsSection({
     }
 
     const updates: Array<{ key: string; value: string | number | boolean }> = []
+
+    if (sanitized.UserFundingMode !== initial.UserFundingMode) {
+      updates.push({
+        key: 'user_funding_setting.mode',
+        value: sanitized.UserFundingMode,
+      })
+    }
 
     if (sanitized.PayAddress !== initial.PayAddress) {
       updates.push({ key: 'PayAddress', value: sanitized.PayAddress })
@@ -713,38 +731,38 @@ export function PaymentSettingsSection({
       return
     }
 
-    for (const update of updates) {
-      await updateOption.mutateAsync(update)
-    }
-
-    if (!hasWaffoPancakeChanges) {
-      return
-    }
-
-    if (!sanitized.WaffoPancakeMerchantID) {
-      toast.error(t('Merchant ID is required'))
-      return
-    }
-
-    if (!waffoPancakeSelection.storeID || !waffoPancakeSelection.productID) {
-      toast.error(t('Pick or create both a store and a product before saving.'))
-      return
-    }
-
-    try {
-      const body = await saveWaffoPancakeConfig({
-        merchantID: sanitized.WaffoPancakeMerchantID,
-        privateKey: sanitized.WaffoPancakePrivateKey,
-        returnURL: sanitized.WaffoPancakeReturnURL,
-        storeID: waffoPancakeSelection.storeID,
-        productID: waffoPancakeSelection.productID,
-      })
-
-      if (
-        body?.message === 'success' &&
-        typeof body.data === 'object' &&
-        body.data
-      ) {
+    if (hasWaffoPancakeChanges) {
+      if (!sanitized.WaffoPancakeMerchantID) {
+        toast.error(t('Merchant ID is required'))
+        return
+      }
+      if (!waffoPancakeSelection.storeID || !waffoPancakeSelection.productID) {
+        toast.error(
+          t('Pick or create both a store and a product before saving.')
+        )
+        return
+      }
+      try {
+        const body = await saveWaffoPancakeConfig({
+          merchantID: sanitized.WaffoPancakeMerchantID,
+          privateKey: sanitized.WaffoPancakePrivateKey,
+          returnURL: sanitized.WaffoPancakeReturnURL,
+          storeID: waffoPancakeSelection.storeID,
+          productID: waffoPancakeSelection.productID,
+        })
+        if (
+          body?.message !== 'success' ||
+          typeof body.data !== 'object' ||
+          !body.data
+        ) {
+          const reason = typeof body?.data === 'string' ? body.data : undefined
+          toast.error(
+            reason
+              ? `${t('Waffo Pancake save failed')}: ${reason}`
+              : t('Waffo Pancake save failed')
+          )
+          return
+        }
         const saved = body.data as { product_id: string; store_id: string }
         const savedBinding = {
           storeID: saved.store_id,
@@ -752,24 +770,43 @@ export function PaymentSettingsSection({
         }
         setWaffoPancakeSavedBinding(savedBinding)
         setWaffoPancakeSelection(savedBinding)
-        queryClient.invalidateQueries({ queryKey: ['system-options'] })
-        toast.success(t('Waffo Pancake settings saved'))
+      } catch (error) {
+        toast.error(
+          `${t('Waffo Pancake save failed')}: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        )
         return
       }
-
-      const reason = typeof body?.data === 'string' ? body.data : undefined
-      toast.error(
-        reason
-          ? `${t('Waffo Pancake save failed')}: ${reason}`
-          : t('Waffo Pancake save failed')
-      )
-    } catch (error) {
-      toast.error(
-        `${t('Waffo Pancake save failed')}: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      )
     }
+
+    if (updates.length > 0) {
+      try {
+        const response = await updatePaymentFundingMutation.mutateAsync({
+          values: Object.fromEntries(
+            updates.map((update) => [update.key, update.value])
+          ),
+        })
+        if (!response.success) {
+          toast.error(response.message || t('Failed to update setting'))
+          return
+        }
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : t('Failed to update setting')
+        )
+        return
+      }
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['system-options'] })
+    queryClient.invalidateQueries({ queryKey: ['status'] })
+    try {
+      window.localStorage.removeItem('status')
+    } catch {
+      /* empty */
+    }
+    toast.success(t('Setting updated successfully'))
   }
 
   const currentFormValues = form.watch()
@@ -872,7 +909,7 @@ export function PaymentSettingsSection({
         >
           <SettingsPageFormActions
             onSave={form.handleSubmit(onSubmit)}
-            isSaving={updateOption.isPending || isSubmitting}
+            isSaving={updatePaymentFundingMutation.isPending || isSubmitting}
             saveLabel='Save all settings'
           />
           <Tabs defaultValue='general' className='min-w-0'>
@@ -897,6 +934,48 @@ export function PaymentSettingsSection({
                     {t('Shared configuration for all payment gateways')}
                   </p>
                 </div>
+
+                <FormField
+                  control={form.control}
+                  name='UserFundingMode'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('User funding mode')}</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value='enabled'>
+                            {t('Enabled')}
+                          </SelectItem>
+                          <SelectItem value='retirement'>
+                            {t('Retirement')}
+                          </SelectItem>
+                          <SelectItem value='disabled'>
+                            {t('Disabled')}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        {t(
+                          'Controls end-user top-ups, redemption, referral reward transfers, and subscription purchases. Retirement only settles existing pending orders; disabled keeps history read-only.'
+                        )}
+                      </FormDescription>
+                      <FormDescription>
+                        {t(
+                          'The server creates a new funding epoch for every mode change. Retirement records a cutoff for existing pending orders; re-enabling is accepted only after server readiness checks.'
+                        )}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <div className='grid gap-6 md:grid-cols-2'>
                   <FormField

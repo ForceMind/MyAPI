@@ -1,7 +1,23 @@
 package i18n
 
+const (
+	MsgTextUsageDispatchPending    = "usage_dispatch.pending"
+	MsgTokenBudgetUnsupported      = "token_budget.unsupported"
+	MsgTokenBudgetPending          = "token_budget.pending"
+	MsgTokenBudgetExceeded         = "token_budget.exceeded"
+	MsgTokenBudgetCountUnavailable = "token_budget.count_unavailable"
+	MsgTokenBudgetUnavailable      = "token_budget.unavailable"
+)
+
 // Message keys for i18n translations
 // Use these constants instead of hardcoded strings
+
+const (
+	MsgQuotaHistorySeriesRequired    = "quota_history.series_required"
+	MsgQuotaHistoryInvalidSeries     = "quota_history.invalid_series"
+	MsgQuotaHistorySeriesNotFound    = "quota_history.series_not_found"
+	MsgQuotaHistorySelectionTooLarge = "quota_history.selection_too_large"
+)
 
 // Common error messages
 const (
@@ -28,6 +44,8 @@ const (
 	MsgBatchTooMany      = "common.batch_too_many"
 )
 
+const MsgTaskQuotaOutOfRange = "task.quota_out_of_range"
+
 // Auth middleware messages
 const (
 	MsgAuthNotLoggedIn           = "auth.not_logged_in"
@@ -39,6 +57,12 @@ const (
 	MsgAuthUserBanned            = "auth.user_banned"
 	MsgAuthInsufficientPrivilege = "auth.insufficient_privilege"
 )
+
+const MsgCodexOAuthModelNameTooLong = "codex_oauth.model_name_too_long"
+const MsgCodexOAuthInvalidCreate = "codex_oauth.invalid_create"
+const MsgCodexOAuthInvalidSettings = "codex_oauth.invalid_settings"
+const MsgPaymentManualCompleteQuotaUnitUnresolved = "payment.manual_complete_quota_unit_unresolved"
+const MsgPaymentPricingUnavailable = "payment.pricing_unavailable"
 
 // Token related messages
 const (
@@ -131,6 +155,15 @@ const (
 	MsgQuotaThresholdGtZero = "quota.threshold_gt_zero"
 )
 
+// Quota writer mode transition messages
+const (
+	MsgQuotaWriterInvalidTargetMode   = "quota_writer.invalid_target_mode"
+	MsgQuotaWriterTransitionConflict  = "quota_writer.transition_conflict"
+	MsgQuotaWriterTransitionInvalid   = "quota_writer.transition_invalid"
+	MsgQuotaWriterPreconditionsFailed = "quota_writer.preconditions_failed"
+	MsgQuotaWriterPostAuditFailed     = "quota_writer.post_audit_failed"
+)
+
 // Subscription related messages
 const (
 	MsgSubscriptionNotEnabled       = "subscription.not_enabled"
@@ -159,6 +192,23 @@ const (
 	MsgPaymentPriceIdNotConfig   = "payment.price_id_not_configured"
 	MsgPaymentCreemNotConfig     = "payment.creem_not_configured"
 	MsgPaymentComplianceRequired = "payment.compliance_required"
+)
+
+// Option typed bulk messages
+const (
+	MsgOptionTypedBulkInvalidBody      = "option.typed_bulk_invalid_body"
+	MsgOptionTypedBulkUnknownKey       = "option.typed_bulk_unknown_key"
+	MsgOptionTypedBulkDuplicateKey     = "option.typed_bulk_duplicate_key"
+	MsgOptionTypedBulkInvalidValue     = "option.typed_bulk_invalid_value"
+	MsgOptionTypedBulkItemCount        = "option.typed_bulk_item_count"
+	MsgOptionTypedBulkRevisionConflict = "option.typed_bulk_revision_conflict"
+	MsgOptionTypedBulkPublishFailed    = "option.typed_bulk_publish_failed"
+	MsgOptionTypedBulkInternal         = "option.typed_bulk_internal"
+)
+
+// Option maintenance messages
+const (
+	MsgOptionDiskCacheRebuildFailed = "option.disk_cache_rebuild_failed"
 )
 
 // Topup related messages
@@ -322,6 +372,7 @@ const (
 	MsgDistributorGroupAccessDenied       = "distributor.group_access_denied"
 	MsgDistributorGetChannelFailed        = "distributor.get_channel_failed"
 	MsgDistributorNoAvailableChannel      = "distributor.no_available_channel"
+	MsgDistributorPolicyDenied            = "distributor.policy_denied"
 	MsgDistributorInvalidMidjourney       = "distributor.invalid_midjourney_request"
 	MsgDistributorInvalidParseModel       = "distributor.invalid_request_parse_model"
 )
@@ -336,3 +387,17 @@ const (
 	MsgCustomOAuthBindingNotFound   = "custom_oauth.binding_not_found"
 	MsgCustomOAuthProviderIdInvalid = "custom_oauth.provider_id_field_invalid"
 )
+
+const (
+	MsgFeeBudgetExceeded = "fee_budget.exceeded"
+	MsgFeeBudgetEvidence = "fee_budget.evidence"
+)
+
+const MsgAccountThresholdUnavailable = "account_threshold.unavailable"
+
+const (
+	MsgAccountThresholdCombination = "account_threshold.combination"
+	MsgAccountThresholdInvalid     = "account_threshold.invalid"
+)
+
+const MsgSelfUseUnsupported = "self_use.unsupported"

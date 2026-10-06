@@ -156,3 +156,17 @@ func TestParseTaskSubmissionProtocolAcceptsEveryFrozenOperationKindAndKeyBoundar
 		assert.ErrorIs(t, err, ErrTaskSubmissionProtocolIdempotencyInvalid)
 	}
 }
+
+func TestHasTaskSubmissionIdempotencyHeader(t *testing.T) {
+	assert.False(t, HasTaskSubmissionIdempotencyHeader(nil))
+	assert.False(t, HasTaskSubmissionIdempotencyHeader(http.Header{}))
+	assert.False(t, HasTaskSubmissionIdempotencyHeader(http.Header{"Authorization": {"Bearer xxx"}}))
+
+	assert.True(t, HasTaskSubmissionIdempotencyHeader(http.Header{"Idempotency-Key": {"k"}}))
+	assert.True(t, HasTaskSubmissionIdempotencyHeader(http.Header{"idempotency-key": {"k"}}))
+	assert.True(t, HasTaskSubmissionIdempotencyHeader(http.Header{"IDEMPOTENCY-KEY": {"k"}}))
+	assert.True(t, HasTaskSubmissionIdempotencyHeader(http.Header{"idempotency_key": {"k"}}))
+	assert.True(t, HasTaskSubmissionIdempotencyHeader(http.Header{"X-Idempotency-Key": {"k"}}))
+	assert.True(t, HasTaskSubmissionIdempotencyHeader(http.Header{"x_idempotency_key": {"k"}}))
+}
+

@@ -1,6 +1,8 @@
 package common
 
 import (
+	"fmt"
+	"os"
 	"sync"
 	"sync/atomic"
 )
@@ -17,55 +19,130 @@ type DiskCacheConfig struct {
 	Path string
 }
 
-// 全局磁盘缓存配置
-var diskCacheConfig = DiskCacheConfig{
-	Enabled:     false,
-	ThresholdMB: 10,
-	MaxSizeMB:   1024,
-	Path:        "",
-}
-var diskCacheConfigMu sync.RWMutex
+// 磁盘缓存配置采用“配置代 / 生效代”双快照：
+//
+//   - desired（配置代）：最近一次保存的完整配置，由 SetDiskCacheConfig 发布。
+//   - active（生效代）：磁盘缓存每次决策实际使用的快照。
+//
+// 热字段（Enabled、ThresholdMB）在保存后立即进入生效代，新请求使用新代规则；
+// 磁盘放置字段（Path、MaxSizeMB）不在普通保存路径上迁移——它们只在显式维护
+// 重建（RebuildDiskCache）或进程重启（启动时按已保存代重建）后进入生效代，
+// 避免普通保存偷偷把正在使用的缓存换目录/换容量。
+var (
+	diskCacheDesired atomic.Value // DiskCacheConfig，配置代
+	diskCacheActive  atomic.Value // DiskCacheConfig，生效代
+	// diskCacheConfigMu 串行化保存与重建的“读-改-写”，读路径走原子快照无锁。
+	diskCacheConfigMu sync.Mutex
+)
 
-// GetDiskCacheConfig 获取磁盘缓存配置
+func defaultDiskCacheConfig() DiskCacheConfig {
+	return DiskCacheConfig{
+		Enabled:     false,
+		ThresholdMB: 10,
+		MaxSizeMB:   1024,
+		Path:        "",
+	}
+}
+
+func init() {
+	diskCacheDesired.Store(defaultDiskCacheConfig())
+	diskCacheActive.Store(defaultDiskCacheConfig())
+}
+
+// GetDiskCacheConfig 获取磁盘缓存生效代快照。
+// 单次调用返回同一代的全部字段，调用方应在一个决策内复用该快照，
+// 而不是逐字段多次读取（避免代切换期间混代）。
 func GetDiskCacheConfig() DiskCacheConfig {
-	diskCacheConfigMu.RLock()
-	defer diskCacheConfigMu.RUnlock()
-	return diskCacheConfig
+	return diskCacheActive.Load().(DiskCacheConfig)
 }
 
-// SetDiskCacheConfig 设置磁盘缓存配置
+// GetDiskCacheDesiredConfig 获取磁盘缓存配置代（最近保存值）快照。
+// 用于维护端点与状态展示比对“已保存未生效”的放置字段。
+func GetDiskCacheDesiredConfig() DiskCacheConfig {
+	return diskCacheDesired.Load().(DiskCacheConfig)
+}
+
+// DiskCachePlacementPending 报告配置代中的磁盘放置字段（Path/MaxSizeMB）
+// 是否尚未进入生效代，即需要维护重建或重启才能生效。
+func DiskCachePlacementPending() bool {
+	desired := GetDiskCacheDesiredConfig()
+	active := GetDiskCacheConfig()
+	return desired.Path != active.Path || desired.MaxSizeMB != active.MaxSizeMB
+}
+
+// SetDiskCacheConfig 保存新的配置代。
+// 热字段（Enabled、ThresholdMB）立即并入生效代，对新决策生效；
+// 放置字段（Path、MaxSizeMB）只更新配置代，不迁移生效代。
 func SetDiskCacheConfig(config DiskCacheConfig) {
 	diskCacheConfigMu.Lock()
 	defer diskCacheConfigMu.Unlock()
-	diskCacheConfig = config
+	diskCacheDesired.Store(config)
+	active := diskCacheActive.Load().(DiskCacheConfig)
+	active.Enabled = config.Enabled
+	active.ThresholdMB = config.ThresholdMB
+	diskCacheActive.Store(active)
 }
 
-// IsDiskCacheEnabled 是否启用磁盘缓存
+// RebuildDiskCache 按配置代重建磁盘缓存放置（维护操作，带排空语义）。
+//
+// 先在旧生效代继续服务的前提下校验新目录可创建、可写；校验成功后一次性把
+// 配置代的 Path/MaxSizeMB 换入生效代，此后新决策使用新目录/新容量。
+// 已经打开的磁盘缓存实例按绝对路径读写/删除自己的文件，不受影响、不迁移。
+// 校验失败时保留旧生效代并返回错误。
+//
+// 返回重建后的生效代快照。
+func RebuildDiskCache() (DiskCacheConfig, error) {
+	diskCacheConfigMu.Lock()
+	defer diskCacheConfigMu.Unlock()
+
+	desired := diskCacheDesired.Load().(DiskCacheConfig)
+	if err := validateDiskCachePlacement(desired); err != nil {
+		return diskCacheActive.Load().(DiskCacheConfig), err
+	}
+	diskCacheActive.Store(desired)
+	return desired, nil
+}
+
+// validateDiskCachePlacement 校验目标缓存目录可创建且可写。
+// 只在 RebuildDiskCache 持有写锁时调用；不做任何状态切换。
+func validateDiskCachePlacement(config DiskCacheConfig) error {
+	dir := diskCacheDirFor(config.Path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create disk cache directory %s: %w", dir, err)
+	}
+	probe, err := os.CreateTemp(dir, ".rebuild-probe-*")
+	if err != nil {
+		return fmt.Errorf("failed to write probe file in disk cache directory %s: %w", dir, err)
+	}
+	probePath := probe.Name()
+	if err := probe.Close(); err != nil {
+		os.Remove(probePath)
+		return fmt.Errorf("failed to close probe file in disk cache directory %s: %w", dir, err)
+	}
+	if err := os.Remove(probePath); err != nil {
+		return fmt.Errorf("failed to remove probe file in disk cache directory %s: %w", dir, err)
+	}
+	return nil
+}
+
+// IsDiskCacheEnabled 是否启用磁盘缓存（生效代）
 func IsDiskCacheEnabled() bool {
-	diskCacheConfigMu.RLock()
-	defer diskCacheConfigMu.RUnlock()
-	return diskCacheConfig.Enabled
+	return GetDiskCacheConfig().Enabled
 }
 
-// GetDiskCacheThresholdBytes 获取磁盘缓存阈值（字节）
+// GetDiskCacheThresholdBytes 获取磁盘缓存阈值（字节，生效代）
 func GetDiskCacheThresholdBytes() int64 {
-	diskCacheConfigMu.RLock()
-	defer diskCacheConfigMu.RUnlock()
-	return int64(diskCacheConfig.ThresholdMB) << 20
+	return int64(GetDiskCacheConfig().ThresholdMB) << 20
 }
 
-// GetDiskCacheMaxSizeBytes 获取磁盘缓存最大大小（字节）
+// GetDiskCacheMaxSizeBytes 获取磁盘缓存最大大小（字节，生效代）
 func GetDiskCacheMaxSizeBytes() int64 {
-	diskCacheConfigMu.RLock()
-	defer diskCacheConfigMu.RUnlock()
-	return int64(diskCacheConfig.MaxSizeMB) << 20
+	return int64(GetDiskCacheConfig().MaxSizeMB) << 20
 }
 
-// GetDiskCachePath 获取磁盘缓存目录
+// GetDiskCachePath 获取磁盘缓存目录（生效代）
 func GetDiskCachePath() string {
-	diskCacheConfigMu.RLock()
-	defer diskCacheConfigMu.RUnlock()
-	return diskCacheConfig.Path
+	return GetDiskCacheConfig().Path
 }
 
 // DiskCacheStats 磁盘缓存统计信息
@@ -92,6 +169,7 @@ var diskCacheStats DiskCacheStats
 
 // GetDiskCacheStats 获取缓存统计信息
 func GetDiskCacheStats() DiskCacheStats {
+	config := GetDiskCacheConfig()
 	stats := DiskCacheStats{
 		ActiveDiskFiles:         atomic.LoadInt64(&diskCacheStats.ActiveDiskFiles),
 		CurrentDiskUsageBytes:   atomic.LoadInt64(&diskCacheStats.CurrentDiskUsageBytes),
@@ -99,8 +177,8 @@ func GetDiskCacheStats() DiskCacheStats {
 		CurrentMemoryUsageBytes: atomic.LoadInt64(&diskCacheStats.CurrentMemoryUsageBytes),
 		DiskCacheHits:           atomic.LoadInt64(&diskCacheStats.DiskCacheHits),
 		MemoryCacheHits:         atomic.LoadInt64(&diskCacheStats.MemoryCacheHits),
-		DiskCacheMaxBytes:       GetDiskCacheMaxSizeBytes(),
-		DiskCacheThresholdBytes: GetDiskCacheThresholdBytes(),
+		DiskCacheMaxBytes:       int64(config.MaxSizeMB) << 20,
+		DiskCacheThresholdBytes: int64(config.ThresholdMB) << 20,
 	}
 	return stats
 }
@@ -168,10 +246,11 @@ func SyncDiskCacheStats() {
 
 // IsDiskCacheAvailable 检查是否可以创建新的磁盘缓存
 func IsDiskCacheAvailable(requestSize int64) bool {
-	if !IsDiskCacheEnabled() {
+	config := GetDiskCacheConfig()
+	if !config.Enabled {
 		return false
 	}
-	maxBytes := GetDiskCacheMaxSizeBytes()
+	maxBytes := int64(config.MaxSizeMB) << 20
 	currentUsage := atomic.LoadInt64(&diskCacheStats.CurrentDiskUsageBytes)
 	return currentUsage+requestSize <= maxBytes
 }

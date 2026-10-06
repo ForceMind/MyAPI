@@ -55,6 +55,30 @@ export const MYAPI_LICENSE_URL = `${MYAPI_REPOSITORY_URL}/blob/main/LICENSE`
 export const MYAPI_NOTICES_URL = `${MYAPI_REPOSITORY_URL}/blob/main/NOTICE`
 export const MYAPI_DOCS_URL = `${MYAPI_REPOSITORY_URL}#readme`
 
+export function resolveDocsLink(value: unknown): {
+  href: string
+  external: boolean
+} {
+  const configured = nonEmptyString(value)
+  if (
+    configured?.startsWith('/') &&
+    !configured.startsWith('//') &&
+    !configured.includes('\\')
+  ) {
+    return { href: configured, external: false }
+  }
+  if (configured && /^https?:\/\//i.test(configured)) {
+    try {
+      if (new URL(configured).host) {
+        return { href: configured, external: true }
+      }
+    } catch {
+      // Invalid or unsupported runtime links fall back to the project docs.
+    }
+  }
+  return { href: MYAPI_DOCS_URL, external: true }
+}
+
 function equalsBrandValue(value: string, candidate: string): boolean {
   return (
     value.localeCompare(candidate, undefined, {

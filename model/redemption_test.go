@@ -1,10 +1,13 @@
 package model
 
 import (
+	"errors"
+	"fmt"
 	"sync"
 	"testing"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -102,12 +105,24 @@ func TestSearchRedemptionsFiltersAndPaginates(t *testing.T) {
 
 func setupRedeemFixture(t *testing.T, quota int) (userId int, key string) {
 	t.Helper()
-	require.NoError(t, DB.AutoMigrate(&Redemption{}))
+	require.NoError(t, DB.AutoMigrate(&Redemption{}, &Option{}))
 	require.NoError(t, DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Unscoped().Delete(&Redemption{}).Error)
+	oldFunding := operation_setting.GetUserFundingSetting()
+	var fundingState UserFundingStateSnapshot
+	require.NoError(t, DB.Transaction(func(tx *gorm.DB) error {
+		var err error
+		fundingState, err = InitializeUserFundingStateTx(tx, operation_setting.UserFundingModeEnabled)
+		return err
+	}))
+	require.NoError(t, PublishUserFundingState(fundingState))
 	t.Cleanup(func() {
 		require.NoError(t, DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Unscoped().Delete(&Redemption{}).Error)
+		DB.Exec("DELETE FROM quota_projection_obligations WHERE receipt_kind = ?", "user")
+		DB.Exec("DELETE FROM user_quota_mutation_receipts WHERE mutation_type = ?", "redemption")
 		DB.Exec("DELETE FROM users")
 		DB.Exec("DELETE FROM logs")
+		DB.Exec("DELETE FROM options WHERE `key` IN (?, ?, ?)", UserFundingStateOptionKey, operation_setting.UserFundingModeOptionKey, operation_setting.UserFundingEpochOptionKey)
+		require.NoError(t, operation_setting.PublishUserFundingSnapshot(oldFunding.Mode, oldFunding.Epoch))
 	})
 
 	user := &User{Username: "redeem-user", Password: "password", Status: common.UserStatusEnabled, Quota: 0}
@@ -178,4 +193,61 @@ func TestRedeemConcurrentSingleSuccess(t *testing.T) {
 	var user User
 	require.NoError(t, DB.First(&user, "id = ?", userId).Error)
 	assert.Equal(t, 300, user.Quota, "quota must be credited exactly once")
+}
+
+func TestAuthoritativeRedeemPersistsStableReceiptAndValidatesReplay(t *testing.T) {
+	userId, key := setupRedeemFixture(t, 500)
+	setQuotaWriterStateForTest(t, DB, QuotaWriterModeAuthoritative, 311)
+	quota, err := Redeem(key, userId)
+	require.NoError(t, err)
+	assert.Equal(t, 500, quota)
+	quota, err = Redeem(key, userId)
+	require.NoError(t, err)
+	assert.Equal(t, 500, quota)
+
+	var redemption Redemption
+	require.NoError(t, DB.Where("key = ?", key).First(&redemption).Error)
+	var receipts []UserQuotaMutationReceipt
+	require.NoError(t, DB.Where("business_event_key = ?", fmt.Sprintf("redemption:%d", redemption.Id)).Find(&receipts).Error)
+	require.Len(t, receipts, 1)
+	assert.Equal(t, "redemption", receipts[0].MutationType)
+	assert.EqualValues(t, 500, receipts[0].Delta)
+	var user User
+	require.NoError(t, DB.First(&user, userId).Error)
+	assert.Equal(t, 500, user.Quota)
+	assert.EqualValues(t, 1, user.QuotaVersion)
+
+	other := &User{Username: "redeem-other", AffCode: "redeem-other-aff", Password: "password", Status: common.UserStatusEnabled}
+	require.NoError(t, DB.Create(other).Error)
+	_, err = Redeem(key, other.Id)
+	require.Error(t, err)
+	require.True(t, errors.Is(err, ErrUserQuotaMutationConflict))
+
+	require.NoError(t, DB.Model(&Redemption{}).Where("id = ?", redemption.Id).Update("quota", 501).Error)
+	_, err = Redeem(key, userId)
+	require.Error(t, err)
+	require.True(t, errors.Is(err, ErrUserQuotaMutationConflict))
+	require.NoError(t, DB.First(&user, userId).Error)
+	assert.Equal(t, 500, user.Quota)
+}
+
+func TestAuthoritativeRedeemReceiptFailureRollsBackCodeAndQuota(t *testing.T) {
+	userId, key := setupRedeemFixture(t, 250)
+	setQuotaWriterStateForTest(t, DB, QuotaWriterModeAuthoritative, 312)
+	const callbackName = "test:redemption_receipt_failure"
+	require.NoError(t, DB.Callback().Create().Before("gorm:create").Register(callbackName, func(tx *gorm.DB) {
+		if _, ok := tx.Statement.Dest.(*UserQuotaMutationReceipt); ok {
+			tx.AddError(errors.New("receipt unavailable"))
+		}
+	}))
+	t.Cleanup(func() { _ = DB.Callback().Create().Remove(callbackName) })
+	_, err := Redeem(key, userId)
+	require.Error(t, err)
+	var redemption Redemption
+	require.NoError(t, DB.Where("key = ?", key).First(&redemption).Error)
+	assert.Equal(t, common.RedemptionCodeStatusEnabled, redemption.Status)
+	assert.Zero(t, redemption.UsedUserId)
+	var user User
+	require.NoError(t, DB.First(&user, userId).Error)
+	assert.Zero(t, user.Quota)
 }

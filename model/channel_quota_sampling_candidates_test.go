@@ -16,7 +16,7 @@ func TestQuotaSamplingCandidatesRotateByLastAttemptRegardlessOfPriority(t *testi
 	previousDB := DB
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&Channel{}, &ChannelQuotaSnapshot{}))
+	require.NoError(t, db.AutoMigrate(&Channel{}, &ChannelQuotaSnapshot{}, &ChannelQuotaSamplingTarget{}))
 	DB = db
 	t.Cleanup(func() { DB = previousDB })
 
@@ -32,7 +32,7 @@ func TestQuotaSamplingCandidatesRotateByLastAttemptRegardlessOfPriority(t *testi
 	require.NoError(t, RecordChannelQuotaSnapshot(&ChannelQuotaSnapshot{ChannelId: 2, ObservedAt: 100, Status: "error"}))
 	require.NoError(t, RecordChannelQuotaSnapshot(&ChannelQuotaSnapshot{ChannelId: 3, ObservedAt: 200, Status: "success"}))
 
-	for index, expectedID := range []int{1, 2, 3} {
+	for index, expectedID := range []int{1, 5, 2, 3} {
 		candidates, queryErr := GetChannelsForQuotaSnapshotSync(1)
 		require.NoError(t, queryErr)
 		require.Len(t, candidates, 1)
@@ -45,11 +45,11 @@ func TestQuotaSamplingCandidatesRotateByLastAttemptRegardlessOfPriority(t *testi
 	}
 }
 
-func TestQuotaSamplingCandidatesSkipMultiKeyWithoutExhaustingEligibleLimit(t *testing.T) {
+func TestQuotaSamplingCandidatesIncludeMultiKeyWithinBoundedLimit(t *testing.T) {
 	previousDB := DB
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&Channel{}, &ChannelQuotaSnapshot{}))
+	require.NoError(t, db.AutoMigrate(&Channel{}, &ChannelQuotaSnapshot{}, &ChannelQuotaSamplingTarget{}))
 	DB = db
 	t.Cleanup(func() { DB = previousDB })
 
@@ -63,15 +63,93 @@ func TestQuotaSamplingCandidatesSkipMultiKeyWithoutExhaustingEligibleLimit(t *te
 	candidates, err := GetChannelsForQuotaSnapshotSync(2)
 	require.NoError(t, err)
 	require.Len(t, candidates, 2)
-	require.Equal(t, 3, candidates[0].Id)
-	require.Equal(t, 4, candidates[1].Id)
+	require.Equal(t, 1, candidates[0].Id)
+	require.Equal(t, 2, candidates[1].Id)
+	require.True(t, candidates[0].ChannelInfo.IsMultiKey)
+	require.True(t, candidates[1].ChannelInfo.IsMultiKey)
 }
 
-func TestQuotaSamplingCandidatesReachAccountsAfterLargeMultiKeyPrefixInOneQuery(t *testing.T) {
+func TestQuotaSamplingChannelYieldsAfterAttemptEvenWhenOtherKeysRemainUnvisited(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&Channel{}, &ChannelQuotaSnapshot{}, &ChannelQuotaSamplingTarget{}))
+	previousDB := DB
+	DB = db
+	t.Cleanup(func() { DB = previousDB })
+	require.NoError(t, db.Create(&[]Channel{
+		{Id: 1, Key: "first\nsecond", Status: common.ChannelStatusEnabled, ChannelInfo: ChannelInfo{IsMultiKey: true}},
+		{Id: 2, Key: "healthy-next", Status: common.ChannelStatusEnabled},
+	}).Error)
+	for index := 0; index < 2; index++ {
+		subject, err := newChannelQuotaIdentitySubjectRef()
+		require.NoError(t, err)
+		require.NoError(t, EnsureChannelQuotaSamplingTarget(context.Background(), db, 1,
+			ChannelQuotaSamplingIdentity{SubjectRef: subject, IdentityQuality: ChannelQuotaIdentityQualityCredentialScoped}))
+		if index == 0 {
+			require.NoError(t, MarkChannelQuotaSamplingTargetAttempt(context.Background(), db, 1, subject, "failed", ""))
+		}
+	}
+	candidates, err := GetChannelsForQuotaSnapshotSync(1)
+	require.NoError(t, err)
+	require.Len(t, candidates, 1)
+	require.Equal(t, 2, candidates[0].Id, "an unvisited key must not make its already-attempted channel monopolize the next pass")
+}
+
+func TestQuotaSamplingConfirmedDuplicateGroupAdvancesFairlyAcrossChannels(t *testing.T) {
 	previousDB, previousType := DB, common.MainDatabaseType()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&Channel{}, &ChannelQuotaSnapshot{}))
+	require.NoError(t, db.AutoMigrate(&Channel{}, &ChannelQuotaSnapshot{}, &ChannelQuotaSamplingTarget{}))
+	DB = db
+	common.SetMainDatabaseType(common.DatabaseTypeSQLite)
+	t.Cleanup(func() { DB = previousDB; common.SetMainDatabaseType(previousType) })
+	require.NoError(t, db.Create(&[]Channel{
+		{Id: 1, Key: "key-a\nkey-b", Status: common.ChannelStatusEnabled, ChannelInfo: ChannelInfo{IsMultiKey: true}},
+		{Id: 2, Key: "key-c", Status: common.ChannelStatusEnabled},
+	}).Error)
+	subjects := make([]string, 4)
+	for index := range subjects {
+		subjects[index], err = newChannelQuotaIdentitySubjectRef()
+		require.NoError(t, err)
+	}
+	for _, input := range []struct {
+		channelID int
+		subject   string
+	}{
+		{1, subjects[0]}, {1, subjects[1]}, {2, subjects[2]},
+	} {
+		require.NoError(t, EnsureChannelQuotaSamplingTarget(context.Background(), db, input.channelID, ChannelQuotaSamplingIdentity{
+			SubjectRef: input.subject, IdentityQuality: ChannelQuotaIdentityQualityCredentialScoped,
+		}))
+	}
+	require.NoError(t, db.Model(&ChannelQuotaSamplingTarget{}).
+		Where("channel_id = ?", 1).
+		Updates(map[string]any{"confirmed_subject_ref": subjects[3], "last_attempt_at": int64(1)}).Error)
+	require.NoError(t, db.Model(&ChannelQuotaSamplingTarget{}).
+		Where("channel_id = ?", 2).
+		Update("last_attempt_at", int64(2)).Error)
+
+	require.NoError(t, MarkChannelQuotaSamplingTargetAttempt(context.Background(), db, 1, subjects[0], "sampled", subjects[3]))
+	var duplicate ChannelQuotaSamplingTarget
+	require.NoError(t, db.Where("channel_id = ? AND subject_ref = ?", 1, subjects[1]).First(&duplicate).Error)
+	require.Greater(t, duplicate.LastAttemptAt, int64(2), "the suppressed duplicate must advance with its confirmed account group")
+
+	candidates, err := GetChannelsForQuotaSnapshotSync(1)
+	require.NoError(t, err)
+	require.Len(t, candidates, 1)
+	require.Equal(t, 2, candidates[0].Id)
+	require.NoError(t, MarkChannelQuotaSamplingTargetAttempt(context.Background(), db, 2, subjects[2], "sampled", ""))
+	candidates, err = GetChannelsForQuotaSnapshotSync(1)
+	require.NoError(t, err)
+	require.Len(t, candidates, 1)
+	require.Equal(t, 1, candidates[0].Id, "after channel 2 advances, the confirmed group becomes eligible again")
+}
+
+func TestQuotaSamplingCandidatesReadLargeMultiKeyPrefixInOneQuery(t *testing.T) {
+	previousDB, previousType := DB, common.MainDatabaseType()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&Channel{}, &ChannelQuotaSnapshot{}, &ChannelQuotaSamplingTarget{}))
 	DB = db
 	common.SetMainDatabaseType(common.DatabaseTypeSQLite)
 	t.Cleanup(func() { DB = previousDB; common.SetMainDatabaseType(previousType) })
@@ -86,14 +164,14 @@ func TestQuotaSamplingCandidatesReachAccountsAfterLargeMultiKeyPrefixInOneQuery(
 			queries++
 		}
 	}))
-	for index, expectedID := range []int{2049, 2050, 2051} {
+	for index, expectedID := range []int{1, 2, 3} {
 		queries = 0
 		candidates, err := GetChannelsForQuotaSnapshotSyncContext(context.Background(), 1)
 		require.NoError(t, err)
 		require.Len(t, candidates, 1)
 		require.Equal(t, expectedID, candidates[0].Id)
-		require.False(t, candidates[0].ChannelInfo.IsMultiKey)
-		require.Equal(t, 1, queries, "excluded prefixes must not cause application-side pagination")
+		require.True(t, candidates[0].ChannelInfo.IsMultiKey)
+		require.Equal(t, 1, queries, "multi-key prefixes must not cause application-side pagination")
 		require.NoError(t, RecordChannelQuotaSnapshot(&ChannelQuotaSnapshot{ChannelId: expectedID, ObservedAt: int64(100 + index), Status: "error"}))
 	}
 }
@@ -102,7 +180,7 @@ func TestQuotaSamplingCandidatesHandleLegacyAndMalformedSQLiteJSON(t *testing.T)
 	previousDB, previousType := DB, common.MainDatabaseType()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&Channel{}, &ChannelQuotaSnapshot{}))
+	require.NoError(t, db.AutoMigrate(&Channel{}, &ChannelQuotaSnapshot{}, &ChannelQuotaSamplingTarget{}))
 	DB = db
 	common.SetMainDatabaseType(common.DatabaseTypeSQLite)
 	t.Cleanup(func() { DB = previousDB; common.SetMainDatabaseType(previousType) })
@@ -113,8 +191,8 @@ func TestQuotaSamplingCandidatesHandleLegacyAndMalformedSQLiteJSON(t *testing.T)
 	}
 	candidates, err := GetChannelsForQuotaSnapshotSync(10)
 	require.NoError(t, err)
-	require.Len(t, candidates, 3)
-	require.Equal(t, []int{1, 2, 3}, []int{candidates[0].Id, candidates[1].Id, candidates[2].Id})
+	require.Len(t, candidates, 4)
+	require.Equal(t, []int{1, 2, 3, 4}, []int{candidates[0].Id, candidates[1].Id, candidates[2].Id, candidates[3].Id})
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	_, err = GetChannelsForQuotaSnapshotSyncContext(ctx, 1)
@@ -138,8 +216,8 @@ func TestQuotaSamplingCandidatesGenerateDialectSpecificSingleQuery(t *testing.T)
 		operator  string
 	}{
 		{"sqlite", common.DatabaseTypeSQLite, sqlite.Open(":memory:"), "json_valid(CAST(channel_info AS TEXT))"},
-		{"mysql", common.DatabaseTypeMySQL, mysql.New(mysql.Config{Conn: sqlDB, SkipInitializeWithVersion: true}), "JSON_UNQUOTE(JSON_EXTRACT"},
-		{"postgres", common.DatabaseTypePostgreSQL, postgres.New(postgres.Config{Conn: sqlDB}), "channel_info->>'is_multi_key'"},
+		{"mysql", common.DatabaseTypeMySQL, mysql.New(mysql.Config{Conn: sqlDB, SkipInitializeWithVersion: true}), "JSON_TYPE(JSON_EXTRACT"},
+		{"postgres", common.DatabaseTypePostgreSQL, postgres.New(postgres.Config{Conn: sqlDB}), "json_typeof(channel_info->'is_multi_key')"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			dryDB, err := gorm.Open(test.dialector, &gorm.Config{DryRun: true, DisableAutomaticPing: true})

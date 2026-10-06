@@ -479,6 +479,12 @@ func TokenAuth() func(c *gin.Context) {
 		if err != nil {
 			return
 		}
+		if !checkUserUsageAdmission(c, token) {
+			return
+		}
+		if !checkTokenBudgetAdmission(c, token) {
+			return
+		}
 		c.Next()
 	}
 }
@@ -502,6 +508,7 @@ func SetupContextForToken(c *gin.Context, token *model.Token, parts ...string) e
 		c.Set("token_model_limit_enabled", false)
 	}
 	common.SetContextKey(c, constant.ContextKeyTokenGroup, token.Group)
+	common.SetContextKey(c, constant.ContextKeyAccessProfileID, token.AccessProfileID)
 	common.SetContextKey(c, constant.ContextKeyTokenCrossGroupRetry, token.CrossGroupRetry)
 	if token.AutoGroups != "" {
 		autoGroups, err := token.GetAutoGroups()
