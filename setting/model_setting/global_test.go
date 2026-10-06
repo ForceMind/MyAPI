@@ -126,9 +126,16 @@ func TestManagedGlobalSettingsPublishesWholeGeneration(t *testing.T) {
 	first := state.snapshot()
 	second := GlobalSettings{PassThroughRequestEnabled: true, ThinkingModelBlacklist: []string{"second"}, ChatCompletionsToResponsesPolicy: ChatCompletionsToResponsesPolicy{AllChannels: true, ChannelIDs: []int{3}, ChannelTypes: []int{4}, ModelPatterns: []string{"second"}}}
 	updates := []map[string]string{
-		{"pass_through_request_enabled": "false", "thinking_model_blacklist": `["first"]`, "chat_completions_to_responses_policy": `{"enabled":true,"channel_ids":[1],"channel_types":[2],"model_patterns":["first"]}`},
+		{"pass_through_request_enabled": "false", "thinking_model_blacklist": `["first"]`, "chat_completions_to_responses_policy": `{"enabled":true,"all_channels":false,"channel_ids":[1],"channel_types":[2],"model_patterns":["first"]}`},
 		{"pass_through_request_enabled": "true", "thinking_model_blacklist": `["second"]`, "chat_completions_to_responses_policy": `{"enabled":false,"all_channels":true,"channel_ids":[3],"channel_types":[4],"model_patterns":["second"]}`},
 	}
+
+	// Exercise both transitions without scheduling so the fixture describes
+	// complete generations rather than inheriting fields from the prior one.
+	require.NoError(t, state.UpdateConfigMap(updates[1]))
+	require.Equal(t, second, state.snapshot())
+	require.NoError(t, state.UpdateConfigMap(updates[0]))
+	require.Equal(t, first, state.snapshot())
 
 	var writers sync.WaitGroup
 	writerErr := make(chan error, 1)
