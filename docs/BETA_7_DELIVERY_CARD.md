@@ -1,5 +1,31 @@
 # beta.7 delivery card: assigned access and in-app quota events
 
+## Final inline-error ownership correction (2026-10-06)
+
+The PostgreSQL correction `ee8e1fb3` passed all ten CI jobs, three Docker smoke
+jobs and the static-site check on its exact tree. Actual B2 MySQL and PostgreSQL
+contracts completed in 10.79 and 23.82 seconds; SQLite/MySQL/PostgreSQL event
+contracts and the default-preservation regression passed. The frontend passed
+137 files / 749 tests and all three real Chromium journeys. Its test-merge commit
+`d1f118c094cb454ad4f869e37d16400eeb41e810` has the same source tree,
+`6ffb2faa9e88a392d146af10eec0ee77ca244ed8`.
+
+Review of its ten access/event screenshots exposed an additional integration
+gap: a policy conflict rendered its safe inline message, but inherited the app's
+default mutation handler as well. That handler emitted an empty duplicate toast
+and passed the raw Axios error to the console logger. The dialog now owns its
+mutation error callback, leaving its localized classification and stale-write
+lock in place. It does not alter the shared error framework, HTTP authentication
+refresh, permission checks, request behavior or retry limits.
+
+A regression with the real default handler and a synthetic Axios conflict fails
+before the correction and passes afterward: one inline error, no duplicate toast
+or raw console error, and refresh required before another write. All 55 focused
+access/owner/menu tests, typecheck, scoped lint/format and build passed. The real
+browser journey now additionally rejects a duplicate conflict toast or a raw
+Axios console log, retaining only a redacted failure marker. This correction's
+own exact-head CI is required; the preceding green commit is not substituted.
+
 ## Bounded PostgreSQL catalog correction (2026-10-06)
 
 The owner-menu correction `e33be806` passed the unchanged real Chromium access

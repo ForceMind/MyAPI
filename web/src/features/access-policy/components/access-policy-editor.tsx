@@ -75,6 +75,8 @@ export function AccessPolicyEditor(props: {
       return { kind: 'saved' as const, data }
     },
     retry: false,
+    // Policy failures are rendered inline, without the default raw-error toast/log.
+    onError: () => undefined,
     onSuccess: (result) => {
       if (!session.isCurrent() || result.kind !== 'saved') return
       client.setQueryData(queryKey, result.data)

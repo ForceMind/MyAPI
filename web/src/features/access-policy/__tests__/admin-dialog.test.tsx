@@ -1,8 +1,11 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { AxiosError, AxiosHeaders } from 'axios'
+import { toast } from 'sonner'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import { api } from '@/lib/api'
+import { handleServerError } from '@/lib/handle-server-error'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { AccessPolicyError } from '../api'
@@ -345,4 +348,77 @@ test('an invalid typed Key ID never loads a policy', async () => {
     'true'
   )
   expect(api.get).toHaveBeenCalledTimes(1)
+})
+
+test('an HTTP conflict uses only the inline policy error instead of the application default toast and raw error log', async () => {
+  const user = userEvent.setup()
+  const context = queryWrapper()
+  context.client.setDefaultOptions({
+    queries: { retry: false },
+    mutations: { retry: false, onError: handleServerError },
+  })
+  const config = {
+    headers: new AxiosHeaders(),
+    method: 'put',
+    url: '/api/access-policy/user/2',
+    skipErrorHandler: true,
+  }
+  const error = new AxiosError(
+    'Synthetic access-policy conflict',
+    AxiosError.ERR_BAD_REQUEST,
+    config,
+    undefined,
+    {
+      config,
+      headers: new AxiosHeaders(),
+      status: 409,
+      statusText: 'Conflict',
+      data: {
+        success: false,
+        code: 'access_policy_conflict',
+        message: 'Synthetic raw server detail',
+      },
+    }
+  )
+  vi.mocked(api.put).mockRejectedValue(error)
+  const toastError = vi.spyOn(toast, 'error')
+  const consoleLog = vi
+    .spyOn(console, 'log')
+    .mockImplementation(() => undefined)
+  const consoleError = vi
+    .spyOn(console, 'error')
+    .mockImplementation(() => undefined)
+  const view = render(
+    <AccessPolicyDialog userId={2} onClose={vi.fn()} />,
+    context
+  )
+  try {
+    await user.click(
+      await screen.findByRole('button', { name: 'Save assignment' })
+    )
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This policy changed elsewhere. Refresh and review before saving again.'
+    )
+    const save = screen.getByRole('button', { name: 'Save assignment' })
+    expect(save).toBeDisabled()
+    expect(
+      screen.getByRole('checkbox', { name: 'Enable assigned access' })
+    ).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: 'Refresh policy' })).toBeEnabled()
+    await user.click(save)
+    expect(api.put).toHaveBeenCalledTimes(1)
+    expect(
+      screen.queryByText('Synthetic raw server detail')
+    ).not.toBeInTheDocument()
+    expect.soft(toastError).not.toHaveBeenCalled()
+    expect.soft(consoleLog).not.toHaveBeenCalled()
+    expect.soft(consoleError).not.toHaveBeenCalled()
+  } finally {
+    view.unmount()
+    context.client.clear()
+    toast.dismiss()
+    toastError.mockRestore()
+    consoleLog.mockRestore()
+    consoleError.mockRestore()
+  }
 })

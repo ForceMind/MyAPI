@@ -85,6 +85,9 @@ try {
     return url.origin === origin || url.protocol === 'data:' ? route.fallback() : route.abort()
   })
   const page = await context.newPage(); page.setDefaultTimeout(15000); page.on('pageerror', error => errors.push(error.message)); mkdirSync(output, { recursive: true })
+  page.on('console', message => {
+    if (message.type() === 'log' && message.text().includes('AxiosError')) errors.push('Raw HTTP error reached the console')
+  })
   const openUser = async () => {
     await page.setViewportSize({ width: 1280, height: 900 }); await page.goto(`${origin}/users`, { waitUntil: 'networkidle' })
     await page.getByRole('row').filter({ hasText: 'policy-user' }).getByRole('button', { name: label('Open menu'), exact: true }).click()
@@ -122,6 +125,7 @@ try {
   conflict = true
   await dialog.getByRole('button', { name: label('Save assignment'), exact: true }).click()
   await dialog.getByRole('alert').waitFor(); assert.equal(writes.length, 2, 'conflict cannot overwrite newer assignment')
+  assert.equal(await page.locator('[data-sonner-toast][data-type="error"]').count(), 0, 'policy conflicts use the inline error without a duplicate global toast')
   await dialog.getByRole('button', { name: label('Refresh policy'), exact: true }).click()
   await dialog.getByRole('group', { name: label('Channel ID scope'), exact: true }).getByRole('textbox').fill('1')
   await dialog.getByRole('checkbox', { name: label('Enable assigned access'), exact: true }).uncheck()
