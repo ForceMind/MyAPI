@@ -1,5 +1,42 @@
 # beta.7 delivery card: assigned access and in-app quota events
 
+## Exact-head findings and owner-menu correction (2026-10-06)
+
+The complete source candidate `03d0c67f` was published through separate fixture,
+assignment, event and UI checkpoints. Its first real Chromium access journey
+completed administrator preview/save/conflict/revocation and account-event
+screens, then failed on the ordinary owner's first Key menu opening. The
+existing asynchronous key reveal updated provider state; an inline table-cell
+component was recreated and unmounted the open menu. Three real-provider/table/
+dialog regressions reproduce the failure before the correction. A stable
+`DataTableRowActions` cell reference preserves the menu, first-click action and
+keyboard focus through pending, successful and failed reveal. The owner-only
+reveal request and authorization behavior are unchanged. All 97 related tests,
+typecheck, scoped lint/format and build passed; independent review cleared the
+two-file change. The unchanged real browser journey must still pass on its new
+published head; no automatic reclick, pre-reveal, timeout increase or reduced
+assertion was introduced.
+
+The intermediate event checkpoint `616b00b6` passed nine CI jobs, but B2 failed
+at its original 180-second limit both initially and in its single same-head
+retry. Both traces wait in the PostgreSQL driver's catalog introspection during
+AutoMigrate after earlier startup migrations have populated the schema. The
+first AutoMigrate inside the B2 helper is line 132; its repeat is line 136.
+The later quota/event database group was skipped. The full UI candidate also
+failed B2, so no complete beta.7 database or CI pass is claimed.
+
+A disposable local PostgreSQL 9.6.24 reproduction also exhausted the unchanged
+180-second deadline. Server logs show many completed catalog queries taking
+roughly one to two seconds each and sustained backend CPU, rather than evidence
+of a single query blocked for the whole deadline. On the same catalog, the
+original metadata join took 1509 ms, the upstream tightened join took 5 ms and
+the original again took 2495 ms; returned metadata rows were identical. A
+separate alternate-modfile driver experiment completed the existing B2 contract
+in 44.585 seconds. Dependency/default-normalization review and final three-engine
+qualification remain pending; no timeout, migration assertion or financial rule
+was relaxed. These new observations do not retroactively prove the cause of
+beta.6's separately retained catalog-query timeout.
+
 ## Recovery and fresh local qualification (2026-10-06)
 
 The original local candidate and verification logs were lost in a workspace
