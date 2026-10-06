@@ -170,17 +170,20 @@ func ListChannelQuotaAggregateRows(ctx context.Context, start, end int64, channe
 // are intentionally not persisted here.
 type ChannelQuotaSnapshot struct {
 	// Only newly verified native WHAM samples can support a percentage gate.
-	CodexThresholdQualified bool     `json:"-" gorm:"not null;default:false"`
-	Id                      int      `json:"id" gorm:"primaryKey"`
-	ChannelId               int      `json:"channel_id" gorm:"index:idx_channel_quota_observed,priority:1;index:idx_channel_quota_metric,priority:1;index:idx_channel_quota_dedupe,priority:1;index:idx_channel_quota_sample,priority:1"`
-	ObservedAt              int64    `json:"observed_at" gorm:"bigint;index:idx_channel_quota_observed,priority:2;index:idx_channel_quota_metric,priority:4;index:idx_channel_quota_retention;index:idx_channel_quota_dedupe,priority:2"`
-	Available               float64  `json:"available"`
-	Used                    *float64 `json:"used,omitempty"`
-	Total                   *float64 `json:"total,omitempty"`
-	Unit                    string   `json:"unit" gorm:"size:32;default:'usd';index:idx_channel_quota_dedupe,priority:6"`
-	Currency                string   `json:"currency,omitempty" gorm:"size:8;index:idx_channel_quota_dedupe,priority:7"`
-	MetricType              string   `json:"metric_type" gorm:"size:32;default:'balance';index:idx_channel_quota_metric,priority:2;index:idx_channel_quota_dedupe,priority:3"`
-	WindowType              string   `json:"window_type,omitempty" gorm:"size:32;default:'none';index:idx_channel_quota_metric,priority:3;index:idx_channel_quota_dedupe,priority:4"`
+	// Native observation provenance is separate from healthy admission.
+	// Historical rows are never promoted from value-only evidence.
+	CodexObservationQualified bool     `json:"-" gorm:"not null;default:false"`
+	CodexThresholdQualified   bool     `json:"-" gorm:"not null;default:false"`
+	Id                        int      `json:"id" gorm:"primaryKey"`
+	ChannelId                 int      `json:"channel_id" gorm:"index:idx_channel_quota_observed,priority:1;index:idx_channel_quota_metric,priority:1;index:idx_channel_quota_dedupe,priority:1;index:idx_channel_quota_sample,priority:1"`
+	ObservedAt                int64    `json:"observed_at" gorm:"bigint;index:idx_channel_quota_observed,priority:2;index:idx_channel_quota_metric,priority:4;index:idx_channel_quota_retention;index:idx_channel_quota_dedupe,priority:2"`
+	Available                 float64  `json:"available"`
+	Used                      *float64 `json:"used,omitempty"`
+	Total                     *float64 `json:"total,omitempty"`
+	Unit                      string   `json:"unit" gorm:"size:32;default:'usd';index:idx_channel_quota_dedupe,priority:6"`
+	Currency                  string   `json:"currency,omitempty" gorm:"size:8;index:idx_channel_quota_dedupe,priority:7"`
+	MetricType                string   `json:"metric_type" gorm:"size:32;default:'balance';index:idx_channel_quota_metric,priority:2;index:idx_channel_quota_dedupe,priority:3"`
+	WindowType                string   `json:"window_type,omitempty" gorm:"size:32;default:'none';index:idx_channel_quota_metric,priority:3;index:idx_channel_quota_dedupe,priority:4"`
 	// PlanType and WindowSeconds are populated for provider-specific rate-limit
 	// observations (for example Codex OAuth). They remain empty/zero for the
 	// generic balance snapshots.
@@ -585,7 +588,7 @@ func appendChannelQuotaSnapshotAbsenceMarkers(current, previous []ChannelQuotaSn
 		}
 		marked[series] = struct{}{}
 		absence := ChannelQuotaSnapshot{
-			CodexThresholdQualified: current[0].CodexThresholdQualified, ChannelId: current[0].ChannelId, ObservedAt: current[0].ObservedAt, SampleID: current[0].SampleID,
+			CodexObservationQualified: current[0].CodexObservationQualified, CodexThresholdQualified: current[0].CodexThresholdQualified, ChannelId: current[0].ChannelId, ObservedAt: current[0].ObservedAt, SampleID: current[0].SampleID,
 			SubjectRef: snapshot.SubjectRef, IdentityQuality: snapshot.IdentityQuality, AccountRef: snapshot.AccountRef,
 			MetricType: snapshot.MetricType, WindowType: snapshot.WindowType, Source: snapshot.Source,
 			PlanType: snapshot.PlanType, Unit: snapshot.Unit, Currency: snapshot.Currency,
@@ -641,7 +644,7 @@ func channelQuotaSnapshotContentKey(snapshot *ChannelQuotaSnapshot) string {
 		strconv.Itoa(snapshot.ChannelId), strconv.FormatInt(snapshot.ObservedAt, 10), snapshot.SampleID, identity, quality,
 		snapshot.MetricType, snapshot.WindowType, snapshot.Source, snapshot.PlanType, snapshot.Unit, snapshot.Currency,
 		strconv.FormatInt(snapshot.WindowSeconds, 10), strconv.FormatInt(snapshot.ResetAt, 10), snapshot.Status,
-		snapshot.ErrorCode, snapshot.ErrorMessage, strconv.FormatUint(math.Float64bits(snapshot.Available), 10), used, total, strconv.FormatBool(snapshot.CodexThresholdQualified),
+		snapshot.ErrorCode, snapshot.ErrorMessage, strconv.FormatUint(math.Float64bits(snapshot.Available), 10), used, total, strconv.FormatBool(snapshot.CodexThresholdQualified), strconv.FormatBool(snapshot.CodexObservationQualified),
 	}, "\x00")
 }
 

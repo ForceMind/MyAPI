@@ -3,6 +3,7 @@ package router
 import (
 	"github.com/ForceMind/MyAPI/controller"
 	"github.com/ForceMind/MyAPI/middleware"
+	"github.com/ForceMind/MyAPI/service/authz"
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,6 +21,10 @@ func registerChannelQuotaAlertRoutes(channelRoute *gin.RouterGroup) {
 		middleware.CriticalRateLimit(),
 		middleware.SecureVerificationRequired(),
 	}
+
+	// In-app history is an ordinary channel-read operation. External delivery
+	// configuration and execution retain their separate Root-only boundary.
+	channelRoute.GET("/quota/events", middleware.RequirePermission(authz.ChannelRead), middleware.DisableCache(), controller.GetChannelQuotaAlertDeliveryEvents)
 
 	channelRoute.GET("/quota/alerts", append(readMiddleware, controller.GetChannelQuotaAlertDeliveryEvents)...)
 	channelRoute.GET("/quota/alerts/delivery", append(readMiddleware, controller.GetChannelQuotaAlertDeliveryStatus)...)

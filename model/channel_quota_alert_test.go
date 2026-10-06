@@ -37,8 +37,8 @@ func TestChannelQuotaAlertOutboxPersistsThresholdAndRecovery(t *testing.T) {
 	batch := func(sampleID string, observedAt int64, available float64) error {
 		return RecordChannelQuotaSnapshotBatchWithContext(context.Background(), []ChannelQuotaSnapshot{{
 			ChannelId: 17, AccountRef: ref, ObservedAt: observedAt, SampleID: sampleID,
-			Available: available, Total: &total, MetricType: "codex_rate_limit", WindowType: "five_hour",
-			Source: "codex_wham_usage_primary", Unit: "percent", WindowSeconds: 18000, Status: "success",
+			Available: available, Total: &total, CodexObservationQualified: true, CodexThresholdQualified: true, MetricType: "codex_rate_limit", WindowType: "five_hour",
+			Source: "codex_wham_usage_primary", Unit: "percent", WindowSeconds: 18000, ResetAt: 19000, Status: "success",
 		}}, ChannelQuotaSnapshotBatchOptions{})
 	}
 
@@ -87,7 +87,7 @@ func TestChannelQuotaAlertOutboxSeparatesAccountSeries(t *testing.T) {
 	for index, account := range []string{"account-a", "account-b"} {
 		require.NoError(t, RecordChannelQuotaSnapshotBatchWithContext(context.Background(), []ChannelQuotaSnapshot{{
 			ChannelId: 18, AccountRef: ChannelQuotaAccountRef("codex", account), ObservedAt: int64(100 + index), SampleID: "sample-" + account,
-			Available: 5, Total: &total, MetricType: "codex_rate_limit", WindowType: "five_hour", Source: "codex_wham_usage_primary", Unit: "percent", WindowSeconds: 18000, Status: "success",
+			Available: 5, Total: &total, CodexObservationQualified: true, CodexThresholdQualified: true, MetricType: "codex_rate_limit", WindowType: "five_hour", Source: "codex_wham_usage_primary", Unit: "percent", WindowSeconds: 18000, ResetAt: 19000, Status: "success",
 		}}, ChannelQuotaSnapshotBatchOptions{}))
 	}
 	var states []ChannelQuotaAlertState
@@ -110,7 +110,7 @@ func TestChannelQuotaAlertDeliveryQueryAndSnapshotStayRedactedAndScoped(t *testi
 	total := 100.0
 	snapshot := ChannelQuotaSnapshot{
 		ChannelId: 27, AccountRef: ChannelQuotaAccountRef("codex", "account-secret"),
-		ObservedAt: 1000, Available: 5, Total: &total, MetricType: "codex_rate_limit",
+		ObservedAt: 1000, Available: 5, Total: &total, CodexObservationQualified: true, CodexThresholdQualified: true, MetricType: "codex_rate_limit",
 		WindowType: "five_hour", Source: "codex_wham_usage_primary", Unit: "percent", Status: "success",
 	}
 	require.NoError(t, db.Create(&snapshot).Error)
@@ -151,4 +151,68 @@ func TestListChannelQuotaAlertEventsRejectsUnboundedOrUnknownFilters(t *testing.
 	require.Error(t, err)
 	_, _, err = ListChannelQuotaAlertEvents(context.Background(), ChannelQuotaAlertEventFilter{}, 0, 101)
 	require.Error(t, err)
+}
+
+// A zero sample is a distinct account-window event even when the preceding
+// critical event has not been sent anywhere. No webhook is required.
+func TestChannelQuotaAlertInAppExhaustionAndCooldownWithoutDelivery(t *testing.T) {
+	previousDB, previousSettings := DB, channelQuotaAlertSettings()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&Channel{}, &ChannelQuotaSnapshot{}, &ChannelQuotaAlertState{}, &ChannelQuotaAlertEvent{}))
+	DB = db
+	require.NoError(t, db.Create(&Channel{Id: 73}).Error)
+	common.ChannelQuotaAlertEnabled, common.ChannelQuotaAlertWarningPercent, common.ChannelQuotaAlertCriticalPercent = true, 20, 10
+	common.ChannelQuotaAlertCooldownSeconds, common.ChannelQuotaAlertNotifyOnRecovery = 60, true
+	t.Cleanup(func() {
+		DB = previousDB
+		common.ChannelQuotaAlertEnabled, common.ChannelQuotaAlertWarningPercent, common.ChannelQuotaAlertCriticalPercent = previousSettings.Enabled, previousSettings.WarningPercent, previousSettings.CriticalPercent
+		common.ChannelQuotaAlertCooldownSeconds, common.ChannelQuotaAlertNotifyOnRecovery = previousSettings.CooldownSeconds, previousSettings.NotifyOnRecovery
+	})
+	total := 100.0
+	for _, sample := range []struct {
+		id        string
+		at        int64
+		available float64
+	}{{"low", 100, 5}, {"zero", 101, 0}, {"same", 102, 0}, {"reminder", 161, 0}, {"recovered", 162, 80}} {
+		require.NoError(t, RecordChannelQuotaSnapshotBatchWithContext(context.Background(), []ChannelQuotaSnapshot{{ChannelId: 73, AccountRef: ChannelQuotaAccountRef("codex", "synthetic-account"), SampleID: sample.id, ObservedAt: sample.at, Available: sample.available, Total: &total, CodexObservationQualified: true, CodexThresholdQualified: true, MetricType: "codex_rate_limit", WindowType: "five_hour", WindowSeconds: 18000, ResetAt: 18000, Unit: "percent", Source: "codex_wham_usage_primary", Status: "success"}}, ChannelQuotaSnapshotBatchOptions{}))
+	}
+	var events []ChannelQuotaAlertEvent
+	require.NoError(t, db.Order("id ASC").Find(&events).Error)
+	require.Len(t, events, 4)
+	require.Equal(t, "critical", events[0].Status)
+	require.Equal(t, "exhausted", events[1].Status)
+	require.Equal(t, "reminder", events[2].Kind)
+	require.Equal(t, "recovery", events[3].Kind)
+	for _, event := range events {
+		require.Equal(t, "pending", event.State)
+		require.Zero(t, event.AttemptCount)
+	}
+}
+
+func TestChannelQuotaAlertExpiredFinalClaimQuarantinesWithoutResending(t *testing.T) {
+	previousDB := DB
+	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/last-attempt.db"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&ChannelQuotaAlertEvent{}))
+	DB = db
+	t.Cleanup(func() {
+		DB = previousDB
+		sqlDB, err := db.DB()
+		require.NoError(t, err)
+		require.NoError(t, sqlDB.Close())
+	})
+	event := ChannelQuotaAlertEvent{EventKey: "synthetic-final-claim", SeriesKey: "synthetic", SnapshotID: 1, ChannelID: 1, Status: "exhausted", Kind: "threshold", State: channelQuotaAlertEventStateClaimed, ClaimedBy: "crashed-worker", ClaimedUntil: 100, AttemptCount: channelQuotaAlertMaxAttempts, LockVersion: 8, ObservedAt: 1, CreatedAt: 1}
+	require.NoError(t, db.Create(&event).Error)
+	claims, err := ClaimChannelQuotaAlertEvents(context.Background(), "replacement", 101, 30, 10)
+	require.NoError(t, err)
+	require.Empty(t, claims, "crashed eighth attempt cannot be dispatched a ninth time")
+	var saved ChannelQuotaAlertEvent
+	require.NoError(t, db.First(&saved, event.ID).Error)
+	require.Equal(t, channelQuotaAlertEventStateQuarantined, saved.State)
+	require.Equal(t, channelQuotaAlertMaxAttempts, saved.AttemptCount)
+	require.Empty(t, saved.ClaimedBy)
+	won, err := MarkChannelQuotaAlertDelivered(context.Background(), event, "crashed-worker", 102)
+	require.NoError(t, err)
+	require.False(t, won, "stale worker cannot overwrite terminal quarantine")
 }

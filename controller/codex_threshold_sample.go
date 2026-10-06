@@ -36,10 +36,11 @@ func qualifyCodexThresholdSnapshots(snapshots []model.ChannelQuotaSnapshot, stat
 		Reached *bool `json:"limit_reached"`
 	}
 	encoded, err := common.Marshal(outer.RateLimit)
-	if err != nil || common.Unmarshal(encoded, &flags) != nil || flags.Allowed == nil || !*flags.Allowed || flags.Reached == nil || *flags.Reached {
+	if err != nil || common.Unmarshal(encoded, &flags) != nil || flags.Allowed == nil || flags.Reached == nil {
 		return
 	}
 	count := 0
+	hasExhaustedWindow := false
 	for _, key := range []string{"primary_window", "secondary_window"} {
 		raw, exists := outer.RateLimit[key]
 		if !exists {
@@ -59,6 +60,9 @@ func qualifyCodexThresholdSnapshots(snapshots []model.ChannelQuotaSnapshot, stat
 		if window.Used == nil || math.IsNaN(*window.Used) || math.IsInf(*window.Used, 0) || *window.Used < 0 || *window.Used > 100 || window.Seconds == nil || *window.Seconds <= 0 || window.Reset == nil || *window.Reset <= 0 {
 			return
 		}
+		if *window.Used == 100 {
+			hasExhaustedWindow = true
+		}
 		count++
 	}
 	if count == 0 || count != len(snapshots) {
@@ -70,6 +74,10 @@ func qualifyCodexThresholdSnapshots(snapshots []model.ChannelQuotaSnapshot, stat
 		}
 	}
 	for index := range snapshots {
-		snapshots[index].CodexThresholdQualified = true
+		// Keep the existing healthy/admission contract unchanged. An event
+		// observation can also prove exhaustion, but contradictory flags cannot
+		// manufacture recovery or an exhausted account window.
+		snapshots[index].CodexThresholdQualified = *flags.Allowed && !*flags.Reached
+		snapshots[index].CodexObservationQualified = (*flags.Allowed && !*flags.Reached && !hasExhaustedWindow) || (!*flags.Allowed && *flags.Reached && hasExhaustedWindow)
 	}
 }

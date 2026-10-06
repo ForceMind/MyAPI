@@ -61,21 +61,23 @@ type ChannelQuotaAlertDeliveryStatus struct {
 }
 
 type ChannelQuotaAlertDeliveryEvent struct {
-	ID            int64  `json:"id"`
-	EventKey      string `json:"event_key"`
-	SnapshotID    int    `json:"snapshot_id"`
-	ChannelID     int    `json:"channel_id"`
-	Status        string `json:"status"`
-	Kind          string `json:"kind"`
-	State         string `json:"state"`
-	AttemptCount  int    `json:"attempt_count"`
-	NextAttemptAt int64  `json:"next_attempt_at,omitempty"`
-	LastErrorCode string `json:"last_error_code,omitempty"`
-	LastErrorAt   int64  `json:"last_error_at,omitempty"`
-	DeliveredAt   *int64 `json:"delivered_at,omitempty"`
-	ObservedAt    int64  `json:"observed_at"`
-	CreatedAt     int64  `json:"created_at"`
-	UpdatedAt     int64  `json:"updated_at"`
+	SeriesRef     string                           `json:"series_ref"`
+	Evidence      *model.ChannelQuotaAlertEvidence `json:"evidence"`
+	ID            int64                            `json:"id"`
+	EventKey      string                           `json:"event_key"`
+	SnapshotID    int                              `json:"snapshot_id"`
+	ChannelID     int                              `json:"channel_id"`
+	Status        string                           `json:"status"`
+	Kind          string                           `json:"kind"`
+	State         string                           `json:"state"`
+	AttemptCount  int                              `json:"attempt_count"`
+	NextAttemptAt int64                            `json:"next_attempt_at,omitempty"`
+	LastErrorCode string                           `json:"last_error_code,omitempty"`
+	LastErrorAt   int64                            `json:"last_error_at,omitempty"`
+	DeliveredAt   *int64                           `json:"delivered_at,omitempty"`
+	ObservedAt    int64                            `json:"observed_at"`
+	CreatedAt     int64                            `json:"created_at"`
+	UpdatedAt     int64                            `json:"updated_at"`
 }
 
 type ChannelQuotaAlertDeliveryWorker struct {
@@ -220,6 +222,7 @@ func ListChannelQuotaAlertDeliveryEvents(ctx context.Context, filter model.Chann
 	for _, event := range events {
 		items = append(items, ChannelQuotaAlertDeliveryEvent{
 			ID: event.ID, EventKey: event.EventKey, SnapshotID: event.SnapshotID, ChannelID: event.ChannelID,
+			SeriesRef: event.SeriesKey, Evidence: model.ReadChannelQuotaAlertEvidence(ctx, event),
 			Status: event.Status, Kind: event.Kind, State: event.State, AttemptCount: event.AttemptCount,
 			NextAttemptAt: event.NextAttemptAt, LastErrorCode: event.LastErrorCode, LastErrorAt: event.LastErrorAt,
 			DeliveredAt: event.DeliveredAt, ObservedAt: event.ObservedAt, CreatedAt: event.CreatedAt, UpdatedAt: event.UpdatedAt,

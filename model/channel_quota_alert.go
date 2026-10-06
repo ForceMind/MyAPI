@@ -41,8 +41,11 @@ type ChannelQuotaAlertState struct {
 	CurrentStatus   string `gorm:"type:varchar(16);not null"`
 	ObservedAt      int64  `gorm:"type:bigint;not null"`
 	LastDeliveredAt int64  `gorm:"type:bigint;not null;default:0"`
-	CreatedAt       int64  `gorm:"type:bigint;not null"`
-	UpdatedAt       int64  `gorm:"type:bigint;not null"`
+	// Event cooldown belongs to the in-app occurrence, not webhook success.
+	LastSnapshotID int   `gorm:"not null;default:0"`
+	LastEventAt    int64 `gorm:"type:bigint;not null;default:0"`
+	CreatedAt      int64 `gorm:"type:bigint;not null"`
+	UpdatedAt      int64 `gorm:"type:bigint;not null"`
 }
 
 // ChannelQuotaAlertEvent is an immutable transactional-outbox event. Its
@@ -68,6 +71,9 @@ type ChannelQuotaAlertEvent struct {
 	ObservedAt    int64  `gorm:"type:bigint;not null;index"`
 	CreatedAt     int64  `gorm:"type:bigint;not null"`
 	UpdatedAt     int64  `gorm:"type:bigint;not null;default:0"`
+	// Frozen normalized evidence keeps in-app history useful after snapshot
+	// retention. No credentials, account identifiers or provider payloads.
+	EvidenceJSON string `gorm:"type:text" json:"-"`
 }
 
 type ChannelQuotaAlertEventFilter struct {
@@ -86,7 +92,7 @@ func ValidChannelQuotaAlertEventFilter(filter ChannelQuotaAlertEventFilter) bool
 		filter.State != channelQuotaAlertEventStateDelivered && filter.State != channelQuotaAlertEventStateQuarantined {
 		return false
 	}
-	if filter.Status != "" && filter.Status != "healthy" && filter.Status != "warning" && filter.Status != "critical" {
+	if filter.Status != "" && filter.Status != "healthy" && filter.Status != "warning" && filter.Status != "critical" && filter.Status != "exhausted" {
 		return false
 	}
 	return filter.Kind == "" || filter.Kind == "threshold" || filter.Kind == "reminder" || filter.Kind == "recovery"
@@ -145,7 +151,8 @@ func GetChannelQuotaAlertDeliverySnapshot(ctx context.Context, event ChannelQuot
 	if err := DB.WithContext(ctx).First(&snapshot, "id = ?", event.SnapshotID).Error; err != nil {
 		return nil, err
 	}
-	if snapshot.ChannelId != event.ChannelID || snapshot.AccountRef == "" ||
+	_, quality, known := ChannelQuotaSnapshotIdentity(snapshot)
+	if snapshot.ChannelId != event.ChannelID || !known || quality != ChannelQuotaIdentityQualityProviderConfirmed ||
 		channelQuotaAlertSeriesKey(&snapshot) != event.SeriesKey {
 		return nil, fmt.Errorf("channel quota alert source identity mismatch")
 	}
@@ -161,6 +168,8 @@ func ChannelQuotaAlertMaxAttempts() int {
 }
 
 func channelQuotaAlertSettings() common.ChannelQuotaAlertSettings {
+	common.OptionMapRWMutex.Lock()
+	defer common.OptionMapRWMutex.Unlock()
 	return common.ChannelQuotaAlertSettings{
 		Enabled: common.ChannelQuotaAlertEnabled, WarningPercent: common.ChannelQuotaAlertWarningPercent,
 		CriticalPercent: common.ChannelQuotaAlertCriticalPercent, CooldownSeconds: common.ChannelQuotaAlertCooldownSeconds,
@@ -169,6 +178,11 @@ func channelQuotaAlertSettings() common.ChannelQuotaAlertSettings {
 }
 
 func channelQuotaAlertSeriesKey(snapshot *ChannelQuotaSnapshot) string {
+	if snapshot.SubjectRef != "" {
+		return ChannelQuotaSnapshotSeriesID(*snapshot)
+	}
+	// Preserve the historical identity for existing legacy outbox rows. New
+	// confirmed subjects use the same canonical series as quota observation.
 	parts := []string{strconv.Itoa(snapshot.ChannelId), snapshot.AccountRef, snapshot.MetricType, snapshot.WindowType, snapshot.Source, snapshot.PlanType, snapshot.Unit, snapshot.Currency, strconv.FormatInt(snapshot.WindowSeconds, 10)}
 	digest := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
 	return hex.EncodeToString(digest[:])
@@ -176,12 +190,24 @@ func channelQuotaAlertSeriesKey(snapshot *ChannelQuotaSnapshot) string {
 
 func recordChannelQuotaAlertForSnapshot(tx *gorm.DB, snapshot *ChannelQuotaSnapshot) error {
 	settings := channelQuotaAlertSettings()
-	if !settings.Enabled || snapshot == nil || snapshot.Id <= 0 || snapshot.Status != "success" || snapshot.AccountRef == "" {
+	if !settings.Enabled || snapshot == nil || snapshot.Id <= 0 || snapshot.Status != "success" {
+		return nil
+	}
+	_, quality, known := ChannelQuotaSnapshotIdentity(*snapshot)
+	if !known || quality != ChannelQuotaIdentityQualityProviderConfirmed {
+		return nil
+	}
+	// A compatible response or an unknown/expired provider window cannot
+	// acquire native Codex quota authority merely because it contains a zero.
+	if snapshot.MetricType == "codex_rate_limit" && (!snapshot.CodexObservationQualified || snapshot.Unit != "percent" || snapshot.WindowSeconds <= 0 || snapshot.ResetAt <= snapshot.ObservedAt || snapshot.Available < 0 || snapshot.Available > 100 || snapshot.Total == nil || *snapshot.Total != 100) {
 		return nil
 	}
 	currentStatus := common.ChannelQuotaAlertStatus(snapshot.Available, snapshot.Total, settings)
 	if currentStatus == "" {
 		return nil
+	}
+	if snapshot.Available == 0 {
+		currentStatus = "exhausted"
 	}
 	seriesKey := channelQuotaAlertSeriesKey(snapshot)
 	var state ChannelQuotaAlertState
@@ -201,24 +227,33 @@ func recordChannelQuotaAlertForSnapshot(tx *gorm.DB, snapshot *ChannelQuotaSnaps
 	} else if err != nil {
 		return err
 	}
-	if !firstObservation && snapshot.ObservedAt <= state.ObservedAt {
+	if !firstObservation && (snapshot.ObservedAt < state.ObservedAt || snapshot.ObservedAt == state.ObservedAt && snapshot.Id <= state.LastSnapshotID) {
 		return nil
 	}
 	previousStatus := state.CurrentStatus
 	if firstObservation {
 		previousStatus = "healthy"
 	}
-	if !firstObservation && state.LastDeliveredAt == 0 && previousStatus == currentStatus {
-		return tx.Model(&ChannelQuotaAlertState{}).Where("id = ? AND observed_at < ?", state.ID, snapshot.ObservedAt).Updates(map[string]any{"observed_at": snapshot.ObservedAt, "updated_at": snapshot.ObservedAt}).Error
+	lastEventAt := state.LastEventAt
+	// Preserve a useful cooldown when reading a pre-beta.7 state. A webhook
+	// completion in the future must never suppress authoritative new evidence.
+	if lastEventAt == 0 && !firstObservation {
+		lastEventAt = state.ObservedAt
 	}
-	outcome := common.EvaluateChannelQuotaAlertOccurrenceV2(common.ChannelQuotaAlertOccurrenceInput{SubjectRef: fmt.Sprintf("channel:%d", snapshot.ChannelId), SourceSnapshotRef: fmt.Sprintf("snapshot:%d", snapshot.Id), PreviousStatus: previousStatus, CurrentStatus: currentStatus, ObservedAt: snapshot.ObservedAt, LastDeliveredAt: state.LastDeliveredAt, SourceTrusted: true, HasProviderTotal: true}, settings)
+	outcome := common.EvaluateChannelQuotaAlertOccurrenceV2(common.ChannelQuotaAlertOccurrenceInput{SubjectRef: fmt.Sprintf("channel:%d", snapshot.ChannelId), SourceSnapshotRef: fmt.Sprintf("snapshot:%d", snapshot.Id), PreviousStatus: previousStatus, CurrentStatus: currentStatus, ObservedAt: snapshot.ObservedAt, LastDeliveredAt: lastEventAt, SourceTrusted: true, HasProviderTotal: true}, settings)
 	if outcome.EventKey != "" {
 		event := ChannelQuotaAlertEvent{EventKey: outcome.EventKey, SeriesKey: seriesKey, SnapshotID: snapshot.Id, ChannelID: snapshot.ChannelId, Status: outcome.Status, Kind: outcome.Kind, State: channelQuotaAlertEventStatePending, LockVersion: 1, ObservedAt: snapshot.ObservedAt, CreatedAt: snapshot.ObservedAt, UpdatedAt: snapshot.ObservedAt}
+		evidence, err := common.Marshal(channelQuotaAlertEvidence(snapshot))
+		if err != nil {
+			return err
+		}
+		event.EvidenceJSON = string(evidence)
 		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&event).Error; err != nil {
 			return err
 		}
+		lastEventAt = snapshot.ObservedAt
 	}
-	return tx.Model(&ChannelQuotaAlertState{}).Where("id = ? AND observed_at < ?", state.ID, snapshot.ObservedAt).Updates(map[string]any{"current_status": currentStatus, "observed_at": snapshot.ObservedAt, "updated_at": snapshot.ObservedAt}).Error
+	return tx.Model(&ChannelQuotaAlertState{}).Where("id = ? AND observed_at <= ?", state.ID, snapshot.ObservedAt).Updates(map[string]any{"current_status": currentStatus, "observed_at": snapshot.ObservedAt, "last_event_at": lastEventAt, "last_snapshot_id": snapshot.Id, "updated_at": snapshot.ObservedAt}).Error
 }
 
 // ClaimChannelQuotaAlertEvents claims ready or expired events with per-row CAS.
@@ -244,6 +279,15 @@ func ClaimChannelQuotaAlertEvents(ctx context.Context, workerID string, now, lea
 	for _, candidate := range candidates {
 		if len(claimed) == limit {
 			break
+		}
+		// An expired lease still consumed an attempt. A crashed final attempt
+		// must be quarantined rather than sent a ninth time.
+		if candidate.AttemptCount >= channelQuotaAlertMaxAttempts || candidate.AttemptCount < 0 {
+			result := DB.WithContext(ctx).Model(&ChannelQuotaAlertEvent{}).Where("id = ? AND lock_version = ? AND ((state IN ? AND next_attempt_at <= ?) OR (state = ? AND claimed_until < ?))", candidate.ID, candidate.LockVersion, []string{channelQuotaAlertEventStatePending, channelQuotaAlertEventStateRetryable}, now, channelQuotaAlertEventStateClaimed, now).Updates(map[string]any{"state": channelQuotaAlertEventStateQuarantined, "claimed_by": "", "claimed_until": 0, "next_attempt_at": 0, "last_error_code": "delivery_attempt_limit", "last_error_at": now, "updated_at": now, "lock_version": candidate.LockVersion + 1})
+			if result.Error != nil {
+				return nil, result.Error
+			}
+			continue
 		}
 		until := now + leaseSeconds
 		updates := map[string]any{"state": channelQuotaAlertEventStateClaimed, "claimed_by": workerID, "claimed_until": until, "attempt_count": candidate.AttemptCount + 1, "updated_at": now, "lock_version": candidate.LockVersion + 1}

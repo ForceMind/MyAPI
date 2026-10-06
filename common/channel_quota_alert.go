@@ -109,14 +109,14 @@ func EvaluateChannelQuotaAlertTransition(subject, previousStatus, currentStatus 
 	if subject != "" {
 		event.DedupKey = subject + ":" + currentStatus
 	}
-	if subject == "" || !settings.Enabled || observedAt <= 0 || (currentStatus != "warning" && currentStatus != "critical" && currentStatus != "healthy") {
+	if subject == "" || !settings.Enabled || observedAt <= 0 || (currentStatus != "warning" && currentStatus != "critical" && currentStatus != "exhausted" && currentStatus != "healthy") {
 		return event
 	}
 	if settings.CooldownSeconds <= 0 {
 		settings.CooldownSeconds = DefaultChannelQuotaAlertCooldownSeconds
 	}
 	if currentStatus == "healthy" {
-		if settings.NotifyOnRecovery && (previousStatus == "warning" || previousStatus == "critical") {
+		if settings.NotifyOnRecovery && (previousStatus == "warning" || previousStatus == "critical" || previousStatus == "exhausted") {
 			event.Kind = "recovery"
 		} else {
 			return event
@@ -199,11 +199,11 @@ func EvaluateChannelQuotaAlertOccurrenceV2(input ChannelQuotaAlertOccurrenceInpu
 	outcome := ChannelQuotaAlertOccurrenceOutcome{Status: input.CurrentStatus}
 	switch input.CurrentStatus {
 	case "healthy":
-		if !settings.NotifyOnRecovery || (input.PreviousStatus != "warning" && input.PreviousStatus != "critical") {
+		if !settings.NotifyOnRecovery || (input.PreviousStatus != "warning" && input.PreviousStatus != "critical" && input.PreviousStatus != "exhausted") {
 			return outcome
 		}
 		outcome.Kind = "recovery"
-	case "warning", "critical":
+	case "warning", "critical", "exhausted":
 		if input.PreviousStatus != input.CurrentStatus {
 			outcome.Kind = "threshold"
 			break
@@ -246,7 +246,7 @@ func validChannelQuotaAlertOccurrenceReference(value, prefix string) bool {
 }
 
 func validChannelQuotaAlertStatus(status string) bool {
-	return status == "healthy" || status == "warning" || status == "critical"
+	return status == "healthy" || status == "warning" || status == "critical" || status == "exhausted"
 }
 
 func channelQuotaAlertOccurrenceKey(input ChannelQuotaAlertOccurrenceInput, kind string) string {

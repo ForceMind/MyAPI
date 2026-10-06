@@ -44,3 +44,30 @@ func TestCodexMissingPercentageIsNotFullBalanceOrWindowAbsence(t *testing.T) {
 	assert.Equal(t, "invalid_payload", rows[0].ErrorCode)
 	assert.False(t, rows[0].CodexThresholdQualified)
 }
+
+func TestCodexEventObservationQualificationKeepsExhaustionSeparateFromAdmission(t *testing.T) {
+	const healthy = `{"rate_limit":{"allowed":true,"limit_reached":false,"primary_window":{"used_percent":10,"reset_at":200,"limit_window_seconds":3600},"secondary_window":null}}`
+	const exhausted = `{"rate_limit":{"allowed":false,"limit_reached":true,"primary_window":{"used_percent":100,"reset_at":200,"limit_window_seconds":3600},"secondary_window":null}}`
+	for _, tc := range []struct {
+		name, body               string
+		native, event, admission bool
+	}{
+		{"healthy native", healthy, true, true, true},
+		{"exhausted native", exhausted, true, true, false},
+		{"compatible source", exhausted, false, false, false},
+		{"contradictory flags", strings.Replace(exhausted, `"allowed":false`, `"allowed":true`, 1), true, false, false},
+		{"reached without exhausted window", strings.Replace(exhausted, `"used_percent":100`, `"used_percent":10`, 1), true, false, false},
+		{"missing window", strings.Replace(exhausted, `,"secondary_window":null`, "", 1), true, false, false},
+		{"duplicate value", strings.Replace(exhausted, `"used_percent":100`, `"used_percent":100,"used_percent":10`, 1), true, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rows := normalizeCodexUsageSnapshots(1, 100, 200, []byte(tc.body))
+			require.NotEmpty(t, rows)
+			qualifyCodexThresholdSnapshots(rows, 200, []byte(tc.body), tc.native)
+			for _, row := range rows {
+				assert.Equal(t, tc.event, row.CodexObservationQualified)
+				assert.Equal(t, tc.admission, row.CodexThresholdQualified)
+			}
+		})
+	}
+}

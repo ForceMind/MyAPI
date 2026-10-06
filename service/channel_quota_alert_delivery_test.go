@@ -103,7 +103,7 @@ func setupChannelQuotaAlertDeliveryEvent(t *testing.T) (*gorm.DB, model.ChannelQ
 	require.NoError(t, model.RecordChannelQuotaSnapshotBatchWithContext(context.Background(), []model.ChannelQuotaSnapshot{{
 		ChannelId: 71, AccountRef: model.ChannelQuotaAccountRef("codex", "account-a"),
 		ObservedAt: 1000, SampleID: "sample-alert-delivery", Available: 5, Total: &total,
-		MetricType: "codex_rate_limit", WindowType: "five_hour", Source: "codex_wham_usage_primary",
+		CodexObservationQualified: true, CodexThresholdQualified: true, MetricType: "codex_rate_limit", WindowType: "five_hour", Source: "codex_wham_usage_primary",
 		Unit: "percent", WindowSeconds: 18000, ResetAt: 19000, Status: "success",
 	}}, model.ChannelQuotaSnapshotBatchOptions{}))
 	var event model.ChannelQuotaAlertEvent
@@ -190,7 +190,7 @@ func TestChannelQuotaAlertDeliveryWorkerClaimsEachEventImmediatelyBeforeSending(
 		require.NoError(t, model.RecordChannelQuotaSnapshotBatchWithContext(context.Background(), []model.ChannelQuotaSnapshot{{
 			ChannelId: 71, AccountRef: model.ChannelQuotaAccountRef("codex", "account-a"),
 			ObservedAt: int64(1000 + index), SampleID: fmt.Sprintf("sample-alert-delivery-%d", index), Available: available, Total: &total,
-			MetricType: "codex_rate_limit", WindowType: "five_hour", Source: "codex_wham_usage_primary",
+			CodexObservationQualified: true, CodexThresholdQualified: true, MetricType: "codex_rate_limit", WindowType: "five_hour", Source: "codex_wham_usage_primary",
 			Unit: "percent", WindowSeconds: 18000, ResetAt: 19000, Status: "success",
 		}}, model.ChannelQuotaSnapshotBatchOptions{}))
 	}
