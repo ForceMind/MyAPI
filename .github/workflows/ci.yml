@@ -442,6 +442,23 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=768'
         run: node tools/routing/browser-smoke.mjs
 
+      - name: Verify assigned access and account events in real Chromium
+        working-directory: .
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs
+          MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-access-browser-artifacts
+          NODE_OPTIONS: '--max-old-space-size=768'
+        run: node tools/access-policy/browser-smoke.mjs
+
+      - name: Upload assigned access browser screenshots
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-access-browser-${{ github.sha }}
+          path: ${{ runner.temp }}/myapi-access-browser-artifacts/*.png
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Upload routing browser screenshots
         if: always()
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0

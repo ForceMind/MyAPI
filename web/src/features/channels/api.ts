@@ -999,3 +999,15 @@ export async function refreshChannelModelDiscovery(
   )
   return res.data
 }
+
+export async function getChannelQuotaEvents(
+  params: { p: number; page_size: number; status?: string },
+  signal?: AbortSignal
+): Promise<ChannelQuotaAlertDeliveryEventsResponse> {
+  const res = await api.get('/api/channel/quota/events', {
+    ...channelActionConfig(),
+    params,
+    signal,
+  })
+  return res.data
+}

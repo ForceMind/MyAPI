@@ -1,3 +1,31 @@
+## 当前执行：beta.7 用户/Key 策略与站内额度事件（2026-10-05）
+
+本节优先于下方保留历史。基线为 beta.6 最终文档提交 `0f4829d`，
+其准确 HEAD 完整 CI 已核对；B2 首次 PostgreSQL 目录查询超时及原时限同 HEAD
+重试通过的历史仍保留。当前 beta.7 在原 `codex/r1-usage-review-20261002`
+开发分支准备候选，PR #2 保持 Draft；完整准确新 HEAD 验证尚待。
+
+冻结合同见 [beta.7 交付卡](BETA_7_DELIVERY_CARD.md)：
+
+- 复用 accesspolicy，增加唯一的管理员用户/Key 约束存储；显式分配只缩小权限，
+  普通 Key 编辑不能移除，用户与 Key 取交集。缺失/null 继承、显式空表拒绝、禁用拒绝；
+  CAS 修订及删除 tombstone 防旧编辑复活。原 Profile off/audit/scoped-enforce 保持
+- 公共模型、真实上游模型、实际渠道三个维度分开；预览不写入或授予权限。
+  普通用户仅见自己的公共模型可用性及脱敏拒绝原因，管理员目标仍受既有角色层级约束
+- 限定 type1 OpenAI Chat/Responses、type57 Codex Responses 的派送前数据库复查及
+  最终模型证据；严格 JSON 证据沿用 1 MiB 上限。其他已分配路径明确拒绝；
+  在分配前已准入的非支持直接 SDK 请求可能完成，不声称全适配器在途召回
+- 复用现有账户窗口快照与 outbox，连接 provider-confirmed SubjectRef，独立原生观测
+  资格可证明耗尽而不改变健康准入资格。站内事件不依赖 Webhook，保留窗口/重置证据，
+  不混加账户、不把 Key 消耗百分比或调用成功冒充额度恢复
+- Users/Keys 可配置及查看策略，Channels 可看低额/耗尽/恢复。外发配置仍有独立 Root
+  权限和授权边界；本轮没有启用任何外发目标、真实凭据、付费请求或生产操作
+
+先完成当前候选的独立安全复查、必要三库、完整 CI、七语言与 320/1280 Chromium，
+再按同一交付卡收口。不扩协议、计费资格、商业或完整 UI 重构；后者仍为独立下一节点。
+源码候选不等于发版或真实验收，VERSION/默认镜像保持已发布 beta.3，真实账户/账单/
+部署升级回退仍未验。原恢复工作区及索引保留，不 reset/stash/clean/强推。
+
 ## 当前交付：beta.6 限定源码候选通过（2026-10-05）
 
 源码候选 [`94c23f8`](https://github.com/ForceMind/MyAPI/commit/94c23f811e7f4ce3d851218fd2627bcb01d0b758)

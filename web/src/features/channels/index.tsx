@@ -38,6 +38,7 @@ import { useAuthStore, type AuthUser } from '@/stores/auth-store'
 
 import { getChannelOps } from './api'
 import { ChannelQuotaChangesPanel } from './components/channel-quota-changes-panel'
+import { ChannelQuotaEvents } from './components/channel-quota-events'
 import { ChannelRoutingPreview } from './components/channel-routing-preview'
 import { ChannelsDialogs } from './components/channels-dialogs'
 import { ChannelsPrimaryButtons } from './components/channels-primary-buttons'
@@ -119,6 +120,7 @@ export function Channels() {
         <SectionPageLayout.Content>
           <div className='min-w-0'>
             <ChannelQuotaChangesPanel />
+            {canReadChannels ? <ChannelQuotaEvents /> : null}
             {canReadChannels ? <ChannelRoutingPreview /> : null}
             <ChannelsTable />
           </div>

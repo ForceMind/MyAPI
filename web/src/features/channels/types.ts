@@ -622,7 +622,24 @@ export interface ChannelQuotaAlertDeliveryStatus {
   max_attempts: number
 }
 
+export interface ChannelQuotaAlertEvidence {
+  version: number
+  snapshot_id: number
+  channel_id: number
+  observed_at: number
+  available: number
+  total: number
+  unit: string
+  currency?: string
+  metric_type: string
+  window_type: string
+  window_seconds?: number
+  reset_at?: number
+}
+
 export interface ChannelQuotaAlertDeliveryEvent {
+  series_ref?: string
+  evidence?: ChannelQuotaAlertEvidence | null
   id: number
   event_key: string
   snapshot_id: number

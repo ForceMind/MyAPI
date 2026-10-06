@@ -137,3 +137,4 @@ export type ApiKeysDialogType =
   | 'batch-delete'
   | 'cc-switch'
   | 'budget'
+  | 'access-policy'

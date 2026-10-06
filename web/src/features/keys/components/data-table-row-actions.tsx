@@ -259,6 +259,14 @@ export function DataTableRowActions<TData>({
         onOpenChange={handleMenuOpenChange}
       >
         <DropdownMenuItem
+          onClick={() => {
+            setCurrentRow(apiKey)
+            setOpen('access-policy')
+          }}
+        >
+          {t('Assigned access')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
           onClick={async () => {
             const realKey = getCachedRealKey()
             if (!realKey) return
