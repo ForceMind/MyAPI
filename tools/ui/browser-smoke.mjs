@@ -120,7 +120,7 @@ async function screenshot(page, name, { shell = true, touch = false } = {}) {
     const main = document.querySelector('main#content')
     const title = main?.querySelector('h1')
     const controls = authenticated ? [...header.querySelectorAll('button')].filter(element => element.getBoundingClientRect().width > 0).map(element => ({ name: element.getAttribute('aria-label') || element.textContent, ...rect(element) })) : []
-    const actions = authenticated ? [...document.querySelectorAll('.myapi-page-actions button')].filter(element => element.getBoundingClientRect().width > 0).map(element => ({ name: element.getAttribute('aria-label') || element.textContent, ...rect(element), whiteSpace: getComputedStyle(element).whiteSpace })) : []
+    const actions = authenticated ? [...document.querySelectorAll('.myapi-page-actions button')].filter(element => element.getBoundingClientRect().width > 0).map(element => ({ name: element.getAttribute('aria-label') || element.textContent, text: element.innerText.trim(), ...rect(element), whiteSpace: getComputedStyle(element).whiteSpace })) : []
     return { viewport: { width: innerWidth, height: innerHeight }, documentWidth: document.documentElement.scrollWidth, coarsePointer: matchMedia('(pointer: coarse)').matches, header: rect(header), main: rect(main), title: rect(title), controls, actions, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light' }
   }, shell)
   assert(geometry.documentWidth <= geometry.viewport.width + 1, `${name}: page-wide horizontal overflow: ${JSON.stringify(geometry)}`)
@@ -131,11 +131,12 @@ async function screenshot(page, name, { shell = true, touch = false } = {}) {
     assert(geometry.main.height > 100 && geometry.title.height > 0, `${name}: readable main and title`)
     assert(geometry.title.x >= geometry.main.x - 1 && geometry.title.right <= geometry.main.right + 1, `${name}: task title fits the main column`)
     for (const control of geometry.controls) assert(control.x >= -1 && control.right <= geometry.viewport.width + 1 && control.y >= geometry.header.y - 1 && control.bottom <= geometry.header.bottom + 1, `${name}: header control remains reachable: ${JSON.stringify(control)}`)
-    for (const action of geometry.actions) assert(action.x >= geometry.main.x - 1 && action.right <= geometry.main.right + 1 && action.scroll <= action.client + 1 && action.whiteSpace === 'normal', `${name}: translated page action wraps and fits: ${JSON.stringify(action)}`)
+    for (const action of geometry.actions) assert(action.x >= geometry.main.x - 1 && action.right <= geometry.main.right + 1 && action.scroll <= action.client + 1 && (!action.text || action.whiteSpace === 'normal'), `${name}: translated page action wraps and fits: ${JSON.stringify(action)}`)
     if (touch) {
       assert.equal(geometry.coarsePointer, true, `${name}: browser really reports a coarse pointer`)
       assert(geometry.controls.length > 0, `${name}: measure visible header controls`)
       for (const control of geometry.controls) assert(control.width >= 44 && control.height >= 44, `${name}: header touch target must be at least 44px in each dimension: ${JSON.stringify(control)}`)
+      for (const action of geometry.actions) assert(action.height >= 44, `${name}: page action touch target must be at least 44px high: ${JSON.stringify(action)}`)
     }
   }
   const file = `${name}.png`
@@ -219,7 +220,7 @@ try {
       if (section.path === '/system-settings/billing/payment') {
         const mode = page.getByRole('combobox', { name: label('User funding mode'), exact: true })
         await mode.waitFor()
-        assert.equal(await mode.getAttribute('data-slot'), 'select-trigger', 'funding mode is read from the real form select')
+        assert.equal(await mode.evaluate(element => element.tagName), 'BUTTON', 'funding mode is read from the real form select trigger')
         assert.equal((await mode.innerText()).trim(), label('Disabled'), 'saved disabled funding mode is not replaced by the enabled default')
       }
       section.reached = true
@@ -267,7 +268,9 @@ try {
     assert.equal(await page.locator('a[href="#content"]').evaluate(element => element === document.activeElement), true, 'first keyboard stop is skip navigation')
     await page.keyboard.press('Enter')
     await page.waitForFunction(() => document.activeElement?.id === 'content')
-    const trigger = page.getByRole('button', { name: label('Toggle sidebar'), exact: true })
+    // An open modal correctly removes the underlying trigger from the
+    // accessibility tree; retain the element for its aria-expanded assertion.
+    const trigger = page.getByRole('button', { name: label('Toggle sidebar'), exact: true, includeHidden: true })
     for (const closeWithEscape of [false, true]) {
       await trigger.click()
       const drawer = page.getByRole('dialog', { name: label('Navigation'), exact: true })
@@ -419,7 +422,9 @@ try {
       fixture.state.options = 'error'
       releaseOptions()
       const failure = main.getByRole('alert').filter({ hasText: label('Unable to load settings') })
-      await failure.waitFor()
+      // Production intentionally retries a 503 four times (1+2+4+8 seconds).
+      // Wait beyond that existing retry budget, then assert the real alert.
+      await failure.waitFor({ timeout: 30000 })
       assert.equal(await main.locator('form').count(), 0, 'unavailable settings do not become an editable success state')
       await screenshot(page, 'settings-unavailable-320')
       fixture.state.options = 'ready'

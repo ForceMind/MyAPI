@@ -50,7 +50,7 @@
     font-variant-numeric: tabular-nums;
   }
 
-  [data-slot='button'][data-variant='default']:not(:disabled):hover {
+  [data-myapi-button][data-variant='default']:not(:disabled):hover {
     filter: brightness(0.94);
   }
 
@@ -102,14 +102,14 @@
       min-height: 2.75rem;
     }
 
-    [data-slot='button'],
+    [data-myapi-button],
     [data-slot='sidebar-menu-button'],
     [data-slot='sidebar-menu-sub-button'],
     [data-slot='tabs-trigger'] {
       min-height: 2.75rem;
     }
 
-    [data-slot='button'][data-size^='icon'] {
+    [data-myapi-button][data-size^='icon'] {
       min-width: 2.75rem;
     }
   }
@@ -123,7 +123,7 @@
     flex-wrap: wrap;
   }
 
-  .myapi-page-actions [data-slot='button'] {
+  .myapi-page-actions [data-myapi-button] {
     max-width: 100%;
     white-space: normal;
     overflow-wrap: anywhere;
@@ -133,7 +133,7 @@
   }
 
   @media (pointer: coarse) {
-    .myapi-page-actions [data-slot='button'] {
+    .myapi-page-actions [data-myapi-button] {
       min-height: 2.75rem;
     }
   }

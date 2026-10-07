@@ -225,12 +225,58 @@ export async function checkTokenBudgetBrowser({ page, origin, output, label, fix
     }), 'threshold input is not covered by another surface')
     await dialog.screenshot({ path: resolve(output, `account-threshold-${width}.png`) })
   }
+  async function reachBudgetFooter() {
+    for (let step = 0; step < 40; step++) {
+      const remaining = await dialog.evaluate((element) => element.scrollHeight - element.clientHeight - element.scrollTop)
+      if (remaining <= 1) break
+      const bounds = await dialog.boundingBox()
+      assert(bounds, 'budget dialog has layout bounds')
+      await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+      await page.mouse.wheel(0, Math.min(400, remaining))
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+    }
+    assert(await dialog.evaluate((element) => element.scrollHeight - element.clientHeight - element.scrollTop <= 1), 'native wheel reaches the bottom of the budget dialog')
+    // The text Close precedes the corner icon Close in the popup DOM.
+    const controls = [dialog.getByRole('button', { name: label('Save'), exact: true }), dialog.getByRole('button', { name: label('Close'), exact: true }).first()]
+    const geometry = []
+    for (const control of controls) {
+      const state = await control.evaluate((element) => {
+        const rect = element.getBoundingClientRect()
+        const popup = element.closest('[role="dialog"]')
+        const clip = popup.getBoundingClientRect()
+        const left = Math.max(0, clip.left + popup.clientLeft)
+        const right = Math.min(innerWidth, clip.left + popup.clientLeft + popup.clientWidth)
+        const top = Math.max(0, clip.top + popup.clientTop)
+        const bottom = Math.min(innerHeight, clip.top + popup.clientTop + popup.clientHeight)
+        const points = [rect.top + 1, rect.y + rect.height / 2, rect.bottom - 1]
+        const hit = points.every((y) => {
+          const target = document.elementFromPoint(rect.x + rect.width / 2, y)
+          return target === element || element.contains(target)
+        })
+        return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, reachable: rect.width > 0 && rect.height > 0 && rect.left >= left && rect.right <= right && rect.top >= top && rect.bottom <= bottom && hit }
+      })
+      assert(state.reachable, `budget footer control is fully visible and unoccluded: ${JSON.stringify(state)}`)
+      geometry.push(state)
+    }
+    return geometry
+  }
+  let footer
+  for (const height of [900, 640]) {
+    await page.setViewportSize({ width: 320, height })
+    footer = await reachBudgetFooter()
+    await page.screenshot({ path: resolve(output, `budget-footer-320x${height}.png`) })
+  }
   await Promise.all([
     page.waitForResponse((response) => response.url().endsWith('/api/token/1/budget') && response.request().method() === 'PUT'),
-    dialog.getByRole('button', { name: label('Save'), exact: true }).click(),
+    page.mouse.click(footer[0].x, footer[0].y),
   ])
   assert.equal(fixture.writes.length, 5)
   assert.deepEqual(fixture.writes[4].account_threshold, { enabled: true, minimum_remaining_bps: 2001, max_age_seconds: 120 })
+  await dialog.getByText('20.01%', { exact: true }).waitFor()
+  footer = await reachBudgetFooter()
+  await page.mouse.click(footer[1].x, footer[1].y)
+  await dialog.waitFor({ state: 'hidden' })
+  assert.equal(fixture.writes.length, 5, 'closing through the mobile footer does not resubmit the budget')
   await page.reload({ waitUntil: 'networkidle' })
   await page.getByRole('button', { name: label('API Key usage budgets'), exact: true }).click()
   await page.getByRole('dialog').getByText('20.01%', { exact: true }).waitFor()
