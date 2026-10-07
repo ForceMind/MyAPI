@@ -408,11 +408,15 @@ try {
     const rowMenu = page.getByRole('button', { name: label('Open menu'), exact: true }).last()
     // Real wheel scrolling, not scrollIntoView (which can scroll an
     // overflow:hidden ancestor programmatically and hide a production bug).
+    // The operational table now precedes quota evidence. Follow its actual
+    // position in either direction rather than assuming it is below the chart.
     await page.mouse.move(viewport.width - 60, Math.min(350, viewport.height - 100))
     for (let step = 0; step < 12; step++) {
       const box = await rowMenu.boundingBox()
       if (box && box.y > 70 && box.y + box.height < viewport.height - 60) break
-      await page.mouse.wheel(0, 450)
+      assert(box, 'channel row action has layout bounds')
+      const delta = box.y + box.height / 2 - viewport.height / 2
+      await page.mouse.wheel(0, Math.max(-220, Math.min(220, delta)))
       await page.waitForTimeout(80)
     }
     const box = await rowMenu.boundingBox()
