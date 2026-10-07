@@ -393,6 +393,7 @@ try {
         return { descriptionBottom: description.bottom, actionTop: action.top, contained: action.left >= bounds.left && action.right <= bounds.right }
       })
       assert(complianceLayout.contained && complianceLayout.actionTop >= complianceLayout.descriptionBottom, `long compliance action follows the notice without covering it: ${JSON.stringify(complianceLayout)}`)
+      await compliance.screenshot({ path: resolve(output, `compliance-notice-${width}.png`) })
     }
     await touchSession.context.close(); contexts.delete(touchSession.context)
     for (const language of Object.keys(languages)) {
