@@ -944,6 +944,11 @@ export function PaymentSettingsSection({
                       <Select
                         value={field.value}
                         onValueChange={field.onChange}
+                        items={[
+                          { value: 'enabled', label: t('Enabled') },
+                          { value: 'retirement', label: t('Retirement') },
+                          { value: 'disabled', label: t('Disabled') },
+                        ]}
                       >
                         <FormControl>
                           <SelectTrigger>

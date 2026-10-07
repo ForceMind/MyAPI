@@ -253,7 +253,12 @@ export async function checkTokenBudgetBrowser({ page, origin, output, label, fix
           const target = document.elementFromPoint(rect.x + rect.width / 2, y)
           return target === element || element.contains(target)
         })
-        return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, reachable: rect.width > 0 && rect.height > 0 && rect.left >= left && rect.right <= right && rect.top >= top && rect.bottom <= bottom && hit }
+        const style = getComputedStyle(popup)
+        const children = [...popup.children].map((child) => {
+          const box = child.getBoundingClientRect()
+          return { tag: child.tagName, text: child.textContent?.slice(0, 40), top: box.top, bottom: box.bottom, height: box.height }
+        })
+        return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, rect: { top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height }, clip: { left, right, top, bottom }, scroll: { top: popup.scrollTop, height: popup.scrollHeight, client: popup.clientHeight }, layout: { display: style.display, rows: style.gridTemplateRows, overflow: style.overflowY, padding: style.padding, active: document.activeElement?.getAttribute('id'), viewport: [innerWidth, innerHeight], children }, hit, reachable: rect.width > 0 && rect.height > 0 && rect.left >= left && rect.right <= right && rect.top >= top && rect.bottom <= bottom && hit }
       })
       assert(state.reachable, `budget footer control is fully visible and unoccluded: ${JSON.stringify(state)}`)
       geometry.push(state)
@@ -263,6 +268,11 @@ export async function checkTokenBudgetBrowser({ page, origin, output, label, fix
   let footer
   for (const height of [900, 640]) {
     await page.setViewportSize({ width: 320, height })
+    await page.evaluate(async () => {
+      await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+      await Promise.all(document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity).map((animation) => animation.finished.catch(() => {})))
+      await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+    })
     footer = await reachBudgetFooter()
     await page.screenshot({ path: resolve(output, `budget-footer-320x${height}.png`) })
   }

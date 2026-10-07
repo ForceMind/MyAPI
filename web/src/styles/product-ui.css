@@ -106,6 +106,7 @@
     [data-slot='sidebar-menu-button'],
     [data-slot='sidebar-menu-sub-button'],
     [data-slot='tabs-trigger'] {
+      min-width: 2.75rem;
       min-height: 2.75rem;
     }
 
@@ -123,7 +124,14 @@
     flex-wrap: wrap;
   }
 
-  .myapi-page-actions [data-myapi-button] {
+  .myapi-page-actions [data-slot='tabs-list'] {
+    max-width: 100%;
+    height: auto;
+    flex-wrap: wrap;
+  }
+
+  .myapi-page-actions [data-myapi-button],
+  .myapi-page-actions [data-slot='tabs-trigger'] {
     max-width: 100%;
     white-space: normal;
     overflow-wrap: anywhere;
@@ -133,7 +141,8 @@
   }
 
   @media (pointer: coarse) {
-    .myapi-page-actions [data-myapi-button] {
+    .myapi-page-actions [data-myapi-button],
+    .myapi-page-actions [data-slot='tabs-trigger'] {
       min-height: 2.75rem;
     }
   }

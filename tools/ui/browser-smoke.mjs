@@ -270,7 +270,7 @@ try {
     await page.waitForFunction(() => document.activeElement?.id === 'content')
     // An open modal correctly removes the underlying trigger from the
     // accessibility tree; retain the element for its aria-expanded assertion.
-    const trigger = page.getByRole('button', { name: label('Toggle sidebar'), exact: true, includeHidden: true })
+    const trigger = page.locator('[data-sidebar="trigger"]')
     for (const closeWithEscape of [false, true]) {
       await trigger.click()
       const drawer = page.getByRole('dialog', { name: label('Navigation'), exact: true })
