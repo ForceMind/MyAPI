@@ -21,8 +21,9 @@ Homebrew/Bun/Go/Node、Docker Desktop、Electron、LAN Lite 和服务器数据�
 
 ### 当前 R1 源码部署
 
-beta.4–7 的累计源码已合并到 `main`。在 beta.7 发布完成前，
-`v0.2.0-beta.3` 仍是最后已发布预览版；使用未发布源码时必须显式选择本地构建。
+beta.4–7 的累计源码已合并到 `main`，`v0.2.0-beta.7` 已发布为预览版。
+开发使用 `main`；可复现发行部署使用下面的准确 tag 和固定镜像 digest。
+本节的源码部署使用本地构建。
 完整检出仓库后执行：
 
 ```bash
@@ -65,7 +66,7 @@ beta.7 的用户/Key 访问约束须在全部实例完成升级与迁移后使�
 
 ### 已发布镜像部署
 
-本批目标为 `v0.2.0-beta.7`。发布完成前 `v0.2.0-beta.3` 仍是最后已发布预览版；beta.7 的范围、验证证据与发布边界以[beta.7 发布记录](docs/RELEASE_BETA_7.md)为准。
+`v0.2.0-beta.7` 已发布为 GitHub prerelease，Full/LAN 双架构镜像及签名已回读核验。beta.7 的范围、固定 digest、验证证据与发布边界以[beta.7 发布记录](docs/RELEASE_BETA_7.md)为准。
 部署前确认 GitHub Release 和 Full/LAN 镜像均已成功；下面使用准确发行 tag。
 
 ```bash

@@ -1,6 +1,6 @@
 # MyAPI 0.2.0-beta.7 预发布记录
 
-> 状态：发布准备。此文件随候选源码进入合并流程；在 `v0.2.0-beta.7` 标签、GitHub prerelease 和对应 GHCR 工作流完成前，不得将本记录解释为已经发布或生产验收完成。
+> 状态：GitHub 预发布与 Full/LAN 镜像已发布并核验，现有 Full HTTPS 实例已从 beta.3 升级至 beta.7 并通过本批限定验收。发布源码固定为 `1bd48522b85e91929b6a7de9a78f142a957c6147`；后续交付文档不移动发行标签。
 
 ## 本次发布与部署执行（2026-10-07）
 
@@ -20,7 +20,35 @@ GitHub prerelease 和 Full/LAN 双架构签名镜像；回读资产、digest 和
 副本失败时保持旧服务；目标已尝试启动后，不能直接让旧代码打开已迁移数据库，
 恢复必须使用升级前数据库和配置。回旧版本也不等于撤销 beta.7 的权限策略。
 
-当前阶段：发布门禁与文档同步。发布、部署和最终验收结果完成后回填本节。
+执行结果：镜像发布、签名核验、隔离升级/原快照恢复及生产切换验收均已通过。
+首次演练捕获后台恢复对 50 条既有 retryable 结算事实的重试运维字段更新；
+经济字段、身份和状态未变，失败副本和日志保留；首轮未执行生产切换。
+复核确认该后台代码与 beta.3 一致；首次副本漏带生产 Compose 的
+`BATCH_UPDATE_ENABLED=true`，使失败类别从缓存不可用变为 int32 边界拒绝。
+修正副本运行参数后重新演练通过；只允许既有 retryable 记录符合领取/失败收尾契约
+的五个运维字段变化，所有经济、身份、状态与应用标记逐行保持。
+
+## 生产部署限定验收（2026-10-07）
+
+- 实际部署为下方发布证据中的 Full 固定 digest；运行版本 `0.2.0-beta.7`，源码标签为发行提交。
+- 升级前原数据库快照在断网、0.5 CPU/768 MiB 的 master 副本执行真实迁移；
+  beta.7 启动、SQLite 完整性、25 张保护表及新约束未自动分配检查通过。
+- 另一个原快照副本启动 beta.3，核对原数据与健康通过；这是原快照恢复演练，
+  没有在生产执行回滚，也没有让旧二进制打开已迁移数据库。
+- 生产停止写入后保存完整数据目录归档（含 SQLite/WAL）、独立数据库基线、
+  原 Compose 和环境文件；归档和文件 SHA256、私有权限均核验。
+- 生产只更换 Compose 镜像引用；环境文件字节、会话秘密、完整身份密钥环、
+  数据与日志挂载、回环端口、CPU/内存/PID 限制保持。
+- 本地和真实 HTTPS 的 `/api/status`、首页均返回 HTTP 200，版本一致，容器健康。
+  SQLite 完整性通过；历史用户、Key、渠道、日志身份及持久账务/预算/未知状态核对通过。
+- 副本升级、原快照恢复和生产均观察到既有 retryable 失败重试：仅五个运维字段按
+  精确契约变化，错误类别仍为缓存不可用；经济字段、身份、状态与应用标记未变。
+  本批没有修复既有失败重试记录，也没有自动结算、退款或授权策略修改。
+- 原用户/Key 没有自动分配新访问约束或预算；启动日志没有 fatal/panic。
+
+私有备份、失败副本和详细验证报告保留在部署主机，不提交数据库、域名、密钥或原始日志。
+真实 OAuth 登录、真实上游付费请求、供应商账单与所有业务协议没有在本批验证；
+LAN 镜像已发布及自动化验收，本批生产切换仅为现有 Full 实例。
 
 ## 目标
 
@@ -61,9 +89,26 @@ GitHub prerelease 和 Full/LAN 双架构签名镜像；回读资产、digest 和
 - `release.yml` 仍要求已有不可变标签、版本与标签一致，并由 `PUBLISH` 和仓库变量门控
 - prerelease 不移动 GitHub latest，也不移动 GHCR stable/latest
 
-## 发布后必须回填的真实证据
+## 已回读发布证据（2026-10-07）
 
-只能在发布完成后从 GitHub/GHCR 回读：
+- 标签和镜像源码 SHA：`1bd48522b85e91929b6a7de9a78f142a957c6147`
+- [GitHub prerelease](https://github.com/ForceMind/MyAPI/releases/tag/v0.2.0-beta.7)：非草稿，prerelease=true，latest=false
+- [准确源码 CI](https://github.com/ForceMind/MyAPI/actions/runs/37579634699)：十项通过，包含独立 relaykit、三种数据库及前后端验证
+- [Docker 验证](https://github.com/ForceMind/MyAPI/actions/runs/37579640735)：四项通过，包含 LAN 安装、Full/LAN fresh 与 Full handoff/恢复
+- [网站检查](https://github.com/ForceMind/MyAPI/actions/runs/37579715495)：通过
+- [发行二进制工作流](https://github.com/ForceMind/MyAPI/actions/runs/37581117703)：通过；四份二进制及三份 checksum 文件均核验 SHA256，二进制同时匹配随附校验清单
+- [GHCR 工作流](https://github.com/ForceMind/MyAPI/actions/runs/37581984565)：四架构构建及两份多架构清单通过，stable latest 提升跳过
+- Full digest：`sha256:1baca952e9d3d4061de67b1086f184eb24559810926e0c85c53279a9b77d9716`
+- LAN digest：`sha256:19988e46dfe26d33e04849b9fe2498527004c9d50cd5da7f90fdf2cb28d59ddc`
+
+Full/LAN 均包含 Linux amd64 和 arm64；四个架构镜像的版本、edition 和源码标签一致。
+两份多架构清单和四个架构发行根的 cosign 签名均通过证书、声明和透明日志验证，
+证书主体为 `https://github.com/ForceMind/MyAPI/.github/workflows/docker-build.yml@refs/tags/v0.2.0-beta.7`，
+OIDC issuer 为 `https://token.actions.githubusercontent.com`。
+
+## 原发布准备证据清单（保留历史）
+
+下列为发布前的检查清单；当前实际结果以上面的回读证据和限定验收为准：
 
 - 最终 `main` SHA
 - `v0.2.0-beta.7` 标签实际指向 SHA
@@ -72,6 +117,6 @@ GitHub prerelease 和 Full/LAN 双架构签名镜像；回读资产、digest 和
 - Full/LAN 多架构镜像 digest
 - 发布工作流 run URL、结论和来源提交
 - 安装入口最终可用性
-- 仍未验证的真实账号、账单、目标生产环境升级/回退边界
+- 限定验收之外仍未验证的真实账号、账单与生产回滚边界
 
 预发布成功不等于生产环境验收完成。

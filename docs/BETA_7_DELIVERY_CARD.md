@@ -2,14 +2,26 @@
 
 ## Release and deployment status (2026-10-07)
 
-The cumulative beta.4–7 source was merged into `main` at
-`2c32384bb2d21b06c5aa6bbc7f95b5e6be9abf3d`. VERSION and deployment templates
-now select `0.2.0-beta.7`. The maintainer authorized documentation updates,
-GitHub prerelease/GHCR publication and the existing Full deployment upgrade.
-Release gates and deployment acceptance are in progress; the live instance is
-still beta.3. Follow [the release record](RELEASE_BETA_7.md) for the current
-result. Older no-merge/no-publication statements below describe their historical
-checkpoints. Real OAuth and paid provider acceptance remain unverified.
+The cumulative beta.4–7 source was merged and published as
+[`v0.2.0-beta.7`](https://github.com/ForceMind/MyAPI/releases/tag/v0.2.0-beta.7),
+fixed to `1bd48522b85e91929b6a7de9a78f142a957c6147`. Exact-source CI,
+Docker and site gates passed; all seven binary/checksum assets and both Full/LAN
+multi-architecture manifests were verified, including six cosign signatures.
+The prerelease did not promote stable latest and did not publish NPM.
+
+The existing Full HTTPS instance was upgraded from beta.3 to beta.7 using the
+verified immutable digest after isolated master migration and original-snapshot
+beta.3 restoration passed. Local/HTTPS status and homepage, SQLite integrity,
+historical identities, protected accounting data, backups, unchanged environment
+and runtime limits passed. The first failed rehearsal and logs were retained:
+it missed the production batch-update parameter; the corrected rehearsal matched
+production and permitted only exact existing failed-retry operational metadata.
+Economic fields, identities and settlement states remained unchanged.
+
+See [the release record](RELEASE_BETA_7.md) for digests, run links and bounded
+acceptance. Older pending/no-merge/no-publication statements below are retained
+historical checkpoints. Real OAuth, paid provider calls and supplier bills remain
+unverified; no production rollback was performed.
 
 ## Current closure: bounded beta.7 source qualified (2026-10-06)
 
