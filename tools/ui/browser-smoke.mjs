@@ -207,7 +207,8 @@ try {
               const [metrics, stream] = element.children
               const a = metrics.getBoundingClientRect()
               const b = stream.getBoundingClientRect()
-              return { contained: metrics.scrollWidth <= metrics.clientWidth + 1 && stream.scrollWidth <= stream.clientWidth + 1, separate: a.right <= b.left + 1 || b.right <= a.left + 1 || a.bottom <= b.top + 1 || b.bottom <= a.top + 1 }
+              const bounds = element.getBoundingClientRect()
+              return { contained: metrics.scrollWidth <= metrics.clientWidth + 1 && stream.scrollWidth <= stream.clientWidth + 1 && [a, b].every(rect => rect.left >= bounds.left && rect.right <= bounds.right && rect.top >= bounds.top && rect.bottom <= bounds.bottom), separate: a.right <= b.left + 1 || b.right <= a.left + 1 || a.bottom <= b.top + 1 || b.bottom <= a.top + 1 }
             })
             assert(layout.contained && layout.separate, `mobile first-token/duration and stream metrics never overlap: ${JSON.stringify(layout)}`)
           }
@@ -393,7 +394,24 @@ try {
         return { descriptionBottom: description.bottom, actionTop: action.top, contained: action.left >= bounds.left && action.right <= bounds.right }
       })
       assert(complianceLayout.contained && complianceLayout.actionTop >= complianceLayout.descriptionBottom, `long compliance action follows the notice without covering it: ${JSON.stringify(complianceLayout)}`)
-      await compliance.screenshot({ path: resolve(output, `compliance-notice-${width}.png`) })
+      // Capture the action after actual scrolling. A screenshot of the entire
+      // tall alert would include content clipped by its parent scrollport.
+      const confirmCompliance = compliance.getByRole('button', { name: label('Confirm compliance', 'fr'), exact: true })
+      let actionGeometry
+      for (let step = 0; step < 30; step++) {
+        actionGeometry = await confirmCompliance.evaluate(button => {
+          const rect = button.getBoundingClientRect()
+          const content = button.closest('.myapi-page-content').getBoundingClientRect()
+          const target = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
+          return { center: rect.y + rect.height / 2, viewportCenter: (content.top + content.bottom) / 2, x: content.x + content.width / 2, visible: rect.top >= content.top && rect.bottom <= content.bottom && rect.left >= content.left && rect.right <= content.right && button.scrollWidth <= button.clientWidth + 1 && (target === button || button.contains(target)) }
+        })
+        if (actionGeometry.visible) break
+        await touchPage.mouse.move(actionGeometry.x, actionGeometry.viewportCenter)
+        await touchPage.mouse.wheel(0, Math.max(-220, Math.min(220, actionGeometry.center - actionGeometry.viewportCenter)))
+        await settled(touchPage)
+      }
+      assert(actionGeometry.visible, `translated compliance action is reachable with native scrolling: ${JSON.stringify(actionGeometry)}`)
+      await screenshot(touchPage, `compliance-action-${width}`, { touch: true })
     }
     await touchSession.context.close(); contexts.delete(touchSession.context)
     for (const language of Object.keys(languages)) {
