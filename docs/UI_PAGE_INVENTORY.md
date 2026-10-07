@@ -1,8 +1,23 @@
 # MyAPI beta.8 page and task inventory
 
 Audited from `1bd48522b85e91929b6a7de9a78f142a957c6147`, not a proposed backend.
-Initial status for every family below is **migration pending**. Shared shell and
-component work must be tested against each family before that status changes.
+Shared shell/component migration and the main operational page checks are now
+implemented. The exact-source checkpoint is documented in
+[BETA_8_DELIVERY_CARD.md](BETA_8_DELIVERY_CARD.md). This inventory does not claim
+that every optional route and every business operation has browser acceptance.
+
+Browser-qualified at source `83f8d249`: overview, channels, keys, users, common/
+drawing/task logs, model metadata, content logs, profile, funding history,
+subscriptions, redemption history and system information at 320/1280; all 42
+settings sections; public/auth/error/setup journeys listed in the qualification
+report. Seven-language settings, themes and key navigation/error paths passed.
+Pixel review's two follow-up fixes require their own exact-head qualification.
+
+Remaining explicit limits: dashboard analysis subpages, optional deployment and
+tool routes, model pricing details and complete real authentication/provider
+flows were not individually exercised by the shared UI browser report. They
+inherit migrated primitives and retain existing tests/guards; that is not a
+claim of complete route-specific or live-account acceptance.
 
 | Family | Existing entry points and task | Gates and preservation contract |
 | --- | --- | --- |

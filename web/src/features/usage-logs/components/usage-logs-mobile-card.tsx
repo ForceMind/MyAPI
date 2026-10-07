@@ -277,7 +277,7 @@ function MobileUserField({ log }: { log: UsageLog }) {
   )
 }
 
-/** Merge stream badge + TPS with first-token / duration on one row. */
+/** Give timing and stream evidence a full card row, wrapping when needed. */
 function MobileStreamTimingField({ log }: { log: UsageLog }) {
   if (!isTimingLogType(log.type)) return null
 
@@ -289,14 +289,17 @@ function MobileStreamTimingField({ log }: { log: UsageLog }) {
       : null
 
   return (
-    <div className='bg-muted/20 flex min-w-0 items-center gap-2.5 rounded-md px-2 py-1.5'>
+    <div
+      data-slot='mobile-log-timing'
+      className='bg-muted/20 col-span-full flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-md px-2 py-1.5'
+    >
       <TimingMetricsCell
         useTimeSec={useTime}
         completionTokens={log.completion_tokens}
         frtMs={other?.frt}
         isStream={log.is_stream}
         indicator='dot'
-        className='min-w-0 flex-1'
+        className='min-w-0 flex-1 basis-36'
       />
       <StreamTpsCell
         isStream={log.is_stream}

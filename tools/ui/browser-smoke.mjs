@@ -199,6 +199,19 @@ try {
       for (const width of [320, 1280]) {
         await page.setViewportSize({ width, height: 900 })
         await screenshot(page, `${name}-${width}`)
+        if (name === 'usage' && width === 320) {
+          const timing = page.locator('[data-slot="mobile-log-timing"]')
+          assert(await timing.count() > 0, 'real mobile log timing fields are present')
+          for (const field of await timing.all()) {
+            const layout = await field.evaluate(element => {
+              const [metrics, stream] = element.children
+              const a = metrics.getBoundingClientRect()
+              const b = stream.getBoundingClientRect()
+              return { contained: metrics.scrollWidth <= metrics.clientWidth + 1 && stream.scrollWidth <= stream.clientWidth + 1, separate: a.right <= b.left + 1 || b.right <= a.left + 1 || a.bottom <= b.top + 1 || b.bottom <= a.top + 1 }
+            })
+            assert(layout.contained && layout.separate, `mobile first-token/duration and stream metrics never overlap: ${JSON.stringify(layout)}`)
+          }
+        }
       }
     }
     await open(page, '/wallet', { title: label('Funding history') })
@@ -372,6 +385,14 @@ try {
       await save.waitFor()
       assert.equal((await save.innerText()).trim(), label('Save all settings', 'fr'), 'the long translated settings action is rendered in full')
       await screenshot(touchPage, `touch-long-settings-action-${width}`, { touch: true })
+      const compliance = touchPage.getByRole('alert').filter({ hasText: label('Compliance confirmation required', 'fr') })
+      const complianceLayout = await compliance.evaluate(element => {
+        const description = element.querySelector('[data-slot="alert-description"]').getBoundingClientRect()
+        const action = element.querySelector('[data-slot="alert-action"]').getBoundingClientRect()
+        const bounds = element.getBoundingClientRect()
+        return { descriptionBottom: description.bottom, actionTop: action.top, contained: action.left >= bounds.left && action.right <= bounds.right }
+      })
+      assert(complianceLayout.contained && complianceLayout.actionTop >= complianceLayout.descriptionBottom, `long compliance action follows the notice without covering it: ${JSON.stringify(complianceLayout)}`)
     }
     await touchSession.context.close(); contexts.delete(touchSession.context)
     for (const language of Object.keys(languages)) {

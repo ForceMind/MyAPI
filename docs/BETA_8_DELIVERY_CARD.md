@@ -92,12 +92,42 @@ No prototype is called functional until its interaction and result are verified.
 
 ## Current state
 
-Kickoff and factual inventory complete. Shared shell and first interaction
-prototypes are in progress. No beta.8 implementation has yet passed acceptance;
-screenshots and exact verification results will be added as batches qualify.
-Real provider account/bill acceptance remains separately bounded. The prior
-beta.7 production upgrade is documented in [its release record](RELEASE_BETA_7.md);
-this UI work performs no new production deployment.
+The recovered shared UI and nine-file self-use navigation/overview increment
+are published in [Draft PR #3](https://github.com/ForceMind/MyAPI/pull/3).
+Source `83f8d249ebda4ca46868fcb54ab1efee475448ff` passed all ten jobs in
+[CI 37667558771](https://github.com/ForceMind/MyAPI/actions/runs/37667558771),
+including root/independent relaykit, race groups and the existing database gates.
+The test-merge `0dac604ca3f4e3ee16b55afe292572be8c76f749` has no file differences
+from that source. Docker/site workflows are path-filtered and did not run for
+this UI-only change; their old results are not claimed as new evidence.
+
+- 159 frontend test files / 852 tests, TypeScript, changed-file lint/format and
+  the production build passed. Four independent Chromium suites passed.
+- The shared UI report contains nine passing journeys, all 42 registered
+  settings links reached, 85 screenshots, no unexpected requests or page errors.
+  Together with quota/routing/access artifacts, the checkpoint has 148 PNGs.
+- Verified 320/768/1280 widths, seven languages, light/dark, role and sidebar
+  restrictions, Close/Escape/focus/Back/Forward, settings failure/retry, disabled
+  commerce history, and native-wheel budget footer actions at 320x900/640.
+- Fixes include composed-button touch/wrapping hooks, channel menu naming,
+  saved Traditional Chinese detection and localized initial funding state.
+- Initial browser failures and corrections are retained in the CI history:
+  table position changed; localized Close controls became ambiguous; modal
+  background controls are hidden correctly; form wrappers replace slot names;
+  production 503 retries take 15 seconds; viewport resize must settle before
+  scroll geometry. Assertions were retained or strengthened.
+
+Pixel review of that green checkpoint found two additional layout defects:
+a long French compliance action overlapped the notice, and mobile log timing
+and streaming evidence shared too little width. This follow-up places the
+compliance action in normal flow and gives timing a full wrapping row, with
+explicit browser non-overlap assertions. Its own final-head CI and screenshots
+must pass before this follow-up is qualified; PR #3 records the latest result.
+
+All browser data are synthetic. No real provider, bill, new production upgrade,
+release or stable 0.2.0 acceptance is implied. VERSION/default images remain
+beta.7. Older historical handoff documents were retained remotely after earlier
+publication restrictions; local changes were preserved, not forced through.
 
 Stop when the declared pages share the design/interaction contract, required
 regressions pass and repository documents/evidence are synchronized. Do not
