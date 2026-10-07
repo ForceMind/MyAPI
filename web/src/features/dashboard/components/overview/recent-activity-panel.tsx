@@ -129,6 +129,7 @@ export function RecentActivityPanel() {
 
   return (
     <PanelWrapper
+      className='@container'
       title={
         <span className='flex items-center gap-2'>
           <IconBadge tone='info' size='sm'>
@@ -164,7 +165,7 @@ export function RecentActivityPanel() {
           </AlertDescription>
         </Alert>
       ) : (
-        <div className='grid gap-4 md:grid-cols-2'>
+        <div className='grid gap-4 @md:grid-cols-2'>
           <section aria-label={t('Recent requests')} className='min-w-0'>
             <h3 className='flex items-center gap-2 text-sm font-semibold'>
               <Activity className='text-info size-4' aria-hidden='true' />

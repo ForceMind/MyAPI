@@ -48,7 +48,9 @@ import { IconBadge, type IconBadgeTone } from '@/components/ui/icon-badge'
 import { getChannels } from '@/features/channels/api'
 import { fetchTokenKey, getApiKeys } from '@/features/keys/api'
 import type { ApiKey } from '@/features/keys/types'
+import { PendingUsageReviews } from '@/features/usage-logs/components/pending-usage-reviews'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
+import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
 import { hasPermission } from '@/lib/admin-permissions'
 import { getUserModels } from '@/lib/api'
 import { MOTION_TRANSITION } from '@/lib/motion'
@@ -478,6 +480,9 @@ function CompactQuickAction(props: { action: QuickAction }) {
 }
 
 export function OverviewDashboard() {
+  const showChannelAction = useIsSidebarModuleVisible('/channels')
+  const showKeyAction = useIsSidebarModuleVisible('/keys')
+  const showLogAction = useIsSidebarModuleVisible('/usage-logs/common')
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
   const { items: apiInfoItems } = useApiInfo()
@@ -671,9 +676,57 @@ export function OverviewDashboard() {
 
   return (
     <div className='flex flex-col gap-4'>
-      <RecentActivityPanel />
+      <nav
+        aria-label={t('Console')}
+        className='myapi-page-actions flex flex-wrap items-center gap-2'
+      >
+        {!SELF_USE_MINIMAL &&
+          isAdmin &&
+          canReadChannels &&
+          showChannelAction && (
+            <Button render={<Link to='/channels' />} nativeButton={false}>
+              <RadioTower data-icon='inline-start' />
+              {t('Channels')}
+            </Button>
+          )}
+        {showKeyAction && (
+          <Button
+            variant='outline'
+            render={<Link to='/keys' />}
+            nativeButton={false}
+          >
+            <KeyRound data-icon='inline-start' />
+            {t('API Keys')}
+          </Button>
+        )}
+        {showLogAction && (
+          <Button
+            variant='outline'
+            render={<Link to='/usage-logs' />}
+            nativeButton={false}
+          >
+            <FileText data-icon='inline-start' />
+            {t('Usage Logs')}
+          </Button>
+        )}
+        {showLogAction && <PendingUsageReviews />}
+      </nav>
       <SummaryCards />
-      <AccountQuotaChangesPanel />
+      <div
+        className={cn(
+          'grid min-w-0 items-start gap-4',
+          isAdmin && 'xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]'
+        )}
+      >
+        {isAdmin && (
+          <div className='min-w-0'>
+            <AccountQuotaChangesPanel />
+          </div>
+        )}
+        <div className='min-w-0'>
+          <RecentActivityPanel />
+        </div>
+      </div>
       {setupGuideExpanded && (
         <CardStaggerContainer className='grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
           <CardStaggerItem className='bg-card h-full overflow-hidden rounded-2xl border shadow-xs'>

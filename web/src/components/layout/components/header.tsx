@@ -16,22 +16,44 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { SidebarTrigger } from '@/components/ui/sidebar'
+import { useTranslation } from 'react-i18next'
+
+import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
 
-type HeaderProps = React.HTMLAttributes<HTMLElement>
+type HeaderProps = React.HTMLAttributes<HTMLElement> & {
+  contentClassName?: string
+}
 
-export function Header({ className, children, ...props }: HeaderProps) {
+export function Header({
+  className,
+  children,
+  contentClassName,
+  ...props
+}: HeaderProps) {
+  const { t } = useTranslation()
+  const { isMobile, open, openMobile } = useSidebar()
   return (
     <header
+      data-myapi-header
       className={cn(
-        'sticky top-0 z-40 h-[var(--app-header-height,3rem)] w-full shrink-0 bg-transparent',
+        'bg-card sticky top-0 z-40 h-[var(--app-header-height,3rem)] w-full shrink-0 border-b',
         className
       )}
       {...props}
     >
-      <div className='flex h-full items-center gap-1.5 px-2 sm:gap-2 sm:px-3'>
-        <SidebarTrigger variant='ghost' className='size-8' />
+      <div
+        className={cn(
+          'flex h-full min-w-0 items-center gap-1.5 px-3 sm:gap-2 sm:px-4',
+          contentClassName
+        )}
+      >
+        <SidebarTrigger
+          variant='ghost'
+          className='col-start-1 row-start-1 size-9 shrink-0'
+          aria-label={t('Toggle sidebar')}
+          aria-expanded={isMobile ? openMobile : open}
+        />
         {children}
       </div>
     </header>

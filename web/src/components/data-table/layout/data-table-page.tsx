@@ -93,6 +93,12 @@ export type DataTablePageProps<TData> = {
   isFetching?: boolean
 
   /**
+   * Unavailable-data feedback. Replaces rows, cards, summaries, bulk actions
+   * and pagination while keeping the toolbar and current filters available.
+   */
+  errorState?: React.ReactNode
+
+  /**
    * Empty-state title (used for both desktop {@link TableEmpty} and mobile fallback).
    */
   emptyTitle?: string
@@ -328,10 +334,15 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
     <DataTableViewModeToggle value={viewMode} onChange={setViewMode} />
   ) : undefined
 
+  const hasError = Boolean(props.errorState)
   const toolbarNode = renderToolbar(props, viewToggle)
-  const mobileNode = renderMobile(props, showMobile, cardViewActive, viewMode)
-  const desktopNode = renderDesktop(props, showMobile, cardViewActive, viewMode)
-  const paginationNode = renderPagination(props)
+  const mobileNode = hasError
+    ? null
+    : renderMobile(props, showMobile, cardViewActive, viewMode)
+  const desktopNode = hasError
+    ? null
+    : renderDesktop(props, showMobile, cardViewActive, viewMode)
+  const paginationNode = hasError ? null : renderPagination(props)
 
   return (
     <>
@@ -344,14 +355,22 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
         )}
       >
         {toolbarNode}
-        {mobileNode}
-        {desktopNode}
-        {props.afterTable}
+        {hasError ? (
+          <div className='min-h-0 flex-1 overflow-y-auto'>
+            {props.errorState}
+          </div>
+        ) : (
+          <>
+            {mobileNode}
+            {desktopNode}
+            {props.afterTable}
+          </>
+        )}
       </div>
 
       {/* Bulk actions are typically a fixed-position toolbar; let the consumer
           handle its own visibility, we just gate it to non-mobile. */}
-      {!showMobile && props.bulkActions}
+      {!hasError && !showMobile && props.bulkActions}
 
       {paginationNode}
     </>

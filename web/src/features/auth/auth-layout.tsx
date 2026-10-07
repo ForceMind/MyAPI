@@ -31,33 +31,41 @@ export function AuthLayout({ children }: AuthLayoutProps) {
   const { systemName, logo, loading } = useSystemConfig()
 
   return (
-    <div className='relative grid h-svh max-w-none'>
-      <Link
-        to='/'
-        className='absolute top-4 left-4 z-10 flex items-center gap-2 transition-opacity hover:opacity-80 sm:top-8 sm:left-8'
-      >
-        <div className='relative h-8 w-8'>
+    <div className='myapi-auth-surface flex min-h-svh min-w-0 flex-col px-4 py-4 sm:px-8 sm:py-6'>
+      <header className='mx-auto w-full max-w-7xl'>
+        <Link
+          to='/'
+          className='focus-visible:ring-ring inline-flex max-w-full items-center gap-3 rounded-lg outline-none hover:opacity-80 focus-visible:ring-2 focus-visible:ring-offset-4'
+        >
+          <div className='relative size-9 shrink-0'>
+            {loading ? (
+              <Skeleton className='absolute inset-0 rounded-lg' />
+            ) : (
+              <img
+                src={logo}
+                alt={t('Logo')}
+                className='size-9 rounded-lg object-contain'
+              />
+            )}
+          </div>
           {loading ? (
-            <Skeleton className='absolute inset-0 rounded-full' />
+            <Skeleton className='h-6 w-24' />
           ) : (
-            <img
-              src={logo}
-              alt={t('Logo')}
-              className='h-8 w-8 rounded-full object-cover'
-            />
+            <h1 className='min-w-0 text-lg font-semibold tracking-tight wrap-anywhere'>
+              {systemName}
+            </h1>
           )}
-        </div>
-        {loading ? (
-          <Skeleton className='h-6 w-24' />
-        ) : (
-          <h1 className='text-xl font-medium'>{systemName}</h1>
-        )}
-      </Link>
-      <div className='container flex items-center pt-16 sm:pt-0'>
-        <div className='mx-auto flex w-full flex-col justify-center space-y-2 px-4 py-8 sm:w-[480px] sm:p-8'>
+        </Link>
+      </header>
+      <main
+        id='content'
+        tabIndex={-1}
+        className='flex w-full min-w-0 flex-1 flex-col justify-center py-8 outline-none sm:py-12'
+      >
+        <div className='myapi-auth-panel mx-auto w-full max-w-md min-w-0 space-y-2 p-5 sm:p-8'>
           {children}
         </div>
-      </div>
+      </main>
     </div>
   )
 }

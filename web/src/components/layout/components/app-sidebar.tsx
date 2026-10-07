@@ -16,9 +16,20 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { Cancel01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useLocation } from '@tanstack/react-router'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
-import { Sidebar, SidebarContent, SidebarRail } from '@/components/ui/sidebar'
+import { Button } from '@/components/ui/button'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarRail,
+  useSidebar,
+} from '@/components/ui/sidebar'
 import { useLayout } from '@/context/layout-provider'
 import { useSidebarView } from '@/hooks/use-sidebar-view'
 import { MOTION_TRANSITION, MOTION_VARIANTS } from '@/lib/motion'
@@ -44,31 +55,61 @@ import { SidebarViewHeader } from './sidebar-view-header'
  * in the registry; this component requires no changes.
  */
 export function AppSidebar() {
+  const { t } = useTranslation()
+  const { isMobile, setOpenMobile } = useSidebar()
+  const href = useLocation({ select: (location) => location.href })
   const { collapsible, variant } = useLayout()
   const { key, view, navGroups } = useSidebarView()
   const shouldReduce = useReducedMotion()
 
+  // Browser Back/Forward and command navigation dismiss the mobile drawer
+  // just like selecting a link inside it.
+  useEffect(() => {
+    setOpenMobile(false)
+  }, [href, setOpenMobile])
+
   return (
     <Sidebar collapsible={collapsible} variant={variant}>
+      {isMobile && (
+        <div className='flex min-h-14 items-center justify-between gap-2 px-3'>
+          <span className='min-w-0 truncate text-sm font-semibold'>MyAPI</span>
+          <Button
+            variant='ghost'
+            size='icon'
+            aria-label={t('Close')}
+            onClick={() => setOpenMobile(false)}
+          >
+            <HugeiconsIcon icon={Cancel01Icon} aria-hidden='true' />
+          </Button>
+        </div>
+      )}
       {view && <SidebarViewHeader view={view} />}
 
       <SidebarContent className='py-2'>
-        <AnimatePresence mode='wait' initial={false}>
-          <motion.div
-            key={key}
-            initial={
-              shouldReduce ? false : MOTION_VARIANTS.sidebarSlide.initial
-            }
-            animate={MOTION_VARIANTS.sidebarSlide.animate}
-            exit={shouldReduce ? undefined : MOTION_VARIANTS.sidebarSlide.exit}
-            transition={MOTION_TRANSITION.fast}
-            className='flex flex-col'
-          >
-            {navGroups.map((props) => (
-              <NavGroup key={props.id || props.title} {...props} />
-            ))}
-          </motion.div>
-        </AnimatePresence>
+        <nav
+          data-myapi-sidebar
+          aria-label={t('Navigation')}
+          className='min-w-0'
+        >
+          <AnimatePresence mode='wait' initial={false}>
+            <motion.div
+              key={key}
+              initial={
+                shouldReduce ? false : MOTION_VARIANTS.sidebarSlide.initial
+              }
+              animate={MOTION_VARIANTS.sidebarSlide.animate}
+              exit={
+                shouldReduce ? undefined : MOTION_VARIANTS.sidebarSlide.exit
+              }
+              transition={MOTION_TRANSITION.fast}
+              className='flex min-w-0 flex-col gap-2'
+            >
+              {navGroups.map((props) => (
+                <NavGroup key={props.id || props.title} {...props} />
+              ))}
+            </motion.div>
+          </AnimatePresence>
+        </nav>
       </SidebarContent>
 
       <SidebarRail />

@@ -60,13 +60,18 @@ import { ChatPresetsItem } from './chat-presets-item'
  * Sidebar navigation group component
  * Renders a group of navigation items, supporting regular links and collapsible submenus
  */
-export function NavGroup({ title, items }: NavGroupProps) {
+export function NavGroup({ id, title, items }: NavGroupProps) {
   const { state, isMobile } = useSidebar()
   const href = useLocation({ select: (location) => location.href })
 
   return (
-    <SidebarGroup className='px-2 py-1'>
-      <SidebarGroupLabel className='text-muted-foreground/70 px-2 text-[11px] font-medium tracking-wider uppercase'>
+    <SidebarGroup
+      data-myapi-nav-group={id}
+      role='group'
+      aria-label={title}
+      className='px-3 py-1'
+    >
+      <SidebarGroupLabel className='text-muted-foreground px-2 text-[11px] font-medium tracking-wider uppercase'>
         {title}
       </SidebarGroupLabel>
       <SidebarMenu>
@@ -130,12 +135,13 @@ function SidebarMenuLink({ item, href }: { item: NavLink; href: string }) {
         render={
           <Link
             to={item.url}
+            aria-current={checkIsActive(href, item) ? 'page' : undefined}
             preload={isMobile ? false : undefined}
             onClick={() => setOpenMobile(false)}
           />
         }
       >
-        {item.icon && <item.icon className='shrink-0' />}
+        {item.icon && <item.icon className='shrink-0' aria-hidden='true' />}
         <span className='min-w-0 flex-1 truncate'>{item.title}</span>
         {item.badge && <NavBadge>{item.badge}</NavBadge>}
       </SidebarMenuButton>
@@ -178,10 +184,13 @@ function SidebarMenuCollapsible({
         className='group/collapsible-trigger'
         render={<SidebarMenuButton tooltip={item.title} />}
       >
-        {item.icon && <item.icon className='shrink-0' />}
+        {item.icon && <item.icon className='shrink-0' aria-hidden='true' />}
         <span className='min-w-0 flex-1 truncate'>{item.title}</span>
         {item.badge && <NavBadge>{item.badge}</NavBadge>}
-        <ChevronRight className='ms-auto size-4 shrink-0 transition-transform duration-200 group-data-[panel-open]/collapsible-trigger:rotate-90' />
+        <ChevronRight
+          aria-hidden='true'
+          className='ms-auto size-4 shrink-0 transition-transform duration-200 group-data-[panel-open]/collapsible-trigger:rotate-90 motion-reduce:transition-none'
+        />
       </CollapsibleTrigger>
       <CollapsibleContent className='CollapsibleContent'>
         <SidebarMenuSub>
@@ -192,12 +201,17 @@ function SidebarMenuCollapsible({
                 render={
                   <Link
                     to={subItem.url}
+                    aria-current={
+                      checkIsActive(href, subItem) ? 'page' : undefined
+                    }
                     preload={isMobile ? false : undefined}
                     onClick={() => setOpenMobile(false)}
                   />
                 }
               >
-                {subItem.icon && <subItem.icon className='shrink-0' />}
+                {subItem.icon && (
+                  <subItem.icon className='shrink-0' aria-hidden='true' />
+                )}
                 <span className='min-w-0 flex-1 truncate'>{subItem.title}</span>
                 {subItem.badge && <NavBadge>{subItem.badge}</NavBadge>}
               </SidebarMenuSubButton>
@@ -231,10 +245,13 @@ function SidebarMenuCollapsedDropdown({
             />
           }
         >
-          {item.icon && <item.icon className='shrink-0' />}
+          {item.icon && <item.icon className='shrink-0' aria-hidden='true' />}
           <span className='min-w-0 flex-1 truncate'>{item.title}</span>
           {item.badge && <NavBadge>{item.badge}</NavBadge>}
-          <ChevronRight className='ms-auto size-4 shrink-0 transition-transform duration-200 group-data-[popup-open]/dropdown-trigger:rotate-90' />
+          <ChevronRight
+            aria-hidden='true'
+            className='ms-auto size-4 shrink-0 transition-transform duration-200 group-data-[popup-open]/dropdown-trigger:rotate-90 motion-reduce:transition-none'
+          />
         </DropdownMenuTrigger>
         <DropdownMenuContent side='right' align='start' sideOffset={4}>
           <DropdownMenuGroup>
@@ -248,6 +265,7 @@ function SidebarMenuCollapsedDropdown({
                 render={
                   <Link
                     to={sub.url}
+                    aria-current={checkIsActive(href, sub) ? 'page' : undefined}
                     className={`${checkIsActive(href, sub) ? 'bg-secondary' : ''}`}
                   />
                 }

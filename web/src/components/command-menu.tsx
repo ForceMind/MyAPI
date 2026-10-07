@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useLocation, useNavigate } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import { ArrowRight, ChevronRight, Laptop, Moon, Sun } from 'lucide-react'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
@@ -33,9 +33,8 @@ import {
 } from '@/components/ui/command'
 import { useSearch } from '@/context/search-context'
 import { useTheme } from '@/context/theme-provider'
-import { useSidebarData } from '@/hooks/use-sidebar-data'
+import { useSidebarView } from '@/hooks/use-sidebar-view'
 
-import { getNavGroupsForPath } from './layout/lib/sidebar-view-registry'
 import { ScrollArea } from './ui/scroll-area'
 
 export function CommandMenu() {
@@ -43,12 +42,7 @@ export function CommandMenu() {
   const navigate = useNavigate()
   const { setTheme } = useTheme()
   const { open, setOpen } = useSearch()
-  const { pathname } = useLocation()
-  const sidebarData = useSidebarData()
-
-  // Use the active nested sidebar view's nav groups when one matches
-  // the current URL; otherwise fall back to the root navigation.
-  const navGroups = getNavGroupsForPath(pathname, t) ?? sidebarData.navGroups
+  const { navGroups } = useSidebarView()
 
   const runCommand = React.useCallback(
     (command: () => unknown) => {
@@ -60,9 +54,18 @@ export function CommandMenu() {
   const groupKeyCounts = new Map<string, number>()
 
   return (
-    <CommandDialog modal open={open} onOpenChange={setOpen}>
+    <CommandDialog
+      modal
+      open={open}
+      onOpenChange={setOpen}
+      title={t('Search')}
+      description={t('Type a command or search...')}
+    >
       <Command>
-        <CommandInput placeholder={t('Type a command or search...')} />
+        <CommandInput
+          aria-label={t('Search')}
+          placeholder={t('Type a command or search...')}
+        />
         <CommandList>
           <ScrollArea className='h-72 pe-1'>
             <CommandEmpty>{t('No results found.')}</CommandEmpty>
@@ -118,6 +121,7 @@ export function CommandMenu() {
                         <CommandItem
                           key={`${commandIdentity}:${commandOccurrence}`}
                           value={`${navItem.title}-${subItem.url}`}
+                          keywords={[subItem.title]}
                           onSelect={() => {
                             runCommand(() => navigate({ to: subItem.url }))
                           }}
@@ -134,7 +138,7 @@ export function CommandMenu() {
               )
             })}
             <CommandSeparator />
-            <CommandGroup heading='Theme'>
+            <CommandGroup heading={t('Theme')}>
               <CommandItem onSelect={() => runCommand(() => setTheme('light'))}>
                 <Sun /> <span>{t('Light')}</span>
               </CommandItem>

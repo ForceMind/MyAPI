@@ -98,7 +98,7 @@ test('confirmed enabled state opens presentation but a failed refresh closes it'
   await waitFor(() => expect(result.current.commercialEnabled).toBe(false))
 })
 
-test('closed navigation preserves keys users logs and historical recovery without a wallet label', async () => {
+test('closed navigation keeps operational tasks and hides optional commercial history', async () => {
   vi.mocked(getStatus).mockResolvedValue(status('disabled'))
   const { result } = renderHook(() => useSidebarData(), { wrapper: wrapper() })
   await waitFor(() => expect(getStatus).toHaveBeenCalled())
@@ -108,15 +108,24 @@ test('closed navigation preserves keys users logs and historical recovery withou
   expect(items.some((item) => item.url === '/keys')).toBe(true)
   expect(items.some((item) => item.url === '/users')).toBe(true)
   expect(items.some((item) => item.url === '/usage-logs/common')).toBe(true)
-  expect(
-    items.some(
-      (item) => item.url === '/wallet' && item.title === 'Funding history'
-    )
-  ).toBe(true)
-  const history = items.find((item) => item.title === 'History and recovery')
-  expect(
-    history &&
-      'items' in history &&
-      history.items?.some((item) => item.url === '/subscriptions')
-  ).toBe(true)
+  for (const url of ['/wallet', '/subscriptions', '/redemption-codes']) {
+    expect(items.some((item) => item.url === url)).toBe(false)
+  }
+  expect(items.some((item) => item.title === 'History and recovery')).toBe(
+    false
+  )
+})
+
+test('explicitly enabled commerce retains its existing navigation', async () => {
+  vi.mocked(getStatus).mockResolvedValue(status('enabled'))
+  const { result } = renderHook(() => useSidebarData(), { wrapper: wrapper() })
+  await waitFor(() =>
+    expect(
+      result.current.navGroups
+        .flatMap((group) => group.items)
+        .some((item) => item.title === 'Wallet')
+    ).toBe(true)
+  )
+  const items = result.current.navGroups.flatMap((group) => group.items)
+  expect(items.some((item) => item.url === '/subscriptions')).toBe(true)
 })

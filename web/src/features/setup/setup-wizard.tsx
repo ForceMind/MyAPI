@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -32,7 +32,6 @@ import {
   CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card'
 import { Form } from '@/components/ui/form'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -81,6 +80,17 @@ export function SetupWizard() {
 
   const [currentStep, setCurrentStep] = useState(0)
   const [setupStatus, setSetupStatus] = useState<SetupStatus | undefined>()
+  const stepHeadingId = useId()
+  const stepDescriptionId = useId()
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null)
+  const previousStepRef = useRef(currentStep)
+
+  useEffect(() => {
+    if (previousStepRef.current !== currentStep) {
+      stepHeadingRef.current?.focus()
+      previousStepRef.current = currentStep
+    }
+  }, [currentStep])
 
   const form = useForm<SetupFormValues>({
     defaultValues: DEFAULT_FORM_VALUES,
@@ -278,123 +288,157 @@ export function SetupWizard() {
     mutation.mutate(payload)
   }
 
+  const statusUnavailable =
+    isError ||
+    (!isLoading && (!statusResponse?.success || !statusResponse.data))
+  const canShowSetup =
+    !isLoading &&
+    !statusUnavailable &&
+    !!setupStatus &&
+    !statusResponse?.data?.status
+
   return (
-    <div className='bg-muted/40 relative min-h-svh py-10'>
-      <div className='absolute top-4 right-4 sm:top-6 sm:right-6'>
-        <LanguageSwitcher />
-      </div>
-      <div className='container mx-auto flex max-w-5xl flex-col gap-8 px-4 sm:px-6'>
-        <div className='flex flex-col items-center gap-3'>
-          <div className='relative h-12 w-12'>
-            {systemConfigLoading ? (
-              <Skeleton className='absolute inset-0 rounded-full' />
-            ) : (
-              <img
-                src={logo}
-                alt={t('System logo')}
-                className='h-12 w-12 rounded-full object-cover shadow-sm'
-              />
-            )}
+    <div className='myapi-auth-surface min-h-svh px-4 py-4 sm:px-6 sm:py-6'>
+      <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 sm:gap-8'>
+        <header className='flex items-start justify-between gap-4'>
+          <div className='min-w-0 space-y-3'>
+            <div className='flex items-center gap-3'>
+              <div className='relative size-10 shrink-0'>
+                {systemConfigLoading ? (
+                  <Skeleton className='absolute inset-0 rounded-lg' />
+                ) : (
+                  <img
+                    src={logo}
+                    alt={t('System logo')}
+                    className='size-10 rounded-lg object-contain'
+                  />
+                )}
+              </div>
+              {systemConfigLoading ? (
+                <Skeleton className='h-7 w-40' />
+              ) : (
+                <h1 className='min-w-0 text-xl font-semibold tracking-tight wrap-anywhere sm:text-2xl'>
+                  {t('Initialize')} {systemName}
+                </h1>
+              )}
+            </div>
+            <p className='text-muted-foreground max-w-2xl text-sm leading-relaxed'>
+              {t(
+                'Follow the guided steps to prepare your workspace before the first login.'
+              )}
+            </p>
           </div>
-          {systemConfigLoading ? (
-            <Skeleton className='h-7 w-40' />
-          ) : (
-            <h1 className='text-2xl font-semibold tracking-tight'>
-              {t('Initialize')} {systemName}
-            </h1>
-          )}
-          <p className='text-muted-foreground text-center text-sm sm:text-base'>
-            {t(
-              'Follow the guided steps to prepare your workspace before the first login.'
-            )}
-          </p>
-        </div>
+          <LanguageSwitcher />
+        </header>
 
-        <Card className='shadow-lg'>
-          <CardHeader className='space-y-2'>
-            <CardTitle className='text-xl font-semibold'>
-              {t('System setup wizard')}
-            </CardTitle>
-            <CardDescription>
-              {t('Complete these steps to finish the initial installation.')}
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className='space-y-6'>
-            <ol className='grid gap-3 sm:grid-cols-4'>
-              {STEPS.map((step, index) => {
-                const isActive = currentStep === index
-                const isCompleted = currentStep > index
-                let stepCardClass = 'border-muted bg-card'
-                if (isActive) {
-                  stepCardClass = 'border-primary ring-primary/20 ring-2'
-                } else if (isCompleted) {
-                  stepCardClass = 'border-primary/40 bg-primary/5'
-                }
-                const stepNumberClass =
-                  isActive || isCompleted
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-muted-foreground/40 text-muted-foreground'
-                return (
-                  <li
-                    key={step.titleKey}
-                    className={cn('rounded-xl border p-3', stepCardClass)}
-                  >
-                    <div className='flex items-start gap-3'>
-                      <span
-                        className={cn(
-                          'flex size-6 items-center justify-center rounded-md border text-xs font-semibold',
-                          stepNumberClass
-                        )}
-                      >
-                        {index + 1}
-                      </span>
-                      <div className='space-y-1'>
-                        <p className='text-sm font-semibold'>
-                          {t(step.titleKey)}
-                        </p>
-                        <p className='text-muted-foreground text-xs'>
-                          {t(step.descriptionKey)}
-                        </p>
+        <main id='content' tabIndex={-1} className='min-w-0 outline-none'>
+          <Card className='gap-0'>
+            <CardHeader className='gap-4 border-b pb-5'>
+              <CardDescription>
+                {t('Complete these steps to finish the initial installation.')}
+              </CardDescription>
+              <ol
+                aria-label={t('System setup wizard')}
+                className='grid grid-cols-2 gap-2 lg:grid-cols-4 lg:gap-3'
+              >
+                {STEPS.map((step, index) => {
+                  const isActive = currentStep === index
+                  const isCompleted = currentStep > index
+                  return (
+                    <li
+                      key={step.titleKey}
+                      aria-current={isActive ? 'step' : undefined}
+                      className={cn(
+                        'min-w-0 rounded-lg border p-3',
+                        isActive
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border bg-muted/30'
+                      )}
+                    >
+                      <div className='flex items-start gap-2.5'>
+                        <span
+                          aria-hidden='true'
+                          className={cn(
+                            'flex size-6 shrink-0 items-center justify-center rounded-md text-xs font-semibold',
+                            isActive || isCompleted
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted text-muted-foreground'
+                          )}
+                        >
+                          {index + 1}
+                        </span>
+                        <div className='min-w-0 space-y-1'>
+                          <p className='text-xs leading-relaxed font-semibold wrap-break-word sm:text-sm'>
+                            {t(step.titleKey)}
+                          </p>
+                          {isCompleted && (
+                            <span className='sr-only'>{t('Completed')}</span>
+                          )}
+                          <p className='text-muted-foreground hidden text-xs leading-relaxed lg:block'>
+                            {t(step.descriptionKey)}
+                          </p>
+                        </div>
                       </div>
+                    </li>
+                  )
+                })}
+              </ol>
+            </CardHeader>
+
+            <CardContent className='space-y-6 py-5 sm:py-6'>
+              {isLoading && (
+                <LoadingState message={t('Loading setup status…')} />
+              )}
+              {!isLoading && statusUnavailable && (
+                <ErrorState
+                  title={t('We could not load the setup status.')}
+                  onRetry={() => refetch()}
+                />
+              )}
+              {canShowSetup && (
+                <Form {...form}>
+                  <form
+                    aria-labelledby={stepHeadingId}
+                    aria-describedby={stepDescriptionId}
+                    className='space-y-5'
+                    onSubmit={(event) => event.preventDefault()}
+                  >
+                    <div className='space-y-1.5'>
+                      <h2
+                        id={stepHeadingId}
+                        ref={stepHeadingRef}
+                        tabIndex={-1}
+                        className='text-lg font-semibold tracking-tight outline-none'
+                      >
+                        {t(STEPS[currentStep].titleKey)}
+                      </h2>
+                      <p
+                        id={stepDescriptionId}
+                        className='text-muted-foreground text-sm leading-relaxed'
+                      >
+                        {t(STEPS[currentStep].descriptionKey)}
+                      </p>
                     </div>
-                  </li>
-                )
-              })}
-            </ol>
+                    {currentStepComponent}
+                  </form>
+                </Form>
+              )}
+            </CardContent>
 
-            {isLoading && <LoadingState message={t('Loading setup status…')} />}
-            {!isLoading && isError && (
-              <ErrorState
-                title={t('We could not load the setup status.')}
-                onRetry={() => refetch()}
-              />
+            {canShowSetup && (
+              <CardFooter className='w-full border-t'>
+                <StepNavigation
+                  currentStep={currentStep}
+                  totalSteps={STEPS.length}
+                  onBack={handlePreviousStep}
+                  onNext={handleNextStep}
+                  onSubmit={handleSubmit}
+                  isSubmitting={mutation.isPending}
+                />
+              </CardFooter>
             )}
-            {!isLoading && !isError && (
-              <Form {...form}>
-                <form
-                  className='space-y-6'
-                  onSubmit={(event) => event.preventDefault()}
-                >
-                  {currentStepComponent}
-                </form>
-              </Form>
-            )}
-          </CardContent>
-
-          {!isLoading && !isError && (
-            <CardFooter className='w-full justify-end border-t'>
-              <StepNavigation
-                currentStep={currentStep}
-                totalSteps={STEPS.length}
-                onBack={handlePreviousStep}
-                onNext={handleNextStep}
-                onSubmit={handleSubmit}
-                isSubmitting={mutation.isPending}
-              />
-            </CardFooter>
-          )}
-        </Card>
+          </Card>
+        </main>
       </div>
     </div>
   )

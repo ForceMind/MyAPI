@@ -20,7 +20,9 @@ import { useParams } from '@tanstack/react-router'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ErrorState } from '@/components/error-state'
 import { SectionPageLayout } from '@/components/layout'
+import { LoadingState } from '@/components/loading-state'
 
 import { useSystemOptions, getOptionValue } from '../hooks/use-system-options'
 import type { SystemOption } from '../types'
@@ -68,8 +70,8 @@ function SettingsPageFrame(props: SettingsPageFrameProps) {
     >
       <SectionPageLayout>
         <SectionPageLayout.Title>
-          <span className='inline-flex max-w-full min-w-0 items-center gap-2 align-middle'>
-            <span className='truncate'>{props.title}</span>
+          <span className='inline-flex max-w-full min-w-0 flex-wrap items-center gap-2 align-middle'>
+            <span className='wrap-break-word'>{props.title}</span>
             <span
               ref={setTitleStatusContainer}
               className='inline-flex min-w-0 shrink-0 items-center'
@@ -111,28 +113,40 @@ export function SettingsPage<
   resolveSettings,
 }: SettingsPageProps<TSettings, TSectionId, TExtraArgs>) {
   const { t } = useTranslation()
-  const { data, isLoading } = useSystemOptions()
+  const { data, isLoading, isError, refetch } = useSystemOptions()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const params = useParams({ from: routePath as any })
   const activeSection = (params?.section ?? defaultSection) as TSectionId
   const sectionMeta = getSectionMeta(activeSection)
+  const options =
+    data?.success && Array.isArray(data.data) ? data.data : undefined
 
   const settings = useMemo(() => {
-    const baseSettings = getOptionValue(
-      data?.data,
-      defaultSettings
-    ) as TSettings
+    // No custom resolver may parse a failed or malformed response. The error
+    // frame below owns that state and never exposes editable fallback values.
+    if (!options) return defaultSettings
+    const baseSettings = getOptionValue(options, defaultSettings) as TSettings
     return resolveSettings
-      ? resolveSettings(baseSettings, data?.data)
+      ? resolveSettings(baseSettings, options)
       : baseSettings
-  }, [data?.data, defaultSettings, resolveSettings])
+  }, [options, defaultSettings, resolveSettings])
 
   if (isLoading) {
     return (
       <SettingsPageFrame title={t(sectionMeta.titleKey)}>
-        <div className='text-muted-foreground flex min-h-40 items-center justify-center text-sm'>
-          {t(loadingMessage)}
-        </div>
+        <LoadingState message={t(loadingMessage)} />
+      </SettingsPageFrame>
+    )
+  }
+
+  if (isError || !data?.success || !Array.isArray(data.data)) {
+    return (
+      <SettingsPageFrame title={t(sectionMeta.titleKey)}>
+        <ErrorState
+          title={t('Unable to load settings')}
+          description={t('Please try again later.')}
+          onRetry={() => void refetch()}
+        />
       </SettingsPageFrame>
     )
   }

@@ -1,0 +1,140 @@
+/* MyAPI operator interface. Existing theme axes remain user-controlled. */
+@media (min-width: 640px) {
+  :root {
+    --app-header-height: 4rem;
+  }
+}
+
+@layer components {
+  [data-myapi-shell='authenticated'] {
+    background: var(--myapi-surface-sunken);
+  }
+
+  [data-myapi-header] {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+  }
+
+  [data-myapi-shell='authenticated'] [data-slot='sidebar-inner'] {
+    background: transparent;
+  }
+
+  [data-myapi-shell='authenticated'] [data-slot='sidebar-inset'] {
+    background: var(--background);
+    box-shadow: 0 0 0 1px var(--border);
+  }
+
+  .myapi-page-header {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .myapi-page-content {
+    scrollbar-gutter: stable;
+  }
+
+  [data-slot='card'] {
+    box-shadow: 0 1px 2px rgb(16 24 40 / 0.025);
+  }
+
+  [data-slot='table'] thead {
+    background: var(--table-header);
+  }
+
+  [data-slot='table'] th {
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  [data-slot='table'] td {
+    font-variant-numeric: tabular-nums;
+  }
+
+  [data-slot='button'][data-variant='default']:not(:disabled):hover {
+    filter: brightness(0.94);
+  }
+
+  [data-myapi-shell] [data-slot='sidebar-menu-button'] {
+    min-height: 2.5rem;
+    font-size: 0.8125rem;
+  }
+
+  [data-myapi-shell] [data-slot='sidebar-menu-button'][data-active='true'] {
+    font-weight: 600;
+    box-shadow: inset 3px 0 0 var(--primary);
+  }
+
+  [data-slot='sidebar'][data-mobile='true'] {
+    max-width: calc(100vw - 2rem);
+  }
+
+  .myapi-settings-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 1.25rem;
+  }
+
+  .myapi-auth-surface {
+    background: var(--myapi-surface-sunken);
+  }
+
+  .myapi-auth-panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: 0 16px 48px -32px rgb(16 24 40 / 0.2);
+  }
+
+  @media (max-width: 639px) {
+    .myapi-settings-section {
+      padding: 1rem;
+    }
+
+    .myapi-page-footer {
+      padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    }
+  }
+
+  @media (pointer: coarse) {
+    [data-myapi-header] button {
+      min-width: 2.75rem;
+      min-height: 2.75rem;
+    }
+
+    [data-slot='button'],
+    [data-slot='sidebar-menu-button'],
+    [data-slot='sidebar-menu-sub-button'],
+    [data-slot='tabs-trigger'] {
+      min-height: 2.75rem;
+    }
+
+    [data-slot='button'][data-size^='icon'] {
+      min-width: 2.75rem;
+    }
+  }
+}
+
+/* These layout contracts must beat Button's height/nowrap utilities. */
+@layer utilities {
+  .myapi-page-actions > * {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .myapi-page-actions [data-slot='button'] {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    height: auto;
+    min-height: 2.25rem;
+    padding-block: 0.45rem;
+  }
+
+  @media (pointer: coarse) {
+    .myapi-page-actions [data-slot='button'] {
+      min-height: 2.75rem;
+    }
+  }
+}

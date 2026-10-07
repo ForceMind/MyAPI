@@ -18,8 +18,8 @@ vi.mock('@/context/theme-provider', () => ({
   useTheme: () => ({ setTheme }),
 }))
 
-vi.mock('@/hooks/use-sidebar-data', () => ({
-  useSidebarData: () => ({
+vi.mock('@/hooks/use-sidebar-view', () => ({
+  useSidebarView: () => ({
     navGroups: [
       {
         id: 'main',
@@ -35,10 +35,6 @@ vi.mock('@/hooks/use-sidebar-data', () => ({
       },
     ],
   }),
-}))
-
-vi.mock('./layout/lib/sidebar-view-registry', () => ({
-  getNavGroupsForPath: () => null,
 }))
 
 describe('CommandMenu', () => {

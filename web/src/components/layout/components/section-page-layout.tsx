@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import {
   Children,
   isValidElement,
+  useId,
   useState,
   type ReactElement,
   type ReactNode,
@@ -33,6 +34,11 @@ function SectionPageLayoutTitle(_props: SlotProps) {
   return null
 }
 SectionPageLayoutTitle.displayName = 'SectionPageLayout.Title'
+
+function SectionPageLayoutDescription(_props: SlotProps) {
+  return null
+}
+SectionPageLayoutDescription.displayName = 'SectionPageLayout.Description'
 
 function SectionPageLayoutActions(_props: SlotProps) {
   return null
@@ -55,11 +61,14 @@ export type SectionPageLayoutProps = {
 }
 
 export function SectionPageLayout(props: SectionPageLayoutProps) {
+  const titleId = useId()
+  const descriptionId = useId()
   const [footerContainer, setFooterContainer] = useState<HTMLDivElement | null>(
     null
   )
 
   let title: ReactNode = null
+  let description: ReactNode = null
   let actions: ReactNode = null
   let content: ReactNode = null
   let breadcrumb: ReactNode = null
@@ -69,6 +78,8 @@ export function SectionPageLayout(props: SectionPageLayoutProps) {
     const child = node as ReactElement<SlotProps>
     if (child.type === SectionPageLayoutTitle) {
       title = child.props.children
+    } else if (child.type === SectionPageLayoutDescription) {
+      description = child.props.children
     } else if (child.type === SectionPageLayoutActions) {
       actions = child.props.children
     } else if (child.type === SectionPageLayoutContent) {
@@ -80,19 +91,34 @@ export function SectionPageLayout(props: SectionPageLayoutProps) {
 
   return (
     <PageFooterProvider container={footerContainer}>
-      <Main>
-        <div className='shrink-0 px-3 pt-3 pb-2.5 sm:px-4 sm:pt-5 sm:pb-3'>
+      <Main
+        className='myapi-page'
+        aria-labelledby={titleId}
+        aria-describedby={description != null ? descriptionId : undefined}
+      >
+        <div className='myapi-page-header shrink-0 px-4 py-4 sm:px-6 sm:py-5'>
           {breadcrumb != null && (
             <div className='mb-2 sm:mb-3'>{breadcrumb}</div>
           )}
-          <div className='flex flex-wrap items-center justify-between gap-x-3 gap-y-2 sm:gap-x-4'>
-            <div className='min-w-0 flex-1'>
-              <h2 className='truncate text-base font-bold tracking-tight sm:text-lg'>
+          <div className='flex flex-wrap items-start justify-between gap-x-5 gap-y-3'>
+            <div className='min-w-0 flex-1 basis-52'>
+              <h1
+                id={titleId}
+                className='text-xl leading-tight font-semibold tracking-tight wrap-break-word sm:text-2xl'
+              >
                 {title}
-              </h2>
+              </h1>
+              {description != null && (
+                <p
+                  id={descriptionId}
+                  className='text-muted-foreground mt-1.5 max-w-3xl text-sm leading-relaxed wrap-break-word'
+                >
+                  {description}
+                </p>
+              )}
             </div>
             {actions != null && (
-              <div className='flex shrink-0 flex-wrap items-center justify-end gap-2 sm:gap-x-4'>
+              <div className='myapi-page-actions flex max-w-full flex-wrap items-center gap-2 sm:ms-auto sm:justify-end'>
                 {actions}
               </div>
             )}
@@ -100,10 +126,11 @@ export function SectionPageLayout(props: SectionPageLayoutProps) {
         </div>
 
         <div
+          data-page-scroll={props.fixedContent ? 'contained' : 'page'}
           className={
             props.fixedContent
-              ? 'min-h-0 flex-1 overflow-hidden px-3 pt-1 pb-3 sm:px-4 sm:pt-1.5 sm:pb-4'
-              : 'min-h-0 flex-1 overflow-auto px-3 pt-1 pb-3 sm:px-4 sm:pt-1.5 sm:pb-4'
+              ? 'myapi-page-content min-h-0 min-w-0 flex-1 overflow-hidden px-4 py-4 sm:px-6 sm:py-5'
+              : 'myapi-page-content min-h-0 min-w-0 flex-1 overflow-auto px-4 py-4 sm:px-6 sm:py-5'
           }
         >
           {content}
@@ -111,7 +138,7 @@ export function SectionPageLayout(props: SectionPageLayoutProps) {
 
         <div
           ref={setFooterContainer}
-          className='bg-background shrink-0 border-t px-3 py-2.5 empty:hidden sm:px-4 sm:py-3'
+          className='myapi-page-footer bg-card shrink-0 border-t px-4 py-3 empty:hidden sm:px-6'
         />
       </Main>
     </PageFooterProvider>
@@ -119,6 +146,7 @@ export function SectionPageLayout(props: SectionPageLayoutProps) {
 }
 
 SectionPageLayout.Title = SectionPageLayoutTitle
+SectionPageLayout.Description = SectionPageLayoutDescription
 SectionPageLayout.Actions = SectionPageLayoutActions
 SectionPageLayout.Content = SectionPageLayoutContent
 SectionPageLayout.Breadcrumb = SectionPageLayoutBreadcrumb

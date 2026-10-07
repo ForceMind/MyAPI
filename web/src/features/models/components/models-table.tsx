@@ -22,6 +22,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DataTablePage, useDataTable } from '@/components/data-table'
+import { ErrorState } from '@/components/error-state'
 import { useMediaQuery } from '@/hooks'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 
@@ -120,7 +121,7 @@ export function ModelsTable() {
 
   // Fetch models data
   // eslint-disable-next-line @tanstack/query/exhaustive-deps
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isError, isLoading, isFetching, refetch } = useQuery({
     queryKey: modelsQueryKeys.list({
       keyword: globalFilter,
       vendor: activeVendorFilter,
@@ -130,26 +131,31 @@ export function ModelsTable() {
       page_size: pagination.pageSize,
     }),
     queryFn: async () => {
-      if (shouldSearch) {
-        return searchModels({
-          keyword: globalFilter,
-          vendor: activeVendorFilter,
-          status: statusFilterValue,
-          sync_official: syncFilterValue,
-          p: pagination.pageIndex + 1,
-          page_size: pagination.pageSize,
-        })
+      const result = shouldSearch
+        ? await searchModels({
+            keyword: globalFilter,
+            vendor: activeVendorFilter,
+            status: statusFilterValue,
+            sync_official: syncFilterValue,
+            p: pagination.pageIndex + 1,
+            page_size: pagination.pageSize,
+          })
+        : await getModels({
+            p: pagination.pageIndex + 1,
+            page_size: pagination.pageSize,
+          })
+
+      if (!result.success) {
+        throw new Error('Failed to load models')
       }
-      return getModels({
-        p: pagination.pageIndex + 1,
-        page_size: pagination.pageSize,
-      })
+
+      return result
     },
   })
 
-  const models = data?.data?.items || []
-  const totalCount = data?.data?.total || 0
-  const vendorCounts = data?.data?.vendor_counts
+  const models = isError ? [] : data?.data?.items || []
+  const totalCount = isError ? 0 : data?.data?.total || 0
+  const vendorCounts = isError ? undefined : data?.data?.vendor_counts
 
   // Columns configuration
   const columns = useModelsColumns(vendors)
@@ -173,7 +179,7 @@ export function ModelsTable() {
     onGlobalFilterChange,
     manualPagination: true,
     manualFiltering: true,
-    ensurePageInRange,
+    ensurePageInRange: isError ? undefined : ensurePageInRange,
   })
 
   // Prepare filter options
@@ -194,6 +200,17 @@ export function ModelsTable() {
       columns={columns}
       isLoading={isLoading}
       isFetching={isFetching}
+      errorState={
+        isError ? (
+          <ErrorState
+            title={t('Failed to load models')}
+            description={t('Please try again later.')}
+            onRetry={() => {
+              if (!isFetching) void refetch()
+            }}
+          />
+        ) : undefined
+      }
       emptyTitle={t('No Models Found')}
       emptyDescription={t(
         'No models available. Create your first model to get started.'

@@ -21,6 +21,7 @@ import { Loader2, MessageCircleWarning } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Main } from '@/components/layout/components/main'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useActiveChatKey } from '@/features/chat/hooks/use-active-chat-key'
@@ -40,6 +41,14 @@ export const Route = createFileRoute('/_authenticated/chat/$chatId')({
 })
 
 function ChatRouteComponent() {
+  return (
+    <Main>
+      <ChatRouteContent />
+    </Main>
+  )
+}
+
+function ChatRouteContent() {
   const { t } = useTranslation()
   const { chatId } = Route.useParams()
   const { chatPresets, serverAddress } = useChatPresets()

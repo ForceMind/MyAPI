@@ -451,6 +451,27 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=768'
         run: node tools/access-policy/browser-smoke.mjs
 
+      - name: Qualify shared UI, roles, settings and responsive pages in Chromium
+        working-directory: .
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs
+          MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-ui-browser-artifacts
+          NODE_OPTIONS: '--max-old-space-size=768'
+        run: |
+          node --test tools/ui/browser-fixtures.test.mjs
+          node tools/ui/browser-smoke.mjs
+
+      - name: Upload full UI screenshots and qualification report
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-ui-browser-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/myapi-ui-browser-artifacts/*.png
+            ${{ runner.temp }}/myapi-ui-browser-artifacts/*.json
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Upload assigned access browser screenshots
         if: always()
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0

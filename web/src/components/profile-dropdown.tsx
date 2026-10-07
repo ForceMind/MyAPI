@@ -32,12 +32,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import useDialogState from '@/hooks/use-dialog'
+import { useFundingPresentation } from '@/hooks/use-funding-presentation'
 import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
 import { useUserDisplay } from '@/hooks/use-user-display'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { ROLE } from '@/lib/roles'
 import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
-import { useFundingPresentation } from '@/hooks/use-funding-presentation'
 import { useAuthStore } from '@/stores/auth-store'
 
 const avatarFallbackClassName = 'font-semibold text-white'
@@ -62,9 +62,15 @@ export function ProfileDropdown() {
     <>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger
-          render={<Button variant='ghost' className='relative size-6 p-0' />}
+          aria-label={t('Account menu')}
+          render={
+            <Button
+              variant='ghost'
+              className='relative size-9 rounded-full p-1'
+            />
+          }
         >
-          <Avatar className='size-6'>
+          <Avatar className='size-7'>
             <AvatarFallback
               className={`${avatarFallbackClassName} text-[11px]`}
               style={avatarFallbackStyle}
@@ -110,10 +116,10 @@ export function ProfileDropdown() {
             {t('Profile')}
           </DropdownMenuItem>
 
-          {!SELF_USE_MINIMAL && isWalletVisible && (
+          {!SELF_USE_MINIMAL && commercialEnabled && isWalletVisible && (
             <DropdownMenuItem onClick={() => navigate({ to: '/wallet' })}>
               <Wallet className='size-4' />
-              {commercialEnabled ? t('Wallet') : t('Funding history')}
+              {t('Wallet')}
             </DropdownMenuItem>
           )}
 

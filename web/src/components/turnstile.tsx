@@ -61,6 +61,9 @@ export function Turnstile({
       try {
         window.turnstile.render(ref.current, {
           sitekey: siteKey,
+          // The supported 150px variant also fits 320px auth/dialog forms.
+          // Keep it stable so viewport changes do not reset a challenge.
+          size: 'compact',
           callback: (token: string) => onVerifyRef.current(token),
           'error-callback': () => onExpireRef.current?.(),
           'expired-callback': () => onExpireRef.current?.(),
