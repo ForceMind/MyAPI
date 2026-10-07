@@ -422,12 +422,14 @@ jobs:
         run: bun run build
 
       - name: Install isolated browser test dependencies
+        id: browser-dependencies
         working-directory: .
         run: |
           npm install --prefix "$RUNNER_TEMP/myapi-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1
           "$RUNNER_TEMP/myapi-browser/node_modules/.bin/playwright" install --with-deps chromium
 
       - name: Verify real quota charts and responsive interactions
+        if: ${{ !cancelled() && steps.browser-dependencies.outcome == 'success' }}
         working-directory: .
         env:
           MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs
@@ -436,6 +438,7 @@ jobs:
         run: node tools/quota/browser-smoke.mjs
 
       - name: Verify model discovery and routing workflow in real Chromium
+        if: ${{ !cancelled() && steps.browser-dependencies.outcome == 'success' }}
         working-directory: .
         env:
           MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs
@@ -444,6 +447,7 @@ jobs:
         run: node tools/routing/browser-smoke.mjs
 
       - name: Verify assigned access and account events in real Chromium
+        if: ${{ !cancelled() && steps.browser-dependencies.outcome == 'success' }}
         working-directory: .
         env:
           MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs
@@ -452,6 +456,7 @@ jobs:
         run: node tools/access-policy/browser-smoke.mjs
 
       - name: Qualify shared UI, roles, settings and responsive pages in Chromium
+        if: ${{ !cancelled() && steps.browser-dependencies.outcome == 'success' }}
         working-directory: .
         env:
           MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs

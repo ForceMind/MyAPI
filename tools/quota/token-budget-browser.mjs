@@ -204,10 +204,25 @@ export async function checkTokenBudgetBrowser({ page, origin, output, label, fix
     const size = await dialog.evaluate((element) => ({ width: element.getBoundingClientRect().width, scroll: element.scrollWidth, client: element.clientWidth }))
     assert(size.width <= width && size.scroll <= size.client + 1, `account threshold fits ${width}px: ${JSON.stringify(size)}`)
     const thresholdInput = dialog.getByLabel(label('Minimum remaining percentage'), { exact: true })
-    await thresholdInput.scrollIntoViewIfNeeded()
+    // Exercise the dialog's real scrollport and center the control rather
+    // than relying on programmatic edge alignment after a width change.
+    for (let step = 0; step < 30; step++) {
+      const input = await thresholdInput.boundingBox()
+      const bounds = await dialog.boundingBox()
+      assert(input && bounds, 'threshold input and dialog have layout bounds')
+      if (input.y >= bounds.y + 1 && input.y + input.height <= bounds.y + bounds.height - 1) break
+      await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+      const delta = input.y + input.height / 2 - bounds.y - bounds.height / 2
+      await page.mouse.wheel(0, Math.max(-220, Math.min(220, delta)))
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+    }
     const inputBox = await thresholdInput.boundingBox()
     const dialogBox = await dialog.boundingBox()
-    assert(inputBox && dialogBox && inputBox.y >= dialogBox.y && inputBox.y + inputBox.height <= dialogBox.y + dialogBox.height, `threshold input is scroll-accessible at ${width}px`)
+    assert(inputBox && dialogBox && inputBox.y >= dialogBox.y && inputBox.y + inputBox.height <= dialogBox.y + dialogBox.height, `threshold input is scroll-accessible at ${width}px: ${JSON.stringify({ inputBox, dialogBox })}`)
+    assert(await thresholdInput.evaluate((input) => {
+      const rect = input.getBoundingClientRect()
+      return document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) === input
+    }), 'threshold input is not covered by another surface')
     await dialog.screenshot({ path: resolve(output, `account-threshold-${width}.png`) })
   }
   await Promise.all([
