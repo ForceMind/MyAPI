@@ -1,5 +1,16 @@
 # beta.7 delivery card: assigned access and in-app quota events
 
+## Release and deployment status (2026-10-07)
+
+The cumulative beta.4–7 source was merged into `main` at
+`2c32384bb2d21b06c5aa6bbc7f95b5e6be9abf3d`. VERSION and deployment templates
+now select `0.2.0-beta.7`. The maintainer authorized documentation updates,
+GitHub prerelease/GHCR publication and the existing Full deployment upgrade.
+Release gates and deployment acceptance are in progress; the live instance is
+still beta.3. Follow [the release record](RELEASE_BETA_7.md) for the current
+result. Older no-merge/no-publication statements below describe their historical
+checkpoints. Real OAuth and paid provider acceptance remain unverified.
+
 ## Current closure: bounded beta.7 source qualified (2026-10-06)
 
 This section supersedes the pending states in the retained history below.

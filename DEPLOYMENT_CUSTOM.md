@@ -21,12 +21,12 @@ Homebrew/Bun/Go/Node、Docker Desktop、Electron、LAN Lite 和服务器数据�
 
 ### 当前 R1 源码部署
 
-R1 开发分支为 `codex/r1-usage-review-20261002`。现有 `v0.2.0-beta.1`
-和 `v0.2.0-beta.2` 镜像不包含本轮 R1；部署当前源码时必须显式选择本地构建。
+beta.4–7 的累计源码已合并到 `main`。在 beta.7 发布完成前，
+`v0.2.0-beta.3` 仍是最后已发布预览版；使用未发布源码时必须显式选择本地构建。
 完整检出仓库后执行：
 
 ```bash
-git clone --branch codex/r1-usage-review-20261002 --single-branch https://github.com/ForceMind/MyAPI.git my-api-r1
+git clone --branch main --single-branch https://github.com/ForceMind/MyAPI.git my-api-r1
 cd my-api-r1
 git rev-parse HEAD
 umask 077
@@ -58,6 +58,8 @@ HTTPS 反代需另行配置为实际域名到 `http://127.0.0.1:3000`。部署�
 
 升级已有实例前，先按 [升级演练](docs/UPGRADE_REHEARSAL.md)备份数据库、WAL、配置和
 旧镜像，并用独立副本验证。回滚使用升级前备份；旧二进制不要直接打开已经迁移的数据库。
+beta.7 的用户/Key 访问约束须在全部实例完成升级与迁移后使用；旧版本不执行这些
+约束，程序回退不是安全的策略回滚。约束修改使用管理员现有 CAS 操作。
 真实 OAuth、账户窗口、账单与目标 HTTPS 验收仍见
 [R1 安装与验收清单](docs/R1_INSTALLATION_CHECK.md#下一步真实验收记录)。
 
