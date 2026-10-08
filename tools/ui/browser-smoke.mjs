@@ -52,6 +52,9 @@ async function session(options = {}) {
   const fixture = createUIFixture({ ...options, language: languages[language] })
   let releaseOptions
   const optionsGate = options.deferOptions ? new Promise(done => { releaseOptions = done }) : null
+  let releaseLearning
+  const learningGate = options.deferLearning ? new Promise(done => { releaseLearning = done }) : null
+  const learningReads = new Set(['/api/user/prompt-learning', '/api/user/prompt-learning/versions', '/api/user/prompt-learning/runs'])
   const context = await browser.newContext({ viewport: { width: options.width || 1280, height: 900 }, locale: 'en-US', timezoneId: 'UTC', reducedMotion: 'reduce', colorScheme: theme, serviceWorkers: 'block', hasTouch: options.hasTouch ?? false, isMobile: options.isMobile ?? false })
   contexts.add(context)
   await context.addCookies([{ name: 'vite-ui-theme', value: theme, url: origin }, { name: 'sidebar_state', value: 'true', url: origin }])
@@ -72,6 +75,7 @@ async function session(options = {}) {
       return route.continue()
     }
     if (optionsGate && url.pathname.replace(/\/$/, '') === '/api/option') await optionsGate
+    if (learningGate && learningReads.has(url.pathname.replace(/\/$/, ''))) await learningGate
     const response = fixture.response(url, request.method())
     report.requests.push({ journey: journeyName, role: options.role ?? 100, method: request.method(), path: url.pathname, query: url.search, status: response.status || 501 })
     if (response.violation) report.violations.push({ journey: journeyName, reason: response.violation })
@@ -86,7 +90,7 @@ async function session(options = {}) {
   page.setDefaultTimeout(15000)
   await page.clock.setFixedTime(new Date(FIXTURE_TIME))
   page.on('pageerror', error => report.pageErrors.push({ journey: journeyName, message: error.message }))
-  return { page, context, fixture, language, releaseOptions }
+  return { page, context, fixture, language, releaseOptions, releaseLearning }
 }
 
 async function settled(page) {
@@ -97,20 +101,21 @@ async function settled(page) {
   })
 }
 
-async function open(page, path, { shell = true, title } = {}) {
+async function open(page, path, { shell = true, title, headingLevel = 1, expectedPath } = {}) {
   await page.goto(`${origin}${path}`, { waitUntil: 'networkidle' })
+  if (expectedPath) await page.waitForURL(url => url.pathname.replace(/\/$/, '') === expectedPath.replace(/\/$/, ''))
   if (shell) {
     await page.locator('[data-myapi-shell="authenticated"]').waitFor()
     await page.locator('main#content').waitFor()
-    await page.locator('main#content h1').first().waitFor()
+    await page.locator(`main#content h${headingLevel}`).first().waitFor()
   }
-  if (title) await page.getByRole('heading', { level: 1, name: title, exact: true }).waitFor()
+  if (title) await page.getByRole('heading', { level: headingLevel, name: title, exact: true }).waitFor()
   await settled(page)
 }
 
-async function screenshot(page, name, { shell = true, touch = false } = {}) {
+async function screenshot(page, name, { shell = true, touch = false, headingLevel = 1 } = {}) {
   await settled(page)
-  const geometry = await page.evaluate(authenticated => {
+  const geometry = await page.evaluate(({ authenticated, headingLevel }) => {
     const rect = element => {
       if (!element) return null
       const box = element.getBoundingClientRect()
@@ -118,11 +123,11 @@ async function screenshot(page, name, { shell = true, touch = false } = {}) {
     }
     const header = document.querySelector('[data-myapi-header]')
     const main = document.querySelector('main#content')
-    const title = main?.querySelector('h1')
+    const title = main?.querySelector(`h${headingLevel}`)
     const controls = authenticated ? [...header.querySelectorAll('button')].filter(element => element.getBoundingClientRect().width > 0).map(element => ({ name: element.getAttribute('aria-label') || element.textContent, ...rect(element) })) : []
     const actions = authenticated ? [...document.querySelectorAll('.myapi-page-actions button')].filter(element => element.getBoundingClientRect().width > 0).map(element => ({ name: element.getAttribute('aria-label') || element.textContent, text: element.innerText.trim(), ...rect(element), whiteSpace: getComputedStyle(element).whiteSpace })) : []
     return { viewport: { width: innerWidth, height: innerHeight }, documentWidth: document.documentElement.scrollWidth, coarsePointer: matchMedia('(pointer: coarse)').matches, header: rect(header), main: rect(main), title: rect(title), controls, actions, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light' }
-  }, shell)
+  }, { authenticated: shell, headingLevel })
   assert(geometry.documentWidth <= geometry.viewport.width + 1, `${name}: page-wide horizontal overflow: ${JSON.stringify(geometry)}`)
   if (shell) {
     assert(geometry.main && geometry.header && geometry.title, `${name}: authenticated semantic shell`)
@@ -426,7 +431,7 @@ try {
 
   await run('public-auth-setup-and-errors', async () => {
     const { page } = await session({ role: 0, width: 320 })
-    for (const [name, path] of [['home', '/'], ['about', '/about'], ['pricing', '/pricing'], ['rankings', '/rankings'], ['privacy', '/privacy-policy'], ['agreement', '/user-agreement'], ['sign-in', '/sign-in'], ['sign-up', '/sign-up'], ['forgot-password', '/forgot-password'], ['reset', '/reset'], ...['401', '403', '404', '500', '503'].map(code => [`error-${code}`, `/${code}`])]) {
+    for (const [name, path] of [['home', '/'], ['about', '/about'], ['privacy', '/privacy-policy'], ['agreement', '/user-agreement'], ['sign-in', '/sign-in'], ['sign-up', '/sign-up'], ['forgot-password', '/forgot-password'], ['reset', '/reset'], ...['401', '403', '404', '500', '503'].map(code => [`error-${code}`, `/${code}`])]) {
       await open(page, path, { shell: false })
       await page.locator('h1, h2').first().waitFor()
       await screenshot(page, `public-${name}-320`, { shell: false })
@@ -486,6 +491,326 @@ try {
     await page.getByText('synthetic-key', { exact: true }).first().waitFor()
     assert.equal(await page.getByText(label('No API Keys Found'), { exact: true }).count(), 0, 'fresh list replaces the empty state')
   })
+
+  await run('remaining-dashboard-role-data-states', async () => {
+    for (const role of [1, 10]) {
+      const { page, context, fixture } = await session({ role })
+      const sessionStart = report.requests.length
+      const sections = [['models', 'Model Call Analytics', role === 1 ? '/api/data/self' : '/api/data'], ['flow', 'Flow', role === 1 ? '/api/data/flow/self' : '/api/data/flow'], ...(role === 10 ? [['users', 'User Analytics', '/api/data/users']] : [])]
+      for (const [section, title, endpoint] of sections) {
+        for (const state of ['populated', 'empty', 'error']) {
+          fixture.state.analytics = state
+          const start = report.requests.length
+          await open(page, `/dashboard/${section}`, { title: label(title), expectedPath: `/dashboard/${section}` })
+          const main = page.locator('main#content')
+          if (section === 'models') {
+            if (state === 'error') await main.getByText('--', { exact: true }).first().waitFor()
+            else await main.locator(`[title="${state === 'populated' ? 20 : 0}"]`).first().waitFor()
+            if (role === 1) assert.equal(await main.getByText(label('No performance data available'), { exact: true }).count(), 0, 'owner analytics never renders administrative performance')
+            else await main.getByText(label('No performance data available'), { exact: true }).waitFor()
+          } else if (section === 'flow') {
+            if (state === 'empty') await main.getByText(label('No flow data available'), { exact: true }).waitFor()
+            else if (state === 'error') {
+              await main.getByRole('alert').filter({ hasText: label('Failed to load') }).waitFor({ timeout: 30000 })
+              assert.equal(await main.getByText(label('No flow data available'), { exact: true }).count(), 0, 'unavailable flow is not reported as empty')
+            } else {
+              await main.locator('canvas').first().waitFor()
+              assert.equal(await main.getByText(label('No flow data available'), { exact: true }).count(), 0)
+            }
+          } else {
+            for (const chart of ['User Consumption Ranking', 'User Consumption Trend']) await main.getByText(label(chart), { exact: true }).waitFor()
+            if (state === 'error') {
+              await main.getByText(/Synthetic analytics unavailable|Request failed with status code 503/).first().waitFor({ timeout: 30000 })
+              assert.equal(await main.locator('canvas').count(), 0, 'failed user analytics hides successful-looking charts')
+            } else await main.locator('canvas').first().waitFor()
+          }
+          assert(report.requests.slice(start).some(request => request.path.replace(/\/$/, '') === endpoint && request.method === 'GET' && request.status === (state === 'error' ? 503 : 200)), `${role}/${section}/${state}: exercised the exact data contract`)
+          for (const width of [320, 1280]) {
+            await page.setViewportSize({ width, height: 900 })
+            await screenshot(page, `dashboard-${section}-role-${role}-${state}-${width}`)
+          }
+        }
+      }
+      if (role === 1) {
+        for (const width of [320, 1280]) {
+          await page.setViewportSize({ width, height: 900 })
+          await open(page, '/dashboard/users', { shell: false, title: label('Access Forbidden'), expectedPath: '/403' })
+          await screenshot(page, `dashboard-users-owner-forbidden-${width}`, { shell: false })
+        }
+        const ownerReads = report.requests.slice(sessionStart)
+        for (const forbidden of ['/api/data', '/api/data/users', '/api/data/flow', '/api/perf-metrics/summary']) assert.equal(ownerReads.filter(request => request.path.replace(/\/$/, '') === forbidden).length, 0, `owner must never request ${forbidden}`)
+      }
+      await context.close(); contexts.delete(context)
+    }
+  })
+
+  await run('remaining-dashboard-performance-recovery', async () => {
+    const { page, fixture } = await session({ role: 10, width: 320 })
+    fixture.state.analytics = 'populated'
+    fixture.state.performance = 'error'
+    await open(page, '/dashboard/models', { title: label('Model Call Analytics'), expectedPath: '/dashboard/models' })
+    const failure = page.getByRole('alert').filter({ hasText: label('Failed to load performance data') })
+    await failure.waitFor()
+    assert.equal(await page.getByText(label('No performance data available'), { exact: true }).count(), 0, 'unavailable summary is not reported as empty')
+    await screenshot(page, 'dashboard-performance-error-320')
+    fixture.state.performance = 'empty'
+    await failure.getByRole('button', { name: label('Retry'), exact: true }).click()
+    await page.getByText(label('No performance data available'), { exact: true }).waitFor()
+    await failure.waitFor({ state: 'hidden' })
+    await screenshot(page, 'dashboard-performance-recovered-empty-320')
+  })
+
+  await run('remaining-deployment-disabled-and-unavailable', async () => {
+    for (const role of [10, 100]) {
+      const { page, context, fixture } = await session({ role })
+      const start = report.requests.length
+      for (const width of [320, 1280]) {
+        await page.setViewportSize({ width, height: 900 })
+        await open(page, '/models/deployments', { title: label('Deployments'), expectedPath: '/models/deployments' })
+        await page.getByRole('heading', { level: 3, name: label('Model deployment service is disabled'), exact: true }).waitFor()
+        assert.equal(await page.getByRole('button', { name: label('Create deployment'), exact: true }).isDisabled(), true)
+        assert.equal(await page.getByRole('button', { name: label('Go to settings'), exact: true }).count(), role === 100 ? 1 : 0, 'only Root can reach configuration from this state')
+        await screenshot(page, `deployments-role-${role}-disabled-${width}`)
+      }
+      fixture.state.deploymentSettings = 'error'
+      await open(page, '/models/deployments', { title: label('Deployments'), expectedPath: '/models/deployments' })
+      const failure = page.getByRole('alert').filter({ hasText: label('Unable to load settings') })
+      await failure.waitFor()
+      assert.equal(await page.getByText(label('Model deployment service is disabled'), { exact: true }).count(), 0, 'unavailable configuration does not claim deployment is disabled')
+      assert.equal(await page.getByRole('button', { name: label('Create deployment'), exact: true }).isDisabled(), true)
+      for (const width of [320, 1280]) {
+        await page.setViewportSize({ width, height: 900 })
+        await screenshot(page, `deployments-role-${role}-unavailable-${width}`)
+      }
+      fixture.state.deploymentSettings = 'disabled'
+      await failure.getByRole('button', { name: label('Retry'), exact: true }).click()
+      await page.getByRole('heading', { level: 3, name: label('Model deployment service is disabled'), exact: true }).waitFor()
+      await failure.waitFor({ state: 'hidden' })
+      const deploymentReads = report.requests.slice(start).filter(request => request.path.startsWith('/api/deployments'))
+      assert(deploymentReads.length >= 4, 'disabled, failed and recovered settings were fetched')
+      assert(deploymentReads.every(request => request.method === 'GET' && request.path === '/api/deployments/settings'), 'no list, hardware or connection test is allowed while deployment is unavailable')
+      if (role === 100) {
+        await page.getByRole('button', { name: label('Go to settings'), exact: true }).click()
+        await page.waitForURL(`${origin}/system-settings/models/model-deployment`)
+        await page.getByRole('heading', { level: 1, name: label('Model Deployment'), exact: true }).waitFor()
+      }
+      await context.close(); contexts.delete(context)
+    }
+  })
+
+  await run('remaining-playground-read-only-and-gate', async () => {
+    for (const width of [320, 1280]) {
+      const { page, context } = await session({ role: 1, width })
+      const start = report.requests.length
+      await open(page, '/dashboard/overview', { title: label('Overview'), expectedPath: '/dashboard/overview' })
+      await open(page, '/playground', { title: label('Start a playground chat'), headingLevel: 2, expectedPath: '/playground' })
+      const input = page.getByPlaceholder(label('Ask anything'), { exact: true })
+      await input.fill('Synthetic unsent playground draft')
+      assert.equal(await input.inputValue(), 'Synthetic unsent playground draft')
+      await page.getByRole('button', { name: label('Parameters'), exact: true }).click()
+      await page.getByText(label('Parameter settings'), { exact: true }).waitFor()
+      if (width === 320) {
+        const dialog = page.getByRole('dialog', { name: label('Parameter settings'), exact: true })
+        await dialog.getByRole('button', { name: label('Close'), exact: true }).click()
+        await dialog.waitFor({ state: 'hidden' })
+      } else await page.keyboard.press('Escape')
+      assert.equal(await input.inputValue(), 'Synthetic unsent playground draft', 'closing options leaves the unsent message intact')
+      await screenshot(page, `playground-unsent-${width}`, { headingLevel: 2 })
+      // Back leaves the route with options open; Forward must restore an
+      // interactive route without a stranded modal or sending the draft.
+      await page.getByRole('button', { name: label('Parameters'), exact: true }).click()
+      await page.goBack({ waitUntil: 'networkidle' })
+      await page.waitForURL(`${origin}/dashboard/overview`)
+      assert.equal(await page.getByRole('dialog').count(), 0)
+      await page.goForward({ waitUntil: 'networkidle' })
+      await page.waitForURL(url => url.pathname.replace(/\/$/, '') === '/playground')
+      await page.getByRole('heading', { level: 2, name: label('Start a playground chat'), exact: true }).waitFor()
+      for (const endpoint of ['/api/user/models', '/api/user/self/groups']) assert(report.requests.slice(start).some(request => request.path === endpoint && request.method === 'GET'), `playground uses own ${endpoint}`)
+      assert.equal(report.requests.slice(start).filter(request => request.method !== 'GET' && request.path !== '/api/user/auth/refresh').length, 0, 'typing and options never send a provider or business mutation')
+      await context.close(); contexts.delete(context)
+
+      const disabled = await session({ role: 1, width, playgroundDisabled: true })
+      const disabledStart = report.requests.length
+      await open(disabled.page, '/playground', { title: label('Overview'), expectedPath: '/dashboard/overview' })
+      assert.equal(await disabled.page.getByRole('heading', { name: label('Start a playground chat'), exact: true }).count(), 0)
+      assert.equal(report.requests.slice(disabledStart).filter(request => ['/api/user/models', '/api/user/self/groups'].includes(request.path)).length, 0, 'disabled route never loads playground options')
+      await screenshot(disabled.page, `playground-sidebar-disabled-${width}`)
+      await disabled.context.close(); contexts.delete(disabled.context)
+    }
+  })
+
+  await run('remaining-chat-missing-presets-and-recovery', async () => {
+    for (const width of [320, 1280]) {
+      const { page, context } = await session({ role: 1, width })
+      const start = report.requests.length
+      const externalStart = report.blockedExternal.length
+      for (const path of ['/chat/0', '/chat2link']) {
+        const headingLevel = path === '/chat/0' ? 2 : 1
+        await open(page, path, { title: label('Chat preset not found'), headingLevel, expectedPath: path })
+        assert.equal(await page.locator('main#content iframe').count(), 0, 'missing presets never create a provider frame')
+        await screenshot(page, `${path === '/chat/0' ? 'chat-0' : 'chat2link'}-missing-${width}`, { headingLevel })
+        await page.locator('main#content a[href="/dashboard"]').filter({ hasText: label('Return to dashboard') }).click()
+        await page.waitForURL(`${origin}/dashboard/overview`)
+        await page.getByRole('heading', { level: 1, name: label('Overview'), exact: true }).waitFor()
+      }
+      await open(page, '/chat/not-an-integer', { title: label('Overview'), expectedPath: '/dashboard/overview' })
+      assert.equal(report.requests.slice(start).filter(request => request.path === '/api/token' || request.path.includes('/key')).length, 0, 'missing/invalid presets never retrieve an active key')
+      assert.equal(report.blockedExternal.length, externalStart, 'missing/invalid chat cannot attempt external navigation')
+      await context.close(); contexts.delete(context)
+    }
+  })
+
+  await run('remaining-prompt-learning-loading-error-recovery', async () => {
+    for (const width of [320, 1280]) {
+      const { page, context, fixture, releaseLearning } = await session({ role: 1, width, deferLearning: true })
+      const start = report.requests.length
+      try {
+        await page.goto(`${origin}/prompt-learning`, { waitUntil: 'domcontentloaded' })
+        await page.getByRole('heading', { level: 1, name: label('Prompt learning'), exact: true }).waitFor()
+        assert.equal(new URL(page.url()).pathname, '/prompt-learning')
+        for (const text of ['Loading learning settings…', 'Loading learning runs…', 'Loading instruction versions…']) await page.getByRole('status').filter({ hasText: label(text) }).waitFor()
+        const toggle = page.getByRole('switch', { name: label('Enable learning'), exact: true })
+        const save = page.getByRole('button', { name: label('Save version'), exact: true })
+        assert.equal(await toggle.getAttribute('aria-disabled'), 'true')
+        await page.getByRole('textbox', { name: label('Instruction content'), exact: true }).fill('Synthetic unsaved instruction')
+        assert.equal(await save.isDisabled(), true, 'unconfirmed policy cannot authorize saving even a nonempty draft')
+        for (const text of ['Learning is disabled', 'No learning runs yet.', 'No instruction versions yet.']) assert.equal(await page.getByText(label(text), { exact: true }).count(), 0, `loading does not claim ${text}`)
+        await screenshot(page, `prompt-learning-loading-${width}`)
+        fixture.state.promptLearning = 'error'
+        releaseLearning()
+        const failures = ['Failed to load learning policy', 'Failed to load learning runs', 'Failed to load instruction versions']
+        for (const title of failures) await page.getByRole('alert').filter({ hasText: label(title) }).waitFor({ timeout: 30000 })
+        assert.equal(await toggle.getAttribute('aria-disabled'), 'true')
+        assert.equal(await save.isDisabled(), true)
+        assert.equal(await page.getByText(label('Learning is disabled'), { exact: true }).count(), 0, 'failed policy is not a confirmed opt-out')
+        await screenshot(page, `prompt-learning-unavailable-${width}`)
+        fixture.state.promptLearning = 'ready'
+        for (const title of failures) await page.getByRole('alert').filter({ hasText: label(title) }).getByRole('button', { name: label('Retry'), exact: true }).click()
+        for (const text of ['Learning is disabled', 'No learning runs yet.', 'No instruction versions yet.']) await page.getByText(label(text), { exact: true }).waitFor()
+        assert.equal(await toggle.getAttribute('aria-checked'), 'false')
+        assert.notEqual(await toggle.getAttribute('aria-disabled'), 'true', 'only confirmed policy makes the switch available')
+        assert.equal(await save.isEnabled(), true, 'confirmed reads allow the manual draft without submitting it')
+        await screenshot(page, `prompt-learning-confirmed-disabled-${width}`)
+        const reads = report.requests.slice(start).filter(request => request.path.startsWith('/api/user/prompt-learning'))
+        for (const path of ['/api/user/prompt-learning', '/api/user/prompt-learning/versions', '/api/user/prompt-learning/runs']) assert(reads.some(request => request.path === path && request.status === 503) && reads.some(request => request.path === path && request.status === 200), `${path}: unavailable and recovered reads`)
+        assert(reads.every(request => request.method === 'GET'), 'qualification never toggles, saves or cancels learning')
+      } finally { releaseLearning() }
+      await context.close(); contexts.delete(context)
+    }
+  })
+
+  await run('remaining-pricing-disabled-route-guards', async () => {
+    const { page } = await session({ role: 0 })
+    for (const width of [320, 1280]) {
+      await page.setViewportSize({ width, height: 900 })
+      for (const path of ['/pricing', '/pricing/synthetic-text-model', '/rankings']) {
+        const start = report.requests.length
+        await open(page, path, { shell: false, title: label('Your AI gateway, in one place'), expectedPath: '/' })
+        assert.equal(report.requests.slice(start).filter(request => ['/api/pricing', '/api/rankings', '/api/perf-metrics', '/api/perf-metrics/summary'].includes(request.path)).length, 0, 'disabled modules never fetch public model content')
+        await screenshot(page, `${path.replaceAll('/', '-').slice(1)}-disabled-guard-${width}`, { shell: false })
+      }
+    }
+  })
+
+  await run('remaining-pricing-content-and-recovery', async () => {
+    const search = '?search=synthetic&tokenUnit=K&group=default'
+    const detailPath = '/pricing/synthetic-text-model'
+    for (const width of [320, 1280]) {
+      const { page, context, fixture } = await session({ role: 0, width, pricingEnabled: true })
+      fixture.state.pricing = 'populated'
+      const start = report.requests.length
+      await open(page, `/pricing${search}`, { shell: false, title: label('Model Square'), expectedPath: '/pricing' })
+      await page.getByRole('heading', { level: 3, name: 'synthetic-text-model', exact: true }).waitFor()
+      await screenshot(page, `pricing-enabled-card-${width}`, { shell: false })
+      await page.getByRole('button', { name: label('Details'), exact: true }).click()
+      const drawer = page.getByRole('dialog', { name: 'synthetic-text-model', exact: true })
+      await drawer.waitFor()
+      await drawer.getByRole('heading', { level: 1, name: 'synthetic-text-model', exact: true }).waitFor()
+      await drawer.getByRole('button', { name: label('Close'), exact: true }).click()
+      await drawer.waitFor({ state: 'hidden' })
+      assert.equal(new URL(page.url()).pathname.replace(/\/$/, ''), '/pricing', 'closing pricing details leaves the catalog route')
+      await open(page, `${detailPath}${search}`, { shell: false, title: 'synthetic-text-model', expectedPath: detailPath })
+      await page.getByRole('tab', { name: label('Performance'), exact: true }).click()
+      await page.getByText(label('Performance data is not yet available for this model.'), { exact: true }).waitFor()
+      assert.equal(await page.getByText('100%', { exact: true }).count(), 0, 'empty performance is not invented healthy availability')
+      await screenshot(page, `pricing-model-empty-performance-${width}`, { shell: false })
+      await page.getByRole('button', { name: label('Back'), exact: true }).click()
+      await page.waitForURL(url => url.pathname.replace(/\/$/, '') === '/pricing' && url.searchParams.get('search') === 'synthetic' && url.searchParams.get('tokenUnit') === 'K' && url.searchParams.get('group') === 'default')
+      await page.getByRole('heading', { level: 1, name: label('Model Square'), exact: true }).waitFor()
+
+      fixture.state.pricing = 'empty'
+      await open(page, `${detailPath}${search}`, { shell: false, title: label('Model not found'), headingLevel: 2, expectedPath: detailPath })
+      assert.equal(await page.getByRole('button', { name: label('Retry'), exact: true }).count(), 0, 'confirmed absent model is distinct from a failed read')
+      await screenshot(page, `pricing-model-missing-${width}`, { shell: false })
+      await page.getByRole('button', { name: label('Back to Models'), exact: true }).click()
+      await page.waitForURL(url => url.pathname.replace(/\/$/, '') === '/pricing' && url.searchParams.get('search') === 'synthetic' && url.searchParams.get('tokenUnit') === 'K')
+
+      fixture.state.pricing = 'error'
+      await page.goto(`${origin}${detailPath}${search}`, { waitUntil: 'networkidle' })
+      const failure = page.getByRole('alert').filter({ hasText: label('Failed to load models') })
+      await failure.waitFor({ timeout: 30000 })
+      await failure.getByRole('heading', { level: 2, name: label('Failed to load models'), exact: true }).waitFor()
+      assert.equal(new URL(page.url()).pathname.replace(/\/$/, ''), detailPath)
+      assert.equal(await page.getByRole('heading', { name: label('Model not found'), exact: true }).count(), 0, 'failed pricing never impersonates a missing model')
+      await screenshot(page, `pricing-model-unavailable-${width}`, { shell: false })
+      // Verify Back also preserves filters while the source is unavailable.
+      await failure.getByRole('button', { name: label('Back to Models'), exact: true }).click()
+      await page.waitForURL(url => url.pathname.replace(/\/$/, '') === '/pricing' && url.searchParams.get('search') === 'synthetic' && url.searchParams.get('tokenUnit') === 'K' && url.searchParams.get('group') === 'default')
+      await page.goBack({ waitUntil: 'networkidle' })
+      await failure.waitFor({ timeout: 30000 })
+      fixture.state.pricing = 'populated'
+      await failure.getByRole('button', { name: label('Retry'), exact: true }).click()
+      await page.getByRole('heading', { level: 1, name: 'synthetic-text-model', exact: true }).waitFor()
+      const recovered = new URL(page.url())
+      assert.equal(recovered.pathname.replace(/\/$/, ''), detailPath)
+      assert.equal(recovered.searchParams.get('search'), 'synthetic')
+      assert.equal(recovered.searchParams.get('tokenUnit'), 'K')
+      assert.equal(recovered.searchParams.get('group'), 'default')
+      await screenshot(page, `pricing-model-recovered-${width}`, { shell: false })
+      const metrics = report.requests.slice(start).filter(request => request.path === '/api/perf-metrics')
+      assert(metrics.length > 0 && metrics.every(request => new URLSearchParams(request.query).get('model') === 'synthetic-text-model' && new URLSearchParams(request.query).get('hours') === '24'), 'only the bounded synthetic model performance is read')
+      assert(report.requests.slice(start).some(request => request.path === '/api/perf-metrics/summary' && request.query === '?hours=24'), 'default catalog cards exercise their actual public summary contract')
+      await context.close(); contexts.delete(context)
+    }
+  })
+
+  await run('remaining-auth-alias-and-incomplete-flows', async () => {
+    for (const width of [320, 1280]) {
+      const { page, context } = await session({ role: 0, width })
+      const start = report.requests.length
+      const externalStart = report.blockedExternal.length
+      await open(page, '/register?redirect=%2Fkeys&aff=synthetic-referral', { shell: false, title: label('Create an account'), headingLevel: 2, expectedPath: '/sign-up' })
+      assert.equal(new URL(page.url()).searchParams.get('redirect'), '/keys')
+      assert.equal(new URL(page.url()).searchParams.get('aff'), 'synthetic-referral')
+      await screenshot(page, `register-alias-search-${width}`, { shell: false })
+      await open(page, '/user/reset', { shell: false, title: label('Reset password'), headingLevel: 2, expectedPath: '/user/reset' })
+      await page.getByRole('alert').filter({ hasText: label('Invalid reset link, please request a new password reset.') }).waitFor()
+      assert.equal(await page.getByRole('button', { name: label('auth.resetPasswordConfirm.confirm'), exact: true }).isDisabled(), true)
+      assert.equal(await page.getByRole('textbox', { name: label('Email'), exact: true }).isDisabled(), true)
+      await screenshot(page, `reset-missing-parameters-${width}`, { shell: false })
+      await open(page, '/otp', { shell: false, title: label('Two-factor Authentication'), headingLevel: 2, expectedPath: '/otp' })
+      const verify = page.getByRole('button', { name: label('Verify and Sign In'), exact: true })
+      assert.equal(await verify.isDisabled(), true)
+      await page.getByRole('button', { name: label('Use backup code'), exact: true }).click()
+      await page.getByRole('textbox', { name: label('Backup Code'), exact: true }).waitFor()
+      assert.equal(await verify.isDisabled(), true)
+      await screenshot(page, `otp-backup-mode-no-flow-${width}`, { shell: false })
+      await page.getByRole('button', { name: label('Use authenticator code'), exact: true }).click()
+      await page.getByText(label('Verification Code'), { exact: true }).waitFor()
+      await page.getByRole('link', { name: label('Re-login'), exact: true }).click()
+      await page.waitForURL(url => url.pathname === '/sign-in')
+      await page.getByRole('heading', { level: 2, name: label('Sign in'), exact: true }).waitFor()
+      for (const [name, path] of [['missing-provider', '/oauth'], ['wechat-missing-code', '/oauth?provider=wechat'], ['github-missing-code', '/oauth/github']]) {
+        await open(page, path, { shell: false, title: label('Sign in'), headingLevel: 2, expectedPath: '/sign-in' })
+        await screenshot(page, `oauth-${name}-${width}`, { shell: false })
+      }
+      assert.equal(report.requests.slice(start).filter(request => request.method !== 'GET' && request.path !== '/api/user/auth/refresh').length, 0, 'incomplete auth never submits a credential, reset or verification')
+      assert.equal(report.requests.slice(start).filter(request => request.path.startsWith('/api/oauth') || request.path.includes('/wechat')).length, 0, 'incomplete OAuth cannot call a provider endpoint')
+      assert.equal(report.blockedExternal.length, externalStart, 'incomplete auth never attempts external navigation')
+      await context.close(); contexts.delete(context)
+    }
+  })
+
   report.result = report.journeys.every(journey => journey.result === 'passed') ? 'passed' : 'failed'
   assert.equal(report.result, 'passed', `UI qualification failed; inspect ${output}/qualification.json and failure screenshots`)
   console.log(`UI qualification passed: ${report.journeys.length} bounded journeys, ${report.settings.filter(section => section.reached).length} registered settings deep links, ${report.screenshots.length} screenshots. Synthetic-only evidence.`)

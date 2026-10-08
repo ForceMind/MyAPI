@@ -55,7 +55,7 @@ function ChatRouteContent() {
   const preset = useMemo(() => {
     const index = Number(chatId)
     if (!Number.isInteger(index)) return undefined
-    return chatPresets[index]
+    return chatPresets.find((preset) => preset.id === String(index))
   }, [chatId, chatPresets])
 
   const isWebLink = preset?.type === 'web'

@@ -17,9 +17,8 @@ const sharedReads = new Set([
   '/api/channel/model-discovery/1', '/api/channel/1', '/api/channel', '/api/channel/search',
   '/api/channel/models', '/api/group', '/api/prefill_group',
   '/api/user/models', '/api/user/self/groups', '/api/user/2fa/status', '/api/user/passkey',
-  '/api/data', '/api/data/self', '/api/data/users', '/api/data/flow', '/api/data/flow/self',
   '/api/uptime/status', '/api/log', '/api/log/self', '/api/log/stat', '/api/log/self/stat',
-  '/api/log/overview', '/api/log/self/overview', '/api/perf-metrics/summary',
+  '/api/log/overview', '/api/log/self/overview',
   '/api/ratio_sync/openai', '/api/user/topup/info', '/api/user/topup/self', '/api/user/topup',
   '/api/user/aff', '/api/subscription/self',
 ])
@@ -34,10 +33,11 @@ const ownerReads = new Set([
   '/api/log/self', '/api/log/self/stat', '/api/log/self/overview',
   '/api/mj/self', '/api/task/self', '/api/uptime/status',
   '/api/user/topup/info', '/api/user/topup/self', '/api/user/aff', '/api/subscription/self',
+  '/api/user/prompt-learning', '/api/user/prompt-learning/versions', '/api/user/prompt-learning/runs',
 ])
 const rootPrefixes = ['/api/option', '/api/system-info', '/api/system-task', '/api/quota-writer', '/api/ratio_sync', '/api/custom-oauth-provider', '/api/performance']
 
-export function createUIFixture({ role = 100, language = 'en', setupComplete = true, sidebar = false, longText = false } = {}) {
+export function createUIFixture({ role = 100, language = 'en', setupComplete = true, sidebar = false, longText = false, playgroundDisabled = false, pricingEnabled = false } = {}) {
   // quotaFixtures accepts time through Date.now. Override only during its
   // synchronous construction and restore immediately; no timers are faked here.
   const originalNow = Date.now
@@ -65,7 +65,15 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
     { key: 'Notice', value: '' },
     { key: 'user_funding_setting.mode', value: 'disabled' },
   ]
-  const state = { keys: 'populated', options: 'ready' }
+  // Defaults preserve earlier journeys; new journeys explicitly opt into each
+  // populated, confirmed-empty, or unavailable contract before navigation.
+  const state = { keys: 'populated', options: 'ready', analytics: 'empty', performance: 'empty', modelPerformance: 'empty', deploymentSettings: 'disabled', promptLearning: 'ready', pricing: 'empty' }
+  const analyticsRows = [
+    { id: 31, user_id: user.id, username: user.username, model_name: 'synthetic-text-model', created_at: now - 3600, token_used: 2400, count: 12, quota: 6000 },
+    { id: 32, user_id: user.id, username: user.username, model_name: 'synthetic-text-model', created_at: now, token_used: 1600, count: 8, quota: 4000 },
+  ]
+  const flowRows = [{ user_id: user.id, username: user.username, node_name: 'synthetic-node', use_group: 'default', token_id: 21, token_name: 'synthetic-key', channel_id: 1, channel_name: 'synthetic-channel', model_name: 'synthetic-text-model', token_used: 4000, count: 20, quota: 10000 }]
+  const unavailable = message => ({ status: 503, body: { success: false, message } })
   return {
     state,
     user,
@@ -75,6 +83,18 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
         return { status: role === 0 ? 401 : 200, body: role === 0 ? { success: false, message: 'Synthetic anonymous visitor' } : ok({ access_token: 'synthetic-ui-session-not-a-credential', token_type: 'Bearer', access_expires_at: now + 3600, user, session }) }
       }
       if (method !== 'GET') return { violation: `Unexpected mutation: ${method} ${path}` }
+      if (path === '/api/perf-metrics') {
+        if (!pricingEnabled || url.searchParams.get('model') !== 'synthetic-text-model' || url.searchParams.get('hours') !== '24' || [...url.searchParams.keys()].some(key => !['model', 'hours'].includes(key))) return { violation: `Unconfigured performance read: ${method} ${path}${url.search}` }
+        if (state.modelPerformance === 'error') return unavailable('Synthetic model performance unavailable')
+        return { status: 200, body: ok({ model_name: 'synthetic-text-model', groups: [] }) }
+      }
+      // The real API exposes this exact summary to public pricing. This
+      // opt-in never grants ordinary dashboard sessions a summary read.
+      if (pricingEnabled && path === '/api/perf-metrics/summary') {
+        if (url.searchParams.get('hours') !== '24' || [...url.searchParams.keys()].some(key => key !== 'hours')) return { violation: `Unconfigured pricing summary read: ${method} ${path}${url.search}` }
+        if (state.performance === 'error') return unavailable('Synthetic performance unavailable')
+        return { status: 200, body: ok({ models: [] }) }
+      }
       if (role === 0 && !publicReads.has(path)) return { violation: `Anonymous private request: ${method} ${path}` }
       if (role === 1 && !publicReads.has(path) && !ownerReads.has(path)) return { violation: `Ordinary user requested admin data: ${method} ${path}` }
       if (role !== 100 && rootPrefixes.some(prefix => path === prefix || path.startsWith(`${prefix}/`))) return { violation: `Non-Root requested Root data: ${method} ${path}` }
@@ -89,7 +109,8 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
           api_info_enabled: false, announcements_enabled: false, faq_enabled: false, uptime_kuma_enabled: false,
           quota_per_unit: 500000, display_in_currency: false,
           user_funding_mode: 'disabled', user_funding_capabilities: funding,
-          SidebarModulesAdmin: sidebar ? JSON.stringify({ console: { enabled: true, log: false } }) : '',
+          SidebarModulesAdmin: sidebar || playgroundDisabled ? JSON.stringify({ ...(sidebar ? { console: { enabled: true, log: false } } : {}), ...(playgroundDisabled ? { chat: { enabled: true, playground: false } } : {}) }) : '',
+          ...(pricingEnabled ? { HeaderNavModules: JSON.stringify({ pricing: { enabled: true, requireAuth: false } }) } : {}),
         }); break
         case '/api/notice': case '/api/home_page_content': body = ok(''); break
         case '/api/about': body = ok('# About\n\nSynthetic UI qualification. MyAPI retains its source notices and existing contracts.'); break
@@ -103,7 +124,25 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
         case '/api/channel/models_enabled': body = ok(['synthetic-text-model']); break
         case '/api/channel/quota/alerts/delivery': body = ok({ policy_enabled: false, configured: false, https_only: true, redirects_allowed: false, timeout_ms: 5000, max_attempts: 3 }); break
         case '/api/channel/quota/alerts': case '/api/channel/quota/events': body = ok(page([])); break
-        case '/api/deployments/settings': body = ok({ enabled: false }); break
+        case '/api/deployments/settings':
+          if (state.deploymentSettings === 'error') return unavailable('Synthetic deployment settings unavailable')
+          body = ok({ enabled: false }); break
+        case '/api/data': case '/api/data/self': case '/api/data/users':
+          if (state.analytics === 'error') return unavailable('Synthetic analytics unavailable')
+          body = ok(state.analytics === 'populated' ? analyticsRows : []); break
+        case '/api/data/flow': case '/api/data/flow/self':
+          if (state.analytics === 'error') return unavailable('Synthetic analytics unavailable')
+          body = ok(state.analytics === 'populated' ? flowRows : []); break
+        case '/api/perf-metrics/summary':
+          if (state.performance === 'error') return unavailable('Synthetic performance unavailable')
+          body = ok({ models: [] }); break
+        case '/api/user/prompt-learning':
+          if (state.promptLearning === 'error') return unavailable('Synthetic learning settings unavailable')
+          body = ok({ scope: 'self', enabled: false, generation: 0 }); break
+        case '/api/user/prompt-learning/versions': case '/api/user/prompt-learning/runs':
+          if (url.searchParams.get('p') !== '1' || url.searchParams.get('page_size') !== '20' || [...url.searchParams.keys()].some(key => !['p', 'page_size'].includes(key))) return { violation: `Unconfigured learning history query: ${method} ${path}${url.search}` }
+          if (state.promptLearning === 'error') return unavailable('Synthetic learning settings unavailable')
+          body = ok({ items: [], total: 0, page: 1, page_size: 20 }); break
         case '/api/user': case '/api/user/search': body = ok(page([{ ...user, id: 2, username: 'synthetic-managed-user', role: 1 }])); break
         case '/api/authz/catalog': body = ok({ resources: [], roles: [] }); break
         case '/api/user/sessions': body = ok([session]); break
@@ -128,7 +167,9 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
         case '/api/full-content-logs': body = ok({ ...page([]), enabled: false, files: { count: 0, total_size: 0, files: [] }, facets: { models: [], tokens: [] } }); break
         case '/api/full-content-logs/files': body = ok({ count: 0, total_size: 0, files: [] }); break
         case '/api/usage-reviews/pending': body = ok(page([])); break
-        case '/api/pricing': body = { success: true, data: [], vendors: [], group_ratio: { default: 1 }, usable_group: { default: { desc: 'Synthetic', ratio: 1 } }, supported_endpoint: {}, auto_groups: [] }; break
+        case '/api/pricing':
+          if (state.pricing === 'error') return unavailable('Synthetic pricing unavailable')
+          body = { success: true, data: state.pricing === 'populated' ? [{ id: 41, model_name: 'synthetic-text-model', quota_type: 0, model_ratio: 1, completion_ratio: 2, enable_groups: ['default'] }] : [], vendors: [], group_ratio: { default: 1 }, usable_group: { default: { desc: 'Synthetic', ratio: 1 } }, supported_endpoint: {}, auto_groups: [] }; break
         case '/api/rankings': body = ok({ models: [], vendors: [], top_movers: [], top_droppers: [], models_history: { points: [], models: [], buckets: 0 }, vendor_share_history: { points: [], vendors: [], buckets: 0 } }); break
         default: if (sharedReads.has(path)) body = quota.response(url)
       }

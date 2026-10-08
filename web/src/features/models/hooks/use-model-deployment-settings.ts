@@ -52,9 +52,10 @@ export function clearConnectionCache() {
 
 type LoadingPhase = 'idle' | 'settings' | 'connection' | 'done'
 
-export function useModelDeploymentSettings() {
+export function useModelDeploymentSettings(active = true) {
   const [loading, setLoading] = useState(true)
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>('settings')
+  const [settingsError, setSettingsError] = useState<string | null>(null)
   const [settings, setSettings] = useState<Record<string, unknown>>({
     'model_deployment.ionet.enabled': false,
   })
@@ -68,11 +69,13 @@ export function useModelDeploymentSettings() {
   // Parallel fetch: settings + connection test (when enabled)
   const fetchAll = useCallback(async (useCache = true) => {
     setLoading(true)
+    setSettingsError(null)
     setLoadingPhase('settings')
 
     try {
       // Step 1: Fetch settings first (usually fast)
       const response = await getDeploymentSettings()
+      if (!response?.success) throw new Error('Unable to load settings')
       const isEnabled = response?.success && response?.data?.enabled === true
 
       setSettings({
@@ -119,7 +122,8 @@ export function useModelDeploymentSettings() {
         setConnectionState({ loading: false, ok: false, error: errMsg })
       }
     } catch {
-      // Settings fetch failed, use defaults
+      setSettingsError('Unable to load settings')
+      setSettings({ 'model_deployment.ionet.enabled': false })
       setConnectionState({ loading: false, ok: null, error: null })
     } finally {
       setLoadingPhase('done')
@@ -129,11 +133,15 @@ export function useModelDeploymentSettings() {
 
   // Initial load
   useEffect(() => {
+    if (!active) {
+      initialLoadRef.current = true
+      return
+    }
     if (initialLoadRef.current) {
       initialLoadRef.current = false
       fetchAll(true)
     }
-  }, [fetchAll])
+  }, [active, fetchAll])
 
   const isIoNetEnabled = Boolean(settings['model_deployment.ionet.enabled'])
 
@@ -171,17 +179,19 @@ export function useModelDeploymentSettings() {
 
   // Refresh on window focus (useful after saving settings in another page)
   useEffect(() => {
+    if (!active) return
     const handler = () => {
       // Use cache on focus to avoid unnecessary requests
       fetchAll(true)
     }
     window.addEventListener('focus', handler)
     return () => window.removeEventListener('focus', handler)
-  }, [fetchAll])
+  }, [active, fetchAll])
 
   return {
     loading,
     loadingPhase,
+    settingsError,
     settings,
     isIoNetEnabled,
     refresh,

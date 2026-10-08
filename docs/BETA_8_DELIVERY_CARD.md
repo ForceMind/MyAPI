@@ -132,3 +132,27 @@ publication restrictions; local changes were preserved, not forced through.
 Stop when the declared pages share the design/interaction contract, required
 regressions pass and repository documents/evidence are synchronized. Do not
 claim production-stable 0.2.0 on the strength of UI qualification alone.
+
+## Remaining-page closure in progress (2026-10-08)
+
+The full current-version plan continues beyond the qualified UI checkpoint.
+The remaining analytics, disabled deployments, existing tools, pricing detail
+and incomplete-auth routes now have explicit synthetic qualification journeys.
+New source fixes reject ordinary users before user analytics mounts; recover
+from absent chat configuration and preserve configured chat IDs; disable
+deployment creation without confirmed availability and keep Root settings links
+Root-only; distinguish unavailable learning/pricing/performance evidence from
+confirmed disabled, missing or empty data. Read failures retain Retry without
+authorizing a business mutation.
+
+Local verification: 166 frontend files / 877 tests, typecheck and build passed;
+16 exact-contract fixture tests passed. This batch still requires its own
+remote CI and pixel review. No real account, model call, deployment enablement,
+policy toggle, credential entry or production upgrade is part of these checks.
+The retained real-account acceptance deferral is not reopened.
+
+After all inventory rows reach their applicable UI acceptance, prepare the
+beta.8 version/release candidate and exact-source gates. Main merge, a new tag,
+GitHub prerelease and GHCR publication still require the corresponding explicit
+authorization; production deployment is excluded. Do not stop at a partial
+source batch or call the entire beta.8 plan complete while those gates remain.

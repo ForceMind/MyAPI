@@ -20,7 +20,7 @@ afterEach(() => {
   localStorage.clear()
 })
 
-async function renderChat(chats: Array<Record<string, string>>) {
+async function renderChat(chats: Array<Record<string, string>>, chatId = '0') {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -39,7 +39,7 @@ async function renderChat(chats: Array<Record<string, string>>) {
   })
   const router = createRouter({
     routeTree: root.addChildren([authenticated.addChildren([chat])]),
-    history: createMemoryHistory({ initialEntries: ['/chat/0'] }),
+    history: createMemoryHistory({ initialEntries: [`/chat/${chatId}`] }),
   })
   await router.load()
   return render(
@@ -50,6 +50,13 @@ async function renderChat(chats: Array<Record<string, string>>) {
 }
 
 describe('chat route main landmark', () => {
+  it('preserves the configured preset ID when earlier malformed entries are omitted', async () => {
+    await renderChat([{}, { Workspace: 'https://chat.example.test/' }], '1')
+    expect(screen.getByTitle('Chat preset: Workspace')).toHaveAttribute(
+      'src',
+      'https://chat.example.test/'
+    )
+  })
   it('keeps missing-preset recovery within the focusable content target', async () => {
     await renderChat([])
     const main = screen.getByRole('main')

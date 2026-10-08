@@ -67,3 +67,27 @@ focusable main target. These are explicit behavior checks for the shared batch.
 The beta.7 320/1280 access/event screenshots were inspected during the initial
 audit. They show existing production components with synthetic data, not a
 beta.8 design or real-account validation. Fresh beta.8 screenshots are required.
+
+## Remaining-route qualification batch (2026-10-08)
+
+Implementation and synthetic fixtures are prepared; exact-head CI/pixels remain
+pending for this batch. The browser harness distinguishes disabled public-route
+redirects from actual pricing content instead of accepting a homepage redirect
+as pricing-page evidence. Additional journeys cover:
+
+- Analytics models/flow/users: populated, empty and unavailable data; owner/admin
+  read separation; ordinary users denied at the user-analytics deep link.
+- Deployments: confirmed disabled versus unavailable settings, Retry and blocked
+  creation; Root-only settings entry, no provider or hardware request.
+- Playground: unsent draft, options dismissal/history and disabled-module guard;
+  chat routes: missing configuration recovery, invalid ID and no credential read.
+- Prompt learning: separately pending/failed/recovered policy and histories, no
+  enable/save/cancel mutation during qualification.
+- Pricing: explicit isolated public capability, card/catalog and detail, empty
+  metrics, missing versus unavailable model, Retry and Back preserving filters.
+- Register/reset aliases, OTP mode changes and incomplete OAuth recovery, with
+  zero credential/reset/provider submissions.
+
+Existing shared journeys and backend gates remain enabled. Actual provider calls,
+OAuth success, paid service provisioning and live account/bill evidence are
+separate from this UI-only scope and are not fabricated to close a row.

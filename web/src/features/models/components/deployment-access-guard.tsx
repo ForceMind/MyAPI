@@ -29,9 +29,12 @@ import {
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ErrorState } from '@/components/error-state'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { ROLE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
 
 type LoadingPhase = 'idle' | 'settings' | 'connection' | 'done'
 type StepStatus = 'pending' | 'loading' | 'done'
@@ -59,6 +62,7 @@ interface DeploymentAccessGuardProps {
   connectionLoading: boolean
   connectionOk: boolean | null
   connectionError: string | null
+  settingsError?: string | null
   onRetry: () => void
 }
 
@@ -100,10 +104,14 @@ export function DeploymentAccessGuard({
   connectionLoading,
   connectionOk,
   connectionError,
+  settingsError,
   onRetry,
 }: DeploymentAccessGuardProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const isRoot = useAuthStore(
+    (state) => state.auth.user?.role === ROLE.SUPER_ADMIN
+  )
 
   const handleGoToSettings = () => {
     navigate({
@@ -137,6 +145,16 @@ export function DeploymentAccessGuard({
   }
 
   // Disabled state
+  if (settingsError) {
+    return (
+      <ErrorState
+        title={t('Unable to load settings')}
+        description={t('Please try again later.')}
+        onRetry={onRetry}
+      />
+    )
+  }
+
   if (!isEnabled) {
     return (
       <div className='mx-auto mt-8 max-w-md'>
@@ -158,10 +176,12 @@ export function DeploymentAccessGuard({
               )}
             </AlertDescription>
           </Alert>
-          <Button onClick={handleGoToSettings} className='w-full'>
-            <Settings className='mr-2 h-4 w-4' />
-            {t('Go to settings')}
-          </Button>
+          {isRoot && (
+            <Button onClick={handleGoToSettings} className='w-full'>
+              <Settings className='mr-2 h-4 w-4' />
+              {t('Go to settings')}
+            </Button>
+          )}
         </div>
       </div>
     )
@@ -189,10 +209,12 @@ export function DeploymentAccessGuard({
             <Button variant='outline' onClick={onRetry} className='flex-1'>
               {t('Retry')}
             </Button>
-            <Button onClick={handleGoToSettings} className='flex-1'>
-              <Settings className='mr-2 h-4 w-4' />
-              {t('Go to settings')}
-            </Button>
+            {isRoot && (
+              <Button onClick={handleGoToSettings} className='flex-1'>
+                <Settings className='mr-2 h-4 w-4' />
+                {t('Go to settings')}
+              </Button>
+            )}
           </div>
         </div>
       </div>
