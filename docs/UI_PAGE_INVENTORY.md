@@ -70,7 +70,7 @@ routes. Existing module unit/contract tests remain enabled alongside these check
 | --- | --- | --- |
 | Overview and analysis | existing-page-families; remaining-dashboard-role-data-states; remaining-dashboard-performance-recovery | Owner/admin reads, populated/empty/error, ordinary-user denial; no real metrics |
 | Channels and accounts | existing-page-families; channel-task-navigation; quota and routing suites | Existing chart/action contracts; no provider credentials or real channel change |
-| Model catalog | existing-page-families; remaining-deployment-disabled-and-unavailable | Metadata plus guarded deployment recovery; no provisioning; Root-option reads excluded for normal admin |
+| Model catalog | existing-page-families; remaining-deployment-disabled-and-unavailable; model-drawer-unavailable-draft-recovery (review follow-up awaiting exact-head CI) | Metadata plus guarded deployment recovery; no provisioning; Root-option reads excluded for normal admin |
 | API Keys | existing-page-families; keyboard-drawers-and-history; access suite | Synthetic CRUD/access/budget evidence; no real key disclosure |
 | Users | existing-page-families; access suite | Existing role/assigned-access contracts; no live user mutation |
 | Usage and recovery | existing-page-families; quota/routing suites | Log/timing/stream/attempt surfaces and guarded recovery; no real settlement |
@@ -83,10 +83,10 @@ routes. Existing module unit/contract tests remain enabled alongside these check
 | Site settings | settings-deep-links; responsive-themes-and-seven-languages | All 4 links, synthetic read/feedback |
 | Authentication settings | settings-deep-links; settings-loading-error-recovery | All 5 links; no auth/security reconfiguration |
 | Billing settings | settings-deep-links; settings-loading-error-recovery | All 7 links; no money/price-policy changes |
-| Model settings | settings-deep-links | All 7 links; no routing/deployment changes |
+| Model settings | settings-deep-links | All 8 links; no routing/deployment changes |
 | Security settings | settings-deep-links | All 4 links; no security/permission expansion |
 | Content settings | settings-deep-links | All 7 links; preserve capability hiding |
-| Operations settings | settings-deep-links | All 8 links; no install, restart or alert-target activation |
+| Operations settings | settings-deep-links | All 7 links; no install, restart or alert-target activation |
 | Setup | public-auth-setup-and-errors | Interrupted synthetic setup, validation/guard; no real administrator creation |
 | Authentication | public-auth-setup-and-errors; remaining-auth-alias-and-incomplete-flows | Alias, OTP and incomplete OAuth recovery; no submitted credentials/provider login |
 | Errors | public-auth-setup-and-errors | 401/403/404/500/503 and error recovery |
@@ -98,3 +98,9 @@ and native-wheel dialog footer access. Pixel inspection confirmed chart marks,
 complete narrow pricing tabs, non-overlapping compliance/log groups and sensible
 remaining-route layouts. Real provider/bill and complete live authentication
 acceptance remain explicitly deferred, not fabricated to close a row.
+
+Review follow-up: unit behavior regressions protect model drafts across background
+options failure/retry and deployment request generations across interrupted tab
+visits. Failed connection-cache reentry retains its real guard and keyboard Retry.
+The additional drawer Chromium journey must pass on the final follow-up SHA; it
+is not included in the historical 18/232 evidence above.

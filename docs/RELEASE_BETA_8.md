@@ -71,6 +71,16 @@ not a request to erase historical financial or recovery records.
 - Version-preparation head, final acceptance, merged/tag SHA, release assets and
   container digests: pending. No release readiness is claimed yet.
 
+## Review follow-up
+
+Independent review prompted draft-preservation and interrupted-deployment fixes
+with demonstrated failing tests. Failed connection-cache reentry is also covered
+through the actual guard and keyboard Retry. These changes do not alter backend
+permissions, deployment/provider contracts or billing. Their final exact-head CI
+and new drawer screenshots supersede the earlier candidate for publication; use
+PR #3's latest verified head, never merge the older candidate merely because its
+checks were green.
+
 ## Explicit limits
 
 Browser fixtures are synthetic, not successful live authentication, paid model

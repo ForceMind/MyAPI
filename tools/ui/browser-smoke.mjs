@@ -576,6 +576,33 @@ try {
     await screenshot(page, 'dashboard-performance-recovered-empty-320')
   })
 
+  await run('model-drawer-unavailable-draft-recovery', async () => {
+    const { page, fixture } = await session({ role: 100, width: 320 })
+    fixture.state.options = 'error'
+    await open(page, '/models/metadata', { title: label('Metadata'), expectedPath: '/models/metadata' })
+    await page.getByRole('button', { name: label('Add Model'), exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    const failure = dialog.getByRole('alert').filter({ hasText: label('Unable to load settings') })
+    await failure.waitFor({ timeout: 30000 })
+    await dialog.getByLabel(label('Model Name *'), { exact: true }).fill('synthetic-unsaved-model')
+    await dialog.getByLabel(label('Description'), { exact: true }).fill('Retain this unsaved description')
+    assert.equal(await dialog.getByRole('button', { name: label('Save changes'), exact: true }).isDisabled(), true, 'Root cannot report a partial save while pricing is unavailable')
+    await screenshot(page, 'model-drawer-unavailable-draft-320')
+    fixture.state.options = 'ready'
+    await failure.getByRole('button', { name: label('Retry'), exact: true }).click()
+    await dialog.getByText(label('Pricing Configuration'), { exact: true }).waitFor()
+    assert.equal(await dialog.getByLabel(label('Model Name *'), { exact: true }).inputValue(), 'synthetic-unsaved-model')
+    assert.equal(await dialog.getByLabel(label('Description'), { exact: true }).inputValue(), 'Retain this unsaved description')
+    assert.equal(await dialog.getByRole('button', { name: label('Save changes'), exact: true }).isEnabled(), true)
+    await dialog.getByLabel(label('Model ratio'), { exact: true }).fill('1.25')
+    await screenshot(page, 'model-drawer-recovered-draft-320')
+    await dialog.getByRole('button', { name: label('Cancel'), exact: true }).click()
+    await dialog.waitFor({ state: 'hidden' })
+    await page.getByRole('button', { name: label('Add Model'), exact: true }).click()
+    assert.equal(await page.getByRole('dialog').getByLabel(label('Model Name *'), { exact: true }).inputValue(), '', 'a new drawer does not revive a cancelled draft')
+    assert.equal(await page.getByRole('dialog').getByLabel(label('Model ratio'), { exact: true }).inputValue(), '')
+  })
+
   await run('remaining-deployment-disabled-and-unavailable', async () => {
     for (const role of [10, 100]) {
       const { page, context, fixture } = await session({ role })

@@ -127,6 +127,25 @@ model-option prefetch and a disabled-Playground request-attribution assumption;
 that page. Assertions were retained or strengthened. Previous green checkpoint
 f566ddf2 and its 150 PNGs remain historical evidence, not substituted final tests.
 
+## Independent review hardening
+
+Review of the version candidate caught two interrupted-flow regressions beyond
+its green tests: a Root options failure/retry could reset an unsaved model draft,
+and an old deployment request could overwrite newer state after leaving a tab.
+Both received failing regression cases before fixes. Model initialization now
+separates first pricing fill from ongoing query availability, retains metadata
+and price drafts across failure/retry, resets deliberately on reopening, and
+blocks a partial Root save when configuration is unavailable. Deployment visits,
+refreshes and retries invalidate older requests before state or cache writes.
+Cached connection failures also retain their error/Retry instead of appearing as
+an empty successful list. The real access guard and keyboard Retry are exercised.
+
+Independent focused review passed the fixes. A new Chromium drawer journey checks
+initial failure, typed metadata, Retry, disabled/reenabled Save and Cancel/reopen
+without submitting a model. This follow-up still needs its own exact-head full
+CI and pixels; the latest PR evidence records that result. Earlier green numbers
+above remain attached to their historical source, not automatically this change.
+
 ## Version and release closure
 
 The remaining work is exact-source version/release preparation and its applicable

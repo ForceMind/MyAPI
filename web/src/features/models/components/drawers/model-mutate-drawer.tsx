@@ -263,6 +263,7 @@ export function ModelMutateDrawer({
   // depending on it: modelSettings is a fresh object on every system-options
   // refetch, and including it in the deps would reset the form under the user.
   const modelSettingsRef = useRef<ModelSettings | null>(null)
+  const pricingInitializedRef = useRef(false)
 
   // Fetch vendors for dropdown
   const { data: vendorsData } = useQuery({
@@ -364,10 +365,8 @@ export function ModelMutateDrawer({
     return getOptionValue(systemOptionsData.data, defaultModelSettings)
   }, [canEditPricing, systemOptionsQuery.isError, systemOptionsData])
 
-  // The load effect keys off this boolean, not the object: it re-runs once
-  // when the settings first arrive (so a drawer opened before that still gets
-  // its pricing prefilled), while later refetches only produce a new object
-  // reference and must not reset a form the user may be editing.
+  // Availability controls editing/submission, never whole-form initialization.
+  // Background failures and retries must not reset an unsaved model draft.
   const hasModelSettings = modelSettings !== null
   useEffect(() => {
     modelSettingsRef.current = modelSettings
@@ -427,8 +426,13 @@ export function ModelMutateDrawer({
     }
   }
 
-  // Load model data for editing and ratio configuration
+  // Initialize only when opening or changing the model, not on options refetch.
   useEffect(() => {
+    if (!open) {
+      pricingInitializedRef.current = false
+      return
+    }
+    pricingInitializedRef.current = modelSettingsRef.current !== null
     if (open && isEditing && modelData?.data) {
       const model = modelData.data
       setOldModelName(model.model_name)
@@ -481,10 +485,37 @@ export function ModelMutateDrawer({
         ...pricing.fields,
       })
     }
-  }, [open, isEditing, modelData, currentRow, form, hasModelSettings])
+  }, [open, isEditing, modelData, currentRow, form])
+
+  // The first options response may arrive after the metadata form is usable.
+  // Fill pricing once while retaining any metadata already typed by the user.
+  useEffect(() => {
+    if (
+      !open ||
+      !modelSettings ||
+      pricingInitializedRef.current ||
+      (isEditing && !modelData?.data)
+    ) {
+      return
+    }
+    const modelName =
+      (isEditing ? modelData?.data?.model_name : currentRow?.model_name) || ''
+    const pricing = readPricingConfig(modelSettings, modelName)
+    pricingInitializedRef.current = true
+    setLoadedPricingName(modelName)
+    setPricingMode(pricing.mode)
+    setPromptPrice(pricing.promptPrice)
+    setCompletionPrice(pricing.completionPrice)
+    setAdvancedOpen(pricing.advancedOpen)
+    form.reset(
+      { ...form.getValues(), ...pricing.fields },
+      { keepDirtyValues: true }
+    )
+  }, [open, modelSettings, isEditing, modelData, currentRow, form])
 
   const onSubmit = useCallback(
     async (values: ExtendedModelFormValues): Promise<void> => {
+      if (canEditPricing && !modelSettings) return
       setIsSubmitting(true)
       try {
         const submitData = {
@@ -725,6 +756,7 @@ export function ModelMutateDrawer({
       currentModelId,
       queryClient,
       onOpenChange,
+      canEditPricing,
       pricingMode,
       oldModelName,
       loadedPricingName,
@@ -1411,7 +1443,11 @@ export function ModelMutateDrawer({
           >
             {t('Cancel')}
           </SheetClose>
-          <Button form='model-form' type='submit' disabled={isSubmitting}>
+          <Button
+            form='model-form'
+            type='submit'
+            disabled={isSubmitting || (canEditPricing && !hasModelSettings)}
+          >
             {isSubmitting && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
             {isEditing ? t('Update Model') : t('Save changes')}
           </Button>
