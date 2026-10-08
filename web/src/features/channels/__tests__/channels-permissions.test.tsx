@@ -40,6 +40,9 @@ vi.mock('@/components/layout', () => ({
     (props: { children: ReactNode }) => <div>{props.children}</div>,
     {
       Title: (props: { children: ReactNode }) => <div>{props.children}</div>,
+      Description: (props: { children: ReactNode }) => (
+        <div>{props.children}</div>
+      ),
       Actions: (props: { children: ReactNode }) => <div>{props.children}</div>,
       Content: (props: { children: ReactNode }) => <div>{props.children}</div>,
     }
@@ -89,6 +92,11 @@ describe('channel routing preview permission boundary', () => {
 
     renderChannels()
 
-    expect(screen.getByText('Routing Preview')).toBeInTheDocument()
+    expect(
+      screen.getByRole('region', { name: 'Routing Preview' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Preview routing' })
+    ).toBeInTheDocument()
   })
 })

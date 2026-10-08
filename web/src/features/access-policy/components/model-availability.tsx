@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
+import { Badge } from '@/components/ui/badge'
+
 import type { ModelAvailability } from '../types'
 
 export function ModelAvailabilityList(props: { models: ModelAvailability[] }) {
@@ -30,11 +32,25 @@ export function ModelAvailabilityList(props: { models: ModelAvailability[] }) {
       )}
       <ul className='max-h-64 min-w-0 space-y-2 overflow-y-auto'>
         {props.models.map((item) => (
-          <li key={item.model} className='min-w-0 rounded-md border p-3'>
-            <p className='font-mono break-all'>{item.model}</p>
-            <p className='text-sm'>
-              {item.allowed ? t('Available') : t('Denied')}
-            </p>
+          <li
+            key={item.model}
+            className='bg-card min-w-0 space-y-2 rounded-lg border p-3'
+          >
+            <div className='flex flex-wrap items-start justify-between gap-2'>
+              <p className='min-w-0 flex-1 font-mono text-sm break-all'>
+                {item.model}
+              </p>
+              <Badge
+                variant='outline'
+                className={
+                  item.allowed
+                    ? 'text-foreground border-success/40'
+                    : 'text-foreground border-destructive/40'
+                }
+              >
+                {item.allowed ? t('Available') : t('Denied')}
+              </Badge>
+            </div>
             {!item.allowed && (
               <ul className='text-muted-foreground space-y-1 text-xs'>
                 {(item.reasons.length

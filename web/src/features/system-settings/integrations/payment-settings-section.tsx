@@ -836,7 +836,10 @@ export function PaymentSettingsSection({
   return (
     <SettingsSection title={t('Payment Gateway')}>
       {!complianceConfirmed ? (
-        <Alert variant='destructive' className='mb-6'>
+        <Alert
+          variant='destructive'
+          className='mb-6 has-data-[slot=alert-action]:pr-2.5'
+        >
           <ShieldAlert className='h-4 w-4' />
           <AlertTitle>{t('Compliance confirmation required')}</AlertTitle>
           <AlertDescription>
@@ -853,11 +856,12 @@ export function PaymentSettingsSection({
               </ol>
             </div>
           </AlertDescription>
-          <AlertAction>
+          <AlertAction className='static col-start-2 mt-3'>
             <Button
               type='button'
               size='sm'
               variant='destructive'
+              className='h-auto min-h-9 max-w-full py-2 whitespace-normal'
               onClick={() => setShowComplianceDialog(true)}
             >
               {t('Confirm compliance')}
@@ -944,6 +948,11 @@ export function PaymentSettingsSection({
                       <Select
                         value={field.value}
                         onValueChange={field.onChange}
+                        items={[
+                          { value: 'enabled', label: t('Enabled') },
+                          { value: 'retirement', label: t('Retirement') },
+                          { value: 'disabled', label: t('Disabled') },
+                        ]}
                       >
                         <FormControl>
                           <SelectTrigger>

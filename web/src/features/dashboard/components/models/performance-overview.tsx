@@ -21,6 +21,7 @@ import { Gauge, HeartPulse, Timer } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ErrorState } from '@/components/error-state'
 import { IconBadge, type IconBadgeTone } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getPerfMetricsSummary } from '@/features/performance-metrics/api'
@@ -93,13 +94,31 @@ export function PerformanceOverview() {
   })
 
   const models = useMemo(
-    () => metricsQuery.data?.data.models ?? [],
+    () =>
+      Array.isArray(metricsQuery.data?.data?.models)
+        ? metricsQuery.data.data.models
+        : [],
     [metricsQuery.data]
   )
   const summary = useMemo(() => buildPerformanceSummary(models), [models])
   const topModels = useMemo(() => models.slice(0, TOP_MODEL_LIMIT), [models])
   const loading = metricsQuery.isLoading
   const hasData = models.length > 0
+
+  if (
+    metricsQuery.isError ||
+    (!loading &&
+      (!metricsQuery.data?.success ||
+        !Array.isArray(metricsQuery.data.data?.models)))
+  ) {
+    return (
+      <ErrorState
+        className='min-h-0 p-4'
+        title={t('Failed to load performance data')}
+        onRetry={() => void metricsQuery.refetch()}
+      />
+    )
+  }
 
   if (!loading && !hasData) {
     return (

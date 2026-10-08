@@ -26,6 +26,8 @@ import {
   staticDataTableClassNames as tableStyles,
 } from '@/components/data-table'
 import { GroupBadge } from '@/components/group-badge'
+import { Alert, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { getPerfMetrics } from '@/features/performance-metrics/api'
 import {
   formatLatency,
@@ -193,7 +195,34 @@ export function ModelDetailsPerformance(props: { model: PricingModel }) {
     return map
   }, [groups])
 
-  if (metricsQuery.isLoading || performances.length === 0) {
+  if (metricsQuery.isPending) {
+    return (
+      <div
+        role='status'
+        className='text-muted-foreground rounded-lg border p-6 text-center text-sm'
+      >
+        {t('Loading...')}
+      </div>
+    )
+  }
+
+  if (metricsQuery.isError) {
+    return (
+      <Alert variant='destructive'>
+        <AlertTitle>{t('Failed to load performance data')}</AlertTitle>
+        <Button
+          variant='outline'
+          className='mt-2 w-fit'
+          disabled={metricsQuery.isFetching}
+          onClick={() => void metricsQuery.refetch()}
+        >
+          {t('Retry')}
+        </Button>
+      </Alert>
+    )
+  }
+
+  if (performances.length === 0) {
     return (
       <div className='text-muted-foreground rounded-lg border p-6 text-center text-sm'>
         {t('Performance data is not yet available for this model.')}

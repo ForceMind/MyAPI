@@ -40,6 +40,7 @@ import { useTranslation } from 'react-i18next'
 import type { SidebarData } from '@/components/layout/types'
 import { ROLE } from '@/lib/roles'
 import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
+
 import { useFundingPresentation } from './use-funding-presentation'
 
 /**
@@ -56,24 +57,8 @@ export function useSidebarData(): SidebarData {
 
   const navGroups: SidebarData['navGroups'] = [
     {
-      id: 'chat',
-      title: t('Chat'),
-      items: [
-        {
-          title: t('Playground'),
-          url: '/playground',
-          icon: FlaskConical,
-        },
-        {
-          title: t('Chat'),
-          icon: MessageSquare,
-          type: 'chat-presets',
-        },
-      ],
-    },
-    {
       id: 'general',
-      title: t('General'),
+      title: t('Console'),
       items: [
         {
           title: t('Overview'),
@@ -81,9 +66,17 @@ export function useSidebarData(): SidebarData {
           icon: Activity,
         },
         {
-          title: t('Dashboard'),
-          url: '/dashboard/models',
-          icon: LayoutDashboard,
+          title: t('Channels'),
+          url: '/channels',
+          icon: Radio,
+          requiredRole: ROLE.ADMIN,
+        },
+        {
+          title: t('Models'),
+          url: '/models/metadata',
+          activeUrls: ['/models/deployments'],
+          icon: Box,
+          requiredRole: ROLE.ADMIN,
         },
         {
           title: t('API Keys'),
@@ -96,27 +89,11 @@ export function useSidebarData(): SidebarData {
           icon: FileText,
         },
         {
-          title: t('Task Logs'),
-          url: '/usage-logs/task',
-          activeUrls: ['/usage-logs/drawing'],
-          configUrls: ['/usage-logs/drawing', '/usage-logs/task'],
-          icon: ListTodo,
-        },
-      ],
-    },
-    {
-      id: 'personal',
-      title: t('Personal'),
-      items: [
-        {
-          title: commercialEnabled ? t('Wallet') : t('Funding history'),
-          url: '/wallet',
-          icon: Wallet,
-        },
-        {
-          title: t('Profile'),
-          url: '/profile',
-          icon: User,
+          title: t('System Settings'),
+          url: '/system-settings/site',
+          activeUrls: ['/system-settings'],
+          icon: Settings,
+          requiredRole: ROLE.SUPER_ADMIN,
         },
       ],
     },
@@ -124,16 +101,6 @@ export function useSidebarData(): SidebarData {
       id: 'admin',
       title: t('Admin'),
       items: [
-        {
-          title: t('Channels'),
-          url: '/channels',
-          icon: Radio,
-        },
-        {
-          title: t('Models'),
-          url: '/models/metadata',
-          icon: Box,
-        },
         {
           title: t('Users'),
           url: '/users',
@@ -161,23 +128,64 @@ export function useSidebarData(): SidebarData {
           icon: ServerCog,
           requiredRole: ROLE.SUPER_ADMIN,
         },
+      ],
+    },
+    {
+      id: 'chat',
+      title: t('Tools'),
+      items: [
         {
-          title: t('System Settings'),
-          url: '/system-settings/site',
-          activeUrls: ['/system-settings'],
-          icon: Settings,
+          title: t('Model Call Analytics'),
+          url: '/dashboard/models',
+          icon: LayoutDashboard,
+          activeUrls: ['/dashboard/flow', '/dashboard/users'],
+        },
+        {
+          title: t('Task Logs'),
+          url: '/usage-logs/task',
+          activeUrls: ['/usage-logs/drawing'],
+          configUrls: ['/usage-logs/drawing', '/usage-logs/task'],
+          icon: ListTodo,
+        },
+        {
+          title: t('Playground'),
+          url: '/playground',
+          icon: FlaskConical,
+        },
+        {
+          title: t('Chat'),
+          icon: MessageSquare,
+          type: 'chat-presets',
+        },
+      ],
+    },
+    {
+      id: 'personal',
+      title: t('Personal'),
+      items: [
+        {
+          title: commercialEnabled ? t('Wallet') : t('Funding history'),
+          url: '/wallet',
+          icon: Wallet,
+        },
+        {
+          title: t('Profile'),
+          url: '/profile',
+          icon: User,
         },
       ],
     },
   ]
 
   if (!commercialEnabled) {
-    const admin = navGroups.find((group) => group.id === 'admin')
-    if (admin) {
-      const historyItems = admin.items.filter((item) => item.url === '/redemption-codes' || item.url === '/subscriptions')
-      admin.items = admin.items.filter((item) => item.url !== '/redemption-codes' && item.url !== '/subscriptions')
-      const links = historyItems.flatMap((item) => item.url ? [{ title: item.title, url: item.url }] : [])
-      if (links.length > 0) admin.items.push({ title: t('History and recovery'), items: links })
+    // Keep guarded historical routes available by URL, outside daily navigation.
+    for (const group of navGroups) {
+      group.items = group.items.filter(
+        (item) =>
+          !['/wallet', '/redemption-codes', '/subscriptions'].includes(
+            item.url ?? ''
+          )
+      )
     }
   }
 

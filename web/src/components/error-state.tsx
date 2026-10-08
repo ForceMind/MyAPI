@@ -47,10 +47,16 @@ export function ErrorState(props: ErrorStateProps) {
 
   return (
     <FadeIn>
-      <Empty className={cn('min-h-[300px]', props.className)}>
+      <Empty
+        role='alert'
+        className={cn(
+          'bg-card border-destructive/20 min-h-60 rounded-xl border',
+          props.className
+        )}
+      >
         <EmptyHeader>
           <EmptyMedia variant='icon'>
-            <Icon className='text-destructive size-6' />
+            <Icon className='text-destructive size-6' aria-hidden='true' />
           </EmptyMedia>
           <EmptyTitle>
             {props.title ?? t('Oops! Something went wrong')}

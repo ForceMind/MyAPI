@@ -63,7 +63,7 @@ export function SidebarViewHeader(props: SidebarViewHeaderProps) {
               />
             }
           >
-            <ChevronLeft className='size-4 shrink-0' />
+            <ChevronLeft className='size-4 shrink-0' aria-hidden='true' />
             <span className='truncate'>{t(props.view.parent.label)}</span>
           </SidebarMenuButton>
         </SidebarMenuItem>

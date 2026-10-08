@@ -22,7 +22,6 @@ import type { Table as TanstackTable } from '@tanstack/react-table'
 import { Database } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import {
   DISABLED_ROW_DESKTOP,
@@ -31,6 +30,7 @@ import {
   useDebouncedColumnFilter,
   useDataTable,
 } from '@/components/data-table'
+import { ErrorState } from '@/components/error-state'
 import { StatusBadge } from '@/components/status-badge'
 import {
   Empty,
@@ -232,7 +232,7 @@ export function ApiKeysTable() {
 
   // Fetch data with React Query
   // eslint-disable-next-line @tanstack/query/exhaustive-deps
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isError, isLoading, isFetching, refetch } = useQuery({
     queryKey: [
       'keys',
       pagination.pageIndex + 1,
@@ -255,15 +255,7 @@ export function ApiKeysTable() {
           })
 
       if (!result.success) {
-        toast.error(
-          result.message ||
-            t(
-              shouldSearch
-                ? ERROR_MESSAGES.SEARCH_FAILED
-                : ERROR_MESSAGES.LOAD_FAILED
-            )
-        )
-        return { items: [], total: 0 }
+        throw new Error(ERROR_MESSAGES.LOAD_FAILED)
       }
 
       return {
@@ -274,7 +266,7 @@ export function ApiKeysTable() {
     placeholderData: (previousData) => previousData,
   })
 
-  const apiKeys = data?.items || []
+  const apiKeys = isError ? [] : data?.items || []
 
   const { table } = useDataTable({
     data: apiKeys,
@@ -289,8 +281,8 @@ export function ApiKeysTable() {
     onGlobalFilterChange,
     onColumnFiltersChange,
     manualPagination: true,
-    totalCount: data?.total || 0,
-    ensurePageInRange,
+    totalCount: isError ? 0 : data?.total || 0,
+    ensurePageInRange: isError ? undefined : ensurePageInRange,
   })
 
   return (
@@ -299,6 +291,17 @@ export function ApiKeysTable() {
       columns={columns}
       isLoading={isLoading}
       isFetching={isFetching}
+      errorState={
+        isError ? (
+          <ErrorState
+            title={t('Failed to load API keys')}
+            description={t('Please try again later.')}
+            onRetry={() => {
+              if (!isFetching) void refetch()
+            }}
+          />
+        ) : undefined
+      }
       emptyTitle={t('No API Keys Found')}
       emptyDescription={t(
         'No API keys available. Create your first API key to get started.'

@@ -44,31 +44,55 @@ export function StepNavigation({
 
   return (
     <div className='flex w-full flex-col gap-3 sm:flex-row sm:items-center'>
-      <div className='flex justify-end gap-2 sm:justify-start'>
+      <p className='text-muted-foreground text-sm' aria-live='polite'>
+        {t('Setup progress: {{completed}}/{{total}}', {
+          completed: currentStep,
+          total: totalSteps,
+        })}
+      </p>
+      <div className='flex flex-1 flex-wrap items-center justify-between gap-2 sm:justify-end'>
         {!isFirstStep && (
-          <Button type='button' variant='outline' onClick={onBack}>
+          <Button
+            type='button'
+            variant='outline'
+            onClick={onBack}
+            disabled={isSubmitting}
+            className='h-auto min-h-10 whitespace-normal'
+          >
             {t('Back')}
           </Button>
         )}
-      </div>
 
-      <div className='flex flex-1 justify-end gap-2'>
         {!isLastStep && (
-          <Button type='button' onClick={onNext}>
+          <Button
+            type='button'
+            onClick={onNext}
+            disabled={isSubmitting}
+            className='ms-auto h-auto min-h-10 whitespace-normal'
+          >
             {t('Next')}
           </Button>
         )}
 
         {isLastStep && (
-          <Button type='button' onClick={onSubmit} disabled={isSubmitting}>
+          <Button
+            type='button'
+            onClick={onSubmit}
+            disabled={isSubmitting}
+            aria-busy={isSubmitting}
+            className='ms-auto h-auto min-h-10 max-w-full whitespace-normal'
+          >
             {isSubmitting ? (
               <>
-                <Loader2 className='mr-2 size-4 animate-spin' />
+                <Loader2
+                  aria-hidden='true'
+                  className='mr-2 size-4 animate-spin'
+                />
                 {t('Initializing…')}
               </>
             ) : (
               <>
-                <CheckCircle2 className='mr-2 size-4' />
+                <CheckCircle2 aria-hidden='true' className='mr-2 size-4' />
                 {t('Initialize system')}
               </>
             )}

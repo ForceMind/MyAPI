@@ -35,6 +35,7 @@ import {
   useDebouncedColumnFilter,
   useDataTable,
 } from '@/components/data-table'
+import { ErrorState } from '@/components/error-state'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -212,7 +213,7 @@ export function ChannelsTable() {
 
   // Fetch channels data
   // eslint-disable-next-line @tanstack/query/exhaustive-deps
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isError, isLoading, isFetching, refetch } = useQuery({
     queryKey: channelsQueryKeys.list({
       keyword: globalFilter,
       model: modelFilter,
@@ -235,66 +236,70 @@ export function ChannelsTable() {
       page_size: pagination.pageSize,
     }),
     queryFn: async () => {
-      if (shouldSearch) {
-        return searchChannels({
-          keyword: globalFilter,
-          model: modelFilter,
-          group:
-            groupFilter.length > 0 && !groupFilter.includes('all')
-              ? groupFilter[0]
-              : undefined,
-          status:
-            statusFilter.length > 0 && !statusFilter.includes('all')
-              ? statusFilter[0]
-              : undefined,
-          type:
-            typeFilter.length > 0 && !typeFilter.includes('all')
-              ? Number(typeFilter[0])
-              : undefined,
-          tag_mode: enableTagMode,
-          id_sort: idSort,
-          ...sortParams,
-          p: pagination.pageIndex + 1,
-          page_size: pagination.pageSize,
-        })
-      } else {
-        return getChannels({
-          group:
-            groupFilter.length > 0 && !groupFilter.includes('all')
-              ? groupFilter[0]
-              : undefined,
-          status:
-            statusFilter.length > 0 && !statusFilter.includes('all')
-              ? statusFilter[0]
-              : undefined,
-          type:
-            typeFilter.length > 0 && !typeFilter.includes('all')
-              ? Number(typeFilter[0])
-              : undefined,
-          tag_mode: enableTagMode,
-          id_sort: idSort,
-          ...sortParams,
-          p: pagination.pageIndex + 1,
-          page_size: pagination.pageSize,
-        })
+      const result = shouldSearch
+        ? await searchChannels({
+            keyword: globalFilter,
+            model: modelFilter,
+            group:
+              groupFilter.length > 0 && !groupFilter.includes('all')
+                ? groupFilter[0]
+                : undefined,
+            status:
+              statusFilter.length > 0 && !statusFilter.includes('all')
+                ? statusFilter[0]
+                : undefined,
+            type:
+              typeFilter.length > 0 && !typeFilter.includes('all')
+                ? Number(typeFilter[0])
+                : undefined,
+            tag_mode: enableTagMode,
+            id_sort: idSort,
+            ...sortParams,
+            p: pagination.pageIndex + 1,
+            page_size: pagination.pageSize,
+          })
+        : await getChannels({
+            group:
+              groupFilter.length > 0 && !groupFilter.includes('all')
+                ? groupFilter[0]
+                : undefined,
+            status:
+              statusFilter.length > 0 && !statusFilter.includes('all')
+                ? statusFilter[0]
+                : undefined,
+            type:
+              typeFilter.length > 0 && !typeFilter.includes('all')
+                ? Number(typeFilter[0])
+                : undefined,
+            tag_mode: enableTagMode,
+            id_sort: idSort,
+            ...sortParams,
+            p: pagination.pageIndex + 1,
+            page_size: pagination.pageSize,
+          })
+
+      if (!result.success) {
+        throw new Error('Failed to load channels')
       }
+
+      return result
     },
     placeholderData: (previousData) => previousData,
   })
 
   // Apply tag aggregation if tag mode is enabled
   const channels = useMemo(() => {
-    const rawChannels = data?.data?.items || []
+    const rawChannels = isError ? [] : data?.data?.items || []
 
     if (enableTagMode && rawChannels.length > 0) {
       return aggregateChannelsByTag(rawChannels)
     }
 
     return rawChannels
-  }, [data, enableTagMode])
+  }, [data, enableTagMode, isError])
 
-  const totalCount = data?.data?.total || 0
-  const typeCounts = data?.data?.type_counts
+  const totalCount = isError ? 0 : data?.data?.total || 0
+  const typeCounts = isError ? undefined : data?.data?.type_counts
 
   // Columns configuration
   const columns = useChannelsColumns({
@@ -333,7 +338,7 @@ export function ChannelsTable() {
     manualFiltering: true,
     withExpandedRowModel: true,
     enableColumnResizing: !isMobile,
-    ensurePageInRange,
+    ensurePageInRange: isError ? undefined : ensurePageInRange,
   })
 
   useEffect(() => {
@@ -418,6 +423,17 @@ export function ChannelsTable() {
         columns={columns}
         isLoading={isLoading}
         isFetching={isFetching}
+        errorState={
+          isError ? (
+            <ErrorState
+              title={t('Failed to load channels')}
+              description={t('Please try again later.')}
+              onRetry={() => {
+                if (!isFetching) void refetch()
+              }}
+            />
+          ) : undefined
+        }
         emptyTitle={t('No Channels Found')}
         emptyDescription={t(
           'No channels available. Create your first channel to get started.'

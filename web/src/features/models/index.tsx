@@ -60,6 +60,7 @@ function ModelsContent() {
   const params = route.useParams()
   const activeSection = (params.section ??
     MODELS_DEFAULT_SECTION) as ModelsSectionId
+  const deployment = useModelDeploymentSettings(activeSection === 'deployments')
 
   // Deployment create dialog state
   const [createDeploymentOpen, setCreateDeploymentOpen] = useState(false)
@@ -87,11 +88,24 @@ function ModelsContent() {
     <>
       <SectionPageLayout fixedContent>
         <SectionPageLayout.Title>{t(meta.titleKey)}</SectionPageLayout.Title>
+        <SectionPageLayout.Description>
+          {t('Maintain the model catalog and existing deployments.')}
+        </SectionPageLayout.Description>
         <SectionPageLayout.Actions>
           {activeSection === 'metadata' ? (
             <ModelsPrimaryButtons />
           ) : (
-            <Button onClick={() => setCreateDeploymentOpen(true)} size='sm'>
+            <Button
+              onClick={() => setCreateDeploymentOpen(true)}
+              size='sm'
+              disabled={
+                deployment.loading ||
+                deployment.connectionLoading ||
+                !deployment.isIoNetEnabled ||
+                deployment.connectionOk !== true ||
+                Boolean(deployment.settingsError)
+              }
+            >
               <Plus className='h-4 w-4' />
               {t('Create deployment')}
             </Button>
@@ -112,7 +126,7 @@ function ModelsContent() {
               {activeSection === 'metadata' ? (
                 <ModelsTable />
               ) : (
-                <DeploymentsSection />
+                <DeploymentsSection deployment={deployment} />
               )}
             </div>
           </div>
@@ -128,7 +142,11 @@ function ModelsContent() {
   )
 }
 
-function DeploymentsSection() {
+function DeploymentsSection({
+  deployment,
+}: {
+  deployment: ReturnType<typeof useModelDeploymentSettings>
+}) {
   const queryClient = useQueryClient()
   const {
     loading: deploymentLoading,
@@ -138,7 +156,9 @@ function DeploymentsSection() {
     connectionOk,
     connectionError,
     testConnection,
-  } = useModelDeploymentSettings()
+    settingsError,
+    refresh,
+  } = deployment
 
   // Prefetch deployments list while connection check is in progress.
   useEffect(() => {
@@ -160,7 +180,8 @@ function DeploymentsSection() {
       connectionLoading={connectionLoading}
       connectionOk={connectionOk}
       connectionError={connectionError}
-      onRetry={testConnection}
+      settingsError={settingsError}
+      onRetry={settingsError ? refresh : testConnection}
     >
       <DeploymentsTable />
     </DeploymentAccessGuard>

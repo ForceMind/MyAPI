@@ -28,22 +28,24 @@ interface ConnectionState {
 
 // Connection cache (5 minutes TTL)
 const CONNECTION_CACHE_TTL = 5 * 60 * 1000
-let connectionCache: {
+interface CachedConnection {
   ok: boolean
+  error: string | null
   timestamp: number
-} | null = null
+}
+let connectionCache: CachedConnection | null = null
 
-function getCachedConnection(): boolean | null {
+function getCachedConnection(): CachedConnection | null {
   if (!connectionCache) return null
   if (Date.now() - connectionCache.timestamp > CONNECTION_CACHE_TTL) {
     connectionCache = null
     return null
   }
-  return connectionCache.ok
+  return connectionCache
 }
 
-function setCachedConnection(ok: boolean) {
-  connectionCache = { ok, timestamp: Date.now() }
+function setCachedConnection(ok: boolean, error: string | null = null) {
+  connectionCache = { ok, error, timestamp: Date.now() }
 }
 
 export function clearConnectionCache() {
@@ -52,9 +54,10 @@ export function clearConnectionCache() {
 
 type LoadingPhase = 'idle' | 'settings' | 'connection' | 'done'
 
-export function useModelDeploymentSettings() {
+export function useModelDeploymentSettings(active = true) {
   const [loading, setLoading] = useState(true)
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>('settings')
+  const [settingsError, setSettingsError] = useState<string | null>(null)
   const [settings, setSettings] = useState<Record<string, unknown>>({
     'model_deployment.ionet.enabled': false,
   })
@@ -63,16 +66,22 @@ export function useModelDeploymentSettings() {
     ok: null,
     error: null,
   })
-  const initialLoadRef = useRef(true)
+  const activeRef = useRef(false)
+  const requestGenerationRef = useRef(0)
 
-  // Parallel fetch: settings + connection test (when enabled)
+  // Load settings before checking the connection when enabled.
   const fetchAll = useCallback(async (useCache = true) => {
+    if (!activeRef.current) return
+    const generation = ++requestGenerationRef.current
     setLoading(true)
+    setSettingsError(null)
     setLoadingPhase('settings')
 
     try {
       // Step 1: Fetch settings first (usually fast)
       const response = await getDeploymentSettings()
+      if (generation !== requestGenerationRef.current) return
+      if (!response?.success) throw new Error('Unable to load settings')
       const isEnabled = response?.success && response?.data?.enabled === true
 
       setSettings({
@@ -91,7 +100,11 @@ export function useModelDeploymentSettings() {
       if (useCache) {
         const cached = getCachedConnection()
         if (cached !== null) {
-          setConnectionState({ loading: false, ok: cached, error: null })
+          setConnectionState({
+            loading: false,
+            ok: cached.ok,
+            error: cached.error,
+          })
           setLoadingPhase('done')
           setLoading(false)
           return
@@ -104,84 +117,103 @@ export function useModelDeploymentSettings() {
 
       try {
         const connResponse = await testDeploymentConnection()
+        if (generation !== requestGenerationRef.current) return
         if (connResponse?.success) {
           setCachedConnection(true)
           setConnectionState({ loading: false, ok: true, error: null })
         } else {
           const message = connResponse?.message || 'Connection failed'
-          setCachedConnection(false)
+          setCachedConnection(false, message)
           setConnectionState({ loading: false, ok: false, error: message })
         }
       } catch (error: unknown) {
+        if (generation !== requestGenerationRef.current) return
         const errMsg =
           error instanceof Error ? error.message : 'Connection failed'
-        setCachedConnection(false)
+        setCachedConnection(false, errMsg)
         setConnectionState({ loading: false, ok: false, error: errMsg })
       }
     } catch {
-      // Settings fetch failed, use defaults
+      if (generation !== requestGenerationRef.current) return
+      setSettingsError('Unable to load settings')
+      setSettings({ 'model_deployment.ionet.enabled': false })
       setConnectionState({ loading: false, ok: null, error: null })
     } finally {
-      setLoadingPhase('done')
-      setLoading(false)
+      if (generation === requestGenerationRef.current) {
+        setLoadingPhase('done')
+        setLoading(false)
+      }
     }
   }, [])
 
-  // Initial load
+  // Each visit owns its requests; leaving also invalidates pending retries.
   useEffect(() => {
-    if (initialLoadRef.current) {
-      initialLoadRef.current = false
-      fetchAll(true)
+    activeRef.current = active
+    if (active) void fetchAll(true)
+
+    return () => {
+      activeRef.current = false
+      requestGenerationRef.current += 1
     }
-  }, [fetchAll])
+  }, [active, fetchAll])
 
   const isIoNetEnabled = Boolean(settings['model_deployment.ionet.enabled'])
 
   // Manual retry (skip cache)
   const testConnection = useCallback(async () => {
+    if (!activeRef.current) return
+    const generation = ++requestGenerationRef.current
     clearConnectionCache()
     setConnectionState({ loading: true, ok: null, error: null })
     setLoadingPhase('connection')
 
     try {
       const response = await testDeploymentConnection()
+      if (generation !== requestGenerationRef.current) return
       if (response?.success) {
         setCachedConnection(true)
         setConnectionState({ loading: false, ok: true, error: null })
         return
       }
       const message = response?.message || 'Connection failed'
-      setCachedConnection(false)
+      setCachedConnection(false, message)
       setConnectionState({ loading: false, ok: false, error: message })
     } catch (error: unknown) {
+      if (generation !== requestGenerationRef.current) return
       const errMsg =
         error instanceof Error ? error.message : 'Connection failed'
-      setCachedConnection(false)
+      setCachedConnection(false, errMsg)
       setConnectionState({ loading: false, ok: false, error: errMsg })
     } finally {
-      setLoadingPhase('done')
+      if (generation === requestGenerationRef.current) {
+        setLoadingPhase('done')
+        setLoading(false)
+      }
     }
   }, [])
 
   // Refresh all (skip cache)
   const refresh = useCallback(() => {
+    if (!activeRef.current) return
     clearConnectionCache()
     return fetchAll(false)
   }, [fetchAll])
 
   // Refresh on window focus (useful after saving settings in another page)
   useEffect(() => {
+    if (!active) return
     const handler = () => {
       // Use cache on focus to avoid unnecessary requests
       fetchAll(true)
     }
     window.addEventListener('focus', handler)
     return () => window.removeEventListener('focus', handler)
-  }, [fetchAll])
+  }, [active, fetchAll])
 
   return {
     loading,
     loadingPhase,
+    settingsError,
     settings,
     isIoNetEnabled,
     refresh,

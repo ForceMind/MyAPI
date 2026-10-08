@@ -131,6 +131,9 @@ function UsageLogsContent() {
         <SectionPageLayout.Title>
           {t(pageMeta.titleKey)}
         </SectionPageLayout.Title>
+        <SectionPageLayout.Description>
+          {t('Inspect requests, costs and unresolved usage.')}
+        </SectionPageLayout.Description>
         {canManageScope && (
           <SectionPageLayout.Actions>
             {activeCategory === 'common' && <PendingUsageReviews />}

@@ -30,7 +30,7 @@ import {
   Sparkles,
   Timer,
 } from 'lucide-react'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
@@ -38,6 +38,7 @@ import { StaticDataTable } from '@/components/data-table'
 import { sideDrawerContentClassName } from '@/components/drawer-layout'
 import { GroupBadge } from '@/components/group-badge'
 import { PublicLayout } from '@/components/layout'
+import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -1157,10 +1158,12 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
               <TabsTrigger
                 key={value}
                 value={value}
-                className='h-8 min-w-0 gap-1.5 rounded-md px-3 text-xs sm:text-sm'
+                className='h-auto min-h-10 min-w-0 flex-col gap-1 rounded-md px-1 py-2 text-xs whitespace-normal sm:flex-row sm:px-3 sm:text-sm'
               >
                 <Icon className='size-3.5' />
-                <span className='truncate'>{t(TAB_META[value].labelKey)}</span>
+                <span className='max-w-full min-w-0 wrap-break-word'>
+                  {t(TAB_META[value].labelKey)}
+                </span>
               </TabsTrigger>
             )
           })}
@@ -1249,6 +1252,7 @@ export function ModelDetails() {
   const { modelId } = useParams({ from: '/pricing/$modelId/' })
   const search = useSearch({ from: '/pricing/$modelId/' })
   const navigate = useNavigate()
+  const [retrying, setRetrying] = useState(false)
 
   const {
     models,
@@ -1257,6 +1261,8 @@ export function ModelDetails() {
     endpointMap,
     autoGroups,
     isLoading,
+    error,
+    refetch,
     priceRate,
     usdExchangeRate,
   } = usePricingData()
@@ -1293,6 +1299,39 @@ export function ModelDetails() {
               <Skeleton key={`section-${key}`} className='h-24 w-full' />
             ))}
           </div>
+        </div>
+      </PublicLayout>
+    )
+  }
+
+  if (error) {
+    return (
+      <PublicLayout>
+        <div className='mx-auto max-w-2xl px-4 sm:px-6'>
+          <Alert variant='destructive'>
+            <AlertTitle>
+              <h2>{t('Failed to load models')}</h2>
+            </AlertTitle>
+            <div className='mt-3 flex flex-wrap gap-2'>
+              <Button
+                disabled={retrying}
+                onClick={async () => {
+                  setRetrying(true)
+                  try {
+                    await refetch()
+                  } finally {
+                    setRetrying(false)
+                  }
+                }}
+                size='sm'
+              >
+                {t('Retry')}
+              </Button>
+              <Button onClick={handleBack} variant='outline' size='sm'>
+                {t('Back to Models')}
+              </Button>
+            </div>
+          </Alert>
         </div>
       </PublicLayout>
     )

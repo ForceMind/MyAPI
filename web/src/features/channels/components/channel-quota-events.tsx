@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -24,6 +25,7 @@ import {
   hasPermission,
 } from '@/lib/admin-permissions'
 import { formatTimestampToDate } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { getChannelQuotaEvents } from '../api'
@@ -53,11 +55,19 @@ function QuotaEvent(props: { event: ChannelQuotaAlertDeliveryEvent }) {
     quarantined: t('External delivery quarantined'),
   }
   return (
-    <li className='min-w-0 space-y-2 rounded-lg border p-3'>
+    <li
+      className={cn(
+        'bg-card min-w-0 space-y-3 rounded-lg border border-l-4 p-4',
+        event.status === 'healthy' && 'border-l-success',
+        event.status === 'warning' && 'border-l-warning',
+        ['critical', 'exhausted'].includes(event.status) &&
+          'border-l-destructive'
+      )}
+    >
       <div className='flex flex-wrap items-center justify-between gap-2'>
-        <strong className='text-sm'>
+        <Badge variant='outline' className='font-semibold'>
           {statusLabels[event.status] ?? t('Unknown')}
-        </strong>
+        </Badge>
         <span className='text-muted-foreground text-xs'>
           {formatTimestampToDate(event.observed_at)}
         </span>

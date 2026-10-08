@@ -26,6 +26,7 @@ import { useTopNavLinks } from '@/hooks/use-top-nav-links'
 
 import { defaultTopNavLinks } from '../config/top-nav.config'
 import type { TopNavLink } from '../types'
+import { AppBreadcrumb } from './app-breadcrumb'
 import { Header } from './header'
 import { SystemBrand } from './system-brand'
 import { TopNav } from './top-nav'
@@ -64,7 +65,7 @@ type AppHeaderProps = {
    */
   showTopNav?: boolean
   /**
-   * Left content, overrides TopNav if provided
+   * Left content, overrides current-page context if provided
    */
   leftContent?: React.ReactNode
   /**
@@ -111,38 +112,50 @@ export function AppHeader({
   const notifications = useNotifications()
 
   return (
-    <Header>
-      <SystemBrand variant='inline' />
+    <Header contentClassName='grid grid-cols-[2.75rem_auto_minmax(0,1fr)] grid-rows-[3rem_3rem] gap-y-0 sm:grid-cols-[2.75rem_auto_minmax(0,1fr)_auto] sm:grid-rows-1'>
+      <div className='col-start-2 row-start-1 max-w-28 min-w-0 overflow-hidden sm:max-w-40 [&>a]:max-w-full'>
+        <SystemBrand variant='inline' />
+      </div>
 
-      {leftContent ? (
-        <div className='ms-2 flex items-center'>{leftContent}</div>
-      ) : null}
+      <div
+        data-myapi-context
+        className='col-start-3 row-start-1 min-w-0 self-center sm:ps-3'
+      >
+        {leftContent ?? <AppBreadcrumb />}
+      </div>
 
-      {rightContent ?? (
-        <div className='ms-auto flex items-center gap-1 sm:gap-2 lg:w-max lg:shrink-0'>
-          {showTopNav && (
-            <div className='me-1 hidden 2xl:block'>
-              <TopNav links={links} />
-            </div>
-          )}
-          {showSearch && <Search />}
-          {showNotifications && (
-            <NotificationPopover
-              open={notifications.popoverOpen}
-              onOpenChange={notifications.setPopoverOpen}
-              unreadCount={notifications.unreadCount}
-              activeTab={notifications.activeTab}
-              onTabChange={notifications.setActiveTab}
-              notice={notifications.notice}
-              announcements={notifications.announcements}
-              loading={notifications.loading}
-            />
-          )}
-          <LanguageSwitcher />
-          {showConfigDrawer && <ConfigDrawer />}
-          {showProfileDropdown && <ProfileDropdown />}
-        </div>
-      )}
+      <div className='col-span-3 col-start-1 row-start-2 min-w-0 sm:col-span-1 sm:col-start-4 sm:row-start-1'>
+        {rightContent ?? (
+          <div
+            data-myapi-header-actions
+            className='ms-auto flex shrink-0 items-center gap-0.5 sm:gap-1'
+          >
+            {showTopNav && (
+              <div className='me-1 hidden 2xl:block'>
+                <TopNav links={links} />
+              </div>
+            )}
+            {showSearch && (
+              <Search className='size-9 flex-none justify-center p-0 sm:w-9 sm:pe-0 lg:w-40 lg:justify-start lg:pe-12 [&>kbd]:hidden lg:[&>kbd]:flex [&>span]:hidden lg:[&>span]:inline [&>svg]:start-1/2 [&>svg]:-translate-x-1/2 lg:[&>svg]:start-2 lg:[&>svg]:translate-x-0' />
+            )}
+            {showNotifications && (
+              <NotificationPopover
+                open={notifications.popoverOpen}
+                onOpenChange={notifications.setPopoverOpen}
+                unreadCount={notifications.unreadCount}
+                activeTab={notifications.activeTab}
+                onTabChange={notifications.setActiveTab}
+                notice={notifications.notice}
+                announcements={notifications.announcements}
+                loading={notifications.loading}
+              />
+            )}
+            <LanguageSwitcher />
+            {showConfigDrawer && <ConfigDrawer />}
+            {showProfileDropdown && <ProfileDropdown />}
+          </div>
+        )}
+      </div>
     </Header>
   )
 }

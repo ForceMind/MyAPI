@@ -21,7 +21,6 @@ import { getRouteApi } from '@tanstack/react-router'
 import type { OnChangeFn, SortingState } from '@tanstack/react-table'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import {
   DISABLED_ROW_DESKTOP,
@@ -29,6 +28,7 @@ import {
   DataTablePage,
   useDataTable,
 } from '@/components/data-table'
+import { ErrorState } from '@/components/error-state'
 import { useMediaQuery } from '@/hooks'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 
@@ -120,7 +120,7 @@ export function UsersTable() {
   }
 
   // Fetch data with React Query
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isError, isLoading, isFetching, refetch } = useQuery({
     queryKey: [
       'users',
       pagination.pageIndex + 1,
@@ -154,10 +154,7 @@ export function UsersTable() {
           : await getUsers(params)
 
       if (!result.success) {
-        toast.error(
-          result.message || `Failed to ${hasFilter ? 'search' : 'load'} users`
-        )
-        return { items: [], total: 0 }
+        throw new Error('Failed to load users')
       }
 
       return {
@@ -168,7 +165,7 @@ export function UsersTable() {
     placeholderData: (previousData) => previousData,
   })
 
-  const users = data?.items || []
+  const users = isError ? [] : data?.items || []
 
   const { table } = useDataTable({
     data: users,
@@ -198,8 +195,8 @@ export function UsersTable() {
     manualPagination: true,
     manualFiltering: true,
     manualSorting: true,
-    totalCount: data?.total || 0,
-    ensurePageInRange,
+    totalCount: isError ? 0 : data?.total || 0,
+    ensurePageInRange: isError ? undefined : ensurePageInRange,
   })
 
   return (
@@ -208,6 +205,17 @@ export function UsersTable() {
       columns={columns}
       isLoading={isLoading}
       isFetching={isFetching}
+      errorState={
+        isError ? (
+          <ErrorState
+            title={t('Failed to load users')}
+            description={t('Please try again later.')}
+            onRetry={() => {
+              if (!isFetching) void refetch()
+            }}
+          />
+        ) : undefined
+      }
       emptyTitle={t('No Users Found')}
       emptyDescription={t(
         'No users available. Try adjusting your search or filters.'

@@ -22,6 +22,7 @@ import { Settings2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
+import { PageSectionLinks } from '@/components/layout/components/page-section-links'
 import { Badge } from '@/components/ui/badge'
 import {
   Tooltip,
@@ -109,20 +110,67 @@ export function Channels() {
       {/* Charts and the table share the page scroll on every viewport height. */}
       <SectionPageLayout fixedContent={false}>
         <SectionPageLayout.Title>
-          <span className='flex min-w-0 items-center gap-2'>
-            <span className='truncate'>{t('Channels')}</span>
+          <span className='flex min-w-0 flex-wrap items-center gap-2'>
+            <span className='wrap-break-word'>{t('Channels')}</span>
             {retryBadge}
           </span>
         </SectionPageLayout.Title>
+        <SectionPageLayout.Description>
+          {t('Connect upstream accounts and inspect routing evidence.')}
+        </SectionPageLayout.Description>
         <SectionPageLayout.Actions>
           <ChannelsPrimaryButtons />
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
-          <div className='min-w-0'>
-            <ChannelQuotaChangesPanel />
-            {canReadChannels ? <ChannelQuotaEvents /> : null}
-            {canReadChannels ? <ChannelRoutingPreview /> : null}
-            <ChannelsTable />
+          <div className='min-w-0 space-y-6'>
+            <PageSectionLinks
+              sections={[
+                { id: 'channel-inventory', label: t('Channels') },
+                { id: 'channel-evidence', label: t('Quota consumption') },
+                ...(canReadChannels
+                  ? [
+                      { id: 'channel-events', label: t('Quota events') },
+                      { id: 'channel-routing', label: t('Routing Preview') },
+                    ]
+                  : []),
+              ]}
+            />
+            <section
+              id='channel-inventory'
+              tabIndex={-1}
+              aria-label={t('Channels')}
+              className='min-w-0 outline-none'
+            >
+              <ChannelsTable />
+            </section>
+            <section
+              id='channel-evidence'
+              tabIndex={-1}
+              aria-label={t('Quota consumption')}
+              className='min-w-0 outline-none'
+            >
+              <ChannelQuotaChangesPanel />
+            </section>
+            {canReadChannels ? (
+              <section
+                id='channel-events'
+                tabIndex={-1}
+                aria-label={t('Quota events')}
+                className='min-w-0 outline-none'
+              >
+                <ChannelQuotaEvents />
+              </section>
+            ) : null}
+            {canReadChannels ? (
+              <section
+                id='channel-routing'
+                tabIndex={-1}
+                aria-label={t('Routing Preview')}
+                className='min-w-0 outline-none'
+              >
+                <ChannelRoutingPreview />
+              </section>
+            ) : null}
           </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>

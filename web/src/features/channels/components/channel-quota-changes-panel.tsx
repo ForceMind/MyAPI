@@ -16,7 +16,7 @@ import {
   Minus,
   RefreshCw,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -265,6 +265,13 @@ export function ChannelQuotaChangesPanel() {
   const time = useQuotaHistoryTime()
   const { range, setRange } = time
   const { quotaChannelId } = route.useSearch()
+  useEffect(() => {
+    if (quotaChannelId != null) {
+      document
+        .getElementById('channel-evidence')
+        ?.scrollIntoView({ block: 'start' })
+    }
+  }, [quotaChannelId])
   const [windowFilter, setWindowFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [detailKey, setDetailKey] = useState('')

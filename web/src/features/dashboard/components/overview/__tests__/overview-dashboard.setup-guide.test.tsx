@@ -7,7 +7,7 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -100,10 +100,11 @@ vi.mock('motion/react', () => ({
   useReducedMotion: () => true,
 }))
 
-function renderDashboard() {
+function renderDashboard(status: Record<string, unknown> = {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+  client.setQueryData(['status'], status)
   return render(
     <QueryClientProvider client={client}>
       <OverviewDashboard />
@@ -216,4 +217,61 @@ describe('overview setup guide edition and role gating', () => {
       ).not.toBeInTheDocument()
     }
   )
+})
+
+test('root operator can reach existing pending review from the overview before the usage panels', async () => {
+  setUser(ROLE.SUPER_ADMIN)
+  renderDashboard()
+  const console = screen.getByRole('navigation', { name: 'Console' })
+  expect(
+    within(console).getByRole('button', { name: 'Pending requests' })
+  ).toBeInTheDocument()
+  expect(
+    within(console).getByRole('link', { name: 'API Keys' })
+  ).toHaveAttribute('href', '/keys')
+  expect(
+    console.compareDocumentPosition(
+      screen.getByRole('region', { name: 'Usage summary' })
+    ) & Node.DOCUMENT_POSITION_FOLLOWING
+  ).toBeTruthy()
+})
+
+test('ordinary users do not receive root recovery actions or an empty provider column', async () => {
+  setUser(ROLE.USER)
+  renderDashboard()
+  const console = screen.getByRole('navigation', { name: 'Console' })
+  expect(
+    within(console).queryByRole('button', { name: 'Pending requests' })
+  ).not.toBeInTheDocument()
+  expect(
+    within(console).queryByRole('link', { name: 'Channels' })
+  ).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('region', { name: 'Account quota changes' })
+  ).not.toBeInTheDocument()
+})
+
+test('overview actions honor both site module exclusions and user narrowing', async () => {
+  setUser(ROLE.SUPER_ADMIN)
+  useAuthStore.getState().auth.setUser({
+    id: 1,
+    username: 'root',
+    role: ROLE.SUPER_ADMIN,
+    sidebar_modules: JSON.stringify({ console: { log: false } }),
+  })
+  renderDashboard({
+    SidebarModulesAdmin: JSON.stringify({
+      console: { token: false },
+      admin: { channel: false },
+    }),
+  })
+  const console = screen.getByRole('navigation', { name: 'Console' })
+  for (const name of ['API Keys', 'Channels', 'Usage Logs']) {
+    expect(
+      within(console).queryByRole('link', { name })
+    ).not.toBeInTheDocument()
+  }
+  expect(
+    within(console).queryByRole('button', { name: 'Pending requests' })
+  ).not.toBeInTheDocument()
 })

@@ -6,6 +6,7 @@ import { createServer } from 'node:http'
 import { extname, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { quotaFixtures } from '../quota/browser-fixtures.mjs'
+import { assertTextContrast } from '../ui/contrast.mjs'
 
 const repo = fileURLToPath(new URL('../../', import.meta.url))
 const root = resolve(repo, 'web/dist')
@@ -153,6 +154,11 @@ try {
   keyPolicy.enabled = true; keyPolicy.revision++ // Simulate another administrator restoring the saved scope.
   await dialog.getByRole('button', { name: label('Refresh'), exact: true }).click()
   await dialog.getByText(label('Available'), { exact: true }).waitFor()
+  await assertTextContrast(
+    dialog.getByText(label('Available'), { exact: true }),
+    'restored owner Available badge',
+    await page.locator('html').evaluate(element => element.classList.contains('dark') ? 'dark' : 'light'),
+  )
   for (const width of [320, 1280]) await screenshot('owner-model-access', width, dialog)
   assert.equal(writes.length, 3); assert.equal(unexpected.length, 0, `unexpected API calls: ${unexpected.join(', ')}`); assert.deepEqual(errors, [])
   console.log('Assigned user/Key preview, write, conflict, revoke, owner privacy and in-app account-window events passed at 320/1280')

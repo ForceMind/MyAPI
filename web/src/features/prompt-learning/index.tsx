@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Main } from '@/components/layout'
+import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -92,9 +93,13 @@ export function PromptLearning() {
     onError: () => setError(t('Failed to cancel learning run.')),
   })
 
-  const enabled = policyQuery.data?.enabled === true
-  const isLoading =
-    policyQuery.isLoading || versionsQuery.isLoading || runsQuery.isLoading
+  const policyReady =
+    policyQuery.isSuccess && typeof policyQuery.data?.enabled === 'boolean'
+  const versionsReady =
+    versionsQuery.isSuccess && Array.isArray(versionsQuery.data?.items)
+  const runsReady = runsQuery.isSuccess && Array.isArray(runsQuery.data?.items)
+  const enabled = policyReady && policyQuery.data?.enabled === true
+  const canChangePolicy = policyReady && !policyQuery.isFetching
 
   return (
     <Main>
@@ -117,12 +122,34 @@ export function PromptLearning() {
               </CardDescription>
             </CardHeader>
             <CardContent className='flex items-center justify-between gap-4'>
-              <div>
-                <p className='font-medium'>
-                  {enabled
-                    ? t('Learning is enabled')
-                    : t('Learning is disabled')}
-                </p>
+              <div className='min-w-0 flex-1'>
+                {policyQuery.isPending && (
+                  <p role='status' className='text-muted-foreground'>
+                    {t('Loading learning settings…')}
+                  </p>
+                )}
+                {!policyQuery.isPending && !policyReady && (
+                  <Alert variant='destructive'>
+                    <AlertTitle>
+                      {t('Failed to load learning policy')}
+                    </AlertTitle>
+                    <Button
+                      variant='outline'
+                      className='mt-2 w-fit'
+                      disabled={policyQuery.isFetching}
+                      onClick={() => void policyQuery.refetch()}
+                    >
+                      {t('Retry')}
+                    </Button>
+                  </Alert>
+                )}
+                {policyReady && (
+                  <p className='font-medium'>
+                    {enabled
+                      ? t('Learning is enabled')
+                      : t('Learning is disabled')}
+                  </p>
+                )}
                 <p className='text-muted-foreground mt-1 text-sm'>
                   {t('No model call or file change is made from this page.')}
                 </p>
@@ -130,7 +157,7 @@ export function PromptLearning() {
               <Switch
                 aria-label={t('Enable learning')}
                 checked={enabled}
-                disabled={policyQuery.isLoading || policyMutation.isPending}
+                disabled={!canChangePolicy || policyMutation.isPending}
                 onCheckedChange={(nextEnabled) =>
                   policyMutation.mutate(nextEnabled)
                 }
@@ -148,23 +175,30 @@ export function PromptLearning() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {!runsQuery.isLoading && runsQuery.isError && (
-                <Button
-                  variant='outline'
-                  onClick={() => void runsQuery.refetch()}
-                >
-                  {t('Retry loading')}
-                </Button>
+              {runsQuery.isPending && (
+                <p role='status' className='text-muted-foreground'>
+                  {t('Loading learning runs…')}
+                </p>
               )}
-              {!runsQuery.isLoading &&
-                !runsQuery.isError &&
-                runsQuery.data?.items.length === 0 && (
-                  <p className='text-muted-foreground'>
-                    {t('No learning runs yet.')}
-                  </p>
-                )}
-              {!runsQuery.isLoading &&
-                !runsQuery.isError &&
+              {!runsQuery.isPending && !runsReady && (
+                <Alert variant='destructive'>
+                  <AlertTitle>{t('Failed to load learning runs')}</AlertTitle>
+                  <Button
+                    variant='outline'
+                    className='mt-2 w-fit'
+                    disabled={runsQuery.isFetching}
+                    onClick={() => void runsQuery.refetch()}
+                  >
+                    {t('Retry')}
+                  </Button>
+                </Alert>
+              )}
+              {runsReady && runsQuery.data?.items.length === 0 && (
+                <p className='text-muted-foreground'>
+                  {t('No learning runs yet.')}
+                </p>
+              )}
+              {runsReady &&
                 runsQuery.data &&
                 runsQuery.data.items.length > 0 && (
                   <div className='space-y-3'>
@@ -184,7 +218,11 @@ export function PromptLearning() {
                         ) && (
                           <div className='mt-2 flex justify-end'>
                             <Button
-                              disabled={runCancellationMutation.isPending}
+                              disabled={
+                                !canChangePolicy ||
+                                runsQuery.isFetching ||
+                                runCancellationMutation.isPending
+                              }
                               onClick={() =>
                                 runCancellationMutation.mutate(run.id)
                               }
@@ -226,7 +264,13 @@ export function PromptLearning() {
                 onChange={(event) => setContent(event.target.value)}
               />
               <Button
-                disabled={content.trim() === '' || versionMutation.isPending}
+                disabled={
+                  !canChangePolicy ||
+                  !versionsReady ||
+                  versionsQuery.isFetching ||
+                  content.trim() === '' ||
+                  versionMutation.isPending
+                }
                 onClick={() =>
                   versionMutation.mutate({ commandId: commandId(), content })
                 }
@@ -241,28 +285,32 @@ export function PromptLearning() {
               <CardTitle>{t('Version history')}</CardTitle>
             </CardHeader>
             <CardContent>
-              {isLoading && (
-                <p className='text-muted-foreground'>
-                  {t('Loading learning settings…')}
+              {versionsQuery.isPending && (
+                <p role='status' className='text-muted-foreground'>
+                  {t('Loading instruction versions…')}
                 </p>
               )}
-              {!isLoading && versionsQuery.isError && (
-                <Button
-                  variant='outline'
-                  onClick={() => void versionsQuery.refetch()}
-                >
-                  {t('Retry loading')}
-                </Button>
+              {!versionsQuery.isPending && !versionsReady && (
+                <Alert variant='destructive'>
+                  <AlertTitle>
+                    {t('Failed to load instruction versions')}
+                  </AlertTitle>
+                  <Button
+                    variant='outline'
+                    className='mt-2 w-fit'
+                    disabled={versionsQuery.isFetching}
+                    onClick={() => void versionsQuery.refetch()}
+                  >
+                    {t('Retry')}
+                  </Button>
+                </Alert>
               )}
-              {!isLoading &&
-                !versionsQuery.isError &&
-                versionsQuery.data?.items.length === 0 && (
-                  <p className='text-muted-foreground'>
-                    {t('No instruction versions yet.')}
-                  </p>
-                )}
-              {!isLoading &&
-                !versionsQuery.isError &&
+              {versionsReady && versionsQuery.data?.items.length === 0 && (
+                <p className='text-muted-foreground'>
+                  {t('No instruction versions yet.')}
+                </p>
+              )}
+              {versionsReady &&
                 versionsQuery.data &&
                 versionsQuery.data.items.length > 0 && (
                   <div className='space-y-3'>

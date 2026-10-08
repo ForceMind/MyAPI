@@ -62,11 +62,17 @@ export function useSidebarView(): ResolvedSidebarView {
         )
         return items.length === group.items.length ? group : { ...group, items }
       })
+      .filter((group) => group.items.length > 0)
   }, [configFilteredRoot, userRole])
 
   const view = resolveSidebarView(pathname)
 
-  if (view) {
+  // Settings use a root-only route guard; do not expose their destinations
+  // while a lower-role session is redirecting away from a stale URL.
+  if (
+    view &&
+    (view.id !== 'system-settings' || userRole === ROLE.SUPER_ADMIN)
+  ) {
     return {
       key: view.id,
       view,

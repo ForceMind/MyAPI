@@ -47,15 +47,16 @@ export function EmptyState(props: EmptyStateProps) {
   return (
     <FadeIn>
       <Empty
+        role='status'
         className={cn(
-          'min-h-[300px]',
+          'bg-card min-h-60 rounded-xl',
           props.bordered && 'border',
           props.className
         )}
       >
         <EmptyHeader>
           <EmptyMedia variant='icon'>
-            <Icon className='size-6' />
+            <Icon className='size-6' aria-hidden='true' />
           </EmptyMedia>
           <EmptyTitle>{props.title ?? t('No Data')}</EmptyTitle>
           {props.description != null && (

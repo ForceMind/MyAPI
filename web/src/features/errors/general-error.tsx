@@ -16,19 +16,21 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useNavigate, useRouter } from '@tanstack/react-router'
+import { Link, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { MYAPI_ISSUES_URL } from '@/lib/build-branding'
-import { cn } from '@/lib/utils'
+
+import { ErrorPageLayout, type ErrorPageProps } from './error-page-layout'
 
 const FEEDBACK_URL = MYAPI_ISSUES_URL
 
-type GeneralErrorProps = React.HTMLAttributes<HTMLDivElement> & {
-  minimal?: boolean
-  error?: unknown
-}
+type GeneralErrorProps = React.HTMLAttributes<HTMLDivElement> &
+  ErrorPageProps & {
+    minimal?: boolean
+    error?: unknown
+  }
 
 function getHttpStatus(error: unknown): number | undefined {
   if (typeof error !== 'object' || error === null) return undefined
@@ -41,43 +43,35 @@ function getHttpStatus(error: unknown): number | undefined {
 export function GeneralError({
   className,
   minimal = false,
+  embedded,
   error,
 }: GeneralErrorProps) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const { history } = useRouter()
   const status = getHttpStatus(error)
   const isRateLimited = status === 429
   const title = isRateLimited
     ? t('Too many requests')
-    : `${t('Oops! Something went wrong')} ${`:')`}`
+    : t('Oops! Something went wrong')
   const description = isRateLimited
     ? t('Please wait a moment before trying again.')
     : t('Please try again later.')
 
   return (
-    <div className={cn('h-svh w-full', className)}>
-      <div className='m-auto flex h-full w-full flex-col items-center justify-center gap-2'>
-        {!minimal && (
-          <h1 className='text-[7rem] leading-tight font-bold'>
-            {status ?? 500}
-          </h1>
-        )}
-        <span className='font-medium'>{title}</span>
-        <p className='text-muted-foreground text-center'>
-          {t('We apologize for the inconvenience.')} <br /> {description}
-        </p>
-        {!minimal && (
-          <p className='text-muted-foreground text-center text-sm'>
-            {t('If this keeps happening, please report it on GitHub Issues.')}
-          </p>
-        )}
-        {!minimal && (
-          <div className='mt-6 flex flex-wrap justify-center gap-4'>
+    <ErrorPageLayout
+      code={status ?? 500}
+      title={title}
+      minimal={minimal}
+      embedded={embedded}
+      className={className}
+      actions={
+        !minimal && (
+          <>
             <Button variant='outline' onClick={() => history.go(-1)}>
               {t('Go Back')}
             </Button>
             <Button
+              role='link'
               variant='outline'
               render={
                 <a
@@ -89,12 +83,21 @@ export function GeneralError({
             >
               {t('Report an issue')}
             </Button>
-            <Button onClick={() => navigate({ to: '/' })}>
+            <Button role='link' render={<Link to='/' />}>
               {t('Back to Home')}
             </Button>
-          </div>
-        )}
-      </div>
-    </div>
+          </>
+        )
+      }
+    >
+      <p>
+        {t('We apologize for the inconvenience.')} {description}
+      </p>
+      {!minimal && (
+        <p>
+          {t('If this keeps happening, please report it on GitHub Issues.')}
+        </p>
+      )}
+    </ErrorPageLayout>
   )
 }

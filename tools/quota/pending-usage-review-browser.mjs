@@ -45,7 +45,7 @@ export async function checkPendingUsageReviewBrowser({ page, origin, output, lab
   }
   await page.setViewportSize({ width: 1280, height: 900 })
   let dialog = await open()
-  await dialog.getByRole('button', { name: label('Close'), exact: true }).click()
+  await dialog.getByRole('button', { name: label('Close'), exact: true }).first().click()
   assert.equal(fixture.writes.length, 0, 'opening and closing an unlogged request never charges it')
   dialog = await open()
   await dialog.getByLabel(label('Confirmed quota (internal units)'), { exact: true }).fill('20')
@@ -65,7 +65,7 @@ export async function checkPendingUsageReviewBrowser({ page, origin, output, lab
   await dialog.getByRole('button', { name: label('Confirm reconciliation'), exact: true }).click()
   await dialog.getByText(label('Reconciled'), { exact: true }).waitFor()
   assert.equal(fixture.writes.length, 1)
-  await dialog.getByRole('button', { name: label('Close'), exact: true }).click()
+  await dialog.getByRole('button', { name: label('Close'), exact: true }).first().click()
   await page.reload({ waitUntil: 'networkidle' })
   await page.getByRole('button', { name: label('Pending requests'), exact: true }).click()
   dialog = page.getByRole('dialog')

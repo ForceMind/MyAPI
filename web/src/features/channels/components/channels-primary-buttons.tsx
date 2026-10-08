@@ -173,7 +173,10 @@ export function ChannelsPrimaryButtons() {
 
         {/* More Actions */}
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant='outline' size='sm' />}>
+          <DropdownMenuTrigger
+            aria-label={t('Open menu')}
+            render={<Button variant='outline' size='sm' />}
+          >
             <MoreHorizontal className='h-4 w-4' />
           </DropdownMenuTrigger>
           <DropdownMenuContent align='end' className='w-56'>
