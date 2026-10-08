@@ -6,18 +6,10 @@ implemented. The exact-source checkpoint is documented in
 [BETA_8_DELIVERY_CARD.md](BETA_8_DELIVERY_CARD.md). This inventory does not claim
 that every optional route and every business operation has browser acceptance.
 
-Browser-qualified at source `83f8d249`: overview, channels, keys, users, common/
-drawing/task logs, model metadata, content logs, profile, funding history,
-subscriptions, redemption history and system information at 320/1280; all 42
-settings sections; public/auth/error/setup journeys listed in the qualification
-report. Seven-language settings, themes and key navigation/error paths passed.
-Pixel review's two follow-up fixes require their own exact-head qualification.
-
-Remaining explicit limits: dashboard analysis subpages, optional deployment and
-tool routes, model pricing details and complete real authentication/provider
-flows were not individually exercised by the shared UI browser report. They
-inherit migrated primitives and retain existing tests/guards; that is not a
-claim of complete route-specific or live-account acceptance.
+All families below have applicable synthetic UI qualification at source
+`945a031ac5b4f67958d574ed3f70e37f959ce3e2`: four Chromium suites, 18 shared journeys,
+42 settings links and 232 screenshots. See the journey matrix below. This is UI
+qualification, not live provider, account, bill or deployment acceptance.
 
 | Family | Existing entry points and task | Gates and preservation contract |
 | --- | --- | --- |
@@ -68,26 +60,41 @@ The beta.7 320/1280 access/event screenshots were inspected during the initial
 audit. They show existing production components with synthetic data, not a
 beta.8 design or real-account validation. Fresh beta.8 screenshots are required.
 
-## Remaining-route qualification batch (2026-10-08)
+## Per-family qualification matrix (2026-10-08)
 
-Implementation and synthetic fixtures are prepared; exact-head CI/pixels remain
-pending for this batch. The browser harness distinguishes disabled public-route
-redirects from actual pricing content instead of accepting a homepage redirect
-as pricing-page evidence. Additional journeys cover:
+All rows use production-build Chromium with explicit isolated synthetic fixtures.
+Full business mutations are not claimed for read-only or unavailable optional
+routes. Existing module unit/contract tests remain enabled alongside these checks.
 
-- Analytics models/flow/users: populated, empty and unavailable data; owner/admin
-  read separation; ordinary users denied at the user-analytics deep link.
-- Deployments: confirmed disabled versus unavailable settings, Retry and blocked
-  creation; Root-only settings entry, no provider or hardware request.
-- Playground: unsent draft, options dismissal/history and disabled-module guard;
-  chat routes: missing configuration recovery, invalid ID and no credential read.
-- Prompt learning: separately pending/failed/recovered policy and histories, no
-  enable/save/cancel mutation during qualification.
-- Pricing: explicit isolated public capability, card/catalog and detail, empty
-  metrics, missing versus unavailable model, Retry and Back preserving filters.
-- Register/reset aliases, OTP mode changes and incomplete OAuth recovery, with
-  zero credential/reset/provider submissions.
+| Inventory family | Passing journey / evidence | Applicable limit |
+| --- | --- | --- |
+| Overview and analysis | existing-page-families; remaining-dashboard-role-data-states; remaining-dashboard-performance-recovery | Owner/admin reads, populated/empty/error, ordinary-user denial; no real metrics |
+| Channels and accounts | existing-page-families; channel-task-navigation; quota and routing suites | Existing chart/action contracts; no provider credentials or real channel change |
+| Model catalog | existing-page-families; remaining-deployment-disabled-and-unavailable | Metadata plus guarded deployment recovery; no provisioning; Root-option reads excluded for normal admin |
+| API Keys | existing-page-families; keyboard-drawers-and-history; access suite | Synthetic CRUD/access/budget evidence; no real key disclosure |
+| Users | existing-page-families; access suite | Existing role/assigned-access contracts; no live user mutation |
+| Usage and recovery | existing-page-families; quota/routing suites | Log/timing/stream/attempt surfaces and guarded recovery; no real settlement |
+| Content logs | existing-page-families | Synthetic protected records; no sensitive source logs |
+| Profile | existing-page-families | Existing identity/preferences surface; no password/passkey changes |
+| Funding history | existing-page-families | Disabled-commerce history remains reachable, no purchase |
+| Optional administration | existing-page-families; role-and-preference-boundaries | Subscription/redemption history and visibility; no commerce enablement |
+| Existing tools | remaining-playground-read-only-and-gate; remaining-chat-missing-presets-and-recovery; remaining-prompt-learning-loading-error-recovery | Unsent drafts, history, disabled/error/retry, no model call or learning mutation |
+| System information | existing-page-families; role-and-preference-boundaries | Root-only surface; no maintenance operation |
+| Site settings | settings-deep-links; responsive-themes-and-seven-languages | All 4 links, synthetic read/feedback |
+| Authentication settings | settings-deep-links; settings-loading-error-recovery | All 5 links; no auth/security reconfiguration |
+| Billing settings | settings-deep-links; settings-loading-error-recovery | All 7 links; no money/price-policy changes |
+| Model settings | settings-deep-links | All 7 links; no routing/deployment changes |
+| Security settings | settings-deep-links | All 4 links; no security/permission expansion |
+| Content settings | settings-deep-links | All 7 links; preserve capability hiding |
+| Operations settings | settings-deep-links | All 8 links; no install, restart or alert-target activation |
+| Setup | public-auth-setup-and-errors | Interrupted synthetic setup, validation/guard; no real administrator creation |
+| Authentication | public-auth-setup-and-errors; remaining-auth-alias-and-incomplete-flows | Alias, OTP and incomplete OAuth recovery; no submitted credentials/provider login |
+| Errors | public-auth-setup-and-errors | 401/403/404/500/503 and error recovery |
+| Existing public pages | public-auth-setup-and-errors; remaining-pricing-disabled-route-guards; remaining-pricing-content-and-recovery | Optional-route redirect checked separately from explicitly enabled pricing content; missing/error/Retry/Back |
 
-Existing shared journeys and backend gates remain enabled. Actual provider calls,
-OAuth success, paid service provisioning and live account/bill evidence are
-separate from this UI-only scope and are not fabricated to close a row.
+Shared checks cover 320/768/1280, light/dark, seven-language settings, saved
+preferences, navigation/keyboard/focus/history, disabled/error/empty/loading states
+and native-wheel dialog footer access. Pixel inspection confirmed chart marks,
+complete narrow pricing tabs, non-overlapping compliance/log groups and sensible
+remaining-route layouts. Real provider/bill and complete live authentication
+acceptance remain explicitly deferred, not fabricated to close a row.

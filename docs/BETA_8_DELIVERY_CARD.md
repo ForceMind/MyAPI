@@ -18,8 +18,8 @@ fast-forward. Its four release/deployment evidence files are preserved unchanged
 
 Work is isolated on `codex/beta8-full-ui-20261007`, with a new Draft PR targeting
 main. The published beta.7 tag, old development branch and release remain intact.
-Runtime VERSION and default images remain beta.7 until beta.8's own qualified
-release preparation. Each version completes its applicable review, merge and
+Runtime VERSION, root package and default image references are prepared as beta.8
+in the release candidate. References are not proof of published images. Each version completes its applicable review, merge and
 release sequence before implementation of the next version. Ordinary design
 iteration is part of the approved UI work; it is not an extra approval gate.
 
@@ -90,69 +90,57 @@ No prototype is called functional until its interaction and result are verified.
 - Publish with expected-parent protection and read back the exact commit/tree;
   qualify its own CI and screenshots. Prior beta.7 greens cannot substitute
 
-## Current state
+## Qualified UI source (2026-10-08)
 
-The recovered shared UI and nine-file self-use navigation/overview increment
-are published in [Draft PR #3](https://github.com/ForceMind/MyAPI/pull/3).
-Source `83f8d249ebda4ca46868fcb54ab1efee475448ff` passed all ten jobs in
-[CI 37667558771](https://github.com/ForceMind/MyAPI/actions/runs/37667558771),
-including root/independent relaykit, race groups and the existing database gates.
-The test-merge `0dac604ca3f4e3ee16b55afe292572be8c76f749` has no file differences
-from that source. Docker/site workflows are path-filtered and did not run for
-this UI-only change; their old results are not claimed as new evidence.
+The full bounded page migration is in [Draft PR #3](https://github.com/ForceMind/MyAPI/pull/3).
+UI source `945a031ac5b4f67958d574ed3f70e37f959ce3e2`, tree
+`b9c24e045fcf0fe511536314d1226bd33d821b8d`, is exercised by
+[CI 37720080573](https://github.com/ForceMind/MyAPI/actions/runs/37720080573).
+Test merge `d865be1d0cefc5854a216849cd0de6d7b3e1ef71` has no file differences
+from that source. All ten jobs passed, including the complete backend race groups,
+independent relaykit and existing SQLite/MySQL/PostgreSQL gates.
 
-- 159 frontend test files / 852 tests, TypeScript, changed-file lint/format and
-  the production build passed. Four independent Chromium suites passed.
-- The shared UI report contains nine passing journeys, all 42 registered
-  settings links reached, 85 screenshots, no unexpected requests or page errors.
-  Together with quota/routing/access artifacts, the checkpoint has 148 PNGs.
-- Verified 320/768/1280 widths, seven languages, light/dark, role and sidebar
-  restrictions, Close/Escape/focus/Back/Forward, settings failure/retry, disabled
-  commerce history, and native-wheel budget footer actions at 320x900/640.
-- Fixes include composed-button touch/wrapping hooks, channel menu naming,
-  saved Traditional Chinese detection and localized initial funding state.
-- Initial browser failures and corrections are retained in the CI history:
-  table position changed; localized Close controls became ambiguous; modal
-  background controls are hidden correctly; form wrappers replace slot names;
-  production 503 retries take 15 seconds; viewport resize must settle before
-  scroll geometry. Assertions were retained or strengthened.
+- 167 frontend files / 881 tests, typecheck, production build, changed-file
+  lint/format and 16 browser-fixture contract tests passed.
+- Four real Chromium suites passed: shared UI, quota/budgets, routing, access/events.
+  Shared UI has 18/18 passing journeys, 42/42 settings links, 169 screenshots,
+  zero unexpected requests and zero page errors. All suites total 232 PNGs.
+- Main operational and remaining analytics/deployment/tool/pricing/auth families
+  reached their applicable synthetic UI acceptance. The inventory records the
+  exact journey mapping and limits, rather than equating redirects with content.
+- 320/768/1280 widths, seven languages, themes, sidebar/role gates, keyboard focus,
+  Close/Cancel/Escape, Back/Forward and interrupted flows retain regression checks.
+- Budget footer Save/Close is reached using native wheel input at 320x900 and
+  320x640, with hit/clip bounds and coordinate clicks. Save occurs once; reopening
+  retains 20.01%. Long compliance actions and log timing groups no longer overlap.
+- Pixel review confirms populated analytics has actual chart marks; narrow model
+  detail labels remain complete. A running fixture clock permits real chart
+  animations to finish; production chart/data logic was not rewritten.
+- A closed model drawer no longer fetches Root-only system options; normal admins
+  retain metadata editing. Failed Root options reads show Retry, not editable
+  pricing defaults. Optional unavailable states remain distinct from disabled,
+  missing and empty; no new policy, deployment or credential mutation is enabled.
 
-Pixel review of that green checkpoint found two additional layout defects:
-a long French compliance action overlapped the notice, and mobile log timing
-and streaming evidence shared too little width. This follow-up places the
-compliance action in normal flow and gives timing a full wrapping row, with
-explicit browser non-overlap assertions. Its own final-head CI and screenshots
-must pass before this follow-up is qualified; PR #3 records the latest result.
+Earlier failures remain visible in Actions history. The 08355a23 run exposed the
+model-option prefetch and a disabled-Playground request-attribution assumption;
+945a031a fixes the source boundary and attributes redirected overview reads to
+that page. Assertions were retained or strengthened. Previous green checkpoint
+f566ddf2 and its 150 PNGs remain historical evidence, not substituted final tests.
 
-All browser data are synthetic. No real provider, bill, new production upgrade,
-release or stable 0.2.0 acceptance is implied. VERSION/default images remain
-beta.7. Older historical handoff documents were retained remotely after earlier
-publication restrictions; local changes were preserved, not forced through.
+## Version and release closure
 
-Stop when the declared pages share the design/interaction contract, required
-regressions pass and repository documents/evidence are synchronized. Do not
-claim production-stable 0.2.0 on the strength of UI qualification alone.
+The remaining work is exact-source version/release preparation and its applicable
+CI, evidence delivery, then the explicitly authorized merge/publication sequence.
+The [beta.8 release candidate](RELEASE_BETA_8.md) records required asset, tag and
+workflow evidence. No main merge, tag, prerelease, GHCR push or production upgrade
+has occurred for beta.8. Default beta.8 image references must not be used before
+publication is verified. NPM and later-version work are excluded.
 
-## Remaining-page closure in progress (2026-10-08)
+All browser data are synthetic. No live authentication/provider/bill acceptance
+or production-stable 0.2.0 is implied. The prior real-account acceptance deferral
+is retained. Historical handoff documents affected by earlier publication limits
+remain unchanged remotely; local work was preserved.
 
-The full current-version plan continues beyond the qualified UI checkpoint.
-The remaining analytics, disabled deployments, existing tools, pricing detail
-and incomplete-auth routes now have explicit synthetic qualification journeys.
-New source fixes reject ordinary users before user analytics mounts; recover
-from absent chat configuration and preserve configured chat IDs; disable
-deployment creation without confirmed availability and keep Root settings links
-Root-only; distinguish unavailable learning/pricing/performance evidence from
-confirmed disabled, missing or empty data. Read failures retain Retry without
-authorizing a business mutation.
-
-Local verification: 166 frontend files / 877 tests, typecheck and build passed;
-16 exact-contract fixture tests passed. This batch still requires its own
-remote CI and pixel review. No real account, model call, deployment enablement,
-policy toggle, credential entry or production upgrade is part of these checks.
-The retained real-account acceptance deferral is not reopened.
-
-After all inventory rows reach their applicable UI acceptance, prepare the
-beta.8 version/release candidate and exact-source gates. Main merge, a new tag,
-GitHub prerelease and GHCR publication still require the corresponding explicit
-authorization; production deployment is excluded. Do not stop at a partial
-source batch or call the entire beta.8 plan complete while those gates remain.
+Stop after the declared current-version scope, evidence and authorized publication
+are complete, then report deployable artifacts and pause before production action.
+Do not substitute a partial UI batch for the complete current-version plan.
