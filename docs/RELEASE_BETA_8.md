@@ -68,16 +68,25 @@ not a request to erase historical financial or recovery records.
   18 shared UI journeys / 42 settings links / 232 PNGs. Actual pixels confirm
   populated charts, complete mobile pricing labels and corrected access boundaries.
   Test merge d865be1d0cefc5854a216849cd0de6d7b3e1ef71 has no file differences.
-- Version-preparation head, final acceptance, merged/tag SHA, release assets and
-  container digests: pending. No release readiness is claimed yet.
+- Final reviewed UI source: `db7864049b5691ae4d2b222a896067333808edc4`, tree
+  `ccdd1b55068b6784d2c319072edbbfedeb01bc77`;
+  <https://github.com/ForceMind/MyAPI/actions/runs/37723533843> passed all ten jobs.
+  167 frontend files / 894 tests; four Chromium suites; 19 journeys, 42 settings
+  links and 234 PNGs. Test merge `c194c7f44defb0ecf7059558fc24e33f622664fd` has
+  no file differences. Website check 37723533838 passed; Docker smoke was skipped
+  by its existing branch allowlist, not counted as a build success.
+- Clean exact-file-tree release:check passed, including manifest/pack validation:
+  2,896 files / 28,515,398 unpacked bytes.
+- Merged/tag SHA, release assets and container digests remain pending authorization
+  and existing protected workflow results. No deployable-image claim is made.
 
 ## Review follow-up
 
 Independent review prompted draft-preservation and interrupted-deployment fixes
 with demonstrated failing tests. Failed connection-cache reentry is also covered
 through the actual guard and keyboard Retry. These changes do not alter backend
-permissions, deployment/provider contracts or billing. Their final exact-head CI
-and new drawer screenshots supersede the earlier candidate for publication; use
+permissions, deployment/provider contracts or billing. Their db786404 exact-head CI
+and new drawer screenshots passed and supersede the earlier candidate; use
 PR #3's latest verified head, never merge the older candidate merely because its
 checks were green.
 

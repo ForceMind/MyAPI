@@ -93,18 +93,18 @@ No prototype is called functional until its interaction and result are verified.
 ## Qualified UI source (2026-10-08)
 
 The full bounded page migration is in [Draft PR #3](https://github.com/ForceMind/MyAPI/pull/3).
-UI source `945a031ac5b4f67958d574ed3f70e37f959ce3e2`, tree
-`b9c24e045fcf0fe511536314d1226bd33d821b8d`, is exercised by
-[CI 37720080573](https://github.com/ForceMind/MyAPI/actions/runs/37720080573).
-Test merge `d865be1d0cefc5854a216849cd0de6d7b3e1ef71` has no file differences
+UI source `db7864049b5691ae4d2b222a896067333808edc4`, tree
+`ccdd1b55068b6784d2c319072edbbfedeb01bc77`, is exercised by
+[CI 37723533843](https://github.com/ForceMind/MyAPI/actions/runs/37723533843).
+Test merge `c194c7f44defb0ecf7059558fc24e33f622664fd` has no file differences
 from that source. All ten jobs passed, including the complete backend race groups,
 independent relaykit and existing SQLite/MySQL/PostgreSQL gates.
 
-- 167 frontend files / 881 tests, typecheck, production build, changed-file
+- 167 frontend files / 894 tests, typecheck, production build, changed-file
   lint/format and 16 browser-fixture contract tests passed.
 - Four real Chromium suites passed: shared UI, quota/budgets, routing, access/events.
-  Shared UI has 18/18 passing journeys, 42/42 settings links, 169 screenshots,
-  zero unexpected requests and zero page errors. All suites total 232 PNGs.
+  Shared UI has 19/19 passing journeys, 42/42 settings links, 171 screenshots,
+  zero unexpected requests and zero page errors. All suites total 234 PNGs.
 - Main operational and remaining analytics/deployment/tool/pricing/auth families
   reached their applicable synthetic UI acceptance. The inventory records the
   exact journey mapping and limits, rather than equating redirects with content.
@@ -142,9 +142,11 @@ an empty successful list. The real access guard and keyboard Retry are exercised
 
 Independent focused review passed the fixes. A new Chromium drawer journey checks
 initial failure, typed metadata, Retry, disabled/reenabled Save and Cancel/reopen
-without submitting a model. This follow-up still needs its own exact-head full
-CI and pixels; the latest PR evidence records that result. Earlier green numbers
-above remain attached to their historical source, not automatically this change.
+without submitting a model. This follow-up passed its own exact-head full CI and actual pixels at db786404;
+the numbers above include the additional drawer journey. Background-refetch
+draft preservation is covered separately by component tests. Subsequent
+documentation-only commits keep the exact UI source explicit; latest-head checks
+are recorded in PR #3, never inferred from a prior run.
 
 ## Version and release closure
 

@@ -7,8 +7,8 @@ implemented. The exact-source checkpoint is documented in
 that every optional route and every business operation has browser acceptance.
 
 All families below have applicable synthetic UI qualification at source
-`945a031ac5b4f67958d574ed3f70e37f959ce3e2`: four Chromium suites, 18 shared journeys,
-42 settings links and 232 screenshots. See the journey matrix below. This is UI
+`db7864049b5691ae4d2b222a896067333808edc4`: four Chromium suites, 19 shared journeys,
+42 settings links and 234 screenshots. See the journey matrix below. This is UI
 qualification, not live provider, account, bill or deployment acceptance.
 
 | Family | Existing entry points and task | Gates and preservation contract |
@@ -70,7 +70,7 @@ routes. Existing module unit/contract tests remain enabled alongside these check
 | --- | --- | --- |
 | Overview and analysis | existing-page-families; remaining-dashboard-role-data-states; remaining-dashboard-performance-recovery | Owner/admin reads, populated/empty/error, ordinary-user denial; no real metrics |
 | Channels and accounts | existing-page-families; channel-task-navigation; quota and routing suites | Existing chart/action contracts; no provider credentials or real channel change |
-| Model catalog | existing-page-families; remaining-deployment-disabled-and-unavailable; model-drawer-unavailable-draft-recovery (review follow-up awaiting exact-head CI) | Metadata plus guarded deployment recovery; no provisioning; Root-option reads excluded for normal admin |
+| Model catalog | existing-page-families; remaining-deployment-disabled-and-unavailable; model-drawer-unavailable-draft-recovery | Metadata plus guarded deployment recovery; no provisioning; Root-option reads excluded for normal admin |
 | API Keys | existing-page-families; keyboard-drawers-and-history; access suite | Synthetic CRUD/access/budget evidence; no real key disclosure |
 | Users | existing-page-families; access suite | Existing role/assigned-access contracts; no live user mutation |
 | Usage and recovery | existing-page-families; quota/routing suites | Log/timing/stream/attempt surfaces and guarded recovery; no real settlement |
@@ -102,5 +102,6 @@ acceptance remain explicitly deferred, not fabricated to close a row.
 Review follow-up: unit behavior regressions protect model drafts across background
 options failure/retry and deployment request generations across interrupted tab
 visits. Failed connection-cache reentry retains its real guard and keyboard Retry.
-The additional drawer Chromium journey must pass on the final follow-up SHA; it
-is not included in the historical 18/232 evidence above.
+The additional drawer Chromium journey passed on db786404 and is included in the
+19 journeys / 234 screenshots above; background-refetch retention has separate
+component-test coverage.
