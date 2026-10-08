@@ -77,7 +77,7 @@ async function session(options = {}) {
     if (optionsGate && url.pathname.replace(/\/$/, '') === '/api/option') await optionsGate
     if (learningGate && learningReads.has(url.pathname.replace(/\/$/, ''))) await learningGate
     const response = fixture.response(url, request.method())
-    report.requests.push({ journey: journeyName, role: options.role ?? 100, method: request.method(), path: url.pathname, query: url.search, status: response.status || 501 })
+    report.requests.push({ journey: journeyName, pagePath: new URL(request.frame().url()).pathname, role: options.role ?? 100, method: request.method(), path: url.pathname, query: url.search, status: response.status || 501 })
     if (response.violation) report.violations.push({ journey: journeyName, reason: response.violation })
     await route.fulfill({ status: response.status || 501, json: response.body || { success: false, message: response.violation } })
   })
@@ -88,7 +88,8 @@ async function session(options = {}) {
   const page = await context.newPage()
   activePage = page
   page.setDefaultTimeout(15000)
-  await page.clock.setFixedTime(new Date(FIXTURE_TIME))
+  if (options.runningClock) await page.clock.install({ time: new Date(FIXTURE_TIME) })
+  else await page.clock.setFixedTime(new Date(FIXTURE_TIME))
   page.on('pageerror', error => report.pageErrors.push({ journey: journeyName, message: error.message }))
   return { page, context, fixture, language, releaseOptions, releaseLearning }
 }
@@ -494,7 +495,7 @@ try {
 
   await run('remaining-dashboard-role-data-states', async () => {
     for (const role of [1, 10]) {
-      const { page, context, fixture } = await session({ role })
+      const { page, context, fixture } = await session({ role, runningClock: true })
       const sessionStart = report.requests.length
       const sections = [['models', 'Model Call Analytics', role === 1 ? '/api/data/self' : '/api/data'], ['flow', 'Flow', role === 1 ? '/api/data/flow/self' : '/api/data/flow'], ...(role === 10 ? [['users', 'User Analytics', '/api/data/users']] : [])]
       for (const [section, title, endpoint] of sections) {
@@ -527,6 +528,21 @@ try {
           assert(report.requests.slice(start).some(request => request.path.replace(/\/$/, '') === endpoint && request.method === 'GET' && request.status === (state === 'error' ? 503 : 200)), `${role}/${section}/${state}: exercised the exact data contract`)
           for (const width of [320, 1280]) {
             await page.setViewportSize({ width, height: 900 })
+            if (section === 'models' && state === 'populated') {
+              // Canvas animations use elapsed Date.now, so these sessions use
+              // a ticking clock. An axis-only canvas is not populated proof.
+              await page.waitForFunction(() => {
+                const canvas = document.querySelector('main#content canvas')
+                const context = canvas?.getContext('2d')
+                if (!context) return false
+                const pixels = context.getImageData(0, 0, canvas.width, Math.floor(canvas.height * 0.85)).data
+                let colored = 0
+                for (let i = 0; i < pixels.length; i += 4) {
+                  if (pixels[i + 3] && Math.max(pixels[i], pixels[i + 1], pixels[i + 2]) - Math.min(pixels[i], pixels[i + 1], pixels[i + 2]) > 70) colored++
+                }
+                return colored > 200
+              })
+            }
             await screenshot(page, `dashboard-${section}-role-${role}-${state}-${width}`)
           }
         }
@@ -633,7 +649,7 @@ try {
       const disabledStart = report.requests.length
       await open(disabled.page, '/playground', { title: label('Overview'), expectedPath: '/dashboard/overview' })
       assert.equal(await disabled.page.getByRole('heading', { name: label('Start a playground chat'), exact: true }).count(), 0)
-      assert.equal(report.requests.slice(disabledStart).filter(request => ['/api/user/models', '/api/user/self/groups'].includes(request.path)).length, 0, 'disabled route never loads playground options')
+      assert.equal(report.requests.slice(disabledStart).filter(request => request.pagePath.replace(/\/$/, '') === '/playground' && ['/api/user/models', '/api/user/self/groups'].includes(request.path)).length, 0, 'disabled route never loads playground options; redirected overview keeps its own reads')
       await screenshot(disabled.page, `playground-sidebar-disabled-${width}`)
       await disabled.context.close(); contexts.delete(disabled.context)
     }
@@ -645,16 +661,18 @@ try {
       const start = report.requests.length
       const externalStart = report.blockedExternal.length
       for (const path of ['/chat/0', '/chat2link']) {
+        const chatStart = report.requests.length
         const headingLevel = path === '/chat/0' ? 2 : 1
         await open(page, path, { title: label('Chat preset not found'), headingLevel, expectedPath: path })
         assert.equal(await page.locator('main#content iframe').count(), 0, 'missing presets never create a provider frame')
         await screenshot(page, `${path === '/chat/0' ? 'chat-0' : 'chat2link'}-missing-${width}`, { headingLevel })
+        assert.equal(report.requests.slice(chatStart).filter(request => request.path.replace(/\/$/, '') === '/api/token' || request.path.includes('/key')).length, 0, 'missing chat never retrieves a key list or secret before recovery navigation')
         await page.locator('main#content a[href="/dashboard"]').filter({ hasText: label('Return to dashboard') }).click()
         await page.waitForURL(`${origin}/dashboard/overview`)
         await page.getByRole('heading', { level: 1, name: label('Overview'), exact: true }).waitFor()
       }
       await open(page, '/chat/not-an-integer', { title: label('Overview'), expectedPath: '/dashboard/overview' })
-      assert.equal(report.requests.slice(start).filter(request => request.path === '/api/token' || request.path.includes('/key')).length, 0, 'missing/invalid presets never retrieve an active key')
+      assert.equal(report.requests.slice(start).filter(request => request.path.includes('/key')).length, 0, 'recovery navigation never retrieves an active key secret')
       assert.equal(report.blockedExternal.length, externalStart, 'missing/invalid chat cannot attempt external navigation')
       await context.close(); contexts.delete(context)
     }
@@ -730,6 +748,10 @@ try {
       await drawer.waitFor({ state: 'hidden' })
       assert.equal(new URL(page.url()).pathname.replace(/\/$/, ''), '/pricing', 'closing pricing details leaves the catalog route')
       await open(page, `${detailPath}${search}`, { shell: false, title: 'synthetic-text-model', expectedPath: detailPath })
+      for (const title of ['Overview', 'Performance', 'API']) {
+        const tab = page.getByRole('tab', { name: label(title), exact: true })
+        assert(await tab.evaluate(element => [...element.querySelectorAll('span')].every(label => label.scrollWidth <= label.clientWidth + 1 && getComputedStyle(label).textOverflow !== 'ellipsis')), 'model detail tabs retain their complete visible labels on narrow screens')
+      }
       await page.getByRole('tab', { name: label('Performance'), exact: true }).click()
       await page.getByText(label('Performance data is not yet available for this model.'), { exact: true }).waitFor()
       assert.equal(await page.getByText('100%', { exact: true }).count(), 0, 'empty performance is not invented healthy availability')

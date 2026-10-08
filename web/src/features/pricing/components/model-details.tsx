@@ -1158,10 +1158,12 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
               <TabsTrigger
                 key={value}
                 value={value}
-                className='h-8 min-w-0 gap-1.5 rounded-md px-3 text-xs sm:text-sm'
+                className='h-auto min-h-10 min-w-0 flex-col gap-1 rounded-md px-1 py-2 text-xs whitespace-normal sm:flex-row sm:px-3 sm:text-sm'
               >
                 <Icon className='size-3.5' />
-                <span className='truncate'>{t(TAB_META[value].labelKey)}</span>
+                <span className='max-w-full min-w-0 wrap-break-word'>
+                  {t(TAB_META[value].labelKey)}
+                </span>
               </TabsTrigger>
             )
           })}
