@@ -7,6 +7,7 @@ import { createServer } from 'node:http'
 import { extname, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createUIFixture, FIXTURE_TIME } from './browser-fixtures.mjs'
+import { assertTextContrast } from './contrast.mjs'
 
 const repo = fileURLToPath(new URL('../../', import.meta.url))
 const root = resolve(repo, 'web/dist')
@@ -54,8 +55,12 @@ async function assertKeyIdentity(key, expected, journey, state, width) {
     range.selectNodeContents(identity)
     const lines = [...range.getClientRects()].filter(rect => rect.width > 0 && rect.height > 0)
     const clips = []
+    let effectiveOpacity = Number(getComputedStyle(identity).opacity)
+    const dimmedAncestors = []
     for (let parent = identity.parentElement; parent; parent = parent.parentElement) {
       const style = getComputedStyle(parent)
+      effectiveOpacity *= Number(style.opacity)
+      if (Number(style.opacity) < 1) dimmedAncestors.push({ element: parent.dataset.slot || parent.tagName, opacity: Number(style.opacity) })
       if (['hidden', 'clip', 'auto', 'scroll'].includes(style.overflowX) || ['hidden', 'clip', 'auto', 'scroll'].includes(style.overflowY)) {
         const rect = parent.getBoundingClientRect()
         clips.push({ rect, x: style.overflowX !== 'visible', y: style.overflowY !== 'visible' })
@@ -64,6 +69,10 @@ async function assertKeyIdentity(key, expected, journey, state, width) {
     const style = getComputedStyle(identity)
     return {
       value: select.value,
+      identityId,
+      effectiveOpacity,
+      dimmedAncestors,
+      theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
       selectedLabel: select.selectedOptions[0]?.text,
       identity: identity.textContent,
       selectWidth: box.width,
@@ -74,8 +83,12 @@ async function assertKeyIdentity(key, expected, journey, state, width) {
       wraps: style.whiteSpace !== 'nowrap' && style.textOverflow !== 'ellipsis' && style.webkitLineClamp === 'none',
     }
   })
-  report.keyIdentity.push({ journey, state, ...measured })
+  const evidence = { journey, state, ...measured }
+  report.keyIdentity.push(evidence)
   assert(measured, `${journey}: selected key must have a visible full identity`)
+  assert(measured.effectiveOpacity >= 0.99, `${journey}/${state}: the identity must stay fully opaque, including its ancestors`)
+  const identity = key.page().locator(`[id=${JSON.stringify(measured.identityId)}]`)
+  evidence.contrast = await assertTextContrast(identity, `${journey}/${state} selected key identity`, measured.theme)
   assert.equal(measured.identity, expected)
   assert.equal(measured.selectedLabel, expected, 'visible identity must match the actual selected option')
   assert(measured.unclipped && measured.wraps, `${journey}/${state}: the complete key identity must wrap without clipping`)
