@@ -602,7 +602,8 @@ async function main() {
       'SMOKE_PERSONAL_REQUEST_MISMATCH', 'SMOKE_PERSONAL_RELAY_MISMATCH', 'SMOKE_PERSONAL_LOG_MISMATCH',
       'SMOKE_PERSONAL_USAGE_MISMATCH', 'SMOKE_PERSONAL_UPSTREAM_MISMATCH', 'SMOKE_PERSONAL_WRITER_MISMATCH',
       'SMOKE_PERSONAL_SCREENSHOT_REJECTED'])
-    const safeStages = new Set(['launch', 'browser-close', 'setup', 'login', 'writer-check', 'fixture-config', 'policy-view', 'key-create',
+    const safeStages = new Set(['launch', 'browser-close', 'setup',
+      'setup-session', 'setup-open', 'setup-database', 'setup-credentials', 'setup-mode', 'setup-review', 'setup-submit', 'setup-response', 'login', 'writer-check', 'fixture-config', 'policy-view', 'key-create',
       'key-selection', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm', 'strict-budget', 'reload-check', 'screenshot'])
     console.error(JSON.stringify({ command: 'docker:smoke', passed: false,
       code: safeCodes.has(error?.message) ? error.message : 'SMOKE_UNEXPECTED_FAILURE',

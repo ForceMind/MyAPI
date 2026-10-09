@@ -14,7 +14,14 @@ function setupBrowser({ failAt, responseSuccess = true, closeFails = false } = {
   const locator = (kind, value) => ({
     async waitFor() {},
     async fill(text) { calls.push(['fill', kind, value, text]) },
-    async click() { calls.push(['click', kind, value]); if (value === failAt) throw new Error(base.password) },
+    async click() {
+      calls.push(['click', kind, value])
+      // Base UI's public id belongs to an aria-hidden, clipped input. A real
+      // pointer cannot use it; select the visible radio role instead.
+      if (kind === 'selector' && /^#usage-mode-/.test(value)) throw new Error('hidden radio input')
+      if (value === failAt) throw new Error(base.password)
+    },
+    async getAttribute(name) { return name === 'aria-checked' ? 'true' : null },
     async check() { calls.push(['check', kind, value]) },
   })
   const page = {
@@ -77,7 +84,8 @@ for (const edition of ['full', 'lan']) {
     assert.deepEqual(fixture.calls.find(call => call[0] === 'launch'), ['launch', { headless: true }])
     assert.equal(fixture.calls.find(call => call[0] === 'context')[1].serviceWorkers, 'block')
     assert.equal(fixture.calls.filter(call => call[0] === 'click' && call[2] === 'Next').length, 3)
-    assert(fixture.calls.some(call => call[0] === 'click' && call[2] === `#usage-mode-${edition === 'lan' ? 'self' : 'external'}`))
+    assert(fixture.calls.some(call => call[0] === 'click' && call[1] === 'radio' && call[2] instanceof RegExp && call[2].test(edition === 'lan' ? 'Personal use' : 'External operations')))
+    assert(!fixture.calls.some(call => call[1] === 'selector' && String(call[2]).startsWith('#usage-mode-')))
     assert(fixture.calls.some(call => call[0] === 'click' && call[2] === 'Initialize system'))
     assert.equal(fixture.calls.at(-1)[0], 'browser-close')
     let continued = 0
@@ -95,7 +103,7 @@ test('browser exceptions and unexpected API bodies become fixed safe errors, wit
     const fixture = setupBrowser(options)
     await assert.rejects(browserSetup({ ...base, playwrightModule: fixture.module }), error => {
       assert.match(error.message, /^SMOKE_PERSONAL_/)
-      assert.equal(error.stage, 'setup')
+      assert.equal(error.stage, options.failAt ? 'setup-database' : 'setup-response')
       assert(!error.message.includes(base.password))
       assert(!error.stack.includes(base.password))
       return true
@@ -370,7 +378,7 @@ for (const entry of ['setup', 'journey']) {
 
 test('the original safe failure takes priority when browser cleanup also fails', async () => {
   for (const [run, fixture, code, stage] of [
-    [browserSetup, setupBrowser({ responseSuccess: false, closeFails: true }), 'SETUP_FAILED', 'setup'],
+    [browserSetup, setupBrowser({ responseSuccess: false, closeFails: true }), 'SETUP_FAILED', 'setup-response'],
     [probePersonalBrowserJourney, journeyBrowser({ corrupt: 'writer', closeFails: true }), 'WRITER_MISMATCH', 'writer-check'],
   ]) {
     await assert.rejects(run({ ...base, ...fixture, playwrightModule: fixture.module || fixture.playwrightModule }), error => {

@@ -8,7 +8,8 @@ import path from 'node:path'
 const model = 'smoke-model'
 const quota = 1000
 const usage = 15
-const stages = new Set(['launch', 'setup', 'login', 'writer-check', 'fixture-config', 'policy-view',
+const stages = new Set(['launch', 'setup', 'setup-session', 'setup-open', 'setup-database',
+  'setup-credentials', 'setup-mode', 'setup-review', 'setup-submit', 'setup-response', 'login', 'writer-check', 'fixture-config', 'policy-view',
   'key-create', 'key-selection', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm',
   'strict-budget', 'reload-check', 'screenshot', 'browser-close'])
 const codes = new Set(['SCOPE_REJECTED', 'AUTH_UNAVAILABLE', 'BROWSER_FAILED', 'BROWSER_CLOSE_FAILED', 'SETUP_FAILED',
@@ -335,19 +336,34 @@ async function showPersistedUsage(session, key, requestId) {
 export async function browserSetup(options = {}) {
   return withBrowser(options, false, async (browser, scope) => {
     const { origin } = scope
-    scope.stage = 'setup'
+    scope.stage = 'setup-session'
     const session = await newSession(browser, origin, 'en', 1280, scope)
-    const { page } = session
+    const { page, label } = session
+    scope.stage = 'setup-open'
     await open(session, '/setup')
-    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    scope.stage = 'setup-database'
+    await page.getByRole('heading', { name: label('Database check'), exact: true }).waitFor()
+    await page.getByRole('button', { name: label('Next'), exact: true }).click()
+    scope.stage = 'setup-credentials'
+    await page.getByRole('heading', { name: label('Administrator account'), exact: true }).waitFor()
     await page.locator('input[name="username"]').fill(options.username)
     await page.locator('input[name="password"]').fill(options.password)
     await page.locator('input[name="confirmPassword"]').fill(options.password)
-    await page.getByRole('button', { name: 'Next', exact: true }).click()
-    await page.locator(`#usage-mode-${options.edition === 'lan' ? 'self' : 'external'}`).click()
-    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await page.getByRole('button', { name: label('Next'), exact: true }).click()
+    scope.stage = 'setup-mode'
+    await page.getByRole('heading', { name: label('Usage mode'), exact: true }).waitFor()
+    // Base UI assigns the public usage-mode-* id to its clipped hidden input.
+    // Its visible radio span has a generated id and inherits the label text.
+    const mode = page.getByRole('radio', { name: options.edition === 'lan' ? /Personal use/ : /External operations/ })
+    await mode.click()
+    requireThat(await mode.getAttribute('aria-checked') === 'true', 'SETUP_FAILED')
+    await page.getByRole('button', { name: label('Next'), exact: true }).click()
+    scope.stage = 'setup-review'
+    await page.getByRole('heading', { name: label('Review & initialize'), exact: true }).waitFor()
     const response = responseFor(session, '/api/setup', 'POST')
-    await page.getByRole('button', { name: 'Initialize system', exact: true }).click()
+    scope.stage = 'setup-submit'
+    await page.getByRole('button', { name: label('Initialize system'), exact: true }).click()
+    scope.stage = 'setup-response'
     await responseSuccess(await response, 'SETUP_FAILED')
     requireThat(session.errors === 0, 'RUNTIME_ERROR')
     return { name: 'real initial setup wizard', ok: true, sha: options.sha }
