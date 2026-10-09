@@ -2,6 +2,35 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
+test('settlement patch keeps bounded Docker acceptance and durable race coverage', () => {
+  const docker = readFileSync(new URL('../../.github/workflows/docker-smoke.yml', import.meta.url), 'utf8')
+  const gates = docker.split('\n').filter(line => line.startsWith('    if:'))
+  assert.equal(gates.length, 2)
+  for (const gate of gates) {
+    assert.match(gate, /github\.event_name == 'workflow_dispatch'/)
+    assert.match(gate, /head\.repo\.full_name == github\.repository && contains/)
+    const allowed = JSON.parse(gate.match(/fromJSON\('([^']+)'\)/)[1])
+    assert.deepEqual(allowed, ['codex/r1-usage-review-20261002', 'codex/settlement-review-status-20261009'])
+  }
+  assert.doesNotMatch(docker, /packages: write|contents: write|id-token: write|push: true|secrets\./)
+  assert.match(docker, /push: false/)
+  const ci = readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8')
+  const raceLine = ci.split('\n').find(line => line.includes('go test -race') && line.includes('TokenBudgetChat'))
+  const selected = new RegExp(raceLine.match(/-run '([^']+)'/)[1])
+  for (const name of [
+    'TestChatStreamTerminalCancellationSettlementBothWriters',
+    'TestStrictChatCancellationTerminalWriteBoundary',
+    'TestStrictChatCompletedCancelledSettlementConcurrentReplay',
+    'TestBillingOperationContextRemainsBoundedAfterClientCancellation',
+    'TestQuotaBatchStartupConfiguration',
+    'TestIncidentSyntheticZeroReserveBatchWithoutRedis',
+    'TestUsageReviewSettlementReadProjection',
+    'TestUsageReviewZeroReserveSettlementJournal',
+    'TestTokenBudgetRecoveryRejectsAppliedAmountBeforePrepare',
+  ]) assert.ok(selected.test(name), `${name} must remain selected for race regression`)
+  assert.match(raceLine, /-count=1 -timeout=180s/)
+})
+
 test('source installer smoke exercises the real script without publishing or borrowing an existing instance', () => {
   const workflow = readFileSync(new URL('../../.github/workflows/docker-smoke.yml', import.meta.url), 'utf8')
   const job = workflow.split('  installer-local-build:\n')[1]?.split('  build-and-healthcheck:\n')[0]
