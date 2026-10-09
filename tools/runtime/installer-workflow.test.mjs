@@ -42,6 +42,22 @@ test('settlement patch keeps bounded Docker acceptance and durable race coverage
   assert.match(raceLine, /-count=1 -timeout=180s/)
 })
 
+test('funding admission regressions remain selected by the existing bounded race command', () => {
+  const ci = readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8')
+  const raceLine = ci.split('\n').find(line => line.includes('go test -race') && line.includes('TokenBudgetChat'))
+  const selected = new RegExp(raceLine.match(/-run '([^']+)'/)[1])
+  for (const name of [
+    'TestSubscriptionTransactionPreConsumeAdmissionErrorIdentity',
+    'TestLegacyBillingSessionSubscriptionErrorTextCannotAuthorizeWalletFallback',
+    'TestLegacyBillingSessionWrappedSubscriptionAdmissionErrors',
+    'TestLegacyBillingSessionSubscriptionAdmissionPreferences',
+    'TestBillingSessionSubscriptionStorageFailureAcrossWriters',
+    'TestLegacyBillingSessionSubscriptionOverflowToWallet',
+    'TestLegacyBillingSessionSubscriptionOverflowBlocked',
+  ]) assert.ok(selected.test(name), `${name} must be selected for race regression`)
+  assert.match(raceLine, /-count=1 -timeout=180s/)
+})
+
 test('source installer smoke exercises the real script without publishing or borrowing an existing instance', () => {
   const workflow = readFileSync(new URL('../../.github/workflows/docker-smoke.yml', import.meta.url), 'utf8')
   const job = workflow.split('  installer-local-build:\n')[1]?.split('  build-and-healthcheck:\n')[0]

@@ -246,6 +246,10 @@ func runS2APaymentDatabaseMatrix(t *testing.T, db *gorm.DB, databaseType common.
 	InvalidateSubscriptionPlanCache(plan.Id)
 	t.Cleanup(func() { InvalidateSubscriptionPlanCache(plan.Id) })
 
+	t.Run("subscription-admission-contract", func(t *testing.T) {
+		verifySubscriptionPreConsumeAdmissionContract(t, db, plan.Id, "s2a-admission")
+	})
+
 	for _, temperature := range []string{"cold", "warm"} {
 		t.Run("single-connection-complete-"+temperature, func(t *testing.T) {
 			InvalidateSubscriptionPlanCache(plan.Id)

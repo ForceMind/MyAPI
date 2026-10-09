@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"sync/atomic"
 	"testing"
 
@@ -284,10 +285,97 @@ func TestSubscriptionTransactionPreConsumeQueryFailureIsNotInsufficientQuota(t *
 	assert.Nil(t, result)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, readErr)
+	assert.NotErrorIs(t, err, ErrNoActiveSubscription)
+	assert.NotErrorIs(t, err, ErrSubscriptionQuotaInsufficient)
 	assert.NotContains(t, err.Error(), "no active subscription")
 	var records int64
 	require.NoError(t, db.Model(&SubscriptionPreConsumeRecord{}).Count(&records).Error)
 	assert.Zero(t, records)
+}
+
+func TestSubscriptionTransactionPreConsumeAdmissionErrorIdentity(t *testing.T) {
+	db, plan, _ := subscriptionTransactionFixture(t)
+	verifySubscriptionPreConsumeAdmissionContract(t, db, plan.Id, "transaction-admission")
+}
+
+// Shared by the local single-connection fixture and the guarded S2-A
+// SQLite/MySQL 5.7/PostgreSQL 9.6 matrix. No payment or order is created here.
+func verifySubscriptionPreConsumeAdmissionContract(t *testing.T, db *gorm.DB, planID int, prefix string) {
+	t.Helper()
+	for index, tc := range []struct {
+		name         string
+		subscription bool
+		used         int64
+		failureStage string
+		wantErr      error
+		wantText     string
+	}{
+		{name: "absent", wantErr: ErrNoActiveSubscription, wantText: "no active subscription"},
+		{name: "exhausted", subscription: true, used: 100, wantErr: ErrSubscriptionQuotaInsufficient, wantText: "subscription quota insufficient, need=100"},
+		{name: "query-failure", subscription: true, failureStage: "query"},
+		{name: "write-failure", subscription: true, failureStage: "write"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			requestID := prefix + "-" + tc.name
+			identity := fmt.Sprintf("adm-%d-%d", planID, index)
+			user := User{Username: identity, AffCode: identity, Quota: 1000}
+			require.LessOrEqual(t, len(user.Username), UserNameMaxLength)
+			require.LessOrEqual(t, len(user.AffCode), 32)
+			require.LessOrEqual(t, len(requestID), 64)
+			require.NoError(t, db.Create(&user).Error)
+			if tc.subscription {
+				require.NoError(t, db.Create(&UserSubscription{UserId: user.Id, PlanId: planID,
+					AmountTotal: 100, AmountUsed: tc.used, Status: "active", StartTime: 1, EndTime: 1<<31 - 1}).Error)
+			}
+			injected := false
+			wantErr, wantText := tc.wantErr, tc.wantText
+			if tc.failureStage != "" {
+				wantErr = errors.New("storage failure: no active subscription; subscription quota insufficient")
+				wrappedErr := fmt.Errorf("subscription %s: %w", tc.failureStage, wantErr)
+				wantText = wrappedErr.Error()
+				if tc.failureStage == "query" {
+					const callback = "test:subscription-admission-query"
+					require.NoError(t, db.Callback().Query().Before("gorm:query").Register(callback, func(tx *gorm.DB) {
+						if !injected && tx.Statement.Table == "subscription_pre_consume_records" {
+							injected = true
+							tx.AddError(wrappedErr)
+						}
+					}))
+					t.Cleanup(func() { require.NoError(t, db.Callback().Query().Remove(callback)) })
+				} else {
+					const callback = "test:subscription-admission-write"
+					require.NoError(t, db.Callback().Update().Before("gorm:update").Register(callback, func(tx *gorm.DB) {
+						if !injected && tx.Statement.Table == "user_subscriptions" {
+							injected = true
+							tx.AddError(wrappedErr)
+						}
+					}))
+					t.Cleanup(func() { require.NoError(t, db.Callback().Update().Remove(callback)) })
+				}
+			}
+			result, err := PreConsumeUserSubscription(requestID, user.Id, "fixture-model", 0, 100)
+			assert.Nil(t, result)
+			require.ErrorIs(t, err, wantErr)
+			assert.EqualError(t, err, wantText, "the typed contract must preserve existing error text")
+			assert.ErrorIs(t, fmt.Errorf("funding admission: %w", err), wantErr)
+			assert.NotErrorIs(t, errors.New(wantText), wantErr, "matching text is not a business failure identity")
+			if tc.failureStage != "" {
+				assert.True(t, injected)
+				assert.NotErrorIs(t, err, ErrNoActiveSubscription)
+				assert.NotErrorIs(t, err, ErrSubscriptionQuotaInsufficient)
+			}
+			var records int64
+			require.NoError(t, db.Model(&SubscriptionPreConsumeRecord{}).Where("request_id = ?", requestID).Count(&records).Error)
+			assert.Zero(t, records, "rejected admission cannot retain a pre-consume record")
+			require.NoError(t, db.First(&user, user.Id).Error)
+			assert.Equal(t, 1000, user.Quota)
+			if tc.subscription {
+				var subscription UserSubscription
+				require.NoError(t, db.Where("user_id = ?", user.Id).First(&subscription).Error)
+				assert.Equal(t, tc.used, subscription.AmountUsed, "failed writes must roll back subscription usage")
+			}
+		})
+	}
 }
 
 func TestSubscriptionTransactionDatabaseTimeUsesHandleAndPreservesFallback(t *testing.T) {
