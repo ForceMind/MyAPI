@@ -3,13 +3,16 @@ import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { api } from '@/lib/api'
+import { api, getStatus } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { UserQuotaCell } from '../user-quota-cell'
 import { UserUsagePolicyDialog } from '../user-usage-policy-dialog'
 
-vi.mock('@/lib/api', () => ({ api: { get: vi.fn(), put: vi.fn() } }))
+vi.mock('@/lib/api', () => ({
+  api: { get: vi.fn(), put: vi.fn() },
+  getStatus: vi.fn(),
+}))
 const original = useAuthStore.getState().auth.user
 const initial = {
   user_id: 2,
@@ -21,6 +24,11 @@ const confirmation =
   'I confirm all running instances support this policy and I understand the supported request paths.'
 beforeEach(() => {
   vi.resetAllMocks()
+  localStorage.clear()
+  vi.mocked(getStatus).mockResolvedValue({
+    user_funding_mode: 'disabled',
+    user_funding_capabilities: { mode: 'disabled', ready: true, epoch: 1 },
+  })
   useAuthStore
     .getState()
     .auth.setUser({ id: 1, role: 100, username: 'root-fixture' })
@@ -136,4 +144,158 @@ test('zero stored allowance is not shown as exhausted when the self-use cap is d
   view.rerender(<UserQuotaCell used={0} remaining={0} policyPending />)
   expect(screen.getByText('Unavailable')).toBeVisible()
   expect(screen.queryByText('No user allowance cap')).not.toBeInTheDocument()
+})
+
+const conditionsMet =
+  'No-wallet configuration conditions are met for supported requests.'
+const inactivePreference =
+  'The saved no-wallet preference is inactive while commercial funding is enabled or retiring.'
+
+test('saved preference stays separate from the unsaved draft and confirmed funding mode', async () => {
+  const user = userEvent.setup()
+  renderPolicy()
+  expect(
+    await screen.findByText(
+      'The saved preference uses the stored user allowance.'
+    )
+  ).toBeVisible()
+  await user.click(
+    screen.getByRole('checkbox', {
+      name: 'Use Key limits without a user wallet',
+    })
+  )
+  expect(
+    screen.getByText('The saved preference uses the stored user allowance.')
+  ).toBeVisible()
+  expect(screen.queryByText(conditionsMet)).not.toBeInTheDocument()
+  expect(api.put).not.toHaveBeenCalled()
+})
+
+test.each(['enabled', 'retirement', 'disabled'])(
+  'saved no-wallet preference reports the confirmed server mode %s',
+  async (mode) => {
+    vi.mocked(getStatus).mockResolvedValue({
+      user_funding_mode: mode,
+      user_funding_capabilities: { mode, ready: true, epoch: 2 },
+    })
+    vi.mocked(api.get).mockResolvedValue({
+      data: {
+        success: true,
+        data: { ...initial, no_balance: true, revision: 1 },
+      },
+    })
+    renderPolicy()
+    expect(
+      await screen.findByText(
+        mode === 'disabled' ? conditionsMet : inactivePreference
+      )
+    ).toBeVisible()
+    expect(api.put).not.toHaveBeenCalled()
+  }
+)
+
+test.each(['policy', 'status'])(
+  'failed %s refresh removes configuration claims even when old data remains cached',
+  async (failure) => {
+    const user = userEvent.setup()
+    vi.mocked(api.get).mockResolvedValue({
+      data: {
+        success: true,
+        data: { ...initial, no_balance: true, revision: 1 },
+      },
+    })
+    renderPolicy()
+    expect(await screen.findByText(conditionsMet)).toBeVisible()
+    if (failure === 'policy') {
+      vi.mocked(api.get).mockRejectedValue(new Error('private policy detail'))
+    } else {
+      vi.mocked(getStatus).mockRejectedValue(new Error('private status detail'))
+    }
+    await user.click(screen.getByRole('button', { name: 'Refresh' }))
+    expect(
+      await screen.findByText('Configuration could not be confirmed.')
+    ).toBeVisible()
+    expect(screen.queryByText(conditionsMet)).not.toBeInTheDocument()
+    expect(screen.queryByText(/private .* detail/)).not.toBeInTheDocument()
+    expect(getStatus).toHaveBeenCalledTimes(2)
+    expect(api.get).toHaveBeenCalledTimes(2)
+  }
+)
+
+test('cached disabled placeholder is not configuration evidence while the server reply is pending', async () => {
+  localStorage.setItem(
+    'status',
+    JSON.stringify({
+      user_funding_mode: 'disabled',
+      user_funding_capabilities: { mode: 'disabled', ready: true, epoch: 1 },
+    })
+  )
+  let resolve!: (value: Record<string, unknown>) => void
+  vi.mocked(getStatus).mockReturnValue(
+    new Promise((accept) => {
+      resolve = accept
+    })
+  )
+  vi.mocked(api.get).mockResolvedValue({
+    data: {
+      success: true,
+      data: { ...initial, no_balance: true, revision: 1 },
+    },
+  })
+  renderPolicy()
+  await screen.findByRole('checkbox', { name: confirmation })
+  expect(
+    screen.getByText('Configuration could not be confirmed.')
+  ).toBeVisible()
+  expect(screen.queryByText(conditionsMet)).not.toBeInTheDocument()
+  await act(async () =>
+    resolve({
+      user_funding_mode: 'enabled',
+      user_funding_capabilities: { mode: 'enabled', ready: true, epoch: 2 },
+    })
+  )
+  expect(await screen.findByText(inactivePreference)).toBeVisible()
+})
+
+test('Root can save an inactive preference without changing the global funding mode', async () => {
+  const user = userEvent.setup()
+  vi.mocked(getStatus).mockResolvedValue({
+    user_funding_mode: 'enabled',
+    user_funding_capabilities: { mode: 'enabled', ready: true, epoch: 2 },
+  })
+  vi.mocked(api.put).mockResolvedValue({
+    data: {
+      success: true,
+      data: { ...initial, no_balance: true, revision: 1 },
+    },
+  })
+  renderPolicy()
+  await screen.findByText('Commercial funding enabled')
+  await user.click(
+    screen.getByRole('checkbox', {
+      name: 'Use Key limits without a user wallet',
+    })
+  )
+  await user.click(screen.getByRole('checkbox', { name: confirmation }))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  expect(await screen.findByText(inactivePreference)).toBeVisible()
+  expect(api.put).toHaveBeenCalledExactlyOnceWith(
+    '/api/user/2/usage-policy',
+    expect.objectContaining({
+      expected_revision: 0,
+      no_balance: true,
+      confirmed: true,
+    }),
+    expect.anything()
+  )
+  expect(screen.getByText('Commercial funding enabled')).toBeVisible()
+})
+
+test('policy heading reserves space for the 44px touch close control when its text wraps', async () => {
+  renderPolicy()
+  await screen.findByRole('button', { name: 'Save' })
+  const heading = screen.getByRole('heading', { name: 'User usage policy' })
+  // A 48px inset protects the absolute close control without truncating the heading.
+  expect(heading).toHaveClass('pr-12')
+  expect(heading).not.toHaveClass('truncate')
 })

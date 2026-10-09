@@ -17,21 +17,53 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Plus } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
+import { UserUsagePolicyDialog } from '@/features/users/components/user-usage-policy-dialog'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { useApiKeys } from './api-keys-provider'
 
 export function ApiKeysPrimaryButtons() {
+  const actor = useAuthStore((state) => state.auth.user)
+  return (
+    <ApiKeysPrimaryButtonSession
+      key={`${actor?.id}:${actor?.role}`}
+      userId={actor?.id}
+    />
+  )
+}
+
+function ApiKeysPrimaryButtonSession(props: { userId?: number }) {
+  const [policyOpen, setPolicyOpen] = useState(false)
   const { t } = useTranslation()
   const { setOpen } = useApiKeys()
   return (
-    <div className='flex gap-2'>
-      <Button size='sm' onClick={() => setOpen('create')}>
-        <Plus className='h-4 w-4' />
-        {t('Create API Key')}
-      </Button>
-    </div>
+    <>
+      <div className='flex min-w-0 flex-wrap gap-2'>
+        {props.userId && (
+          <Button
+            variant='outline'
+            size='sm'
+            className='h-auto min-h-8 whitespace-normal pointer-coarse:min-h-11'
+            onClick={() => setPolicyOpen(true)}
+          >
+            {t('My usage policy')}
+          </Button>
+        )}
+        <Button size='sm' onClick={() => setOpen('create')}>
+          <Plus className='h-4 w-4' />
+          {t('Create API Key')}
+        </Button>
+      </div>
+      {policyOpen && props.userId && (
+        <UserUsagePolicyDialog
+          userId={props.userId}
+          onClose={() => setPolicyOpen(false)}
+        />
+      )}
+    </>
   )
 }

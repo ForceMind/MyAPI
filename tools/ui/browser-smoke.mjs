@@ -160,6 +160,66 @@ async function screenshot(page, name, { shell = true, touch = false, headingLeve
   persist()
 }
 
+async function assertPersonalHeadingClear(dialog, name) {
+  const title = dialog.locator('[data-slot="dialog-title"]')
+  await title.scrollIntoViewIfNeeded()
+  const geometry = await dialog.evaluate(element => {
+    const title = element.querySelector('[data-slot="dialog-title"]')
+    const close = element.querySelector('[data-slot="dialog-close"]')
+    const bounds = title.getBoundingClientRect()
+    const closeBox = close.getBoundingClientRect()
+    const range = document.createRange()
+    range.selectNodeContents(title)
+    const lines = [...range.getClientRects()].filter(line => line.width > 0 && line.height > 0)
+    return { text: title.textContent, lines: lines.length, readable: title.scrollWidth <= title.clientWidth + 1 && title.scrollHeight <= title.clientHeight + 1 && getComputedStyle(title).textOverflow !== 'ellipsis', clear: lines.length > 0 && lines.every(line => line.left >= bounds.left - 1 && line.right <= bounds.right + 1 && !(line.left < closeBox.right + 2 && line.right > closeBox.left - 2 && line.top < closeBox.bottom + 2 && line.bottom > closeBox.top - 2)) }
+  })
+  assert(geometry.readable && geometry.clear, `${name}: actual heading text must wrap clear of the close button: ${JSON.stringify(geometry)}`)
+  ;(report.personalLayouts ||= []).push({ name, heading: geometry })
+}
+
+async function assertPersonalButtonsReadable(buttons, name, touch = false) {
+  const geometry = []
+  for (const button of buttons) {
+    await button.scrollIntoViewIfNeeded()
+    const bounds = await button.evaluate(element => {
+      const box = element.getBoundingClientRect()
+      const range = document.createRange()
+      range.selectNodeContents(element)
+      const lines = [...range.getClientRects()].filter(line => line.width > 0 && line.height > 0)
+      const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+      return { text: element.textContent, x: box.left, y: box.top, right: box.right, bottom: box.bottom, width: box.width, height: box.height, reachable: box.top >= 0 && box.bottom <= innerHeight && element.contains(hit), readable: lines.length > 0 && element.scrollWidth <= element.clientWidth + 1 && lines.every(line => line.left >= box.left - 1 && line.right <= box.right + 1 && line.top >= box.top - 1 && line.bottom <= box.bottom + 1) }
+    })
+    assert(bounds.readable && bounds.reachable && (!touch || bounds.height >= 44), `${name}: button text and touch target must remain readable and reachable: ${JSON.stringify(bounds)}`)
+    geometry.push(bounds)
+  }
+  const handles = await Promise.all(buttons.map(button => button.elementHandle()))
+  const sameFrameBounds = await buttons[0].page().evaluate(elements => elements.map(element => {
+    const box = element.getBoundingClientRect()
+    return { x: box.left, y: box.top, right: box.right, bottom: box.bottom }
+  }), handles)
+  await Promise.all(handles.map(handle => handle.dispose()))
+  for (let i = 0; i < sameFrameBounds.length; i++) for (let j = i + 1; j < sameFrameBounds.length; j++) {
+    const a = sameFrameBounds[i], b = sameFrameBounds[j]
+    assert(!(a.x < b.right && a.right > b.x && a.y < b.bottom && a.bottom > b.y), `${name}: adjacent controls must not overlap in the same scroll state`)
+  }
+  ;(report.personalLayouts ||= []).push({ name, buttons: geometry, sameFrameBounds })
+}
+
+async function assertPersonalCopyReadable(section, name) {
+  await section.scrollIntoViewIfNeeded()
+  const geometry = await section.evaluate(element => {
+    const bounds = element.getBoundingClientRect()
+    return [...element.querySelectorAll('p, dt, dd')].map(node => {
+      const box = node.getBoundingClientRect()
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      const lines = [...range.getClientRects()].filter(line => line.width > 0 && line.height > 0)
+      return { text: node.textContent, readable: lines.length > 0 && node.scrollWidth <= node.clientWidth + 1 && node.scrollHeight <= node.clientHeight + 1 && getComputedStyle(node).textOverflow !== 'ellipsis' && lines.every(line => line.left >= bounds.left - 1 && line.right <= bounds.right + 1 && line.top >= box.top - 1 && line.bottom <= box.bottom + 1) }
+    })
+  })
+  assert(geometry.length > 0 && geometry.every(item => item.readable), `${name}: every translated paragraph must wrap without truncation: ${JSON.stringify(geometry)}`)
+}
+
 async function checkTextContrast(locator, name, theme) {
   report.contrast.push(await assertTextContrast(locator, name, theme))
 }
@@ -1057,6 +1117,110 @@ try {
       assertSettlementReadOnly(start)
       await context.close(); contexts.delete(context)
     }
+  })
+
+  for (const [language, width] of [...Object.keys(languages).map(language => [language, 320]), ['en', 1280]]) {
+    await run(`personal-policy-and-budget-clarity-${language}-${width}`, async () => {
+      const { page, context, fixture } = await session({ role: 1, language, width, personalPolicy: true, longText: true, hasTouch: width === 320 })
+      const start = report.requests.length
+      for (const key of ['My usage policy', 'Saved wallet preference', 'Global funding mode', 'Usage budgets', 'Budget types and scope', 'No-wallet configuration conditions are met for supported requests.', 'Configuration could not be confirmed.']) {
+        assert.equal(typeof translations[language][key], 'string', `${language}: explicit personal-policy translation`)
+        assert(translations[language][key].trim())
+        if (language !== 'en') assert.notEqual(translations[language][key], key, `${language}: no silent English fallback`)
+      }
+      await open(page, '/keys')
+      const entry = page.getByRole('button', { name: label('My usage policy', language), exact: true })
+      if (width === 320) await entry.tap()
+      else { await entry.focus(); await page.keyboard.press('Enter') }
+      const dialog = page.getByRole('dialog', { name: label('User usage policy', language), exact: true })
+      const configuration = dialog.getByRole('region', { name: label('Current configuration', language), exact: true })
+      await configuration.getByText(label('No-wallet configuration conditions are met for supported requests.', language), { exact: true }).waitFor()
+      await assertPersonalHeadingClear(dialog, `policy-title-${language}-${width}`)
+      assert.equal(await dialog.locator('form, input, [role="checkbox"]').count(), 0, 'ordinary owner cannot change policy')
+      await dialog.getByText(label('Only Root can change this policy.', language), { exact: true }).waitFor()
+      await assertPersonalCopyReadable(configuration, `personal-policy-${language}-${width}`)
+      await screenshot(page, `personal-policy-owner-${language}-${width}`, { touch: width === 320 })
+      fixture.state.funding = 'enabled'
+      await dialog.getByRole('button', { name: label('Refresh', language), exact: true }).click()
+      await configuration.getByText(label('The saved no-wallet preference is inactive while commercial funding is enabled or retiring.', language), { exact: true }).waitFor()
+      await configuration.getByText(label('Commercial funding enabled', language), { exact: true }).waitFor()
+      await screenshot(page, `personal-policy-enabled-${language}-${width}`, { touch: width === 320 })
+      fixture.state.policy = 'error'
+      await dialog.getByRole('button', { name: label('Refresh', language), exact: true }).click()
+      await dialog.getByRole('alert').waitFor()
+      await configuration.getByText(label('Configuration could not be confirmed.', language), { exact: true }).waitFor()
+      const closePolicy = dialog.getByRole('button', { name: label('Close', language), exact: true }).and(dialog.locator('button:not([data-slot="dialog-close"])'))
+      await assertPersonalButtonsReadable([dialog.getByRole('button', { name: label('Refresh', language), exact: true }), closePolicy], `policy-footer-${language}-${width}`, width === 320)
+      await closePolicy.click()
+      await dialog.waitFor({ state: 'hidden' })
+      await settled(page)
+      if (width === 1280) assert.equal(await entry.evaluate(element => element === document.activeElement), true, 'keyboard policy entry regains focus after dismissal')
+      const budgetEntry = page.getByRole('button', { name: label('API Key usage budgets', language), exact: true })
+      await budgetEntry.getByText(label('Usage budgets', language), { exact: true }).waitFor()
+      await budgetEntry.click()
+      const budget = page.getByRole('dialog', { name: label('API Key usage budgets', language), exact: true })
+      await budget.getByRole('region', { name: label('Budget types and scope', language), exact: true }).waitFor()
+      await assertPersonalHeadingClear(budget, `budget-title-${language}-${width}`)
+      await budget.getByText(label('Strict Token and USD budgets apply to this Key and can be enabled together.', language), { exact: true }).waitFor()
+      await assertPersonalCopyReadable(budget.getByRole('region', { name: label('Budget types and scope', language), exact: true }), `personal-budget-${language}-${width}`)
+      await screenshot(page, `personal-budget-scope-${language}-${width}`, { touch: width === 320 })
+      const geometry = await budget.evaluate(element => ({ width: element.clientWidth, scroll: element.scrollWidth }))
+      assert(geometry.scroll <= geometry.width + 1, 'budget dialog must not horizontally clip translated scope')
+      await page.keyboard.press('Escape')
+      await budget.waitFor({ state: 'hidden' })
+      await settled(page)
+      assert.equal(await budgetEntry.evaluate(element => element === document.activeElement), true, 'Escape restores the selected Key budget action focus')
+      const editEntry = page.getByRole('button', { name: label('Edit', language), exact: true })
+      await editEntry.click()
+      const drawer = page.getByRole('dialog', { name: label('Update API Key', language), exact: true })
+      const quotaInput = drawer.getByRole('spinbutton', { name: label('Key quota (internal units)', language), exact: true })
+      await quotaInput.waitFor()
+      assert.equal(await quotaInput.inputValue(), '1000', 'ordinary quota preserves internal units')
+      const cap = drawer.getByRole('switch', { name: label('No ordinary quota cap', language), exact: true })
+      await cap.waitFor()
+      await cap.scrollIntoViewIfNeeded()
+      const capExplanation = drawer.getByText(label('Only the ordinary Key quota cap is removed. Model access, strict budgets and account safety thresholds still apply.', language), { exact: true })
+      await capExplanation.waitFor()
+      await capExplanation.scrollIntoViewIfNeeded()
+      const footer = drawer.locator('[data-slot="sheet-footer"]')
+      await assertPersonalButtonsReadable(['Close', 'Save changes'].map(key => footer.getByRole('button', { name: label(key, language), exact: true })), `key-footer-${language}-${width}`, width === 320)
+      await screenshot(page, `personal-internal-quota-${language}-${width}`, { touch: width === 320 })
+      await assertPersonalButtonsReadable(['Never', '1 Month', '1 Day', '1 Hour'].map(key => drawer.getByRole('button', { name: label(key, language), exact: true })), `key-expiry-${language}-${width}`, width === 320)
+      await screenshot(page, `personal-key-expiry-${language}-${width}`, { touch: width === 320 })
+      await drawer.getByRole('button', { name: label('1 Month', language), exact: true }).click()
+      await drawer.getByRole('button', { name: label('Never', language), exact: true }).click()
+      await quotaInput.fill('1234')
+      await footer.getByRole('button', { name: label('Close', language), exact: true }).click()
+      await drawer.waitFor({ state: 'hidden' })
+      await editEntry.click()
+      await quotaInput.waitFor()
+      assert.equal(await quotaInput.inputValue(), '1000', 'closing the Key drawer discards an unsaved quota draft')
+      assertSettlementReadOnly(start)
+      await context.close(); contexts.delete(context)
+    })
+  }
+
+  await run('personal-policy-root-draft-remains-unsaved', async () => {
+    const { page, fixture } = await session({ width: 320, personalPolicy: true })
+    const start = report.requests.length
+    await open(page, '/keys')
+    await page.getByRole('button', { name: label('My usage policy'), exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: label('User usage policy'), exact: true })
+    const configuration = dialog.getByRole('region', { name: label('Current configuration'), exact: true })
+    await configuration.getByText(label('No-wallet configuration conditions are met for supported requests.'), { exact: true }).waitFor()
+    const preference = dialog.getByRole('checkbox', { name: label('Use Key limits without a user wallet'), exact: true })
+    await preference.uncheck()
+    await configuration.getByText(label('Use Key limits without a user wallet'), { exact: true }).waitFor()
+    assert.equal(fixture.state.noBalance, true, 'a draft toggle cannot update the saved preference')
+    await dialog.getByRole('button', { name: label('Save'), exact: true }).click()
+    await dialog.getByText(label('Required'), { exact: true }).waitFor()
+    await screenshot(page, 'personal-policy-root-confirmation-required-320')
+    assertSettlementReadOnly(start)
+    await dialog.getByRole('button', { name: label('Close'), exact: true }).and(dialog.locator('button:not([data-slot="dialog-close"])')).click()
+    await dialog.waitFor({ state: 'hidden' })
+    await page.getByRole('button', { name: label('My usage policy'), exact: true }).click()
+    await preference.waitFor()
+    assert.equal(await preference.isChecked(), true, 'dismissed unsaved draft does not become policy')
   })
 
   report.result = report.journeys.every(journey => journey.result === 'passed') ? 'passed' : 'failed'

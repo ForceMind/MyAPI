@@ -794,3 +794,32 @@ test('token-budget refresh failure removes stale recovery controls and does not 
   ).not.toBeInTheDocument()
   expect(api.post).not.toHaveBeenCalled()
 })
+
+test('budget summary distinguishes compatible Key budgets from account-window checks without promising qualification', async () => {
+  renderBudget()
+  expect(
+    await screen.findByText(
+      'Strict Token and USD budgets apply to this Key and can be enabled together.'
+    )
+  ).toBeVisible()
+  expect(
+    screen.getByText(
+      'Codex account thresholds check upstream account windows before a request. They are not per-Key percentage budgets and cannot be combined with strict Token or USD budgets.'
+    )
+  ).toBeVisible()
+  expect(
+    screen.getByText(
+      'Saving a budget does not qualify every model or request. The server checks the selected route, request fields and usage evidence.'
+    )
+  ).toBeVisible()
+  expect(api.put).not.toHaveBeenCalled()
+  expect(api.post).not.toHaveBeenCalled()
+})
+
+test('budget heading reserves space for the 44px touch close control when its text wraps', async () => {
+  renderBudget()
+  await screen.findByRole('button', { name: 'Save' })
+  const heading = screen.getByRole('heading', { name: 'API Key usage budgets' })
+  expect(heading).toHaveClass('pr-12')
+  expect(heading).not.toHaveClass('truncate')
+})

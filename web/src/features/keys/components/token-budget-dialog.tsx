@@ -133,13 +133,35 @@ function TokenBudgetSession(props: {
         showCloseButton={!mutation.isPending}
       >
         <DialogHeader>
-          <DialogTitle>{t('API Key usage budgets')}</DialogTitle>
+          <DialogTitle className='pr-12'>
+            {t('API Key usage budgets')}
+          </DialogTitle>
           <DialogDescription>
             {t(
               'Actual input plus output tokens. Cache and reasoning are already included.'
             )}
           </DialogDescription>
         </DialogHeader>
+        <section
+          aria-label={t('Budget types and scope')}
+          className='flex min-w-0 flex-col gap-2 rounded-md border p-3 text-sm'
+        >
+          <p>
+            {t(
+              'Strict Token and USD budgets apply to this Key and can be enabled together.'
+            )}
+          </p>
+          <p>
+            {t(
+              'Codex account thresholds check upstream account windows before a request. They are not per-Key percentage budgets and cannot be combined with strict Token or USD budgets.'
+            )}
+          </p>
+          <p className='text-muted-foreground text-xs'>
+            {t(
+              'Saving a budget does not qualify every model or request. The server checks the selected route, request fields and usage evidence.'
+            )}
+          </p>
+        </section>
         {!data?.policy.account_threshold_enabled && (
           <>
             <p className='text-muted-foreground text-xs'>
@@ -196,13 +218,6 @@ function TokenBudgetSession(props: {
         {!data && !query.isError && <p role='status'>{t('Loading...')}</p>}
         {data && (
           <>
-            <p className='text-sm'>
-              {data.policy.enabled ||
-              data.policy.fee_enabled ||
-              data.policy.account_threshold_enabled
-                ? t('Enabled')
-                : t('Disabled')}
-            </p>
             <section className='min-w-0 space-y-2 rounded-md border p-3 text-sm'>
               <p>
                 {t('Account safety threshold')}:{' '}

@@ -272,3 +272,24 @@ test('settlement fixture permits only exact bounded reads and rejects every reco
     }
   }
 })
+
+test('personal policy fixtures are opt-in, identity-bound and never accept mutations', () => {
+  const url = path => new URL(`http://localhost${path}`)
+  const owner = createUIFixture({ role: 1, personalPolicy: true })
+  assert.equal(owner.response(url('/api/user/2/usage-policy')).body.data.user_id, 2)
+  assert(owner.response(url('/api/user/1/usage-policy')).violation)
+  assert(owner.response(url('/api/user/2/usage-policy'), 'PUT').violation)
+  assert(createUIFixture({ role: 1 }).response(url('/api/user/2/usage-policy')).violation)
+  assert(createUIFixture({ role: 0, personalPolicy: true }).response(url('/api/user/1/usage-policy')).violation)
+  const budget = owner.response(url('/api/token/21/budget')).body.data.policy
+  assert.equal(budget.user_id, 2)
+  assert.equal(budget.enabled && budget.fee_enabled, true)
+  assert.equal(budget.account_threshold_enabled, false)
+  assert(owner.response(url('/api/token/22/budget')).violation)
+  owner.state.funding = 'enabled'
+  assert.equal(owner.response(url('/api/status')).body.data.user_funding_capabilities.mode, 'enabled')
+  owner.state.funding = 'error'
+  assert.equal(owner.response(url('/api/status')).status, 503)
+  owner.state.policy = 'error'
+  assert.equal(owner.response(url('/api/user/2/usage-policy')).status, 503)
+})
