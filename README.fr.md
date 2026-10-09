@@ -61,9 +61,11 @@ Les budgets stricts Token/USD couvrent les chemins Responses natifs officiels qu
 
 ## Versions
 
-Au 2026-10-09, **[v0.2.0-beta.9 est publiée](https://github.com/ForceMind/MyAPI/releases/tag/v0.2.0-beta.9)** avec les images Full/LAN amd64/arm64. Elle inclut les fonctions bornées de routage/budget/politique beta.4–7, l’interface beta.8 et le chat beta.9 avec clé explicite et images/PDF limités. Voir les [preuves de publication](docs/RELEASE_BETA_9.md).
+Au 2026-10-09, **[v0.2.0-beta.10 est publiée](https://github.com/ForceMind/MyAPI/releases/tag/v0.2.0-beta.10)** avec les images Full/LAN amd64/arm64. Elle inclut les fonctions bornées de routage/budget/politique beta.4–7, l’interface beta.8 et le chat beta.9 avec clé explicite et images/PDF limités. Voir les [preuves de publication](docs/RELEASE_BETA_10.md).
 
-La mise à niveau Full ciblée, la restauration isolée et HTTPS ont été vérifiés ; OAuth réel, fenêtres/429 et factures restent des validations distinctes et limitées. Cette version reste une préversion. L’installation/mise à jour unifiée Lite/Desktop n’est pas livrée. Prochaine étape : [usage personnel et limites des clés](docs/PERSONAL_CORE_DELIVERY_CARD.md), puis simplification structurelle bornée.
+beta.10 corrige le statut et la responsabilité du règlement, l’annulation après une réponse complète et la configuration des quotas par lots sans cache. Avant toute mise à niveau, suivez le [guide de vérification comptable](docs/PENDING_USAGE_RECOVERY_GUIDE.md) ; ne contournez pas le contrôle en désactivant le traitement par lots. La simplification du noyau personnel reste la prochaine étape.
+
+beta.10 a passé les contrôles isolés d’installation/mise à niveau en CI et n’a pas été déployée sur l’instance de l’utilisateur. Le déploiement Full ciblé, la restauration et HTTPS relèvent du [bilan historique beta.9](docs/RELEASE_BETA_9.md) ; OAuth réel, fenêtres/429 et factures restent des validations distinctes et limitées. Cette version reste une préversion. L’installation/mise à jour unifiée Lite/Desktop n’est pas livrée. Prochaine étape : [usage personnel et limites des clés](docs/PERSONAL_CORE_DELIVERY_CARD.md), puis simplification structurelle bornée.
 
 ## Installer la préversion publiée
 
@@ -76,7 +78,7 @@ Prérequis : Linux amd64/arm64, Git, Bash, Docker fonctionnel, Compose v2 prenan
 Pour une installation neuve dans un nouveau dossier uniquement ; ne remplacez pas le `.env` d’une instance existante :
 
 ```bash
-git clone --branch v0.2.0-beta.9 --single-branch https://github.com/ForceMind/MyAPI.git my-api
+git clone --branch v0.2.0-beta.10 --single-branch https://github.com/ForceMind/MyAPI.git my-api
 cd my-api
 umask 077
 cp deploy/.env.example deploy/.env
@@ -88,7 +90,7 @@ chmod 600 deploy/.env
 Modifiez `deploy/.env`. Remplacez l’origine d’exemple par votre origine HTTPS exacte, sans chemin API ; l’installateur refuse les domaines de remplacement `example.com` :
 
 ```dotenv
-MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.9
+MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.10
 MYAPI_BUILD_LOCAL=false
 MYAPI_EDITION=full
 MYAPI_BIND_ADDRESS=127.0.0.1
@@ -120,7 +122,7 @@ bash deploy/install.sh
 
 Le script valide la configuration, récupère l’image, démarre et attend au plus 120 secondes la santé du conteneur. Il n’installe pas Docker, les certificats, le proxy ou les règles de pare-feu. Ouvrez votre origine HTTPS, initialisez le compte administrateur et vérifiez connexion, version et revision dans les informations système. Full utilise des cookies Secure : HTTP localhost n’est pas l’adresse de connexion recommandée.
 
-Pour un usage local/privé, consultez le [guide LAN historique](docs/LAN_LITE.md) et utilisez `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.9`. Le partage LAN doit être activé explicitement.
+Pour un usage local/privé, consultez le [guide LAN historique](docs/LAN_LITE.md) et utilisez `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.10`. Le partage LAN doit être activé explicitement.
 
 ## Première requête
 
@@ -148,10 +150,10 @@ node cli/myapi.mjs logs --project-dir .
 
 `doctor` ne valide pas les fournisseurs réels ; les journaux peuvent être sensibles. `install`, `switch` et `rollback` ne sont pas des commandes disponibles.
 
-Avant toute mise à niveau, relevez version/digest, revision, chemins et configuration. Sauvegardez la base de façon cohérente (y compris le WAL SQLite si applicable), les secrets, le trousseau complet et les journaux nécessaires. Vérifiez la restauration sur une copie isolée, puis testez la version publiée cible. Exemple de précontrôle en lecture seule pour passer une ancienne instance à beta.9 :
+Avant toute mise à niveau, relevez version/digest, revision, chemins et configuration. Sauvegardez la base de façon cohérente (y compris le WAL SQLite si applicable), les secrets, le trousseau complet et les journaux nécessaires. Vérifiez la restauration sur une copie isolée, puis testez la version publiée cible. Exemple de précontrôle en lecture seule pour passer une ancienne instance à beta.10 :
 
 ```bash
-node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.9 --dry-run --json
+node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.10 --dry-run --json
 ```
 
 Suivez le [guide de répétition et restauration](docs/UPGRADE_REHEARSAL.md). La sauvegarde `.env` du CLI n’est pas une sauvegarde de base. Après une tentative de démarrage cible, le CLI ne redémarre pas automatiquement l’ancienne image : la base a pu migrer. Restaurez une sauvegarde vérifiée antérieure avant un binaire incompatible. Ne supprimez pas les volumes ni les écritures non résolues pour revenir en arrière ; évitez `latest` et les versions seulement planifiées.

@@ -61,9 +61,11 @@ MyAPI はモデルサービス接続、アプリ用 API キー、権限、使用
 
 ## バージョン
 
-2026-10-09：**[v0.2.0-beta.9 公開済み](https://github.com/ForceMind/MyAPI/releases/tag/v0.2.0-beta.9)**。Full/LAN の amd64/arm64 イメージ、beta.4–7 の限定ルーティング・予算・権限、beta.8 UI、beta.9 の実キー選択チャットと限定画像/PDFを含みます。[公開証拠](docs/RELEASE_BETA_9.md)を参照してください。
+2026-10-09：**[v0.2.0-beta.10 公開済み](https://github.com/ForceMind/MyAPI/releases/tag/v0.2.0-beta.10)**。Full/LAN の amd64/arm64 イメージ、beta.4–7 の限定ルーティング・予算・権限、beta.8 UI、beta.9 の実キー選択チャットと限定画像/PDFを含みます。[公開証拠](docs/RELEASE_BETA_10.md)を参照してください。
 
-対象 Full の更新、隔離スナップショット復元、HTTPS は検証済みです。実アカウント OAuth、期間リセット/429、請求照合は別途の限定された検証項目です。プレリリースであり、統一 Lite/Desktop インストール・更新は未提供です。次は[個人モードとキー制限](docs/PERSONAL_CORE_DELIVERY_CARD.md)、続いて範囲を絞った構造整理です。
+beta.10 は精算の状態と担当処理、完了したストリームのキャンセル、キャッシュなしの一括処理設定を修正します。既存環境の更新前に[会計設定の事前確認ガイド](docs/PENDING_USAGE_RECOVERY_GUIDE.md)を参照し、一括処理を無効にして確認を回避しないでください。個人利用向けの構造整理は次の計画です。
+
+beta.10 は隔離 CI のインストール・更新検証に合格しましたが、ユーザー環境には配備していません。対象 Full の更新、スナップショット復元、HTTPS は [beta.9 の過去の記録](docs/RELEASE_BETA_9.md)です。実アカウント OAuth、期間リセット/429、請求照合は別途の限定された検証項目です。プレリリースであり、統一 Lite/Desktop インストール・更新は未提供です。次は[個人モードとキー制限](docs/PERSONAL_CORE_DELIVERY_CARD.md)、続いて範囲を絞った構造整理です。
 
 ## 公開版のインストール
 
@@ -76,7 +78,7 @@ Linux amd64/arm64、Git、Bash、稼働する Docker、`up --wait --wait-timeout
 新しいディレクトリへの新規インストール専用です。既存 `.env` を上書きしないでください。
 
 ```bash
-git clone --branch v0.2.0-beta.9 --single-branch https://github.com/ForceMind/MyAPI.git my-api
+git clone --branch v0.2.0-beta.10 --single-branch https://github.com/ForceMind/MyAPI.git my-api
 cd my-api
 umask 077
 cp deploy/.env.example deploy/.env
@@ -88,7 +90,7 @@ chmod 600 deploy/.env
 `deploy/.env` を編集します。例の Origin は、自分の正確な HTTPS Origin に置き換え、API パスは含めません。`example.com` の仮ドメインはインストーラーで拒否されます。
 
 ```dotenv
-MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.9
+MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.10
 MYAPI_BUILD_LOCAL=false
 MYAPI_EDITION=full
 MYAPI_BIND_ADDRESS=127.0.0.1
@@ -120,7 +122,7 @@ bash deploy/install.sh
 
 設定の検証、イメージ取得、起動、最大 120 秒の正常性待機を行います。Docker の導入、証明書取得、プロキシ・ファイアウォール設定は行いません。設定した HTTPS URL を開き、初期化と管理者作成を完了し、ログインとシステム情報の version/revision を確認してください。Full は Secure Cookie を使うため、HTTP localhost は推奨ログイン先ではありません。
 
-ローカル/私設 LAN で使う場合は[従来 LAN ガイド](docs/LAN_LITE.md)と `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.9` を使用します。LAN 共有は明示的に有効化してください。
+ローカル/私設 LAN で使う場合は[従来 LAN ガイド](docs/LAN_LITE.md)と `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.10` を使用します。LAN 共有は明示的に有効化してください。
 
 ## 最初の呼び出し
 
@@ -148,10 +150,10 @@ node cli/myapi.mjs logs --project-dir .
 
 `doctor` は実際のモデルサービスの検証ではなく、ログは機密情報を含む可能性があります。`install`、`switch`、`rollback` は未実装のコマンドです。
 
-更新前に version/digest、revision、パス、設定を記録し、一貫した DB バックアップ（必要な SQLite WAL を含む）、秘密値、完全なキーリング、必要なログを保存します。隔離コピーで復元を確認してから、公開済み対象バージョンを試してください。旧インスタンスを beta.9 に更新する場合の読取専用事前確認例：
+更新前に version/digest、revision、パス、設定を記録し、一貫した DB バックアップ（必要な SQLite WAL を含む）、秘密値、完全なキーリング、必要なログを保存します。隔離コピーで復元を確認してから、公開済み対象バージョンを試してください。旧インスタンスを beta.10 に更新する場合の読取専用事前確認例：
 
 ```bash
-node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.9 --dry-run --json
+node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.10 --dry-run --json
 ```
 
 実操作は[更新・復元ガイド](docs/UPGRADE_REHEARSAL.md)に従います。CLI の `.env` バックアップは DB バックアップではありません。対象起動を試みた後は DB が移行済みの可能性があるため、旧イメージを自動再起動しません。互換性のない旧バイナリーを起動する前に、検証済み更新前 DB を復元してください。ボリュームや未解決記録の削除で復旧しようとせず、`latest` や計画段階のバージョンも使わないでください。

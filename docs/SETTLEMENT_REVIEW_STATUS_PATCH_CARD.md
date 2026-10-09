@@ -1,18 +1,18 @@
 # Settlement review status patch after beta.9
 
-## Subsequent incident priority
+## Published outcome
 
-The independently reproduced stream-completion cancellation and legacy batch/no-Redis
-configuration cases are tracked in [the incident card](BETA_9_PENDING_USAGE_INCIDENT_CARD.md).
-They are separate corrective commits in the same Draft PR. The original status projection
-by itself does not fix either cause or identify a production request. Final combined HEAD
-requires its own full verification; personal-core features remain paused.
+The status patch and the independently reproduced stream-completion cancellation and
+legacy batch/no-Redis fixes shipped together in [beta.10](RELEASE_BETA_10.md), from
+`631b3205ab2ad28df3f9372bd00f02bd27cb4c31`, after PR #5 and exact-main acceptance.
+The prior beta.9 artifacts remain immutable. No user-server deployment, production
+accounting change or historical pending-log rewrite is included.
 
-## Frozen scope
+## Frozen scope and historical starting point
 
-The published `v0.2.0-beta.9` tag and artifacts remain immutable. This is a new
-source-only patch, based on main `7492ec36edf68716953cc81c304f4c902d392751`,
-delivered through a new Draft PR. Merge, release and deployment are separate gates.
+The patch began from main `7492ec36edf68716953cc81c304f4c902d392751` as a Draft PR.
+The contracts below record that scope; they do not mean merge/publication is still pending.
+Personal-core work continues on its separate next delivery card.
 
 The reported screenshot is evidence of a confusing recovery interface, not proof
 of the production request's root cause. A read-only investigation and isolated

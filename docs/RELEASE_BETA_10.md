@@ -1,3 +1,87 @@
+# v0.2.0-beta.10 published prerelease
+
+## Verified publication, 2026-10-09
+
+**[beta.10 is published](https://github.com/ForceMind/MyAPI/releases/tag/v0.2.0-beta.10).**
+PR #5 was normally merged; immutable release source is
+`631b3205ab2ad28df3f9372bd00f02bd27cb4c31`, tree
+`28b235eb612e98ca97672485305bc377b1232fc8`.
+This post-publication document is a later documentation commit. The copy inside the
+immutable beta.10 tag is the pre-publication candidate snapshot, whose old warning is
+historical. Do not move the tag to incorporate this evidence.
+
+- [Candidate CI](https://github.com/ForceMind/MyAPI/actions/runs/37940360062): ten successful jobs;
+  [actual Docker smoke](https://github.com/ForceMind/MyAPI/actions/runs/37940360343): LAN source
+  installation/fresh SQLite, Full fresh SQLite, and fixed-old-source migration/original-backup recovery passed.
+- [Exact-main CI](https://github.com/ForceMind/MyAPI/actions/runs/37942794654): ten successful jobs.
+  This is the merged-PR closed event: API event metadata names the former PR head, but all ten
+  checkout logs and downloaded browser reports name `631b3205ab2ad28df3f9372bd00f02bd27cb4c31`.
+  The duplicate push run was cancelled by the overlapping run; it is not counted as success.
+- Frontend: 182 files / 1070 tests, typecheck/build and all browser stages passed. Shared UI:
+  22 journeys / 195 screenshots; Playground: eight journeys / 96 screenshots. Three-database
+  contracts and the expanded race group passed. Synthetic evidence does not establish live-provider billing.
+- [Release workflow](https://github.com/ForceMind/MyAPI/actions/runs/37944886993): all five jobs passed;
+  [GHCR workflow](https://github.com/ForceMind/MyAPI/actions/runs/37944949604): four builds and two
+  multi-architecture manifest jobs passed, stable/latest promotion explicitly skipped.
+- The tag-triggered [Electron workflow](https://github.com/ForceMind/MyAPI/actions/runs/37944814995)
+  built both desktop packages successfully. Its separate release-attachment job was skipped.
+  These CI build artifacts were not added to the seven release assets and do not prove real-device acceptance.
+
+## Assets and independent byte verification
+
+All seven public assets were downloaded and matched their GitHub SHA256/byte size. The four
+binaries also matched the corresponding Linux/macOS/Windows checksum lists. Binaries were
+inspected, not executed: Linux amd64/arm64 are dynamically linked ELF; Windows is x86-64 PE;
+macOS is arm64 Mach-O. No universal/static-binary compatibility claim is made.
+
+| Asset | SHA256 |
+| --- | --- |
+| [checksums-linux.txt](https://github.com/ForceMind/MyAPI/releases/download/v0.2.0-beta.10/checksums-linux.txt) | `f6195ec693de173162b68d5c5972b66d3ab8b3e86cf7b00e56517e00d3419d17` |
+| [checksums-macos.txt](https://github.com/ForceMind/MyAPI/releases/download/v0.2.0-beta.10/checksums-macos.txt) | `28fdc687e5337ca499782dcb7b52ec312e6bb2cd647694415e111fc90214d0c5` |
+| [checksums-windows.txt](https://github.com/ForceMind/MyAPI/releases/download/v0.2.0-beta.10/checksums-windows.txt) | `6896e4f50516cf6ff0ea1f8ee4025bd2f6769d3c58da78869a42bbc59e780089` |
+| [my-api-0.2.0-beta.10](https://github.com/ForceMind/MyAPI/releases/download/v0.2.0-beta.10/my-api-0.2.0-beta.10) | `55a772160376f23b662b852141075c6c8ee813636ea93bcc97109c2a29a3d28d` |
+| [my-api-0.2.0-beta.10.exe](https://github.com/ForceMind/MyAPI/releases/download/v0.2.0-beta.10/my-api-0.2.0-beta.10.exe) | `5abae486825f5b5b908a5bc28f6aa2d926b8519e1dd233cd7cb402dcfbdffe5a` |
+| [my-api-arm64-0.2.0-beta.10](https://github.com/ForceMind/MyAPI/releases/download/v0.2.0-beta.10/my-api-arm64-0.2.0-beta.10) | `ef42d7a7d0213906ac5b8ac7460a984ed1745ea78363bebfe27c07270c1304c9` |
+| [my-api-macos-0.2.0-beta.10](https://github.com/ForceMind/MyAPI/releases/download/v0.2.0-beta.10/my-api-macos-0.2.0-beta.10) | `be5276f414006875abae47c50b3f5e21e21c1992b45ab98057323c39dec30e6f` |
+
+## Container identity, signatures and unchanged older release
+
+- Full: `ghcr.io/forcemind/myapi:v0.2.0-beta.10`
+  digest `sha256:bea70e5d806b03222b89e981144bbff38708ed1003a01e15c289fef110ef0476`.
+- LAN: `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.10`
+  digest `sha256:d849b349a59a121b558f881207879c65246dfbf7592e5d2ef12d55bd2e23a716`.
+
+Both indexes contain Linux amd64 and arm64. All four image configs match the edition,
+version and source SHA. Four SLSA provenance statements and four SPDX inventories bind to
+those image digests; the four workflow digest artifacts match the architecture roots.
+All six aggregate/architecture roots passed independent cosign verification with exact
+certificate identity
+`https://github.com/ForceMind/MyAPI/.github/workflows/docker-build.yml@refs/tags/v0.2.0-beta.10`
+and issuer `https://token.actions.githubusercontent.com`.
+Source binding combines the verified tag-bound workflow, source checkout, provenance and
+signed digest chain; it is not a claim of hermetic/reproducible dependency resolution.
+
+Public-registry before/after checks confirm all six beta.9 roots unchanged. The six
+Full/LAN `latest`, `latest-amd64` and `latest-arm64` tags remain absent; GitHub's stable
+latest-release endpoint also remains absent. No NPM publication or user-server deployment occurred.
+
+## Upgrade and next work
+
+Read [the accounting preflight guide](PENDING_USAGE_RECOVERY_GUIDE.md) before an existing
+installation is changed. Preserve explicit image and accounting settings; never copy the
+new marker or disable batching just to bypass an old-instance rejection. Preflight precedes
+container changes. Historical pending badges are not automatically cleared, and production
+root cause still requires minimal redacted evidence.
+
+This release contains the bounded incident fixes below. Personal-core policy/Key explanation
+and structural simplification continue separately under the [next delivery card](PERSONAL_CORE_DELIVERY_CARD.md);
+they are not new capabilities of beta.10. Release tags and artifacts remain frozen.
+
+## Historical pre-publication candidate snapshot
+
+The following text records the plan before publication. Its unpublished warnings and pending
+checks describe that earlier stage; the verified results above are the current release record.
+
 # v0.2.0-beta.10 incident-fix candidate
 
 2026-10-09. **Unpublished candidate. Do not deploy or pull the beta.10 image tag yet.**

@@ -1,6 +1,6 @@
 # My API 完整首个预发布执行计划
 
-> 2026-10-09：本页为历史合同与证据，不作为当前执行顺序。当前 beta.9 Draft 源码候选、验收与授权边界见 [当前交接](NEXT_SESSION_HANDOFF.md) 和 [beta.9 发布候选记录](RELEASE_BETA_9.md)。下方 beta.3/beta.4、旧阶段及旧限制不覆盖最新用户授权；适用安全与技术合同仍保留。
+> 2026-10-09：本页为历史合同与证据，不作为当前执行顺序。当前 beta.10 已发布；验收及下一个人核心边界见 [当前交接](NEXT_SESSION_HANDOFF.md) 和 [beta.10 发布记录](RELEASE_BETA_10.md)。下方 beta.3/beta.4、旧阶段及旧限制不覆盖最新用户授权；适用安全与技术合同仍保留。
 
 
 > 2026-10-04：本文件是历史完整首版合同与证据索引，不再作为当前版本执行顺序。新完整计划见[MYAPI_MASTER_PLAN.md](MYAPI_MASTER_PLAN.md)，接手见[NEXT_SESSION_HANDOFF.md](NEXT_SESSION_HANDOFF.md)。旧R1–R5、Sol/Terra分工及“全部目标完成才交首个预发布”不覆盖后来确认的自用逐版交付；安全、数据与适用技术合同仍须遵守。beta.3已预发布，下一建议版是beta.4模型发现/识别/基础路由，不重做已验收功能或自动扩所有后续阶段。

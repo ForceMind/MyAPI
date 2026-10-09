@@ -67,9 +67,11 @@ Codex percentages are remaining-account/window safety thresholds, not a per-key 
 
 ## Choose a version
 
-Status as of 2026-10-09: **[v0.2.0-beta.9](https://github.com/ForceMind/MyAPI/releases/tag/v0.2.0-beta.9) is published** with Full/LAN amd64/arm64 images. It includes the bounded beta.4–7 routing/budget/policy work, beta.8 UI, and beta.9 explicit-Key chat/image/PDF workflow. See [release evidence](docs/RELEASE_BETA_9.md).
+Status as of 2026-10-09: **[v0.2.0-beta.10](https://github.com/ForceMind/MyAPI/releases/tag/v0.2.0-beta.10) is published** with Full/LAN amd64/arm64 images. It includes the bounded beta.4–7 routing/budget/policy work, beta.8 UI, and beta.9 explicit-Key chat/image/PDF workflow. See [release evidence](docs/RELEASE_BETA_10.md).
 
-Verified Full upgrade, isolated snapshot recovery and target HTTPS are recorded; real-provider OAuth/window reset/429 and bill reconciliation are still separate, limited acceptance items. This remains a prerelease. Unified Lite/Desktop installation/update is not delivered. The next main milestone is [personal mode and understandable Key limits](docs/PERSONAL_CORE_DELIVERY_CARD.md), followed by bounded structural simplification.
+beta.10 corrects settlement ownership/status, completed-stream cancellation and cache-free batch configuration. Before upgrading an existing installation, follow the [accounting preflight guide](docs/PENDING_USAGE_RECOVERY_GUIDE.md); do not bypass it by changing the batch setting. Personal-core simplification remains the next planned milestone.
+
+beta.10 passed isolated CI installation/upgrade checks and has not been deployed to the user’s instance. Target Full deployment, snapshot recovery and HTTPS checks belong to the [historical beta.9 record](docs/RELEASE_BETA_9.md); real-provider OAuth/window reset/429 and bill reconciliation are still separate, limited acceptance items. This remains a prerelease. Unified Lite/Desktop installation/update is not delivered. The next main milestone is [personal mode and understandable Key limits](docs/PERSONAL_CORE_DELIVERY_CARD.md), followed by bounded structural simplification.
 
 ## Install the published prerelease
 
@@ -90,7 +92,7 @@ Go, Bun, Node.js, Redis, and a separate database server are **not required for t
 For a **new installation in a new directory**:
 
 ```bash
-git clone --branch v0.2.0-beta.9 --single-branch https://github.com/ForceMind/MyAPI.git my-api
+git clone --branch v0.2.0-beta.10 --single-branch https://github.com/ForceMind/MyAPI.git my-api
 cd my-api
 umask 077
 cp deploy/.env.example deploy/.env
@@ -104,7 +106,7 @@ For an existing installation, preserve its configuration and read the upgrade se
 Edit `deploy/.env`. Keep these values and replace the example origin with your own exact HTTPS origin, without an API path:
 
 ```dotenv
-MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.9
+MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.10
 MYAPI_BUILD_LOCAL=false
 MYAPI_EDITION=full
 MYAPI_BIND_ADDRESS=127.0.0.1
@@ -140,7 +142,7 @@ The script validates Compose configuration, pulls the pinned image, starts the s
 
 Open your configured **HTTPS origin**, complete the initialization page, and create the administrator account. Full uses Secure cookies: plain `http://localhost:3000` is not its recommended login URL. Confirm login and the runtime version/revision in System Information before adding real accounts.
 
-For local or private-network use instead, follow the [legacy LAN guide](docs/LAN_LITE.md), using the published `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.9` image. LAN sharing is opt-in. The planned unified Lite/Desktop installer and updater are not yet delivered; desktop build artifacts do not establish real-device acceptance.
+For local or private-network use instead, follow the [legacy LAN guide](docs/LAN_LITE.md), using the published `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.10` image. LAN sharing is opt-in. The planned unified Lite/Desktop installer and updater are not yet delivered; desktop build artifacts do not establish real-device acceptance.
 
 ## Make your first request
 
@@ -174,10 +176,10 @@ node cli/myapi.mjs logs --project-dir .
 
 1. Record the running image tag/digest, source revision, database type, data paths, and private configuration. Use an actually published target version, never a planned beta label or `latest`.
 2. Create a consistent database backup using an appropriate database procedure. Preserve SQLite WAL state when applicable, configuration, session secret, complete quota identity keyring, and required logs. Verify restoration on an isolated copy before upgrading the live instance.
-3. Rehearse the target version on that copy, including login, channels, keys, a controlled request, logs, and recovery. The CLI supports a read-only preflight, for example when rehearsing an older instance's upgrade to the published beta.9:
+3. Rehearse the target version on that copy, including login, channels, keys, a controlled request, logs, and recovery. The CLI supports a read-only preflight, for example when rehearsing an older instance's upgrade to the published beta.10:
 
    ```bash
-   node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.9 --dry-run --json
+   node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.10 --dry-run --json
    ```
 
 4. Follow the [upgrade rehearsal and recovery guide](docs/UPGRADE_REHEARSAL.md) for the actual change. The CLI's `.env` backup is **not a database backup**. Once target startup has been attempted, it does not automatically restart the old image: the database may already have migrated. Restore a verified pre-upgrade database before starting an incompatible older binary.
@@ -194,7 +196,7 @@ Do not delete data volumes, reset unresolved accounting records, or point an old
 
 ## Documentation and help
 
-- [Published beta.9 artifacts and evidence](docs/RELEASE_BETA_9.md)
+- [Published beta.10 artifacts and evidence](docs/RELEASE_BETA_10.md)
 - [Deployment configuration](DEPLOYMENT_CUSTOM.md) · [Legacy LAN](docs/LAN_LITE.md)
 - [Upgrade and recovery](docs/UPGRADE_REHEARSAL.md) · [Installation acceptance record](docs/R1_INSTALLATION_CHECK.md)
 - [Relay API](docs/openapi/relay.json) · [Management API](docs/openapi/api.json)

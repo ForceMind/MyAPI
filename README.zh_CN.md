@@ -67,9 +67,11 @@ Codex 百分比是账户/窗口剩余量的安全阈值，不是共享订阅在�
 
 ## 选择版本
 
-截至 2026-10-09，**[v0.2.0-beta.9 已发布](https://github.com/ForceMind/MyAPI/releases/tag/v0.2.0-beta.9)**，包含 Full/LAN 的 amd64/arm64 镜像，累计交付 beta.4–7 限定路由/预算/策略、beta.8 UI 与 beta.9 真 Key 聊天及受限图片/PDF。见[发布证据](docs/RELEASE_BETA_9.md)。
+截至 2026-10-09，**[v0.2.0-beta.10 已发布](https://github.com/ForceMind/MyAPI/releases/tag/v0.2.0-beta.10)**，包含 Full/LAN 的 amd64/arm64 镜像，累计交付 beta.4–7 限定路由/预算/策略、beta.8 UI 与 beta.9 真 Key 聊天及受限图片/PDF。见[发布证据](docs/RELEASE_BETA_10.md)。
 
-已验证指定 Full 升级、隔离快照恢复及目标 HTTPS；真实上游 OAuth、窗口重置/429 和账单对照仍是独立且有限的验收，不因此宣称稳定版。统一 Lite/Desktop 安装更新未交付。下一主节点是[个人模式与 Key 限额闭环](docs/PERSONAL_CORE_DELIVERY_CARD.md)，再有界精简结构。
+beta.10 修复结算归属/状态、完整流结束时的取消及无缓存批量配置问题。旧实例升级前请先按[账务预检指南](docs/PENDING_USAGE_RECOVERY_GUIDE.md)核对，不要改批量开关绕过检查。个人核心精简仍是下一主节点。
+
+beta.10 已通过隔离 CI 安装/升级检查，未部署用户实例。指定 Full 升级、快照恢复及目标 HTTPS 属于 [beta.9 历史记录](docs/RELEASE_BETA_9.md)；真实上游 OAuth、窗口重置/429 和账单对照仍是独立且有限的验收，不因此宣称稳定版。统一 Lite/Desktop 安装更新未交付。下一主节点是[个人模式与 Key 限额闭环](docs/PERSONAL_CORE_DELIVERY_CARD.md)，再有界精简结构。
 
 ## 安装已发布预览版
 
@@ -90,7 +92,7 @@ Codex 百分比是账户/窗口剩余量的安全阈值，不是共享订阅在�
 以下操作只用于**新目录中的全新安装**：
 
 ```bash
-git clone --branch v0.2.0-beta.9 --single-branch https://github.com/ForceMind/MyAPI.git my-api
+git clone --branch v0.2.0-beta.10 --single-branch https://github.com/ForceMind/MyAPI.git my-api
 cd my-api
 umask 077
 cp deploy/.env.example deploy/.env
@@ -104,7 +106,7 @@ chmod 600 deploy/.env
 编辑 `deploy/.env`，保留以下选项，将示例地址改为自己的准确 HTTPS Origin，不带 API 路径：
 
 ```dotenv
-MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.9
+MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.10
 MYAPI_BUILD_LOCAL=false
 MYAPI_EDITION=full
 MYAPI_BIND_ADDRESS=127.0.0.1
@@ -140,7 +142,7 @@ bash deploy/install.sh
 
 打开配置的 **HTTPS 地址**，完成初始化并创建管理员账号。Full 使用 Secure Cookie，不应把 `http://localhost:3000` 当作推荐登录地址。加入真实账户前，先确认能登录，并在「系统信息」核对运行版本及 revision。
 
-只在本机或私网使用时，另按[旧版 LAN 指南](docs/LAN_LITE.md)选择已发布的 `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.9`。局域网共享需要明确开启。统一 Lite/Desktop 安装器及更新器尚未交付，桌面构建产物也不代表实机验收完成。
+只在本机或私网使用时，另按[旧版 LAN 指南](docs/LAN_LITE.md)选择已发布的 `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.10`。局域网共享需要明确开启。统一 Lite/Desktop 安装器及更新器尚未交付，桌面构建产物也不代表实机验收完成。
 
 ## 完成第一次调用
 
@@ -174,10 +176,10 @@ node cli/myapi.mjs logs --project-dir .
 
 1. 记录正在运行的镜像 tag/digest、源码 revision、数据库类型、路径和私有配置。目标必须是实际发布版本，不使用规划中的 beta 标签或 `latest`。
 2. 按对应数据库流程制作一致性备份；SQLite 按需保留 WAL 状态，同时保存配置、会话密钥、完整身份密钥环及必要日志。在隔离副本验证恢复后再升级真实实例。
-3. 在副本中演练目标版本的登录、渠道、Key、受控请求、日志和恢复。CLI 支持只读预检；例如为旧实例演练升级至已发布 beta.9：
+3. 在副本中演练目标版本的登录、渠道、Key、受控请求、日志和恢复。CLI 支持只读预检；例如为旧实例演练升级至已发布 beta.10：
 
    ```bash
-   node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.9 --dry-run --json
+   node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.10 --dry-run --json
    ```
 
 4. 实际切换按[升级演练与恢复指南](docs/UPGRADE_REHEARSAL.md)执行。CLI 保存的 `.env` **不是数据库备份**。一旦尝试启动目标版本，数据库可能已经迁移，CLI 不会自动启动旧镜像；启动不兼容旧程序前，必须恢复经过验证的升级前数据库备份。
@@ -194,7 +196,7 @@ node cli/myapi.mjs logs --project-dir .
 
 ## 文档与帮助
 
-- [beta.9 制品与发布证据](docs/RELEASE_BETA_9.md)
+- [beta.10 制品与发布证据](docs/RELEASE_BETA_10.md)
 - [部署配置](DEPLOYMENT_CUSTOM.md) · [旧版 LAN](docs/LAN_LITE.md)
 - [升级与恢复](docs/UPGRADE_REHEARSAL.md) · [安装验收记录](docs/R1_INSTALLATION_CHECK.md)
 - [Relay API](docs/openapi/relay.json) · [管理 API](docs/openapi/api.json)
