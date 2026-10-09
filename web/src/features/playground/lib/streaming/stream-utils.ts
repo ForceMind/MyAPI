@@ -101,11 +101,11 @@ export function getStreamReadyStateError(
 
   if (
     eventReadyState !== undefined &&
-    eventReadyState >= STREAM_CLOSED_READY_STATE &&
-    status !== undefined &&
-    status !== 200
+    eventReadyState >= STREAM_CLOSED_READY_STATE
   ) {
-    return `HTTP ${status}: ${ERROR_MESSAGES.CONNECTION_CLOSED}`
+    return status && status !== 200
+      ? `HTTP ${status}: ${ERROR_MESSAGES.CONNECTION_CLOSED}`
+      : ERROR_MESSAGES.CONNECTION_CLOSED
   }
 
   return null

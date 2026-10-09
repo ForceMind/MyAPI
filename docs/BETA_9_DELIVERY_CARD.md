@@ -12,7 +12,9 @@ on `codex/beta9-chat-api-20261009` in the assistant cloud environment.
 This card authorizes normal scoped development, tests, documentation, commits,
 pushes and a Draft PR. It does not authorize merging this version, creating a
 release/tag, publishing packages/images, operating the user's Mac, or deploying.
-Existing beta.8 tags and artifacts remain immutable.
+Existing beta.8 tags and artifacts remain immutable. VERSION/package/default
+image references may name the beta.9 candidate; they are not proof of a
+published image and must not be deployed before separate release approval.
 
 ## One user journey
 
@@ -47,7 +49,9 @@ identity behavior with a server-verified selection of a real owned Key.
 4. Failure/interruption/reentry: prevent double submission, no automatic replay
    after a stream starts, retain actionable unsent drafts and make missing
    attachment state explicit after refresh. Media bytes remain out of persistent
-   browser storage and logs. Seven-language and mobile/keyboard behavior remain.
+   browser storage and full-content/diagnostic logs. Text history and Key selection
+   are scoped to the authenticated user; legacy unowned storage is not loaded
+   or silently assigned. Seven-language and mobile/keyboard behavior remain.
 
 ## Safety and support boundaries
 
@@ -100,13 +104,36 @@ remains explicitly unverified; this is not a production-stable 0.2.0 claim.
 
 ## Evidence ledger
 
-Implementation and validation pending. This section will record actual commits,
-checks, supported paths and any remaining blockers; planned checks are not passes.
+Implementation is tracked in [Draft PR #4](https://github.com/ForceMind/MyAPI/pull/4).
+The planning checkpoint is `68d40113e0a63c319f8209b51dfab7126f5ef200`;
+subsequent source and check results are tied to the PR's exact head, not inferred
+from beta.8 or a prior planning run.
+
+Local reviewed frontend: 176 files / 997 tests, TypeScript, changed-file lint and
+production build passed. The independent frontend review reran the repaired
+account/draft/query failure cases. Independent relaykit build and complete tests
+passed. Backend tests exercise the real selected-Key/Relay/HTTP transport path,
+not a mocked controller: dual writers, streaming/nonstreaming PNG+PDF, actual
+Codex input_image conversion, assigned-policy revocation, unsupported adapters,
+and half-stream EOF with no replay or fabricated successful usage.
+
+An opt-in disposable database contract verifies owned Key lookup, foreign-owner
+and deleted-Key denial, expiry and exhaustion status persistence on SQLite,
+MySQL 5.7 and PostgreSQL 9.6. SQLite passed locally; the other two require the
+existing B2 CI services. All original backend/race/database gates remain enabled.
+
+The current source must pass its own complete CI, the four existing Chromium
+suites and the new eight-session/seven-language chat attachment browser suite.
+The exact check conclusions and screenshot artifacts are recorded in PR #4.
+No pending or skipped stage is counted as a pass, and no live-provider bill,
+account, or production acceptance is claimed.
 
 ## Protocol support matrix (verified documentation 2026-10-09)
 
-- Images: inline image_url for existing vision-capable adapters. Model support
-  remains provider-specific. No claim of live proxy/reseller acceptance.
+- Images: inline image_url for type-1 OpenAI-compatible and type-57 Codex routes
+  only; other actual adapters are refused on every attempt because some legacy
+  converters silently drop images. Model support remains provider-specific.
+  No claim of live proxy/reseller acceptance.
 - PDF: inline file_data through type-1 OpenAI-compatible Chat; where existing
   type-1 routing converts Chat to Responses, the existing input_file mapping is
   preserved. Other adapter types are refused before dispatch on each attempt.
@@ -121,3 +148,30 @@ Primary protocol references: [OpenAI file inputs](https://developers.openai.com/
 and [image inputs](https://developers.openai.com/api/docs/guides/images-vision).
 Transport preservation is verified with a synthetic upstream; model capability,
 provider policy and genuine usage/bill reconciliation are separate evidence.
+
+## Independent-review hardening
+
+Before source publication, review reproduced and fixed case-alias/duplicate-key
+media validation bypasses. Browser-envelope protocol fields now use canonical
+lowercase names, exact media maps and bounded unique-key validation; nested user
+tool schemas retain their legitimate case-sensitive fields. Media is user-role
+only, preventing converters from silently dropping system/tool attachments.
+The existing 1 MiB assigned-access final-body proof remains unchanged and may
+reject requests below the client media limits. No guard was relaxed for media.
+
+Review also identified diagnostic payload/header leaks and interrupted draft /
+account-switch recovery gaps. These received red/green regressions: per-user history, local metadata-query
+recovery, exact failed-tail retry ownership, request credential scrubbing, and
+request-marked diagnostic omission with safe error metadata. HTTP-200/partial
+stream errors retain unknown usage holds and do not retry. Independent review
+is followed by accurate-head CI and actual pixels; pending checks are not passes.
+
+## Browser-history migration
+
+New text history, configuration and selected Key IDs are scoped to the signed-in
+user ID. The previous ownerless playground_* localStorage entries remain intact
+but are not loaded or automatically assigned to whoever signs in next. This
+version does not import those entries; any future import needs explicit ownership
+verification. Live attachment bytes are never stored in those history fields;
+reopened messages retain a missing-attachment marker and cannot silently send
+without their original files. Existing successful text remains per-user.

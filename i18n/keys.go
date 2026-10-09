@@ -1,5 +1,9 @@
 package i18n
 
+const MsgPlaygroundImageProviderUnsupported = "playground.image_provider_unsupported"
+
+const MsgPlaygroundFileProviderUnsupported = "playground.file_provider_unsupported"
+
 const (
 	MsgTextUsageDispatchPending    = "usage_dispatch.pending"
 	MsgTokenBudgetUnsupported      = "token_budget.unsupported"

@@ -81,6 +81,7 @@ type fullContentResponseWriter struct {
 	sequence   int64
 	bodyBytes  int64
 	writeError atomic.Bool
+	omitBody   bool
 }
 
 var (
@@ -106,6 +107,7 @@ func FullContentLogger() gin.HandlerFunc {
 			logWriter:      writer,
 			startedAt:      startedAt,
 			identity:       identity,
+			omitBody:       c.GetString("playground_original_path") != "",
 		}
 		c.Writer = responseWriter
 
@@ -121,7 +123,11 @@ func FullContentLogger() gin.HandlerFunc {
 				requestEntry.Error = err.Error()
 			} else {
 				requestEntry.BodyBytes = int64(len(body))
-				requestEntry.Body, requestEntry.Encoding = encodeFullContentLogBody(requestEntry.ContentType, body, true)
+				if responseWriter.omitBody {
+					requestEntry.Encoding = "omitted_playground_content"
+				} else {
+					requestEntry.Body, requestEntry.Encoding = encodeFullContentLogBody(requestEntry.ContentType, body, true)
+				}
 
 				// GetBodyStorage consumes and closes the original request body. Restore a
 				// fresh reader so handlers that read c.Request.Body directly still work.
@@ -196,7 +202,11 @@ func (w *fullContentResponseWriter) logResponseChunk(body []byte) {
 	entry.Status = w.ResponseWriter.Status()
 	entry.ContentType = w.ResponseWriter.Header().Get("Content-Type")
 	entry.BodyBytes = int64(len(body))
-	entry.Body, entry.Encoding = encodeFullContentLogBody(entry.ContentType, body, false)
+	if w.omitBody {
+		entry.Encoding = "omitted_playground_content"
+	} else {
+		entry.Body, entry.Encoding = encodeFullContentLogBody(entry.ContentType, body, false)
+	}
 	atomic.AddInt64(&w.bodyBytes, int64(len(body)))
 	if err := w.logWriter.write(entry); err != nil {
 		w.writeError.Store(true)
@@ -205,10 +215,14 @@ func (w *fullContentResponseWriter) logResponseChunk(body []byte) {
 }
 
 func captureFullContentRequestIdentity(c *gin.Context) fullContentRequestIdentity {
+	path := c.Request.URL.Path
+	if original := c.GetString("playground_original_path"); original != "" {
+		path = original
+	}
 	return fullContentRequestIdentity{
 		requestID: c.GetString(common.RequestIdKey),
 		method:    c.Request.Method,
-		path:      c.Request.URL.Path,
+		path:      path,
 		userID:    c.GetInt("id"),
 		tokenID:   c.GetInt("token_id"),
 		tokenName: c.GetString("token_name"),

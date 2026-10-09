@@ -21,10 +21,10 @@ import { SSE } from 'sse.js'
 
 import { getFreshAuthHeaders } from '@/lib/api'
 
+import { getPlaygroundKeyHeaders } from '../api'
 import { API_ENDPOINTS, ERROR_MESSAGES } from '../constants'
 import {
   getStreamReadyStateError,
-  isStreamClosedReadyState,
   isStreamDoneMessage,
   parseStreamErrorDetails,
   parseStreamMessageUpdates,
@@ -72,7 +72,8 @@ export function createStreamRequestController(
 
   const send = async (
     payload: ChatCompletionRequest,
-    callbacks: StreamRequestCallbacks
+    callbacks: StreamRequestCallbacks,
+    keyId?: number
   ) => {
     const requestGeneration = generation + 1
     generation = requestGeneration
@@ -83,7 +84,10 @@ export function createStreamRequestController(
 
     let headers: Record<string, string>
     try {
-      headers = await runtime.getHeaders()
+      headers = {
+        ...(await runtime.getHeaders()),
+        ...(keyId === undefined ? {} : getPlaygroundKeyHeaders(keyId)),
+      }
     } catch (error: unknown) {
       if (generation !== requestGeneration) return
       callbacks.onError(
@@ -95,7 +99,13 @@ export function createStreamRequestController(
     }
     if (generation !== requestGeneration) return
 
-    const nextSource = runtime.createSource(payload, headers)
+    let nextSource: StreamEventSource
+    try {
+      nextSource = runtime.createSource(payload, headers)
+    } catch {
+      callbacks.onError(ERROR_MESSAGES.STREAM_START_ERROR)
+      return
+    }
     source = nextSource
     runtime.setStreaming(true)
     let completed = false
@@ -121,26 +131,26 @@ export function createStreamRequestController(
       }
 
       try {
+        const parsed = JSON.parse(data) as { error?: unknown }
+        if (parsed?.error) {
+          const { errorMessage, errorCode } = parseStreamErrorDetails(data)
+          handleError(errorMessage, errorCode)
+          return
+        }
         const updates = parseStreamMessageUpdates(data)
 
         for (const update of updates) {
           callbacks.onUpdate(update.type, update.chunk)
         }
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to parse SSE message:', error)
+      } catch {
         handleError(ERROR_MESSAGES.PARSE_ERROR)
       }
     })
 
     nextSource.addEventListener('error', (event) => {
       if (!isCurrent() || completed) return
-      if (!isStreamClosedReadyState(nextSource.readyState)) {
-        // eslint-disable-next-line no-console
-        console.error('SSE Error:', event)
-        const { errorCode, errorMessage } = parseStreamErrorDetails(event.data)
-        handleError(errorMessage, errorCode)
-      }
+      const { errorCode, errorMessage } = parseStreamErrorDetails(event.data)
+      handleError(errorMessage, errorCode)
     })
 
     nextSource.addEventListener('readystatechange', (event) => {
@@ -158,10 +168,8 @@ export function createStreamRequestController(
     try {
       if (!isCurrent()) return
       nextSource.stream()
-    } catch (error: unknown) {
+    } catch {
       if (!isCurrent() || completed) return
-      // eslint-disable-next-line no-console
-      console.error('Failed to start SSE stream:', error)
       handleError(ERROR_MESSAGES.STREAM_START_ERROR)
     }
   }
@@ -195,6 +203,8 @@ export function useStreamRequest() {
         new SSE(API_ENDPOINTS.CHAT_COMPLETIONS, {
           headers,
           method: 'POST',
+          start: false,
+          autoReconnect: false,
           payload: JSON.stringify(payload),
         }) as StreamEventSource,
       setStreaming: setIsStreaming,
@@ -206,13 +216,18 @@ export function useStreamRequest() {
       payload: ChatCompletionRequest,
       onUpdate: (type: 'reasoning' | 'content', chunk: string) => void,
       onComplete: () => void,
-      onError: (error: string, errorCode?: string) => void
+      onError: (error: string, errorCode?: string) => void,
+      keyId: number
     ) =>
-      controllerRef.current?.send(payload, {
-        onUpdate,
-        onComplete,
-        onError,
-      }),
+      controllerRef.current?.send(
+        payload,
+        {
+          onUpdate,
+          onComplete,
+          onError,
+        },
+        keyId
+      ),
     []
   )
 

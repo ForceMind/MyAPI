@@ -65,9 +65,11 @@ func SetRelayRouter(router *gin.Engine) {
 	playgroundRouter := router.Group("/pg")
 	playgroundRouter.Use(middleware.RouteTag("relay"))
 	playgroundRouter.Use(middleware.SystemPerformanceCheck())
-	playgroundRouter.Use(middleware.UserAuth(), middleware.FullContentLogger(), middleware.Distribute())
+	playgroundRouter.Use(middleware.UserAuth(), middleware.PlaygroundSessionAuth())
 	{
-		playgroundRouter.POST("/chat/completions", controller.Playground)
+		playgroundRouter.GET("/keys", controller.PlaygroundKeys)
+		playgroundRouter.GET("/models", middleware.PlaygroundKeyAuth(), middleware.FullContentLogger(), controller.PlaygroundListModels)
+		playgroundRouter.POST("/chat/completions", middleware.PlaygroundKeyAuth(), middleware.PlaygroundMediaGuard(), middleware.FullContentLogger(), middleware.ModelRequestRateLimit(), middleware.Distribute(), controller.Playground)
 	}
 	relayV1Router := router.Group("/v1")
 	relayV1Router.Use(middleware.RouteTag("relay"))

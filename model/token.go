@@ -227,38 +227,48 @@ func ValidateUserToken(key string) (token *Token, err error) {
 	}
 	token, err = GetTokenByKey(key, false)
 	if err == nil {
-		if token.Status == common.TokenStatusExhausted ||
-			token.Status == common.TokenStatusExpired ||
-			token.Status != common.TokenStatusEnabled {
-			return token, ErrTokenInvalid
-		}
-		if token.ExpiredTime != -1 && token.ExpiredTime < common.GetTimestamp() {
-			if !common.RedisEnabled {
-				token.Status = common.TokenStatusExpired
-				err := token.SelectUpdate()
-				if err != nil {
-					common.SysLog("failed to update token status" + err.Error())
-				}
-			}
-			return token, ErrTokenInvalid
-		}
-		if !token.UnlimitedQuota && token.RemainQuota <= 0 {
-			if !common.RedisEnabled {
-				token.Status = common.TokenStatusExhausted
-				err := token.SelectUpdate()
-				if err != nil {
-					common.SysLog("failed to update token status" + err.Error())
-				}
-			}
-			return token, ErrTokenInvalid
-		}
-		return token, nil
+		return token, ValidateTokenSnapshot(token)
 	}
 	common.SysLog("ValidateUserToken: failed to get token: " + err.Error())
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrTokenInvalid
 	}
 	return nil, fmt.Errorf("%w: %v", ErrDatabase, err)
+}
+
+// ValidateTokenSnapshot applies the same status, expiry and quota admission to
+// both credential lookups and a dashboard's directly loaded owned key. Callers
+// must resolve identity and ownership before passing a snapshot here.
+func ValidateTokenSnapshot(token *Token) error {
+	if token == nil {
+		return ErrTokenInvalid
+	}
+	if token.Status == common.TokenStatusExhausted ||
+		token.Status == common.TokenStatusExpired ||
+		token.Status != common.TokenStatusEnabled {
+		return ErrTokenInvalid
+	}
+	if token.ExpiredTime != -1 && token.ExpiredTime < common.GetTimestamp() {
+		if !common.RedisEnabled {
+			token.Status = common.TokenStatusExpired
+			err := token.SelectUpdate()
+			if err != nil {
+				common.SysLog("failed to update token status" + err.Error())
+			}
+		}
+		return ErrTokenInvalid
+	}
+	if !token.UnlimitedQuota && token.RemainQuota <= 0 {
+		if !common.RedisEnabled {
+			token.Status = common.TokenStatusExhausted
+			err := token.SelectUpdate()
+			if err != nil {
+				common.SysLog("failed to update token status" + err.Error())
+			}
+		}
+		return ErrTokenInvalid
+	}
+	return nil
 }
 
 func GetTokenByIds(id int, userId int) (*Token, error) {

@@ -2,6 +2,17 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createUIFixture, FIXTURE_TIME } from './browser-fixtures.mjs'
 
+test('playground selection exposes metadata without a credential and rejects anonymous reads', () => {
+  const owner = createUIFixture({ role: 1 })
+  const result = owner.response(new URL('http://localhost/pg/keys'))
+  assert.equal(result.status, 200)
+  assert.equal(result.body.data.items.length, 1)
+  assert.equal(result.body.data.items[0].id, 21)
+  assert.equal('key' in result.body.data.items[0], false)
+  assert.equal('token' in result.body.data.items[0], false)
+  assert(createUIFixture({ role: 0 }).response(new URL('http://localhost/pg/keys')).violation)
+})
+
 const url = path => new URL(path, 'http://synthetic.invalid')
 
 test('unknown GET and every unrequested mutation fail closed rather than returning synthetic success', () => {

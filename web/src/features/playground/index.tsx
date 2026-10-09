@@ -20,6 +20,8 @@ import { useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { useAuthStore } from '@/stores/auth-store'
+
 import { PlaygroundChat } from './components/chat/playground-chat'
 import { PlaygroundInput } from './components/input/playground-input'
 import {
@@ -34,27 +36,36 @@ import {
 } from './lib/parameters/playground-parameters'
 
 export function Playground() {
+  const userId = useAuthStore((state) => state.auth.user?.id)
+  return userId ? <PlaygroundSession key={userId} userId={userId} /> : null
+}
+
+function PlaygroundSession(props: { userId: number }) {
   const { t } = useTranslation()
   const {
     config,
     parameterEnabled,
     messages,
     isLoadingMessages,
-    models,
-    groups,
     updateMessages,
-    setModels,
-    setGroups,
     updateConfig,
     updateParameterEnabled,
     clearMessages,
-  } = usePlaygroundState()
+  } = usePlaygroundState(props.userId)
 
-  const { isLoadingModels } = usePlaygroundOptions({
-    currentGroup: config.group,
+  const {
+    keys,
+    selectedKey,
+    models,
+    keyNotice,
+    isLoadingKeys,
+    isLoadingModels,
+    canSend,
+    refreshKeys,
+  } = usePlaygroundOptions({
+    userId: props.userId,
+    keyId: config.keyId,
     currentModel: config.model,
-    setGroups,
-    setModels,
     updateConfig,
   })
 
@@ -99,11 +110,18 @@ export function Playground() {
 
   const { sendChat, stopGeneration, isGenerating } = useChatHandler({
     config,
+    selectedKey,
+    canSend: canSend && !isLoadingMessages,
+    onKeyRejected: () => {
+      updateConfig('keyId', null)
+      refreshKeys()
+    },
     parameterEnabled: effectiveParameterEnabled,
     onMessageUpdate: updateMessages,
   })
 
   const {
+    completedRetryDraft,
     editingMessageKey,
     handleSendMessage,
     handleRegenerateMessage,
@@ -144,15 +162,19 @@ export function Playground() {
       {/* Input area: center content and constrain to the same container width */}
       <div className='mx-auto w-full max-w-4xl'>
         <PlaygroundInput
+          completedRetryDraft={completedRetryDraft}
           config={config}
           disabled={isGenerating}
-          groups={groups}
-          groupValue={config.group}
+          keys={keys}
+          canSend={canSend && !isLoadingMessages}
+          keyNotice={keyNotice}
+          isLoadingKeys={isLoadingKeys}
+          onRefreshKeys={refreshKeys}
+          onKeyChange={(value) => updateConfig('keyId', value)}
           isGenerating={isGenerating}
           isModelLoading={isLoadingModels}
           modelValue={config.model}
           models={models}
-          onGroupChange={(value) => updateConfig('group', value)}
           onConfigChange={updateConfig}
           onClearMessages={handleClearMessages}
           onModelChange={(value) => updateConfig('model', value)}

@@ -7,6 +7,63 @@ import (
 	"io"
 )
 
+// ValidateUniqueJSONKeys rejects duplicate decoded object keys and excessive
+// structure without changing request bytes or number spelling. Callers retain
+// their own byte limits and protocol-specific case/field rules. In particular,
+// this does not change the stricter CanonicalJSONObjectDigest contract.
+func ValidateUniqueJSONKeys(input []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(input))
+	decoder.UseNumber()
+	nodes := 0
+	if err := validateUniqueJSONValue(decoder, 0, &nodes); err != nil {
+		return err
+	}
+	if _, err := decoder.Token(); err != io.EOF {
+		return errors.New("invalid JSON structure")
+	}
+	return nil
+}
+
+func validateUniqueJSONValue(decoder *json.Decoder, depth int, nodes *int) error {
+	*nodes++
+	if depth > 64 || *nodes > 50_000 {
+		return errors.New("JSON structure exceeds limits")
+	}
+	token, err := decoder.Token()
+	if err != nil {
+		return errors.New("invalid JSON structure")
+	}
+	delimiter, container := token.(json.Delim)
+	if !container {
+		return nil
+	}
+	if delimiter != '{' && delimiter != '[' {
+		return errors.New("invalid JSON structure")
+	}
+	keys := map[string]struct{}{}
+	for decoder.More() {
+		if delimiter == '{' {
+			keyToken, err := decoder.Token()
+			key, ok := keyToken.(string)
+			if err != nil || !ok {
+				return errors.New("invalid JSON key")
+			}
+			if _, found := keys[key]; found {
+				return errors.New("duplicate JSON key")
+			}
+			keys[key] = struct{}{}
+		}
+		if err := validateUniqueJSONValue(decoder, depth+1, nodes); err != nil {
+			return err
+		}
+	}
+	closing, err := decoder.Token()
+	if err != nil || (delimiter == '{' && closing != json.Delim('}')) || (delimiter == '[' && closing != json.Delim(']')) {
+		return errors.New("invalid JSON structure")
+	}
+	return nil
+}
+
 func Unmarshal(data []byte, v any) error {
 	return json.Unmarshal(data, v)
 }

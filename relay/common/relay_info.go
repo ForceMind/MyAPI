@@ -575,7 +575,9 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 	}
 
 	if strings.HasPrefix(c.Request.URL.Path, "/pg") {
-		info.IsPlayground = true
+		// A real key always uses ordinary key accounting, even if a caller has
+		// not yet normalized the playground alias to its public relay path.
+		info.IsPlayground = info.TokenId <= 0
 		info.RequestURLPath = strings.TrimPrefix(info.RequestURLPath, "/pg")
 		info.RequestURLPath = "/v1" + info.RequestURLPath
 	}

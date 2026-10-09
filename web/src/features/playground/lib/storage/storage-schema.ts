@@ -25,6 +25,7 @@ export const MAX_LOADED_MESSAGES_CHARS = 120_000
 export const MAX_LOADED_MESSAGE_CHARS = 40_000
 
 export const playgroundConfigSchema = z.object({
+  keyId: z.number().int().positive().nullable().optional(),
   model: z.string().optional(),
   group: z.string().optional(),
   temperature: z.number().optional(),
@@ -72,6 +73,7 @@ const reasoningSchema = z.object({
 })
 
 const messageSchema = z.object({
+  missingAttachments: z.boolean().optional(),
   key: z.string(),
   from: messageRoleSchema,
   versions: z.array(messageVersionSchema).min(1),

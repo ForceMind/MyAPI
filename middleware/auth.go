@@ -425,68 +425,78 @@ func TokenAuth() func(c *gin.Context) {
 			return
 		}
 
-		allowIps := token.GetIpLimits()
-		if len(allowIps) > 0 {
-			clientIp := c.ClientIP()
-			logger.LogDebug(c, "Token has IP restrictions, checking client IP %s", clientIp)
-			ip := net.ParseIP(clientIp)
-			if ip == nil {
-				abortWithOpenAiMessage(c, http.StatusForbidden, "无法解析客户端 IP 地址")
-				return
-			}
-			if common.IsIpInCIDRList(ip, allowIps) == false {
-				abortWithOpenAiMessage(c, http.StatusForbidden, "您的 IP 不在令牌允许访问的列表中", types.ErrorCodeAccessDenied)
-				return
-			}
-			logger.LogDebug(c, "Client IP %s passed the token IP restrictions check", clientIp)
-		}
-
-		userCache, err := model.GetUserCache(token.UserId)
-		if err != nil {
-			common.SysLog(fmt.Sprintf("TokenAuth GetUserCache error for user %d: %v", token.UserId, err))
-			abortWithOpenAiMessage(c, http.StatusInternalServerError,
-				common.TranslateMessage(c, i18n.MsgDatabaseError))
-			return
-		}
-		userEnabled := userCache.Status == common.UserStatusEnabled
-		if !userEnabled {
-			abortWithOpenAiMessage(c, http.StatusForbidden, common.TranslateMessage(c, i18n.MsgAuthUserBanned))
-			return
-		}
-
-		userCache.WriteContext(c)
-
-		userGroup := userCache.Group
-		tokenGroup := token.Group
-		if tokenGroup != "" {
-			// check common.UserUsableGroups[userGroup]
-			if _, ok := service.GetUserUsableGroups(userGroup)[tokenGroup]; !ok {
-				abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("无权访问 %s 分组", tokenGroup))
-				return
-			}
-			// check group in common.GroupRatio
-			if !ratio_setting.ContainsGroupRatio(tokenGroup) {
-				if tokenGroup != "auto" {
-					abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("分组 %s 已被弃用", tokenGroup))
-					return
-				}
-			}
-			userGroup = tokenGroup
-		}
-		common.SetContextKey(c, constant.ContextKeyUsingGroup, userGroup)
-
-		err = SetupContextForToken(c, token, parts...)
-		if err != nil {
-			return
-		}
-		if !checkUserUsageAdmission(c, token) {
-			return
-		}
-		if !checkTokenBudgetAdmission(c, token) {
+		if !authenticateTokenIdentity(c, token, parts...) {
 			return
 		}
 		c.Next()
 	}
+}
+
+// authenticateTokenIdentity is shared by API-key credentials and a dashboard
+// session's explicitly selected, persistently owned key. Credential resolution
+// stays at the ingress; all relay permissions and admission checks stay here.
+func authenticateTokenIdentity(c *gin.Context, token *model.Token, parts ...string) bool {
+	allowIps := token.GetIpLimits()
+	if len(allowIps) > 0 {
+		clientIp := c.ClientIP()
+		logger.LogDebug(c, "Token has IP restrictions, checking client IP %s", clientIp)
+		ip := net.ParseIP(clientIp)
+		if ip == nil {
+			abortWithOpenAiMessage(c, http.StatusForbidden, "无法解析客户端 IP 地址")
+			return false
+		}
+		if common.IsIpInCIDRList(ip, allowIps) == false {
+			abortWithOpenAiMessage(c, http.StatusForbidden, "您的 IP 不在令牌允许访问的列表中", types.ErrorCodeAccessDenied)
+			return false
+		}
+		logger.LogDebug(c, "Client IP %s passed the token IP restrictions check", clientIp)
+	}
+
+	userCache, err := model.GetUserCache(token.UserId)
+	if err != nil {
+		common.SysLog(fmt.Sprintf("TokenAuth GetUserCache error for user %d: %v", token.UserId, err))
+		abortWithOpenAiMessage(c, http.StatusInternalServerError,
+			common.TranslateMessage(c, i18n.MsgDatabaseError))
+		return false
+	}
+	userEnabled := userCache.Status == common.UserStatusEnabled
+	if !userEnabled {
+		abortWithOpenAiMessage(c, http.StatusForbidden, common.TranslateMessage(c, i18n.MsgAuthUserBanned))
+		return false
+	}
+
+	userCache.WriteContext(c)
+
+	userGroup := userCache.Group
+	tokenGroup := token.Group
+	if tokenGroup != "" {
+		// check common.UserUsableGroups[userGroup]
+		if _, ok := service.GetUserUsableGroups(userGroup)[tokenGroup]; !ok {
+			abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("无权访问 %s 分组", tokenGroup))
+			return false
+		}
+		// check group in common.GroupRatio
+		if !ratio_setting.ContainsGroupRatio(tokenGroup) {
+			if tokenGroup != "auto" {
+				abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("分组 %s 已被弃用", tokenGroup))
+				return false
+			}
+		}
+		userGroup = tokenGroup
+	}
+	common.SetContextKey(c, constant.ContextKeyUsingGroup, userGroup)
+
+	err = SetupContextForToken(c, token, parts...)
+	if err != nil {
+		return false
+	}
+	if !checkUserUsageAdmission(c, token) {
+		return false
+	}
+	if !checkTokenBudgetAdmission(c, token) {
+		return false
+	}
+	return true
 }
 
 func SetupContextForToken(c *gin.Context, token *model.Token, parts ...string) error {
