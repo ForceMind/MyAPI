@@ -94,7 +94,7 @@ export function PlaygroundInputControls(props: PlaygroundInputControlsProps) {
         {props.keyId && (
           <p
             id={identityId}
-            className='text-sm leading-snug [overflow-wrap:anywhere] whitespace-normal'
+            className='text-foreground text-sm leading-snug [overflow-wrap:anywhere] whitespace-normal'
           >
             {selectedKey?.label ||
               `${t('Unavailable API key')} · #${props.keyId}`}
