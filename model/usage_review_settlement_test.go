@@ -210,7 +210,9 @@ func usageReviewAppliedSettlementTokenBudgetContract(t *testing.T, db *gorm.DB, 
 	epoch, err := GetQuotaWriterEpochState(db)
 	require.NoError(t, err)
 	setQuotaWriterStateForTest(t, db, QuotaWriterModeLegacy, epoch.Epoch+1)
-	f := newAccountQuotaFixture(t, db, "strict-read", 1000, 1000, false, 0, 0, false)
+	// The shared fixture adds account- and a nanosecond suffix; keep aff_code within varchar(32).
+	f := newAccountQuotaFixture(t, db, "sr", 1000, 1000, false, 0, 0, false)
+	require.LessOrEqual(t, len(f.User.AffCode), 32)
 	id := namespace + "strict-read"
 	_, err = PrepareLegacyUsageReservation(ctx, db, LegacyUsageReservation{RequestID: id, UserID: f.User.Id, TokenID: f.Token.Id, FundingSource: "wallet"})
 	require.NoError(t, err)
