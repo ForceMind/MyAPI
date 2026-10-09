@@ -92,8 +92,8 @@ jobs:
       - name: Verify model discovery and route identity under race detector
         run: go test -race -p 1 ./model ./middleware ./controller ./service ./router -run '^Test(ChannelModel|SelectedModelRoute|ModelRoute|ExplicitModelRoutes|RelayFailover|RelayCooldown|RelayAccountHold|RelayHoldConfigDigest|ChannelAccountAffinity|RetrySafety|FixedPriceTextDispatch|TextDispatchSurvivesLossOfLiveSession)' -count=1 -timeout=180s
 
-      - name: Verify native Chat budget and price check boundaries under race detector
-        run: go test -race -p 1 ./model ./service ./controller ./relay/channel/openai ./router -run '^Test(TokenBudgetChat|StrictChat|OpenAIPriceCheck|ChatBudget|ChatStreamTerminal|UsageReview|TokenBudgetRecovery|BillingOperationContext|QuotaBatchStartup|IncidentSynthetic|QuotaTask)' -count=1 -timeout=180s
+      - name: Verify native Chat budgets and funding admission boundaries under race detector
+        run: go test -race -p 1 ./model ./service ./controller ./relay/channel/openai ./router -run '^Test(TokenBudgetChat|StrictChat|OpenAIPriceCheck|ChatBudget|ChatStreamTerminal|UsageReview|TokenBudgetRecovery|BillingOperationContext|QuotaBatchStartup|IncidentSynthetic|QuotaTask|SubscriptionTransactionPreConsumeAdmissionErrorIdentity|LegacyBillingSessionSubscription|LegacyBillingSessionWrappedSubscriptionAdmissionErrors|BillingSessionSubscriptionStorageFailureAcrossWriters)' -count=1 -timeout=180s
 
       - name: Verify assigned access and in-app account events under race detector
         run: go test -race -p 1 ./model ./service/accesspolicy ./service ./middleware ./controller ./router ./relay/channel -run '^Test(AssignedAccess|AssignedPolicy|AssignedModelRoute|NormalizeAssigned|EvaluateAssigned|ChannelQuotaAlert|ChannelQuotaEvents|CodexEventObservation|ListChannelQuotaAlert)' -count=1 -timeout=180s
