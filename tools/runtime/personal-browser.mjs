@@ -10,7 +10,8 @@ const quota = 1000
 const usage = 15
 const stages = new Set(['launch', 'setup', 'setup-session', 'setup-open', 'setup-database',
   'setup-credentials', 'setup-mode', 'setup-review', 'setup-submit', 'setup-response', 'login', 'writer-check', 'fixture-config', 'policy-view',
-  'key-create', 'key-selection', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm',
+  'key-create', 'key-create-open', 'key-create-ready', 'key-create-profile', 'key-create-cap',
+  'key-create-quota', 'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm',
   'strict-budget', 'reload-check', 'screenshot', 'browser-close'])
 const codes = new Set(['SCOPE_REJECTED', 'AUTH_UNAVAILABLE', 'BROWSER_FAILED', 'BROWSER_CLOSE_FAILED', 'SETUP_FAILED',
   'HTTP_FAILED', 'LOGIN_FAILED', 'RUNTIME_ERROR', 'BUILD_MISMATCH', 'API_FAILED', 'STATE_MISMATCH',
@@ -188,36 +189,53 @@ async function policyView(session, expectedNoBalance) {
 }
 
 async function closeDialog(session, dialog) {
+  // A response can arrive before the UI mutation releases its close lock.
+  await dialog.locator('[data-slot="dialog-close"]').waitFor({ state: 'visible' })
   await session.page.keyboard.press('Escape')
   await dialog.waitFor({ state: 'hidden' })
 }
 
 async function createKey(session, api, name, limit) {
-  session.scope.stage = 'key-create'
+  session.scope.stage = 'key-create-open'
   const { page, label } = session
   await open(session, '/keys')
   await page.getByRole('button', { name: label('Create API Key'), exact: true }).click()
   const dialog = page.getByRole('dialog', { name: label('Create API Key'), exact: true })
+  session.scope.stage = 'key-create-ready'
   await dialog.locator('form[aria-busy="false"]').waitFor()
   await dialog.getByRole('textbox', { name: label('Name'), exact: true }).fill(name)
+  session.scope.stage = 'key-create-profile'
+  // The creation form intentionally starts with group='', which inherits the
+  // user's route. Choose the fixture's explicit profile through the real UI.
+  const profile = dialog.getByRole('combobox')
+  await profile.click()
+  await page.getByRole('option').filter({ hasText: `${label('Standard access')} (default)` }).click()
+  await profile.getByText(`${label('Standard access')} (default)`, { exact: true }).waitFor()
+  session.scope.stage = 'key-create-cap'
   const cap = dialog.getByRole('switch', { name: label('No ordinary quota cap'), exact: true })
   requireThat(await cap.getAttribute('aria-checked') === 'true', 'KEY_MISMATCH')
   await cap.click()
+  await cap.and(page.locator('[aria-checked="false"]')).waitFor()
   requireThat(await cap.getAttribute('aria-checked') === 'false', 'KEY_MISMATCH')
+  session.scope.stage = 'key-create-quota'
   await dialog.getByRole('spinbutton', { name: label('Key quota (internal units)'), exact: true }).fill(String(limit))
   await dialog.getByText(label('Internal quota is a price-converted allowance, not a count of actual input and output tokens.'), { exact: true }).waitFor()
+  session.scope.stage = 'key-create-submit'
   const pending = responseFor(session, '/api/token/', 'POST')
   await dialog.getByRole('button', { name: label('Save changes'), exact: true }).click()
   const response = await pending
+  session.scope.stage = 'key-create-payload'
   const sent = response.request().postDataJSON()
   requireThat(sent?.name === name && sent.remain_quota === limit && sent.unlimited_quota === false && sent.group === 'default', 'KEY_MISMATCH')
+  session.scope.stage = 'key-create-response'
   await responseSuccess(response, 'KEY_MISMATCH')
   await dialog.waitFor({ state: 'hidden' })
+  session.scope.stage = 'key-create-readback'
   const data = await api(session, `/api/token/search?keyword=${encodeURIComponent(name)}&p=1&page_size=10`)
   const keys = data.items?.filter((item) => item.name === name)
   requireThat(keys?.length === 1 && Number.isSafeInteger(keys[0].id) && keys[0].id > 0 &&
     keys[0].user_id === session.user.id && keys[0].remain_quota === limit && keys[0].used_quota === 0 &&
-    keys[0].unlimited_quota === false, 'KEY_MISMATCH')
+    keys[0].unlimited_quota === false && keys[0].group === 'default', 'KEY_MISMATCH')
   // Never resolve /key or retain the masked/full key property in driver state.
   return { id: keys[0].id, name, limit }
 }
@@ -235,7 +253,8 @@ async function preparePlayground(session, key) {
   requireThat(await page.getByRole('button', { name: label('Send'), exact: true }).isDisabled(), 'REQUEST_MISMATCH')
   const options = responseFor(session, '/pg/models', 'GET')
   await selected.selectOption(String(key.id))
-  await responseSuccess(await options, 'REQUEST_MISMATCH')
+  const models = await responseSuccess(await options, 'REQUEST_MISMATCH')
+  requireThat(Array.isArray(models) && models.some((item) => item === model || item?.id === model), 'REQUEST_MISMATCH')
   requireThat(await selected.inputValue() === String(key.id), 'REQUEST_MISMATCH')
   // The model selector may select the single available model automatically;
   // the outgoing payload is checked separately against the fixed fixture.
@@ -243,6 +262,7 @@ async function preparePlayground(session, key) {
   const enabledName = label('Enable {{parameter}}').replace('{{parameter}}', label('Max Tokens'))
   const maxTokensEnabled = page.getByRole('switch', { name: enabledName, exact: true })
   if (await maxTokensEnabled.getAttribute('aria-checked') === 'false') await maxTokensEnabled.click()
+  await maxTokensEnabled.and(page.locator('[aria-checked="true"]')).waitFor()
   requireThat(await maxTokensEnabled.getAttribute('aria-checked') === 'true', 'REQUEST_MISMATCH')
   await page.getByRole('spinbutton', { name: label('Max Tokens'), exact: true }).fill('8')
   await page.keyboard.press('Escape')

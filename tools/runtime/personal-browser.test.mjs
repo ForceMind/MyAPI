@@ -128,7 +128,7 @@ import { mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false } = {}) {
+function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false } = {}) {
   const reverse = Object.fromEntries(Object.entries(JSON.parse(readFileSync(new URL('../../web/src/i18n/locales/zh.json', import.meta.url))).translation).map(([key, value]) => [value, key]))
   const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
   const users = new Map([[1, { id: 1, username: base.username, role: 100, quota: 0, used_quota: 15, request_count: 1, self_use_no_balance: true, revision: 1 }]])
@@ -138,6 +138,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   const emitted = []
   const screenshots = []
   const apiCalls = []
+  const dialogCloseEvents = []
   let upstreamCount = 2
   let closed = 0
   let sequence = 0
@@ -151,7 +152,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   const policy = user => ({ user_id: user.id, no_balance: user.self_use_no_balance, revision: user.revision, legacy_remaining_quota: user.quota })
   const budget = key => ({ policy: { enabled: true, fee_enabled: true, used: 0, reserved: corrupt === 'strict-reserve' ? 1 : 0, fee_used_usd: '0', fee_reserved_usd: '0', pending_request_id: '' }, pending: null })
   const makePage = context => {
-    const page = { current: base.baseUrl + '/', fields: {}, switches: {}, listeners: {}, waiters: [], selected: '', actor: null,
+    const page = { current: base.baseUrl + '/', fields: {}, switches: {}, pendingSwitches: {}, checkboxes: {}, group: '', model: 'gpt-4o', listeners: {}, waiters: [], selected: '', actor: null,
       setDefaultTimeout() {}, on(event, handler) { this.listeners[event] = handler },
       async goto(url) { this.current = url; return { status: () => 200 } },
       url() { return this.current },
@@ -169,31 +170,54 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         return !screenshotSecret
       },
       async screenshot(options) { screenshots.push(options) },
-      keyboard: { async press() {} },
+      keyboard: { async press(key) {
+        const mutation = page.dialogMutation
+        if (key !== 'Escape' || !mutation || mutation.closed) return
+        if (mutation.pending) return // The real onOpenChange ignores close while sending.
+        mutation.closed = true
+        dialogCloseEvents.push([mutation.title, 'escape'])
+      } },
     }
     const normalize = value => context.locale === 'zh-CN' ? reverse[value] || value : value
     const locator = (kind, value, parents = []) => {
       value = normalize(value)
       const chain = [...parents, value]
+      let awaitingCheckedState = false
       return {
         getByRole: (role, options) => locator(role, options?.name, chain),
         getByText: (text) => locator('text', text, chain),
         locator: (selector) => locator('selector', selector, chain),
+        and() { awaitingCheckedState = true; return this },
         filter() { return this }, first() { return this }, last() { return this },
-        async waitFor() {},
+        async waitFor(options) {
+          if (awaitingCheckedState && page.pendingSwitches[value] !== undefined) {
+            page.switches[value] = page.pendingSwitches[value]; delete page.pendingSwitches[value]
+          }
+          const mutation = page.dialogMutation
+          if (value === '[data-slot="dialog-close"]' && options?.state === 'visible' && parents.includes(mutation?.title) && mutation.pending) {
+            mutation.pending = false
+            dialogCloseEvents.push([mutation.title, 'close-visible'])
+          }
+          if (kind === 'dialog' && options?.state === 'hidden' && value === mutation?.title) {
+            assert.equal(mutation.closed, true, 'pending mutation prevented dialog dismissal')
+          }
+        },
         async count() { return 0 },
         async fill(text) { page.fields[value] = text },
-        async check() {}, async uncheck() {},
+        async check() { page.checkboxes[value] = true }, async uncheck() { page.checkboxes[value] = false },
         async getAttribute(name) { if (name === 'aria-checked') return page.switches[value] ?? (value === 'No ordinary quota cap' ? 'true' : 'false') },
         async inputValue() { return page.selected },
         async isDisabled() { return page.selected === '' },
         async selectOption(id) {
           page.selected = id
-          if (id) page.emit(response('/pg/models', 'GET', { success: true, data: [{ id: 'smoke-model' }] }))
+          if (id) {
+            page.model = corrupt === 'models' ? 'other-model' : 'smoke-model'
+            page.emit(response('/pg/models', 'GET', { success: true, data: [{ id: page.model }] }))
+          }
         },
         async click(options) {
           if (options?.trial) return
-          if (kind === 'switch') page.switches[value] = (page.switches[value] ?? (value === 'No ordinary quota cap' ? 'true' : 'false')) === 'true' ? 'false' : 'true'
+          if (kind === 'switch') (deferSwitchUpdate ? page.pendingSwitches : page.switches)[value] = (page.switches[value] ?? (value === 'No ordinary quota cap' ? 'true' : 'false')) === 'true' ? 'false' : 'true'
           if (value === 'form button[type="submit"]') {
             const name = page.fields['form input[name="username"]']
             page.actor = [...users.values()].find(user => user.username === name)
@@ -202,30 +226,49 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             page.current = base.baseUrl + '/keys'
             page.emit(response('/api/user/login', 'POST', { success: true, data: { access_token: token, user: clone(page.actor) } }))
           }
-          if (value === 'Create API Key') page.switches['No ordinary quota cap'] = 'true'
+          if (value === 'Create API Key') { page.switches['No ordinary quota cap'] = 'true'; page.group = '' }
+          if (kind === 'option') page.group = 'default'
           if (value === 'Save changes' || value === 'Save Changes') {
             const id = keys.size + 31
-            const data = { name: page.fields.Name, remain_quota: Number(page.fields['Key quota (internal units)']), unlimited_quota: false, group: 'default' }
+            const unlimited = page.switches['No ordinary quota cap'] !== 'false'
+            const data = { name: page.fields.Name, remain_quota: unlimited ? 0 : Number(page.fields['Key quota (internal units)']), unlimited_quota: unlimited, group: page.group }
             const key = { ...data, id, user_id: page.actor.id, used_quota: 0, key: 'secret-masked-key-do-not-report' }
             keys.set(id, key)
             page.emit(response('/api/token/', 'POST', { success: true }, 200, data))
           }
           if (value === 'Save' && chain.includes('User usage policy')) {
+            assert.equal(page.actor.role, 100)
+            assert.equal(page.checkboxes['Use Key limits without a user wallet'], true)
+            assert.equal(page.checkboxes['I confirm all running instances support this policy and I understand the supported request paths.'], true)
             const owner = users.get(20)
             owner.self_use_no_balance = true
             owner.revision += 1
+            if (deferDialogClose) {
+              page.dialogMutation = { title: 'User usage policy', pending: true, closed: false }
+              dialogCloseEvents.push([page.dialogMutation.title, 'response-pending'])
+            }
             page.emit(response('/api/user/20/usage-policy', 'PUT', { success: true, data: policy(owner) }))
           }
           if (value === 'Save' && chain.includes('API Key usage budgets')) {
+            assert.equal(page.actor.role, 100)
+            assert.equal(page.checkboxes['Enable strict Token budget'], true)
+            assert.equal(page.checkboxes['Enable USD fee budget'], true)
+            assert.equal(page.checkboxes['I confirm all running instances support this budget and I understand its request restrictions.'], true)
+            assert.equal(page.fields['Token total limit'], '1000')
+            assert.equal(page.fields['USD total limit'], '1')
             const key = [...keys.values()].find(key => key.name === 'browser-root-strict-reject')
             key.strict = true
+            if (deferDialogClose) {
+              page.dialogMutation = { title: 'API Key usage budgets', pending: true, closed: false }
+              dialogCloseEvents.push([page.dialogMutation.title, 'response-pending'])
+            }
             page.emit(response(`/api/token/${key.id}/budget`, 'PUT', { success: true, data: budget(key) }))
           }
           if (value === 'Send') {
             const key = keys.get(Number(page.selected))
             assert(key)
             sequence++
-            const sent = { model: 'smoke-model', max_tokens: 8, stream: true, messages: [{ role: 'user', content: 'synthetic request' }] }
+            const sent = { model: page.model, max_tokens: Number(page.fields['Max Tokens']), stream: true, messages: [{ role: 'user', content: 'synthetic request' }] }
             const headers = { 'x-myapi-key-id': String(key.id) }
             let code
             if (!page.actor.self_use_no_balance) code = 'insufficient_user_quota'
@@ -304,7 +347,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
     else assert.fail(`unexpected driver request: ${route}`)
     return new Response(JSON.stringify({ success: status === 200, data }), { status })
   }
-  return { playwrightModule, fetchImpl, contexts, emitted, screenshots, apiCalls, closed: () => closed, upstreamCount: () => upstreamCount }
+  return { playwrightModule, fetchImpl, contexts, emitted, screenshots, apiCalls, dialogCloseEvents, closed: () => closed, upstreamCount: () => upstreamCount }
 }
 
 for (const writer of ['legacy', 'authoritative']) {
@@ -335,7 +378,7 @@ for (const writer of ['legacy', 'authoritative']) {
   })
 }
 
-for (const [corrupt, code] of [['writer', 'WRITER_MISMATCH'], ['log-owner', 'LOG_MISMATCH'],
+for (const [corrupt, code] of [['writer', 'WRITER_MISMATCH'], ['models', 'REQUEST_MISMATCH'], ['log-owner', 'LOG_MISMATCH'],
   ['quota', 'USAGE_MISMATCH'], ['upstream', 'UPSTREAM_MISMATCH'], ['usage', 'RELAY_MISMATCH'], ['replay', 'REQUEST_MISMATCH'], ['strict-reserve', 'USAGE_MISMATCH']]) {
   test(`driver stops on ${corrupt} rather than reporting mocked success`, async () => {
     const fixture = journeyBrowser({ corrupt })
@@ -391,4 +434,21 @@ test('the original safe failure takes priority when browser cleanup also fails',
     if (fixture.calls) assert.equal(fixture.calls.filter(call => call[0] === 'browser-close').length, 1)
     else assert.equal(fixture.closed(), 1)
   }
+})
+
+
+test('finite Key creation waits for controlled switch state before reading it', async () => {
+  const fixture = journeyBrowser({ deferSwitchUpdate: true })
+  const report = await probePersonalBrowserJourney({ ...base, ...fixture })
+  assert.equal(report.passed, true)
+  assert.equal(fixture.upstreamCount(), 4)
+})
+
+test('policy and budget dialogs wait for mutation settlement before Escape dismissal', async () => {
+  const fixture = journeyBrowser({ deferDialogClose: true })
+  const report = await probePersonalBrowserJourney({ ...base, ...fixture })
+  assert.equal(report.passed, true)
+  assert.deepEqual(fixture.dialogCloseEvents, ['User usage policy', 'API Key usage budgets'].flatMap(title => [
+    [title, 'response-pending'], [title, 'close-visible'], [title, 'escape'],
+  ]))
 })

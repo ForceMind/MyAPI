@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { readFileSync } from 'node:fs'
 import { probeFreshSQLite, probeRelayFixture, probeSelfUseRelayFixture, preparePersonalWriterFixture, validateSmokeTarget } from './docker-smoke.mjs'
 import { fakeOpenAIListenHost, startFakeOpenAI } from './fake-openai.mjs'
 
@@ -518,4 +519,13 @@ test('browser setup cannot report success without initialized application state'
     personalFixture: async () => ({ passed: true }), fetchImpl: async () => { writes++; throw new Error('must not fetch') },
   }), /SMOKE_PERSONAL_WRITER_SCOPE/)
   assert.equal(writes, 0)
+})
+
+// Error reports stay fixed and bounded; adding a driver stage must not silently
+// drop it at the CLI boundary or admit arbitrary browser error text.
+test('personal browser fixed stages survive the top-level safe report boundary', () => {
+  const driver = readFileSync(new URL('./personal-browser.mjs', import.meta.url), 'utf8')
+  const runtime = readFileSync(new URL('./docker-smoke.mjs', import.meta.url), 'utf8')
+  const values = (source, name) => [...source.match(new RegExp(`const ${name} = new Set\\(\\[([\\s\\S]*?)\\]\\)`))[1].matchAll(/'([^']+)'/g)].map(match => match[1]).sort()
+  assert.deepEqual(values(runtime, 'safeStages'), values(driver, 'stages'))
 })
