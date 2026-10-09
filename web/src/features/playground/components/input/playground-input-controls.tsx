@@ -17,11 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { SendIcon, SquareIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { PromptInputButton } from '@/components/ai-elements/prompt-input'
 import { ModelSelector } from '@/components/model-group-selector'
+import { Field } from '@/components/ui/field'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 
 import { isPlaygroundKeyAvailable } from '../../api'
@@ -46,37 +47,60 @@ interface PlaygroundInputControlsProps {
 
 export function PlaygroundInputControls(props: PlaygroundInputControlsProps) {
   const { t } = useTranslation()
+  const identityId = useId()
+  const keyOptions = props.keys.map((key) => ({
+    value: key.id,
+    label: `${key.name || `#${key.id}`} · ${key.group}${!isPlaygroundKeyAvailable(key) ? ` (${t('Unavailable')})` : ''}`,
+    disabled: !isPlaygroundKeyAvailable(key),
+  }))
+  const selectedKey = keyOptions.find((key) => key.value === props.keyId)
   return (
     <div className='flex w-full flex-wrap items-center gap-2'>
       {props.tools}
-      <NativeSelect
+      <Field
         aria-label={t('API key')}
-        className='max-w-56 min-w-0 flex-1'
-        value={props.keyId ?? ''}
-        disabled={props.disabled || props.isLoadingKeys}
-        onChange={(event) =>
-          props.onKeyChange(
-            event.target.value ? Number(event.target.value) : null
-          )
-        }
+        className='w-full min-w-0 basis-full gap-1 sm:max-w-56 sm:min-w-48 sm:flex-1 sm:basis-auto'
       >
-        <NativeSelectOption value=''>{t('Select API key')}</NativeSelectOption>
-        {props.keyId && !props.keys.some((key) => key.id === props.keyId) && (
-          <NativeSelectOption value={props.keyId} disabled>
-            {t('Unavailable API key')}
+        <NativeSelect
+          aria-label={t('API key')}
+          aria-describedby={props.keyId ? identityId : undefined}
+          className='w-full min-w-0 [&_select]:h-11 sm:[&_select]:h-8'
+          value={props.keyId ?? ''}
+          disabled={props.disabled || props.isLoadingKeys}
+          onChange={(event) =>
+            props.onKeyChange(
+              event.target.value ? Number(event.target.value) : null
+            )
+          }
+        >
+          <NativeSelectOption value=''>
+            {t('Select API key')}
           </NativeSelectOption>
-        )}
-        {props.keys.map((key) => (
-          <NativeSelectOption
-            key={key.id}
-            value={key.id}
-            disabled={!isPlaygroundKeyAvailable(key)}
+          {props.keyId && !selectedKey && (
+            <NativeSelectOption value={props.keyId} disabled>
+              {t('Unavailable API key')}
+            </NativeSelectOption>
+          )}
+          {keyOptions.map((key) => (
+            <NativeSelectOption
+              key={key.value}
+              value={key.value}
+              disabled={key.disabled}
+            >
+              {key.label}
+            </NativeSelectOption>
+          ))}
+        </NativeSelect>
+        {props.keyId && (
+          <p
+            id={identityId}
+            className='text-sm leading-snug [overflow-wrap:anywhere] whitespace-normal'
           >
-            {key.name || `#${key.id}`} · {key.group}
-            {!isPlaygroundKeyAvailable(key) ? ` (${t('Unavailable')})` : ''}
-          </NativeSelectOption>
-        ))}
-      </NativeSelect>
+            {selectedKey?.label ||
+              `${t('Unavailable API key')} · #${props.keyId}`}
+          </p>
+        )}
+      </Field>
       <ModelSelector
         selectedModel={props.modelValue}
         models={props.models}
