@@ -134,7 +134,7 @@ import { mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false, forbidStreamReads = false, hangAt, closeHangs = false, documentResponses = [], reloadAlreadyCurrent = false, inflightKeys } = {}) {
+function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false, forbidStreamReads = false, hangAt, closeHangs = false, documentResponses = [], reloadAlreadyCurrent = false, inflightKeys, unsafeUsageScreenshot = false, failUsageScreenshot = false, usageFailureRole } = {}) {
   const reverse = Object.fromEntries(Object.entries(JSON.parse(readFileSync(new URL('../../web/src/i18n/locales/zh.json', import.meta.url))).translation).map(([key, value]) => [value, key]))
   const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
   const users = new Map([[1, { id: 1, username: base.username, role: 100, quota: 0, used_quota: 15, request_count: 1, self_use_no_balance: true, revision: 1 }]])
@@ -153,6 +153,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   const playgroundRefreshes = []
   const modelChoices = []
   const keyReadEvents = []
+  const usageReads = []
   let serverDisplay = 'USD'
   const reached = Promise.withResolvers()
   const stalled = Promise.withResolvers()
@@ -192,7 +193,30 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         this.current = url
         navigations.push({ kind: 'document', locale: context.locale, path: new URL(url).pathname })
         const result = documentResponses.shift() || { status: 200 }
-        if (result.status === 200) { this.currency = serverDisplay; delete this.policySnapshot }
+        if (result.status === 200) {
+          this.currency = serverDisplay; delete this.policySnapshot
+          const destination = new URL(url)
+          if (destination.pathname === '/usage-logs/common') {
+            const requestId = destination.searchParams.get('requestId')
+            assert(requestId, 'log navigation must bind the exact persisted request, not select the first Key history entry')
+            const tokenName = destination.searchParams.get('token')
+            const log = clone(logs.get(requestId))
+            const listCorrupt = usageFailureRole === undefined || usageFailureRole === this.actor.role ? corrupt : undefined
+            this.badUsage = Boolean(listCorrupt?.startsWith('ui-log-'))
+            if (listCorrupt === 'ui-log-request') log.request_id = 'another-request'
+            if (listCorrupt === 'ui-log-owner') log.user_id = 999
+            if (listCorrupt === 'ui-log-key') log.token_id = 999
+            if (listCorrupt === 'ui-log-model') log.model_name = 'another-model'
+            const items = listCorrupt === 'ui-log-duplicate' ? [log, log] : listCorrupt === 'ui-log-missing' ? [] : [log]
+            this.visibleLog = log
+            const pathname = this.actor.role === 100 ? '/api/log/' : '/api/log/self'
+            const parameters = `?token_name=${tokenName}&request_id=${requestId}&p=1&page_size=${context.viewport.width === 320 ? 20 : 100}`
+            usageReads.push({ role: this.actor.role, pathname, requestId, tokenName })
+            this.emit(response(pathname + '?request_id=wrong-request&token_name=' + tokenName, 'GET', { success: false }))
+            this.emit(response((this.actor.role === 100 ? '/api/log/self' : '/api/log/') + parameters, 'GET', { success: false }))
+            this.emit(response(pathname + parameters, 'GET', { success: true, data: { total: items.length, items } }))
+          }
+        }
         return { status: () => result.status, headers: () => ({ 'retry-after': result.retryAfter }),
           request: () => ({ method: () => result.method || 'GET' }) }
       },
@@ -218,9 +242,12 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
       async evaluate(fn) {
         if (hangAt === 'evaluate') return hang()
         if (String(fn).includes('__APP_BUILD__')) return { global: `rv.${version}.${base.sha}.test`, html: `rv.${version}.${base.sha}.test`, meta: `rv.${version}.${base.sha}.test` }
-        return !screenshotSecret
+        return !screenshotSecret && !(unsafeUsageScreenshot && this.badUsage)
       },
-      async screenshot(options) { screenshots.push(options) },
+      async screenshot(options) {
+        if (failUsageScreenshot && path.basename(options.path).startsWith('usage-failed-')) throw new Error(base.password)
+        screenshots.push(options)
+      },
       keyboard: { async press(key) {
         if (key === 'Escape' && page.logDetailsOpen) {
           page.logDetailsOpen = false
@@ -243,8 +270,16 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         getByText: (text) => locator('text', text, chain),
         locator: (selector) => locator('selector', selector, chain),
         and() { awaitingCheckedState = true; return this },
-        filter() { return this }, first() { return this }, last() { return this },
+        filter() { return this },
+        first() {
+          assert.notEqual(new URL(page.current).pathname, '/usage-logs/common', 'first must not conceal ambiguity in log history')
+          return this
+        }, last() { return this },
         async waitFor(options) {
+          if (page.logDetailsOpen && kind === 'text') {
+            if (String(value).startsWith('request-private-')) assert.notEqual(corrupt, 'ui-log-dialog-request')
+            if (value === page.visibleLog?.token_name) assert.notEqual(corrupt, 'ui-log-dialog-key')
+          }
           if (kind === 'option' && value === 'smoke-model') assert(page.modelsCache.get(page.selected)?.includes(value), 'the actual model option must exist')
           if (kind === 'text' && parents.includes('Current configuration') &&
             ['Use Key limits without a user wallet', 'Use the stored user allowance'].includes(value)) {
@@ -276,6 +311,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
           }
         },
         async count() {
+          if (new URL(page.current).pathname === '/usage-logs/common' && (kind === 'title' || kind === 'text')) return corrupt === 'ui-log-ambiguous' ? 2 : 1
           if (kind === 'option' && value === 'smoke-model') return corrupt === 'ambiguous-model' ? 2 : Number(page.modelsCache.get(page.selected)?.includes(value))
           if (kind === 'selector' && value === '.is-assistant') return page.assistants || 0
           if (kind === 'alert') return parents.includes('.is-assistant') ? Number(Boolean(page.lastAssistantError)) : page.historicalErrors || 0
@@ -343,7 +379,10 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             page.emitResponse(response('/pg/keys?p=1&page_size=100', 'GET', { success: false }))
             page.emit(response('/pg/keys?p=1&page_size=100', 'GET', { success: true, data }))
           }
-          if (kind === 'title' && value === 'Click to view full details') page.logDetailsOpen = true
+          if (kind === 'title' && value === 'Click to view full details') {
+            if (corrupt === 'ui-log-open') throw new Error(base.password)
+            page.logDetailsOpen = true
+          }
           if (value === 'Toggle sidebar') {
             page.sidebarOpen = !page.sidebarOpen
             navigations.push({ kind: 'toggle', locale: context.locale })
@@ -534,7 +573,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   }
   return { playwrightModule, fetchImpl, contexts, emitted, screenshots, apiCalls, dialogCloseEvents, completionEvents, signals,
     navigations,
-    createdKeyDisplays, policyRefreshes, playgroundRefreshes, modelChoices, keyReadEvents,
+    createdKeyDisplays, policyRefreshes, playgroundRefreshes, modelChoices, keyReadEvents, usageReads,
     reached: reached.promise, release: stalled.resolve, closing: closing.promise, releaseClose: stalledClose.resolve,
     closed: () => closed, upstreamCount: () => upstreamCount }
 }
@@ -796,6 +835,60 @@ test('fixture config reload and ordinary owner Refresh cross independent client 
   assert.deepEqual(fixture.policyRefreshes, [{ userId: 20, role: 1, revision: 1 }])
 })
 
+test('usage UI binds exact request and Key to the real role-specific list without first-entry selection', async () => {
+  const fixture = journeyBrowser()
+  const report = await probePersonalBrowserJourney({ ...base, ...fixture })
+  assert.equal(report.passed, true)
+  assert.deepEqual(fixture.usageReads, [
+    { role: 100, pathname: '/api/log/', requestId: 'request-private-1', tokenName: 'browser-root-finite' },
+    { role: 1, pathname: '/api/log/self', requestId: 'request-private-3', tokenName: 'browser-owner-finite' },
+  ])
+  // The fixture also emitted wrong-path and wrong-filter response bodies. They
+  // must not be consumed, even though they arrived before the matching GET.
+  assert.deepEqual(fixture.contexts.map(context => context.page.closedLogDialogs), [1, 1])
+})
+
+for (const [corrupt, code, stage] of [
+  ...['request', 'owner', 'key', 'model', 'duplicate', 'missing'].map(kind => [`ui-log-${kind}`, 'LOG_MISMATCH', 'usage-list']),
+  ['ui-log-ambiguous', 'LOG_MISMATCH', 'usage-details-open'],
+  ['ui-log-open', 'BROWSER_FAILED', 'usage-details-open'],
+  ['ui-log-dialog-request', 'BROWSER_FAILED', 'usage-details-request'],
+  ['ui-log-dialog-key', 'BROWSER_FAILED', 'usage-details-key'],
+]) {
+  test(`${corrupt} fails at a fixed usage substage without weakening identity`, async () => {
+    const fixture = journeyBrowser({ corrupt })
+    await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), error => {
+      assert.equal(error.message, `SMOKE_PERSONAL_${code}`)
+      assert.equal(error.stage, stage)
+      assert(!error.stack.includes(base.password))
+      return true
+    })
+    assert.equal(fixture.closed(), 1)
+  })
+}
+
+for (const failureMode of ['safe', 'visible-secret', 'capture-error']) {
+  test(`usage failure screenshot ${failureMode} preserves the original failure and artifact hygiene`, async () => {
+    const fixture = journeyBrowser({ corrupt: 'ui-log-owner', usageFailureRole: 1, unsafeUsageScreenshot: failureMode === 'visible-secret', failUsageScreenshot: failureMode === 'capture-error' })
+    const artifactDir = mkdtempSync(path.join(tmpdir(), 'personal-usage-failure-'))
+    try {
+      await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture, artifactDir }), error => {
+        assert.equal(error.message, 'SMOKE_PERSONAL_LOG_MISMATCH')
+        assert.equal(error.stage, 'usage-list')
+        assert(!error.stack.includes(base.password))
+        return true
+      })
+      const failures = fixture.screenshots.filter(item => path.basename(item.path).startsWith('usage-failed-'))
+      assert.equal(failures.length, failureMode === 'safe' ? 1 : 0)
+      if (failures.length) {
+        assert.equal(path.basename(failures[0].path), 'usage-failed-zh-320.png')
+        assert.equal(failures[0].mask.length, 3)
+      }
+      assert.equal(fixture.closed(), 1)
+    } finally { rmSync(artifactDir, { recursive: true, force: true }) }
+  })
+}
+
 test('Playground refreshes new Keys and explicitly selects the cached model without a redundant models GET', async () => {
   const fixture = journeyBrowser()
   const report = await probePersonalBrowserJourney({ ...base, ...fixture })
@@ -917,7 +1010,7 @@ test('document backoff shares a 180-second journey budget and never replays logi
     if (event.stage === 'document-backoff') backoff.resolve()
   } })
   const rejected = assert.rejects(run, error => error.message === 'SMOKE_PERSONAL_HTTP_FAILED' &&
-    error.stage === 'usage-view' && error.httpStatus === 429 && error.retryAfter === 81)
+    error.stage === 'usage-open' && error.httpStatus === 429 && error.retryAfter === 81)
   await Promise.race([backoff.promise, rejected])
   t.mock.timers.tick(100_000)
   await rejected

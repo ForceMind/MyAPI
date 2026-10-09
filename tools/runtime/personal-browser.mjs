@@ -13,6 +13,7 @@ const stages = new Set(['launch', 'setup', 'setup-session', 'setup-open', 'setup
   'key-create', 'key-create-open', 'key-create-ready', 'key-create-profile', 'key-create-cap',
   'key-create-quota', 'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm',
   'key-selection-refresh', 'key-selection-model', 'playground-response', 'playground-complete', 'playground-rejection',
+  'usage-open', 'usage-list', 'usage-details-open', 'usage-details-request', 'usage-details-key',
   'strict-budget', 'reload-check', 'screenshot', 'browser-close'])
 const codes = new Set(['SCOPE_REJECTED', 'AUTH_UNAVAILABLE', 'BROWSER_FAILED', 'BROWSER_CLOSE_FAILED', 'SETUP_FAILED',
   'HTTP_FAILED', 'LOGIN_FAILED', 'RUNTIME_ERROR', 'BUILD_MISMATCH', 'API_FAILED', 'STATE_MISMATCH',
@@ -524,15 +525,50 @@ async function verifyUsage(api, session, key, before, requestId, consumed) {
   return after
 }
 
-async function showPersistedUsage(session, key, requestId) {
-  session.scope.stage = 'usage-view'
-  await open(session, `/usage-logs/common?token=${encodeURIComponent(key.name)}`)
-  await session.page.getByText(key.name, { exact: true }).first().waitFor()
-  await session.page.getByText(model, { exact: true }).first().waitFor()
-  await session.page.getByTitle(session.label('Click to view full details'), { exact: true }).first().click()
-  const dialog = session.page.getByRole('dialog')
-  await dialog.getByText(requestId, { exact: true }).waitFor()
-  await dialog.getByText(key.name, { exact: true }).waitFor()
+async function showPersistedUsage(session, key, requestId, options, screenshots) {
+  session.scope.stage = 'usage-open'
+  try {
+    // The admin client GET redirects to Gin's /api/log/ route. The ordinary
+    // owner's route is /api/log/self, without a trailing slash.
+    const pathname = session.user.role === 100 ? '/api/log/' : '/api/log/self'
+    const received = session.page.waitForResponse(response => {
+      const url = new URL(response.url())
+      return url.origin === session.origin && url.pathname === pathname && response.request().method() === 'GET' &&
+        url.searchParams.get('request_id') === requestId && url.searchParams.get('token_name') === key.name
+    })
+    received.catch(() => {}) // Navigation failure still owns the original error.
+    await open(session, `/usage-logs/common?token=${encodeURIComponent(key.name)}&requestId=${encodeURIComponent(requestId)}`)
+    session.scope.stage = 'usage-list'
+    const data = await responseSuccess(session, await received, 'LOG_MISMATCH')
+    requireThat(data?.total === 1 && Array.isArray(data.items) && data.items.length === 1, 'LOG_MISMATCH')
+    const log = data.items[0]
+    requireThat(log.request_id === requestId && log.user_id === session.user.id && log.token_id === key.id &&
+      log.token_name === key.name && log.model_name === model, 'LOG_MISMATCH')
+    // Mobile cards reuse the actual desktop cells, but only one layout mounts.
+    // Filter visibility to exclude tooltip copies; never choose an arbitrary
+    // first history entry or suppress ambiguity among visible target entries.
+    await session.page.getByText(key.name, { exact: true }).filter({ visible: true }).waitFor()
+    await session.page.getByText(model, { exact: true }).filter({ visible: true }).waitFor()
+    session.scope.stage = 'usage-details-open'
+    const details = session.page.getByTitle(session.label('Click to view full details'), { exact: true }).filter({ visible: true })
+    await details.waitFor()
+    requireThat(await details.count() === 1, 'LOG_MISMATCH')
+    await details.click()
+    const dialog = session.page.getByRole('dialog')
+    session.scope.stage = 'usage-details-request'
+    await dialog.getByText(requestId, { exact: true }).waitFor()
+    session.scope.stage = 'usage-details-key'
+    await dialog.getByText(key.name, { exact: true }).waitFor()
+  } catch (error) {
+    const failedStage = session.scope.stage
+    try {
+      if (new URL(session.page.url()).pathname === '/usage-logs/common') {
+        await capture(session, options, 'usage-failed', screenshots)
+      }
+    } catch {} // Failed/unsafe diagnostics must never replace the original error.
+    session.scope.stage = failedStage
+    throw error
+  }
 }
 
 export async function browserSetup(options = {}) {
@@ -623,7 +659,7 @@ export async function probePersonalBrowserJourney(options = {}) {
     await verifyUsage(api, root, rootKey, rootBefore, rootRequest, true)
     requireThat(await control() === startCount + 1, 'UPSTREAM_MISMATCH')
     await capture(root, options, 'fresh-success', screenshots)
-    await showPersistedUsage(root, rootKey, rootRequest)
+    await showPersistedUsage(root, rootKey, rootRequest, options, screenshots)
     await capture(root, options, 'fresh-persisted-log', screenshots)
     await closeDialog(root, root.page.getByRole('dialog'))
     checks.push({ name: 'real English desktop fresh Root selected-Key streaming request and persisted usage', ok: true, quota: usage, requests: 1 })
@@ -696,7 +732,7 @@ export async function probePersonalBrowserJourney(options = {}) {
     await verifyUsage(api, owner, ownerKey, ownerEnabled, ownerRequest, true)
     requireThat(await control() === startCount + 2, 'UPSTREAM_MISMATCH')
     await capture(owner, options, 'existing-success', screenshots)
-    await showPersistedUsage(owner, ownerKey, ownerRequest)
+    await showPersistedUsage(owner, ownerKey, ownerRequest, options, screenshots)
     await capture(owner, options, 'existing-persisted-log', screenshots)
     await closeDialog(owner, owner.page.getByRole('dialog'))
     checks.push({ name: 'real Chinese mobile ordinary owner rejects until explicit Root policy choice', ok: true, role: 1, policyChanges: 1, requests: 1, quota: usage })
@@ -745,7 +781,7 @@ export async function probePersonalBrowserJourney(options = {}) {
     // this personal application journey does not validate restart or recovery.
     scope.stage = 'reload-check'
     await open(owner, `/keys?filter=${ownerKey.name}`, { forceLoad: true })
-    await owner.page.getByText(ownerKey.name, { exact: true }).first().waitFor()
+    await owner.page.getByText(ownerKey.name, { exact: true }).filter({ visible: true }).waitFor()
     const persisted = await snapshot(api, owner, ownerKey)
     requireThat(persisted.token.remain_quota === quota - usage && persisted.token.used_quota === usage &&
       persisted.user.quota === 0 && persisted.user.role === 1 && persisted.user.used_quota === usage && persisted.user.request_count === 1, 'USAGE_MISMATCH')
