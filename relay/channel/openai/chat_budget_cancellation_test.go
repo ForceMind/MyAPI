@@ -30,6 +30,11 @@ func (w *chatCancellationWriter) Write(data []byte) (int, error) {
 		return 0, io.ErrClosedPipe
 	}
 	if strings.HasSuffix(w.Body.String(), "data: [DONE]") && string(data) == "\n\n" {
+		if w.stage == "done-boundary-in-write-cancel" {
+			// Cancellation after observer entry is ordered only against the
+			// successful write result, not physical network delivery.
+			w.cancel()
+		}
 		if w.stage == "done-boundary-error" {
 			w.cancel()
 			return 0, io.ErrClosedPipe
@@ -56,7 +61,7 @@ func TestStrictChatCancellationTerminalWriteBoundary(t *testing.T) {
 	old := constant.StreamingTimeout
 	constant.StreamingTimeout = 30
 	t.Cleanup(func() { constant.StreamingTimeout = old })
-	for _, stage := range []string{"pre-cancelled", "usage-write", "done-prefix", "done-event", "done-write-error", "done-boundary-error", "done-boundary-short-write"} {
+	for _, stage := range []string{"pre-cancelled", "usage-write", "done-prefix", "done-event", "done-boundary-in-write-cancel", "done-write-error", "done-boundary-error", "done-boundary-short-write"} {
 		t.Run(stage, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
 			ctx, cancel := context.WithCancel(request.Context())
@@ -76,8 +81,9 @@ func TestStrictChatCancellationTerminalWriteBoundary(t *testing.T) {
 			// Match the service's captured-completion predicate, without using
 			// the final request context to conceal pre-terminal cancellation.
 			qualified := usage.BillingUsage.ChatTextEvidence != nil && info.StreamStatus.EndReason == relaycommon.StreamEndReasonDone && info.StreamStatus.EndError == nil && !info.StreamStatus.HasErrors()
-			assert.Equal(t, stage == "done-event", qualified)
-			if stage == "done-event" {
+			acceptedTerminal := stage == "done-event" || stage == "done-boundary-in-write-cancel"
+			assert.Equal(t, acceptedTerminal, qualified)
+			if acceptedTerminal {
 				assert.Contains(t, writer.Body.String(), "data: [DONE]\n\n")
 			} else {
 				assert.True(t, info.StreamStatus.HasErrors())
