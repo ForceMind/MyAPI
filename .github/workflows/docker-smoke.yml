@@ -237,14 +237,15 @@ jobs:
           echo "SMOKE_DATA_DIR=$SMOKE_DATA_DIR" >> "$GITHUB_ENV"
           personal_args=()
           if [[ "$MYAPI_SMOKE_PERSONAL" == '1' ]]; then
-            personal_args+=(--network "$SMOKE_NETWORK")
             if [[ "$MYAPI_SMOKE_WRITER" == 'authoritative' ]]; then
               personal_args+=(--env REDIS_CONN_STRING)
             fi
           fi
-          docker run --detach "${personal_args[@]}" \
+          # Preserve the established host-loopback bridge; Redis alone remains internal.
+          docker create "${personal_args[@]}" \
             --name "$SMOKE_CONTAINER" \
             --label "io.myapi.smoke.sha=${GITHUB_SHA}" \
+            --label "io.myapi.personal.run=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
             --user "$(id -u):$(id -g)" \
             --publish 127.0.0.1:18080:3000 \
             --publish 127.0.0.1:19090:19090 \
@@ -264,6 +265,15 @@ jobs:
             --health-cmd='wget -q -O - http://127.0.0.1:3000/api/status | grep -q '"'"'"success"[[:space:]]*:[[:space:]]*true'"'"'' \
             --health-interval=3s --health-timeout=2s --health-retries=10 --health-start-period=20s \
             "$SMOKE_SOURCE_IMAGE"
+          if [[ "$MYAPI_SMOKE_PERSONAL" == '1' && "$MYAPI_SMOKE_WRITER" == 'authoritative' ]]; then
+            # Attach before starting so Redis DNS is available during initialization.
+            [[ "$(docker inspect --format '{{index .Config.Labels "io.myapi.smoke.sha"}}' "$SMOKE_CONTAINER")" == "$GITHUB_SHA" ]]
+            [[ "$(docker inspect --format '{{index .Config.Labels "io.myapi.personal.run"}}' "$SMOKE_CONTAINER")" == "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" ]]
+            docker network connect "$SMOKE_NETWORK" "$SMOKE_CONTAINER"
+          fi
+          docker start "$SMOKE_CONTAINER" >/dev/null
+          [[ "$(docker port "$SMOKE_CONTAINER" 3000/tcp)" == '127.0.0.1:18080' ]]
+          [[ "$(docker port "$SMOKE_CONTAINER" 19090/tcp)" == '127.0.0.1:19090' ]]
 
       - name: Wait for health and verify status
         run: |
@@ -315,6 +325,12 @@ jobs:
             fi
             sleep 1
           done
+          # A safe namespace-local comparison distinguishes listener readiness from host mapping.
+          if docker exec "$SMOKE_FAKE_UPSTREAM_CONTAINER" bun -e 'const r = await fetch("http://127.0.0.1:19090/__smoke__/health", {signal: AbortSignal.timeout(2000)}).catch(() => null); process.exit(r?.ok ? 0 : 1)' >/dev/null 2>&1; then
+            echo 'Fake upstream responds inside its namespace but host-loopback readiness failed' >&2
+          else
+            echo 'Fake upstream namespace-local readiness also failed' >&2
+          fi
           echo 'Fake upstream fixture did not become ready' >&2
           exit 1
 

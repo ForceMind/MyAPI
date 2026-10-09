@@ -135,6 +135,21 @@ test('personal application smoke stays on an exact trusted branch with two owned
   assert.match(prepare, /--requirepass "\$redis_password"/)
   assert.match(prepare, /::add-mask::/)
   assert.match(prepare, /HostConfig\.PortBindings/)
+  const start = job.split('      - name: Start isolated SQLite container\n')[1].split('      - name: Wait for health and verify status\n')[0]
+  assert.match(start, /docker create "\$\{personal_args\[@\]\}"/)
+  assert.doesNotMatch(start, /personal_args\+=\(--network|--network[= ]host|--privileged/)
+  assert.match(start, /MYAPI_SMOKE_WRITER" == 'authoritative'/)
+  assert.ok(start.indexOf('docker network connect') < start.indexOf('docker start'))
+  assert.match(start, /docker network connect "\$SMOKE_NETWORK" "\$SMOKE_CONTAINER"/)
+  assert.match(start, /docker port "\$SMOKE_CONTAINER" 3000\/tcp/)
+  assert.match(start, /docker port "\$SMOKE_CONTAINER" 19090\/tcp/)
+  assert.match(start, /127\.0\.0\.1:18080/)
+  assert.match(start, /127\.0\.0\.1:19090/)
+  const readiness = job.split('      - name: Wait for fake upstream fixture\n')[1].split('      - name: Install isolated browser test runtime\n')[0]
+  assert.match(readiness, /docker exec "\$SMOKE_FAKE_UPSTREAM_CONTAINER" bun/)
+  assert.match(readiness, /AbortSignal.timeout\(2000\)/)
+  assert.match(readiness, /namespace-local readiness also failed/)
+  assert.doesNotMatch(readiness, /docker logs|docker inspect/)
   const cleanup = job.split('      - name: Remove only owned personal Redis and network\n')[1]
   assert.match(cleanup, /if: always\(\)/)
   assert.match(cleanup, /io\.myapi\.smoke\.sha/)
