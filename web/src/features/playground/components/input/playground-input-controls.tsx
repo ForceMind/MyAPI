@@ -111,8 +111,13 @@ export function PlaygroundInputControls(props: PlaygroundInputControlsProps) {
       />
       {props.isGenerating && props.onStop ? (
         <PromptInputButton
+          key='stop'
           aria-label={t('Stop')}
-          onClick={props.onStop}
+          onClick={(event) => {
+            event.preventDefault()
+            props.onStop?.()
+          }}
+          type='button'
           variant='secondary'
         >
           <SquareIcon aria-hidden='true' size={16} />
@@ -120,6 +125,7 @@ export function PlaygroundInputControls(props: PlaygroundInputControlsProps) {
         </PromptInputButton>
       ) : (
         <PromptInputButton
+          key='send'
           aria-label={t('Send')}
           disabled={props.disabled || !props.canSend || !props.hasContent}
           type='submit'

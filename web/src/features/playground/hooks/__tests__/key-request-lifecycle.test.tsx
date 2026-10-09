@@ -219,6 +219,7 @@ function BudgetRejectionChat(props: {
         parameterEnabled={DEFAULT_PARAMETER_ENABLED}
         onSubmit={conversation.handleSendMessage}
         isGenerating={handler.isGenerating}
+        disabled={handler.isGenerating}
         onStop={handler.stopGeneration}
       />
       <output aria-label='Assistant response'>
@@ -469,6 +470,111 @@ describe('chat identity and dispatch', () => {
 })
 
 describe('cancellation and late-response isolation', () => {
+  test.each([false, true])(
+    'clicking Stop preserves the draft without replay and allows an explicit new send after partial content=%s',
+    async (partial) => {
+      const user = userEvent.setup()
+      const onKeyRejected = vi.fn()
+      const post = vi.spyOn(api, 'post')
+      render(<BudgetRejectionChat stream onKeyRejected={onKeyRejected} />)
+      const draft = screen.getByRole('textbox', { name: 'Message' })
+      await user.type(draft, 'Keep this canceled draft')
+      await user.upload(
+        screen.getByLabelText('Upload attachments'),
+        new File(
+          [new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])],
+          'cancel.png',
+          { type: 'image/png' }
+        )
+      )
+      await screen.findByRole('img', { name: 'cancel.png' })
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled()
+      )
+      await user.click(screen.getByRole('button', { name: 'Send' }))
+      await waitFor(() =>
+        expect(streamBoundary.ControlledSource.instances).toHaveLength(1)
+      )
+      const source = streamBoundary.ControlledSource.instances[0]
+      expect(draft).toBeDisabled()
+      expect(screen.getByRole('combobox', { name: 'API key' })).toBeDisabled()
+      if (partial) {
+        act(() =>
+          source.emit(
+            'message',
+            JSON.stringify({
+              choices: [{ delta: { content: 'Partial answer' } }],
+            })
+          )
+        )
+      }
+
+      await user.click(screen.getByRole('button', { name: 'Stop' }))
+
+      expect(source.close).toHaveBeenCalledOnce()
+      expect(streamBoundary.ControlledSource.instances).toHaveLength(1)
+      expect(post).not.toHaveBeenCalled()
+      expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled()
+      expect(draft).toBeEnabled()
+      expect(draft).toHaveValue('Keep this canceled draft')
+      expect(screen.getByRole('img', { name: 'cancel.png' })).toBeVisible()
+      expect(screen.getByRole('combobox', { name: 'API key' })).toBeEnabled()
+      expect(screen.getByRole('combobox', { name: 'API key' })).toHaveValue(
+        '17'
+      )
+      if (partial) {
+        expect(screen.getByLabelText('Assistant response')).toHaveTextContent(
+          'Partial answer'
+        )
+      }
+      await act(async () => {
+        source.emit(
+          'message',
+          JSON.stringify({
+            choices: [{ delta: { content: 'Late canceled answer' } }],
+          })
+        )
+        source.emit('message', '[DONE]')
+      })
+      expect(draft).toHaveValue('Keep this canceled draft')
+      expect(screen.getByRole('img', { name: 'cancel.png' })).toBeVisible()
+      expect(screen.getByLabelText('Assistant response')).not.toHaveTextContent(
+        'Late canceled answer'
+      )
+      expect(streamBoundary.ControlledSource.instances).toHaveLength(1)
+      expect(onKeyRejected).not.toHaveBeenCalled()
+
+      await user.click(
+        screen.getByRole('button', { name: 'Remove attachment cancel.png' })
+      )
+      await user.clear(draft)
+      await user.type(draft, 'Explicit replacement')
+      await user.click(screen.getByRole('button', { name: 'Send' }))
+      await waitFor(() =>
+        expect(streamBoundary.ControlledSource.instances).toHaveLength(2)
+      )
+      const replacement = streamBoundary.ControlledSource.instances[1]
+      expect(JSON.parse(replacement.options.payload).messages).toEqual([
+        { role: 'user', content: 'Explicit replacement' },
+      ])
+      await act(async () => {
+        replacement.emit(
+          'message',
+          JSON.stringify({ choices: [{ delta: { content: 'New answer' } }] })
+        )
+        replacement.emit('message', '[DONE]')
+      })
+      expect(screen.getByLabelText('Assistant response')).toHaveTextContent(
+        'New answer'
+      )
+      expect(draft).toHaveValue('')
+      expect(
+        screen.queryByRole('img', { name: 'cancel.png' })
+      ).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled()
+    }
+  )
+
   test('cancels a non-streaming request with false and ignores its late success', async () => {
     const response = deferred<{ data: ChatCompletionResponse }>()
     const post = vi.spyOn(api, 'post').mockReturnValue(response.promise)

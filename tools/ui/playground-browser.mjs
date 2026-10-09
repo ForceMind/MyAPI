@@ -37,7 +37,7 @@ const invalidFiles = [
   { name: 'oversized-file', files: [{ name: 'oversized.png', mimeType: 'image/png', buffer: oversized }], error: 'Each file must be non-empty and no larger than 10 MiB' },
   { name: 'too-many-files', files: Array.from({ length: 5 }, (_, index) => ({ name: `extra-${index}.png`, mimeType: 'image/png', buffer: png })), error: 'You can attach up to 4 files' },
 ]
-const report = { schema: 3, commit: process.env.GITHUB_SHA || execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim(), result: 'running', evidence: 'Synthetic API UI qualification; no live provider or billing claim.', nativePickerLimit: 'Touch events open the native control; choosing a native OS option is driven by Playwright selectOption, not physical-device picker automation.', cancellationScope: 'Actual Stop click aborts a held streaming HTTP request before response headers; partial-stream cancellation is covered separately by lifecycle tests.', keyIdentity: [], attachmentValidation: [], attachmentRemoval: [], multipleImages: [], cancellations: [], usageInspection: [], strictText: [], journeys: [], screenshots: [], requests: [], violations: [], pageErrors: [] }
+const report = { schema: 3, commit: process.env.GITHUB_SHA || execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim(), result: 'running', evidence: 'Synthetic API UI qualification; no live provider or billing claim.', nativePickerLimit: 'Touch events open the native control; choosing a native OS option is driven by Playwright selectOption, not physical-device picker automation.', cancellationScope: 'Actual Stop click aborts a held streaming HTTP request before response headers; partial-stream cancellation is covered separately by lifecycle tests.', keyIdentity: [], attachmentValidation: [], attachmentRemoval: [], multipleImages: [], cancellations: [], usageInspection: [], strictText: [], journeys: [], screenshots: [], chatDispatches: [], requests: [], violations: [], pageErrors: [] }
 assert(existsSync(resolve(root, 'index.html')), 'Build production assets first')
 mkdirSync(output, { recursive: true })
 const persist = () => writeFileSync(resolve(output, 'playground-qualification.json'), JSON.stringify(report, null, 2))
@@ -149,6 +149,7 @@ try {
         assert(!('group' in payload), 'body must not override key group')
         sent.push(payload)
         const dispatch = sent.length
+        report.chatDispatches.push({ journey: name, dispatch, keyId: request.headers()['x-myapi-key-id'], model: payload.model, stream: payload.stream, held: holdNext, messages: payload.messages.map(message => ({ role: message.role, contentTypes: Array.isArray(message.content) ? message.content.map(part => part.type) : ['text'] })) })
         if (expectedKeyId === '24') {
           assert.equal(payload.model, 'gpt-6.1-sol')
           assert.equal(payload.stream, true)
@@ -386,6 +387,7 @@ try {
     const abortedRequest = await abortedRequestReady
     await canceledResponseFinished
     assert.match(abortedRequest.failure()?.errorText || '', /aborted/i, 'Stop must abort the real browser request')
+    assert.equal(sent.length, 4, 'the Stop click must not submit a replacement request')
     await send.click({ trial: true })
     assert.equal(await stop.count(), 0)
     assert(await input.isEnabled() && await key.isEnabled(), 'Stop restores usable controls')
@@ -624,6 +626,7 @@ try {
         notices: [...document.querySelectorAll('[role="status"], [role="alert"]')].map(element => element.textContent),
         selects: [...document.querySelectorAll('select')].map(element => ({ label: element.getAttribute('aria-label'), value: element.value, disabled: element.disabled, options: [...element.options].map(option => ({ value: option.value, text: option.text, disabled: option.disabled })) })),
         buttons: [...document.querySelectorAll('button')].map(element => ({ label: element.getAttribute('aria-label'), text: element.textContent, type: element.type, disabled: element.disabled })),
+        textareas: [...document.querySelectorAll('textarea')].map(element => ({ label: element.getAttribute('aria-label'), value: element.value, disabled: element.disabled })),
         images: [...document.images].map(element => ({ alt: element.alt, complete: element.complete, naturalWidth: element.naturalWidth })),
       }))
       const failureName = `${activeJourney}-failure.png`

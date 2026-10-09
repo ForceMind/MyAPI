@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
+import { flushSync } from 'react-dom'
 import { describe, expect, test, vi } from 'vitest'
 
 import { isPlaygroundKeyAvailable } from '../../../api'
@@ -81,7 +82,53 @@ function Controls(props: {
   )
 }
 
+function StoppableComposer(props: {
+  onSubmit: () => void
+  onStop: () => void
+}) {
+  const [isGenerating, setIsGenerating] = useState(true)
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        props.onSubmit()
+      }}
+    >
+      <Controls
+        initialKeyId={22}
+        disabled={isGenerating}
+        isGenerating={isGenerating}
+        onStop={() => {
+          props.onStop()
+          // A discrete-click render can finish before native form activation.
+          flushSync(() => setIsGenerating(false))
+        }}
+      />
+    </form>
+  )
+}
+
 describe('Playground key identity and selection', () => {
+  test('clicking Stop never submits the form when the controls unlock during its click', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    const onStop = vi.fn()
+    render(<StoppableComposer onSubmit={onSubmit} onStop={onStop} />)
+
+    const stop = screen.getByRole('button', { name: 'Stop' })
+    expect(stop).toHaveAttribute('type', 'button')
+    await user.click(stop)
+
+    expect(screen.getByRole('button', { name: 'Send' })).not.toBe(stop)
+    expect(stop).not.toBeInTheDocument()
+    expect(onStop).toHaveBeenCalledOnce()
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(screen.getByRole('combobox', { name: 'API key' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'Send' }))
+    expect(onSubmit).toHaveBeenCalledOnce()
+  })
+
   test('loaded keys stay unselected until explicit choice and can be explicitly cleared', async () => {
     const user = userEvent.setup()
     const onKeyChange = vi.fn()
