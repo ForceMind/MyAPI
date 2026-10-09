@@ -357,6 +357,57 @@ export async function probeSelfUseRelayFixture({ baseUrl, edition, sha, username
   ] }
 }
 
+// Runs only before any relay in an owned fresh SQLite fixture. Use the public
+// transition/drain contract, never a DB update or an accounting-gate override.
+export async function preparePersonalWriterFixture({ baseUrl, edition, sha, username, password,
+  writer, isolated = false, fetchImpl = globalThis.fetch } = {}) {
+  if (!isolated || !['legacy', 'authoritative'].includes(writer) || !username || !password) throw new Error('SMOKE_PERSONAL_WRITER_SCOPE')
+  const origin = validateSmokeTarget(baseUrl, edition, sha)
+  const request = async (pathname, options = {}) => {
+    const response = await fetchImpl(origin + pathname, { ...options, redirect: 'error', signal: AbortSignal.timeout(10_000) })
+    const body = await response.json().catch(() => null)
+    if (response.status < 200 || response.status >= 300 || body?.success !== true) throw new Error('SMOKE_PERSONAL_WRITER_API')
+    return body.data
+  }
+  const login = await request('/api/user/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) })
+  if (typeof login?.access_token !== 'string' || !login.access_token) throw new Error('SMOKE_PERSONAL_WRITER_API')
+  const headers = { Authorization: `Bearer ${login.access_token}`, 'Content-Type': 'application/json' }
+  const user = await request('/api/user/self', { headers })
+  if (user?.role !== 100 || user.quota !== 0 || user.used_quota !== 0 || user.request_count !== 0) throw new Error('SMOKE_PERSONAL_WRITER_NOT_FRESH')
+  const readState = async () => {
+    const status = await request('/api/quota-writer/status', { headers })
+    if (status?.inflight_sessions !== 0 || !Number.isSafeInteger(status?.state?.epoch) || status.state.epoch <= 0) throw new Error('SMOKE_PERSONAL_WRITER_STATE')
+    return status.state
+  }
+  let state = await readState()
+  if (state.mode !== 'legacy') throw new Error('SMOKE_PERSONAL_WRITER_NOT_FRESH')
+  if (writer === 'authoritative') {
+    for (const target of ['bridge', 'authoritative']) {
+      const drain = await request('/api/quota-writer/drain?budget=10', { method: 'POST', headers })
+      if (drain?.complete !== true) throw new Error('SMOKE_PERSONAL_WRITER_DRAIN')
+      const plan = await request(`/api/quota-writer/plan?target=${target}`, { headers })
+      const audit = plan?.audit
+      const allowedMissing = target === 'bridge' ? ['cluster_drain_ack', 'redis_epoch'] : ['cluster_drain_ack']
+      const allowedValidation = target === 'bridge' ? ['cluster_drain_ack'] : ['durable_write_audit_failed']
+      if (plan?.current?.mode !== state.mode || plan.current.epoch !== state.epoch || plan.target_mode !== target || plan.proposed_epoch !== state.epoch + 1 ||
+          !Array.isArray(plan.validation) || plan.validation.some(value => !allowedValidation.includes(value)) ||
+          !audit || !Array.isArray(audit.missing_or_failed_checks || []) || (audit.missing_or_failed_checks || []).some(value => !allowedMissing.includes(value)) ||
+          audit.inflight_zero !== true || audit.batch_queue_empty !== true || audit.balance_drain_inflight_zero !== true ||
+          audit.maintenance_backfill_done !== true || audit.all_writers_migrated !== true || audit.projection_pending !== 0 ||
+          (target === 'authoritative' && audit.redis_epoch_consistent !== true)) throw new Error('SMOKE_PERSONAL_WRITER_AUDIT')
+      // The real apply endpoint records this acknowledgement before its own
+      // audit. It describes only this single owned fresh test process.
+      const result = await request('/api/quota-writer/apply', { method: 'POST', headers,
+        body: JSON.stringify({ target_mode: target, expected_epoch: state.epoch, ack_note: 'isolated fresh single-instance fixture; no relay admitted' }) })
+      if (result?.status !== 'succeeded' || result.to_mode !== target || result.from_epoch !== state.epoch || result.to_epoch !== state.epoch + 1) throw new Error('SMOKE_PERSONAL_WRITER_APPLY')
+      const next = await readState()
+      if (next.mode !== target || next.epoch !== result.to_epoch) throw new Error('SMOKE_PERSONAL_WRITER_STATE')
+      state = next
+    }
+  }
+  return { name: 'isolated fresh application writer selected through audited APIs', ok: true, writer: state.mode, epoch: state.epoch }
+}
+
 export async function probeFreshSQLite({
   baseUrl, edition, sha, isolated = false, relayFixture = false, fullContentExpected = false,
   upstreamBaseUrl, fetchImpl = globalThis.fetch, restoreFixture,

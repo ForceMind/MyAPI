@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { probeFreshSQLite, probeRelayFixture, probeSelfUseRelayFixture, validateSmokeTarget } from './docker-smoke.mjs'
+import { probeFreshSQLite, probeRelayFixture, probeSelfUseRelayFixture, preparePersonalWriterFixture, validateSmokeTarget } from './docker-smoke.mjs'
 import { fakeOpenAIListenHost, startFakeOpenAI } from './fake-openai.mjs'
 
 const sha = 'a'.repeat(40)
@@ -52,6 +52,44 @@ test('synthetic OpenAI only exposes a non-sensitive request summary', async (t) 
   assert.deepEqual(control, { count: 1, path_ok: true, model_ok: true, max_tokens_ok: true, stream_ok: true, bearer_ok: true, request_ok: true })
   assert.equal(response.headers.get('x-api-key'), 'synthetic-response-header-secret')
   assert.equal(JSON.stringify(control).includes('synthetic-upstream-key'), false)
+})
+
+test('synthetic OpenAI accepts the real Playground streaming contract with complete usage', async (t) => {
+  const upstream = await startFakeOpenAI({ port: 0 })
+  t.after(() => upstream.close())
+  const origin = `http://${upstream.host}:${upstream.port}`
+  const response = await fetch(origin + '/v1/chat/completions', {
+    method: 'POST', headers: { Authorization: 'Bearer synthetic-upstream-key', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'smoke-model', messages: [{ role: 'user', content: 'synthetic UI request' }], max_tokens: 8,
+      stream: true, stream_options: { include_usage: true } }),
+  })
+  assert.equal(response.status, 200)
+  assert.match(response.headers.get('content-type'), /^text\/event-stream/)
+  const frames = (await response.text()).trim().split('\n\n').map(frame => frame.replace(/^data: /, ''))
+  assert.equal(frames.pop(), '[DONE]')
+  const chunks = frames.map(frame => JSON.parse(frame))
+  assert.equal(chunks[0].choices[0].delta.content, 'synthetic fixed response')
+  assert.equal(chunks[1].choices[0].finish_reason, 'stop')
+  assert.deepEqual(chunks[2].choices, [])
+  assert.deepEqual(chunks[2].usage, { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 })
+  const control = await (await fetch(origin + '/__smoke__/control')).json()
+  assert.equal(control.count, 1)
+  assert.equal(control.request_ok, true)
+  assert.equal(control.stream_ok, true)
+  assert.equal(JSON.stringify(control).includes('synthetic UI request'), false)
+})
+
+test('streaming fixture refuses missing usage opt-in and malformed stream values', async (t) => {
+  const upstream = await startFakeOpenAI({ port: 0 })
+  t.after(() => upstream.close())
+  for (const streamFields of [{ stream: true }, { stream: true, stream_options: { include_usage: false } }, { stream: 'true' }]) {
+    const response = await fetch(`http://${upstream.host}:${upstream.port}/v1/chat/completions`, {
+      method: 'POST', headers: { Authorization: 'Bearer synthetic-upstream-key', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'smoke-model', messages: [], max_tokens: 8, ...streamFields }),
+    })
+    assert.equal(response.status, 400)
+    assert.deepEqual(await response.json(), { error: { message: 'synthetic request rejected' } })
+  }
 })
 
 test('synthetic OpenAI listener only allows explicit loopback or Docker namespace hosts', async (t) => {
@@ -382,4 +420,57 @@ test('zero-wallet fixture refuses non-isolated targets and a Root that was grant
     },
   }), /SMOKE_SELF_USE_POLICY_MISMATCH/)
   assert.equal(keyWrites, 0)
+})
+
+
+test('personal writer fixture uses real transition endpoints in order and returns no authentication', async () => {
+  let mode = 'legacy', epoch = 1
+  const targets = [], paths = []
+  const fetchImpl = async (url, options = {}) => {
+    const path = new URL(url).pathname; paths.push(path)
+    if (path === '/api/user/login') return json({ success: true, data: { access_token: 'synthetic-private-access' } })
+    if (path === '/api/user/self') return json({ success: true, data: { role: 100, quota: 0, used_quota: 0, request_count: 0 } })
+    if (path === '/api/quota-writer/drain') return json({ success: true, data: { complete: true } })
+    if (path === '/api/quota-writer/status') return json({ success: true, data: { state: { mode, epoch }, inflight_sessions: 0 } })
+    if (path === '/api/quota-writer/plan') return json({ success: true, data: {
+      current: { mode, epoch }, target_mode: new URL(url).searchParams.get('target'), proposed_epoch: epoch + 1,
+      validation: mode === 'legacy' ? ['cluster_drain_ack'] : ['durable_write_audit_failed'],
+      audit: { missing_or_failed_checks: ['cluster_drain_ack'], inflight_zero: true, batch_queue_empty: true,
+        balance_drain_inflight_zero: true, maintenance_backfill_done: true, all_writers_migrated: true, projection_pending: 0, redis_epoch_consistent: true },
+    } })
+    if (path === '/api/quota-writer/apply') {
+      const body = JSON.parse(options.body); assert.equal(body.expected_epoch, epoch)
+      assert.match(body.ack_note, /isolated fresh/)
+      targets.push(body.target_mode); mode = body.target_mode; epoch += 1
+      return json({ success: true, data: { status: 'succeeded', from_epoch: epoch - 1, to_epoch: epoch, to_mode: mode } })
+    }
+    throw new Error('unexpected fixture path')
+  }
+  const result = await preparePersonalWriterFixture({ baseUrl, edition: 'full', sha, isolated: true,
+    username: 'synthetic-root', password: 'synthetic-private-password', writer: 'authoritative', fetchImpl })
+  assert.deepEqual(targets, ['bridge', 'authoritative'])
+  assert.equal(paths.filter(path => path === '/api/quota-writer/drain').length, 2)
+  assert.deepEqual(result, { name: 'isolated fresh application writer selected through audited APIs', ok: true, writer: 'authoritative', epoch: 3 })
+  assert.doesNotMatch(JSON.stringify(result), /private|access_token|password/)
+})
+
+test('personal writer fixture rejects unsupported targets and active or nonfresh instances before apply', async () => {
+  let calls = 0
+  await assert.rejects(preparePersonalWriterFixture({ baseUrl, edition: 'full', sha, isolated: true, writer: 'bridge', fetchImpl: async () => { calls++ } }), /SMOKE_PERSONAL_WRITER_SCOPE/)
+  assert.equal(calls, 0)
+  for (const unsafe of ['existing-usage', 'inflight', 'audit']) {
+    let applies = 0
+    await assert.rejects(preparePersonalWriterFixture({ baseUrl, edition: 'full', sha, isolated: true,
+      username: 'synthetic-root', password: 'synthetic-password', writer: 'authoritative', fetchImpl: async (url) => {
+        const path = new URL(url).pathname
+        if (path === '/api/user/login') return json({ success: true, data: { access_token: 'synthetic-access' } })
+        if (path === '/api/user/self') return json({ success: true, data: { role: 100, quota: 0, used_quota: unsafe === 'existing-usage' ? 1 : 0, request_count: 0 } })
+        if (path === '/api/quota-writer/status') return json({ success: true, data: { state: { mode: 'legacy', epoch: 1 }, inflight_sessions: unsafe === 'inflight' ? 1 : 0 } })
+        if (path === '/api/quota-writer/drain') return json({ success: true, data: { complete: true } })
+        if (path === '/api/quota-writer/plan') return json({ success: true, data: { current: { mode: 'legacy', epoch: 1 }, target_mode: 'bridge', proposed_epoch: 2, validation: ['cluster_drain_ack'], audit: { missing_or_failed_checks: ['projection_pending'] } } })
+        if (path === '/api/quota-writer/apply') applies++
+        throw new Error('unexpected request')
+      } }), /SMOKE_PERSONAL_WRITER_/)
+    assert.equal(applies, 0)
+  }
 })
