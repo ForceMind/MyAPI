@@ -1,6 +1,46 @@
 # v0.2.0-beta.9 source release candidate
 
-## Status and authorization
+## 当前发布与部署执行（2026-10-09）
+
+本节覆盖下方保留的 Draft 发布前状态。用户已明确授权将现有 Full 实例从 beta.7
+部署至 beta.9；本批不改变应用源码、访问策略或账务模式，不发布新版本/NPM，
+不移动发行标签或 stable/latest，不进行真实 OAuth 或付费模型请求。
+
+- [GitHub prerelease](https://github.com/ForceMind/MyAPI/releases/tag/v0.2.0-beta.9)
+  已存在，非草稿；不可变发行源码为 `c45df8c6c6bf2e66d39b58b8c2bc8d61984f901b`。
+- [发行资产工作流](https://github.com/ForceMind/MyAPI/actions/runs/37913741903)和
+  [镜像工作流](https://github.com/ForceMind/MyAPI/actions/runs/37913754507)成功。
+  四份二进制与三份 checksum 文件均核验 SHA256，二进制同时匹配随附校验清单。
+- Full digest：`sha256:84d3144651aa6525c7ba1f0db9dfc1fbb9a5a19b3c448307e7960dd5dda52ada`。
+- LAN digest：`sha256:64b42bde6c982a87f5866420a523ebb35a1b5d94506f651b5810d83b3e66520e`。
+- Full/LAN 均包含 Linux amd64/arm64，四架构版本、edition 和源码标签一致；
+  两份多架构清单与四个架构发行根的 cosign 签名均核验通过。证书主体为
+  `https://github.com/ForceMind/MyAPI/.github/workflows/docker-build.yml@refs/tags/v0.2.0-beta.9`，
+  OIDC issuer 为 `https://token.actions.githubusercontent.com`。
+- [准确发行源码 CI](https://github.com/ForceMind/MyAPI/actions/runs/37911737178)
+  原运行取消，本次补跑十项全部成功；原取消状态不作为通过证据。
+- 隔离 master 副本的 beta.9 升级和另一个原快照副本的 beta.7 恢复均通过。
+  采用断网、0.5 CPU/768 MiB 与生产相同批量账务参数；26 张保护表核对通过，
+  没有新增/删除表或字段，没有自动分配访问约束。
+
+执行结果：准确源码 CI 十项全部成功；现有 Full 生产实例已从 beta.7 升级至 beta.9。
+生产停机保存完整数据目录（含 SQLite/WAL）、原 Compose/环境文件和独立数据库基线后，
+只切换上述 Full 固定镜像 digest。本地和真实 HTTPS 首页、`/api/status` 均返回 HTTP 200，
+运行版本一致为 `0.2.0-beta.9`，容器健康。SQLite 完整性、历史用户/Key/渠道/日志身份、
+既有访问约束、预算/未知状态和持久账务核对通过；没有自动分配新约束或预算。
+完整备份与文件 SHA256、私有权限核验通过；原环境文件字节、密钥、挂载和运行限制保持。
+升级、原快照恢复及生产均仅观察到符合原契约的既有失败重试运维字段更新；
+错误仍为缓存不可用，经济字段、身份、状态与应用标记逐行保持。
+本批未修复这些既有失败重试，也没有执行生产回滚。
+必须保留原环境文件字节、会话秘密、完整身份密钥环、挂载、监听和资源限制。
+旧程序不能打开已迁移数据库；恢复须使用升级前数据和配置。
+
+Playground 现在必须显式选择已有自有 Key，请求按原 API 权限和计费流程执行。
+合成验证不代表真实上游图片/PDF、账单或付费调用已验收。
+私有备份与报告留在部署主机，不提交生产域名、私有路径、密钥、数据库或原始日志。
+
+
+## Historical source-candidate status and authorization
 
 This is the beta.9 Draft source candidate, not a published release, image, or
 production-upgrade instruction. The latest published prerelease remains

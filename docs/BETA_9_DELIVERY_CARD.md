@@ -1,5 +1,30 @@
 # beta.9 delivery card: chat as an API client
 
+## Current publication and deployment result (2026-10-09)
+
+This section supersedes the retained pre-publication boundary below. The owner
+explicitly authorized deployment. The published beta.9 source is
+`c45df8c6c6bf2e66d39b58b8c2bc8d61984f901b`; exact-source CI
+[37911737178](https://github.com/ForceMind/MyAPI/actions/runs/37911737178)
+passed all ten jobs after its previously cancelled run was rerun.
+Seven release assets, four architecture identities and six container signatures
+were independently checked. Stable latest was not promoted.
+
+The existing Full HTTPS instance was upgraded from beta.7 to beta.9 using the
+verified immutable Full digest after isolated master upgrade and original-snapshot
+beta.7 restoration passed. The rehearsal preserved 26 protected tables with no
+schema changes. Production local/HTTPS homepage and status, version, health,
+SQLite integrity, historical identities and accounting, backups, original
+session/keyring/environment and runtime limits passed. Existing failed-retry
+operational metadata was checked under its exact contract; no economic/state
+change was permitted, and those preexisting failures were not repaired here.
+No production rollback or real OAuth/paid call was performed.
+
+See [the release and deployment record](RELEASE_BETA_9.md) for digests, workflow
+links and bounded acceptance. Playground requires an explicit existing owned Key
+and applies the normal API permissions and billing path.
+
+
 ## Baseline and authorization
 
 Frozen 2026-10-09 before implementation. Baseline main commit:
