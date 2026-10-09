@@ -40,7 +40,13 @@ export async function checkPendingUsageReviewBrowser({ page, origin, output, lab
     await dialog.getByText(label('No requests on this page'), { exact: true }).waitFor()
     await dialog.getByRole('button', { name: label('Next'), exact: true }).click()
     await dialog.getByRole('button', { name: `${label('Request ID')}: ${fixture.item.request_id}`, exact: true }).click()
-    await dialog.getByLabel(label('Confirmed quota (internal units)'), { exact: true }).waitFor()
+    const advanced = dialog.getByRole('button', { name: label('Advanced: manual reconciliation'), exact: true })
+    await advanced.waitFor({ state: 'visible' })
+    assert.equal(await advanced.getAttribute('aria-expanded'), 'false', 'discovered manual recovery starts collapsed')
+    for (const field of ['Confirmed quota (internal units)', 'Evidence reference']) {
+      assert.equal(await dialog.getByLabel(label(field), { exact: true }).count(), 0, `${field} is absent before manual expansion`)
+    }
+    assert.equal(await dialog.getByRole('button', { name: label('Confirm reconciliation'), exact: true }).count(), 0)
     return dialog
   }
   await page.setViewportSize({ width: 1280, height: 900 })
@@ -48,6 +54,10 @@ export async function checkPendingUsageReviewBrowser({ page, origin, output, lab
   await dialog.getByRole('button', { name: label('Close'), exact: true }).first().click()
   assert.equal(fixture.writes.length, 0, 'opening and closing an unlogged request never charges it')
   dialog = await open()
+  const advanced = dialog.getByRole('button', { name: label('Advanced: manual reconciliation'), exact: true })
+  await advanced.click()
+  assert.equal(await advanced.getAttribute('aria-expanded'), 'true')
+  assert.equal(fixture.writes.length, 0, 'expanding an unlogged request never charges it')
   await dialog.getByLabel(label('Confirmed quota (internal units)'), { exact: true }).fill('20')
   await dialog.getByLabel(label('Evidence reference'), { exact: true }).fill('synthetic completed request proof')
   await dialog.getByRole('button', { name: label('Confirm reconciliation'), exact: true }).click()
@@ -65,6 +75,7 @@ export async function checkPendingUsageReviewBrowser({ page, origin, output, lab
   await dialog.getByRole('button', { name: label('Confirm reconciliation'), exact: true }).click()
   await dialog.getByText(label('Reconciled'), { exact: true }).waitFor()
   assert.equal(fixture.writes.length, 1)
+  assert.equal(await dialog.getByRole('button', { name: label('Confirm reconciliation'), exact: true }).count(), 0, 'completed recovery cannot be submitted again')
   await dialog.getByRole('button', { name: label('Close'), exact: true }).first().click()
   await page.reload({ waitUntil: 'networkidle' })
   await page.getByRole('button', { name: label('Pending requests'), exact: true }).click()
