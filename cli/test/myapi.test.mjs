@@ -212,7 +212,7 @@ test('build forwards bounded CPU and memory limits to Docker', () => {
   const fakeDocker = path.join(fakeBin, 'docker')
   writeFileSync(
     fakeDocker,
-    '#!/bin/sh\n' +
+    '#!/bin/sh\nif [ \"$1\" = container ] && [ \"$2\" = ls ]; then exit 0; fi\n' +
       'set -eu\n' +
       'printf "%s\\n" "$*" >> "$MYAPI_FAKE_DOCKER_LOG"\n',
   )
@@ -309,7 +309,7 @@ test('upgrade restores the environment and reruns the old deployment after a pul
   const fakeDocker = path.join(fakeBin, 'docker')
   writeFileSync(
     fakeDocker,
-    '#!/bin/sh\n' +
+    '#!/bin/sh\nif [ \"$1\" = container ] && [ \"$2\" = ls ]; then exit 0; fi\n' +
       'set -eu\n' +
       'printf "%s\\n" "$*" >> "$MYAPI_FAKE_DOCKER_LOG"\n' +
       'case " $* " in\n' +
@@ -368,7 +368,7 @@ test('upgrade does not restart the old image after target startup may have migra
   const dockerLog = path.join(root, 'docker.log')
   mkdirSync(fakeBin)
   const fakeDocker = path.join(fakeBin, 'docker')
-  writeFileSync(fakeDocker, '#!/bin/sh\n' +
+  writeFileSync(fakeDocker, '#!/bin/sh\nif [ \"$1\" = container ] && [ \"$2\" = ls ]; then exit 0; fi\n' +
     'set -eu\n' +
     'printf "%s\\n" "$*" >> "$MYAPI_FAKE_DOCKER_LOG"\n' +
     'case " $* " in *" up "*) exit 42 ;; esac\n', { mode: 0o700 })
@@ -406,7 +406,7 @@ test('upgrade can pin the pulled image to its repository digest', () => {
   const digest = 'a'.repeat(64)
   writeFileSync(
     fakeDocker,
-    '#!/bin/sh\n' +
+    '#!/bin/sh\nif [ \"$1\" = container ] && [ \"$2\" = ls ]; then exit 0; fi\n' +
       'set -eu\n' +
       'printf "%s\\n" "$*" >> "$MYAPI_FAKE_DOCKER_LOG"\n' +
       'case " $* " in\n' +
@@ -449,7 +449,7 @@ test('upgrade rejects a missing or malformed pulled image digest and rolls back'
   const fakeDocker = path.join(fakeBin, 'docker')
   writeFileSync(
     fakeDocker,
-    '#!/bin/sh\n' +
+    '#!/bin/sh\nif [ \"$1\" = container ] && [ \"$2\" = ls ]; then exit 0; fi\n' +
       'set -eu\n' +
       'printf "%s\\n" "$*" >> "$MYAPI_FAKE_DOCKER_LOG"\n' +
       'case " $* " in\n' +
@@ -508,7 +508,7 @@ test('up rejects a non-loopback bind without explicit LAN opt-in', () => {
   const fakeDocker = path.join(fakeBin, 'docker')
   writeFileSync(
     fakeDocker,
-    '#!/bin/sh\n' +
+    '#!/bin/sh\nif [ \"$1\" = container ] && [ \"$2\" = ls ]; then exit 0; fi\n' +
       'set -eu\n' +
       'printf "%s\\n" "$*" >> "$MYAPI_FAKE_DOCKER_LOG"\n',
     { mode: 0o700 },
@@ -556,8 +556,11 @@ test('signature verification fails closed before changing deployment state', () 
   runCli('init', project)
   runCli('configure', '--project-dir', project, '--public-url', 'https://myapi.example.test')
 
+  const bin = path.join(root, 'bin')
+  mkdirSync(bin)
+  writeFileSync(path.join(bin, 'docker'), '#!/bin/sh\nexit 0\n', { mode: 0o700 })
   assert.throws(
-    () => runCli('upgrade', '--project-dir', project, '--version', 'v0.2.0', '--verify-signature'),
+    () => runCliWithEnv({ PATH: `${bin}:${process.env.PATH || ''}` }, 'upgrade', '--project-dir', project, '--version', 'v0.2.0', '--verify-signature'),
     /requires MYAPI_COSIGN_CERTIFICATE_IDENTITY/
   )
   const env = readFileSync(path.join(project, 'deploy/.env'), 'utf8')
@@ -680,7 +683,7 @@ test('lan init requires explicit opt-in for a private network address', () => {
   const fakeDocker = path.join(fakeBin, 'docker')
   writeFileSync(
     fakeDocker,
-    '#!/bin/sh\n' +
+    '#!/bin/sh\nif [ \"$1\" = container ] && [ \"$2\" = ls ]; then exit 0; fi\n' +
       'set -eu\n' +
       'printf "%s\\n" "$*" >> "$MYAPI_FAKE_DOCKER_LOG"\n',
     { mode: 0o700 },
@@ -780,7 +783,7 @@ for (const settings of [
     const log = path.join(root, 'cookie-inputs')
     mkdirSync(bin)
     const fakeDocker = path.join(bin, 'docker')
-    writeFileSync(fakeDocker, '#!/bin/sh\nset -eu\nprintf "%s|%s|%s\\n" "${MYAPI_SESSION_COOKIE_SECURE-unset}" "${MYAPI_SESSION_COOKIE_TRUSTED_URL-unset}" "${MYAPI_PUBLIC_URL-unset}" >> "$MYAPI_COOKIE_TEST_LOG"\n', { mode: 0o700 })
+    writeFileSync(fakeDocker, '#!/bin/sh\nif [ \"$1\" = container ] && [ \"$2\" = ls ]; then exit 0; fi\nset -eu\nprintf "%s|%s|%s\\n" "${MYAPI_SESSION_COOKIE_SECURE-unset}" "${MYAPI_SESSION_COOKIE_TRUSTED_URL-unset}" "${MYAPI_PUBLIC_URL-unset}" >> "$MYAPI_COOKIE_TEST_LOG"\n', { mode: 0o700 })
     const env = { ...process.env, PATH: `${bin}:${process.env.PATH || ''}`, MYAPI_COOKIE_TEST_LOG: log,
       MYAPI_SESSION_COOKIE_TRUSTED_URL: 'https://stale.example.test' }
     const expected = `${settings.secure}|${settings.trusted}|${settings.origin}`
@@ -806,9 +809,154 @@ test('Full refuses non-Secure cookies before invoking Docker', () => {
   const bin = path.join(root, 'bin')
   const log = path.join(root, 'called')
   mkdirSync(bin)
-  writeFileSync(path.join(bin, 'docker'), '#!/bin/sh\nprintf called >> "$MYAPI_COOKIE_TEST_LOG"\n', { mode: 0o700 })
+  writeFileSync(path.join(bin, 'docker'), '#!/bin/sh\nif [ \"$1\" = container ] && [ \"$2\" = ls ]; then exit 0; fi\nprintf called >> "$MYAPI_COOKIE_TEST_LOG"\n', { mode: 0o700 })
   const env = { ...process.env, PATH: `${bin}:${process.env.PATH || ''}`, MYAPI_COOKIE_TEST_LOG: log }
   assert.throws(() => runCliWithEnv(env, 'up', '--project-dir', project), /full edition requires MYAPI_SESSION_COOKIE_SECURE=true/)
   assert.throws(() => execFileSync('bash', [path.join(project, 'deploy/install.sh')], { env, encoding: 'utf8' }), /full edition requires MYAPI_SESSION_COOKIE_SECURE=true/)
   assert.equal(existsSync(log), false)
+})
+
+function accountingFixture() {
+  const root = temporaryRoot()
+  const project = path.join(root, 'project')
+  runCli('init', project)
+  runCli('configure', '--project-dir', project, '--public-url', 'https://accounting.example.test')
+  const envPath = path.join(project, 'deploy/.env')
+  const bin = path.join(root, 'bin')
+  const log = path.join(root, 'docker-calls')
+  mkdirSync(bin)
+  writeFileSync(path.join(bin, 'docker'), '#!/bin/sh\n' +
+    'printf "%s\\n" "$*" >> "$MYAPI_ACCOUNTING_TEST_LOG"\n' +
+    'if [ "$1" = container ] && [ "$2" = ls ]; then\n' +
+    '  if [ "${MYAPI_TEST_CONTAINER-}" != absent ]; then printf "012345abcdef\\n"; fi\n' +
+    '  exit 0\nfi\n' +
+    'if [ "$1" = container ] && [ "$2" = inspect ]; then printf "%s\\n" "${MYAPI_TEST_BATCH-}"; exit 0; fi\n', { mode: 0o700 })
+  return { root, project, envPath, log, env: { ...process.env, PATH: `${bin}:${process.env.PATH || ''}`, MYAPI_ACCOUNTING_TEST_LOG: log, MYAPI_TEST_CONTAINER: 'absent' } }
+}
+
+test('new Full and LAN configurations explicitly choose cache-free batch=false', () => {
+  const f = accountingFixture()
+  assert.match(readFileSync(f.envPath, 'utf8'), /^BATCH_UPDATE_ENABLED=false$/m)
+  const lan = path.join(f.root, 'lan')
+  runCli('lan', 'init', lan)
+  assert.match(readFileSync(path.join(lan, 'deploy/.env'), 'utf8'), /^BATCH_UPDATE_ENABLED=false$/m)
+})
+
+test('existing environment is preserved byte-for-byte even with configure --force', () => {
+  const f = accountingFixture()
+  for (const choice of ['true', 'false', '']) {
+    const original = readFileSync(f.envPath, 'utf8').replace(/^BATCH_UPDATE_ENABLED=.*$/m, choice ? `BATCH_UPDATE_ENABLED=${choice}` : '# historical batch choice absent')
+    writeFileSync(f.envPath, original)
+    assert.throws(() => runCli('configure', '--project-dir', f.project, '--force'), /existing deployment configuration is preserved/)
+    assert.equal(readFileSync(f.envPath, 'utf8'), original)
+  }
+})
+
+test('missing ambiguous and cache-backed choices refuse up upgrade and installer before Docker or writes', () => {
+  const f = accountingFixture()
+  const original = readFileSync(f.envPath, 'utf8')
+  for (const choice of ['', 'TRUE', 'true', 'false\nBATCH_UPDATE_ENABLED=true']) {
+    const contents = original.replace(/^BATCH_UPDATE_ENABLED=.*$/m, choice ? `BATCH_UPDATE_ENABLED=${choice}` : '# batch unspecified')
+    writeFileSync(f.envPath, contents)
+    const env = { ...f.env, BATCH_UPDATE_ENABLED: 'false' }
+    assert.throws(() => runCliWithEnv(env, 'up', '--project-dir', f.project), /BATCH_UPDATE_ENABLED.*(?:review|duplicated)/)
+    assert.throws(() => runCliWithEnv(env, 'upgrade', '--project-dir', f.project, '--version', 'v0.2.0'), /BATCH_UPDATE_ENABLED.*(?:review|duplicated)/)
+    assert.throws(() => execFileSync('bash', [path.join(f.project, 'deploy/install.sh')], { cwd: f.project, env, encoding: 'utf8' }), /BATCH_UPDATE_ENABLED.*(?:review|duplicated)/)
+    assert.equal(readFileSync(f.envPath, 'utf8'), contents)
+    assert.equal(existsSync(f.log), false, 'no Docker action including stop/recreate')
+    assert.equal(existsSync(path.join(f.project, 'backups')), false)
+  }
+})
+
+test('saved false cannot silently replace the old hardcoded true container', () => {
+  const f = accountingFixture()
+  const original = readFileSync(f.envPath, 'utf8')
+  for (const previous of ['true', '', 'truefalse']) {
+    const env = { ...f.env, MYAPI_TEST_CONTAINER: 'existing', MYAPI_TEST_BATCH: previous }
+    assert.throws(() => runCliWithEnv(env, 'up', '--project-dir', f.project), /existing container batch setting is unknown or differs/)
+    assert.throws(() => runCliWithEnv(env, 'upgrade', '--project-dir', f.project, '--version', 'v0.2.0'), /existing container batch setting is unknown or differs/)
+    assert.throws(() => execFileSync('bash', [path.join(f.project, 'deploy/install.sh')], { cwd: f.project, env, encoding: 'utf8' }), /existing container batch setting is unknown or differs/)
+    assert.equal(readFileSync(f.envPath, 'utf8'), original)
+    assert.equal(existsSync(path.join(f.project, 'backups')), false)
+    const calls = readFileSync(f.log, 'utf8').trim().split('\n')
+    assert.ok(calls.every((line) => line.startsWith('container ls ') || line.startsWith('container inspect ')), calls.join('\n'))
+  }
+})
+
+test('reviewed existing false overrides conflicting ambient batch choice in both helpers', () => {
+  const f = accountingFixture()
+  const docker = path.join(f.root, 'bin/docker')
+  writeFileSync(docker, '#!/bin/sh\n' +
+    'if [ "$1" = container ] && [ "$2" = ls ]; then printf "012345abcdef\\n"; exit 0; fi\n' +
+    'if [ "$1" = container ] && [ "$2" = inspect ]; then printf "false\\n"; exit 0; fi\n' +
+    'printf "%s\\n" "$BATCH_UPDATE_ENABLED" >> "$MYAPI_ACCOUNTING_TEST_LOG"\n', { mode: 0o700 })
+  const env = { ...f.env, BATCH_UPDATE_ENABLED: 'true' }
+  runCliWithEnv(env, 'up', '--project-dir', f.project)
+  execFileSync('bash', [path.join(f.project, 'deploy/install.sh')], { cwd: f.project, env, encoding: 'utf8' })
+  assert.ok(readFileSync(f.log, 'utf8').trim().split('\n').every((value) => value === 'false'))
+  assert.match(readFileSync(f.envPath, 'utf8'), /^BATCH_UPDATE_ENABLED=false$/m)
+})
+
+test('missing environment with existing database cannot be classified as fresh', () => {
+  const f = accountingFixture()
+  rmSync(f.envPath)
+  const database = path.join(f.project, 'deploy/data/my-api.db')
+  writeFileSync(database, 'synthetic-existing-database')
+  assert.throws(() => runCli('configure', '--project-dir', f.project, '--force'), /existing data or identity requires review/)
+  assert.throws(() => execFileSync('bash', [path.join(f.project, 'deploy/install.sh')], { cwd: f.project, env: f.env, encoding: 'utf8' }), /Existing data or identity needs review/)
+  assert.equal(existsSync(f.envPath), false)
+  assert.equal(readFileSync(database, 'utf8'), 'synthetic-existing-database')
+  assert.equal(existsSync(f.log), false)
+})
+
+test('existing data without a verified container cannot use a fresh false choice', () => {
+  const f = accountingFixture()
+  const original = readFileSync(f.envPath, 'utf8')
+  const database = path.join(f.project, 'deploy/data/my-api.db')
+  writeFileSync(database, 'synthetic-existing-database')
+  assert.throws(() => runCliWithEnv(f.env, 'upgrade', '--project-dir', f.project, '--version', 'v0.2.0'), /existing data or identity requires review/)
+  assert.throws(() => execFileSync('bash', [path.join(f.project, 'deploy/install.sh')], { cwd: f.project, env: f.env, encoding: 'utf8' }), /Existing data or identity needs review/)
+  assert.equal(readFileSync(f.envPath, 'utf8'), original)
+  assert.equal(readFileSync(database, 'utf8'), 'synthetic-existing-database')
+  assert.equal(existsSync(path.join(f.project, 'backups')), false)
+  assert.ok(readFileSync(f.log, 'utf8').trim().split('\n').every((line) => line.startsWith('container ls ')))
+})
+
+test('source installer seeds explicit false only when no prior data or environment exists', () => {
+  const f = accountingFixture()
+  rmSync(f.envPath)
+  assert.throws(() => execFileSync('bash', [path.join(f.project, 'deploy/install.sh')], { cwd: f.project, env: f.env, encoding: 'utf8' }), /Created .*\.env/)
+  assert.match(readFileSync(f.envPath, 'utf8'), /^BATCH_UPDATE_ENABLED=false$/m)
+  assert.equal(existsSync(f.log), false)
+})
+
+test('adoption of nonempty data cannot inherit the new installation accounting default', () => {
+  const f = accountingFixture()
+  const original = readFileSync(f.envPath, 'utf8')
+  const oldData = path.join(f.root, 'old-data')
+  const oldLogs = path.join(f.root, 'old-logs')
+  mkdirSync(oldData)
+  mkdirSync(oldLogs)
+  writeFileSync(path.join(oldData, 'one-api.db'), 'synthetic-old-identity')
+  assert.throws(() => runCli('adopt', '--project-dir', f.project, '--data-dir', oldData, '--logs-dir', oldLogs), /adopting existing data needs accounting configuration review/)
+  assert.equal(readFileSync(f.envPath, 'utf8'), original)
+  assert.equal(readFileSync(path.join(oldData, 'one-api.db'), 'utf8'), 'synthetic-old-identity')
+})
+
+test('old missing and unknown accounting contract markers block before any deployment mutation', () => {
+  const f = accountingFixture()
+  const original = readFileSync(f.envPath, 'utf8')
+  assert.match(original, /^MYAPI_ACCOUNTING_CONFIG_VERSION=1$/m)
+  for (const version of ['', '2', '1\nMYAPI_ACCOUNTING_CONFIG_VERSION=2']) {
+    const contents = original.replace(/^MYAPI_ACCOUNTING_CONFIG_VERSION=.*$/m, version ? `MYAPI_ACCOUNTING_CONFIG_VERSION=${version}` : '# historical marker absent')
+    writeFileSync(f.envPath, contents)
+    const env = { ...f.env, MYAPI_ACCOUNTING_CONFIG_VERSION: '1' }
+    assert.throws(() => runCliWithEnv(env, 'up', '--project-dir', f.project), /MYAPI_ACCOUNTING_CONFIG_VERSION.*(?:review|duplicated)/)
+    assert.throws(() => runCliWithEnv(env, 'upgrade', '--project-dir', f.project, '--version', 'v0.2.0'), /MYAPI_ACCOUNTING_CONFIG_VERSION.*(?:review|duplicated)/)
+    assert.throws(() => execFileSync('bash', [path.join(f.project, 'deploy/install.sh')], { cwd: f.project, env, encoding: 'utf8' }), /MYAPI_ACCOUNTING_CONFIG_VERSION.*(?:review|duplicated)/)
+    assert.throws(() => runCliWithEnv(env, 'configure', '--project-dir', f.project, '--force'), /existing deployment configuration is preserved/)
+    assert.equal(readFileSync(f.envPath, 'utf8'), contents)
+    assert.equal(existsSync(f.log), false)
+    assert.equal(existsSync(path.join(f.project, 'backups')), false)
+  }
 })

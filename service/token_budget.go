@@ -142,9 +142,13 @@ func SettleTokenBudgetUsage(ctx *gin.Context, info *relaycommon.RelayInfo, usage
 			return err
 		}
 		if evidence.Stream != info.IsStream || info.IsStream &&
-			(info.StreamStatus == nil || info.StreamStatus.EndReason != relaycommon.StreamEndReasonDone || info.StreamStatus.EndError != nil || info.StreamStatus.HasErrors() || ctx.Request.Context().Err() != nil) {
+			(info.StreamStatus == nil || info.StreamStatus.EndReason != relaycommon.StreamEndReasonDone || info.StreamStatus.EndError != nil || info.StreamStatus.HasErrors()) {
 			return model.ErrTokenBudgetPending
 		}
+		// The adapter records early cancellation and downstream write failures.
+		// A client may cancel after receiving the complete terminal event; that
+		// cannot invalidate already-qualified upstream usage. Persist through
+		// the bounded, cancellation-detached operation context created above.
 		if info.TieredBillingSnapshot != nil && info.TieredBillingSnapshot.OfficialPricePublicationID != "" && (evidence.CacheRead == nil || evidence.CacheWrite == nil || evidence.ServiceTier != "default") {
 			return model.ErrTokenBudgetPending
 		}

@@ -30,3 +30,35 @@ test('source installer smoke exercises the real script without publishing or bor
     assert.ok(workflow.split('permissions:')[0].includes(`'${file}'`))
   }
 })
+
+test('cache-free and Redis-backed templates declare compatible explicit batch choices', () => {
+  const deploy = readFileSync(new URL('../../deploy/docker-compose.yml', import.meta.url), 'utf8')
+  const example = readFileSync(new URL('../../deploy/.env.example', import.meta.url), 'utf8')
+  assert.match(example, /^BATCH_UPDATE_ENABLED=false$/m)
+  assert.match(example, /^MYAPI_ACCOUNTING_CONFIG_VERSION=1$/m)
+  assert.match(deploy, /MYAPI_ACCOUNTING_CONFIG_VERSION: \$\{MYAPI_ACCOUNTING_CONFIG_VERSION:\?[^}]+\}/)
+  assert.match(deploy, /BATCH_UPDATE_ENABLED: \$\{BATCH_UPDATE_ENABLED:\?[^}]+\}/)
+  assert.doesNotMatch(deploy, /BATCH_UPDATE_ENABLED:\s*"true"|BATCH_UPDATE_ENABLED:-false/)
+  assert.doesNotMatch(deploy, /REDIS_CONN_STRING:/)
+  for (const filename of ['docker-compose.yml', 'docker-compose.dev.yml']) {
+    const source = readFileSync(new URL(`../../${filename}`, import.meta.url), 'utf8')
+    assert.match(source, /BATCH_UPDATE_ENABLED=true/)
+    assert.match(source, /REDIS_CONN_STRING=redis:\/\//)
+    assert.match(source, /\n  redis:/)
+  }
+  const workflow = readFileSync(new URL('../../.github/workflows/docker-smoke.yml', import.meta.url), 'utf8')
+  assert.match(workflow, /BATCH_UPDATE_ENABLED=false/)
+  assert.match(workflow, /MYAPI_ACCOUNTING_CONFIG_VERSION=1/)
+})
+
+test('startup publishes validated batch configuration before business workers and HTTP', () => {
+  const source = readFileSync(new URL('../../main.go', import.meta.url), 'utf8')
+  const initBody = source.slice(source.indexOf('func InitResources()'))
+  const mainBody = source.slice(source.indexOf('func main()'), source.indexOf('func InitResources()'))
+  assert.ok(initBody.indexOf('service.ValidateQuotaBatchStartupConfiguration') > initBody.indexOf('common.InitRedisClient()'))
+  assert.ok(initBody.indexOf('common.BatchUpdateEnabled = batchEnabled') > initBody.indexOf('service.ValidateQuotaBatchStartupConfiguration'))
+  assert.ok(mainBody.indexOf('InitResources()') < mainBody.indexOf('service.StartSystemTaskRunner()'))
+  assert.ok(mainBody.indexOf('InitResources()') < mainBody.indexOf('srv.ListenAndServe()'))
+  assert.doesNotMatch(mainBody, /os\.Getenv\("BATCH_UPDATE_ENABLED"\)/)
+  assert.match(mainBody, /if common\.BatchUpdateEnabled \{/)
+})

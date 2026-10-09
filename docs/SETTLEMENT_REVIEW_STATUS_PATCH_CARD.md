@@ -1,5 +1,13 @@
 # Settlement review status patch after beta.9
 
+## Subsequent incident priority
+
+The independently reproduced stream-completion cancellation and legacy batch/no-Redis
+configuration cases are tracked in [the incident card](BETA_9_PENDING_USAGE_INCIDENT_CARD.md).
+They are separate corrective commits in the same Draft PR. The original status projection
+by itself does not fix either cause or identify a production request. Final combined HEAD
+requires its own full verification; personal-core features remain paused.
+
 ## Frozen scope
 
 The published `v0.2.0-beta.9` tag and artifacts remain immutable. This is a new

@@ -112,11 +112,15 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	defer service.CloseResponseBodyGracefully(resp)
 	if info.StrictTokenBudget && info.RelayMode == relayconstant.RelayModeChatCompletions {
 		original := c.Writer
-		observed := &strictChatWriteObserver{ResponseWriter: original}
+		observed := &strictChatWriteObserver{ResponseWriter: original, requestContext: c.Request.Context()}
 		c.Writer = observed
 		defer func() {
 			c.Writer = original
-			if observed.failed.Load() && info.StreamStatus != nil {
+			// StringData can skip writes entirely after cancellation. Require a
+			// complete terminal write before ignoring that late cancellation;
+			// upstream completion and native usage are validated separately.
+			interrupted := c.Request.Context().Err() != nil && !observed.doneWritten.Load()
+			if (observed.failed.Load() || interrupted) && info.StreamStatus != nil {
 				info.StreamStatus.RecordError("strict Chat downstream write failed")
 			}
 		}()

@@ -55,7 +55,7 @@ jobs:
           echo "MYAPI_INSTALLER_ROOT=$MYAPI_INSTALLER_ROOT" >> "$GITHUB_ENV"
           {
             printf 'MYAPI_IMAGE=local/myapi:install-%s\n' "$GITHUB_SHA"
-            printf 'MYAPI_EDITION=lan\nMYAPI_BUILD_LOCAL=true\n'
+            printf 'MYAPI_EDITION=lan\nMYAPI_BUILD_LOCAL=true\nBATCH_UPDATE_ENABLED=false\nMYAPI_ACCOUNTING_CONFIG_VERSION=1\n'
             printf 'MYAPI_PORT=18082\nMYAPI_BIND_ADDRESS=127.0.0.1\nMYAPI_ALLOW_LAN=false\n'
             printf 'MYAPI_PUBLIC_URL=http://127.0.0.1:18082\nMYAPI_SESSION_COOKIE_SECURE=false\n'
             printf 'MYAPI_DATA_DIR=%s/data\nMYAPI_LOGS_DIR=%s/logs\n' "$MYAPI_INSTALLER_ROOT" "$MYAPI_INSTALLER_ROOT"

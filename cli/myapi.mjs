@@ -14,6 +14,7 @@ import {
   chmodSync,
   cpSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   readdirSync,
@@ -176,6 +177,8 @@ function composeEnvironment(values) {
     'MYAPI_CPU_LIMIT',
     'MYAPI_MEMORY_LIMIT',
     'MYAPI_BUILD_PARALLELISM',
+    'BATCH_UPDATE_ENABLED',
+    'MYAPI_ACCOUNTING_CONFIG_VERSION',
   ]) {
     if (values[key] !== undefined && values[key] !== '') environment[key] = values[key]
   }
@@ -200,6 +203,14 @@ function shouldBuildLocalImage(values) {
 
 function validateRuntimeConfiguration(values) {
   const errors = []
+  if (values.MYAPI_ACCOUNTING_CONFIG_VERSION !== '1') {
+    errors.push('MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1; do not copy the new marker into an old installation without reviewing its effective writer and cache accounting state')
+  }
+  if (!['true', 'false'].includes(values.BATCH_UPDATE_ENABLED)) {
+    errors.push('BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; no accounting mode was changed')
+  } else if (values.BATCH_UPDATE_ENABLED === 'true') {
+    errors.push('BATCH_UPDATE_ENABLED=true needs review: this cache-free deployment helper cannot verify the existing writer mode or Redis accounting state; keep the running instance and review its original deployment, do not disable batching to bypass this check')
+  }
   const edition = values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION
   if (!['full', 'lan'].includes(edition)) {
     errors.push('MYAPI_EDITION must be full or lan')
@@ -395,6 +406,9 @@ function parseEnvFileContents(contents) {
     if (separator <= 0) continue
     const key = line.slice(0, separator).trim()
     if (!/^[A-Z][A-Z0-9_]*$/.test(key)) continue
+    if (['BATCH_UPDATE_ENABLED', 'MYAPI_ACCOUNTING_CONFIG_VERSION'].includes(key) && Object.hasOwn(values, key)) {
+      throw new Error(`${key} is duplicated and needs review; no accounting mode was changed`)
+    }
     values[key] = line.slice(separator + 1).trim()
   }
   return values
@@ -488,6 +502,8 @@ function run(command, args, options = {}) {
     encoding: 'utf8',
     env: options.env,
     stdio: options.capture ? 'pipe' : 'inherit',
+    timeout: options.timeout,
+    maxBuffer: options.maxBuffer,
     shell: false,
   })
   if (options.capture) return result
@@ -572,11 +588,29 @@ function initProject(args, showNextStep = true) {
   if (showNextStep) console.log(`Next: myapi configure --project-dir ${destination}`)
 }
 
+function assertFreshDeploymentData(paths, selectedData) {
+  const dataTargets = new Set([selectedData, path.join(paths.deployDir, 'data'), path.join(paths.projectRoot, 'data'), path.join(paths.projectRoot, 'backups')])
+  for (const target of dataTargets) {
+    let stat
+    try { stat = lstatSync(target) } catch (error) {
+      if (error.code === 'ENOENT') continue
+      throw error
+    }
+    if (!stat.isDirectory() || readdirSync(target).length !== 0) {
+      throw new Error('existing data or identity requires review; refusing to generate a fresh BATCH_UPDATE_ENABLED=false configuration')
+    }
+  }
+  if (existsSync(path.join(paths.projectRoot, '.env')) || [paths.projectRoot, paths.deployDir].some((directory) =>
+    readdirSync(directory).some((name) => /\.(?:db(?:-(?:wal|shm))?|sqlite3?)$/i.test(name)))) {
+    throw new Error('existing native configuration or database requires review; refusing to generate a fresh accounting configuration')
+  }
+}
+
 function configureProject(args) {
   const paths = deploymentPaths(projectRootFromArgs(args))
   assertDeploymentSource(paths)
-  if (existsSync(paths.envFile) && !args.includes('--force')) {
-    throw new Error(`${paths.envFile} already exists; use --force to replace it`)
+  if (existsSync(paths.envFile)) {
+    throw new Error('existing deployment configuration is preserved, including with --force; review BATCH_UPDATE_ENABLED and keep the original identities and accounting configuration')
   }
 
   let contents = readFileSync(paths.envExample, 'utf8')
@@ -588,6 +622,13 @@ function configureProject(args) {
   const logsDir = argumentValue(args, '--logs-dir')
   if (dataDir) contents = setEnvValue(contents, 'MYAPI_DATA_DIR', path.resolve(dataDir))
   if (logsDir) contents = setEnvValue(contents, 'MYAPI_LOGS_DIR', path.resolve(logsDir))
+
+  const proposed = parseEnvFileContents(contents)
+  const selectedData = path.resolve(paths.deployDir, deploymentValue(proposed, 'MYAPI_DATA_DIR') || deploymentDefaults.MYAPI_DATA_DIR)
+  // Missing configuration is not proof of a fresh database or identity.
+  assertFreshDeploymentData(paths, selectedData)
+  contents = setEnvValue(contents, 'BATCH_UPDATE_ENABLED', 'false')
+  contents = setEnvValue(contents, 'MYAPI_ACCOUNTING_CONFIG_VERSION', '1')
 
   writeFileSync(paths.envFile, contents, { mode: 0o600 })
   chmodSync(paths.envFile, 0o600)
@@ -778,6 +819,9 @@ function adoptDataPaths(args) {
     }
   }
 
+  if (readdirSync(resolvedDataDir).length !== 0) {
+    throw new Error('adopting existing data needs accounting configuration review; preserve the original BATCH_UPDATE_ENABLED and Redis state before changing deployment paths')
+  }
   let contents = readFileSync(paths.envFile, 'utf8')
   contents = setEnvValue(contents, 'MYAPI_DATA_DIR', resolvedDataDir)
   contents = setEnvValue(contents, 'MYAPI_LOGS_DIR', resolvedLogsDir)
@@ -853,6 +897,26 @@ function doctor(args) {
   if (checks.some((check) => !check.ok)) process.exitCode = 1
 }
 
+function verifyExistingAccountingConfiguration(paths, values) {
+  // Do not print inspect stderr or a full Config.Env: they may contain private
+  // deployment data. Query only target existence and the exact batch boolean.
+  const listed = run('docker', ['container', 'ls', '-a', '--filter', 'name=^/my-api$', '--format', '{{.ID}}'], { capture: true, env: composeEnvironment(values), timeout: 10000, maxBuffer: 4096 })
+  const ids = String(listed.stdout || '').trim().split(/\s+/).filter(Boolean)
+  if (listed.status !== 0 || ids.length > 1 || ids.some((id) => !/^[a-f0-9]{12,64}$/.test(id))) {
+    throw new Error('accounting configuration needs review: cannot safely identify the existing deployment; no container or configuration was changed')
+  }
+  if (ids.length === 0) {
+    const selectedData = path.resolve(paths.deployDir, deploymentValue(values, 'MYAPI_DATA_DIR') || deploymentDefaults.MYAPI_DATA_DIR)
+    assertFreshDeploymentData(paths, selectedData)
+    return
+  }
+  const inspected = run('docker', ['container', 'inspect', '--format', '{{range .Config.Env}}{{if eq . "BATCH_UPDATE_ENABLED=true"}}true{{end}}{{if eq . "BATCH_UPDATE_ENABLED=false"}}false{{end}}{{end}}', ids[0]], { capture: true, env: composeEnvironment(values), timeout: 10000, maxBuffer: 4096 })
+  const previous = String(inspected.stdout || '').trim()
+  if (inspected.status !== 0 || !['true', 'false'].includes(previous) || previous !== values.BATCH_UPDATE_ENABLED) {
+    throw new Error('accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart')
+  }
+}
+
 function deploymentCommand(command, args) {
   const paths = deploymentPaths(projectRootFromArgs(args))
   assertDeploymentSource(paths)
@@ -907,6 +971,7 @@ function deploymentCommand(command, args) {
     if (errors.length > 0) {
       throw new Error(`deployment preflight failed: ${errors.join('; ')}`)
     }
+    verifyExistingAccountingConfiguration(paths, values)
     const composeConfig = run(
       'docker',
       composeArguments(paths, ['config', '--quiet']),
@@ -1074,6 +1139,7 @@ function printUpgradeDryRun(plan, args) {
     imageResolution: plan.pinDigest ? 'digest-after-pull' : 'tag',
     rollbackPolicy: 'manual-database-verification-after-target-start',
     checks: ['deployment-files', 'environment', 'runtime-configuration'],
+    existingAccountingConfiguration: 'must-be-verified-before-apply',
     writes: [],
     dockerOperations: [],
   }
@@ -1091,7 +1157,7 @@ function printUpgradeDryRun(plan, args) {
     `Signature verification: ${result.signatureVerification === 'requested-not-executed' ? 'requested (not executed in dry-run)' : 'not requested'}`
   )
   console.log(`Digest pinning: ${result.imagePinning === 'requested-not-executed' ? 'requested (resolved after pull)' : 'not requested'}`)
-  console.log('Preflight: deployment files, environment, and runtime configuration passed.')
+  console.log('Configuration checks passed. Applying the upgrade additionally verifies the existing container accounting configuration before any write or restart.')
   console.log('After target startup is attempted, automatic image rollback is disabled. Verify the database backup before any downgrade.')
   console.log('Next step: run the same command without --dry-run only on an approved copy.')
 }
@@ -1104,6 +1170,7 @@ function upgradeDeployment(args) {
     values,
     image,
   } = plan
+  verifyExistingAccountingConfiguration(paths, values)
   if (plan.verifySignature && !plan.pinDigest) verifyImageSignature(image, values)
   const backupDir = path.join(paths.projectRoot, 'backups')
   const backupPath = path.join(
