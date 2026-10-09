@@ -1074,8 +1074,8 @@ try {
     }
   })
 
-  await run('personal-policy-and-budget-clarity', async () => {
-    for (const [language, width] of [...Object.keys(languages).map(language => [language, 320]), ['en', 1280]]) {
+  for (const [language, width] of [...Object.keys(languages).map(language => [language, 320]), ['en', 1280]]) {
+    await run(`personal-policy-and-budget-clarity-${language}-${width}`, async () => {
       const { page, context, fixture } = await session({ role: 1, language, width, personalPolicy: true, longText: true, hasTouch: width === 320 })
       const start = report.requests.length
       for (const key of ['My usage policy', 'Saved wallet preference', 'Global funding mode', 'Usage budgets', 'Budget types and scope', 'No-wallet configuration conditions are met for supported requests.', 'Configuration could not be confirmed.']) {
@@ -1103,7 +1103,7 @@ try {
       await dialog.getByRole('button', { name: label('Refresh', language), exact: true }).click()
       await dialog.getByRole('alert').waitFor()
       await configuration.getByText(label('Configuration could not be confirmed.', language), { exact: true }).waitFor()
-      await dialog.getByRole('button', { name: label('Close', language), exact: true }).click()
+      await dialog.getByRole('button', { name: label('Close', language), exact: true }).and(dialog.locator('button:not([data-slot="dialog-close"])')).click()
       await dialog.waitFor({ state: 'hidden' })
       const budgetEntry = page.getByRole('button', { name: label('API Key usage budgets', language), exact: true })
       await budgetEntry.getByText(label('Usage budgets', language), { exact: true }).waitFor()
@@ -1129,8 +1129,8 @@ try {
       await screenshot(page, `personal-internal-quota-${language}-${width}`, { touch: width === 320 })
       assertSettlementReadOnly(start)
       await context.close(); contexts.delete(context)
-    }
-  })
+    })
+  }
 
   await run('personal-policy-root-draft-remains-unsaved', async () => {
     const { page, fixture } = await session({ width: 320, personalPolicy: true })
@@ -1148,7 +1148,7 @@ try {
     await dialog.getByText(label('Required'), { exact: true }).waitFor()
     await screenshot(page, 'personal-policy-root-confirmation-required-320')
     assertSettlementReadOnly(start)
-    await dialog.getByRole('button', { name: label('Close'), exact: true }).click()
+    await dialog.getByRole('button', { name: label('Close'), exact: true }).and(dialog.locator('button:not([data-slot="dialog-close"])')).click()
     await dialog.waitFor({ state: 'hidden' })
     await page.getByRole('button', { name: label('My usage policy'), exact: true }).click()
     await preference.waitFor()
