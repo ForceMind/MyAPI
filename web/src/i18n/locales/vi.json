@@ -5491,6 +5491,7 @@
     "This route discovers upstream OpenAI models and cannot be split or matched by client model rules.": "Tuyến này khám phá các mô hình OpenAI thượng nguồn và không thể tách hoặc đối sánh bằng quy tắc mô hình phía máy khách.",
     "This route is used only by channel management to discover upstream models.": "Route này chỉ được quản lý kênh dùng để lấy mô hình thượng nguồn.",
     "This route is used only by channel management to query the upstream balance.": "Route này chỉ được quản lý kênh dùng để truy vấn số dư thượng nguồn.",
+    "This request does not meet the selected key's strict budget requirements. Use a compatible API client or choose another key.": "Yêu cầu này không đáp ứng các điều kiện ngân sách nghiêm ngặt của khóa đã chọn. Hãy dùng ứng dụng API tương thích hoặc chọn khóa khác.",
     "This saved channel/group/model preview does not verify API Key permissions, strict budget eligibility, prices, login state, account quota, or request success.": "Xem trước kênh/nhóm/mô hình đã lưu không kiểm tra quyền API Key, điều kiện ngân sách nghiêm ngặt, giá, đăng nhập, hạn mức tài khoản hay thành công yêu cầu.",
     "This session will lose access immediately and must sign in again.": "Phiên này sẽ mất quyền truy cập ngay lập tức và phải đăng nhập lại.",
     "This site currently has {{count}} models enabled": "Trang này hiện đã bật {{count}} mô hình",

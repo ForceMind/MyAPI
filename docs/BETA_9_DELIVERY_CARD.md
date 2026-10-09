@@ -36,7 +36,7 @@ identity behavior with a server-verified selection of a real owned Key.
    sent to the browser, URL or chat storage. No first-Key or unlimited fallback.
    Models are read under the selected Key. Session/PAT and CSRF limits remain.
 2. Images: PNG/JPEG/WEBP/GIF, selection and paste, previews/removal, image-only
-   prompts, real `image_url` payloads. Four images, 10 MiB each, 20 MiB decoded
+   prompts, real `image_url` payloads. Four attachments total, 10 MiB each, 20 MiB decoded
    aggregate maximum; server request limit and validation remain authoritative.
    Existing smaller deployment limits may reject requests. Unsupported model /
    provider requests are not presented as successful or silently stripped.
@@ -109,7 +109,7 @@ The planning checkpoint is `68d40113e0a63c319f8209b51dfab7126f5ef200`;
 subsequent source and check results are tied to the PR's exact head, not inferred
 from beta.8 or a prior planning run.
 
-Local reviewed frontend: 176 files / 997 tests, TypeScript, changed-file lint and
+Reviewed implementation checkpoint `f008dc79`: 178 files / 1007 frontend tests, TypeScript, changed-file lint and
 production build passed. The independent frontend review reran the repaired
 account/draft/query failure cases. Independent relaykit build and complete tests
 passed. Backend tests exercise the real selected-Key/Relay/HTTP transport path,
@@ -119,8 +119,9 @@ and half-stream EOF with no replay or fabricated successful usage.
 
 An opt-in disposable database contract verifies owned Key lookup, foreign-owner
 and deleted-Key denial, expiry and exhaustion status persistence on SQLite,
-MySQL 5.7 and PostgreSQL 9.6. SQLite passed locally; the other two require the
-existing B2 CI services. All original backend/race/database gates remain enabled.
+MySQL 5.7 and PostgreSQL 9.6. All three explicitly passed in the checkpoint
+[CI run](https://github.com/ForceMind/MyAPI/actions/runs/37895495612), with no
+skipped Playground Token subtest. All original backend/race/database gates remain enabled.
 
 The current source must pass its own complete CI, the four existing Chromium
 suites and the new eight-session/seven-language chat attachment browser suite.
@@ -140,8 +141,12 @@ account, or production acceptance is claimed.
 - TXT/DOCX/etc.: not offered as Chat file attachments in this version. OpenAI's
   broader non-PDF input support is a Responses API capability, not interchangeable
   with Chat. No silent extraction, format conversion or unsupported field drop.
-- Strict budgets: images/PDF remain unsupported under the current text-only
-  qualification. Choosing chat does not create a bypass.
+- Strict budgets: images/PDF remain unsupported. Explicit strict Keys with exact
+  `gpt-6.1-sol` use the existing native-Chat text envelope, required bounded
+  `max_completion_tokens`, streaming usage inclusion and default service tier.
+  The UI reflects the required/unsupported parameters without changing ordinary-Key
+  preferences. Existing actual-route, model, funding, price and service-tier gates
+  remain authoritative; choosing chat does not create a bypass.
 - Files API IDs/upload/download/delete: deferred persistent lifecycle.
 
 Primary protocol references: [OpenAI file inputs](https://developers.openai.com/api/docs/guides/file-inputs)
@@ -175,3 +180,32 @@ version does not import those entries; any future import needs explicit ownershi
 verification. Live attachment bytes are never stored in those history fields;
 reopened messages retain a missing-attachment marker and cannot silently send
 without their original files. Existing successful text remains per-user.
+
+
+## Closeout checklist and release boundary
+
+- Identity, shared middleware/Relay, quota/log attribution: real controller tests
+  include both writer modes and streaming/nonstreaming; the unselected Key remains
+  unchanged. Owners inspect the existing `/usage-logs/common` Token Name column/filter.
+- Media validation, multi-image/removal, invalid input and actual Stop cancellation
+  require real-browser coverage in addition to the focused unit/hook tests. The
+  first green checkpoint did not cover every one of these browser actions; the
+  closeout harness now includes these actions; its new-head evidence must pass
+  before declaring this card complete.
+- Seven-language 320px identity is checked for actual line clipping, selector size,
+  ancestor opacity and text contrast, not just absence of horizontal overflow.
+- The shared strict-budget unsupported code applies to text as well as media;
+  its user-facing message must not falsely promise that sending text alone works.
+  Qualified strict text must be proved through actual middleware/Relay/settlement,
+  not just successful authentication or a mocked terminal handler.
+- `VERSION`, package and both compose defaults name the beta.9 candidate; README
+  install examples name the published beta.8. Current handoff headers override
+  retained historical status paragraphs. [Release notes](RELEASE_BETA_9.md) explain
+  this distinction and link the screenshot/evidence checkpoint.
+- Final accurate-head CI, final browser artifacts/pixels and clean-source package
+  validation remain mandatory after closeout edits. Their authoritative result is
+  [Draft PR #4](https://github.com/ForceMind/MyAPI/pull/4); earlier source evidence
+  is not inherited automatically. Docker smoke is skipped while Draft and is not a pass.
+- Stop at the verified Draft source candidate. Merge, tag/prerelease, GHCR/NPM
+  publication, real account/provider billing checks and deployment remain separately
+  authorized actions; `/v1/files` and later roadmap capabilities remain deferred.

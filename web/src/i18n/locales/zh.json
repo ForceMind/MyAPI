@@ -5491,6 +5491,7 @@
     "This route discovers upstream OpenAI models and cannot be split or matched by client model rules.": "此路由用于发现上游 OpenAI 模型，不能拆分或使用客户端模型规则匹配。",
     "This route is used only by channel management to discover upstream models.": "此路由仅供渠道管理获取上游模型。",
     "This route is used only by channel management to query the upstream balance.": "此路由仅供渠道管理查询上游余额。",
+    "This request does not meet the selected key's strict budget requirements. Use a compatible API client or choose another key.": "此请求不符合所选密钥的严格预算要求。请使用兼容的 API 客户端或选择其他密钥。",
     "This saved channel/group/model preview does not verify API Key permissions, strict budget eligibility, prices, login state, account quota, or request success.": "此预览仅针对已保存的渠道、分组和模型，不验证API Key权限、严格预算资格、价格、登录状态、账户额度或请求成功。",
     "This session will lose access immediately and must sign in again.": "此会话将立即失去访问权限，并且必须重新登录。",
     "This site currently has {{count}} models enabled": "本站当前已启用模型，总计 {{count}} 个",

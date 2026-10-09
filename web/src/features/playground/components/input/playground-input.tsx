@@ -69,6 +69,7 @@ interface PlaygroundInputProps {
     value: boolean
   ) => void
   parameterEnabled: ParameterEnabled
+  strictChatParameters?: boolean
   unsupportedParameters?: PlaygroundParameterKey[]
   unsupportedProvider?: string
 }
@@ -300,6 +301,7 @@ export function PlaygroundInput(props: PlaygroundInputProps) {
                   onClearMessages={props.onClearMessages}
                   onParameterEnabledChange={props.onParameterEnabledChange}
                   parameterEnabled={props.parameterEnabled}
+                  strictChatParameters={props.strictChatParameters}
                   unsupportedParameters={props.unsupportedParameters}
                   unsupportedProvider={props.unsupportedProvider}
                 />

@@ -5491,6 +5491,7 @@
     "This route discovers upstream OpenAI models and cannot be split or matched by client model rules.": "This route discovers upstream OpenAI models and cannot be split or matched by client model rules.",
     "This route is used only by channel management to discover upstream models.": "This route is used only by channel management to discover upstream models.",
     "This route is used only by channel management to query the upstream balance.": "This route is used only by channel management to query the upstream balance.",
+    "This request does not meet the selected key's strict budget requirements. Use a compatible API client or choose another key.": "This request does not meet the selected key's strict budget requirements. Use a compatible API client or choose another key.",
     "This saved channel/group/model preview does not verify API Key permissions, strict budget eligibility, prices, login state, account quota, or request success.": "This saved channel/group/model preview does not verify API Key permissions, strict budget eligibility, prices, login state, account quota, or request success.",
     "This session will lose access immediately and must sign in again.": "This session will lose access immediately and must sign in again.",
     "This site currently has {{count}} models enabled": "This site currently has {{count}} models enabled",

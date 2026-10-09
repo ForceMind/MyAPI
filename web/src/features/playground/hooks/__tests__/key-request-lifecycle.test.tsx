@@ -17,13 +17,22 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { useState, type ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
+import { PlaygroundInput } from '../../components/input/playground-input'
 import { DEFAULT_CONFIG, DEFAULT_PARAMETER_ENABLED } from '../../constants'
 import type {
   ChatCompletionResponse,
@@ -32,6 +41,7 @@ import type {
   PlaygroundKey,
 } from '../../types'
 import { useChatHandler } from '../use-chat-handler'
+import { usePlaygroundConversation } from '../use-playground-conversation'
 import { usePlaygroundOptions } from '../use-playground-options'
 
 const streamBoundary = vi.hoisted(() => {
@@ -164,6 +174,60 @@ function renderChat(overrides: Partial<ChatHarnessProps> = {}) {
   )
 }
 
+function BudgetRejectionChat(props: {
+  stream: boolean
+  onKeyRejected: () => void
+}) {
+  const [messages, setMessages] = useState<Message[]>([])
+  const [keyId, setKeyId] = useState<number | null>(availableKey.id)
+  const config = {
+    ...DEFAULT_CONFIG,
+    model: 'gpt-6.1-sol',
+    keyId,
+    stream: props.stream,
+  }
+  const handler = useChatHandler({
+    config,
+    selectedKey: keyId === availableKey.id ? availableKey : undefined,
+    canSend: keyId !== null,
+    onKeyRejected: () => {
+      props.onKeyRejected()
+      setKeyId(null)
+    },
+    parameterEnabled: DEFAULT_PARAMETER_ENABLED,
+    onMessageUpdate: setMessages,
+  })
+  const conversation = usePlaygroundConversation({
+    messages,
+    updateMessages: setMessages,
+    sendChat: handler.sendChat,
+  })
+
+  return (
+    <>
+      <PlaygroundInput
+        config={config}
+        canSend={keyId !== null}
+        keys={[availableKey]}
+        onKeyChange={setKeyId}
+        onRefreshKeys={() => undefined}
+        models={[{ label: config.model, value: config.model }]}
+        modelValue={config.model}
+        onModelChange={() => undefined}
+        onConfigChange={() => undefined}
+        onParameterEnabledChange={() => undefined}
+        parameterEnabled={DEFAULT_PARAMETER_ENABLED}
+        onSubmit={conversation.handleSendMessage}
+        isGenerating={handler.isGenerating}
+        onStop={handler.stopGeneration}
+      />
+      <output aria-label='Assistant response'>
+        {messages.at(-1)?.versions[0]?.content}
+      </output>
+    </>
+  )
+}
+
 const queryClients: QueryClient[] = []
 
 function renderOptions(keyId: number | null, currentModel = 'personal-model') {
@@ -209,6 +273,74 @@ afterEach(() => {
 })
 
 describe('chat identity and dispatch', () => {
+  test.each([false, true])(
+    'uses refreshed strict metadata to build a successful text request with stream=%s',
+    async (stream) => {
+      const post = vi
+        .spyOn(api, 'post')
+        .mockResolvedValue({ data: completion('Strict text response') })
+      const config = {
+        ...DEFAULT_CONFIG,
+        model: 'gpt-6.1-sol',
+        keyId: 17,
+        stream,
+      }
+      const { result, rerender } = renderChat({ config })
+      rerender({
+        config,
+        selectedKey: { ...availableKey, strict_token_budget: true },
+        canSend: true,
+      })
+      let pending: Promise<boolean> | null = null
+
+      await act(async () => {
+        pending = result.current.sendChat(initialMessages)
+      })
+
+      const expected = {
+        model: 'gpt-6.1-sol',
+        messages: [{ role: 'user', content: 'Hello' }],
+        stream,
+        max_completion_tokens: 4096,
+        service_tier: 'default',
+        ...(stream ? { stream_options: { include_usage: true } } : {}),
+      }
+      if (stream) {
+        expect(post).not.toHaveBeenCalled()
+        expect(streamBoundary.ControlledSource.instances).toHaveLength(1)
+        const source = streamBoundary.ControlledSource.instances[0]
+        expect(JSON.parse(source.options.payload)).toEqual(expected)
+        expect(source.options.headers['X-MyAPI-Key-ID']).toBe('17')
+        await act(async () => {
+          source.emit(
+            'message',
+            JSON.stringify({
+              choices: [{ delta: { content: 'Strict text response' } }],
+            })
+          )
+          source.emit('message', '[DONE]')
+          await expect(pending).resolves.toBe(true)
+        })
+      } else {
+        expect(post).toHaveBeenCalledOnce()
+        expect(post).toHaveBeenCalledWith(
+          '/pg/chat/completions',
+          expected,
+          expect.objectContaining({
+            headers: expect.objectContaining({ 'X-MyAPI-Key-ID': '17' }),
+          })
+        )
+        await expect(pending).resolves.toBe(true)
+      }
+      expect(result.current.messages.at(-1)).toMatchObject({
+        status: 'complete',
+        versions: [
+          { id: 'assistant-version-1', content: 'Strict text response' },
+        ],
+      })
+    }
+  )
+
   test('returns true and updates the assistant after a selected-key non-streaming response', async () => {
     const post = vi.spyOn(api, 'post').mockResolvedValue({ data: completion() })
     const { result } = renderChat()
@@ -680,6 +812,83 @@ describe('cancellation and late-response isolation', () => {
     )
   })
 })
+
+describe.each([false, true])(
+  'strict budget rejection with stream=%s',
+  (stream) => {
+    test.each(['text-only', 'image attachment'])(
+      'explains unsupported %s requirements and preserves the draft and key without retrying',
+      async (inputKind) => {
+        const error = {
+          code: 'token_budget_unsupported_request',
+          message: 'Strict budget request requirements were not met',
+        }
+        const post = vi
+          .spyOn(api, 'post')
+          .mockRejectedValue({ response: { data: { error } } })
+        const onKeyRejected = vi.fn()
+        const user = userEvent.setup()
+        render(
+          <BudgetRejectionChat stream={stream} onKeyRejected={onKeyRejected} />
+        )
+        const draft = screen.getByRole('textbox', { name: 'Message' })
+        await user.type(draft, 'Keep this question')
+        if (inputKind === 'image attachment') {
+          await user.upload(
+            screen.getByLabelText('Upload attachments'),
+            new File(
+              [new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])],
+              'photo.png',
+              { type: 'image/png' }
+            )
+          )
+          await screen.findByRole('img', { name: 'photo.png' })
+        }
+        await waitFor(() =>
+          expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled()
+        )
+        await user.click(screen.getByRole('button', { name: 'Send' }))
+        if (stream) {
+          await waitFor(() =>
+            expect(streamBoundary.ControlledSource.instances).toHaveLength(1)
+          )
+          await act(async () => {
+            const source = streamBoundary.ControlledSource.instances[0]
+            source.emit('message', JSON.stringify({ error }))
+            source.emit('error', JSON.stringify({ error }))
+            source.emit('message', '[DONE]')
+          })
+        }
+
+        await waitFor(() =>
+          expect(screen.getByLabelText('Assistant response')).toHaveTextContent(
+            "This request does not meet the selected key's strict budget requirements. Use a compatible API client or choose another key."
+          )
+        )
+        expect(draft).toHaveValue('Keep this question')
+        if (inputKind === 'image attachment') {
+          expect(screen.getByRole('img', { name: 'photo.png' })).toBeVisible()
+        }
+        expect(screen.getByRole('combobox', { name: 'API key' })).toHaveValue(
+          '17'
+        )
+        expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled()
+        expect(onKeyRejected).not.toHaveBeenCalled()
+        if (stream) {
+          expect(post).not.toHaveBeenCalled()
+          expect(streamBoundary.ControlledSource.instances).toHaveLength(1)
+          const source = streamBoundary.ControlledSource.instances[0]
+          expect(source.options.autoReconnect).toBe(false)
+          expect(source.stream).toHaveBeenCalledOnce()
+          expect(source.close).toHaveBeenCalledOnce()
+        } else {
+          expect(post).toHaveBeenCalledOnce()
+          expect(streamBoundary.ControlledSource.instances).toHaveLength(0)
+        }
+      }
+    )
+  }
+)
 
 describe('key-scoped model selection', () => {
   test('loads key choices without selecting the first key or requesting unscoped models', async () => {

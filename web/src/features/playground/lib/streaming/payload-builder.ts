@@ -21,8 +21,13 @@ import type {
   Message,
   PlaygroundConfig,
   ParameterEnabled,
+  PlaygroundKey,
 } from '../../types'
 import { formatMessageForAPI, isValidMessage } from '../message/message-utils'
+import {
+  normalizeStrictChatMaxTokens,
+  usesStrictChatParameters,
+} from '../parameters/strict-chat-parameters'
 
 /**
  * Build API request payload from messages and config
@@ -30,7 +35,8 @@ import { formatMessageForAPI, isValidMessage } from '../message/message-utils'
 export function buildChatCompletionPayload(
   messages: Message[],
   config: PlaygroundConfig,
-  parameterEnabled: ParameterEnabled
+  parameterEnabled: ParameterEnabled,
+  selectedKey?: PlaygroundKey
 ): ChatCompletionRequest {
   // Filter and format valid messages
   const processedMessages = messages
@@ -41,6 +47,15 @@ export function buildChatCompletionPayload(
     model: config.model,
     messages: processedMessages,
     stream: config.stream,
+  }
+
+  if (usesStrictChatParameters(config, selectedKey)) {
+    payload.service_tier = 'default'
+    payload.max_completion_tokens = normalizeStrictChatMaxTokens(
+      config.max_tokens
+    )
+    if (config.stream) payload.stream_options = { include_usage: true }
+    return payload
   }
 
   if (parameterEnabled.temperature) {

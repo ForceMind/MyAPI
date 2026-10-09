@@ -5491,6 +5491,7 @@
     "This route discovers upstream OpenAI models and cannot be split or matched by client model rules.": "このルートはアップストリームの OpenAI モデルを検出するためのもので、分割やクライアントモデルルールによる照合はできません。",
     "This route is used only by channel management to discover upstream models.": "このルートは、チャネル管理で上流モデルを取得するためだけに使用されます。",
     "This route is used only by channel management to query the upstream balance.": "このルートは、チャネル管理で上流残高を照会するためだけに使用されます。",
+    "This request does not meet the selected key's strict budget requirements. Use a compatible API client or choose another key.": "このリクエストは、選択したキーの厳格な予算管理の要件を満たしていません。互換性のある API クライアントを使用するか、別のキーを選択してください。",
     "This saved channel/group/model preview does not verify API Key permissions, strict budget eligibility, prices, login state, account quota, or request success.": "保存済みチャネル・グループ・モデルのプレビューは、APIキー権限、厳密予算の適格性、価格、ログイン状態、アカウント残量、リクエスト成功を検証しません。",
     "This session will lose access immediately and must sign in again.": "このセッションは直ちにアクセスできなくなり、再度サインインが必要になります。",
     "This site currently has {{count}} models enabled": "このサイトでは現在 {{count}} 個のモデルが有効です",

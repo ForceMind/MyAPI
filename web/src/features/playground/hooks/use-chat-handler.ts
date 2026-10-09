@@ -203,7 +203,7 @@ export function useChatHandler({
       }
       if (errorCode === 'token_budget_unsupported_request') {
         return t(
-          'Strict token budgets do not support attachments. Choose another key or send text only.'
+          "This request does not meet the selected key's strict budget requirements. Use a compatible API client or choose another key."
         )
       }
       if (errorCode === 'playground_image_provider_unsupported') {
@@ -313,7 +313,8 @@ export function useChatHandler({
       const payload = buildChatCompletionPayload(
         messages,
         config,
-        parameterEnabled
+        parameterEnabled,
+        selectedKey
       )
       void sendStreamRequest(
         payload,
@@ -326,6 +327,7 @@ export function useChatHandler({
     [
       config,
       parameterEnabled,
+      selectedKey,
       sendStreamRequest,
       discardPendingStreamUpdates,
       handleStreamUpdate,
@@ -340,7 +342,8 @@ export function useChatHandler({
       const payload = buildChatCompletionPayload(
         messages,
         config,
-        parameterEnabled
+        parameterEnabled,
+        selectedKey
       )
       const generation = requestGenerationRef.current + 1
       const abortController = new AbortController()
@@ -402,6 +405,7 @@ export function useChatHandler({
     [
       config,
       parameterEnabled,
+      selectedKey,
       stopStream,
       discardPendingStreamUpdates,
       onMessageUpdate,

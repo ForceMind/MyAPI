@@ -152,7 +152,7 @@ func TestPlaygroundKeysSafeOwnedPaginatedMetadata(t *testing.T) {
 	assert.Equal(t, 2, payload.Data.Total)
 	require.Len(t, payload.Data.Items, 1)
 	assert.EqualValues(t, other.Id, payload.Data.Items[0]["id"])
-	assert.ElementsMatch(t, []string{"id", "name", "status", "group", "access_profile_id", "remain_quota", "used_quota", "unlimited_quota", "expired_time", "model_limits_enabled"}, func() []string {
+	assert.ElementsMatch(t, []string{"id", "name", "status", "group", "access_profile_id", "remain_quota", "used_quota", "unlimited_quota", "expired_time", "model_limits_enabled", "strict_token_budget"}, func() []string {
 		keys := []string{}
 		for k := range payload.Data.Items[0] {
 			keys = append(keys, k)
@@ -173,6 +173,60 @@ func TestPlaygroundKeysSafeOwnedPaginatedMetadata(t *testing.T) {
 	bounded = playgroundControllerRequest(router, http.MethodGet, "/pg/keys?page_size=100000", access, 0, "", "")
 	require.NoError(t, common.Unmarshal(bounded.Body.Bytes(), &payload))
 	assert.Equal(t, 100, payload.Data.PageSize)
+}
+
+func TestPlaygroundKeysReportsCurrentOwnedStrictPolicy(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		budget *model.TokenBudget
+		strict bool
+	}{
+		{name: "no budget"},
+		{name: "disabled budget", budget: &model.TokenBudget{Revision: 1}},
+		{name: "token budget", budget: &model.TokenBudget{Enabled: true, Limit: model.TokenBudgetOpenAIChatContext, Revision: 1}, strict: true},
+		{name: "fee-only budget", budget: &model.TokenBudget{FeeEnabled: true, FeeLimitUSD: "10", Revision: 1}, strict: true},
+		{name: "account threshold only", budget: &model.TokenBudget{AccountThresholdEnabled: true, AccountMinRemainingBPS: 2000, AccountMaxAgeSeconds: 300, Revision: 1}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, user, key, access := playgroundControllerFixture(t, model.QuotaWriterModeLegacy)
+			if tc.budget != nil {
+				tc.budget.TokenID, tc.budget.UserID = key.Id, user.Id
+				require.NoError(t, db.Create(tc.budget).Error)
+			}
+			response := playgroundControllerRequest(playgroundControllerRouter(), http.MethodGet, "/pg/keys", access, 0, "", "")
+			require.Equal(t, http.StatusOK, response.Code)
+			var payload struct {
+				Success bool `json:"success"`
+				Data    struct {
+					Items []map[string]any `json:"items"`
+				} `json:"data"`
+			}
+			require.NoError(t, common.Unmarshal(response.Body.Bytes(), &payload))
+			require.True(t, payload.Success, response.Body.String())
+			require.Len(t, payload.Data.Items, 1)
+			assert.Equal(t, tc.strict, payload.Data.Items[0]["strict_token_budget"])
+			assert.NotContains(t, response.Body.String(), key.Key)
+		})
+	}
+}
+
+func TestPlaygroundKeysDoesNotGuessPolicyOnReadFailureOrOwnershipConflict(t *testing.T) {
+	for _, broken := range []string{"unavailable", "identity conflict"} {
+		t.Run(broken, func(t *testing.T) {
+			db, user, key, access := playgroundControllerFixture(t, model.QuotaWriterModeLegacy)
+			if broken == "unavailable" {
+				require.NoError(t, db.Migrator().DropTable(&model.TokenBudget{}))
+			} else {
+				require.NoError(t, db.Create(&model.TokenBudget{TokenID: key.Id, UserID: user.Id + 1, Enabled: true, Limit: 100, Revision: 1}).Error)
+			}
+			response := playgroundControllerRequest(playgroundControllerRouter(), http.MethodGet, "/pg/keys", access, 0, "", "")
+			var payload map[string]any
+			require.NoError(t, common.Unmarshal(response.Body.Bytes(), &payload))
+			assert.Equal(t, false, payload["success"])
+			assert.NotContains(t, payload, "data")
+			assert.NotContains(t, response.Body.String(), key.Key)
+		})
+	}
 }
 
 func TestPlaygroundModelsMatchSelectedKeyAPIContractAndCapabilities(t *testing.T) {

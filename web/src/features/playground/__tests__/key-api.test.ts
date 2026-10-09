@@ -61,6 +61,25 @@ afterEach(() => {
 })
 
 describe('playground key DTO boundary', () => {
+  test.each([true, false])(
+    'retains the safe strict-budget boolean %s',
+    (strict) => {
+      const key = { ...availableKey, strict_token_budget: strict }
+      expect(
+        parsePlaygroundKeys({ success: true, data: { items: [key] } })
+      ).toEqual([key])
+    }
+  )
+
+  test('does not infer a strict budget from malformed metadata', () => {
+    expect(
+      parsePlaygroundKeys({
+        success: true,
+        data: { items: [{ ...availableKey, strict_token_budget: 'true' }] },
+      })
+    ).toEqual([availableKey])
+  })
+
   test('copies only safe key fields when the server includes secrets', () => {
     const response = {
       success: true,

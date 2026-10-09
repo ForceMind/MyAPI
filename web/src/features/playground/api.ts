@@ -202,6 +202,9 @@ export function parsePlaygroundKeys(payload: unknown): PlaygroundKey[] {
         remain_quota: key.remain_quota,
         unlimited_quota: key.unlimited_quota,
         expired_time: key.expired_time,
+        ...(typeof key.strict_token_budget === 'boolean'
+          ? { strict_token_budget: key.strict_token_budget }
+          : {}),
       },
     ]
   })

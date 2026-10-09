@@ -19,6 +19,7 @@ func Playground(c *gin.Context) {
 }
 
 type playgroundKey struct {
+	StrictTokenBudget  bool   `json:"strict_token_budget"`
 	ID                 int    `json:"id"`
 	Name               string `json:"name"`
 	Status             int    `json:"status"`
@@ -58,8 +59,14 @@ func PlaygroundKeys(c *gin.Context) {
 	}
 	items := make([]playgroundKey, 0, len(tokens))
 	for _, token := range tokens {
+		budget, err := model.LookupTokenBudget(c.Request.Context(), model.DB, token.Id)
+		if err != nil || budget != nil && budget.UserID != userID {
+			common.ApiErrorI18n(c, i18n.MsgDatabaseError)
+			return
+		}
 		items = append(items, playgroundKey{
-			ID: token.Id, Name: token.Name, Status: token.Status, Group: token.Group,
+			StrictTokenBudget: budget != nil && (budget.Enabled || budget.FeeEnabled),
+			ID:                token.Id, Name: token.Name, Status: token.Status, Group: token.Group,
 			AccessProfileID: token.AccessProfileID, RemainQuota: token.RemainQuota,
 			UsedQuota: token.UsedQuota, UnlimitedQuota: token.UnlimitedQuota,
 			ExpiredTime: token.ExpiredTime, ModelLimitsEnabled: token.ModelLimitsEnabled,

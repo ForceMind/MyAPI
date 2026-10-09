@@ -34,6 +34,10 @@ import {
   applyUnsupportedParameterRestrictions,
   PLAYGROUND_PARAMETER_CONTROLS,
 } from './lib/parameters/playground-parameters'
+import {
+  STRICT_CHAT_UNSUPPORTED_PARAMETERS,
+  usesStrictChatParameters,
+} from './lib/parameters/strict-chat-parameters'
 
 export function Playground() {
   const userId = useAuthStore((state) => state.auth.user?.id)
@@ -73,9 +77,16 @@ function PlaygroundSession(props: { userId: number }) {
     () => models.find((model) => model.value === config.model),
     [config.model, models]
   )
+  const strictChatParameters = usesStrictChatParameters(config, selectedKey)
+  const unsupportedProvider = strictChatParameters
+    ? t('Strict Token budget')
+    : selectedModel?.provider
   const unsupportedParameters = useMemo(
-    () => selectedModel?.unsupportedParameters ?? [],
-    [selectedModel]
+    () =>
+      strictChatParameters
+        ? STRICT_CHAT_UNSUPPORTED_PARAMETERS
+        : (selectedModel?.unsupportedParameters ?? []),
+    [selectedModel, strictChatParameters]
   )
   const effectiveParameterEnabled = useMemo(
     () =>
@@ -102,11 +113,11 @@ function PlaygroundSession(props: { userId: number }) {
 
     toast.info(t('Unsupported parameters were turned off'), {
       description: t('{{provider}} does not support: {{parameters}}', {
-        provider: selectedModel?.provider || t('Current provider'),
+        provider: unsupportedProvider || t('Current provider'),
         parameters: autoDisabledLabels.join(', '),
       }),
     })
-  }, [autoDisabledLabels, config.model, selectedModel?.provider, t])
+  }, [autoDisabledLabels, config.model, unsupportedProvider, t])
 
   const { sendChat, stopGeneration, isGenerating } = useChatHandler({
     config,
@@ -182,8 +193,9 @@ function PlaygroundSession(props: { userId: number }) {
           onStop={stopGeneration}
           onSubmit={handleSendMessage}
           parameterEnabled={effectiveParameterEnabled}
+          strictChatParameters={strictChatParameters}
           unsupportedParameters={unsupportedParameters}
-          unsupportedProvider={selectedModel?.provider}
+          unsupportedProvider={unsupportedProvider}
           hasMessages={messages.length > 0}
         />
       </div>

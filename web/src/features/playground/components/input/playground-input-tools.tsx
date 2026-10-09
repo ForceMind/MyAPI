@@ -55,6 +55,7 @@ type PlaygroundInputToolsProps = {
     value: boolean
   ) => void
   parameterEnabled: ParameterEnabled
+  strictChatParameters?: boolean
   unsupportedParameters?: PlaygroundParameterKey[]
   unsupportedProvider?: string
 }
@@ -68,6 +69,7 @@ export function PlaygroundInputTools({
   onConfigChange,
   onParameterEnabledChange,
   parameterEnabled,
+  strictChatParameters,
   unsupportedParameters,
   unsupportedProvider,
 }: PlaygroundInputToolsProps) {
@@ -129,6 +131,7 @@ export function PlaygroundInputTools({
           onConfigChange={onConfigChange}
           onParameterEnabledChange={onParameterEnabledChange}
           parameterEnabled={parameterEnabled}
+          strictChatParameters={strictChatParameters}
           unsupportedParameters={unsupportedParameters}
           unsupportedProvider={unsupportedProvider}
         />

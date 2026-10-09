@@ -5491,6 +5491,7 @@
     "This route discovers upstream OpenAI models and cannot be split or matched by client model rules.": "Cette route découvre les modèles OpenAI en amont et ne peut être ni divisée ni associée par des règles de modèles clients.",
     "This route is used only by channel management to discover upstream models.": "Cette route sert uniquement à la gestion du canal pour découvrir les modèles amont.",
     "This route is used only by channel management to query the upstream balance.": "Cette route sert uniquement à la gestion du canal pour consulter le solde amont.",
+    "This request does not meet the selected key's strict budget requirements. Use a compatible API client or choose another key.": "Cette requête ne respecte pas les exigences de budget strict de la clé sélectionnée. Utilisez un client API compatible ou choisissez une autre clé.",
     "This saved channel/group/model preview does not verify API Key permissions, strict budget eligibility, prices, login state, account quota, or request success.": "Cet aperçu des canaux, groupes et modèles enregistrés ne vérifie pas les droits des clés API, l’éligibilité aux budgets stricts, les prix, la connexion, les quotas ou le succès des requêtes.",
     "This session will lose access immediately and must sign in again.": "Cette session perdra immédiatement l’accès ; vous devrez vous reconnecter.",
     "This site currently has {{count}} models enabled": "Ce site compte actuellement {{count}} modèles activés",

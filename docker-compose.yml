@@ -1,6 +1,8 @@
 # MyAPI Docker Compose Configuration
 # 
-# Quick Start:
+# Candidate branch: beta.9 images are not yet published.
+# Use the published beta.8 tag/examples until separately authorized publication.
+# Quick Start (published release checkout only):
 #   1. docker compose up -d
 #   2. Access at http://localhost:3000
 #
@@ -17,7 +19,7 @@ version: '3.4' # For compatibility with older Docker versions
 services:
   my-api:
     # MYAPI_IMAGE is canonical. NEW_API_IMAGE is accepted for old .env files.
-    image: ${MYAPI_IMAGE:-${NEW_API_IMAGE:-ghcr.io/forcemind/myapi:v0.2.0-beta.7}}
+    image: ${MYAPI_IMAGE:-${NEW_API_IMAGE:-ghcr.io/forcemind/myapi:v0.2.0-beta.9}}
     container_name: my-api
     restart: always
     # Optional safety limits; override in .env for larger installations.

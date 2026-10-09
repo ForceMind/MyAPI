@@ -43,6 +43,7 @@ export interface ChatAttachment {
 }
 
 export interface PlaygroundKey {
+  strict_token_budget?: boolean
   id: number
   name: string
   status: number
@@ -100,6 +101,9 @@ export interface ChatCompletionRequest {
   temperature?: number
   top_p?: number
   max_tokens?: number
+  service_tier?: 'default'
+  max_completion_tokens?: number
+  stream_options?: { include_usage: true }
   frequency_penalty?: number
   presence_penalty?: number
   seed?: number
