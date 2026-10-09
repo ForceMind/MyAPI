@@ -37,7 +37,7 @@ const invalidFiles = [
   { name: 'oversized-file', files: [{ name: 'oversized.png', mimeType: 'image/png', buffer: oversized }], error: 'Each file must be non-empty and no larger than 10 MiB' },
   { name: 'too-many-files', files: Array.from({ length: 5 }, (_, index) => ({ name: `extra-${index}.png`, mimeType: 'image/png', buffer: png })), error: 'You can attach up to 4 files' },
 ]
-const report = { schema: 3, commit: process.env.GITHUB_SHA || execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim(), result: 'running', evidence: 'Synthetic API UI qualification; no live provider or billing claim.', nativePickerLimit: 'Touch events open the native control; choosing a native OS option is driven by Playwright selectOption, not physical-device picker automation.', cancellationScope: 'Actual Stop click aborts a held streaming HTTP request before response headers; partial-stream cancellation is covered separately by lifecycle tests.', keyIdentity: [], attachmentValidation: [], attachmentRemoval: [], multipleImages: [], cancellations: [], usageInspection: [], strictText: [], journeys: [], screenshots: [], chatDispatches: [], requests: [], violations: [], pageErrors: [] }
+const report = { schema: 3, commit: process.env.GITHUB_SHA || execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim(), result: 'running', evidence: 'Synthetic API UI qualification; no live provider or billing claim.', nativePickerLimit: 'Touch events open the native control; choosing a native OS option is driven by Playwright selectOption, not physical-device picker automation.', cancellationScope: 'Actual Stop click aborts a held streaming HTTP request before response headers; partial-stream cancellation is covered separately by lifecycle tests.', keyIdentity: [], emptyState: [], attachmentValidation: [], attachmentRemoval: [], multipleImages: [], cancellations: [], usageInspection: [], strictText: [], journeys: [], screenshots: [], chatDispatches: [], requests: [], violations: [], pageErrors: [] }
 assert(existsSync(resolve(root, 'index.html')), 'Build production assets first')
 mkdirSync(output, { recursive: true })
 const persist = () => writeFileSync(resolve(output, 'playground-qualification.json'), JSON.stringify(report, null, 2))
@@ -108,6 +108,90 @@ async function assertKeyIdentity(key, expected, journey, state, width) {
     assert(measured.selectHeight >= 44, 'mobile key control must be touch-sized')
     assert(measured.lineCount > 1, 'long mobile identity must occupy multiple readable lines')
   }
+}
+
+// Measure actual clipping ancestors rather than the screen's nominal height.
+// A short pane may require several scroll positions to read one paragraph.
+function measureEmptyStateText(element, { lineIndex, scrollTop } = {}) {
+  const pane = element.closest('[role="log"]')
+  let scroller = element.parentElement
+  while (scroller && pane.contains(scroller) && !['auto', 'scroll'].includes(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement
+  if (!scroller || !pane.contains(scroller)) return null
+  const textLines = () => {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+    const lines = []
+    while (walker.nextNode()) {
+      if (!walker.currentNode.textContent.trim()) continue
+      const range = document.createRange()
+      range.selectNodeContents(walker.currentNode)
+      lines.push(...[...range.getClientRects()].filter(rect => rect.width > 0 && rect.height > 0))
+    }
+    return lines
+  }
+  const clip = { left: 0, right: innerWidth, top: 0, bottom: innerHeight }
+  for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+    const style = getComputedStyle(ancestor), rect = ancestor.getBoundingClientRect()
+    if (['hidden', 'clip', 'auto', 'scroll'].includes(style.overflowX)) {
+      clip.left = Math.max(clip.left, rect.left + ancestor.clientLeft)
+      clip.right = Math.min(clip.right, rect.left + ancestor.clientLeft + ancestor.clientWidth)
+    }
+    if (['hidden', 'clip', 'auto', 'scroll'].includes(style.overflowY)) {
+      clip.top = Math.max(clip.top, rect.top + ancestor.clientTop)
+      clip.bottom = Math.min(clip.bottom, rect.top + ancestor.clientTop + ancestor.clientHeight)
+    }
+  }
+  if (scrollTop !== undefined) scroller.scrollTo({ top: scrollTop, behavior: 'instant' })
+  if (lineIndex !== undefined) {
+    const line = textLines()[lineIndex]
+    if (line) scroller.scrollBy({ top: line.top - (clip.top + (clip.bottom - clip.top - line.height) / 2), behavior: 'instant' })
+  }
+  const lines = textLines().map(rect => ({ left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, fullyVisible: rect.left >= clip.left - 1 && rect.right <= clip.right + 1 && rect.top >= clip.top - 1 && rect.bottom <= clip.bottom + 1 }))
+  const box = element.getBoundingClientRect(), paneBox = pane.getBoundingClientRect()
+  let naturalHeadingBottom
+  if (element.tagName === 'H2') {
+    // The empty state is icon + heading/description + starter controls. Remove
+    // flex-centering free space from its leading offset, but keep real padding.
+    const content = element.parentElement.parentElement, empty = content.parentElement
+    naturalHeadingBottom = Number.parseFloat(getComputedStyle(empty.parentElement).paddingTop) + Number.parseFloat(getComputedStyle(empty).paddingTop) + box.top - content.getBoundingClientRect().top + box.height
+  }
+  return { clip, pane: { top: paneBox.top, bottom: paneBox.bottom, height: paneBox.height }, box: { top: box.top, bottom: box.bottom, height: box.height }, scrollTop: scroller.scrollTop, scrollHeight: scroller.scrollHeight, clientHeight: scroller.clientHeight, naturalHeadingBottom, lines }
+}
+
+async function assertEmptyStateReachable(page, label, journey, width) {
+  const pane = page.getByRole('log')
+  const heading = pane.getByRole('heading', { name: label('Start a playground chat'), exact: true })
+  const description = pane.getByText(label('Test a model with a starter prompt, or write your own request below.'), { exact: true })
+  await heading.waitFor()
+  const initial = await heading.evaluate(measureEmptyStateText, {})
+  assert(initial && initial.clientHeight > 0, 'empty state must have a usable conversation scroll pane')
+  const top = await heading.evaluate(measureEmptyStateText, { scrollTop: 0 })
+  if (width === 320 && top.clip.bottom - top.clip.top >= top.naturalHeadingBottom) {
+    assert(top.lines.every(line => line.fullyVisible), `${journey}: a title that naturally fits must not be pushed below the pane by viewport-sized centering`)
+  }
+  const notice = page.getByText(label('Uses the selected API key’s permissions, budget and usage. Images and PDFs require compatible models and providers; strict token budgets reject attachments.'), { exact: true })
+  const noticeBox = await notice.boundingBox()
+  assert(noticeBox && top.pane.bottom <= noticeBox.y + 1, 'conversation content must stop before the permissions notice and composer')
+  const targets = [{ name: 'heading', locator: heading }, { name: 'description', locator: description }, ...['Analyze data', 'Summarize text', 'Code', 'Get advice'].map(prompt => ({ name: prompt, locator: pane.getByRole('button', { name: label(prompt), exact: true }), button: true }))]
+  const reached = []
+  for (const target of targets) {
+    if (target.button) {
+      await target.locator.focus()
+      await target.locator.click({ trial: true })
+    }
+    const before = await target.locator.evaluate(measureEmptyStateText, {})
+    assert(before?.lines.length > 0, `${journey}/${target.name}: meaningful text must be rendered`)
+    const positions = []
+    for (let lineIndex = 0; lineIndex < before.lines.length; lineIndex += 1) {
+      const reading = await target.locator.evaluate(measureEmptyStateText, { lineIndex })
+      assert(reading.lines[lineIndex].fullyVisible, `${journey}/${target.name}: line ${lineIndex + 1} must be fully readable within the actual clipping pane after scrolling`)
+      positions.push(reading.scrollTop)
+    }
+    reached.push({ target: target.name, lines: before.lines.length, scrollPositions: positions, actionable: Boolean(target.button) })
+  }
+  if (width === 320) assert(reached.some(target => target.scrollPositions.some(position => position > 0)), 'the compact-pane check must exercise real scrolling to reach the content')
+  const restored = await heading.evaluate(measureEmptyStateText, { scrollTop: initial.scrollTop })
+  assert(Math.abs(restored.scrollTop - initial.scrollTop) <= 1, 'restore the initial empty-state view before its preview screenshot')
+  return { journey, paneHeight: initial.clientHeight, contentHeight: initial.scrollHeight, initialScrollTop: initial.scrollTop, naturalHeadingBottom: top.naturalHeadingBottom, headingAtScrollOriginVisible: top.lines.every(line => line.fullyVisible), targets: reached }
 }
 
 let browser, activePage, activeJourney, activeStep
@@ -314,6 +398,10 @@ try {
     await send.click({ trial: true })
     assert(await send.isEnabled(), 'image-only prompt is sendable with a key')
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'viewport must not overflow')
+    activeStep = 'read and reach empty-state content in the actual conversation pane'
+    report.emptyState.push(await assertEmptyStateReachable(page, label, name, width))
+    assert.equal(sent.length, 0, 'reading starter prompts and trial clicks must not dispatch')
+    activeStep = 'preview and send image-only prompt'
     const previewName = `${name}-preview.png`
     await page.screenshot({ path: resolve(output, previewName), fullPage: true }); report.screenshots.push(previewName)
     await send.click()
@@ -613,8 +701,8 @@ try {
   }
   assert.deepEqual(report.violations, [])
   assert.deepEqual(report.pageErrors, [])
-  report.counts = { journeys: report.journeys.length, screenshots: report.screenshots.length, keyIdentityChecks: report.keyIdentity.length, invalidFileChecks: report.attachmentValidation.length, removalChecks: report.attachmentRemoval.length, multipleImageChecks: report.multipleImages.length, canceledRequests: report.cancellations.length, usageInspections: report.usageInspection.length, strictTextChecks: report.strictText.length, explicitDispatches: report.journeys.reduce((sum, journey) => sum + journey.explicitDispatches, 0) }
-  assert.deepEqual(report.counts, { journeys: 8, screenshots: 96, keyIdentityChecks: 112, invalidFileChecks: 56, removalChecks: 24, multipleImageChecks: 8, canceledRequests: 8, usageInspections: 8, strictTextChecks: 8, explicitDispatches: 72 })
+  report.counts = { journeys: report.journeys.length, screenshots: report.screenshots.length, keyIdentityChecks: report.keyIdentity.length, emptyStateChecks: report.emptyState.length, emptyStateTargets: report.emptyState.reduce((sum, entry) => sum + entry.targets.length, 0), invalidFileChecks: report.attachmentValidation.length, removalChecks: report.attachmentRemoval.length, multipleImageChecks: report.multipleImages.length, canceledRequests: report.cancellations.length, usageInspections: report.usageInspection.length, strictTextChecks: report.strictText.length, explicitDispatches: report.journeys.reduce((sum, journey) => sum + journey.explicitDispatches, 0) }
+  assert.deepEqual(report.counts, { journeys: 8, screenshots: 96, keyIdentityChecks: 112, emptyStateChecks: 8, emptyStateTargets: 48, invalidFileChecks: 56, removalChecks: 24, multipleImageChecks: 8, canceledRequests: 8, usageInspections: 8, strictTextChecks: 8, explicitDispatches: 72 })
   report.result = 'passed'
 } catch (error) {
   report.result = 'failed'; report.error = String(error?.stack || error)
