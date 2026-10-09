@@ -134,7 +134,7 @@ import { mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false, forbidStreamReads = false, hangAt, closeHangs = false, documentResponses = [], reloadAlreadyCurrent = false } = {}) {
+function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false, forbidStreamReads = false, hangAt, closeHangs = false, documentResponses = [], reloadAlreadyCurrent = false, inflightKeys } = {}) {
   const reverse = Object.fromEntries(Object.entries(JSON.parse(readFileSync(new URL('../../web/src/i18n/locales/zh.json', import.meta.url))).translation).map(([key, value]) => [value, key]))
   const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
   const users = new Map([[1, { id: 1, username: base.username, role: 100, quota: 0, used_quota: 15, request_count: 1, self_use_no_balance: true, revision: 1 }]])
@@ -148,6 +148,12 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   const completionEvents = []
   const signals = []
   const navigations = []
+  const createdKeyDisplays = []
+  const policyRefreshes = []
+  const playgroundRefreshes = []
+  const modelChoices = []
+  const keyReadEvents = []
+  let serverDisplay = 'USD'
   const reached = Promise.withResolvers()
   const stalled = Promise.withResolvers()
   const closing = Promise.withResolvers()
@@ -157,9 +163,12 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   let closed = 0
   let sequence = 0
   const clone = value => JSON.parse(JSON.stringify(value))
-  const response = (pathname, method, payload, status = 200, body, headers = {}) => ({
+  const response = (pathname, method, payload, status = 200, body, headers = {}) => {
+    const request = { method: () => method, postDataJSON: () => body, headers: () => headers, url: () => base.baseUrl + pathname,
+      response: async () => result }
+    const result = {
     url: () => base.baseUrl + pathname,
-    request: () => ({ method: () => method, postDataJSON: () => body, headers: () => headers, url: () => base.baseUrl + pathname }),
+    request: () => request,
     status: () => status, json: async () => hangAt === 'response-json' && pathname === '/api/user/login' ? hang() : clone(payload),
     headers: () => ({ 'x-oneapi-request-id': `request-private-${sequence}` }),
     text: async () => {
@@ -171,28 +180,40 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
       assert(!(forbidStreamReads && typeof payload === 'string'), 'frontend may close its SSE request after DONE')
       return null
     },
-  })
+    }
+    return result
+  }
   const policy = user => ({ user_id: user.id, no_balance: user.self_use_no_balance, revision: user.revision, legacy_remaining_quota: user.quota })
   const budget = key => ({ policy: { enabled: true, fee_enabled: true, used: 0, reserved: corrupt === 'strict-reserve' ? 1 : 0, fee_used_usd: '0', fee_reserved_usd: '0', pending_request_id: '' }, pending: null })
   const makePage = context => {
-    const page = { current: base.baseUrl + '/', fields: {}, switches: {}, pendingSwitches: {}, checkboxes: {}, group: '', model: 'gpt-4o', listeners: {}, waiters: [], selected: '', actor: null,
+    const page = { current: base.baseUrl + '/', fields: {}, switches: {}, pendingSwitches: {}, checkboxes: {}, group: '', model: 'gpt-4o', modelsCache: new Map(), listeners: {}, waiters: [], requestWaiters: [], selected: '', actor: null,
       setDefaultTimeout() {}, on(event, handler) { this.listeners[event] = handler },
       async goto(url) {
         this.current = url
         navigations.push({ kind: 'document', locale: context.locale, path: new URL(url).pathname })
         const result = documentResponses.shift() || { status: 200 }
+        if (result.status === 200) { this.currency = serverDisplay; delete this.policySnapshot }
         return { status: () => result.status, headers: () => ({ 'retry-after': result.retryAfter }),
           request: () => ({ method: () => result.method || 'GET' }) }
       },
       url() { return this.current },
       async waitForURL(predicate) { assert(predicate(new URL(this.current))) },
       waitForResponse(predicate) { return new Promise(resolve => this.waiters.push({ predicate, resolve })) },
+      waitForRequest(predicate) { return new Promise(resolve => this.requestWaiters.push({ predicate, resolve })) },
       emit(result) {
         emitted.push(result)
         this.listeners.request?.(result.request())
-        for (const waiter of [...this.waiters]) if (waiter.predicate(result)) {
-          this.waiters.splice(this.waiters.indexOf(waiter), 1); waiter.resolve(result)
+        for (const waiter of [...this.requestWaiters]) if (waiter.predicate(result.request())) {
+          this.requestWaiters.splice(this.requestWaiters.indexOf(waiter), 1); waiter.resolve(result.request())
         }
+        this.emitResponse(result)
+        this.listeners.requestfinished?.(result.request())
+      },
+      emitResponse(result) {
+        for (const waiter of [...this.waiters]) Promise.resolve(waiter.predicate(result)).then(matches => {
+          if (!matches || !this.waiters.includes(waiter)) return
+          this.waiters.splice(this.waiters.indexOf(waiter), 1); waiter.resolve(result)
+        })
       },
       async evaluate(fn) {
         if (hangAt === 'evaluate') return hang()
@@ -224,6 +245,11 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         and() { awaitingCheckedState = true; return this },
         filter() { return this }, first() { return this }, last() { return this },
         async waitFor(options) {
+          if (kind === 'option' && value === 'smoke-model') assert(page.modelsCache.get(page.selected)?.includes(value), 'the actual model option must exist')
+          if (kind === 'text' && parents.includes('Current configuration') &&
+            ['Use Key limits without a user wallet', 'Use the stored user allowance'].includes(value)) {
+            assert.equal(value, page.policySnapshot?.no_balance ? 'Use Key limits without a user wallet' : 'Use the stored user allowance')
+          }
           if (kind === 'button' && value === 'Toggle sidebar' && awaitingCheckedState) assert.equal(page.sidebarOpen, false)
           if (kind === 'text' && value === 'synthetic fixed response') {
             assert.notEqual(corrupt, 'incomplete-text')
@@ -250,11 +276,15 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
           }
         },
         async count() {
+          if (kind === 'option' && value === 'smoke-model') return corrupt === 'ambiguous-model' ? 2 : Number(page.modelsCache.get(page.selected)?.includes(value))
           if (kind === 'selector' && value === '.is-assistant') return page.assistants || 0
           if (kind === 'alert') return parents.includes('.is-assistant') ? Number(Boolean(page.lastAssistantError)) : page.historicalErrors || 0
           return 0
         },
-        async fill(text) { page.fields[value] = text },
+        async fill(text) {
+          if (value === 'Key quota (internal units)') assert.equal(page.currency, 'TOKENS', 'the client must reload its USD system-config cache after the fixture PUT')
+          page.fields[value] = text
+        },
         async check() { page.checkboxes[value] = true }, async uncheck() { page.checkboxes[value] = false },
         async getAttribute(name) {
           if (name === 'aria-expanded' && value === 'Toggle sidebar') return String(Boolean(page.sidebarOpen))
@@ -263,14 +293,56 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         async inputValue() { return page.selected },
         async isDisabled() { return page.selected === '' },
         async selectOption(id) {
+          if (page.backgroundKeys && inflightKeys === 'initial') {
+            await page.backgroundKeys.json()
+            delete page.backgroundKeys // Initial isPending has cleared before the native select is enabled.
+          }
           page.selected = id
           if (id) {
-            page.model = corrupt === 'models' ? 'other-model' : 'smoke-model'
-            page.emit(response('/pg/models', 'GET', { success: true, data: [{ id: page.model }] }))
+            assert(page.availableKeyIds.includes(Number(id)), 'a stale Playground list must be refreshed after Key creation')
+            if (!page.modelsCache.has(id)) {
+              const available = corrupt === 'models' ? 'other-model' : 'smoke-model'
+              page.modelsCache.set(id, [available])
+              page.emit(response('/pg/models', 'GET', { success: true, data: [{ id: available }] }))
+            }
           }
         },
         async click(options) {
           if (options?.trial) return
+          if (value === 'My usage policy') page.policySnapshot ||= clone(policy(page.actor))
+          if (value === 'Refresh' && parents.includes('User usage policy')) {
+            page.policySnapshot = clone(policy(page.actor))
+            if (corrupt === 'policy-refresh-owner') page.policySnapshot.user_id = 999
+            if (corrupt === 'policy-refresh-revision') page.policySnapshot.revision--
+            policyRefreshes.push({ userId: page.actor.id, role: page.actor.role, revision: page.policySnapshot.revision })
+            page.emit(response(`/api/user/${page.actor.id}/usage-policy`, 'GET', { success: true, data: page.policySnapshot }))
+          }
+          if (value === 'Refresh' && !parents.includes('User usage policy')) {
+            assert.equal(page.selected, '', 'Refresh with no selected Key must refresh keys without forcing a models refetch')
+            if (page.backgroundKeys && (inflightKeys !== 'missing-target' || !page.backgroundKeyComplete)) {
+              keyReadEvents.push('refresh-reused-request')
+              const reused = await page.backgroundKeys.json()
+              page.availableKeyIds = reused.data.items.map(item => item.id)
+              playgroundRefreshes.push({ userId: page.actor.id, ids: [...page.availableKeyIds] })
+              page.emitResponse(page.backgroundKeys)
+              delete page.backgroundKeys
+              return // HTTP deduplication does not emit another request event.
+            }
+            delete page.backgroundKeys
+            const items = [...keys.values()].filter(key => key.user_id === page.actor.id).map(key => ({
+              id: key.id, name: key.name, status: 1, group: key.group, remain_quota: key.remain_quota,
+              used_quota: key.used_quota, unlimited_quota: key.unlimited_quota, expired_time: -1, strict_token_budget: Boolean(key.strict),
+            }))
+            page.availableKeyIds = items.map(key => key.id)
+            playgroundRefreshes.push({ userId: page.actor.id, ids: [...page.availableKeyIds] })
+            const data = { total: items.length, items: corrupt === 'keys' ? [] : items }
+            // Unrelated POST, wrong pagination and an old in-flight response
+            // must not satisfy the explicitly requested refresh readback.
+            page.emit(response('/pg/keys?p=1&page_size=100', 'POST', { success: false }))
+            page.emit(response('/pg/keys?p=2&page_size=100', 'GET', { success: false }))
+            page.emitResponse(response('/pg/keys?p=1&page_size=100', 'GET', { success: false }))
+            page.emit(response('/pg/keys?p=1&page_size=100', 'GET', { success: true, data }))
+          }
           if (kind === 'title' && value === 'Click to view full details') page.logDetailsOpen = true
           if (value === 'Toggle sidebar') {
             page.sidebarOpen = !page.sidebarOpen
@@ -282,6 +354,26 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             if (context.locale === 'zh-CN') assert.equal(page.sidebarOpen, true, 'mobile links require the visible navigation drawer')
             const pathname = value === 'API Keys' ? '/keys' : '/playground'
             page.current = base.baseUrl + pathname
+            if (pathname === '/playground' && !page.simulatedKeysRead && (inflightKeys || hangAt === 'keys-body')) {
+              page.simulatedKeysRead = true
+              const items = inflightKeys === 'missing-target' ? [] : [...keys.values()].filter(key => key.user_id === page.actor.id).map(key => ({ id: key.id }))
+              const pending = response('/pg/keys?p=1&page_size=100', 'GET', { success: true, data: { items } })
+              let complete = false
+              pending.json = async () => {
+                if (hangAt === 'keys-body') return hang()
+                if (!complete) {
+                  complete = true
+                  page.backgroundKeyComplete = true
+                  keyReadEvents.push('body-complete')
+                  page.availableKeyIds = items.map(item => item.id)
+                  page.listeners.requestfinished?.(pending.request())
+                }
+                return { success: true, data: { items } }
+              }
+              page.backgroundKeys = pending
+              page.listeners.request?.(pending.request())
+              keyReadEvents.push('request-started')
+            }
             page.sidebarOpen = false
             navigations.push({ kind: 'link', locale: context.locale, path: pathname })
           }
@@ -295,8 +387,13 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             page.emit(response('/api/user/login', 'POST', { success: corrupt !== 'login-rate', data: { access_token: token, user: clone(page.actor) } }, corrupt === 'login-rate' ? 429 : 200))
           }
           if (value === 'Create API Key') { page.switches['No ordinary quota cap'] = 'true'; page.group = '' }
-          if (kind === 'option') page.group = 'default'
+          if (kind === 'option' && value === 'smoke-model') {
+            assert(page.modelsCache.get(page.selected)?.includes(value))
+            page.model = value
+            modelChoices.push({ locale: context.locale, keyId: Number(page.selected), model: value })
+          } else if (kind === 'option') page.group = 'default'
           if (value === 'Save changes' || value === 'Save Changes') {
+            createdKeyDisplays.push(page.currency)
             const id = keys.size + 31
             const unlimited = page.switches['No ordinary quota cap'] !== 'false'
             const data = { name: page.fields.Name, remain_quota: unlimited ? 0 : Number(page.fields['Key quota (internal units)']), unlimited_quota: unlimited, group: page.group }
@@ -412,7 +509,10 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
     let status = 200
     if (route === 'GET /api/quota-writer/status') data = { state: { mode: corrupt === 'writer' ? 'bridge' : writer } }
     else if (route === 'GET /api/status') data = { user_funding_mode: 'disabled', enable_batch_update: false }
-    else if (route === 'PUT /api/option/') assert.deepEqual(body, { key: 'general_setting.quota_display_type', value: 'TOKENS' })
+    else if (route === 'PUT /api/option/') {
+      assert.deepEqual(body, { key: 'general_setting.quota_display_type', value: 'TOKENS' })
+      serverDisplay = 'TOKENS' // Does not mutate the independently cached browser store.
+    }
     else if (route === 'GET /api/user/self') data = clone(actor)
     else if (route === 'POST /api/user/') { assert.equal(body.role, 1); assert(body.password.length >= 8 && body.password.length <= 20); users.set(20, { id: 20, username: body.username, role: 1, quota: 0, used_quota: 0, request_count: 0, self_use_no_balance: false, revision: 0 }) }
     else if (route === 'GET /api/user/search') data = { items: [clone(users.get(20))] }
@@ -434,6 +534,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   }
   return { playwrightModule, fetchImpl, contexts, emitted, screenshots, apiCalls, dialogCloseEvents, completionEvents, signals,
     navigations,
+    createdKeyDisplays, policyRefreshes, playgroundRefreshes, modelChoices, keyReadEvents,
     reached: reached.promise, release: stalled.resolve, closing: closing.promise, releaseClose: stalledClose.resolve,
     closed: () => closed, upstreamCount: () => upstreamCount }
 }
@@ -466,7 +567,8 @@ for (const writer of ['legacy', 'authoritative']) {
   })
 }
 
-for (const [corrupt, code] of [['writer', 'WRITER_MISMATCH'], ['models', 'REQUEST_MISMATCH'], ['log-owner', 'LOG_MISMATCH'],
+for (const [corrupt, code] of [['writer', 'WRITER_MISMATCH'], ['models', 'REQUEST_MISMATCH'], ['keys', 'REQUEST_MISMATCH'], ['ambiguous-model', 'REQUEST_MISMATCH'],
+  ['policy-refresh-owner', 'POLICY_MISMATCH'], ['policy-refresh-revision', 'POLICY_MISMATCH'], ['log-owner', 'LOG_MISMATCH'],
   ['quota', 'USAGE_MISMATCH'], ['upstream', 'UPSTREAM_MISMATCH'], ['usage', 'LOG_MISMATCH'], ['replay', 'REQUEST_MISMATCH'], ['strict-reserve', 'USAGE_MISMATCH'],
   ['incomplete-text', 'BROWSER_FAILED'], ['still-generating', 'BROWSER_FAILED'], ['missing-send', 'BROWSER_FAILED'], ['latest-error', 'RELAY_MISMATCH']]) {
   test(`driver stops on ${corrupt} rather than reporting mocked success`, async () => {
@@ -583,6 +685,7 @@ test('the default progress sink emits safe JSON while a broken observer cannot b
 for (const [hangAt, timeout, stage] of [
   ['response-json', 20_000, 'login-response'], ['rejection-body', 20_000, 'playground-rejection'],
   ['api-body', 10_000, 'writer-check'], ['evaluate', 20_000, 'login-keys'],
+  ['keys-body', 20_000, 'key-selection-refresh'],
 ]) {
   test(`${hangAt} deadline actively closes owned contexts and late resolution cannot resume business`, async t => {
     t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
@@ -674,15 +777,64 @@ test('real sidebar contracts reduce document loads and final persistence load ca
   const report = await probePersonalBrowserJourney({ ...base, ...fixture })
   assert.equal(report.passed, true)
   assert.deepEqual(fixture.navigations.filter(item => item.kind === 'document').map(item => [item.locale, item.path]), [
-    ['en-US', '/sign-in'], ['en-US', '/usage-logs/common'], ['zh-CN', '/sign-in'],
+    ['en-US', '/sign-in'], ['en-US', '/keys'], ['en-US', '/usage-logs/common'], ['zh-CN', '/sign-in'],
     ['en-US', '/users'], ['zh-CN', '/usage-logs/common'], ['en-US', '/keys'], ['zh-CN', '/keys'],
-  ]) // Seven journey document loads, plus the separate real setup document.
+  ]) // Eight journey document loads, plus the separate real setup document.
   assert.equal(fixture.navigations.filter(item => item.kind === 'link').length, 10)
   assert.equal(fixture.navigations.filter(item => item.kind === 'toggle').length, 6)
   assert(fixture.navigations.filter(item => item.kind === 'toggle').every(item => item.locale === 'zh-CN'))
   assert.deepEqual(fixture.contexts.map(context => context.page.closedLogDialogs), [1, 1])
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/api/user/login').length, 2)
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+})
+
+test('fixture config reload and ordinary owner Refresh cross independent client cache boundaries', async () => {
+  const fixture = journeyBrowser()
+  const report = await probePersonalBrowserJourney({ ...base, ...fixture })
+  assert.equal(report.passed, true)
+  assert.deepEqual(fixture.createdKeyDisplays, ['TOKENS', 'TOKENS', 'TOKENS', 'TOKENS'])
+  assert.deepEqual(fixture.policyRefreshes, [{ userId: 20, role: 1, revision: 1 }])
+})
+
+test('Playground refreshes new Keys and explicitly selects the cached model without a redundant models GET', async () => {
+  const fixture = journeyBrowser()
+  const report = await probePersonalBrowserJourney({ ...base, ...fixture })
+  assert.equal(report.passed, true)
+  assert.equal(fixture.playgroundRefreshes.length, 5)
+  assert.deepEqual(fixture.playgroundRefreshes.map(item => item.ids.length), [1, 1, 1, 2, 2])
+  assert.equal(fixture.modelChoices.length, 5)
+  assert.deepEqual(fixture.modelChoices.map(item => item.locale), ['en-US', 'zh-CN', 'zh-CN', 'zh-CN', 'en-US'])
+  assert(fixture.modelChoices.every(item => item.model === 'smoke-model'))
+  assert.equal(fixture.modelChoices[1].keyId, fixture.modelChoices[2].keyId)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/models').length, 4)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+})
+
+for (const inflightKeys of ['initial', 'background', 'missing-target']) {
+  test(`Playground ${inflightKeys} read settles without requiring an extra request from HTTP deduplication`, async () => {
+    const fixture = journeyBrowser({ inflightKeys })
+    const report = await probePersonalBrowserJourney({ ...base, ...fixture })
+    assert.equal(report.passed, true)
+    assert.equal(fixture.keyReadEvents.filter(event => event === 'request-started').length, 2)
+    assert.equal(fixture.keyReadEvents.filter(event => event === 'body-complete').length, 2)
+    assert.equal(fixture.keyReadEvents.filter(event => event === 'refresh-reused-request').length, inflightKeys === 'background' ? 2 : 0)
+    assert.deepEqual(fixture.keyReadEvents, [1, 2].flatMap(() => [
+      'request-started', 'body-complete', ...(inflightKeys === 'background' ? ['refresh-reused-request'] : []),
+    ]))
+    assert.equal(fixture.playgroundRefreshes.length, 5)
+    assert.equal(fixture.modelChoices.length, 5)
+    assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+  })
+}
+
+test('an older in-flight list without the target cannot excuse a refreshed list still missing the new Key', async () => {
+  const fixture = journeyBrowser({ inflightKeys: 'missing-target', corrupt: 'keys' })
+  await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), error =>
+    error.message === 'SMOKE_PERSONAL_REQUEST_MISMATCH' && error.stage === 'key-selection-refresh')
+  assert.equal(fixture.keyReadEvents.filter(event => event === 'body-complete').length, 1)
+  assert.equal(fixture.playgroundRefreshes.length, 1)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 0)
+  assert.equal(fixture.closed(), 1)
 })
 
 for (const seconds of [0, 1, 180]) {
@@ -756,7 +908,7 @@ test('a second document 429 fails instead of retrying again', async t => {
 test('document backoff shares a 180-second journey budget and never replays login or relay', async t => {
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
   const fixture = journeyBrowser({ documentResponses: [
-    { status: 429, retryAfter: '100' }, { status: 200 }, { status: 429, retryAfter: '81' },
+    { status: 429, retryAfter: '100' }, { status: 200 }, { status: 200 }, { status: 429, retryAfter: '81' },
   ] })
   const events = []
   const backoff = Promise.withResolvers()
@@ -770,7 +922,7 @@ test('document backoff shares a 180-second journey budget and never replays logi
   t.mock.timers.tick(100_000)
   await rejected
   assert.equal(events.filter(event => event.stage === 'document-backoff').length, 1)
-  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 3)
+  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 4)
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/api/user/login').length, 1)
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 1)
 })

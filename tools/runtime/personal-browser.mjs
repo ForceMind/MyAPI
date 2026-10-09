@@ -9,10 +9,10 @@ const model = 'smoke-model'
 const quota = 1000
 const usage = 15
 const stages = new Set(['launch', 'setup', 'setup-session', 'setup-open', 'setup-database',
-  'setup-credentials', 'setup-mode', 'setup-review', 'setup-submit', 'setup-response', 'login', 'login-open', 'login-response', 'login-keys', 'document-backoff', 'writer-check', 'fixture-config', 'policy-view',
+  'setup-credentials', 'setup-mode', 'setup-review', 'setup-submit', 'setup-response', 'login', 'login-open', 'login-response', 'login-keys', 'document-backoff', 'writer-check', 'fixture-config', 'fixture-config-refresh', 'policy-view', 'policy-refresh',
   'key-create', 'key-create-open', 'key-create-ready', 'key-create-profile', 'key-create-cap',
   'key-create-quota', 'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm',
-  'playground-response', 'playground-complete', 'playground-rejection',
+  'key-selection-refresh', 'key-selection-model', 'playground-response', 'playground-complete', 'playground-rejection',
   'strict-budget', 'reload-check', 'screenshot', 'browser-close'])
 const codes = new Set(['SCOPE_REJECTED', 'AUTH_UNAVAILABLE', 'BROWSER_FAILED', 'BROWSER_CLOSE_FAILED', 'SETUP_FAILED',
   'HTTP_FAILED', 'LOGIN_FAILED', 'RUNTIME_ERROR', 'BUILD_MISMATCH', 'API_FAILED', 'STATE_MISMATCH',
@@ -162,14 +162,19 @@ async function newSession(browser, origin, language = 'en', width = 1280, scope 
   const page = await bounded(scope, () => context.newPage())
   page.setDefaultTimeout(20_000)
   const translations = JSON.parse(readFileSync(new URL(`../../web/src/i18n/locales/${language}.json`, import.meta.url), 'utf8')).translation
-  const session = { context, page, scope, language, width, origin, errors: 0, requests: 0, reveals: 0, secrets: [],
+  const session = { context, page, scope, language, width, origin, errors: 0, requests: 0, reveals: 0, secrets: [], keyReads: new Set(),
     label: (key) => translations[key] || key }
   page.on('pageerror', () => { session.errors += 1 })
   page.on('request', (request) => {
-    const pathname = new URL(request.url()).pathname
+    const url = new URL(request.url())
+    const pathname = url.pathname
+    if (url.origin === origin && pathname === '/pg/keys' && request.method() === 'GET' &&
+      url.searchParams.get('p') === '1' && url.searchParams.get('page_size') === '100') session.keyReads.add(request)
     if (pathname === '/pg/chat/completions' && request.method() === 'POST') session.requests += 1
     if (/^\/api\/token\/\d+\/key$/.test(pathname)) session.reveals += 1
   })
+  page.on('requestfinished', request => session.keyReads.delete(request))
+  page.on('requestfailed', request => session.keyReads.delete(request))
   return session
 }
 
@@ -233,6 +238,24 @@ async function responseSuccess(session, response, code) {
   return payload.data
 }
 
+async function refreshReadback(session, pathname, button, code, parameters = {}) {
+  // Policy Refresh is disabled during its initial query. Let that read settle
+  // before observing the request caused by this explicit user action.
+  await button.click({ trial: true })
+  const matches = (request) => {
+    const url = new URL(request.url())
+    return url.origin === session.origin && url.pathname === pathname && request.method() === 'GET' &&
+      Object.entries(parameters).every(([name, value]) => url.searchParams.get(name) === value)
+  }
+  // Correlate the newly requested read with its response. A cached dialog or a
+  // previously in-flight read must not satisfy the explicit Refresh action.
+  const requested = session.page.waitForRequest(matches)
+  const received = session.page.waitForResponse(response => matches(response.request()) &&
+    requested.then(request => response.request() === request))
+  const [, response] = await Promise.all([requested, received, button.click()])
+  return responseSuccess(session, response, code)
+}
+
 async function login(session, username, password, expectedRole, sha) {
   session.scope.stage = 'login-open'
   await open(session, '/sign-in')
@@ -282,12 +305,19 @@ async function capture(session, options, name, screenshots) {
   session.scope.stage = previousStage
 }
 
-async function policyView(session, expectedNoBalance) {
+async function policyView(session, expectedNoBalance, refreshRevision) {
   session.scope.stage = 'policy-view'
   const { page, label } = session
   await open(session, '/keys')
   await page.getByRole('button', { name: label('My usage policy'), exact: true }).click()
   const dialog = page.getByRole('dialog', { name: label('User usage policy'), exact: true })
+  if (refreshRevision !== undefined) {
+    session.scope.stage = 'policy-refresh'
+    const policy = await refreshReadback(session, `/api/user/${session.user.id}/usage-policy`,
+      dialog.getByRole('button', { name: label('Refresh'), exact: true }), 'POLICY_MISMATCH')
+    requireThat(policy?.user_id === session.user.id && policy.revision === refreshRevision &&
+      policy.no_balance === expectedNoBalance && policy.legacy_remaining_quota === 0, 'POLICY_MISMATCH')
+  }
   const configuration = dialog.getByRole('region', { name: label('Current configuration'), exact: true })
   await configuration.getByText(label('Commercial funding disabled'), { exact: true }).waitFor()
   await configuration.getByText(label(expectedNoBalance ? 'Use Key limits without a user wallet' : 'Use the stored user allowance'), { exact: true }).waitFor()
@@ -361,13 +391,46 @@ async function preparePlayground(session, key) {
   await selected.selectOption('')
   await page.getByRole('textbox', { name: label('Message'), exact: true }).fill('synthetic personal browser request')
   requireThat(await page.getByRole('button', { name: label('Send'), exact: true }).isDisabled(), 'REQUEST_MISMATCH')
-  const options = responseFor(session, '/pg/models', 'GET')
+  session.scope.stage = 'key-selection-refresh'
+  const refresh = page.getByRole('status').getByRole('button', { name: label('Refresh'), exact: true })
+  let available
+  // The enabled Key select already waits for an uncached initial query. With
+  // cached data, however, a background GET can still be pending. The app's HTTP
+  // deduplicator may reuse that promise when Refresh is clicked. Read its whole
+  // real JSON body rather than requiring an additional network request event.
+  const pendingKeys = [...session.keyReads]
+  requireThat(pendingKeys.length <= 1, 'REQUEST_MISMATCH')
+  if (pendingKeys.length === 1) {
+    const existing = await bounded(session.scope, async () => {
+      const response = await pendingKeys[0].response()
+      requireThat(!session.scope.abort.signal.aborted, 'TIMEOUT')
+      requireThat(response, 'REQUEST_MISMATCH')
+      const payload = await response.json()
+      requireThat(response.status() === 200 && payload?.success === true, 'REQUEST_MISMATCH')
+      return payload.data
+    })
+    await bounded(session.scope, () => page.evaluate(() => document.readyState))
+    if (Array.isArray(existing?.items) && existing.items.filter(item => item.id === key.id).length === 1) {
+      await refresh.click()
+      available = existing
+    }
+  }
+  // If an older read lacked the new Key, it has now completed: explicitly
+  // refresh and require the newly read list to contain this exact Key.
+  if (!available) available = await refreshReadback(session, '/pg/keys', refresh,
+    'REQUEST_MISMATCH', { p: '1', page_size: '100' })
+  requireThat(Array.isArray(available?.items) && available.items.filter(item => item.id === key.id).length === 1, 'REQUEST_MISMATCH')
+  session.scope.stage = 'key-selection-model'
   await selected.selectOption(String(key.id))
-  const models = await responseSuccess(session, await options, 'REQUEST_MISMATCH')
-  requireThat(Array.isArray(models) && models.some((item) => item === model || item?.id === model), 'REQUEST_MISMATCH')
   requireThat(await selected.inputValue() === String(key.id), 'REQUEST_MISMATCH')
-  // The model selector may select the single available model automatically;
-  // the outgoing payload is checked separately against the fixed fixture.
+  // The same Key's models can legitimately remain in the fresh query cache.
+  // Choose the real visible option; do not require a redundant models GET or
+  // rely on the model-selection effect. This trigger also works at 320px.
+  await page.locator('form button[role="combobox"]').click()
+  const modelOption = page.getByRole('option', { name: model, exact: true })
+  try { await modelOption.waitFor({ state: 'visible' }) } catch { throw new Error('SMOKE_PERSONAL_REQUEST_MISMATCH') }
+  requireThat(await modelOption.count() === 1, 'REQUEST_MISMATCH')
+  await modelOption.click()
   await page.getByRole('button', { name: label('Parameters'), exact: true }).click()
   const enabledName = label('Enable {{parameter}}').replace('{{parameter}}', label('Max Tokens'))
   const maxTokensEnabled = page.getByRole('switch', { name: enabledName, exact: true })
@@ -541,6 +604,10 @@ export async function probePersonalBrowserJourney(options = {}) {
     const status = await api(root, '/api/status')
     requireThat(status.user_funding_mode === 'disabled' && status.enable_batch_update === false, 'STATE_MISMATCH')
     await api(root, '/api/option/', 'PUT', { key: 'general_setting.quota_display_type', value: 'TOKENS' })
+    // The out-of-browser fixture PUT does not update this mounted client's
+    // system-config store. Reload once before relying on internal-unit labels.
+    scope.stage = 'fixture-config-refresh'
+    await open(root, '/keys', { forceLoad: true })
     const rootPolicy = await api(root, `/api/user/${root.user.id}/usage-policy`)
     requireThat(rootPolicy.no_balance === true && rootPolicy.legacy_remaining_quota === 0, 'POLICY_MISMATCH')
     const rootDialog = await policyView(root, true)
@@ -618,7 +685,7 @@ export async function probePersonalBrowserJourney(options = {}) {
     await closeDialog(root, choice)
     const afterChoice = await api(owner, `/api/user/${owner.user.id}/usage-policy`)
     requireThat(afterChoice.no_balance === true && afterChoice.revision === confirmed.revision && afterChoice.legacy_remaining_quota === 0, 'POLICY_MISMATCH')
-    const activeDialog = await policyView(owner, true)
+    const activeDialog = await policyView(owner, true, confirmed.revision)
     await capture(owner, options, 'existing-policy-after', screenshots)
     await closeDialog(owner, activeDialog)
     const ownerEnabled = await snapshot(api, owner, ownerKey)

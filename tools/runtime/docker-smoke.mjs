@@ -603,9 +603,9 @@ async function main() {
       'SMOKE_PERSONAL_USAGE_MISMATCH', 'SMOKE_PERSONAL_UPSTREAM_MISMATCH', 'SMOKE_PERSONAL_WRITER_MISMATCH',
       'SMOKE_PERSONAL_SCREENSHOT_REJECTED'])
     const safeStages = new Set(['launch', 'browser-close', 'setup',
-      'setup-session', 'setup-open', 'setup-database', 'setup-credentials', 'setup-mode', 'setup-review', 'setup-submit', 'setup-response', 'login', 'login-open', 'login-response', 'login-keys', 'document-backoff', 'writer-check', 'fixture-config', 'policy-view', 'key-create',
+      'setup-session', 'setup-open', 'setup-database', 'setup-credentials', 'setup-mode', 'setup-review', 'setup-submit', 'setup-response', 'login', 'login-open', 'login-response', 'login-keys', 'document-backoff', 'writer-check', 'fixture-config', 'fixture-config-refresh', 'policy-view', 'policy-refresh', 'key-create',
       'key-create-open', 'key-create-ready', 'key-create-profile', 'key-create-cap', 'key-create-quota',
-      'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm', 'playground-response', 'playground-complete', 'playground-rejection', 'strict-budget', 'reload-check', 'screenshot'])
+      'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'key-selection-refresh', 'key-selection-model', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm', 'playground-response', 'playground-complete', 'playground-rejection', 'strict-budget', 'reload-check', 'screenshot'])
     console.error(JSON.stringify({ command: 'docker:smoke', passed: false,
       code: safeCodes.has(error?.message) ? error.message : 'SMOKE_UNEXPECTED_FAILURE',
       ...(safeStages.has(error?.stage) ? { stage: error.stage } : {}),
