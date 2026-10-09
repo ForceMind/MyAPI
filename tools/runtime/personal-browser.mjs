@@ -1,0 +1,520 @@
+// Real browser -> isolated MyAPI -> bounded loopback provider acceptance.
+// Never fulfill application routes, inject authentication, reveal a Key, record
+// browser traces/storage, or serialize external errors/response bodies.
+import { randomBytes } from 'node:crypto'
+import { lstatSync, readFileSync, realpathSync } from 'node:fs'
+import path from 'node:path'
+
+const model = 'smoke-model'
+const quota = 1000
+const usage = 15
+const stages = new Set(['launch', 'setup', 'login', 'writer-check', 'fixture-config', 'policy-view',
+  'key-create', 'key-selection', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm',
+  'strict-budget', 'reload-check', 'screenshot'])
+const codes = new Set(['SCOPE_REJECTED', 'AUTH_UNAVAILABLE', 'BROWSER_FAILED', 'SETUP_FAILED',
+  'HTTP_FAILED', 'LOGIN_FAILED', 'RUNTIME_ERROR', 'BUILD_MISMATCH', 'API_FAILED', 'STATE_MISMATCH',
+  'KEY_MISMATCH', 'POLICY_MISMATCH', 'REQUEST_MISMATCH', 'RELAY_MISMATCH', 'LOG_MISMATCH',
+  'USAGE_MISMATCH', 'UPSTREAM_MISMATCH', 'WRITER_MISMATCH', 'SCREENSHOT_REJECTED'])
+
+function requireThat(condition, code) {
+  if (!condition) throw new Error(`SMOKE_PERSONAL_${code}`)
+}
+
+function validateOptions(options, withUpstream) {
+  const { baseUrl, edition, sha, isolated, username, password, writer = 'legacy', artifactDir } = options
+  let target
+  let upstream
+  try {
+    target = new URL(baseUrl)
+    if (withUpstream) upstream = new URL(options.upstreamBaseUrl)
+  } catch { throw new Error('SMOKE_PERSONAL_SCOPE_REJECTED') }
+  requireThat(isolated === true && target.protocol === 'http:' && target.hostname === '127.0.0.1' &&
+    target.port && !target.username && !target.password && target.pathname === '/' && !target.search && !target.hash &&
+    ['full', 'lan'].includes(edition) && /^[a-f0-9]{40}$/.test(sha || '') &&
+    ['legacy', 'authoritative'].includes(writer), 'SCOPE_REJECTED')
+  if (withUpstream) requireThat(upstream.origin === 'http://127.0.0.1:19090' && !upstream.username &&
+    !upstream.password && upstream.pathname === '/' && !upstream.search && !upstream.hash, 'SCOPE_REJECTED')
+  requireThat(typeof username === 'string' && username.length > 0 && typeof password === 'string' && password.length >= 8, 'AUTH_UNAVAILABLE')
+  if (artifactDir !== undefined) {
+    try {
+      requireThat(path.isAbsolute(artifactDir) && lstatSync(artifactDir).isDirectory() &&
+        !lstatSync(artifactDir).isSymbolicLink() && realpathSync(artifactDir) === path.resolve(artifactDir), 'SCREENSHOT_REJECTED')
+    } catch { throw new Error('SMOKE_PERSONAL_SCREENSHOT_REJECTED') }
+  }
+  return { origin: target.origin, upstream: upstream?.origin, writer }
+}
+
+async function withBrowser(options, withUpstream, run) {
+  const scope = validateOptions(options, withUpstream)
+  let browser
+  scope.stage = 'launch'
+  try {
+    const module = typeof options.playwrightModule === 'string'
+      ? await import(options.playwrightModule) : options.playwrightModule
+    requireThat(typeof module?.chromium?.launch === 'function', 'BROWSER_FAILED')
+    browser = await module.chromium.launch({ headless: true })
+    return await run(browser, scope)
+  } catch (error) {
+    const suffix = String(error?.message || '').replace(/^SMOKE_PERSONAL_/, '')
+    // No cause/stack from browser, HTTP client or assertion libraries may escape.
+    const safeError = new Error(`SMOKE_PERSONAL_${codes.has(suffix) ? suffix : 'BROWSER_FAILED'}`)
+    safeError.stage = stages.has(scope.stage) ? scope.stage : 'launch'
+    throw safeError
+  } finally {
+    if (browser) await browser.close().catch(() => {})
+  }
+}
+
+async function newSession(browser, origin, language = 'en', width = 1280, scope = {}) {
+  const context = await browser.newContext({ locale: language === 'zh' ? 'zh-CN' : 'en-US',
+    viewport: { width, height: 900 }, serviceWorkers: 'block' })
+  // The only initialization is the user's ordinary language preference. No
+  // synthetic API/auth state, selected Key or Playground config is injected.
+  await context.addInitScript(({ origin, language }) => {
+    if (location.origin === origin) localStorage.setItem('i18nextLng', language === 'zh' ? 'zhCN' : language)
+  }, { origin, language })
+  await context.route('**/*', (route) => {
+    let allowed = false
+    try { allowed = new URL(route.request().url()).origin === origin } catch {}
+    return allowed ? route.continue() : route.abort()
+  })
+  const page = await context.newPage()
+  page.setDefaultTimeout(20_000)
+  const translations = JSON.parse(readFileSync(new URL(`../../web/src/i18n/locales/${language}.json`, import.meta.url), 'utf8')).translation
+  const session = { context, page, scope, language, width, origin, errors: 0, requests: 0, reveals: 0, secrets: [],
+    label: (key) => translations[key] || key }
+  page.on('pageerror', () => { session.errors += 1 })
+  page.on('request', (request) => {
+    const pathname = new URL(request.url()).pathname
+    if (pathname === '/pg/chat/completions' && request.method() === 'POST') session.requests += 1
+    if (/^\/api\/token\/\d+\/key$/.test(pathname)) session.reveals += 1
+  })
+  return session
+}
+
+async function open(session, pathname) {
+  const response = await session.page.goto(session.origin + pathname, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+  requireThat(response?.status() === 200, 'HTTP_FAILED')
+}
+
+function responseFor(session, pathname, method) {
+  return session.page.waitForResponse((response) => {
+    const url = new URL(response.url())
+    return url.origin === session.origin && url.pathname === pathname && response.request().method() === method
+  })
+}
+
+async function responseSuccess(response, code) {
+  const payload = await response.json()
+  requireThat(response.status() >= 200 && response.status() < 300 && payload?.success === true, code)
+  return payload.data
+}
+
+async function login(session, username, password, expectedRole, sha) {
+  session.scope.stage = 'login'
+  await open(session, '/sign-in')
+  await session.page.locator('form input[name="username"]').fill(username)
+  await session.page.locator('form input[name="password"][type="password"]').fill(password)
+  const received = responseFor(session, '/api/user/login', 'POST')
+  await session.page.locator('form button[type="submit"]').click()
+  const bundle = await responseSuccess(await received, 'LOGIN_FAILED')
+  requireThat(typeof bundle?.access_token === 'string' && bundle.access_token &&
+    Number.isSafeInteger(bundle.user?.id) && bundle.user.id > 0 && bundle.user.role === expectedRole, 'LOGIN_FAILED')
+  session.user = bundle.user
+  session.token = bundle.access_token
+  session.secrets.push(password, bundle.access_token)
+  session.username = username
+  await session.page.waitForURL((url) => url.pathname !== '/sign-in')
+  await open(session, '/keys')
+  await session.page.getByRole('button', { name: session.label('My usage policy'), exact: true }).waitFor()
+  const metadata = await session.page.evaluate(() => ({
+    global: window.__APP_BUILD__?.rev,
+    html: document.documentElement.getAttribute('data-build-rev'),
+    meta: document.querySelector('meta[name="build-id"]')?.getAttribute('content'),
+  }))
+  const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
+  requireThat(typeof metadata.global === 'string' && metadata.global.startsWith(`rv.${version}.${sha}.`) &&
+    metadata.global === metadata.html && metadata.global === metadata.meta, 'BUILD_MISMATCH')
+}
+
+async function capture(session, options, name, screenshots) {
+  if (!options.artifactDir) return
+  const previousStage = session.scope.stage
+  session.scope.stage = 'screenshot'
+  requireThat(/^[a-z0-9-]+$/.test(name) && !['/sign-in', '/setup'].includes(new URL(session.page.url()).pathname), 'SCREENSHOT_REJECTED')
+  const safe = await session.page.evaluate((secrets) => {
+    const visible = document.body.innerText
+    const values = [...document.querySelectorAll('input, textarea')].map((input) => input.value).join('\n')
+    return secrets.every((secret) => !visible.includes(secret) && !values.includes(secret))
+  }, session.secrets)
+  requireThat(safe && session.reveals === 0, 'SCREENSHOT_REJECTED')
+  const filename = `${name}-${session.language}-${session.width}.png`
+  await session.page.screenshot({ path: path.join(options.artifactDir, filename), fullPage: true,
+    mask: [session.page.locator('input'), session.page.getByText(/sk-[A-Za-z0-9*._-]+/),
+      session.page.getByText(session.username, { exact: true })] })
+  screenshots.push(filename)
+  session.scope.stage = previousStage
+}
+
+async function policyView(session, expectedNoBalance) {
+  session.scope.stage = 'policy-view'
+  const { page, label } = session
+  await open(session, '/keys')
+  await page.getByRole('button', { name: label('My usage policy'), exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: label('User usage policy'), exact: true })
+  const configuration = dialog.getByRole('region', { name: label('Current configuration'), exact: true })
+  await configuration.getByText(label('Commercial funding disabled'), { exact: true }).waitFor()
+  await configuration.getByText(label(expectedNoBalance ? 'Use Key limits without a user wallet' : 'Use the stored user allowance'), { exact: true }).waitFor()
+  if (session.user.role !== 100) {
+    await dialog.getByText(label('Only Root can change this policy.'), { exact: true }).waitFor()
+    requireThat(await dialog.locator('form, input, [role="checkbox"]').count() === 0, 'POLICY_MISMATCH')
+  }
+  return dialog
+}
+
+async function closeDialog(session, dialog) {
+  await session.page.keyboard.press('Escape')
+  await dialog.waitFor({ state: 'hidden' })
+}
+
+async function createKey(session, api, name, limit) {
+  session.scope.stage = 'key-create'
+  const { page, label } = session
+  await open(session, '/keys')
+  await page.getByRole('button', { name: label('Create API Key'), exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: label('Create API Key'), exact: true })
+  await dialog.locator('form[aria-busy="false"]').waitFor()
+  await dialog.getByRole('textbox', { name: label('Name'), exact: true }).fill(name)
+  const cap = dialog.getByRole('switch', { name: label('No ordinary quota cap'), exact: true })
+  requireThat(await cap.getAttribute('aria-checked') === 'true', 'KEY_MISMATCH')
+  await cap.click()
+  requireThat(await cap.getAttribute('aria-checked') === 'false', 'KEY_MISMATCH')
+  await dialog.getByRole('spinbutton', { name: label('Key quota (internal units)'), exact: true }).fill(String(limit))
+  await dialog.getByText(label('Internal quota is a price-converted allowance, not a count of actual input and output tokens.'), { exact: true }).waitFor()
+  const pending = responseFor(session, '/api/token/', 'POST')
+  await dialog.getByRole('button', { name: label('Save changes'), exact: true }).click()
+  const response = await pending
+  const sent = response.request().postDataJSON()
+  requireThat(sent?.name === name && sent.remain_quota === limit && sent.unlimited_quota === false && sent.group === 'default', 'KEY_MISMATCH')
+  await responseSuccess(response, 'KEY_MISMATCH')
+  await dialog.waitFor({ state: 'hidden' })
+  const data = await api(session, `/api/token/search?keyword=${encodeURIComponent(name)}&p=1&page_size=10`)
+  const keys = data.items?.filter((item) => item.name === name)
+  requireThat(keys?.length === 1 && Number.isSafeInteger(keys[0].id) && keys[0].id > 0 &&
+    keys[0].user_id === session.user.id && keys[0].remain_quota === limit && keys[0].used_quota === 0 &&
+    keys[0].unlimited_quota === false, 'KEY_MISMATCH')
+  // Never resolve /key or retain the masked/full key property in driver state.
+  return { id: keys[0].id, name, limit }
+}
+
+async function preparePlayground(session, key) {
+  session.scope.stage = 'key-selection'
+  const { page, label } = session
+  await open(session, '/playground')
+  const selected = page.getByRole('combobox', { name: label('API key'), exact: true })
+  await selected.waitFor()
+  // An explicit empty selection must prevent sending and cannot auto-select a
+  // fallback. This also covers returning with an older remembered selection.
+  await selected.selectOption('')
+  await page.getByRole('textbox', { name: label('Message'), exact: true }).fill('synthetic personal browser request')
+  requireThat(await page.getByRole('button', { name: label('Send'), exact: true }).isDisabled(), 'REQUEST_MISMATCH')
+  const options = responseFor(session, '/pg/models', 'GET')
+  await selected.selectOption(String(key.id))
+  await responseSuccess(await options, 'REQUEST_MISMATCH')
+  requireThat(await selected.inputValue() === String(key.id), 'REQUEST_MISMATCH')
+  // The model selector may select the single available model automatically;
+  // the outgoing payload is checked separately against the fixed fixture.
+  await page.getByRole('button', { name: label('Parameters'), exact: true }).click()
+  const enabledName = label('Enable {{parameter}}').replace('{{parameter}}', label('Max Tokens'))
+  const maxTokensEnabled = page.getByRole('switch', { name: enabledName, exact: true })
+  if (await maxTokensEnabled.getAttribute('aria-checked') === 'false') await maxTokensEnabled.click()
+  requireThat(await maxTokensEnabled.getAttribute('aria-checked') === 'true', 'REQUEST_MISMATCH')
+  await page.getByRole('spinbutton', { name: label('Max Tokens'), exact: true }).fill('8')
+  await page.keyboard.press('Escape')
+  await page.getByRole('spinbutton', { name: label('Max Tokens'), exact: true }).waitFor({ state: 'hidden' })
+  await page.getByRole('button', { name: label('Send'), exact: true }).click({ trial: true })
+}
+
+async function sendPlayground(session, key, expectedCode) {
+  session.scope.stage = 'playground-send'
+  const pending = responseFor(session, '/pg/chat/completions', 'POST')
+  const beforeRequests = session.requests
+  await session.page.getByRole('button', { name: session.label('Send'), exact: true }).click()
+  const response = await pending
+  const request = response.request()
+  const sent = request.postDataJSON()
+  requireThat(sent?.model === model && sent.max_tokens === 8 && sent.stream === true &&
+    request.headers()['x-myapi-key-id'] === String(key.id), 'REQUEST_MISMATCH')
+  await response.finished()
+  const requestId = response.headers()['x-oneapi-request-id']
+  requireThat(typeof requestId === 'string' && /^[A-Za-z0-9._:-]{1,160}$/.test(requestId), 'REQUEST_MISMATCH')
+  const text = await response.text()
+  requireThat(text.length <= 128 * 1024, 'RELAY_MISMATCH')
+  if (expectedCode) {
+    const payload = JSON.parse(text)
+    requireThat(response.status() === (expectedCode === 'token_budget_unsupported_request' ? 400 : 403) &&
+      payload?.error?.code === expectedCode, 'RELAY_MISMATCH')
+    await session.page.getByRole('alert').filter({ hasText: session.label('Error') }).last().waitFor()
+  } else {
+    requireThat(response.status() === 200 && text.includes('[DONE]'), 'RELAY_MISMATCH')
+    const events = text.split(/\r?\n/).filter((line) => line.startsWith('data:') && !line.includes('[DONE]'))
+      .map((line) => JSON.parse(line.slice(5).trim()))
+    const totals = events.filter((event) => event.usage?.total_tokens > 0)
+    requireThat(totals.length === 1 && totals[0].usage.prompt_tokens === 10 &&
+      totals[0].usage.completion_tokens === 5 && totals[0].usage.total_tokens === usage, 'RELAY_MISMATCH')
+    await session.page.getByText('synthetic fixed response', { exact: true }).last().waitFor()
+  }
+  // This read happens after the actual UI reaches a terminal state; no relay
+  // replay is used to wait for asynchronous accounting.
+  requireThat(session.requests === beforeRequests + 1, 'REQUEST_MISMATCH')
+  return requestId
+}
+
+async function snapshot(api, session, key) {
+  const user = await api(session, '/api/user/self')
+  const token = await api(session, `/api/token/${key.id}`)
+  requireThat(user.id === session.user.id && user.role === session.user.role && token.id === key.id &&
+    token.user_id === user.id && token.unlimited_quota === false && user.quota === 0, 'STATE_MISMATCH')
+  return { user, token }
+}
+
+async function verifyUsage(api, session, key, before, requestId, consumed) {
+  session.scope.stage = 'ledger-check'
+  let logs
+  for (let attempt = 0; attempt < 50; attempt++) {
+    logs = await api(session, `/api/log/self?type=2&request_id=${encodeURIComponent(requestId)}&p=1&page_size=100`)
+    requireThat(Array.isArray(logs.items) && Number.isSafeInteger(logs.total), 'LOG_MISMATCH')
+    if (!consumed || logs.total !== 0 || logs.items.length !== 0) break
+    requireThat(attempt < 49, 'LOG_MISMATCH')
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  requireThat(logs.total === (consumed ? 1 : 0) && logs.items.length === (consumed ? 1 : 0), 'LOG_MISMATCH')
+  if (consumed) {
+    const log = logs.items[0]
+    const other = JSON.parse(log.other || '{}')
+    requireThat(log.request_id === requestId && log.user_id === session.user.id && log.token_id === key.id &&
+      log.token_name === key.name && log.model_name === model && log.quota === usage &&
+      log.prompt_tokens === 10 && log.completion_tokens === 5 && other.billing_source === 'self_use' &&
+      (session.user.role === 100 || !Object.hasOwn(other, 'admin_info')), 'LOG_MISMATCH')
+  }
+  const after = await snapshot(api, session, key)
+  const delta = consumed ? usage : 0
+  requireThat(after.user.quota === 0 && after.user.self_use_no_balance === before.user.self_use_no_balance &&
+    after.user.used_quota === before.user.used_quota + delta &&
+    after.user.request_count === before.user.request_count + (consumed ? 1 : 0) &&
+    after.token.remain_quota === before.token.remain_quota - delta &&
+    after.token.used_quota === before.token.used_quota + delta, 'USAGE_MISMATCH')
+  return after
+}
+
+async function showPersistedUsage(session, key, requestId) {
+  session.scope.stage = 'usage-view'
+  await open(session, `/usage-logs/common?token=${encodeURIComponent(key.name)}`)
+  await session.page.getByText(key.name, { exact: true }).first().waitFor()
+  await session.page.getByText(model, { exact: true }).first().waitFor()
+  await session.page.getByTitle(session.label('Click to view full details'), { exact: true }).first().click()
+  const dialog = session.page.getByRole('dialog')
+  await dialog.getByText(requestId, { exact: true }).waitFor()
+  await dialog.getByText(key.name, { exact: true }).waitFor()
+}
+
+export async function browserSetup(options = {}) {
+  return withBrowser(options, false, async (browser, scope) => {
+    const { origin } = scope
+    scope.stage = 'setup'
+    const session = await newSession(browser, origin, 'en', 1280, scope)
+    const { page } = session
+    await open(session, '/setup')
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await page.locator('input[name="username"]').fill(options.username)
+    await page.locator('input[name="password"]').fill(options.password)
+    await page.locator('input[name="confirmPassword"]').fill(options.password)
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await page.locator(`#usage-mode-${options.edition === 'lan' ? 'self' : 'external'}`).click()
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    const response = responseFor(session, '/api/setup', 'POST')
+    await page.getByRole('button', { name: 'Initialize system', exact: true }).click()
+    await responseSuccess(await response, 'SETUP_FAILED')
+    requireThat(session.errors === 0, 'RUNTIME_ERROR')
+    return { name: 'real initial setup wizard', ok: true, sha: options.sha }
+  })
+}
+
+export async function probePersonalBrowserJourney(options = {}) {
+  return withBrowser(options, true, async (browser, scope) => {
+    const { origin, upstream, writer } = scope
+    const screenshots = []
+    const checks = []
+    const fetchImpl = options.fetchImpl || globalThis.fetch
+    const api = async (session, pathname, method = 'GET', body, allowFailure = false) => {
+      requireThat(pathname.startsWith('/api/') && !pathname.includes('://'), 'SCOPE_REJECTED')
+      const response = await fetchImpl(origin + pathname, { method, redirect: 'error', signal: AbortSignal.timeout(10_000),
+        headers: { Authorization: `Bearer ${session.token}`, 'Content-Type': 'application/json', Origin: origin },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }) })
+      const payload = await response.json()
+      if (allowFailure) return { status: response.status, payload }
+      requireThat(response.status >= 200 && response.status < 300 && payload?.success === true, 'API_FAILED')
+      return payload.data
+    }
+    const control = async () => {
+      const response = await fetchImpl(upstream + '/__smoke__/control', { redirect: 'error', signal: AbortSignal.timeout(10_000) })
+      const value = await response.json()
+      requireThat(response.status === 200 && Number.isSafeInteger(value.count) && value.count >= 0 &&
+        value.request_ok === true, 'UPSTREAM_MISMATCH')
+      return value.count
+    }
+    const root = await newSession(browser, origin, 'en', 1280, scope)
+    await login(root, options.username, options.password, 100, options.sha)
+    scope.stage = 'writer-check'
+    const writerState = await api(root, '/api/quota-writer/status')
+    requireThat(writerState.state?.mode === writer, 'WRITER_MISMATCH')
+    scope.stage = 'fixture-config'
+    const status = await api(root, '/api/status')
+    requireThat(status.user_funding_mode === 'disabled' && status.enable_batch_update === false, 'STATE_MISMATCH')
+    await api(root, '/api/option/', 'PUT', { key: 'general_setting.quota_display_type', value: 'TOKENS' })
+    const rootPolicy = await api(root, `/api/user/${root.user.id}/usage-policy`)
+    requireThat(rootPolicy.no_balance === true && rootPolicy.legacy_remaining_quota === 0, 'POLICY_MISMATCH')
+    const rootDialog = await policyView(root, true)
+    await capture(root, options, 'fresh-policy', screenshots)
+    await closeDialog(root, rootDialog)
+    const rootKey = await createKey(root, api, 'browser-root-finite', quota)
+    await capture(root, options, 'fresh-key-list', screenshots)
+    const rootBefore = await snapshot(api, root, rootKey)
+    const startCount = await control()
+    await preparePlayground(root, rootKey)
+    await capture(root, options, 'fresh-selected-key', screenshots)
+    const rootRequest = await sendPlayground(root, rootKey)
+    await verifyUsage(api, root, rootKey, rootBefore, rootRequest, true)
+    requireThat(await control() === startCount + 1, 'UPSTREAM_MISMATCH')
+    await capture(root, options, 'fresh-success', screenshots)
+    await showPersistedUsage(root, rootKey, rootRequest)
+    await capture(root, options, 'fresh-persisted-log', screenshots)
+    checks.push({ name: 'real English desktop fresh Root selected-Key streaming request and persisted usage', ok: true, quota: usage, requests: 1 })
+
+    // An ordinary pre-existing-style user starts with the existing stored-wallet
+    // policy. A true role-1 login, not Root impersonation, drives its entire UI.
+    scope.stage = 'fixture-config'
+    const ownerName = 'browserowner'
+    const ownerPassword = randomBytes(9).toString('hex')
+    await api(root, '/api/user/', 'POST', { username: ownerName, password: ownerPassword, display_name: 'Browser Owner', role: 1 })
+    const owners = (await api(root, `/api/user/search?keyword=${ownerName}&p=1&page_size=10`)).items?.filter((user) => user.username === ownerName)
+    requireThat(owners?.length === 1 && owners[0].role === 1 && Number.isSafeInteger(owners[0].id), 'STATE_MISMATCH')
+    const owner = await newSession(browser, origin, 'zh', 320, scope)
+    await login(owner, ownerName, ownerPassword, 1, options.sha)
+    requireThat(owner.user.id === owners[0].id && owner.user.id !== root.user.id, 'STATE_MISMATCH')
+    const oldPolicy = await api(owner, `/api/user/${owner.user.id}/usage-policy`)
+    requireThat(oldPolicy.no_balance === false && oldPolicy.legacy_remaining_quota === 0 && oldPolicy.revision === 0, 'POLICY_MISMATCH')
+    const ownerDialog = await policyView(owner, false)
+    await capture(owner, options, 'existing-policy-before', screenshots)
+    await closeDialog(owner, ownerDialog)
+    const forbidden = await api(owner, `/api/user/${owner.user.id}/usage-policy`, 'PUT', {
+      id: randomBytes(32).toString('hex'), expected_revision: oldPolicy.revision, no_balance: true, confirmed: true,
+    }, true)
+    requireThat(forbidden.status === 403 && forbidden.payload?.success === false, 'POLICY_MISMATCH')
+    const crossWrite = await api(owner, `/api/user/${root.user.id}/usage-policy`, 'PUT', {
+      id: randomBytes(32).toString('hex'), expected_revision: rootPolicy.revision, no_balance: false, confirmed: true,
+    }, true)
+    requireThat(crossWrite.status === 403 && crossWrite.payload?.success === false, 'POLICY_MISMATCH')
+    const crossOwner = await api(owner, `/api/user/${root.user.id}/usage-policy`, 'GET', undefined, true)
+    requireThat(crossOwner.status === 404 || crossOwner.status === 403 ||
+      crossOwner.status === 200 && crossOwner.payload?.success === false, 'POLICY_MISMATCH')
+    const unchangedPolicy = await api(owner, `/api/user/${owner.user.id}/usage-policy`)
+    requireThat(unchangedPolicy.no_balance === false && unchangedPolicy.revision === oldPolicy.revision, 'POLICY_MISMATCH')
+    const ownerKey = await createKey(owner, api, 'browser-owner-finite', quota)
+    await capture(owner, options, 'existing-key-list', screenshots)
+    const ownerBefore = await snapshot(api, owner, ownerKey)
+    await preparePlayground(owner, ownerKey)
+    await capture(owner, options, 'existing-selected-key', screenshots)
+    const deniedRequest = await sendPlayground(owner, ownerKey, 'insufficient_user_quota')
+    await verifyUsage(api, owner, ownerKey, ownerBefore, deniedRequest, false)
+    requireThat(await control() === startCount + 1, 'UPSTREAM_MISMATCH')
+    await capture(owner, options, 'existing-wallet-rejection', screenshots)
+
+    // Root reviews this specific ordinary user, confirms, and submits through
+    // the real policy dialog. API readback checks the audited revision change.
+    scope.stage = 'policy-confirm'
+    await open(root, `/users?filter=${ownerName}`)
+    const row = root.page.getByRole('row').filter({ hasText: ownerName })
+    await row.getByRole('button', { name: root.label('Open menu'), exact: true }).click()
+    await root.page.getByRole('menuitem', { name: root.label('User usage policy'), exact: true }).click()
+    const choice = root.page.getByRole('dialog', { name: root.label('User usage policy'), exact: true })
+    await choice.getByRole('checkbox', { name: root.label('Use Key limits without a user wallet'), exact: true }).check()
+    await choice.getByRole('checkbox', { name: root.label('I confirm all running instances support this policy and I understand the supported request paths.'), exact: true }).check()
+    const saved = responseFor(root, `/api/user/${owner.user.id}/usage-policy`, 'PUT')
+    await choice.getByRole('button', { name: root.label('Save'), exact: true }).click()
+    const confirmed = await responseSuccess(await saved, 'POLICY_MISMATCH')
+    requireThat(confirmed.user_id === owner.user.id && confirmed.no_balance === true &&
+      confirmed.revision === oldPolicy.revision + 1 && confirmed.legacy_remaining_quota === 0, 'POLICY_MISMATCH')
+    await closeDialog(root, choice)
+    const afterChoice = await api(owner, `/api/user/${owner.user.id}/usage-policy`)
+    requireThat(afterChoice.no_balance === true && afterChoice.revision === confirmed.revision && afterChoice.legacy_remaining_quota === 0, 'POLICY_MISMATCH')
+    const activeDialog = await policyView(owner, true)
+    await capture(owner, options, 'existing-policy-after', screenshots)
+    await closeDialog(owner, activeDialog)
+    const ownerEnabled = await snapshot(api, owner, ownerKey)
+    requireThat(ownerEnabled.user.quota === ownerBefore.user.quota && ownerEnabled.user.used_quota === ownerBefore.user.used_quota &&
+      ownerEnabled.user.request_count === ownerBefore.user.request_count, 'USAGE_MISMATCH')
+    await preparePlayground(owner, ownerKey)
+    const ownerRequest = await sendPlayground(owner, ownerKey)
+    await verifyUsage(api, owner, ownerKey, ownerEnabled, ownerRequest, true)
+    requireThat(await control() === startCount + 2, 'UPSTREAM_MISMATCH')
+    await capture(owner, options, 'existing-success', screenshots)
+    await showPersistedUsage(owner, ownerKey, ownerRequest)
+    await capture(owner, options, 'existing-persisted-log', screenshots)
+    checks.push({ name: 'real Chinese mobile ordinary owner rejects until explicit Root policy choice', ok: true, role: 1, policyChanges: 1, requests: 1, quota: usage })
+
+    const lowKey = await createKey(owner, api, 'browser-owner-low', 1)
+    const lowBefore = await snapshot(api, owner, lowKey)
+    await preparePlayground(owner, lowKey)
+    const lowRequest = await sendPlayground(owner, lowKey,
+      writer === 'authoritative' ? 'insufficient_user_quota' : 'pre_consume_token_quota_failed')
+    await verifyUsage(api, owner, lowKey, lowBefore, lowRequest, false)
+    requireThat(await control() === startCount + 2, 'UPSTREAM_MISMATCH')
+    await capture(owner, options, 'finite-quota-rejection', screenshots)
+    checks.push({ name: 'finite ordinary internal quota rejection leaves wallet, Key and consume usage unchanged', ok: true, remainingQuota: 1, additionalUpstreamRequests: 0 })
+
+    // Both strict dimensions are deliberately enabled on an unqualified
+    // loopback/model/request combination. This does not isolate the host gate
+    // or prove native-provider positives, strict settlement, or concurrency.
+    const strictKey = await createKey(root, api, 'browser-root-strict-reject', quota)
+    scope.stage = 'strict-budget'
+    await open(root, `/keys?filter=${strictKey.name}`)
+    await root.page.getByRole('button', { name: root.label('API Key usage budgets'), exact: true }).click()
+    const budgetDialog = root.page.getByRole('dialog', { name: root.label('API Key usage budgets'), exact: true })
+    await budgetDialog.getByRole('checkbox', { name: root.label('Enable strict Token budget'), exact: true }).check()
+    await budgetDialog.getByRole('textbox', { name: root.label('Token total limit'), exact: true }).fill('1000')
+    await budgetDialog.getByRole('checkbox', { name: root.label('Enable USD fee budget'), exact: true }).check()
+    await budgetDialog.getByRole('textbox', { name: root.label('USD total limit'), exact: true }).fill('1')
+    await budgetDialog.getByRole('checkbox', { name: root.label('I confirm all running instances support this budget and I understand its request restrictions.'), exact: true }).check()
+    const budgetSaved = responseFor(root, `/api/token/${strictKey.id}/budget`, 'PUT')
+    await budgetDialog.getByRole('button', { name: root.label('Save'), exact: true }).click()
+    await responseSuccess(await budgetSaved, 'POLICY_MISMATCH')
+    await closeDialog(root, budgetDialog)
+    const strictBefore = await snapshot(api, root, strictKey)
+    await preparePlayground(root, strictKey)
+    const strictRequest = await sendPlayground(root, strictKey, 'token_budget_unsupported_request')
+    await verifyUsage(api, root, strictKey, strictBefore, strictRequest, false)
+    const budget = await api(root, `/api/token/${strictKey.id}/budget`)
+    requireThat(budget.policy?.enabled === true && budget.policy.fee_enabled === true &&
+      budget.policy.used === 0 && budget.policy.reserved === 0 && budget.policy.fee_used_usd === '0' &&
+      budget.policy.fee_reserved_usd === '0' && budget.policy.pending_request_id === '' && budget.pending === null, 'USAGE_MISMATCH')
+    requireThat(await control() === startCount + 2, 'UPSTREAM_MISMATCH')
+    await capture(root, options, 'unqualified-strict-rejection', screenshots)
+    checks.push({ name: 'unqualified loopback/model/request combination rejects strict Token and USD before dispatch or reservation', ok: true, additionalUpstreamRequests: 0, reserved: 0 })
+
+    // Reload-and-read proves application-backed state, rather than a UI-only
+    // result. The enclosing Docker smoke separately owns DB restore testing.
+    scope.stage = 'reload-check'
+    await open(owner, `/keys?filter=${ownerKey.name}`)
+    await owner.page.getByText(ownerKey.name, { exact: true }).first().waitFor()
+    const persisted = await snapshot(api, owner, ownerKey)
+    requireThat(persisted.token.remain_quota === quota - usage && persisted.token.used_quota === usage &&
+      persisted.user.quota === 0 && persisted.user.role === 1 && persisted.user.used_quota === usage && persisted.user.request_count === 1, 'USAGE_MISMATCH')
+    const finalWriter = await api(root, '/api/quota-writer/status')
+    requireThat(finalWriter.state?.mode === writer, 'WRITER_MISMATCH')
+    requireThat(root.errors === 0 && owner.errors === 0 && root.reveals === 0 && owner.reveals === 0 &&
+      root.requests === 2 && owner.requests === 3, 'RUNTIME_ERROR')
+    checks.push({ name: 'browser reload preserves finite Key and ordinary-owner counters without relay replay', ok: true, remainingQuota: quota - usage, usedQuota: usage })
+    return { passed: true, sha: options.sha, writer, checks, screenshots }
+  })
+}

@@ -3,7 +3,7 @@
 // Initializes only a fresh, explicitly selected loopback SQLite test instance.
 // No credentials, cookies or API response bodies are returned in the report.
 import { randomBytes } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { runRuntimeProbe } from './auth-probe.mjs'
@@ -410,10 +410,14 @@ export async function preparePersonalWriterFixture({ baseUrl, edition, sha, user
 
 export async function probeFreshSQLite({
   baseUrl, edition, sha, isolated = false, relayFixture = false, fullContentExpected = false,
-  upstreamBaseUrl, fetchImpl = globalThis.fetch, restoreFixture,
+  upstreamBaseUrl, fetchImpl = globalThis.fetch, restoreFixture, setupFixture, personalFixture, writer = 'legacy',
 }) {
   if (!isolated) throw new Error('ISOLATED_SMOKE_OPT_IN_REQUIRED')
   const origin = validateSmokeTarget(baseUrl, edition, sha)
+  if (!['legacy', 'authoritative'].includes(writer) ||
+      (setupFixture !== undefined && typeof setupFixture !== 'function') ||
+      (personalFixture !== undefined && (typeof personalFixture !== 'function' || typeof setupFixture !== 'function' || !relayFixture)) ||
+      (writer !== 'legacy' && typeof personalFixture !== 'function')) throw new Error('SMOKE_PERSONAL_WRITER_SCOPE')
   // Fail before setup writes when the billed relay fixture has no literal
   // loopback upstream. The downstream probe validates it again defensively.
   if (relayFixture) validateFixtureUpstreamTarget(upstreamBaseUrl)
@@ -434,12 +438,19 @@ export async function probeFreshSQLite({
 
   const username = 'smokeadmin'
   const password = randomBytes(24).toString('hex')
-  const created = await json('/api/setup', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password, confirmPassword: password,
-      SelfUseModeEnabled: edition === 'lan', DemoSiteEnabled: false }),
-  })
-  if (created.status !== 200 || created.body?.success !== true) throw new Error('SMOKE_SETUP_FAILED')
+  let setupCheck
+  if (setupFixture) {
+    setupCheck = await setupFixture({ baseUrl: origin, edition, sha, username, password, isolated, writer })
+    const completed = await json('/api/setup')
+    if (setupCheck?.ok !== true || completed.status !== 200 || completed.body?.success !== true || completed.body.data?.status !== true) throw new Error('SMOKE_SETUP_FAILED')
+  } else {
+    const created = await json('/api/setup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, confirmPassword: password,
+        SelfUseModeEnabled: edition === 'lan', DemoSiteEnabled: false }),
+    })
+    if (created.status !== 200 || created.body?.success !== true) throw new Error('SMOKE_SETUP_FAILED')
+  }
   const anonymous = await localFetch(origin + '/api/user/self', { signal: AbortSignal.timeout(10_000) })
   await anonymous.arrayBuffer()
   if (![401, 403].includes(anonymous.status)) throw new Error('SMOKE_ANONYMOUS_ACCESS_NOT_REJECTED')
@@ -448,6 +459,9 @@ export async function probeFreshSQLite({
       status.body?.data?.self_use_mode_enabled !== (edition === 'lan')) {
     throw new Error('SMOKE_RUNTIME_MODE_MISMATCH')
   }
+  const writerCheck = personalFixture
+    ? await preparePersonalWriterFixture({ baseUrl: origin, edition, sha, username, password, writer, isolated, fetchImpl })
+    : null
   const probe = await runRuntimeProbe({ baseUrl: origin, username, password, fetchImpl: localFetch })
   if (!probe.passed) {
     return { command: 'docker:smoke', sha, edition, database: 'fresh-sqlite', passed: false, checks: [
@@ -466,8 +480,12 @@ export async function probeFreshSQLite({
   const restoreCheck = relayFixture && restoreFixture
     ? await restoreFixture({ baseUrl: origin, edition, sha, username, password, fetchImpl })
     : null
+  const personal = personalFixture
+    ? await personalFixture({ baseUrl: origin, edition, sha, username, password, writer, isolated, upstreamBaseUrl, fetchImpl })
+    : null
   return { command: 'docker:smoke', sha, edition, database: 'fresh-sqlite',
-    passed: probe.passed && (relay?.passed ?? true) && (selfUse?.passed ?? true), checks: [
+    ...(personal ? { personal } : {}),
+    passed: probe.passed && (relay?.passed ?? true) && (selfUse?.passed ?? true) && (personal?.passed ?? true), checks: [
       { name: 'fresh SQLite initialization', ok: true },
       { name: 'anonymous self rejected', ok: true, status: anonymous.status },
       { name: 'runtime self-use mode', ok: true },
@@ -475,6 +493,9 @@ export async function probeFreshSQLite({
       ...(relay?.checks || []),
       ...(selfUse?.checks || []),
       ...(restoreCheck ? [restoreCheck] : []),
+      ...(setupCheck ? [setupCheck] : []),
+      ...(writerCheck ? [writerCheck] : []),
+      ...(personal?.checks || []),
     ] }
 }
 
@@ -525,13 +546,23 @@ async function main() {
     const sha = process.env.GITHUB_SHA
     const edition = process.env.MYAPI_SMOKE_EDITION
     const upstreamBaseUrl = process.env.MYAPI_FAKE_UPSTREAM_URL
+    const personalEnabled = process.env.MYAPI_SMOKE_PERSONAL === '1'
+    const personalOptions = personalEnabled ? {
+      playwrightModule: process.env.MYAPI_PLAYWRIGHT_MODULE,
+      artifactDir: process.env.MYAPI_PERSONAL_ARTIFACT_DIR,
+    } : null
+    const personalDriver = personalEnabled ? await import('./personal-browser.mjs') : null
     const report = await probeFreshSQLite({ baseUrl, sha, edition, isolated: true, relayFixture: true,
+      writer: personalEnabled ? process.env.MYAPI_SMOKE_WRITER : 'legacy',
+      setupFixture: personalDriver ? args => personalDriver.browserSetup({ ...args, ...personalOptions }) : undefined,
+      personalFixture: personalDriver ? args => personalDriver.probePersonalBrowserJourney({ ...args, ...personalOptions }) : undefined,
       fullContentExpected: process.env.MYAPI_SMOKE_FULL_CONTENT === '1', upstreamBaseUrl,
       restoreFixture: process.env.MYAPI_SMOKE_RESTORE === '1'
         ? (args) => verifySQLiteRestore({ ...args, restore: (verify) => withRestoredSQLite({ sha, edition, verify }) })
         : undefined })
     if (report.passed) report.checks.push(await probeFrontend(baseUrl, sha,
       readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim(), process.env.MYAPI_PLAYWRIGHT_MODULE))
+    if (personalEnabled && report.personal) writeFileSync(path.join(personalOptions.artifactDir, 'qualification.json'), JSON.stringify(report.personal, null, 2))
     console.log(JSON.stringify(report, null, 2))
     if (!report.passed) process.exitCode = 1
   } catch (error) {
@@ -560,9 +591,21 @@ async function main() {
       'SMOKE_RESTORE_COPY_MISMATCH', 'SMOKE_RESTORE_API_FAILED', 'SMOKE_RESTORE_STATE_MISMATCH', 'SMOKE_RESTORE_READINESS_FAILED',
       'SMOKE_BROWSER_MODULE_REQUIRED', 'SMOKE_FRONTEND_HTTP_FAILED',
       'SMOKE_FRONTEND_BUILD_MISMATCH', 'SMOKE_FRONTEND_RUNTIME_ERROR',
-      'SMOKE_FRONTEND_FORM_UNAVAILABLE', 'ISOLATED_CI_SMOKE_ONLY'])
+      'SMOKE_FRONTEND_FORM_UNAVAILABLE', 'ISOLATED_CI_SMOKE_ONLY',
+      'SMOKE_PERSONAL_WRITER_SCOPE', 'SMOKE_PERSONAL_WRITER_API', 'SMOKE_PERSONAL_WRITER_NOT_FRESH',
+      'SMOKE_PERSONAL_WRITER_STATE', 'SMOKE_PERSONAL_WRITER_DRAIN', 'SMOKE_PERSONAL_WRITER_AUDIT', 'SMOKE_PERSONAL_WRITER_APPLY',
+      'SMOKE_PERSONAL_SCOPE_REJECTED', 'SMOKE_PERSONAL_AUTH_UNAVAILABLE', 'SMOKE_PERSONAL_BROWSER_FAILED',
+      'SMOKE_PERSONAL_SETUP_FAILED', 'SMOKE_PERSONAL_HTTP_FAILED', 'SMOKE_PERSONAL_LOGIN_FAILED',
+      'SMOKE_PERSONAL_RUNTIME_ERROR', 'SMOKE_PERSONAL_BUILD_MISMATCH', 'SMOKE_PERSONAL_API_FAILED',
+      'SMOKE_PERSONAL_STATE_MISMATCH', 'SMOKE_PERSONAL_KEY_MISMATCH', 'SMOKE_PERSONAL_POLICY_MISMATCH',
+      'SMOKE_PERSONAL_REQUEST_MISMATCH', 'SMOKE_PERSONAL_RELAY_MISMATCH', 'SMOKE_PERSONAL_LOG_MISMATCH',
+      'SMOKE_PERSONAL_USAGE_MISMATCH', 'SMOKE_PERSONAL_UPSTREAM_MISMATCH', 'SMOKE_PERSONAL_WRITER_MISMATCH',
+      'SMOKE_PERSONAL_SCREENSHOT_REJECTED'])
+    const safeStages = new Set(['launch', 'setup', 'login', 'writer-check', 'fixture-config', 'policy-view', 'key-create',
+      'key-selection', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm', 'strict-budget', 'reload-check', 'screenshot'])
     console.error(JSON.stringify({ command: 'docker:smoke', passed: false,
-      code: safeCodes.has(error?.message) ? error.message : 'SMOKE_UNEXPECTED_FAILURE' }))
+      code: safeCodes.has(error?.message) ? error.message : 'SMOKE_UNEXPECTED_FAILURE',
+      ...(safeStages.has(error?.stage) ? { stage: error.stage } : {}) }))
     process.exitCode = 1
   }
 }

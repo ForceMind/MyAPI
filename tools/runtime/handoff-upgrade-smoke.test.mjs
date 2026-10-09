@@ -80,7 +80,10 @@ test('rehearsal refuses missing, reordered or foreign restoration phases', async
 test('workflow pins the handoff baseline without publishing and keeps fresh install checks separate', () => {
   const workflow = readFileSync(new URL('../../.github/workflows/docker-smoke.yml', import.meta.url), 'utf8')
   assert.match(workflow, /ref: 71277bf6055ce68b8cd1d11f1d10f1907d7696fd/)
-  assert.match(workflow, /scenario: handoff/)
+  const include = workflow.split('\n').find(line => line.trim().startsWith('include: ${{ fromJSON('))
+  assert.ok(include)
+  assert.match(include, /head\.ref == 'codex\/personal-app-journey-20261009'/)
+  assert.match(include, /\|\| '\[\{"edition":"full","scenario":"handoff","writer":"legacy"\}\]'/)
   assert.match(workflow, /scenario: \[fresh\]/)
   assert.match(workflow, /run: node tools\/runtime\/handoff-upgrade-smoke.mjs/)
   assert.match(workflow, /MYAPI_SMOKE_HANDOFF_UPGRADE: '1'/)
