@@ -160,6 +160,21 @@ async function screenshot(page, name, { shell = true, touch = false, headingLeve
   persist()
 }
 
+async function assertPersonalCopyReadable(section, name) {
+  await section.scrollIntoViewIfNeeded()
+  const geometry = await section.evaluate(element => {
+    const bounds = element.getBoundingClientRect()
+    return [...element.querySelectorAll('p, dt, dd')].map(node => {
+      const box = node.getBoundingClientRect()
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      const lines = [...range.getClientRects()].filter(line => line.width > 0 && line.height > 0)
+      return { text: node.textContent, readable: lines.length > 0 && node.scrollWidth <= node.clientWidth + 1 && node.scrollHeight <= node.clientHeight + 1 && getComputedStyle(node).textOverflow !== 'ellipsis' && lines.every(line => line.left >= bounds.left - 1 && line.right <= bounds.right + 1 && line.top >= box.top - 1 && line.bottom <= box.bottom + 1) }
+    })
+  })
+  assert(geometry.length > 0 && geometry.every(item => item.readable), `${name}: every translated paragraph must wrap without truncation: ${JSON.stringify(geometry)}`)
+}
+
 async function checkTextContrast(locator, name, theme) {
   report.contrast.push(await assertTextContrast(locator, name, theme))
 }
@@ -1057,6 +1072,87 @@ try {
       assertSettlementReadOnly(start)
       await context.close(); contexts.delete(context)
     }
+  })
+
+  await run('personal-policy-and-budget-clarity', async () => {
+    for (const [language, width] of [...Object.keys(languages).map(language => [language, 320]), ['en', 1280]]) {
+      const { page, context, fixture } = await session({ role: 1, language, width, personalPolicy: true, longText: true, hasTouch: width === 320 })
+      const start = report.requests.length
+      for (const key of ['My usage policy', 'Saved wallet preference', 'Global funding mode', 'Usage budgets', 'Budget types and scope', 'No-wallet configuration conditions are met for supported requests.', 'Configuration could not be confirmed.']) {
+        assert.equal(typeof translations[language][key], 'string', `${language}: explicit personal-policy translation`)
+        assert(translations[language][key].trim())
+        if (language !== 'en') assert.notEqual(translations[language][key], key, `${language}: no silent English fallback`)
+      }
+      await open(page, '/keys')
+      const entry = page.getByRole('button', { name: label('My usage policy', language), exact: true })
+      if (width === 320) await entry.tap()
+      else { await entry.focus(); await page.keyboard.press('Enter') }
+      const dialog = page.getByRole('dialog', { name: label('User usage policy', language), exact: true })
+      const configuration = dialog.getByRole('region', { name: label('Current configuration', language), exact: true })
+      await configuration.getByText(label('No-wallet configuration conditions are met for supported requests.', language), { exact: true }).waitFor()
+      assert.equal(await dialog.locator('form, input, [role="checkbox"]').count(), 0, 'ordinary owner cannot change policy')
+      await dialog.getByText(label('Only Root can change this policy.', language), { exact: true }).waitFor()
+      await assertPersonalCopyReadable(configuration, `personal-policy-${language}-${width}`)
+      await screenshot(page, `personal-policy-owner-${language}-${width}`, { touch: width === 320 })
+      fixture.state.funding = 'enabled'
+      await dialog.getByRole('button', { name: label('Refresh', language), exact: true }).click()
+      await configuration.getByText(label('The saved no-wallet preference is inactive while commercial funding is enabled or retiring.', language), { exact: true }).waitFor()
+      await configuration.getByText(label('Commercial funding enabled', language), { exact: true }).waitFor()
+      await screenshot(page, `personal-policy-enabled-${language}-${width}`, { touch: width === 320 })
+      fixture.state.policy = 'error'
+      await dialog.getByRole('button', { name: label('Refresh', language), exact: true }).click()
+      await dialog.getByRole('alert').waitFor()
+      await configuration.getByText(label('Configuration could not be confirmed.', language), { exact: true }).waitFor()
+      await dialog.getByRole('button', { name: label('Close', language), exact: true }).click()
+      await dialog.waitFor({ state: 'hidden' })
+      const budgetEntry = page.getByRole('button', { name: label('API Key usage budgets', language), exact: true })
+      await budgetEntry.getByText(label('Usage budgets', language), { exact: true }).waitFor()
+      await budgetEntry.click()
+      const budget = page.getByRole('dialog', { name: label('API Key usage budgets', language), exact: true })
+      await budget.getByRole('region', { name: label('Budget types and scope', language), exact: true }).waitFor()
+      await budget.getByText(label('Strict Token and USD budgets apply to this Key and can be enabled together.', language), { exact: true }).waitFor()
+      await assertPersonalCopyReadable(budget.getByRole('region', { name: label('Budget types and scope', language), exact: true }), `personal-budget-${language}-${width}`)
+      await screenshot(page, `personal-budget-scope-${language}-${width}`, { touch: width === 320 })
+      const geometry = await budget.evaluate(element => ({ width: element.clientWidth, scroll: element.scrollWidth }))
+      assert(geometry.scroll <= geometry.width + 1, 'budget dialog must not horizontally clip translated scope')
+      await page.keyboard.press('Escape')
+      await budget.waitFor({ state: 'hidden' })
+      await page.getByRole('button', { name: label('Edit', language), exact: true }).click()
+      const drawer = page.getByRole('dialog', { name: label('Update API Key', language), exact: true })
+      const quotaInput = drawer.getByRole('spinbutton', { name: label('Key quota (internal units)', language), exact: true })
+      await quotaInput.waitFor()
+      assert.equal(await quotaInput.inputValue(), '1000', 'ordinary quota preserves internal units')
+      const cap = drawer.getByRole('switch', { name: label('No ordinary quota cap', language), exact: true })
+      await cap.waitFor()
+      await cap.scrollIntoViewIfNeeded()
+      await drawer.getByText(label('Only the ordinary Key quota cap is removed. Model access, strict budgets and account safety thresholds still apply.', language), { exact: true }).waitFor()
+      await screenshot(page, `personal-internal-quota-${language}-${width}`, { touch: width === 320 })
+      assertSettlementReadOnly(start)
+      await context.close(); contexts.delete(context)
+    }
+  })
+
+  await run('personal-policy-root-draft-remains-unsaved', async () => {
+    const { page, fixture } = await session({ width: 320, personalPolicy: true })
+    const start = report.requests.length
+    await open(page, '/keys')
+    await page.getByRole('button', { name: label('My usage policy'), exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: label('User usage policy'), exact: true })
+    const configuration = dialog.getByRole('region', { name: label('Current configuration'), exact: true })
+    await configuration.getByText(label('No-wallet configuration conditions are met for supported requests.'), { exact: true }).waitFor()
+    const preference = dialog.getByRole('checkbox', { name: label('Use Key limits without a user wallet'), exact: true })
+    await preference.uncheck()
+    await configuration.getByText(label('Use Key limits without a user wallet'), { exact: true }).waitFor()
+    assert.equal(fixture.state.noBalance, true, 'a draft toggle cannot update the saved preference')
+    await dialog.getByRole('button', { name: label('Save'), exact: true }).click()
+    await dialog.getByText(label('Required'), { exact: true }).waitFor()
+    await screenshot(page, 'personal-policy-root-confirmation-required-320')
+    assertSettlementReadOnly(start)
+    await dialog.getByRole('button', { name: label('Close'), exact: true }).click()
+    await dialog.waitFor({ state: 'hidden' })
+    await page.getByRole('button', { name: label('My usage policy'), exact: true }).click()
+    await preference.waitFor()
+    assert.equal(await preference.isChecked(), true, 'dismissed unsaved draft does not become policy')
   })
 
   report.result = report.journeys.every(journey => journey.result === 'passed') ? 'passed' : 'failed'

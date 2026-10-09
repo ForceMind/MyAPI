@@ -40,7 +40,7 @@ const ownerReads = new Set([
 ])
 const rootPrefixes = ['/api/option', '/api/system-info', '/api/system-task', '/api/quota-writer', '/api/ratio_sync', '/api/custom-oauth-provider', '/api/performance']
 
-export function createUIFixture({ role = 100, language = 'en', setupComplete = true, sidebar = false, longText = false, playgroundDisabled = false, pricingEnabled = false, settlementReviews = false } = {}) {
+export function createUIFixture({ role = 100, language = 'en', setupComplete = true, sidebar = false, longText = false, playgroundDisabled = false, pricingEnabled = false, settlementReviews = false, personalPolicy = false } = {}) {
   // quotaFixtures accepts time through Date.now. Override only during its
   // synchronous construction and restore immediately; no timers are faked here.
   const originalNow = Date.now
@@ -70,7 +70,7 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
   ]
   // Defaults preserve earlier journeys; new journeys explicitly opt into each
   // populated, confirmed-empty, or unavailable contract before navigation.
-  const state = { keys: 'populated', options: 'ready', analytics: 'empty', performance: 'empty', modelPerformance: 'empty', deploymentSettings: 'disabled', promptLearning: 'ready', pricing: 'empty' }
+  const state = { funding: 'disabled', policy: 'ready', noBalance: true, keys: 'populated', options: 'ready', analytics: 'empty', performance: 'empty', modelPerformance: 'empty', deploymentSettings: 'disabled', promptLearning: 'ready', pricing: 'empty' }
   const analyticsRows = [
     { id: 31, user_id: user.id, username: user.username, model_name: 'synthetic-text-model', created_at: now - 3600, token_used: 2400, count: 12, quota: 6000 },
     { id: 32, user_id: user.id, username: user.username, model_name: 'synthetic-text-model', created_at: now, token_used: 1600, count: 8, quota: 4000 },
@@ -113,6 +113,16 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
         if (state.performance === 'error') return unavailable('Synthetic performance unavailable')
         return { status: 200, body: ok({ models: [] }) }
       }
+      if (personalPolicy && path === `/api/user/${user.id}/usage-policy` && role > 0) {
+        if (url.search) return { violation: 'Unexpected policy query' }
+        if (state.policy === 'error') return unavailable('Synthetic policy unavailable')
+        return { status: 200, body: ok({ user_id: user.id, no_balance: state.noBalance, revision: 1, legacy_remaining_quota: 1000000 }) }
+      }
+      if (personalPolicy && path === '/api/token/21' && role > 0 && !url.search) return { status: 200, body: ok(key) }
+      if (personalPolicy && path === '/api/token/21/budget' && role > 0) {
+        if (url.search) return { violation: 'Unexpected budget query' }
+        return { status: 200, body: ok({ policy: { token_id: 21, user_id: user.id, enabled: true, account_threshold_enabled: false, account_min_remaining_bps: 1000, account_max_age_seconds: 300, fee_enabled: true, fee_limit_usd: '10.000000', fee_used_usd: '1.000000', fee_reserved_usd: '0.000000', limit: 10000, used: 1000, reserved: 0, pending_request_id: '', revision: 1 }, pending: null }) }
+      }
       if (role === 0 && !publicReads.has(path)) return { violation: `Anonymous private request: ${method} ${path}` }
       if (role === 1 && !publicReads.has(path) && !ownerReads.has(path) && !(settlementReviews && settlementDetails.has(path))) return { violation: `Ordinary user requested admin data: ${method} ${path}` }
       if (role !== 100 && rootPrefixes.some(prefix => path === prefix || path.startsWith(`${prefix}/`))) return { violation: `Non-Root requested Root data: ${method} ${path}` }
@@ -127,13 +137,15 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
         case '/pg/models': body = { success: true, object: 'list', data: [{ id: 'synthetic-text-model', object: 'model', owned_by: 'synthetic-provider' }] }; break
         case '/api/setup': body = ok({ status: setupComplete, root_init: setupComplete, database_type: 'sqlite' }); break
         case '/api/user/self': body = ok(user); break
-        case '/api/status': body = ok({
+        case '/api/status':
+          if (personalPolicy && state.funding === 'error') return unavailable('Synthetic funding status unavailable')
+          body = ok({
           system_name: longText ? LONG_NAME : 'MyAPI', version: 'synthetic-ui-fixture', start_time: now - 600,
           password_login_enabled: true, password_register_enabled: true, register_enabled: true,
           self_use_mode_enabled: false, email_verification: false, turnstile_check: false, passkey_login: false,
           api_info_enabled: false, announcements_enabled: false, faq_enabled: false, uptime_kuma_enabled: false,
-          quota_per_unit: 500000, display_in_currency: false,
-          user_funding_mode: 'disabled', user_funding_capabilities: funding,
+          quota_per_unit: 500000, display_in_currency: false, ...(personalPolicy ? { quota_display_type: 'TOKENS' } : {}),
+          user_funding_mode: personalPolicy ? state.funding : 'disabled', user_funding_capabilities: personalPolicy ? { ...funding, mode: state.funding } : funding,
           SidebarModulesAdmin: sidebar || playgroundDisabled ? JSON.stringify({ ...(sidebar ? { console: { enabled: true, log: false } } : {}), ...(playgroundDisabled ? { chat: { enabled: true, playground: false } } : {}) }) : '',
           ...(pricingEnabled ? { HeaderNavModules: JSON.stringify({ pricing: { enabled: true, requireAuth: false } }) } : {}),
         }); break

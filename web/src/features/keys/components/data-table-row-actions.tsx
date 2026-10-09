@@ -191,7 +191,7 @@ export function DataTableRowActions<TData>({
   }
 
   return (
-    <div className='-ml-1.5 flex items-center gap-1'>
+    <div className='-ml-1.5 flex min-w-0 flex-wrap items-center gap-1'>
       <Tooltip>
         <TooltipTrigger
           render={
@@ -233,24 +233,19 @@ export function DataTableRowActions<TData>({
         <TooltipContent>{t('Edit')}</TooltipContent>
       </Tooltip>
 
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              variant='ghost'
-              size='icon-sm'
-              aria-label={t('API Key usage budgets')}
-              onClick={() => {
-                setCurrentRow(apiKey)
-                setOpen('budget')
-              }}
-            />
-          }
-        >
-          <Gauge className='size-4' />
-        </TooltipTrigger>
-        <TooltipContent>{t('API Key usage budgets')}</TooltipContent>
-      </Tooltip>
+      <Button
+        variant='outline'
+        size='sm'
+        className='h-auto min-h-8 max-w-40 whitespace-normal pointer-coarse:min-h-11'
+        aria-label={t('API Key usage budgets')}
+        onClick={() => {
+          setCurrentRow(apiKey)
+          setOpen('budget')
+        }}
+      >
+        <Gauge className='size-4 shrink-0' aria-hidden='true' />
+        {t('Usage budgets')}
+      </Button>
 
       <DataTableRowActionMenu
         ariaLabel={t('Open menu')}

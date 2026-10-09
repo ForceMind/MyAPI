@@ -394,9 +394,11 @@ export function ApiKeysMutateDrawer({
   const { meta: currencyMeta } = getCurrencyDisplay()
   const currencyLabel = getCurrencyLabel()
   const tokensOnly = currencyMeta.kind === 'tokens'
-  const quotaLabel = t('Quota ({{currency}})', { currency: currencyLabel })
+  const quotaLabel = tokensOnly
+    ? t('Key quota (internal units)')
+    : t('Key quota ({{currency}})', { currency: currencyLabel })
   const quotaPlaceholder = tokensOnly
-    ? t('Enter quota in tokens')
+    ? t('Enter internal quota units')
     : t('Enter quota in {{currency}}', { currency: currencyLabel })
   const autoGroupsMode = form.watch('auto_groups_mode')
   const unlimitedQuota = form.watch('unlimited_quota')
@@ -663,7 +665,9 @@ export function ApiKeysMutateDrawer({
             <SideDrawerSection>
               <SideDrawerSectionHeader
                 title={t('Quota Settings')}
-                description={t('Set quota amount and limits')}
+                description={t(
+                  'Internal quota is a price-converted allowance, not a count of actual input and output tokens.'
+                )}
                 icon={<WalletCards className='size-4' />}
                 iconTone='success'
               />
@@ -689,7 +693,7 @@ export function ApiKeysMutateDrawer({
                       </FormControl>
                       <FormDescription>
                         {tokensOnly
-                          ? t('Enter the quota amount in tokens')
+                          ? t('Enter internal quota units')
                           : t('Enter the quota amount in {{currency}}', {
                               currency: currencyLabel,
                             })}
@@ -707,10 +711,12 @@ export function ApiKeysMutateDrawer({
                   <FormItem className={sideDrawerSwitchItemClassName()}>
                     <div className='flex flex-col gap-0.5'>
                       <FormLabel className='text-sm'>
-                        {t('Unlimited Quota')}
+                        {t('No ordinary quota cap')}
                       </FormLabel>
                       <FormDescription className='text-xs'>
-                        {t('Enable unlimited quota for this API key')}
+                        {t(
+                          'Only the ordinary Key quota cap is removed. Model access, strict budgets and account safety thresholds still apply.'
+                        )}
                       </FormDescription>
                     </div>
                     <FormControl>

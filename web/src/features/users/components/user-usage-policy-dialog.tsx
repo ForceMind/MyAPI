@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useIsFetching,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -10,9 +15,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { useStatus } from '@/hooks/use-status'
 import { createOperationId } from '@/lib/operation-id'
 import { useAuthStore } from '@/stores/auth-store'
 
+import { resolveUsagePolicyPresentation } from '../lib/user-usage-policy-presentation'
 import {
   getUserUsagePolicy,
   writeUserUsagePolicy,
@@ -45,6 +52,9 @@ function UserUsagePolicySession(props: {
 }) {
   const { t } = useTranslation()
   const client = useQueryClient()
+  const funding = useStatus()
+  const fundingFetching =
+    useIsFetching({ queryKey: ['status'], exact: true }) > 0
   const queryKey = [
     'user-usage-policy',
     props.actorId,
@@ -87,7 +97,38 @@ function UserUsagePolicySession(props: {
       sending.current = false
     },
   })
-  const busy = mutation.isPending || query.isFetching
+  const busy = mutation.isPending || query.isFetching || fundingFetching
+  const presentation = resolveUsagePolicyPresentation({
+    userId: props.userId,
+    policy: query.data,
+    policyConfirmed: !query.isError && !query.isFetching && !locked,
+    status: funding.status,
+    statusConfirmed: funding.confirmed && !fundingFetching,
+  })
+  let fundingLabel = t('Unavailable')
+  if (presentation.mode === 'enabled') {
+    fundingLabel = t('Commercial funding enabled')
+  }
+  if (presentation.mode === 'retirement') {
+    fundingLabel = t('Commercial funding retiring')
+  }
+  if (presentation.mode === 'disabled') {
+    fundingLabel = t('Commercial funding disabled')
+  }
+  let conditionLabel = t('Configuration could not be confirmed.')
+  if (presentation.condition === 'wallet') {
+    conditionLabel = t('The saved preference uses the stored user allowance.')
+  }
+  if (presentation.condition === 'inactive') {
+    conditionLabel = t(
+      'The saved no-wallet preference is inactive while commercial funding is enabled or retiring.'
+    )
+  }
+  if (presentation.condition === 'supported') {
+    conditionLabel = t(
+      'No-wallet configuration conditions are met for supported requests.'
+    )
+  }
   const policyLabel = query.data?.no_balance
     ? t('Use Key limits without a user wallet')
     : t('Use the stored user allowance')
@@ -110,6 +151,31 @@ function UserUsagePolicySession(props: {
             )}
           </DialogDescription>
         </DialogHeader>
+        <section
+          aria-label={t('Current configuration')}
+          className='flex min-w-0 flex-col gap-3 rounded-md border p-3 text-sm'
+        >
+          <dl className='flex flex-col gap-2'>
+            <div>
+              <dt className='font-medium'>{t('Saved wallet preference')}</dt>
+              <dd>
+                {presentation.savedNoBalance === null
+                  ? t('Unavailable')
+                  : policyLabel}
+              </dd>
+            </div>
+            <div>
+              <dt className='font-medium'>{t('Global funding mode')}</dt>
+              <dd>{fundingLabel}</dd>
+            </div>
+          </dl>
+          <p role='status'>{conditionLabel}</p>
+          <p className='text-muted-foreground text-xs'>
+            {t(
+              'These are separate configuration snapshots, not a guarantee that a request is eligible. The server checks the user, Key, request path and limits at admission.'
+            )}
+          </p>
+        </section>
         <p className='text-muted-foreground text-sm'>
           {t(
             'Chat and Responses only. Unsupported request paths are rejected before dispatch.'
@@ -133,33 +199,38 @@ function UserUsagePolicySession(props: {
               </dd>
             </dl>
             {props.role === 100 ? (
-              <UserUsagePolicyForm
-                key={query.data.revision}
-                policy={query.data}
-                busy={busy}
-                locked={locked}
-                onSubmit={(noBalance) => {
-                  if (sending.current) return
-                  if (!operation.current) {
-                    operation.current = {
-                      id: createOperationId(),
-                      expected_revision: query.data.revision,
-                      no_balance: noBalance,
-                      confirmed: true,
+              <section
+                aria-label={t('Change saved preference')}
+                className='flex flex-col gap-3'
+              >
+                <h3 className='text-sm font-medium'>
+                  {t('Change saved preference')}
+                </h3>
+                <UserUsagePolicyForm
+                  key={query.data.revision}
+                  policy={query.data}
+                  busy={busy}
+                  locked={locked}
+                  onSubmit={(noBalance) => {
+                    if (sending.current) return
+                    if (!operation.current) {
+                      operation.current = {
+                        id: createOperationId(),
+                        expected_revision: query.data.revision,
+                        no_balance: noBalance,
+                        confirmed: true,
+                      }
                     }
-                  }
-                  sending.current = true
-                  setLocked(true)
-                  mutation.mutate(operation.current)
-                }}
-              />
+                    sending.current = true
+                    setLocked(true)
+                    mutation.mutate(operation.current)
+                  }}
+                />
+              </section>
             ) : (
-              <>
-                <p>{policyLabel}</p>
-                <p className='text-muted-foreground text-sm'>
-                  {t('Only Root can change this policy.')}
-                </p>
-              </>
+              <p className='text-muted-foreground text-sm'>
+                {t('Only Root can change this policy.')}
+              </p>
             )}
           </>
         )}
@@ -170,11 +241,16 @@ function UserUsagePolicySession(props: {
             )}
           </p>
         )}
-        <div className='flex justify-end gap-2'>
+        <div className='flex flex-wrap justify-end gap-2'>
           <Button
             variant='outline'
             disabled={busy || locked}
-            onClick={() => void query.refetch()}
+            onClick={() => {
+              void Promise.all([
+                query.refetch(),
+                client.refetchQueries({ queryKey: ['status'], exact: true }),
+              ])
+            }}
           >
             {t('Refresh')}
           </Button>

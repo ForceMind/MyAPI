@@ -191,3 +191,20 @@ test.each(['succeeds', 'fails'] as const)(
     expect(await screen.findByText('owner-public-model')).toBeVisible()
   }
 )
+
+test('visible budget action selects this Key without revealing its secret', async () => {
+  const user = userEvent.setup()
+  const post = vi.spyOn(api, 'post')
+  renderKeys()
+  const budget = screen.getByRole('button', { name: 'API Key usage budgets' })
+  expect(budget).toHaveTextContent('Usage budgets')
+  await user.click(budget)
+  expect(
+    await screen.findByRole('dialog', { name: 'API Key usage budgets' })
+  ).toBeVisible()
+  expect(api.get).toHaveBeenCalledWith(
+    '/api/token/21/budget',
+    expect.objectContaining({ signal: expect.any(AbortSignal) })
+  )
+  expect(post).not.toHaveBeenCalled()
+})

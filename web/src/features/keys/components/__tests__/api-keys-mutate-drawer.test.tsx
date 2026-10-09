@@ -16,8 +16,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, test } from 'vitest'
+
+import {
+  DEFAULT_CURRENCY_CONFIG,
+  useSystemConfigStore,
+} from '@/stores/system-config-store'
+
+const originalSystemConfig = useSystemConfigStore.getState().config
 
 const { createInstance } = await import('i18next')
 const { I18nextProvider, initReactI18next } = await import('react-i18next')
@@ -209,6 +216,7 @@ afterEach(() => {
   apiClient.get = originalGet
   apiClient.post = originalPost
   localStorage.clear()
+  useSystemConfigStore.getState().setConfig(originalSystemConfig)
   if (renderedDrawer) {
     renderedDrawer.queryClient.clear()
     renderedDrawer = null
@@ -292,5 +300,69 @@ describe('API keys mutate drawer Auto group integration', () => {
     fireEvent.click(findButton('Save changes', true))
     await waitFor(() => expect(createdPayloads).toHaveLength(1))
     expect(createdPayloads[0]?.auto_groups).toEqual(['vip'])
+  })
+})
+
+test('ordinary quota labels use internal units and unlimited does not remove other limits', async () => {
+  const createdPayloads: Array<Record<string, unknown>> = []
+  installApiFixtures(createdPayloads)
+  await renderCreateDrawer()
+  act(() =>
+    useSystemConfigStore.getState().setConfig({
+      currency: { ...DEFAULT_CURRENCY_CONFIG, quotaDisplayType: 'TOKENS' },
+    })
+  )
+  expect(
+    screen.getByText(
+      'Only the ordinary Key quota cap is removed. Model access, strict budgets and account safety thresholds still apply.'
+    )
+  ).toBeVisible()
+  fireEvent.click(screen.getByRole('switch', { name: 'No ordinary quota cap' }))
+  const quota = await screen.findByRole('spinbutton', {
+    name: 'Key quota (internal units)',
+  })
+  expect(quota).toHaveAttribute('placeholder', 'Enter internal quota units')
+  expect(
+    screen.queryByText('Enter the quota amount in tokens')
+  ).not.toBeInTheDocument()
+  fireEvent.change(quota, { target: { value: '123' } })
+  changeInput(getControlByLabel('Name'), 'internal-allowance')
+  fireEvent.click(findButton('Save changes', true))
+  await waitFor(() => expect(createdPayloads).toHaveLength(1))
+  expect(createdPayloads[0]).toMatchObject({
+    remain_quota: 123,
+    unlimited_quota: false,
+  })
+})
+
+test('currency quota remains price-converted internal allowance with the existing numeric payload', async () => {
+  const createdPayloads: Array<Record<string, unknown>> = []
+  installApiFixtures(createdPayloads)
+  await renderCreateDrawer()
+  act(() =>
+    useSystemConfigStore.getState().setConfig({
+      currency: {
+        ...DEFAULT_CURRENCY_CONFIG,
+        quotaDisplayType: 'USD',
+        quotaPerUnit: 500000,
+      },
+    })
+  )
+  fireEvent.click(screen.getByRole('switch', { name: 'No ordinary quota cap' }))
+  const quota = await screen.findByRole('spinbutton', {
+    name: 'Key quota (USD)',
+  })
+  expect(
+    screen.getByText(
+      'Internal quota is a price-converted allowance, not a count of actual input and output tokens.'
+    )
+  ).toBeVisible()
+  fireEvent.change(quota, { target: { value: '1.25' } })
+  changeInput(getControlByLabel('Name'), 'currency-allowance')
+  fireEvent.click(findButton('Save changes', true))
+  await waitFor(() => expect(createdPayloads).toHaveLength(1))
+  expect(createdPayloads[0]).toMatchObject({
+    remain_quota: 625000,
+    unlimited_quota: false,
   })
 })
