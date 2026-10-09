@@ -158,6 +158,11 @@ func TestStrictTokenBudgetRootCancelsUnsentAndRecoversLostHold(t *testing.T) {
 					_, err = model.MutateTokenBudgetRequest(context.Background(), db, model.TokenBudgetMutation{TokenID: info.TokenId, RequestID: info.RequestId, Action: "send"})
 					require.NoError(t, err)
 					info.Billing = nil // Recovery must use durable evidence, not the old session.
+					beforePrepare, err := model.ReadTokenBudget(context.Background(), db, rootID, info.TokenId)
+					require.NoError(t, err)
+					require.NotNil(t, beforePrepare.Review)
+					require.True(t, beforePrepare.Review.CanReconcileUsage, "the GET must expose the existing prepare-then-reconcile route")
+					require.NotNil(t, beforePrepare.Review.TokenBudget)
 					view, err := model.PrepareTokenBudgetUsageReview(context.Background(), db, rootID, info.TokenId, info.RequestId)
 					require.NoError(t, err)
 					require.NotNil(t, view.TokenBudget)

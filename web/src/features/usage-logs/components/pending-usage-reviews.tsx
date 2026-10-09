@@ -61,9 +61,7 @@ function PendingUsageReviewSession(props: { actorId: number }) {
           <DialogHeader>
             <DialogTitle>{t('Pending requests')}</DialogTitle>
             <DialogDescription>
-              {t(
-                'Use verified usage and the frozen request price. Do not enter an estimate or credentials.'
-              )}
+              {t('Review the settlement status before taking any action.')}
             </DialogDescription>
           </DialogHeader>
           {selected ? (

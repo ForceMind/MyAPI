@@ -7,7 +7,7 @@ import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeF
 import { createServer } from 'node:http'
 import { extname, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { createUIFixture, FIXTURE_TIME } from './browser-fixtures.mjs'
+import { createUIFixture, FIXTURE_TIME, SETTLEMENT_REVIEW_IDS, SETTLEMENT_REVIEW_METADATA, SETTLEMENT_REVIEW_DIAGNOSTIC } from './browser-fixtures.mjs'
 import { assertTextContrast } from './contrast.mjs'
 
 const repo = fileURLToPath(new URL('../../', import.meta.url))
@@ -27,12 +27,21 @@ mkdirSync(output, { recursive: true })
 const report = {
   schema: 1,
   evidence: 'Production-build Chromium UI with isolated synthetic data. Not live-account, provider, billing, deployment, or production acceptance.',
-  commit: process.env.GITHUB_SHA || execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim(),
+  commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim(),
+  workflowCommit: process.env.GITHUB_SHA || null,
+  worktreeDirty: !!execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: repo, encoding: 'utf8' }).trim(),
   fixtureTime: new Date(FIXTURE_TIME).toISOString(),
-  result: 'running', journeys: [], screenshots: [], contrast: [], requests: [], blockedExternal: [], violations: [], pageErrors: [],
+  result: 'running', journeys: [], screenshots: [], contrast: [], settlementLayouts: [], requests: [], blockedExternal: [], violations: [], pageErrors: [],
   settings: settings.map(section => ({ ...section, reached: false })),
 }
-const persist = () => writeFileSync(resolve(output, 'qualification.json'), JSON.stringify(report, null, 2))
+const persist = () => {
+  report.totals = {
+    journeys: report.journeys.length, screenshots: report.screenshots.length,
+    settlementJourneys: report.journeys.filter(journey => journey.name.startsWith('settlement-')).length,
+    settlementScreenshots: report.screenshots.filter(screenshot => screenshot.journey.startsWith('settlement-')).length,
+  }
+  writeFileSync(resolve(output, 'qualification.json'), JSON.stringify(report, null, 2))
+}
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.woff2': 'font/woff2' }
 const server = createServer((request, response) => {
   let path
@@ -147,12 +156,84 @@ async function screenshot(page, name, { shell = true, touch = false, headingLeve
   }
   const file = `${name}.png`
   await page.screenshot({ path: resolve(output, file) })
-  report.screenshots.push({ file, journey: journeyName, path: new URL(page.url()).pathname, geometry })
+  report.screenshots.push({ file, commit: report.commit, journey: journeyName, path: new URL(page.url()).pathname, geometry })
   persist()
 }
 
 async function checkTextContrast(locator, name, theme) {
   report.contrast.push(await assertTextContrast(locator, name, theme))
+}
+
+async function openSettlementLog(page, requestId, language = 'en') {
+  await page.getByTitle(label('Click to view full details', language), { exact: true }).filter({ hasText: requestId, visible: true }).click()
+  const dialog = page.getByRole('dialog')
+  const panel = dialog.getByRole('region', { name: label('Usage pending review', language), exact: true })
+  await panel.waitFor()
+  return { dialog, panel }
+}
+
+function assertSettlementReadOnly(start) {
+  assert.equal(report.requests.slice(start).filter(request => request.method !== 'GET' && request.path !== '/api/user/auth/refresh').length, 0, 'opening, refreshing, expanding, typing and closing never reconcile or recover a request')
+}
+
+async function assertAutomaticSettlement(panel, index, language = 'en') {
+  const title = ['Automatic settlement pending', 'Settlement applied; record finalization pending'][index]
+  const description = [
+    'This request already has an automatic settlement record. Manual input is unavailable here.',
+    'The verified usage has been settled. The request record still needs finalization.',
+  ][index]
+  for (const key of [title, description]) {
+    assert.equal(typeof translations[language][key], 'string', `${language}: settlement status has an explicit translation`)
+    assert(translations[language][key].trim(), `${language}: settlement status translation is not empty`)
+    if (language !== 'en') assert.notEqual(translations[language][key], key, `${language}: status matrix cannot silently use English fallback`)
+  }
+  const status = panel.getByRole('status')
+  await status.getByText(label(title, language), { exact: true }).waitFor()
+  await status.getByText(label(description, language), { exact: true }).waitFor()
+  assert.equal(await panel.locator('form, input, textarea, [role="checkbox"]').count(), 0, 'automatic status cannot expose any manual amount, evidence or confirmation control')
+  for (const key of ['Advanced: manual reconciliation', 'Confirm reconciliation']) assert.equal(await panel.getByRole('button', { name: label(key, language), exact: true }).count(), 0, key)
+  if (index === 0) assert.equal(await panel.locator('p').filter({ hasText: label('Confirmed quota (internal units)', language) }).count(), 0, 'unknown actual usage is never displayed as a confirmed amount, including zero')
+  else await panel.getByText(`${label('Confirmed quota (internal units)', language)}: 60`, { exact: true }).waitFor()
+  return status
+}
+
+async function measureSettlementLayout(panel, name) {
+  const status = panel.getByRole('status')
+  await status.scrollIntoViewIfNeeded()
+  await settled(panel.page())
+  const geometry = await status.evaluate((element, name) => {
+    const bounds = element.getBoundingClientRect()
+    const dialog = element.closest('[role="dialog"]')
+    const box = dialog.getBoundingClientRect()
+    const paragraphs = [...element.querySelectorAll('p')].map(paragraph => {
+      const rect = paragraph.getBoundingClientRect()
+      const range = document.createRange()
+      range.selectNodeContents(paragraph)
+      const lines = [...range.getClientRects()].filter(line => line.width > 0 && line.height > 0)
+      return { text: paragraph.textContent, width: rect.width, height: rect.height, unclipped: paragraph.scrollWidth <= paragraph.clientWidth + 1 && paragraph.scrollHeight <= paragraph.clientHeight + 1 && getComputedStyle(paragraph).textOverflow !== 'ellipsis' && lines.length > 0 && lines.every(line => line.left >= bounds.left - 1 && line.right <= bounds.right + 1 && line.top >= rect.top - 1 && line.bottom <= rect.bottom + 1) }
+    })
+    const scrollers = []
+    let verticallyReachable = true
+    for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+      const rect = parent.getBoundingClientRect()
+      const overflow = getComputedStyle(parent).overflowY
+      if (['auto', 'scroll', 'hidden', 'clip'].includes(overflow)) {
+        verticallyReachable &&= bounds.top >= rect.top - 1 && bounds.bottom <= rect.bottom + 1
+        if (['auto', 'scroll'].includes(overflow)) {
+          const previous = parent.scrollTop
+          parent.scrollTop = parent.scrollHeight
+          scrollers.push({ client: parent.clientHeight, scroll: parent.scrollHeight, reachableBottom: parent.scrollHeight - parent.clientHeight <= parent.scrollTop + 1 })
+          parent.scrollTop = previous
+        }
+      }
+      if (parent === dialog) break
+    }
+    return { name, viewport: { width: innerWidth, height: innerHeight }, dialog: { left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: box.width, height: box.height }, paragraphs, scrollers, verticallyReachable, horizontalOverflow: dialog.scrollWidth > dialog.clientWidth + 1 }
+  }, name)
+  assert(geometry.dialog.left >= -1 && geometry.dialog.right <= geometry.viewport.width + 1 && geometry.dialog.top >= -1 && geometry.dialog.bottom <= geometry.viewport.height + 1, `${name}: dialog stays within the viewport`)
+  assert(!geometry.horizontalOverflow && geometry.verticallyReachable && geometry.paragraphs.length === 2 && geometry.paragraphs.every(paragraph => paragraph.unclipped), `${name}: both translated status lines are readable without clipping: ${JSON.stringify(geometry)}`)
+  assert(geometry.scrollers.length > 0 && geometry.scrollers.every(scroller => scroller.reachableBottom), `${name}: the real dialog can scroll to its lower content`)
+  report.settlementLayouts.push(geometry)
 }
 
 async function run(name, work) {
@@ -161,6 +242,7 @@ async function run(name, work) {
   const startViolations = report.violations.length
   const startErrors = report.pageErrors.length
   const result = { name, result: 'running' }
+  const startedAt = Date.now()
   report.journeys.push(result)
   try {
     await work()
@@ -176,6 +258,7 @@ async function run(name, work) {
     }
     console.error(`${name}: ${result.error}`)
   } finally {
+    result.durationMs = Date.now() - startedAt
     for (const context of contexts) await context.close()
     contexts.clear()
     persist()
@@ -856,6 +939,122 @@ try {
       assert.equal(report.requests.slice(start).filter(request => request.method !== 'GET' && request.path !== '/api/user/auth/refresh').length, 0, 'incomplete auth never submits a credential, reset or verification')
       assert.equal(report.requests.slice(start).filter(request => request.path.startsWith('/api/oauth') || request.path.includes('/wechat')).length, 0, 'incomplete OAuth cannot call a provider endpoint')
       assert.equal(report.blockedExternal.length, externalStart, 'incomplete auth never attempts external navigation')
+      await context.close(); contexts.delete(context)
+    }
+  })
+
+  await run('settlement-automatic-status-readonly', async () => {
+    const profiles = [{ language: 'en', width: 1280 }, ...Object.keys(languages).map(language => ({ language, width: 320 }))]
+    for (const { language, width } of profiles) {
+      const { page, context } = await session({ language, width, settlementReviews: true })
+      const start = report.requests.length
+      await open(page, '/usage-logs/common', { title: label('Common Logs', language) })
+      for (const index of [0, 1]) {
+        const requestId = SETTLEMENT_REVIEW_IDS[index]
+        const { dialog, panel } = await openSettlementLog(page, requestId, language)
+        await assertAutomaticSettlement(panel, index, language)
+        for (let repeat = 0; repeat < 2; repeat++) {
+          const refreshed = page.waitForResponse(response => new URL(response.url()).pathname === `/api/usage-review/${requestId}` && response.request().method() === 'GET')
+          await panel.getByRole('button', { name: label('Refresh', language), exact: true }).click()
+          await refreshed
+          await assertAutomaticSettlement(panel, index, language)
+        }
+        const name = `settlement-${index === 0 ? 'automatic-pending' : 'journal-finalization'}-${language}-${width}`
+        await measureSettlementLayout(panel, name)
+        await checkTextContrast(panel.getByRole('status').locator('p').first(), `${name}-title`, 'light')
+        await checkTextContrast(panel.getByRole('status').locator('p').last(), `${name}-description`, 'light')
+        await screenshot(page, name)
+        await page.keyboard.press('Escape')
+        await dialog.waitFor({ state: 'hidden' })
+        // A fresh click after dismissal must still be informational. No manual
+        // form may reappear because a cached raw journal state is unresolved.
+        const reopened = await openSettlementLog(page, requestId, language)
+        await assertAutomaticSettlement(reopened.panel, index, language)
+        await reopened.dialog.getByRole('button', { name: label('Close', language), exact: true }).click()
+        await reopened.dialog.waitFor({ state: 'hidden' })
+      }
+      if (language === 'en' && width === 1280) {
+        await openSettlementLog(page, SETTLEMENT_REVIEW_IDS[0], language)
+        await page.reload({ waitUntil: 'networkidle' })
+        assert.equal(await page.getByRole('dialog').count(), 0, 'reload dismisses stale status state')
+        const reloaded = await openSettlementLog(page, SETTLEMENT_REVIEW_IDS[0], language)
+        await assertAutomaticSettlement(reloaded.panel, 0, language)
+      }
+      assertSettlementReadOnly(start)
+      await context.close(); contexts.delete(context)
+    }
+  })
+
+  await run('settlement-manual-expansion-without-submission', async () => {
+    for (const width of [1280, 320]) {
+      const { page, context } = await session({ width, settlementReviews: true })
+      const start = report.requests.length
+      await open(page, '/usage-logs/common', { title: label('Common Logs') })
+      await page.getByRole('button', { name: label('Pending requests'), exact: true }).click()
+      const dialog = page.getByRole('dialog', { name: label('Pending requests'), exact: true })
+      await dialog.getByRole('button').filter({ hasText: SETTLEMENT_REVIEW_IDS[2] }).click()
+      const panel = dialog.getByRole('region', { name: label('Usage pending review'), exact: true })
+      const advanced = panel.getByRole('button', { name: label('Advanced: manual reconciliation'), exact: true })
+      await advanced.waitFor()
+      assert.equal(await advanced.getAttribute('aria-expanded'), 'false')
+      assert.equal(await panel.locator('form, input, [role="checkbox"]').count(), 0, 'legitimate manual review starts as a deliberate collapsed action')
+      const evidence = panel.getByText(label('Frozen pricing evidence'), { exact: true })
+      await evidence.click()
+      await panel.getByText(SETTLEMENT_REVIEW_METADATA, { exact: true }).waitFor()
+      await evidence.click()
+      await screenshot(page, `settlement-manual-collapsed-${width}`)
+      await advanced.click()
+      assert.equal(await advanced.getAttribute('aria-expanded'), 'true')
+      const amount = panel.getByRole('textbox', { name: label('Confirmed quota (internal units)'), exact: true })
+      const reference = panel.getByRole('textbox', { name: label('Evidence reference'), exact: true })
+      await amount.fill('60')
+      await reference.fill('Synthetic unsent evidence reference')
+      assert.equal(await panel.getByRole('checkbox').isChecked(), false)
+      assert.equal(await panel.getByRole('button', { name: label('Confirm reconciliation'), exact: true }).isEnabled(), true)
+      await reference.scrollIntoViewIfNeeded()
+      await screenshot(page, `settlement-manual-expanded-${width}`)
+      await advanced.click()
+      assert.equal(await panel.locator('form, input, [role="checkbox"]').count(), 0)
+      await advanced.click()
+      assert.equal(await amount.inputValue(), '60', 'collapse/reopen retains an unsent local draft')
+      assert.equal(await reference.inputValue(), 'Synthetic unsent evidence reference')
+      await dialog.getByRole('button', { name: label('Close'), exact: true }).click()
+      await dialog.waitFor({ state: 'hidden' })
+      await page.getByRole('button', { name: label('Pending requests'), exact: true }).click()
+      await dialog.getByRole('button').filter({ hasText: SETTLEMENT_REVIEW_IDS[2] }).click()
+      await advanced.waitFor()
+      assert.equal(await advanced.getAttribute('aria-expanded'), 'false', 'dismissal cannot reopen an active manual form')
+      assert.equal(await panel.locator('input').count(), 0)
+      assertSettlementReadOnly(start)
+      assert(report.requests.slice(start).some(request => request.path === '/api/usage-reviews/pending' && request.query === '?writer=authoritative&after=0'), 'manual review exercises the bounded Root pending queue')
+      await context.close(); contexts.delete(context)
+    }
+  })
+
+  await run('settlement-owner-status-and-display-privacy', async () => {
+    for (const width of [1280, 320]) {
+      const { page, context } = await session({ role: 1, width, settlementReviews: true })
+      const start = report.requests.length
+      await open(page, '/usage-logs/common', { title: label('Common Logs') })
+      assert.equal(await page.getByRole('button', { name: label('Pending requests'), exact: true }).count(), 0, 'ordinary owner has no Root pending queue')
+      for (const index of [0, 1, 2]) {
+        const { dialog, panel } = await openSettlementLog(page, SETTLEMENT_REVIEW_IDS[index])
+        if (index < 2) {
+          await assertAutomaticSettlement(panel, index)
+          await measureSettlementLayout(panel, `settlement-owner-${index}-${width}`)
+          await screenshot(page, `settlement-owner-${index === 0 ? 'pending' : 'journal-finalization'}-${width}`)
+        }
+        assert.equal(await panel.locator('form, input, textarea, [role="checkbox"]').count(), 0, 'even resource-level manual eligibility cannot give an owner Root controls')
+        for (const key of ['Advanced: manual reconciliation', 'Confirm reconciliation', 'Frozen pricing evidence']) assert.equal(await panel.getByText(label(key), { exact: true }).count(), 0, key)
+        const text = await page.locator('body').innerText()
+        for (const sentinel of [SETTLEMENT_REVIEW_METADATA, 'synthetic_frozen_pricing', SETTLEMENT_REVIEW_DIAGNOSTIC]) assert(!text.includes(sentinel), 'raw frozen pricing and diagnostic metadata cannot be rendered to the owner')
+        await page.keyboard.press('Escape')
+        await dialog.waitFor({ state: 'hidden' })
+      }
+      const reads = report.requests.slice(start)
+      assert(reads.some(request => request.path === '/api/log/self'), 'owner reads only their log endpoint')
+      assert.equal(reads.filter(request => ['/api/log', '/api/usage-reviews/pending'].includes(request.path)).length, 0)
+      assertSettlementReadOnly(start)
       await context.close(); contexts.delete(context)
     }
   })

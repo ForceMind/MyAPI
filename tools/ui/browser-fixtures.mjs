@@ -4,6 +4,9 @@ import { quotaFixtures } from '../quota/browser-fixtures.mjs'
 
 export const FIXTURE_TIME = 1791352800000 // 2026-10-07T06:00:00Z
 export const LONG_NAME = 'Synthetic operations workspace · International model and account administration · 浏览器回归'
+export const SETTLEMENT_REVIEW_IDS = ['synthetic-settlement-pending', 'synthetic-settlement-journal', 'synthetic-settlement-manual']
+export const SETTLEMENT_REVIEW_METADATA = '{"synthetic_frozen_pricing":"Root-only visible evidence, never a real invoice or credential"}'
+export const SETTLEMENT_REVIEW_DIAGNOSTIC = 'synthetic-private-review-diagnostic'
 const now = FIXTURE_TIME / 1000
 const ok = data => ({ success: true, data })
 const page = items => ({ items, total: items.length, page: 1, page_size: 10 })
@@ -37,7 +40,7 @@ const ownerReads = new Set([
 ])
 const rootPrefixes = ['/api/option', '/api/system-info', '/api/system-task', '/api/quota-writer', '/api/ratio_sync', '/api/custom-oauth-provider', '/api/performance']
 
-export function createUIFixture({ role = 100, language = 'en', setupComplete = true, sidebar = false, longText = false, playgroundDisabled = false, pricingEnabled = false } = {}) {
+export function createUIFixture({ role = 100, language = 'en', setupComplete = true, sidebar = false, longText = false, playgroundDisabled = false, pricingEnabled = false, settlementReviews = false } = {}) {
   // quotaFixtures accepts time through Date.now. Override only during its
   // synchronous construction and restore immediately; no timers are faked here.
   const originalNow = Date.now
@@ -73,6 +76,21 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
     { id: 32, user_id: user.id, username: user.username, model_name: 'synthetic-text-model', created_at: now, token_used: 1600, count: 8, quota: 4000 },
   ]
   const flowRows = [{ user_id: user.id, username: user.username, node_name: 'synthetic-node', use_group: 'default', token_id: 21, token_name: 'synthetic-key', channel_id: 1, channel_name: 'synthetic-channel', model_name: 'synthetic-text-model', token_used: 4000, count: 20, quota: 10000 }]
+  // Match raw journal states rather than falsely declaring finalization done.
+  // The opt-in is session-local and cannot alter the older quota/playground suite.
+  const settlementDetails = new Map(SETTLEMENT_REVIEW_IDS.map((requestId, index) => [`/api/usage-review/${requestId}`, {
+    request_id: requestId, user_id: 2, token_id: 21, channel_id: 1,
+    model_name: 'synthetic-text-model', writer: index === 1 ? 'legacy' : 'authoritative',
+    state: index === 1 ? 'prepared' : 'usage_unknown',
+    reserved_quota: index === 1 ? 0 : 100, actual_quota: index === 1 ? 60 : null,
+    text_dispatch_pending: index === 0, can_recover_text_dispatch: false,
+    can_reconcile_usage: index === 2,
+    settlement_status: ['pending', 'applied_journal_pending', 'none'][index],
+    recovery_block_reason: ['automatic_settlement_pending', 'automatic_settlement_applied', ''][index],
+    // Existing GET includes frozen pricing for the owner too; the UI must hide
+    // it. Do not invent a stronger response-redaction contract in this fixture.
+    review_metadata: SETTLEMENT_REVIEW_METADATA, reason: SETTLEMENT_REVIEW_DIAGNOSTIC,
+  }]))
   const unavailable = message => ({ status: 503, body: { success: false, message } })
   return {
     state,
@@ -96,8 +114,13 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
         return { status: 200, body: ok({ models: [] }) }
       }
       if (role === 0 && !publicReads.has(path)) return { violation: `Anonymous private request: ${method} ${path}` }
-      if (role === 1 && !publicReads.has(path) && !ownerReads.has(path)) return { violation: `Ordinary user requested admin data: ${method} ${path}` }
+      if (role === 1 && !publicReads.has(path) && !ownerReads.has(path) && !(settlementReviews && settlementDetails.has(path))) return { violation: `Ordinary user requested admin data: ${method} ${path}` }
       if (role !== 100 && rootPrefixes.some(prefix => path === prefix || path.startsWith(`${prefix}/`))) return { violation: `Non-Root requested Root data: ${method} ${path}` }
+      if (settlementReviews && settlementDetails.has(path)) {
+        if (url.search) return { violation: `Unconfigured settlement detail query: ${method} ${path}${url.search}` }
+        if (role !== 100 && role !== 1) return { violation: `Non-owner requested settlement detail: ${method} ${path}` }
+        return { status: 200, body: ok({ ...settlementDetails.get(path) }) }
+      }
       let body
       switch (path) {
         case '/pg/keys': body = ok(page([{ id: key.id, name: key.name, status: key.status, group: key.group, remain_quota: key.remain_quota, used_quota: key.used_quota, unlimited_quota: key.unlimited_quota, expired_time: key.expired_time, model_limits_enabled: key.model_limits_enabled }])); break
@@ -123,6 +146,18 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
         case '/api/option/typed-bulk/revision': body = ok({ revision: 1 }); break
         case '/api/token': case '/api/token/search': body = ok(page(state.keys === 'empty' ? [] : [key])); break
         case '/api/token/auto-groups': body = ok({ groups: ['default'], max_count: 5 }); break
+        case '/api/log': case '/api/log/self':
+          if (!settlementReviews) { body = quota.response(url); break }
+          body = ok({ ...page([...settlementDetails.values()].map((review, index) => ({
+            id: 70 + index, user_id: review.user_id, token_id: review.token_id,
+            request_id: review.request_id, created_at: now - index * 60, type: 5,
+            content: `Synthetic status ${review.request_id}`, username: 'synthetic-owner',
+            token_name: 'synthetic-key', model_name: review.model_name,
+            quota: 0, prompt_tokens: 0, completion_tokens: 0, use_time: 1, is_stream: true,
+            ...(role === 100 ? { channel: 1, channel_name: 'synthetic-channel' } : {}),
+            group: 'default', ip: '',
+            other: JSON.stringify({ usage_accuracy: 'unknown', settlement_status: 'pending_review', reserved_quota: review.reserved_quota, actual_quota: null }),
+          }))), page_size: 20 }); break
         case '/api/channel/models_enabled': body = ok(['synthetic-text-model']); break
         case '/api/channel/quota/alerts/delivery': body = ok({ policy_enabled: false, configured: false, https_only: true, redirects_allowed: false, timeout_ms: 5000, max_attempts: 3 }); break
         case '/api/channel/quota/alerts': case '/api/channel/quota/events': body = ok(page([])); break
@@ -168,7 +203,11 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
         case '/api/mj': case '/api/mj/self': case '/api/task': case '/api/task/self': body = ok(page([])); break
         case '/api/full-content-logs': body = ok({ ...page([]), enabled: false, files: { count: 0, total_size: 0, files: [] }, facets: { models: [], tokens: [] } }); break
         case '/api/full-content-logs/files': body = ok({ count: 0, total_size: 0, files: [] }); break
-        case '/api/usage-reviews/pending': body = ok(page([])); break
+        case '/api/usage-reviews/pending':
+          if (!settlementReviews) { body = ok(page([])); break }
+          if (role !== 100) return { violation: `Non-Root requested pending settlement reviews: ${method} ${path}` }
+          if (!['authoritative', 'legacy'].includes(url.searchParams.get('writer')) || url.searchParams.get('after') !== '0' || [...url.searchParams.keys()].some(key => !['writer', 'after'].includes(key)) || url.searchParams.getAll('writer').length !== 1 || url.searchParams.getAll('after').length !== 1) return { violation: `Unconfigured pending settlement query: ${method} ${path}${url.search}` }
+          body = ok({ items: [...settlementDetails.values()].filter(review => review.writer === url.searchParams.get('writer')).map(review => ({ ...review })), next_after: '' }); break
         case '/api/pricing':
           if (state.pricing === 'error') return unavailable('Synthetic pricing unavailable')
           body = { success: true, data: state.pricing === 'populated' ? [{ id: 41, model_name: 'synthetic-text-model', quota_type: 0, model_ratio: 1, completion_ratio: 2, enable_groups: ['default'] }] : [], vendors: [], group_ratio: { default: 1 }, usable_group: { default: { desc: 'Synthetic', ratio: 1 } }, supported_endpoint: {}, auto_groups: [] }; break

@@ -60,6 +60,11 @@ test('opens an unlogged request for review and closing the dialog never writes',
       name: 'Request ID: pending-without-log',
     })
   )
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Advanced: manual reconciliation',
+    })
+  )
   expect(
     await screen.findByLabelText('Confirmed quota (internal units)')
   ).toBeInTheDocument()

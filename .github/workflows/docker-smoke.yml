@@ -23,7 +23,7 @@ concurrency:
 jobs:
   installer-local-build:
     # Exercise the actual source installer, separately from the direct-run probe.
-    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/r1-usage-review-20261002')
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON('["codex/r1-usage-review-20261002","codex/settlement-review-status-20261009"]'), github.event.pull_request.head.ref))
     name: LAN source installer and fresh SQLite
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -55,7 +55,7 @@ jobs:
           echo "MYAPI_INSTALLER_ROOT=$MYAPI_INSTALLER_ROOT" >> "$GITHUB_ENV"
           {
             printf 'MYAPI_IMAGE=local/myapi:install-%s\n' "$GITHUB_SHA"
-            printf 'MYAPI_EDITION=lan\nMYAPI_BUILD_LOCAL=true\n'
+            printf 'MYAPI_EDITION=lan\nMYAPI_BUILD_LOCAL=true\nBATCH_UPDATE_ENABLED=false\nMYAPI_ACCOUNTING_CONFIG_VERSION=1\n'
             printf 'MYAPI_PORT=18082\nMYAPI_BIND_ADDRESS=127.0.0.1\nMYAPI_ALLOW_LAN=false\n'
             printf 'MYAPI_PUBLIC_URL=http://127.0.0.1:18082\nMYAPI_SESSION_COOKIE_SECURE=false\n'
             printf 'MYAPI_DATA_DIR=%s/data\nMYAPI_LOGS_DIR=%s/logs\n' "$MYAPI_INSTALLER_ROOT" "$MYAPI_INSTALLER_ROOT"
@@ -106,9 +106,9 @@ jobs:
           fi
 
   build-and-healthcheck:
-    # A bounded R1 acceptance trigger, not a release or a general fork runner.
+    # Bounded R1 and settlement-patch acceptance branches, never a general fork runner.
     # Manual Full/LAN coverage remains available unchanged.
-    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/r1-usage-review-20261002')
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON('["codex/r1-usage-review-20261002","codex/settlement-review-status-20261009"]'), github.event.pull_request.head.ref))
     name: ${{ matrix.edition }} ${{ matrix.scenario }} image and SQLite smoke
     runs-on: ubuntu-latest
     timeout-minutes: 25

@@ -160,8 +160,7 @@ func main() {
 	service.StartChannelQuotaAlertDeliveryWorker()
 	service.StartSystemTaskRunner()
 
-	if os.Getenv("BATCH_UPDATE_ENABLED") == "true" {
-		common.BatchUpdateEnabled = true
+	if common.BatchUpdateEnabled {
 		common.SysLog("batch update enabled with interval " + strconv.Itoa(common.BatchUpdateInterval) + "s")
 		model.InitBatchUpdater()
 	}
@@ -358,6 +357,14 @@ func InitResources() error {
 	if err != nil {
 		return err
 	}
+
+	// Resolve the batch writer before any background settlement/recovery worker
+	// or HTTP admission can run. Missing cache never changes accounting mode.
+	batchEnabled, err := service.ValidateQuotaBatchStartupConfiguration(model.DB, os.Getenv("BATCH_UPDATE_ENABLED"), common.RedisEnabled && common.RDB != nil)
+	if err != nil {
+		return err
+	}
+	common.BatchUpdateEnabled = batchEnabled
 
 	perfmetrics.Init()
 

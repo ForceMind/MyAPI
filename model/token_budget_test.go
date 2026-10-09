@@ -27,7 +27,7 @@ func setupTokenBudgetDB(t *testing.T) *gorm.DB {
 
 func seedTokenBudgetDB(t *testing.T, db *gorm.DB) {
 	t.Helper()
-	require.NoError(t, db.AutoMigrate(&User{}, &Token{}, &TokenBudget{}, &TokenBudgetReservation{}, &TokenBudgetPolicyChange{}))
+	require.NoError(t, db.AutoMigrate(&User{}, &Token{}, &TokenBudget{}, &TokenBudgetReservation{}, &TokenBudgetPolicyChange{}, &AccountQuotaSettlementIntent{}, &AccountQuotaSettlementFact{}))
 	require.NoError(t, db.Create(&User{Id: 1, Username: "budget-root", AffCode: "budroot", Role: common.RoleRootUser, Status: common.UserStatusEnabled}).Error)
 	require.NoError(t, db.Create(&User{Id: 2, Username: "budget-owner", AffCode: "budowner", Role: common.RoleCommonUser, Status: common.UserStatusEnabled}).Error)
 	require.NoError(t, db.Create(&Token{Id: 11, UserId: 2, Key: "budget-fixture", Status: common.TokenStatusEnabled, ExpiredTime: -1}).Error)

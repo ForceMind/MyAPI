@@ -12,6 +12,8 @@ import {
 } from '@/components/ui/dialog'
 import { TokenBudgetEvidence } from '@/features/usage-logs/components/token-budget-evidence'
 import { UsageReviewForm } from '@/features/usage-logs/components/usage-review-form'
+import { UsageSettlementStatus } from '@/features/usage-logs/components/usage-settlement-status'
+import { canReconcileUsageReview } from '@/features/usage-logs/usage-review-api'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { percentageToBasisPoints } from '../lib/token-budget-schema'
@@ -72,6 +74,26 @@ function TokenBudgetSession(props: {
       if (user?.id !== props.userId || user.role !== props.role) {
         throw new Error('Session changed')
       }
+      if (command.kind === 'recover') {
+        const current =
+          client.getQueryData<Awaited<ReturnType<typeof getTokenBudget>>>(
+            queryKey
+          )
+        const review = current?.review
+        if (
+          user.role !== 100 ||
+          query.isError ||
+          !current?.pending ||
+          current.pending.request_id !== command.body.request_id ||
+          (command.body.action === 'reconcile' &&
+            (!review || !canReconcileUsageReview(review))) ||
+          (command.body.action === 'cancel_not_sent' &&
+            !!review?.settlement_status &&
+            review.settlement_status !== 'none')
+        ) {
+          throw new Error('Usage review is not available')
+        }
+      }
       return writeTokenBudget(props.tokenId, command)
     },
     retry: false,
@@ -96,6 +118,9 @@ function TokenBudgetSession(props: {
   const data = query.data
   const pending = data?.pending
   const busy = mutation.isPending || query.isFetching
+  const automaticSettlement =
+    !!data?.review?.settlement_status &&
+    data.review.settlement_status !== 'none'
   return (
     <Dialog
       open
@@ -256,11 +281,17 @@ function TokenBudgetSession(props: {
             </p>
             {pending && (
               <section className='min-w-0 space-y-2 rounded-md border p-3'>
-                <p className='font-medium'>
-                  {pending.state === 'usage_unknown'
-                    ? t('Usage pending review')
-                    : t('Processing...')}
-                </p>
+                {automaticSettlement ? (
+                  <UsageSettlementStatus
+                    status={data.review?.settlement_status}
+                  />
+                ) : (
+                  <p className='font-medium'>
+                    {pending.state === 'usage_unknown'
+                      ? t('Usage pending review')
+                      : t('Processing...')}
+                  </p>
+                )}
                 <p className='text-xs break-words'>
                   {t('Model')}: {pending.model_name}
                 </p>
@@ -273,29 +304,42 @@ function TokenBudgetSession(props: {
                   )}
                 </p>
                 <TokenBudgetEvidence evidence={pending} />
-                {props.role === 100 && pending.state === 'prepared' && (
-                  <TokenBudgetCancelForm
-                    key={pending.request_id}
-                    busy={busy}
-                    locked={locked}
-                    onSubmit={(value) =>
-                      submit({
-                        kind: 'recover',
-                        body: {
-                          request_id: pending.request_id,
-                          action: 'cancel_not_sent',
-                          evidence_reference: value.evidence,
-                          confirmed_reliable_evidence: true,
-                        },
-                      })
-                    }
-                  />
-                )}
                 {props.role === 100 &&
+                  !query.isError &&
+                  !automaticSettlement &&
+                  pending.state === 'prepared' && (
+                    <TokenBudgetCancelForm
+                      key={pending.request_id}
+                      busy={busy}
+                      locked={locked}
+                      onSubmit={(value) =>
+                        submit({
+                          kind: 'recover',
+                          body: {
+                            request_id: pending.request_id,
+                            action: 'cancel_not_sent',
+                            evidence_reference: value.evidence,
+                            confirmed_reliable_evidence: true,
+                          },
+                        })
+                      }
+                    />
+                  )}
+                {props.role === 100 &&
+                  !query.isError &&
                   pending.state !== 'prepared' &&
-                  data.review && (
+                  data.review &&
+                  canReconcileUsageReview(data.review) && (
                     <UsageReviewForm
-                      key={`${pending.request_id}:${data.review.decision?.id ?? 0}`}
+                      key={JSON.stringify([
+                        pending.request_id,
+                        data.review.settlement_status,
+                        data.review.decision,
+                        data.review.actual_quota,
+                        data.review.token_budget?.actual_input,
+                        data.review.token_budget?.actual_output,
+                        data.review.token_budget?.actual_fee_usd,
+                      ])}
                       review={data.review}
                       requireTokenCounts
                       requireFee={pending.fee_enabled}

@@ -100,6 +100,8 @@ func TestR1UsageReviewConfiguredDatabases(t *testing.T) {
 			feeBudgetCoupledReviewDatabaseContract(t, db, root.Id, user.Id, token.Id, namespace+"f")
 			selfUseCoupledReviewDatabaseContract(t, db, root.Id, namespace)
 			textDispatchRecoveryDatabaseContract(t, db, root.Id, namespace)
+			usageReviewSettlementDatabaseContract(t, db, root.Id, namespace)
+			usageReviewAppliedSettlementTokenBudgetContract(t, db, root.Id, namespace)
 			verifyLegacyUsageExtension(t, db, namespace+"e")
 			verifyRealtimeDispatchExtension(t, db, namespace+"w")
 		})

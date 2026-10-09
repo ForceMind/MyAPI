@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createUIFixture, FIXTURE_TIME } from './browser-fixtures.mjs'
+import { createUIFixture, FIXTURE_TIME, SETTLEMENT_REVIEW_IDS, SETTLEMENT_REVIEW_METADATA, SETTLEMENT_REVIEW_DIAGNOSTIC } from './browser-fixtures.mjs'
 
 test('playground selection exposes metadata without a credential and rejects anonymous reads', () => {
   const owner = createUIFixture({ role: 1 })
@@ -200,4 +200,75 @@ test('unavailable performance summary stays distinct from a confirmed empty summ
   assert.deepEqual(fixture.response(url('/api/perf-metrics/summary?hours=24')).body.data, { models: [] })
   fixture.state.performance = 'error'
   assert.equal(fixture.response(url('/api/perf-metrics/summary?hours=24')).status, 503)
+})
+
+test('settlement opt-in is isolated per session and preserves the original log and pending fixtures', () => {
+  const original = createUIFixture()
+  const before = original.response(url('/api/log')).body
+  const enabled = createUIFixture({ settlementReviews: true })
+  assert.deepEqual(enabled.response(url('/api/log')).body.data.items.map(log => log.request_id), SETTLEMENT_REVIEW_IDS)
+  assert.deepEqual(original.response(url('/api/log')).body, before)
+  assert.deepEqual(createUIFixture().response(url('/api/log')).body, before)
+  assert.deepEqual(original.response(url('/api/usage-reviews/pending')).body.data.items, [])
+  for (const id of SETTLEMENT_REVIEW_IDS) assert(original.response(url(`/api/usage-review/${id}`)).violation)
+})
+
+test('settlement details preserve pending and lagging raw journal states with explicit safe capabilities', () => {
+  const fixture = createUIFixture({ settlementReviews: true })
+  const [pending, journal, manual] = SETTLEMENT_REVIEW_IDS.map(id => fixture.response(url(`/api/usage-review/${id}`)).body.data)
+  assert.deepEqual([pending.state, pending.reserved_quota, pending.actual_quota, pending.settlement_status, pending.recovery_block_reason, pending.can_reconcile_usage, pending.can_recover_text_dispatch], ['usage_unknown', 100, null, 'pending', 'automatic_settlement_pending', false, false])
+  assert.deepEqual([journal.state, journal.reserved_quota, journal.actual_quota, journal.settlement_status, journal.recovery_block_reason, journal.can_reconcile_usage, journal.can_recover_text_dispatch], ['prepared', 0, 60, 'applied_journal_pending', 'automatic_settlement_applied', false, false])
+  assert.deepEqual([manual.state, manual.actual_quota, manual.settlement_status, manual.recovery_block_reason, manual.can_reconcile_usage], ['usage_unknown', null, 'none', '', true])
+  assert.equal(pending.text_dispatch_pending, true, 'automatic pending blocks the previously available dispatch recovery')
+  assert.equal(journal.text_dispatch_pending, false)
+  for (const review of [pending, journal, manual]) {
+    assert.equal(review.user_id, 2)
+    assert.equal(review.token_id, 21)
+    assert.equal(review.decision, undefined)
+    assert.equal(review.review_metadata, SETTLEMENT_REVIEW_METADATA)
+    assert.equal(review.reason, SETTLEMENT_REVIEW_DIAGNOSTIC)
+  }
+})
+
+test('settlement owner reads mirror the existing DTO without inventing response-level redaction', () => {
+  const root = createUIFixture({ settlementReviews: true })
+  const owner = createUIFixture({ role: 1, settlementReviews: true })
+  for (const id of SETTLEMENT_REVIEW_IDS) {
+    const path = `/api/usage-review/${id}`
+    assert.deepEqual(owner.response(url(path)), root.response(url(path)))
+    assert.equal(owner.response(url(path)).body.data.user_id, owner.user.id)
+    assert(createUIFixture({ role: 10, settlementReviews: true }).response(url(path)).violation, 'an ordinary administrator is not the owner')
+    assert(createUIFixture({ role: 0, settlementReviews: true }).response(url(path)).violation)
+  }
+  assert(owner.response(url('/api/usage-reviews/pending?writer=authoritative&after=0')).violation)
+  assert(owner.response(url('/api/log')).violation)
+  const logs = owner.response(url('/api/log/self')).body.data.items
+  assert(logs.every(log => log.user_id === owner.user.id && !('channel' in log) && !('channel_name' in log)))
+})
+
+test('settlement fixture permits only exact bounded reads and rejects every reconciliation or dispatch mutation', () => {
+  const fixture = createUIFixture({ settlementReviews: true })
+  for (const writer of ['authoritative', 'legacy']) {
+    const result = fixture.response(url(`/api/usage-reviews/pending?writer=${writer}&after=0`))
+    assert.equal(result.status, 200)
+    assert.equal(result.body.data.next_after, '')
+    assert(result.body.data.items.length > 0)
+    assert(result.body.data.items.every(review => review.writer === writer))
+  }
+  for (const path of [
+    '/api/usage-reviews/pending',
+    '/api/usage-reviews/pending?writer=authoritative&after=1',
+    '/api/usage-reviews/pending?writer=other&after=0',
+    '/api/usage-reviews/pending?writer=legacy&after=0&writer=authoritative',
+    '/api/usage-reviews/pending?writer=legacy&after=0&after=1',
+    '/api/usage-reviews/pending?writer=legacy&after=0&private=true',
+    '/api/usage-review/unconfigured',
+    `/api/usage-review/${SETTLEMENT_REVIEW_IDS[0]}?private=true`,
+    `/api/usage-review/${SETTLEMENT_REVIEW_IDS[0]}/reconcile`,
+  ]) assert(fixture.response(url(path)).violation, path)
+  for (const id of SETTLEMENT_REVIEW_IDS) {
+    for (const suffix of ['', '/reconcile', '/recover-dispatch']) {
+      for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) assert(fixture.response(url(`/api/usage-review/${id}${suffix}`), method).violation, `${method} ${id}${suffix}`)
+    }
+  }
 })

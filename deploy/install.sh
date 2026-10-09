@@ -7,6 +7,19 @@ repo_dir=$(cd "$script_dir/.." && pwd)
 env_file="$script_dir/.env"
 
 if [[ ! -f "$env_file" ]]; then
+  # Missing configuration is not proof that an existing database is fresh.
+  for candidate in "$script_dir/data" "$repo_dir/data" "$repo_dir/backups"; do
+    if [[ -e "$candidate" || -L "$candidate" ]]; then
+      if [[ ! -d "$candidate" || -L "$candidate" || -n "$(find "$candidate" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+        echo "Existing data or identity needs review; refusing to generate a fresh BATCH_UPDATE_ENABLED=false configuration." >&2
+        exit 1
+      fi
+    fi
+  done
+  if [[ -e "$repo_dir/.env" ]] || find "$repo_dir" "$script_dir" -maxdepth 1 -type f \( -name '*.db' -o -name '*.db-wal' -o -name '*.db-shm' -o -name '*.sqlite' -o -name '*.sqlite3' \) -print -quit | grep -q .; then
+    echo "Existing native configuration or database needs review; no deployment configuration was created." >&2
+    exit 1
+  fi
   cp "$script_dir/.env.example" "$env_file"
   echo "Created $env_file. Set SESSION_SECRET and MYAPI_PUBLIC_URL, then run this script again." >&2
   exit 1
@@ -54,11 +67,41 @@ load_env_file() {
     elif [[ "$value" == \'*\' && "$value" == *\' ]]; then
       value="${value:1:${#value}-2}"
     fi
+    if [[ "$key" == "BATCH_UPDATE_ENABLED" ]]; then
+      if [[ "${batch_choice_seen:-false}" == "true" ]]; then
+        echo "BATCH_UPDATE_ENABLED is duplicated and needs review; the running instance was not changed." >&2
+        exit 1
+      fi
+      batch_choice_seen=true
+    fi
+    if [[ "$key" == "MYAPI_ACCOUNTING_CONFIG_VERSION" ]]; then
+      if [[ "${accounting_version_seen:-false}" == "true" ]]; then
+        echo "MYAPI_ACCOUNTING_CONFIG_VERSION is duplicated and needs review; the running instance was not changed." >&2
+        exit 1
+      fi
+      accounting_version_seen=true
+    fi
     printf -v "$key" '%s' "$value"
     export "$key"
   done < "$env_file"
 }
+# Never accept a shell default as a reviewed choice for an old deployment.
+unset BATCH_UPDATE_ENABLED MYAPI_ACCOUNTING_CONFIG_VERSION
+batch_choice_seen=false
+accounting_version_seen=false
 load_env_file
+if [[ "${MYAPI_ACCOUNTING_CONFIG_VERSION:-}" != "1" ]]; then
+  echo "MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1. Do not copy a new marker into an old installation without reviewing its effective writer and cache accounting state; the running instance was not changed." >&2
+  exit 1
+fi
+if [[ "${BATCH_UPDATE_ENABLED:-}" != "true" && "${BATCH_UPDATE_ENABLED:-}" != "false" ]]; then
+  echo "BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; the running instance was not changed." >&2
+  exit 1
+fi
+if [[ "$BATCH_UPDATE_ENABLED" == "true" ]]; then
+  echo "BATCH_UPDATE_ENABLED=true needs review: this cache-free installer cannot verify the existing writer mode or Redis accounting state. Keep the running instance and review its original deployment; do not disable batching to bypass this check." >&2
+  exit 1
+fi
 
 legacy_keys=()
 if [[ -z "${MYAPI_IMAGE:-}" && -n "${NEW_API_IMAGE:-}" ]]; then
@@ -247,6 +290,36 @@ resolve_deploy_path() {
     *) printf '%s/%s\n' "$script_dir" "$1" ;;
   esac
 }
+
+# Inspect only the nonsecret effective batch choice before any image pull or
+# container recreation. Old templates hardcoded true even when .env said false.
+if ! existing_target=$(docker container ls -a --filter 'name=^/my-api$' --format '{{.ID}}' 2>/dev/null); then
+  echo "Accounting configuration needs review: cannot safely identify the existing deployment; the running instance was not changed." >&2
+  exit 1
+fi
+if [[ -n "$existing_target" ]]; then
+  if [[ ! "$existing_target" =~ ^[a-f0-9]{12,64}$ ]]; then
+    echo "Accounting configuration needs review: existing deployment identity is ambiguous; no container was changed." >&2
+    exit 1
+  fi
+  if ! previous_batch=$(docker container inspect --format '{{range .Config.Env}}{{if eq . "BATCH_UPDATE_ENABLED=true"}}true{{end}}{{if eq . "BATCH_UPDATE_ENABLED=false"}}false{{end}}{{end}}' "$existing_target" 2>/dev/null) || [[ "$previous_batch" != "$BATCH_UPDATE_ENABLED" ]]; then
+    echo "Accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart." >&2
+    exit 1
+  fi
+else
+  for candidate in "$(resolve_deploy_path "$MYAPI_DATA_DIR")" "$script_dir/data" "$repo_dir/data" "$repo_dir/backups"; do
+    if [[ -e "$candidate" || -L "$candidate" ]]; then
+      if [[ ! -d "$candidate" || -L "$candidate" || -n "$(find "$candidate" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+        echo "Existing data or identity needs review without a verified container; no container or accounting mode was changed." >&2
+        exit 1
+      fi
+    fi
+  done
+  if [[ -e "$repo_dir/.env" ]] || find "$repo_dir" "$script_dir" -maxdepth 1 -type f \( -name '*.db' -o -name '*.db-wal' -o -name '*.db-shm' -o -name '*.sqlite' -o -name '*.sqlite3' \) -print -quit | grep -q .; then
+    echo "Existing native configuration or database needs review without a verified container; no container was changed." >&2
+    exit 1
+  fi
+fi
 
 mkdir -p "$(resolve_deploy_path "$MYAPI_DATA_DIR")" "$(resolve_deploy_path "$MYAPI_LOGS_DIR")"
 

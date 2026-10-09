@@ -58,6 +58,20 @@ export async function checkTokenBudgetBrowser({ page, origin, output, label, fix
     await page.getByRole('button', { name: label('API Key usage budgets'), exact: true }).click()
     return page.getByRole('dialog')
   }
+  const expandManualRecovery = async (dialog) => {
+    const advanced = dialog.getByRole('button', { name: label('Advanced: manual reconciliation'), exact: true })
+    await advanced.waitFor({ state: 'visible' })
+    assert.equal(await advanced.getAttribute('aria-expanded'), 'false', 'manual budget recovery starts collapsed')
+    for (const field of ['Confirmed quota (internal units)', 'Confirmed input tokens', 'Confirmed output tokens', 'Confirmed API usage cost (USD)', 'Evidence reference']) {
+      assert.equal(await dialog.getByLabel(label(field), { exact: true }).count(), 0, `${field} is absent until explicit manual expansion`)
+    }
+    assert.equal(await dialog.getByRole('button', { name: label('Confirm reconciliation'), exact: true }).count(), 0)
+    const writesBefore = fixture.writes.length
+    await advanced.click()
+    assert.equal(await advanced.getAttribute('aria-expanded'), 'true')
+    await dialog.getByLabel(label('Confirmed quota (internal units)'), { exact: true }).waitFor({ state: 'visible' })
+    assert.equal(fixture.writes.length, writesBefore, 'expanding manual recovery never changes a budget')
+  }
   await page.setViewportSize({ width: 1280, height: 900 })
   let dialog = await open()
   const qualification = [
@@ -124,6 +138,7 @@ export async function checkTokenBudgetBrowser({ page, origin, output, label, fix
   const boundPanel = dialog.getByRole('region', { name: label('Reservation and actual usage'), exact: true })
   await boundPanel.getByText('openai_chat_context_window', { exact: false }).waitFor()
   assert.equal(await boundPanel.getByText(label('Not confirmed'), { exact: true }).count(), 3, 'reservation is not rendered as actual input or output')
+  await expandManualRecovery(dialog)
   await dialog.getByLabel(label('Confirmed quota (internal units)'), { exact: true }).fill('20')
   await dialog.getByLabel(label('Evidence reference'), { exact: true }).fill('verified synthetic terminal fixture')
   await dialog.getByRole('checkbox', { name: label('I verified that the request ended and the actual token counts and frozen pricing are correct.'), exact: true }).check()
@@ -161,6 +176,7 @@ export async function checkTokenBudgetBrowser({ page, origin, output, label, fix
   assert.deepEqual(fixture.writes[2].fee, { enabled: true, limit_usd: '0.001' })
   fixture.hold()
   dialog = await open()
+  await expandManualRecovery(dialog)
   await dialog.getByLabel(label('Confirmed quota (internal units)'), { exact: true }).fill('20')
   await dialog.getByLabel(label('Confirmed input tokens'), { exact: true }).fill('10')
   await dialog.getByLabel(label('Confirmed output tokens'), { exact: true }).fill('5')

@@ -4,7 +4,7 @@ services:
     # read-only fallback; the CLI and install script normalize the legacy
     # public URL before invoking this file, then the required check below
     # prevents an empty origin.
-    image: ${MYAPI_IMAGE:-${NEW_API_IMAGE:-ghcr.io/forcemind/myapi:v0.2.0-beta.9}}
+    image: ${MYAPI_IMAGE:-${NEW_API_IMAGE:-ghcr.io/forcemind/myapi:v0.2.0-beta.10}}
     container_name: my-api
     restart: always
     # Keep workstation and small-server deployments bounded by default. These
@@ -35,7 +35,11 @@ services:
       FRONTEND_BASE_URL: ${MYAPI_PUBLIC_URL:?MYAPI_PUBLIC_URL is required; run myapi migrate for legacy settings}
       TRUSTED_PROXIES: 172.16.0.0/12
       ERROR_LOG_ENABLED: "true"
-      BATCH_UPDATE_ENABLED: "true"
+      # Missing acknowledgements block old templates before recreation. Use the
+      # CLI/install preflight for strict version and existing-container checks.
+      MYAPI_ACCOUNTING_CONFIG_VERSION: ${MYAPI_ACCOUNTING_CONFIG_VERSION:?Accounting configuration review required before upgrading an existing installation}
+      # Explicit on existing installs: never silently switch a cache-backed writer.
+      BATCH_UPDATE_ENABLED: ${BATCH_UPDATE_ENABLED:?BATCH_UPDATE_ENABLED must be explicitly reviewed; new cache-free installs use false}
       FULL_CONTENT_LOG_ENABLED: ${FULL_CONTENT_LOG_ENABLED:-true}
       FULL_CONTENT_LOG_MAX_MB: ${FULL_CONTENT_LOG_MAX_MB:-100}
       FULL_CONTENT_LOG_MAX_FILES: ${FULL_CONTENT_LOG_MAX_FILES:-10}
