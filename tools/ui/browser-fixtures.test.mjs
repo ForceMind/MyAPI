@@ -13,6 +13,19 @@ test('playground selection exposes metadata without a credential and rejects ano
   assert(createUIFixture({ role: 0 }).response(new URL('http://localhost/pg/keys')).violation)
 })
 
+test('selected-key model discovery includes the success envelope required by the production client', () => {
+  const response = createUIFixture({ role: 1 }).response(new URL('http://localhost/pg/models'))
+  assert.equal(response.status, 200)
+  // PlaygroundListModels returns the OpenAI list with MyAPI's success field.
+  // Omitting it makes parseUserModelOptions reject every otherwise valid model.
+  assert.deepEqual(response.body, {
+    success: true,
+    object: 'list',
+    data: [{ id: 'synthetic-text-model', object: 'model', owned_by: 'synthetic-provider' }],
+  })
+  assert(createUIFixture({ role: 0 }).response(new URL('http://localhost/pg/models')).violation)
+})
+
 const url = path => new URL(path, 'http://synthetic.invalid')
 
 test('unknown GET and every unrequested mutation fail closed rather than returning synthetic success', () => {

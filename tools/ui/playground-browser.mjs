@@ -15,7 +15,7 @@ const locales = { en: 'en', zh: 'zhCN', 'zh-TW': 'zhTW', fr: 'fr', ru: 'ru', ja:
 const translation = Object.fromEntries(Object.keys(locales).map(code => [code, JSON.parse(readFileSync(resolve(repo, `web/src/i18n/locales/${code}.json`), 'utf8')).translation]))
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=', 'base64')
 const pdf = Buffer.from('%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n')
-const report = { schema: 1, commit: process.env.GITHUB_SHA || execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim(), result: 'running', evidence: 'Synthetic API UI qualification; no live provider or billing claim.', journeys: [], screenshots: [], violations: [], pageErrors: [] }
+const report = { schema: 1, commit: process.env.GITHUB_SHA || execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim(), result: 'running', evidence: 'Synthetic API UI qualification; no live provider or billing claim.', journeys: [], screenshots: [], requests: [], violations: [], pageErrors: [] }
 assert(existsSync(resolve(root, 'index.html')), 'Build production assets first')
 mkdirSync(output, { recursive: true })
 const persist = () => writeFileSync(resolve(output, 'playground-qualification.json'), JSON.stringify(report, null, 2))
@@ -29,7 +29,7 @@ const server = createServer((request, response) => {
   response.writeHead(200, { 'content-type': mime[extname(file)] || 'application/octet-stream', 'cache-control': 'no-store' })
   createReadStream(file).pipe(response)
 })
-let browser
+let browser, activePage, activeJourney, activeStep
 try {
   await new Promise(done => server.listen(0, '127.0.0.1', done))
   const origin = `http://127.0.0.1:${server.address().port}`
@@ -37,6 +37,8 @@ try {
   browser = await chromium.launch({ headless: true, executablePath: process.env.MYAPI_CHROMIUM_PATH || undefined, args: ['--disable-dev-shm-usage'] })
   for (const { width, language } of [{ width: 1280, language: 'en' }, ...Object.keys(locales).map(language => ({ width: 320, language }))]) {
     const name = `chat-attachments-${language}-${width}`
+    activeJourney = name
+    activeStep = 'load composer and select key'
     const label = key => translation[language][key] || key
     const fixture = createUIFixture({ role: 1, language: locales[language] })
     const context = await browser.newContext({ viewport: { width, height: 900 }, hasTouch: width === 320, isMobile: width === 320, reducedMotion: 'reduce', serviceWorkers: 'block' })
@@ -59,6 +61,7 @@ try {
       if (url.pathname === '/pg/models') assert.equal(request.headers()['x-myapi-key-id'], '21')
       if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/pg/')) {
         const result = fixture.response(url, request.method())
+        report.requests.push({ journey: name, method: request.method(), path: url.pathname, status: result.status || 501 })
         if (result.violation) report.violations.push(`${name}: ${result.violation}`)
         return route.fulfill({ status: result.status || 501, json: result.body || { success: false } })
       }
@@ -66,6 +69,7 @@ try {
       return route.continue()
     })
     const page = await context.newPage()
+    activePage = page
     page.setDefaultTimeout(15000)
     await page.clock.setFixedTime(new Date(FIXTURE_TIME))
     page.on('pageerror', error => report.pageErrors.push(`${name}: ${error.message}`))
@@ -81,11 +85,14 @@ try {
     assert.equal(sent.length, 0, 'Enter without a key must not dispatch')
     await key.selectOption('21')
     await input.fill('')
+    activeStep = 'preview and send image-only prompt'
     const upload = page.getByLabel(label('Upload attachments'), { exact: true })
     await upload.setInputFiles({ name: 'sample.png', mimeType: 'image/png', buffer: png })
     await page.getByRole('img', { name: 'sample.png', exact: true }).waitFor()
     await page.waitForFunction(() => [...document.images].some(image => image.alt === 'sample.png' && image.complete && image.naturalWidth === 1))
-    await page.waitForFunction(() => !document.querySelector('button[type="submit"]')?.disabled)
+    // Wait on the named composer control, not an unrelated submit button.
+    // Trial performs all actionability checks without dispatching a request.
+    await send.click({ trial: true })
     assert(await send.isEnabled(), 'image-only prompt is sendable with a key')
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'viewport must not overflow')
     const previewName = `${name}-preview.png`
@@ -100,13 +107,14 @@ try {
     const stored = await page.evaluate(() => localStorage.getItem('playground_messages:user:2') || '')
     assert(stored.includes('missingAttachments'), 'persist an explicit missing-attachment marker')
     assert(!stored.includes(png.toString('base64')), 'image bytes must not persist')
+    activeStep = 'reject PDF and explicitly retry preserved draft'
     await upload.setInputFiles({ name: 'sample.pdf', mimeType: 'application/pdf', buffer: pdf })
     await page.getByRole('img', { name: 'sample.pdf', exact: true }).waitFor()
     failNext = true
     await send.click()
     await page.getByRole('button', { name: label('Remove attachment {{name}}').replace('{{name}}', 'sample.pdf'), exact: true }).waitFor()
     await send.waitFor({ state: 'visible' })
-    await page.waitForFunction(() => !document.querySelector('button[type="submit"]')?.disabled)
+    await send.click({ trial: true })
     assert.equal(sent.length, 2)
     const errorName = `${name}-pdf-error.png`
     await page.screenshot({ path: resolve(output, errorName), fullPage: true }); report.screenshots.push(errorName)
@@ -118,19 +126,38 @@ try {
     assert.equal(files.length, 1, 'retry does not duplicate failed PDF turn')
     assert.equal(files[0].file.filename, 'sample.pdf')
     assert.equal(files[0].file.file_data, `data:application/pdf;base64,${pdf.toString('base64')}`)
+    activeStep = 'reload and reject unavailable attachment history'
     await page.reload()
     await page.getByText(label('Attachments from this message are no longer available. Remove this message or start a new conversation before sending.')).first().waitFor()
     await input.fill('Do not silently drop prior attachments')
     await send.click()
     assert.equal(sent.length, 3, 'missing attachments must not dispatch a degraded prompt')
     report.journeys.push({ name, passed: true, explicitDispatches: sent.length })
-    await context.close(); persist()
+    await context.close(); activePage = null; persist()
   }
   assert.deepEqual(report.violations, [])
   assert.deepEqual(report.pageErrors, [])
   report.result = 'passed'
 } catch (error) {
-  report.result = 'failed'; report.error = String(error?.stack || error); throw error
+  report.result = 'failed'; report.error = String(error?.stack || error)
+  report.failure = { journey: activeJourney, step: activeStep }
+  if (activePage && !activePage.isClosed()) {
+    try {
+      report.failure.state = await activePage.evaluate(() => ({
+        path: location.pathname,
+        notices: [...document.querySelectorAll('[role="status"], [role="alert"]')].map(element => element.textContent),
+        selects: [...document.querySelectorAll('select')].map(element => ({ label: element.getAttribute('aria-label'), value: element.value, disabled: element.disabled, options: [...element.options].map(option => ({ value: option.value, text: option.text, disabled: option.disabled })) })),
+        buttons: [...document.querySelectorAll('button')].map(element => ({ label: element.getAttribute('aria-label'), text: element.textContent, type: element.type, disabled: element.disabled })),
+        images: [...document.images].map(element => ({ alt: element.alt, complete: element.complete, naturalWidth: element.naturalWidth })),
+      }))
+      const failureName = `${activeJourney}-failure.png`
+      await activePage.screenshot({ path: resolve(output, failureName), fullPage: true, timeout: 5000 })
+      report.screenshots.push(failureName)
+    } catch (diagnosticError) {
+      report.failure.diagnosticError = String(diagnosticError)
+    }
+  }
+  throw error
 } finally {
   persist(); await browser?.close(); await new Promise(done => server.close(done))
 }

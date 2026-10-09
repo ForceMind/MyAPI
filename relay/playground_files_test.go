@@ -1,11 +1,13 @@
 package relay
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/relaykit/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -13,8 +15,10 @@ import (
 )
 
 func TestPlaygroundPDFUsesOnlyQualifiedActualAdapter(t *testing.T) {
+	require.NoError(t, i18n.Init())
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/pg/chat/completions", nil)
 	var request dto.GeneralOpenAIRequest
 	require.NoError(t, common.Unmarshal([]byte(`{"messages":[{"role":"user","content":[{"type":"file","file":{"filename":"notes.pdf","file_data":"data:application/pdf;base64,JVBERi0xLjQK"}}]}]}`), &request))
 	require.Nil(t, validatePlaygroundMediaChannel(c, &request, constant.ChannelTypeOpenAI))

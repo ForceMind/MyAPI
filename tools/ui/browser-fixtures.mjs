@@ -101,7 +101,7 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
       let body
       switch (path) {
         case '/pg/keys': body = ok(page([{ id: key.id, name: key.name, status: key.status, group: key.group, remain_quota: key.remain_quota, used_quota: key.used_quota, unlimited_quota: key.unlimited_quota, expired_time: key.expired_time, model_limits_enabled: key.model_limits_enabled }])); break
-        case '/pg/models': body = { object: 'list', data: [{ id: 'synthetic-text-model', object: 'model', owned_by: 'synthetic-provider' }] }; break
+        case '/pg/models': body = { success: true, object: 'list', data: [{ id: 'synthetic-text-model', object: 'model', owned_by: 'synthetic-provider' }] }; break
         case '/api/setup': body = ok({ status: setupComplete, root_init: setupComplete, database_type: 'sqlite' }); break
         case '/api/user/self': body = ok(user); break
         case '/api/status': body = ok({
