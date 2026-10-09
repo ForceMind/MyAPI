@@ -591,7 +591,7 @@ export function ApiKeysMutateDrawer({
                           type='button'
                           variant='outline'
                           size='sm'
-                          className='px-2 text-xs sm:px-3 sm:text-sm'
+                          className='h-auto min-h-8 min-w-0 px-2 py-2 text-xs wrap-anywhere whitespace-normal sm:px-3 sm:text-sm pointer-coarse:min-h-11'
                           onClick={() => handleSetExpiry(0, 0, 0)}
                         >
                           {t('Never')}
@@ -600,7 +600,7 @@ export function ApiKeysMutateDrawer({
                           type='button'
                           variant='outline'
                           size='sm'
-                          className='px-2 text-xs sm:px-3 sm:text-sm'
+                          className='h-auto min-h-8 min-w-0 px-2 py-2 text-xs wrap-anywhere whitespace-normal sm:px-3 sm:text-sm pointer-coarse:min-h-11'
                           onClick={() => handleSetExpiry(1, 0, 0)}
                         >
                           {t('1 Month')}
@@ -609,7 +609,7 @@ export function ApiKeysMutateDrawer({
                           type='button'
                           variant='outline'
                           size='sm'
-                          className='px-2 text-xs sm:px-3 sm:text-sm'
+                          className='h-auto min-h-8 min-w-0 px-2 py-2 text-xs wrap-anywhere whitespace-normal sm:px-3 sm:text-sm pointer-coarse:min-h-11'
                           onClick={() => handleSetExpiry(0, 1, 0)}
                         >
                           {t('1 Day')}
@@ -618,7 +618,7 @@ export function ApiKeysMutateDrawer({
                           type='button'
                           variant='outline'
                           size='sm'
-                          className='px-2 text-xs sm:px-3 sm:text-sm'
+                          className='h-auto min-h-8 min-w-0 px-2 py-2 text-xs wrap-anywhere whitespace-normal sm:px-3 sm:text-sm pointer-coarse:min-h-11'
                           onClick={() => handleSetExpiry(0, 0, 1)}
                         >
                           {t('1 Hour')}
@@ -817,7 +817,12 @@ export function ApiKeysMutateDrawer({
         </Form>
         <SheetFooter className={sideDrawerFooterClassName()}>
           <SheetClose
-            render={<Button variant='outline' className='w-full sm:w-auto' />}
+            render={
+              <Button
+                variant='outline'
+                className='h-auto min-h-9 w-full min-w-0 py-2 wrap-anywhere whitespace-normal sm:w-auto pointer-coarse:min-h-11'
+              />
+            }
           >
             {t('Close')}
           </SheetClose>
@@ -825,7 +830,7 @@ export function ApiKeysMutateDrawer({
             type='button'
             onClick={form.handleSubmit(onSubmit, onInvalid)}
             disabled={!isFormInitialized || isSubmitting}
-            className='w-full sm:w-auto'
+            className='h-auto min-h-9 w-full min-w-0 py-2 wrap-anywhere whitespace-normal sm:w-auto pointer-coarse:min-h-11'
           >
             {isSubmitting ? t('Saving...') : t('Save changes')}
           </Button>

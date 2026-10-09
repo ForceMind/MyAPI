@@ -133,7 +133,9 @@ function TokenBudgetSession(props: {
         showCloseButton={!mutation.isPending}
       >
         <DialogHeader>
-          <DialogTitle>{t('API Key usage budgets')}</DialogTitle>
+          <DialogTitle className='pr-12'>
+            {t('API Key usage budgets')}
+          </DialogTitle>
           <DialogDescription>
             {t(
               'Actual input plus output tokens. Cache and reasoning are already included.'

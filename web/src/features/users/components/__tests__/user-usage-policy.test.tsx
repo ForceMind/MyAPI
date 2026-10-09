@@ -290,3 +290,12 @@ test('Root can save an inactive preference without changing the global funding m
   )
   expect(screen.getByText('Commercial funding enabled')).toBeVisible()
 })
+
+test('policy heading reserves space for the 44px touch close control when its text wraps', async () => {
+  renderPolicy()
+  await screen.findByRole('button', { name: 'Save' })
+  const heading = screen.getByRole('heading', { name: 'User usage policy' })
+  // A 48px inset protects the absolute close control without truncating the heading.
+  expect(heading).toHaveClass('pr-12')
+  expect(heading).not.toHaveClass('truncate')
+})

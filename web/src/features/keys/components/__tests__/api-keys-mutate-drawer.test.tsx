@@ -366,3 +366,31 @@ test('currency quota remains price-converted internal allowance with the existin
     unlimited_quota: false,
   })
 })
+
+test('drawer footer and expiry shortcuts wrap their labels inside constrained buttons without submitting', async () => {
+  const createdPayloads: Array<Record<string, unknown>> = []
+  installApiFixtures(createdPayloads)
+  await renderCreateDrawer()
+  const save = screen.getByRole('button', { name: 'Save changes' })
+  const close = screen.getAllByRole('button', { name: 'Close' })[0]
+  const shortcuts = ['Never', '1 Month', '1 Day', '1 Hour'].map((name) =>
+    screen.getByRole('button', { name })
+  )
+  for (const button of [save, close, ...shortcuts]) {
+    // These specific sizing contracts permit multi-line translated labels;
+    // real text bounds and touch heights are separately checked in Chromium.
+    expect(button).toHaveClass(
+      'min-w-0',
+      'h-auto',
+      'whitespace-normal',
+      'wrap-anywhere'
+    )
+    expect(button).not.toHaveClass('truncate')
+  }
+  for (const button of shortcuts) {
+    expect(button).toHaveAttribute('type', 'button')
+    fireEvent.click(button)
+  }
+  expect(createdPayloads).toHaveLength(0)
+  expect(save).toBeEnabled()
+})

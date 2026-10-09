@@ -815,3 +815,11 @@ test('budget summary distinguishes compatible Key budgets from account-window ch
   expect(api.put).not.toHaveBeenCalled()
   expect(api.post).not.toHaveBeenCalled()
 })
+
+test('budget heading reserves space for the 44px touch close control when its text wraps', async () => {
+  renderBudget()
+  await screen.findByRole('button', { name: 'Save' })
+  const heading = screen.getByRole('heading', { name: 'API Key usage budgets' })
+  expect(heading).toHaveClass('pr-12')
+  expect(heading).not.toHaveClass('truncate')
+})

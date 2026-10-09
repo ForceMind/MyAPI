@@ -144,7 +144,7 @@ function UserUsagePolicySession(props: {
         showCloseButton={!mutation.isPending}
       >
         <DialogHeader>
-          <DialogTitle>{t('User usage policy')}</DialogTitle>
+          <DialogTitle className='pr-12'>{t('User usage policy')}</DialogTitle>
           <DialogDescription>
             {t(
               'This policy applies only while commercial funding is disabled. It does not remove Key limits.'

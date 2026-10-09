@@ -28,8 +28,8 @@ From API Keys, an owner can find their saved usage policy, distinguish it from t
 ## Acceptance ledger
 
 - [x] Reproduce old behavior with focused tests: initial four-file run has 9 new failures and 28 pre-existing passes; separate personal-entry run has 2 failures and 1 pass.
-- [x] Focused red/green tests: 64/64 passed, including raw funding-mode matrix, account-switch reset and unchanged mutation payloads.
-- [x] Seven locales (23 additions each), exact placeholder preservation, sync, typecheck, changed-file lint/format and production build. Aggregate frontend: 184 files / 1106 tests passed. Browser fixture contracts: 23/23 passed.
+- [x] Focused red/green tests: 67/67 passed, including raw funding-mode matrix, account-switch reset and unchanged mutation payloads.
+- [x] Seven locales (23 additions each), exact placeholder preservation, sync, typecheck, changed-file lint/format and production build. Aggregate frontend: 184 files / 1109 tests passed. Browser fixture contracts: 23/23 passed.
 - [ ] Real Chromium at seven-language 320 px and English 1280 px; readable long labels, keyboard/touch entry, refresh/close/reopen, owner read-only and no automatic writes.
 - [ ] Existing backend and three-database contracts on the exact PR candidate, without claiming new backend coverage from UI tests.
 - [ ] Independent review and accurate-head CI, with artifact source/tree binding.
@@ -37,3 +37,9 @@ From API Keys, an owner can find their saved usage policy, distinguish it from t
 ## Deferred to the following bounded slice
 
 The actual backend structural boundary, new/existing-user end-to-end admission/limit scenarios and stable-release real-provider evidence remain separate unchecked obligations of the parent card. This presentation resolver is not claimed as completed backend architectural simplification. Reference decisions remain tied to [the fixed sub2api audit](SUB2API_REFERENCE_AUDIT.md).
+
+## Browser and pixel findings before final acceptance
+
+- Source `6297bf8`: 9 CI jobs passed; the new browser journeys failed because the top icon and footer shared the accessible name Close. The script now explicitly selects the footer, and language/width cases report independently without weakening the overall failure gate.
+- Source `b90eccf`: all 10 CI jobs passed (31 shared journeys / 228 screenshots, plus 8 Playground journeys / 96 screenshots), but manual pixel review rejected overlapping Vietnamese/French dialog headings, French/Russian Key-save labels and the Vietnamese expiry shortcut. Automatic green was not counted as completed visual acceptance.
+- The bounded correction reserves close-button space only on the two affected titles and allows wrapping/automatic height only on the existing Key drawer footer/expiry buttons. Three added layout-contract tests failed first and then passed. Browser regression now checks actual heading text rectangles, button text containment, separate controls, scroll reachability, Escape/focus restoration and discard of an unsaved quota draft. The corrected exact head still requires fresh CI and pixel review.
