@@ -2,6 +2,17 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
+test('candidate metadata and fresh image defaults name the same immutable version', () => {
+  const read = (file) => readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8')
+  const version = read('VERSION').trim()
+  assert.equal(JSON.parse(read('package.json')).version, version)
+  const image = `ghcr.io/forcemind/myapi:v${version}`
+  for (const file of ['docker-compose.yml', 'deploy/docker-compose.yml']) {
+    assert.ok(read(file).includes(`image: \${MYAPI_IMAGE:-\${NEW_API_IMAGE:-${image}}}`), `${file} keeps explicit and legacy image overrides before the versioned fallback`)
+  }
+  assert.ok(read('deploy/.env.example').split('\n').includes(`MYAPI_IMAGE=${image}`))
+})
+
 test('settlement patch keeps bounded Docker acceptance and durable race coverage', () => {
   const docker = readFileSync(new URL('../../.github/workflows/docker-smoke.yml', import.meta.url), 'utf8')
   const gates = docker.split('\n').filter(line => line.startsWith('    if:'))
