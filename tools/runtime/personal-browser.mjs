@@ -9,7 +9,7 @@ const model = 'smoke-model'
 const quota = 1000
 const usage = 15
 const stages = new Set(['launch', 'setup', 'setup-session', 'setup-open', 'setup-database',
-  'setup-credentials', 'setup-mode', 'setup-review', 'setup-submit', 'setup-response', 'login', 'writer-check', 'fixture-config', 'policy-view',
+  'setup-credentials', 'setup-mode', 'setup-review', 'setup-submit', 'setup-response', 'login', 'login-open', 'login-response', 'login-keys', 'document-backoff', 'writer-check', 'fixture-config', 'policy-view',
   'key-create', 'key-create-open', 'key-create-ready', 'key-create-profile', 'key-create-cap',
   'key-create-quota', 'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm',
   'playground-response', 'playground-complete', 'playground-rejection',
@@ -79,10 +79,13 @@ async function withBrowser(options, withUpstream, run) {
   const scope = validateOptions(options, withUpstream)
   scope.abort = new AbortController()
   scope.contexts = new Set()
+  scope.backoffSeconds = 0
   let stage = 'launch'
-  const progress = (event, code) => {
+  const progress = (event, code, httpStatus, retryAfter) => {
     const record = { command: 'personal:browser', phase: withUpstream ? 'journey' : 'setup', event,
-      stage, sha: options.sha, writer: scope.writer, ...(code ? { code } : {}) }
+      stage, sha: options.sha, writer: scope.writer, ...(code ? { code } : {}),
+      ...(Number.isInteger(httpStatus) && httpStatus >= 100 && httpStatus <= 599 ? { httpStatus } : {}),
+      ...(Number.isSafeInteger(retryAfter) && retryAfter >= 0 ? { retryAfter } : {}) }
     // Emit only our fixed metadata, never browser diagnostics or response data.
     try {
       if (typeof options.onProgress === 'function') Promise.resolve(options.onProgress(record)).catch(() => {})
@@ -93,6 +96,7 @@ async function withBrowser(options, withUpstream, run) {
     get: () => stage,
     set(value) { stage = stages.has(value) ? value : 'launch'; progress('stage') },
   })
+  scope.documentResponse = (httpStatus, retryAfter) => progress('document-response', undefined, httpStatus, retryAfter)
   let browser
   let failed = false
   scope.stage = 'launch'
@@ -108,6 +112,10 @@ async function withBrowser(options, withUpstream, run) {
     // No cause/stack from browser, HTTP client or assertion libraries may escape.
     const safeError = new Error(`SMOKE_PERSONAL_${codes.has(suffix) ? suffix : 'BROWSER_FAILED'}`)
     safeError.stage = stages.has(scope.stage) ? scope.stage : 'launch'
+    if (suffix === 'HTTP_FAILED') {
+      if (Number.isInteger(error.httpStatus) && error.httpStatus >= 100 && error.httpStatus <= 599) safeError.httpStatus = error.httpStatus
+      if (Number.isSafeInteger(error.retryAfter) && error.retryAfter >= 0) safeError.retryAfter = error.retryAfter
+    }
     throw safeError
   } finally {
     if (browser) {
@@ -165,9 +173,51 @@ async function newSession(browser, origin, language = 'en', width = 1280, scope 
   return session
 }
 
-async function open(session, pathname) {
-  const response = await session.page.goto(session.origin + pathname, { waitUntil: 'domcontentloaded', timeout: 30_000 })
-  requireThat(response?.status() === 200, 'HTTP_FAILED')
+async function open(session, pathname, { forceLoad = false } = {}) {
+  const target = session.origin + pathname
+  // Reusing a page already at this exact URL avoids needless cache-disabled
+  // document reloads. The final persistence check explicitly forces a load.
+  if (!forceLoad && session.page.url() === target) return
+  if (!forceLoad && session.user && ['/keys', '/playground'].includes(pathname)) {
+    const { page, label } = session
+    const mobile = session.width === 320
+    const toggle = page.getByRole('button', { name: label('Toggle sidebar'), exact: true })
+    if (mobile) {
+      await toggle.waitFor()
+      if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click()
+    }
+    await page.locator('[data-myapi-sidebar]').getByRole('link', {
+      name: label(pathname === '/keys' ? 'API Keys' : 'Playground'), exact: true,
+    }).and(page.locator(`a[href="${pathname}"]`)).click()
+    await page.waitForURL(url => url.origin === session.origin && url.pathname === pathname)
+    if (mobile) await toggle.and(page.locator('[aria-expanded="false"]')).waitFor()
+    return
+  }
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = await session.page.goto(target, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+    const httpStatus = response?.status()
+    if (httpStatus === 200) return
+    const rawRetryAfter = response?.headers()['retry-after']
+    // Our server's rate limiter returns integer delta-seconds. Do not guess a
+    // missing/invalid value, follow arbitrary dates, or retain raw header text.
+    const retryAfter = typeof rawRetryAfter === 'string' && /^\d+$/.test(rawRetryAfter)
+      ? Number(rawRetryAfter) : undefined
+    session.scope.documentResponse(httpStatus, retryAfter)
+    if (attempt === 0 && httpStatus === 429 && response.request().method() === 'GET' &&
+      Number.isSafeInteger(retryAfter) && retryAfter >= 0 &&
+      retryAfter <= 180 - session.scope.backoffSeconds) {
+      session.scope.backoffSeconds += retryAfter
+      const previousStage = session.scope.stage
+      session.scope.stage = 'document-backoff'
+      await new Promise(resolve => setTimeout(resolve, retryAfter * 1000))
+      session.scope.stage = previousStage
+      continue
+    }
+    const error = new Error('SMOKE_PERSONAL_HTTP_FAILED')
+    error.httpStatus = httpStatus
+    error.retryAfter = retryAfter
+    throw error
+  }
 }
 
 function responseFor(session, pathname, method) {
@@ -184,12 +234,14 @@ async function responseSuccess(session, response, code) {
 }
 
 async function login(session, username, password, expectedRole, sha) {
-  session.scope.stage = 'login'
+  session.scope.stage = 'login-open'
   await open(session, '/sign-in')
+  session.scope.stage = 'login'
   await session.page.locator('form input[name="username"]').fill(username)
   await session.page.locator('form input[name="password"][type="password"]').fill(password)
   const received = responseFor(session, '/api/user/login', 'POST')
   await session.page.locator('form button[type="submit"]').click()
+  session.scope.stage = 'login-response'
   const bundle = await responseSuccess(session, await received, 'LOGIN_FAILED')
   requireThat(typeof bundle?.access_token === 'string' && bundle.access_token &&
     Number.isSafeInteger(bundle.user?.id) && bundle.user.id > 0 && bundle.user.role === expectedRole, 'LOGIN_FAILED')
@@ -198,6 +250,7 @@ async function login(session, username, password, expectedRole, sha) {
   session.secrets.push(password, bundle.access_token)
   session.username = username
   await session.page.waitForURL((url) => url.pathname !== '/sign-in')
+  session.scope.stage = 'login-keys'
   await open(session, '/keys')
   await session.page.getByRole('button', { name: session.label('My usage policy'), exact: true }).waitFor()
   const metadata = await bounded(session.scope, () => session.page.evaluate(() => ({
@@ -505,6 +558,7 @@ export async function probePersonalBrowserJourney(options = {}) {
     await capture(root, options, 'fresh-success', screenshots)
     await showPersistedUsage(root, rootKey, rootRequest)
     await capture(root, options, 'fresh-persisted-log', screenshots)
+    await closeDialog(root, root.page.getByRole('dialog'))
     checks.push({ name: 'real English desktop fresh Root selected-Key streaming request and persisted usage', ok: true, quota: usage, requests: 1 })
 
     // An ordinary pre-existing-style user starts with the existing stored-wallet
@@ -577,6 +631,7 @@ export async function probePersonalBrowserJourney(options = {}) {
     await capture(owner, options, 'existing-success', screenshots)
     await showPersistedUsage(owner, ownerKey, ownerRequest)
     await capture(owner, options, 'existing-persisted-log', screenshots)
+    await closeDialog(owner, owner.page.getByRole('dialog'))
     checks.push({ name: 'real Chinese mobile ordinary owner rejects until explicit Root policy choice', ok: true, role: 1, policyChanges: 1, requests: 1, quota: usage })
 
     const lowKey = await createKey(owner, api, 'browser-owner-low', 1)
@@ -622,7 +677,7 @@ export async function probePersonalBrowserJourney(options = {}) {
     // result. DB restoration belongs to independent existing restore tests;
     // this personal application journey does not validate restart or recovery.
     scope.stage = 'reload-check'
-    await open(owner, `/keys?filter=${ownerKey.name}`)
+    await open(owner, `/keys?filter=${ownerKey.name}`, { forceLoad: true })
     await owner.page.getByText(ownerKey.name, { exact: true }).first().waitFor()
     const persisted = await snapshot(api, owner, ownerKey)
     requireThat(persisted.token.remain_quota === quota - usage && persisted.token.used_quota === usage &&

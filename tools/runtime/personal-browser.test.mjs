@@ -8,7 +8,7 @@ const base = { baseUrl: 'http://127.0.0.1:18080', upstreamBaseUrl: 'http://127.0
   sha: 'a'.repeat(40), edition: 'full', isolated: true,
   username: 'synthetic-root', password: 'synthetic-password-never-report', writer: 'legacy', onProgress() {} }
 
-function setupBrowser({ failAt, responseSuccess = true, closeFails = false } = {}) {
+function setupBrowser({ failAt, responseSuccess = true, closeFails = false, documentResponses = [] } = {}) {
   const calls = []
   let route
   const locator = (kind, value) => ({
@@ -25,9 +25,15 @@ function setupBrowser({ failAt, responseSuccess = true, closeFails = false } = {
     async check() { calls.push(['check', kind, value]) },
   })
   const page = {
+    current: base.baseUrl + '/', url() { return this.current },
     setDefaultTimeout() {},
     on() {},
-    async goto(url) { calls.push(['goto', url]); return { status: () => 200 } },
+    async goto(url) {
+      calls.push(['goto', url]); this.current = url
+      const result = documentResponses.shift() || { status: 200 }
+      return { status: () => result.status, headers: () => ({ 'retry-after': result.retryAfter }),
+        request: () => ({ method: () => result.method || 'GET' }) }
+    },
     getByRole(kind, options) { return locator(kind, options?.name) },
     locator(value) { return locator('selector', value) },
     async waitForResponse(predicate) {
@@ -128,7 +134,7 @@ import { mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false, forbidStreamReads = false, hangAt, closeHangs = false } = {}) {
+function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false, forbidStreamReads = false, hangAt, closeHangs = false, documentResponses = [], reloadAlreadyCurrent = false } = {}) {
   const reverse = Object.fromEntries(Object.entries(JSON.parse(readFileSync(new URL('../../web/src/i18n/locales/zh.json', import.meta.url))).translation).map(([key, value]) => [value, key]))
   const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
   const users = new Map([[1, { id: 1, username: base.username, role: 100, quota: 0, used_quota: 15, request_count: 1, self_use_no_balance: true, revision: 1 }]])
@@ -141,6 +147,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   const dialogCloseEvents = []
   const completionEvents = []
   const signals = []
+  const navigations = []
   const reached = Promise.withResolvers()
   const stalled = Promise.withResolvers()
   const closing = Promise.withResolvers()
@@ -170,7 +177,13 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   const makePage = context => {
     const page = { current: base.baseUrl + '/', fields: {}, switches: {}, pendingSwitches: {}, checkboxes: {}, group: '', model: 'gpt-4o', listeners: {}, waiters: [], selected: '', actor: null,
       setDefaultTimeout() {}, on(event, handler) { this.listeners[event] = handler },
-      async goto(url) { this.current = url; return { status: () => 200 } },
+      async goto(url) {
+        this.current = url
+        navigations.push({ kind: 'document', locale: context.locale, path: new URL(url).pathname })
+        const result = documentResponses.shift() || { status: 200 }
+        return { status: () => result.status, headers: () => ({ 'retry-after': result.retryAfter }),
+          request: () => ({ method: () => result.method || 'GET' }) }
+      },
       url() { return this.current },
       async waitForURL(predicate) { assert(predicate(new URL(this.current))) },
       waitForResponse(predicate) { return new Promise(resolve => this.waiters.push({ predicate, resolve })) },
@@ -188,6 +201,10 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
       },
       async screenshot(options) { screenshots.push(options) },
       keyboard: { async press(key) {
+        if (key === 'Escape' && page.logDetailsOpen) {
+          page.logDetailsOpen = false
+          page.closedLogDialogs = (page.closedLogDialogs || 0) + 1
+        }
         const mutation = page.dialogMutation
         if (key !== 'Escape' || !mutation || mutation.closed) return
         if (mutation.pending) return // The real onOpenChange ignores close while sending.
@@ -207,6 +224,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         and() { awaitingCheckedState = true; return this },
         filter() { return this }, first() { return this }, last() { return this },
         async waitFor(options) {
+          if (kind === 'button' && value === 'Toggle sidebar' && awaitingCheckedState) assert.equal(page.sidebarOpen, false)
           if (kind === 'text' && value === 'synthetic fixed response') {
             assert.notEqual(corrupt, 'incomplete-text')
             completionEvents.push('assistant-complete')
@@ -223,11 +241,11 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             page.switches[value] = page.pendingSwitches[value]; delete page.pendingSwitches[value]
           }
           const mutation = page.dialogMutation
-          if (value === '[data-slot="dialog-close"]' && options?.state === 'visible' && parents.includes(mutation?.title) && mutation.pending) {
+          if (value === '[data-slot="dialog-close"]' && options?.state === 'visible' && mutation && parents.includes(mutation.title) && mutation.pending) {
             mutation.pending = false
             dialogCloseEvents.push([mutation.title, 'close-visible'])
           }
-          if (kind === 'dialog' && options?.state === 'hidden' && value === mutation?.title) {
+          if (kind === 'dialog' && options?.state === 'hidden' && mutation && value === mutation.title) {
             assert.equal(mutation.closed, true, 'pending mutation prevented dialog dismissal')
           }
         },
@@ -238,7 +256,10 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         },
         async fill(text) { page.fields[value] = text },
         async check() { page.checkboxes[value] = true }, async uncheck() { page.checkboxes[value] = false },
-        async getAttribute(name) { if (name === 'aria-checked') return page.switches[value] ?? (value === 'No ordinary quota cap' ? 'true' : 'false') },
+        async getAttribute(name) {
+          if (name === 'aria-expanded' && value === 'Toggle sidebar') return String(Boolean(page.sidebarOpen))
+          if (name === 'aria-checked') return page.switches[value] ?? (value === 'No ordinary quota cap' ? 'true' : 'false')
+        },
         async inputValue() { return page.selected },
         async isDisabled() { return page.selected === '' },
         async selectOption(id) {
@@ -250,14 +271,28 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         },
         async click(options) {
           if (options?.trial) return
+          if (kind === 'title' && value === 'Click to view full details') page.logDetailsOpen = true
+          if (value === 'Toggle sidebar') {
+            page.sidebarOpen = !page.sidebarOpen
+            navigations.push({ kind: 'toggle', locale: context.locale })
+          }
+          if (kind === 'link' && parents.includes('[data-myapi-sidebar]')) {
+            assert(['API Keys', 'Playground'].includes(value))
+            assert(!page.logDetailsOpen, 'log dialog must be dismissed before sidebar navigation')
+            if (context.locale === 'zh-CN') assert.equal(page.sidebarOpen, true, 'mobile links require the visible navigation drawer')
+            const pathname = value === 'API Keys' ? '/keys' : '/playground'
+            page.current = base.baseUrl + pathname
+            page.sidebarOpen = false
+            navigations.push({ kind: 'link', locale: context.locale, path: pathname })
+          }
           if (kind === 'switch') (deferSwitchUpdate ? page.pendingSwitches : page.switches)[value] = (page.switches[value] ?? (value === 'No ordinary quota cap' ? 'true' : 'false')) === 'true' ? 'false' : 'true'
           if (value === 'form button[type="submit"]') {
             const name = page.fields['form input[name="username"]']
             page.actor = [...users.values()].find(user => user.username === name)
             assert(page.actor)
             const token = `session-private-${page.actor.id}`
-            page.current = base.baseUrl + '/keys'
-            page.emit(response('/api/user/login', 'POST', { success: true, data: { access_token: token, user: clone(page.actor) } }))
+            page.current = base.baseUrl + '/dashboard'
+            page.emit(response('/api/user/login', 'POST', { success: corrupt !== 'login-rate', data: { access_token: token, user: clone(page.actor) } }, corrupt === 'login-rate' ? 429 : 200))
           }
           if (value === 'Create API Key') { page.switches['No ordinary quota cap'] = 'true'; page.group = '' }
           if (kind === 'option') page.group = 'default'
@@ -304,10 +339,15 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             sequence++
             const sent = { model: page.model, max_tokens: Number(page.fields['Max Tokens']), stream: true, messages: [{ role: 'user', content: 'synthetic request' }] }
             const headers = { 'x-myapi-key-id': String(key.id) }
+            if (corrupt === 'relay-rate') {
+              page.emit(response('/pg/chat/completions', 'POST', { error: { code: 'rate_limit' } }, 429, sent, headers))
+              return
+            }
             let code
             if (!page.actor.self_use_no_balance) code = 'insufficient_user_quota'
             else if (key.remain_quota < 500) code = writer === 'legacy' ? 'pre_consume_token_quota_failed' : 'insufficient_user_quota'
             else if (key.strict) code = 'token_budget_unsupported_request'
+            if (key.strict && reloadAlreadyCurrent) contexts[1].page.current = base.baseUrl + '/keys?filter=browser-owner-finite'
             page.lastAssistantError = Boolean(code) || corrupt === 'latest-error'
             if (code) page.historicalErrors = (page.historicalErrors || 0) + 1
             if (code) page.emit(response('/pg/chat/completions', 'POST', { error: { code, message: 'synthetic rejection' } }, code.startsWith('token_budget_') ? 400 : 403, sent, headers))
@@ -393,6 +433,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
     return new Response(JSON.stringify({ success: status === 200, data }), { status })
   }
   return { playwrightModule, fetchImpl, contexts, emitted, screenshots, apiCalls, dialogCloseEvents, completionEvents, signals,
+    navigations,
     reached: reached.promise, release: stalled.resolve, closing: closing.promise, releaseClose: stalledClose.resolve,
     closed: () => closed, upstreamCount: () => upstreamCount }
 }
@@ -540,8 +581,8 @@ test('the default progress sink emits safe JSON while a broken observer cannot b
 })
 
 for (const [hangAt, timeout, stage] of [
-  ['response-json', 20_000, 'login'], ['rejection-body', 20_000, 'playground-rejection'],
-  ['api-body', 10_000, 'writer-check'], ['evaluate', 20_000, 'login'],
+  ['response-json', 20_000, 'login-response'], ['rejection-body', 20_000, 'playground-rejection'],
+  ['api-body', 10_000, 'writer-check'], ['evaluate', 20_000, 'login-keys'],
 ]) {
   test(`${hangAt} deadline actively closes owned contexts and late resolution cannot resume business`, async t => {
     t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
@@ -627,3 +668,123 @@ test('ledger retries share a total deadline and abort a slow later body without 
   await run
   assert.equal(reads, 2)
 })
+
+test('real sidebar contracts reduce document loads and final persistence load cannot be skipped', async () => {
+  const fixture = journeyBrowser({ reloadAlreadyCurrent: true })
+  const report = await probePersonalBrowserJourney({ ...base, ...fixture })
+  assert.equal(report.passed, true)
+  assert.deepEqual(fixture.navigations.filter(item => item.kind === 'document').map(item => [item.locale, item.path]), [
+    ['en-US', '/sign-in'], ['en-US', '/usage-logs/common'], ['zh-CN', '/sign-in'],
+    ['en-US', '/users'], ['zh-CN', '/usage-logs/common'], ['en-US', '/keys'], ['zh-CN', '/keys'],
+  ]) // Seven journey document loads, plus the separate real setup document.
+  assert.equal(fixture.navigations.filter(item => item.kind === 'link').length, 10)
+  assert.equal(fixture.navigations.filter(item => item.kind === 'toggle').length, 6)
+  assert(fixture.navigations.filter(item => item.kind === 'toggle').every(item => item.locale === 'zh-CN'))
+  assert.deepEqual(fixture.contexts.map(context => context.page.closedLogDialogs), [1, 1])
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/api/user/login').length, 2)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+})
+
+for (const seconds of [0, 1, 180]) {
+  test(`actual document GET 429 honors Retry-After ${seconds} once`, async t => {
+    t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+    const fixture = setupBrowser({ documentResponses: [{ status: 429, retryAfter: String(seconds) }, { status: 200 }] })
+    const backoff = Promise.withResolvers()
+    const events = []
+    let outcome
+    const run = browserSetup({ ...base, playwrightModule: fixture.module, onProgress: event => {
+      events.push(event)
+      if (event.stage === 'document-backoff') backoff.resolve()
+    } }).then(value => { outcome = { value } }, error => { outcome = { error } })
+    await Promise.race([backoff.promise, run])
+    assert.equal(outcome, undefined)
+    if (seconds > 0) {
+      t.mock.timers.tick(seconds * 1000 - 1)
+      await new Promise(setImmediate)
+      assert.equal(fixture.calls.filter(call => call[0] === 'goto').length, 1)
+      t.mock.timers.tick(1)
+    } else t.mock.timers.tick(0)
+    await run
+    assert.equal(outcome.value?.ok, true)
+    assert.equal(fixture.calls.filter(call => call[0] === 'goto').length, 2)
+    assert.equal(fixture.calls.filter(call => call[0] === 'click' && call[2] === 'Initialize system').length, 1)
+    const observed = events.find(event => event.event === 'document-response')
+    assert.equal(observed.httpStatus, 429)
+    assert.equal(observed.retryAfter, seconds)
+  })
+}
+
+for (const [name, response] of [
+  ['unauthorized', { status: 401, retryAfter: '1' }], ['forbidden', { status: 403, retryAfter: '1' }],
+  ['server-error', { status: 500, retryAfter: '1' }], ['missing-delay', { status: 429 }],
+  ['negative-delay', { status: 429, retryAfter: '-1' }], ['fractional-delay', { status: 429, retryAfter: '0.5' }],
+  ['oversized-delay', { status: 429, retryAfter: '181' }], ['unsafe-integer', { status: 429, retryAfter: '9007199254740992' }],
+  ['date-delay', { status: 429, retryAfter: 'Fri, 09 Oct 2026 20:00:00 GMT' }],
+  ['private-invalid-header', { status: 429, retryAfter: base.password }],
+  ['non-get', { status: 429, retryAfter: '0', method: 'POST' }],
+]) {
+  test(`document ${name} fails safely without retry`, async () => {
+    const events = []
+    const fixture = setupBrowser({ documentResponses: [response] })
+    await assert.rejects(browserSetup({ ...base, playwrightModule: fixture.module, onProgress: event => events.push(event) }), error => {
+      assert.equal(error.message, 'SMOKE_PERSONAL_HTTP_FAILED')
+      assert.equal(error.httpStatus, response.status)
+      assert.equal(error.stage, 'setup-open')
+      assert(!JSON.stringify(error).includes(base.password))
+      return true
+    })
+    assert.equal(fixture.calls.filter(call => call[0] === 'goto').length, 1)
+    assert.equal(fixture.calls.filter(call => call[0] === 'click').length, 0)
+    assert(!events.some(event => event.stage === 'document-backoff'))
+    assert(!JSON.stringify(events).includes(base.password))
+  })
+}
+
+test('a second document 429 fails instead of retrying again', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const fixture = setupBrowser({ documentResponses: [{ status: 429, retryAfter: '0' }, { status: 429, retryAfter: '0' }] })
+  const backoff = Promise.withResolvers()
+  const run = browserSetup({ ...base, playwrightModule: fixture.module,
+    onProgress: event => { if (event.stage === 'document-backoff') backoff.resolve() } })
+  const rejected = assert.rejects(run, error => error.message === 'SMOKE_PERSONAL_HTTP_FAILED' && error.httpStatus === 429 && error.retryAfter === 0)
+  await Promise.race([backoff.promise, rejected])
+  t.mock.timers.tick(0)
+  await rejected
+  assert.equal(fixture.calls.filter(call => call[0] === 'goto').length, 2)
+})
+
+test('document backoff shares a 180-second journey budget and never replays login or relay', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const fixture = journeyBrowser({ documentResponses: [
+    { status: 429, retryAfter: '100' }, { status: 200 }, { status: 429, retryAfter: '81' },
+  ] })
+  const events = []
+  const backoff = Promise.withResolvers()
+  const run = probePersonalBrowserJourney({ ...base, ...fixture, onProgress: event => {
+    events.push(event)
+    if (event.stage === 'document-backoff') backoff.resolve()
+  } })
+  const rejected = assert.rejects(run, error => error.message === 'SMOKE_PERSONAL_HTTP_FAILED' &&
+    error.stage === 'usage-view' && error.httpStatus === 429 && error.retryAfter === 81)
+  await Promise.race([backoff.promise, rejected])
+  t.mock.timers.tick(100_000)
+  await rejected
+  assert.equal(events.filter(event => event.stage === 'document-backoff').length, 1)
+  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 3)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/api/user/login').length, 1)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 1)
+})
+
+for (const [corrupt, code, pathname] of [
+  ['login-rate', 'LOGIN_FAILED', '/api/user/login'], ['relay-rate', 'RELAY_MISMATCH', '/pg/chat/completions'],
+]) {
+  test(`${corrupt} POST 429 cannot enter document backoff or replay`, async () => {
+    const fixture = journeyBrowser({ corrupt })
+    const events = []
+    await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture, onProgress: event => events.push(event) }),
+      new RegExp(`^Error: SMOKE_PERSONAL_${code}$`))
+    assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === pathname).length, 1)
+    assert.equal(fixture.upstreamCount(), 2)
+    assert(!events.some(event => event.stage === 'document-backoff' || event.event === 'document-response'))
+  })
+}
