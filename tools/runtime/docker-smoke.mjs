@@ -596,7 +596,7 @@ async function main() {
       'SMOKE_PERSONAL_WRITER_SCOPE', 'SMOKE_PERSONAL_WRITER_API', 'SMOKE_PERSONAL_WRITER_NOT_FRESH',
       'SMOKE_PERSONAL_WRITER_STATE', 'SMOKE_PERSONAL_WRITER_DRAIN', 'SMOKE_PERSONAL_WRITER_AUDIT', 'SMOKE_PERSONAL_WRITER_APPLY',
       'SMOKE_PERSONAL_SCOPE_REJECTED', 'SMOKE_PERSONAL_AUTH_UNAVAILABLE', 'SMOKE_PERSONAL_BROWSER_FAILED',
-      'SMOKE_PERSONAL_BROWSER_CLOSE_FAILED', 'SMOKE_PERSONAL_SETUP_FAILED', 'SMOKE_PERSONAL_HTTP_FAILED', 'SMOKE_PERSONAL_LOGIN_FAILED',
+      'SMOKE_PERSONAL_BROWSER_CLOSE_FAILED', 'SMOKE_PERSONAL_TIMEOUT', 'SMOKE_PERSONAL_SETUP_FAILED', 'SMOKE_PERSONAL_HTTP_FAILED', 'SMOKE_PERSONAL_LOGIN_FAILED',
       'SMOKE_PERSONAL_RUNTIME_ERROR', 'SMOKE_PERSONAL_BUILD_MISMATCH', 'SMOKE_PERSONAL_API_FAILED',
       'SMOKE_PERSONAL_STATE_MISMATCH', 'SMOKE_PERSONAL_KEY_MISMATCH', 'SMOKE_PERSONAL_POLICY_MISMATCH',
       'SMOKE_PERSONAL_REQUEST_MISMATCH', 'SMOKE_PERSONAL_RELAY_MISMATCH', 'SMOKE_PERSONAL_LOG_MISMATCH',
@@ -605,7 +605,7 @@ async function main() {
     const safeStages = new Set(['launch', 'browser-close', 'setup',
       'setup-session', 'setup-open', 'setup-database', 'setup-credentials', 'setup-mode', 'setup-review', 'setup-submit', 'setup-response', 'login', 'writer-check', 'fixture-config', 'policy-view', 'key-create',
       'key-create-open', 'key-create-ready', 'key-create-profile', 'key-create-cap', 'key-create-quota',
-      'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm', 'strict-budget', 'reload-check', 'screenshot'])
+      'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm', 'playground-response', 'playground-complete', 'playground-rejection', 'strict-budget', 'reload-check', 'screenshot'])
     console.error(JSON.stringify({ command: 'docker:smoke', passed: false,
       code: safeCodes.has(error?.message) ? error.message : 'SMOKE_UNEXPECTED_FAILURE',
       ...(safeStages.has(error?.stage) ? { stage: error.stage } : {}) }))

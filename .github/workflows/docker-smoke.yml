@@ -342,6 +342,8 @@ jobs:
 
       - name: Verify fresh setup, authentication and real frontend
         if: matrix.scenario == 'fresh'
+        # Leave time for always() artifact and owned-container cleanup before the job limit.
+        timeout-minutes: ${{ env.MYAPI_SMOKE_PERSONAL == '1' && 6 || 25 }}
         env:
           MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-smoke-browser/node_modules/playwright/index.mjs
           MYAPI_FAKE_UPSTREAM_URL: http://127.0.0.1:19090

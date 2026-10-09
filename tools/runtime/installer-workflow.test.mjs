@@ -158,5 +158,6 @@ test('personal application smoke stays on an exact trusted branch with two owned
   assert.match(cleanup, /docker network rm "\$SMOKE_NETWORK"/)
   assert.doesNotMatch(cleanup, /prune|rm -rf/)
   assert.match(job, /name: myapi-personal-\$\{\{ matrix.writer \}\}-\$\{\{ github.sha \}\}/)
+  assert.match(job, /timeout-minutes: \$\{\{ env.MYAPI_SMOKE_PERSONAL == '1' && 6 \|\| 25 \}\}/)
   assert.doesNotMatch(workflow, /packages: write|contents: write|id-token: write|push: true|secrets\./)
 })

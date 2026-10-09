@@ -12,14 +12,43 @@ const stages = new Set(['launch', 'setup', 'setup-session', 'setup-open', 'setup
   'setup-credentials', 'setup-mode', 'setup-review', 'setup-submit', 'setup-response', 'login', 'writer-check', 'fixture-config', 'policy-view',
   'key-create', 'key-create-open', 'key-create-ready', 'key-create-profile', 'key-create-cap',
   'key-create-quota', 'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm',
+  'playground-response', 'playground-complete', 'playground-rejection',
   'strict-budget', 'reload-check', 'screenshot', 'browser-close'])
 const codes = new Set(['SCOPE_REJECTED', 'AUTH_UNAVAILABLE', 'BROWSER_FAILED', 'BROWSER_CLOSE_FAILED', 'SETUP_FAILED',
   'HTTP_FAILED', 'LOGIN_FAILED', 'RUNTIME_ERROR', 'BUILD_MISMATCH', 'API_FAILED', 'STATE_MISMATCH',
   'KEY_MISMATCH', 'POLICY_MISMATCH', 'REQUEST_MISMATCH', 'RELAY_MISMATCH', 'LOG_MISMATCH',
-  'USAGE_MISMATCH', 'UPSTREAM_MISMATCH', 'WRITER_MISMATCH', 'SCREENSHOT_REJECTED'])
+  'USAGE_MISMATCH', 'UPSTREAM_MISMATCH', 'WRITER_MISMATCH', 'SCREENSHOT_REJECTED', 'TIMEOUT'])
 
 function requireThat(condition, code) {
   if (!condition) throw new Error(`SMOKE_PERSONAL_${code}`)
+}
+
+// Bound individual operations, never a whole business flow that could continue
+// after a race loses. A timeout aborts owned fetches and actively closes contexts;
+// withBrowser then attempts bounded browser shutdown before returning failure.
+async function bounded(scope, operation, timeout = 20_000) {
+  requireThat(!scope.abort.signal.aborted, 'TIMEOUT')
+  let timer
+  try {
+    return await Promise.race([
+      operation(),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('SMOKE_PERSONAL_TIMEOUT')), timeout)
+      }),
+    ])
+  } catch (error) {
+    if (error?.message === 'SMOKE_PERSONAL_TIMEOUT' || error?.name === 'TimeoutError') {
+      scope.abort.abort()
+      for (const context of scope.contexts) {
+        // Do not let an unresponsive context delay the browser-close fallback.
+        try { Promise.resolve(context.close()).catch(() => {}) } catch {}
+      }
+      throw new Error('SMOKE_PERSONAL_TIMEOUT')
+    }
+    throw error
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 function validateOptions(options, withUpstream) {
@@ -48,6 +77,22 @@ function validateOptions(options, withUpstream) {
 
 async function withBrowser(options, withUpstream, run) {
   const scope = validateOptions(options, withUpstream)
+  scope.abort = new AbortController()
+  scope.contexts = new Set()
+  let stage = 'launch'
+  const progress = (event, code) => {
+    const record = { command: 'personal:browser', phase: withUpstream ? 'journey' : 'setup', event,
+      stage, sha: options.sha, writer: scope.writer, ...(code ? { code } : {}) }
+    // Emit only our fixed metadata, never browser diagnostics or response data.
+    try {
+      if (typeof options.onProgress === 'function') Promise.resolve(options.onProgress(record)).catch(() => {})
+      else console.error(JSON.stringify(record))
+    } catch {} // A diagnostic sink must not prevent cleanup or replace a safe error.
+  }
+  Object.defineProperty(scope, 'stage', {
+    get: () => stage,
+    set(value) { stage = stages.has(value) ? value : 'launch'; progress('stage') },
+  })
   let browser
   let failed = false
   scope.stage = 'launch'
@@ -66,9 +111,18 @@ async function withBrowser(options, withUpstream, run) {
     throw safeError
   } finally {
     if (browser) {
+      scope.abort.abort()
+      scope.stage = 'browser-close'
+      let timer
       try {
-        await browser.close()
+        await Promise.race([
+          browser.close(),
+          new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('cleanup deadline')), 10_000) }),
+        ])
       } catch {
+        // The close request is already active. Report immediately; process
+        // cleanup remains unconfirmed and the isolated CI runner is the fallback.
+        progress('cleanup-failed', 'SMOKE_PERSONAL_BROWSER_CLOSE_FAILED')
         // Preserve an earlier safe failure, but never return success when the
         // ephemeral browser (and its authentication state) could not be closed.
         if (!failed) {
@@ -76,25 +130,28 @@ async function withBrowser(options, withUpstream, run) {
           safeError.stage = 'browser-close'
           throw safeError
         }
+      } finally {
+        clearTimeout(timer)
       }
     }
   }
 }
 
 async function newSession(browser, origin, language = 'en', width = 1280, scope = {}) {
-  const context = await browser.newContext({ locale: language === 'zh' ? 'zh-CN' : 'en-US',
-    viewport: { width, height: 900 }, serviceWorkers: 'block' })
+  const context = await bounded(scope, () => browser.newContext({ locale: language === 'zh' ? 'zh-CN' : 'en-US',
+    viewport: { width, height: 900 }, serviceWorkers: 'block' }))
+  scope.contexts.add(context)
   // The only initialization is the user's ordinary language preference. No
   // synthetic API/auth state, selected Key or Playground config is injected.
-  await context.addInitScript(({ origin, language }) => {
+  await bounded(scope, () => context.addInitScript(({ origin, language }) => {
     if (location.origin === origin) localStorage.setItem('i18nextLng', language === 'zh' ? 'zhCN' : language)
-  }, { origin, language })
-  await context.route('**/*', (route) => {
+  }, { origin, language }))
+  await bounded(scope, () => context.route('**/*', (route) => {
     let allowed = false
     try { allowed = new URL(route.request().url()).origin === origin } catch {}
     return allowed ? route.continue() : route.abort()
-  })
-  const page = await context.newPage()
+  }))
+  const page = await bounded(scope, () => context.newPage())
   page.setDefaultTimeout(20_000)
   const translations = JSON.parse(readFileSync(new URL(`../../web/src/i18n/locales/${language}.json`, import.meta.url), 'utf8')).translation
   const session = { context, page, scope, language, width, origin, errors: 0, requests: 0, reveals: 0, secrets: [],
@@ -120,8 +177,8 @@ function responseFor(session, pathname, method) {
   })
 }
 
-async function responseSuccess(response, code) {
-  const payload = await response.json()
+async function responseSuccess(session, response, code) {
+  const payload = await bounded(session.scope, () => response.json())
   requireThat(response.status() >= 200 && response.status() < 300 && payload?.success === true, code)
   return payload.data
 }
@@ -133,7 +190,7 @@ async function login(session, username, password, expectedRole, sha) {
   await session.page.locator('form input[name="password"][type="password"]').fill(password)
   const received = responseFor(session, '/api/user/login', 'POST')
   await session.page.locator('form button[type="submit"]').click()
-  const bundle = await responseSuccess(await received, 'LOGIN_FAILED')
+  const bundle = await responseSuccess(session, await received, 'LOGIN_FAILED')
   requireThat(typeof bundle?.access_token === 'string' && bundle.access_token &&
     Number.isSafeInteger(bundle.user?.id) && bundle.user.id > 0 && bundle.user.role === expectedRole, 'LOGIN_FAILED')
   session.user = bundle.user
@@ -143,11 +200,11 @@ async function login(session, username, password, expectedRole, sha) {
   await session.page.waitForURL((url) => url.pathname !== '/sign-in')
   await open(session, '/keys')
   await session.page.getByRole('button', { name: session.label('My usage policy'), exact: true }).waitFor()
-  const metadata = await session.page.evaluate(() => ({
+  const metadata = await bounded(session.scope, () => session.page.evaluate(() => ({
     global: window.__APP_BUILD__?.rev,
     html: document.documentElement.getAttribute('data-build-rev'),
     meta: document.querySelector('meta[name="build-id"]')?.getAttribute('content'),
-  }))
+  })))
   const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
   requireThat(typeof metadata.global === 'string' && metadata.global.startsWith(`rv.${version}.${sha}.`) &&
     metadata.global === metadata.html && metadata.global === metadata.meta, 'BUILD_MISMATCH')
@@ -158,11 +215,11 @@ async function capture(session, options, name, screenshots) {
   const previousStage = session.scope.stage
   session.scope.stage = 'screenshot'
   requireThat(/^[a-z0-9-]+$/.test(name) && !['/sign-in', '/setup'].includes(new URL(session.page.url()).pathname), 'SCREENSHOT_REJECTED')
-  const safe = await session.page.evaluate((secrets) => {
+  const safe = await bounded(session.scope, () => session.page.evaluate((secrets) => {
     const visible = document.body.innerText
     const values = [...document.querySelectorAll('input, textarea')].map((input) => input.value).join('\n')
     return secrets.every((secret) => !visible.includes(secret) && !values.includes(secret))
-  }, session.secrets)
+  }, session.secrets))
   requireThat(safe && session.reveals === 0, 'SCREENSHOT_REJECTED')
   const filename = `${name}-${session.language}-${session.width}.png`
   await session.page.screenshot({ path: path.join(options.artifactDir, filename), fullPage: true,
@@ -228,7 +285,7 @@ async function createKey(session, api, name, limit) {
   const sent = response.request().postDataJSON()
   requireThat(sent?.name === name && sent.remain_quota === limit && sent.unlimited_quota === false && sent.group === 'default', 'KEY_MISMATCH')
   session.scope.stage = 'key-create-response'
-  await responseSuccess(response, 'KEY_MISMATCH')
+  await responseSuccess(session, response, 'KEY_MISMATCH')
   await dialog.waitFor({ state: 'hidden' })
   session.scope.stage = 'key-create-readback'
   const data = await api(session, `/api/token/search?keyword=${encodeURIComponent(name)}&p=1&page_size=10`)
@@ -253,7 +310,7 @@ async function preparePlayground(session, key) {
   requireThat(await page.getByRole('button', { name: label('Send'), exact: true }).isDisabled(), 'REQUEST_MISMATCH')
   const options = responseFor(session, '/pg/models', 'GET')
   await selected.selectOption(String(key.id))
-  const models = await responseSuccess(await options, 'REQUEST_MISMATCH')
+  const models = await responseSuccess(session, await options, 'REQUEST_MISMATCH')
   requireThat(Array.isArray(models) && models.some((item) => item === model || item?.id === model), 'REQUEST_MISMATCH')
   requireThat(await selected.inputValue() === String(key.id), 'REQUEST_MISMATCH')
   // The model selector may select the single available model automatically;
@@ -272,33 +329,39 @@ async function preparePlayground(session, key) {
 
 async function sendPlayground(session, key, expectedCode) {
   session.scope.stage = 'playground-send'
+  const assistants = session.page.locator('.is-assistant')
+  const beforeAssistants = await bounded(session.scope, () => assistants.count())
   const pending = responseFor(session, '/pg/chat/completions', 'POST')
   const beforeRequests = session.requests
   await session.page.getByRole('button', { name: session.label('Send'), exact: true }).click()
+  session.scope.stage = 'playground-response'
   const response = await pending
   const request = response.request()
   const sent = request.postDataJSON()
   requireThat(sent?.model === model && sent.max_tokens === 8 && sent.stream === true &&
     request.headers()['x-myapi-key-id'] === String(key.id), 'REQUEST_MISMATCH')
-  await response.finished()
   const requestId = response.headers()['x-oneapi-request-id']
   requireThat(typeof requestId === 'string' && /^[A-Za-z0-9._:-]{1,160}$/.test(requestId), 'REQUEST_MISMATCH')
-  const text = await response.text()
-  requireThat(text.length <= 128 * 1024, 'RELAY_MISMATCH')
   if (expectedCode) {
+    session.scope.stage = 'playground-rejection'
+    const text = await bounded(session.scope, () => response.text())
+    requireThat(text.length <= 128 * 1024, 'RELAY_MISMATCH')
     const payload = JSON.parse(text)
     requireThat(response.status() === (expectedCode === 'token_budget_unsupported_request' ? 400 : 403) &&
       payload?.error?.code === expectedCode, 'RELAY_MISMATCH')
-    await session.page.getByRole('alert').filter({ hasText: session.label('Error') }).last().waitFor()
+    await assistants.last().getByRole('alert').filter({ hasText: session.label('Error') }).waitFor()
   } else {
-    requireThat(response.status() === 200 && text.includes('[DONE]'), 'RELAY_MISMATCH')
-    const events = text.split(/\r?\n/).filter((line) => line.startsWith('data:') && !line.includes('[DONE]'))
-      .map((line) => JSON.parse(line.slice(5).trim()))
-    const totals = events.filter((event) => event.usage?.total_tokens > 0)
-    requireThat(totals.length === 1 && totals[0].usage.prompt_tokens === 10 &&
-      totals[0].usage.completion_tokens === 5 && totals[0].usage.total_tokens === usage, 'RELAY_MISMATCH')
-    await session.page.getByText('synthetic fixed response', { exact: true }).last().waitFor()
+    session.scope.stage = 'playground-complete'
+    requireThat(response.status() === 200, 'RELAY_MISMATCH')
+    // The actual frontend closes its SSE source after DONE. Network body/finished
+    // is not its completion contract. Require the newly added assistant's full
+    // text, normal terminal controls and no current-message error instead.
+    await assistants.last().getByText('synthetic fixed response', { exact: true }).waitFor()
+    await session.page.getByRole('button', { name: session.label('Stop'), exact: true }).waitFor({ state: 'hidden' })
+    await session.page.getByRole('button', { name: session.label('Send'), exact: true }).waitFor({ state: 'visible' })
+    requireThat(await bounded(session.scope, () => assistants.last().getByRole('alert').count()) === 0, 'RELAY_MISMATCH')
   }
+  requireThat(await bounded(session.scope, () => assistants.count()) === beforeAssistants + 1, 'REQUEST_MISMATCH')
   // This read happens after the actual UI reaches a terminal state; no relay
   // replay is used to wait for asynchronous accounting.
   requireThat(session.requests === beforeRequests + 1, 'REQUEST_MISMATCH')
@@ -316,12 +379,15 @@ async function snapshot(api, session, key) {
 async function verifyUsage(api, session, key, before, requestId, consumed) {
   session.scope.stage = 'ledger-check'
   let logs
+  const deadline = Date.now() + 10_000
   for (let attempt = 0; attempt < 50; attempt++) {
-    logs = await api(session, `/api/log/self?type=2&request_id=${encodeURIComponent(requestId)}&p=1&page_size=100`)
+    const remaining = deadline - Date.now()
+    requireThat(remaining > 0, 'LOG_MISMATCH')
+    logs = await api(session, `/api/log/self?type=2&request_id=${encodeURIComponent(requestId)}&p=1&page_size=100`, 'GET', undefined, false, remaining)
     requireThat(Array.isArray(logs.items) && Number.isSafeInteger(logs.total), 'LOG_MISMATCH')
     if (!consumed || logs.total !== 0 || logs.items.length !== 0) break
     requireThat(attempt < 49, 'LOG_MISMATCH')
-    await new Promise((resolve) => setTimeout(resolve, 100))
+    await new Promise((resolve) => setTimeout(resolve, Math.min(100, Math.max(0, deadline - Date.now()))))
   }
   requireThat(logs.total === (consumed ? 1 : 0) && logs.items.length === (consumed ? 1 : 0), 'LOG_MISMATCH')
   if (consumed) {
@@ -384,7 +450,7 @@ export async function browserSetup(options = {}) {
     scope.stage = 'setup-submit'
     await page.getByRole('button', { name: label('Initialize system'), exact: true }).click()
     scope.stage = 'setup-response'
-    await responseSuccess(await response, 'SETUP_FAILED')
+    await responseSuccess(session, await response, 'SETUP_FAILED')
     requireThat(session.errors === 0, 'RUNTIME_ERROR')
     return { name: 'real initial setup wizard', ok: true, sha: options.sha }
   })
@@ -396,23 +462,23 @@ export async function probePersonalBrowserJourney(options = {}) {
     const screenshots = []
     const checks = []
     const fetchImpl = options.fetchImpl || globalThis.fetch
-    const api = async (session, pathname, method = 'GET', body, allowFailure = false) => {
+    const api = async (session, pathname, method = 'GET', body, allowFailure = false, timeout = 10_000) => bounded(scope, async () => {
       requireThat(pathname.startsWith('/api/') && !pathname.includes('://'), 'SCOPE_REJECTED')
-      const response = await fetchImpl(origin + pathname, { method, redirect: 'error', signal: AbortSignal.timeout(10_000),
+      const response = await fetchImpl(origin + pathname, { method, redirect: 'error', signal: scope.abort.signal,
         headers: { Authorization: `Bearer ${session.token}`, 'Content-Type': 'application/json', Origin: origin },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }) })
       const payload = await response.json()
       if (allowFailure) return { status: response.status, payload }
       requireThat(response.status >= 200 && response.status < 300 && payload?.success === true, 'API_FAILED')
       return payload.data
-    }
-    const control = async () => {
-      const response = await fetchImpl(upstream + '/__smoke__/control', { redirect: 'error', signal: AbortSignal.timeout(10_000) })
+    }, timeout)
+    const control = async () => bounded(scope, async () => {
+      const response = await fetchImpl(upstream + '/__smoke__/control', { redirect: 'error', signal: scope.abort.signal })
       const value = await response.json()
       requireThat(response.status === 200 && Number.isSafeInteger(value.count) && value.count >= 0 &&
         value.request_ok === true, 'UPSTREAM_MISMATCH')
       return value.count
-    }
+    }, 10_000)
     const root = await newSession(browser, origin, 'en', 1280, scope)
     await login(root, options.username, options.password, 100, options.sha)
     scope.stage = 'writer-check'
@@ -492,7 +558,7 @@ export async function probePersonalBrowserJourney(options = {}) {
     await choice.getByRole('checkbox', { name: root.label('I confirm all running instances support this policy and I understand the supported request paths.'), exact: true }).check()
     const saved = responseFor(root, `/api/user/${owner.user.id}/usage-policy`, 'PUT')
     await choice.getByRole('button', { name: root.label('Save'), exact: true }).click()
-    const confirmed = await responseSuccess(await saved, 'POLICY_MISMATCH')
+    const confirmed = await responseSuccess(root, await saved, 'POLICY_MISMATCH')
     requireThat(confirmed.user_id === owner.user.id && confirmed.no_balance === true &&
       confirmed.revision === oldPolicy.revision + 1 && confirmed.legacy_remaining_quota === 0, 'POLICY_MISMATCH')
     await closeDialog(root, choice)
@@ -538,7 +604,7 @@ export async function probePersonalBrowserJourney(options = {}) {
     await budgetDialog.getByRole('checkbox', { name: root.label('I confirm all running instances support this budget and I understand its request restrictions.'), exact: true }).check()
     const budgetSaved = responseFor(root, `/api/token/${strictKey.id}/budget`, 'PUT')
     await budgetDialog.getByRole('button', { name: root.label('Save'), exact: true }).click()
-    await responseSuccess(await budgetSaved, 'POLICY_MISMATCH')
+    await responseSuccess(root, await budgetSaved, 'POLICY_MISMATCH')
     await closeDialog(root, budgetDialog)
     const strictBefore = await snapshot(api, root, strictKey)
     await preparePlayground(root, strictKey)
