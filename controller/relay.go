@@ -103,20 +103,34 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	defer func() {
 		if newAPIError != nil {
-			logger.LogError(c, fmt.Sprintf("relay error: %s", common.LocalLogPreview(newAPIError.Error())))
-			newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
+			displayError := service.SafeRelayError(c, newAPIError)
+			if common.SensitiveRequestDiagnostics(c) {
+				logger.LogErrorMetadata(c, displayError.ToOpenAIError().Type, string(displayError.GetErrorCode()), displayError.StatusCode)
+			} else {
+				logger.LogError(c, fmt.Sprintf("relay error: %s", common.LocalLogPreview(newAPIError.Error())))
+				displayError.SetMessage(common.MessageWithRequestId(displayError.Error(), requestId))
+			}
 			switch relayFormat {
 			case types.RelayFormatOpenAIRealtime:
-				helper.WssError(c, ws, newAPIError.ToOpenAIError())
+				helper.WssError(c, ws, displayError.ToOpenAIError())
 			case types.RelayFormatClaude:
-				c.JSON(newAPIError.StatusCode, gin.H{
+				c.JSON(displayError.StatusCode, gin.H{
 					"type":  "error",
-					"error": newAPIError.ToClaudeError(),
+					"error": displayError.ToClaudeError(),
 				})
 			default:
-				c.JSON(newAPIError.StatusCode, gin.H{
-					"error": newAPIError.ToOpenAIError(),
-				})
+				if common.SensitiveRequestDiagnostics(c) && c.Writer.Written() && strings.HasPrefix(c.Writer.Header().Get("Content-Type"), "text/event-stream") {
+					// Once a partial stream is written its HTTP status cannot change.
+					// Emit a parseable terminal error event rather than bare JSON.
+					_ = helper.ObjectData(c, gin.H{"error": displayError.ToOpenAIError()})
+				} else {
+					if common.SensitiveRequestDiagnostics(c) {
+						c.Header("Content-Type", "application/json")
+					}
+					c.JSON(displayError.StatusCode, gin.H{
+						"error": displayError.ToOpenAIError(),
+					})
+				}
 			}
 		}
 	}()
@@ -445,7 +459,12 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 }
 
 func processChannelError(c *gin.Context, channelError types.ChannelError, err *types.NewAPIError) error {
-	logger.LogError(c, fmt.Sprintf("channel error (channel #%d, status code: %d): %s", channelError.ChannelId, err.StatusCode, common.LocalLogPreview(err.Error())))
+	displayError := service.SafeRelayError(c, err)
+	if common.SensitiveRequestDiagnostics(c) {
+		logger.LogErrorMetadata(c, displayError.ToOpenAIError().Type, string(displayError.GetErrorCode()), displayError.StatusCode)
+	} else {
+		logger.LogError(c, fmt.Sprintf("channel error (channel #%d, status code: %d): %s", channelError.ChannelId, err.StatusCode, common.LocalLogPreview(err.Error())))
+	}
 	usageLimit := channelError.ChannelType == constant.ChannelTypeCodex && service.IsCodexUsageLimitError(err)
 	var markerErr error
 	if usageLimit {
@@ -458,7 +477,7 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 	// do not use context to get channel info, there may be inconsistent channel info when processing asynchronously
 	if !usageLimit && service.ShouldDisableChannel(err) && channelError.AutoBan {
 		gopool.Go(func() {
-			service.DisableChannel(channelError, err.ErrorWithStatusCode())
+			service.DisableChannel(channelError, displayError.ErrorWithStatusCode())
 		})
 	}
 
@@ -471,12 +490,16 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 		userGroup := c.GetString("group")
 		channelId := c.GetInt("channel_id")
 		other := make(map[string]interface{})
-		if c.Request != nil && c.Request.URL != nil {
-			other["request_path"] = c.Request.URL.Path
+		if path := common.DiagnosticRequestPath(c); path != "" {
+			other["request_path"] = path
 		}
-		other["error_type"] = err.GetErrorType()
-		other["error_code"] = err.GetErrorCode()
-		other["status_code"] = err.StatusCode
+		other["error_type"] = displayError.GetErrorType()
+		other["error_code"] = displayError.GetErrorCode()
+		other["status_code"] = displayError.StatusCode
+		if common.SensitiveRequestDiagnostics(c) {
+			other["error_type"] = displayError.ToOpenAIError().Type
+			other["upstream_status_code"] = displayError.UpstreamStatusCode
+		}
 		other["channel_id"] = channelId
 		other["channel_name"] = c.GetString("channel_name")
 		other["channel_type"] = c.GetInt("channel_type")
@@ -495,7 +518,7 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 			startTime = time.Now()
 		}
 		useTimeSeconds := int(time.Since(startTime).Seconds())
-		model.RecordErrorLog(c, userId, channelId, modelName, tokenName, err.MaskSensitiveErrorWithStatusCode(), tokenId, useTimeSeconds, common.GetContextKeyBool(c, constant.ContextKeyIsStream), userGroup, other)
+		model.RecordErrorLog(c, userId, channelId, modelName, tokenName, displayError.MaskSensitiveErrorWithStatusCode(), tokenId, useTimeSeconds, common.GetContextKeyBool(c, constant.ContextKeyIsStream), userGroup, other)
 	}
 	return markerErr
 }

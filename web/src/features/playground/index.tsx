@@ -20,6 +20,8 @@ import { useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { useAuthStore } from '@/stores/auth-store'
+
 import { PlaygroundChat } from './components/chat/playground-chat'
 import { PlaygroundInput } from './components/input/playground-input'
 import {
@@ -32,29 +34,42 @@ import {
   applyUnsupportedParameterRestrictions,
   PLAYGROUND_PARAMETER_CONTROLS,
 } from './lib/parameters/playground-parameters'
+import {
+  STRICT_CHAT_UNSUPPORTED_PARAMETERS,
+  usesStrictChatParameters,
+} from './lib/parameters/strict-chat-parameters'
 
 export function Playground() {
+  const userId = useAuthStore((state) => state.auth.user?.id)
+  return userId ? <PlaygroundSession key={userId} userId={userId} /> : null
+}
+
+function PlaygroundSession(props: { userId: number }) {
   const { t } = useTranslation()
   const {
     config,
     parameterEnabled,
     messages,
     isLoadingMessages,
-    models,
-    groups,
     updateMessages,
-    setModels,
-    setGroups,
     updateConfig,
     updateParameterEnabled,
     clearMessages,
-  } = usePlaygroundState()
+  } = usePlaygroundState(props.userId)
 
-  const { isLoadingModels } = usePlaygroundOptions({
-    currentGroup: config.group,
+  const {
+    keys,
+    selectedKey,
+    models,
+    keyNotice,
+    isLoadingKeys,
+    isLoadingModels,
+    canSend,
+    refreshKeys,
+  } = usePlaygroundOptions({
+    userId: props.userId,
+    keyId: config.keyId,
     currentModel: config.model,
-    setGroups,
-    setModels,
     updateConfig,
   })
 
@@ -62,9 +77,16 @@ export function Playground() {
     () => models.find((model) => model.value === config.model),
     [config.model, models]
   )
+  const strictChatParameters = usesStrictChatParameters(config, selectedKey)
+  const unsupportedProvider = strictChatParameters
+    ? t('Strict Token budget')
+    : selectedModel?.provider
   const unsupportedParameters = useMemo(
-    () => selectedModel?.unsupportedParameters ?? [],
-    [selectedModel]
+    () =>
+      strictChatParameters
+        ? STRICT_CHAT_UNSUPPORTED_PARAMETERS
+        : (selectedModel?.unsupportedParameters ?? []),
+    [selectedModel, strictChatParameters]
   )
   const effectiveParameterEnabled = useMemo(
     () =>
@@ -91,19 +113,26 @@ export function Playground() {
 
     toast.info(t('Unsupported parameters were turned off'), {
       description: t('{{provider}} does not support: {{parameters}}', {
-        provider: selectedModel?.provider || t('Current provider'),
+        provider: unsupportedProvider || t('Current provider'),
         parameters: autoDisabledLabels.join(', '),
       }),
     })
-  }, [autoDisabledLabels, config.model, selectedModel?.provider, t])
+  }, [autoDisabledLabels, config.model, unsupportedProvider, t])
 
   const { sendChat, stopGeneration, isGenerating } = useChatHandler({
     config,
+    selectedKey,
+    canSend: canSend && !isLoadingMessages,
+    onKeyRejected: () => {
+      updateConfig('keyId', null)
+      refreshKeys()
+    },
     parameterEnabled: effectiveParameterEnabled,
     onMessageUpdate: updateMessages,
   })
 
   const {
+    completedRetryDraft,
     editingMessageKey,
     handleSendMessage,
     handleRegenerateMessage,
@@ -144,15 +173,19 @@ export function Playground() {
       {/* Input area: center content and constrain to the same container width */}
       <div className='mx-auto w-full max-w-4xl'>
         <PlaygroundInput
+          completedRetryDraft={completedRetryDraft}
           config={config}
           disabled={isGenerating}
-          groups={groups}
-          groupValue={config.group}
+          keys={keys}
+          canSend={canSend && !isLoadingMessages}
+          keyNotice={keyNotice}
+          isLoadingKeys={isLoadingKeys}
+          onRefreshKeys={refreshKeys}
+          onKeyChange={(value) => updateConfig('keyId', value)}
           isGenerating={isGenerating}
           isModelLoading={isLoadingModels}
           modelValue={config.model}
           models={models}
-          onGroupChange={(value) => updateConfig('group', value)}
           onConfigChange={updateConfig}
           onClearMessages={handleClearMessages}
           onModelChange={(value) => updateConfig('model', value)}
@@ -160,8 +193,9 @@ export function Playground() {
           onStop={stopGeneration}
           onSubmit={handleSendMessage}
           parameterEnabled={effectiveParameterEnabled}
+          strictChatParameters={strictChatParameters}
           unsupportedParameters={unsupportedParameters}
-          unsupportedProvider={selectedModel?.provider}
+          unsupportedProvider={unsupportedProvider}
           hasMessages={messages.length > 0}
         />
       </div>

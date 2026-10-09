@@ -66,7 +66,7 @@ Codex percentages are remaining-account/window safety thresholds, not a per-key 
 
 Status as of 2026-10-04:
 
-- **Release candidate: `v0.2.0-beta.7`.** This cumulative beta.4–7 prerelease is prepared for publication; until the tag and release workflows complete, `v0.2.0-beta.3` remains the last published prerelease. Scope, evidence, and publication boundaries are recorded in the [beta.7 release record](docs/RELEASE_BETA_7.md).
+- **Source candidate: `v0.2.0-beta.9`; latest published prerelease: `v0.2.0-beta.8`.** beta.9 adds explicit API Key identity and bounded image/PDF attachments to built-in chat. It remains a Draft source candidate, not a published image or deployment instruction. Scope, verified evidence, support limits and approval boundaries are in the [beta.9 release candidate record](docs/RELEASE_BETA_9.md). The installation examples below use the published beta.8.
 - **beta.4: verified development source, not a release.** Its limited model-discovery, explicit mapping, routing-preview, dispatch, and log workflow has automated verification. It is not included in the beta.3 images.
 - **beta.5: local development candidate only.** Account scheduling, temporary cooldown, bounded failover, and attempt explanations are not published features. This candidate still lacks its own remote three-database and Chromium verification.
 
@@ -91,7 +91,7 @@ Go, Bun, Node.js, Redis, and a separate database server are **not required for t
 For a **new installation in a new directory**:
 
 ```bash
-git clone --branch v0.2.0-beta.7 --single-branch https://github.com/ForceMind/MyAPI.git my-api
+git clone --branch v0.2.0-beta.8 --single-branch https://github.com/ForceMind/MyAPI.git my-api
 cd my-api
 umask 077
 cp deploy/.env.example deploy/.env
@@ -105,7 +105,7 @@ For an existing installation, preserve its configuration and read the upgrade se
 Edit `deploy/.env`. Keep these values and replace the example origin with your own exact HTTPS origin, without an API path:
 
 ```dotenv
-MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.7
+MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.8
 MYAPI_BUILD_LOCAL=false
 MYAPI_EDITION=full
 MYAPI_BIND_ADDRESS=127.0.0.1
@@ -141,7 +141,7 @@ The script validates Compose configuration, pulls the pinned image, starts the s
 
 Open your configured **HTTPS origin**, complete the initialization page, and create the administrator account. Full uses Secure cookies: plain `http://localhost:3000` is not its recommended login URL. Confirm login and the runtime version/revision in System Information before adding real accounts.
 
-For local or private-network use instead, follow the [legacy LAN guide](docs/LAN_LITE.md), using the published `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.7` image. LAN sharing is opt-in. The planned unified Lite/Desktop installer and updater are not yet delivered; desktop build artifacts do not establish real-device acceptance.
+For local or private-network use instead, follow the [legacy LAN guide](docs/LAN_LITE.md), using the published `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.8` image. LAN sharing is opt-in. The planned unified Lite/Desktop installer and updater are not yet delivered; desktop build artifacts do not establish real-device acceptance.
 
 ## Make your first request
 
@@ -178,7 +178,7 @@ node cli/myapi.mjs logs --project-dir .
 3. Rehearse the target version on that copy, including login, channels, keys, a controlled request, logs, and recovery. The CLI supports a read-only preflight, for example when rehearsing an older instance's upgrade to the published beta.3:
 
    ```bash
-   node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.7 --dry-run --json
+   node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.8 --dry-run --json
    ```
 
 4. Follow the [upgrade rehearsal and recovery guide](docs/UPGRADE_REHEARSAL.md) for the actual change. The CLI's `.env` backup is **not a database backup**. Once target startup has been attempted, it does not automatically restart the old image: the database may already have migrated. Restore a verified pre-upgrade database before starting an incompatible older binary.

@@ -1,3 +1,5 @@
+playground.image_provider_unsupported: "This provider route does not support images in this version. Choose an OpenAI-compatible or Codex route."
+playground.file_provider_unsupported: "Inline PDF requires an OpenAI-compatible file-input route; the selected provider route is not supported"
 usage_dispatch.pending: "This request cannot be sent again. Check its usage settlement status first."
 # English translations
 token_budget.unsupported: "This strict budget requires qualified official OpenAI Responses text or gpt-6.1-sol Chat text with an explicit output limit and non-free per-token pricing; Chat reserves its full 1,050,000-token context bound"

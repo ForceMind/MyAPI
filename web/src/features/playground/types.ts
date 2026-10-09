@@ -28,7 +28,34 @@ export interface MessageVersion {
   content: string
 }
 
+export interface PlaygroundDraftIdentity {
+  key: string
+  text: string
+  attachmentIds: string[]
+}
+
+export interface ChatAttachment {
+  id: string
+  name: string
+  mimeType: string
+  size: number
+  dataUrl: string
+}
+
+export interface PlaygroundKey {
+  strict_token_budget?: boolean
+  id: number
+  name: string
+  status: number
+  group: string
+  remain_quota: number
+  unlimited_quota: boolean
+  expired_time: number
+}
+
 export interface Message {
+  attachments?: ChatAttachment[]
+  missingAttachments?: boolean
   key: string
   from: MessageRole
   versions: MessageVersion[]
@@ -58,8 +85,9 @@ export interface ChatCompletionMessage {
 }
 
 export interface ContentPart {
-  type: 'text' | 'image_url'
+  type: 'text' | 'image_url' | 'file'
   text?: string
+  file?: { filename: string; file_data: string }
   image_url?: {
     url: string
   }
@@ -73,6 +101,9 @@ export interface ChatCompletionRequest {
   temperature?: number
   top_p?: number
   max_tokens?: number
+  service_tier?: 'default'
+  max_completion_tokens?: number
+  stream_options?: { include_usage: true }
   frequency_penalty?: number
   presence_penalty?: number
   seed?: number
@@ -117,6 +148,7 @@ export interface ChatCompletionResponse {
 
 // Configuration types
 export interface PlaygroundConfig {
+  keyId?: number | null
   model: string
   group: string
   temperature: number

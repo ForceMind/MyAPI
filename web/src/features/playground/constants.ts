@@ -35,7 +35,8 @@ export const MESSAGE_STATUS = {
 // API endpoints
 export const API_ENDPOINTS = {
   CHAT_COMPLETIONS: '/pg/chat/completions',
-  USER_MODELS: '/api/user/models',
+  USER_MODELS: '/pg/models',
+  KEYS: '/pg/keys',
   USER_GROUPS: '/api/user/self/groups',
 } as const
 
@@ -45,6 +46,7 @@ export const DEFAULT_GROUP = 'default' as const
 
 // Default configuration
 export const DEFAULT_CONFIG: PlaygroundConfig = {
+  keyId: null,
   model: 'gpt-4o',
   group: DEFAULT_GROUP,
   temperature: 0.7,

@@ -20,7 +20,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { sendChatCompletion } from '../api'
+import { isPlaygroundKeyAvailable, sendChatCompletion } from '../api'
 import { ERROR_MESSAGES } from '../constants'
 import {
   applyStreamingChunk,
@@ -34,11 +34,20 @@ import {
   isAssistantMessageFinal,
   isAssistantMessagePending,
 } from '../lib'
-import type { Message, PlaygroundConfig, ParameterEnabled } from '../types'
+import { validateConversationAttachments } from '../lib/input/chat-attachments'
+import type {
+  Message,
+  PlaygroundConfig,
+  ParameterEnabled,
+  PlaygroundKey,
+} from '../types'
 import { useStreamRequest } from './use-stream-request'
 
 interface UseChatHandlerOptions {
   config: PlaygroundConfig
+  selectedKey?: PlaygroundKey
+  canSend: boolean
+  onKeyRejected?: () => void
   parameterEnabled: ParameterEnabled
   onMessageUpdate: (updater: (prev: Message[]) => Message[]) => void
 }
@@ -68,6 +77,9 @@ function mergePendingStreamChunk(
  */
 export function useChatHandler({
   config,
+  selectedKey,
+  canSend,
+  onKeyRejected,
   parameterEnabled,
   onMessageUpdate,
 }: UseChatHandlerOptions) {
@@ -76,6 +88,12 @@ export function useChatHandler({
   const [isRequesting, setIsRequesting] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
   const requestGenerationRef = useRef(0)
+  const activeResultRef = useRef<((success: boolean) => void) | null>(null)
+  const settleRequest = useCallback((success: boolean) => {
+    const resolve = activeResultRef.current
+    activeResultRef.current = null
+    resolve?.(success)
+  }, [])
   const pendingStreamChunksRef = useRef<PendingStreamChunks>({
     generation: 0,
     content: '',
@@ -115,7 +133,8 @@ export function useChatHandler({
         reasoning: '',
       }
       onMessageUpdate((prev) => {
-        if (generation !== requestGenerationRef.current) return prev
+        // This batch was current when queued. Keep it when Stop advances the
+        // generation before React evaluates this updater.
         return updateLastAssistantMessage(prev, (message) => {
           let updatedMessage = message
 
@@ -164,12 +183,39 @@ export function useChatHandler({
       }
       abortControllerRef.current?.abort()
       abortControllerRef.current = null
+      activeResultRef.current?.(false)
+      activeResultRef.current = null
     },
     []
   )
 
   const getDisplayError = useCallback(
-    (error: string) => {
+    (error: string, errorCode?: string) => {
+      if (errorCode === 'playground_invalid_media') {
+        return t(
+          'An attachment was rejected. Check its type, size and contents.'
+        )
+      }
+      if (errorCode === 'playground_payload_too_large') {
+        return t(
+          'The conversation is too large. Remove earlier attachments or start a new conversation.'
+        )
+      }
+      if (errorCode === 'token_budget_unsupported_request') {
+        return t(
+          "This request does not meet the selected key's strict budget requirements. Use a compatible API client or choose another key."
+        )
+      }
+      if (errorCode === 'playground_image_provider_unsupported') {
+        return t(
+          'This provider route does not support images in this version. Choose an OpenAI-compatible or Codex route.'
+        )
+      }
+      if (errorCode === 'playground_file_provider_unsupported') {
+        return t(
+          'This provider does not support inline PDF files. Choose a compatible model and provider.'
+        )
+      }
       if (KNOWN_ERROR_MESSAGES.has(error)) {
         return t(error)
       }
@@ -205,6 +251,7 @@ export function useChatHandler({
     (generation: number) => {
       if (generation !== requestGenerationRef.current) return
       flushStreamUpdates(generation)
+      settleRequest(true)
       setIsRequesting(false)
       onMessageUpdate((prev) => {
         if (generation !== requestGenerationRef.current) return prev
@@ -215,7 +262,7 @@ export function useChatHandler({
         )
       })
     },
-    [flushStreamUpdates, onMessageUpdate]
+    [flushStreamUpdates, onMessageUpdate, settleRequest]
   )
 
   // Handle stream error
@@ -223,8 +270,15 @@ export function useChatHandler({
     (generation: number, error: string, errorCode?: string) => {
       if (generation !== requestGenerationRef.current) return
       flushStreamUpdates(generation)
+      settleRequest(false)
       setIsRequesting(false)
-      const displayError = getDisplayError(error)
+      if (
+        errorCode === 'playground_key_invalid' ||
+        errorCode === 'playground_key_required'
+      ) {
+        onKeyRejected?.()
+      }
+      const displayError = getDisplayError(error, errorCode)
       toast.error(displayError)
       const errorTitle = t(ERROR_MESSAGES.API_REQUEST_ERROR)
       onMessageUpdate((prev) => {
@@ -237,12 +291,19 @@ export function useChatHandler({
         )
       })
     },
-    [flushStreamUpdates, getDisplayError, onMessageUpdate, t]
+    [
+      flushStreamUpdates,
+      getDisplayError,
+      onMessageUpdate,
+      onKeyRejected,
+      settleRequest,
+      t,
+    ]
   )
 
   // Send streaming chat request
   const sendStreamingChat = useCallback(
-    (messages: Message[]) => {
+    (messages: Message[], keyId: number) => {
       const generation = requestGenerationRef.current + 1
       requestGenerationRef.current = generation
       abortControllerRef.current?.abort()
@@ -252,18 +313,21 @@ export function useChatHandler({
       const payload = buildChatCompletionPayload(
         messages,
         config,
-        parameterEnabled
+        parameterEnabled,
+        selectedKey
       )
       void sendStreamRequest(
         payload,
         (type, chunk) => handleStreamUpdate(generation, type, chunk),
         () => handleStreamComplete(generation),
-        (error, errorCode) => handleStreamError(generation, error, errorCode)
+        (error, errorCode) => handleStreamError(generation, error, errorCode),
+        keyId
       )
     },
     [
       config,
       parameterEnabled,
+      selectedKey,
       sendStreamRequest,
       discardPendingStreamUpdates,
       handleStreamUpdate,
@@ -274,11 +338,12 @@ export function useChatHandler({
 
   // Send non-streaming chat request
   const sendNonStreamingChat = useCallback(
-    async (messages: Message[]) => {
+    async (messages: Message[], keyId: number) => {
       const payload = buildChatCompletionPayload(
         messages,
         config,
-        parameterEnabled
+        parameterEnabled,
+        selectedKey
       )
       const generation = requestGenerationRef.current + 1
       const abortController = new AbortController()
@@ -293,6 +358,7 @@ export function useChatHandler({
         setIsRequesting(true)
         const response = await sendChatCompletion(
           payload,
+          keyId,
           abortController.signal
         )
         if (
@@ -318,6 +384,7 @@ export function useChatHandler({
             return updatedMessage ?? message
           })
         })
+        settleRequest(true)
       } catch (error: unknown) {
         if (
           abortController.signal.aborted ||
@@ -338,23 +405,56 @@ export function useChatHandler({
     [
       config,
       parameterEnabled,
+      selectedKey,
       stopStream,
       discardPendingStreamUpdates,
       onMessageUpdate,
       handleStreamError,
+      settleRequest,
     ]
   )
 
-  // Send chat request (stream or non-stream based on config)
+  // A synchronous latch covers rapid clicks before React renders the busy state.
   const sendChat = useCallback(
-    (messages: Message[]) => {
-      if (config.stream) {
-        sendStreamingChat(messages)
-      } else {
-        sendNonStreamingChat(messages)
+    (messages: Message[]): Promise<boolean> | null => {
+      if (activeResultRef.current) return null
+      if (
+        !canSend ||
+        !selectedKey ||
+        selectedKey.id !== config.keyId ||
+        !isPlaygroundKeyAvailable(selectedKey)
+      ) {
+        toast.error(t('Select an available API key before sending'))
+        return null
       }
+      try {
+        validateConversationAttachments(messages)
+      } catch (error) {
+        toast.error(
+          t(
+            error instanceof Error
+              ? error.message
+              : ERROR_MESSAGES.API_REQUEST_ERROR
+          )
+        )
+        return null
+      }
+      const result = new Promise<boolean>((resolve) => {
+        activeResultRef.current = resolve
+      })
+      if (config.stream) sendStreamingChat(messages, selectedKey.id)
+      else void sendNonStreamingChat(messages, selectedKey.id)
+      return result
     },
-    [config.stream, sendStreamingChat, sendNonStreamingChat]
+    [
+      canSend,
+      selectedKey,
+      config.keyId,
+      config.stream,
+      sendStreamingChat,
+      sendNonStreamingChat,
+      t,
+    ]
   )
 
   // Stop generation
@@ -365,6 +465,7 @@ export function useChatHandler({
     requestGenerationRef.current = idleGeneration
     discardPendingStreamUpdates(idleGeneration)
     stopStream()
+    settleRequest(false)
     abortControllerRef.current?.abort()
     abortControllerRef.current = null
     setIsRequesting(false)
@@ -381,6 +482,7 @@ export function useChatHandler({
     flushStreamUpdates,
     discardPendingStreamUpdates,
     onMessageUpdate,
+    settleRequest,
   ])
 
   return {

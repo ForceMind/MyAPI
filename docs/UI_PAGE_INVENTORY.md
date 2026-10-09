@@ -1,3 +1,13 @@
+## beta.9 Playground extension (2026-10-09)
+
+The beta.8 inventory below remains historical shared-UI evidence. Current beta.9
+adds explicit owned-Key selection, bounded media, owner-scoped draft/history,
+readable seven-language mobile identity and the existing Usage Logs path.
+The additional real-browser coverage and exact candidate evidence are recorded in
+[the beta.9 delivery card](BETA_9_DELIVERY_CARD.md),
+[release candidate record](RELEASE_BETA_9.md) and [Draft PR #4](https://github.com/ForceMind/MyAPI/pull/4).
+No live provider billing, persistent Files API or production acceptance is implied.
+
 # MyAPI beta.8 page and task inventory
 
 Audited from `1bd48522b85e91929b6a7de9a78f142a957c6147`, not a proposed backend.

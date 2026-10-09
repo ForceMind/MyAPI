@@ -332,6 +332,18 @@ export const STATIC_I18N_KEYS = [
   'Match models containing this name',
   'Match models ending with this name',
 
+  // Playground attachment validation and draft errors (dynamic error messages)
+  'Attachments from a previous session are unavailable. Remove those messages or start a new conversation.',
+  'Attachments must total no more than 20 MiB',
+  'Each file must be non-empty and no larger than 10 MiB',
+  'Failed to read file. Please try attaching it again.',
+  'Only PNG, JPEG, WEBP, GIF and PDF files are supported',
+  'PDF filenames must end in .pdf, fit within 255 bytes and contain no path separators',
+  'The file content does not match its type',
+  'The request failed. Your draft and attachments are still here.',
+  'This conversation exceeds 4 attachments or 20 MiB. Remove earlier attachment messages or start a new conversation.',
+  'You can attach up to 4 files',
+
   // Playground parameter controls
   'Temperature',
   'Top P',

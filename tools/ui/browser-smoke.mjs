@@ -67,7 +67,7 @@ async function session(options = {}) {
       report.blockedExternal.push({ journey: journeyName, url: url.href })
       return route.abort('blockedbyclient')
     }
-    if (!url.pathname.startsWith('/api/')) {
+    if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/pg/')) {
       if (request.method() !== 'GET' || ['xhr', 'fetch'].includes(request.resourceType())) {
         report.violations.push({ journey: journeyName, reason: `Unexpected same-origin service request: ${request.method()} ${url.pathname}` })
         return route.fulfill({ status: 501, json: { success: false } })
@@ -668,7 +668,7 @@ try {
       await page.goForward({ waitUntil: 'networkidle' })
       await page.waitForURL(url => url.pathname.replace(/\/$/, '') === '/playground')
       await page.getByRole('heading', { level: 2, name: label('Start a playground chat'), exact: true }).waitFor()
-      for (const endpoint of ['/api/user/models', '/api/user/self/groups']) assert(report.requests.slice(start).some(request => request.path === endpoint && request.method === 'GET'), `playground uses own ${endpoint}`)
+      for (const endpoint of ['/pg/keys']) assert(report.requests.slice(start).some(request => request.path === endpoint && request.method === 'GET'), `playground uses own ${endpoint}`)
       assert.equal(report.requests.slice(start).filter(request => request.method !== 'GET' && request.path !== '/api/user/auth/refresh').length, 0, 'typing and options never send a provider or business mutation')
       await context.close(); contexts.delete(context)
 
@@ -676,7 +676,7 @@ try {
       const disabledStart = report.requests.length
       await open(disabled.page, '/playground', { title: label('Overview'), expectedPath: '/dashboard/overview' })
       assert.equal(await disabled.page.getByRole('heading', { name: label('Start a playground chat'), exact: true }).count(), 0)
-      assert.equal(report.requests.slice(disabledStart).filter(request => request.pagePath.replace(/\/$/, '') === '/playground' && ['/api/user/models', '/api/user/self/groups'].includes(request.path)).length, 0, 'disabled route never loads playground options; redirected overview keeps its own reads')
+      assert.equal(report.requests.slice(disabledStart).filter(request => request.pagePath.replace(/\/$/, '') === '/playground' && ['/pg/keys', '/pg/models'].includes(request.path)).length, 0, 'disabled route never loads playground options; redirected overview keeps its own reads')
       await screenshot(disabled.page, `playground-sidebar-disabled-${width}`)
       await disabled.context.close(); contexts.delete(disabled.context)
     }

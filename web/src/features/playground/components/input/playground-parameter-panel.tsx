@@ -51,6 +51,10 @@ import {
   PLAYGROUND_PARAMETER_CONTROLS,
   PLAYGROUND_PARAMETER_PANEL_SCROLL_CLASS,
 } from '../../lib/parameters/playground-parameters'
+import {
+  normalizeStrictChatMaxTokens,
+  STRICT_CHAT_MAX_TOKENS,
+} from '../../lib/parameters/strict-chat-parameters'
 import type {
   ParameterEnabled,
   PlaygroundConfig,
@@ -69,6 +73,7 @@ type PlaygroundParameterPanelProps = {
     value: boolean
   ) => void
   parameterEnabled: ParameterEnabled
+  strictChatParameters?: boolean
   unsupportedParameters?: PlaygroundParameterKey[]
   unsupportedProvider?: string
 }
@@ -84,6 +89,7 @@ function PlaygroundParameterContent({
   onConfigChange,
   onParameterEnabledChange,
   parameterEnabled,
+  strictChatParameters = false,
   unsupportedParameters = [],
   unsupportedProvider,
 }: PlaygroundParameterContentProps) {
@@ -131,17 +137,24 @@ function PlaygroundParameterContent({
       )}
       {PLAYGROUND_PARAMETER_CONTROLS.map((control) => {
         const unsupported = unsupportedSet.has(control.key)
-        const enabled = unsupported ? false : parameterEnabled[control.key]
-        const value = config[control.key]
+        const required = strictChatParameters && control.key === 'max_tokens'
+        const enabled =
+          required || (!unsupported && parameterEnabled[control.key])
+        const value = required
+          ? normalizeStrictChatMaxTokens(config.max_tokens)
+          : config[control.key]
         const controlId = `playground-${control.key}`
+        const labelId = `${controlId}-label`
 
         return (
           <div
+            aria-labelledby={labelId}
             className={cn(
               'border-border/70 bg-background/60 grid gap-2 rounded-lg border p-3 transition-opacity',
               (!enabled || disabled || unsupported) && 'opacity-55'
             )}
             key={control.key}
+            role='group'
           >
             <div className='flex items-start justify-between gap-3'>
               <div className='min-w-0 space-y-1'>
@@ -149,6 +162,7 @@ function PlaygroundParameterContent({
                   <label
                     className='truncate text-sm leading-5 font-medium'
                     htmlFor={controlId}
+                    id={labelId}
                   >
                     {t(control.labelKey)}
                   </label>
@@ -158,6 +172,14 @@ function PlaygroundParameterContent({
                   >
                     {t(getParameterControlValueText(control.key, value))}
                   </Badge>
+                  {required && (
+                    <Badge
+                      className='h-5 shrink-0 px-1.5 text-[10px]'
+                      variant='secondary'
+                    >
+                      {t('Required')}
+                    </Badge>
+                  )}
                   {unsupported && (
                     <Badge
                       className='h-5 shrink-0 px-1.5 text-[10px]'
@@ -177,16 +199,18 @@ function PlaygroundParameterContent({
                   parameter: t(control.labelKey),
                 })}
                 checked={enabled}
-                disabled={disabled || unsupported}
-                onCheckedChange={(checked) =>
+                disabled={disabled || unsupported || required}
+                onCheckedChange={(checked) => {
+                  if (required) return
                   onParameterEnabledChange(control.key, checked)
-                }
+                }}
                 size='sm'
               />
             </div>
 
             {control.valueType === 'slider' ? (
               <Slider
+                aria-labelledby={labelId}
                 className='py-1.5'
                 disabled={disabled || unsupported || !enabled}
                 id={controlId}
@@ -209,9 +233,16 @@ function PlaygroundParameterContent({
                 disabled={disabled || unsupported || !enabled}
                 id={controlId}
                 inputMode='numeric'
-                max={control.max}
-                min={control.min}
+                max={required ? STRICT_CHAT_MAX_TOKENS : control.max}
+                min={required ? 1 : control.min}
                 onChange={(event) => {
+                  if (required) {
+                    onConfigChange(
+                      'max_tokens',
+                      normalizeStrictChatMaxTokens(Number(event.target.value))
+                    )
+                    return
+                  }
                   updateParameterConfig(
                     control.key,
                     normalizeParameterNumberValue(
@@ -221,6 +252,7 @@ function PlaygroundParameterContent({
                   )
                 }}
                 step={control.step}
+                required={required}
                 type='number'
                 value={value ?? ''}
               />
@@ -238,7 +270,8 @@ export function PlaygroundParameterPanel(props: PlaygroundParameterPanelProps) {
   const unsupportedSet = new Set(props.unsupportedParameters ?? [])
   const activeCount = PLAYGROUND_PARAMETER_CONTROLS.filter(
     (control) =>
-      props.parameterEnabled[control.key] && !unsupportedSet.has(control.key)
+      (props.strictChatParameters && control.key === 'max_tokens') ||
+      (props.parameterEnabled[control.key] && !unsupportedSet.has(control.key))
   ).length
 
   const trigger = (

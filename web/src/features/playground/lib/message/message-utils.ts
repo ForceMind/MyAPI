@@ -24,6 +24,7 @@ import type {
   MessageVersion,
   ChatCompletionMessage,
   ContentPart,
+  ChatAttachment,
 } from '../../types'
 
 /**
@@ -76,11 +77,13 @@ export function updateCurrentVersionContent(
  */
 export function createUserMessage(
   content: string,
-  createdAt: number = Date.now()
+  createdAt: number = Date.now(),
+  attachments: ChatAttachment[] = []
 ): Message {
   return {
     key: nanoid(),
     from: MESSAGE_ROLES.USER,
+    ...(attachments.length > 0 ? { attachments } : {}),
     versions: [createMessageVersion(content)],
     createdAt,
   }
@@ -111,11 +114,9 @@ export function createLoadingAssistantMessage(
  */
 export function buildMessageContent(
   text: string,
-  imageUrls: string[] = []
+  attachments: ChatAttachment[] = []
 ): string | ContentPart[] {
-  const validImages = imageUrls.filter((url) => url.trim() !== '')
-
-  if (validImages.length === 0) {
+  if (attachments.length === 0) {
     return text
   }
 
@@ -124,10 +125,18 @@ export function buildMessageContent(
       type: 'text',
       text: text || '',
     },
-    ...validImages.map((url) => ({
-      type: 'image_url' as const,
-      image_url: { url: url.trim() },
-    })),
+    ...attachments.map(
+      (attachment): ContentPart =>
+        attachment.mimeType === 'application/pdf'
+          ? {
+              type: 'file',
+              file: {
+                filename: attachment.name,
+                file_data: attachment.dataUrl,
+              },
+            }
+          : { type: 'image_url', image_url: { url: attachment.dataUrl } }
+    ),
   ]
 
   return parts
@@ -156,7 +165,7 @@ export function formatMessageForAPI(message: Message): ChatCompletionMessage {
   const currentVersion = getCurrentVersion(message)
   return {
     role: message.from,
-    content: currentVersion.content,
+    content: buildMessageContent(currentVersion.content, message.attachments),
   }
 }
 
@@ -166,6 +175,13 @@ export function formatMessageForAPI(message: Message): ChatCompletionMessage {
  */
 export function isValidMessage(message: Message): boolean {
   if (!message || !message.from || !message.versions.length) return false
+  if (
+    message.status === MESSAGE_STATUS.ERROR ||
+    message.status === MESSAGE_STATUS.LOADING ||
+    message.status === MESSAGE_STATUS.STREAMING
+  ) {
+    return false
+  }
 
   // Exclude empty assistant messages (loading/streaming placeholders)
   if (message.from === MESSAGE_ROLES.ASSISTANT && !hasMessageContent(message)) {

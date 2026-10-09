@@ -27,22 +27,12 @@ import {
 } from '@/components/ai-elements/prompt-input'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 
-import {
-  ATTACHMENT_ACTIONS,
-  getAttachmentActionNotice,
-  getSearchActionNotice,
-} from '../../lib'
+import { getSearchActionNotice } from '../../lib'
 import type {
   ParameterEnabled,
   PlaygroundConfig,
@@ -54,6 +44,7 @@ type PlaygroundInputToolsProps = {
   config: PlaygroundConfig
   disabled?: boolean
   hasMessages?: boolean
+  onAttachImages: () => void
   onClearMessages?: () => void
   onConfigChange: <K extends keyof PlaygroundConfig>(
     key: K,
@@ -64,6 +55,7 @@ type PlaygroundInputToolsProps = {
     value: boolean
   ) => void
   parameterEnabled: ParameterEnabled
+  strictChatParameters?: boolean
   unsupportedParameters?: PlaygroundParameterKey[]
   unsupportedProvider?: string
 }
@@ -72,22 +64,17 @@ export function PlaygroundInputTools({
   config,
   disabled,
   hasMessages = false,
+  onAttachImages,
   onClearMessages,
   onConfigChange,
   onParameterEnabledChange,
   parameterEnabled,
+  strictChatParameters,
   unsupportedParameters,
   unsupportedProvider,
 }: PlaygroundInputToolsProps) {
   const { t } = useTranslation()
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
-
-  const handleFileAction = (action: string) => {
-    const notice = getAttachmentActionNotice(action)
-    toast.info(t(notice.title), {
-      description: notice.description,
-    })
-  }
 
   const handleSearchAction = () => {
     const notice = getSearchActionNotice()
@@ -104,38 +91,19 @@ export function PlaygroundInputTools({
     <>
       <PromptInputTools className='bg-background/70 border-border/60 rounded-lg border p-1 shadow-xs'>
         <Tooltip>
-          <DropdownMenu>
-            <TooltipTrigger
-              render={
-                <DropdownMenuTrigger
-                  render={
-                    <PromptInputButton
-                      aria-label={t('Attach')}
-                      className='text-muted-foreground hover:text-foreground hover:bg-muted/70 font-medium'
-                      disabled={disabled}
-                      variant='ghost'
-                    />
-                  }
-                >
-                  <PaperclipIcon size={16} />
-                </DropdownMenuTrigger>
-              }
-            />
-            <TooltipContent>
-              <p>{t('Attach')}</p>
-            </TooltipContent>
-            <DropdownMenuContent align='start'>
-              {ATTACHMENT_ACTIONS.map(({ action, icon: Icon, label }) => (
-                <DropdownMenuItem
-                  key={action}
-                  onClick={() => handleFileAction(action)}
-                >
-                  <Icon className='mr-2' size={16} />
-                  {t(label)}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <TooltipTrigger
+            render={
+              <PromptInputButton
+                aria-label={t('Attach files')}
+                disabled={disabled}
+                onClick={onAttachImages}
+                variant='ghost'
+              >
+                <PaperclipIcon aria-hidden='true' size={16} />
+              </PromptInputButton>
+            }
+          />
+          <TooltipContent>{t('Attach files')}</TooltipContent>
         </Tooltip>
 
         <Tooltip>
@@ -163,6 +131,7 @@ export function PlaygroundInputTools({
           onConfigChange={onConfigChange}
           onParameterEnabledChange={onParameterEnabledChange}
           parameterEnabled={parameterEnabled}
+          strictChatParameters={strictChatParameters}
           unsupportedParameters={unsupportedParameters}
           unsupportedProvider={unsupportedProvider}
         />

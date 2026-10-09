@@ -60,7 +60,7 @@ MyAPI 集中管理渠道、應用程式 API Key、權限與用量，優先服務
 
 截至 2026-10-04：
 
-- **預發布候選：`v0.2.0-beta.7`。** 這是累計包含 beta.4–7 工作的候選版本；在標籤與發布工作流完成前，`v0.2.0-beta.3` 仍是最後一個已發布預覽版。範圍、驗證證據與發布邊界見 [beta.7 發布記錄](docs/RELEASE_BETA_7.md)。
+- **原始碼候選：`v0.2.0-beta.9`；最新已發布預發布版：`v0.2.0-beta.8`。** beta.9 新增內建聊天的真實 API Key 明確選擇及受限圖片/PDF 附件，仍為 Draft 原始碼候選，不代表映像已發布或可以部署。範圍、證據、支援限制及授權邊界見 [beta.9 發布候選記錄](docs/RELEASE_BETA_9.md)。下方安裝範例使用已發布的 beta.8。
 - **beta.4 僅已驗證開發原始碼，未發布**：限定的模型發現、映射、預覽、分發和日誌流程不在 beta.3 映像內。
 - **beta.5 僅本機開發候選**：帳戶排程、暫時冷卻、有界故障切換與嘗試說明尚未發布，該候選的遠端三資料庫與 Chromium 驗證仍待完成。
 
@@ -77,7 +77,7 @@ MyAPI 集中管理渠道、應用程式 API Key、權限與用量，優先服務
 僅用於新目錄的全新安裝；既有實例不得覆寫 `.env`：
 
 ```bash
-git clone --branch v0.2.0-beta.7 --single-branch https://github.com/ForceMind/MyAPI.git my-api
+git clone --branch v0.2.0-beta.8 --single-branch https://github.com/ForceMind/MyAPI.git my-api
 cd my-api
 umask 077
 cp deploy/.env.example deploy/.env
@@ -89,7 +89,7 @@ chmod 600 deploy/.env
 編輯 `deploy/.env`，將範例改為自己的準確 HTTPS Origin，不含 API 路徑。安裝器會拒絕 `example.com` 佔位值：
 
 ```dotenv
-MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.7
+MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.8
 MYAPI_BUILD_LOCAL=false
 MYAPI_EDITION=full
 MYAPI_BIND_ADDRESS=127.0.0.1
@@ -121,7 +121,7 @@ bash deploy/install.sh
 
 腳本校驗設定、拉取映像、啟動並最多等待 120 秒的健康檢查；不安裝 Docker、申請憑證、設定代理或防火牆。開啟設定的 HTTPS 地址，完成初始化及管理員帳號建立，確認登入與「系統資訊」的版本/revision。Full 使用 Secure Cookie，不建議從 HTTP localhost 登入。
 
-僅本機或私網使用，請參閱[舊版 LAN 指南](docs/LAN_LITE.md)，選用 `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.7`；LAN 分享須明確開啟。
+僅本機或私網使用，請參閱[舊版 LAN 指南](docs/LAN_LITE.md)，選用 `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.8`；LAN 分享須明確開啟。
 
 ## 第一次呼叫
 
@@ -152,7 +152,7 @@ node cli/myapi.mjs logs --project-dir .
 升級前記錄版本/digest、revision、路徑與設定，備份一致的資料庫（包含適用的 SQLite WAL）、秘密、完整密鑰環和必要日誌。在隔離副本驗證恢復，再演練已發布的目標版本。例如舊實例升級至 beta.3 的只讀預檢：
 
 ```bash
-node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.7 --dry-run --json
+node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.8 --dry-run --json
 ```
 
 依[升級與恢復指南](docs/UPGRADE_REHEARSAL.md)完成實際操作。CLI 的 `.env` 備份不是資料庫備份；嘗試目標啟動後不會自動重啟舊映像，資料庫可能已遷移。使用不相容舊程式前須恢復已驗證的升級前備份。勿刪資料卷、清空待核對記錄，或讓舊程式直接開啟新資料庫。

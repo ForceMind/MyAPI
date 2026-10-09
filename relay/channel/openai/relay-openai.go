@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -135,15 +136,29 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	seenStreamToolCalls := make(map[string]struct{})
 	var streamFunctionCallNames []string
 	var strictEvidence strictChatStreamEvidence
+	var sensitiveStreamError *types.NewAPIError
 
 	helper.StreamScannerHandler(c, resp, info, func(data string, sr *helper.StreamResult) {
 		if lastStreamData != "" {
 			if err := HandleStreamFormat(c, info, lastStreamData, info.ChannelSetting.ForceFormat, info.ChannelSetting.ThinkingToContent); err != nil {
-				common.SysLog("error handling stream format: " + err.Error())
+				if common.SensitiveRequestDiagnostics(c) {
+					logger.LogError(c, "error handling stream format: "+err.Error())
+				} else {
+					common.SysLog("error handling stream format: " + err.Error())
+				}
 				sr.Error(err)
 			}
 		}
 		if len(data) > 0 {
+			if common.SensitiveRequestDiagnostics(c) {
+				if sensitiveStreamError = sensitiveOpenAIResponseError(common.StringToByteSlice(data), resp.StatusCode); sensitiveStreamError != nil {
+					// Keep provider details only for in-memory classification;
+					// neither forward them nor persist them in StreamStatus.
+					lastStreamData = ""
+					sr.Stop(service.SafeRelayError(c, sensitiveStreamError))
+					return
+				}
+			}
 			if info.StrictTokenBudget {
 				strictEvidence.observe(common.StringToByteSlice(data), info.UpstreamModelName)
 			}
@@ -152,10 +167,22 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 			collectStreamFunctionCallNames(data, seenStreamToolCalls, &streamFunctionCallNames)
 			if err := processTokenData(info.RelayMode, data, &responseTextBuilder, &toolCount); err != nil {
 				logger.LogError(c, "error processing stream token data: "+err.Error())
+				if common.SensitiveRequestDiagnostics(c) {
+					sensitiveStreamError = sensitiveOpenAIProtocolError(err, resp.StatusCode)
+					lastStreamData = ""
+					sr.Stop(service.SafeRelayError(c, sensitiveStreamError))
+					return
+				}
 				sr.Error(err)
 			}
 		}
 	})
+
+	if sensitiveStreamError != nil {
+		// The outer dispatch finalizer retains unknown usage. Do not synthesize
+		// usage, emit [DONE], settle, refund, or retry an interrupted stream.
+		return nil, sensitiveStreamError
+	}
 
 	// Keep the existing terminal boundary: Chat's last chunk, or the audio
 	// protocol's penultimate usage. Arbitrary intermediate usage is not final.
@@ -239,6 +266,77 @@ func collectStreamFunctionCallNames(data string, seen map[string]struct{}, names
 	}
 }
 
+// sensitiveOpenAIProtocolError marks an accepted but unreadable response as
+// terminal without treating missing usage as a refund or retry opportunity.
+func sensitiveOpenAIProtocolError(err error, upstreamStatus int) *types.NewAPIError {
+	result := types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusBadGateway, types.ErrOptionWithSkipRetry())
+	result.UpstreamStatusCode = upstreamStatus
+	return result
+}
+
+// sensitiveOpenAIResponseError inspects only the error envelope, independent of
+// unrelated fields and before any raw response is forwarded. Ambiguous keys,
+// invalid JSON and non-object envelopes fail closed on sensitive requests.
+func sensitiveOpenAIResponseError(body []byte, upstreamStatus int) *types.NewAPIError {
+	validationErr := common.ValidateUniqueJSONKeys(body)
+	var fields map[string]json.RawMessage
+	if validationErr == nil {
+		validationErr = common.Unmarshal(body, &fields)
+	}
+	protocolFields := make(map[string]json.RawMessage)
+	if validationErr == nil {
+		for key, value := range fields {
+			canonical := strings.ToLower(key)
+			switch canonical {
+			case "error", "type", "response":
+				if _, exists := protocolFields[canonical]; exists {
+					validationErr = fmt.Errorf("ambiguous upstream error envelope")
+				}
+				protocolFields[canonical] = value
+			}
+		}
+	}
+	errorField := protocolFields["error"]
+	var eventType string
+	if typeField, exists := protocolFields["type"]; validationErr == nil && exists {
+		if common.GetJsonType(typeField) != "string" || common.Unmarshal(typeField, &eventType) != nil {
+			validationErr = fmt.Errorf("invalid upstream event type")
+		} else if eventType == "error" {
+			// Responses can use a flat error event without an error wrapper.
+			errorField = body
+		}
+	}
+	if validationErr == nil && strings.HasPrefix(eventType, "response.") && eventType != "response.failed" && eventType != "response.error" {
+		if responseField, exists := protocolFields["response"]; exists {
+			if nestedError := sensitiveOpenAIResponseError(responseField, upstreamStatus); nestedError != nil {
+				return nestedError
+			}
+		}
+	}
+	var result *types.NewAPIError
+	if validationErr != nil || fields == nil {
+		result = types.NewOpenAIError(fmt.Errorf("invalid upstream response envelope"), types.ErrorCodeBadResponseBody, http.StatusBadGateway)
+	} else if len(errorField) == 0 || common.GetJsonType(errorField) == "null" {
+		return nil
+	} else {
+		var providerError types.OpenAIError
+		if common.GetJsonType(errorField) == "object" && common.Unmarshal(errorField, &providerError) == nil {
+			result = types.WithOpenAIError(providerError, http.StatusBadGateway)
+		} else {
+			// String errors may carry provider markers needed by billing policy;
+			// retain them only on the in-memory error, never in diagnostics.
+			message := "invalid upstream error envelope"
+			if common.GetJsonType(errorField) == "string" {
+				_ = common.Unmarshal(errorField, &message)
+			}
+			result = types.NewOpenAIError(fmt.Errorf("%s", message), types.ErrorCodeBadResponse, http.StatusBadGateway)
+		}
+	}
+	result.UpstreamStatusCode = upstreamStatus
+	types.ErrOptionWithSkipRetry()(result)
+	return result
+}
+
 func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	defer service.CloseResponseBodyGracefully(resp)
 
@@ -264,8 +362,17 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 		}
 	}
 
+	if common.SensitiveRequestDiagnostics(c) {
+		if responseError := sensitiveOpenAIResponseError(responseBody, resp.StatusCode); responseError != nil {
+			return nil, responseError
+		}
+	}
+
 	err = common.Unmarshal(responseBody, &simpleResponse)
 	if err != nil {
+		if common.SensitiveRequestDiagnostics(c) {
+			return nil, sensitiveOpenAIProtocolError(err, resp.StatusCode)
+		}
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
 

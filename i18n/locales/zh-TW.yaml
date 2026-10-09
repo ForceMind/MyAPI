@@ -1,3 +1,5 @@
+playground.image_provider_unsupported: "本版本不支援透過此提供方路由傳送圖片。請選擇相容 OpenAI 或 Codex 的路由。"
+playground.file_provider_unsupported: "內嵌 PDF 需要相容 OpenAI 檔案輸入的路由；目前提供方路由暫不支援"
 usage_dispatch.pending: "此請求不能再次傳送，請先核對其用量結算狀態。"
 # Chinese (Traditional) translations
 token_budget.unsupported: "嚴格預算僅支援合格的官方 OpenAI Responses 純文字或 gpt-6.1-sol Chat 純文字，須明確輸出上限並採非免費按 Token 計價；Chat 按完整 1,050,000 Token 上下文上界預留"

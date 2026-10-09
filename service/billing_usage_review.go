@@ -194,6 +194,9 @@ func holdUnverifiedTextUsage(ctx *gin.Context, info *relaycommon.RelayInfo, reas
 	other := map[string]interface{}{"usage_accuracy": reason, "settlement_status": "pending_review", "actual_quota": nil,
 		"reserved_quota": info.FinalPreConsumedQuota, "known_tool_obligations": summary.ToolSurchargeItems,
 		"review_persisted": holdErr == nil}
+	if common.SensitiveRequestDiagnostics(ctx) {
+		appendRequestPath(ctx, info, other)
+	}
 	if reason != "estimated" {
 		other["usage_accuracy"] = "unknown"
 	}

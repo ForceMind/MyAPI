@@ -49,6 +49,7 @@ import {
 } from '../../lib'
 import { getMessageContentStyles } from '../../lib/message/message-styles'
 import type { Message } from '../../types'
+import { PlaygroundAttachmentPreviews } from '../input/playground-attachment-previews'
 import { MessageError } from './message-error'
 import { MessageMetadata } from './message-metadata'
 
@@ -133,6 +134,22 @@ export function PlaygroundMessageContent({
           {errorActions}
         </>
       )}
+
+      {message.attachments && message.attachments.length > 0 && (
+        <PlaygroundAttachmentPreviews attachments={message.attachments} />
+      )}
+      {message.missingAttachments && (
+        <p role='status' className='text-muted-foreground px-3 text-sm'>
+          {t(
+            'Attachments from this message are no longer available. Remove this message or start a new conversation before sending.'
+          )}
+        </p>
+      )}
+      {!isError &&
+      !showMessageContent &&
+      (message.attachments?.length || message.missingAttachments)
+        ? actions
+        : null}
 
       {!isError && showMessageContent && (
         <>

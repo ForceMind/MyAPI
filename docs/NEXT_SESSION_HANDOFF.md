@@ -1,3 +1,27 @@
+## 当前版本：beta.9 源码候选与交付收口（2026-10-09）
+
+beta.8 已合并到 main `4388b0dd943b0de89d25817f1a8012ac138d9f51`，并于
+2026-10-08 [发布预发布版](https://github.com/ForceMind/MyAPI/releases/tag/v0.2.0-beta.8)。
+用户自行部署 beta.8；该标签、制品及用户环境不在本轮修改范围。
+本节覆盖下方所有旧版本“当前状态”、等待、禁止提交及下一建议版表述；下方内容保留为历史证据。
+
+beta.9 在 `codex/beta9-chat-api-20261009` / [Draft PR #4](https://github.com/ForceMind/MyAPI/pull/4)
+完成真实自有 Key 显式选择、共同鉴权/路由/预算/用量链路、受限图片/PDF、草稿重试及七语窄屏身份可读性。
+已验证源码检查点 `f008dc79eef64e31b0e8c7f30140f8ca797b6336` 的 CI 十作业、三库及真实 Chromium 通过。
+本次收口补充多图片、非法文件、移除、实际取消和本人用量查看浏览器场景，并同步版本/发布说明；
+最终准确 HEAD 的结论以 PR 证据为准，旧检查点通过不代替新提交验收。
+
+必需项与支持矩阵见 [beta.9 交付卡](BETA_9_DELIVERY_CARD.md)，候选使用、截图与发布边界见
+[beta.9 发布候选记录](RELEASE_BETA_9.md)。图片仅支持合格 OpenAI-compatible/Codex 路径；
+PDF 仅支持实际 type-1 OpenAI-compatible adapter 且上游模型支持时；严格 Token/USD 预算仍拒绝媒体。
+合格严格 Key 的精确 gpt-6.1-sol 文本请求使用既有 native-Chat 参数规范与预算链路，
+界面显示必选输出上限及禁用采样项；不改模型/渠道/价格资格，不自动降级 Key。
+`/v1/files` 持久生命周期、TXT/DOCX、远程文件、真实提供商账单和生产验收未交付，不把合成证据扩大为这些能力。
+
+下一步仅闭合 Draft 源码候选和准确提交验收。正常范围内开发、修复、测试、文档、提交和推送已授权；
+main 合并、新 tag/GitHub prerelease、GHCR/NPM 发布与部署仍分别待明确授权。使用助手云环境，
+不操作用户 Mac/服务器，不强推、不替换已发布标签，不自动推进下一独立文件生命周期版本。
+
 ## 当前交付：beta.7 限定源码候选通过（2026-10-06）
 
 本节为当前状态，优先于下方保留历史。源码候选

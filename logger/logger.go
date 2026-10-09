@@ -94,7 +94,7 @@ func LogError(ctx context.Context, msg string) {
 }
 
 func LogDebug(ctx context.Context, msg string, args ...any) {
-	if common.DebugEnabled {
+	if common.DebugEnabled && !common.SensitiveRequestDiagnostics(ctx) {
 		if len(args) > 0 {
 			msg = fmt.Sprintf(msg, args...)
 		}
@@ -103,6 +103,22 @@ func LogDebug(ctx context.Context, msg string, args ...any) {
 }
 
 func logHelper(ctx context.Context, level string, msg string) {
+	if common.SensitiveRequestDiagnostics(ctx) {
+		// Provider errors and stream diagnostics may echo an entire attachment,
+		// even outside debug mode. Free-form text is never safe on this route.
+		msg = "sensitive request diagnostic omitted"
+	}
+	writeLog(ctx, level, msg)
+}
+
+// LogErrorMetadata emits only bounded diagnostic identifiers and HTTP status.
+// Callers must supply classified codes, never provider messages or payloads.
+func LogErrorMetadata(ctx context.Context, errorType, code string, status int) {
+	writeLog(ctx, loggerError, fmt.Sprintf("relay error: type=%s code=%s status=%d",
+		common.SafeDiagnosticIdentifier(errorType), common.SafeDiagnosticIdentifier(code), status))
+}
+
+func writeLog(ctx context.Context, level string, msg string) {
 	var id any = "SYSTEM"
 	if ctx != nil {
 		if requestID := ctx.Value(common.RequestIdKey); requestID != nil {
@@ -188,7 +204,7 @@ func FormatQuota(quota int) string {
 
 // LogJson 仅供测试使用 only for test
 func LogJson(ctx context.Context, msg string, obj any) {
-	if !common.DebugEnabled {
+	if !common.DebugEnabled || common.SensitiveRequestDiagnostics(ctx) {
 		return
 	}
 	jsonStr, err := common.Marshal(obj)

@@ -207,6 +207,10 @@ func getModelListGroups(c *gin.Context) (modelListGroups, error) {
 }
 
 func ListModels(c *gin.Context, modelType int) {
+	listModels(c, modelType, false)
+}
+
+func listModels(c *gin.Context, modelType int, includeCapabilities bool) {
 	acceptUnsetRatioModel := operation_setting.SelfUseModeEnabled
 	if !acceptUnsetRatioModel {
 		userId := c.GetInt("id")
@@ -303,11 +307,16 @@ func ListModels(c *gin.Context, modelType int) {
 			"nextPageToken": nil,
 		})
 	default:
-		c.JSON(200, gin.H{
-			"success": true,
-			"data":    userOpenAiModels,
-			"object":  "list",
-		})
+		response := gin.H{"success": true, "data": userOpenAiModels, "object": "list"}
+		if includeCapabilities {
+			capabilities, err := getPlaygroundModelCapabilities(userModelNames, ownerGroups)
+			if err != nil {
+				common.SysLog(fmt.Sprintf("get playground model capabilities failed: %v", err))
+				capabilities = map[string]playgroundModelCapability{}
+			}
+			response["capabilities"] = capabilities
+		}
+		c.JSON(http.StatusOK, response)
 	}
 }
 

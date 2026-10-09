@@ -27,7 +27,7 @@ const publicReads = new Set([
   '/api/about', '/api/pricing', '/api/rankings', '/api/user-agreement', '/api/privacy-policy',
 ])
 const ownerReads = new Set([
-  '/api/user/self', '/api/user/models', '/api/user/self/groups', '/api/user/2fa/status',
+  '/pg/keys', '/pg/models', '/api/user/self', '/api/user/models', '/api/user/self/groups', '/api/user/2fa/status',
   '/api/user/passkey', '/api/user/sessions', '/api/user/oauth/bindings',
   '/api/token', '/api/token/search', '/api/token/auto-groups', '/api/data/self', '/api/data/flow/self',
   '/api/log/self', '/api/log/self/stat', '/api/log/self/overview',
@@ -100,6 +100,8 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
       if (role !== 100 && rootPrefixes.some(prefix => path === prefix || path.startsWith(`${prefix}/`))) return { violation: `Non-Root requested Root data: ${method} ${path}` }
       let body
       switch (path) {
+        case '/pg/keys': body = ok(page([{ id: key.id, name: key.name, status: key.status, group: key.group, remain_quota: key.remain_quota, used_quota: key.used_quota, unlimited_quota: key.unlimited_quota, expired_time: key.expired_time, model_limits_enabled: key.model_limits_enabled }])); break
+        case '/pg/models': body = { success: true, object: 'list', data: [{ id: 'synthetic-text-model', object: 'model', owned_by: 'synthetic-provider' }] }; break
         case '/api/setup': body = ok({ status: setupComplete, root_init: setupComplete, database_type: 'sqlite' }); break
         case '/api/user/self': body = ok(user); break
         case '/api/status': body = ok({
