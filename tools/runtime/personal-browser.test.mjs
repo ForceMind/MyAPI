@@ -8,7 +8,7 @@ const base = { baseUrl: 'http://127.0.0.1:18080', upstreamBaseUrl: 'http://127.0
   sha: 'a'.repeat(40), edition: 'full', isolated: true,
   username: 'synthetic-root', password: 'synthetic-password-never-report', writer: 'legacy' }
 
-function setupBrowser({ failAt, responseSuccess = true } = {}) {
+function setupBrowser({ failAt, responseSuccess = true, closeFails = false } = {}) {
   const calls = []
   let route
   const locator = (kind, value) => ({
@@ -38,7 +38,7 @@ function setupBrowser({ failAt, responseSuccess = true } = {}) {
   }
   const browser = {
     async newContext(options) { calls.push(['context', options]); return context },
-    async close() { calls.push(['browser-close']) },
+    async close() { calls.push(['browser-close']); if (closeFails) throw new Error(`close ${base.password}`) },
   }
   return { calls, route: () => route,
     module: { chromium: { async launch(options) { calls.push(['launch', options]); return browser } } } }
@@ -120,7 +120,7 @@ import { mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false } = {}) {
+function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false } = {}) {
   const reverse = Object.fromEntries(Object.entries(JSON.parse(readFileSync(new URL('../../web/src/i18n/locales/zh.json', import.meta.url))).translation).map(([key, value]) => [value, key]))
   const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
   const users = new Map([[1, { id: 1, username: base.username, role: 100, quota: 0, used_quota: 15, request_count: 1, self_use_no_balance: true, revision: 1 }]])
@@ -254,7 +254,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false }
         async addInitScript(fn, args) { this.init = { fn: String(fn), args } }, async newPage() { this.page = makePage(this); return this.page } }
       contexts.push(context)
       return context
-    }, async close() { closed++ },
+    }, async close() { closed++; if (closeFails) throw new Error(`close ${base.password}`) },
   } } } }
   const fetchImpl = async (url, options) => {
     assert.equal(options.redirect, 'error')
@@ -346,4 +346,41 @@ test('screenshots reject visible credentials and symlink artifact directories', 
     symlinkSync(root, alias)
     await assert.rejects(probePersonalBrowserJourney({ ...base, ...journeyBrowser(), artifactDir: alias }), /SMOKE_PERSONAL_SCREENSHOT_REJECTED/)
   } finally { rmSync(alias, { force: true }); rmSync(root, { recursive: true, force: true }) }
+})
+
+
+for (const entry of ['setup', 'journey']) {
+  test(`browser close failure rejects a completed ${entry} without exposing diagnostics`, async () => {
+    const fixture = entry === 'setup' ? setupBrowser({ closeFails: true }) : journeyBrowser({ closeFails: true })
+    const run = entry === 'setup'
+      ? browserSetup({ ...base, playwrightModule: fixture.module })
+      : probePersonalBrowserJourney({ ...base, ...fixture })
+    await assert.rejects(run, error => {
+      assert.equal(error.message, 'SMOKE_PERSONAL_BROWSER_CLOSE_FAILED')
+      assert.equal(error.stage, 'browser-close')
+      assert.equal(error.cause, undefined)
+      assert(!error.stack.includes(base.password))
+      assert(!JSON.stringify(error).includes(base.password))
+      return true
+    })
+    if (entry === 'setup') assert.equal(fixture.calls.filter(call => call[0] === 'browser-close').length, 1)
+    else assert.equal(fixture.closed(), 1)
+  })
+}
+
+test('the original safe failure takes priority when browser cleanup also fails', async () => {
+  for (const [run, fixture, code, stage] of [
+    [browserSetup, setupBrowser({ responseSuccess: false, closeFails: true }), 'SETUP_FAILED', 'setup'],
+    [probePersonalBrowserJourney, journeyBrowser({ corrupt: 'writer', closeFails: true }), 'WRITER_MISMATCH', 'writer-check'],
+  ]) {
+    await assert.rejects(run({ ...base, ...fixture, playwrightModule: fixture.module || fixture.playwrightModule }), error => {
+      assert.equal(error.message, `SMOKE_PERSONAL_${code}`)
+      assert.equal(error.stage, stage)
+      assert.equal(error.cause, undefined)
+      assert(!error.stack.includes(base.password))
+      return true
+    })
+    if (fixture.calls) assert.equal(fixture.calls.filter(call => call[0] === 'browser-close').length, 1)
+    else assert.equal(fixture.closed(), 1)
+  }
 })

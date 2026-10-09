@@ -10,8 +10,8 @@ const quota = 1000
 const usage = 15
 const stages = new Set(['launch', 'setup', 'login', 'writer-check', 'fixture-config', 'policy-view',
   'key-create', 'key-selection', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm',
-  'strict-budget', 'reload-check', 'screenshot'])
-const codes = new Set(['SCOPE_REJECTED', 'AUTH_UNAVAILABLE', 'BROWSER_FAILED', 'SETUP_FAILED',
+  'strict-budget', 'reload-check', 'screenshot', 'browser-close'])
+const codes = new Set(['SCOPE_REJECTED', 'AUTH_UNAVAILABLE', 'BROWSER_FAILED', 'BROWSER_CLOSE_FAILED', 'SETUP_FAILED',
   'HTTP_FAILED', 'LOGIN_FAILED', 'RUNTIME_ERROR', 'BUILD_MISMATCH', 'API_FAILED', 'STATE_MISMATCH',
   'KEY_MISMATCH', 'POLICY_MISMATCH', 'REQUEST_MISMATCH', 'RELAY_MISMATCH', 'LOG_MISMATCH',
   'USAGE_MISMATCH', 'UPSTREAM_MISMATCH', 'WRITER_MISMATCH', 'SCREENSHOT_REJECTED'])
@@ -47,6 +47,7 @@ function validateOptions(options, withUpstream) {
 async function withBrowser(options, withUpstream, run) {
   const scope = validateOptions(options, withUpstream)
   let browser
+  let failed = false
   scope.stage = 'launch'
   try {
     const module = typeof options.playwrightModule === 'string'
@@ -55,13 +56,26 @@ async function withBrowser(options, withUpstream, run) {
     browser = await module.chromium.launch({ headless: true })
     return await run(browser, scope)
   } catch (error) {
+    failed = true
     const suffix = String(error?.message || '').replace(/^SMOKE_PERSONAL_/, '')
     // No cause/stack from browser, HTTP client or assertion libraries may escape.
     const safeError = new Error(`SMOKE_PERSONAL_${codes.has(suffix) ? suffix : 'BROWSER_FAILED'}`)
     safeError.stage = stages.has(scope.stage) ? scope.stage : 'launch'
     throw safeError
   } finally {
-    if (browser) await browser.close().catch(() => {})
+    if (browser) {
+      try {
+        await browser.close()
+      } catch {
+        // Preserve an earlier safe failure, but never return success when the
+        // ephemeral browser (and its authentication state) could not be closed.
+        if (!failed) {
+          const safeError = new Error('SMOKE_PERSONAL_BROWSER_CLOSE_FAILED')
+          safeError.stage = 'browser-close'
+          throw safeError
+        }
+      }
+    }
   }
 }
 
@@ -503,7 +517,8 @@ export async function probePersonalBrowserJourney(options = {}) {
     checks.push({ name: 'unqualified loopback/model/request combination rejects strict Token and USD before dispatch or reservation', ok: true, additionalUpstreamRequests: 0, reserved: 0 })
 
     // Reload-and-read proves application-backed state, rather than a UI-only
-    // result. The enclosing Docker smoke separately owns DB restore testing.
+    // result. DB restoration belongs to independent existing restore tests;
+    // this personal application journey does not validate restart or recovery.
     scope.stage = 'reload-check'
     await open(owner, `/keys?filter=${ownerKey.name}`)
     await owner.page.getByText(ownerKey.name, { exact: true }).first().waitFor()

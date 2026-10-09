@@ -483,6 +483,7 @@ export async function probeFreshSQLite({
   const personal = personalFixture
     ? await personalFixture({ baseUrl: origin, edition, sha, username, password, writer, isolated, upstreamBaseUrl, fetchImpl })
     : null
+  if (personalFixture && personal?.passed !== true) throw new Error('SMOKE_PERSONAL_STATE_MISMATCH')
   return { command: 'docker:smoke', sha, edition, database: 'fresh-sqlite',
     ...(personal ? { personal } : {}),
     passed: probe.passed && (relay?.passed ?? true) && (selfUse?.passed ?? true) && (personal?.passed ?? true), checks: [
@@ -595,13 +596,13 @@ async function main() {
       'SMOKE_PERSONAL_WRITER_SCOPE', 'SMOKE_PERSONAL_WRITER_API', 'SMOKE_PERSONAL_WRITER_NOT_FRESH',
       'SMOKE_PERSONAL_WRITER_STATE', 'SMOKE_PERSONAL_WRITER_DRAIN', 'SMOKE_PERSONAL_WRITER_AUDIT', 'SMOKE_PERSONAL_WRITER_APPLY',
       'SMOKE_PERSONAL_SCOPE_REJECTED', 'SMOKE_PERSONAL_AUTH_UNAVAILABLE', 'SMOKE_PERSONAL_BROWSER_FAILED',
-      'SMOKE_PERSONAL_SETUP_FAILED', 'SMOKE_PERSONAL_HTTP_FAILED', 'SMOKE_PERSONAL_LOGIN_FAILED',
+      'SMOKE_PERSONAL_BROWSER_CLOSE_FAILED', 'SMOKE_PERSONAL_SETUP_FAILED', 'SMOKE_PERSONAL_HTTP_FAILED', 'SMOKE_PERSONAL_LOGIN_FAILED',
       'SMOKE_PERSONAL_RUNTIME_ERROR', 'SMOKE_PERSONAL_BUILD_MISMATCH', 'SMOKE_PERSONAL_API_FAILED',
       'SMOKE_PERSONAL_STATE_MISMATCH', 'SMOKE_PERSONAL_KEY_MISMATCH', 'SMOKE_PERSONAL_POLICY_MISMATCH',
       'SMOKE_PERSONAL_REQUEST_MISMATCH', 'SMOKE_PERSONAL_RELAY_MISMATCH', 'SMOKE_PERSONAL_LOG_MISMATCH',
       'SMOKE_PERSONAL_USAGE_MISMATCH', 'SMOKE_PERSONAL_UPSTREAM_MISMATCH', 'SMOKE_PERSONAL_WRITER_MISMATCH',
       'SMOKE_PERSONAL_SCREENSHOT_REJECTED'])
-    const safeStages = new Set(['launch', 'setup', 'login', 'writer-check', 'fixture-config', 'policy-view', 'key-create',
+    const safeStages = new Set(['launch', 'browser-close', 'setup', 'login', 'writer-check', 'fixture-config', 'policy-view', 'key-create',
       'key-selection', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm', 'strict-budget', 'reload-check', 'screenshot'])
     console.error(JSON.stringify({ command: 'docker:smoke', passed: false,
       code: safeCodes.has(error?.message) ? error.message : 'SMOKE_UNEXPECTED_FAILURE',

@@ -474,3 +474,48 @@ test('personal writer fixture rejects unsupported targets and active or nonfresh
     assert.equal(applies, 0)
   }
 })
+
+
+test('browser setup callback replaces setup POST and requires real application readback', async () => {
+  let initialized = false, password = '', setupCalls = 0
+  const report = await probeFreshSQLite({ baseUrl, edition: 'full', sha, isolated: true,
+    setupFixture: async options => {
+      setupCalls++; assert.equal(options.isolated, true); assert.equal(options.baseUrl, baseUrl)
+      password = options.password; initialized = true
+      return { name: 'real initial setup wizard', ok: true, sha }
+    },
+    fetchImpl: async (url, options) => {
+      const path = new URL(url).pathname
+      if (path === '/api/setup') {
+        assert.notEqual(options.method, 'POST', 'the fixture must not replace UI setup with an API write')
+        return json({ success: true, data: { status: initialized, root_init: initialized, database_type: 'sqlite' } })
+      }
+      assert.equal(initialized, true)
+      if (path === '/api/status') return json({ success: true, data: { setup: true, self_use_mode_enabled: false } })
+      if (path === '/api/user/login') return json({ success: true, data: { access_token: 'synthetic-private-browser-token' } })
+      if (path === '/api/user/self' && !options.headers?.Authorization) return json({ success: false }, 401)
+      return json({ success: true, data: {} })
+    },
+  })
+  assert.equal(setupCalls, 1)
+  assert.equal(report.passed, true)
+  assert.ok(report.checks.some(check => check.name === 'real initial setup wizard' && check.ok))
+  assert.equal(JSON.stringify(report).includes(password), false)
+  assert.equal(JSON.stringify(report).includes('synthetic-private-browser-token'), false)
+})
+
+test('browser setup cannot report success without initialized application state', async () => {
+  let writes = 0
+  await assert.rejects(probeFreshSQLite({ baseUrl, edition: 'full', sha, isolated: true,
+    setupFixture: async () => ({ name: 'setup', ok: true }),
+    fetchImpl: async (_url, options) => {
+      if (options.method === 'POST') writes++
+      return json({ success: true, data: { status: false, root_init: false, database_type: 'sqlite' } })
+    },
+  }), /SMOKE_SETUP_FAILED/)
+  assert.equal(writes, 0)
+  await assert.rejects(probeFreshSQLite({ baseUrl, edition: 'full', sha, isolated: true,
+    personalFixture: async () => ({ passed: true }), fetchImpl: async () => { writes++; throw new Error('must not fetch') },
+  }), /SMOKE_PERSONAL_WRITER_SCOPE/)
+  assert.equal(writes, 0)
+})
