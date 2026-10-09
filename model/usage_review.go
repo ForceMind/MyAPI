@@ -57,6 +57,9 @@ func (*UsageReviewDecision) BeforeUpdate(*gorm.DB) error { return ErrAccountQuot
 func (*UsageReviewDecision) BeforeDelete(*gorm.DB) error { return ErrAccountQuotaReceiptImmutable }
 
 type UsageReviewDetail struct {
+	SettlementStatus       string                  `json:"settlement_status"`
+	RecoveryBlockReason    string                  `json:"recovery_block_reason"`
+	CanReconcileUsage      bool                    `json:"can_reconcile_usage"`
 	TextDispatchPending    bool                    `json:"text_dispatch_pending"`
 	CanRecoverTextDispatch bool                    `json:"can_recover_text_dispatch"`
 	TokenBudget            *TokenBudgetReservation `json:"token_budget,omitempty"`
@@ -94,7 +97,8 @@ func GetUsageReview(ctx context.Context, db *gorm.DB, actorID int, requestID str
 	}
 	var head AccountQuotaReservationHead
 	err := db.WithContext(ctx).Where("request_id = ?", requestID).First(&head).Error
-	view := &UsageReviewDetail{RequestID: requestID}
+	view := &UsageReviewDetail{RequestID: requestID, SettlementStatus: "none"}
+	var legacy *LegacyUsageReservation
 	if err == nil {
 		if head.RequestID != requestID {
 			return nil, gorm.ErrRecordNotFound
@@ -119,6 +123,9 @@ func GetUsageReview(ctx context.Context, db *gorm.DB, actorID int, requestID str
 			if err := db.WithContext(ctx).First(&terminal, head.TerminalReceiptID).Error; err != nil {
 				return nil, err
 			}
+			if terminal.RequestID != head.RequestID || terminal.UserID != head.UserID || terminal.TokenID != head.TokenID || terminal.WriterEpoch != head.WriterEpoch || terminal.SubscriptionID != head.SubscriptionID {
+				return nil, ErrAccountQuotaMutationConflict
+			}
 			if terminal.Phase == AccountQuotaPhaseSettle {
 				amount := terminal.RequestedQuota
 				view.ActualQuota = &amount
@@ -132,6 +139,7 @@ func GetUsageReview(ctx context.Context, db *gorm.DB, actorID int, requestID str
 		if actor.Role != common.RoleRootUser && actor.Id != row.UserID {
 			return nil, gorm.ErrRecordNotFound
 		}
+		legacy = row
 		view.UserID, view.TokenID, view.Writer, view.State = row.UserID, row.TokenID, "legacy", row.State
 		view.ReservedQuota, view.Reason, view.ReviewMetadata = row.ReservedQuota, row.Reason, row.ReviewMetadata
 		view.ChannelID = row.ChannelID
@@ -169,6 +177,17 @@ func GetUsageReview(ctx context.Context, db *gorm.DB, actorID int, requestID str
 			return nil, err
 		}
 	}
+	view.CanReconcileUsage = view.CanRecoverTextDispatch || view.State == AccountQuotaTerminalRecoveryUsageUnknown || view.State == LegacyUsageReviewPending || view.Decision != nil
+	// Manual decisions own their existing replay path. Their legacy settlement
+	// intent is not a new automatic operation competing for the request.
+	if view.Decision == nil && (legacy == nil || legacy.ReviewedBy == 0) {
+		if err := projectUsageReviewSettlement(ctx, db, view, &head, legacy); err != nil {
+			return nil, err
+		}
+	}
+	if view.TokenBudget != nil && (view.TokenBudget.State != TokenBudgetSent && view.TokenBudget.State != TokenBudgetUnknown && view.TokenBudget.State != TokenBudgetSettled) {
+		view.CanReconcileUsage = false
+	}
 	return view, nil
 }
 
@@ -196,6 +215,12 @@ func ReconcileUsageReview(ctx context.Context, db *gorm.DB, actorID int, request
 	if err != nil {
 		return nil, err
 	}
+	// An applied account amount is immutable even when an independent strict
+	// token review remains unfinished. Reject before freezing usage or writing
+	// a decision, including the legacy no-delta shortcut.
+	if view.ActualQuota != nil && (view.SettlementStatus == "applied" || view.SettlementStatus == "applied_journal_pending") && actual != *view.ActualQuota {
+		return nil, ErrAccountQuotaMutationConflict
+	}
 	if err := validateTextDispatchRecoveryDecision(view.ReviewMetadata, actorID, actual, evidence); err != nil {
 		return nil, err
 	}
@@ -221,7 +246,7 @@ func ReconcileUsageReview(ctx context.Context, db *gorm.DB, actorID int, request
 		if counts.Input < 0 || counts.Output < 0 || counts.Input > int64(common.MaxQuota) || counts.Output > int64(common.MaxQuota)-counts.Input {
 			return nil, ErrTokenBudgetInvalid
 		}
-		if view.TokenBudget.State == TokenBudgetPrepared || view.TokenBudget.State == TokenBudgetCancelled {
+		if view.TokenBudget.State != TokenBudgetSent && view.TokenBudget.State != TokenBudgetUnknown && view.TokenBudget.State != TokenBudgetSettled {
 			return nil, ErrTokenBudgetPending
 		}
 		if view.TokenBudget.State == TokenBudgetSettled && (view.TokenBudget.ActualInput == nil || view.TokenBudget.ActualOutput == nil || *view.TokenBudget.ActualInput != counts.Input || *view.TokenBudget.ActualOutput != counts.Output) {

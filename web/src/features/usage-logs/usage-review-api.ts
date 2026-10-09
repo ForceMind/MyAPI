@@ -10,6 +10,18 @@ export const usageReviewSchema = z.object({
   review_metadata: z.string().optional(),
   text_dispatch_pending: z.boolean().optional(),
   can_recover_text_dispatch: z.boolean().optional(),
+  can_reconcile_usage: z.boolean().optional(),
+  settlement_status: z
+    .enum(['none', 'pending', 'applied', 'applied_journal_pending', 'manual'])
+    .optional(),
+  recovery_block_reason: z
+    .enum([
+      '',
+      'automatic_settlement_pending',
+      'automatic_settlement_applied',
+      'automatic_settlement_manual',
+    ])
+    .optional(),
   request_id: z.string(),
   user_id: z.number().int(),
   token_id: z.number().int(),
@@ -40,6 +52,25 @@ export const usageReviewSchema = z.object({
     .optional(),
 })
 export type UsageReview = z.infer<typeof usageReviewSchema>
+
+export function canReconcileUsageReview(review: UsageReview): boolean {
+  if (review.settlement_status && review.settlement_status !== 'none') {
+    return (
+      review.can_reconcile_usage === true &&
+      review.actual_quota !== null &&
+      ['applied', 'applied_journal_pending'].includes(
+        review.settlement_status
+      ) &&
+      !!review.token_budget
+    )
+  }
+  return (
+    review.can_reconcile_usage ??
+    (!!review.can_recover_text_dispatch ||
+      ['usage_unknown', 'review_pending'].includes(review.state) ||
+      (!!review.token_budget && review.token_budget.state !== 'settled'))
+  )
+}
 
 function parseReview(payload: unknown, requestId: string): UsageReview {
   const result = z

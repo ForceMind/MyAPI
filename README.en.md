@@ -10,6 +10,9 @@ A self-hosted AI API gateway for model services, application access, and usage m
 
 MyAPI brings model-service connections, application API keys, access controls, and usage records into one web console. It is designed for personal use first, with controlled sharing to a small team. New installations keep commercial modules off: using your own model-service accounts does not require topping up an internal wallet. Users, permissions, key limits, and usage tracking still apply.
 
+
+Commercial modules being disabled does not automatically change existing users: an explicit no-wallet user policy is required. Fresh setup enables it for the first Root. The policy currently covers only eligible POST Chat/Responses/Responses compact requests without a query string; Key limits and usage accounting remain active.
+
 ## Technology stack
 
 ![Go](https://img.shields.io/badge/Go-00ADD8?style=flat-square&logo=go&logoColor=white)
@@ -58,19 +61,15 @@ The console supports English, Simplified Chinese, Traditional Chinese, French, J
 
 ### Important limits
 
-Strict Token/USD budgets currently cover only the qualified official native Responses text-only paths. USD limits also require an applicable frozen price and supported service tier. Model aliases, protocol conversion, tools, or multimedia do not automatically qualify.
+Strict Token/USD budgets cover qualified official native Responses text-only paths and exact `gpt-6.1-sol` native Chat text. Chat conservatively reserves the full 1,050,000-token context bound, so a small request may be refused when its remaining budget cannot cover that bound. USD limits also require an applicable frozen price and supported service tier. Model aliases, protocol conversion, tools, or multimedia do not automatically qualify.
 
 Codex percentages are remaining-account/window safety thresholds, not a per-key ledger of shared subscription consumption. Subscription API-equivalent cost is a reference estimate, not the provider's actual bill. Missing or estimated usage is not actual zero; unresolved requests require evidence-based review rather than an assumed refund.
 
 ## Choose a version
 
-Status as of 2026-10-04:
+Status as of 2026-10-09: **[v0.2.0-beta.9](https://github.com/ForceMind/MyAPI/releases/tag/v0.2.0-beta.9) is published** with Full/LAN amd64/arm64 images. It includes the bounded beta.4–7 routing/budget/policy work, beta.8 UI, and beta.9 explicit-Key chat/image/PDF workflow. See [release evidence](docs/RELEASE_BETA_9.md).
 
-- **Source candidate: `v0.2.0-beta.9`; latest published prerelease: `v0.2.0-beta.8`.** beta.9 adds explicit API Key identity and bounded image/PDF attachments to built-in chat. It remains a Draft source candidate, not a published image or deployment instruction. Scope, verified evidence, support limits and approval boundaries are in the [beta.9 release candidate record](docs/RELEASE_BETA_9.md). The installation examples below use the published beta.8.
-- **beta.4: verified development source, not a release.** Its limited model-discovery, explicit mapping, routing-preview, dispatch, and log workflow has automated verification. It is not included in the beta.3 images.
-- **beta.5: local development candidate only.** Account scheduling, temporary cooldown, bounded failover, and attempt explanations are not published features. This candidate still lacks its own remote three-database and Chromium verification.
-
-The prerelease is not a production-readiness claim. Real-account OAuth, quota reset/429 behavior, provider-bill reconciliation, and target-server HTTPS acceptance remain limited or pending. A successful build or container health check does not establish those results. Deployment defaults continue to point to beta.3; cloning development source does not change the image you run.
+Verified Full upgrade, isolated snapshot recovery and target HTTPS are recorded; real-provider OAuth/window reset/429 and bill reconciliation are still separate, limited acceptance items. This remains a prerelease. Unified Lite/Desktop installation/update is not delivered. The next main milestone is [personal mode and understandable Key limits](docs/PERSONAL_CORE_DELIVERY_CARD.md), followed by bounded structural simplification.
 
 ## Install the published prerelease
 
@@ -91,7 +90,7 @@ Go, Bun, Node.js, Redis, and a separate database server are **not required for t
 For a **new installation in a new directory**:
 
 ```bash
-git clone --branch v0.2.0-beta.8 --single-branch https://github.com/ForceMind/MyAPI.git my-api
+git clone --branch v0.2.0-beta.9 --single-branch https://github.com/ForceMind/MyAPI.git my-api
 cd my-api
 umask 077
 cp deploy/.env.example deploy/.env
@@ -105,7 +104,7 @@ For an existing installation, preserve its configuration and read the upgrade se
 Edit `deploy/.env`. Keep these values and replace the example origin with your own exact HTTPS origin, without an API path:
 
 ```dotenv
-MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.8
+MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.9
 MYAPI_BUILD_LOCAL=false
 MYAPI_EDITION=full
 MYAPI_BIND_ADDRESS=127.0.0.1
@@ -141,12 +140,12 @@ The script validates Compose configuration, pulls the pinned image, starts the s
 
 Open your configured **HTTPS origin**, complete the initialization page, and create the administrator account. Full uses Secure cookies: plain `http://localhost:3000` is not its recommended login URL. Confirm login and the runtime version/revision in System Information before adding real accounts.
 
-For local or private-network use instead, follow the [legacy LAN guide](docs/LAN_LITE.md), using the published `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.8` image. LAN sharing is opt-in. The planned unified Lite/Desktop installer and updater are not yet delivered; desktop build artifacts do not establish real-device acceptance.
+For local or private-network use instead, follow the [legacy LAN guide](docs/LAN_LITE.md), using the published `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.9` image. LAN sharing is opt-in. The planned unified Lite/Desktop installer and updater are not yet delivered; desktop build artifacts do not establish real-device acceptance.
 
 ## Make your first request
 
 1. **Add a model-service channel.** In Channels (`/channels`), choose the actual provider type and enter its authorized endpoint and credentials. For Codex in a container, use the supported browser-login flow; the container cannot read your host's login files.
-2. **Enable a model.** Fetch models where supported or enter an exact provider model ID. Confirm the channel's enabled models, group/access compatibility, and any explicit mapping. Discovery alone does not grant access or prove a model works. The enhanced beta.4 discovery/routing workflow requires its development source, not the beta.3 image.
+2. **Enable a model.** Fetch models where supported or enter an exact provider model ID. Confirm the channel's enabled models, group/access compatibility, and any explicit mapping. Discovery alone does not grant access or prove a model works. The bounded beta.4 discovery/routing workflow is included in beta.9.
 3. **Run one small channel test.** Select the model, supported endpoint, and streaming mode explicitly. Tests contact the model service and can consume quota or incur charges. Start with non-sensitive input.
 4. **Create a application API key.** Use a separate key for your application, grant only the needed models/access profile, and choose only limits supported by that channel. Do not distribute the provider key or an administrator login token.
 5. **Configure your client.** For an OpenAI-compatible client, use your HTTPS origin followed by `/v1`, the downstream key, and the exact enabled public model name. Other protocols must use their documented endpoints. Send one short request before enabling a workload.
@@ -175,10 +174,10 @@ node cli/myapi.mjs logs --project-dir .
 
 1. Record the running image tag/digest, source revision, database type, data paths, and private configuration. Use an actually published target version, never a planned beta label or `latest`.
 2. Create a consistent database backup using an appropriate database procedure. Preserve SQLite WAL state when applicable, configuration, session secret, complete quota identity keyring, and required logs. Verify restoration on an isolated copy before upgrading the live instance.
-3. Rehearse the target version on that copy, including login, channels, keys, a controlled request, logs, and recovery. The CLI supports a read-only preflight, for example when rehearsing an older instance's upgrade to the published beta.3:
+3. Rehearse the target version on that copy, including login, channels, keys, a controlled request, logs, and recovery. The CLI supports a read-only preflight, for example when rehearsing an older instance's upgrade to the published beta.9:
 
    ```bash
-   node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.8 --dry-run --json
+   node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.9 --dry-run --json
    ```
 
 4. Follow the [upgrade rehearsal and recovery guide](docs/UPGRADE_REHEARSAL.md) for the actual change. The CLI's `.env` backup is **not a database backup**. Once target startup has been attempted, it does not automatically restart the old image: the database may already have migrated. Restore a verified pre-upgrade database before starting an incompatible older binary.
@@ -195,7 +194,7 @@ Do not delete data volumes, reset unresolved accounting records, or point an old
 
 ## Documentation and help
 
-- [Published beta.3 artifacts and evidence](docs/RELEASE_BETA_7.md)
+- [Published beta.9 artifacts and evidence](docs/RELEASE_BETA_9.md)
 - [Deployment configuration](DEPLOYMENT_CUSTOM.md) · [Legacy LAN](docs/LAN_LITE.md)
 - [Upgrade and recovery](docs/UPGRADE_REHEARSAL.md) · [Installation acceptance record](docs/R1_INSTALLATION_CHECK.md)
 - [Relay API](docs/openapi/relay.json) · [Management API](docs/openapi/api.json)

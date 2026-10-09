@@ -125,7 +125,23 @@ func RecoverTokenBudget(c *gin.Context) {
 			}
 			request.FeeUSD = &normalized
 		}
-		_, err := model.PrepareTokenBudgetUsageReview(c.Request.Context(), model.DB, c.GetInt("id"), tokenID, request.RequestID, request.FeeUSD)
+		// Reject a conflicting already-applied amount before Prepare can write
+		// a quota hold. The model repeats this check before decision creation
+		// because settlement may complete after this owner-scoped read.
+		known, err := model.GetUsageReview(c.Request.Context(), model.DB, c.GetInt("id"), request.RequestID)
+		if err != nil {
+			usageReviewError(c, err)
+			return
+		}
+		if known.TokenID != tokenID {
+			usageReviewError(c, model.ErrTokenBudgetConflict)
+			return
+		}
+		if known.ActualQuota != nil && (known.SettlementStatus == "applied" || known.SettlementStatus == "applied_journal_pending") && *request.ActualQuota != *known.ActualQuota {
+			usageReviewError(c, model.ErrAccountQuotaMutationConflict)
+			return
+		}
+		_, err = model.PrepareTokenBudgetUsageReview(c.Request.Context(), model.DB, c.GetInt("id"), tokenID, request.RequestID, request.FeeUSD)
 		if err != nil {
 			usageReviewError(c, err)
 			return

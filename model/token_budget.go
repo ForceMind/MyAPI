@@ -309,11 +309,51 @@ func ReadTokenBudget(ctx context.Context, db *gorm.DB, actorID, tokenID int) (*T
 		pending.EvidenceReference = ""
 	}
 	view.Pending = &pending
-	if pending.State != TokenBudgetPrepared {
-		view.Review, err = GetUsageReview(ctx, db, actorID, pending.RequestID)
-		if err != nil {
-			return nil, err
+	if pending.State == TokenBudgetPrepared {
+		// An unsent token reservation cannot safely offer cancellation when an
+		// automatic quota settlement already exists. Keep ordinary prepared
+		// reservations independent of a usage-review journal.
+		var intents []AccountQuotaSettlementIntent
+		if err := db.WithContext(ctx).Select("id").Where("request_id = ?", pending.RequestID).Limit(1).Find(&intents).Error; err != nil {
+			return nil, ErrAccountQuotaSettlementFactUnknown
 		}
+		var facts []AccountQuotaSettlementFact
+		if err := db.WithContext(ctx).Select("id").Where("request_id = ?", pending.RequestID).Limit(1).Find(&facts).Error; err != nil {
+			return nil, ErrAccountQuotaSettlementFactUnknown
+		}
+		if len(intents) == 0 && len(facts) == 0 {
+			return view, nil
+		}
+	}
+	view.Review, err = GetUsageReview(ctx, db, actorID, pending.RequestID)
+	if err != nil {
+		return nil, err
+	}
+	if pending.State == TokenBudgetPrepared {
+		view.Review.SettlementStatus, view.Review.RecoveryBlockReason = "manual", "automatic_settlement_manual"
+		view.Review.CanRecoverTextDispatch, view.Review.CanReconcileUsage = false, false
+		return view, nil
+	}
+	if view.Review.TokenBudget == nil {
+		view.Review.CanReconcileUsage = false
+	}
+	if view.Review.TokenBudget == nil && (view.Review.State == LegacyUsagePrepared || view.Review.State == AccountQuotaTerminalRecoveryOpen) {
+		// The recover endpoint prepares a lost quota hold before reconciling.
+		// This GET only projects that capability; attaching the independent
+		// reservation inside GetUsageReview would make Prepare incorrectly
+		// treat it as an already prepared hold.
+		var evidence struct {
+			StrictTokenBudget bool `json:"strict_token_budget"`
+		}
+		qualified := (pending.State == TokenBudgetSent || pending.State == TokenBudgetUnknown || pending.State == TokenBudgetSettled) &&
+			validTokenBudgetBoundSource(pending.BoundSource) && common.UnmarshalJsonStr(pending.PricingEvidence, &evidence) == nil && evidence.StrictTokenBudget
+		if qualified {
+			view.Review.TokenBudget = view.Pending
+			view.Review.CanReconcileUsage = view.Review.SettlementStatus == "none" || view.Review.Writer == "legacy" && view.Review.SettlementStatus == "applied_journal_pending"
+		}
+	}
+	if pending.State != TokenBudgetSent && pending.State != TokenBudgetUnknown && pending.State != TokenBudgetSettled {
+		view.Review.CanReconcileUsage = false
 	}
 	return view, nil
 }

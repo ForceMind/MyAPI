@@ -224,6 +224,11 @@ test('requires actual input and output counts before reconciling a dispatched re
     },
   })
   renderBudget()
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Advanced: manual reconciliation',
+    })
+  )
   await user.type(
     await screen.findByLabelText('Confirmed quota (internal units)'),
     '20'
@@ -416,6 +421,11 @@ test('USD policy and recovery retain tiny decimal strings without Number convers
     },
   })
   renderBudget()
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Advanced: manual reconciliation',
+    })
+  )
   await user.type(
     await screen.findByLabelText('Confirmed quota (internal units)'),
     '20'
@@ -588,4 +598,199 @@ test('request details explain native Chat limits and conservative bounds before 
     )
   ).toBeVisible()
   expect(api.put).not.toHaveBeenCalled()
+})
+
+test.each([
+  ['pending', 'prepared', 'Automatic settlement pending'],
+  [
+    'applied_journal_pending',
+    'usage_unknown',
+    'Settlement applied; record finalization pending',
+  ],
+  ['manual', 'usage_unknown', 'Settlement needs administrator attention'],
+])(
+  'automatic %s in a %s token reservation does not expose recovery or cancellation',
+  async (status, state, title) => {
+    const user = userEvent.setup()
+    vi.mocked(api.get).mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          ...initial,
+          policy: {
+            ...initial.policy,
+            reserved: 30,
+            pending_request_id: 'request-fixture',
+          },
+          pending: {
+            request_id: 'request-fixture',
+            token_id: 3,
+            user_id: 2,
+            state,
+            reserved: 30,
+            model_name: 'fixture',
+            fee_enabled: false,
+            fee_reserved_usd: '0',
+          },
+          review: {
+            request_id: 'request-fixture',
+            token_id: 3,
+            user_id: 2,
+            state: 'usage_unknown',
+            reserved_quota: 100,
+            actual_quota: null,
+            settlement_status: status,
+            can_reconcile_usage: false,
+          },
+        },
+      },
+    })
+    renderBudget()
+    expect(await screen.findByText(title)).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Advanced: manual reconciliation' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByLabelText('Evidence reference')
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByLabelText('Confirmed quota (internal units)')
+    ).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Refresh' }))
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2))
+    expect(api.post).not.toHaveBeenCalled()
+    expect(api.put).not.toHaveBeenCalled()
+  }
+)
+
+test('applied quota allows a separately authorized strict-token recovery with its immutable known quota', async () => {
+  const user = userEvent.setup()
+  const pending = {
+    request_id: 'request-fixture',
+    token_id: 3,
+    user_id: 2,
+    state: 'usage_unknown',
+    reserved: 30,
+    model_name: 'fixture',
+    fee_enabled: false,
+    fee_reserved_usd: '0',
+    actual_input: 10,
+    actual_output: null,
+  }
+  vi.mocked(api.get).mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        ...initial,
+        policy: {
+          ...initial.policy,
+          reserved: 30,
+          pending_request_id: pending.request_id,
+        },
+        pending,
+        review: {
+          request_id: pending.request_id,
+          token_id: 3,
+          user_id: 2,
+          state: 'usage_unknown',
+          reserved_quota: 100,
+          actual_quota: 20,
+          settlement_status: 'applied_journal_pending',
+          can_reconcile_usage: true,
+          token_budget: pending,
+        },
+      },
+    },
+  })
+  vi.mocked(api.post).mockResolvedValue({
+    data: { success: true, data: initial },
+  })
+  renderBudget()
+  await screen.findByText('Settlement applied; record finalization pending')
+  await user.click(
+    screen.getByRole('button', { name: 'Advanced: manual reconciliation' })
+  )
+  expect(screen.getByLabelText('Confirmed quota (internal units)')).toHaveValue(
+    '20'
+  )
+  expect(
+    screen.getByLabelText('Confirmed quota (internal units)')
+  ).toHaveAttribute('readonly')
+  expect(screen.getByLabelText('Confirmed input tokens')).toHaveValue('10')
+  expect(screen.getByLabelText('Confirmed output tokens')).toHaveValue('')
+  await user.type(screen.getByLabelText('Confirmed output tokens'), '5')
+  await user.type(
+    screen.getByLabelText('Evidence reference'),
+    'verified token evidence'
+  )
+  await user.click(screen.getByRole('checkbox', { name: confirmedUsage }))
+  await user.click(
+    screen.getByRole('button', { name: 'Confirm reconciliation' })
+  )
+  await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
+  expect(vi.mocked(api.post).mock.calls[0]?.[1]).toEqual({
+    request_id: pending.request_id,
+    action: 'reconcile',
+    evidence_reference: 'verified token evidence',
+    confirmed_reliable_evidence: true,
+    actual_quota: 20,
+    actual_input_tokens: 10,
+    actual_output_tokens: 5,
+  })
+})
+
+test('token-budget refresh failure removes stale recovery controls and does not show raw errors', async () => {
+  const user = userEvent.setup()
+  vi.mocked(api.get)
+    .mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: {
+          ...initial,
+          policy: {
+            ...initial.policy,
+            reserved: 30,
+            pending_request_id: 'request-fixture',
+          },
+          pending: {
+            request_id: 'request-fixture',
+            token_id: 3,
+            user_id: 2,
+            state: 'usage_unknown',
+            reserved: 30,
+            model_name: 'fixture',
+            fee_enabled: false,
+            fee_reserved_usd: '0',
+          },
+          review: {
+            request_id: 'request-fixture',
+            token_id: 3,
+            user_id: 2,
+            state: 'usage_unknown',
+            reserved_quota: 100,
+            actual_quota: null,
+            can_reconcile_usage: true,
+          },
+        },
+      },
+    })
+    .mockRejectedValueOnce(new Error('private SQL credential'))
+  renderBudget()
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Advanced: manual reconciliation',
+    })
+  )
+  await user.type(
+    screen.getByLabelText('Evidence reference'),
+    'unfinished token evidence'
+  )
+  await user.click(screen.getByRole('button', { name: 'Refresh' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Operation failed')
+  expect(screen.queryByLabelText('Evidence reference')).not.toBeInTheDocument()
+  expect(screen.queryByText('private SQL credential')).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('button', { name: 'Confirm reconciliation' })
+  ).not.toBeInTheDocument()
+  expect(api.post).not.toHaveBeenCalled()
 })

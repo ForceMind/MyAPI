@@ -10,6 +10,9 @@
 
 MyAPI 将渠道接入、应用 API Key、权限和用量记录集中在一个管理界面中，优先满足个人自用，也支持受控地分享给少量用户。新安装默认关闭商业模块，使用自己的模型服务账号不需要先充值内部钱包；用户管理、权限、Key 限制和用量统计仍然保留。
 
+
+商业关闭不会自动改变旧用户：需显式选择用户无钱包策略，新安装首个 Root 已启用。当前仅覆盖合格的 POST Chat/Responses/Responses compact 且不带 query 的请求，Key 限制和用量记账仍然生效。
+
 ## 技术栈
 
 ![Go](https://img.shields.io/badge/Go-00ADD8?style=flat-square&logo=go&logoColor=white)
@@ -58,19 +61,15 @@ MyAPI 将渠道接入、应用 API Key、权限和用量记录集中在一个管
 
 ### 使用边界
 
-严格 Token/USD 预算目前只覆盖已取得资格的**官方原生 Responses 纯文本路径**；USD 还要求匹配的冻结价格和受支持服务档位。模型别名、协议转换、工具及多模态不会自动获得精确预算资格。
+严格 Token/USD 预算覆盖已取得资格的**官方原生 Responses 纯文本路径**及精确 `gpt-6.1-sol` 原生 Chat 文本；Chat 按 1,050,000 Token 总上下文上界保守预留，剩余额度不足时小请求也可能拒绝。USD 还要求匹配的冻结价格和受支持服务档位。模型别名、协议转换、工具及多模态不会自动获得精确预算资格。
 
 Codex 百分比是账户/窗口剩余量的安全阈值，不是共享订阅在各 Key 之间的消耗账本。订阅渠道的 API 等价成本仅供参考，不是供应商实际账单。缺失或估算用量不等于实际为零；结果不明的请求应保留证据并核对，不能直接假定退款。
 
 ## 选择版本
 
-截至 2026-10-04：
+截至 2026-10-09，**[v0.2.0-beta.9 已发布](https://github.com/ForceMind/MyAPI/releases/tag/v0.2.0-beta.9)**，包含 Full/LAN 的 amd64/arm64 镜像，累计交付 beta.4–7 限定路由/预算/策略、beta.8 UI 与 beta.9 真 Key 聊天及受限图片/PDF。见[发布证据](docs/RELEASE_BETA_9.md)。
 
-- **源码候选：`v0.2.0-beta.9`；最新已发布预发布版：`v0.2.0-beta.8`。** beta.9 增加内置聊天的真实 API Key 显式选择与受限图片/PDF 附件，仍为 Draft 源码候选，不代表镜像已发布或可以部署。范围、证据、支持限制和授权边界见 [beta.9 发布候选记录](docs/RELEASE_BETA_9.md)。下方安装示例使用已发布的 beta.8。
-- **beta.4：源码与限定自动化已通过，未发布。** 包含限定范围的模型发现、显式映射、路由预览、实际分发和日志流程，不包含在 beta.3 镜像里。
-- **beta.5：仅本地开发候选。** 多账户调度、临时冷却、有界故障切换及尝试说明尚未发布；该候选自己的远端三数据库及 Chromium 验证仍待完成。
-
-预览版不代表生产就绪。真实账号 OAuth、额度重置/429、供应商账单对照及目标服务器 HTTPS 验收仍有限或未完成；构建成功、容器健康不能代替这些结果。默认镜像仍指向 beta.3，检出开发分支不会自动运行开发版镜像。
+已验证指定 Full 升级、隔离快照恢复及目标 HTTPS；真实上游 OAuth、窗口重置/429 和账单对照仍是独立且有限的验收，不因此宣称稳定版。统一 Lite/Desktop 安装更新未交付。下一主节点是[个人模式与 Key 限额闭环](docs/PERSONAL_CORE_DELIVERY_CARD.md)，再有界精简结构。
 
 ## 安装已发布预览版
 
@@ -91,7 +90,7 @@ Codex 百分比是账户/窗口剩余量的安全阈值，不是共享订阅在�
 以下操作只用于**新目录中的全新安装**：
 
 ```bash
-git clone --branch v0.2.0-beta.8 --single-branch https://github.com/ForceMind/MyAPI.git my-api
+git clone --branch v0.2.0-beta.9 --single-branch https://github.com/ForceMind/MyAPI.git my-api
 cd my-api
 umask 077
 cp deploy/.env.example deploy/.env
@@ -105,7 +104,7 @@ chmod 600 deploy/.env
 编辑 `deploy/.env`，保留以下选项，将示例地址改为自己的准确 HTTPS Origin，不带 API 路径：
 
 ```dotenv
-MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.8
+MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.9
 MYAPI_BUILD_LOCAL=false
 MYAPI_EDITION=full
 MYAPI_BIND_ADDRESS=127.0.0.1
@@ -141,12 +140,12 @@ bash deploy/install.sh
 
 打开配置的 **HTTPS 地址**，完成初始化并创建管理员账号。Full 使用 Secure Cookie，不应把 `http://localhost:3000` 当作推荐登录地址。加入真实账户前，先确认能登录，并在「系统信息」核对运行版本及 revision。
 
-只在本机或私网使用时，另按[旧版 LAN 指南](docs/LAN_LITE.md)选择已发布的 `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.8`。局域网共享需要明确开启。统一 Lite/Desktop 安装器及更新器尚未交付，桌面构建产物也不代表实机验收完成。
+只在本机或私网使用时，另按[旧版 LAN 指南](docs/LAN_LITE.md)选择已发布的 `ghcr.io/forcemind/myapi-lan:v0.2.0-beta.9`。局域网共享需要明确开启。统一 Lite/Desktop 安装器及更新器尚未交付，桌面构建产物也不代表实机验收完成。
 
 ## 完成第一次调用
 
 1. **添加模型服务渠道。** 在「渠道」(`/channels`) 选择真实供应商类型，填写合法授权的地址及凭据。容器内 Codex 使用现有网页登录流程，容器无法读取宿主机登录文件。
-2. **启用模型。** 在支持时获取模型列表，或手动填写模型服务提供的准确模型 ID。确认启用的模型、分组/访问方案及显式映射。发现模型不等于已授权或调用成功；增强的 beta.4 发现与路由流程需要对应开发源码，不在 beta.3 镜像中。
+2. **启用模型。** 在支持时获取模型列表，或手动填写模型服务提供的准确模型 ID。确认启用的模型、分组/访问方案及显式映射。发现模型不等于已授权或调用成功；限定 beta.4 发现与路由流程已累计包含于 beta.9。
 3. **做一次小规模渠道测试。** 明确选择模型、受支持端点和流式模式。测试会联系模型服务，可能消耗额度或产生费用，先使用非敏感输入。
 4. **创建应用 API Key。** 为应用单独建 Key，只授予所需模型和访问方案，选择该渠道支持的限制。不要分发模型服务密钥或管理员登录令牌。
 5. **配置客户端。** OpenAI 兼容客户端的 Base URL 使用自己的 HTTPS 地址加 `/v1`，密钥使用應用程式 Key，模型填写实际启用的公共名称。其他协议使用相应文档中的端点。先发一条简短请求，再接入正式任务。
@@ -175,10 +174,10 @@ node cli/myapi.mjs logs --project-dir .
 
 1. 记录正在运行的镜像 tag/digest、源码 revision、数据库类型、路径和私有配置。目标必须是实际发布版本，不使用规划中的 beta 标签或 `latest`。
 2. 按对应数据库流程制作一致性备份；SQLite 按需保留 WAL 状态，同时保存配置、会话密钥、完整身份密钥环及必要日志。在隔离副本验证恢复后再升级真实实例。
-3. 在副本中演练目标版本的登录、渠道、Key、受控请求、日志和恢复。CLI 支持只读预检；例如为旧实例演练升级至已发布 beta.3：
+3. 在副本中演练目标版本的登录、渠道、Key、受控请求、日志和恢复。CLI 支持只读预检；例如为旧实例演练升级至已发布 beta.9：
 
    ```bash
-   node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.8 --dry-run --json
+   node cli/myapi.mjs upgrade --project-dir ./upgrade-copy --version v0.2.0-beta.9 --dry-run --json
    ```
 
 4. 实际切换按[升级演练与恢复指南](docs/UPGRADE_REHEARSAL.md)执行。CLI 保存的 `.env` **不是数据库备份**。一旦尝试启动目标版本，数据库可能已经迁移，CLI 不会自动启动旧镜像；启动不兼容旧程序前，必须恢复经过验证的升级前数据库备份。
@@ -195,7 +194,7 @@ node cli/myapi.mjs logs --project-dir .
 
 ## 文档与帮助
 
-- [beta.3 制品与发布证据](docs/RELEASE_BETA_7.md)
+- [beta.9 制品与发布证据](docs/RELEASE_BETA_9.md)
 - [部署配置](DEPLOYMENT_CUSTOM.md) · [旧版 LAN](docs/LAN_LITE.md)
 - [升级与恢复](docs/UPGRADE_REHEARSAL.md) · [安装验收记录](docs/R1_INSTALLATION_CHECK.md)
 - [Relay API](docs/openapi/relay.json) · [管理 API](docs/openapi/api.json)
