@@ -23,7 +23,7 @@ concurrency:
 jobs:
   prepare-smoke-images:
     # One current-source build per edition; no application or credentials run here.
-    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON('["codex/r1-usage-review-20261002","codex/settlement-review-status-20261009","codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010"]'), github.event.pull_request.head.ref))
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON('["codex/r1-usage-review-20261002","codex/settlement-review-status-20261009","codex/beta11-release-candidate-20261010","codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010"]'), github.event.pull_request.head.ref))
     name: Prepare immutable smoke image bundles
     runs-on: ubuntu-latest
     timeout-minutes: 50
@@ -34,7 +34,7 @@ jobs:
       lan-manifest: ${{ steps.publish.outputs.lan_manifest_sha256 }}
     env:
       BUNDLE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      BUNDLE_PERSONAL: ${{ github.event_name == 'pull_request' && contains(fromJSON('["codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010"]'), github.event.pull_request.head.ref) && '1' || '0' }}
+      BUNDLE_PERSONAL: ${{ github.event_name == 'pull_request' && contains(fromJSON('["codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010","codex/beta11-release-candidate-20261010"]'), github.event.pull_request.head.ref) && '1' || '0' }}
     steps:
       - name: Check out
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -221,7 +221,7 @@ jobs:
 
   installer-local-build:
     # Exercise the actual source installer, separately from the direct-run probe.
-    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON('["codex/r1-usage-review-20261002","codex/settlement-review-status-20261009"]'), github.event.pull_request.head.ref))
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON('["codex/r1-usage-review-20261002","codex/settlement-review-status-20261009","codex/beta11-release-candidate-20261010"]'), github.event.pull_request.head.ref))
     name: LAN source installer and fresh SQLite
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -307,7 +307,7 @@ jobs:
     needs: prepare-smoke-images
     # Bounded acceptance branches, never a general fork runner.
     # Manual Full/LAN coverage remains available unchanged.
-    if: always() && !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON('["codex/r1-usage-review-20261002","codex/settlement-review-status-20261009","codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010"]'), github.event.pull_request.head.ref))) && (needs.prepare-smoke-images.outputs.full-manifest != '' || needs.prepare-smoke-images.outputs.lan-manifest != '')
+    if: always() && !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON('["codex/r1-usage-review-20261002","codex/settlement-review-status-20261009","codex/beta11-release-candidate-20261010","codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010"]'), github.event.pull_request.head.ref))) && (needs.prepare-smoke-images.outputs.full-manifest != '' || needs.prepare-smoke-images.outputs.lan-manifest != '')
     name: ${{ matrix.edition }} ${{ matrix.scenario }} ${{ matrix.writer }} image and SQLite smoke
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -318,14 +318,15 @@ jobs:
         edition: ${{ fromJSON(github.event_name == 'pull_request' && '["full"]' || '["full","lan"]') }}
         scenario: [fresh]
         writer: [legacy]
-        # The personal slice uses two fresh owned DBs; historical handoff remains
-        # on its existing branches/manual entry, not duplicated into this slice.
-        include: ${{ fromJSON(github.event_name == 'pull_request' && contains(fromJSON('["codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010"]'), github.event.pull_request.head.ref) && '[{"edition":"full","scenario":"fresh","writer":"authoritative"}]' || '[{"edition":"full","scenario":"handoff","writer":"legacy"}]') }}
+        # Personal slices use two fresh owned DBs. The release candidate also
+        # retains historical handoff and the independent LAN source installer.
+        include: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'codex/beta11-release-candidate-20261010' && '[{"edition":"full","scenario":"fresh","writer":"authoritative"},{"edition":"full","scenario":"handoff","writer":"legacy"}]' || github.event_name == 'pull_request' && contains(fromJSON('["codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010"]'), github.event.pull_request.head.ref) && '[{"edition":"full","scenario":"fresh","writer":"authoritative"}]' || '[{"edition":"full","scenario":"handoff","writer":"legacy"}]') }}
     env:
       MYAPI_SMOKE_EDITION: ${{ matrix.edition }}
       MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
       MYAPI_ISOLATED_SMOKE: '1'
-      MYAPI_SMOKE_PERSONAL: ${{ github.event_name == 'pull_request' && contains(fromJSON('["codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010"]'), github.event.pull_request.head.ref) && '1' || '0' }}
+      BUNDLE_PERSONAL: ${{ github.event_name == 'pull_request' && contains(fromJSON('["codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010","codex/beta11-release-candidate-20261010"]'), github.event.pull_request.head.ref) && '1' || '0' }}
+      MYAPI_SMOKE_PERSONAL: ${{ matrix.scenario == 'fresh' && github.event_name == 'pull_request' && contains(fromJSON('["codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010","codex/beta11-release-candidate-20261010"]'), github.event.pull_request.head.ref) && '1' || '0' }}
       MYAPI_SMOKE_WRITER: ${{ matrix.writer }}
       SMOKE_NETWORK: myapi-personal-${{ github.sha }}-${{ matrix.writer }}
       SMOKE_REDIS_CONTAINER: myapi-personal-redis-${{ github.sha }}-${{ matrix.writer }}
@@ -374,7 +375,7 @@ jobs:
           [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
           if [[ "$MYAPI_SMOKE_EDITION" == 'full' ]]; then BUNDLE_MANIFEST_SHA="$FULL_MANIFEST_SHA"; else BUNDLE_MANIFEST_SHA="$LAN_MANIFEST_SHA"; fi
           node tools/runtime/smoke-image-bundle.mjs verify-load \
-            --directory "$RUNNER_TEMP/smoke-image-bundle" --edition "$MYAPI_SMOKE_EDITION" --personal "$MYAPI_SMOKE_PERSONAL" \
+            --directory "$RUNNER_TEMP/smoke-image-bundle" --edition "$MYAPI_SMOKE_EDITION" --personal "$BUNDLE_PERSONAL" \
             --source-sha "$GITHUB_SHA" --head-sha "$BUNDLE_HEAD_SHA" \
             --tree-sha "$(git rev-parse 'HEAD^{tree}')" --run-id "$GITHUB_RUN_ID" \
             --producer-attempt "${{ needs.prepare-smoke-images.outputs.attempt }}" \
