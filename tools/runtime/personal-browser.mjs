@@ -13,12 +13,34 @@ const stages = new Set(['launch', 'setup', 'setup-session', 'setup-open', 'setup
   'key-create', 'key-create-open', 'key-create-ready', 'key-create-profile', 'key-create-cap',
   'key-create-quota', 'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm',
   'key-selection-refresh', 'key-selection-model', 'playground-response', 'playground-complete', 'playground-rejection',
-  'usage-open', 'usage-list', 'usage-details-open', 'usage-details-request', 'usage-details-key',
+  'usage-open', 'usage-list', 'usage-list-visible', 'usage-details-open', 'usage-details-request', 'usage-details-key',
   'strict-budget', 'reload-check', 'screenshot', 'browser-close'])
 const codes = new Set(['SCOPE_REJECTED', 'AUTH_UNAVAILABLE', 'BROWSER_FAILED', 'BROWSER_CLOSE_FAILED', 'SETUP_FAILED',
   'HTTP_FAILED', 'LOGIN_FAILED', 'RUNTIME_ERROR', 'BUILD_MISMATCH', 'API_FAILED', 'STATE_MISMATCH',
   'KEY_MISMATCH', 'POLICY_MISMATCH', 'REQUEST_MISMATCH', 'RELAY_MISMATCH', 'LOG_MISMATCH',
   'USAGE_MISMATCH', 'UPSTREAM_MISMATCH', 'WRITER_MISMATCH', 'SCREENSHOT_REJECTED', 'TIMEOUT'])
+const diagnosticCategories = new Set(['asset', 'auth', 'log', 'bootstrap'])
+const browserErrorClasses = new Set(['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'ChunkLoadError', 'ImportError', 'other'])
+
+function diagnosticCategory(request, origin) {
+  const url = new URL(request.url())
+  if (url.origin !== origin) return undefined
+  if (['/api/user/login', '/api/user/auth/refresh', '/api/user/logout', '/api/user/self'].includes(url.pathname)) return 'auth'
+  if (url.pathname === '/api/log' || url.pathname.startsWith('/api/log/')) return 'log'
+  if (['/api/status', '/api/setup'].includes(url.pathname)) return 'bootstrap'
+  if (['script', 'stylesheet', 'font', 'image'].includes(request.resourceType?.())) return 'asset'
+  return undefined
+}
+
+function browserErrorClass(name, message) {
+  // Classify in memory only. Neither the text, error object, nor console JS
+  // handles/location may cross the diagnostic boundary.
+  const text = typeof message === 'string' ? message.slice(0, 4096) : ''
+  if (name === 'ChunkLoadError' || /\bChunkLoadError\b|\bLoading (?:CSS )?chunk [\s\S]*? failed\b/i.test(text)) return 'ChunkLoadError'
+  if (/\bFailed to fetch dynamically imported module\b|\bImporting a module script failed\b|\berror loading dynamically imported module\b/i.test(text)) return 'ImportError'
+  if (browserErrorClasses.has(name)) return name
+  return text.match(/\b(TypeError|RangeError|ReferenceError|SyntaxError|Error):/)?.[1] || 'other'
+}
 
 function requireThat(condition, code) {
   if (!condition) throw new Error(`SMOKE_PERSONAL_${code}`)
@@ -82,12 +104,15 @@ async function withBrowser(options, withUpstream, run) {
   scope.contexts = new Set()
   scope.backoffSeconds = 0
   let stage = 'launch'
-  const progress = (event, code, httpStatus, retryAfter) => {
+  const progress = (event, code, httpStatus, retryAfter, diagnostic = {}) => {
     const record = { command: 'personal:browser', phase: withUpstream ? 'journey' : 'setup', event,
       stage, sha: options.sha, writer: scope.writer, ...(code ? { code } : {}),
       ...(Number.isInteger(httpStatus) && httpStatus >= 100 && httpStatus <= 599 ? { httpStatus } : {}),
-      ...(Number.isSafeInteger(retryAfter) && retryAfter >= 0 ? { retryAfter } : {}) }
-    // Emit only our fixed metadata, never browser diagnostics or response data.
+      ...(Number.isSafeInteger(retryAfter) && retryAfter >= 0 ? { retryAfter } : {}),
+      ...(diagnosticCategories.has(diagnostic.category) ? { category: diagnostic.category } : {}),
+      ...(browserErrorClasses.has(diagnostic.errorClass) ? { errorClass: diagnostic.errorClass } : {}),
+      ...(diagnostic.count === 16 ? { count: 16 } : {}) }
+    // Emit only fixed classifications/numeric metadata, never raw diagnostics.
     try {
       if (typeof options.onProgress === 'function') Promise.resolve(options.onProgress(record)).catch(() => {})
       else console.error(JSON.stringify(record))
@@ -98,6 +123,7 @@ async function withBrowser(options, withUpstream, run) {
     set(value) { stage = stages.has(value) ? value : 'launch'; progress('stage') },
   })
   scope.documentResponse = (httpStatus, retryAfter) => progress('document-response', undefined, httpStatus, retryAfter)
+  scope.diagnostic = (event, detail) => progress(event, undefined, detail.httpStatus, detail.retryAfter, detail)
   let browser
   let failed = false
   scope.stage = 'launch'
@@ -165,7 +191,43 @@ async function newSession(browser, origin, language = 'en', width = 1280, scope 
   const translations = JSON.parse(readFileSync(new URL(`../../web/src/i18n/locales/${language}.json`, import.meta.url), 'utf8')).translation
   const session = { context, page, scope, language, width, origin, errors: 0, requests: 0, reveals: 0, secrets: [], keyReads: new Set(),
     label: (key) => translations[key] || key }
-  page.on('pageerror', () => { session.errors += 1 })
+  const diagnostics = new Set()
+  let diagnosticLimit = false
+  const diagnose = (event, detail) => {
+    const signature = JSON.stringify([event, detail])
+    if (diagnostics.has(signature)) return
+    if (diagnostics.size === 16) {
+      if (!diagnosticLimit) {
+        diagnosticLimit = true
+        scope.diagnostic('diagnostic-limit', { count: 16 })
+      }
+      return
+    }
+    diagnostics.add(signature)
+    scope.diagnostic(event, detail)
+  }
+  // Install before the first navigation, including lazy route assets. All
+  // callbacks are best-effort observers: no body reads, retries or UI changes.
+  page.on('response', response => {
+    try {
+      const category = diagnosticCategory(response.request(), origin)
+      const httpStatus = response.status()
+      if (!category || !Number.isInteger(httpStatus) || httpStatus < 400 || httpStatus > 599) return
+      const raw = response.headers()['retry-after']
+      const retryAfter = typeof raw === 'string' && /^\d+$/.test(raw) ? Number(raw) : undefined
+      diagnose('diagnostic-response', { category, httpStatus,
+        ...(Number.isSafeInteger(retryAfter) && retryAfter >= 0 ? { retryAfter } : {}) })
+    } catch {} // Diagnostics must never replace the original business failure.
+  })
+  page.on('pageerror', error => {
+    session.errors += 1 // Preserve the existing runtime-error acceptance check.
+    try { diagnose('diagnostic-pageerror', { errorClass: browserErrorClass(error?.name, error?.message) }) } catch {}
+  })
+  page.on('console', message => {
+    try {
+      if (message.type() === 'error') diagnose('diagnostic-console', { errorClass: browserErrorClass(undefined, message.text()) })
+    } catch {}
+  })
   page.on('request', (request) => {
     const url = new URL(request.url())
     const pathname = url.pathname
@@ -175,7 +237,13 @@ async function newSession(browser, origin, language = 'en', width = 1280, scope 
     if (/^\/api\/token\/\d+\/key$/.test(pathname)) session.reveals += 1
   })
   page.on('requestfinished', request => session.keyReads.delete(request))
-  page.on('requestfailed', request => session.keyReads.delete(request))
+  page.on('requestfailed', request => {
+    session.keyReads.delete(request)
+    try {
+      const category = diagnosticCategory(request, origin)
+      if (category) diagnose('diagnostic-requestfailed', { category })
+    } catch {}
+  })
   return session
 }
 
@@ -544,6 +612,7 @@ async function showPersistedUsage(session, key, requestId, options, screenshots)
     const log = data.items[0]
     requireThat(log.request_id === requestId && log.user_id === session.user.id && log.token_id === key.id &&
       log.token_name === key.name && log.model_name === model, 'LOG_MISMATCH')
+    session.scope.stage = 'usage-list-visible'
     // Mobile cards reuse the actual desktop cells, but only one layout mounts.
     // Filter visibility to exclude tooltip copies; never choose an arbitrary
     // first history entry or suppress ambiguity among visible target entries.

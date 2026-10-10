@@ -8,7 +8,7 @@ const base = { baseUrl: 'http://127.0.0.1:18080', upstreamBaseUrl: 'http://127.0
   sha: 'a'.repeat(40), edition: 'full', isolated: true,
   username: 'synthetic-root', password: 'synthetic-password-never-report', writer: 'legacy', onProgress() {} }
 
-function setupBrowser({ failAt, responseSuccess = true, closeFails = false, documentResponses = [] } = {}) {
+function setupBrowser({ failAt, responseSuccess = true, closeFails = false, documentResponses = [], onNavigate } = {}) {
   const calls = []
   let route
   const locator = (kind, value) => ({
@@ -27,9 +27,10 @@ function setupBrowser({ failAt, responseSuccess = true, closeFails = false, docu
   const page = {
     current: base.baseUrl + '/', url() { return this.current },
     setDefaultTimeout() {},
-    on() {},
+    listeners: {}, on(event, handler) { this.listeners[event] = handler },
     async goto(url) {
       calls.push(['goto', url]); this.current = url
+      onNavigate?.(this)
       const result = documentResponses.shift() || { status: 200 }
       return { status: () => result.status, headers: () => ({ 'retry-after': result.retryAfter }),
         request: () => ({ method: () => result.method || 'GET' }) }
@@ -134,7 +135,7 @@ import { mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false, forbidStreamReads = false, hangAt, closeHangs = false, documentResponses = [], reloadAlreadyCurrent = false, inflightKeys, unsafeUsageScreenshot = false, failUsageScreenshot = false, usageFailureRole } = {}) {
+function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false, forbidStreamReads = false, hangAt, closeHangs = false, documentResponses = [], reloadAlreadyCurrent = false, inflightKeys, unsafeUsageScreenshot = false, failUsageScreenshot = false, usageFailureRole, onNavigate } = {}) {
   const reverse = Object.fromEntries(Object.entries(JSON.parse(readFileSync(new URL('../../web/src/i18n/locales/zh.json', import.meta.url))).translation).map(([key, value]) => [value, key]))
   const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
   const users = new Map([[1, { id: 1, username: base.username, role: 100, quota: 0, used_quota: 15, request_count: 1, self_use_no_balance: true, revision: 1 }]])
@@ -191,6 +192,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
       setDefaultTimeout() {}, on(event, handler) { this.listeners[event] = handler },
       async goto(url) {
         this.current = url
+        onNavigate?.(this)
         navigations.push({ kind: 'document', locale: context.locale, path: new URL(url).pathname })
         const result = documentResponses.shift() || { status: 200 }
         if (result.status === 200) {
@@ -276,6 +278,9 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
           return this
         }, last() { return this },
         async waitFor(options) {
+          if (kind === 'text' && value === page.visibleLog?.token_name && !page.logDetailsOpen) {
+            assert.notEqual(corrupt, 'ui-log-visible')
+          }
           if (page.logDetailsOpen && kind === 'text') {
             if (String(value).startsWith('request-private-')) assert.notEqual(corrupt, 'ui-log-dialog-request')
             if (value === page.visibleLog?.token_name) assert.notEqual(corrupt, 'ui-log-dialog-key')
@@ -850,6 +855,7 @@ test('usage UI binds exact request and Key to the real role-specific list withou
 
 for (const [corrupt, code, stage] of [
   ...['request', 'owner', 'key', 'model', 'duplicate', 'missing'].map(kind => [`ui-log-${kind}`, 'LOG_MISMATCH', 'usage-list']),
+  ['ui-log-visible', 'BROWSER_FAILED', 'usage-list-visible'],
   ['ui-log-ambiguous', 'LOG_MISMATCH', 'usage-details-open'],
   ['ui-log-open', 'BROWSER_FAILED', 'usage-details-open'],
   ['ui-log-dialog-request', 'BROWSER_FAILED', 'usage-details-request'],
@@ -1033,3 +1039,156 @@ for (const [corrupt, code, pathname] of [
     assert(!events.some(event => event.stage === 'document-backoff' || event.event === 'document-response'))
   })
 }
+
+// Diagnostic fixtures deliberately contain secret-like URL/header/message data.
+// Only the fixed classification and numeric fields may reach the observer.
+function diagnosticResponse(pathname, status = 429, retryAfter = '17', resourceType = 'fetch') {
+  const request = { url: () => pathname.startsWith('http') ? pathname : base.baseUrl + pathname,
+    resourceType: () => resourceType, method: () => 'GET',
+    failure() { throw new Error('must not inspect raw network failure') } }
+  return { request: () => request, status: () => status,
+    headers: () => ({ 'retry-after': retryAfter, authorization: base.password }),
+    json() { throw new Error('must not read diagnostic body') },
+    text() { throw new Error('must not read diagnostic body') } }
+}
+
+function diagnosticRecords(events) { return events.filter(event => event.event.startsWith('diagnostic-')) }
+
+test('first-navigation failures emit only same-origin fixed categories, numeric status and valid Retry-After', async () => {
+  const events = []
+  const fixture = setupBrowser({ onNavigate(page) {
+    for (const [pathname, resource, status, retry] of [
+      [`/static/js/secret-${base.password}.js?token=session-private-secret`, 'script', 429, '17'],
+      ['/api/user/auth/refresh?token=secret-masked-key', 'fetch', 503, '0'],
+      ['/api/log/self?request_id=request-private-secret', 'fetch', 500, base.password],
+      ['/api/status', 'fetch', 429, '9999999999999999999999999'],
+      ['https://outside.invalid/static/app.js?secret=' + base.password, 'script', 429, '17'],
+      ['/api/token/1/key', 'fetch', 403, '17'],
+      ['/static/app.js', 'script', 200, '17'],
+      ['/static/app.js', 'script', '429', '17'],
+      ['/static/app.js', 'script', 600, '17'],
+      ['http://127.0.0.1:19090/static/app.js', 'script', 429, '17'],
+    ]) page.listeners.response?.(diagnosticResponse(pathname, status, retry, resource))
+  } })
+  assert.equal((await browserSetup({ ...base, playwrightModule: fixture.module, onProgress: value => events.push(value) })).ok, true)
+  const records = diagnosticRecords(events)
+  assert.deepEqual(records.map(({ category, httpStatus, retryAfter }) => ({ category, httpStatus, retryAfter })), [
+    { category: 'asset', httpStatus: 429, retryAfter: 17 },
+    { category: 'auth', httpStatus: 503, retryAfter: 0 },
+    { category: 'log', httpStatus: 500, retryAfter: undefined },
+    { category: 'bootstrap', httpStatus: 429, retryAfter: undefined },
+  ])
+  assert(records.every(record => record.stage === 'setup-open' && record.event === 'diagnostic-response'))
+  for (const record of records) assert.deepEqual(Object.keys(record).sort(), [
+    'command', 'phase', 'event', 'stage', 'sha', 'writer', 'category', 'httpStatus',
+    ...(record.retryAfter !== undefined ? ['retryAfter'] : []),
+  ].sort())
+  for (const secret of [base.password, 'session-private-', 'secret-masked-key', 'request-private-', '/static/', 'authorization']) {
+    assert(!JSON.stringify(events).includes(secret))
+  }
+  assert.equal(fixture.calls.filter(call => call[0] === 'goto').length, 1, 'diagnostics never retry navigation')
+})
+
+test('console route exceptions classify chunk/import failures without serializing text, arguments or location', async () => {
+  const events = []
+  const fixture = setupBrowser({ onNavigate(page) {
+    for (const text of [
+      `TypeError: Failed to fetch dynamically imported module: https://host/${base.password}`,
+      `ChunkLoadError: Loading chunk 42 failed (${base.password})`,
+      `ReferenceError: ${base.password} is not defined`,
+      `arbitrary secret name ${base.password}`,
+    ]) page.listeners.console?.({ type: () => 'error', text: () => text,
+      args() { throw new Error('must not inspect console arguments') },
+      location() { throw new Error('must not inspect console location') } })
+    page.listeners.console?.({ type: () => 'warning', text() { throw new Error('not an error') } })
+  } })
+  assert.equal((await browserSetup({ ...base, playwrightModule: fixture.module, onProgress: value => events.push(value) })).ok, true)
+  assert.deepEqual(diagnosticRecords(events).map(({ event, errorClass }) => ({ event, errorClass })), [
+    { event: 'diagnostic-console', errorClass: 'ImportError' },
+    { event: 'diagnostic-console', errorClass: 'ChunkLoadError' },
+    { event: 'diagnostic-console', errorClass: 'ReferenceError' },
+    { event: 'diagnostic-console', errorClass: 'other' },
+  ])
+  assert(!JSON.stringify(events).includes(base.password))
+})
+
+test('pageerror retains the existing runtime failure while exposing only a whitelisted class', async () => {
+  const events = []
+  const fixture = setupBrowser({ onNavigate(page) {
+    for (const [name, message] of [['TypeError', base.password], [base.password, base.password],
+      ['Error', `Importing a module script failed: https://host/${base.password}`]]) {
+      page.listeners.pageerror?.({ name, message, get stack() { throw new Error('must not inspect stack') } })
+    }
+  } })
+  await assert.rejects(browserSetup({ ...base, playwrightModule: fixture.module, onProgress: value => events.push(value) }),
+    error => error.message === 'SMOKE_PERSONAL_RUNTIME_ERROR' && error.stage === 'setup-response')
+  assert.deepEqual(diagnosticRecords(events).map(record => record.errorClass), ['TypeError', 'other', 'ImportError'])
+  assert(!JSON.stringify(events).includes(base.password))
+  assert.equal(fixture.calls.at(-1)[0], 'browser-close')
+})
+
+test('request failures record only fixed same-origin categories and deduplicate paths and messages', async () => {
+  const events = []
+  const fixture = setupBrowser({ onNavigate(page) {
+    for (const [pathname, type] of [
+      ['/static/js/' + base.password, 'script'], ['/static/style.css', 'stylesheet'],
+      ['/api/user/login?password=' + base.password, 'fetch'], ['/api/log/self', 'fetch'], ['/api/setup', 'fetch'],
+      ['https://outside.invalid/static/js/app.js', 'script'], ['/pg/chat/completions', 'fetch'],
+    ]) page.listeners.requestfailed?.(diagnosticResponse(pathname, 500, '', type).request())
+  } })
+  await browserSetup({ ...base, playwrightModule: fixture.module, onProgress: value => events.push(value) })
+  assert.deepEqual(diagnosticRecords(events).map(({ event, category }) => ({ event, category })),
+    ['asset', 'auth', 'log', 'bootstrap'].map(category => ({ event: 'diagnostic-requestfailed', category })))
+  assert(!JSON.stringify(events).includes(base.password))
+})
+
+test('diagnostics cap distinct session records at sixteen with one fixed limit marker', async () => {
+  const events = []
+  const fixture = setupBrowser({ onNavigate(page) {
+    for (let status = 400; status < 440; status++) {
+      for (let duplicate = 0; duplicate < 2; duplicate++) {
+        page.listeners.response?.(diagnosticResponse('/static/' + status + '.js', status, '1', 'script'))
+      }
+    }
+  } })
+  await browserSetup({ ...base, playwrightModule: fixture.module, onProgress: value => events.push(value) })
+  const records = diagnosticRecords(events)
+  assert.equal(records.length, 17)
+  assert.deepEqual(records.slice(0, 16).map(record => record.httpStatus), Array.from({ length: 16 }, (_, i) => 400 + i))
+  assert.deepEqual(records.at(-1), { command: 'personal:browser', phase: 'setup', event: 'diagnostic-limit',
+    stage: 'setup-open', sha: base.sha, writer: 'legacy', count: 16 })
+})
+
+test('malformed diagnostic inputs and a rejecting observer cannot replace the original failure or prevent cleanup', async () => {
+  const fixture = setupBrowser({ responseSuccess: false, onNavigate(page) {
+    page.listeners.response?.({ request() { throw new Error(base.password) } })
+    page.listeners.requestfailed?.({ url() { throw new Error(base.password) } })
+    page.listeners.console?.({ type: () => 'error', text() { throw new Error(base.password) } })
+    page.listeners.pageerror?.({ get name() { throw new Error(base.password) } })
+    page.listeners.response?.(diagnosticResponse('/static/app.js', 429, '0', 'script'))
+  } })
+  await assert.rejects(browserSetup({ ...base, playwrightModule: fixture.module,
+    onProgress() { return Promise.reject(new Error(base.password)) } }),
+  error => error.message === 'SMOKE_PERSONAL_SETUP_FAILED' && !error.stack.includes(base.password))
+  assert.equal(fixture.calls.at(-1)[0], 'browser-close')
+})
+
+test('diagnostic caps are independent for Root and ordinary-owner sessions and leave the journey unchanged', async () => {
+  const events = []
+  const pages = new Set()
+  const fixture = journeyBrowser({ onNavigate(page) {
+    if (pages.has(page)) return
+    pages.add(page)
+    for (let status = 400; status < 418; status++) {
+      page.listeners.response?.(diagnosticResponse('/static/app.js', status, '0', 'script'))
+    }
+  } })
+  const result = await probePersonalBrowserJourney({ ...base, ...fixture, onProgress: event => events.push(event) })
+  assert.equal(result.passed, true)
+  assert.equal(pages.size, 2)
+  assert.equal(diagnosticRecords(events).filter(record => record.event === 'diagnostic-response').length, 32)
+  assert.equal(diagnosticRecords(events).filter(record => record.event === 'diagnostic-limit').length, 2)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 8, 'plus the separate setup navigation')
+  assert.equal(fixture.upstreamCount(), 4)
+})
