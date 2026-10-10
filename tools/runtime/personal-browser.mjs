@@ -13,12 +13,35 @@ const stages = new Set(['launch', 'setup', 'setup-session', 'setup-open', 'setup
   'key-create', 'key-create-open', 'key-create-ready', 'key-create-profile', 'key-create-cap',
   'key-create-quota', 'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm',
   'key-selection-refresh', 'key-selection-model', 'playground-response', 'playground-complete', 'playground-rejection',
-  'usage-open', 'usage-list', 'usage-details-open', 'usage-details-request', 'usage-details-key',
+  'usage-open', 'usage-filter', 'usage-list', 'usage-list-visible', 'usage-details-open', 'usage-details-request', 'usage-details-key',
+  'policy-user-filter', 'strict-key-filter',
   'strict-budget', 'reload-check', 'screenshot', 'browser-close'])
 const codes = new Set(['SCOPE_REJECTED', 'AUTH_UNAVAILABLE', 'BROWSER_FAILED', 'BROWSER_CLOSE_FAILED', 'SETUP_FAILED',
   'HTTP_FAILED', 'LOGIN_FAILED', 'RUNTIME_ERROR', 'BUILD_MISMATCH', 'API_FAILED', 'STATE_MISMATCH',
   'KEY_MISMATCH', 'POLICY_MISMATCH', 'REQUEST_MISMATCH', 'RELAY_MISMATCH', 'LOG_MISMATCH',
   'USAGE_MISMATCH', 'UPSTREAM_MISMATCH', 'WRITER_MISMATCH', 'SCREENSHOT_REJECTED', 'TIMEOUT'])
+const diagnosticCategories = new Set(['asset', 'auth', 'log', 'bootstrap'])
+const browserErrorClasses = new Set(['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'ChunkLoadError', 'ImportError', 'other'])
+
+function diagnosticCategory(request, origin) {
+  const url = new URL(request.url())
+  if (url.origin !== origin) return undefined
+  if (['/api/user/login', '/api/user/auth/refresh', '/api/user/logout', '/api/user/self'].includes(url.pathname)) return 'auth'
+  if (url.pathname === '/api/log' || url.pathname.startsWith('/api/log/')) return 'log'
+  if (['/api/status', '/api/setup'].includes(url.pathname)) return 'bootstrap'
+  if (['script', 'stylesheet', 'font', 'image'].includes(request.resourceType?.())) return 'asset'
+  return undefined
+}
+
+function browserErrorClass(name, message) {
+  // Classify in memory only. Neither the text, error object, nor console JS
+  // handles/location may cross the diagnostic boundary.
+  const text = typeof message === 'string' ? message.slice(0, 4096) : ''
+  if (name === 'ChunkLoadError' || /\bChunkLoadError\b|\bLoading (?:CSS )?chunk [\s\S]*? failed\b/i.test(text)) return 'ChunkLoadError'
+  if (/\bFailed to fetch dynamically imported module\b|\bImporting a module script failed\b|\berror loading dynamically imported module\b/i.test(text)) return 'ImportError'
+  if (browserErrorClasses.has(name)) return name
+  return text.match(/\b(TypeError|RangeError|ReferenceError|SyntaxError|Error):/)?.[1] || 'other'
+}
 
 function requireThat(condition, code) {
   if (!condition) throw new Error(`SMOKE_PERSONAL_${code}`)
@@ -82,12 +105,15 @@ async function withBrowser(options, withUpstream, run) {
   scope.contexts = new Set()
   scope.backoffSeconds = 0
   let stage = 'launch'
-  const progress = (event, code, httpStatus, retryAfter) => {
+  const progress = (event, code, httpStatus, retryAfter, diagnostic = {}) => {
     const record = { command: 'personal:browser', phase: withUpstream ? 'journey' : 'setup', event,
       stage, sha: options.sha, writer: scope.writer, ...(code ? { code } : {}),
       ...(Number.isInteger(httpStatus) && httpStatus >= 100 && httpStatus <= 599 ? { httpStatus } : {}),
-      ...(Number.isSafeInteger(retryAfter) && retryAfter >= 0 ? { retryAfter } : {}) }
-    // Emit only our fixed metadata, never browser diagnostics or response data.
+      ...(Number.isSafeInteger(retryAfter) && retryAfter >= 0 ? { retryAfter } : {}),
+      ...(diagnosticCategories.has(diagnostic.category) ? { category: diagnostic.category } : {}),
+      ...(browserErrorClasses.has(diagnostic.errorClass) ? { errorClass: diagnostic.errorClass } : {}),
+      ...(diagnostic.count === 16 ? { count: 16 } : {}) }
+    // Emit only fixed classifications/numeric metadata, never raw diagnostics.
     try {
       if (typeof options.onProgress === 'function') Promise.resolve(options.onProgress(record)).catch(() => {})
       else console.error(JSON.stringify(record))
@@ -98,6 +124,7 @@ async function withBrowser(options, withUpstream, run) {
     set(value) { stage = stages.has(value) ? value : 'launch'; progress('stage') },
   })
   scope.documentResponse = (httpStatus, retryAfter) => progress('document-response', undefined, httpStatus, retryAfter)
+  scope.diagnostic = (event, detail) => progress(event, undefined, detail.httpStatus, detail.retryAfter, detail)
   let browser
   let failed = false
   scope.stage = 'launch'
@@ -165,7 +192,43 @@ async function newSession(browser, origin, language = 'en', width = 1280, scope 
   const translations = JSON.parse(readFileSync(new URL(`../../web/src/i18n/locales/${language}.json`, import.meta.url), 'utf8')).translation
   const session = { context, page, scope, language, width, origin, errors: 0, requests: 0, reveals: 0, secrets: [], keyReads: new Set(),
     label: (key) => translations[key] || key }
-  page.on('pageerror', () => { session.errors += 1 })
+  const diagnostics = new Set()
+  let diagnosticLimit = false
+  const diagnose = (event, detail) => {
+    const signature = JSON.stringify([event, detail])
+    if (diagnostics.has(signature)) return
+    if (diagnostics.size === 16) {
+      if (!diagnosticLimit) {
+        diagnosticLimit = true
+        scope.diagnostic('diagnostic-limit', { count: 16 })
+      }
+      return
+    }
+    diagnostics.add(signature)
+    scope.diagnostic(event, detail)
+  }
+  // Install before the first navigation, including lazy route assets. All
+  // callbacks are best-effort observers: no body reads, retries or UI changes.
+  page.on('response', response => {
+    try {
+      const category = diagnosticCategory(response.request(), origin)
+      const httpStatus = response.status()
+      if (!category || !Number.isInteger(httpStatus) || httpStatus < 400 || httpStatus > 599) return
+      const raw = response.headers()['retry-after']
+      const retryAfter = typeof raw === 'string' && /^\d+$/.test(raw) ? Number(raw) : undefined
+      diagnose('diagnostic-response', { category, httpStatus,
+        ...(Number.isSafeInteger(retryAfter) && retryAfter >= 0 ? { retryAfter } : {}) })
+    } catch {} // Diagnostics must never replace the original business failure.
+  })
+  page.on('pageerror', error => {
+    session.errors += 1 // Preserve the existing runtime-error acceptance check.
+    try { diagnose('diagnostic-pageerror', { errorClass: browserErrorClass(error?.name, error?.message) }) } catch {}
+  })
+  page.on('console', message => {
+    try {
+      if (message.type() === 'error') diagnose('diagnostic-console', { errorClass: browserErrorClass(undefined, message.text()) })
+    } catch {}
+  })
   page.on('request', (request) => {
     const url = new URL(request.url())
     const pathname = url.pathname
@@ -175,7 +238,13 @@ async function newSession(browser, origin, language = 'en', width = 1280, scope 
     if (/^\/api\/token\/\d+\/key$/.test(pathname)) session.reveals += 1
   })
   page.on('requestfinished', request => session.keyReads.delete(request))
-  page.on('requestfailed', request => session.keyReads.delete(request))
+  page.on('requestfailed', request => {
+    session.keyReads.delete(request)
+    try {
+      const category = diagnosticCategory(request, origin)
+      if (category) diagnose('diagnostic-requestfailed', { category })
+    } catch {}
+  })
   return session
 }
 
@@ -184,7 +253,8 @@ async function open(session, pathname, { forceLoad = false } = {}) {
   // Reusing a page already at this exact URL avoids needless cache-disabled
   // document reloads. The final persistence check explicitly forces a load.
   if (!forceLoad && session.page.url() === target) return
-  if (!forceLoad && session.user && ['/keys', '/playground'].includes(pathname)) {
+  const sidebarLabels = { '/keys': 'API Keys', '/playground': 'Playground', '/users': 'Users', '/usage-logs/common': 'Usage Logs' }
+  if (!forceLoad && session.user && Object.hasOwn(sidebarLabels, pathname)) {
     const { page, label } = session
     const mobile = session.width === 320
     const toggle = page.getByRole('button', { name: label('Toggle sidebar'), exact: true })
@@ -193,7 +263,7 @@ async function open(session, pathname, { forceLoad = false } = {}) {
       if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click()
     }
     await page.locator('[data-myapi-sidebar]').getByRole('link', {
-      name: label(pathname === '/keys' ? 'API Keys' : 'Playground'), exact: true,
+      name: label(sidebarLabels[pathname]), exact: true,
     }).and(page.locator(`a[href="${pathname}"]`)).click()
     await page.waitForURL(url => url.origin === session.origin && url.pathname === pathname)
     if (mobile) await toggle.and(page.locator('[aria-expanded="false"]')).waitFor()
@@ -237,6 +307,24 @@ async function responseSuccess(session, response, code) {
   const payload = await bounded(session.scope, () => response.json())
   requireThat(response.status() >= 200 && response.status() < 300 && payload?.success === true, code)
   return payload.data
+}
+
+async function searchTableRow(session, pathname, placeholder, keyword, endpoint, code) {
+  await open(session, pathname)
+  const received = session.page.waitForResponse(response => {
+    const url = new URL(response.url())
+    return url.origin === session.origin && url.pathname === endpoint && response.request().method() === 'GET' &&
+      url.searchParams.get('keyword') === keyword
+  })
+  received.catch(() => {})
+  // These existing table inputs commit through a 500ms UI debounce. Observe
+  // its actual URL and result rather than sleeping or injecting router state.
+  await session.page.getByPlaceholder(session.label(placeholder), { exact: true }).fill(keyword)
+  await session.page.waitForURL(url => url.origin === session.origin && url.pathname === pathname &&
+    url.searchParams.get('filter') === keyword)
+  const data = await responseSuccess(session, await received, code)
+  requireThat(data?.total === 1 && Array.isArray(data.items) && data.items.length === 1, code)
+  return data.items[0]
 }
 
 async function refreshReadback(session, pathname, button, code, parameters = {}) {
@@ -528,6 +616,16 @@ async function verifyUsage(api, session, key, before, requestId, consumed) {
 async function showPersistedUsage(session, key, requestId, options, screenshots) {
   session.scope.stage = 'usage-open'
   try {
+    await open(session, '/usage-logs/common')
+    session.scope.stage = 'usage-filter'
+    const mobile = session.width === 320
+    // Header Search and toolbar Search share an accessible name. The named
+    // page main owns desktop filters; mobile fields live in a portal dialog.
+    const main = session.page.getByRole('main', { name: session.label('Common Logs'), exact: true })
+    await main.getByRole('button', { name: session.label(mobile ? 'Filter' : 'Expand'), exact: true }).click()
+    const filters = mobile ? session.page.getByRole('dialog', { name: session.label('Filter'), exact: true }) : main
+    await filters.getByPlaceholder(session.label('Token Name'), { exact: true }).fill(key.name)
+    await filters.getByPlaceholder(session.label('Request ID'), { exact: true }).fill(requestId)
     // The admin client GET redirects to Gin's /api/log/ route. The ordinary
     // owner's route is /api/log/self, without a trailing slash.
     const pathname = session.user.role === 100 ? '/api/log/' : '/api/log/self'
@@ -536,14 +634,18 @@ async function showPersistedUsage(session, key, requestId, options, screenshots)
       return url.origin === session.origin && url.pathname === pathname && response.request().method() === 'GET' &&
         url.searchParams.get('request_id') === requestId && url.searchParams.get('token_name') === key.name
     })
-    received.catch(() => {}) // Navigation failure still owns the original error.
-    await open(session, `/usage-logs/common?token=${encodeURIComponent(key.name)}&requestId=${encodeURIComponent(requestId)}`)
+    received.catch(() => {}) // A failed UI submission still owns its error.
+    await filters.getByRole('button', { name: session.label('Search'), exact: true }).click()
+    if (mobile) await filters.waitFor({ state: 'hidden' })
+    await session.page.waitForURL(url => url.origin === session.origin && url.pathname === '/usage-logs/common' &&
+      url.searchParams.get('token') === key.name && url.searchParams.get('requestId') === requestId)
     session.scope.stage = 'usage-list'
     const data = await responseSuccess(session, await received, 'LOG_MISMATCH')
     requireThat(data?.total === 1 && Array.isArray(data.items) && data.items.length === 1, 'LOG_MISMATCH')
     const log = data.items[0]
     requireThat(log.request_id === requestId && log.user_id === session.user.id && log.token_id === key.id &&
       log.token_name === key.name && log.model_name === model, 'LOG_MISMATCH')
+    session.scope.stage = 'usage-list-visible'
     // Mobile cards reuse the actual desktop cells, but only one layout mounts.
     // Filter visibility to exclude tooltip copies; never choose an arbitrary
     // first history entry or suppress ambiguity among visible target entries.
@@ -705,9 +807,14 @@ export async function probePersonalBrowserJourney(options = {}) {
 
     // Root reviews this specific ordinary user, confirms, and submits through
     // the real policy dialog. API readback checks the audited revision change.
-    scope.stage = 'policy-confirm'
-    await open(root, `/users?filter=${ownerName}`)
+    scope.stage = 'policy-user-filter'
+    const selectedUser = await searchTableRow(root, '/users', 'Filter by username, name or email...',
+      ownerName, '/api/user/search', 'POLICY_MISMATCH')
+    requireThat(selectedUser.id === owner.user.id && selectedUser.role === 1 && selectedUser.username === ownerName, 'POLICY_MISMATCH')
     const row = root.page.getByRole('row').filter({ hasText: ownerName })
+    await row.waitFor()
+    requireThat(await row.count() === 1, 'POLICY_MISMATCH')
+    scope.stage = 'policy-confirm'
     await row.getByRole('button', { name: root.label('Open menu'), exact: true }).click()
     await root.page.getByRole('menuitem', { name: root.label('User usage policy'), exact: true }).click()
     const choice = root.page.getByRole('dialog', { name: root.label('User usage policy'), exact: true })
@@ -751,9 +858,14 @@ export async function probePersonalBrowserJourney(options = {}) {
     // loopback/model/request combination. This does not isolate the host gate
     // or prove native-provider positives, strict settlement, or concurrency.
     const strictKey = await createKey(root, api, 'browser-root-strict-reject', quota)
+    scope.stage = 'strict-key-filter'
+    const selectedKey = await searchTableRow(root, '/keys', 'Filter by name...', strictKey.name, '/api/token/search', 'KEY_MISMATCH')
+    requireThat(selectedKey.id === strictKey.id && selectedKey.user_id === root.user.id && selectedKey.name === strictKey.name, 'KEY_MISMATCH')
+    const strictRow = root.page.getByRole('row').filter({ hasText: strictKey.name })
+    await strictRow.waitFor()
+    requireThat(await strictRow.count() === 1, 'KEY_MISMATCH')
     scope.stage = 'strict-budget'
-    await open(root, `/keys?filter=${strictKey.name}`)
-    await root.page.getByRole('button', { name: root.label('API Key usage budgets'), exact: true }).click()
+    await strictRow.getByRole('button', { name: root.label('API Key usage budgets'), exact: true }).click()
     const budgetDialog = root.page.getByRole('dialog', { name: root.label('API Key usage budgets'), exact: true })
     await budgetDialog.getByRole('checkbox', { name: root.label('Enable strict Token budget'), exact: true }).check()
     await budgetDialog.getByRole('textbox', { name: root.label('Token total limit'), exact: true }).fill('1000')

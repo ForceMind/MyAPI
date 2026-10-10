@@ -21,6 +21,204 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  prepare-smoke-images:
+    # One current-source build per edition; no application or credentials run here.
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON('["codex/r1-usage-review-20261002","codex/settlement-review-status-20261009","codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010"]'), github.event.pull_request.head.ref))
+    name: Prepare immutable smoke image bundles
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    outputs:
+      prefix: ${{ steps.identity.outputs.prefix }}
+      attempt: ${{ steps.identity.outputs.attempt }}
+      full-manifest: ${{ steps.publish.outputs.full_manifest_sha256 }}
+      lan-manifest: ${{ steps.publish.outputs.lan_manifest_sha256 }}
+    env:
+      BUNDLE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      BUNDLE_PERSONAL: ${{ github.event_name == 'pull_request' && contains(fromJSON('["codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010"]'), github.event.pull_request.head.ref) && '1' || '0' }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+
+      - name: Bind exact source and producer attempt
+        id: identity
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          echo "tree=$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
+          echo "attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+          echo "prefix=myapi-smoke-images-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        with:
+          driver: docker-container
+          driver-opts: |
+            memory=4g
+            memory-swap=4g
+            cpu-period=100000
+            cpu-quota=200000
+      - name: Fetch pinned runtime fixtures once
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          docker pull --platform linux/amd64 oven/bun:1@sha256:0733e50325078969732ebe3b15ce4c4be5082f18c4ac1a0f0ca4839c2e4e42a7
+          if [[ "$BUNDLE_PERSONAL" == '1' ]]; then
+            docker pull --platform linux/amd64 redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+          fi
+
+      - name: Build full smoke image
+        id: build-full
+        continue-on-error: true
+        timeout-minutes: 20
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          load: true
+          push: false
+          platforms: linux/amd64
+          tags: myapi:smoke-full-${{ github.sha }}
+          labels: |
+            io.myapi.smoke.source=${{ github.sha }}
+            io.myapi.smoke.head=${{ env.BUNDLE_HEAD_SHA }}
+            io.myapi.smoke.tree=${{ steps.identity.outputs.tree }}
+          build-args: |
+            MYAPI_EDITION=full
+            MYAPI_BRAND_NAME=MyAPI
+            MYAPI_BRAND_LOGO=/myapi-logo-v1.png
+            MYAPI_BUILD_ID=${{ github.sha }}
+            MYAPI_BUILD_PARALLELISM=2
+          cache-from: type=gha,scope=smoke-full
+          cache-to: type=gha,mode=min,scope=smoke-full
+
+      - name: Export full immutable bundle
+        id: export-full
+        if: steps.build-full.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          umask 077
+          node tools/runtime/smoke-image-bundle.mjs export \
+            --directory "$RUNNER_TEMP/smoke-bundle-full" --edition full --personal "$BUNDLE_PERSONAL" \
+            --source-sha "$GITHUB_SHA" --head-sha "$BUNDLE_HEAD_SHA" \
+            --tree-sha "${{ steps.identity.outputs.tree }}" --run-id "$GITHUB_RUN_ID" \
+            --producer-attempt "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+
+      - name: Preserve full immutable bundle
+        id: upload-full
+        timeout-minutes: 5
+        if: steps.export-full.outcome == 'success'
+        continue-on-error: true
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: ${{ steps.identity.outputs.prefix }}-full
+          path: |
+            ${{ runner.temp }}/smoke-bundle-full/manifest.json
+            ${{ runner.temp }}/smoke-bundle-full/images.tar
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+      - name: Build lan smoke image
+        id: build-lan
+        continue-on-error: true
+        timeout-minutes: 20
+        if: github.event_name == 'workflow_dispatch'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          load: true
+          push: false
+          platforms: linux/amd64
+          tags: myapi:smoke-lan-${{ github.sha }}
+          labels: |
+            io.myapi.smoke.source=${{ github.sha }}
+            io.myapi.smoke.head=${{ env.BUNDLE_HEAD_SHA }}
+            io.myapi.smoke.tree=${{ steps.identity.outputs.tree }}
+          build-args: |
+            MYAPI_EDITION=lan
+            MYAPI_BRAND_NAME=MyAPI
+            MYAPI_BRAND_LOGO=/myapi-logo-v1.png
+            MYAPI_BUILD_ID=${{ github.sha }}
+            MYAPI_BUILD_PARALLELISM=2
+          cache-from: type=gha,scope=smoke-lan
+          cache-to: type=gha,mode=min,scope=smoke-lan
+
+      - name: Export lan immutable bundle
+        id: export-lan
+        if: steps.build-lan.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          umask 077
+          node tools/runtime/smoke-image-bundle.mjs export \
+            --directory "$RUNNER_TEMP/smoke-bundle-lan" --edition lan --personal "$BUNDLE_PERSONAL" \
+            --source-sha "$GITHUB_SHA" --head-sha "$BUNDLE_HEAD_SHA" \
+            --tree-sha "${{ steps.identity.outputs.tree }}" --run-id "$GITHUB_RUN_ID" \
+            --producer-attempt "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+
+      - name: Preserve lan immutable bundle
+        id: upload-lan
+        timeout-minutes: 5
+        if: steps.export-lan.outcome == 'success'
+        continue-on-error: true
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: ${{ steps.identity.outputs.prefix }}-lan
+          path: |
+            ${{ runner.temp }}/smoke-bundle-lan/manifest.json
+            ${{ runner.temp }}/smoke-bundle-lan/images.tar
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+      - name: Publish only successfully uploaded edition identities
+        id: publish
+        if: always()
+        env:
+          FULL_BUILD: ${{ steps.build-full.outcome }}
+          FULL_EXPORT: ${{ steps.export-full.outcome }}
+          FULL_UPLOAD: ${{ steps.upload-full.outcome }}
+          FULL_MANIFEST: ${{ steps.export-full.outputs.full_manifest_sha256 }}
+          LAN_BUILD: ${{ steps.build-lan.outcome }}
+          LAN_EXPORT: ${{ steps.export-lan.outcome }}
+          LAN_UPLOAD: ${{ steps.upload-lan.outcome }}
+          LAN_MANIFEST: ${{ steps.export-lan.outputs.lan_manifest_sha256 }}
+        run: |
+          set -euo pipefail
+          if [[ "$FULL_BUILD/$FULL_EXPORT/$FULL_UPLOAD" == 'success/success/success' ]]; then
+            [[ "$FULL_MANIFEST" =~ ^[a-f0-9]{64}$ ]]
+            echo "full_manifest_sha256=$FULL_MANIFEST" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ "$LAN_BUILD/$LAN_EXPORT/$LAN_UPLOAD" == 'success/success/success' ]]; then
+            [[ "$LAN_MANIFEST" =~ ^[a-f0-9]{64}$ ]]
+            echo "lan_manifest_sha256=$LAN_MANIFEST" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Require every requested edition bundle
+        if: always()
+        env:
+          FULL_BUILD: ${{ steps.build-full.outcome }}
+          FULL_EXPORT: ${{ steps.export-full.outcome }}
+          FULL_UPLOAD: ${{ steps.upload-full.outcome }}
+          LAN_BUILD: ${{ steps.build-lan.outcome }}
+          LAN_EXPORT: ${{ steps.export-lan.outcome }}
+          LAN_UPLOAD: ${{ steps.upload-lan.outcome }}
+        run: |
+          set -euo pipefail
+          echo "Full bundle: build=$FULL_BUILD export=$FULL_EXPORT upload=$FULL_UPLOAD" >> "$GITHUB_STEP_SUMMARY"
+          echo "LAN bundle: build=$LAN_BUILD export=$LAN_EXPORT upload=$LAN_UPLOAD" >> "$GITHUB_STEP_SUMMARY"
+          [[ "$FULL_BUILD/$FULL_EXPORT/$FULL_UPLOAD" == 'success/success/success' ]]
+          if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
+            [[ "$LAN_BUILD/$LAN_EXPORT/$LAN_UPLOAD" == 'success/success/success' ]]
+          fi
+
   installer-local-build:
     # Exercise the actual source installer, separately from the direct-run probe.
     if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON('["codex/r1-usage-review-20261002","codex/settlement-review-status-20261009"]'), github.event.pull_request.head.ref))
@@ -106,9 +304,10 @@ jobs:
           fi
 
   build-and-healthcheck:
+    needs: prepare-smoke-images
     # Bounded acceptance branches, never a general fork runner.
     # Manual Full/LAN coverage remains available unchanged.
-    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON('["codex/r1-usage-review-20261002","codex/settlement-review-status-20261009","codex/personal-app-journey-20261009"]'), github.event.pull_request.head.ref))
+    if: always() && !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON('["codex/r1-usage-review-20261002","codex/settlement-review-status-20261009","codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010"]'), github.event.pull_request.head.ref))) && (needs.prepare-smoke-images.outputs.full-manifest != '' || needs.prepare-smoke-images.outputs.lan-manifest != '')
     name: ${{ matrix.edition }} ${{ matrix.scenario }} ${{ matrix.writer }} image and SQLite smoke
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -121,12 +320,12 @@ jobs:
         writer: [legacy]
         # The personal slice uses two fresh owned DBs; historical handoff remains
         # on its existing branches/manual entry, not duplicated into this slice.
-        include: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'codex/personal-app-journey-20261009' && '[{"edition":"full","scenario":"fresh","writer":"authoritative"}]' || '[{"edition":"full","scenario":"handoff","writer":"legacy"}]') }}
+        include: ${{ fromJSON(github.event_name == 'pull_request' && contains(fromJSON('["codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010"]'), github.event.pull_request.head.ref) && '[{"edition":"full","scenario":"fresh","writer":"authoritative"}]' || '[{"edition":"full","scenario":"handoff","writer":"legacy"}]') }}
     env:
       MYAPI_SMOKE_EDITION: ${{ matrix.edition }}
       MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
       MYAPI_ISOLATED_SMOKE: '1'
-      MYAPI_SMOKE_PERSONAL: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'codex/personal-app-journey-20261009' && '1' || '0' }}
+      MYAPI_SMOKE_PERSONAL: ${{ github.event_name == 'pull_request' && contains(fromJSON('["codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010"]'), github.event.pull_request.head.ref) && '1' || '0' }}
       MYAPI_SMOKE_WRITER: ${{ matrix.writer }}
       SMOKE_NETWORK: myapi-personal-${{ github.sha }}-${{ matrix.writer }}
       SMOKE_REDIS_CONTAINER: myapi-personal-redis-${{ github.sha }}-${{ matrix.writer }}
@@ -143,6 +342,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Docker Buildx
+        if: matrix.scenario == 'handoff'
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
         with:
           driver: docker-container
@@ -157,24 +357,30 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Build local smoke image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+      - name: Download exact producer edition bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          context: .
-          load: true
-          push: false
-          platforms: linux/amd64
-          tags: ${{ env.SMOKE_IMAGE }}
-          build-args: |
-            MYAPI_EDITION=${{ matrix.edition }}
-            MYAPI_BRAND_NAME=MyAPI
-            MYAPI_BRAND_LOGO=/myapi-logo-v1.png
-            MYAPI_BUILD_ID=${{ github.sha }}
-            MYAPI_BUILD_PARALLELISM=2
-          cache-from: type=gha,scope=smoke-${{ matrix.edition }}
-          cache-to: type=gha,mode=min,scope=smoke-${{ matrix.edition }}
+          name: ${{ needs.prepare-smoke-images.outputs.prefix }}-${{ matrix.edition }}
+          path: ${{ runner.temp }}/smoke-image-bundle
 
-      # Checkout after the current build so historical source never enters its context.
+      - name: Verify and load immutable images without registry fallback
+        timeout-minutes: 5
+        env:
+          BUNDLE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          FULL_MANIFEST_SHA: ${{ needs.prepare-smoke-images.outputs.full-manifest }}
+          LAN_MANIFEST_SHA: ${{ needs.prepare-smoke-images.outputs.lan-manifest }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          if [[ "$MYAPI_SMOKE_EDITION" == 'full' ]]; then BUNDLE_MANIFEST_SHA="$FULL_MANIFEST_SHA"; else BUNDLE_MANIFEST_SHA="$LAN_MANIFEST_SHA"; fi
+          node tools/runtime/smoke-image-bundle.mjs verify-load \
+            --directory "$RUNNER_TEMP/smoke-image-bundle" --edition "$MYAPI_SMOKE_EDITION" --personal "$MYAPI_SMOKE_PERSONAL" \
+            --source-sha "$GITHUB_SHA" --head-sha "$BUNDLE_HEAD_SHA" \
+            --tree-sha "$(git rev-parse 'HEAD^{tree}')" --run-id "$GITHUB_RUN_ID" \
+            --producer-attempt "${{ needs.prepare-smoke-images.outputs.attempt }}" \
+            --manifest-sha256 "$BUNDLE_MANIFEST_SHA" --github-env "$GITHUB_ENV"
+
+      # Historical source never enters the current-source producer build context.
       - name: Check out fixed handoff source
         if: matrix.scenario == 'handoff'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -207,13 +413,13 @@ jobs:
           if [[ "$MYAPI_SMOKE_WRITER" == 'authoritative' ]]; then
             redis_password="$(openssl rand -hex 24)"
             echo "::add-mask::$redis_password"
-            docker run --detach --name "$SMOKE_REDIS_CONTAINER" \
+            docker run --pull=never --detach --name "$SMOKE_REDIS_CONTAINER" \
               --label "io.myapi.smoke.sha=$GITHUB_SHA" --label "io.myapi.personal.run=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
               --network "$SMOKE_NETWORK" --network-alias smoke-redis \
               --read-only --tmpfs /data:rw,noexec,nodev,nosuid,size=32m,uid=999,gid=999,mode=700 \
               --cap-drop ALL --security-opt no-new-privileges --user 999:999 \
               --cpus 0.25 --memory 128m --pids-limit 64 \
-              redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499 \
+              "$SMOKE_REDIS_IMAGE_ID" \
               redis-server --save '' --appendonly no --requirepass "$redis_password"
             [[ "$(docker inspect --format '{{len .HostConfig.PortBindings}}' "$SMOKE_REDIS_CONTAINER")" == '0' ]]
             echo "REDIS_CONN_STRING=redis://:$redis_password@smoke-redis:6379/0" >> "$GITHUB_ENV"
@@ -242,7 +448,7 @@ jobs:
             fi
           fi
           # Preserve the established host-loopback bridge; Redis alone remains internal.
-          docker create "${personal_args[@]}" \
+          docker create --pull=never "${personal_args[@]}" \
             --name "$SMOKE_CONTAINER" \
             --label "io.myapi.smoke.sha=${GITHUB_SHA}" \
             --label "io.myapi.personal.run=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
@@ -300,7 +506,7 @@ jobs:
       - name: Start isolated fake upstream
         run: |
           set -euo pipefail
-          docker run --detach \
+          docker run --pull=never --detach \
             --name "$SMOKE_FAKE_UPSTREAM_CONTAINER" \
             --label "io.myapi.smoke.sha=${GITHUB_SHA}" \
             --network "container:$SMOKE_CONTAINER" \
@@ -313,7 +519,7 @@ jobs:
             --mount "type=bind,src=$GITHUB_WORKSPACE/tools/runtime/fake-openai.mjs,dst=/fixture/fake-openai.mjs,readonly" \
             --env BUN_RUNTIME_TRANSPILER_CACHE_PATH=0 \
             --env FAKE_OPENAI_LISTEN_HOST=0.0.0.0 \
-            oven/bun:1@sha256:0733e50325078969732ebe3b15ce4c4be5082f18c4ac1a0f0ca4839c2e4e42a7 \
+            "$SMOKE_BUN_IMAGE_ID" \
             bun /fixture/fake-openai.mjs
 
       - name: Wait for fake upstream fixture
@@ -373,6 +579,7 @@ jobs:
       - name: Record safe image identity
         run: |
           set -euo pipefail
+          [[ "$(docker image inspect --format '{{.Id}}' "$SMOKE_IMAGE")" == "$SMOKE_APP_IMAGE_ID" ]]
           image_edition="$(docker image inspect --format '{{index .Config.Labels "io.myapi.edition"}}' "$SMOKE_IMAGE")"
           [[ "$image_edition" == "$MYAPI_SMOKE_EDITION" ]]
           echo "source_sha=$GITHUB_SHA edition=$MYAPI_SMOKE_EDITION"

@@ -8,7 +8,7 @@ const base = { baseUrl: 'http://127.0.0.1:18080', upstreamBaseUrl: 'http://127.0
   sha: 'a'.repeat(40), edition: 'full', isolated: true,
   username: 'synthetic-root', password: 'synthetic-password-never-report', writer: 'legacy', onProgress() {} }
 
-function setupBrowser({ failAt, responseSuccess = true, closeFails = false, documentResponses = [] } = {}) {
+function setupBrowser({ failAt, responseSuccess = true, closeFails = false, documentResponses = [], onNavigate } = {}) {
   const calls = []
   let route
   const locator = (kind, value) => ({
@@ -27,9 +27,10 @@ function setupBrowser({ failAt, responseSuccess = true, closeFails = false, docu
   const page = {
     current: base.baseUrl + '/', url() { return this.current },
     setDefaultTimeout() {},
-    on() {},
+    listeners: {}, on(event, handler) { this.listeners[event] = handler },
     async goto(url) {
       calls.push(['goto', url]); this.current = url
+      onNavigate?.(this)
       const result = documentResponses.shift() || { status: 200 }
       return { status: () => result.status, headers: () => ({ 'retry-after': result.retryAfter }),
         request: () => ({ method: () => result.method || 'GET' }) }
@@ -134,7 +135,7 @@ import { mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false, forbidStreamReads = false, hangAt, closeHangs = false, documentResponses = [], reloadAlreadyCurrent = false, inflightKeys, unsafeUsageScreenshot = false, failUsageScreenshot = false, usageFailureRole } = {}) {
+function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false, forbidStreamReads = false, hangAt, closeHangs = false, documentResponses = [], reloadAlreadyCurrent = false, inflightKeys, unsafeUsageScreenshot = false, failUsageScreenshot = false, usageFailureRole, onNavigate } = {}) {
   const reverse = Object.fromEntries(Object.entries(JSON.parse(readFileSync(new URL('../../web/src/i18n/locales/zh.json', import.meta.url))).translation).map(([key, value]) => [value, key]))
   const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
   const users = new Map([[1, { id: 1, username: base.username, role: 100, quota: 0, used_quota: 15, request_count: 1, self_use_no_balance: true, revision: 1 }]])
@@ -154,6 +155,9 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   const modelChoices = []
   const keyReadEvents = []
   const usageReads = []
+  const filterActions = []
+  const tableSearches = []
+  const logSearchMatches = []
   let serverDisplay = 'USD'
   const reached = Promise.withResolvers()
   const stalled = Promise.withResolvers()
@@ -190,35 +194,42 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
     const page = { current: base.baseUrl + '/', fields: {}, switches: {}, pendingSwitches: {}, checkboxes: {}, group: '', model: 'gpt-4o', modelsCache: new Map(), listeners: {}, waiters: [], requestWaiters: [], selected: '', actor: null,
       setDefaultTimeout() {}, on(event, handler) { this.listeners[event] = handler },
       async goto(url) {
+        const path = new URL(url).pathname
+        assert(!['/usage-logs/common', '/users'].includes(path), 'existing UI navigation and filters must replace query document loads')
+        assert(!(path === '/keys' && new URL(url).search && this.actor?.role === 100), 'strict Key filtering must use the visible name input')
         this.current = url
+        onNavigate?.(this)
         navigations.push({ kind: 'document', locale: context.locale, path: new URL(url).pathname })
         const result = documentResponses.shift() || { status: 200 }
         if (result.status === 200) {
           this.currency = serverDisplay; delete this.policySnapshot
-          const destination = new URL(url)
-          if (destination.pathname === '/usage-logs/common') {
-            const requestId = destination.searchParams.get('requestId')
-            assert(requestId, 'log navigation must bind the exact persisted request, not select the first Key history entry')
-            const tokenName = destination.searchParams.get('token')
-            const log = clone(logs.get(requestId))
-            const listCorrupt = usageFailureRole === undefined || usageFailureRole === this.actor.role ? corrupt : undefined
-            this.badUsage = Boolean(listCorrupt?.startsWith('ui-log-'))
-            if (listCorrupt === 'ui-log-request') log.request_id = 'another-request'
-            if (listCorrupt === 'ui-log-owner') log.user_id = 999
-            if (listCorrupt === 'ui-log-key') log.token_id = 999
-            if (listCorrupt === 'ui-log-model') log.model_name = 'another-model'
-            const items = listCorrupt === 'ui-log-duplicate' ? [log, log] : listCorrupt === 'ui-log-missing' ? [] : [log]
-            this.visibleLog = log
-            const pathname = this.actor.role === 100 ? '/api/log/' : '/api/log/self'
-            const parameters = `?token_name=${tokenName}&request_id=${requestId}&p=1&page_size=${context.viewport.width === 320 ? 20 : 100}`
-            usageReads.push({ role: this.actor.role, pathname, requestId, tokenName })
-            this.emit(response(pathname + '?request_id=wrong-request&token_name=' + tokenName, 'GET', { success: false }))
-            this.emit(response((this.actor.role === 100 ? '/api/log/self' : '/api/log/') + parameters, 'GET', { success: false }))
-            this.emit(response(pathname + parameters, 'GET', { success: true, data: { total: items.length, items } }))
-          }
         }
         return { status: () => result.status, headers: () => ({ 'retry-after': result.retryAfter }),
           request: () => ({ method: () => result.method || 'GET' }) }
+      },
+      submitLogSearch() {
+        const requestId = this.fields['Request ID']
+        assert(requestId, 'the Request ID input must be filled before Search')
+        const tokenName = this.fields['Token Name']
+        const log = clone(logs.get(requestId))
+        const listCorrupt = usageFailureRole === undefined || usageFailureRole === this.actor.role ? corrupt : undefined
+        this.badUsage = Boolean(listCorrupt?.startsWith('ui-log-'))
+        if (listCorrupt === 'ui-log-request') log.request_id = 'another-request'
+        if (listCorrupt === 'ui-log-owner') log.user_id = 999
+        if (listCorrupt === 'ui-log-key') log.token_id = 999
+        if (listCorrupt === 'ui-log-model') log.model_name = 'another-model'
+        const items = listCorrupt === 'ui-log-duplicate' ? [log, log] : listCorrupt === 'ui-log-missing' ? [] : [log]
+        this.visibleLog = log
+        const search = new URLSearchParams({ token: tokenName, requestId: listCorrupt === 'ui-log-url' ? 'wrong-request' : requestId })
+        this.current = base.baseUrl + '/usage-logs/common?' + search
+        filterActions.push({ action: 'search', role: this.actor.role, tokenName, requestId })
+        this.logFiltersOpen = listCorrupt === 'ui-log-drawer-stays-open'
+        const pathname = this.actor.role === 100 ? '/api/log/' : '/api/log/self'
+        const parameters = `?token_name=${tokenName}&request_id=${requestId}&p=1&page_size=${context.viewport.width === 320 ? 20 : 100}`
+        usageReads.push({ role: this.actor.role, pathname, requestId, tokenName })
+        this.emit(response(pathname + '?request_id=wrong-request&token_name=' + tokenName, 'GET', { success: false }))
+        this.emit(response((this.actor.role === 100 ? '/api/log/self' : '/api/log/') + parameters, 'GET', { success: false }))
+        this.emit(response(pathname + parameters, 'GET', { success: true, data: { total: items.length, items } }))
       },
       url() { return this.current },
       async waitForURL(predicate) { assert(predicate(new URL(this.current))) },
@@ -268,14 +279,23 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
       return {
         getByRole: (role, options) => locator(role, options?.name, chain),
         getByText: (text) => locator('text', text, chain),
+        getByPlaceholder: (text) => locator('placeholder', text, chain),
         locator: (selector) => locator('selector', selector, chain),
         and() { awaitingCheckedState = true; return this },
-        filter() { return this },
+        filter(options) { if (options?.hasText) chain.push({ hasText: options.hasText }); return this },
         first() {
           assert.notEqual(new URL(page.current).pathname, '/usage-logs/common', 'first must not conceal ambiguity in log history')
           return this
         }, last() { return this },
         async waitFor(options) {
+          if (kind === 'row') {
+            const text = chain.find(item => item?.hasText)?.hasText
+            assert((page.visibleRows || []).some(item => (item.username || item.name) === text), 'the filtered target row must actually be visible')
+          }
+          if (kind === 'dialog' && value === 'Filter') assert.equal(page.logFiltersOpen, options?.state !== 'hidden')
+          if (kind === 'text' && value === page.visibleLog?.token_name && !page.logDetailsOpen) {
+            assert.notEqual(corrupt, 'ui-log-visible')
+          }
           if (page.logDetailsOpen && kind === 'text') {
             if (String(value).startsWith('request-private-')) assert.notEqual(corrupt, 'ui-log-dialog-request')
             if (value === page.visibleLog?.token_name) assert.notEqual(corrupt, 'ui-log-dialog-key')
@@ -311,6 +331,10 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
           }
         },
         async count() {
+          if (kind === 'row') {
+            const text = chain.find(item => item?.hasText)?.hasText
+            return (page.visibleRows || []).filter(item => (item.username || item.name) === text).length
+          }
           if (new URL(page.current).pathname === '/usage-logs/common' && (kind === 'title' || kind === 'text')) return corrupt === 'ui-log-ambiguous' ? 2 : 1
           if (kind === 'option' && value === 'smoke-model') return corrupt === 'ambiguous-model' ? 2 : Number(page.modelsCache.get(page.selected)?.includes(value))
           if (kind === 'selector' && value === '.is-assistant') return page.assistants || 0
@@ -319,7 +343,37 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         },
         async fill(text) {
           if (value === 'Key quota (internal units)') assert.equal(page.currency, 'TOKENS', 'the client must reload its USD system-config cache after the fixture PUT')
+          if (kind === 'placeholder' && ['Token Name', 'Request ID'].includes(value)) {
+            assert.equal(new URL(page.current).pathname, '/usage-logs/common')
+            assert(page.logFiltersOpen, 'log inputs must be visibly expanded')
+            if (context.locale === 'zh-CN') assert(parents.includes('Filter'), 'phone filters must be scoped to the visible drawer')
+            else assert(parents.includes('Common Logs'), 'desktop filters belong to the named main')
+            filterActions.push({ action: 'fill', role: page.actor.role, field: value })
+          }
           page.fields[value] = text
+          if (kind === 'placeholder' && ['Filter by username, name or email...', 'Filter by name...'].includes(value)) {
+            const userSearch = value === 'Filter by username, name or email...'
+            assert.equal(new URL(page.current).pathname, userSearch ? '/users' : '/keys')
+            const target = clone(userSearch ? users.get(20) : [...keys.values()].find(key => key.name === text))
+            assert(target)
+            const prefix = userSearch ? 'ui-user' : 'ui-key'
+            if (corrupt === prefix + '-id') target.id = 999
+            if (corrupt === prefix + '-role') target.role = 100
+            if (corrupt === prefix + '-owner') target.user_id = 999
+            if (corrupt === prefix + '-name') target[userSearch ? 'username' : 'name'] = 'wrong-name'
+            const items = corrupt === prefix + '-missing' ? [] : corrupt === prefix + '-duplicate' ? [target, target] : [target]
+            // Only a committed input change produces URL/search data, not the
+            // old document navigation. A microtask models the debounce settling.
+            queueMicrotask(() => {
+              page.current = base.baseUrl + (userSearch ? '/users' : '/keys') + '?filter=' + encodeURIComponent(corrupt === prefix + '-url' ? 'wrong-name' : text)
+              page.visibleRows = corrupt === prefix + '-stale-row' ? [] : items
+              const endpoint = userSearch ? '/api/user/search' : '/api/token/search'
+              tableSearches.push({ endpoint, keyword: text, id: target.id })
+              page.emit(response(endpoint + '?keyword=wrong-name', 'GET', { success: false }))
+              page.emit(response(endpoint + '?keyword=' + encodeURIComponent(text), 'POST', { success: false }))
+              page.emit(response(endpoint + '?keyword=' + encodeURIComponent(text), 'GET', { success: true, data: { total: items.length, items } }))
+            })
+          }
         },
         async check() { page.checkboxes[value] = true }, async uncheck() { page.checkboxes[value] = false },
         async getAttribute(name) {
@@ -345,6 +399,32 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         },
         async click(options) {
           if (options?.trial) return
+          if (value === 'Expand' || value === 'Filter') {
+            assert.equal(new URL(page.current).pathname, '/usage-logs/common')
+            assert(parents.includes('Common Logs'), 'log filter triggers belong to the named page main')
+            assert.equal(value, context.locale === 'zh-CN' ? 'Filter' : 'Expand')
+            page.logFiltersOpen = !(corrupt === 'ui-log-hidden-filter' && (usageFailureRole === undefined || usageFailureRole === page.actor.role))
+            filterActions.push({ action: 'open', role: page.actor.role, control: value })
+          }
+          if (value === 'Search') {
+            assert.equal(new URL(page.current).pathname, '/usage-logs/common')
+            // The actual Header has a Search button outside the named main;
+            // a page-wide desktop locator has two matches, not one.
+            const matches = parents.includes('Common Logs') || parents.includes('Filter') ? 1 : 2
+            logSearchMatches.push(matches)
+            assert.equal(matches, 1, 'strict locator: Header Search and log Search both match')
+            assert(page.logFiltersOpen)
+            if (context.locale === 'zh-CN') assert(parents.includes('Filter'), 'Search must belong to the mobile drawer')
+            page.submitLogSearch()
+          }
+          if (value === 'Open menu' && new URL(page.current).pathname === '/users') {
+            assert(parents.some(item => item?.hasText === users.get(20).username), 'policy menu must belong to the exact filtered owner row')
+            assert.equal(page.visibleRows.length, 1)
+          }
+          if (value === 'API Key usage budgets' && kind === 'button') {
+            assert(parents.some(item => item?.hasText === 'browser-root-strict-reject'), 'budget button must belong to the exact filtered Key row')
+            assert.equal(page.visibleRows.length, 1)
+          }
           if (value === 'My usage policy') page.policySnapshot ||= clone(policy(page.actor))
           if (value === 'Refresh' && parents.includes('User usage policy')) {
             page.policySnapshot = clone(policy(page.actor))
@@ -388,10 +468,10 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             navigations.push({ kind: 'toggle', locale: context.locale })
           }
           if (kind === 'link' && parents.includes('[data-myapi-sidebar]')) {
-            assert(['API Keys', 'Playground'].includes(value))
+            assert(['API Keys', 'Playground', 'Usage Logs', 'Users'].includes(value))
             assert(!page.logDetailsOpen, 'log dialog must be dismissed before sidebar navigation')
             if (context.locale === 'zh-CN') assert.equal(page.sidebarOpen, true, 'mobile links require the visible navigation drawer')
-            const pathname = value === 'API Keys' ? '/keys' : '/playground'
+            const pathname = { 'API Keys': '/keys', Playground: '/playground', 'Usage Logs': '/usage-logs/common', Users: '/users' }[value]
             page.current = base.baseUrl + pathname
             if (pathname === '/playground' && !page.simulatedKeysRead && (inflightKeys || hangAt === 'keys-body')) {
               page.simulatedKeysRead = true
@@ -508,6 +588,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
     }
     page.getByRole = (role, options) => locator(role, options?.name)
     page.getByText = text => locator('text', text)
+    page.getByPlaceholder = text => locator('placeholder', text)
     page.getByTitle = text => locator('title', text)
     page.locator = selector => locator('selector', selector)
     return page
@@ -573,7 +654,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   }
   return { playwrightModule, fetchImpl, contexts, emitted, screenshots, apiCalls, dialogCloseEvents, completionEvents, signals,
     navigations,
-    createdKeyDisplays, policyRefreshes, playgroundRefreshes, modelChoices, keyReadEvents, usageReads,
+    createdKeyDisplays, policyRefreshes, playgroundRefreshes, modelChoices, keyReadEvents, usageReads, filterActions, tableSearches, logSearchMatches,
     reached: reached.promise, release: stalled.resolve, closing: closing.promise, releaseClose: stalledClose.resolve,
     closed: () => closed, upstreamCount: () => upstreamCount }
 }
@@ -816,11 +897,10 @@ test('real sidebar contracts reduce document loads and final persistence load ca
   const report = await probePersonalBrowserJourney({ ...base, ...fixture })
   assert.equal(report.passed, true)
   assert.deepEqual(fixture.navigations.filter(item => item.kind === 'document').map(item => [item.locale, item.path]), [
-    ['en-US', '/sign-in'], ['en-US', '/keys'], ['en-US', '/usage-logs/common'], ['zh-CN', '/sign-in'],
-    ['en-US', '/users'], ['zh-CN', '/usage-logs/common'], ['en-US', '/keys'], ['zh-CN', '/keys'],
-  ]) // Eight journey document loads, plus the separate real setup document.
-  assert.equal(fixture.navigations.filter(item => item.kind === 'link').length, 10)
-  assert.equal(fixture.navigations.filter(item => item.kind === 'toggle').length, 6)
+    ['en-US', '/sign-in'], ['en-US', '/keys'], ['zh-CN', '/sign-in'], ['zh-CN', '/keys'],
+  ]) // Four journey document loads, plus the separate real setup document.
+  assert.equal(fixture.navigations.filter(item => item.kind === 'link').length, 13)
+  assert.equal(fixture.navigations.filter(item => item.kind === 'toggle').length, 7)
   assert(fixture.navigations.filter(item => item.kind === 'toggle').every(item => item.locale === 'zh-CN'))
   assert.deepEqual(fixture.contexts.map(context => context.page.closedLogDialogs), [1, 1])
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/api/user/login').length, 2)
@@ -850,6 +930,7 @@ test('usage UI binds exact request and Key to the real role-specific list withou
 
 for (const [corrupt, code, stage] of [
   ...['request', 'owner', 'key', 'model', 'duplicate', 'missing'].map(kind => [`ui-log-${kind}`, 'LOG_MISMATCH', 'usage-list']),
+  ['ui-log-visible', 'BROWSER_FAILED', 'usage-list-visible'],
   ['ui-log-ambiguous', 'LOG_MISMATCH', 'usage-details-open'],
   ['ui-log-open', 'BROWSER_FAILED', 'usage-details-open'],
   ['ui-log-dialog-request', 'BROWSER_FAILED', 'usage-details-request'],
@@ -1010,7 +1091,7 @@ test('document backoff shares a 180-second journey budget and never replays logi
     if (event.stage === 'document-backoff') backoff.resolve()
   } })
   const rejected = assert.rejects(run, error => error.message === 'SMOKE_PERSONAL_HTTP_FAILED' &&
-    error.stage === 'usage-open' && error.httpStatus === 429 && error.retryAfter === 81)
+    error.stage === 'login-open' && error.httpStatus === 429 && error.retryAfter === 81)
   await Promise.race([backoff.promise, rejected])
   t.mock.timers.tick(100_000)
   await rejected
@@ -1033,3 +1114,223 @@ for (const [corrupt, code, pathname] of [
     assert(!events.some(event => event.stage === 'document-backoff' || event.event === 'document-response'))
   })
 }
+
+// Diagnostic fixtures deliberately contain secret-like URL/header/message data.
+// Only the fixed classification and numeric fields may reach the observer.
+function diagnosticResponse(pathname, status = 429, retryAfter = '17', resourceType = 'fetch') {
+  const request = { url: () => pathname.startsWith('http') ? pathname : base.baseUrl + pathname,
+    resourceType: () => resourceType, method: () => 'GET',
+    failure() { throw new Error('must not inspect raw network failure') } }
+  return { request: () => request, status: () => status,
+    headers: () => ({ 'retry-after': retryAfter, authorization: base.password }),
+    json() { throw new Error('must not read diagnostic body') },
+    text() { throw new Error('must not read diagnostic body') } }
+}
+
+function diagnosticRecords(events) { return events.filter(event => event.event.startsWith('diagnostic-')) }
+
+test('first-navigation failures emit only same-origin fixed categories, numeric status and valid Retry-After', async () => {
+  const events = []
+  const fixture = setupBrowser({ onNavigate(page) {
+    for (const [pathname, resource, status, retry] of [
+      [`/static/js/secret-${base.password}.js?token=session-private-secret`, 'script', 429, '17'],
+      ['/api/user/auth/refresh?token=secret-masked-key', 'fetch', 503, '0'],
+      ['/api/log/self?request_id=request-private-secret', 'fetch', 500, base.password],
+      ['/api/status', 'fetch', 429, '9999999999999999999999999'],
+      ['https://outside.invalid/static/app.js?secret=' + base.password, 'script', 429, '17'],
+      ['/api/token/1/key', 'fetch', 403, '17'],
+      ['/static/app.js', 'script', 200, '17'],
+      ['/static/app.js', 'script', '429', '17'],
+      ['/static/app.js', 'script', 600, '17'],
+      ['http://127.0.0.1:19090/static/app.js', 'script', 429, '17'],
+    ]) page.listeners.response?.(diagnosticResponse(pathname, status, retry, resource))
+  } })
+  assert.equal((await browserSetup({ ...base, playwrightModule: fixture.module, onProgress: value => events.push(value) })).ok, true)
+  const records = diagnosticRecords(events)
+  assert.deepEqual(records.map(({ category, httpStatus, retryAfter }) => ({ category, httpStatus, retryAfter })), [
+    { category: 'asset', httpStatus: 429, retryAfter: 17 },
+    { category: 'auth', httpStatus: 503, retryAfter: 0 },
+    { category: 'log', httpStatus: 500, retryAfter: undefined },
+    { category: 'bootstrap', httpStatus: 429, retryAfter: undefined },
+  ])
+  assert(records.every(record => record.stage === 'setup-open' && record.event === 'diagnostic-response'))
+  for (const record of records) assert.deepEqual(Object.keys(record).sort(), [
+    'command', 'phase', 'event', 'stage', 'sha', 'writer', 'category', 'httpStatus',
+    ...(record.retryAfter !== undefined ? ['retryAfter'] : []),
+  ].sort())
+  for (const secret of [base.password, 'session-private-', 'secret-masked-key', 'request-private-', '/static/', 'authorization']) {
+    assert(!JSON.stringify(events).includes(secret))
+  }
+  assert.equal(fixture.calls.filter(call => call[0] === 'goto').length, 1, 'diagnostics never retry navigation')
+})
+
+test('console route exceptions classify chunk/import failures without serializing text, arguments or location', async () => {
+  const events = []
+  const fixture = setupBrowser({ onNavigate(page) {
+    for (const text of [
+      `TypeError: Failed to fetch dynamically imported module: https://host/${base.password}`,
+      `ChunkLoadError: Loading chunk 42 failed (${base.password})`,
+      `ReferenceError: ${base.password} is not defined`,
+      `arbitrary secret name ${base.password}`,
+    ]) page.listeners.console?.({ type: () => 'error', text: () => text,
+      args() { throw new Error('must not inspect console arguments') },
+      location() { throw new Error('must not inspect console location') } })
+    page.listeners.console?.({ type: () => 'warning', text() { throw new Error('not an error') } })
+  } })
+  assert.equal((await browserSetup({ ...base, playwrightModule: fixture.module, onProgress: value => events.push(value) })).ok, true)
+  assert.deepEqual(diagnosticRecords(events).map(({ event, errorClass }) => ({ event, errorClass })), [
+    { event: 'diagnostic-console', errorClass: 'ImportError' },
+    { event: 'diagnostic-console', errorClass: 'ChunkLoadError' },
+    { event: 'diagnostic-console', errorClass: 'ReferenceError' },
+    { event: 'diagnostic-console', errorClass: 'other' },
+  ])
+  assert(!JSON.stringify(events).includes(base.password))
+})
+
+test('pageerror retains the existing runtime failure while exposing only a whitelisted class', async () => {
+  const events = []
+  const fixture = setupBrowser({ onNavigate(page) {
+    for (const [name, message] of [['TypeError', base.password], [base.password, base.password],
+      ['Error', `Importing a module script failed: https://host/${base.password}`]]) {
+      page.listeners.pageerror?.({ name, message, get stack() { throw new Error('must not inspect stack') } })
+    }
+  } })
+  await assert.rejects(browserSetup({ ...base, playwrightModule: fixture.module, onProgress: value => events.push(value) }),
+    error => error.message === 'SMOKE_PERSONAL_RUNTIME_ERROR' && error.stage === 'setup-response')
+  assert.deepEqual(diagnosticRecords(events).map(record => record.errorClass), ['TypeError', 'other', 'ImportError'])
+  assert(!JSON.stringify(events).includes(base.password))
+  assert.equal(fixture.calls.at(-1)[0], 'browser-close')
+})
+
+test('request failures record only fixed same-origin categories and deduplicate paths and messages', async () => {
+  const events = []
+  const fixture = setupBrowser({ onNavigate(page) {
+    for (const [pathname, type] of [
+      ['/static/js/' + base.password, 'script'], ['/static/style.css', 'stylesheet'],
+      ['/api/user/login?password=' + base.password, 'fetch'], ['/api/log/self', 'fetch'], ['/api/setup', 'fetch'],
+      ['https://outside.invalid/static/js/app.js', 'script'], ['/pg/chat/completions', 'fetch'],
+    ]) page.listeners.requestfailed?.(diagnosticResponse(pathname, 500, '', type).request())
+  } })
+  await browserSetup({ ...base, playwrightModule: fixture.module, onProgress: value => events.push(value) })
+  assert.deepEqual(diagnosticRecords(events).map(({ event, category }) => ({ event, category })),
+    ['asset', 'auth', 'log', 'bootstrap'].map(category => ({ event: 'diagnostic-requestfailed', category })))
+  assert(!JSON.stringify(events).includes(base.password))
+})
+
+test('diagnostics cap distinct session records at sixteen with one fixed limit marker', async () => {
+  const events = []
+  const fixture = setupBrowser({ onNavigate(page) {
+    for (let status = 400; status < 440; status++) {
+      for (let duplicate = 0; duplicate < 2; duplicate++) {
+        page.listeners.response?.(diagnosticResponse('/static/' + status + '.js', status, '1', 'script'))
+      }
+    }
+  } })
+  await browserSetup({ ...base, playwrightModule: fixture.module, onProgress: value => events.push(value) })
+  const records = diagnosticRecords(events)
+  assert.equal(records.length, 17)
+  assert.deepEqual(records.slice(0, 16).map(record => record.httpStatus), Array.from({ length: 16 }, (_, i) => 400 + i))
+  assert.deepEqual(records.at(-1), { command: 'personal:browser', phase: 'setup', event: 'diagnostic-limit',
+    stage: 'setup-open', sha: base.sha, writer: 'legacy', count: 16 })
+})
+
+test('malformed diagnostic inputs and a rejecting observer cannot replace the original failure or prevent cleanup', async () => {
+  const fixture = setupBrowser({ responseSuccess: false, onNavigate(page) {
+    page.listeners.response?.({ request() { throw new Error(base.password) } })
+    page.listeners.requestfailed?.({ url() { throw new Error(base.password) } })
+    page.listeners.console?.({ type: () => 'error', text() { throw new Error(base.password) } })
+    page.listeners.pageerror?.({ get name() { throw new Error(base.password) } })
+    page.listeners.response?.(diagnosticResponse('/static/app.js', 429, '0', 'script'))
+  } })
+  await assert.rejects(browserSetup({ ...base, playwrightModule: fixture.module,
+    onProgress() { return Promise.reject(new Error(base.password)) } }),
+  error => error.message === 'SMOKE_PERSONAL_SETUP_FAILED' && !error.stack.includes(base.password))
+  assert.equal(fixture.calls.at(-1)[0], 'browser-close')
+})
+
+test('diagnostic caps are independent for Root and ordinary-owner sessions and leave the journey unchanged', async () => {
+  const events = []
+  const pages = new Set()
+  const fixture = journeyBrowser({ onNavigate(page) {
+    if (pages.has(page)) return
+    pages.add(page)
+    for (let status = 400; status < 418; status++) {
+      page.listeners.response?.(diagnosticResponse('/static/app.js', status, '0', 'script'))
+    }
+  } })
+  const result = await probePersonalBrowserJourney({ ...base, ...fixture, onProgress: event => events.push(event) })
+  assert.equal(result.passed, true)
+  assert.equal(pages.size, 2)
+  assert.equal(diagnosticRecords(events).filter(record => record.event === 'diagnostic-response').length, 32)
+  assert.equal(diagnosticRecords(events).filter(record => record.event === 'diagnostic-limit').length, 2)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 4, 'plus the separate setup navigation')
+  assert.equal(fixture.upstreamCount(), 4)
+})
+
+test('log filters use visible desktop controls and the mobile drawer before submitting exact identity', async () => {
+  const fixture = journeyBrowser()
+  assert.equal((await probePersonalBrowserJourney({ ...base, ...fixture })).passed, true)
+  assert.deepEqual(fixture.filterActions, [100, 1].flatMap(role => [
+    { action: 'open', role, control: role === 100 ? 'Expand' : 'Filter' },
+    { action: 'fill', role, field: 'Token Name' },
+    { action: 'fill', role, field: 'Request ID' },
+    { action: 'search', role, tokenName: role === 100 ? 'browser-root-finite' : 'browser-owner-finite',
+      requestId: role === 100 ? 'request-private-1' : 'request-private-3' },
+  ]))
+  assert(fixture.contexts.every(context => !context.page.logFiltersOpen))
+  assert.deepEqual(fixture.tableSearches.map(item => ({ endpoint: item.endpoint, id: item.id })), [
+    { endpoint: '/api/user/search', id: 20 }, { endpoint: '/api/token/search', id: 34 },
+  ])
+  // Each input also emitted a wrong keyword GET and a correct keyword POST.
+  // Neither may satisfy the required real role-specific search GET readback.
+  assert.equal(fixture.tableSearches[1].keyword, 'browser-root-strict-reject')
+})
+
+for (const [corrupt, usageFailureRole] of [
+  ['ui-log-hidden-filter', 100], ['ui-log-hidden-filter', 1],
+  ['ui-log-url', 100], ['ui-log-url', 1], ['ui-log-drawer-stays-open', 1],
+]) {
+  test(`${corrupt} role ${usageFailureRole} cannot pass without real filter visibility, submission and URL synchronization`, async () => {
+    const fixture = journeyBrowser({ corrupt, usageFailureRole })
+    await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), error =>
+      error.message === 'SMOKE_PERSONAL_BROWSER_FAILED' && error.stage === 'usage-filter')
+    assert.equal(fixture.closed(), 1)
+    assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length,
+      usageFailureRole === 100 ? 1 : 3)
+  })
+}
+
+for (const [prefix, expectedCode, stage, fields] of [
+  ['ui-user', 'POLICY_MISMATCH', 'policy-user-filter', ['id', 'role', 'name', 'missing', 'duplicate', 'stale-row', 'url']],
+  ['ui-key', 'KEY_MISMATCH', 'strict-key-filter', ['id', 'owner', 'name', 'missing', 'duplicate', 'stale-row', 'url']],
+]) {
+  for (const field of fields) {
+    test(`${prefix}-${field} fails before acting on an incorrect or stale table selection`, async () => {
+      const fixture = journeyBrowser({ corrupt: prefix + '-' + field })
+      await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), error => {
+        const code = ['stale-row', 'url'].includes(field) ? 'BROWSER_FAILED' : expectedCode
+        assert.equal(error.message, 'SMOKE_PERSONAL_' + code)
+        assert.equal(error.stage, stage)
+        return true
+      })
+      assert.equal(fixture.closed(), 1)
+      assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length,
+        prefix === 'ui-user' ? 2 : 4)
+      if (prefix === 'ui-user') assert(!fixture.emitted.some(response => new URL(response.url()).pathname === '/api/user/20/usage-policy' && response.request().method() === 'PUT'))
+      else assert(!fixture.emitted.some(response => /\/api\/token\/\d+\/budget$/.test(new URL(response.url()).pathname) && response.request().method() === 'PUT'))
+    })
+  }
+}
+
+test('header Search duplicate cannot capture desktop log submission while mobile uses its portal dialog', async () => {
+  const fixture = journeyBrowser()
+  const report = await probePersonalBrowserJourney({ ...base, ...fixture })
+  assert.equal(report.passed, true)
+  assert.deepEqual(fixture.logSearchMatches, [1, 1])
+  assert.deepEqual(fixture.usageReads.map(({ role, requestId }) => ({ role, requestId })), [
+    { role: 100, requestId: 'request-private-1' }, { role: 1, requestId: 'request-private-3' },
+  ])
+  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 4)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+})
