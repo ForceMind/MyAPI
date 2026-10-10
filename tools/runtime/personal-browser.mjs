@@ -619,8 +619,11 @@ async function showPersistedUsage(session, key, requestId, options, screenshots)
     await open(session, '/usage-logs/common')
     session.scope.stage = 'usage-filter'
     const mobile = session.width === 320
-    await session.page.getByRole('button', { name: session.label(mobile ? 'Filter' : 'Expand'), exact: true }).click()
-    const filters = mobile ? session.page.getByRole('dialog', { name: session.label('Filter'), exact: true }) : session.page
+    // Header Search and toolbar Search share an accessible name. The named
+    // page main owns desktop filters; mobile fields live in a portal dialog.
+    const main = session.page.getByRole('main', { name: session.label('Common Logs'), exact: true })
+    await main.getByRole('button', { name: session.label(mobile ? 'Filter' : 'Expand'), exact: true }).click()
+    const filters = mobile ? session.page.getByRole('dialog', { name: session.label('Filter'), exact: true }) : main
     await filters.getByPlaceholder(session.label('Token Name'), { exact: true }).fill(key.name)
     await filters.getByPlaceholder(session.label('Request ID'), { exact: true }).fill(requestId)
     // The admin client GET redirects to Gin's /api/log/ route. The ordinary

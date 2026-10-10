@@ -157,6 +157,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   const usageReads = []
   const filterActions = []
   const tableSearches = []
+  const logSearchMatches = []
   let serverDisplay = 'USD'
   const reached = Promise.withResolvers()
   const stalled = Promise.withResolvers()
@@ -346,6 +347,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             assert.equal(new URL(page.current).pathname, '/usage-logs/common')
             assert(page.logFiltersOpen, 'log inputs must be visibly expanded')
             if (context.locale === 'zh-CN') assert(parents.includes('Filter'), 'phone filters must be scoped to the visible drawer')
+            else assert(parents.includes('Common Logs'), 'desktop filters belong to the named main')
             filterActions.push({ action: 'fill', role: page.actor.role, field: value })
           }
           page.fields[value] = text
@@ -399,12 +401,18 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
           if (options?.trial) return
           if (value === 'Expand' || value === 'Filter') {
             assert.equal(new URL(page.current).pathname, '/usage-logs/common')
+            assert(parents.includes('Common Logs'), 'log filter triggers belong to the named page main')
             assert.equal(value, context.locale === 'zh-CN' ? 'Filter' : 'Expand')
             page.logFiltersOpen = !(corrupt === 'ui-log-hidden-filter' && (usageFailureRole === undefined || usageFailureRole === page.actor.role))
             filterActions.push({ action: 'open', role: page.actor.role, control: value })
           }
           if (value === 'Search') {
             assert.equal(new URL(page.current).pathname, '/usage-logs/common')
+            // The actual Header has a Search button outside the named main;
+            // a page-wide desktop locator has two matches, not one.
+            const matches = parents.includes('Common Logs') || parents.includes('Filter') ? 1 : 2
+            logSearchMatches.push(matches)
+            assert.equal(matches, 1, 'strict locator: Header Search and log Search both match')
             assert(page.logFiltersOpen)
             if (context.locale === 'zh-CN') assert(parents.includes('Filter'), 'Search must belong to the mobile drawer')
             page.submitLogSearch()
@@ -646,7 +654,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   }
   return { playwrightModule, fetchImpl, contexts, emitted, screenshots, apiCalls, dialogCloseEvents, completionEvents, signals,
     navigations,
-    createdKeyDisplays, policyRefreshes, playgroundRefreshes, modelChoices, keyReadEvents, usageReads, filterActions, tableSearches,
+    createdKeyDisplays, policyRefreshes, playgroundRefreshes, modelChoices, keyReadEvents, usageReads, filterActions, tableSearches, logSearchMatches,
     reached: reached.promise, release: stalled.resolve, closing: closing.promise, releaseClose: stalledClose.resolve,
     closed: () => closed, upstreamCount: () => upstreamCount }
 }
@@ -1314,3 +1322,15 @@ for (const [prefix, expectedCode, stage, fields] of [
     })
   }
 }
+
+test('header Search duplicate cannot capture desktop log submission while mobile uses its portal dialog', async () => {
+  const fixture = journeyBrowser()
+  const report = await probePersonalBrowserJourney({ ...base, ...fixture })
+  assert.equal(report.passed, true)
+  assert.deepEqual(fixture.logSearchMatches, [1, 1])
+  assert.deepEqual(fixture.usageReads.map(({ role, requestId }) => ({ role, requestId })), [
+    { role: 100, requestId: 'request-private-1' }, { role: 1, requestId: 'request-private-3' },
+  ])
+  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 4)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+})
