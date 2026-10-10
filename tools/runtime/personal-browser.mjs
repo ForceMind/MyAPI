@@ -13,7 +13,8 @@ const stages = new Set(['launch', 'setup', 'setup-session', 'setup-open', 'setup
   'key-create', 'key-create-open', 'key-create-ready', 'key-create-profile', 'key-create-cap',
   'key-create-quota', 'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm',
   'key-selection-refresh', 'key-selection-model', 'playground-response', 'playground-complete', 'playground-rejection',
-  'usage-open', 'usage-list', 'usage-list-visible', 'usage-details-open', 'usage-details-request', 'usage-details-key',
+  'usage-open', 'usage-filter', 'usage-list', 'usage-list-visible', 'usage-details-open', 'usage-details-request', 'usage-details-key',
+  'policy-user-filter', 'strict-key-filter',
   'strict-budget', 'reload-check', 'screenshot', 'browser-close'])
 const codes = new Set(['SCOPE_REJECTED', 'AUTH_UNAVAILABLE', 'BROWSER_FAILED', 'BROWSER_CLOSE_FAILED', 'SETUP_FAILED',
   'HTTP_FAILED', 'LOGIN_FAILED', 'RUNTIME_ERROR', 'BUILD_MISMATCH', 'API_FAILED', 'STATE_MISMATCH',
@@ -252,7 +253,8 @@ async function open(session, pathname, { forceLoad = false } = {}) {
   // Reusing a page already at this exact URL avoids needless cache-disabled
   // document reloads. The final persistence check explicitly forces a load.
   if (!forceLoad && session.page.url() === target) return
-  if (!forceLoad && session.user && ['/keys', '/playground'].includes(pathname)) {
+  const sidebarLabels = { '/keys': 'API Keys', '/playground': 'Playground', '/users': 'Users', '/usage-logs/common': 'Usage Logs' }
+  if (!forceLoad && session.user && Object.hasOwn(sidebarLabels, pathname)) {
     const { page, label } = session
     const mobile = session.width === 320
     const toggle = page.getByRole('button', { name: label('Toggle sidebar'), exact: true })
@@ -261,7 +263,7 @@ async function open(session, pathname, { forceLoad = false } = {}) {
       if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click()
     }
     await page.locator('[data-myapi-sidebar]').getByRole('link', {
-      name: label(pathname === '/keys' ? 'API Keys' : 'Playground'), exact: true,
+      name: label(sidebarLabels[pathname]), exact: true,
     }).and(page.locator(`a[href="${pathname}"]`)).click()
     await page.waitForURL(url => url.origin === session.origin && url.pathname === pathname)
     if (mobile) await toggle.and(page.locator('[aria-expanded="false"]')).waitFor()
@@ -305,6 +307,24 @@ async function responseSuccess(session, response, code) {
   const payload = await bounded(session.scope, () => response.json())
   requireThat(response.status() >= 200 && response.status() < 300 && payload?.success === true, code)
   return payload.data
+}
+
+async function searchTableRow(session, pathname, placeholder, keyword, endpoint, code) {
+  await open(session, pathname)
+  const received = session.page.waitForResponse(response => {
+    const url = new URL(response.url())
+    return url.origin === session.origin && url.pathname === endpoint && response.request().method() === 'GET' &&
+      url.searchParams.get('keyword') === keyword
+  })
+  received.catch(() => {})
+  // These existing table inputs commit through a 500ms UI debounce. Observe
+  // its actual URL and result rather than sleeping or injecting router state.
+  await session.page.getByPlaceholder(session.label(placeholder), { exact: true }).fill(keyword)
+  await session.page.waitForURL(url => url.origin === session.origin && url.pathname === pathname &&
+    url.searchParams.get('filter') === keyword)
+  const data = await responseSuccess(session, await received, code)
+  requireThat(data?.total === 1 && Array.isArray(data.items) && data.items.length === 1, code)
+  return data.items[0]
 }
 
 async function refreshReadback(session, pathname, button, code, parameters = {}) {
@@ -596,6 +616,13 @@ async function verifyUsage(api, session, key, before, requestId, consumed) {
 async function showPersistedUsage(session, key, requestId, options, screenshots) {
   session.scope.stage = 'usage-open'
   try {
+    await open(session, '/usage-logs/common')
+    session.scope.stage = 'usage-filter'
+    const mobile = session.width === 320
+    await session.page.getByRole('button', { name: session.label(mobile ? 'Filter' : 'Expand'), exact: true }).click()
+    const filters = mobile ? session.page.getByRole('dialog', { name: session.label('Filter'), exact: true }) : session.page
+    await filters.getByPlaceholder(session.label('Token Name'), { exact: true }).fill(key.name)
+    await filters.getByPlaceholder(session.label('Request ID'), { exact: true }).fill(requestId)
     // The admin client GET redirects to Gin's /api/log/ route. The ordinary
     // owner's route is /api/log/self, without a trailing slash.
     const pathname = session.user.role === 100 ? '/api/log/' : '/api/log/self'
@@ -604,8 +631,11 @@ async function showPersistedUsage(session, key, requestId, options, screenshots)
       return url.origin === session.origin && url.pathname === pathname && response.request().method() === 'GET' &&
         url.searchParams.get('request_id') === requestId && url.searchParams.get('token_name') === key.name
     })
-    received.catch(() => {}) // Navigation failure still owns the original error.
-    await open(session, `/usage-logs/common?token=${encodeURIComponent(key.name)}&requestId=${encodeURIComponent(requestId)}`)
+    received.catch(() => {}) // A failed UI submission still owns its error.
+    await filters.getByRole('button', { name: session.label('Search'), exact: true }).click()
+    if (mobile) await filters.waitFor({ state: 'hidden' })
+    await session.page.waitForURL(url => url.origin === session.origin && url.pathname === '/usage-logs/common' &&
+      url.searchParams.get('token') === key.name && url.searchParams.get('requestId') === requestId)
     session.scope.stage = 'usage-list'
     const data = await responseSuccess(session, await received, 'LOG_MISMATCH')
     requireThat(data?.total === 1 && Array.isArray(data.items) && data.items.length === 1, 'LOG_MISMATCH')
@@ -774,9 +804,14 @@ export async function probePersonalBrowserJourney(options = {}) {
 
     // Root reviews this specific ordinary user, confirms, and submits through
     // the real policy dialog. API readback checks the audited revision change.
-    scope.stage = 'policy-confirm'
-    await open(root, `/users?filter=${ownerName}`)
+    scope.stage = 'policy-user-filter'
+    const selectedUser = await searchTableRow(root, '/users', 'Filter by username, name or email...',
+      ownerName, '/api/user/search', 'POLICY_MISMATCH')
+    requireThat(selectedUser.id === owner.user.id && selectedUser.role === 1 && selectedUser.username === ownerName, 'POLICY_MISMATCH')
     const row = root.page.getByRole('row').filter({ hasText: ownerName })
+    await row.waitFor()
+    requireThat(await row.count() === 1, 'POLICY_MISMATCH')
+    scope.stage = 'policy-confirm'
     await row.getByRole('button', { name: root.label('Open menu'), exact: true }).click()
     await root.page.getByRole('menuitem', { name: root.label('User usage policy'), exact: true }).click()
     const choice = root.page.getByRole('dialog', { name: root.label('User usage policy'), exact: true })
@@ -820,9 +855,14 @@ export async function probePersonalBrowserJourney(options = {}) {
     // loopback/model/request combination. This does not isolate the host gate
     // or prove native-provider positives, strict settlement, or concurrency.
     const strictKey = await createKey(root, api, 'browser-root-strict-reject', quota)
+    scope.stage = 'strict-key-filter'
+    const selectedKey = await searchTableRow(root, '/keys', 'Filter by name...', strictKey.name, '/api/token/search', 'KEY_MISMATCH')
+    requireThat(selectedKey.id === strictKey.id && selectedKey.user_id === root.user.id && selectedKey.name === strictKey.name, 'KEY_MISMATCH')
+    const strictRow = root.page.getByRole('row').filter({ hasText: strictKey.name })
+    await strictRow.waitFor()
+    requireThat(await strictRow.count() === 1, 'KEY_MISMATCH')
     scope.stage = 'strict-budget'
-    await open(root, `/keys?filter=${strictKey.name}`)
-    await root.page.getByRole('button', { name: root.label('API Key usage budgets'), exact: true }).click()
+    await strictRow.getByRole('button', { name: root.label('API Key usage budgets'), exact: true }).click()
     const budgetDialog = root.page.getByRole('dialog', { name: root.label('API Key usage budgets'), exact: true })
     await budgetDialog.getByRole('checkbox', { name: root.label('Enable strict Token budget'), exact: true }).check()
     await budgetDialog.getByRole('textbox', { name: root.label('Token total limit'), exact: true }).fill('1000')
