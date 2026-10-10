@@ -67,11 +67,20 @@ export function startFakeOpenAI({ host = '127.0.0.1', port = 19090 } = {}) {
     state.path_ok = true
     state.model_ok = body?.model === expectedModel
     state.max_tokens_ok = body?.max_tokens === 8
-    state.stream_ok = body?.stream === false
+    state.stream_ok = body?.stream === false || (body?.stream === true && body?.stream_options?.include_usage === true)
     state.bearer_ok = request.headers.authorization === expectedBearer
     state.request_ok = state.path_ok && state.model_ok && state.max_tokens_ok && state.stream_ok && state.bearer_ok
     if (!state.request_ok) {
       writeJson(response, 400, { error: { message: 'synthetic request rejected' } })
+      return
+    }
+    if (body.stream) {
+      response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'X-Api-Key': 'synthetic-response-header-secret' })
+      const chunk = { id: 'synthetic-completion', object: 'chat.completion.chunk', created: 1, model: expectedModel }
+      response.write(`data: ${JSON.stringify({ ...chunk, choices: [{ index: 0, delta: { role: 'assistant', content: 'synthetic fixed response' }, finish_reason: null }] })}\n\n`)
+      response.write(`data: ${JSON.stringify({ ...chunk, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })}\n\n`)
+      response.write(`data: ${JSON.stringify({ ...chunk, choices: [], usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } })}\n\n`)
+      response.end('data: [DONE]\n\n')
       return
     }
     writeJson(response, 200, {

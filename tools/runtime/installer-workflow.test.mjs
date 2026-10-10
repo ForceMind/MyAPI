@@ -16,12 +16,12 @@ test('candidate metadata and fresh image defaults name the same immutable versio
 test('settlement patch keeps bounded Docker acceptance and durable race coverage', () => {
   const docker = readFileSync(new URL('../../.github/workflows/docker-smoke.yml', import.meta.url), 'utf8')
   const gates = docker.split('\n').filter(line => line.startsWith('    if:'))
-  assert.equal(gates.length, 2)
-  for (const gate of gates) {
+  assert.equal(gates.length, 3)
+  for (const [index, gate] of gates.entries()) {
     assert.match(gate, /github\.event_name == 'workflow_dispatch'/)
     assert.match(gate, /head\.repo\.full_name == github\.repository && contains/)
     const allowed = JSON.parse(gate.match(/fromJSON\('([^']+)'\)/)[1])
-    assert.deepEqual(allowed, ['codex/r1-usage-review-20261002', 'codex/settlement-review-status-20261009'])
+    assert.deepEqual(allowed, ['codex/r1-usage-review-20261002', 'codex/settlement-review-status-20261009', ...(index !== 1 ? ['codex/personal-app-journey-20261009', 'codex/docker-smoke-image-reuse-20261010'] : [])])
   }
   assert.doesNotMatch(docker, /packages: write|contents: write|id-token: write|push: true|secrets\./)
   assert.match(docker, /push: false/)
@@ -117,4 +117,49 @@ test('startup publishes validated batch configuration before business workers an
   assert.ok(mainBody.indexOf('InitResources()') < mainBody.indexOf('srv.ListenAndServe()'))
   assert.doesNotMatch(mainBody, /os\.Getenv\("BATCH_UPDATE_ENABLED"\)/)
   assert.match(mainBody, /if common\.BatchUpdateEnabled \{/)
+})
+
+
+test('personal application smoke stays on an exact trusted branch with two owned writer fixtures', () => {
+  const workflow = readFileSync(new URL('../../.github/workflows/docker-smoke.yml', import.meta.url), 'utf8')
+  const job = workflow.split('  build-and-healthcheck:\n')[1]
+  assert.match(job, /head\.repo\.full_name == github\.repository && contains/)
+  assert.match(job, /writer: \[legacy\]/)
+  assert.match(job, /"scenario":"fresh","writer":"authoritative"/)
+  assert.match(job, /matrix\.writer/)
+  const prepare = job.split('      - name: Prepare owned personal test network and Redis\n')[1].split('      - name: Start isolated SQLite container\n')[0]
+  assert.match(prepare, /docker network create --internal/)
+  assert.match(workflow.split('  installer-local-build:\n')[0], /docker pull --platform linux\/amd64 redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499/)
+  assert.match(prepare, /"\$SMOKE_REDIS_IMAGE_ID"/)
+  assert.match(prepare, /docker run --pull=never/)
+  assert.match(prepare, /--network "\$SMOKE_NETWORK" --network-alias smoke-redis/)
+  assert.doesNotMatch(prepare, /--publish|(?:^|\s)-p\s|--network[= ]host|--privileged/)
+  assert.match(prepare, /--requirepass "\$redis_password"/)
+  assert.match(prepare, /::add-mask::/)
+  assert.match(prepare, /HostConfig\.PortBindings/)
+  const start = job.split('      - name: Start isolated SQLite container\n')[1].split('      - name: Wait for health and verify status\n')[0]
+  assert.match(start, /docker create --pull=never "\$\{personal_args\[@\]\}"/)
+  assert.doesNotMatch(start, /personal_args\+=\(--network|--network[= ]host|--privileged/)
+  assert.match(start, /MYAPI_SMOKE_WRITER" == 'authoritative'/)
+  assert.ok(start.indexOf('docker network connect') < start.indexOf('docker start'))
+  assert.match(start, /docker network connect "\$SMOKE_NETWORK" "\$SMOKE_CONTAINER"/)
+  assert.match(start, /docker port "\$SMOKE_CONTAINER" 3000\/tcp/)
+  assert.match(start, /docker port "\$SMOKE_CONTAINER" 19090\/tcp/)
+  assert.match(start, /127\.0\.0\.1:18080/)
+  assert.match(start, /127\.0\.0\.1:19090/)
+  const readiness = job.split('      - name: Wait for fake upstream fixture\n')[1].split('      - name: Install isolated browser test runtime\n')[0]
+  assert.match(readiness, /docker exec "\$SMOKE_FAKE_UPSTREAM_CONTAINER" bun/)
+  assert.match(readiness, /AbortSignal.timeout\(2000\)/)
+  assert.match(readiness, /namespace-local readiness also failed/)
+  assert.doesNotMatch(readiness, /docker logs|docker inspect/)
+  const cleanup = job.split('      - name: Remove only owned personal Redis and network\n')[1]
+  assert.match(cleanup, /if: always\(\)/)
+  assert.match(cleanup, /io\.myapi\.smoke\.sha/)
+  assert.match(cleanup, /io\.myapi\.personal\.run/)
+  assert.match(cleanup, /GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT/)
+  assert.match(cleanup, /docker network rm "\$SMOKE_NETWORK"/)
+  assert.doesNotMatch(cleanup, /prune|rm -rf/)
+  assert.match(job, /name: myapi-personal-\$\{\{ matrix.writer \}\}-\$\{\{ github.sha \}\}/)
+  assert.match(job, /timeout-minutes: \$\{\{ env.MYAPI_SMOKE_PERSONAL == '1' && 6 \|\| 25 \}\}/)
+  assert.doesNotMatch(workflow, /packages: write|contents: write|id-token: write|push: true|secrets\./)
 })

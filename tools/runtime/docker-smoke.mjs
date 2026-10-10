@@ -3,7 +3,7 @@
 // Initializes only a fresh, explicitly selected loopback SQLite test instance.
 // No credentials, cookies or API response bodies are returned in the report.
 import { randomBytes } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { runRuntimeProbe } from './auth-probe.mjs'
@@ -357,12 +357,67 @@ export async function probeSelfUseRelayFixture({ baseUrl, edition, sha, username
   ] }
 }
 
+// Runs only before any relay in an owned fresh SQLite fixture. Use the public
+// transition/drain contract, never a DB update or an accounting-gate override.
+export async function preparePersonalWriterFixture({ baseUrl, edition, sha, username, password,
+  writer, isolated = false, fetchImpl = globalThis.fetch } = {}) {
+  if (!isolated || !['legacy', 'authoritative'].includes(writer) || !username || !password) throw new Error('SMOKE_PERSONAL_WRITER_SCOPE')
+  const origin = validateSmokeTarget(baseUrl, edition, sha)
+  const request = async (pathname, options = {}) => {
+    const response = await fetchImpl(origin + pathname, { ...options, redirect: 'error', signal: AbortSignal.timeout(10_000) })
+    const body = await response.json().catch(() => null)
+    if (response.status < 200 || response.status >= 300 || body?.success !== true) throw new Error('SMOKE_PERSONAL_WRITER_API')
+    return body.data
+  }
+  const login = await request('/api/user/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) })
+  if (typeof login?.access_token !== 'string' || !login.access_token) throw new Error('SMOKE_PERSONAL_WRITER_API')
+  const headers = { Authorization: `Bearer ${login.access_token}`, 'Content-Type': 'application/json' }
+  const user = await request('/api/user/self', { headers })
+  if (user?.role !== 100 || user.quota !== 0 || user.used_quota !== 0 || user.request_count !== 0) throw new Error('SMOKE_PERSONAL_WRITER_NOT_FRESH')
+  const readState = async () => {
+    const status = await request('/api/quota-writer/status', { headers })
+    if (status?.inflight_sessions !== 0 || !Number.isSafeInteger(status?.state?.epoch) || status.state.epoch <= 0) throw new Error('SMOKE_PERSONAL_WRITER_STATE')
+    return status.state
+  }
+  let state = await readState()
+  if (state.mode !== 'legacy') throw new Error('SMOKE_PERSONAL_WRITER_NOT_FRESH')
+  if (writer === 'authoritative') {
+    for (const target of ['bridge', 'authoritative']) {
+      const drain = await request('/api/quota-writer/drain?budget=10', { method: 'POST', headers })
+      if (drain?.complete !== true) throw new Error('SMOKE_PERSONAL_WRITER_DRAIN')
+      const plan = await request(`/api/quota-writer/plan?target=${target}`, { headers })
+      const audit = plan?.audit
+      const allowedMissing = target === 'bridge' ? ['cluster_drain_ack', 'redis_epoch'] : ['cluster_drain_ack']
+      const allowedValidation = target === 'bridge' ? ['cluster_drain_ack'] : ['durable_write_audit_failed']
+      if (plan?.current?.mode !== state.mode || plan.current.epoch !== state.epoch || plan.target_mode !== target || plan.proposed_epoch !== state.epoch + 1 ||
+          !Array.isArray(plan.validation) || plan.validation.some(value => !allowedValidation.includes(value)) ||
+          !audit || !Array.isArray(audit.missing_or_failed_checks || []) || (audit.missing_or_failed_checks || []).some(value => !allowedMissing.includes(value)) ||
+          audit.inflight_zero !== true || audit.batch_queue_empty !== true || audit.balance_drain_inflight_zero !== true ||
+          audit.maintenance_backfill_done !== true || audit.all_writers_migrated !== true || audit.projection_pending !== 0 ||
+          (target === 'authoritative' && audit.redis_epoch_consistent !== true)) throw new Error('SMOKE_PERSONAL_WRITER_AUDIT')
+      // The real apply endpoint records this acknowledgement before its own
+      // audit. It describes only this single owned fresh test process.
+      const result = await request('/api/quota-writer/apply', { method: 'POST', headers,
+        body: JSON.stringify({ target_mode: target, expected_epoch: state.epoch, ack_note: 'isolated fresh single-instance fixture; no relay admitted' }) })
+      if (result?.status !== 'succeeded' || result.to_mode !== target || result.from_epoch !== state.epoch || result.to_epoch !== state.epoch + 1) throw new Error('SMOKE_PERSONAL_WRITER_APPLY')
+      const next = await readState()
+      if (next.mode !== target || next.epoch !== result.to_epoch) throw new Error('SMOKE_PERSONAL_WRITER_STATE')
+      state = next
+    }
+  }
+  return { name: 'isolated fresh application writer selected through audited APIs', ok: true, writer: state.mode, epoch: state.epoch }
+}
+
 export async function probeFreshSQLite({
   baseUrl, edition, sha, isolated = false, relayFixture = false, fullContentExpected = false,
-  upstreamBaseUrl, fetchImpl = globalThis.fetch, restoreFixture,
+  upstreamBaseUrl, fetchImpl = globalThis.fetch, restoreFixture, setupFixture, personalFixture, writer = 'legacy',
 }) {
   if (!isolated) throw new Error('ISOLATED_SMOKE_OPT_IN_REQUIRED')
   const origin = validateSmokeTarget(baseUrl, edition, sha)
+  if (!['legacy', 'authoritative'].includes(writer) ||
+      (setupFixture !== undefined && typeof setupFixture !== 'function') ||
+      (personalFixture !== undefined && (typeof personalFixture !== 'function' || typeof setupFixture !== 'function' || !relayFixture)) ||
+      (writer !== 'legacy' && typeof personalFixture !== 'function')) throw new Error('SMOKE_PERSONAL_WRITER_SCOPE')
   // Fail before setup writes when the billed relay fixture has no literal
   // loopback upstream. The downstream probe validates it again defensively.
   if (relayFixture) validateFixtureUpstreamTarget(upstreamBaseUrl)
@@ -383,12 +438,19 @@ export async function probeFreshSQLite({
 
   const username = 'smokeadmin'
   const password = randomBytes(24).toString('hex')
-  const created = await json('/api/setup', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password, confirmPassword: password,
-      SelfUseModeEnabled: edition === 'lan', DemoSiteEnabled: false }),
-  })
-  if (created.status !== 200 || created.body?.success !== true) throw new Error('SMOKE_SETUP_FAILED')
+  let setupCheck
+  if (setupFixture) {
+    setupCheck = await setupFixture({ baseUrl: origin, edition, sha, username, password, isolated, writer })
+    const completed = await json('/api/setup')
+    if (setupCheck?.ok !== true || completed.status !== 200 || completed.body?.success !== true || completed.body.data?.status !== true) throw new Error('SMOKE_SETUP_FAILED')
+  } else {
+    const created = await json('/api/setup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, confirmPassword: password,
+        SelfUseModeEnabled: edition === 'lan', DemoSiteEnabled: false }),
+    })
+    if (created.status !== 200 || created.body?.success !== true) throw new Error('SMOKE_SETUP_FAILED')
+  }
   const anonymous = await localFetch(origin + '/api/user/self', { signal: AbortSignal.timeout(10_000) })
   await anonymous.arrayBuffer()
   if (![401, 403].includes(anonymous.status)) throw new Error('SMOKE_ANONYMOUS_ACCESS_NOT_REJECTED')
@@ -397,6 +459,9 @@ export async function probeFreshSQLite({
       status.body?.data?.self_use_mode_enabled !== (edition === 'lan')) {
     throw new Error('SMOKE_RUNTIME_MODE_MISMATCH')
   }
+  const writerCheck = personalFixture
+    ? await preparePersonalWriterFixture({ baseUrl: origin, edition, sha, username, password, writer, isolated, fetchImpl })
+    : null
   const probe = await runRuntimeProbe({ baseUrl: origin, username, password, fetchImpl: localFetch })
   if (!probe.passed) {
     return { command: 'docker:smoke', sha, edition, database: 'fresh-sqlite', passed: false, checks: [
@@ -415,8 +480,13 @@ export async function probeFreshSQLite({
   const restoreCheck = relayFixture && restoreFixture
     ? await restoreFixture({ baseUrl: origin, edition, sha, username, password, fetchImpl })
     : null
+  const personal = personalFixture
+    ? await personalFixture({ baseUrl: origin, edition, sha, username, password, writer, isolated, upstreamBaseUrl, fetchImpl })
+    : null
+  if (personalFixture && personal?.passed !== true) throw new Error('SMOKE_PERSONAL_STATE_MISMATCH')
   return { command: 'docker:smoke', sha, edition, database: 'fresh-sqlite',
-    passed: probe.passed && (relay?.passed ?? true) && (selfUse?.passed ?? true), checks: [
+    ...(personal ? { personal } : {}),
+    passed: probe.passed && (relay?.passed ?? true) && (selfUse?.passed ?? true) && (personal?.passed ?? true), checks: [
       { name: 'fresh SQLite initialization', ok: true },
       { name: 'anonymous self rejected', ok: true, status: anonymous.status },
       { name: 'runtime self-use mode', ok: true },
@@ -424,6 +494,9 @@ export async function probeFreshSQLite({
       ...(relay?.checks || []),
       ...(selfUse?.checks || []),
       ...(restoreCheck ? [restoreCheck] : []),
+      ...(setupCheck ? [setupCheck] : []),
+      ...(writerCheck ? [writerCheck] : []),
+      ...(personal?.checks || []),
     ] }
 }
 
@@ -474,13 +547,23 @@ async function main() {
     const sha = process.env.GITHUB_SHA
     const edition = process.env.MYAPI_SMOKE_EDITION
     const upstreamBaseUrl = process.env.MYAPI_FAKE_UPSTREAM_URL
+    const personalEnabled = process.env.MYAPI_SMOKE_PERSONAL === '1'
+    const personalOptions = personalEnabled ? {
+      playwrightModule: process.env.MYAPI_PLAYWRIGHT_MODULE,
+      artifactDir: process.env.MYAPI_PERSONAL_ARTIFACT_DIR,
+    } : null
+    const personalDriver = personalEnabled ? await import('./personal-browser.mjs') : null
     const report = await probeFreshSQLite({ baseUrl, sha, edition, isolated: true, relayFixture: true,
+      writer: personalEnabled ? process.env.MYAPI_SMOKE_WRITER : 'legacy',
+      setupFixture: personalDriver ? args => personalDriver.browserSetup({ ...args, ...personalOptions }) : undefined,
+      personalFixture: personalDriver ? args => personalDriver.probePersonalBrowserJourney({ ...args, ...personalOptions }) : undefined,
       fullContentExpected: process.env.MYAPI_SMOKE_FULL_CONTENT === '1', upstreamBaseUrl,
       restoreFixture: process.env.MYAPI_SMOKE_RESTORE === '1'
         ? (args) => verifySQLiteRestore({ ...args, restore: (verify) => withRestoredSQLite({ sha, edition, verify }) })
         : undefined })
     if (report.passed) report.checks.push(await probeFrontend(baseUrl, sha,
       readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim(), process.env.MYAPI_PLAYWRIGHT_MODULE))
+    if (personalEnabled && report.personal) writeFileSync(path.join(personalOptions.artifactDir, 'qualification.json'), JSON.stringify(report.personal, null, 2))
     console.log(JSON.stringify(report, null, 2))
     if (!report.passed) process.exitCode = 1
   } catch (error) {
@@ -509,9 +592,25 @@ async function main() {
       'SMOKE_RESTORE_COPY_MISMATCH', 'SMOKE_RESTORE_API_FAILED', 'SMOKE_RESTORE_STATE_MISMATCH', 'SMOKE_RESTORE_READINESS_FAILED',
       'SMOKE_BROWSER_MODULE_REQUIRED', 'SMOKE_FRONTEND_HTTP_FAILED',
       'SMOKE_FRONTEND_BUILD_MISMATCH', 'SMOKE_FRONTEND_RUNTIME_ERROR',
-      'SMOKE_FRONTEND_FORM_UNAVAILABLE', 'ISOLATED_CI_SMOKE_ONLY'])
+      'SMOKE_FRONTEND_FORM_UNAVAILABLE', 'ISOLATED_CI_SMOKE_ONLY',
+      'SMOKE_PERSONAL_WRITER_SCOPE', 'SMOKE_PERSONAL_WRITER_API', 'SMOKE_PERSONAL_WRITER_NOT_FRESH',
+      'SMOKE_PERSONAL_WRITER_STATE', 'SMOKE_PERSONAL_WRITER_DRAIN', 'SMOKE_PERSONAL_WRITER_AUDIT', 'SMOKE_PERSONAL_WRITER_APPLY',
+      'SMOKE_PERSONAL_SCOPE_REJECTED', 'SMOKE_PERSONAL_AUTH_UNAVAILABLE', 'SMOKE_PERSONAL_BROWSER_FAILED',
+      'SMOKE_PERSONAL_BROWSER_CLOSE_FAILED', 'SMOKE_PERSONAL_TIMEOUT', 'SMOKE_PERSONAL_SETUP_FAILED', 'SMOKE_PERSONAL_HTTP_FAILED', 'SMOKE_PERSONAL_LOGIN_FAILED',
+      'SMOKE_PERSONAL_RUNTIME_ERROR', 'SMOKE_PERSONAL_BUILD_MISMATCH', 'SMOKE_PERSONAL_API_FAILED',
+      'SMOKE_PERSONAL_STATE_MISMATCH', 'SMOKE_PERSONAL_KEY_MISMATCH', 'SMOKE_PERSONAL_POLICY_MISMATCH',
+      'SMOKE_PERSONAL_REQUEST_MISMATCH', 'SMOKE_PERSONAL_RELAY_MISMATCH', 'SMOKE_PERSONAL_LOG_MISMATCH',
+      'SMOKE_PERSONAL_USAGE_MISMATCH', 'SMOKE_PERSONAL_UPSTREAM_MISMATCH', 'SMOKE_PERSONAL_WRITER_MISMATCH',
+      'SMOKE_PERSONAL_SCREENSHOT_REJECTED'])
+    const safeStages = new Set(['launch', 'browser-close', 'setup',
+      'setup-session', 'setup-open', 'setup-database', 'setup-credentials', 'setup-mode', 'setup-review', 'setup-submit', 'setup-response', 'login', 'login-open', 'login-response', 'login-keys', 'document-backoff', 'writer-check', 'fixture-config', 'fixture-config-refresh', 'policy-view', 'policy-refresh', 'key-create',
+      'key-create-open', 'key-create-ready', 'key-create-profile', 'key-create-cap', 'key-create-quota',
+      'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'key-selection-refresh', 'key-selection-model', 'playground-send', 'ledger-check', 'usage-view', 'usage-open', 'usage-filter', 'usage-list', 'usage-list-visible', 'usage-details-open', 'usage-details-request', 'usage-details-key', 'policy-user-filter', 'policy-confirm', 'playground-response', 'playground-complete', 'playground-rejection', 'strict-key-filter', 'strict-budget', 'reload-check', 'screenshot'])
     console.error(JSON.stringify({ command: 'docker:smoke', passed: false,
-      code: safeCodes.has(error?.message) ? error.message : 'SMOKE_UNEXPECTED_FAILURE' }))
+      code: safeCodes.has(error?.message) ? error.message : 'SMOKE_UNEXPECTED_FAILURE',
+      ...(safeStages.has(error?.stage) ? { stage: error.stage } : {}),
+      ...(Number.isInteger(error?.httpStatus) && error.httpStatus >= 100 && error.httpStatus <= 599 ? { httpStatus: error.httpStatus } : {}),
+      ...(Number.isSafeInteger(error?.retryAfter) && error.retryAfter >= 0 ? { retryAfter: error.retryAfter } : {}) }))
     process.exitCode = 1
   }
 }

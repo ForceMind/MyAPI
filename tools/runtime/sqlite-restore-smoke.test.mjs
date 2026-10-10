@@ -41,6 +41,7 @@ function fixture(t, overrides = {}) {
       writeFileSync(path.join(args[2], 'my-api.db-wal'), 'synthetic WAL')
     }
     if (args[0] === 'run') {
+      assert.ok(args.includes('--pull=never'))
       assert.equal(args.includes('--privileged'), false)
       assert.ok(args.includes('127.0.0.1:18081:3000'))
       assert.equal(args.at(-1), overrides.handoff && commands.filter((c) => c[0] === 'run').length === 2 ? 'myapi:handoff-71277bf6055ce68b8cd1d11f1d10f1907d7696fd' : image)

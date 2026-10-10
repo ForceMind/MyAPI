@@ -1,0 +1,1336 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import { browserSetup, probePersonalBrowserJourney } from './personal-browser.mjs'
+
+// These doubles protect driver orchestration and artifact hygiene only. They do
+// not constitute browser, backend, relay, billing, or persistence acceptance.
+const base = { baseUrl: 'http://127.0.0.1:18080', upstreamBaseUrl: 'http://127.0.0.1:19090',
+  sha: 'a'.repeat(40), edition: 'full', isolated: true,
+  username: 'synthetic-root', password: 'synthetic-password-never-report', writer: 'legacy', onProgress() {} }
+
+function setupBrowser({ failAt, responseSuccess = true, closeFails = false, documentResponses = [], onNavigate } = {}) {
+  const calls = []
+  let route
+  const locator = (kind, value) => ({
+    async waitFor() {},
+    async fill(text) { calls.push(['fill', kind, value, text]) },
+    async click() {
+      calls.push(['click', kind, value])
+      // Base UI's public id belongs to an aria-hidden, clipped input. A real
+      // pointer cannot use it; select the visible radio role instead.
+      if (kind === 'selector' && /^#usage-mode-/.test(value)) throw new Error('hidden radio input')
+      if (value === failAt) throw new Error(base.password)
+    },
+    async getAttribute(name) { return name === 'aria-checked' ? 'true' : null },
+    async check() { calls.push(['check', kind, value]) },
+  })
+  const page = {
+    current: base.baseUrl + '/', url() { return this.current },
+    setDefaultTimeout() {},
+    listeners: {}, on(event, handler) { this.listeners[event] = handler },
+    async goto(url) {
+      calls.push(['goto', url]); this.current = url
+      onNavigate?.(this)
+      const result = documentResponses.shift() || { status: 200 }
+      return { status: () => result.status, headers: () => ({ 'retry-after': result.retryAfter }),
+        request: () => ({ method: () => result.method || 'GET' }) }
+    },
+    getByRole(kind, options) { return locator(kind, options?.name) },
+    locator(value) { return locator('selector', value) },
+    async waitForResponse(predicate) {
+      const response = { url: () => base.baseUrl + '/api/setup', request: () => ({ method: () => 'POST' }),
+        status: () => 200, json: async () => ({ success: responseSuccess }) }
+      assert.equal(predicate(response), true)
+      return response
+    },
+  }
+  const context = {
+    async route(pattern, handler) { assert.equal(pattern, '**/*'); route = handler },
+    async addInitScript() {},
+    async newPage() { return page },
+    async close() { calls.push(['context-close']) },
+  }
+  const browser = {
+    async newContext(options) { calls.push(['context', options]); return context },
+    async close() { calls.push(['browser-close']); if (closeFails) throw new Error(`close ${base.password}`) },
+  }
+  return { calls, route: () => route,
+    module: { chromium: { async launch(options) { calls.push(['launch', options]); return browser } } } }
+}
+
+for (const candidate of [
+  { isolated: false }, { baseUrl: 'https://example.invalid' },
+  { baseUrl: 'http://127.0.0.1:18080/other' }, { baseUrl: 'http://user:secret@127.0.0.1:18080' },
+  { baseUrl: 'http://localhost:18080' }, { edition: 'unknown' }, { sha: 'main' },
+  { writer: 'bridge' }, { username: '' }, { password: '' },
+]) {
+  test(`fails before browser or API work for invalid scope ${JSON.stringify(candidate)}`, async () => {
+    let calls = 0
+    const args = { ...base, ...candidate, playwrightModule: { chromium: { launch() { calls++ } } }, fetchImpl: () => { calls++ } }
+    await assert.rejects(browserSetup(args), /^Error: SMOKE_PERSONAL_/)
+    await assert.rejects(probePersonalBrowserJourney(args), /^Error: SMOKE_PERSONAL_/)
+    assert.equal(calls, 0)
+  })
+}
+
+test('upstream must be the fixed loopback fixture before any journey starts', async () => {
+  let calls = 0
+  await assert.rejects(probePersonalBrowserJourney({ ...base, upstreamBaseUrl: 'https://example.invalid',
+    playwrightModule: { chromium: { launch() { calls++ } } }, fetchImpl: () => { calls++ } }), /SMOKE_PERSONAL_SCOPE_REJECTED/)
+  assert.equal(calls, 0)
+})
+
+for (const edition of ['full', 'lan']) {
+  test(`setup uses actual wizard controls and does not export credentials (${edition})`, async () => {
+    const fixture = setupBrowser()
+    const result = await browserSetup({ ...base, edition, playwrightModule: fixture.module })
+    assert.equal(result.ok, true)
+    assert.equal(result.sha, base.sha)
+    assert.equal(JSON.stringify(result).includes(base.password), false)
+    assert.equal(JSON.stringify(result).includes(base.username), false)
+    assert.deepEqual(fixture.calls.find(call => call[0] === 'launch'), ['launch', { headless: true }])
+    assert.equal(fixture.calls.find(call => call[0] === 'context')[1].serviceWorkers, 'block')
+    assert.equal(fixture.calls.filter(call => call[0] === 'click' && call[2] === 'Next').length, 3)
+    assert(fixture.calls.some(call => call[0] === 'click' && call[1] === 'radio' && call[2] instanceof RegExp && call[2].test(edition === 'lan' ? 'Personal use' : 'External operations')))
+    assert(!fixture.calls.some(call => call[1] === 'selector' && String(call[2]).startsWith('#usage-mode-')))
+    assert(fixture.calls.some(call => call[0] === 'click' && call[2] === 'Initialize system'))
+    assert.equal(fixture.calls.at(-1)[0], 'browser-close')
+    let continued = 0
+    let aborted = 0
+    for (const url of [base.baseUrl + '/api/setup', base.baseUrl + '/assets/app.js', 'https://example.invalid/tracker', 'http://127.0.0.1:19090/v1/chat/completions']) {
+      await fixture.route()({ request: () => ({ url: () => url }), continue: () => { continued++ }, abort: () => { aborted++ } })
+    }
+    assert.equal(continued, 2, 'same-origin app requests remain real')
+    assert.equal(aborted, 2, 'all other browser origins are blocked')
+  })
+}
+
+test('browser exceptions and unexpected API bodies become fixed safe errors, with cleanup', async () => {
+  for (const options of [{ failAt: 'Next' }, { responseSuccess: false }]) {
+    const fixture = setupBrowser(options)
+    await assert.rejects(browserSetup({ ...base, playwrightModule: fixture.module }), error => {
+      assert.match(error.message, /^SMOKE_PERSONAL_/)
+      assert.equal(error.stage, options.failAt ? 'setup-database' : 'setup-response')
+      assert(!error.message.includes(base.password))
+      assert(!error.stack.includes(base.password))
+      return true
+    })
+    assert.equal(fixture.calls.at(-1)[0], 'browser-close')
+  }
+})
+
+test('browser launch errors cannot disclose provider diagnostics or synthetic secrets', async () => {
+  const playwrightModule = { chromium: { async launch() { throw new Error(`launch ${base.password}`) } } }
+  for (const run of [browserSetup, probePersonalBrowserJourney]) {
+    await assert.rejects(run({ ...base, playwrightModule }), error => {
+      assert.equal(error.message, 'SMOKE_PERSONAL_BROWSER_FAILED')
+      assert.equal(error.stage, 'launch')
+      assert(!error.stack.includes(base.password))
+      return true
+    })
+  }
+})
+
+import { mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+
+function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false, forbidStreamReads = false, hangAt, closeHangs = false, documentResponses = [], reloadAlreadyCurrent = false, inflightKeys, unsafeUsageScreenshot = false, failUsageScreenshot = false, usageFailureRole, onNavigate } = {}) {
+  const reverse = Object.fromEntries(Object.entries(JSON.parse(readFileSync(new URL('../../web/src/i18n/locales/zh.json', import.meta.url))).translation).map(([key, value]) => [value, key]))
+  const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
+  const users = new Map([[1, { id: 1, username: base.username, role: 100, quota: 0, used_quota: 15, request_count: 1, self_use_no_balance: true, revision: 1 }]])
+  const keys = new Map()
+  const logs = new Map()
+  const contexts = []
+  const emitted = []
+  const screenshots = []
+  const apiCalls = []
+  const dialogCloseEvents = []
+  const completionEvents = []
+  const signals = []
+  const navigations = []
+  const createdKeyDisplays = []
+  const policyRefreshes = []
+  const playgroundRefreshes = []
+  const modelChoices = []
+  const keyReadEvents = []
+  const usageReads = []
+  const filterActions = []
+  const tableSearches = []
+  const logSearchMatches = []
+  let serverDisplay = 'USD'
+  const reached = Promise.withResolvers()
+  const stalled = Promise.withResolvers()
+  const closing = Promise.withResolvers()
+  const stalledClose = Promise.withResolvers()
+  const hang = () => { reached.resolve(); return stalled.promise }
+  let upstreamCount = 2
+  let closed = 0
+  let sequence = 0
+  const clone = value => JSON.parse(JSON.stringify(value))
+  const response = (pathname, method, payload, status = 200, body, headers = {}) => {
+    const request = { method: () => method, postDataJSON: () => body, headers: () => headers, url: () => base.baseUrl + pathname,
+      response: async () => result }
+    const result = {
+    url: () => base.baseUrl + pathname,
+    request: () => request,
+    status: () => status, json: async () => hangAt === 'response-json' && pathname === '/api/user/login' ? hang() : clone(payload),
+    headers: () => ({ 'x-oneapi-request-id': `request-private-${sequence}` }),
+    text: async () => {
+      assert(!(forbidStreamReads && typeof payload === 'string'), 'successful UI stream body is not a completion signal')
+      if (hangAt === 'rejection-body' && pathname === '/pg/chat/completions' && status !== 200) return hang()
+      return typeof payload === 'string' ? payload : JSON.stringify(payload)
+    },
+    finished: async () => {
+      assert(!(forbidStreamReads && typeof payload === 'string'), 'frontend may close its SSE request after DONE')
+      return null
+    },
+    }
+    return result
+  }
+  const policy = user => ({ user_id: user.id, no_balance: user.self_use_no_balance, revision: user.revision, legacy_remaining_quota: user.quota })
+  const budget = key => ({ policy: { enabled: true, fee_enabled: true, used: 0, reserved: corrupt === 'strict-reserve' ? 1 : 0, fee_used_usd: '0', fee_reserved_usd: '0', pending_request_id: '' }, pending: null })
+  const makePage = context => {
+    const page = { current: base.baseUrl + '/', fields: {}, switches: {}, pendingSwitches: {}, checkboxes: {}, group: '', model: 'gpt-4o', modelsCache: new Map(), listeners: {}, waiters: [], requestWaiters: [], selected: '', actor: null,
+      setDefaultTimeout() {}, on(event, handler) { this.listeners[event] = handler },
+      async goto(url) {
+        const path = new URL(url).pathname
+        assert(!['/usage-logs/common', '/users'].includes(path), 'existing UI navigation and filters must replace query document loads')
+        assert(!(path === '/keys' && new URL(url).search && this.actor?.role === 100), 'strict Key filtering must use the visible name input')
+        this.current = url
+        onNavigate?.(this)
+        navigations.push({ kind: 'document', locale: context.locale, path: new URL(url).pathname })
+        const result = documentResponses.shift() || { status: 200 }
+        if (result.status === 200) {
+          this.currency = serverDisplay; delete this.policySnapshot
+        }
+        return { status: () => result.status, headers: () => ({ 'retry-after': result.retryAfter }),
+          request: () => ({ method: () => result.method || 'GET' }) }
+      },
+      submitLogSearch() {
+        const requestId = this.fields['Request ID']
+        assert(requestId, 'the Request ID input must be filled before Search')
+        const tokenName = this.fields['Token Name']
+        const log = clone(logs.get(requestId))
+        const listCorrupt = usageFailureRole === undefined || usageFailureRole === this.actor.role ? corrupt : undefined
+        this.badUsage = Boolean(listCorrupt?.startsWith('ui-log-'))
+        if (listCorrupt === 'ui-log-request') log.request_id = 'another-request'
+        if (listCorrupt === 'ui-log-owner') log.user_id = 999
+        if (listCorrupt === 'ui-log-key') log.token_id = 999
+        if (listCorrupt === 'ui-log-model') log.model_name = 'another-model'
+        const items = listCorrupt === 'ui-log-duplicate' ? [log, log] : listCorrupt === 'ui-log-missing' ? [] : [log]
+        this.visibleLog = log
+        const search = new URLSearchParams({ token: tokenName, requestId: listCorrupt === 'ui-log-url' ? 'wrong-request' : requestId })
+        this.current = base.baseUrl + '/usage-logs/common?' + search
+        filterActions.push({ action: 'search', role: this.actor.role, tokenName, requestId })
+        this.logFiltersOpen = listCorrupt === 'ui-log-drawer-stays-open'
+        const pathname = this.actor.role === 100 ? '/api/log/' : '/api/log/self'
+        const parameters = `?token_name=${tokenName}&request_id=${requestId}&p=1&page_size=${context.viewport.width === 320 ? 20 : 100}`
+        usageReads.push({ role: this.actor.role, pathname, requestId, tokenName })
+        this.emit(response(pathname + '?request_id=wrong-request&token_name=' + tokenName, 'GET', { success: false }))
+        this.emit(response((this.actor.role === 100 ? '/api/log/self' : '/api/log/') + parameters, 'GET', { success: false }))
+        this.emit(response(pathname + parameters, 'GET', { success: true, data: { total: items.length, items } }))
+      },
+      url() { return this.current },
+      async waitForURL(predicate) { assert(predicate(new URL(this.current))) },
+      waitForResponse(predicate) { return new Promise(resolve => this.waiters.push({ predicate, resolve })) },
+      waitForRequest(predicate) { return new Promise(resolve => this.requestWaiters.push({ predicate, resolve })) },
+      emit(result) {
+        emitted.push(result)
+        this.listeners.request?.(result.request())
+        for (const waiter of [...this.requestWaiters]) if (waiter.predicate(result.request())) {
+          this.requestWaiters.splice(this.requestWaiters.indexOf(waiter), 1); waiter.resolve(result.request())
+        }
+        this.emitResponse(result)
+        this.listeners.requestfinished?.(result.request())
+      },
+      emitResponse(result) {
+        for (const waiter of [...this.waiters]) Promise.resolve(waiter.predicate(result)).then(matches => {
+          if (!matches || !this.waiters.includes(waiter)) return
+          this.waiters.splice(this.waiters.indexOf(waiter), 1); waiter.resolve(result)
+        })
+      },
+      async evaluate(fn) {
+        if (hangAt === 'evaluate') return hang()
+        if (String(fn).includes('__APP_BUILD__')) return { global: `rv.${version}.${base.sha}.test`, html: `rv.${version}.${base.sha}.test`, meta: `rv.${version}.${base.sha}.test` }
+        return !screenshotSecret && !(unsafeUsageScreenshot && this.badUsage)
+      },
+      async screenshot(options) {
+        if (failUsageScreenshot && path.basename(options.path).startsWith('usage-failed-')) throw new Error(base.password)
+        screenshots.push(options)
+      },
+      keyboard: { async press(key) {
+        if (key === 'Escape' && page.logDetailsOpen) {
+          page.logDetailsOpen = false
+          page.closedLogDialogs = (page.closedLogDialogs || 0) + 1
+        }
+        const mutation = page.dialogMutation
+        if (key !== 'Escape' || !mutation || mutation.closed) return
+        if (mutation.pending) return // The real onOpenChange ignores close while sending.
+        mutation.closed = true
+        dialogCloseEvents.push([mutation.title, 'escape'])
+      } },
+    }
+    const normalize = value => context.locale === 'zh-CN' ? reverse[value] || value : value
+    const locator = (kind, value, parents = []) => {
+      value = normalize(value)
+      const chain = [...parents, value]
+      let awaitingCheckedState = false
+      return {
+        getByRole: (role, options) => locator(role, options?.name, chain),
+        getByText: (text) => locator('text', text, chain),
+        getByPlaceholder: (text) => locator('placeholder', text, chain),
+        locator: (selector) => locator('selector', selector, chain),
+        and() { awaitingCheckedState = true; return this },
+        filter(options) { if (options?.hasText) chain.push({ hasText: options.hasText }); return this },
+        first() {
+          assert.notEqual(new URL(page.current).pathname, '/usage-logs/common', 'first must not conceal ambiguity in log history')
+          return this
+        }, last() { return this },
+        async waitFor(options) {
+          if (kind === 'row') {
+            const text = chain.find(item => item?.hasText)?.hasText
+            assert((page.visibleRows || []).some(item => (item.username || item.name) === text), 'the filtered target row must actually be visible')
+          }
+          if (kind === 'dialog' && value === 'Filter') assert.equal(page.logFiltersOpen, options?.state !== 'hidden')
+          if (kind === 'text' && value === page.visibleLog?.token_name && !page.logDetailsOpen) {
+            assert.notEqual(corrupt, 'ui-log-visible')
+          }
+          if (page.logDetailsOpen && kind === 'text') {
+            if (String(value).startsWith('request-private-')) assert.notEqual(corrupt, 'ui-log-dialog-request')
+            if (value === page.visibleLog?.token_name) assert.notEqual(corrupt, 'ui-log-dialog-key')
+          }
+          if (kind === 'option' && value === 'smoke-model') assert(page.modelsCache.get(page.selected)?.includes(value), 'the actual model option must exist')
+          if (kind === 'text' && parents.includes('Current configuration') &&
+            ['Use Key limits without a user wallet', 'Use the stored user allowance'].includes(value)) {
+            assert.equal(value, page.policySnapshot?.no_balance ? 'Use Key limits without a user wallet' : 'Use the stored user allowance')
+          }
+          if (kind === 'button' && value === 'Toggle sidebar' && awaitingCheckedState) assert.equal(page.sidebarOpen, false)
+          if (kind === 'text' && value === 'synthetic fixed response') {
+            assert.notEqual(corrupt, 'incomplete-text')
+            completionEvents.push('assistant-complete')
+          }
+          if (kind === 'button' && value === 'Stop' && options?.state === 'hidden') {
+            assert.notEqual(corrupt, 'still-generating')
+            completionEvents.push('stop-hidden')
+          }
+          if (kind === 'button' && value === 'Send') {
+            assert.notEqual(corrupt, 'missing-send')
+            completionEvents.push('send-visible')
+          }
+          if (awaitingCheckedState && page.pendingSwitches[value] !== undefined) {
+            page.switches[value] = page.pendingSwitches[value]; delete page.pendingSwitches[value]
+          }
+          const mutation = page.dialogMutation
+          if (value === '[data-slot="dialog-close"]' && options?.state === 'visible' && mutation && parents.includes(mutation.title) && mutation.pending) {
+            mutation.pending = false
+            dialogCloseEvents.push([mutation.title, 'close-visible'])
+          }
+          if (kind === 'dialog' && options?.state === 'hidden' && mutation && value === mutation.title) {
+            assert.equal(mutation.closed, true, 'pending mutation prevented dialog dismissal')
+          }
+        },
+        async count() {
+          if (kind === 'row') {
+            const text = chain.find(item => item?.hasText)?.hasText
+            return (page.visibleRows || []).filter(item => (item.username || item.name) === text).length
+          }
+          if (new URL(page.current).pathname === '/usage-logs/common' && (kind === 'title' || kind === 'text')) return corrupt === 'ui-log-ambiguous' ? 2 : 1
+          if (kind === 'option' && value === 'smoke-model') return corrupt === 'ambiguous-model' ? 2 : Number(page.modelsCache.get(page.selected)?.includes(value))
+          if (kind === 'selector' && value === '.is-assistant') return page.assistants || 0
+          if (kind === 'alert') return parents.includes('.is-assistant') ? Number(Boolean(page.lastAssistantError)) : page.historicalErrors || 0
+          return 0
+        },
+        async fill(text) {
+          if (value === 'Key quota (internal units)') assert.equal(page.currency, 'TOKENS', 'the client must reload its USD system-config cache after the fixture PUT')
+          if (kind === 'placeholder' && ['Token Name', 'Request ID'].includes(value)) {
+            assert.equal(new URL(page.current).pathname, '/usage-logs/common')
+            assert(page.logFiltersOpen, 'log inputs must be visibly expanded')
+            if (context.locale === 'zh-CN') assert(parents.includes('Filter'), 'phone filters must be scoped to the visible drawer')
+            else assert(parents.includes('Common Logs'), 'desktop filters belong to the named main')
+            filterActions.push({ action: 'fill', role: page.actor.role, field: value })
+          }
+          page.fields[value] = text
+          if (kind === 'placeholder' && ['Filter by username, name or email...', 'Filter by name...'].includes(value)) {
+            const userSearch = value === 'Filter by username, name or email...'
+            assert.equal(new URL(page.current).pathname, userSearch ? '/users' : '/keys')
+            const target = clone(userSearch ? users.get(20) : [...keys.values()].find(key => key.name === text))
+            assert(target)
+            const prefix = userSearch ? 'ui-user' : 'ui-key'
+            if (corrupt === prefix + '-id') target.id = 999
+            if (corrupt === prefix + '-role') target.role = 100
+            if (corrupt === prefix + '-owner') target.user_id = 999
+            if (corrupt === prefix + '-name') target[userSearch ? 'username' : 'name'] = 'wrong-name'
+            const items = corrupt === prefix + '-missing' ? [] : corrupt === prefix + '-duplicate' ? [target, target] : [target]
+            // Only a committed input change produces URL/search data, not the
+            // old document navigation. A microtask models the debounce settling.
+            queueMicrotask(() => {
+              page.current = base.baseUrl + (userSearch ? '/users' : '/keys') + '?filter=' + encodeURIComponent(corrupt === prefix + '-url' ? 'wrong-name' : text)
+              page.visibleRows = corrupt === prefix + '-stale-row' ? [] : items
+              const endpoint = userSearch ? '/api/user/search' : '/api/token/search'
+              tableSearches.push({ endpoint, keyword: text, id: target.id })
+              page.emit(response(endpoint + '?keyword=wrong-name', 'GET', { success: false }))
+              page.emit(response(endpoint + '?keyword=' + encodeURIComponent(text), 'POST', { success: false }))
+              page.emit(response(endpoint + '?keyword=' + encodeURIComponent(text), 'GET', { success: true, data: { total: items.length, items } }))
+            })
+          }
+        },
+        async check() { page.checkboxes[value] = true }, async uncheck() { page.checkboxes[value] = false },
+        async getAttribute(name) {
+          if (name === 'aria-expanded' && value === 'Toggle sidebar') return String(Boolean(page.sidebarOpen))
+          if (name === 'aria-checked') return page.switches[value] ?? (value === 'No ordinary quota cap' ? 'true' : 'false')
+        },
+        async inputValue() { return page.selected },
+        async isDisabled() { return page.selected === '' },
+        async selectOption(id) {
+          if (page.backgroundKeys && inflightKeys === 'initial') {
+            await page.backgroundKeys.json()
+            delete page.backgroundKeys // Initial isPending has cleared before the native select is enabled.
+          }
+          page.selected = id
+          if (id) {
+            assert(page.availableKeyIds.includes(Number(id)), 'a stale Playground list must be refreshed after Key creation')
+            if (!page.modelsCache.has(id)) {
+              const available = corrupt === 'models' ? 'other-model' : 'smoke-model'
+              page.modelsCache.set(id, [available])
+              page.emit(response('/pg/models', 'GET', { success: true, data: [{ id: available }] }))
+            }
+          }
+        },
+        async click(options) {
+          if (options?.trial) return
+          if (value === 'Expand' || value === 'Filter') {
+            assert.equal(new URL(page.current).pathname, '/usage-logs/common')
+            assert(parents.includes('Common Logs'), 'log filter triggers belong to the named page main')
+            assert.equal(value, context.locale === 'zh-CN' ? 'Filter' : 'Expand')
+            page.logFiltersOpen = !(corrupt === 'ui-log-hidden-filter' && (usageFailureRole === undefined || usageFailureRole === page.actor.role))
+            filterActions.push({ action: 'open', role: page.actor.role, control: value })
+          }
+          if (value === 'Search') {
+            assert.equal(new URL(page.current).pathname, '/usage-logs/common')
+            // The actual Header has a Search button outside the named main;
+            // a page-wide desktop locator has two matches, not one.
+            const matches = parents.includes('Common Logs') || parents.includes('Filter') ? 1 : 2
+            logSearchMatches.push(matches)
+            assert.equal(matches, 1, 'strict locator: Header Search and log Search both match')
+            assert(page.logFiltersOpen)
+            if (context.locale === 'zh-CN') assert(parents.includes('Filter'), 'Search must belong to the mobile drawer')
+            page.submitLogSearch()
+          }
+          if (value === 'Open menu' && new URL(page.current).pathname === '/users') {
+            assert(parents.some(item => item?.hasText === users.get(20).username), 'policy menu must belong to the exact filtered owner row')
+            assert.equal(page.visibleRows.length, 1)
+          }
+          if (value === 'API Key usage budgets' && kind === 'button') {
+            assert(parents.some(item => item?.hasText === 'browser-root-strict-reject'), 'budget button must belong to the exact filtered Key row')
+            assert.equal(page.visibleRows.length, 1)
+          }
+          if (value === 'My usage policy') page.policySnapshot ||= clone(policy(page.actor))
+          if (value === 'Refresh' && parents.includes('User usage policy')) {
+            page.policySnapshot = clone(policy(page.actor))
+            if (corrupt === 'policy-refresh-owner') page.policySnapshot.user_id = 999
+            if (corrupt === 'policy-refresh-revision') page.policySnapshot.revision--
+            policyRefreshes.push({ userId: page.actor.id, role: page.actor.role, revision: page.policySnapshot.revision })
+            page.emit(response(`/api/user/${page.actor.id}/usage-policy`, 'GET', { success: true, data: page.policySnapshot }))
+          }
+          if (value === 'Refresh' && !parents.includes('User usage policy')) {
+            assert.equal(page.selected, '', 'Refresh with no selected Key must refresh keys without forcing a models refetch')
+            if (page.backgroundKeys && (inflightKeys !== 'missing-target' || !page.backgroundKeyComplete)) {
+              keyReadEvents.push('refresh-reused-request')
+              const reused = await page.backgroundKeys.json()
+              page.availableKeyIds = reused.data.items.map(item => item.id)
+              playgroundRefreshes.push({ userId: page.actor.id, ids: [...page.availableKeyIds] })
+              page.emitResponse(page.backgroundKeys)
+              delete page.backgroundKeys
+              return // HTTP deduplication does not emit another request event.
+            }
+            delete page.backgroundKeys
+            const items = [...keys.values()].filter(key => key.user_id === page.actor.id).map(key => ({
+              id: key.id, name: key.name, status: 1, group: key.group, remain_quota: key.remain_quota,
+              used_quota: key.used_quota, unlimited_quota: key.unlimited_quota, expired_time: -1, strict_token_budget: Boolean(key.strict),
+            }))
+            page.availableKeyIds = items.map(key => key.id)
+            playgroundRefreshes.push({ userId: page.actor.id, ids: [...page.availableKeyIds] })
+            const data = { total: items.length, items: corrupt === 'keys' ? [] : items }
+            // Unrelated POST, wrong pagination and an old in-flight response
+            // must not satisfy the explicitly requested refresh readback.
+            page.emit(response('/pg/keys?p=1&page_size=100', 'POST', { success: false }))
+            page.emit(response('/pg/keys?p=2&page_size=100', 'GET', { success: false }))
+            page.emitResponse(response('/pg/keys?p=1&page_size=100', 'GET', { success: false }))
+            page.emit(response('/pg/keys?p=1&page_size=100', 'GET', { success: true, data }))
+          }
+          if (kind === 'title' && value === 'Click to view full details') {
+            if (corrupt === 'ui-log-open') throw new Error(base.password)
+            page.logDetailsOpen = true
+          }
+          if (value === 'Toggle sidebar') {
+            page.sidebarOpen = !page.sidebarOpen
+            navigations.push({ kind: 'toggle', locale: context.locale })
+          }
+          if (kind === 'link' && parents.includes('[data-myapi-sidebar]')) {
+            assert(['API Keys', 'Playground', 'Usage Logs', 'Users'].includes(value))
+            assert(!page.logDetailsOpen, 'log dialog must be dismissed before sidebar navigation')
+            if (context.locale === 'zh-CN') assert.equal(page.sidebarOpen, true, 'mobile links require the visible navigation drawer')
+            const pathname = { 'API Keys': '/keys', Playground: '/playground', 'Usage Logs': '/usage-logs/common', Users: '/users' }[value]
+            page.current = base.baseUrl + pathname
+            if (pathname === '/playground' && !page.simulatedKeysRead && (inflightKeys || hangAt === 'keys-body')) {
+              page.simulatedKeysRead = true
+              const items = inflightKeys === 'missing-target' ? [] : [...keys.values()].filter(key => key.user_id === page.actor.id).map(key => ({ id: key.id }))
+              const pending = response('/pg/keys?p=1&page_size=100', 'GET', { success: true, data: { items } })
+              let complete = false
+              pending.json = async () => {
+                if (hangAt === 'keys-body') return hang()
+                if (!complete) {
+                  complete = true
+                  page.backgroundKeyComplete = true
+                  keyReadEvents.push('body-complete')
+                  page.availableKeyIds = items.map(item => item.id)
+                  page.listeners.requestfinished?.(pending.request())
+                }
+                return { success: true, data: { items } }
+              }
+              page.backgroundKeys = pending
+              page.listeners.request?.(pending.request())
+              keyReadEvents.push('request-started')
+            }
+            page.sidebarOpen = false
+            navigations.push({ kind: 'link', locale: context.locale, path: pathname })
+          }
+          if (kind === 'switch') (deferSwitchUpdate ? page.pendingSwitches : page.switches)[value] = (page.switches[value] ?? (value === 'No ordinary quota cap' ? 'true' : 'false')) === 'true' ? 'false' : 'true'
+          if (value === 'form button[type="submit"]') {
+            const name = page.fields['form input[name="username"]']
+            page.actor = [...users.values()].find(user => user.username === name)
+            assert(page.actor)
+            const token = `session-private-${page.actor.id}`
+            page.current = base.baseUrl + '/dashboard'
+            page.emit(response('/api/user/login', 'POST', { success: corrupt !== 'login-rate', data: { access_token: token, user: clone(page.actor) } }, corrupt === 'login-rate' ? 429 : 200))
+          }
+          if (value === 'Create API Key') { page.switches['No ordinary quota cap'] = 'true'; page.group = '' }
+          if (kind === 'option' && value === 'smoke-model') {
+            assert(page.modelsCache.get(page.selected)?.includes(value))
+            page.model = value
+            modelChoices.push({ locale: context.locale, keyId: Number(page.selected), model: value })
+          } else if (kind === 'option') page.group = 'default'
+          if (value === 'Save changes' || value === 'Save Changes') {
+            createdKeyDisplays.push(page.currency)
+            const id = keys.size + 31
+            const unlimited = page.switches['No ordinary quota cap'] !== 'false'
+            const data = { name: page.fields.Name, remain_quota: unlimited ? 0 : Number(page.fields['Key quota (internal units)']), unlimited_quota: unlimited, group: page.group }
+            const key = { ...data, id, user_id: page.actor.id, used_quota: 0, key: 'secret-masked-key-do-not-report' }
+            keys.set(id, key)
+            page.emit(response('/api/token/', 'POST', { success: true }, 200, data))
+          }
+          if (value === 'Save' && chain.includes('User usage policy')) {
+            assert.equal(page.actor.role, 100)
+            assert.equal(page.checkboxes['Use Key limits without a user wallet'], true)
+            assert.equal(page.checkboxes['I confirm all running instances support this policy and I understand the supported request paths.'], true)
+            const owner = users.get(20)
+            owner.self_use_no_balance = true
+            owner.revision += 1
+            if (deferDialogClose) {
+              page.dialogMutation = { title: 'User usage policy', pending: true, closed: false }
+              dialogCloseEvents.push([page.dialogMutation.title, 'response-pending'])
+            }
+            page.emit(response('/api/user/20/usage-policy', 'PUT', { success: true, data: policy(owner) }))
+          }
+          if (value === 'Save' && chain.includes('API Key usage budgets')) {
+            assert.equal(page.actor.role, 100)
+            assert.equal(page.checkboxes['Enable strict Token budget'], true)
+            assert.equal(page.checkboxes['Enable USD fee budget'], true)
+            assert.equal(page.checkboxes['I confirm all running instances support this budget and I understand its request restrictions.'], true)
+            assert.equal(page.fields['Token total limit'], '1000')
+            assert.equal(page.fields['USD total limit'], '1')
+            const key = [...keys.values()].find(key => key.name === 'browser-root-strict-reject')
+            key.strict = true
+            if (deferDialogClose) {
+              page.dialogMutation = { title: 'API Key usage budgets', pending: true, closed: false }
+              dialogCloseEvents.push([page.dialogMutation.title, 'response-pending'])
+            }
+            page.emit(response(`/api/token/${key.id}/budget`, 'PUT', { success: true, data: budget(key) }))
+          }
+          if (value === 'Send') {
+            page.assistants = (page.assistants || 0) + 1
+            const key = keys.get(Number(page.selected))
+            assert(key)
+            sequence++
+            const sent = { model: page.model, max_tokens: Number(page.fields['Max Tokens']), stream: true, messages: [{ role: 'user', content: 'synthetic request' }] }
+            const headers = { 'x-myapi-key-id': String(key.id) }
+            if (corrupt === 'relay-rate') {
+              page.emit(response('/pg/chat/completions', 'POST', { error: { code: 'rate_limit' } }, 429, sent, headers))
+              return
+            }
+            let code
+            if (!page.actor.self_use_no_balance) code = 'insufficient_user_quota'
+            else if (key.remain_quota < 500) code = writer === 'legacy' ? 'pre_consume_token_quota_failed' : 'insufficient_user_quota'
+            else if (key.strict) code = 'token_budget_unsupported_request'
+            if (key.strict && reloadAlreadyCurrent) contexts[1].page.current = base.baseUrl + '/keys?filter=browser-owner-finite'
+            page.lastAssistantError = Boolean(code) || corrupt === 'latest-error'
+            if (code) page.historicalErrors = (page.historicalErrors || 0) + 1
+            if (code) page.emit(response('/pg/chat/completions', 'POST', { error: { code, message: 'synthetic rejection' } }, code.startsWith('token_budget_') ? 400 : 403, sent, headers))
+            else {
+              upstreamCount++
+              key.remain_quota -= 15; key.used_quota += 15
+              page.actor.used_quota += 15; page.actor.request_count++
+              const requestId = `request-private-${sequence}`
+              logs.set(requestId, { request_id: requestId, user_id: page.actor.id, token_id: key.id, token_name: key.name,
+                model_name: 'smoke-model', quota: 15, prompt_tokens: 10, completion_tokens: 5, other: '{"billing_source":"self_use"}' })
+              if (corrupt === 'log-owner') logs.get(requestId).user_id = 999
+              if (corrupt === 'usage') logs.get(requestId).completion_tokens = 6
+              if (corrupt === 'quota') key.remain_quota++
+              if (corrupt === 'upstream') upstreamCount++
+              const total = corrupt === 'usage' ? 16 : 15
+              page.emit(response('/pg/chat/completions', 'POST', `data: {"choices":[{"delta":{"content":"synthetic fixed response"}}]}\n\ndata: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":${total}}}\n\ndata: [DONE]\n\n`, 200, sent, headers))
+              if (corrupt === 'replay') page.listeners.request?.(response('/pg/chat/completions', 'POST', {}, 200, sent, headers).request())
+            }
+          }
+        },
+      }
+    }
+    page.getByRole = (role, options) => locator(role, options?.name)
+    page.getByText = text => locator('text', text)
+    page.getByPlaceholder = text => locator('placeholder', text)
+    page.getByTitle = text => locator('title', text)
+    page.locator = selector => locator('selector', selector)
+    return page
+  }
+  const playwrightModule = { chromium: { async launch() { return {
+    async newContext(options) {
+      const context = { ...options, async route(pattern, handler) { this.handler = handler },
+        async addInitScript(fn, args) { this.init = { fn: String(fn), args } }, async newPage() { this.page = makePage(this); return this.page },
+        async close() { this.closed = true } }
+      contexts.push(context)
+      return context
+    }, async close() {
+      closed++
+      closing.resolve()
+      if (closeFails) throw new Error(`close ${base.password}`)
+      if (closeHangs) return stalledClose.promise
+    },
+  } } } }
+  const fetchImpl = async (url, options) => {
+    assert.equal(options.redirect, 'error')
+    assert(options.signal instanceof AbortSignal)
+    signals.push(options.signal)
+    const parsed = new URL(url)
+    if (parsed.origin === base.upstreamBaseUrl) {
+      assert.equal(parsed.pathname, '/__smoke__/control')
+      return new Response(JSON.stringify({ count: upstreamCount, request_ok: true }))
+    }
+    assert.equal(parsed.origin, base.baseUrl)
+    assert.equal(options.headers.Origin, base.baseUrl)
+    const actorId = Number(options.headers.Authorization.match(/^Bearer session-private-(\d+)$/)?.[1])
+    const actor = users.get(actorId)
+    assert(actor, 'only a genuine browser-login result may authorize API readbacks')
+    const route = `${options.method} ${parsed.pathname}`
+    apiCalls.push(route)
+    if (hangAt === 'api-body' && route === 'GET /api/quota-writer/status') return { status: 200, json: hang }
+    const body = options.body ? JSON.parse(options.body) : null
+    let data
+    let status = 200
+    if (route === 'GET /api/quota-writer/status') data = { state: { mode: corrupt === 'writer' ? 'bridge' : writer } }
+    else if (route === 'GET /api/status') data = { user_funding_mode: 'disabled', enable_batch_update: false }
+    else if (route === 'PUT /api/option/') {
+      assert.deepEqual(body, { key: 'general_setting.quota_display_type', value: 'TOKENS' })
+      serverDisplay = 'TOKENS' // Does not mutate the independently cached browser store.
+    }
+    else if (route === 'GET /api/user/self') data = clone(actor)
+    else if (route === 'POST /api/user/') { assert.equal(body.role, 1); assert(body.password.length >= 8 && body.password.length <= 20); users.set(20, { id: 20, username: body.username, role: 1, quota: 0, used_quota: 0, request_count: 0, self_use_no_balance: false, revision: 0 }) }
+    else if (route === 'GET /api/user/search') data = { items: [clone(users.get(20))] }
+    else if (parsed.pathname.match(/^\/api\/user\/\d+\/usage-policy$/)) {
+      const target = Number(parsed.pathname.split('/')[3])
+      if (options.method === 'PUT') status = 403
+      else if (target !== actor.id && actor.role !== 100) status = 404
+      else data = policy(users.get(target))
+    }
+    else if (route === 'GET /api/token/search') data = { items: [...keys.values()].filter(key => key.user_id === actor.id && key.name === parsed.searchParams.get('keyword')).map(clone) }
+    else if (/^GET \/api\/token\/\d+$/.test(route)) data = clone(keys.get(Number(parsed.pathname.split('/')[3])))
+    else if (/^GET \/api\/token\/\d+\/budget$/.test(route)) data = budget(keys.get(Number(parsed.pathname.split('/')[3])))
+    else if (route === 'GET /api/log/self') {
+      const log = logs.get(parsed.searchParams.get('request_id'))
+      data = { total: log ? 1 : 0, items: log ? [clone(log)] : [] }
+    }
+    else assert.fail(`unexpected driver request: ${route}`)
+    return new Response(JSON.stringify({ success: status === 200, data }), { status })
+  }
+  return { playwrightModule, fetchImpl, contexts, emitted, screenshots, apiCalls, dialogCloseEvents, completionEvents, signals,
+    navigations,
+    createdKeyDisplays, policyRefreshes, playgroundRefreshes, modelChoices, keyReadEvents, usageReads, filterActions, tableSearches, logSearchMatches,
+    reached: reached.promise, release: stalled.resolve, closing: closing.promise, releaseClose: stalledClose.resolve,
+    closed: () => closed, upstreamCount: () => upstreamCount }
+}
+
+for (const writer of ['legacy', 'authoritative']) {
+  test(`driver contract: UI dispatch orchestration, distinct ordinary owner and safe report (${writer})`, async () => {
+    const fixture = journeyBrowser({ writer })
+    const artifactDir = mkdtempSync(path.join(tmpdir(), 'personal-driver-contract-'))
+    try {
+      const report = await probePersonalBrowserJourney({ ...base, ...fixture, writer, artifactDir })
+      assert.equal(report.passed, true)
+      assert.equal(report.writer, writer)
+      assert.equal(report.checks.length, 5)
+      assert.equal(fixture.upstreamCount(), 4)
+      assert.equal(fixture.contexts.length, 2)
+      assert.deepEqual(fixture.contexts.map(context => [context.locale, context.viewport.width, context.page.actor.role]), [['en-US', 1280, 100], ['zh-CN', 320, 1]])
+      assert(fixture.contexts[1].init.fn.includes("language === 'zh' ? 'zhCN' : language"))
+      assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+      assert.equal(fixture.apiCalls.some(route => route.includes('/v1/') || route.includes('/pg/') || /\/key$/.test(route) || route === 'POST /api/user/login'), false)
+      const serialized = JSON.stringify(report)
+      for (const secret of [base.password, base.username, 'session-private-', 'secret-masked-key', 'request-private-', 'synthetic request']) assert(!serialized.includes(secret))
+      assert.equal(report.screenshots.length, 14)
+      assert.deepEqual(report.screenshots, fixture.screenshots.map(item => path.basename(item.path)))
+      for (const item of fixture.screenshots) {
+        assert.equal(path.dirname(item.path), artifactDir)
+        assert.equal(item.mask.length, 3)
+      }
+      assert.equal(fixture.closed(), 1)
+    } finally { rmSync(artifactDir, { recursive: true, force: true }) }
+  })
+}
+
+for (const [corrupt, code] of [['writer', 'WRITER_MISMATCH'], ['models', 'REQUEST_MISMATCH'], ['keys', 'REQUEST_MISMATCH'], ['ambiguous-model', 'REQUEST_MISMATCH'],
+  ['policy-refresh-owner', 'POLICY_MISMATCH'], ['policy-refresh-revision', 'POLICY_MISMATCH'], ['log-owner', 'LOG_MISMATCH'],
+  ['quota', 'USAGE_MISMATCH'], ['upstream', 'UPSTREAM_MISMATCH'], ['usage', 'LOG_MISMATCH'], ['replay', 'REQUEST_MISMATCH'], ['strict-reserve', 'USAGE_MISMATCH'],
+  ['incomplete-text', 'BROWSER_FAILED'], ['still-generating', 'BROWSER_FAILED'], ['missing-send', 'BROWSER_FAILED'], ['latest-error', 'RELAY_MISMATCH']]) {
+  test(`driver stops on ${corrupt} rather than reporting mocked success`, async () => {
+    const fixture = journeyBrowser({ corrupt })
+    await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), new RegExp(`^Error: SMOKE_PERSONAL_${code}$`))
+    assert.equal(fixture.closed(), 1)
+  })
+}
+
+test('screenshots reject visible credentials and symlink artifact directories', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'personal-artifact-contract-'))
+  const alias = root + '-alias'
+  try {
+    const fixture = journeyBrowser({ screenshotSecret: true })
+    await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture, artifactDir: root }), /SMOKE_PERSONAL_SCREENSHOT_REJECTED/)
+    assert.equal(fixture.screenshots.length, 0)
+    symlinkSync(root, alias)
+    await assert.rejects(probePersonalBrowserJourney({ ...base, ...journeyBrowser(), artifactDir: alias }), /SMOKE_PERSONAL_SCREENSHOT_REJECTED/)
+  } finally { rmSync(alias, { force: true }); rmSync(root, { recursive: true, force: true }) }
+})
+
+
+for (const entry of ['setup', 'journey']) {
+  test(`browser close failure rejects a completed ${entry} without exposing diagnostics`, async () => {
+    const fixture = entry === 'setup' ? setupBrowser({ closeFails: true }) : journeyBrowser({ closeFails: true })
+    const run = entry === 'setup'
+      ? browserSetup({ ...base, playwrightModule: fixture.module })
+      : probePersonalBrowserJourney({ ...base, ...fixture })
+    await assert.rejects(run, error => {
+      assert.equal(error.message, 'SMOKE_PERSONAL_BROWSER_CLOSE_FAILED')
+      assert.equal(error.stage, 'browser-close')
+      assert.equal(error.cause, undefined)
+      assert(!error.stack.includes(base.password))
+      assert(!JSON.stringify(error).includes(base.password))
+      return true
+    })
+    if (entry === 'setup') assert.equal(fixture.calls.filter(call => call[0] === 'browser-close').length, 1)
+    else assert.equal(fixture.closed(), 1)
+  })
+}
+
+test('the original safe failure takes priority when browser cleanup also fails', async () => {
+  for (const [run, fixture, code, stage] of [
+    [browserSetup, setupBrowser({ responseSuccess: false, closeFails: true }), 'SETUP_FAILED', 'setup-response'],
+    [probePersonalBrowserJourney, journeyBrowser({ corrupt: 'writer', closeFails: true }), 'WRITER_MISMATCH', 'writer-check'],
+  ]) {
+    await assert.rejects(run({ ...base, ...fixture, playwrightModule: fixture.module || fixture.playwrightModule }), error => {
+      assert.equal(error.message, `SMOKE_PERSONAL_${code}`)
+      assert.equal(error.stage, stage)
+      assert.equal(error.cause, undefined)
+      assert(!error.stack.includes(base.password))
+      return true
+    })
+    if (fixture.calls) assert.equal(fixture.calls.filter(call => call[0] === 'browser-close').length, 1)
+    else assert.equal(fixture.closed(), 1)
+  }
+})
+
+
+test('finite Key creation waits for controlled switch state before reading it', async () => {
+  const fixture = journeyBrowser({ deferSwitchUpdate: true })
+  const report = await probePersonalBrowserJourney({ ...base, ...fixture })
+  assert.equal(report.passed, true)
+  assert.equal(fixture.upstreamCount(), 4)
+})
+
+test('policy and budget dialogs wait for mutation settlement before Escape dismissal', async () => {
+  const fixture = journeyBrowser({ deferDialogClose: true })
+  const report = await probePersonalBrowserJourney({ ...base, ...fixture })
+  assert.equal(report.passed, true)
+  assert.deepEqual(fixture.dialogCloseEvents, ['User usage policy', 'API Key usage budgets'].flatMap(title => [
+    [title, 'response-pending'], [title, 'close-visible'], [title, 'escape'],
+  ]))
+})
+
+test('successful streaming uses complete UI state and ledger without reading the closed SSE body', async () => {
+  const fixture = journeyBrowser({ forbidStreamReads: true })
+  const report = await probePersonalBrowserJourney({ ...base, ...fixture })
+  assert.equal(report.passed, true)
+  assert.deepEqual(fixture.completionEvents, Array.from({ length: 2 }, () => ['assistant-complete', 'stop-hidden', 'send-visible']).flat())
+  assert.equal(fixture.upstreamCount(), 4)
+})
+
+test('progress contains fixed stages and safe metadata only, including immediate cleanup failure', async () => {
+  const events = []
+  const fixture = journeyBrowser({ corrupt: 'writer', closeFails: true })
+  await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture, onProgress: event => events.push(event) }), /SMOKE_PERSONAL_WRITER_MISMATCH/)
+  assert(events.some(event => event.stage === 'writer-check' && event.event === 'stage'))
+  assert.deepEqual(events.at(-1), { command: 'personal:browser', phase: 'journey', event: 'cleanup-failed',
+    stage: 'browser-close', sha: base.sha, writer: 'legacy', code: 'SMOKE_PERSONAL_BROWSER_CLOSE_FAILED' })
+  for (const event of events) {
+    assert.deepEqual(Object.keys(event).sort(), (event.event === 'cleanup-failed'
+      ? ['command', 'phase', 'event', 'stage', 'sha', 'writer', 'code']
+      : ['command', 'phase', 'event', 'stage', 'sha', 'writer']).sort())
+  }
+  for (const secret of [base.password, base.username, 'session-private-', 'secret-masked-key', 'request-private-']) assert(!JSON.stringify(events).includes(secret))
+})
+
+test('the default progress sink emits safe JSON while a broken observer cannot block cleanup', async t => {
+  const records = []
+  t.mock.method(console, 'error', line => records.push(JSON.parse(line)))
+  const fixture = setupBrowser()
+  await browserSetup({ ...base, playwrightModule: fixture.module, onProgress: undefined })
+  assert.equal(records[0].stage, 'launch')
+  assert.equal(records.at(-1).stage, 'browser-close')
+  assert(records.every(record => record.phase === 'setup' && record.sha === base.sha && record.writer === 'legacy'))
+  assert(!JSON.stringify(records).includes(base.password))
+  const failed = setupBrowser({ responseSuccess: false, closeFails: true })
+  await assert.rejects(browserSetup({ ...base, playwrightModule: failed.module,
+    onProgress() { throw new Error(base.password) } }), /^Error: SMOKE_PERSONAL_SETUP_FAILED$/)
+  assert.equal(failed.calls.at(-1)[0], 'browser-close')
+})
+
+for (const [hangAt, timeout, stage] of [
+  ['response-json', 20_000, 'login-response'], ['rejection-body', 20_000, 'playground-rejection'],
+  ['api-body', 10_000, 'writer-check'], ['evaluate', 20_000, 'login-keys'],
+  ['keys-body', 20_000, 'key-selection-refresh'],
+]) {
+  test(`${hangAt} deadline actively closes owned contexts and late resolution cannot resume business`, async t => {
+    t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+    const fixture = journeyBrowser({ hangAt })
+    let outcome
+    const run = probePersonalBrowserJourney({ ...base, ...fixture }).then(
+      value => { outcome = { value } }, error => { outcome = { error } })
+    await fixture.reached
+    const calls = fixture.apiCalls.length
+    const requests = fixture.emitted.length
+    t.mock.timers.tick(timeout)
+    await new Promise(setImmediate)
+    assert.equal(outcome?.error?.message, 'SMOKE_PERSONAL_TIMEOUT')
+    assert.equal(outcome.error.stage, stage)
+    assert(fixture.contexts.every(context => context.closed))
+    assert(fixture.signals.every(signal => signal.aborted))
+    assert.equal(fixture.closed(), 1)
+    fixture.release('{}')
+    await run
+    await new Promise(setImmediate)
+    assert.equal(fixture.apiCalls.length, calls)
+    assert.equal(fixture.emitted.length, requests)
+  })
+}
+
+for (const corrupt of [undefined, 'writer']) {
+  test(`hung browser cleanup reports immediately and preserves ${corrupt ? 'original failure' : 'failure instead of success'}`, async t => {
+    t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+    const fixture = journeyBrowser({ corrupt, closeHangs: true })
+    const events = []
+    let outcome
+    const run = probePersonalBrowserJourney({ ...base, ...fixture, onProgress: event => events.push(event) }).then(
+      value => { outcome = { value } }, error => { outcome = { error } })
+    await fixture.closing
+    t.mock.timers.tick(10_000)
+    await new Promise(setImmediate)
+    assert.equal(outcome?.error?.message, `SMOKE_PERSONAL_${corrupt ? 'WRITER_MISMATCH' : 'BROWSER_CLOSE_FAILED'}`)
+    assert.equal(outcome.error.stage, corrupt ? 'writer-check' : 'browser-close')
+    assert.equal(events.at(-1).event, 'cleanup-failed')
+    assert.equal(events.at(-1).code, 'SMOKE_PERSONAL_BROWSER_CLOSE_FAILED')
+    assert.equal(fixture.closed(), 1)
+    fixture.releaseClose()
+    await run
+    assert.equal(outcome.value, undefined)
+  })
+}
+
+test('ledger retries share a total deadline and abort a slow later body without another request', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const fixture = journeyBrowser()
+  const firstRead = Promise.withResolvers()
+  const secondRead = Promise.withResolvers()
+  const stalled = Promise.withResolvers()
+  let reads = 0
+  let signal
+  const fetchImpl = async (url, options) => {
+    if (new URL(url).pathname !== '/api/log/self') return fixture.fetchImpl(url, options)
+    reads++
+    signal = options.signal
+    if (reads === 1) return { status: 200, json: async () => {
+      t.mock.timers.tick(6_000)
+      firstRead.resolve()
+      return { success: true, data: { total: 0, items: [] } }
+    } }
+    secondRead.resolve()
+    return { status: 200, json: () => stalled.promise }
+  }
+  let outcome
+  const run = probePersonalBrowserJourney({ ...base, ...fixture, fetchImpl }).then(
+    value => { outcome = { value } }, error => { outcome = { error } })
+  await firstRead.promise
+  await new Promise(setImmediate)
+  t.mock.timers.tick(100)
+  await secondRead.promise
+  t.mock.timers.tick(3_900)
+  await new Promise(setImmediate)
+  assert.equal(outcome?.error?.message, 'SMOKE_PERSONAL_TIMEOUT')
+  assert.equal(outcome.error.stage, 'ledger-check')
+  assert.equal(signal.aborted, true)
+  assert.equal(reads, 2)
+  assert(fixture.contexts.every(context => context.closed))
+  stalled.resolve({ success: true, data: { total: 0, items: [] } })
+  await run
+  assert.equal(reads, 2)
+})
+
+test('real sidebar contracts reduce document loads and final persistence load cannot be skipped', async () => {
+  const fixture = journeyBrowser({ reloadAlreadyCurrent: true })
+  const report = await probePersonalBrowserJourney({ ...base, ...fixture })
+  assert.equal(report.passed, true)
+  assert.deepEqual(fixture.navigations.filter(item => item.kind === 'document').map(item => [item.locale, item.path]), [
+    ['en-US', '/sign-in'], ['en-US', '/keys'], ['zh-CN', '/sign-in'], ['zh-CN', '/keys'],
+  ]) // Four journey document loads, plus the separate real setup document.
+  assert.equal(fixture.navigations.filter(item => item.kind === 'link').length, 13)
+  assert.equal(fixture.navigations.filter(item => item.kind === 'toggle').length, 7)
+  assert(fixture.navigations.filter(item => item.kind === 'toggle').every(item => item.locale === 'zh-CN'))
+  assert.deepEqual(fixture.contexts.map(context => context.page.closedLogDialogs), [1, 1])
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/api/user/login').length, 2)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+})
+
+test('fixture config reload and ordinary owner Refresh cross independent client cache boundaries', async () => {
+  const fixture = journeyBrowser()
+  const report = await probePersonalBrowserJourney({ ...base, ...fixture })
+  assert.equal(report.passed, true)
+  assert.deepEqual(fixture.createdKeyDisplays, ['TOKENS', 'TOKENS', 'TOKENS', 'TOKENS'])
+  assert.deepEqual(fixture.policyRefreshes, [{ userId: 20, role: 1, revision: 1 }])
+})
+
+test('usage UI binds exact request and Key to the real role-specific list without first-entry selection', async () => {
+  const fixture = journeyBrowser()
+  const report = await probePersonalBrowserJourney({ ...base, ...fixture })
+  assert.equal(report.passed, true)
+  assert.deepEqual(fixture.usageReads, [
+    { role: 100, pathname: '/api/log/', requestId: 'request-private-1', tokenName: 'browser-root-finite' },
+    { role: 1, pathname: '/api/log/self', requestId: 'request-private-3', tokenName: 'browser-owner-finite' },
+  ])
+  // The fixture also emitted wrong-path and wrong-filter response bodies. They
+  // must not be consumed, even though they arrived before the matching GET.
+  assert.deepEqual(fixture.contexts.map(context => context.page.closedLogDialogs), [1, 1])
+})
+
+for (const [corrupt, code, stage] of [
+  ...['request', 'owner', 'key', 'model', 'duplicate', 'missing'].map(kind => [`ui-log-${kind}`, 'LOG_MISMATCH', 'usage-list']),
+  ['ui-log-visible', 'BROWSER_FAILED', 'usage-list-visible'],
+  ['ui-log-ambiguous', 'LOG_MISMATCH', 'usage-details-open'],
+  ['ui-log-open', 'BROWSER_FAILED', 'usage-details-open'],
+  ['ui-log-dialog-request', 'BROWSER_FAILED', 'usage-details-request'],
+  ['ui-log-dialog-key', 'BROWSER_FAILED', 'usage-details-key'],
+]) {
+  test(`${corrupt} fails at a fixed usage substage without weakening identity`, async () => {
+    const fixture = journeyBrowser({ corrupt })
+    await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), error => {
+      assert.equal(error.message, `SMOKE_PERSONAL_${code}`)
+      assert.equal(error.stage, stage)
+      assert(!error.stack.includes(base.password))
+      return true
+    })
+    assert.equal(fixture.closed(), 1)
+  })
+}
+
+for (const failureMode of ['safe', 'visible-secret', 'capture-error']) {
+  test(`usage failure screenshot ${failureMode} preserves the original failure and artifact hygiene`, async () => {
+    const fixture = journeyBrowser({ corrupt: 'ui-log-owner', usageFailureRole: 1, unsafeUsageScreenshot: failureMode === 'visible-secret', failUsageScreenshot: failureMode === 'capture-error' })
+    const artifactDir = mkdtempSync(path.join(tmpdir(), 'personal-usage-failure-'))
+    try {
+      await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture, artifactDir }), error => {
+        assert.equal(error.message, 'SMOKE_PERSONAL_LOG_MISMATCH')
+        assert.equal(error.stage, 'usage-list')
+        assert(!error.stack.includes(base.password))
+        return true
+      })
+      const failures = fixture.screenshots.filter(item => path.basename(item.path).startsWith('usage-failed-'))
+      assert.equal(failures.length, failureMode === 'safe' ? 1 : 0)
+      if (failures.length) {
+        assert.equal(path.basename(failures[0].path), 'usage-failed-zh-320.png')
+        assert.equal(failures[0].mask.length, 3)
+      }
+      assert.equal(fixture.closed(), 1)
+    } finally { rmSync(artifactDir, { recursive: true, force: true }) }
+  })
+}
+
+test('Playground refreshes new Keys and explicitly selects the cached model without a redundant models GET', async () => {
+  const fixture = journeyBrowser()
+  const report = await probePersonalBrowserJourney({ ...base, ...fixture })
+  assert.equal(report.passed, true)
+  assert.equal(fixture.playgroundRefreshes.length, 5)
+  assert.deepEqual(fixture.playgroundRefreshes.map(item => item.ids.length), [1, 1, 1, 2, 2])
+  assert.equal(fixture.modelChoices.length, 5)
+  assert.deepEqual(fixture.modelChoices.map(item => item.locale), ['en-US', 'zh-CN', 'zh-CN', 'zh-CN', 'en-US'])
+  assert(fixture.modelChoices.every(item => item.model === 'smoke-model'))
+  assert.equal(fixture.modelChoices[1].keyId, fixture.modelChoices[2].keyId)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/models').length, 4)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+})
+
+for (const inflightKeys of ['initial', 'background', 'missing-target']) {
+  test(`Playground ${inflightKeys} read settles without requiring an extra request from HTTP deduplication`, async () => {
+    const fixture = journeyBrowser({ inflightKeys })
+    const report = await probePersonalBrowserJourney({ ...base, ...fixture })
+    assert.equal(report.passed, true)
+    assert.equal(fixture.keyReadEvents.filter(event => event === 'request-started').length, 2)
+    assert.equal(fixture.keyReadEvents.filter(event => event === 'body-complete').length, 2)
+    assert.equal(fixture.keyReadEvents.filter(event => event === 'refresh-reused-request').length, inflightKeys === 'background' ? 2 : 0)
+    assert.deepEqual(fixture.keyReadEvents, [1, 2].flatMap(() => [
+      'request-started', 'body-complete', ...(inflightKeys === 'background' ? ['refresh-reused-request'] : []),
+    ]))
+    assert.equal(fixture.playgroundRefreshes.length, 5)
+    assert.equal(fixture.modelChoices.length, 5)
+    assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+  })
+}
+
+test('an older in-flight list without the target cannot excuse a refreshed list still missing the new Key', async () => {
+  const fixture = journeyBrowser({ inflightKeys: 'missing-target', corrupt: 'keys' })
+  await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), error =>
+    error.message === 'SMOKE_PERSONAL_REQUEST_MISMATCH' && error.stage === 'key-selection-refresh')
+  assert.equal(fixture.keyReadEvents.filter(event => event === 'body-complete').length, 1)
+  assert.equal(fixture.playgroundRefreshes.length, 1)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 0)
+  assert.equal(fixture.closed(), 1)
+})
+
+for (const seconds of [0, 1, 180]) {
+  test(`actual document GET 429 honors Retry-After ${seconds} once`, async t => {
+    t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+    const fixture = setupBrowser({ documentResponses: [{ status: 429, retryAfter: String(seconds) }, { status: 200 }] })
+    const backoff = Promise.withResolvers()
+    const events = []
+    let outcome
+    const run = browserSetup({ ...base, playwrightModule: fixture.module, onProgress: event => {
+      events.push(event)
+      if (event.stage === 'document-backoff') backoff.resolve()
+    } }).then(value => { outcome = { value } }, error => { outcome = { error } })
+    await Promise.race([backoff.promise, run])
+    assert.equal(outcome, undefined)
+    if (seconds > 0) {
+      t.mock.timers.tick(seconds * 1000 - 1)
+      await new Promise(setImmediate)
+      assert.equal(fixture.calls.filter(call => call[0] === 'goto').length, 1)
+      t.mock.timers.tick(1)
+    } else t.mock.timers.tick(0)
+    await run
+    assert.equal(outcome.value?.ok, true)
+    assert.equal(fixture.calls.filter(call => call[0] === 'goto').length, 2)
+    assert.equal(fixture.calls.filter(call => call[0] === 'click' && call[2] === 'Initialize system').length, 1)
+    const observed = events.find(event => event.event === 'document-response')
+    assert.equal(observed.httpStatus, 429)
+    assert.equal(observed.retryAfter, seconds)
+  })
+}
+
+for (const [name, response] of [
+  ['unauthorized', { status: 401, retryAfter: '1' }], ['forbidden', { status: 403, retryAfter: '1' }],
+  ['server-error', { status: 500, retryAfter: '1' }], ['missing-delay', { status: 429 }],
+  ['negative-delay', { status: 429, retryAfter: '-1' }], ['fractional-delay', { status: 429, retryAfter: '0.5' }],
+  ['oversized-delay', { status: 429, retryAfter: '181' }], ['unsafe-integer', { status: 429, retryAfter: '9007199254740992' }],
+  ['date-delay', { status: 429, retryAfter: 'Fri, 09 Oct 2026 20:00:00 GMT' }],
+  ['private-invalid-header', { status: 429, retryAfter: base.password }],
+  ['non-get', { status: 429, retryAfter: '0', method: 'POST' }],
+]) {
+  test(`document ${name} fails safely without retry`, async () => {
+    const events = []
+    const fixture = setupBrowser({ documentResponses: [response] })
+    await assert.rejects(browserSetup({ ...base, playwrightModule: fixture.module, onProgress: event => events.push(event) }), error => {
+      assert.equal(error.message, 'SMOKE_PERSONAL_HTTP_FAILED')
+      assert.equal(error.httpStatus, response.status)
+      assert.equal(error.stage, 'setup-open')
+      assert(!JSON.stringify(error).includes(base.password))
+      return true
+    })
+    assert.equal(fixture.calls.filter(call => call[0] === 'goto').length, 1)
+    assert.equal(fixture.calls.filter(call => call[0] === 'click').length, 0)
+    assert(!events.some(event => event.stage === 'document-backoff'))
+    assert(!JSON.stringify(events).includes(base.password))
+  })
+}
+
+test('a second document 429 fails instead of retrying again', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const fixture = setupBrowser({ documentResponses: [{ status: 429, retryAfter: '0' }, { status: 429, retryAfter: '0' }] })
+  const backoff = Promise.withResolvers()
+  const run = browserSetup({ ...base, playwrightModule: fixture.module,
+    onProgress: event => { if (event.stage === 'document-backoff') backoff.resolve() } })
+  const rejected = assert.rejects(run, error => error.message === 'SMOKE_PERSONAL_HTTP_FAILED' && error.httpStatus === 429 && error.retryAfter === 0)
+  await Promise.race([backoff.promise, rejected])
+  t.mock.timers.tick(0)
+  await rejected
+  assert.equal(fixture.calls.filter(call => call[0] === 'goto').length, 2)
+})
+
+test('document backoff shares a 180-second journey budget and never replays login or relay', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const fixture = journeyBrowser({ documentResponses: [
+    { status: 429, retryAfter: '100' }, { status: 200 }, { status: 200 }, { status: 429, retryAfter: '81' },
+  ] })
+  const events = []
+  const backoff = Promise.withResolvers()
+  const run = probePersonalBrowserJourney({ ...base, ...fixture, onProgress: event => {
+    events.push(event)
+    if (event.stage === 'document-backoff') backoff.resolve()
+  } })
+  const rejected = assert.rejects(run, error => error.message === 'SMOKE_PERSONAL_HTTP_FAILED' &&
+    error.stage === 'login-open' && error.httpStatus === 429 && error.retryAfter === 81)
+  await Promise.race([backoff.promise, rejected])
+  t.mock.timers.tick(100_000)
+  await rejected
+  assert.equal(events.filter(event => event.stage === 'document-backoff').length, 1)
+  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 4)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/api/user/login').length, 1)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 1)
+})
+
+for (const [corrupt, code, pathname] of [
+  ['login-rate', 'LOGIN_FAILED', '/api/user/login'], ['relay-rate', 'RELAY_MISMATCH', '/pg/chat/completions'],
+]) {
+  test(`${corrupt} POST 429 cannot enter document backoff or replay`, async () => {
+    const fixture = journeyBrowser({ corrupt })
+    const events = []
+    await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture, onProgress: event => events.push(event) }),
+      new RegExp(`^Error: SMOKE_PERSONAL_${code}$`))
+    assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === pathname).length, 1)
+    assert.equal(fixture.upstreamCount(), 2)
+    assert(!events.some(event => event.stage === 'document-backoff' || event.event === 'document-response'))
+  })
+}
+
+// Diagnostic fixtures deliberately contain secret-like URL/header/message data.
+// Only the fixed classification and numeric fields may reach the observer.
+function diagnosticResponse(pathname, status = 429, retryAfter = '17', resourceType = 'fetch') {
+  const request = { url: () => pathname.startsWith('http') ? pathname : base.baseUrl + pathname,
+    resourceType: () => resourceType, method: () => 'GET',
+    failure() { throw new Error('must not inspect raw network failure') } }
+  return { request: () => request, status: () => status,
+    headers: () => ({ 'retry-after': retryAfter, authorization: base.password }),
+    json() { throw new Error('must not read diagnostic body') },
+    text() { throw new Error('must not read diagnostic body') } }
+}
+
+function diagnosticRecords(events) { return events.filter(event => event.event.startsWith('diagnostic-')) }
+
+test('first-navigation failures emit only same-origin fixed categories, numeric status and valid Retry-After', async () => {
+  const events = []
+  const fixture = setupBrowser({ onNavigate(page) {
+    for (const [pathname, resource, status, retry] of [
+      [`/static/js/secret-${base.password}.js?token=session-private-secret`, 'script', 429, '17'],
+      ['/api/user/auth/refresh?token=secret-masked-key', 'fetch', 503, '0'],
+      ['/api/log/self?request_id=request-private-secret', 'fetch', 500, base.password],
+      ['/api/status', 'fetch', 429, '9999999999999999999999999'],
+      ['https://outside.invalid/static/app.js?secret=' + base.password, 'script', 429, '17'],
+      ['/api/token/1/key', 'fetch', 403, '17'],
+      ['/static/app.js', 'script', 200, '17'],
+      ['/static/app.js', 'script', '429', '17'],
+      ['/static/app.js', 'script', 600, '17'],
+      ['http://127.0.0.1:19090/static/app.js', 'script', 429, '17'],
+    ]) page.listeners.response?.(diagnosticResponse(pathname, status, retry, resource))
+  } })
+  assert.equal((await browserSetup({ ...base, playwrightModule: fixture.module, onProgress: value => events.push(value) })).ok, true)
+  const records = diagnosticRecords(events)
+  assert.deepEqual(records.map(({ category, httpStatus, retryAfter }) => ({ category, httpStatus, retryAfter })), [
+    { category: 'asset', httpStatus: 429, retryAfter: 17 },
+    { category: 'auth', httpStatus: 503, retryAfter: 0 },
+    { category: 'log', httpStatus: 500, retryAfter: undefined },
+    { category: 'bootstrap', httpStatus: 429, retryAfter: undefined },
+  ])
+  assert(records.every(record => record.stage === 'setup-open' && record.event === 'diagnostic-response'))
+  for (const record of records) assert.deepEqual(Object.keys(record).sort(), [
+    'command', 'phase', 'event', 'stage', 'sha', 'writer', 'category', 'httpStatus',
+    ...(record.retryAfter !== undefined ? ['retryAfter'] : []),
+  ].sort())
+  for (const secret of [base.password, 'session-private-', 'secret-masked-key', 'request-private-', '/static/', 'authorization']) {
+    assert(!JSON.stringify(events).includes(secret))
+  }
+  assert.equal(fixture.calls.filter(call => call[0] === 'goto').length, 1, 'diagnostics never retry navigation')
+})
+
+test('console route exceptions classify chunk/import failures without serializing text, arguments or location', async () => {
+  const events = []
+  const fixture = setupBrowser({ onNavigate(page) {
+    for (const text of [
+      `TypeError: Failed to fetch dynamically imported module: https://host/${base.password}`,
+      `ChunkLoadError: Loading chunk 42 failed (${base.password})`,
+      `ReferenceError: ${base.password} is not defined`,
+      `arbitrary secret name ${base.password}`,
+    ]) page.listeners.console?.({ type: () => 'error', text: () => text,
+      args() { throw new Error('must not inspect console arguments') },
+      location() { throw new Error('must not inspect console location') } })
+    page.listeners.console?.({ type: () => 'warning', text() { throw new Error('not an error') } })
+  } })
+  assert.equal((await browserSetup({ ...base, playwrightModule: fixture.module, onProgress: value => events.push(value) })).ok, true)
+  assert.deepEqual(diagnosticRecords(events).map(({ event, errorClass }) => ({ event, errorClass })), [
+    { event: 'diagnostic-console', errorClass: 'ImportError' },
+    { event: 'diagnostic-console', errorClass: 'ChunkLoadError' },
+    { event: 'diagnostic-console', errorClass: 'ReferenceError' },
+    { event: 'diagnostic-console', errorClass: 'other' },
+  ])
+  assert(!JSON.stringify(events).includes(base.password))
+})
+
+test('pageerror retains the existing runtime failure while exposing only a whitelisted class', async () => {
+  const events = []
+  const fixture = setupBrowser({ onNavigate(page) {
+    for (const [name, message] of [['TypeError', base.password], [base.password, base.password],
+      ['Error', `Importing a module script failed: https://host/${base.password}`]]) {
+      page.listeners.pageerror?.({ name, message, get stack() { throw new Error('must not inspect stack') } })
+    }
+  } })
+  await assert.rejects(browserSetup({ ...base, playwrightModule: fixture.module, onProgress: value => events.push(value) }),
+    error => error.message === 'SMOKE_PERSONAL_RUNTIME_ERROR' && error.stage === 'setup-response')
+  assert.deepEqual(diagnosticRecords(events).map(record => record.errorClass), ['TypeError', 'other', 'ImportError'])
+  assert(!JSON.stringify(events).includes(base.password))
+  assert.equal(fixture.calls.at(-1)[0], 'browser-close')
+})
+
+test('request failures record only fixed same-origin categories and deduplicate paths and messages', async () => {
+  const events = []
+  const fixture = setupBrowser({ onNavigate(page) {
+    for (const [pathname, type] of [
+      ['/static/js/' + base.password, 'script'], ['/static/style.css', 'stylesheet'],
+      ['/api/user/login?password=' + base.password, 'fetch'], ['/api/log/self', 'fetch'], ['/api/setup', 'fetch'],
+      ['https://outside.invalid/static/js/app.js', 'script'], ['/pg/chat/completions', 'fetch'],
+    ]) page.listeners.requestfailed?.(diagnosticResponse(pathname, 500, '', type).request())
+  } })
+  await browserSetup({ ...base, playwrightModule: fixture.module, onProgress: value => events.push(value) })
+  assert.deepEqual(diagnosticRecords(events).map(({ event, category }) => ({ event, category })),
+    ['asset', 'auth', 'log', 'bootstrap'].map(category => ({ event: 'diagnostic-requestfailed', category })))
+  assert(!JSON.stringify(events).includes(base.password))
+})
+
+test('diagnostics cap distinct session records at sixteen with one fixed limit marker', async () => {
+  const events = []
+  const fixture = setupBrowser({ onNavigate(page) {
+    for (let status = 400; status < 440; status++) {
+      for (let duplicate = 0; duplicate < 2; duplicate++) {
+        page.listeners.response?.(diagnosticResponse('/static/' + status + '.js', status, '1', 'script'))
+      }
+    }
+  } })
+  await browserSetup({ ...base, playwrightModule: fixture.module, onProgress: value => events.push(value) })
+  const records = diagnosticRecords(events)
+  assert.equal(records.length, 17)
+  assert.deepEqual(records.slice(0, 16).map(record => record.httpStatus), Array.from({ length: 16 }, (_, i) => 400 + i))
+  assert.deepEqual(records.at(-1), { command: 'personal:browser', phase: 'setup', event: 'diagnostic-limit',
+    stage: 'setup-open', sha: base.sha, writer: 'legacy', count: 16 })
+})
+
+test('malformed diagnostic inputs and a rejecting observer cannot replace the original failure or prevent cleanup', async () => {
+  const fixture = setupBrowser({ responseSuccess: false, onNavigate(page) {
+    page.listeners.response?.({ request() { throw new Error(base.password) } })
+    page.listeners.requestfailed?.({ url() { throw new Error(base.password) } })
+    page.listeners.console?.({ type: () => 'error', text() { throw new Error(base.password) } })
+    page.listeners.pageerror?.({ get name() { throw new Error(base.password) } })
+    page.listeners.response?.(diagnosticResponse('/static/app.js', 429, '0', 'script'))
+  } })
+  await assert.rejects(browserSetup({ ...base, playwrightModule: fixture.module,
+    onProgress() { return Promise.reject(new Error(base.password)) } }),
+  error => error.message === 'SMOKE_PERSONAL_SETUP_FAILED' && !error.stack.includes(base.password))
+  assert.equal(fixture.calls.at(-1)[0], 'browser-close')
+})
+
+test('diagnostic caps are independent for Root and ordinary-owner sessions and leave the journey unchanged', async () => {
+  const events = []
+  const pages = new Set()
+  const fixture = journeyBrowser({ onNavigate(page) {
+    if (pages.has(page)) return
+    pages.add(page)
+    for (let status = 400; status < 418; status++) {
+      page.listeners.response?.(diagnosticResponse('/static/app.js', status, '0', 'script'))
+    }
+  } })
+  const result = await probePersonalBrowserJourney({ ...base, ...fixture, onProgress: event => events.push(event) })
+  assert.equal(result.passed, true)
+  assert.equal(pages.size, 2)
+  assert.equal(diagnosticRecords(events).filter(record => record.event === 'diagnostic-response').length, 32)
+  assert.equal(diagnosticRecords(events).filter(record => record.event === 'diagnostic-limit').length, 2)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 4, 'plus the separate setup navigation')
+  assert.equal(fixture.upstreamCount(), 4)
+})
+
+test('log filters use visible desktop controls and the mobile drawer before submitting exact identity', async () => {
+  const fixture = journeyBrowser()
+  assert.equal((await probePersonalBrowserJourney({ ...base, ...fixture })).passed, true)
+  assert.deepEqual(fixture.filterActions, [100, 1].flatMap(role => [
+    { action: 'open', role, control: role === 100 ? 'Expand' : 'Filter' },
+    { action: 'fill', role, field: 'Token Name' },
+    { action: 'fill', role, field: 'Request ID' },
+    { action: 'search', role, tokenName: role === 100 ? 'browser-root-finite' : 'browser-owner-finite',
+      requestId: role === 100 ? 'request-private-1' : 'request-private-3' },
+  ]))
+  assert(fixture.contexts.every(context => !context.page.logFiltersOpen))
+  assert.deepEqual(fixture.tableSearches.map(item => ({ endpoint: item.endpoint, id: item.id })), [
+    { endpoint: '/api/user/search', id: 20 }, { endpoint: '/api/token/search', id: 34 },
+  ])
+  // Each input also emitted a wrong keyword GET and a correct keyword POST.
+  // Neither may satisfy the required real role-specific search GET readback.
+  assert.equal(fixture.tableSearches[1].keyword, 'browser-root-strict-reject')
+})
+
+for (const [corrupt, usageFailureRole] of [
+  ['ui-log-hidden-filter', 100], ['ui-log-hidden-filter', 1],
+  ['ui-log-url', 100], ['ui-log-url', 1], ['ui-log-drawer-stays-open', 1],
+]) {
+  test(`${corrupt} role ${usageFailureRole} cannot pass without real filter visibility, submission and URL synchronization`, async () => {
+    const fixture = journeyBrowser({ corrupt, usageFailureRole })
+    await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), error =>
+      error.message === 'SMOKE_PERSONAL_BROWSER_FAILED' && error.stage === 'usage-filter')
+    assert.equal(fixture.closed(), 1)
+    assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length,
+      usageFailureRole === 100 ? 1 : 3)
+  })
+}
+
+for (const [prefix, expectedCode, stage, fields] of [
+  ['ui-user', 'POLICY_MISMATCH', 'policy-user-filter', ['id', 'role', 'name', 'missing', 'duplicate', 'stale-row', 'url']],
+  ['ui-key', 'KEY_MISMATCH', 'strict-key-filter', ['id', 'owner', 'name', 'missing', 'duplicate', 'stale-row', 'url']],
+]) {
+  for (const field of fields) {
+    test(`${prefix}-${field} fails before acting on an incorrect or stale table selection`, async () => {
+      const fixture = journeyBrowser({ corrupt: prefix + '-' + field })
+      await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), error => {
+        const code = ['stale-row', 'url'].includes(field) ? 'BROWSER_FAILED' : expectedCode
+        assert.equal(error.message, 'SMOKE_PERSONAL_' + code)
+        assert.equal(error.stage, stage)
+        return true
+      })
+      assert.equal(fixture.closed(), 1)
+      assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length,
+        prefix === 'ui-user' ? 2 : 4)
+      if (prefix === 'ui-user') assert(!fixture.emitted.some(response => new URL(response.url()).pathname === '/api/user/20/usage-policy' && response.request().method() === 'PUT'))
+      else assert(!fixture.emitted.some(response => /\/api\/token\/\d+\/budget$/.test(new URL(response.url()).pathname) && response.request().method() === 'PUT'))
+    })
+  }
+}
+
+test('header Search duplicate cannot capture desktop log submission while mobile uses its portal dialog', async () => {
+  const fixture = journeyBrowser()
+  const report = await probePersonalBrowserJourney({ ...base, ...fixture })
+  assert.equal(report.passed, true)
+  assert.deepEqual(fixture.logSearchMatches, [1, 1])
+  assert.deepEqual(fixture.usageReads.map(({ role, requestId }) => ({ role, requestId })), [
+    { role: 100, requestId: 'request-private-1' }, { role: 1, requestId: 'request-private-3' },
+  ])
+  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 4)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+})
