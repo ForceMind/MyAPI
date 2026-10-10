@@ -21,7 +21,7 @@ test('settlement patch keeps bounded Docker acceptance and durable race coverage
     assert.match(gate, /github\.event_name == 'workflow_dispatch'/)
     assert.match(gate, /head\.repo\.full_name == github\.repository && contains/)
     const allowed = JSON.parse(gate.match(/fromJSON\('([^']+)'\)/)[1])
-    assert.deepEqual(allowed, ['codex/r1-usage-review-20261002', 'codex/settlement-review-status-20261009', ...(index !== 1 ? ['codex/personal-app-journey-20261009', 'codex/docker-smoke-image-reuse-20261010'] : [])])
+    assert.deepEqual(allowed, ['codex/r1-usage-review-20261002', 'codex/settlement-review-status-20261009', 'codex/beta11-release-candidate-20261010', ...(index !== 1 ? ['codex/personal-app-journey-20261009', 'codex/docker-smoke-image-reuse-20261010'] : [])])
   }
   assert.doesNotMatch(docker, /packages: write|contents: write|id-token: write|push: true|secrets\./)
   assert.match(docker, /push: false/)
@@ -162,4 +162,54 @@ test('personal application smoke stays on an exact trusted branch with two owned
   assert.match(job, /name: myapi-personal-\$\{\{ matrix.writer \}\}-\$\{\{ github.sha \}\}/)
   assert.match(job, /timeout-minutes: \$\{\{ env.MYAPI_SMOKE_PERSONAL == '1' && 6 \|\| 25 \}\}/)
   assert.doesNotMatch(workflow, /packages: write|contents: write|id-token: write|push: true|secrets\./)
+})
+
+test('beta11 candidate keeps both personal writers, historical restore and the source installer', () => {
+  const source = readFileSync(new URL('../../.github/workflows/docker-smoke.yml', import.meta.url), 'utf8')
+  const producer = source.split('  prepare-smoke-images:\n')[1].split('  installer-local-build:\n')[0]
+  const installer = source.split('  installer-local-build:\n')[1].split('  build-and-healthcheck:\n')[0]
+  const consumer = source.split('  build-and-healthcheck:\n')[1]
+  const expression = (line) => line.includes('${{')
+    ? line.slice(line.indexOf('${{') + 3, line.lastIndexOf('}}')).trim()
+    : line.slice(line.indexOf(':') + 1).trim()
+  const evaluate = (line, github, matrix = {}) => Function('github', 'matrix', 'fromJSON', 'contains', 'always', 'cancelled',
+    `return (${expression(line)})`)(github, matrix, JSON.parse, (items, value) => items.includes(value), () => true, () => false)
+  const line = (section, name) => section.split('\n').find(value => value.trim().startsWith(name + ':'))
+  const branch = 'codex/beta11-release-candidate-20261010'
+  const event = (head, sameRepo = true, type = 'pull_request') => ({ event_name: type, repository: 'ForceMind/MyAPI',
+    event: { pull_request: { head: { ref: head, repo: { full_name: sameRepo ? 'ForceMind/MyAPI' : 'foreign/fork' } } } } })
+  for (const section of [producer, installer]) {
+    assert.equal(evaluate(line(section, 'if'), event(branch)), true)
+    assert.equal(evaluate(line(section, 'if'), event(branch, false)), false)
+    assert.equal(evaluate(line(section, 'if'), event('untrusted-branch')), false)
+    assert.equal(evaluate(line(section, 'if'), event('', true, 'workflow_dispatch')), true)
+  }
+  const cases = [
+    [event(branch), ['full'], ['authoritative:fresh:full', 'legacy:handoff:full']],
+    [event('codex/personal-app-journey-20261009'), ['full'], ['authoritative:fresh:full']],
+    [event('codex/docker-smoke-image-reuse-20261010'), ['full'], ['authoritative:fresh:full']],
+    [event('codex/settlement-review-status-20261009'), ['full'], ['legacy:handoff:full']],
+    [event('', true, 'workflow_dispatch'), ['full', 'lan'], ['legacy:handoff:full']],
+  ]
+  for (const [github, editions, extra] of cases) {
+    assert.deepEqual(evaluate(line(consumer, 'edition'), github), editions)
+    const include = evaluate(line(consumer, 'include'), github)
+    assert.deepEqual(include.map(row => `${row.writer}:${row.scenario}:${row.edition}`), extra)
+    const rows = [...editions.map(edition => ({ edition, scenario: 'fresh', writer: 'legacy' })), ...include]
+    assert.equal(new Set(rows.map(row => JSON.stringify(row))).size, rows.length)
+    const bundle = evaluate(line(producer, 'BUNDLE_PERSONAL'), github)
+    for (const row of rows) {
+      assert.equal(evaluate(line(consumer, 'BUNDLE_PERSONAL'), github, row), bundle)
+      const personal = evaluate(line(consumer, 'MYAPI_SMOKE_PERSONAL'), github, row)
+      assert.equal(personal, row.scenario === 'fresh' && bundle === '1' ? '1' : '0')
+    }
+  }
+  assert.match(consumer, /--personal "\$BUNDLE_PERSONAL"/)
+  assert.match(consumer, /MYAPI_SMOKE_RESTORE: \$\{\{ env\.MYAPI_SMOKE_PERSONAL == '1' && '0' \|\| '1' \}\}/)
+  assert.match(consumer, /MYAPI_SMOKE_HANDOFF_UPGRADE: '1'/)
+  assert.match(installer, /MYAPI_BUILD_LOCAL=true/)
+  assert.match(installer, /edition: 'lan'/)
+  assert.match(consumer, /fail-fast: false/)
+  assert.match(consumer, /max-parallel: 1/)
+  assert.doesNotMatch(source, /contents: write|packages: write|id-token: write|push: true|secrets\./)
 })
