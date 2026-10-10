@@ -65,7 +65,7 @@ export async function withRestoredSQLite({ sha, edition, env = process.env, runD
       if (JSON.stringify(databaseDigest(restored)) !== JSON.stringify(digest)) throw new Error('SMOKE_RESTORE_COPY_MISMATCH')
       const restoreEnv = { ...env, SESSION_SECRET: randomBytes(32).toString('hex') }
       started = true
-      runDocker(['run', '--detach', '--name', target, '--label', `io.myapi.smoke.sha=${sha}`,
+      runDocker(['run', '--pull=never', '--detach', '--name', target, '--label', `io.myapi.smoke.sha=${sha}`,
         '--user', `${process.getuid()}:${process.getgid()}`,
         '--publish', '127.0.0.1:18081:3000', '--cpus', '1', '--memory', '768m', '--pids-limit', '256',
         '--mount', `type=bind,src=${restored},dst=/data`, '--env', `MYAPI_EDITION=${edition}`,
