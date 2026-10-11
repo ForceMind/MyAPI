@@ -24,7 +24,7 @@ func openLegacyBalanceBatchTestWithRedis(t *testing.T, label string) (*gormTestF
 	db := openAccountQuotaTestDB(t)
 	setQuotaWriterStateForTest(t, db, QuotaWriterModeLegacy, 100+int64(len(label)))
 	useQuotaProjectionModelDB(t, db)
-	require.NoError(t, db.AutoMigrate(&QuotaBalanceBatchDrain{}, &QuotaBalanceBatchSubject{}))
+	require.NoError(t, db.AutoMigrate(&QuotaBalanceBatchDrain{}, &QuotaBalanceBatchSubject{}, &TokenQuotaAdjustment{}))
 	require.NoError(t, EnsureQuotaMaintenanceBackfillCursorsWithDB(db))
 	server, client := useQuotaProjectionRedis(t)
 	state, err := GetQuotaWriterEpochState(db)

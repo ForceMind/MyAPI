@@ -520,7 +520,6 @@ func TestUpdateTokenMasksKeyInResponse(t *testing.T) {
 		"id":                   token.Id,
 		"name":                 "updated-token",
 		"expired_time":         -1,
-		"remain_quota":         100,
 		"unlimited_quota":      true,
 		"model_limits_enabled": false,
 		"model_limits":         "",

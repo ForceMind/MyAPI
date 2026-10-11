@@ -15,6 +15,10 @@ import { ApiKeysProvider } from '../api-keys-provider'
 import { ApiKeysTable } from '../api-keys-table'
 
 const originalConfig = useSystemConfigStore.getState().config
+const originalInnerWidth = Object.getOwnPropertyDescriptor(
+  window,
+  'innerWidth'
+)
 let client: QueryClient
 
 function makeKey(usedQuota: number, remainQuota: number): ApiKey {
@@ -35,16 +39,33 @@ function makeKey(usedQuota: number, remainQuota: number): ApiKey {
 }
 
 function setViewport(layout: 'desktop' | 'mobile') {
-  const matchMedia = window.matchMedia
+  const width = layout === 'mobile' ? 320 : 1280
+  Object.defineProperty(window, 'innerWidth', {
+    configurable: true,
+    value: width,
+  })
   vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
-    ...matchMedia(query),
-    matches: layout === 'mobile' && query === '(max-width: 640px)',
+    matches: query.includes('max-width') && width < 768,
+    media: query,
+    onchange: null,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    dispatchEvent: () => false,
   }))
 }
 
 async function renderTable(item: ApiKey) {
   vi.spyOn(api, 'get').mockImplementation(async (url) => {
-    if (url === '/api/status') return { data: { success: true, data: {} } }
+    if (url === '/api/status') {
+      return {
+        data: {
+          success: true,
+          data: { quota_display_type: 'TOKENS' },
+        },
+      }
+    }
     if (url === '/api/user/self/groups') {
       return {
         data: {
@@ -91,6 +112,9 @@ afterEach(() => {
   cleanup()
   client.clear()
   useSystemConfigStore.setState({ config: originalConfig })
+  if (originalInnerWidth) {
+    Object.defineProperty(window, 'innerWidth', originalInnerWidth)
+  }
   localStorage.clear()
   vi.restoreAllMocks()
 })
@@ -113,18 +137,19 @@ test.each(['desktop', 'mobile'] as const)(
   'shows both exact components and no derived progress when the %s total exceeds the safe boundary',
   async (layout) => {
     setViewport(layout)
+    const expectedUsed = formatQuota(Number.MAX_SAFE_INTEGER)
+    const expectedRemaining = formatQuota(1)
     await renderTable(makeKey(Number.MAX_SAFE_INTEGER, 1))
 
     expect(await screen.findByText('wide-key')).toBeVisible()
-    const used = screen.getByText('Used quota')
-    const remaining = screen.getByText('Remaining quota')
+    const labelSuffix = layout === 'mobile' ? ':' : ''
+    const used = screen.getByText(`Used quota${labelSuffix}`)
+    const remaining = screen.getByText(`Remaining quota${labelSuffix}`)
     expect(used).toBeVisible()
     expect(remaining).toBeVisible()
-    expect(used.parentElement).toHaveTextContent(
-      formatQuota(Number.MAX_SAFE_INTEGER)
-    )
-    expect(remaining.parentElement).toHaveTextContent(formatQuota(1))
-    expect(screen.getByText('Total quota')).toBeVisible()
+    expect(used.parentElement).toHaveTextContent(expectedUsed)
+    expect(remaining.parentElement).toHaveTextContent(expectedRemaining)
+    expect(screen.getByText(`Total quota${labelSuffix}`)).toBeVisible()
     expect(screen.getByText('Unavailable')).toBeVisible()
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
   }
