@@ -1,10 +1,10 @@
 # 历史账务只读审计
 
-状态：第一阶段受限证据分类器及 36 项合成检查通过独立审查，尚未完成生产历史账务对账。报告不能作为直接部署、启动恢复 worker 或自动补扣的依据。
+状态：受限离线工具已完成合成验证和独立审查，尚未完成生产历史账务对账。报告不能作为直接部署、启动恢复 worker 或自动补扣的依据。
 
 工具仅使用 Python 标准库及原生 SQLite，不导入 MyAPI。只接受明确指定且来源已获认可的封存副本，不默认连接运行实例。副本、manifest 和报告放在仓库外的私有目录，不提交或上传。
 
-运行需要 Python 3.10 或更新版本；当前 Python 3.11 环境下全量 44 项合成检查及独立审查通过。其中证据分类器 36 项，离线配置探针新增 8 项；均未使用真实账务金额。
+运行需要 Python 3.10 或更新版本。修复候选 `8fce1b4` 的 [CI 38158081563](https://github.com/ForceMind/MyAPI/actions/runs/38158081563) 中，63 项合成检查通过并经独立审查：只读读取及证据分类 36 项、离线配置探针 8 项、第二副本模拟 19 项，均使用合成账务数据。早期记录的 36 项、44 项分别对应尚未加入探针、尚未加入模拟的阶段，不代表当前测试集，也不能作为生产对账结论。
 
 ## 输入
 
@@ -52,6 +52,10 @@ intent 与 fact 通过原事件关联，只代表一份结算义务。legacy fac
 
 资金与 Key 两腿分别报告，已应用一腿不意味着另一腿也完成。batch generation 不含请求归属，不能分摊为某个请求的预扣或债务。没有期初余额、完整资金流和缓存证据，不声明最终余额守恒。身份冲突、缺列、缺日志、不精确金额和缓存未知须保留，不能自动补扣。
 
+完整内容日志（full-content）记录的是网关向客户端写出的响应。beta.3 及当前修复候选均存在本地估算、协议转换和生成客户端 usage 的路径；相关路径在输出前移除内部 `BillingUsage` 来源信息。因此，客户端响应中的显式用量数字不能单独证明上游实际用量、历史计费用量或结算金额；客户端响应缺少 usage 也不能证明上游没有提供用量。
+
+用量证据须能关联原 request/event，并证明实际生产路径、版本及上游报告或估算来源；金额核定另需可追溯的请求冻结计价。仅提取响应中的数字不能填补这些来源缺口，也不能替代资金、预扣、缓存及全部写入者的一致性证据。
+
 完整 authoritative receipt 指纹、generation payload、writer/config 历史有效性和外部缓存不在本分类器的已验证范围内。报告固定 `ledger_reconciled=false`、`upgrade_eligible=false`、`automatic_actions_allowed=false`，原始状态与未验证项继续保留。
 
 ## 离线启动配置探针
@@ -78,7 +82,9 @@ PYTHONDONTWRITEBYTECODE=1 python3 preflight.py \
 
 输出到标准输出，包含前后摘要；规则退出码分别为未被该规则阻断 0、阻断/非法配置 2、未知 3。退出码 0 只对应这一规则，不能作为启动或迁移许可。所有报告固定 `application_start_approved=false` 和 `migration_approved=false`，运行配置来源、账务、缓存和升级条件均未核清。
 
-此探针尚未接入 `main.go`。main 与已发布版本仍先执行数据库初始化再执行 batch 检查。本地另有独立 Go 迁移前门禁候选；该 Python 探针本身不改变应用启动行为。不要将探针的合成测试通过写成该应用问题或生产问题已解决。
+该 Python 探针不接入应用启动流程。修复分支的 Go 门禁已接入：[main.go](../../main.go) 在 `InitDB` 前验证 Redis 有效配置，[model/main.go](../../model/main.go) 在普通数据库连接及自动迁移前，依次执行 writer/batch、金额表示和历史执行许可预检；首次失败即停止，worker 前仍有第二次 batch 检查。这些门禁通过也不表示历史账务已核清或允许升级。
+
+远端 main `92fa1182` 与已发布 beta.10 尚无上述迁移前门禁集成，仍先初始化数据库再执行 batch 检查。启动失败不能证明数据库未被写入；应使用原生只读诊断，不能启动这些版本来试探历史库。该 Python 探针本身不改变任何版本的启动行为，合成测试通过也不能作为生产问题已解决的证明。
 
 完整目标、来源缺口和下一阶段见[核查记录](../../docs/HISTORICAL_ACCOUNTING_COMPATIBILITY.md)。金额兼容修复与第二份可写副本演练须基于对账证据；此工具不执行恢复。
 
@@ -93,7 +99,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 rehearsal.py \
   --new-private-output-directory /private/new-simulation
 ```
 
-当前保守候选条件：唯一 canonical legacy_wallet fact、正 delta、两腿未应用，匹配且唯一的 request/event/主体/状态日志明确报告 actual=delta（会话 preconsume=0）。日志仅用于候选资格，扣差额唯一取原 fact.delta，不按实际总用量重新计算。其他事件冻结；重复身份或不精确金额拒绝。只支持已验证 legacy writer、没有重叠 intent/refund/generation 的 SQLite 副本。日志 request 与 event 均须唯一；关联 prepared journal 的 actual 必须 NULL。拒绝触发器、外键、相关对象为 view 或重复主体/fact ID；副本报告记录输出 SHA-256。
+当前保守候选条件：唯一 canonical legacy_wallet fact、正 delta、两腿未应用，匹配且唯一的 request/event/主体/状态日志明确报告 actual=delta。这仅满足记录值公式中 preconsume=0，不证明资金实际预扣为零或缓存已落盘。日志仅用于候选资格，扣差额唯一取原 fact.delta，不按实际总用量重新计算。其他事件冻结；重复身份或不精确金额拒绝。只支持已验证 legacy writer、没有重叠 intent/refund/generation 的 SQLite 副本。日志 request 与 event 均须唯一；关联 prepared journal 的 actual 必须 NULL。拒绝触发器、外键、相关对象为 view 或重复主体/fact ID；副本报告记录输出 SHA-256。
 
 每腿在同一事务内按旧余额/版本及 fact lock_version 比较更新余额和 applied；原 event/request/fingerprint 不变。正常 int32 原余额不能借模拟跨成新的宽余额；已有宽余额资格固定在封存源的具体字段上，仅在原值/当前/目标绝对值均不超过 `2^53−1` 时精确演练，不截断或归零。Key 已用不允许负值。首次写前按主体聚合候选差额与版本增量做范围预检；逐腿仍按同一源资格校验。这是工具资格限制，不是新增全局业务规则。
 
