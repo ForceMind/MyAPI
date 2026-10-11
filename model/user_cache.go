@@ -12,14 +12,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const userCacheSchemaVersion = 5
+// Version 6 widens the persisted quota projection to the exact int64 balance
+// domain. Older hashes are invalidated per key and replaced only by an
+// owner-coordinated recovery; startup never requires a global cache flush.
+const userCacheSchemaVersion = 6
 
 type UserBase struct {
 	Id               int    `json:"id"`
 	Group            string `json:"group"`
 	AccountTierID    string `json:"account_tier_id"`
 	Email            string `json:"email"`
-	Quota            int    `json:"quota"`
+	Quota            int64  `json:"quota"`
 	Status           int    `json:"status"`
 	Role             int    `json:"role"`
 	Username         string `json:"username"`
@@ -69,15 +72,20 @@ func InvalidateUserQuotaCache(userId int) error {
 	return invalidateUserCache(userId)
 }
 
-// HydrateUserQuotaCache updates user quota projection in Redis with version anti-rollback.
-// If the cache key does not exist or has an older schema, it does nothing (allowing GetUserCache to hydrate cleanly).
+// HydrateUserQuotaCache updates a bridge/authoritative quota projection in Redis
+// with epoch and version anti-rollback. Legacy balances use the subject owner.
+// If the cache key does not exist or has an older schema, it leaves the projection
+// cold for the next owner-coordinated recovery.
 // If incoming QuotaVersion is older than cached, it rejects/drops to prevent version rollback.
-func HydrateUserQuotaCache(userId int, quota int, quotaVersion int64) error {
+func HydrateUserQuotaCache(userId int, quota int64, quotaVersion int64) error {
 	if !common.RedisEnabled || userId <= 0 {
 		return nil
 	}
 	state, err := GetQuotaWriterEpochState(DB)
 	if err != nil {
+		return err
+	}
+	if _, err := requireQuotaProjectionEpoch(DB, state.Epoch); err != nil {
 		return err
 	}
 	return hydrateUserQuotaCacheRedisAtEpoch(userId, quota, quotaVersion, state.Epoch)
@@ -95,6 +103,9 @@ func populateUserCache(user User) error {
 	if !common.RedisEnabled {
 		return nil
 	}
+	// This unowned path can refresh metadata on an existing projection. Cold
+	// wallet publication is reserved for a subject-lock owner that has drained
+	// pending mutations and read a fresh database balance.
 	return writeUserCache(user.ToBaseUser(), true)
 }
 
@@ -108,7 +119,8 @@ func updateUserCache(user User) error {
 	return writeUserCache(user.ToBaseUser(), false)
 }
 
-// GetUserCache gets complete user cache from hash
+// GetUserCache returns a cached user or a database fallback. A fallback may
+// omit pending legacy batch deltas and never publishes cold accounting state.
 func GetUserCache(userId int) (*UserBase, error) {
 	// Try getting from Redis first
 	userCache, err := cacheGetUserBase(userId)
@@ -151,6 +163,9 @@ func cacheGetUserBase(userId int) (*UserBase, error) {
 	if userCache.Id != userId || userCache.CacheSchema != userCacheSchemaVersion || userCache.AuthVersion <= 0 || userCache.QuotaWriterEpoch <= 0 {
 		return nil, fmt.Errorf("user cache schema is stale")
 	}
+	if _, err := common.CheckedQuotaBalance(userCache.Quota, 0); err != nil {
+		return nil, err
+	}
 	redisEpoch, epochErr := common.RDB.Get(context.Background(), quotaWriterEpochRedisKey).Int64()
 	if epochErr != nil || redisEpoch != userCache.QuotaWriterEpoch {
 		_ = invalidateUserCache(userId)
@@ -167,7 +182,7 @@ func cacheGetUserBase(userId int) (*UserBase, error) {
 }
 
 // Add atomic quota operations using hash fields.
-// 通过守卫式 Lua 脚本执行：哈希不存在时直接跳过（下次读取会从数据库水合），
+// 通过守卫式 Lua 脚本执行：哈希不存在时直接跳过，由持锁恢复路径重建，
 // 不会像裸 HINCRBY 那样创建只含 Quota 字段的残缺哈希。
 func cacheIncrUserQuota(userId int, delta int64) error {
 	if !common.RedisEnabled {
@@ -183,7 +198,7 @@ func cacheDecrUserQuota(userId int, delta int64) error {
 
 // syncCreditUserQuotaCache 在授信事务（充值/兑换等）提交后同步把增量补进缓存
 // 余额。预扣以缓存值为准（存在期间），授信不能绕过它，否则新到账的额度在
-// 缓存过期前不可用；缓存未命中无需处理，下次读取会从已提交的数据库余额水合。
+// 缓存过期前不可用；缓存未命中由持锁恢复路径核对代次后重建。
 func syncCreditUserQuotaCache(userId int, quota int, operation string) {
 	if quota <= 0 {
 		return
@@ -202,7 +217,7 @@ func getUserGroupCache(userId int) (string, error) {
 	return cache.Group, nil
 }
 
-func getUserQuotaCache(userId int) (int, error) {
+func getUserQuotaCache(userId int) (int64, error) {
 	cache, err := GetUserCache(userId)
 	if err != nil {
 		return 0, err

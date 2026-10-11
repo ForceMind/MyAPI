@@ -41,7 +41,7 @@ func TestSubscriptionGroupTransitionsPreserveAuthVersionAndSessions(t *testing.T
 		LastActiveAt:    now,
 		ExpiresAt:       now + 3600,
 	}))
-	require.NoError(t, populateUserCache(user))
+	seedUserQuotaCacheForTest(t, user.ToBaseUser())
 	plan := &SubscriptionPlan{
 		Title:         "Upgraded",
 		DurationUnit:  SubscriptionDurationMonth,

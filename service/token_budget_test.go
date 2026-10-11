@@ -184,10 +184,10 @@ func TestStrictTokenBudgetRootCancelsUnsentAndRecoversLostHold(t *testing.T) {
 				require.NoError(t, db.First(&user, info.UserId).Error)
 				if dispatched {
 					assert.EqualValues(t, 15, budget.Used)
-					assert.Equal(t, 980, user.Quota)
+					assert.Equal(t, int64(980), user.Quota)
 				} else {
 					assert.Zero(t, budget.Used)
-					assert.Equal(t, 1000, user.Quota)
+					assert.Equal(t, int64(1000), user.Quota)
 				}
 			})
 		}

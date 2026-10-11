@@ -1,4 +1,49 @@
-## 当前主线：beta.10 已发布，继续个人模式与 Key 限额闭环（2026-10-09）
+## 当前任务：先核历史账务兼容，暂不部署（2026-10-11）
+
+用户已授权继续正常开发及临时云端合成服务，当前范围仍是个人资料持续加载、新请求结算保护、历史金额与账务兼容。最新状态见[云端验收记录](CLOUD_VALIDATION_PROGRESS.md)和[草稿 PR #11](https://github.com/ForceMind/MyAPI/pull/11)。原225文件候选与全部失败证据保留；磁盘不足已解除，构建在GitHub Actions执行，本轮未增加本地编译缓存、服务或历史数据库副本。
+
+已验源码 `09ef63268b5c6742fe73e246f6c5e26e30559903`，tree `622566fb1c345343d1f10d7489e1af881469b2ac`：[CI 38128779978](https://github.com/ForceMind/MyAPI/actions/runs/38128779978)十项与[Docker 38128779248](https://github.com/ForceMind/MyAPI/actions/runs/38128779248)五项success，个人资料9个Chromium合成恢复场景通过。Legacy日志合同已修正且实际镜像验证通过：已完成正fact必需，intent缺失合法、存在时严格核验。此前39项单元曾未识别该错误合同，旧失败不改写。
+
+[原生专项 38132921489](https://github.com/ForceMind/MyAPI/actions/runs/38132921489)在独立CI分支提交 `c8e7bbc04676e46f2ad0c806a9ac78562923a4ef` 上3项串行success、原10项skipped。其唯一parent为09ef、唯一差异为CI文件，非CI3067项摘要相同；MySQL 5.7/PostgreSQL 9.6的共享历史账务合同实际PASS且零skip，临时容器和网络已回收，独立审查通过。既有同源码Redis 7.4.11的44个quota-script子项PASS仍限该脚本合同，不证明完整缓存生命周期。
+
+文档后继3feff8e的前端15分钟超限取消按原事实保留；预算修正3a1d50a的CI十项success。真实Redis补验af18853的[CI 38138227403](https://github.com/ForceMind/MyAPI/actions/runs/38138227403)十项success，Redis7.4.11原44子项+新3组+3拒绝子项+父项共51次RUN/PASS各一次、零skip/fail；profile九场景及最后Playground命令完成。当前修复386订阅通知把int64 remaining转int造成的宽负余额显示错误，生产调用纯builder并保留阈值/模板/类型/链接；现有backend386build后新增五包14项严格JSON验收，无新服务、权限或上传，本批准确SHA/终态以[PR Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)为准。旧386全包失败和五项mock限制继续保留，新结果不能称全包通过。新增应用差异限service通知组装，不能继续声称整棵业务tree等于09ef；common应用逻辑与旧历史原生专项合同未变，model的B2测试补验范围见下段，旧09ef Docker与c8e7 native证据只按各自身份/未变路径复用。beta.3一致性来源、资金/预扣/缓存/所有writer、504未知事件、旧authoritative终态来源与真实回滚资格仍未齐；未知项冻结，副本DO_NOT_RESTORE、ledger_reconciled=false、production_eligible=false。main仍92fa1182，beta.10标签不变，beta.11只有未发布元数据，生产未改动，暂不发布或部署。
+
+以下至“历史主线”之前保留上轮本地收口记录。其中未提交、磁盘不足与Goal受阻表述仅在该轮归档时成立，不代表当前分支同步或资源状态。
+
+最新状态以[核查记录](HISTORICAL_ACCOUNTING_COMPATIBILITY.md)的当前批次及末次更新为准。用户已要求按收敛计划继续并允许多智能体；主目标尚未完成，v10本地候选的本批修复、合成验收及当前源码v6副本验证完成。当前范围仅为个人资料故障、新请求结算保护、历史金额兼容及私有副本恢复验证。生产未改动，禁止部署、发布、清历史项或扩大功能。
+
+本批新增三个局部修复：认证刷新全链路10秒期限（含WebLock排队及墙钟越界迟到响应）；batch=false仍核验持久writer身份；applied fact核验双侧标记及authoritative完整终态凭证版本/指纹。原合法部分完成中间态仍按原许可恢复，不新增历史补扣授权。27项认证/profile回归及最终Chromium9个合成场景通过，独立只读审查通过；新增三库合同的SQLite与安全目标校验通过，原生门控仍skip。最终model完整1773项通过/45项skip，受影响service/controller/router定向187项通过，model vet及amd64/386根构建通过；完整225文件候选私有归档及精确范围见核查记录，不能用v7/v9的旧全包或v5 COPY证据代替本批全部代码验收。旧fingerprint_version=1已完成authoritative终态的迁移前兼容仍待独立验证。新增隔离服务的可审阅方案及授权问题已提交，答复前不创建容器。下方长段保留既有批次证据；同名model测试运行序号不等于发布版本。
+
+当前源码实际COPY已补验：v10干净候选构建v6-v3私有harness，v6演练的部分完成、跨进程恢复、独立双连接竞争、cursor回绕、重启重放及独立全表核账通过。8306条仅获合成副本许可、逐侧各一次；504条全列冻结；原源内容和完整stat不变。所有结果保持DO_NOT_RESTORE、ledger_reconciled=false、production_eligible=false，不能作为生产补扣或升级依据。独立checker从O_NOATIME验证字节导入内存query_only连接；未运行原源应用初始化。完整证据与本轮三文档增量在私有归档，原v10候选及旧失败工件不覆盖。
+
+当前v10另完成未改造数据预检：从原快照O_NOATIME读取全新0400字节副本，仅对副本运行原生只读probe。writer在封存beta.9配置batch=true/无Redis下拒绝，amount通过，execution拒绝；真实InitDB会在迁移前的writer首错处停止，本次未启动应用。原源完整stat/内容及manifest/目录/sidecar不变，副本内容不变，三进程均正常回收；金额表示通过不代表账已核清。最新四文档累计增量及proof index仅留私有目录，应用源码与v10归档未变。
+
+后续收敛边界：本地可达历史未找到正常生成fingerprint_version=1已完成authoritative fact的发布路径，只找到合成夹具，不能排除缺失标签/外部构建/导入；需实际来源和样本，禁止虚构自动迁移。隔离服务授权仍待答复，当前磁盘约0.90GiB且低于已定2GiB阈值，即使获准也须先满足资源条件；不删除旧源或失败证据。历史资金/预扣/缓存、beta.3及504条证据和实际回滚仍缺，主Goal未完成，生产保持不动。
+
+当前停止点：最新预检归档后已连续三轮核查同一外部缺口，无新增历史证据/服务授权或足够资源，也无运行中任务可等待。主目标未完成并按规则判为受阻，Goal实际状态以工具回读为准；不再自动重复测试或扫描。恢复需历史证据与适用旧凭证来源，以及隔离实库授权和至少2GiB磁盘；当前约0.89GiB。已完成修复和所有源/失败/归档保留，生产不动。最新停止点及私有文档增量见核查记录。
+
+源码基线为 main `92fa1182e265924312d70917a0a637965aebc617`；本地修复分支 `codex/historical-accounting-compat-20261010`，工作树尚未提交。beta.10 标签保持原值，beta.11 只有未发布版本元数据。旧“可直接部署 beta.10”的建议已撤回；健康检查与合成 CI 不能证明历史账务可升级。
+
+生产只读元数据为 beta.9、batch=true、无 Redis。截图请求在跟进封存副本中匹配：legacy_wallet 正 delta、两腿未应用、batch cache unavailable；该快照8823条同类 fact，不替代先前8810条的分析集合。原8810条中8306条有日志匹配，504条证据不足；日志匹配不等于扣款或缓存证据。原始只读副本和既有失败记录持续保留。
+
+本地候选已实现：请求持久写入前检查 legacy/bridge batch 缺 Redis；个人资料完整读取15秒期限、取消/重试、null设置兼容和共享self读取；存储余额/累计状态int64且限精确整数范围、单次费用仍int32；旧batch schema3身份不重解释；迁移前原生只读金额与执行门禁探针；旧未完成intent/fact无许可默认冻结，新请求许可与记录同事务提交，逐腿事务重验绑定。Key额度编辑同时校验打开表单时的额度版本和metadata指纹，元数据单独更新不回写余额。缓存身份校验及失效失败拒写已补验证；v6中Key查找改为当前数据库授权metadata与Redis余额域合并，禁用/删除后的旧权限两条红绿回归通过。model v8全包1631项通过、44项外部依赖跳过（111.883s）。该诊断又复现额度编辑后迟到旧余额发布。v7现禁止无owner冷建及live user财务字段回写，persistent异常hash不能经普通刷新续期；legacy batch仅按单次只读Lua核验双hash决定免预扣，cold或未知走真实reserve。公开Hydrate限制为bridge/authoritative，内部receipt投影保持。500→2后迟到500/预扣3被拒、cold预扣100结算60且重放零追加、原pending generation身份保持均有定向红绿；独立代码审查通过。最终model v10全包1678项通过、44项外部门控项跳过（154.232s）；middleware201项、controller813项/2skip、service1380项/1skip、router115项全包通过。根模块全部测试编译及空筛选通过，空筛选不是全量行为验收；仍不能部署。
+
+个人资料/Key相关前端typecheck、lint、生产构建及Chromium8个合成交互场景通过。33项合并回归有1次并行资源下超时，原失败保留；未改代码独立重跑该文件5项通过。controller/router/Kling全包通过；service全包1377项通过早于后补的纯收尾路径。model取消错误身份丢失已修复、确定性红绿及原部分迁移重启回归通过，最终全包通过108.468s；根模块全部测试编译通过（空筛选，不是全行为回归），最终vet、主程序及386根模块构建通过。
+
+实际Go副本v1已完成选定8306条恢复、504条逐列不变和重启重放零追加，第二种原生只读算法核对所有表及金额守恒；该版本尚无后加的执行门禁，不能替代当前候选验收。带新门禁的v4副本已验证独立双连接同一部分完成事实竞争恢复、人工cursor回绕、逐fact逐腿事务观察及重启零追加；第二种原生只读检查核对所有原表、完整许可绑定和主体守恒。它明确只接受两边legacy-wallet集合，不证明未知缓存或历史资金正确。v3 SQLITE_BUSY失败及先前单连接并发证据不足记录保留。v4 binary早于ApplyToken=false纯收尾补丁，该路径单独回归。所有演练为人工COPY配置，固定DO_NOT_RESTORE、ledger_reconciled=false、production_eligible=false；不修改生产配置或授权历史补扣。
+
+当前Go源码已补做v5实际COPY复验：以v7干净候选构建，先封存资金已提交/Key失败状态并独立原生只读验收，再由独立连接竞争、cursor回绕和普通scanner完成8306条；504条全列不变，重启重放追加0。最终独立全表/schema/permit绑定及主体整数守恒通过，两阶段正常退出且进程回收。逐fact金额由事务内observer验证，独立检查不重新推导逐fact金额；人工副本许可不代表历史债务或生产恢复资格。原v4及失败工件保留。
+
+封存原源的v7原生预检也已实际完成：只运行独立diagnostic，不启动应用/迁移/worker；writer因已知batch=true且无Redis拒绝、amount通过、execution拒绝，实际startup会在首错处停止。v2 runner退出3是完整语义拒绝；三项源hash/stat/manifest/目录/sidecar守护不变。首次错误夹具在连接前退出2的报告保留。v8仅补文档及上述验收记录。当前v9另修一个遗漏的实时恢复测试夹具：仅全新合成数据库初始化执行门禁，余额预期改精确int64，原金额/恢复要求不变；生产Go与前端保持v7/v8。根模块90包分段覆盖已完成（69包pass、21包无测试文件；6315项pass、48项外部门控skip），不是一次go test ./...。relay完整48项通过，原环境/夹具失败日志保留，独立审查通过；私有v9完整补丁按干净main应用并逐文件校验，不生成发布版。
+
+仍缺beta.3一致性来源、完整资金流、历史缓存/写入者及504条逐请求证据；原生MySQL/PostgreSQL实库未验，仅合成/SQLMock证据。未知外部DSN此前被自动审批拒绝，不重试；隔离临时容器选择尚待答复。候选以私有补丁和干净基线逐文件校验保存，保留v1–v9归档；Git身份与refs未修改，未提交、推送或上传敏感数据。386时长解析缺口已修复，amd64/386 relay/common全包通过且独立审查通过。v1–v8候选和原额度旧快照、persistent续期红测保持。冷缓存收口、当前Go COPY/原源预检、根模块覆盖三阶段均受相同外部缺口阻碍；现有独立工作收口后不自动反复重跑。下一步只补历史证据与获准隔离实库，受控生产staging/许可导入仍未提供；副本全部DO_NOT_RESTORE，严禁恢复生产。生产升级须另行批准。
+
+下方内容保留历史记录；其中“唯一当前执行入口”“下一主节点”和持续发布授权均不覆盖本节及用户最新要求。
+
+
+c94e5ed的[CI38140987775](https://github.com/ForceMind/MyAPI/actions/runs/38140987775)后端在386编译旧service夹具时失败：三处超出int范围的常量，其他13项/四包实际PASS，service未运行，不能称14项或完整CI成功。MySQL/PostgreSQL的完整schema子项各一次RUN/PASS、零skip/fail，21表38列、13个宽字段及七类匹配行回滚检查通过；Redis7.4.11共51次RUN/PASS各一次、零skip/fail，两job容器/网络清理成功且独立复核通过。本批只修两份测试的架构输入，保留64位原极值与原断言，并将三项改动测试加入同一386门禁，共五包17项；生产代码和其他CI配置不变。后继准确结果待[PR Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)，失败记录保留，旧c8e7仍限子集，当前schema成功不证明旧窄列升级或历史账务已核清，详见[云端记录](CLOUD_VALIDATION_PROGRESS.md)。
+
+## 历史主线：beta.10 已发布，个人模式与 Key 限额闭环（2026-10-09）
 
 **当前状态：** [beta.10 事故补丁](RELEASE_BETA_10.md)已合并并发布，准确发行源码
 `631b3205ab2ad28df3f9372bd00f02bd27cb4c31`。候选与主线 CI、三库、race、真实浏览器和

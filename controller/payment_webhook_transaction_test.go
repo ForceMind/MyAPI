@@ -185,7 +185,7 @@ func TestStripeWebhookDatabaseFailureIsRetryable(t *testing.T) {
 			assert.Equal(t, http.StatusInternalServerError, code)
 			var user model.User
 			require.NoError(t, db.First(&user, 1).Error)
-			assert.Equal(t, 100, user.Quota)
+			assert.Equal(t, int64(100), user.Quota)
 			require.NoError(t, db.First(&order, order.Id).Error)
 			assert.Equal(t, common.TopUpStatusPending, order.Status)
 			var logs int64
@@ -195,9 +195,9 @@ func TestStripeWebhookDatabaseFailureIsRetryable(t *testing.T) {
 			assert.Equal(t, http.StatusOK, deliverStripeFixture(t, eventType, order.TradeNo, status, setting.StripeWebhookSecret))
 			assert.Equal(t, http.StatusOK, deliverStripeFixture(t, eventType, order.TradeNo, status, setting.StripeWebhookSecret))
 			require.NoError(t, db.First(&user, 1).Error)
-			expectedQuota := 100
+			expectedQuota := int64(100)
 			if status == "complete" && fault != "failed-write" {
-				expectedQuota += int(common.QuotaPerUnit)
+				expectedQuota += int64(common.QuotaPerUnit)
 			}
 			assert.Equal(t, expectedQuota, user.Quota)
 		})
@@ -218,7 +218,7 @@ func TestStripeWebhookProtectsSuccessfulAndForeignOrders(t *testing.T) {
 	assert.Equal(t, common.TopUpStatusSuccess, order.Status)
 	var user model.User
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 100+int(common.QuotaPerUnit), user.Quota)
+	assert.Equal(t, int64(100+common.QuotaPerUnit), user.Quota)
 	var logs int64
 	require.NoError(t, db.Model(&model.Log{}).Where("type = ?", model.LogTypeTopup).Count(&logs).Error)
 	assert.EqualValues(t, 1, logs)

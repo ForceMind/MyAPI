@@ -26,7 +26,7 @@ func TestGetAllQuotaDatesWithGranularityPreservesTotalsAcrossBuckets(t *testing.
 	require.NoError(t, err)
 	require.Len(t, minuteRows, 3)
 	require.Equal(t, int64(60), minuteRows[0].CreatedAt)
-	require.Equal(t, 30, minuteRows[0].Quota)
+	require.Equal(t, int64(30), minuteRows[0].Quota)
 	require.Equal(t, 3, minuteRows[0].Count)
 
 	hourRows, err := GetAllQuotaDatesWithGranularity(
@@ -39,11 +39,11 @@ func TestGetAllQuotaDatesWithGranularityPreservesTotalsAcrossBuckets(t *testing.
 	require.NoError(t, err)
 	require.Len(t, hourRows, 2)
 	require.Equal(t, "gpt-a", hourRows[0].ModelName)
-	require.Equal(t, 60, hourRows[0].Quota)
+	require.Equal(t, int64(60), hourRows[0].Quota)
 	require.Equal(t, 6, hourRows[0].Count)
 	require.Equal(t, 9, hourRows[0].TokenUsed)
 	require.Equal(t, "gpt-b", hourRows[1].ModelName)
-	require.Equal(t, 40, hourRows[1].Quota)
+	require.Equal(t, int64(40), hourRows[1].Quota)
 }
 
 func TestGetAllQuotaDatesWithGranularityAlignsDayToRequestedTimezone(t *testing.T) {
@@ -71,9 +71,9 @@ func TestGetAllQuotaDatesWithGranularityAlignsDayToRequestedTimezone(t *testing.
 		time.Date(2026, 8, 27, 16, 0, 0, 0, time.UTC).Unix(),
 		rows[0].CreatedAt,
 	)
-	require.Equal(t, 30, rows[0].Quota)
+	require.Equal(t, int64(30), rows[0].Quota)
 	require.Equal(t, 3, rows[0].Count)
-	require.Equal(t, 30, rows[1].Quota)
+	require.Equal(t, int64(30), rows[1].Quota)
 	require.Equal(t, 3, rows[1].Count)
 }
 

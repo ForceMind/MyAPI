@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/logger"
 	"github.com/ForceMind/MyAPI/model"
@@ -54,6 +55,7 @@ type BillingSession struct {
 	settledActualQuota         int
 	settledActualQuotaSet      bool
 	writerMode                 model.QuotaWriterMode
+	writerEpoch                int64
 	reserveReceipt             *model.AccountQuotaMutationReceipt
 	terminalReceipt            *model.AccountQuotaMutationReceipt
 	inflightOnce               sync.Once
@@ -875,8 +877,8 @@ func (s *BillingSession) shouldTrust(c *gin.Context) bool {
 	// 检查令牌是否充足
 	tokenTrusted := s.relayInfo.TokenUnlimited
 	if !tokenTrusted {
-		tokenQuota := c.GetInt("token_quota")
-		tokenTrusted = tokenQuota > trustQuota
+		tokenQuota := common.GetContextKeyInt64(c, constant.ContextKeyTokenQuota)
+		tokenTrusted = tokenQuota > int64(trustQuota)
 	}
 	if !tokenTrusted {
 		return false
@@ -884,7 +886,18 @@ func (s *BillingSession) shouldTrust(c *gin.Context) bool {
 
 	switch s.funding.Source() {
 	case BillingSourceWallet:
-		return s.relayInfo.UserQuota > trustQuota
+		if s.relayInfo.UserQuota <= int64(trustQuota) {
+			return false
+		}
+		if common.BatchUpdateEnabled {
+			eligible, err := model.LegacyBatchQuotaTrustEligible(s.relayInfo.UserId, s.relayInfo.TokenId,
+				s.relayInfo.TokenKey, s.relayInfo.TokenUnlimited, s.writerEpoch, trustQuota)
+			if err != nil {
+				common.SysLog("batch quota trust check unavailable: " + err.Error())
+			}
+			return eligible
+		}
+		return true
 	case BillingSourceSubscription:
 		// 订阅不能启用信任旁路。原因：
 		// 1. PreConsumeUserSubscription 要求 amount>0 来创建预扣记录并锁定订阅
@@ -1022,12 +1035,22 @@ func newBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 		return nil, types.NewError(fmt.Errorf("relayInfo is nil"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 	}
 	mode := model.QuotaWriterModeLegacy
+	var writerEpoch int64
 	if model.DB != nil && model.DB.Migrator().HasTable(&model.QuotaWriterEpoch{}) {
 		state, stateErr := model.GetQuotaWriterEpochState(model.DB)
 		if stateErr != nil {
 			return nil, types.NewError(stateErr, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
 		}
 		mode = model.QuotaWriterMode(state.Mode)
+		writerEpoch = state.Epoch
+	}
+	// Reject an unusable legacy batch writer before claiming the request or
+	// reserving funds. Trusted zero-reserve requests must obey the same gate:
+	// they can still incur a nonzero settlement after the upstream responds.
+	if common.BatchUpdateEnabled {
+		if err := model.ValidateQuotaBatchWriterMode(mode, common.RedisEnabled && common.RDB != nil); err != nil {
+			return nil, types.NewError(errors.Join(model.ErrBatchQuotaCacheUnavailable, err), types.ErrorCodeUpdateDataError, types.ErrOptionWithSkipRetry())
+		}
 	}
 	if mode != model.QuotaWriterModeLegacy {
 		return newAuthoritativeBillingSession(c, relayInfo, preConsumedQuota, mode)
@@ -1050,7 +1073,7 @@ func newBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 		return nil, types.NewError(claimErr, types.ErrorCodeUpdateDataError, types.ErrOptionWithSkipRetry())
 	}
 	if claim.FundingSource == model.BillingSourceSelfUse {
-		session := &BillingSession{relayInfo: relayInfo, funding: &SelfUseFunding{}}
+		session := &BillingSession{relayInfo: relayInfo, funding: &SelfUseFunding{}, writerEpoch: writerEpoch}
 		if apiErr := session.preConsume(c, preConsumedQuota); apiErr != nil {
 			return nil, apiErr
 		}
@@ -1071,7 +1094,7 @@ func newBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 				types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
 				types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
 		}
-		if userQuota-preConsumedQuota < 0 {
+		if userQuota < int64(preConsumedQuota) {
 			return nil, types.NewErrorWithStatusCode(
 				fmt.Errorf("预扣费额度失败, 用户剩余额度: %s, 需要预扣费额度: %s", logger.FormatQuota(userQuota), logger.FormatQuota(preConsumedQuota)),
 				types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
@@ -1080,8 +1103,9 @@ func newBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 		relayInfo.UserQuota = userQuota
 
 		session := &BillingSession{
-			relayInfo: relayInfo,
-			funding:   &WalletFunding{userId: relayInfo.UserId},
+			relayInfo:   relayInfo,
+			funding:     &WalletFunding{userId: relayInfo.UserId},
+			writerEpoch: writerEpoch,
 		}
 		if apiErr := session.preConsume(c, preConsumedQuota); apiErr != nil {
 			return nil, apiErr
@@ -1095,7 +1119,8 @@ func newBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 			subConsume = 1
 		}
 		session := &BillingSession{
-			relayInfo: relayInfo,
+			relayInfo:   relayInfo,
+			writerEpoch: writerEpoch,
 			funding: &SubscriptionFunding{
 				requestId: relayInfo.RequestId,
 				userId:    relayInfo.UserId,

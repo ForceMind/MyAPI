@@ -347,11 +347,14 @@ func applyLegacyRefundTokenTx(tx *gorm.DB, fact *AccountQuotaRefundFact, now int
 	if err := lockForUpdate(tx).Where("id = ?", fact.TokenID).First(&token).Error; err != nil {
 		return err
 	}
-	remain, err := checkedLegacyBalanceTarget(token.RemainQuota, int(fact.TokenQuota))
+	if !quotaMutationVersionValid(token.QuotaVersion) {
+		return ErrAccountQuotaMutationIneligible
+	}
+	remain, err := common.CheckedQuotaBalance(token.RemainQuota, fact.TokenQuota)
 	if err != nil {
 		return err
 	}
-	used, err := checkedLegacyBalanceTarget(token.UsedQuota, -int(fact.TokenQuota))
+	used, err := common.CheckedQuotaUsed(token.UsedQuota, -fact.TokenQuota)
 	if err != nil || used < 0 {
 		return ErrAccountQuotaMutationIneligible
 	}
@@ -430,7 +433,10 @@ func applyLegacyWalletRefundFact(ctx context.Context, db *gorm.DB, claimed *Acco
 			if err := lockForUpdate(tx).Where("id = ?", fact.UserID).First(&user).Error; err != nil {
 				return err
 			}
-			userQuota, err := checkedLegacyBalanceTarget(user.Quota, int(fact.WalletQuota))
+			if !quotaMutationVersionValid(user.QuotaVersion) {
+				return ErrAccountQuotaMutationIneligible
+			}
+			userQuota, err := common.CheckedQuotaBalance(user.Quota, fact.WalletQuota)
 			if err != nil {
 				return err
 			}
@@ -503,12 +509,21 @@ func applyLegacySubscriptionRefundFact(ctx context.Context, db *gorm.DB, claimed
 			if err := lockForUpdate(tx).Where("id = ?", fact.SubscriptionID).First(&subscription).Error; err != nil {
 				return err
 			}
-			if subscription.UserId != fact.UserID || subscription.AmountUsed < fact.SubscriptionQuota {
+			if subscription.UserId != fact.UserID {
+				return ErrAccountQuotaMutationIneligible
+			}
+			if subscription.AmountTotal != 0 {
+				if _, err := common.CheckedQuotaUsed(subscription.AmountTotal, 0); err != nil {
+					return err
+				}
+			}
+			amountUsed, err := common.CheckedQuotaUsed(subscription.AmountUsed, -fact.SubscriptionQuota)
+			if err != nil || !quotaMutationVersionValid(subscription.QuotaVersion) {
 				return ErrAccountQuotaMutationIneligible
 			}
 			result := tx.Model(&UserSubscription{}).
 				Where("id = ? AND amount_used = ? AND quota_version = ?", subscription.Id, subscription.AmountUsed, subscription.QuotaVersion).
-				Updates(map[string]interface{}{"amount_used": subscription.AmountUsed - fact.SubscriptionQuota, "quota_version": subscription.QuotaVersion + 1})
+				Updates(map[string]interface{}{"amount_used": amountUsed, "quota_version": subscription.QuotaVersion + 1})
 			if result.Error != nil {
 				return result.Error
 			}

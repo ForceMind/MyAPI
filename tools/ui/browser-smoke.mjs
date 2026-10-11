@@ -31,7 +31,7 @@ const report = {
   workflowCommit: process.env.GITHUB_SHA || null,
   worktreeDirty: !!execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: repo, encoding: 'utf8' }).trim(),
   fixtureTime: new Date(FIXTURE_TIME).toISOString(),
-  result: 'running', journeys: [], screenshots: [], contrast: [], settlementLayouts: [], requests: [], blockedExternal: [], violations: [], pageErrors: [],
+  result: 'running', journeys: [], screenshots: [], contrast: [], settlementLayouts: [], keyActionLayouts: [], requests: [], blockedExternal: [], violations: [], pageErrors: [],
   settings: settings.map(section => ({ ...section, reached: false })),
 }
 const persist = () => {
@@ -634,6 +634,108 @@ try {
     await page.reload({ waitUntil: 'networkidle' })
     await page.getByText('synthetic-key', { exact: true }).first().waitFor()
     assert.equal(await page.getByText(label('No API Keys Found'), { exact: true }).count(), 0, 'fresh list replaces the empty state')
+  })
+
+  await run('key-unrepresentable-total-components', async () => {
+    for (const width of [1280, 320]) {
+      const { page, context } = await session({ width, unrepresentableKeyTotal: true })
+      await open(page, '/keys')
+      await page.getByText('synthetic-key', { exact: true }).first().waitFor()
+
+      for (const key of ['Remaining quota', 'Used quota']) {
+        const componentLabelText = `${label(key)}${width < 768 ? ':' : ''}`
+        const componentLabel = page.getByText(componentLabelText, { exact: true }).filter({ visible: true }).first()
+        await componentLabel.waitFor()
+        const componentText = (await componentLabel.locator('..').innerText())
+          .replace(componentLabelText, '')
+          .trim()
+        assert(componentText.length > 0, `${width}px ${key} component value remains visible`)
+        assert(!componentText.includes(label('Unavailable')), `${width}px ${key} component remains exact`)
+      }
+
+      const totalLabel = `${label('Total quota')}${width < 768 ? ':' : ''}`
+      const totalLabelLocator = page.getByText(totalLabel, { exact: true }).filter({ visible: true }).first()
+      await totalLabelLocator.waitFor()
+      const totalText = (await totalLabelLocator.locator('..').innerText()).replace(/\s+/g, ' ').trim()
+      assert.equal(totalText, `${totalLabel} ${label('Unavailable')}`, `${width}px total quota is explicitly unavailable`)
+      assert.equal(await page.getByRole('progressbar').count(), 0, `${width}px unsafe derived total has no progress`)
+      if (width >= 768) {
+        const quotaLayout = await page.locator('td[data-column-id="quota"]').filter({ visible: true }).first().evaluate(cell => {
+          const content = cell.firstElementChild
+          const profile = cell.parentElement?.querySelector('td[data-column-id="group"]')
+          const cellBox = cell.getBoundingClientRect()
+          const contentBox = content?.getBoundingClientRect()
+          const profileBox = profile?.getBoundingClientRect()
+          return {
+            contained: !!contentBox && cell.scrollWidth <= cell.clientWidth + 1 && contentBox.left >= cellBox.left - 1 && contentBox.right <= cellBox.right + 1,
+            separate: !!contentBox && !!profileBox && contentBox.right <= profileBox.left + 1,
+          }
+        })
+        assert(quotaLayout.contained, 'desktop quota values remain inside the quota cell')
+        assert(quotaLayout.separate, 'desktop quota values do not overlap the access profile')
+
+        const budgetLayout = await page.getByRole('button', { name: label('API Key usage budgets'), exact: true }).filter({ visible: true }).first().evaluate(button => {
+          const cell = button.closest('td[data-column-id="actions"]')
+          const wrapper = button.parentElement
+          const labelElement = button.querySelector('span')
+          const textNode = Array.from(labelElement?.childNodes ?? []).find(node => node.nodeType === Node.TEXT_NODE)
+          const buttonBox = button.getBoundingClientRect()
+          const cellBox = cell?.getBoundingClientRect()
+          const geometry = element => {
+            if (!element) return null
+            const box = element.getBoundingClientRect()
+            const style = getComputedStyle(element)
+            return {
+              rect: { x: box.x, right: box.right, width: box.width, height: box.height },
+              clientWidth: element.clientWidth,
+              scrollWidth: element.scrollWidth,
+              display: style.display,
+              flexDirection: style.flexDirection,
+              minWidth: style.minWidth,
+              maxWidth: style.maxWidth,
+              overflowX: style.overflowX,
+              overflowY: style.overflowY,
+              overflowWrap: style.overflowWrap,
+              wordBreak: style.wordBreak,
+              whiteSpace: style.whiteSpace,
+              paddingInlineStart: style.paddingInlineStart,
+              paddingInlineEnd: style.paddingInlineEnd,
+              gap: style.gap,
+            }
+          }
+          const wordLines = []
+          if (textNode) {
+            for (const match of (textNode.textContent ?? '').matchAll(/\S+/g)) {
+              const range = document.createRange()
+              range.setStart(textNode, match.index)
+              range.setEnd(textNode, match.index + match[0].length)
+              const lineTops = []
+              for (const rect of range.getClientRects()) {
+                if (!lineTops.some(top => Math.abs(top - rect.top) < 1)) lineTops.push(rect.top)
+              }
+              wordLines.push({ word: match[0], lineCount: lineTops.length })
+            }
+          }
+          return {
+            contained: !!cellBox && buttonBox.left >= cellBox.left - 1 && buttonBox.right <= Math.min(cellBox.right, innerWidth) + 1,
+            readable: button.scrollWidth <= button.clientWidth + 1 && button.scrollHeight <= button.clientHeight + 1,
+            wordLines,
+            geometry: {
+              cell: geometry(cell),
+              wrapper: geometry(wrapper),
+              button: geometry(button),
+              label: geometry(labelElement),
+            },
+          }
+        })
+        report.keyActionLayouts.push({ journey: journeyName, viewportWidth: width, ...budgetLayout })
+        assert(budgetLayout.contained, 'desktop usage budgets action remains inside its visible actions boundary')
+        assert(budgetLayout.readable, 'desktop usage budgets label wraps without clipping')
+        assert.deepEqual(budgetLayout.wordLines, [{ word: 'Usage', lineCount: 1 }, { word: 'budgets', lineCount: 1 }], `desktop usage budgets action does not split an English word across visual lines: ${JSON.stringify(budgetLayout)}`)
+      }
+      await screenshot(page, `key-unrepresentable-total-${width}`)
+      await context.close(); contexts.delete(context)
+    }
   })
 
   await run('remaining-dashboard-role-data-states', async () => {

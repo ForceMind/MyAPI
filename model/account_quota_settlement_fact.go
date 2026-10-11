@@ -43,6 +43,7 @@ var (
 	accountQuotaSettlementBeforeTokenHook         func(*AccountQuotaSettlementFact) error
 	accountQuotaSettlementAfterTokenCommitHook    func(string) error
 	accountQuotaSettlementAfterTerminalCommitHook func(string) error
+	accountQuotaSettlementBeforeTerminalApplyHook func(*AccountQuotaSettlementFact) error
 	accountQuotaSettlementIntentAfterCreateHook   func(string) error
 	accountQuotaSettlementIntentReadbackHook      func() error
 	accountQuotaSettlementIntentSchemaReady       atomic.Bool
@@ -219,12 +220,74 @@ func validateAuthoritativeSettlementFactSubject(ctx context.Context, db *gorm.DB
 	if err := db.WithContext(ctx).Where("id = ?", input.ReserveReceiptID).First(&reserve).Error; err != nil {
 		return err
 	}
-	if reserve.RequestID != input.RequestID || reserve.UserID != input.UserID || reserve.TokenID != input.TokenID ||
-		reserve.SubscriptionID != input.SubscriptionID || reserve.WriterEpoch != input.WriterEpoch ||
-		(reserve.Phase != AccountQuotaPhaseReserve && reserve.Phase != AccountQuotaPhaseAdjust) {
+	if err := validateAuthoritativeSettlementReceiptIdentity(input, &reserve, input.ReserveReceiptID, false); err != nil {
 		return ErrAccountQuotaTerminalRecoveryConflict
 	}
 	return nil
+}
+
+func validateAuthoritativeSettlementReceiptIdentity(input AccountQuotaSettlementFactInput, receipt *AccountQuotaMutationReceipt, expectedReceiptID int64, terminal bool) error {
+	if input.Kind != AccountQuotaSettlementKindAuthoritative || receipt == nil || expectedReceiptID <= 0 || receipt.ID != expectedReceiptID ||
+		receipt.RequestID != input.RequestID || receipt.UserID != input.UserID || receipt.TokenID != input.TokenID ||
+		receipt.SubscriptionID != input.SubscriptionID || receipt.WriterEpoch != input.WriterEpoch {
+		return ErrAccountQuotaTerminalRecoveryConflict
+	}
+	if terminal {
+		if receipt.ReceiptVersion != AccountQuotaMutationReceiptVersion || receipt.FingerprintVersion != AccountQuotaFingerprintVersion ||
+			receipt.Phase != AccountQuotaPhaseSettle || receipt.EventKey != accountQuotaEventKey(input.RequestID, AccountQuotaPhaseSettle) ||
+			receipt.RequestedQuota != input.ActualQuota {
+			return ErrAccountQuotaTerminalRecoveryConflict
+		}
+		recomputed, err := RecomputeAccountQuotaReceiptFingerprint(receipt)
+		if err != nil || recomputed != receipt.RequestFingerprint {
+			return ErrAccountQuotaTerminalRecoveryConflict
+		}
+		return nil
+	}
+	if receipt.Phase != AccountQuotaPhaseReserve && receipt.Phase != AccountQuotaPhaseAdjust {
+		return ErrAccountQuotaTerminalRecoveryConflict
+	}
+	return nil
+}
+
+func validateAccountQuotaSettlementAppliedTerminal(fact *AccountQuotaSettlementFact, terminal *AccountQuotaMutationReceipt) error {
+	if fact == nil {
+		return ErrAccountQuotaTerminalRecoveryConflict
+	}
+	if fact.State != AccountQuotaSettlementApplied {
+		return nil
+	}
+	if !fact.FundingApplied || !fact.TokenApplied {
+		return ErrAccountQuotaTerminalRecoveryConflict
+	}
+	if fact.Kind != AccountQuotaSettlementKindAuthoritative {
+		return nil
+	}
+	input := AccountQuotaSettlementFactInput{
+		EventKey: fact.EventKey, RequestID: fact.RequestID, Kind: fact.Kind,
+		UserID: fact.UserID, TokenID: fact.TokenID, SubscriptionID: fact.SubscriptionID,
+		ReserveReceiptID: fact.ReserveReceiptID, WriterEpoch: fact.WriterEpoch, ActualQuota: fact.ActualQuota,
+		Delta: fact.Delta, ApplyToken: fact.ApplyToken,
+	}
+	return validateAuthoritativeSettlementReceiptIdentity(input, terminal, fact.TerminalReceiptID, true)
+}
+
+func validateStoredAccountQuotaSettlementAppliedTerminal(ctx context.Context, db *gorm.DB, fact *AccountQuotaSettlementFact) error {
+	if fact == nil || fact.State != AccountQuotaSettlementApplied {
+		return validateAccountQuotaSettlementAppliedTerminal(fact, nil)
+	}
+	if fact.Kind != AccountQuotaSettlementKindAuthoritative {
+		return validateAccountQuotaSettlementAppliedTerminal(fact, nil)
+	}
+	if fact.TerminalReceiptID <= 0 {
+		return ErrAccountQuotaTerminalRecoveryConflict
+	}
+	var terminal AccountQuotaMutationReceipt
+	result := db.WithContext(ctx).Where("id = ?", fact.TerminalReceiptID).Limit(1).Find(&terminal)
+	if result.Error != nil || result.RowsAffected != 1 {
+		return errors.Join(ErrAccountQuotaTerminalRecoveryConflict, result.Error)
+	}
+	return validateAccountQuotaSettlementAppliedTerminal(fact, &terminal)
 }
 
 func settlementFactInputFromIntent(intent *AccountQuotaSettlementIntent) AccountQuotaSettlementFactInput {
@@ -306,12 +369,43 @@ func EnsureAccountQuotaSettlementIntent(ctx context.Context, db *gorm.DB, input 
 		Delta: normalized.Delta, ApplyToken: normalized.ApplyToken, RequestFingerprint: fingerprint,
 		State: AccountQuotaSettlementPending, LockVersion: 1, CreatedAt: now, UpdatedAt: now,
 	}
-	createErr := db.WithContext(ctx).Create(candidate).Error
-	if createErr == nil && accountQuotaSettlementIntentAfterCreateHook != nil {
+	created := false
+	createErr := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := ValidateAccountQuotaExecutionGate(ctx, tx); err != nil {
+			return err
+		}
+		var concurrent AccountQuotaSettlementIntent
+		result := tx.Where("event_key = ?", normalized.EventKey).Limit(1).Find(&concurrent)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected > 0 {
+			stored = concurrent
+			return validateAccountQuotaSettlementIntent(&stored, normalized, fingerprint)
+		}
+		var existingFact AccountQuotaSettlementFact
+		result = tx.Where("event_key = ?", normalized.EventKey).Limit(1).Find(&existingFact)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected > 0 {
+			return ErrAccountQuotaExecutionFrozen
+		}
+		if err := tx.Create(candidate).Error; err != nil {
+			return err
+		}
+		if _, err := createRuntimeAccountQuotaExecutionPermit(tx, candidate, nil, normalized, fingerprint); err != nil {
+			return err
+		}
+		created = true
+		stored = *candidate
+		return nil
+	})
+	if createErr == nil && created && accountQuotaSettlementIntentAfterCreateHook != nil {
 		createErr = accountQuotaSettlementIntentAfterCreateHook(normalized.EventKey)
 	}
 	if createErr == nil {
-		return candidate, nil
+		return &stored, nil
 	}
 	storedIntent, readErr := readAccountQuotaSettlementIntentDetached(ctx, db, normalized, fingerprint)
 	if readErr == nil {
@@ -377,12 +471,55 @@ func EnsureAccountQuotaSettlementFact(ctx context.Context, db *gorm.DB, input Ac
 		Delta: normalized.Delta, ApplyToken: normalized.ApplyToken, FundingApplied: false, TokenApplied: false, RequestFingerprint: fingerprint,
 		State: AccountQuotaSettlementPending, LockVersion: 1, CreatedAt: now, UpdatedAt: now,
 	}
-	createErr := db.WithContext(ctx).Create(candidate).Error
-	if createErr == nil && accountQuotaSettlementAfterCreateHook != nil {
+	created := false
+	createErr := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := ValidateAccountQuotaExecutionGate(ctx, tx); err != nil {
+			return err
+		}
+		var concurrent AccountQuotaSettlementFact
+		result := tx.Where("event_key = ?", normalized.EventKey).Limit(1).Find(&concurrent)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected > 0 {
+			stored = concurrent
+			return validateAccountQuotaSettlementIdentity(&stored, normalized, fingerprint)
+		}
+		var intent AccountQuotaSettlementIntent
+		result = lockForUpdate(tx).Where("event_key = ?", normalized.EventKey).Limit(1).Find(&intent)
+		if result.Error != nil {
+			return result.Error
+		}
+		var intentPermit *AccountQuotaExecutionPermit
+		if result.RowsAffected > 0 {
+			permit, err := loadAccountQuotaExecutionPermitForIntent(ctx, tx, &intent, true)
+			if err != nil {
+				return err
+			}
+			if permit.FactID != 0 {
+				return ErrAccountQuotaExecutionFrozen
+			}
+			intentPermit = permit
+		}
+		if err := tx.Create(candidate).Error; err != nil {
+			return err
+		}
+		if intentPermit != nil {
+			if err := bindRuntimeAccountQuotaExecutionPermitFact(tx, intentPermit, &intent, candidate); err != nil {
+				return err
+			}
+		} else if _, err := createRuntimeAccountQuotaExecutionPermit(tx, nil, candidate, normalized, fingerprint); err != nil {
+			return err
+		}
+		created = true
+		stored = *candidate
+		return nil
+	})
+	if createErr == nil && created && accountQuotaSettlementAfterCreateHook != nil {
 		createErr = accountQuotaSettlementAfterCreateHook(normalized.EventKey)
 	}
 	if createErr == nil {
-		return candidate, nil
+		return &stored, nil
 	}
 	readCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
 	defer cancel()
@@ -470,8 +607,15 @@ func applyAccountQuotaSettlementFunding(ctx context.Context, db *gorm.DB, fact *
 		if err := lockForUpdate(tx).First(&current, fact.ID).Error; err != nil {
 			return err
 		}
+		permit, err := loadAccountQuotaExecutionPermitForFact(ctx, tx, &current, true)
+		if err != nil {
+			return err
+		}
 		if current.FundingApplied {
 			return nil
+		}
+		if !permit.AllowFunding {
+			return ErrAccountQuotaExecutionFrozen
 		}
 		if err := validateLegacyUsageSettlement(tx, AccountQuotaSettlementFactInput{RequestID: current.RequestID, Kind: current.Kind, UserID: current.UserID, TokenID: current.TokenID, SubscriptionID: current.SubscriptionID, Delta: current.Delta}); err != nil {
 			return err
@@ -488,7 +632,10 @@ func applyAccountQuotaSettlementFunding(ctx context.Context, db *gorm.DB, fact *
 			if err := lockForUpdate(tx).Where("id = ?", current.UserID).First(&user).Error; err != nil {
 				return err
 			}
-			target, err := checkedLegacyBalanceTarget(user.Quota, -int(current.Delta))
+			if !quotaMutationVersionValid(user.QuotaVersion) {
+				return ErrAccountQuotaMutationIneligible
+			}
+			target, err := common.CheckedQuotaBalance(user.Quota, -current.Delta)
 			if err != nil {
 				return err
 			}
@@ -508,11 +655,19 @@ func applyAccountQuotaSettlementFunding(ctx context.Context, db *gorm.DB, fact *
 			if subscription.UserId != current.UserID {
 				return ErrAccountQuotaTerminalRecoveryConflict
 			}
-			newUsed := subscription.AmountUsed + current.Delta
-			if newUsed < 0 {
-				newUsed = 0
+			if subscription.AmountTotal != 0 {
+				if _, err := common.CheckedQuotaUsed(subscription.AmountTotal, 0); err != nil {
+					return err
+				}
+			}
+			newUsed, err := common.CheckedQuotaUsed(subscription.AmountUsed, current.Delta)
+			if err != nil {
+				return err
 			}
 			if subscription.AmountTotal > 0 && newUsed > subscription.AmountTotal {
+				return ErrAccountQuotaMutationIneligible
+			}
+			if !quotaMutationVersionValid(subscription.QuotaVersion) {
 				return ErrAccountQuotaMutationIneligible
 			}
 			result := tx.Model(&UserSubscription{}).Where("id = ? AND amount_used = ? AND quota_version = ?", subscription.Id, subscription.AmountUsed, subscription.QuotaVersion).
@@ -569,7 +724,42 @@ func applyAccountQuotaSettlementFunding(ctx context.Context, db *gorm.DB, fact *
 
 func applyAccountQuotaSettlementToken(ctx context.Context, db *gorm.DB, fact *AccountQuotaSettlementFact) error {
 	if !fact.ApplyToken {
-		return nil
+		// A previously committed funding leg can leave only a non-financial
+		// completion marker. Revalidate its original permit and claim without
+		// creating a token mutation or requiring token-charge authorization.
+		return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			var current AccountQuotaSettlementFact
+			if err := lockForUpdate(tx).First(&current, fact.ID).Error; err != nil {
+				return err
+			}
+			if _, err := loadAccountQuotaExecutionPermitForFact(ctx, tx, &current, true); err != nil {
+				return err
+			}
+			if current.TokenApplied && current.State == AccountQuotaSettlementApplied {
+				return nil
+			}
+			if current.ApplyToken || !current.FundingApplied || current.State != AccountQuotaSettlementClaimed ||
+				current.LeaseOwner != fact.LeaseOwner || current.LockVersion != fact.LockVersion {
+				return ErrAccountQuotaTerminalRecoveryConflict
+			}
+			now, err := taskRecoveryDBTimestamp(tx)
+			if err != nil {
+				return err
+			}
+			result := tx.Model(&AccountQuotaSettlementFact{}).
+				Where("id = ? AND state = ? AND lease_owner = ? AND lock_version = ?", current.ID, AccountQuotaSettlementClaimed, current.LeaseOwner, current.LockVersion).
+				Updates(map[string]any{
+					"token_applied": true, "state": AccountQuotaSettlementApplied, "lease_owner": "", "lease_until": int64(0),
+					"last_error": "", "next_attempt_at": int64(0), "lock_version": current.LockVersion + 1, "updated_at": now,
+				})
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected != 1 {
+				return ErrAccountQuotaMutationCASLost
+			}
+			return nil
+		})
 	}
 	var token Token
 	if err := db.WithContext(ctx).Select("id", "key").Where("id = ? AND user_id = ?", fact.TokenID, fact.UserID).First(&token).Error; err != nil {
@@ -590,8 +780,15 @@ func applyAccountQuotaSettlementToken(ctx context.Context, db *gorm.DB, fact *Ac
 		if err := lockForUpdate(tx).First(&current, fact.ID).Error; err != nil {
 			return err
 		}
+		permit, err := loadAccountQuotaExecutionPermitForFact(ctx, tx, &current, true)
+		if err != nil {
+			return err
+		}
 		if current.TokenApplied && current.State == AccountQuotaSettlementApplied {
 			return nil
+		}
+		if !permit.AllowToken {
+			return ErrAccountQuotaExecutionFrozen
 		}
 		if err := validateLegacyUsageSettlement(tx, AccountQuotaSettlementFactInput{RequestID: current.RequestID, Kind: current.Kind, UserID: current.UserID, TokenID: current.TokenID, SubscriptionID: current.SubscriptionID, Delta: current.Delta}); err != nil {
 			return err
@@ -603,11 +800,14 @@ func applyAccountQuotaSettlementToken(ctx context.Context, db *gorm.DB, fact *Ac
 		if err := lockForUpdate(tx).Where("id = ? AND user_id = ?", current.TokenID, current.UserID).First(&currentToken).Error; err != nil {
 			return err
 		}
-		remain, err := checkedLegacyBalanceTarget(currentToken.RemainQuota, -int(current.Delta))
+		if !quotaMutationVersionValid(currentToken.QuotaVersion) {
+			return ErrAccountQuotaMutationIneligible
+		}
+		remain, err := common.CheckedQuotaBalance(currentToken.RemainQuota, -current.Delta)
 		if err != nil {
 			return err
 		}
-		used, err := checkedLegacyBalanceTarget(currentToken.UsedQuota, int(current.Delta))
+		used, err := common.CheckedQuotaUsed(currentToken.UsedQuota, current.Delta)
 		if err != nil || used < 0 {
 			return ErrAccountQuotaMutationIneligible
 		}
@@ -659,8 +859,23 @@ func applyAuthoritativeAccountQuotaSettlement(ctx context.Context, db *gorm.DB, 
 	if fact == nil || fact.Kind != AccountQuotaSettlementKindAuthoritative {
 		return ErrAccountQuotaMutationInvalidInput
 	}
+	permit, err := loadAccountQuotaExecutionPermitForFact(ctx, db, fact, false)
+	if err != nil {
+		return err
+	}
+	if !permit.AllowFunding || !permit.AllowToken {
+		return ErrAccountQuotaExecutionFrozen
+	}
+	if accountQuotaSettlementBeforeTerminalApplyHook != nil {
+		if err := accountQuotaSettlementBeforeTerminalApplyHook(fact); err != nil {
+			return err
+		}
+	}
 	receipt, err := SettleAccountQuota(ctx, db, AccountQuotaTerminalInput{
 		RequestID: fact.RequestID, ReserveReceiptID: fact.ReserveReceiptID, ActualQuota: fact.ActualQuota,
+		executionGuard: &accountQuotaTerminalExecutionGuard{
+			FactID: fact.ID, BindingDigest: permit.BindingDigest, LeaseOwner: fact.LeaseOwner, LockVersion: fact.LockVersion,
+		},
 	})
 	if err != nil {
 		return err
@@ -675,18 +890,34 @@ func applyAuthoritativeAccountQuotaSettlement(ctx context.Context, db *gorm.DB, 
 			return err
 		}
 	}
-	now, err := taskRecoveryDBTimestamp(db.WithContext(ctx))
-	if err != nil {
-		return err
-	}
-	result := db.WithContext(ctx).Model(&AccountQuotaSettlementFact{}).
-		Where("id = ? AND state = ? AND lease_owner = ? AND lock_version = ?", fact.ID, AccountQuotaSettlementClaimed, fact.LeaseOwner, fact.LockVersion).
-		Updates(map[string]any{
-			"funding_applied": true, "token_applied": true, "terminal_receipt_id": receipt.ID,
-			"state": AccountQuotaSettlementApplied, "last_error": "", "next_attempt_at": int64(0),
-			"lease_owner": "", "lease_until": int64(0), "lock_version": fact.LockVersion + 1, "updated_at": now,
-		})
-	if result.Error == nil && result.RowsAffected == 1 {
+	resultRows := int64(0)
+	updateErr := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var current AccountQuotaSettlementFact
+		if err := lockForUpdate(tx).First(&current, fact.ID).Error; err != nil {
+			return err
+		}
+		currentPermit, err := loadAccountQuotaExecutionPermitForFact(ctx, tx, &current, true)
+		if err != nil {
+			return err
+		}
+		if !currentPermit.AllowFunding || !currentPermit.AllowToken {
+			return ErrAccountQuotaExecutionFrozen
+		}
+		now, err := taskRecoveryDBTimestamp(tx)
+		if err != nil {
+			return err
+		}
+		result := tx.Model(&AccountQuotaSettlementFact{}).
+			Where("id = ? AND state = ? AND lease_owner = ? AND lock_version = ?", fact.ID, AccountQuotaSettlementClaimed, fact.LeaseOwner, fact.LockVersion).
+			Updates(map[string]any{
+				"funding_applied": true, "token_applied": true, "terminal_receipt_id": receipt.ID,
+				"state": AccountQuotaSettlementApplied, "last_error": "", "next_attempt_at": int64(0),
+				"lease_owner": "", "lease_until": int64(0), "lock_version": fact.LockVersion + 1, "updated_at": now,
+			})
+		resultRows = result.RowsAffected
+		return result.Error
+	})
+	if updateErr == nil && resultRows == 1 {
 		return nil
 	}
 	readCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
@@ -696,8 +927,8 @@ func applyAuthoritativeAccountQuotaSettlement(ctx context.Context, db *gorm.DB, 
 	if readErr == nil && stored.State == AccountQuotaSettlementApplied && stored.TerminalReceiptID == receipt.ID {
 		return nil
 	}
-	if result.Error != nil {
-		return errors.Join(result.Error, readErr)
+	if updateErr != nil {
+		return errors.Join(updateErr, readErr)
 	}
 	return errors.Join(ErrAccountQuotaMutationCASLost, readErr)
 }
@@ -747,6 +978,29 @@ func RecoverAccountQuotaSettlementFact(ctx context.Context, db *gorm.DB, fact *A
 	}
 	if ctx == nil {
 		ctx = context.Background()
+	}
+	var storedBeforeClaim AccountQuotaSettlementFact
+	if err := db.WithContext(ctx).First(&storedBeforeClaim, fact.ID).Error; err != nil {
+		return nil, err
+	}
+	input := AccountQuotaSettlementFactInput{
+		EventKey: storedBeforeClaim.EventKey, RequestID: storedBeforeClaim.RequestID, Kind: storedBeforeClaim.Kind,
+		UserID: storedBeforeClaim.UserID, TokenID: storedBeforeClaim.TokenID, SubscriptionID: storedBeforeClaim.SubscriptionID,
+		ReserveReceiptID: storedBeforeClaim.ReserveReceiptID, WriterEpoch: storedBeforeClaim.WriterEpoch,
+		ActualQuota: storedBeforeClaim.ActualQuota, Delta: storedBeforeClaim.Delta, ApplyToken: storedBeforeClaim.ApplyToken,
+	}
+	_, fingerprint, normalizeErr := normalizeAccountQuotaSettlementInput(input)
+	if normalizeErr != nil || validateAccountQuotaSettlementIdentity(fact, input, fingerprint) != nil {
+		return &storedBeforeClaim, ErrAccountQuotaTerminalRecoveryConflict
+	}
+	if storedBeforeClaim.State == AccountQuotaSettlementApplied {
+		if err := validateStoredAccountQuotaSettlementAppliedTerminal(ctx, db, &storedBeforeClaim); err != nil {
+			return &storedBeforeClaim, err
+		}
+		return &storedBeforeClaim, nil
+	}
+	if _, err := loadAccountQuotaExecutionPermitForFact(ctx, db, &storedBeforeClaim, false); err != nil {
+		return &storedBeforeClaim, err
 	}
 	now, err := taskRecoveryDBTimestamp(db.WithContext(ctx))
 	if err != nil {
@@ -816,9 +1070,11 @@ func RunAccountQuotaSettlementFacts(ctx context.Context, db *gorm.DB, workerID s
 	var runErrors []error
 	for scanned < limit {
 		var facts []AccountQuotaSettlementFact
-		if err := db.WithContext(ctx).Where("id > ? AND id <= ? AND (state = ? OR (state = ? AND next_attempt_at <= ?) OR (state = ? AND lease_until <= ?))",
-			cursor.LastID, cursor.HighWatermark, AccountQuotaSettlementPending, AccountQuotaSettlementRetryable, now, AccountQuotaSettlementClaimed, now).
-			Order("id ASC").Limit(min(25, limit-scanned)).Find(&facts).Error; err != nil {
+		if err := db.WithContext(ctx).Table("account_quota_settlement_facts AS facts").Select("facts.*").
+			Joins("JOIN account_quota_execution_permits AS permits ON permits.fact_id = facts.id AND permits.event_key = facts.event_key AND permits.state = ?", AccountQuotaExecutionPermitStateActive).
+			Where("facts.id > ? AND facts.id <= ? AND (facts.state = ? OR (facts.state = ? AND facts.next_attempt_at <= ?) OR (facts.state = ? AND facts.lease_until <= ?))",
+				cursor.LastID, cursor.HighWatermark, AccountQuotaSettlementPending, AccountQuotaSettlementRetryable, now, AccountQuotaSettlementClaimed, now).
+			Order("facts.id ASC").Limit(min(25, limit-scanned)).Find(&facts).Error; err != nil {
 			return processed, err
 		}
 		if len(facts) == 0 {
@@ -906,15 +1162,19 @@ func RecoverAccountQuotaSettlementIntent(ctx context.Context, db *gorm.DB, inten
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	input := settlementFactInputFromIntent(intent)
+	var storedBeforeRecovery AccountQuotaSettlementIntent
+	if err := db.WithContext(ctx).First(&storedBeforeRecovery, intent.ID).Error; err != nil {
+		return nil, nil, err
+	}
+	input := settlementFactInputFromIntent(&storedBeforeRecovery)
 	_, fingerprint, err := normalizeAccountQuotaSettlementInput(input)
 	if err != nil || validateAccountQuotaSettlementIntent(intent, input, fingerprint) != nil {
 		if err == nil {
 			err = ErrAccountQuotaTerminalRecoveryConflict
 		}
-		stored, updateErr := updateAccountQuotaSettlementIntent(ctx, db, intent, nil, AccountQuotaSettlementManual, err)
-		return stored, nil, errors.Join(ErrAccountQuotaSettlementManualRequired, err, updateErr)
+		return &storedBeforeRecovery, nil, errors.Join(ErrAccountQuotaSettlementManualRequired, err)
 	}
+	intent = &storedBeforeRecovery
 	if intent.State == AccountQuotaSettlementManual {
 		return intent, nil, ErrAccountQuotaSettlementManualRequired
 	}
@@ -924,6 +1184,9 @@ func RecoverAccountQuotaSettlementIntent(ctx context.Context, db *gorm.DB, inten
 			return intent, nil, ErrAccountQuotaTerminalRecoveryConflict
 		}
 		return intent, &fact, nil
+	}
+	if _, err := loadAccountQuotaExecutionPermitForIntent(ctx, db, intent, false); err != nil {
+		return intent, nil, err
 	}
 
 	fact, ensureErr := EnsureAccountQuotaSettlementFact(ctx, db, input)
@@ -983,9 +1246,11 @@ func RunAccountQuotaSettlementIntents(ctx context.Context, db *gorm.DB, workerID
 	var runErrors []error
 	for scanned < limit {
 		var intents []AccountQuotaSettlementIntent
-		if err := db.WithContext(ctx).Where("id > ? AND id <= ? AND state IN ?", cursor.LastID, cursor.HighWatermark,
-			[]string{AccountQuotaSettlementPending, AccountQuotaSettlementMaterialized}).
-			Order("id ASC").Limit(min(25, limit-scanned)).Find(&intents).Error; err != nil {
+		if err := db.WithContext(ctx).Table("account_quota_settlement_intents AS intents").Select("intents.*").
+			Joins("JOIN account_quota_execution_permits AS permits ON permits.intent_id = intents.id AND permits.event_key = intents.event_key AND permits.state = ?", AccountQuotaExecutionPermitStateActive).
+			Where("intents.id > ? AND intents.id <= ? AND intents.state IN ?", cursor.LastID, cursor.HighWatermark,
+				[]string{AccountQuotaSettlementPending, AccountQuotaSettlementMaterialized}).
+			Order("intents.id ASC").Limit(min(25, limit-scanned)).Find(&intents).Error; err != nil {
 			return processed, errors.Join(append(runErrors, err)...)
 		}
 		if len(intents) == 0 {

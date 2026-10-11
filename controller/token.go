@@ -1,6 +1,9 @@
 package controller
 
 import (
+	"crypto/sha256"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -33,7 +36,100 @@ func (input *tokenAutoGroupsInput) UnmarshalJSON(data []byte) error {
 
 type tokenRequest struct {
 	model.Token
-	AutoGroups tokenAutoGroupsInput `json:"auto_groups"`
+	RemainQuota         *int64               `json:"remain_quota"`
+	QuotaVersion        string               `json:"quota_version"`
+	MetadataFingerprint string               `json:"metadata_fingerprint"`
+	RequestID           string               `json:"request_id"`
+	AutoGroups          tokenAutoGroupsInput `json:"auto_groups"`
+	present             map[string]bool
+	remainQuotaNull     bool
+}
+
+var tokenRequestCanonicalJSONFields = []string{
+	"id", "user_id", "key", "status", "name", "created_time", "accessed_time", "expired_time",
+	"remain_quota", "quota_version", "metadata_fingerprint", "request_id", "unlimited_quota",
+	"model_limits_enabled", "model_limits", "allow_ips", "used_quota", "group", "access_profile_id",
+	"cross_group_retry", "auto_groups", "DeletedAt",
+}
+
+func (request *tokenRequest) UnmarshalJSON(data []byte) error {
+	if err := common.ValidateUniqueJSONKeys(data); err != nil {
+		return err
+	}
+	var raw map[string]json.RawMessage
+	if err := common.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	for key := range raw {
+		for _, canonical := range tokenRequestCanonicalJSONFields {
+			if key == canonical {
+				break
+			}
+			if strings.EqualFold(key, canonical) {
+				return errors.New("noncanonical token request field")
+			}
+		}
+	}
+	type tokenRequestAlias tokenRequest
+	var decoded tokenRequestAlias
+	if err := common.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	*request = tokenRequest(decoded)
+	request.present = make(map[string]bool, len(raw))
+	for key := range raw {
+		request.present[key] = true
+	}
+	if value, ok := raw["remain_quota"]; ok {
+		request.remainQuotaNull = strings.TrimSpace(string(value)) == "null"
+	}
+	return nil
+}
+
+type tokenQuotaRequestFingerprintField struct {
+	Name  string `json:"name"`
+	Value any    `json:"value"`
+}
+
+type tokenQuotaRequestFingerprintPayload struct {
+	Domain             string                              `json:"domain"`
+	FingerprintVersion int                                 `json:"fingerprint_version"`
+	UserID             int                                 `json:"user_id"`
+	TokenID            int                                 `json:"token_id"`
+	Fields             []tokenQuotaRequestFingerprintField `json:"fields"`
+}
+
+func tokenQuotaRequestFingerprint(request *tokenRequest, userID int) (string, error) {
+	fields := make([]tokenQuotaRequestFingerprintField, 0, 15)
+	appendField := func(name string, value any) {
+		if request.present[name] {
+			fields = append(fields, tokenQuotaRequestFingerprintField{Name: name, Value: value})
+		}
+	}
+	appendField("name", request.Name)
+	appendField("status", request.Status)
+	appendField("expired_time", request.ExpiredTime)
+	appendField("remain_quota", request.RemainQuota)
+	appendField("unlimited_quota", request.UnlimitedQuota)
+	appendField("model_limits_enabled", request.ModelLimitsEnabled)
+	appendField("model_limits", request.ModelLimits)
+	appendField("allow_ips", request.AllowIps)
+	appendField("group", request.Group)
+	appendField("access_profile_id", request.AccessProfileID)
+	appendField("cross_group_retry", request.CrossGroupRetry)
+	appendField("auto_groups", request.AutoGroups.Groups)
+	appendField("quota_version", request.QuotaVersion)
+	appendField("metadata_fingerprint", request.MetadataFingerprint)
+	appendField("request_id", request.RequestID)
+	payload, err := common.Marshal(tokenQuotaRequestFingerprintPayload{
+		Domain: "token_quota_adjustment", FingerprintVersion: model.TokenQuotaAdjustmentFingerprintVersion,
+		UserID: userID, TokenID: request.Id, Fields: fields,
+	})
+	if err != nil {
+		return "", err
+	}
+	digest := sha256.Sum256(payload)
+	return fmt.Sprintf("%x", digest[:]), nil
 }
 
 type tokenResponse struct {
@@ -41,7 +137,9 @@ type tokenResponse struct {
 	AutoGroups []string `json:"auto_groups"`
 	// AccessProfile explains the legacy Group value while the additive
 	// access_profile_id field and routing compatibility remain in place.
-	AccessProfile accessProfileMetadata `json:"access_profile"`
+	AccessProfile       accessProfileMetadata `json:"access_profile"`
+	QuotaVersion        string                `json:"quota_version"`
+	MetadataFingerprint string                `json:"metadata_fingerprint"`
 }
 
 func buildMaskedTokenResponse(token *model.Token) *tokenResponse {
@@ -58,10 +156,16 @@ func buildMaskedTokenResponse(token *model.Token) *tokenResponse {
 	if len(autoGroups) == 0 {
 		autoGroups = nil
 	}
+	metadataFingerprint, err := token.QuotaMetadataFingerprint()
+	if err != nil {
+		common.SysError(fmt.Sprintf("failed to fingerprint token %d metadata: %v", token.Id, err))
+	}
 	return &tokenResponse{
-		Token:         &maskedToken,
-		AutoGroups:    autoGroups,
-		AccessProfile: model.ResolveAccessProfileID(token.AccessProfileID, token.Group, ""),
+		Token:               &maskedToken,
+		AutoGroups:          autoGroups,
+		AccessProfile:       model.ResolveAccessProfileID(token.AccessProfileID, token.Group, ""),
+		QuotaVersion:        strconv.FormatInt(token.QuotaVersion, 10),
+		MetadataFingerprint: metadataFingerprint,
 	}
 }
 
@@ -251,19 +355,34 @@ func GetTokenUsage(c *gin.Context) {
 		expiredAt = 0
 	}
 
+	if _, err := common.CheckedQuotaBalance(token.RemainQuota, 0); err != nil {
+		common.ApiErrorI18n(c, i18n.MsgTokenQuotaExceedMax, map[string]any{"Max": common.MaxQuotaBalance})
+		return
+	}
+	if _, err := common.CheckedQuotaUsed(token.UsedQuota, 0); err != nil {
+		common.ApiErrorI18n(c, i18n.MsgTokenQuotaExceedMax, map[string]any{"Max": common.MaxQuotaBalance})
+		return
+	}
+	var totalGranted any
+	totalGrantedRepresentable := false
+	if total, totalErr := common.CheckedQuotaBalance(token.RemainQuota, token.UsedQuota); totalErr == nil {
+		totalGranted = total
+		totalGrantedRepresentable = true
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"code":    true,
 		"message": "ok",
 		"data": gin.H{
-			"object":               "token_usage",
-			"name":                 token.Name,
-			"total_granted":        token.RemainQuota + token.UsedQuota,
-			"total_used":           token.UsedQuota,
-			"total_available":      token.RemainQuota,
-			"unlimited_quota":      token.UnlimitedQuota,
-			"model_limits":         token.GetModelLimitsMap(),
-			"model_limits_enabled": token.ModelLimitsEnabled,
-			"expires_at":           expiredAt,
+			"object":                      "token_usage",
+			"name":                        token.Name,
+			"total_granted":               totalGranted,
+			"total_granted_representable": totalGrantedRepresentable,
+			"total_used":                  token.UsedQuota,
+			"total_available":             token.RemainQuota,
+			"unlimited_quota":             token.UnlimitedQuota,
+			"model_limits":                token.GetModelLimitsMap(),
+			"model_limits_enabled":        token.ModelLimitsEnabled,
+			"expires_at":                  expiredAt,
 		},
 	})
 }
@@ -272,25 +391,24 @@ func AddToken(c *gin.Context) {
 	request := tokenRequest{}
 	err := c.ShouldBindJSON(&request)
 	if err != nil {
-		common.ApiError(c, err)
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
 	token := request.Token
+	if request.RemainQuota != nil {
+		token.RemainQuota = *request.RemainQuota
+	}
 	if len(token.Name) > 50 {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
 		return
 	}
-	// 非无限额度时，检查额度值是否超出有效范围
-	if !token.UnlimitedQuota {
-		if token.RemainQuota < 0 {
-			common.ApiErrorI18n(c, i18n.MsgTokenQuotaNegative)
-			return
-		}
-		maxQuotaValue := common.QuotaFromFloat(1000000000 * common.QuotaPerUnit)
-		if token.RemainQuota > maxQuotaValue {
-			common.ApiErrorI18n(c, i18n.MsgTokenQuotaExceedMax, map[string]any{"Max": maxQuotaValue})
-			return
-		}
+	if token.RemainQuota < 0 {
+		common.ApiErrorI18n(c, i18n.MsgTokenQuotaNegative)
+		return
+	}
+	if token.RemainQuota > int64(common.MaxQuota) {
+		common.ApiErrorI18n(c, i18n.MsgTokenQuotaExceedMax, map[string]any{"Max": common.MaxQuota})
+		return
 	}
 	// 检查用户令牌数量是否已达上限
 	maxTokens := operation_setting.GetMaxUserTokens()
@@ -368,7 +486,7 @@ func UpdateToken(c *gin.Context) {
 	request := tokenRequest{}
 	err := c.ShouldBindJSON(&request)
 	if err != nil {
-		common.ApiError(c, err)
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
 	token := request.Token
@@ -376,21 +494,66 @@ func UpdateToken(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
 		return
 	}
-	if !token.UnlimitedQuota {
-		if token.RemainQuota < 0 {
+	quotaIdentityPresent := request.present["request_id"] || request.present["quota_version"] || request.present["metadata_fingerprint"]
+	quotaRequested := request.present["remain_quota"]
+	if statusOnly != "" && (quotaRequested || quotaIdentityPresent) ||
+		statusOnly == "" && !quotaRequested && quotaIdentityPresent || request.remainQuotaNull || quotaRequested && request.RemainQuota == nil {
+		common.ApiErrorI18n(c, i18n.MsgTokenQuotaConflict)
+		return
+	}
+	var expectedQuotaVersion int64
+	var requestFingerprint string
+	var adjustmentCommand model.TokenQuotaAdjustmentCommand
+	var cleanToken *model.Token
+	if quotaRequested {
+		if *request.RemainQuota < 0 {
 			common.ApiErrorI18n(c, i18n.MsgTokenQuotaNegative)
 			return
 		}
-		maxQuotaValue := common.QuotaFromFloat(1000000000 * common.QuotaPerUnit)
-		if token.RemainQuota > maxQuotaValue {
-			common.ApiErrorI18n(c, i18n.MsgTokenQuotaExceedMax, map[string]any{"Max": maxQuotaValue})
+		if *request.RemainQuota > int64(common.MaxQuota) {
+			common.ApiErrorI18n(c, i18n.MsgTokenQuotaExceedMax, map[string]any{"Max": common.MaxQuota})
 			return
 		}
-	}
-	cleanToken, err := model.GetTokenByIds(token.Id, userId)
-	if err != nil {
-		common.ApiError(c, err)
-		return
+		expectedQuotaVersion, err = strconv.ParseInt(request.QuotaVersion, 10, 64)
+		if err != nil || expectedQuotaVersion < 0 || strconv.FormatInt(expectedQuotaVersion, 10) != request.QuotaVersion ||
+			request.MetadataFingerprint == "" || request.RequestID == "" {
+			common.ApiErrorI18n(c, i18n.MsgTokenQuotaConflict)
+			return
+		}
+		requestFingerprint, err = tokenQuotaRequestFingerprint(&request, userId)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		adjustmentCommand = model.TokenQuotaAdjustmentCommand{
+			UserID: userId, RequestID: request.RequestID, FingerprintVersion: model.TokenQuotaAdjustmentFingerprintVersion,
+			RequestFingerprint:   requestFingerprint,
+			ExpectedQuotaVersion: expectedQuotaVersion, ExpectedMetadataFingerprint: request.MetadataFingerprint,
+		}
+		var replayResult *model.TokenQuotaAdjustmentResult
+		var replayed bool
+		cleanToken, replayResult, replayed, err = model.FindTokenQuotaAdjustmentReplay(token.Id, adjustmentCommand)
+		if err != nil {
+			if errors.Is(err, model.ErrTokenQuotaAdjustmentConflict) || errors.Is(err, model.ErrTokenQuotaAdjustmentInvalidRequest) {
+				common.ApiErrorI18n(c, i18n.MsgTokenQuotaConflict)
+				return
+			}
+			common.ApiError(c, err)
+			return
+		}
+		if replayed {
+			c.JSON(http.StatusOK, gin.H{
+				"success": true, "message": "", "data": buildMaskedTokenResponse(cleanToken),
+				"quota_adjustment": replayResult, "replayed": true,
+			})
+			return
+		}
+	} else {
+		cleanToken, err = model.GetTokenByIds(token.Id, userId)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
 	}
 	if token.Status == common.TokenStatusEnabled {
 		if cleanToken.Status == common.TokenStatusExpired && cleanToken.ExpiredTime <= common.GetTimestamp() && cleanToken.ExpiredTime != -1 {
@@ -408,7 +571,9 @@ func UpdateToken(c *gin.Context) {
 		// If you add more fields, please also update token.Update()
 		cleanToken.Name = token.Name
 		cleanToken.ExpiredTime = token.ExpiredTime
-		cleanToken.RemainQuota = token.RemainQuota
+		if quotaRequested {
+			cleanToken.RemainQuota = *request.RemainQuota
+		}
 		cleanToken.UnlimitedQuota = token.UnlimitedQuota
 		cleanToken.ModelLimitsEnabled = token.ModelLimitsEnabled
 		cleanToken.ModelLimits = token.ModelLimits
@@ -431,16 +596,32 @@ func UpdateToken(c *gin.Context) {
 			}
 		}
 	}
-	err = cleanToken.Update()
+	var adjustmentResult *model.TokenQuotaAdjustmentResult
+	replayed := false
+	if quotaRequested {
+		adjustmentResult, replayed, err = cleanToken.UpdateWithQuota(adjustmentCommand)
+	} else {
+		err = cleanToken.Update()
+	}
 	if err != nil {
+		if errors.Is(err, model.ErrTokenQuotaVersionConflict) || errors.Is(err, model.ErrTokenQuotaAdjustmentConflict) ||
+			errors.Is(err, model.ErrTokenQuotaAdjustmentInvalidRequest) {
+			common.ApiErrorI18n(c, i18n.MsgTokenQuotaConflict)
+			return
+		}
 		common.ApiError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
+	response := gin.H{
 		"success": true,
 		"message": "",
 		"data":    buildMaskedTokenResponse(cleanToken),
-	})
+	}
+	if quotaRequested {
+		response["quota_adjustment"] = adjustmentResult
+		response["replayed"] = replayed
+	}
+	c.JSON(http.StatusOK, response)
 }
 
 type TokenBatch struct {

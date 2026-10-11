@@ -282,7 +282,7 @@ func TestDriveQuotaWriterDrainsToZero(t *testing.T) {
 
 	var stored User
 	require.NoError(t, db.First(&stored, user.Id).Error)
-	assert.Equal(t, 150, stored.Quota, "the drained batch delta must reach the user balance")
+	assert.Equal(t, int64(150), stored.Quota, "the drained batch delta must reach the user balance")
 
 	var pending int64
 	require.NoError(t, db.Model(&QuotaBalanceBatchDrain{}).Where("state NOT IN ?", []string{quotaBalanceBatchDrainApplied, quotaBalanceBatchDrainCancelled}).Count(&pending).Error)
@@ -295,7 +295,7 @@ func TestDriveQuotaWriterDrainsProjectionBacklog(t *testing.T) {
 	useQuotaProjectionModelDB(t, db)
 	_, client := useQuotaProjectionRedis(t)
 	user := createQuotaProjectionUser(t, db, "drain-projection", 100)
-	require.NoError(t, populateUserCache(user))
+	seedUserQuotaCacheForTest(t, user.ToBaseUser())
 
 	badClient := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1"})
 	common.RDB = badClient
@@ -320,7 +320,7 @@ func TestDriveQuotaWriterDrainsProjectionBacklog(t *testing.T) {
 
 	cached, err := cacheGetUserBase(user.Id)
 	require.NoError(t, err)
-	assert.Equal(t, 70, cached.Quota)
+	assert.Equal(t, int64(70), cached.Quota)
 }
 
 func TestListQuotaWriterModeTransitionsPagination(t *testing.T) {

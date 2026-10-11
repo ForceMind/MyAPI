@@ -20,7 +20,7 @@ func TestIncidentSyntheticZeroReserveBatchWithoutRedis(t *testing.T) {
 		for _, actual := range []int{0, 60} {
 			t.Run(fmt.Sprintf("batch-%v/actual-%d", batch, actual), func(t *testing.T) {
 				db := setupPostConsumeModeDB(t, model.QuotaWriterModeLegacy)
-				common.BatchUpdateEnabled = batch
+				common.BatchUpdateEnabled = false
 				require.NoError(t, db.AutoMigrate(&model.Log{}))
 				trust := common.GetTrustQuota()
 				user, token := seedAuthoritativeBilling(t, db, "incident-synthetic", trust+1000, trust+1000, false)
@@ -32,7 +32,8 @@ func TestIncidentSyntheticZeroReserveBatchWithoutRedis(t *testing.T) {
 				info.StartTime = time.Now()
 				c.Set(common.RequestIdKey, info.RequestId)
 				session, apiErr := NewBillingSession(c, info, 100)
-				require.Nil(t, apiErr, "trusted request must be admitted despite missing Redis")
+				require.Nil(t, apiErr, "request was admitted before the batch cache became unavailable")
+				common.BatchUpdateEnabled = batch
 				info.Billing = session
 				require.Zero(t, info.FinalPreConsumedQuota)
 				require.True(t, session.trusted)
@@ -58,9 +59,9 @@ func TestIncidentSyntheticZeroReserveBatchWithoutRedis(t *testing.T) {
 					require.NoError(t, err)
 				}
 				uq, tq, used := loadPostConsumeBalances(t, db, user, token)
-				require.Equal(t, trust+1000-expectedCharge, uq)
-				require.Equal(t, trust+1000-expectedCharge, tq)
-				require.Equal(t, expectedCharge, used)
+				require.Equal(t, int64(trust+1000-expectedCharge), uq)
+				require.Equal(t, int64(trust+1000-expectedCharge), tq)
+				require.Equal(t, int64(expectedCharge), used)
 			})
 		}
 	}
@@ -68,7 +69,7 @@ func TestIncidentSyntheticZeroReserveBatchWithoutRedis(t *testing.T) {
 
 func TestIncidentSyntheticTextUsageLogBatchWithoutRedis(t *testing.T) {
 	db := setupPostConsumeModeDB(t, model.QuotaWriterModeLegacy)
-	common.BatchUpdateEnabled = true
+	common.BatchUpdateEnabled = false
 	require.NoError(t, db.AutoMigrate(&model.Log{}))
 	oldLogDB := model.LOG_DB
 	model.LOG_DB = db
@@ -88,6 +89,8 @@ func TestIncidentSyntheticTextUsageLogBatchWithoutRedis(t *testing.T) {
 	session, apiErr := NewBillingSession(c, info, 100)
 	require.Nil(t, apiErr)
 	info.Billing = session
+	// An already-admitted request must retain its obligation after cache loss.
+	common.BatchUpdateEnabled = true
 	require.Zero(t, info.FinalPreConsumedQuota)
 	require.NoError(t, PrepareTextUsageDispatch(c, httptest.NewRequest("POST", "https://synthetic.invalid/never-sent", nil), info))
 	usage := &dto.Usage{PromptTokens: 40, CompletionTokens: 20, TotalTokens: 60}
@@ -128,9 +131,9 @@ func TestIncidentSyntheticAuthoritativeRedisAbsenceControl(t *testing.T) {
 	require.Zero(t, info.FinalPreConsumedQuota)
 	require.NoError(t, SettleBilling(c, info, 60))
 	uq, tq, used := loadPostConsumeBalances(t, db, user, token)
-	require.Equal(t, trust+940, uq)
-	require.Equal(t, trust+940, tq)
-	require.Equal(t, 60, used)
+	require.Equal(t, int64(trust+940), uq)
+	require.Equal(t, int64(trust+940), tq)
+	require.Equal(t, int64(60), used)
 	var fact model.AccountQuotaSettlementFact
 	require.NoError(t, db.Where("request_id = ?", info.RequestId).First(&fact).Error)
 	require.Equal(t, model.AccountQuotaSettlementApplied, fact.State)

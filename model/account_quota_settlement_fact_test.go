@@ -44,9 +44,9 @@ func TestLegacyWalletSettlementFactRecoversFundingThenTokenAcrossRestart(t *test
 	assert.False(t, stored.TokenApplied)
 	assert.Equal(t, AccountQuotaSettlementRetryable, stored.State)
 	user, token, _ := loadAccountBalances(t, dbFixture.DB, fixture)
-	assert.Equal(t, 850, user.Quota)
-	assert.Equal(t, 400, token.RemainQuota)
-	assert.Equal(t, 100, token.UsedQuota)
+	assert.Equal(t, int64(850), user.Quota)
+	assert.Equal(t, int64(400), token.RemainQuota)
+	assert.Equal(t, int64(100), token.UsedQuota)
 
 	accountQuotaSettlementAfterFundingCommitHook = nil
 	accountQuotaSettlementBeforeTokenHook = nil
@@ -56,9 +56,9 @@ func TestLegacyWalletSettlementFactRecoversFundingThenTokenAcrossRestart(t *test
 	require.NoError(t, err)
 	assert.Equal(t, 1, processed)
 	user, token, _ = loadAccountBalances(t, dbFixture.DB, fixture)
-	assert.Equal(t, 850, user.Quota)
-	assert.Equal(t, 350, token.RemainQuota)
-	assert.Equal(t, 150, token.UsedQuota)
+	assert.Equal(t, int64(850), user.Quota)
+	assert.Equal(t, int64(350), token.RemainQuota)
+	assert.Equal(t, int64(150), token.UsedQuota)
 	require.NoError(t, dbFixture.DB.First(&restarted, fact.ID).Error)
 	assert.Equal(t, AccountQuotaSettlementApplied, restarted.State)
 
@@ -95,8 +95,8 @@ func TestLegacySubscriptionSettlementFactHandlesCommitUnknownIdempotently(t *tes
 	_, token, subscription := loadAccountBalances(t, dbFixture.DB, fixture)
 	require.NotNil(t, subscription)
 	assert.EqualValues(t, 60, subscription.AmountUsed)
-	assert.Equal(t, 440, token.RemainQuota)
-	assert.Equal(t, 60, token.UsedQuota)
+	assert.Equal(t, int64(440), token.RemainQuota)
+	assert.Equal(t, int64(60), token.UsedQuota)
 
 	accountQuotaSettlementAfterCreateHook = nil
 	accountQuotaSettlementAfterFundingCommitHook = nil
@@ -108,8 +108,8 @@ func TestLegacySubscriptionSettlementFactHandlesCommitUnknownIdempotently(t *tes
 	assert.Equal(t, AccountQuotaSettlementApplied, stored.State)
 	_, token, subscription = loadAccountBalances(t, dbFixture.DB, fixture)
 	assert.EqualValues(t, 60, subscription.AmountUsed)
-	assert.Equal(t, 440, token.RemainQuota)
-	assert.Equal(t, 60, token.UsedQuota)
+	assert.Equal(t, int64(440), token.RemainQuota)
+	assert.Equal(t, int64(60), token.UsedQuota)
 }
 
 func TestAuthoritativeSettlementFactRecoversAfterTerminalCommitResponseLoss(t *testing.T) {
@@ -145,9 +145,9 @@ func TestAuthoritativeSettlementFactRecoversAfterTerminalCommitResponseLoss(t *t
 	assert.Equal(t, AccountQuotaSettlementApplied, stored.State)
 	assert.NotZero(t, stored.TerminalReceiptID)
 	user, token, _ := loadAccountBalances(t, db, fixture)
-	assert.Equal(t, 920, user.Quota)
-	assert.Equal(t, 420, token.RemainQuota)
-	assert.Equal(t, 80, token.UsedQuota)
+	assert.Equal(t, int64(920), user.Quota)
+	assert.Equal(t, int64(420), token.RemainQuota)
+	assert.Equal(t, int64(80), token.UsedQuota)
 	var terminalCount int64
 	require.NoError(t, db.Model(&AccountQuotaMutationReceipt{}).
 		Where("request_id = ? AND phase = ?", reserve.RequestID, AccountQuotaPhaseSettle).Count(&terminalCount).Error)
@@ -190,9 +190,9 @@ func TestAuthoritativeSettlementIntentCommitUnknownReplayAndConflict(t *testing.
 	assert.NotZero(t, intent.FactID)
 	assert.NotZero(t, intent.TerminalReceiptID)
 	user, token, _ := loadAccountBalances(t, db, fixture)
-	assert.Equal(t, 920, user.Quota)
-	assert.Equal(t, 420, token.RemainQuota)
-	assert.Equal(t, 80, token.UsedQuota)
+	assert.Equal(t, int64(920), user.Quota)
+	assert.Equal(t, int64(420), token.RemainQuota)
+	assert.Equal(t, int64(80), token.UsedQuota)
 }
 
 func TestSettlementManualEvidenceCommitUnknownRequiresFullIdentity(t *testing.T) {

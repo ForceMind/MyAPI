@@ -40,7 +40,7 @@ const ownerReads = new Set([
 ])
 const rootPrefixes = ['/api/option', '/api/system-info', '/api/system-task', '/api/quota-writer', '/api/ratio_sync', '/api/custom-oauth-provider', '/api/performance']
 
-export function createUIFixture({ role = 100, language = 'en', setupComplete = true, sidebar = false, longText = false, playgroundDisabled = false, pricingEnabled = false, settlementReviews = false, personalPolicy = false } = {}) {
+export function createUIFixture({ role = 100, language = 'en', setupComplete = true, sidebar = false, longText = false, playgroundDisabled = false, pricingEnabled = false, settlementReviews = false, personalPolicy = false, unrepresentableKeyTotal = false } = {}) {
   // quotaFixtures accepts time through Date.now. Override only during its
   // synchronous construction and restore immediately; no timers are faked here.
   const originalNow = Date.now
@@ -60,7 +60,7 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
   }
   const session = { sid: `synthetic-ui-${role}`, current: true, login_method: 'synthetic', ip: '127.0.0.1', user_agent: 'Synthetic Chromium', created_at: now - 600, last_active_at: now, expires_at: now + 3600 }
   const funding = { mode: 'disabled', epoch: 1, ready: true, can_top_up: false, can_redeem: false, can_transfer_affiliate_rewards: false, can_purchase_subscription: false, can_view_funding_history: true }
-  const key = { id: 21, user_id: user.id, name: longText ? LONG_NAME : 'synthetic-key', key: 'masked', status: 1, remain_quota: 1000, used_quota: 0, unlimited_quota: false, expired_time: -1, created_time: now - 600, accessed_time: now, group: 'default', model_limits_enabled: false, model_limits: '', allow_ips: '' }
+  const key = { id: 21, user_id: user.id, name: longText ? LONG_NAME : 'synthetic-key', key: 'masked', status: 1, remain_quota: unrepresentableKeyTotal ? 1 : 1000, used_quota: unrepresentableKeyTotal ? Number.MAX_SAFE_INTEGER : 0, unlimited_quota: false, expired_time: -1, created_time: now - 600, accessed_time: now, group: 'default', model_limits_enabled: false, model_limits: '', allow_ips: '' }
   const writerState = { id: 1, schema_version: 1, mode: 'legacy', epoch: 1, lock_version: 1, updated_at: now }
   const writerAudit = { can_enable: false, state: writerState, writers: [], all_writers_migrated: false, batch_queue_empty: true, projection_pending: 0, balance_drain_pending: 0, balance_drain_inflight_zero: true, maintenance_backfill_done: false, redis_epoch_consistent: false, cluster_drain_ack: false, inflight_sessions: 0, inflight_zero: true, missing_or_failed_checks: ['all_writers_migrated'] }
   const options = [

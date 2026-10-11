@@ -115,7 +115,7 @@ type RelayInfo struct {
 	ReasoningEffort        string
 	UserSetting            dto.UserSetting
 	UserEmail              string
-	UserQuota              int
+	UserQuota              int64
 	RelayFormat            types.RelayFormat
 	SendResponseCount      int
 	ReceivedResponseCount  int
@@ -541,7 +541,7 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 		UserId:     common.GetContextKeyInt(c, constant.ContextKeyUserId),
 		UsingGroup: common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
 		UserGroup:  common.GetContextKeyString(c, constant.ContextKeyUserGroup),
-		UserQuota:  common.GetContextKeyInt(c, constant.ContextKeyUserQuota),
+		UserQuota:  common.GetContextKeyInt64(c, constant.ContextKeyUserQuota),
 		UserEmail:  common.GetContextKeyString(c, constant.ContextKeyUserEmail),
 
 		OriginModelName: common.GetContextKeyString(c, constant.ContextKeyOriginalModel),
@@ -924,6 +924,8 @@ type TaskSubmitReq struct {
 	Metadata       map[string]interface{} `json:"metadata,omitempty"`
 }
 
+var ErrTaskDurationInvalid = errors.New("invalid task duration")
+
 func (t *TaskSubmitReq) GetPrompt() string {
 	return t.Prompt
 }
@@ -952,10 +954,15 @@ func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 			t.Duration = durationInt
 		} else {
 			var durationStr string
-			if err := common.Unmarshal(aux.Duration, &durationStr); err == nil && durationStr != "" {
-				if v, err := strconv.Atoi(durationStr); err == nil {
-					t.Duration = v
+			if err := common.Unmarshal(aux.Duration, &durationStr); err != nil {
+				return ErrTaskDurationInvalid
+			}
+			if durationStr != "" {
+				v, err := strconv.Atoi(durationStr)
+				if err != nil {
+					return ErrTaskDurationInvalid
 				}
+				t.Duration = v
 			}
 		}
 	}

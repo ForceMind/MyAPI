@@ -245,14 +245,14 @@ func TestRelayFailoverActualDispatch(t *testing.T) {
 			require.Equal(t, test.wantStatus == 200 && !test.partial, affinityEligible, "only confirmed successful completion may update affinity")
 			require.NoError(t, db.First(&token, token.Id).Error)
 			if test.fixed && (test.status == 503 || test.disconnect || test.deadline) {
-				require.Equal(t, 995000, token.RemainQuota, "unknown dispatch retains fixed-price reservation")
+				require.Equal(t, int64(995000), token.RemainQuota, "unknown dispatch retains fixed-price reservation")
 				review, err := model.GetUsageReview(req.Context(), db, user.Id, "failover-request")
 				require.NoError(t, err)
 				require.Equal(t, "usage_unknown", review.State)
 				require.Nil(t, review.ActualQuota)
 			}
 			if test.fixed && test.retries == 0 && test.status == 429 {
-				require.Equal(t, 1000000, token.RemainQuota)
+				require.Equal(t, int64(1000000), token.RemainQuota)
 				require.Zero(t, token.UsedQuota)
 			}
 			if test.affinity {
@@ -289,9 +289,9 @@ func TestRelayFailoverActualDispatch(t *testing.T) {
 				require.EqualValues(t, 1, calls[1].Load())
 			}
 			if (test.wantB == 1 || test.multi) && !test.autoGroups && !test.free {
-				require.Greater(t, token.UsedQuota, 0)
+				require.Greater(t, token.UsedQuota, int64(0))
 				if test.fixed {
-					require.Equal(t, 5000, token.UsedQuota)
+					require.Equal(t, int64(5000), token.UsedQuota)
 				}
 				require.Equal(t, 1000000-token.UsedQuota, token.RemainQuota)
 				var logs []model.Log

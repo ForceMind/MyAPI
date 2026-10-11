@@ -196,7 +196,7 @@ func TestRetirementStripeCallbackSettlesPendingAndAcknowledgesUnknownDuplicate(t
 
 	var user model.User
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 100+int(common.QuotaPerUnit), user.Quota)
+	assert.Equal(t, int64(100+common.QuotaPerUnit), user.Quota)
 }
 
 func TestRetirementWaffoPancakeCallbackSettlesPendingAndAcknowledgesUnknownDuplicate(t *testing.T) {
@@ -224,17 +224,17 @@ func TestRetirementWaffoPancakeCallbackSettlesPendingAndAcknowledgesUnknownDupli
 	assert.Equal(t, http.StatusOK, deliverVerifiedPancakeFixture(t, event))
 	var user model.User
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 100+int(common.QuotaPerUnit), user.Quota)
+	assert.Equal(t, int64(100+common.QuotaPerUnit), user.Quota)
 
 	assert.Equal(t, http.StatusOK, deliverVerifiedPancakeFixture(t, event))
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 100+int(common.QuotaPerUnit), user.Quota)
+	assert.Equal(t, int64(100+common.QuotaPerUnit), user.Quota)
 
 	unknown := *event
 	unknown.Data.OrderMerchantExternalID = "WAFFO_PANCAKE-unknown"
 	assert.Equal(t, http.StatusOK, deliverVerifiedPancakeFixture(t, &unknown))
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 100+int(common.QuotaPerUnit), user.Quota)
+	assert.Equal(t, int64(100+common.QuotaPerUnit), user.Quota)
 }
 
 func TestDisabledWaffoPancakeCallbackAcknowledgesWithoutCredit(t *testing.T) {
@@ -257,7 +257,7 @@ func TestDisabledWaffoPancakeCallbackAcknowledgesWithoutCredit(t *testing.T) {
 	assert.Equal(t, http.StatusOK, deliverVerifiedPancakeFixture(t, event))
 	var user model.User
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 100, user.Quota)
+	assert.Equal(t, int64(100), user.Quota)
 	assert.Equal(t, common.TopUpStatusPending, model.GetTopUpByTradeNo(tradeNo).Status)
 }
 
@@ -294,7 +294,7 @@ func TestDisabledSignedStripeCallbackAcknowledgesWithoutCredit(t *testing.T) {
 	assert.Equal(t, http.StatusOK, deliverStripeFixture(t, "checkout.session.completed", order.TradeNo, "complete", setting.StripeWebhookSecret))
 	var user model.User
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 100, user.Quota)
+	assert.Equal(t, int64(100), user.Quota)
 	require.NoError(t, db.First(&order, order.Id).Error)
 	assert.Equal(t, common.TopUpStatusPending, order.Status)
 }

@@ -20,7 +20,11 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-const quotaBalanceBatchDrainSchemaVersion = 3
+const (
+	quotaBalanceBatchDrainLegacySchemaVersion = 3
+	quotaBalanceBatchDrainSchemaVersion       = 4
+	quotaBalanceBatchFingerprintDomainV4      = "myapi/quota-balance-batch/v4"
+)
 const quotaBalanceSubjectKindUnknown = 0
 
 const (
@@ -52,8 +56,8 @@ var (
 )
 
 type QuotaBalanceBatchPayload struct {
-	UserQuota      map[int]int    `json:"user_quota,omitempty"`
-	TokenQuota     map[int]int    `json:"token_quota,omitempty"`
+	UserQuota      map[int]int64  `json:"user_quota,omitempty"`
+	TokenQuota     map[int]int64  `json:"token_quota,omitempty"`
 	TokenCacheKeys map[int]string `json:"token_cache_keys,omitempty"`
 }
 
@@ -417,7 +421,28 @@ func quotaBalanceGenerationSubject(generation *QuotaBalanceBatchDrain) (int, int
 }
 
 func quotaBalanceBatchPayloadFingerprint(payload QuotaBalanceBatchPayload) (string, error) {
-	data, err := common.Marshal(payload)
+	return quotaBalanceBatchPayloadFingerprintForSchema(quotaBalanceBatchDrainSchemaVersion, payload)
+}
+
+func quotaBalanceBatchPayloadFingerprintForSchema(schemaVersion int, payload QuotaBalanceBatchPayload) (string, error) {
+	var value any = payload
+	switch schemaVersion {
+	case 1, 2, quotaBalanceBatchDrainLegacySchemaVersion:
+		// v1-v3 fingerprints are exactly SHA-256(raw payload JSON). The Go map
+		// value width does not change JSON integer bytes, so historical rows keep
+		// their original identity without a payload rewrite.
+	case quotaBalanceBatchDrainSchemaVersion:
+		value = struct {
+			Domain        string                   `json:"domain"`
+			SchemaVersion int                      `json:"schema_version"`
+			Payload       QuotaBalanceBatchPayload `json:"payload"`
+		}{
+			Domain: quotaBalanceBatchFingerprintDomainV4, SchemaVersion: schemaVersion, Payload: payload,
+		}
+	default:
+		return "", fmt.Errorf("unsupported quota balance batch schema version %d", schemaVersion)
+	}
+	data, err := common.Marshal(value)
 	if err != nil {
 		return "", err
 	}
@@ -425,7 +450,7 @@ func quotaBalanceBatchPayloadFingerprint(payload QuotaBalanceBatchPayload) (stri
 	return hex.EncodeToString(digest[:]), nil
 }
 
-func quotaBalanceTokenCacheLocators(db *gorm.DB, tokenQuota map[int]int) (map[int]string, error) {
+func quotaBalanceTokenCacheLocators(db *gorm.DB, tokenQuota map[int]int64) (map[int]string, error) {
 	if len(tokenQuota) == 0 {
 		return nil, nil
 	}
@@ -443,7 +468,10 @@ func quotaBalanceTokenCacheLocators(db *gorm.DB, tokenQuota map[int]int) (map[in
 	return locators, nil
 }
 
-func validateQuotaBalancePayload(payload QuotaBalanceBatchPayload) error {
+func validateQuotaBalancePayload(schemaVersion int, payload QuotaBalanceBatchPayload) error {
+	if schemaVersion < 1 || schemaVersion > quotaBalanceBatchDrainSchemaVersion {
+		return ErrQuotaBalanceGenerationConflict
+	}
 	if len(payload.UserQuota) == 0 && len(payload.TokenQuota) == 0 {
 		return ErrQuotaBalanceGenerationConflict
 	}
@@ -451,11 +479,21 @@ func validateQuotaBalancePayload(payload QuotaBalanceBatchPayload) error {
 		if id <= 0 || delta == 0 {
 			return ErrQuotaBalanceGenerationConflict
 		}
+		if schemaVersion == quotaBalanceBatchDrainSchemaVersion {
+			if _, err := common.CheckedQuotaBalance(0, delta); err != nil {
+				return fmt.Errorf("%w: user aggregate: %v", ErrQuotaBalanceGenerationConflict, err)
+			}
+		}
 	}
 	for id, delta := range payload.TokenQuota {
 		locator, ok := payload.TokenCacheKeys[id]
 		if id <= 0 || delta == 0 || !ok || len(locator) <= len("token:") || locator[:len("token:")] != "token:" {
 			return ErrQuotaBalanceGenerationConflict
+		}
+		if schemaVersion == quotaBalanceBatchDrainSchemaVersion {
+			if _, err := common.CheckedQuotaBalance(0, delta); err != nil {
+				return fmt.Errorf("%w: token aggregate: %v", ErrQuotaBalanceGenerationConflict, err)
+			}
 		}
 	}
 	if len(payload.TokenCacheKeys) != len(payload.TokenQuota) {
@@ -482,10 +520,10 @@ func prepareQuotaBalanceBatchGeneration(payload QuotaBalanceBatchPayload) (*Quot
 		}
 		payload.TokenCacheKeys = locators
 	}
-	if err := validateQuotaBalancePayload(payload); err != nil {
+	if err := validateQuotaBalancePayload(quotaBalanceBatchDrainSchemaVersion, payload); err != nil {
 		return nil, err
 	}
-	fingerprint, err := quotaBalanceBatchPayloadFingerprint(payload)
+	fingerprint, err := quotaBalanceBatchPayloadFingerprintForSchema(quotaBalanceBatchDrainSchemaVersion, payload)
 	if err != nil {
 		return nil, err
 	}
@@ -619,7 +657,10 @@ func validateQuotaBalanceGenerationIdentity(expected, stored *QuotaBalanceBatchD
 		!reflect.DeepEqual(stored.Payload, expected.Payload) {
 		return ErrQuotaBalanceGenerationConflict
 	}
-	fingerprint, err := quotaBalanceBatchPayloadFingerprint(stored.Payload)
+	if err := validateQuotaBalancePayload(stored.SchemaVersion, stored.Payload); err != nil {
+		return ErrQuotaBalanceGenerationConflict
+	}
+	fingerprint, err := quotaBalanceBatchPayloadFingerprintForSchema(stored.SchemaVersion, stored.Payload)
 	if err != nil || fingerprint != stored.PayloadFingerprint {
 		return ErrQuotaBalanceGenerationConflict
 	}
@@ -1169,11 +1210,17 @@ func compensateQuotaBalanceGenerationCache(generation *QuotaBalanceBatchDrain, s
 	}
 	if len(generation.Payload.UserQuota) == 1 && len(generation.Payload.TokenQuota) == 0 {
 		for userID, delta := range generation.Payload.UserQuota {
-			return compensateUserQuotaDeltaJournaled(userID, -int64(delta), generation.GenerationKey, subjectLock.Token)
+			if delta < -int64(common.MaxQuota) || delta > int64(common.MaxQuota) {
+				return cacheQuotaMiss, ErrQuotaBalanceGenerationConflict
+			}
+			return compensateUserQuotaDeltaJournaled(userID, -delta, generation.GenerationKey, subjectLock.Token)
 		}
 	}
 	if len(generation.Payload.TokenQuota) == 1 && len(generation.Payload.UserQuota) == 0 {
 		for tokenID, delta := range generation.Payload.TokenQuota {
+			if delta < -int64(common.MaxQuota) || delta > int64(common.MaxQuota) {
+				return cacheQuotaMiss, ErrQuotaBalanceGenerationConflict
+			}
 			locator := generation.Payload.TokenCacheKeys[tokenID]
 			if locator == "" {
 				return cacheQuotaMiss, ErrQuotaBalanceGenerationConflict
@@ -1186,7 +1233,7 @@ func compensateQuotaBalanceGenerationCache(generation *QuotaBalanceBatchDrain, s
 			defer cancel()
 			result, err := common.RDB.Eval(ctx, tokenQuotaCompensationScript,
 				[]string{locator, quotaWriterEpochRedisKey, quotaBalanceJournalRedisKey(generation.GenerationKey), subjectLock.Key},
-				-int64(delta), tokenID, common.GetTimestamp(), epoch, subjectLock.Token).Int()
+				-delta, tokenID, common.GetTimestamp(), epoch, subjectLock.Token).Int()
 			return quotaResultFromLua(result, err)
 		}
 	}
@@ -1411,7 +1458,7 @@ func recoverQuotaBalanceBatchPreparations() error {
 	return errors.Join(recoveryErrors...)
 }
 
-func applyLegacyBalanceCacheMutation(kind, id int, delta int, tokenKey string, apply func(string, string) (cacheQuotaResult, error), compensate func(string, string) (cacheQuotaResult, error)) (cacheQuotaResult, error) {
+func applyLegacyBalanceCacheMutation(kind, id int, delta int64, tokenKey string, apply func(string, string) (cacheQuotaResult, error), compensate func(string, string) (cacheQuotaResult, error)) (cacheQuotaResult, error) {
 	subjectLock, err := acquireQuotaBalanceSubjectLock(kind, id)
 	if err != nil {
 		return cacheQuotaMiss, err
@@ -1419,12 +1466,12 @@ func applyLegacyBalanceCacheMutation(kind, id int, delta int, tokenKey string, a
 	defer releaseQuotaBalanceSubjectLock(subjectLock)
 	payload := QuotaBalanceBatchPayload{}
 	if kind == BatchUpdateTypeUserQuota {
-		payload.UserQuota = map[int]int{id: delta}
+		payload.UserQuota = map[int]int64{id: delta}
 	} else if kind == BatchUpdateTypeTokenQuota {
 		if tokenKey == "" {
 			return cacheQuotaMiss, ErrQuotaBalanceGenerationConflict
 		}
-		payload.TokenQuota = map[int]int{id: delta}
+		payload.TokenQuota = map[int]int64{id: delta}
 		payload.TokenCacheKeys = map[int]string{id: getTokenCacheKey(tokenKey)}
 	} else {
 		return cacheQuotaMiss, fmt.Errorf("invalid durable balance mutation kind")
@@ -1517,11 +1564,11 @@ func applyLegacyBalanceCacheMutation(kind, id int, delta int, tokenKey string, a
 	return result, confirmErr
 }
 
-func copyQuotaBatchStore(source map[int]int) map[int]int {
+func copyQuotaBatchStore(source map[int]int64) map[int]int64 {
 	if len(source) == 0 {
 		return nil
 	}
-	result := make(map[int]int, len(source))
+	result := make(map[int]int64, len(source))
 	for id, delta := range source {
 		result[id] = delta
 	}
@@ -1560,6 +1607,9 @@ func persistQuotaBalanceBatchGeneration() error {
 			return err
 		}
 		payload := QuotaBalanceBatchPayload{UserQuota: userQuota, TokenQuota: tokenQuota, TokenCacheKeys: tokenCacheKeys}
+		if err := validateQuotaBalancePayload(quotaBalanceBatchDrainSchemaVersion, payload); err != nil {
+			return err
+		}
 		fingerprint, err := quotaBalanceBatchPayloadFingerprint(payload)
 		if err != nil {
 			return err
@@ -1610,16 +1660,12 @@ func persistQuotaBalanceBatchGeneration() error {
 	return nil
 }
 
-func checkedLegacyBalanceTarget(current int, delta int) (int, error) {
-	current64, delta64 := int64(current), int64(delta)
-	if (delta64 > 0 && current64 > quotaMutationMaxInt64-delta64) || (delta64 < 0 && current64 < -quotaMutationMaxInt64-1-delta64) {
-		return 0, fmt.Errorf("legacy balance batch arithmetic overflow")
+func checkedLegacyBalanceTarget(current int64, delta int64) (int64, error) {
+	target, err := common.CheckedQuotaBalance(current, delta)
+	if err != nil {
+		return 0, fmt.Errorf("legacy balance batch result is invalid: %w", err)
 	}
-	target := current64 + delta64
-	if target < int64(common.MinQuota) || target > int64(common.MaxQuota) {
-		return 0, fmt.Errorf("legacy balance batch result exceeds int32 boundary")
-	}
-	return int(target), nil
+	return target, nil
 }
 
 func applyQuotaBalanceBatchGeneration(id int64) error {
@@ -1654,7 +1700,10 @@ func applyQuotaBalanceBatchGenerationWithDB(db *gorm.DB, id int64) error {
 		if !generation.CacheApplied {
 			return fmt.Errorf("quota balance generation cache mutation is not confirmed")
 		}
-		fingerprint, err := quotaBalanceBatchPayloadFingerprint(generation.Payload)
+		if err := validateQuotaBalancePayload(generation.SchemaVersion, generation.Payload); err != nil {
+			return err
+		}
+		fingerprint, err := quotaBalanceBatchPayloadFingerprintForSchema(generation.SchemaVersion, generation.Payload)
 		if err != nil || fingerprint != generation.PayloadFingerprint {
 			return fmt.Errorf("quota balance generation payload fingerprint mismatch")
 		}
@@ -1678,6 +1727,9 @@ func applyQuotaBalanceBatchGenerationWithDB(db *gorm.DB, id int64) error {
 			if err := lockForUpdate(tx).Where("id = ?", userID).First(&user).Error; err != nil {
 				return err
 			}
+			if !quotaMutationVersionValid(user.QuotaVersion) {
+				return ErrAccountQuotaMutationIneligible
+			}
 			target, err := checkedLegacyBalanceTarget(user.Quota, delta)
 			if err != nil {
 				return err
@@ -1696,13 +1748,16 @@ func applyQuotaBalanceBatchGenerationWithDB(db *gorm.DB, id int64) error {
 			if err := lockForUpdate(tx).Where("id = ?", tokenID).First(&token).Error; err != nil {
 				return err
 			}
+			if !quotaMutationVersionValid(token.QuotaVersion) {
+				return ErrAccountQuotaMutationIneligible
+			}
 			remain, err := checkedLegacyBalanceTarget(token.RemainQuota, delta)
 			if err != nil {
 				return err
 			}
-			used, err := checkedLegacyBalanceTarget(token.UsedQuota, -delta)
-			if err != nil || used < 0 {
-				return fmt.Errorf("legacy token batch used quota is invalid")
+			used, err := common.CheckedQuotaUsed(token.UsedQuota, -delta)
+			if err != nil {
+				return fmt.Errorf("legacy token batch used quota is invalid: %w", err)
 			}
 			result := tx.Table("tokens").Where("id = ? AND remain_quota = ? AND used_quota = ? AND quota_version = ?", token.Id, token.RemainQuota, token.UsedQuota, token.QuotaVersion).
 				Updates(map[string]interface{}{"remain_quota": remain, "used_quota": used, "accessed_time": now, "quota_version": token.QuotaVersion + 1})
@@ -1867,15 +1922,15 @@ func InitializeQuotaBalanceBatchDrainsWithDB(db *gorm.DB) error {
 		for index := range generations {
 			generation := &generations[index]
 			cursor = generation.ID
-			legacySchema := generation.SchemaVersion < quotaBalanceBatchDrainSchemaVersion
+			legacySchema := generation.SchemaVersion < quotaBalanceBatchDrainLegacySchemaVersion
 			updates := map[string]interface{}{}
 			if legacySchema {
-				updates["schema_version"] = quotaBalanceBatchDrainSchemaVersion
+				updates["schema_version"] = quotaBalanceBatchDrainLegacySchemaVersion
 			}
 			if generation.LockVersion < 1 {
 				updates["lock_version"] = int64(1)
 			}
-			if !generation.CacheApplied && (generation.SubjectKind == quotaBalanceSubjectKindUnknown || generation.SubjectID == 0) {
+			if legacySchema && !generation.CacheApplied && (generation.SubjectKind == quotaBalanceSubjectKindUnknown || generation.SubjectID == 0) {
 				kind, id, subjectErr := quotaBalancePayloadSubject(generation.Payload)
 				if subjectErr != nil {
 					updates["state"] = quotaBalanceBatchDrainUnknown
@@ -1889,13 +1944,11 @@ func InitializeQuotaBalanceBatchDrainsWithDB(db *gorm.DB) error {
 					updates["subject_id"] = id
 				}
 			}
-			if len(generation.Payload.TokenQuota) > 0 && len(generation.Payload.TokenCacheKeys) != len(generation.Payload.TokenQuota) {
+			if legacySchema && len(generation.Payload.TokenQuota) > 0 && len(generation.Payload.TokenCacheKeys) != len(generation.Payload.TokenQuota) {
 				locators, err := quotaBalanceTokenCacheLocators(db, generation.Payload.TokenQuota)
 				if err != nil {
-					if !legacySchema && !generation.CacheApplied {
-						updates["state"] = quotaBalanceBatchDrainUnknown
-						updates["last_error"] = "token cache locator backfill failed: " + err.Error()
-					}
+					updates["state"] = quotaBalanceBatchDrainUnknown
+					updates["last_error"] = "token cache locator backfill failed: " + err.Error()
 				} else {
 					generation.Payload.TokenCacheKeys = locators
 					updates["payload"] = generation.Payload
@@ -1905,8 +1958,8 @@ func InitializeQuotaBalanceBatchDrainsWithDB(db *gorm.DB) error {
 			// Only the legacy schema proves the old cache-applied convention;
 			// padding in an already-current row must not manufacture that proof.
 			missingLegacyFingerprint := legacySchema && strings.TrimSpace(generation.PayloadFingerprint) == ""
-			if missingLegacyFingerprint || len(generation.PayloadFingerprint) != 64 || updates["payload"] != nil {
-				fingerprint, err := quotaBalanceBatchPayloadFingerprint(generation.Payload)
+			if legacySchema && (missingLegacyFingerprint || len(generation.PayloadFingerprint) != 64 || updates["payload"] != nil) {
+				fingerprint, err := quotaBalanceBatchPayloadFingerprintForSchema(quotaBalanceBatchDrainLegacySchemaVersion, generation.Payload)
 				if err != nil {
 					return err
 				}

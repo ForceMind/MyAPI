@@ -88,9 +88,9 @@ func textDispatchRecoveryDatabaseContract(t *testing.T, db *gorm.DB, rootID int,
 			}
 			require.NoError(t, db.First(&user, user.Id).Error)
 			require.NoError(t, db.First(&token, token.Id).Error)
-			assert.Equal(t, 980, user.Quota)
-			assert.Equal(t, 980, token.RemainQuota)
-			assert.Equal(t, 20, user.UsedQuota)
+			assert.Equal(t, int64(980), user.Quota)
+			assert.Equal(t, int64(980), token.RemainQuota)
+			assert.Equal(t, int64(20), user.UsedQuota)
 			assert.Equal(t, 1, user.RequestCount)
 			if mode == QuotaWriterModeAuthoritative {
 				receipt, err := FindAccountQuotaReserveReceipt(db, requestID)

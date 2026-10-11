@@ -145,7 +145,10 @@ func ValidateTopUpQuotaCapacity(userId int, creditedQuota int) error {
 	if err := DB.Select("quota").Where("id = ?", userId).First(&user).Error; err != nil {
 		return err
 	}
-	if user.Quota > maxCurrentQuota {
+	if user.Quota > int64(maxCurrentQuota) {
+		return ErrTopUpQuotaLimitExceeded
+	}
+	if _, err := common.CheckedQuotaBalance(user.Quota, int64(creditedQuota)); err != nil {
 		return ErrTopUpQuotaLimitExceeded
 	}
 	return nil
@@ -191,7 +194,7 @@ func replayCompletedTopUpCredit(tx *gorm.DB, topUp *TopUp, creditedQuota int) (*
 }
 
 func creditTopUpQuota(tx *gorm.DB, topUp *TopUp, creditedQuota int, updates map[string]interface{}) (*UserQuotaMutationReceipt, error) {
-	maxCurrentQuota, err := topUpQuotaMaxCurrent(creditedQuota)
+	_, err := topUpQuotaMaxCurrent(creditedQuota)
 	if err != nil {
 		return nil, err
 	}
@@ -215,30 +218,13 @@ func creditTopUpQuota(tx *gorm.DB, topUp *TopUp, creditedQuota int, updates map[
 		return receipt, nil
 	}
 
-	updateFields := make(map[string]interface{}, len(updates)+1)
-	for key, value := range updates {
-		updateFields[key] = value
-	}
-	updateFields["quota"] = gorm.Expr("quota + ?", creditedQuota)
-
-	result := tx.Model(&User{}).
-		Where("id = ? AND quota <= ?", topUp.UserId, maxCurrentQuota).
-		Updates(updateFields)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	if result.RowsAffected == 1 {
-		return nil, nil
-	}
-
-	var count int64
-	if err := tx.Model(&User{}).Where("id = ?", topUp.UserId).Count(&count).Error; err != nil {
+	if err := applyLegacyUserWalletDeltaTx(tx, topUp.UserId, int64(creditedQuota), int64(common.MaxQuota), updates); err != nil {
+		if errors.Is(err, ErrUserQuotaUpperBoundExceeded) || errors.Is(err, common.ErrQuotaBalanceOutOfRange) {
+			return nil, ErrTopUpQuotaLimitExceeded
+		}
 		return nil, err
 	}
-	if count == 0 {
-		return nil, gorm.ErrRecordNotFound
-	}
-	return nil, ErrTopUpQuotaLimitExceeded
+	return nil, nil
 }
 
 func (topUp *TopUp) Update() error {

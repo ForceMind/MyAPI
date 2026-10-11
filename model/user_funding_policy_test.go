@@ -82,9 +82,9 @@ func TestDisabledCommercialFundingKeepsUserAndTokenQuotaLimits(t *testing.T) {
 	assert.False(t, reserved)
 	require.NoError(t, db.First(&user, user.Id).Error)
 	require.NoError(t, db.First(&token, token.Id).Error)
-	assert.Equal(t, 1140, user.Quota)
-	assert.Equal(t, 20, token.RemainQuota)
-	assert.Equal(t, 60, token.UsedQuota)
+	assert.Equal(t, int64(1140), user.Quota)
+	assert.Equal(t, int64(20), token.RemainQuota)
+	assert.Equal(t, int64(60), token.UsedQuota)
 	state, err := GetUserFundingStateSnapshot()
 	require.NoError(t, err)
 	assert.Equal(t, operation_setting.UserFundingModeDisabled, state.Mode)
@@ -195,7 +195,7 @@ func TestUserFundingWebhookDecisionCannotSettleAfterModeSwitch(t *testing.T) {
 			assert.Equal(t, common.TopUpStatusPending, reloaded.Status)
 			var reloadedUser User
 			require.NoError(t, db.First(&reloadedUser, user.Id).Error)
-			assert.Equal(t, 1000, reloadedUser.Quota)
+			assert.Equal(t, int64(1000), reloadedUser.Quota)
 		})
 	}
 }
@@ -321,7 +321,7 @@ func TestFundingMutationTransactionsRejectEpochAfterRetirement(t *testing.T) {
 
 	var reloaded User
 	require.NoError(t, db.First(&reloaded, user.Id).Error)
-	assert.Equal(t, 1000, reloaded.Quota)
+	assert.Equal(t, int64(1000), reloaded.Quota)
 	assert.Equal(t, 500000, reloaded.AffQuota)
 	var reloadedCode Redemption
 	require.NoError(t, db.First(&reloadedCode, redemption.Id).Error)

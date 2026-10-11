@@ -67,7 +67,7 @@ func createIngressUserAndToken(t *testing.T, db *gorm.DB, initialQuota int) (mod
 		Username: fmt.Sprintf("user_%d", common.GetRandomInt(1000000)),
 		Password: "test-fixture-password",
 		Status:   common.UserStatusEnabled,
-		Quota:    initialQuota,
+		Quota:    int64(initialQuota),
 	}
 	require.NoError(t, db.Create(&user).Error)
 
@@ -75,7 +75,7 @@ func createIngressUserAndToken(t *testing.T, db *gorm.DB, initialQuota int) (mod
 		UserId:      user.Id,
 		Key:         fmt.Sprintf("sk-test-%d", common.GetRandomInt(1000000)),
 		Status:      common.TokenStatusEnabled,
-		RemainQuota: initialQuota,
+		RemainQuota: int64(initialQuota),
 		ExpiredTime: -1,
 	}
 	require.NoError(t, db.Create(&token).Error)
@@ -302,11 +302,11 @@ func TestExecuteTaskIngress_NewSubmissionAccepted(t *testing.T) {
 	// Quota was deducted from user & token
 	var updatedUser model.User
 	require.NoError(t, db.First(&updatedUser, user.Id).Error)
-	assert.Equal(t, 8000, updatedUser.Quota)
+	assert.Equal(t, int64(8000), updatedUser.Quota)
 
 	var updatedToken model.Token
 	require.NoError(t, db.First(&updatedToken, token.Id).Error)
-	assert.Equal(t, 8000, updatedToken.RemainQuota)
+	assert.Equal(t, int64(8000), updatedToken.RemainQuota)
 }
 
 func TestExecuteTaskIngress_IdempotentReplay(t *testing.T) {
@@ -385,11 +385,11 @@ func TestExecuteTaskIngress_IdempotentReplay(t *testing.T) {
 	// Quota was NOT deducted again
 	var updatedUser model.User
 	require.NoError(t, db.First(&updatedUser, user.Id).Error)
-	assert.Equal(t, 7500, updatedUser.Quota)
+	assert.Equal(t, int64(7500), updatedUser.Quota)
 
 	var updatedToken model.Token
 	require.NoError(t, db.First(&updatedToken, token.Id).Error)
-	assert.Equal(t, 7500, updatedToken.RemainQuota)
+	assert.Equal(t, int64(7500), updatedToken.RemainQuota)
 }
 
 func TestExecuteTaskIngress_FreezesBillingPreferenceSelection(t *testing.T) {
@@ -570,7 +570,7 @@ func TestExecuteTaskIngress_ConflictRejected(t *testing.T) {
 	// Quota was only deducted for the first request
 	var updatedUser model.User
 	require.NoError(t, db.First(&updatedUser, user.Id).Error)
-	assert.Equal(t, 9000, updatedUser.Quota)
+	assert.Equal(t, int64(9000), updatedUser.Quota)
 }
 
 func TestExecuteTaskIngress_ContentTypes(t *testing.T) {
@@ -801,11 +801,11 @@ func TestExecuteTaskIngress_DispatchRejected(t *testing.T) {
 	// Quota was fully refunded upon rejection
 	var updatedUser model.User
 	require.NoError(t, db.First(&updatedUser, user.Id).Error)
-	assert.Equal(t, 10000, updatedUser.Quota)
+	assert.Equal(t, int64(10000), updatedUser.Quota)
 
 	var updatedToken model.Token
 	require.NoError(t, db.First(&updatedToken, token.Id).Error)
-	assert.Equal(t, 10000, updatedToken.RemainQuota)
+	assert.Equal(t, int64(10000), updatedToken.RemainQuota)
 }
 
 func TestTaskIngressService_ExecuteWrapper(t *testing.T) {
@@ -908,9 +908,9 @@ func TestExecuteTaskIngress_SubscriptionZeroQuotaDistinguishesFreeModel(t *testi
 			require.NoError(t, db.First(&updatedToken, token.Id).Error)
 			require.NoError(t, db.First(&updatedSub, sub.Id).Error)
 			require.NoError(t, db.First(&updatedUser, user.Id).Error)
-			assert.Equal(t, 1-int(tc.wantReserved), updatedToken.RemainQuota)
+			assert.Equal(t, int64(1-int(tc.wantReserved)), updatedToken.RemainQuota)
 			assert.Equal(t, tc.wantReserved, updatedSub.AmountUsed)
-			assert.Equal(t, int(tc.wantReserved), updatedUser.UsedQuota)
+			assert.Equal(t, int64(int(tc.wantReserved)), updatedUser.UsedQuota)
 			assert.Equal(t, 1, updatedUser.RequestCount)
 			if !tc.free {
 				oldDB := model.DB
@@ -926,7 +926,7 @@ func TestExecuteTaskIngress_SubscriptionZeroQuotaDistinguishesFreeModel(t *testi
 				require.NoError(t, db.First(&task, task.ID).Error)
 				assert.Zero(t, updatedToken.RemainQuota)
 				assert.Equal(t, int64(1), updatedSub.AmountUsed)
-				assert.Equal(t, 1, updatedUser.UsedQuota)
+				assert.Equal(t, int64(1), updatedUser.UsedQuota)
 				assert.Equal(t, 1, updatedUser.RequestCount)
 				assert.Zero(t, task.Quota)
 				var observation model.TaskTerminalObservation
@@ -969,7 +969,7 @@ func TestDurableEvidenceSettlementRefundsNonFreeZeroSubscriptionReservation(t *t
 	require.NoError(t, db.First(&updatedSub, sub.Id).Error)
 	require.NoError(t, db.First(&updatedUser, user.Id).Error)
 	require.NoError(t, db.First(&task, task.ID).Error)
-	assert.Equal(t, 1, updatedToken.RemainQuota)
+	assert.Equal(t, int64(1), updatedToken.RemainQuota)
 	assert.Zero(t, updatedSub.AmountUsed)
 	assert.Zero(t, updatedUser.UsedQuota)
 	assert.Equal(t, 1, updatedUser.RequestCount)

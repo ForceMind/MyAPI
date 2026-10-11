@@ -37,6 +37,8 @@ func setupAuthoritativeBillingDB(t *testing.T) *gorm.DB {
 		&model.AccountQuotaMutationReceipt{}, &model.AccountQuotaReservationHead{}, &model.AccountQuotaTerminalRecoveryObligation{}, &model.AccountQuotaRefundFact{}, &model.AccountQuotaSettlementIntent{}, &model.AccountQuotaSettlementFact{}, &model.SystemTask{}, &model.SystemTaskLock{},
 		&model.QuotaWriterEpoch{}, &model.QuotaProjectionObligation{}, &model.QuotaBalanceBatchDrain{}, &model.QuotaBalanceBatchSubject{}, &model.QuotaWorkCursor{}))
 	require.True(t, model.RefreshAccountQuotaSettlementIntentSchemaCapability(db))
+	require.NoError(t, db.AutoMigrate(&model.AccountQuotaExecutionGate{}, &model.AccountQuotaExecutionPermit{}))
+	require.NoError(t, model.EnsureFreshAccountQuotaExecutionGate(context.Background(), db))
 	require.NoError(t, model.EnsureQuotaWriterEpochStateWithDB(db))
 	require.NoError(t, db.Model(&model.QuotaWriterEpoch{}).Where("id = ?", 1).Updates(map[string]interface{}{
 		"mode": string(model.QuotaWriterModeAuthoritative), "epoch": int64(17), "lock_version": gorm.Expr("lock_version + ?", 1),
@@ -51,9 +53,9 @@ func setupAuthoritativeBillingDB(t *testing.T) *gorm.DB {
 
 func seedAuthoritativeBilling(t *testing.T, db *gorm.DB, label string, userQuota, tokenQuota int, unlimited bool) (*model.User, *model.Token) {
 	t.Helper()
-	user := &model.User{Username: "auth-billing-" + label, AffCode: "auth-billing-" + label, Password: "fixture-password", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Quota: userQuota, AuthVersion: 1}
+	user := &model.User{Username: "auth-billing-" + label, AffCode: "auth-billing-" + label, Password: "fixture-password", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Quota: int64(userQuota), AuthVersion: 1}
 	require.NoError(t, db.Create(user).Error)
-	token := &model.Token{UserId: user.Id, Key: "auth-token-" + label, Status: common.TokenStatusEnabled, RemainQuota: tokenQuota, UnlimitedQuota: unlimited, ExpiredTime: -1}
+	token := &model.Token{UserId: user.Id, Key: "auth-token-" + label, Status: common.TokenStatusEnabled, RemainQuota: int64(tokenQuota), UnlimitedQuota: unlimited, ExpiredTime: -1}
 	require.NoError(t, db.Create(token).Error)
 	return user, token
 }
@@ -84,9 +86,9 @@ func TestDisabledCommercialModuleKeepsBillingSessionAndQuotaRejections(t *testin
 	require.NoError(t, session.Settle(50))
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, 950, user.Quota)
-	assert.Equal(t, 50, token.RemainQuota)
-	assert.Equal(t, 50, token.UsedQuota)
+	assert.Equal(t, int64(950), user.Quota)
+	assert.Equal(t, int64(50), token.RemainQuota)
+	assert.Equal(t, int64(50), token.UsedQuota)
 
 	_, apiErr = NewBillingSession(nil, authoritativeRelay(user, token, "self-use-token-over-limit"), 51)
 	require.NotNil(t, apiErr)
@@ -97,8 +99,8 @@ func TestDisabledCommercialModuleKeepsBillingSessionAndQuotaRejections(t *testin
 	require.NotNil(t, apiErr)
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, 950, user.Quota)
-	assert.Equal(t, 50, token.RemainQuota)
+	assert.Equal(t, int64(950), user.Quota)
+	assert.Equal(t, int64(50), token.RemainQuota)
 }
 
 func TestAuthoritativeBillingSessionFullLifecycle(t *testing.T) {
@@ -117,9 +119,9 @@ func TestAuthoritativeBillingSessionFullLifecycle(t *testing.T) {
 
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, 920, user.Quota)
-	assert.Equal(t, 420, token.RemainQuota)
-	assert.Equal(t, 80, token.UsedQuota)
+	assert.Equal(t, int64(920), user.Quota)
+	assert.Equal(t, int64(420), token.RemainQuota)
+	assert.Equal(t, int64(80), token.UsedQuota)
 	var receipts []model.AccountQuotaMutationReceipt
 	require.NoError(t, db.Where("request_id = ?", info.RequestId).Order("id ASC").Find(&receipts).Error)
 	assert.Len(t, receipts, 3)
@@ -136,9 +138,9 @@ func TestAuthoritativeBillingSessionSettlementReplayRequiresSameActualQuota(t *t
 	require.ErrorIs(t, session.Settle(81), model.ErrAccountQuotaMutationConflict)
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, 920, user.Quota)
-	assert.Equal(t, 420, token.RemainQuota)
-	assert.Equal(t, 80, token.UsedQuota)
+	assert.Equal(t, int64(920), user.Quota)
+	assert.Equal(t, int64(420), token.RemainQuota)
+	assert.Equal(t, int64(80), token.UsedQuota)
 }
 
 func TestAuthoritativeBillingSessionConcurrentDifferentSettlementsConflict(t *testing.T) {
@@ -162,7 +164,7 @@ func TestAuthoritativeBillingSessionConcurrentDifferentSettlementsConflict(t *te
 
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Contains(t, []int{910, 920}, user.Quota)
+	assert.Contains(t, []int64{910, 920}, user.Quota)
 	assert.Equal(t, user.Quota-500, token.RemainQuota)
 	assert.Equal(t, 1000-user.Quota, token.UsedQuota)
 	var terminalCount int64
@@ -227,8 +229,8 @@ func TestBillingSessionSettleWithContextCancellationStillPersistsTerminalWrite(t
 	assert.EqualValues(t, 1, terminalCount)
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, 920, user.Quota)
-	assert.Equal(t, 420, token.RemainQuota)
+	assert.Equal(t, int64(920), user.Quota)
+	assert.Equal(t, int64(420), token.RemainQuota)
 }
 
 func TestAuthoritativeBillingSessionRefundIsSynchronousAndRetrySafe(t *testing.T) {
@@ -244,8 +246,8 @@ func TestAuthoritativeBillingSessionRefundIsSynchronousAndRetrySafe(t *testing.T
 	require.False(t, session.NeedsRefund())
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, 1000, user.Quota)
-	assert.Equal(t, 500, token.RemainQuota)
+	assert.Equal(t, int64(1000), user.Quota)
+	assert.Equal(t, int64(500), token.RemainQuota)
 	assert.Zero(t, token.UsedQuota)
 	_, err := model.SettleAccountQuota(context.Background(), db, model.AccountQuotaTerminalInput{RequestID: info.RequestId, ReserveReceiptID: session.reserveReceipt.ID, ActualQuota: 50})
 	require.ErrorIs(t, err, model.ErrAccountQuotaMutationTerminal)
@@ -263,8 +265,8 @@ func TestAuthoritativeBillingSessionTrustPlaygroundAndUnlimited(t *testing.T) {
 		require.NoError(t, session.Settle(60))
 		require.NoError(t, db.First(user, user.Id).Error)
 		require.NoError(t, db.First(token, token.Id).Error)
-		assert.Equal(t, trust+940, user.Quota)
-		assert.Equal(t, trust+940, token.RemainQuota)
+		assert.Equal(t, int64(trust+940), user.Quota)
+		assert.Equal(t, int64(trust+940), token.RemainQuota)
 	})
 
 	t.Run("playground", func(t *testing.T) {
@@ -277,7 +279,7 @@ func TestAuthoritativeBillingSessionTrustPlaygroundAndUnlimited(t *testing.T) {
 		require.Nil(t, apiErr)
 		require.NoError(t, session.Settle(80))
 		require.NoError(t, db.First(token, token.Id).Error)
-		assert.Equal(t, 500, token.RemainQuota)
+		assert.Equal(t, int64(500), token.RemainQuota)
 		assert.Zero(t, token.UsedQuota)
 	})
 
@@ -290,8 +292,8 @@ func TestAuthoritativeBillingSessionTrustPlaygroundAndUnlimited(t *testing.T) {
 		require.Nil(t, apiErr)
 		require.NoError(t, session.Settle(100))
 		require.NoError(t, db.First(token, token.Id).Error)
-		assert.Equal(t, -100, token.RemainQuota)
-		assert.Equal(t, 100, token.UsedQuota)
+		assert.Equal(t, int64(-100), token.RemainQuota)
+		assert.Equal(t, int64(100), token.UsedQuota)
 	})
 }
 
@@ -369,14 +371,14 @@ func TestAuthoritativeBillingSessionFreeAndPaidZeroMatrix(t *testing.T) {
 					if freeModel {
 						charged = 0
 					}
-					assert.Equal(t, 10-charged, token.RemainQuota)
-					assert.Equal(t, charged, token.UsedQuota)
+					assert.Equal(t, int64(10-charged), token.RemainQuota)
+					assert.Equal(t, int64(charged), token.UsedQuota)
 					if subscription != nil {
 						require.NoError(t, db.First(subscription, subscription.Id).Error)
 						assert.EqualValues(t, charged, subscription.AmountUsed)
-						assert.Equal(t, 10, user.Quota)
+						assert.Equal(t, int64(10), user.Quota)
 					} else {
-						assert.Equal(t, 10-charged, user.Quota)
+						assert.Equal(t, int64(10-charged), user.Quota)
 					}
 				})
 			}
@@ -397,8 +399,8 @@ func TestAuthoritativeRefundIgnoresCancelledRequestContext(t *testing.T) {
 	assert.True(t, session.refunded)
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, 1000, user.Quota)
-	assert.Equal(t, 500, token.RemainQuota)
+	assert.Equal(t, int64(1000), user.Quota)
+	assert.Equal(t, int64(500), token.RemainQuota)
 }
 
 func TestBillingRecoveryEnqueueDetachesCancelledContext(t *testing.T) {
@@ -437,8 +439,8 @@ func TestAuthoritativeRefundCommitSuccessResponseLostIsResolved(t *testing.T) {
 	assert.Equal(t, model.AccountQuotaTerminalRecoveryApplied, obligation.State)
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, 1000, user.Quota)
-	assert.Equal(t, 500, token.RemainQuota)
+	assert.Equal(t, int64(1000), user.Quota)
+	assert.Equal(t, int64(500), token.RemainQuota)
 }
 
 func TestLegacyTrustedBillingSessionReserveRemainsNoOp(t *testing.T) {
@@ -518,8 +520,8 @@ func TestAuthoritativeRefundPersistentFailureRecoveredByRecoveryWorker(t *testin
 	assert.NotZero(t, obligation.TerminalReceiptID)
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, 1000, user.Quota)
-	assert.Equal(t, 500, token.RemainQuota)
+	assert.Equal(t, int64(1000), user.Quota)
+	assert.Equal(t, int64(500), token.RemainQuota)
 }
 
 func TestAuthoritativeSettlementPersistentFailureKeepsDurableRecoveryInput(t *testing.T) {
@@ -569,9 +571,9 @@ func TestAuthoritativeSettlementPersistentFailureKeepsDurableRecoveryInput(t *te
 	assert.Equal(t, model.AccountQuotaSettlementApplied, fact.State)
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, 920, user.Quota)
-	assert.Equal(t, 420, token.RemainQuota)
-	assert.Equal(t, 80, token.UsedQuota)
+	assert.Equal(t, int64(920), user.Quota)
+	assert.Equal(t, int64(420), token.RemainQuota)
+	assert.Equal(t, int64(80), token.UsedQuota)
 }
 
 func TestAuthoritativeSettlementFactCreateFailureRecoversFromIndependentIntent(t *testing.T) {
@@ -627,14 +629,14 @@ func TestAuthoritativeSettlementFactCreateFailureRecoversFromIndependentIntent(t
 	assert.NotZero(t, secondIntent.FactID)
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, 930, user.Quota)
-	assert.Equal(t, 430, token.RemainQuota)
-	assert.Equal(t, 70, token.UsedQuota)
+	assert.Equal(t, int64(930), user.Quota)
+	assert.Equal(t, int64(430), token.RemainQuota)
+	assert.Equal(t, int64(70), token.UsedQuota)
 	require.NoError(t, db.First(secondUser, secondUser.Id).Error)
 	require.NoError(t, db.First(secondToken, secondToken.Id).Error)
-	assert.Equal(t, 740, secondUser.Quota)
-	assert.Equal(t, 340, secondToken.RemainQuota)
-	assert.Equal(t, 60, secondToken.UsedQuota)
+	assert.Equal(t, int64(740), secondUser.Quota)
+	assert.Equal(t, int64(340), secondToken.RemainQuota)
+	assert.Equal(t, int64(60), secondToken.UsedQuota)
 }
 
 func TestAuthoritativeSettlementIntentInsertFailureFallsBackToDurableFact(t *testing.T) {
@@ -689,8 +691,8 @@ func TestAuthoritativeSettlementIntentInsertFailureFallsBackToDurableFact(t *tes
 	assert.Equal(t, model.AccountQuotaSettlementApplied, session.settlementFact.State)
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, 930, user.Quota)
-	assert.Equal(t, 430, token.RemainQuota)
+	assert.Equal(t, int64(930), user.Quota)
+	assert.Equal(t, int64(430), token.RemainQuota)
 }
 
 func TestAuthoritativeSettlementDualInsertFailurePersistsManualEvidenceWithoutEmptyTask(t *testing.T) {
@@ -766,8 +768,8 @@ func TestAuthoritativeSettlementAppliedFactWaitsForTerminalReadback(t *testing.T
 	assert.True(t, session.settled)
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, 920, user.Quota)
-	assert.Equal(t, 420, token.RemainQuota)
+	assert.Equal(t, int64(920), user.Quota)
+	assert.Equal(t, int64(420), token.RemainQuota)
 }
 
 func TestAuthoritativeSubscriptionSettlementRecoveryKeepsAuditAndProjectionConsistent(t *testing.T) {
@@ -836,8 +838,8 @@ func TestAuthoritativeSubscriptionSettlementRecoveryKeepsAuditAndProjectionConsi
 	require.NoError(t, db.First(subscription, subscription.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
 	assert.EqualValues(t, 80, subscription.AmountUsed)
-	assert.Equal(t, 420, token.RemainQuota)
-	assert.Equal(t, 80, token.UsedQuota)
+	assert.Equal(t, int64(420), token.RemainQuota)
+	assert.Equal(t, int64(80), token.UsedQuota)
 	var projection model.QuotaProjectionObligation
 	require.NoError(t, db.Where("receipt_kind = ? AND receipt_id = ?", "account", terminal.ID).First(&projection).Error)
 	assert.Equal(t, terminal.EventKey, projection.EventKey)
@@ -864,8 +866,8 @@ func TestAuthoritativeTrustedReserveRemainsNoOp(t *testing.T) {
 	assert.Zero(t, session.GetPreConsumedQuota())
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, trust+1000, user.Quota)
-	assert.Equal(t, trust+1000, token.RemainQuota)
+	assert.Equal(t, int64(trust+1000), user.Quota)
+	assert.Equal(t, int64(trust+1000), token.RemainQuota)
 }
 
 func TestAuthoritativeRefundRetriesIntentPersistenceAndExposesPersistentFailure(t *testing.T) {
@@ -963,15 +965,15 @@ func TestLegacyFundingFailureKeepsTokenDebitUntilDurableCompensationApplies(t *t
 	require.NoError(t, db.Where("request_id = ?", info.RequestId).First(&fact).Error)
 	assert.Equal(t, model.AccountQuotaRefundFactRetryable, fact.State)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, 400, token.RemainQuota)
-	assert.Equal(t, 100, token.UsedQuota)
+	assert.Equal(t, int64(400), token.RemainQuota)
+	assert.Equal(t, int64(100), token.UsedQuota)
 
 	require.NoError(t, db.Callback().Update().Remove(callbackKey))
 	processed, err := model.RunAccountQuotaRefundFacts(context.Background(), db, "legacy-token-restart", 10)
 	require.NoError(t, err)
 	assert.Equal(t, 1, processed)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, 500, token.RemainQuota)
+	assert.Equal(t, int64(500), token.RemainQuota)
 	assert.Zero(t, token.UsedQuota)
 	require.NoError(t, db.First(&fact, fact.ID).Error)
 	assert.Equal(t, model.AccountQuotaRefundFactApplied, fact.State)
@@ -1008,9 +1010,9 @@ func TestLegacyBillingSessionSettlementFailureKeepsDurableRecoveryEntry(t *testi
 	require.NotNil(t, task)
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, 850, user.Quota)
-	assert.Equal(t, 400, token.RemainQuota)
-	assert.Equal(t, 100, token.UsedQuota)
+	assert.Equal(t, int64(850), user.Quota)
+	assert.Equal(t, int64(400), token.RemainQuota)
+	assert.Equal(t, int64(100), token.UsedQuota)
 
 	require.NoError(t, db.Callback().Update().Remove(callbackKey))
 	worker := NewTaskRecoveryWorker("legacy-settlement-restart")
@@ -1020,9 +1022,9 @@ func TestLegacyBillingSessionSettlementFailureKeepsDurableRecoveryEntry(t *testi
 	assert.Equal(t, 1, processed)
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, 850, user.Quota)
-	assert.Equal(t, 350, token.RemainQuota)
-	assert.Equal(t, 150, token.UsedQuota)
+	assert.Equal(t, int64(850), user.Quota)
+	assert.Equal(t, int64(350), token.RemainQuota)
+	assert.Equal(t, int64(150), token.UsedQuota)
 	require.NoError(t, db.First(&fact, fact.ID).Error)
 	assert.Equal(t, model.AccountQuotaSettlementApplied, fact.State)
 }

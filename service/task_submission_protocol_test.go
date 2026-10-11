@@ -169,4 +169,3 @@ func TestHasTaskSubmissionIdempotencyHeader(t *testing.T) {
 	assert.True(t, HasTaskSubmissionIdempotencyHeader(http.Header{"X-Idempotency-Key": {"k"}}))
 	assert.True(t, HasTaskSubmissionIdempotencyHeader(http.Header{"x_idempotency_key": {"k"}}))
 }
-

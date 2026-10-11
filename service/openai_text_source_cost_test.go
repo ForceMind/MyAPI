@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -118,7 +119,13 @@ func TestOfficialTextCostUsesExplicitLongProfileAndTokenBounds(t *testing.T) {
 	assert.Equal(t, "long", cost.ContextProfile)
 	_, err = CalculateOpenAITextSourceCost(snapshot, "fixture-model", "auto", usage)
 	require.Error(t, err, "no guessed context threshold")
-	usage.InputTokens = common.GetPointer(common.MaxQuota + 1)
+	usage.InputTokens = common.GetPointer(common.MinQuota)
 	_, err = CalculateOpenAITextSourceCost(snapshot, "fixture-model", "short", usage)
 	require.Error(t, err)
+	overMaxQuota := int64(common.MaxQuota) + 1
+	if strconv.IntSize == 64 {
+		usage.InputTokens = common.GetPointer(int(overMaxQuota))
+		_, err = CalculateOpenAITextSourceCost(snapshot, "fixture-model", "short", usage)
+		require.Error(t, err)
+	}
 }

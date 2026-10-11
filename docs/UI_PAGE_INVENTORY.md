@@ -1,3 +1,25 @@
+## Current profile regression batch (2026-10-10, local unpublished candidate)
+
+Profile now bounds the complete self read (including a stalled authentication
+interceptor) to 15 seconds and provides retry, cancellation and safe settings
+parsing. Sidebar configuration shares that read and preserves unknown fields.
+The targeted 18 frontend tests, typecheck, lint and production build pass. Eight
+production-build Chromium synthetic scenarios cover actual sidebar navigation,
+320/1280 layouts, null settings, failed reads and stalled reads/auth refresh,
+with no page errors or horizontal overflow. Screenshots were inspected.
+
+This batch does not finish the whole UI or qualify production authentication,
+password/passkey changes or historical accounting. The global authentication
+bootstrap can still wait independently of Profile. See the current batch in
+[the accounting record](HISTORICAL_ACCOUNTING_COMPATIBILITY.md).
+
+Reproduce after `cd web && bun run build`, then from the repository root run
+`node tools/ui/profile-browser.mjs` with Playwright and its Chromium installed.
+An external installation may be selected with `MYAPI_PLAYWRIGHT_MODULE` (absolute
+module file) and `PLAYWRIGHT_BROWSERS_PATH`; `MYAPI_BROWSER_ARTIFACTS` selects the
+private output directory. APIs use isolated fixtures and all non-loopback URLs
+are blocked. No production credentials are needed.
+
 ## beta.9 Playground extension (2026-10-09)
 
 The beta.8 inventory below remains historical shared-UI evidence. Current beta.9

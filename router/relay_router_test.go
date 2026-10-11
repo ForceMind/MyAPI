@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -118,6 +119,8 @@ func setupRelayRouterTestDB(t *testing.T) {
 	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
 	model.InitColumnNamesForTest()
 	model.DB, model.LOG_DB = db, db
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.AssignedAccessPolicy{}, &model.Channel{}, &model.TokenBudget{}, &model.Ability{}, &model.Log{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.AssignedAccessPolicy{}, &model.Channel{}, &model.TokenBudget{}, &model.Ability{}, &model.Log{},
+		&model.AccountQuotaExecutionGate{}, &model.AccountQuotaExecutionPermit{}))
+	require.NoError(t, model.EnsureFreshAccountQuotaExecutionGate(context.Background(), db))
 	require.NoError(t, model.EnsureLogProjectionSchemaWithDB(db))
 }

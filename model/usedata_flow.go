@@ -19,7 +19,7 @@ type FlowQuotaData struct {
 	ModelName   string `json:"model_name" gorm:"column:model_name"`
 	TokenUsed   int    `json:"token_used" gorm:"column:token_used"`
 	Count       int    `json:"count" gorm:"column:count"`
-	Quota       int    `json:"quota" gorm:"column:quota"`
+	Quota       int64  `json:"quota" gorm:"column:quota"`
 }
 
 func GetFlowQuotaData(startTime int64, endTime int64, username string, userID int, role int) ([]*FlowQuotaData, error) {
@@ -40,6 +40,15 @@ func flowQuotaBaseQuery(startTime int64, endTime int64) *gorm.DB {
 	return query
 }
 
+func validateFlowQuotaAmounts(rows []*FlowQuotaData) error {
+	for _, row := range rows {
+		if _, err := common.CheckedQuotaUsed(row.Quota, 0); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func getSelfFlowQuotaData(startTime int64, endTime int64, userID int) ([]*FlowQuotaData, error) {
 	rows := make([]*FlowQuotaData, 0)
 	err := flowQuotaBaseQuery(startTime, endTime).
@@ -49,6 +58,9 @@ func getSelfFlowQuotaData(startTime int64, endTime int64, userID int) ([]*FlowQu
 		Order("quota DESC").
 		Find(&rows).Error
 	if err != nil {
+		return nil, err
+	}
+	if err := validateFlowQuotaAmounts(rows); err != nil {
 		return nil, err
 	}
 	return rows, fillFlowTokenNames(rows)
@@ -68,6 +80,9 @@ func getAdminFlowQuotaData(startTime int64, endTime int64, username string) ([]*
 	if err != nil {
 		return nil, err
 	}
+	if err := validateFlowQuotaAmounts(rows); err != nil {
+		return nil, err
+	}
 	return rows, fillFlowChannelNames(rows)
 }
 
@@ -83,6 +98,9 @@ func getRootFlowQuotaData(startTime int64, endTime int64, username string) ([]*F
 		Order("quota DESC").
 		Find(&rows).Error
 	if err != nil {
+		return nil, err
+	}
+	if err := validateFlowQuotaAmounts(rows); err != nil {
 		return nil, err
 	}
 	if err := fillFlowTokenNames(rows); err != nil {

@@ -1,5 +1,9 @@
 # v0.2.0-beta.10 published prerelease
 
+**2026-10-10 历史实例升级限制：** 此发布与下述合成验收不证明用户历史账务可安全升级。
+此前直接部署 beta.10 的建议已撤回。须先按[历史账务兼容核查记录](HISTORICAL_ACCOUNTING_COMPATIBILITY.md)
+完成一致性副本只读核账及可写副本恢复验收，再另行批准部署。启动失败不代表数据库未迁移或未写入。
+
 ## Verified publication, 2026-10-09
 
 **[beta.10 is published](https://github.com/ForceMind/MyAPI/releases/tag/v0.2.0-beta.10).**

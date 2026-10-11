@@ -112,7 +112,7 @@ func UserCheckin(userId int) (*Checkin, error) {
 		if authoritative {
 			return nil
 		}
-		return tx.Model(&User{}).Where("id = ?", userId).Update("quota", gorm.Expr("quota + ?", quotaAwarded)).Error
+		return applyLegacyUserWalletDeltaTx(tx, userId, int64(quotaAwarded), 0, nil)
 	})
 	if err != nil {
 		return nil, err

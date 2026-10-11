@@ -88,7 +88,7 @@ func TestEpayOrderAndSignedParametersUseOneSnapshotAcrossConfigurationChange(t *
 	require.NoError(t, err)
 	var user model.User
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 300, user.Quota)
+	assert.Equal(t, int64(300), user.Quota)
 }
 
 func TestEpayInsertFailureDoesNotGeneratePaymentParameters(t *testing.T) {
@@ -124,7 +124,7 @@ func TestEpayParameterFailureLeavesRecoverableFailedOrder(t *testing.T) {
 	assert.Equal(t, "100", order.QuotaPerUnitSnapshot)
 	var user model.User
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 100, user.Quota)
+	assert.Equal(t, int64(100), user.Quota)
 }
 
 func TestEpayUnavailablePricingDoesNotCreateOrderOrParameters(t *testing.T) {
@@ -171,7 +171,7 @@ func TestEpaySignedNotificationUsesStoredUnitAfterPricingChange(t *testing.T) {
 	}
 	var user model.User
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 300, user.Quota)
+	assert.Equal(t, int64(300), user.Quota)
 	var order model.TopUp
 	require.NoError(t, db.Where("trade_no = ?", result.Data["out_trade_no"]).First(&order).Error)
 	assert.Equal(t, "100", order.QuotaPerUnitSnapshot)

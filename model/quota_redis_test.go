@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/alicebob/miniredis/v2"
 	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,25 +21,33 @@ import (
 func s2cRedisFixtureOptions(address string) (*redis.Options, error) {
 	host, port, err := net.SplitHostPort(address)
 	number, portErr := strconv.Atoi(port)
-	if err != nil || !net.ParseIP(host).IsLoopback() || portErr != nil || number <= 0 || number > 65535 {
+	if err != nil || !net.ParseIP(host).IsLoopback() || portErr != nil || number <= 0 || number > 65535 || number == 6379 {
 		return nil, errors.New("S2-C Redis fixture requires a literal loopback TCP address and valid port")
 	}
 	return &redis.Options{Addr: address, DB: 15, MaxRetries: -1}, nil
 }
 
 func TestS2CQuotaRedisTargetSafety(t *testing.T) {
-	for _, address := range []string{"", "localhost:6379", "192.0.2.1:6379", "/tmp/redis.sock", "127.0.0.1:0", "127.0.0.1:65536"} {
+	for _, address := range []string{"", "localhost:6379", "127.0.0.1:6379", "192.0.2.1:6380", "/tmp/redis.sock", "127.0.0.1:0", "127.0.0.1:65536"} {
 		t.Run(address, func(t *testing.T) {
 			_, err := s2cRedisFixtureOptions(address)
 			require.Error(t, err)
 		})
 	}
+	for _, address := range []string{"127.0.0.1:6380", "[::1]:6380"} {
+		t.Run(address, func(t *testing.T) {
+			options, err := s2cRedisFixtureOptions(address)
+			require.NoError(t, err)
+			require.Equal(t, 15, options.DB)
+		})
+	}
 }
 
 // Only disposable CI Redis 7 instances are allowed. Require the entire instance
-// to be empty before any write, use database 15, never FLUSH or delete keys, and
-// let the service/container lifecycle own cleanup. PEXPIRETIME checks exact
-// expiration instants, rather than comparing elapsed TTLs or using sleeps.
+// to be empty before any write, use database 15, never FLUSH or broadly delete
+// keys, and let production methods operate only on this fixture's keys before
+// the service/container lifecycle reclaims the instance. PEXPIRETIME checks
+// exact expiration instants, rather than comparing elapsed TTLs or using sleeps.
 func TestS2CQuotaConfiguredRedis(t *testing.T) {
 	if os.Getenv("MYAPI_S2C_REDIS_TESTS") != "1" {
 		t.Skip("disposable Redis tests require MYAPI_S2C_REDIS_TESTS=1")
@@ -48,6 +57,20 @@ func TestS2CQuotaConfiguredRedis(t *testing.T) {
 	client := redis.NewClient(options)
 	t.Cleanup(func() { require.NoError(t, client.Close()) })
 	ctx := context.Background()
+	serverInfo, err := client.Info(ctx, "server").Result()
+	require.NoError(t, err)
+	var redisVersion string
+	for _, line := range strings.Split(serverInfo, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "redis_version:") {
+			redisVersion = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "redis_version:"))
+			break
+		}
+	}
+	require.NotEmpty(t, redisVersion)
+	major, err := strconv.Atoi(strings.SplitN(redisVersion, ".", 2)[0])
+	require.NoError(t, err)
+	require.Equal(t, 7, major, "S2-C historical amount contract requires Redis 7")
+	t.Logf("S2-C Redis fixture server version %s", redisVersion)
 	keyspace, err := client.Info(ctx, "keyspace").Result()
 	require.NoError(t, err)
 	for _, line := range strings.Split(keyspace, "\n") {
@@ -56,6 +79,24 @@ func TestS2CQuotaConfiguredRedis(t *testing.T) {
 	count, err := client.DBSize(ctx).Result()
 	require.NoError(t, err)
 	require.Zero(t, count)
+	runS2CQuotaRedisContract(t, client)
+	runHistoricalAmountRedisContract(t, client)
+}
+
+func TestS2CQuotaMiniRedis(t *testing.T) {
+	server := miniredis.RunT(t)
+	server.SetTime(time.Unix(1_700_000_000, 0))
+	options, err := s2cRedisFixtureOptions(server.Addr())
+	require.NoError(t, err)
+	client := redis.NewClient(options)
+	t.Cleanup(func() { require.NoError(t, client.Close()) })
+	runS2CQuotaRedisContract(t, client)
+	runHistoricalAmountRedisContract(t, client)
+}
+
+func runS2CQuotaRedisContract(t *testing.T, client *redis.Client) {
+	t.Helper()
+	ctx := context.Background()
 
 	for _, operation := range []struct {
 		name, script   string
@@ -73,6 +114,7 @@ func TestS2CQuotaConfiguredRedis(t *testing.T) {
 				before := map[string]string{"Id": "42", "CacheSchema": strconv.Itoa(userCacheSchemaVersion), "Quota": "100", "RemainQuota": "100", "UsedQuota": "20", "AccessedTime": "99", "Name": "preserve", "QuotaWriterEpoch": "1"}
 				third := userCacheSchemaVersion
 				if operation.token {
+					before["CacheSchema"] = strconv.Itoa(tokenCacheSchemaVersion)
 					third = 123
 				}
 				args := []interface{}{10, 42, third, 1}
@@ -107,14 +149,14 @@ func TestS2CQuotaConfiguredRedis(t *testing.T) {
 					before[field], want = "01", -1
 				case "result-overflow":
 					if operation.token {
-						before["UsedQuota"], want = strconv.Itoa(common.MaxQuota), -2
+						before["UsedQuota"], want = strconv.FormatInt(common.MaxQuotaBalance, 10), -2
 						if !operation.reserve {
-							before["UsedQuota"] = strconv.Itoa(common.MinQuota)
+							before["UsedQuota"] = "0"
 						}
 					} else if operation.reserve {
 						before["Quota"], want = "-10", 0 // Insufficient debt balance; never a credit.
 					} else {
-						before["Quota"], want = strconv.Itoa(common.MaxQuota), -2
+						before["Quota"], want = strconv.FormatInt(common.MaxQuotaBalance, 10), -2
 					}
 				}
 				require.NoError(t, client.HSet(ctx, key, before).Err())

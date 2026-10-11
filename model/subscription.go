@@ -192,6 +192,9 @@ type SubscriptionPlan struct {
 }
 
 func (p *SubscriptionPlan) BeforeCreate(tx *gorm.DB) error {
+	if _, err := common.CheckedQuotaUsed(p.TotalAmount, 0); err != nil {
+		return err
+	}
 	now := common.GetTimestamp()
 	p.CreatedAt = now
 	p.UpdatedAt = now
@@ -199,6 +202,9 @@ func (p *SubscriptionPlan) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (p *SubscriptionPlan) BeforeUpdate(tx *gorm.DB) error {
+	if _, err := common.CheckedQuotaUsed(p.TotalAmount, 0); err != nil {
+		return err
+	}
 	p.UpdatedAt = common.GetTimestamp()
 	return nil
 }
@@ -302,6 +308,12 @@ type UserSubscription struct {
 }
 
 func (s *UserSubscription) BeforeCreate(tx *gorm.DB) error {
+	if _, err := common.CheckedQuotaUsed(s.AmountTotal, 0); err != nil {
+		return err
+	}
+	if _, err := common.CheckedQuotaUsed(s.AmountUsed, 0); err != nil {
+		return err
+	}
 	now := common.GetTimestamp()
 	s.CreatedAt = now
 	s.UpdatedAt = now
@@ -309,6 +321,12 @@ func (s *UserSubscription) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (s *UserSubscription) BeforeUpdate(tx *gorm.DB) error {
+	if _, err := common.CheckedQuotaUsed(s.AmountTotal, 0); err != nil {
+		return err
+	}
+	if _, err := common.CheckedQuotaUsed(s.AmountUsed, 0); err != nil {
+		return err
+	}
 	s.UpdatedAt = common.GetTimestamp()
 	return nil
 }
@@ -516,6 +534,9 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 	}
 	if userId <= 0 {
 		return nil, errors.New("invalid user id")
+	}
+	if _, err := common.CheckedQuotaUsed(plan.TotalAmount, 0); err != nil {
+		return nil, err
 	}
 	if plan.MaxPurchasePerUser > 0 {
 		var count int64
@@ -896,11 +917,10 @@ func PurchaseSubscriptionWithBalance(userId int, planId int, expectedEpoch ...ui
 				quotaReceipt = receipt
 				authoritative = true
 			case QuotaWriterModeLegacy:
-				if user.Quota < requiredQuota {
+				if user.Quota < int64(requiredQuota) {
 					return errors.New("余额不足")
 				}
-				if err := tx.Model(&User{}).Where("id = ?", userId).
-					Update("quota", gorm.Expr("quota - ?", requiredQuota)).Error; err != nil {
+				if err := applyLegacyUserWalletDeltaTx(tx, userId, -int64(requiredQuota), 0, nil); err != nil {
 					return err
 				}
 			default:
@@ -1416,7 +1436,7 @@ func maybeResetUserSubscriptionWithPlanTx(tx *gorm.DB, sub *UserSubscription, pl
 // It preserves the historical active/end_time query and applies due plan resets
 // before deciding whether a subscription can cover amount.
 func selectActiveUserSubscriptionForPreConsumeTx(tx *gorm.DB, userID int, amount int64, now int64) (*UserSubscription, bool, bool, error) {
-	if tx == nil || userID <= 0 || amount < 0 {
+	if tx == nil || userID <= 0 || amount < 0 || amount > int64(common.MaxQuota) {
 		return nil, false, false, errors.New("invalid subscription eligibility input")
 	}
 	var subscriptions []UserSubscription
@@ -1428,6 +1448,12 @@ func selectActiveUserSubscriptionForPreConsumeTx(tx *gorm.DB, userID int, amount
 	allowWalletOverflow := true
 	for index := range subscriptions {
 		subscription := &subscriptions[index]
+		if _, err := common.CheckedQuotaUsed(subscription.AmountTotal, 0); err != nil {
+			return nil, true, allowWalletOverflow, err
+		}
+		if _, err := common.CheckedQuotaUsed(subscription.AmountUsed, 0); err != nil {
+			return nil, true, allowWalletOverflow, err
+		}
 		if !subscription.AllowWalletOverflow {
 			allowWalletOverflow = false
 		}
@@ -1454,8 +1480,8 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 	if strings.TrimSpace(requestId) == "" {
 		return nil, errors.New("requestId is empty")
 	}
-	if amount <= 0 {
-		return nil, errors.New("amount must be > 0")
+	if amount <= 0 || amount > int64(common.MaxQuota) {
+		return nil, errors.New("subscription pre-consume amount is out of range")
 	}
 	now := GetDBTimestamp()
 
@@ -1494,6 +1520,10 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			return fmt.Errorf("%w, need=%d", ErrSubscriptionQuotaInsufficient, amount)
 		}
 		usedBefore := sub.AmountUsed
+		usedAfter, err := common.CheckedQuotaUsed(usedBefore, amount)
+		if err != nil {
+			return err
+		}
 		record := &SubscriptionPreConsumeRecord{
 			RequestId: requestId, UserId: userId, UserSubscriptionId: sub.Id, PreConsumed: amount, Status: "consumed",
 		}
@@ -1512,7 +1542,7 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			}
 			return err
 		}
-		sub.AmountUsed += amount
+		sub.AmountUsed = usedAfter
 		if err := tx.Save(sub).Error; err != nil {
 			return err
 		}
@@ -1665,9 +1695,15 @@ func postConsumeUserSubscriptionDeltaTx(tx *gorm.DB, userSubscriptionId int, del
 		First(&sub).Error; err != nil {
 		return err
 	}
-	newUsed := sub.AmountUsed + delta
-	if newUsed < 0 {
-		newUsed = 0
+	if delta < int64(common.MinQuota) || delta > int64(common.MaxQuota) {
+		return common.ErrQuotaBalanceOutOfRange
+	}
+	if _, err := common.CheckedQuotaUsed(sub.AmountTotal, 0); err != nil {
+		return err
+	}
+	newUsed, err := common.CheckedQuotaUsed(sub.AmountUsed, delta)
+	if err != nil {
+		return err
 	}
 	if sub.AmountTotal > 0 && newUsed > sub.AmountTotal {
 		return fmt.Errorf("subscription used exceeds total, used=%d total=%d", newUsed, sub.AmountTotal)

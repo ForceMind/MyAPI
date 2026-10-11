@@ -39,8 +39,8 @@ func TestBillingUnknownUsagePersistsAndBlocksSessionTerminals(t *testing.T) {
 	require.Error(t, err)
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, 900, user.Quota)
-	assert.Equal(t, 900, token.RemainQuota)
+	assert.Equal(t, int64(900), user.Quota)
+	assert.Equal(t, int64(900), token.RemainQuota)
 }
 
 func TestPartialUsageProvenanceDoesNotClaimReportedActual(t *testing.T) {
@@ -88,10 +88,10 @@ func TestTextUnknownUsagePersistsAcrossBothWriterModes(t *testing.T) {
 				require.ErrorIs(t, session.Refund(ctx), model.ErrAccountQuotaUsageUnresolved)
 				require.NoError(t, db.First(user, user.Id).Error)
 				require.NoError(t, db.First(token, token.Id).Error)
-				assert.Equal(t, 900, user.Quota)
+				assert.Equal(t, int64(900), user.Quota)
 				assert.Zero(t, user.UsedQuota)
 				assert.Zero(t, user.RequestCount)
-				assert.Equal(t, 900, token.RemainQuota)
+				assert.Equal(t, int64(900), token.RemainQuota)
 				if mode == model.QuotaWriterModeLegacy {
 					record, err := model.FindLegacyUsageReservation(context.Background(), db, info.RequestId)
 					require.NoError(t, err)
@@ -211,9 +211,9 @@ func TestLegacyUsageAdmissionClaimsRequestBeforeAnyDuplicateReserve(t *testing.T
 	require.NotNil(t, apiErr)
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
-	assert.Equal(t, 900, user.Quota)
-	assert.Equal(t, 900, token.RemainQuota)
-	assert.Equal(t, 100, token.UsedQuota)
+	assert.Equal(t, int64(900), user.Quota)
+	assert.Equal(t, int64(900), token.RemainQuota)
+	assert.Equal(t, int64(100), token.UsedQuota)
 }
 
 func TestRealtimeRawIncompleteUsageIsHeldForReview(t *testing.T) {
@@ -324,8 +324,8 @@ func TestRealtimeRawUnknownPersistsAcrossBothWriterModes(t *testing.T) {
 			require.ErrorIs(t, session.Refund(ctx), model.ErrAccountQuotaUsageUnresolved)
 			require.NoError(t, db.First(user, user.Id).Error)
 			require.NoError(t, db.First(token, token.Id).Error)
-			assert.Equal(t, 900, user.Quota)
-			assert.Equal(t, 900, token.RemainQuota)
+			assert.Equal(t, int64(900), user.Quota)
+			assert.Equal(t, int64(900), token.RemainQuota)
 			assert.Zero(t, user.UsedQuota)
 			assert.Zero(t, user.RequestCount)
 			if mode == model.QuotaWriterModeLegacy {

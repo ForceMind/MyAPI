@@ -60,7 +60,7 @@ func TestLegacyBillingSessionSubscriptionOverflowToWallet(t *testing.T) {
 	assert.Equal(t, 100, session.GetPreConsumedQuota())
 
 	require.NoError(t, db.First(user, user.Id).Error)
-	assert.Equal(t, 900, user.Quota, "overflow 后钱包精确扣减预扣额度")
+	assert.Equal(t, int64(900), user.Quota, "overflow 后钱包精确扣减预扣额度")
 }
 
 // TestLegacyBillingSessionSubscriptionOverflowBlocked 订阅耗尽且套餐禁止钱包
@@ -78,9 +78,9 @@ func TestLegacyBillingSessionSubscriptionOverflowBlocked(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, apiErr.StatusCode)
 
 	require.NoError(t, db.First(user, user.Id).Error)
-	assert.Equal(t, 1000, user.Quota, "禁止溢出时钱包不得扣减")
+	assert.Equal(t, int64(1000), user.Quota, "禁止溢出时钱包不得扣减")
 	_, remaining, used := loadPostConsumeBalances(t, db, user, token)
-	assert.Equal(t, 500, remaining)
+	assert.Equal(t, int64(500), remaining)
 	assert.Zero(t, used)
 }
 
@@ -125,8 +125,8 @@ func TestLegacyBillingSessionSubscriptionErrorTextCannotAuthorizeWalletFallback(
 				assert.Equal(t, types.ErrorCodeUpdateDataError, apiErr.GetErrorCode())
 				assert.ErrorIs(t, apiErr, readErr)
 			}
-			assert.Equal(t, 1000, wallet)
-			assert.Equal(t, 500, remaining, "the attempted Key reserve must be compensated")
+			assert.Equal(t, int64(1000), wallet)
+			assert.Equal(t, int64(500), remaining, "the attempted Key reserve must be compensated")
 			assert.Zero(t, used)
 			assert.Equal(t, model.LegacyUsageAdmissionFailed, reservation.State)
 			assert.Equal(t, "pending", reservation.FundingSource)
@@ -165,8 +165,8 @@ func TestLegacyBillingSessionWrappedSubscriptionAdmissionErrors(t *testing.T) {
 			assert.Equal(t, http.StatusForbidden, apiErr.StatusCode)
 			assert.EqualError(t, apiErr.Err, "订阅额度不足或未配置订阅: "+wrappedErr.Error())
 			wallet, remaining, used := loadPostConsumeBalances(t, db, user, token)
-			assert.Equal(t, 1000, wallet, "subscription_only never falls back to the wallet")
-			assert.Equal(t, 500, remaining)
+			assert.Equal(t, int64(1000), wallet, "subscription_only never falls back to the wallet")
+			assert.Equal(t, int64(500), remaining)
 			assert.Zero(t, used)
 		})
 	}
@@ -219,9 +219,9 @@ func TestLegacyBillingSessionSubscriptionAdmissionPreferences(t *testing.T) {
 				}
 			}
 			wallet, remaining, used := loadPostConsumeBalances(t, db, user, token)
-			assert.Equal(t, wantWallet, wallet)
-			assert.Equal(t, wantRemaining, remaining)
-			assert.Equal(t, wantUsed, used)
+			assert.Equal(t, int64(wantWallet), wallet)
+			assert.Equal(t, int64(wantRemaining), remaining)
+			assert.Equal(t, int64(wantUsed), used)
 		})
 	}
 }
@@ -264,8 +264,8 @@ func TestBillingSessionSubscriptionStorageFailureAcrossWriters(t *testing.T) {
 				assert.ErrorIs(t, apiErr, storageErr)
 				assert.NotErrorIs(t, apiErr, model.ErrSubscriptionQuotaInsufficient)
 				wallet, remaining, used := loadPostConsumeBalances(t, db, user, token)
-				assert.Equal(t, 1000, wallet)
-				assert.Equal(t, 500, remaining)
+				assert.Equal(t, int64(1000), wallet)
+				assert.Equal(t, int64(500), remaining)
 				assert.Zero(t, used)
 				var subscription model.UserSubscription
 				require.NoError(t, db.Where("user_id = ?", user.Id).First(&subscription).Error)

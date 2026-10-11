@@ -84,6 +84,32 @@ func createMiddlewarePATUser(t *testing.T, username, token string) *model.User {
 	return user
 }
 
+func warmTokenAccountingCacheWithLockedWriter(t *testing.T, token *model.Token) {
+	t.Helper()
+	require.NotNil(t, token)
+	require.True(t, common.RedisEnabled)
+	require.NoError(t, model.DB.AutoMigrate(
+		&model.QuotaBalanceBatchDrain{},
+		&model.QuotaBalanceBatchSubject{},
+		&model.QuotaWorkCursor{},
+	))
+	require.NoError(t, model.EnsureQuotaWriterEpochStateWithDB(model.DB))
+	require.NoError(t, model.EnsureQuotaMaintenanceBackfillCursorsWithDB(model.DB))
+	var before model.Token
+	require.NoError(t, model.DB.First(&before, token.Id).Error)
+
+	previousBatch := common.BatchUpdateEnabled
+	common.BatchUpdateEnabled = false
+	defer func() { common.BatchUpdateEnabled = previousBatch }()
+	// A zero delta still follows the public, subject-locked writer path and
+	// publishes a complete accounting hash without changing the balance.
+	require.NoError(t, model.DecreaseTokenQuota(token.Id, token.Key, 0))
+	var after model.Token
+	require.NoError(t, model.DB.First(&after, token.Id).Error)
+	require.Equal(t, before.RemainQuota, after.RemainQuota)
+	require.Equal(t, before.UsedQuota, after.UsedQuota)
+}
+
 func TestUserAuthAllowsOpaqueDottedPAT(t *testing.T) {
 	setupDashboardAuthMiddlewareTest(t)
 	user := createMiddlewarePATUser(t, "dotted-pat-user", "opaque.key.with-dots")
@@ -103,6 +129,59 @@ func TestUserAuthAllowsOpaqueDottedPAT(t *testing.T) {
 	}
 	require.NoError(t, common.Unmarshal(response.Body.Bytes(), &body))
 	assert.Equal(t, user.Id, body.ID)
+}
+
+func TestTokenAuthReadOnlyRejectsCacheIdentityMismatchAndPreservesReadableStates(t *testing.T) {
+	setupDashboardAuthMiddlewareTest(t)
+	gin.SetMode(gin.TestMode)
+	model.InitColumnNamesForTest()
+	require.NoError(t, model.DB.AutoMigrate(&model.Token{}, &model.QuotaWriterEpoch{}))
+	require.NoError(t, model.EnsureQuotaWriterEpochStateWithDB(model.DB))
+
+	owner := createMiddlewarePATUser(t, "readonly-token-owner", "readonly-token-owner-pat")
+	replacement := createMiddlewarePATUser(t, "readonly-token-replacement", "readonly-token-replacement-pat")
+	tokens := []*model.Token{
+		{UserId: owner.Id, Key: "readonlyidentity", Status: common.TokenStatusEnabled},
+		{UserId: owner.Id, Key: "readonlydisabled", Status: common.TokenStatusDisabled},
+		{UserId: owner.Id, Key: "readonlyexpired", Status: common.TokenStatusExpired},
+		{UserId: owner.Id, Key: "readonlyexhausted", Status: common.TokenStatusExhausted},
+	}
+	for _, token := range tokens {
+		require.NoError(t, model.DB.Create(token).Error)
+	}
+
+	redisServer, _ := useRateLimitMiniRedis(t)
+	warmTokenAccountingCacheWithLockedWriter(t, tokens[0])
+	require.NoError(t, model.DB.Model(tokens[0]).Update("user_id", replacement.Id).Error)
+	cacheKey := "token:" + common.GenerateHMAC(tokens[0].Key)
+	require.Equal(t, fmt.Sprint(owner.Id), redisServer.HGet(cacheKey, "UserId"), "fixture must retain the old cached token owner")
+
+	handlerCalls := 0
+	router := gin.New()
+	router.GET("/readonly", TokenAuthReadOnly(), func(c *gin.Context) {
+		handlerCalls++
+		c.Status(http.StatusNoContent)
+	})
+	request := func(key string) (*httptest.ResponseRecorder, bool) {
+		before := handlerCalls
+		req := httptest.NewRequest(http.MethodGet, "/readonly", nil)
+		req.Header.Set("Authorization", "Bearer sk-"+key)
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, req)
+		return response, handlerCalls > before
+	}
+
+	response, handled := request(tokens[0].Key)
+	assert.Equal(t, http.StatusUnauthorized, response.Code, response.Body.String())
+	assert.False(t, handled, "cache identity mismatch must not reach the protected handler")
+	response, handled = request(tokens[1].Key)
+	assert.Equal(t, http.StatusUnauthorized, response.Code, response.Body.String())
+	assert.False(t, handled, "disabled token must remain rejected")
+	for _, token := range tokens[2:] {
+		response, handled = request(token.Key)
+		assert.Equal(t, http.StatusNoContent, response.Code, token.Key)
+		assert.True(t, handled, "%s must remain readable", token.Key)
+	}
 }
 
 func TestUserAuthNeverFallsBackForRecognizedInvalidInternalJWT(t *testing.T) {

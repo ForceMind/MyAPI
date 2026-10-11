@@ -413,6 +413,7 @@ func TestUpdateSunoTasksStalePollsRefundExactlyOnce(t *testing.T) {
 		Status:  common.ChannelStatusEnabled,
 		BaseURL: &baseURL,
 	}).Error)
+	seedChargedAccounting(t, userID, channelID, tokenID, taskQuota, 1)
 
 	task := makeTask(userID, channelID, taskQuota, tokenID, BillingSourceWallet, 0)
 	task.TaskID = publicTaskID
@@ -444,8 +445,12 @@ func TestUpdateSunoTasksStalePollsRefundExactlyOnce(t *testing.T) {
 	require.NoError(t, model.DB.First(&reloaded, task.ID).Error)
 	assert.EqualValues(t, model.TaskStatusFailure, reloaded.Status)
 	assert.Zero(t, reloaded.Quota)
-	assert.Equal(t, initialUserQuota+taskQuota, getUserQuota(t, userID))
-	assert.Equal(t, initialTokenQuota+taskQuota, getTokenRemainQuota(t, tokenID))
+	assert.Equal(t, int64(initialUserQuota+taskQuota), getUserQuota(t, userID))
+	assert.Equal(t, int64(initialTokenQuota+taskQuota), getTokenRemainQuota(t, tokenID))
+	userUsedQuota, _ := getUserUsageAccounting(t, userID)
+	assert.Zero(t, userUsedQuota)
+	assert.Zero(t, getTokenUsedQuota(t, tokenID))
+	assert.Zero(t, getChannelUsedQuota(t, channelID))
 	assert.Equal(t, int64(1), countLogs(t))
 }
 
@@ -472,7 +477,7 @@ func TestRunTaskPollingOnceDoesNotRefundHistoricalFailedTask(t *testing.T) {
 	summary := RunTaskPollingOnce(context.Background(), nil)
 
 	assert.Zero(t, summary.UnfinishedTasks)
-	assert.Equal(t, initialQuota, getUserQuota(t, userID))
+	assert.Equal(t, int64(initialQuota), getUserQuota(t, userID))
 	assert.Equal(t, taskQuota, getTaskQuota(t, task.ID))
 	assert.Equal(t, int64(0), countLogs(t))
 }
@@ -516,6 +521,6 @@ func TestSweepTimedOutTasksHonorsRefundRolloutBoundary(t *testing.T) {
 	assert.Zero(t, reloadedModern.Quota)
 	assert.Contains(t, reloadedLegacy.FailReason, "旧系统遗留任务")
 	assert.Contains(t, reloadedModern.FailReason, "任务超时")
-	assert.Equal(t, initialQuota+modernTaskQuota, getUserQuota(t, userID))
+	assert.Equal(t, int64(initialQuota+modernTaskQuota), getUserQuota(t, userID))
 	assert.Equal(t, int64(1), countLogs(t))
 }

@@ -94,14 +94,26 @@ func GetQuotaWriterEpochState(db *gorm.DB) (*QuotaWriterEpoch, error) {
 	if db == nil {
 		return nil, gorm.ErrInvalidDB
 	}
-	var state QuotaWriterEpoch
-	if err := db.Where("id = ?", quotaWriterEpochSingletonID).First(&state).Error; err != nil {
+	var states []QuotaWriterEpoch
+	if err := db.Order("id").Limit(2).Find(&states).Error; err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrQuotaWriterEpochUnavailable, err)
 	}
-	if state.SchemaVersion != QuotaWriterEpochSchemaVersion || !validQuotaWriterMode(QuotaWriterMode(state.Mode)) || state.Epoch <= 0 || state.LockVersion <= 0 {
+	if len(states) != 1 {
+		return nil, fmt.Errorf("%w: expected exactly one persisted state", ErrQuotaWriterEpochUnavailable)
+	}
+	state := states[0]
+	if _, err := validateQuotaWriterEpochFields(int64(state.ID), int64(state.SchemaVersion), state.Mode, state.Epoch, state.LockVersion); err != nil {
 		return nil, fmt.Errorf("%w: invalid persisted state", ErrQuotaWriterEpochUnavailable)
 	}
 	return &state, nil
+}
+
+func validateQuotaWriterEpochFields(id, schemaVersion int64, mode string, epoch, lockVersion int64) (QuotaWriterMode, error) {
+	writerMode := QuotaWriterMode(mode)
+	if id != quotaWriterEpochSingletonID || schemaVersion != QuotaWriterEpochSchemaVersion || !validQuotaWriterMode(writerMode) || epoch <= 0 || lockVersion <= 0 {
+		return "", ErrQuotaWriterEpochUnavailable
+	}
+	return writerMode, nil
 }
 
 func quotaWriterEpochForLegacyCache(db *gorm.DB) (int64, error) {

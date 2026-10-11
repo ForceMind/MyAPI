@@ -118,7 +118,7 @@ func newBridgeTestFixture(t *testing.T, db *gorm.DB, label string, userQuota, to
 		AffCode:  name,
 		Password: "fixture-password",
 		Status:   common.UserStatusEnabled,
-		Quota:    userQuota,
+		Quota:    int64(userQuota),
 	}
 	require.NoError(t, db.Create(&user).Error)
 
@@ -126,7 +126,7 @@ func newBridgeTestFixture(t *testing.T, db *gorm.DB, label string, userQuota, to
 		UserId:      user.Id,
 		Key:         name,
 		Status:      common.TokenStatusEnabled,
-		RemainQuota: tokenQuota,
+		RemainQuota: int64(tokenQuota),
 		ExpiredTime: -1,
 	}
 	require.NoError(t, db.Create(&token).Error)
@@ -253,8 +253,8 @@ func TestDurableSettleTaskOnComplete_SurplusRefund(t *testing.T) {
 	// Verify user balance refunded surplus: 800 + 50 = 850
 	var updatedUser model.User
 	require.NoError(t, db.Where("id = ?", fixture.User.Id).First(&updatedUser).Error)
-	assert.Equal(t, 850, updatedUser.Quota)
-	assert.Equal(t, 150, updatedUser.UsedQuota)
+	assert.Equal(t, int64(850), updatedUser.Quota)
+	assert.Equal(t, int64(150), updatedUser.UsedQuota)
 	assert.Equal(t, 1, updatedUser.RequestCount)
 	var updatedChannel model.Channel
 	require.NoError(t, db.First(&updatedChannel, fixture.Task.ChannelId).Error)
@@ -297,7 +297,7 @@ func TestDurableSettleTaskOnComplete_DeficitCharge(t *testing.T) {
 	// Verify user balance charged deficit: 800 - 50 = 750
 	var updatedUser model.User
 	require.NoError(t, db.Where("id = ?", fixture.User.Id).First(&updatedUser).Error)
-	assert.Equal(t, 750, updatedUser.Quota)
+	assert.Equal(t, int64(750), updatedUser.Quota)
 }
 
 func TestDurableReleaseTaskOnFailure_Success(t *testing.T) {
@@ -324,7 +324,7 @@ func TestDurableReleaseTaskOnFailure_Success(t *testing.T) {
 	// Verify user balance fully refunded: 800 + 200 = 1000
 	var updatedUser model.User
 	require.NoError(t, db.Where("id = ?", fixture.User.Id).First(&updatedUser).Error)
-	assert.Equal(t, 1000, updatedUser.Quota)
+	assert.Equal(t, int64(1000), updatedUser.Quota)
 
 	// Verify outbox record created
 	var outboxes []model.TaskBillingLogOutbox
@@ -373,7 +373,7 @@ func TestDurablePollingBridge_Idempotency(t *testing.T) {
 	// User balance should reflect single settlement (800 + 20 = 820)
 	var updatedUser model.User
 	require.NoError(t, db.Where("id = ?", fixture.User.Id).First(&updatedUser).Error)
-	assert.Equal(t, 820, updatedUser.Quota)
+	assert.Equal(t, int64(820), updatedUser.Quota)
 }
 
 func TestDurablePollingBridge_MutualExclusion(t *testing.T) {
@@ -414,7 +414,7 @@ func TestTaskPolling_RefundHookIntegration(t *testing.T) {
 	// Verify full refund to user
 	var updatedUser model.User
 	require.NoError(t, db.Where("id = ?", fixture.User.Id).First(&updatedUser).Error)
-	assert.Equal(t, 800, updatedUser.Quota)
+	assert.Equal(t, int64(800), updatedUser.Quota)
 
 	// Verify operation status is failed
 	var updatedOp model.TaskSubmissionOperation
@@ -448,7 +448,7 @@ func TestTaskPolling_SettleHookIntegration(t *testing.T) {
 	// Verify surplus refund: 800 + 40 = 840
 	var updatedUser model.User
 	require.NoError(t, db.Where("id = ?", fixture.User.Id).First(&updatedUser).Error)
-	assert.Equal(t, 800, updatedUser.Quota)
+	assert.Equal(t, int64(800), updatedUser.Quota)
 
 	// Verify operation status is succeeded
 	var updatedOp model.TaskSubmissionOperation
@@ -592,7 +592,7 @@ func TestDurablePendingObservationPollingWorkerCompetition(t *testing.T) {
 	require.NoError(t, db.First(&user, fixture.User.Id).Error)
 	require.NoError(t, db.First(&channel, fixture.Task.ChannelId).Error)
 	require.NoError(t, db.Where("operation_id = ?", fixture.Operation.ID).First(&observation).Error)
-	assert.Equal(t, 80, user.UsedQuota)
+	assert.Equal(t, int64(80), user.UsedQuota)
 	assert.Equal(t, 1, user.RequestCount)
 	assert.Equal(t, int64(80), channel.UsedQuota)
 	assert.Equal(t, model.TaskTerminalObservationApplied, observation.State)
@@ -745,8 +745,8 @@ func assertDurableAccountingState(t *testing.T, db *gorm.DB, fixture bridgeTestF
 	assert.Equal(t, taskStatus, task.Status)
 	assert.Equal(t, operationStatus, operation.Status)
 	assert.Equal(t, taskQuota, task.Quota)
-	assert.Equal(t, userQuota, user.Quota)
-	assert.Equal(t, usedQuota, user.UsedQuota)
+	assert.Equal(t, int64(userQuota), user.Quota)
+	assert.Equal(t, int64(usedQuota), user.UsedQuota)
 	assert.Equal(t, 1, user.RequestCount)
 	assert.Equal(t, channelQuota, channel.UsedQuota)
 	var count int64
@@ -841,8 +841,8 @@ func TestDurablePollingChannelFailuresDoNotBulkFinalize(t *testing.T) {
 			assert.Equal(t, model.TaskPollingDispositionRetryable, task.PollingDisposition)
 			assert.Contains(t, task.PollingReasonCode, "channel_unavailable")
 			assert.Equal(t, model.TaskSubmissionOperationStatusAccepted, operation.Status)
-			assert.Equal(t, 900, user.Quota)
-			assert.Equal(t, 100, user.UsedQuota)
+			assert.Equal(t, int64(900), user.Quota)
+			assert.Equal(t, int64(100), user.UsedQuota)
 			assert.Equal(t, 1, user.RequestCount)
 			var outboxCount int64
 			require.NoError(t, db.Model(&model.TaskBillingLogOutbox{}).Count(&outboxCount).Error)

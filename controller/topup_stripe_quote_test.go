@@ -66,7 +66,7 @@ func TestStripeCheckoutSeesPersistedOrderAndFrozenCredentialUnit(t *testing.T) {
 	require.NoError(t, model.RechargeTrusted(order.TradeNo, "synthetic-customer", "127.0.0.1"))
 	var user model.User
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 500, user.Quota)
+	assert.Equal(t, int64(500), user.Quota)
 }
 
 func TestStripeInsertFailureNeverCallsCheckout(t *testing.T) {
@@ -104,5 +104,5 @@ func TestStripeLostCheckoutResponseKeepsPendingOrderForCallback(t *testing.T) {
 	assert.Equal(t, http.StatusOK, deliverStripeFixture(t, "checkout.session.completed", order.TradeNo, "complete", "whsec_fixture"))
 	var user model.User
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 500, user.Quota)
+	assert.Equal(t, int64(500), user.Quota)
 }

@@ -44,16 +44,16 @@ func TestLegacyWalletTokenRefundFactIsIdempotentAndRecoversAfterLockContention(t
 	require.NoError(t, dbFixture.DB.First(fact, fact.ID).Error)
 	assert.Equal(t, AccountQuotaRefundFactApplied, fact.State)
 	user, token, _ := loadAccountBalances(t, dbFixture.DB, fixture)
-	assert.Equal(t, 1000, user.Quota)
-	assert.Equal(t, 500, token.RemainQuota)
+	assert.Equal(t, int64(1000), user.Quota)
+	assert.Equal(t, int64(500), token.RemainQuota)
 	assert.Zero(t, token.UsedQuota)
 
 	processed, err = RunAccountQuotaRefundFacts(context.Background(), dbFixture.DB, "legacy-replay-worker", 1)
 	require.NoError(t, err)
 	assert.Zero(t, processed)
 	user, token, _ = loadAccountBalances(t, dbFixture.DB, fixture)
-	assert.Equal(t, 1000, user.Quota)
-	assert.Equal(t, 500, token.RemainQuota)
+	assert.Equal(t, int64(1000), user.Quota)
+	assert.Equal(t, int64(500), token.RemainQuota)
 	assert.Zero(t, token.UsedQuota)
 }
 
@@ -101,7 +101,7 @@ func TestLegacySubscriptionTokenRefundFactIsAtomicIdempotentAndRestartSafe(t *te
 	require.NoError(t, dbFixture.DB.First(&token, fixture.Token.Id).Error)
 	assert.EqualValues(t, 0, subscription.AmountUsed)
 	assert.Equal(t, "refunded", record.Status)
-	assert.Equal(t, 500, token.RemainQuota)
+	assert.Equal(t, int64(500), token.RemainQuota)
 	assert.Zero(t, token.UsedQuota)
 }
 

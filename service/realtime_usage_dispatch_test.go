@@ -78,9 +78,9 @@ func TestRealtimeDispatchPreservesSegmentsAndTerminalOwnership(t *testing.T) {
 					require.Error(t, session.Settle(21))
 				}
 				uq, remain, consumed := loadPostConsumeBalances(t, db, user, token)
-				assert.Equal(t, 1000-used, uq)
-				assert.Equal(t, 1000-used, remain)
-				assert.Equal(t, used, consumed)
+				assert.Equal(t, int64(1000-used), uq)
+				assert.Equal(t, int64(1000-used), remain)
+				assert.Equal(t, int64(used), consumed)
 			})
 		}
 	}
@@ -114,9 +114,9 @@ func TestRealtimeDispatchFailedPersistenceRetainsHoldUntilRetry(t *testing.T) {
 			assert.True(t, FinalizeRealtimeUsageDispatch(ctx, info))
 			assert.True(t, session.usageHoldPersisted)
 			uq, remain, consumed := loadPostConsumeBalances(t, db, user, token)
-			assert.Equal(t, 900, uq)
-			assert.Equal(t, 900, remain)
-			assert.Equal(t, 100, consumed)
+			assert.Equal(t, int64(900), uq)
+			assert.Equal(t, int64(900), remain)
+			assert.Equal(t, int64(100), consumed)
 		})
 	}
 }

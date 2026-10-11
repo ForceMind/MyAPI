@@ -95,9 +95,9 @@ func TestNativeTextDispatchUnknownHoldsAndRootRecoveryIsIdempotent(t *testing.T)
 					require.NoError(t, model.ProjectUsageReviewDecision(context.Background(), db, db, review.Decision.ID))
 				}
 				uq, remaining, used := loadPostConsumeBalances(t, db, user, token)
-				assert.Equal(t, 980, uq)
-				assert.Equal(t, 980, remaining)
-				assert.Equal(t, 20, used)
+				assert.Equal(t, int64(980), uq)
+				assert.Equal(t, int64(980), remaining)
+				assert.Equal(t, int64(20), used)
 			})
 		}
 	}

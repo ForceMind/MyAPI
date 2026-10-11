@@ -119,7 +119,7 @@ func TestRelayFailoverGroupReservation(t *testing.T) {
 							// The paid target must already have durable accounting evidence.
 							var currentToken model.Token
 							require.NoError(t, db.First(&currentToken, token.Id).Error)
-							require.Equal(t, initialToken-reserved, currentToken.RemainQuota)
+							require.Equal(t, initialToken-int64(reserved), currentToken.RemainQuota)
 							view, err := model.GetUsageReview(r.Context(), db, user.Id, "group-reservation-request")
 							require.NoError(t, err)
 							require.EqualValues(t, reserved, view.ReservedQuota)
@@ -179,8 +179,8 @@ func TestRelayFailoverGroupReservation(t *testing.T) {
 					require.Equal(t, wantStatus, response.Code, response.Body.String())
 					require.NoError(t, db.First(&token, token.Id).Error)
 					require.NoError(t, db.First(&user, user.Id).Error)
-					require.Equal(t, initialToken-charged, token.RemainQuota)
-					require.Equal(t, initialUser-charged, user.Quota)
+					require.Equal(t, initialToken-int64(charged), token.RemainQuota)
+					require.Equal(t, initialUser-int64(charged), user.Quota)
 					if unknown {
 						view, err := model.GetUsageReview(req.Context(), db, user.Id, "group-reservation-request")
 						require.NoError(t, err)
@@ -188,7 +188,7 @@ func TestRelayFailoverGroupReservation(t *testing.T) {
 						require.EqualValues(t, reserved, view.ReservedQuota)
 						require.Nil(t, view.ActualQuota)
 					} else if wantStatus == 200 {
-						require.Equal(t, actual, token.UsedQuota)
+						require.Equal(t, int64(actual), token.UsedQuota)
 						var logs []model.Log
 						require.NoError(t, db.Where("type = ?", model.LogTypeConsume).Find(&logs).Error)
 						require.Len(t, logs, 1)

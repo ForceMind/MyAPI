@@ -88,9 +88,9 @@ func TestStrictChatStreamCancellationRequiresCompleteEvidence(t *testing.T) {
 					var user model.User
 					require.NoError(t, db.First(&token, info.TokenId).Error)
 					require.NoError(t, db.First(&user, info.UserId).Error)
-					assert.Equal(t, 985, token.RemainQuota)
-					assert.Equal(t, 15, token.UsedQuota)
-					assert.Equal(t, 985, user.Quota)
+					assert.Equal(t, int64(985), token.RemainQuota)
+					assert.Equal(t, int64(15), token.UsedQuota)
+					assert.Equal(t, int64(985), user.Quota)
 				} else {
 					require.ErrorIs(t, err, model.ErrTokenBudgetPending)
 					PostTextConsumeQuota(ctx, info, usage, nil)
@@ -157,9 +157,9 @@ func TestStrictChatCompletedCancelledSettlementConcurrentReplay(t *testing.T) {
 			var token model.Token
 			require.NoError(t, db.First(&user, info.UserId).Error)
 			require.NoError(t, db.First(&token, info.TokenId).Error)
-			assert.Equal(t, 985, user.Quota)
-			assert.Equal(t, 985, token.RemainQuota)
-			assert.Equal(t, 15, token.UsedQuota)
+			assert.Equal(t, int64(985), user.Quota)
+			assert.Equal(t, int64(985), token.RemainQuota)
+			assert.Equal(t, int64(15), token.UsedQuota)
 		})
 	}
 }

@@ -101,7 +101,7 @@ func TestPostTextConsumeQuotaOverflowDoesNotRefundPreconsume(t *testing.T) {
 	assert.Equal(t, []int{384}, settler.settled)
 	assert.Zero(t, settler.refund)
 	used, requests := getUserUsageAccounting(t, 81)
-	assert.Equal(t, 384, used)
+	assert.Equal(t, int64(384), used)
 	assert.Equal(t, 1, requests)
 	log := getLastLog(t)
 	require.NotNil(t, log)

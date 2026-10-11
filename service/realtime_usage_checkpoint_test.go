@@ -73,9 +73,9 @@ func TestRealtimeCheckpointPreservesFrozenKnownPrefix(t *testing.T) {
 					assert.Nil(t, info.RealtimeCheckpoint)
 					assert.True(t, FinalizeRealtimeUsageDispatch(ctx, info))
 					uq, remain, used := loadPostConsumeBalances(t, db, user, token)
-					assert.Equal(t, 900, uq)
-					assert.Equal(t, 900, remain)
-					assert.Equal(t, 100, used)
+					assert.Equal(t, int64(900), uq)
+					assert.Equal(t, int64(900), remain)
+					assert.Equal(t, int64(100), used)
 					return
 				}
 				if scenario == "write-failure" {
@@ -121,9 +121,9 @@ func TestRealtimeCheckpointPreservesFrozenKnownPrefix(t *testing.T) {
 				assert.Equal(t, *info.RealtimeCheckpoint, saved.Checkpoint)
 				assert.Equal(t, expectedQuota, saved.Quota)
 				uq, remain, used := loadPostConsumeBalances(t, db, user, token)
-				assert.Equal(t, 900, uq)
-				assert.Equal(t, 900, remain)
-				assert.Equal(t, 100, used)
+				assert.Equal(t, int64(900), uq)
+				assert.Equal(t, int64(900), remain)
+				assert.Equal(t, int64(100), used)
 			})
 		}
 	}

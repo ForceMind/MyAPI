@@ -75,17 +75,17 @@ func verifyLegacyUsageExtension(t *testing.T, db *gorm.DB, prefix string) {
 			if failed || scenario == "subscription" {
 				want = 900
 			}
-			assert.Equal(t, want, user.Quota)
+			assert.Equal(t, int64(want), user.Quota)
 			used := 200
 			if failed {
 				used = 100
 			}
-			assert.Equal(t, used, token.UsedQuota)
+			assert.Equal(t, int64(used), token.UsedQuota)
 			remain := 1000 - used
 			if scenario == "key-insufficient" {
 				remain = 50
 			}
-			assert.Equal(t, remain, token.RemainQuota)
+			assert.Equal(t, int64(remain), token.RemainQuota)
 			row, err = FindLegacyUsageReservation(ctx, db, id)
 			require.NoError(t, err)
 			assert.EqualValues(t, used, row.ReservedQuota)
@@ -100,8 +100,8 @@ func verifyLegacyUsageExtension(t *testing.T, db *gorm.DB, prefix string) {
 			require.ErrorIs(t, err, ErrAccountQuotaUsageUnresolved)
 			require.NoError(t, db.First(&user, user.Id).Error)
 			require.NoError(t, db.First(&token, token.Id).Error)
-			assert.Equal(t, want, user.Quota)
-			assert.Equal(t, used, token.UsedQuota)
+			assert.Equal(t, int64(want), user.Quota)
+			assert.Equal(t, int64(used), token.UsedQuota)
 		})
 	}
 }
@@ -130,14 +130,14 @@ func TestLegacyUsageExtensionDrainsExistingBatchAndPreservesCache(t *testing.T) 
 	require.NoError(t, drainQuotaBalanceGenerationsForSubjectWithDB(db, BatchUpdateTypeTokenQuota, account.Token.Id))
 	require.NoError(t, db.First(&account.User, account.User.Id).Error)
 	require.NoError(t, db.First(&account.Token, account.Token.Id).Error)
-	assert.Equal(t, 800, account.User.Quota)
-	assert.Equal(t, 300, account.Token.RemainQuota)
-	assert.Equal(t, 200, account.Token.UsedQuota)
+	assert.Equal(t, int64(800), account.User.Quota)
+	assert.Equal(t, int64(300), account.Token.RemainQuota)
+	assert.Equal(t, int64(200), account.Token.UsedQuota)
 	user, err := GetUserCache(account.User.Id)
 	require.NoError(t, err)
 	token, err := GetTokenByKey(account.Token.Key, false)
 	require.NoError(t, err)
-	assert.Equal(t, 800, user.Quota)
-	assert.Equal(t, 300, token.RemainQuota)
-	assert.Equal(t, 200, token.UsedQuota)
+	assert.Equal(t, int64(800), user.Quota)
+	assert.Equal(t, int64(300), token.RemainQuota)
+	assert.Equal(t, int64(200), token.UsedQuota)
 }

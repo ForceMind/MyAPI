@@ -19,10 +19,10 @@ jobs:
     name: Backend vet, build, and test
     if: github.event.action != 'closed' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-    # The complete serial cold-cache suite reached the former 15-minute limit
-    # after the new beta.6 race group passed. Keep every group and its own
-    # 180-second test deadline; allow bounded orchestration time for all of them.
-    timeout-minutes: 20
+    # Main CI 38022171765 used 18m36s before the added linux/386 build;
+    # candidate CI 38124726661 spent another 2m28s on that build alone.
+    # Keep every test deadline and allow bounded time for the serial suite.
+    timeout-minutes: 30
     env:
       GOWORK: 'off'
       GOMAXPROCS: '1'
@@ -59,6 +59,95 @@ jobs:
       - name: Build root module
         run: go build ./...
 
+      - name: Build root module for linux/386
+        env:
+          GOOS: linux
+          GOARCH: '386'
+          CGO_ENABLED: '0'
+        run: go build ./...
+
+      - name: Verify historical amount behavior on linux/386
+        env:
+          GOOS: linux
+          GOARCH: '386'
+          CGO_ENABLED: '0'
+        run: |
+          set -euo pipefail
+          go env GOOS GOARCH CGO_ENABLED GOWORK
+          directed_log="$RUNNER_TEMP/myapi-historical-amount-386.jsonl"
+          go test -json -p 1 ./common ./relay/common ./model ./controller ./service \
+            -run '^(TestCheckedQuotaBalance|TestCheckedQuotaUsed|TestRelayPreservesStoredUserQuota|TestWideAccountQuotaReserveRefundAndAtomicRollback|TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget|TestQuotaStateBoundaryFailuresWriteNothingAndRequestLimitStaysInt32|TestHistoricalAmountV3RowsRemainByteAndStateStableDuringInitialization|TestHistoricalAmountV3FingerprintExecutesWithoutIdentityRewrite|TestHistoricalAmountV4WideAggregateReplaysOnce|TestHistoricalAmountCacheOrdersAdjacentQuotaAndAuthVersionsAboveDoublePrecision|TestHistoricalAmountCacheSchemasReplaceOnlyTheTouchedKey|TestTokenQuotaAdjustmentResultPreservesWideAmountsAndExactVersions|TestTokenMetadataPreservesWideQuota|TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing|TestSubscriptionQuotaNotificationPreservesWideRemaining|TestCalculateImageTokensPatchUsesFloatAreaForLargeDimensions|TestCalculateImageTokensRejectsTileQuotaOverflow|TestOfficialTextCostUsesExplicitLongProfileAndTokenBounds)$' -count=1 -timeout=240s | tee "$directed_log"
+          python3 - "$directed_log" <<'PY'
+          import collections
+          import json
+          import sys
+          from pathlib import Path
+
+          expected = {
+              "github.com/ForceMind/MyAPI/common": [
+                  "TestCheckedQuotaBalance",
+                  "TestCheckedQuotaUsed"
+              ],
+              "github.com/ForceMind/MyAPI/relay/common": [
+                  "TestRelayPreservesStoredUserQuota"
+              ],
+              "github.com/ForceMind/MyAPI/model": [
+                  "TestWideAccountQuotaReserveRefundAndAtomicRollback",
+                  "TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget",
+                  "TestQuotaStateBoundaryFailuresWriteNothingAndRequestLimitStaysInt32",
+                  "TestHistoricalAmountV3RowsRemainByteAndStateStableDuringInitialization",
+                  "TestHistoricalAmountV3FingerprintExecutesWithoutIdentityRewrite",
+                  "TestHistoricalAmountV4WideAggregateReplaysOnce",
+                  "TestHistoricalAmountCacheOrdersAdjacentQuotaAndAuthVersionsAboveDoublePrecision",
+                  "TestHistoricalAmountCacheSchemasReplaceOnlyTheTouchedKey",
+                  "TestTokenQuotaAdjustmentResultPreservesWideAmountsAndExactVersions"
+              ],
+              "github.com/ForceMind/MyAPI/controller": [
+                  "TestTokenMetadataPreservesWideQuota",
+                  "TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing"
+              ],
+              "github.com/ForceMind/MyAPI/service": [
+                  "TestSubscriptionQuotaNotificationPreservesWideRemaining",
+                  "TestCalculateImageTokensPatchUsesFloatAreaForLargeDimensions",
+                  "TestCalculateImageTokensRejectsTileQuotaOverflow",
+                  "TestOfficialTextCostUsesExplicitLongProfileAndTokenBounds"
+              ]
+          }
+          runs = collections.Counter()
+          passes = collections.Counter()
+          package_passes = collections.Counter()
+          for line in Path(sys.argv[1]).read_text().splitlines():
+              event = json.loads(line)
+              package = event.get("Package")
+              if package not in expected:
+                  raise SystemExit("unexpected package in directed 386 run")
+              action = event.get("Action")
+              test = event.get("Test")
+              if action in {"skip", "fail"}:
+                  raise SystemExit("directed 386 test or package skipped/failed")
+              if test:
+                  top = test.split("/", 1)[0]
+                  if top not in expected[package]:
+                      raise SystemExit("unexpected test in directed 386 run")
+                  if test == top and action == "run":
+                      runs[(package, top)] += 1
+                  if test == top and action == "pass":
+                      passes[(package, top)] += 1
+              elif action == "pass":
+                  package_passes[package] += 1
+          required = {(package, name) for package, names in expected.items() for name in names}
+          if set(runs) != required or set(passes) != required:
+              raise SystemExit("directed 386 run is missing required top-level tests")
+          if any(count != 1 for count in runs.values()) or any(count != 1 for count in passes.values()):
+              raise SystemExit("directed 386 top-level test did not run/pass exactly once")
+          if dict(package_passes) != {package: 1 for package in expected}:
+              raise SystemExit("directed 386 package terminal result is missing or duplicated")
+          print("HISTORICAL_AMOUNT_386_CONTRACT_PASS " + json.dumps({
+              "top_level_pass": len(required), "packages_pass": len(expected),
+              "skip": 0, "fail": 0, "tests": sorted(name for _, name in required),
+          }, sort_keys=True))
+          PY
+
       # common/canonical_json.go is excluded because a canonical digest has to
       # walk the raw token stream: the wrappers decode into Go values, which
       # discards the number lexeme and key order the digest must preserve.
@@ -75,6 +164,12 @@ jobs:
 
       - name: Test root and relaykit modules
         run: make test
+
+      - name: Test historical accounting audit tools
+        working-directory: tools/accounting-audit
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 -m unittest discover -v
 
       - name: Verify configuration publication ordering under race detector
         env:
@@ -388,7 +483,10 @@ jobs:
     name: Frontend typecheck and test
     if: github.event.action != 'closed' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Source CI 38128779978 finished in 14m59s; docs CI 38133755286
+    # hit the 15m job limit during the final Playground browser journey.
+    # Keep every test deadline and allow bounded runner/install margin.
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: web
@@ -411,6 +509,9 @@ jobs:
 
       - name: Typecheck
         run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
 
       - name: Test
         run: bun run test
@@ -464,6 +565,7 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=768'
         run: |
           node --test tools/ui/browser-fixtures.test.mjs
+          node tools/ui/profile-browser.mjs
           node tools/ui/browser-smoke.mjs
           node tools/ui/playground-browser.mjs
 
@@ -552,3 +654,9 @@ jobs:
           npm run release:workflow:check
           npm run source:manifest
           npm run pack:check
+
+      - name: Verify Docker smoke fixture and restore contracts
+        run: >-
+          node --test tools/runtime/docker-smoke.test.mjs
+          tools/runtime/sqlite-restore-smoke.test.mjs
+          tools/runtime/handoff-upgrade-smoke.test.mjs

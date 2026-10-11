@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/service"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
@@ -186,6 +187,10 @@ func AdminCreateSubscriptionPlan(c *gin.Context) {
 		common.ApiErrorMsg(c, "购买上限不能为负数")
 		return
 	}
+	if req.Plan.TotalAmount > common.MaxQuotaBalance {
+		common.ApiErrorI18n(c, i18n.MsgQuotaExceedMax, map[string]any{"Max": common.MaxQuotaBalance})
+		return
+	}
 	if req.Plan.TotalAmount < 0 {
 		common.ApiErrorMsg(c, "总额度不能为负数")
 		return
@@ -258,6 +263,10 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 	}
 	if req.Plan.MaxPurchasePerUser < 0 {
 		common.ApiErrorMsg(c, "购买上限不能为负数")
+		return
+	}
+	if req.Plan.TotalAmount > common.MaxQuotaBalance {
+		common.ApiErrorI18n(c, i18n.MsgQuotaExceedMax, map[string]any{"Max": common.MaxQuotaBalance})
 		return
 	}
 	if req.Plan.TotalAmount < 0 {

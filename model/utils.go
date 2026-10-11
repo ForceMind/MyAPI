@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -20,12 +21,12 @@ const (
 	BatchUpdateTypeCount // if you add a new type, you need to add a new map and a new lock
 )
 
-var batchUpdateStores []map[int]int
+var batchUpdateStores []map[int]int64
 var batchUpdateLocks []sync.Mutex
 
 func init() {
 	for i := 0; i < BatchUpdateTypeCount; i++ {
-		batchUpdateStores = append(batchUpdateStores, make(map[int]int))
+		batchUpdateStores = append(batchUpdateStores, make(map[int]int64))
 		batchUpdateLocks = append(batchUpdateLocks, sync.Mutex{})
 	}
 }
@@ -39,7 +40,7 @@ func InitBatchUpdater() {
 	})
 }
 
-func addNewRecord(type_ int, id int, value int) error {
+func addNewRecord(type_ int, id int, value int64) error {
 	if type_ < 0 || type_ >= BatchUpdateTypeCount || id <= 0 || value == 0 {
 		return errors.New("invalid batch update record")
 	}
@@ -55,15 +56,25 @@ func addNewRecord(type_ int, id int, value int) error {
 		}
 	}
 	batchUpdateLocks[type_].Lock()
-	current := int64(batchUpdateStores[type_][id])
-	delta := int64(value)
-	maxInt := int64(^uint(0) >> 1)
-	minInt := -maxInt - 1
-	if (delta > 0 && current > maxInt-delta) || (delta < 0 && current < minInt-delta) {
-		batchUpdateLocks[type_].Unlock()
-		return errors.New("batch update delta exceeds the platform integer boundary")
+	current := batchUpdateStores[type_][id]
+	target := int64(0)
+	var err error
+	if type_ == BatchUpdateTypeRequestCount {
+		const maxInt64 = int64(^uint64(0) >> 1)
+		const minInt64 = -maxInt64 - 1
+		if (value > 0 && current > maxInt64-value) || (value < 0 && current < minInt64-value) {
+			err = errors.New("batch request count exceeds the int64 boundary")
+		} else {
+			target = current + value
+		}
+	} else {
+		target, err = common.CheckedQuotaBalance(current, value)
 	}
-	batchUpdateStores[type_][id] = int(current + delta)
+	if err != nil {
+		batchUpdateLocks[type_].Unlock()
+		return fmt.Errorf("batch update aggregate is out of range: %w", err)
+	}
+	batchUpdateStores[type_][id] = target
 	batchUpdateLocks[type_].Unlock()
 	if type_ == BatchUpdateTypeUserQuota || type_ == BatchUpdateTypeTokenQuota {
 		if err := persistQuotaBalanceBatchGeneration(); err != nil {
@@ -102,15 +113,15 @@ func batchUpdate() {
 	}
 
 	common.SysLog("batch update started")
-	stores := make([]map[int]int, BatchUpdateTypeCount)
+	stores := make([]map[int]int64, BatchUpdateTypeCount)
 	for i := 0; i < BatchUpdateTypeCount; i++ {
 		if durableBalanceDrain && (i == BatchUpdateTypeUserQuota || i == BatchUpdateTypeTokenQuota) {
-			stores[i] = make(map[int]int)
+			stores[i] = make(map[int]int64)
 			continue
 		}
 		batchUpdateLocks[i].Lock()
 		stores[i] = batchUpdateStores[i]
-		batchUpdateStores[i] = make(map[int]int)
+		batchUpdateStores[i] = make(map[int]int64)
 		batchUpdateLocks[i].Unlock()
 	}
 

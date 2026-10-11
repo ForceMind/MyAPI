@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   createMemoryHistory,
   createRootRoute,
+  createRoute,
+  Outlet,
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router'
@@ -9,6 +11,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { ProfileDropdown } from '@/components/profile-dropdown'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -40,6 +43,133 @@ afterEach(() => {
 })
 
 describe('profile task layout', () => {
+  it('opens the profile from the account menu and keeps preferences interactive', async () => {
+    vi.spyOn(api, 'get').mockImplementation(async (url) => {
+      if (url === '/api/user/self') {
+        return {
+          data: { success: true, data: { ...profile, setting: 'null' } },
+        }
+      }
+      if (url === '/api/user/sessions' || url === '/api/user/oauth/bindings') {
+        return { data: { success: true, data: [] } }
+      }
+      if (url === '/api/user/2fa/status') {
+        return {
+          data: {
+            success: true,
+            data: { enabled: false, locked: false, backup_codes_remaining: 0 },
+          },
+        }
+      }
+      if (url === '/api/user/passkey') {
+        return { data: { success: true, data: { enabled: false } } }
+      }
+      throw new Error(`Unexpected test request: ${url}`)
+    })
+    useAuthStore.setState({ auth: { ...originalAuth.auth, user: profile } })
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    clients.push(client)
+    client.setQueryData(['status'], { checkin_enabled: false })
+    const root = createRootRoute({
+      component: () => (
+        <>
+          <ProfileDropdown />
+          <Outlet />
+        </>
+      ),
+    })
+    const home = createRoute({
+      getParentRoute: () => root,
+      path: '/',
+      component: () => <p>Home</p>,
+    })
+    const account = createRoute({
+      getParentRoute: () => root,
+      path: '/profile',
+      component: Profile,
+    })
+    const router = createRouter({
+      routeTree: root.addChildren([home, account]),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+    await router.load()
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    )
+    await user.click(screen.getByRole('button', { name: 'Account menu' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Profile' }))
+    expect(
+      await screen.findByRole('heading', { name: 'Operations', level: 2 })
+    ).toBeInTheDocument()
+    await user.click(
+      screen.getByRole('tab', { name: /Settings & Preferences/ })
+    )
+    await user.click(screen.getByRole('button', { name: 'Webhook' }))
+    expect(
+      screen.getByRole('textbox', { name: 'Webhook URL' })
+    ).toBeInTheDocument()
+  })
+
+  it.each(['rejected', 'unsuccessful', 'missing'])(
+    'offers retry after a %s profile response instead of leaving empty account controls',
+    async (failure) => {
+      let failed = false
+      vi.spyOn(api, 'get').mockImplementation(async (url) => {
+        if (url === '/api/user/self') {
+          if (!failed) {
+            failed = true
+            if (failure === 'rejected') throw new Error('Synthetic unavailable')
+            return { data: { success: failure === 'missing' } }
+          }
+          return { data: { success: true, data: profile } }
+        }
+        if (url === '/api/user/sessions') {
+          return { data: { success: true, data: [] } }
+        }
+        if (url === '/api/user/2fa/status' || url === '/api/user/passkey') {
+          return { data: { success: true, data: { enabled: false } } }
+        }
+        throw new Error(`Unexpected test request: ${url}`)
+      })
+      useAuthStore.setState({
+        auth: {
+          ...originalAuth.auth,
+          user: { ...profile, permissions: { sidebar_settings: false } },
+        },
+      })
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      })
+      clients.push(client)
+      client.setQueryData(['status'], { checkin_enabled: false })
+      const route = createRootRoute({ component: Profile })
+      const router = createRouter({
+        routeTree: route,
+        history: createMemoryHistory({ initialEntries: ['/'] }),
+      })
+      await router.load()
+      const user = userEvent.setup()
+      render(
+        <QueryClientProvider client={client}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      )
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Failed to load profile'
+      )
+      await user.click(screen.getByRole('button', { name: 'Retry' }))
+      expect(
+        await screen.findByRole('heading', { name: 'Operations', level: 2 })
+      ).toBeInTheDocument()
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    }
+  )
+
   it('keeps one task heading and preserves account security dialog dismissal in the new page frame', async () => {
     vi.spyOn(api, 'get').mockImplementation(async (url) => {
       if (url === '/api/user/self') {

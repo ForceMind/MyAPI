@@ -60,8 +60,8 @@ func TestRefundTaskQuotaLegacyFactIdempotent(t *testing.T) {
 	stale := *task
 
 	require.True(t, RefundTaskQuota(ctx, task, "task failed: upstream error"))
-	assert.Equal(t, 10000+preConsumed, getUserQuota(t, user.Id))
-	assert.Equal(t, 5000+preConsumed, getTokenRemainQuota(t, token.Id))
+	assert.Equal(t, int64(10000+preConsumed), getUserQuota(t, user.Id))
+	assert.Equal(t, int64(5000+preConsumed), getTokenRemainQuota(t, token.Id))
 	assert.Zero(t, getTokenUsedQuota(t, token.Id))
 	usedQuota, requestCount := getUserUsageAccounting(t, user.Id)
 	assert.Zero(t, usedQuota)
@@ -77,8 +77,8 @@ func TestRefundTaskQuotaLegacyFactIdempotent(t *testing.T) {
 
 	// 重复轮询携带过期的 task.Quota：事实已 applied，按重放处理，不多退。
 	require.True(t, RefundTaskQuota(ctx, &stale, "duplicate poll"))
-	assert.Equal(t, 10000+preConsumed, getUserQuota(t, user.Id))
-	assert.Equal(t, 5000+preConsumed, getTokenRemainQuota(t, token.Id))
+	assert.Equal(t, int64(10000+preConsumed), getUserQuota(t, user.Id))
+	assert.Equal(t, int64(5000+preConsumed), getTokenRemainQuota(t, token.Id))
 	usedQuota, _ = getUserUsageAccounting(t, user.Id)
 	assert.Zero(t, usedQuota)
 	assert.Zero(t, getChannelUsedQuota(t, 61))
@@ -110,7 +110,7 @@ func TestRefundTaskQuotaLegacyFactClearFailureRetryNoDoubleRefund(t *testing.T) 
 	`).Error)
 
 	require.True(t, RefundTaskQuota(ctx, task, "task failed"))
-	assert.Equal(t, 8000+preConsumed, getUserQuota(t, user.Id))
+	assert.Equal(t, int64(8000+preConsumed), getUserQuota(t, user.Id))
 	assert.Equal(t, preConsumed, getTaskQuota(t, task.ID), "清零失败时 DB 标记保留")
 
 	require.NoError(t, db.Exec("DROP TRIGGER IF EXISTS fail_task_quota_clear").Error)
@@ -119,8 +119,8 @@ func TestRefundTaskQuotaLegacyFactClearFailureRetryNoDoubleRefund(t *testing.T) 
 	var reloaded model.Task
 	require.NoError(t, db.First(&reloaded, task.ID).Error)
 	require.True(t, RefundTaskQuota(ctx, &reloaded, "retry after clear failure"))
-	assert.Equal(t, 8000+preConsumed, getUserQuota(t, user.Id))
-	assert.Equal(t, 4000+preConsumed, getTokenRemainQuota(t, token.Id))
+	assert.Equal(t, int64(8000+preConsumed), getUserQuota(t, user.Id))
+	assert.Equal(t, int64(4000+preConsumed), getTokenRemainQuota(t, token.Id))
 	assert.Zero(t, getTokenUsedQuota(t, token.Id))
 	usedQuota, _ := getUserUsageAccounting(t, user.Id)
 	assert.Zero(t, usedQuota, "统计列只在事实首次应用时回减一次")
@@ -148,7 +148,7 @@ func TestRefundTaskQuotaLegacyFactSubscriptionIdempotent(t *testing.T) {
 
 	require.True(t, RefundTaskQuota(ctx, task, "subscription task failed"))
 	assert.Equal(t, subUsed-int64(preConsumed), getSubscriptionUsed(t, 63))
-	assert.Equal(t, 8000+preConsumed, getTokenRemainQuota(t, token.Id))
+	assert.Equal(t, int64(8000+preConsumed), getTokenRemainQuota(t, token.Id))
 	assert.Zero(t, getTaskQuota(t, task.ID))
 
 	fact := getSettlementFact(t, db, "task-refund:task-refund-sub-1")
@@ -157,7 +157,7 @@ func TestRefundTaskQuotaLegacyFactSubscriptionIdempotent(t *testing.T) {
 
 	require.True(t, RefundTaskQuota(ctx, &stale, "duplicate refund"))
 	assert.Equal(t, subUsed-int64(preConsumed), getSubscriptionUsed(t, 63))
-	assert.Equal(t, 8000+preConsumed, getTokenRemainQuota(t, token.Id))
+	assert.Equal(t, int64(8000+preConsumed), getTokenRemainQuota(t, token.Id))
 	assert.Equal(t, int64(1), countLogs(t))
 	assert.Equal(t, int64(1), countSettlementFacts(t, db, "task-refund:task-refund-sub-1"))
 }
@@ -178,7 +178,7 @@ func TestRefundTaskQuotaLegacyFactSkipsDeletedToken(t *testing.T) {
 
 	// 令牌已删除：与 taskAdjustTokenQuota 一致跳过令牌侧，钱包退款完成。
 	require.True(t, RefundTaskQuota(ctx, task, "token deleted mid-task"))
-	assert.Equal(t, 7000+preConsumed, getUserQuota(t, user.Id))
+	assert.Equal(t, int64(7000+preConsumed), getUserQuota(t, user.Id))
 	assert.Zero(t, getTaskQuota(t, task.ID))
 
 	fact := getSettlementFact(t, db, "task-refund:task-refund-deleted-token-1")
@@ -186,7 +186,7 @@ func TestRefundTaskQuotaLegacyFactSkipsDeletedToken(t *testing.T) {
 	assert.Equal(t, model.AccountQuotaSettlementApplied, fact.State)
 
 	require.True(t, RefundTaskQuota(ctx, &stale, "duplicate refund"))
-	assert.Equal(t, 7000+preConsumed, getUserQuota(t, user.Id))
+	assert.Equal(t, int64(7000+preConsumed), getUserQuota(t, user.Id))
 	assert.Equal(t, int64(1), countLogs(t))
 }
 
@@ -205,8 +205,8 @@ func TestRefundTaskQuotaBridgeFailsClosed(t *testing.T) {
 
 	// bridge 模式：legacy 直写在 model 层守卫 fail-closed，标记保留待受控切换。
 	assert.False(t, RefundTaskQuota(ctx, task, "bridge mode"))
-	assert.Equal(t, 10000, getUserQuota(t, user.Id))
-	assert.Equal(t, 5000, getTokenRemainQuota(t, token.Id))
+	assert.Equal(t, int64(10000), getUserQuota(t, user.Id))
+	assert.Equal(t, int64(5000), getTokenRemainQuota(t, token.Id))
 	assert.Equal(t, preConsumed, getTaskQuota(t, task.ID))
 	assert.Equal(t, int64(0), countLogs(t))
 	assert.Zero(t, countSettlementFacts(t, db, "task-refund:task-refund-bridge-1"))
@@ -230,11 +230,11 @@ func TestRecalculateTaskQuotaLegacyFactIdempotentSettle(t *testing.T) {
 	require.NoError(t, db.Create(task).Error)
 
 	RecalculateTaskQuota(ctx, task, actualQuota, "adaptor计费调整")
-	assert.Equal(t, 10000+(preConsumed-actualQuota), getUserQuota(t, user.Id))
-	assert.Equal(t, 5000+(preConsumed-actualQuota), getTokenRemainQuota(t, token.Id))
-	assert.Equal(t, actualQuota, getTokenUsedQuota(t, token.Id))
+	assert.Equal(t, int64(10000+(preConsumed-actualQuota)), getUserQuota(t, user.Id))
+	assert.Equal(t, int64(5000+(preConsumed-actualQuota)), getTokenRemainQuota(t, token.Id))
+	assert.Equal(t, int64(actualQuota), getTokenUsedQuota(t, token.Id))
 	usedQuota, requestCount := getUserUsageAccounting(t, user.Id)
-	assert.Equal(t, actualQuota, usedQuota)
+	assert.Equal(t, int64(actualQuota), usedQuota)
 	assert.Equal(t, 1, requestCount)
 	assert.Equal(t, int64(actualQuota), getChannelUsedQuota(t, 66))
 	assert.Equal(t, int64(1), countLogs(t))
@@ -247,10 +247,10 @@ func TestRecalculateTaskQuotaLegacyFactIdempotentSettle(t *testing.T) {
 	stale := *task
 	stale.Quota = preConsumed
 	RecalculateTaskQuota(ctx, &stale, actualQuota, "adaptor计费调整")
-	assert.Equal(t, 10000+(preConsumed-actualQuota), getUserQuota(t, user.Id))
-	assert.Equal(t, 5000+(preConsumed-actualQuota), getTokenRemainQuota(t, token.Id))
+	assert.Equal(t, int64(10000+(preConsumed-actualQuota)), getUserQuota(t, user.Id))
+	assert.Equal(t, int64(5000+(preConsumed-actualQuota)), getTokenRemainQuota(t, token.Id))
 	usedQuota, _ = getUserUsageAccounting(t, user.Id)
-	assert.Equal(t, actualQuota, usedQuota)
+	assert.Equal(t, int64(actualQuota), usedQuota)
 	assert.Equal(t, int64(actualQuota), getChannelUsedQuota(t, 66))
 	assert.Equal(t, int64(1), countLogs(t))
 	assert.Equal(t, int64(1), countSettlementFacts(t, db, "task-settle:task-settle-fact-1"))
@@ -278,7 +278,7 @@ func TestRecalculateTaskQuotaLegacyFactConflictFailsClosed(t *testing.T) {
 	stale.Quota = preConsumed
 	RecalculateTaskQuota(ctx, &stale, actualQuota+500, "conflicting settle")
 	assert.Equal(t, balanceAfterFirst, getUserQuota(t, user.Id))
-	assert.Equal(t, 5000+(preConsumed-actualQuota), getTokenRemainQuota(t, token.Id))
+	assert.Equal(t, int64(5000+(preConsumed-actualQuota)), getTokenRemainQuota(t, token.Id))
 	assert.Equal(t, int64(1), countLogs(t))
 	assert.Equal(t, int64(1), countSettlementFacts(t, db, "task-settle:task-settle-conflict-1"))
 }
@@ -328,9 +328,9 @@ func TestSettleMidjourneyTaskBillingDualMode(t *testing.T) {
 			billed, err := SettleMidjourneyTaskBilling(relayInfo, task, true)
 			require.NoError(t, err)
 			require.True(t, billed)
-			assert.Equal(t, 10000-chargedQuota, getUserQuota(t, user.Id))
-			assert.Equal(t, 5000-chargedQuota, getTokenRemainQuota(t, token.Id))
-			assert.Equal(t, chargedQuota, getTokenUsedQuota(t, token.Id))
+			assert.Equal(t, int64(10000-chargedQuota), getUserQuota(t, user.Id))
+			assert.Equal(t, int64(5000-chargedQuota), getTokenRemainQuota(t, token.Id))
+			assert.Equal(t, int64(chargedQuota), getTokenUsedQuota(t, token.Id))
 			persisted := getMidjourneyTask(t, task.Id)
 			assert.Equal(t, chargedQuota, persisted.Quota)
 			assert.Equal(t, token.Id, persisted.TokenId)
@@ -349,8 +349,8 @@ func TestSettleMidjourneyTaskBillingDualMode(t *testing.T) {
 			billed, err = SettleMidjourneyTaskBilling(relayInfo, task, true)
 			require.NoError(t, err)
 			require.True(t, billed)
-			assert.Equal(t, 10000-chargedQuota, getUserQuota(t, user.Id))
-			assert.Equal(t, 5000-chargedQuota, getTokenRemainQuota(t, token.Id))
+			assert.Equal(t, int64(10000-chargedQuota), getUserQuota(t, user.Id))
+			assert.Equal(t, int64(5000-chargedQuota), getTokenRemainQuota(t, token.Id))
 			userReceipts, tokenReceipts = countReceiptsWithEventKey(t, db, eventKey)
 			assert.EqualValues(t, 1, userReceipts)
 			assert.EqualValues(t, 1, tokenReceipts)
@@ -376,8 +376,8 @@ func TestRefundMidjourneyQuotaDualModeIdempotent(t *testing.T) {
 			seedChargedAccounting(t, user.Id, 72, token.Id, chargedQuota, 1)
 
 			require.True(t, RefundMidjourneyQuota(ctx, task, "构图失败"))
-			assert.Equal(t, 10000, getUserQuota(t, user.Id))
-			assert.Equal(t, 5000, getTokenRemainQuota(t, token.Id))
+			assert.Equal(t, int64(10000), getUserQuota(t, user.Id))
+			assert.Equal(t, int64(5000), getTokenRemainQuota(t, token.Id))
 			assert.Zero(t, getTokenUsedQuota(t, token.Id))
 			usedQuota, requestCount := getUserUsageAccounting(t, user.Id)
 			assert.Zero(t, usedQuota)
@@ -400,8 +400,8 @@ func TestRefundMidjourneyQuotaDualModeIdempotent(t *testing.T) {
 			stale := getMidjourneyTask(t, task.Id)
 			stale.Quota = chargedQuota
 			require.True(t, RefundMidjourneyQuota(ctx, &stale, "duplicate notify"))
-			assert.Equal(t, 10000, getUserQuota(t, user.Id))
-			assert.Equal(t, 5000, getTokenRemainQuota(t, token.Id))
+			assert.Equal(t, int64(10000), getUserQuota(t, user.Id))
+			assert.Equal(t, int64(5000), getTokenRemainQuota(t, token.Id))
 			usedQuota, _ = getUserUsageAccounting(t, user.Id)
 			assert.Zero(t, usedQuota)
 			assert.Zero(t, getChannelUsedQuota(t, 72))
@@ -489,8 +489,8 @@ func testMidjourneyLegacyRefundConcurrent(t *testing.T, slowOwner bool) {
 		assert.Positive(t, pending, "slow owner must exercise a pending concurrent caller")
 	}
 	assert.Equal(t, workers, succeeded)
-	assert.Equal(t, 10000, getUserQuota(t, user.Id))
-	assert.Equal(t, 5000, getTokenRemainQuota(t, token.Id))
+	assert.Equal(t, int64(10000), getUserQuota(t, user.Id))
+	assert.Equal(t, int64(5000), getTokenRemainQuota(t, token.Id))
 	assert.Zero(t, getTokenUsedQuota(t, token.Id))
 	usedQuota, _ := getUserUsageAccounting(t, user.Id)
 	assert.Zero(t, usedQuota)
@@ -514,8 +514,8 @@ func TestMidjourneyBillingBridgeFailsClosed(t *testing.T) {
 	billed, err := SettleMidjourneyTaskBilling(relayInfo, task, true)
 	require.ErrorIs(t, err, model.ErrDurableQuotaWriterModeDisabled)
 	assert.False(t, billed)
-	assert.Equal(t, 10000, getUserQuota(t, user.Id))
-	assert.Equal(t, 5000, getTokenRemainQuota(t, token.Id))
+	assert.Equal(t, int64(10000), getUserQuota(t, user.Id))
+	assert.Equal(t, int64(5000), getTokenRemainQuota(t, token.Id))
 	persisted := getMidjourneyTask(t, task.Id)
 	assert.Zero(t, persisted.Quota)
 	assert.Zero(t, persisted.TokenId)
@@ -524,8 +524,8 @@ func TestMidjourneyBillingBridgeFailsClosed(t *testing.T) {
 	persisted.Quota = chargedQuota
 	require.NoError(t, db.Model(&model.Midjourney{}).Where("id = ?", persisted.Id).Update("quota", chargedQuota).Error)
 	assert.False(t, RefundMidjourneyQuota(ctx, &persisted, "bridge mode"))
-	assert.Equal(t, 10000, getUserQuota(t, user.Id))
-	assert.Equal(t, 5000, getTokenRemainQuota(t, token.Id))
+	assert.Equal(t, int64(10000), getUserQuota(t, user.Id))
+	assert.Equal(t, int64(5000), getTokenRemainQuota(t, token.Id))
 	assert.Equal(t, chargedQuota, getMidjourneyTask(t, task.Id).Quota)
 	assert.Equal(t, int64(0), countLogs(t))
 }

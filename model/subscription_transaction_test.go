@@ -368,7 +368,7 @@ func verifySubscriptionPreConsumeAdmissionContract(t *testing.T, db *gorm.DB, pl
 			require.NoError(t, db.Model(&SubscriptionPreConsumeRecord{}).Where("request_id = ?", requestID).Count(&records).Error)
 			assert.Zero(t, records, "rejected admission cannot retain a pre-consume record")
 			require.NoError(t, db.First(&user, user.Id).Error)
-			assert.Equal(t, 1000, user.Quota)
+			assert.Equal(t, int64(1000), user.Quota)
 			if tc.subscription {
 				var subscription UserSubscription
 				require.NoError(t, db.Where("user_id = ?", user.Id).First(&subscription).Error)

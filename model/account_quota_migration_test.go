@@ -60,12 +60,12 @@ func TestAccountQuotaAndBalanceMigrationsUseBoundedKeysetBatches(t *testing.T) {
 		})
 		oldApplied = append(oldApplied, legacyQuotaBalanceBatchDrain{
 			SchemaVersion: 1, GenerationKey: fmt.Sprintf("old-applied-%03d", index), WriterEpoch: 9,
-			Payload: QuotaBalanceBatchPayload{UserQuota: map[int]int{index + 1: -1}}, State: quotaBalanceBatchDrainApplied,
+			Payload: QuotaBalanceBatchPayload{UserQuota: map[int]int64{index + 1: -1}}, State: quotaBalanceBatchDrainApplied,
 			CreatedAt: 1, UpdatedAt: 1,
 		})
 		pending = append(pending, legacyQuotaBalanceBatchDrain{
 			SchemaVersion: 1, GenerationKey: fmt.Sprintf("pending-%03d", index), WriterEpoch: 9,
-			Payload: QuotaBalanceBatchPayload{UserQuota: map[int]int{index + 1: -1}}, State: quotaBalanceBatchDrainPending,
+			Payload: QuotaBalanceBatchPayload{UserQuota: map[int]int64{index + 1: -1}}, State: quotaBalanceBatchDrainPending,
 			CreatedAt: int64(index + 2), UpdatedAt: int64(index + 2),
 		})
 	}
@@ -182,7 +182,7 @@ func runAccountQuotaConfiguredSchemaContract(t *testing.T, db *gorm.DB) {
 	require.NoError(t, db.Create(&legacyRefund).Error)
 	legacyDrain := legacyQuotaBalanceBatchDrain{
 		SchemaVersion: 1, GenerationKey: "migration-generation", WriterEpoch: 9,
-		Payload: QuotaBalanceBatchPayload{UserQuota: map[int]int{10: -5}, TokenQuota: map[int]int{20: -5}},
+		Payload: QuotaBalanceBatchPayload{UserQuota: map[int]int64{10: -5}, TokenQuota: map[int]int64{20: -5}},
 		State:   quotaBalanceBatchDrainPending, LastError: "", CreatedAt: 100, UpdatedAt: 100,
 	}
 	require.NoError(t, db.Create(&legacyDrain).Error)
@@ -251,14 +251,14 @@ func runAccountQuotaConfiguredSchemaContract(t *testing.T, db *gorm.DB) {
 	var drain QuotaBalanceBatchDrain
 	require.NoError(t, db.First(&drain, legacyDrain.ID).Error)
 	assert.Len(t, drain.PayloadFingerprint, 64)
-	payloadFingerprint, err := quotaBalanceBatchPayloadFingerprint(drain.Payload)
+	payloadFingerprint, err := quotaBalanceBatchPayloadFingerprintForSchema(quotaBalanceBatchDrainLegacySchemaVersion, drain.Payload)
 	require.NoError(t, err)
 	assert.Equal(t, payloadFingerprint, drain.PayloadFingerprint)
 	assert.True(t, drain.CacheApplied)
 	assert.EqualValues(t, 1, drain.LockVersion)
-	assert.Equal(t, quotaBalanceBatchDrainSchemaVersion, drain.SchemaVersion)
-	assert.Equal(t, -5, drain.Payload.UserQuota[10])
-	assert.Equal(t, -5, drain.Payload.TokenQuota[20])
+	assert.Equal(t, quotaBalanceBatchDrainLegacySchemaVersion, drain.SchemaVersion)
+	assert.Equal(t, int64(-5), drain.Payload.UserQuota[10])
+	assert.Equal(t, int64(-5), drain.Payload.TokenQuota[20])
 
 	duplicateHead := head
 	duplicateHead.ID = 0
@@ -367,7 +367,7 @@ func TestQuotaMigrationsPersistCursorAtRunBudget(t *testing.T) {
 		})
 		generations = append(generations, legacyQuotaBalanceBatchDrain{
 			SchemaVersion: 1, GenerationKey: fmt.Sprintf("budget-generation-%04d", index), WriterEpoch: 9,
-			Payload: QuotaBalanceBatchPayload{UserQuota: map[int]int{index + 1: -1}}, State: quotaBalanceBatchDrainPending,
+			Payload: QuotaBalanceBatchPayload{UserQuota: map[int]int64{index + 1: -1}}, State: quotaBalanceBatchDrainPending,
 			CreatedAt: int64(index + 1), UpdatedAt: int64(index + 1),
 		})
 	}

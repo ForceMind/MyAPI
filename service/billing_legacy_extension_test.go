@@ -36,9 +36,9 @@ func TestLegacyExtensionPreservesAtomicReservationEvidence(t *testing.T) {
 			}
 			require.Error(t, session.Reserve(200))
 			uq, remaining, used := loadPostConsumeBalances(t, db, user, token)
-			assert.Equal(t, 900, uq, "failed extension must not change wallet")
-			assert.Equal(t, 900, remaining, "failed extension must not change key quota")
-			assert.Equal(t, 100, used)
+			assert.Equal(t, int64(900), uq, "failed extension must not change wallet")
+			assert.Equal(t, int64(900), remaining, "failed extension must not change key quota")
+			assert.Equal(t, int64(100), used)
 			row, err := model.FindLegacyUsageReservation(context.Background(), db, info.RequestId)
 			require.NoError(t, err)
 			assert.EqualValues(t, 100, row.ReservedQuota)
@@ -87,9 +87,9 @@ func TestLegacyExtendedReservationFinalizesExactCumulativeAmount(t *testing.T) {
 					require.NoError(t, db.First(&sub, sub.Id).Error)
 					assert.EqualValues(t, used, sub.AmountUsed)
 				}
-				assert.Equal(t, wantWallet, uq)
-				assert.Equal(t, 1000-used, remaining)
-				assert.Equal(t, used, actualUsed)
+				assert.Equal(t, int64(wantWallet), uq)
+				assert.Equal(t, int64(1000-used), remaining)
+				assert.Equal(t, int64(used), actualUsed)
 			})
 		}
 	}

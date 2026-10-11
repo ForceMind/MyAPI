@@ -80,8 +80,11 @@ func TestMain(m *testing.M) {
 	common.BatchUpdateEnabled = false
 	common.LogConsumeEnabled = true
 	common.DataExportEnabled = false
-	if err := db.AutoMigrate(&model.Task{}, &model.User{}, &model.Channel{}, &model.Token{}, &model.Log{}, &model.BillingLogProjectionIdentity{}, &model.AccountQuotaSettlementFact{}, &model.LegacyUsageReservation{}); err != nil {
+	if err := db.AutoMigrate(&model.Task{}, &model.User{}, &model.Channel{}, &model.Token{}, &model.Log{}, &model.BillingLogProjectionIdentity{}, &model.AccountQuotaSettlementIntent{}, &model.AccountQuotaSettlementFact{}, &model.LegacyUsageReservation{}, &model.AccountQuotaExecutionGate{}, &model.AccountQuotaExecutionPermit{}); err != nil {
 		panic("failed to migrate Kling test database: " + err.Error())
+	}
+	if err := model.EnsureFreshAccountQuotaExecutionGate(context.Background(), db); err != nil {
+		panic("failed to initialize Kling account quota execution gate: " + err.Error())
 	}
 	exitCode := m.Run()
 	_ = sqlDB.Close()
@@ -90,7 +93,7 @@ func TestMain(m *testing.M) {
 
 func resetKlingPollingTestDB(t *testing.T) {
 	t.Helper()
-	for _, table := range []string{"account_quota_settlement_facts", "billing_log_projection_identities", "logs", "tasks", "tokens", "channels", "users"} {
+	for _, table := range []string{"account_quota_execution_permits", "account_quota_settlement_facts", "account_quota_settlement_intents", "billing_log_projection_identities", "logs", "tasks", "tokens", "channels", "users"} {
 		require.NoError(t, model.DB.Exec("DELETE FROM "+table).Error)
 	}
 }
@@ -186,9 +189,9 @@ func TestKlingPollingPreservesDeductionSaturationAudit(t *testing.T) {
 			require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"kling-audit-group":1}`))
 			require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(`{}`))
 
-			user := model.User{Id: 1, Username: "kling-audit-user", Quota: common.MaxQuota, UsedQuota: tc.preConsumed, RequestCount: 1}
+			user := model.User{Id: 1, Username: "kling-audit-user", Quota: common.MaxQuota, UsedQuota: int64(tc.preConsumed), RequestCount: 1}
 			channel := model.Channel{Id: 1, Type: constant.ChannelTypeKling, Name: "kling-audit-channel", Key: "fixture-key", UsedQuota: int64(tc.preConsumed)}
-			token := model.Token{Id: 1, UserId: 1, Name: "kling-audit-token", Key: "fixture-token", RemainQuota: common.MaxQuota, UsedQuota: tc.preConsumed}
+			token := model.Token{Id: 1, UserId: 1, Name: "kling-audit-token", Key: "fixture-token", RemainQuota: common.MaxQuota, UsedQuota: int64(tc.preConsumed)}
 			require.NoError(t, db.Create(&user).Error)
 			require.NoError(t, db.Create(&channel).Error)
 			require.NoError(t, db.Create(&token).Error)
@@ -243,11 +246,11 @@ func TestKlingPollingPreservesDeductionSaturationAudit(t *testing.T) {
 			require.NoError(t, db.First(&user, 1).Error)
 			require.NoError(t, db.First(&token, 1).Error)
 			require.NoError(t, db.First(&channel, 1).Error)
-			assert.Equal(t, common.MaxQuota-(tc.wantQuota-tc.preConsumed), user.Quota)
-			assert.Equal(t, tc.wantQuota, user.UsedQuota)
+			assert.Equal(t, int64(common.MaxQuota-(tc.wantQuota-tc.preConsumed)), user.Quota)
+			assert.Equal(t, int64(tc.wantQuota), user.UsedQuota)
 			assert.Equal(t, 1, user.RequestCount)
-			assert.Equal(t, common.MaxQuota-(tc.wantQuota-tc.preConsumed), token.RemainQuota)
-			assert.Equal(t, tc.wantQuota, token.UsedQuota)
+			assert.Equal(t, int64(common.MaxQuota-(tc.wantQuota-tc.preConsumed)), token.RemainQuota)
+			assert.Equal(t, int64(tc.wantQuota), token.UsedQuota)
 			assert.Equal(t, int64(tc.wantQuota), channel.UsedQuota)
 
 			var logs []model.Log

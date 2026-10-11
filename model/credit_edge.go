@@ -106,7 +106,7 @@ func insertUserWithInitialQuotaTx(tx *gorm.DB, user *User) error {
 	if authoritative {
 		user.Quota = 0
 	} else {
-		user.Quota = common.QuotaForNewUser
+		user.Quota = int64(common.QuotaForNewUser)
 	}
 	user.AffCode = common.GetRandomString(4)
 
@@ -270,7 +270,10 @@ func (user *User) TransferAffQuotaToQuota(quota int, requestId string, expectedE
 	if err != nil {
 		return err
 	}
-	user.Quota += quota
+	targetQuota, err := common.CheckedQuotaBalance(user.Quota, int64(quota))
+	if err != nil {
+		return err
+	}
 	if authoritative {
 		// The authoritative kernel already moved `quota` via its own locked
 		// read + CAS; persist only the affiliate side here.
@@ -278,11 +281,11 @@ func (user *User) TransferAffQuotaToQuota(quota int, requestId string, expectedE
 			return err
 		}
 	} else {
-		// 保存用户状态
-		if err := tx.Save(user).Error; err != nil {
+		if err := applyLegacyUserWalletDeltaTx(tx, user.Id, int64(quota), 0, map[string]interface{}{"aff_quota": user.AffQuota}); err != nil {
 			return err
 		}
 	}
+	user.Quota = targetQuota
 	if err := tx.Model(&AffQuotaTransfer{}).Where("id = ?", transfer.Id).Updates(map[string]interface{}{
 		"status":     AffQuotaTransferStatusSucceeded,
 		"updated_at": now,

@@ -22,8 +22,12 @@ func RedisKeyCacheSeconds() int {
 
 // InitRedisClient This function is called after init()
 func InitRedisClient() (err error) {
+	if RDB != nil {
+		_ = RDB.Close()
+	}
+	RDB = nil
+	RedisEnabled = false
 	if os.Getenv("REDIS_CONN_STRING") == "" {
-		RedisEnabled = false
 		SysLog("REDIS_CONN_STRING not set, Redis is not enabled")
 		return nil
 	}
@@ -31,10 +35,9 @@ func InitRedisClient() (err error) {
 		SysLog("SYNC_FREQUENCY not set, use default value 60")
 		SyncFrequency = 60
 	}
-	SysLog("Redis is enabled")
 	opt, err := redis.ParseURL(os.Getenv("REDIS_CONN_STRING"))
 	if err != nil {
-		FatalLog("failed to parse Redis connection string: " + err.Error())
+		return errors.New("failed to parse Redis connection configuration")
 	}
 	opt.PoolSize = GetEnvOrDefault("REDIS_POOL_SIZE", 10)
 	RDB = redis.NewClient(opt)
@@ -44,8 +47,13 @@ func InitRedisClient() (err error) {
 
 	_, err = RDB.Ping(ctx).Result()
 	if err != nil {
-		FatalLog("Redis ping test failed: " + err.Error())
+		_ = RDB.Close()
+		RDB = nil
+		RedisEnabled = false
+		return errors.New("Redis connectivity verification failed before database initialization")
 	}
+	RedisEnabled = true
+	SysLog("Redis is enabled")
 	if DebugEnabled {
 		SysLog(fmt.Sprintf("Redis connected to %s", opt.Addr))
 		SysLog(fmt.Sprintf("Redis database: %d", opt.DB))

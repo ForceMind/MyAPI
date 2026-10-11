@@ -1,15 +1,38 @@
 package model
 
 import (
+	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
-	"github.com/bytedance/gopkg/util/gopool"
 	"gorm.io/gorm"
 )
+
+var (
+	ErrTokenQuotaVersionConflict                  = errors.New("token quota version conflict")
+	ErrTokenMetadataMutationCommittedCacheFailure = errors.New("token metadata mutation committed but cache invalidation failed")
+)
+
+type tokenQuotaMetadataFingerprintPayload struct {
+	ID                 int    `json:"id"`
+	UserID             int    `json:"user_id"`
+	Name               string `json:"name"`
+	Status             int    `json:"status"`
+	ExpiredTime        int64  `json:"expired_time"`
+	UnlimitedQuota     bool   `json:"unlimited_quota"`
+	ModelLimitsEnabled bool   `json:"model_limits_enabled"`
+	ModelLimits        string `json:"model_limits"`
+	AllowIPs           string `json:"allow_ips"`
+	Group              string `json:"group"`
+	AccessProfileID    string `json:"access_profile_id"`
+	CrossGroupRetry    bool   `json:"cross_group_retry"`
+	AutoGroups         string `json:"auto_groups"`
+}
 
 type Token struct {
 	Id                 int     `json:"id"`
@@ -20,13 +43,13 @@ type Token struct {
 	CreatedTime        int64   `json:"created_time" gorm:"bigint"`
 	AccessedTime       int64   `json:"accessed_time" gorm:"bigint"`
 	ExpiredTime        int64   `json:"expired_time" gorm:"bigint;default:-1"` // -1 means never expired
-	RemainQuota        int     `json:"remain_quota" gorm:"default:0"`
+	RemainQuota        int64   `json:"remain_quota" gorm:"type:bigint;default:0"`
 	QuotaVersion       int64   `json:"-" gorm:"type:bigint;not null;default:0"`
 	UnlimitedQuota     bool    `json:"unlimited_quota"`
 	ModelLimitsEnabled bool    `json:"model_limits_enabled"`
 	ModelLimits        string  `json:"model_limits" gorm:"type:text"`
 	AllowIps           *string `json:"allow_ips" gorm:"default:''"`
-	UsedQuota          int     `json:"used_quota" gorm:"default:0"` // used quota
+	UsedQuota          int64   `json:"used_quota" gorm:"type:bigint;default:0"` // used quota
 	Group              string  `json:"group" gorm:"default:''"`
 	// AccessProfileID is the stable key-routing identity. Group remains the
 	// persisted compatibility input for old clients and channel selection.
@@ -34,6 +57,40 @@ type Token struct {
 	CrossGroupRetry bool           `json:"cross_group_retry"` // 跨分组重试，仅auto分组有效
 	AutoGroups      string         `json:"-" gorm:"type:text"`
 	DeletedAt       gorm.DeletedAt `gorm:"index"`
+}
+
+// QuotaMetadataFingerprint identifies every token field a quota-edit request
+// is allowed to write. Accounting state, access time, and the token secret are
+// intentionally excluded. A nil IP allowlist has the same meaning as an empty
+// one and therefore hashes identically.
+func (token *Token) QuotaMetadataFingerprint() (string, error) {
+	if token == nil {
+		return "", ErrAccountQuotaMutationInvalidInput
+	}
+	allowIPs := ""
+	if token.AllowIps != nil {
+		allowIPs = *token.AllowIps
+	}
+	payload, err := common.Marshal(tokenQuotaMetadataFingerprintPayload{
+		ID:                 token.Id,
+		UserID:             token.UserId,
+		Name:               token.Name,
+		Status:             token.Status,
+		ExpiredTime:        token.ExpiredTime,
+		UnlimitedQuota:     token.UnlimitedQuota,
+		ModelLimitsEnabled: token.ModelLimitsEnabled,
+		ModelLimits:        token.ModelLimits,
+		AllowIPs:           allowIPs,
+		Group:              token.Group,
+		AccessProfileID:    token.AccessProfileID,
+		CrossGroupRetry:    token.CrossGroupRetry,
+		AutoGroups:         token.AutoGroups,
+	})
+	if err != nil {
+		return "", err
+	}
+	digest := sha256.Sum256(payload)
+	return fmt.Sprintf("%x", digest[:]), nil
 }
 
 func (token *Token) GetAutoGroups() ([]string, error) {
@@ -230,7 +287,7 @@ func ValidateUserToken(key string) (token *Token, err error) {
 		return token, ValidateTokenSnapshot(token)
 	}
 	common.SysLog("ValidateUserToken: failed to get token: " + err.Error())
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, ErrQuotaCacheIdentityMismatch) {
 		return nil, ErrTokenInvalid
 	}
 	return nil, fmt.Errorf("%w: %v", ErrDatabase, err)
@@ -292,25 +349,38 @@ func GetTokenById(id int) (*Token, error) {
 }
 
 func GetTokenByKey(key string, fromDB bool) (token *Token, err error) {
+	var cached *Token
 	if !fromDB && common.RedisEnabled {
-		// Try Redis first
-		token, err := cacheGetTokenByKey(key)
-		if err == nil {
-			return token, nil
+		cached, err = cacheGetTokenByKey(key)
+		if err != nil {
+			cached = nil
 		}
-		// Don't return error - fall through to DB
+	}
+	if DB == nil {
+		return nil, gorm.ErrInvalidDB
 	}
 	token = &Token{}
 	if err = DB.Where(commonKeyCol+" = ?", key).First(token).Error; err != nil {
 		return nil, err
 	}
-	if common.RedisEnabled {
-		// 冷缓存时用数据库快照初始化；已存在的哈希只刷新 TTL，
-		// 避免快照覆盖 Redis 中已被原子预扣的余额。初始化失败不影响本次读取。
-		if _, cacheErr := cacheInitToken(*token); cacheErr != nil {
-			common.SysLog("failed to init token cache: " + cacheErr.Error())
+	if cached != nil {
+		if cached.Id != token.Id || cached.UserId != token.UserId {
+			return nil, ErrQuotaCacheIdentityMismatch
 		}
+		// Authorization comes from the current database row, even when a slow
+		// reader re-publishes old metadata after a mutation fence expires.
+		// Redis balances may include unpersisted batch deltas. Its quota version
+		// can legitimately lag the database after drain; preserve that domain.
+		token.RemainQuota = cached.RemainQuota
+		token.UsedQuota = cached.UsedQuota
+		token.QuotaVersion = cached.QuotaVersion
+		token.CreatedTime = cached.CreatedTime
+		token.AccessedTime = cached.AccessedTime
+		return token, nil
 	}
+	// A cold authorization read must not publish this unlocked accounting
+	// snapshot. The real quota writer rebuilds under its subject lock after
+	// recovering pending generations; non-batch writers retain DB fallback.
 	return token, nil
 }
 
@@ -330,27 +400,218 @@ func (token *Token) Update() (err error) {
 	if strings.TrimSpace(token.AccessProfileID) == "" {
 		token.AccessProfileID = EffectiveAccessProfileID(token.Group)
 	}
-	// 写库前失效缓存并设置 fence，防止并发读者把过期快照重新写回缓存。
-	if cacheErr := invalidateTokenCacheForMutation(token.Key); cacheErr != nil {
-		common.SysLog("failed to invalidate token cache before update: " + cacheErr.Error())
+	return mutateTokenMetadataWithCacheFence(token.Key, func(tx *gorm.DB) error {
+		return tx.Model(token).Select("name", "status", "expired_time", "unlimited_quota",
+			"model_limits_enabled", "model_limits", "allow_ips", "group", "access_profile_id", "cross_group_retry", "auto_groups").Updates(token).Error
+	})
+}
+
+// mutateTokenMetadataWithCacheFence brackets a metadata write with cache
+// invalidation. The in-transaction refresh closes a long SQL window before
+// commit; the final refresh starts a full observation window after commit.
+// If the final refresh fails, the database mutation is already committed and
+// callers receive an explicit committed-cache-failure result.
+func mutateTokenMetadataWithCacheFence(key string, mutation func(*gorm.DB) error) error {
+	if cacheErr := invalidateTokenCacheForMutation(key); cacheErr != nil {
+		return cacheErr
 	}
-	return DB.Model(token).Select("name", "status", "expired_time", "remain_quota", "unlimited_quota",
-		"model_limits_enabled", "model_limits", "allow_ips", "group", "access_profile_id", "cross_group_retry", "auto_groups").Updates(token).Error
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		if err := mutation(tx); err != nil {
+			return err
+		}
+		return invalidateTokenCacheForMutation(key)
+	})
+	if err != nil {
+		return err
+	}
+	if cacheErr := invalidateTokenCacheForMutation(key); cacheErr != nil {
+		return errors.Join(ErrTokenMetadataMutationCommittedCacheFailure, cacheErr)
+	}
+	return nil
+}
+
+// UpdateWithQuota atomically updates token metadata and an explicitly requested
+// remaining quota together with its immutable replay receipt. UsedQuota is read
+// from the locked row and is never copied from the caller.
+func (token *Token) UpdateWithQuota(command TokenQuotaAdjustmentCommand) (*TokenQuotaAdjustmentResult, bool, error) {
+	if token == nil || token.Id <= 0 || token.RemainQuota < 0 || token.RemainQuota > int64(common.MaxQuota) {
+		return nil, false, ErrAccountQuotaMutationInvalidInput
+	}
+	command, requestHash, err := normalizeTokenQuotaAdjustmentCommand(command)
+	if err != nil {
+		return nil, false, err
+	}
+	if token.UserId != 0 && token.UserId != command.UserID {
+		return nil, false, ErrTokenQuotaAdjustmentConflict
+	}
+
+	var identity Token
+	if err := DB.Where("id = ? AND user_id = ?", token.Id, command.UserID).First(&identity).Error; err != nil {
+		return nil, false, err
+	}
+	if token.Key != "" && token.Key != identity.Key {
+		return nil, false, ErrTokenQuotaAdjustmentConflict
+	}
+	adjustment, found, err := findTokenQuotaAdjustment(DB, command, requestHash, token.Id)
+	if err != nil {
+		return nil, false, err
+	}
+	if found {
+		*token = identity
+		return adjustment.Result(), true, nil
+	}
+
+	if strings.TrimSpace(token.AccessProfileID) == "" {
+		token.AccessProfileID = EffectiveAccessProfileID(token.Group)
+	}
+	token.UserId = identity.UserId
+	token.Key = identity.Key
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	mode, modeErr := currentQuotaWriterMode(DB.WithContext(ctx))
+	if modeErr != nil {
+		tables, probeErr := DB.WithContext(ctx).Migrator().GetTables()
+		if probeErr != nil {
+			common.SysError("failed to probe quota writer epoch table: " + probeErr.Error())
+			return nil, false, ErrQuotaWriterEpochUnavailable
+		}
+		epochTableFound := false
+		for _, table := range tables {
+			if strings.EqualFold(table, (QuotaWriterEpoch{}).TableName()) {
+				epochTableFound = true
+				break
+			}
+		}
+		if epochTableFound {
+			common.SysError("failed to load quota writer epoch state: " + modeErr.Error())
+			return nil, false, ErrQuotaWriterEpochUnavailable
+		}
+		mode = QuotaWriterModeLegacy
+	}
+	var balanceLock *quotaBalanceSubjectLock
+	var balanceErr error
+	switch mode {
+	case QuotaWriterModeLegacy:
+		balanceLock, balanceErr = prepareLegacySettlementSubject(ctx, DB.WithContext(ctx), BatchUpdateTypeTokenQuota, token.Id, identity.Key)
+	case QuotaWriterModeAuthoritative:
+		if common.RedisEnabled && common.RDB != nil {
+			balanceLock, balanceErr = acquireQuotaBalanceSubjectLockContext(ctx, BatchUpdateTypeTokenQuota, token.Id)
+			if balanceErr == nil {
+				balanceErr = invalidateQuotaBalanceSubjectCache(balanceLock, getTokenCacheKey(identity.Key), getTokenCacheFenceKey(identity.Key))
+			}
+		}
+	default:
+		return nil, false, ErrDurableQuotaWriterModeDisabled
+	}
+	if balanceErr != nil {
+		releaseQuotaBalanceSubjectLock(balanceLock)
+		return nil, false, balanceErr
+	}
+	defer releaseQuotaBalanceSubjectLock(balanceLock)
+
+	var updated Token
+	var committedAdjustment *TokenQuotaAdjustment
+	replayed := false
+	err = DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var current Token
+		if err := lockForUpdate(tx).Where("id = ? AND user_id = ?", token.Id, identity.UserId).First(&current).Error; err != nil {
+			return err
+		}
+		existing, found, err := findTokenQuotaAdjustment(tx, command, requestHash, token.Id)
+		if err != nil {
+			return err
+		}
+		if found {
+			updated = current
+			committedAdjustment = existing
+			replayed = true
+			return nil
+		}
+		currentMetadataFingerprint, err := current.QuotaMetadataFingerprint()
+		if err != nil {
+			return err
+		}
+		if current.Key != identity.Key || current.QuotaVersion != command.ExpectedQuotaVersion ||
+			!quotaMutationVersionValid(current.QuotaVersion) || currentMetadataFingerprint != command.ExpectedMetadataFingerprint {
+			return ErrTokenQuotaVersionConflict
+		}
+		if _, err := common.CheckedQuotaBalance(current.RemainQuota, 0); err != nil {
+			return err
+		}
+		if _, err := common.CheckedQuotaUsed(current.UsedQuota, 0); err != nil {
+			return err
+		}
+		updates := map[string]interface{}{
+			"name": token.Name, "status": token.Status, "expired_time": token.ExpiredTime,
+			"remain_quota": token.RemainQuota, "quota_version": current.QuotaVersion + 1,
+			"unlimited_quota": token.UnlimitedQuota, "model_limits_enabled": token.ModelLimitsEnabled,
+			"model_limits": token.ModelLimits, "allow_ips": token.AllowIps, "group": token.Group,
+			"access_profile_id": token.AccessProfileID, "cross_group_retry": token.CrossGroupRetry,
+			"auto_groups": token.AutoGroups,
+		}
+		result := tx.Model(&Token{}).
+			Where("id = ? AND user_id = ? AND remain_quota = ? AND used_quota = ? AND quota_version = ?", current.Id, current.UserId, current.RemainQuota, current.UsedQuota, current.QuotaVersion).
+			Updates(updates)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return ErrTokenQuotaVersionConflict
+		}
+		if err := tx.First(&updated, current.Id).Error; err != nil {
+			return err
+		}
+		committedAdjustment = &TokenQuotaAdjustment{
+			UserID: command.UserID, RequestIDHash: requestHash, RequestID: command.RequestID,
+			TokenID: token.Id, FingerprintVersion: command.FingerprintVersion, RequestFingerprint: command.RequestFingerprint,
+			RemainQuotaBefore: current.RemainQuota, RemainQuotaAfter: updated.RemainQuota,
+			UsedQuotaSnapshot: current.UsedQuota, QuotaVersionBefore: current.QuotaVersion,
+			QuotaVersionAfter: updated.QuotaVersion, CreatedTime: time.Now().Unix(),
+		}
+		return tx.Create(committedAdjustment).Error
+	})
+	if err != nil {
+		// A concurrent request may have won the unique receipt key. Re-read only
+		// after this transaction has ended so MySQL and PostgreSQL can observe it.
+		existing, found, replayErr := findTokenQuotaAdjustment(DB.WithContext(ctx), command, requestHash, token.Id)
+		if replayErr == nil && found {
+			var current Token
+			if loadErr := DB.WithContext(ctx).Where("id = ? AND user_id = ?", token.Id, command.UserID).First(&current).Error; loadErr != nil {
+				return nil, false, loadErr
+			}
+			*token = current
+			return existing.Result(), true, nil
+		}
+		if replayErr != nil && !errors.Is(replayErr, ErrTokenQuotaAdjustmentConflict) {
+			return nil, false, replayErr
+		}
+		if errors.Is(replayErr, ErrTokenQuotaAdjustmentConflict) {
+			return nil, false, replayErr
+		}
+		return nil, false, err
+	}
+
+	*token = updated
+	if balanceLock != nil && !replayed {
+		if cacheErr := invalidateQuotaBalanceSubjectCache(balanceLock, getTokenCacheKey(identity.Key), getTokenCacheFenceKey(identity.Key)); cacheErr != nil {
+			common.SysLog("failed to preserve updated token cache fence: " + cacheErr.Error())
+		}
+	}
+	return committedAdjustment.Result(), replayed, nil
 }
 
 func (token *Token) SelectUpdate() (err error) {
-	if cacheErr := invalidateTokenCacheForMutation(token.Key); cacheErr != nil {
-		common.SysLog("failed to invalidate token cache before status update: " + cacheErr.Error())
-	}
-	// This can update zero values
-	return DB.Model(token).Select("accessed_time", "status").Updates(token).Error
+	return mutateTokenMetadataWithCacheFence(token.Key, func(tx *gorm.DB) error {
+		// This can update zero values
+		return tx.Model(token).Select("accessed_time", "status").Updates(token).Error
+	})
 }
 
 func (token *Token) Delete() (err error) {
-	if cacheErr := invalidateTokenCacheForMutation(token.Key); cacheErr != nil {
-		common.SysLog("failed to invalidate token cache before delete: " + cacheErr.Error())
-	}
-	return DB.Delete(token).Error
+	return mutateTokenMetadataWithCacheFence(token.Key, func(tx *gorm.DB) error {
+		return tx.Delete(token).Error
+	})
 }
 
 func (token *Token) IsModelLimitsEnabled() bool {
@@ -400,14 +661,14 @@ func IncreaseTokenQuota(tokenId int, key string, quota int) (err error) {
 	if err := requireLegacyQuotaWriterCall(); err != nil {
 		return err
 	}
-	if quota < 0 {
+	if quota < 0 || quota > common.MaxQuota {
 		return errors.New("quota 不能为负数！")
 	}
 	if common.BatchUpdateEnabled {
 		if !common.RedisEnabled || common.RDB == nil {
 			return ErrBatchQuotaCacheUnavailable
 		}
-		result, err := applyLegacyBalanceCacheMutation(BatchUpdateTypeTokenQuota, tokenId, quota, key,
+		result, err := applyLegacyBalanceCacheMutation(BatchUpdateTypeTokenQuota, tokenId, int64(quota), key,
 			func(generationKey, lockToken string) (cacheQuotaResult, error) {
 				return cacheApplyTokenQuotaDeltaJournaled(tokenId, key, int64(quota), generationKey, lockToken)
 			},
@@ -422,24 +683,16 @@ func IncreaseTokenQuota(tokenId int, key string, quota int) (err error) {
 		}
 		return nil
 	}
-	if common.RedisEnabled {
-		gopool.Go(func() {
-			if _, err := cacheApplyTokenQuotaDelta(tokenId, key, int64(quota)); err != nil {
-				common.SysLog("failed to increase token quota: " + err.Error())
-			}
-		})
-	}
-	return increaseTokenQuota(tokenId, quota)
+	_, err = mutateLegacyTokenQuotaWithContext(context.Background(), tokenId, key, int64(quota), false, false)
+	return err
 }
 
-func increaseTokenQuota(id int, quota int) (err error) {
-	err = DB.Model(&Token{}).Where("id = ?", id).Updates(
-		map[string]interface{}{
-			"remain_quota":  gorm.Expr("remain_quota + ?", quota),
-			"used_quota":    gorm.Expr("used_quota - ?", quota),
-			"accessed_time": common.GetTimestamp(),
-		},
-	).Error
+func increaseTokenQuota(id int, quota int64) error {
+	var token Token
+	if err := DB.Select("id", "key", "unlimited_quota").Where("id = ?", id).First(&token).Error; err != nil {
+		return err
+	}
+	_, err := mutateLegacyTokenQuotaWithContext(context.Background(), id, token.Key, quota, false, token.UnlimitedQuota)
 	return err
 }
 
@@ -447,14 +700,14 @@ func DecreaseTokenQuota(id int, key string, quota int) (err error) {
 	if err := requireLegacyQuotaWriterCall(); err != nil {
 		return err
 	}
-	if quota < 0 {
+	if quota < 0 || quota > common.MaxQuota {
 		return errors.New("quota 不能为负数！")
 	}
 	if common.BatchUpdateEnabled {
 		if !common.RedisEnabled || common.RDB == nil {
 			return ErrBatchQuotaCacheUnavailable
 		}
-		result, err := applyLegacyBalanceCacheMutation(BatchUpdateTypeTokenQuota, id, -quota, key,
+		result, err := applyLegacyBalanceCacheMutation(BatchUpdateTypeTokenQuota, id, -int64(quota), key,
 			func(generationKey, lockToken string) (cacheQuotaResult, error) {
 				return cacheApplyTokenQuotaDeltaJournaled(id, key, -int64(quota), generationKey, lockToken)
 			},
@@ -469,24 +722,16 @@ func DecreaseTokenQuota(id int, key string, quota int) (err error) {
 		}
 		return nil
 	}
-	if common.RedisEnabled {
-		gopool.Go(func() {
-			if _, err := cacheApplyTokenQuotaDelta(id, key, -int64(quota)); err != nil {
-				common.SysLog("failed to decrease token quota: " + err.Error())
-			}
-		})
-	}
-	return decreaseTokenQuota(id, quota)
+	_, err = mutateLegacyTokenQuotaWithContext(context.Background(), id, key, -int64(quota), false, false)
+	return err
 }
 
-func decreaseTokenQuota(id int, quota int) (err error) {
-	err = DB.Model(&Token{}).Where("id = ?", id).Updates(
-		map[string]interface{}{
-			"remain_quota":  gorm.Expr("remain_quota - ?", quota),
-			"used_quota":    gorm.Expr("used_quota + ?", quota),
-			"accessed_time": common.GetTimestamp(),
-		},
-	).Error
+func decreaseTokenQuota(id int, quota int64) error {
+	var token Token
+	if err := DB.Select("id", "key", "unlimited_quota").Where("id = ?", id).First(&token).Error; err != nil {
+		return err
+	}
+	_, err := mutateLegacyTokenQuotaWithContext(context.Background(), id, token.Key, -quota, false, token.UnlimitedQuota)
 	return err
 }
 
@@ -511,7 +756,8 @@ func BatchDeleteTokens(ids []int, userId int) (int, error) {
 		return 0, err
 	}
 	if err := invalidateTokensCache(tokens); err != nil {
-		common.SysLog("failed to invalidate token cache before batch delete: " + err.Error())
+		tx.Rollback()
+		return 0, err
 	}
 
 	if err := tx.Where("user_id = ? AND id IN (?)", userId, ids).Delete(&Token{}).Error; err != nil {

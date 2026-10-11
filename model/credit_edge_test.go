@@ -81,7 +81,7 @@ func createCreditEdgeUser(t *testing.T, db *gorm.DB, username string, quota, aff
 		Username: username,
 		AffCode:  username + "-aff",
 		Status:   common.UserStatusEnabled,
-		Quota:    quota,
+		Quota:    int64(quota),
 		AffQuota: affQuota,
 	}
 	require.NoError(t, db.Create(&user).Error)
@@ -104,7 +104,7 @@ func TestLegacyAffQuotaTransferCreditsWallet(t *testing.T) {
 	var reloaded User
 	require.NoError(t, db.First(&reloaded, user.Id).Error)
 	assert.Equal(t, 500000, reloaded.AffQuota)
-	assert.Equal(t, 501000, reloaded.Quota)
+	assert.Equal(t, int64(501000), reloaded.Quota)
 
 	var transfer AffQuotaTransfer
 	require.NoError(t, db.Where("user_id = ? AND request_id = ?", user.Id, "req-legacy-1").First(&transfer).Error)
@@ -125,7 +125,7 @@ func TestAuthoritativeAffQuotaTransferWritesReceipt(t *testing.T) {
 	var reloaded User
 	require.NoError(t, db.First(&reloaded, user.Id).Error)
 	assert.Equal(t, 500000, reloaded.AffQuota)
-	assert.Equal(t, 501000, reloaded.Quota)
+	assert.Equal(t, int64(501000), reloaded.Quota)
 	assert.EqualValues(t, 1, reloaded.QuotaVersion)
 
 	receipts := countUserQuotaReceipts(t, db, fmt.Sprintf("aff_transfer:%d:req-auth-1", user.Id))
@@ -133,8 +133,8 @@ func TestAuthoritativeAffQuotaTransferWritesReceipt(t *testing.T) {
 	assert.Equal(t, "aff_transfer", receipts[0].MutationType)
 	assert.Equal(t, "aff_transfer_credit", receipts[0].ReasonCode)
 	assert.EqualValues(t, 500000, receipts[0].Delta)
-	assert.Equal(t, 1000, receipts[0].QuotaBefore)
-	assert.Equal(t, 501000, receipts[0].QuotaAfter)
+	assert.Equal(t, int64(1000), receipts[0].QuotaBefore)
+	assert.Equal(t, int64(501000), receipts[0].QuotaAfter)
 
 	var transfer AffQuotaTransfer
 	require.NoError(t, db.Where("user_id = ? AND request_id = ?", user.Id, "req-auth-1").First(&transfer).Error)
@@ -151,7 +151,7 @@ func TestAffQuotaTransferRepeatedRequestIdDoesNotMoveQuotaTwice(t *testing.T) {
 	var reloaded User
 	require.NoError(t, db.First(&reloaded, user.Id).Error)
 	assert.Equal(t, 500000, reloaded.AffQuota)
-	assert.Equal(t, 500000, reloaded.Quota)
+	assert.Equal(t, int64(500000), reloaded.Quota)
 
 	var transferCount int64
 	require.NoError(t, db.Model(&AffQuotaTransfer{}).Where("user_id = ?", user.Id).Count(&transferCount).Error)
@@ -170,7 +170,7 @@ func TestAffQuotaTransferReusedRequestIdWithDifferentQuotaConflicts(t *testing.T
 	var reloaded User
 	require.NoError(t, db.First(&reloaded, user.Id).Error)
 	assert.Equal(t, 1500000, reloaded.AffQuota)
-	assert.Equal(t, 500000, reloaded.Quota)
+	assert.Equal(t, int64(500000), reloaded.Quota)
 }
 
 func TestAffQuotaTransferInsufficientAffLeavesNoTransferRecord(t *testing.T) {
@@ -183,7 +183,7 @@ func TestAffQuotaTransferInsufficientAffLeavesNoTransferRecord(t *testing.T) {
 	var reloaded User
 	require.NoError(t, db.First(&reloaded, user.Id).Error)
 	assert.Equal(t, 500000, reloaded.AffQuota)
-	assert.Equal(t, 1000, reloaded.Quota)
+	assert.Equal(t, int64(1000), reloaded.Quota)
 
 	var transferCount int64
 	require.NoError(t, db.Model(&AffQuotaTransfer{}).Where("user_id = ?", user.Id).Count(&transferCount).Error)
@@ -240,7 +240,7 @@ func TestAuthoritativeInviteeRewardProducesSingleReceipt(t *testing.T) {
 
 	var reloaded User
 	require.NoError(t, db.First(&reloaded, invitee.Id).Error)
-	assert.Equal(t, 300000, reloaded.Quota)
+	assert.Equal(t, int64(300000), reloaded.Quota)
 	assert.EqualValues(t, 1, reloaded.QuotaVersion)
 
 	receipts := countUserQuotaReceipts(t, db, fmt.Sprintf("invite:invitee:%d", invitee.Id))
@@ -258,7 +258,7 @@ func TestAuthoritativeNewUserGrantWritesReceipt(t *testing.T) {
 
 	var reloaded User
 	require.NoError(t, db.First(&reloaded, user.Id).Error)
-	assert.Equal(t, 500, reloaded.Quota)
+	assert.Equal(t, int64(500), reloaded.Quota)
 	assert.EqualValues(t, 1, reloaded.QuotaVersion)
 
 	receipts := countUserQuotaReceipts(t, db, fmt.Sprintf("user_init:%d", user.Id))
@@ -266,8 +266,8 @@ func TestAuthoritativeNewUserGrantWritesReceipt(t *testing.T) {
 	assert.Equal(t, "system_init", receipts[0].MutationType)
 	assert.Equal(t, "new_user_grant", receipts[0].ReasonCode)
 	assert.EqualValues(t, 500, receipts[0].Delta)
-	assert.Equal(t, 0, receipts[0].QuotaBefore)
-	assert.Equal(t, 500, receipts[0].QuotaAfter)
+	assert.Equal(t, int64(0), receipts[0].QuotaBefore)
+	assert.Equal(t, int64(500), receipts[0].QuotaAfter)
 }
 
 func TestLegacyNewUserGrantKeepsDirectAssignment(t *testing.T) {
@@ -279,7 +279,7 @@ func TestLegacyNewUserGrantKeepsDirectAssignment(t *testing.T) {
 
 	var reloaded User
 	require.NoError(t, db.First(&reloaded, user.Id).Error)
-	assert.Equal(t, 500, reloaded.Quota)
+	assert.Equal(t, int64(500), reloaded.Quota)
 
 	var receiptCount int64
 	require.NoError(t, db.Model(&UserQuotaMutationReceipt{}).Count(&receiptCount).Error)

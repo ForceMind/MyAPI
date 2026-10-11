@@ -77,6 +77,7 @@ const authClient = axios.create({
 })
 
 const refreshRaceDelays = [80, 200, 500] as const
+const refreshTimeoutMilliseconds = 10_000
 let refreshPromise: Promise<RefreshOutcome> | null = null
 let authEpoch = 0
 
@@ -85,6 +86,56 @@ class AuthRefreshSupersededError extends Error {
     super('Authentication refresh was superseded')
     this.name = 'AuthRefreshSupersededError'
   }
+}
+
+class AuthRefreshTimeoutError extends Error {
+  constructor() {
+    super('Authentication refresh timed out')
+    this.name = 'AuthRefreshTimeoutError'
+  }
+}
+
+interface AuthRefreshGeneration {
+  epoch: number
+  deadline: number
+  controller: AbortController
+  cancelled: boolean
+}
+
+function isRefreshGenerationCurrent(
+  generation: AuthRefreshGeneration
+): boolean {
+  return (
+    authEpoch === generation.epoch &&
+    !generation.cancelled &&
+    Date.now() < generation.deadline
+  )
+}
+
+function ownsRefreshGeneration(generation: AuthRefreshGeneration): boolean {
+  return authEpoch === generation.epoch && !generation.cancelled
+}
+
+function cancelRefreshGeneration(
+  generation: AuthRefreshGeneration,
+  reason: unknown
+): void {
+  generation.cancelled = true
+  if (!generation.controller.signal.aborted) {
+    generation.controller.abort(reason)
+  }
+}
+
+function expireRefreshGeneration(
+  generation: AuthRefreshGeneration,
+  error: unknown
+): RefreshOutcome {
+  const wasActive = ownsRefreshGeneration(generation)
+  cancelRefreshGeneration(generation, error)
+  if (wasActive) {
+    useAuthStore.getState().auth.setBootstrapState('idle')
+  }
+  return { kind: 'transient_error', error }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -290,7 +341,8 @@ export function createRefreshRunner(
 }
 
 async function requestRefresh(
-  expectedSID?: string
+  expectedSID: string | undefined,
+  generation: AuthRefreshGeneration
 ): Promise<AuthRefreshHTTPResponse> {
   try {
     const response = await authClient.post(
@@ -298,6 +350,8 @@ async function requestRefresh(
       undefined,
       {
         headers: expectedSID ? { 'X-Auth-Session': expectedSID } : undefined,
+        signal: generation.controller.signal,
+        timeout: Math.max(1, generation.deadline - Date.now()),
       }
     )
     return { status: response.status, data: response.data }
@@ -311,9 +365,11 @@ async function requestRefresh(
   }
 }
 
-function runRefresh(refreshEpoch: number): Promise<RefreshOutcome> {
+function runRefresh(
+  generation: AuthRefreshGeneration
+): Promise<RefreshOutcome> {
   return createRefreshRunner({
-    request: requestRefresh,
+    request: (expectedSID) => requestRefresh(expectedSID, generation),
     getExpectedSID: () => useAuthStore.getState().auth.session?.sid,
     parseBundle: (value) => (isAuthBundle(value) ? value : null),
     acceptBundle: (bundle) => applyAuthBundle(bundle, false),
@@ -326,34 +382,84 @@ function runRefresh(refreshEpoch: number): Promise<RefreshOutcome> {
     },
     markTransient: () => useAuthStore.getState().auth.setBootstrapState('idle'),
     wait: waitForRefreshRace,
-    isCurrent: () => authEpoch === refreshEpoch,
+    isCurrent: () => isRefreshGenerationCurrent(generation),
   })()
 }
 
 async function performRefreshWithBrowserLock(
-  refreshEpoch: number
+  generation: AuthRefreshGeneration
 ): Promise<RefreshOutcome> {
   try {
     if (typeof navigator === 'undefined' || !navigator.locks) {
-      return runRefresh(refreshEpoch)
+      return runRefresh(generation)
     }
     return navigator.locks.request(
       'new-api:auth-refresh',
-      { mode: 'exclusive' },
-      () => runRefresh(refreshEpoch)
+      { mode: 'exclusive', signal: generation.controller.signal },
+      () => runRefresh(generation)
     )
   } catch (error: unknown) {
-    useAuthStore.getState().auth.setBootstrapState('idle')
+    if (isRefreshGenerationCurrent(generation)) {
+      useAuthStore.getState().auth.setBootstrapState('idle')
+    }
     return { kind: 'transient_error', error }
   }
 }
 
+function performRefreshWithinDeadline(
+  generation: AuthRefreshGeneration
+): Promise<RefreshOutcome> {
+  return new Promise((resolve) => {
+    let settled = false
+    const timeoutError = new AuthRefreshTimeoutError()
+    const timeout = globalThis.setTimeout(
+      () => {
+        if (settled) return
+        settled = true
+        resolve(expireRefreshGeneration(generation, timeoutError))
+      },
+      Math.max(0, generation.deadline - Date.now())
+    )
+
+    void performRefreshWithBrowserLock(generation).then(
+      (outcome) => {
+        if (settled) return
+        settled = true
+        globalThis.clearTimeout(timeout)
+        if (Date.now() >= generation.deadline) {
+          resolve(expireRefreshGeneration(generation, timeoutError))
+          return
+        }
+        resolve(outcome)
+      },
+      (error: unknown) => {
+        if (settled) return
+        settled = true
+        globalThis.clearTimeout(timeout)
+        resolve(expireRefreshGeneration(generation, error))
+      }
+    )
+  })
+}
+
 export function refreshAuthentication(): Promise<RefreshOutcome> {
   if (!refreshPromise) {
-    const refreshEpoch = authEpoch
-    refreshPromise = performRefreshWithBrowserLock(refreshEpoch).finally(() => {
-      refreshPromise = null
-    })
+    const generation: AuthRefreshGeneration = {
+      epoch: authEpoch,
+      deadline: Date.now() + refreshTimeoutMilliseconds,
+      controller: new AbortController(),
+      cancelled: false,
+    }
+    const activePromise = performRefreshWithinDeadline(generation)
+    refreshPromise = activePromise
+    void activePromise.then(
+      () => {
+        if (refreshPromise === activePromise) refreshPromise = null
+      },
+      () => {
+        if (refreshPromise === activePromise) refreshPromise = null
+      }
+    )
   }
   return refreshPromise
 }

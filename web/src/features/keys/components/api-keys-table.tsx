@@ -52,6 +52,7 @@ import {
   API_KEY_STATUSES,
   ERROR_MESSAGES,
 } from '../constants'
+import { checkedAddSafeIntegers } from '../lib/quota-display'
 import type { ApiKey } from '../types'
 import { ApiKeyCell, UnlimitedQuotaBadge } from './api-keys-cells'
 import { useApiKeysColumns } from './api-keys-columns'
@@ -93,6 +94,52 @@ function ApiKeysMobileSkeleton() {
   )
 }
 
+function ApiKeyMobileQuota(props: { apiKey: ApiKey }) {
+  const { t } = useTranslation()
+  if (props.apiKey.unlimited_quota) {
+    return <UnlimitedQuotaBadge used={props.apiKey.used_quota} />
+  }
+
+  const total = checkedAddSafeIntegers(
+    props.apiKey.used_quota,
+    props.apiKey.remain_quota
+  )
+  if (total === null) {
+    return (
+      <span className='grid gap-0.5 text-right font-medium tabular-nums'>
+        <span>
+          <span className='text-muted-foreground font-normal'>
+            {t('Remaining quota')}:{' '}
+          </span>
+          {formatQuota(props.apiKey.remain_quota)}
+        </span>
+        <span>
+          <span className='text-muted-foreground font-normal'>
+            {t('Used quota')}:{' '}
+          </span>
+          {formatQuota(props.apiKey.used_quota)}
+        </span>
+        <span>
+          <span className='text-muted-foreground font-normal'>
+            {t('Total quota')}:{' '}
+          </span>
+          {t('Unavailable')}
+        </span>
+      </span>
+    )
+  }
+
+  return (
+    <span className='font-medium tabular-nums'>
+      {formatQuota(props.apiKey.remain_quota)}
+      <span className='text-muted-foreground font-normal'>
+        {' / '}
+        {formatQuota(total)}
+      </span>
+    </span>
+  )
+}
+
 function ApiKeysMobileList({
   table,
   isLoading,
@@ -130,7 +177,6 @@ function ApiKeysMobileList({
       {rows.map((row) => {
         const apiKey = row.original
         const statusConfig = API_KEY_STATUSES[apiKey.status]
-        const total = apiKey.used_quota + apiKey.remain_quota
 
         return (
           <div
@@ -167,17 +213,7 @@ function ApiKeysMobileList({
 
             <div className='flex items-center justify-between gap-2 text-xs'>
               <span className='text-muted-foreground'>{t('Quota')}</span>
-              {apiKey.unlimited_quota ? (
-                <UnlimitedQuotaBadge used={apiKey.used_quota} />
-              ) : (
-                <span className='font-medium tabular-nums'>
-                  {formatQuota(apiKey.remain_quota)}
-                  <span className='text-muted-foreground font-normal'>
-                    {' / '}
-                    {formatQuota(total)}
-                  </span>
-                </span>
-              )}
+              <ApiKeyMobileQuota apiKey={apiKey} />
             </div>
           </div>
         )

@@ -90,8 +90,8 @@ func TestDurableVideoUncertainResponsesDoNotApplyEconomics(t *testing.T) {
 			assert.Zero(t, observations)
 			var user model.User
 			require.NoError(t, db.First(&user, fixture.User.Id).Error)
-			assert.Equal(t, 900, user.Quota)
-			assert.Equal(t, 100, user.UsedQuota)
+			assert.Equal(t, int64(900), user.Quota)
+			assert.Equal(t, int64(100), user.UsedQuota)
 		})
 	}
 }
@@ -452,8 +452,8 @@ func TestLegacyKlingTerminalWithoutResponseTaskIDFailsClosed(t *testing.T) {
 	assert.Equal(t, "50%", reloadedTask.Progress)
 	assert.Equal(t, 50, reloadedTask.Quota)
 	assert.Equal(t, model.TaskSubmissionOperationStatusAccepted, reloadedOperation.Status)
-	assert.Equal(t, 900, reloadedUser.Quota)
-	assert.Equal(t, 100, reloadedUser.UsedQuota)
+	assert.Equal(t, int64(900), reloadedUser.Quota)
+	assert.Equal(t, int64(100), reloadedUser.UsedQuota)
 	var observationCount int64
 	require.NoError(t, db.Model(&model.TaskTerminalObservation{}).Where("operation_id = ?", fixture.Operation.ID).Count(&observationCount).Error)
 	assert.Zero(t, observationCount)

@@ -77,7 +77,7 @@ func newRecoveryTestFixture(t *testing.T, db *gorm.DB, label string, userQuota, 
 		AffCode:  name,
 		Password: "test-fixture-password",
 		Status:   common.UserStatusEnabled,
-		Quota:    userQuota,
+		Quota:    int64(userQuota),
 	}
 	require.NoError(t, db.Create(&user).Error)
 
@@ -85,7 +85,7 @@ func newRecoveryTestFixture(t *testing.T, db *gorm.DB, label string, userQuota, 
 		UserId:      user.Id,
 		Key:         name,
 		Status:      common.TokenStatusEnabled,
-		RemainQuota: tokenQuota,
+		RemainQuota: int64(tokenQuota),
 		ExpiredTime: -1,
 	}
 	require.NoError(t, db.Create(&token).Error)
@@ -165,12 +165,12 @@ func TestTaskRecoveryWorker_RecoverStaleDispatching_FailClosed(t *testing.T) {
 
 	var u model.User
 	require.NoError(t, db.First(&u, fixture.User.Id).Error)
-	assert.Equal(t, 900, u.Quota)
+	assert.Equal(t, int64(900), u.Quota)
 
 	var tok model.Token
 	require.NoError(t, db.First(&tok, fixture.Token.Id).Error)
-	assert.Equal(t, 400, tok.RemainQuota)
-	assert.Equal(t, 100, tok.UsedQuota)
+	assert.Equal(t, int64(400), tok.RemainQuota)
+	assert.Equal(t, int64(100), tok.UsedQuota)
 
 	// Simulate stale dispatch: set dispatch_started_at to 600s ago (exceeding default 5m threshold)
 	staleTime := time.Now().Unix() - 600
@@ -195,11 +195,11 @@ func TestTaskRecoveryWorker_RecoverStaleDispatching_FailClosed(t *testing.T) {
 	// CRITICAL ASSERTION: Fail-closed verification!
 	// Reserved quota must NOT be refunded!
 	require.NoError(t, db.First(&u, fixture.User.Id).Error)
-	assert.Equal(t, 900, u.Quota, "Fail-closed invariant: User quota must NOT be refunded automatically on dispatch timeout")
+	assert.Equal(t, int64(900), u.Quota, "Fail-closed invariant: User quota must NOT be refunded automatically on dispatch timeout")
 
 	require.NoError(t, db.First(&tok, fixture.Token.Id).Error)
-	assert.Equal(t, 400, tok.RemainQuota, "Fail-closed invariant: Token remain quota must NOT be refunded automatically")
-	assert.Equal(t, 100, tok.UsedQuota)
+	assert.Equal(t, int64(400), tok.RemainQuota, "Fail-closed invariant: Token remain quota must NOT be refunded automatically")
+	assert.Equal(t, int64(100), tok.UsedQuota)
 
 	// Assert idempotency: second run recovers 0
 	recoveredAgain, err := worker.RecoverStaleDispatching(context.Background(), db)
@@ -240,7 +240,7 @@ func TestTaskRecoveryWorker_RecoverStaleUnfinished_Reserved_SafeCancel(t *testin
 
 	var u model.User
 	require.NoError(t, db.First(&u, fixture.User.Id).Error)
-	assert.Equal(t, 900, u.Quota)
+	assert.Equal(t, int64(900), u.Quota)
 
 	// Simulate stale reservation: created_at 700s ago (older than 10m threshold)
 	staleTime := time.Now().Unix() - 700
@@ -258,14 +258,14 @@ func TestTaskRecoveryWorker_RecoverStaleUnfinished_Reserved_SafeCancel(t *testin
 
 	// CRITICAL ASSERTION: Reserved quota IS safely released back!
 	require.NoError(t, db.First(&u, fixture.User.Id).Error)
-	assert.Equal(t, 1000, u.Quota, "Quota must be fully released back to user on safe cancellation")
+	assert.Equal(t, int64(1000), u.Quota, "Quota must be fully released back to user on safe cancellation")
 	assert.Zero(t, u.UsedQuota)
 	assert.Equal(t, 1, u.RequestCount)
 
 	var tok model.Token
 	require.NoError(t, db.First(&tok, fixture.Token.Id).Error)
-	assert.Equal(t, 500, tok.RemainQuota)
-	assert.Equal(t, 0, tok.UsedQuota)
+	assert.Equal(t, int64(500), tok.RemainQuota)
+	assert.Equal(t, int64(0), tok.UsedQuota)
 	var channel model.Channel
 	require.NoError(t, db.First(&channel, fixture.Attempt.ChannelID).Error)
 	assert.Zero(t, channel.UsedQuota)
@@ -527,7 +527,7 @@ func TestRecoverTerminalObservationsHistoricalTaskWithoutActualEvidenceIsManual(
 	require.NoError(t, db.First(&user, fixture.User.Id).Error)
 	require.NoError(t, db.First(&channel, fixture.Task.ChannelId).Error)
 	assert.Equal(t, model.TaskSubmissionOperationStatusAccepted, operation.Status)
-	assert.Equal(t, 100, user.UsedQuota)
+	assert.Equal(t, int64(100), user.UsedQuota)
 	assert.Equal(t, int64(100), channel.UsedQuota)
 	var terminalCount int64
 	require.NoError(t, db.Model(&model.QuotaMutationReceipt{}).Where("operation_id = ? AND mutation_type = ?", fixture.Operation.ID, model.TaskBillingEventTypeTerminalSettlement).Count(&terminalCount).Error)
@@ -553,7 +553,7 @@ func TestRecoverStaleReservedWithoutStatisticsEvidenceCreatesManualReview(t *tes
 	assert.Equal(t, model.TaskSubmissionOperationStatusReserved, operation.Status)
 	assert.Equal(t, model.TaskTerminalObservationManualReview, observation.State)
 	assert.Zero(t, observation.TaskID)
-	assert.Equal(t, 900, user.Quota)
+	assert.Equal(t, int64(900), user.Quota)
 	assert.Zero(t, user.UsedQuota)
 	assert.Zero(t, user.RequestCount)
 }
