@@ -162,7 +162,7 @@ func quotaBalanceBackfillPending(ctx context.Context, db *gorm.DB) (bool, error)
 	var generation QuotaBalanceBatchDrain
 	result := db.WithContext(ctx).Select("id").Where(
 		"schema_version < ? OR lock_version < ? OR (cache_applied = ? AND subject_id = ?)",
-		quotaBalanceBatchDrainSchemaVersion, 1, false, 0,
+		quotaBalanceBatchDrainLegacySchemaVersion, 1, false, 0,
 	).Limit(1).Find(&generation)
 	if result.Error != nil || result.RowsAffected > 0 {
 		return result.RowsAffected > 0, result.Error

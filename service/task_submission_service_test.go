@@ -90,7 +90,7 @@ func newTaskSubmissionTestFixture(t *testing.T, db *gorm.DB, label string, userQ
 		AffCode:  name,
 		Password: "test-fixture-password",
 		Status:   common.UserStatusEnabled,
-		Quota:    userQuota,
+		Quota:    int64(userQuota),
 	}
 	require.NoError(t, db.Create(&user).Error)
 
@@ -98,7 +98,7 @@ func newTaskSubmissionTestFixture(t *testing.T, db *gorm.DB, label string, userQ
 		UserId:      user.Id,
 		Key:         name,
 		Status:      common.TokenStatusEnabled,
-		RemainQuota: tokenQuota,
+		RemainQuota: int64(tokenQuota),
 		ExpiredTime: -1,
 	}
 	require.NoError(t, db.Create(&token).Error)
@@ -216,9 +216,9 @@ func TestTaskSubmissionPipeline_Accepted(t *testing.T) {
 	var token model.Token
 	require.NoError(t, db.First(&user, fixture.User.Id).Error)
 	require.NoError(t, db.First(&token, fixture.Token.Id).Error)
-	assert.Equal(t, 900, user.Quota)
-	assert.Equal(t, 400, token.RemainQuota)
-	assert.Equal(t, 100, token.UsedQuota)
+	assert.Equal(t, int64(900), user.Quota)
+	assert.Equal(t, int64(400), token.RemainQuota)
+	assert.Equal(t, int64(100), token.UsedQuota)
 
 	// Verify Operation and Attempt status
 	assert.Equal(t, model.TaskSubmissionOperationStatusAccepted, result.Operation.Status)
@@ -291,10 +291,10 @@ func TestTaskSubmissionPipeline_Rejected(t *testing.T) {
 	var token model.Token
 	require.NoError(t, db.First(&user, fixture.User.Id).Error)
 	require.NoError(t, db.First(&token, fixture.Token.Id).Error)
-	assert.Equal(t, 1000, user.Quota)
-	assert.Equal(t, 500, token.RemainQuota)
-	assert.Equal(t, 0, token.UsedQuota)
-	assert.Equal(t, 0, user.UsedQuota)
+	assert.Equal(t, int64(1000), user.Quota)
+	assert.Equal(t, int64(500), token.RemainQuota)
+	assert.Equal(t, int64(0), token.UsedQuota)
+	assert.Equal(t, int64(0), user.UsedQuota)
 	assert.Equal(t, 1, user.RequestCount)
 	var channel model.Channel
 	require.NoError(t, db.First(&channel, fixture.Attempt.ChannelID).Error)
@@ -360,8 +360,8 @@ func TestTaskSubmissionPipeline_Unknown_ExplicitStatus(t *testing.T) {
 	var token model.Token
 	require.NoError(t, db.First(&user, fixture.User.Id).Error)
 	require.NoError(t, db.First(&token, fixture.Token.Id).Error)
-	assert.Equal(t, 900, user.Quota)
-	assert.Equal(t, 400, token.RemainQuota)
+	assert.Equal(t, int64(900), user.Quota)
+	assert.Equal(t, int64(400), token.RemainQuota)
 
 	// Verify Operation and Attempt status
 	assert.Equal(t, model.TaskSubmissionOperationStatusSubmissionUnknown, result.Operation.Status)
@@ -413,7 +413,7 @@ func TestTaskSubmissionPipeline_Unknown_NetworkError(t *testing.T) {
 
 	var user model.User
 	require.NoError(t, db.First(&user, fixture.User.Id).Error)
-	assert.Equal(t, 900, user.Quota)
+	assert.Equal(t, int64(900), user.Quota)
 
 	assert.Equal(t, model.TaskSubmissionOperationStatusSubmissionUnknown, result.Operation.Status)
 	assert.Equal(t, model.TaskSubmissionAttemptStatusSubmissionUnknown, result.Attempt.Status)

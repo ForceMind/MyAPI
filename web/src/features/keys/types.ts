@@ -29,6 +29,8 @@ export const apiKeySchema = z.object({
   status: z.number(), // 1: enabled, 2: disabled, 3: expired, 4: exhausted
   remain_quota: z.number(),
   used_quota: z.number(),
+  quota_version: z.string().optional(),
+  metadata_fingerprint: z.string().optional(),
   unlimited_quota: z.boolean(),
   expired_time: z.number(), // -1 for never expires
   created_time: z.number(),
@@ -119,6 +121,13 @@ export interface ApiKeyFormData {
   access_profile_id: string
   auto_groups: string[]
   cross_group_retry: boolean
+}
+
+export type ApiKeyUpdateData = Omit<ApiKeyFormData, 'remain_quota'> & {
+  id: number
+  remain_quota?: number
+  quota_version?: string
+  metadata_fingerprint?: string
 }
 
 export interface TokenAutoGroupsConfig {

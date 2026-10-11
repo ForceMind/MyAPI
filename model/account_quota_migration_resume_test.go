@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -24,6 +25,25 @@ func openAccountMigrationResumeDB(t *testing.T, path string) *gorm.DB {
 	pool.SetMaxOpenConns(1)
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
 	return db
+}
+
+func TestAccountQuotaMigrationPreservesCancellationAndDatabaseError(t *testing.T) {
+	db := openAccountMigrationResumeDB(t, filepath.Join(t.TempDir(), "cancel-errors.db"))
+	require.NoError(t, db.AutoMigrate(&AccountQuotaMutationReceipt{}, &AccountQuotaReservationHead{}, &AccountQuotaTerminalRecoveryObligation{}, &QuotaWorkCursor{}))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	require.NoError(t, db.Callback().Query().After("gorm:query").Register("fixture_cancel_and_rollback_error", func(tx *gorm.DB) {
+		if tx.Statement.Table == "account_quota_mutation_receipts" {
+			cancel()
+			// Reproduce GORM's cancellation followed by an already-rolled-back
+			// transaction without depending on database/sql goroutine scheduling.
+			tx.AddError(context.Canceled)
+			tx.AddError(sql.ErrTxDone)
+		}
+	}))
+	err := InitializeAccountQuotaReservationHeadsWithDB(db.WithContext(ctx))
+	require.ErrorIs(t, err, context.Canceled)
+	require.ErrorIs(t, err, sql.ErrTxDone)
 }
 
 func TestAccountQuotaMigrationResumesPartialHeadAfterDatabaseReopen(t *testing.T) {
@@ -131,7 +151,7 @@ func TestQuotaBalanceMigrationRecognizesPaddedLegacyFingerprintWithoutInferringC
 			require.NoError(t, db.AutoMigrate(&QuotaBalanceBatchDrain{}, &QuotaBalanceBatchSubject{}, &QuotaWorkCursor{}))
 			generation := QuotaBalanceBatchDrain{
 				SchemaVersion: version, GenerationKey: "padded-fingerprint", WriterEpoch: 1,
-				Payload:            QuotaBalanceBatchPayload{UserQuota: map[int]int{10: -5}},
+				Payload:            QuotaBalanceBatchPayload{UserQuota: map[int]int64{10: -5}},
 				PayloadFingerprint: strings.Repeat(" ", 64), State: quotaBalanceBatchDrainPending,
 				CreatedAt: 1, UpdatedAt: 1,
 			}
@@ -141,10 +161,14 @@ func TestQuotaBalanceMigrationRecognizesPaddedLegacyFingerprintWithoutInferringC
 			}
 			var stored QuotaBalanceBatchDrain
 			require.NoError(t, db.First(&stored, generation.ID).Error)
-			assert.Equal(t, quotaBalanceBatchDrainSchemaVersion, stored.SchemaVersion)
+			expectedSchema := version
+			if version < quotaBalanceBatchDrainLegacySchemaVersion {
+				expectedSchema = quotaBalanceBatchDrainLegacySchemaVersion
+			}
+			assert.Equal(t, expectedSchema, stored.SchemaVersion)
 			assert.Equal(t, generation.Payload, stored.Payload)
 			if version == 1 {
-				fingerprint, err := quotaBalanceBatchPayloadFingerprint(stored.Payload)
+				fingerprint, err := quotaBalanceBatchPayloadFingerprintForSchema(quotaBalanceBatchDrainLegacySchemaVersion, stored.Payload)
 				require.NoError(t, err)
 				assert.Equal(t, fingerprint, stored.PayloadFingerprint)
 				assert.True(t, stored.CacheApplied)

@@ -32,7 +32,7 @@ func TestSelfUsePolicyPreservesQuotaAndRequiresAuditedRootChange(t *testing.T) {
 	var user User
 	require.NoError(t, db.First(&user, 2).Error)
 	assert.Zero(t, user.Quota)
-	assert.Equal(t, 75, user.UsedQuota)
+	assert.Equal(t, int64(75), user.UsedQuota)
 	var count int64
 	require.NoError(t, db.Model(&UserUsagePolicyChange{}).Count(&count).Error)
 	assert.EqualValues(t, 1, count)

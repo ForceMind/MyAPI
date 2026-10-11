@@ -42,6 +42,8 @@ func setupPostConsumeModeDB(t *testing.T, mode model.QuotaWriterMode) *gorm.DB {
 		&model.AccountQuotaSettlementFact{}, &model.LegacyUsageReservation{}, &model.SystemTask{}, &model.SystemTaskLock{},
 		&model.QuotaWriterEpoch{}, &model.QuotaProjectionObligation{}, &model.QuotaBalanceBatchDrain{}, &model.QuotaBalanceBatchSubject{}, &model.QuotaWorkCursor{}))
 	require.True(t, model.RefreshAccountQuotaSettlementIntentSchemaCapability(db))
+	require.NoError(t, db.AutoMigrate(&model.AccountQuotaExecutionGate{}, &model.AccountQuotaExecutionPermit{}))
+	require.NoError(t, model.EnsureFreshAccountQuotaExecutionGate(context.Background(), db))
 	require.NoError(t, model.EnsureQuotaWriterEpochStateWithDB(db))
 	require.NoError(t, db.Model(&model.QuotaWriterEpoch{}).Where("id = ?", 1).Updates(map[string]interface{}{
 		"mode": string(mode), "epoch": int64(41), "lock_version": gorm.Expr("lock_version + ?", 1),
@@ -61,7 +63,7 @@ func setupPostConsumeModeDB(t *testing.T, mode model.QuotaWriterMode) *gorm.DB {
 	return db
 }
 
-func loadPostConsumeBalances(t *testing.T, db *gorm.DB, user *model.User, token *model.Token) (int, int, int) {
+func loadPostConsumeBalances(t *testing.T, db *gorm.DB, user *model.User, token *model.Token) (int64, int64, int64) {
 	t.Helper()
 	require.NoError(t, db.First(user, user.Id).Error)
 	require.NoError(t, db.First(token, token.Id).Error)
@@ -88,9 +90,9 @@ func TestPostConsumeQuotaChargeDualMode(t *testing.T) {
 			assert.True(t, result.FundingApplied)
 			assert.True(t, result.TokenApplied)
 			userQuota, remain, used := loadPostConsumeBalances(t, db, user, token)
-			assert.Equal(t, 970, userQuota)
-			assert.Equal(t, 470, remain)
-			assert.Equal(t, 30, used)
+			assert.Equal(t, int64(970), userQuota)
+			assert.Equal(t, int64(470), remain)
+			assert.Equal(t, int64(30), used)
 
 			eventKey := "billing-settlement:" + info.RequestId
 			userReceipts, tokenReceipts := countReceiptsWithEventKey(t, db, eventKey)
@@ -108,9 +110,9 @@ func TestPostConsumeQuotaChargeDualMode(t *testing.T) {
 			assert.True(t, replay.FundingApplied)
 			assert.True(t, replay.TokenApplied)
 			userQuota, remain, used = loadPostConsumeBalances(t, db, user, token)
-			assert.Equal(t, 970, userQuota)
-			assert.Equal(t, 470, remain)
-			assert.Equal(t, 30, used)
+			assert.Equal(t, int64(970), userQuota)
+			assert.Equal(t, int64(470), remain)
+			assert.Equal(t, int64(30), used)
 			userReceipts, tokenReceipts = countReceiptsWithEventKey(t, db, eventKey)
 			assert.EqualValues(t, 1, userReceipts)
 			assert.EqualValues(t, 1, tokenReceipts)
@@ -119,9 +121,9 @@ func TestPostConsumeQuotaChargeDualMode(t *testing.T) {
 			_, err = postConsumeQuotaWithEvent(info, 31, 0, false, event)
 			require.Error(t, err)
 			userQuota, remain, used = loadPostConsumeBalances(t, db, user, token)
-			assert.Equal(t, 970, userQuota)
-			assert.Equal(t, 470, remain)
-			assert.Equal(t, 30, used)
+			assert.Equal(t, int64(970), userQuota)
+			assert.Equal(t, int64(470), remain)
+			assert.Equal(t, int64(30), used)
 		})
 	}
 }
@@ -141,18 +143,18 @@ func TestPostConsumeQuotaRefundDirectionDualMode(t *testing.T) {
 			assert.True(t, result.FundingApplied)
 			assert.True(t, result.TokenApplied)
 			userQuota, remain, used := loadPostConsumeBalances(t, db, user, token)
-			assert.Equal(t, 990, userQuota)
-			assert.Equal(t, 490, remain)
-			assert.Equal(t, 10, used)
+			assert.Equal(t, int64(990), userQuota)
+			assert.Equal(t, int64(490), remain)
+			assert.Equal(t, int64(10), used)
 
 			if mode == model.QuotaWriterModeAuthoritative {
 				// 同键重放返还：幂等。
 				_, err = postConsumeQuotaWithEvent(info, -20, 100, false, event)
 				require.NoError(t, err)
 				userQuota, remain, used = loadPostConsumeBalances(t, db, user, token)
-				assert.Equal(t, 990, userQuota)
-				assert.Equal(t, 490, remain)
-				assert.Equal(t, 10, used)
+				assert.Equal(t, int64(990), userQuota)
+				assert.Equal(t, int64(490), remain)
+				assert.Equal(t, int64(10), used)
 			}
 		})
 	}
@@ -175,17 +177,17 @@ func TestSettleBillingFallbackDualMode(t *testing.T) {
 			// 实际消耗 80，预扣 100 → 返还 20。
 			require.NoError(t, SettleBilling(ginCtx, info, 80))
 			userQuota, remain, used := loadPostConsumeBalances(t, db, user, token)
-			assert.Equal(t, 920, userQuota)
-			assert.Equal(t, 420, remain)
-			assert.Equal(t, 80, used)
+			assert.Equal(t, int64(920), userQuota)
+			assert.Equal(t, int64(420), remain)
+			assert.Equal(t, int64(80), used)
 
 			// 重放同一结算：legacy 下由上层保证只调用一次；authoritative 下同键幂等。
 			if mode == model.QuotaWriterModeAuthoritative {
 				require.NoError(t, SettleBilling(ginCtx, info, 80))
 				userQuota, remain, used = loadPostConsumeBalances(t, db, user, token)
-				assert.Equal(t, 920, userQuota)
-				assert.Equal(t, 420, remain)
-				assert.Equal(t, 80, used)
+				assert.Equal(t, int64(920), userQuota)
+				assert.Equal(t, int64(420), remain)
+				assert.Equal(t, int64(80), used)
 				userReceipts, tokenReceipts := countReceiptsWithEventKey(t, db, "billing-settlement:"+info.RequestId)
 				assert.EqualValues(t, 1, userReceipts)
 				assert.EqualValues(t, 1, tokenReceipts)
@@ -208,9 +210,9 @@ func TestPreWssConsumeQuotaDualMode(t *testing.T) {
 			usage.InputTokenDetails.TextTokens = 4
 			require.NoError(t, PreWssConsumeQuota(ginCtx, info, usage))
 			userQuota, remain, used := loadPostConsumeBalances(t, db, user, token)
-			assert.Equal(t, 850, userQuota)
-			assert.Equal(t, 350, remain)
-			assert.Equal(t, 150, used)
+			assert.Equal(t, int64(850), userQuota)
+			assert.Equal(t, int64(350), remain)
+			assert.Equal(t, int64(150), used)
 			assert.Equal(t, 1, info.RealtimeConsumeSeq)
 
 			if mode == model.QuotaWriterModeAuthoritative {
@@ -221,9 +223,9 @@ func TestPreWssConsumeQuotaDualMode(t *testing.T) {
 				// 同一连接的第二次计费（下一个 response.done）：序号递增、键不同，独立扣减。
 				require.NoError(t, PreWssConsumeQuota(ginCtx, info, usage))
 				userQuota, remain, used = loadPostConsumeBalances(t, db, user, token)
-				assert.Equal(t, 700, userQuota)
-				assert.Equal(t, 200, remain)
-				assert.Equal(t, 300, used)
+				assert.Equal(t, int64(700), userQuota)
+				assert.Equal(t, int64(200), remain)
+				assert.Equal(t, int64(300), used)
 				userReceipts, tokenReceipts = countReceiptsWithEventKey(t, db, "realtime:"+info.RequestId+":2")
 				assert.EqualValues(t, 1, userReceipts)
 				assert.EqualValues(t, 1, tokenReceipts)
@@ -245,17 +247,17 @@ func TestPostConsumeQuotaRealtimeQualifierReplay(t *testing.T) {
 	_, err = postConsumeQuotaWithEvent(info, 12, 0, false, second)
 	require.NoError(t, err)
 	userQuota, remain, used := loadPostConsumeBalances(t, db, user, token)
-	assert.Equal(t, 978, userQuota)
-	assert.Equal(t, 478, remain)
-	assert.Equal(t, 22, used)
+	assert.Equal(t, int64(978), userQuota)
+	assert.Equal(t, int64(478), remain)
+	assert.Equal(t, int64(22), used)
 
 	// 重放第一次计费：同键幂等，不重复扣减。
 	_, err = postConsumeQuotaWithEvent(info, 10, 0, false, first)
 	require.NoError(t, err)
 	userQuota, remain, used = loadPostConsumeBalances(t, db, user, token)
-	assert.Equal(t, 978, userQuota)
-	assert.Equal(t, 478, remain)
-	assert.Equal(t, 22, used)
+	assert.Equal(t, int64(978), userQuota)
+	assert.Equal(t, int64(478), remain)
+	assert.Equal(t, int64(22), used)
 }
 
 func enableGrokViolationFeeForTest(t *testing.T) {
@@ -304,9 +306,9 @@ func TestChargeViolationFeeDualMode(t *testing.T) {
 			charged := ChargeViolationFeeIfNeeded(ginCtx, info, newViolationFeeAPIError())
 			require.True(t, charged)
 			userQuota, remain, used := loadPostConsumeBalances(t, db, user, token)
-			assert.Equal(t, 1000-expectedFee, userQuota)
-			assert.Equal(t, 500-expectedFee, remain)
-			assert.Equal(t, expectedFee, used)
+			assert.Equal(t, int64(1000-expectedFee), userQuota)
+			assert.Equal(t, int64(500-expectedFee), remain)
+			assert.Equal(t, int64(expectedFee), used)
 
 			if mode == model.QuotaWriterModeLegacy {
 				userReceipts, tokenReceipts := countReceiptsWithEventKey(t, db, "violation-fee:"+info.RequestId)
@@ -322,9 +324,9 @@ func TestChargeViolationFeeDualMode(t *testing.T) {
 			charged = ChargeViolationFeeIfNeeded(ginCtx, info, newViolationFeeAPIError())
 			require.True(t, charged)
 			userQuota, remain, used = loadPostConsumeBalances(t, db, user, token)
-			assert.Equal(t, 1000-expectedFee, userQuota)
-			assert.Equal(t, 500-expectedFee, remain)
-			assert.Equal(t, expectedFee, used)
+			assert.Equal(t, int64(1000-expectedFee), userQuota)
+			assert.Equal(t, int64(500-expectedFee), remain)
+			assert.Equal(t, int64(expectedFee), used)
 		})
 	}
 }
@@ -343,8 +345,8 @@ func TestPostConsumeQuotaBridgeFailsClosed(t *testing.T) {
 	require.ErrorIs(t, err, model.ErrLegacyQuotaWriterModeDisabled)
 
 	userQuota, remain, used := loadPostConsumeBalances(t, db, user, token)
-	assert.Equal(t, 1000, userQuota)
-	assert.Equal(t, 500, remain)
+	assert.Equal(t, int64(1000), userQuota)
+	assert.Equal(t, int64(500), remain)
 	assert.Zero(t, used)
 }
 
@@ -358,8 +360,8 @@ func TestPostConsumeQuotaAuthoritativeFailClosedBoundaries(t *testing.T) {
 		_, err := postConsumeQuotaWithEvent(info, 30, 0, false, postConsumeQuotaEvent{Namespace: "billing-settlement", ReasonCode: "billing_settlement"})
 		require.ErrorIs(t, err, model.ErrAccountQuotaMutationInvalidInput)
 		userQuota, remain, used := loadPostConsumeBalances(t, db, user, token)
-		assert.Equal(t, 1000, userQuota)
-		assert.Equal(t, 500, remain)
+		assert.Equal(t, int64(1000), userQuota)
+		assert.Equal(t, int64(500), remain)
 		assert.Zero(t, used)
 	})
 
@@ -373,8 +375,8 @@ func TestPostConsumeQuotaAuthoritativeFailClosedBoundaries(t *testing.T) {
 		_, err := postConsumeQuotaWithEvent(info, 30, 0, false, postConsumeQuotaEvent{Namespace: "violation-fee", ReasonCode: "violation_fee"})
 		require.ErrorIs(t, err, model.ErrDurableQuotaWriterModeDisabled)
 		userQuota, remain, used := loadPostConsumeBalances(t, db, user, token)
-		assert.Equal(t, 1000, userQuota)
-		assert.Equal(t, 500, remain)
+		assert.Equal(t, int64(1000), userQuota)
+		assert.Equal(t, int64(500), remain)
 		assert.Zero(t, used)
 	})
 }
@@ -406,8 +408,8 @@ func TestLegacyTokenRollbackUsesStableEventKey(t *testing.T) {
 	assert.Equal(t, "billing-token-rollback:"+info.RequestId, facts[0].EventKey)
 	assert.Equal(t, model.AccountQuotaRefundFactRetryable, facts[0].State)
 	_, remain, used := loadPostConsumeBalances(t, db, user, token)
-	assert.Equal(t, 400, remain)
-	assert.Equal(t, 100, used)
+	assert.Equal(t, int64(400), remain)
+	assert.Equal(t, int64(100), used)
 
 	// 恢复重放：同一事实只应用一次；重复跑恢复不再产生退回。
 	require.NoError(t, db.Callback().Update().Remove(callbackKey))
@@ -415,14 +417,14 @@ func TestLegacyTokenRollbackUsesStableEventKey(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, processed)
 	_, remain, used = loadPostConsumeBalances(t, db, user, token)
-	assert.Equal(t, 500, remain)
+	assert.Equal(t, int64(500), remain)
 	assert.Zero(t, used)
 
 	processed, err = model.RunAccountQuotaRefundFacts(context.Background(), db, "token-rollback-worker", 10)
 	require.NoError(t, err)
 	assert.Zero(t, processed)
 	_, remain, used = loadPostConsumeBalances(t, db, user, token)
-	assert.Equal(t, 500, remain)
+	assert.Equal(t, int64(500), remain)
 	assert.Zero(t, used)
 	var factCount int64
 	require.NoError(t, db.Model(&model.AccountQuotaRefundFact{}).Where("request_id = ?", info.RequestId).Count(&factCount).Error)
@@ -456,8 +458,8 @@ func TestLegacyTokenRollbackWithoutRequestIDFailsClosed(t *testing.T) {
 	require.NoError(t, db.Model(&model.AccountQuotaRefundFact{}).Count(&factCount).Error)
 	assert.Zero(t, factCount)
 	_, remain, used := loadPostConsumeBalances(t, db, user, token)
-	assert.Equal(t, 400, remain)
-	assert.Equal(t, 100, used)
+	assert.Equal(t, int64(400), remain)
+	assert.Equal(t, int64(100), used)
 }
 
 func TestPreConsumeRejectsNonLegacyWriterMode(t *testing.T) {
@@ -474,8 +476,8 @@ func TestPreConsumeRejectsNonLegacyWriterMode(t *testing.T) {
 			require.NotNil(t, apiErr)
 			require.ErrorIs(t, apiErr, model.ErrDurableQuotaWriterModeDisabled)
 			userQuota, remain, used := loadPostConsumeBalances(t, db, user, token)
-			assert.Equal(t, 1000, userQuota)
-			assert.Equal(t, 500, remain)
+			assert.Equal(t, int64(1000), userQuota)
+			assert.Equal(t, int64(500), remain)
 			assert.Zero(t, used)
 		})
 	}

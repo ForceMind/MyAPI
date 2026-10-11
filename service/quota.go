@@ -159,7 +159,7 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 		if err != nil {
 			return err
 		}
-		if userQuota < neededQuota {
+		if userQuota < int64(neededQuota) {
 			return fmt.Errorf("user quota is not enough, user quota: %s, need quota: %s", logger.FormatQuota(userQuota), logger.FormatQuota(neededQuota))
 		}
 		if !relayInfo.IsPlayground || relayInfo.Billing == nil {
@@ -167,7 +167,7 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 			if err != nil {
 				return err
 			}
-			if !token.UnlimitedQuota && token.RemainQuota < neededQuota {
+			if !token.UnlimitedQuota && token.RemainQuota < int64(neededQuota) {
 				return fmt.Errorf("token quota is not enough, token remain quota: %s, need quota: %s", logger.FormatQuota(token.RemainQuota), logger.FormatQuota(neededQuota))
 			}
 		}
@@ -532,7 +532,7 @@ func PreConsumeTokenQuota(relayInfo *relaycommon.RelayInfo, quota int) error {
 		return err
 	}
 	if !reserved {
-		remainQuota := 0
+		remainQuota := int64(0)
 		if token, tokenErr := model.GetTokenByKey(relayInfo.TokenKey, false); tokenErr == nil && token != nil {
 			remainQuota = token.RemainQuota
 		}
@@ -728,8 +728,8 @@ func checkAndSendQuotaNotify(relayInfo *relaycommon.RelayInfo, quota int, preCon
 
 		//noMoreQuota := userCache.Quota-(quota+preConsumedQuota) <= 0
 		quotaTooLow := false
-		consumeQuota := quota + preConsumedQuota
-		if relayInfo.UserQuota-consumeQuota < threshold {
+		consumeQuota := int64(quota) + int64(preConsumedQuota)
+		if relayInfo.UserQuota-consumeQuota < int64(threshold) {
 			quotaTooLow = true
 		}
 		if quotaTooLow {

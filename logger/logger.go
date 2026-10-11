@@ -147,7 +147,7 @@ func writeLog(ctx context.Context, level string, msg string) {
 	}
 }
 
-func LogQuota(quota int) string {
+func LogQuota[T ~int | ~int64](quota T) string {
 	// 新逻辑：根据额度展示类型输出
 	q := float64(quota)
 	generalSetting := operation_setting.GetGeneralSetting()
@@ -175,7 +175,7 @@ func LogQuota(quota int) string {
 	}
 }
 
-func FormatQuota(quota int) string {
+func FormatQuota[T ~int | ~int64](quota T) string {
 	q := float64(quota)
 	generalSetting := operation_setting.GetGeneralSetting()
 	switch generalSetting.QuotaDisplayType {

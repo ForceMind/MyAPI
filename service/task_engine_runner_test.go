@@ -82,12 +82,12 @@ func TestTaskEngineRunner_RunOnce_StaleDispatching_FailClosed(t *testing.T) {
 	// Fail-closed invariant: User & token quota must NOT be refunded!
 	var u model.User
 	require.NoError(t, db.First(&u, fixture.User.Id).Error)
-	assert.Equal(t, 900, u.Quota, "User quota must NOT be refunded on dispatch timeout")
+	assert.Equal(t, int64(900), u.Quota, "User quota must NOT be refunded on dispatch timeout")
 
 	var tok model.Token
 	require.NoError(t, db.First(&tok, fixture.Token.Id).Error)
-	assert.Equal(t, 400, tok.RemainQuota, "Token quota must NOT be refunded on dispatch timeout")
-	assert.Equal(t, 100, tok.UsedQuota)
+	assert.Equal(t, int64(400), tok.RemainQuota, "Token quota must NOT be refunded on dispatch timeout")
+	assert.Equal(t, int64(100), tok.UsedQuota)
 }
 
 func TestTaskEngineRunner_RunOnce_StaleReserved_SafeCancel(t *testing.T) {
@@ -151,12 +151,12 @@ func TestTaskEngineRunner_RunOnce_StaleReserved_SafeCancel(t *testing.T) {
 	// Refund invariant: Quota must be safely released back!
 	var u model.User
 	require.NoError(t, db.First(&u, fixture.User.Id).Error)
-	assert.Equal(t, 1000, u.Quota, "User quota must be refunded on safe cancellation")
+	assert.Equal(t, int64(1000), u.Quota, "User quota must be refunded on safe cancellation")
 
 	var tok model.Token
 	require.NoError(t, db.First(&tok, fixture.Token.Id).Error)
-	assert.Equal(t, 500, tok.RemainQuota, "Token remain quota must be refunded on safe cancellation")
-	assert.Equal(t, 0, tok.UsedQuota)
+	assert.Equal(t, int64(500), tok.RemainQuota, "Token remain quota must be refunded on safe cancellation")
+	assert.Equal(t, int64(0), tok.UsedQuota)
 }
 
 func TestTaskEngineRunner_RunOnce_PendingOutbox_Delivered(t *testing.T) {

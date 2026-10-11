@@ -69,6 +69,7 @@ export interface UserProfile {
   created_time: number
   /** User settings (JSON string) */
   setting?: string
+  sidebar_modules?: string
   /** WeChat ID (OAuth) */
   wechat_id?: string
   /** GitHub ID (OAuth) */

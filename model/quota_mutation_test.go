@@ -68,10 +68,10 @@ func assertTaskQuotaWallet(t *testing.T, db *gorm.DB, input TaskQuotaReservation
 	var token Token
 	require.NoError(t, db.First(&user, input.UserID).Error)
 	require.NoError(t, db.First(&token, input.TokenID).Error)
-	assert.Equal(t, quota, user.Quota)
-	assert.Equal(t, used, user.UsedQuota, "durable usage statistics must match the authoritative net charge")
-	assert.Equal(t, remaining, token.RemainQuota)
-	assert.Equal(t, used, token.UsedQuota)
+	assert.Equal(t, int64(quota), user.Quota)
+	assert.Equal(t, int64(used), user.UsedQuota, "durable usage statistics must match the authoritative net charge")
+	assert.Equal(t, int64(remaining), token.RemainQuota)
+	assert.Equal(t, int64(used), token.UsedQuota)
 	assert.Equal(t, version, user.QuotaVersion)
 	assert.Equal(t, version, token.QuotaVersion)
 }
@@ -173,10 +173,10 @@ func runTaskQuotaReservationContract(t *testing.T, db *gorm.DB) {
 		var token Token
 		require.NoError(t, db.First(&user, input.UserID).Error)
 		require.NoError(t, db.First(&token, input.TokenID).Error)
-		assert.Equal(t, 1000, user.Quota)
+		assert.Equal(t, int64(1000), user.Quota)
 		assert.Zero(t, user.QuotaVersion)
-		assert.Equal(t, 400, token.RemainQuota)
-		assert.Equal(t, 100, token.UsedQuota)
+		assert.Equal(t, int64(400), token.RemainQuota)
+		assert.Equal(t, int64(100), token.UsedQuota)
 		require.NoError(t, db.Model(&UserSubscription{}).Where("id = ?", subscription.Id).Update("status", "cancelled").Error)
 		replay, err := ReserveTaskQuota(db, input)
 		require.NoError(t, err)
@@ -224,7 +224,7 @@ func runTaskQuotaReservationContract(t *testing.T, db *gorm.DB) {
 		tokenUpdates map[string]interface{}
 	}{
 		{"insufficient-token", map[string]interface{}{"remain_quota": 99}},
-		{"overflow-token-used", map[string]interface{}{"used_quota": common.MaxQuota}},
+		{"overflow-token-used", map[string]interface{}{"used_quota": common.MaxQuotaBalance}},
 		{"overflow-version", map[string]interface{}{"quota_version": int64(math.MaxInt64)}},
 		{"disabled-token", map[string]interface{}{"status": common.TokenStatusDisabled}},
 		{"expired-token", map[string]interface{}{"expired_time": int64(1)}},
@@ -240,7 +240,7 @@ func runTaskQuotaReservationContract(t *testing.T, db *gorm.DB) {
 			var after Token
 			require.NoError(t, db.First(&user, input.UserID).Error)
 			require.NoError(t, db.First(&after, input.TokenID).Error)
-			assert.Equal(t, 1000, user.Quota)
+			assert.Equal(t, int64(1000), user.Quota)
 			assert.Equal(t, before, after)
 		})
 	}
@@ -484,13 +484,13 @@ func runTaskQuotaReservationContract(t *testing.T, db *gorm.DB) {
 
 		var user User
 		require.NoError(t, db.First(&user, input1.UserID).Error)
-		assert.Equal(t, 50, user.Quota, "wallet quota must be exactly 50 and never negative")
+		assert.Equal(t, int64(50), user.Quota, "wallet quota must be exactly 50 and never negative")
 		assert.Equal(t, int64(1), user.QuotaVersion)
 
 		var token Token
 		require.NoError(t, db.First(&token, input1.TokenID).Error)
-		assert.Equal(t, 50, token.RemainQuota)
-		assert.Equal(t, 100, token.UsedQuota)
+		assert.Equal(t, int64(50), token.RemainQuota)
+		assert.Equal(t, int64(100), token.UsedQuota)
 		assert.Equal(t, int64(1), token.QuotaVersion)
 	})
 }

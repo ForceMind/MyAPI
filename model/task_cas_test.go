@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"sync"
@@ -65,6 +66,9 @@ func TestMain(m *testing.M) {
 		&AccountQuotaTerminalRecoveryObligation{},
 		&AccountQuotaRefundFact{},
 		&AccountQuotaSettlementFact{},
+		&AccountQuotaSettlementIntent{},
+		&AccountQuotaExecutionGate{},
+		&AccountQuotaExecutionPermit{},
 		&QuotaBalanceBatchDrain{},
 		&QuotaBalanceBatchSubject{},
 		&QuotaWorkCursor{},
@@ -78,6 +82,10 @@ func TestMain(m *testing.M) {
 		panic("failed to initialize quota writer epoch: " + err.Error())
 	}
 
+	if err := EnsureFreshAccountQuotaExecutionGate(context.Background(), db); err != nil {
+		panic("failed to initialize test execution gate: " + err.Error())
+	}
+
 	os.Exit(m.Run())
 }
 
@@ -85,6 +93,9 @@ func truncateTables(t *testing.T) {
 	t.Helper()
 	t.Cleanup(func() {
 		DB.Exec("DELETE FROM tasks")
+		DB.Exec("DELETE FROM account_quota_execution_permits")
+		DB.Exec("DELETE FROM account_quota_settlement_intents")
+		DB.Exec("DELETE FROM account_quota_settlement_facts")
 		DB.Exec("DELETE FROM auth_flows")
 		DB.Exec("DELETE FROM external_identity_claims")
 		DB.Exec("DELETE FROM user_sessions")
@@ -106,7 +117,6 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM system_instances")
 		DB.Exec("DELETE FROM system_task_locks")
 		DB.Exec("DELETE FROM system_tasks")
-		DB.Exec("DELETE FROM account_quota_settlement_facts")
 		DB.Exec("DELETE FROM quota_balance_batch_subjects")
 		DB.Exec("DELETE FROM quota_projection_obligations")
 		DB.Exec("DELETE FROM quota_balance_batch_drains")

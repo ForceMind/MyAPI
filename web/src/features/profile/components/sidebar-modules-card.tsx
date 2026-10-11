@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { LayoutDashboard } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -48,10 +48,13 @@ type SectionDef = {
   modules: { key: string; title: string; description: string }[]
 }
 
-export function SidebarModulesCard() {
+export function SidebarModulesCard({
+  sidebarModules,
+}: {
+  sidebarModules?: string
+}) {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
-  const [config, setConfig] = useState<SidebarModulesConfig>({})
   const currentUser = useAuthStore((s) => s.auth.user)
   const setUser = useAuthStore((s) => s.auth.setUser)
 
@@ -124,30 +127,25 @@ export function SidebarModulesCard() {
     },
   ]
 
-  const loadConfig = useCallback(async () => {
-    try {
-      const res = await api.get('/api/user/self')
-      if (res.data.success && res.data.data?.sidebar_modules) {
-        const raw = res.data.data.sidebar_modules
-        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
-        setConfig(parsed)
-      } else {
-        const defaults: SidebarModulesConfig = {}
-        for (const sec of sectionDefs) {
-          defaults[sec.key] = { enabled: true }
-          for (const mod of sec.modules) defaults[sec.key][mod.key] = true
-        }
-        setConfig(defaults)
+  const [config, setConfig] = useState<SidebarModulesConfig>(() => {
+    const defaults: SidebarModulesConfig = {}
+    for (const section of sectionDefs) {
+      defaults[section.key] = { enabled: true }
+      for (const module of section.modules) {
+        defaults[section.key][module.key] = true
       }
-    } catch {
-      /* ignore */
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    loadConfig()
-  }, [loadConfig])
+    if (!sidebarModules) return defaults
+    try {
+      const parsed: unknown = JSON.parse(sidebarModules)
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return defaults
+      }
+      return parsed as SidebarModulesConfig
+    } catch {
+      return defaults
+    }
+  })
 
   const toggleSection = (sectionKey: string, val: boolean) => {
     setConfig((prev) => ({

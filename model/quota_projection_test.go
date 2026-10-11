@@ -97,7 +97,7 @@ func useQuotaProjectionModelDB(t *testing.T, db *gorm.DB) {
 
 func createQuotaProjectionUser(t *testing.T, db *gorm.DB, label string, quota int) User {
 	t.Helper()
-	user := User{Username: "projection-" + label, Password: "fixture-password", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Quota: quota, AuthVersion: 1}
+	user := User{Username: "projection-" + label, Password: "fixture-password", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Quota: int64(quota), AuthVersion: 1}
 	require.NoError(t, db.Create(&user).Error)
 	return user
 }
@@ -141,20 +141,21 @@ func TestQuotaWriterEpochMigrationAndFailClosedPlan(t *testing.T) {
 
 func TestQuotaWriterModeTransitionPlanDoesNotOverflowExhaustedEpoch(t *testing.T) {
 	db := openQuotaProjectionTestDB(t)
+	const exhaustedEpoch int64 = math.MaxInt64
 	require.NoError(t, db.Model(&QuotaWriterEpoch{}).Where("id = ?", quotaWriterEpochSingletonID).Updates(map[string]interface{}{
-		"epoch": math.MaxInt64, "lock_version": 9,
+		"epoch": exhaustedEpoch, "lock_version": 9,
 	}).Error)
 
 	plan, err := PlanQuotaWriterModeTransition(context.Background(), db, QuotaWriterModeBridge)
 	require.NoError(t, err)
 	assert.False(t, plan.Ready)
 	assert.Contains(t, plan.Validation, "epoch_exhausted")
-	assert.EqualValues(t, math.MaxInt64, plan.Current.Epoch)
-	assert.EqualValues(t, math.MaxInt64, plan.ProposedEpoch, "exhausted plans must not wrap to a negative epoch")
+	assert.EqualValues(t, exhaustedEpoch, plan.Current.Epoch)
+	assert.EqualValues(t, exhaustedEpoch, plan.ProposedEpoch, "exhausted plans must not wrap to a negative epoch")
 
 	state, err := GetQuotaWriterEpochState(db)
 	require.NoError(t, err)
-	assert.EqualValues(t, math.MaxInt64, state.Epoch, "planning must remain read-only")
+	assert.EqualValues(t, exhaustedEpoch, state.Epoch, "planning must remain read-only")
 	assert.Equal(t, string(QuotaWriterModeLegacy), state.Mode)
 }
 
@@ -194,10 +195,10 @@ func TestQuotaProjectionRedisDisabledPreservesLedgerAndObligation(t *testing.T) 
 		BusinessEventKey: "projection:redis-disabled:1", ReasonCode: "test",
 	})
 	require.NoError(t, err)
-	assert.Equal(t, 75, receipt.QuotaAfter)
+	assert.Equal(t, int64(75), receipt.QuotaAfter)
 	var stored User
 	require.NoError(t, db.First(&stored, user.Id).Error)
-	assert.Equal(t, 75, stored.Quota)
+	assert.Equal(t, int64(75), stored.Quota)
 	var obligation QuotaProjectionObligation
 	require.NoError(t, db.Where("receipt_kind = ? AND receipt_id = ?", quotaProjectionReceiptKindUser, receipt.ID).First(&obligation).Error)
 	assert.Equal(t, string(QuotaProjectionObligationStateRetryable), obligation.State)
@@ -210,7 +211,7 @@ func TestQuotaProjectionHydrateEpochAndVersionMatrix(t *testing.T) {
 	useQuotaProjectionModelDB(t, db)
 	server, _ := useQuotaProjectionRedis(t)
 	user := createQuotaProjectionUser(t, db, "matrix", 100)
-	require.NoError(t, populateUserCache(user))
+	seedUserQuotaCacheForTest(t, user.ToBaseUser())
 
 	key := getUserCacheKey(user.Id)
 	require.NoError(t, hydrateUserQuotaCacheRedisAtEpoch(user.Id, 90, 0, 1))
@@ -233,7 +234,7 @@ func TestLegacyWriterEpochMismatchFallsBackToDBAndInvalidates(t *testing.T) {
 	useQuotaProjectionModelDB(t, db)
 	server, _ := useQuotaProjectionRedis(t)
 	user := createQuotaProjectionUser(t, db, "legacy-fallback", 100)
-	require.NoError(t, populateUserCache(user))
+	seedUserQuotaCacheForTest(t, user.ToBaseUser())
 	require.NoError(t, common.RDB.Set(context.Background(), quotaWriterEpochRedisKey, 2, 0).Err())
 
 	reserved, err := TryReserveUserQuota(user.Id, 25)
@@ -241,7 +242,7 @@ func TestLegacyWriterEpochMismatchFallsBackToDBAndInvalidates(t *testing.T) {
 	assert.True(t, reserved)
 	var stored User
 	require.NoError(t, db.First(&stored, user.Id).Error)
-	assert.Equal(t, 75, stored.Quota, "DB remains authoritative")
+	assert.Equal(t, int64(75), stored.Quota, "DB remains authoritative")
 	assert.False(t, server.Exists(getUserCacheKey(user.Id)), "epoch mismatch must invalidate instead of mutating the new epoch cache")
 }
 
@@ -251,7 +252,7 @@ func TestQuotaProjectionObligationSurvivesCommitAndWorkerRestart(t *testing.T) {
 	useQuotaProjectionModelDB(t, db)
 	_, client := useQuotaProjectionRedis(t)
 	user := createQuotaProjectionUser(t, db, "restart", 100)
-	require.NoError(t, populateUserCache(user))
+	seedUserQuotaCacheForTest(t, user.ToBaseUser())
 
 	badClient := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1"})
 	common.RDB = badClient
@@ -260,7 +261,7 @@ func TestQuotaProjectionObligationSurvivesCommitAndWorkerRestart(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, badClient.Close())
 	common.RDB = client
-	assert.Equal(t, 70, receipt.After.Quota)
+	assert.Equal(t, int64(70), receipt.After.Quota)
 	assert.EqualValues(t, 1, receipt.After.QuotaVersion)
 
 	var obligation QuotaProjectionObligation
@@ -268,7 +269,7 @@ func TestQuotaProjectionObligationSurvivesCommitAndWorkerRestart(t *testing.T) {
 	assert.Equal(t, string(QuotaProjectionObligationStateRetryable), obligation.State)
 	cached, err := cacheGetUserBase(user.Id)
 	require.NoError(t, err)
-	assert.Equal(t, 100, cached.Quota, "failed projection must not fabricate a cache success")
+	assert.Equal(t, int64(100), cached.Quota, "failed projection must not fabricate a cache success")
 
 	require.NoError(t, db.Model(&QuotaProjectionObligation{}).Where("id = ?", obligation.ID).Update("next_attempt_at", 0).Error)
 	restoreGate := setQuotaProjectionRecoveryGateForTest(true)
@@ -278,7 +279,7 @@ func TestQuotaProjectionObligationSurvivesCommitAndWorkerRestart(t *testing.T) {
 	assert.Equal(t, 1, processed)
 	cached, err = cacheGetUserBase(user.Id)
 	require.NoError(t, err)
-	assert.Equal(t, 70, cached.Quota)
+	assert.Equal(t, int64(70), cached.Quota)
 	assert.EqualValues(t, 1, cached.QuotaVersion)
 
 	replayed, err := MutateUserQuota(db, input)
@@ -289,7 +290,7 @@ func TestQuotaProjectionObligationSurvivesCommitAndWorkerRestart(t *testing.T) {
 	assert.EqualValues(t, 1, count)
 	var stored User
 	require.NoError(t, db.First(&stored, user.Id).Error)
-	assert.Equal(t, 70, stored.Quota, "receipt replay must not repeat the balance mutation")
+	assert.Equal(t, int64(70), stored.Quota, "receipt replay must not repeat the balance mutation")
 }
 
 func TestHistoricalUserReceiptWithoutAfterSnapshotNeverMarksProjectionApplied(t *testing.T) {
@@ -318,7 +319,7 @@ func TestHistoricalUserReceiptWithoutAfterSnapshotNeverMarksProjectionApplied(t 
 	assert.Equal(t, historical.ID, replayed.ID)
 	var stored User
 	require.NoError(t, db.First(&stored, user.Id).Error)
-	assert.Equal(t, 80, stored.Quota)
+	assert.Equal(t, int64(80), stored.Quota)
 	assert.EqualValues(t, 1, stored.QuotaVersion)
 	assert.False(t, server.Exists(getUserCacheKey(user.Id)), "invalid historical snapshot must not create a cache projection")
 
@@ -338,7 +339,7 @@ func TestQuotaProjectionPartialFailureInvalidatesBothCaches(t *testing.T) {
 	input := newTaskQuotaReservationFixture(t, db, "projection-partial")
 	var user User
 	require.NoError(t, db.First(&user, input.UserID).Error)
-	require.NoError(t, populateUserCache(user))
+	seedUserQuotaCacheForTest(t, user.ToBaseUser())
 
 	receipt, err := ReserveTaskQuota(db, input)
 	require.NoError(t, err)
@@ -459,9 +460,8 @@ func TestDurableAndLegacyQuotaWritersCannotInterleave(t *testing.T) {
 	var token Token
 	require.NoError(t, db.First(&user, input.UserID).Error)
 	require.NoError(t, db.First(&token, input.TokenID).Error)
-	require.NoError(t, populateUserCache(user))
-	_, err := GetTokenByKey(token.Key, true)
-	require.NoError(t, err)
+	seedUserQuotaCacheForTest(t, user.ToBaseUser())
+	seedTokenQuotaCacheForTest(t, token)
 
 	receipt, err := ReserveTaskQuota(db, input)
 	require.NoError(t, err)
@@ -491,7 +491,7 @@ func TestQuotaProjectionRetryBackoffManualAndAuditedRepair(t *testing.T) {
 	useQuotaProjectionModelDB(t, db)
 	useQuotaProjectionRedis(t)
 	user := createQuotaProjectionUser(t, db, "repair", 100)
-	require.NoError(t, populateUserCache(user))
+	seedUserQuotaCacheForTest(t, user.ToBaseUser())
 	input := UserQuotaMutationInput{UserID: user.Id, Delta: -20, MutationType: "test", BusinessEventKey: "projection:repair:1", ReasonCode: "test"}
 	var receipt *UserQuotaMutationReceipt
 	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
@@ -547,7 +547,7 @@ func TestQuotaProjectionRetryBackoffManualAndAuditedRepair(t *testing.T) {
 	assert.Equal(t, string(QuotaProjectionObligationStateApplied), obligation.State)
 	cached, err := cacheGetUserBase(user.Id)
 	require.NoError(t, err)
-	assert.Equal(t, 80, cached.Quota)
+	assert.Equal(t, int64(80), cached.Quota)
 }
 
 func TestQuotaProjectionNotDueAndRepairCanFailAgainSafely(t *testing.T) {

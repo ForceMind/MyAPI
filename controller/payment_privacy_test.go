@@ -150,7 +150,7 @@ func TestCreemCustomerAndCheckoutLogPrivacy(t *testing.T) {
 	}
 	var user model.User
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 125, user.Quota)
+	assert.Equal(t, int64(125), user.Quota)
 	for _, secret := range []string{"private-email@example.test", "private-customer-name", "private-product-name", "private-query-token", generateCreemSignature(body, setting.CreemWebhookSecret)} {
 		assert.NotContains(t, logs.String(), secret)
 	}
@@ -292,6 +292,6 @@ func TestWaffoPancakeVerifiedIdentityRejectionLogPrivacy(t *testing.T) {
 		assert.NotContains(t, logs.String(), "private-email@example.test")
 		var user model.User
 		require.NoError(t, db.First(&user, 1).Error)
-		assert.Equal(t, 100, user.Quota)
+		assert.Equal(t, int64(100), user.Quota)
 	}
 }

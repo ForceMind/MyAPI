@@ -117,7 +117,7 @@ func TestGetAllQuotaDatesDoesNotExpandQueryToFirstHourBucket(t *testing.T) {
 	require.True(t, payload.Success, payload.Message)
 	require.Len(t, payload.Data, 1)
 	require.Equal(t, "gpt-b", payload.Data[0].ModelName)
-	require.Equal(t, 70, payload.Data[0].Quota)
+	require.Equal(t, int64(70), payload.Data[0].Quota)
 }
 
 func TestGetUserQuotaDatesChecksRequestedRangeBeforeSourceNormalization(t *testing.T) {

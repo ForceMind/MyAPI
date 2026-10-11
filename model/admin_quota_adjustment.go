@@ -153,6 +153,12 @@ func AdminAdjustUserQuota(adminUserId int, targetUserId int, operation string, v
 			replayed = handled
 			return replayErr
 		}
+		if _, err := common.CheckedQuotaBalance(user.Quota, 0); err != nil {
+			return err
+		}
+		if !quotaMutationVersionValid(user.QuotaVersion) {
+			return ErrAccountQuotaMutationIneligible
+		}
 
 		delta := int64(value)
 		targetQuota := int64(0)
@@ -161,7 +167,14 @@ func AdminAdjustUserQuota(adminUserId int, targetUserId int, operation string, v
 			delta = -delta
 		case AdminQuotaAdjustmentOperationOverride:
 			targetQuota = int64(value)
-			delta = int64(value) - int64(user.Quota)
+			delta = targetQuota - user.Quota
+			if _, err := common.CheckedQuotaBalance(0, delta); err != nil {
+				return err
+			}
+		}
+		quotaAfter, err := common.CheckedQuotaBalance(user.Quota, delta)
+		if err != nil {
+			return err
 		}
 
 		record := AdminQuotaAdjustment{
@@ -183,7 +196,6 @@ func AdminAdjustUserQuota(adminUserId int, targetUserId int, operation string, v
 		if err != nil {
 			return err
 		}
-		quotaAfter := int64(user.Quota) + delta
 		switch mode {
 		case QuotaWriterModeAuthoritative:
 			if delta != 0 {
@@ -200,22 +212,21 @@ func AdminAdjustUserQuota(adminUserId int, targetUserId int, operation string, v
 					return mutateErr
 				}
 				quotaReceipt = receipt
-				quotaAfter = int64(receipt.QuotaAfter)
+				quotaAfter = receipt.QuotaAfter
 			}
 			authoritative = true
 		case QuotaWriterModeLegacy:
 			// 保持迁移前直写语义：add/subtract 用表达式增减（减可透支），
 			// override 直设目标值；delta == 0 时余额无变化，跳过写入。
 			if delta != 0 {
-				updateErr := func() error {
-					if operation == AdminQuotaAdjustmentOperationOverride {
-						return tx.Model(&User{}).Where("id = ?", targetUserId).Update("quota", value).Error
-					}
-					return tx.Model(&User{}).Where("id = ?", targetUserId).
-						Update("quota", gorm.Expr("quota + ?", delta)).Error
-				}()
-				if updateErr != nil {
-					return updateErr
+				result := tx.Model(&User{}).
+					Where("id = ? AND quota = ? AND quota_version = ?", targetUserId, user.Quota, user.QuotaVersion).
+					Updates(map[string]interface{}{"quota": quotaAfter, "quota_version": user.QuotaVersion + 1})
+				if result.Error != nil {
+					return result.Error
+				}
+				if result.RowsAffected != 1 {
+					return ErrAccountQuotaMutationCASLost
 				}
 			}
 		default:
@@ -223,7 +234,7 @@ func AdminAdjustUserQuota(adminUserId int, targetUserId int, operation string, v
 			return ErrDurableQuotaWriterModeDisabled
 		}
 
-		record.AppliedQuotaBefore = int64(user.Quota)
+		record.AppliedQuotaBefore = user.Quota
 		record.AppliedQuotaAfter = quotaAfter
 		if err := tx.Model(&AdminQuotaAdjustment{}).Where("id = ?", record.Id).Updates(map[string]interface{}{
 			"status":               AdminQuotaAdjustmentStatusSucceeded,

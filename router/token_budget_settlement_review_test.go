@@ -53,5 +53,5 @@ func TestTokenBudgetRecoveryRejectsAppliedAmountBeforePrepare(t *testing.T) {
 	require.NoError(t, db.First(&afterUser, f.user.Id).Error)
 	require.Equal(t, beforeUser.Quota, afterUser.Quota)
 	require.NoError(t, db.First(&token, token.Id).Error)
-	require.Equal(t, 940, token.RemainQuota)
+	require.Equal(t, int64(940), token.RemainQuota)
 }

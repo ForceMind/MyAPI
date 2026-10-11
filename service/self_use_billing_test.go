@@ -39,8 +39,8 @@ func TestSelfUseSessionKeepsKeyAccountingWithoutWalletAcrossWriters(t *testing.T
 				assert.Equal(t, BillingSourceSelfUse, info.BillingSource)
 				uq, remaining, used := loadPostConsumeBalances(t, db, user, token)
 				assert.Zero(t, uq)
-				assert.Equal(t, 40, remaining)
-				assert.Equal(t, 60, used)
+				assert.Equal(t, int64(40), remaining)
+				assert.Equal(t, int64(60), used)
 				_, limitErr := NewBillingSession(ctx, authoritativeRelay(user, token, "key-over-limit"), 101)
 				require.NotNil(t, limitErr, "no-balance policy never disables the existing Key allowance")
 				// A later policy switch must not reinterpret an admitted request as a
@@ -64,8 +64,8 @@ func TestSelfUseSessionKeepsKeyAccountingWithoutWalletAcrossWriters(t *testing.T
 					require.ErrorIs(t, session.Refund(ctx), model.ErrAccountQuotaUsageUnresolved)
 					uq, remaining, used = loadPostConsumeBalances(t, db, user, token)
 					assert.Zero(t, uq)
-					assert.Equal(t, 40, remaining)
-					assert.Equal(t, 60, used)
+					assert.Equal(t, int64(40), remaining)
+					assert.Equal(t, int64(60), used)
 					for range 2 {
 						if mode == model.QuotaWriterModeLegacy {
 							_, err = model.ResolveLegacyUnknownUsage(context.Background(), db, root.Id, info.RequestId, 50, strings.Repeat("b", 64))
@@ -77,8 +77,8 @@ func TestSelfUseSessionKeepsKeyAccountingWithoutWalletAcrossWriters(t *testing.T
 				}
 				uq, remaining, used = loadPostConsumeBalances(t, db, user, token)
 				assert.Zero(t, uq)
-				assert.Equal(t, 100-expected, remaining)
-				assert.Equal(t, expected, used)
+				assert.Equal(t, int64(100-expected), remaining)
+				assert.Equal(t, int64(expected), used)
 				_, apiErr = NewBillingSession(ctx, authoritativeRelay(user, token, "new-limited-request"), 1)
 				require.NotNil(t, apiErr, "restored zero user allowance applies to new requests")
 			})
@@ -107,9 +107,9 @@ func TestSelfUseStoredPolicyCannotWaiveEnabledCommercialWallet(t *testing.T) {
 			assert.Equal(t, BillingSourceWallet, session.funding.Source())
 			require.NoError(t, session.Settle(50))
 			uq, remaining, used := loadPostConsumeBalances(t, db, user, token)
-			assert.Equal(t, 50, uq)
-			assert.Equal(t, 50, remaining)
-			assert.Equal(t, 50, used)
+			assert.Equal(t, int64(50), uq)
+			assert.Equal(t, int64(50), remaining)
+			assert.Equal(t, int64(50), used)
 		})
 	}
 }
@@ -133,7 +133,7 @@ func TestSelfUseSessionRejectsUnsupportedPathAfterFrozenAdmission(t *testing.T) 
 			require.NotNil(t, apiErr, "a policy enabled after middleware must still be checked against the captured source before dispatch")
 			uq, remaining, used := loadPostConsumeBalances(t, db, user, token)
 			assert.Zero(t, uq)
-			assert.Equal(t, 100, remaining)
+			assert.Equal(t, int64(100), remaining)
 			assert.Zero(t, used)
 		})
 	}

@@ -59,6 +59,13 @@ jobs:
       - name: Build root module
         run: go build ./...
 
+      - name: Build root module for linux/386
+        env:
+          GOOS: linux
+          GOARCH: '386'
+          CGO_ENABLED: '0'
+        run: go build ./...
+
       # common/canonical_json.go is excluded because a canonical digest has to
       # walk the raw token stream: the wrappers decode into Go values, which
       # discards the number lexeme and key order the digest must preserve.
@@ -75,6 +82,12 @@ jobs:
 
       - name: Test root and relaykit modules
         run: make test
+
+      - name: Test historical accounting audit tools
+        working-directory: tools/accounting-audit
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 -m unittest discover -v
 
       - name: Verify configuration publication ordering under race detector
         env:
@@ -412,6 +425,9 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      - name: Lint
+        run: bun run lint
+
       - name: Test
         run: bun run test
 
@@ -464,6 +480,7 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=768'
         run: |
           node --test tools/ui/browser-fixtures.test.mjs
+          node tools/ui/profile-browser.mjs
           node tools/ui/browser-smoke.mjs
           node tools/ui/playground-browser.mjs
 

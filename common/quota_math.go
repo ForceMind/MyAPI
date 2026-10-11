@@ -8,9 +8,9 @@ import (
 )
 
 // Quota conversions are centralized here so every billing path shares one
-// saturation + logging policy. Quota columns (user/token/log) are 32-bit
-// integers in the database, so an oversized product must clamp to the int32
-// range instead of wrapping around and turning a charge into a credit.
+// saturation + logging policy. Single-operation charges and log quotas retain
+// the int32 boundary; stored balances use the separate quota_balance contract.
+// Oversized charges must clamp rather than wrap into unintended credits.
 const (
 	MaxQuota = math.MaxInt32
 	MinQuota = math.MinInt32
@@ -155,7 +155,7 @@ func QuotaFromDecimalChecked(d decimal.Decimal) (int, *QuotaClamp) {
 }
 
 // QuotaFromDecimalStrict converts an in-range decimal quota and rejects a
-// value that would otherwise be saturated at the database's int32 boundary.
+// value that would otherwise be saturated at the single-charge int32 boundary.
 func QuotaFromDecimalStrict(d decimal.Decimal) (int, error) {
 	return strictQuota(QuotaFromDecimalChecked(d))
 }

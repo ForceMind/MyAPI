@@ -78,7 +78,10 @@ func mutateLegacyUserQuotaWithContext(ctx context.Context, id int, delta int64, 
 		if err := lockForUpdate(tx).Where("id = ?", id).First(&user).Error; err != nil {
 			return err
 		}
-		target, err := checkedLegacyBalanceTarget(user.Quota, int(delta))
+		if !quotaMutationVersionValid(user.QuotaVersion) {
+			return ErrAccountQuotaMutationIneligible
+		}
+		target, err := common.CheckedQuotaBalance(user.Quota, delta)
 		if err != nil {
 			return err
 		}
@@ -133,14 +136,17 @@ func mutateLegacyTokenQuotaWithContext(ctx context.Context, tokenID int, key str
 		if err := lockForUpdate(tx).Where("id = ?", tokenID).First(&token).Error; err != nil {
 			return err
 		}
-		remain, err := checkedLegacyBalanceTarget(token.RemainQuota, int(delta))
+		if !quotaMutationVersionValid(token.QuotaVersion) {
+			return ErrAccountQuotaMutationIneligible
+		}
+		remain, err := common.CheckedQuotaBalance(token.RemainQuota, delta)
 		if err != nil {
 			return err
 		}
 		if requireSufficient && !unlimited && remain < 0 {
 			return nil
 		}
-		used, err := checkedLegacyBalanceTarget(token.UsedQuota, -int(delta))
+		used, err := common.CheckedQuotaUsed(token.UsedQuota, -delta)
 		if err != nil || used < 0 {
 			return ErrAccountQuotaMutationIneligible
 		}

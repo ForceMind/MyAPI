@@ -6,8 +6,10 @@ import (
 	"testing"
 
 	"github.com/ForceMind/MyAPI/model"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func TestQuotaBatchStartupConfiguration(t *testing.T) {
@@ -74,4 +76,27 @@ func TestQuotaBatchStartupRejectsAmbiguousConfigurationWithoutLeakingErrors(t *t
 	require.NotContains(t, err.Error(), "SQL")
 	require.NotContains(t, err.Error(), "redis://")
 	require.False(t, enabled)
+}
+
+func TestQuotaBatchStartupPostMigrationRequiresPersistedSingleton(t *testing.T) {
+	t.Run("missing writer table", func(t *testing.T) {
+		db, err := gorm.Open(sqlite.Open(t.TempDir()+"/missing.db"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+		require.NoError(t, err)
+		for _, redisAvailable := range []bool{false, true} {
+			enabled, err := ValidateQuotaBatchStartupConfiguration(db, "true", redisAvailable)
+			require.ErrorContains(t, err, "cannot verify quota writer mode")
+			require.False(t, enabled)
+		}
+	})
+
+	t.Run("multiple writer rows", func(t *testing.T) {
+		db := setupPostConsumeModeDB(t, model.QuotaWriterModeAuthoritative)
+		require.NoError(t, db.Create(&model.QuotaWriterEpoch{
+			ID: 2, SchemaVersion: model.QuotaWriterEpochSchemaVersion,
+			Mode: string(model.QuotaWriterModeAuthoritative), Epoch: 1, LockVersion: 1, UpdatedAt: 1,
+		}).Error)
+		enabled, err := ValidateQuotaBatchStartupConfiguration(db, "true", true)
+		require.ErrorContains(t, err, "cannot verify quota writer mode")
+		require.False(t, enabled)
+	})
 }

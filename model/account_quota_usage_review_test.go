@@ -38,8 +38,8 @@ func TestUnknownUsageHoldsReservationWithoutChargingOrRefunding(t *testing.T) {
 	_, err = ExtendAccountQuotaReservation(context.Background(), db, reserve.ID, 150)
 	require.Error(t, err)
 	user, token, _ := loadAccountBalances(t, db, f)
-	assert.Equal(t, 900, user.Quota)
-	assert.Equal(t, 900, token.RemainQuota)
+	assert.Equal(t, int64(900), user.Quota)
+	assert.Equal(t, int64(900), token.RemainQuota)
 	var terminals int64
 	require.NoError(t, db.Model(&AccountQuotaMutationReceipt{}).Where("request_id = ? AND phase IN ?", reserve.RequestID, []string{AccountQuotaPhaseSettle, AccountQuotaPhaseRefund}).Count(&terminals).Error)
 	assert.Zero(t, terminals)
@@ -73,8 +73,8 @@ func TestUnknownUsageResolutionRequiresAuthorityAndIsIdempotent(t *testing.T) {
 	_, err = ResolveAccountQuotaUnknownUsage(context.Background(), db, root.Id, input, evidence)
 	require.Error(t, err)
 	user, token, _ := loadAccountBalances(t, db, f)
-	assert.Equal(t, 880, user.Quota)
-	assert.Equal(t, 880, token.RemainQuota)
+	assert.Equal(t, int64(880), user.Quota)
+	assert.Equal(t, int64(880), token.RemainQuota)
 	blocked, err := AccountQuotaUsageNeedsReview(context.Background(), db, token.Id)
 	require.NoError(t, err)
 	assert.False(t, blocked)
@@ -120,8 +120,8 @@ func TestUnknownUsageSurvivesDatabaseReopenAndFailedResolution(t *testing.T) {
 	require.NoError(t, reopened.Where("request_id = ?", reserve.RequestID).First(&held).Error)
 	assert.Equal(t, AccountQuotaTerminalRecoveryUsageUnknown, held.State)
 	user, token, _ := loadAccountBalances(t, reopened, f)
-	assert.Equal(t, 50, user.Quota)
-	assert.Equal(t, 50, token.RemainQuota)
+	assert.Equal(t, int64(50), user.Quota)
+	assert.Equal(t, int64(50), token.RemainQuota)
 }
 
 func TestUnknownUsageConcurrentResolutionHasOneTerminalCharge(t *testing.T) {
@@ -148,8 +148,8 @@ func TestUnknownUsageConcurrentResolutionHasOneTerminalCharge(t *testing.T) {
 		require.NoError(t, <-results)
 	}
 	user, token, _ := loadAccountBalances(t, db, f)
-	assert.Equal(t, 880, user.Quota)
-	assert.Equal(t, 880, token.RemainQuota)
+	assert.Equal(t, int64(880), user.Quota)
+	assert.Equal(t, int64(880), token.RemainQuota)
 	var count int64
 	require.NoError(t, db.Model(&AccountQuotaMutationReceipt{}).Where("request_id = ? AND phase = ?", reserve.RequestID, AccountQuotaPhaseSettle).Count(&count).Error)
 	assert.EqualValues(t, 1, count)

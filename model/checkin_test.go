@@ -52,7 +52,7 @@ func TestAuthoritativeCheckinIsAtomicAndReplaySafe(t *testing.T) {
 	assert.Equal(t, time.Now().Format("2006-01-02"), first.CheckinDate)
 	var reloaded User
 	require.NoError(t, DB.First(&reloaded, user.Id).Error)
-	assert.Equal(t, 50, reloaded.Quota)
+	assert.Equal(t, int64(50), reloaded.Quota)
 	assert.EqualValues(t, 1, reloaded.QuotaVersion)
 	var receipts []UserQuotaMutationReceipt
 	require.NoError(t, DB.Where("business_event_key = ?", fmt.Sprintf("checkin:%d:%s", user.Id, first.CheckinDate)).Find(&receipts).Error)
@@ -63,7 +63,7 @@ func TestAuthoritativeCheckinIsAtomicAndReplaySafe(t *testing.T) {
 	_, err = UserCheckin(user.Id)
 	require.ErrorIs(t, err, ErrUserQuotaMutationConflict)
 	require.NoError(t, DB.First(&reloaded, user.Id).Error)
-	assert.Equal(t, 50, reloaded.Quota)
+	assert.Equal(t, int64(50), reloaded.Quota)
 }
 
 func TestAuthoritativeCheckinReceiptFailureRollsBackRecordAndQuota(t *testing.T) {
@@ -101,7 +101,7 @@ func TestLegacyAndBridgeCheckinKeepDuplicateErrorBehavior(t *testing.T) {
 			require.Error(t, err)
 			var reloaded User
 			require.NoError(t, DB.First(&reloaded, user.Id).Error)
-			assert.Equal(t, 30, reloaded.Quota)
+			assert.Equal(t, int64(30), reloaded.Quota)
 			var receiptCount int64
 			require.NoError(t, DB.Model(&UserQuotaMutationReceipt{}).Where("user_id = ?", user.Id).Count(&receiptCount).Error)
 			assert.Zero(t, receiptCount)

@@ -205,6 +205,41 @@ type AccountQuotaTerminalInput struct {
 	ActualQuota      int64
 	BillingContext   AccountBillingContext
 	AuditKey         string
+	executionGuard   *accountQuotaTerminalExecutionGuard
+}
+
+type accountQuotaTerminalExecutionGuard struct {
+	FactID        int64
+	BindingDigest string
+	LeaseOwner    string
+	LockVersion   int64
+}
+
+func validateAccountQuotaTerminalExecutionGuard(ctx context.Context, tx *gorm.DB, input AccountQuotaTerminalInput, phase string) error {
+	guard := input.executionGuard
+	if guard == nil {
+		return nil
+	}
+	if phase != AccountQuotaPhaseSettle || guard.FactID <= 0 || len(guard.BindingDigest) != 64 || guard.LeaseOwner == "" || guard.LockVersion <= 0 {
+		return ErrAccountQuotaExecutionFrozen
+	}
+	var fact AccountQuotaSettlementFact
+	if err := lockForUpdate(tx).First(&fact, guard.FactID).Error; err != nil {
+		return errors.Join(ErrAccountQuotaExecutionFrozen, err)
+	}
+	if fact.Kind != AccountQuotaSettlementKindAuthoritative || fact.RequestID != input.RequestID ||
+		fact.ReserveReceiptID != input.ReserveReceiptID || fact.ActualQuota != input.ActualQuota ||
+		fact.State != AccountQuotaSettlementClaimed || fact.LeaseOwner != guard.LeaseOwner || fact.LockVersion != guard.LockVersion {
+		return ErrAccountQuotaExecutionFrozen
+	}
+	permit, err := loadAccountQuotaExecutionPermitForFact(ctx, tx, &fact, true)
+	if err != nil {
+		return err
+	}
+	if permit.BindingDigest != guard.BindingDigest || !permit.AllowFunding || !permit.AllowToken {
+		return ErrAccountQuotaExecutionFrozen
+	}
+	return nil
 }
 
 type accountQuotaFingerprintPayload struct {
@@ -371,44 +406,54 @@ func accountQuotaAfter(before QuotaMutationAccountSnapshot, deltas AccountQuotaD
 		copySubscription := *before.Subscription
 		after.Subscription = &copySubscription
 	}
-	userQuota := int64(before.User.Quota) + deltas.UserQuota
-	if userQuota < int64(common.MinQuota) || userQuota > int64(common.MaxQuota) {
-		return QuotaMutationAccountSnapshot{}, ErrAccountQuotaMutationInsufficient
+	userQuota, err := common.CheckedQuotaBalance(before.User.Quota, deltas.UserQuota)
+	if err != nil {
+		return QuotaMutationAccountSnapshot{}, errors.Join(ErrAccountQuotaMutationInsufficient, err)
 	}
-	remainQuota := int64(before.Token.RemainQuota) + deltas.TokenRemainQuota
-	usedQuota := int64(before.Token.UsedQuota) + deltas.TokenUsedQuota
-	if remainQuota < int64(common.MinQuota) || remainQuota > int64(common.MaxQuota) ||
-		usedQuota < int64(common.MinQuota) || usedQuota > int64(common.MaxQuota) {
-		return QuotaMutationAccountSnapshot{}, ErrAccountQuotaMutationIneligible
+	if _, err := common.CheckedQuotaUsed(before.User.UsedQuota, 0); err != nil {
+		return QuotaMutationAccountSnapshot{}, errors.Join(ErrAccountQuotaMutationIneligible, err)
+	}
+	remainQuota, err := common.CheckedQuotaBalance(before.Token.RemainQuota, deltas.TokenRemainQuota)
+	if err != nil {
+		return QuotaMutationAccountSnapshot{}, errors.Join(ErrAccountQuotaMutationIneligible, err)
+	}
+	usedQuota, err := common.CheckedQuotaUsed(before.Token.UsedQuota, deltas.TokenUsedQuota)
+	if err != nil {
+		return QuotaMutationAccountSnapshot{}, errors.Join(ErrAccountQuotaMutationIneligible, err)
 	}
 	if deltas.SubscriptionAmountUsed != 0 {
 		if after.Subscription == nil {
 			return QuotaMutationAccountSnapshot{}, ErrAccountQuotaMutationInvalidInput
 		}
-		if deltas.SubscriptionAmountUsed > 0 && after.Subscription.AmountUsed > quotaMutationMaxInt64-deltas.SubscriptionAmountUsed {
+		if !quotaMutationVersionValid(after.Subscription.QuotaVersion) {
 			return QuotaMutationAccountSnapshot{}, ErrAccountQuotaMutationIneligible
 		}
-		if deltas.SubscriptionAmountUsed < 0 && after.Subscription.AmountUsed < -deltas.SubscriptionAmountUsed {
-			return QuotaMutationAccountSnapshot{}, ErrAccountQuotaMutationIneligible
+		if after.Subscription.AmountTotal != 0 {
+			if _, err := common.CheckedQuotaUsed(after.Subscription.AmountTotal, 0); err != nil {
+				return QuotaMutationAccountSnapshot{}, errors.Join(ErrAccountQuotaMutationIneligible, err)
+			}
 		}
-		newUsed := after.Subscription.AmountUsed + deltas.SubscriptionAmountUsed
-		if newUsed < 0 || newUsed > int64(common.MaxQuota) {
-			return QuotaMutationAccountSnapshot{}, ErrAccountQuotaMutationInsufficient
+		newUsed, err := common.CheckedQuotaUsed(after.Subscription.AmountUsed, deltas.SubscriptionAmountUsed)
+		if err != nil {
+			return QuotaMutationAccountSnapshot{}, errors.Join(ErrAccountQuotaMutationIneligible, err)
 		}
 		after.Subscription.AmountUsed = newUsed
 		after.Subscription.QuotaVersion++
 		after.Subscription.UpdatedAt = databaseNow
 	}
 	if deltas.UserQuota != 0 {
-		after.User.Quota = int(userQuota)
+		if !quotaMutationVersionValid(before.User.QuotaVersion) {
+			return QuotaMutationAccountSnapshot{}, ErrAccountQuotaMutationIneligible
+		}
+		after.User.Quota = userQuota
 		after.User.QuotaVersion++
 	}
 	if deltas.TokenRemainQuota != 0 || deltas.TokenUsedQuota != 0 {
-		if usedQuota < 0 {
+		if !quotaMutationVersionValid(before.Token.QuotaVersion) {
 			return QuotaMutationAccountSnapshot{}, ErrAccountQuotaMutationIneligible
 		}
-		after.Token.RemainQuota = int(remainQuota)
-		after.Token.UsedQuota = int(usedQuota)
+		after.Token.RemainQuota = remainQuota
+		after.Token.UsedQuota = usedQuota
 		after.Token.AccessedTime = databaseNow
 		after.Token.QuotaVersion++
 	}
@@ -463,7 +508,7 @@ func selectAccountBillingSource(tx *gorm.DB, user *User, preference string, wall
 	if eligible {
 		return BillingSourceSelfUse, nil, nil
 	}
-	walletAvailable := int64(user.Quota) >= walletQuota
+	walletAvailable := user.Quota >= walletQuota
 	if preference == "wallet_only" || (preference == "wallet_first" && walletAvailable) {
 		if walletAvailable {
 			return "wallet", nil, nil
@@ -678,10 +723,10 @@ func ReserveAccountQuota(ctx context.Context, db *gorm.DB, input AccountQuotaRes
 			}
 			appliedQuota = minimumReserve
 			if normalized.RequestedQuota > 0 && normalized.AllowTrust && source == "wallet" && normalized.TrustQuota > 0 &&
-				int64(user.Quota) > normalized.TrustQuota && (token.UnlimitedQuota || int64(token.RemainQuota) > normalized.TrustQuota) {
+				user.Quota > normalized.TrustQuota && (token.UnlimitedQuota || token.RemainQuota > normalized.TrustQuota) {
 				appliedQuota = 0
 			}
-			if !normalized.Playground && !token.UnlimitedQuota && int64(token.RemainQuota) < appliedQuota {
+			if !normalized.Playground && !token.UnlimitedQuota && token.RemainQuota < appliedQuota {
 				return nil, ErrAccountQuotaMutationInsufficient
 			}
 		}
@@ -940,6 +985,9 @@ func applyAccountQuotaTerminalReviewed(ctx context.Context, db *gorm.DB, input A
 		if err := validateAccountQuotaHeadReceipt(&head, &current); err != nil {
 			return nil, err
 		}
+		if err := validateAccountQuotaTerminalExecutionGuard(ctx, tx, normalized, phase); err != nil {
+			return nil, err
+		}
 		fingerprint, err = accountQuotaTerminalFingerprint(normalized, phase, &head, &current)
 		if err != nil {
 			return nil, err
@@ -1178,12 +1226,12 @@ func ExtendAccountQuotaReservation(ctx context.Context, db *gorm.DB, reserveRece
 			return &current, nil
 		}
 		delta := targetQuota - lockedHead.AppliedQuota
-		if !current.BillingContext.Playground && !token.UnlimitedQuota && int64(token.RemainQuota) < delta {
+		if !current.BillingContext.Playground && !token.UnlimitedQuota && token.RemainQuota < delta {
 			return nil, ErrAccountQuotaMutationInsufficient
 		}
 		switch lockedHead.BillingSource {
 		case "wallet":
-			if int64(user.Quota) < delta {
+			if user.Quota < delta {
 				return nil, ErrAccountQuotaMutationInsufficient
 			}
 		case "subscription":
@@ -1304,7 +1352,7 @@ func MutateTokenQuotaAuthoritative(ctx context.Context, db *gorm.DB, eventKey st
 		if token.UserId != user.Id || !quotaMutationVersionValid(user.QuotaVersion) || !quotaMutationVersionValid(token.QuotaVersion) {
 			return ErrAccountQuotaMutationIneligible
 		}
-		if tokenRemainDelta < 0 && !token.UnlimitedQuota && int64(token.RemainQuota) < -tokenRemainDelta {
+		if tokenRemainDelta < 0 && !token.UnlimitedQuota && token.RemainQuota < -tokenRemainDelta {
 			return ErrAccountQuotaMutationInsufficient
 		}
 		deltas := AccountQuotaDeltas{TokenRemainQuota: tokenRemainDelta, TokenUsedQuota: -tokenRemainDelta}
@@ -1438,7 +1486,7 @@ func backfillAccountQuotaReceiptChain(db *gorm.DB, requestID string) (*AccountQu
 
 // InitializeAccountQuotaReservationHeadsWithDB backfills receipt fingerprints,
 // reservation heads, and lifecycle obligations in bounded keyset pages.
-func InitializeAccountQuotaReservationHeadsWithDB(db *gorm.DB) error {
+func InitializeAccountQuotaReservationHeadsWithDB(db *gorm.DB) (returnErr error) {
 	if db == nil {
 		return gorm.ErrInvalidDB
 	}
@@ -1451,6 +1499,13 @@ func InitializeAccountQuotaReservationHeadsWithDB(db *gorm.DB) error {
 	}
 	ctx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
 	defer cancel()
+	defer func() {
+		// GORM can retain cancellation only as text when rollback adds a
+		// second error. Preserve both identities before our own deferred cancel.
+		if returnErr != nil && ctx.Err() != nil && !errors.Is(returnErr, ctx.Err()) {
+			returnErr = errors.Join(ctx.Err(), returnErr)
+		}
+	}()
 	workCursor, err := loadQuotaWorkCursor(ctx, db, quotaWorkCursorAccountMigration)
 	if err != nil {
 		return err

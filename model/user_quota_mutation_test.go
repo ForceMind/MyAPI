@@ -21,7 +21,7 @@ func createTestUserForQuotaMutation(t *testing.T, id int, initialQuota int) *Use
 		Role:         common.RoleCommonUser,
 		Status:       common.UserStatusEnabled,
 		Group:        "default",
-		Quota:        initialQuota,
+		Quota:        int64(initialQuota),
 		QuotaVersion: 0,
 		AuthVersion:  1,
 	}
@@ -51,8 +51,8 @@ func TestUserQuotaMutationBasic(t *testing.T) {
 	assert.Equal(t, "recharge", receipt1.MutationType)
 	assert.Equal(t, "topup:order:1001", receipt1.BusinessEventKey)
 	assert.Equal(t, int64(500), receipt1.Delta)
-	assert.Equal(t, 1000, receipt1.QuotaBefore)
-	assert.Equal(t, 1500, receipt1.QuotaAfter)
+	assert.Equal(t, int64(1000), receipt1.QuotaBefore)
+	assert.Equal(t, int64(1500), receipt1.QuotaAfter)
 	assert.Equal(t, int64(0), receipt1.QuotaVersionBefore)
 	assert.Equal(t, int64(1), receipt1.QuotaVersionAfter)
 	assert.NotEmpty(t, receipt1.RequestFingerprint)
@@ -61,7 +61,7 @@ func TestUserQuotaMutationBasic(t *testing.T) {
 	// Verify DB state
 	var updatedUser User
 	require.NoError(t, DB.Where("id = ?", user.Id).First(&updatedUser).Error)
-	assert.Equal(t, 1500, updatedUser.Quota)
+	assert.Equal(t, int64(1500), updatedUser.Quota)
 	assert.Equal(t, int64(1), updatedUser.QuotaVersion)
 
 	// 2. Debit mutation (-300)
@@ -80,14 +80,14 @@ func TestUserQuotaMutationBasic(t *testing.T) {
 	assert.Equal(t, int64(2), receipt2.ID)
 	assert.Equal(t, "subscription_purchase", receipt2.MutationType)
 	assert.Equal(t, int64(-300), receipt2.Delta)
-	assert.Equal(t, 1500, receipt2.QuotaBefore)
-	assert.Equal(t, 1200, receipt2.QuotaAfter)
+	assert.Equal(t, int64(1500), receipt2.QuotaBefore)
+	assert.Equal(t, int64(1200), receipt2.QuotaAfter)
 	assert.Equal(t, int64(1), receipt2.QuotaVersionBefore)
 	assert.Equal(t, int64(2), receipt2.QuotaVersionAfter)
 
 	// Verify DB state
 	require.NoError(t, DB.Where("id = ?", user.Id).First(&updatedUser).Error)
-	assert.Equal(t, 1200, updatedUser.Quota)
+	assert.Equal(t, int64(1200), updatedUser.Quota)
 	assert.Equal(t, int64(2), updatedUser.QuotaVersion)
 }
 
@@ -103,7 +103,7 @@ func TestUserQuotaMutationExclusiveUpperBoundIsAtomic(t *testing.T) {
 	require.ErrorIs(t, err, ErrUserQuotaUpperBoundExceeded)
 	var reloaded User
 	require.NoError(t, DB.First(&reloaded, user.Id).Error)
-	assert.Equal(t, 900, reloaded.Quota)
+	assert.Equal(t, int64(900), reloaded.Quota)
 	assert.Zero(t, reloaded.QuotaVersion)
 	var count int64
 	require.NoError(t, DB.Model(&UserQuotaMutationReceipt{}).Where("business_event_key = ?", input.BusinessEventKey).Count(&count).Error)
@@ -127,7 +127,7 @@ func TestUserQuotaMutationIdempotencyAndConflict(t *testing.T) {
 	receipt1, err := MutateUserQuota(DB, input)
 	require.NoError(t, err)
 	require.NotNil(t, receipt1)
-	assert.Equal(t, 700, receipt1.QuotaAfter)
+	assert.Equal(t, int64(700), receipt1.QuotaAfter)
 	assert.Equal(t, int64(1), receipt1.QuotaVersionAfter)
 
 	// Exact replay: same BusinessEventKey + identical payload
@@ -141,7 +141,7 @@ func TestUserQuotaMutationIdempotencyAndConflict(t *testing.T) {
 	// Verify DB state was NOT modified a second time
 	var dbUser User
 	require.NoError(t, DB.Where("id = ?", user.Id).First(&dbUser).Error)
-	assert.Equal(t, 700, dbUser.Quota, "replay must not duplicate quota credit")
+	assert.Equal(t, int64(700), dbUser.Quota, "replay must not duplicate quota credit")
 	assert.Equal(t, int64(1), dbUser.QuotaVersion, "replay must not bump version again")
 
 	// Conflict: same BusinessEventKey + different payload (e.g. delta changed to 300)
@@ -191,7 +191,7 @@ func TestUserQuotaMutationInsufficientQuota(t *testing.T) {
 	// Balance and version in DB must remain completely unchanged
 	var dbUser User
 	require.NoError(t, DB.Where("id = ?", user.Id).First(&dbUser).Error)
-	assert.Equal(t, 100, dbUser.Quota)
+	assert.Equal(t, int64(100), dbUser.Quota)
 	assert.Zero(t, dbUser.QuotaVersion)
 }
 
@@ -314,7 +314,7 @@ func TestUserQuotaMutationConcurrencyCAS(t *testing.T) {
 	var finalUser User
 	require.NoError(t, DB.Where("id = ?", user.Id).First(&finalUser).Error)
 	expectedFinalQuota := int(int64(initialQuota) + expectedDeltaSum)
-	assert.Equal(t, expectedFinalQuota, finalUser.Quota, "final balance must precisely equal initial + sum(deltas)")
+	assert.Equal(t, int64(expectedFinalQuota), finalUser.Quota, "final balance must precisely equal initial + sum(deltas)")
 	assert.Equal(t, int64(numWorkers), finalUser.QuotaVersion, "quota version must advance exactly once per mutation")
 
 	// Verify receipts count
@@ -327,12 +327,13 @@ func TestUserQuotaMutationWithCacheHydration(t *testing.T) {
 	truncateTables(t)
 	server := useUserCacheMiniRedis(t)
 	user := createTestUserForQuotaMutation(t, 8006, 2000)
+	seedUserQuotaCacheForTest(t, user.ToBaseUser())
 
-	// 1. Initial warm cache via GetUserCache
+	// 1. The quota owner seeds a complete accounting cache.
 	cached, err := GetUserCache(user.Id)
 	require.NoError(t, err)
 	require.NotNil(t, cached)
-	assert.Equal(t, 2000, cached.Quota)
+	assert.Equal(t, int64(2000), cached.Quota)
 	assert.Zero(t, cached.QuotaVersion)
 
 	key := getUserCacheKey(user.Id)
@@ -351,7 +352,7 @@ func TestUserQuotaMutationWithCacheHydration(t *testing.T) {
 	receipt, err := MutateUserQuota(DB, input)
 	require.NoError(t, err)
 	require.NotNil(t, receipt)
-	assert.Equal(t, 3000, receipt.QuotaAfter)
+	assert.Equal(t, int64(3000), receipt.QuotaAfter)
 	assert.Equal(t, int64(1), receipt.QuotaVersionAfter)
 
 	// Verify Redis cache was safely hydrated with the new quota and version
@@ -401,7 +402,7 @@ func TestUserQuotaMutationConcurrentReplay(t *testing.T) {
 	// Verify User quota was modified only once
 	var dbUser User
 	require.NoError(t, DB.Where("id = ?", user.Id).First(&dbUser).Error)
-	assert.Equal(t, 1500, dbUser.Quota, "quota must advance exactly once")
+	assert.Equal(t, int64(1500), dbUser.Quota, "quota must advance exactly once")
 	assert.Equal(t, int64(1), dbUser.QuotaVersion, "quota version must advance exactly once")
 
 	// Verify only 1 receipt row in DB
@@ -414,8 +415,9 @@ func TestUserQuotaMutationReplayDoesNotOverwriteLiveCache(t *testing.T) {
 	truncateTables(t)
 	server := useUserCacheMiniRedis(t)
 	user := createTestUserForQuotaMutation(t, 8008, 2000)
+	seedUserQuotaCacheForTest(t, user.ToBaseUser())
 
-	// 1. Initial warm cache via GetUserCache
+	// 1. The quota owner seeds a complete accounting cache.
 	_, err := GetUserCache(user.Id)
 	require.NoError(t, err)
 
@@ -434,7 +436,7 @@ func TestUserQuotaMutationReplayDoesNotOverwriteLiveCache(t *testing.T) {
 
 	receipt1, err := MutateUserQuota(DB, input)
 	require.NoError(t, err)
-	assert.Equal(t, 3000, receipt1.QuotaAfter)
+	assert.Equal(t, int64(3000), receipt1.QuotaAfter)
 	assert.Equal(t, int64(1), receipt1.QuotaVersionAfter)
 
 	assert.Equal(t, "3000", server.HGet(key, "Quota"))

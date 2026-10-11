@@ -39,7 +39,7 @@ func createSubscriptionBalancePlan(t *testing.T, db *gorm.DB, title string, pric
 	return plan
 }
 
-func loadUserQuota(t *testing.T, db *gorm.DB, userId int) int {
+func loadUserQuota(t *testing.T, db *gorm.DB, userId int) int64 {
 	t.Helper()
 	var user User
 	require.NoError(t, db.First(&user, userId).Error)
@@ -69,7 +69,7 @@ func TestSubscriptionBalancePurchaseDualMode(t *testing.T) {
 			plan := createSubscriptionBalancePlan(t, db, "plan-"+string(mode), 1.0, 5000)
 
 			require.NoError(t, PurchaseSubscriptionWithBalance(user.Id, plan.Id, funding.Epoch))
-			assert.Equal(t, 900, loadUserQuota(t, db, user.Id))
+			assert.Equal(t, int64(900), loadUserQuota(t, db, user.Id))
 			assert.EqualValues(t, 1, countSubscriptionOrders(t, db, user.Id))
 
 			var subCount int64
@@ -87,8 +87,8 @@ func TestSubscriptionBalancePurchaseDualMode(t *testing.T) {
 				assert.Equal(t, "subscription_wallet", receipts[0].MutationType)
 				assert.Equal(t, "subscription_balance_purchase", receipts[0].ReasonCode)
 				assert.EqualValues(t, -100, receipts[0].Delta)
-				assert.Equal(t, 1000, receipts[0].QuotaBefore)
-				assert.Equal(t, 900, receipts[0].QuotaAfter)
+				assert.Equal(t, int64(1000), receipts[0].QuotaBefore)
+				assert.Equal(t, int64(900), receipts[0].QuotaAfter)
 
 				// 同键重放：幂等，不产生二次扣减。
 				var replayed bool
@@ -99,7 +99,7 @@ func TestSubscriptionBalancePurchaseDualMode(t *testing.T) {
 				})
 				require.NoError(t, err)
 				assert.True(t, replayed)
-				assert.Equal(t, 900, loadUserQuota(t, db, user.Id))
+				assert.Equal(t, int64(900), loadUserQuota(t, db, user.Id))
 
 				// 同键不同额：指纹冲突，显式报错且余额不变。
 				err = db.Transaction(func(tx *gorm.DB) error {
@@ -107,12 +107,12 @@ func TestSubscriptionBalancePurchaseDualMode(t *testing.T) {
 					return err
 				})
 				require.ErrorIs(t, err, ErrUserQuotaMutationConflict)
-				assert.Equal(t, 900, loadUserQuota(t, db, user.Id))
+				assert.Equal(t, int64(900), loadUserQuota(t, db, user.Id))
 			}
 
 			// 第二次购买生成新订单身份，再扣一次。
 			require.NoError(t, PurchaseSubscriptionWithBalance(user.Id, plan.Id, funding.Epoch))
-			assert.Equal(t, 800, loadUserQuota(t, db, user.Id))
+			assert.Equal(t, int64(800), loadUserQuota(t, db, user.Id))
 			assert.EqualValues(t, 2, countSubscriptionOrders(t, db, user.Id))
 		})
 	}
@@ -126,7 +126,7 @@ func TestSubscriptionBalancePurchaseBridgeFailClosed(t *testing.T) {
 
 	err := PurchaseSubscriptionWithBalance(user.Id, plan.Id, funding.Epoch)
 	require.ErrorIs(t, err, ErrDurableQuotaWriterModeDisabled)
-	assert.Equal(t, 1000, loadUserQuota(t, db, user.Id))
+	assert.Equal(t, int64(1000), loadUserQuota(t, db, user.Id))
 	assert.Zero(t, countSubscriptionOrders(t, db, user.Id))
 	var subCount int64
 	require.NoError(t, db.Model(&UserSubscription{}).Where("user_id = ?", user.Id).Count(&subCount).Error)
@@ -144,7 +144,7 @@ func TestSubscriptionBalancePurchaseInsufficientDualMode(t *testing.T) {
 			err := PurchaseSubscriptionWithBalance(user.Id, plan.Id, funding.Epoch)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "余额不足")
-			assert.Equal(t, 50, loadUserQuota(t, db, user.Id))
+			assert.Equal(t, int64(50), loadUserQuota(t, db, user.Id))
 			assert.Zero(t, countSubscriptionOrders(t, db, user.Id))
 			var receiptCount int64
 			require.NoError(t, db.Model(&UserQuotaMutationReceipt{}).Count(&receiptCount).Error)
@@ -165,7 +165,7 @@ func TestSubscriptionBalancePurchaseLegacyIdempotentOrderIdentity(t *testing.T) 
 	assert.NotEmpty(t, order.TradeNo)
 	assert.Equal(t, common.TopUpStatusSuccess, order.Status)
 	assert.Equal(t, "charged_quota=100", order.ProviderPayload)
-	assert.Equal(t, 900, loadUserQuota(t, db, user.Id))
+	assert.Equal(t, int64(900), loadUserQuota(t, db, user.Id))
 }
 
 func TestSubscriptionBalancePurchaseAuthoritativeReceiptFailureRollsBackOrder(t *testing.T) {
@@ -184,6 +184,6 @@ func TestSubscriptionBalancePurchaseAuthoritativeReceiptFailureRollsBackOrder(t 
 
 	err := PurchaseSubscriptionWithBalance(user.Id, plan.Id, funding.Epoch)
 	require.Error(t, err)
-	assert.Equal(t, 1000, loadUserQuota(t, db, user.Id))
+	assert.Equal(t, int64(1000), loadUserQuota(t, db, user.Id))
 	assert.Zero(t, countSubscriptionOrders(t, db, user.Id))
 }

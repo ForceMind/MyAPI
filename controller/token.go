@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -33,7 +34,10 @@ func (input *tokenAutoGroupsInput) UnmarshalJSON(data []byte) error {
 
 type tokenRequest struct {
 	model.Token
-	AutoGroups tokenAutoGroupsInput `json:"auto_groups"`
+	RemainQuota         *int64               `json:"remain_quota"`
+	QuotaVersion        string               `json:"quota_version"`
+	MetadataFingerprint string               `json:"metadata_fingerprint"`
+	AutoGroups          tokenAutoGroupsInput `json:"auto_groups"`
 }
 
 type tokenResponse struct {
@@ -41,7 +45,9 @@ type tokenResponse struct {
 	AutoGroups []string `json:"auto_groups"`
 	// AccessProfile explains the legacy Group value while the additive
 	// access_profile_id field and routing compatibility remain in place.
-	AccessProfile accessProfileMetadata `json:"access_profile"`
+	AccessProfile       accessProfileMetadata `json:"access_profile"`
+	QuotaVersion        string                `json:"quota_version"`
+	MetadataFingerprint string                `json:"metadata_fingerprint"`
 }
 
 func buildMaskedTokenResponse(token *model.Token) *tokenResponse {
@@ -58,10 +64,16 @@ func buildMaskedTokenResponse(token *model.Token) *tokenResponse {
 	if len(autoGroups) == 0 {
 		autoGroups = nil
 	}
+	metadataFingerprint, err := token.QuotaMetadataFingerprint()
+	if err != nil {
+		common.SysError(fmt.Sprintf("failed to fingerprint token %d metadata: %v", token.Id, err))
+	}
 	return &tokenResponse{
-		Token:         &maskedToken,
-		AutoGroups:    autoGroups,
-		AccessProfile: model.ResolveAccessProfileID(token.AccessProfileID, token.Group, ""),
+		Token:               &maskedToken,
+		AutoGroups:          autoGroups,
+		AccessProfile:       model.ResolveAccessProfileID(token.AccessProfileID, token.Group, ""),
+		QuotaVersion:        strconv.FormatInt(token.QuotaVersion, 10),
+		MetadataFingerprint: metadataFingerprint,
 	}
 }
 
@@ -251,13 +263,18 @@ func GetTokenUsage(c *gin.Context) {
 		expiredAt = 0
 	}
 
+	total, err := common.CheckedQuotaBalance(token.RemainQuota, token.UsedQuota)
+	if err != nil {
+		common.ApiErrorI18n(c, i18n.MsgTokenQuotaExceedMax, map[string]any{"Max": common.MaxQuotaBalance})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"code":    true,
 		"message": "ok",
 		"data": gin.H{
 			"object":               "token_usage",
 			"name":                 token.Name,
-			"total_granted":        token.RemainQuota + token.UsedQuota,
+			"total_granted":        total,
 			"total_used":           token.UsedQuota,
 			"total_available":      token.RemainQuota,
 			"unlimited_quota":      token.UnlimitedQuota,
@@ -276,21 +293,20 @@ func AddToken(c *gin.Context) {
 		return
 	}
 	token := request.Token
+	if request.RemainQuota != nil {
+		token.RemainQuota = *request.RemainQuota
+	}
 	if len(token.Name) > 50 {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
 		return
 	}
-	// 非无限额度时，检查额度值是否超出有效范围
-	if !token.UnlimitedQuota {
-		if token.RemainQuota < 0 {
-			common.ApiErrorI18n(c, i18n.MsgTokenQuotaNegative)
-			return
-		}
-		maxQuotaValue := common.QuotaFromFloat(1000000000 * common.QuotaPerUnit)
-		if token.RemainQuota > maxQuotaValue {
-			common.ApiErrorI18n(c, i18n.MsgTokenQuotaExceedMax, map[string]any{"Max": maxQuotaValue})
-			return
-		}
+	if token.RemainQuota < 0 {
+		common.ApiErrorI18n(c, i18n.MsgTokenQuotaNegative)
+		return
+	}
+	if token.RemainQuota > int64(common.MaxQuota) {
+		common.ApiErrorI18n(c, i18n.MsgTokenQuotaExceedMax, map[string]any{"Max": common.MaxQuota})
+		return
 	}
 	// 检查用户令牌数量是否已达上限
 	maxTokens := operation_setting.GetMaxUserTokens()
@@ -376,21 +392,28 @@ func UpdateToken(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
 		return
 	}
-	if !token.UnlimitedQuota {
-		if token.RemainQuota < 0 {
-			common.ApiErrorI18n(c, i18n.MsgTokenQuotaNegative)
-			return
-		}
-		maxQuotaValue := common.QuotaFromFloat(1000000000 * common.QuotaPerUnit)
-		if token.RemainQuota > maxQuotaValue {
-			common.ApiErrorI18n(c, i18n.MsgTokenQuotaExceedMax, map[string]any{"Max": maxQuotaValue})
-			return
-		}
-	}
 	cleanToken, err := model.GetTokenByIds(token.Id, userId)
 	if err != nil {
 		common.ApiError(c, err)
 		return
+	}
+	quotaRequested := statusOnly == "" && request.RemainQuota != nil &&
+		(*request.RemainQuota != cleanToken.RemainQuota || request.QuotaVersion != "" || request.MetadataFingerprint != "")
+	var expectedQuotaVersion int64
+	if quotaRequested {
+		if *request.RemainQuota < 0 {
+			common.ApiErrorI18n(c, i18n.MsgTokenQuotaNegative)
+			return
+		}
+		if *request.RemainQuota > int64(common.MaxQuota) {
+			common.ApiErrorI18n(c, i18n.MsgTokenQuotaExceedMax, map[string]any{"Max": common.MaxQuota})
+			return
+		}
+		expectedQuotaVersion, err = strconv.ParseInt(request.QuotaVersion, 10, 64)
+		if err != nil || expectedQuotaVersion < 0 || strconv.FormatInt(expectedQuotaVersion, 10) != request.QuotaVersion || request.MetadataFingerprint == "" {
+			common.ApiErrorI18n(c, i18n.MsgTokenQuotaConflict)
+			return
+		}
 	}
 	if token.Status == common.TokenStatusEnabled {
 		if cleanToken.Status == common.TokenStatusExpired && cleanToken.ExpiredTime <= common.GetTimestamp() && cleanToken.ExpiredTime != -1 {
@@ -408,7 +431,9 @@ func UpdateToken(c *gin.Context) {
 		// If you add more fields, please also update token.Update()
 		cleanToken.Name = token.Name
 		cleanToken.ExpiredTime = token.ExpiredTime
-		cleanToken.RemainQuota = token.RemainQuota
+		if quotaRequested {
+			cleanToken.RemainQuota = *request.RemainQuota
+		}
 		cleanToken.UnlimitedQuota = token.UnlimitedQuota
 		cleanToken.ModelLimitsEnabled = token.ModelLimitsEnabled
 		cleanToken.ModelLimits = token.ModelLimits
@@ -431,8 +456,16 @@ func UpdateToken(c *gin.Context) {
 			}
 		}
 	}
-	err = cleanToken.Update()
+	if quotaRequested {
+		err = cleanToken.UpdateWithQuota(expectedQuotaVersion, request.MetadataFingerprint)
+	} else {
+		err = cleanToken.Update()
+	}
 	if err != nil {
+		if errors.Is(err, model.ErrTokenQuotaVersionConflict) {
+			common.ApiErrorI18n(c, i18n.MsgTokenQuotaConflict)
+			return
+		}
 		common.ApiError(c, err)
 		return
 	}

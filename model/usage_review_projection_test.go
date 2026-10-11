@@ -36,7 +36,7 @@ func TestUsageReviewProjectionRecoversWithoutDuplicateStatistics(t *testing.T) {
 	require.Error(t, ProjectUsageReviewDecision(ctx, db, logDB, view.Decision.ID))
 	var user User
 	require.NoError(t, db.First(&user, account.User.Id).Error)
-	assert.Equal(t, 120, user.UsedQuota)
+	assert.Equal(t, int64(120), user.UsedQuota)
 	assert.Equal(t, 1, user.RequestCount)
 	require.NoError(t, logDB.AutoMigrate(&Log{}, &BillingLogProjectionIdentity{}))
 	require.NoError(t, ProjectUsageReviewDecision(ctx, db, logDB, view.Decision.ID))
@@ -44,9 +44,9 @@ func TestUsageReviewProjectionRecoversWithoutDuplicateStatistics(t *testing.T) {
 	require.NoError(t, db.Table("usage_review_decisions").Where("id = ?", view.Decision.ID).Update("log_projected", false).Error)
 	require.NoError(t, ProjectUsageReviewDecision(ctx, db, logDB, view.Decision.ID))
 	require.NoError(t, db.First(&user, account.User.Id).Error)
-	assert.Equal(t, 120, user.UsedQuota)
+	assert.Equal(t, int64(120), user.UsedQuota)
 	assert.Equal(t, 1, user.RequestCount)
-	assert.Equal(t, 880, user.Quota)
+	assert.Equal(t, int64(880), user.Quota)
 	oldLog := LOG_DB
 	LOG_DB = logDB
 	t.Cleanup(func() { LOG_DB = oldLog })

@@ -124,9 +124,9 @@ func verifyRealtimeDispatchExtension(t *testing.T, db *gorm.DB, prefix string) {
 
 			require.NoError(t, db.First(&user, user.Id).Error)
 			require.NoError(t, db.First(&token, token.Id).Error)
-			assert.Equal(t, 800, user.Quota)
-			assert.Equal(t, 800, token.RemainQuota)
-			assert.Equal(t, 200, token.UsedQuota)
+			assert.Equal(t, int64(800), user.Quota)
+			assert.Equal(t, int64(800), token.RemainQuota)
+			assert.Equal(t, int64(200), token.UsedQuota)
 		})
 	}
 }

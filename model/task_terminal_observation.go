@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math"
 	"net/url"
 	"strings"
 
@@ -474,12 +473,15 @@ func ensureTaskMutationOutbox(tx *gorm.DB, receipt *QuotaMutationReceipt) (*Task
 }
 
 func applyTaskStatistics(tx *gorm.DB, userID, channelID int, delta int64, requestDelta int) error {
-	userQuery := tx.Model(&User{}).Where("id = ?", userID)
+	if _, err := common.CheckedQuotaBalance(0, delta); err != nil {
+		return ErrTaskTerminalObservationManualReview
+	}
+	userQuery := tx.Model(&User{}).Where("id = ? AND used_quota >= ? AND used_quota <= ?", userID, 0, common.MaxQuotaBalance)
 	if delta > 0 {
-		userQuery = userQuery.Where("used_quota <= ?", int64(common.MaxQuota)-delta)
+		userQuery = userQuery.Where("used_quota <= ?", common.MaxQuotaBalance-delta)
 	}
 	if delta < 0 {
-		userQuery = userQuery.Where("used_quota >= ?", int64(common.MinQuota)-delta)
+		userQuery = userQuery.Where("used_quota >= ?", -delta)
 	}
 	updates := map[string]interface{}{"used_quota": gorm.Expr("used_quota + ?", delta)}
 	if requestDelta != 0 {
@@ -500,12 +502,12 @@ func applyTaskStatistics(tx *gorm.DB, userID, channelID int, delta int64, reques
 	if userResult.RowsAffected != 1 {
 		return ErrTaskTerminalObservationManualReview
 	}
-	query := tx.Model(&Channel{}).Where("id = ?", channelID)
+	query := tx.Model(&Channel{}).Where("id = ? AND used_quota >= ? AND used_quota <= ?", channelID, 0, common.MaxQuotaBalance)
 	if delta > 0 {
-		query = query.Where("used_quota <= ?", int64(math.MaxInt64)-delta)
+		query = query.Where("used_quota <= ?", common.MaxQuotaBalance-delta)
 	}
 	if delta < 0 {
-		query = query.Where("used_quota >= ?", int64(math.MinInt64)-delta)
+		query = query.Where("used_quota >= ?", -delta)
 	}
 	var channelResult *gorm.DB
 	if delta == 0 {

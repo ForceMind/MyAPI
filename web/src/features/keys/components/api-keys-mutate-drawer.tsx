@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, KeyRound, Settings2, WalletCards } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm, type SubmitErrorHandler } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -87,7 +87,7 @@ import {
   getAccessProfilePolicyHint,
   getPreservedAccessProfileOption,
 } from '../lib/access-profile'
-import type { ApiKey } from '../types'
+import type { ApiKey, ApiKeyUpdateData } from '../types'
 import {
   ApiKeyGroupCombobox,
   type ApiKeyGroupOption,
@@ -113,6 +113,8 @@ export function ApiKeysMutateDrawer({
   const { status, loading: statusLoading } = useStatus()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
+  const openedQuotaVersion = useRef<string | undefined>(undefined)
+  const openedMetadataFingerprint = useRef<string | undefined>(undefined)
   const [initializedTarget, setInitializedTarget] = useState<string | null>(
     null
   )
@@ -227,10 +229,14 @@ export function ApiKeysMutateDrawer({
     defaultValues: getApiKeyFormDefaultValues(defaultUseAutoGroup),
   })
 
+  const quotaDirty = Boolean(form.formState.dirtyFields.remain_quota_dollars)
+
   // Load existing data when updating
   useEffect(() => {
     if (!open) {
       setInitializedTarget(null)
+      openedQuotaVersion.current = undefined
+      openedMetadataFingerprint.current = undefined
       return
     }
     if (
@@ -248,6 +254,8 @@ export function ApiKeysMutateDrawer({
     if (initializedTarget === target) return
     if (isUpdate && currentRow) {
       if (apiKeyData?.success && apiKeyData.data) {
+        openedQuotaVersion.current = apiKeyData.data.quota_version
+        openedMetadataFingerprint.current = apiKeyData.data.metadata_fingerprint
         form.reset(
           transformApiKeyToFormDefaults(
             apiKeyData.data,
@@ -324,10 +332,19 @@ export function ApiKeysMutateDrawer({
       const basePayload = transformFormDataToPayload(data)
 
       if (isUpdate && currentRow) {
-        const result = await updateApiKey({
+        const updatePayload: ApiKeyUpdateData = {
           ...basePayload,
           id: currentRow.id,
-        })
+        }
+        // Metadata edits must not write a stale balance back over consumption.
+        // Keep the version captured with the form, even if its query refetches.
+        if (!data.unlimited_quota && quotaDirty) {
+          updatePayload.quota_version = openedQuotaVersion.current
+          updatePayload.metadata_fingerprint = openedMetadataFingerprint.current
+        } else {
+          delete updatePayload.remain_quota
+        }
+        const result = await updateApiKey(updatePayload)
         if (result.success) {
           toast.success(t(SUCCESS_MESSAGES.API_KEY_UPDATED))
           onOpenChange(false)

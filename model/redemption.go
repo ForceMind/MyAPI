@@ -181,6 +181,9 @@ func Redeem(key string, userId int, expectedEpoch ...uint64) (quota int, err err
 		if redemption.ExpiredTime != 0 && redemption.ExpiredTime < common.GetTimestamp() {
 			return errors.New("该兑换码已过期")
 		}
+		if redemption.Quota < 0 || int64(redemption.Quota) > int64(common.MaxQuota) {
+			return ErrUserQuotaMutationInvalidInput
+		}
 		// Compare-and-swap on status: only the transaction that flips
 		// enabled -> used may credit quota, so a concurrent redeem of the
 		// same code loses here even without a row lock (e.g. on SQLite).
@@ -201,7 +204,7 @@ func Redeem(key string, userId int, expectedEpoch ...uint64) (quota int, err err
 			quotaReceipt, replayed, _, err = mutateBusinessUserQuotaIfAuthoritative(tx, mutationInput)
 			return err
 		}
-		return tx.Model(&User{}).Where("id = ?", userId).Update("quota", gorm.Expr("quota + ?", redemption.Quota)).Error
+		return applyLegacyUserWalletDeltaTx(tx, userId, int64(redemption.Quota), 0, nil)
 	})
 	if err != nil {
 		common.SysError("redemption failed: " + err.Error())

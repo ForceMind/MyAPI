@@ -98,10 +98,10 @@ func TestUsageReviewZeroReserveSettlementJournal(t *testing.T) {
 						require.Nil(t, row.ActualQuota, "GET must never repair the journal")
 					}
 					uq, remaining, used := loadPostConsumeBalances(t, db, user, token)
-					require.Equal(t, trust+1000-actual, uq)
-					require.Equal(t, trust+1000-actual, remaining)
-					require.Equal(t, actual, used)
-					t.Logf("state=%s can_recover=%v reserved=%d actual=%d charged=%d journal_failure=%v", view.State, view.CanRecoverTextDispatch, view.ReservedQuota, actual, trust+1000-uq, failJournal)
+					require.Equal(t, int64(trust+1000-actual), uq)
+					require.Equal(t, int64(trust+1000-actual), remaining)
+					require.Equal(t, int64(actual), used)
+					t.Logf("state=%s can_recover=%v reserved=%d actual=%d charged=%d journal_failure=%v", view.State, view.CanRecoverTextDispatch, view.ReservedQuota, actual, int64(trust+1000)-uq, failJournal)
 				})
 			}
 		}

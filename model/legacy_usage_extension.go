@@ -3,9 +3,9 @@ package model
 import (
 	"context"
 	"errors"
-	"math"
 	"time"
 
+	"github.com/ForceMind/MyAPI/common"
 	"gorm.io/gorm"
 )
 
@@ -110,9 +110,12 @@ func ExtendLegacyUsageReservation(ctx context.Context, db *gorm.DB, requestID st
 			if err := lockForUpdate(tx).First(&user, userID).Error; err != nil {
 				return err
 			}
+			if !quotaMutationVersionValid(user.QuotaVersion) {
+				return ErrAccountQuotaMutationIneligible
+			}
 			// Preserve the existing legacy extension contract: known work may
 			// exceed wallet balance, but never integer bounds or Key limits.
-			balance, err := checkedLegacyBalanceTarget(user.Quota, -int(delta))
+			balance, err := common.CheckedQuotaBalance(user.Quota, -delta)
 			if err != nil {
 				return err
 			}
@@ -136,8 +139,14 @@ func ExtendLegacyUsageReservation(ctx context.Context, db *gorm.DB, requestID st
 			if err := lockForUpdate(tx).Where("id = ? AND user_id = ?", row.SubscriptionID, userID).First(&sub).Error; err != nil {
 				return err
 			}
-			if sub.AmountUsed < 0 || sub.AmountUsed > math.MaxInt64-delta {
-				return ErrAccountQuotaMutationInvalidInput
+			if sub.AmountTotal != 0 {
+				if _, err := common.CheckedQuotaUsed(sub.AmountTotal, 0); err != nil {
+					return err
+				}
+			}
+			amountUsed, err := common.CheckedQuotaUsed(sub.AmountUsed, delta)
+			if err != nil || sub.AmountTotal > 0 && amountUsed > sub.AmountTotal {
+				return ErrAccountQuotaMutationIneligible
 			}
 			if err := postConsumeUserSubscriptionDeltaTx(tx, sub.Id, delta); err != nil {
 				return err
@@ -161,14 +170,17 @@ func ExtendLegacyUsageReservation(ctx context.Context, db *gorm.DB, requestID st
 			if err := lockForUpdate(tx).Where("id = ? AND user_id = ?", tokenID, userID).First(&token).Error; err != nil {
 				return err
 			}
-			remain, err := checkedLegacyBalanceTarget(token.RemainQuota, -int(delta))
+			if !quotaMutationVersionValid(token.QuotaVersion) {
+				return ErrAccountQuotaMutationIneligible
+			}
+			remain, err := common.CheckedQuotaBalance(token.RemainQuota, -delta)
 			if err != nil {
 				return err
 			}
 			if !token.UnlimitedQuota && remain < 0 {
 				return ErrAccountQuotaMutationInsufficient
 			}
-			used, err := checkedLegacyBalanceTarget(token.UsedQuota, int(delta))
+			used, err := common.CheckedQuotaUsed(token.UsedQuota, delta)
 			if err != nil || used < 0 {
 				return ErrAccountQuotaMutationInvalidInput
 			}

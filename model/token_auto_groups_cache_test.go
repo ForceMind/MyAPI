@@ -84,6 +84,11 @@ func TestTokenUpdateSynchronouslyNarrowsPreheatedAutoGroupsCache(t *testing.T) {
 // cacheSetTokenForTest 以测试身份写入完整 token 缓存（含额度字段），
 // 模拟“已水合”的缓存状态。
 func cacheSetTokenForTest(token Token) error {
-	_, err := cacheInitToken(token)
+	lock, err := acquireQuotaBalanceSubjectLock(BatchUpdateTypeTokenQuota, token.Id)
+	if err != nil {
+		return err
+	}
+	defer releaseQuotaBalanceSubjectLock(lock)
+	_, err = cacheInitTokenWithQuotaBalanceOwner(token, lock)
 	return err
 }

@@ -121,13 +121,13 @@ func TestTaskTokenBillingSnapshotCompatibilityAndZeroRates(t *testing.T) {
 			assert.Equal(t, storedBefore.PrivateData.BillingContext, storedAfter.PrivateData.BillingContext, "settlement must never overwrite submission history")
 			assert.Equal(t, tc.wantQuota, storedAfter.Quota)
 			if !tc.missingUser {
-				assert.Equal(t, 10000+500-tc.wantQuota, getUserQuota(t, 84))
+				assert.Equal(t, int64(10000+500-tc.wantQuota), getUserQuota(t, 84))
 				used, requests := getUserUsageAccounting(t, 84)
-				assert.Equal(t, tc.wantQuota, used)
+				assert.Equal(t, int64(tc.wantQuota), used)
 				assert.Equal(t, 1, requests)
 			}
-			assert.Equal(t, 10000+500-tc.wantQuota, getTokenRemainQuota(t, 84))
-			assert.Equal(t, tc.wantQuota, getTokenUsedQuota(t, 84))
+			assert.Equal(t, int64(10000+500-tc.wantQuota), getTokenRemainQuota(t, 84))
+			assert.Equal(t, int64(tc.wantQuota), getTokenUsedQuota(t, 84))
 			assert.Equal(t, int64(tc.wantQuota), getChannelUsedQuota(t, 84))
 			if tc.wantQuota == 500 {
 				statsAfter, err := model.SumUsedQuota(model.LogTypeConsume, 0, 0, "", "", "", 84, "")
@@ -190,8 +190,8 @@ func TestTaskFreeSnapshotDoesNotRefundUnusableUsage(t *testing.T) {
 			RecalculateTaskQuotaByTokens(context.Background(), task, 0, clamp)
 
 			assert.Equal(t, 500, getTaskQuota(t, task.ID))
-			assert.Equal(t, 10000, getUserQuota(t, 85))
-			assert.Equal(t, 10000, getTokenRemainQuota(t, 85))
+			assert.Equal(t, int64(10000), getUserQuota(t, 85))
+			assert.Equal(t, int64(10000), getTokenRemainQuota(t, 85))
 			log := getLastLog(t)
 			require.NotNil(t, log)
 			assert.Equal(t, model.LogTypeSystem, log.Type)

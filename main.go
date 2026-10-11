@@ -316,6 +316,13 @@ func InitResources() error {
 
 	service.InitTokenEncoders()
 
+	// Verify the effective cache configuration before InitDB can migrate or
+	// initialize persistent accounting state. InitDB's read-only batch preflight
+	// uses this result; the worker admission check below remains a second guard.
+	if err = common.InitRedisClient(); err != nil {
+		return err
+	}
+
 	// Initialize SQL Database
 	err = model.InitDB()
 	if err != nil {
@@ -348,12 +355,6 @@ func InitResources() error {
 
 	// Initialize SQL Database
 	err = model.InitLogDB()
-	if err != nil {
-		return err
-	}
-
-	// Initialize Redis
-	err = common.InitRedisClient()
 	if err != nil {
 		return err
 	}

@@ -84,7 +84,7 @@ func TestWaffoPancakeWebhookDatabaseFailureIsRetryable(t *testing.T) {
 				assert.Equal(t, http.StatusInternalServerError, code)
 				var user model.User
 				require.NoError(t, db.First(&user, 1).Error)
-				assert.Equal(t, 100, user.Quota)
+				assert.Equal(t, int64(100), user.Quota)
 				var count int64
 				require.NoError(t, db.Model(&model.UserSubscription{}).Count(&count).Error)
 				assert.Zero(t, count)
@@ -97,7 +97,7 @@ func TestWaffoPancakeWebhookDatabaseFailureIsRetryable(t *testing.T) {
 					assert.EqualValues(t, 1, count)
 				} else {
 					require.NoError(t, db.First(&user, 1).Error)
-					assert.Equal(t, 100+int(common.QuotaPerUnit), user.Quota)
+					assert.Equal(t, int64(100+common.QuotaPerUnit), user.Quota)
 				}
 			})
 		}
@@ -133,7 +133,7 @@ func TestWaffoPancakeWebhookRejectsForeignOrMissingOrders(t *testing.T) {
 	}
 	var user model.User
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 100, user.Quota)
+	assert.Equal(t, int64(100), user.Quota)
 }
 
 func TestWaffoPancakeWebhookDoesNotBypassSignature(t *testing.T) {

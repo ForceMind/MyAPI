@@ -45,7 +45,7 @@ func TestUserAuthFenceRollbackExpiresAndRecovers(t *testing.T) {
 		AuthVersion: 1,
 	}
 	require.NoError(t, DB.Create(&user).Error)
-	require.NoError(t, populateUserCache(user))
+	seedUserQuotaCacheForTest(t, user.ToBaseUser())
 
 	tx := DB.Begin()
 	require.NoError(t, tx.Error)
@@ -89,9 +89,9 @@ func TestPendingUserAuthFenceRejectsStaleCacheWrite(t *testing.T) {
 func TestUserAuthFieldUpdateRejectsVersionMismatch(t *testing.T) {
 	useUserCacheMiniRedis(t)
 	const userID = 4202
-	require.NoError(t, writeUserCache(&UserBase{
+	seedUserQuotaCacheForTest(t, &UserBase{
 		Id: userID, Group: "current", Username: "cached", AuthVersion: 3,
-	}, true))
+	})
 
 	err := updateUserCacheFieldAtVersion(userID, "Group", "stale", 2)
 
@@ -114,7 +114,7 @@ func TestRefreshUserGroupCacheRepairsDelayedSameVersionWrite(t *testing.T) {
 		AuthVersion: 1,
 	}
 	require.NoError(t, DB.Create(&user).Error)
-	require.NoError(t, populateUserCache(user))
+	seedUserQuotaCacheForTest(t, user.ToBaseUser())
 
 	firstSnapshotRead := make(chan struct{})
 	releaseDelayedRefresh := make(chan struct{})
@@ -164,7 +164,7 @@ func TestCommittedUserAuthVersionPermanentlyRejectsDelayedCacheFill(t *testing.T
 		AuthVersion: 1,
 	}
 	require.NoError(t, DB.Create(&user).Error)
-	require.NoError(t, populateUserCache(user))
+	seedUserQuotaCacheForTest(t, user.ToBaseUser())
 	stale := *user.ToBaseUser()
 
 	require.NoError(t, DB.Transaction(func(tx *gorm.DB) error {

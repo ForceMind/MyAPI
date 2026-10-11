@@ -39,7 +39,7 @@ func TestLegacyUsageReviewRetainsReservationAndRecoversOnce(t *testing.T) {
 	_, err = ResolveLegacyUnknownUsage(ctx, db, root.Id, row.RequestID, 130, strings.Repeat("c", 64))
 	require.ErrorIs(t, err, ErrAccountQuotaMutationConflict)
 	user, token, _ := loadAccountBalances(t, db, account)
-	assert.Equal(t, 880, user.Quota)
-	assert.Equal(t, 380, token.RemainQuota)
-	assert.Equal(t, 120, token.UsedQuota)
+	assert.Equal(t, int64(880), user.Quota)
+	assert.Equal(t, int64(380), token.RemainQuota)
+	assert.Equal(t, int64(120), token.UsedQuota)
 }

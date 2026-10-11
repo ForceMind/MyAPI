@@ -120,10 +120,10 @@ func TestTextDispatchUncertaintyPreservesReservationsAcrossWriters(t *testing.T)
 					if noBalance {
 						assert.Zero(t, uq)
 					} else {
-						assert.Equal(t, 1000-used, uq)
+						assert.Equal(t, int64(1000-used), uq)
 					}
-					assert.Equal(t, 1000-used, remaining)
-					assert.Equal(t, used, consumed)
+					assert.Equal(t, int64(1000-used), remaining)
+					assert.Equal(t, int64(used), consumed)
 				})
 			}
 		}
@@ -148,8 +148,8 @@ func TestTextDispatchCancelledBeforeSendCanRefund(t *testing.T) {
 	assert.False(t, FinalizeTextUsageDispatch(ctx, info))
 	require.NoError(t, session.Refund(ctx))
 	uq, remaining, used := loadPostConsumeBalances(t, db, user, token)
-	assert.Equal(t, 1000, uq)
-	assert.Equal(t, 1000, remaining)
+	assert.Equal(t, int64(1000), uq)
+	assert.Equal(t, int64(1000), remaining)
 	assert.Zero(t, used)
 }
 
@@ -187,9 +187,9 @@ func TestTextDispatchHoldWriteFailureStaysProtectedAndRetries(t *testing.T) {
 			assert.Equal(t, "usage_unknown", view.State)
 			assert.Nil(t, view.ActualQuota)
 			uq, remaining, used := loadPostConsumeBalances(t, db, user, token)
-			assert.Equal(t, 900, uq)
-			assert.Equal(t, 900, remaining)
-			assert.Equal(t, 100, used)
+			assert.Equal(t, int64(900), uq)
+			assert.Equal(t, int64(900), remaining)
+			assert.Equal(t, int64(100), used)
 		})
 	}
 }
@@ -242,9 +242,9 @@ func TestTextDispatchSurvivesLossOfLiveSession(t *testing.T) {
 					require.ErrorIs(t, err, model.ErrAccountQuotaUsageUnresolved)
 				}
 				uq, remaining, used := loadPostConsumeBalances(t, reopened, user, token)
-				assert.Equal(t, 900, uq)
-				assert.Equal(t, 900, remaining)
-				assert.Equal(t, 100, used)
+				assert.Equal(t, int64(900), uq)
+				assert.Equal(t, int64(900), remaining)
+				assert.Equal(t, int64(100), used)
 			})
 		}
 	}
@@ -281,9 +281,9 @@ func TestFixedPriceTextDispatchUnknownRetainsReservation(t *testing.T) {
 			require.Nil(t, review.ActualQuota)
 			require.Contains(t, review.ReviewMetadata, `"fixed_price":true`)
 			uq, remaining, consumed := loadPostConsumeBalances(t, db, user, token)
-			require.Equal(t, 900, uq)
-			require.Equal(t, 900, remaining)
-			require.Equal(t, 100, consumed)
+			require.Equal(t, int64(900), uq)
+			require.Equal(t, int64(900), remaining)
+			require.Equal(t, int64(100), consumed)
 			root := model.User{Username: "fixed-root", AffCode: "fixed-root", Role: common.RoleRootUser, Status: common.UserStatusEnabled}
 			require.NoError(t, db.Create(&root).Error)
 			for range 2 {
@@ -292,9 +292,9 @@ func TestFixedPriceTextDispatchUnknownRetainsReservation(t *testing.T) {
 				require.NoError(t, model.ProjectUsageReviewDecision(context.Background(), db, db, result.Decision.ID))
 			}
 			uq, remaining, consumed = loadPostConsumeBalances(t, db, user, token)
-			require.Equal(t, 980, uq)
-			require.Equal(t, 980, remaining)
-			require.Equal(t, 20, consumed)
+			require.Equal(t, int64(980), uq)
+			require.Equal(t, int64(980), remaining)
+			require.Equal(t, int64(20), consumed)
 		})
 	}
 }

@@ -25,8 +25,8 @@ type playgroundKey struct {
 	Status             int    `json:"status"`
 	Group              string `json:"group"`
 	AccessProfileID    string `json:"access_profile_id"`
-	RemainQuota        int    `json:"remain_quota"`
-	UsedQuota          int    `json:"used_quota"`
+	RemainQuota        int64  `json:"remain_quota"`
+	UsedQuota          int64  `json:"used_quota"`
 	UnlimitedQuota     bool   `json:"unlimited_quota"`
 	ExpiredTime        int64  `json:"expired_time"`
 	ModelLimitsEnabled bool   `json:"model_limits_enabled"`

@@ -37,9 +37,39 @@ import type {
 /**
  * Get current user profile
  */
-export async function getUserProfile(): Promise<ApiResponse<UserProfile>> {
-  const res = await api.get('/api/user/self')
-  return res.data
+export async function getUserProfile(
+  signal?: AbortSignal
+): Promise<ApiResponse<UserProfile>> {
+  const controller = new AbortController()
+  const cancel = () => controller.abort()
+  const cancelled = new Promise<never>((_, reject) => {
+    controller.signal.addEventListener(
+      'abort',
+      () => reject(new Error('Profile request cancelled')),
+      { once: true }
+    )
+  })
+  signal?.addEventListener('abort', cancel, { once: true })
+  if (signal?.aborted) cancel()
+  // Axios' adapter timeout does not include authentication interceptors.
+  // Bound the complete read while retaining the existing refresh behavior.
+  const deadline = globalThis.setTimeout(cancel, 15000)
+  try {
+    const res = await Promise.race([
+      api.get<ApiResponse<UserProfile>>('/api/user/self', {
+        signal: controller.signal,
+        timeout: 15000,
+        disableDuplicate: true,
+        skipErrorHandler: true,
+        skipBusinessError: true,
+      }),
+      cancelled,
+    ])
+    return res.data
+  } finally {
+    globalThis.clearTimeout(deadline)
+    signal?.removeEventListener('abort', cancel)
+  }
 }
 
 /**

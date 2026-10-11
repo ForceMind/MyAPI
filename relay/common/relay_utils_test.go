@@ -1,6 +1,8 @@
 package common
 
 import (
+	"bytes"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -112,6 +114,47 @@ func TestTaskDurationBounds(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "duration above int64 is rejected",
+			body:    `{"model":"sora-2","prompt":"a cat","duration":9223372036854775808}`,
+			wantErr: true,
+		},
+		{
+			name:    "huge quoted duration is rejected",
+			body:    `{"model":"sora-2","prompt":"a cat","duration":"9223372036854775808"}`,
+			wantErr: true,
+		},
+		{
+			name:    "malformed duration is rejected",
+			body:    `{"model":"sora-2","prompt":"a cat","duration":"invalid"}`,
+			wantErr: true,
+		},
+		{
+			name:    "malformed seconds is rejected",
+			body:    `{"model":"sora-2","prompt":"a cat","seconds":"invalid"}`,
+			wantErr: true,
+		},
+		{
+			name:    "valid duration cannot mask invalid seconds",
+			body:    `{"model":"sora-2","prompt":"a cat","duration":8,"seconds":"9999999999"}`,
+			wantErr: true,
+		},
+		{
+			name: "numeric duration is accepted",
+			body: `{"model":"sora-2","prompt":"a cat","duration":8}`,
+		},
+		{
+			name: "quoted duration is accepted",
+			body: `{"model":"sora-2","prompt":"a cat","duration":"8"}`,
+		},
+		{
+			name: "duration at upper bound is accepted",
+			body: `{"model":"sora-2","prompt":"a cat","duration":3600}`,
+		},
+		{
+			name: "optional zero duration is accepted",
+			body: `{"model":"sora-2","prompt":"a cat","duration":0}`,
+		},
+		{
 			name: "normal duration is accepted",
 			body: `{"model":"sora-2","prompt":"a cat","seconds":"8"}`,
 		},
@@ -124,6 +167,9 @@ func TestTaskDurationBounds(t *testing.T) {
 			if tt.wantErr {
 				require.NotNil(t, taskErr)
 				require.Equal(t, "invalid_seconds", taskErr.Code)
+				require.Equal(t, http.StatusBadRequest, taskErr.StatusCode)
+				_, err := GetTaskRequest(context)
+				require.Error(t, err)
 			} else {
 				require.Nil(t, taskErr)
 			}
@@ -134,9 +180,60 @@ func TestTaskDurationBounds(t *testing.T) {
 			if tt.wantErr {
 				require.NotNil(t, taskErr)
 				require.Equal(t, "invalid_seconds", taskErr.Code)
+				require.Equal(t, http.StatusBadRequest, taskErr.StatusCode)
+				_, err := GetTaskRequest(context)
+				require.Error(t, err)
 			} else {
 				require.Nil(t, taskErr)
 			}
+		})
+	}
+}
+
+func TestMultipartTaskDurationBounds(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, tc := range []struct {
+		field        string
+		value        string
+		wantDuration int
+	}{
+		{field: "seconds", value: "invalid"},
+		{field: "seconds", value: "9223372036854775808"},
+		{field: "seconds", value: "3601"},
+		{field: "seconds", value: "-1"},
+		{field: "seconds", value: "8", wantDuration: 8},
+		{field: "seconds", value: "3600", wantDuration: 3600},
+		{field: "duration", value: "invalid"},
+		{field: "duration", value: "9223372036854775808"},
+		{field: "duration", value: "3601"},
+		{field: "duration", value: "8", wantDuration: 8},
+		{field: "duration", value: "3600", wantDuration: 3600},
+	} {
+		t.Run(tc.field+"/"+tc.value, func(t *testing.T) {
+			var body bytes.Buffer
+			writer := multipart.NewWriter(&body)
+			require.NoError(t, writer.WriteField("prompt", "a cat"))
+			require.NoError(t, writer.WriteField("model", "sora-2"))
+			require.NoError(t, writer.WriteField(tc.field, tc.value))
+			require.NoError(t, writer.Close())
+			request := httptest.NewRequest(http.MethodPost, "/v1/video/generations", &body)
+			request.Header.Set("Content-Type", writer.FormDataContentType())
+			context, _ := gin.CreateTestContext(httptest.NewRecorder())
+			context.Request = request
+			info := &RelayInfo{TaskRelayInfo: &TaskRelayInfo{}}
+			taskErr := ValidateBasicTaskRequest(context, info, constant.TaskActionGenerate)
+			if tc.wantDuration != 0 {
+				require.Nil(t, taskErr)
+				stored, err := GetTaskRequest(context)
+				require.NoError(t, err)
+				require.Equal(t, tc.wantDuration, stored.Duration)
+				return
+			}
+			require.NotNil(t, taskErr)
+			require.Equal(t, "invalid_seconds", taskErr.Code)
+			require.Equal(t, http.StatusBadRequest, taskErr.StatusCode)
+			_, err := GetTaskRequest(context)
+			require.Error(t, err)
 		})
 	}
 }

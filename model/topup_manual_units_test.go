@@ -70,7 +70,7 @@ func TestAuthoritativeTopUpProvidersCreateStableReceiptAndReplay(t *testing.T) {
 			require.NoError(t, test.complete(order))
 			var reloaded User
 			require.NoError(t, DB.First(&reloaded, user.Id).Error)
-			assert.Equal(t, test.quota, reloaded.Quota)
+			assert.Equal(t, int64(test.quota), reloaded.Quota)
 			assert.EqualValues(t, 1, reloaded.QuotaVersion)
 			eventKey, err := topUpBusinessEventKey(&order)
 			require.NoError(t, err)
@@ -111,7 +111,7 @@ func TestAuthoritativeTopUpChangedPayloadConflictsWithoutSecondCredit(t *testing
 	require.True(t, errors.Is(err, ErrUserQuotaMutationConflict))
 	var reloaded User
 	require.NoError(t, DB.First(&reloaded, user.Id).Error)
-	assert.Equal(t, 200, reloaded.Quota)
+	assert.Equal(t, int64(200), reloaded.Quota)
 	var count int64
 	require.NoError(t, DB.Model(&UserQuotaMutationReceipt{}).Where("user_id = ? AND mutation_type = ?", user.Id, "topup").Count(&count).Error)
 	assert.EqualValues(t, 1, count)
@@ -128,7 +128,7 @@ func TestAuthoritativeTopUpPreservesStrictWalletCeiling(t *testing.T) {
 	_, err := RechargeEpayTrusted(order.TradeNo, "alipay", "127.0.0.1")
 	require.ErrorIs(t, err, ErrTopUpQuotaLimitExceeded)
 	assert.Equal(t, common.TopUpStatusPending, getTopUpStatusForPaymentGuardTest(t, order.TradeNo))
-	assert.Equal(t, common.MaxQuota-100, getUserQuotaForPaymentGuardTest(t, user.Id))
+	assert.Equal(t, int64(common.MaxQuota-100), getUserQuotaForPaymentGuardTest(t, user.Id))
 	var count int64
 	require.NoError(t, DB.Model(&UserQuotaMutationReceipt{}).Where("user_id = ?", user.Id).Count(&count).Error)
 	assert.Zero(t, count)
@@ -165,7 +165,7 @@ func createManualUnitsUser(t *testing.T, id, quota int) *User {
 		Username: fmt.Sprintf("manual-units-%d", id),
 		AffCode:  fmt.Sprintf("manual-units-aff-%d", id),
 		Status:   common.UserStatusEnabled,
-		Quota:    quota,
+		Quota:    int64(quota),
 	}
 	require.NoError(t, DB.Create(user).Error)
 	return user
@@ -261,15 +261,15 @@ func TestManualCompleteTopUpMatchesProviderSettlementUnits(t *testing.T) {
 
 			require.NoError(t, tc.complete(callbackOrder))
 			require.NoError(t, ManualCompleteTopUp(manualOrder.TradeNo, "127.0.0.1"))
-			assert.Equal(t, tc.quota, getUserQuotaForPaymentGuardTest(t, callbackUser.Id))
-			assert.Equal(t, tc.quota, getUserQuotaForPaymentGuardTest(t, manualUser.Id))
+			assert.Equal(t, int64(tc.quota), getUserQuotaForPaymentGuardTest(t, callbackUser.Id))
+			assert.Equal(t, int64(tc.quota), getUserQuotaForPaymentGuardTest(t, manualUser.Id))
 			assert.Equal(t, common.TopUpStatusSuccess, getTopUpStatusForPaymentGuardTest(t, callbackOrder.TradeNo))
 			assert.Equal(t, common.TopUpStatusSuccess, getTopUpStatusForPaymentGuardTest(t, manualOrder.TradeNo))
 			assert.Equal(t, int64(1), topUpLogCount(t, manualUser.Id))
 
 			logsBeforeRetry := topUpLogTotalCount(t)
 			require.NoError(t, ManualCompleteTopUp(manualOrder.TradeNo, "127.0.0.1"))
-			assert.Equal(t, tc.quota, getUserQuotaForPaymentGuardTest(t, manualUser.Id))
+			assert.Equal(t, int64(tc.quota), getUserQuotaForPaymentGuardTest(t, manualUser.Id))
 			assert.Equal(t, int64(1), topUpLogCount(t, manualUser.Id))
 			assert.Equal(t, logsBeforeRetry, topUpLogTotalCount(t))
 		})
@@ -301,7 +301,7 @@ func TestManualCompleteTopUpRejectsInvalidCreemFinalQuota(t *testing.T) {
 			order := createManualUnitsTopUp(t, user.Id, "creem-invalid-"+tc.name, PaymentMethodCreem, PaymentProviderCreem, tc.amount, 12.34)
 
 			require.Error(t, ManualCompleteTopUp(order.TradeNo, "127.0.0.1"))
-			assert.Equal(t, tc.currentQuota, getUserQuotaForPaymentGuardTest(t, user.Id))
+			assert.Equal(t, int64(tc.currentQuota), getUserQuotaForPaymentGuardTest(t, user.Id))
 			assert.Equal(t, common.TopUpStatusPending, getTopUpStatusForPaymentGuardTest(t, order.TradeNo))
 			assert.Zero(t, topUpLogCount(t, user.Id))
 		})

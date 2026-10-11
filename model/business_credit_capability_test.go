@@ -255,7 +255,7 @@ func TestBusinessCreditSlowOldRefreshCannotOverwriteNewDBSnapshot(t *testing.T) 
 	require.NoError(t, err)
 	require.NotNil(t, receipt)
 	require.NoError(t, newDB.First(user, user.Id).Error)
-	assert.Equal(t, 40, user.Quota)
+	assert.Equal(t, int64(40), user.Quota)
 }
 
 func TestBusinessCreditSlowOldEnsureCannotRebindAfterDBSwitch(t *testing.T) {

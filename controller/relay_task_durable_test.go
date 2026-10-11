@@ -338,7 +338,7 @@ func TestRelayTask_GateOn_SuccessAcceptedAndReplay(t *testing.T) {
 	// Verify user quota was deducted
 	var refreshedUser model.User
 	require.NoError(t, db.First(&refreshedUser, user.Id).Error)
-	assert.Less(t, refreshedUser.Quota, 500000)
+	assert.Less(t, refreshedUser.Quota, int64(500000))
 	deductedQuota := 500000 - refreshedUser.Quota
 
 	// 2. Idempotent Replay (same key and body)

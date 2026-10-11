@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
+import { ErrorState } from '@/components/error-state'
 import { SectionPageLayout } from '@/components/layout'
 import {
   CardStaggerContainer,
@@ -48,7 +49,7 @@ import { useProfile } from './hooks'
 
 export function Profile() {
   const { t } = useTranslation()
-  const { profile, loading, refreshProfile } = useProfile()
+  const { profile, loading, error, fetchProfile, refreshProfile } = useProfile()
   const { status } = useStatus()
   const permissions = useAuthStore((s) => s.auth.user?.permissions)
 
@@ -66,60 +67,73 @@ export function Profile() {
         {t('Personal settings and profile management.')}
       </SectionPageLayout.Description>
       <SectionPageLayout.Content>
-        <CardStaggerContainer className='mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-6'>
-          <CardStaggerItem>
-            <ProfileHeader profile={profile} loading={loading} />
-          </CardStaggerItem>
+        {error && !loading && (
+          <ErrorState
+            title={t('Failed to load profile')}
+            onRetry={() => void fetchProfile()}
+          />
+        )}
+        {(!error || loading) && (
+          <CardStaggerContainer className='mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-6'>
+            <CardStaggerItem>
+              <ProfileHeader profile={profile} loading={loading} />
+            </CardStaggerItem>
 
-          <CardStaggerItem>
-            <div className='grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.46fr)] xl:items-start'>
-              <div className='min-w-0 space-y-4 sm:space-y-6'>
-                <ProfileSettingsCard
-                  profile={profile}
-                  loading={loading}
-                  onProfileUpdate={refreshProfile}
-                />
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t('Prompt learning workspace')}</CardTitle>
-                    <CardDescription>
-                      {t(
-                        'Review authorized learning settings and instruction versions.'
-                      )}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button
-                      render={<Link to='/prompt-learning' />}
-                      variant='outline'
-                    >
-                      {t('Open prompt learning')}
-                    </Button>
-                  </CardContent>
-                </Card>
-                <LanguagePreferencesCard
-                  profile={profile}
-                  onProfileUpdate={refreshProfile}
-                />
-                <ProfileSecurityCard profile={profile} loading={loading} />
-                <LoginSessionsCard />
-              </div>
-
-              <div className='min-w-0 space-y-4 sm:space-y-6'>
-                {checkinEnabled && (
-                  <CheckinCalendarCard
-                    checkinEnabled={checkinEnabled}
-                    turnstileEnabled={turnstileEnabled}
-                    turnstileSiteKey={turnstileSiteKey}
+            <CardStaggerItem>
+              <div className='grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.46fr)] xl:items-start'>
+                <div className='min-w-0 space-y-4 sm:space-y-6'>
+                  <ProfileSettingsCard
+                    profile={profile}
+                    loading={loading}
+                    onProfileUpdate={refreshProfile}
                   />
-                )}
-                {canConfigureSidebar && <SidebarModulesCard />}
-                <PasskeyCard loading={loading} />
-                <TwoFACard loading={loading} />
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>{t('Prompt learning workspace')}</CardTitle>
+                      <CardDescription>
+                        {t(
+                          'Review authorized learning settings and instruction versions.'
+                        )}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Button
+                        render={<Link to='/prompt-learning' />}
+                        nativeButton={false}
+                        variant='outline'
+                      >
+                        {t('Open prompt learning')}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                  <LanguagePreferencesCard
+                    profile={profile}
+                    onProfileUpdate={refreshProfile}
+                  />
+                  <ProfileSecurityCard profile={profile} loading={loading} />
+                  <LoginSessionsCard />
+                </div>
+
+                <div className='min-w-0 space-y-4 sm:space-y-6'>
+                  {checkinEnabled && (
+                    <CheckinCalendarCard
+                      checkinEnabled={checkinEnabled}
+                      turnstileEnabled={turnstileEnabled}
+                      turnstileSiteKey={turnstileSiteKey}
+                    />
+                  )}
+                  {canConfigureSidebar && !loading && profile && (
+                    <SidebarModulesCard
+                      sidebarModules={profile.sidebar_modules}
+                    />
+                  )}
+                  <PasskeyCard loading={loading} />
+                  <TwoFACard loading={loading} />
+                </div>
               </div>
-            </div>
-          </CardStaggerItem>
-        </CardStaggerContainer>
+            </CardStaggerItem>
+          </CardStaggerContainer>
+        )}
       </SectionPageLayout.Content>
     </SectionPageLayout>
   )

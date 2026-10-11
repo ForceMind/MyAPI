@@ -26,9 +26,9 @@ func newSettleTestFixture(t *testing.T, db *gorm.DB, label string, quota int64) 
 	if quota > 1000 {
 		userQuota = int(quota) + 1000
 	}
-	user := User{Username: name, AffCode: name, Password: "synthetic-fixture", Status: common.UserStatusEnabled, Quota: userQuota}
+	user := User{Username: name, AffCode: name, Password: "synthetic-fixture", Status: common.UserStatusEnabled, Quota: int64(userQuota)}
 	require.NoError(t, db.Create(&user).Error)
-	token := Token{UserId: user.Id, Key: name, Status: common.TokenStatusEnabled, RemainQuota: tokenRemain, ExpiredTime: -1}
+	token := Token{UserId: user.Id, Key: name, Status: common.TokenStatusEnabled, RemainQuota: int64(tokenRemain), ExpiredTime: -1}
 	require.NoError(t, db.Create(&token).Error)
 	require.NoError(t, db.FirstOrCreate(&Channel{Id: 61, Name: "settle-test"}, Channel{Id: 61}).Error)
 	operation := newB2SubmissionOperation(t, token.Id, "POST", TaskSubmissionOperationKindVideoCreate, name, "{}")
@@ -498,7 +498,7 @@ func TestTaskQuota_MathBoundaries_Matrix4(t *testing.T) {
 
 		var user User
 		require.NoError(t, db.First(&user, input.UserID).Error)
-		assert.Equal(t, -200, user.Quota) // safe negative balance without overflow
+		assert.Equal(t, int64(-200), user.Quota) // safe negative balance without overflow
 	})
 }
 

@@ -28,6 +28,8 @@ func openAccountQuotaTestDB(t *testing.T) *gorm.DB {
 	sqlDB.SetMaxOpenConns(8)
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	require.NoError(t, db.AutoMigrate(&User{}, &Token{}, &SubscriptionPlan{}, &UserSubscription{}, &UserQuotaMutationReceipt{}, &AccountQuotaMutationReceipt{}, &AccountQuotaReservationHead{}, &AccountQuotaTerminalRecoveryObligation{}, &LegacyUsageReservation{}, &AccountQuotaRefundFact{}, &AccountQuotaSettlementIntent{}, &AccountQuotaSettlementFact{}, &QuotaWorkCursor{}, &QuotaWriterEpoch{}, &QuotaProjectionObligation{}))
+	require.NoError(t, db.AutoMigrate(&AccountQuotaExecutionGate{}, &AccountQuotaExecutionPermit{}))
+	require.NoError(t, EnsureFreshAccountQuotaExecutionGate(context.Background(), db))
 	require.NoError(t, EnsureQuotaWriterEpochStateWithDB(db))
 	setQuotaWriterStateForTest(t, db, QuotaWriterModeAuthoritative, 7)
 	oldRedisEnabled, oldRDB := common.RedisEnabled, common.RDB
@@ -45,9 +47,9 @@ type accountQuotaFixture struct {
 func newAccountQuotaFixture(t *testing.T, db *gorm.DB, label string, userQuota, tokenQuota int, withSubscription bool, subscriptionTotal, subscriptionUsed int64, allowOverflow bool) accountQuotaFixture {
 	t.Helper()
 	name := fmt.Sprintf("account-%s-%d", label, time.Now().UnixNano())
-	user := User{Username: name, AffCode: name, Password: "fixture-password", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Quota: userQuota, QuotaVersion: 0, AuthVersion: 1}
+	user := User{Username: name, AffCode: name, Password: "fixture-password", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Quota: int64(userQuota), QuotaVersion: 0, AuthVersion: 1}
 	require.NoError(t, db.Create(&user).Error)
-	token := Token{UserId: user.Id, Key: name, Status: common.TokenStatusEnabled, RemainQuota: tokenQuota, UsedQuota: 0, QuotaVersion: 0, ExpiredTime: -1}
+	token := Token{UserId: user.Id, Key: name, Status: common.TokenStatusEnabled, RemainQuota: int64(tokenQuota), UsedQuota: 0, QuotaVersion: 0, ExpiredTime: -1}
 	require.NoError(t, db.Create(&token).Error)
 	fixture := accountQuotaFixture{User: user, Token: token}
 	if withSubscription {
@@ -141,9 +143,9 @@ func TestAccountQuotaSettleAndRefundLifecycle(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, AccountQuotaPhaseSettle, terminal.Phase)
 			user, token, _ := loadAccountBalances(t, db, fixture)
-			assert.Equal(t, tc.wantUser, user.Quota)
-			assert.Equal(t, tc.wantRemain, token.RemainQuota)
-			assert.Equal(t, tc.wantUsed, token.UsedQuota)
+			assert.Equal(t, int64(tc.wantUser), user.Quota)
+			assert.Equal(t, int64(tc.wantRemain), token.RemainQuota)
+			assert.Equal(t, int64(tc.wantUsed), token.UsedQuota)
 			replay, err := SettleAccountQuota(context.Background(), db, AccountQuotaTerminalInput{RequestID: input.RequestID, ReserveReceiptID: reserve.ID, ActualQuota: tc.actual})
 			require.NoError(t, err)
 			assert.Equal(t, terminal.ID, replay.ID)
@@ -161,8 +163,8 @@ func TestAccountQuotaSettleAndRefundLifecycle(t *testing.T) {
 		assert.Equal(t, AccountQuotaPhaseRefund, refund.Phase)
 		assert.Equal(t, "upstream-failed", refund.AuditKey)
 		user, token, _ := loadAccountBalances(t, db, fixture)
-		assert.Equal(t, 1000, user.Quota)
-		assert.Equal(t, 500, token.RemainQuota)
+		assert.Equal(t, int64(1000), user.Quota)
+		assert.Equal(t, int64(500), token.RemainQuota)
 		assert.Zero(t, token.UsedQuota)
 		_, err = SettleAccountQuota(context.Background(), db, AccountQuotaTerminalInput{RequestID: input.RequestID, ReserveReceiptID: reserve.ID, ActualQuota: 80})
 		require.ErrorIs(t, err, ErrAccountQuotaMutationTerminal)
@@ -176,8 +178,8 @@ func TestAccountQuotaReplayConflictRollbackAndCrashWindow(t *testing.T) {
 	_, err := ReserveAccountQuota(context.Background(), db, input)
 	require.ErrorIs(t, err, ErrAccountQuotaMutationInsufficient)
 	user, token, _ := loadAccountBalances(t, db, fixture)
-	assert.Equal(t, 1000, user.Quota)
-	assert.Equal(t, 50, token.RemainQuota)
+	assert.Equal(t, int64(1000), user.Quota)
+	assert.Equal(t, int64(50), token.RemainQuota)
 
 	fixture.Token.RemainQuota = 500
 	require.NoError(t, db.Model(&Token{}).Where("id = ?", fixture.Token.Id).Update("remain_quota", 500).Error)
@@ -196,8 +198,8 @@ func TestAccountQuotaReplayConflictRollbackAndCrashWindow(t *testing.T) {
 	require.NotNil(t, storedReserve)
 	assert.Nil(t, terminal)
 	user, token, _ = loadAccountBalances(t, db, fixture)
-	assert.Equal(t, 900, user.Quota, "a crash after reserve keeps the reservation")
-	assert.Equal(t, 400, token.RemainQuota)
+	assert.Equal(t, int64(900), user.Quota, "a crash after reserve keeps the reservation")
+	assert.Equal(t, int64(400), token.RemainQuota)
 }
 
 func TestAccountQuotaBridgeOnlyFinishesExistingEpoch(t *testing.T) {
@@ -244,9 +246,9 @@ func TestAccountQuotaConcurrentReplay(t *testing.T) {
 		assert.Equal(t, id, receipt.ID)
 	}
 	user, token, _ := loadAccountBalances(t, db, fixture)
-	assert.Equal(t, 900, user.Quota)
-	assert.Equal(t, 900, token.RemainQuota)
-	assert.Equal(t, 100, token.UsedQuota)
+	assert.Equal(t, int64(900), user.Quota)
+	assert.Equal(t, int64(900), token.RemainQuota)
+	assert.Equal(t, int64(100), token.UsedQuota)
 
 	terminal, err := FindAccountQuotaTerminalReceipt(db, input.RequestID)
 	require.NoError(t, err)
@@ -261,8 +263,8 @@ func TestAccountQuotaRedisProjectionFailureKeepsCommittedObligation(t *testing.T
 	receipt, err := ReserveAccountQuota(context.Background(), db, input)
 	require.NoError(t, err)
 	user, token, _ := loadAccountBalances(t, db, fixture)
-	assert.Equal(t, 900, user.Quota)
-	assert.Equal(t, 400, token.RemainQuota)
+	assert.Equal(t, int64(900), user.Quota)
+	assert.Equal(t, int64(400), token.RemainQuota)
 	var obligation QuotaProjectionObligation
 	require.NoError(t, db.Where("receipt_kind = ? AND receipt_id = ?", quotaProjectionReceiptKindAccount, receipt.ID).First(&obligation).Error)
 	assert.Equal(t, string(QuotaProjectionObligationStateRetryable), obligation.State)
@@ -279,9 +281,9 @@ func TestAccountQuotaSubscriptionSettlementAndRefund(t *testing.T) {
 		_, err = SettleAccountQuota(context.Background(), db, AccountQuotaTerminalInput{RequestID: input.RequestID, ReserveReceiptID: reserve.ID, ActualQuota: 60})
 		require.NoError(t, err)
 		user, token, sub := loadAccountBalances(t, db, fixture)
-		assert.Equal(t, 1000, user.Quota)
-		assert.Equal(t, 440, token.RemainQuota)
-		assert.Equal(t, 60, token.UsedQuota)
+		assert.Equal(t, int64(1000), user.Quota)
+		assert.Equal(t, int64(440), token.RemainQuota)
+		assert.Equal(t, int64(60), token.UsedQuota)
 		require.NotNil(t, sub)
 		assert.EqualValues(t, 160, sub.AmountUsed)
 	})
@@ -295,7 +297,7 @@ func TestAccountQuotaSubscriptionSettlementAndRefund(t *testing.T) {
 		_, err = RefundAccountQuota(context.Background(), db, AccountQuotaTerminalInput{RequestID: input.RequestID, ReserveReceiptID: reserve.ID, AuditKey: "provider-rejected"})
 		require.NoError(t, err)
 		_, token, sub := loadAccountBalances(t, db, fixture)
-		assert.Equal(t, 500, token.RemainQuota)
+		assert.Equal(t, int64(500), token.RemainQuota)
 		assert.Zero(t, token.UsedQuota)
 		require.NotNil(t, sub)
 		assert.EqualValues(t, 100, sub.AmountUsed)
@@ -346,9 +348,9 @@ func TestAccountQuotaConcurrentDifferentRequests(t *testing.T) {
 		require.NoError(t, err)
 	}
 	user, token, _ := loadAccountBalances(t, db, fixture)
-	assert.Equal(t, 750, user.Quota)
-	assert.Equal(t, 750, token.RemainQuota)
-	assert.Equal(t, 250, token.UsedQuota)
+	assert.Equal(t, int64(750), user.Quota)
+	assert.Equal(t, int64(750), token.RemainQuota)
+	assert.Equal(t, int64(250), token.UsedQuota)
 }
 
 func TestAccountQuotaReservationHeadConcurrentAdjustAndOldReceiptTerminal(t *testing.T) {
@@ -384,9 +386,9 @@ func TestAccountQuotaReservationHeadConcurrentAdjustAndOldReceiptTerminal(t *tes
 	require.NoError(t, err)
 	assert.Equal(t, head.CurrentReceiptID, terminal.ParentReceiptID)
 	user, token, _ := loadAccountBalances(t, db, fixture)
-	assert.Equal(t, 840, user.Quota)
-	assert.Equal(t, 840, token.RemainQuota)
-	assert.Equal(t, 160, token.UsedQuota)
+	assert.Equal(t, int64(840), user.Quota)
+	assert.Equal(t, int64(840), token.RemainQuota)
+	assert.Equal(t, int64(160), token.UsedQuota)
 }
 
 func TestAccountQuotaOldReceiptRefundUsesCurrentHead(t *testing.T) {
@@ -403,8 +405,8 @@ func TestAccountQuotaOldReceiptRefundUsesCurrentHead(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, current.ID, refund.ParentReceiptID)
 	user, token, _ := loadAccountBalances(t, db, fixture)
-	assert.Equal(t, 1000, user.Quota)
-	assert.Equal(t, 1000, token.RemainQuota)
+	assert.Equal(t, int64(1000), user.Quota)
+	assert.Equal(t, int64(1000), token.RemainQuota)
 	assert.Zero(t, token.UsedQuota)
 }
 
@@ -460,9 +462,9 @@ func TestAccountQuotaAdjustVersusTerminalSerializesOnHead(t *testing.T) {
 			require.ErrorIs(t, adjustErr, ErrAccountQuotaMutationTerminal)
 		}
 		user, token, _ := loadAccountBalances(t, db, fixture)
-		assert.Equal(t, 840, user.Quota)
-		assert.Equal(t, 840, token.RemainQuota)
-		assert.Equal(t, 160, token.UsedQuota)
+		assert.Equal(t, int64(840), user.Quota)
+		assert.Equal(t, int64(840), token.RemainQuota)
+		assert.Equal(t, int64(160), token.UsedQuota)
 	}
 }
 
@@ -478,14 +480,14 @@ func TestAccountQuotaTerminalAllowsBoundedDeficit(t *testing.T) {
 			_, err = SettleAccountQuota(context.Background(), db, AccountQuotaTerminalInput{RequestID: input.RequestID, ReserveReceiptID: root.ID, ActualQuota: 150})
 			require.NoError(t, err)
 			user, token, subscription := loadAccountBalances(t, db, fixture)
-			assert.Equal(t, -50, token.RemainQuota)
-			assert.Equal(t, 150, token.UsedQuota)
+			assert.Equal(t, int64(-50), token.RemainQuota)
+			assert.Equal(t, int64(150), token.UsedQuota)
 			if withSubscription {
-				assert.Equal(t, 100, user.Quota)
+				assert.Equal(t, int64(100), user.Quota)
 				require.NotNil(t, subscription)
 				assert.EqualValues(t, 150, subscription.AmountUsed)
 			} else {
-				assert.Equal(t, -50, user.Quota)
+				assert.Equal(t, int64(-50), user.Quota)
 			}
 		})
 	}
@@ -517,14 +519,14 @@ func TestAccountQuotaFreeAndPaidZeroMatrix(t *testing.T) {
 					if freeModel {
 						charged = 0
 					}
-					assert.Equal(t, 10-charged, token.RemainQuota)
-					assert.Equal(t, charged, token.UsedQuota)
+					assert.Equal(t, int64(10-charged), token.RemainQuota)
+					assert.Equal(t, int64(charged), token.UsedQuota)
 					if withSubscription {
-						assert.Equal(t, 10, user.Quota)
+						assert.Equal(t, int64(10), user.Quota)
 						require.NotNil(t, subscription)
 						assert.EqualValues(t, charged, subscription.AmountUsed)
 					} else {
-						assert.Equal(t, 10-charged, user.Quota)
+						assert.Equal(t, int64(10-charged), user.Quota)
 					}
 				})
 			}
@@ -693,8 +695,8 @@ func TestAccountQuotaSQLiteConcurrentReplayMultipleRounds(t *testing.T) {
 				require.NoError(t, err)
 			}
 			user, token, _ := loadAccountBalances(t, db, fixture)
-			assert.Equal(t, 5000-160-workers*10, user.Quota)
-			assert.Equal(t, 5000-160-workers*10, token.RemainQuota)
+			assert.Equal(t, int64(5000-160-workers*10), user.Quota)
+			assert.Equal(t, int64(5000-160-workers*10), token.RemainQuota)
 		})
 	}
 }
@@ -753,8 +755,8 @@ func TestAccountQuotaReserveCreatesLifecycleObligationAtomically(t *testing.T) {
 	_, err = ReserveAccountQuota(context.Background(), db, accountReserveInput(failedFixture, "lifecycle-rollback", "wallet_only", 100))
 	require.Error(t, err)
 	user, token, _ := loadAccountBalances(t, db, failedFixture)
-	assert.Equal(t, 1000, user.Quota)
-	assert.Equal(t, 500, token.RemainQuota)
+	assert.Equal(t, int64(1000), user.Quota)
+	assert.Equal(t, int64(500), token.RemainQuota)
 	var receiptCount, headCount, obligationCount int64
 	require.NoError(t, db.Model(&AccountQuotaMutationReceipt{}).Where("request_id = ?", "lifecycle-rollback").Count(&receiptCount).Error)
 	require.NoError(t, db.Model(&AccountQuotaReservationHead{}).Where("request_id = ?", "lifecycle-rollback").Count(&headCount).Error)
@@ -790,8 +792,8 @@ func TestAccountQuotaRefundPendingBlocksSettleAndExtendUntilRecovery(t *testing.
 	require.NoError(t, db.First(&terminalReceipt, obligation.TerminalReceiptID).Error)
 	assert.Equal(t, AccountQuotaPhaseRefund, terminalReceipt.Phase)
 	user, token, _ := loadAccountBalances(t, db, fixture)
-	assert.Equal(t, 1000, user.Quota)
-	assert.Equal(t, 500, token.RemainQuota)
+	assert.Equal(t, int64(1000), user.Quota)
+	assert.Equal(t, int64(500), token.RemainQuota)
 }
 
 func TestAccountQuotaCommitUnknownReadbackIgnoresCancelledContext(t *testing.T) {
@@ -847,8 +849,8 @@ func TestAccountQuotaTerminalLifecycleCloseIsAtomic(t *testing.T) {
 	_, err = SettleAccountQuota(context.Background(), db, AccountQuotaTerminalInput{RequestID: reserve.RequestID, ReserveReceiptID: reserve.ID, ActualQuota: 60})
 	require.Error(t, err)
 	user, token, _ := loadAccountBalances(t, db, fixture)
-	assert.Equal(t, 900, user.Quota)
-	assert.Equal(t, 400, token.RemainQuota)
+	assert.Equal(t, int64(900), user.Quota)
+	assert.Equal(t, int64(400), token.RemainQuota)
 	var terminalCount int64
 	require.NoError(t, db.Model(&AccountQuotaMutationReceipt{}).Where("request_id = ? AND phase = ?", reserve.RequestID, AccountQuotaPhaseSettle).Count(&terminalCount).Error)
 	assert.Zero(t, terminalCount)

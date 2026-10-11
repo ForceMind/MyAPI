@@ -99,7 +99,7 @@ func TestHardDeleteUserPublishesTombstoneAndPurgesAuthenticationData(t *testing.
 		TokenHash: "hard-delete-success-flow", Purpose: AuthFlowPurposeTwoFALogin,
 		UserId: user.Id, ExpiresAt: time.Now().Add(time.Minute),
 	}).Error)
-	require.NoError(t, populateUserCache(user))
+	seedUserQuotaCacheForTest(t, user.ToBaseUser())
 	// Administrative hard deletion commonly targets an already soft-deleted
 	// user; the shared version increment must therefore query unscoped.
 	require.NoError(t, DB.Delete(&user).Error)

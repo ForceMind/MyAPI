@@ -176,11 +176,8 @@ func RefreshUserQuotaBusinessSchemaCapability(db *gorm.DB) error {
 		}
 		return fmt.Errorf("%w: %v", ErrUserQuotaBusinessSchemaUnavailable, err)
 	}
-	tableSet := make(map[string]struct{}, len(tables))
-	for _, table := range tables {
-		tableSet[strings.ToLower(table)] = struct{}{}
-	}
-	if _, ok := tableSet["quota_writer_epochs"]; ok {
+	hasWriterTable, incompatibleTable := quotaWriterSchemaStatus(tables)
+	if hasWriterTable {
 		return publishUserQuotaBusinessSchemaCapability(expected, userQuotaBusinessSchemaReady)
 	}
 	// Git history shows system_tasks/system_task_locks already existed in
@@ -188,18 +185,11 @@ func RefreshUserQuotaBusinessSchemaCapability(db *gorm.DB) error {
 	// in 1d5bc44 and the epoch/work-cursor generation in 522bce4. Only tables
 	// introduced by those durable-accounting generations make an epoch-less
 	// schema partial; older shared infrastructure remains a valid legacy DB.
-	for _, durableTable := range []string{
-		"user_quota_mutation_receipts", "account_quota_mutation_receipts", "account_quota_reservation_heads",
-		"account_quota_terminal_recovery_obligations", "account_quota_refund_facts", "account_quota_settlement_intents",
-		"account_quota_settlement_facts", "quota_projection_obligations", "quota_work_cursors", "quota_balance_batch_drains",
-		"quota_balance_batch_subjects", "quota_mutation_receipts",
-	} {
-		if _, ok := tableSet[durableTable]; ok {
-			if publishErr := publishUserQuotaBusinessSchemaCapability(expected, userQuotaBusinessSchemaUnknown); publishErr != nil {
-				return publishErr
-			}
-			return fmt.Errorf("%w: durable table %s exists without quota_writer_epochs", ErrUserQuotaBusinessSchemaUnavailable, durableTable)
+	if incompatibleTable != "" {
+		if publishErr := publishUserQuotaBusinessSchemaCapability(expected, userQuotaBusinessSchemaUnknown); publishErr != nil {
+			return publishErr
 		}
+		return fmt.Errorf("%w: durable table %s exists without quota_writer_epochs", ErrUserQuotaBusinessSchemaUnavailable, incompatibleTable)
 	}
 	return publishUserQuotaBusinessSchemaCapability(expected, userQuotaBusinessSchemaLegacy)
 }
@@ -225,8 +215,8 @@ type UserQuotaMutationReceipt struct {
 	RequestFingerprint string                    `json:"request_fingerprint" gorm:"type:char(64);not null;<-:create"`
 	UserID             int                       `json:"user_id" gorm:"not null;index:idx_user_quota_mutation_lookup,priority:1;<-:create"`
 	Delta              int64                     `json:"delta" gorm:"type:bigint;not null;<-:create"`
-	QuotaBefore        int                       `json:"quota_before" gorm:"not null;<-:create"`
-	QuotaAfter         int                       `json:"quota_after" gorm:"not null;<-:create"`
+	QuotaBefore        int64                     `json:"quota_before" gorm:"type:bigint;not null;<-:create"`
+	QuotaAfter         int64                     `json:"quota_after" gorm:"type:bigint;not null;<-:create"`
 	QuotaVersionBefore int64                     `json:"quota_version_before" gorm:"type:bigint;not null;<-:create"`
 	QuotaVersionAfter  int64                     `json:"quota_version_after" gorm:"type:bigint;not null;<-:create"`
 	ReasonCode         string                    `json:"reason_code" gorm:"type:varchar(64);not null;<-:create"`
@@ -327,7 +317,11 @@ func normalizeUserQuotaMutationInput(input UserQuotaMutationInput) (UserQuotaMut
 	if normalized.Delta == 0 {
 		return normalized, "", "", fmt.Errorf("%w: delta cannot be zero", ErrUserQuotaMutationInvalidInput)
 	}
-	if normalized.Delta < int64(common.MinQuota) || normalized.Delta > int64(common.MaxQuota) {
+	if normalized.MutationType == "admin_adjust" {
+		if _, err := common.CheckedQuotaBalance(0, normalized.Delta); err != nil {
+			return normalized, "", "", errors.Join(ErrUserQuotaMutationInvalidInput, err)
+		}
+	} else if normalized.Delta < int64(common.MinQuota) || normalized.Delta > int64(common.MaxQuota) {
 		return normalized, "", "", fmt.Errorf("%w: delta out of allowed quota bounds", ErrUserQuotaMutationInvalidInput)
 	}
 	if normalized.MaxQuotaExclusive < 0 || normalized.MaxQuotaExclusive > int64(common.MaxQuota) {
@@ -454,18 +448,18 @@ func mutateUserQuotaAuthoritative(tx *gorm.DB, input UserQuotaMutationInput) (*U
 	}
 
 	// 3. Balance and bounds check
-	targetQuota := int64(user.Quota) + normalized.Delta
+	targetQuota, err := common.CheckedQuotaBalance(user.Quota, normalized.Delta)
+	if err != nil {
+		return nil, false, errors.Join(ErrUserQuotaMutationInvalidInput, err)
+	}
 	if normalized.Delta < 0 && targetQuota < 0 {
 		return nil, false, ErrInsufficientUserQuota
-	}
-	if targetQuota < int64(common.MinQuota) || targetQuota > int64(common.MaxQuota) {
-		return nil, false, fmt.Errorf("%w: target quota exceeds system bounds", ErrUserQuotaMutationInvalidInput)
 	}
 	if normalized.MaxQuotaExclusive > 0 && targetQuota >= normalized.MaxQuotaExclusive {
 		return nil, false, ErrUserQuotaUpperBoundExceeded
 	}
 
-	newQuota := int(targetQuota)
+	newQuota := targetQuota
 	newQuotaVersion := user.QuotaVersion + 1
 
 	// 4. Optimistic CAS update on User

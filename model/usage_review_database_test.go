@@ -37,8 +37,9 @@ func TestR1UsageReviewConfiguredDatabases(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, pool.Ping())
 			t.Cleanup(func() { require.NoError(t, pool.Close()) })
-			entities := []any{&User{}, &Token{}, &SubscriptionPlan{}, &UserSubscription{}, &SubscriptionPreConsumeRecord{}, &AccountQuotaMutationReceipt{}, &AccountQuotaReservationHead{}, &AccountQuotaTerminalRecoveryObligation{}, &AccountQuotaSettlementIntent{}, &AccountQuotaSettlementFact{}, &AccountQuotaRefundFact{}, &QuotaWriterEpoch{}, &QuotaProjectionObligation{}, &QuotaWorkCursor{}, &LegacyUsageReservation{}, &UsageReviewDecision{}, &Log{}, &BillingLogProjectionIdentity{}, &TokenBudget{}, &TokenBudgetReservation{}, &TokenBudgetPolicyChange{}, &ChannelQuotaSnapshot{}, &UserUsagePolicyChange{}, &Option{}}
+			entities := []any{&User{}, &Token{}, &SubscriptionPlan{}, &UserSubscription{}, &SubscriptionPreConsumeRecord{}, &AccountQuotaMutationReceipt{}, &AccountQuotaReservationHead{}, &AccountQuotaTerminalRecoveryObligation{}, &AccountQuotaSettlementIntent{}, &AccountQuotaSettlementFact{}, &AccountQuotaExecutionGate{}, &AccountQuotaExecutionPermit{}, &AccountQuotaRefundFact{}, &QuotaWriterEpoch{}, &QuotaProjectionObligation{}, &QuotaWorkCursor{}, &LegacyUsageReservation{}, &UsageReviewDecision{}, &Log{}, &BillingLogProjectionIdentity{}, &TokenBudget{}, &TokenBudgetReservation{}, &TokenBudgetPolicyChange{}, &ChannelQuotaSnapshot{}, &UserUsagePolicyChange{}, &Option{}}
 			require.NoError(t, db.AutoMigrate(entities...))
+			require.NoError(t, EnsureFreshAccountQuotaExecutionGate(context.Background(), db))
 			// Repeat the schemas changed by this iteration. Unrelated legacy
 			// tables have application-specific migrations outside this fixture.
 			require.NoError(t, db.AutoMigrate(&AccountQuotaTerminalRecoveryObligation{}, &LegacyUsageReservation{}, &UsageReviewDecision{}))
@@ -89,9 +90,9 @@ func TestR1UsageReviewConfiguredDatabases(t *testing.T) {
 			require.NoError(t, ProjectUsageReviewDecision(ctx, db, db, view.Decision.ID))
 			require.NoError(t, db.First(&user, user.Id).Error)
 			require.NoError(t, db.First(&token, token.Id).Error)
-			assert.Equal(t, 880, user.Quota)
-			assert.Equal(t, 880, token.RemainQuota)
-			assert.Equal(t, 120, user.UsedQuota)
+			assert.Equal(t, int64(880), user.Quota)
+			assert.Equal(t, int64(880), token.RemainQuota)
+			assert.Equal(t, int64(120), user.UsedQuota)
 			assert.Equal(t, 1, user.RequestCount)
 			var terminals int64
 			require.NoError(t, db.Model(&AccountQuotaMutationReceipt{}).Where("request_id = ? AND phase = ?", namespace, AccountQuotaPhaseSettle).Count(&terminals).Error)
@@ -158,8 +159,8 @@ func tokenBudgetCoupledReviewDatabaseContract(t *testing.T, db *gorm.DB, rootID,
 	assert.Contains(t, logs[0].Other, `"token_counts_confirmed":true`)
 	var user User
 	require.NoError(t, db.First(&user, userID).Error)
-	assert.Equal(t, 860, user.Quota)
-	assert.Equal(t, 140, user.UsedQuota)
+	assert.Equal(t, int64(860), user.Quota)
+	assert.Equal(t, int64(140), user.UsedQuota)
 	assert.Equal(t, 2, user.RequestCount)
 }
 
@@ -199,7 +200,7 @@ func feeBudgetCoupledReviewDatabaseContract(t *testing.T, db *gorm.DB, rootID, u
 	assert.Contains(t, logs[0].Other, `"confirmed_api_usage_cost_usd":"0.00012"`)
 	var user User
 	require.NoError(t, db.First(&user, userID).Error)
-	assert.Equal(t, 840, user.Quota)
-	assert.Equal(t, 160, user.UsedQuota)
+	assert.Equal(t, int64(840), user.Quota)
+	assert.Equal(t, int64(160), user.UsedQuota)
 	assert.Equal(t, 3, user.RequestCount)
 }

@@ -33,12 +33,11 @@ func openLegacyBalanceBatchTestWithRedis(t *testing.T, label string) (*gormTestF
 	oldBatch := common.BatchUpdateEnabled
 	common.BatchUpdateEnabled = true
 	fixture := newAccountQuotaFixture(t, db, label, 1000, 500, false, 0, 0, false)
-	require.NoError(t, populateUserCache(fixture.User))
-	_, err = cacheInitToken(fixture.Token)
-	require.NoError(t, err)
+	seedUserQuotaCacheForTest(t, fixture.User.ToBaseUser())
+	seedTokenQuotaCacheForTest(t, fixture.Token)
 	for _, kind := range []int{BatchUpdateTypeUserQuota, BatchUpdateTypeTokenQuota} {
 		batchUpdateLocks[kind].Lock()
-		batchUpdateStores[kind] = make(map[int]int)
+		batchUpdateStores[kind] = make(map[int]int64)
 		batchUpdateLocks[kind].Unlock()
 	}
 	t.Cleanup(func() {
@@ -55,7 +54,7 @@ func openLegacyBalanceBatchTestWithRedis(t *testing.T, label string) (*gormTestF
 		quotaBalancePendingGeneration = nil
 		for _, kind := range []int{BatchUpdateTypeUserQuota, BatchUpdateTypeTokenQuota} {
 			batchUpdateLocks[kind].Lock()
-			batchUpdateStores[kind] = make(map[int]int)
+			batchUpdateStores[kind] = make(map[int]int64)
 			batchUpdateLocks[kind].Unlock()
 		}
 	})
@@ -127,7 +126,7 @@ func TestQuotaBalanceSubjectLockProtectsUnconfirmedRedisGeneration(t *testing.T)
 			refund:   func(f accountQuotaFixture) error { return IncreaseUserQuota(f.User.Id, 25, false) },
 			assertAll: func(t *testing.T, dbFixture *gormTestFixture, f accountQuotaFixture) {
 				user, _, _ := loadAccountBalances(t, dbFixture.DB, f)
-				assert.Equal(t, 1000, user.Quota)
+				assert.Equal(t, int64(1000), user.Quota)
 			},
 		},
 		{
@@ -137,7 +136,7 @@ func TestQuotaBalanceSubjectLockProtectsUnconfirmedRedisGeneration(t *testing.T)
 			refund:   func(f accountQuotaFixture) error { return IncreaseTokenQuota(f.Token.Id, f.Token.Key, 25) },
 			assertAll: func(t *testing.T, dbFixture *gormTestFixture, f accountQuotaFixture) {
 				_, token, _ := loadAccountBalances(t, dbFixture.DB, f)
-				assert.Equal(t, 500, token.RemainQuota)
+				assert.Equal(t, int64(500), token.RemainQuota)
 				assert.Zero(t, token.UsedQuota)
 			},
 		},
@@ -189,7 +188,7 @@ func TestQuotaBalanceSubjectLockProtectsUnconfirmedRedisGeneration(t *testing.T)
 func TestQuotaBalanceGenerationErrorCASPreservesTerminalAndRecoveryStates(t *testing.T) {
 	dbFixture, fixture := openLegacyBalanceBatchTest(t, "error-cas")
 	for index, state := range []string{quotaBalanceBatchDrainUnknown, quotaBalanceBatchDrainCancelled, quotaBalanceBatchDrainCompensating} {
-		payload := QuotaBalanceBatchPayload{UserQuota: map[int]int{fixture.User.Id: -1}}
+		payload := QuotaBalanceBatchPayload{UserQuota: map[int]int64{fixture.User.Id: -1}}
 		fingerprint, err := quotaBalanceBatchPayloadFingerprint(payload)
 		require.NoError(t, err)
 		generation := QuotaBalanceBatchDrain{
@@ -212,7 +211,7 @@ func TestQuotaBalanceBatchScriptSuccessWithLostClientResponseCompletesGeneration
 	}
 	require.NoError(t, DecreaseUserQuota(fixture.User.Id, 25, false))
 	user, _, _ := loadAccountBalances(t, dbFixture.DB, fixture)
-	assert.Equal(t, 975, user.Quota)
+	assert.Equal(t, int64(975), user.Quota)
 	userCache, _, _ := cachedQuotaValues(t, fixture)
 	assert.Equal(t, 975, userCache)
 	var generations []QuotaBalanceBatchDrain
@@ -238,14 +237,14 @@ func TestQuotaBalanceBatchLostResponseJournalFailureStaysPendingUnknown(t *testi
 	assert.Equal(t, quotaBalanceBatchDrainPending, generation.State)
 	assert.False(t, generation.CacheApplied)
 	user, _, _ := loadAccountBalances(t, dbFixture.DB, fixture)
-	assert.Equal(t, 1000, user.Quota)
+	assert.Equal(t, int64(1000), user.Quota)
 	userCache, _, _ := cachedQuotaValues(t, fixture)
 	assert.Equal(t, 975, userCache)
 
 	quotaBalanceBatchJournalReadHook = nil
 	require.NoError(t, recoverQuotaBalanceBatchPreparations())
 	user, _, _ = loadAccountBalances(t, dbFixture.DB, fixture)
-	assert.Equal(t, 975, user.Quota)
+	assert.Equal(t, int64(975), user.Quota)
 }
 
 func TestQuotaBalanceBatchRecoverFlushInterleaveKeepsForegroundSuccessSingleApply(t *testing.T) {
@@ -269,7 +268,7 @@ func TestQuotaBalanceBatchRecoverFlushInterleaveKeepsForegroundSuccessSingleAppl
 	require.Len(t, generations, 1)
 	assert.Equal(t, quotaBalanceBatchDrainApplied, generations[0].State)
 	user, _, _ := loadAccountBalances(t, dbFixture.DB, fixture)
-	assert.Equal(t, 975, user.Quota)
+	assert.Equal(t, int64(975), user.Quota)
 	userCache, _, _ := cachedQuotaValues(t, fixture)
 	assert.Equal(t, 975, userCache)
 }
@@ -307,9 +306,9 @@ func TestQuotaBalanceBatchDrainQueuedAndFlushInterleave(t *testing.T) {
 
 	flushQuotaBalanceBatchGenerations()
 	user, token, _ := loadAccountBalances(t, dbFixture.DB, fixture)
-	assert.Equal(t, 860, user.Quota)
-	assert.Equal(t, 360, token.RemainQuota)
-	assert.Equal(t, 140, token.UsedQuota)
+	assert.Equal(t, int64(860), user.Quota)
+	assert.Equal(t, int64(360), token.RemainQuota)
+	assert.Equal(t, int64(140), token.UsedQuota)
 	pending, inflight, err := quotaBalanceBatchDrainAudit(dbFixture.DB)
 	require.NoError(t, err)
 	assert.Zero(t, pending)
@@ -358,7 +357,7 @@ func TestQuotaBalanceBatchConfirmFailureCompensatesCreditAndDebit(t *testing.T) 
 
 func TestQuotaBalanceBatchCrashWindowRecoveredFromRedisJournal(t *testing.T) {
 	dbFixture, fixture := openLegacyBalanceBatchTest(t, "batch-crash-window")
-	generation, err := prepareQuotaBalanceBatchGeneration(QuotaBalanceBatchPayload{UserQuota: map[int]int{fixture.User.Id: -75}})
+	generation, err := prepareQuotaBalanceBatchGeneration(QuotaBalanceBatchPayload{UserQuota: map[int]int64{fixture.User.Id: -75}})
 	require.NoError(t, err)
 	require.NoError(t, prepareQuotaBalanceJournal(generation.GenerationKey))
 	result, err := cacheApplyUserQuotaDeltaJournaled(fixture.User.Id, -75, generation.GenerationKey)
@@ -373,13 +372,13 @@ func TestQuotaBalanceBatchCrashWindowRecoveredFromRedisJournal(t *testing.T) {
 	assert.True(t, generation.CacheApplied)
 	flushQuotaBalanceBatchGenerations()
 	user, _, _ := loadAccountBalances(t, dbFixture.DB, fixture)
-	assert.Equal(t, 925, user.Quota)
+	assert.Equal(t, int64(925), user.Quota)
 }
 
 func TestQuotaBalanceBatchDrainFailureIsAuditableAndAtomic(t *testing.T) {
 	dbFixture, fixture := openLegacyBalanceBatchTest(t, "batch-failure")
 	generation, err := prepareQuotaBalanceBatchGeneration(QuotaBalanceBatchPayload{
-		UserQuota: map[int]int{fixture.User.Id: -100}, TokenQuota: map[int]int{fixture.Token.Id: -100},
+		UserQuota: map[int]int64{fixture.User.Id: -100}, TokenQuota: map[int]int64{fixture.Token.Id: -100},
 	})
 	require.NoError(t, err)
 	require.NoError(t, dbFixture.DB.Delete(&Token{}, fixture.Token.Id).Error)
@@ -387,7 +386,7 @@ func TestQuotaBalanceBatchDrainFailureIsAuditableAndAtomic(t *testing.T) {
 	require.Error(t, applyQuotaBalanceBatchGeneration(generation.ID))
 	var user User
 	require.NoError(t, dbFixture.DB.First(&user, fixture.User.Id).Error)
-	assert.Equal(t, 1000, user.Quota)
+	assert.Equal(t, int64(1000), user.Quota)
 	require.NoError(t, dbFixture.DB.First(generation, generation.ID).Error)
 	assert.Equal(t, quotaBalanceBatchDrainFailed, generation.State)
 	assert.NotEmpty(t, generation.LastError)
@@ -403,7 +402,7 @@ func TestQuotaBalanceBatchDisabledOutsideLegacy(t *testing.T) {
 func TestQuotaBalanceBatchPendingApplyingAndFailedBlockDrainReady(t *testing.T) {
 	dbFixture, fixture := openLegacyBalanceBatchTest(t, "batch-ready")
 	for index, state := range []string{quotaBalanceBatchDrainPending, quotaBalanceBatchDrainApplying, quotaBalanceBatchDrainCompensating, quotaBalanceBatchDrainFailed} {
-		payload := QuotaBalanceBatchPayload{UserQuota: map[int]int{fixture.User.Id: index + 1}}
+		payload := QuotaBalanceBatchPayload{UserQuota: map[int]int64{fixture.User.Id: int64(index + 1)}}
 		fingerprint, err := quotaBalanceBatchPayloadFingerprint(payload)
 		require.NoError(t, err)
 		require.NoError(t, dbFixture.DB.Create(&QuotaBalanceBatchDrain{
@@ -425,7 +424,7 @@ func TestQuotaBalanceBatchPendingApplyingAndFailedBlockDrainReady(t *testing.T) 
 func TestQuotaBalanceGenerationCompletionReadbackStates(t *testing.T) {
 	t.Run("pending cache applied drains once", func(t *testing.T) {
 		dbFixture, fixture := openLegacyBalanceBatchTest(t, "completion-pending")
-		generation, err := prepareQuotaBalanceBatchGeneration(QuotaBalanceBatchPayload{UserQuota: map[int]int{fixture.User.Id: -20}})
+		generation, err := prepareQuotaBalanceBatchGeneration(QuotaBalanceBatchPayload{UserQuota: map[int]int64{fixture.User.Id: -20}})
 		require.NoError(t, err)
 		require.NoError(t, prepareQuotaBalanceJournal(generation.GenerationKey))
 		result, err := cacheApplyUserQuotaDeltaJournaled(fixture.User.Id, -20, generation.GenerationKey)
@@ -436,12 +435,12 @@ func TestQuotaBalanceGenerationCompletionReadbackStates(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, completed)
 		user, _, _ := loadAccountBalances(t, dbFixture.DB, fixture)
-		assert.Equal(t, 980, user.Quota)
+		assert.Equal(t, int64(980), user.Quota)
 	})
 
 	t.Run("applied cache applied is success", func(t *testing.T) {
 		dbFixture, fixture := openLegacyBalanceBatchTest(t, "completion-applied")
-		generation, err := prepareQuotaBalanceBatchGeneration(QuotaBalanceBatchPayload{UserQuota: map[int]int{fixture.User.Id: -20}})
+		generation, err := prepareQuotaBalanceBatchGeneration(QuotaBalanceBatchPayload{UserQuota: map[int]int64{fixture.User.Id: -20}})
 		require.NoError(t, err)
 		require.NoError(t, prepareQuotaBalanceJournal(generation.GenerationKey))
 		result, err := cacheApplyUserQuotaDeltaJournaled(fixture.User.Id, -20, generation.GenerationKey)
@@ -453,12 +452,12 @@ func TestQuotaBalanceGenerationCompletionReadbackStates(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, completed)
 		user, _, _ := loadAccountBalances(t, dbFixture.DB, fixture)
-		assert.Equal(t, 980, user.Quota)
+		assert.Equal(t, int64(980), user.Quota)
 	})
 
 	t.Run("applying remains typed unknown without compensation", func(t *testing.T) {
 		dbFixture, fixture := openLegacyBalanceBatchTest(t, "completion-applying")
-		generation, err := prepareQuotaBalanceBatchGeneration(QuotaBalanceBatchPayload{UserQuota: map[int]int{fixture.User.Id: -20}})
+		generation, err := prepareQuotaBalanceBatchGeneration(QuotaBalanceBatchPayload{UserQuota: map[int]int64{fixture.User.Id: -20}})
 		require.NoError(t, err)
 		require.NoError(t, prepareQuotaBalanceJournal(generation.GenerationKey))
 		result, err := cacheApplyUserQuotaDeltaJournaled(fixture.User.Id, -20, generation.GenerationKey)
@@ -472,7 +471,7 @@ func TestQuotaBalanceGenerationCompletionReadbackStates(t *testing.T) {
 		require.NoError(t, dbFixture.DB.First(&stored, generation.ID).Error)
 		assert.Equal(t, quotaBalanceBatchDrainApplying, stored.State)
 		user, _, _ := loadAccountBalances(t, dbFixture.DB, fixture)
-		assert.Equal(t, 1000, user.Quota)
+		assert.Equal(t, int64(1000), user.Quota)
 		userCache, _, _ := cachedQuotaValues(t, fixture)
 		assert.Equal(t, 980, userCache)
 	})
@@ -487,7 +486,7 @@ func TestQuotaBalanceLostResponseRejectsTamperedGenerationIdentity(t *testing.T)
 	err := DecreaseUserQuota(fixture.User.Id, 20, false)
 	require.ErrorIs(t, err, ErrQuotaBalanceMutationUnknown)
 	user, _, _ := loadAccountBalances(t, dbFixture.DB, fixture)
-	assert.Equal(t, 1000, user.Quota)
+	assert.Equal(t, int64(1000), user.Quota)
 	userCache, _, _ := cachedQuotaValues(t, fixture)
 	assert.Equal(t, 980, userCache)
 }
@@ -495,7 +494,7 @@ func TestQuotaBalanceLostResponseRejectsTamperedGenerationIdentity(t *testing.T)
 func TestQuotaBalanceCompensationRecoveryBeforeAndAfterCacheCompensation(t *testing.T) {
 	t.Run("crash before compensation", func(t *testing.T) {
 		dbFixture, fixture := openLegacyBalanceBatchTest(t, "compensate-before")
-		generation, err := prepareQuotaBalanceBatchGeneration(QuotaBalanceBatchPayload{UserQuota: map[int]int{fixture.User.Id: -25}})
+		generation, err := prepareQuotaBalanceBatchGeneration(QuotaBalanceBatchPayload{UserQuota: map[int]int64{fixture.User.Id: -25}})
 		require.NoError(t, err)
 		require.NoError(t, prepareQuotaBalanceJournal(generation.GenerationKey))
 		result, err := cacheApplyUserQuotaDeltaJournaled(fixture.User.Id, -25, generation.GenerationKey)
@@ -537,7 +536,7 @@ func TestQuotaBalanceCompensationRecoveryBeforeAndAfterCacheCompensation(t *test
 func TestQuotaBalanceMissingJournalInvalidatesVerifiableSubjectCaches(t *testing.T) {
 	t.Run("user", func(t *testing.T) {
 		dbFixture, fixture := openLegacyBalanceBatchTest(t, "missing-user-journal")
-		generation, err := prepareQuotaBalanceBatchGeneration(QuotaBalanceBatchPayload{UserQuota: map[int]int{fixture.User.Id: -20}})
+		generation, err := prepareQuotaBalanceBatchGeneration(QuotaBalanceBatchPayload{UserQuota: map[int]int64{fixture.User.Id: -20}})
 		require.NoError(t, err)
 		require.NoError(t, prepareQuotaBalanceJournal(generation.GenerationKey))
 		result, err := cacheApplyUserQuotaDeltaJournaled(fixture.User.Id, -20, generation.GenerationKey)
@@ -550,12 +549,12 @@ func TestQuotaBalanceMissingJournalInvalidatesVerifiableSubjectCaches(t *testing
 		assert.EqualValues(t, 1, common.RDB.Exists(context.Background(), getUserCacheKey(fixture.User.Id)).Val())
 		userCache, err := GetUserCache(fixture.User.Id)
 		require.NoError(t, err)
-		assert.Equal(t, 1000, userCache.Quota)
+		assert.Equal(t, int64(1000), userCache.Quota)
 	})
 
 	t.Run("token", func(t *testing.T) {
 		dbFixture, fixture := openLegacyBalanceBatchTest(t, "missing-token-journal")
-		generation, err := prepareQuotaBalanceBatchGeneration(QuotaBalanceBatchPayload{TokenQuota: map[int]int{fixture.Token.Id: -20}})
+		generation, err := prepareQuotaBalanceBatchGeneration(QuotaBalanceBatchPayload{TokenQuota: map[int]int64{fixture.Token.Id: -20}})
 		require.NoError(t, err)
 		locator := generation.Payload.TokenCacheKeys[fixture.Token.Id]
 		assert.Equal(t, getTokenCacheKey(fixture.Token.Key), locator)
@@ -571,7 +570,7 @@ func TestQuotaBalanceMissingJournalInvalidatesVerifiableSubjectCaches(t *testing
 		assert.Zero(t, common.RDB.Exists(context.Background(), getTokenCacheFenceKey(fixture.Token.Key)).Val())
 		cached, err := cacheGetTokenByKey(fixture.Token.Key)
 		require.NoError(t, err)
-		assert.Equal(t, 500, cached.RemainQuota)
+		assert.Equal(t, int64(500), cached.RemainQuota)
 		assert.Zero(t, cached.UsedQuota)
 	})
 }
@@ -585,8 +584,8 @@ func TestLegacyBatchRefundRehydratesAfterCacheDeletionAndDrainsInOrder(t *testin
 	require.NoError(t, IncreaseTokenQuota(fixture.Token.Id, fixture.Token.Key, 100))
 	flushQuotaBalanceBatchGenerations()
 	user, token, _ := loadAccountBalances(t, dbFixture.DB, fixture)
-	assert.Equal(t, 1000, user.Quota)
-	assert.Equal(t, 500, token.RemainQuota)
+	assert.Equal(t, int64(1000), user.Quota)
+	assert.Equal(t, int64(500), token.RemainQuota)
 	assert.Zero(t, token.UsedQuota)
 	userCache, tokenRemain, tokenUsed := cachedQuotaValues(t, fixture)
 	assert.Equal(t, 1000, userCache)
@@ -596,7 +595,7 @@ func TestLegacyBatchRefundRehydratesAfterCacheDeletionAndDrainsInOrder(t *testin
 
 func TestQuotaBalanceJournalAndGenerationRetention(t *testing.T) {
 	dbFixture, fixture := openLegacyBalanceBatchTest(t, "retention")
-	generation, err := prepareQuotaBalanceBatchGeneration(QuotaBalanceBatchPayload{UserQuota: map[int]int{fixture.User.Id: -10}})
+	generation, err := prepareQuotaBalanceBatchGeneration(QuotaBalanceBatchPayload{UserQuota: map[int]int64{fixture.User.Id: -10}})
 	require.NoError(t, err)
 	require.NoError(t, prepareQuotaBalanceJournal(generation.GenerationKey))
 	ttl, err := common.RDB.TTL(context.Background(), quotaBalanceJournalRedisKey(generation.GenerationKey)).Result()
@@ -611,7 +610,7 @@ func TestQuotaBalanceJournalAndGenerationRetention(t *testing.T) {
 
 	now := GetDBTimestamp()
 	for index, state := range []string{quotaBalanceBatchDrainApplied, quotaBalanceBatchDrainCancelled, quotaBalanceBatchDrainUnknown} {
-		payload := QuotaBalanceBatchPayload{UserQuota: map[int]int{fixture.User.Id: index + 1}}
+		payload := QuotaBalanceBatchPayload{UserQuota: map[int]int64{fixture.User.Id: int64(index + 1)}}
 		fingerprint, fingerprintErr := quotaBalanceBatchPayloadFingerprint(payload)
 		require.NoError(t, fingerprintErr)
 		require.NoError(t, dbFixture.DB.Create(&QuotaBalanceBatchDrain{
@@ -645,7 +644,7 @@ func TestQuotaBalanceSubjectLockContentionIsKnownNotExecuted(t *testing.T) {
 func TestQuotaBalanceSubjectPreparationIndexAndReleaseDeadline(t *testing.T) {
 	dbFixture, fixture := openLegacyBalanceBatchTest(t, "subject-preparation-index")
 	assert.True(t, dbFixture.DB.Migrator().HasIndex(&QuotaBalanceBatchDrain{}, "idx_quota_balance_subject_preparation"))
-	payload := QuotaBalanceBatchPayload{UserQuota: map[int]int{fixture.User.Id: -1}}
+	payload := QuotaBalanceBatchPayload{UserQuota: map[int]int64{fixture.User.Id: -1}}
 	fingerprint, err := quotaBalanceBatchPayloadFingerprint(payload)
 	require.NoError(t, err)
 	generation := QuotaBalanceBatchDrain{
@@ -695,7 +694,7 @@ func TestQuotaBalanceSubjectDrainUsesAssociationBudgetAndCursoredRetry(t *testin
 	require.NoError(t, err)
 	generations := make([]QuotaBalanceBatchDrain, 0, quotaBalanceSubjectDrainLimit+5)
 	for index := 0; index < quotaBalanceSubjectDrainLimit+5; index++ {
-		payload := QuotaBalanceBatchPayload{UserQuota: map[int]int{fixture.User.Id: -1}}
+		payload := QuotaBalanceBatchPayload{UserQuota: map[int]int64{fixture.User.Id: -1}}
 		fingerprint, fingerprintErr := quotaBalanceBatchPayloadFingerprint(payload)
 		require.NoError(t, fingerprintErr)
 		generations = append(generations, QuotaBalanceBatchDrain{
@@ -718,5 +717,5 @@ func TestQuotaBalanceSubjectDrainUsesAssociationBudgetAndCursoredRetry(t *testin
 	assert.EqualValues(t, quotaBalanceSubjectDrainLimit+5, applied)
 	var user User
 	require.NoError(t, dbFixture.DB.First(&user, fixture.User.Id).Error)
-	assert.Equal(t, 1000-quotaBalanceSubjectDrainLimit-5, user.Quota)
+	assert.Equal(t, int64(1000-quotaBalanceSubjectDrainLimit-5), user.Quota)
 }

@@ -1,9 +1,11 @@
 package model
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -99,10 +101,10 @@ type User struct {
 	// Private policy: public user/profile DTOs cannot toggle funding behavior.
 	SelfUseNoBalance    bool   `json:"-" gorm:"not null;default:false"`
 	UsagePolicyRevision int64  `json:"-" gorm:"type:bigint;not null;default:0"`
-	Quota               int    `json:"quota" gorm:"type:int;default:0"`
+	Quota               int64  `json:"quota" gorm:"type:bigint;default:0"`
 	QuotaVersion        int64  `json:"-" gorm:"type:bigint;not null;default:0"`
-	UsedQuota           int    `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
-	RequestCount        int    `json:"request_count" gorm:"type:int;default:0;"`               // request number
+	UsedQuota           int64  `json:"used_quota" gorm:"type:bigint;default:0;column:used_quota"` // used quota
+	RequestCount        int    `json:"request_count" gorm:"type:int;default:0;"`                  // request number
 	Group               string `json:"group" gorm:"type:varchar(64);default:'default'"`
 	// AccountTierID is the explicit account-level identity introduced alongside
 	// the legacy group compatibility field. Routing still reads Group until the
@@ -1309,7 +1311,7 @@ func ValidateAccessToken(token string) (*User, error) {
 }
 
 // GetUserQuota gets quota from Redis first, falls back to DB if needed
-func GetUserQuota(id int, fromDB bool) (quota int, err error) {
+func GetUserQuota(id int, fromDB bool) (quota int64, err error) {
 	if !fromDB && common.RedisEnabled {
 		return getUserQuotaCache(id)
 	}
@@ -1321,7 +1323,7 @@ func GetUserQuota(id int, fromDB bool) (quota int, err error) {
 	return quota, nil
 }
 
-func GetUserUsedQuota(id int) (quota int, err error) {
+func GetUserUsedQuota(id int) (quota int64, err error) {
 	err = DB.Model(&User{}).Where("id = ?", id).Select("used_quota").Find(&quota).Error
 	return quota, err
 }
@@ -1401,14 +1403,14 @@ func IncreaseUserQuota(id int, quota int, db bool) (err error) {
 	if err := requireLegacyQuotaWriterCall(); err != nil {
 		return err
 	}
-	if quota < 0 {
+	if quota < 0 || quota > common.MaxQuota {
 		return errors.New("quota 不能为负数！")
 	}
 	if !db && common.BatchUpdateEnabled {
 		if !common.RedisEnabled || common.RDB == nil {
 			return ErrBatchQuotaCacheUnavailable
 		}
-		result, err := applyLegacyBalanceCacheMutation(BatchUpdateTypeUserQuota, id, quota, "",
+		result, err := applyLegacyBalanceCacheMutation(BatchUpdateTypeUserQuota, id, int64(quota), "",
 			func(generationKey, lockToken string) (cacheQuotaResult, error) {
 				return cacheApplyUserQuotaDeltaJournaled(id, int64(quota), generationKey, lockToken)
 			},
@@ -1423,22 +1425,11 @@ func IncreaseUserQuota(id int, quota int, db bool) (err error) {
 		}
 		return nil
 	}
-	if common.RedisEnabled {
-		gopool.Go(func() {
-			err := cacheIncrUserQuota(id, int64(quota))
-			if err != nil {
-				common.SysLog("failed to increase user quota: " + err.Error())
-			}
-		})
-	}
-	return increaseUserQuota(id, quota)
+	return increaseUserQuota(id, int64(quota))
 }
 
-func increaseUserQuota(id int, quota int) (err error) {
-	err = DB.Model(&User{}).Where("id = ?", id).Update("quota", gorm.Expr("quota + ?", quota)).Error
-	if err != nil {
-		return err
-	}
+func increaseUserQuota(id int, quota int64) error {
+	_, err := mutateLegacyUserQuotaWithContext(context.Background(), id, quota, false)
 	return err
 }
 
@@ -1446,14 +1437,14 @@ func DecreaseUserQuota(id int, quota int, db bool) (err error) {
 	if err := requireLegacyQuotaWriterCall(); err != nil {
 		return err
 	}
-	if quota < 0 {
+	if quota < 0 || quota > common.MaxQuota {
 		return errors.New("quota 不能为负数！")
 	}
 	if !db && common.BatchUpdateEnabled {
 		if !common.RedisEnabled || common.RDB == nil {
 			return ErrBatchQuotaCacheUnavailable
 		}
-		result, err := applyLegacyBalanceCacheMutation(BatchUpdateTypeUserQuota, id, -quota, "",
+		result, err := applyLegacyBalanceCacheMutation(BatchUpdateTypeUserQuota, id, -int64(quota), "",
 			func(generationKey, lockToken string) (cacheQuotaResult, error) {
 				return cacheApplyUserQuotaDeltaJournaled(id, -int64(quota), generationKey, lockToken)
 			},
@@ -1468,22 +1459,11 @@ func DecreaseUserQuota(id int, quota int, db bool) (err error) {
 		}
 		return nil
 	}
-	if common.RedisEnabled {
-		gopool.Go(func() {
-			err := cacheDecrUserQuota(id, int64(quota))
-			if err != nil {
-				common.SysLog("failed to decrease user quota: " + err.Error())
-			}
-		})
-	}
-	return decreaseUserQuota(id, quota)
+	return decreaseUserQuota(id, int64(quota))
 }
 
-func decreaseUserQuota(id int, quota int) (err error) {
-	err = DB.Model(&User{}).Where("id = ?", id).Update("quota", gorm.Expr("quota - ?", quota)).Error
-	if err != nil {
-		return err
-	}
+func decreaseUserQuota(id int, quota int64) error {
+	_, err := mutateLegacyUserQuotaWithContext(context.Background(), id, -quota, false)
 	return err
 }
 
@@ -1515,55 +1495,128 @@ func UpdateUserLastLoginAt(id int) {
 }
 
 func UpdateUserUsedQuotaAndRequestCount(id int, quota int) {
-	if common.BatchUpdateEnabled {
-		addNewRecord(BatchUpdateTypeUsedQuota, id, quota)
-		addNewRecord(BatchUpdateTypeRequestCount, id, 1)
+	if quota < common.MinQuota || quota > common.MaxQuota {
+		common.SysLog(fmt.Sprintf("failed to update user used quota and request count: user_id=%d delta_quota=%d is outside the single-request range", id, quota))
 		return
 	}
-	updateUserUsedQuotaAndRequestCount(id, quota, 1)
+	if common.BatchUpdateEnabled {
+		if err := addNewRecord(BatchUpdateTypeUsedQuota, id, int64(quota)); err != nil {
+			common.SysError(fmt.Sprintf("failed to enqueue user used quota statistic: user_id=%d delta_quota=%d error=%v", id, quota, err))
+		}
+		if err := addNewRecord(BatchUpdateTypeRequestCount, id, 1); err != nil {
+			common.SysError(fmt.Sprintf("failed to enqueue user request count statistic: user_id=%d error=%v", id, err))
+		}
+		return
+	}
+	updateUserUsedQuotaAndRequestCount(id, int64(quota), 1)
 }
 
 // UpdateUserUsedQuota adjusts accumulated usage without changing request count.
 func UpdateUserUsedQuota(id int, quota int) {
-	if common.BatchUpdateEnabled {
-		addNewRecord(BatchUpdateTypeUsedQuota, id, quota)
+	if quota < common.MinQuota || quota > common.MaxQuota {
+		common.SysLog(fmt.Sprintf("failed to update user used quota: user_id=%d delta_quota=%d is outside the single-request range", id, quota))
 		return
 	}
-	if err := DB.Model(&User{}).Where("id = ?", id).Update("used_quota", gorm.Expr("used_quota + ?", quota)).Error; err != nil {
-		common.SysLog("failed to update user used quota: " + err.Error())
+	if common.BatchUpdateEnabled {
+		if err := addNewRecord(BatchUpdateTypeUsedQuota, id, int64(quota)); err != nil {
+			common.SysError(fmt.Sprintf("failed to enqueue user used quota statistic: user_id=%d delta_quota=%d error=%v", id, quota, err))
+		}
+		return
 	}
+	updateUserUsedQuotaAndRequestCount(id, int64(quota), 0)
 }
 
-func updateUserUsedQuotaAndRequestCount(id int, quota int, count int) {
-	err := DB.Model(&User{}).Where("id = ?", id).Updates(
-		map[string]interface{}{
-			"used_quota":    gorm.Expr("used_quota + ?", quota),
-			"request_count": gorm.Expr("request_count + ?", count),
-		},
-	).Error
-	if err != nil {
+func updateUserUsedQuotaAndRequestCount(id int, quota int64, count int64) {
+	if _, err := common.CheckedQuotaBalance(0, quota); err != nil {
 		common.SysLog("failed to update user used quota and request count: " + err.Error())
 		return
 	}
-
-	//// 更新缓存
-	//if err := invalidateUserCache(id); err != nil {
-	//	common.SysError("failed to invalidate user cache: " + err.Error())
-	//}
+	if count < math.MinInt32 || count > math.MaxInt32 {
+		common.SysLog("failed to update user used quota and request count: request count delta is outside the int32 range")
+		return
+	}
+	query := DB.Model(&User{}).Where("id = ?", id)
+	if quota > 0 {
+		query = query.Where("used_quota >= ? AND used_quota <= ?", 0, common.MaxQuotaBalance-quota)
+	} else if quota < 0 {
+		query = query.Where("used_quota >= ? AND used_quota <= ?", -quota, common.MaxQuotaBalance)
+	}
+	updates := map[string]interface{}{}
+	if quota != 0 {
+		updates["used_quota"] = gorm.Expr("used_quota + ?", quota)
+	}
+	if count != 0 {
+		if count > 0 {
+			query = query.Where("request_count >= ? AND request_count <= ?", math.MinInt32, int64(math.MaxInt32)-count)
+		} else {
+			query = query.Where("request_count >= ? AND request_count <= ?", int64(math.MinInt32)-count, math.MaxInt32)
+		}
+		updates["request_count"] = gorm.Expr("request_count + ?", count)
+	}
+	if len(updates) == 0 {
+		return
+	}
+	result := query.Updates(updates)
+	if result.Error != nil {
+		common.SysLog("failed to update user used quota and request count: " + result.Error.Error())
+		return
+	}
+	if result.RowsAffected != 1 {
+		common.SysLog(fmt.Sprintf("failed to update user used quota and request count: user_id=%d target is outside the allowed range", id))
+	}
 }
 
-func updateUserQuotaUsedQuotaAndRequestCount(id int, quota int, usedQuota int, requestCount int) {
+func updateUserQuotaUsedQuotaAndRequestCount(id int, quota int64, usedQuota int64, requestCount int64) {
 	if quota == 0 && usedQuota == 0 && requestCount == 0 {
 		return
 	}
-
-	err := DB.Model(&User{}).Where("id = ?", id).Updates(
-		map[string]interface{}{
-			"quota":         gorm.Expr("quota + ?", quota),
-			"used_quota":    gorm.Expr("used_quota + ?", usedQuota),
-			"request_count": gorm.Expr("request_count + ?", requestCount),
-		},
-	).Error
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		var user User
+		if err := lockForUpdate(tx).Where("id = ?", id).First(&user).Error; err != nil {
+			return err
+		}
+		quotaAfter := user.Quota
+		if quota != 0 {
+			var err error
+			quotaAfter, err = common.CheckedQuotaBalance(user.Quota, quota)
+			if err != nil {
+				return err
+			}
+			if !quotaMutationVersionValid(user.QuotaVersion) {
+				return ErrAccountQuotaMutationIneligible
+			}
+		}
+		usedAfter := user.UsedQuota
+		if usedQuota != 0 {
+			var err error
+			usedAfter, err = common.CheckedQuotaUsed(user.UsedQuota, usedQuota)
+			if err != nil {
+				return err
+			}
+		}
+		requestCountAfter := int64(user.RequestCount) + requestCount
+		if requestCountAfter < math.MinInt32 || requestCountAfter > math.MaxInt32 {
+			return fmt.Errorf("request count target is outside the int32 range")
+		}
+		updates := map[string]interface{}{
+			"used_quota":    usedAfter,
+			"request_count": int(requestCountAfter),
+		}
+		if quota != 0 {
+			updates["quota"] = quotaAfter
+			updates["quota_version"] = user.QuotaVersion + 1
+		}
+		result := tx.Model(&User{}).
+			Where("id = ? AND quota = ? AND used_quota = ? AND request_count = ? AND quota_version = ?", user.Id, user.Quota, user.UsedQuota, user.RequestCount, user.QuotaVersion).
+			Updates(updates)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return ErrAccountQuotaMutationCASLost
+		}
+		return nil
+	})
 	if err != nil {
 		common.SysLog("failed to batch update user quota, used quota and request count: " + err.Error())
 	}

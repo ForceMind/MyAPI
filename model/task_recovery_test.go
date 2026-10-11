@@ -1887,18 +1887,22 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 			Content: "invalid mutated event", ModelName: "fixture-model", Group: "default",
 		})
 		assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
-		for name, details := range map[string]TaskBillingLogPayload{
-			"prompt-tokens": {
-				Content: "invalid prompt tokens", ModelName: "fixture-model", Group: "default", PromptTokens: int(taskBillingQuotaMax) + 1,
-			},
-			"completion-tokens": {
-				Content: "invalid completion tokens", ModelName: "fixture-model", Group: "default", CompletionTokens: int(taskBillingQuotaMax) + 1,
-			},
-			"use-time": {
-				Content: "invalid use time", ModelName: "fixture-model", Group: "default", UseTime: int(taskBillingQuotaMax) + 1,
-			},
-		} {
+		const projectionOverflow int64 = taskBillingQuotaMax + 1
+		projectionOverflowValue := projectionOverflow
+		for _, name := range []string{"prompt-tokens", "completion-tokens", "use-time"} {
 			t.Run("reject-projection-overflow-"+name, func(t *testing.T) {
+				if strconv.IntSize == 32 {
+					t.Skip("TaskBillingLogPayload int fields cannot represent an int32-overflow value on 32-bit architectures")
+				}
+				details := TaskBillingLogPayload{Content: "invalid " + name, ModelName: "fixture-model", Group: "default"}
+				switch name {
+				case "prompt-tokens":
+					details.PromptTokens = int(projectionOverflowValue)
+				case "completion-tokens":
+					details.CompletionTokens = int(projectionOverflowValue)
+				case "use-time":
+					details.UseTime = int(projectionOverflowValue)
+				}
 				_, err := NewTaskBillingLogOutbox(&reserveBoundary, details)
 				assert.ErrorIs(t, err, ErrTaskRecoveryInvalidRecord)
 			})

@@ -29,8 +29,8 @@ func TestTextDispatchDurableEvidenceBlocksRefundAfterSessionLoss(t *testing.T) {
 			}
 			require.ErrorIs(t, err, ErrAccountQuotaUsageUnresolved)
 			user, token, _ := loadAccountBalances(t, db, f)
-			assert.Equal(t, 900, user.Quota)
-			assert.Equal(t, 900, token.RemainQuota)
+			assert.Equal(t, int64(900), user.Quota)
+			assert.Equal(t, int64(900), token.RemainQuota)
 		})
 	}
 }

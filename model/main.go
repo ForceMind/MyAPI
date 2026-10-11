@@ -110,51 +110,84 @@ func normalizeClickHouseDSN(dsn string) string {
 	return parsed.String()
 }
 
-func chooseDB(envName string, isLog bool) (*gorm.DB, common.DatabaseType, error) {
+type databaseTarget struct {
+	databaseType common.DatabaseType
+	dsn          string
+}
+
+// resolveDatabaseTarget is the single, side-effect-free interpretation of the
+// configured database target. Startup preflight and the normal GORM opener must
+// resolve the same database without either path opening it first.
+func resolveDatabaseTarget(envName string, isLog bool) (databaseTarget, error) {
 	dsn := os.Getenv(envName)
-	if dsn != "" {
-		if isClickHouseDSN(dsn) {
-			if !isLog {
-				return nil, "", fmt.Errorf("%s does not support ClickHouse; use SQLite, MySQL, or PostgreSQL for the primary database and LOG_SQL_DSN for ClickHouse logs", envName)
-			}
-			common.SysLog("using ClickHouse as log database")
-			db, err := gorm.Open(clickhouse.Open(normalizeClickHouseDSN(dsn)), newGormConfig(false))
-			return db, common.DatabaseTypeClickHouse, err
-		}
-		if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
-			// Use PostgreSQL
-			common.SysLog("using PostgreSQL as database")
-			db, err := gorm.Open(postgres.New(postgres.Config{
-				DSN:                  dsn,
-				PreferSimpleProtocol: true, // disables implicit prepared statement usage
-			}), newGormConfig(true))
-			return db, common.DatabaseTypePostgreSQL, err
-		}
-		if strings.HasPrefix(dsn, "local") {
-			common.SysLog("SQL_DSN not set, using SQLite as database")
-			db, err := gorm.Open(sqlite.Open(common.SQLitePath), newGormConfig(true))
-			return db, common.DatabaseTypeSQLite, err
-		}
-		// Use MySQL
-		common.SysLog("using MySQL as database")
-		// check parseTime
-		if !strings.Contains(dsn, "parseTime") {
-			if strings.Contains(dsn, "?") {
-				dsn += "&parseTime=true"
-			} else {
-				dsn += "?parseTime=true"
-			}
-		}
-		db, err := gorm.Open(mysql.Open(dsn), newGormConfig(true))
-		return db, common.DatabaseTypeMySQL, err
+	if dsn == "" {
+		return databaseTarget{databaseType: common.DatabaseTypeSQLite, dsn: common.SQLitePath}, nil
 	}
-	// Use SQLite
-	common.SysLog("SQL_DSN not set, using SQLite as database")
-	db, err := gorm.Open(sqlite.Open(common.SQLitePath), newGormConfig(true))
-	return db, common.DatabaseTypeSQLite, err
+	if isClickHouseDSN(dsn) {
+		if !isLog {
+			return databaseTarget{}, fmt.Errorf("%s does not support ClickHouse; use SQLite, MySQL, or PostgreSQL for the primary database and LOG_SQL_DSN for ClickHouse logs", envName)
+		}
+		return databaseTarget{databaseType: common.DatabaseTypeClickHouse, dsn: normalizeClickHouseDSN(dsn)}, nil
+	}
+	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		return databaseTarget{databaseType: common.DatabaseTypePostgreSQL, dsn: dsn}, nil
+	}
+	if strings.HasPrefix(dsn, "local") {
+		return databaseTarget{databaseType: common.DatabaseTypeSQLite, dsn: common.SQLitePath}, nil
+	}
+	if !strings.Contains(dsn, "parseTime") {
+		if strings.Contains(dsn, "?") {
+			dsn += "&parseTime=true"
+		} else {
+			dsn += "?parseTime=true"
+		}
+	}
+	return databaseTarget{databaseType: common.DatabaseTypeMySQL, dsn: dsn}, nil
+}
+
+func chooseDB(envName string, isLog bool) (*gorm.DB, common.DatabaseType, error) {
+	target, err := resolveDatabaseTarget(envName, isLog)
+	if err != nil {
+		return nil, "", err
+	}
+	switch target.databaseType {
+	case common.DatabaseTypeClickHouse:
+		common.SysLog("using ClickHouse as log database")
+		db, openErr := gorm.Open(clickhouse.Open(target.dsn), newGormConfig(false))
+		return db, target.databaseType, openErr
+	case common.DatabaseTypePostgreSQL:
+		common.SysLog("using PostgreSQL as database")
+		db, openErr := gorm.Open(postgres.New(postgres.Config{
+			DSN:                  target.dsn,
+			PreferSimpleProtocol: true, // disables implicit prepared statement usage
+		}), newGormConfig(true))
+		return db, target.databaseType, openErr
+	case common.DatabaseTypeMySQL:
+		common.SysLog("using MySQL as database")
+		db, openErr := gorm.Open(mysql.Open(target.dsn), newGormConfig(true))
+		return db, target.databaseType, openErr
+	default:
+		common.SysLog("SQL_DSN not set, using SQLite as database")
+		db, openErr := gorm.Open(sqlite.Open(target.dsn), newGormConfig(true))
+		return db, common.DatabaseTypeSQLite, openErr
+	}
 }
 
 func InitDB() (err error) {
+	_, err = ValidateQuotaBatchPreMigrationConfiguration(
+		context.Background(),
+		os.Getenv("BATCH_UPDATE_ENABLED"),
+		common.RedisEnabled && common.RDB != nil,
+	)
+	if err != nil {
+		return err
+	}
+	if err = ValidateQuotaAmountPreMigrationConfiguration(context.Background()); err != nil {
+		return err
+	}
+	if err = ValidateQuotaExecutionPreMigrationConfiguration(context.Background()); err != nil {
+		return err
+	}
 	// Do not turn an explicitly requested recovery deployment into a legacy
 	// writer when its dedicated key is missing or malformed. InitEnv keeps the
 	// effective gate closed, but startup must still reject this configuration.
@@ -216,6 +249,9 @@ func InitDB() (err error) {
 				return err
 			}
 			if err := ValidateUserUsagePolicySchema(DB); err != nil {
+				return err
+			}
+			if err := ValidateAccountQuotaExecutionGate(context.Background(), DB); err != nil {
 				return err
 			}
 			if err := ensureConfiguredChannelQuotaIdentityKeyring(); err != nil {
@@ -355,6 +391,8 @@ func migrateDB() error {
 		&TokenBudgetPolicyChange{},
 		&UserUsagePolicyChange{},
 		&AccountQuotaSettlementFact{},
+		&AccountQuotaExecutionGate{},
+		&AccountQuotaExecutionPermit{},
 		&QuotaBalanceBatchDrain{},
 		&QuotaBalanceBatchSubject{},
 		&QuotaWorkCursor{},
@@ -387,6 +425,12 @@ func migrateDB() error {
 		&AuthzRole{},
 	)
 	if err != nil {
+		return err
+	}
+	if err := EnsureFreshAccountQuotaExecutionGate(context.Background(), DB); err != nil {
+		return err
+	}
+	if err := ValidateAccountQuotaExecutionGate(context.Background(), DB); err != nil {
 		return err
 	}
 	if os.Getenv("LOG_SQL_DSN") == "" {
@@ -494,6 +538,8 @@ func migrateDBFast() error {
 		{&TokenBudgetPolicyChange{}, "TokenBudgetPolicyChange"},
 		{&UserUsagePolicyChange{}, "UserUsagePolicyChange"},
 		{&AccountQuotaSettlementFact{}, "AccountQuotaSettlementFact"},
+		{&AccountQuotaExecutionGate{}, "AccountQuotaExecutionGate"},
+		{&AccountQuotaExecutionPermit{}, "AccountQuotaExecutionPermit"},
 		{&QuotaBalanceBatchDrain{}, "QuotaBalanceBatchDrain"},
 		{&QuotaBalanceBatchSubject{}, "QuotaBalanceBatchSubject"},
 		{&QuotaWorkCursor{}, "QuotaWorkCursor"},
@@ -532,6 +578,12 @@ func migrateDBFast() error {
 		if err := DB.AutoMigrate(m.model); err != nil {
 			return fmt.Errorf("failed to migrate %s: %w", m.name, err)
 		}
+	}
+	if err := EnsureFreshAccountQuotaExecutionGate(context.Background(), DB); err != nil {
+		return err
+	}
+	if err := ValidateAccountQuotaExecutionGate(context.Background(), DB); err != nil {
+		return err
 	}
 	if os.Getenv("LOG_SQL_DSN") == "" {
 		if err := migrateRelationalLogDBStartup(DB); err != nil {

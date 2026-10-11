@@ -41,9 +41,9 @@ func TestQuotaContextVariantsRequireBusinessKeyAndDisableLegacyAPIs(t *testing.T
 	assert.True(t, reserved)
 
 	user, token, _ := loadAccountBalances(t, db, fixture)
-	assert.Equal(t, 900, user.Quota)
-	assert.Equal(t, 400, token.RemainQuota)
-	assert.Equal(t, 100, token.UsedQuota)
+	assert.Equal(t, int64(900), user.Quota)
+	assert.Equal(t, int64(400), token.RemainQuota)
+	assert.Equal(t, int64(100), token.UsedQuota)
 }
 
 func TestQuotaContextLegacyBatchFailsClosedWithoutRedisAuthority(t *testing.T) {
@@ -55,14 +55,14 @@ func TestQuotaContextLegacyBatchFailsClosedWithoutRedisAuthority(t *testing.T) {
 	common.BatchUpdateEnabled, common.RedisEnabled, common.RDB = true, false, nil
 	for _, kind := range []int{BatchUpdateTypeUserQuota, BatchUpdateTypeTokenQuota} {
 		batchUpdateLocks[kind].Lock()
-		batchUpdateStores[kind] = make(map[int]int)
+		batchUpdateStores[kind] = make(map[int]int64)
 		batchUpdateLocks[kind].Unlock()
 	}
 	t.Cleanup(func() {
 		common.BatchUpdateEnabled, common.RedisEnabled, common.RDB = oldBatch, oldRedis, oldRDB
 		for _, kind := range []int{BatchUpdateTypeUserQuota, BatchUpdateTypeTokenQuota} {
 			batchUpdateLocks[kind].Lock()
-			batchUpdateStores[kind] = make(map[int]int)
+			batchUpdateStores[kind] = make(map[int]int64)
 			batchUpdateLocks[kind].Unlock()
 		}
 	})
@@ -70,8 +70,8 @@ func TestQuotaContextLegacyBatchFailsClosedWithoutRedisAuthority(t *testing.T) {
 	require.ErrorIs(t, IncreaseUserQuotaWithContext(QuotaMutationContext{EventKey: "legacy:user:credit"}, fixture.User.Id, 25), ErrBatchQuotaCacheUnavailable)
 	require.ErrorIs(t, DecreaseTokenQuotaWithContext(QuotaMutationContext{EventKey: "legacy:token:debit"}, fixture.Token.Id, fixture.Token.Key, 10), ErrBatchQuotaCacheUnavailable)
 	user, token, _ := loadAccountBalances(t, db, fixture)
-	assert.Equal(t, 1000, user.Quota)
-	assert.Equal(t, 500, token.RemainQuota)
+	assert.Equal(t, int64(1000), user.Quota)
+	assert.Equal(t, int64(500), token.RemainQuota)
 	assert.True(t, quotaBatchQueueEmpty())
 }
 
@@ -123,7 +123,7 @@ func TestQuotaMutationContextCancellationReachesModeAndTokenQueries(t *testing.T
 	require.NoError(t, db.Callback().Query().Remove(callbackName))
 
 	user, token, _ := loadAccountBalances(t, db, fixture)
-	assert.Equal(t, 1000, user.Quota)
-	assert.Equal(t, 500, token.RemainQuota)
+	assert.Equal(t, int64(1000), user.Quota)
+	assert.Equal(t, int64(500), token.RemainQuota)
 	assert.Zero(t, token.UsedQuota)
 }

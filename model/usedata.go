@@ -22,7 +22,7 @@ type QuotaData struct {
 	NodeName  string `json:"node_name" gorm:"index;size:64;default:''"`
 	TokenUsed int    `json:"token_used" gorm:"default:0"`
 	Count     int    `json:"count" gorm:"default:0"`
-	Quota     int    `json:"quota" gorm:"default:0"`
+	Quota     int64  `json:"quota" gorm:"type:bigint;default:0"`
 }
 
 type QuotaDataLogParams struct {
@@ -141,15 +141,27 @@ func logQuotaDataCache(quotaData *QuotaData) {
 	tokenUsed := quotaData.TokenUsed
 	cachedQuotaData, ok := CacheQuotaData[key]
 	if ok {
+		quotaTarget, err := common.CheckedQuotaUsed(cachedQuotaData.Quota, quota)
+		if err != nil {
+			common.SysLog(fmt.Sprintf("skip quota data update outside the allowed range: user_id=%d, model=%s", quotaData.UserID, quotaData.ModelName))
+			return
+		}
 		cachedQuotaData.Count += count
-		cachedQuotaData.Quota += quota
+		cachedQuotaData.Quota = quotaTarget
 		cachedQuotaData.TokenUsed += tokenUsed
 		quotaData = cachedQuotaData
+	} else if _, err := common.CheckedQuotaUsed(0, quota); err != nil {
+		common.SysLog(fmt.Sprintf("skip quota data insert outside the allowed range: user_id=%d, model=%s", quotaData.UserID, quotaData.ModelName))
+		return
 	}
 	CacheQuotaData[key] = quotaData
 }
 
 func LogQuotaData(params QuotaDataLogParams) {
+	if params.Quota < common.MinQuota || params.Quota > common.MaxQuota {
+		common.SysLog(fmt.Sprintf("skip quota data outside the single-request range: user_id=%d, model=%s, quota=%d", params.UserID, params.ModelName, params.Quota))
+		return
+	}
 	// Keep minute-level source data. Query endpoints aggregate these rows into
 	// minute, hour, day, or week buckets as requested by the dashboard.
 	createdAt := params.CreatedAt - (params.CreatedAt % 60)
@@ -163,7 +175,7 @@ func LogQuotaData(params QuotaDataLogParams) {
 		ChannelID: params.ChannelID,
 		NodeName:  params.NodeName,
 		Count:     1,
-		Quota:     params.Quota,
+		Quota:     int64(params.Quota),
 		TokenUsed: params.TokenUsed,
 	}
 
@@ -200,16 +212,29 @@ func SaveQuotaDataCache() {
 }
 
 func increaseQuotaData(quotaData *QuotaData) {
-	err := DB.Table("quota_data").
-		Where("user_id = ? and username = ? and model_name = ? and created_at = ? and use_group = ? and token_id = ? and channel_id = ? and node_name = ?",
-			quotaData.UserID, quotaData.Username, quotaData.ModelName, quotaData.CreatedAt, quotaData.UseGroup, quotaData.TokenID, quotaData.ChannelID, quotaData.NodeName).
-		Updates(map[string]interface{}{
-			"count":      gorm.Expr("count + ?", quotaData.Count),
-			"quota":      gorm.Expr("quota + ?", quotaData.Quota),
-			"token_used": gorm.Expr("token_used + ?", quotaData.TokenUsed),
-		}).Error
-	if err != nil {
+	if _, err := common.CheckedQuotaBalance(0, quotaData.Quota); err != nil {
 		common.SysLog(fmt.Sprintf("increaseQuotaData error: %s", err))
+		return
+	}
+	query := DB.Table("quota_data").
+		Where("user_id = ? and username = ? and model_name = ? and created_at = ? and use_group = ? and token_id = ? and channel_id = ? and node_name = ?",
+			quotaData.UserID, quotaData.Username, quotaData.ModelName, quotaData.CreatedAt, quotaData.UseGroup, quotaData.TokenID, quotaData.ChannelID, quotaData.NodeName)
+	if quotaData.Quota > 0 {
+		query = query.Where("quota >= ? AND quota <= ?", 0, common.MaxQuotaBalance-quotaData.Quota)
+	} else if quotaData.Quota < 0 {
+		query = query.Where("quota >= ? AND quota <= ?", -quotaData.Quota, common.MaxQuotaBalance)
+	}
+	result := query.Updates(map[string]interface{}{
+		"count":      gorm.Expr("count + ?", quotaData.Count),
+		"quota":      gorm.Expr("quota + ?", quotaData.Quota),
+		"token_used": gorm.Expr("token_used + ?", quotaData.TokenUsed),
+	})
+	if result.Error != nil {
+		common.SysLog(fmt.Sprintf("increaseQuotaData error: %s", result.Error))
+		return
+	}
+	if result.RowsAffected != 1 {
+		common.SysLog("increaseQuotaData error: quota target is outside the allowed range")
 	}
 }
 

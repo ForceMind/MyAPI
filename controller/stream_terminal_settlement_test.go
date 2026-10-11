@@ -142,9 +142,9 @@ func TestChatStreamTerminalCancellationSettlementBothWriters(t *testing.T) {
 							require.NotContains(t, entries[0].Other, `"settlement_status":"pending_review"`)
 							require.NoError(t, db.First(key, key.Id).Error)
 							require.NoError(t, db.First(user, user.Id).Error)
-							require.Equal(t, 1000000-expectedQuota, key.RemainQuota)
-							require.Equal(t, expectedQuota, key.UsedQuota)
-							require.Equal(t, 1000000-expectedQuota, user.Quota)
+							require.Equal(t, int64(1000000-expectedQuota), key.RemainQuota)
+							require.Equal(t, int64(expectedQuota), key.UsedQuota)
+							require.Equal(t, int64(1000000-expectedQuota), user.Quota)
 						}
 						if strict {
 							var row model.TokenBudgetReservation

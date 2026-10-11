@@ -9,21 +9,25 @@ import (
 )
 
 func GetSubscription(c *gin.Context) {
-	var remainQuota int
-	var usedQuota int
+	var remainQuota int64
+	var usedQuota int64
 	var err error
 	var token *model.Token
 	var expiredTime int64
 	if common.DisplayTokenStatEnabled {
 		tokenId := c.GetInt("token_id")
 		token, err = model.GetTokenById(tokenId)
-		expiredTime = token.ExpiredTime
-		remainQuota = token.RemainQuota
-		usedQuota = token.UsedQuota
+		if err == nil {
+			expiredTime = token.ExpiredTime
+			remainQuota = token.RemainQuota
+			usedQuota = token.UsedQuota
+		}
 	} else {
 		userId := c.GetInt("id")
 		remainQuota, err = model.GetUserQuota(userId, false)
-		usedQuota, err = model.GetUserUsedQuota(userId)
+		if err == nil {
+			usedQuota, err = model.GetUserUsedQuota(userId)
+		}
 	}
 	if expiredTime <= 0 {
 		expiredTime = 0
@@ -38,7 +42,11 @@ func GetSubscription(c *gin.Context) {
 		})
 		return
 	}
-	quota := remainQuota + usedQuota
+	quota, err := common.CheckedQuotaBalance(remainQuota, usedQuota)
+	if err != nil {
+		c.JSON(200, gin.H{"error": types.OpenAIError{Message: err.Error(), Type: "upstream_error"}})
+		return
+	}
 	amount := float64(quota)
 	// OpenAI 兼容接口中的 *_USD 字段含义保持“额度单位”对应值：
 	// 我们将其解释为以“站点展示类型”为准：
@@ -69,13 +77,15 @@ func GetSubscription(c *gin.Context) {
 }
 
 func GetUsage(c *gin.Context) {
-	var quota int
+	var quota int64
 	var err error
 	var token *model.Token
 	if common.DisplayTokenStatEnabled {
 		tokenId := c.GetInt("token_id")
 		token, err = model.GetTokenById(tokenId)
-		quota = token.UsedQuota
+		if err == nil {
+			quota = token.UsedQuota
+		}
 	} else {
 		userId := c.GetInt("id")
 		quota, err = model.GetUserUsedQuota(userId)

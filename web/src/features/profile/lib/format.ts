@@ -29,7 +29,11 @@ export function parseUserSettings(settingsJson?: string): UserSettings {
   if (!settingsJson) return {}
 
   try {
-    return JSON.parse(settingsJson) as UserSettings
+    const parsed: unknown = JSON.parse(settingsJson)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {}
+    }
+    return parsed as UserSettings
   } catch {
     return {}
   }

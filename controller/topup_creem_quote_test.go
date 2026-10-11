@@ -75,7 +75,7 @@ func TestCreemCheckoutFreezesProductAndQuotaBeforeRemoteCall(t *testing.T) {
 	}
 	var user model.User
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 421, user.Quota, "Creem grants fixed quota, never multiplied by live unit")
+	assert.Equal(t, int64(421), user.Quota, "Creem grants fixed quota, never multiplied by live unit")
 }
 
 func TestCreemCanceledCheckoutRemainsPendingAndRejectsForeignProduct(t *testing.T) {
@@ -94,10 +94,10 @@ func TestCreemCanceledCheckoutRemainsPendingAndRejectsForeignProduct(t *testing.
 	assert.Equal(t, http.StatusBadRequest, deliverCreemQuoteNotification(t, order.TradeNo, "prod_synthetic", "EUR").Code)
 	var user model.User
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 100, user.Quota)
+	assert.Equal(t, int64(100), user.Quota)
 	assert.Equal(t, http.StatusOK, deliverCreemQuoteNotification(t, order.TradeNo, "prod_synthetic", "USD").Code)
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 421, user.Quota)
+	assert.Equal(t, int64(421), user.Quota)
 }
 
 func TestCreemCheckoutDoesNotForwardCredentialOnRedirect(t *testing.T) {

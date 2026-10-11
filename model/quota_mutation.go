@@ -94,8 +94,8 @@ type QuotaMutationUserSnapshot struct {
 	ID                  int    `json:"id"`
 	Status              int    `json:"status"`
 	Role                int    `json:"role"`
-	Quota               int    `json:"quota"`
-	UsedQuota           int    `json:"used_quota"`
+	Quota               int64  `json:"quota"`
+	UsedQuota           int64  `json:"used_quota"`
 	RequestCount        int    `json:"request_count"`
 	QuotaVersion        int64  `json:"quota_version"`
 	Group               string `json:"group"`
@@ -128,10 +128,10 @@ type QuotaMutationTokenSnapshot struct {
 	CreatedTime        int64  `json:"created_time"`
 	AccessedTime       int64  `json:"accessed_time"`
 	ExpiredTime        int64  `json:"expired_time"`
-	RemainQuota        int    `json:"remain_quota"`
+	RemainQuota        int64  `json:"remain_quota"`
 	QuotaVersion       int64  `json:"quota_version"`
 	UnlimitedQuota     bool   `json:"unlimited_quota"`
-	UsedQuota          int    `json:"used_quota"`
+	UsedQuota          int64  `json:"used_quota"`
 	Group              string `json:"group"`
 	AccessProfileID    string `json:"access_profile_id"`
 	ModelLimitsEnabled bool   `json:"model_limits_enabled"`
@@ -390,8 +390,11 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 		if user.Status != common.UserStatusEnabled || !quotaMutationVersionValid(user.QuotaVersion) {
 			return fmt.Errorf("%w: user is disabled or has an invalid quota version", ErrTaskQuotaReservationIneligible)
 		}
-		if !quotaMutationInt32Value(user.Quota) || !quotaMutationInt32Value(user.UsedQuota) {
+		if _, err := common.CheckedQuotaBalance(user.Quota, 0); err != nil {
 			return fmt.Errorf("%w: user quota state exceeds its database boundary", ErrTaskQuotaReservationIneligible)
+		}
+		if _, err := common.CheckedQuotaUsed(user.UsedQuota, 0); err != nil {
+			return fmt.Errorf("%w: user used quota state exceeds its database boundary", ErrTaskQuotaReservationIneligible)
 		}
 
 		var token Token
@@ -405,8 +408,11 @@ func ReserveTaskQuota(tx *gorm.DB, input TaskQuotaReservationInput) (*QuotaMutat
 			(token.ExpiredTime != -1 && token.ExpiredTime <= databaseNow) || !quotaMutationVersionValid(token.QuotaVersion) {
 			return fmt.Errorf("%w: token owner, status, expiry, or quota version is invalid", ErrTaskQuotaReservationIneligible)
 		}
-		if !quotaMutationInt32Value(token.RemainQuota) || !quotaMutationInt32Value(token.UsedQuota) {
+		if _, err := common.CheckedQuotaBalance(token.RemainQuota, 0); err != nil {
 			return fmt.Errorf("%w: token quota state exceeds its database boundary", ErrTaskQuotaReservationIneligible)
+		}
+		if _, err := common.CheckedQuotaUsed(token.UsedQuota, 0); err != nil {
+			return fmt.Errorf("%w: token used quota state exceeds its database boundary", ErrTaskQuotaReservationIneligible)
 		}
 		if existing, err := findTaskQuotaReservation(writeDB, normalized.OperationID, normalized.UserID, normalized.TokenID); err != nil {
 			return err
@@ -883,7 +889,7 @@ func selectTaskQuotaBillingSource(tx *gorm.DB, user *User, estimatedQuota int64,
 		return "wallet_only", "wallet", nil, 0, nil
 	}
 	preference := common.NormalizeBillingPreference(user.GetSetting().BillingPreference)
-	walletAvailable := int64(user.Quota) >= estimatedQuota && (estimatedQuota == 0 && freeModel || user.Quota > 0)
+	walletAvailable := user.Quota >= estimatedQuota && (estimatedQuota == 0 && freeModel || user.Quota > 0)
 	subscriptionQuota := estimatedQuota
 	if subscriptionQuota == 0 && !freeModel {
 		subscriptionQuota = 1
@@ -969,10 +975,6 @@ func quotaMutationVersionValid(version int64) bool {
 	return version >= 0 && version < quotaMutationMaxInt64
 }
 
-func quotaMutationInt32Value(value int) bool {
-	return int64(value) >= int64(common.MinQuota) && int64(value) <= int64(common.MaxQuota)
-}
-
 func quotaMutationUserSnapshot(user *User) QuotaMutationUserSnapshot {
 	if user == nil {
 		return QuotaMutationUserSnapshot{SelfUseNoBalance: user.SelfUseNoBalance, UsagePolicyRevision: user.UsagePolicyRevision}
@@ -1015,43 +1017,71 @@ func quotaMutationReservationAfter(before QuotaMutationAccountSnapshot, input Ta
 		copySubscription := *before.Subscription
 		after.Subscription = &copySubscription
 	}
+	userQuota, err := common.CheckedQuotaBalance(before.User.Quota, 0)
+	if err != nil {
+		return QuotaMutationAccountSnapshot{}, fmt.Errorf("%w: wallet quota is outside its storage boundary", ErrTaskQuotaReservationIneligible)
+	}
+	if _, err := common.CheckedQuotaUsed(before.User.UsedQuota, 0); err != nil {
+		return QuotaMutationAccountSnapshot{}, fmt.Errorf("%w: user used quota is outside its storage boundary", ErrTaskQuotaReservationIneligible)
+	}
 	if input.BillingSource == "wallet" {
-		if int64(before.User.Quota) < input.Quota {
+		if before.User.Quota < input.Quota {
 			return QuotaMutationAccountSnapshot{}, ErrTaskQuotaReservationInsufficientQuota
+		}
+		userQuota, err = common.CheckedQuotaBalance(before.User.Quota, -input.Quota)
+		if err != nil {
+			return QuotaMutationAccountSnapshot{}, fmt.Errorf("%w: wallet quota target is outside its storage boundary", ErrTaskQuotaReservationIneligible)
 		}
 	} else {
 		if after.Subscription == nil {
 			return QuotaMutationAccountSnapshot{}, ErrTaskQuotaReservationInvalidInput
 		}
-		if after.Subscription.AmountUsed > quotaMutationMaxInt64-input.Quota {
-			return QuotaMutationAccountSnapshot{}, fmt.Errorf("%w: subscription usage would overflow", ErrTaskQuotaReservationIneligible)
+		if after.Subscription.AmountTotal != 0 {
+			if _, err := common.CheckedQuotaUsed(after.Subscription.AmountTotal, 0); err != nil {
+				return QuotaMutationAccountSnapshot{}, fmt.Errorf("%w: subscription total is outside its storage boundary", ErrTaskQuotaReservationIneligible)
+			}
 		}
-		if after.Subscription.AmountTotal > 0 && after.Subscription.AmountUsed+input.Quota > after.Subscription.AmountTotal {
+		used, err := common.CheckedQuotaUsed(after.Subscription.AmountUsed, input.Quota)
+		if err != nil {
+			return QuotaMutationAccountSnapshot{}, fmt.Errorf("%w: subscription usage target is outside its storage boundary", ErrTaskQuotaReservationIneligible)
+		}
+		if after.Subscription.AmountTotal > 0 && used > after.Subscription.AmountTotal {
 			return QuotaMutationAccountSnapshot{}, ErrTaskQuotaReservationInsufficientQuota
 		}
+		after.Subscription.AmountUsed = used
 	}
-	if !before.Token.UnlimitedQuota && int64(before.Token.RemainQuota) < input.Quota {
+	if !before.Token.UnlimitedQuota && before.Token.RemainQuota < input.Quota {
 		return QuotaMutationAccountSnapshot{}, ErrTaskQuotaReservationInsufficientQuota
+	}
+	remainAfter, err := common.CheckedQuotaBalance(before.Token.RemainQuota, -input.Quota)
+	if err != nil {
+		return QuotaMutationAccountSnapshot{}, fmt.Errorf("%w: token quota target is outside its storage boundary", ErrTaskQuotaReservationIneligible)
+	}
+	usedAfter, err := common.CheckedQuotaUsed(before.Token.UsedQuota, input.Quota)
+	if err != nil {
+		return QuotaMutationAccountSnapshot{}, fmt.Errorf("%w: token used quota target is outside its storage boundary", ErrTaskQuotaReservationIneligible)
 	}
 	if input.Quota == 0 {
 		return after, nil
 	}
+	if !quotaMutationVersionValid(before.Token.QuotaVersion) {
+		return QuotaMutationAccountSnapshot{}, ErrTaskQuotaReservationIneligible
+	}
 	if input.BillingSource == "wallet" {
-		after.User.Quota = int(int64(before.User.Quota) - input.Quota)
+		if !quotaMutationVersionValid(before.User.QuotaVersion) {
+			return QuotaMutationAccountSnapshot{}, ErrTaskQuotaReservationIneligible
+		}
+		after.User.Quota = userQuota
 		after.User.QuotaVersion++
 	} else {
-		after.Subscription.AmountUsed += input.Quota
+		if !quotaMutationVersionValid(after.Subscription.QuotaVersion) {
+			return QuotaMutationAccountSnapshot{}, ErrTaskQuotaReservationIneligible
+		}
 		after.Subscription.QuotaVersion++
 		after.Subscription.UpdatedAt = databaseNow
 	}
-	remainAfter := int64(before.Token.RemainQuota) - input.Quota
-	usedAfter := int64(before.Token.UsedQuota) + input.Quota
-	if remainAfter < int64(common.MinQuota) || remainAfter > int64(common.MaxQuota) ||
-		usedAfter < int64(common.MinQuota) || usedAfter > int64(common.MaxQuota) {
-		return QuotaMutationAccountSnapshot{}, fmt.Errorf("%w: token quota result exceeds its int32 boundary", ErrTaskQuotaReservationIneligible)
-	}
-	after.Token.RemainQuota = int(remainAfter)
-	after.Token.UsedQuota = int(usedAfter)
+	after.Token.RemainQuota = remainAfter
+	after.Token.UsedQuota = usedAfter
 	after.Token.AccessedTime = databaseNow
 	after.Token.QuotaVersion++
 	return after, nil
@@ -1259,7 +1289,7 @@ func validateQuotaMutationSettlementSnapshots(before, after QuotaMutationAccount
 			return fmt.Errorf("%w: user quota version did not advance on wallet settlement", ErrTaskQuotaReservationInvalidInput)
 		}
 		userDiff := int64(after.User.Quota) - int64(before.User.Quota)
-		if userDiff != delta && !(after.User.Quota == common.MaxQuota || after.User.Quota == common.MinQuota) {
+		if userDiff != delta && !(after.User.Quota == int64(common.MaxQuota) || after.User.Quota == int64(common.MinQuota)) {
 			return fmt.Errorf("%w: wallet settlement delta mismatch", ErrTaskQuotaReservationInvalidInput)
 		}
 	} else {
@@ -1275,7 +1305,7 @@ func validateQuotaMutationSettlementSnapshots(before, after QuotaMutationAccount
 		}
 	}
 	tokenRemainDiff := int64(after.Token.RemainQuota) - int64(before.Token.RemainQuota)
-	if tokenRemainDiff != delta && !(after.Token.RemainQuota == common.MaxQuota || after.Token.RemainQuota == common.MinQuota) {
+	if tokenRemainDiff != delta && !(after.Token.RemainQuota == int64(common.MaxQuota) || after.Token.RemainQuota == int64(common.MinQuota)) {
 		return fmt.Errorf("%w: token remain delta mismatch on settlement", ErrTaskQuotaReservationInvalidInput)
 	}
 	return nil

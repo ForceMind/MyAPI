@@ -82,7 +82,7 @@ func TestPlaygroundSelectsOwnedKeyWithoutExposingCredentialOrChangingOrigin(t *t
 		assert.Equal(t, token.Id, c.GetInt("token_id"))
 		assert.Equal(t, token.Key, c.GetString("token_key"))
 		assert.False(t, c.GetBool("token_unlimited_quota"))
-		assert.Equal(t, 500, c.GetInt("token_quota"))
+		assert.Equal(t, int64(500), common.GetContextKeyInt64(c, constant.ContextKeyTokenQuota))
 		assert.Empty(t, c.GetHeader("Authorization"), "browser session credentials are not relay credentials")
 		assert.NotContains(t, c.Request.Header, "X-Api-Key")
 		assert.Equal(t, "/pg/chat/completions", c.FullPath())
@@ -180,9 +180,8 @@ func TestPlaygroundDatabaseOwnershipAndRevocationOverrideStaleCredentialCache(t 
 	for _, mutation := range []string{"status", "user_id", "deleted_at"} {
 		t.Run(mutation, func(t *testing.T) {
 			db, user, token, access := playgroundAuthFixture(t)
-			useRateLimitMiniRedis(t)
-			_, err := model.GetTokenByKey(token.Key, false)
-			require.NoError(t, err)
+			_, redisClient := useRateLimitMiniRedis(t)
+			warmTokenAccountingCacheWithLockedWriter(t, token)
 			switch mutation {
 			case "status":
 				require.NoError(t, db.Model(token).Update("status", common.TokenStatusDisabled).Error)
@@ -191,10 +190,24 @@ func TestPlaygroundDatabaseOwnershipAndRevocationOverrideStaleCredentialCache(t 
 			case "deleted_at":
 				require.NoError(t, db.Delete(token).Error)
 			}
-			cached, err := model.GetTokenByKey(token.Key, false)
+			cacheKey := "token:" + common.GenerateHMAC(token.Key)
+			redisStatus, err := redisClient.HGet(context.Background(), cacheKey, "Status").Int()
 			require.NoError(t, err)
-			require.Equal(t, common.TokenStatusEnabled, cached.Status, "fixture must retain the stale credential cache")
-			require.Equal(t, user.Id, cached.UserId)
+			require.Equal(t, common.TokenStatusEnabled, redisStatus, "fixture must retain the stale credential cache")
+			redisUserID, err := redisClient.HGet(context.Background(), cacheKey, "UserId").Int()
+			require.NoError(t, err)
+			require.Equal(t, user.Id, redisUserID)
+
+			resolved, err := model.GetTokenByKey(token.Key, false)
+			switch mutation {
+			case "status":
+				require.NoError(t, err)
+				require.Equal(t, common.TokenStatusDisabled, resolved.Status, "authorization metadata must come from the current database row")
+			case "user_id":
+				require.ErrorIs(t, err, model.ErrQuotaCacheIdentityMismatch)
+			case "deleted_at":
+				require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+			}
 			router := playgroundAuthRouter(t, func(c *gin.Context) { t.Error("stale credential cache authorized playground") })
 			response := playgroundAuthRequest(router, http.MethodGet, "/pg/models", access, strconv.Itoa(token.Id), "")
 			assert.Equal(t, http.StatusUnauthorized, response.Code, response.Body.String())

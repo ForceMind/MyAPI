@@ -103,7 +103,7 @@ func TestWriteUserCacheQuotaAntiRollback(t *testing.T) {
 		CacheSchema:   userCacheSchemaVersion,
 		QuotaVersion:  5,
 	}
-	require.NoError(t, writeUserCache(base, true))
+	seedUserQuotaCacheForTest(t, base)
 
 	assert.Equal(t, "500", server.HGet(key, "Quota"))
 	assert.Equal(t, "5", server.HGet(key, "QuotaVersion"))
@@ -145,7 +145,7 @@ func TestWriteUserCacheQuotaAntiRollback(t *testing.T) {
 		CacheSchema:   userCacheSchemaVersion,
 		QuotaVersion:  6,
 	}
-	require.NoError(t, writeUserCache(newerSnapshot, true))
+	seedUserQuotaCacheForTest(t, newerSnapshot)
 
 	assert.Equal(t, "600", server.HGet(key, "Quota"))
 	assert.Equal(t, "6", server.HGet(key, "QuotaVersion"))
@@ -176,6 +176,7 @@ func TestWriteUserCacheQuotaAntiRollback(t *testing.T) {
 func TestTokenCacheQuotaProjectionAntiRollback(t *testing.T) {
 	truncateTables(t)
 	server := useUserCacheMiniRedis(t)
+	require.NoError(t, DB.Model(&QuotaWriterEpoch{}).Where("id = ?", 1).Update("mode", string(QuotaWriterModeAuthoritative)).Error)
 	ctx := context.Background()
 
 	tokenKey := "sk-test-token-key-projection"
@@ -192,16 +193,14 @@ func TestTokenCacheQuotaProjectionAntiRollback(t *testing.T) {
 		UsedQuota:    100,
 		QuotaVersion: 5,
 	}
-	res, err := cacheInitToken(tok)
-	require.NoError(t, err)
-	assert.Equal(t, 1, res)
+	seedTokenQuotaCacheForTest(t, tok)
 
 	assert.Equal(t, "500", server.HGet(hmacKey, "RemainQuota"))
 	assert.Equal(t, "100", server.HGet(hmacKey, "UsedQuota"))
 	assert.Equal(t, "5", server.HGet(hmacKey, "QuotaVersion"))
 
 	// 2. Out-of-order hydration with older QuotaVersion=3 must be dropped
-	err = HydrateTokenQuotaCache(tokenKey, 201, 300, 50, 3)
+	err := HydrateTokenQuotaCache(tokenKey, 201, 300, 50, 3)
 	require.NoError(t, err)
 
 	assert.Equal(t, "500", server.HGet(hmacKey, "RemainQuota"), "stale token quota must not roll back")

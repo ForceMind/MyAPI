@@ -116,7 +116,8 @@ func TestRealtimeDispatchSurvivesProcessExit(t *testing.T) {
 				path := filepath.Join(t.TempDir(), "crash.db")
 				db, err := gorm.Open(sqlite.Open(path), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 				require.NoError(t, err)
-				require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.AssignedAccessPolicy{}, &model.Channel{}, &model.Log{}, &model.SubscriptionPlan{}, &model.UserSubscription{}, &model.LegacyUsageReservation{}, &model.AccountQuotaMutationReceipt{}, &model.AccountQuotaReservationHead{}, &model.AccountQuotaTerminalRecoveryObligation{}, &model.AccountQuotaSettlementIntent{}, &model.AccountQuotaSettlementFact{}, &model.AccountQuotaRefundFact{}, &model.QuotaWriterEpoch{}, &model.QuotaProjectionObligation{}, &model.QuotaWorkCursor{}, &model.UsageReviewDecision{}, &model.TokenBudget{}, &model.TokenBudgetReservation{}, &model.TokenBudgetPolicyChange{}))
+				require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.AssignedAccessPolicy{}, &model.Channel{}, &model.Log{}, &model.SubscriptionPlan{}, &model.UserSubscription{}, &model.LegacyUsageReservation{}, &model.AccountQuotaMutationReceipt{}, &model.AccountQuotaReservationHead{}, &model.AccountQuotaTerminalRecoveryObligation{}, &model.AccountQuotaSettlementIntent{}, &model.AccountQuotaSettlementFact{}, &model.AccountQuotaExecutionGate{}, &model.AccountQuotaExecutionPermit{}, &model.AccountQuotaRefundFact{}, &model.QuotaWriterEpoch{}, &model.QuotaProjectionObligation{}, &model.QuotaWorkCursor{}, &model.UsageReviewDecision{}, &model.TokenBudget{}, &model.TokenBudgetReservation{}, &model.TokenBudgetPolicyChange{}))
+				require.NoError(t, model.EnsureFreshAccountQuotaExecutionGate(context.Background(), db))
 				require.NoError(t, model.EnsureQuotaWriterEpochStateWithDB(db))
 				require.NoError(t, db.Model(&model.QuotaWriterEpoch{}).Where("id = ?", 1).Updates(map[string]any{"mode": string(mode), "epoch": 17}).Error)
 				user := model.User{Username: "crash-user", AffCode: "crash-user", Status: common.UserStatusEnabled, Quota: 1000}
@@ -208,9 +209,9 @@ func TestRealtimeDispatchSurvivesProcessExit(t *testing.T) {
 				if complete {
 					require.NoError(t, reopened.First(&user, user.Id).Error)
 					require.NoError(t, reopened.First(&token, token.Id).Error)
-					assert.Equal(t, 980, user.Quota, "%s", output.String())
-					assert.Equal(t, 980, token.RemainQuota)
-					assert.Equal(t, 20, token.UsedQuota)
+					assert.Equal(t, int64(980), user.Quota, "%s", output.String())
+					assert.Equal(t, int64(980), token.RemainQuota)
+					assert.Equal(t, int64(20), token.UsedQuota)
 					if mode == model.QuotaWriterModeLegacy {
 						row, err := model.FindLegacyUsageReservation(context.Background(), reopened, "ws-crash-request")
 						require.NoError(t, err)
@@ -253,8 +254,8 @@ func TestRealtimeDispatchSurvivesProcessExit(t *testing.T) {
 				}
 				require.NoError(t, reopened.First(&user, user.Id).Error)
 				require.NoError(t, reopened.First(&token, token.Id).Error)
-				assert.Equal(t, 900, user.Quota)
-				assert.Equal(t, 900, token.RemainQuota)
+				assert.Equal(t, int64(900), user.Quota)
+				assert.Equal(t, int64(900), token.RemainQuota)
 
 				if scenario == "known-crash" {
 					var evidence struct {
@@ -274,17 +275,17 @@ func TestRealtimeDispatchSurvivesProcessExit(t *testing.T) {
 					require.ErrorIs(t, reviewErr, model.ErrAccountQuotaMutationConflict, "known work cannot disappear after restart")
 					require.NoError(t, reopened.First(&user, user.Id).Error)
 					require.NoError(t, reopened.First(&token, token.Id).Error)
-					assert.Equal(t, 900, user.Quota)
-					assert.Equal(t, 900, token.RemainQuota)
+					assert.Equal(t, int64(900), user.Quota)
+					assert.Equal(t, int64(900), token.RemainQuota)
 					for range 2 {
 						_, reviewErr = model.RecoverTextDispatchUsage(context.Background(), reopened, root.Id, "ws-crash-request", 8, "synthetic final evidence: first response eight, second no consumption")
 						require.NoError(t, reviewErr)
 					}
 					require.NoError(t, reopened.First(&user, user.Id).Error)
 					require.NoError(t, reopened.First(&token, token.Id).Error)
-					assert.Equal(t, 992, user.Quota)
-					assert.Equal(t, 992, token.RemainQuota)
-					assert.Equal(t, 8, token.UsedQuota)
+					assert.Equal(t, int64(992), user.Quota)
+					assert.Equal(t, int64(992), token.RemainQuota)
+					assert.Equal(t, int64(8), token.UsedQuota)
 					reserveID := int64(0)
 					if mode == model.QuotaWriterModeAuthoritative {
 						var row model.AccountQuotaTerminalRecoveryObligation

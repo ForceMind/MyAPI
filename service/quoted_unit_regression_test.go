@@ -85,7 +85,7 @@ func TestAudioAndRealtimeFixedPriceSettlementKeepsQuote(t *testing.T) {
 			assert.Equal(t, []int{200}, settler.settled)
 			assert.Zero(t, settler.refund)
 			used, requests := getUserUsageAccounting(t, 89)
-			assert.Equal(t, 200, used)
+			assert.Equal(t, int64(200), used)
 			assert.Equal(t, 1, requests)
 			log := getLastLog(t)
 			require.NotNil(t, log)

@@ -44,7 +44,7 @@ type Channel struct {
 	BalanceUpdatedTime        int64   `json:"balance_updated_time" gorm:"bigint"`
 	Models                    string  `json:"models"`
 	Group                     string  `json:"group" gorm:"type:varchar(64);default:'default'"`
-	UsedQuota                 int64   `json:"used_quota" gorm:"bigint;default:0"`
+	UsedQuota                 int64   `json:"used_quota" gorm:"type:bigint;default:0"`
 	ModelMapping              *string `json:"model_mapping" gorm:"type:text"`
 	//MaxInputTokens     *int    `json:"max_input_tokens" gorm:"default:0"`
 	StatusCodeMapping *string `json:"status_code_mapping" gorm:"type:varchar(1024);default:''"`
@@ -1172,17 +1172,39 @@ func EditChannelByTag(tag string, newTag *string, modelMapping *string, models *
 }
 
 func UpdateChannelUsedQuota(id int, quota int) {
-	if common.BatchUpdateEnabled {
-		addNewRecord(BatchUpdateTypeChannelUsedQuota, id, quota)
+	if quota < common.MinQuota || quota > common.MaxQuota {
+		common.SysLog(fmt.Sprintf("failed to update channel used quota: channel_id=%d delta_quota=%d is outside the single-request range", id, quota))
 		return
 	}
-	updateChannelUsedQuota(id, quota)
+	if common.BatchUpdateEnabled {
+		if err := addNewRecord(BatchUpdateTypeChannelUsedQuota, id, int64(quota)); err != nil {
+			common.SysError(fmt.Sprintf("failed to enqueue channel used quota statistic: channel_id=%d delta_quota=%d error=%v", id, quota, err))
+		}
+		return
+	}
+	updateChannelUsedQuota(id, int64(quota))
 }
 
-func updateChannelUsedQuota(id int, quota int) {
-	err := DB.Model(&Channel{}).Where("id = ?", id).Update("used_quota", gorm.Expr("used_quota + ?", quota)).Error
-	if err != nil {
+func updateChannelUsedQuota(id int, quota int64) {
+	if _, err := common.CheckedQuotaBalance(0, quota); err != nil {
 		common.SysLog(fmt.Sprintf("failed to update channel used quota: channel_id=%d, delta_quota=%d, error=%v", id, quota, err))
+		return
+	}
+	query := DB.Model(&Channel{}).Where("id = ?", id)
+	if quota > 0 {
+		query = query.Where("used_quota >= ? AND used_quota <= ?", 0, common.MaxQuotaBalance-quota)
+	} else if quota < 0 {
+		query = query.Where("used_quota >= ? AND used_quota <= ?", -quota, common.MaxQuotaBalance)
+	} else {
+		return
+	}
+	result := query.Update("used_quota", gorm.Expr("used_quota + ?", quota))
+	if result.Error != nil {
+		common.SysLog(fmt.Sprintf("failed to update channel used quota: channel_id=%d, delta_quota=%d, error=%v", id, quota, result.Error))
+		return
+	}
+	if result.RowsAffected != 1 {
+		common.SysLog(fmt.Sprintf("failed to update channel used quota: channel_id=%d, delta_quota=%d, target is outside the allowed range", id, quota))
 	}
 }
 

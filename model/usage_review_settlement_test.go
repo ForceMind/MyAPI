@@ -70,8 +70,8 @@ func usageReviewSettlementDatabaseContract(t *testing.T, db *gorm.DB, rootID int
 			afterUser, afterToken, _ := loadAccountBalances(t, db, fixture)
 			assert.Equal(t, beforeUser, afterUser)
 			assert.Equal(t, beforeToken, afterToken)
-			assert.Equal(t, 940, afterUser.Quota)
-			assert.Equal(t, 940, afterToken.RemainQuota)
+			assert.Equal(t, int64(940), afterUser.Quota)
+			assert.Equal(t, int64(940), afterToken.RemainQuota)
 			if mode == QuotaWriterModeLegacy {
 				row, err := FindLegacyUsageReservation(ctx, db, id)
 				require.NoError(t, err)
@@ -255,8 +255,8 @@ func usageReviewAppliedSettlementTokenBudgetContract(t *testing.T, db *gorm.DB, 
 		assertReviewSettlementJSON(t, view, "none", "", true)
 	}
 	user, token, _ := loadAccountBalances(t, db, f)
-	assert.Equal(t, 940, user.Quota)
-	assert.Equal(t, 940, token.RemainQuota)
+	assert.Equal(t, int64(940), user.Quota)
+	assert.Equal(t, int64(940), token.RemainQuota)
 	budget, err := LookupTokenBudget(ctx, db, f.Token.Id)
 	require.NoError(t, err)
 	assert.EqualValues(t, 15, budget.Used)
@@ -286,8 +286,8 @@ func TestUsageReviewSettlementUsesAuthoritativeTerminalAfterLostResponse(t *test
 	assert.False(t, view.TextDispatchPending)
 	assert.Equal(t, AccountQuotaTerminalRecoveryApplied, view.State)
 	user, token, _ := loadAccountBalances(t, db, f)
-	assert.Equal(t, 940, user.Quota)
-	assert.Equal(t, 940, token.RemainQuota)
+	assert.Equal(t, int64(940), user.Quota)
+	assert.Equal(t, int64(940), token.RemainQuota)
 }
 
 func TestUsageReviewSettlementRejectsMixedJournalSnapshots(t *testing.T) {

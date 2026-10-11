@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import i18next from 'i18next'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 
 import { getUserProfile, updateUserProfile, updateUserSettings } from '../api'
@@ -35,26 +35,32 @@ export function useProfile() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
+  const [error, setError] = useState(false)
+  const pendingRequest = useRef<AbortController | null>(null)
 
   // Fetch user profile (with optional silent mode)
   const fetchProfile = useCallback(async (silent = false) => {
+    pendingRequest.current?.abort()
+    const controller = new AbortController()
+    pendingRequest.current = controller
     try {
       if (!silent) {
         setLoading(true)
       }
-      const response = await getUserProfile()
+      const response = await getUserProfile(controller.signal)
+      if (controller.signal.aborted) return
 
       if (response.success && response.data) {
         setProfile(response.data)
+        setError(false)
+      } else {
+        if (!silent) setError(true)
       }
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to fetch profile:', error)
-      if (!silent) {
-        toast.error(i18next.t('Failed to load profile'))
-      }
+    } catch {
+      if (controller.signal.aborted) return
+      if (!silent) setError(true)
     } finally {
-      if (!silent) {
+      if (!controller.signal.aborted) {
         setLoading(false)
       }
     }
@@ -122,12 +128,14 @@ export function useProfile() {
   // Initial fetch
   useEffect(() => {
     fetchProfile()
+    return () => pendingRequest.current?.abort()
   }, [fetchProfile])
 
   return {
     profile,
     loading,
     updating,
+    error,
     fetchProfile,
     refreshProfile,
     updateProfile,

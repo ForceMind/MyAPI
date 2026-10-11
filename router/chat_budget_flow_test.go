@@ -346,7 +346,7 @@ func TestChatBudgetActualApplicationFlow(t *testing.T) {
 			require.Contains(t, logs[0].Other, `"amount_usd":"`+test.cost+`"`)
 			require.Contains(t, logs[0].Other, `"bound_source":"openai_chat_context_window"`)
 			require.NoError(t, model.DB.First(&token, token.Id).Error)
-			require.Equal(t, logs[0].Quota, token.UsedQuota)
+			require.Equal(t, int64(logs[0].Quota), token.UsedQuota)
 			require.Equal(t, 1000000-token.UsedQuota, token.RemainQuota)
 		})
 	}
@@ -379,8 +379,8 @@ func (f *chatBudgetFlowFixture) recover(t *testing.T, token model.Token, row mod
 	require.Contains(t, logs[0].Other, `"token_counts_confirmed":true`)
 	require.Contains(t, logs[0].Other, `"settlement_status":"manually_reconciled"`)
 	require.NoError(t, model.DB.First(&token, token.Id).Error)
-	require.Equal(t, 120, token.UsedQuota, "replayed recovery cannot charge again")
-	require.Equal(t, 1000000-120, token.RemainQuota)
+	require.Equal(t, int64(120), token.UsedQuota, "replayed recovery cannot charge again")
+	require.Equal(t, int64(1000000-120), token.RemainQuota)
 }
 
 func TestChatBudgetActualApplicationRejectsUnqualifiedTargets(t *testing.T) {
@@ -419,7 +419,7 @@ func TestChatBudgetActualApplicationRejectsUnqualifiedTargets(t *testing.T) {
 			require.Zero(t, count, "unqualified requests cannot create a sent reservation")
 			require.NoError(t, model.DB.First(&token, token.Id).Error)
 			require.Zero(t, token.UsedQuota)
-			require.Equal(t, 1000000, token.RemainQuota)
+			require.Equal(t, int64(1000000), token.RemainQuota)
 		})
 	}
 }
@@ -550,8 +550,8 @@ func TestChatBudgetActualApplicationReservationExhaustion(t *testing.T) {
 			require.Equal(t, "0", policy.FeeReservedUSD)
 			require.Empty(t, policy.PendingRequestID)
 			require.NoError(t, model.DB.First(&token, token.Id).Error)
-			require.Equal(t, 120, token.UsedQuota)
-			require.Equal(t, 1000000-120, token.RemainQuota, "failed reservation refunds the original pre-consume")
+			require.Equal(t, int64(120), token.UsedQuota)
+			require.Equal(t, int64(1000000-120), token.RemainQuota, "failed reservation refunds the original pre-consume")
 		})
 	}
 }

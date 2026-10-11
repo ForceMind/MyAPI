@@ -87,7 +87,7 @@ func TestTaskTerminalObservationConcurrentApplyIsEconomicallyOnce(t *testing.T) 
 	require.NoError(t, db.First(&channel, fixture.Input.ChannelID).Error)
 	require.NoError(t, db.First(&task, fixture.Task.ID).Error)
 	require.NoError(t, db.First(&stored, observation.ID).Error)
-	assert.Equal(t, 150, user.UsedQuota)
+	assert.Equal(t, int64(150), user.UsedQuota)
 	assert.Equal(t, 1, user.RequestCount)
 	assert.Equal(t, int64(150), channel.UsedQuota)
 	assert.Equal(t, 150, task.Quota)
@@ -180,7 +180,7 @@ func TestTaskTerminalApplyFailureMatrixRollsBack(t *testing.T) {
 			}))
 		}},
 		{"user_stats", 101, true, func(t *testing.T, db *gorm.DB, fixture terminalObservationFixture, _ *TaskTerminalObservation) {
-			require.NoError(t, db.Model(&User{}).Where("id = ?", fixture.Input.UserID).Update("used_quota", common.MaxQuota).Error)
+			require.NoError(t, db.Model(&User{}).Where("id = ?", fixture.Input.UserID).Update("used_quota", common.MaxQuotaBalance).Error)
 		}},
 		{"channel_missing", 80, true, func(t *testing.T, db *gorm.DB, fixture terminalObservationFixture, _ *TaskTerminalObservation) {
 			require.NoError(t, db.Delete(&Channel{}, fixture.Input.ChannelID).Error)
@@ -215,9 +215,9 @@ func TestTaskTerminalApplyFailureMatrixRollsBack(t *testing.T) {
 			} else {
 				assert.Equal(t, TaskTerminalObservationPending, stored.State)
 			}
-			assert.Equal(t, 900, user.Quota)
-			assert.Equal(t, 400, token.RemainQuota)
-			assert.Equal(t, 100, token.UsedQuota)
+			assert.Equal(t, int64(900), user.Quota)
+			assert.Equal(t, int64(400), token.RemainQuota)
+			assert.Equal(t, int64(100), token.UsedQuota)
 			var terminalReceipts int64
 			require.NoError(t, db.Model(&QuotaMutationReceipt{}).Where("operation_id = ? AND mutation_type = ?", fixture.Operation.ID, TaskBillingEventTypeTerminalSettlement).Count(&terminalReceipts).Error)
 			assert.Zero(t, terminalReceipts)
@@ -252,7 +252,7 @@ func TestTaskReserveFailureMatrixRollsBack(t *testing.T) {
 		inject func(*testing.T, *gorm.DB, TaskQuotaReservationInput)
 	}{
 		{"user_stats", func(t *testing.T, db *gorm.DB, input TaskQuotaReservationInput) {
-			require.NoError(t, db.Model(&User{}).Where("id = ?", input.UserID).Update("used_quota", common.MaxQuota).Error)
+			require.NoError(t, db.Model(&User{}).Where("id = ?", input.UserID).Update("used_quota", common.MaxQuotaBalance).Error)
 		}},
 		{"request_count_overflow", func(t *testing.T, db *gorm.DB, input TaskQuotaReservationInput) {
 			require.NoError(t, db.Model(&User{}).Where("id = ?", input.UserID).Update("request_count", common.MaxQuota).Error)
@@ -300,8 +300,8 @@ func TestTaskReserveFailureMatrixRollsBack(t *testing.T) {
 			require.NoError(t, db.First(&user, input.UserID).Error)
 			require.NoError(t, db.First(&token, input.TokenID).Error)
 			require.NoError(t, db.First(&operation, input.OperationID).Error)
-			assert.Equal(t, 1000, user.Quota)
-			assert.Equal(t, 500, token.RemainQuota)
+			assert.Equal(t, int64(1000), user.Quota)
+			assert.Equal(t, int64(500), token.RemainQuota)
 			assert.Equal(t, TaskSubmissionOperationStatusPrepared, operation.Status)
 			var receiptCount, eventCount, outboxCount int64
 			require.NoError(t, db.Model(&QuotaMutationReceipt{}).Where("operation_id = ?", input.OperationID).Count(&receiptCount).Error)
@@ -332,9 +332,9 @@ func TestTaskReleaseOutboxFailureRollsBack(t *testing.T) {
 	var token Token
 	require.NoError(t, db.First(&user, input.UserID).Error)
 	require.NoError(t, db.First(&token, input.TokenID).Error)
-	assert.Equal(t, 900, user.Quota)
-	assert.Equal(t, 100, user.UsedQuota)
-	assert.Equal(t, 400, token.RemainQuota)
+	assert.Equal(t, int64(900), user.Quota)
+	assert.Equal(t, int64(100), user.UsedQuota)
+	assert.Equal(t, int64(400), token.RemainQuota)
 	var refundCount, outboxCount int64
 	require.NoError(t, db.Model(&QuotaMutationReceipt{}).Where("operation_id = ? AND mutation_type = ?", input.OperationID, TaskBillingEventTypeRefund).Count(&refundCount).Error)
 	require.NoError(t, db.Model(&TaskBillingLogOutbox{}).Count(&outboxCount).Error)
@@ -403,7 +403,7 @@ func TestV2ReservationWithoutStatisticsEvidenceCannotReleaseOrSettle(t *testing.
 	require.ErrorIs(t, err, ErrTaskTerminalObservationManualReview)
 	var user User
 	require.NoError(t, db.First(&user, input.UserID).Error)
-	assert.Equal(t, 900, user.Quota)
+	assert.Equal(t, int64(900), user.Quota)
 	assert.Zero(t, user.UsedQuota)
 	assert.Zero(t, user.RequestCount)
 }
@@ -435,7 +435,7 @@ func TestTaskTerminalEconomicClampFailsWithoutPartialReceipt(t *testing.T) {
 		mutate       func(*testing.T, *gorm.DB, TaskQuotaReservationInput)
 	}{
 		{"wallet_max", false, func(t *testing.T, db *gorm.DB, input TaskQuotaReservationInput) {
-			require.NoError(t, db.Model(&User{}).Where("id = ?", input.UserID).Update("quota", common.MaxQuota).Error)
+			require.NoError(t, db.Model(&User{}).Where("id = ?", input.UserID).Update("quota", common.MaxQuotaBalance).Error)
 		}},
 		{"token_used_underflow", false, func(t *testing.T, db *gorm.DB, input TaskQuotaReservationInput) {
 			require.NoError(t, db.Model(&Token{}).Where("id = ?", input.TokenID).Update("used_quota", 0).Error)
@@ -531,8 +531,8 @@ func TestTaskTerminalObservationApplyRechecksAttemptEvidence(t *testing.T) {
 	require.NoError(t, db.First(&user, fixture.Input.UserID).Error)
 	assert.Equal(t, TaskTerminalObservationManualReview, stored.State)
 	assert.Equal(t, TaskStatus(TaskStatusSubmitted), task.Status)
-	assert.Equal(t, 900, user.Quota)
-	assert.Equal(t, 100, user.UsedQuota)
+	assert.Equal(t, int64(900), user.Quota)
+	assert.Equal(t, int64(100), user.UsedQuota)
 }
 
 func TestTaskTerminalObservationExistingReceiptReplayValidation(t *testing.T) {

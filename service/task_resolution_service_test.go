@@ -72,7 +72,7 @@ func newResolutionTestFixture(t *testing.T, db *gorm.DB, label string, userQuota
 		AffCode:  name,
 		Password: "test-fixture-password",
 		Status:   common.UserStatusEnabled,
-		Quota:    userQuota,
+		Quota:    int64(userQuota),
 	}
 	require.NoError(t, db.Create(&user).Error)
 
@@ -80,7 +80,7 @@ func newResolutionTestFixture(t *testing.T, db *gorm.DB, label string, userQuota
 		UserId:      user.Id,
 		Key:         name,
 		Status:      common.TokenStatusEnabled,
-		RemainQuota: tokenQuota,
+		RemainQuota: int64(tokenQuota),
 		ExpiredTime: -1,
 	}
 	require.NoError(t, db.Create(&token).Error)
@@ -218,7 +218,7 @@ func TestTaskResolutionService_ProviderVerified_Accepted(t *testing.T) {
 	// User quota was NOT refunded on accept (stayed reserved)
 	var u model.User
 	require.NoError(t, db.First(&u, fixture.User.Id).Error)
-	assert.Equal(t, 900, u.Quota)
+	assert.Equal(t, int64(900), u.Quota)
 
 	settlement, err := model.SettleTaskQuotaReservation(db, model.TaskQuotaSettlementInput{
 		OperationID: op.ID, UserID: fixture.User.Id, TokenID: fixture.Token.Id, ChannelID: att.ChannelID,
@@ -228,7 +228,7 @@ func TestTaskResolutionService_ProviderVerified_Accepted(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, settlement)
 	require.NoError(t, db.First(&u, fixture.User.Id).Error)
-	assert.Equal(t, 1000, u.Quota)
+	assert.Equal(t, int64(1000), u.Quota)
 	assert.Zero(t, u.UsedQuota)
 	assert.Equal(t, 1, u.RequestCount)
 }
@@ -266,12 +266,12 @@ func TestTaskResolutionService_ProviderVerified_Rejected(t *testing.T) {
 	// Verify quota was fully released back!
 	var u model.User
 	require.NoError(t, db.First(&u, fixture.User.Id).Error)
-	assert.Equal(t, 1000, u.Quota)
+	assert.Equal(t, int64(1000), u.Quota)
 
 	var tok model.Token
 	require.NoError(t, db.First(&tok, fixture.Token.Id).Error)
-	assert.Equal(t, 500, tok.RemainQuota)
-	assert.Equal(t, 0, tok.UsedQuota)
+	assert.Equal(t, int64(500), tok.RemainQuota)
+	assert.Equal(t, int64(0), tok.UsedQuota)
 	var channel model.Channel
 	require.NoError(t, db.First(&channel, fixture.Attempt.ChannelID).Error)
 	assert.Zero(t, channel.UsedQuota)
@@ -436,13 +436,13 @@ func TestTaskResolutionService_ManualAudit_FullFlow_Reserved(t *testing.T) {
 	// Quota refunded
 	var u model.User
 	require.NoError(t, db.First(&u, fixture.User.Id).Error)
-	assert.Equal(t, 1000, u.Quota)
+	assert.Equal(t, int64(1000), u.Quota)
 	assert.Zero(t, u.UsedQuota)
 	assert.Equal(t, 1, u.RequestCount)
 
 	var tok model.Token
 	require.NoError(t, db.First(&tok, fixture.Token.Id).Error)
-	assert.Equal(t, 500, tok.RemainQuota)
+	assert.Equal(t, int64(500), tok.RemainQuota)
 	var manualOutboxes []model.TaskBillingLogOutbox
 	require.NoError(t, db.Order("id").Find(&manualOutboxes).Error)
 	require.Len(t, manualOutboxes, 3)
@@ -450,7 +450,7 @@ func TestTaskResolutionService_ManualAudit_FullFlow_Reserved(t *testing.T) {
 	for _, outbox := range manualOutboxes {
 		assert.NotEmpty(t, outbox.Payload.RequestID)
 	}
-	assert.Equal(t, 0, tok.UsedQuota)
+	assert.Equal(t, int64(0), tok.UsedQuota)
 
 	// Assert immutable audit TaskBillingEvent recorded
 	require.NotNil(t, result.BillingEvent)
@@ -490,7 +490,7 @@ func TestTaskResolutionService_ManualAudit_FullFlow_SubmissionUnknown(t *testing
 	// Quota refunded
 	var u model.User
 	require.NoError(t, db.First(&u, fixture.User.Id).Error)
-	assert.Equal(t, 1000, u.Quota)
+	assert.Equal(t, int64(1000), u.Quota)
 
 	require.NotNil(t, result.BillingEvent)
 	assert.Equal(t, "audit-cmd-sub-unknown-1", result.BillingEvent.AuditCommandID)
@@ -526,7 +526,7 @@ func TestTaskResolutionService_ManualAudit_IdempotentReplay(t *testing.T) {
 	// Verify user quota was refunded once, not twice
 	var u model.User
 	require.NoError(t, db.First(&u, fixture.User.Id).Error)
-	assert.Equal(t, 1000, u.Quota)
+	assert.Equal(t, int64(1000), u.Quota)
 }
 
 func TestTaskResolutionService_ManualAudit_ConflictRejected(t *testing.T) {
@@ -705,7 +705,7 @@ func TestTaskResolutionService_ManualAudit_ConcurrentReplay(t *testing.T) {
 	// Verify balance refunded exactly once (1000 - 100 + 100 = 1000)
 	var updatedUser model.User
 	require.NoError(t, db.First(&updatedUser, fixture.User.Id).Error)
-	assert.Equal(t, 1000, updatedUser.Quota)
+	assert.Equal(t, int64(1000), updatedUser.Quota)
 }
 
 func TestProviderVerifiedResolution_HistoricalUnknownClassificationFallback(t *testing.T) {
@@ -826,9 +826,9 @@ func TestManualResolutionOutboxFailureRollsBackReleaseAndProjection(t *testing.T
 	require.NoError(t, db.First(&user, fixture.User.Id).Error)
 	require.NoError(t, db.First(&token, fixture.Token.Id).Error)
 	assert.Equal(t, model.TaskSubmissionOperationStatusReserved, operation.Status)
-	assert.Equal(t, 900, user.Quota)
-	assert.Equal(t, 100, user.UsedQuota)
-	assert.Equal(t, 400, token.RemainQuota)
+	assert.Equal(t, int64(900), user.Quota)
+	assert.Equal(t, int64(100), user.UsedQuota)
+	assert.Equal(t, int64(400), token.RemainQuota)
 	var refundCount int64
 	require.NoError(t, db.Model(&model.QuotaMutationReceipt{}).Where("operation_id = ? AND mutation_type = ?", fixture.Operation.ID, model.TaskBillingEventTypeRefund).Count(&refundCount).Error)
 	assert.Zero(t, refundCount)
@@ -848,8 +848,8 @@ func TestProviderVerifiedSubmissionUnknownFailureWithoutEvidenceStaysUnknown(t *
 	assert.Equal(t, model.TaskSubmissionOperationStatusSubmissionUnknown, unchanged.Status)
 	var user model.User
 	require.NoError(t, db.First(&user, fixture.User.Id).Error)
-	assert.Equal(t, 900, user.Quota)
-	assert.Equal(t, 100, user.UsedQuota)
+	assert.Equal(t, int64(900), user.Quota)
+	assert.Equal(t, int64(100), user.UsedQuota)
 	assert.Equal(t, 1, user.RequestCount)
 	var observation model.TaskTerminalObservation
 	require.NoError(t, db.Where("operation_id = ?", op.ID).First(&observation).Error)

@@ -248,6 +248,20 @@ func GetContextKeyInt(c *gin.Context, key constant.ContextKey) int {
 	return c.GetInt(string(key))
 }
 
+// GetContextKeyInt64 preserves stored amounts while accepting contexts built
+// by legacy callers that still supply an int.
+func GetContextKeyInt64(c *gin.Context, key constant.ContextKey) int64 {
+	value, _ := c.Get(string(key))
+	switch number := value.(type) {
+	case int64:
+		return number
+	case int:
+		return int64(number)
+	default:
+		return 0
+	}
+}
+
 func GetContextKeyBool(c *gin.Context, key constant.ContextKey) bool {
 	return c.GetBool(string(key))
 }

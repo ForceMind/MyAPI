@@ -85,7 +85,9 @@ func playgroundControllerFixture(t *testing.T, mode model.QuotaWriterMode) (*gor
 		&model.AccountQuotaTerminalRecoveryObligation{}, &model.AccountQuotaRefundFact{}, &model.AccountQuotaSettlementIntent{}, &model.AccountQuotaSettlementFact{},
 		&model.LegacyUsageReservation{}, &model.SystemTask{}, &model.SystemTaskLock{}, &model.UsageReviewDecision{}, &model.Log{}, &model.BillingLogProjectionIdentity{},
 		&model.QuotaWriterEpoch{}, &model.QuotaProjectionObligation{}, &model.QuotaBalanceBatchDrain{}, &model.QuotaBalanceBatchSubject{}, &model.QuotaWorkCursor{},
+		&model.AccountQuotaExecutionGate{}, &model.AccountQuotaExecutionPermit{},
 	))
+	require.NoError(t, model.EnsureFreshAccountQuotaExecutionGate(context.Background(), db))
 	require.True(t, model.RefreshAccountQuotaSettlementIntentSchemaCapability(db))
 	require.NoError(t, model.EnsureQuotaWriterEpochStateWithDB(db))
 	require.NoError(t, db.Model(&model.QuotaWriterEpoch{}).Where("id = ?", 1).Updates(map[string]any{"mode": string(mode), "epoch": int64(31), "lock_version": gorm.Expr("lock_version + ?", 1)}).Error)
@@ -315,10 +317,10 @@ func TestPlaygroundRelayMediaPreservesPayloadAndRealKeyAccounting(t *testing.T) 
 				require.NoError(t, db.First(key, key.Id).Error)
 				require.NoError(t, db.First(user, user.Id).Error)
 				require.NoError(t, db.First(other, other.Id).Error)
-				assert.Equal(t, 15, key.UsedQuota)
-				assert.Equal(t, 1000000-15, key.RemainQuota)
-				assert.Equal(t, 1000000-15, user.Quota)
-				assert.Equal(t, 1000, other.RemainQuota)
+				assert.Equal(t, int64(15), key.UsedQuota)
+				assert.Equal(t, int64(1000000-15), key.RemainQuota)
+				assert.Equal(t, int64(1000000-15), user.Quota)
+				assert.Equal(t, int64(1000), other.RemainQuota)
 				assert.Zero(t, other.UsedQuota)
 				var usage model.Log
 				require.NoError(t, db.Where("request_id = ? AND type = ?", "pg-media-success", model.LogTypeConsume).First(&usage).Error)
@@ -353,8 +355,8 @@ func TestPlaygroundRelayMediaPreservesPayloadAndRealKeyAccounting(t *testing.T) 
 				assert.Contains(t, unsupportedPDF.Body.String(), "playground_file_provider_unsupported")
 				assert.EqualValues(t, 1, upstreamCalls.Load())
 				require.NoError(t, db.First(key, key.Id).Error)
-				assert.Equal(t, 15, key.UsedQuota)
-				assert.Equal(t, 1000000-15, key.RemainQuota)
+				assert.Equal(t, int64(15), key.UsedQuota)
+				assert.Equal(t, int64(1000000-15), key.RemainQuota)
 				require.NoError(t, db.Model(channel).Update("type", constant.ChannelTypeOpenAI).Error)
 				// The same selected real key now opts into strict text-only budgets.
 				// Both media types must fail before a second upstream dispatch.
@@ -368,8 +370,8 @@ func TestPlaygroundRelayMediaPreservesPayloadAndRealKeyAccounting(t *testing.T) 
 				}
 				assert.EqualValues(t, 1, upstreamCalls.Load())
 				require.NoError(t, db.First(key, key.Id).Error)
-				assert.Equal(t, 15, key.UsedQuota)
-				assert.Equal(t, 1000000-15, key.RemainQuota)
+				assert.Equal(t, int64(15), key.UsedQuota)
+				assert.Equal(t, int64(1000000-15), key.RemainQuota)
 			})
 		}
 	}
@@ -422,8 +424,8 @@ func TestPlaygroundRelayRechecksUserAndKeyAssignmentsAfterSelection(t *testing.T
 			assert.Equal(t, http.StatusForbidden, revoked.Code, revoked.Body.String())
 			assert.EqualValues(t, 1, upstreamCalls.Load(), "previously selected channel cannot retain revoked access")
 			require.NoError(t, db.First(key, key.Id).Error)
-			assert.Equal(t, 15, key.UsedQuota)
-			assert.Equal(t, 1000000-15, key.RemainQuota)
+			assert.Equal(t, int64(15), key.UsedQuota)
+			assert.Equal(t, int64(1000000-15), key.RemainQuota)
 			_, err = model.ConfigureAssignedAccessPolicy(context.Background(), db, subject, subjectID, 3, allowedPolicy)
 			require.NoError(t, err)
 			require.NoError(t, db.Model(key).Update("status", common.TokenStatusDisabled).Error)
@@ -502,9 +504,9 @@ func TestPlaygroundCodexImageChatConversionReachesResponsesUpstream(t *testing.T
 			}
 			require.NoError(t, db.First(key, key.Id).Error)
 			require.NoError(t, db.First(user, user.Id).Error)
-			assert.Equal(t, 15, key.UsedQuota)
-			assert.Equal(t, 1000000-15, key.RemainQuota)
-			assert.Equal(t, 1000000-15, user.Quota)
+			assert.Equal(t, int64(15), key.UsedQuota)
+			assert.Equal(t, int64(1000000-15), key.RemainQuota)
+			assert.Equal(t, int64(1000000-15), user.Quota)
 			var usage model.Log
 			require.NoError(t, db.Where("request_id = ? AND type = ?", "pg-codex-image", model.LogTypeConsume).First(&usage).Error)
 			assert.Equal(t, key.Id, usage.TokenId)
@@ -533,9 +535,9 @@ func TestPlaygroundImageUnsupportedAdapterNeverDispatches(t *testing.T) {
 	assert.Zero(t, upstreamCalls.Load())
 	require.NoError(t, db.First(key, key.Id).Error)
 	require.NoError(t, db.First(user, user.Id).Error)
-	assert.Equal(t, 1000000, key.RemainQuota)
+	assert.Equal(t, int64(1000000), key.RemainQuota)
 	assert.Zero(t, key.UsedQuota)
-	assert.Equal(t, 1000000, user.Quota)
+	assert.Equal(t, int64(1000000), user.Quota)
 }
 
 func TestPlaygroundPartialImageStreamHoldsUnknownUsageWithoutRetry(t *testing.T) {

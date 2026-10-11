@@ -1,11 +1,20 @@
 # v0.2.0-beta.11 unpublished candidate
 
+**2026-10-10 当前任务：** 暂不发布或部署。先按[历史账务兼容核查记录](HISTORICAL_ACCOUNTING_COMPATIBILITY.md)
+核清历史账务；下述构建、安装与升级验收只覆盖合成环境，不能代替用户历史数据库的一致性验收。
+
+本地另有未提交候选：新请求准入保护、个人资料加载修复、历史金额表示兼容、迁移前只读探针、持久执行许可及Key编辑并发保护。前端合成交互通过，带执行门禁的实际Go副本演练及独立全表检查已完成，但原生三库/Redis及历史证据仍未闭合；v7冷余额旧快照及免预扣局部修正的定向红绿和独立代码审查通过，最终model 1678项及middleware/controller/service/router全包通过，外部依赖跳过项仍待验；旧权限缓存复活的两条合成路径已由当前数据库授权读取修正；model最终全包、controller/router/service/Kling及amd64/386时长校验已有通过证据，根模块测试编译、vet及主程序/386构建通过；这些检查不证明生产账务已核清。候选未进入main、镜像或发布资产，历史账务未核清，详细范围见上述核查记录。
+
 **Not published. Do not pull or deploy the beta.11 example image yet.**
 The currently available prerelease remains [beta.10](https://github.com/ForceMind/MyAPI/releases/tag/v0.2.0-beta.10), fixed at
 `631b3205ab2ad28df3f9372bd00f02bd27cb4c31`. Do not move that tag or overwrite its assets or images.
-This candidate starts from main `b8eec75d135f5489fff884820539b5abe99ae312`, tree
-`c51954e8abae5e251f050b04426d921af2a8402b`. Its own final source head, merge checkout,
+The current local repair baseline is main `92fa1182e265924312d70917a0a637965aebc617`, tree
+`01664d716e57f3fc99e2d92c61b6f31217c5a92b`. The earlier release-preparation baseline was
+`b8eec75d135f5489fff884820539b5abe99ae312`, tree `c51954e8abae5e251f050b04426d921af2a8402b`.
+Its own final source head, merge checkout,
 CI and release identities must be recorded after execution; earlier green commits do not qualify it.
+
+下面保留的是历史发布准备记录，其旧候选SHA和合成验收不覆盖当前main `92fa1182e265924312d70917a0a637965aebc617` 上的未提交修复。以本文开头的部署禁令和核查记录为准。
 
 ## Included scope since beta.10
 

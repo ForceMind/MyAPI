@@ -161,6 +161,7 @@ func TestUpdateTokenAutoGroupsTriStateAndNonAutoCleanup(t *testing.T) {
 			require.NoError(t, model.DB.Save(token).Error)
 
 			request := baseAutoTokenRequest("updated-auto")
+			delete(request, "remain_quota") // This operation edits routing metadata only.
 			request["id"] = token.Id
 			request["status"] = common.TokenStatusEnabled
 			request["group"] = test.group

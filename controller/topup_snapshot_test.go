@@ -27,5 +27,5 @@ func TestAdminCompleteTopUpMissingSnapshotRequiresReconciliation(t *testing.T) {
 	assert.Equal(t, common.TopUpStatusPending, order.Status)
 	var user model.User
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 100, user.Quota)
+	assert.Equal(t, int64(100), user.Quota)
 }

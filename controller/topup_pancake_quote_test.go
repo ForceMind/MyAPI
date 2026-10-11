@@ -91,7 +91,7 @@ func TestPancakeSDKUsesPersistedFrozenOrderAfterConfigurationChanges(t *testing.
 	}
 	var user model.User
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 300, user.Quota)
+	assert.Equal(t, int64(300), user.Quota)
 }
 
 func TestPancakeCanceledCheckoutKeepsOrderAvailableForLaterCallback(t *testing.T) {
@@ -111,7 +111,7 @@ func TestPancakeCanceledCheckoutKeepsOrderAvailableForLaterCallback(t *testing.T
 	assert.Equal(t, http.StatusOK, deliverVerifiedPancakeFixture(t, event))
 	var user model.User
 	require.NoError(t, db.First(&user, 1).Error)
-	assert.Equal(t, 300, user.Quota)
+	assert.Equal(t, int64(300), user.Quota)
 }
 
 func TestPancakeSourceMismatchAndLegacyMissingSourceNeverCredit(t *testing.T) {
@@ -136,7 +136,7 @@ func TestPancakeSourceMismatchAndLegacyMissingSourceNeverCredit(t *testing.T) {
 			assert.Equal(t, http.StatusOK, deliverVerifiedPancakeFixture(t, event))
 			var user model.User
 			require.NoError(t, db.First(&user, 1).Error)
-			assert.Equal(t, 100, user.Quota)
+			assert.Equal(t, int64(100), user.Quota)
 			require.NoError(t, db.First(&order, order.Id).Error)
 			assert.Equal(t, common.TopUpStatusPending, order.Status)
 			if scenario == "legacy missing source" {
@@ -146,7 +146,7 @@ func TestPancakeSourceMismatchAndLegacyMissingSourceNeverCredit(t *testing.T) {
 			event.StoreID, event.Data.Currency = "STO_saved", "USD"
 			assert.Equal(t, http.StatusOK, deliverVerifiedPancakeFixture(t, event), "stored source stays authoritative after live configuration changes")
 			require.NoError(t, db.First(&user, 1).Error)
-			assert.Equal(t, 300, user.Quota)
+			assert.Equal(t, int64(300), user.Quota)
 		})
 	}
 }

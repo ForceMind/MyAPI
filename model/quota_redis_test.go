@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/alicebob/miniredis/v2"
 	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -56,6 +57,22 @@ func TestS2CQuotaConfiguredRedis(t *testing.T) {
 	count, err := client.DBSize(ctx).Result()
 	require.NoError(t, err)
 	require.Zero(t, count)
+	runS2CQuotaRedisContract(t, client)
+}
+
+func TestS2CQuotaMiniRedis(t *testing.T) {
+	server := miniredis.RunT(t)
+	server.SetTime(time.Unix(1_700_000_000, 0))
+	options, err := s2cRedisFixtureOptions(server.Addr())
+	require.NoError(t, err)
+	client := redis.NewClient(options)
+	t.Cleanup(func() { require.NoError(t, client.Close()) })
+	runS2CQuotaRedisContract(t, client)
+}
+
+func runS2CQuotaRedisContract(t *testing.T, client *redis.Client) {
+	t.Helper()
+	ctx := context.Background()
 
 	for _, operation := range []struct {
 		name, script   string
@@ -73,6 +90,7 @@ func TestS2CQuotaConfiguredRedis(t *testing.T) {
 				before := map[string]string{"Id": "42", "CacheSchema": strconv.Itoa(userCacheSchemaVersion), "Quota": "100", "RemainQuota": "100", "UsedQuota": "20", "AccessedTime": "99", "Name": "preserve", "QuotaWriterEpoch": "1"}
 				third := userCacheSchemaVersion
 				if operation.token {
+					before["CacheSchema"] = strconv.Itoa(tokenCacheSchemaVersion)
 					third = 123
 				}
 				args := []interface{}{10, 42, third, 1}
@@ -107,14 +125,14 @@ func TestS2CQuotaConfiguredRedis(t *testing.T) {
 					before[field], want = "01", -1
 				case "result-overflow":
 					if operation.token {
-						before["UsedQuota"], want = strconv.Itoa(common.MaxQuota), -2
+						before["UsedQuota"], want = strconv.FormatInt(common.MaxQuotaBalance, 10), -2
 						if !operation.reserve {
-							before["UsedQuota"] = strconv.Itoa(common.MinQuota)
+							before["UsedQuota"] = "0"
 						}
 					} else if operation.reserve {
 						before["Quota"], want = "-10", 0 // Insufficient debt balance; never a credit.
 					} else {
-						before["Quota"], want = strconv.Itoa(common.MaxQuota), -2
+						before["Quota"], want = strconv.FormatInt(common.MaxQuotaBalance, 10), -2
 					}
 				}
 				require.NoError(t, client.HSet(ctx, key, before).Err())

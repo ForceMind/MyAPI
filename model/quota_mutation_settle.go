@@ -600,20 +600,34 @@ func quotaMutationRefundAfter(before QuotaMutationAccountSnapshot, billingSource
 	if refundQuota == 0 {
 		return after, nil
 	}
+	if !quotaMutationVersionValid(before.Token.QuotaVersion) {
+		return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
+	}
 
 	if billingSource == "wallet" {
-		newUserQuota := int64(before.User.Quota) + refundQuota
-		if newUserQuota > int64(common.MaxQuota) {
+		if !quotaMutationVersionValid(before.User.QuotaVersion) {
 			return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
 		}
-		after.User.Quota = int(newUserQuota)
+		newUserQuota, err := common.CheckedQuotaBalance(before.User.Quota, refundQuota)
+		if err != nil {
+			return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
+		}
+		after.User.Quota = newUserQuota
 		after.User.QuotaVersion++
 	} else {
 		if after.Subscription == nil {
 			return QuotaMutationAccountSnapshot{}, ErrTaskQuotaReservationInvalidInput
 		}
-		newUsed := after.Subscription.AmountUsed - refundQuota
-		if newUsed < 0 {
+		if !quotaMutationVersionValid(after.Subscription.QuotaVersion) {
+			return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
+		}
+		if after.Subscription.AmountTotal != 0 {
+			if _, err := common.CheckedQuotaUsed(after.Subscription.AmountTotal, 0); err != nil {
+				return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
+			}
+		}
+		newUsed, err := common.CheckedQuotaUsed(after.Subscription.AmountUsed, -refundQuota)
+		if err != nil {
 			return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
 		}
 		after.Subscription.AmountUsed = newUsed
@@ -621,16 +635,16 @@ func quotaMutationRefundAfter(before QuotaMutationAccountSnapshot, billingSource
 		after.Subscription.UpdatedAt = databaseNow
 	}
 
-	newRemain := int64(before.Token.RemainQuota) + refundQuota
-	if newRemain > int64(common.MaxQuota) {
+	newRemain, err := common.CheckedQuotaBalance(before.Token.RemainQuota, refundQuota)
+	if err != nil {
 		return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
 	}
-	newUsed := int64(before.Token.UsedQuota) - refundQuota
-	if newUsed < 0 {
+	newUsed, err := common.CheckedQuotaUsed(before.Token.UsedQuota, -refundQuota)
+	if err != nil {
 		return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
 	}
-	after.Token.RemainQuota = int(newRemain)
-	after.Token.UsedQuota = int(newUsed)
+	after.Token.RemainQuota = newRemain
+	after.Token.UsedQuota = newUsed
 	after.Token.AccessedTime = databaseNow
 	after.Token.QuotaVersion++
 	return after, nil
@@ -696,22 +710,37 @@ func quotaMutationSettlementAfter(before QuotaMutationAccountSnapshot, billingSo
 	if delta == 0 {
 		return after, nil
 	}
+	if !quotaMutationVersionValid(before.Token.QuotaVersion) {
+		return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
+	}
 
 	if billingSource == "wallet" {
-		newUserQuota := int64(before.User.Quota) + delta
-		if newUserQuota > int64(common.MaxQuota) {
-			return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
-		} else if newUserQuota < int64(common.MinQuota) {
+		if !quotaMutationVersionValid(before.User.QuotaVersion) {
 			return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
 		}
-		after.User.Quota = int(newUserQuota)
+		newUserQuota, err := common.CheckedQuotaBalance(before.User.Quota, delta)
+		if err != nil {
+			return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
+		}
+		after.User.Quota = newUserQuota
 		after.User.QuotaVersion++
 	} else {
 		if after.Subscription == nil {
 			return QuotaMutationAccountSnapshot{}, ErrTaskQuotaReservationInvalidInput
 		}
-		newUsed := after.Subscription.AmountUsed - delta
-		if newUsed < 0 {
+		if !quotaMutationVersionValid(after.Subscription.QuotaVersion) {
+			return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
+		}
+		if after.Subscription.AmountTotal != 0 {
+			if _, err := common.CheckedQuotaUsed(after.Subscription.AmountTotal, 0); err != nil {
+				return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
+			}
+		}
+		newUsed, err := common.CheckedQuotaUsed(after.Subscription.AmountUsed, -delta)
+		if err != nil {
+			return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
+		}
+		if after.Subscription.AmountTotal > 0 && newUsed > after.Subscription.AmountTotal {
 			return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
 		}
 		after.Subscription.AmountUsed = newUsed
@@ -719,20 +748,16 @@ func quotaMutationSettlementAfter(before QuotaMutationAccountSnapshot, billingSo
 		after.Subscription.UpdatedAt = databaseNow
 	}
 
-	newRemain := int64(before.Token.RemainQuota) + delta
-	if newRemain > int64(common.MaxQuota) {
-		return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
-	} else if newRemain < int64(common.MinQuota) {
+	newRemain, err := common.CheckedQuotaBalance(before.Token.RemainQuota, delta)
+	if err != nil {
 		return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
 	}
-	newUsed := int64(before.Token.UsedQuota) - delta
-	if newUsed < 0 {
-		return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
-	} else if newUsed > int64(common.MaxQuota) {
+	newUsed, err := common.CheckedQuotaUsed(before.Token.UsedQuota, -delta)
+	if err != nil {
 		return QuotaMutationAccountSnapshot{}, ErrTaskTerminalObservationManualReview
 	}
-	after.Token.RemainQuota = int(newRemain)
-	after.Token.UsedQuota = int(newUsed)
+	after.Token.RemainQuota = newRemain
+	after.Token.UsedQuota = newUsed
 	after.Token.AccessedTime = databaseNow
 	after.Token.QuotaVersion++
 	return after, nil

@@ -140,10 +140,11 @@ func ProjectUsageReviewDecision(ctx context.Context, db, logDB *gorm.DB, decisio
 		if err := lockForUpdate(tx).First(&user, decision.UserID).Error; err != nil {
 			return err
 		}
-		if user.UsedQuota < 0 || decision.ActualQuota > int64(common.MaxQuota-user.UsedQuota) || user.RequestCount >= common.MaxQuota {
+		userUsed, err := common.CheckedQuotaUsed(user.UsedQuota, decision.ActualQuota)
+		if err != nil || user.RequestCount >= common.MaxQuota {
 			return ErrAccountQuotaMutationInvalidInput
 		}
-		if err := tx.Model(&User{}).Where("id = ?", user.Id).Updates(map[string]interface{}{"used_quota": int64(user.UsedQuota) + decision.ActualQuota, "request_count": user.RequestCount + 1}).Error; err != nil {
+		if err := tx.Model(&User{}).Where("id = ?", user.Id).Updates(map[string]interface{}{"used_quota": userUsed, "request_count": user.RequestCount + 1}).Error; err != nil {
 			return err
 		}
 		if decision.ChannelID > 0 {
@@ -153,10 +154,11 @@ func ProjectUsageReviewDecision(ctx context.Context, db, logDB *gorm.DB, decisio
 				return lookup
 			}
 			if lookup == nil {
-				if channel.UsedQuota < 0 || decision.ActualQuota > int64(common.MaxQuota-channel.UsedQuota) {
+				channelUsed, err := common.CheckedQuotaUsed(channel.UsedQuota, decision.ActualQuota)
+				if err != nil {
 					return ErrAccountQuotaMutationInvalidInput
 				}
-				if err := tx.Model(&Channel{}).Where("id = ?", channel.Id).Update("used_quota", int64(channel.UsedQuota)+decision.ActualQuota).Error; err != nil {
+				if err := tx.Model(&Channel{}).Where("id = ?", channel.Id).Update("used_quota", channelUsed).Error; err != nil {
 					return err
 				}
 			}

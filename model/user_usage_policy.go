@@ -18,7 +18,7 @@ type UserUsagePolicy struct {
 	UserID               int   `json:"user_id"`
 	NoBalance            bool  `json:"no_balance"`
 	Revision             int64 `json:"revision"`
-	LegacyRemainingQuota int   `json:"legacy_remaining_quota"`
+	LegacyRemainingQuota int64 `json:"legacy_remaining_quota"`
 }
 
 type UserUsagePolicyInput struct {

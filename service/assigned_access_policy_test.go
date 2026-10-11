@@ -102,12 +102,21 @@ func TestAssignedAccessDispatchRejectsWarmStaleTokenCache(t *testing.T) {
 	common.RDB = redis.NewClient(&redis.Options{Addr: server.Addr()})
 	common.RedisEnabled = true
 	t.Cleanup(func() { _ = common.RDB.Close(); common.RDB = oldRDB; common.RedisEnabled = false })
-	_, err := model.GetTokenByKey(token.Key, false)
-	require.NoError(t, err)
+	previousBatch := common.BatchUpdateEnabled
+	common.BatchUpdateEnabled = false
+	t.Cleanup(func() { common.BatchUpdateEnabled = previousBatch })
+	require.NoError(t, db.AutoMigrate(&model.QuotaBalanceBatchDrain{}, &model.QuotaBalanceBatchSubject{}, &model.QuotaWorkCursor{}))
+	require.NoError(t, model.EnsureQuotaMaintenanceBackfillCursorsWithDB(db))
+	// A real locked quota writer, rather than an authorization read, owns
+	// construction of the complete synthetic accounting cache.
+	require.NoError(t, model.DecreaseTokenQuota(token.Id, token.Key, 0))
 	require.NoError(t, db.Model(&model.Token{}).Where("id = ?", token.Id).Update("status", common.TokenStatusDisabled).Error)
-	cached, err := model.GetTokenByKey(token.Key, false)
+	redisStatus, err := common.RDB.HGet(context.Background(), "token:"+common.GenerateHMAC(token.Key), "Status").Int()
 	require.NoError(t, err)
-	require.Equal(t, common.TokenStatusEnabled, cached.Status, "fixture must really retain stale cache authorization")
+	require.Equal(t, common.TokenStatusEnabled, redisStatus, "fixture must really retain stale cache authorization")
+	resolved, err := model.GetTokenByKey(token.Key, false)
+	require.NoError(t, err)
+	require.Equal(t, common.TokenStatusDisabled, resolved.Status, "authorization metadata must come from the current database row")
 	assert.ErrorIs(t, ValidateAssignedAccessDispatch(c, req, info), ErrAssignedAccessDenied)
 }
 

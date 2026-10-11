@@ -144,7 +144,7 @@ func TestModelRouteActualApplicationFlow(t *testing.T) {
 	require.Equal(t, http.StatusOK, responses.Code, responses.Body.String())
 	require.EqualValues(t, 3, hits.Load())
 	require.NoError(t, db.First(&token, token.Id).Error)
-	require.Greater(t, token.UsedQuota, 0)
+	require.Greater(t, token.UsedQuota, int64(0))
 	require.Equal(t, 1000000-token.UsedQuota, token.RemainQuota)
 	codex := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var payload struct {
