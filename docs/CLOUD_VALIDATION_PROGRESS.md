@@ -1,6 +1,6 @@
 # 历史兼容候选的云端验收
 
-更新日期：2026-10-11。已验基线为 `1608f85f0b7b2882a91dd60c0525ccccc7e583df`，tree `be9453563816059afc753218840e41e7165f100d`；[CI 38142050913](https://github.com/ForceMind/MyAPI/actions/runs/38142050913)十项全部 success，独立终审通过。[草稿 PR #11](https://github.com/ForceMind/MyAPI/pull/11)保持 Draft。当前继续原金额方案的 Key 调整幂等和派生总额兼容，不以基线绿灯替本批记通过。历史账本仍未核清，生产保持不动。
+更新日期：2026-10-12。已验基线为 `1608f85f0b7b2882a91dd60c0525ccccc7e583df`，tree `be9453563816059afc753218840e41e7165f100d`；[CI 38142050913](https://github.com/ForceMind/MyAPI/actions/runs/38142050913)十项全部 success，独立终审通过。[草稿 PR #11](https://github.com/ForceMind/MyAPI/pull/11)保持 Draft。当前继续原金额方案的 Key 调整幂等和派生总额兼容，不以基线绿灯替本批记通过。历史账本仍未核清，生产保持不动。
 
 ## 当前开发：Key 额度重试与派生总额（待验证）
 
@@ -31,6 +31,14 @@
 后继仅修改浏览器断言、该预算按钮间距及本记录三个文件：绑定真实总额度label的父容器，规范空白后精确比较整条 label 与 `Unavailable`，保留双分项、无progress、所有桌面边界及双截图要求；预算按钮由默认 `px-3` 改为 `px-2`，避免宽屏中 `budgets` 最后一个字母单独换行。后者仍须新1280/320正式截图确认，不以静态尺寸推测记视觉通过。无金额、权限、API、生产迁移、依赖或workflow改动；后继保留该轮后端至终态后才提交，准确新提交的完整验收仍待结果。
 
 该轮现已终态九项 success、前端一项 failure。后端 root/独立relaykit完整test、38618项五包、审计63及全部八组race步骤成功；最后durable race的准确selector包含新的两请求恢复fixture，model包实际成功。此命令未使用 `-v`，不声称日志含该单项RUN/PASS计数。MySQL/PostgreSQL共享B2合同129次唯一RUN/PASS、Redis51次唯一RUN/PASS均零skip/fail，独立专项结果审查通过。这些成功不覆盖前端失败或历史账务缺口。
+
+### 3f69794 的抽屉重开测试时序
+
+`3f69794c2541ffbd6c06fd48842f0a48e2f64da7`（tree `abaaadbaeeca237645ad639df9109970e90c66f5`，实际PR检出 `768825ad5adb296da6a16c4db4fde06a894f2675` 同tree）的 [CI 38152144218](https://github.com/ForceMind/MyAPI/actions/runs/38152144218) 终态九项success、前端一项failure。前端类型检查和lint成功，单测189/190文件、1146/1147测试通过；唯一失败为关闭重开抽屉后第二个PUT缺少 `request_id`。后续build和全部browser步骤未运行，artifact为0，不能复用上一轮截图称本轮布局验收通过。后端root/独立relaykit完整测试、38618项五包、审计63及八组race步骤成功；MySQL/PostgreSQL B2的129次唯一RUN/PASS和Redis7.4.11的51次唯一RUN/PASS均零skip/fail，独立专项审查通过。这些成功不抵消前端失败。
+
+主线程与UI实现者核对到测试等待条件的竞争：关闭重开后同名旧输入仍在，`findByDisplayValue` 可在异步读取完成前返回。界面这时已通过 `aria-busy`、`inert` 和禁用保存阻止操作，测试的 `fireEvent.change` 却仍可修改旧输入；随后初始化恢复原100额度并清除dirty，第二次PUT因此成为省略额度身份的元数据请求。此解释须由受控用例及后继云验收检验，不声称已在生产复现。
+
+本批只改该额度编辑测试和本记录：helper等待真正初始化后编辑；用受控Promise挂起重开时的详情读取，检查加载屏障，完成读取后核对100基线，再改为120并提交。两个请求保持相同Key、版本、元数据指纹和120意图，保留且加强第二次额度payload、两个ID存在且不同的断言，使关闭清理成为新ID的必要原因。不改生产表单、金额、权限、API、依赖、workflow或任何执行预算，不用sleep、弱化断言或重跑掩盖失败。本机仅静态检查；后继准确提交的完整Actions、正式1280/320截图和Playground结果仍待验证。
 
 原方案要求显式 Key 额度修改具有持久请求身份；1608 基线只有版本与元数据 CAS，响应丢失后的重试不能返回原调整结果。本批在现有 PUT `/api/token/` 保留一次表单的名称、权限及额度原子修改，增加规范小写 UUID `request_id` 和不可变成功收据。收据以 `(user_id, request_id_hash)` 唯一；哈希及原身份、Key ID、包含字段存在性的客户端白名单指纹一起核验，避免 MySQL 排序规则把不同输入视为同一身份。持久指纹具有明确版本和固定规范编码，未来缺席字段不得改变旧请求摘要。重试在当前 owner 验证后、写入权限及版本检查前查询原收据；相同请求返回原结果和当前持久数据库行的脱敏 Key，不再次修改余额或发布旧缓存。该 Key projection 沿用原API数据库读取语义，不代表尚未drain的有效缓存余额；缓存离线也不阻止确认成功收据。异参数冲突，任何失败事务不留下收据或部分表单修改。
 

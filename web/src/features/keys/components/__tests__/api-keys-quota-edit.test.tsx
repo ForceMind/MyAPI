@@ -40,13 +40,21 @@ function makeKey(overrides: Partial<ApiKey> = {}): ApiKey {
   })
 }
 
-function installReadFixtures(keys: ApiKey[]) {
+function installReadFixtures(
+  keys: ApiKey[],
+  readKey: (
+    key: ApiKey,
+    readCount: number
+  ) => ApiKey | Promise<ApiKey> = (key) => key
+) {
+  let detailReadCount = 0
   vi.spyOn(api, 'get').mockImplementation(async (url) => {
     if (url.startsWith('/api/token/')) {
       const id = Number(url.slice('/api/token/'.length))
       const key = keys.find((candidate) => candidate.id === id)
       if (!key) throw new Error(`Unexpected synthetic key ${id}`)
-      return { data: { success: true, data: key } }
+      const data = await readKey(key, ++detailReadCount)
+      return { data: { success: true, data } }
     }
     if (url === '/api/status') {
       return {
@@ -63,6 +71,22 @@ function installReadFixtures(keys: ApiKey[]) {
       return { data: { success: true, data: { groups: [], max_count: 5 } } }
     }
     throw new Error(`Unexpected synthetic read ${url}`)
+  })
+}
+
+async function waitForDrawerReady(currentRow: ApiKey) {
+  await screen.findByDisplayValue(currentRow.name)
+  await waitFor(() => {
+    expect(document.getElementById('api-key-form')).toHaveAttribute(
+      'aria-busy',
+      'false'
+    )
+    expect(document.getElementById('api-key-form')).not.toHaveAttribute(
+      'inert'
+    )
+    expect(
+      screen.getByRole('button', { name: 'Save changes' })
+    ).toBeEnabled()
   })
 }
 
@@ -94,13 +118,17 @@ async function renderDrawer(
     </QueryClientProvider>
   )
   const rendered = render(view(true, currentRow))
-  await screen.findByDisplayValue(currentRow.name)
+  await waitForDrawerReady(currentRow)
 
   return {
     client,
-    rerender: async (open: boolean, row: ApiKey) => {
+    rerender: async (
+      open: boolean,
+      row: ApiKey,
+      { waitUntilReady = true }: { waitUntilReady?: boolean } = {}
+    ) => {
       rendered.rerender(view(open, row))
-      if (open) await screen.findByDisplayValue(row.name)
+      if (open && waitUntilReady) await waitForDrawerReady(row)
     },
   }
 }
@@ -304,7 +332,18 @@ it.each(['name', 'quota'] as const)(
 
 it('clears the failed attempt when the drawer closes and reopens', async () => {
   const key = makeKey()
-  installReadFixtures([key])
+  let resolveReopenedDetail!: (key: ApiKey) => void
+  let reopenedDetailRequested = false
+  const reopenedDetail = new Promise<ApiKey>((resolve) => {
+    resolveReopenedDetail = resolve
+  })
+  installReadFixtures([key], (candidate, readCount) => {
+    if (candidate.id === key.id && readCount === 2) {
+      reopenedDetailRequested = true
+      return reopenedDetail
+    }
+    return candidate
+  })
   const update = vi
     .spyOn(api, 'put')
     .mockResolvedValue({ data: { success: false } })
@@ -319,16 +358,51 @@ it('clears the failed attempt when the drawer closes and reopens', async () => {
   )
 
   await drawer.rerender(false, key)
-  await drawer.rerender(true, key)
+  await drawer.rerender(true, key, { waitUntilReady: false })
+  await waitFor(() => expect(reopenedDetailRequested).toBe(true))
+  await waitFor(() => {
+    expect(document.getElementById('api-key-form')).toHaveAttribute(
+      'aria-busy',
+      'true'
+    )
+    expect(document.getElementById('api-key-form')).toHaveAttribute('inert')
+    expect(
+      screen.getByRole('button', { name: 'Save changes' })
+    ).toBeDisabled()
+  })
+
+  await act(async () => {
+    resolveReopenedDetail(key)
+    await reopenedDetail
+  })
+  await waitForDrawerReady(key)
+  expect(
+    screen.getByRole('spinbutton', {
+      name: 'Key quota (internal units)',
+    })
+  ).toHaveValue(100)
   await changeQuota('120')
   await submit()
   await waitFor(() => expect(update).toHaveBeenCalledTimes(2))
 
   const firstRequestId = getRequestId(update.mock.calls[0])
   const secondRequestId = getRequestId(update.mock.calls[1])
+  const expectedQuotaIntent = {
+    id: key.id,
+    name: key.name,
+    remain_quota: 120,
+    quota_version: key.quota_version,
+    metadata_fingerprint: key.metadata_fingerprint,
+  }
+  expect(update.mock.calls[0][1]).toMatchObject(expectedQuotaIntent)
+  expect(update.mock.calls[1][1]).toMatchObject(expectedQuotaIntent)
   expect(firstRequestId).toEqual(expect.any(String))
   expect(secondRequestId).toEqual(expect.any(String))
   expect(secondRequestId).not.toBe(firstRequestId)
+  expect(update.mock.calls[1][1]).toEqual({
+    ...update.mock.calls[0][1],
+    request_id: secondRequestId,
+  })
 })
 
 it('clears the failed attempt and captures a fresh snapshot when switching keys', async () => {
