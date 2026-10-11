@@ -1,9 +1,13 @@
 package model
 
 import (
+	"context"
+	"database/sql"
 	"errors"
+	"fmt"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -168,6 +172,11 @@ func TestB2SubmissionConfiguredDatabases(t *testing.T) {
 			// maintenance step before exercising online index creation and backfill.
 			require.NoError(t, EnsureLogProjectionSchemaWithDB(db))
 			assertB2LegacyLogsMigrated(t, db, legacy)
+			require.NoError(t, migrateDB())
+			assertB2LegacyLogsMigrated(t, db, legacy)
+			t.Run("historical-amount-schema", func(t *testing.T) {
+				runHistoricalAmountSchemaContract(t, db)
+			})
 			var mysqlLockWait, mysqlInnoDBLockWait int64
 			var postgresLockTimeout string
 			if engine.name == "mysql" {
@@ -199,6 +208,175 @@ func TestB2SubmissionConfiguredDatabases(t *testing.T) {
 			t.Run("business-credit-receipts", func(t *testing.T) { runBusinessCreditConfiguredDatabaseContract(t, db) })
 		})
 	}
+}
+
+func runHistoricalAmountSchemaContract(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	for _, table := range quotaAmountTableSpecs {
+		require.True(t, db.Migrator().HasTable(table.name), "missing amount table %s", table.name)
+		columnTypes, err := db.Migrator().ColumnTypes(table.name)
+		require.NoError(t, err)
+		columns := make(map[string]struct{}, len(columnTypes))
+		for _, columnType := range columnTypes {
+			columns[strings.ToLower(columnType.Name())] = struct{}{}
+		}
+		for _, column := range table.columns {
+			_, exists := columns[column.column]
+			require.True(t, exists, "missing amount column %s.%s", table.name, column.column)
+		}
+	}
+
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	databaseType := common.DatabaseType(db.Dialector.Name())
+	switch databaseType {
+	case common.DatabaseTypeSQLite:
+		ctx, cancel := context.WithTimeout(context.Background(), quotaAmountSQLiteProbeTimeout)
+		defer cancel()
+		readTx, beginErr := sqlDB.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+		require.NoError(t, beginErr)
+		probeErr := inspectSQLiteQuotaAmountTx(ctx, readTx)
+		rollbackErr := readTx.Rollback()
+		require.NoError(t, rollbackErr)
+		require.NoError(t, probeErr)
+	case common.DatabaseTypeMySQL, common.DatabaseTypePostgreSQL:
+		ctx, cancel := context.WithTimeout(context.Background(), quotaAmountSQLProbeTimeout)
+		defer cancel()
+		require.NoError(t, inspectRelationalQuotaAmounts(ctx, sqlDB, databaseType))
+	default:
+		require.FailNow(t, "unsupported historical amount schema database", "dialect %s", db.Dialector.Name())
+	}
+
+	const (
+		wideAmount                  int64 = 1<<31 + 100
+		syntheticUsername                 = "amount-schema-user"
+		syntheticChannelName              = "amount-schema-channel"
+		syntheticQuotaNode                = "amount-schema-node"
+		syntheticReceiptKey               = "amount-schema-receipt"
+		syntheticPlanTitle                = "amount-schema-plan"
+		syntheticSubscriptionSource       = "amount-schema-subscription"
+		syntheticAdjustmentRequest        = "amount-schema-adjustment"
+	)
+	rollbackSentinel := errors.New("rollback historical amount schema fixture")
+	transactionErr := db.Transaction(func(tx *gorm.DB) error {
+		user := User{Username: syntheticUsername, Password: "fixture-password", UsedQuota: wideAmount}
+		if err := tx.Create(&user).Error; err != nil {
+			return err
+		}
+		channel := Channel{Key: "amount-schema-key", Name: syntheticChannelName, UsedQuota: wideAmount}
+		if err := tx.Create(&channel).Error; err != nil {
+			return err
+		}
+		quotaData := QuotaData{
+			UserID: user.Id, Username: syntheticUsername, ModelName: "amount-schema-model",
+			NodeName: syntheticQuotaNode, ChannelID: channel.Id, Quota: wideAmount,
+		}
+		if err := tx.Create(&quotaData).Error; err != nil {
+			return err
+		}
+		receipt := UserQuotaMutationReceipt{
+			ReceiptVersion: UserQuotaMutationReceiptVersion, WriterEpoch: 1,
+			MutationType: "schema_fixture", BusinessEventKey: syntheticReceiptKey,
+			RequestFingerprint: "f00000000000000000000000000000000000000000000000000000000000000a",
+			UserID:             user.Id, Delta: 2 * wideAmount, QuotaBefore: -wideAmount, QuotaAfter: wideAmount,
+			QuotaVersionBefore: 0, QuotaVersionAfter: 1, ReasonCode: "schema_fixture", Metadata: "{}",
+		}
+		if err := userQuotaMutationReceiptCreateDB(tx).Create(&receipt).Error; err != nil {
+			return err
+		}
+		plan := SubscriptionPlan{Title: syntheticPlanTitle, TotalAmount: 2 * wideAmount}
+		if err := tx.Create(&plan).Error; err != nil {
+			return err
+		}
+		subscription := UserSubscription{
+			UserId: user.Id, PlanId: plan.Id, AmountTotal: 2 * wideAmount, AmountUsed: wideAmount,
+			Status: "active", Source: syntheticSubscriptionSource,
+		}
+		if err := tx.Create(&subscription).Error; err != nil {
+			return err
+		}
+		adjustment := AdminQuotaAdjustment{
+			AdminUserId: user.Id, TargetUserId: user.Id, RequestId: syntheticAdjustmentRequest,
+			Operation: AdminQuotaAdjustmentOperationAdd, Delta: 2 * wideAmount, TargetQuota: wideAmount,
+			AppliedQuotaBefore: -wideAmount, AppliedQuotaAfter: wideAmount, Status: AdminQuotaAdjustmentStatusSucceeded,
+		}
+		if err := tx.Create(&adjustment).Error; err != nil {
+			return err
+		}
+
+		var storedUser User
+		if err := tx.Where("username = ?", syntheticUsername).First(&storedUser).Error; err != nil {
+			return err
+		}
+		var storedChannel Channel
+		if err := tx.Where("name = ?", syntheticChannelName).First(&storedChannel).Error; err != nil {
+			return err
+		}
+		var storedQuotaData QuotaData
+		if err := tx.Where("node_name = ?", syntheticQuotaNode).First(&storedQuotaData).Error; err != nil {
+			return err
+		}
+		var storedReceipt UserQuotaMutationReceipt
+		if err := tx.Where("business_event_key = ?", syntheticReceiptKey).First(&storedReceipt).Error; err != nil {
+			return err
+		}
+		var storedPlan SubscriptionPlan
+		if err := tx.Where("title = ?", syntheticPlanTitle).First(&storedPlan).Error; err != nil {
+			return err
+		}
+		var storedSubscription UserSubscription
+		if err := tx.Where("source = ?", syntheticSubscriptionSource).First(&storedSubscription).Error; err != nil {
+			return err
+		}
+		var storedAdjustment AdminQuotaAdjustment
+		if err := tx.Where("request_id = ?", syntheticAdjustmentRequest).First(&storedAdjustment).Error; err != nil {
+			return err
+		}
+		for _, value := range []struct {
+			name      string
+			got, want int64
+		}{
+			{"users.used_quota", storedUser.UsedQuota, wideAmount},
+			{"channels.used_quota", storedChannel.UsedQuota, wideAmount},
+			{"quota_data.quota", storedQuotaData.Quota, wideAmount},
+			{"user_quota_mutation_receipts.delta", storedReceipt.Delta, 2 * wideAmount},
+			{"user_quota_mutation_receipts.quota_before", storedReceipt.QuotaBefore, -wideAmount},
+			{"user_quota_mutation_receipts.quota_after", storedReceipt.QuotaAfter, wideAmount},
+			{"subscription_plans.total_amount", storedPlan.TotalAmount, 2 * wideAmount},
+			{"user_subscriptions.amount_total", storedSubscription.AmountTotal, 2 * wideAmount},
+			{"user_subscriptions.amount_used", storedSubscription.AmountUsed, wideAmount},
+			{"admin_quota_adjustments.delta", storedAdjustment.Delta, 2 * wideAmount},
+			{"admin_quota_adjustments.target_quota", storedAdjustment.TargetQuota, wideAmount},
+			{"admin_quota_adjustments.applied_quota_before", storedAdjustment.AppliedQuotaBefore, -wideAmount},
+			{"admin_quota_adjustments.applied_quota_after", storedAdjustment.AppliedQuotaAfter, wideAmount},
+		} {
+			if value.got != value.want {
+				return fmt.Errorf("historical amount schema %s round-trip mismatch: got %d, want %d", value.name, value.got, value.want)
+			}
+		}
+		return rollbackSentinel
+	})
+
+	for _, check := range []struct {
+		name  string
+		model any
+		query string
+		args  []any
+	}{
+		{"user", &User{}, "username = ?", []any{syntheticUsername}},
+		{"channel", &Channel{}, "name = ?", []any{syntheticChannelName}},
+		{"quota data", &QuotaData{}, "node_name = ?", []any{syntheticQuotaNode}},
+		{"user quota mutation receipt", &UserQuotaMutationReceipt{}, "business_event_key = ?", []any{syntheticReceiptKey}},
+		{"subscription plan", &SubscriptionPlan{}, "title = ?", []any{syntheticPlanTitle}},
+		{"user subscription", &UserSubscription{}, "source = ?", []any{syntheticSubscriptionSource}},
+		{"admin quota adjustment", &AdminQuotaAdjustment{}, "request_id = ?", []any{syntheticAdjustmentRequest}},
+	} {
+		var count int64
+		countErr := db.Model(check.model).Where(check.query, check.args...).Count(&count).Error
+		assert.NoError(t, countErr, "count rolled-back %s fixture", check.name)
+		assert.Zero(t, count, "rolled-back %s fixture remains", check.name)
+	}
+	require.ErrorIs(t, transactionErr, rollbackSentinel)
 }
 
 func runBusinessCreditConfiguredDatabaseContract(t *testing.T, db *gorm.DB) {
@@ -387,7 +565,7 @@ func assertB2LegacyLogsMigrated(t *testing.T, db *gorm.DB, legacy b2LegacyLog) {
 // migrateB2LegacyLogsFixture exercises the production log migration against
 // the oldest supported B2 fixture shape before any current-schema tables are
 // created. The fixture database was asserted empty above and is never dropped.
-func migrateB2LegacyLogsFixture(t *testing.T, db *gorm.DB) {
+func migrateB2LegacyLogsFixture(t *testing.T, db *gorm.DB) b2LegacyLog {
 	t.Helper()
 	legacy := createB2LegacyLogsFixture(t, db)
 	require.NoError(t, db.AutoMigrate(&Log{}))
@@ -404,4 +582,5 @@ func migrateB2LegacyLogsFixture(t *testing.T, db *gorm.DB) {
 	require.NoError(t, CreateLog(db, &current))
 	require.NotZero(t, current.Id)
 	assert.NotEqual(t, legacy.Id, current.Id)
+	return legacy
 }

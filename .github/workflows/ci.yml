@@ -66,6 +66,84 @@ jobs:
           CGO_ENABLED: '0'
         run: go build ./...
 
+      - name: Verify historical amount behavior on linux/386
+        env:
+          GOOS: linux
+          GOARCH: '386'
+          CGO_ENABLED: '0'
+        run: |
+          set -euo pipefail
+          go env GOOS GOARCH CGO_ENABLED GOWORK
+          directed_log="$RUNNER_TEMP/myapi-historical-amount-386.jsonl"
+          go test -json -p 1 ./common ./relay/common ./model ./controller ./service \
+            -run '^(TestCheckedQuotaBalance|TestCheckedQuotaUsed|TestRelayPreservesStoredUserQuota|TestWideAccountQuotaReserveRefundAndAtomicRollback|TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget|TestQuotaStateBoundaryFailuresWriteNothingAndRequestLimitStaysInt32|TestHistoricalAmountV3RowsRemainByteAndStateStableDuringInitialization|TestHistoricalAmountV3FingerprintExecutesWithoutIdentityRewrite|TestHistoricalAmountV4WideAggregateReplaysOnce|TestHistoricalAmountCacheOrdersAdjacentQuotaAndAuthVersionsAboveDoublePrecision|TestHistoricalAmountCacheSchemasReplaceOnlyTheTouchedKey|TestTokenMetadataPreservesWideQuota|TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing|TestSubscriptionQuotaNotificationPreservesWideRemaining)$' -count=1 -timeout=240s | tee "$directed_log"
+          python3 - "$directed_log" <<'PY'
+          import collections
+          import json
+          import sys
+          from pathlib import Path
+
+          expected = {
+              "github.com/ForceMind/MyAPI/common": [
+                  "TestCheckedQuotaBalance",
+                  "TestCheckedQuotaUsed"
+              ],
+              "github.com/ForceMind/MyAPI/relay/common": [
+                  "TestRelayPreservesStoredUserQuota"
+              ],
+              "github.com/ForceMind/MyAPI/model": [
+                  "TestWideAccountQuotaReserveRefundAndAtomicRollback",
+                  "TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget",
+                  "TestQuotaStateBoundaryFailuresWriteNothingAndRequestLimitStaysInt32",
+                  "TestHistoricalAmountV3RowsRemainByteAndStateStableDuringInitialization",
+                  "TestHistoricalAmountV3FingerprintExecutesWithoutIdentityRewrite",
+                  "TestHistoricalAmountV4WideAggregateReplaysOnce",
+                  "TestHistoricalAmountCacheOrdersAdjacentQuotaAndAuthVersionsAboveDoublePrecision",
+                  "TestHistoricalAmountCacheSchemasReplaceOnlyTheTouchedKey"
+              ],
+              "github.com/ForceMind/MyAPI/controller": [
+                  "TestTokenMetadataPreservesWideQuota",
+                  "TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing"
+              ],
+              "github.com/ForceMind/MyAPI/service": [
+                  "TestSubscriptionQuotaNotificationPreservesWideRemaining"
+              ]
+          }
+          runs = collections.Counter()
+          passes = collections.Counter()
+          package_passes = collections.Counter()
+          for line in Path(sys.argv[1]).read_text().splitlines():
+              event = json.loads(line)
+              package = event.get("Package")
+              if package not in expected:
+                  raise SystemExit("unexpected package in directed 386 run")
+              action = event.get("Action")
+              test = event.get("Test")
+              if action in {"skip", "fail"}:
+                  raise SystemExit("directed 386 test or package skipped/failed")
+              if test:
+                  top = test.split("/", 1)[0]
+                  if top not in expected[package]:
+                      raise SystemExit("unexpected test in directed 386 run")
+                  if test == top and action == "run":
+                      runs[(package, top)] += 1
+                  if test == top and action == "pass":
+                      passes[(package, top)] += 1
+              elif action == "pass":
+                  package_passes[package] += 1
+          required = {(package, name) for package, names in expected.items() for name in names}
+          if set(runs) != required or set(passes) != required:
+              raise SystemExit("directed 386 run is missing required top-level tests")
+          if any(count != 1 for count in runs.values()) or any(count != 1 for count in passes.values()):
+              raise SystemExit("directed 386 top-level test did not run/pass exactly once")
+          if dict(package_passes) != {package: 1 for package in expected}:
+              raise SystemExit("directed 386 package terminal result is missing or duplicated")
+          print("HISTORICAL_AMOUNT_386_CONTRACT_PASS " + json.dumps({
+              "top_level_pass": len(required), "packages_pass": len(expected),
+              "skip": 0, "fail": 0, "tests": sorted(name for _, name in required),
+          }, sort_keys=True))
+          PY
+
       # common/canonical_json.go is excluded because a canonical digest has to
       # walk the raw token stream: the wrappers decode into Go values, which
       # discards the number lexeme and key order the digest must preserve.

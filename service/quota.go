@@ -766,6 +766,28 @@ func checkAndSendQuotaNotify(relayInfo *relaycommon.RelayInfo, quota int, preCon
 	})
 }
 
+func buildSubscriptionQuotaNotification(notifyType string, remaining int64, topUpLink string) dto.Notify {
+	prompt := "您的订阅额度即将用尽"
+	formattedRemaining := logger.FormatQuota(remaining)
+	if notifyType == "" {
+		notifyType = dto.NotifyTypeEmail
+	}
+
+	if notifyType == dto.NotifyTypeBark {
+		return dto.NewNotify(dto.NotifyTypeQuotaExceed, prompt,
+			"{{value}}，剩余额度：{{value}}，请及时充值",
+			[]interface{}{prompt, formattedRemaining})
+	}
+	if notifyType == dto.NotifyTypeGotify {
+		return dto.NewNotify(dto.NotifyTypeQuotaExceed, prompt,
+			"{{value}}，当前剩余额度为 {{value}}，请及时充值。",
+			[]interface{}{prompt, formattedRemaining})
+	}
+	return dto.NewNotify(dto.NotifyTypeQuotaExceed, prompt,
+		"{{value}}，当前剩余额度为 {{value}}，为了不影响您的使用，请及时充值。<br/>充值链接：<a href='{{value}}'>{{value}}</a>",
+		[]interface{}{prompt, formattedRemaining, topUpLink, topUpLink})
+}
+
 func checkAndSendSubscriptionQuotaNotify(relayInfo *relaycommon.RelayInfo) {
 	gopool.Go(func() {
 		if relayInfo == nil {
@@ -787,28 +809,9 @@ func checkAndSendSubscriptionQuotaNotify(relayInfo *relaycommon.RelayInfo) {
 			return
 		}
 
-		prompt := "您的订阅额度即将用尽"
 		topUpLink := PaymentReturnURL("/wallet")
-
-		var content string
-		var values []interface{}
-		notifyType := userSetting.NotifyType
-		if notifyType == "" {
-			notifyType = dto.NotifyTypeEmail
-		}
-
-		if notifyType == dto.NotifyTypeBark {
-			content = "{{value}}，剩余额度：{{value}}，请及时充值"
-			values = []interface{}{prompt, logger.FormatQuota(int(remaining))}
-		} else if notifyType == dto.NotifyTypeGotify {
-			content = "{{value}}，当前剩余额度为 {{value}}，请及时充值。"
-			values = []interface{}{prompt, logger.FormatQuota(int(remaining))}
-		} else {
-			content = "{{value}}，当前剩余额度为 {{value}}，为了不影响您的使用，请及时充值。<br/>充值链接：<a href='{{value}}'>{{value}}</a>"
-			values = []interface{}{prompt, logger.FormatQuota(int(remaining)), topUpLink, topUpLink}
-		}
-
-		if err := NotifyUser(relayInfo.UserId, relayInfo.UserEmail, relayInfo.UserSetting, dto.NewNotify(dto.NotifyTypeQuotaExceed, prompt, content, values)); err != nil {
+		notification := buildSubscriptionQuotaNotification(userSetting.NotifyType, remaining, topUpLink)
+		if err := NotifyUser(relayInfo.UserId, relayInfo.UserEmail, relayInfo.UserSetting, notification); err != nil {
 			common.SysError(fmt.Sprintf("failed to send subscription quota notify to user %d: %s", relayInfo.UserId, err.Error()))
 		}
 	})

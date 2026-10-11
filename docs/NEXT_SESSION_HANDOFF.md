@@ -6,7 +6,7 @@
 
 [原生专项 38132921489](https://github.com/ForceMind/MyAPI/actions/runs/38132921489)在独立CI分支提交 `c8e7bbc04676e46f2ad0c806a9ac78562923a4ef` 上3项串行success、原10项skipped。其唯一parent为09ef、唯一差异为CI文件，非CI3067项摘要相同；MySQL 5.7/PostgreSQL 9.6的共享历史账务合同实际PASS且零skip，临时容器和网络已回收，独立审查通过。既有同源码Redis 7.4.11的44个quota-script子项PASS仍限该脚本合同，不证明完整缓存生命周期。
 
-文档后继3feff8e的CI前端超过15分钟总时限取消，旧失败保留；预算修正3a1d50a的[CI 38135269862](https://github.com/ForceMind/MyAPI/actions/runs/38135269862)十项全部success，Playground完整完成。当前继续补金额方案要求的真实Redis宽金额、2^53/MaxInt64版本排序及冷发布/只读信任合同，仅新增测试与文档，复用现有服务与两个父入口、保留原44断言；本批准确SHA/终态以[PR Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)为准。应用及旧原生数据库合同源码保持，旧09ef/Docker与c8e7/native证据按各自身份和范围复用，不把新增测试后的tree写成旧源码；不额外手动重复Docker/native。剩余依赖为beta.3一致性来源、完整资金/预扣/缓存/所有writer、504未知事件、旧authoritative终态凭证来源与真实回滚资格；没有新失败支持改动生产业务代码。未知项继续冻结，副本保持DO_NOT_RESTORE、ledger_reconciled=false、production_eligible=false。main仍为92fa1182；beta.10标签保持原值，beta.11只有未发布元数据，生产未改动，暂不发布或部署。
+文档后继3feff8e的前端15分钟超限取消按原事实保留；预算修正3a1d50a的CI十项success。真实Redis补验af18853的[CI 38138227403](https://github.com/ForceMind/MyAPI/actions/runs/38138227403)十项success，Redis7.4.11原44子项+新3组+3拒绝子项+父项共51次RUN/PASS各一次、零skip/fail；profile九场景及最后Playground命令完成。当前修复386订阅通知把int64 remaining转int造成的宽负余额显示错误，生产调用纯builder并保留阈值/模板/类型/链接；现有backend386build后新增五包14项严格JSON验收，无新服务、权限或上传，本批准确SHA/终态以[PR Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)为准。旧386全包失败和五项mock限制继续保留，新结果不能称全包通过。新增应用差异限service通知组装，不能继续声称整棵业务tree等于09ef；common应用逻辑与旧历史原生专项合同未变，model的B2测试补验范围见下段，旧09ef Docker与c8e7 native证据只按各自身份/未变路径复用。beta.3一致性来源、资金/预扣/缓存/所有writer、504未知事件、旧authoritative终态来源与真实回滚资格仍未齐；未知项冻结，副本DO_NOT_RESTORE、ledger_reconciled=false、production_eligible=false。main仍92fa1182，beta.10标签不变，beta.11只有未发布元数据，生产未改动，暂不发布或部署。
 
 以下至“历史主线”之前保留上轮本地收口记录。其中未提交、磁盘不足与Goal受阻表述仅在该轮归档时成立，不代表当前分支同步或资源状态。
 
@@ -39,6 +39,9 @@
 仍缺beta.3一致性来源、完整资金流、历史缓存/写入者及504条逐请求证据；原生MySQL/PostgreSQL实库未验，仅合成/SQLMock证据。未知外部DSN此前被自动审批拒绝，不重试；隔离临时容器选择尚待答复。候选以私有补丁和干净基线逐文件校验保存，保留v1–v9归档；Git身份与refs未修改，未提交、推送或上传敏感数据。386时长解析缺口已修复，amd64/386 relay/common全包通过且独立审查通过。v1–v8候选和原额度旧快照、persistent续期红测保持。冷缓存收口、当前Go COPY/原源预检、根模块覆盖三阶段均受相同外部缺口阻碍；现有独立工作收口后不自动反复重跑。下一步只补历史证据与获准隔离实库，受控生产staging/许可导入仍未提供；副本全部DO_NOT_RESTORE，严禁恢复生产。生产升级须另行批准。
 
 下方内容保留历史记录；其中“唯一当前执行入口”“下一主节点”和持续发布授权均不覆盖本节及用户最新要求。
+
+
+同批补齐当前完整金额schema的三库合成验收：复用既有B2服务，日志maintenance后成功执行标准生产migrateDB，检查21表38列和13个缺少原生证据的宽值字段；合成写事务回滚后核验零残留。准确后继结果待[PR Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)及historical-amount-schema原始日志回读。旧c8e7保持子集范围；这不证明旧金额窄列自动升级或生产账务已核清，详见[云端记录](CLOUD_VALIDATION_PROGRESS.md)。
 
 ## 历史主线：beta.10 已发布，个人模式与 Key 限额闭环（2026-10-09）
 

@@ -36,15 +36,37 @@ GitHub实际接受branch-ref新增inputs。guard核验event/ref/完整SHA、单�
 
 旧准确源码前端成功耗时899秒，已接近900秒上限；新旧profile约51秒、通用UI约426/432秒，尾段分别约74/75秒，没有新的断言失败或实质挂起证据。本批仅把frontend job总时限15→20分钟，给依赖安装、runner差异和完整末段留余量；全部步骤、脚本期限、断言和上传范围不变，不将加时本身称为修复通过。新准确提交的自动CI结果另行回读；不再手动运行Docker/native。应用与测试源码仍与09ef一致，原生专项继续按自身c8e7执行身份引用。
 
-### 真实Redis金额与缓存定向验收（本批）
+### 真实Redis金额与缓存定向验收（af18853，已完成）
 
 后继 `3a1d50a59d7caeaf98e149151842d4c58c4973e2`（tree `32376205ded6a2e1182c01b55b031dde8c8a657d`）的[CI 38135269862](https://github.com/ForceMind/MyAPI/actions/runs/38135269862)十项全部success。前端187文件/1126测试、profile九场景、31条UI旅程及最后Playground命令完整通过，耗时13分18秒；后端完整测试、63项审计工具及竞态检查通过。预算修正已完成独立审查与复验，旧3feff取消仍按原事实保留。
 
 完成审计发现[金额兼容方案](HISTORICAL_AMOUNT_COMPATIBILITY_PROPOSAL.md)要求的必要原生Redis证据尚未由既有44个quota-script子项覆盖。本批只新增共享测试合同与相应文档，复用现有configured Redis及miniredis两个父入口，原44断言不变：核验宽余额精确加减及边界零写入、2^53相邻/MaxInt64版本排序、无owner冷缓存发布限制及owner重建、只读信任检查、旧schema局部失效。原始十进制值和只读/拒绝分支的PEXPIRETIME绝对值直接核对；合法hydrate刷新期限的原语义保留。
 
-原生入口继续要求literal loopback、非默认动态端口、DB15和全实例为空，并记录实际Redis7版本。仅使用传入client与runner临时SQLite合成库，保存还原全局状态；不使用FastForward或等待时序，也不FLUSH。主线程维护文档与集成，实现者只写两个测试文件，独立审查者只读核验。构建及服务仍在GitHub-hosted runner，本机只做轻量静态检查。本批准确提交及测试终态以[PR #11 Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)和对应原始日志为准，取得实际PASS前不计为补验完成。
+原生入口继续要求literal loopback、非默认动态端口、DB15和全实例为空，并记录实际Redis7版本。仅使用传入client与runner临时SQLite合成库，保存还原全局状态；不使用FastForward或等待时序，也不FLUSH。主线程维护文档与集成，实现者只写两个测试文件，独立审查者只读核验。构建及服务仍在GitHub-hosted runner，本机只做轻量静态检查。准确提交af18853的[CI 38138227403](https://github.com/ForceMind/MyAPI/actions/runs/38138227403)十项success；原生Redis7.4.11原44子项、新3组及3个拒绝子项、父项共51次RUN/PASS，各一次、零skip/fail，原始日志与步骤终态经独立复核，容器及网络回收成功。
 
 本批应用源码与原生数据库合同文件保持不变，原Docker/native结果继续按09ef/c8e7的实际执行身份及范围复用，不将新增测试后的整棵tree称为旧运行检出对象。MySQL/PostgreSQL专项只覆盖共享合同内创建的表，不扩称所有可选金额表均已原生验收。Redis服务的host publish仍为all-address，镜像仍是floating redis:7-alpine；这些合同不证明TLS、集群、故障转移或历史缓存同点。历史缺口及DO_NOT_RESTORE、ledger_reconciled=false、production_eligible=false均保持。
+
+### 386订阅通知格式与定向行为验收（本批）
+
+前一准确提交 `af18853416eb744ad246e36b883babbd3f962ce6`（tree `4383d934d27e1aab463bdb83c2f464a679838f98`）的CI十项全部success，实际PR检出 `9da59b249ee16e8bb86d826c835992fb3bf50c4f` 同tree，parents为main92fa与af188。后端完整模块/独立relaykit测试、63项审计工具及竞态组通过；前端187文件/1126测试、profile九场景、31条UI旅程及最后Playground命令通过，前端14分34秒、后端21分47秒。该结果只属于af188，不替后继提交记绿。
+
+[金额方案](HISTORICAL_AMOUNT_COMPATIBILITY_PROPOSAL.md)要求386定向行为，而既有CI只有386 build，不会编译新增的_test.go。旧私有386记录支持部分宽状态、payload、receipt及缓存行为，但没有工件内源码SHA绑定，整轮曾因旧duration缺陷和五项miniredis宿主宽度限制失败，不能写成准确后继或386全包通过。
+
+本批发现并修复订阅通知的三处 `logger.FormatQuota(int(remaining))`：在386下 `-4294967313` 会变为 `-17`。生产异步路径改用领域通知builder，直接格式化int64；原阈值、提前返回、提示/模板、类型及充值链接保持。纯DTO合成测试覆盖Bark/Gotify/默认/Webhook的精确宽负值和普通值，使用正式设置快照/发布/恢复接口，测试正文不发送通知、不调用数据库或网络；执行service包时，既有TestMain仍初始化内存SQLite。
+
+现有backend job在386 build后增加一个有界步骤，五包14个精确顶层测试涵盖宽余额/used、relay DTO、receipt事务、V3/V4原身份、缓存版本/schema、Key元数据/CAS和通知。GOOS=linux、GOARCH=386、CGO_ENABLED=0，p1/count1/timeout240s；Go JSON与tee经pipefail保留失败，stdlib门禁要求14项各RUN/PASS一次、五包各PASS一次、所选树零skip/fail。不新增服务、job、权限或artifact，不预先加大30分钟后端预算。旧五项mock限制不改断言或加架构skip；新结果只能称定向386合同，不能称386 model全包通过。本批准确SHA及终态以[PR Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)和对应原始日志回读。
+
+分工沿用原Goal：实现者仅写service通知及其测试，主线程维护CI/五份说明和集成，独立审查者只读；本机仅静态检查，构建/行为在Actions。新增应用差异限通知组装，不再称整个业务tree等于09ef；common应用逻辑与既有历史原生专项合同不变；model的B2测试补验范围见下一节。旧Docker/native专项只按各自执行身份及未变路径复用，未重新验新整棵应用。元数据继续未发布beta.11，历史证据、DO_NOT_RESTORE、ledger_reconciled=false及production_eligible=false保持。
+
+### 完整金额物理schema补验（同批，待准确CI）
+
+完成矩阵复核发现，既有c8e7原生历史合同只创建部分金额表，生产只读探针允许可选表缺失，因此不能由该成功结果推导全部当前金额schema已验。复用现有B2 MySQL5.7/PostgreSQL9.6服务和SQLite旧日志夹具，不增加job、服务、权限、上传或时限；原日志maintenance拒绝、backfill、dedup、quota及credit业务断言保持。
+
+B2在显式日志维护后成功执行标准生产migrateDB，走到SubscriptionPlan末尾迁移，再核对旧日志原值；SQLite使用绑定全局的既有迁移夹具完成同一路径。共享合同要求quotaAmountTableSpecs的21表38列全部存在，再执行现有物理类型/范围只读检查。可选表缺失在本合同中不能计通过，不从spec生成DDL自证。
+
+缺少原生宽值证据的13个聚合、收据、订阅和管理员字段，以int64(2^31+100)及合法组合通过生产model精确读回；单次费用字段保持int32。样本仅在一个合成事务内，固定sentinel回滚后按独有标识核验所有触碰表零残留，操作失败也先核验回滚。原生只读probe在写事务前关闭，避免单连接池嵌套Begin。实现者仅写两份既有model测试，主线程维护CI/文档，独立审查者只读复核；本机仍仅静态检查。
+
+本批准确结果以[PR Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)及对应日志中两engine的historical-amount-schema子项为准，当前未记PASS。这只验证生产迁移创建的当前schema和宽值往返：B2旧输入是旧日志，不证明任意旧金额窄列可升级，也不替代历史资金、缓存或执行资格。原c8e7仍按其子集范围引用，历史账务未核清，副本DO_NOT_RESTORE、ledger_reconciled=false和production_eligible=false保持。
 
 ## 范围与来源
 

@@ -2084,5 +2084,20 @@ func TestClickHouseLogSchemaReservesBillingEventProjectionKey(t *testing.T) {
 }
 
 func TestB2LogProjectionMigrationPreservesExistingRowsSQLite(t *testing.T) {
-	migrateB2LegacyLogsFixture(t, openB2SubmissionSQLite(t))
+	previousDB := DB
+	t.Cleanup(func() {
+		if previousDB != nil {
+			require.NoError(t, RefreshUserQuotaBusinessSchemaCapability(previousDB))
+		} else {
+			userQuotaBusinessSchemaBinding.Store(nil)
+			userQuotaBusinessSchemaCapability.Store(nil)
+		}
+	})
+	db := useB2MainMigrationSQLite(t)
+	legacy := migrateB2LegacyLogsFixture(t, db)
+	require.NoError(t, migrateDB())
+	assertB2LegacyLogsMigrated(t, db, legacy)
+	t.Run("historical-amount-schema", func(t *testing.T) {
+		runHistoricalAmountSchemaContract(t, db)
+	})
 }

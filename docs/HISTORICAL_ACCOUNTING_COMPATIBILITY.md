@@ -2,7 +2,10 @@
 
 状态：主目标未完成。个人资料、新请求保护、金额表示兼容、迁移前预检及执行许可候选已提交草稿PR；源码 `09ef6326` 的常规CI与Docker、等业务源码 `c8e7bbc` 的MySQL 5.7/PostgreSQL 9.6专项通过。历史权益、缓存与缺失证据、旧版本终态凭证兼容和实际回滚资格仍未闭合；暂不部署、发布或扩功能。
 
-本批在3a1d50a的[十项CI成功](https://github.com/ForceMind/MyAPI/actions/runs/38135269862)后继续补[金额方案](HISTORICAL_AMOUNT_COMPATIBILITY_PROPOSAL.md)要求的必要真实Redis边界。项目改动仅为测试与文档：复用现有Redis服务，在configured/miniredis两入口核验宽金额、2^53及MaxInt64版本排序、冷发布/owner恢复及只读信任，保留原44断言。准确后继提交的验收结果以[PR Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)为准；尚无实际PASS的项目不计完成。应用源码和历史恢复资格不因新增合成测试改变，历史缓存证据仍缺。详细分工和边界见[云端记录](CLOUD_VALIDATION_PROGRESS.md)。
+真实Redis补验af18853的[CI 38138227403](https://github.com/ForceMind/MyAPI/actions/runs/38138227403)十项success；Redis7.4.11原44项及新3组/3拒绝子项均实际PASS、零skip/fail，独立复核通过。当前补[金额方案](HISTORICAL_AMOUNT_COMPATIBILITY_PROPOSAL.md)的386定向要求，并修复订阅通知int64→int窄化：生产builder保留精确宽负余额；现有backend新增五包14项严格JSON门禁，无新服务或上传。本批准确后继的结果以[PR Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)为准，尚无实际PASS的项目不计完成。旧386全包失败及mock限制保留，应用差异限通知组装，历史资格不变；详见[云端记录](CLOUD_VALIDATION_PROGRESS.md)。
+
+
+同批补齐当前完整金额schema的三库合成验收：复用既有B2服务，日志maintenance后成功执行标准生产migrateDB，检查21表38列和13个缺少原生证据的宽值字段；合成写事务回滚后核验零残留。准确后继结果待[PR Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)及historical-amount-schema原始日志回读。旧c8e7保持子集范围；这不证明旧金额窄列自动升级或生产账务已核清，详见[云端记录](CLOUD_VALIDATION_PROGRESS.md)。
 
 ## 当前交付与未完成项
 
@@ -12,10 +15,10 @@
 | 新请求进入待核对 | 无Redis的legacy/bridge batch准入在持久写入前拒绝；截图请求已在跟进源匹配，未知用量不猜值、不手填补扣 |
 | 金额与恢复候选 | v10源码的v6实际COPY逐边恢复、两独立连接竞争、重放与独立全表检查受限通过；8306条合成许可、504条冻结，不证明历史经济事实 |
 | 迁移前预检 | v10对原快照的未改造字节副本完成原生只读诊断：金额通过、writer因batch=true且无Redis拒绝、execution因证据不足拒绝；按InitDB顺序会在writer处停止，未启动应用 |
-| 原生数据库兼容 | 等业务源码的MySQL 5.7/PostgreSQL 9.6合成合同通过；既有Redis 7.4.11的44个quota-script子项通过，缓存生命周期尚有仅miniredis覆盖部分 |
+| 原生数据库兼容 | 旧同业务源码的MySQL 5.7/PostgreSQL 9.6共享合成合同通过，范围不扩称全部可选金额表；af188的原生Redis7.4.11原44项及宽值/版本/冷发布/只读信任定向合同通过 |
 | 历史账务与升级 | beta.3来源、历史缓存/预扣/所有writer、完整资金流与用户累计差、504事件、旧终态凭证来源及实际回滚资格未齐；禁止部署 |
 
-当前可核验产物是[草稿 PR #11](https://github.com/ForceMind/MyAPI/pull/11)的源码候选与私有证据，不是已发布版本。v9完整候选和根模块90包分段行为证据保留；旧证据仅复用于输入和源码未变的部分。用户已授权正常开发和临时合成服务，本轮云端验收完成，历史证据仍待补齐。仍沿用未发布的beta.11元数据，不创建标签、发布镜像或部署。
+当前可核验产物是[草稿 PR #11](https://github.com/ForceMind/MyAPI/pull/11)的源码候选与私有证据，不是已发布版本。v9完整候选和根模块90包分段行为证据保留；旧证据仅复用于输入和源码未变的部分。用户已授权正常开发和临时合成服务，既有云端验收完成，本批386后继仍以准确CI回读，历史证据待补齐。仍沿用未发布的beta.11元数据，不创建标签、发布镜像或部署。
 
 ## 最新验收记录（2026-10-11）
 
