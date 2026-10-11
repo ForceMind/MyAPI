@@ -236,7 +236,7 @@ export function DataTableRowActions<TData>({
       <Button
         variant='outline'
         size='sm'
-        className='h-auto min-h-8 min-w-0 max-w-full whitespace-normal pointer-coarse:min-h-11'
+        className='h-auto min-h-8 min-w-0 max-w-full px-2 whitespace-normal pointer-coarse:min-h-11'
         aria-label={t('API Key usage budgets')}
         onClick={() => {
           setCurrentRow(apiKey)

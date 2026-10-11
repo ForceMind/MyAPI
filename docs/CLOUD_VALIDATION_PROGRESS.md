@@ -24,6 +24,14 @@
 
 同一 bc60788 的 B2 与 Redis 作业已成功并通过独立只读结果审查：MySQL5.7.44、PostgreSQL9.6分别实际执行当前金额 schema 和新 Key 调整合同，零跳过；22表41列是当前源码范围，不能外推任意旧窄列迁移。Redis7.4.11共51项各一次 RUN/PASS、零 skip/fail。两个成功专项不覆盖上述前后端失败，也不证明历史账本或生产升级资格。
 
+### e3bfbb1 的手机总额定位修正
+
+`e3bfbb1a952098e9c790b1d5d71925c21eafade4`（tree `3ae692e06ce8fadeead79b67f0efca24a00cc8ac`）的 [CI 38150140466](https://github.com/ForceMind/MyAPI/actions/runs/38150140466) 前端仍为 failure：190文件1147测试、type/lint/build、独立 quota/routing/access 和 profile九场景成功；共享 UI 为31/32旅程、42设置深链、237截图，Playground未执行。此前修正遗漏了手机总额度的实际DOM结构：label子节点与 `Unavailable` 直接文本共用父span，页面完整文字为 `Total quota: Unavailable`，全页 exact `Unavailable` 无匹配。主线程和独立审查实际查看正式1280与failure320截图，确认双分项完整、额度不再覆盖相邻列、按钮不再裁切；1280先于320执行，原桌面几何断言已成功，不能记未执行。手机实际显示正确，但正式320截图仍缺。
+
+后继仅修改浏览器断言、该预算按钮间距及本记录三个文件：绑定真实总额度label的父容器，规范空白后精确比较整条 label 与 `Unavailable`，保留双分项、无progress、所有桌面边界及双截图要求；预算按钮由默认 `px-3` 改为 `px-2`，避免宽屏中 `budgets` 最后一个字母单独换行。后者仍须新1280/320正式截图确认，不以静态尺寸推测记视觉通过。无金额、权限、API、生产迁移、依赖或workflow改动；后继保留该轮后端至终态后才提交，准确新提交的完整验收仍待结果。
+
+该轮现已终态九项 success、前端一项 failure。后端 root/独立relaykit完整test、38618项五包、审计63及全部八组race步骤成功；最后durable race的准确selector包含新的两请求恢复fixture，model包实际成功。此命令未使用 `-v`，不声称日志含该单项RUN/PASS计数。MySQL/PostgreSQL共享B2合同129次唯一RUN/PASS、Redis51次唯一RUN/PASS均零skip/fail，独立专项结果审查通过。这些成功不覆盖前端失败或历史账务缺口。
+
 原方案要求显式 Key 额度修改具有持久请求身份；1608 基线只有版本与元数据 CAS，响应丢失后的重试不能返回原调整结果。本批在现有 PUT `/api/token/` 保留一次表单的名称、权限及额度原子修改，增加规范小写 UUID `request_id` 和不可变成功收据。收据以 `(user_id, request_id_hash)` 唯一；哈希及原身份、Key ID、包含字段存在性的客户端白名单指纹一起核验，避免 MySQL 排序规则把不同输入视为同一身份。持久指纹具有明确版本和固定规范编码，未来缺席字段不得改变旧请求摘要。重试在当前 owner 验证后、写入权限及版本检查前查询原收据；相同请求返回原结果和当前持久数据库行的脱敏 Key，不再次修改余额或发布旧缓存。该 Key projection 沿用原API数据库读取语义，不代表尚未drain的有效缓存余额；缓存离线也不阻止确认成功收据。异参数冲突，任何失败事务不留下收据或部分表单修改。
 
 仅元数据请求省略 `remain_quota`；显式金额即使等于当前值也要求身份、原版本和元数据指纹，`null` 不能被静默视为元数据。金额、累计 used、负余额、无限 Key、writer 和缓存屏障沿用现有政策，不产生历史恢复许可。新表 `token_quota_adjustments` 的三个金额列加入迁移前物理检查，当前 schema 合同扩至22表41列；保留原13字段宽值往返和七类回滚断言，再用实际 Key 调整验证新收据的宽 before/used。

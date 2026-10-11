@@ -654,8 +654,10 @@ try {
       }
 
       const totalLabel = `${label('Total quota')}${width < 768 ? ':' : ''}`
-      await page.getByText(totalLabel, { exact: true }).filter({ visible: true }).first().waitFor()
-      await page.getByText(label('Unavailable'), { exact: true }).filter({ visible: true }).first().waitFor()
+      const totalLabelLocator = page.getByText(totalLabel, { exact: true }).filter({ visible: true }).first()
+      await totalLabelLocator.waitFor()
+      const totalText = (await totalLabelLocator.locator('..').innerText()).replace(/\s+/g, ' ').trim()
+      assert.equal(totalText, `${totalLabel} ${label('Unavailable')}`, `${width}px total quota is explicitly unavailable`)
       assert.equal(await page.getByRole('progressbar').count(), 0, `${width}px unsafe derived total has no progress`)
       if (width >= 768) {
         const quotaLayout = await page.locator('td[data-column-id="quota"]').filter({ visible: true }).first().evaluate(cell => {
