@@ -676,15 +676,32 @@ try {
 
         const budgetLayout = await page.getByRole('button', { name: label('API Key usage budgets'), exact: true }).filter({ visible: true }).first().evaluate(button => {
           const cell = button.closest('td[data-column-id="actions"]')
+          const labelElement = button.querySelector('span')
+          const textNode = Array.from(labelElement?.childNodes ?? []).find(node => node.nodeType === Node.TEXT_NODE)
           const buttonBox = button.getBoundingClientRect()
           const cellBox = cell?.getBoundingClientRect()
+          const wordLines = []
+          if (textNode) {
+            for (const match of (textNode.textContent ?? '').matchAll(/\S+/g)) {
+              const range = document.createRange()
+              range.setStart(textNode, match.index)
+              range.setEnd(textNode, match.index + match[0].length)
+              const lineTops = []
+              for (const rect of range.getClientRects()) {
+                if (!lineTops.some(top => Math.abs(top - rect.top) < 1)) lineTops.push(rect.top)
+              }
+              wordLines.push({ word: match[0], lineCount: lineTops.length })
+            }
+          }
           return {
             contained: !!cellBox && buttonBox.left >= cellBox.left - 1 && buttonBox.right <= Math.min(cellBox.right, innerWidth) + 1,
             readable: button.scrollWidth <= button.clientWidth + 1 && button.scrollHeight <= button.clientHeight + 1,
+            wordLines,
           }
         })
         assert(budgetLayout.contained, 'desktop usage budgets action remains inside its visible actions boundary')
         assert(budgetLayout.readable, 'desktop usage budgets label wraps without clipping')
+        assert.deepEqual(budgetLayout.wordLines, [{ word: 'Usage', lineCount: 1 }, { word: 'budgets', lineCount: 1 }], 'desktop usage budgets action does not split an English word across visual lines')
       }
       await screenshot(page, `key-unrepresentable-total-${width}`)
       await context.close(); contexts.delete(context)

@@ -46,6 +46,16 @@
 
 后继仅在这份测试增加非空、`typeof === 'object'` 的运行时检查，使异常请求体明确失败、合法请求体可安全展开；完整payload相等、金额及身份断言保持，不使用类型断言绕过检查。生产Go和全部后端测试与已验3f69794相同；正常后继推送可替代尚未结束的39运行，取消项按真实终态保留，不记通过。新准确提交的类型检查、受控用例和完整CI仍待Actions结果。
 
+### a34816b 的自动检查与桌面视觉拒绝
+
+`a34816be2f613835bc8bb7b449f49dbc3be2175e`（tree `999b5404811cf7111f61bf46ed35b5a857c88e94`，实际PR检出 `3585cd57480c5f2947d70d2e2b9849cc853065c8` 同tree）的 [CI 38154277053](https://github.com/ForceMind/MyAPI/actions/runs/38154277053) 前端作业成功：typecheck、lint、190文件1147测试、build、独立 quota/routing/access、共享 UI 32/32旅程、42/42深链、238正式截图、profile九场景及 Playground 8/8旅程均通过。已下载 artifact 并核对摘要、报告和截图绑定；主线程与独立审查者实际查看正式1280/320图，320通过，1280仍将 `Usage budgets` 显示为 `Usage` / `budget` / 孤立 `s`。额度完整、未覆盖相邻列、无progress、按钮边框未裁切，这些成功不能抵消该视觉失败。整体视觉审查为FAIL，未记候选验收完成。
+
+水平按钮中的图标和间距继续占用窄单元格宽度，`px-2`未给 `budgets` 留足一行，现有scroll边界断言没有识别词内断行。后继只改该按钮、既有浏览器场景和本记录：桌面断点将图标与文字纵向排列，手机保留水平布局；label保留完整翻译和受限宽度，长文案仍可换行。浏览器在真实文字节点上以 DOM Range 读取各英文词的视觉行，要求 `Usage` 和 `budgets` 各只占一行，保留全部金额、总额不可表示、无进度、列边界和双截图断言；不拆分文字节点绕过验证。新正式截图和完整Actions仍待准确后继运行，静态检查不代替实际渲染。
+
+该轮现已终态十项success，但人工视觉审查仍为FAIL。后端root/独立relaykit完整测试、38618项五包各一次RUN/PASS零skip/fail、审计63及全部八组race步骤成功；durable非verbose selector包含恢复fixture且model包成功，不声称有该单项原始RUN/PASS计数。B2合成MySQL5.7.44/PostgreSQL9.6共129次、Redis7.4.11共51次唯一RUN/PASS均零skip/fail，独立专项审查通过。39d6cb0前轮已终态八项success、前端failure、后端cancelled，原失败不追溯改为成功。
+
+本机仅 `node --check` 与差异检查，无构建、服务、浏览器或数据库副本。实现者只写上述两份UI文件，主线程维护文档和同步，独立审查者只读。所有旧失败继续保留；本批不改Go、金额、API、翻译键、依赖、workflow或预算，不额外dispatch Docker/native。历史缺口、DO_NOT_RESTORE、ledger_reconciled=false和production_eligible=false保持，未合并、发布或部署。
+
 原方案要求显式 Key 额度修改具有持久请求身份；1608 基线只有版本与元数据 CAS，响应丢失后的重试不能返回原调整结果。本批在现有 PUT `/api/token/` 保留一次表单的名称、权限及额度原子修改，增加规范小写 UUID `request_id` 和不可变成功收据。收据以 `(user_id, request_id_hash)` 唯一；哈希及原身份、Key ID、包含字段存在性的客户端白名单指纹一起核验，避免 MySQL 排序规则把不同输入视为同一身份。持久指纹具有明确版本和固定规范编码，未来缺席字段不得改变旧请求摘要。重试在当前 owner 验证后、写入权限及版本检查前查询原收据；相同请求返回原结果和当前持久数据库行的脱敏 Key，不再次修改余额或发布旧缓存。该 Key projection 沿用原API数据库读取语义，不代表尚未drain的有效缓存余额；缓存离线也不阻止确认成功收据。异参数冲突，任何失败事务不留下收据或部分表单修改。
 
 仅元数据请求省略 `remain_quota`；显式金额即使等于当前值也要求身份、原版本和元数据指纹，`null` 不能被静默视为元数据。金额、累计 used、负余额、无限 Key、writer 和缓存屏障沿用现有政策，不产生历史恢复许可。新表 `token_quota_adjustments` 的三个金额列加入迁移前物理检查，当前 schema 合同扩至22表41列；保留原13字段宽值往返和七类回滚断言，再用实际 Key 调整验证新收据的宽 before/used。
