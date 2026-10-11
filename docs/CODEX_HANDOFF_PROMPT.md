@@ -41,7 +41,7 @@
 下方内容保留历史记录；其中“唯一当前执行入口”“下一主节点”和持续发布授权均不覆盖本节及用户最新要求。
 
 
-同批补齐当前完整金额schema的三库合成验收：复用既有B2服务，日志maintenance后成功执行标准生产migrateDB，检查21表38列和13个缺少原生证据的宽值字段；合成写事务回滚后核验零残留。准确后继结果待[PR Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)及historical-amount-schema原始日志回读。旧c8e7保持子集范围；这不证明旧金额窄列自动升级或生产账务已核清，详见[云端记录](CLOUD_VALIDATION_PROGRESS.md)。
+c94e5ed的[CI38140987775](https://github.com/ForceMind/MyAPI/actions/runs/38140987775)后端在386编译旧service夹具时失败：三处超出int范围的常量，其他13项/四包实际PASS，service未运行，不能称14项或完整CI成功。MySQL/PostgreSQL的完整schema子项各一次RUN/PASS、零skip/fail，21表38列、13个宽字段及七类匹配行回滚检查通过；Redis7.4.11共51次RUN/PASS各一次、零skip/fail，两job容器/网络清理成功且独立复核通过。本批只修两份测试的架构输入，保留64位原极值与原断言，并将三项改动测试加入同一386门禁，共五包17项；生产代码和其他CI配置不变。后继准确结果待[PR Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)，失败记录保留，旧c8e7仍限子集，当前schema成功不证明旧窄列升级或历史账务已核清，详见[云端记录](CLOUD_VALIDATION_PROGRESS.md)。
 
 ## 历史主线：beta.10 已发布，个人模式与 Key 限额闭环（2026-10-09）
 

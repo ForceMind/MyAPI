@@ -9,7 +9,7 @@ import (
 )
 
 func TestCalculateImageTokensPatchUsesFloatAreaForLargeDimensions(t *testing.T) {
-	tokens, err := calculateImageTokens(math.MaxInt64, math.MaxInt64, 85, 170, true, 2.46)
+	tokens, err := calculateImageTokens(math.MaxInt, math.MaxInt, 85, 170, true, 2.46)
 
 	require.NoError(t, err)
 	require.Equal(t, 3742, tokens)
@@ -23,7 +23,7 @@ func TestCalculateImageTokensPatchPreservesNormalRounding(t *testing.T) {
 }
 
 func TestCalculateImageTokensRejectsTileQuotaOverflow(t *testing.T) {
-	_, err := calculateImageTokens(1024, 1024, 85, math.MaxInt64, false, 1)
+	_, err := calculateImageTokens(1024, 1024, 85, math.MaxInt, false, 1)
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "quota conversion")

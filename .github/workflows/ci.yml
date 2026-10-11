@@ -76,7 +76,7 @@ jobs:
           go env GOOS GOARCH CGO_ENABLED GOWORK
           directed_log="$RUNNER_TEMP/myapi-historical-amount-386.jsonl"
           go test -json -p 1 ./common ./relay/common ./model ./controller ./service \
-            -run '^(TestCheckedQuotaBalance|TestCheckedQuotaUsed|TestRelayPreservesStoredUserQuota|TestWideAccountQuotaReserveRefundAndAtomicRollback|TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget|TestQuotaStateBoundaryFailuresWriteNothingAndRequestLimitStaysInt32|TestHistoricalAmountV3RowsRemainByteAndStateStableDuringInitialization|TestHistoricalAmountV3FingerprintExecutesWithoutIdentityRewrite|TestHistoricalAmountV4WideAggregateReplaysOnce|TestHistoricalAmountCacheOrdersAdjacentQuotaAndAuthVersionsAboveDoublePrecision|TestHistoricalAmountCacheSchemasReplaceOnlyTheTouchedKey|TestTokenMetadataPreservesWideQuota|TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing|TestSubscriptionQuotaNotificationPreservesWideRemaining)$' -count=1 -timeout=240s | tee "$directed_log"
+            -run '^(TestCheckedQuotaBalance|TestCheckedQuotaUsed|TestRelayPreservesStoredUserQuota|TestWideAccountQuotaReserveRefundAndAtomicRollback|TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget|TestQuotaStateBoundaryFailuresWriteNothingAndRequestLimitStaysInt32|TestHistoricalAmountV3RowsRemainByteAndStateStableDuringInitialization|TestHistoricalAmountV3FingerprintExecutesWithoutIdentityRewrite|TestHistoricalAmountV4WideAggregateReplaysOnce|TestHistoricalAmountCacheOrdersAdjacentQuotaAndAuthVersionsAboveDoublePrecision|TestHistoricalAmountCacheSchemasReplaceOnlyTheTouchedKey|TestTokenMetadataPreservesWideQuota|TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing|TestSubscriptionQuotaNotificationPreservesWideRemaining|TestCalculateImageTokensPatchUsesFloatAreaForLargeDimensions|TestCalculateImageTokensRejectsTileQuotaOverflow|TestOfficialTextCostUsesExplicitLongProfileAndTokenBounds)$' -count=1 -timeout=240s | tee "$directed_log"
           python3 - "$directed_log" <<'PY'
           import collections
           import json
@@ -106,7 +106,10 @@ jobs:
                   "TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing"
               ],
               "github.com/ForceMind/MyAPI/service": [
-                  "TestSubscriptionQuotaNotificationPreservesWideRemaining"
+                  "TestSubscriptionQuotaNotificationPreservesWideRemaining",
+                  "TestCalculateImageTokensPatchUsesFloatAreaForLargeDimensions",
+                  "TestCalculateImageTokensRejectsTileQuotaOverflow",
+                  "TestOfficialTextCostUsesExplicitLongProfileAndTokenBounds"
               ]
           }
           runs = collections.Counter()

@@ -5,7 +5,7 @@
 真实Redis补验af18853的[CI 38138227403](https://github.com/ForceMind/MyAPI/actions/runs/38138227403)十项success；Redis7.4.11原44项及新3组/3拒绝子项均实际PASS、零skip/fail，独立复核通过。当前补[金额方案](HISTORICAL_AMOUNT_COMPATIBILITY_PROPOSAL.md)的386定向要求，并修复订阅通知int64→int窄化：生产builder保留精确宽负余额；现有backend新增五包14项严格JSON门禁，无新服务或上传。本批准确后继的结果以[PR Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)为准，尚无实际PASS的项目不计完成。旧386全包失败及mock限制保留，应用差异限通知组装，历史资格不变；详见[云端记录](CLOUD_VALIDATION_PROGRESS.md)。
 
 
-同批补齐当前完整金额schema的三库合成验收：复用既有B2服务，日志maintenance后成功执行标准生产migrateDB，检查21表38列和13个缺少原生证据的宽值字段；合成写事务回滚后核验零残留。准确后继结果待[PR Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)及historical-amount-schema原始日志回读。旧c8e7保持子集范围；这不证明旧金额窄列自动升级或生产账务已核清，详见[云端记录](CLOUD_VALIDATION_PROGRESS.md)。
+c94e5ed的[CI38140987775](https://github.com/ForceMind/MyAPI/actions/runs/38140987775)后端在386编译旧service夹具时失败：三处超出int范围的常量，其他13项/四包实际PASS，service未运行，不能称14项或完整CI成功。MySQL/PostgreSQL的完整schema子项各一次RUN/PASS、零skip/fail，21表38列、13个宽字段及七类匹配行回滚检查通过；Redis7.4.11共51次RUN/PASS各一次、零skip/fail，两job容器/网络清理成功且独立复核通过。本批只修两份测试的架构输入，保留64位原极值与原断言，并将三项改动测试加入同一386门禁，共五包17项；生产代码和其他CI配置不变。后继准确结果待[PR Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)，失败记录保留，旧c8e7仍限子集，当前schema成功不证明旧窄列升级或历史账务已核清，详见[云端记录](CLOUD_VALIDATION_PROGRESS.md)。
 
 ## 当前交付与未完成项
 
