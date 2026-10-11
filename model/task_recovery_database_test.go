@@ -177,6 +177,11 @@ func TestB2SubmissionConfiguredDatabases(t *testing.T) {
 			t.Run("historical-amount-schema", func(t *testing.T) {
 				runHistoricalAmountSchemaContract(t, db)
 			})
+			t.Run("token-quota-adjustment", func(t *testing.T) {
+				sqlDB.SetMaxOpenConns(2)
+				defer sqlDB.SetMaxOpenConns(1)
+				runTokenQuotaAdjustmentContract(t, db)
+			})
 			var mysqlLockWait, mysqlInnoDBLockWait int64
 			var postgresLockTimeout string
 			if engine.name == "mysql" {

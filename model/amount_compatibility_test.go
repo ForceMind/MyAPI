@@ -165,14 +165,17 @@ func TestTokenQuotaEditUsesVersionCASAndPreservesUsedQuota(t *testing.T) {
 	require.NoError(t, err)
 	requested.Name = "first edit"
 	requested.RemainQuota = 500
-	require.NoError(t, requested.UpdateWithQuota(4, metadataFingerprint))
+	_, replayed, err := requested.UpdateWithQuota(newTokenQuotaAdjustmentCommandForTest(t, requested, 4, metadataFingerprint))
+	require.NoError(t, err)
+	require.False(t, replayed)
 	require.Equal(t, int64(500), requested.RemainQuota)
 	require.Equal(t, int64(wideQuota), requested.UsedQuota)
 	require.Equal(t, int64(5), requested.QuotaVersion)
 
 	stale.Name = "stale retry"
 	stale.RemainQuota = 600
-	require.ErrorIs(t, stale.UpdateWithQuota(4, metadataFingerprint), ErrTokenQuotaVersionConflict)
+	_, _, err = stale.UpdateWithQuota(newTokenQuotaAdjustmentCommandForTest(t, &stale, 4, metadataFingerprint))
+	require.ErrorIs(t, err, ErrTokenQuotaVersionConflict)
 	var got Token
 	require.NoError(t, DB.First(&got, token.Id).Error)
 	require.Equal(t, "first edit", got.Name)

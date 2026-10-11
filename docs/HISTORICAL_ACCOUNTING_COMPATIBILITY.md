@@ -1,5 +1,7 @@
 # 历史账务兼容核查记录
 
+**2026-10-11 当前批次：** 准确基线1608f85的[CI38142050913](https://github.com/ForceMind/MyAPI/actions/runs/38142050913)十项success及独立终审已完成；历史账务仍未闭合。继续原金额方案的两处接口缺口：Key显式额度修改增加同事务不可变成功收据和规范请求身份；合法remain/used的派生总和超M时保持组件可读。仅元数据写入继续省略金额列；同请求重试不再写额度或旧缓存，异参数冲突。新表加入迁移及只读物理检查，22表41列和新三库/386/UI契约待准确后继验证。旧运行不为本批记绿；当前步骤与分工见[云端验收记录](CLOUD_VALIDATION_PROGRESS.md)。无新增历史许可或补扣，原始副本不变，生产未操作，`ledger_reconciled=false`、`production_eligible=false`及`DO_NOT_RESTORE`保持。
+
 状态：主目标未完成。个人资料、新请求保护、金额表示兼容、迁移前预检及执行许可候选已提交草稿PR；源码 `09ef6326` 的常规CI与Docker、等业务源码 `c8e7bbc` 的MySQL 5.7/PostgreSQL 9.6专项通过。历史权益、缓存与缺失证据、旧版本终态凭证兼容和实际回滚资格仍未闭合；暂不部署、发布或扩功能。
 
 真实Redis补验af18853的[CI 38138227403](https://github.com/ForceMind/MyAPI/actions/runs/38138227403)十项success；Redis7.4.11原44项及新3组/3拒绝子项均实际PASS、零skip/fail，独立复核通过。当前补[金额方案](HISTORICAL_AMOUNT_COMPATIBILITY_PROPOSAL.md)的386定向要求，并修复订阅通知int64→int窄化：生产builder保留精确宽负余额；现有backend新增五包14项严格JSON门禁，无新服务或上传。本批准确后继的结果以[PR Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)为准，尚无实际PASS的项目不计完成。旧386全包失败及mock限制保留，应用差异限通知组装，历史资格不变；详见[云端记录](CLOUD_VALIDATION_PROGRESS.md)。

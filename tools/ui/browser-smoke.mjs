@@ -636,6 +636,31 @@ try {
     assert.equal(await page.getByText(label('No API Keys Found'), { exact: true }).count(), 0, 'fresh list replaces the empty state')
   })
 
+  await run('key-unrepresentable-total-components', async () => {
+    for (const width of [1280, 320]) {
+      const { page, context } = await session({ width, unrepresentableKeyTotal: true })
+      await open(page, '/keys')
+      await page.getByText('synthetic-key', { exact: true }).first().waitFor()
+
+      for (const key of ['Remaining quota', 'Used quota']) {
+        const componentLabel = page.getByText(label(key), { exact: true }).filter({ visible: true }).first()
+        await componentLabel.waitFor()
+        const componentText = (await componentLabel.locator('..').innerText())
+          .replace(label(key), '')
+          .replace(/^:\s*/, '')
+          .trim()
+        assert(componentText.length > 0, `${width}px ${key} component value remains visible`)
+        assert(!componentText.includes(label('Unavailable')), `${width}px ${key} component remains exact`)
+      }
+
+      await page.getByText(label('Total quota'), { exact: true }).filter({ visible: true }).first().waitFor()
+      await page.getByText(label('Unavailable'), { exact: true }).filter({ visible: true }).first().waitFor()
+      assert.equal(await page.getByRole('progressbar').count(), 0, `${width}px unsafe derived total has no progress`)
+      await screenshot(page, `key-unrepresentable-total-${width}`)
+      await context.close(); contexts.delete(context)
+    }
+  })
+
   await run('remaining-dashboard-role-data-states', async () => {
     for (const role of [1, 10]) {
       const { page, context, fixture } = await session({ role, runningClock: true })

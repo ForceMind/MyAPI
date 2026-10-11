@@ -36,6 +36,7 @@ import { formatQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { API_KEY_STATUSES } from '../constants'
+import { checkedAddSafeIntegers } from '../lib/quota-display'
 import type { ApiKey } from '../types'
 import { ApiKeyGroupCell } from './api-key-group-cell'
 import { ApiKeyTimestampCell } from './api-key-timestamp-cell'
@@ -152,7 +153,52 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
 
         const used = apiKey.used_quota
         const remaining = apiKey.remain_quota
-        const total = used + remaining
+        const total = checkedAddSafeIntegers(used, remaining)
+        if (total === null) {
+          return (
+            <Tooltip>
+              <TooltipTrigger
+                render={<div className='w-[150px] space-y-1 text-xs' />}
+              >
+                <div className='flex justify-between gap-2'>
+                  <span className='text-muted-foreground'>
+                    {t('Remaining quota')}
+                  </span>
+                  <span className='font-medium tabular-nums'>
+                    {formatQuota(remaining)}
+                  </span>
+                </div>
+                <div className='flex justify-between gap-2'>
+                  <span className='text-muted-foreground'>
+                    {t('Used quota')}
+                  </span>
+                  <span className='font-medium tabular-nums'>
+                    {formatQuota(used)}
+                  </span>
+                </div>
+                <div className='flex justify-between gap-2'>
+                  <span className='text-muted-foreground'>
+                    {t('Total quota')}
+                  </span>
+                  <span className='font-medium'>{t('Unavailable')}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className='space-y-1 text-xs'>
+                  <div>
+                    {t('Used quota')}: {formatQuota(used)}
+                  </div>
+                  <div>
+                    {t('Remaining quota')}: {formatQuota(remaining)}
+                  </div>
+                  <div>
+                    {t('Total quota')}: {t('Unavailable')}
+                  </div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          )
+        }
         const percentage = total > 0 ? (remaining / total) * 100 : 0
 
         return (

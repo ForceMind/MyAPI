@@ -140,7 +140,7 @@ func TestTokenQuotaUpdateRejectsMetadataChangedAfterFormOpened(t *testing.T) {
 	require.NoError(t, metadataUpdate.Update())
 
 	opened.RemainQuota--
-	err = opened.UpdateWithQuota(opened.QuotaVersion, openedFingerprint)
+	_, _, err = opened.UpdateWithQuota(newTokenQuotaAdjustmentCommandForTest(t, opened, opened.QuotaVersion, openedFingerprint))
 	require.ErrorIs(t, err, ErrTokenQuotaVersionConflict)
 
 	var stored Token
@@ -177,7 +177,9 @@ func TestTokenQuotaUpdateDoesNotPublishMetadataSnapshotAfterCommit(t *testing.T)
 	}))
 	t.Cleanup(func() { _ = DB.Callback().Query().Remove(callbackName) })
 
-	require.NoError(t, requested.UpdateWithQuota(requested.QuotaVersion, openedFingerprint))
+	_, replayed, err := requested.UpdateWithQuota(newTokenQuotaAdjustmentCommandForTest(t, requested, requested.QuotaVersion, openedFingerprint))
+	require.NoError(t, err)
+	require.False(t, replayed)
 	require.True(t, injected)
 	require.True(t, server.Exists(getTokenCacheFenceKey(fixture.Token.Key)))
 	require.False(t, server.Exists(getTokenCacheKey(fixture.Token.Key)))
@@ -186,6 +188,105 @@ func TestTokenQuotaUpdateDoesNotPublishMetadataSnapshotAfterCommit(t *testing.T)
 	require.NoError(t, err)
 	require.Equal(t, common.TokenStatusDisabled, loaded.Status)
 	require.Equal(t, "metadata-after-quota", loaded.Name)
+}
+
+func TestTokenQuotaUpdateReceiptSurvivesPostCommitCacheFailure(t *testing.T) {
+	_, fixture, server := openLegacyBalanceBatchTestWithRedis(t, "token-quota-receipt-post-cache")
+	requested, err := GetTokenById(fixture.Token.Id)
+	require.NoError(t, err)
+	fingerprint, err := requested.QuotaMetadataFingerprint()
+	require.NoError(t, err)
+	requested.RemainQuota--
+	command := newTokenQuotaAdjustmentCommandForTest(t, requested, requested.QuotaVersion, fingerprint)
+
+	callbackName := "token-quota-fail-cache-after-receipt"
+	callbackRegistered := true
+	require.NoError(t, DB.Callback().Create().After("gorm:create").Register(callbackName, func(tx *gorm.DB) {
+		adjustment, ok := tx.Statement.Dest.(*TokenQuotaAdjustment)
+		if ok && adjustment.RequestID == command.RequestID {
+			server.SetError("ERR synthetic post-commit token quota cache failure")
+		}
+	}))
+	t.Cleanup(func() {
+		server.SetError("")
+		if callbackRegistered {
+			_ = DB.Callback().Create().Remove(callbackName)
+		}
+	})
+
+	result, replayed, err := requested.UpdateWithQuota(command)
+	require.NoError(t, err)
+	require.False(t, replayed)
+	require.NotNil(t, result)
+	server.SetError("")
+	require.NoError(t, DB.Callback().Create().Remove(callbackName))
+	callbackRegistered = false
+
+	retry := fixture.Token
+	replayedResult, replayed, err := retry.UpdateWithQuota(command)
+	require.NoError(t, err)
+	require.True(t, replayed)
+	require.Equal(t, result, replayedResult)
+	require.Equal(t, requested.RemainQuota, retry.RemainQuota)
+	require.Equal(t, requested.QuotaVersion, retry.QuotaVersion)
+	var count int64
+	require.NoError(t, DB.Model(&TokenQuotaAdjustment{}).Where("request_id = ?", command.RequestID).Count(&count).Error)
+	require.Equal(t, int64(1), count)
+}
+
+func TestTokenQuotaReplayConfirmsReceiptWithoutReadingLeadingCache(t *testing.T) {
+	_, fixture, server := openLegacyBalanceBatchTestWithRedis(t, "token-quota-replay-leading-cache")
+	requested, err := GetTokenById(fixture.Token.Id)
+	require.NoError(t, err)
+	fingerprint, err := requested.QuotaMetadataFingerprint()
+	require.NoError(t, err)
+	requested.RemainQuota--
+	command := newTokenQuotaAdjustmentCommandForTest(t, requested, requested.QuotaVersion, fingerprint)
+	result, replayed, err := requested.UpdateWithQuota(command)
+	require.NoError(t, err)
+	require.False(t, replayed)
+
+	databaseRemain := requested.RemainQuota - 7
+	databaseUsed := requested.UsedQuota + 7
+	databaseVersion := requested.QuotaVersion + 1
+	require.NoError(t, DB.Model(&Token{}).Where("id = ?", requested.Id).Updates(map[string]any{
+		"name": "database-current", "remain_quota": databaseRemain, "used_quota": databaseUsed, "quota_version": databaseVersion,
+	}).Error)
+	cacheKey := getTokenCacheKey(requested.Key)
+	fenceKey := getTokenCacheFenceKey(requested.Key)
+	ctx := context.Background()
+	require.NoError(t, common.RDB.HSet(ctx, cacheKey, map[string]any{
+		"Id": requested.Id, "CacheSchema": tokenCacheSchemaVersion,
+		"RemainQuota": databaseRemain - 11, "UsedQuota": databaseUsed + 11, "QuotaVersion": databaseVersion + 1,
+	}).Err())
+	require.NoError(t, common.RDB.Set(ctx, fenceKey, "pending", time.Minute).Err())
+	cacheBefore, err := common.RDB.HGetAll(ctx, cacheKey).Result()
+	require.NoError(t, err)
+	fenceBefore, err := common.RDB.Get(ctx, fenceKey).Result()
+	require.NoError(t, err)
+
+	server.SetError("ERR synthetic unavailable cache during receipt replay")
+	t.Cleanup(func() { server.SetError("") })
+	retry := fixture.Token
+	replayedResult, replayed, err := retry.UpdateWithQuota(command)
+	require.NoError(t, err)
+	require.True(t, replayed)
+	require.Equal(t, result, replayedResult)
+	require.Equal(t, "database-current", retry.Name)
+	require.Equal(t, databaseRemain, retry.RemainQuota)
+	require.Equal(t, databaseUsed, retry.UsedQuota)
+	require.Equal(t, databaseVersion, retry.QuotaVersion)
+	server.SetError("")
+
+	cacheAfter, err := common.RDB.HGetAll(ctx, cacheKey).Result()
+	require.NoError(t, err)
+	fenceAfter, err := common.RDB.Get(ctx, fenceKey).Result()
+	require.NoError(t, err)
+	require.Equal(t, cacheBefore, cacheAfter)
+	require.Equal(t, fenceBefore, fenceAfter)
+	var receiptCount int64
+	require.NoError(t, DB.Model(&TokenQuotaAdjustment{}).Where("request_id = ?", command.RequestID).Count(&receiptCount).Error)
+	require.Equal(t, int64(1), receiptCount)
 }
 
 func TestTokenQuotaWriterModeProbeErrorFailsClosed(t *testing.T) {
@@ -204,7 +305,7 @@ func TestTokenQuotaWriterModeProbeErrorFailsClosed(t *testing.T) {
 	}))
 	t.Cleanup(func() { _ = DB.Callback().Row().Remove(callbackName) })
 
-	err = requested.UpdateWithQuota(requested.QuotaVersion, fingerprint)
+	_, _, err = requested.UpdateWithQuota(newTokenQuotaAdjustmentCommandForTest(t, requested, requested.QuotaVersion, fingerprint))
 	require.ErrorIs(t, err, ErrQuotaWriterEpochUnavailable)
 	require.NotContains(t, err.Error(), probeErr.Error())
 	var stored Token

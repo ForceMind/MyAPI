@@ -27,8 +27,12 @@ export const apiKeySchema = z.object({
   name: z.string(),
   key: z.string(),
   status: z.number(), // 1: enabled, 2: disabled, 3: expired, 4: exhausted
-  remain_quota: z.number(),
-  used_quota: z.number(),
+  remain_quota: z
+    .number()
+    .int()
+    .min(Number.MIN_SAFE_INTEGER)
+    .max(Number.MAX_SAFE_INTEGER),
+  used_quota: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
   quota_version: z.string().optional(),
   metadata_fingerprint: z.string().optional(),
   unlimited_quota: z.boolean(),
@@ -123,12 +127,24 @@ export interface ApiKeyFormData {
   cross_group_retry: boolean
 }
 
-export type ApiKeyUpdateData = Omit<ApiKeyFormData, 'remain_quota'> & {
+type ApiKeyMetadataUpdateData = Omit<ApiKeyFormData, 'remain_quota'> & {
   id: number
-  remain_quota?: number
-  quota_version?: string
-  metadata_fingerprint?: string
+  remain_quota?: never
+  request_id?: never
+  quota_version?: never
+  metadata_fingerprint?: never
 }
+
+type ApiKeyQuotaUpdateData = ApiKeyFormData & {
+  id: number
+  request_id: string
+  quota_version: string
+  metadata_fingerprint: string
+}
+
+export type ApiKeyUpdateData =
+  | ApiKeyMetadataUpdateData
+  | ApiKeyQuotaUpdateData
 
 export interface TokenAutoGroupsConfig {
   groups: string[]

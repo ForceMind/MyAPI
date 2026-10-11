@@ -109,6 +109,9 @@ func setupTokenControllerTestDB(t *testing.T) *gorm.DB {
 
 	db := openTokenControllerTestDB(t)
 	migrateTokenControllerTestDB(t, db)
+	if err := db.AutoMigrate(&model.TokenQuotaAdjustment{}); err != nil {
+		t.Fatalf("failed to migrate token quota adjustment table: %v", err)
+	}
 	return db
 }
 
@@ -581,10 +584,10 @@ func TestGetTokenKeyRequiresOwnershipAndReturnsFullKey(t *testing.T) {
 
 func TestMaskedTokenResponseExplainsExplicitAccessProfile(t *testing.T) {
 	token := &model.Token{
-		Id:             7,
-		Group:          "vip",
+		Id:              7,
+		Group:           "vip",
 		AccessProfileID: "priority",
-		Key:            "sk-secret-token-value",
+		Key:             "sk-secret-token-value",
 	}
 
 	response := buildMaskedTokenResponse(token)

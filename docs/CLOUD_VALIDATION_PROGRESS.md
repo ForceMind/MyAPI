@@ -1,8 +1,20 @@
 # 历史兼容候选的云端验收
 
-更新日期：2026-10-11。源码 `09ef6326` 的常规 CI 十项、Docker 五项均成功；独立 CI 提交 `c8e7bbc` 的 MySQL 5.7/PostgreSQL 9.6 历史账务专项也已成功。个人资料和账务兼容候选已形成云端合成证据；历史账本仍未核清，生产保持不动。
+更新日期：2026-10-11。已验基线为 `1608f85f0b7b2882a91dd60c0525ccccc7e583df`，tree `be9453563816059afc753218840e41e7165f100d`；[CI 38142050913](https://github.com/ForceMind/MyAPI/actions/runs/38142050913)十项全部 success，独立终审通过。[草稿 PR #11](https://github.com/ForceMind/MyAPI/pull/11)保持 Draft。当前继续原金额方案的 Key 调整幂等和派生总额兼容，不以基线绿灯替本批记通过。历史账本仍未核清，生产保持不动。
 
-## 最新验收结果
+## 当前开发：Key 额度重试与派生总额（待验证）
+
+原方案要求显式 Key 额度修改具有持久请求身份；1608 基线只有版本与元数据 CAS，响应丢失后的重试不能返回原调整结果。本批在现有 PUT `/api/token/` 保留一次表单的名称、权限及额度原子修改，增加规范小写 UUID `request_id` 和不可变成功收据。收据以 `(user_id, request_id_hash)` 唯一；哈希及原身份、Key ID、包含字段存在性的客户端白名单指纹一起核验，避免 MySQL 排序规则把不同输入视为同一身份。持久指纹具有明确版本和固定规范编码，未来缺席字段不得改变旧请求摘要。重试在当前 owner 验证后、写入权限及版本检查前查询原收据；相同请求返回原结果和当前持久数据库行的脱敏 Key，不再次修改余额或发布旧缓存。该 Key projection 沿用原API数据库读取语义，不代表尚未drain的有效缓存余额；缓存离线也不阻止确认成功收据。异参数冲突，任何失败事务不留下收据或部分表单修改。
+
+仅元数据请求省略 `remain_quota`；显式金额即使等于当前值也要求身份、原版本和元数据指纹，`null` 不能被静默视为元数据。金额、累计 used、负余额、无限 Key、writer 和缓存屏障沿用现有政策，不产生历史恢复许可。新表 `token_quota_adjustments` 的三个金额列加入迁移前物理检查，当前 schema 合同扩至22表41列；保留原13字段宽值往返和七类回滚断言，再用实际 Key 调整验证新收据的宽 before/used。
+
+`GetTokenUsage` 分别校验 remain/used，组件合法而派生和超过 `M=2^53−1` 时保留组件，返回 `total_granted=null`、`total_granted_representable=false`；可表示时仍返回 number 和 true。Key 列表、详情、搜索不新增派生 DTO 字段。前端在真实 API 边界校验整数，桌面与手机共用先检查后相加的逻辑，超界时显示已有翻译并保留组件、停止显示比例。完整失败提交保留同一 request_id，修改意图或关闭、切换、成功后清理；后台 refetch 不替换打开表单时的版本。
+
+实现分工为 Sol/high 核心与 UI 两代理、主线程迁移/三库接线/CI/文档、独立 Sol/xhigh 只读审查。共享新请求契约接入既有 SQLite 生产迁移与 B2 MySQL5.7/PostgreSQL9.6 临时服务；后两者使用两连接验证竞争。原17项386门禁保留并加宽收据金额/字符串版本合同为18项/五包。测试先写，未执行本地基线红例；本机只做静态、gofmt和必要 i18n 元数据检查，编译、测试及浏览器交给 Actions。`bun run i18n:sync`成功且无tracked locale差异；本地`format:check`因未安装node_modules/oxfmt无法执行，不记格式验证通过，也未为此安装依赖。不新增服务、job、权限、artifact 或历史数据库副本。版本仍为未发布 beta.11 候选，准确后继 SHA/CI 结果在 PR Checks 与正文单独回读；未发布、未合并或部署。
+
+1608 的实际结果可复用为基线：17项386顶层测试/五包各 RUN/PASS 一次、零 skip/fail；B2 MySQL/PostgreSQL 完整 schema 子项各一次 RUN/PASS；Redis7.4.11共51次 RUN/PASS；前端187文件/1126测试、profile九场景及既有UI验收完成。它们不证明本批新增收据或 UI 已通过。旧 c94 386编译失败、3feff 前端取消和早期全包386/mock限制继续保留。
+
+## 早期09ef源码的验收结果
 
 被测应用与测试源码为 `09ef63268b5c6742fe73e246f6c5e26e30559903`，tree 为 `622566fb1c345343d1f10d7489e1af881469b2ac`。PR 测试合并提交 `4d42b99a7e17a2cc3086275abe768b40c1e71b5a` 的 tree 与之相同。[草稿 PR #11](https://github.com/ForceMind/MyAPI/pull/11)保持 Draft。后继 `3feff8e` 仅更新五份文档；再后一批只调整前端CI总时限和相应记录，应用与测试源码保持不变，不将后继提交称为旧运行实际检出的源码。
 

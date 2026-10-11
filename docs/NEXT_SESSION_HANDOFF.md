@@ -2,6 +2,8 @@
 
 用户已授权继续正常开发及临时云端合成服务，当前范围仍是个人资料持续加载、新请求结算保护、历史金额与账务兼容。最新状态见[云端验收记录](CLOUD_VALIDATION_PROGRESS.md)和[草稿 PR #11](https://github.com/ForceMind/MyAPI/pull/11)。原225文件候选与全部失败证据保留；磁盘不足已解除，构建在GitHub Actions执行，本轮未增加本地编译缓存、服务或历史数据库副本。
 
+**当前开发批次：** 基线1608f85的[CI38142050913](https://github.com/ForceMind/MyAPI/actions/runs/38142050913)十项success、独立终审通过；原17项386、完整三库当前金额schema、Redis51和profile九场景均按各自实际范围验收。继续原金额方案尚缺的显式Key调整持久幂等及派生总额兼容：成功收据与整张表单同事务，重试返回原收据及当前Key，旧客户端显式金额缺身份明确拒绝；GetTokenUsage的超界派生和返回null与标志，桌面/手机保留组件。新三库契约和18项386门禁待本批准确云端验证，不能沿用1608绿灯。核心/UI并行，根负责集成，独立审查只读；正常修复分支同步继续，main、旧标签、beta.11未发布及历史冻结边界保持。详细接口与验证合同见[金额方案](HISTORICAL_AMOUNT_COMPATIBILITY_PROPOSAL.md)和[云端记录](CLOUD_VALIDATION_PROGRESS.md)。以下旧“本批待验”等描述保留当时状态，以本段和云端记录首节为准。
+
 已验源码 `09ef63268b5c6742fe73e246f6c5e26e30559903`，tree `622566fb1c345343d1f10d7489e1af881469b2ac`：[CI 38128779978](https://github.com/ForceMind/MyAPI/actions/runs/38128779978)十项与[Docker 38128779248](https://github.com/ForceMind/MyAPI/actions/runs/38128779248)五项success，个人资料9个Chromium合成恢复场景通过。Legacy日志合同已修正且实际镜像验证通过：已完成正fact必需，intent缺失合法、存在时严格核验。此前39项单元曾未识别该错误合同，旧失败不改写。
 
 [原生专项 38132921489](https://github.com/ForceMind/MyAPI/actions/runs/38132921489)在独立CI分支提交 `c8e7bbc04676e46f2ad0c806a9ac78562923a4ef` 上3项串行success、原10项skipped。其唯一parent为09ef、唯一差异为CI文件，非CI3067项摘要相同；MySQL 5.7/PostgreSQL 9.6的共享历史账务合同实际PASS且零skip，临时容器和网络已回收，独立审查通过。既有同源码Redis 7.4.11的44个quota-script子项PASS仍限该脚本合同，不证明完整缓存生命周期。

@@ -2100,4 +2100,7 @@ func TestB2LogProjectionMigrationPreservesExistingRowsSQLite(t *testing.T) {
 	t.Run("historical-amount-schema", func(t *testing.T) {
 		runHistoricalAmountSchemaContract(t, db)
 	})
+	t.Run("token-quota-adjustment", func(t *testing.T) {
+		runTokenQuotaAdjustmentContract(t, db)
+	})
 }

@@ -38,6 +38,7 @@ func validQuotaAmountSQLiteStatements() []string {
 	return []string{
 		`CREATE TABLE users (quota INTEGER, used_quota INTEGER)`,
 		`CREATE TABLE tokens (remain_quota INTEGER, used_quota INTEGER)`,
+		`CREATE TABLE token_quota_adjustments (remain_quota_before INTEGER, remain_quota_after INTEGER, used_quota_snapshot INTEGER)`,
 		`CREATE TABLE channels (used_quota INTEGER)`,
 		`CREATE TABLE quota_data (quota INTEGER)`,
 		`CREATE TABLE user_quota_mutation_receipts (delta INTEGER, quota_before INTEGER, quota_after INTEGER)`,
@@ -59,6 +60,7 @@ func validQuotaAmountSQLiteStatements() []string {
 		`CREATE TABLE admin_quota_adjustments (delta INTEGER, target_quota INTEGER, applied_quota_before INTEGER, applied_quota_after INTEGER)`,
 		`INSERT INTO users (quota, used_quota) VALUES (-9007199254740991, 2147483648)`,
 		`INSERT INTO tokens (remain_quota, used_quota) VALUES (9007199254740991, 2147483648)`,
+		`INSERT INTO token_quota_adjustments (remain_quota_before, remain_quota_after, used_quota_snapshot) VALUES (-9007199254740991, 100, 9007199254740991)`,
 		`INSERT INTO channels (used_quota) VALUES (9007199254740991)`,
 		`INSERT INTO quota_data (quota) VALUES (9007199254740991)`,
 		`INSERT INTO user_quota_mutation_receipts (delta, quota_before, quota_after) VALUES (9007199254740991, -9007199254740991, 0), (-9007199254740991, 9007199254740991, 0)`,
@@ -131,6 +133,26 @@ func TestSQLiteQuotaAmountPreflightRejectsUnsafeSchemaAndValues(t *testing.T) {
 		statements []string
 		field      string
 	}{
+		{
+			name: "key adjustment receipt above exact range",
+			statements: []string{
+				`CREATE TABLE users (quota INTEGER, used_quota INTEGER)`,
+				`CREATE TABLE tokens (remain_quota INTEGER, used_quota INTEGER)`,
+				`CREATE TABLE token_quota_adjustments (remain_quota_before INTEGER, remain_quota_after INTEGER, used_quota_snapshot INTEGER)`,
+				`INSERT INTO token_quota_adjustments (remain_quota_before, remain_quota_after, used_quota_snapshot) VALUES (9007199254740992, 100, 0)`,
+			},
+			field: "token_quota_adjustments.remain_quota_before",
+		},
+		{
+			name: "key adjustment receipt has negative used snapshot",
+			statements: []string{
+				`CREATE TABLE users (quota INTEGER, used_quota INTEGER)`,
+				`CREATE TABLE tokens (remain_quota INTEGER, used_quota INTEGER)`,
+				`CREATE TABLE token_quota_adjustments (remain_quota_before INTEGER, remain_quota_after INTEGER, used_quota_snapshot INTEGER)`,
+				`INSERT INTO token_quota_adjustments (remain_quota_before, remain_quota_after, used_quota_snapshot) VALUES (100, 120, -1)`,
+			},
+			field: "token_quota_adjustments.used_quota_snapshot",
+		},
 		{
 			name: "missing core table",
 			statements: []string{

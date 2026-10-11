@@ -115,6 +115,11 @@ export function ApiKeysMutateDrawer({
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const openedQuotaVersion = useRef<string | undefined>(undefined)
   const openedMetadataFingerprint = useRef<string | undefined>(undefined)
+  const quotaAttemptRef = useRef<{
+    fingerprint: string
+    requestId: string
+  } | null>(null)
+  const quotaAttemptTargetRef = useRef<string | null>(null)
   const [initializedTarget, setInitializedTarget] = useState<string | null>(
     null
   )
@@ -231,6 +236,14 @@ export function ApiKeysMutateDrawer({
 
   const quotaDirty = Boolean(form.formState.dirtyFields.remain_quota_dollars)
 
+  useEffect(() => {
+    const target = open && isUpdate ? `update:${currentRowId}` : null
+    if (quotaAttemptTargetRef.current !== target) {
+      quotaAttemptRef.current = null
+      quotaAttemptTargetRef.current = target
+    }
+  }, [currentRowId, isUpdate, open])
+
   // Load existing data when updating
   useEffect(() => {
     if (!open) {
@@ -332,20 +345,52 @@ export function ApiKeysMutateDrawer({
       const basePayload = transformFormDataToPayload(data)
 
       if (isUpdate && currentRow) {
-        const updatePayload: ApiKeyUpdateData = {
-          ...basePayload,
-          id: currentRow.id,
-        }
         // Metadata edits must not write a stale balance back over consumption.
         // Keep the version captured with the form, even if its query refetches.
+        let updatePayload: ApiKeyUpdateData
         if (!data.unlimited_quota && quotaDirty) {
-          updatePayload.quota_version = openedQuotaVersion.current
-          updatePayload.metadata_fingerprint = openedMetadataFingerprint.current
+          const quotaVersion = openedQuotaVersion.current
+          const metadataFingerprint = openedMetadataFingerprint.current
+          if (!quotaVersion || !metadataFingerprint) {
+            toast.error(t(ERROR_MESSAGES.UPDATE_FAILED))
+            return
+          }
+          const quotaPayload = {
+            ...basePayload,
+            id: currentRow.id,
+            quota_version: quotaVersion,
+            metadata_fingerprint: metadataFingerprint,
+          }
+          const fingerprint = JSON.stringify(quotaPayload)
+          if (quotaAttemptRef.current?.fingerprint !== fingerprint) {
+            quotaAttemptRef.current = {
+              fingerprint,
+              requestId: crypto.randomUUID().toLowerCase(),
+            }
+          }
+          updatePayload = {
+            ...quotaPayload,
+            request_id: quotaAttemptRef.current.requestId,
+          }
         } else {
-          delete updatePayload.remain_quota
+          quotaAttemptRef.current = null
+          updatePayload = {
+            id: currentRow.id,
+            name: basePayload.name,
+            expired_time: basePayload.expired_time,
+            unlimited_quota: basePayload.unlimited_quota,
+            model_limits_enabled: basePayload.model_limits_enabled,
+            model_limits: basePayload.model_limits,
+            allow_ips: basePayload.allow_ips,
+            group: basePayload.group,
+            access_profile_id: basePayload.access_profile_id,
+            auto_groups: basePayload.auto_groups,
+            cross_group_retry: basePayload.cross_group_retry,
+          }
         }
         const result = await updateApiKey(updatePayload)
         if (result.success) {
+          quotaAttemptRef.current = null
           toast.success(t(SUCCESS_MESSAGES.API_KEY_UPDATED))
           onOpenChange(false)
           triggerRefresh()
@@ -424,6 +469,7 @@ export function ApiKeysMutateDrawer({
     <Sheet
       open={open}
       onOpenChange={(v) => {
+        if (!v) quotaAttemptRef.current = null
         onOpenChange(v)
         if (!v) {
           form.reset()

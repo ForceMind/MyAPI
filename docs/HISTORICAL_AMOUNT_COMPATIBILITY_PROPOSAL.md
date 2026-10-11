@@ -43,7 +43,7 @@
 
 用户/channel/quota_data统计保持现有尽力更新的持久性语义，不在本任务增加强一致统计账本；需要修正宽类型、算术及失败观测，仍不得据统计counter证明资金已落盘。request_count及其他计数保留独立计数合同，不随金额M一并重定义。用户累计与日志差额继续作为历史未知项，不能用这个设计选择宣称差额已解决。
 
-现Key编辑路径会把remain随元数据一起直接覆盖，缺少余额版本CAS和持久请求身份。候选明确分开：元数据API省略金额SQL列；额度调整请求携带稳定request_id，事务内查重、锁Key及校验writer/旧值/版本，原子写remain、quota_version及调整结果。相同身份同参数重试返回原结果，异参数冲突，失败零写入；本操作是Key额度授权变更，used保持原值。expected_version可作为额外并发前提，不能替代request_id幂等。当前API/前端尚无该合同，新增必填身份及持久去重记录属于需审阅的兼容变更；旧客户端的金额覆盖不得被静默当作元数据成功。unlimited保留原策略，但明确提交的金额仍验证。
+1608基线已实现元数据省略金额SQL列和余额版本/元数据CAS，仍缺持久请求身份。本批在现有PUT `/api/token/`实现获审合同：显式`remain_quota`（含等于当前值）要求规范小写UUID `request_id`、规范十进制字符串`quota_version`、`metadata_fingerprint`，null明确拒绝；仅元数据请求省略金额及上述身份字段。一次表单修改名称、权限和金额仍为一个事务，不拆成两次HTTP。收据`token_quota_adjustments`以`(user_id,request_id_hash)`唯一，并精确核验原身份、Key ID及包含字段存在性的客户端白名单指纹；持久指纹版本与v1规范编码明确，未来缺席字段不能改变旧摘要，指纹在当前数据库归一化之前确定，不存Key秘密。事务锁Key、重查收据、核验writer/旧版本/元数据，原子写整次表单、版本及不可变成功结果，used从锁定行保留。相同身份同参数在当前owner校验后返回原收据、`replayed=true`及当前持久数据库行的脱敏Key（非未drain的有效缓存余额），后续消费、状态和权限变化不改原结果，不发布旧缓存；异参数冲突，失败事务零残留。只有确认提交成功才建立持久结果，commit失败不自行证明已完成；现有缓存屏障与错误政策保留。额度版本是并发前提，不能替代request_id幂等。旧客户端缺身份的显式额度覆盖不得静默成功；unlimited与单次输入上限保持。当前实现及三库/前端回归待准确后继CI，历史义务不因此取得许可。
 
 管理员override的输入是目标值，其内部差额`target−current`可能超过单次费用上限；不能误用费用验证器使历史宽余额无法按显式目标调整。内部差额另按精确调整合同验证，绝对值超过M时明确拒绝且零写入，不拆换原请求身份或自动分笔。例如从-M覆盖到正的int32目标，其差额也可能超M；不能因原值与目标分别合格就忽略该边界。receipt/审计JSON和缓存同步都必须覆盖这类内部差额。
 
@@ -81,7 +81,7 @@ Lua中先按`maximum−delta`等边界预检，不能仅算出可能已舍入的
 
 主金额字段若以JSON number保留，必须在后端按精确整数验证在M内；不能通过map[string]float64解析后再检查。现有客户端返回类型尽量保留，输入拒绝非整数及不精确表示；接口/缓存序列化仍使用common JSON包装。
 
-单字段安全不等于接口安全。例如`controller/token.go`已有`total_granted=remain_quota+used_quota`，两个合格字段的和可超过M；跨用户/多行汇总还可能超int64。禁止返回舍入number或靠新增remain+used≤M的财务约束隐藏问题。候选推荐：组件字段仍精确number，派生total超M时返回明确不可表示状态并保留组件；total以null/省略配合明确标志，须先核对调用方并审阅DTO兼容，不能悄悄把原number改成string。若调用方必须取得超M精确总和，则另审版本化string DTO。只有明确依赖总和的操作才失败，避免纯派生字段令可用组件也不可读。当前尚未选择并实施这些API合同。
+单字段安全不等于接口安全。例如`controller/token.go`的`total_granted=remain_quota+used_quota`，两个合格字段的和可超过M；跨用户/多行汇总还可能超int64。禁止返回舍入number或靠新增remain+used≤M的财务约束隐藏问题。本批获审接口合同：`GetTokenUsage`先独立校验remain∈[-M,M]、used∈[0,M]，可表示的派生和保持number并返回`total_granted_representable=true`；超M则`total_granted=null`、标志false，合法组件保持精确number。非法组件仍失败；不改成string或增加财务总和约束。Key列表/详情/搜索不为显示而扩充DTO；前端在真实API边界校验组件，先按符号检查边界再相加，超界显示已有翻译并保留两组件、隐藏派生比例。若调用方必须取得超M精确总和，则另审版本化string DTO。本批实现及云端验收状态见[云端记录](CLOUD_VALIDATION_PROGRESS.md)。
 
 前端金额编辑、精确配额展示及货币/单位换算分别检查，不把显示用浮点结果提交回账务。已有宽值的只读显示及无金额变更表单必须保真；任何必要的UI修正只限此兼容缺陷，沿用i18n及现有样式，不扩展新功能。跨行汇总不能靠单字段M保证精确。
 

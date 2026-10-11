@@ -431,27 +431,38 @@ func mutateTokenMetadataWithCacheFence(key string, mutation func(*gorm.DB) error
 }
 
 // UpdateWithQuota atomically updates token metadata and an explicitly requested
-// remaining quota. The caller must supply both the quota version and metadata
-// fingerprint it read with the form; stale retries fail without changing
-// metadata or quota. UsedQuota is always read from the locked database row and
-// is never copied from the caller.
-func (token *Token) UpdateWithQuota(expectedQuotaVersion int64, expectedMetadataFingerprint string) error {
-	if token == nil || token.Id <= 0 || token.RemainQuota < 0 || token.RemainQuota > int64(common.MaxQuota) || !quotaMutationVersionValid(expectedQuotaVersion) {
-		return ErrAccountQuotaMutationInvalidInput
+// remaining quota together with its immutable replay receipt. UsedQuota is read
+// from the locked row and is never copied from the caller.
+func (token *Token) UpdateWithQuota(command TokenQuotaAdjustmentCommand) (*TokenQuotaAdjustmentResult, bool, error) {
+	if token == nil || token.Id <= 0 || token.RemainQuota < 0 || token.RemainQuota > int64(common.MaxQuota) {
+		return nil, false, ErrAccountQuotaMutationInvalidInput
 	}
-	if expectedMetadataFingerprint == "" {
-		return ErrTokenQuotaVersionConflict
+	command, requestHash, err := normalizeTokenQuotaAdjustmentCommand(command)
+	if err != nil {
+		return nil, false, err
 	}
-	if strings.TrimSpace(token.AccessProfileID) == "" {
-		token.AccessProfileID = EffectiveAccessProfileID(token.Group)
+	if token.UserId != 0 && token.UserId != command.UserID {
+		return nil, false, ErrTokenQuotaAdjustmentConflict
 	}
 
 	var identity Token
-	if err := DB.Select("id", "user_id", "key").Where("id = ?", token.Id).First(&identity).Error; err != nil {
-		return err
+	if err := DB.Where("id = ? AND user_id = ?", token.Id, command.UserID).First(&identity).Error; err != nil {
+		return nil, false, err
 	}
-	if (token.UserId != 0 && token.UserId != identity.UserId) || (token.Key != "" && token.Key != identity.Key) {
-		return ErrTokenQuotaVersionConflict
+	if token.Key != "" && token.Key != identity.Key {
+		return nil, false, ErrTokenQuotaAdjustmentConflict
+	}
+	adjustment, found, err := findTokenQuotaAdjustment(DB, command, requestHash, token.Id)
+	if err != nil {
+		return nil, false, err
+	}
+	if found {
+		*token = identity
+		return adjustment.Result(), true, nil
+	}
+
+	if strings.TrimSpace(token.AccessProfileID) == "" {
+		token.AccessProfileID = EffectiveAccessProfileID(token.Group)
 	}
 	token.UserId = identity.UserId
 	token.Key = identity.Key
@@ -463,7 +474,7 @@ func (token *Token) UpdateWithQuota(expectedQuotaVersion int64, expectedMetadata
 		tables, probeErr := DB.WithContext(ctx).Migrator().GetTables()
 		if probeErr != nil {
 			common.SysError("failed to probe quota writer epoch table: " + probeErr.Error())
-			return ErrQuotaWriterEpochUnavailable
+			return nil, false, ErrQuotaWriterEpochUnavailable
 		}
 		epochTableFound := false
 		for _, table := range tables {
@@ -474,43 +485,55 @@ func (token *Token) UpdateWithQuota(expectedQuotaVersion int64, expectedMetadata
 		}
 		if epochTableFound {
 			common.SysError("failed to load quota writer epoch state: " + modeErr.Error())
-			return ErrQuotaWriterEpochUnavailable
+			return nil, false, ErrQuotaWriterEpochUnavailable
 		}
 		mode = QuotaWriterModeLegacy
 	}
 	var balanceLock *quotaBalanceSubjectLock
-	var err error
+	var balanceErr error
 	switch mode {
 	case QuotaWriterModeLegacy:
-		balanceLock, err = prepareLegacySettlementSubject(ctx, DB.WithContext(ctx), BatchUpdateTypeTokenQuota, token.Id, identity.Key)
+		balanceLock, balanceErr = prepareLegacySettlementSubject(ctx, DB.WithContext(ctx), BatchUpdateTypeTokenQuota, token.Id, identity.Key)
 	case QuotaWriterModeAuthoritative:
 		if common.RedisEnabled && common.RDB != nil {
-			balanceLock, err = acquireQuotaBalanceSubjectLockContext(ctx, BatchUpdateTypeTokenQuota, token.Id)
-			if err == nil {
-				err = invalidateQuotaBalanceSubjectCache(balanceLock, getTokenCacheKey(identity.Key), getTokenCacheFenceKey(identity.Key))
+			balanceLock, balanceErr = acquireQuotaBalanceSubjectLockContext(ctx, BatchUpdateTypeTokenQuota, token.Id)
+			if balanceErr == nil {
+				balanceErr = invalidateQuotaBalanceSubjectCache(balanceLock, getTokenCacheKey(identity.Key), getTokenCacheFenceKey(identity.Key))
 			}
 		}
 	default:
-		return ErrDurableQuotaWriterModeDisabled
+		return nil, false, ErrDurableQuotaWriterModeDisabled
 	}
-	if err != nil {
+	if balanceErr != nil {
 		releaseQuotaBalanceSubjectLock(balanceLock)
-		return err
+		return nil, false, balanceErr
 	}
 	defer releaseQuotaBalanceSubjectLock(balanceLock)
 
 	var updated Token
+	var committedAdjustment *TokenQuotaAdjustment
+	replayed := false
 	err = DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var current Token
 		if err := lockForUpdate(tx).Where("id = ? AND user_id = ?", token.Id, identity.UserId).First(&current).Error; err != nil {
 			return err
 		}
+		existing, found, err := findTokenQuotaAdjustment(tx, command, requestHash, token.Id)
+		if err != nil {
+			return err
+		}
+		if found {
+			updated = current
+			committedAdjustment = existing
+			replayed = true
+			return nil
+		}
 		currentMetadataFingerprint, err := current.QuotaMetadataFingerprint()
 		if err != nil {
 			return err
 		}
-		if current.Key != identity.Key || current.QuotaVersion != expectedQuotaVersion ||
-			!quotaMutationVersionValid(current.QuotaVersion) || currentMetadataFingerprint != expectedMetadataFingerprint {
+		if current.Key != identity.Key || current.QuotaVersion != command.ExpectedQuotaVersion ||
+			!quotaMutationVersionValid(current.QuotaVersion) || currentMetadataFingerprint != command.ExpectedMetadataFingerprint {
 			return ErrTokenQuotaVersionConflict
 		}
 		if _, err := common.CheckedQuotaBalance(current.RemainQuota, 0); err != nil {
@@ -536,19 +559,46 @@ func (token *Token) UpdateWithQuota(expectedQuotaVersion int64, expectedMetadata
 		if result.RowsAffected != 1 {
 			return ErrTokenQuotaVersionConflict
 		}
-		return tx.First(&updated, current.Id).Error
+		if err := tx.First(&updated, current.Id).Error; err != nil {
+			return err
+		}
+		committedAdjustment = &TokenQuotaAdjustment{
+			UserID: command.UserID, RequestIDHash: requestHash, RequestID: command.RequestID,
+			TokenID: token.Id, FingerprintVersion: command.FingerprintVersion, RequestFingerprint: command.RequestFingerprint,
+			RemainQuotaBefore: current.RemainQuota, RemainQuotaAfter: updated.RemainQuota,
+			UsedQuotaSnapshot: current.UsedQuota, QuotaVersionBefore: current.QuotaVersion,
+			QuotaVersionAfter: updated.QuotaVersion, CreatedTime: time.Now().Unix(),
+		}
+		return tx.Create(committedAdjustment).Error
 	})
 	if err != nil {
-		return err
+		// A concurrent request may have won the unique receipt key. Re-read only
+		// after this transaction has ended so MySQL and PostgreSQL can observe it.
+		existing, found, replayErr := findTokenQuotaAdjustment(DB.WithContext(ctx), command, requestHash, token.Id)
+		if replayErr == nil && found {
+			var current Token
+			if loadErr := DB.WithContext(ctx).Where("id = ? AND user_id = ?", token.Id, command.UserID).First(&current).Error; loadErr != nil {
+				return nil, false, loadErr
+			}
+			*token = current
+			return existing.Result(), true, nil
+		}
+		if replayErr != nil && !errors.Is(replayErr, ErrTokenQuotaAdjustmentConflict) {
+			return nil, false, replayErr
+		}
+		if errors.Is(replayErr, ErrTokenQuotaAdjustmentConflict) {
+			return nil, false, replayErr
+		}
+		return nil, false, err
 	}
 
 	*token = updated
-	if balanceLock != nil {
+	if balanceLock != nil && !replayed {
 		if cacheErr := invalidateQuotaBalanceSubjectCache(balanceLock, getTokenCacheKey(identity.Key), getTokenCacheFenceKey(identity.Key)); cacheErr != nil {
 			common.SysLog("failed to preserve updated token cache fence: " + cacheErr.Error())
 		}
 	}
-	return nil
+	return committedAdjustment.Result(), replayed, nil
 }
 
 func (token *Token) SelectUpdate() (err error) {

@@ -63,6 +63,14 @@ var quotaAmountTableSpecs = []quotaAmountTableSpec{
 		},
 	},
 	{
+		name: "token_quota_adjustments",
+		columns: []quotaAmountColumnSpec{
+			quotaAmountBalanceColumn("token_quota_adjustments", "remain_quota_before", true),
+			quotaAmountBalanceColumn("token_quota_adjustments", "remain_quota_after", false),
+			quotaAmountBalanceColumn("token_quota_adjustments", "used_quota_snapshot", false),
+		},
+	},
+	{
 		name: "quota_data",
 		columns: []quotaAmountColumnSpec{
 			quotaAmountBalanceColumn("quota_data", "quota", false),

@@ -14,7 +14,9 @@ func TestTokenQuotaEditRejectsLateUnownedBalanceSnapshot(t *testing.T) {
 	fingerprint, err := requested.QuotaMetadataFingerprint()
 	require.NoError(t, err)
 	requested.RemainQuota = 2
-	require.NoError(t, requested.UpdateWithQuota(requested.QuotaVersion, fingerprint))
+	_, replayed, err := requested.UpdateWithQuota(newTokenQuotaAdjustmentCommandForTest(t, &requested, requested.QuotaVersion, fingerprint))
+	require.NoError(t, err)
+	require.False(t, replayed)
 	var stored Token
 	require.NoError(t, DB.First(&stored, fixture.Token.Id).Error)
 	require.Equal(t, int64(2), stored.RemainQuota)

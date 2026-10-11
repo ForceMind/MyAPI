@@ -18,15 +18,16 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
 
-import type {
-  ApiKey,
-  ApiResponse,
-  GetApiKeysParams,
-  GetApiKeysResponse,
-  SearchApiKeysParams,
-  ApiKeyFormData,
-  ApiKeyUpdateData,
-  TokenAutoGroupsConfig,
+import {
+  apiKeySchema,
+  type ApiKey,
+  type ApiResponse,
+  type GetApiKeysParams,
+  type GetApiKeysResponse,
+  type SearchApiKeysParams,
+  type ApiKeyFormData,
+  type ApiKeyUpdateData,
+  type TokenAutoGroupsConfig,
 } from './types'
 
 // ============================================================================
@@ -39,7 +40,11 @@ export async function getApiKeys(
 ): Promise<GetApiKeysResponse> {
   const { p = 1, size = 10 } = params
   const res = await api.get(`/api/token/?p=${p}&size=${size}`)
-  return res.data
+  const response = res.data as GetApiKeysResponse
+  if (response.data?.items) {
+    response.data.items = apiKeySchema.array().parse(response.data.items)
+  }
+  return response
 }
 
 // Search API keys by keyword or token (with pagination)
@@ -53,13 +58,21 @@ export async function searchApiKeys(
   if (p != null) queryParams.set('p', String(p))
   if (size != null) queryParams.set('size', String(size))
   const res = await api.get(`/api/token/search?${queryParams.toString()}`)
-  return res.data
+  const response = res.data as GetApiKeysResponse
+  if (response.data?.items) {
+    response.data.items = apiKeySchema.array().parse(response.data.items)
+  }
+  return response
 }
 
 // Get single API key by ID
 export async function getApiKey(id: number): Promise<ApiResponse<ApiKey>> {
   const res = await api.get(`/api/token/${id}`)
-  return res.data
+  const response = res.data as ApiResponse<ApiKey>
+  if (response.data !== undefined) {
+    response.data = apiKeySchema.parse(response.data)
+  }
+  return response
 }
 
 // Get the current user's global Auto order and the per-token selection limit.
