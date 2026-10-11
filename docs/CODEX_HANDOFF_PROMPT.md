@@ -1,10 +1,12 @@
 ## 当前任务：先核历史账务兼容，暂不部署（2026-10-11）
 
-开发已恢复，当前范围仍是个人资料持续加载、新请求结算保护、历史金额与账务兼容。最新状态见[云端验收记录](CLOUD_VALIDATION_PROGRESS.md)和[草稿 PR #11](https://github.com/ForceMind/MyAPI/pull/11)。原225文件候选与失败证据保留；磁盘不足已解除，构建在 GitHub Actions 执行。
+用户已授权继续正常开发及临时云端合成服务，当前范围仍是个人资料持续加载、新请求结算保护、历史金额与账务兼容。最新状态见[云端验收记录](CLOUD_VALIDATION_PROGRESS.md)和[草稿 PR #11](https://github.com/ForceMind/MyAPI/pull/11)。原225文件候选与全部失败证据保留；磁盘不足已解除，构建在GitHub Actions执行，本轮未增加本地编译缓存、服务或历史数据库副本。
 
-`35b4c7bf` 的 CI 十项及个人资料九个浏览器合成场景通过。后续 `c27658c4` 新增三份 runtime 云端单元补验，39 项通过；该轮完整 CI 未收口。`28f4f609` 的三个 legacy Docker 场景因脚本错误强制要求 intent 而失败：旧版与当前版 legacy 合法只有 applied fact。失败记录保留，实际镜像验收尚未通过。
+已验源码 `09ef63268b5c6742fe73e246f6c5e26e30559903`，tree `622566fb1c345343d1f10d7489e1af881469b2ac`：[CI 38128779978](https://github.com/ForceMind/MyAPI/actions/runs/38128779978)十项与[Docker 38128779248](https://github.com/ForceMind/MyAPI/actions/runs/38128779248)五项success，个人资料9个Chromium合成恢复场景通过。Legacy日志合同已修正且实际镜像验证通过：已完成正fact必需，intent缺失合法、存在时严格核验。此前39项单元曾未识别该错误合同，旧失败不改写。
 
-本批只修正 smoke 的实际日志合同：强制已完成且正身份的 fact，intent 缺失合法，存在时仍验证正整数及恢复前后身份。继续验证空结算历史迁移、有历史的迁移前拒绝及原备份旧镜像恢复，不放宽应用门禁。准确后续提交及结果以 PR head/Checks 为准；历史证据和原生专项授权仍待补齐，暂不发布、不部署。
+[原生专项 38132921489](https://github.com/ForceMind/MyAPI/actions/runs/38132921489)在独立CI分支提交 `c8e7bbc04676e46f2ad0c806a9ac78562923a4ef` 上3项串行success、原10项skipped。其唯一parent为09ef、唯一差异为CI文件，非CI3067项摘要相同；MySQL 5.7/PostgreSQL 9.6的共享历史账务合同实际PASS且零skip，临时容器和网络已回收，独立审查通过。既有同源码Redis 7.4.11的44个quota-script子项PASS仍限该脚本合同，不证明完整缓存生命周期。
+
+结果后的修复分支提交仅更新文档；被测源码和CI执行提交按上述身份分别记录，文档后继提交的Checks另行回读。不再手动重复Docker/native。剩余依赖为beta.3一致性来源、完整资金/预扣/缓存/所有writer、504未知事件、旧authoritative终态凭证来源与真实回滚资格；当前没有据新失败成立的额外代码修改。未知项继续冻结，副本保持DO_NOT_RESTORE、ledger_reconciled=false、production_eligible=false。main仍为92fa1182；beta.10标签保持原值，beta.11只有未发布元数据，生产未改动，暂不发布或部署。
 
 以下至“历史主线”之前保留上轮本地收口记录。其中未提交、磁盘不足与Goal受阻表述仅在该轮归档时成立，不代表当前分支同步或资源状态。
 

@@ -1,9 +1,9 @@
 # v0.2.0-beta.11 unpublished candidate
 
-**2026-10-10 当前任务：** 暂不发布或部署。先按[历史账务兼容核查记录](HISTORICAL_ACCOUNTING_COMPATIBILITY.md)
+**2026-10-11 当前任务：** 暂不发布或部署。先按[历史账务兼容核查记录](HISTORICAL_ACCOUNTING_COMPATIBILITY.md)
 核清历史账务；下述构建、安装与升级验收只覆盖合成环境，不能代替用户历史数据库的一致性验收。
 
-本地另有未提交候选：新请求准入保护、个人资料加载修复、历史金额表示兼容、迁移前只读探针、持久执行许可及Key编辑并发保护。前端合成交互通过，带执行门禁的实际Go副本演练及独立全表检查已完成，但原生三库/Redis及历史证据仍未闭合；v7冷余额旧快照及免预扣局部修正的定向红绿和独立代码审查通过，最终model 1678项及middleware/controller/service/router全包通过，外部依赖跳过项仍待验；旧权限缓存复活的两条合成路径已由当前数据库授权读取修正；model最终全包、controller/router/service/Kling及amd64/386时长校验已有通过证据，根模块测试编译、vet及主程序/386构建通过；这些检查不证明生产账务已核清。候选未进入main、镜像或发布资产，历史账务未核清，详细范围见上述核查记录。
+修复候选已提交[草稿PR #11](https://github.com/ForceMind/MyAPI/pull/11)，包含新请求准入保护、个人资料加载修复、历史金额表示兼容、迁移前只读探针、持久执行许可及Key编辑并发保护。被测源码 `09ef63268b5c6742fe73e246f6c5e26e30559903` 的[CI十项](https://github.com/ForceMind/MyAPI/actions/runs/38128779978)和[Docker五项](https://github.com/ForceMind/MyAPI/actions/runs/38128779248)成功；独立CI提交 `c8e7bbc04676e46f2ad0c806a9ac78562923a4ef` 与其非CI源码相同，[MySQL 5.7/PostgreSQL 9.6专项](https://github.com/ForceMind/MyAPI/actions/runs/38132921489)串行成功、零skip，独立审查通过。个人资料9个Chromium合成场景和既有Redis 7.4.11的44个quota-script子项通过，后者不覆盖全部缓存生命周期。实际Go副本演练仍只持有合成许可，全部副本继续DO_NOT_RESTORE。结果后的提交仅更新文档；前述运行的源码身份不随文档后继提交改变。候选未进入main、发布镜像或资产；beta.3来源、资金/预扣/缓存/全部writer、504事件、旧终态凭证来源和实际回滚资格仍缺，生产账务未核清。详细证据及历史失败范围见[云端验收记录](CLOUD_VALIDATION_PROGRESS.md)。
 
 **Not published. Do not pull or deploy the beta.11 example image yet.**
 The currently available prerelease remains [beta.10](https://github.com/ForceMind/MyAPI/releases/tag/v0.2.0-beta.10), fixed at
@@ -14,7 +14,7 @@ The current local repair baseline is main `92fa1182e265924312d70917a0a637965aebc
 Its own final source head, merge checkout,
 CI and release identities must be recorded after execution; earlier green commits do not qualify it.
 
-下面保留的是历史发布准备记录，其旧候选SHA和合成验收不覆盖当前main `92fa1182e265924312d70917a0a637965aebc617` 上的未提交修复。以本文开头的部署禁令和核查记录为准。
+下面保留的是历史发布准备记录，其旧候选SHA和合成验收不覆盖上述修复候选。main仍为 `92fa1182e265924312d70917a0a637965aebc617`；以本文开头的部署禁令和核查记录为准。
 
 ## Included scope since beta.10
 

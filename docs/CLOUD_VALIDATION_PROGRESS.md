@@ -1,6 +1,34 @@
 # 历史兼容候选的云端验收
 
-更新日期：2026-10-11。状态：`35b4c7bf` 的常规 CI 十项成功，旧 Docker handoff 就绪失败；后续 `28f4f609` 的三个 legacy Docker 场景因新增脚本错误要求 intent 而失败。`c27658c4` 的云端三文件 Node 验证 39 项通过，完整 CI 未收口；本批修正 legacy fact-only 日志合同，新的实际镜像验收仍待运行。准确当前源码及终态以 PR head、Checks 和下方运行记录为准。
+更新日期：2026-10-11。源码 `09ef6326` 的常规 CI 十项、Docker 五项均成功；独立 CI 提交 `c8e7bbc` 的 MySQL 5.7/PostgreSQL 9.6 历史账务专项也已成功。个人资料和账务兼容候选已形成云端合成证据；历史账本仍未核清，生产保持不动。
+
+## 最新验收结果
+
+被测源码为 `09ef63268b5c6742fe73e246f6c5e26e30559903`，tree 为 `622566fb1c345343d1f10d7489e1af881469b2ac`。PR 测试合并提交 `4d42b99a7e17a2cc3086275abe768b40c1e71b5a` 的 tree 与之相同。[草稿 PR #11](https://github.com/ForceMind/MyAPI/pull/11)保持 Draft。本批结果后的提交仅更新文档，不把文档后继提交称为这些运行实际检出的源码。
+
+| 运行 | 实际结果与范围 |
+| --- | --- |
+| [CI 38128779978](https://github.com/ForceMind/MyAPI/actions/runs/38128779978) | 十项 success；根模块与独立 relaykit 的 vet/build/test、linux/386、竞态组、审计工具63项；前端187个测试文件/1126测试、个人资料9个Chromium合成场景；runtime三文件41项、零失败/跳过 |
+| [Docker 38128779248](https://github.com/ForceMind/MyAPI/actions/runs/38128779248) | 五项 success：bundle、LAN源码安装、Full/LAN fresh legacy及Full handoff legacy；未发布镜像 |
+| [原生专项 38132921489](https://github.com/ForceMind/MyAPI/actions/runs/38132921489) | `c8e7bbc` 上三个native job串行success，原十个job全部skipped；MySQL和PostgreSQL的父测试及指定engine子测试各实际PASS，零skip |
+
+个人资料场景包括1280/320px正常读取、null设置、失败重试，以及1280px请求挂起、认证刷新挂起与启动读取挂起后的恢复。它们验证候选和合成API；生产个人资料故障尚未经过升级后验证。
+
+Docker handoff固定旧源 `71277bf6055ce68b8cd1d11f1d10f1907d7696fd`：无结算历史旧库正向迁移与原镜像恢复通过；单次15额度请求后的历史副本被当前镜像以execution gate固定原因拒绝，退出1且非OOM，主DB/WAL存在状态及存在时摘要不变；再从未升级原备份恢复旧镜像，精确额度、有限Key和日志身份一致，上游总计仅1次。Legacy applied fact必需，intent缺失合法、存在时严格核验。本轮不证明快照一定含WAL，也不证明任意生产旧库的回滚资格。
+
+### 原生专项的来源、执行与边界
+
+用户已授权正常开发及本次临时合成服务。独立分支 `codex/historical-accounting-native-20261011` 的提交 `c8e7bbc04676e46f2ad0c806a9ac78562923a4ef`（tree `65e509daa2c9b03c4dffa9bcbf077c73602b1101`）唯一parent为上述源码，只改变 `.github/workflows/ci.yml`，不建立PR或合并main。排除该CI文件后，两提交的3067项路径/mode/blob清单摘要均为 `b48098d81d57f71c957a07c4cc1e3b046803dc5d498d5c102bcd05e6034b0acc`。native状态归于 `c8e7bbc`，不追溯写到 `09ef6326` 的Checks。
+
+GitHub实际接受branch-ref新增inputs。guard核验event/ref/完整SHA、单亲关系、tree、唯一CI差异、洁净checkout与上述摘要，随后安全目标测试实际PASS。guard成功后MySQL启动，MySQL成功后PostgreSQL启动。MySQL使用 `mysql:5.7`，日志确认服务器5.7.44；PostgreSQL使用 `postgres:9.6`，未单独读取其patch版本。两者在不同runner分别动态绑定 `127.0.0.1:32768`，使用本次新空数据库或新schema；各自1 CPU、768MiB、256 PID、512MiB数据tmpfs及run/attempt标签的实态强断言通过。容器和专属网络均已回收。
+
+镜像精确tag、image ID格式及限定仓库RepoDigest检查成功，具体ID/RepoDigest写入远端Job Summary；REST检查接口未返回summary文本，因此本地没有保存这些具体值。日志独立保存的pull digest分别为MySQL `sha256:4bc6bc963e6d8443453676cae56536f4b8156d78bae03c0145cbe47c2aad73bb`、PostgreSQL `sha256:caddd35b05cdd56c614ab1f674e63be778e0abdf54e71a7507ff3e28d4902698`，不将pull digest与image ID混写。
+
+两库共享合同验证事务回滚无intent/fact/permit残留、宽余额保留、不可精确表示值及浮点物理列只读拒绝、未知fact冻结、许可绑定、资金侧成功/Key侧失败后的重开恢复及重放零追加。Go/tee/JSON解析失败、空选择或skip均导致步骤失败；两个成功步骤证明父项和指定子项各一次run/pass。完整JSON仅在runner临时目录，不上传artifact。成功步骤回显的脚本文本不单独作为PASS输出证据。独立只读审查通过。
+
+同源码的既有CI还验证了Redis 7.4.11四个quota Lua脚本共44个子项PASS、零skip，本轮不重复创建Redis service。该旧作业只证明客户端loopback目标，host publish实际为all-address；宽余额、冷发布和其他缓存生命周期仍有仅miniredis/Go覆盖的部分。原生数据库专项同样不能补齐真实资金、预扣、缓存、全部writer、beta.3来源、504未知事件、旧终态凭证来源或实际回滚证据。
+
+本机本轮没有Go/Bun/Docker编译、服务或新历史数据库副本。原225文件候选和全部旧失败证据保留。以下早期计划及执行记录保留当时状态；其中“待授权”“未验”“未提交”不覆盖本节最新结果。后继文档提交触发的常规CI须按自己的SHA另行回读，不额外手动重跑Docker或native。
 
 ## 范围与来源
 
