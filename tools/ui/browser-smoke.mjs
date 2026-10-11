@@ -643,19 +643,47 @@ try {
       await page.getByText('synthetic-key', { exact: true }).first().waitFor()
 
       for (const key of ['Remaining quota', 'Used quota']) {
-        const componentLabel = page.getByText(label(key), { exact: true }).filter({ visible: true }).first()
+        const componentLabelText = `${label(key)}${width < 768 ? ':' : ''}`
+        const componentLabel = page.getByText(componentLabelText, { exact: true }).filter({ visible: true }).first()
         await componentLabel.waitFor()
         const componentText = (await componentLabel.locator('..').innerText())
-          .replace(label(key), '')
-          .replace(/^:\s*/, '')
+          .replace(componentLabelText, '')
           .trim()
         assert(componentText.length > 0, `${width}px ${key} component value remains visible`)
         assert(!componentText.includes(label('Unavailable')), `${width}px ${key} component remains exact`)
       }
 
-      await page.getByText(label('Total quota'), { exact: true }).filter({ visible: true }).first().waitFor()
+      const totalLabel = `${label('Total quota')}${width < 768 ? ':' : ''}`
+      await page.getByText(totalLabel, { exact: true }).filter({ visible: true }).first().waitFor()
       await page.getByText(label('Unavailable'), { exact: true }).filter({ visible: true }).first().waitFor()
       assert.equal(await page.getByRole('progressbar').count(), 0, `${width}px unsafe derived total has no progress`)
+      if (width >= 768) {
+        const quotaLayout = await page.locator('td[data-column-id="quota"]').filter({ visible: true }).first().evaluate(cell => {
+          const content = cell.firstElementChild
+          const profile = cell.parentElement?.querySelector('td[data-column-id="group"]')
+          const cellBox = cell.getBoundingClientRect()
+          const contentBox = content?.getBoundingClientRect()
+          const profileBox = profile?.getBoundingClientRect()
+          return {
+            contained: !!contentBox && cell.scrollWidth <= cell.clientWidth + 1 && contentBox.left >= cellBox.left - 1 && contentBox.right <= cellBox.right + 1,
+            separate: !!contentBox && !!profileBox && contentBox.right <= profileBox.left + 1,
+          }
+        })
+        assert(quotaLayout.contained, 'desktop quota values remain inside the quota cell')
+        assert(quotaLayout.separate, 'desktop quota values do not overlap the access profile')
+
+        const budgetLayout = await page.getByRole('button', { name: label('API Key usage budgets'), exact: true }).filter({ visible: true }).first().evaluate(button => {
+          const cell = button.closest('td[data-column-id="actions"]')
+          const buttonBox = button.getBoundingClientRect()
+          const cellBox = cell?.getBoundingClientRect()
+          return {
+            contained: !!cellBox && buttonBox.left >= cellBox.left - 1 && buttonBox.right <= Math.min(cellBox.right, innerWidth) + 1,
+            readable: button.scrollWidth <= button.clientWidth + 1 && button.scrollHeight <= button.clientHeight + 1,
+          }
+        })
+        assert(budgetLayout.contained, 'desktop usage budgets action remains inside its visible actions boundary')
+        assert(budgetLayout.readable, 'desktop usage budgets label wraps without clipping')
+      }
       await screenshot(page, `key-unrepresentable-total-${width}`)
       await context.close(); contexts.delete(context)
     }

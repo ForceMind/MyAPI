@@ -50,7 +50,7 @@ func TestAccountQuotaMigrationResumesPartialHeadAfterDatabaseReopen(t *testing.T
 	path := filepath.Join(t.TempDir(), "migration.db")
 	db := openAccountMigrationResumeDB(t, path)
 	require.NoError(t, db.AutoMigrate(&legacyAccountQuotaMutationReceipt{}))
-	const rows = accountQuotaMigrationBatchSize + 1
+	const rows = 2
 	receipts := make([]legacyAccountQuotaMutationReceipt, rows)
 	for i := range receipts {
 		requestID := fmt.Sprintf("resume-%03d", i)
@@ -62,8 +62,22 @@ func TestAccountQuotaMigrationResumesPartialHeadAfterDatabaseReopen(t *testing.T
 			UserID: i + 1, TokenID: i + 1, RequestedQuota: 1, AppliedQuota: 1, CreatedAt: int64(i + 1),
 		}
 	}
-	require.NoError(t, db.CreateInBatches(&receipts, 100).Error)
+	require.NoError(t, db.Create(&receipts[0]).Error)
 	require.NoError(t, db.AutoMigrate(&AccountQuotaMutationReceipt{}, &AccountQuotaReservationHead{}, &AccountQuotaTerminalRecoveryObligation{}, &QuotaWorkCursor{}))
+	require.NoError(t, InitializeAccountQuotaReservationHeadsWithDB(db))
+	var cursor QuotaWorkCursor
+	require.NoError(t, db.Where("name = ?", quotaWorkCursorAccountMigration).First(&cursor).Error)
+	require.True(t, cursor.Complete)
+	require.Equal(t, receipts[0].ID, cursor.LastID)
+	var firstHead AccountQuotaReservationHead
+	require.NoError(t, db.Where("request_id = ?", receipts[0].RequestID).First(&firstHead).Error)
+
+	require.NoError(t, db.Create(&receipts[1]).Error)
+	// Model a durable checkpoint for a completed prior page with a later receipt
+	// still waiting to be processed.
+	cursor.Complete = false
+	require.NoError(t, db.Save(&cursor).Error)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	interrupted := false
@@ -77,7 +91,6 @@ func TestAccountQuotaMigrationResumesPartialHeadAfterDatabaseReopen(t *testing.T
 	}))
 	require.ErrorIs(t, InitializeAccountQuotaReservationHeadsWithDB(db.WithContext(ctx)), context.Canceled)
 	require.True(t, interrupted, "cancel after the final head exists, before its obligation is saved")
-	var cursor QuotaWorkCursor
 	require.NoError(t, db.Where("name = ?", quotaWorkCursorAccountMigration).First(&cursor).Error)
 	assert.Equal(t, receipts[rows-2].ID, cursor.LastID)
 	assert.False(t, cursor.Complete)
@@ -104,6 +117,11 @@ func TestAccountQuotaMigrationResumesPartialHeadAfterDatabaseReopen(t *testing.T
 	assert.EqualValues(t, rows, heads)
 	assert.EqualValues(t, rows, obligations)
 	assert.EqualValues(t, rows, migrated)
+	var reopenedFirstHead AccountQuotaReservationHead
+	require.NoError(t, reopened.Where("request_id = ?", receipts[0].RequestID).First(&reopenedFirstHead).Error)
+	assert.Equal(t, firstHead.ID, reopenedFirstHead.ID)
+	assert.Equal(t, firstHead.ReserveFingerprint, reopenedFirstHead.ReserveFingerprint)
+	assert.Equal(t, firstHead.AppliedQuota, reopenedFirstHead.AppliedQuota)
 	var finalHead AccountQuotaReservationHead
 	require.NoError(t, reopened.Where("request_id = ?", lastRequest).First(&finalHead).Error)
 	assert.Equal(t, partialHead.ID, finalHead.ID)

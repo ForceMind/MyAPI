@@ -158,29 +158,33 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
           return (
             <Tooltip>
               <TooltipTrigger
-                render={<div className='w-[150px] space-y-1 text-xs' />}
+                render={
+                  <div className='w-[150px] min-w-0 max-w-full space-y-1 text-xs' />
+                }
               >
-                <div className='flex justify-between gap-2'>
-                  <span className='text-muted-foreground'>
+                <div className='min-w-0'>
+                  <span className='text-muted-foreground block whitespace-normal'>
                     {t('Remaining quota')}
                   </span>
-                  <span className='font-medium tabular-nums'>
+                  <span className='block max-w-full text-right font-medium break-all whitespace-normal tabular-nums'>
                     {formatQuota(remaining)}
                   </span>
                 </div>
-                <div className='flex justify-between gap-2'>
-                  <span className='text-muted-foreground'>
+                <div className='min-w-0'>
+                  <span className='text-muted-foreground block whitespace-normal'>
                     {t('Used quota')}
                   </span>
-                  <span className='font-medium tabular-nums'>
+                  <span className='block max-w-full text-right font-medium break-all whitespace-normal tabular-nums'>
                     {formatQuota(used)}
                   </span>
                 </div>
-                <div className='flex justify-between gap-2'>
-                  <span className='text-muted-foreground'>
+                <div className='min-w-0'>
+                  <span className='text-muted-foreground block whitespace-normal'>
                     {t('Total quota')}
                   </span>
-                  <span className='font-medium'>{t('Unavailable')}</span>
+                  <span className='block max-w-full text-right font-medium break-all whitespace-normal'>
+                    {t('Unavailable')}
+                  </span>
                 </div>
               </TooltipTrigger>
               <TooltipContent>
