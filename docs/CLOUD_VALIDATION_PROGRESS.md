@@ -1,8 +1,24 @@
 # 历史兼容候选的云端验收
 
-更新日期：2026-10-12。已验基线为 `1608f85f0b7b2882a91dd60c0525ccccc7e583df`，tree `be9453563816059afc753218840e41e7165f100d`；[CI 38142050913](https://github.com/ForceMind/MyAPI/actions/runs/38142050913)十项全部 success，独立终审通过。[草稿 PR #11](https://github.com/ForceMind/MyAPI/pull/11)保持 Draft。当前继续原金额方案的 Key 调整幂等和派生总额兼容，不以基线绿灯替本批记通过。历史账本仍未核清，生产保持不动。
+更新日期：2026-10-12。当前应用候选为 `8fce1b4315a18ffe4cd94bc930fb43c1c3344b85`，tree `9b4fb7864a1683882cf79daf2aed5557d008420a`，实际 PR 检出 `8d4e5cc80dd038f31d1769bb0a4841f8e28bb3d3` 同 tree，parents 为 main92fa 与该源码。[草稿 PR #11](https://github.com/ForceMind/MyAPI/pull/11)保持 Draft；历史账本仍未核清，生产保持不动。
 
-## 当前开发：Key 额度重试与派生总额（待验证）
+## 当前结果与下一步
+
+[CI 38158081563](https://github.com/ForceMind/MyAPI/actions/runs/38158081563)已回读终态十项success。后端root与独立relaykit的vet/build/完整测试、38618顶层测试/五包各一次RUN/PASS且零skip/fail、审计工具63项及八组race步骤成功；最后durable命令包含重开恢复用例且model包成功，但非verbose日志不冒称单项RUN/PASS计数。前端typecheck、lint、190文件1147测试、生产构建、quota/routing/access Chromium全部成功；shared UI为32/32旅程、42/42深链、238正式截图，个人资料9场景`errors=[]`，Playground为8/8旅程和96截图。上述是云端合成输入的结果，不是生产验收。
+
+主线程与独立审查者均实际查看本轮正式1280/320截图：桌面按钮的 `Usage` 与 `budgets` 各完整一行，无孤立尾字母或裁切；手机保持图标与完整文字水平排布。双分项金额、`Unavailable` 和无派生进度均保持，没有覆盖相邻 Access profile。qualification 的桌面 `keyActionLayouts` 也记录词行数各1、包含边界和无内部滚动溢出。旧 db60612 的九项成功/前端失败及 a34816b 的自动十项成功/桌面视觉失败继续保留。
+
+准确8f的 B2 MySQL5.7.44/PostgreSQL9.6共有129次唯一RUN/PASS，Redis7.4.11有51次，均零skip/fail，临时服务回收，独立专项审查通过。PostgreSQL实际patch版本没有在日志单独打印；22表41列、13宽字段、七类回滚及新收据事务/两连接竞争是源码内层断言，不冒领额外原始日志计数，也不证明任意旧窄列可自动迁移。
+
+用户要求自行查找的 beta.3 来源现已定位并独立核验：既存部署记录绑定固定beta.3镜像，2026-10-07升级前使用原生SQLite backup生成独立基线，基线、完整归档、各成员和原配置摘要与原记录一致。封存基线无WAL/SHM/journal、rollback格式、原生完整性通过，只读审计前后内容/身份检查保持。它是10月7日的beta.3运行时点，不是10月4日发布时点；停止容器或归档无WAL均不能证明缓存全部落盘。没有重新启动旧脚本或应用，没有新建历史数据库副本。
+
+该基线已有8307条待结算fact，两侧applied均未完成；其中8306条有唯一request/event/主体匹配的消耗日志，另1条缺消耗日志。与既存10月10日封存快照相比，原8307事件均保留，后者新增503个有事件请求，所以504个未知事件没有获得新的日志证据；后份另有10个无settlement event的journal-only请求，不计入504事件。日志记录公式的预扣差为零不等于余额事务已证明。用户和Key共四个超int32整数原值与后份封存报告相同；成功管理员加额记录精确解释钱包余额跨界，不能解释全部Key额度或累计已用来源。详细边界见[核查记录](HISTORICAL_ACCOUNTING_COMPATIBILITY.md#beta3-来源与只读核账2026-10-12)。私有文件、摘要、ID、金额原值和原始日志均不上传。
+
+下一步聚焦完整资金流、历史预扣/缓存/全部writer、504未知事件、旧authoritative终态凭证来源和实际回滚资格。未知项冻结，副本保持`DO_NOT_RESTORE`，`ledger_reconciled=false`、`production_eligible=false`。继续正常修复分支同步；不合并main、不发布beta.11、不部署，也不重复此前已完成的一次独立native专项。
+
+本批后继仅更新本页、核查记录和当前交接三个文档，应用、测试及workflow与8f完全相同。上述CI检出的是8f，不冒称其检出文档后继；文档采用差异、链接、公开边界和独立内容审查，不另行手动启动合成服务。
+
+## Key 额度重试与派生总额：历史修正记录
 
 ### 4fe12f4 的夹具回归与后继修正
 
@@ -233,6 +249,6 @@ CI 失败只修复本范围内有证据的缺陷。候选摘要漂移、私有�
 
 ## 未闭合边界
 
-历史 beta.3 一致性来源、完整资金流、历史预扣/缓存及全部 writer、未知事件、旧终态凭证适用来源和实际回滚仍未闭合。未知项继续冻结，演练副本继续 `DO_NOT_RESTORE`，`ledger_reconciled=false`、`production_eligible=false`。
+beta.3既存一致性基线来源已按首节核验；完整资金流、历史预扣/缓存及全部writer、未知事件、旧终态凭证适用来源和实际回滚仍未闭合。未知项继续冻结，演练副本继续 `DO_NOT_RESTORE`，`ledger_reconciled=false`、`production_eligible=false`。
 
 云端合成结果只证明对应代码和合成输入下的行为，不能证明用户历史数据库可安全升级。发布、实际部署及生产恢复继续另行取得明确批准。更多事实及历史验证范围见[历史账务兼容核查记录](HISTORICAL_ACCOUNTING_COMPATIBILITY.md)。

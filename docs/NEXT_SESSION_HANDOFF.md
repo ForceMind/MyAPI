@@ -1,4 +1,14 @@
-## 当前任务：先核历史账务兼容，暂不部署（2026-10-11）
+## 当前任务：先核历史账务兼容，暂不部署（2026-10-12）
+
+当前唯一执行顺序：保留个人资料/新请求保护/金额兼容候选，完成准确源码验收，继续补历史经济证据；暂不扩功能、合并main、发布或部署。
+
+- 应用候选为`8fce1b4315a18ffe4cd94bc930fb43c1c3344b85`，tree`9b4fb7864a1683882cf79daf2aed5557d008420a`；[CI38158081563](https://github.com/ForceMind/MyAPI/actions/runs/38158081563)已回读终态十项success。后端完整root/独立relaykit、38618项五包、审计63及八race成功；B2/Redis为129/51唯一RUN/PASS、零skip/fail。个人资料9场景、190文件1147测试、UI32/42/238及Playground8/96通过；主线程与独立审查者实际查看正式1280/320截图均通过。旧db前端失败与a348自动绿/视觉失败保留，详细结果以[当前云端记录](CLOUD_VALIDATION_PROGRESS.md#当前结果与下一步)为准。
+- 用户已答复自行检查服务器或GitHub；不要再等待beta.3路径。既存10月7日beta.3升级前原生基线、完整归档及原配置已关联核验并独立审查，原生只读完整性/摘要/身份检查通过。已有8307待结算、两腿未完成；四宽整数原值与10月10日封存副本相同，钱包管理员加额来源直接匹配。见[来源和只读核账](HISTORICAL_ACCOUNTING_COMPATIBILITY.md#beta3-来源与只读核账2026-10-12)。
+- 8306条日志匹配没有变多；1个原缺日志事件与后新增503事件仍为504未知，另10个无settlement event的journal-only请求不计入504。完整资金、历史预扣/缓存/全部writer、旧authoritative终态来源与实际回滚资格仍缺；日志公式、备份完整性、CI或健康不能替代经济事实，未知项不得自动补扣。
+- 一次独立MySQL/PostgreSQL云端专项已在c8e7bbc的[38132921489](https://github.com/ForceMind/MyAPI/actions/runs/38132921489)完成，用户本次确认不构成重复执行需要。正常修复分支和Draft PR同步继续，重编译/浏览器交Actions，不新增本地缓存、服务或历史数据库副本。
+- main仍为92fa1182，beta.10标签631b3205保留，beta.11只有未发布元数据。生产本轮未操作；`ledger_reconciled=false`、`production_eligible=false`，副本`DO_NOT_RESTORE`。
+
+以下保留此前批次的状态和证据；“当前”“待验”“beta.3来源待提供”等旧措辞均以本节及对应准确CI/来源为准，不重新执行已完成专项。
 
 用户已授权继续正常开发及临时云端合成服务，当前范围仍是个人资料持续加载、新请求结算保护、历史金额与账务兼容。最新状态见[云端验收记录](CLOUD_VALIDATION_PROGRESS.md)和[草稿 PR #11](https://github.com/ForceMind/MyAPI/pull/11)。原225文件候选与全部失败证据保留；磁盘不足已解除，构建在GitHub Actions执行，本轮未增加本地编译缓存、服务或历史数据库副本。
 
