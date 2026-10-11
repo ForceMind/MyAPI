@@ -36,6 +36,16 @@ GitHub实际接受branch-ref新增inputs。guard核验event/ref/完整SHA、单�
 
 旧准确源码前端成功耗时899秒，已接近900秒上限；新旧profile约51秒、通用UI约426/432秒，尾段分别约74/75秒，没有新的断言失败或实质挂起证据。本批仅把frontend job总时限15→20分钟，给依赖安装、runner差异和完整末段留余量；全部步骤、脚本期限、断言和上传范围不变，不将加时本身称为修复通过。新准确提交的自动CI结果另行回读；不再手动运行Docker/native。应用与测试源码仍与09ef一致，原生专项继续按自身c8e7执行身份引用。
 
+### 真实Redis金额与缓存定向验收（本批）
+
+后继 `3a1d50a59d7caeaf98e149151842d4c58c4973e2`（tree `32376205ded6a2e1182c01b55b031dde8c8a657d`）的[CI 38135269862](https://github.com/ForceMind/MyAPI/actions/runs/38135269862)十项全部success。前端187文件/1126测试、profile九场景、31条UI旅程及最后Playground命令完整通过，耗时13分18秒；后端完整测试、63项审计工具及竞态检查通过。预算修正已完成独立审查与复验，旧3feff取消仍按原事实保留。
+
+完成审计发现[金额兼容方案](HISTORICAL_AMOUNT_COMPATIBILITY_PROPOSAL.md)要求的必要原生Redis证据尚未由既有44个quota-script子项覆盖。本批只新增共享测试合同与相应文档，复用现有configured Redis及miniredis两个父入口，原44断言不变：核验宽余额精确加减及边界零写入、2^53相邻/MaxInt64版本排序、无owner冷缓存发布限制及owner重建、只读信任检查、旧schema局部失效。原始十进制值和只读/拒绝分支的PEXPIRETIME绝对值直接核对；合法hydrate刷新期限的原语义保留。
+
+原生入口继续要求literal loopback、非默认动态端口、DB15和全实例为空，并记录实际Redis7版本。仅使用传入client与runner临时SQLite合成库，保存还原全局状态；不使用FastForward或等待时序，也不FLUSH。主线程维护文档与集成，实现者只写两个测试文件，独立审查者只读核验。构建及服务仍在GitHub-hosted runner，本机只做轻量静态检查。本批准确提交及测试终态以[PR #11 Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)和对应原始日志为准，取得实际PASS前不计为补验完成。
+
+本批应用源码与原生数据库合同文件保持不变，原Docker/native结果继续按09ef/c8e7的实际执行身份及范围复用，不将新增测试后的整棵tree称为旧运行检出对象。MySQL/PostgreSQL专项只覆盖共享合同内创建的表，不扩称所有可选金额表均已原生验收。Redis服务的host publish仍为all-address，镜像仍是floating redis:7-alpine；这些合同不证明TLS、集群、故障转移或历史缓存同点。历史缺口及DO_NOT_RESTORE、ledger_reconciled=false、production_eligible=false均保持。
+
 ## 范围与来源
 
 继续既有修复目标：个人资料持续加载、新请求结算保护、历史金额与账务兼容。不开新功能，不合并 main，不发布版本或镜像，不部署生产。

@@ -2,6 +2,8 @@
 
 状态：主目标未完成。个人资料、新请求保护、金额表示兼容、迁移前预检及执行许可候选已提交草稿PR；源码 `09ef6326` 的常规CI与Docker、等业务源码 `c8e7bbc` 的MySQL 5.7/PostgreSQL 9.6专项通过。历史权益、缓存与缺失证据、旧版本终态凭证兼容和实际回滚资格仍未闭合；暂不部署、发布或扩功能。
 
+本批在3a1d50a的[十项CI成功](https://github.com/ForceMind/MyAPI/actions/runs/38135269862)后继续补[金额方案](HISTORICAL_AMOUNT_COMPATIBILITY_PROPOSAL.md)要求的必要真实Redis边界。项目改动仅为测试与文档：复用现有Redis服务，在configured/miniredis两入口核验宽金额、2^53及MaxInt64版本排序、冷发布/owner恢复及只读信任，保留原44断言。准确后继提交的验收结果以[PR Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)为准；尚无实际PASS的项目不计完成。应用源码和历史恢复资格不因新增合成测试改变，历史缓存证据仍缺。详细分工和边界见[云端记录](CLOUD_VALIDATION_PROGRESS.md)。
+
 ## 当前交付与未完成项
 
 | 项目 | 当前证据与边界 |
@@ -23,7 +25,7 @@
 
 [原生专项 38132921489](https://github.com/ForceMind/MyAPI/actions/runs/38132921489)实际检出独立CI提交 `c8e7bbc04676e46f2ad0c806a9ac78562923a4ef`，唯一parent为上述源码、唯一差异是CI文件，非CI3067项摘要相同。来源/目标guard、MySQL 5.7及PostgreSQL 9.6三个job串行success，原十个job全部skipped；两个engine的顶层及指定子测试各实际PASS、零skip。宽整数、只读拒绝、事务回滚、许可冻结与绑定、部分完成重开恢复及幂等合同通过。临时容器和网络已回收，独立审查通过，未运行生产或上传私有数据。
 
-具体源码身份、动态端口/资源/镜像证据、JSON解析验收方式及Redis复用限制见[云端验收记录](CLOUD_VALIDATION_PROGRESS.md)。文档后继3feff8e的前端CI因15分钟总预算取消，最后Playground验收未完成；本批仅将job总时限调至20分钟并保留所有断言/脚本期限，准确后继CI状态以PR Checks为准，应用与测试源码仍为09ef。不能声称后继提交被旧运行检出或取消作业已通过。旧失败运行和原始候选保留；下方“待授权”“未验”是各历史阶段状态，由本节更新。历史证据、旧终态凭证实际来源与真实回滚仍未闭合，`ledger_reconciled=false`、`production_eligible=false`；未知项不自动补扣，演练副本继续`DO_NOT_RESTORE`。
+具体源码身份、动态端口/资源/镜像证据、JSON解析验收方式及Redis复用限制见[云端验收记录](CLOUD_VALIDATION_PROGRESS.md)。文档后继3feff8e的前端CI因15分钟总预算取消，最后Playground验收未完成；本批仅将job总时限调至20分钟并保留所有断言/脚本期限，预算后继3a1d50a的十项CI已成功；这一预算批次的应用与测试源码仍为09ef，本批另补Redis测试，准确后继状态以PR Checks为准。不能声称后继提交被旧运行检出或取消作业已通过。旧失败运行和原始候选保留；下方“待授权”“未验”是各历史阶段状态，由本节更新。历史证据、旧终态凭证实际来源与真实回滚仍未闭合，`ledger_reconciled=false`、`production_eligible=false`；未知项不自动补扣，演练副本继续`DO_NOT_RESTORE`。
 
 ### 开发恢复：接入准确候选的云端验收
 
