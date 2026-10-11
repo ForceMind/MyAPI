@@ -82,6 +82,7 @@ export async function probeRelayFixture({
   fetchImpl = globalThis.fetch,
   upstreamBaseUrl,
   fullContentExpected = false,
+  verifyBeforeRelay,
   verifyPersistence,
 } = {}) {
   if (!isolated) throw new Error('ISOLATED_SMOKE_OPT_IN_REQUIRED')
@@ -200,6 +201,12 @@ export async function probeRelayFixture({
   const channel = findFixtureItem(channelList.body.data?.items || [], (item) => item?.name === fixture.channelName && item?.type === 1)
   if (!Number.isInteger(channel?.id) || channel.id <= 0) throw new Error('SMOKE_FIXTURE_CHANNEL_LOOKUP_FAILED')
 
+  // This optional CI continuation snapshots the fully configured fixture
+  // before the first billable request creates settlement history.
+  if (verifyBeforeRelay) await verifyBeforeRelay({
+    username, password, userName: fixture.userName, userPassword: fixtureUserPassword,
+  })
+
   const relay = await json('/v1/chat/completions', {
     method: 'POST', headers: { Authorization: `Bearer ${apiKeyValue}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: fixture.model, messages: [{ role: 'user', content: 'synthetic smoke request' }], api_key: 'synthetic-request-log-value', max_tokens: 8, stream: false }),
@@ -221,7 +228,13 @@ export async function probeRelayFixture({
     throw new Error('SMOKE_FIXTURE_CONSUME_LOG_MISMATCH')
   }
   const rootLogs = await expectSuccess('SMOKE_FIXTURE_CONSUME_LOG_MISMATCH', `/api/log/?type=2&request_id=${encodeURIComponent(requestId)}&p=1&page_size=100`, { headers: rootHeaders })
-  if (rootLogs.body.data?.total !== 1 || fixturePageItems(rootLogs).length !== 1 || fixturePageItems(rootLogs)[0]?.request_id !== requestId) {
+  const rootLog = fixturePageItems(rootLogs)[0]
+  let rootOther
+  try { rootOther = JSON.parse(rootLog?.other || '{}') } catch { throw new Error('SMOKE_FIXTURE_CONSUME_LOG_MISMATCH') }
+  const settlement = rootOther?.admin_info?.billing_settlement
+  if (rootLogs.body.data?.total !== 1 || fixturePageItems(rootLogs).length !== 1 || rootLog?.request_id !== requestId ||
+      settlement?.state !== 'applied' || !Number.isInteger(settlement.intent_id) || settlement.intent_id <= 0 ||
+      !Number.isInteger(settlement.fact_id) || settlement.fact_id <= 0) {
     throw new Error('SMOKE_FIXTURE_CONSUME_LOG_MISMATCH')
   }
 

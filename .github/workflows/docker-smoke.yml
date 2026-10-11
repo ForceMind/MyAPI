@@ -570,7 +570,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-      - name: Verify handoff migration and original-backup recovery
+      - name: Verify empty-history migration, historical startup refusal, and original-backup recovery
         if: matrix.scenario == 'handoff'
         env:
           MYAPI_SMOKE_HANDOFF_UPGRADE: '1'

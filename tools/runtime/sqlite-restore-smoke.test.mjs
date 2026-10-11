@@ -25,6 +25,7 @@ function fixture(t, overrides = {}) {
   const commands = []
   const env = { GITHUB_ACTIONS: 'true', MYAPI_ISOLATED_SMOKE: '1', MYAPI_SMOKE_RESTORE: '1', RUNNER_TEMP: temp, SMOKE_CONTAINER: source, SMOKE_IMAGE: image,
     SMOKE_DATA_DIR: path.join(temp, `myapi-smoke-data-full-${sha}`) }
+  let restoredDirectory = ''
   const runDocker = (args, commandEnv) => {
     commands.push(args)
     if (args[0] === 'inspect') {
@@ -32,6 +33,12 @@ function fixture(t, overrides = {}) {
       if (args[2] === '{{.State.Running}}') return 'true'
       if (args[2] === '{{.Config.Image}}') return overrides.handoff ? 'myapi:handoff-71277bf6055ce68b8cd1d11f1d10f1907d7696fd' : image
       if (args[2].includes('.Mounts')) return overrides.tmpfs ? 'tmpfs:' : `bind:${env.SMOKE_DATA_DIR}`
+      if (args[2].includes('.State.Status')) {
+        if (overrides.unexpectedReady) return 'running 0 false'
+        if (overrides.oom) return 'exited 137 true'
+        if (overrides.wrongExit) return 'exited 2 false'
+        return 'exited 1 false'
+      }
     }
     if (args[0] === 'ps') return overrides.existing ? target : ''
     if (args[0] === 'cp') {
@@ -47,15 +54,27 @@ function fixture(t, overrides = {}) {
       assert.equal(args.at(-1), overrides.handoff && commands.filter((c) => c[0] === 'run').length === 2 ? 'myapi:handoff-71277bf6055ce68b8cd1d11f1d10f1907d7696fd' : image)
       assert.match(commandEnv.SESSION_SECRET, /^[a-f0-9]{64}$/)
       assert.equal(args.includes(commandEnv.SESSION_SECRET), false)
-      const dir = args[args.indexOf('--mount') + 1].match(/^type=bind,src=(.*),dst=\/data$/)[1]
-      assert.equal(statSync(path.dirname(dir)).mode & 0o777, 0o700)
-      assert.equal(readFileSync(path.join(dir, 'my-api.db-wal'), 'utf8'), 'synthetic WAL')
+      restoredDirectory = args[args.indexOf('--mount') + 1].match(/^type=bind,src=(.*),dst=\/data$/)[1]
+      assert.equal(statSync(path.dirname(restoredDirectory)).mode & 0o777, 0o700)
+      assert.equal(readFileSync(path.join(restoredDirectory, 'my-api.db-wal'), 'utf8'), 'synthetic WAL')
       // The restored process can change its copy without changing the backup.
-      writeFileSync(path.join(dir, 'my-api.db-wal'), 'restored WAL')
+      const runNumber = commands.filter((command) => command[0] === 'run').length
+      if (overrides.mutateRejectedDB && runNumber === 1) {
+        writeFileSync(path.join(restoredDirectory, 'my-api.db'), 'SQLite format 3\u0000mutated database')
+      }
+      if (!overrides.rejectedUpgrade || runNumber !== 1 || overrides.mutateRejectedWal) {
+        writeFileSync(path.join(restoredDirectory, 'my-api.db-wal'), 'restored WAL')
+      }
     }
     return ''
   }
-  return { temp, commands, env, runDocker }
+  const readDockerStderr = (args) => {
+    commands.push(args)
+    assert.deepEqual(args, ['logs', '--tail', '100', target])
+    if (overrides.wrongReason) return 'fixed unrelated startup failure'
+    return 'failed to initialize database: cannot verify account quota execution gate\n'
+  }
+  return { temp, commands, env, runDocker, readDockerStderr }
 }
 
 test('SQLite restore pauses only the owned fixture and copies DB plus WAL into a separate same-image instance', async (t) => {
@@ -177,4 +196,44 @@ test('handoff recovery requires separate opt-in and does not start old image aft
   failed.env.MYAPI_SMOKE_HANDOFF_UPGRADE = '1'
   await assert.rejects(withRestoredSQLite({ ...failed, sha, edition: 'full', handoffUpgrade: true, verify: async () => { throw new Error('snapshot mismatch') } }), /snapshot mismatch/)
   assert.equal(failed.commands.filter((args) => args[0] === 'run').length, 1)
+})
+
+test('expected execution-preflight rejection is proved before old-image recovery from an independent copy', async (t) => {
+  const f = fixture(t, { handoff: true, rejectedUpgrade: true })
+  f.env.MYAPI_SMOKE_HANDOFF_UPGRADE = '1'
+  const phases = []
+  await withRestoredSQLite({ ...f, sha, edition: 'full', handoffUpgrade: true, expectUpgradeRejection: true,
+    wait: async () => {}, verify: async (url, phase) => {
+      assert.equal(url, 'http://127.0.0.1:18081')
+      phases.push(phase)
+    },
+  })
+  assert.deepEqual(phases, ['rejected', 'restored'])
+  assert.equal(f.commands.filter((args) => args[0] === 'logs').length, 1)
+  const runs = f.commands.filter((args) => args[0] === 'run')
+  assert.equal(runs.length, 2)
+  assert.notEqual(runs[0][runs[0].indexOf('--mount') + 1], runs[1][runs[1].indexOf('--mount') + 1])
+  assert.equal(f.commands.filter((args) => args[0] === 'rm').length, 2)
+  assert.deepEqual(readdirSync(f.temp), [])
+})
+
+test('expected rejection refuses ready, wrong-reason, wrong-exit, OOM and DB or WAL mutation outcomes', async (t) => {
+  for (const [override, code] of [
+    ['unexpectedReady', 'SMOKE_RESTORE_UPGRADE_REJECTION_MISSING'],
+    ['wrongReason', 'SMOKE_RESTORE_UPGRADE_REASON_MISMATCH'],
+    ['wrongExit', 'SMOKE_RESTORE_UPGRADE_EXIT_MISMATCH'],
+    ['oom', 'SMOKE_RESTORE_UPGRADE_OOM'],
+    ['mutateRejectedDB', 'SMOKE_RESTORE_COPY_MISMATCH'],
+    ['mutateRejectedWal', 'SMOKE_RESTORE_COPY_MISMATCH'],
+  ]) {
+    const f = fixture(t, { handoff: true, rejectedUpgrade: true, [override]: true })
+    f.env.MYAPI_SMOKE_HANDOFF_UPGRADE = '1'
+    const phases = []
+    await assert.rejects(withRestoredSQLite({ ...f, sha, edition: 'full', handoffUpgrade: true, expectUpgradeRejection: true,
+      wait: async () => {}, verify: async (_url, phase) => { phases.push(phase) },
+    }), new RegExp(code))
+    assert.deepEqual(phases, [])
+    assert.equal(f.commands.filter((args) => args[0] === 'run').length, 1, `${override} must not start the old image`)
+    assert.equal(f.commands.filter((args) => args[0] === 'rm').length, 1)
+  }
 })

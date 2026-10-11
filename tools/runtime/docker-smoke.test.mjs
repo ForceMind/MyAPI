@@ -103,6 +103,7 @@ test('synthetic OpenAI listener only allows explicit loopback or Docker namespac
 })
 
 test('relay fixture verifies exact wallet, key, usage, log and redaction contracts without reporting credentials', async () => {
+  let beforeRelay = 0
   let persisted = 0
   let generatedPassword
   let createdPassword
@@ -118,6 +119,17 @@ test('relay fixture verifies exact wallet, key, usage, log and redaction contrac
     isolated: true,
     upstreamBaseUrl: 'http://127.0.0.1:19090',
     fullContentExpected: true,
+    verifyBeforeRelay: async (credentials) => {
+      assert.equal(controlReads, 1)
+      assert.equal(consumeReads, 0)
+      assert.equal(credentials.username, 'smokeadmin')
+      assert.equal(credentials.password, 'root-secret')
+      assert.equal(credentials.userName, 'smokeuser')
+      generatedPassword = credentials.userPassword
+      assert.equal(generatedPassword, createdPassword)
+      beforeRelay += 1
+      return { name: 'forged pre-relay check', ok: false, secret: 'pre-relay-return-secret' }
+    },
     verifyPersistence: async (credentials) => {
       assert.equal(controlReads, 2)
       assert.equal(credentials.username, 'smokeadmin')
@@ -224,7 +236,9 @@ test('relay fixture verifies exact wallet, key, usage, log and redaction contrac
         case 'GET /api/log/':
           assert.equal(auth, 'Bearer root-session')
           assert.equal(parsed.searchParams.get('request_id'), 'request-fixture')
-          return json({ success: true, data: { total: 1, items: [{ request_id: 'request-fixture' }] } })
+          return json({ success: true, data: { total: 1, items: [{ request_id: 'request-fixture', other: JSON.stringify({
+            admin_info: { billing_settlement: { state: 'applied', intent_id: 21, fact_id: 22 } },
+          }) }] } })
         case 'GET /api/full-content-logs/request-fixture':
           if (auth === 'Bearer ordinary-session') return json({ success: false }, 403)
           assert.equal(auth, 'Bearer root-session')
@@ -244,13 +258,56 @@ test('relay fixture verifies exact wallet, key, usage, log and redaction contrac
     ['GroupGroupRatio', '{}'], ['LogConsumeEnabled', 'true'],
   ])
   assert.equal(controlReads, 2)
+  assert.equal(beforeRelay, 1)
   assert.equal(persisted, 1)
   assert.equal(JSON.stringify(report).includes(generatedPassword), false)
+  assert.equal(JSON.stringify(report).includes('forged pre-relay check'), false)
+  assert.equal(JSON.stringify(report).includes('pre-relay-return-secret'), false)
   assert.equal(report.passed, true)
   assert.equal(report.checks.every((check) => check.ok === true), true)
   for (const privateValue of ['root-secret', 'root-session', 'ordinary-session', 'restricted-api-key', 'synthetic-request-log-value', 'synthetic-upstream-key', 'synthetic-response-header-secret']) {
     assert.equal(JSON.stringify(report).includes(privateValue), false)
   }
+})
+
+test('before-relay verification failure stops before any relay request', async () => {
+  let relayRequests = 0
+  let hookCalls = 0
+  const expected = new Error('synthetic checkpoint failure')
+  await assert.rejects(probeRelayFixture({
+    baseUrl,
+    edition: 'full',
+    sha,
+    username: 'smokeadmin',
+    password: 'root-secret',
+    isolated: true,
+    upstreamBaseUrl: 'http://127.0.0.1:19090',
+    verifyBeforeRelay: async () => { hookCalls += 1; throw expected },
+    fetchImpl: async (url, options = {}) => {
+      const parsed = new URL(url)
+      if (parsed.origin === 'http://127.0.0.1:19090') {
+        return json({ count: 0, path_ok: false, model_ok: false, max_tokens_ok: false, stream_ok: false, bearer_ok: false, request_ok: false })
+      }
+      if (parsed.pathname.startsWith('/v1/')) relayRequests += 1
+      const body = options.body ? JSON.parse(options.body) : {}
+      switch (`${options.method || 'GET'} ${parsed.pathname}`) {
+        case 'POST /api/user/login': return json({ success: true, data: { access_token: body.username === 'smokeadmin' ? 'root-session' : 'user-session' } })
+        case 'GET /api/status': return json({ success: true, data: { enable_batch_update: false } })
+        case 'GET /api/user/search': return json({ success: true, data: { items: [{ id: 11, username: 'smokeuser', role: 1 }] } })
+        case 'GET /api/token/search': return json({ success: true, data: { items: [{ id: 12, name: 'smoke-restricted-key' }] } })
+        case 'POST /api/token/12/key': return json({ success: true, data: { key: 'restricted-api-key' } })
+        case 'GET /api/channel/search': return json({ success: true, data: { items: [{ id: 13, name: 'smoke-openai-channel', type: 1 }] } })
+        case 'PUT /api/option/':
+        case 'POST /api/user/':
+        case 'POST /api/user/manage':
+        case 'POST /api/token/':
+        case 'POST /api/channel/': return json({ success: true })
+        default: assert.fail(`unexpected smoke request ${options.method || 'GET'} ${parsed.pathname}`)
+      }
+    },
+  }), expected)
+  assert.equal(hookCalls, 1)
+  assert.equal(relayRequests, 0)
 })
 
 test('smoke initialization requires explicit opt-in and a literal loopback target', async () => {

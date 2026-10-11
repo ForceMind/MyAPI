@@ -11,6 +11,12 @@ function docker(args, env = process.env) {
   return result.stdout.trim()
 }
 
+function dockerStderr(args, env = process.env) {
+  const result = spawnSync('docker', args, { env, encoding: 'utf8', timeout: 60_000, maxBuffer: 1024 * 1024 })
+  if (result.error || result.status !== 0) throw new Error('SMOKE_RESTORE_DOCKER_FAILED')
+  return result.stderr
+}
+
 function databaseDigest(directory) {
   const main = path.join(directory, 'my-api.db')
   if (!existsSync(main) || readFileSync(main).subarray(0, 16).toString() !== 'SQLite format 3\u0000') throw new Error('SMOKE_RESTORE_DATABASE_MISSING')
@@ -22,11 +28,16 @@ function databaseDigest(directory) {
 
 // Pause all writers while copying the whole /data directory, including WAL.
 // This is a crash-consistent snapshot, not a graceful shutdown or an upgrade.
-export async function withRestoredSQLite({ sha, edition, env = process.env, runDocker = docker, verify, handoffUpgrade = false } = {}) {
+export async function withRestoredSQLite({
+  sha, edition, env = process.env, runDocker = docker, readDockerStderr = dockerStderr, verify,
+  handoffUpgrade = false, expectUpgradeRejection = false, wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+} = {}) {
   if (env.GITHUB_ACTIONS !== 'true' || env.MYAPI_ISOLATED_SMOKE !== '1' || env.MYAPI_SMOKE_RESTORE !== '1' ||
       !/^[a-f0-9]{40}$/.test(sha || '') || !['full', 'lan'].includes(edition) ||
-      !path.isAbsolute(env.RUNNER_TEMP || '') || typeof verify !== 'function') throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
+      !path.isAbsolute(env.RUNNER_TEMP || '') || typeof verify !== 'function' || typeof wait !== 'function' ||
+      typeof readDockerStderr !== 'function') throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
   if (handoffUpgrade && (env.MYAPI_SMOKE_HANDOFF_UPGRADE !== '1' || edition !== 'full')) throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
+  if (expectUpgradeRejection && !handoffUpgrade) throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
   const source = `myapi-smoke-${edition}-${sha}`
   const image = `myapi:smoke-${edition}-${sha}`
   const sourceImage = handoffUpgrade ? `myapi:handoff-${handoffSHA}` : image
@@ -55,7 +66,7 @@ export async function withRestoredSQLite({ sha, edition, env = process.env, runD
     runDocker(['unpause', source])
     paused = false
     const digest = databaseDigest(backup)
-    const phases = handoffUpgrade ? ['upgraded', 'restored'] : ['restored']
+    const phases = handoffUpgrade ? [expectUpgradeRejection ? 'rejected' : 'upgraded', 'restored'] : ['restored']
     let result
     for (const phase of phases) {
       const restored = path.join(workspace, phase)
@@ -72,7 +83,29 @@ export async function withRestoredSQLite({ sha, edition, env = process.env, runD
         '--env', 'MEMORY_CACHE_ENABLED=false', '--env', 'SESSION_COOKIE_SECURE=false', '--env', 'TRUSTED_PROXIES=none',
         '--env', 'SQL_MAX_OPEN_CONNS=1', '--env', 'SQL_MAX_IDLE_CONNS=1', '--env', 'GOMEMLIMIT=512MiB',
         '--env', 'SESSION_SECRET', restoreImage], restoreEnv)
-      result = await verify('http://127.0.0.1:18081', phase)
+      if (phase === 'rejected') {
+        let state = ''
+        for (let attempt = 0; attempt < 60; attempt += 1) {
+          state = runDocker(['inspect', '--format', '{{.State.Status}} {{.State.ExitCode}} {{.State.OOMKilled}}', target])
+          if (state.startsWith('exited ')) break
+          if (!/^(created|running|restarting) /.test(state)) break
+          if (attempt < 59) await wait(1000)
+        }
+        if (/^(created|running|restarting) /.test(state)) throw new Error('SMOKE_RESTORE_UPGRADE_REJECTION_MISSING')
+        const [status, exitCode, oomKilled] = state.split(' ')
+        if (oomKilled === 'true') throw new Error('SMOKE_RESTORE_UPGRADE_OOM')
+        if (status !== 'exited' || exitCode !== '1' || oomKilled !== 'false') throw new Error('SMOKE_RESTORE_UPGRADE_EXIT_MISMATCH')
+        // FatalLog writes to the container's stderr. Keep it in memory and
+        // compare only the fixed, already-sanitized startup error.
+        const stderr = readDockerStderr(['logs', '--tail', '100', target], restoreEnv)
+        if (!stderr.includes('failed to initialize database: cannot verify account quota execution gate')) {
+          throw new Error('SMOKE_RESTORE_UPGRADE_REASON_MISMATCH')
+        }
+        if (JSON.stringify(databaseDigest(restored)) !== JSON.stringify(digest)) throw new Error('SMOKE_RESTORE_COPY_MISMATCH')
+        await verify('http://127.0.0.1:18081', phase)
+      } else {
+        result = await verify('http://127.0.0.1:18081', phase)
+      }
       if (JSON.stringify(databaseDigest(backup)) !== JSON.stringify(digest)) throw new Error('SMOKE_RESTORE_COPY_MISMATCH')
       if (!owned(target)) throw new Error('SMOKE_RESTORE_SCOPE_REJECTED')
       removalUncertain = true
