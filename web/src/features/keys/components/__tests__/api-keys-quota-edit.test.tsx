@@ -385,6 +385,11 @@ it('clears the failed attempt when the drawer closes and reopens', async () => {
   await submit()
   await waitFor(() => expect(update).toHaveBeenCalledTimes(2))
 
+  const firstPayload = update.mock.calls[0][1]
+  const secondPayload = update.mock.calls[1][1]
+  if (!firstPayload || typeof firstPayload !== 'object') {
+    throw new TypeError('Expected the first quota update payload to be an object')
+  }
   const firstRequestId = getRequestId(update.mock.calls[0])
   const secondRequestId = getRequestId(update.mock.calls[1])
   const expectedQuotaIntent = {
@@ -394,13 +399,13 @@ it('clears the failed attempt when the drawer closes and reopens', async () => {
     quota_version: key.quota_version,
     metadata_fingerprint: key.metadata_fingerprint,
   }
-  expect(update.mock.calls[0][1]).toMatchObject(expectedQuotaIntent)
-  expect(update.mock.calls[1][1]).toMatchObject(expectedQuotaIntent)
+  expect(firstPayload).toMatchObject(expectedQuotaIntent)
+  expect(secondPayload).toMatchObject(expectedQuotaIntent)
   expect(firstRequestId).toEqual(expect.any(String))
   expect(secondRequestId).toEqual(expect.any(String))
   expect(secondRequestId).not.toBe(firstRequestId)
-  expect(update.mock.calls[1][1]).toEqual({
-    ...update.mock.calls[0][1],
+  expect(secondPayload).toEqual({
+    ...firstPayload,
     request_id: secondRequestId,
   })
 })
