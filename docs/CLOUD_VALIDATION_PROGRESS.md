@@ -1,6 +1,6 @@
 # 历史兼容候选的云端验收
 
-更新日期：2026-10-11。状态：开发恢复，CI 接入已完成，准确提交的云端结果待验证。
+更新日期：2026-10-11。状态：源码已同步至草稿 PR，首轮 CI 发现过时测试断言，正在修复并复验。
 
 ## 范围与来源
 
@@ -35,9 +35,19 @@ CI 补充如下，复用 GitHub-hosted runner 和现有依赖：
 
 YAML 解析、补丁应用检查和独立静态复核已通过。触发器、权限、job/service 列表及 artifact 路径保持既有定义；新增浏览器结果仅进入 runner 临时目录中的 PNG/JSON 上传范围。现有 Docker smoke 手动运行还会上传构建 bundle，来源是远端 clean checkout，不包含私有生产副本。这些结果不是云端作业运行通过。本机不重复全量编译、不重新创建账务数据库副本。
 
+## 云端执行记录
+
+首个源码提交为 `5ff2e228bdb6bb18c567e1dd97635a93a058d955`，已正常推送至上述修复分支并建立[草稿 PR #11](https://github.com/ForceMind/MyAPI/pull/11)。独立审查确认 227 个提交文件为代码、测试、CI 和文档，未包含生产数据库、凭据或原始敏感日志。
+
+[首轮 CI 38124726661](https://github.com/ForceMind/MyAPI/actions/runs/38124726661)的 PR 测试合并提交为 `cd112d6e0ae4cf78bc842cb926f57a6ed97fc48d`，tree `c353b61066837a3ad4a66eb61b58b952769eefd0` 与源码提交一致。该轮 MySQL/PostgreSQL B2 回归均发现签到额度断言仍使用 `int(25)`，实际字段已为 `int64(25)`，数值相同但严格类型比较失败。本批将此断言改为精确 `int64`，并将充值回执的额度断言从 `EqualValues` 改为同样严格的 `int64` 比较；原金额、并发及回执数量断言保持，生产金额代码不变。
+
+此处记录首轮发现及对应修复，不能称首轮全绿。后续准确提交、CI 每个步骤及必要 Docker smoke 的结果统一在 PR 的 Checks 和验收说明回读，失败原始日志保留为私有证据。PR Check 通过不等于业务 CI 通过。历史原生专项仍未新增或启用。
+
+独立审查另发现同一 B2 fixture 的资金设置和数据库 schema capability 未完整恢复，本批补齐测试 cleanup，避免跨 engine 留下临时状态；恢复失败也须明确报告。主线 CI `38022171765` 的后端作业实际耗时 18分36秒，首轮新增 386 构建另用 2分28秒，两者合计21分04秒，超过原20分钟总预算；将后端总上限调整为30分钟，全部测试及各命令期限保留，不以超时调整掩盖业务失败。
+
 ## 分工与资源
 
-主线程负责目标、文档、集成、提交同步和云端结果核对。`resume_ci_plan` 使用 gpt-5.6-sol/ultra 只读规划；`ci_offload_implementation` 使用 gpt-5.6-sol/high，仅写 CI 文件；`candidate_publish_boundary_review` 使用 gpt-5.6-sol/xhigh，只读核验公开及运行边界。禁止递归派工；共享文件由主线程串行集成。
+主线程负责目标、文档、集成、提交同步和云端结果核对。`resume_ci_plan` 使用 gpt-5.6-sol/ultra 只读规划；`ci_offload_implementation` 使用 gpt-5.6-sol/high，先写 CI 文件，后仅修复上述单个测试文件；`candidate_publish_boundary_review` 使用 gpt-5.6-sol/xhigh，只读核验公开、运行边界及修复。禁止递归派工；共享文件由主线程串行集成。
 
 不改 Git 用户配置。若环境没有提交身份，使用明确的 Codex 机器人标识并在 PR 声明 AI 协助；不得冒用维护者身份。草稿 PR 保留仓库模板，人工确认项如实保留未确认状态。
 

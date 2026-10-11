@@ -145,6 +145,12 @@ func TestB2SubmissionConfiguredDatabases(t *testing.T) {
 				DB, LOG_DB = previousDB, previousLogDB
 				common.SetDatabaseTypes(previousMainType, previousLogType)
 				initCol()
+				if previousDB != nil {
+					require.NoError(t, RefreshUserQuotaBusinessSchemaCapability(previousDB))
+				} else {
+					userQuotaBusinessSchemaBinding.Store(nil)
+					userQuotaBusinessSchemaCapability.Store(nil)
+				}
 			})
 			legacy := createB2LegacyLogsFixture(t, db)
 			createTaskQuotaLegacyFixture(t, db)
@@ -197,6 +203,10 @@ func TestB2SubmissionConfiguredDatabases(t *testing.T) {
 
 func runBusinessCreditConfiguredDatabaseContract(t *testing.T, db *gorm.DB) {
 	t.Helper()
+	previousFunding := operation_setting.GetUserFundingSetting()
+	t.Cleanup(func() {
+		require.NoError(t, operation_setting.PublishUserFundingSnapshot(previousFunding.Mode, previousFunding.Epoch))
+	})
 	previousQuotaPerUnit := common.QuotaPerUnit
 	common.QuotaPerUnit = 100
 	t.Cleanup(func() { common.QuotaPerUnit = previousQuotaPerUnit })
@@ -236,7 +246,7 @@ func runBusinessCreditConfiguredDatabaseContract(t *testing.T, db *gorm.DB) {
 	eventKey, err := topUpBusinessEventKey(&order)
 	require.NoError(t, err)
 	require.NoError(t, db.Where("business_event_key = ?", eventKey).First(&topUpReceipt).Error)
-	assert.EqualValues(t, 200, topUpReceipt.Delta)
+	assert.Equal(t, int64(200), topUpReceipt.Delta)
 
 	const callbackName = "test:configured_business_credit_receipt_failure"
 	require.NoError(t, db.Callback().Create().Before("gorm:create").Register(callbackName, func(tx *gorm.DB) {
@@ -299,7 +309,7 @@ func runBusinessCreditConfiguredDatabaseContract(t *testing.T, db *gorm.DB) {
 	assert.EqualValues(t, 1, checkinReceiptCount)
 	var checkinUser User
 	require.NoError(t, db.First(&checkinUser, users[4].Id).Error)
-	assert.Equal(t, 25, checkinUser.Quota)
+	assert.Equal(t, int64(25), checkinUser.Quota)
 	sqlDB.SetMaxOpenConns(1)
 }
 
