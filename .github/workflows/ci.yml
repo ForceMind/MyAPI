@@ -6,6 +6,16 @@ on:
   pull_request:
     types: [opened, synchronize, closed]
   workflow_dispatch:
+    inputs:
+      native_only:
+        description: Run only isolated historical-accounting native contracts
+        required: false
+        default: false
+        type: boolean
+      expected_sha:
+        description: Full 40-character lowercase HEAD SHA of the native validation branch
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -17,7 +27,9 @@ concurrency:
 jobs:
   backend:
     name: Backend vet, build, and test
-    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    if: >-
+      (github.event.action != 'closed' || github.event.pull_request.merged == true) &&
+      !(github.event_name == 'workflow_dispatch' && github.event.inputs.native_only == 'true')
     runs-on: ubuntu-latest
     # Main CI 38022171765 used 18m36s before the added linux/386 build;
     # candidate CI 38124726661 spent another 2m28s on that build alone.
@@ -128,7 +140,9 @@ jobs:
 
   s1-databases:
     name: S1 identity and options database regression
-    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    if: >-
+      (github.event.action != 'closed' || github.event.pull_request.merged == true) &&
+      !(github.event_name == 'workflow_dispatch' && github.event.inputs.native_only == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -178,7 +192,9 @@ jobs:
 
   s2a-databases:
     name: S2-A payment and subscription database regression
-    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    if: >-
+      (github.event.action != 'closed' || github.event.pull_request.merged == true) &&
+      !(github.event_name == 'workflow_dispatch' && github.event.inputs.native_only == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -228,7 +244,9 @@ jobs:
 
   b2-databases:
     name: B2 durable submission database regression
-    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    if: >-
+      (github.event.action != 'closed' || github.event.pull_request.merged == true) &&
+      !(github.event_name == 'workflow_dispatch' && github.event.inputs.native_only == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -289,7 +307,9 @@ jobs:
 
   b2-clickhouse:
     name: B2 ClickHouse log migration regression
-    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    if: >-
+      (github.event.action != 'closed' || github.event.pull_request.merged == true) &&
+      !(github.event_name == 'workflow_dispatch' && github.event.inputs.native_only == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -329,7 +349,9 @@ jobs:
 
   s2c-redis:
     name: S2-C quota script Redis regression
-    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    if: >-
+      (github.event.action != 'closed' || github.event.pull_request.merged == true) &&
+      !(github.event_name == 'workflow_dispatch' && github.event.inputs.native_only == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -364,7 +386,9 @@ jobs:
 
   c09-redis-limiter:
     name: S2-C09 Redis limiter lifecycle regression
-    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    if: >-
+      (github.event.action != 'closed' || github.event.pull_request.merged == true) &&
+      !(github.event_name == 'workflow_dispatch' && github.event.inputs.native_only == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -399,7 +423,9 @@ jobs:
 
   frontend:
     name: Frontend typecheck and test
-    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    if: >-
+      (github.event.action != 'closed' || github.event.pull_request.merged == true) &&
+      !(github.event_name == 'workflow_dispatch' && github.event.inputs.native_only == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -524,7 +550,9 @@ jobs:
 
   desktop-contract:
     name: Desktop cross-platform contract
-    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    if: >-
+      (github.event.action != 'closed' || github.event.pull_request.merged == true) &&
+      !(github.event_name == 'workflow_dispatch' && github.event.inputs.native_only == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -544,7 +572,9 @@ jobs:
 
   distribution-contract:
     name: Distribution and release contracts
-    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    if: >-
+      (github.event.action != 'closed' || github.event.pull_request.merged == true) &&
+      !(github.event_name == 'workflow_dispatch' && github.event.inputs.native_only == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -575,3 +605,425 @@ jobs:
           node --test tools/runtime/docker-smoke.test.mjs
           tools/runtime/sqlite-restore-smoke.test.mjs
           tools/runtime/handoff-upgrade-smoke.test.mjs
+
+  native-source-guard:
+    name: Native contract exact source and target guard
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.native_only == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GOWORK: 'off'
+      GOMAXPROCS: '1'
+      GOMEMLIMIT: '768MiB'
+      HISTORICAL_CANDIDATE_SHA: 09ef63268b5c6742fe73e246f6c5e26e30559903
+      HISTORICAL_CANDIDATE_TREE: 622566fb1c345343d1f10d7489e1af881469b2ac
+      HISTORICAL_CANDIDATE_SOURCE_FILES: '3067'
+      HISTORICAL_CANDIDATE_SOURCE_DIGEST: b48098d81d57f71c957a07c4cc1e3b046803dc5d498d5c102bcd05e6034b0acc
+      NATIVE_VALIDATION_BRANCH: codex/historical-accounting-native-20261011
+    steps:
+      - name: Validate manual mode and exact ref before checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.inputs.expected_sha }}
+          NATIVE_ONLY: ${{ github.event.inputs.native_only }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]
+          [[ "$NATIVE_ONLY" == 'true' ]]
+          [[ "$GITHUB_REF" == "refs/heads/$NATIVE_VALIDATION_BRANCH" ]]
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$GITHUB_SHA" == "$EXPECTED_SHA" ]]
+
+      - name: Checkout exact native validation commit
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+          ref: ${{ github.event.inputs.expected_sha }}
+
+      - name: Prove candidate equivalence outside CI
+        env:
+          EXPECTED_SHA: ${{ github.event.inputs.expected_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          [[ "$(git rev-parse 'HEAD^{commit}')" == "$EXPECTED_SHA" ]]
+          read -r commit parent extra <<<"$(git rev-list --parents -n 1 HEAD)"
+          [[ "$commit" == "$EXPECTED_SHA" ]]
+          [[ "$parent" == "$HISTORICAL_CANDIDATE_SHA" ]]
+          actual_candidate_tree="$(git rev-parse "${HISTORICAL_CANDIDATE_SHA}^{tree}")"
+          [[ "$actual_candidate_tree" == "$HISTORICAL_CANDIDATE_TREE" ]]
+          [[ -z "${extra:-}" ]]
+          [[ -z "$(git status --porcelain=v1 --untracked-files=all)" ]]
+          [[ "$(git diff --name-only "$HISTORICAL_CANDIDATE_SHA" "$EXPECTED_SHA")" == '.github/workflows/ci.yml' ]]
+          git diff --quiet "$HISTORICAL_CANDIDATE_SHA" "$EXPECTED_SHA" -- . ':(exclude).github/workflows/ci.yml'
+          ! git diff --quiet "$HISTORICAL_CANDIDATE_SHA" "$EXPECTED_SHA" -- .github/workflows/ci.yml
+          python3 - "$HISTORICAL_CANDIDATE_SHA" "$EXPECTED_SHA" "$GITHUB_STEP_SUMMARY" <<'PY'
+          import hashlib
+          import os
+          import subprocess
+          import sys
+
+          excluded = b'.github/workflows/ci.yml'
+
+          def summary(commit):
+              raw = subprocess.check_output(['git', 'ls-tree', '-r', '-z', '--full-tree', commit])
+              entries = []
+              for entry in raw.split(b'\0'):
+                  if not entry:
+                      continue
+                  _, path = entry.split(b'\t', 1)
+                  if path != excluded:
+                      entries.append(entry)
+              digest = hashlib.sha256()
+              for entry in entries:
+                  digest.update(entry)
+                  digest.update(b'\0')
+              return len(entries), digest.hexdigest()
+
+          base_count, base_digest = summary(sys.argv[1])
+          native_count, native_digest = summary(sys.argv[2])
+          expected = (int(os.environ['HISTORICAL_CANDIDATE_SOURCE_FILES']), os.environ['HISTORICAL_CANDIDATE_SOURCE_DIGEST'])
+          if (base_count, base_digest) != expected:
+              raise SystemExit('candidate source digest differs from the reviewed boundary')
+          if (base_count, base_digest) != (native_count, native_digest):
+              raise SystemExit('source tree differs outside .github/workflows/ci.yml')
+          candidate_tree = subprocess.check_output(['git', 'rev-parse', sys.argv[1] + '^{tree}'], text=True).strip()
+          with open(sys.argv[3], 'a', encoding='utf-8') as report:
+              report.write(f'Candidate SHA: `{sys.argv[1]}`\n\n')
+              report.write(f'Candidate tree: `{candidate_tree}`\n\n')
+              report.write(f'Native workflow SHA: `{sys.argv[2]}`\n\n')
+              report.write(f'Excluded-CI tree summary: `{base_digest}` ({base_count} files)\n')
+          PY
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            relaykit/go.sum
+
+      - name: Reject unsafe native targets without starting a service
+        run: >-
+          go test -p 1 ./model
+          -run '^Test(HistoricalAccountingNativeTargetSafety|S2CQuotaRedisTargetSafety)$'
+          -count=1 -timeout=120s -v
+
+  native-mysql-57:
+    name: Native historical accounting contract (MySQL 5.7)
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.native_only == 'true' && needs.native-source-guard.result == 'success'
+    needs: native-source-guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOWORK: 'off'
+      GOMAXPROCS: '1'
+      GOMEMLIMIT: '768MiB'
+    services:
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_DATABASE: myapi_historical_accounting_test_${{ github.run_id }}_${{ github.run_attempt }}
+          MYSQL_USER: myapi_historical_fixture
+          MYSQL_PASSWORD: myapi-native-${{ github.run_id }}
+          MYSQL_ROOT_PASSWORD: myapi-native-root-${{ github.run_id }}
+        ports:
+          - '127.0.0.1::3306'
+        options: >-
+          --label io.myapi.historical.run=${{ github.run_id }}-${{ github.run_attempt }}
+          --cpus 1 --memory 768m --pids-limit 256
+          --tmpfs /var/lib/mysql:rw,size=536870912
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -umyapi_historical_fixture -pmyapi-native-${{ github.run_id }}"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    steps:
+      - name: Checkout exact native validation commit
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.inputs.expected_sha }}
+
+      - name: Verify source and owned loopback service
+        env:
+          EXPECTED_SHA: ${{ github.event.inputs.expected_sha }}
+          SERVICE_ID: ${{ job.services.mysql.id }}
+          MAPPED_PORT: ${{ job.services.mysql.ports[3306] }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" == "$EXPECTED_SHA" ]]
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          [[ "$MAPPED_PORT" =~ ^[0-9]+$ ]]
+          (( MAPPED_PORT > 0 && MAPPED_PORT <= 65535 && MAPPED_PORT != 3306 ))
+          [[ "$(docker inspect --format '{{index .Config.Labels "io.myapi.historical.run"}}' "$SERVICE_ID")" == "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" ]]
+          binding="$(docker inspect --format '{{(index (index .NetworkSettings.Ports "3306/tcp") 0).HostIp}}:{{(index (index .NetworkSettings.Ports "3306/tcp") 0).HostPort}}' "$SERVICE_ID")"
+          [[ "$binding" == "127.0.0.1:$MAPPED_PORT" ]]
+          configured_image="$(docker inspect --format '{{.Config.Image}}' "$SERVICE_ID")"
+          [[ "$configured_image" == 'mysql:5.7' ]]
+          [[ "$(docker inspect --format '{{.HostConfig.NanoCpus}}' "$SERVICE_ID")" == '1000000000' ]]
+          [[ "$(docker inspect --format '{{.HostConfig.Memory}}' "$SERVICE_ID")" == '805306368' ]]
+          [[ "$(docker inspect --format '{{.HostConfig.PidsLimit}}' "$SERVICE_ID")" == '256' ]]
+          tmpfs="$(docker inspect --format '{{index .HostConfig.Tmpfs "/var/lib/mysql"}}' "$SERVICE_ID")"
+          [[ ",$tmpfs," == *,rw,* ]]
+          [[ ",$tmpfs," == *,size=536870912,* ]]
+          image_id="$(docker inspect --format '{{.Image}}' "$SERVICE_ID")"
+          [[ "$image_id" =~ ^sha256:[0-9a-f]{64}$ ]]
+          repo_digest=''
+          while IFS= read -r candidate; do
+            if [[ "$candidate" =~ ^(mysql|docker\.io/library/mysql)@sha256:[0-9a-f]{64}$ ]]; then
+              repo_digest="$candidate"
+              break
+            fi
+          done < <(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image_id")
+          [[ -n "$repo_digest" ]]
+          printf 'MySQL service image ID: `%s`; RepoDigest: `%s`\n' "$image_id" "$repo_digest" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            relaykit/go.sum
+
+      - name: Verify historical accounting on an empty MySQL namespace
+        env:
+          MYAPI_HISTORICAL_ACCOUNTING_DATABASE_TESTS: '1'
+          MAPPED_PORT: ${{ job.services.mysql.ports[3306] }}
+        run: |
+          set -euo pipefail
+          namespace="myapi_historical_accounting_test_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
+          fixture_password="myapi-native-${GITHUB_RUN_ID}"
+          dsn="myapi_historical_fixture:${fixture_password}@tcp(127.0.0.1:${MAPPED_PORT})/${namespace}?charset=utf8mb4&parseTime=true"
+          printf '::add-mask::%s\n' "$dsn"
+          printf '::add-mask::%s\n' "$fixture_password"
+          export MYAPI_HISTORICAL_ACCOUNTING_MYSQL_DSN="$dsn"
+          result_file="$RUNNER_TEMP/historical-native-mysql-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
+          pipeline_status=(0 0)
+          go test -p 1 ./model \
+            -run '^TestHistoricalAccountingDatabaseContractNative$/^mysql$' \
+            -count=1 -timeout=180s -json | tee "$result_file" >/dev/null || pipeline_status=("${PIPESTATUS[@]}")
+          if (( pipeline_status[0] != 0 )); then
+            printf 'MySQL native selector failed (go test exit %s); sanitized synthetic diagnostics follow.\n' "${pipeline_status[0]}" >&2
+            printf 'MySQL 5.7 selector: FAIL; go test exit: `%s`\n' "${pipeline_status[0]}" >> "$GITHUB_STEP_SUMMARY"
+            python3 - "$result_file" "$dsn" "$fixture_password" <<'DIAG_PY' || printf '%s\n' 'MySQL structured diagnostic parser failed.' >&2
+          import json
+          import sys
+
+          result_path, dsn, fixture_password = sys.argv[1:]
+          diagnostics = []
+          incomplete = False
+          try:
+              with open(result_path, encoding='utf-8') as stream:
+                  for raw in stream:
+                      try:
+                          event = json.loads(raw)
+                      except json.JSONDecodeError:
+                          incomplete = True
+                          continue
+                      if event.get('Action') != 'output':
+                          continue
+                      test = event.get('Test') or '<package>'
+                      output = str(event.get('Output') or '')
+                      for secret in (dsn, fixture_password):
+                          output = output.replace(secret, '***')
+                      for line in output.splitlines():
+                          clean = ''.join(char for char in line if char == '\t' or ord(char) >= 32)
+                          if clean:
+                              diagnostics.append((test, clean[:1000]))
+          except OSError:
+              incomplete = True
+          if len(diagnostics) > 64:
+              print('Diagnostic output truncated to the final 64 synthetic lines.', file=sys.stderr)
+          for test, line in diagnostics[-64:]:
+              print(f'[{test}] {line}', file=sys.stderr)
+          if not diagnostics:
+              print('No structured Go test diagnostic was available.', file=sys.stderr)
+          if incomplete:
+              print('Some runner-local JSON records could not be read or parsed.', file=sys.stderr)
+          DIAG_PY
+            exit "${pipeline_status[0]}"
+          fi
+          if (( pipeline_status[1] != 0 )); then
+            printf '%s\n' 'MySQL native result capture failed; workflow validation cannot continue.' >&2
+            exit "${pipeline_status[1]}"
+          fi
+          python3 - "$result_file" 'TestHistoricalAccountingDatabaseContractNative/mysql' "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json
+          import sys
+
+          result_path, selected, summary_path = sys.argv[1:]
+          parent = selected.rsplit('/', 1)[0]
+          actions = {parent: [], selected: []}
+          try:
+              with open(result_path, encoding='utf-8') as stream:
+                  for raw in stream:
+                      event = json.loads(raw)
+                      test = event.get('Test')
+                      if test in actions:
+                          actions[test].append(event.get('Action'))
+          except (OSError, json.JSONDecodeError):
+              raise SystemExit('MySQL native selector result could not be verified')
+          for observed in actions.values():
+              if observed.count('run') != 1 or observed.count('pass') != 1 or 'skip' in observed or 'fail' in observed:
+                  raise SystemExit('MySQL native selector was empty, skipped, failed, or did not produce one PASS')
+          with open(summary_path, 'a', encoding='utf-8') as report:
+              report.write('MySQL 5.7 selector: actual PASS; selected tests: 2; skips: 0\n')
+          PY
+
+  native-postgres-96:
+    name: Native historical accounting contract (PostgreSQL 9.6)
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.native_only == 'true' && needs.native-mysql-57.result == 'success'
+    needs: native-mysql-57
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOWORK: 'off'
+      GOMAXPROCS: '1'
+      GOMEMLIMIT: '768MiB'
+    services:
+      postgres:
+        image: postgres:9.6
+        env:
+          POSTGRES_DB: myapi_historical_accounting_test_${{ github.run_id }}_${{ github.run_attempt }}
+          POSTGRES_USER: myapi_historical_fixture
+          POSTGRES_PASSWORD: myapi-native-${{ github.run_id }}
+        ports:
+          - '127.0.0.1::5432'
+        options: >-
+          --label io.myapi.historical.run=${{ github.run_id }}-${{ github.run_attempt }}
+          --cpus 1 --memory 768m --pids-limit 256
+          --tmpfs /var/lib/postgresql/data:rw,size=536870912
+          --health-cmd="pg_isready -U myapi_historical_fixture -d myapi_historical_accounting_test_${{ github.run_id }}_${{ github.run_attempt }}"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    steps:
+      - name: Checkout exact native validation commit
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.inputs.expected_sha }}
+
+      - name: Verify source and owned loopback service
+        env:
+          EXPECTED_SHA: ${{ github.event.inputs.expected_sha }}
+          SERVICE_ID: ${{ job.services.postgres.id }}
+          MAPPED_PORT: ${{ job.services.postgres.ports[5432] }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" == "$EXPECTED_SHA" ]]
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          [[ "$MAPPED_PORT" =~ ^[0-9]+$ ]]
+          (( MAPPED_PORT > 0 && MAPPED_PORT <= 65535 && MAPPED_PORT != 5432 ))
+          [[ "$(docker inspect --format '{{index .Config.Labels "io.myapi.historical.run"}}' "$SERVICE_ID")" == "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" ]]
+          binding="$(docker inspect --format '{{(index (index .NetworkSettings.Ports "5432/tcp") 0).HostIp}}:{{(index (index .NetworkSettings.Ports "5432/tcp") 0).HostPort}}' "$SERVICE_ID")"
+          [[ "$binding" == "127.0.0.1:$MAPPED_PORT" ]]
+          configured_image="$(docker inspect --format '{{.Config.Image}}' "$SERVICE_ID")"
+          [[ "$configured_image" == 'postgres:9.6' ]]
+          [[ "$(docker inspect --format '{{.HostConfig.NanoCpus}}' "$SERVICE_ID")" == '1000000000' ]]
+          [[ "$(docker inspect --format '{{.HostConfig.Memory}}' "$SERVICE_ID")" == '805306368' ]]
+          [[ "$(docker inspect --format '{{.HostConfig.PidsLimit}}' "$SERVICE_ID")" == '256' ]]
+          tmpfs="$(docker inspect --format '{{index .HostConfig.Tmpfs "/var/lib/postgresql/data"}}' "$SERVICE_ID")"
+          [[ ",$tmpfs," == *,rw,* ]]
+          [[ ",$tmpfs," == *,size=536870912,* ]]
+          image_id="$(docker inspect --format '{{.Image}}' "$SERVICE_ID")"
+          [[ "$image_id" =~ ^sha256:[0-9a-f]{64}$ ]]
+          repo_digest=''
+          while IFS= read -r candidate; do
+            if [[ "$candidate" =~ ^(postgres|docker\.io/library/postgres)@sha256:[0-9a-f]{64}$ ]]; then
+              repo_digest="$candidate"
+              break
+            fi
+          done < <(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image_id")
+          [[ -n "$repo_digest" ]]
+          printf 'PostgreSQL service image ID: `%s`; RepoDigest: `%s`\n' "$image_id" "$repo_digest" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            relaykit/go.sum
+
+      - name: Verify historical accounting on a new PostgreSQL schema
+        env:
+          MYAPI_HISTORICAL_ACCOUNTING_DATABASE_TESTS: '1'
+          MAPPED_PORT: ${{ job.services.postgres.ports[5432] }}
+        run: |
+          set -euo pipefail
+          namespace="myapi_historical_accounting_test_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
+          fixture_password="myapi-native-${GITHUB_RUN_ID}"
+          dsn="postgres://myapi_historical_fixture:${fixture_password}@127.0.0.1:${MAPPED_PORT}/${namespace}?sslmode=disable&search_path=${namespace}"
+          printf '::add-mask::%s\n' "$dsn"
+          printf '::add-mask::%s\n' "$fixture_password"
+          export MYAPI_HISTORICAL_ACCOUNTING_POSTGRES_DSN="$dsn"
+          result_file="$RUNNER_TEMP/historical-native-postgres-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
+          pipeline_status=(0 0)
+          go test -p 1 ./model \
+            -run '^TestHistoricalAccountingDatabaseContractNative$/^postgres$' \
+            -count=1 -timeout=180s -json | tee "$result_file" >/dev/null || pipeline_status=("${PIPESTATUS[@]}")
+          if (( pipeline_status[0] != 0 )); then
+            printf 'PostgreSQL native selector failed (go test exit %s); sanitized synthetic diagnostics follow.\n' "${pipeline_status[0]}" >&2
+            printf 'PostgreSQL 9.6 selector: FAIL; go test exit: `%s`\n' "${pipeline_status[0]}" >> "$GITHUB_STEP_SUMMARY"
+            python3 - "$result_file" "$dsn" "$fixture_password" <<'DIAG_PY' || printf '%s\n' 'PostgreSQL structured diagnostic parser failed.' >&2
+          import json
+          import sys
+
+          result_path, dsn, fixture_password = sys.argv[1:]
+          diagnostics = []
+          incomplete = False
+          try:
+              with open(result_path, encoding='utf-8') as stream:
+                  for raw in stream:
+                      try:
+                          event = json.loads(raw)
+                      except json.JSONDecodeError:
+                          incomplete = True
+                          continue
+                      if event.get('Action') != 'output':
+                          continue
+                      test = event.get('Test') or '<package>'
+                      output = str(event.get('Output') or '')
+                      for secret in (dsn, fixture_password):
+                          output = output.replace(secret, '***')
+                      for line in output.splitlines():
+                          clean = ''.join(char for char in line if char == '\t' or ord(char) >= 32)
+                          if clean:
+                              diagnostics.append((test, clean[:1000]))
+          except OSError:
+              incomplete = True
+          if len(diagnostics) > 64:
+              print('Diagnostic output truncated to the final 64 synthetic lines.', file=sys.stderr)
+          for test, line in diagnostics[-64:]:
+              print(f'[{test}] {line}', file=sys.stderr)
+          if not diagnostics:
+              print('No structured Go test diagnostic was available.', file=sys.stderr)
+          if incomplete:
+              print('Some runner-local JSON records could not be read or parsed.', file=sys.stderr)
+          DIAG_PY
+            exit "${pipeline_status[0]}"
+          fi
+          if (( pipeline_status[1] != 0 )); then
+            printf '%s\n' 'PostgreSQL native result capture failed; workflow validation cannot continue.' >&2
+            exit "${pipeline_status[1]}"
+          fi
+          python3 - "$result_file" 'TestHistoricalAccountingDatabaseContractNative/postgres' "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json
+          import sys
+
+          result_path, selected, summary_path = sys.argv[1:]
+          parent = selected.rsplit('/', 1)[0]
+          actions = {parent: [], selected: []}
+          try:
+              with open(result_path, encoding='utf-8') as stream:
+                  for raw in stream:
+                      event = json.loads(raw)
+                      test = event.get('Test')
+                      if test in actions:
+                          actions[test].append(event.get('Action'))
+          except (OSError, json.JSONDecodeError):
+              raise SystemExit('PostgreSQL native selector result could not be verified')
+          for observed in actions.values():
+              if observed.count('run') != 1 or observed.count('pass') != 1 or 'skip' in observed or 'fail' in observed:
+                  raise SystemExit('PostgreSQL native selector was empty, skipped, failed, or did not produce one PASS')
+          with open(summary_path, 'a', encoding='utf-8') as report:
+              report.write('PostgreSQL 9.6 selector: actual PASS; selected tests: 2; skips: 0\n')
+          PY
