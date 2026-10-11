@@ -56,6 +56,14 @@
 
 本机仅 `node --check` 与差异检查，无构建、服务、浏览器或数据库副本。实现者只写上述两份UI文件，主线程维护文档和同步，独立审查者只读。所有旧失败继续保留；本批不改Go、金额、API、翻译键、依赖、workflow或预算，不额外dispatch Docker/native。历史缺口、DO_NOT_RESTORE、ledger_reconciled=false和production_eligible=false保持，未合并、发布或部署。
 
+### db60612 的严格回归失败与内容最小宽度修正
+
+`db6061272a6ac3221b6322942e1381135caa10cb`（tree `d0097157441b3027ecdc6b4960148846851d1bfc`，实际PR检出 `0681ae359484f943e13f497b0883fa86a929b60a` 同tree）的 [CI 38156209922](https://github.com/ForceMind/MyAPI/actions/runs/38156209922) 前端failure。typecheck、lint、190文件1147测试、build、quota/routing/access和profile九场景成功；新 Range 回归测得 `Usage` 一行、`budgets` 两行，严格断言失败，共享报告为31/32旅程、42/42深链、236正式截图。本场景正式1280/320图均未生成，失败图仍为 `Usage` / `budget` / `s`；Playground没有完成报告，不记通过。原始日志、artifact摘要、报告绑定及失败图均已独立核验，未以failure图代替正式验收。
+
+纵向布局已实际生效；root和UI实现者分别读到操作列被标为content-sized、colgroup给定1%、table采用auto布局。行容器、按钮及label的 `min-w-0`、`max-w-full` 与应急词内换行使纵向按钮的固有最小宽度继续缩小，改变排布本身不能保证完整词宽。后继只在桌面为这三层传递 `min-w-min`，label使用正常单词边界换行；手机保留原有收缩与长文本处理。不猜固定像素、不改全局表格、列定义、文案或业务行为。
+
+原严格 Range、contained/readable、完整额度、Unavailable、无progress、列边界和两张正式截图全部保留。既有qualification报告补充 `keyActionLayouts`：在断言前记录真实wordLines及cell/wrapper/button/label矩形和computed样式，成功或失败均可回读；诊断数据不替代任何通过条件。本机仅语法与差异检查，准确后继Actions及正式双图仍待验证，当前不记修复完成。该轮终态九项success、前端failure；后端root/独立relaykit完整测试、38618项五包、audit63及八组race全部成功，B2/Redis分别129/51次唯一RUN/PASS、零skip/fail且独立专项审查通过。这些成功不抵消前端失败。失败证据、旧候选和历史冻结边界保持，未发布或部署。
+
 原方案要求显式 Key 额度修改具有持久请求身份；1608 基线只有版本与元数据 CAS，响应丢失后的重试不能返回原调整结果。本批在现有 PUT `/api/token/` 保留一次表单的名称、权限及额度原子修改，增加规范小写 UUID `request_id` 和不可变成功收据。收据以 `(user_id, request_id_hash)` 唯一；哈希及原身份、Key ID、包含字段存在性的客户端白名单指纹一起核验，避免 MySQL 排序规则把不同输入视为同一身份。持久指纹具有明确版本和固定规范编码，未来缺席字段不得改变旧请求摘要。重试在当前 owner 验证后、写入权限及版本检查前查询原收据；相同请求返回原结果和当前持久数据库行的脱敏 Key，不再次修改余额或发布旧缓存。该 Key projection 沿用原API数据库读取语义，不代表尚未drain的有效缓存余额；缓存离线也不阻止确认成功收据。异参数冲突，任何失败事务不留下收据或部分表单修改。
 
 仅元数据请求省略 `remain_quota`；显式金额即使等于当前值也要求身份、原版本和元数据指纹，`null` 不能被静默视为元数据。金额、累计 used、负余额、无限 Key、writer 和缓存屏障沿用现有政策，不产生历史恢复许可。新表 `token_quota_adjustments` 的三个金额列加入迁移前物理检查，当前 schema 合同扩至22表41列；保留原13字段宽值往返和七类回滚断言，再用实际 Key 调整验证新收据的宽 before/used。
