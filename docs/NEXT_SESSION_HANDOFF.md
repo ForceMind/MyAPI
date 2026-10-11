@@ -6,7 +6,7 @@
 
 [原生专项 38132921489](https://github.com/ForceMind/MyAPI/actions/runs/38132921489)在独立CI分支提交 `c8e7bbc04676e46f2ad0c806a9ac78562923a4ef` 上3项串行success、原10项skipped。其唯一parent为09ef、唯一差异为CI文件，非CI3067项摘要相同；MySQL 5.7/PostgreSQL 9.6的共享历史账务合同实际PASS且零skip，临时容器和网络已回收，独立审查通过。既有同源码Redis 7.4.11的44个quota-script子项PASS仍限该脚本合同，不证明完整缓存生命周期。
 
-结果后的修复分支提交仅更新文档；被测源码和CI执行提交按上述身份分别记录，文档后继提交的Checks另行回读。不再手动重复Docker/native。剩余依赖为beta.3一致性来源、完整资金/预扣/缓存/所有writer、504未知事件、旧authoritative终态凭证来源与真实回滚资格；当前没有据新失败成立的额外代码修改。未知项继续冻结，副本保持DO_NOT_RESTORE、ledger_reconciled=false、production_eligible=false。main仍为92fa1182；beta.10标签保持原值，beta.11只有未发布元数据，生产未改动，暂不发布或部署。
+文档后继3feff8e的CI前端超过15分钟总时限被取消，不能计整轮通过；profile九场景及31条通用UI旅程已通过，最后Playground命令被中断。本批仅将frontend job总时限调至20分钟并补记录，全部脚本期限/断言及应用/测试源码不变，新准确CI以PR Checks回读。被测09ef与native c8e7身份不变，不再手动重复Docker/native。剩余依赖为beta.3一致性来源、完整资金/预扣/缓存/所有writer、504未知事件、旧authoritative终态凭证来源与真实回滚资格；没有新失败支持改动生产业务代码。未知项继续冻结，副本保持DO_NOT_RESTORE、ledger_reconciled=false、production_eligible=false。main仍为92fa1182；beta.10标签保持原值，beta.11只有未发布元数据，生产未改动，暂不发布或部署。
 
 以下至“历史主线”之前保留上轮本地收口记录。其中未提交、磁盘不足与Goal受阻表述仅在该轮归档时成立，不代表当前分支同步或资源状态。
 

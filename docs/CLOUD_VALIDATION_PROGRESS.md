@@ -4,7 +4,7 @@
 
 ## 最新验收结果
 
-被测源码为 `09ef63268b5c6742fe73e246f6c5e26e30559903`，tree 为 `622566fb1c345343d1f10d7489e1af881469b2ac`。PR 测试合并提交 `4d42b99a7e17a2cc3086275abe768b40c1e71b5a` 的 tree 与之相同。[草稿 PR #11](https://github.com/ForceMind/MyAPI/pull/11)保持 Draft。本批结果后的提交仅更新文档，不把文档后继提交称为这些运行实际检出的源码。
+被测应用与测试源码为 `09ef63268b5c6742fe73e246f6c5e26e30559903`，tree 为 `622566fb1c345343d1f10d7489e1af881469b2ac`。PR 测试合并提交 `4d42b99a7e17a2cc3086275abe768b40c1e71b5a` 的 tree 与之相同。[草稿 PR #11](https://github.com/ForceMind/MyAPI/pull/11)保持 Draft。后继 `3feff8e` 仅更新五份文档；再后一批只调整前端CI总时限和相应记录，应用与测试源码保持不变，不将后继提交称为旧运行实际检出的源码。
 
 | 运行 | 实际结果与范围 |
 | --- | --- |
@@ -29,6 +29,12 @@ GitHub实际接受branch-ref新增inputs。guard核验event/ref/完整SHA、单�
 同源码的既有CI还验证了Redis 7.4.11四个quota Lua脚本共44个子项PASS、零skip，本轮不重复创建Redis service。该旧作业只证明客户端loopback目标，host publish实际为all-address；宽余额、冷发布和其他缓存生命周期仍有仅miniredis/Go覆盖的部分。原生数据库专项同样不能补齐真实资金、预扣、缓存、全部writer、beta.3来源、504未知事件、旧终态凭证来源或实际回滚证据。
 
 本机本轮没有Go/Bun/Docker编译、服务或新历史数据库副本。原225文件候选和全部旧失败证据保留。以下早期计划及执行记录保留当时状态；其中“待授权”“未验”“未提交”不覆盖本节最新结果。后继文档提交触发的常规CI须按自己的SHA另行回读，不额外手动重跑Docker或native。
+
+### 文档后继CI：前端总预算不足，已保留失败并修正预算
+
+`3feff8e0878a83e5f8e055cd5c198f67f9c2e1df` 只改变五份文档，其PR合并提交 `1d9190f29a43cc256b09c49cdefb91be29bbe5d4` 的tree与之相同。[CI 38133755286](https://github.com/ForceMind/MyAPI/actions/runs/38133755286)最终为9项success、前端cancelled；前端被平台15分钟总时限取消，annotation明确为`The job has exceeded the maximum execution time of 15m0s`，不能计为整轮通过。前端1126测试、profile九场景与31条通用UI旅程已通过；最后Playground命令尚未完成就被取消，artifact上传不代表未完成命令通过。原始日志、annotation及取消结果保留。
+
+旧准确源码前端成功耗时899秒，已接近900秒上限；新旧profile约51秒、通用UI约426/432秒，尾段分别约74/75秒，没有新的断言失败或实质挂起证据。本批仅把frontend job总时限15→20分钟，给依赖安装、runner差异和完整末段留余量；全部步骤、脚本期限、断言和上传范围不变，不将加时本身称为修复通过。新准确提交的自动CI结果另行回读；不再手动运行Docker/native。应用与测试源码仍与09ef一致，原生专项继续按自身c8e7执行身份引用。
 
 ## 范围与来源
 

@@ -401,7 +401,10 @@ jobs:
     name: Frontend typecheck and test
     if: github.event.action != 'closed' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Source CI 38128779978 finished in 14m59s; docs CI 38133755286
+    # hit the 15m job limit during the final Playground browser journey.
+    # Keep every test deadline and allow bounded runner/install margin.
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: web
