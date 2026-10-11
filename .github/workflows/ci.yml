@@ -569,3 +569,9 @@ jobs:
           npm run release:workflow:check
           npm run source:manifest
           npm run pack:check
+
+      - name: Verify Docker smoke fixture and restore contracts
+        run: >-
+          node --test tools/runtime/docker-smoke.test.mjs
+          tools/runtime/sqlite-restore-smoke.test.mjs
+          tools/runtime/handoff-upgrade-smoke.test.mjs

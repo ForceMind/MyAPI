@@ -59,7 +59,9 @@ PR 运行记录显示，准确源码提交 `35b4c7bf234a386bec48574fda25d4967ff5
 
 2026-10-11 本批脚本已完成独立只读复审，未发现阻断问题。定向 Node 验证通过 20 项：SQLite 恢复 11 项、交接 6 项、relay 前置验证 3 项；覆盖错误退出码、OOM、错误拒绝原因、数据库或 WAL 变化，以及拒绝证据不足时不得启动旧镜像恢复。另有两份既有 workflow 测试文件执行成功，语法检查和 `git diff --check` 通过。上述均是脚本与合成单元验证，新的实际 Docker 结果仍待云端运行。
 
-复审者执行完整 `node tools/runtime/docker-smoke.test.mjs` 时，三个既有合成上游监听用例因沙箱禁止绑定 `127.0.0.1` 而报 `listen EPERM`：非敏感摘要、Playground 流式合同、缺少 usage 或畸形 stream 拒绝。这轮完整测试未通过；原始输出保留在工具调用记录，未生成本地日志文件。不申请本机端口、不放宽断言，由云端 runner 执行完整监听验证。
+复审者执行完整 `node tools/runtime/docker-smoke.test.mjs` 时，三个既有合成上游监听用例因沙箱禁止绑定 `127.0.0.1` 而报 `listen EPERM`：非敏感摘要、Playground 流式合同、缺少 usage 或畸形 stream 拒绝。这轮完整测试未通过；原始输出保留在工具调用记录，未生成本地日志文件。不申请本机端口、不放宽断言。
+
+后续覆盖核对发现，既有 CI 不执行这三份 runtime 单元测试，Docker smoke 只执行实际集成入口。为补齐上述受限用例及错误/OOM/摘要变化分支，本批在现有 distribution 作业加入一个 Node 步骤，仅执行 `docker-smoke.test.mjs`、`sqlite-restore-smoke.test.mjs` 和 `handoff-upgrade-smoke.test.mjs`；不新增 service、job、依赖、权限或 artifact。提交 `28f4f609914f7f64d0e7e4a206a3bee8eaf82c69` 已推送且 tree 与 PR 测试合并树一致，其 CI `38127825760` 和 Docker `38127843731` 为补验前的运行，不能据此声称新增 Node 步骤通过；新步骤结果以随后的准确提交运行回读为准。
 
 ## 分工与资源
 
