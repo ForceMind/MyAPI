@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
-import { probeFreshSQLite, probeRelayFixture, probeSelfUseRelayFixture, preparePersonalWriterFixture, validateSmokeTarget } from './docker-smoke.mjs'
+import { hasAppliedSettlementProof, probeFreshSQLite, probeRelayFixture, probeSelfUseRelayFixture, preparePersonalWriterFixture, validateSmokeTarget } from './docker-smoke.mjs'
 import { fakeOpenAIListenHost, startFakeOpenAI } from './fake-openai.mjs'
 
 const sha = 'a'.repeat(40)
@@ -237,7 +237,7 @@ test('relay fixture verifies exact wallet, key, usage, log and redaction contrac
           assert.equal(auth, 'Bearer root-session')
           assert.equal(parsed.searchParams.get('request_id'), 'request-fixture')
           return json({ success: true, data: { total: 1, items: [{ request_id: 'request-fixture', other: JSON.stringify({
-            admin_info: { billing_settlement: { state: 'applied', intent_id: 21, fact_id: 22 } },
+            admin_info: { billing_settlement: { state: 'applied', fact_id: 22 } },
           }) }] } })
         case 'GET /api/full-content-logs/request-fixture':
           if (auth === 'Bearer ordinary-session') return json({ success: false }, 403)
@@ -268,6 +268,23 @@ test('relay fixture verifies exact wallet, key, usage, log and redaction contrac
   for (const privateValue of ['root-secret', 'root-session', 'ordinary-session', 'restricted-api-key', 'synthetic-request-log-value', 'synthetic-upstream-key', 'synthetic-response-header-secret']) {
     assert.equal(JSON.stringify(report).includes(privateValue), false)
   }
+})
+
+test('applied settlement proof requires a fact and validates any present intent', () => {
+  assert.equal(hasAppliedSettlementProof({ state: 'applied', fact_id: 22 }), true)
+  assert.equal(hasAppliedSettlementProof({ state: 'applied', fact_id: 22, intent_id: 21 }), true)
+  assert.equal(hasAppliedSettlementProof({ state: 'applied', intent_id: 21 }), false)
+  for (const intentId of [undefined, null, 0, '21', 1.5]) {
+    assert.equal(hasAppliedSettlementProof({ state: 'applied', fact_id: 22, intent_id: intentId }), false)
+  }
+  for (const settlement of [
+    { state: 'pending', fact_id: 22 },
+    { state: 'applied' },
+    { state: 'applied', fact_id: null },
+    { state: 'applied', fact_id: 0 },
+    { state: 'applied', fact_id: '22' },
+    { state: 'applied', fact_id: 2.5 },
+  ]) assert.equal(hasAppliedSettlementProof(settlement), false)
 })
 
 test('before-relay verification failure stops before any relay request', async () => {

@@ -4,7 +4,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { probeRelayFixture } from './docker-smoke.mjs'
+import { hasAppliedSettlementProof, probeRelayFixture } from './docker-smoke.mjs'
 import { handoffSHA, withRestoredSQLite } from './sqlite-restore-smoke.mjs'
 
 const sourceURL = 'http://127.0.0.1:18080'
@@ -74,13 +74,12 @@ async function readHandoffState({ fetchImpl, origin, username, password, userNam
     try { other = JSON.parse(row?.other || '{}') } catch { throw new Error('HANDOFF_SETTLEMENT_PROOF_MISMATCH') }
     settlement = other?.admin_info?.billing_settlement
     if (row?.quota !== usage || row?.user_id !== user.id || row?.token_id !== key.id || row?.channel !== channel.id || !row?.request_id ||
-        settlement?.state !== 'applied' || !Number.isInteger(settlement.intent_id) || settlement.intent_id <= 0 ||
-        !Number.isInteger(settlement.fact_id) || settlement.fact_id <= 0) throw new Error('HANDOFF_SETTLEMENT_PROOF_MISMATCH')
+        !hasAppliedSettlementProof(settlement)) throw new Error('HANDOFF_SETTLEMENT_PROOF_MISMATCH')
   }
   return { rootId: root.id, userId: user.id, keyId: key.id, keyHash: createHash('sha256').update(secret.key).digest('hex'),
     keyStatus: key.status, keyGroup: key.group, keyExpiry: key.expired_time,
     channelId: channel.id, channelStatus: channel.status, logId: row?.id || 0, requestId: row?.request_id || '',
-    intentId: settlement?.intent_id || 0, factId: settlement?.fact_id || 0 }
+    intentId: settlement && Object.hasOwn(settlement, 'intent_id') ? settlement.intent_id : 0, factId: settlement?.fact_id || 0 }
 }
 
 async function verifyUpstreamCount(fetchImpl, expected) {

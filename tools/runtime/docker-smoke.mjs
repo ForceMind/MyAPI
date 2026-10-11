@@ -49,6 +49,12 @@ function fixturePageItems(response) {
   return Array.isArray(response.body?.data?.items) ? response.body.data.items : []
 }
 
+export function hasAppliedSettlementProof(settlement) {
+  if (settlement?.state !== 'applied' || !Number.isInteger(settlement.fact_id) || settlement.fact_id <= 0) return false
+  if (!Object.hasOwn(settlement, 'intent_id')) return true
+  return Number.isInteger(settlement.intent_id) && settlement.intent_id > 0
+}
+
 // Both relay paths write their response before final settlement/statistics.
 // Only a valid empty page can be retried; no relay request is retried here.
 async function waitForConsumeLog(success, code, requestId, headers) {
@@ -227,15 +233,14 @@ export async function probeRelayFixture({
       consumeLog.prompt_tokens !== 10 || consumeLog.completion_tokens !== 5 || Object.hasOwn(other, 'admin_info')) {
     throw new Error('SMOKE_FIXTURE_CONSUME_LOG_MISMATCH')
   }
-  const rootLogs = await expectSuccess('SMOKE_FIXTURE_CONSUME_LOG_MISMATCH', `/api/log/?type=2&request_id=${encodeURIComponent(requestId)}&p=1&page_size=100`, { headers: rootHeaders })
+  const rootLogs = await expectSuccess('SMOKE_FIXTURE_SETTLEMENT_PROOF_MISMATCH', `/api/log/?type=2&request_id=${encodeURIComponent(requestId)}&p=1&page_size=100`, { headers: rootHeaders })
   const rootLog = fixturePageItems(rootLogs)[0]
   let rootOther
-  try { rootOther = JSON.parse(rootLog?.other || '{}') } catch { throw new Error('SMOKE_FIXTURE_CONSUME_LOG_MISMATCH') }
+  try { rootOther = JSON.parse(rootLog?.other || '{}') } catch { throw new Error('SMOKE_FIXTURE_SETTLEMENT_PROOF_MISMATCH') }
   const settlement = rootOther?.admin_info?.billing_settlement
   if (rootLogs.body.data?.total !== 1 || fixturePageItems(rootLogs).length !== 1 || rootLog?.request_id !== requestId ||
-      settlement?.state !== 'applied' || !Number.isInteger(settlement.intent_id) || settlement.intent_id <= 0 ||
-      !Number.isInteger(settlement.fact_id) || settlement.fact_id <= 0) {
-    throw new Error('SMOKE_FIXTURE_CONSUME_LOG_MISMATCH')
+      !hasAppliedSettlementProof(settlement)) {
+    throw new Error('SMOKE_FIXTURE_SETTLEMENT_PROOF_MISMATCH')
   }
 
   const userState = await expectSuccess('SMOKE_FIXTURE_USAGE_MISMATCH', `/api/user/${user.id}`, { headers: rootHeaders })
