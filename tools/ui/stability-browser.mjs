@@ -122,6 +122,10 @@ try {
             assert.equal(await page.getByRole('button', { name: 'Enable', exact: true }).count(), 0)
             assert.equal(await page.getByRole('button', { name: 'Enable Passkey', exact: true }).count(), 0)
             await page.screenshot({ path: resolve(output, `stability-${scenario}-${width}-error.png`) })
+            // Profile is longer than a viewport. Capture the affected cards,
+            // including the title and retry action, for visual acceptance.
+            await page.locator('[data-slot="card"]').filter({ has: twoFA }).last().screenshot({ path: resolve(output, `stability-${scenario}-${width}-2fa-error.png`) })
+            await page.locator('[data-slot="card"]').filter({ has: passkey }).last().screenshot({ path: resolve(output, `stability-${scenario}-${width}-passkey-error.png`) })
             recoveredSecurityPaths.add('/api/user/2fa/status')
             await twoFA.getByRole('button', { name: 'Retry', exact: true }).click()
             recoveredSecurityPaths.add('/api/user/passkey')
@@ -136,6 +140,8 @@ try {
             await page.getByRole('button', { name: 'Remove Passkey', exact: true }).waitFor()
             assert.equal(await page.getByRole('button', { name: 'Enable', exact: true }).count(), 0)
             assert.equal(await page.getByRole('button', { name: 'Enable Passkey', exact: true }).count(), 0)
+            await page.locator('[data-slot="card"]').filter({ has: page.getByRole('button', { name: 'Disable 2FA', exact: true }) }).last().screenshot({ path: resolve(output, `stability-${scenario}-${width}-2fa.png`) })
+            await page.locator('[data-slot="card"]').filter({ has: page.getByRole('button', { name: 'Remove Passkey', exact: true }) }).last().screenshot({ path: resolve(output, `stability-${scenario}-${width}-passkey.png`) })
           }
         }
         const buildRevision = await page.locator('html').getAttribute('data-build-rev')
