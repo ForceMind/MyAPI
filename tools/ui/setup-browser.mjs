@@ -162,7 +162,7 @@ try {
           assert.equal(await initialize.isEnabled(), true)
           assert.equal(await page.getByRole('button', { name: 'Back', exact: true }).isEnabled(), true)
           await page.getByRole('button', { name: 'Back', exact: true }).click()
-          assert.equal(await page.locator('#usage-mode-self').getAttribute('aria-checked'), 'true')
+          assert.equal(await page.getByRole('radio', { name: /Personal use/ }).isChecked(), true)
           await page.getByRole('button', { name: 'Back', exact: true }).click()
           assert.equal(await page.getByLabel('Administrator username', { exact: true }).inputValue(), credentials.username)
           assert.equal(await page.getByLabel('Password', { exact: true }).inputValue(), credentials.password)
