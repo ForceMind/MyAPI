@@ -202,6 +202,10 @@ try {
         await page.waitForURL(`${origin}/dashboard`)
         if (width === 320) await page.getByRole('button', { name: 'Toggle sidebar', exact: true }).click()
         await page.locator('a[href="/profile"]').first().click()
+        if (width === 320) {
+          await page.locator('[data-slot="sidebar"][data-mobile="true"]').waitFor({ state: 'hidden' })
+          await page.locator('[data-slot="sheet-overlay"]').waitFor({ state: 'hidden' })
+        }
         await page.getByRole('heading', { name: 'Synthetic UI operator', level: 2 }).waitFor()
         assert.equal(logins, 1)
         assert.equal(submits, scenario === 'business-failure' ? 2 : 1)
