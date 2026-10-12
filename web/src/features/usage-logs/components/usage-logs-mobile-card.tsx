@@ -518,13 +518,14 @@ export function UsageLogsMobileList<TData>({
         const other = parseLogOther(
           ((row.original as Record<string, unknown>).other as string) ?? ''
         )
-        const tintClass =
+        let tintClass = logType != null ? (logTypeRowTint[logType] ?? '') : ''
+        if (
           logCategory === 'common' &&
           isCompletedUsageReview(logType ?? LOG_TYPE_ENUM.UNKNOWN, other)
-            ? 'bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/50 dark:border-amber-900/30'
-            : logType != null
-              ? (logTypeRowTint[logType] ?? '')
-              : ''
+        ) {
+          tintClass =
+            'bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/50 dark:border-amber-900/30'
+        }
 
         return (
           <div

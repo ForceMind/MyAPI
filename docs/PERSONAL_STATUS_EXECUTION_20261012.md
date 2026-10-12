@@ -51,6 +51,11 @@
 
 准确实现范围：本批只为 OpenAI Chat 文本适配器增加可证实的完成标记。非流要求语义成功、非空完整写入、2xx；流要求每个已观察 choice 完结、精确上游 `[DONE]`、本地完整终止帧写入和无流错误。标记不证明对端物理收到数据，不用于结算或重试。音频、realtime、Responses streaming 及其他适配器仍保守不声明 completed，不把本批结果扩展为所有 OpenAI/提供商协议均已修复。
 
+## 云端执行记录
+
+首轮候选 `8351859f793a7283a74453fb74fc422aad0c6cce` 已正常推送并回读。
+[CI 38258695443](https://github.com/ForceMind/MyAPI/actions/runs/38258695443) 的前端 typecheck 通过，lint 被新增移动日志色彩选择中的嵌套三元表达式拦下（1 error、9 个既有 warning）；测试/构建/浏览器尚未运行。已改为清楚的顺序分支，保留规则和原失败日志，不降低门禁。后继准确候选仍需执行验收，不能把这一轮写为通过。
+
 ## 后续独立个人工作台交付卡
 
 入口：仅 confirmed + ready + disabled 使用新个人工作台。商业 enabled、retirement 保持现有入口与历史义务，未知状态不得宣称无钱包生效。
