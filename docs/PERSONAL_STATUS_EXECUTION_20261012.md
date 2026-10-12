@@ -56,6 +56,15 @@
 首轮候选 `8351859f793a7283a74453fb74fc422aad0c6cce` 已正常推送并回读。
 [CI 38258695443](https://github.com/ForceMind/MyAPI/actions/runs/38258695443) 的前端 typecheck 通过，lint 被新增移动日志色彩选择中的嵌套三元表达式拦下（1 error、9 个既有 warning）；测试/构建/浏览器尚未运行。已改为清楚的顺序分支，保留规则和原失败日志，不降低门禁。后继准确候选仍需执行验收，不能把这一轮写为通过。
 
+候选 `561473d3ada5cdb311447a0067941cd6ccb98c74` 的
+[CI 38259094587](https://github.com/ForceMind/MyAPI/actions/runs/38259094587)
+前端 typecheck/lint/test/build 通过；后端完整测试未通过，不能据此收口。
+新增流测试未初始化 `constant.StreamingTimeout`，触发 `NewTicker` panic；两个显式零用量夹具
+只构造零值结构体，没有原始字段存在的证据，得到 `missing` 而非预期的 `reported`。
+已仅修正两份测试夹具：设置并清理流超时，用与 native adapter 相同的非空 BillingUsage/原始零 usage
+保留上游来源。既有原始 JSON 集成测试仍保护该来源状态，生产语义、原断言及失败日志保留；
+独立静态复核通过，后继候选须重新验证。浏览器及剩余作业以最终终态为准。
+
 ## 后续独立个人工作台交付卡
 
 入口：仅 confirmed + ready + disabled 使用新个人工作台。商业 enabled、retirement 保持现有入口与历史义务，未知状态不得宣称无钱包生效。

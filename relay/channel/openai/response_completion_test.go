@@ -30,6 +30,10 @@ func completionTestRelayInfo() *relaycommon.RelayInfo {
 }
 
 func TestChatResponseCompletionMarkerRequiresFinishedDeliveredStream(t *testing.T) {
+	oldTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() { constant.StreamingTimeout = oldTimeout })
+
 	for _, tc := range []struct {
 		name      string
 		body      string
@@ -150,6 +154,10 @@ func (w *completionWriteFailure) WriteString(data string) (int, error) {
 }
 
 func TestChatResponseCompletionMarkerRejectsDownstreamWriteFailure(t *testing.T) {
+	oldTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() { constant.StreamingTimeout = oldTimeout })
+
 	writer := &completionWriteFailure{ResponseRecorder: httptest.NewRecorder()}
 	ctx, _ := gin.CreateTestContext(writer)
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)

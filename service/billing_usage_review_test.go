@@ -30,6 +30,17 @@ func (w *usageReviewFailingWriter) Write([]byte) (int, error) {
 	return 0, io.ErrClosedPipe
 }
 
+func reportedZeroUsageFixture() *dto.Usage {
+	// The native adapter records field presence by retaining a non-nil billing
+	// envelope and raw usage object. The value-only constructor intentionally
+	// rejects an unproven all-zero DTO as missing.
+	return &dto.Usage{BillingUsage: &dto.BillingUsage{
+		Source:      dto.BillingUsageSourceOAIChat,
+		Semantic:    dto.BillingUsageSemanticOpenAI,
+		OpenAIUsage: &dto.Usage{},
+	}}
+}
+
 func TestTextUsageReviewDispositionSeparatesResponseFromUsage(t *testing.T) {
 	for _, tc := range []struct {
 		name           string
@@ -42,7 +53,7 @@ func TestTextUsageReviewDispositionSeparatesResponseFromUsage(t *testing.T) {
 		usageOutcome   string
 	}{
 		{name: "completed missing usage", status: http.StatusOK, body: `{"choices":[{"message":{"content":"ok"}}]}`, adapterMarker: true, requestOutcome: usageReviewRequestOutcomeCompleted, usageOutcome: "missing"},
-		{name: "completed explicit zero", status: http.StatusOK, body: `{"choices":[{"message":{"content":"ok"}}]}`, adapterMarker: true, usage: &dto.Usage{BillingUsage: dto.NewOpenAIChatBillingUsage(&dto.Usage{})}, requestOutcome: usageReviewRequestOutcomeCompleted, usageOutcome: usageReviewUsageOutcomeReported},
+		{name: "completed explicit zero", status: http.StatusOK, body: `{"choices":[{"message":{"content":"ok"}}]}`, adapterMarker: true, usage: reportedZeroUsageFixture(), requestOutcome: usageReviewRequestOutcomeCompleted, usageOutcome: usageReviewUsageOutcomeReported},
 		{name: "complete bytes without adapter evidence", status: http.StatusOK, body: `{"error":{"message":"upstream failed"}}`, usageOutcome: "missing"},
 		{name: "partial downstream write", status: http.StatusOK, body: `{"choices":[{"message":{"content":"ok"}}]}`, writtenBody: `{"choices":`, adapterMarker: true, usageOutcome: "missing"},
 		{name: "error response", status: http.StatusBadGateway, body: `{"error":{"type":"server_error"}}`, usageOutcome: "missing"},
@@ -89,7 +100,7 @@ func TestTextUsageReviewDispositionRequiresProvenStreamCompletion(t *testing.T) 
 		usageOutcome   string
 	}{
 		{name: "complete adapter response with missing usage", endReason: relaycommon.StreamEndReasonDone, adapterMarker: true, requestOutcome: usageReviewRequestOutcomeCompleted, usageOutcome: "missing"},
-		{name: "complete adapter response with explicit zero", endReason: relaycommon.StreamEndReasonDone, adapterMarker: true, usage: &dto.Usage{BillingUsage: dto.NewOpenAIChatBillingUsage(&dto.Usage{})}, requestOutcome: usageReviewRequestOutcomeCompleted, usageOutcome: usageReviewUsageOutcomeReported},
+		{name: "complete adapter response with explicit zero", endReason: relaycommon.StreamEndReasonDone, adapterMarker: true, usage: reportedZeroUsageFixture(), requestOutcome: usageReviewRequestOutcomeCompleted, usageOutcome: usageReviewUsageOutcomeReported},
 		{name: "done without delivery evidence", endReason: relaycommon.StreamEndReasonDone, usageOutcome: "missing"},
 		{name: "bare eof", endReason: relaycommon.StreamEndReasonEOF, adapterMarker: true, usageOutcome: "missing"},
 	} {
