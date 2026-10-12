@@ -107,9 +107,36 @@ export async function getNotice(): Promise<{
 // 2FA Management APIs
 // ============================================================================
 
-export async function get2FAStatus() {
-  const res = await api.get('/api/user/2fa/status')
-  return res.data
+export async function get2FAStatus(signal?: AbortSignal) {
+  if (signal?.aborted) throw new Error('2FA status request cancelled')
+
+  const controller = new AbortController()
+  const cancel = () => controller.abort()
+  const cancelled = new Promise<never>((_, reject) => {
+    controller.signal.addEventListener(
+      'abort',
+      () => reject(new Error('2FA status request cancelled')),
+      { once: true }
+    )
+  })
+  signal?.addEventListener('abort', cancel, { once: true })
+  const deadline = globalThis.setTimeout(cancel, 15000)
+  try {
+    const res = await Promise.race([
+      api.get('/api/user/2fa/status', {
+        signal: controller.signal,
+        timeout: 15000,
+        disableDuplicate: true,
+        skipErrorHandler: true,
+        skipBusinessError: true,
+      }),
+      cancelled,
+    ])
+    return res.data
+  } finally {
+    globalThis.clearTimeout(deadline)
+    signal?.removeEventListener('abort', cancel)
+  }
 }
 
 export async function setup2FA() {

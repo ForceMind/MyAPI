@@ -28,9 +28,38 @@ function proofHeaders(proofToken?: string): Record<string, string> | undefined {
   return proofToken ? { 'X-Security-Proof': proofToken } : undefined
 }
 
-export async function getPasskeyStatus(): Promise<ApiResponse<PasskeyStatus>> {
-  const res = await api.get<ApiResponse<PasskeyStatus>>('/api/user/passkey')
-  return res.data
+export async function getPasskeyStatus(
+  signal?: AbortSignal
+): Promise<ApiResponse<PasskeyStatus>> {
+  if (signal?.aborted) throw new Error('Passkey status request cancelled')
+
+  const controller = new AbortController()
+  const cancel = () => controller.abort()
+  const cancelled = new Promise<never>((_, reject) => {
+    controller.signal.addEventListener(
+      'abort',
+      () => reject(new Error('Passkey status request cancelled')),
+      { once: true }
+    )
+  })
+  signal?.addEventListener('abort', cancel, { once: true })
+  const deadline = globalThis.setTimeout(cancel, 15000)
+  try {
+    const res = await Promise.race([
+      api.get<ApiResponse<PasskeyStatus>>('/api/user/passkey', {
+        signal: controller.signal,
+        timeout: 15000,
+        disableDuplicate: true,
+        skipErrorHandler: true,
+        skipBusinessError: true,
+      }),
+      cancelled,
+    ])
+    return res.data
+  } finally {
+    globalThis.clearTimeout(deadline)
+    signal?.removeEventListener('abort', cancel)
+  }
 }
 
 export async function beginPasskeyRegistration(

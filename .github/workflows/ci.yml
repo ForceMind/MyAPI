@@ -520,7 +520,7 @@ jobs:
         env:
           RAYON_NUM_THREADS: '2'
           NODE_OPTIONS: '--max-old-space-size=1536'
-        run: bun run build
+        run: VITE_REACT_APP_VERSION="$(cat ../VERSION)" VITE_BUILD_ID="$GITHUB_SHA" bun run build
 
       - name: Install isolated browser test dependencies
         id: browser-dependencies
@@ -566,6 +566,7 @@ jobs:
         run: |
           node --test tools/ui/browser-fixtures.test.mjs
           node tools/ui/profile-browser.mjs
+          node tools/ui/stability-browser.mjs
           node tools/ui/browser-smoke.mjs
           node tools/ui/playground-browser.mjs
 

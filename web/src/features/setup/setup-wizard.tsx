@@ -106,7 +106,7 @@ export function SetupWizard() {
     refetch,
   } = useQuery({
     queryKey: ['setup-status'],
-    queryFn: getSetupStatus,
+    queryFn: ({ signal }) => getSetupStatus(signal),
     retry: false,
   })
 

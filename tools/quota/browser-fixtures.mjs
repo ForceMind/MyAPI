@@ -194,7 +194,7 @@ export function quotaFixtures({ latestError = false, currentUsageMissing = false
     if (path === '/api/user/models') return ok(['gpt-5-codex'])
     if (path === '/api/channel/models') return ok(['gpt-5-codex'])
     if (path === '/api/prefill_group') return ok([])
-    if (path === '/api/user/2fa/status') return ok({ enabled: false })
+    if (path === '/api/user/2fa/status') return ok({ enabled: false, locked: false })
     if (path === '/api/user/passkey') return ok({ enabled: false, credentials: [] })
     if (path === '/api/token' || path === '/api/token/search') return ok({ items: [], total: 0, page: 1, page_size: 10 })
     if (path.startsWith('/api/data') || path === '/api/uptime/status') return ok([])

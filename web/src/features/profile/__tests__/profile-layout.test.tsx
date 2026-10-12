@@ -131,7 +131,15 @@ describe('profile task layout', () => {
         if (url === '/api/user/sessions') {
           return { data: { success: true, data: [] } }
         }
-        if (url === '/api/user/2fa/status' || url === '/api/user/passkey') {
+        if (url === '/api/user/2fa/status') {
+          return {
+            data: {
+              success: true,
+              data: { enabled: false, locked: false, backup_codes_remaining: 0 },
+            },
+          }
+        }
+        if (url === '/api/user/passkey') {
           return { data: { success: true, data: { enabled: false } } }
         }
         throw new Error(`Unexpected test request: ${url}`)

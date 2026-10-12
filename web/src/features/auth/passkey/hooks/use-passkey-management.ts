@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import i18next from 'i18next'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import {
@@ -39,6 +39,42 @@ interface UsePasskeyManagementOptions {
   onStatusChange?: (status: PasskeyStatus | null) => void
 }
 
+function parsePasskeyStatus(value: unknown): PasskeyStatus | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return null
+  }
+
+  const candidate = value as Record<string, unknown>
+  if (typeof candidate.enabled !== 'boolean') return null
+  if (
+    candidate.last_used_at !== undefined &&
+    candidate.last_used_at !== null &&
+    typeof candidate.last_used_at !== 'string'
+  ) {
+    return null
+  }
+  if (
+    candidate.backup_eligible !== undefined &&
+    typeof candidate.backup_eligible !== 'boolean'
+  ) {
+    return null
+  }
+  if (
+    candidate.backup_state !== undefined &&
+    typeof candidate.backup_state !== 'boolean'
+  ) {
+    return null
+  }
+
+  return {
+    ...candidate,
+    enabled: candidate.enabled,
+    last_used_at: candidate.last_used_at as string | null | undefined,
+    backup_eligible: candidate.backup_eligible as boolean | undefined,
+    backup_state: candidate.backup_state as boolean | undefined,
+  }
+}
+
 export function usePasskeyManagement(
   options: UsePasskeyManagementOptions = {}
 ) {
@@ -46,39 +82,62 @@ export function usePasskeyManagement(
 
   const [status, setStatus] = useState<PasskeyStatus | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [registering, setRegistering] = useState(false)
   const [removing, setRemoving] = useState(false)
   const [supported, setSupported] = useState(false)
+  const pendingRequest = useRef<AbortController | null>(null)
 
   const fetchStatus = useCallback(async () => {
+    pendingRequest.current?.abort()
+    const controller = new AbortController()
+    pendingRequest.current = controller
     try {
       setLoading(true)
-      const res = await getPasskeyStatus()
-      if (res.success) {
-        setStatus(res.data ?? null)
-        onStatusChange?.(res.data ?? null)
-      } else {
-        setStatus(null)
-        toast.error(res.message || i18next.t('Failed to load Passkey status'))
+      setError(false)
+      const res = await getPasskeyStatus(controller.signal)
+      if (controller.signal.aborted) return
+
+      const nextStatus = parsePasskeyStatus(res.data)
+      if (res.success !== true || !nextStatus) {
+        throw new Error(res.message || 'Invalid Passkey status response')
       }
+
+      setStatus(nextStatus)
+      onStatusChange?.(nextStatus)
     } catch (error) {
+      if (controller.signal.aborted) return
       // eslint-disable-next-line no-console
       console.error('[Passkey] Failed to fetch status', error)
-      toast.error(i18next.t('Failed to load Passkey status'))
       setStatus(null)
+      setError(true)
     } finally {
-      setLoading(false)
+      if (
+        pendingRequest.current === controller &&
+        !controller.signal.aborted
+      ) {
+        setLoading(false)
+      }
     }
   }, [onStatusChange])
 
   useEffect(() => {
     fetchStatus()
+    return () => pendingRequest.current?.abort()
   }, [fetchStatus])
 
   useEffect(() => {
+    let active = true
     detectPasskeySupport()
-      .then(setSupported)
-      .catch(() => setSupported(false))
+      .then((value) => {
+        if (active) setSupported(value)
+      })
+      .catch(() => {
+        if (active) setSupported(false)
+      })
+    return () => {
+      active = false
+    }
   }, [])
 
   const register = useCallback(
@@ -192,6 +251,7 @@ export function usePasskeyManagement(
   return {
     status,
     loading,
+    error,
     registering,
     removing,
     supported,

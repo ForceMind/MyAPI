@@ -20,14 +20,58 @@ import { api } from '@/lib/api'
 
 import type { SetupFormValues, SetupResponse } from './types'
 
-export async function getSetupStatus(): Promise<SetupResponse> {
-  const res = await api.get('/api/setup', {
-    // We want fresh status on every visit.
-    params: {
-      t: Date.now(),
-    },
+export class SetupStatusError extends Error {
+  constructor(cause?: unknown) {
+    super('Failed to load setup status', { cause })
+    this.name = 'SetupStatusError'
+  }
+}
+
+export async function getSetupStatus(
+  signal?: AbortSignal
+): Promise<SetupResponse> {
+  if (signal?.aborted) throw new SetupStatusError()
+  const controller = new AbortController()
+  const cancel = () => controller.abort()
+  const cancelled = new Promise<never>((_, reject) => {
+    controller.signal.addEventListener(
+      'abort',
+      () => reject(new SetupStatusError()),
+      { once: true }
+    )
   })
-  return res.data
+  signal?.addEventListener('abort', cancel, { once: true })
+  const deadline = globalThis.setTimeout(cancel, 15000)
+  try {
+    const res = await Promise.race([
+      api.get<SetupResponse>('/api/setup', {
+        params: { t: Date.now() },
+        signal: controller.signal,
+        timeout: 15000,
+        disableDuplicate: true,
+        skipErrorHandler: true,
+        skipBusinessError: true,
+        // Setup is public. A rejected status read must not wait for a session.
+        skipAuthRefresh: true,
+      }),
+      cancelled,
+    ])
+    const response = res.data
+    if (
+      response?.success !== true ||
+      typeof response.data?.status !== 'boolean' ||
+      typeof response.data.root_init !== 'boolean' ||
+      typeof response.data.database_type !== 'string'
+    ) {
+      throw new SetupStatusError()
+    }
+    return response
+  } catch (error) {
+    throw error instanceof SetupStatusError ? error : new SetupStatusError(error)
+  } finally {
+    globalThis.clearTimeout(deadline)
+    signal?.removeEventListener('abort', cancel)
+  }
 }
 
 export async function submitSetup(
