@@ -1,4 +1,12 @@
-## Current profile regression batch (2026-10-10, local unpublished candidate)
+## Current stability batch (2026-10-12, not deployed)
+
+Fresh-install and everyday UI stability now take priority. Historical accounting
+is frozen and does not block this batch. See the [execution record](UI_STABILITY_EXECUTION_20261012.md)
+for the three confirmed defects, ownership and pending acceptance. The historical
+beta.8 journey names below describe already exercised scenarios, not a current
+list of unfinished pages. No claim of complete production qualification is made.
+
+## Previous profile regression batch (2026-10-10, candidate retained)
 
 Profile now bounds the complete self read (including a stalled authentication
 interceptor) to 15 seconds and provides retry, cancellation and safe settings
@@ -9,8 +17,9 @@ production-build Chromium synthetic scenarios cover actual sidebar navigation,
 with no page errors or horizontal overflow. Screenshots were inspected.
 
 This batch does not finish the whole UI or qualify production authentication,
-password/passkey changes or historical accounting. The global authentication
-bootstrap can still wait independently of Profile. See the current batch in
+password/passkey changes or historical accounting. Authentication bootstrap now
+has a separate complete 10-second deadline; the current batch investigates the
+installation-status guard separately. See the retained batch in
 [the accounting record](HISTORICAL_ACCOUNTING_COMPATIBILITY.md).
 
 Reproduce after `cd web && bun run build`, then from the repository root run
@@ -79,14 +88,16 @@ qualification, not live provider, account, bill or deployment acceptance.
   save/error behavior, preserving all 42 registered sections
 - `i18n/locales`: en, zh, zh-TW, fr, ja, ru, vi, using repository translation tools
 
-## Specific constraints discovered in the current UI
+## Historical constraints discovered during the beta.8 audit
 
-The root sidebar currently puts chat tools before operational tasks. System
+At the initial audit, the root sidebar put chat tools before operational tasks. System
 Settings is visible to ordinary administrators although its route is Root-only.
 Channels stacks evidence, events, preview and its table; reorganizing hierarchy
 must not remount or reset active account/preview state or break old quota links.
 The shared section title truncates long text, and the skip link needs a reliable
-focusable main target. These are explicit behavior checks for the shared batch.
+focusable main target. These became explicit behavior checks for the shared batch
+and have since been covered by navigation, role, title and main-focus regressions.
+They are not new outstanding defects in the current candidate.
 
 The beta.7 320/1280 access/event screenshots were inspected during the initial
 audit. They show existing production components with synthetic data, not a
