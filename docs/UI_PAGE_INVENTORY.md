@@ -2,11 +2,14 @@
 
 Fresh-install and everyday UI stability now take priority. Historical accounting
 is frozen and does not block this batch. See the [execution record](UI_STABILITY_EXECUTION_20261012.md)
-for the three confirmed defects, ownership and source-bound acceptance. Source
-`c89ecf6` passed all ten CI jobs, 1,174 frontend tests, nine profile recovery cases
-and ten installation/security cases. Targeted captures in `30c714e` revealed a
-truncated 2FA state at 320px. A follow-up adds a non-truncation regression and
-local wrapping fix; its exact-source and visual acceptance remain pending. The historical
+for the three confirmed defects, ownership and source-bound acceptance. Final application
+source `8a482c4` passed all ten [CI jobs](https://github.com/ForceMind/MyAPI/actions/runs/38228160614),
+1,174 frontend tests, nine profile recovery cases and ten installation/security cases.
+Targeted captures in `30c714e` revealed a truncated 2FA state at 320px; the final
+source fixes local wrapping and passes the non-truncation regression and independent
+review of the English/light 320/1280 security cards. Two existing P3 setup layout
+issues remain: word breaks in a step label and a compressed duplicate database badge.
+The closing commit changes documentation only and reuses this application-source evidence. The historical
 beta.8 journey names below describe already exercised scenarios, not a current
 list of unfinished pages. No claim of complete production qualification is made.
 
