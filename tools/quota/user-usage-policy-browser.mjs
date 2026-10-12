@@ -74,7 +74,7 @@ export async function checkUserUsagePolicyBrowser({ page, origin, output, label,
   assert.equal(fixture.writes.length, 1)
   assert.equal(fixture.writes[0].no_balance, true)
   await dialog.getByRole('button', { name: label('Close'), exact: true }).first().click()
-  await page.getByText(label('No user allowance cap'), { exact: true }).waitFor()
+  await page.getByText(label('No-wallet policy active'), { exact: true }).waitFor()
   dialog = await open()
   assert(await dialog.getByRole('checkbox', { name: label('Use Key limits without a user wallet'), exact: true }).isChecked())
   assert.equal(fixture.writes.length, 1, 'reload never resubmits a user policy change')

@@ -214,7 +214,10 @@ export function useUsersColumns(): ColumnDef<User>[] {
       },
       size: 300,
       minSize: 260,
-      meta: { mobileOrder: 40 },
+      meta: {
+        mobileOrder: 40,
+        mobileFullWidth: !funding.commercialEnabled,
+      },
     },
     {
       accessorKey: 'group',

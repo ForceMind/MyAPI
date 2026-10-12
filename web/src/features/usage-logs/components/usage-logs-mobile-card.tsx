@@ -179,15 +179,20 @@ function MobileLogTimeStatus({
       </div>
       <div
         className={cn(
-          'inline-flex items-center gap-1 text-xs leading-none font-medium',
+          'inline-flex max-w-full items-start gap-1 text-xs font-medium',
           textColorMap[variant]
         )}
       >
         <span
-          className={cn('size-1.5 shrink-0 rounded-full', dotColorMap[variant])}
+          className={cn(
+            'mt-1 size-1.5 shrink-0 rounded-full',
+            dotColorMap[variant]
+          )}
           aria-hidden='true'
         />
-        <span>{t(config.label)}</span>
+        <span className='min-w-0 break-keep whitespace-normal leading-snug'>
+          {t(config.label)}
+        </span>
       </div>
     </div>
   )

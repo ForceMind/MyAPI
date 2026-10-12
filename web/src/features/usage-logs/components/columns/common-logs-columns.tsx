@@ -304,8 +304,12 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
               variant={config.color as StatusBadgeProps['variant']}
               size='sm'
               copyable={false}
-              className='-ml-1.5 !text-xs [&_span]:!text-xs'
-            />
+              className='-ml-1.5 h-auto min-h-5 !text-xs [&_span]:!text-xs'
+            >
+              <span className='min-w-0 break-keep whitespace-normal leading-snug'>
+                {t(config.label)}
+              </span>
+            </StatusBadge>
           </div>
         )
       },
