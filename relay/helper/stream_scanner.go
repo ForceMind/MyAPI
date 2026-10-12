@@ -27,6 +27,9 @@ const (
 	InitialScannerBufferSize    = 64 << 10  // 64KB (64*1024)
 	DefaultMaxScannerBufferSize = 128 << 20 // 64MB (64*1024*1024) default SSE buffer size
 	DefaultPingInterval         = 10 * time.Second
+	// ContextKeyExactStreamTerminator is metadata evidence that the upstream
+	// stream ended with the exact OpenAI [DONE] sentinel.
+	ContextKeyExactStreamTerminator = "relay_exact_stream_terminator"
 	// streamWriteTimeout bounds a single blocked write to a slow client so the
 	// unconditional wg.Wait() in cleanup can always finish. Without it, a slow
 	// but connected client (full TCP buffer, no server WriteTimeout) could hang
@@ -80,6 +83,7 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 	if resp == nil || dataHandler == nil {
 		return
 	}
+	c.Set(ContextKeyExactStreamTerminator, false)
 
 	// 无条件新建 StreamStatus
 	info.StreamStatus = relaycommon.NewStreamStatus()
@@ -275,6 +279,9 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 					return
 				}
 			} else {
+				if data == "[DONE]" {
+					c.Set(ContextKeyExactStreamTerminator, true)
+				}
 				if info.StrictTokenBudget && info.RelayMode == relayconstant.RelayModeChatCompletions && data != "[DONE]" {
 					info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonScannerErr, fmt.Errorf("invalid strict Chat stream terminator"))
 					return

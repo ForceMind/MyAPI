@@ -41,7 +41,7 @@ import {
 } from '../constants'
 import { useColumnsByCategory } from '../lib/columns'
 import { parseLogOther } from '../lib/format'
-import { fetchLogsByCategory } from '../lib/utils'
+import { fetchLogsByCategory, isCompletedUsageReview } from '../lib/utils'
 import type { LogCategory } from '../types'
 import { CommonLogsFilterBar } from './common-logs-filter-bar'
 import { TaskLogsFilterBar } from './task-logs-filter-bar'
@@ -253,6 +253,17 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
           | undefined
         let tintClass =
           isCommon && logType != null ? (logTypeRowTint[logType] ?? '') : ''
+        if (
+          isCommon &&
+          isCompletedUsageReview(
+            logType ?? LOG_TYPE_ENUM.UNKNOWN,
+            parseLogOther(
+              ((row.original as Record<string, unknown>).other as string) ?? ''
+            )
+          )
+        ) {
+          tintClass = 'bg-amber-50/40 dark:bg-amber-950/20'
+        }
         if (isCommon && isAdmin) {
           const other = parseLogOther(
             ((row.original as Record<string, unknown>).other as string) ?? ''

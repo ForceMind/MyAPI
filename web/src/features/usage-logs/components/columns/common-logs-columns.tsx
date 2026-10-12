@@ -292,7 +292,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
       cell: ({ row }) => {
         const log = row.original
         const timestamp = row.getValue('created_at') as number
-        const config = getLogTypeConfig(log.type)
+        const config = getLogTypeConfig(log.type, parseLogOther(log.other))
 
         return (
           <div className='flex min-w-0 flex-col gap-0.5'>

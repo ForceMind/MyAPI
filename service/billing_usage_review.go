@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
@@ -118,13 +119,73 @@ func textUsageReviewReason(ctx *gin.Context, usage *dto.Usage) string {
 	return ""
 }
 
+const (
+	usageReviewRequestOutcomeCompleted = "completed"
+	usageReviewUsageOutcomeReported    = "reported"
+	usageReviewUsageOutcomeUnknown     = "unknown"
+)
+
+type usageReviewDisposition struct {
+	RequestOutcome string
+	UsageOutcome   string
+}
+
+// textUsageReviewDisposition records request completion independently from
+// billing evidence. Missing, partial, invalid, or locally estimated usage can
+// follow a completed response, but none of them prove delivery by themselves.
+func textUsageReviewDisposition(ctx *gin.Context, info *relaycommon.RelayInfo, usage *dto.Usage) usageReviewDisposition {
+	reason := textUsageReviewReason(ctx, usage)
+	disposition := usageReviewDisposition{UsageOutcome: usageReviewUsageOutcomeReported}
+	if reason != "" {
+		disposition.UsageOutcome = reason
+	}
+	if ctx == nil || info == nil || ctx.Writer == nil {
+		return disposition
+	}
+	if info.IsStream {
+		if !ctx.GetBool("relay_response_completed") || info.StreamStatus == nil ||
+			info.StreamStatus.EndReason != relaycommon.StreamEndReasonDone ||
+			info.StreamStatus.EndError != nil || info.StreamStatus.HasErrors() {
+			return disposition
+		}
+	} else {
+		if !ctx.GetBool("relay_response_completed") || ctx.Request == nil || ctx.Request.Context().Err() != nil ||
+			ctx.Writer.Status() < 200 || ctx.Writer.Status() >= 300 {
+			return disposition
+		}
+		expected, err := strconv.Atoi(ctx.Writer.Header().Get("Content-Length"))
+		// PostTextConsumeQuota is reached only after a successful adapter
+		// response. Require its non-empty IOCopyBytesGracefully boundary here;
+		// a default 200 writer with no response is not completion evidence.
+		if err != nil || expected <= 0 || ctx.Writer.Size() != expected {
+			return disposition
+		}
+	}
+	disposition.RequestOutcome = usageReviewRequestOutcomeCompleted
+	return disposition
+}
+
 func recordPendingBillingSettlement(ctx *gin.Context, info *relaycommon.RelayInfo) {
+	recordPendingBillingSettlementWithDisposition(ctx, info, usageReviewDisposition{})
+}
+
+func recordPendingBillingSettlementWithDisposition(ctx *gin.Context, info *relaycommon.RelayInfo, disposition usageReviewDisposition) {
+	other := map[string]interface{}{
+		"settlement_status": "pending_review",
+		"actual_quota":      nil,
+		"reserved_quota":    info.FinalPreConsumedQuota,
+	}
+	appendUsageReviewDisposition(other, disposition)
 	model.RecordErrorLog(ctx, info.UserId, info.ChannelId, info.OriginModelName, ctx.GetString("token_name"),
 		"usage_settlement_pending", info.TokenId, int(time.Now().Unix()-info.StartTime.Unix()), info.IsStream, info.UsingGroup,
-		map[string]interface{}{"settlement_status": "pending_review", "actual_quota": nil, "reserved_quota": info.FinalPreConsumedQuota})
+		other)
 }
 
 func usageReviewPricingEvidence(info *relaycommon.RelayInfo, summary textQuotaSummary) ([]byte, error) {
+	return usageReviewPricingEvidenceWithDisposition(info, summary, usageReviewDisposition{})
+}
+
+func usageReviewPricingEvidenceWithDisposition(info *relaycommon.RelayInfo, summary textQuotaSummary, disposition usageReviewDisposition) ([]byte, error) {
 	// Preserve independently known tool obligations and frozen pricing inputs;
 	// never serialize request headers, prompts, API keys or raw model output.
 	var knownRealtimeQuota *int
@@ -157,7 +218,28 @@ func usageReviewPricingEvidence(info *relaycommon.RelayInfo, summary textQuotaSu
 		FrozenTieredPricing *billingexpr.BillingSnapshot       `json:"frozen_tiered_pricing,omitempty"`
 		StrictTokenBudget   bool                               `json:"strict_token_budget,omitempty"`
 		RealtimeCheckpoint  *hosttypes.RealtimeUsageCheckpoint `json:"realtime_usage_checkpoint,omitempty"`
-	}{info.PriceData.UsePrice, info.PriceData.ModelPrice, info.PriceData.OtherRatios(), info.GetUpstreamModelName(), 1, info.OriginModelName, requestQuotaUnit(info.PriceData), summary.ModelRatio, summary.CompletionRatio, summary.GroupRatio, summary.ToolSurchargeItems, info.PriceData.QuotedQuotaUnit(0) > 0, knownRealtimeQuota, frozenTieredPricing, info.StrictTokenBudget, info.RealtimeCheckpoint})
+		RequestOutcome      string                             `json:"request_outcome,omitempty"`
+		UsageOutcome        string                             `json:"usage_outcome,omitempty"`
+	}{
+		FixedPrice:          info.PriceData.UsePrice,
+		ModelPrice:          info.PriceData.ModelPrice,
+		PriceRatios:         info.PriceData.OtherRatios(),
+		UpstreamModel:       info.GetUpstreamModelName(),
+		Version:             1,
+		Model:               info.OriginModelName,
+		QuotaUnit:           requestQuotaUnit(info.PriceData),
+		ModelRatio:          summary.ModelRatio,
+		CompletionRatio:     summary.CompletionRatio,
+		GroupRatio:          summary.GroupRatio,
+		KnownTools:          summary.ToolSurchargeItems,
+		UnitCaptured:        info.PriceData.QuotedQuotaUnit(0) > 0,
+		KnownRealtimeQuota:  knownRealtimeQuota,
+		FrozenTieredPricing: frozenTieredPricing,
+		StrictTokenBudget:   info.StrictTokenBudget,
+		RealtimeCheckpoint:  info.RealtimeCheckpoint,
+		RequestOutcome:      disposition.RequestOutcome,
+		UsageOutcome:        disposition.UsageOutcome,
+	})
 	if len(metadata) > 16384 {
 		metadataErr = fmt.Errorf("usage review pricing metadata exceeds limit")
 	}
@@ -165,6 +247,10 @@ func usageReviewPricingEvidence(info *relaycommon.RelayInfo, summary textQuotaSu
 }
 
 func holdUnverifiedTextUsage(ctx *gin.Context, info *relaycommon.RelayInfo, reason string, summary textQuotaSummary) {
+	holdUnverifiedTextUsageWithDisposition(ctx, info, reason, summary, usageReviewDisposition{UsageOutcome: usageReviewUsageOutcomeUnknown})
+}
+
+func holdUnverifiedTextUsageWithDisposition(ctx *gin.Context, info *relaycommon.RelayInfo, reason string, summary textQuotaSummary, disposition usageReviewDisposition) {
 	if ctx != nil {
 		ctx.Set("relay_completion_unverified", true)
 	}
@@ -173,7 +259,10 @@ func holdUnverifiedTextUsage(ctx *gin.Context, info *relaycommon.RelayInfo, reas
 			logger.LogError(ctx, "token budget remains unresolved: "+err.Error())
 		}
 	}
-	metadata, metadataErr := usageReviewPricingEvidence(info, summary)
+	if disposition.UsageOutcome == "" {
+		disposition.UsageOutcome = usageReviewUsageOutcomeUnknown
+	}
+	metadata, metadataErr := usageReviewPricingEvidenceWithDisposition(info, summary, disposition)
 	var holdErr error
 	if session, ok := info.Billing.(*BillingSession); ok {
 		parent := context.Background()
@@ -194,6 +283,7 @@ func holdUnverifiedTextUsage(ctx *gin.Context, info *relaycommon.RelayInfo, reas
 	other := map[string]interface{}{"usage_accuracy": reason, "settlement_status": "pending_review", "actual_quota": nil,
 		"reserved_quota": info.FinalPreConsumedQuota, "known_tool_obligations": summary.ToolSurchargeItems,
 		"review_persisted": holdErr == nil}
+	appendUsageReviewDisposition(other, disposition)
 	if common.SensitiveRequestDiagnostics(ctx) {
 		appendRequestPath(ctx, info, other)
 	}
@@ -208,6 +298,18 @@ func holdUnverifiedTextUsage(ctx *gin.Context, info *relaycommon.RelayInfo, reas
 	// explicit NULL actual_quota is not a zero-priced consumption record.
 	model.RecordErrorLog(ctx, info.UserId, info.ChannelId, info.OriginModelName, ctx.GetString("token_name"),
 		"usage_pending_review", info.TokenId, int(time.Now().Unix()-info.StartTime.Unix()), info.IsStream, info.UsingGroup, other)
+}
+
+func appendUsageReviewDisposition(other map[string]interface{}, disposition usageReviewDisposition) {
+	if other == nil {
+		return
+	}
+	if disposition.RequestOutcome != "" {
+		other["request_outcome"] = disposition.RequestOutcome
+	}
+	if disposition.UsageOutcome != "" {
+		other["usage_outcome"] = disposition.UsageOutcome
+	}
 }
 
 // Caller holds the session mutex. Journal completion failure does not undo an

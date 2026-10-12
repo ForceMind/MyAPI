@@ -96,6 +96,12 @@ func TestIncidentSyntheticTextUsageLogBatchWithoutRedis(t *testing.T) {
 	usage := &dto.Usage{PromptTokens: 40, CompletionTokens: 20, TotalTokens: 60}
 	require.Equal(t, "", textUsageReviewReason(c, usage), "synthetic usage is complete and valid")
 	require.Equal(t, 60, calculateTextQuotaSummary(c, info, usage).Quota)
+	responseBody := []byte(`{"choices":[{"message":{"content":"ok"},"finish_reason":"stop"}]}`)
+	c.Writer.Header().Set("Content-Length", fmt.Sprint(len(responseBody)))
+	c.Writer.WriteHeader(200)
+	_, writeErr := c.Writer.Write(responseBody)
+	require.NoError(t, writeErr)
+	c.Set("relay_response_completed", true)
 	PostTextConsumeQuota(c, info, usage, nil)
 	var log model.Log
 	require.NoError(t, db.Where("request_id = ?", info.RequestId).First(&log).Error)
@@ -103,6 +109,8 @@ func TestIncidentSyntheticTextUsageLogBatchWithoutRedis(t *testing.T) {
 	var other map[string]interface{}
 	require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
 	require.Equal(t, "pending_review", other["settlement_status"])
+	require.Equal(t, usageReviewRequestOutcomeCompleted, other["request_outcome"])
+	require.Equal(t, usageReviewUsageOutcomeReported, other["usage_outcome"])
 	require.Nil(t, other["actual_quota"])
 	require.Equal(t, float64(0), other["reserved_quota"])
 	var fact model.AccountQuotaSettlementFact
