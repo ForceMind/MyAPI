@@ -1,4 +1,24 @@
-## Current stability batch (2026-10-12, not deployed)
+## Current setup follow-up (2026-10-12, not deployed)
+
+Candidate `21511e568904a9c790e15089a93ab02962c5f077` fixes the two remaining
+mobile setup defects: step labels now use one column below `sm`, and the database
+badge stacks below its description without shrinking. Installation POST now has
+a 15-second deadline; uncertain results allow status checks only, and confirmed
+completion updates the route guard cache before navigation. Explicit application
+failure retains the form and permits a manual retry. All three new strings have
+seven-language translations. All ten jobs in [CI 38250319423](https://github.com/ForceMind/MyAPI/actions/runs/38250319423)
+passed, including 1,181 frontend tests, 19 layout cases and six complete synthetic
+setup/login/sidebar/Profile cases. Independent code and screenshot review passed:
+seven-language 320px light/dark layouts, English 390/768/1280px, database badges,
+unknown-result prompts and all six Profile paths. Existing nine Profile and ten
+installation/security recovery cases also passed. This qualifies synthetic UI
+flows, not real package/container/database installation or production authentication.
+Unknown-write locking lasts only for the current wizard mount; reloads and multiple
+tabs/instances have no persistent attempt protocol. See the
+[execution record](UI_STABILITY_EXECUTION_20261012.md) for evidence and limits.
+Historical accounting and production remain frozen; no release or deployment.
+
+## Previous stability batch (2026-10-12, not deployed)
 
 Fresh-install and everyday UI stability now take priority. Historical accounting
 is frozen and does not block this batch. See the [execution record](UI_STABILITY_EXECUTION_20261012.md)
@@ -7,8 +27,9 @@ source `8a482c4` passed all ten [CI jobs](https://github.com/ForceMind/MyAPI/act
 1,174 frontend tests, nine profile recovery cases and ten installation/security cases.
 Targeted captures in `30c714e` revealed a truncated 2FA state at 320px; the final
 source fixes local wrapping and passes the non-truncation regression and independent
-review of the English/light 320/1280 security cards. Two existing P3 setup layout
-issues remain: word breaks in a step label and a compressed duplicate database badge.
+review of the English/light 320/1280 security cards. At that checkpoint, two P3 setup
+issues remained: word breaks in a step label and a compressed duplicate database badge;
+the current follow-up above supersedes that remaining-work list.
 The closing commit changes documentation only and reuses this application-source evidence. The historical
 beta.8 journey names below describe already exercised scenarios, not a current
 list of unfinished pages. No claim of complete production qualification is made.
