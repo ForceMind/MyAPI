@@ -78,6 +78,24 @@ checkout `0b3b5409583962c59a600b87459d4fed1f197cda`，源码 tree 等于 `561473
 已增加显式可选卡片全宽配置，仅非商业 Users 用量区启用；其他列/商业/备用卡片布局保持原样。
 同时让日志状态按完整词语换行，避免列表截断或孤字。后继实际截图仍待复审，不能复用旧图作为新布局证据。
 
+后继候选 `895d1a6ae15467e87f912576451bf19253ac6f29` 的
+[CI 38262417204](https://github.com/ForceMind/MyAPI/actions/runs/38262417204)
+旧用量策略、路由及权限浏览器回归通过，前一轮的流超时和显式零夹具回归已通过；
+后端完整测试仍未通过：有效非流回答缺 usage 进入本地 Token 估算时，新夹具未初始化默认分词器，
+触发 nil panic。已仅在该测试中调用应用启动同一 `service.InitTokenEncoders()`；非空回答、估算来源、
+正文写出和完成标记断言保持，未改生产。负责人和独立复审确认其余新夹具初始化齐备；
+静态检查通过，修正须由后继 Actions 执行确认。
+
+该轮最终 failure：九作业 success、后端 failure。前端 typecheck/lint、197 文件/1,206 测试、build
+及全部浏览器步骤通过；个人资料 9、安装/安全状态 10、安装布局/流程 25、新个人状态 6 个场景，
+广泛 UI 32 journeys + 42 settings links / 238 截图，以及 Playground 完整运行。
+新布局八图 artifact `11753473413`，ZIP SHA256
+`7d6f2ac9a5e1ac69f8a0f75b3df7a732d70397b62e9ed431cfab1474e920b85a` 已核对；
+报告为 passed、errors=[]，版本 `rv.0.2.0-beta.11.7d957a88db8c865fba188dea177f19c6630bdb2a.2k6e8r7p`。
+该 checkout 的父提交为冻结 base `0b51bb4` 与候选 `895d1a6`，
+tree `265d4df4e88de4e4d81585338452e6f3cfef25a8` 与候选相同。新截图独立视觉复审另记；
+后继只有测试初始化和文档变化时，可按未变的 UI 输入复用这一布局证据，不能声称整轮或后继 CI 已通过。
+
 ## 后续独立个人工作台交付卡
 
 入口：仅 confirmed + ready + disabled 使用新个人工作台。商业 enabled、retirement 保持现有入口与历史义务，未知状态不得宣称无钱包生效。

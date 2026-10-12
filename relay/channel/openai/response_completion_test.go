@@ -11,6 +11,7 @@ import (
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	relayconstant "github.com/ForceMind/MyAPI/relay/constant"
 	"github.com/ForceMind/MyAPI/relaykit/types"
+	"github.com/ForceMind/MyAPI/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -115,6 +116,10 @@ func TestOpenaiHandlerEmptySuccessShapeIsNotCompletionEvidence(t *testing.T) {
 }
 
 func TestOpenaiHandlerValidResponseIsCompletionEvidence(t *testing.T) {
+	// OpenaiHandler estimates missing usage from the returned text. Production
+	// initializes this process-lifetime dependency before serving requests.
+	service.InitTokenEncoders()
+
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
