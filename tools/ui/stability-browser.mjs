@@ -37,12 +37,13 @@ try {
       const initialized = !['setup-before-auth', 'setup-old-browser-flag'].includes(scenario)
       const fixture = createUIFixture({ role: 1, language: 'en', setupComplete: initialized })
       const reads = new Map()
+      const recoveredSecurityPaths = new Set()
       const errors = []
       let release
       const held = new Promise(done => { release = done })
       let finishStaleSecurityReads
       const staleSecurityReads = new Promise(done => { finishStaleSecurityReads = done })
-      let staleSecurityReadsFinished = 0
+      let pendingStaleSecurityReads = 0
       let authHeld = false
       try {
         await context.addInitScript((oldFlag) => {
@@ -59,6 +60,12 @@ try {
           assert(!response.violation, response.violation)
           const count = (reads.get(url.pathname) || 0) + 1
           reads.set(url.pathname, count)
+          const securityStatus = ['/api/user/2fa/status', '/api/user/passkey'].includes(url.pathname)
+          // The card and verification capabilities both read these endpoints.
+          // Every read stays unavailable until the user retries that card.
+          const recoveredSecurityRead = recoveredSecurityPaths.has(url.pathname)
+          const staleSecurityRead = securityStatus && scenario === 'security-stalled-retry' && !recoveredSecurityRead
+          if (staleSecurityRead) pendingStaleSecurityReads += 1
           if (url.pathname === '/api/user/auth/refresh') {
             response.body.data.access_expires_at = Math.floor(Date.now() / 1000) + 3600
             if (scenario === 'setup-before-auth') { authHeld = true; await held }
@@ -67,24 +74,24 @@ try {
             if (scenario === 'setup-failure-retry') return route.fulfill({ status: 503, json: { success: false } })
             if (scenario === 'setup-stalled-retry') await held
           }
-          if (['/api/user/2fa/status', '/api/user/passkey'].includes(url.pathname) && scenario.startsWith('security-')) {
-            if (count === 1) {
+          if (securityStatus && scenario.startsWith('security-')) {
+            if (!recoveredSecurityRead) {
               if (scenario === 'security-failure-retry') return route.fulfill({ status: 503, json: { success: false } })
               await held
             }
             response.body = {
               success: true,
               data: url.pathname === '/api/user/2fa/status'
-                ? { enabled: count > 1, locked: false, backup_codes_remaining: count > 1 ? 8 : 0 }
-                : { enabled: count > 1, last_used_at: null },
+                ? { enabled: recoveredSecurityRead, locked: false, backup_codes_remaining: recoveredSecurityRead ? 8 : 0 }
+                : { enabled: recoveredSecurityRead, last_used_at: null },
             }
           }
           try { await route.fulfill({ status: response.status, json: response.body }) }
           catch (error) { if (!scenario.includes('stalled') && scenario !== 'setup-before-auth') throw error }
           finally {
-            if (scenario === 'security-stalled-retry' && count === 1 && ['/api/user/2fa/status', '/api/user/passkey'].includes(url.pathname)) {
-              staleSecurityReadsFinished += 1
-              if (staleSecurityReadsFinished === 2) finishStaleSecurityReads()
+            if (staleSecurityRead) {
+              pendingStaleSecurityReads -= 1
+              if (pendingStaleSecurityReads === 0) finishStaleSecurityReads()
             }
           }
         })
@@ -115,7 +122,9 @@ try {
             assert.equal(await page.getByRole('button', { name: 'Enable', exact: true }).count(), 0)
             assert.equal(await page.getByRole('button', { name: 'Enable Passkey', exact: true }).count(), 0)
             await page.screenshot({ path: resolve(output, `stability-${scenario}-${width}-error.png`) })
+            recoveredSecurityPaths.add('/api/user/2fa/status')
             await twoFA.getByRole('button', { name: 'Retry', exact: true }).click()
+            recoveredSecurityPaths.add('/api/user/passkey')
             await passkey.getByRole('button', { name: 'Retry', exact: true }).click()
             await page.getByRole('button', { name: 'Disable 2FA', exact: true }).waitFor()
             await page.getByRole('button', { name: 'Remove Passkey', exact: true }).waitFor()

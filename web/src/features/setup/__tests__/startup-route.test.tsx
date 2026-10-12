@@ -42,6 +42,14 @@ async function openApplication(setupResults: unknown[], oldCheckedFlag = false) 
     },
   })
   const results = [...setupResults]
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    if (input !== '/api/status') {
+      throw new Error(`Unexpected fetch: ${String(input)}`)
+    }
+    return new Response(JSON.stringify({ success: true, data: {} }), {
+      status: 200,
+    })
+  })
   const get = vi.spyOn(api, 'get').mockImplementation(async (url) => {
     if (url === '/api/setup') return { data: results.shift() }
     if (url === '/api/status') return { data: { success: true, data: {} } }

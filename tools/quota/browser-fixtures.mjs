@@ -125,7 +125,7 @@ export function quotaFixtures({ latestError = false, currentUsageMissing = false
       session: { sid: 'synthetic-browser-session', current: true, login_method: 'test', ip: '127.0.0.1', user_agent: 'browser regression', created_at: start, last_active_at: now, expires_at: now + 3600 },
     })
     if (path === '/api/user/self') return ok(user)
-    if (path === '/api/setup') return ok({ status: true })
+    if (path === '/api/setup') return ok({ status: true, root_init: false, database_type: '' })
     if (path === '/api/option') return ok([])
     if (path === '/api/ratio_sync/openai/versions') return this.response(new URL('/api/ratio_sync/openai', url))
     if (path.startsWith('/api/ratio_sync/openai/versions/')) {
