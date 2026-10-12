@@ -567,6 +567,7 @@ jobs:
           node --test tools/ui/browser-fixtures.test.mjs
           node tools/ui/profile-browser.mjs
           node tools/ui/stability-browser.mjs
+          node tools/ui/setup-browser.mjs
           node tools/ui/browser-smoke.mjs
           node tools/ui/playground-browser.mjs
 

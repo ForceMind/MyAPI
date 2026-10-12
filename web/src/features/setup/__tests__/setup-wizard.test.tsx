@@ -5,14 +5,30 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { api } from '@/lib/api'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
 import { SetupWizard } from '../setup-wizard'
+import type { SetupResponse } from '../types'
+
+vi.mock('sonner', () => ({
+  toast: {
+    error: vi.fn(),
+    success: vi.fn(),
+  },
+}))
 
 const initialConfig = useSystemConfigStore.getState()
 const clients: QueryClient[] = []
@@ -35,11 +51,27 @@ async function renderWizard() {
   )
 }
 
+async function reachReviewStep(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: 'Next' }))
+  await user.type(
+    screen.getByRole('textbox', { name: 'Administrator username' }),
+    'setup-admin'
+  )
+  await user.type(screen.getByLabelText('Password'), 'safe-password')
+  await user.type(screen.getByLabelText('Confirm password'), 'safe-password')
+  await user.click(screen.getByRole('button', { name: 'Next' }))
+  await user.click(screen.getByRole('button', { name: 'Next' }))
+  expect(
+    screen.getByRole('heading', { name: 'Review & initialize', level: 2 })
+  ).toBeInTheDocument()
+}
+
 beforeEach(() => {
   useSystemConfigStore.setState({ loading: false })
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   clients.splice(0).forEach((client) => client.clear())
   useSystemConfigStore.setState(initialConfig)
   localStorage.clear()
@@ -159,10 +191,14 @@ describe('setup task flow', () => {
     await user.click(screen.getByRole('button', { name: 'Next' }))
     await user.click(screen.getByRole('button', { name: 'Next' }))
     await user.click(screen.getByRole('button', { name: 'Initialize system' }))
-    expect(post).toHaveBeenCalledExactlyOnceWith('/api/setup', {
-      SelfUseModeEnabled: true,
-      DemoSiteEnabled: false,
-    })
+    expect(post).toHaveBeenCalledExactlyOnceWith(
+      '/api/setup',
+      {
+        SelfUseModeEnabled: true,
+        DemoSiteEnabled: false,
+      },
+      expect.objectContaining({ skipAuthRefresh: true })
+    )
     expect(screen.getByRole('button', { name: 'Initializing…' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Back' })).toBeDisabled()
     await act(async () => finishRequest({ data: { success: false } }))
@@ -172,5 +208,96 @@ describe('setup task flow', () => {
     expect(
       screen.getByRole('heading', { name: 'Review & initialize', level: 2 })
     ).toBeInTheDocument()
+  })
+
+  it('keeps confirmed success when the timed-out submission rejects after setup status is initialized', async () => {
+    vi.spyOn(api, 'get')
+      .mockResolvedValueOnce({
+        data: {
+          success: true,
+          data: { status: false, root_init: false, database_type: 'sqlite' },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          success: true,
+          data: { status: true, root_init: true, database_type: 'sqlite' },
+        },
+      })
+    let rejectPost!: (error: Error) => void
+    const post = vi.spyOn(api, 'post').mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectPost = reject
+        })
+    )
+    const user = userEvent.setup()
+    await renderWizard()
+    await reachReviewStep(user)
+
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: 'Initialize system' }))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15000)
+    })
+
+    expect(toast.success).toHaveBeenCalledWith(
+      'System initialized successfully! Redirecting…'
+    )
+    expect(post).toHaveBeenCalledOnce()
+    expect(api.get).toHaveBeenCalledTimes(2)
+    expect(
+      clients[0].getQueryData<SetupResponse>(['setup-status'])?.data?.status
+    ).toBe(true)
+
+    await act(async () => rejectPost(new Error('late adapter failure')))
+    expect(toast.success).toHaveBeenCalledOnce()
+    expect(toast.error).not.toHaveBeenCalledWith('Failed to initialize system')
+  })
+
+  it('keeps an unknown submission locked and retries only the status check when setup is still incomplete', async () => {
+    vi.spyOn(api, 'get')
+      .mockResolvedValueOnce({
+        data: {
+          success: true,
+          data: { status: false, root_init: false, database_type: 'sqlite' },
+        },
+      })
+      .mockRejectedValueOnce(new Error('status unavailable'))
+      .mockResolvedValueOnce({
+        data: {
+          success: true,
+          data: { status: false, root_init: false, database_type: 'sqlite' },
+        },
+      })
+    const post = vi
+      .spyOn(api, 'post')
+      .mockRejectedValue(new Error('connection lost'))
+    const user = userEvent.setup()
+    await renderWizard()
+    await reachReviewStep(user)
+
+    await user.click(screen.getByRole('button', { name: 'Initialize system' }))
+    const retryStatus = await screen.findByRole('button', {
+      name: 'Check installation status',
+    })
+    expect(post).toHaveBeenCalledOnce()
+    expect(screen.getByText('setup-admin')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Initializing…' })
+    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Back' })).toBeDisabled()
+
+    await user.click(retryStatus)
+
+    expect(
+      await screen.findByRole('button', { name: 'Check installation status' })
+    ).toBeEnabled()
+    expect(
+      screen.getByRole('button', { name: 'Initializing…' })
+    ).toBeDisabled()
+    expect(screen.getByText('setup-admin')).toBeInTheDocument()
+    expect(post).toHaveBeenCalledOnce()
+    expect(api.get).toHaveBeenCalledTimes(3)
   })
 })

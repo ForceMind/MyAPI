@@ -27,6 +27,13 @@ export class SetupStatusError extends Error {
   }
 }
 
+export class SetupSubmissionUnknownError extends Error {
+  constructor(cause?: unknown) {
+    super('Setup submission result is unknown', { cause })
+    this.name = 'SetupSubmissionUnknownError'
+  }
+}
+
 export async function getSetupStatus(
   signal?: AbortSignal
 ): Promise<SetupResponse> {
@@ -77,8 +84,38 @@ export async function getSetupStatus(
 export async function submitSetup(
   payload: Record<string, unknown>
 ): Promise<SetupResponse> {
-  const res = await api.post('/api/setup', payload)
-  return res.data
+  const controller = new AbortController()
+  const cancelled = new Promise<never>((_, reject) => {
+    controller.signal.addEventListener(
+      'abort',
+      () => reject(new SetupSubmissionUnknownError()),
+      { once: true }
+    )
+  })
+  const deadline = globalThis.setTimeout(() => controller.abort(), 15000)
+  try {
+    const res = await Promise.race([
+      api.post<SetupResponse>('/api/setup', payload, {
+        signal: controller.signal,
+        timeout: 15000,
+        skipErrorHandler: true,
+        skipBusinessError: true,
+        // Setup is public. Its total deadline must not wait for auth refresh.
+        skipAuthRefresh: true,
+      }),
+      cancelled,
+    ])
+    if (typeof res.data?.success !== 'boolean') {
+      throw new SetupSubmissionUnknownError()
+    }
+    return res.data
+  } catch (error) {
+    throw error instanceof SetupSubmissionUnknownError
+      ? error
+      : new SetupSubmissionUnknownError(error)
+  } finally {
+    globalThis.clearTimeout(deadline)
+  }
 }
 
 export function buildSetupPayload(
