@@ -1,9 +1,15 @@
 # v0.2.0-beta.11 unpublished candidate
 
-**2026-10-11 当前任务：** 暂不发布或部署。先按[历史账务兼容核查记录](HISTORICAL_ACCOUNTING_COMPATIBILITY.md)
+**2026-10-12 当前范围：** 优先修复全新安装与日常 UI，历史账务冻结，恢复缺口不阻塞独立开发。
+原始数据与证据保留，仍暂不合并、发布或部署。[UI 执行记录](UI_STABILITY_EXECUTION_20261012.md)
+与 [Draft PR #12](https://github.com/ForceMind/MyAPI/pull/12) 覆盖安装检查、通知保存偏好及安全状态误报。
+`c89ecf6` 的 CI 十项通过；`30c714e` 定点图发现手机 2FA 状态截断，后继补回归及局部布局，
+最终准确源码与视觉证据待验。本批没有版本标签、Release 或镜像发布。
+
+**2026-10-11 冻结记录：** 暂不发布或部署。当时先按[历史账务兼容核查记录](HISTORICAL_ACCOUNTING_COMPATIBILITY.md)
 核清历史账务；下述构建、安装与升级验收只覆盖合成环境，不能代替用户历史数据库的一致性验收。
 
-**当前开发状态：** 1608f85基线的[CI38142050913](https://github.com/ForceMind/MyAPI/actions/runs/38142050913)十项success、独立终审通过。当前补原金额方案中的Key显式调整持久幂等和派生总额显示：成功收据与名称/权限/金额同事务，重复请求返回原结果和当前Key；合法组件的总和超M时不再令组件整体不可读。新增表及三库、18项386、前端契约等待本批准确后继验证，不沿用基线绿灯。下文旧“本批后继待验”保留当时事实，最新结果以[云端验收记录](CLOUD_VALIDATION_PROGRESS.md)首节和PR正文为准。版本元数据仍是未发布beta.11候选；本批不改发布标签、镜像、资产或生产。
+**冻结时开发状态：** 1608f85基线的[CI38142050913](https://github.com/ForceMind/MyAPI/actions/runs/38142050913)十项success、独立终审通过。当前补原金额方案中的Key显式调整持久幂等和派生总额显示：成功收据与名称/权限/金额同事务，重复请求返回原结果和当前Key；合法组件的总和超M时不再令组件整体不可读。新增表及三库、18项386、前端契约等待本批准确后继验证，不沿用基线绿灯。下文旧“本批后继待验”保留当时事实，最新结果以[云端验收记录](CLOUD_VALIDATION_PROGRESS.md)首节和PR正文为准。版本元数据仍是未发布beta.11候选；本批不改发布标签、镜像、资产或生产。
 
 修复候选已提交[草稿PR #11](https://github.com/ForceMind/MyAPI/pull/11)，包含新请求准入保护、个人资料加载修复、历史金额表示兼容、迁移前只读探针、持久执行许可及Key编辑并发保护。被测源码 `09ef63268b5c6742fe73e246f6c5e26e30559903` 的[CI十项](https://github.com/ForceMind/MyAPI/actions/runs/38128779978)和[Docker五项](https://github.com/ForceMind/MyAPI/actions/runs/38128779248)成功；独立CI提交 `c8e7bbc04676e46f2ad0c806a9ac78562923a4ef` 与其非CI源码相同，[MySQL 5.7/PostgreSQL 9.6专项](https://github.com/ForceMind/MyAPI/actions/runs/38132921489)串行成功、零skip，独立审查通过。个人资料9个Chromium合成场景和既有Redis 7.4.11的44个quota-script子项通过，后者不覆盖全部缓存生命周期。实际Go副本演练仍只持有合成许可，全部副本继续DO_NOT_RESTORE。文档后继3feff8e的前端CI曾被15分钟总时限取消；预算后继3a1d50a的[CI 38135269862](https://github.com/ForceMind/MyAPI/actions/runs/38135269862)十项success且Playground完整完成，旧取消保留。真实Redis补验af18853的[CI 38138227403](https://github.com/ForceMind/MyAPI/actions/runs/38138227403)十项success，Redis7.4.11原44项及新3组/3拒绝子项实际PASS、零skip/fail，独立复核通过。本批继续金额方案的386定向行为要求：修复订阅通知int64→int窄化，新增纯DTO测试；在现有backend386build后增加五包14项严格JSON门禁，无新服务、权限或上传。准确后继SHA/终态以[PR Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)回读，旧386全包失败及mock限制保留。新增应用差异限通知组装，旧09ef Docker/c8e7 native继续只按自身身份及未变路径复用，不能称新整棵业务tree等于旧源码。候选未进入main、发布镜像或资产；beta.3来源、资金/预扣/缓存/全部writer、504事件、旧终态凭证来源和实际回滚资格仍缺，生产账务未核清。详细证据及历史失败范围见[云端验收记录](CLOUD_VALIDATION_PROGRESS.md)。
 

@@ -82,7 +82,7 @@ try {
             response.body = {
               success: true,
               data: url.pathname === '/api/user/2fa/status'
-                ? { enabled: recoveredSecurityRead, locked: false, backup_codes_remaining: recoveredSecurityRead ? 8 : 0 }
+                ? { enabled: recoveredSecurityRead, locked: recoveredSecurityRead && width === 320, backup_codes_remaining: recoveredSecurityRead ? 8 : 0 }
                 : { enabled: recoveredSecurityRead, last_used_at: null },
             }
           }
@@ -140,8 +140,16 @@ try {
             await page.getByRole('button', { name: 'Remove Passkey', exact: true }).waitFor()
             assert.equal(await page.getByRole('button', { name: 'Enable', exact: true }).count(), 0)
             assert.equal(await page.getByRole('button', { name: 'Enable Passkey', exact: true }).count(), 0)
-            await page.locator('[data-slot="card"]').filter({ has: page.getByRole('button', { name: 'Disable 2FA', exact: true }) }).last().screenshot({ path: resolve(output, `stability-${scenario}-${width}-2fa.png`) })
-            await page.locator('[data-slot="card"]').filter({ has: page.getByRole('button', { name: 'Remove Passkey', exact: true }) }).last().screenshot({ path: resolve(output, `stability-${scenario}-${width}-passkey.png`) })
+            const twoFACard = page.locator('[data-slot="card"]').filter({ has: page.getByRole('button', { name: 'Disable 2FA', exact: true }) }).last()
+            const passkeyCard = page.locator('[data-slot="card"]').filter({ has: page.getByRole('button', { name: 'Remove Passkey', exact: true }) }).last()
+            await twoFACard.screenshot({ path: resolve(output, `stability-${scenario}-${width}-2fa.png`) })
+            await passkeyCard.screenshot({ path: resolve(output, `stability-${scenario}-${width}-passkey.png`) })
+            // Security state must remain readable, including simultaneous
+            // Enabled and Locked labels in a narrow profile card.
+            for (const label of width === 320 ? ['Enabled', 'Locked'] : ['Enabled']) {
+              assert.equal(await twoFACard.getByText(label, { exact: true }).evaluate(element => element.scrollWidth <= element.clientWidth), true, `2FA ${label} state is not truncated at ${width}px`)
+            }
+            assert.equal(await passkeyCard.getByText('Enabled', { exact: true }).evaluate(element => element.scrollWidth <= element.clientWidth), true, `Passkey Enabled state is not truncated at ${width}px`)
           }
         }
         const buildRevision = await page.locator('html').getAttribute('data-build-rev')

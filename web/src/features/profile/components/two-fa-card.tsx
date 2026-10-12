@@ -109,11 +109,12 @@ export function TwoFACard({ loading: pageLoading }: TwoFACardProps) {
                 <IconBadge tone='success' size='sm'>
                   <Shield />
                 </IconBadge>
-                <div className='space-y-1'>
-                  <div className='flex items-center gap-2'>
+                <div className='min-w-0 flex-1 space-y-1'>
+                  <div className='flex flex-wrap items-center gap-2'>
                     <p className='font-medium'>{t('Two-Step Verification')}</p>
                     {status.enabled ? (
                       <StatusBadge
+                        className='shrink-0'
                         label={t('Enabled')}
                         variant='success'
                         showDot
@@ -121,6 +122,7 @@ export function TwoFACard({ loading: pageLoading }: TwoFACardProps) {
                       />
                     ) : (
                       <StatusBadge
+                        className='shrink-0'
                         label={t('Disabled')}
                         variant='neutral'
                         showDot
@@ -129,6 +131,7 @@ export function TwoFACard({ loading: pageLoading }: TwoFACardProps) {
                     )}
                     {status.locked && (
                       <StatusBadge
+                        className='shrink-0'
                         label={t('Locked')}
                         variant='danger'
                         showDot
