@@ -27,8 +27,8 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import useDialogState from '@/hooks/use-dialog'
 import { useUserDisplay } from '@/hooks/use-user-display'
-import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
 import { useFundingPresentation } from '@/hooks/use-funding-presentation'
+import { useConfirmedFundingMode } from '@/hooks/use-personal-workbench-mode'
 import type { AuthUser } from '@/stores/auth-store'
 
 import { MOBILE_DRAWER_ANIMATION, MOBILE_DRAWER_CONFIG } from '../constants'
@@ -80,7 +80,9 @@ interface MobileUserProfileProps {
 }
 
 function MobileUserProfile({ user, onNavigate }: MobileUserProfileProps) {
-  const { commercialEnabled } = useFundingPresentation()
+  const funding = useFundingPresentation()
+  const serverFundingMode = useConfirmedFundingMode()
+  const commercialEnabled = funding.commercialEnabled && serverFundingMode === 'enabled'
   const { t } = useTranslation()
   const [signOutOpen, setSignOutOpen] = useDialogState()
   const { displayName, initials, roleLabel } = useUserDisplay(user)
@@ -125,7 +127,7 @@ function MobileUserProfile({ user, onNavigate }: MobileUserProfileProps) {
           {t('Profile')}
         </Link>
 
-        {!SELF_USE_MINIMAL && (
+        {(commercialEnabled || serverFundingMode === 'retirement') && (
           <Link
             to='/wallet'
             onClick={onNavigate}

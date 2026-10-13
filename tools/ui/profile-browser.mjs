@@ -44,8 +44,10 @@ try {
           if (url.origin !== origin) return route.abort('blockedbyclient')
           if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/pg/')) return route.continue()
           assert(request.method() === 'GET' || url.pathname === '/api/user/auth/refresh', 'No business mutations')
+          assert(!url.pathname.startsWith('/api/user/checkin'), 'Personal profile never mounts the credit-awarding check-in feature')
           const response = fixture.response(url, request.method())
           assert(!response.violation, response.violation)
+          if (url.pathname === '/api/status') response.body.data.checkin_enabled = true
           if (url.pathname === '/api/user/auth/refresh') {
             refreshReads++
             // Only the first failing refresh is held. Keep it held through
@@ -95,6 +97,10 @@ try {
         await page.getByRole('button', { name: 'Webhook', exact: true }).click()
         await page.getByRole('textbox', { name: 'Webhook URL', exact: true }).fill('https://synthetic.invalid/hook')
         assert.equal(await page.getByRole('textbox', { name: 'Webhook URL', exact: true }).inputValue(), 'https://synthetic.invalid/hook')
+        assert.equal(await page.getByText('Current Balance', { exact: true }).count(), 0, 'Personal profile hides wallet balance')
+        assert.equal(await page.getByText('Total Usage', { exact: true }).count(), 0, 'Personal profile hides price-converted usage')
+        await page.getByText('API Requests', { exact: true }).waitFor()
+        assert.equal(await page.getByText('Daily Check-in', { exact: true }).count(), 0, 'Personal profile hides check-in even when the separate check-in setting is enabled')
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'No page overflow')
         assert.equal(profileReads, scenario === 'stalled-auth-refresh' ? 3 : ['healthy', 'null-settings', 'stalled-bootstrap'].includes(scenario) ? 1 : 2, 'Profile and sidebar share one self read per attempt, including the authenticated replay')
         if (['stalled-auth-refresh', 'stalled-bootstrap'].includes(scenario)) {

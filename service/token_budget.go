@@ -96,7 +96,26 @@ func PrepareTokenBudgetDispatch(c *gin.Context, client *http.Client, req *http.R
 	if bound.FeeEnabled {
 		info.TokenBudgetAudit["fee_reserved_usd"] = bound.FeeReservedUSD
 	}
-	_, err = model.MutateTokenBudgetRequest(ctx, model.DB, model.TokenBudgetMutation{TokenID: info.TokenId, RequestID: info.RequestId, Action: "send"})
+	return nil
+}
+
+// CommitTokenBudgetDispatch marks a prepared reservation as potentially sent.
+// Call it only after every final eligibility check and immediately before the
+// upstream transport. Cancellation observed before this boundary leaves the
+// reservation prepared so finalization can release the proven-unsent request.
+func CommitTokenBudgetDispatch(c *gin.Context, info *relaycommon.RelayInfo) error {
+	if info == nil || !info.StrictTokenBudget {
+		return nil
+	}
+	if c == nil || c.Request == nil {
+		return ErrTokenBudgetUnsupported
+	}
+	if err := c.Request.Context().Err(); err != nil {
+		return err
+	}
+	ctx, cancel := billingOperationContext(c.Request.Context(), 5*time.Second)
+	defer cancel()
+	_, err := model.MutateTokenBudgetRequest(ctx, model.DB, model.TokenBudgetMutation{TokenID: info.TokenId, RequestID: info.RequestId, Action: "send"})
 	return err
 }
 

@@ -19,6 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 // Static translation keys that don't get picked up by the t('...') regex.
 // These cover dynamic labels (e.g. constants, configs) that are passed into t at runtime.
 export const STATIC_I18N_KEYS = [
+  // Personal workbench dynamic labels
+  'Personal workbench',
+  'Snapshot available',
+  'Snapshot unavailable',
+  'Out of internal quota',
+
   'Completed · usage pending',
   'Completed · settlement pending',
   'Errors and pending reviews',

@@ -32,6 +32,7 @@ func TestStrictFeeBudgetReportedAndUnknownBothWriters(t *testing.T) {
 				})
 				request, _ := tokenBudgetOutboundFixture(t, `{"model":"fixture-model","input":"hello","max_output_tokens":20,"service_tier":"default"}`)
 				require.NoError(t, PrepareTokenBudgetDispatch(ctx, client, request, info))
+				require.NoError(t, CommitTokenBudgetDispatch(ctx, info))
 				usage := feeUsageFixture()
 				usage.BillingUsage.OpenAIUsage = &dto.Usage{InputTokens: 10, OutputTokens: 5, TotalTokens: 15, InputTokensDetails: &dto.InputTokenDetails{CachedTokens: 6}, OutputTokensDetails: &dto.OutputTokenDetails{ReasoningTokens: 2}}
 				usage.BillingUsage.ResponsesTextEvidence.CacheRead = common.GetPointer(6)

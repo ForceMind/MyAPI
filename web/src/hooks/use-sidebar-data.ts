@@ -42,6 +42,7 @@ import { ROLE } from '@/lib/roles'
 import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
 
 import { useFundingPresentation } from './use-funding-presentation'
+import { useConfirmedFundingMode } from './use-personal-workbench-mode'
 
 /**
  * Root navigation groups for the application sidebar.
@@ -51,7 +52,9 @@ import { useFundingPresentation } from './use-funding-presentation'
  */
 export function useSidebarData(): SidebarData {
   const { t } = useTranslation()
-  const { commercialEnabled } = useFundingPresentation()
+  const funding = useFundingPresentation()
+  const serverFundingMode = useConfirmedFundingMode()
+  const commercialEnabled = funding.commercialEnabled && serverFundingMode === 'enabled'
 
   const hiddenSelfUseItems = new Set(['/redemption-codes'])
 
@@ -61,7 +64,7 @@ export function useSidebarData(): SidebarData {
       title: t('Console'),
       items: [
         {
-          title: t('Overview'),
+          title: t(serverFundingMode === 'disabled' ? 'Personal workbench' : 'Overview'),
           url: '/dashboard/overview',
           icon: Activity,
         },
@@ -182,7 +185,9 @@ export function useSidebarData(): SidebarData {
     for (const group of navGroups) {
       group.items = group.items.filter(
         (item) =>
-          !['/wallet', '/redemption-codes', '/subscriptions'].includes(
+          !(serverFundingMode === 'retirement'
+            ? ['/redemption-codes', '/subscriptions']
+            : ['/wallet', '/redemption-codes', '/subscriptions']).includes(
             item.url ?? ''
           )
       )

@@ -28,6 +28,7 @@ func strictChatStreamFixture(t *testing.T, mode model.QuotaWriterMode) (*gorm.DB
 	request, _ := chatBudgetOutbound(t, strings.TrimSuffix(chatBudgetBody, "}")+`,"stream":true,"stream_options":{"include_usage":true}}`)
 	client := tokenBudgetCountTestClient(t, func(http.ResponseWriter, *http.Request) { t.Error("Chat must not call the Responses count endpoint") })
 	require.NoError(t, PrepareTokenBudgetDispatch(ctx, client, request, info))
+	require.NoError(t, CommitTokenBudgetDispatch(ctx, info))
 	info.IsStream = true
 	info.StreamStatus = relaycommon.NewStreamStatus()
 	usage := chatBudgetUsage(10, 5)

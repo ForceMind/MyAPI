@@ -18,7 +18,7 @@ import { ROLE } from '@/lib/roles'
 import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
 import { useAuthStore } from '@/stores/auth-store'
 
-import { OverviewDashboard } from '../overview-dashboard'
+import { LegacyOverviewDashboard as OverviewDashboard } from '../legacy-overview-dashboard'
 
 vi.mock('@/features/channels/api', () => ({
   getChannels: vi.fn(),

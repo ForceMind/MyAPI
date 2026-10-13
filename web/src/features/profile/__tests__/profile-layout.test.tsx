@@ -18,6 +18,10 @@ import { useAuthStore } from '@/stores/auth-store'
 import { Profile } from '../index'
 import type { UserProfile } from '../types'
 
+vi.mock('../components/checkin-calendar-card', () => ({
+  CheckinCalendarCard: () => <section aria-label='Daily Check-in'><button>Claim reward</button></section>,
+}))
+
 const originalAuth = useAuthStore.getState()
 const clients: QueryClient[] = []
 const profile: UserProfile = {
@@ -43,8 +47,9 @@ afterEach(() => {
 })
 
 describe('profile task layout', () => {
-  it('opens the profile from the account menu and keeps preferences interactive', async () => {
+  it.each(['enabled', 'disabled', 'retirement', 'unconfirmed'] as const)('opens the %s profile with preferences and only confirmed commercial check-in', async (mode) => {
     vi.spyOn(api, 'get').mockImplementation(async (url) => {
+      if (url === '/api/status' && mode === 'unconfirmed') return new Promise(() => {})
       if (url === '/api/user/self') {
         return {
           data: { success: true, data: { ...profile, setting: 'null' } },
@@ -71,7 +76,19 @@ describe('profile task layout', () => {
       defaultOptions: { queries: { retry: false } },
     })
     clients.push(client)
-    client.setQueryData(['status'], { checkin_enabled: false })
+    const status = {
+      checkin_enabled: true,
+      user_funding_mode: mode === 'unconfirmed' ? 'enabled' : mode,
+      user_funding_capabilities: {
+        mode: mode === 'unconfirmed' ? 'enabled' : mode,
+        epoch: 3, ready: true,
+        can_top_up: true, can_redeem: true,
+        can_transfer_affiliate_rewards: true,
+        can_purchase_subscription: true, can_view_funding_history: true,
+      },
+    }
+    if (mode === 'unconfirmed') localStorage.setItem('status', JSON.stringify(status))
+    else client.setQueryData(['status'], status)
     const root = createRootRoute({
       component: () => (
         <>
@@ -106,6 +123,14 @@ describe('profile task layout', () => {
     expect(
       await screen.findByRole('heading', { name: 'Operations', level: 2 })
     ).toBeInTheDocument()
+    if (mode === 'enabled') {
+      expect(screen.getByRole('region', { name: 'Daily Check-in' })).toBeInTheDocument()
+      expect(screen.getByText('Current Balance')).toBeInTheDocument()
+    } else {
+      expect(screen.queryByRole('region', { name: 'Daily Check-in' })).not.toBeInTheDocument()
+      expect(screen.queryByText('Current Balance')).not.toBeInTheDocument()
+      expect(screen.queryByText('Total Usage')).not.toBeInTheDocument()
+    }
     await user.click(
       screen.getByRole('tab', { name: /Settings & Preferences/ })
     )

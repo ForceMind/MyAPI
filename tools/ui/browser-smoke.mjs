@@ -34,6 +34,8 @@ const report = {
   result: 'running', journeys: [], screenshots: [], contrast: [], settlementLayouts: [], keyActionLayouts: [], requests: [], blockedExternal: [], violations: [], pageErrors: [],
   settings: settings.map(section => ({ ...section, reached: false })),
 }
+const isKeyRevealRequest = request =>
+  request.method === 'POST' && /^\/api\/token\/\d+\/key\/?$/.test(request.path)
 const persist = () => {
   report.totals = {
     journeys: report.journeys.length, screenshots: report.screenshots.length,
@@ -890,7 +892,7 @@ try {
     for (const width of [320, 1280]) {
       const { page, context } = await session({ role: 1, width })
       const start = report.requests.length
-      await open(page, '/dashboard/overview', { title: label('Overview'), expectedPath: '/dashboard/overview' })
+      await open(page, '/dashboard/overview', { title: label('Personal workbench'), expectedPath: '/dashboard/overview' })
       await open(page, '/playground', { title: label('Start a playground chat'), headingLevel: 2, expectedPath: '/playground' })
       const input = page.getByPlaceholder(label('Ask anything'), { exact: true })
       await input.fill('Synthetic unsent playground draft')
@@ -919,7 +921,7 @@ try {
 
       const disabled = await session({ role: 1, width, playgroundDisabled: true })
       const disabledStart = report.requests.length
-      await open(disabled.page, '/playground', { title: label('Overview'), expectedPath: '/dashboard/overview' })
+      await open(disabled.page, '/playground', { title: label('Personal workbench'), expectedPath: '/dashboard/overview' })
       assert.equal(await disabled.page.getByRole('heading', { name: label('Start a playground chat'), exact: true }).count(), 0)
       assert.equal(report.requests.slice(disabledStart).filter(request => request.pagePath.replace(/\/$/, '') === '/playground' && ['/pg/keys', '/pg/models'].includes(request.path)).length, 0, 'disabled route never loads playground options; redirected overview keeps its own reads')
       await screenshot(disabled.page, `playground-sidebar-disabled-${width}`)
@@ -938,13 +940,13 @@ try {
         await open(page, path, { title: label('Chat preset not found'), headingLevel, expectedPath: path })
         assert.equal(await page.locator('main#content iframe').count(), 0, 'missing presets never create a provider frame')
         await screenshot(page, `${path === '/chat/0' ? 'chat-0' : 'chat2link'}-missing-${width}`, { headingLevel })
-        assert.equal(report.requests.slice(chatStart).filter(request => request.path.replace(/\/$/, '') === '/api/token' || request.path.includes('/key')).length, 0, 'missing chat never retrieves a key list or secret before recovery navigation')
+        assert.equal(report.requests.slice(chatStart).filter(request => request.path.replace(/\/$/, '') === '/api/token' || request.path === '/pg/keys' || isKeyRevealRequest(request)).length, 0, 'missing chat never retrieves a key list or secret before recovery navigation')
         await page.locator('main#content a[href="/dashboard"]').filter({ hasText: label('Return to dashboard') }).click()
         await page.waitForURL(`${origin}/dashboard/overview`)
-        await page.getByRole('heading', { level: 1, name: label('Overview'), exact: true }).waitFor()
+        await page.getByRole('heading', { level: 1, name: label('Personal workbench'), exact: true }).waitFor()
       }
-      await open(page, '/chat/not-an-integer', { title: label('Overview'), expectedPath: '/dashboard/overview' })
-      assert.equal(report.requests.slice(start).filter(request => request.path.includes('/key')).length, 0, 'recovery navigation never retrieves an active key secret')
+      await open(page, '/chat/not-an-integer', { title: label('Personal workbench'), expectedPath: '/dashboard/overview' })
+      assert.equal(report.requests.slice(start).filter(request => isKeyRevealRequest(request) || /^\/api\/token(?:\/search|\/\d+)?\/?$/.test(request.path)).length, 0, 'recovery navigation never retrieves broad Key objects or an active key secret')
       assert.equal(report.blockedExternal.length, externalStart, 'missing/invalid chat cannot attempt external navigation')
       await context.close(); contexts.delete(context)
     }

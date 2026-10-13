@@ -34,6 +34,8 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { useStatus } from '@/hooks/use-status'
+import { useFundingPresentation } from '@/hooks/use-funding-presentation'
+import { useConfirmedFundingMode } from '@/hooks/use-personal-workbench-mode'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { CheckinCalendarCard } from './components/checkin-calendar-card'
@@ -51,9 +53,12 @@ export function Profile() {
   const { t } = useTranslation()
   const { profile, loading, error, fetchProfile, refreshProfile } = useProfile()
   const { status } = useStatus()
+  const { commercialEnabled } = useFundingPresentation()
+  const fundingMode = useConfirmedFundingMode()
   const permissions = useAuthStore((s) => s.auth.user?.permissions)
 
-  const checkinEnabled = status?.checkin_enabled === true
+  const showCommercialFeatures = commercialEnabled && fundingMode === 'enabled'
+  const checkinEnabled = showCommercialFeatures && status?.checkin_enabled === true
   const turnstileEnabled = !!(
     status?.turnstile_check && status?.turnstile_site_key
   )
@@ -76,7 +81,11 @@ export function Profile() {
         {(!error || loading) && (
           <CardStaggerContainer className='mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-6'>
             <CardStaggerItem>
-              <ProfileHeader profile={profile} loading={loading} />
+              <ProfileHeader
+                profile={profile}
+                loading={loading}
+                commercialEnabled={showCommercialFeatures}
+              />
             </CardStaggerItem>
 
             <CardStaggerItem>
