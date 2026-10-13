@@ -1,0 +1,361 @@
+{
+  "schema": 1,
+  "evidence": "Production-build Chromium with fixed, isolated API fixtures. This does not validate live providers, OAuth, 429 behavior, billing, settlement, deployment, or production.",
+  "sourceHead": "8820c0a43728b1d17b106862d28c3383039fe182",
+  "workflowHead": "8820c0a43728b1d17b106862d28c3383039fe182",
+  "version": "0.2.0-beta.11",
+  "fixtureTime": "2026-10-07T06:00:00.000Z",
+  "result": "passed",
+  "journeys": [
+    {
+      "name": "personal-root-en-1280-light",
+      "role": 100,
+      "language": "en",
+      "width": 1280,
+      "theme": "light",
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "requestCount": 13,
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/api/user/self": 1,
+        "/pg/keys": 1,
+        "/api/log/self/overview": 1,
+        "/api/channel/quota/changes": 1,
+        "/api/token/21/budget": 1,
+        "/api/token/22/budget": 1,
+        "/api/token/23/budget": 1
+      }
+    },
+    {
+      "name": "personal-owner-zh-320-dark",
+      "role": 1,
+      "language": "zh",
+      "width": 320,
+      "theme": "dark",
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "requestCount": 12,
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/api/user/self": 1,
+        "/pg/keys": 1,
+        "/api/log/self/overview": 1,
+        "/api/token/21/budget": 1,
+        "/api/token/22/budget": 1,
+        "/api/token/23/budget": 1
+      }
+    },
+    {
+      "name": "personal-admin-no-channel-en-1280-dark",
+      "role": 10,
+      "language": "en",
+      "width": 1280,
+      "theme": "dark",
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "requestCount": 12,
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/api/user/self": 1,
+        "/pg/keys": 1,
+        "/api/log/self/overview": 1,
+        "/api/token/21/budget": 1,
+        "/api/token/22/budget": 1,
+        "/api/token/23/budget": 1
+      }
+    },
+    {
+      "name": "personal-retry-zh-320-light",
+      "role": 100,
+      "language": "zh",
+      "width": 320,
+      "theme": "light",
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "requestCount": 15,
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/api/user/self": 1,
+        "/pg/keys": 2,
+        "/api/log/self/overview": 2,
+        "/api/channel/quota/changes": 2,
+        "/api/token/22/budget": 2
+      }
+    },
+    {
+      "name": "personal-empty-en-1280-light",
+      "role": 100,
+      "language": "en",
+      "width": 1280,
+      "theme": "light",
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/api/user/self": 1,
+        "/pg/keys": 1,
+        "/api/log/self/overview": 1,
+        "/api/channel/quota/changes": 1
+      }
+    },
+    {
+      "name": "personal-unknown-budget-zh-320-dark",
+      "role": 1,
+      "language": "zh",
+      "width": 320,
+      "theme": "dark",
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/api/user/self": 1,
+        "/pg/keys": 1,
+        "/api/log/self/overview": 1,
+        "/api/token/22/budget": 1
+      }
+    },
+    {
+      "name": "personal-long-policy-fr-320-dark",
+      "role": 100,
+      "language": "fr",
+      "width": 320,
+      "theme": "dark",
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/api/user/self": 1,
+        "/pg/keys": 1,
+        "/api/log/self/overview": 1,
+        "/api/channel/quota/changes": 1
+      }
+    },
+    {
+      "name": "legacy-enabled-gate",
+      "mode": "enabled",
+      "role": 1,
+      "language": "en",
+      "width": 1280,
+      "theme": "light",
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/api/data/self": 1,
+        "/api/log/self/overview": 1,
+        "/api/token": 1,
+        "/api/user/models": 1
+      }
+    },
+    {
+      "name": "legacy-retirement-gate",
+      "mode": "retirement",
+      "role": 1,
+      "language": "en",
+      "width": 1280,
+      "theme": "light",
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/api/data/self": 1,
+        "/api/log/self/overview": 1,
+        "/api/token": 1,
+        "/api/user/models": 1
+      }
+    },
+    {
+      "name": "legacy-unknown-gate",
+      "mode": "unknown",
+      "role": 1,
+      "language": "en",
+      "width": 1280,
+      "theme": "light",
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "personal-root-en-1280-light-unselected.png",
+      "journey": "personal-root-en-1280-light",
+      "sourceHead": "8820c0a43728b1d17b106862d28c3383039fe182",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z",
+      "selectedKeyReadable": true
+    },
+    {
+      "file": "personal-root-en-1280-light-token-usd.png",
+      "journey": "personal-root-en-1280-light",
+      "sourceHead": "8820c0a43728b1d17b106862d28c3383039fe182",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z",
+      "selectedKeyReadable": true
+    },
+    {
+      "file": "personal-root-en-1280-light-account-threshold.png",
+      "journey": "personal-root-en-1280-light",
+      "sourceHead": "8820c0a43728b1d17b106862d28c3383039fe182",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z",
+      "selectedKeyReadable": true
+    },
+    {
+      "file": "personal-owner-zh-320-dark-unselected.png",
+      "journey": "personal-owner-zh-320-dark",
+      "sourceHead": "8820c0a43728b1d17b106862d28c3383039fe182",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z",
+      "selectedKeyReadable": true
+    },
+    {
+      "file": "personal-owner-zh-320-dark-token-usd.png",
+      "journey": "personal-owner-zh-320-dark",
+      "sourceHead": "8820c0a43728b1d17b106862d28c3383039fe182",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z",
+      "selectedKeyReadable": true
+    },
+    {
+      "file": "personal-owner-zh-320-dark-account-threshold.png",
+      "journey": "personal-owner-zh-320-dark",
+      "sourceHead": "8820c0a43728b1d17b106862d28c3383039fe182",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z",
+      "selectedKeyReadable": true
+    },
+    {
+      "file": "personal-admin-no-channel-en-1280-dark-token-usd.png",
+      "journey": "personal-admin-no-channel-en-1280-dark",
+      "sourceHead": "8820c0a43728b1d17b106862d28c3383039fe182",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z",
+      "selectedKeyReadable": true
+    },
+    {
+      "file": "personal-admin-no-channel-en-1280-dark-account-threshold.png",
+      "journey": "personal-admin-no-channel-en-1280-dark",
+      "sourceHead": "8820c0a43728b1d17b106862d28c3383039fe182",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z",
+      "selectedKeyReadable": true
+    },
+    {
+      "file": "personal-retry-zh-320-light-errors.png",
+      "journey": "personal-retry-zh-320-light",
+      "sourceHead": "8820c0a43728b1d17b106862d28c3383039fe182",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z",
+      "selectedKeyReadable": true
+    },
+    {
+      "file": "personal-retry-zh-320-light-recovered.png",
+      "journey": "personal-retry-zh-320-light",
+      "sourceHead": "8820c0a43728b1d17b106862d28c3383039fe182",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z",
+      "selectedKeyReadable": true
+    },
+    {
+      "file": "personal-empty-en-1280-light-empty.png",
+      "journey": "personal-empty-en-1280-light",
+      "sourceHead": "8820c0a43728b1d17b106862d28c3383039fe182",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z",
+      "selectedKeyReadable": true
+    },
+    {
+      "file": "personal-unknown-budget-zh-320-dark-unknown-budget.png",
+      "journey": "personal-unknown-budget-zh-320-dark",
+      "sourceHead": "8820c0a43728b1d17b106862d28c3383039fe182",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z",
+      "selectedKeyReadable": true
+    },
+    {
+      "file": "personal-long-policy-fr-320-dark-long-policy.png",
+      "journey": "personal-long-policy-fr-320-dark",
+      "sourceHead": "8820c0a43728b1d17b106862d28c3383039fe182",
+      "buildRevision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z",
+      "selectedKeyReadable": true
+    }
+  ],
+  "buildRevisions": [
+    {
+      "journey": "personal-root-en-1280-light",
+      "revision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p"
+    },
+    {
+      "journey": "personal-owner-zh-320-dark",
+      "revision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p"
+    },
+    {
+      "journey": "personal-admin-no-channel-en-1280-dark",
+      "revision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p"
+    },
+    {
+      "journey": "personal-retry-zh-320-light",
+      "revision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p"
+    },
+    {
+      "journey": "personal-empty-en-1280-light",
+      "revision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p"
+    },
+    {
+      "journey": "personal-unknown-budget-zh-320-dark",
+      "revision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p"
+    },
+    {
+      "journey": "personal-long-policy-fr-320-dark",
+      "revision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p"
+    },
+    {
+      "journey": "legacy-enabled-gate",
+      "revision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p"
+    },
+    {
+      "journey": "legacy-retirement-gate",
+      "revision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p"
+    },
+    {
+      "journey": "legacy-unknown-gate",
+      "revision": "rv.0.2.0-beta.11.8820c0a43728b1d17b106862d28c3383039fe182.2k6e8r7p"
+    }
+  ],
+  "errors": []
+}

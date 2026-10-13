@@ -1,7 +1,10 @@
 # 下一主节点：个人模式与 Key 限额闭环
 
 2026-10-13 当前检查点：按[个人工作台与核心执行记录](PERSONAL_WORKBENCH_EXECUTION_20261013.md)
-实现独立工作台和“最终生成派送前撤销”阶段，准确候选 `cd6cb9f` 正在云端验收。
+实现独立工作台和“最终生成派送前撤销”阶段，候选 `af79f57` 十项 CI、两 writer、三库及 race 已通过。
+独立视觉审查发现的英文桌面 `No Key selected` 截断已由 `d305bdc` 修复，
+[CI 38390080664](https://github.com/ForceMind/MyAPI/actions/runs/38390080664) 十项全部 success，
+含完整 Go、两 writer、配置三库及 race；修正后 13 张实图独立视觉复验通过。
 本卡以下旧检查点保留各自日期范围，不代表当前完整核心已完成。下一片优先补新建请求
 `sent → unknown → 重开 DB → 同 Key 阻断 → 精确证据幂等核对` 组合，历史账务继续冻结，暂不部署。
 
