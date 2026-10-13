@@ -178,28 +178,36 @@ export function RecentActivityPanel() {
               dateFormatter={dateFormatter}
             />
           </section>
-          <section aria-label={t('Recent errors')} className='min-w-0'>
+          <section
+            aria-label={t('Recent errors and pending reviews')}
+            className='min-w-0'
+          >
             <div className='flex items-center justify-between gap-2'>
               <h3 className='flex min-w-0 items-center gap-2 text-sm font-semibold'>
                 <TriangleAlert
                   className='text-destructive size-4 shrink-0'
                   aria-hidden='true'
                 />
-                {t('Recent errors')}
+                {t('Recent errors and pending reviews')}
               </h3>
               <Link
                 to='/usage-logs/$section'
                 params={{ section: 'common' }}
                 search={{ type: ['5'], startTime: errorStartTime }}
                 className={buttonVariants({ variant: 'ghost', size: 'xs' })}
-                aria-label={`${t('Recent errors')} · ${t('View logs')}`}
+                aria-label={`${t('Recent errors and pending reviews')} · ${t('View logs')}`}
               >
                 {t('View logs')}
               </Link>
             </div>
+            <p className='text-muted-foreground mt-1 text-xs leading-relaxed'>
+              {t(
+                'Includes request errors and usage awaiting review. Open logs to check each status.'
+              )}
+            </p>
             <RecentLogList
               rows={query.data?.errors}
-              emptyKey='No recent errors'
+              emptyKey='No recent errors or pending reviews'
               isAdmin={isAdmin}
               dateFormatter={dateFormatter}
             />

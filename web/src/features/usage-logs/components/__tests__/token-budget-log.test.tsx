@@ -70,3 +70,48 @@ test('nonadministrator never sees administrator budget evidence even if it is pr
   ).not.toBeInTheDocument()
   expect(screen.queryByText('6.53')).not.toBeInTheDocument()
 })
+
+test('completed response with unknown usage explains the pending state without claiming a zero charge', () => {
+  render(
+    <DetailsDialog
+      log={{
+        ...log,
+        type: 5,
+        content: 'usage_pending_review',
+        other: JSON.stringify({
+          request_outcome: 'completed',
+          usage_outcome: 'missing',
+          settlement_status: 'pending_review',
+          actual_quota: null,
+        }),
+      }}
+      isAdmin={false}
+      open
+      onOpenChange={() => {}}
+    />
+  )
+  expect(screen.getByText('Completed · usage pending')).toBeInTheDocument()
+  expect(screen.queryByText('Error', { exact: true })).not.toBeInTheDocument()
+  expect(
+    screen.getByText(
+      'The response completed, but upstream usage is unavailable. Usage and cost remain unconfirmed; existing reservations stay in place.'
+    )
+  ).toBeInTheDocument()
+})
+
+test('old pending logs without response evidence retain their original error status', () => {
+  render(
+    <DetailsDialog
+      log={{
+        ...log,
+        type: 5,
+        other: JSON.stringify({ settlement_status: 'pending_review' }),
+      }}
+      isAdmin={false}
+      open
+      onOpenChange={() => {}}
+    />
+  )
+  expect(screen.getByText('Error', { exact: true })).toBeInTheDocument()
+  expect(screen.queryByText('Completed · usage pending')).not.toBeInTheDocument()
+})

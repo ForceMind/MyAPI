@@ -2,6 +2,9 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -18,6 +21,101 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type usageReviewFailingWriter struct {
+	*httptest.ResponseRecorder
+}
+
+func (w *usageReviewFailingWriter) Write([]byte) (int, error) {
+	return 0, io.ErrClosedPipe
+}
+
+func reportedZeroUsageFixture() *dto.Usage {
+	// The native adapter records field presence by retaining a non-nil billing
+	// envelope and raw usage object. The value-only constructor intentionally
+	// rejects an unproven all-zero DTO as missing.
+	return &dto.Usage{BillingUsage: &dto.BillingUsage{
+		Source:      dto.BillingUsageSourceOAIChat,
+		Semantic:    dto.BillingUsageSemanticOpenAI,
+		OpenAIUsage: &dto.Usage{},
+	}}
+}
+
+func TestTextUsageReviewDispositionSeparatesResponseFromUsage(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		status         int
+		body           string
+		writtenBody    string
+		adapterMarker  bool
+		usage          *dto.Usage
+		requestOutcome string
+		usageOutcome   string
+	}{
+		{name: "completed missing usage", status: http.StatusOK, body: `{"choices":[{"message":{"content":"ok"}}]}`, adapterMarker: true, requestOutcome: usageReviewRequestOutcomeCompleted, usageOutcome: "missing"},
+		{name: "completed explicit zero", status: http.StatusOK, body: `{"choices":[{"message":{"content":"ok"}}]}`, adapterMarker: true, usage: reportedZeroUsageFixture(), requestOutcome: usageReviewRequestOutcomeCompleted, usageOutcome: usageReviewUsageOutcomeReported},
+		{name: "complete bytes without adapter evidence", status: http.StatusOK, body: `{"error":{"message":"upstream failed"}}`, usageOutcome: "missing"},
+		{name: "partial downstream write", status: http.StatusOK, body: `{"choices":[{"message":{"content":"ok"}}]}`, writtenBody: `{"choices":`, adapterMarker: true, usageOutcome: "missing"},
+		{name: "error response", status: http.StatusBadGateway, body: `{"error":{"type":"server_error"}}`, usageOutcome: "missing"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(recorder)
+			ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+			ctx.Set("relay_response_completed", tc.adapterMarker)
+			ctx.Writer.Header().Set("Content-Length", fmt.Sprintf("%d", len(tc.body)))
+			ctx.Writer.WriteHeader(tc.status)
+			written := tc.body
+			if tc.writtenBody != "" {
+				written = tc.writtenBody
+			}
+			_, err := ctx.Writer.Write([]byte(written))
+			require.NoError(t, err)
+			disposition := textUsageReviewDisposition(ctx, &relaycommon.RelayInfo{}, tc.usage)
+			assert.Equal(t, tc.requestOutcome, disposition.RequestOutcome)
+			assert.Equal(t, tc.usageOutcome, disposition.UsageOutcome)
+		})
+	}
+}
+
+func TestTextUsageReviewDispositionRejectsNonStreamWriteFailure(t *testing.T) {
+	writer := &usageReviewFailingWriter{ResponseRecorder: httptest.NewRecorder()}
+	ctx, _ := gin.CreateTestContext(writer)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	ctx.Set("relay_response_completed", true)
+	body := []byte(`{"choices":[{"message":{"content":"ok"}}]}`)
+	IOCopyBytesGracefully(ctx, &http.Response{StatusCode: http.StatusOK}, body)
+	disposition := textUsageReviewDisposition(ctx, &relaycommon.RelayInfo{}, nil)
+	assert.Empty(t, disposition.RequestOutcome)
+	assert.Equal(t, "missing", disposition.UsageOutcome)
+}
+
+func TestTextUsageReviewDispositionRequiresProvenStreamCompletion(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		endReason      relaycommon.StreamEndReason
+		adapterMarker  bool
+		usage          *dto.Usage
+		requestOutcome string
+		usageOutcome   string
+	}{
+		{name: "complete adapter response with missing usage", endReason: relaycommon.StreamEndReasonDone, adapterMarker: true, requestOutcome: usageReviewRequestOutcomeCompleted, usageOutcome: "missing"},
+		{name: "complete adapter response with explicit zero", endReason: relaycommon.StreamEndReasonDone, adapterMarker: true, usage: reportedZeroUsageFixture(), requestOutcome: usageReviewRequestOutcomeCompleted, usageOutcome: usageReviewUsageOutcomeReported},
+		{name: "done without delivery evidence", endReason: relaycommon.StreamEndReasonDone, usageOutcome: "missing"},
+		{name: "bare eof", endReason: relaycommon.StreamEndReasonEOF, adapterMarker: true, usageOutcome: "missing"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+			ctx.Set("relay_response_completed", tc.adapterMarker)
+			streamStatus := relaycommon.NewStreamStatus()
+			streamStatus.SetEndReason(tc.endReason, nil)
+			disposition := textUsageReviewDisposition(ctx, &relaycommon.RelayInfo{IsStream: true, StreamStatus: streamStatus}, tc.usage)
+			assert.Equal(t, tc.requestOutcome, disposition.RequestOutcome)
+			assert.Equal(t, tc.usageOutcome, disposition.UsageOutcome)
+		})
+	}
+}
 
 func TestBillingUnknownUsagePersistsAndBlocksSessionTerminals(t *testing.T) {
 	db := setupAuthoritativeBillingDB(t)
@@ -59,6 +157,10 @@ func TestTextUnknownUsagePersistsAcrossBothWriterModes(t *testing.T) {
 		for _, source := range []string{"missing", "estimated", "partial"} {
 			t.Run(string(mode)+"-"+source, func(t *testing.T) {
 				db := setupPostConsumeModeDB(t, mode)
+				require.NoError(t, db.AutoMigrate(&model.Log{}))
+				oldLogDB := model.LOG_DB
+				model.LOG_DB = db
+				t.Cleanup(func() { model.LOG_DB = oldLogDB })
 				user, token := seedAuthoritativeBilling(t, db, "text-hold", 1000, 1000, false)
 				info := authoritativeRelay(user, token, "text-hold-request")
 				info.StartTime = time.Now()
@@ -70,6 +172,12 @@ func TestTextUnknownUsagePersistsAcrossBothWriterModes(t *testing.T) {
 				ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 				ctx.Request = httptest.NewRequest("POST", "/v1/responses", nil)
 				ctx.Set(common.RequestIdKey, info.RequestId)
+				ctx.Set("relay_response_completed", true)
+				responseBody := []byte(`{"choices":[{"message":{"content":"ok"},"finish_reason":"stop"}]}`)
+				ctx.Writer.Header().Set("Content-Length", fmt.Sprint(len(responseBody)))
+				ctx.Writer.WriteHeader(http.StatusOK)
+				_, writeErr := ctx.Writer.Write(responseBody)
+				require.NoError(t, writeErr)
 				session, apiErr := NewBillingSession(ctx, info, 100)
 				require.Nil(t, apiErr)
 				info.Billing = session
@@ -81,6 +189,13 @@ func TestTextUnknownUsagePersistsAcrossBothWriterModes(t *testing.T) {
 					usage = &dto.Usage{BillingUsage: billing}
 				}
 				PostTextConsumeQuota(ctx, info, usage, nil)
+				var reviewLog model.Log
+				require.NoError(t, db.Where("request_id = ? AND content = ?", info.RequestId, "usage_pending_review").First(&reviewLog).Error)
+				var reviewOther map[string]interface{}
+				require.NoError(t, common.UnmarshalJsonStr(reviewLog.Other, &reviewOther))
+				assert.Equal(t, usageReviewRequestOutcomeCompleted, reviewOther["request_outcome"])
+				assert.Equal(t, source, reviewOther["usage_outcome"])
+				assert.Equal(t, "pending_review", reviewOther["settlement_status"])
 				// A later call with reported usage cannot bypass a held session
 				// or manufacture confirmed statistics before audited reconciliation.
 				PostTextConsumeQuota(ctx, info, &dto.Usage{BillingUsage: dto.NewOpenAIResponsesBillingUsage(&dto.Usage{InputTokens: 100, OutputTokens: 10, TotalTokens: 110})}, nil)

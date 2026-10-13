@@ -49,6 +49,7 @@ function orderCardCells<TData>(
  * - `mobileTitle`  — card header (left, larger text)
  * - `mobileBadge`  — inline with title (right, e.g. status badge)
  * - `mobileHidden` — hidden in card content
+ * - `mobileFullWidth` — spans both compact field columns
  */
 
 /**
@@ -108,7 +109,14 @@ function CompactContent<TData>({ row }: { row: Row<TData> }) {
           {fieldCells.map((cell) => {
             const label = getCellLabel(cell)
             return (
-              <div key={cell.id} className='min-w-0 flex-1 overflow-hidden'>
+              <div
+                key={cell.id}
+                className={
+                  cell.column.columnDef.meta?.mobileFullWidth
+                    ? 'col-span-2 min-w-0 flex-1 overflow-hidden'
+                    : 'min-w-0 flex-1 overflow-hidden'
+                }
+              >
                 {label && (
                   <div className='text-muted-foreground mb-0.5 text-[10px] leading-none select-none'>
                     {label}

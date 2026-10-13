@@ -105,6 +105,7 @@ vi.mock('../lib/format', () => ({
 
 vi.mock('../lib/utils', () => ({
   fetchLogsByCategory: vi.fn(),
+  isCompletedUsageReview: () => false,
 }))
 
 vi.mock('../common-logs-filter-bar', () => ({

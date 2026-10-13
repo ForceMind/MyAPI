@@ -9,8 +9,9 @@ import (
 )
 
 // Some legacy SSE helpers discard Write errors. Observe the existing writer
-// only for strict Chat so no failed downstream frame can release its reserve.
-// Keep Gin's remaining ResponseWriter behavior and ordinary formatting intact.
+// for Chat response-completion metadata; strict Chat also uses failures to
+// retain its reserve. Keep Gin's remaining ResponseWriter behavior and
+// ordinary formatting intact.
 type strictChatWriteObserver struct {
 	gin.ResponseWriter
 	requestContext context.Context

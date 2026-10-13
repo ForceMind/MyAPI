@@ -292,7 +292,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
       cell: ({ row }) => {
         const log = row.original
         const timestamp = row.getValue('created_at') as number
-        const config = getLogTypeConfig(log.type)
+        const config = getLogTypeConfig(log.type, parseLogOther(log.other))
 
         return (
           <div className='flex min-w-0 flex-col gap-0.5'>
@@ -304,8 +304,12 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
               variant={config.color as StatusBadgeProps['variant']}
               size='sm'
               copyable={false}
-              className='-ml-1.5 !text-xs [&_span]:!text-xs'
-            />
+              className='-ml-1.5 h-auto min-h-5 !text-xs [&_span]:!text-xs'
+            >
+              <span className='min-w-0 break-keep whitespace-normal leading-snug'>
+                {t(config.label)}
+              </span>
+            </StatusBadge>
           </div>
         )
       },

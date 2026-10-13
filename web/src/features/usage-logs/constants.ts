@@ -109,7 +109,10 @@ export const LOG_TYPE_FILTERS = [
   { label: 'All Types', value: LOG_TYPE_ALL_VALUE },
   ...LOG_TYPES.filter((type) => type.value !== LOG_TYPE_ENUM.UNKNOWN).map(
     (type) => ({
-      label: type.label,
+      label:
+        type.value === LOG_TYPE_ENUM.ERROR
+          ? 'Errors and pending reviews'
+          : type.label,
       value: String(type.value),
     })
   ),

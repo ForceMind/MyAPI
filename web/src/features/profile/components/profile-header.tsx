@@ -28,6 +28,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { formatCompactNumber, formatQuota } from '@/lib/format'
 import { getRoleLabel } from '@/lib/roles'
+import { cn } from '@/lib/utils'
 
 import { getDisplayName } from '../lib'
 import type { UserProfile } from '../types'
@@ -39,9 +40,10 @@ import type { UserProfile } from '../types'
 interface ProfileHeaderProps {
   profile: UserProfile | null
   loading: boolean
+  commercialEnabled?: boolean
 }
 
-export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
+export function ProfileHeader({ profile, loading, commercialEnabled = false }: ProfileHeaderProps) {
   const { t } = useTranslation()
 
   if (loading) {
@@ -71,8 +73,8 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
           </div>
         </CardContent>
         <div className='border-t'>
-          <div className='divide-border/60 grid grid-cols-1 divide-y sm:grid-cols-3 sm:divide-x sm:divide-y-0'>
-            {['balance', 'usage', 'requests'].map((key) => (
+          <div className={cn('divide-border/60 grid grid-cols-1 divide-y', commercialEnabled && 'sm:grid-cols-3 sm:divide-x sm:divide-y-0')}>
+            {(commercialEnabled ? ['balance', 'usage', 'requests'] : ['requests']).map((key) => (
               <div key={key} className='px-4 py-3.5 sm:px-5 sm:py-4'>
                 <Skeleton className='h-3.5 w-20' />
                 <Skeleton className='mt-2 h-7 w-28' />
@@ -92,7 +94,7 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
   const avatarFallback = getUserAvatarFallback(avatarName)
   const avatarFallbackStyle = getUserAvatarStyle(avatarName)
   const roleLabel = getRoleLabel(profile.role)
-  const stats: {
+  const walletStats: {
     label: string
     value: string
     description: string
@@ -113,12 +115,15 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
       icon: BarChart3,
       tone: 'info',
     },
+  ]
+  const stats = [
+    ...(commercialEnabled ? walletStats : []),
     {
       label: t('API Requests'),
       value: formatCompactNumber(profile.request_count),
-      description: t('Total requests made'),
+      description: t('Recorded request count; pending reviews may not be included.'),
       icon: Activity,
-      tone: 'chart-4',
+      tone: 'chart-4' as const,
     },
   ]
 
@@ -177,7 +182,7 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
         </div>
       </CardContent>
       <div className='border-t'>
-        <dl className='divide-border grid grid-cols-1 divide-y sm:grid-cols-3 sm:divide-x sm:divide-y-0'>
+        <dl className={cn('divide-border grid grid-cols-1 divide-y', commercialEnabled && 'sm:grid-cols-3 sm:divide-x sm:divide-y-0')}>
           {stats.map((item) => (
             <div key={item.label} className='min-w-0 px-3 py-3 sm:px-5 sm:py-4'>
               <dt className='flex items-center gap-2'>

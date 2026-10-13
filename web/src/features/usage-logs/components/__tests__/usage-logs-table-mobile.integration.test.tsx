@@ -90,6 +90,7 @@ vi.mock('../lib/format', () => ({
 
 vi.mock('../lib/utils', () => ({
   fetchLogsByCategory: vi.fn(),
+  isCompletedUsageReview: () => false,
   getLogTypeConfig: () => ({ label: 'Success', color: 'success' }),
   isDisplayableLogType: () => true,
   isTimingLogType: () => false,

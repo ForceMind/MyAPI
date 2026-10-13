@@ -31,8 +31,8 @@ import { cn } from '@/lib/utils'
 type UserQuotaCellProps = {
   used: number
   remaining: number
-  noBalance?: boolean
-  policyPending?: boolean
+  requestCount: number
+  presentation: 'wallet' | 'no-wallet' | 'stored-allowance' | 'unknown'
 }
 
 function getQuotaProgressColor(percentage: number): string {
@@ -43,22 +43,42 @@ function getQuotaProgressColor(percentage: number): string {
 
 export function UserQuotaCell(props: UserQuotaCellProps) {
   const { t } = useTranslation()
-  if (props.policyPending) {
+  if (props.presentation !== 'wallet') {
+    let policyLabel = t('Policy status unknown')
+    if (props.presentation === 'no-wallet') {
+      policyLabel = t('No-wallet policy active')
+    } else if (props.presentation === 'stored-allowance') {
+      policyLabel = t('Stored user allowance remains in effect')
+    }
+
     return (
-      <StatusBadge
-        label={t('Unavailable')}
-        variant='neutral'
-        copyable={false}
-      />
-    )
-  }
-  if (props.noBalance) {
-    return (
-      <StatusBadge
-        label={t('No user allowance cap')}
-        variant='neutral'
-        copyable={false}
-      />
+      <div className='border-border/60 bg-muted/20 w-full min-w-0 space-y-1.5 rounded-md border px-2.5 py-2 text-xs'>
+        <div className='flex min-w-0 items-center justify-between gap-3'>
+          <span className='text-muted-foreground min-w-0 break-words'>
+            {t('Request Count')}
+          </span>
+          <span className='shrink-0 font-medium tabular-nums'>
+            {props.requestCount.toLocaleString()}
+          </span>
+        </div>
+        <div className='flex min-w-0 flex-wrap items-center justify-between gap-1.5'>
+          <span className='text-muted-foreground min-w-0 break-words'>
+            {t('User usage policy')}
+          </span>
+          <StatusBadge
+            variant={
+              props.presentation === 'no-wallet' ? 'success' : 'neutral'
+            }
+            copyable={false}
+            title={policyLabel}
+            className='h-auto min-h-5 max-w-full whitespace-normal py-1 text-right'
+          >
+            <span className='min-w-0 break-words whitespace-normal leading-tight'>
+              {policyLabel}
+            </span>
+          </StatusBadge>
+        </div>
+      </div>
     )
   }
   const total = props.used + props.remaining

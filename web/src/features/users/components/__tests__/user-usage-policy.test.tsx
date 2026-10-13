@@ -138,12 +138,26 @@ test('a mismatched user response is rejected rather than exposing its controls',
   expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
 })
 test('zero stored allowance is not shown as exhausted when the self-use cap is disabled', () => {
-  const view = render(<UserQuotaCell used={0} remaining={0} noBalance />)
-  expect(screen.getByText('No user allowance cap')).toBeVisible()
+  const view = render(
+    <UserQuotaCell
+      used={0}
+      remaining={0}
+      requestCount={12}
+      presentation='no-wallet'
+    />
+  )
+  expect(screen.getByText('No-wallet policy active')).toBeVisible()
   expect(screen.queryByText('No Quota')).not.toBeInTheDocument()
-  view.rerender(<UserQuotaCell used={0} remaining={0} policyPending />)
-  expect(screen.getByText('Unavailable')).toBeVisible()
-  expect(screen.queryByText('No user allowance cap')).not.toBeInTheDocument()
+  view.rerender(
+    <UserQuotaCell
+      used={0}
+      remaining={0}
+      requestCount={12}
+      presentation='unknown'
+    />
+  )
+  expect(screen.getByText('Policy status unknown')).toBeVisible()
+  expect(screen.queryByText('No-wallet policy active')).not.toBeInTheDocument()
 })
 
 const conditionsMet =

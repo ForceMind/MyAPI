@@ -26,6 +26,8 @@ import { toast } from 'sonner'
 import { ErrorState } from '@/components/error-state'
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { LoadingState } from '@/components/loading-state'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -44,7 +46,7 @@ import { CompleteStep } from './components/complete-step'
 import { DatabaseStep } from './components/database-step'
 import { StepNavigation } from './components/step-navigation'
 import { UsageModeStep } from './components/usage-mode-step'
-import type { SetupFormValues, SetupStatus } from './types'
+import type { SetupFormValues, SetupResponse, SetupStatus } from './types'
 
 const STEPS = [
   {
@@ -80,10 +82,15 @@ export function SetupWizard() {
 
   const [currentStep, setCurrentStep] = useState(0)
   const [setupStatus, setSetupStatus] = useState<SetupStatus | undefined>()
+  const [submissionOutcome, setSubmissionOutcome] = useState<
+    'idle' | 'unknown' | 'confirmed'
+  >('idle')
   const stepHeadingId = useId()
   const stepDescriptionId = useId()
   const stepHeadingRef = useRef<HTMLHeadingElement>(null)
   const previousStepRef = useRef(currentStep)
+  const setupCompletionHandledRef = useRef(false)
+  const submissionStartedRef = useRef(false)
 
   useEffect(() => {
     if (previousStepRef.current !== currentStep) {
@@ -106,28 +113,52 @@ export function SetupWizard() {
     refetch,
   } = useQuery({
     queryKey: ['setup-status'],
-    queryFn: getSetupStatus,
+    queryFn: ({ signal }) => getSetupStatus(signal),
     retry: false,
+  })
+
+  const completeSetup = (response: SetupResponse) => {
+    if (setupCompletionHandledRef.current) return
+
+    setupCompletionHandledRef.current = true
+    setSubmissionOutcome('confirmed')
+    const status = response.data ?? setupStatus
+    if (status) {
+      queryClient.setQueryData<SetupResponse>(['setup-status'], {
+        success: true,
+        data: { ...status, status: true, root_init: true },
+      })
+    }
+    toast.success(t('System initialized successfully! Redirecting…'))
+    navigate({ to: '/' })
+  }
+
+  const statusRecoveryMutation = useMutation({
+    mutationKey: ['setup-submit-status-recovery'],
+    mutationFn: () => getSetupStatus(),
+    onSuccess: (response) => {
+      if (!response.data?.status) return
+
+      completeSetup(response)
+    },
   })
 
   const mutation = useMutation({
     mutationKey: ['setup-submit'],
     mutationFn: submitSetup,
-    onSuccess: async (response) => {
+    onSuccess: (response) => {
       if (response.success) {
-        toast.success(t('System initialized successfully! Redirecting…'))
-        await queryClient.invalidateQueries({ queryKey: ['setup-status'] })
-        setTimeout(() => {
-          navigate({ to: '/' })
-        }, 1200)
+        completeSetup(response)
       } else {
+        submissionStartedRef.current = false
         toast.error(
           response.message || t('Initialization failed, please try again.')
         )
       }
     },
     onError: () => {
-      toast.error(t('Failed to initialize system'))
+      setSubmissionOutcome('unknown')
+      statusRecoveryMutation.mutate()
     },
   })
 
@@ -143,7 +174,10 @@ export function SetupWizard() {
     if (!status) return
 
     if (status.status) {
-      navigate({ to: '/' })
+      if (!setupCompletionHandledRef.current) {
+        setupCompletionHandledRef.current = true
+        navigate({ to: '/' })
+      }
       return
     }
 
@@ -265,6 +299,7 @@ export function SetupWizard() {
   }
 
   const handleNextStep = () => {
+    if (submissionStartedRef.current) return
     if (currentStep === 1 && !validateAdminStep()) return
     if (currentStep === 2 && !validateUsageModeStep()) return
 
@@ -272,10 +307,12 @@ export function SetupWizard() {
   }
 
   const handlePreviousStep = () => {
+    if (submissionStartedRef.current) return
     setCurrentStep((step) => Math.max(step - 1, 0))
   }
 
   const handleSubmit = async () => {
+    if (submissionStartedRef.current) return
     const adminValid = validateAdminStep()
     const usageValid = validateUsageModeStep()
     if (!adminValid || !usageValid) return
@@ -285,6 +322,7 @@ export function SetupWizard() {
       Boolean(setupStatus?.root_init)
     )
 
+    submissionStartedRef.current = true
     mutation.mutate(payload)
   }
 
@@ -339,7 +377,7 @@ export function SetupWizard() {
               </CardDescription>
               <ol
                 aria-label={t('System setup wizard')}
-                className='grid grid-cols-2 gap-2 lg:grid-cols-4 lg:gap-3'
+                className='grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 lg:gap-3'
               >
                 {STEPS.map((step, index) => {
                   const isActive = currentStep === index
@@ -420,6 +458,28 @@ export function SetupWizard() {
                       </p>
                     </div>
                     {currentStepComponent}
+                    {submissionOutcome === 'unknown' && (
+                      <Alert variant='destructive'>
+                        <AlertTitle>
+                          {t('Initialization result unknown')}
+                        </AlertTitle>
+                        <AlertDescription>
+                          {t(
+                            'The request may still be running. Check the installation status before continuing.'
+                          )}
+                        </AlertDescription>
+                        <Button
+                          type='button'
+                          variant='outline'
+                          size='sm'
+                          onClick={() => statusRecoveryMutation.mutate()}
+                          disabled={statusRecoveryMutation.isPending}
+                          aria-busy={statusRecoveryMutation.isPending}
+                        >
+                          {t('Check installation status')}
+                        </Button>
+                      </Alert>
+                    )}
                   </form>
                 </Form>
               )}
@@ -433,7 +493,9 @@ export function SetupWizard() {
                   onBack={handlePreviousStep}
                   onNext={handleNextStep}
                   onSubmit={handleSubmit}
-                  isSubmitting={mutation.isPending}
+                  isSubmitting={
+                    mutation.isPending || submissionOutcome !== 'idle'
+                  }
                 />
               </CardFooter>
             )}

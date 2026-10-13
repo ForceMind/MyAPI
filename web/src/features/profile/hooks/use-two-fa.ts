@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 import { get2FAStatus } from '@/lib/api'
 
@@ -26,40 +26,89 @@ import type { TwoFAStatus } from '../types'
 // Two-FA Hook
 // ============================================================================
 
-const DEFAULT_STATUS: TwoFAStatus = {
-  enabled: false,
-  locked: false,
-  backup_codes_remaining: 0,
+function parseTwoFAStatus(value: unknown): TwoFAStatus | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return null
+  }
+
+  const candidate = value as Record<string, unknown>
+  if (
+    typeof candidate.enabled !== 'boolean' ||
+    typeof candidate.locked !== 'boolean'
+  ) {
+    return null
+  }
+
+  const backupCodes = candidate.backup_codes_remaining
+  let backupCodesRemaining = 0
+  if (backupCodes !== undefined) {
+    if (
+      typeof backupCodes !== 'number' ||
+      !Number.isInteger(backupCodes) ||
+      backupCodes < 0
+    ) {
+      return null
+    }
+    backupCodesRemaining = backupCodes
+  }
+  if (candidate.enabled && backupCodes === undefined) return null
+
+  return {
+    enabled: candidate.enabled,
+    locked: candidate.locked,
+    backup_codes_remaining: backupCodesRemaining,
+  }
 }
 
 export function useTwoFA(enabled = true) {
   const [loading, setLoading] = useState(true)
-  const [status, setStatus] = useState<TwoFAStatus>(DEFAULT_STATUS)
+  const [status, setStatus] = useState<TwoFAStatus | null>(null)
+  const [error, setError] = useState(false)
+  const pendingRequest = useRef<AbortController | null>(null)
 
   const fetchStatus = useCallback(async () => {
     if (!enabled) return
 
+    pendingRequest.current?.abort()
+    const controller = new AbortController()
+    pendingRequest.current = controller
     try {
       setLoading(true)
-      const response = await get2FAStatus()
-      if (response.success && response.data) {
-        setStatus(response.data)
+      setError(false)
+      const response = await get2FAStatus(controller.signal)
+      if (controller.signal.aborted) return
+
+      const nextStatus = parseTwoFAStatus(response?.data)
+      if (response?.success !== true || !nextStatus) {
+        throw new Error('Invalid 2FA status response')
       }
+
+      setStatus(nextStatus)
     } catch (error) {
+      if (controller.signal.aborted) return
       // eslint-disable-next-line no-console
       console.error('Failed to fetch 2FA status:', error)
+      setStatus(null)
+      setError(true)
     } finally {
-      setLoading(false)
+      if (
+        pendingRequest.current === controller &&
+        !controller.signal.aborted
+      ) {
+        setLoading(false)
+      }
     }
   }, [enabled])
 
   useEffect(() => {
     fetchStatus()
+    return () => pendingRequest.current?.abort()
   }, [fetchStatus])
 
   return {
     status,
     loading,
+    error,
     refetch: fetchStatus,
   }
 }

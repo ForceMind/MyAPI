@@ -93,6 +93,7 @@ func TestStrictChatBudgetReportedUnknownAndRecoveryBothWriters(t *testing.T) {
 				request, _ := chatBudgetOutbound(t, chatBudgetBody)
 				client := tokenBudgetCountTestClient(t, func(http.ResponseWriter, *http.Request) { t.Error("no count call") })
 				require.NoError(t, PrepareTokenBudgetDispatch(ctx, client, request, info))
+				require.NoError(t, CommitTokenBudgetDispatch(ctx, info))
 				usage := chatBudgetUsage(10, 5)
 				if unknown {
 					usage.BillingUsage.ChatTextEvidence = nil

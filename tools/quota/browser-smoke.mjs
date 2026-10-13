@@ -275,6 +275,11 @@ try {
     const box = await chart.boundingBox()
     assert(box && box.y >= 99 && box.y + box.height <= bottomLimit + 1, 'the whole chart, including its time axis, is reachable by real scrolling')
   }
+  // This journey protects the retained commercial overview. Personal mode has
+  // its own workbench qualification; later policy journeys still need their
+  // original funding mode.
+  const previousFundingMode = process.env.MYAPI_BROWSER_FUNDING_MODE
+  process.env.MYAPI_BROWSER_FUNDING_MODE = 'enabled'
   await page.goto(`${origin}/dashboard/overview`, { waitUntil: 'networkidle' })
   const comparison = page.getByTestId('codex-account-quota-chart')
   await comparison.getByTestId('quota-comparison-chart').waitFor({ state: 'visible' })
@@ -306,6 +311,8 @@ try {
   await overview.screenshot({ path: resolve(output, 'overview-quota-summary.png') })
   await comparison.getByRole('button', { name: label('Hide details'), exact: true }).click()
   await overview.waitFor({ state: 'hidden' })
+  if (previousFundingMode === undefined) delete process.env.MYAPI_BROWSER_FUNDING_MODE
+  else process.env.MYAPI_BROWSER_FUNDING_MODE = previousFundingMode
 
   await page.goto(`${origin}/channels`, { waitUntil: 'networkidle' })
   await trend().waitFor({ state: 'visible' })

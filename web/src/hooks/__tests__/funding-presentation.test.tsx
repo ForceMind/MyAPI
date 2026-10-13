@@ -129,3 +129,32 @@ test('explicitly enabled commerce retains its existing navigation', async () => 
   const items = result.current.navGroups.flatMap((group) => group.items)
   expect(items.some((item) => item.url === '/subscriptions')).toBe(true)
 })
+
+test('retirement retains funding history without reopening funding mutations', async () => {
+  vi.mocked(getStatus).mockResolvedValue(status('retirement'))
+  const { result } = renderHook(() => useSidebarData(), { wrapper: wrapper() })
+  await waitFor(() => expect(result.current.navGroups.flatMap(group => group.items).some(item => item.title === 'Funding history')).toBe(true))
+  const items = result.current.navGroups.flatMap(group => group.items)
+  expect(items.find(item => item.url === '/wallet')?.title).toBe('Funding history')
+  expect(items.some(item => item.url === '/subscriptions' || item.url === '/redemption-codes')).toBe(false)
+  expect(items.some(item => item.title === 'Personal workbench')).toBe(false)
+})
+
+test('confirmed personal mode names the workbench and hides daily wallet navigation', async () => {
+  vi.mocked(getStatus).mockResolvedValue(status('disabled'))
+  const { result } = renderHook(() => useSidebarData(), { wrapper: wrapper() })
+  await waitFor(() => expect(result.current.navGroups.flatMap(group => group.items).some(item => item.title === 'Personal workbench')).toBe(true))
+  expect(result.current.navGroups.flatMap(group => group.items).some(item => item.url === '/wallet')).toBe(false)
+})
+
+test.each(['mode-conflict', 'zero-epoch', 'unsafe-epoch'] as const)('%s cannot reopen commercial sidebar items', async (invalid) => {
+  const snapshot = status('enabled')
+  if (invalid === 'mode-conflict') snapshot.user_funding_mode = 'disabled'
+  else snapshot.user_funding_capabilities.epoch = invalid === 'zero-epoch' ? 0 : Number.MAX_SAFE_INTEGER + 1
+  vi.mocked(getStatus).mockResolvedValue(snapshot)
+  const { result } = renderHook(() => ({ navigation: useSidebarData(), weakPresentation: useFundingPresentation() }), { wrapper: wrapper() })
+  await waitFor(() => expect(result.current.weakPresentation.commercialEnabled).toBe(true))
+  const items = result.current.navigation.navGroups.flatMap(group => group.items)
+  expect(items.some(item => ['/wallet', '/subscriptions', '/redemption-codes'].includes(item.url ?? ''))).toBe(false)
+  expect(items.some(item => item.title === 'Personal workbench')).toBe(false)
+})

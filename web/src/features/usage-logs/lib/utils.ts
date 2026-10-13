@@ -38,6 +38,7 @@ import type {
   FetchLogsConfig,
   GetMidjourneyLogsParams,
   GetTaskLogsParams,
+  LogOtherData,
 } from '../types'
 
 export { buildQueryParams } from './query-params'
@@ -61,9 +62,27 @@ export function isTimingLogType(type: number): boolean {
 }
 
 /**
- * Get log type configuration by type number
+ * Only explicit completion evidence can distinguish a review from a request error.
  */
-export function getLogTypeConfig(type: number) {
+export function isCompletedUsageReview(type: number, other?: LogOtherData | null) {
+  return (
+    type === 5 &&
+    other?.request_outcome === 'completed' &&
+    other.settlement_status === 'pending_review'
+  )
+}
+
+export function getLogTypeConfig(type: number, other?: LogOtherData | null) {
+  if (isCompletedUsageReview(type, other)) {
+    return {
+      value: type,
+      label:
+        other?.usage_outcome === 'reported'
+          ? 'Completed · settlement pending'
+          : 'Completed · usage pending',
+      color: 'orange',
+    } as const
+  }
   return LOG_TYPES.find((t) => t.value === type) || LOG_TYPES[0]
 }
 

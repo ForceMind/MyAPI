@@ -71,6 +71,7 @@ func TestStrictTokenBudgetNormalAndUnknownSettlementBothWriters(t *testing.T) {
 				})
 				request, _ := tokenBudgetOutboundFixture(t, `{"model":"budget-fixture","input":"hello","max_output_tokens":20}`)
 				require.NoError(t, PrepareTokenBudgetDispatch(ctx, client, request, info))
+				require.NoError(t, CommitTokenBudgetDispatch(ctx, info))
 				var reservation model.TokenBudgetReservation
 				require.NoError(t, db.First(&reservation, "request_id = ?", info.RequestId).Error)
 				assert.Equal(t, model.TokenBudgetSent, reservation.State)
@@ -121,6 +122,51 @@ func TestStrictTokenBudgetNormalAndUnknownSettlementBothWriters(t *testing.T) {
 	}
 }
 
+func TestStrictTokenBudgetPreDispatchCancellationReleasesBothWriters(t *testing.T) {
+	for _, mode := range []model.QuotaWriterMode{model.QuotaWriterModeLegacy, model.QuotaWriterModeAuthoritative} {
+		for _, reason := range []string{"request-cancelled", "key-revoked"} {
+			t.Run(string(mode)+"/"+reason, func(t *testing.T) {
+				db, ctx, info, _ := strictTokenBudgetFixture(t, mode)
+				client := tokenBudgetCountTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+					_, _ = io.WriteString(w, `{"object":"response.input_tokens","input_tokens":10}`)
+				})
+				request, _ := tokenBudgetOutboundFixture(t, `{"model":"budget-fixture","input":"hello","max_output_tokens":20}`)
+				require.NoError(t, PrepareTokenBudgetDispatch(ctx, client, request, info))
+
+				var reservation model.TokenBudgetReservation
+				require.NoError(t, db.First(&reservation, "request_id = ?", info.RequestId).Error)
+				require.Equal(t, model.TokenBudgetPrepared, reservation.State, "qualification alone cannot claim that the provider may have received the request")
+
+				if reason == "request-cancelled" {
+					cancelled, cancel := context.WithCancel(ctx.Request.Context())
+					cancel()
+					ctx.Request = ctx.Request.WithContext(cancelled)
+					require.ErrorIs(t, CommitTokenBudgetDispatch(ctx, info), context.Canceled)
+				} else {
+					require.NoError(t, db.Model(&model.Token{}).Where("id = ?", info.TokenId).Update("status", common.TokenStatusDisabled).Error)
+					require.ErrorIs(t, CommitTokenBudgetDispatch(ctx, info), model.ErrAccountQuotaMutationIneligible)
+				}
+
+				require.False(t, FinalizeTokenBudgetDispatch(ctx, info), "a proven-unsent request must use the existing refund path")
+				require.NoError(t, info.Billing.Refund(ctx))
+				require.NoError(t, db.First(&reservation, "request_id = ?", info.RequestId).Error)
+				assert.Equal(t, model.TokenBudgetCancelled, reservation.State)
+				budget, err := model.LookupTokenBudget(context.Background(), db, info.TokenId)
+				require.NoError(t, err)
+				assert.Zero(t, budget.Reserved)
+				assert.Empty(t, budget.PendingRequestID)
+				var user model.User
+				var token model.Token
+				require.NoError(t, db.First(&user, info.UserId).Error)
+				require.NoError(t, db.First(&token, info.TokenId).Error)
+				assert.Equal(t, int64(1000), user.Quota)
+				assert.Equal(t, int64(1000), token.RemainQuota)
+				assert.Zero(t, token.UsedQuota)
+			})
+		}
+	}
+}
+
 func TestStrictTokenBudgetDispatchFailureKeepsBothReservations(t *testing.T) {
 	db, ctx, info, _ := strictTokenBudgetFixture(t, model.QuotaWriterModeLegacy)
 	client := tokenBudgetCountTestClient(t, func(w http.ResponseWriter, r *http.Request) {
@@ -128,6 +174,7 @@ func TestStrictTokenBudgetDispatchFailureKeepsBothReservations(t *testing.T) {
 	})
 	request, _ := tokenBudgetOutboundFixture(t, `{"model":"budget-fixture","input":"hello","max_output_tokens":20}`)
 	require.NoError(t, PrepareTokenBudgetDispatch(ctx, client, request, info))
+	require.NoError(t, CommitTokenBudgetDispatch(ctx, info))
 	assert.True(t, FinalizeTokenBudgetDispatch(ctx, info), "a timeout after dispatch cannot be interpreted as no usage")
 	assert.False(t, info.Billing.NeedsRefund())
 	var budget model.TokenBudget

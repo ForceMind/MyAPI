@@ -47,13 +47,14 @@ Short context: ≤272K input tokens. Long context: >272K input tokens.
 `
 
 type chatBudgetFlowFixture struct {
-	engine  *gin.Engine
-	user    model.User
-	root    model.User
-	channel model.Channel
-	serial  atomic.Int64
-	hits    atomic.Int64
-	serve   atomic.Pointer[http.HandlerFunc]
+	engine         *gin.Engine
+	user           model.User
+	root           model.User
+	channel        model.Channel
+	serial         atomic.Int64
+	hits           atomic.Int64
+	currentTokenID atomic.Int64
+	serve          atomic.Pointer[http.HandlerFunc]
 }
 
 // This is a real TLS connection to an isolated local fixture. The outbound URL,
@@ -170,6 +171,7 @@ func setupChatBudgetFlow(t *testing.T) *chatBudgetFlowFixture {
 	SetRelayRouter(fixture.engine)
 	client := chatBudgetFlowTLSClient(t, func(w http.ResponseWriter, r *http.Request) {
 		fixture.hits.Add(1)
+		fixture.assertTokenBudgetSent(t, int(fixture.currentTokenID.Load()))
 		assert.Equal(t, "api.openai.com", r.Host)
 		assert.Equal(t, "/v1/chat/completions", r.URL.Path, "Chat never calls the Responses token-count endpoint")
 		assert.Equal(t, "Bearer synthetic-only", r.Header.Get("Authorization"))
@@ -196,6 +198,22 @@ func setupChatBudgetFlow(t *testing.T) *chatBudgetFlowFixture {
 }
 
 func (f *chatBudgetFlowFixture) setResponder(handler http.HandlerFunc) { f.serve.Store(&handler) }
+
+func (f *chatBudgetFlowFixture) assertTokenBudgetSent(t *testing.T, tokenID int) {
+	t.Helper()
+	if !assert.Positive(t, tokenID) {
+		return
+	}
+	var budget model.TokenBudget
+	if !assert.NoError(t, model.DB.First(&budget, "token_id = ?", tokenID).Error) ||
+		!assert.NotEmpty(t, budget.PendingRequestID, "the dispatched request must remain the token's pending request") {
+		return
+	}
+	var reservation model.TokenBudgetReservation
+	if assert.NoError(t, model.DB.First(&reservation, "request_id = ? AND token_id = ?", budget.PendingRequestID, tokenID).Error) {
+		assert.Equal(t, model.TokenBudgetSent, reservation.State, "the exact request must cross the durable send boundary before reaching the provider")
+	}
+}
 
 func (f *chatBudgetFlowFixture) request(method, path, auth, body string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
@@ -240,6 +258,7 @@ func (f *chatBudgetFlowFixture) token(t *testing.T, limits string) model.Token {
 	body := fmt.Sprintf(`{"id":"%064x","expected_revision":0,"enabled":true,"limit":2000000,"confirmed":true,"fee":{"enabled":true,"limit_usd":"10"}}`, f.serial.Add(1))
 	response := f.request(http.MethodPut, fmt.Sprintf("/api/token/%d/budget", token.Id), *f.root.AccessToken, body)
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	f.currentTokenID.Store(int64(token.Id))
 	return token
 }
 
@@ -558,6 +577,7 @@ func TestChatBudgetActualApplicationReservationExhaustion(t *testing.T) {
 
 func TestChatBudgetActualApplicationPreservesResponsesV1(t *testing.T) {
 	f := setupChatBudgetFlow(t)
+	token := f.token(t, model.TokenBudgetOpenAIChatModel)
 	var counts, generations atomic.Int32
 	client := chatBudgetFlowTLSClient(t, func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "api.openai.com", r.Host)
@@ -568,6 +588,7 @@ func TestChatBudgetActualApplicationPreservesResponsesV1(t *testing.T) {
 			counts.Add(1)
 			_, _ = io.WriteString(w, `{"object":"response.input_tokens","input_tokens":100}`)
 		case "/v1/responses":
+			f.assertTokenBudgetSent(t, token.Id)
 			generations.Add(1)
 			_, _ = io.WriteString(w, `{"id":"responses-fixture","object":"response","status":"completed","model":"gpt-6.1-sol","service_tier":"default","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"ok"}]}],"usage":{"input_tokens":100,"output_tokens":10,"total_tokens":110,"input_tokens_details":{"cached_tokens":40,"cache_write_tokens":30},"output_tokens_details":{"reasoning_tokens":4}}}`)
 		default:
@@ -576,7 +597,6 @@ func TestChatBudgetActualApplicationPreservesResponsesV1(t *testing.T) {
 		}
 	})
 	t.Cleanup(service.SetHttpClientForTest(client))
-	token := f.token(t, model.TokenBudgetOpenAIChatModel)
 	response := f.request(http.MethodPost, "/v1/responses", "sk-"+token.Key, `{"model":"gpt-6.1-sol","input":"hello","max_output_tokens":20,"service_tier":"default"}`)
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 	require.EqualValues(t, 1, counts.Load())

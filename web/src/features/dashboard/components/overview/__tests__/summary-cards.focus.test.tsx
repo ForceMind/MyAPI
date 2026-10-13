@@ -6,6 +6,7 @@ import { beforeEach, expect, test, vi } from 'vitest'
 import { getUserQuotaDates } from '@/features/dashboard/api'
 
 import { SummaryCards } from '../summary-cards'
+
 const funding = vi.hoisted(() => ({ mode: 'enabled' as 'enabled' | 'disabled' }))
 beforeEach(() => { funding.mode = 'enabled' })
 

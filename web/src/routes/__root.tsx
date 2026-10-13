@@ -23,17 +23,21 @@ import {
   Outlet,
   redirect,
   useNavigate,
+  useRouter,
+  type ErrorComponentProps,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
+import { ErrorState } from '@/components/error-state'
 import { NavigationProgress } from '@/components/navigation-progress'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
 import { saveAffiliateCode } from '@/features/auth/lib/storage'
 import { GeneralError } from '@/features/errors/general-error'
 import { NotFoundError } from '@/features/errors/not-found-error'
-import { getSetupStatus } from '@/features/setup/api'
+import { getSetupStatus, SetupStatusError } from '@/features/setup/api'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import {
   bootstrapAuthentication,
@@ -107,76 +111,54 @@ function RootComponent() {
   )
 }
 
-// 缓存 setup 状态检查结果，避免每次导航都重复调用 API
-// 使用 localStorage 持久化，避免页面刷新后重复检查
-const SETUP_CHECKED_KEY = 'setup_status_checked'
-
-function getSetupStatusFromCache(): boolean {
-  try {
-    if (typeof window !== 'undefined') {
-      return window.localStorage.getItem(SETUP_CHECKED_KEY) === 'true'
-    }
-  } catch {
-    /* empty */
+function RootError(props: ErrorComponentProps) {
+  const { t } = useTranslation()
+  const router = useRouter()
+  if (!(props.error instanceof SetupStatusError)) {
+    return <GeneralError error={props.error} />
   }
-  return false
+  return (
+    <main className='mx-auto w-full max-w-xl p-4 sm:p-8'>
+      <ErrorState
+        title={t('Failed to load setup status')}
+        onRetry={() => {
+          void router.invalidate().then(props.reset)
+        }}
+      />
+    </main>
+  )
 }
-
-function setSetupStatusCache(value: boolean): void {
-  try {
-    if (typeof window !== 'undefined') {
-      if (value) {
-        window.localStorage.setItem(SETUP_CHECKED_KEY, 'true')
-      } else {
-        window.localStorage.removeItem(SETUP_CHECKED_KEY)
-      }
-    }
-  } catch {
-    /* empty */
-  }
-}
-
-// 内存中的标记，避免同一会话中重复检查
-let setupStatusChecked = getSetupStatusFromCache()
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
 }>()({
   // 应用初始化与路由解析前统一校验会话
-  beforeLoad: async ({ location }) => {
+  beforeLoad: async ({ location, context }) => {
     const legacyTarget = resolveLegacyRoute(location.href)
     if (legacyTarget) {
       throw redirect({ href: legacyTarget, replace: true })
     }
 
     const pathname = location?.pathname || ''
-    const needsSetupCheck =
-      !setupStatusChecked && !pathname.startsWith('/setup')
+    // Installation has its own public guard. Do not make it wait for an
+    // unrelated cookie refresh on an instance that is not initialized yet.
+    if (pathname === '/setup' || pathname.startsWith('/setup/')) return
     const authBootstrap = bootstrapAuthentication()
 
-    // 只检查 setup 状态（如果需要）
-    if (needsSetupCheck) {
-      const [status] = await Promise.all([
-        getSetupStatus().catch((error) => {
-          if (import.meta.env.DEV) {
-            // eslint-disable-next-line no-console
-            console.warn('[root.beforeLoad] setup status check failed', error)
-          }
-          return null
-        }),
-        authBootstrap,
-      ])
-
-      if (status?.success && status.data && !status.data.status) {
-        throw redirect({ to: '/setup' })
-      }
-      setupStatusChecked = true
-      setSetupStatusCache(true)
-    } else {
-      await authBootstrap
+    // Cache a verified response for this application instance. A failure is
+    // retryable; a previous browser's boolean is no evidence about this DB.
+    const status = await context.queryClient.fetchQuery({
+      queryKey: ['setup-status'],
+      queryFn: ({ signal }) => getSetupStatus(signal),
+      staleTime: Infinity,
+      retry: false,
+    })
+    if (status.data?.status === false) {
+      throw redirect({ to: '/setup' })
     }
+    await authBootstrap
   },
   component: RootComponent,
   notFoundComponent: NotFoundError,
-  errorComponent: GeneralError,
+  errorComponent: RootError,
 })

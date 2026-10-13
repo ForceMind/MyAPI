@@ -154,6 +154,31 @@ func TestStreamScannerHandler_DoneStopsScanner(t *testing.T) {
 	assert.Equal(t, int64(50), count.Load(), "data after [DONE] must not be processed")
 }
 
+func TestStreamScannerHandler_ExactTerminatorEvidence(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name  string
+		done  string
+		exact bool
+	}{
+		{name: "exact", done: "[DONE]", exact: true},
+		{name: "prefix with trailing garbage", done: "[DONE]garbage"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			body := "data: {\"id\":1}\n\ndata: " + tc.done + "\n\n"
+			c, resp, info := setupStreamTest(t, strings.NewReader(body))
+
+			StreamScannerHandler(c, resp, info, func(data string, sr *StreamResult) {})
+
+			require.NotNil(t, info.StreamStatus)
+			assert.Equal(t, relaycommon.StreamEndReasonDone, info.StreamStatus.EndReason,
+				"metadata observation must preserve ordinary scanner termination semantics")
+			assert.Equal(t, tc.exact, c.GetBool(ContextKeyExactStreamTerminator))
+		})
+	}
+}
+
 func TestStreamScannerHandler_StopStopsStream(t *testing.T) {
 	t.Parallel()
 

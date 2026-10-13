@@ -121,6 +121,8 @@ export interface LogOtherData {
     scope: string
   }
   settlement_status?: string
+  request_outcome?: string
+  usage_outcome?: string
   actual_quota?: number | null
   reserved_quota?: number
   usage_accuracy?: string

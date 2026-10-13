@@ -1,9 +1,49 @@
 # v0.2.0-beta.11 unpublished candidate
 
-**2026-10-11 当前任务：** 暂不发布或部署。先按[历史账务兼容核查记录](HISTORICAL_ACCOUNTING_COMPATIBILITY.md)
+**2026-10-13 工作台与个人核心批次，未发布：** 独立个人工作台已实现，使用真实接口显示显式选定
+Key 的内部额度/Token/USD/账户窗口、本人记录及提醒；未确认模式仅显示中性加载/重试。
+个人资料的金额与签到入口只在已确认商业启用时显示，retirement 继续保留历史入口。
+严格预算 prepared 预留在最终检查之后、生成请求派送前才提交 sent；确定未发送可走原释放路径，
+提交后未知仍保留。候选 `af79f57` 十项 CI 通过；实际独立视觉发现的一处未选 Key 提示截断已由
+`d305bdc` 修正，新准确源码前端整项、1,264 前端测试、10 个工作台浏览器旅程及修正后 13 图
+独立视觉复验通过；[CI 38390080664](https://github.com/ForceMind/MyAPI/actions/runs/38390080664)
+十项全部 success，含完整 Go、独立 relaykit、两 writer、三库及 race。新工作台截图与报告已随文档归档。
+后继仅同步文档/截图，复用准确应用源码 `d305bdc` 的验收，不称文档后继在途 CI 已过。
+无 schema/金额迁移，不操作历史记录；详细身份与失败范围见[当前执行记录](PERSONAL_WORKBENCH_EXECUTION_20261013.md)，
+不沿用下方旧批次绿灯。
+仍不合并、发布或部署，不能把本批写成完整个人核心或生产问题已解决。
+
+**个人状态与日志追加批次，已验但未发布：** 应用候选 `3c78ceb` 为新的 OpenAI Chat 文本请求分别记录
+响应完成证据、用量来源和结算待确认状态；回答完整但 usage 未知的日志采用待核对提示，
+不会将未知用量作为零值或估算结算。管理员 Users 的非商业视图改为请求次数及实际策略，
+无钱包生效仍需要已确认的原始服务端模式和用户审计 revision。个人模式用量区在手机卡片中全宽展示。
+[CI 38264888897](https://github.com/ForceMind/MyAPI/actions/runs/38264888897) 十项通过，包含后端
+完整测试/race、独立 relaykit、1,206 前端测试及全部合成浏览器。实现与新布局八图独立审查通过。
+上轮 `895d1a6` 的分词器测试夹具失败仅补初始化，失败记录保留；收口仅更新文档并复用准确应用验收。
+本批失败记录、范围和独立审查见[个人状态执行记录](PERSONAL_STATUS_EXECUTION_20261012.md)。
+这不代表独立工作台重新设计或剩余个人核心已完成，也不证明生产结算问题已解决。
+仍沿用 Draft PR #12、未发布 beta.11，不合并或部署；下方安装批次证据仅证明各自源码。
+
+**安装页追加批次，已验但未发布：** `21511e5` 修复步骤标题拆词及数据库徽标压缩，增加初始化
+POST 15 秒期限与未知结果只读确认。只有明确业务失败可重新提交；未确认结果保持本页写锁。
+七语文案同步完成；[CI 38250319423](https://github.com/ForceMind/MyAPI/actions/runs/38250319423)
+十项、1,181 条前端测试、25 个新增合成浏览器场景及独立代码/截图审查通过。
+原个人资料 9 个、安装/安全恢复 10 个场景通过，合成安装后登录与侧栏个人资料正常。
+未知锁只限本次页面挂载，不提供跨刷新幂等；真实发行包/三数据库安装及生产未验证，
+本分支 Docker smoke 跳过。收口只改交付文档，沿用 Draft PR #12，不合并、发布或部署。
+下段的 `8a482c4` 为上一批已验应用，不代替本追加批次验收。
+
+**2026-10-12 上一批结论：** 优先修复全新安装与日常 UI，历史账务冻结，恢复缺口不阻塞独立开发。
+原始数据与证据保留，仍暂不合并、发布或部署。[UI 执行记录](UI_STABILITY_EXECUTION_20261012.md)
+与 [Draft PR #12](https://github.com/ForceMind/MyAPI/pull/12) 覆盖安装检查、通知保存偏好及安全状态误报。
+最终应用候选 `8a482c4` 的 [CI 38228160614](https://github.com/ForceMind/MyAPI/actions/runs/38228160614)
+十项通过，独立代码与关键视觉审查通过；手机 2FA 截断已修复，安装页 P3 窄屏细节仍另记。
+收口仅更新五份交付文档，复用准确应用源码验证。本批没有版本标签、Release 或镜像发布。
+
+**2026-10-11 冻结记录：** 暂不发布或部署。当时先按[历史账务兼容核查记录](HISTORICAL_ACCOUNTING_COMPATIBILITY.md)
 核清历史账务；下述构建、安装与升级验收只覆盖合成环境，不能代替用户历史数据库的一致性验收。
 
-**当前开发状态：** 1608f85基线的[CI38142050913](https://github.com/ForceMind/MyAPI/actions/runs/38142050913)十项success、独立终审通过。当前补原金额方案中的Key显式调整持久幂等和派生总额显示：成功收据与名称/权限/金额同事务，重复请求返回原结果和当前Key；合法组件的总和超M时不再令组件整体不可读。新增表及三库、18项386、前端契约等待本批准确后继验证，不沿用基线绿灯。下文旧“本批后继待验”保留当时事实，最新结果以[云端验收记录](CLOUD_VALIDATION_PROGRESS.md)首节和PR正文为准。版本元数据仍是未发布beta.11候选；本批不改发布标签、镜像、资产或生产。
+**冻结时开发状态：** 1608f85基线的[CI38142050913](https://github.com/ForceMind/MyAPI/actions/runs/38142050913)十项success、独立终审通过。当前补原金额方案中的Key显式调整持久幂等和派生总额显示：成功收据与名称/权限/金额同事务，重复请求返回原结果和当前Key；合法组件的总和超M时不再令组件整体不可读。新增表及三库、18项386、前端契约等待本批准确后继验证，不沿用基线绿灯。下文旧“本批后继待验”保留当时事实，最新结果以[云端验收记录](CLOUD_VALIDATION_PROGRESS.md)首节和PR正文为准。版本元数据仍是未发布beta.11候选；本批不改发布标签、镜像、资产或生产。
 
 修复候选已提交[草稿PR #11](https://github.com/ForceMind/MyAPI/pull/11)，包含新请求准入保护、个人资料加载修复、历史金额表示兼容、迁移前只读探针、持久执行许可及Key编辑并发保护。被测源码 `09ef63268b5c6742fe73e246f6c5e26e30559903` 的[CI十项](https://github.com/ForceMind/MyAPI/actions/runs/38128779978)和[Docker五项](https://github.com/ForceMind/MyAPI/actions/runs/38128779248)成功；独立CI提交 `c8e7bbc04676e46f2ad0c806a9ac78562923a4ef` 与其非CI源码相同，[MySQL 5.7/PostgreSQL 9.6专项](https://github.com/ForceMind/MyAPI/actions/runs/38132921489)串行成功、零skip，独立审查通过。个人资料9个Chromium合成场景和既有Redis 7.4.11的44个quota-script子项通过，后者不覆盖全部缓存生命周期。实际Go副本演练仍只持有合成许可，全部副本继续DO_NOT_RESTORE。文档后继3feff8e的前端CI曾被15分钟总时限取消；预算后继3a1d50a的[CI 38135269862](https://github.com/ForceMind/MyAPI/actions/runs/38135269862)十项success且Playground完整完成，旧取消保留。真实Redis补验af18853的[CI 38138227403](https://github.com/ForceMind/MyAPI/actions/runs/38138227403)十项success，Redis7.4.11原44项及新3组/3拒绝子项实际PASS、零skip/fail，独立复核通过。本批继续金额方案的386定向行为要求：修复订阅通知int64→int窄化，新增纯DTO测试；在现有backend386build后增加五包14项严格JSON门禁，无新服务、权限或上传。准确后继SHA/终态以[PR Checks](https://github.com/ForceMind/MyAPI/pull/11/checks)回读，旧386全包失败及mock限制保留。新增应用差异限通知组装，旧09ef Docker/c8e7 native继续只按自身身份及未变路径复用，不能称新整棵业务tree等于旧源码。候选未进入main、发布镜像或资产；beta.3来源、资金/预扣/缓存/全部writer、504事件、旧终态凭证来源和实际回滚资格仍缺，生产账务未核清。详细证据及历史失败范围见[云端验收记录](CLOUD_VALIDATION_PROGRESS.md)。
 

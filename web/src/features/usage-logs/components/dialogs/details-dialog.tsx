@@ -80,6 +80,7 @@ import {
 } from '../../lib/format'
 import {
   getLogTypeConfig,
+  isCompletedUsageReview,
   isPerCallBilling,
   isTimingLogType,
 } from '../../lib/utils'
@@ -493,7 +494,8 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const details = props.log.content ?? ''
   const other = parseLogOther(props.log.other)
   const publishedPrice = readPublishedPriceReference(other)
-  const typeConfig = getLogTypeConfig(props.log.type)
+  const typeConfig = getLogTypeConfig(props.log.type, other)
+  const completedUsageReview = isCompletedUsageReview(props.log.type, other)
 
   const isViolation = isViolationFeeLog(other)
   const isRefund = props.log.type === 6
@@ -649,6 +651,20 @@ export function DetailsDialog(props: DetailsDialogProps) {
       bodyClassName='pr-2 sm:pr-4'
     >
       <div className='w-full max-w-full min-w-0 space-y-2.5 overflow-x-hidden py-1 sm:space-y-3'>
+        {completedUsageReview && (
+          <div
+            role='status'
+            className='rounded-lg border border-amber-300/60 bg-amber-50/60 p-3 text-sm leading-relaxed text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100'
+          >
+            {other?.usage_outcome === 'reported'
+              ? t(
+                  'The response completed and usage was reported, but settlement is unconfirmed. Existing reservations stay in place.'
+                )
+              : t(
+                  'The response completed, but upstream usage is unavailable. Usage and cost remain unconfirmed; existing reservations stay in place.'
+                )}
+          </div>
+        )}
         {props.open &&
           props.log.request_id &&
           other?.settlement_status === 'pending_review' && (

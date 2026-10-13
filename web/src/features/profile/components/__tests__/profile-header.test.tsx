@@ -39,7 +39,7 @@ describe('profile identity and evidence', () => {
   })
 
   it('stacks labeled quota metrics on narrow screens and keeps their explanations visible', () => {
-    render(<ProfileHeader profile={profile} loading={false} />)
+    render(<ProfileHeader profile={profile} loading={false} commercialEnabled />)
     const balance = screen.getByText('Current Balance')
     const metrics = balance.closest('dl')
     expect(metrics).toHaveClass('grid-cols-1', 'sm:grid-cols-3')
@@ -47,6 +47,15 @@ describe('profile identity and evidence', () => {
     expect(screen.getByText('Remaining quota')).not.toHaveClass('hidden')
     expect(screen.getAllByRole('term')).toHaveLength(3)
     expect(screen.getAllByRole('definition')).toHaveLength(6)
+  })
+
+  it('keeps personal and unconfirmed profiles free of wallet amounts while retaining recorded requests', () => {
+    render(<ProfileHeader profile={profile} loading={false} commercialEnabled={false} />)
+    expect(screen.queryByText('Current Balance')).not.toBeInTheDocument()
+    expect(screen.queryByText('Total Usage')).not.toBeInTheDocument()
+    expect(screen.getByText('API Requests')).toBeInTheDocument()
+    expect(screen.getAllByRole('term')).toHaveLength(1)
+    expect(screen.getByText('Recorded request count; pending reviews may not be included.')).toBeInTheDocument()
   })
 
   it('announces loading without turning unavailable profile evidence into zero balances', () => {

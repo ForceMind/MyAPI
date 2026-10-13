@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { Shield, AlertTriangle, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { ErrorState } from '@/components/error-state'
 import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -49,7 +50,7 @@ type DialogKey = 'setup' | 'disable' | 'backup'
 
 export function TwoFACard({ loading: pageLoading }: TwoFACardProps) {
   const { t } = useTranslation()
-  const { status, loading, refetch } = useTwoFA(!pageLoading)
+  const { status, loading, error, refetch } = useTwoFA(!pageLoading)
   const dialogs = useDialogs<DialogKey>()
 
   if (pageLoading || loading) {
@@ -61,6 +62,28 @@ export function TwoFACard({ loading: pageLoading }: TwoFACardProps) {
         </CardHeader>
         <CardContent className='p-3 sm:p-5'>
           <Skeleton className='h-20 w-full' />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error || !status) {
+    return (
+      <Card data-card-hover='false' className='gap-0 overflow-hidden py-0'>
+        <CardHeader className='p-3 sm:p-5'>
+          <CardTitle className='text-lg tracking-tight sm:text-xl'>
+            {t('Two-Factor Authentication')}
+          </CardTitle>
+          <CardDescription className='text-xs sm:text-sm'>
+            {t('Add an extra layer of security to your account')}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className='p-3 sm:p-5'>
+          <ErrorState
+            title={t('Unable to load settings')}
+            onRetry={() => void refetch()}
+            className='min-h-40 border-0'
+          />
         </CardContent>
       </Card>
     )
@@ -86,11 +109,12 @@ export function TwoFACard({ loading: pageLoading }: TwoFACardProps) {
                 <IconBadge tone='success' size='sm'>
                   <Shield />
                 </IconBadge>
-                <div className='space-y-1'>
-                  <div className='flex items-center gap-2'>
+                <div className='min-w-0 flex-1 space-y-1'>
+                  <div className='flex flex-wrap items-center gap-2'>
                     <p className='font-medium'>{t('Two-Step Verification')}</p>
                     {status.enabled ? (
                       <StatusBadge
+                        className='shrink-0'
                         label={t('Enabled')}
                         variant='success'
                         showDot
@@ -98,6 +122,7 @@ export function TwoFACard({ loading: pageLoading }: TwoFACardProps) {
                       />
                     ) : (
                       <StatusBadge
+                        className='shrink-0'
                         label={t('Disabled')}
                         variant='neutral'
                         showDot
@@ -106,6 +131,7 @@ export function TwoFACard({ loading: pageLoading }: TwoFACardProps) {
                     )}
                     {status.locked && (
                       <StatusBadge
+                        className='shrink-0'
                         label={t('Locked')}
                         variant='danger'
                         showDot

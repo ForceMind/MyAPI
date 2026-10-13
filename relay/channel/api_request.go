@@ -570,8 +570,13 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 		if err := req.Context().Err(); err != nil {
 			return nil, err
 		}
-		state.DispatchPossible = true
 		req.GetBody = nil
+	}
+	if err := service.CommitTokenBudgetDispatch(c, info); err != nil {
+		return nil, service.TokenBudgetRelayError(c, err)
+	}
+	if state := service.RelayFailoverFromContext(c.Request.Context()); state != nil {
+		state.DispatchPossible = true
 	}
 	resp, err := relayClient.Do(req)
 	service.ObserveRelayTransientFailure(c, resp, err)

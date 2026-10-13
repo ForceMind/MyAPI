@@ -43,6 +43,7 @@ import type { UsageLog } from '../data/schema'
 import { parseLogOther } from '../lib/format'
 import {
   getLogTypeConfig,
+  isCompletedUsageReview,
   isDisplayableLogType,
   isTimingLogType,
 } from '../lib/utils'
@@ -156,14 +157,19 @@ function SummaryField<TData>({
 function MobileLogTimeStatus({
   createdAt,
   type,
+  other,
 }: {
   createdAt: unknown
   type: unknown
+  other?: string
 }) {
   const { t } = useTranslation()
   const timestamp = typeof createdAt === 'number' ? createdAt : undefined
   const logType = typeof type === 'number' ? type : undefined
-  const config = getLogTypeConfig(logType ?? LOG_TYPE_ENUM.UNKNOWN)
+  const config = getLogTypeConfig(
+    logType ?? LOG_TYPE_ENUM.UNKNOWN,
+    parseLogOther(other ?? '')
+  )
   const variant = config.color as StatusVariant
 
   return (
@@ -173,15 +179,20 @@ function MobileLogTimeStatus({
       </div>
       <div
         className={cn(
-          'inline-flex items-center gap-1 text-xs leading-none font-medium',
+          'inline-flex max-w-full items-start gap-1 text-xs font-medium',
           textColorMap[variant]
         )}
       >
         <span
-          className={cn('size-1.5 shrink-0 rounded-full', dotColorMap[variant])}
+          className={cn(
+            'mt-1 size-1.5 shrink-0 rounded-full',
+            dotColorMap[variant]
+          )}
           aria-hidden='true'
         />
-        <span>{t(config.label)}</span>
+        <span className='min-w-0 break-keep whitespace-normal leading-snug'>
+          {t(config.label)}
+        </span>
       </div>
     </div>
   )
@@ -340,6 +351,7 @@ function CommonLogsCard<TData>({
           <MobileLogTimeStatus
             createdAt={rowData?.created_at}
             type={rowData?.type}
+            other={rowData?.other}
           />
         </div>
         <SummaryField
@@ -508,7 +520,17 @@ export function UsageLogsMobileList<TData>({
         const logType = (row.original as Record<string, unknown>).type as
           | number
           | undefined
-        const tintClass = logType != null ? (logTypeRowTint[logType] ?? '') : ''
+        const other = parseLogOther(
+          ((row.original as Record<string, unknown>).other as string) ?? ''
+        )
+        let tintClass = logType != null ? (logTypeRowTint[logType] ?? '') : ''
+        if (
+          logCategory === 'common' &&
+          isCompletedUsageReview(logType ?? LOG_TYPE_ENUM.UNKNOWN, other)
+        ) {
+          tintClass =
+            'bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/50 dark:border-amber-900/30'
+        }
 
         return (
           <div

@@ -428,15 +428,17 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	summary := calculateTextQuotaSummary(ctx, relayInfo, billingUsage)
 	if err := SettleTokenBudgetUsage(ctx, relayInfo, originUsage); err != nil {
 		reason := textUsageReviewReason(ctx, originUsage)
+		disposition := textUsageReviewDisposition(ctx, relayInfo, originUsage)
 		if reason == "" {
 			reason = "partial"
+			disposition.UsageOutcome = reason
 		}
-		holdUnverifiedTextUsage(ctx, relayInfo, reason, summary)
+		holdUnverifiedTextUsageWithDisposition(ctx, relayInfo, reason, summary, disposition)
 		return
 	}
 	if !relayInfo.PriceData.UsePrice {
 		if reason := publishedPriceUsageReviewReason(ctx, relayInfo, originUsage); reason != "" {
-			holdUnverifiedTextUsage(ctx, relayInfo, reason, summary)
+			holdUnverifiedTextUsageWithDisposition(ctx, relayInfo, reason, summary, textUsageReviewDisposition(ctx, relayInfo, originUsage))
 			return
 		}
 	}
@@ -482,7 +484,7 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 
 	if err := SettleBilling(ctx, relayInfo, summary.Quota); err != nil {
 		logger.LogError(ctx, "error settling billing: "+err.Error())
-		recordPendingBillingSettlement(ctx, relayInfo)
+		recordPendingBillingSettlementWithDisposition(ctx, relayInfo, textUsageReviewDisposition(ctx, relayInfo, originUsage))
 		return
 	}
 	if summary.hasBillableUsage() {

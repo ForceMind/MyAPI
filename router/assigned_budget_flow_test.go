@@ -43,11 +43,13 @@ func TestAssignedAccessStrictBudgetApplicationFlow(t *testing.T) {
 					_, _ = io.WriteString(w, `{"object":"response.input_tokens","input_tokens":100}`)
 				case "/v1/responses":
 					require.Equal(t, "responses", protocol)
+					f.assertTokenBudgetSent(t, token.Id)
 					generations.Add(1)
 					assert.Equal(t, "hello", fields["input"])
 					_, _ = io.WriteString(w, `{"id":"assigned-responses","object":"response","status":"completed","model":"gpt-6.1-sol","service_tier":"default","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"ok"}]}],"usage":{"input_tokens":100,"output_tokens":10,"total_tokens":110,"input_tokens_details":{"cached_tokens":40,"cache_write_tokens":30},"output_tokens_details":{"reasoning_tokens":4}}}`)
 				case "/v1/chat/completions":
 					require.Equal(t, "chat", protocol)
+					f.assertTokenBudgetSent(t, token.Id)
 					generations.Add(1)
 					_, _ = io.WriteString(w, chatBudgetFlowResponse(chatFlowUsage, false, false))
 				default:

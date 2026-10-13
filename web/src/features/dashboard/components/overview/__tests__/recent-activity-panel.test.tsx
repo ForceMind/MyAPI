@@ -88,7 +88,7 @@ test('regular user sees only its minimal recent log projection, never raw conten
     '/usage-logs/common'
   )
   expect(
-    screen.getByRole('link', { name: 'Recent errors · View logs' })
+    screen.getByRole('link', { name: 'Recent errors and pending reviews · View logs' })
   ).toHaveAttribute('href', '/usage-logs/common?type=5&startTime=1700000040000')
 })
 
@@ -136,7 +136,7 @@ test('switching accounts removes the previous administrator activity', async () 
   expect(screen.queryByText(/old-model/)).not.toBeInTheDocument()
   expect(getRecentLogOverview).toHaveBeenLastCalledWith(false)
   expect(
-    screen.getByRole('link', { name: 'Recent errors · View logs' })
+    screen.getByRole('link', { name: 'Recent errors and pending reviews · View logs' })
   ).toHaveAttribute('href', '/usage-logs/common?type=5')
 })
 
@@ -165,7 +165,7 @@ test('failed activity load shows a generic retry without exposing server text', 
     ).not.toBeInTheDocument()
   )
   expect(screen.getByText('No recent requests')).toBeInTheDocument()
-  expect(screen.getByText('No recent errors')).toBeInTheDocument()
+  expect(screen.getByText('No recent errors or pending reviews')).toBeInTheDocument()
 })
 
 test('invalid log timestamps degrade to an unknown time without breaking the panel', async () => {

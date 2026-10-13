@@ -103,6 +103,46 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 	return helper.ObjectData(c, lastStreamResponse)
 }
 
+type chatResponseCompletionEvidence struct {
+	seenChoices     map[int]struct{}
+	finishedChoices map[int]struct{}
+	invalid         bool
+}
+
+func (e *chatResponseCompletionEvidence) observe(data []byte, upstreamStatus int) {
+	if sensitiveOpenAIResponseError(data, upstreamStatus) != nil {
+		e.invalid = true
+		return
+	}
+	var response dto.ChatCompletionsStreamResponse
+	if err := common.Unmarshal(data, &response); err != nil {
+		e.invalid = true
+		return
+	}
+	if e.seenChoices == nil {
+		e.seenChoices = make(map[int]struct{})
+		e.finishedChoices = make(map[int]struct{})
+	}
+	for _, choice := range response.Choices {
+		e.seenChoices[choice.Index] = struct{}{}
+		if choice.FinishReason != nil && *choice.FinishReason != "" {
+			e.finishedChoices[choice.Index] = struct{}{}
+		}
+	}
+}
+
+func (e *chatResponseCompletionEvidence) complete() bool {
+	if e.invalid || len(e.seenChoices) == 0 {
+		return false
+	}
+	for index := range e.seenChoices {
+		if _, ok := e.finishedChoices[index]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
 func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	if resp == nil || resp.Body == nil {
 		logger.LogError(c, "invalid response or response body")
@@ -110,18 +150,34 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	}
 
 	defer service.CloseResponseBodyGracefully(resp)
-	if info.StrictTokenBudget && info.RelayMode == relayconstant.RelayModeChatCompletions {
+	var completionEvidence chatResponseCompletionEvidence
+	if info.RelayMode == relayconstant.RelayModeChatCompletions {
+		c.Set("relay_response_completed", false)
+		c.Set(helper.ContextKeyExactStreamTerminator, false)
 		original := c.Writer
-		observed := &strictChatWriteObserver{ResponseWriter: original, requestContext: c.Request.Context()}
+		observed := &strictChatWriteObserver{ResponseWriter: original}
+		if c.Request != nil {
+			observed.requestContext = c.Request.Context()
+		}
 		c.Writer = observed
 		defer func() {
 			c.Writer = original
 			// StringData can skip writes entirely after cancellation. Require a
 			// complete terminal write before ignoring that late cancellation;
 			// upstream completion and native usage are validated separately.
-			interrupted := c.Request.Context().Err() != nil && !observed.doneWritten.Load()
-			if (observed.failed.Load() || interrupted) && info.StreamStatus != nil {
+			interrupted := c.Request != nil && c.Request.Context().Err() != nil && !observed.doneWritten.Load()
+			deliveryFailed := observed.failed.Load() || interrupted
+			if info.StrictTokenBudget && deliveryFailed && info.StreamStatus != nil {
 				info.StreamStatus.RecordError("strict Chat downstream write failed")
+			}
+			if !deliveryFailed && resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices &&
+				c.GetBool(helper.ContextKeyExactStreamTerminator) &&
+				observed.doneWritten.Load() && completionEvidence.complete() &&
+				info.StreamStatus != nil && info.StreamStatus.EndReason == relaycommon.StreamEndReasonDone &&
+				info.StreamStatus.EndError == nil && !info.StreamStatus.HasErrors() {
+				// This proves a complete response was accepted by the local writer;
+				// it does not claim that the remote peer physically received it.
+				c.Set("relay_response_completed", true)
 			}
 		}()
 	}
@@ -154,6 +210,9 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 			}
 		}
 		if len(data) > 0 {
+			if info.RelayMode == relayconstant.RelayModeChatCompletions {
+				completionEvidence.observe(common.StringToByteSlice(data), resp.StatusCode)
+			}
 			if common.SensitiveRequestDiagnostics(c) {
 				if sensitiveStreamError = sensitiveOpenAIResponseError(common.StringToByteSlice(data), resp.StatusCode); sensitiveStreamError != nil {
 					// Keep provider details only for in-memory classification;
@@ -210,12 +269,15 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	shouldSendLastResp := true
 	if err := handleLastResponse(lastStreamData, &responseId, &createAt, &systemFingerprint, &model, &usage,
 		&containStreamUsage, info, &shouldSendLastResp); err != nil {
+		completionEvidence.invalid = true
 		logger.LogError(c, fmt.Sprintf("error handling last response: %s, lastStreamData: [%s]", err.Error(), lastStreamData))
 	}
 
 	if info.RelayFormat == types.RelayFormatOpenAI {
 		if shouldSendLastResp {
-			_ = sendStreamData(c, info, lastStreamData, info.ChannelSetting.ForceFormat, info.ChannelSetting.ThinkingToContent)
+			if err := sendStreamData(c, info, lastStreamData, info.ChannelSetting.ForceFormat, info.ChannelSetting.ThinkingToContent); err != nil {
+				completionEvidence.invalid = true
+			}
 		}
 	}
 
@@ -343,6 +405,7 @@ func sensitiveOpenAIResponseError(body []byte, upstreamStatus int) *types.NewAPI
 
 func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	defer service.CloseResponseBodyGracefully(resp)
+	c.Set("relay_response_completed", false)
 
 	var simpleResponse dto.OpenAITextResponse
 	responseBody, err := io.ReadAll(resp.Body)
@@ -366,9 +429,10 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 		}
 	}
 
+	responseEnvelopeError := sensitiveOpenAIResponseError(responseBody, resp.StatusCode)
 	if common.SensitiveRequestDiagnostics(c) {
-		if responseError := sensitiveOpenAIResponseError(responseBody, resp.StatusCode); responseError != nil {
-			return nil, responseError
+		if responseEnvelopeError != nil {
+			return nil, responseEnvelopeError
 		}
 	}
 
@@ -470,6 +534,12 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 	}
 
 	service.IOCopyBytesGracefully(c, resp, responseBody)
+	if responseEnvelopeError == nil && info.RelayMode == relayconstant.RelayModeChatCompletions && len(simpleResponse.Choices) > 0 &&
+		resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices {
+		// IOCopyBytesGracefully records the byte-count boundary. This marker adds
+		// adapter-level evidence of a non-error Chat response with choices.
+		c.Set("relay_response_completed", true)
+	}
 
 	simpleResponse.Usage.BillingUsage = billingUsage
 	return &simpleResponse.Usage, nil

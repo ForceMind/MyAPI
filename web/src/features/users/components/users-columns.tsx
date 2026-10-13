@@ -31,6 +31,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { useFundingPresentation } from '@/hooks/use-funding-presentation'
+import { useStatus } from '@/hooks/use-status'
 import { formatQuota, formatTimestamp } from '@/lib/format'
 
 import {
@@ -40,13 +41,16 @@ import {
   isUserDeleted,
 } from '../constants'
 import { getAccountTierLabel } from '../lib'
+import { resolveUsagePolicyPresentation } from '../lib/user-usage-policy-presentation'
 import type { User } from '../types'
+import type { UserUsagePolicy } from '../user-usage-policy-api'
 import { DataTableRowActions } from './data-table-row-actions'
 import { UserQuotaCell } from './user-quota-cell'
 
 export function useUsersColumns(): ColumnDef<User>[] {
   const { t } = useTranslation()
   const funding = useFundingPresentation()
+  const fundingStatus = useStatus()
   return [
     {
       id: 'select',
@@ -166,25 +170,54 @@ export function useUsersColumns(): ColumnDef<User>[] {
     {
       id: 'quota',
       accessorKey: 'quota',
-      header: t('Quota'),
+      header: funding.commercialEnabled ? t('Quota') : t('Usage'),
       cell: ({ row }) => {
         const user = row.original
+        const policy: UserUsagePolicy | undefined =
+          typeof user.self_use_no_balance === 'boolean' &&
+          typeof user.usage_policy_revision === 'number'
+            ? {
+                user_id: user.id,
+                no_balance: user.self_use_no_balance,
+                revision: user.usage_policy_revision,
+                legacy_remaining_quota: user.quota,
+              }
+            : undefined
+        const policyPresentation = resolveUsagePolicyPresentation({
+          userId: user.id,
+          policy,
+          policyConfirmed: true,
+          status: fundingStatus.status,
+          statusConfirmed: fundingStatus.confirmed,
+        })
+        let presentation:
+          | 'wallet'
+          | 'no-wallet'
+          | 'stored-allowance'
+          | 'unknown' = 'unknown'
+        if (funding.commercialEnabled) {
+          presentation = 'wallet'
+        } else if (policyPresentation.condition === 'supported') {
+          presentation = 'no-wallet'
+        } else if (policyPresentation.condition !== 'unknown') {
+          presentation = 'stored-allowance'
+        }
+
         return (
           <UserQuotaCell
             used={user.used_quota}
             remaining={user.quota}
-            noBalance={
-              user.self_use_no_balance === true &&
-              funding.ready &&
-              funding.capabilities.mode === 'disabled'
-            }
-            policyPending={user.self_use_no_balance === true && !funding.ready}
+            requestCount={user.request_count}
+            presentation={presentation}
           />
         )
       },
       size: 300,
       minSize: 260,
-      meta: { mobileOrder: 40 },
+      meta: {
+        mobileOrder: 40,
+        mobileFullWidth: !funding.commercialEnabled,
+      },
     },
     {
       accessorKey: 'group',
@@ -258,21 +291,23 @@ export function useUsersColumns(): ColumnDef<User>[] {
                 <p className='text-xs'>{t('Number of users invited')}</p>
               </TooltipContent>
             </Tooltip>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <StatusBadge
-                    label={`${t('Revenue')}: ${formatQuota(affHistoryQuota)}`}
-                    variant='neutral'
-                    copyable={false}
-                    className='cursor-help'
-                  />
-                }
-              />
-              <TooltipContent>
-                <p className='text-xs'>{t('Total invitation revenue')}</p>
-              </TooltipContent>
-            </Tooltip>
+            {funding.commercialEnabled && (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <StatusBadge
+                      label={`${t('Revenue')}: ${formatQuota(affHistoryQuota)}`}
+                      variant='neutral'
+                      copyable={false}
+                      className='cursor-help'
+                    />
+                  }
+                />
+                <TooltipContent>
+                  <p className='text-xs'>{t('Total invitation revenue')}</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
             {inviterId > 0 && (
               <Tooltip>
                 <TooltipTrigger

@@ -21,6 +21,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { ErrorState } from '@/components/error-state'
 import { StatusBadge } from '@/components/status-badge'
 import {
   AlertDialog,
@@ -65,11 +66,13 @@ export function PasskeyCard({ loading: pageLoading }: PasskeyCardProps) {
   const {
     status,
     loading,
+    error,
     registering,
     removing,
     supported,
     enabled,
     lastUsed,
+    fetchStatus,
     register,
     remove,
   } = usePasskeyManagement()
@@ -199,6 +202,28 @@ export function PasskeyCard({ loading: pageLoading }: PasskeyCardProps) {
         </CardHeader>
         <CardContent className='p-3 sm:p-5'>
           <Skeleton className='h-20 w-full' />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error || !status) {
+    return (
+      <Card data-card-hover='false' className='gap-0 overflow-hidden py-0'>
+        <CardHeader className='p-3 sm:p-5'>
+          <CardTitle className='text-lg tracking-tight sm:text-xl'>
+            {t('Passkey Login')}
+          </CardTitle>
+          <CardDescription className='text-xs sm:text-sm'>
+            {t('Use Passkey to sign in without entering your password.')}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className='p-3 sm:p-5'>
+          <ErrorState
+            title={t('Failed to load Passkey status')}
+            onRetry={() => void fetchStatus()}
+            className='min-h-40 border-0'
+          />
         </CardContent>
       </Card>
     )
