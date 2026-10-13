@@ -93,3 +93,10 @@ Root 显式打开原用量策略对话框时保留存量政策证据；默认工
 原失败日志保留；修正不降低规则或改变错误颜色语义，后继准确源码必须重新验收。
 同次复核把近期记录的 type=5 分组明确标为“错误与待核对”，复用已验七语键，避免把缺 usage 的完成记录又称为请求失败。
 两项局部修正已独立静态复核通过，弃用键通过规定脚本删除；尚未运行的后继不标为通过。
+
+首轮最终为 cancelled：前端 Typecheck failure、Backend cancelled、其余八项 success。
+第二轮源码 `2cd720d8e20227af5c940fb43733dd8ae33cd618` 的
+[CI 38384435207](https://github.com/ForceMind/MyAPI/actions/runs/38384435207) 已通过 Typecheck，
+Lint 报七个错误（测试按钮缺 type、重复 React import、fixture 非空断言），已作局部修正；
+没有关闭 lint 规则或删除行为断言。本轮前端 test/build/Chromium 未执行。
+三库专项等八项已 success，Backend 尚未结束；最终状态由后续回读补充。

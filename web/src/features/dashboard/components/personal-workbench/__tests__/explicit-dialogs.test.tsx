@@ -31,12 +31,12 @@ vi.mock('../request-path-section', () => ({
   RequestPathSection: (props: {
     onSelectKey: (keyId: number) => void
   }) => (
-    <button onClick={() => props.onSelectKey(31)}>Select test Key</button>
+    <button type='button' onClick={() => props.onSelectKey(31)}>Select test Key</button>
   ),
 }))
 vi.mock('../key-budget-section', () => ({
   KeyBudgetSection: (props: { onOpenSettings: () => void }) => (
-    <button onClick={props.onOpenSettings}>Open budget settings</button>
+    <button type='button' onClick={props.onOpenSettings}>Open budget settings</button>
   ),
 }))
 vi.mock('../recent-records-section', () => ({
@@ -47,7 +47,7 @@ vi.mock('../account-windows-section', () => ({
 }))
 vi.mock('../workbench-actions', () => ({
   WorkbenchActions: (props: { onOpenPolicy: () => void }) => (
-    <button onClick={props.onOpenPolicy}>Manage usage policy</button>
+    <button type='button' onClick={props.onOpenPolicy}>Manage usage policy</button>
   ),
 }))
 vi.mock('@/features/keys/components/token-budget-dialog', () => ({

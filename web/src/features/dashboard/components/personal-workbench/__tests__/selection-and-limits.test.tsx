@@ -1,7 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { AnchorHTMLAttributes } from 'react'
-import { useState } from 'react'
+import { useState, type AnchorHTMLAttributes } from 'react'
 import { describe, expect, test, vi } from 'vitest'
 
 import type { PlaygroundKey } from '@/features/playground/types'

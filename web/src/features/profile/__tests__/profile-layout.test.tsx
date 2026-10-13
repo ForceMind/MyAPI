@@ -19,7 +19,7 @@ import { Profile } from '../index'
 import type { UserProfile } from '../types'
 
 vi.mock('../components/checkin-calendar-card', () => ({
-  CheckinCalendarCard: () => <section aria-label='Daily Check-in'><button>Claim reward</button></section>,
+  CheckinCalendarCard: () => <section aria-label='Daily Check-in'><button type='button'>Claim reward</button></section>,
 }))
 
 const originalAuth = useAuthStore.getState()
