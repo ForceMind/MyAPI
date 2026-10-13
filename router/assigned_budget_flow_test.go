@@ -13,6 +13,8 @@ import (
 	"github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/service"
+	"github.com/ForceMind/MyAPI/setting/billing_setting"
+	"github.com/ForceMind/MyAPI/setting/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -31,7 +33,7 @@ type assignedUnknownAccountingHold struct {
 	SettlementFacts  int64
 }
 
-func (f *chatBudgetFlowFixture) loadAssignedUnknownAccountingHold(t *testing.T, mode model.QuotaWriterMode, tokenID int, requestID string) assignedUnknownAccountingHold {
+func (f *chatBudgetFlowFixture) loadAssignedUnknownAccountingHold(t *testing.T, mode model.QuotaWriterMode, tokenID int, requestID, originModel string) assignedUnknownAccountingHold {
 	t.Helper()
 	var user model.User
 	require.NoError(t, model.DB.First(&user, f.user.Id).Error)
@@ -59,6 +61,8 @@ func (f *chatBudgetFlowFixture) loadAssignedUnknownAccountingHold(t *testing.T, 
 		require.Equal(t, int64(100), legacy.ReservedQuota)
 		require.Equal(t, int64(100), legacy.TokenReservedQuota)
 		require.Nil(t, legacy.ActualQuota)
+		require.Zero(t, legacy.ChannelID, "legacy pre-hold is frozen before final channel selection")
+		require.Equal(t, originModel, legacy.ModelName)
 		hold.Legacy = legacy
 		return hold
 	}
@@ -76,6 +80,8 @@ func (f *chatBudgetFlowFixture) loadAssignedUnknownAccountingHold(t *testing.T, 
 	require.Equal(t, model.AccountQuotaPhaseReserve, reserve.Phase)
 	require.Equal(t, int64(100), reserve.RequestedQuota)
 	require.Equal(t, int64(100), reserve.AppliedQuota)
+	require.Zero(t, reserve.BillingContext.ChannelID, "authoritative pre-hold is frozen before final channel selection")
+	require.Equal(t, originModel, reserve.BillingContext.OriginModelName)
 	require.NoError(t, model.DB.Model(&model.AccountQuotaMutationReceipt{}).
 		Where("request_id = ? AND phase IN ?", requestID, []string{model.AccountQuotaPhaseSettle, model.AccountQuotaPhaseRefund}).
 		Count(&hold.TerminalReceipts).Error)
@@ -194,26 +200,42 @@ func TestAssignedAccessStrictChatBudgetKeepsUnknownHold(t *testing.T) {
 }
 
 func TestAssignedAccessStrictResponsesUnknownReopenRecoveryBothWriters(t *testing.T) {
+	const originModel = "chat-alias"
 	oldCountToken := constant.CountToken
 	constant.CountToken = false
 	t.Cleanup(func() { constant.CountToken = oldCountToken })
 	for _, mode := range []model.QuotaWriterMode{model.QuotaWriterModeLegacy, model.QuotaWriterModeAuthoritative} {
 		t.Run(string(mode), func(t *testing.T) {
 			f := setupChatBudgetFlow(t)
+			require.NoError(t, model.DB.Model(&model.Channel{}).Where("id = ?", f.channel.Id).
+				Update("model_mapping", fmt.Sprintf(`{%q:%q}`, originModel, model.TokenBudgetOpenAIChatModel)).Error)
+			billingModes := billing_setting.GetBillingModeCopy()
+			billingExpressions := billing_setting.GetBillingExprCopy()
+			expression, ok := billingExpressions[model.TokenBudgetOpenAIChatModel]
+			require.True(t, ok)
+			billingModes[originModel] = billing_setting.BillingModeTieredExpr
+			billingExpressions[originModel] = expression
+			billingModesJSON, err := common.Marshal(billingModes)
+			require.NoError(t, err)
+			billingExpressionsJSON, err := common.Marshal(billingExpressions)
+			require.NoError(t, err)
+			require.NoError(t, config.UpdateConfigFromMap(config.GlobalConfig.Get("billing_setting"), map[string]string{
+				billing_setting.BillingModeField: string(billingModesJSON), billing_setting.BillingExprField: string(billingExpressionsJSON),
+			}))
 			require.NoError(t, model.DB.Model(&model.QuotaWriterEpoch{}).Where("id = ?", 1).Updates(map[string]any{
 				"mode": string(mode), "epoch": int64(41), "lock_version": gorm.Expr("lock_version + ?", 1),
 			}).Error)
 
 			key := fmt.Sprintf("responsesrestart%s%d", mode, f.serial.Add(1))
 			token := model.Token{UserId: f.user.Id, Name: key, Key: key, Status: common.TokenStatusEnabled, ExpiredTime: -1, RemainQuota: 1000000,
-				ModelLimitsEnabled: true, ModelLimits: model.TokenBudgetOpenAIChatModel}
+				ModelLimitsEnabled: true, ModelLimits: originModel + "," + model.TokenBudgetOpenAIChatModel}
 			require.NoError(t, model.DB.Create(&token).Error)
 			budgetBody := fmt.Sprintf(`{"id":"%064x","expected_revision":0,"enabled":true,"limit":2000000,"confirmed":true}`, f.serial.Add(1))
 			budgetResponse := f.request(http.MethodPut, fmt.Sprintf("/api/token/%d/budget", token.Id), *f.root.AccessToken, budgetBody)
 			require.Equal(t, http.StatusOK, budgetResponse.Code, budgetResponse.Body.String())
 			f.currentTokenID.Store(int64(token.Id))
-			policy := fmt.Sprintf(`{"enabled":true,"public_models":[%q],"upstream_models":[%q],"channel_ids":[%d]}`, model.TokenBudgetOpenAIChatModel, model.TokenBudgetOpenAIChatModel, f.channel.Id)
-			_, err := model.ConfigureAssignedAccessPolicy(context.Background(), model.DB, "token", token.Id, 0, policy)
+			policy := fmt.Sprintf(`{"enabled":true,"public_models":[%q],"upstream_models":[%q],"channel_ids":[%d]}`, originModel, model.TokenBudgetOpenAIChatModel, f.channel.Id)
+			_, err = model.ConfigureAssignedAccessPolicy(context.Background(), model.DB, "token", token.Id, 0, policy)
 			require.NoError(t, err)
 
 			var counts, generations atomic.Int32
@@ -243,7 +265,7 @@ func TestAssignedAccessStrictResponsesUnknownReopenRecoveryBothWriters(t *testin
 				}
 			})
 			t.Cleanup(service.SetHttpClientForTest(client))
-			requestBody := `{"model":"gpt-6.1-sol","input":"hello","max_output_tokens":20,"service_tier":"default"}`
+			requestBody := fmt.Sprintf(`{"model":%q,"input":"hello","max_output_tokens":20,"service_tier":"default"}`, originModel)
 			response := f.request(http.MethodPost, "/v1/responses", "sk-"+token.Key, requestBody)
 			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 			require.EqualValues(t, 1, counts.Load())
@@ -253,6 +275,8 @@ func TestAssignedAccessStrictResponsesUnknownReopenRecoveryBothWriters(t *testin
 			require.NoError(t, model.DB.Where("token_id = ?", token.Id).First(&reservation).Error)
 			require.Equal(t, model.TokenBudgetUnknown, reservation.State)
 			require.Equal(t, model.TokenBudgetBoundOpenAIResponses, reservation.BoundSource)
+			require.Equal(t, f.channel.Id, reservation.ChannelID)
+			require.Equal(t, model.TokenBudgetOpenAIChatModel, reservation.ModelName)
 			require.EqualValues(t, 100, reservation.InputTokens)
 			require.EqualValues(t, 20, reservation.MaxOutputTokens)
 			require.EqualValues(t, 120, reservation.Reserved)
@@ -267,9 +291,14 @@ func TestAssignedAccessStrictResponsesUnknownReopenRecoveryBothWriters(t *testin
 			require.NoError(t, err)
 			require.Equal(t, model.AccountQuotaTerminalRecoveryUsageUnknown, review.State)
 			require.Nil(t, review.ActualQuota)
+			require.Equal(t, f.channel.Id, review.ChannelID)
+			require.Equal(t, originModel, review.ModelName)
 			require.NotNil(t, review.TokenBudget)
 			require.Equal(t, model.TokenBudgetUnknown, review.TokenBudget.State)
-			beforeRestart := f.loadAssignedUnknownAccountingHold(t, mode, token.Id, reservation.RequestID)
+			require.Equal(t, f.channel.Id, review.TokenBudget.ChannelID)
+			beforeRestart := f.loadAssignedUnknownAccountingHold(t, mode, token.Id, reservation.RequestID, originModel)
+			require.NoError(t, model.DB.First(&f.channel, f.channel.Id).Error)
+			require.Zero(t, f.channel.UsedQuota)
 			var consumeLogs int64
 			require.NoError(t, model.DB.Model(&model.Log{}).Where("request_id = ? AND type = ?", reservation.RequestID, model.LogTypeConsume).Count(&consumeLogs).Error)
 			require.Zero(t, consumeLogs)
@@ -289,8 +318,17 @@ func TestAssignedAccessStrictResponsesUnknownReopenRecoveryBothWriters(t *testin
 			var reservations int64
 			require.NoError(t, model.DB.Model(&model.TokenBudgetReservation{}).Where("token_id = ?", token.Id).Count(&reservations).Error)
 			require.EqualValues(t, 1, reservations, "the blocked request cannot create a second reservation")
-			afterRestart := f.loadAssignedUnknownAccountingHold(t, mode, token.Id, reservation.RequestID)
+			afterRestart := f.loadAssignedUnknownAccountingHold(t, mode, token.Id, reservation.RequestID, originModel)
 			require.Equal(t, beforeRestart, afterRestart, "database reopen and same-Key rejection must preserve the original accounting hold")
+			review, err = model.GetUsageReview(context.Background(), model.DB, f.root.Id, reservation.RequestID)
+			require.NoError(t, err)
+			require.Equal(t, f.channel.Id, review.ChannelID)
+			require.Equal(t, originModel, review.ModelName)
+			require.NotNil(t, review.TokenBudget)
+			require.Equal(t, f.channel.Id, review.TokenBudget.ChannelID)
+			require.Equal(t, model.TokenBudgetOpenAIChatModel, review.TokenBudget.ModelName)
+			require.NoError(t, model.DB.First(&f.channel, f.channel.Id).Error)
+			require.Zero(t, f.channel.UsedQuota, "database reopen and the blocked replay cannot project channel usage")
 
 			evidence := "reliable internal quota 120 with exact Responses input 100 and output 10 after database reopen"
 			recoveryBody := fmt.Sprintf(`{"request_id":%q,"action":"reconcile","actual_quota":120,"actual_input_tokens":100,"actual_output_tokens":10,"evidence_reference":%q,"confirmed_reliable_evidence":true}`, reservation.RequestID, evidence)
@@ -321,7 +359,7 @@ func TestAssignedAccessStrictResponsesUnknownReopenRecoveryBothWriters(t *testin
 			require.Equal(t, f.user.Id, decision.UserID)
 			require.Equal(t, token.Id, decision.TokenID)
 			require.Equal(t, f.channel.Id, decision.ChannelID)
-			require.Equal(t, model.TokenBudgetOpenAIChatModel, decision.ModelName)
+			require.Equal(t, originModel, decision.ModelName)
 			require.Equal(t, int64(120), decision.ActualQuota)
 			require.Equal(t, evidence, decision.EvidenceReference)
 			require.Len(t, decision.EvidenceDigest, 64)
@@ -338,6 +376,8 @@ func TestAssignedAccessStrictResponsesUnknownReopenRecoveryBothWriters(t *testin
 			require.Equal(t, 120, logs[0].Quota)
 			require.Equal(t, 100, logs[0].PromptTokens)
 			require.Equal(t, 10, logs[0].CompletionTokens)
+			require.Equal(t, f.channel.Id, logs[0].ChannelId)
+			require.Equal(t, originModel, logs[0].ModelName)
 			require.Contains(t, logs[0].Other, `"token_counts_confirmed":true`)
 			require.Contains(t, logs[0].Other, `"settlement_status":"manually_reconciled"`)
 
@@ -348,6 +388,8 @@ func TestAssignedAccessStrictResponsesUnknownReopenRecoveryBothWriters(t *testin
 			require.NoError(t, model.DB.First(&token, token.Id).Error)
 			require.Equal(t, int64(1000000-120), token.RemainQuota)
 			require.Equal(t, int64(120), token.UsedQuota)
+			require.NoError(t, model.DB.First(&f.channel, f.channel.Id).Error)
+			require.Equal(t, int64(120), f.channel.UsedQuota, "repeated recovery must project final channel usage exactly once")
 
 			if mode == model.QuotaWriterModeLegacy {
 				legacy, err := model.FindLegacyUsageReservation(context.Background(), model.DB, reservation.RequestID)
@@ -357,6 +399,8 @@ func TestAssignedAccessStrictResponsesUnknownReopenRecoveryBothWriters(t *testin
 				require.Equal(t, int64(100), legacy.TokenReservedQuota)
 				require.NotNil(t, legacy.ActualQuota)
 				require.EqualValues(t, 120, *legacy.ActualQuota)
+				require.Zero(t, legacy.ChannelID)
+				require.Equal(t, originModel, legacy.ModelName)
 				return
 			}
 			// Manual authoritative reconciliation applies one terminal receipt
@@ -382,6 +426,8 @@ func TestAssignedAccessStrictResponsesUnknownReopenRecoveryBothWriters(t *testin
 			require.Equal(t, expectedAuditKey, terminalReceipts[0].AuditKey)
 			require.Equal(t, int64(120), terminalReceipts[0].RequestedQuota)
 			require.Equal(t, int64(120), terminalReceipts[0].AppliedQuota)
+			require.Zero(t, terminalReceipts[0].BillingContext.ChannelID)
+			require.Equal(t, originModel, terminalReceipts[0].BillingContext.OriginModelName)
 			require.Equal(t, terminalReceipts[0].RequestedDeltas, terminalReceipts[0].AppliedDeltas)
 			require.Equal(t, int64(-20), terminalReceipts[0].AppliedDeltas.UserQuota)
 			require.Equal(t, int64(-20), terminalReceipts[0].AppliedDeltas.TokenRemainQuota)

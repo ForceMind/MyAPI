@@ -2,6 +2,10 @@
 
 ## 当前目标与授权
 
+当前追加阶段：第二轮真实行为测试发现 strict 人工核对丢渠道归因，按下方修复合同实施。
+本片由纯证据改为实际 BUG 修复，源码候选版本准备从 beta.11 递增为 beta.12；
+标签/Release/镜像未发布，历史冻结和部署数据范围待答的条件仍保持。
+
 用户要求部署已验版本并继续下一版本开发。部署授权已经收到；历史账务冻结仍保留，
 若路径涉及原库账务/schema、丢弃或迁移账号/渠道/Key，先确定该具体数据范围。
 部署与本片开发分开，不以历史阻断停止独立源码开发。
@@ -57,6 +61,7 @@ manifest SHA 与成功消费 job 的外部 `FULL_MANIFEST_SHA` 一致：
 不扩模型/协议资格、严格 USD、百分比分摊、failover 或商业拆除；不触碰生产和旧记录，
 不恢复任何 `DO_NOT_RESTORE` 副本，不创建发布标签或推动 main。VERSION 先保留未发布 beta.11，
 测试证据批次以准确提交标识，实际应用行为交付时再统一版本准备。
+上句是首次仅测试阶段的决定；当前实际渠道修复依据下方追加合同统一准备 beta.12 源码版本。
 
 ## 分工、资源与失败处理
 
@@ -114,3 +119,52 @@ RequestedDeltas=AppliedDeltas、wallet=-20、Key remain=-20/used=+20、subscript
 并保留中间预留、最终余额及单日志/决策/回执断言。
 非实现者再次逐行复审通过；格式与差异检查通过，行为仍待修订准确 head 的 CI。
 下一片个人策略提取仍等待当前准确源码行为 CI 成功，修订执行身份与终态在 Draft PR #13 回读。
+
+## 第二轮真实失败与实际渠道归因修复
+
+修订源码 `068a012e98b92023b519a5fdea20d12c0e53ec28`、tree
+`379691ff4576f7a521a7e3ac56f7e34aa56a8783`，实际合并检出 `b09884271da4debb843423e58616144bfed1af80`
+已回读同一 tree。[CI 38436481872](https://github.com/ForceMind/MyAPI/actions/runs/38436481872)
+后端两 writer 均在 `assigned_budget_flow_test.go:323` 失败：manual decision 期待渠道1、实际0。
+原始失败作业日志保留，不把另外成功项替代这一失败或称后续 race 已执行。
+
+两位只读审查者与主代理确认实际缺口：`PreConsumeBilling` 在自动选渠道前执行，
+legacy reservation / authoritative reserve receipt 因此合法冻结渠道0；
+严格 Token 预留在选定渠道后、生成派送前已把同 request/user/token 的正渠道持久化。
+`GetUsageReview` 校验归属后未使用这份证据，导致后续新 manual decision/消费日志仍渠道0，
+`ProjectUsageReview` 因而跳过渠道用量累计。这里的正确行为不能通过把测试期待改成0实现。
+
+最小修复合同：
+
+- 仅修改 `GetUsageReview` 的 strict 读模型：在已有 request/user/token 归属校验后检查正渠道，
+  缺失0用本请求 strict reservation 的渠道补入内存视图；已有正值同值保持，冲突返回
+  `ErrTokenBudgetConflict`。不读取当前渠道/配置/原始日志，不推断未知身份。
+- 保留原始 `OriginModelName`；出站 `budget.ModelName` 可能有映射，不覆盖或直接比较。
+  原状态/action资格保持，不扩协议；不修改旧 receipt、legacy row、strict reservation、
+  fingerprint、金额、既有 decision 或历史统计，不增加 schema/worker。
+- Router 保留0→最终正渠道的真实断言，新增消费日志归因及渠道用量只累计120一次；
+  同时证明原预扣和 terminal 继承的冻结渠道仍0，金额/Token/unknown/幂等合同全部保留。
+- 既有三库 `selfUseCoupledReviewDatabaseContract` 用真实 Channel fixture 验证两 writer 的
+  view/new decision/日志/渠道累计与原预扣证据不变；SQLite轻量负例验证冲突和无效渠道拒绝，
+  非 strict/既有 decision 保留。新商业隔离测试只是另一片已批准边界的准备，不提取生产策略。
+
+所有权：`personal_dependency_plan_20261014`（派工Sol/ultra）独占
+`model/usage_review.go`、`model/usage_review_database_test.go`、
+`model/usage_review_channel_attribution_test.go`；`next_core_plan_20261014`（派工Sol/high）独占
+两 Router 测试及两隔离测试草稿；非实现者独立复审；主代理持有版本/文档/CI/Git。
+不递归，四槽上限，本机只静态检查；Actions执行实际行为/race/三库与必要镜像验收。
+
+此次实际应用行为修复按版本约定准备 `0.2.0-beta.12`：统一 `VERSION`、根 `package.json`
+与部署默认引用。`web/`、`electron/` 的私有构建包版本1.0.0是各自工具元数据；
+应用显示版本仍取统一 VERSION。没有创建 beta.11/beta.12 标签或 Release，没有覆盖 beta.10。
+已验 `0000e865` beta.11 制品保留为当时证据，它不含本修复；实际部署目标需修复准确 head
+完成新的验收并明确数据范围后固定，不能沿用旧镜像声称已修复。
+
+自行复核：变化只补已存在且归属相符的持久渠道证据，不新建账本或改变预扣身份；
+冲突保持未知，金额与冻结历史保持原值。三库夹具要有真实渠道，防止0记录掩盖缺表/漏统计。
+本片最可能风险是模型语义混用和回填旧决策，已明确禁止并安排对应回归。
+下一片纯策略提取仍待当前实际修复准确 CI 成功；当前阶段状态为修复中、未验证、未部署。
+
+本轮代码检查点：最小11行读模型修复、Router映射/渠道一次投影、三库真实Channel及两轻量canary均已实现；
+非实现者对最终代码静态复审通过，无剩余阻断。gofmt/diffcheck通过，未运行本地Go/DB。
+行为仍待第三轮准确源码Actions，当前状态为待验证。纯策略提取未开始，历史和生产保持原状。
