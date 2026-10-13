@@ -120,8 +120,32 @@ refetch Promise 返回后 observer 通知仍可异步，后继将首个错误状
 后继仅将商业图表旅程临时设 enabled 后恢复原模式，并将 setup 的点击限定侧栏链接。
 没有改变共享 fixture 默认或移除图表/几何/关闭侧栏断言，不使用 force click。
 该轮 Profile 和稳定性浏览器已执行，setup 提前失败阻断后续个人状态/新工作台/完整 UI；
-不能称新工作台已验。八项专项 success，Backend 终态另记。失败日志与 3.5 MB 合成 UI 产物保留，
+不能称新工作台已验。八项专项 success，Backend cancelled，整轮最终 cancelled。失败日志与 3.5 MB 合成 UI 产物保留，
 artifact `11807256263` 的 ZIP SHA-256 为 `8236bf32ae4ab79374fbe53b0b1ff9d101b5fc15153e8adbdb10437d1b090940`。
+
+第五轮源码 `af79f577b0bba455076176f088c509c8ea5108f9`，tree
+`894a9561691bae33200a40692b3a83aacb768191`，已正常推送并回读；
+[CI 38387234709](https://github.com/ForceMind/MyAPI/actions/runs/38387234709) 的 checkout
+`cf8d1963368cf1f53dcd1b2899022957651ba06e` parents 为冻结 base 与该候选，API 回读 tree 与候选一致。
+两处浏览器旅程修正已独立静态复审。准确候选的 `TestTokenBudgetConfiguredDatabases`
+在 SQLite、MySQL 5.7、PostgreSQL 9.6 均 RUN/PASS，零 skip，含 send/cancel 竞争合同；
+该轮十项作业最终 success，含 Typecheck/Lint、204 文件 / 1,264 前端测试、生产构建、
+完整 Go 测试、独立 relaykit 与各 race 门禁。新工作台实际 10 journeys / 13 图 / 10 个构建标识通过，
+sourceHead/workflowHead 均为上述 checkout，构建标识为
+`rv.0.2.0-beta.11.cf8d1963368cf1f53dcd1b2899022957651ba06e.2k6e8r7p`。
+Profile 9、安装/安全状态恢复 10、安装布局/登录/Profile 25、个人状态 6、完整 UI 32、
+Playground 8 旅程分别通过；完整 UI 含 42 设置入口 / 238 图，Playground 96 图，个人状态 8 图。
+这些计数分属各脚本，不相加当成独立业务能力。UI artifact `11808595171` / 30,167,357 bytes，
+API digest 与实际 ZIP SHA-256 同为 `54337781b625484fefc040cbe1aa3305b23ba2dc8861f1c75bc5b2881bd5a9a5`。
+有界下载后只提取报告及相关个人页截图，未安装浏览器或运行本机构建。
+
+主代理已逐张查看新工作台 13 图，发现英文桌面的未选 Key 文本被省略号截断。
+后继将 RequestFlow 的身份文本改为完整换行，并在每张截图前增加真实 Range 行框、滚动尺寸及
+无省略号检查，将实际 `selectedKeyReadable` 写入截图报告；不改变数据、i18n、权限或预算合同。
+原绿灯与图像保留，只覆盖本轮原源码；后继视觉修正需重新执行准确源码验收。
+独立视觉审查实际查看同一 13 图，确认上述截断为唯一 P2 阻断；其余图未见阻断，
+法语顶栏 breadcrumb 的共享响应式省略为非阻断，页面 H1 与工作台内容完整。
+两份局部修正经独立静态复核通过；unknown gate 只有交互/请求证据，没有专门截图。
 
 ## 剩余个人核心与下一片合同
 

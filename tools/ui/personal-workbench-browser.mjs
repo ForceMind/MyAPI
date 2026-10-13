@@ -659,6 +659,17 @@ async function screenshot(page, scenario, suffix) {
     await settled(page)
   }
   await assertLayout(page, scenario)
+  const selectedKeyReadable = await page.getByTestId('request-flow-selected-key').evaluate(element => {
+    const bounds = element.getBoundingClientRect()
+    const range = document.createRange()
+    range.selectNodeContents(element)
+    const lines = [...range.getClientRects()].filter(line => line.width > 0 && line.height > 0)
+    return lines.length > 0 && element.scrollWidth <= element.clientWidth + 1 &&
+      element.scrollHeight <= element.clientHeight + 1 && getComputedStyle(element).textOverflow !== 'ellipsis' &&
+      lines.every(line => line.left >= bounds.left - 1 && line.right <= bounds.right + 1 &&
+        line.top >= bounds.top - 1 && line.bottom <= bounds.bottom + 1)
+  })
+  assert(selectedKeyReadable, 'Selected Key identity and the unselected prompt remain fully readable')
   const file = `${scenario.name}-${suffix}.png`
   await page.screenshot({ path: resolve(output, file), fullPage: true })
   report.screenshots.push({
@@ -667,6 +678,7 @@ async function screenshot(page, scenario, suffix) {
     sourceHead,
     buildRevision: report.buildRevisions.at(-1)?.revision || null,
     fixtureTime: new Date(FIXTURE_TIME).toISOString(),
+    selectedKeyReadable,
   })
   persist()
 }

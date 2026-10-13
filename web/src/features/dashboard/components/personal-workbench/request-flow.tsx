@@ -33,7 +33,10 @@ export function RequestFlow(props: {
             {t('Selected Key')}
           </p>
           <div className='mt-1 flex min-w-0 flex-wrap items-center gap-2'>
-            <span className='min-w-0 truncate font-medium'>
+            <span
+              data-testid='request-flow-selected-key'
+              className='min-w-0 font-medium [overflow-wrap:anywhere]'
+            >
               {props.selectedKey?.name ?? t('No Key selected')}
             </span>
             {props.statusLabel ? (
