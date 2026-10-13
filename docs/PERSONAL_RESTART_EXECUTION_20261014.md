@@ -81,8 +81,8 @@ Terra 不在当前可调用模型列表，本片使用已有 Sol 组合；独立
 | 原库部署条件 | 未满足 | 只读元数据证实 writer/cache 与 execution 阻断；数据保留选择待答 |
 | 固定候选 Docker 准备 | 已完成 | 手动 `38430541538` 五项 success；Full 制品身份和外部 manifest SHA 已验证，未加载/部署 |
 | 新请求跨重开组合 | 待验证 | 已实现两 writer SQLite 组合，复用现有三库原语合同；不是完整进程重启或生产恢复证据 |
-| 准确源码 Actions 与独立审查 | 待验证 | 独立静态复审通过，准确新 head 的 Actions 尚未执行 |
-| 新开发批次提交与 Draft PR | 未开始 | 单独分支，保留当前部署候选与历史分支 |
+| 准确源码 Actions 与独立审查 | 待验证 | 首轮实际失败已定位，manual 合同修订再次静态独审通过，等待修订 head 的 Actions |
+| 新开发批次提交与 Draft PR | 进行中 | `eed63b5` 已正常推送 [Draft PR #13](https://github.com/ForceMind/MyAPI/pull/13)，远端 head 已回读；当前修正测试合同 |
 
 首轮只读独审指出：仅证明最终余额和 Token 预留，不能排除原 writer 在 unknown 期间先退款、
 核对时再扣款的错误实现。已补齐 unknown 后及重开后、核对前的原 writer 持久身份/预留、
@@ -90,5 +90,27 @@ Terra 不在当前可调用模型列表，本片使用已有 Sol 组合；独立
 复审又核清测试场景的原 writer 预扣为100，严格 Token 预留为120；
 新测试显式保存、设置并还原 `constant.CountToken=false` 固定该场景。
 原 writer 两次保持100，恢复明确核对金额120，仅补差20，Token 实际使用110。
-非实现者 `deploy_boundary_20261014` 对最终代码静态复审通过，无阻断项；
-行为、race 与包级/既有三库回归仍以准确新 head 的 Actions 终态为准，不以静态通过替代。
+非实现者 `deploy_boundary_20261014` 对首轮代码静态复审通过；随后实际 CI 暴露下面的合同错误，
+静态结论不覆盖行为失败。行为、race 与包级/既有三库回归仍以准确新 head 的 Actions 终态为准。
+
+## 首轮实际失败与合同纠正
+
+源码 `eed63b50802ed25bddd84a29a5557e1fa3eae984`，tree `36e90b24788ee25a490678971bba6d7c808cc203`，
+[CI 38433585815](https://github.com/ForceMind/MyAPI/actions/runs/38433585815) 的完整后端在
+`TestAssignedAccessStrictResponsesUnknownReopenRecoveryBothWriters/authoritative` 失败：
+`assigned_budget_flow_test.go:347` 期待自动 settlement fact 一条，实际零条。
+失败提交、原始 GitHub 作业日志及本地私有副本保留；不是已通过的行为证据。
+
+代码回读确认人工核对经 `ReconcileUsageReview` → `ResolveAccountQuotaUnknownUsage` →
+`applyAccountQuotaTerminalReviewed`，使用原 terminal mutation 事务回执，不创建自动结算 fact。
+首轮实现及静态审查误把自动结算合同用于人工核对。下一修订以真实 manual decision、
+terminal receipt/obligation 的身份及终态、精确双边余额和幂等补差证明一致性，
+同时确认该人工路径没有新增自动 fact；不为满足错误断言修改生产路径或重复创建债务。
+首轮最终为 failure：后端上述测试失败，其他九项 success；后续 race 因完整测试提前失败未执行，
+不能用另外九项或旧 race 结果代替。修订测试已明确自动 intent/fact 为零，
+补齐 decision actor/user/token/channel/model、120/100/10证据与投影标记；
+head、唯一 terminal receipt、已完成 lifecycle 的原 reserve/writer/fingerprint/audit 身份相连，
+RequestedDeltas=AppliedDeltas、wallet=-20、Key remain=-20/used=+20、subscription=0，
+并保留中间预留、最终余额及单日志/决策/回执断言。
+非实现者再次逐行复审通过；格式与差异检查通过，行为仍待修订准确 head 的 CI。
+下一片个人策略提取仍等待当前准确源码行为 CI 成功，修订执行身份与终态在 Draft PR #13 回读。

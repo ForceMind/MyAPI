@@ -315,6 +315,23 @@ func TestAssignedAccessStrictResponsesUnknownReopenRecoveryBothWriters(t *testin
 			var decisions int64
 			require.NoError(t, model.DB.Model(&model.UsageReviewDecision{}).Where("request_id = ?", reservation.RequestID).Count(&decisions).Error)
 			require.EqualValues(t, 1, decisions)
+			var decision model.UsageReviewDecision
+			require.NoError(t, model.DB.Where("request_id = ?", reservation.RequestID).First(&decision).Error)
+			require.Equal(t, f.root.Id, decision.ActorID)
+			require.Equal(t, f.user.Id, decision.UserID)
+			require.Equal(t, token.Id, decision.TokenID)
+			require.Equal(t, f.channel.Id, decision.ChannelID)
+			require.Equal(t, model.TokenBudgetOpenAIChatModel, decision.ModelName)
+			require.Equal(t, int64(120), decision.ActualQuota)
+			require.Equal(t, evidence, decision.EvidenceReference)
+			require.Len(t, decision.EvidenceDigest, 64)
+			require.NotNil(t, decision.ActualInputTokens)
+			require.Equal(t, int64(100), *decision.ActualInputTokens)
+			require.NotNil(t, decision.ActualOutputTokens)
+			require.Equal(t, int64(10), *decision.ActualOutputTokens)
+			require.Nil(t, decision.ActualFeeUSD)
+			require.True(t, decision.StatisticsApplied)
+			require.True(t, decision.LogProjected)
 			var logs []model.Log
 			require.NoError(t, model.DB.Where("request_id = ? AND type = ?", reservation.RequestID, model.LogTypeConsume).Find(&logs).Error)
 			require.Len(t, logs, 1)
@@ -342,25 +359,51 @@ func TestAssignedAccessStrictResponsesUnknownReopenRecoveryBothWriters(t *testin
 				require.EqualValues(t, 120, *legacy.ActualQuota)
 				return
 			}
-			var facts []model.AccountQuotaSettlementFact
-			require.NoError(t, model.DB.Where("request_id = ? AND kind = ?", reservation.RequestID, model.AccountQuotaSettlementKindAuthoritative).Find(&facts).Error)
-			require.Len(t, facts, 1)
-			require.Equal(t, model.AccountQuotaSettlementApplied, facts[0].State)
-			require.Equal(t, int64(120), facts[0].ActualQuota)
-			require.True(t, facts[0].FundingApplied)
-			require.True(t, facts[0].TokenApplied)
+			// Manual authoritative reconciliation applies one terminal receipt
+			// directly. The automatic settlement-intent/fact path is not involved.
+			var facts int64
+			require.NoError(t, model.DB.Model(&model.AccountQuotaSettlementFact{}).Where("request_id = ?", reservation.RequestID).Count(&facts).Error)
+			require.Zero(t, facts)
+			var intents int64
+			require.NoError(t, model.DB.Model(&model.AccountQuotaSettlementIntent{}).Where("request_id = ?", reservation.RequestID).Count(&intents).Error)
+			require.Zero(t, intents)
 			var terminalReceipts []model.AccountQuotaMutationReceipt
 			require.NoError(t, model.DB.Where("request_id = ? AND phase = ?", reservation.RequestID, model.AccountQuotaPhaseSettle).Find(&terminalReceipts).Error)
 			require.Len(t, terminalReceipts, 1)
+			var head model.AccountQuotaReservationHead
+			require.NoError(t, model.DB.Where("request_id = ?", reservation.RequestID).First(&head).Error)
+			require.Equal(t, beforeRestart.Head.RootReceiptID, head.RootReceiptID)
+			require.Equal(t, beforeRestart.Head.CurrentReceiptID, head.CurrentReceiptID)
+			require.Equal(t, terminalReceipts[0].ID, head.TerminalReceiptID)
+			require.Equal(t, int64(100), head.AppliedQuota)
 			require.Equal(t, beforeRestart.Head.CurrentReceiptID, terminalReceipts[0].ParentReceiptID)
+			require.Equal(t, model.AccountQuotaPhaseSettle, terminalReceipts[0].Phase)
+			expectedAuditKey := fmt.Sprintf("usage-review:%d:%s", f.root.Id, decision.EvidenceDigest)
+			require.Equal(t, expectedAuditKey, terminalReceipts[0].AuditKey)
 			require.Equal(t, int64(120), terminalReceipts[0].RequestedQuota)
 			require.Equal(t, int64(120), terminalReceipts[0].AppliedQuota)
+			require.Equal(t, terminalReceipts[0].RequestedDeltas, terminalReceipts[0].AppliedDeltas)
+			require.Equal(t, int64(-20), terminalReceipts[0].AppliedDeltas.UserQuota)
+			require.Equal(t, int64(-20), terminalReceipts[0].AppliedDeltas.TokenRemainQuota)
+			require.Equal(t, int64(20), terminalReceipts[0].AppliedDeltas.TokenUsedQuota)
+			require.Zero(t, terminalReceipts[0].AppliedDeltas.SubscriptionAmountUsed)
 			require.Equal(t, int64(1000000-100), terminalReceipts[0].Before.User.Quota)
 			require.Equal(t, int64(1000000-120), terminalReceipts[0].After.User.Quota)
 			require.Equal(t, int64(1000000-100), terminalReceipts[0].Before.Token.RemainQuota)
 			require.Equal(t, int64(1000000-120), terminalReceipts[0].After.Token.RemainQuota)
 			require.Equal(t, int64(100), terminalReceipts[0].Before.Token.UsedQuota)
 			require.Equal(t, int64(120), terminalReceipts[0].After.Token.UsedQuota)
+			var obligation model.AccountQuotaTerminalRecoveryObligation
+			require.NoError(t, model.DB.Where("request_id = ?", reservation.RequestID).First(&obligation).Error)
+			require.Equal(t, beforeRestart.Head.CurrentReceiptID, obligation.ReserveReceiptID)
+			require.Equal(t, model.AccountQuotaPhaseSettle, obligation.Phase)
+			require.Equal(t, expectedAuditKey, obligation.AuditKey)
+			require.Equal(t, int64(120), obligation.ActualQuota)
+			require.Equal(t, head.WriterEpoch, obligation.WriterEpoch)
+			require.Equal(t, head.ReserveFingerprint, obligation.RequestFingerprint)
+			require.Equal(t, model.AccountQuotaTerminalRecoveryApplied, obligation.State)
+			require.Equal(t, terminalReceipts[0].ID, obligation.TerminalReceiptID)
+			require.Empty(t, obligation.LastError)
 		})
 	}
 }
