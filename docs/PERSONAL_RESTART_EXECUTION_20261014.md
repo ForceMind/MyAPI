@@ -168,3 +168,13 @@ legacy reservation / authoritative reserve receipt 因此合法冻结渠道0；
 本轮代码检查点：最小11行读模型修复、Router映射/渠道一次投影、三库真实Channel及两轻量canary均已实现；
 非实现者对最终代码静态复审通过，无剩余阻断。gofmt/diffcheck通过，未运行本地Go/DB。
 行为仍待第三轮准确源码Actions，当前状态为待验证。纯策略提取未开始，历史和生产保持原状。
+
+### 第三轮发行模板遗漏
+
+修复提交 `22698c8ba22ab12406e4bf24f31bd78bd48822b4`、tree
+`6609272752e3d1711614fb28d0e6e56a0da94233` 的
+[CI 38442852308](https://github.com/ForceMind/MyAPI/actions/runs/38442852308)
+发行合同作业先失败：隐藏文件 `deploy/.env.example` 仍引用beta.11，与根版本beta.12不一致。
+主代理漏掉此处统一元数据；现修订为beta.12并链接本候选说明，未改其他运行设置或放宽测试。
+原始作业日志保留。最终终态及其他作业以该run回读为准，不能据此宣称行为已通过。
+下一准确提交重新验证；纯策略提取继续等待修复验证，生产与历史均未变。
