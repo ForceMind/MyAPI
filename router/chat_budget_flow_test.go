@@ -30,6 +30,7 @@ import (
 	"github.com/ForceMind/MyAPI/setting/ratio_setting"
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -51,6 +52,7 @@ type chatBudgetFlowFixture struct {
 	user           model.User
 	root           model.User
 	channel        model.Channel
+	closeReopened  func() error
 	serial         atomic.Int64
 	hits           atomic.Int64
 	currentTokenID atomic.Int64
@@ -94,6 +96,12 @@ func setupChatBudgetFlow(t *testing.T) *chatBudgetFlowFixture {
 	setupRelayRouterTestDB(t)
 	require.NoError(t, i18n.Init())
 	db := model.DB
+	fixture := &chatBudgetFlowFixture{}
+	t.Cleanup(func() {
+		if fixture.closeReopened != nil {
+			require.NoError(t, fixture.closeReopened())
+		}
+	})
 	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}, &model.Option{},
 		&model.SubscriptionPlan{}, &model.UserSubscription{}, &model.SubscriptionPreConsumeRecord{},
 		&model.UserQuotaMutationReceipt{}, &model.AccountQuotaMutationReceipt{}, &model.AccountQuotaReservationHead{},
@@ -127,7 +135,7 @@ func setupChatBudgetFlow(t *testing.T) *chatBudgetFlowFixture {
 	t.Cleanup(func() {
 		// Remove only this isolated database's pricing state, then republish an
 		// empty provenance generation before restoring the pre-test settings.
-		require.NoError(t, db.Where("1 = 1").Delete(&model.Option{}).Error)
+		require.NoError(t, model.DB.Where("1 = 1").Delete(&model.Option{}).Error)
 		model.InitOptionMap()
 		require.NoError(t, config.GlobalConfig.LoadFromDB(savedConfig))
 		require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(oldRatios))
@@ -149,7 +157,6 @@ func setupChatBudgetFlow(t *testing.T) *chatBudgetFlowFixture {
 		return err
 	}))
 	require.NoError(t, model.PublishUserFundingState(funding))
-	fixture := &chatBudgetFlowFixture{}
 	fixture.user = model.User{Username: "chat-budget-owner", AffCode: "chat-budget-owner", Status: common.UserStatusEnabled, Group: "default", Quota: 1000000, AuthVersion: 1}
 	rootPAT := "chat-budget-root-pat"
 	fixture.root = model.User{Username: "chat-budget-root", AffCode: "chat-budget-root", Status: common.UserStatusEnabled, Role: common.RoleRootUser, AccessToken: &rootPAT}
@@ -161,14 +168,7 @@ func setupChatBudgetFlow(t *testing.T) *chatBudgetFlowFixture {
 	fixture.channel.SetOtherSettings(dto.ChannelOtherSettings{AllowServiceTier: true})
 	require.NoError(t, db.Create(&fixture.channel).Error)
 	require.NoError(t, fixture.channel.AddAbilities(nil))
-	fixture.engine = gin.New()
-	fixture.engine.Use(func(c *gin.Context) {
-		c.Set(common.RequestIdKey, "chat-flow-"+strconv.FormatInt(fixture.serial.Add(1), 10))
-		common.SetContextKey(c, constant.ContextKeyAuditLogged, true)
-		c.Next()
-	})
-	SetApiRouter(fixture.engine)
-	SetRelayRouter(fixture.engine)
+	fixture.resetEngine()
 	client := chatBudgetFlowTLSClient(t, func(w http.ResponseWriter, r *http.Request) {
 		fixture.hits.Add(1)
 		fixture.assertTokenBudgetSent(t, int(fixture.currentTokenID.Load()))
@@ -195,6 +195,39 @@ func setupChatBudgetFlow(t *testing.T) *chatBudgetFlowFixture {
 	})
 	fixture.publish(t, chatFlowPriceDocument, strings.Repeat("a", 64))
 	return fixture
+}
+
+func (f *chatBudgetFlowFixture) resetEngine() {
+	f.engine = gin.New()
+	f.engine.Use(func(c *gin.Context) {
+		c.Set(common.RequestIdKey, "chat-flow-"+strconv.FormatInt(f.serial.Add(1), 10))
+		common.SetContextKey(c, constant.ContextKeyAuditLogged, true)
+		c.Next()
+	})
+	SetApiRouter(f.engine)
+	SetRelayRouter(f.engine)
+}
+
+func (f *chatBudgetFlowFixture) restartDatabase(t *testing.T) {
+	t.Helper()
+	require.Nil(t, f.closeReopened, "the fixture supports one explicit database restart")
+	require.Eventually(t, func() bool { return gopool.WorkerCount() == 0 }, 5*time.Second, time.Millisecond)
+	var database struct{ File string }
+	require.NoError(t, model.DB.Raw("PRAGMA database_list").Scan(&database).Error)
+	require.NotEmpty(t, database.File, "restart requires the fixture's persistent SQLite file")
+	oldPool, err := model.DB.DB()
+	require.NoError(t, err)
+	require.NoError(t, oldPool.Close())
+	reopened, err := gorm.Open(sqlite.Open(database.File), &gorm.Config{})
+	require.NoError(t, err)
+	reopenedPool, err := reopened.DB()
+	require.NoError(t, err)
+	f.closeReopened = reopenedPool.Close
+	require.NoError(t, reopenedPool.Ping())
+	model.DB, model.LOG_DB = reopened, reopened
+	model.InitColumnNamesForTest()
+	require.True(t, model.RefreshAccountQuotaSettlementIntentSchemaCapability(reopened))
+	f.resetEngine()
 }
 
 func (f *chatBudgetFlowFixture) setResponder(handler http.HandlerFunc) { f.serve.Store(&handler) }
