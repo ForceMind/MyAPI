@@ -152,7 +152,7 @@ describe('personal workbench data boundaries', () => {
       await result.current.selfQuery.refetch()
     })
 
-    expect(result.current.identityError).toBe(true)
+    await waitFor(() => expect(result.current.identityError).toBe(true))
     expect(result.current.identityConfirmed).toBe(false)
     expect(result.current.freshUser).toBeUndefined()
     expect(result.current.canReadChannels).toBe(false)
@@ -196,7 +196,7 @@ describe('personal workbench data boundaries', () => {
       await result.current.keysQuery.refetch()
     })
 
-    expect(result.current.keysError).toBe(true)
+    await waitFor(() => expect(result.current.keysError).toBe(true))
     expect(result.current.confirmedKeys).toBeUndefined()
     expect(result.current.selectedKey).toBeUndefined()
   })

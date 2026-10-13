@@ -99,4 +99,28 @@ Root 显式打开原用量策略对话框时保留存量政策证据；默认工
 [CI 38384435207](https://github.com/ForceMind/MyAPI/actions/runs/38384435207) 已通过 Typecheck，
 Lint 报七个错误（测试按钮缺 type、重复 React import、fixture 非空断言），已作局部修正；
 没有关闭 lint 规则或删除行为断言。本轮前端 test/build/Chromium 未执行。
-三库专项等八项已 success，Backend 尚未结束；最终状态由后续回读补充。
+三库专项等八项 success，Backend 随后因后继运行 cancelled；整轮最终 cancelled，保留前端 failure。
+
+第三轮源码 `cd6cb9fd35072af81365c6776d8039c24e71aa3c`，tree
+`58ccdf080bb5ec84e80d0784dff6ae2cb77d6b67`，已正常推送并回读；
+[CI 38385305585](https://github.com/ForceMind/MyAPI/actions/runs/38385305585) 已通过 Typecheck/Lint，
+前端 1,262 passed / 2 failed，均在刷新失败后的 hook 状态断言，build/Chromium 未执行。
+refetch Promise 返回后 observer 通知仍可异步，后继将首个错误状态断言改为 `waitFor`，
+保留撤销旧身份/权限/Key 确认的全部原断言，不加固定等待、不改生产逻辑；需由后继执行核实。
+其他作业终态另记。坏 epoch fixture 采用必填 capabilities 类型并直接赋值，
+不允许静默跳过，独立静态复审通过。
+
+## 剩余个人核心与下一片合同
+
+本批只推进最终生成派送边界，不宣称个人核心全部完成。现有严格预算入口仍只确认无 query 的
+POST `/v1/chat/completions`、`/v1/responses`，并受原生上游、模型、字段及 usage 证据限制；
+个人无钱包端点范围与严格预算资格是不同合同，不能互相外推。
+
+后续优先补“新请求 unknown 跨重启”组合：新建、已有资格的原生 Responses 严格 Token 请求，
+两 writer 下 sent 后无可信 usage，确认 durable unknown；关闭并重开测试 DB、清除进程态后，
+同 Key 新请求仍返回 typed pending 且不调用 generation transport；Root 以精确 input/output
+证据核对两次，只产生一次结算/消费记录并释放 pending。接入现有三库门禁，先补行为测试，
+仅在暴露缺口时修改生产代码。这是新建合成请求合同，不触碰冻结历史记录。
+现有 `model/token_budget_test.go` 的 reopen 和 `service/token_budget_test.go` 的同进程 reconcile
+各自有保护，但尚未形成上述组合证据。完整协议资格、逐 Key 共享账户窗口百分比和商业代码
+物理拆除均未交付，保持原计划边界，不以本批 UI 或局部回归替代。
