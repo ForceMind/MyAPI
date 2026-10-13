@@ -1,7 +1,12 @@
 # 下一片：个人准入策略与商业资金依赖边界
 
+当前检查点：前置f1e280e准确CI最终成功后，已应用四文件纯策略提取和旧锁测试诊断，
+独立静态审查通过、格式与差异检查通过；本批提交时待准确Actions，最终验收身份与结果以
+[PR #13](https://github.com/ForceMind/MyAPI/pull/13)的最新Proof of Work为准。下方准备期状态保留为历史过程。
+
 承接已经批准的个人核心卡步骤3及用户“继续下一版本”授权。当前未知用量跨重开组合准确 CI
-通过后再写生产代码；现有 API 的 model/service 隔离测试可先在本地准备，暂不推送或执行重型验证。
+通过后再写生产代码；现有 API 的 model/service 隔离测试已随最小渠道修复推送，行为仍待准确Actions；
+本机不执行重型验证。
 这一片与部署的数据范围选择、冻结历史账务独立。
 
 目标：个人无钱包准入的决定可独立构建和验证；原 model 事务只读取已有权威状态并映射原错误，
@@ -38,6 +43,10 @@ model 在原有 admission 事务/调用位置按 NeedFundingState 调用一次 `
 FundingUnavailable→ErrUserFundingUnavailable；NeedFundingState 不越过 model adapter。
 ClaimLegacyUsageRequest、selectAccountBillingSource 中原 user→token 校验/锁后的位置不动；
 不读 runtime 缓存，不改变 legacy Claim 和 authoritative Reserve 的事务/锁/冻结字段。
+早期 middleware resolver 本身没有显式事务或锁；两个 writer 在原事务内重新判定并冻结来源，
+不把前置检查等同于最终准入，不将 authoritative 的个人判定移出原 `!FreeModel` 分支。
+最小 FundingState 有意合并 enabled/retirement 为 valid non-disabled；纯测试验证这一决定，
+真实 mode 的规范化语义继续由现有 model 合同保护，不重复制造两个同输入纯测试。
 
 `SupportsMeteredRequest(method,path,rawQuery)` 只复用现有空 rawQuery 的 POST Chat、Responses、compact；
 service 公开函数保留 nil request/URL 检查并薄适配。GET models 特例留在 middleware，
@@ -50,6 +59,8 @@ service 公开函数保留 nil request/URL 检查并薄适配。GET models 特�
 - 依赖合同只约束新的纯策略包生产依赖为标准库；不声称这已拆除整个 model/service 的商业依赖。
   依赖检查只针对非测试生产文件，使用 go list 的 Standard 元数据或等价权威信息，
   不靠导入路径字符串启发，不绑定源文件名字或内部常量值。
+  用纯包中的实际依赖回归调用 `go list -deps` 且不带 `-test`，仅对 DepOnly 且 Standard=false 的
+  生产依赖判失败；testify等仅测试依赖不进入该合同，不引入新的CI服务或额外工作流。
 - 商业故障 canary 仅声明 SQLite 的 admission/pre-consume 边界，有确定错误注入与精确数值；
   现有三库合同不冒充新 canary 三库执行。复用既有 self-use settle/cancel/unknown/到限/策略后改、
   订阅错误 fail-closed、三库 R1UsageReview/TokenBudget，不重复堆测试。
@@ -82,3 +93,24 @@ service 公开函数保留 nil request/URL 检查并薄适配。GET models 特�
 
 状态：两个隔离测试已完成静态复审（已补revision负数及先撤guard再Refund），行为待验证；纯策略/adapter未开始；部署选择待答。
 当前实际渠道修复按AGENTS准备beta.12源码元数据，此片之后沿用该候选版本；没有创建标签或Release。
+
+后继固定修复检查点 `f1e280ed50b495bd8cb1c2881644432c2a9d1682`，tree
+`ad269a25af6ea820ae57874c2a21d654fee283e2`，当前准确CI `38444132678`、Docker `38444141134` 在途。
+第三轮发行模板遗漏及第四轮S1依赖下载失败/根compose静态阻断已保留在恢复记录，未标通过。
+纯策略实施仍未开始；只读再次确认loader原错误/fallback、两writer原锁和free-model调用位置。
+
+f1准确CI attempt1的既有退款锁测试失败见恢复记录，attempt2保持源码不变已过完整Go测试、race在途。
+等待期间允许A仅在私有/tmp生成四文件策略补丁草案并静态格式检查，供独立审查；
+不应用到仓库生产/测试源、不推送、不执行本机Go/DB、不产生数据库副本。
+完整准确CI成功后再应用已审草案、合并旧测试诊断并做后继准确验证，生产写入门槛保持。
+
+## 已应用的首个策略边界
+
+前置CI38444132678 attempt2最终success；只重验同源码后端，其他九项均来自同源码首轮success。
+失败的旧退款锁测试具体原因未确认，原始证据及后继诊断保留，不改生产锁释放/退款路径。
+在此门槛之后主代理应用独审通过的四文件草案（SHA256
+`33579165098a6a9d17e458a20360767039d9346ea5767a67f4cd77f37997f677`）。
+新增纯包仅标准库依赖；model只在NeedFundingState读取一次原loader，service保留nil边界；
+两writer原调用点、free-model、事务和锁不动。枚举保留未定义零值，未知决定映射原InvalidPolicy错误。
+测试作者/提取作者/独审分离，原canary不搬迁或重复，实际Go依赖检查不带-test。
+本批无UI/API/schema变化，沿用未发布beta.12，继续Actions构建/三库/并发；最终运行结论在PR #13回读。

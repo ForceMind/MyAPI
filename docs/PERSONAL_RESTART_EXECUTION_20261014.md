@@ -195,3 +195,36 @@ legacy reservation / authoritative reserve receipt 因此合法冻结渠道0；
 其余作业及run最终状态另行回读。根compose补齐后独立只读复审通过；
 本机既有纯文件读取契约 `node --test tools/runtime/installer-workflow.test.mjs` exit0，
 不包含编译、应用初始化或数据库操作；完整行为仍由准确后继Actions承担。
+
+## 固定beta.12制品与完整后端失败
+
+源码 `f1e280ed50b495bd8cb1c2881644432c2a9d1682`、tree
+`ad269a25af6ea820ae57874c2a21d654fee283e2`，实际PR合并检出
+`c1ffb17204890b549c5a73e5a4d2b14378ad175a` 已回读同一tree。
+[Docker 38444141134](https://github.com/ForceMind/MyAPI/actions/runs/38444141134) 五作业全部success：
+Full/LAN镜像生产者、LAN源码安装、新装Full/LAN、固定旧版历史启动拒绝及原备份恢复。
+这是personal=0的现有合成验收，不扩称真实个人账户、生产历史库、Redis个人旅程或真实上游验收。
+Full归档已私有保留；外部成功消费作业115461080430提供的清单SHA为
+`e3d5caa393eced0f273f8ac2b4a031064b10f6583489fa0906a9495013505425`，
+与本地清单及归档SHA、大小、源码/树身份一致；应用镜像ID为
+`sha256:0c5e430de24e3716efb35498c5a2f12ad572440675acae255df04ff31eb51c85`。
+未加载或运行镜像，未创建发行/标签，生产未部署，数据范围选择仍待用户答复。
+
+[CI 38444132678](https://github.com/ForceMind/MyAPI/actions/runs/38444132678) attempt1最终failure：
+其他九项success，Router和Service整包通过；Model仅既有
+`TestLegacyWalletTokenRefundFactIsIdempotentAndRecoversAfterLockContention`
+在释放测试holder后再次恢复仍返回pending/busy，故完整后端失败，后续race未执行。
+两位只读审查者确认现有错误不能区分显式user锁残留、setup token锁残留或SetNX自身超时；
+void release丢弃错误，原测试没有“已释放”的观测证据。独立fresh Redis、无model并行测试，
+当前证据不支持本次读视图修复导致此失败，也不能据一次失败断定flaky或生产根因。
+原始失败日志私有保留；已保持源码不变，只重验失败后端一次，attempt2在途，未标通过。
+
+同时仅加强上述旧合成测试的诊断：setup两侧锁均不存在，显式holder归属，checked release确认及
+两侧键不存在，Run前后安全存在性/TTL/是否为显式user holder信息；提前退出时安全释放holder。
+不输出锁token、不直接DEL、不等TTL、不弱化余额/退款/幂等断言，不改生产batch/refund路径或历史数据。
+诊断改动待独立静态复审及后继准确Actions；个人策略生产提取仍未开始。
+
+后继回读：f1源码CI38444132678 attempt2最终success；仅重验失败后端，完整Go、独立relaykit及
+全部既有race组通过，其他九项保留同源码首轮success。首轮失败不撤销，具体锁失败原因仍未确认。
+旧测试诊断经非实现者独审通过，未运行本机Go/DB；随后在完整前置CI成功后应用已审个人策略提取，
+本批准确后继CI与镜像身份/结果以Draft PR #13最新Proof of Work为准，不用f1旧制品代替。

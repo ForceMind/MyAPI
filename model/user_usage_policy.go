@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/pkg/personalusage"
 	"github.com/ForceMind/MyAPI/setting/operation_setting"
 	"gorm.io/gorm"
 )
@@ -148,20 +149,29 @@ func ConfigureUserUsagePolicy(ctx context.Context, db *gorm.DB, actorID int, inp
 // wallet bypass. The selected source is persisted with the request and is not
 // recomputed during settlement, cancellation or manual recovery.
 func selfUseNoBalanceAdmissionTx(tx *gorm.DB, user *User) (bool, error) {
-	if !user.SelfUseNoBalance {
-		return false, nil
+	decision := personalusage.EvaluateAdmission(user.SelfUseNoBalance, user.UsagePolicyRevision, nil)
+	if decision == personalusage.NeedFundingState {
+		state, _, err := readUserFundingStateTx(tx, false)
+		if err != nil {
+			return false, err
+		}
+		decision = personalusage.EvaluateAdmission(user.SelfUseNoBalance, user.UsagePolicyRevision, &personalusage.FundingState{
+			Valid:    state.Valid,
+			Disabled: state.Mode == operation_setting.UserFundingModeDisabled,
+		})
 	}
-	if user.UsagePolicyRevision <= 0 {
+	switch decision {
+	case personalusage.ConfiguredFunding:
+		return false, nil
+	case personalusage.SelfUseFunding:
+		return true, nil
+	case personalusage.InvalidPolicy:
+		return false, ErrUserUsagePolicyInvalid
+	case personalusage.FundingUnavailable, personalusage.NeedFundingState:
+		return false, ErrUserFundingUnavailable
+	default:
 		return false, ErrUserUsagePolicyInvalid
 	}
-	state, _, err := readUserFundingStateTx(tx, false)
-	if err != nil {
-		return false, err
-	}
-	if !state.Valid {
-		return false, ErrUserFundingUnavailable
-	}
-	return state.Mode == operation_setting.UserFundingModeDisabled, nil
 }
 
 func ResolveSelfUseNoBalanceAdmission(ctx context.Context, db *gorm.DB, userID int) (bool, error) {

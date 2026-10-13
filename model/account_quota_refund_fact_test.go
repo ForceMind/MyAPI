@@ -12,9 +12,15 @@ import (
 )
 
 func TestLegacyWalletTokenRefundFactIsIdempotentAndRecoversAfterLockContention(t *testing.T) {
-	dbFixture, fixture := openLegacyBalanceBatchTest(t, "legacy-refund-fact")
+	dbFixture, fixture, server := openLegacyBalanceBatchTestWithRedis(t, "legacy-refund-fact")
+	userLockKey, err := quotaBalanceSubjectLockKey(BatchUpdateTypeUserQuota, fixture.User.Id)
+	require.NoError(t, err)
+	tokenLockKey, err := quotaBalanceSubjectLockKey(BatchUpdateTypeTokenQuota, fixture.Token.Id)
+	require.NoError(t, err)
 	require.NoError(t, DecreaseUserQuota(fixture.User.Id, 100, false))
+	require.False(t, server.Exists(userLockKey), "user debit must release its subject lock")
 	require.NoError(t, DecreaseTokenQuota(fixture.Token.Id, fixture.Token.Key, 100))
+	require.False(t, server.Exists(tokenLockKey), "token debit must release its subject lock")
 	factInput := AccountQuotaRefundFactInput{
 		EventKey: "billing-refund:legacy-refund-fact:v1", Kind: AccountQuotaRefundFactKindLegacyWallet,
 		RequestID: "legacy-refund-fact", UserID: fixture.User.Id, TokenID: fixture.Token.Id,
@@ -28,19 +34,44 @@ func TestLegacyWalletTokenRefundFactIsIdempotentAndRecoversAfterLockContention(t
 
 	holder, err := acquireQuotaBalanceSubjectLock(BatchUpdateTypeUserQuota, fixture.User.Id)
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = releaseQuotaBalanceSubjectLockContext(context.Background(), holder)
+	})
+	storedHolder, err := server.Get(holder.Key)
+	require.NoError(t, err)
+	require.True(t, storedHolder == holder.Token, "the explicit user lock must belong to its returned holder")
 	started := time.Now()
 	_, _, err = RecoverAccountQuotaRefundFact(context.Background(), dbFixture.DB, fact, "legacy-first-worker")
 	require.ErrorIs(t, err, ErrAccountQuotaRefundPending)
 	require.ErrorIs(t, err, ErrQuotaBalanceSubjectBusy)
 	assert.False(t, errors.Is(err, ErrQuotaBalanceMutationUnknown))
 	assert.GreaterOrEqual(t, time.Since(started), 1900*time.Millisecond)
-	releaseQuotaBalanceSubjectLock(holder)
+	require.NoError(t, releaseQuotaBalanceSubjectLockContext(context.Background(), holder))
+	require.False(t, server.Exists(userLockKey), "checked release must delete the explicit user lock")
+	require.False(t, server.Exists(tokenLockKey), "lock contention must not leave a token subject lock")
 
 	require.NoError(t, dbFixture.DB.First(fact, fact.ID).Error)
 	assert.Equal(t, AccountQuotaRefundFactRetryable, fact.State)
+	type subjectLockDiagnostic struct {
+		UserExists, UserMatchesHolder bool
+		UserTTL                       time.Duration
+		TokenExists                   bool
+		TokenTTL                      time.Duration
+	}
+	lockDiagnostic := func() subjectLockDiagnostic {
+		userValue, _ := server.Get(userLockKey)
+		return subjectLockDiagnostic{
+			UserExists: server.Exists(userLockKey), UserMatchesHolder: userValue != "" && userValue == holder.Token, UserTTL: server.TTL(userLockKey),
+			TokenExists: server.Exists(tokenLockKey), TokenTTL: server.TTL(tokenLockKey),
+		}
+	}
+	beforeRun := lockDiagnostic()
 	processed, err := RunAccountQuotaRefundFacts(context.Background(), dbFixture.DB, "legacy-restart-worker", 1)
-	require.NoError(t, err)
+	afterRun := lockDiagnostic()
+	require.NoError(t, err, "subject locks around RunAccountQuotaRefundFacts: before=%+v after=%+v", beforeRun, afterRun)
 	assert.Equal(t, 1, processed)
+	require.False(t, afterRun.UserExists, "RunAccountQuotaRefundFacts must release the user subject lock: before=%+v after=%+v", beforeRun, afterRun)
+	require.False(t, afterRun.TokenExists, "RunAccountQuotaRefundFacts must release the token subject lock: before=%+v after=%+v", beforeRun, afterRun)
 	require.NoError(t, dbFixture.DB.First(fact, fact.ID).Error)
 	assert.Equal(t, AccountQuotaRefundFactApplied, fact.State)
 	user, token, _ := loadAccountBalances(t, dbFixture.DB, fixture)
