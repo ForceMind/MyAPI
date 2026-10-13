@@ -178,3 +178,20 @@ legacy reservation / authoritative reserve receipt 因此合法冻结渠道0；
 主代理漏掉此处统一元数据；现修订为beta.12并链接本候选说明，未改其他运行设置或放宽测试。
 原始作业日志保留。最终终态及其他作业以该run回读为准，不能据此宣称行为已通过。
 下一准确提交重新验证；纯策略提取继续等待修复验证，生产与历史均未变。
+
+后续 `89bf730e4dfef52628f0ec22cad01c9bd8234469`、tree
+`d04bb2538e94bede2695652786afa212c60a1cf7` 的
+[CI 38443349200](https://github.com/ForceMind/MyAPI/actions/runs/38443349200) 与
+[Docker 38443382786](https://github.com/ForceMind/MyAPI/actions/runs/38443382786) 运行时，
+独立静态复审又查到根 `docker-compose.yml` 默认引用仍为beta.11，顶部候选说明更陈旧。
+主代理补齐该默认引用与候选说明；全仓含隐藏文件、排除历史文档的版本搜索未见其他beta.11运行引用。
+五处规范入口 VERSION、根package、两份compose、deploy隐藏模板用直接内容校验一致。
+第三轮最终为cancelled（发行作业failure，部分其他作业被后继运行取消），不是通过记录。
+上述89bf730的在途结果仅属于该源码，不代表随后准确修订完成；下一提交重跑准确CI与Docker，
+不复用旧制品假称新身份，不改变生产、不发布。
+
+89bf730的S1作业在setup阶段下载Go依赖失败：proxy.golang.org返回HTTP/2 INTERNAL_ERROR，
+数据库行为测试未执行。已保留私有原始日志；不归为数据库逻辑失败，也不改代码/断言绕过。
+其余作业及run最终状态另行回读。根compose补齐后独立只读复审通过；
+本机既有纯文件读取契约 `node --test tools/runtime/installer-workflow.test.mjs` exit0，
+不包含编译、应用初始化或数据库操作；完整行为仍由准确后继Actions承担。
