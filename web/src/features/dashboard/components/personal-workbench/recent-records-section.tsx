@@ -130,11 +130,11 @@ export function RecentRecordsSection(props: {
         </div>
         <div>
           <h3 id='personal-errors-title' className='text-sm font-medium'>
-            {t('Errors to inspect')}
+            {t('Errors and pending reviews')}
           </h3>
           <RecentList
             rows={props.data.errors}
-            emptyLabel={t('No errors in this summary')}
+            emptyLabel={t('No recent errors or pending reviews')}
             dateFormatter={dateFormatter}
           />
         </div>

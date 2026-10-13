@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { StatusBadge } from '@/components/status-badge'
+import { StatusBadge, type StatusVariant } from '@/components/status-badge'
 import { formatQuotaAmount } from '@/features/channels/lib/quota-history'
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
 import { toIntlLocale } from '@/i18n/languages'
@@ -28,8 +28,7 @@ export function AccountWindowList(props: { items: ChannelQuotaChangeItem[] }) {
           typeof item.current_available === 'number' &&
           Number.isFinite(item.current_available)
         let statusLabel = t('Unknown')
-        let statusVariant: 'success' | 'warning' | 'destructive' | 'neutral' =
-          'neutral'
+        let statusVariant: StatusVariant = 'neutral'
         if (availableConfirmed) {
           statusLabel = t('Snapshot available')
           statusVariant = 'success'
@@ -38,7 +37,7 @@ export function AccountWindowList(props: { items: ChannelQuotaChangeItem[] }) {
           statusVariant = 'warning'
         } else if (item.status === 'error') {
           statusLabel = t('Error')
-          statusVariant = 'destructive'
+          statusVariant = 'danger'
         } else if (item.status === 'unavailable' || item.status === 'success') {
           statusLabel = t('Snapshot unavailable')
           statusVariant = 'warning'
