@@ -201,7 +201,7 @@ try {
         await page.getByRole('button', { name: 'Sign in', exact: true }).click()
         await page.waitForURL(`${origin}/dashboard`)
         if (width === 320) await page.getByRole('button', { name: 'Toggle sidebar', exact: true }).click()
-        await page.locator('a[href="/profile"]').first().click()
+        await page.locator('[data-sidebar="sidebar"] a[href="/profile"]').click()
         if (width === 320) {
           await page.locator('[data-slot="sidebar"][data-mobile="true"]').waitFor({ state: 'hidden' })
           await page.locator('[data-slot="sheet-overlay"]').waitFor({ state: 'hidden' })

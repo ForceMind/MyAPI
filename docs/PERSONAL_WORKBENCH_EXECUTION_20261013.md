@@ -107,8 +107,21 @@ Lint 报七个错误（测试按钮缺 type、重复 React import、fixture 非�
 前端 1,262 passed / 2 failed，均在刷新失败后的 hook 状态断言，build/Chromium 未执行。
 refetch Promise 返回后 observer 通知仍可异步，后继将首个错误状态断言改为 `waitFor`，
 保留撤销旧身份/权限/Key 确认的全部原断言，不加固定等待、不改生产逻辑；需由后继执行核实。
-其他作业终态另记。坏 epoch fixture 采用必填 capabilities 类型并直接赋值，
+其他八项专项 success、Backend cancelled，整轮最终 cancelled。坏 epoch fixture 采用必填 capabilities 类型并直接赋值，
 不允许静默跳过，独立静态复审通过。
+
+第四轮 `0d86c75226aaa1dea4b1f0e76afcb7b5ef19679c`，tree
+`f9d4988d995e075729b2d4766b4ec54935561f8a`，
+[CI 38385952524](https://github.com/ForceMind/MyAPI/actions/runs/38385952524) 的 Typecheck/Lint、
+204 文件 / 1,264 前端测试及生产构建通过。实际 checkout `b6543c3590f54ea766154c3b032ea222e98e1400`
+的 parents 为冻结 base 与该候选，API 回读 tree 与候选一致。
+前端浏览器有两项失败：旧 quota overview 在默认 disabled 下等待商业图表；setup 手机导航
+用全页第一个 `/profile`，误选新工作台快捷链接并被已打开的 sidebar sheet 遮挡。
+后继仅将商业图表旅程临时设 enabled 后恢复原模式，并将 setup 的点击限定侧栏链接。
+没有改变共享 fixture 默认或移除图表/几何/关闭侧栏断言，不使用 force click。
+该轮 Profile 和稳定性浏览器已执行，setup 提前失败阻断后续个人状态/新工作台/完整 UI；
+不能称新工作台已验。八项专项 success，Backend 终态另记。失败日志与 3.5 MB 合成 UI 产物保留，
+artifact `11807256263` 的 ZIP SHA-256 为 `8236bf32ae4ab79374fbe53b0b1ff9d101b5fc15153e8adbdb10437d1b090940`。
 
 ## 剩余个人核心与下一片合同
 
