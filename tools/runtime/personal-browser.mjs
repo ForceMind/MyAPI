@@ -250,7 +250,7 @@ async function open(session, pathname, { forceLoad = false } = {}) {
   // Reusing a page already at this exact URL avoids needless cache-disabled
   // document reloads. The final persistence check explicitly forces a load.
   if (!forceLoad && session.page.url() === target) return
-  const sidebarLabels = { '/dashboard/overview': 'Personal workbench', '/keys': 'API Keys', '/playground': 'Playground', '/users': 'Users', '/usage-logs/common': 'Usage Logs' }
+  const sidebarLabels = { '/dashboard/overview': 'Personal workbench', '/keys': 'API Keys', '/playground': 'Playground', '/users': 'Users', '/usage-logs/common': 'Usage Logs', '/system-info': 'System Info' }
   if (!forceLoad && session.user && Object.hasOwn(sidebarLabels, pathname)) {
     const { page, label } = session
     const mobile = session.width === 320

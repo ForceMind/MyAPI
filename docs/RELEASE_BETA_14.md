@@ -61,6 +61,21 @@ owner 0%只读全部通过；样式几何无横向溢出，稳定态文字独审
 [Docker 38562965761](https://github.com/ForceMind/MyAPI/actions/runs/38562965761)继续补验稳定截图，
 该CLI修正不改应用代码、成功路径或截图输入，暂不重复启动镜像构建。
 
+上述Docker补验attempt1在Full的`go mod download`遇到模块代理HTTP/2 INTERNAL_ERROR，
+LAN构建/安装通过；保留记录后同一run执行attempt2，依赖下载和两种镜像构建通过。
+attempt2的legacy个人流程已输出14张稳定图，但新增版本页的额外完整刷新使同源asset收到
+429/Retry-After180，缺少qualification JSON，不能记作整条应用验收通过。
+独立源码复核找到应用已有的Root `System Info`侧栏Link，driver的路径表漏登记了该项。
+最小修正仅注册该真实Link，文档加载保持原4次，不改产品限流或增加asset重试逻辑；
+轻量合同123项及源码独审通过，新的云端版本卡仍待补验。
+legacy的320px日志稳定图已实际复审，原日志重叠视觉项关闭；版本卡与分额关闭确认实图继续待验。
+安全白名单源码 `487a8dd7d45c92181aa46042cffd30c46c52927a` 的
+[CI 38563500162](https://github.com/ForceMind/MyAPI/actions/runs/38563500162)十项全部success。
+其UI merge `6faaeb8780e045075337abd8eb56fe63b73dd5d7`与head的tree均为
+`56ad59e3649ce0494b143e3d766e50b027a4a695`，已由GitHub API回读核对；稳定分额图待独审。
+4de Docker attempt2最终4项success/2项failure，两writer均在新增版本页asset429处停止。
+当前侧栏Link修正将另以准确提交补验，不将旧source结果当作修正后已通过。
+
 资源记录：一次定向Go验证误触发了本机冷编译，已终止session 52875（exit130），
 没有测试结果，未保留运行中的Go进程。既有`/tmp/myapi-go-build-cache`留下约504MiB缓存，
 未删除数据、报告或备份。后续Go/前端编译仍交GitHub Actions。

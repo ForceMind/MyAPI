@@ -536,11 +536,12 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             navigations.push({ kind: 'toggle', locale: context.locale })
           }
           if (kind === 'link' && parents.includes('[data-myapi-sidebar]')) {
-            assert(['Personal workbench', 'API Keys', 'Playground', 'Usage Logs', 'Users'].includes(value))
+            assert(['Personal workbench', 'API Keys', 'Playground', 'Usage Logs', 'Users', 'System Info'].includes(value))
             assert(!page.logDetailsOpen, 'log dialog must be dismissed before sidebar navigation')
             if (context.locale === 'zh-CN') assert.equal(page.sidebarOpen, true, 'mobile links require the visible navigation drawer')
-            const pathname = { 'Personal workbench': '/dashboard/overview', 'API Keys': '/keys', Playground: '/playground', 'Usage Logs': '/usage-logs/common', Users: '/users' }[value]
+            const pathname = { 'Personal workbench': '/dashboard/overview', 'API Keys': '/keys', Playground: '/playground', 'Usage Logs': '/usage-logs/common', Users: '/users', 'System Info': '/system-info' }[value]
             page.current = base.baseUrl + pathname
+            onNavigate?.(page)
             page.sidebarOpen = false
             navigations.push({ kind: 'link', locale: context.locale, path: pathname })
           }
@@ -1017,9 +1018,12 @@ test('real sidebar contracts reduce document loads and final persistence load ca
   assert.equal(JSON.stringify(report.frontend).includes(base.password), false)
   assert.equal(JSON.stringify(report.frontend).includes('session-private-'), false)
   assert.deepEqual(fixture.navigations.filter(item => item.kind === 'document').map(item => [item.locale, item.path]), [
-    ['en-US', '/sign-in'], ['en-US', '/keys'], ['zh-CN', '/sign-in'], ['zh-CN', '/keys'], ['en-US', '/system-info'],
-  ]) // Five journey document loads, plus the separate real setup document.
-  assert.equal(fixture.navigations.filter(item => item.kind === 'link').length, 13)
+    ['en-US', '/sign-in'], ['en-US', '/keys'], ['zh-CN', '/sign-in'], ['zh-CN', '/keys'],
+  ]) // Four journey document loads, plus the separate real setup document.
+  assert.equal(fixture.navigations.filter(item => item.kind === 'link').length, 14)
+  assert.deepEqual(fixture.navigations.filter(item => item.path === '/system-info'), [
+    { kind: 'link', locale: 'en-US', path: '/system-info' },
+  ])
   assert.equal(fixture.navigations.filter(item => item.kind === 'toggle').length, 7)
   assert(fixture.navigations.filter(item => item.kind === 'toggle').every(item => item.locale === 'zh-CN'))
   assert.deepEqual(fixture.contexts.map(context => context.page.closedLogDialogs), [1, 1])
@@ -1407,7 +1411,7 @@ test('diagnostic caps are independent for Root and ordinary-owner sessions and l
   assert.equal(diagnosticRecords(events).filter(record => record.event === 'diagnostic-response').length, 32)
   assert.equal(diagnosticRecords(events).filter(record => record.event === 'diagnostic-limit').length, 2)
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
-  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 5, 'includes the visible build page; plus the separate setup navigation')
+  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 4, 'plus the separate setup navigation')
   assert.equal(fixture.upstreamCount(), 4)
 })
 
@@ -1474,6 +1478,6 @@ test('header Search duplicate cannot capture desktop log submission while mobile
   assert.deepEqual(fixture.usageReads.map(({ role, requestId }) => ({ role, requestId })), [
     { role: 100, requestId: 'request-private-1' }, { role: 1, requestId: 'request-private-3' },
   ])
-  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 5)
+  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 4)
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
 })
