@@ -498,7 +498,9 @@ async function preparePlayground(session, key) {
   session.scope.stage = 'key-selection'
   const selected = page.getByRole('combobox', { name: label('API key'), exact: true })
   await selected.waitFor()
-  try { await selected.locator(`option[value="${key.id}"]:checked`).waitFor() } catch {
+  // A native select's options need not have a visible box while it is closed.
+  // Wait for the exact selected option to exist, then verify the visible control.
+  try { await selected.locator(`option[value="${key.id}"]:checked`).waitFor({ state: 'attached' }) } catch {
     throw new Error('SMOKE_PERSONAL_REQUEST_MISMATCH')
   }
   requireThat(await selected.inputValue() === String(key.id), 'REQUEST_MISMATCH')

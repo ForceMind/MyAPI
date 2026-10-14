@@ -314,6 +314,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             assert.equal(value, `${keys.get(Number(page.selected))?.name} · default`)
           }
           if (kind === 'selector' && typeof value === 'string' && value.startsWith('option[value=')) {
+            assert.equal(options?.state, 'attached', 'closed native options are checked by selection, not visibility')
             assert.equal(value, `option[value="${page.selected}"]:checked`)
           }
           if (kind === 'button' && value === 'Stop' && options?.state === 'hidden') {

@@ -105,3 +105,30 @@ Full/LAN personal artifact 重名、新增 workflow inputs 未接静态测试，
 `initialProps.keyHandoff` 推断过窄，无法 rerender 为 undefined；交付合同发现运行报告阶段白名单
 未同步新工作台阶段。均为真实失败，修订显式测试类型并同步固定阶段集合，不删除测试或弱化断言。
 同轮 Docker `38523582111` 属于首轮源码，后继以新准确提交重验；首轮记录保留。
+
+修订 `bb1c1866a9feeaba86038fc758258de061acdf51` 已正常推送，准确 CI `38524169925`
+与 Docker `38524172311` 已启动。前端类型/lint/测试、交付合同及 LAN 源码安装已成功；
+完整后端、浏览器及镜像应用验收仍在运行。旧过期作业与重复 PR CI 已取消，
+保留首轮原始失败及红测合成报告；本机四文件 Node 专项153项已在允许 loopback 的环境通过。
+
+同轮真实 Full legacy 应用已走到工作台、目标 Key 与 fresh GET 校验，随后在 `key-selection`
+等待20秒而失败。驱动对关闭的原生 `option:checked` 使用默认 visible 等待；修订为 attached，
+仍要求可见 select 的精确值与可见 Key 身份文本。修订不手动选 Key、不更改应用、不跳过断言。
+真实重验前不把该定位假设或 Node double 通过写成应用成功；原 Docker 失败记录保留。
+
+## 共享百分比：已核事实与待定输入
+
+当前 Codex 请求的凭据账户身份可以与最终发送绑定；可信 WHAM 样本仅提供同一账户的整体
+窗口百分比、时长和重置时间。已有阈值因此只做请求前安全避让，不能证明本次请求使用多少百分比。
+样本没有本地 Key/request_id 或单请求窗口单位，也没有已验证的 Token 到订阅窗口百分比换算。
+并发 Key、外部客户端、延迟、取整和窗口重置都可能影响账户快照差值。
+
+依据为 `docs/R1_CURRENT_ITERATION.md` 账户阈值合同、`docs/NEXT_USABLE_VERSION.md` 的
+逐 Key 可归属事实要求，以及 `service/codex_wham_usage.go`、`model/account_quota_threshold.go`
+和 `service/account_quota_threshold.go` 的实际采样与发送前校验。Codex 会话头不是计量事实。
+
+下一阶段必须先确定“共享100%”的总池单位与预期控制：本地 Token/费用池，还是每个订阅账户
+的原生窗口；需要硬限额，还是只读观测/路由策略。不能把静态分配比例或现有安全阈值
+标为已经实现的逐 Key 消费上限。用户问题仍待回答；在此前不新增分摊表或推算用量。
+如果引入持久池、并发分额或恢复状态，单独列明三库事务、CAS/审计、两 writer 及未知用量合同，
+仍不解冻历史账务，也不自动部署。
