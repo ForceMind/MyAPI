@@ -560,9 +560,13 @@ async function sendPlayground(session, key, expectedCode) {
     requireThat(response.status() === (expectedCode === 'token_budget_unsupported_request' ? 400 : 403) &&
       payload?.error?.code === expectedCode && typeof payload.error.message === 'string' &&
       payload.error.message.length > 0 && payload.error.message.length <= 16 * 1024, 'RELAY_MISMATCH')
+    const displayError = expectedCode === 'token_budget_unsupported_request'
+      ? session.label("This request does not meet the selected key's strict budget requirements. Use a compatible API client or choose another key.")
+      : payload.error.message
+    const presentedError = `${session.label('Request error occurred')}: ${displayError}`
     const alert = assistants.last().getByRole('alert').filter({ hasText: session.label('Error') })
     await alert.waitFor({ state: 'visible' })
-    const description = alert.getByText(payload.error.message, { exact: true })
+    const description = alert.getByText(presentedError, { exact: true })
     await description.waitFor({ state: 'visible' })
     const fits = await bounded(session.scope, () => description.evaluate((element, expected) => {
       const card = element.closest('[role="alert"]')
@@ -580,7 +584,7 @@ async function sendPlayground(session, key, expectedCode) {
         elementRect.left >= -tolerance && elementRect.right <= viewportWidth + tolerance &&
         textRects.length > 0 && textRects.every(rect => rect.left >= elementRect.left - tolerance &&
           rect.right <= elementRect.right + tolerance && rect.left >= -tolerance && rect.right <= viewportWidth + tolerance)
-    }, payload.error.message))
+    }, presentedError))
     requireThat(fits === true, 'RELAY_MISMATCH')
   } else {
     session.scope.stage = 'playground-complete'

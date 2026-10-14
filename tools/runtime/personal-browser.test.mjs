@@ -136,7 +136,8 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 
 function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false, forbidStreamReads = false, hangAt, closeHangs = false, documentResponses = [], reloadAlreadyCurrent = false, savedPlaygroundKeyId, unsafeUsageScreenshot = false, failUsageScreenshot = false, usageFailureRole, onNavigate } = {}) {
-  const reverse = Object.fromEntries(Object.entries(JSON.parse(readFileSync(new URL('../../web/src/i18n/locales/zh.json', import.meta.url))).translation).map(([key, value]) => [value, key]))
+  const zh = JSON.parse(readFileSync(new URL('../../web/src/i18n/locales/zh.json', import.meta.url))).translation
+  const reverse = Object.fromEntries(Object.entries(zh).map(([key, value]) => [value, key]))
   const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
   const users = new Map([[1, { id: 1, username: base.username, role: 100, quota: 0, used_quota: 15, request_count: 1, self_use_no_balance: true, revision: 1 }]])
   const keys = new Map()
@@ -345,9 +346,10 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         async evaluate(_callback, expected) {
           assert.equal(kind, 'text')
           assert(parents.includes('.is-assistant'))
-          assert.equal(value, longErrorMessage)
-          assert.equal(expected, longErrorMessage)
-          errorLayoutChecks.push({ role: page.actor.role, code: page.lastErrorCode, characters: expected.length })
+          assert.equal(value, page.lastPresentedError)
+          assert.equal(expected, page.lastPresentedError)
+          errorLayoutChecks.push({ role: page.actor.role, code: page.lastErrorCode, characters: expected.length,
+            rawIncluded: expected.includes(longErrorMessage), presentation: expected })
           return corrupt !== 'ui-error-overflow'
         },
         async count() {
@@ -592,6 +594,11 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             if (code) page.historicalErrors = (page.historicalErrors || 0) + 1
             if (code) {
               page.lastErrorCode = code
+              const errorTitle = context.locale === 'zh-CN' ? zh['Request error occurred'] : 'Request error occurred'
+              const strictKey = "This request does not meet the selected key's strict budget requirements. Use a compatible API client or choose another key."
+              let displayError = longErrorMessage
+              if (code === 'token_budget_unsupported_request') displayError = context.locale === 'zh-CN' ? zh[strictKey] : strictKey
+              page.lastPresentedError = `${errorTitle}: ${displayError}`
               page.emit(response('/pg/chat/completions', 'POST', { error: { code, message: longErrorMessage } }, code.startsWith('token_budget_') ? 400 : 403, sent, headers))
             }
             else {
@@ -706,6 +713,10 @@ for (const writer of ['legacy', 'authoritative']) {
         { role: 1, code: writer === 'authoritative' ? 'insufficient_user_quota' : 'pre_consume_token_quota_failed' },
         { role: 100, code: 'token_budget_unsupported_request' },
       ])
+      assert.deepEqual(fixture.errorLayoutChecks.map(item => item.rawIncluded), [true, true, false])
+      assert(fixture.errorLayoutChecks.slice(0, 2).every(item => item.presentation.startsWith('请求发生错误: ')))
+      const strictDisplay = "This request does not meet the selected key's strict budget requirements. Use a compatible API client or choose another key."
+      assert.equal(fixture.errorLayoutChecks[2].presentation, `Request error occurred: ${strictDisplay}`)
       assert(fixture.errorLayoutChecks.every(item => item.characters > 120))
       assert.equal(fixture.apiCalls.some(route => route.includes('/v1/') || route.includes('/pg/') || /\/key$/.test(route) || route === 'POST /api/user/login'), false)
       const serialized = JSON.stringify(report)
@@ -732,6 +743,8 @@ test('a clipped long rejection is refused at the existing safe rejection stage w
   assert.deepEqual(fixture.errorLayoutChecks.map(({ role, code }) => ({ role, code })), [
     { role: 1, code: 'insufficient_user_quota' },
   ])
+  assert.equal(fixture.errorLayoutChecks[0].rawIncluded, true)
+  assert(fixture.errorLayoutChecks[0].presentation.startsWith('请求发生错误: '))
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 2)
   assert.equal(fixture.closed(), 1)
 })
