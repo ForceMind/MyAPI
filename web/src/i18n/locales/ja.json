@@ -6466,6 +6466,17 @@
     "Resume observation from a fresh baseline": "新しい最新のベースラインから観測を再開",
     "Existing estimated usage is kept. Requests that could not be attributed remain uncertain, and observation resumes from a new fresh sample.": "既存の推定使用量は保持されます。帰属できなかったリクエストは不明なまま残り、新しい最新のサンプルから観測が再開されます。",
     "I understand this recovery affects every Key in the pool.": "この復旧がプール内のすべてのキーに影響することを理解しました。",
-    "Uncertain attempts": "帰属が不明な試行"
+    "Uncertain attempts": "帰属が不明な試行",
+    "This recovery only resumes observation; the current Key share does not change.": "この復旧では観測のみを再開し、現在のキー割り当ては変更されません。",
+    "0% share — later requests are paused": "0% の割り当て — 以降のリクエストは一時停止されています",
+    "Estimated share exhausted — later requests are paused": "推定割り当てを使い切りました — 以降のリクエストは一時停止されています",
+    "Close pool": "プールを閉じる",
+    "Closed — history retained": "閉鎖済み — 履歴を保持",
+    "This pool is closed. Its usage and allocation history are retained.": "このプールは閉鎖されています。使用量と割り当ての履歴は保持されます。",
+    "Subscription pool closed": "サブスクリプションプールを閉じました",
+    "Close this subscription pool?": "このサブスクリプションプールを閉じますか？",
+    "Closing affects every Key in this pool. It removes this pool’s share limits; other limits still apply. In-flight requests may continue consuming capacity. History is retained, and this window description cannot be enabled again in this version.": "プールを閉じると、このプール内のすべてのキーに影響し、このプールの割り当て制限が解除されます。その他の制限は引き続き適用されます。処理中のリクエストは容量を消費し続ける可能性があります。履歴は保持され、このウィンドウ記述はこのバージョンでは再度有効にできません。",
+    "I understand this pool cannot be enabled again in this version.": "このプールはこのバージョンでは再度有効にできないことを理解しました。",
+    "Closing...": "閉じています..."
   }
 }

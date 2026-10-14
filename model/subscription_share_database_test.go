@@ -121,13 +121,39 @@ func subscriptionShareConfiguredDatabaseContract(t *testing.T, db *gorm.DB, dial
 	assert.Equal(t, int64(15_000_000), used[tokens[1].Id])
 	assert.Equal(t, int64(20_000_000), used[tokens[0].Id]+used[tokens[1].Id])
 
+	duplicateGeneration := SubscriptionShareGeneration{PoolID: primaryPool.ID, Generation: 1, State: SubscriptionShareStateReady, Reason: "duplicate"}
+	require.Error(t, db.Create(&duplicateGeneration).Error, "pool and generation must be unique")
+	duplicateAllocation := SubscriptionShareAllocation{PoolID: primaryPool.ID, TokenID: tokens[0].Id, UserID: owner.Id, ShareBPS: 1, CreatedAt: base + 3, UpdatedAt: base + 3}
+	require.Error(t, db.Create(&duplicateAllocation).Error, "pool and token allocation must be unique")
+	var existingWindow SubscriptionShareAttemptWindow
+	require.NoError(t, db.Where("pool_id = ?", primaryPool.ID).First(&existingWindow).Error)
+	duplicateWindow := existingWindow
+	duplicateWindow.ID = 0
+	require.Error(t, db.Create(&duplicateWindow).Error, "attempt and pool window must be unique")
+	var existingApplication SubscriptionShareSampleApplication
+	require.NoError(t, db.Where("pool_id = ?", primaryPool.ID).First(&existingApplication).Error)
+	duplicateApplication := existingApplication
+	duplicateApplication.ID = 0
+	require.Error(t, db.Create(&duplicateApplication).Error, "pool, generation, and snapshot application must be unique")
+
+	// A second connection models an independently running application writer,
+	// including SQLite's busy handling rather than sharing one connection pool.
+	reopened, err := gorm.Open(dialector, config)
+	require.NoError(t, err)
+	reopenedSQL, err := reopened.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, reopenedSQL.Close()) })
 	start := make(chan struct{})
 	results := make(chan error, 2)
 	for index, share := range []int{2000, 7000} {
 		index, share := index, share
 		go func() {
 			<-start
-			results <- configure(tokens[index].Id, primaryPool.ID, positive.Id, 2, share, int64(10+index), base+3)
+			writer := db
+			if index == 1 {
+				writer = reopened
+			}
+			results <- ConfigureSubscriptionShare(ctx, writer, root.Id, tokens[index].Id, SubscriptionShareConfigInput{ID: fmt.Sprintf("%064x", 10+index), PoolID: primaryPool.ID, SnapshotID: positive.Id, ExpectedRevision: 2, ShareBPS: share, ConfirmedApproximate: true}, base+3)
 		}()
 	}
 	close(start)
@@ -171,11 +197,6 @@ func subscriptionShareConfiguredDatabaseContract(t *testing.T, db *gorm.DB, dial
 
 	var applicationsBefore int64
 	require.NoError(t, db.Model(&SubscriptionShareSampleApplication{}).Count(&applicationsBefore).Error)
-	reopened, err := gorm.Open(dialector, config)
-	require.NoError(t, err)
-	reopenedSQL, err := reopened.DB()
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, reopenedSQL.Close()) })
 	require.NoError(t, RefreshSubscriptionShareProjection(ctx, reopened, subject, base+12))
 	var applicationsAfter int64
 	require.NoError(t, reopened.Model(&SubscriptionShareSampleApplication{}).Count(&applicationsAfter).Error)
@@ -183,4 +204,24 @@ func subscriptionShareConfiguredDatabaseContract(t *testing.T, db *gorm.DB, dial
 	var protected int64
 	require.NoError(t, ProtectedSubscriptionShareEvidenceQuery(reopened).Count(&protected).Error)
 	assert.Positive(t, protected, "prefixed retention query must protect active unprojected evidence")
+
+	require.NoError(t, db.Where("id = ?", secondaryPool.ID).Take(&secondaryPool).Error)
+	closeInput := SubscriptionShareCloseInput{ID: fmt.Sprintf("%064x", 300), PoolID: secondaryPool.ID, ExpectedRevision: secondaryPool.Revision, ConfirmedClose: true}
+	require.NoError(t, CloseSubscriptionSharePool(ctx, db, root.Id, closeInput, base+13))
+	require.NoError(t, CloseSubscriptionSharePool(ctx, reopened, root.Id, closeInput, base+14), "close replay must be idempotent across connections")
+	require.NoError(t, db.Where("id = ?", secondaryPool.ID).Take(&secondaryPool).Error)
+	assert.False(t, secondaryPool.Enabled)
+	assert.Equal(t, closeInput.ExpectedRevision+1, secondaryPool.Revision)
+	var closedGeneration SubscriptionShareGeneration
+	require.NoError(t, db.Where("pool_id = ? AND generation = ?", secondaryPool.ID, secondaryPool.CurrentGeneration).Take(&closedGeneration).Error)
+	assert.Equal(t, SubscriptionShareStateStopped, closedGeneration.State)
+	assert.Equal(t, "pool_closed", closedGeneration.Reason)
+	var closedUsage SubscriptionShareAllocationUsage
+	require.NoError(t, db.Where("allocation_id = ? AND generation = ?", secondaryAllocation.ID, secondaryPool.CurrentGeneration).Take(&closedUsage).Error)
+	assert.Equal(t, int64(50_000_000), closedUsage.EstimatedUsedMicro)
+	var closeAudit SubscriptionShareAudit
+	require.NoError(t, db.Where("id = ?", closeInput.ID).Take(&closeAudit).Error)
+	assert.Equal(t, "pool_close", closeAudit.Action)
+	assert.Equal(t, closeInput.ExpectedRevision, closeAudit.BeforeRevision)
+	assert.Equal(t, closeInput.ExpectedRevision+1, closeAudit.AfterRevision)
 }

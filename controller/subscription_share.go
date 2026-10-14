@@ -70,3 +70,29 @@ func UpdateSubscriptionShare(c *gin.Context) {
 	}
 	GetSubscriptionShares(c)
 }
+
+func CloseSubscriptionSharePool(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	poolID, err := strconv.ParseInt(c.Param("pool_id"), 10, 64)
+	var request struct {
+		ID               string `json:"id"`
+		ExpectedRevision *int64 `json:"expected_revision"`
+		ConfirmedClose   bool   `json:"confirmed_close"`
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4096)
+	if err != nil || poolID <= 0 || c.Request.URL.RawQuery != "" || common.DecodeJsonStrict(c.Request.Body, &request) != nil || request.ExpectedRevision == nil || !request.ConfirmedClose {
+		subscriptionShareError(c, model.ErrSubscriptionShareInvalid)
+		return
+	}
+	now, err := model.ReadDatabaseUnixTime(c.Request.Context(), model.DB)
+	if err != nil {
+		subscriptionShareError(c, err)
+		return
+	}
+	input := model.SubscriptionShareCloseInput{ID: request.ID, PoolID: poolID, ExpectedRevision: *request.ExpectedRevision, ConfirmedClose: request.ConfirmedClose}
+	if err := model.CloseSubscriptionSharePool(c.Request.Context(), model.DB, c.GetInt("id"), input, now); err != nil {
+		subscriptionShareError(c, err)
+		return
+	}
+	common.ApiSuccess(c, nil)
+}

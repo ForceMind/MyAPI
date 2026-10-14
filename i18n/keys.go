@@ -414,4 +414,5 @@ const (
 	MsgSubscriptionShareExceeded       = "subscription_share.exceeded"
 	MsgSubscriptionShareAwaitingSample = "subscription_share.awaiting_sample"
 	MsgSubscriptionShareUnavailable    = "subscription_share.unavailable"
+	MsgSubscriptionShareDeleteDenied   = "subscription_share.delete_denied"
 )

@@ -6466,6 +6466,17 @@
     "Resume observation from a fresh baseline": "Возобновить наблюдение с новой актуальной базовой точки",
     "Existing estimated usage is kept. Requests that could not be attributed remain uncertain, and observation resumes from a new fresh sample.": "Существующая оценка использования сохранится. Запросы, которые не удалось отнести к ключам, останутся неопределёнными, а наблюдение возобновится с нового актуального образца.",
     "I understand this recovery affects every Key in the pool.": "Я понимаю, что это восстановление затронет все ключи в пуле.",
-    "Uncertain attempts": "Неопределённые попытки"
+    "Uncertain attempts": "Неопределённые попытки",
+    "This recovery only resumes observation; the current Key share does not change.": "Это восстановление только возобновляет наблюдение; текущая доля ключа не изменяется.",
+    "0% share — later requests are paused": "Доля 0% — последующие запросы приостановлены",
+    "Estimated share exhausted — later requests are paused": "Расчётная доля исчерпана — последующие запросы приостановлены",
+    "Close pool": "Закрыть пул",
+    "Closed — history retained": "Закрыт — история сохранена",
+    "This pool is closed. Its usage and allocation history are retained.": "Этот пул закрыт. История его использования и распределения сохранена.",
+    "Subscription pool closed": "Пул подписки закрыт",
+    "Close this subscription pool?": "Закрыть этот пул подписки?",
+    "Closing affects every Key in this pool. It removes this pool’s share limits; other limits still apply. In-flight requests may continue consuming capacity. History is retained, and this window description cannot be enabled again in this version.": "Закрытие затронет все ключи в этом пуле и снимет ограничения долей этого пула; остальные ограничения продолжат действовать. Выполняющиеся запросы могут продолжить расходовать ресурс. История сохранится, а это описание окна нельзя будет снова включить в этой версии.",
+    "I understand this pool cannot be enabled again in this version.": "Я понимаю, что этот пул нельзя снова включить в этой версии.",
+    "Closing...": "Закрытие..."
   }
 }

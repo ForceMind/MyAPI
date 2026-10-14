@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { RadioGroupItem } from '@/components/ui/radio-group'
 import { formatTimestampToDate } from '@/lib/format'
@@ -44,6 +45,7 @@ function formatWindowMicro(value: number): string {
 }
 
 function getStateLabel(state: string, t: (key: string) => string): string {
+  if (state === 'closed') return t('Closed — history retained')
   if (state === 'candidate') return t('Eligible window')
   if (state === 'active') return t('Active')
   if (state === 'stale') return t('Stale sample — requests are paused')
@@ -58,10 +60,29 @@ function getStateLabel(state: string, t: (key: string) => string): string {
 export function SubscriptionSharePoolCard(props: {
   pool: SubscriptionSharePool
   selectable: boolean
+  showAdminDetails: boolean
+  closeDisabled?: boolean
+  onClosePool?: () => void
 }) {
   const { t } = useTranslation()
   const id = `subscription-share-pool-${props.pool.pool_id}-${props.pool.snapshot_id}`
   const stateLabel = getStateLabel(props.pool.state, t)
+  const displayName = props.showAdminDetails
+    ? props.pool.channel_name
+    : `${t('Native window')} ${props.pool.pool_id}`
+  let keyPauseLabel = ''
+  if (props.pool.state === 'closed') {
+    keyPauseLabel = ''
+  } else if (props.pool.share_bps === 0) {
+    keyPauseLabel = t('0% share — later requests are paused')
+  } else if (
+    props.pool.estimated_used_micro >=
+    props.pool.share_bps * 10_000
+  ) {
+    keyPauseLabel = t(
+      'Estimated share exhausted — later requests are paused'
+    )
+  }
   const content = (
     <div className='min-w-0 flex-1 space-y-3'>
       <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
@@ -71,10 +92,10 @@ export function SubscriptionSharePoolCard(props: {
               htmlFor={id}
               className='cursor-pointer font-medium break-words'
             >
-              {props.pool.channel_name}
+              {displayName}
             </Label>
           ) : (
-            <p className='font-medium break-words'>{props.pool.channel_name}</p>
+            <p className='font-medium break-words'>{displayName}</p>
           )}
           <p className='text-muted-foreground text-xs break-words'>
             {t('Plan')}: {props.pool.plan_type} ·{' '}
@@ -97,6 +118,18 @@ export function SubscriptionSharePoolCard(props: {
         </Badge>
       </div>
 
+      {keyPauseLabel && (
+        <p className='text-warning text-xs font-medium'>{keyPauseLabel}</p>
+      )}
+
+      {props.pool.state === 'closed' && (
+        <p className='text-muted-foreground text-xs'>
+          {t(
+            'This pool is closed. Its usage and allocation history are retained.'
+          )}
+        </p>
+      )}
+
       <dl className='grid min-w-0 grid-cols-1 gap-2 text-xs sm:grid-cols-2'>
         <div>
           <dt className='text-muted-foreground'>{t('Window total')}</dt>
@@ -110,7 +143,7 @@ export function SubscriptionSharePoolCard(props: {
             {formatBasisPoints(props.pool.share_bps)}
           </dd>
         </div>
-        {props.selectable && (
+        {props.showAdminDetails && (
           <div>
             <dt className='text-muted-foreground'>{t('Total allocated')}</dt>
             <dd className='font-medium'>
@@ -169,7 +202,8 @@ export function SubscriptionSharePoolCard(props: {
         )}
         {props.pool.reason &&
           props.pool.state !== 'active' &&
-          props.pool.state !== 'candidate' && (
+          props.pool.state !== 'candidate' &&
+          props.pool.state !== 'closed' && (
             <p>
               {t('Pause reason')}: <code>{props.pool.reason}</code>
             </p>
@@ -183,13 +217,25 @@ export function SubscriptionSharePoolCard(props: {
           )}
         </p>
       )}
-      {(props.pool.pending_attempts > 0 ||
-        props.pool.unsampled_attempts > 0) && (
-        <p className='text-muted-foreground text-xs'>
-          {t(
-            'A successful zero-growth sample releases unsampled request slots, but it does not prove those requests used no subscription capacity; attribution remains pending.'
-          )}
-        </p>
+      {props.pool.state !== 'closed' &&
+        (props.pool.pending_attempts > 0 ||
+          props.pool.unsampled_attempts > 0) && (
+          <p className='text-muted-foreground text-xs'>
+            {t(
+              'A successful zero-growth sample releases unsampled request slots, but it does not prove those requests used no subscription capacity; attribution remains pending.'
+            )}
+          </p>
+        )}
+      {props.onClosePool && (
+        <Button
+          type='button'
+          variant='destructive'
+          size='sm'
+          disabled={props.closeDisabled}
+          onClick={props.onClosePool}
+        >
+          {t('Close pool')}
+        </Button>
       )}
     </div>
   )

@@ -32,7 +32,7 @@ const subscriptionSharePoolSchema = z.object({
   pool_id: safeCount,
   snapshot_id: positiveSafeCount,
   revision: safeCount,
-  channel_name: z.string().min(1),
+  channel_name: z.string(),
   plan_type: z.string().min(1),
   window_slot: z.string().min(1),
   window_type: z.string().min(1),
@@ -76,6 +76,12 @@ export type SubscriptionShareCommand = {
   share_bps: number
   confirmed_approximate: true
   replace_window?: true
+}
+
+export type SubscriptionShareCloseCommand = {
+  id: string
+  expected_revision: number
+  confirmed_close: true
 }
 
 export const createSubscriptionShareOperationId = createOperationId
@@ -127,4 +133,19 @@ export async function writeSubscriptionShare(
     }
   )
   return parseSubscriptionShare(response.data, tokenId)
+}
+
+export async function closeSubscriptionSharePool(
+  poolId: number,
+  command: SubscriptionShareCloseCommand
+): Promise<void> {
+  const response = await api.post(
+    `/api/subscription-share/pools/${poolId}/close`,
+    command,
+    {
+      skipBusinessError: true,
+      skipErrorHandler: true,
+    }
+  )
+  z.object({ success: z.literal(true) }).parse(response.data)
 }

@@ -163,6 +163,8 @@ func SubscriptionShareErrorDetails(err error) (int, string, string) {
 		return http.StatusBadRequest, "subscription_share_invalid", i18n.MsgSubscriptionShareInvalid
 	case errors.Is(err, model.ErrSubscriptionShareConflict):
 		return http.StatusConflict, "subscription_share_conflict", i18n.MsgSubscriptionShareConflict
+	case errors.Is(err, model.ErrSubscriptionShareDeleteDenied):
+		return http.StatusConflict, "subscription_share_delete_denied", i18n.MsgSubscriptionShareDeleteDenied
 	case errors.Is(err, model.ErrSubscriptionShareDenied):
 		return http.StatusForbidden, "subscription_share_denied", i18n.MsgSubscriptionShareDenied
 	case errors.Is(err, model.ErrSubscriptionShareExceeded):

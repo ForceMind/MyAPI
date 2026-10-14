@@ -337,3 +337,4 @@ subscription_share.denied: "此 Key 未獲所選訂閱帳戶或請求格式的�
 subscription_share.exceeded: "此 Key 已達到訂閱窗口的估計分額，請求未送出。"
 subscription_share.awaiting_sample: "等待新訂閱取樣覆蓋的請求過多，請求未送出，請等待取樣更新。"
 subscription_share.unavailable: "缺少新鮮一致的訂閱窗口證據，請求未送出。"
+subscription_share.delete_denied: "請先由 Root 將此 Key 的訂閱分額設為 0%，再刪除 Key；既有用量紀錄會保留。"

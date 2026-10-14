@@ -6466,6 +6466,17 @@
     "Resume observation from a fresh baseline": "Resume observation from a fresh baseline",
     "Existing estimated usage is kept. Requests that could not be attributed remain uncertain, and observation resumes from a new fresh sample.": "Existing estimated usage is kept. Requests that could not be attributed remain uncertain, and observation resumes from a new fresh sample.",
     "I understand this recovery affects every Key in the pool.": "I understand this recovery affects every Key in the pool.",
-    "Uncertain attempts": "Uncertain attempts"
+    "Uncertain attempts": "Uncertain attempts",
+    "This recovery only resumes observation; the current Key share does not change.": "This recovery only resumes observation; the current Key share does not change.",
+    "0% share — later requests are paused": "0% share — later requests are paused",
+    "Estimated share exhausted — later requests are paused": "Estimated share exhausted — later requests are paused",
+    "Close pool": "Close pool",
+    "Closed — history retained": "Closed — history retained",
+    "This pool is closed. Its usage and allocation history are retained.": "This pool is closed. Its usage and allocation history are retained.",
+    "Subscription pool closed": "Subscription pool closed",
+    "Close this subscription pool?": "Close this subscription pool?",
+    "Closing affects every Key in this pool. It removes this pool’s share limits; other limits still apply. In-flight requests may continue consuming capacity. History is retained, and this window description cannot be enabled again in this version.": "Closing affects every Key in this pool. It removes this pool’s share limits; other limits still apply. In-flight requests may continue consuming capacity. History is retained, and this window description cannot be enabled again in this version.",
+    "I understand this pool cannot be enabled again in this version.": "I understand this pool cannot be enabled again in this version.",
+    "Closing...": "Closing..."
   }
 }

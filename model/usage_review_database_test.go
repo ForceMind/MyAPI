@@ -38,6 +38,7 @@ func TestR1UsageReviewConfiguredDatabases(t *testing.T) {
 			require.NoError(t, pool.Ping())
 			t.Cleanup(func() { require.NoError(t, pool.Close()) })
 			entities := []any{&User{}, &Token{}, &Channel{}, &SubscriptionPlan{}, &UserSubscription{}, &SubscriptionPreConsumeRecord{}, &AccountQuotaMutationReceipt{}, &AccountQuotaReservationHead{}, &AccountQuotaTerminalRecoveryObligation{}, &AccountQuotaSettlementIntent{}, &AccountQuotaSettlementFact{}, &AccountQuotaExecutionGate{}, &AccountQuotaExecutionPermit{}, &AccountQuotaRefundFact{}, &QuotaWriterEpoch{}, &QuotaProjectionObligation{}, &QuotaWorkCursor{}, &LegacyUsageReservation{}, &UsageReviewDecision{}, &Log{}, &BillingLogProjectionIdentity{}, &TokenBudget{}, &TokenBudgetReservation{}, &TokenBudgetPolicyChange{}, &ChannelQuotaSnapshot{}, &UserUsagePolicyChange{}, &Option{}}
+			entities = append(entities, SubscriptionShareModels()...)
 			require.NoError(t, db.AutoMigrate(entities...))
 			require.NoError(t, EnsureFreshAccountQuotaExecutionGate(context.Background(), db))
 			// Repeat the schemas changed by this iteration. Unrelated legacy

@@ -6466,6 +6466,17 @@
     "Resume observation from a fresh baseline": "Tiếp tục quan sát từ một mốc cơ sở mới và cập nhật",
     "Existing estimated usage is kept. Requests that could not be attributed remain uncertain, and observation resumes from a new fresh sample.": "Mức sử dụng ước tính hiện có được giữ lại. Các yêu cầu không thể phân bổ vẫn ở trạng thái chưa xác định và việc quan sát tiếp tục từ một mẫu mới và cập nhật.",
     "I understand this recovery affects every Key in the pool.": "Tôi hiểu rằng việc khôi phục này ảnh hưởng đến mọi Khóa trong nhóm.",
-    "Uncertain attempts": "Lượt thử chưa xác định"
+    "Uncertain attempts": "Lượt thử chưa xác định",
+    "This recovery only resumes observation; the current Key share does not change.": "Quá trình khôi phục này chỉ tiếp tục việc quan sát; phần phân bổ hiện tại của Khóa không thay đổi.",
+    "0% share — later requests are paused": "Phần phân bổ 0% — các yêu cầu tiếp theo đã bị tạm dừng",
+    "Estimated share exhausted — later requests are paused": "Phần phân bổ ước tính đã dùng hết — các yêu cầu tiếp theo đã bị tạm dừng",
+    "Close pool": "Đóng nhóm",
+    "Closed — history retained": "Đã đóng — lịch sử được giữ lại",
+    "This pool is closed. Its usage and allocation history are retained.": "Nhóm này đã đóng. Lịch sử sử dụng và phân bổ của nhóm được giữ lại.",
+    "Subscription pool closed": "Đã đóng nhóm gói đăng ký",
+    "Close this subscription pool?": "Đóng nhóm gói đăng ký này?",
+    "Closing affects every Key in this pool. It removes this pool’s share limits; other limits still apply. In-flight requests may continue consuming capacity. History is retained, and this window description cannot be enabled again in this version.": "Việc đóng sẽ ảnh hưởng đến mọi Khóa trong nhóm này và xóa các giới hạn phân bổ của nhóm; các giới hạn khác vẫn có hiệu lực. Các yêu cầu đang xử lý có thể tiếp tục tiêu thụ dung lượng. Lịch sử được giữ lại và mô tả cửa sổ này không thể được bật lại trong phiên bản này.",
+    "I understand this pool cannot be enabled again in this version.": "Tôi hiểu rằng nhóm này không thể được bật lại trong phiên bản này.",
+    "Closing...": "Đang đóng..."
   }
 }

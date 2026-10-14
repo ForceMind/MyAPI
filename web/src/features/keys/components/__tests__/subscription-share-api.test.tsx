@@ -21,11 +21,14 @@ import { beforeEach, expect, test, vi } from 'vitest'
 import { api } from '@/lib/api'
 
 import {
+  closeSubscriptionSharePool,
   getSubscriptionShare,
   writeSubscriptionShare,
 } from '../../subscription-share-api'
 
-vi.mock('@/lib/api', () => ({ api: { get: vi.fn(), put: vi.fn() } }))
+vi.mock('@/lib/api', () => ({
+  api: { get: vi.fn(), post: vi.fn(), put: vi.fn() },
+}))
 
 const pool = {
   pool_id: 0,
@@ -170,4 +173,23 @@ test('rebaseline candidates preserve recovery and uncertain-attempt fields', asy
     token_id: 21,
     pools: [rebaselinePool],
   })
+})
+
+test('POST closes a pool with an idempotent revision command and validates success', async () => {
+  const command = {
+    id: 'c'.repeat(64),
+    expected_revision: 4,
+    confirmed_close: true as const,
+  }
+  vi.mocked(api.post).mockResolvedValue({ data: { success: true } })
+
+  await expect(closeSubscriptionSharePool(7, command)).resolves.toBeUndefined()
+  expect(api.post).toHaveBeenCalledWith(
+    '/api/subscription-share/pools/7/close',
+    command,
+    { skipBusinessError: true, skipErrorHandler: true }
+  )
+
+  vi.mocked(api.post).mockResolvedValueOnce({ data: { success: false } })
+  await expect(closeSubscriptionSharePool(7, command)).rejects.toThrow()
 })

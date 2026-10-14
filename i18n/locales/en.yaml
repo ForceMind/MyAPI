@@ -336,3 +336,4 @@ subscription_share.denied: "This Key has no allocation for the selected subscrip
 subscription_share.exceeded: "This Key has reached its estimated subscription-window share; the request was not sent."
 subscription_share.awaiting_sample: "Too many requests are awaiting a fresh subscription sample; the request was not sent."
 subscription_share.unavailable: "Fresh, consistent subscription-window evidence is unavailable; the request was not sent."
+subscription_share.delete_denied: "Ask Root to set this Key's subscription shares to 0% before deleting it; existing usage history will be kept."

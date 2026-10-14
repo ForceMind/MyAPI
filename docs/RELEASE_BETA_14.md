@@ -18,7 +18,7 @@
 
 | 项目 | 当前状态 |
 | --- | --- |
-| model、API、发送门禁与UI第一版 | 已实现草稿，集成中 |
+| model、API、发送门禁与UI第一版 | 已实现草稿，修正首轮失败及独审问题中 |
 | 集成边界独审 | 已复核部分边界；模型全量独审仍进行中 |
 | Go及前端编译、行为测试 | 待GitHub Actions准确提交验证 |
 | SQLite/MySQL5.7/PostgreSQL9.6 | 已加入专项合同，待云端实跑 |
@@ -34,3 +34,19 @@
 资源记录：一次定向Go验证误触发了本机冷编译，已终止session 52875（exit130），
 没有测试结果，未保留运行中的Go进程。既有`/tmp/myapi-go-build-cache`留下约504MiB缓存，
 未删除数据、报告或备份。后续Go/前端编译仍交GitHub Actions。
+
+
+## 首轮云端失败记录
+
+源码 `cf49b131855e004b83ee80bc6b6474abbca61ce8` 已正常推送独立分支，
+[Draft PR #17](https://github.com/ForceMind/MyAPI/pull/17) 仍为draft，base为个人核心分支。
+[CI 38552646654](https://github.com/ForceMind/MyAPI/actions/runs/38552646654) 已结束：6项success、4项failure。
+失败包括前端测试fixture类型、根package版本仍为beta.13、待归属attempt聚合扫描，以及既有三库fixture漏建新增分额表。
+前三项已修正源码，fixture已补初始化，修复仍待新提交验证。新分额三库专项在首轮前置失败之后未执行，不能写成已通过。
+Docker PR作业因draft分支条件跳过，不计Docker验收。此前beta.13准确源码证据仍按原范围有效。
+
+独审修正另外包括：相同秒的跨渠道同值样本去重、积压分页的先投影后拒绝、非零分额Key原子删除保护、
+owner响应移除内部渠道备注、恢复观测锁定原比例、池观测状态与Key暂停原因分开显示、审计before/action。
+关闭池作为显式Root操作正在补齐，保留历史且本版本不重新启用同descriptor。
+后端将新增实际回环TLS发送边界测试；浏览器新增七语言两尺寸Root编辑与owner只读流程。
+以上均是待准确source云端验证的实现，尚未完成验收。

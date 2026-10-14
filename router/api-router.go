@@ -207,6 +207,7 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/option/diagnostics", middleware.DisableCache(), middleware.RootAuth(), controller.GetOptionDiagnostics)
 		apiRouter.GET("/user/:id/usage-policy", middleware.DisableCache(), middleware.UserAuth(), controller.GetUserUsagePolicy)
 		apiRouter.PUT("/user/:id/usage-policy", middleware.DisableCache(), middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.UpdateUserUsagePolicy)
+		apiRouter.POST("/subscription-share/pools/:pool_id/close", middleware.DisableCache(), middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.CloseSubscriptionSharePool)
 		apiRouter.GET("/usage-reviews/pending", middleware.DisableCache(), middleware.RootAuth(), controller.GetPendingUsageReviews)
 		apiRouter.POST("/usage-review/:request_id/recover-dispatch", middleware.DisableCache(), middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.RecoverTextDispatchUsage)
 		apiRouter.GET("/usage-review/:request_id", middleware.DisableCache(), middleware.UserAuth(), controller.GetUsageReview)

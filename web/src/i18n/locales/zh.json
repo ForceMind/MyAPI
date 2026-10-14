@@ -6466,6 +6466,17 @@
     "Resume observation from a fresh baseline": "从新的最新基线恢复观测",
     "Existing estimated usage is kept. Requests that could not be attributed remain uncertain, and observation resumes from a new fresh sample.": "已有估计用量会保留。无法归属的请求仍记为未知，并从新的最新样本恢复观测。",
     "I understand this recovery affects every Key in the pool.": "我了解此次恢复会影响池中的所有 Key。",
-    "Uncertain attempts": "归属不确定的请求"
+    "Uncertain attempts": "归属不确定的请求",
+    "This recovery only resumes observation; the current Key share does not change.": "此恢复操作只会恢复观测；当前 Key 分额不会改变。",
+    "0% share — later requests are paused": "0% 分额——后续请求已暂停",
+    "Estimated share exhausted — later requests are paused": "估计分额已用尽——后续请求已暂停",
+    "Close pool": "关闭池",
+    "Closed — history retained": "已关闭——保留历史",
+    "This pool is closed. Its usage and allocation history are retained.": "此池已关闭，其用量和分额历史会保留。",
+    "Subscription pool closed": "订阅池已关闭",
+    "Close this subscription pool?": "关闭此订阅池？",
+    "Closing affects every Key in this pool. It removes this pool’s share limits; other limits still apply. In-flight requests may continue consuming capacity. History is retained, and this window description cannot be enabled again in this version.": "关闭操作会影响此池中的所有 Key，并移除此池的分额限制；其他限制仍然有效。在途请求可能继续消耗容量。历史将保留，并且此窗口描述在当前版本中无法重新启用。",
+    "I understand this pool cannot be enabled again in this version.": "我了解此池在当前版本中无法重新启用。",
+    "Closing...": "正在关闭..."
   }
 }

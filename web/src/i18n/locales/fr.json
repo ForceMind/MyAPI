@@ -6466,6 +6466,17 @@
     "Resume observation from a fresh baseline": "Reprendre l’observation à partir d’une nouvelle référence récente",
     "Existing estimated usage is kept. Requests that could not be attributed remain uncertain, and observation resumes from a new fresh sample.": "L’utilisation estimée existante est conservée. Les requêtes qui n’ont pas pu être attribuées restent incertaines et l’observation reprend à partir d’un nouvel échantillon récent.",
     "I understand this recovery affects every Key in the pool.": "Je comprends que cette récupération affecte toutes les clés du pool.",
-    "Uncertain attempts": "Tentatives incertaines"
+    "Uncertain attempts": "Tentatives incertaines",
+    "This recovery only resumes observation; the current Key share does not change.": "Cette récupération reprend uniquement l’observation ; la part actuelle de la clé ne change pas.",
+    "0% share — later requests are paused": "Part de 0 % — les requêtes suivantes sont suspendues",
+    "Estimated share exhausted — later requests are paused": "Part estimée épuisée — les requêtes suivantes sont suspendues",
+    "Close pool": "Fermer le pool",
+    "Closed — history retained": "Fermé — historique conservé",
+    "This pool is closed. Its usage and allocation history are retained.": "Ce pool est fermé. Son historique d’utilisation et de répartition est conservé.",
+    "Subscription pool closed": "Le pool d’abonnement a été fermé",
+    "Close this subscription pool?": "Fermer ce pool d’abonnement ?",
+    "Closing affects every Key in this pool. It removes this pool’s share limits; other limits still apply. In-flight requests may continue consuming capacity. History is retained, and this window description cannot be enabled again in this version.": "La fermeture affecte toutes les clés de ce pool. Elle supprime les limites de répartition de ce pool ; les autres limites restent applicables. Les requêtes en cours peuvent continuer à consommer de la capacité. L’historique est conservé et cette description de fenêtre ne peut pas être réactivée dans cette version.",
+    "I understand this pool cannot be enabled again in this version.": "Je comprends que ce pool ne peut pas être réactivé dans cette version.",
+    "Closing...": "Fermeture..."
   }
 }

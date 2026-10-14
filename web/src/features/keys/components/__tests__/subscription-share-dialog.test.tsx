@@ -27,7 +27,9 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import { SubscriptionShareDialog } from '../subscription-share-dialog'
 
-vi.mock('@/lib/api', () => ({ api: { get: vi.fn(), put: vi.fn() } }))
+vi.mock('@/lib/api', () => ({
+  api: { get: vi.fn(), post: vi.fn(), put: vi.fn() },
+}))
 vi.mock('sonner', () => ({ toast: { success: vi.fn() } }))
 
 const now = 1_797_000_000
@@ -111,7 +113,9 @@ function setSession(id: number, role: number, sid: string) {
   }))
 }
 
-function response(pools = [activePool, candidatePool]) {
+function response(
+  pools: Array<typeof activePool & { reason?: string }> = [activePool, candidatePool]
+) {
   return { data: { success: true, data: { token_id: 21, pools } } }
 }
 
@@ -131,6 +135,7 @@ beforeEach(() => {
   })
   setSession(1, 100, 'root-session')
   vi.mocked(api.get).mockResolvedValue(response())
+  vi.mocked(api.post).mockResolvedValue({ data: { success: true } })
   vi.mocked(api.put).mockResolvedValue(response())
 })
 
@@ -267,6 +272,10 @@ test('Root must confirm a pool-wide window replacement before it is written expl
   })
 
   await user.click(within(dialog).getByLabelText(/Replacement window/))
+  const replacementShare = within(dialog).getByLabelText('Share percentage')
+  expect(replacementShare).toBeEnabled()
+  await user.clear(replacementShare)
+  await user.type(replacementShare, '5.5')
   expect(
     within(dialog).getByText(
       'This replaces the managed window for every Key in this pool'
@@ -303,7 +312,7 @@ test('Root must confirm a pool-wide window replacement before it is written expl
       pool_id: 7,
       snapshot_id: 72,
       expected_revision: 4,
-      share_bps: 1000,
+      share_bps: 550,
       confirmed_approximate: true,
       replace_window: true,
     },
@@ -369,6 +378,13 @@ test('Root must confirm recovery from a fresh baseline without clearing estimate
       'Existing estimated usage is kept. Requests that could not be attributed remain uncertain, and observation resumes from a new fresh sample.'
     )
   ).toBeVisible()
+  expect(within(dialog).getByLabelText('Share percentage')).toBeDisabled()
+  expect(within(dialog).getByLabelText('Share percentage')).toHaveValue('10')
+  expect(
+    within(dialog).getByText(
+      'This recovery only resumes observation; the current Key share does not change.'
+    )
+  ).toBeVisible()
   await user.click(
     within(dialog).getByLabelText(
       'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.'
@@ -401,17 +417,104 @@ test('Root must confirm recovery from a fresh baseline without clearing estimate
   )
 })
 
+test('Root explicitly confirms closing an existing pool and refreshes the view', async () => {
+  const user = userEvent.setup()
+  renderDialog()
+  const dialog = await screen.findByRole('dialog', {
+    name: 'Subscription shares',
+  })
+
+  await user.click(within(dialog).getByRole('button', { name: 'Close pool' }))
+  const confirmation = await screen.findByRole('alertdialog', {
+    name: 'Close this subscription pool?',
+  })
+  expect(
+    within(confirmation).getByText(
+      'Closing affects every Key in this pool. It removes this pool’s share limits; other limits still apply. In-flight requests may continue consuming capacity. History is retained, and this window description cannot be enabled again in this version.'
+    )
+  ).toBeVisible()
+  const close = within(confirmation).getByRole('button', {
+    name: 'Close pool',
+  })
+  expect(close).toBeDisabled()
+  expect(api.post).not.toHaveBeenCalled()
+
+  await user.click(
+    within(confirmation).getByLabelText(
+      'I understand this pool cannot be enabled again in this version.'
+    )
+  )
+  await user.click(close)
+
+  await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
+  expect(api.post).toHaveBeenCalledWith(
+    '/api/subscription-share/pools/7/close',
+    {
+      id: expect.stringMatching(/^[0-9a-f]{64}$/),
+      expected_revision: 4,
+      confirmed_close: true,
+    },
+    expect.any(Object)
+  )
+  await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2))
+})
+
+test('Root sees closed pool history without edit, close, or Key-pause controls', async () => {
+  vi.mocked(api.get).mockResolvedValue(
+    response([
+      {
+        ...activePool,
+        state: 'closed',
+        reason: 'pool_closed',
+        share_bps: 0,
+      },
+    ])
+  )
+  renderDialog()
+  const dialog = await screen.findByRole('dialog', {
+    name: 'Subscription shares',
+  })
+
+  expect(within(dialog).getByText('Personal Codex')).toBeVisible()
+  expect(within(dialog).getByText('Closed — history retained')).toBeVisible()
+  expect(
+    within(dialog).getByText(
+      'This pool is closed. Its usage and allocation history are retained.'
+    )
+  ).toBeVisible()
+  expect(within(dialog).queryByRole('radio')).not.toBeInTheDocument()
+  expect(
+    within(dialog).queryByRole('button', { name: 'Close pool' })
+  ).not.toBeInTheDocument()
+  expect(
+    within(dialog).queryByText('0% share — later requests are paused')
+  ).not.toBeInTheDocument()
+  expect(within(dialog).queryByText('Pause reason')).not.toBeInTheDocument()
+  expect(
+    within(dialog).queryByText(
+      'A successful zero-growth sample releases unsampled request slots, but it does not prove those requests used no subscription capacity; attribution remains pending.'
+    )
+  ).not.toBeInTheDocument()
+  expect(within(dialog).queryByLabelText('Share percentage')).not.toBeInTheDocument()
+})
+
 test('an owner sees only their configured share and no pool allocation controls', async () => {
   setSession(2, 1, 'owner-session')
   vi.mocked(api.get).mockResolvedValue(
-    response([activePool, candidatePool, replacementPool])
+    response([{ ...activePool, channel_name: '' }])
   )
   renderDialog()
   const region = await screen.findByRole('region', {
     name: 'Your subscription share',
   })
-  expect(within(region).getByText('Personal Codex')).toBeVisible()
+  expect(within(region).getByText('Native window 7')).toBeVisible()
+  expect(within(region).queryByText('Personal Codex')).not.toBeInTheDocument()
   expect(within(region).getByText('10%')).toBeVisible()
+  expect(
+    within(region).getByText(
+      'Estimated share exhausted — later requests are paused'
+    )
+  ).toBeVisible()
   expect(within(region).queryByText('Fresh candidate')).not.toBeInTheDocument()
   expect(within(region).queryByText('Replacement window')).not.toBeInTheDocument()
   expect(within(region).queryByText('Recovery baseline')).not.toBeInTheDocument()
@@ -422,21 +525,68 @@ test('an owner sees only their configured share and no pool allocation controls'
 
 test('an owner can inspect a zero-percent paused share without editing it', async () => {
   setSession(2, 1, 'owner-paused-session')
-  vi.mocked(api.get).mockResolvedValue(response([{ ...activePool, share_bps: 0 }]))
+  vi.mocked(api.get).mockResolvedValue(
+    response([{ ...activePool, channel_name: '', share_bps: 0 }])
+  )
   renderDialog()
   const dialog = await screen.findByRole('dialog', { name: 'Subscription shares' })
-  expect(await within(dialog).findByText('Personal Codex')).toBeVisible()
+  expect(await within(dialog).findByText('Native window 7')).toBeVisible()
+  expect(
+    within(dialog).getByText('0% share — later requests are paused')
+  ).toBeVisible()
+  expect(
+    within(dialog).queryByText(
+      'Estimated share exhausted — later requests are paused'
+    )
+  ).not.toBeInTheDocument()
   expect(within(dialog).queryByRole('button', { name: 'Save share' })).not.toBeInTheDocument()
 })
 
 test('an owner still sees a stopped allocated pool that Root can rebaseline', async () => {
   setSession(2, 1, 'owner-stopped-session')
-  vi.mocked(api.get).mockResolvedValue(response([{ ...activePool, state: 'discontinuity', rebaseline_required: true, uncertain_attempts: 3 }]))
+  vi.mocked(api.get).mockResolvedValue(
+    response([
+      {
+        ...activePool,
+        channel_name: '',
+        state: 'discontinuity',
+        rebaseline_required: true,
+        uncertain_attempts: 3,
+      },
+    ])
+  )
   renderDialog()
   const region = await screen.findByRole('region', { name: 'Your subscription share' })
-  expect(await within(region).findByText('Personal Codex')).toBeVisible()
+  expect(await within(region).findByText('Native window 7')).toBeVisible()
   expect(within(region).getByText('10%')).toBeVisible()
   expect(screen.queryByRole('button', { name: 'Save share' })).not.toBeInTheDocument()
+})
+
+test('an owner retains redacted closed pool history without close controls', async () => {
+  setSession(2, 1, 'owner-closed-session')
+  vi.mocked(api.get).mockResolvedValue(
+    response([
+      {
+        ...activePool,
+        channel_name: '',
+        state: 'closed',
+        reason: 'pool_closed',
+        share_bps: 0,
+      },
+    ])
+  )
+  renderDialog()
+  const region = await screen.findByRole('region', {
+    name: 'Your subscription share',
+  })
+  expect(within(region).getByText('Native window 7')).toBeVisible()
+  expect(within(region).getByText('Closed — history retained')).toBeVisible()
+  expect(
+    within(region).queryByRole('button', { name: 'Close pool' })
+  ).not.toBeInTheDocument()
+  expect(
+    within(region).queryByText('0% share — later requests are paused')
+  ).not.toBeInTheDocument()
 })
 
 test('an unknown save result stays locked until a manual reload and is never repeated', async () => {

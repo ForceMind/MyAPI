@@ -145,3 +145,15 @@ weekly总体plan cap，不能宣称覆盖全部primary/secondary窗口或预留�
 Root窗口重选需额外确认、旧池revision CAS、同一账户和slot；全部Key比例保持，旧generation及其
 待归属证据留存，新窗口等待重选后基线。短暂采样中断后的同窗恢复保持原generation和Key估计，
 旧待归属attempt改为uncertain；上游已用下降时须等可信观测追上原值或确认重置，不能伪装已恢复。
+
+
+## 显式关闭池补充（2026-10-14）
+
+Root可使用独立POST `/api/subscription-share/pools/:pool_id/close`关闭整个窗口池。
+输入包含64位十六进制操作ID、expected_revision和confirmed_close=true；需要页面额外确认，
+不是0%配置的别名。账户gate与池行锁下进行revision CAS，同ID同内容重放幂等。
+关闭时终结当前代待归属attempt为uncertain，保留全部Key比例、估计用量和审计历史。
+后续绑定只统计enabled池；关闭后请求按剩余池及已有普通限制执行，已在途请求可能继续消耗。
+本版本单向关闭，同descriptor不能重新启用、隐式重建或继承份额；不同descriptor须Root明确新建。
+Root及所有者可查看closed历史，不能编辑、重选窗口或恢复观测。新增三库关闭合同及UI行为验证，
+实现仍由model/UI原所有者负责，主代理接API/router/文档；不操作运行环境。

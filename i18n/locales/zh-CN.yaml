@@ -337,3 +337,4 @@ subscription_share.denied: "此 Key 未获所选订阅账户或请求格式的�
 subscription_share.exceeded: "此 Key 已达到订阅窗口的估计分额，请求未发出。"
 subscription_share.awaiting_sample: "待新订阅采样覆盖的请求过多，请求未发出，请等待采样更新。"
 subscription_share.unavailable: "缺少新鲜一致的订阅窗口证据，请求未发出。"
+subscription_share.delete_denied: "请先由 Root 将此 Key 的订阅分额设为 0%，再删除 Key；已有用量记录会保留。"

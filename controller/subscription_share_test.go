@@ -95,3 +95,58 @@ func TestSubscriptionShareAPIUnavailableDatabaseDoesNotLookLikeNotFound(t *testi
 	assert.Contains(t, response.Body.String(), "subscription_share_unavailable")
 	assert.NotContains(t, response.Body.String(), "database is closed")
 }
+
+func TestSubscriptionShareTokenDeletionReturnsActionableConflict(t *testing.T) {
+	db := subscriptionShareControllerFixture(t)
+	pool := model.SubscriptionSharePool{DescriptorKey: "delete-api-fixture", Enabled: true}
+	require.NoError(t, db.Create(&pool).Error)
+	require.NoError(t, db.Create(&model.SubscriptionShareAllocation{PoolID: pool.ID, TokenID: 11, UserID: 2, ShareBPS: 2000}).Error)
+	for _, batch := range []bool{false, true} {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Set("id", 2)
+		c.Params = gin.Params{{Key: "id", Value: "11"}}
+		c.Request = httptest.NewRequest(http.MethodDelete, "/api/token/11", strings.NewReader(`{"ids":[11]}`))
+		c.Request.Header.Set("Content-Type", "application/json")
+		c.Request.Header.Set("Accept-Language", "en")
+		if batch {
+			DeleteTokenBatch(c)
+		} else {
+			DeleteToken(c)
+		}
+		assert.Equal(t, http.StatusConflict, recorder.Code)
+		assert.Contains(t, recorder.Body.String(), "subscription_share_delete_denied")
+		assert.Contains(t, recorder.Body.String(), "0%")
+		assert.NotContains(t, recorder.Body.String(), "allocation must be set")
+		var token model.Token
+		require.NoError(t, db.First(&token, 11).Error)
+	}
+}
+
+func TestSubscriptionShareCloseAPIRequiresExplicitUnambiguousConfirmation(t *testing.T) {
+	db := subscriptionShareControllerFixture(t)
+	pool := model.SubscriptionSharePool{DescriptorKey: "close-api-fixture", Enabled: true, Revision: 1}
+	require.NoError(t, db.Create(&pool).Error)
+	for _, body := range []string{
+		`{"id":"bad","confirmed_close":true}`,
+		`{"id":"bad","expected_revision":1,"confirmed_close":false}`,
+		`{"id":"bad","expected_revision":1,"confirmed_close":true,"share_bps":0}`,
+		`{"id":"bad","expected_revision":1,"confirmed_close":true} {}`,
+	} {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Set("id", 1)
+		c.Params = gin.Params{{Key: "pool_id", Value: strconv.FormatInt(pool.ID, 10)}}
+		c.Request = httptest.NewRequest(http.MethodPost, "/api/subscription-share/pools/1/close", strings.NewReader(body))
+		CloseSubscriptionSharePool(c)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code, body)
+		assert.Equal(t, "no-store", recorder.Header().Get("Cache-Control"))
+	}
+	var unchanged model.SubscriptionSharePool
+	require.NoError(t, db.First(&unchanged, pool.ID).Error)
+	assert.True(t, unchanged.Enabled)
+	assert.EqualValues(t, 1, unchanged.Revision)
+	var audits int64
+	require.NoError(t, db.Model(&model.SubscriptionShareAudit{}).Count(&audits).Error)
+	assert.Zero(t, audits)
+}
