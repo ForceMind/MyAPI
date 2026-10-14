@@ -158,6 +158,8 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   const filterActions = []
   const tableSearches = []
   const logSearchMatches = []
+  const errorLayoutChecks = []
+  const longErrorMessage = `synthetic rejection request_id=${'r'.repeat(112)}`
   let serverDisplay = 'USD'
   const reached = Promise.withResolvers()
   const stalled = Promise.withResolvers()
@@ -339,6 +341,14 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
           if (kind === 'dialog' && options?.state === 'hidden' && mutation && value === mutation.title) {
             assert.equal(mutation.closed, true, 'pending mutation prevented dialog dismissal')
           }
+        },
+        async evaluate(_callback, expected) {
+          assert.equal(kind, 'text')
+          assert(parents.includes('.is-assistant'))
+          assert.equal(value, longErrorMessage)
+          assert.equal(expected, longErrorMessage)
+          errorLayoutChecks.push({ role: page.actor.role, code: page.lastErrorCode, characters: expected.length })
+          return corrupt !== 'ui-error-overflow'
         },
         async count() {
           if (kind === 'row') {
@@ -580,7 +590,10 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             if (key.strict && reloadAlreadyCurrent) contexts[1].page.current = base.baseUrl + '/keys?filter=browser-owner-finite'
             page.lastAssistantError = Boolean(code) || corrupt === 'latest-error'
             if (code) page.historicalErrors = (page.historicalErrors || 0) + 1
-            if (code) page.emit(response('/pg/chat/completions', 'POST', { error: { code, message: 'synthetic rejection' } }, code.startsWith('token_budget_') ? 400 : 403, sent, headers))
+            if (code) {
+              page.lastErrorCode = code
+              page.emit(response('/pg/chat/completions', 'POST', { error: { code, message: longErrorMessage } }, code.startsWith('token_budget_') ? 400 : 403, sent, headers))
+            }
             else {
               upstreamCount++
               key.remain_quota -= 15; key.used_quota += 15
@@ -669,6 +682,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   return { playwrightModule, fetchImpl, contexts, emitted, screenshots, apiCalls, dialogCloseEvents, completionEvents, signals,
     navigations,
     createdKeyDisplays, policyRefreshes, playgroundRefreshes, handoffs, modelChoices, usageReads, filterActions, tableSearches, logSearchMatches,
+    errorLayoutChecks,
     reached: reached.promise, release: stalled.resolve, closing: closing.promise, releaseClose: stalledClose.resolve,
     closed: () => closed, upstreamCount: () => upstreamCount }
 }
@@ -687,6 +701,12 @@ for (const writer of ['legacy', 'authoritative']) {
       assert.deepEqual(fixture.contexts.map(context => [context.locale, context.viewport.width, context.page.actor.role]), [['en-US', 1280, 100], ['zh-CN', 320, 1]])
       assert(fixture.contexts[1].init.fn.includes("language === 'zh' ? 'zhCN' : language"))
       assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+      assert.deepEqual(fixture.errorLayoutChecks.map(({ role, code }) => ({ role, code })), [
+        { role: 1, code: 'insufficient_user_quota' },
+        { role: 1, code: writer === 'authoritative' ? 'insufficient_user_quota' : 'pre_consume_token_quota_failed' },
+        { role: 100, code: 'token_budget_unsupported_request' },
+      ])
+      assert(fixture.errorLayoutChecks.every(item => item.characters > 120))
       assert.equal(fixture.apiCalls.some(route => route.includes('/v1/') || route.includes('/pg/') || /\/key$/.test(route) || route === 'POST /api/user/login'), false)
       const serialized = JSON.stringify(report)
       for (const secret of [base.password, base.username, 'session-private-', 'secret-masked-key', 'request-private-', 'synthetic request']) assert(!serialized.includes(secret))
@@ -700,6 +720,21 @@ for (const writer of ['legacy', 'authoritative']) {
     } finally { rmSync(artifactDir, { recursive: true, force: true }) }
   })
 }
+
+test('a clipped long rejection is refused at the existing safe rejection stage without another relay', async () => {
+  const fixture = journeyBrowser({ corrupt: 'ui-error-overflow' })
+  await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), error => {
+    assert.equal(error.message, 'SMOKE_PERSONAL_RELAY_MISMATCH')
+    assert.equal(error.stage, 'playground-rejection')
+    assert.equal(JSON.stringify(error).includes('request_id'), false)
+    return true
+  })
+  assert.deepEqual(fixture.errorLayoutChecks.map(({ role, code }) => ({ role, code })), [
+    { role: 1, code: 'insufficient_user_quota' },
+  ])
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 2)
+  assert.equal(fixture.closed(), 1)
+})
 
 for (const [corrupt, code] of [['writer', 'WRITER_MISMATCH'], ['models', 'REQUEST_MISMATCH'], ['keys', 'REQUEST_MISMATCH'], ['ambiguous-model', 'REQUEST_MISMATCH'],
   ['policy-refresh-owner', 'POLICY_MISMATCH'], ['policy-refresh-revision', 'POLICY_MISMATCH'], ['log-owner', 'LOG_MISMATCH'],

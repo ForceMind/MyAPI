@@ -83,7 +83,7 @@ export function MessageError({
       <Alert variant='default' className={className}>
         <AlertTriangle className='text-orange-500' />
         <AlertTitle>{t('Model Price Not Configured')}</AlertTitle>
-        <AlertDescription className='space-y-2'>
+        <AlertDescription className='min-w-0 space-y-2 [overflow-wrap:anywhere]'>
           <p>{content}</p>
           {errorState.showSettingsLink && (
             <Button
@@ -105,7 +105,7 @@ export function MessageError({
     <Alert variant='destructive' className={className}>
       <AlertCircle />
       <AlertTitle>{t('Error')}</AlertTitle>
-      <AlertDescription className='space-y-2'>
+      <AlertDescription className='min-w-0 space-y-2 [overflow-wrap:anywhere]'>
         <p>
           {errorState.content === FALLBACK_ERROR_CONTENT
             ? t(FALLBACK_ERROR_CONTENT)
