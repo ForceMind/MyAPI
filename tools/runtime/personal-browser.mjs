@@ -552,6 +552,7 @@ async function sendPlayground(session, key, expectedCode) {
     request.headers()['x-myapi-key-id'] === String(key.id), 'REQUEST_MISMATCH')
   const requestId = response.headers()['x-oneapi-request-id']
   requireThat(typeof requestId === 'string' && /^[A-Za-z0-9._:-]{1,160}$/.test(requestId), 'REQUEST_MISMATCH')
+  let terminal
   if (expectedCode) {
     session.scope.stage = 'playground-rejection'
     const text = await bounded(session.scope, () => response.text())
@@ -586,18 +587,22 @@ async function sendPlayground(session, key, expectedCode) {
           rect.right <= elementRect.right + tolerance && rect.left >= -tolerance && rect.right <= viewportWidth + tolerance)
     }, presentedError))
     requireThat(fits === true, 'RELAY_MISMATCH')
+    terminal = alert
   } else {
     session.scope.stage = 'playground-complete'
     requireThat(response.status() === 200, 'RELAY_MISMATCH')
     // The actual frontend closes its SSE source after DONE. Network body/finished
     // is not its completion contract. Require the newly added assistant's full
     // text, normal terminal controls and no current-message error instead.
-    await assistants.last().getByText('synthetic fixed response', { exact: true }).waitFor()
+    const answer = assistants.last().getByText('synthetic fixed response', { exact: true })
+    await answer.waitFor()
     await session.page.getByRole('button', { name: session.label('Stop'), exact: true }).waitFor({ state: 'hidden' })
     await session.page.getByRole('button', { name: session.label('Send'), exact: true }).waitFor({ state: 'visible' })
     requireThat(await bounded(session.scope, () => assistants.last().getByRole('alert').count()) === 0, 'RELAY_MISMATCH')
+    terminal = answer
   }
   requireThat(await bounded(session.scope, () => assistants.count()) === beforeAssistants + 1, 'REQUEST_MISMATCH')
+  await bounded(session.scope, () => terminal.scrollIntoViewIfNeeded())
   // This read happens after the actual UI reaches a terminal state; no relay
   // replay is used to wait for asynchronous accounting.
   requireThat(session.requests === beforeRequests + 1, 'REQUEST_MISMATCH')

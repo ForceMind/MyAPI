@@ -157,6 +157,32 @@ Root/owner 实际登录、五项个人合同和各14张安全截图均齐备。�
 精确匹配完整文本，保留普通拒绝的原始内容、三类几何检查及全部调用/额度断言，不改产品迎合测试。
 过期剩余Docker作业取消，原失败job和安全日志保留；该源码完整CI另行保留验证结果。
 
+同一876 CI `38530521162` 的后端在既有
+`TestLegacyWalletTokenRefundFactIsIdempotentAndRecoversAfterLockContention` 第50行失败，
+消息为 `checked release must delete the explicit user lock`。从固定base到本批准确head，
+所有Go源码/测试与Go依赖均无diff；先前beta.12记录也保留过该锁断言失败及后端不变重验结果。
+本轮只读核查原因，保留该真实失败，不以“新CI绿灯”声称该不稳定性或历史账务已修复。
+独立只读核查确认失败发生在worker重试与余额/幂等断言之前：同步Recover按预期返回busy，
+release返回nil只说明Redis命令未报错；Lua仅在token相等时DEL，而整数返回值未被保留。
+现有日志不能区分执行时owner已变或DEL后被其他参与者重建。正常30秒TTL/10秒renew周期
+不足以解释约2秒内该现象；全局测试Redis接线的竞争仅是推断。底层原因继续未知，
+没有认定fixture/miniredis/生产锁bug，也未开启额外重复测试或修改冻结账务路径。
+
+后继 `1eee0c3182a25ae664d5a6603dc954b2309881da` 仅修driver和其double：普通错误
+精确匹配翻译前缀与完整原文，strict错误精确匹配现有本地化说明，再执行同一几何检查。
+独审及本机四文件Node合同测试通过，原请求次数和额度断言不变。复用自动PR CI
+`38531859920`，不再重复启动手动CI；其合并引用 `273cf97501473d4b4186511cb768ad161b41e468`
+父提交为固定base和1eee，文件tree与1eee同为 `fc628433174f767ae2a1d303b1918e90b36d62c3`，
+已diff核对一致。该引用只供CI使用，没有执行PR或main合并。准确Docker `38531939786`
+另行重验实际页面。最终结果及错误实图仍待回读。
+
+1eee 的 Docker `38531939786` 六项全部success，legacy长错误的实际卡片已确认完整换行。
+独立视觉审查还发现现有 `existing-success` 和 `finite-quota-rejection` 手机截图的终态在画面外；
+DOM/几何/余额检查成功不等于这两张截图已显示对应结果。本批仅在确认新增assistant终态、
+完整错误与水平几何后，将最新回答/Alert滚入视口再走原capture。双writer double核对五个终态
+滚动目标及失败不滚动，保持原五次POST/14张截图；静态独审和本机Node合同通过。
+最终准确源码仍须重验并查看对应新图。
+
 ## 共享百分比：已核事实与待定输入
 
 当前 Codex 请求的凭据账户身份可以与最终发送绑定；可信 WHAM 样本仅提供同一账户的整体

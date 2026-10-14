@@ -160,6 +160,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   const tableSearches = []
   const logSearchMatches = []
   const errorLayoutChecks = []
+  const terminalScrolls = []
   const longErrorMessage = `synthetic rejection request_id=${'r'.repeat(112)}`
   let serverDisplay = 'USD'
   const reached = Promise.withResolvers()
@@ -351,6 +352,14 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
           errorLayoutChecks.push({ role: page.actor.role, code: page.lastErrorCode, characters: expected.length,
             rawIncluded: expected.includes(longErrorMessage), presentation: expected })
           return corrupt !== 'ui-error-overflow'
+        },
+        async scrollIntoViewIfNeeded() {
+          assert(parents.includes('.is-assistant'))
+          let target = ''
+          if (kind === 'alert') target = 'alert'
+          else if (kind === 'text' && value === 'synthetic fixed response') target = 'answer'
+          assert(target, 'only a confirmed assistant terminal may be scrolled into view')
+          terminalScrolls.push({ assistant: page.assistants, role: page.actor.role, target, code: target === 'alert' ? page.lastErrorCode : null })
         },
         async count() {
           if (kind === 'row') {
@@ -689,7 +698,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   return { playwrightModule, fetchImpl, contexts, emitted, screenshots, apiCalls, dialogCloseEvents, completionEvents, signals,
     navigations,
     createdKeyDisplays, policyRefreshes, playgroundRefreshes, handoffs, modelChoices, usageReads, filterActions, tableSearches, logSearchMatches,
-    errorLayoutChecks,
+    errorLayoutChecks, terminalScrolls,
     reached: reached.promise, release: stalled.resolve, closing: closing.promise, releaseClose: stalledClose.resolve,
     closed: () => closed, upstreamCount: () => upstreamCount }
 }
@@ -718,6 +727,13 @@ for (const writer of ['legacy', 'authoritative']) {
       const strictDisplay = "This request does not meet the selected key's strict budget requirements. Use a compatible API client or choose another key."
       assert.equal(fixture.errorLayoutChecks[2].presentation, `Request error occurred: ${strictDisplay}`)
       assert(fixture.errorLayoutChecks.every(item => item.characters > 120))
+      assert.deepEqual(fixture.terminalScrolls, [
+        { assistant: 1, role: 100, target: 'answer', code: null },
+        { assistant: 1, role: 1, target: 'alert', code: 'insufficient_user_quota' },
+        { assistant: 2, role: 1, target: 'answer', code: null },
+        { assistant: 3, role: 1, target: 'alert', code: writer === 'authoritative' ? 'insufficient_user_quota' : 'pre_consume_token_quota_failed' },
+        { assistant: 2, role: 100, target: 'alert', code: 'token_budget_unsupported_request' },
+      ])
       assert.equal(fixture.apiCalls.some(route => route.includes('/v1/') || route.includes('/pg/') || /\/key$/.test(route) || route === 'POST /api/user/login'), false)
       const serialized = JSON.stringify(report)
       for (const secret of [base.password, base.username, 'session-private-', 'secret-masked-key', 'request-private-', 'synthetic request']) assert(!serialized.includes(secret))
@@ -745,6 +761,9 @@ test('a clipped long rejection is refused at the existing safe rejection stage w
   ])
   assert.equal(fixture.errorLayoutChecks[0].rawIncluded, true)
   assert(fixture.errorLayoutChecks[0].presentation.startsWith('请求发生错误: '))
+  assert.deepEqual(fixture.terminalScrolls, [
+    { assistant: 1, role: 100, target: 'answer', code: null },
+  ])
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 2)
   assert.equal(fixture.closed(), 1)
 })
