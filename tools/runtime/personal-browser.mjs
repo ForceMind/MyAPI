@@ -12,7 +12,8 @@ const stages = new Set(['launch', 'setup', 'setup-session', 'setup-open', 'setup
   'setup-credentials', 'setup-mode', 'setup-review', 'setup-submit', 'setup-response', 'login', 'login-open', 'login-response', 'login-keys', 'document-backoff', 'writer-check', 'fixture-config', 'fixture-config-refresh', 'policy-view', 'policy-refresh',
   'key-create', 'key-create-open', 'key-create-ready', 'key-create-profile', 'key-create-cap',
   'key-create-quota', 'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'playground-send', 'ledger-check', 'usage-view', 'policy-confirm',
-  'key-selection-refresh', 'key-selection-model', 'playground-response', 'playground-complete', 'playground-rejection',
+  'workbench-open', 'workbench-key-selection', 'workbench-playground-open', 'key-handoff-readback',
+  'key-selection-model', 'playground-response', 'playground-complete', 'playground-rejection',
   'usage-open', 'usage-filter', 'usage-list', 'usage-list-visible', 'usage-details-open', 'usage-details-request', 'usage-details-key',
   'policy-user-filter', 'strict-key-filter',
   'strict-budget', 'reload-check', 'screenshot', 'browser-close'])
@@ -190,7 +191,7 @@ async function newSession(browser, origin, language = 'en', width = 1280, scope 
   const page = await bounded(scope, () => context.newPage())
   page.setDefaultTimeout(20_000)
   const translations = JSON.parse(readFileSync(new URL(`../../web/src/i18n/locales/${language}.json`, import.meta.url), 'utf8')).translation
-  const session = { context, page, scope, language, width, origin, errors: 0, requests: 0, reveals: 0, secrets: [], keyReads: new Set(),
+  const session = { context, page, scope, language, width, origin, errors: 0, requests: 0, reveals: 0, secrets: [],
     label: (key) => translations[key] || key }
   const diagnostics = new Set()
   let diagnosticLimit = false
@@ -232,14 +233,10 @@ async function newSession(browser, origin, language = 'en', width = 1280, scope 
   page.on('request', (request) => {
     const url = new URL(request.url())
     const pathname = url.pathname
-    if (url.origin === origin && pathname === '/pg/keys' && request.method() === 'GET' &&
-      url.searchParams.get('p') === '1' && url.searchParams.get('page_size') === '100') session.keyReads.add(request)
     if (pathname === '/pg/chat/completions' && request.method() === 'POST') session.requests += 1
     if (/^\/api\/token\/\d+\/key$/.test(pathname)) session.reveals += 1
   })
-  page.on('requestfinished', request => session.keyReads.delete(request))
   page.on('requestfailed', request => {
-    session.keyReads.delete(request)
     try {
       const category = diagnosticCategory(request, origin)
       if (category) diagnose('diagnostic-requestfailed', { category })
@@ -253,7 +250,7 @@ async function open(session, pathname, { forceLoad = false } = {}) {
   // Reusing a page already at this exact URL avoids needless cache-disabled
   // document reloads. The final persistence check explicitly forces a load.
   if (!forceLoad && session.page.url() === target) return
-  const sidebarLabels = { '/keys': 'API Keys', '/playground': 'Playground', '/users': 'Users', '/usage-logs/common': 'Usage Logs' }
+  const sidebarLabels = { '/dashboard/overview': 'Personal workbench', '/keys': 'API Keys', '/playground': 'Playground', '/users': 'Users', '/usage-logs/common': 'Usage Logs' }
   if (!forceLoad && session.user && Object.hasOwn(sidebarLabels, pathname)) {
     const { page, label } = session
     const mobile = session.width === 320
@@ -371,8 +368,18 @@ async function login(session, username, password, expectedRole, sha) {
     meta: document.querySelector('meta[name="build-id"]')?.getAttribute('content'),
   })))
   const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
-  requireThat(typeof metadata.global === 'string' && metadata.global.startsWith(`rv.${version}.${sha}.`) &&
+  requireThat(typeof metadata.global === 'string' && metadata.global.length <= 160 && /^[0-9A-Za-z._-]+$/.test(metadata.global) &&
+    metadata.global.startsWith(`rv.${version}.${sha}.`) &&
     metadata.global === metadata.html && metadata.global === metadata.meta, 'BUILD_MISMATCH')
+  // Record only the public proof established by this real session. The
+  // credential and access token remain in process memory and never enter the
+  // journey report.
+  session.frontend = {
+    role: expectedRole === 100 ? 'Root' : 'owner',
+    revision: metadata.global,
+    form_verified: true,
+    metadata_verified: true,
+  }
 }
 
 async function capture(session, options, name, screenshots) {
@@ -470,48 +477,46 @@ async function createKey(session, api, name, limit) {
 }
 
 async function preparePlayground(session, key) {
-  session.scope.stage = 'key-selection'
   const { page, label } = session
-  await open(session, '/playground')
+  session.scope.stage = 'workbench-open'
+  await open(session, '/dashboard/overview')
+  requireThat(new URL(page.url()).pathname === '/dashboard/overview', 'REQUEST_MISMATCH')
+  session.scope.stage = 'workbench-key-selection'
+  const workbenchKey = page.getByRole('combobox', { name: label('Select an API Key'), exact: true })
+  await workbenchKey.selectOption(String(key.id))
+  requireThat(await workbenchKey.inputValue() === String(key.id), 'REQUEST_MISMATCH')
+
+  session.scope.stage = 'workbench-playground-open'
+  const handoffRead = page.waitForResponse((response) => {
+    const url = new URL(response.url())
+    return url.origin === session.origin && url.pathname === '/pg/keys' && response.request().method() === 'GET' &&
+      url.searchParams.get('p') === '1' && url.searchParams.get('page_size') === '100'
+  })
+  handoffRead.catch(() => {})
+  const beforeRequests = session.requests
+  await page.getByRole('button', { name: label('Open Playground'), exact: true }).click()
+  await page.waitForURL(url => url.origin === session.origin && url.pathname === '/playground')
+  session.scope.stage = 'key-handoff-readback'
+  const available = await responseSuccess(session, await handoffRead, 'REQUEST_MISMATCH')
+  const handedOffKeys = Array.isArray(available?.items) ? available.items.filter(item => item.id === key.id) : []
+  const handedOffKey = handedOffKeys[0]
+  requireThat(handedOffKeys.length === 1 && handedOffKey?.status === 1 &&
+    (handedOffKey.expired_time === -1 || handedOffKey.expired_time > Date.now() / 1000) &&
+    (handedOffKey.unlimited_quota === true || handedOffKey.remain_quota > 0) &&
+    session.requests === beforeRequests, 'REQUEST_MISMATCH')
+
+  session.scope.stage = 'key-selection'
   const selected = page.getByRole('combobox', { name: label('API key'), exact: true })
   await selected.waitFor()
-  // An explicit empty selection must prevent sending and cannot auto-select a
-  // fallback. This also covers returning with an older remembered selection.
-  await selected.selectOption('')
-  await page.getByRole('textbox', { name: label('Message'), exact: true }).fill('synthetic personal browser request')
-  requireThat(await page.getByRole('button', { name: label('Send'), exact: true }).isDisabled(), 'REQUEST_MISMATCH')
-  session.scope.stage = 'key-selection-refresh'
-  const refresh = page.getByRole('status').getByRole('button', { name: label('Refresh'), exact: true })
-  let available
-  // The enabled Key select already waits for an uncached initial query. With
-  // cached data, however, a background GET can still be pending. The app's HTTP
-  // deduplicator may reuse that promise when Refresh is clicked. Read its whole
-  // real JSON body rather than requiring an additional network request event.
-  const pendingKeys = [...session.keyReads]
-  requireThat(pendingKeys.length <= 1, 'REQUEST_MISMATCH')
-  if (pendingKeys.length === 1) {
-    const existing = await bounded(session.scope, async () => {
-      const response = await pendingKeys[0].response()
-      requireThat(!session.scope.abort.signal.aborted, 'TIMEOUT')
-      requireThat(response, 'REQUEST_MISMATCH')
-      const payload = await response.json()
-      requireThat(response.status() === 200 && payload?.success === true, 'REQUEST_MISMATCH')
-      return payload.data
-    })
-    await bounded(session.scope, () => page.evaluate(() => document.readyState))
-    if (Array.isArray(existing?.items) && existing.items.filter(item => item.id === key.id).length === 1) {
-      await refresh.click()
-      available = existing
-    }
+  // A native select's options need not have a visible box while it is closed.
+  // Wait for the exact selected option to exist, then verify the visible control.
+  try { await selected.locator(`option[value="${key.id}"]:checked`).waitFor({ state: 'attached' }) } catch {
+    throw new Error('SMOKE_PERSONAL_REQUEST_MISMATCH')
   }
-  // If an older read lacked the new Key, it has now completed: explicitly
-  // refresh and require the newly read list to contain this exact Key.
-  if (!available) available = await refreshReadback(session, '/pg/keys', refresh,
-    'REQUEST_MISMATCH', { p: '1', page_size: '100' })
-  requireThat(Array.isArray(available?.items) && available.items.filter(item => item.id === key.id).length === 1, 'REQUEST_MISMATCH')
-  session.scope.stage = 'key-selection-model'
-  await selected.selectOption(String(key.id))
   requireThat(await selected.inputValue() === String(key.id), 'REQUEST_MISMATCH')
+  await page.getByText(`${key.name} · default`, { exact: true }).and(page.locator('p')).waitFor()
+  await page.getByRole('textbox', { name: label('Message'), exact: true }).fill('synthetic personal browser request')
+  session.scope.stage = 'key-selection-model'
   // The same Key's models can legitimately remain in the fresh query cache.
   // Choose the real visible option; do not require a redundant models GET or
   // rely on the model-selection effect. This trigger also works at 320px.
@@ -547,26 +552,57 @@ async function sendPlayground(session, key, expectedCode) {
     request.headers()['x-myapi-key-id'] === String(key.id), 'REQUEST_MISMATCH')
   const requestId = response.headers()['x-oneapi-request-id']
   requireThat(typeof requestId === 'string' && /^[A-Za-z0-9._:-]{1,160}$/.test(requestId), 'REQUEST_MISMATCH')
+  let terminal
   if (expectedCode) {
     session.scope.stage = 'playground-rejection'
     const text = await bounded(session.scope, () => response.text())
     requireThat(text.length <= 128 * 1024, 'RELAY_MISMATCH')
     const payload = JSON.parse(text)
     requireThat(response.status() === (expectedCode === 'token_budget_unsupported_request' ? 400 : 403) &&
-      payload?.error?.code === expectedCode, 'RELAY_MISMATCH')
-    await assistants.last().getByRole('alert').filter({ hasText: session.label('Error') }).waitFor()
+      payload?.error?.code === expectedCode && typeof payload.error.message === 'string' &&
+      payload.error.message.length > 0 && payload.error.message.length <= 16 * 1024, 'RELAY_MISMATCH')
+    const displayError = expectedCode === 'token_budget_unsupported_request'
+      ? session.label("This request does not meet the selected key's strict budget requirements. Use a compatible API client or choose another key.")
+      : payload.error.message
+    const presentedError = `${session.label('Request error occurred')}: ${displayError}`
+    const alert = assistants.last().getByRole('alert').filter({ hasText: session.label('Error') })
+    await alert.waitFor({ state: 'visible' })
+    const description = alert.getByText(presentedError, { exact: true })
+    await description.waitFor({ state: 'visible' })
+    const fits = await bounded(session.scope, () => description.evaluate((element, expected) => {
+      const card = element.closest('[role="alert"]')
+      if (!card || element.textContent !== expected) return false
+      const elementRect = element.getBoundingClientRect()
+      const cardRect = card.getBoundingClientRect()
+      const viewportWidth = document.documentElement.clientWidth
+      const tolerance = 1
+      const range = document.createRange()
+      range.selectNodeContents(element)
+      const textRects = [...range.getClientRects()].filter(rect => rect.width > 0 && rect.height > 0)
+      return viewportWidth > 0 && elementRect.width > 0 && elementRect.height > 0 && cardRect.width > 0 &&
+        cardRect.left >= -tolerance && cardRect.right <= viewportWidth + tolerance &&
+        elementRect.left >= cardRect.left - tolerance && elementRect.right <= cardRect.right + tolerance &&
+        elementRect.left >= -tolerance && elementRect.right <= viewportWidth + tolerance &&
+        textRects.length > 0 && textRects.every(rect => rect.left >= elementRect.left - tolerance &&
+          rect.right <= elementRect.right + tolerance && rect.left >= -tolerance && rect.right <= viewportWidth + tolerance)
+    }, presentedError))
+    requireThat(fits === true, 'RELAY_MISMATCH')
+    terminal = alert
   } else {
     session.scope.stage = 'playground-complete'
     requireThat(response.status() === 200, 'RELAY_MISMATCH')
     // The actual frontend closes its SSE source after DONE. Network body/finished
     // is not its completion contract. Require the newly added assistant's full
     // text, normal terminal controls and no current-message error instead.
-    await assistants.last().getByText('synthetic fixed response', { exact: true }).waitFor()
+    const answer = assistants.last().getByText('synthetic fixed response', { exact: true })
+    await answer.waitFor()
     await session.page.getByRole('button', { name: session.label('Stop'), exact: true }).waitFor({ state: 'hidden' })
     await session.page.getByRole('button', { name: session.label('Send'), exact: true }).waitFor({ state: 'visible' })
     requireThat(await bounded(session.scope, () => assistants.last().getByRole('alert').count()) === 0, 'RELAY_MISMATCH')
+    terminal = answer
   }
   requireThat(await bounded(session.scope, () => assistants.count()) === beforeAssistants + 1, 'REQUEST_MISMATCH')
+  await bounded(session.scope, () => terminal.scrollIntoViewIfNeeded())
   // This read happens after the actual UI reaches a terminal state; no relay
   // replay is used to wait for asynchronous accounting.
   requireThat(session.requests === beforeRequests + 1, 'REQUEST_MISMATCH')
@@ -901,7 +937,18 @@ export async function probePersonalBrowserJourney(options = {}) {
     requireThat(finalWriter.state?.mode === writer, 'WRITER_MISMATCH')
     requireThat(root.errors === 0 && owner.errors === 0 && root.reveals === 0 && owner.reveals === 0 &&
       root.requests === 2 && owner.requests === 3, 'RUNTIME_ERROR')
+    requireThat(root.frontend?.role === 'Root' && owner.frontend?.role === 'owner' &&
+      root.frontend.form_verified === true && owner.frontend.form_verified === true &&
+      root.frontend.metadata_verified === true && owner.frontend.metadata_verified === true &&
+      root.frontend.revision === owner.frontend.revision, 'BUILD_MISMATCH')
     checks.push({ name: 'browser reload preserves finite Key and ordinary-owner counters without relay replay', ok: true, remainingQuota: quota - usage, usedQuota: usage })
-    return { passed: true, sha: options.sha, writer, checks, screenshots }
+    return { passed: true, sha: options.sha, writer, checks, screenshots, frontend: {
+      revision: root.frontend.revision,
+      roles: [root.frontend.role, owner.frontend.role],
+      role_revisions: { Root: root.frontend.revision, owner: owner.frontend.revision },
+      form_verified: true,
+      metadata_verified: true,
+      runtime_errors: root.errors + owner.errors,
+    } }
   })
 }

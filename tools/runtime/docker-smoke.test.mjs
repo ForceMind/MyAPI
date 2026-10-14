@@ -1,12 +1,140 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
-import { hasAppliedSettlementProof, probeFreshSQLite, probeRelayFixture, probeSelfUseRelayFixture, preparePersonalWriterFixture, validateSmokeTarget } from './docker-smoke.mjs'
+import { appendFrontendAcceptance, hasAppliedSettlementProof, probeFrontend, probeFreshSQLite, probeRelayFixture,
+  probeSelfUseRelayFixture, preparePersonalWriterFixture, validatePersonalFrontendEvidence, validateSmokeTarget } from './docker-smoke.mjs'
 import { fakeOpenAIListenHost, startFakeOpenAI } from './fake-openai.mjs'
 
 const sha = 'a'.repeat(40)
 const baseUrl = 'http://127.0.0.1:18080'
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status })
+
+function frontendBrowser({ timeout = false, failures = [], revision = `rv.0.0.0.${sha}.test` } = {}) {
+  const listeners = {}
+  let closed = false
+  const request = (pathname, resourceType = 'fetch') => ({
+    url: () => baseUrl + pathname,
+    resourceType: () => resourceType,
+  })
+  const page = {
+    setDefaultTimeout(value) { assert.equal(value, 20_000) },
+    on(event, handler) { listeners[event] = handler },
+    async route(pattern) { assert.equal(pattern, '**/*') },
+    async goto(url) {
+      assert.equal(url, baseUrl + '/sign-in')
+      for (const failure of failures) {
+        const req = request(failure.pathname, failure.resourceType)
+        if (failure.httpStatus === 0) listeners.requestfailed?.(req)
+        else listeners.response?.({ request: () => req, status: () => failure.httpStatus })
+      }
+      return { status: () => 200 }
+    },
+    locator(selector) {
+      return {
+        async waitFor() {
+          if (timeout && selector.includes('username')) {
+            const error = new Error('private timeout with https://example.invalid/secret')
+            error.name = 'TimeoutError'
+            throw error
+          }
+        },
+        async isEditable() { return true },
+        async isEnabled() { return true },
+      }
+    },
+    async evaluate() { return { global: revision, html: revision, meta: revision } },
+  }
+  return {
+    module: { chromium: { async launch(options) {
+      assert.deepEqual(options, { headless: true })
+      return { async newPage(options) { assert.deepEqual(options, { locale: 'en-US' }); return page },
+        async close() { closed = true } }
+    } } },
+    closed: () => closed,
+  }
+}
+
+test('personal frontend evidence is exact, public and replaces the redundant cold browser probe', async () => {
+  const version = '0.0.0'
+  const revision = `rv.${version}.${sha}.test`
+  const personal = { passed: true, sha, frontend: { revision, roles: ['Root', 'owner'],
+    role_revisions: { Root: revision, owner: revision },
+    form_verified: true, metadata_verified: true, runtime_errors: 0 } }
+  assert.deepEqual(validatePersonalFrontendEvidence(personal, { sha, version }), {
+    name: 'real frontend sign-in form and revision', ok: true, revision, roles: ['Root', 'owner'],
+    form_verified: true, metadata_verified: true, runtime_errors: 0,
+  })
+  const report = { passed: true, personal, checks: [] }
+  await appendFrontendAcceptance(report, { personalEnabled: true, baseUrl, sha, version,
+    playwrightModule: { chromium: { launch() { assert.fail('personal acceptance must not launch another browser') } } } })
+  assert.equal(report.checks.length, 1)
+  assert.equal(report.checks[0].revision, revision)
+})
+
+test('personal frontend evidence rejects every missing or mismatched proof with one fixed code', () => {
+  const version = '0.0.0'
+  const revision = `rv.${version}.${sha}.test`
+  const valid = { passed: true, sha, frontend: { revision, roles: ['Root', 'owner'],
+    role_revisions: { Root: revision, owner: revision },
+    form_verified: true, metadata_verified: true, runtime_errors: 0 } }
+  const invalid = [
+    undefined,
+    { ...valid, passed: false },
+    { ...valid, sha: 'b'.repeat(40) },
+    { ...valid, frontend: undefined },
+    { ...valid, frontend: { ...valid.frontend, roles: ['Root'] } },
+    { ...valid, frontend: { ...valid.frontend, roles: ['owner', 'Root'] } },
+    { ...valid, frontend: { ...valid.frontend, role_revisions: { Root: revision } } },
+    { ...valid, frontend: { ...valid.frontend, role_revisions: { Root: revision, owner: `rv.${version}.${sha}.other` } } },
+    { ...valid, frontend: { ...valid.frontend, form_verified: false } },
+    { ...valid, frontend: { ...valid.frontend, metadata_verified: false } },
+    { ...valid, frontend: { ...valid.frontend, runtime_errors: 1 } },
+    { ...valid, frontend: { ...valid.frontend, revision: `rv.9.9.9.${sha}.test` } },
+    { ...valid, frontend: { ...valid.frontend, revision: `rv.${version}.${'b'.repeat(40)}.test` } },
+    { ...valid, frontend: { ...valid.frontend, revision: `rv.${version}.${sha}.bad/value` } },
+    { ...valid, frontend: { ...valid.frontend, revision: `rv.${version}.${sha}.${'x'.repeat(161)}` } },
+  ]
+  for (const evidence of invalid) {
+    assert.throws(() => validatePersonalFrontendEvidence(evidence, { sha, version }),
+      error => error.message === 'SMOKE_PERSONAL_FRONTEND_EVIDENCE' && error.stage === 'frontend-evidence')
+  }
+  assert.throws(() => validatePersonalFrontendEvidence(valid, { sha: 'b'.repeat(40), version }),
+    error => error.message === 'SMOKE_PERSONAL_FRONTEND_EVIDENCE' && error.stage === 'frontend-evidence')
+  assert.throws(() => validatePersonalFrontendEvidence(valid, { sha, version: '9.9.9' }),
+    error => error.message === 'SMOKE_PERSONAL_FRONTEND_EVIDENCE' && error.stage === 'frontend-evidence')
+})
+
+test('standalone frontend probe reports bounded same-origin diagnostics with a fixed form timeout', async () => {
+  const fixture = frontendBrowser({ timeout: true, failures: [
+    ...Array.from({ length: 20 }, () => ({ pathname: '/static/js/private-name.js', resourceType: 'script', httpStatus: 429 })),
+    { pathname: '/api/user/auth/refresh?private=secret', httpStatus: 429 },
+    { pathname: '/static/js/network-secret.js', resourceType: 'script', httpStatus: 0 },
+    { pathname: '/api/setup?private=secret', httpStatus: 503 },
+  ] })
+  await assert.rejects(probeFrontend(baseUrl, sha, '0.0.0', fixture.module), error => {
+    assert.equal(error.message, 'SMOKE_FRONTEND_FORM_TIMEOUT')
+    assert.equal(error.stage, 'frontend-form')
+    assert.deepEqual(error.diagnostics, [
+      { category: 'asset', httpStatus: 429, count: 16 },
+      { category: 'auth', httpStatus: 429, count: 1 },
+      { category: 'asset', httpStatus: 0, count: 1 },
+      { category: 'bootstrap', httpStatus: 503, count: 1 },
+    ])
+    assert.equal(JSON.stringify(error.diagnostics).includes('private'), false)
+    assert.equal(JSON.stringify(error).includes('example.invalid'), false)
+    return true
+  })
+  assert.equal(fixture.closed(), true)
+})
+
+test('standalone frontend probe retains its real form and build contract for non-personal runs', async () => {
+  const revision = `rv.0.0.0.${sha}.test`
+  const fixture = frontendBrowser({ revision })
+  const report = { passed: true, checks: [] }
+  await appendFrontendAcceptance(report, { personalEnabled: false, baseUrl, sha, version: '0.0.0', playwrightModule: fixture.module })
+  assert.deepEqual(report.checks, [{ name: 'real frontend sign-in form and revision', ok: true, revision }])
+  assert.equal(fixture.closed(), true)
+})
 
 test('relay fixture remains an explicit isolated smoke capability', async () => {
   assert.equal(typeof probeRelayFixture, 'function')

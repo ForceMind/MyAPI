@@ -2,6 +2,11 @@ name: Docker build smoke
 
 on:
   workflow_dispatch:
+    inputs:
+      personal:
+        description: 'Run the existing isolated personal workflow in both writers (no deployment or publishing)'
+        type: boolean
+        default: false
   pull_request:
     types: [opened, synchronize]
     paths:
@@ -34,7 +39,7 @@ jobs:
       lan-manifest: ${{ steps.publish.outputs.lan_manifest_sha256 }}
     env:
       BUNDLE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      BUNDLE_PERSONAL: ${{ github.event_name == 'pull_request' && contains(fromJSON('["codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010","codex/beta11-release-candidate-20261010"]'), github.event.pull_request.head.ref) && '1' || '0' }}
+      BUNDLE_PERSONAL: ${{ (github.event_name == 'workflow_dispatch' && inputs.personal || github.event_name == 'pull_request' && contains(fromJSON('["codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010","codex/beta11-release-candidate-20261010"]'), github.event.pull_request.head.ref)) && '1' || '0' }}
     steps:
       - name: Check out
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -320,13 +325,13 @@ jobs:
         writer: [legacy]
         # Personal slices use two fresh owned DBs. The release candidate also
         # retains historical handoff and the independent LAN source installer.
-        include: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'codex/beta11-release-candidate-20261010' && '[{"edition":"full","scenario":"fresh","writer":"authoritative"},{"edition":"full","scenario":"handoff","writer":"legacy"}]' || github.event_name == 'pull_request' && contains(fromJSON('["codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010"]'), github.event.pull_request.head.ref) && '[{"edition":"full","scenario":"fresh","writer":"authoritative"}]' || '[{"edition":"full","scenario":"handoff","writer":"legacy"}]') }}
+        include: ${{ fromJSON((github.event_name == 'workflow_dispatch' && inputs.personal || github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'codex/beta11-release-candidate-20261010') && '[{"edition":"full","scenario":"fresh","writer":"authoritative"},{"edition":"full","scenario":"handoff","writer":"legacy"}]' || github.event_name == 'pull_request' && contains(fromJSON('["codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010"]'), github.event.pull_request.head.ref) && '[{"edition":"full","scenario":"fresh","writer":"authoritative"}]' || '[{"edition":"full","scenario":"handoff","writer":"legacy"}]') }}
     env:
       MYAPI_SMOKE_EDITION: ${{ matrix.edition }}
       MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
       MYAPI_ISOLATED_SMOKE: '1'
-      BUNDLE_PERSONAL: ${{ github.event_name == 'pull_request' && contains(fromJSON('["codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010","codex/beta11-release-candidate-20261010"]'), github.event.pull_request.head.ref) && '1' || '0' }}
-      MYAPI_SMOKE_PERSONAL: ${{ matrix.scenario == 'fresh' && github.event_name == 'pull_request' && contains(fromJSON('["codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010","codex/beta11-release-candidate-20261010"]'), github.event.pull_request.head.ref) && '1' || '0' }}
+      BUNDLE_PERSONAL: ${{ (github.event_name == 'workflow_dispatch' && inputs.personal || github.event_name == 'pull_request' && contains(fromJSON('["codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010","codex/beta11-release-candidate-20261010"]'), github.event.pull_request.head.ref)) && '1' || '0' }}
+      MYAPI_SMOKE_PERSONAL: ${{ matrix.edition == 'full' && matrix.scenario == 'fresh' && (github.event_name == 'workflow_dispatch' && inputs.personal || github.event_name == 'pull_request' && contains(fromJSON('["codex/personal-app-journey-20261009","codex/docker-smoke-image-reuse-20261010","codex/beta11-release-candidate-20261010"]'), github.event.pull_request.head.ref)) && '1' || '0' }}
       MYAPI_SMOKE_WRITER: ${{ matrix.writer }}
       SMOKE_NETWORK: myapi-personal-${{ github.sha }}-${{ matrix.writer }}
       SMOKE_REDIS_CONTAINER: myapi-personal-redis-${{ github.sha }}-${{ matrix.writer }}

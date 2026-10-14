@@ -36,11 +36,19 @@ const MESSAGE_SAVE_DEBOUNCE_MS = 500
 /**
  * Main state management hook for playground
  */
-export function usePlaygroundState(userId: number) {
+export function usePlaygroundState(
+  userId: number,
+  clearInitialKeySelection = false
+) {
   // Load initial state from localStorage
-  const [config, setConfig] = useState<PlaygroundConfig>(() =>
-    getInitialPlaygroundConfig(userId)
-  )
+  const [config, setConfig] = useState<PlaygroundConfig>(() => {
+    const initialConfig = getInitialPlaygroundConfig(userId)
+    if (!clearInitialKeySelection) return initialConfig
+
+    const clearedConfig = { ...initialConfig, keyId: null }
+    saveConfig(clearedConfig, userId)
+    return clearedConfig
+  })
 
   const [parameterEnabled, setParameterEnabled] = useState<ParameterEnabled>(
     () => getInitialParameterEnabled(userId)

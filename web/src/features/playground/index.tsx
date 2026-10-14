@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -38,14 +38,31 @@ import {
   STRICT_CHAT_UNSUPPORTED_PARAMETERS,
   usesStrictChatParameters,
 } from './lib/parameters/strict-chat-parameters'
+import {
+  completePlaygroundKeyHandoff,
+  readPlaygroundKeyHandoff,
+} from './lib/playground-key-handoff'
 
 export function Playground() {
   const userId = useAuthStore((state) => state.auth.user?.id)
-  return userId ? <PlaygroundSession key={userId} userId={userId} /> : null
+  const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
+  return userId ? (
+    <PlaygroundSession
+      key={`${userId}:${sessionId ?? 'no-session'}`}
+      userId={userId}
+      sessionId={sessionId}
+    />
+  ) : null
 }
 
-function PlaygroundSession(props: { userId: number }) {
+function PlaygroundSession(props: {
+  userId: number
+  sessionId: string | null
+}) {
   const { t } = useTranslation()
+  const [keyHandoff] = useState(() =>
+    readPlaygroundKeyHandoff(props.userId, props.sessionId)
+  )
   const {
     config,
     parameterEnabled,
@@ -55,7 +72,18 @@ function PlaygroundSession(props: { userId: number }) {
     updateConfig,
     updateParameterEnabled,
     clearMessages,
-  } = usePlaygroundState(props.userId)
+  } = usePlaygroundState(props.userId, keyHandoff.status !== 'none')
+
+  useEffect(() => {
+    if (keyHandoff.status === 'rejected') {
+      completePlaygroundKeyHandoff(keyHandoff.requestId)
+      return
+    }
+
+    if (keyHandoff.status === 'accepted') {
+      return () => completePlaygroundKeyHandoff(keyHandoff.requestId)
+    }
+  }, [keyHandoff])
 
   const {
     keys,
@@ -68,7 +96,12 @@ function PlaygroundSession(props: { userId: number }) {
     refreshKeys,
   } = usePlaygroundOptions({
     userId: props.userId,
+    sessionId: props.sessionId,
     keyId: config.keyId,
+    keyHandoff:
+      keyHandoff.status === 'accepted'
+        ? { requestId: keyHandoff.requestId, keyId: keyHandoff.keyId }
+        : undefined,
     currentModel: config.model,
     updateConfig,
   })
