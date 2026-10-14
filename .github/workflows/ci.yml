@@ -6,6 +6,11 @@ on:
   pull_request:
     types: [opened, synchronize, closed]
   workflow_dispatch:
+    inputs:
+      baseline_red:
+        description: 'Reproduce the personal Key handoff regression on the fixed pre-fix source before testing the candidate'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -483,10 +488,10 @@ jobs:
     name: Frontend typecheck and test
     if: github.event.action != 'closed' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-    # Source CI 38128779978 finished in 14m59s; docs CI 38133755286
-    # hit the 15m job limit during the final Playground browser journey.
-    # Keep every test deadline and allow bounded runner/install margin.
-    timeout-minutes: 20
+    # Source CI 38450353211 took 15m57s before the workbench seven-language
+    # phone/desktop matrix. Keep individual test deadlines and allow bounded
+    # margin for the added real browser journeys and runner/install variation.
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: web
@@ -506,6 +511,39 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Verify pre-fix personal Key handoff regression
+        if: github.event_name == 'workflow_dispatch' && inputs.baseline_red
+        run: |
+          set -euo pipefail
+          target=src/features/playground/hooks/use-playground-options.ts
+          saved="$RUNNER_TEMP/personal-key-options-candidate.ts"
+          report="$RUNNER_TEMP/myapi-ui-browser-artifacts/personal-key-handoff-baseline-red.json"
+          mkdir -p "$(dirname "$report")"
+          cp "$target" "$saved"
+          trap 'cp "$saved" "$target"' EXIT
+          git fetch --no-tags --depth=1 origin 963fabe521e9905c450b2e45968d0d7402488594
+          git show 963fabe521e9905c450b2e45968d0d7402488594:web/"$target" > "$target"
+          set +e
+          bun run test src/features/playground/hooks/__tests__/key-request-lifecycle.test.tsx \
+            -t 'selects a handed-off Key only after a fresh available-key response' \
+            --reporter=json --outputFile="$report"
+          result=$?
+          set -e
+          [[ "$result" -ne 0 ]]
+          python3 - "$report" <<'PY'
+          import json
+          import sys
+          report = json.load(open(sys.argv[1]))
+          failures = [case for suite in report['testResults'] for case in suite['assertionResults'] if case['status'] == 'failed']
+          assert len(failures) == 1, 'Require the single intended observable regression'
+          assert failures[0]['title'] == 'selects a handed-off Key only after a fresh available-key response'
+          message = '\n'.join(failures[0].get('failureMessages', []))
+          assert 'keyId' in message and '23' in message, 'Require the expected missing Key selection assertion'
+          assert not report.get('unhandledErrors'), 'Import or initialization errors are not regression evidence'
+          PY
+          cp "$saved" "$target"
+          git diff --exit-code -- "$target"
 
       - name: Typecheck
         run: bun run typecheck

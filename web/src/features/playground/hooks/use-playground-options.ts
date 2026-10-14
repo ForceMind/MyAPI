@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -25,11 +25,14 @@ import {
   getUserModels,
   isPlaygroundKeyAvailable,
 } from '../api'
+import { completePlaygroundKeyHandoff } from '../lib/playground-key-handoff'
 import type { PlaygroundConfig } from '../types'
 
 interface UsePlaygroundOptionsParams {
   userId?: number
+  sessionId?: string | null
   keyId?: number | null
+  keyHandoff?: { requestId: number; keyId: number }
   currentModel: string
   updateConfig: <K extends keyof PlaygroundConfig>(
     key: K,
@@ -40,11 +43,23 @@ interface UsePlaygroundOptionsParams {
 export function usePlaygroundOptions(props: UsePlaygroundOptionsParams) {
   const { t } = useTranslation()
   const { currentModel, updateConfig } = props
+  const [handoffRejected, setHandoffRejected] = useState(false)
+  const handledHandoffRequestRef = useRef<number | null>(null)
   const keysQuery = useQuery({
-    queryKey: ['playground-keys', props.userId],
-    queryFn: async () => {
+    queryKey: props.keyHandoff
+      ? [
+          'playground-keys',
+          props.userId,
+          props.sessionId,
+          'handoff',
+          props.keyHandoff.requestId,
+        ]
+      : ['playground-keys', props.userId, props.sessionId],
+    queryFn: async ({ signal }) => {
       try {
-        return await getPlaygroundKeys()
+        return await getPlaygroundKeys(
+          props.keyHandoff ? { signal, disableDuplicate: true } : undefined
+        )
       } catch {
         throw new Error('Failed to load API keys')
       }
@@ -58,7 +73,12 @@ export function usePlaygroundOptions(props: UsePlaygroundOptionsParams) {
     selectedKey && isPlaygroundKeyAvailable(selectedKey) && !keysQuery.isError
   )
   const modelsQuery = useQuery({
-    queryKey: ['playground-models', props.userId, props.keyId],
+    queryKey: [
+      'playground-models',
+      props.userId,
+      props.sessionId,
+      props.keyId,
+    ],
     queryFn: async ({ signal }) => {
       try {
         return await getUserModels(props.keyId ?? 0, signal)
@@ -73,15 +93,54 @@ export function usePlaygroundOptions(props: UsePlaygroundOptionsParams) {
     isKeyAvailable && !modelsQuery.isError ? (modelsQuery.data ?? []) : []
 
   useEffect(() => {
+    if (
+      !props.keyHandoff ||
+      keysQuery.isPending ||
+      keysQuery.isFetching ||
+      handledHandoffRequestRef.current === props.keyHandoff.requestId
+    ) {
+      return
+    }
+
+    handledHandoffRequestRef.current = props.keyHandoff.requestId
+    const handedOffKey = keysQuery.data?.find(
+      (key) => key.id === props.keyHandoff?.keyId
+    )
+    if (
+      !keysQuery.isError &&
+      handedOffKey &&
+      isPlaygroundKeyAvailable(handedOffKey)
+    ) {
+      updateConfig('keyId', handedOffKey.id)
+    } else {
+      setHandoffRejected(true)
+    }
+    completePlaygroundKeyHandoff(props.keyHandoff.requestId)
+  }, [
+    keysQuery.data,
+    keysQuery.isError,
+    keysQuery.isFetching,
+    keysQuery.isPending,
+    props.keyHandoff,
+    updateConfig,
+  ])
+
+  useEffect(() => {
     if (!modelsQuery.data || !isKeyAvailable) return
     if (!modelsQuery.data.some((model) => model.value === currentModel)) {
       updateConfig('model', modelsQuery.data[0]?.value ?? '')
     }
   }, [modelsQuery.data, isKeyAvailable, currentModel, updateConfig])
 
+  useEffect(() => {
+    if (handoffRejected && isKeyAvailable) setHandoffRejected(false)
+  }, [handoffRejected, isKeyAvailable])
+
   let keyNotice: string | null = null
   if (keysQuery.isError) keyNotice = t('Failed to load API keys')
-  else if (props.keyId && !keysQuery.isPending && !isKeyAvailable) {
+  else if (handoffRejected && !props.keyId) {
+    keyNotice = t('The selected API key is unavailable. Choose another key.')
+  } else if (props.keyId && !keysQuery.isPending && !isKeyAvailable) {
     keyNotice = t('The selected API key is unavailable. Choose another key.')
   } else if (!props.keyId) {
     keyNotice = t('Select an available API key before sending')

@@ -27,7 +27,24 @@ const sourceHead = execFileSync('git', ['rev-parse', 'HEAD'], {
   cwd: repo,
   encoding: 'utf8',
 }).trim()
-const languageCodes = { en: 'en', zh: 'zhCN', fr: 'fr' }
+const languageCodes = {
+  en: 'en',
+  zh: 'zhCN',
+  'zh-TW': 'zhTW',
+  fr: 'fr',
+  ru: 'ru',
+  ja: 'ja',
+  vi: 'vi',
+}
+const browserLocales = {
+  en: 'en-US',
+  zh: 'zh-CN',
+  'zh-TW': 'zh-TW',
+  fr: 'fr-FR',
+  ru: 'ru-RU',
+  ja: 'ja-JP',
+  vi: 'vi-VN',
+}
 const translations = Object.fromEntries(
   Object.keys(languageCodes).map((language) => [
     language,
@@ -81,9 +98,28 @@ for (const key of [
   'Expired',
   'Out of internal quota',
   'Open Playground',
+  'API key',
+  'Select an available API key before sending',
+  'Failed to load API keys',
+  'The selected API key is unavailable. Choose another key.',
   'Retry',
 ]) {
   for (const language of Object.keys(languageCodes)) tr(key, language)
+}
+
+for (const language of Object.keys(languageCodes).filter(
+  (candidate) => candidate !== 'en'
+)) {
+  assert.notEqual(
+    tr('Personal workbench', language),
+    tr('Personal workbench', 'en'),
+    `${language} uses its real Personal workbench translation`
+  )
+  assert.notEqual(
+    tr('Internal units', language),
+    tr('Internal units', 'en'),
+    `${language} uses its real internal-unit translation`
+  )
 }
 
 assert(existsSync(resolve(build, 'index.html')), 'Build the production frontend first')
@@ -348,13 +384,21 @@ function scenarioResponse(fixture, scenario, url, method, reads) {
     ) {
       return { violation: `Unexpected safe Key query: ${url.search}` }
     }
-    if (scenario.failKeys && count === 1) {
+    if (
+      (scenario.failKeys && count === 1) ||
+      (scenario.failPlaygroundKeys && count >= 2)
+    ) {
       return {
         status: 503,
         body: { success: false, message: 'Synthetic Keys unavailable' },
       }
     }
-    const items = scenario.empty ? [] : safeKeys
+    let items = scenario.empty ? [] : safeKeys
+    if (scenario.handoffKeyUnavailable && count >= 2) {
+      items = safeKeys.map((key) =>
+        key.id === 23 ? { ...key, status: 2 } : key
+      )
+    }
     return {
       status: 200,
       body: {
@@ -460,7 +504,7 @@ async function createSession(scenario) {
   }
   const context = await browser.newContext({
     viewport: { width: scenario.width, height: mobile ? 1100 : 900 },
-    locale: { en: 'en-US', zh: 'zh-CN', fr: 'fr-FR' }[scenario.language],
+    locale: browserLocales[scenario.language],
     timezoneId: 'UTC',
     reducedMotion: 'reduce',
     colorScheme: scenario.theme,
@@ -474,8 +518,23 @@ async function createSession(scenario) {
     { name: 'sidebar_state', value: 'true', url: origin },
   ])
   await context.addInitScript(
-    (code) => localStorage.setItem('i18nextLng', code),
-    languageCodes[scenario.language]
+    ({ languageCode, savedPlaygroundKeyId, userId }) => {
+      localStorage.setItem('i18nextLng', languageCode)
+      if (savedPlaygroundKeyId) {
+        localStorage.setItem(
+          `playground_config:user:${userId}`,
+          JSON.stringify({
+            version: 1,
+            data: { keyId: savedPlaygroundKeyId },
+          })
+        )
+      }
+    },
+    {
+      languageCode: languageCodes[scenario.language],
+      savedPlaygroundKeyId: scenario.savedPlaygroundKeyId ?? null,
+      userId: scenario.role === 1 ? 2 : 1,
+    }
   )
   await context.route('**/*', async (route) => {
     const request = route.request()
@@ -497,6 +556,7 @@ async function createSession(scenario) {
           method: request.method(),
           path: url.pathname,
           query: url.search,
+          keyId: request.headers()['x-myapi-key-id'] || null,
         })
         audit.mutations.push(`${request.method()} ${url.pathname}`)
         audit.violations.push(
@@ -509,7 +569,12 @@ async function createSession(scenario) {
     const path = url.pathname.replace(/\/$/, '')
     const refresh =
       request.method() === 'POST' && path === '/api/user/auth/refresh'
-    audit.requests.push({ method: request.method(), path, query: url.search })
+    audit.requests.push({
+      method: request.method(),
+      path,
+      query: url.search,
+      keyId: request.headers()['x-myapi-key-id'] || null,
+    })
     if (request.method() !== 'GET' && !refresh) {
       audit.mutations.push(`${request.method()} ${path}`)
       return route.fulfill({ status: 501, json: { success: false } })
@@ -687,6 +752,13 @@ function section(page, testId) {
   return page.getByTestId(testId)
 }
 
+function openPlaygroundButton(page, scenario) {
+  return page.getByTestId('personal-workbench').getByRole('button', {
+    name: tr('Open Playground', scenario.language),
+    exact: true,
+  })
+}
+
 async function assertCommonPersonal(page, scenario, audit) {
   assert.equal(
     await page.locator('main').count(),
@@ -730,6 +802,51 @@ async function selectNativeKey(page, scenario, value) {
   return select
 }
 
+function localizedNumber(value, language) {
+  return new Intl.NumberFormat(browserLocales[language]).format(value)
+}
+
+async function assertPlaygroundSelection(page, scenario, expectedKeyId) {
+  const keySelect = page.getByRole('combobox', {
+    name: tr('API key', scenario.language),
+    exact: true,
+  })
+  await keySelect.waitFor()
+  await page.waitForFunction(
+    ({ keyId, label }) =>
+      [...document.querySelectorAll('select')].some(
+        (select) =>
+          select.getAttribute('aria-label') === label &&
+          select.value === String(keyId)
+      ),
+    { keyId: expectedKeyId, label: tr('API key', scenario.language) }
+  )
+  assert.equal(
+    await keySelect.inputValue(),
+    String(expectedKeyId),
+    `Playground selects the handed-off Key ${expectedKeyId}`
+  )
+  const identity = await keySelect.evaluate((select) => {
+    const identityId = select.getAttribute('aria-describedby')
+    return identityId
+      ? document.getElementById(identityId)?.textContent?.trim()
+      : null
+  })
+  assert(identity, 'The selected Playground Key exposes its full identity')
+  assert.equal(
+    identity,
+    'Synthetic account threshold Key · default',
+    'Playground renders the exact handed-off Key identity'
+  )
+}
+
+async function storedPlaygroundKeyId(page, role) {
+  return page.evaluate((userId) => {
+    const value = localStorage.getItem(`playground_config:user:${userId}`)
+    return value ? JSON.parse(value)?.data?.keyId : undefined
+  }, role === 1 ? 2 : 1)
+}
+
 async function runPopulated(scenario) {
   const { page, context, reads, audit } = await createSession(scenario)
   const journey = {
@@ -749,10 +866,19 @@ async function runPopulated(scenario) {
     })
     await keySelect.waitFor()
     assert.equal(await keySelect.inputValue(), '', 'No Key is selected automatically')
+    const openPlayground = openPlaygroundButton(page, scenario)
+    await openPlayground.waitFor()
+    assert(
+      await openPlayground.isDisabled(),
+      'Open Playground stays disabled until an available Key is selected'
+    )
     assert.equal(
-      await page.getByTestId('personal-workbench').locator('a[href="/playground"]').count(),
+      await page
+        .getByTestId('personal-workbench')
+        .locator('a[href="/playground"]')
+        .count(),
       0,
-      'Playground actions stay disabled until an available Key is selected'
+      'The workbench exposes no link that can bypass the Key handoff'
     )
     await page.getByTestId('key-selection-empty').waitFor()
     if (scenario.role === 100 || scenario.role === 1) {
@@ -795,13 +921,16 @@ async function runPopulated(scenario) {
     await keySelect.press('ArrowDown')
     assert.equal(await keySelect.inputValue(), '21', 'Keyboard selects the first Key')
     await section(page, 'key-budget-section')
-      .getByText(/750(?:,?000|k)/i)
+      .getByText(localizedNumber(750000, scenario.language))
       .first()
       .waitFor()
 
     await selectNativeKey(page, scenario, 22)
     const budgetSection = section(page, 'key-budget-section')
-    await budgetSection.getByText(/120(?:,?000|k)/i).first().waitFor()
+    await budgetSection
+      .getByText(localizedNumber(120000, scenario.language))
+      .first()
+      .waitFor()
     await budgetSection
       .getByText(/USD\s+12(?:[.,]50|\.500000)/)
       .first()
@@ -822,7 +951,8 @@ async function runPopulated(scenario) {
       .locator('..')
       .innerText()
     assert(
-      internalSummary.includes(tr('Internal units', scenario.language)) &&
+      internalSummary.includes(localizedNumber(500000, scenario.language)) &&
+        internalSummary.includes(tr('Internal units', scenario.language)) &&
         !internalSummary.includes('USD') &&
         !internalSummary.includes('%') &&
         !internalSummary.includes(tr('Token', scenario.language)),
@@ -834,7 +964,8 @@ async function runPopulated(scenario) {
       .locator('..')
       .innerText()
     assert(
-      tokenSummary.includes(tr('Token', scenario.language)),
+      tokenSummary.includes(localizedNumber(120000, scenario.language)) &&
+        tokenSummary.includes(tr('Token', scenario.language)),
       'Strict Token budget keeps its Token unit'
     )
     const usdSummary = await budgetSection
@@ -842,7 +973,10 @@ async function runPopulated(scenario) {
       .locator('..')
       .locator('..')
       .innerText()
-    assert(usdSummary.includes('USD'), 'Strict fee budget keeps its USD unit')
+    assert(
+      usdSummary.includes('USD 12.500000'),
+      'Strict fee budget keeps its exact USD amount and unit'
+    )
     assert(
       audit.requests.some(
         (request) =>
@@ -856,6 +990,11 @@ async function runPopulated(scenario) {
 
     await selectNativeKey(page, scenario, 23)
     await budgetSection.getByText(/25(?:[.,]00)?\s*%/).first().waitFor()
+    assert.equal(
+      await page.getByTestId('request-flow-selected-key').innerText(),
+      'Synthetic account threshold Key',
+      'The workbench keeps the exact Key 23 identity before handoff'
+    )
     assert.equal(await budgetSection.getByText(tr('Not configured', scenario.language), { exact: true }).count(), 2, 'Account threshold does not enable Token or USD budgets')
     assert.equal(await budgetSection.getByText(tr('Pending request review', scenario.language), { exact: true }).count(), 0, 'Switching Keys removes the previous reservation reminder')
     await section(page, 'workbench-actions').getByText(tr('No pending request review for the selected Key.', scenario.language), { exact: true }).waitFor()
@@ -867,7 +1006,7 @@ async function runPopulated(scenario) {
       .locator('..')
       .innerText()
     assert(
-      thresholdSummary.includes('%') && !thresholdSummary.includes('USD'),
+      thresholdSummary.includes('25.00%') && !thresholdSummary.includes('USD'),
       'Account threshold stays a percentage'
     )
     assert(
@@ -920,13 +1059,60 @@ async function runPopulated(scenario) {
 
     await screenshot(page, scenario, 'account-threshold')
     const requestCount = audit.requests.length
-    await page
-      .locator('a[href="/playground"]')
-      .filter({ hasText: tr('Open Playground', scenario.language) })
-      .first()
-      .focus()
+    const handedOffModels = page.waitForResponse((response) => {
+      const request = response.request()
+      return (
+        new URL(response.url()).pathname === '/pg/models' &&
+        request.headers()['x-myapi-key-id'] === '23'
+      )
+    })
+    assert.equal(
+      await openPlayground.isDisabled(),
+      false,
+      'Open Playground becomes enabled for available Key 23'
+    )
+    await openPlayground.focus()
     await page.keyboard.press('Enter')
     await page.waitForURL(`${origin}/playground`)
+    await assertPlaygroundSelection(page, scenario, 23)
+    await handedOffModels
+    assert.equal(
+      await page.locator(`text=${SECRET_SENTINEL}`).count(),
+      0,
+      'Playground renders no Key secret after handoff'
+    )
+    assert.equal(
+      reads.get('/pg/keys'),
+      2,
+      'Playground validates the handoff with one fresh safe-list read'
+    )
+    assert.equal(
+      await storedPlaygroundKeyId(page, scenario.role),
+      23,
+      'The one-time handoff replaces the previously saved Key 22'
+    )
+    assert(
+      audit.requests.some(
+        (request) => request.path === '/pg/models' && request.keyId === '23'
+      ),
+      'Playground loads models for the handed-off Key 23'
+    )
+    assert.equal(
+      audit.requests.filter(
+        (request) => request.path === '/pg/models' && request.keyId === '22'
+      ).length,
+      0,
+      'Playground never loads models for the older saved Key 22'
+    )
+    assert.equal(
+      audit.requests.filter(
+        (request) =>
+          request.method === 'POST' &&
+          request.path === '/pg/chat/completions'
+      ).length,
+      0,
+      'Selecting the handed-off Key never sends a generation request'
+    )
     assert.equal(
       audit.requests
         .slice(requestCount)
@@ -943,6 +1129,132 @@ async function runPopulated(scenario) {
     assert.deepEqual(audit.external, [], 'No external request is attempted')
     assert.deepEqual(audit.violations, [], 'No fixture contract is violated')
     assert.deepEqual(audit.pageErrors, [], 'No page runtime error is reported')
+    journey.requestCount = audit.requests.length
+    journey.reads = Object.fromEntries(reads)
+    journey.result = 'passed'
+  } catch (error) {
+    journey.result = 'failed'
+    journey.error = error instanceof Error ? error.stack : String(error)
+    throw error
+  } finally {
+    report.journeys.push(journey)
+    persist()
+    await context.close()
+    contexts.delete(context)
+  }
+}
+
+async function runBlockedHandoff(scenario) {
+  const { page, context, reads, audit } = await createSession(scenario)
+  const journey = {
+    name: scenario.name,
+    role: scenario.role,
+    language: scenario.language,
+    width: scenario.width,
+    theme: scenario.theme,
+    result: 'running',
+  }
+  try {
+    journey.buildRevision = await openWorkbench(page, scenario)
+    await selectNativeKey(page, scenario, 23)
+    await section(page, 'key-budget-section')
+      .getByText('25.00%', { exact: true })
+      .first()
+      .waitFor()
+
+    const requestCount = audit.requests.length
+    const openPlayground = openPlaygroundButton(page, scenario)
+    assert.equal(
+      await page
+        .getByTestId('personal-workbench')
+        .locator('a[href="/playground"]')
+        .count(),
+      0,
+      'The blocked-handoff setup exposes no Playground link shortcut'
+    )
+    assert.equal(await openPlayground.isDisabled(), false)
+    await openPlayground.click()
+    await page.waitForURL(`${origin}/playground`)
+
+    const keySelect = page.getByRole('combobox', {
+      name: tr('API key', scenario.language),
+      exact: true,
+    })
+    await keySelect.waitFor()
+    const notice = scenario.failPlaygroundKeys
+      ? 'Failed to load API keys'
+      : 'The selected API key is unavailable. Choose another key.'
+    const status = page.getByRole('status')
+    await status.waitFor()
+    assert(
+      (await status.innerText()).includes(tr(notice, scenario.language)),
+      'The blocked handoff explains the exact localized failure state'
+    )
+    assert.equal(
+      await keySelect.inputValue(),
+      '',
+      'An invalid handoff leaves the Playground Key selection empty'
+    )
+    assert.equal(
+      await page.locator(`text=${SECRET_SENTINEL}`).count(),
+      0,
+      'A blocked handoff renders no Key secret'
+    )
+    assert.equal(
+      await storedPlaygroundKeyId(page, scenario.role),
+      null,
+      'An invalid handoff clears the older saved Key instead of falling back'
+    )
+    assert.equal(
+      reads.get('/pg/keys'),
+      2,
+      'A blocked handoff is decided by one fresh safe-list read'
+    )
+    assert.equal(
+      audit.requests.filter((request) => request.path === '/pg/models').length,
+      0,
+      'An invalid handoff never loads models for the handed-off or saved Key'
+    )
+    assert.equal(
+      audit.requests
+        .slice(requestCount)
+        .filter(
+          (request) =>
+            request.method !== 'GET' &&
+            request.path !== '/api/user/auth/refresh'
+        ).length,
+      0,
+      'An invalid handoff performs no business POST'
+    )
+    assert.equal(
+      audit.requests.filter(
+        (request) =>
+          request.method === 'POST' &&
+          request.path === '/pg/chat/completions'
+      ).length,
+      0,
+      'An invalid handoff never sends a generation request'
+    )
+    assert.deepEqual(
+      audit.mutations,
+      [],
+      'An invalid handoff performs no mutation'
+    )
+    assert.deepEqual(
+      audit.external,
+      [],
+      'An invalid handoff performs no external request'
+    )
+    assert.deepEqual(
+      audit.violations,
+      [],
+      'An invalid handoff honors fixture contracts'
+    )
+    assert.deepEqual(
+      audit.pageErrors,
+      [],
+      'An invalid handoff reports no runtime error'
+    )
     journey.requestCount = audit.requests.length
     journey.reads = Object.fromEntries(reads)
     journey.result = 'passed'
@@ -1219,32 +1531,179 @@ try {
     args: ['--disable-dev-shm-usage'],
   })
 
-  await runPopulated({
-    name: 'personal-root-en-1280-light',
-    role: 100,
+  const populatedScenarios = [
+    {
+      name: 'personal-owner-en-320-dark',
+      role: 1,
+      language: 'en',
+      width: 320,
+      theme: 'dark',
+      channelRead: false,
+    },
+    {
+      name: 'personal-admin-no-channel-en-1280-dark',
+      role: 10,
+      language: 'en',
+      width: 1280,
+      theme: 'dark',
+      channelRead: false,
+    },
+    {
+      name: 'personal-owner-zh-320-dark',
+      role: 1,
+      language: 'zh',
+      width: 320,
+      theme: 'dark',
+      channelRead: false,
+    },
+    {
+      name: 'personal-root-zh-1280-light',
+      role: 100,
+      language: 'zh',
+      width: 1280,
+      theme: 'light',
+      channelRead: true,
+    },
+    {
+      name: 'personal-owner-zh-TW-320-light',
+      role: 1,
+      language: 'zh-TW',
+      width: 320,
+      theme: 'light',
+      channelRead: false,
+    },
+    {
+      name: 'personal-root-zh-TW-1280-dark',
+      role: 100,
+      language: 'zh-TW',
+      width: 1280,
+      theme: 'dark',
+      channelRead: true,
+    },
+    {
+      name: 'personal-owner-fr-320-dark',
+      role: 1,
+      language: 'fr',
+      width: 320,
+      theme: 'dark',
+      channelRead: false,
+    },
+    {
+      name: 'personal-root-fr-1280-light',
+      role: 100,
+      language: 'fr',
+      width: 1280,
+      theme: 'light',
+      channelRead: true,
+    },
+    {
+      name: 'personal-owner-ru-320-light',
+      role: 1,
+      language: 'ru',
+      width: 320,
+      theme: 'light',
+      channelRead: false,
+    },
+    {
+      name: 'personal-root-ru-1280-dark',
+      role: 100,
+      language: 'ru',
+      width: 1280,
+      theme: 'dark',
+      channelRead: true,
+    },
+    {
+      name: 'personal-owner-ja-320-dark',
+      role: 1,
+      language: 'ja',
+      width: 320,
+      theme: 'dark',
+      channelRead: false,
+    },
+    {
+      name: 'personal-root-ja-1280-light',
+      role: 100,
+      language: 'ja',
+      width: 1280,
+      theme: 'light',
+      channelRead: true,
+    },
+    {
+      name: 'personal-owner-vi-320-light',
+      role: 1,
+      language: 'vi',
+      width: 320,
+      theme: 'light',
+      channelRead: false,
+    },
+    {
+      name: 'personal-root-vi-1280-dark',
+      role: 100,
+      language: 'vi',
+      width: 1280,
+      theme: 'dark',
+      channelRead: true,
+    },
+  ].map((scenario) => ({
+    ...scenario,
+    mode: 'disabled',
+    savedPlaygroundKeyId: 22,
+  }))
+  const requiredPairs = new Set(
+    Object.keys(languageCodes).flatMap((language) =>
+      [320, 1280].map((width) => `${language}:${width}`)
+    )
+  )
+  const populatedPairs = new Set(
+    populatedScenarios.map(
+      (scenario) => `${scenario.language}:${scenario.width}`
+    )
+  )
+  assert.equal(populatedScenarios.length, 14)
+  assert.equal(
+    new Set(populatedScenarios.map((scenario) => scenario.name)).size,
+    14
+  )
+  assert.deepEqual(
+    [...populatedPairs].sort(),
+    [...requiredPairs].sort(),
+    'The bounded populated matrix covers every required language at 320px and 1280px exactly once'
+  )
+  assert(
+    populatedScenarios.some(
+      (scenario) => scenario.role === 10 && !scenario.channelRead
+    ),
+    'The populated matrix preserves the administrator permission-denied scenario'
+  )
+  report.coverage = {
+    languages: [...Object.keys(languageCodes)],
+    widths: [320, 1280],
+    populatedPairs: [...populatedPairs].sort(),
+    handoffCases: ['available', 'key-unavailable', 'safe-list-failed'],
+  }
+  for (const scenario of populatedScenarios) await runPopulated(scenario)
+
+  await runBlockedHandoff({
+    name: 'personal-handoff-key-unavailable-en-1280',
+    role: 1,
     language: 'en',
     width: 1280,
     theme: 'light',
     mode: 'disabled',
-    channelRead: true,
+    channelRead: false,
+    savedPlaygroundKeyId: 22,
+    handoffKeyUnavailable: true,
   })
-  await runPopulated({
-    name: 'personal-owner-zh-320-dark',
+  await runBlockedHandoff({
+    name: 'personal-handoff-safe-list-failed-zh-320',
     role: 1,
     language: 'zh',
     width: 320,
     theme: 'dark',
     mode: 'disabled',
     channelRead: false,
-  })
-  await runPopulated({
-    name: 'personal-admin-no-channel-en-1280-dark',
-    role: 10,
-    language: 'en',
-    width: 1280,
-    theme: 'dark',
-    mode: 'disabled',
-    channelRead: false,
+    savedPlaygroundKeyId: 22,
+    failPlaygroundKeys: true,
   })
   await runRecovery({
     name: 'personal-retry-zh-320-light',
@@ -1296,10 +1755,43 @@ try {
     })
   }
 
-  assert.equal(report.journeys.length, 10)
-  assert.equal(report.screenshots.length, 13)
-  assert.equal(report.buildRevisions.length, 10)
+  assert.equal(report.journeys.length, 23)
+  assert.equal(report.screenshots.length, 46)
+  assert.equal(report.buildRevisions.length, 23)
   assert(report.buildRevisions.every((entry) => entry.revision))
+  const populatedNames = new Set(
+    populatedScenarios.map((scenario) => scenario.name)
+  )
+  assert.deepEqual(
+    new Set(
+      report.journeys
+        .filter((journey) => populatedNames.has(journey.name))
+        .map((journey) => `${journey.language}:${journey.width}`)
+    ),
+    requiredPairs,
+    'The completed Chromium journeys cover the required locale-width pairs'
+  )
+  assert.deepEqual(
+    new Set(
+      report.screenshots
+        .filter((entry) => populatedNames.has(entry.journey))
+        .map((entry) => entry.journey)
+    ),
+    populatedNames,
+    'Every locale-width populated journey produces real layout screenshots'
+  )
+  assert.deepEqual(
+    new Set(
+      report.journeys
+        .filter((journey) => journey.name.startsWith('personal-handoff-'))
+        .map((journey) => journey.name)
+    ),
+    new Set([
+      'personal-handoff-key-unavailable-en-1280',
+      'personal-handoff-safe-list-failed-zh-320',
+    ]),
+    'Both blocked handoff browser cases complete'
+  )
   report.result = 'passed'
 } catch (error) {
   report.result = 'failed'

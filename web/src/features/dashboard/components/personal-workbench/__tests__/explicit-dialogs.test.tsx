@@ -1,26 +1,20 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { AnchorHTMLAttributes } from 'react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
+import {
+  completePlaygroundKeyHandoff,
+  readPlaygroundKeyHandoff,
+} from '@/features/playground/lib/playground-key-handoff'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { PersonalWorkbench } from '../personal-workbench'
 import { usePersonalWorkbenchData } from '../use-personal-workbench-data'
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: (
-    props: AnchorHTMLAttributes<HTMLAnchorElement> & { to?: string }
-  ) => {
-    const { to, children, className } = props
-    return (
-      <a href={to} className={className}>
-        {children}
-      </a>
-    )
-  },
-}))
+const navigate = vi.hoisted(() => vi.fn())
+
+vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }))
 vi.mock('../use-personal-workbench-data', () => ({
   usePersonalWorkbenchData: vi.fn(),
 }))
@@ -76,10 +70,26 @@ const idleQuery = {
 }
 
 beforeEach(() => {
-  useAuthStore.getState().auth.setUser({
-    id: 7,
-    username: 'root',
-    role: ROLE.SUPER_ADMIN,
+  navigate.mockClear()
+  useAuthStore.getState().auth.setBundle({
+    access_token: 'access-token',
+    token_type: 'Bearer',
+    access_expires_at: 4_000_000_000,
+    user: {
+      id: 7,
+      username: 'root',
+      role: ROLE.SUPER_ADMIN,
+    },
+    session: {
+      sid: 'session-a',
+      current: true,
+      login_method: 'password',
+      ip: '127.0.0.1',
+      user_agent: 'test',
+      created_at: 1,
+      last_active_at: 1,
+      expires_at: 4_000_000_000,
+    },
   })
   vi.mocked(usePersonalWorkbenchData).mockImplementation((props) =>
     ({
@@ -108,7 +118,27 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  const handoff = readPlaygroundKeyHandoff(7, 'session-a')
+  if (handoff.status !== 'none') {
+    completePlaygroundKeyHandoff(handoff.requestId)
+  }
   useAuthStore.getState().auth.reset('idle')
+})
+
+test('creates a session-bound handoff only when the user opens Playground', async () => {
+  const user = userEvent.setup()
+  render(<PersonalWorkbench />)
+
+  await user.click(screen.getByRole('button', { name: 'Select test Key' }))
+  expect(readPlaygroundKeyHandoff(7, 'session-a')).toEqual({ status: 'none' })
+
+  const openPlayground = screen.getByRole('button', { name: 'Open Playground' })
+  await user.click(openPlayground)
+  expect(readPlaygroundKeyHandoff(7, 'session-a')).toMatchObject({
+    status: 'accepted',
+    keyId: 31,
+  })
+  expect(navigate).toHaveBeenCalledWith({ to: '/playground' })
 })
 
 test('does not mount write-capable dialogs until the user explicitly opens them', async () => {

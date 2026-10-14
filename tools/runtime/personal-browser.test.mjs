@@ -135,7 +135,7 @@ import { mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false, forbidStreamReads = false, hangAt, closeHangs = false, documentResponses = [], reloadAlreadyCurrent = false, inflightKeys, unsafeUsageScreenshot = false, failUsageScreenshot = false, usageFailureRole, onNavigate } = {}) {
+function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false, forbidStreamReads = false, hangAt, closeHangs = false, documentResponses = [], reloadAlreadyCurrent = false, savedPlaygroundKeyId, unsafeUsageScreenshot = false, failUsageScreenshot = false, usageFailureRole, onNavigate } = {}) {
   const reverse = Object.fromEntries(Object.entries(JSON.parse(readFileSync(new URL('../../web/src/i18n/locales/zh.json', import.meta.url))).translation).map(([key, value]) => [value, key]))
   const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
   const users = new Map([[1, { id: 1, username: base.username, role: 100, quota: 0, used_quota: 15, request_count: 1, self_use_no_balance: true, revision: 1 }]])
@@ -152,8 +152,8 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   const createdKeyDisplays = []
   const policyRefreshes = []
   const playgroundRefreshes = []
+  const handoffs = []
   const modelChoices = []
-  const keyReadEvents = []
   const usageReads = []
   const filterActions = []
   const tableSearches = []
@@ -191,7 +191,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   const policy = user => ({ user_id: user.id, no_balance: user.self_use_no_balance, revision: user.revision, legacy_remaining_quota: user.quota })
   const budget = key => ({ policy: { enabled: true, fee_enabled: true, used: 0, reserved: corrupt === 'strict-reserve' ? 1 : 0, fee_used_usd: '0', fee_reserved_usd: '0', pending_request_id: '' }, pending: null })
   const makePage = context => {
-    const page = { current: base.baseUrl + '/', fields: {}, switches: {}, pendingSwitches: {}, checkboxes: {}, group: '', model: 'gpt-4o', modelsCache: new Map(), listeners: {}, waiters: [], requestWaiters: [], selected: '', actor: null,
+    const page = { current: base.baseUrl + '/', fields: {}, switches: {}, pendingSwitches: {}, checkboxes: {}, group: '', model: 'gpt-4o', modelsCache: new Map(), listeners: {}, waiters: [], requestWaiters: [], selected: savedPlaygroundKeyId === undefined ? '' : String(savedPlaygroundKeyId), workbenchSelected: '', actor: null,
       setDefaultTimeout() {}, on(event, handler) { this.listeners[event] = handler },
       async goto(url) {
         const path = new URL(url).pathname
@@ -310,6 +310,12 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             assert.notEqual(corrupt, 'incomplete-text')
             completionEvents.push('assistant-complete')
           }
+          if (kind === 'text' && typeof value === 'string' && value.endsWith(' · default')) {
+            assert.equal(value, `${keys.get(Number(page.selected))?.name} · default`)
+          }
+          if (kind === 'selector' && typeof value === 'string' && value.startsWith('option[value=')) {
+            assert.equal(value, `option[value="${page.selected}"]:checked`)
+          }
           if (kind === 'button' && value === 'Stop' && options?.state === 'hidden') {
             assert.notEqual(corrupt, 'still-generating')
             completionEvents.push('stop-hidden')
@@ -380,12 +386,14 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
           if (name === 'aria-expanded' && value === 'Toggle sidebar') return String(Boolean(page.sidebarOpen))
           if (name === 'aria-checked') return page.switches[value] ?? (value === 'No ordinary quota cap' ? 'true' : 'false')
         },
-        async inputValue() { return page.selected },
-        async isDisabled() { return page.selected === '' },
+        async inputValue() { return kind === 'combobox' && new URL(page.current).pathname === '/dashboard/overview' ? page.workbenchSelected : page.selected },
+        async isDisabled() { return value === 'API key' && page.selected === '' },
         async selectOption(id) {
-          if (page.backgroundKeys && inflightKeys === 'initial') {
-            await page.backgroundKeys.json()
-            delete page.backgroundKeys // Initial isPending has cleared before the native select is enabled.
+          if (kind === 'combobox' && new URL(page.current).pathname === '/dashboard/overview') {
+            assert.equal(new URL(page.current).pathname, '/dashboard/overview')
+            assert([...keys.values()].some(key => key.user_id === page.actor.id && key.id === Number(id)))
+            page.workbenchSelected = id
+            return
           }
           page.selected = id
           if (id) {
@@ -399,6 +407,38 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         },
         async click(options) {
           if (options?.trial) return
+          if (kind === 'button' && value === 'Open Playground') {
+            assert.equal(new URL(page.current).pathname, '/dashboard/overview')
+            const handoffKeyId = Number(page.workbenchSelected)
+            const handoffKey = keys.get(handoffKeyId)
+            assert(handoffKey && handoffKey.user_id === page.actor.id)
+            const requestsBefore = emitted.filter(item => new URL(item.url()).pathname === '/pg/chat/completions').length
+            page.current = base.baseUrl + '/playground'
+            navigations.push({ kind: 'handoff', locale: context.locale, path: '/playground', keyId: handoffKeyId })
+            const items = [...keys.values()].filter(key => key.user_id === page.actor.id).map(key => ({
+              id: key.id, name: key.name, status: 1, group: key.group, remain_quota: key.remain_quota,
+              used_quota: key.used_quota, unlimited_quota: key.unlimited_quota, expired_time: -1,
+              strict_token_budget: Boolean(key.strict),
+            }))
+            if (corrupt === 'handoff-disabled') items.find(key => key.id === handoffKeyId).status = 2
+            const data = { total: items.length, items: corrupt === 'keys' ? [] : items }
+            page.emit(response('/pg/keys?p=1&page_size=100', 'POST', { success: false }))
+            page.emit(response('/pg/keys?p=2&page_size=100', 'GET', { success: false }))
+            const freshKeys = response('/pg/keys?p=1&page_size=100', 'GET', { success: true, data })
+            if (hangAt === 'keys-body') freshKeys.json = hang
+            page.emit(freshKeys)
+            page.availableKeyIds = data.items.map(item => item.id)
+            page.selected = ['handoff-selection', 'handoff-disabled'].includes(corrupt) ? '' : String(handoffKeyId)
+            if (page.selected && !page.modelsCache.has(page.selected)) {
+              const available = corrupt === 'models' ? 'other-model' : 'smoke-model'
+              page.modelsCache.set(page.selected, [available])
+              page.emit(response('/pg/models', 'GET', { success: true, data: [{ id: available }] }))
+            }
+            handoffs.push({ userId: page.actor.id, keyId: handoffKeyId, selectedKeyId: Number(page.selected), ids: [...page.availableKeyIds] })
+            assert.equal(emitted.filter(item => new URL(item.url()).pathname === '/pg/chat/completions').length, requestsBefore,
+              'Key handoff must not send a generation request')
+            return
+          }
           if (value === 'Expand' || value === 'Filter') {
             assert.equal(new URL(page.current).pathname, '/usage-logs/common')
             assert(parents.includes('Common Logs'), 'log filter triggers belong to the named page main')
@@ -435,16 +475,6 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
           }
           if (value === 'Refresh' && !parents.includes('User usage policy')) {
             assert.equal(page.selected, '', 'Refresh with no selected Key must refresh keys without forcing a models refetch')
-            if (page.backgroundKeys && (inflightKeys !== 'missing-target' || !page.backgroundKeyComplete)) {
-              keyReadEvents.push('refresh-reused-request')
-              const reused = await page.backgroundKeys.json()
-              page.availableKeyIds = reused.data.items.map(item => item.id)
-              playgroundRefreshes.push({ userId: page.actor.id, ids: [...page.availableKeyIds] })
-              page.emitResponse(page.backgroundKeys)
-              delete page.backgroundKeys
-              return // HTTP deduplication does not emit another request event.
-            }
-            delete page.backgroundKeys
             const items = [...keys.values()].filter(key => key.user_id === page.actor.id).map(key => ({
               id: key.id, name: key.name, status: 1, group: key.group, remain_quota: key.remain_quota,
               used_quota: key.used_quota, unlimited_quota: key.unlimited_quota, expired_time: -1, strict_token_budget: Boolean(key.strict),
@@ -468,31 +498,11 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             navigations.push({ kind: 'toggle', locale: context.locale })
           }
           if (kind === 'link' && parents.includes('[data-myapi-sidebar]')) {
-            assert(['API Keys', 'Playground', 'Usage Logs', 'Users'].includes(value))
+            assert(['Personal workbench', 'API Keys', 'Playground', 'Usage Logs', 'Users'].includes(value))
             assert(!page.logDetailsOpen, 'log dialog must be dismissed before sidebar navigation')
             if (context.locale === 'zh-CN') assert.equal(page.sidebarOpen, true, 'mobile links require the visible navigation drawer')
-            const pathname = { 'API Keys': '/keys', Playground: '/playground', 'Usage Logs': '/usage-logs/common', Users: '/users' }[value]
+            const pathname = { 'Personal workbench': '/dashboard/overview', 'API Keys': '/keys', Playground: '/playground', 'Usage Logs': '/usage-logs/common', Users: '/users' }[value]
             page.current = base.baseUrl + pathname
-            if (pathname === '/playground' && !page.simulatedKeysRead && (inflightKeys || hangAt === 'keys-body')) {
-              page.simulatedKeysRead = true
-              const items = inflightKeys === 'missing-target' ? [] : [...keys.values()].filter(key => key.user_id === page.actor.id).map(key => ({ id: key.id }))
-              const pending = response('/pg/keys?p=1&page_size=100', 'GET', { success: true, data: { items } })
-              let complete = false
-              pending.json = async () => {
-                if (hangAt === 'keys-body') return hang()
-                if (!complete) {
-                  complete = true
-                  page.backgroundKeyComplete = true
-                  keyReadEvents.push('body-complete')
-                  page.availableKeyIds = items.map(item => item.id)
-                  page.listeners.requestfinished?.(pending.request())
-                }
-                return { success: true, data: { items } }
-              }
-              page.backgroundKeys = pending
-              page.listeners.request?.(pending.request())
-              keyReadEvents.push('request-started')
-            }
             page.sidebarOpen = false
             navigations.push({ kind: 'link', locale: context.locale, path: pathname })
           }
@@ -654,7 +664,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
   }
   return { playwrightModule, fetchImpl, contexts, emitted, screenshots, apiCalls, dialogCloseEvents, completionEvents, signals,
     navigations,
-    createdKeyDisplays, policyRefreshes, playgroundRefreshes, modelChoices, keyReadEvents, usageReads, filterActions, tableSearches, logSearchMatches,
+    createdKeyDisplays, policyRefreshes, playgroundRefreshes, handoffs, modelChoices, usageReads, filterActions, tableSearches, logSearchMatches,
     reached: reached.promise, release: stalled.resolve, closing: closing.promise, releaseClose: stalledClose.resolve,
     closed: () => closed, upstreamCount: () => upstreamCount }
 }
@@ -805,7 +815,7 @@ test('the default progress sink emits safe JSON while a broken observer cannot b
 for (const [hangAt, timeout, stage] of [
   ['response-json', 20_000, 'login-response'], ['rejection-body', 20_000, 'playground-rejection'],
   ['api-body', 10_000, 'writer-check'], ['evaluate', 20_000, 'login-keys'],
-  ['keys-body', 20_000, 'key-selection-refresh'],
+  ['keys-body', 20_000, 'key-handoff-readback'],
 ]) {
   test(`${hangAt} deadline actively closes owned contexts and late resolution cannot resume business`, async t => {
     t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
@@ -970,43 +980,57 @@ for (const failureMode of ['safe', 'visible-secret', 'capture-error']) {
   })
 }
 
-test('Playground refreshes new Keys and explicitly selects the cached model without a redundant models GET', async () => {
+test('workbench hands each exact Key to Playground without a sidebar shortcut or generation replay', async () => {
   const fixture = journeyBrowser()
   const report = await probePersonalBrowserJourney({ ...base, ...fixture })
   assert.equal(report.passed, true)
-  assert.equal(fixture.playgroundRefreshes.length, 5)
-  assert.deepEqual(fixture.playgroundRefreshes.map(item => item.ids.length), [1, 1, 1, 2, 2])
+  assert.equal(fixture.handoffs.length, 5)
+  assert.deepEqual(fixture.handoffs.map(item => item.ids.length), [1, 1, 1, 2, 2])
+  assert(fixture.handoffs.every(item => item.keyId === item.selectedKeyId))
+  assert.equal(fixture.playgroundRefreshes.length, 0, 'handoff validation must not click a redundant Playground Refresh')
   assert.equal(fixture.modelChoices.length, 5)
   assert.deepEqual(fixture.modelChoices.map(item => item.locale), ['en-US', 'zh-CN', 'zh-CN', 'zh-CN', 'en-US'])
   assert(fixture.modelChoices.every(item => item.model === 'smoke-model'))
   assert.equal(fixture.modelChoices[1].keyId, fixture.modelChoices[2].keyId)
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/models').length, 4)
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+  assert.equal(fixture.navigations.filter(item => item.kind === 'handoff').length, 5)
+  assert.equal(fixture.navigations.filter(item => item.kind === 'link' && item.path === '/playground').length, 0)
 })
 
-for (const inflightKeys of ['initial', 'background', 'missing-target']) {
-  test(`Playground ${inflightKeys} read settles without requiring an extra request from HTTP deduplication`, async () => {
-    const fixture = journeyBrowser({ inflightKeys })
-    const report = await probePersonalBrowserJourney({ ...base, ...fixture })
-    assert.equal(report.passed, true)
-    assert.equal(fixture.keyReadEvents.filter(event => event === 'request-started').length, 2)
-    assert.equal(fixture.keyReadEvents.filter(event => event === 'body-complete').length, 2)
-    assert.equal(fixture.keyReadEvents.filter(event => event === 'refresh-reused-request').length, inflightKeys === 'background' ? 2 : 0)
-    assert.deepEqual(fixture.keyReadEvents, [1, 2].flatMap(() => [
-      'request-started', 'body-complete', ...(inflightKeys === 'background' ? ['refresh-reused-request'] : []),
-    ]))
-    assert.equal(fixture.playgroundRefreshes.length, 5)
-    assert.equal(fixture.modelChoices.length, 5)
-    assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
-  })
-}
+test('a stale saved Playground Key is replaced only by the explicit workbench handoff', async () => {
+  const fixture = journeyBrowser({ savedPlaygroundKeyId: 22 })
+  const report = await probePersonalBrowserJourney({ ...base, ...fixture })
+  assert.equal(report.passed, true)
+  assert.equal(fixture.handoffs.length, 5)
+  assert(fixture.handoffs.every(item => item.keyId === item.selectedKeyId && item.selectedKeyId !== 22))
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+})
 
-test('an older in-flight list without the target cannot excuse a refreshed list still missing the new Key', async () => {
-  const fixture = journeyBrowser({ inflightKeys: 'missing-target', corrupt: 'keys' })
+test('fresh handoff readback missing the target cannot fall back or send', async () => {
+  const fixture = journeyBrowser({ corrupt: 'keys' })
   await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), error =>
-    error.message === 'SMOKE_PERSONAL_REQUEST_MISMATCH' && error.stage === 'key-selection-refresh')
-  assert.equal(fixture.keyReadEvents.filter(event => event === 'body-complete').length, 1)
-  assert.equal(fixture.playgroundRefreshes.length, 1)
+    error.message === 'SMOKE_PERSONAL_REQUEST_MISMATCH' && error.stage === 'key-handoff-readback')
+  assert.equal(fixture.handoffs.length, 1)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 0)
+  assert.equal(fixture.closed(), 1)
+})
+
+test('fresh handoff readback rejects an unavailable target before any model or generation request', async () => {
+  const fixture = journeyBrowser({ corrupt: 'handoff-disabled' })
+  await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), error =>
+    error.message === 'SMOKE_PERSONAL_REQUEST_MISMATCH' && error.stage === 'key-handoff-readback')
+  assert.equal(fixture.modelChoices.length, 0)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/models').length, 0)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 0)
+  assert.equal(fixture.closed(), 1)
+})
+
+test('Playground must render the handed-off Key before model choice or send', async () => {
+  const fixture = journeyBrowser({ corrupt: 'handoff-selection' })
+  await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), error =>
+    error.message === 'SMOKE_PERSONAL_REQUEST_MISMATCH' && error.stage === 'key-selection')
+  assert.equal(fixture.modelChoices.length, 0)
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 0)
   assert.equal(fixture.closed(), 1)
 })

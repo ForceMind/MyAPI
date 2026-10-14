@@ -221,11 +221,18 @@ export function isPlaygroundKeyAvailable(
   )
 }
 
-export async function getPlaygroundKeys(): Promise<PlaygroundKey[]> {
+export async function getPlaygroundKeys(options?: {
+  signal?: AbortSignal
+  disableDuplicate?: boolean
+}): Promise<PlaygroundKey[]> {
   const keys: PlaygroundKey[] = []
   for (let page = 1; ; page++) {
     const response = await api.get(API_ENDPOINTS.KEYS, {
       params: { p: page, page_size: 100 },
+      ...(options?.signal ? { signal: options.signal } : {}),
+      ...(options?.disableDuplicate
+        ? { disableDuplicate: options.disableDuplicate }
+        : {}),
       skipErrorHandler: true,
     })
     if (response.data?.success !== true) {

@@ -231,7 +231,11 @@ function BudgetRejectionChat(props: {
 
 const queryClients: QueryClient[] = []
 
-function renderOptions(keyId: number | null, currentModel = 'personal-model') {
+function renderOptions(
+  keyId: number | null,
+  currentModel = 'personal-model',
+  keyHandoff?: { requestId: number; keyId: number }
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   })
@@ -239,7 +243,7 @@ function renderOptions(keyId: number | null, currentModel = 'personal-model') {
   const updateConfig = vi.fn()
   const hook = renderHook(
     (props: { keyId: number | null; currentModel: string }) =>
-      usePlaygroundOptions({ ...props, updateConfig }),
+      usePlaygroundOptions({ ...props, keyHandoff, updateConfig }),
     {
       initialProps: { keyId, currentModel },
       wrapper: (props: { children: ReactNode }) => (
@@ -1017,6 +1021,206 @@ describe('key-scoped model selection', () => {
       params: { p: 1, page_size: 100 },
       skipErrorHandler: true,
     })
+  })
+
+  test('selects a handed-off Key only after a fresh available-key response', async () => {
+    const handedOffKey = { ...availableKey, id: 23, name: 'Workbench Key' }
+    const keysResponse = deferred<{
+      data: {
+        success: true
+        data: { items: PlaygroundKey[]; total: number }
+      }
+    }>()
+    const get = vi.spyOn(api, 'get').mockImplementation(async (url) => {
+      if (url === '/pg/keys') return keysResponse.promise
+      return { data: { success: true, data: [{ id: 'personal-model' }] } }
+    })
+    const { result, updateConfig } = renderOptions(null, 'personal-model', {
+      requestId: 41,
+      keyId: 23,
+    })
+
+    expect(result.current.canSend).toBe(false)
+    expect(updateConfig).not.toHaveBeenCalled()
+    expect(get).toHaveBeenCalledOnce()
+
+    await act(async () => {
+      keysResponse.resolve({
+        data: {
+          success: true,
+          data: { items: [availableKey, handedOffKey], total: 2 },
+        },
+      })
+      await keysResponse.promise
+    })
+
+    await waitFor(() => {
+      expect(updateConfig).toHaveBeenCalledWith('keyId', 23)
+    })
+    expect(get).toHaveBeenCalledWith('/pg/keys', {
+      params: { p: 1, page_size: 100 },
+      signal: expect.any(AbortSignal),
+      disableDuplicate: true,
+      skipErrorHandler: true,
+    })
+    expect(get).toHaveBeenCalledOnce()
+    expect(result.current.canSend).toBe(false)
+  })
+
+  test.each([
+    ['missing', { ...availableKey, id: 22 }],
+    ['disabled', { ...availableKey, id: 23, status: 0 }],
+    ['expired', { ...availableKey, id: 23, expired_time: 1 }],
+  ])(
+    'keeps selection empty when a handed-off Key is %s',
+    async (_name, returnedKey) => {
+      const get = vi.spyOn(api, 'get').mockResolvedValue({
+        data: {
+          success: true,
+          data: { items: [returnedKey], total: 1 },
+        },
+      })
+      const { result, updateConfig } = renderOptions(null, 'personal-model', {
+        requestId: 42,
+        keyId: 23,
+      })
+
+      await waitFor(() => {
+        expect(result.current.keyNotice).toBe(
+          'The selected API key is unavailable. Choose another key.'
+        )
+      })
+      expect(result.current.selectedKey).toBeUndefined()
+      expect(result.current.canSend).toBe(false)
+      expect(updateConfig).not.toHaveBeenCalledWith('keyId', expect.anything())
+      expect(get).toHaveBeenCalledOnce()
+    }
+  )
+
+  test('clears a rejected handoff notice after the user selects an available Key', async () => {
+    const get = vi.spyOn(api, 'get').mockImplementation(async (url) => ({
+      data:
+        url === '/pg/keys'
+          ? { success: true, data: { items: [availableKey], total: 1 } }
+          : { success: true, data: [{ id: 'personal-model' }] },
+    }))
+    const { result, rerender } = renderOptions(null, 'personal-model', {
+      requestId: 44,
+      keyId: 23,
+    })
+
+    await waitFor(() => {
+      expect(result.current.keyNotice).toBe(
+        'The selected API key is unavailable. Choose another key.'
+      )
+    })
+
+    rerender({ keyId: availableKey.id, currentModel: 'personal-model' })
+    await waitFor(() => expect(result.current.canSend).toBe(true))
+
+    expect(result.current.selectedKey).toEqual(availableKey)
+    expect(result.current.models).toEqual([
+      { label: 'personal-model', value: 'personal-model' },
+    ])
+    expect(result.current.keyNotice).toBeNull()
+    expect(get).toHaveBeenCalledWith(
+      '/pg/models',
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'X-MyAPI-Key-ID': '17' }),
+      })
+    )
+
+    rerender({ keyId: null, currentModel: 'personal-model' })
+    expect(result.current.keyNotice).toBe(
+      'Select an available API key before sending'
+    )
+  })
+
+  test('keeps selection empty and does not load models when handoff key refresh fails', async () => {
+    const get = vi.spyOn(api, 'get').mockRejectedValue(new Error('offline'))
+    const { result, updateConfig } = renderOptions(null, 'personal-model', {
+      requestId: 43,
+      keyId: 23,
+    })
+
+    await waitFor(() => {
+      expect(result.current.keyNotice).toBe('Failed to load API keys')
+    })
+    expect(result.current.selectedKey).toBeUndefined()
+    expect(result.current.canSend).toBe(false)
+    expect(updateConfig).not.toHaveBeenCalledWith('keyId', expect.anything())
+    expect(get).toHaveBeenCalledOnce()
+  })
+
+  test('ignores a handed-off Key response that arrives after the session changes', async () => {
+    const firstResponse = deferred<{
+      data: {
+        success: true
+        data: { items: PlaygroundKey[]; total: number }
+      }
+    }>()
+    let firstSignal: { readonly aborted: boolean } | undefined
+    const get = vi
+      .spyOn(api, 'get')
+      .mockImplementation(async (_url, config) => {
+        if (!firstSignal) {
+          firstSignal = config?.signal
+          return firstResponse.promise
+        }
+        return {
+          data: { success: true, data: { items: [availableKey], total: 1 } },
+        }
+      })
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    })
+    queryClients.push(client)
+    const updateConfig = vi.fn()
+    const { rerender } = renderHook(
+      (props: {
+        sessionId: string
+        keyHandoff?: { requestId: number; keyId: number }
+      }) =>
+        usePlaygroundOptions({
+          userId: 7,
+          sessionId: props.sessionId,
+          keyId: null,
+          currentModel: 'personal-model',
+          keyHandoff: props.keyHandoff,
+          updateConfig,
+        }),
+      {
+        initialProps: {
+          sessionId: 'session-a',
+          keyHandoff: { requestId: 51, keyId: 23 },
+        },
+        wrapper: (props: { children: ReactNode }) => (
+          <QueryClientProvider client={client}>
+            {props.children}
+          </QueryClientProvider>
+        ),
+      }
+    )
+
+    await waitFor(() => expect(firstSignal).toBeDefined())
+    rerender({ sessionId: 'session-b', keyHandoff: undefined })
+    await waitFor(() => expect(firstSignal?.aborted).toBe(true))
+
+    await act(async () => {
+      firstResponse.resolve({
+        data: {
+          success: true,
+          data: {
+            items: [{ ...availableKey, id: 23 }],
+            total: 1,
+          },
+        },
+      })
+      await firstResponse.promise
+    })
+
+    expect(updateConfig).not.toHaveBeenCalledWith('keyId', expect.anything())
+    expect(get).toHaveBeenCalledTimes(2)
   })
 
   test('loads separate models for each explicitly selected key and gates sending while they load', async () => {

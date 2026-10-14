@@ -37,7 +37,7 @@ export function usePersonalWorkbenchData(props: {
   })
   const keysQuery = useQuery({
     queryKey: ['personal-workbench', 'keys', ...identity],
-    queryFn: getPlaygroundKeys,
+    queryFn: () => getPlaygroundKeys(),
     retry: false,
     refetchOnWindowFocus: false,
   })

@@ -1,11 +1,12 @@
 import { TerminalIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Link } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { TokenBudgetDialog } from '@/features/keys/components/token-budget-dialog'
+import { createPlaygroundKeyHandoff } from '@/features/playground/lib/playground-key-handoff'
 import { UserUsagePolicyDialog } from '@/features/users/components/user-usage-policy-dialog'
 import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
 import { ROLE } from '@/lib/roles'
@@ -26,6 +27,7 @@ function PersonalWorkbenchSession(props: {
   sessionId: string | null
 }) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const showPlayground = useIsSidebarModuleVisible('/playground')
   const [selectedKeyId, setSelectedKeyId] = useState<number | null>(null)
   const [visibleKeyCount, setVisibleKeyCount] = useState(INITIAL_KEY_COUNT)
@@ -50,6 +52,17 @@ function PersonalWorkbenchSession(props: {
   const accounts = accountsError ? undefined : data.accountsQuery.data
   const recent = recentError ? undefined : data.recentQuery.data
 
+  const handleOpenPlayground = () => {
+    if (!data.selectedKey) return
+
+    createPlaygroundKeyHandoff({
+      userId: props.user.id,
+      sessionId: props.sessionId,
+      keyId: data.selectedKey.id,
+    })
+    void navigate({ to: '/playground' })
+  }
+
   return (
     <div
       data-testid='personal-workbench'
@@ -72,7 +85,7 @@ function PersonalWorkbenchSession(props: {
             </p>
           </div>
           {showPlayground && selectedKeyAvailable ? (
-            <Button size='lg' render={<Link to='/playground' />}>
+            <Button size='lg' onClick={handleOpenPlayground}>
               <HugeiconsIcon
                 icon={TerminalIcon}
                 strokeWidth={2}
