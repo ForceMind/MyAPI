@@ -163,6 +163,17 @@ func GetUsageReview(ctx context.Context, db *gorm.DB, actorID int, requestID str
 		if budget.RequestID != requestID || budget.TokenID != view.TokenID || budget.UserID != view.UserID {
 			return nil, ErrTokenBudgetConflict
 		}
+		// Ordinary quota is reserved before final channel selection, while the
+		// strict budget freezes the selected channel immediately before dispatch.
+		// Complete only the read model; immutable accounting evidence stays intact.
+		if budget.ChannelID <= 0 {
+			return nil, ErrTokenBudgetConflict
+		}
+		if view.ChannelID == 0 {
+			view.ChannelID = budget.ChannelID
+		} else if view.ChannelID != budget.ChannelID {
+			return nil, ErrTokenBudgetConflict
+		}
 		if actor.Role != common.RoleRootUser {
 			budget.EvidenceReference = ""
 		}

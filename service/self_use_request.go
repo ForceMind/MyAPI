@@ -1,16 +1,15 @@
 package service
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/ForceMind/MyAPI/pkg/personalusage"
+)
 
 // Shared by early middleware and the frozen-source check before dispatch.
 func SupportsSelfUseMeteredRequest(request *http.Request) bool {
-	if request == nil || request.URL == nil || request.Method != http.MethodPost || request.URL.RawQuery != "" {
+	if request == nil || request.URL == nil {
 		return false
 	}
-	switch request.URL.Path {
-	case "/v1/chat/completions", "/v1/responses", "/v1/responses/compact":
-		return true
-	default:
-		return false
-	}
+	return personalusage.SupportsMeteredRequest(request.Method, request.URL.Path, request.URL.RawQuery)
 }
