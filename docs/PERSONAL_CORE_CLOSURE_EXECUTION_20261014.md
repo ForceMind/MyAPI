@@ -99,3 +99,9 @@ Full/LAN personal artifact 重名、新增 workflow inputs 未接静态测试，
 针对性测试通过；未安装前端依赖，Vitest/TypeScript/完整构建/Chromium/真实应用留给 GitHub Actions。
 手动准确 CI 的可选 `baseline_red` 先在固定旧实现上运行同一选择回归，要求预期可观察断言失败；
 恢复候选原文件并确认无差异后继续原全部检查。仅测试环境执行，不改部署。
+
+首轮提交 `7211d90f0698ac3fd477f17cfd830eec373fe0f7` 已同步 Draft PR #16。
+准确 CI `38523579318` 成功执行旧实现红测与文件恢复；候选 Typecheck 发现新增测试的
+`initialProps.keyHandoff` 推断过窄，无法 rerender 为 undefined；交付合同发现运行报告阶段白名单
+未同步新工作台阶段。均为真实失败，修订显式测试类型并同步固定阶段集合，不删除测试或弱化断言。
+同轮 Docker `38523582111` 属于首轮源码，后继以新准确提交重验；首轮记录保留。

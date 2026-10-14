@@ -1192,7 +1192,9 @@ describe('key-scoped model selection', () => {
       {
         initialProps: {
           sessionId: 'session-a',
-          keyHandoff: { requestId: 51, keyId: 23 },
+          keyHandoff: { requestId: 51, keyId: 23 } as
+            | { requestId: number; keyId: number }
+            | undefined,
         },
         wrapper: (props: { children: ReactNode }) => (
           <QueryClientProvider client={client}>
