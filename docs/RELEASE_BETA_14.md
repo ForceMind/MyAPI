@@ -53,6 +53,14 @@ owner 0%只读全部通过；样式几何无横向溢出，稳定态文字独审
 `42d2392bbd4d0156842580e015f10a70f821ff55`，由GitHub git commit API回读核对。
 视觉独审另保留分额关闭确认/部分owner截图的动画帧P2，统一用禁用有限动画的新截图复验。
 
+截图补验源码 `4de66faed4dc2ecd6e8e31541e5fad03187e8a58` 的
+[CI 38562952921](https://github.com/ForceMind/MyAPI/actions/runs/38562952921) 在现有安全报告合同失败：
+新增`build-visible`阶段未同步到CLI固定白名单。已补同一固定阶段名，未放宽错误文本输出；
+`node --test tools/runtime/docker-smoke.test.mjs`27项通过。首次沙箱内运行因临时回环端口EPERM
+有3项失败，按权限流程在沙箱外执行后通过，未启动应用或Docker。
+[Docker 38562965761](https://github.com/ForceMind/MyAPI/actions/runs/38562965761)继续补验稳定截图，
+该CLI修正不改应用代码、成功路径或截图输入，暂不重复启动镜像构建。
+
 资源记录：一次定向Go验证误触发了本机冷编译，已终止session 52875（exit130），
 没有测试结果，未保留运行中的Go进程。既有`/tmp/myapi-go-build-cache`留下约504MiB缓存，
 未删除数据、报告或备份。后续Go/前端编译仍交GitHub Actions。

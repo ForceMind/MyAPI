@@ -731,7 +731,7 @@ async function main() {
       'SMOKE_PERSONAL_REQUEST_MISMATCH', 'SMOKE_PERSONAL_RELAY_MISMATCH', 'SMOKE_PERSONAL_LOG_MISMATCH',
       'SMOKE_PERSONAL_USAGE_MISMATCH', 'SMOKE_PERSONAL_UPSTREAM_MISMATCH', 'SMOKE_PERSONAL_WRITER_MISMATCH',
       'SMOKE_PERSONAL_SCREENSHOT_REJECTED', 'SMOKE_PERSONAL_FRONTEND_EVIDENCE'])
-    const safeStages = new Set(['launch', 'browser-close', 'setup',
+    const safeStages = new Set(['launch', 'browser-close', 'build-visible', 'setup',
       'setup-session', 'setup-open', 'setup-database', 'setup-credentials', 'setup-mode', 'setup-review', 'setup-submit', 'setup-response', 'login', 'login-open', 'login-response', 'login-keys', 'document-backoff', 'writer-check', 'fixture-config', 'fixture-config-refresh', 'policy-view', 'policy-refresh', 'key-create',
       'key-create-open', 'key-create-ready', 'key-create-profile', 'key-create-cap', 'key-create-quota',
       'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'key-selection-model', 'workbench-open', 'workbench-key-selection', 'workbench-playground-open', 'key-handoff-readback', 'playground-send', 'ledger-check', 'usage-view', 'usage-open', 'usage-filter', 'usage-list', 'usage-list-visible', 'usage-details-open', 'usage-details-request', 'usage-details-key', 'policy-user-filter', 'policy-confirm', 'playground-response', 'playground-complete', 'playground-rejection', 'strict-key-filter', 'strict-budget', 'reload-check', 'screenshot'])
