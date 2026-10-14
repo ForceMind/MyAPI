@@ -9,14 +9,62 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/model"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/service"
 	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
+type unmanagedSubscriptionShareDispatchFixture struct {
+	userID   int
+	tokenID  int
+	tokenKey string
+}
+
+func setupUnmanagedSubscriptionShareDispatchFixture(t *testing.T) unmanagedSubscriptionShareDispatchFixture {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	require.NoError(t, db.AutoMigrate(
+		&model.User{},
+		&model.Token{},
+		&model.AssignedAccessPolicy{},
+		&model.SubscriptionSharePool{},
+		&model.SubscriptionShareAllocation{},
+	))
+	user := model.User{Username: "unmanaged-dispatch", AffCode: "unmanaged-dispatch", Status: common.UserStatusEnabled, Group: "default"}
+	require.NoError(t, db.Create(&user).Error)
+	token := model.Token{UserId: user.Id, Key: "unmanaged-dispatch-token", Status: common.TokenStatusEnabled, ExpiredTime: -1, UnlimitedQuota: true}
+	require.NoError(t, db.Create(&token).Error)
+
+	oldDB := model.DB
+	model.DB = db
+	t.Cleanup(func() {
+		model.DB = oldDB
+		require.NoError(t, sqlDB.Close())
+	})
+	return unmanagedSubscriptionShareDispatchFixture{userID: user.Id, tokenID: token.Id, tokenKey: token.Key}
+}
+
+func (fixture unmanagedSubscriptionShareDispatchFixture) relayInfo() *relaycommon.RelayInfo {
+	return &relaycommon.RelayInfo{
+		TokenId:     fixture.tokenID,
+		TokenKey:    fixture.tokenKey,
+		UserId:      fixture.userID,
+		ChannelMeta: &relaycommon.ChannelMeta{},
+	}
+}
+
 func TestDoRequestReturnsUpstreamRedirectWithoutFollowing(t *testing.T) {
+	fixture := setupUnmanagedSubscriptionShareDispatchFixture(t)
 	service.InitHttpClient()
 	gin.SetMode(gin.TestMode)
 	sharedClient := service.GetHttpClient()
@@ -65,7 +113,7 @@ func TestDoRequestReturnsUpstreamRedirectWithoutFollowing(t *testing.T) {
 
 			req, err := http.NewRequest(http.MethodPost, source.URL, bytes.NewReader([]byte("request body")))
 			require.NoError(t, err)
-			info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{}}
+			info := fixture.relayInfo()
 
 			resp, err := doRequest(ctx, req, info)
 			require.NoError(t, err)
@@ -88,6 +136,7 @@ func TestDoRequestReturnsUpstreamRedirectWithoutFollowing(t *testing.T) {
 }
 
 func TestDoTaskApiRequestReturnsUpstreamRedirectWithoutFollowing(t *testing.T) {
+	fixture := setupUnmanagedSubscriptionShareDispatchFixture(t)
 	service.InitHttpClient()
 	gin.SetMode(gin.TestMode)
 
@@ -115,7 +164,7 @@ func TestDoTaskApiRequestReturnsUpstreamRedirectWithoutFollowing(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			ctx, _ := gin.CreateTestContext(recorder)
 			ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/video/generations", nil)
-			info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{}}
+			info := fixture.relayInfo()
 			adaptor := &stubTaskAdaptor{baseURL: source.URL}
 
 			resp, err := DoTaskApiRequest(adaptor, ctx, info, bytes.NewReader([]byte("task request body")))

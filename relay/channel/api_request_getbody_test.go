@@ -208,6 +208,7 @@ func (s *stubTaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, 
 }
 
 func TestDoTaskApiRequestUsesOneShotBodyAndFiltersClientIdempotencyHeaders(t *testing.T) {
+	fixture := setupUnmanagedSubscriptionShareDispatchFixture(t)
 	service.InitHttpClient()
 
 	payload := []byte(`{"model":"test-model","prompt":"hello"}`)
@@ -235,9 +236,7 @@ func TestDoTaskApiRequestUsesOneShotBodyAndFiltersClientIdempotencyHeaders(t *te
 	ctx.Request.Header.Set("Idempotency-Key", "client-idempotency-key")
 	ctx.Request.Header.Set("X-Idempotency-Key", "legacy-client-idempotency-key")
 
-	info := &relaycommon.RelayInfo{
-		ChannelMeta: &relaycommon.ChannelMeta{},
-	}
+	info := fixture.relayInfo()
 
 	adaptor := &stubTaskAdaptor{
 		baseURL:                    server.URL,

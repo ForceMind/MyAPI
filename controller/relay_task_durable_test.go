@@ -61,6 +61,8 @@ func setupDurableRelayTestDB(t *testing.T) *gorm.DB {
 	err = db.AutoMigrate(
 		&model.User{},
 		&model.Token{},
+		&model.SubscriptionSharePool{},
+		&model.SubscriptionShareAllocation{},
 		&model.AssignedAccessPolicy{},
 		&model.SubscriptionPlan{},
 		&model.UserSubscription{},

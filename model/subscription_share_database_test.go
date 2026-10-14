@@ -43,7 +43,7 @@ func TestSubscriptionShareConfiguredDatabases(t *testing.T) {
 			sqlDB, err := db.DB()
 			require.NoError(t, err)
 			require.NoError(t, sqlDB.Ping())
-			entities := []any{&User{}, &Token{}, &Channel{}, &ChannelQuotaSnapshot{}, &TokenBudget{}}
+			entities := []any{&User{}, &Token{}, &Channel{}, &ChannelQuotaSnapshot{}, &TokenBudget{}, &TokenBudgetPolicyChange{}}
 			entities = append(entities, SubscriptionShareModels()...)
 			t.Cleanup(func() {
 				require.NoError(t, db.Migrator().DropTable(entities...))
@@ -135,6 +135,9 @@ func subscriptionShareConfiguredDatabaseContract(t *testing.T, db *gorm.DB, dial
 		})
 		t.Run("repeatable-read allocation cap and audit replay", func(t *testing.T) {
 			subscriptionShareMySQLRepeatableReadAllocationAndReplay(t, db, config, root, owner, channels[0], namespace, base+200)
+		})
+		t.Run("repeatable-read budget and share exclusion", func(t *testing.T) {
+			subscriptionShareMySQLBudgetExclusion(t, db, config, root, owner, channels[0], namespace, base+300)
 		})
 	}
 
@@ -572,6 +575,43 @@ func subscriptionShareMySQLRepeatableReadAllocationAndReplay(t *testing.T, db *g
 	var closeAudits int64
 	require.NoError(t, db.Model(&SubscriptionShareAudit{}).Where("id = ?", closeReplay.ID).Count(&closeAudits).Error)
 	assert.Equal(t, int64(1), closeAudits)
+}
+
+func subscriptionShareMySQLBudgetExclusion(t *testing.T, db *gorm.DB, config *gorm.Config, root, owner User, channel Channel, namespace string, now int64) {
+	t.Helper()
+	writer := subscriptionShareOpenMySQLRepeatableReadWriter(t, config)
+	for index, fee := range []bool{false, true} {
+		subject, err := newChannelQuotaIdentitySubjectRef()
+		require.NoError(t, err)
+		token := Token{UserId: owner.Id, Key: fmt.Sprintf("%s-guard-%d", namespace, index), Status: common.TokenStatusEnabled, ExpiredTime: -1}
+		require.NoError(t, db.Create(&token).Error)
+		total, used := float64(100), float64(0)
+		snapshot := ChannelQuotaSnapshot{CodexObservationQualified: true, CodexThresholdQualified: true, ChannelId: channel.Id, ObservedAt: now, Available: 100, Used: &used, Total: &total, Unit: "percent", MetricType: "codex_rate_limit", WindowType: "weekly", PlanType: "plus", WindowSeconds: 604800, ResetAt: now + 10_000, Source: codexQuotaWindowPrimarySource, SampleID: fmt.Sprintf("%s-guard-%d", namespace, index), SubjectRef: subject, IdentityQuality: ChannelQuotaIdentityQualityProviderConfirmed, Status: "success"}
+		require.NoError(t, db.Create(&snapshot).Error)
+		budgetInput := TokenBudgetPolicyInput{ID: fmt.Sprintf("%064x", 800+index), TokenID: token.Id, Enabled: !fee, Limit: 100}
+		if fee {
+			budgetInput.Fee = &FeeBudgetPolicyInput{Enabled: true, LimitUSD: "1"}
+		}
+		result := subscriptionShareRunAfterMySQLActorSnapshot(t, writer,
+			func(ctx context.Context) error {
+				_, err := ConfigureTokenBudget(ctx, writer, root.Id, budgetInput)
+				return err
+			},
+			func(ctx context.Context) error {
+				return ConfigureSubscriptionShare(ctx, db, root.Id, token.Id, SubscriptionShareConfigInput{ID: fmt.Sprintf("%064x", 810+index), SnapshotID: snapshot.Id, ShareBPS: 2000, ConfirmedApproximate: true}, now)
+			},
+		)
+		require.ErrorIs(t, result, ErrSubscriptionShareConflict)
+		bound, err := HasSubscriptionShareBinding(context.Background(), db, token.Id)
+		require.NoError(t, err)
+		assert.True(t, bound)
+		var enabledBudgets int64
+		require.NoError(t, db.Model(&TokenBudget{}).Where("token_id = ? AND (enabled = ? OR fee_enabled = ?)", token.Id, true, true).Count(&enabledBudgets).Error)
+		assert.Zero(t, enabledBudgets, "a stale authorization snapshot cannot enable a second limit system")
+		var budgetChanges int64
+		require.NoError(t, db.Model(&TokenBudgetPolicyChange{}).Where("id = ?", budgetInput.ID).Count(&budgetChanges).Error)
+		assert.Zero(t, budgetChanges)
+	}
 }
 
 func subscriptionShareOpenMySQLRepeatableReadWriter(t *testing.T, config *gorm.Config) *gorm.DB {

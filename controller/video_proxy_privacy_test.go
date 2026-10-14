@@ -25,7 +25,14 @@ func TestVideoProxyPrivateResponses(t *testing.T) {
 	initModelListColumnNames(t)
 	model.DB, model.LOG_DB = oldDB, oldLogDB
 	db := paymentWebhookTestDB(t)
-	require.NoError(t, db.AutoMigrate(&model.Task{}, &model.Channel{}, &model.Token{}, &model.TokenBudget{}))
+	require.NoError(t, db.AutoMigrate(
+		&model.Task{},
+		&model.Channel{},
+		&model.Token{},
+		&model.TokenBudget{},
+		&model.SubscriptionSharePool{},
+		&model.SubscriptionShareAllocation{},
+	))
 	require.NoError(t, db.Model(&model.User{}).Where("id = ?", 1).Updates(map[string]any{
 		"status": common.UserStatusEnabled, "role": common.RoleCommonUser, "group": "default", "auth_version": 1,
 	}).Error)

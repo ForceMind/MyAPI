@@ -47,48 +47,65 @@ try {
         const pool = { pool_id: 7, snapshot_id: 70, revision: 2, channel_name: role === 100 ? 'Synthetic share account — international window' : '', plan_type: 'plus', window_slot: 'primary', window_type: 'five_hour', window_seconds: 18000, reset_at: now + 3600, observed_at: now - 30, sample_age_seconds: 30, max_age_seconds: 300, state: 'active', reason: 'eligible', allocated_bps: 6000, share_bps: role === 100 ? 2000 : 0, estimated_used_micro: 12_500_000, unattributed_micro: 1_000_000, pending_attempts: 2, unsampled_attempts: 1, uncertain_attempts: 1, approximate: true, baseline_time: now - 600, replacement_required: false, rebaseline_required: false }
         const writes = []
         const closes = []
+        let existingMenuKeyReads = 0
         const unexpected = []
         await context.addInitScript(code => { localStorage.setItem('i18nextLng', code); localStorage.setItem('theme', 'light') }, languageCode)
         await context.route('**/*', async route => {
-          const request = route.request()
-          const url = new URL(request.url())
-          if (url.origin !== origin) { unexpected.push(`external:${url.origin}`); return route.abort() }
-          if (url.pathname === '/api/subscription-share/pools/7/close') {
-            assert.equal(role, 100)
-            assert.equal(request.method(), 'POST')
-            const body = request.postDataJSON()
-            assert.match(body.id, /^[a-f0-9]{64}$/)
-            assert.equal(body.expected_revision, pool.revision)
-            assert.equal(body.confirmed_close, true)
-            closes.push(body)
-            pool.state = 'closed'
-            pool.reason = 'pool_closed'
-            pool.revision++
-            return route.fulfill({ json: { success: true, data: null } })
-          }
-          if (url.pathname === '/api/token/21/subscription-share') {
-            if (request.method() === 'PUT') {
-              assert.equal(role, 100, 'Owner cannot mutate')
+          try {
+            const request = route.request()
+            const url = new URL(request.url())
+            if (url.origin !== origin) { unexpected.push(`external:${url.origin}`); return route.abort() }
+            // The existing Key action menu prefetches its owner's Key for the
+            // copy/client actions. Keep that prior behavior and serve only an
+            // inert synthetic value; this POST reads, it does not generate a Key.
+            if (url.pathname === '/api/token/21/key') {
+              assert.equal(request.method(), 'POST')
+              assert.equal(request.postData(), null)
+              existingMenuKeyReads++
+              return route.fulfill({ json: { success: true, data: { key: 'synthetic-share-browser-only' } } })
+            }
+            if (url.pathname === '/api/subscription-share/pools/7/close') {
+              assert.equal(role, 100)
+              assert.equal(request.method(), 'POST')
               const body = request.postDataJSON()
               assert.match(body.id, /^[a-f0-9]{64}$/)
-              assert.equal(body.pool_id, 7)
-              assert.equal(body.snapshot_id, 70)
               assert.equal(body.expected_revision, pool.revision)
-              assert.equal(body.share_bps, 2500)
-              assert.equal(body.confirmed_approximate, true)
-              assert(!body.replace_window, 'An ordinary share edit cannot rebaseline')
-              writes.push(body)
-              pool.allocated_bps += body.share_bps - pool.share_bps
-              pool.share_bps = body.share_bps
+              assert.equal(body.confirmed_close, true)
+              closes.push(body)
+              pool.state = 'closed'
+              pool.reason = 'pool_closed'
               pool.revision++
-            } else assert.equal(request.method(), 'GET')
-            return route.fulfill({ json: { success: true, data: { token_id: 21, pools: [pool] } } })
+              return route.fulfill({ json: { success: true, data: null } })
+            }
+            if (url.pathname === '/api/token/21/subscription-share') {
+              if (request.method() === 'PUT') {
+                assert.equal(role, 100, 'Owner cannot mutate')
+                const body = request.postDataJSON()
+                assert.match(body.id, /^[a-f0-9]{64}$/)
+                assert.equal(body.pool_id, 7)
+                assert.equal(body.snapshot_id, 70)
+                assert.equal(body.expected_revision, pool.revision)
+                assert.equal(body.share_bps, 2500)
+                assert.equal(body.confirmed_approximate, true)
+                assert(!body.replace_window, 'An ordinary share edit cannot rebaseline')
+                writes.push(body)
+                pool.allocated_bps += body.share_bps - pool.share_bps
+                pool.share_bps = body.share_bps
+                pool.revision++
+              } else assert.equal(request.method(), 'GET')
+              return route.fulfill({ json: { success: true, data: { token_id: 21, pools: [pool] } } })
+            }
+            if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/pg/')) return route.continue()
+            const result = fixture.response(url, request.method())
+            if (result.violation) unexpected.push(result.violation)
+            assert(!result.violation, result.violation)
+            return route.fulfill({ status: result.status, json: result.body })
+          } catch (error) {
+            const message = `${name}: synthetic API contract failed: ${error.message}`
+            unexpected.push(message)
+            report.errors.push(message)
+            await route.abort('failed')
           }
-          if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/pg/')) return route.continue()
-          const result = fixture.response(url, request.method())
-          if (result.violation) unexpected.push(result.violation)
-          assert(!result.violation, result.violation)
-          return route.fulfill({ status: result.status, json: result.body })
         })
         const page = await context.newPage()
         page.setDefaultTimeout(15000)
@@ -159,7 +176,7 @@ try {
           assert(!(await dialog.innerText()).includes('Synthetic share account'), 'Private channel notes are absent')
         }
         assert.deepEqual(unexpected, [])
-        report.journeys.push({ name, language, width, role, buildRevision: revision, writes: writes.length, closes: closes.length, geometry, screenshots, passed: true })
+        report.journeys.push({ name, language, width, role, buildRevision: revision, writes: writes.length, closes: closes.length, existingMenuKeyReads, geometry, screenshots, passed: true })
         await context.close()
       }
     }
