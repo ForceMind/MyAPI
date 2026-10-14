@@ -9,7 +9,7 @@
 个人核心beta.13已在限定合成环境验收完成，应用源码为 `19fcba33ea60ce8b0f4735bbb7f5992dc3130ad5`，
 交付文档head为 `c1beb07520f43c106b4406ba8a0b1227bc1cf67e` / Draft PR #16。
 开发分支 `codex/subscription-key-share-20261014` 从该head建立，当前候选beta.14已实现近似分额，
-正在完成准确源码云端与实际界面验收，[Draft PR #17](https://github.com/ForceMind/MyAPI/pull/17)保持draft。
+准确源码a67ff44的限定合成验收已完成，[Draft PR #17](https://github.com/ForceMind/MyAPI/pull/17)保持draft。
 当前状态以[beta.14候选记录](RELEASE_BETA_14.md)为准；以下保留来源分析和阶段决定。
 
 ## 原生数据实际能证明什么
@@ -47,8 +47,9 @@
 （`relay/channel/codex/oauth_key.go`）没有逐Key的issued client_id映射。
 按应用授权的原生限制是另一条待评估集成路径；不能假设原凭据自动具备新授权，不能据此修改
 生产凭据或要求用户重新登录。上述结论限于本轮已读文档与代码，不宣称不存在其他上游能力。
-该候选需每个本地Key与可独立限额的issued client_id/connected app真实绑定；目前文档只证明
-weekly总体plan cap，不能宣称覆盖全部primary/secondary窗口或预留了可用份额。
+若后续采用该原生connected-app准确隔离路线，每个本地Key需与可独立限额的issued client_id/
+connected app真实绑定；目前文档只证明weekly总体plan cap，不能宣称覆盖全部primary/secondary
+窗口或预留了可用份额。当前beta.14近似候选不采用这条路线，不改变原渠道登录和Key。
 
 ## 必须先确定的执行语义
 
@@ -108,8 +109,8 @@ Connected-app路线当前仅有weekly cap文档，不能填补其他窗口的缺
 
 ## 近似模式执行方案（2026-10-14）
 
-沿用本分支与原主目标，执行用户已批准的近似模式开发。Goal工具仍返回原blocked状态，
-其接口不能由代理设回active；本次用户答复已经补齐精度决定，工作按现有授权恢复，不新建重复Goal。
+沿用本分支与原主目标，执行用户已批准的近似模式开发。恢复执行时Goal工具返回原blocked状态，
+其接口不能由代理设回active；用户答复补齐精度决定后，工作按现有授权恢复，未新建重复Goal。
 
 1. **计量。** 每个可信账户与显式选择的原生窗口建池。启用时保留已有账户占用为未归属基线，
    不回填旧账。后续账户占用正增量按采样间隔内各本地Key的上游发送attempt数分摊，
@@ -137,9 +138,10 @@ Connected-app路线当前仅有weekly cap文档，不能填补其他窗口的缺
    七语言320/1280实际流程，测试和真实上游资格分别报告。严重缺陷未修复或必需证据缺失时
    保留成果继续修正，不把功能标为完成。
 
-当前应用检查点：beta.14 model/API/最终派送/UI已实现，源码独审、分额专项、三库和两writer隔离个人流程
-已通过，完整CI与实际截图收尾仍进行中。投影随拒绝回滚、迟到故障样本、提前重置、当前读及互斥等
-修正和各次失败保留在[beta.14候选记录](RELEASE_BETA_14.md)，不以专项结果替代整体验收。
+当前应用检查点：beta.14 model/API/最终派送/UI及恢复流程完成；a67ff44准确CI十项、Docker六项、
+源码独审与实际截图独审通过。七语言28条分额UI流程/84图、两writer各15张实应用图分别记录，
+不把合成验收当作真实采样/归属准确性或历史账务修复。各次失败和来源保留在
+[beta.14候选记录](RELEASE_BETA_14.md)。
 
 派送顺序补充：近似attempt在全部本地预检之后、实际Do之前提交；分额拒绝时以“尚未调用transport”
 的事实撤回本次普通text dispatch标记，不能从网络错误推断未发出，也不自动撤回已可能发送的attempt。
