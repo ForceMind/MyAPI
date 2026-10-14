@@ -128,7 +128,7 @@ try {
         const notice = dialog.getByText(t('Approximate usage allocation'), { exact: true })
         await notice.scrollIntoViewIfNeeded()
         const topImage = `${name}-notice.png`
-        await page.screenshot({ path: resolve(output, topImage) })
+        await page.screenshot({ path: resolve(output, topImage), animations: 'disabled' })
         if (role === 100) await dialog.getByRole('radio', { name: pool.channel_name, exact: true }).click()
         const target = role === 100 ? dialog.getByLabel(t('Share percentage'), { exact: true }) : dialog.getByRole('region', { name: t('Your subscription share') })
         await target.scrollIntoViewIfNeeded()
@@ -138,7 +138,7 @@ try {
         })
         assert(geometry.left >= -1 && geometry.right <= width + 1 && geometry.scrollWidth <= geometry.clientWidth + 1, `${name}: dialog fits without horizontal clipping`)
         const poolImage = `${name}-pool.png`
-        await page.screenshot({ path: resolve(output, poolImage) })
+        await page.screenshot({ path: resolve(output, poolImage), animations: 'disabled' })
         const screenshots = [topImage, poolImage]
         if (role === 100) {
           await target.fill('25')
@@ -156,7 +156,7 @@ try {
           const closeButton = confirmation.getByRole('button', { name: t('Close pool'), exact: true })
           assert(await closeButton.isDisabled(), 'Closing requires its own explicit confirmation')
           const confirmImage = `${name}-close-confirmation.png`
-          await page.screenshot({ path: resolve(output, confirmImage) })
+          await page.screenshot({ path: resolve(output, confirmImage), animations: 'disabled' })
           screenshots.push(confirmImage)
           await confirmation.getByRole('checkbox', { name: t('I understand this pool cannot be enabled again in this version.'), exact: true }).check()
           await closeButton.click()
@@ -166,7 +166,7 @@ try {
           assert.equal(await updated.getByRole('radio').count(), 0, 'Closed pools cannot be configured again')
           assert.equal(await updated.getByRole('button', { name: t('Close pool'), exact: true }).count(), 0)
           const closedImage = `${name}-closed.png`
-          await page.screenshot({ path: resolve(output, closedImage) })
+          await page.screenshot({ path: resolve(output, closedImage), animations: 'disabled' })
           screenshots.push(closedImage)
         } else {
           assert.equal(await dialog.getByLabel(t('Share percentage'), { exact: true }).count(), 0)

@@ -260,6 +260,12 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
           const revision = `rv.${version}.${base.sha}.${corrupt === 'frontend-revision-owner' && context.locale === 'zh-CN' ? 'owner' : 'test'}`
           return { global: revision, html: revision, meta: revision }
         }
+        if (String(fn).includes('runtime-build-revision')) {
+          assert.equal(new URL(this.current).pathname, '/system-info')
+          assert.equal(this.actor.role, 100)
+          return { revision: `rv.${version}.${base.sha}.${corrupt === 'visible-revision' ? 'wrong' : 'test'}`,
+            visible: corrupt !== 'visible-revision-clipped' }
+        }
         return !screenshotSecret && !(unsafeUsageScreenshot && this.badUsage)
       },
       async screenshot(options) {
@@ -352,6 +358,13 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
           errorLayoutChecks.push({ role: page.actor.role, code: page.lastErrorCode, characters: expected.length,
             rawIncluded: expected.includes(longErrorMessage), presentation: expected })
           return corrupt !== 'ui-error-overflow'
+        },
+        async screenshot(options) {
+          assert.equal(kind, 'selector')
+          assert.equal(value, '[data-slot="card"]:has([data-testid="runtime-build-revision"])')
+          assert.equal(new URL(page.current).pathname, '/system-info')
+          assert.equal(options.fullPage, undefined, 'operational cards must not enter build evidence')
+          screenshots.push({ ...options, scope: 'build-card' })
         },
         async scrollIntoViewIfNeeded() {
           assert(parents.includes('.is-assistant'))
@@ -737,11 +750,13 @@ for (const writer of ['legacy', 'authoritative']) {
       assert.equal(fixture.apiCalls.some(route => route.includes('/v1/') || route.includes('/pg/') || /\/key$/.test(route) || route === 'POST /api/user/login'), false)
       const serialized = JSON.stringify(report)
       for (const secret of [base.password, base.username, 'session-private-', 'secret-masked-key', 'request-private-', 'synthetic request']) assert(!serialized.includes(secret))
-      assert.equal(report.screenshots.length, 14)
+      assert.equal(report.screenshots.length, 15)
       assert.deepEqual(report.screenshots, fixture.screenshots.map(item => path.basename(item.path)))
       for (const item of fixture.screenshots) {
         assert.equal(path.dirname(item.path), artifactDir)
         assert.equal(item.mask.length, 3)
+        assert.equal(item.animations, 'disabled')
+        if (path.basename(item.path).startsWith('runtime-build-')) assert.equal(item.scope, 'build-card')
       }
       assert.equal(fixture.closed(), 1)
     } finally { rmSync(artifactDir, { recursive: true, force: true }) }
@@ -771,13 +786,29 @@ test('a clipped long rejection is refused at the existing safe rejection stage w
 for (const [corrupt, code] of [['writer', 'WRITER_MISMATCH'], ['models', 'REQUEST_MISMATCH'], ['keys', 'REQUEST_MISMATCH'], ['ambiguous-model', 'REQUEST_MISMATCH'],
   ['policy-refresh-owner', 'POLICY_MISMATCH'], ['policy-refresh-revision', 'POLICY_MISMATCH'], ['log-owner', 'LOG_MISMATCH'],
   ['quota', 'USAGE_MISMATCH'], ['upstream', 'UPSTREAM_MISMATCH'], ['usage', 'LOG_MISMATCH'], ['replay', 'REQUEST_MISMATCH'], ['strict-reserve', 'USAGE_MISMATCH'],
-  ['incomplete-text', 'BROWSER_FAILED'], ['still-generating', 'BROWSER_FAILED'], ['missing-send', 'BROWSER_FAILED'], ['latest-error', 'RELAY_MISMATCH']]) {
+  ['incomplete-text', 'BROWSER_FAILED'], ['still-generating', 'BROWSER_FAILED'], ['missing-send', 'BROWSER_FAILED'], ['latest-error', 'RELAY_MISMATCH'],
+  ['visible-revision', 'BUILD_MISMATCH'], ['visible-revision-clipped', 'BUILD_MISMATCH']]) {
   test(`driver stops on ${corrupt} rather than reporting mocked success`, async () => {
     const fixture = journeyBrowser({ corrupt })
     await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), new RegExp(`^Error: SMOKE_PERSONAL_${code}$`))
     assert.equal(fixture.closed(), 1)
   })
 }
+
+test('system information page errors reject build evidence without serializing the error', async () => {
+  const fixture = journeyBrowser({ onNavigate(page) {
+    if (new URL(page.current).pathname === '/system-info') {
+      page.listeners.pageerror?.(new Error(base.password))
+    }
+  } })
+  await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), error => {
+    assert.equal(error.message, 'SMOKE_PERSONAL_RUNTIME_ERROR')
+    assert.equal(error.stage, 'build-visible')
+    assert(!JSON.stringify(error).includes(base.password))
+    return true
+  })
+  assert.equal(fixture.closed(), 1)
+})
 
 test('screenshots reject visible credentials and symlink artifact directories', async () => {
   const root = mkdtempSync(path.join(tmpdir(), 'personal-artifact-contract-'))
@@ -986,8 +1017,8 @@ test('real sidebar contracts reduce document loads and final persistence load ca
   assert.equal(JSON.stringify(report.frontend).includes(base.password), false)
   assert.equal(JSON.stringify(report.frontend).includes('session-private-'), false)
   assert.deepEqual(fixture.navigations.filter(item => item.kind === 'document').map(item => [item.locale, item.path]), [
-    ['en-US', '/sign-in'], ['en-US', '/keys'], ['zh-CN', '/sign-in'], ['zh-CN', '/keys'],
-  ]) // Four journey document loads, plus the separate real setup document.
+    ['en-US', '/sign-in'], ['en-US', '/keys'], ['zh-CN', '/sign-in'], ['zh-CN', '/keys'], ['en-US', '/system-info'],
+  ]) // Five journey document loads, plus the separate real setup document.
   assert.equal(fixture.navigations.filter(item => item.kind === 'link').length, 13)
   assert.equal(fixture.navigations.filter(item => item.kind === 'toggle').length, 7)
   assert(fixture.navigations.filter(item => item.kind === 'toggle').every(item => item.locale === 'zh-CN'))
@@ -1376,7 +1407,7 @@ test('diagnostic caps are independent for Root and ordinary-owner sessions and l
   assert.equal(diagnosticRecords(events).filter(record => record.event === 'diagnostic-response').length, 32)
   assert.equal(diagnosticRecords(events).filter(record => record.event === 'diagnostic-limit').length, 2)
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
-  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 4, 'plus the separate setup navigation')
+  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 5, 'includes the visible build page; plus the separate setup navigation')
   assert.equal(fixture.upstreamCount(), 4)
 })
 
@@ -1443,6 +1474,6 @@ test('header Search duplicate cannot capture desktop log submission while mobile
   assert.deepEqual(fixture.usageReads.map(({ role, requestId }) => ({ role, requestId })), [
     { role: 100, requestId: 'request-private-1' }, { role: 1, requestId: 'request-private-3' },
   ])
-  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 4)
+  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 5)
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
 })

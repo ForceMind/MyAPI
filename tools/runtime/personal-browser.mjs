@@ -16,7 +16,7 @@ const stages = new Set(['launch', 'setup', 'setup-session', 'setup-open', 'setup
   'key-selection-model', 'playground-response', 'playground-complete', 'playground-rejection',
   'usage-open', 'usage-filter', 'usage-list', 'usage-list-visible', 'usage-details-open', 'usage-details-request', 'usage-details-key',
   'policy-user-filter', 'strict-key-filter',
-  'strict-budget', 'reload-check', 'screenshot', 'browser-close'])
+  'strict-budget', 'reload-check', 'build-visible', 'screenshot', 'browser-close'])
 const codes = new Set(['SCOPE_REJECTED', 'AUTH_UNAVAILABLE', 'BROWSER_FAILED', 'BROWSER_CLOSE_FAILED', 'SETUP_FAILED',
   'HTTP_FAILED', 'LOGIN_FAILED', 'RUNTIME_ERROR', 'BUILD_MISMATCH', 'API_FAILED', 'STATE_MISMATCH',
   'KEY_MISMATCH', 'POLICY_MISMATCH', 'REQUEST_MISMATCH', 'RELAY_MISMATCH', 'LOG_MISMATCH',
@@ -382,7 +382,7 @@ async function login(session, username, password, expectedRole, sha) {
   }
 }
 
-async function capture(session, options, name, screenshots) {
+async function capture(session, options, name, screenshots, target) {
   if (!options.artifactDir) return
   const previousStage = session.scope.stage
   session.scope.stage = 'screenshot'
@@ -394,9 +394,13 @@ async function capture(session, options, name, screenshots) {
   }, session.secrets))
   requireThat(safe && session.reveals === 0, 'SCREENSHOT_REJECTED')
   const filename = `${name}-${session.language}-${session.width}.png`
-  await session.page.screenshot({ path: path.join(options.artifactDir, filename), fullPage: true,
+  // Finish finite CSS transitions before capturing the final UI. Waiting for
+  // text alone can capture a transparent dialog in its 100ms entrance motion.
+  const captureOptions = { path: path.join(options.artifactDir, filename), animations: 'disabled',
     mask: [session.page.locator('input'), session.page.getByText(/sk-[A-Za-z0-9*._-]+/),
-      session.page.getByText(session.username, { exact: true })] })
+      session.page.getByText(session.username, { exact: true })] }
+  if (!target) captureOptions.fullPage = true
+  await (target || session.page).screenshot(captureOptions)
   screenshots.push(filename)
   session.scope.stage = previousStage
 }
@@ -941,6 +945,25 @@ export async function probePersonalBrowserJourney(options = {}) {
       root.frontend.form_verified === true && owner.frontend.form_verified === true &&
       root.frontend.metadata_verified === true && owner.frontend.metadata_verified === true &&
       root.frontend.revision === owner.frontend.revision, 'BUILD_MISMATCH')
+    // Capture the application's existing, visible build identifier. Metadata
+    // equality above establishes identity but does not prove on-screen display.
+    scope.stage = 'build-visible'
+    await open(root, '/system-info')
+    await root.page.locator('[data-testid="runtime-build-revision"]').waitFor({ state: 'visible' })
+    const visibleBuild = await bounded(scope, () => root.page.evaluate(() => {
+      const element = document.querySelector('[data-testid="runtime-build-revision"]')
+      const rect = element?.getBoundingClientRect()
+      return { revision: element?.textContent?.trim(), visible: Boolean(rect && rect.width > 0 && rect.height > 0 &&
+        rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight &&
+        element.scrollWidth <= element.clientWidth) }
+    }))
+    requireThat(visibleBuild?.visible === true && visibleBuild.revision === root.frontend.revision, 'BUILD_MISMATCH')
+    requireThat(root.errors === 0 && owner.errors === 0, 'RUNTIME_ERROR')
+    // Other Root cards contain operational metadata and raw API errors. Keep
+    // the evidence confined to this existing public build card.
+    const buildCard = root.page.locator('[data-slot="card"]:has([data-testid="runtime-build-revision"])')
+    await capture(root, options, 'runtime-build', screenshots, buildCard)
+    requireThat(root.errors === 0 && owner.errors === 0, 'RUNTIME_ERROR')
     checks.push({ name: 'browser reload preserves finite Key and ordinary-owner counters without relay replay', ok: true, remainingQuota: quota - usage, usedQuota: usage })
     return { passed: true, sha: options.sha, writer, checks, screenshots, frontend: {
       revision: root.frontend.revision,
