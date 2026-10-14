@@ -368,8 +368,18 @@ async function login(session, username, password, expectedRole, sha) {
     meta: document.querySelector('meta[name="build-id"]')?.getAttribute('content'),
   })))
   const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
-  requireThat(typeof metadata.global === 'string' && metadata.global.startsWith(`rv.${version}.${sha}.`) &&
+  requireThat(typeof metadata.global === 'string' && metadata.global.length <= 160 && /^[0-9A-Za-z._-]+$/.test(metadata.global) &&
+    metadata.global.startsWith(`rv.${version}.${sha}.`) &&
     metadata.global === metadata.html && metadata.global === metadata.meta, 'BUILD_MISMATCH')
+  // Record only the public proof established by this real session. The
+  // credential and access token remain in process memory and never enter the
+  // journey report.
+  session.frontend = {
+    role: expectedRole === 100 ? 'Root' : 'owner',
+    revision: metadata.global,
+    form_verified: true,
+    metadata_verified: true,
+  }
 }
 
 async function capture(session, options, name, screenshots) {
@@ -896,7 +906,18 @@ export async function probePersonalBrowserJourney(options = {}) {
     requireThat(finalWriter.state?.mode === writer, 'WRITER_MISMATCH')
     requireThat(root.errors === 0 && owner.errors === 0 && root.reveals === 0 && owner.reveals === 0 &&
       root.requests === 2 && owner.requests === 3, 'RUNTIME_ERROR')
+    requireThat(root.frontend?.role === 'Root' && owner.frontend?.role === 'owner' &&
+      root.frontend.form_verified === true && owner.frontend.form_verified === true &&
+      root.frontend.metadata_verified === true && owner.frontend.metadata_verified === true &&
+      root.frontend.revision === owner.frontend.revision, 'BUILD_MISMATCH')
     checks.push({ name: 'browser reload preserves finite Key and ordinary-owner counters without relay replay', ok: true, remainingQuota: quota - usage, usedQuota: usage })
-    return { passed: true, sha: options.sha, writer, checks, screenshots }
+    return { passed: true, sha: options.sha, writer, checks, screenshots, frontend: {
+      revision: root.frontend.revision,
+      roles: [root.frontend.role, owner.frontend.role],
+      role_revisions: { Root: root.frontend.revision, owner: owner.frontend.revision },
+      form_verified: true,
+      metadata_verified: true,
+      runtime_errors: root.errors + owner.errors,
+    } }
   })
 }

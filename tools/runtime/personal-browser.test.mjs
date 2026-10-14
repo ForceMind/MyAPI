@@ -252,7 +252,10 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
       },
       async evaluate(fn) {
         if (hangAt === 'evaluate') return hang()
-        if (String(fn).includes('__APP_BUILD__')) return { global: `rv.${version}.${base.sha}.test`, html: `rv.${version}.${base.sha}.test`, meta: `rv.${version}.${base.sha}.test` }
+        if (String(fn).includes('__APP_BUILD__')) {
+          const revision = `rv.${version}.${base.sha}.${corrupt === 'frontend-revision-owner' && context.locale === 'zh-CN' ? 'owner' : 'test'}`
+          return { global: revision, html: revision, meta: revision }
+        }
         return !screenshotSecret && !(unsafeUsageScreenshot && this.badUsage)
       },
       async screenshot(options) {
@@ -907,6 +910,14 @@ test('real sidebar contracts reduce document loads and final persistence load ca
   const fixture = journeyBrowser({ reloadAlreadyCurrent: true })
   const report = await probePersonalBrowserJourney({ ...base, ...fixture })
   assert.equal(report.passed, true)
+  const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
+  assert.deepEqual(report.frontend, {
+    revision: `rv.${version}.${base.sha}.test`, roles: ['Root', 'owner'],
+    role_revisions: { Root: `rv.${version}.${base.sha}.test`, owner: `rv.${version}.${base.sha}.test` },
+    form_verified: true, metadata_verified: true, runtime_errors: 0,
+  })
+  assert.equal(JSON.stringify(report.frontend).includes(base.password), false)
+  assert.equal(JSON.stringify(report.frontend).includes('session-private-'), false)
   assert.deepEqual(fixture.navigations.filter(item => item.kind === 'document').map(item => [item.locale, item.path]), [
     ['en-US', '/sign-in'], ['en-US', '/keys'], ['zh-CN', '/sign-in'], ['zh-CN', '/keys'],
   ]) // Four journey document loads, plus the separate real setup document.
@@ -916,6 +927,15 @@ test('real sidebar contracts reduce document loads and final persistence load ca
   assert.deepEqual(fixture.contexts.map(context => context.page.closedLogDialogs), [1, 1])
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/api/user/login').length, 2)
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+})
+
+test('frontend evidence requires the two real login sessions to report the identical build revision', async () => {
+  const fixture = journeyBrowser({ corrupt: 'frontend-revision-owner' })
+  await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), error =>
+    error.message === 'SMOKE_PERSONAL_BUILD_MISMATCH' && error.stage === 'reload-check')
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/api/user/login').length, 2)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+  assert.equal(fixture.closed(), 1)
 })
 
 test('fixture config reload and ordinary owner Refresh cross independent client cache boundaries', async () => {

@@ -712,6 +712,22 @@ async function assertLayout(page, scenario) {
       geometry.actions.x > geometry.request.x,
       `${scenario.name}: desktop actions use the side column`
     )
+    const search = await page
+      .getByRole('button', { name: tr('Search', scenario.language), exact: true })
+      .evaluate((button) => {
+        const box = (selector) => {
+          const rect = button.querySelector(selector)?.getBoundingClientRect()
+          return rect ? { x: rect.x, right: rect.right, width: rect.width } : null
+        }
+        return { icon: box(':scope > svg'), text: box(':scope > span'), shortcut: box(':scope > kbd') }
+      })
+    assert(
+      search.icon && search.text && search.shortcut &&
+        search.text.width > 0 &&
+        search.icon.right + 4 <= search.text.x &&
+        search.text.right + 4 <= search.shortcut.x,
+      `${scenario.name}: search label stays clear of its icon and shortcut`
+    )
   }
 }
 

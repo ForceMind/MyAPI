@@ -518,21 +518,99 @@ export async function probeFreshSQLite({
     ] }
 }
 
-async function probeFrontend(baseUrl, sha, version, modulePath) {
-  if (!modulePath) throw new Error('SMOKE_BROWSER_MODULE_REQUIRED')
-  const { chromium } = await import(modulePath)
-  const browser = await chromium.launch({ headless: true })
+const frontendStages = new Set(['frontend-evidence', 'frontend-launch', 'frontend-document', 'frontend-form', 'frontend-build', 'frontend-close'])
+const frontendErrorCodes = new Set(['SMOKE_BROWSER_MODULE_REQUIRED', 'SMOKE_FRONTEND_BROWSER_FAILED',
+  'SMOKE_FRONTEND_BROWSER_CLOSE_FAILED', 'SMOKE_FRONTEND_HTTP_FAILED', 'SMOKE_FRONTEND_FORM_TIMEOUT',
+  'SMOKE_FRONTEND_FORM_UNAVAILABLE', 'SMOKE_FRONTEND_BUILD_MISMATCH', 'SMOKE_FRONTEND_RUNTIME_ERROR'])
+const frontendDiagnosticCategories = new Set(['document', 'asset', 'auth', 'bootstrap', 'other'])
+
+function frontendRequestCategory(request, origin) {
+  const url = new URL(request.url())
+  if (url.origin !== origin) return undefined
+  if (url.pathname === '/sign-in' || request.resourceType?.() === 'document') return 'document'
+  if (['/api/user/login', '/api/user/auth/refresh', '/api/user/auth/logout', '/api/user/self'].includes(url.pathname)) return 'auth'
+  if (['/api/status', '/api/setup'].includes(url.pathname)) return 'bootstrap'
+  if (['script', 'stylesheet', 'font', 'image'].includes(request.resourceType?.())) return 'asset'
+  return 'other'
+}
+
+function frontendDiagnosticCollector(origin) {
+  const values = new Map()
+  return {
+    record(request, httpStatus) {
+      try {
+        const category = frontendRequestCategory(request, origin)
+        if (!category || !(httpStatus === 0 || Number.isInteger(httpStatus) && httpStatus >= 400 && httpStatus <= 599)) return
+        const key = `${category}:${httpStatus}`
+        if (!values.has(key) && values.size >= 8) return
+        const previous = values.get(key) || { category, httpStatus, count: 0 }
+        previous.count = Math.min(previous.count + 1, 16)
+        values.set(key, previous)
+      } catch {} // Diagnostics never replace the frontend contract result.
+    },
+    snapshot() { return [...values.values()].map(value => ({ ...value })) },
+  }
+}
+
+function safeFrontendDiagnostics(value) {
+  if (!Array.isArray(value)) return undefined
+  const safe = value.slice(0, 8).filter(item => item && frontendDiagnosticCategories.has(item.category) &&
+    (item.httpStatus === 0 || Number.isInteger(item.httpStatus) && item.httpStatus >= 400 && item.httpStatus <= 599) &&
+    Number.isInteger(item.count) && item.count >= 1 && item.count <= 16)
+    .map(({ category, httpStatus, count }) => ({ category, httpStatus, count }))
+  return safe.length ? safe : undefined
+}
+
+export function validatePersonalFrontendEvidence(personal, { sha, version } = {}) {
+  const evidence = personal?.frontend
+  const valid = personal?.passed === true && personal?.sha === sha && /^[a-f0-9]{40}$/.test(sha || '') &&
+    typeof version === 'string' && version.length > 0 && typeof evidence?.revision === 'string' &&
+    evidence.revision.length <= 160 && /^[0-9A-Za-z._-]+$/.test(evidence.revision) &&
+    evidence.revision.startsWith(`rv.${version}.${sha}.`) &&
+    Array.isArray(evidence.roles) && evidence.roles.length === 2 &&
+    evidence.roles[0] === 'Root' && evidence.roles[1] === 'owner' &&
+    evidence.role_revisions?.Root === evidence.revision && evidence.role_revisions?.owner === evidence.revision &&
+    evidence.form_verified === true && evidence.metadata_verified === true && evidence.runtime_errors === 0
+  if (!valid) {
+    const error = new Error('SMOKE_PERSONAL_FRONTEND_EVIDENCE')
+    error.stage = 'frontend-evidence'
+    throw error
+  }
+  return { name: 'real frontend sign-in form and revision', ok: true, revision: evidence.revision,
+    roles: [...evidence.roles], form_verified: true, metadata_verified: true, runtime_errors: 0 }
+}
+
+export async function probeFrontend(baseUrl, sha, version, modulePath) {
+  let stage = 'frontend-launch'
+  let browser
+  let result
+  let failure
+  const origin = new URL(baseUrl).origin
+  const diagnostics = frontendDiagnosticCollector(origin)
   try {
+    if (!modulePath) throw new Error('SMOKE_BROWSER_MODULE_REQUIRED')
+    const module = typeof modulePath === 'string' ? await import(modulePath) : modulePath
+    if (typeof module?.chromium?.launch !== 'function') throw new Error('SMOKE_FRONTEND_BROWSER_FAILED')
+    browser = await module.chromium.launch({ headless: true })
     const page = await browser.newPage({ locale: 'en-US' })
     page.setDefaultTimeout(20_000)
-    const origin = new URL(baseUrl).origin
     let errors = 0
     page.on('pageerror', () => { errors += 1 })
+    page.on('response', response => {
+      try { diagnostics.record(response.request(), response.status()) } catch {}
+    })
+    page.on('requestfailed', request => diagnostics.record(request, 0))
     await page.route('**/*', (route) => new URL(route.request().url()).origin === origin ? route.continue() : route.abort())
+    stage = 'frontend-document'
     const response = await page.goto(origin + '/sign-in', { waitUntil: 'domcontentloaded', timeout: 30_000 })
-    if (response?.status() !== 200) throw new Error('SMOKE_FRONTEND_HTTP_FAILED')
+    if (response?.status() !== 200) {
+      const error = new Error('SMOKE_FRONTEND_HTTP_FAILED')
+      error.httpStatus = response?.status()
+      throw error
+    }
     // A loading/error boundary can contain text and metadata too. Require the
     // real, editable sign-in form shared by both editions before accepting it.
+    stage = 'frontend-form'
     const username = page.locator('form input[name="username"]')
     const password = page.locator('form input[name="password"][type="password"]')
     const submit = page.locator('form button[type="submit"]')
@@ -542,6 +620,7 @@ async function probeFrontend(baseUrl, sha, version, modulePath) {
     if (!await username.isEditable() || !await password.isEditable() || !await submit.isEnabled()) {
       throw new Error('SMOKE_FRONTEND_FORM_UNAVAILABLE')
     }
+    stage = 'frontend-build'
     const metadata = await page.evaluate(() => ({
       global: window.__APP_BUILD__?.rev,
       html: document.documentElement.getAttribute('data-build-rev'),
@@ -550,10 +629,38 @@ async function probeFrontend(baseUrl, sha, version, modulePath) {
     if (errors > 0) throw new Error('SMOKE_FRONTEND_RUNTIME_ERROR')
     if (!metadata.global?.startsWith(`rv.${version}.${sha}.`) || metadata.global !== metadata.html ||
         metadata.global !== metadata.meta) throw new Error('SMOKE_FRONTEND_BUILD_MISMATCH')
-    return { name: 'real frontend sign-in form and revision', ok: true, revision: metadata.global }
+    result = { name: 'real frontend sign-in form and revision', ok: true, revision: metadata.global }
+  } catch (error) {
+    const code = error?.name === 'TimeoutError' && stage === 'frontend-form'
+      ? 'SMOKE_FRONTEND_FORM_TIMEOUT'
+      : frontendErrorCodes.has(error?.message) ? error.message : 'SMOKE_FRONTEND_BROWSER_FAILED'
+    failure = new Error(code)
+    failure.stage = stage
+    failure.diagnostics = diagnostics.snapshot()
+    if (Number.isInteger(error?.httpStatus) && error.httpStatus >= 100 && error.httpStatus <= 599) failure.httpStatus = error.httpStatus
   } finally {
-    await browser.close()
+    if (browser) {
+      stage = 'frontend-close'
+      try { await browser.close() } catch {
+        if (!failure) {
+          failure = new Error('SMOKE_FRONTEND_BROWSER_CLOSE_FAILED')
+          failure.stage = stage
+          failure.diagnostics = diagnostics.snapshot()
+        }
+      }
+    }
   }
+  if (failure) throw failure
+  return result
+}
+
+export async function appendFrontendAcceptance(report, { personalEnabled, baseUrl, sha, version, playwrightModule }) {
+  if (!report?.passed) return report
+  const check = personalEnabled
+    ? validatePersonalFrontendEvidence(report.personal, { sha, version })
+    : await probeFrontend(baseUrl, sha, version, playwrightModule)
+  report.checks.push(check)
+  return report
 }
 
 async function main() {
@@ -579,9 +686,12 @@ async function main() {
       restoreFixture: process.env.MYAPI_SMOKE_RESTORE === '1'
         ? (args) => verifySQLiteRestore({ ...args, restore: (verify) => withRestoredSQLite({ sha, edition, verify }) })
         : undefined })
-    if (report.passed) report.checks.push(await probeFrontend(baseUrl, sha,
-      readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim(), process.env.MYAPI_PLAYWRIGHT_MODULE))
+    // Preserve the complete personal journey before any independent follow-up
+    // check can fail. This artifact remains a stage result, not overall success.
     if (personalEnabled && report.personal) writeFileSync(path.join(personalOptions.artifactDir, 'qualification.json'), JSON.stringify(report.personal, null, 2))
+    const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
+    await appendFrontendAcceptance(report, { personalEnabled, baseUrl, sha, version,
+      playwrightModule: process.env.MYAPI_PLAYWRIGHT_MODULE })
     console.log(JSON.stringify(report, null, 2))
     if (!report.passed) process.exitCode = 1
   } catch (error) {
@@ -608,7 +718,8 @@ async function main() {
       'SMOKE_SELF_USE_WALLET_MISMATCH', 'SMOKE_SELF_USE_COUNTER_MISMATCH', 'SMOKE_SELF_USE_KEY_MISMATCH',
       'SMOKE_RESTORE_SCOPE_REJECTED', 'SMOKE_RESTORE_DOCKER_FAILED', 'SMOKE_RESTORE_DATABASE_MISSING',
       'SMOKE_RESTORE_COPY_MISMATCH', 'SMOKE_RESTORE_API_FAILED', 'SMOKE_RESTORE_STATE_MISMATCH', 'SMOKE_RESTORE_READINESS_FAILED',
-      'SMOKE_BROWSER_MODULE_REQUIRED', 'SMOKE_FRONTEND_HTTP_FAILED',
+      'SMOKE_BROWSER_MODULE_REQUIRED', 'SMOKE_FRONTEND_BROWSER_FAILED', 'SMOKE_FRONTEND_BROWSER_CLOSE_FAILED',
+      'SMOKE_FRONTEND_HTTP_FAILED', 'SMOKE_FRONTEND_FORM_TIMEOUT',
       'SMOKE_FRONTEND_BUILD_MISMATCH', 'SMOKE_FRONTEND_RUNTIME_ERROR',
       'SMOKE_FRONTEND_FORM_UNAVAILABLE', 'ISOLATED_CI_SMOKE_ONLY',
       'SMOKE_PERSONAL_WRITER_SCOPE', 'SMOKE_PERSONAL_WRITER_API', 'SMOKE_PERSONAL_WRITER_NOT_FRESH',
@@ -619,16 +730,18 @@ async function main() {
       'SMOKE_PERSONAL_STATE_MISMATCH', 'SMOKE_PERSONAL_KEY_MISMATCH', 'SMOKE_PERSONAL_POLICY_MISMATCH',
       'SMOKE_PERSONAL_REQUEST_MISMATCH', 'SMOKE_PERSONAL_RELAY_MISMATCH', 'SMOKE_PERSONAL_LOG_MISMATCH',
       'SMOKE_PERSONAL_USAGE_MISMATCH', 'SMOKE_PERSONAL_UPSTREAM_MISMATCH', 'SMOKE_PERSONAL_WRITER_MISMATCH',
-      'SMOKE_PERSONAL_SCREENSHOT_REJECTED'])
+      'SMOKE_PERSONAL_SCREENSHOT_REJECTED', 'SMOKE_PERSONAL_FRONTEND_EVIDENCE'])
     const safeStages = new Set(['launch', 'browser-close', 'setup',
       'setup-session', 'setup-open', 'setup-database', 'setup-credentials', 'setup-mode', 'setup-review', 'setup-submit', 'setup-response', 'login', 'login-open', 'login-response', 'login-keys', 'document-backoff', 'writer-check', 'fixture-config', 'fixture-config-refresh', 'policy-view', 'policy-refresh', 'key-create',
       'key-create-open', 'key-create-ready', 'key-create-profile', 'key-create-cap', 'key-create-quota',
       'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'key-selection-model', 'workbench-open', 'workbench-key-selection', 'workbench-playground-open', 'key-handoff-readback', 'playground-send', 'ledger-check', 'usage-view', 'usage-open', 'usage-filter', 'usage-list', 'usage-list-visible', 'usage-details-open', 'usage-details-request', 'usage-details-key', 'policy-user-filter', 'policy-confirm', 'playground-response', 'playground-complete', 'playground-rejection', 'strict-key-filter', 'strict-budget', 'reload-check', 'screenshot'])
+    const diagnostics = safeFrontendDiagnostics(error?.diagnostics)
     console.error(JSON.stringify({ command: 'docker:smoke', passed: false,
       code: safeCodes.has(error?.message) ? error.message : 'SMOKE_UNEXPECTED_FAILURE',
-      ...(safeStages.has(error?.stage) ? { stage: error.stage } : {}),
+      ...(safeStages.has(error?.stage) || frontendStages.has(error?.stage) ? { stage: error.stage } : {}),
       ...(Number.isInteger(error?.httpStatus) && error.httpStatus >= 100 && error.httpStatus <= 599 ? { httpStatus: error.httpStatus } : {}),
-      ...(Number.isSafeInteger(error?.retryAfter) && error.retryAfter >= 0 ? { retryAfter: error.retryAfter } : {}) }))
+      ...(Number.isSafeInteger(error?.retryAfter) && error.retryAfter >= 0 ? { retryAfter: error.retryAfter } : {}),
+      ...(diagnostics ? { diagnostics } : {}) }))
     process.exitCode = 1
   }
 }

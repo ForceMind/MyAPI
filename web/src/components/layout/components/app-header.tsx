@@ -136,7 +136,7 @@ export function AppHeader({
               </div>
             )}
             {showSearch && (
-              <Search className='size-9 flex-none justify-center p-0 sm:w-9 sm:pe-0 lg:w-40 lg:justify-start lg:pe-12 [&>kbd]:hidden lg:[&>kbd]:flex [&>span]:hidden lg:[&>span]:inline [&>svg]:start-1/2 [&>svg]:-translate-x-1/2 lg:[&>svg]:start-2 lg:[&>svg]:translate-x-0' />
+              <Search className='size-9 flex-none justify-center p-0 sm:w-9 sm:pe-0 lg:w-40 lg:justify-start lg:ps-4 lg:pe-12 [&>kbd]:hidden lg:[&>kbd]:flex [&>span]:hidden lg:[&>span]:inline [&>svg]:start-1/2 [&>svg]:-translate-x-1/2 lg:[&>svg]:start-2 lg:[&>svg]:translate-x-0' />
             )}
             {showNotifications && (
               <NotificationPopover
