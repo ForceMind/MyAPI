@@ -29,6 +29,9 @@ func openAccountQuotaTestDB(t *testing.T) *gorm.DB {
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	require.NoError(t, db.AutoMigrate(&User{}, &Token{}, &SubscriptionPlan{}, &UserSubscription{}, &UserQuotaMutationReceipt{}, &AccountQuotaMutationReceipt{}, &AccountQuotaReservationHead{}, &AccountQuotaTerminalRecoveryObligation{}, &LegacyUsageReservation{}, &AccountQuotaRefundFact{}, &AccountQuotaSettlementIntent{}, &AccountQuotaSettlementFact{}, &QuotaWorkCursor{}, &QuotaWriterEpoch{}, &QuotaProjectionObligation{}))
 	require.NoError(t, db.AutoMigrate(&AccountQuotaExecutionGate{}, &AccountQuotaExecutionPermit{}))
+	// Token budget configuration and deletion now check active share bindings.
+	// Keep the common fixture's guard dependencies explicit even with no pools.
+	require.NoError(t, db.AutoMigrate(&SubscriptionSharePool{}, &SubscriptionShareAllocation{}))
 	require.NoError(t, EnsureFreshAccountQuotaExecutionGate(context.Background(), db))
 	require.NoError(t, EnsureQuotaWriterEpochStateWithDB(db))
 	setQuotaWriterStateForTest(t, db, QuotaWriterModeAuthoritative, 7)

@@ -112,7 +112,7 @@ try {
         await notice.scrollIntoViewIfNeeded()
         const topImage = `${name}-notice.png`
         await page.screenshot({ path: resolve(output, topImage) })
-        if (role === 100) await dialog.getByLabel(pool.channel_name, { exact: false }).click()
+        if (role === 100) await dialog.getByRole('radio', { name: pool.channel_name, exact: true }).click()
         const target = role === 100 ? dialog.getByLabel(t('Share percentage'), { exact: true }) : dialog.getByRole('region', { name: t('Your subscription share') })
         await target.scrollIntoViewIfNeeded()
         const geometry = await dialog.evaluate(element => {

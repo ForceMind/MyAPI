@@ -278,6 +278,13 @@ func TestSubscriptionShareLifecycleConservesApproximateDelta(t *testing.T) {
 
 	f.snapshot(t, 0, codexQuotaWindowPrimarySource, 130, 1000, 30)
 	require.NoError(t, RefreshSubscriptionShareProjection(context.Background(), f.db, f.subject, 130))
+	var windows []SubscriptionShareAttemptWindow
+	require.NoError(t, f.db.Order("id ASC").Find(&windows).Error)
+	require.Len(t, windows, 4)
+	for _, window := range windows {
+		assert.Equal(t, int64(120), window.CoveredAt, "positive attribution must preserve earlier zero-delta coverage evidence")
+		assert.Equal(t, int64(130), window.AllocatedAt)
+	}
 	var allocations []SubscriptionShareAllocation
 	require.NoError(t, f.db.Order("token_id ASC").Find(&allocations).Error)
 	require.Len(t, allocations, 2)

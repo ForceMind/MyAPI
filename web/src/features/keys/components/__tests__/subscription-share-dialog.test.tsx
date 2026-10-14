@@ -169,7 +169,9 @@ test('Root explicitly selects a window and saves an exact basis-point share', as
     'Sample age: 30 seconds · Maximum age: 300 seconds'
   )
 
-  await user.click(within(dialog).getByLabelText(/Fresh candidate/))
+  await user.click(
+    within(dialog).getByRole('radio', { name: 'Fresh candidate' })
+  )
   await user.clear(within(dialog).getByLabelText('Share percentage'))
   expect(within(dialog).getByText('This creates a managed pool')).toBeVisible()
   await user.type(
@@ -177,9 +179,10 @@ test('Root explicitly selects a window and saves an exact basis-point share', as
     '12.34'
   )
   await user.click(
-    within(dialog).getByLabelText(
-      'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.'
-    )
+    within(dialog).getByRole('checkbox', {
+      name:
+        'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
+    })
   )
   await user.click(within(dialog).getByRole('button', { name: 'Save share' }))
 
@@ -205,11 +208,13 @@ test('Root can save zero to pause a Key but cannot exceed the pool allocation', 
   const dialog = await screen.findByRole('dialog', {
     name: 'Subscription shares',
   })
-  await user.click(await within(dialog).findByLabelText(/Personal Codex/))
-  const input = within(dialog).getByLabelText('Share percentage')
-  const confirmation = within(dialog).getByLabelText(
-    'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.'
+  await user.click(
+    await within(dialog).findByRole('radio', { name: 'Personal Codex' })
   )
+  const input = within(dialog).getByLabelText('Share percentage')
+  const confirmation = within(dialog).getByRole('checkbox', {
+    name: 'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
+  })
   await user.click(confirmation)
 
   await user.clear(input)
@@ -235,14 +240,17 @@ test('saving zero sends an explicit zero share without removing the pool binding
   const dialog = await screen.findByRole('dialog', {
     name: 'Subscription shares',
   })
-  await user.click(await within(dialog).findByLabelText(/Personal Codex/))
+  await user.click(
+    await within(dialog).findByRole('radio', { name: 'Personal Codex' })
+  )
   const input = within(dialog).getByLabelText('Share percentage')
   await user.clear(input)
   await user.type(input, '0')
   await user.click(
-    within(dialog).getByLabelText(
-      'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.'
-    )
+    within(dialog).getByRole('checkbox', {
+      name:
+        'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
+    })
   )
   await user.click(within(dialog).getByRole('button', { name: 'Save share' }))
   await waitFor(() => expect(api.put).toHaveBeenCalledTimes(1))
@@ -271,7 +279,9 @@ test('Root must confirm a pool-wide window replacement before it is written expl
     name: 'Subscription shares',
   })
 
-  await user.click(await within(dialog).findByLabelText(/Replacement window/))
+  await user.click(
+    await within(dialog).findByRole('radio', { name: 'Replacement window' })
+  )
   const replacementShare = within(dialog).getByLabelText('Share percentage')
   expect(replacementShare).toBeEnabled()
   await user.clear(replacementShare)
@@ -287,9 +297,10 @@ test('Root must confirm a pool-wide window replacement before it is written expl
     )
   ).toBeVisible()
   await user.click(
-    within(dialog).getByLabelText(
-      'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.'
-    )
+    within(dialog).getByRole('checkbox', {
+      name:
+        'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
+    })
   )
   const save = within(dialog).getByRole('button', { name: 'Save share' })
   expect(save).toBeDisabled()
@@ -297,9 +308,9 @@ test('Root must confirm a pool-wide window replacement before it is written expl
   expect(api.put).not.toHaveBeenCalled()
 
   await user.click(
-    within(dialog).getByLabelText(
-      'I understand this replacement affects every Key in the pool.'
-    )
+    within(dialog).getByRole('checkbox', {
+      name: 'I understand this replacement affects every Key in the pool.',
+    })
   )
   expect(save).toBeEnabled()
   await user.click(save)
@@ -330,29 +341,37 @@ test('changing the selected window clears both replacement confirmations', async
     name: 'Subscription shares',
   })
 
-  await user.click(await within(dialog).findByLabelText(/Replacement window/))
   await user.click(
-    within(dialog).getByLabelText(
-      'I understand this replacement affects every Key in the pool.'
-    )
+    await within(dialog).findByRole('radio', { name: 'Replacement window' })
   )
   await user.click(
-    within(dialog).getByLabelText(
-      'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.'
-    )
+    within(dialog).getByRole('checkbox', {
+      name: 'I understand this replacement affects every Key in the pool.',
+    })
   )
-  await user.click(within(dialog).getByLabelText(/Fresh candidate/))
-  await user.click(within(dialog).getByLabelText(/Replacement window/))
+  await user.click(
+    within(dialog).getByRole('checkbox', {
+      name:
+        'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
+    })
+  )
+  await user.click(
+    within(dialog).getByRole('radio', { name: 'Fresh candidate' })
+  )
+  await user.click(
+    within(dialog).getByRole('radio', { name: 'Replacement window' })
+  )
 
   expect(
-    within(dialog).getByLabelText(
-      'I understand this replacement affects every Key in the pool.'
-    )
+    within(dialog).getByRole('checkbox', {
+      name: 'I understand this replacement affects every Key in the pool.',
+    })
   ).not.toBeChecked()
   expect(
-    within(dialog).getByLabelText(
-      'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.'
-    )
+    within(dialog).getByRole('checkbox', {
+      name:
+        'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
+    })
   ).not.toBeChecked()
   expect(within(dialog).getByRole('button', { name: 'Save share' })).toBeDisabled()
   expect(api.put).not.toHaveBeenCalled()
@@ -369,7 +388,9 @@ test('Root must confirm recovery from a fresh baseline without clearing estimate
 
   const uncertainLabel = await within(dialog).findByText('Uncertain attempts')
   expect(uncertainLabel.parentElement).toHaveTextContent('3')
-  await user.click(within(dialog).getByLabelText(/Recovery baseline/))
+  await user.click(
+    within(dialog).getByRole('radio', { name: 'Recovery baseline' })
+  )
   expect(
     within(dialog).getByText('Resume observation from a fresh baseline')
   ).toBeVisible()
@@ -386,18 +407,19 @@ test('Root must confirm recovery from a fresh baseline without clearing estimate
     )
   ).toBeVisible()
   await user.click(
-    within(dialog).getByLabelText(
-      'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.'
-    )
+    within(dialog).getByRole('checkbox', {
+      name:
+        'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
+    })
   )
   const save = within(dialog).getByRole('button', { name: 'Save share' })
   expect(save).toBeDisabled()
   expect(api.put).not.toHaveBeenCalled()
 
   await user.click(
-    within(dialog).getByLabelText(
-      'I understand this recovery affects every Key in the pool.'
-    )
+    within(dialog).getByRole('checkbox', {
+      name: 'I understand this recovery affects every Key in the pool.',
+    })
   )
   await user.click(save)
 
@@ -442,9 +464,9 @@ test('Root explicitly confirms closing an existing pool and refreshes the view',
   expect(api.post).not.toHaveBeenCalled()
 
   await user.click(
-    within(confirmation).getByLabelText(
-      'I understand this pool cannot be enabled again in this version.'
-    )
+    within(confirmation).getByRole('checkbox', {
+      name: 'I understand this pool cannot be enabled again in this version.',
+    })
   )
   await user.click(close)
 
@@ -598,11 +620,14 @@ test('an unknown save result stays locked until a manual reload and is never rep
   const dialog = await screen.findByRole('dialog', {
     name: 'Subscription shares',
   })
-  await user.click(await within(dialog).findByLabelText(/Personal Codex/))
   await user.click(
-    within(dialog).getByLabelText(
-      'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.'
-    )
+    await within(dialog).findByRole('radio', { name: 'Personal Codex' })
+  )
+  await user.click(
+    within(dialog).getByRole('checkbox', {
+      name:
+        'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
+    })
   )
   await user.click(within(dialog).getByRole('button', { name: 'Save share' }))
 
@@ -709,26 +734,31 @@ test('a session change clears a selected replacement and its confirmations', asy
   const dialog = await screen.findByRole('dialog', {
     name: 'Subscription shares',
   })
-  await user.click(await within(dialog).findByLabelText(/Replacement window/))
   await user.click(
-    within(dialog).getByLabelText(
-      'I understand this replacement affects every Key in the pool.'
-    )
+    await within(dialog).findByRole('radio', { name: 'Replacement window' })
   )
   await user.click(
-    within(dialog).getByLabelText(
-      'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.'
-    )
+    within(dialog).getByRole('checkbox', {
+      name: 'I understand this replacement affects every Key in the pool.',
+    })
+  )
+  await user.click(
+    within(dialog).getByRole('checkbox', {
+      name:
+        'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
+    })
   )
 
   act(() => setSession(3, 100, 'new-root-session'))
 
   await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2))
-  expect(await screen.findByLabelText(/Replacement window/)).not.toBeChecked()
   expect(
-    screen.queryByLabelText(
-      'I understand this replacement affects every Key in the pool.'
-    )
+    await screen.findByRole('radio', { name: 'Replacement window' })
+  ).not.toBeChecked()
+  expect(
+    screen.queryByRole('checkbox', {
+      name: 'I understand this replacement affects every Key in the pool.',
+    })
   ).not.toBeInTheDocument()
   expect(api.put).not.toHaveBeenCalled()
 })

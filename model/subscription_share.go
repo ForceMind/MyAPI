@@ -221,6 +221,29 @@ func subscriptionShareAttemptTables(db *gorm.DB) (string, string) {
 	return db.NamingStrategy.TableName("SubscriptionShareAttemptWindow"), db.NamingStrategy.TableName("SubscriptionShareAttempt")
 }
 
+const subscriptionShareAttemptWindowUpdateBatchSize = 500
+
+// updateSubscriptionShareAttemptWindows applies one evidence transition in
+// bounded statements. coveredAt only fills an unset coverage time; allocatedAt
+// records the later attribution or uncertainty decision for every selected row.
+func updateSubscriptionShareAttemptWindows(tx *gorm.DB, ids []int64, coveredAt int64, allocatedAt *int64) error {
+	for start := 0; start < len(ids); start += subscriptionShareAttemptWindowUpdateBatchSize {
+		end := min(start+subscriptionShareAttemptWindowUpdateBatchSize, len(ids))
+		batch := ids[start:end]
+		if coveredAt != 0 {
+			if err := tx.Model(&SubscriptionShareAttemptWindow{}).Where("id IN ? AND covered_at = 0", batch).Update("covered_at", coveredAt).Error; err != nil {
+				return err
+			}
+		}
+		if allocatedAt != nil {
+			if err := tx.Model(&SubscriptionShareAttemptWindow{}).Where("id IN ?", batch).Update("allocated_at", *allocatedAt).Error; err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func finalizeSubscriptionShareUncertainAttempts(tx *gorm.DB, poolID, generation, coveredAt int64) ([]subscriptionShareSampleAllocation, int64, error) {
 	windowTable, attemptTable := subscriptionShareAttemptTables(tx)
 	var rows []struct {
@@ -240,13 +263,9 @@ func finalizeSubscriptionShareUncertainAttempts(tx *gorm.DB, poolID, generation,
 			evidence[len(evidence)-1].AttemptCount++
 		}
 	}
-	if len(ids) != 0 {
-		if err := tx.Model(&SubscriptionShareAttemptWindow{}).Where("id IN ? AND covered_at = 0", ids).Update("covered_at", coveredAt).Error; err != nil {
-			return nil, 0, err
-		}
-		if err := tx.Model(&SubscriptionShareAttemptWindow{}).Where("id IN ?", ids).Update("allocated_at", int64(-1)).Error; err != nil {
-			return nil, 0, err
-		}
+	uncertain := int64(-1)
+	if err := updateSubscriptionShareAttemptWindows(tx, ids, coveredAt, &uncertain); err != nil {
+		return nil, 0, err
 	}
 	return evidence, int64(len(ids)), nil
 }
@@ -1336,7 +1355,8 @@ func applySubscriptionShareSnapshot(tx *gorm.DB, pool *SubscriptionSharePool, ge
 			for _, row := range rows {
 				ids = append(ids, row.WindowID)
 			}
-			if err := tx.Model(&SubscriptionShareAttemptWindow{}).Where("id IN ?", ids).Updates(map[string]any{"covered_at": snapshot.ObservedAt, "allocated_at": snapshot.ObservedAt}).Error; err != nil {
+			allocatedAt := snapshot.ObservedAt
+			if err := updateSubscriptionShareAttemptWindows(tx, ids, snapshot.ObservedAt, &allocatedAt); err != nil {
 				return err
 			}
 		}
@@ -1380,10 +1400,8 @@ func applySubscriptionShareSnapshot(tx *gorm.DB, pool *SubscriptionSharePool, ge
 			}
 			allocationEvidence = covered
 		}
-		if len(coverIDs) != 0 {
-			if err := tx.Model(&SubscriptionShareAttemptWindow{}).Where("id IN ?", coverIDs).Update("covered_at", snapshot.ObservedAt).Error; err != nil {
-				return err
-			}
+		if err := updateSubscriptionShareAttemptWindows(tx, coverIDs, snapshot.ObservedAt, nil); err != nil {
+			return err
 		}
 	}
 	afterUsed, delta := beforeUsed, int64(0)

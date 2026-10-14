@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -123,6 +124,11 @@ func subscriptionShareConfiguredDatabaseContract(t *testing.T, db *gorm.DB, dial
 	assert.Equal(t, int64(5_000_000), used[tokens[0].Id])
 	assert.Equal(t, int64(15_000_000), used[tokens[1].Id])
 	assert.Equal(t, int64(20_000_000), used[tokens[0].Id]+used[tokens[1].Id])
+	if engine == "sqlite" {
+		t.Run("attempt updates exceed the real bind limit", func(t *testing.T) {
+			subscriptionShareSQLiteVariableLimitLifecycle(t, db, root, owner, channels[0], namespace, base+50)
+		})
+	}
 	if engine == "mysql" {
 		t.Run("repeatable-read slot creation", func(t *testing.T) {
 			subscriptionShareMySQLRepeatableReadSlotCreation(t, db, config, root, owner, channels[0], namespace, base+100)
@@ -149,10 +155,24 @@ func subscriptionShareConfiguredDatabaseContract(t *testing.T, db *gorm.DB, dial
 
 	// A second connection models an independently running application writer,
 	// including SQLite's busy handling rather than sharing one connection pool.
-	reopened, err := gorm.Open(dialector, config)
+	// The PostgreSQL fixture dialector owns a non-nil Conn pool. Recreating
+	// only gorm.Config would reuse that pool and close the first writer too.
+	reopenDialector := dialector
+	if engine != "sqlite" {
+		dsnEnv := "MYAPI_B2_MYSQL_DSN"
+		if engine == "postgres" {
+			dsnEnv = "MYAPI_B2_POSTGRES_DSN"
+		}
+		reopenDialector, err = b2SubmissionDatabaseDialector(engine, strings.TrimSpace(os.Getenv(dsnEnv)))
+		require.NoError(t, err)
+	}
+	firstSQL, err := db.DB()
+	require.NoError(t, err)
+	reopened, err := gorm.Open(reopenDialector, &gorm.Config{Logger: config.Logger, NamingStrategy: config.NamingStrategy})
 	require.NoError(t, err)
 	reopenedSQL, err := reopened.DB()
 	require.NoError(t, err)
+	require.NotSame(t, firstSQL, reopenedSQL, "independent application writers must own different connection pools")
 	t.Cleanup(func() { require.NoError(t, reopenedSQL.Close()) })
 	start := make(chan struct{})
 	results := make(chan error, 2)
@@ -235,6 +255,91 @@ func subscriptionShareConfiguredDatabaseContract(t *testing.T, db *gorm.DB, dial
 	assert.Equal(t, "pool_close", closeAudit.Action)
 	assert.Equal(t, closeInput.ExpectedRevision, closeAudit.BeforeRevision)
 	assert.Equal(t, closeInput.ExpectedRevision+1, closeAudit.AfterRevision)
+}
+
+func subscriptionShareSQLiteVariableLimitLifecycle(t *testing.T, db *gorm.DB, root, owner User, channel Channel, namespace string, now int64) {
+	t.Helper()
+	rows, err := db.Raw("PRAGMA compile_options").Rows()
+	require.NoError(t, err)
+	maxVariables := 0
+	for rows.Next() {
+		var option string
+		require.NoError(t, rows.Scan(&option))
+		if strings.HasPrefix(option, "MAX_VARIABLE_NUMBER=") {
+			maxVariables, err = strconv.Atoi(strings.TrimPrefix(option, "MAX_VARIABLE_NUMBER="))
+			require.NoError(t, err)
+		}
+	}
+	require.NoError(t, rows.Err())
+	require.NoError(t, rows.Close())
+	require.Greater(t, maxVariables, subscriptionShareAttemptWindowUpdateBatchSize)
+	pendingCount := maxVariables + 1
+
+	subject, err := newChannelQuotaIdentitySubjectRef()
+	require.NoError(t, err)
+	token := Token{UserId: owner.Id, Key: namespace + "limit", Name: "limit", Status: common.TokenStatusEnabled, ExpiredTime: -1}
+	require.NoError(t, db.Create(&token).Error)
+	total, used := float64(100), float64(0)
+	selected := ChannelQuotaSnapshot{CodexObservationQualified: true, CodexThresholdQualified: true, ChannelId: channel.Id, ObservedAt: now, Available: 100, Used: &used, Total: &total, Unit: "percent", MetricType: "codex_rate_limit", WindowType: "weekly", PlanType: "limit", WindowSeconds: 604800, ResetAt: now + 10_000, Source: codexQuotaWindowPrimarySource, SampleID: namespace + "-limit", SubjectRef: subject, IdentityQuality: ChannelQuotaIdentityQualityProviderConfirmed, Status: "success"}
+	require.LessOrEqual(t, len(selected.SampleID), 36)
+	require.NoError(t, db.Create(&selected).Error)
+	require.NoError(t, ConfigureSubscriptionShare(context.Background(), db, root.Id, token.Id, SubscriptionShareConfigInput{ID: fmt.Sprintf("%064x", 700), SnapshotID: selected.Id, ShareBPS: 10000, ConfirmedApproximate: true}, now))
+	baseline := selected
+	baseline.Id, baseline.ObservedAt, baseline.SampleID = 0, now+1, namespace+"-limit-base"
+	require.NoError(t, db.Create(&baseline).Error)
+	require.NoError(t, RefreshSubscriptionShareProjection(context.Background(), db, subject, now+1))
+	var pool SubscriptionSharePool
+	require.NoError(t, db.Where("subject_ref = ?", subject).Take(&pool).Error)
+	var allocation SubscriptionShareAllocation
+	require.NoError(t, db.Where("pool_id = ? AND token_id = ?", pool.ID, token.Id).Take(&allocation).Error)
+
+	insertBatchSize := maxVariables / 10
+	if insertBatchSize > 500 {
+		insertBatchSize = 500
+	}
+	require.Positive(t, insertBatchSize)
+	for start := 0; start < pendingCount; start += insertBatchSize {
+		end := min(start+insertBatchSize, pendingCount)
+		attempts := make([]SubscriptionShareAttempt, 0, end-start)
+		windows := make([]SubscriptionShareAttemptWindow, 0, end-start)
+		for index := start; index < end; index++ {
+			attemptID := fmt.Sprintf("%064x", 1_000_000+index)
+			attempts = append(attempts, SubscriptionShareAttempt{AttemptID: attemptID, RequestID: fmt.Sprintf("limit-%d", index), TokenID: token.Id, UserID: owner.Id, SubjectRef: subject, ChannelID: channel.Id, CredentialRef: fmt.Sprintf("%064x", 701), State: SubscriptionShareAttemptDispatching, CreatedAt: now + 2, UpdatedAt: now + 2})
+			// CoveredAt models requests accumulated across zero-delta samples:
+			// their dispatch slots are released while attribution remains pending.
+			windows = append(windows, SubscriptionShareAttemptWindow{AttemptID: attemptID, PoolID: pool.ID, AllocationID: allocation.ID, Generation: pool.CurrentGeneration, CoveredAt: now + 2})
+		}
+		require.NoError(t, db.Create(&attempts).Error)
+		require.NoError(t, db.Create(&windows).Error)
+	}
+	var persisted int64
+	require.NoError(t, db.Model(&SubscriptionShareAttemptWindow{}).Where("pool_id = ? AND generation = ? AND allocated_at = 0", pool.ID, pool.CurrentGeneration).Count(&persisted).Error)
+	require.Equal(t, int64(pendingCount), persisted)
+
+	positive := selected
+	positive.Id, positive.ObservedAt, positive.SampleID = 0, now+3, namespace+"-limit-positive"
+	positiveUsed := float64(10)
+	positive.Used, positive.Available = &positiveUsed, 90
+	require.LessOrEqual(t, len(positive.SampleID), 36)
+	require.NoError(t, db.Create(&positive).Error)
+	require.NoError(t, RefreshSubscriptionShareProjection(context.Background(), db, subject, now+3))
+	var attributed, originalCoverage int64
+	require.NoError(t, db.Model(&SubscriptionShareAttemptWindow{}).Where("pool_id = ? AND allocated_at = ?", pool.ID, now+3).Count(&attributed).Error)
+	require.NoError(t, db.Model(&SubscriptionShareAttemptWindow{}).Where("pool_id = ? AND covered_at = ?", pool.ID, now+2).Count(&originalCoverage).Error)
+	assert.Equal(t, int64(pendingCount), attributed)
+	assert.Equal(t, int64(pendingCount), originalCoverage)
+
+	require.NoError(t, db.Model(&SubscriptionShareAttemptWindow{}).Where("pool_id = ?", pool.ID).Update("allocated_at", 0).Error)
+	closeInput := SubscriptionShareCloseInput{ID: fmt.Sprintf("%064x", 702), PoolID: pool.ID, ExpectedRevision: pool.Revision, ConfirmedClose: true}
+	require.NoError(t, CloseSubscriptionSharePool(context.Background(), db, root.Id, closeInput, now+4))
+	var uncertain, preservedCoverage int64
+	require.NoError(t, db.Model(&SubscriptionShareAttemptWindow{}).Where("pool_id = ? AND allocated_at = ?", pool.ID, -1).Count(&uncertain).Error)
+	require.NoError(t, db.Model(&SubscriptionShareAttemptWindow{}).Where("pool_id = ? AND covered_at = ?", pool.ID, now+2).Count(&preservedCoverage).Error)
+	assert.Equal(t, int64(pendingCount), uncertain)
+	assert.Equal(t, int64(pendingCount), preservedCoverage)
+	var audit SubscriptionShareAudit
+	require.NoError(t, db.Where("id = ?", closeInput.ID).Take(&audit).Error)
+	assert.Equal(t, int64(pendingCount), audit.UncertainAttempts)
 }
 
 func subscriptionShareMySQLRepeatableReadSlotCreation(t *testing.T, db *gorm.DB, config *gorm.Config, root, owner User, channel Channel, namespace string, now int64) {
@@ -423,43 +528,47 @@ func subscriptionShareMySQLRepeatableReadAllocationAndReplay(t *testing.T, db *g
 	require.NoError(t, db.Where("attempt_id = ?", attemptID).Take(&allocatedAttempt).Error)
 	assert.Equal(t, SubscriptionShareAttemptDispatching, allocatedAttempt.State)
 
-	replacement := snapshot
-	replacement.Id, replacement.ObservedAt, replacement.SampleID = 0, now+6, namespace+"-rr-replace"
-	replacement.WindowType, replacement.WindowSeconds, replacement.ResetAt = "five_hour", 18000, now+10_006
-	require.NoError(t, db.Create(&replacement).Error)
-	replaceInput := SubscriptionShareConfigInput{ID: fmt.Sprintf("%064x", 504), PoolID: pool.ID, SnapshotID: replacement.Id, ExpectedRevision: 3, ShareBPS: 4000, ConfirmedApproximate: true, ReplaceWindow: true}
 	pendingID := fmt.Sprintf("%064x", 602)
-	replaceResult := subscriptionShareRunAfterMySQLActorSnapshot(t, writer,
+	closeWithPending := SubscriptionShareCloseInput{ID: fmt.Sprintf("%064x", 504), PoolID: pool.ID, ExpectedRevision: 3, ConfirmedClose: true}
+	closeResult := subscriptionShareRunAfterMySQLActorSnapshot(t, writer,
 		func(ctx context.Context) error {
-			return ConfigureSubscriptionShare(ctx, writer, root.Id, tokens[0].Id, replaceInput, now+6)
+			return CloseSubscriptionSharePool(ctx, writer, root.Id, closeWithPending, now+6)
 		},
 		func(ctx context.Context) error {
 			return AdmitSubscriptionShareAttempt(ctx, db, tokens[0].Id, owner.Id, subject, channel.Id, fmt.Sprintf("%064x", 603), namespace+"-uncertain", pendingID, now+6)
 		},
 	)
-	require.NoError(t, replaceResult)
+	require.NoError(t, closeResult)
 	var uncertainWindow SubscriptionShareAttemptWindow
 	require.NoError(t, db.Where("attempt_id = ?", pendingID).Take(&uncertainWindow).Error)
 	assert.Equal(t, int64(-1), uncertainWindow.AllocatedAt)
-	var replacementAudit SubscriptionShareAudit
-	require.NoError(t, db.Where("id = ?", replaceInput.ID).Take(&replacementAudit).Error)
-	assert.Equal(t, int64(1), replacementAudit.UncertainAttempts)
+	var pendingCloseAudit SubscriptionShareAudit
+	require.NoError(t, db.Where("id = ?", closeWithPending.ID).Take(&pendingCloseAudit).Error)
+	assert.Equal(t, int64(1), pendingCloseAudit.UncertainAttempts)
 	require.NoError(t, db.First(&pool, pool.ID).Error)
+	assert.False(t, pool.Enabled)
 	assert.Equal(t, int64(4), pool.Revision)
 
-	closeReplay := SubscriptionShareCloseInput{ID: fmt.Sprintf("%064x", 505), PoolID: pool.ID, ExpectedRevision: 4, ConfirmedClose: true}
+	next := snapshot
+	next.Id, next.ObservedAt, next.SampleID = 0, now+7, namespace+"-rr-next"
+	next.WindowType, next.WindowSeconds, next.ResetAt = "five_hour", 18000, now+10_007
+	require.NoError(t, db.Create(&next).Error)
+	require.NoError(t, ConfigureSubscriptionShare(context.Background(), db, root.Id, tokens[0].Id, SubscriptionShareConfigInput{ID: fmt.Sprintf("%064x", 505), SnapshotID: next.Id, ShareBPS: 4000, ConfirmedApproximate: true}, now+7))
+	var nextPool SubscriptionSharePool
+	require.NoError(t, db.Where("subject_ref = ? AND enabled = ?", subject, true).Take(&nextPool).Error)
+	closeReplay := SubscriptionShareCloseInput{ID: fmt.Sprintf("%064x", 506), PoolID: nextPool.ID, ExpectedRevision: 1, ConfirmedClose: true}
 	replayResult = subscriptionShareRunAfterMySQLActorSnapshot(t, writer,
 		func(ctx context.Context) error {
-			return CloseSubscriptionSharePool(ctx, writer, root.Id, closeReplay, now+7)
+			return CloseSubscriptionSharePool(ctx, writer, root.Id, closeReplay, now+8)
 		},
 		func(ctx context.Context) error {
-			return CloseSubscriptionSharePool(ctx, db, root.Id, closeReplay, now+7)
+			return CloseSubscriptionSharePool(ctx, db, root.Id, closeReplay, now+8)
 		},
 	)
 	require.NoError(t, replayResult)
-	require.NoError(t, db.First(&pool, pool.ID).Error)
-	assert.False(t, pool.Enabled)
-	assert.Equal(t, int64(5), pool.Revision)
+	require.NoError(t, db.First(&nextPool, nextPool.ID).Error)
+	assert.False(t, nextPool.Enabled)
+	assert.Equal(t, int64(2), nextPool.Revision)
 	var closeAudits int64
 	require.NoError(t, db.Model(&SubscriptionShareAudit{}).Where("id = ?", closeReplay.ID).Count(&closeAudits).Error)
 	assert.Equal(t, int64(1), closeAudits)
