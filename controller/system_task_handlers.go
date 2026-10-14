@@ -180,6 +180,9 @@ func (handler channelQuotaSnapshotSyncHandler) Run(ctx context.Context, task *mo
 	ctx, cancel := context.WithTimeout(ctx, handler.RunTimeout())
 	defer cancel()
 	summary, err := runChannelQuotaSnapshotSyncOnce(ctx, payload.MaxChannels, service.NewSystemTaskProgressReporterWithContext(ctx, task, runnerID))
+	if projectionErr := service.RefreshSubscriptionSharePools(ctx); err == nil {
+		err = projectionErr
+	}
 	if err != nil {
 		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, summary, err)
 		return

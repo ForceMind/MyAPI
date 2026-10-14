@@ -31,7 +31,7 @@ func playgroundAuthFixture(t *testing.T) (*gorm.DB, *model.User, *model.Token, s
 	gin.SetMode(gin.TestMode)
 	model.InitColumnNamesForTest()
 	db := model.DB
-	require.NoError(t, db.AutoMigrate(&model.Token{}, &model.TokenBudget{}, &model.Option{}, &model.QuotaWriterEpoch{}))
+	require.NoError(t, db.AutoMigrate(&model.Token{}, &model.TokenBudget{}, &model.SubscriptionSharePool{}, &model.SubscriptionShareAllocation{}, &model.Option{}, &model.QuotaWriterEpoch{}))
 	require.NoError(t, model.EnsureQuotaWriterEpochStateWithDB(db))
 	user := createMiddlewarePATUser(t, "playground-session-owner", "playground-dashboard-pat")
 	require.NoError(t, db.Model(user).Update("quota", 1000).Error)

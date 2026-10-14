@@ -9,7 +9,7 @@ import (
 
 func TestCodexQuotaRetentionKeepsLatestExhaustionEvidence(t *testing.T) {
 	db := openQuotaIdentityDB(t)
-	require.NoError(t, db.AutoMigrate(&ChannelQuotaSnapshot{}))
+	require.NoError(t, db.AutoMigrate(&SubscriptionSharePool{}, &SubscriptionShareGeneration{}, &ChannelQuotaSnapshot{}))
 	previousDB := DB
 	DB = db
 	t.Cleanup(func() { DB = previousDB })

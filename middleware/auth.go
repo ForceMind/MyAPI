@@ -495,6 +495,9 @@ func authenticateTokenIdentity(c *gin.Context, token *model.Token, parts ...stri
 	if !checkTokenBudgetAdmission(c, token) {
 		return false
 	}
+	if !checkSubscriptionShareAdmission(c, token) {
+		return false
+	}
 	return true
 }
 

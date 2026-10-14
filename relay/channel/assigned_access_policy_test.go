@@ -35,7 +35,7 @@ func TestAssignedAccessHTTPDispatchWithoutFailoverBlocksRevocation(t *testing.T)
 	common.RedisEnabled = false
 	model.InitColumnNamesForTest()
 	t.Cleanup(func() { model.DB = prior; common.RedisEnabled = redisEnabled; _ = conn.Close() })
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.Channel{}, &model.Ability{}, &model.AssignedAccessPolicy{}))
+	require.NoError(t, db.AutoMigrate(&model.SubscriptionSharePool{}, &model.SubscriptionShareAllocation{}, &model.User{}, &model.Token{}, &model.Channel{}, &model.Ability{}, &model.AssignedAccessPolicy{}))
 	user := model.User{Username: "wire-policy-owner", Group: "default", Status: common.UserStatusEnabled, Role: common.RoleCommonUser}
 	require.NoError(t, db.Create(&user).Error)
 	token := model.Token{UserId: user.Id, Key: "synthetic-wire-key", Group: "default", Status: common.TokenStatusEnabled, ExpiredTime: -1, UnlimitedQuota: true}

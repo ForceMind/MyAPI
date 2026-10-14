@@ -331,3 +331,9 @@ account_threshold.combination: "帳戶閾值目前僅支援原生 Codex 帳戶�
 account_threshold.invalid: "帳戶閾值須為 0–100%，取樣有效期須為 30–3600 秒"
 
 self_use.unsupported: "非儲值自用策略目前僅支援 Chat 與 Responses 請求。"
+subscription_share.invalid: "請選擇訂閱窗口和有效比例，並確認近似分攤後儲存。"
+subscription_share.conflict: "訂閱分額已變更或總和超過100%，請重新讀取後再儲存。"
+subscription_share.denied: "此 Key 未獲所選訂閱帳戶或請求格式的分額，請求未送出。"
+subscription_share.exceeded: "此 Key 已達到訂閱窗口的估計分額，請求未送出。"
+subscription_share.awaiting_sample: "等待新訂閱取樣覆蓋的請求過多，請求未送出，請等待取樣更新。"
+subscription_share.unavailable: "缺少新鮮一致的訂閱窗口證據，請求未送出。"

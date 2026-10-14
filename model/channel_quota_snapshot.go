@@ -237,10 +237,12 @@ func DeleteOldChannelQuotaSnapshotBatch(ctx context.Context, cutoff int64, limit
 	}
 	// Keep the latest per-account routing evidence; retention is not recovery.
 	protectedRoutes := protectedCodexRoutingEvidenceQuery(DB.WithContext(ctx))
+	protectedShares := ProtectedSubscriptionShareEvidenceQuery(DB.WithContext(ctx)).Select("id")
 	var ids []int
 	if err := DB.WithContext(ctx).Model(&ChannelQuotaSnapshot{}).
 		Where("observed_at < ?", cutoff).
 		Where("id NOT IN (?)", protectedRoutes).
+		Where("id NOT IN (?)", protectedShares).
 		Order("observed_at ASC, id ASC").
 		Limit(limit).Pluck("id", &ids).Error; err != nil {
 		return 0, err

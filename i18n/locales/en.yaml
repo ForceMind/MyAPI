@@ -330,3 +330,9 @@ account_threshold.combination: "Account thresholds currently support native Code
 account_threshold.invalid: "The account threshold must be 0–100%, with an observation age of 30–3600 seconds"
 
 self_use.unsupported: "No-balance self-use currently supports Chat and Responses requests only."
+subscription_share.invalid: "Select a subscription window and a valid percentage; confirm the approximate allocation before saving."
+subscription_share.conflict: "The subscription shares changed or exceed 100%; reload before saving again."
+subscription_share.denied: "This Key has no allocation for the selected subscription account or request format; the request was not sent."
+subscription_share.exceeded: "This Key has reached its estimated subscription-window share; the request was not sent."
+subscription_share.awaiting_sample: "Too many requests are awaiting a fresh subscription sample; the request was not sent."
+subscription_share.unavailable: "Fresh, consistent subscription-window evidence is unavailable; the request was not sent."

@@ -264,6 +264,14 @@ export function DataTableRowActions<TData>({
           {t('Assigned access')}
         </DropdownMenuItem>
         <DropdownMenuItem
+          onClick={() => {
+            setCurrentRow(apiKey)
+            setOpen('subscription-share')
+          }}
+        >
+          {t('Subscription shares')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
           onClick={async () => {
             const realKey = getCachedRealKey()
             if (!realKey) return

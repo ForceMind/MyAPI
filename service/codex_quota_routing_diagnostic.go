@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strconv"
 	"strings"
@@ -147,6 +148,24 @@ func inspectCodexQuotaRouting(ctx context.Context, channel *model.Channel, inclu
 				state.Blocked, state.ReasonCode, state.ObservedAt, state.ResetAt = !checked.Eligible, checked.Reason, checked.ObservedAt, checked.ResetAt
 				if state.Blocked {
 					state.Source = "codex_account_threshold"
+				}
+			}
+			if share, ok := common.SubscriptionShareAdmissionFromContext(ctx); ok && !state.Blocked && (share.Bound || subjectRef != "") {
+				eligible := false
+				var err error
+				if subjectRef == "" {
+					err = model.ErrSubscriptionShareUnavailable
+				} else {
+					eligible, err = model.CheckSubscriptionShareEligibility(ctx, model.DB, share.TokenID, subjectRef, routingNow)
+				}
+				if err != nil && !errors.Is(err, model.ErrSubscriptionShareDenied) && !errors.Is(err, model.ErrSubscriptionShareExceeded) && !errors.Is(err, model.ErrSubscriptionShareAwaitingSample) && !errors.Is(err, model.ErrSubscriptionShareUnavailable) {
+					return nil, err
+				}
+				if !eligible || err != nil {
+					state.Blocked, state.ReasonCode, state.Source = true, "subscription_share_not_eligible", "subscription_share"
+					if err != nil {
+						_, state.ReasonCode, _ = SubscriptionShareErrorDetails(err)
+					}
 				}
 			}
 			accountStates[accountID] = state

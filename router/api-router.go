@@ -295,6 +295,8 @@ func SetApiRouter(router *gin.Engine) {
 			tokenRoute.GET("/auto-groups", controller.GetTokenAutoGroups)
 			tokenRoute.GET("/:id", controller.GetToken)
 			tokenRoute.GET("/:id/budget", middleware.DisableCache(), controller.GetTokenBudget)
+			tokenRoute.GET("/:id/subscription-share", middleware.DisableCache(), controller.GetSubscriptionShares)
+			tokenRoute.PUT("/:id/subscription-share", middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), middleware.DisableCache(), controller.UpdateSubscriptionShare)
 			tokenRoute.PUT("/:id/budget", middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), middleware.DisableCache(), controller.UpdateTokenBudget)
 			tokenRoute.POST("/:id/budget/recover", middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), middleware.DisableCache(), controller.RecoverTokenBudget)
 			tokenRoute.POST("/:id/key", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.GetTokenKey)

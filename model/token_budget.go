@@ -439,6 +439,15 @@ func ConfigureTokenBudget(ctx context.Context, db *gorm.DB, actorID int, input T
 		if budget.AccountThresholdEnabled && (input.Enabled || budget.FeeEnabled) {
 			return ErrAccountQuotaThresholdCombination
 		}
+		if input.Enabled || budget.FeeEnabled {
+			bound, err := HasSubscriptionShareBinding(ctx, tx, input.TokenID)
+			if err != nil {
+				return err
+			}
+			if bound {
+				return ErrSubscriptionShareConflict
+			}
+		}
 		previous := budget.Revision
 		budget.Enabled, budget.Limit, budget.Revision = input.Enabled, input.Limit, previous+1
 		if err := saveTokenBudget(tx, budget, previous); err != nil {

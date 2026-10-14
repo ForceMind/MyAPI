@@ -124,6 +124,38 @@ func TextUsageDispatchNeedsReview(info *relaycommon.RelayInfo) bool {
 	return session.textDispatchTracked && !session.settled && !session.refunded && (session.textDispatchPossible || session.usageUnknown)
 }
 
+// CancelTextUsageDispatchBeforeSend is used only by a final local gate that
+// has refused the request before the transport is invoked. It does not cancel
+// an upstream request or infer zero usage from a transport/provider failure.
+func CancelTextUsageDispatchBeforeSend(info *relaycommon.RelayInfo) error {
+	if info == nil || info.StrictTokenBudget {
+		return nil
+	}
+	session, ok := info.Billing.(*BillingSession)
+	if !ok {
+		return nil
+	}
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	if !session.textDispatchTracked || !session.textDispatchPossible {
+		return nil
+	}
+	if session.usageUnknown || session.settled || session.refunded || session.realtimeDispatchTracked {
+		return model.ErrAccountQuotaUsageUnresolved
+	}
+	reserveID := int64(0)
+	if session.reserveReceipt != nil {
+		reserveID = session.reserveReceipt.ID
+	}
+	ctx, cancel := billingOperationContext(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := model.SetTextDispatchEvidence(ctx, model.DB, info.RequestId, info.UserId, info.TokenId, reserveID, "", false); err != nil {
+		return err
+	}
+	session.textDispatchPossible = false
+	return nil
+}
+
 // Call before retry decisions and on the outer relay exit. Persist uncertainty
 // through the existing writer and review UI, rather than refunding a parse or
 // transport failure. A failed hold is retried on the next exit check while the

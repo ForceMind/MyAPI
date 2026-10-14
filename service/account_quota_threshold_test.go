@@ -62,7 +62,7 @@ func TestAccountThresholdRoutingSkipsLowAndUnsupportedChannels(t *testing.T) {
 func TestAccountThresholdDispatchChecksExactIdentityAndPolicyRevision(t *testing.T) {
 	db := setupChannelSelectAutoGroupsTest(t)
 	t.Setenv(common.ChannelQuotaIdentityKeysEnv, "")
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.TokenBudget{}, &model.TokenBudgetReservation{}, &model.TokenBudgetPolicyChange{}, &model.ChannelQuotaSnapshot{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.TokenBudget{}, &model.SubscriptionSharePool{}, &model.SubscriptionShareAllocation{}, &model.TokenBudgetReservation{}, &model.TokenBudgetPolicyChange{}, &model.ChannelQuotaSnapshot{}))
 	require.NoError(t, db.Create(&model.User{Id: 1, Username: "threshold-root", AffCode: "threshold-root", Role: common.RoleRootUser, Status: common.UserStatusEnabled}).Error)
 	require.NoError(t, db.Create(&model.User{Id: 2, Username: "threshold-owner", AffCode: "threshold-owner", Role: common.RoleCommonUser, Status: common.UserStatusEnabled}).Error)
 	require.NoError(t, db.Create(&model.Token{Id: 11, UserId: 2, Key: "thresholdfixture", Status: common.TokenStatusEnabled, ExpiredTime: -1}).Error)

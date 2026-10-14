@@ -331,3 +331,9 @@ account_threshold.combination: "账户阈值目前仅支持原生 Codex 账户�
 account_threshold.invalid: "账户阈值须为 0–100%，采样有效期须为 30–3600 秒"
 
 self_use.unsupported: "非充值自用策略目前仅支持 Chat 和 Responses 请求。"
+subscription_share.invalid: "请选择订阅窗口和有效比例，并确认近似分摊后保存。"
+subscription_share.conflict: "订阅分额已变化或总和超过100%，请重新读取后再保存。"
+subscription_share.denied: "此 Key 未获所选订阅账户或请求格式的分额，请求未发出。"
+subscription_share.exceeded: "此 Key 已达到订阅窗口的估计分额，请求未发出。"
+subscription_share.awaiting_sample: "待新订阅采样覆盖的请求过多，请求未发出，请等待采样更新。"
+subscription_share.unavailable: "缺少新鲜一致的订阅窗口证据，请求未发出。"

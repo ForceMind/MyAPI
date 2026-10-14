@@ -575,6 +575,15 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 	if err := service.CommitTokenBudgetDispatch(c, info); err != nil {
 		return nil, service.TokenBudgetRelayError(c, err)
 	}
+	if _, err := service.PrepareSubscriptionShareDispatch(c.Request.Context(), &relayClient, req, info); err != nil {
+		// The share gate is the last fallible local step. No transport has
+		// been called, so do not leave the ordinary usage journal claiming a
+		// possibly-sent generation just because this new gate refused it.
+		if cancelErr := service.CancelTextUsageDispatchBeforeSend(info); cancelErr != nil {
+			logger.LogWarn(c, "unsent subscription share refusal could not clear dispatch evidence")
+		}
+		return nil, service.SubscriptionShareRelayError(c, err)
+	}
 	if state := service.RelayFailoverFromContext(c.Request.Context()); state != nil {
 		state.DispatchPossible = true
 	}

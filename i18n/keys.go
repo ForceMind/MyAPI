@@ -406,3 +406,12 @@ const (
 )
 
 const MsgSelfUseUnsupported = "self_use.unsupported"
+
+const (
+	MsgSubscriptionShareInvalid        = "subscription_share.invalid"
+	MsgSubscriptionShareConflict       = "subscription_share.conflict"
+	MsgSubscriptionShareDenied         = "subscription_share.denied"
+	MsgSubscriptionShareExceeded       = "subscription_share.exceeded"
+	MsgSubscriptionShareAwaitingSample = "subscription_share.awaiting_sample"
+	MsgSubscriptionShareUnavailable    = "subscription_share.unavailable"
+)

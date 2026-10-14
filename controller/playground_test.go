@@ -79,7 +79,7 @@ func playgroundControllerFixture(t *testing.T, mode model.QuotaWriterMode) (*gor
 		_ = conn.Close()
 	})
 	require.NoError(t, db.AutoMigrate(
-		&model.User{}, &model.UserSession{}, &model.Token{}, &model.TokenBudget{}, &model.TokenBudgetReservation{}, &model.TokenBudgetPolicyChange{},
+		&model.User{}, &model.UserSession{}, &model.Token{}, &model.TokenBudget{}, &model.SubscriptionSharePool{}, &model.SubscriptionShareAllocation{}, &model.TokenBudgetReservation{}, &model.TokenBudgetPolicyChange{},
 		&model.Option{}, &model.AssignedAccessPolicy{}, &model.Channel{}, &model.Ability{}, &model.Model{}, &model.Vendor{}, &model.RelayAccountHold{},
 		&model.SubscriptionPlan{}, &model.UserSubscription{}, &model.UserQuotaMutationReceipt{}, &model.AccountQuotaMutationReceipt{}, &model.AccountQuotaReservationHead{},
 		&model.AccountQuotaTerminalRecoveryObligation{}, &model.AccountQuotaRefundFact{}, &model.AccountQuotaSettlementIntent{}, &model.AccountQuotaSettlementFact{},

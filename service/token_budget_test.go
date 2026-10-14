@@ -29,7 +29,7 @@ func strictTokenBudgetFixture(t *testing.T, mode model.QuotaWriterMode) (*gorm.D
 	cleanupOnce.Do(startCleanupTask)
 	backgroundWorkers := gopool.WorkerCount()
 	db := setupPostConsumeModeDB(t, mode)
-	require.NoError(t, db.AutoMigrate(&model.TokenBudget{}, &model.TokenBudgetReservation{}, &model.TokenBudgetPolicyChange{}, &model.UsageReviewDecision{}, &model.Log{}, &model.BillingLogProjectionIdentity{}))
+	require.NoError(t, db.AutoMigrate(&model.TokenBudget{}, &model.SubscriptionSharePool{}, &model.SubscriptionShareAllocation{}, &model.TokenBudgetReservation{}, &model.TokenBudgetPolicyChange{}, &model.UsageReviewDecision{}, &model.Log{}, &model.BillingLogProjectionIdentity{}))
 	oldLog, oldEnabled := model.LOG_DB, common.LogConsumeEnabled
 	model.LOG_DB, common.LogConsumeEnabled = db, true
 	t.Cleanup(func() { model.LOG_DB, common.LogConsumeEnabled = oldLog, oldEnabled })

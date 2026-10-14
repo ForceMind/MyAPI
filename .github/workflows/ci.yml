@@ -57,6 +57,9 @@ jobs:
       - name: Vet root module
         run: go vet ./...
 
+      - name: Verify approximate subscription share boundaries
+        run: go test -p 1 ./model ./service ./middleware ./controller -run '^TestSubscriptionShare' -count=1 -timeout=180s
+
       - name: Vet relaykit independently
         working-directory: relaykit
         run: go vet ./...
@@ -373,6 +376,7 @@ jobs:
           go test -p 1 ./model -run '^TestAccountQuotaConfiguredSchema(MySQLAndPostgres|SQLite)$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestChannelModel(Discovery|Route)ConfiguredDatabases$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestPostgresRepeatedMigrationPreservesDefaults$' -count=1 -timeout=180s -v
+          go test -p 1 ./model -run '^TestSubscriptionShareConfiguredDatabases$' -count=1 -timeout=180s -v
 
   b2-clickhouse:
     name: B2 ClickHouse log migration regression
