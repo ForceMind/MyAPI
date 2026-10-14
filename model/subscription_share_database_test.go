@@ -6,13 +6,16 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/glebarez/sqlite"
+	mysqldriver "github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
@@ -120,6 +123,14 @@ func subscriptionShareConfiguredDatabaseContract(t *testing.T, db *gorm.DB, dial
 	assert.Equal(t, int64(5_000_000), used[tokens[0].Id])
 	assert.Equal(t, int64(15_000_000), used[tokens[1].Id])
 	assert.Equal(t, int64(20_000_000), used[tokens[0].Id]+used[tokens[1].Id])
+	if engine == "mysql" {
+		t.Run("repeatable-read slot creation", func(t *testing.T) {
+			subscriptionShareMySQLRepeatableReadSlotCreation(t, db, config, root, owner, channels[0], namespace, base+100)
+		})
+		t.Run("repeatable-read allocation cap and audit replay", func(t *testing.T) {
+			subscriptionShareMySQLRepeatableReadAllocationAndReplay(t, db, config, root, owner, channels[0], namespace, base+200)
+		})
+	}
 
 	duplicateGeneration := SubscriptionShareGeneration{PoolID: primaryPool.ID, Generation: 1, State: SubscriptionShareStateReady, Reason: "duplicate"}
 	require.Error(t, db.Create(&duplicateGeneration).Error, "pool and generation must be unique")
@@ -224,4 +235,312 @@ func subscriptionShareConfiguredDatabaseContract(t *testing.T, db *gorm.DB, dial
 	assert.Equal(t, "pool_close", closeAudit.Action)
 	assert.Equal(t, closeInput.ExpectedRevision, closeAudit.BeforeRevision)
 	assert.Equal(t, closeInput.ExpectedRevision+1, closeAudit.AfterRevision)
+}
+
+func subscriptionShareMySQLRepeatableReadSlotCreation(t *testing.T, db *gorm.DB, config *gorm.Config, root, owner User, channel Channel, namespace string, now int64) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	subject, err := newChannelQuotaIdentitySubjectRef()
+	require.NoError(t, err)
+	tokens := []Token{
+		{UserId: owner.Id, Key: namespace + "rr-a", Name: "rr-a", Status: common.TokenStatusEnabled, ExpiredTime: -1},
+		{UserId: owner.Id, Key: namespace + "rr-b", Name: "rr-b", Status: common.TokenStatusEnabled, ExpiredTime: -1},
+	}
+	require.NoError(t, db.Create(&tokens).Error)
+	total, used := float64(100), float64(0)
+	snapshots := []ChannelQuotaSnapshot{
+		{CodexObservationQualified: true, CodexThresholdQualified: true, ChannelId: channel.Id, ObservedAt: now, Available: 100, Used: &used, Total: &total, Unit: "percent", MetricType: "codex_rate_limit", WindowType: "weekly", PlanType: "plus", WindowSeconds: 604800, ResetAt: now + 10_000, Source: codexQuotaWindowPrimarySource, SampleID: namespace + "-rr-week", SubjectRef: subject, IdentityQuality: ChannelQuotaIdentityQualityProviderConfirmed, Status: "success"},
+		{CodexObservationQualified: true, CodexThresholdQualified: true, ChannelId: channel.Id, ObservedAt: now + 1, Available: 100, Used: &used, Total: &total, Unit: "percent", MetricType: "codex_rate_limit", WindowType: "five_hour", PlanType: "plus", WindowSeconds: 18000, ResetAt: now + 10_001, Source: codexQuotaWindowPrimarySource, SampleID: namespace + "-rr-five", SubjectRef: subject, IdentityQuality: ChannelQuotaIdentityQualityProviderConfirmed, Status: "success"},
+	}
+	for _, snapshot := range snapshots {
+		require.LessOrEqual(t, len(snapshot.SampleID), 36)
+	}
+	require.NoError(t, db.Create(&snapshots).Error)
+	require.NoError(t, db.Create(&SubscriptionShareAccountGate{SubjectRef: subject, Revision: 1, UpdatedAt: now}).Error)
+
+	writers := []*gorm.DB{subscriptionShareOpenMySQLRepeatableReadWriter(t, config), subscriptionShareOpenMySQLRepeatableReadWriter(t, config)}
+
+	arrived := make(chan struct{}, len(writers))
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseWriters := func() { releaseOnce.Do(func() { close(release) }) }
+	defer releaseWriters()
+	for index, writer := range writers {
+		callbackName := fmt.Sprintf("subscription-share-rr-actor-%d-%s", index, namespace)
+		var actorRead sync.Once
+		require.NoError(t, writer.Callback().Query().After("gorm:query").Register(callbackName, func(tx *gorm.DB) {
+			if tx.Statement.Schema == nil || tx.Statement.Schema.Name != "User" {
+				return
+			}
+			actorRead.Do(func() {
+				arrived <- struct{}{}
+				select {
+				case <-release:
+				case <-ctx.Done():
+					tx.AddError(ctx.Err())
+				}
+			})
+		}))
+		writer := writer
+		t.Cleanup(func() { require.NoError(t, writer.Callback().Query().Remove(callbackName)) })
+	}
+
+	start := make(chan struct{})
+	results := make(chan error, len(writers))
+	var workers sync.WaitGroup
+	for index, writer := range writers {
+		index, writer := index, writer
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			<-start
+			results <- ConfigureSubscriptionShare(ctx, writer, root.Id, tokens[index].Id, SubscriptionShareConfigInput{ID: fmt.Sprintf("%064x", 400+index), SnapshotID: snapshots[index].Id, ShareBPS: 5000, ConfirmedApproximate: true}, now+2)
+		}()
+	}
+	defer func() {
+		cancel()
+		releaseWriters()
+		workers.Wait()
+	}()
+	close(start)
+	for range writers {
+		select {
+		case <-arrived:
+		case <-ctx.Done():
+			releaseWriters()
+			require.FailNow(t, "both MySQL writers must establish their repeatable-read snapshots", ctx.Err().Error())
+		}
+	}
+	releaseWriters()
+
+	winners, conflicts := 0, 0
+	for range writers {
+		select {
+		case result := <-results:
+			switch {
+			case result == nil:
+				winners++
+			case errors.Is(result, ErrSubscriptionShareConflict):
+				conflicts++
+			default:
+				require.NoError(t, result)
+			}
+		case <-ctx.Done():
+			require.FailNow(t, "MySQL repeatable-read slot creation did not finish", ctx.Err().Error())
+		}
+	}
+	assert.Equal(t, 1, winners)
+	assert.Equal(t, 1, conflicts)
+	var enabled int64
+	require.NoError(t, db.Model(&SubscriptionSharePool{}).Where("subject_ref = ? AND window_source = ? AND enabled = ?", subject, codexQuotaWindowPrimarySource, true).Count(&enabled).Error)
+	assert.Equal(t, int64(1), enabled)
+}
+
+func subscriptionShareMySQLRepeatableReadAllocationAndReplay(t *testing.T, db *gorm.DB, config *gorm.Config, root, owner User, channel Channel, namespace string, now int64) {
+	t.Helper()
+	subject, err := newChannelQuotaIdentitySubjectRef()
+	require.NoError(t, err)
+	tokens := []Token{
+		{UserId: owner.Id, Key: namespace + "cap-a", Name: "cap-a", Status: common.TokenStatusEnabled, ExpiredTime: -1},
+		{UserId: owner.Id, Key: namespace + "cap-b", Name: "cap-b", Status: common.TokenStatusEnabled, ExpiredTime: -1},
+		{UserId: owner.Id, Key: namespace + "cap-c", Name: "cap-c", Status: common.TokenStatusEnabled, ExpiredTime: -1},
+	}
+	require.NoError(t, db.Create(&tokens).Error)
+	total, used := float64(100), float64(0)
+	snapshot := ChannelQuotaSnapshot{CodexObservationQualified: true, CodexThresholdQualified: true, ChannelId: channel.Id, ObservedAt: now, Available: 100, Used: &used, Total: &total, Unit: "percent", MetricType: "codex_rate_limit", WindowType: "weekly", PlanType: "team", WindowSeconds: 604800, ResetAt: now + 10_000, Source: codexQuotaWindowPrimarySource, SampleID: namespace + "-rr-cap", SubjectRef: subject, IdentityQuality: ChannelQuotaIdentityQualityProviderConfirmed, Status: "success"}
+	require.LessOrEqual(t, len(snapshot.SampleID), 36)
+	require.NoError(t, db.Create(&snapshot).Error)
+	require.NoError(t, ConfigureSubscriptionShare(context.Background(), db, root.Id, tokens[0].Id, SubscriptionShareConfigInput{ID: fmt.Sprintf("%064x", 500), SnapshotID: snapshot.Id, ShareBPS: 4000, ConfirmedApproximate: true}, now))
+	var pool SubscriptionSharePool
+	require.NoError(t, db.Where("subject_ref = ?", subject).Take(&pool).Error)
+	baseline := snapshot
+	baseline.Id, baseline.ObservedAt, baseline.SampleID = 0, now+1, namespace+"-rr-base"
+	require.NoError(t, db.Create(&baseline).Error)
+	require.NoError(t, RefreshSubscriptionShareProjection(context.Background(), db, subject, now+1))
+
+	writer := subscriptionShareOpenMySQLRepeatableReadWriter(t, config)
+	capResult := subscriptionShareRunAfterMySQLActorSnapshot(t, writer,
+		func(ctx context.Context) error {
+			return ConfigureSubscriptionShare(ctx, writer, root.Id, tokens[2].Id, SubscriptionShareConfigInput{ID: fmt.Sprintf("%064x", 502), PoolID: pool.ID, SnapshotID: snapshot.Id, ExpectedRevision: 2, ShareBPS: 6000, ConfirmedApproximate: true}, now+2)
+		},
+		func(ctx context.Context) error {
+			return ConfigureSubscriptionShare(ctx, db, root.Id, tokens[1].Id, SubscriptionShareConfigInput{ID: fmt.Sprintf("%064x", 501), PoolID: pool.ID, SnapshotID: snapshot.Id, ExpectedRevision: 1, ShareBPS: 6000, ConfirmedApproximate: true}, now+1)
+		},
+	)
+	require.ErrorIs(t, capResult, ErrSubscriptionShareInvalid)
+	require.NoError(t, db.First(&pool, pool.ID).Error)
+	assert.Equal(t, int64(2), pool.Revision)
+	var allocations []SubscriptionShareAllocation
+	require.NoError(t, db.Where("pool_id = ?", pool.ID).Order("id ASC").Find(&allocations).Error)
+	require.Len(t, allocations, 2)
+	allocated := 0
+	for _, allocation := range allocations {
+		allocated += allocation.ShareBPS
+		assert.NotEqual(t, tokens[2].Id, allocation.TokenID)
+	}
+	assert.Equal(t, 10000, allocated)
+
+	configureReplay := SubscriptionShareConfigInput{ID: fmt.Sprintf("%064x", 503), PoolID: pool.ID, SnapshotID: snapshot.Id, ExpectedRevision: 2, ShareBPS: 4000, ConfirmedApproximate: true}
+	replayResult := subscriptionShareRunAfterMySQLActorSnapshot(t, writer,
+		func(ctx context.Context) error {
+			return ConfigureSubscriptionShare(ctx, writer, root.Id, tokens[0].Id, configureReplay, now+3)
+		},
+		func(ctx context.Context) error {
+			return ConfigureSubscriptionShare(ctx, db, root.Id, tokens[0].Id, configureReplay, now+3)
+		},
+	)
+	require.NoError(t, replayResult)
+	require.NoError(t, db.First(&pool, pool.ID).Error)
+	assert.Equal(t, int64(3), pool.Revision)
+	var configureAudits int64
+	require.NoError(t, db.Model(&SubscriptionShareAudit{}).Where("id = ?", configureReplay.ID).Count(&configureAudits).Error)
+	assert.Equal(t, int64(1), configureAudits)
+
+	attemptID := fmt.Sprintf("%064x", 600)
+	require.NoError(t, AdmitSubscriptionShareAttempt(context.Background(), db, tokens[0].Id, owner.Id, subject, channel.Id, fmt.Sprintf("%064x", 601), namespace+"-mark", attemptID, now+4))
+	markResult := subscriptionShareRunAfterMySQLQuerySnapshot(t, writer, "SubscriptionShareAttempt",
+		func(ctx context.Context) error {
+			return MarkSubscriptionShareAttemptNotSent(ctx, writer, attemptID, now+5)
+		},
+		func(ctx context.Context) error {
+			positive := snapshot
+			positive.Id, positive.ObservedAt, positive.SampleID = 0, now+5, namespace+"-rr-positive"
+			positiveUsed := float64(10)
+			positive.Used, positive.Available = &positiveUsed, 90
+			if err := db.WithContext(ctx).Create(&positive).Error; err != nil {
+				return err
+			}
+			return RefreshSubscriptionShareProjection(ctx, db, subject, now+5)
+		},
+	)
+	require.ErrorIs(t, markResult, ErrSubscriptionShareConflict)
+	var allocatedWindow SubscriptionShareAttemptWindow
+	require.NoError(t, db.Where("attempt_id = ?", attemptID).Take(&allocatedWindow).Error)
+	assert.Equal(t, now+5, allocatedWindow.AllocatedAt)
+	var allocatedAttempt SubscriptionShareAttempt
+	require.NoError(t, db.Where("attempt_id = ?", attemptID).Take(&allocatedAttempt).Error)
+	assert.Equal(t, SubscriptionShareAttemptDispatching, allocatedAttempt.State)
+
+	replacement := snapshot
+	replacement.Id, replacement.ObservedAt, replacement.SampleID = 0, now+6, namespace+"-rr-replace"
+	replacement.WindowType, replacement.WindowSeconds, replacement.ResetAt = "five_hour", 18000, now+10_006
+	require.NoError(t, db.Create(&replacement).Error)
+	replaceInput := SubscriptionShareConfigInput{ID: fmt.Sprintf("%064x", 504), PoolID: pool.ID, SnapshotID: replacement.Id, ExpectedRevision: 3, ShareBPS: 4000, ConfirmedApproximate: true, ReplaceWindow: true}
+	pendingID := fmt.Sprintf("%064x", 602)
+	replaceResult := subscriptionShareRunAfterMySQLActorSnapshot(t, writer,
+		func(ctx context.Context) error {
+			return ConfigureSubscriptionShare(ctx, writer, root.Id, tokens[0].Id, replaceInput, now+6)
+		},
+		func(ctx context.Context) error {
+			return AdmitSubscriptionShareAttempt(ctx, db, tokens[0].Id, owner.Id, subject, channel.Id, fmt.Sprintf("%064x", 603), namespace+"-uncertain", pendingID, now+6)
+		},
+	)
+	require.NoError(t, replaceResult)
+	var uncertainWindow SubscriptionShareAttemptWindow
+	require.NoError(t, db.Where("attempt_id = ?", pendingID).Take(&uncertainWindow).Error)
+	assert.Equal(t, int64(-1), uncertainWindow.AllocatedAt)
+	var replacementAudit SubscriptionShareAudit
+	require.NoError(t, db.Where("id = ?", replaceInput.ID).Take(&replacementAudit).Error)
+	assert.Equal(t, int64(1), replacementAudit.UncertainAttempts)
+	require.NoError(t, db.First(&pool, pool.ID).Error)
+	assert.Equal(t, int64(4), pool.Revision)
+
+	closeReplay := SubscriptionShareCloseInput{ID: fmt.Sprintf("%064x", 505), PoolID: pool.ID, ExpectedRevision: 4, ConfirmedClose: true}
+	replayResult = subscriptionShareRunAfterMySQLActorSnapshot(t, writer,
+		func(ctx context.Context) error {
+			return CloseSubscriptionSharePool(ctx, writer, root.Id, closeReplay, now+7)
+		},
+		func(ctx context.Context) error {
+			return CloseSubscriptionSharePool(ctx, db, root.Id, closeReplay, now+7)
+		},
+	)
+	require.NoError(t, replayResult)
+	require.NoError(t, db.First(&pool, pool.ID).Error)
+	assert.False(t, pool.Enabled)
+	assert.Equal(t, int64(5), pool.Revision)
+	var closeAudits int64
+	require.NoError(t, db.Model(&SubscriptionShareAudit{}).Where("id = ?", closeReplay.ID).Count(&closeAudits).Error)
+	assert.Equal(t, int64(1), closeAudits)
+}
+
+func subscriptionShareOpenMySQLRepeatableReadWriter(t *testing.T, config *gorm.Config) *gorm.DB {
+	t.Helper()
+	mysqlConfig, err := mysqldriver.ParseDSN(strings.TrimSpace(os.Getenv("MYAPI_B2_MYSQL_DSN")))
+	require.NoError(t, err)
+	if mysqlConfig.Params == nil {
+		mysqlConfig.Params = make(map[string]string)
+	}
+	// MySQL 5.7 names this session variable tx_isolation. Setting it in the
+	// connector DSN applies it to every physical connection used by GORM.
+	mysqlConfig.Params["tx_isolation"] = "'REPEATABLE-READ'"
+	writer, err := gorm.Open(gormmysql.New(gormmysql.Config{DSN: mysqlConfig.FormatDSN()}), &gorm.Config{Logger: config.Logger, NamingStrategy: config.NamingStrategy})
+	require.NoError(t, err)
+	sqlDB, err := writer.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
+	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
+	var isolation string
+	require.NoError(t, writer.Raw("SELECT @@tx_isolation").Scan(&isolation).Error)
+	require.Equal(t, "REPEATABLE-READ", strings.ToUpper(isolation))
+	return writer
+}
+
+func subscriptionShareRunAfterMySQLActorSnapshot(t *testing.T, writer *gorm.DB, operation, whileBlocked func(context.Context) error) error {
+	t.Helper()
+	return subscriptionShareRunAfterMySQLQuerySnapshot(t, writer, "User", operation, whileBlocked)
+}
+
+func subscriptionShareRunAfterMySQLQuerySnapshot(t *testing.T, writer *gorm.DB, schemaName string, operation, whileBlocked func(context.Context) error) error {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	arrived := make(chan struct{}, 1)
+	release := make(chan struct{})
+	var actorRead, releaseOnce sync.Once
+	releaseWriter := func() { releaseOnce.Do(func() { close(release) }) }
+	callbackName := fmt.Sprintf("subscription-share-rr-single-%p", release)
+	require.NoError(t, writer.Callback().Query().After("gorm:query").Register(callbackName, func(tx *gorm.DB) {
+		if tx.Statement.Schema == nil || tx.Statement.Schema.Name != schemaName {
+			return
+		}
+		actorRead.Do(func() {
+			arrived <- struct{}{}
+			select {
+			case <-release:
+			case <-ctx.Done():
+				tx.AddError(ctx.Err())
+			}
+		})
+	}))
+	defer func() { require.NoError(t, writer.Callback().Query().Remove(callbackName)) }()
+	result := make(chan error, 1)
+	var worker sync.WaitGroup
+	worker.Add(1)
+	go func() {
+		defer worker.Done()
+		result <- operation(ctx)
+	}()
+	defer func() {
+		cancel()
+		releaseWriter()
+		worker.Wait()
+	}()
+	select {
+	case <-arrived:
+	case <-ctx.Done():
+		require.FailNow(t, "MySQL writer must establish its repeatable-read snapshot", ctx.Err().Error())
+	}
+	blockedErr := whileBlocked(ctx)
+	releaseWriter()
+	require.NoError(t, blockedErr)
+	select {
+	case err := <-result:
+		return err
+	case <-ctx.Done():
+		require.FailNow(t, "MySQL repeatable-read operation did not finish", ctx.Err().Error())
+		return ctx.Err()
+	}
 }

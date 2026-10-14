@@ -136,6 +136,8 @@ func TestSubscriptionSharePoolClosePreservesHistoryAndRetiresBindings(t *testing
 	require.NoError(t, f.db.Where("pool_id = ? AND token_id = ?", pool.ID, f.tokens[0].Id).Take(&allocation).Error)
 	require.NoError(t, f.db.Model(&SubscriptionShareAllocationUsage{}).Where("allocation_id = ? AND generation = ?", allocation.ID, 1).Update("estimated_used_micro", int64(1_234_567)).Error)
 	require.NoError(t, AdmitSubscriptionShareAttempt(context.Background(), f.db, f.tokens[0].Id, f.owner.Id, f.subject, f.channels[0].Id, strings.Repeat("1", 64), "pending-before-close", fmt.Sprintf("%064x", 8101), 105))
+	f.snapshot(t, 0, codexQuotaWindowPrimarySource, 106, 1000, 10)
+	require.NoError(t, RefreshSubscriptionShareProjection(context.Background(), f.db, f.subject, 106))
 
 	wrong := SubscriptionShareCloseInput{ID: strings.Repeat("2", 64), PoolID: pool.ID, ExpectedRevision: 99, ConfirmedClose: true}
 	err := CloseSubscriptionSharePool(context.Background(), f.db, f.root.Id, wrong, 109)
@@ -160,7 +162,7 @@ func TestSubscriptionSharePoolClosePreservesHistoryAndRetiresBindings(t *testing
 	assert.Equal(t, int64(110), generation.StoppedAt)
 	var window SubscriptionShareAttemptWindow
 	require.NoError(t, f.db.Where("pool_id = ?", pool.ID).Take(&window).Error)
-	assert.Equal(t, int64(110), window.CoveredAt)
+	assert.Equal(t, int64(106), window.CoveredAt, "close must preserve the original zero-delta coverage time")
 	assert.Equal(t, int64(-1), window.AllocatedAt)
 	var usage SubscriptionShareAllocationUsage
 	require.NoError(t, f.db.Where("allocation_id = ? AND generation = ?", allocation.ID, 1).Take(&usage).Error)
@@ -637,6 +639,43 @@ func TestSubscriptionShareNegativeEstimateFailsClosed(t *testing.T) {
 	assert.Equal(t, int64(10_000_000), generation.LastUsedMicro)
 }
 
+func TestSubscriptionShareMissingCurrentUsageFailsClosedWithoutRecreation(t *testing.T) {
+	f := newSubscriptionShareFixture(t, 1, 1)
+	selected := f.snapshot(t, 0, codexQuotaWindowPrimarySource, 100, 1000, 0)
+	configureSubscriptionShareFixture(t, f, 0, 0, selected.Id, 0, 10000, '8', 100)
+	f.snapshot(t, 0, codexQuotaWindowPrimarySource, 101, 1000, 10)
+	require.NoError(t, RefreshSubscriptionShareProjection(context.Background(), f.db, f.subject, 101))
+	require.NoError(t, AdmitSubscriptionShareAttempt(context.Background(), f.db, f.tokens[0].Id, f.owner.Id, f.subject, f.channels[0].Id, strings.Repeat("8", 64), "before-usage-loss", fmt.Sprintf("%064x", 8201), 105))
+	f.snapshot(t, 0, codexQuotaWindowPrimarySource, 110, 1000, 20)
+	require.NoError(t, RefreshSubscriptionShareProjection(context.Background(), f.db, f.subject, 110))
+	var usage SubscriptionShareAllocationUsage
+	require.NoError(t, f.db.Take(&usage).Error)
+	assert.Equal(t, int64(10_000_000), usage.EstimatedUsedMicro)
+	require.NoError(t, f.db.Delete(&usage).Error)
+
+	_, err := ReadSubscriptionShares(context.Background(), f.db, f.root.Id, f.tokens[0].Id, 110)
+	require.ErrorIs(t, err, ErrSubscriptionShareUnavailable)
+	_, err = ReadSubscriptionShares(context.Background(), f.db, f.owner.Id, f.tokens[0].Id, 110)
+	require.ErrorIs(t, err, ErrSubscriptionShareUnavailable)
+
+	var attemptsBefore, windowsBefore int64
+	require.NoError(t, f.db.Model(&SubscriptionShareAttempt{}).Count(&attemptsBefore).Error)
+	require.NoError(t, f.db.Model(&SubscriptionShareAttemptWindow{}).Count(&windowsBefore).Error)
+	eligible, err := CheckSubscriptionShareEligibility(context.Background(), f.db, f.tokens[0].Id, f.subject, 110)
+	assert.False(t, eligible)
+	require.ErrorIs(t, err, ErrSubscriptionShareUnavailable)
+	err = AdmitSubscriptionShareAttempt(context.Background(), f.db, f.tokens[0].Id, f.owner.Id, f.subject, f.channels[0].Id, strings.Repeat("8", 64), "missing-usage-rejected", fmt.Sprintf("%064x", 8202), 111)
+	require.ErrorIs(t, err, ErrSubscriptionShareUnavailable)
+
+	var attemptsAfter, windowsAfter, usageRows int64
+	require.NoError(t, f.db.Model(&SubscriptionShareAttempt{}).Count(&attemptsAfter).Error)
+	require.NoError(t, f.db.Model(&SubscriptionShareAttemptWindow{}).Count(&windowsAfter).Error)
+	require.NoError(t, f.db.Model(&SubscriptionShareAllocationUsage{}).Where("allocation_id = ? AND generation = ?", usage.AllocationID, usage.Generation).Count(&usageRows).Error)
+	assert.Equal(t, attemptsBefore, attemptsAfter)
+	assert.Equal(t, windowsBefore, windowsAfter)
+	assert.Zero(t, usageRows)
+}
+
 func TestSubscriptionShareRejectedAdmissionCommitsProjection(t *testing.T) {
 	t.Run("exceeded", func(t *testing.T) {
 		f := newSubscriptionShareFixture(t, 1, 1)
@@ -838,7 +877,7 @@ func TestSubscriptionShareExplicitObservationRebaselinePreservesUsage(t *testing
 	assert.False(t, view.Pools[0].RebaselineRequired)
 	err = ConfigureSubscriptionShare(context.Background(), f.db, f.root.Id, f.tokens[0].Id, SubscriptionShareConfigInput{ID: strings.Repeat("7", 64), PoolID: pool.ID, SnapshotID: lower.Id, ExpectedRevision: pool.Revision, ShareBPS: 10000, ConfirmedApproximate: true, ReplaceWindow: true}, 115)
 	require.ErrorIs(t, err, ErrSubscriptionShareConflict)
-	fresh := f.snapshot(t, 0, codexQuotaWindowPrimarySource, 120, 1000, 25)
+	f.snapshot(t, 0, codexQuotaWindowPrimarySource, 120, 1000, 25)
 	require.NoError(t, RefreshSubscriptionShareProjection(context.Background(), f.db, f.subject, 120))
 	freshDuplicate := f.snapshot(t, 1, codexQuotaWindowPrimarySource, 120, 1002, 25)
 	require.NoError(t, RefreshSubscriptionShareProjection(context.Background(), f.db, f.subject, 120))

@@ -223,34 +223,28 @@ func subscriptionShareAttemptTables(db *gorm.DB) (string, string) {
 
 func finalizeSubscriptionShareUncertainAttempts(tx *gorm.DB, poolID, generation, coveredAt int64) ([]subscriptionShareSampleAllocation, int64, error) {
 	windowTable, attemptTable := subscriptionShareAttemptTables(tx)
-	base := func() *gorm.DB {
-		return tx.Table(windowTable+" AS w").Joins("JOIN "+attemptTable+" AS a ON a.attempt_id = w.attempt_id").Where("w.pool_id = ? AND w.generation = ? AND w.allocated_at = 0 AND a.state <> ?", poolID, generation, SubscriptionShareAttemptNotSent)
+	var rows []struct {
+		WindowID     int64 `gorm:"column:window_id"`
+		AllocationID int64 `gorm:"column:allocation_id"`
 	}
-	var evidence []subscriptionShareSampleAllocation
-	rows, err := base().Select("w.allocation_id, COUNT(*) AS attempt_count").Group("w.allocation_id").Rows()
-	if err != nil {
+	if err := lockForUpdate(tx).Table(windowTable+" AS w").Select("w.id AS window_id, w.allocation_id").Joins("JOIN "+attemptTable+" AS a ON a.attempt_id = w.attempt_id").Where("w.pool_id = ? AND w.generation = ? AND w.allocated_at = 0 AND a.state <> ?", poolID, generation, SubscriptionShareAttemptNotSent).Order("w.allocation_id ASC, w.id ASC").Find(&rows).Error; err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var item subscriptionShareSampleAllocation
-		if err := rows.Scan(&item.AllocationID, &item.AttemptCount); err != nil {
-			return nil, 0, err
+	evidence := make([]subscriptionShareSampleAllocation, 0)
+	ids := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.WindowID)
+		if len(evidence) == 0 || evidence[len(evidence)-1].AllocationID != row.AllocationID {
+			evidence = append(evidence, subscriptionShareSampleAllocation{AllocationID: row.AllocationID, AttemptCount: 1})
+		} else {
+			evidence[len(evidence)-1].AttemptCount++
 		}
-		evidence = append(evidence, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, 0, err
-	}
-	if err := rows.Close(); err != nil {
-		return nil, 0, err
-	}
-	var ids []int64
-	if err := base().Pluck("w.id", &ids).Error; err != nil {
-		return nil, 0, err
 	}
 	if len(ids) != 0 {
-		if err := tx.Model(&SubscriptionShareAttemptWindow{}).Where("id IN ?", ids).Updates(map[string]any{"covered_at": coveredAt, "allocated_at": int64(-1)}).Error; err != nil {
+		if err := tx.Model(&SubscriptionShareAttemptWindow{}).Where("id IN ? AND covered_at = 0", ids).Update("covered_at", coveredAt).Error; err != nil {
+			return nil, 0, err
+		}
+		if err := tx.Model(&SubscriptionShareAttemptWindow{}).Where("id IN ?", ids).Update("allocated_at", int64(-1)).Error; err != nil {
 			return nil, 0, err
 		}
 	}
@@ -370,6 +364,10 @@ func validSubscriptionShareObservation(snapshot ChannelQuotaSnapshot) bool {
 }
 
 func lockSubscriptionShareGate(tx *gorm.DB, subjectRef string, now int64) error {
+	// Under MySQL REPEATABLE READ, an ordinary query before this gate may have
+	// established a stale read view. Callers must use locking reads after the
+	// gate for rows that decide admission, allocation, replay, or finalization;
+	// acquiring the gate does not refresh that read view.
 	gate := SubscriptionShareAccountGate{SubjectRef: subjectRef, Revision: 1, UpdatedAt: now}
 	if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "subject_ref"}}, DoNothing: true}).Create(&gate).Error; err != nil {
 		return err
@@ -411,7 +409,7 @@ func ConfigureSubscriptionShare(ctx context.Context, db *gorm.DB, actorID, token
 			return ErrSubscriptionShareDenied
 		}
 		var replay SubscriptionShareAudit
-		replayErr := tx.First(&replay, "id = ?", input.ID).Error
+		replayErr := lockForUpdate(tx).First(&replay, "id = ?", input.ID).Error
 		if replayErr == nil {
 			if replay.Digest != digest {
 				return ErrSubscriptionShareConflict
@@ -464,18 +462,18 @@ func ConfigureSubscriptionShare(ctx context.Context, db *gorm.DB, actorID, token
 			if input.ReplaceWindow {
 				return ErrSubscriptionShareInvalid
 			}
-			var occupied int64
-			if err := tx.Model(&SubscriptionSharePool{}).Where("subject_ref = ? AND window_source = ? AND enabled = ?", snapshot.SubjectRef, snapshot.Source, true).Count(&occupied).Error; err != nil {
+			var occupied []SubscriptionSharePool
+			if err := lockForUpdate(tx).Select("id").Where("subject_ref = ? AND window_source = ? AND enabled = ?", snapshot.SubjectRef, snapshot.Source, true).Order("id ASC").Limit(1).Find(&occupied).Error; err != nil {
 				return err
 			}
-			if occupied != 0 {
+			if len(occupied) != 0 {
 				return ErrSubscriptionShareConflict
 			}
-			var duplicate int64
-			if err := tx.Model(&SubscriptionSharePool{}).Where("descriptor_key = ?", descriptor).Count(&duplicate).Error; err != nil {
+			var duplicate []SubscriptionSharePool
+			if err := lockForUpdate(tx).Select("id").Where("descriptor_key = ?", descriptor).Order("id ASC").Limit(1).Find(&duplicate).Error; err != nil {
 				return err
 			}
-			if duplicate != 0 || input.ExpectedRevision != 0 {
+			if len(duplicate) != 0 || input.ExpectedRevision != 0 {
 				return ErrSubscriptionShareConflict
 			}
 			var channel Channel
@@ -516,29 +514,38 @@ func ConfigureSubscriptionShare(ctx context.Context, db *gorm.DB, actorID, token
 			rebaselineBeforeUsed = rebaselineGeneration.LastUsedMicro
 		}
 
-		var allocation SubscriptionShareAllocation
-		allocationErr := lockForUpdate(tx).Where("pool_id = ? AND token_id = ?", pool.ID, tokenID).Take(&allocation).Error
-		if allocationErr != nil && !errors.Is(allocationErr, gorm.ErrRecordNotFound) {
-			return allocationErr
-		}
-		beforeShare := 0
-		if allocationErr == nil {
-			if allocation.UserID != token.UserId {
-				return ErrSubscriptionShareConflict
-			}
-			beforeShare = allocation.ShareBPS
-		}
-		if rebaseline && (allocationErr != nil || input.ShareBPS != beforeShare) {
-			return ErrSubscriptionShareConflict
-		}
-		var allocated int64
-		if err := tx.Model(&SubscriptionShareAllocation{}).Where("pool_id = ? AND token_id <> ?", pool.ID, tokenID).Select("COALESCE(SUM(share_bps),0)").Scan(&allocated).Error; err != nil {
+		var poolAllocations []SubscriptionShareAllocation
+		if err := lockForUpdate(tx).Where("pool_id = ?", pool.ID).Order("id ASC").Find(&poolAllocations).Error; err != nil {
 			return err
+		}
+		var allocation SubscriptionShareAllocation
+		allocationFound := false
+		beforeShare := 0
+		var allocated int64
+		for _, item := range poolAllocations {
+			if item.ShareBPS < 0 || item.ShareBPS > 10000 {
+				return ErrSubscriptionShareUnavailable
+			}
+			if item.TokenID == tokenID {
+				allocation, allocationFound = item, true
+				if item.UserID != token.UserId {
+					return ErrSubscriptionShareConflict
+				}
+				beforeShare = item.ShareBPS
+				continue
+			}
+			allocated += int64(item.ShareBPS)
+			if allocated > 10000 {
+				return ErrSubscriptionShareInvalid
+			}
+		}
+		if rebaseline && (!allocationFound || input.ShareBPS != beforeShare) {
+			return ErrSubscriptionShareConflict
 		}
 		if allocated+int64(input.ShareBPS) > 10000 {
 			return ErrSubscriptionShareInvalid
 		}
-		if allocationErr == nil {
+		if allocationFound {
 			if err := tx.Model(&SubscriptionShareAllocation{}).Where("id = ?", allocation.ID).Updates(map[string]any{"share_bps": input.ShareBPS, "updated_at": now}).Error; err != nil {
 				return err
 			}
@@ -579,7 +586,7 @@ func ConfigureSubscriptionShare(ctx context.Context, db *gorm.DB, actorID, token
 					return err
 				}
 				var all []SubscriptionShareAllocation
-				if err := tx.Where("pool_id = ?", pool.ID).Find(&all).Error; err != nil {
+				if err := lockForUpdate(tx).Where("pool_id = ?", pool.ID).Order("id ASC").Find(&all).Error; err != nil {
 					return err
 				}
 				for _, item := range all {
@@ -632,7 +639,7 @@ func ConfigureSubscriptionShare(ctx context.Context, db *gorm.DB, actorID, token
 				audit.UnattributedDeltaMicro = snapshotUsedMicro - audit.BeforeUsedMicro
 			}
 			audit.UncertainAttempts = uncertainCount
-		} else if errors.Is(allocationErr, gorm.ErrRecordNotFound) {
+		} else if !allocationFound {
 			audit.Action = "allocation_create"
 		} else {
 			audit.Action = "allocation_update"
@@ -690,7 +697,7 @@ func CloseSubscriptionSharePool(ctx context.Context, db *gorm.DB, actorID int, i
 			return ErrSubscriptionShareConflict
 		}
 		var replay SubscriptionShareAudit
-		replayErr := tx.First(&replay, "id = ?", input.ID).Error
+		replayErr := lockForUpdate(tx).First(&replay, "id = ?", input.ID).Error
 		if replayErr == nil {
 			if replay.Digest != digest || replay.PoolID != pool.ID || replay.Action != "pool_close" {
 				return ErrSubscriptionShareConflict
@@ -895,7 +902,12 @@ func CheckSubscriptionShareEligibility(ctx context.Context, db *gorm.DB, tokenID
 				return nil
 			}
 			var usage SubscriptionShareAllocationUsage
-			if err := tx.Where("allocation_id = ? AND generation = ?", allocation.ID, pool.CurrentGeneration).Take(&usage).Error; err != nil {
+			err := tx.Where("allocation_id = ? AND generation = ?", allocation.ID, pool.CurrentGeneration).Take(&usage).Error
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				decisionErr = ErrSubscriptionShareUnavailable
+				return nil
+			}
+			if err != nil {
 				return err
 			}
 			if usage.EstimatedUsedMicro < 0 {
@@ -1019,11 +1031,10 @@ func AdmitSubscriptionShareAttempt(ctx context.Context, db *gorm.DB, tokenID, us
 			var usage SubscriptionShareAllocationUsage
 			err := lockForUpdate(tx).Where("allocation_id = ? AND generation = ?", allocation.ID, pool.CurrentGeneration).Take(&usage).Error
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				usage = SubscriptionShareAllocationUsage{AllocationID: allocation.ID, Generation: pool.CurrentGeneration}
-				if err := tx.Create(&usage).Error; err != nil {
-					return err
-				}
-			} else if err != nil {
+				decisionErr = ErrSubscriptionShareUnavailable
+				return nil
+			}
+			if err != nil {
 				return err
 			}
 			if usage.EstimatedUsedMicro < 0 {
@@ -1096,12 +1107,14 @@ func MarkSubscriptionShareAttemptNotSent(ctx context.Context, db *gorm.DB, attem
 		if attempt.State != SubscriptionShareAttemptDispatching {
 			return ErrSubscriptionShareConflict
 		}
-		var allocated int64
-		if err := tx.Model(&SubscriptionShareAttemptWindow{}).Where("attempt_id = ? AND allocated_at <> 0", attemptID).Count(&allocated).Error; err != nil {
+		var windows []SubscriptionShareAttemptWindow
+		if err := lockForUpdate(tx).Where("attempt_id = ?", attemptID).Order("id ASC").Find(&windows).Error; err != nil {
 			return err
 		}
-		if allocated != 0 {
-			return ErrSubscriptionShareConflict
+		for _, window := range windows {
+			if window.AllocatedAt != 0 {
+				return ErrSubscriptionShareConflict
+			}
 		}
 		updated := tx.Model(&SubscriptionShareAttempt{}).Where("attempt_id = ? AND state = ?", attemptID, SubscriptionShareAttemptDispatching).Updates(map[string]any{"state": SubscriptionShareAttemptNotSent, "updated_at": now})
 		if updated.Error != nil {
@@ -1565,7 +1578,10 @@ func ReadSubscriptionShares(ctx context.Context, db *gorm.DB, actorID, tokenID i
 			}
 			var usage SubscriptionShareAllocationUsage
 			err := db.WithContext(ctx).Where("allocation_id = ? AND generation = ?", allocation.ID, pool.CurrentGeneration).Take(&usage).Error
-			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, ErrSubscriptionShareUnavailable
+			}
+			if err != nil {
 				return nil, err
 			}
 			item.EstimatedUsedMicro = usage.EstimatedUsedMicro

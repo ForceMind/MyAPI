@@ -161,8 +161,8 @@ test('Root explicitly selects a window and saves an exact basis-point share', as
     '/api/token/21/subscription-share',
     expect.objectContaining({ signal: expect.any(AbortSignal) })
   )
+  expect(await within(dialog).findByText('Personal Codex')).toBeVisible()
   expect(within(dialog).getByRole('button', { name: 'Save share' })).toBeDisabled()
-  expect(within(dialog).getByText('Personal Codex')).toBeVisible()
   expect(within(dialog).getByText('Fresh candidate')).toBeVisible()
   expect(dialog).toHaveTextContent('Native window: primary · weekly')
   expect(dialog).toHaveTextContent(
@@ -205,7 +205,7 @@ test('Root can save zero to pause a Key but cannot exceed the pool allocation', 
   const dialog = await screen.findByRole('dialog', {
     name: 'Subscription shares',
   })
-  await user.click(within(dialog).getByLabelText(/Personal Codex/))
+  await user.click(await within(dialog).findByLabelText(/Personal Codex/))
   const input = within(dialog).getByLabelText('Share percentage')
   const confirmation = within(dialog).getByLabelText(
     'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.'
@@ -235,7 +235,7 @@ test('saving zero sends an explicit zero share without removing the pool binding
   const dialog = await screen.findByRole('dialog', {
     name: 'Subscription shares',
   })
-  await user.click(within(dialog).getByLabelText(/Personal Codex/))
+  await user.click(await within(dialog).findByLabelText(/Personal Codex/))
   const input = within(dialog).getByLabelText('Share percentage')
   await user.clear(input)
   await user.type(input, '0')
@@ -271,7 +271,7 @@ test('Root must confirm a pool-wide window replacement before it is written expl
     name: 'Subscription shares',
   })
 
-  await user.click(within(dialog).getByLabelText(/Replacement window/))
+  await user.click(await within(dialog).findByLabelText(/Replacement window/))
   const replacementShare = within(dialog).getByLabelText('Share percentage')
   expect(replacementShare).toBeEnabled()
   await user.clear(replacementShare)
@@ -330,7 +330,7 @@ test('changing the selected window clears both replacement confirmations', async
     name: 'Subscription shares',
   })
 
-  await user.click(within(dialog).getByLabelText(/Replacement window/))
+  await user.click(await within(dialog).findByLabelText(/Replacement window/))
   await user.click(
     within(dialog).getByLabelText(
       'I understand this replacement affects every Key in the pool.'
@@ -367,7 +367,7 @@ test('Root must confirm recovery from a fresh baseline without clearing estimate
     name: 'Subscription shares',
   })
 
-  const uncertainLabel = within(dialog).getByText('Uncertain attempts')
+  const uncertainLabel = await within(dialog).findByText('Uncertain attempts')
   expect(uncertainLabel.parentElement).toHaveTextContent('3')
   await user.click(within(dialog).getByLabelText(/Recovery baseline/))
   expect(
@@ -424,7 +424,9 @@ test('Root explicitly confirms closing an existing pool and refreshes the view',
     name: 'Subscription shares',
   })
 
-  await user.click(within(dialog).getByRole('button', { name: 'Close pool' }))
+  await user.click(
+    await within(dialog).findByRole('button', { name: 'Close pool' })
+  )
   const confirmation = await screen.findByRole('alertdialog', {
     name: 'Close this subscription pool?',
   })
@@ -475,7 +477,7 @@ test('Root sees closed pool history without edit, close, or Key-pause controls',
     name: 'Subscription shares',
   })
 
-  expect(within(dialog).getByText('Personal Codex')).toBeVisible()
+  expect(await within(dialog).findByText('Personal Codex')).toBeVisible()
   expect(within(dialog).getByText('Closed — history retained')).toBeVisible()
   expect(
     within(dialog).getByText(
@@ -596,7 +598,7 @@ test('an unknown save result stays locked until a manual reload and is never rep
   const dialog = await screen.findByRole('dialog', {
     name: 'Subscription shares',
   })
-  await user.click(within(dialog).getByLabelText(/Personal Codex/))
+  await user.click(await within(dialog).findByLabelText(/Personal Codex/))
   await user.click(
     within(dialog).getByLabelText(
       'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.'
@@ -659,7 +661,9 @@ test('stale and baseline states explain pauses and distinct pending counters', a
   const dialog = await screen.findByRole('dialog', {
     name: 'Subscription shares',
   })
-  expect(within(dialog).getByText('Stale sample — requests are paused')).toBeVisible()
+  expect(
+    await within(dialog).findByText('Stale sample — requests are paused')
+  ).toBeVisible()
   expect(within(dialog).getByText('Waiting for baseline sample')).toBeVisible()
   expect(
     within(dialog).getByText('Discontinuity — requests are paused')
@@ -705,7 +709,7 @@ test('a session change clears a selected replacement and its confirmations', asy
   const dialog = await screen.findByRole('dialog', {
     name: 'Subscription shares',
   })
-  await user.click(within(dialog).getByLabelText(/Replacement window/))
+  await user.click(await within(dialog).findByLabelText(/Replacement window/))
   await user.click(
     within(dialog).getByLabelText(
       'I understand this replacement affects every Key in the pool.'
@@ -720,7 +724,7 @@ test('a session change clears a selected replacement and its confirmations', asy
   act(() => setSession(3, 100, 'new-root-session'))
 
   await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2))
-  expect(screen.getByLabelText(/Replacement window/)).not.toBeChecked()
+  expect(await screen.findByLabelText(/Replacement window/)).not.toBeChecked()
   expect(
     screen.queryByLabelText(
       'I understand this replacement affects every Key in the pool.'
@@ -752,5 +756,5 @@ test('critical approximation copy remains accessible in a 320px viewport with lo
   expect(
     within(dialog).getByText(/Aucune limite numérique vérifiée/)
   ).toBeVisible()
-  expect(within(dialog).getByText('Personal Codex')).toBeVisible()
+  expect(await within(dialog).findByText('Personal Codex')).toBeVisible()
 })

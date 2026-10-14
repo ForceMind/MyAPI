@@ -27,6 +27,7 @@ import (
 	"github.com/ForceMind/MyAPI/model"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/relaykit/dto"
+	"github.com/ForceMind/MyAPI/relaykit/types"
 	"github.com/ForceMind/MyAPI/service"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
@@ -276,6 +277,10 @@ func TestSubscriptionShareDoApiRequestRefusalDoesNotSendAndCanRefund(t *testing.
 				_, calls := subscriptionShareTLSClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
 				response, err := DoApiRequest(subscriptionShareNativeAdaptor{}, fixture.ctx, fixture.info, bytes.NewReader([]byte(`{"model":"gpt-5-codex"}`)))
 				require.Error(t, err)
+				var apiError *types.NewAPIError
+				require.True(t, errors.As(err, &apiError), "refusal must identify the actual share gate")
+				assert.Equal(t, types.ErrorCode("subscription_share_exceeded"), apiError.GetErrorCode())
+				assert.Equal(t, http.StatusForbidden, apiError.StatusCode)
 				assert.Nil(t, response)
 				assert.Zero(t, calls.Load())
 				assert.False(t, service.TextUsageDispatchNeedsReview(fixture.info))
