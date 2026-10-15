@@ -88,11 +88,7 @@ function basisPointsInput(value: number): string {
 
 function parseBasisPoints(value: string): number | null {
   const normalized = value.trim().replace(',', '.')
-  if (
-    !/^(?:100(?:\.0{1,2})?|(?:\d|[1-9]\d)(?:\.\d{1,2})?)$/.test(
-      normalized
-    )
-  ) {
+  if (!/^(?:100(?:\.0{1,2})?|(?:\d|[1-9]\d)(?:\.\d{1,2})?)$/.test(normalized)) {
     return null
   }
   const [whole, fraction = ''] = normalized.split('.')
@@ -145,8 +141,9 @@ function SubscriptionShareSession(props: {
   const [percentage, setPercentage] = useState('')
   const [confirmed, setConfirmed] = useState(false)
   const [windowChangeConfirmed, setWindowChangeConfirmed] = useState(false)
-  const [poolToClose, setPoolToClose] =
-    useState<SubscriptionSharePool | null>(null)
+  const [poolToClose, setPoolToClose] = useState<SubscriptionSharePool | null>(
+    null
+  )
   const [closeConfirmed, setCloseConfirmed] = useState(false)
   const [mustReload, setMustReload] = useState(false)
   const sending = useRef(false)
@@ -161,8 +158,7 @@ function SubscriptionShareSession(props: {
   })
   const view = query.isError ? undefined : query.data
   const selectedPool = view?.pools.find(
-    (pool) =>
-      pool.state !== 'closed' && poolSelectionValue(pool) === selection
+    (pool) => pool.state !== 'closed' && poolSelectionValue(pool) === selection
   )
   const requiresWindowChangeConfirmation = Boolean(
     selectedPool?.replacement_required || selectedPool?.rebaseline_required
@@ -170,7 +166,7 @@ function SubscriptionShareSession(props: {
   const shareBasisPoints = parseBasisPoints(percentage)
   const changesRebaselineShare = Boolean(
     selectedPool?.rebaseline_required &&
-      shareBasisPoints !== selectedPool.share_bps
+    shareBasisPoints !== selectedPool.share_bps
   )
   const exceedsPool =
     !!selectedPool &&
@@ -318,14 +314,11 @@ function SubscriptionShareSession(props: {
 
   const root = props.role === ROOT_ROLE
   const visiblePools = root
-    ? view?.pools ?? []
+    ? (view?.pools ?? [])
     : (view?.pools ?? []).filter(
-        (pool) =>
-          pool.pool_id > 0 &&
-          pool.state !== 'candidate'
+        (pool) => pool.pool_id > 0 && pool.state !== 'candidate'
       )
-  const busy =
-    query.isFetching || mutation.isPending || closeMutation.isPending
+  const busy = query.isFetching || mutation.isPending || closeMutation.isPending
 
   if (props.personalKey && root && !advancedPersonal) {
     return (
@@ -344,9 +337,20 @@ function SubscriptionShareSession(props: {
         loading={!query.data && !query.isError}
         loadError={query.isError}
         mustReload={mustReload}
-        saveDisabled={busy || mustReload || !selectedPool || shareBasisPoints === null || exceedsPool || changesRebaselineShare || !confirmed || (requiresWindowChangeConfirmation && !windowChangeConfirmed)}
+        saveDisabled={
+          busy ||
+          mustReload ||
+          !selectedPool ||
+          shareBasisPoints === null ||
+          exceedsPool ||
+          changesRebaselineShare ||
+          !confirmed ||
+          (requiresWindowChangeConfirmation && !windowChangeConfirmed)
+        }
         onSelect={(value) => {
-          const pool = visiblePools.find((item) => poolSelectionValue(item) === value)
+          const pool = visiblePools.find(
+            (item) => poolSelectionValue(item) === value
+          )
           setSelection(value)
           setPercentage(pool ? basisPointsInput(pool.share_bps) : '')
           setConfirmed(false)
@@ -377,7 +381,9 @@ function SubscriptionShareSession(props: {
         showCloseButton={!mutation.isPending && !closeMutation.isPending}
       >
         <DialogHeader>
-          <DialogTitle className='pr-10'>{t('Subscription shares')}</DialogTitle>
+          <DialogTitle className='pr-10'>
+            {t('Subscription shares')}
+          </DialogTitle>
           <DialogDescription>
             {t(
               'Allocate part of one native subscription window to this API Key.'
@@ -669,8 +675,7 @@ function SubscriptionShareSession(props: {
                 exceedsPool ||
                 changesRebaselineShare ||
                 !confirmed ||
-                (requiresWindowChangeConfirmation &&
-                  !windowChangeConfirmed)
+                (requiresWindowChangeConfirmation && !windowChangeConfirmed)
               }
               onClick={submit}
             >
@@ -701,14 +706,15 @@ function SubscriptionShareSession(props: {
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <Field orientation='horizontal' data-disabled={closeMutation.isPending}>
+          <Field
+            orientation='horizontal'
+            data-disabled={closeMutation.isPending}
+          >
             <Checkbox
               id='subscription-share-close-confirmation'
               checked={closeConfirmed}
               disabled={closeMutation.isPending}
-              onCheckedChange={(checked) =>
-                setCloseConfirmed(checked === true)
-              }
+              onCheckedChange={(checked) => setCloseConfirmed(checked === true)}
             />
             <FieldLabel htmlFor='subscription-share-close-confirmation'>
               {t(

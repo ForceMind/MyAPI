@@ -15,7 +15,7 @@ const version = readFileSync(resolve(repo, 'VERSION'), 'utf8').trim()
 const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim()
 const codes = { en: 'en', zh: 'zhCN', 'zh-TW': 'zhTW', fr: 'fr', ja: 'ja', ru: 'ru', vi: 'vi' }
 const translations = Object.fromEntries(Object.keys(codes).map(lang => [lang, JSON.parse(readFileSync(resolve(repo, `web/src/i18n/locales/${lang}.json`))).translation]))
-const report = { head, version, workflowHead: process.env.GITHUB_SHA || null, scope: 'Compiled personal console with synthetic APIs; excludes live providers, production and historical accounting.', result: 'running', journeys: [], screenshots: [], errors: [] }
+const report = { head, version, workflowHead: process.env.GITHUB_SHA || null, scope: 'Profile and call-log browser journeys; overview/upstream and Keys are covered by personal-workbench-browser and subscription-share-browser. Compiled personal console with synthetic APIs; excludes live providers, production and historical accounting.', result: 'running', journeys: [], screenshots: [], errors: [] }
 const persist = () => writeFileSync(resolve(output, 'personal-console-qualification.json'), JSON.stringify(report, null, 2))
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' }
 const server = createServer((request, response) => {
@@ -54,7 +54,7 @@ try {
       if (url.pathname === '/api/user/self' && failProfile) return route.fulfill({ status: 503, json: { success: false } })
       const response = fixture.response(url, request.method())
       assert(!response.violation, response.violation)
-      if (url.pathname === '/api/user/auth/refresh') response.body.data.access_expires_at = Math.floor(Date.now() / 1000) + 3600
+      if (url.pathname === '/api/user/auth/refresh') response.body.data.access_expires_at = FIXTURE_TIME / 1000 + 3600
       if (url.pathname === '/api/log/self') {
         const log = (id, outcome, usage) => ({ id, user_id: 1, token_id: 21, created_at: FIXTURE_TIME / 1000 - id, type: 5, content: outcome === 'failed' ? 'Synthetic upstream 429' : '', username: 'synthetic-operator', token_name: 'synthetic-key', model_name: 'synthetic-text-model', quota: 0, prompt_tokens: 0, completion_tokens: 0, use_time: 2, is_stream: true, request_id: `REQ-SYNTHETIC-${id}`, group: 'default', ip: '', other: JSON.stringify({ request_outcome: outcome, usage_outcome: usage, settlement_status: 'pending_review' }) })
         response.body = { success: true, data: { items: [log(501, 'completed', 'missing'), log(502, 'failed', 'missing'), log(503, 'completed', 'reported')], total: 3, page: 1, page_size: 20 } }
@@ -62,6 +62,7 @@ try {
       await route.fulfill({ status: response.status, json: response.body })
     })
     const page = await context.newPage()
+    await page.clock.setFixedTime(FIXTURE_TIME)
     page.setDefaultTimeout(20000)
     page.on('pageerror', error => errors.push(error.message))
     const capture = async name => {
@@ -81,7 +82,7 @@ try {
       await page.getByText(t('Only me'), { exact: true }).waitFor()
       assert.equal(await page.getByText(/Current Balance|Wallet Balance/, { exact: true }).count(), 0)
       const revision = await page.locator('html').getAttribute('data-build-rev')
-      assert(revision?.startsWith(`rv.${version}.`))
+      assert(revision?.startsWith(`rv.${version}.${process.env.GITHUB_SHA || head}.`))
       await capture('profile')
       const security = page.getByRole('button', { name: new RegExp(t('Manage login methods')) })
       await security.focus()
@@ -96,10 +97,14 @@ try {
       await row.click()
       await page.getByRole('heading', { name: t('Request succeeded'), exact: true }).waitFor()
       await page.getByRole('heading', { name: t('Usage not provided'), exact: true }).waitFor()
-      assert(await page.getByText(t('Unknown'), { exact: true }).count() >= 2, 'Missing tokens stay unknown')
+      for (const tokenLabel of ['Input Tokens', 'Output Tokens']) {
+        const tokenRow = page.locator('dl > div').filter({ has: page.getByText(t(tokenLabel), { exact: true }) })
+        assert.equal(await tokenRow.locator('dd').innerText(), t('Unknown'), `${tokenLabel} stays unknown`)
+      }
       await capture('success-unknown')
       if (item.width < 768) {
         await page.getByRole('button', { name: t('Back to call list'), exact: true }).click()
+        await page.waitForFunction(() => document.activeElement?.getAttribute('aria-pressed') === 'true')
         assert(await row.evaluate(element => document.activeElement === element), 'Return restores selected call focus')
       }
       await page.getByRole('button', { name: t('View call {{id}}').replace('{{id}}', 'REQ-SYNTHETIC-502'), exact: true }).click()

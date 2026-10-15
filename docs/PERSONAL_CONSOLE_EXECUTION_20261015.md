@@ -38,3 +38,7 @@
 独立静态审查已修P2：日志跳转Keys的filter未承接、手机版本不可见、未知基线误显示0、外壳缺旧维护页面所需上下文；头像与页面动作预留间距待实图核对。调用记录按user/role/session隔离并使用Intl合法locale，金额不展示，缺可靠HTTP字段显示未知。
 
 本机已执行Node fixture测试和浏览器驱动语法检查、Bun轻量TSX解析、diff检查；本机Go定向测试因只读默认GOCACHE未执行，未额外建立重缓存，交CI。无node_modules，Vitest/tsgo/lint/生产构建/Chromium尚待CI。CI把同一生产构建提前至typecheck之前，由TanStack插件生成新增路由类型；不重复构建，保留构建+路由产物供运行预览和回读生成文件。
+
+首轮源码 `80594a49216400afa215f468b9363ac2d9c24e20` 已同步 Draft PR #17，普通CI `38743485122` 启动。生产构建成功；typecheck发现新外壳固定URL未按TanStack动态路由声明、只读数组传入可变导航类型，以及3个fixture/测试API类型问题，均按错误逐项修正。保留失败日志 `/tmp/myapi-console-80594a4-frontend.log`，不以语法解析代替类型检查。分发合同亦失败，正在定位。历史数据与生产未操作。
+
+修订验证：使用项目固定oxfmt 0.57.0和oxlint 1.72.0轻量工具整理涉及文件（保留原版权头），未安装完整前端/浏览器依赖。42个涉及TS/TSX文件lint通过；模板候选版本定向CLI测试在正常子进程权限下通过。第一次本机完整CLI测试在受限沙箱仅返回文件级失败、无具体用例证据，保留 `/tmp/myapi-console-cli-tests.tap`，不作通过结论。部署模板已统一beta.15且保留未发布说明；新增RELEASE_BETA_15.md。综合浏览器独审补强输入/输出Token各自Unknown、fixture时钟及准确CI SHA，分工明确覆盖五个页面。

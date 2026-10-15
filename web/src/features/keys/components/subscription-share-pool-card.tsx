@@ -75,13 +75,8 @@ export function SubscriptionSharePoolCard(props: {
     keyPauseLabel = ''
   } else if (props.pool.share_bps === 0) {
     keyPauseLabel = t('0% share — later requests are paused')
-  } else if (
-    props.pool.estimated_used_micro >=
-    props.pool.share_bps * 10_000
-  ) {
-    keyPauseLabel = t(
-      'Estimated share exhausted — later requests are paused'
-    )
+  } else if (props.pool.estimated_used_micro >= props.pool.share_bps * 10_000) {
+    keyPauseLabel = t('Estimated share exhausted — later requests are paused')
   }
   const content = (
     <div className='min-w-0 flex-1 space-y-3'>
@@ -98,9 +93,8 @@ export function SubscriptionSharePoolCard(props: {
             <p className='font-medium break-words'>{displayName}</p>
           )}
           <p className='text-muted-foreground text-xs break-words'>
-            {t('Plan')}: {props.pool.plan_type} ·{' '}
-            {t('Native window')}: {props.pool.window_slot} ·{' '}
-            {props.pool.window_type} ·{' '}
+            {t('Plan')}: {props.pool.plan_type} · {t('Native window')}:{' '}
+            {props.pool.window_slot} · {props.pool.window_type} ·{' '}
             {t('{{seconds}} seconds', {
               seconds: props.pool.window_seconds.toLocaleString(),
             })}
@@ -160,7 +154,9 @@ export function SubscriptionSharePoolCard(props: {
           </dd>
         </div>
         <div>
-          <dt className='text-muted-foreground'>{t('Unattributed increase')}</dt>
+          <dt className='text-muted-foreground'>
+            {t('Unattributed increase')}
+          </dt>
           <dd className='font-medium'>
             {props.pool.pool_id > 0 && props.pool.baseline_time > 0
               ? formatWindowMicro(props.pool.unattributed_micro)
@@ -179,7 +175,9 @@ export function SubscriptionSharePoolCard(props: {
         </div>
         <div>
           <dt className='text-muted-foreground'>{t('Uncertain attempts')}</dt>
-          <dd className='font-medium'>{props.pool.uncertain_attempts ?? t('Unknown')}</dd>
+          <dd className='font-medium'>
+            {props.pool.uncertain_attempts ?? t('Unknown')}
+          </dd>
         </div>
       </dl>
 
@@ -188,10 +186,12 @@ export function SubscriptionSharePoolCard(props: {
           {t('Observed at')}: {formatTimestampToDate(props.pool.observed_at)}
         </p>
         <p>
-          {t('Sample age')}: {t('{{seconds}} seconds', {
+          {t('Sample age')}:{' '}
+          {t('{{seconds}} seconds', {
             seconds: props.pool.sample_age_seconds.toLocaleString(),
           })}{' '}
-          · {t('Maximum age')}: {t('{{seconds}} seconds', {
+          · {t('Maximum age')}:{' '}
+          {t('{{seconds}} seconds', {
             seconds: props.pool.max_age_seconds.toLocaleString(),
           })}
         </p>
@@ -251,9 +251,7 @@ export function SubscriptionSharePoolCard(props: {
   }
 
   return (
-    <div
-      className='has-data-checked:border-primary has-data-checked:bg-primary/5 flex min-w-0 items-start gap-3 rounded-lg border p-3'
-    >
+    <div className='has-data-checked:border-primary has-data-checked:bg-primary/5 flex min-w-0 items-start gap-3 rounded-lg border p-3'>
       <RadioGroupItem
         id={id}
         value={`${props.pool.pool_id}:${props.pool.snapshot_id}`}

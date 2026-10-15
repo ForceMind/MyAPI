@@ -22,17 +22,36 @@ export function useUpstreamAccounts() {
   const selfQuery = useQuery({
     queryKey: ['personal-console', 'self', ...identity],
     queryFn: async () => parseFreshSelfUser(await getSelf(), user?.id ?? -1),
-    enabled: Boolean(user), retry: false, refetchOnWindowFocus: false,
+    enabled: Boolean(user),
+    retry: false,
+    refetchOnWindowFocus: false,
   })
-  const canRead = Boolean(selfQuery.isSuccess && !selfQuery.isError && selfQuery.data.role >= ROLE.ADMIN && hasPermission(selfQuery.data, 'channel', 'read'))
+  const canRead = Boolean(
+    selfQuery.isSuccess &&
+    !selfQuery.isError &&
+    selfQuery.data.role >= ROLE.ADMIN &&
+    hasPermission(selfQuery.data, 'channel', 'read')
+  )
   const accountsQuery = useQuery({
     queryKey: ['personal-console', 'upstream-windows', ...identity, canRead],
     queryFn: async ({ signal }) => {
-      const response = await getChannelQuotaChanges({ range: '24h', limit: 100, sort: 'observed_desc' }, { signal })
-      if (!response.success || !response.data || !Array.isArray(response.data.items)) throw new Error('Account windows unavailable')
+      const response = await getChannelQuotaChanges(
+        { range: '24h', limit: 100, sort: 'observed_desc' },
+        { signal }
+      )
+      if (
+        !response.success ||
+        !response.data ||
+        !Array.isArray(response.data.items)
+      ) {
+        throw new Error('Account windows unavailable')
+      }
       return response.data
     },
-    enabled: canRead, retry: false, refetchOnWindowFocus: false, refetchInterval: 60_000,
+    enabled: canRead,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchInterval: 60_000,
   })
   return { selfQuery, accountsQuery, canRead }
 }

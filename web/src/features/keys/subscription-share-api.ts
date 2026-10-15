@@ -62,12 +62,8 @@ const subscriptionShareViewSchema = z.object({
   pools: z.array(subscriptionSharePoolSchema),
 })
 
-export type SubscriptionSharePool = z.infer<
-  typeof subscriptionSharePoolSchema
->
-export type SubscriptionShareView = z.infer<
-  typeof subscriptionShareViewSchema
->
+export type SubscriptionSharePool = z.infer<typeof subscriptionSharePoolSchema>
+export type SubscriptionShareView = z.infer<typeof subscriptionShareViewSchema>
 
 export type SubscriptionShareCommand = {
   id: string
@@ -99,9 +95,8 @@ function parseSubscriptionShare(
     throw new Error('Subscription share identity mismatch')
   }
   if (
-    new Set(
-      view.pools.map((pool) => `${pool.pool_id}:${pool.snapshot_id}`)
-    ).size !== view.pools.length
+    new Set(view.pools.map((pool) => `${pool.pool_id}:${pool.snapshot_id}`))
+      .size !== view.pools.length
   ) {
     throw new Error('Subscription share pool identity mismatch')
   }

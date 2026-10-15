@@ -20,13 +20,19 @@ export function getPersonalCallEvidence(log: UsageLog) {
   } catch {
     // Historical malformed metadata cannot establish usage or completion.
   }
-  const completed = other?.request_outcome === 'completed' ||
+  const completed =
+    other?.request_outcome === 'completed' ||
     (log.type === 2 && !other?.request_outcome)
-  const validTokens = Number.isSafeInteger(log.prompt_tokens) &&
-    log.prompt_tokens >= 0 && Number.isSafeInteger(log.completion_tokens) &&
+  const validTokens =
+    Number.isSafeInteger(log.prompt_tokens) &&
+    log.prompt_tokens >= 0 &&
+    Number.isSafeInteger(log.completion_tokens) &&
     log.completion_tokens >= 0
-  const usageKnown = validTokens && (other?.usage_outcome === 'reported' ||
-    (!other?.usage_outcome && log.type === 2 &&
-      (log.prompt_tokens > 0 || log.completion_tokens > 0)))
+  const usageKnown =
+    validTokens &&
+    (other?.usage_outcome === 'reported' ||
+      (!other?.usage_outcome &&
+        log.type === 2 &&
+        (log.prompt_tokens > 0 || log.completion_tokens > 0)))
   return { completed, usageKnown, other }
 }

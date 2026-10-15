@@ -523,7 +523,7 @@ async function createSession(scenario) {
         ? fixture.user.permissions.admin_permissions
         : { channel: { read: scenario.channelRead === true } },
   }
-  const mobile = scenario.width === 320
+  const mobile = scenario.width < 768
   const reads = new Map()
   const audit = {
     requests: [],
@@ -811,6 +811,7 @@ try {
   const base = { role: 100, mode: 'disabled', theme: 'light', channelRead: true, savedPlaygroundKeyId: 22 }
   const matrix = Object.keys(languageCodes).flatMap((language) => [320, 1280].map((width) => ({ ...base, name: `personal-${language}-${width}`, language, width })))
   matrix.push(...[390, 1440].map((width) => ({ ...base, name: `personal-zh-${width}`, language: 'zh', width, stale: width === 390 })))
+  matrix.push({ ...base, name: 'personal-zh-320-dark', language: 'zh', width: 320, theme: 'dark' }, { ...base, name: 'personal-en-1280-dark', language: 'en', width: 1280, theme: 'dark' })
   report.coverage = { languages: Object.keys(languageCodes), widths: [320, 390, 1280, 1440], handoffCases: ['available', 'key-unavailable', 'safe-list-failed'] }
   for (const scenario of matrix) await populated(scenario)
   for (const role of [1, 10]) await populated({ ...base, name: `personal-permission-${role}`, role, channelRead: false, language: 'en', width: 320 })

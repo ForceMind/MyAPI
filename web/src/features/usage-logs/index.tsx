@@ -28,9 +28,9 @@ import { useMediaQuery } from '@/hooks'
 import { usePersonalWorkbenchMode } from '@/hooks/use-personal-workbench-mode'
 import { useSidebarConfig } from '@/hooks/use-sidebar-config'
 
-import { PersonalCallLogs } from './components/personal-call-logs'
 import { UserInfoDialog } from './components/dialogs/user-info-dialog'
 import { PendingUsageReviews } from './components/pending-usage-reviews'
+import { PersonalCallLogs } from './components/personal-call-logs'
 import {
   type LogsViewScope,
   UsageLogsProvider,

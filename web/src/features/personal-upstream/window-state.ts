@@ -9,14 +9,36 @@ version.
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
 
 export function nativeWindowUsage(item: ChannelQuotaChangeItem): number | null {
-  if (item.unit !== 'percent' || item.metric_type !== 'codex_rate_limit' || item.status !== 'success') return null
+  if (
+    item.unit !== 'percent' ||
+    item.metric_type !== 'codex_rate_limit' ||
+    item.status !== 'success'
+  ) {
+    return null
+  }
   const remaining = item.current_available
-  if (typeof remaining !== 'number' || !Number.isFinite(remaining) || remaining < 0 || remaining > 100) return null
+  if (
+    typeof remaining !== 'number' ||
+    !Number.isFinite(remaining) ||
+    remaining < 0 ||
+    remaining > 100
+  ) {
+    return null
+  }
   return 100 - remaining
 }
 
-export function nativeWindowFreshness(item: ChannelQuotaChangeItem, nowSeconds: number): 'fresh' | 'stale' | 'unknown' {
-  if (!Number.isSafeInteger(item.observed_at) || (item.observed_at ?? 0) <= 0 || (item.observed_at ?? 0) > nowSeconds) return 'unknown'
+export function nativeWindowFreshness(
+  item: ChannelQuotaChangeItem,
+  nowSeconds: number
+): 'fresh' | 'stale' | 'unknown' {
+  if (
+    !Number.isSafeInteger(item.observed_at) ||
+    (item.observed_at ?? 0) <= 0 ||
+    (item.observed_at ?? 0) > nowSeconds
+  ) {
+    return 'unknown'
+  }
   // Match the existing subscription-share default sampling validity. A pool can impose a stricter bound.
   return nowSeconds - (item.observed_at as number) > 300 ? 'stale' : 'fresh'
 }

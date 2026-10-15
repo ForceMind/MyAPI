@@ -555,6 +555,15 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=1536'
         run: VITE_REACT_APP_VERSION="$(cat ../VERSION)" VITE_BUILD_ID="$GITHUB_SHA" bun run build
 
+      - name: Retain runnable personal console build
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-console-build-${{ github.sha }}
+          path: |
+            web/dist/
+            web/src/routeTree.gen.ts
+          retention-days: 7
+
       - name: Typecheck
         run: bun run typecheck
 
@@ -570,15 +579,6 @@ jobs:
         run: |
           npm install --prefix "$RUNNER_TEMP/myapi-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1
           "$RUNNER_TEMP/myapi-browser/node_modules/.bin/playwright" install --with-deps chromium
-
-      - name: Retain runnable personal console build
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
-        with:
-          name: myapi-console-build-${{ github.sha }}
-          path: |
-            web/dist/
-            web/src/routeTree.gen.ts
-          retention-days: 7
 
       - name: Verify real quota charts and responsive interactions
         if: ${{ !cancelled() && steps.browser-dependencies.outcome == 'success' }}

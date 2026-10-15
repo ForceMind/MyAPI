@@ -33,9 +33,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { useStatus } from '@/hooks/use-status'
 import { useFundingPresentation } from '@/hooks/use-funding-presentation'
 import { useConfirmedFundingMode } from '@/hooks/use-personal-workbench-mode'
+import { useStatus } from '@/hooks/use-status'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { CheckinCalendarCard } from './components/checkin-calendar-card'
@@ -60,7 +60,8 @@ export function Profile() {
   const permissions = useAuthStore((s) => s.auth.user?.permissions)
 
   const showCommercialFeatures = commercialEnabled && fundingMode === 'enabled'
-  const checkinEnabled = showCommercialFeatures && status?.checkin_enabled === true
+  const checkinEnabled =
+    showCommercialFeatures && status?.checkin_enabled === true
   const turnstileEnabled = !!(
     status?.turnstile_check && status?.turnstile_site_key
   )
@@ -68,7 +69,15 @@ export function Profile() {
   const canConfigureSidebar = permissions?.sidebar_settings !== false
 
   if (personalMode) {
-    return <PersonalProfile profile={profile} loading={loading} error={error} onRetry={() => void fetchProfile()} onRefresh={() => void refreshProfile()} />
+    return (
+      <PersonalProfile
+        profile={profile}
+        loading={loading}
+        error={error}
+        onRetry={() => void fetchProfile()}
+        onRefresh={() => void refreshProfile()}
+      />
+    )
   }
 
   return (

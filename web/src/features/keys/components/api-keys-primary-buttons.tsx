@@ -37,7 +37,10 @@ export function ApiKeysPrimaryButtons(props: { personal?: boolean } = {}) {
   )
 }
 
-function ApiKeysPrimaryButtonSession(props: { userId?: number; personal?: boolean }) {
+function ApiKeysPrimaryButtonSession(props: {
+  userId?: number
+  personal?: boolean
+}) {
   const [policyOpen, setPolicyOpen] = useState(false)
   const { t } = useTranslation()
   const { setOpen } = useApiKeys()

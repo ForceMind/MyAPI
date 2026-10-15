@@ -42,25 +42,57 @@ export function PersonalProfile(props: PersonalProfileProps) {
   return (
     <SectionPageLayout>
       <SectionPageLayout.Title>{t('Profile')}</SectionPageLayout.Title>
-      <SectionPageLayout.Description>{t('Manage your personal information and preferences.')}</SectionPageLayout.Description>
+      <SectionPageLayout.Description>
+        {t('Manage your personal information and preferences.')}
+      </SectionPageLayout.Description>
       <SectionPageLayout.Content>
         <div className='personal-profile mx-auto w-full max-w-6xl space-y-5'>
           {props.error && !props.loading && (
-            <Card className='min-h-[420px] border border-border bg-card shadow-none ring-0 sm:min-h-[520px]'>
-              <CardContent className='flex flex-1 flex-col items-center justify-center gap-5 px-5 py-12 text-center' role='alert'>
-                <CloudOff aria-hidden='true' className='mb-3 size-16 text-slate-400' />
-                <h2 className='text-xl font-semibold sm:text-2xl'>{t('Profile is temporarily unavailable')}</h2>
-                <p className='text-muted-foreground'>{t('The connection failed or timed out. Please retry.')}</p>
+            <Card className='border-border bg-card min-h-[420px] border shadow-none ring-0 sm:min-h-[520px]'>
+              <CardContent
+                className='flex flex-1 flex-col items-center justify-center gap-5 px-5 py-12 text-center'
+                role='alert'
+              >
+                <CloudOff
+                  aria-hidden='true'
+                  className='mb-3 size-16 text-slate-400'
+                />
+                <h2 className='text-xl font-semibold sm:text-2xl'>
+                  {t('Profile is temporarily unavailable')}
+                </h2>
+                <p className='text-muted-foreground'>
+                  {t('The connection failed or timed out. Please retry.')}
+                </p>
                 <div className='mt-3 flex w-full max-w-sm flex-col gap-3'>
-                  <Button onClick={props.onRetry} className='h-11'>{t('Reload profile')}</Button>
-                  <Button variant='outline' className='h-11' render={<Link to='/dashboard/overview' />} nativeButton={false}>{t('Back to overview')}</Button>
+                  <Button onClick={props.onRetry} className='h-11'>
+                    {t('Reload profile')}
+                  </Button>
+                  <Button
+                    variant='outline'
+                    className='h-11'
+                    render={
+                      <Link
+                        to='/dashboard/$section'
+                        params={{ section: 'overview' }}
+                      />
+                    }
+                    nativeButton={false}
+                  >
+                    {t('Back to overview')}
+                  </Button>
                 </div>
-                <p className='text-muted-foreground mt-2 text-sm'>{t('Other pages are still available.')}</p>
+                <p className='text-muted-foreground mt-2 text-sm'>
+                  {t('Other pages are still available.')}
+                </p>
               </CardContent>
             </Card>
           )}
           {props.loading && (
-            <div role='status' aria-label={t('Loading profile')} className='grid gap-5 md:grid-cols-[1.4fr_1fr]'>
+            <div
+              role='status'
+              aria-label={t('Loading profile')}
+              className='grid gap-5 md:grid-cols-[1.4fr_1fr]'
+            >
               <Skeleton className='h-80 rounded-xl' />
               <Skeleton className='h-80 rounded-xl' />
               <span className='sr-only'>{t('Loading profile')}</span>
@@ -69,50 +101,134 @@ export function PersonalProfile(props: PersonalProfileProps) {
           {!props.loading && !props.error && props.profile && (
             <>
               <div className='grid gap-5 lg:grid-cols-[1.45fr_1fr]'>
-                <Card className='border border-border bg-card py-6 shadow-none ring-0'>
-                  <CardHeader className='px-5 sm:px-6'><CardTitle><h2 className='text-lg'>{t('Identity')}</h2></CardTitle></CardHeader>
+                <Card className='border-border bg-card border py-6 shadow-none ring-0'>
+                  <CardHeader className='px-5 sm:px-6'>
+                    <CardTitle>
+                      <h2 className='text-lg'>{t('Identity')}</h2>
+                    </CardTitle>
+                  </CardHeader>
                   <CardContent className='px-5 sm:px-6'>
                     <div className='mb-6 flex min-w-0 items-center gap-4'>
-                      <div aria-hidden='true' className='flex size-16 shrink-0 items-center justify-center rounded-full bg-accent text-2xl font-semibold text-primary sm:size-20'>{name.slice(0, 1).toUpperCase()}</div>
+                      <div
+                        aria-hidden='true'
+                        className='bg-accent text-primary flex size-16 shrink-0 items-center justify-center rounded-full text-2xl font-semibold sm:size-20'
+                      >
+                        {name.slice(0, 1).toUpperCase()}
+                      </div>
                       <div className='min-w-0 space-y-2'>
-                        <div className='flex flex-wrap items-center gap-2'><h3 className='break-words text-lg font-semibold'>{name}</h3><Badge variant='secondary'>{t('Console maintainer')}</Badge></div>
-                        <p className='text-muted-foreground text-sm leading-6'>{t('Only you manage the console. Others use API Keys.')}</p>
+                        <div className='flex flex-wrap items-center gap-2'>
+                          <h3 className='text-lg font-semibold break-words'>
+                            {name}
+                          </h3>
+                          <Badge variant='secondary'>
+                            {t('Console maintainer')}
+                          </Badge>
+                        </div>
+                        <p className='text-muted-foreground text-sm leading-6'>
+                          {t(
+                            'Only you manage the console. Others use API Keys.'
+                          )}
+                        </p>
                       </div>
                     </div>
                     <Separator />
                     <dl className='text-sm sm:text-base'>
-                      <div className='grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-4 py-5'><dt>{t('Display Name')}</dt><dd className='text-muted-foreground break-words'>{name}</dd></div>
+                      <div className='grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-4 py-5'>
+                        <dt>{t('Display Name')}</dt>
+                        <dd className='text-muted-foreground break-words'>
+                          {name}
+                        </dd>
+                      </div>
                       <Separator />
-                      <div className='grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-4 pt-5'><dt>{t('Management scope')}</dt><dd className='text-muted-foreground'>{t('Only me')}</dd></div>
+                      <div className='grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-4 pt-5'>
+                        <dt>{t('Management scope')}</dt>
+                        <dd className='text-muted-foreground'>
+                          {t('Only me')}
+                        </dd>
+                      </div>
                     </dl>
                   </CardContent>
                 </Card>
-                <Card className='border border-border bg-card py-6 shadow-none ring-0'>
-                  <CardHeader className='px-5 sm:px-6'><CardTitle><h2 className='text-lg'>{t('Interface preferences')}</h2></CardTitle></CardHeader>
+                <Card className='border-border bg-card border py-6 shadow-none ring-0'>
+                  <CardHeader className='px-5 sm:px-6'>
+                    <CardTitle>
+                      <h2 className='text-lg'>{t('Interface preferences')}</h2>
+                    </CardTitle>
+                  </CardHeader>
                   <CardContent className='px-5 sm:px-6'>
                     <Separator />
-                    <LanguagePreferencesCard profile={props.profile} onProfileUpdate={props.onRefresh} compact />
+                    <LanguagePreferencesCard
+                      profile={props.profile}
+                      onProfileUpdate={props.onRefresh}
+                      compact
+                    />
                     <Separator />
-                    <div className='flex flex-wrap items-center justify-between gap-3 py-5 text-sm'><span className='flex items-center gap-3'><Clock3 aria-hidden='true' className='size-5 text-primary' />{t('Time')}</span><span className='text-muted-foreground'>{t('Local time')}</span></div>
+                    <div className='flex flex-wrap items-center justify-between gap-3 py-5 text-sm'>
+                      <span className='flex items-center gap-3'>
+                        <Clock3
+                          aria-hidden='true'
+                          className='text-primary size-5'
+                        />
+                        {t('Time')}
+                      </span>
+                      <span className='text-muted-foreground'>
+                        {t('Local time')}
+                      </span>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
-              <Card className='border border-border bg-card py-6 shadow-none ring-0'>
-                <CardHeader className='px-5 sm:px-6'><CardTitle><h2 className='text-lg'>{t('Login and security')}</h2></CardTitle></CardHeader>
+              <Card className='border-border bg-card border py-6 shadow-none ring-0'>
+                <CardHeader className='px-5 sm:px-6'>
+                  <CardTitle>
+                    <h2 className='text-lg'>{t('Login and security')}</h2>
+                  </CardTitle>
+                </CardHeader>
                 <CardContent className='px-5 sm:px-6'>
                   <Separator />
-                  <button type='button' aria-expanded={securityOpen} aria-controls='personal-security-settings' onClick={() => setSecurityOpen(!securityOpen)} className='flex w-full items-center gap-4 rounded-md pt-5 text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary'>
-                    <ShieldCheck aria-hidden='true' className='size-9 shrink-0 text-primary' />
-                    <span className='min-w-0 flex-1'><span className='block font-medium'>{t('Manage login methods')}</span><span className='text-muted-foreground mt-1 block text-sm'>{t('Configure your login methods and keep your account secure.')}</span></span>
-                    <ChevronRight aria-hidden='true' className='size-5 shrink-0 text-muted-foreground' />
+                  <button
+                    type='button'
+                    aria-expanded={securityOpen}
+                    aria-controls='personal-security-settings'
+                    onClick={() => setSecurityOpen(!securityOpen)}
+                    className='focus-visible:outline-primary flex w-full items-center gap-4 rounded-md pt-5 text-left focus-visible:outline-2 focus-visible:outline-offset-4'
+                  >
+                    <ShieldCheck
+                      aria-hidden='true'
+                      className='text-primary size-9 shrink-0'
+                    />
+                    <span className='min-w-0 flex-1'>
+                      <span className='block font-medium'>
+                        {t('Manage login methods')}
+                      </span>
+                      <span className='text-muted-foreground mt-1 block text-sm'>
+                        {t(
+                          'Configure your login methods and keep your account secure.'
+                        )}
+                      </span>
+                    </span>
+                    <ChevronRight
+                      aria-hidden='true'
+                      className='text-muted-foreground size-5 shrink-0'
+                    />
                   </button>
                 </CardContent>
               </Card>
               {securityOpen && (
                 <div id='personal-security-settings' className='space-y-5'>
-                  <ProfileSettingsCard profile={props.profile} loading={false} onProfileUpdate={props.onRefresh} />
-                  <ProfileSecurityCard profile={props.profile} loading={false} />
-                  <div className='grid items-start gap-5 lg:grid-cols-2'><PasskeyCard loading={false} /><TwoFACard loading={false} /></div>
+                  <ProfileSettingsCard
+                    profile={props.profile}
+                    loading={false}
+                    onProfileUpdate={props.onRefresh}
+                  />
+                  <ProfileSecurityCard
+                    profile={props.profile}
+                    loading={false}
+                  />
+                  <div className='grid items-start gap-5 lg:grid-cols-2'>
+                    <PasskeyCard loading={false} />
+                    <TwoFACard loading={false} />
+                  </div>
                   <LoginSessionsCard />
                 </div>
               )}

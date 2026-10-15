@@ -21,6 +21,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { Field, FieldLabel } from '@/components/ui/field'
 import {
   Select,
   SelectContent,
@@ -29,7 +30,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Field, FieldLabel } from '@/components/ui/field'
 import { TitledCard } from '@/components/ui/titled-card'
 import {
   AVAILABLE_INTERFACE_LANGUAGE_OPTIONS,
@@ -107,31 +107,51 @@ export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
   const languageSelect = (
     <div className='flex min-w-0 items-center gap-2'>
       <Select
-        items={AVAILABLE_INTERFACE_LANGUAGE_OPTIONS.map((language) => ({ value: language.code, label: language.label }))}
+        items={AVAILABLE_INTERFACE_LANGUAGE_OPTIONS.map((language) => ({
+          value: language.code,
+          label: language.label,
+        }))}
         value={currentLanguage}
         onValueChange={handleLanguageChange}
         disabled={saving}
       >
-        <SelectTrigger id='profile-interface-language' aria-label={t('Interface Language')} className='w-full min-w-0 sm:w-48'>
+        <SelectTrigger
+          id='profile-interface-language'
+          aria-label={t('Interface Language')}
+          className='w-full min-w-0 sm:w-48'
+        >
           <SelectValue placeholder={t('Select language')} />
         </SelectTrigger>
         <SelectContent alignItemWithTrigger={false}>
           <SelectGroup>
             {AVAILABLE_INTERFACE_LANGUAGE_OPTIONS.map((language) => (
-              <SelectItem key={language.code} value={language.code}>{language.label}</SelectItem>
+              <SelectItem key={language.code} value={language.code}>
+                {language.label}
+              </SelectItem>
             ))}
           </SelectGroup>
         </SelectContent>
       </Select>
-      {saving && <Loader2 aria-label={t('Saving...')} className='size-4 shrink-0 animate-spin' />}
+      {saving && (
+        <Loader2
+          aria-label={t('Saving...')}
+          className='size-4 shrink-0 animate-spin'
+        />
+      )}
     </div>
   )
 
   if (props.compact) {
     return (
-      <Field orientation='horizontal' className='flex-wrap justify-between gap-3 py-4'>
-        <FieldLabel htmlFor='profile-interface-language' className='flex shrink-0 items-center gap-3'>
-          <Languages aria-hidden='true' className='size-5 text-primary' />
+      <Field
+        orientation='horizontal'
+        className='flex-wrap justify-between gap-3 py-4'
+      >
+        <FieldLabel
+          htmlFor='profile-interface-language'
+          className='flex shrink-0 items-center gap-3'
+        >
+          <Languages aria-hidden='true' className='text-primary size-5' />
           {t('Language')}
         </FieldLabel>
         {languageSelect}
