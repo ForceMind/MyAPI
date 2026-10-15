@@ -41,4 +41,10 @@
 
 首轮源码 `80594a49216400afa215f468b9363ac2d9c24e20` 已同步 Draft PR #17，普通CI `38743485122` 启动。生产构建成功；typecheck发现新外壳固定URL未按TanStack动态路由声明、只读数组传入可变导航类型，以及3个fixture/测试API类型问题，均按错误逐项修正。保留失败日志 `/tmp/myapi-console-80594a4-frontend.log`，不以语法解析代替类型检查。分发合同亦失败，正在定位。历史数据与生产未操作。
 
-修订验证：使用项目固定oxfmt 0.57.0和oxlint 1.72.0轻量工具整理涉及文件（保留原版权头），未安装完整前端/浏览器依赖。42个涉及TS/TSX文件lint通过；模板候选版本定向CLI测试在正常子进程权限下通过。第一次本机完整CLI测试在受限沙箱仅返回文件级失败、无具体用例证据，保留 `/tmp/myapi-console-cli-tests.tap`，不作通过结论。部署模板已统一beta.15且保留未发布说明；新增RELEASE_BETA_15.md。综合浏览器独审补强输入/输出Token各自Unknown、fixture时钟及准确CI SHA，分工明确覆盖五个页面。
+修订验证：使用项目固定oxfmt 0.57.0和oxlint 1.72.0轻量工具整理涉及文件（保留原版权头），未安装完整前端/浏览器依赖。40个涉及TS/TSX文件lint通过（另2个CSS已格式化）；模板候选版本定向CLI测试在正常子进程权限下通过。第一次本机完整CLI测试在受限沙箱仅返回文件级失败、无具体用例证据，保留 `/tmp/myapi-console-cli-tests.tap`，不作通过结论。部署模板已统一beta.15且保留未发布说明；新增RELEASE_BETA_15.md。综合浏览器独审补强输入/输出Token各自Unknown、fixture时钟及准确CI SHA，分工明确覆盖五个页面。
+
+第二轮e91fbc9：普通CI `38744477080` 的构建、typecheck、全局lint通过，Vitest运行中。已回读CI生成路由，唯一语义新增为/upstream-accounts，复制生成产物供仓库同步。分发检查已通过先前CLI候选版本合同，后在npm包体积门槛失败（55,325,291 > 52,428,800字节），原因是本批纳入Git的设计PNG/PDF被源代码包docs规则一起打包；准备排除仅设计/原型二进制审阅资产，仍保留Git设计依据，不放宽体积上限。
+
+第二轮Vitest实际结果：219文件中216通过、3失败；1363项中1359通过、4失败，并有一项新外壳测试缺少jsdom动画API的未处理异常。四失败均为新增测试定位（BaseUI实际button角色、预览重复百分比文本），按用户可见角色及有业务含义的dl行定向修订；动画API仅在该测试fixture补齐并恢复。未改生产行为制造通过，等待新CI。
+
+npm真实dry-run回读：新增docs/.npmignore仅排除design/prototypes的PNG/PDF，包体积33,066,970字节、审阅二进制0项，原50MiB上限保持。设计资产仍保留Git。已下载CI可运行构建；CI合并引用db37cac与e91文件树同为462a8b5，未合并main。loopback4173已启动只读合成预览（/tmp/myapi-console-preview.mjs），GET状态回读disabled；不运行Go、不触及数据库/凭据。

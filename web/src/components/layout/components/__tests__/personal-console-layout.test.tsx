@@ -8,12 +8,32 @@ import { useAuthStore } from '@/stores/auth-store'
 import { PersonalConsoleLayout } from '../personal-console-layout'
 import { renderShellRoute } from './shell-test-utils'
 
+const originalGetAnimations = Object.getOwnPropertyDescriptor(
+  HTMLElement.prototype,
+  'getAnimations'
+)
+
 beforeEach(() => {
+  Object.defineProperty(HTMLElement.prototype, 'getAnimations', {
+    configurable: true,
+    value: () => [],
+  })
   useAuthStore
     .getState()
     .auth.setUser({ id: 1, username: 'maintainer', role: ROLE.SUPER_ADMIN })
 })
-afterEach(() => useAuthStore.getState().auth.reset('idle'))
+afterEach(() => {
+  useAuthStore.getState().auth.reset('idle')
+  if (originalGetAnimations) {
+    Object.defineProperty(
+      HTMLElement.prototype,
+      'getAnimations',
+      originalGetAnimations
+    )
+  } else {
+    Reflect.deleteProperty(HTMLElement.prototype, 'getAnimations')
+  }
+})
 
 test('overview keeps four core destinations and marks the current page in both navigations', async () => {
   await renderShellRoute(

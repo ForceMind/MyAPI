@@ -117,7 +117,9 @@ describe('personal profile', () => {
     retry.focus()
     await user.keyboard('{Enter}')
     expect(onRetry).toHaveBeenCalledOnce()
-    await user.click(screen.getByRole('link', { name: 'Back to overview' }))
+    const overview = screen.getByRole('button', { name: 'Back to overview' })
+    expect(overview).toHaveAttribute('href', '/dashboard/overview')
+    await user.click(overview)
     expect(
       await screen.findByRole('heading', { name: 'Overview' })
     ).toBeInTheDocument()

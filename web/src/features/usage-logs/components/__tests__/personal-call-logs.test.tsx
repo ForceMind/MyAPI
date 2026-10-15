@@ -124,8 +124,8 @@ describe('personal call list and detail', () => {
     expect(within(detail).getByText('Usage not provided')).toBeInTheDocument()
     expect(within(detail).getAllByText('Unknown')).toHaveLength(4)
     expect(
-      within(detail).getByRole('link', { name: 'View this Key' })
-    ).toHaveAttribute('href', expect.stringContaining('filter=desktop-key'))
+      within(detail).getByRole('button', { name: 'View this Key' })
+    ).toHaveAttribute('href', '/keys?filter=desktop-key')
     expect(screen.queryByText('Current Balance')).not.toBeInTheDocument()
     expect(screen.queryByText('Usage pending review')).not.toBeInTheDocument()
     expect(String(get.mock.calls[0][0])).toContain('/api/log/self?')
