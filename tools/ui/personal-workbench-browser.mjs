@@ -534,6 +534,10 @@ async function createSession(scenario) {
     external: [],
     violations: [],
     pageErrors: [],
+    pageErrorKinds: [],
+    responses: [],
+    requestFailures: [],
+    fixtureResponses: [],
   }
   const context = await browser.newContext({
     viewport: { width: scenario.width, height: mobile ? 1100 : 900 },
@@ -624,6 +628,7 @@ async function createSession(scenario) {
       reads
     )
     if (response.violation) audit.violations.push(response.violation)
+    audit.fixtureResponses.push({ method: request.method(), path, status: response.status || 501 })
     return route.fulfill({
       status: response.status || 501,
       json:
@@ -640,7 +645,22 @@ async function createSession(scenario) {
   const page = await context.newPage()
   page.setDefaultTimeout(20000)
   await page.clock.setFixedTime(new Date(FIXTURE_TIME))
-  page.on('pageerror', (error) => audit.pageErrors.push(error.message))
+  page.on('pageerror', (error) => {
+    audit.pageErrors.push(error.message)
+    audit.pageErrorKinds.push(['TypeError', 'SyntaxError', 'ReferenceError', 'RangeError', 'Error'].includes(error.name) ? error.name : 'other')
+  })
+  page.on('response', (response) => {
+    const url = new URL(response.url())
+    if (url.origin === origin && (url.pathname.startsWith('/api/') || url.pathname.startsWith('/pg/'))) {
+      audit.responses.push({ method: response.request().method(), path: url.pathname.replace(/\/$/, ''), status: response.status() })
+    }
+  })
+  page.on('requestfailed', (request) => {
+    const url = new URL(request.url())
+    if (url.origin !== origin || (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/pg/'))) return
+    const reason = request.failure()?.errorText || ''
+    audit.requestFailures.push({ method: request.method(), path: url.pathname.replace(/\/$/, ''), kind: /aborted/i.test(reason) ? 'aborted' : /blocked/i.test(reason) ? 'blocked' : 'other' })
+  })
   return { page, context, reads, audit }
 }
 
@@ -793,7 +813,56 @@ async function runJourney(scenario, work) {
     assert.equal(await session.page.getByText(SECRET_SENTINEL).count(), 0, 'No Key secret is rendered')
     journey.reads = Object.fromEntries(session.reads)
     journey.result = 'passed'
-  } catch (error) { journey.result = 'failed'; journey.error = error.stack || String(error); throw error }
+  } catch (error) {
+    journey.result = 'failed'
+    journey.error = error.stack || String(error)
+    journey.reads = Object.fromEntries(session.reads)
+    const prefix = `${scenario.name}-failed-page`
+    const evidence = {
+      sourceHead, journey: scenario.name,
+      reads: journey.reads,
+      responses: session.audit.responses,
+      fixtureResponses: session.audit.fixtureResponses,
+      requestFailures: session.audit.requestFailures,
+      pageErrors: { count: session.audit.pageErrors.length, kinds: session.audit.pageErrorKinds },
+      violations: session.audit.violations.length,
+      mutations: session.audit.mutations.length,
+      externalRequests: session.audit.external.length,
+    }
+    try {
+      const url = new URL(session.page.url())
+      evidence.finalUrl = url.origin === origin ? `${url.origin}${url.pathname}` : 'outside-scope'
+      evidence.states = {}
+      const states = {
+        loading: session.page.getByRole('status', { name: tr('Loading upstream accounts', scenario.language), exact: true }),
+        permissionError: session.page.getByText(tr('Unable to confirm channel permissions', scenario.language), { exact: true }),
+        permissionDenied: session.page.getByText(tr('Channel read permission is required to view upstream account windows.', scenario.language), { exact: true }),
+        accountsError: session.page.getByTestId('accounts-error-state'),
+        empty: session.page.getByTestId('accounts-empty-state'),
+        upstream: session.page.getByTestId('personal-upstream'),
+        overview: session.page.getByTestId('personal-workbench'),
+      }
+      for (const [name, locator] of Object.entries(states)) evidence.states[name] = await locator.first().isVisible()
+      evidence.render = await session.page.evaluate(() => ({
+        readyState: document.readyState,
+        hidden: document.hidden,
+        viewport: innerWidth,
+        documentWidth: document.documentElement.scrollWidth,
+        windows: [...document.querySelectorAll('[data-testid="native-window-card"]')].map((element) => {
+          const box = element.getBoundingClientRect()
+          return { visible: element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }), left: box.left, right: box.right, top: box.top, bottom: box.bottom }
+        }),
+      }))
+      await session.page.screenshot({ path: resolve(output, `${prefix}.png`), fullPage: true, animations: 'disabled', mask: [session.page.locator('input, textarea'), session.page.getByText(SECRET_SENTINEL)] })
+      evidence.image = `${prefix}.png`
+    } catch {
+      evidence.captureFailed = true
+    }
+    writeFileSync(resolve(output, `${prefix}.json`), JSON.stringify(evidence, null, 2))
+    report.diagnostics.push({ journey: scenario.name, image: evidence.image || null, evidence: `${prefix}.json` })
+    persist()
+    throw error
+  }
   finally { report.journeys.push(journey); persist(); await session.context.close(); contexts.delete(session.context) }
 }
 

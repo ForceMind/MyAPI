@@ -94,3 +94,7 @@ e837真实应用 `38761929914` 全部success：legacy及authoritative两writer�
 新增交付记录 `PERSONAL_CONSOLE_DELIVERY_20261015.md` 整理准确路由/API与数据边界；docs/.npmignore排除证据PNG而保留Git截图。真实npm pack dry-run 31,472,733字节，小于原50MiB限值，审阅二进制0项。下一CI将单元原始输出在浏览器之前上传以便及时定位，pipefail保留原失败退出。七语同步缺失0、驱动语法和diff检查通过；两份用户已有文档及未选视觉稿保持不暂存。
 
 e837普通CI最终后端及其它9项作业均success，前端失败。已从完成job116515173096直接读原始日志（无需等待其它作业）；Vitest220文件/1382项中仅分额首个输入Enter提交回归失败，其余1381通过，外置按钮点击及未知结果焦点/reload全部通过。定位手机把唯一submit移出form后，输入隐式Enter不提交；以一个原生form包住左编辑卡、预览与手机动作恢复合同，保留Enter断言并新增未确认/保存中不能写的行为覆盖；Driver手机用真实Enter且仍严格1写，桌面保持点击。旧兼容6脚本中profile/stability/setup/personal-status/playground均通过，generic32旅程只有缺chat恢复仍等待旧Overview标题失败；改用实际Your API workspace，保持恢复过程不读宽Key/明文、不外跳的断言。新结构及定位待新CI。
+
+bc995a9普通CI `38765438597`：build/type/lint通过；Vitest220文件1386项中1385通过，原Enter回归通过；新pending重复Enter回归因Spinner的Loading可访问名称使精确Saving...定位失败，现仅改该测试取得同一Save按钮并断言保存文字/禁用，原1写/重复Enter/close1次均保留，生产未为测试改变。新个人截图提前下载：console16旅程/60图全过，share28旅程全过，七语手机实际Enter=1写且新Save/Cancel动作几何通过；独立打开7图复核主卡窗口翻译、完整Key名、预览→动作与底栏关系，可见范围无P1/P2。38项浅色状态文字实际对比度最低5.3499，通过AA；dark尚未采样。
+
+bc995概览/上游前12旅程通过，vi320等两个真实窗口20秒失败，不能认定是等待不足或已确认根因。harness现保存失败截图与无敏感诊断，包含self/quota交付/实际响应、取消固定分类、可见状态和错误种类，原错误重抛。另源码确认HTTP GET去重未区分AbortSignal，C1取消但finally未清理时C2可能复用其待拒绝promise；只给两个人页面共享hook的signal-owned quota读设置disableDuplicate:true，不改全局client/权限/重试。新增真实hook+HTTPclient+可控Axiosadapter的C1取消/C2重挂回归，要求C2独立返回两个窗口。该回归待CI，不据源码推定bc995失败已确因。新代码与诊断语法、格式及diff检查通过，准备统一同步。

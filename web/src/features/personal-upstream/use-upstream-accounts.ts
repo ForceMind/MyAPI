@@ -37,7 +37,9 @@ export function useUpstreamAccounts() {
     queryFn: async ({ signal }) => {
       const response = await getChannelQuotaChanges(
         { range: '24h', limit: 100, sort: 'observed_desc' },
-        { signal }
+        // This observer owns cancellation. A remount must not reuse another
+        // observer's aborted HTTP promise while its rejection is still pending.
+        { signal, disableDuplicate: true }
       )
       if (
         !response.success ||

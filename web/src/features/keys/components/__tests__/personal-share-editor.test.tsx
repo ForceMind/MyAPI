@@ -371,11 +371,13 @@ test('Enter while a mobile share save is pending never submits a second write', 
   const close = renderEditor()
   await selectWindow(user)
   await confirmApproximation(user)
+  const save = screen.getByRole('button', { name: 'Save changes' })
   await user.click(screen.getByLabelText('Share of total window'))
   await user.keyboard('{Enter}')
-  expect(
-    await screen.findByRole('button', { name: 'Saving...' })
-  ).toBeDisabled()
+  await waitFor(() => {
+    expect(save).toHaveTextContent('Saving...')
+    expect(save).toBeDisabled()
+  })
   expect(screen.getByLabelText('Share of total window')).toBeDisabled()
   expect(api.put).toHaveBeenCalledOnce()
   await user.keyboard('{Enter}{Enter}')
