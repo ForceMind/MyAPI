@@ -220,7 +220,7 @@ try {
       releasePost()
       if (scenario === 'stalled-post') {
         await obsoletePostFinished
-        await page.getByRole('heading', { name: 'Synthetic UI operator', level: 2 }).waitFor()
+        await page.getByRole('heading', { name: 'Synthetic UI operator', level: 3 }).waitFor()
         assert.equal(new URL(page.url()).pathname.replace(/\/$/, ''), '/profile')
         assert.equal(submits, 1)
       }

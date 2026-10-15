@@ -74,3 +74,13 @@ shared UI执行调整为逐脚本收集全部结果并保留任一失败的非�
 7cc23ee普通CI `38752321998`：build/type/lint通过，220文件1379项Vitest中1378通过、1失败。失败揭示真实门控循环：self完成后Settings新status observer重试失败查询，error→pending→error使useProfile反复取消/再读并卸载身份。Profile现在仅初始等待模式解析，一旦confirmed/error获准便保持至离页；独审通过，四mode原身份/通知断言保留并增加读取1次及身份持续存在检查。浏览器依赖也改为只要production build成功即执行，单元失败仍保留失败结论，但不再阻止后续截图证据。
 
 7cc23ee真实应用 `38752335168`：authoritative全程success，准确revision/Root-owner角色、14张遮敏截图、5次真实UI请求及拒绝无额外上游、精确日志/计数/刷新均完成；主已打开桌面日志和手机Keys实图。legacy首次ledger-check的LOG_MISMATCH未有字段细分，不称已确认根因。源码确认日志Count/Find分读可出现total0/items1，旧Driver已用Node稳定复现失败；现在只允许精确request/owner/Key/model/charge/Token/source/遮敏匹配的唯一行在原10秒内只读重读，最终仍必须1/1。其他错配立即失败，新固定分类/数值掩码不输出原始数据。含越界/错误/截止时间的Node合同162/162通过；真实legacy重验待新源码。LAN与合成handoff本轮均通过，仍无生产操作。
+
+485af8c普通CI `38754588123`：build/type/lint及220文件1379项Vitest全过，quota/routing/access通过。综合脚本已全部执行并上传约34MB实图：profile全部9个加载/超时/认证恢复journey通过（stalled-bootstrap严格self1次）；稳定性/个人状态与28个七语言分额journey通过；综合profile/logs前12个en/zh/zh-TW/fr/ja/ru手机桌面journey通过，vi320卡片溢出失败，390/1440尚未执行。workbench首个en320卡片溢出失败，截图前断言导致没有该页图；不声称概览/上游实图完成。
+
+主实际打开资料桌面/法语320、手机Unknown Token下半卡及分额桌面图；非实现者亦打开5张资料/日志图独审，可见区域无新增P1/P2，缺usage仍成功、Token未知、手机查看Key按钮位于底栏上方、失败恢复可见。发现Language漏key已复用既有Interface Language；vi身份Badge允许多行/卡片min-width0；概览窗口按钮补max-width100%而不裁切内容。两专属harness保留裁切阈值并在失败时先保存截图/无文本几何；workbench只排不渲染或零矩形，未排除纵向视口外内容。
+
+独立实图审查Key列表桌面/320通过可见范围；分额自查补2处已批准设计差距：完整选中账号/人类可读窗口描述可换行且关联可访问说明，手机动作放预览之后、桌面仍在左表单，只有一组且保留Enter/单次提交。未知/CAS状态提示滚入视口并聚焦，原输入和禁用保存保留，Tab/Enter只允许手动reload。增加3项回归并扩充原未知状态焦点断言；没有新增locale key。个人日志计数改用既有“本页结果：数量”，避免英文1 calls。
+
+旧驱动3处定位/模式修正：安装末段资料heading3；Playground旧元数据详情明确commercialShell，保留完整Key/owner/request/usage断言；generic disabled历史和缺预设恢复明确personal模式及新外壳几何，继续禁止恢复过程读取宽Key对象/明文，并保留0充值和历史读取。个人console补实际点击查看Key、验证filter与返回日志流程。CI把3个个人页面脚本独立上传产物后再跑6个兼容脚本，各执行一次、任一失败仍失败，不重复构建。
+
+485af8c真实应用 `38754594246`：legacy全程success、14张遮敏图与准确revision已回读；authoritative第五次Root strict拒绝约29.6ms即时异常，非20秒超时，尚未确认是CDP正文读取还是消息定位。新增固定子分类，并按发送前数量定位本轮新增assistant，body不可读仍明确失败，不重放、不注入观察数据、不降级精确code/status/5POST/usage/CAS/预留断言。Node合同165/165通过，真实复验待下一源码。LAN/合成handoff本轮均success。0973fbf以来Go源码、go.mod/sum及VERSION无差异，完整后端结果继续有效。

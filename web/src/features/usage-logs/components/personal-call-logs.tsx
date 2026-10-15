@@ -224,9 +224,7 @@ function PersonalCallLogsSession(props: {
                     <h2 className='text-lg'>{t('Call list')}</h2>
                   </CardTitle>
                   <p className='text-muted-foreground text-sm'>
-                    {t('{{count}} calls on this page', {
-                      count: callLogs.length,
-                    })}
+                    {t('Results on this page')}: {callLogs.length}
                   </p>
                 </CardHeader>
                 <CardContent className='px-2 sm:px-3'>

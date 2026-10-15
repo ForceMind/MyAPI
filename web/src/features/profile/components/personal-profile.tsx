@@ -101,7 +101,7 @@ export function PersonalProfile(props: PersonalProfileProps) {
           {!props.loading && !props.error && props.profile && (
             <>
               <div className='grid gap-5 lg:grid-cols-[1.45fr_1fr]'>
-                <Card className='border-border bg-card border py-6 shadow-none ring-0'>
+                <Card className='border-border bg-card min-w-0 border py-6 shadow-none ring-0'>
                   <CardHeader className='px-5 sm:px-6'>
                     <CardTitle>
                       <h2 className='text-lg'>{t('Identity')}</h2>
@@ -120,7 +120,10 @@ export function PersonalProfile(props: PersonalProfileProps) {
                           <h3 className='text-lg font-semibold break-words'>
                             {name}
                           </h3>
-                          <Badge variant='secondary'>
+                          <Badge
+                            variant='secondary'
+                            className='h-auto max-w-full text-left break-words whitespace-normal'
+                          >
                             {t('Console maintainer')}
                           </Badge>
                         </div>
@@ -149,7 +152,7 @@ export function PersonalProfile(props: PersonalProfileProps) {
                     </dl>
                   </CardContent>
                 </Card>
-                <Card className='border-border bg-card border py-6 shadow-none ring-0'>
+                <Card className='border-border bg-card min-w-0 border py-6 shadow-none ring-0'>
                   <CardHeader className='px-5 sm:px-6'>
                     <CardTitle>
                       <h2 className='text-lg'>{t('Interface preferences')}</h2>
@@ -178,7 +181,7 @@ export function PersonalProfile(props: PersonalProfileProps) {
                   </CardContent>
                 </Card>
               </div>
-              <Card className='border-border bg-card border py-6 shadow-none ring-0'>
+              <Card className='border-border bg-card min-w-0 border py-6 shadow-none ring-0'>
                 <CardHeader className='px-5 sm:px-6'>
                   <CardTitle>
                     <h2 className='text-lg'>{t('Login and security')}</h2>

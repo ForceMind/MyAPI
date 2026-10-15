@@ -110,8 +110,25 @@ try {
         page.on('pageerror', error => report.errors.push(`${name}: ${error.message}`))
         page.on('console', message => { if (message.type() === 'error') report.errors.push(`${name}: ${message.text()}`) })
         await page.clock.setFixedTime(new Date(FIXTURE_TIME))
+        const screenshots = []
+        let capturedKeyList = false
+        let keyListGeometry
         const open = async () => {
           await page.goto(`${origin}/keys`, { waitUntil: 'networkidle' })
+          if (!capturedKeyList) {
+            const keyList = page.getByRole('main', { name: t('API Keys'), exact: true })
+            await keyList.waitFor({ state: 'visible' })
+            await keyList.getByRole('button', { name: t('Window share'), exact: true }).waitFor({ state: 'visible' })
+            keyListGeometry = await keyList.evaluate(element => {
+              const rect = element.getBoundingClientRect()
+              return { left: rect.left, right: rect.right, viewport: innerWidth, scrollWidth: element.scrollWidth, clientWidth: element.clientWidth, pageScrollWidth: document.documentElement.scrollWidth }
+            })
+            assert(keyListGeometry.left >= -1 && keyListGeometry.right <= width + 1 && keyListGeometry.scrollWidth <= keyListGeometry.clientWidth + 1 && keyListGeometry.pageScrollWidth <= width + 1, `${name}: Key list fits without horizontal clipping`)
+            const keyListImage = `${name}-key-list.png`
+            await page.screenshot({ path: resolve(output, keyListImage), animations: 'disabled' })
+            screenshots.push(keyListImage)
+            capturedKeyList = true
+          }
           await page.getByRole('button', { name: t('Window share'), exact: true }).last().click()
           if (role === 100) {
             const editor = page.getByRole('main', {name: t('Adjust window share'), exact: true})
@@ -142,7 +159,7 @@ try {
         assert(geometry.left >= -1 && geometry.right <= width + 1 && geometry.scrollWidth <= geometry.clientWidth + 1, `${name}: dialog fits without horizontal clipping`)
         const poolImage = `${name}-pool.png`
         await page.screenshot({ path: resolve(output, poolImage), animations: 'disabled' })
-        const screenshots = [topImage, poolImage]
+        screenshots.push(topImage, poolImage)
         if (role === 100) {
           await target.fill('25')
           const save = dialog.getByRole('button', { name: t('Save changes'), exact: true })
@@ -181,7 +198,7 @@ try {
           assert(!(await dialog.innerText()).includes('Synthetic share account'), 'Private channel notes are absent')
         }
         assert.deepEqual(unexpected, [])
-        report.journeys.push({ name, language, width, role, buildRevision: revision, writes: writes.length, closes: closes.length, existingMenuKeyReads, geometry, screenshots, passed: true })
+        report.journeys.push({ name, language, width, role, buildRevision: revision, writes: writes.length, closes: closes.length, existingMenuKeyReads, keyListGeometry, geometry, screenshots, passed: true })
         await context.close()
       }
     }

@@ -117,7 +117,7 @@ async function open(page, path, { shell = true, title, headingLevel = 1, expecte
   await page.goto(`${origin}${path}`, { waitUntil: 'networkidle' })
   if (expectedPath) await page.waitForURL(url => url.pathname.replace(/\/$/, '') === expectedPath.replace(/\/$/, ''))
   if (shell) {
-    await page.locator('[data-myapi-shell="authenticated"]').waitFor()
+    await page.locator(`[data-myapi-shell="${shell === 'personal' ? 'personal' : 'authenticated'}"]`).waitFor()
     await page.locator('main#content').waitFor()
     await page.locator(`main#content h${headingLevel}`).first().waitFor()
   }
@@ -138,10 +138,11 @@ async function screenshot(page, name, { shell = true, touch = false, headingLeve
     const title = main?.querySelector(`h${headingLevel}`)
     const controls = authenticated ? [...header.querySelectorAll('button')].filter(element => element.getBoundingClientRect().width > 0).map(element => ({ name: element.getAttribute('aria-label') || element.textContent, ...rect(element) })) : []
     const actions = authenticated ? [...document.querySelectorAll('.myapi-page-actions button')].filter(element => element.getBoundingClientRect().width > 0).map(element => ({ name: element.getAttribute('aria-label') || element.textContent, text: element.innerText.trim(), ...rect(element), whiteSpace: getComputedStyle(element).whiteSpace })) : []
-    return { viewport: { width: innerWidth, height: innerHeight }, documentWidth: document.documentElement.scrollWidth, coarsePointer: matchMedia('(pointer: coarse)').matches, header: rect(header), main: rect(main), title: rect(title), controls, actions, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light' }
-  }, { authenticated: shell, headingLevel })
+    const personalNavigation = [...document.querySelectorAll('[data-myapi-shell="personal"] nav')].find(element => element.getBoundingClientRect().width > 0 && element.getBoundingClientRect().height > 0)
+    return { viewport: { width: innerWidth, height: innerHeight }, documentWidth: document.documentElement.scrollWidth, coarsePointer: matchMedia('(pointer: coarse)').matches, header: rect(header), main: rect(main), title: rect(title), controls, actions, personalNavigation: rect(personalNavigation), theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light' }
+  }, { authenticated: shell === true, headingLevel })
   assert(geometry.documentWidth <= geometry.viewport.width + 1, `${name}: page-wide horizontal overflow: ${JSON.stringify(geometry)}`)
-  if (shell) {
+  if (shell === true) {
     assert(geometry.main && geometry.header && geometry.title, `${name}: authenticated semantic shell`)
     assert(geometry.main.y >= geometry.header.bottom - 1, `${name}: main is not covered by the actual header`)
     assert(geometry.main.x >= -1 && geometry.main.right <= geometry.viewport.width + 1, `${name}: main stays in the viewport`)
@@ -155,6 +156,11 @@ async function screenshot(page, name, { shell = true, touch = false, headingLeve
       for (const control of geometry.controls) assert(control.width >= 44 && control.height >= 44, `${name}: header touch target must be at least 44px in each dimension: ${JSON.stringify(control)}`)
       for (const action of geometry.actions) assert(action.height >= 44, `${name}: page action touch target must be at least 44px high: ${JSON.stringify(action)}`)
     }
+  } else if (shell === 'personal') {
+    assert(geometry.main && geometry.title && geometry.personalNavigation, `${name}: personal semantic shell`)
+    assert(geometry.main.x >= -1 && geometry.main.right <= geometry.viewport.width + 1 && geometry.main.height > 100, `${name}: personal main remains in viewport`)
+    assert(geometry.title.width > 0 && geometry.title.x >= geometry.main.x - 1 && geometry.title.right <= geometry.main.right + 1, `${name}: personal title is readable`)
+    assert(geometry.personalNavigation.x >= -1 && geometry.personalNavigation.right <= geometry.viewport.width + 1, `${name}: personal navigation remains visible`)
   }
   const file = `${name}.png`
   await page.screenshot({ path: resolve(output, file) })
@@ -366,14 +372,16 @@ try {
         }
       }
     }
-    await open(page, '/wallet', { title: label('Funding history') })
-    assert.equal(await page.locator('#wallet-add-funds').count(), 0, 'disabled commerce cannot expose top-up controls')
-    await page.getByRole('button', { name: label('Billing History'), exact: true }).click()
-    const history = page.getByRole('dialog')
+    const disabled = await session({ commercialShell: false })
+    await open(disabled.page, '/wallet', { shell: 'personal', title: label('Funding history') })
+    assert.equal(await disabled.page.locator('#wallet-add-funds').count(), 0, 'disabled commerce cannot expose top-up controls')
+    await disabled.page.getByRole('button', { name: label('Billing History'), exact: true }).click()
+    const history = disabled.page.getByRole('dialog')
     await history.getByText('synthetic-old-order', { exact: true }).waitFor()
-    await screenshot(page, 'disabled-commerce-preserves-history')
-    await page.keyboard.press('Escape')
+    await screenshot(disabled.page, 'disabled-commerce-preserves-history', { shell: 'personal' })
+    await disabled.page.keyboard.press('Escape')
     await history.waitFor({ state: 'hidden' })
+    await disabled.context.close(); contexts.delete(disabled.context)
   })
 
   await run('settings-deep-links', async () => {
@@ -931,21 +939,21 @@ try {
 
   await run('remaining-chat-missing-presets-and-recovery', async () => {
     for (const width of [320, 1280]) {
-      const { page, context } = await session({ role: 1, width })
+      const { page, context } = await session({ role: 1, width, commercialShell: false })
       const start = report.requests.length
       const externalStart = report.blockedExternal.length
       for (const path of ['/chat/0', '/chat2link']) {
         const chatStart = report.requests.length
         const headingLevel = path === '/chat/0' ? 2 : 1
-        await open(page, path, { title: label('Chat preset not found'), headingLevel, expectedPath: path })
+        await open(page, path, { shell: 'personal', title: label('Chat preset not found'), headingLevel, expectedPath: path })
         assert.equal(await page.locator('main#content iframe').count(), 0, 'missing presets never create a provider frame')
-        await screenshot(page, `${path === '/chat/0' ? 'chat-0' : 'chat2link'}-missing-${width}`, { headingLevel })
+        await screenshot(page, `${path === '/chat/0' ? 'chat-0' : 'chat2link'}-missing-${width}`, { shell: 'personal', headingLevel })
         assert.equal(report.requests.slice(chatStart).filter(request => request.path.replace(/\/$/, '') === '/api/token' || request.path === '/pg/keys' || isKeyRevealRequest(request)).length, 0, 'missing chat never retrieves a key list or secret before recovery navigation')
         await page.locator('main#content a[href="/dashboard"]').filter({ hasText: label('Return to dashboard') }).click()
         await page.waitForURL(`${origin}/dashboard/overview`)
         await page.getByRole('heading', { level: 1, name: label('Overview'), exact: true }).waitFor()
       }
-      await open(page, '/chat/not-an-integer', { title: label('Overview'), expectedPath: '/dashboard/overview' })
+      await open(page, '/chat/not-an-integer', { shell: 'personal', title: label('Overview'), expectedPath: '/dashboard/overview' })
       assert.equal(report.requests.slice(start).filter(request => isKeyRevealRequest(request) || /^\/api\/token(?:\/search|\/\d+)?\/?$/.test(request.path)).length, 0, 'recovery navigation never retrieves broad Key objects or an active key secret')
       assert.equal(report.blockedExternal.length, externalStart, 'missing/invalid chat cannot attempt external navigation')
       await context.close(); contexts.delete(context)

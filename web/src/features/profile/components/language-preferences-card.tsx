@@ -105,7 +105,7 @@ export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
   }
 
   const languageSelect = (
-    <div className='flex min-w-0 items-center gap-2'>
+    <div className='flex max-w-full min-w-0 items-center gap-2'>
       <Select
         items={AVAILABLE_INTERFACE_LANGUAGE_OPTIONS.map((language) => ({
           value: language.code,
@@ -118,7 +118,11 @@ export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
         <SelectTrigger
           id='profile-interface-language'
           aria-label={t('Interface Language')}
-          className='w-full min-w-0 sm:w-48'
+          className={
+            props.compact
+              ? 'w-full max-w-full min-w-0'
+              : 'w-full max-w-full min-w-0 sm:w-48'
+          }
         >
           <SelectValue placeholder={t('Select language')} />
         </SelectTrigger>
@@ -149,10 +153,13 @@ export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
       >
         <FieldLabel
           htmlFor='profile-interface-language'
-          className='flex shrink-0 items-center gap-3'
+          className='flex max-w-full min-w-0 shrink-0 items-center gap-3 whitespace-normal'
         >
-          <Languages aria-hidden='true' className='text-primary size-5' />
-          {t('Language')}
+          <Languages
+            aria-hidden='true'
+            className='text-primary size-5 shrink-0'
+          />
+          {t('Interface Language')}
         </FieldLabel>
         {languageSelect}
       </Field>

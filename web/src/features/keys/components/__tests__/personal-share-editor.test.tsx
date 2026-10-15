@@ -126,6 +126,7 @@ beforeEach(() => {
 afterEach(() => {
   client.clear()
   useAuthStore.setState(originalAuth)
+  vi.restoreAllMocks()
 })
 
 test('explicitly selecting an account and window previews 20 plus 50 as 70 and saves the existing Key', async () => {
@@ -268,11 +269,18 @@ test('an unknown save result locks the editor until a deliberate reload', async 
   await selectWindow(user)
   await confirmApproximation(user)
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
-  expect(
-    await screen.findByText('The save result is unknown or out of date')
-  ).toBeVisible()
+  const notice = await screen.findByRole('alert', {
+    name: 'The save result is unknown or out of date',
+  })
+  expect(notice).toBeVisible()
+  expect(notice).toHaveFocus()
+  expect(screen.getByLabelText('Share of total window')).toHaveValue('20')
   expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
-  await user.click(screen.getByRole('button', { name: 'Reload current state' }))
+  await user.tab()
+  expect(
+    screen.getByRole('button', { name: 'Reload current state' })
+  ).toHaveFocus()
+  await user.keyboard('{Enter}')
   await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2))
   expect(api.put).toHaveBeenCalledTimes(1)
   expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
@@ -310,4 +318,59 @@ test('advanced controls retain the existing pool closing and recovery interface'
   expect(
     within(dialog).getByRole('button', { name: 'Close pool' })
   ).toBeVisible()
+})
+
+test('mobile selection exposes the complete long account identity and a readable native window label', async () => {
+  const account =
+    'Subscription_account_for_international_research_with_distinguishing_suffix_A'
+  vi.mocked(api.get).mockResolvedValue(response({ channel_name: account }))
+  const user = userEvent.setup()
+  renderEditor()
+  await selectWindow(user)
+  expect(
+    screen.getByLabelText('Subscription account')
+  ).toHaveAccessibleDescription(`${account} · #9`)
+  expect(screen.getByText(`${account} · #9`, { selector: 'p' })).toBeVisible()
+  expect(
+    screen.getByLabelText('Choose one subscription window')
+  ).toHaveAccessibleDescription(/5 hours · Primary window · 5-hour window/)
+})
+
+test('mobile saving follows the allocation preview and submits the associated form once', async () => {
+  const user = userEvent.setup()
+  const close = renderEditor()
+  await selectWindow(user)
+  const preview = screen.getByRole('complementary', {
+    name: 'Allocation preview',
+  })
+  const save = screen.getByRole('button', { name: 'Save changes' })
+  expect(
+    Boolean(
+      preview.compareDocumentPosition(save) & Node.DOCUMENT_POSITION_FOLLOWING
+    )
+  ).toBe(true)
+  await confirmApproximation(user)
+  await user.click(save)
+  await waitFor(() => expect(close).toHaveBeenCalledOnce())
+  expect(api.put).toHaveBeenCalledOnce()
+})
+
+test('desktop saving remains in the form beside the allocation preview', async () => {
+  const originalMatchMedia = window.matchMedia
+  vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+    ...originalMatchMedia(query),
+    matches: query === '(min-width: 1280px)',
+  }))
+  renderEditor()
+  const save = await screen.findByRole('button', { name: 'Save changes' })
+  const form = screen.getByRole('form', { name: 'Adjust window share' })
+  const preview = screen.getByRole('complementary', {
+    name: 'Allocation preview',
+  })
+  expect(within(form).getByRole('button', { name: 'Save changes' })).toBe(save)
+  expect(
+    Boolean(
+      save.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING
+    )
+  ).toBe(true)
 })

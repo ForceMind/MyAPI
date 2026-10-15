@@ -24,6 +24,7 @@ const codes = new Set(['SCOPE_REJECTED', 'AUTH_UNAVAILABLE', 'BROWSER_FAILED', '
 const diagnosticCategories = new Set(['asset', 'auth', 'log', 'bootstrap'])
 const browserErrorClasses = new Set(['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'ChunkLoadError', 'ImportError', 'other'])
 const ledgerEvidenceKinds = new Set(['invalid-shape', 'not-ready', 'split-read', 'unexpected-count', 'field-mismatch'])
+const rejectionSteps = new Set(['body-read', 'body-unavailable', 'body-parse', 'invalid-json', 'protocol', 'assistant', 'alert', 'description', 'layout', 'terminal'])
 
 function diagnosticCategory(request, origin) {
   const url = new URL(request.url())
@@ -115,6 +116,8 @@ async function withBrowser(options, withUpstream, run) {
       ...(diagnosticCategories.has(diagnostic.category) ? { category: diagnostic.category } : {}),
       ...(browserErrorClasses.has(diagnostic.errorClass) ? { errorClass: diagnostic.errorClass } : {}),
       ...(ledgerEvidenceKinds.has(diagnostic.ledgerEvidence) ? { ledgerEvidence: diagnostic.ledgerEvidence } : {}),
+      ...(rejectionSteps.has(diagnostic.rejectionStep) ? { rejectionStep: diagnostic.rejectionStep } : {}),
+      ...(Number.isSafeInteger(diagnostic.bodyCharacters) && diagnostic.bodyCharacters >= 0 && diagnostic.bodyCharacters <= 128 * 1024 ? { bodyCharacters: diagnostic.bodyCharacters } : {}),
       ...(Number.isSafeInteger(diagnostic.total) && diagnostic.total >= 0 && diagnostic.total <= 10000 ? { total: diagnostic.total } : {}),
       ...(Number.isSafeInteger(diagnostic.rowCount) && diagnostic.rowCount >= 0 && diagnostic.rowCount <= 100 ? { rowCount: diagnostic.rowCount } : {}),
       ...(Number.isSafeInteger(diagnostic.attempt) && diagnostic.attempt >= 0 && diagnostic.attempt < 50 ? { attempt: diagnostic.attempt } : {}),
@@ -552,23 +555,43 @@ async function sendPlayground(session, key, expectedCode) {
     request.headers()['x-myapi-key-id'] === String(key.id), 'REQUEST_MISMATCH')
   const requestId = response.headers()['x-oneapi-request-id']
   requireThat(typeof requestId === 'string' && /^[A-Za-z0-9._:-]{1,160}$/.test(requestId), 'REQUEST_MISMATCH')
+  // The response can arrive before React attaches its new placeholder. Anchor
+  // the current turn by its append index, never by the previous last message.
+  const currentAssistant = assistants.nth(beforeAssistants)
   let terminal
   if (expectedCode) {
     session.scope.stage = 'playground-rejection'
-    const text = await bounded(session.scope, () => response.text())
+    requireThat(response.status() === (expectedCode === 'token_budget_unsupported_request' ? 400 : 403), 'RELAY_MISMATCH')
+    session.scope.diagnostic('rejection-evidence', { rejectionStep: 'body-read', httpStatus: response.status() })
+    let text
+    try { text = await bounded(session.scope, () => response.text()) } catch (error) {
+      session.scope.diagnostic('rejection-evidence', { rejectionStep: 'body-unavailable', httpStatus: response.status(),
+        errorClass: browserErrorClass(error?.name, error?.message) })
+      throw error
+    }
     requireThat(text.length <= 128 * 1024, 'RELAY_MISMATCH')
-    const payload = JSON.parse(text)
-    requireThat(response.status() === (expectedCode === 'token_budget_unsupported_request' ? 400 : 403) &&
-      payload?.error?.code === expectedCode && typeof payload.error.message === 'string' &&
+    session.scope.diagnostic('rejection-evidence', { rejectionStep: 'body-parse', bodyCharacters: text.length })
+    let payload
+    try { payload = JSON.parse(text) } catch {
+      session.scope.diagnostic('rejection-evidence', { rejectionStep: 'invalid-json', bodyCharacters: text.length })
+      throw new Error('SMOKE_PERSONAL_RELAY_MISMATCH')
+    }
+    session.scope.diagnostic('rejection-evidence', { rejectionStep: 'protocol' })
+    requireThat(payload?.error?.code === expectedCode && typeof payload.error.message === 'string' &&
       payload.error.message.length > 0 && payload.error.message.length <= 16 * 1024, 'RELAY_MISMATCH')
     const displayError = expectedCode === 'token_budget_unsupported_request'
       ? session.label("This request does not meet the selected key's strict budget requirements. Use a compatible API client or choose another key.")
       : payload.error.message
     const presentedError = `${session.label('Request error occurred')}: ${displayError}`
-    const alert = assistants.last().getByRole('alert').filter({ hasText: session.label('Error') })
+    session.scope.diagnostic('rejection-evidence', { rejectionStep: 'assistant' })
+    await currentAssistant.waitFor({ state: 'attached' })
+    const alert = currentAssistant.getByRole('alert').filter({ hasText: session.label('Error') })
+    session.scope.diagnostic('rejection-evidence', { rejectionStep: 'alert' })
     await alert.waitFor({ state: 'visible' })
     const description = alert.getByText(presentedError, { exact: true })
+    session.scope.diagnostic('rejection-evidence', { rejectionStep: 'description' })
     await description.waitFor({ state: 'visible' })
+    session.scope.diagnostic('rejection-evidence', { rejectionStep: 'layout' })
     const fits = await bounded(session.scope, () => description.evaluate((element, expected) => {
       const card = element.closest('[role="alert"]')
       if (!card || element.textContent !== expected) return false
@@ -587,6 +610,7 @@ async function sendPlayground(session, key, expectedCode) {
           rect.right <= elementRect.right + tolerance && rect.left >= -tolerance && rect.right <= viewportWidth + tolerance)
     }, presentedError))
     requireThat(fits === true, 'RELAY_MISMATCH')
+    session.scope.diagnostic('rejection-evidence', { rejectionStep: 'terminal' })
     terminal = alert
   } else {
     session.scope.stage = 'playground-complete'
@@ -594,11 +618,12 @@ async function sendPlayground(session, key, expectedCode) {
     // The actual frontend closes its SSE source after DONE. Network body/finished
     // is not its completion contract. Require the newly added assistant's full
     // text, normal terminal controls and no current-message error instead.
-    const answer = assistants.last().getByText('synthetic fixed response', { exact: true })
+    await currentAssistant.waitFor({ state: 'attached' })
+    const answer = currentAssistant.getByText('synthetic fixed response', { exact: true })
     await answer.waitFor()
     await session.page.getByRole('button', { name: session.label('Stop'), exact: true }).waitFor({ state: 'hidden' })
     await session.page.getByRole('button', { name: session.label('Send'), exact: true }).waitFor({ state: 'visible' })
-    requireThat(await bounded(session.scope, () => assistants.last().getByRole('alert').count()) === 0, 'RELAY_MISMATCH')
+    requireThat(await bounded(session.scope, () => currentAssistant.getByRole('alert').count()) === 0, 'RELAY_MISMATCH')
     terminal = answer
   }
   requireThat(await bounded(session.scope, () => assistants.count()) === beforeAssistants + 1, 'REQUEST_MISMATCH')

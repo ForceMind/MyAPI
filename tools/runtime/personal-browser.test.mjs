@@ -135,7 +135,7 @@ import { mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false, forbidStreamReads = false, hangAt, closeHangs = false, documentResponses = [], reloadAlreadyCurrent = false, savedPlaygroundKeyId, unsafeUsageScreenshot = false, failUsageScreenshot = false, usageFailureRole, onNavigate } = {}) {
+function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false, deferAssistantRendering = false, forbidStreamReads = false, hangAt, closeHangs = false, documentResponses = [], reloadAlreadyCurrent = false, savedPlaygroundKeyId, unsafeUsageScreenshot = false, failUsageScreenshot = false, usageFailureRole, onNavigate } = {}) {
   const zh = JSON.parse(readFileSync(new URL('../../web/src/i18n/locales/zh.json', import.meta.url))).translation
   const reverse = Object.fromEntries(Object.entries(zh).map(([key, value]) => [value, key]))
   const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
@@ -183,6 +183,10 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
     text: async () => {
       assert(!(forbidStreamReads && typeof payload === 'string'), 'successful UI stream body is not a completion signal')
       if (hangAt === 'rejection-body' && pathname === '/pg/chat/completions' && status !== 200) return hang()
+      if (payload?.error?.code === 'token_budget_unsupported_request') {
+        if (corrupt === 'strict-body-unavailable') throw new Error(`Protocol error (Network.getResponseBody): No resource with given identifier found ${base.password}`)
+        if (corrupt === 'strict-invalid-json') return `invalid ${base.password}`
+      }
       return typeof payload === 'string' ? payload : JSON.stringify(payload)
     },
     finished: async () => {
@@ -312,7 +316,21 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
           assert.notEqual(new URL(page.current).pathname, '/usage-logs/common', 'first must not conceal ambiguity in log history')
           return this
         }, last() { return this },
+        nth(index) { return locator(kind, value, [...parents, { assistantIndex: index }]) },
         async waitFor(options) {
+          if (kind === 'selector' && value === '.is-assistant' && options?.state === 'attached') {
+            const index = parents.find(item => Number.isInteger(item?.assistantIndex))?.assistantIndex
+            assert.equal(index, (page.pendingAssistantCount || page.assistants) - 1, 'wait for the exact appended assistant')
+            if (page.pendingAssistantCount) {
+              page.assistants = page.pendingAssistantCount
+              delete page.pendingAssistantCount
+            }
+          }
+          if (parents.includes('.is-assistant')) {
+            assert.equal(page.pendingAssistantCount, undefined, 'the current assistant must attach before its terminal content is read')
+            assert.equal(parents.find(item => Number.isInteger(item?.assistantIndex))?.assistantIndex,
+              page.assistants - 1, 'terminal content must belong to the exact appended assistant')
+          }
           if (kind === 'row' || (kind === 'selector' && value === '[data-slot="card"]')) {
             const text = chain.find(item => item?.hasText)?.hasText
             assert((page.visibleRows || []).some(item => (item.username || item.name) === text), 'the filtered target row must actually be visible')
@@ -640,7 +658,8 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             page.emit(response(`/api/token/${key.id}/budget`, 'PUT', { success: true, data: budget(key) }))
           }
           if (value === 'Send') {
-            page.assistants = (page.assistants || 0) + 1
+            if (deferAssistantRendering) page.pendingAssistantCount = (page.assistants || 0) + 1
+            else page.assistants = (page.assistants || 0) + 1
             const key = keys.get(Number(page.selected))
             assert(key)
             sequence++
@@ -933,6 +952,47 @@ test('successful streaming uses complete UI state and ledger without reading the
   assert.deepEqual(fixture.completionEvents, Array.from({ length: 2 }, () => ['assistant-complete', 'stop-hidden', 'send-visible']).flat())
   assert.equal(fixture.upstreamCount(), 4)
 })
+
+test('a response arriving before the appended assistant waits for that exact turn, including historical errors', async () => {
+  const events = []
+  const fixture = journeyBrowser({ deferAssistantRendering: true })
+  const report = await probePersonalBrowserJourney({ ...base, ...fixture, onProgress: event => events.push(event) })
+  assert.equal(report.passed, true)
+  assert.equal(report.checks.length, 5)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+  assert.equal(fixture.upstreamCount(), 4)
+  assert.deepEqual(fixture.terminalScrolls.map(item => item.assistant), [1, 1, 2, 3, 2])
+  assert.equal(fixture.errorLayoutChecks.length, 3)
+  const steps = ['body-read', 'body-parse', 'protocol', 'assistant', 'alert', 'description', 'layout', 'terminal']
+  assert.deepEqual(events.filter(event => event.event === 'rejection-evidence').map(event => event.rejectionStep), Array.from({ length: 3 }, () => steps).flat())
+})
+
+for (const [corrupt, code, step] of [
+  ['strict-body-unavailable', 'BROWSER_FAILED', 'body-unavailable'],
+  ['strict-invalid-json', 'RELAY_MISMATCH', 'invalid-json'],
+]) {
+  test(`${corrupt} fails visibly without substituting the UI message or replaying a request`, async () => {
+    const events = []
+    const fixture = journeyBrowser({ writer: 'authoritative', corrupt })
+    await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture, writer: 'authoritative', onProgress: event => events.push(event) }), error => {
+      assert.equal(error.message, `SMOKE_PERSONAL_${code}`)
+      assert.equal(error.stage, 'playground-rejection')
+      assert.equal(error.cause, undefined)
+      assert(!error.stack.includes(base.password))
+      return true
+    })
+    const evidence = events.filter(event => event.event === 'rejection-evidence')
+    assert.equal(evidence.at(-1).rejectionStep, step)
+    assert.equal(evidence.filter(event => event.rejectionStep === 'body-read').at(-1).httpStatus, 400)
+    if (step === 'body-unavailable') assert.equal(evidence.at(-1).errorClass, 'Error')
+    else assert.equal(evidence.at(-1).bodyCharacters, `invalid ${base.password}`.length)
+    assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+    assert.equal(fixture.upstreamCount(), 4)
+    assert.equal(fixture.errorLayoutChecks.length, 2, 'the rejected protocol body cannot be replaced by a friendly UI error')
+    assert.equal(fixture.closed(), 1)
+    for (const secret of [base.password, base.username, 'session-private-', 'request-private-', 'No resource with given identifier', 'synthetic rejection']) assert(!JSON.stringify(events).includes(secret))
+  })
+}
 
 test('progress contains fixed stages and safe metadata only, including immediate cleanup failure', async () => {
   const events = []

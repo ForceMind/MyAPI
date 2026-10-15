@@ -78,7 +78,7 @@ function PersonalWorkbenchSession() {
                   variant={selected === item ? 'default' : 'outline'}
                   aria-pressed={selected === item}
                   onClick={() => setSelectedSeries(quotaSeriesKey(item))}
-                  className='h-auto min-w-0 break-words whitespace-normal'
+                  className='h-auto max-w-full min-w-0 break-words whitespace-normal'
                 >
                   {item.account_label || item.name} ·{' '}
                   {quotaWindowLabel(item.window_type, t)}

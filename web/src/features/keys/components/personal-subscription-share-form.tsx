@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { ArrowLeft, Info } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -44,6 +44,11 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
+import {
+  formatQuotaDuration,
+  quotaWindowLabel,
+} from '@/features/channels/lib/quota-history'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import { formatTimestampToDate } from '@/lib/format'
 
 import type { SubscriptionSharePool } from '../subscription-share-api'
@@ -80,7 +85,14 @@ export function PersonalSubscriptionShareForm(
   props: PersonalSubscriptionShareFormProps
 ) {
   const { t } = useTranslation()
+  const desktop = useMediaQuery('(min-width: 1280px)')
   const [accountId, setAccountId] = useState('')
+  const reloadNotice = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!props.mustReload) return
+    reloadNotice.current?.scrollIntoView({ block: 'center', behavior: 'auto' })
+    reloadNotice.current?.focus({ preventScroll: true })
+  }, [props.mustReload])
   const pool = props.selectedPool
   const hasAccountIds = props.pools.every(
     (item) => item.channel_id !== undefined
@@ -103,6 +115,28 @@ export function PersonalSubscriptionShareForm(
       : null
   const windowChangeRequired =
     pool?.replacement_required || pool?.rebaseline_required
+  const actions = (
+    <div className='flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap'>
+      <Button
+        className='min-h-11 flex-1 sm:flex-none'
+        variant='outline'
+        type='button'
+        disabled={props.saving}
+        onClick={props.onCancel}
+      >
+        {t('Cancel')}
+      </Button>
+      <Button
+        className='min-h-11 flex-1 sm:min-w-40 sm:flex-none'
+        disabled={props.saveDisabled}
+        type='submit'
+        form='personal-share-form'
+      >
+        {props.saving && <Spinner data-icon='inline-start' />}
+        {props.saving ? t('Saving...') : t('Save changes')}
+      </Button>
+    </div>
+  )
   return (
     <main
       id='content'
@@ -165,6 +199,7 @@ export function PersonalSubscriptionShareForm(
       {!props.loading && !props.loadError && props.pools.length > 0 && (
         <div className='grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(260px,1fr)]'>
           <form
+            id='personal-share-form'
             className='min-w-0'
             aria-label={t('Adjust window share')}
             onSubmit={(event) => {
@@ -213,6 +248,11 @@ export function PersonalSubscriptionShareForm(
                           id='personal-share-account'
                           className='w-full'
                           value={accountId}
+                          aria-describedby={
+                            accountId
+                              ? 'personal-share-account-identity'
+                              : undefined
+                          }
                           disabled={props.busy || props.mustReload}
                           onChange={(event) => {
                             setAccountId(event.target.value)
@@ -228,6 +268,14 @@ export function PersonalSubscriptionShareForm(
                             </NativeSelectOption>
                           ))}
                         </NativeSelect>
+                        {accountId && (
+                          <FieldDescription
+                            id='personal-share-account-identity'
+                            className='break-all'
+                          >
+                            {accounts.get(Number(accountId))} · #{accountId}
+                          </FieldDescription>
+                        )}
                       </Field>
                     )}
                     <Field data-disabled={props.busy || props.mustReload}>
@@ -238,6 +286,11 @@ export function PersonalSubscriptionShareForm(
                         id='personal-share-window'
                         className='w-full'
                         value={props.selection}
+                        aria-describedby={
+                          pool
+                            ? 'personal-share-window-identity personal-share-window-help'
+                            : 'personal-share-window-help'
+                        }
                         disabled={props.busy || props.mustReload}
                         onChange={(event) => props.onSelect(event.target.value)}
                       >
@@ -250,15 +303,25 @@ export function PersonalSubscriptionShareForm(
                             value={`${item.pool_id}:${item.snapshot_id}`}
                             disabled={item.state === 'closed'}
                           >
-                            {item.channel_name} · {item.window_slot} ·{' '}
-                            {item.window_type} ·{' '}
-                            {t('{{seconds}} seconds', {
-                              seconds: item.window_seconds.toLocaleString(),
-                            })}
+                            {!hasAccountIds && `${item.channel_name} · `}
+                            {formatQuotaDuration(item.window_seconds, t)} ·{' '}
+                            {quotaWindowLabel(item.window_slot, t)} ·{' '}
+                            {quotaWindowLabel(item.window_type, t)}
                           </NativeSelectOption>
                         ))}
                       </NativeSelect>
-                      <FieldDescription>
+                      {pool && (
+                        <FieldDescription
+                          id='personal-share-window-identity'
+                          className='break-words'
+                        >
+                          {!hasAccountIds && `${pool.channel_name} · `}
+                          {formatQuotaDuration(pool.window_seconds, t)} ·{' '}
+                          {quotaWindowLabel(pool.window_slot, t)} ·{' '}
+                          {quotaWindowLabel(pool.window_type, t)}
+                        </FieldDescription>
+                      )}
+                      <FieldDescription id='personal-share-window-help'>
                         {t(
                           'No window is selected automatically. Each window is measured and limited separately.'
                         )}
@@ -410,8 +473,13 @@ export function PersonalSubscriptionShareForm(
                   </>
                 )}
                 {props.mustReload && (
-                  <Alert variant='destructive'>
-                    <AlertTitle>
+                  <Alert
+                    variant='destructive'
+                    ref={reloadNotice}
+                    tabIndex={-1}
+                    aria-labelledby='personal-share-save-state-title'
+                  >
+                    <AlertTitle id='personal-share-save-state-title'>
                       {t('The save result is unknown or out of date')}
                     </AlertTitle>
                     <AlertDescription className='space-y-2'>
@@ -440,25 +508,7 @@ export function PersonalSubscriptionShareForm(
                   {t('Advanced window controls')}
                 </Button>
                 <Separator />
-                <div className='flex flex-wrap-reverse gap-3'>
-                  <Button
-                    className='min-h-11 flex-1 sm:flex-none'
-                    variant='outline'
-                    type='button'
-                    disabled={props.saving}
-                    onClick={props.onCancel}
-                  >
-                    {t('Cancel')}
-                  </Button>
-                  <Button
-                    className='min-h-11 flex-1 sm:min-w-40 sm:flex-none'
-                    disabled={props.saveDisabled}
-                    type='submit'
-                  >
-                    {props.saving && <Spinner data-icon='inline-start' />}
-                    {props.saving ? t('Saving...') : t('Save changes')}
-                  </Button>
-                </div>
+                {desktop && actions}
               </CardContent>
             </Card>
           </form>
@@ -559,6 +609,7 @@ export function PersonalSubscriptionShareForm(
               </details>
             )}
           </aside>
+          {!desktop && actions}
         </div>
       )}
     </main>

@@ -306,6 +306,7 @@ const report = {
   result: 'running',
   journeys: [],
   screenshots: [],
+  diagnostics: [],
   buildRevisions: [],
   errors: [],
 }
@@ -715,8 +716,43 @@ async function openWorkbench(page, scenario) {
 
 async function screenshot(page, scenario, suffix) {
   await settled(page)
-  const geometry = await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth, sections: [...document.querySelectorAll('[data-testid="personal-workbench"], [data-testid="personal-upstream"], [data-slot="card"]')].map((element) => { const box = element.getBoundingClientRect(); return { left: box.left, right: box.right, scroll: element.scrollWidth, client: element.clientWidth } }) }))
+  const geometry = await page.evaluate(() => {
+    const sections = []
+    let hiddenSections = 0
+    for (const element of document.querySelectorAll('[data-testid="personal-workbench"], [data-testid="personal-upstream"], [data-slot="card"]')) {
+      const box = element.getBoundingClientRect()
+      // Hidden mounted cards have no rendered geometry. Include visible cards
+      // below the fold as well: their content must also fit when scrolled to.
+      if (box.width <= 0 || box.height <= 0 || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) {
+        hiddenSections++
+        continue
+      }
+      const section = { tag: element.tagName, testId: element.getAttribute('data-testid'), slot: element.getAttribute('data-slot'), left: box.left, right: box.right, top: box.top, bottom: box.bottom, scroll: element.scrollWidth, client: element.clientWidth, overflowingChildren: [] }
+      if (box.left < -1 || box.right > innerWidth + 1 || element.scrollWidth > element.clientWidth + 1) {
+        for (const child of element.querySelectorAll('*')) {
+          const childBox = child.getBoundingClientRect()
+          if (childBox.width <= 0 || childBox.height <= 0 || !child.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue
+          if (childBox.left >= box.left - 1 && childBox.right <= box.right + 1 && child.scrollWidth <= child.clientWidth + 1) continue
+          const style = getComputedStyle(child)
+          section.overflowingChildren.push({ tag: child.tagName, slot: child.getAttribute('data-slot'), testId: child.getAttribute('data-testid'), left: childBox.left, right: childBox.right, scroll: child.scrollWidth, client: child.clientWidth, display: style.display, overflowX: style.overflowX, whiteSpace: style.whiteSpace, minWidth: style.minWidth })
+          if (section.overflowingChildren.length === 20) break
+        }
+      }
+      sections.push(section)
+    }
+    return { viewport: innerWidth, document: document.documentElement.scrollWidth, hiddenSections, sections }
+  })
+  if (geometry.sections.length === 0 || geometry.document > geometry.viewport + 1 || geometry.sections.some((section) => section.left < -1 || section.right > geometry.viewport + 1 || section.scroll > section.client + 1)) {
+    const prefix = `${scenario.name}-${suffix}-overflow`
+    const image = `${prefix}.png`
+    const data = `${prefix}.json`
+    writeFileSync(resolve(output, data), JSON.stringify({ sourceHead, journey: scenario.name, suffix, geometry }, null, 2))
+    await page.screenshot({ path: resolve(output, image), fullPage: true, animations: 'disabled' })
+    report.diagnostics.push({ journey: scenario.name, image, geometry: data })
+    persist()
+  }
   assert(geometry.document <= geometry.viewport + 1, `${scenario.name}: no horizontal page overflow`)
+  assert(geometry.sections.length > 0, `${scenario.name}: visible content geometry exists`)
   assert(geometry.sections.every((section) => section.left >= -1 && section.right <= geometry.viewport + 1 && section.scroll <= section.client + 1), `${scenario.name}: cards remain inside the viewport`)
   const file = `${scenario.name}-${suffix}.png`
   await page.screenshot({ path: resolve(output, file), fullPage: true })

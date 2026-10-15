@@ -78,7 +78,15 @@ try {
         const bounds = element.getBoundingClientRect()
         return { left: bounds.left, right: bounds.right, width: element.clientWidth, scroll: element.scrollWidth }
       }))
-      assert(cards.every(card => card.left >= 0 && card.right <= item.width && card.scroll <= card.width + 1), 'Visible cards do not clip content horizontally')
+      const cardsFit = cards.every(card => card.left >= 0 && card.right <= item.width && card.scroll <= card.width + 1)
+      if (!cardsFit) {
+        const diagnosticFile = `console-${name}-${item.language}-${item.width}-overflow`
+        await page.screenshot({ path: resolve(output, `${diagnosticFile}.png`), animations: 'disabled' })
+        writeFileSync(resolve(output, `${diagnosticFile}.json`), JSON.stringify({ width: item.width, cards }, null, 2))
+        report.screenshots.push({ file: `${diagnosticFile}.png`, language: item.language, width: item.width, state: `${name}-overflow` })
+        persist()
+      }
+      assert(cardsFit, 'Visible cards do not clip content horizontally')
       const file = `console-${name}-${item.language}-${item.width}.png`
       await page.screenshot({ path: resolve(output, file), animations: 'disabled' })
       report.screenshots.push({ file, language: item.language, width: item.width, state: name })
@@ -125,7 +133,13 @@ try {
         await page.getByRole('button', { name: t('Back to call list'), exact: true }).click()
         await page.waitForFunction(() => document.activeElement?.getAttribute('aria-pressed') === 'true')
         assert(await row.evaluate(element => document.activeElement === element), 'Return restores selected call focus')
+        await row.click()
       }
+      await page.getByRole('button', { name: t('View this Key'), exact: true }).click()
+      await page.waitForURL(url => url.pathname === '/keys' && url.searchParams.get('filter') === 'synthetic-key')
+      await page.getByRole('heading', { name: t('API Keys'), level: 1, exact: true }).waitFor()
+      assert.equal(await page.getByRole('textbox', { name: t('Search keys'), exact: true }).inputValue(), 'synthetic-key', 'The linked Key filter is applied')
+      await nav.getByRole('link', { name: t('Call records'), exact: true }).click()
       await page.getByRole('button', { name: t('View call {{id}}').replace('{{id}}', 'REQ-SYNTHETIC-502'), exact: true }).click()
       await page.getByRole('heading', { name: t('Request failed'), exact: true }).waitFor()
       await capture('request-failed')

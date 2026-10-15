@@ -609,6 +609,38 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=768'
         run: node tools/access-policy/browser-smoke.mjs
 
+      - name: Qualify personal console pages and native-window shares in Chromium
+        if: ${{ !cancelled() && steps.browser-dependencies.outcome == 'success' }}
+        working-directory: .
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs
+          MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-personal-console-artifacts
+          NODE_OPTIONS: '--max-old-space-size=768'
+        run: |
+          failed=0
+          node --test tools/ui/browser-fixtures.test.mjs || failed=1
+          for script in \
+            tools/ui/personal-workbench-browser.mjs \
+            tools/ui/subscription-share-browser.mjs \
+            tools/ui/personal-console-browser.mjs; do
+            if ! node "$script"; then
+              echo "::error file=$script::Personal console qualification failed"
+              failed=1
+            fi
+          done
+          exit "$failed"
+
+      - name: Upload personal console screenshots and qualification reports
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-personal-console-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/myapi-personal-console-artifacts/*.png
+            ${{ runner.temp }}/myapi-personal-console-artifacts/*.json
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Qualify shared UI, roles, settings and responsive pages in Chromium
         if: ${{ !cancelled() && steps.browser-dependencies.outcome == 'success' }}
         working-directory: .
@@ -618,15 +650,11 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=768'
         run: |
           failed=0
-          node --test tools/ui/browser-fixtures.test.mjs || failed=1
           for script in \
             tools/ui/profile-browser.mjs \
             tools/ui/stability-browser.mjs \
             tools/ui/setup-browser.mjs \
             tools/ui/personal-status-browser.mjs \
-            tools/ui/personal-workbench-browser.mjs \
-            tools/ui/subscription-share-browser.mjs \
-            tools/ui/personal-console-browser.mjs \
             tools/ui/browser-smoke.mjs \
             tools/ui/playground-browser.mjs; do
             if ! node "$script"; then
