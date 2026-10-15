@@ -608,9 +608,11 @@ jobs:
         run: bun run typecheck
 
       - name: Lint
+        if: ${{ !cancelled() && steps.frontend-build.outcome == 'success' }}
         run: bun run lint
 
       - name: Test
+        if: ${{ !cancelled() && steps.frontend-build.outcome == 'success' }}
         run: |
           set -o pipefail
           bun run test 2>&1 | tee "$RUNNER_TEMP/myapi-frontend-tests.log"

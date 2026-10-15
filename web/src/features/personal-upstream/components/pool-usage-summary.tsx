@@ -98,6 +98,9 @@ export function PoolUsageSummary(props: { usage: PoolUsage }) {
           <dt>{t('Uncertain requests')}</dt>
           <dd>{usage.uncertain_attempts}</dd>
         </dl>
+        <p className='text-muted-foreground text-xs leading-relaxed'>
+          {t('Pending and unsampled request counts may overlap.')}
+        </p>
         {initialTime && initialTime > 0 ? (
           <p className='text-muted-foreground text-xs'>
             {t('First observed {{time}}', {

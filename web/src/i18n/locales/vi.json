@@ -4150,6 +4150,7 @@
     "Penalises repetition of frequent tokens": "Phạt việc lặp các token phổ biến",
     "pending": "đang chờ",
     "Pending": "Đang chờ",
+    "Pending and unsampled request counts may overlap.": "Số yêu cầu chờ tính và chưa có mẫu có thể trùng nhau.",
     "Pending request review": "Yêu cầu đang chờ xem xét",
     "Pending requests": "Yêu cầu cần đối soát",
     "Pending review": "Chờ xem xét",

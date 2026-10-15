@@ -236,9 +236,7 @@ test.each(['create', 'update', 'status', 'reveal', 'batch reveal'] as const)(
       }
       await user.click(save)
     } else if (action === 'status')
-      await user.click(
-        screen.getByRole('button', { name: 'Disable', exact: true })
-      )
+      await user.click(screen.getByRole('button', { name: 'Disable' }))
     else if (action === 'reveal')
       await user.click(screen.getByRole('button', { name: 'Open menu' }))
     else

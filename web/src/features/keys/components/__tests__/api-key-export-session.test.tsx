@@ -85,11 +85,10 @@ async function startExport(name = 'Synthetic chat') {
   await user.click(screen.getByRole('button', { name: 'Open menu' }))
   const chat = await screen.findByRole('menuitem', {
     name: 'Chat',
-    exact: true,
   })
   chat.focus()
   await user.keyboard('{ArrowRight}')
-  await user.click(await screen.findByRole('menuitem', { name, exact: true }))
+  await user.click(await screen.findByRole('menuitem', { name }))
   expect(api.post).toHaveBeenCalledExactlyOnceWith(
     '/api/token/21/key',
     undefined,

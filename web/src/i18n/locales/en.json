@@ -4150,6 +4150,7 @@
     "Penalises repetition of frequent tokens": "Penalises repetition of frequent tokens",
     "pending": "pending",
     "Pending": "Pending",
+    "Pending and unsampled request counts may overlap.": "Pending and unsampled request counts may overlap.",
     "Pending request review": "Pending request review",
     "Pending requests": "Pending requests",
     "Pending review": "Pending review",

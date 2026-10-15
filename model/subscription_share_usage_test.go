@@ -318,3 +318,14 @@ func TestSubscriptionSharePoolUsageKeepsOrphanRequestCountsVisible(t *testing.T)
 	assert.Zero(t, view.Allocations[0].PendingAttempts)
 	assert.Nil(t, view.EstimatedUsedMicro)
 }
+
+func TestSubscriptionSharePoolUsageExpirationMatchesTokenAdmissionBoundary(t *testing.T) {
+	f, pool := newSubscriptionShareUsageFixture(t)
+	require.NoError(t, f.db.Model(&Token{}).Where("id = ?", f.tokens[0].Id).Update("expired_time", 113).Error)
+	view, err := ReadSubscriptionSharePoolUsage(context.Background(), f.db, f.root.Id, pool.ID, 113)
+	require.NoError(t, err)
+	assert.Equal(t, "enabled", view.Allocations[0].TokenState)
+	view, err = ReadSubscriptionSharePoolUsage(context.Background(), f.db, f.root.Id, pool.ID, 114)
+	require.NoError(t, err)
+	assert.Equal(t, "expired", view.Allocations[0].TokenState)
+}

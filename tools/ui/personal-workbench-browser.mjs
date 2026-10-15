@@ -395,7 +395,7 @@ function poolUsageFixture(scenario) {
   return usage
 }
 
-function scenarioResponse(fixture, scenario, url, method, reads) {
+function scenarioResponse(fixture, scenario, url, method, reads, pagePath) {
   const path = url.pathname.replace(/\/$/, '')
   const count = (reads.get(path) || 0) + 1
   reads.set(path, count)
@@ -485,6 +485,11 @@ function scenarioResponse(fixture, scenario, url, method, reads) {
       status: 200,
       body: { success: true, data: budget(tokenId, fixture.user.id) },
     }
+  }
+  if (scenario.poolManageNavigation && pagePath === '/keys' && method === 'GET' && path === '/api/token' && url.searchParams.get('p') === '1' && url.searchParams.get('size') === '10' && [...url.searchParams.keys()].every((key) => ['p', 'size'].includes(key))) {
+    // The existing Keys management page owns this masked list DTO. This narrow
+    // allowance does not permit broad Key reads in the workbench or Playground.
+    return fixture.response(url, method)
   }
   if (/^\/api\/token\/\d+$/.test(path) ||
       ((scenario.mode === 'disabled' || scenario.mode === 'unknown') && ['/api/token', '/api/token/search'].includes(path))) {
@@ -675,7 +680,8 @@ async function createSession(scenario) {
       scenario,
       url,
       request.method(),
-      reads
+      reads,
+      new URL(page.url()).pathname
     )
     if (response.violation) audit.violations.push(response.violation)
     if (scenario.poolUsageMode === 'hang' && /^\/api\/subscription-share\/pools\/7\/usage$/.test(path) && response.status === 200) {
@@ -1013,15 +1019,23 @@ async function populated(scenario) {
           if (mode === 'hang') {
             assert(audit.requestFailures.some((request) => request.path === poolPath && request.kind === 'aborted'), 'The client deadline aborts the pending read')
             scenario.poolUsageMode = 'active'
-            await page.getByTestId('pool-usage-error').getByRole('button', { name: tr('Retry', scenario.language), exact: true }).click()
+            const retry = page.getByTestId('pool-usage-error').getByRole('button', { name: tr('Retry', scenario.language), exact: true })
+            await retry.focus()
+            assert(await retry.evaluate((element) => document.activeElement === element), 'Pool timeout recovery is keyboard focused')
+            await page.keyboard.press('Enter')
             await page.getByTestId('pool-decomposition-bar').waitFor()
             await screenshot(page, scenario, 'pool-timeout-recovered')
+            await screenshotPoolUsage(page, scenario, 'pool-timeout-recovered')
           }
         }
         scenario.poolUsageMode = 'active'
-        await page.getByTestId('pool-usage-error').getByRole('button', { name: tr('Retry', scenario.language), exact: true }).click()
+        const retry = page.getByTestId('pool-usage-error').getByRole('button', { name: tr('Retry', scenario.language), exact: true })
+        await retry.focus()
+        assert(await retry.evaluate((element) => document.activeElement === element), 'Pool API recovery is keyboard focused')
+        await page.keyboard.press('Enter')
         await page.getByTestId('pool-decomposition-bar').waitFor()
         await screenshot(page, scenario, 'pool-recovered')
+        await screenshotPoolUsage(page, scenario, 'pool-recovered')
         const picker = page.getByRole('combobox', { name: tr('Select an API Key', scenario.language), exact: true })
         const beforeCandidate = reads.get(poolPath)
         await picker.selectOption('24')
@@ -1038,6 +1052,19 @@ async function populated(scenario) {
         assert.equal(await page.getByTestId('pool-key-21').getByText(safeKeys[0].name, { exact: true }).count(), 0, 'Old session allocation names do not populate the new view')
         await screenshot(page, scenario, 'pool-session-isolated')
         await screenshotPoolUsage(page, scenario, 'session-isolated')
+        scenario.poolManageNavigation = true
+        const managementRead = page.waitForResponse((response) => new URL(response.url()).pathname.replace(/\/$/, '') === '/api/token' && response.request().method() === 'GET' && response.status() === 200)
+        const manage = page.getByTestId('pool-key-allocations').getByText(tr('Manage Key shares', scenario.language), { exact: true })
+        assert.equal(await manage.getAttribute('href'), '/keys', 'Pool management targets the existing Key page')
+        await manage.focus()
+        assert(await manage.evaluate((element) => document.activeElement === element), 'Pool management is keyboard focused')
+        await page.keyboard.press('Enter')
+        await page.waitForURL(`${origin}/keys`)
+        await managementRead
+        await page.locator('#personal-keys-title').waitFor({ state: 'visible' })
+        await page.getByText('synthetic-key', { exact: true }).waitFor()
+        assert.equal(audit.requests.filter((request) => request.path === '/api/token').length, 1, 'Keyboard navigation reads exactly the existing masked management list')
+        await screenshot(page, scenario, 'pool-manage-keyboard')
       }
       } else {
         await page.getByText(tr('Root access is required to match Key shares to this account.', scenario.language), { exact: true }).waitFor()

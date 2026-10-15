@@ -4150,6 +4150,7 @@
     "Penalises repetition of frequent tokens": "Pénalise la répétition des jetons fréquents",
     "pending": "en attente",
     "Pending": "En attente",
+    "Pending and unsampled request counts may overlap.": "Les requêtes en attente peuvent aussi être non échantillonnées.",
     "Pending request review": "Requête en attente d’examen",
     "Pending requests": "Requêtes à vérifier",
     "Pending review": "En attente d’examen",

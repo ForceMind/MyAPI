@@ -4150,6 +4150,7 @@
     "Penalises repetition of frequent tokens": "頻出トークンの繰り返しを抑制します",
     "pending": "保留中",
     "Pending": "保留中",
+    "Pending and unsampled request counts may overlap.": "未計上リクエストと未サンプリングのリクエストは重複する場合があります。",
     "Pending request review": "リクエストのレビュー待ち",
     "Pending requests": "要確認のリクエスト",
     "Pending review": "確認待ち",

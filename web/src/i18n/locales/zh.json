@@ -4150,6 +4150,7 @@
     "Penalises repetition of frequent tokens": "惩罚高频 token 的重复出现",
     "pending": "等待中",
     "Pending": "待确认",
+    "Pending and unsampled request counts may overlap.": "待计与未采样请求数可能重叠。",
     "Pending request review": "请求待审核",
     "Pending requests": "待核对请求",
     "Pending review": "待审核",

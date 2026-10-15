@@ -4150,6 +4150,7 @@
     "Penalises repetition of frequent tokens": "Штрафует повторение частых токенов",
     "pending": "ожидание",
     "Pending": "Ожидает",
+    "Pending and unsampled request counts may overlap.": "Ожидающие и не охваченные выборкой запросы могут совпадать.",
     "Pending request review": "Запрос ожидает рассмотрения",
     "Pending requests": "Запросы на проверку",
     "Pending review": "Ожидает проверки",

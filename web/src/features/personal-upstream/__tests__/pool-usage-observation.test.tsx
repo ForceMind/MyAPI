@@ -105,6 +105,9 @@ test('shows all Key allocations and the initial cycle baseline separately from a
     '43 percentage points'
   )
   expect(
+    screen.getByText('Pending and unsampled request counts may overlap.')
+  ).toBeVisible()
+  expect(
     [...screen.getByTestId('pool-decomposition-bar').children].map(
       (element) => (element as HTMLElement).style.width
     )

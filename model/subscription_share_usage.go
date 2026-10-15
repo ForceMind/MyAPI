@@ -191,7 +191,7 @@ func ReadSubscriptionSharePoolUsage(ctx context.Context, db *gorm.DB, actorID in
 					item.TokenState = "deleted"
 				case token.Status == common.TokenStatusDisabled:
 					item.TokenState = "paused"
-				case token.Status == common.TokenStatusExpired || token.ExpiredTime != -1 && token.ExpiredTime <= now:
+				case token.Status == common.TokenStatusExpired || token.ExpiredTime != -1 && token.ExpiredTime < now:
 					item.TokenState = "expired"
 				case token.Status == common.TokenStatusExhausted:
 					item.TokenState = "exhausted"
