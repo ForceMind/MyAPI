@@ -10,6 +10,38 @@ const data = { id: 42, username: 'operator', display_name: 'Operations' }
 afterEach(() => vi.useRealTimers())
 
 describe('profile read lifecycle', () => {
+  it('waits for the initial shell decision and sends one profile read when enabled', async () => {
+    const get = vi.spyOn(api, 'get').mockResolvedValue({
+      data: { success: true, data },
+    })
+    const { result, rerender } = renderHook(
+      (enabled: boolean) => useProfile(enabled),
+      { initialProps: false }
+    )
+    expect(get).not.toHaveBeenCalled()
+    expect(result.current.loading).toBe(true)
+    rerender(true)
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(result.current.profile).toEqual(data)
+  })
+
+  it('ends a stalled shell decision and lets retry read the profile independently', async () => {
+    vi.useFakeTimers()
+    const get = vi.spyOn(api, 'get').mockResolvedValue({
+      data: { success: true, data },
+    })
+    const { result } = renderHook(() => useProfile(false))
+    await act(() => vi.advanceTimersByTimeAsync(15000))
+    expect(result.current.loading).toBe(false)
+    expect(result.current.error).toBe(true)
+    expect(get).not.toHaveBeenCalled()
+    await act(() => result.current.fetchProfile())
+    expect(result.current.profile).toEqual(data)
+    expect(result.current.error).toBe(false)
+    expect(get).toHaveBeenCalledTimes(1)
+  })
+
   it('ends a stalled read and supports a new successful attempt', async () => {
     vi.useFakeTimers()
     vi.spyOn(api, 'get')

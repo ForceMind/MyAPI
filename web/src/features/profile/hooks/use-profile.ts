@@ -31,7 +31,7 @@ import type {
 // Profile Hook
 // ============================================================================
 
-export function useProfile() {
+export function useProfile(enabled = true) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
@@ -125,11 +125,20 @@ export function useProfile() {
     [refreshProfile]
   )
 
-  // Initial fetch
+  // The initial funding read can replace the whole page shell. Start the
+  // profile read after that decision so the temporary shell does not send an
+  // immediately cancelled duplicate. Keep the wait bounded if status stalls.
   useEffect(() => {
-    fetchProfile()
+    if (!enabled) {
+      const deadline = globalThis.setTimeout(() => {
+        setLoading(false)
+        setError(true)
+      }, 15000)
+      return () => globalThis.clearTimeout(deadline)
+    }
+    void fetchProfile()
     return () => pendingRequest.current?.abort()
-  }, [fetchProfile])
+  }, [enabled, fetchProfile])
 
   return {
     profile,

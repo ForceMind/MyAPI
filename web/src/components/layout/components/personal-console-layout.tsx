@@ -69,6 +69,7 @@ export function PersonalConsoleLayout(props: { children?: ReactNode }) {
   const selected = (url: string) =>
     path === url ||
     (url === '/dashboard/overview' && path === '/dashboard') ||
+    (url === '/upstream-accounts' && path.startsWith('/channels')) ||
     (url === '/usage-logs/common' && path.startsWith('/usage-logs'))
 
   return (

@@ -94,6 +94,24 @@ test('a lower role cannot use the upstream destination and sidebar narrowing sti
   ).not.toBeInTheDocument()
 })
 
+test('channel maintenance stays selected under upstream accounts', async () => {
+  await renderShellRoute(
+    <PersonalConsoleLayout>
+      <main id='content'>Channel management</main>
+    </PersonalConsoleLayout>,
+    { path: '/channels' }
+  )
+  for (const label of [
+    'Personal console navigation',
+    'Mobile console navigation',
+  ]) {
+    const navigation = screen.getByRole('navigation', { name: label })
+    expect(
+      within(navigation).getByRole('link', { name: 'Upstream accounts' })
+    ).toHaveAttribute('aria-current', 'page')
+  }
+})
+
 test('keyboard users can reach the skip link before the navigation', async () => {
   const user = userEvent.setup()
   await renderShellRoute(

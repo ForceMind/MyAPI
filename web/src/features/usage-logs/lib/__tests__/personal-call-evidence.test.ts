@@ -84,6 +84,34 @@ describe('personal call evidence', () => {
       })
     ).toMatchObject({ completed: true, usageKnown: true })
   })
+  it.each(['estimated', 'unknown', 'invalid-source'])(
+    'keeps historical %s usage unknown despite positive token counts',
+    (accuracy) => {
+      expect(
+        getPersonalCallEvidence({
+          ...completed,
+          type: 2,
+          prompt_tokens: 10,
+          completion_tokens: 4,
+          other: JSON.stringify({ usage_accuracy: accuracy }),
+        })
+      ).toMatchObject({ completed: true, usageKnown: false })
+    }
+  )
+  it.each([0, 10])(
+    'shows valid historical reported usage with %s input tokens',
+    (tokens) => {
+      expect(
+        getPersonalCallEvidence({
+          ...completed,
+          type: 2,
+          prompt_tokens: tokens,
+          completion_tokens: 0,
+          other: JSON.stringify({ usage_accuracy: 'reported' }),
+        })
+      ).toMatchObject({ completed: true, usageKnown: true })
+    }
+  )
   it('does not turn a historical all-zero log into known usage', () => {
     expect(
       getPersonalCallEvidence({ ...completed, type: 2, other: '' })

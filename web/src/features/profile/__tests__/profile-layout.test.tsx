@@ -7,7 +7,7 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -51,12 +51,75 @@ afterEach(() => {
 })
 
 describe('profile task layout', () => {
+  it('waits for placeholder funding status confirmation before issuing one profile read', async () => {
+    const status = {
+      user_funding_mode: 'disabled',
+      user_funding_capabilities: { mode: 'disabled', epoch: 1, ready: true },
+    }
+    localStorage.setItem('status', JSON.stringify(status))
+    type ReadResponse = Awaited<ReturnType<typeof api.get>>
+    let resolveStatus!: (response: ReadResponse) => void
+    const pendingStatus = new Promise<ReadResponse>((resolve) => {
+      resolveStatus = resolve
+    })
+    const get = vi.spyOn(api, 'get').mockImplementation(async (url) => {
+      if (url === '/api/status') return pendingStatus
+      if (url === '/api/user/self') {
+        return { data: { success: true, data: profile } }
+      }
+      if (url === '/api/user/sessions' || url === '/api/user/oauth/bindings') {
+        return { data: { success: true, data: [] } }
+      }
+      if (url === '/api/user/2fa/status') {
+        return {
+          data: {
+            success: true,
+            data: { enabled: false, locked: false, backup_codes_remaining: 0 },
+          },
+        }
+      }
+      if (url === '/api/user/passkey') {
+        return { data: { success: true, data: { enabled: false } } }
+      }
+      throw new Error(`Unexpected test API: ${url}`)
+    })
+    useAuthStore.setState({ auth: { ...originalAuth.auth, user: profile } })
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    clients.push(client)
+    const route = createRootRoute({ component: Profile })
+    const router = createRouter({
+      routeTree: route,
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+    await router.load()
+    render(
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    )
+    await screen.findByRole('main', { name: 'Profile' })
+    expect(
+      get.mock.calls.filter(([url]) => url === '/api/user/self')
+    ).toHaveLength(0)
+    await act(async () =>
+      resolveStatus({ data: { success: true, data: status } } as ReadResponse)
+    )
+    expect(
+      await screen.findByRole('heading', { name: 'Operations', level: 3 })
+    ).toBeInTheDocument()
+    expect(
+      get.mock.calls.filter(([url]) => url === '/api/user/self')
+    ).toHaveLength(1)
+  })
+
   it.each(['enabled', 'disabled', 'retirement', 'unconfirmed'] as const)(
     'opens the %s profile with preferences and only confirmed commercial check-in',
     async (mode) => {
       vi.spyOn(api, 'get').mockImplementation(async (url) => {
         if (url === '/api/status' && mode === 'unconfirmed') {
-          return new Promise(() => {})
+          throw new Error('Synthetic status unavailable')
         }
         if (url === '/api/user/self') {
           return {
@@ -166,6 +229,15 @@ describe('profile task layout', () => {
       await user.click(
         screen.getByRole('tab', { name: /Settings & Preferences/ })
       )
+      if (mode === 'disabled') {
+        expect(
+          screen.queryByRole('spinbutton', { name: 'Quota Warning Threshold' })
+        ).not.toBeInTheDocument()
+      } else {
+        expect(
+          screen.getByRole('spinbutton', { name: 'Quota Warning Threshold' })
+        ).toBeInTheDocument()
+      }
       await user.click(screen.getByRole('button', { name: 'Webhook' }))
       expect(
         screen.getByRole('textbox', { name: 'Webhook URL' })

@@ -37,12 +37,14 @@ interface ProfileSettingsCardProps {
   profile: UserProfile | null
   loading: boolean
   onProfileUpdate: () => void
+  showBalanceThreshold?: boolean
 }
 
 export function ProfileSettingsCard({
   profile,
   loading,
   onProfileUpdate,
+  showBalanceThreshold = true,
 }: ProfileSettingsCardProps) {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('bindings')
@@ -99,7 +101,11 @@ export function ProfileSettingsCard({
         </TabsContent>
 
         <TabsContent value='settings' className='mt-4 sm:mt-6'>
-          <NotificationTab profile={profile} onUpdate={onProfileUpdate} />
+          <NotificationTab
+            profile={profile}
+            onUpdate={onProfileUpdate}
+            showBalanceThreshold={showBalanceThreshold}
+          />
         </TabsContent>
       </Tabs>
     </TitledCard>

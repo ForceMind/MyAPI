@@ -111,6 +111,17 @@ try {
       }
       await capture('success-unknown')
       if (item.width < 768) {
+        const usageCard = page.locator('[data-slot="card"]').filter({ has: page.getByRole('heading', { name: t('Usage not provided'), exact: true }) })
+        await usageCard.getByRole('button', { name: t('View this Key'), exact: true }).scrollIntoViewIfNeeded()
+        const contentBounds = await page.locator('.myapi-page-content').boundingBox()
+        const navigationBounds = await nav.boundingBox()
+        assert(contentBounds && navigationBounds)
+        for (const label of ['Input Tokens', 'Output Tokens', 'View this Key']) {
+          const element = usageCard.getByText(t(label), { exact: true })
+          const bounds = await element.boundingBox()
+          assert(bounds && bounds.y >= contentBounds.y && bounds.y + bounds.height <= navigationBounds.y, `${label} is visible above the bottom navigation`)
+        }
+        await capture('success-unknown-usage')
         await page.getByRole('button', { name: t('Back to call list'), exact: true }).click()
         await page.waitForFunction(() => document.activeElement?.getAttribute('aria-pressed') === 'true')
         assert(await row.evaluate(element => document.activeElement === element), 'Return restores selected call focus')

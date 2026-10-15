@@ -217,6 +217,7 @@ export function PersonalProfile(props: PersonalProfileProps) {
               {securityOpen && (
                 <div id='personal-security-settings' className='space-y-5'>
                   <ProfileSettingsCard
+                    showBalanceThreshold={false}
                     profile={props.profile}
                     loading={false}
                     onProfileUpdate={props.onRefresh}

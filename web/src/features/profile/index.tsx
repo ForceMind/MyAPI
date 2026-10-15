@@ -52,8 +52,10 @@ import { useProfile } from './hooks'
 
 export function Profile() {
   const { t } = useTranslation()
-  const { profile, loading, error, fetchProfile, refreshProfile } = useProfile()
-  const { status } = useStatus()
+  const { status, confirmed: statusConfirmed, error: statusError } = useStatus()
+  const { profile, loading, error, fetchProfile, refreshProfile } = useProfile(
+    statusConfirmed || Boolean(statusError)
+  )
   const { commercialEnabled } = useFundingPresentation()
   const fundingMode = useConfirmedFundingMode()
   const personalMode = fundingMode === 'disabled'

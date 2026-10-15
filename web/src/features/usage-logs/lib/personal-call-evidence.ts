@@ -33,6 +33,8 @@ export function getPersonalCallEvidence(log: UsageLog) {
     (other?.usage_outcome === 'reported' ||
       (!other?.usage_outcome &&
         log.type === 2 &&
-        (log.prompt_tokens > 0 || log.completion_tokens > 0)))
+        (other?.usage_accuracy === 'reported' ||
+          (!other?.usage_accuracy &&
+            (log.prompt_tokens > 0 || log.completion_tokens > 0)))))
   return { completed, usageKnown, other }
 }

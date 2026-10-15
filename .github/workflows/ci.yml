@@ -615,16 +615,24 @@ jobs:
           MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-ui-browser-artifacts
           NODE_OPTIONS: '--max-old-space-size=768'
         run: |
-          node --test tools/ui/browser-fixtures.test.mjs
-          node tools/ui/profile-browser.mjs
-          node tools/ui/stability-browser.mjs
-          node tools/ui/setup-browser.mjs
-          node tools/ui/personal-status-browser.mjs
-          node tools/ui/personal-workbench-browser.mjs
-          node tools/ui/subscription-share-browser.mjs
-          node tools/ui/personal-console-browser.mjs
-          node tools/ui/browser-smoke.mjs
-          node tools/ui/playground-browser.mjs
+          failed=0
+          node --test tools/ui/browser-fixtures.test.mjs || failed=1
+          for script in \
+            tools/ui/profile-browser.mjs \
+            tools/ui/stability-browser.mjs \
+            tools/ui/setup-browser.mjs \
+            tools/ui/personal-status-browser.mjs \
+            tools/ui/personal-workbench-browser.mjs \
+            tools/ui/subscription-share-browser.mjs \
+            tools/ui/personal-console-browser.mjs \
+            tools/ui/browser-smoke.mjs \
+            tools/ui/playground-browser.mjs; do
+            if ! node "$script"; then
+              echo "::error file=$script::Browser qualification failed"
+              failed=1
+            fi
+          done
+          exit "$failed"
 
       - name: Upload full UI screenshots and qualification report
         if: always()

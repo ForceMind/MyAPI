@@ -97,6 +97,9 @@ try {
         }
         await page.getByRole('heading', { name: 'Synthetic UI operator', level: 3 }).waitFor()
         await page.getByText('Only me', { exact: true }).waitFor()
+        const expectedProfileReads = scenario === 'stalled-auth-refresh' ? 3 : ['healthy', 'null-settings', 'stalled-bootstrap'].includes(scenario) ? 1 : 2
+        assert.equal(profileReads, expectedProfileReads, `${scenario}-${width}: one profile read per attempt, including authenticated replay`)
+        const readsBeforeSecurity = profileReads
         const securityEntry = page.getByRole('button', { name: /Manage login methods/ })
         assert.equal(await securityEntry.getAttribute('aria-expanded'), 'false')
         await securityEntry.click()
@@ -109,7 +112,9 @@ try {
         await page.getByRole('heading', { name: 'Identity', exact: true }).waitFor()
         assert.equal(await page.getByText('Daily Check-in', { exact: true }).count(), 0, 'Personal profile hides check-in even when the separate check-in setting is enabled')
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'No page overflow')
-        assert.equal(profileReads, scenario === 'stalled-auth-refresh' ? 3 : ['healthy', 'null-settings', 'stalled-bootstrap'].includes(scenario) ? 1 : 2, 'Profile and sidebar share one self read per attempt, including the authenticated replay')
+        assert.equal(profileReads, readsBeforeSecurity, 'Opening notification controls does not trigger an extra profile read')
+        assert.equal(await page.getByRole('spinbutton', { name: 'Quota Warning Threshold', exact: true }).count(), 0, 'Personal notification settings hide balance thresholds')
+        assert.equal(await page.getByText('Get notified when balance falls below this value', { exact: true }).count(), 0, 'Personal notification settings hide balance descriptions')
         if (['stalled-auth-refresh', 'stalled-bootstrap'].includes(scenario)) {
           assert(refreshRecovered, 'Recover with a new refresh while the original request remains held')
         }
