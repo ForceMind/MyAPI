@@ -1,0 +1,343 @@
+{
+  "run_id": 38785000844,
+  "run_url": "https://github.com/ForceMind/MyAPI/actions/runs/38785000844",
+  "source_sha": "78c617b1e4469c08dbed0cb097f0e9b079a97a0e",
+  "version": "0.2.0-beta.16",
+  "revision": "rv.0.2.0-beta.16.78c617b1e4469c08dbed0cb097f0e9b079a97a0e.2k6e8r7p",
+  "run_conclusion": "success",
+  "completed_jobs": 6,
+  "artifacts": {
+    "legacy": {
+      "id": 11997947403,
+      "name": "myapi-personal-legacy-78c617b1e4469c08dbed0cb097f0e9b079a97a0e",
+      "download_size_bytes": 904991,
+      "checks": 5,
+      "screenshots": 14,
+      "runtime_errors": 0
+    },
+    "authoritative": {
+      "id": 11997638372,
+      "name": "myapi-personal-authoritative-78c617b1e4469c08dbed0cb097f0e9b079a97a0e",
+      "download_size_bytes": 903438,
+      "checks": 5,
+      "screenshots": 14,
+      "runtime_errors": 0
+    }
+  },
+  "source_files": [
+    {
+      "artifact_id": 11997947403,
+      "writer": "legacy",
+      "name": "qualification.json",
+      "bytes": 2093,
+      "sha256": "5c730e277c38bc7fb959e3e379c5922989b494723bae780893625b0f2f8ea4af"
+    },
+    {
+      "artifact_id": 11997947403,
+      "writer": "legacy",
+      "name": "fresh-key-list-en-1280.png",
+      "bytes": 76520,
+      "sha256": "6d9d74fb7cf751e7acdd8e17b55defbed5e4753d33f16ec937d9034277739f1e",
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997947403,
+      "writer": "legacy",
+      "name": "fresh-selected-key-en-1280.png",
+      "bytes": 82761,
+      "sha256": "9d1b3e9b5cf3b4586e2be3cdb07b663b0160545bcf384cdbc7aabc3ccfe92c21",
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997947403,
+      "writer": "legacy",
+      "name": "fresh-success-en-1280.png",
+      "bytes": 74912,
+      "sha256": "2a7e0c099bfec263430d601891541bb04bbb0d17b948fab518d95391236ec9fc",
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997947403,
+      "writer": "legacy",
+      "name": "fresh-persisted-log-en-1280.png",
+      "bytes": 104983,
+      "sha256": "478d2aa3fc512a0c7e3b390cda3370f1e403db1913c5693437fab313c0ef4c6e",
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997947403,
+      "writer": "legacy",
+      "name": "existing-policy-before-zh-320.png",
+      "bytes": 43131,
+      "sha256": "3d1b0d1beed0c8d1d096013a55e0f58caf0240917b09c8d8a6c2882125590f5f",
+      "width": 320,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997947403,
+      "writer": "legacy",
+      "name": "existing-key-list-zh-320.png",
+      "bytes": 54339,
+      "sha256": "86265fda6156f6a69d81db757b78ac7f9c6874b558c64724501a0ffbbede221f",
+      "width": 320,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997947403,
+      "writer": "legacy",
+      "name": "existing-selected-key-zh-320.png",
+      "bytes": 73632,
+      "sha256": "03294e283bf09685120c8fd671621cc85da39f4ed8dcc8046f6fe3b362fe2465",
+      "width": 320,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997947403,
+      "writer": "legacy",
+      "name": "existing-wallet-rejection-zh-320.png",
+      "bytes": 74295,
+      "sha256": "b40cdb3628837291a1f1be8f53cfa521aa6f13988e4a02f5f90d496373dbdc42",
+      "width": 320,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997947403,
+      "writer": "legacy",
+      "name": "existing-policy-after-zh-320.png",
+      "bytes": 46827,
+      "sha256": "85bfbd8edb2c4e109d619a5021661e4059ad44b5245953c658731f7034faae62",
+      "width": 320,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997947403,
+      "writer": "legacy",
+      "name": "existing-success-zh-320.png",
+      "bytes": 62592,
+      "sha256": "59f0a0bc85050a4c650c6d410cb3946d8c7e1f641ca4bd7afb14f5dacf6448e4",
+      "width": 320,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997947403,
+      "writer": "legacy",
+      "name": "existing-persisted-log-zh-320.png",
+      "bytes": 54128,
+      "sha256": "07bd7fc154e78116e0145e3a1e4786795cbd2df2c409f1466a5f713dde933be8",
+      "width": 320,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997947403,
+      "writer": "legacy",
+      "name": "finite-quota-rejection-zh-320.png",
+      "bytes": 75606,
+      "sha256": "3b2beeabc48e85cc025c41d5394ade83c793498171e8e91dd858e8411197e24a",
+      "width": 320,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997947403,
+      "writer": "legacy",
+      "name": "unqualified-strict-rejection-en-1280.png",
+      "bytes": 98721,
+      "sha256": "cf0b14a2fa6f4ae45f16bf93d195206b0832452a6aa2d6c9f615874122eb3198",
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997947403,
+      "writer": "legacy",
+      "name": "runtime-build-en-1280.png",
+      "bytes": 16670,
+      "sha256": "878de021d8a5413d091430b3e27f67e05336b2c8e78e8a7b18f04436cf090e7b",
+      "width": 976,
+      "height": 146
+    },
+    {
+      "artifact_id": 11997638372,
+      "writer": "authoritative",
+      "name": "qualification.json",
+      "bytes": 2100,
+      "sha256": "ee0642d2cb1c113ef47e4048a6eb9636f89ca2af490b15a42740cfc270ebe7d7"
+    },
+    {
+      "artifact_id": 11997638372,
+      "writer": "authoritative",
+      "name": "fresh-key-list-en-1280.png",
+      "bytes": 76374,
+      "sha256": "ba6cecaddd0f7085a54706f7f5ad4370d4558a507463fc9c013473f704bdbc72",
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997638372,
+      "writer": "authoritative",
+      "name": "fresh-selected-key-en-1280.png",
+      "bytes": 82761,
+      "sha256": "9d1b3e9b5cf3b4586e2be3cdb07b663b0160545bcf384cdbc7aabc3ccfe92c21",
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997638372,
+      "writer": "authoritative",
+      "name": "fresh-success-en-1280.png",
+      "bytes": 74697,
+      "sha256": "cf9f28d96cac369b1fead467fdb15f409a02848a97170ff76ec386f3adec544f",
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997638372,
+      "writer": "authoritative",
+      "name": "fresh-persisted-log-en-1280.png",
+      "bytes": 103894,
+      "sha256": "2c004f7989590fb99e89f1027ac4e120c8c538326f4b7fd48b38c6d2129a2e3c",
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997638372,
+      "writer": "authoritative",
+      "name": "existing-policy-before-zh-320.png",
+      "bytes": 43161,
+      "sha256": "d33166ef88b15151a15ed0b9f08b79dedc866c7b642c44975f995a8d075707c3",
+      "width": 320,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997638372,
+      "writer": "authoritative",
+      "name": "existing-key-list-zh-320.png",
+      "bytes": 54394,
+      "sha256": "cc27e158903f8e3637e1e7f1cc73c17cc55df753d0deca534f119112167a7c60",
+      "width": 320,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997638372,
+      "writer": "authoritative",
+      "name": "existing-selected-key-zh-320.png",
+      "bytes": 73629,
+      "sha256": "7ffe8a8e705788a667e0da48f27f17b84f11dbd6e87208df96038f023766981a",
+      "width": 320,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997638372,
+      "writer": "authoritative",
+      "name": "existing-wallet-rejection-zh-320.png",
+      "bytes": 74717,
+      "sha256": "d32b80526d34c51c2b4d208e45af9b15b969ce49c664b7b527b76024340d5e9d",
+      "width": 320,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997638372,
+      "writer": "authoritative",
+      "name": "existing-policy-after-zh-320.png",
+      "bytes": 47235,
+      "sha256": "880ce0b87d63db24ea479282f0d3f91dbd12f936995dce964ac63efca4d440f6",
+      "width": 320,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997638372,
+      "writer": "authoritative",
+      "name": "existing-success-zh-320.png",
+      "bytes": 63054,
+      "sha256": "d8310728e9912a3379c6d41c34471e01620d59d2a55a76b19463032ed1a310a3",
+      "width": 320,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997638372,
+      "writer": "authoritative",
+      "name": "existing-persisted-log-zh-320.png",
+      "bytes": 54691,
+      "sha256": "e0200e8dc358153f427d87de2f3cbc53c30868d1ee08e748743d7bd8bd36c6d0",
+      "width": 320,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997638372,
+      "writer": "authoritative",
+      "name": "finite-quota-rejection-zh-320.png",
+      "bytes": 74281,
+      "sha256": "c3bc8642c8b8083046505c921fc1beb907b897657899759db271b9c148cd2b5c",
+      "width": 320,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997638372,
+      "writer": "authoritative",
+      "name": "unqualified-strict-rejection-en-1280.png",
+      "bytes": 98343,
+      "sha256": "2261e102afbd7e0810c7fb1a61c93828777931b229e1be0e107fd44296cdb5b8",
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "artifact_id": 11997638372,
+      "writer": "authoritative",
+      "name": "runtime-build-en-1280.png",
+      "bytes": 16670,
+      "sha256": "878de021d8a5413d091430b3e27f67e05336b2c8e78e8a7b18f04436cf090e7b",
+      "width": 976,
+      "height": 146
+    }
+  ],
+  "archive_files": [
+    {
+      "name": "README.md",
+      "bytes": 4780,
+      "sha256": "05097c8d6e7fbf87fcf6728dab1dcffecf8a6619fdbd5a37a81aaeab73146ac4"
+    },
+    {
+      "name": "authoritative-existing-persisted-log-zh-320.png",
+      "bytes": 54691,
+      "sha256": "e0200e8dc358153f427d87de2f3cbc53c30868d1ee08e748743d7bd8bd36c6d0"
+    },
+    {
+      "name": "authoritative-qualification.json",
+      "bytes": 2100,
+      "sha256": "ee0642d2cb1c113ef47e4048a6eb9636f89ca2af490b15a42740cfc270ebe7d7"
+    },
+    {
+      "name": "authoritative-unqualified-strict-rejection-en-1280.png",
+      "bytes": 98343,
+      "sha256": "2261e102afbd7e0810c7fb1a61c93828777931b229e1be0e107fd44296cdb5b8"
+    },
+    {
+      "name": "legacy-finite-quota-rejection-zh-320.png",
+      "bytes": 75606,
+      "sha256": "3b2beeabc48e85cc025c41d5394ade83c793498171e8e91dd858e8411197e24a"
+    },
+    {
+      "name": "legacy-fresh-persisted-log-en-1280.png",
+      "bytes": 104983,
+      "sha256": "478d2aa3fc512a0c7e3b390cda3370f1e403db1913c5693437fab313c0ef4c6e"
+    },
+    {
+      "name": "legacy-qualification.json",
+      "bytes": 2093,
+      "sha256": "5c730e277c38bc7fb959e3e379c5922989b494723bae780893625b0f2f8ea4af"
+    }
+  ],
+  "coverage_limits": [
+    "No missing-usage response in this runtime journey: upstream reports input 10, output 5.",
+    "No native-window subscription-share rejection in this runtime journey: rejects ordinary quota and unsupported strict Token/USD request.",
+    "No production provider/database/credentials; new isolated SQLite and loopback upstream."
+  ],
+  "selected_screenshots": [
+    "legacy-fresh-persisted-log-en-1280.png",
+    "legacy-finite-quota-rejection-zh-320.png",
+    "authoritative-existing-persisted-log-zh-320.png",
+    "authoritative-unqualified-strict-rejection-en-1280.png"
+  ]
+}

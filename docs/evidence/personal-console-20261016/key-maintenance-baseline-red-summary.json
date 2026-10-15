@@ -1,0 +1,54 @@
+{
+  "purpose": "Expected failures prove old-source session-boundary regressions; these are not failures of the candidate.",
+  "run": 38787088937,
+  "ci_checkout": "b34cc0055cdae0150121f40ee50139e58d75006a",
+  "baseline_components_source": "7166e7922daeef0b53069610e9ff766105b51d61",
+  "test_source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+  "artifact": "myapi-ui-browser-b34cc0055cdae0150121f40ee50139e58d75006a",
+  "raw_report": "key-maintenance-baseline-red.json",
+  "expected_failures": 8,
+  "unhandled_errors": 0,
+  "tests": [
+    {
+      "title": "a delayed Key reveal cannot open a chat after unmount changes",
+      "status": "failed",
+      "evidence": "Unexpected subsequent write or chat dispatch, as asserted by CI"
+    },
+    {
+      "title": "a delayed Key reveal cannot open a chat after user changes",
+      "status": "failed",
+      "evidence": "Unexpected subsequent write or chat dispatch, as asserted by CI"
+    },
+    {
+      "title": "a delayed Key reveal cannot open a chat after role changes",
+      "status": "failed",
+      "evidence": "Unexpected subsequent write or chat dispatch, as asserted by CI"
+    },
+    {
+      "title": "a delayed Key reveal cannot open a chat after session changes",
+      "status": "failed",
+      "evidence": "Unexpected subsequent write or chat dispatch, as asserted by CI"
+    },
+    {
+      "title": "a batch stops after its in-flight creation when the original unmount changes",
+      "status": "failed",
+      "evidence": "Unexpected subsequent write or chat dispatch, as asserted by CI"
+    },
+    {
+      "title": "a batch stops after its in-flight creation when the original user changes",
+      "status": "failed",
+      "evidence": "Unexpected subsequent write or chat dispatch, as asserted by CI"
+    },
+    {
+      "title": "a batch stops after its in-flight creation when the original role changes",
+      "status": "failed",
+      "evidence": "Unexpected subsequent write or chat dispatch, as asserted by CI"
+    },
+    {
+      "title": "a batch stops after its in-flight creation when the original session changes",
+      "status": "failed",
+      "evidence": "Unexpected subsequent write or chat dispatch, as asserted by CI"
+    }
+  ],
+  "raw_report_sha256": "6c3c07995bb3a0e8a72013f1a510b07ed44423eeeec0081c3f3d5ef22af099d5"
+}

@@ -1,0 +1,69 @@
+{
+  "passed": true,
+  "sha": "78c617b1e4469c08dbed0cb097f0e9b079a97a0e",
+  "writer": "legacy",
+  "checks": [
+    {
+      "name": "real English desktop fresh Root selected-Key streaming request and persisted usage",
+      "ok": true,
+      "quota": 15,
+      "requests": 1
+    },
+    {
+      "name": "real Chinese mobile ordinary owner rejects until explicit Root policy choice",
+      "ok": true,
+      "role": 1,
+      "policyChanges": 1,
+      "requests": 1,
+      "quota": 15
+    },
+    {
+      "name": "finite ordinary internal quota rejection leaves wallet, Key and consume usage unchanged",
+      "ok": true,
+      "remainingQuota": 1,
+      "additionalUpstreamRequests": 0
+    },
+    {
+      "name": "unqualified loopback/model/request combination rejects strict Token and USD before dispatch or reservation",
+      "ok": true,
+      "additionalUpstreamRequests": 0,
+      "reserved": 0
+    },
+    {
+      "name": "browser reload preserves finite Key and ordinary-owner counters without relay replay",
+      "ok": true,
+      "remainingQuota": 985,
+      "usedQuota": 15
+    }
+  ],
+  "screenshots": [
+    "fresh-key-list-en-1280.png",
+    "fresh-selected-key-en-1280.png",
+    "fresh-success-en-1280.png",
+    "fresh-persisted-log-en-1280.png",
+    "existing-policy-before-zh-320.png",
+    "existing-key-list-zh-320.png",
+    "existing-selected-key-zh-320.png",
+    "existing-wallet-rejection-zh-320.png",
+    "existing-policy-after-zh-320.png",
+    "existing-success-zh-320.png",
+    "existing-persisted-log-zh-320.png",
+    "finite-quota-rejection-zh-320.png",
+    "unqualified-strict-rejection-en-1280.png",
+    "runtime-build-en-1280.png"
+  ],
+  "frontend": {
+    "revision": "rv.0.2.0-beta.16.78c617b1e4469c08dbed0cb097f0e9b079a97a0e.2k6e8r7p",
+    "roles": [
+      "Root",
+      "owner"
+    ],
+    "role_revisions": {
+      "Root": "rv.0.2.0-beta.16.78c617b1e4469c08dbed0cb097f0e9b079a97a0e.2k6e8r7p",
+      "owner": "rv.0.2.0-beta.16.78c617b1e4469c08dbed0cb097f0e9b079a97a0e.2k6e8r7p"
+    },
+    "form_verified": true,
+    "metadata_verified": true,
+    "runtime_errors": 0
+  }
+}
