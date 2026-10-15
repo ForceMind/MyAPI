@@ -137,7 +137,10 @@ test('explicitly selecting an account and window previews 20 plus 50 as 70 and s
   const preview = screen.getByRole('complementary', {
     name: 'Allocation preview',
   })
-  expect(within(preview).getByText('70%')).toBeVisible()
+  const allocationLabel = within(preview).getByText('Total allocated', {
+    selector: 'dt:not(details dt)',
+  })
+  expect(allocationLabel.nextElementSibling).toHaveTextContent(/^70%$/)
   expect(within(preview).getByText('25%')).toBeVisible()
   expect(
     within(preview).getByText(
@@ -235,7 +238,10 @@ test('changing the percentage retains five percentage points of usage and update
   await user.clear(input)
   await user.type(input, '25')
   const preview = screen.getByRole('complementary')
-  expect(within(preview).getByText('20%')).toBeVisible()
+  expect(
+    within(preview).getByText('Estimated usage of share after saving')
+  ).toBeVisible()
+  expect(within(preview).getByText('20%', { selector: 'p' })).toBeVisible()
   expect(
     within(preview).getByText(
       'Equivalent to 5 percentage points of the total window.'
