@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { quotaSeriesKey } from '@/features/channels/lib/quota-history'
+import { ROLE } from '@/lib/roles'
 
 import { AccountsState } from './components/accounts-state'
 import { WindowCard } from './components/window-card'
@@ -106,6 +107,9 @@ export function PersonalUpstream() {
           <WindowShareObservation
             key={selectedAccount.channel_id}
             channelId={selectedAccount.channel_id}
+            canReadPoolUsage={
+              data.canRead && data.selfQuery.data?.role === ROLE.SUPER_ADMIN
+            }
           />
         </>
       ) : (

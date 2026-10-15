@@ -199,7 +199,8 @@ test('creating a Key through the retained drawer refreshes the personal cards wi
   expect(await screen.findByText('Shared device')).toBeVisible()
   expect(api.post).toHaveBeenCalledWith(
     '/api/token/',
-    expect.objectContaining({ name: 'Shared device' })
+    expect.objectContaining({ name: 'Shared device' }),
+    { skipErrorHandler: true, skipBusinessError: true, skipAuthRefresh: true }
   )
   expect(screen.getByText('Desktop application')).toBeVisible()
 })

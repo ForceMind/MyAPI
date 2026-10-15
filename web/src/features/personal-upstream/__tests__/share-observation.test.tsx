@@ -26,6 +26,9 @@ vi.mock('@/features/playground/api', () => ({ getPlaygroundKeys: vi.fn() }))
 vi.mock('@/features/keys/subscription-share-api', () => ({
   getSubscriptionShare: vi.fn(),
 }))
+vi.mock('../components/pool-usage-observation', () => ({
+  PoolUsageObservation: () => <div data-testid='root-pool-usage' />,
+}))
 vi.mock('@tanstack/react-router', () => ({
   Link: (props: AnchorHTMLAttributes<HTMLAnchorElement> & { to?: string }) => {
     const { to, children, ...attributes } = props
@@ -65,7 +68,10 @@ const pool: SubscriptionSharePool = {
   baseline_time: 0,
 }
 
-async function observePool(evidence: SubscriptionSharePool) {
+async function observePool(
+  evidence: SubscriptionSharePool,
+  canReadPoolUsage = false
+) {
   useAuthStore.getState().auth.setBundle({
     access_token: 'access-token',
     token_type: 'Bearer',
@@ -102,7 +108,10 @@ async function observePool(evidence: SubscriptionSharePool) {
   })
   render(
     <QueryClientProvider client={client}>
-      <WindowShareObservation channelId={7} />
+      <WindowShareObservation
+        channelId={7}
+        canReadPoolUsage={canReadPoolUsage}
+      />
     </QueryClientProvider>
   )
   const user = userEvent.setup()
@@ -111,7 +120,8 @@ async function observePool(evidence: SubscriptionSharePool) {
     screen.getByRole('combobox', { name: 'Select an API Key' }),
     '31'
   )
-  await screen.findByText('This Key allocation')
+  if (canReadPoolUsage) await screen.findByTestId('root-pool-usage')
+  else await screen.findByText('This Key allocation')
 }
 
 test('keeps usage and unattributed growth unknown until a trustworthy baseline exists', async () => {
@@ -138,4 +148,15 @@ test('shows native percentage points after a trustworthy baseline without conver
   expect(screen.getByText('5 percentage points')).toBeInTheDocument()
   expect(screen.getByText('3 percentage points')).toBeInTheDocument()
   expect(screen.queryByText('Unknown', { exact: true })).not.toBeInTheDocument()
+})
+
+test('Root retains the selected Key identity and uses only the new pool snapshot for numerical summaries', async () => {
+  await observePool({ ...pool, share_bps: 2000 }, true)
+  expect(screen.getByTestId('upstream-share-selected-key')).toHaveTextContent(
+    'Desktop app'
+  )
+  expect(screen.getByTestId('root-pool-usage')).toBeInTheDocument()
+  expect(screen.queryByText('This Key allocation')).not.toBeInTheDocument()
+  expect(screen.queryByText('20%', { exact: true })).not.toBeInTheDocument()
+  expect(screen.queryByText('Local Key estimate')).not.toBeInTheDocument()
 })

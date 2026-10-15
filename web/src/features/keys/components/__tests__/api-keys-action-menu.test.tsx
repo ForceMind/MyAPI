@@ -138,7 +138,11 @@ test('the first menu opening remains usable while its real-key reveal is pending
   await screen.findByText('1x')
   expect(post).not.toHaveBeenCalled()
   await user.click(screen.getByRole('button', { name: 'Open menu' }))
-  expect(post).toHaveBeenCalledExactlyOnceWith('/api/token/21/key')
+  expect(post).toHaveBeenCalledExactlyOnceWith('/api/token/21/key', undefined, {
+    skipErrorHandler: true,
+    skipBusinessError: true,
+    skipAuthRefresh: true,
+  })
   expect(screen.getByRole('button', { name: 'Open menu' })).toHaveAttribute(
     'aria-expanded',
     'true'

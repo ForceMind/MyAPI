@@ -160,3 +160,17 @@ Root可使用独立POST `/api/subscription-share/pools/:pool_id/close`关闭整�
 本版本单向关闭，同descriptor不能重新启用、隐式重建或继承份额；不同descriptor须Root明确新建。
 Root及所有者可查看closed历史，不能编辑、重选窗口或恢复观测。新增三库关闭合同及UI行为验证，
 实现仍由model/UI原所有者负责，主代理接API/router/文档；不操作运行环境。
+
+## 全池只读观测补充（2026-10-16）
+
+Root 使用 `GET /api/subscription-share/pools/:pool_id/usage` 查看同一明确原生窗口池的全部分配。路由和 model 均重新验证启用 Root；普通管理员、Key owner 无此权限。响应 `no-store`，拒绝额外查询参数，不返回 Key 明文、凭据、账号主体指纹或请求标识。软删除 Key 保留名字和历史估计，硬缺身份以 ID 与 `missing` 表达；0% 与关闭池不抹去已有记录。
+
+该 GET 不调用 Refresh、不建 gate、不修改任何数据或表。MySQL/PostgreSQL 使用只读 Repeatable Read；SQLite 使用普通读事务保持首条 SELECT 后的快照（驱动不强制禁止写入，函数本身仅查询）。配置、generation、全部 allocation/usage、请求计数来自同一事务视图，不依赖 revision 充当投影版本。
+
+金额和 Token 不参与换算，固定点单位是一个百分点的百万分之一。正常分解：`最后接受的投影用量 = 全池 Key 估计之和 + 未归属累计`；未归属累计包含初始基线。初始基线取当前周期不可变 `baseline` / `reset_baseline` 证据的 `AfterUsedMicro`，`未归属增长 = 未归属累计 - 初始基线`。这是本周期首次可信观测时的占用，不保证等于功能启用时刻。
+
+显式恢复观测会更新 generation 的 `BaselineUsedMicro`，但保留已归属估计；它只作为当前恢复参考单独展示，不能重复加入分解。初始证据缺失返回 `baseline_unknown` 和 null；基线尚未建立返回 `baseline_pending` 和 null；缺 usage、孤儿请求或分解不一致返回 `inconsistent`，不重写或补零。非法已存总量整体拒绝，未知 generation 状态不显示 active。
+
+`observed_used_micro` 是最后接受的投影量。`observed_at` / `sample_age_seconds` 指最后处理样本，可能是失败样本；停用/陈旧状态下的数值是保留估计，不能声称新样本重新确认这些用量。多个窗口独立，不相加；配额配置与观测占用分别表达。
+
+`pending_attempts` 指当前 generation 尚未归属且未确认未发送的请求；`unsampled_attempts` 指尚未被样本覆盖的请求；二者可重叠，不相加。`uncertain_attempts` 只计当前 generation 的不确定请求。全池计数包含缺 allocation 的异常记录，明确降级；与旧选中 Key 视图的全历史 uncertain 作用域不同。

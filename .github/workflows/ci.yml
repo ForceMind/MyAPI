@@ -556,6 +556,45 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=1536'
         run: VITE_REACT_APP_VERSION="$(cat ../VERSION)" VITE_BUILD_ID="$GITHUB_SHA" bun run build
 
+      - name: Verify pre-fix Key maintenance session regressions
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'codex/subscription-key-share-20261014'
+        run: |
+          set -euo pipefail
+          baseline=7166e7922daeef0b53069610e9ff766105b51d61
+          saved="$RUNNER_TEMP/key-maintenance-candidate"
+          report="$RUNNER_TEMP/myapi-ui-browser-artifacts/key-maintenance-baseline-red.json"
+          mkdir -p "$saved" "$(dirname "$report")"
+          targets=(src/features/keys/components/api-keys-mutate-drawer.tsx src/features/keys/components/api-keys-provider.tsx src/features/keys/components/data-table-row-actions.tsx)
+          for target in "${targets[@]}"; do cp "$target" "$saved/$(basename "$target")"; done
+          restore_candidate() {
+            for target in "${targets[@]}"; do cp "$saved/$(basename "$target")" "$target"; done
+          }
+          trap restore_candidate EXIT
+          git fetch --no-tags --depth=1 origin "$baseline"
+          for target in "${targets[@]}"; do git show "$baseline:web/$target" > "$target"; done
+          set +e
+          bun run test src/features/keys/components/__tests__/api-keys-mutate-session.test.tsx \
+            src/features/keys/components/__tests__/api-key-export-session.test.tsx \
+            -t 'a batch stops after its in-flight creation|a delayed Key reveal cannot open a chat' \
+            --reporter=json --outputFile="$report"
+          result=$?
+          set -e
+          [[ "$result" -ne 0 ]]
+          python3 - "$report" <<'PY'
+          import json
+          import sys
+          report = json.load(open(sys.argv[1]))
+          failures = [case for suite in report['testResults'] for case in suite['assertionResults'] if case['status'] == 'failed']
+          assert len(failures) == 8, 'Require all eight intended session-boundary regressions'
+          for case in failures:
+              assert case['title'].startswith(('a batch stops after its in-flight creation', 'a delayed Key reveal cannot open a chat'))
+              message = '\n'.join(case.get('failureMessages', []))
+              assert 'called' in message, 'Require an unexpected subsequent write or chat dispatch'
+          assert not report.get('unhandledErrors'), 'Import and initialization errors are not regression evidence'
+          PY
+          restore_candidate
+          git diff --exit-code -- "${targets[@]}"
+
       - name: Retain runnable personal console build
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:

@@ -124,6 +124,20 @@ func subscriptionShareConfiguredDatabaseContract(t *testing.T, db *gorm.DB, dial
 	assert.Equal(t, int64(5_000_000), used[tokens[0].Id])
 	assert.Equal(t, int64(15_000_000), used[tokens[1].Id])
 	assert.Equal(t, int64(20_000_000), used[tokens[0].Id]+used[tokens[1].Id])
+	t.Run("read-only pool decomposition and Root privacy", func(t *testing.T) {
+		usage, err := ReadSubscriptionSharePoolUsage(ctx, db, root.Id, primaryPool.ID, base+4)
+		require.NoError(t, err)
+		assert.Equal(t, "available", usage.DecompositionState)
+		require.Len(t, usage.Allocations, 2)
+		assert.EqualValues(t, 10_000_000, *usage.InitialBaselineUsedMicro)
+		assert.EqualValues(t, 20_000_000, *usage.EstimatedUsedMicro)
+		assert.EqualValues(t, 30_000_000, *usage.ObservedUsedMicro)
+		assert.Zero(t, *usage.UnattributedGrowthMicro)
+		assert.EqualValues(t, 10000, usage.AllocatedBPS)
+		_, err = ReadSubscriptionSharePoolUsage(ctx, db, owner.Id, primaryPool.ID, base+4)
+		require.ErrorIs(t, err, ErrSubscriptionShareDenied)
+		subscriptionSharePoolUsageSnapshotContract(t, db, root.Id, primaryPool.ID, base+4)
+	})
 	if engine == "sqlite" {
 		t.Run("attempt updates exceed the real bind limit", func(t *testing.T) {
 			subscriptionShareSQLiteVariableLimitLifecycle(t, db, root, owner, channels[0], namespace, base+50)

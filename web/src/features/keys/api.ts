@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { api } from '@/lib/api'
+import { api, type ApiRequestConfig } from '@/lib/api'
 
 import {
   apiKeySchema,
@@ -85,17 +85,23 @@ export async function getTokenAutoGroups(): Promise<
 
 // Create a new API key
 export async function createApiKey(
-  data: ApiKeyFormData
+  data: ApiKeyFormData,
+  config?: ApiRequestConfig
 ): Promise<ApiResponse<ApiKey>> {
-  const res = await api.post('/api/token/', data)
+  const res = config
+    ? await api.post('/api/token/', data, config)
+    : await api.post('/api/token/', data)
   return res.data
 }
 
 // Update an existing API key
 export async function updateApiKey(
-  data: ApiKeyUpdateData
+  data: ApiKeyUpdateData,
+  config?: ApiRequestConfig
 ): Promise<ApiResponse<ApiKey>> {
-  const res = await api.put('/api/token/', data)
+  const res = config
+    ? await api.put('/api/token/', data, config)
+    : await api.put('/api/token/', data)
   return res.data
 }
 
@@ -116,26 +122,37 @@ export async function batchDeleteApiKeys(
 // Update API key status (enable/disable)
 export async function updateApiKeyStatus(
   id: number,
-  status: number
+  status: number,
+  config?: ApiRequestConfig
 ): Promise<ApiResponse<ApiKey>> {
-  const res = await api.put('/api/token/?status_only=true', { id, status })
+  const res = config
+    ? await api.put('/api/token/?status_only=true', { id, status }, config)
+    : await api.put('/api/token/?status_only=true', { id, status })
   return res.data
 }
 
 // Fetch the real (unmasked) key for a token by ID
 export async function fetchTokenKey(
-  id: number
+  id: number,
+  config?: ApiRequestConfig
 ): Promise<{ success: boolean; message?: string; data?: { key: string } }> {
-  const res = await api.post(`/api/token/${id}/key`)
+  const res = config
+    ? await api.post(`/api/token/${id}/key`, undefined, config)
+    : await api.post(`/api/token/${id}/key`)
   return res.data
 }
 
 // Batch fetch real (unmasked) keys for multiple tokens
-export async function fetchTokenKeysBatch(ids: number[]): Promise<{
+export async function fetchTokenKeysBatch(
+  ids: number[],
+  config?: ApiRequestConfig
+): Promise<{
   success: boolean
   message?: string
   data?: { keys: Record<number, string> }
 }> {
-  const res = await api.post('/api/token/batch/keys', { ids })
+  const res = config
+    ? await api.post('/api/token/batch/keys', { ids }, config)
+    : await api.post('/api/token/batch/keys', { ids })
   return res.data
 }

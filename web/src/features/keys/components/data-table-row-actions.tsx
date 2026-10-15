@@ -56,6 +56,7 @@ import { copyToClipboard } from '@/lib/copy-to-clipboard'
 
 import { updateApiKeyStatus } from '../api'
 import { API_KEY_STATUS, ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
+import { useKeyMaintenanceSession } from '../hooks/use-key-maintenance-session'
 import { apiKeySchema, type ApiKey } from '../types'
 import { useApiKeys } from './api-keys-provider'
 
@@ -80,6 +81,7 @@ export function DataTableRowActions<TData = ApiKey>(
   props: DataTableRowActionsProps<TData>
 ) {
   const { t } = useTranslation()
+  const isCurrentSession = useKeyMaintenanceSession()
   const apiKey = apiKeySchema.parse(props.apiKey ?? props.row?.original)
   const {
     setOpen,
@@ -101,24 +103,32 @@ export function DataTableRowActions<TData = ApiKey>(
 
   const handleMenuOpenChange = useCallback(
     (open: boolean) => {
-      if (open && !resolvedRealKey && !isRealKeyLoading) {
+      if (open && isCurrentSession() && !resolvedRealKey && !isRealKeyLoading) {
         void resolveRealKey(apiKey.id)
       }
     },
-    [apiKey.id, isRealKeyLoading, resolvedRealKey, resolveRealKey]
+    [
+      apiKey.id,
+      isCurrentSession,
+      isRealKeyLoading,
+      resolvedRealKey,
+      resolveRealKey,
+    ]
   )
 
   const getCachedRealKey = useCallback(() => {
+    if (!isCurrentSession()) return null
     if (resolvedRealKey) return resolvedRealKey
     void resolveRealKey(apiKey.id)
     toast.info(t('API key is loading, please try again in a moment'))
     return null
-  }, [apiKey.id, resolvedRealKey, resolveRealKey, t])
+  }, [apiKey.id, isCurrentSession, resolvedRealKey, resolveRealKey, t])
 
   const handleOpenChatPreset = useCallback(
     async (preset: ChatPreset) => {
+      if (!isCurrentSession()) return
       const realKey = await resolveRealKey(apiKey.id)
-      if (!realKey) return
+      if (!realKey || !isCurrentSession()) return
 
       if (preset.type === 'fluent') {
         const success = sendToFluent(realKey, serverAddress)
@@ -153,20 +163,26 @@ export function DataTableRowActions<TData = ApiKey>(
         window.location.href = resolvedUrl
       }
     },
-    [resolveRealKey, apiKey.id, serverAddress, t]
+    [resolveRealKey, apiKey.id, isCurrentSession, serverAddress, t]
   )
 
   const handleToggleStatus = async (
     e?: React.MouseEvent<HTMLButtonElement>
   ) => {
     e?.stopPropagation()
+    if (!isCurrentSession()) return
     const newStatus = isEnabled
       ? API_KEY_STATUS.DISABLED
       : API_KEY_STATUS.ENABLED
 
     setIsTogglingStatus(true)
     try {
-      const result = await updateApiKeyStatus(apiKey.id, newStatus)
+      const result = await updateApiKeyStatus(apiKey.id, newStatus, {
+        skipErrorHandler: true,
+        skipBusinessError: true,
+        skipAuthRefresh: true,
+      })
+      if (!isCurrentSession()) return
       if (result.success) {
         const message = isEnabled
           ? t(SUCCESS_MESSAGES.API_KEY_DISABLED)
@@ -177,9 +193,9 @@ export function DataTableRowActions<TData = ApiKey>(
         toast.error(result.message || t(ERROR_MESSAGES.STATUS_UPDATE_FAILED))
       }
     } catch {
-      toast.error(t(ERROR_MESSAGES.UNEXPECTED))
+      if (isCurrentSession()) toast.error(t(ERROR_MESSAGES.UNEXPECTED))
     } finally {
-      setIsTogglingStatus(false)
+      if (isCurrentSession()) setIsTogglingStatus(false)
     }
   }
 
@@ -276,7 +292,7 @@ export function DataTableRowActions<TData = ApiKey>(
             const realKey = getCachedRealKey()
             if (!realKey) return
             const ok = await copyToClipboard(realKey)
-            if (ok) toast.success(t('Copied'))
+            if (ok && isCurrentSession()) toast.success(t('Copied'))
           }}
         >
           {t('Copy Key')}
@@ -293,7 +309,7 @@ export function DataTableRowActions<TData = ApiKey>(
               getServerAddress()
             )
             const ok = await copyToClipboard(connStr)
-            if (ok) toast.success(t('Copied'))
+            if (ok && isCurrentSession()) toast.success(t('Copied'))
           }}
         >
           {t('Copy Connection Info')}
@@ -304,8 +320,9 @@ export function DataTableRowActions<TData = ApiKey>(
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={async () => {
+            if (!isCurrentSession()) return
             const realKey = await resolveRealKey(apiKey.id)
-            if (!realKey) return
+            if (!realKey || !isCurrentSession()) return
             setResolvedKey(realKey)
             setCurrentRow(apiKey)
             setOpen('cc-switch')

@@ -361,6 +361,40 @@ function isReveal(path, method) {
   return method === 'POST' && /^\/api\/token\/\d+\/key\/?$/.test(path)
 }
 
+function poolUsageFixture(scenario) {
+  const usage = {
+    pool_id: 7, snapshot_id: 9, revision: 1, channel_id: 1, channel_name: 'Synthetic subscription account',
+    window_slot: 'primary', window_type: 'five_hour', window_seconds: 18000, plan_type: 'pro', generation: 1,
+    state: 'active', reason: 'eligible', observed_at: now - 60, reset_at: now + 3600, max_age_seconds: 300, sample_age_seconds: 60,
+    allocated_bps: 6000, approximate: true,
+    baseline_time: now - 300, baseline_used_micro: 43000000,
+    initial_baseline_time: now - 600, initial_baseline_used_micro: 35000000,
+    observed_used_micro: 55000000, estimated_used_micro: 15000000, unattributed_micro: 40000000, unattributed_growth_micro: 5000000,
+    decomposition_state: 'available', pending_attempts: 2, unsampled_attempts: 2, uncertain_attempts: 1,
+    allocations: [
+      { token_id: 21, token_name: safeKeys[0].name, token_state: 'enabled', share_bps: 1000, estimated_used_micro: 5000000, pending_attempts: 2, unsampled_attempts: 1, uncertain_attempts: 0 },
+      { token_id: 22, token_name: safeKeys[1].name, token_state: 'paused', share_bps: 3000, estimated_used_micro: 7000000, pending_attempts: 0, unsampled_attempts: 1, uncertain_attempts: 0 },
+      { token_id: 23, token_name: safeKeys[2].name, token_state: 'enabled', share_bps: 2000, estimated_used_micro: 3000000, pending_attempts: 0, unsampled_attempts: 0, uncertain_attempts: 1 },
+    ],
+  }
+  if (scenario.poolUsageMode === 'baseline_pending') {
+    Object.assign(usage, { state: 'baseline_pending', decomposition_state: 'baseline_pending', baseline_time: 0, baseline_used_micro: null, initial_baseline_time: null, initial_baseline_used_micro: null, observed_used_micro: null, estimated_used_micro: null, unattributed_micro: null, unattributed_growth_micro: null })
+    for (const allocation of usage.allocations) allocation.estimated_used_micro = null
+  }
+  if (scenario.poolUsageMode === 'baseline_unknown') Object.assign(usage, { decomposition_state: 'baseline_unknown', initial_baseline_time: null, initial_baseline_used_micro: null, unattributed_growth_micro: null })
+  if (scenario.poolUsageMode === 'inconsistent') {
+    Object.assign(usage, { state: 'discontinuity', decomposition_state: 'inconsistent', estimated_used_micro: null, pending_attempts: 3 })
+    usage.allocations[0].estimated_used_micro = null
+  }
+  if (scenario.poolUsageMode === 'zero-share') {
+    usage.allocated_bps = 3000
+    Object.assign(usage.allocations[1], { token_name: null, token_state: 'deleted', share_bps: 0 })
+  }
+  if (scenario.poolSession) usage.allocations[0].token_name = 'Synthetic new session Key'
+  if (scenario.stale) Object.assign(usage, { state: 'stale', observed_at: now - 600, sample_age_seconds: 600 })
+  return usage
+}
+
 function scenarioResponse(fixture, scenario, url, method, reads) {
   const path = url.pathname.replace(/\/$/, '')
   const count = (reads.get(path) || 0) + 1
@@ -394,6 +428,11 @@ function scenarioResponse(fixture, scenario, url, method, reads) {
         },
       },
     }
+  }
+  if (path === '/api/user/auth/refresh' && scenario.poolSession) {
+    const response = fixture.response(url, method)
+    response.body.data.session = { ...response.body.data.session, sid: 'synthetic-ui-root-new-session' }
+    return response
   }
   if (path === '/pg/keys') {
     if (
@@ -466,7 +505,18 @@ function scenarioResponse(fixture, scenario, url, method, reads) {
     return { status: 200, body: { success: true, data: { items, total: items.length, page: 1, page_size: 10 } } }
   }
   const shareMatch = path.match(/^\/api\/token\/(\d+)\/subscription-share$/)
-  if (shareMatch) return { status: 200, body: { success: true, data: { token_id: Number(shareMatch[1]), pools: [{ pool_id: 7, snapshot_id: 9, revision: 1, channel_id: 1, channel_name: 'Synthetic subscription account', plan_type: 'pro', window_slot: 'primary', window_type: 'five_hour', window_seconds: 18000, reset_at: now + 3600, observed_at: now - 60, max_age_seconds: 300, sample_age_seconds: 60, state: 'active', allocated_bps: 6000, share_bps: 2000, estimated_used_micro: 5000000, unattributed_micro: 5000000, pending_attempts: 2, unsampled_attempts: 1, approximate: true, baseline_time: now - 600 }] } } }
+  if (shareMatch && Number(shareMatch[1]) === 24) return { status: 200, body: { success: true, data: { token_id: 24, pools: [{ pool_id: 0, snapshot_id: 9, revision: 0, channel_id: 1, channel_name: 'Synthetic subscription account', plan_type: 'pro', window_slot: 'primary', window_type: 'five_hour', window_seconds: 18000, reset_at: now + 3600, observed_at: now - 60, max_age_seconds: 300, sample_age_seconds: 60, state: 'candidate', allocated_bps: 0, share_bps: 0, estimated_used_micro: 0, unattributed_micro: 0, pending_attempts: 0, unsampled_attempts: 0, approximate: true, baseline_time: 0 }] } } }
+  if (shareMatch) {
+    const pool = { pool_id: 7, snapshot_id: 9, revision: 1, channel_id: 1, channel_name: 'Synthetic subscription account', plan_type: 'pro', window_slot: 'primary', window_type: 'five_hour', window_seconds: 18000, reset_at: now + 3600, observed_at: now - 60, max_age_seconds: 300, sample_age_seconds: 60, state: 'active', allocated_bps: 6000, share_bps: 2000, estimated_used_micro: 5000000, unattributed_micro: 5000000, pending_attempts: 2, unsampled_attempts: 1, approximate: true, baseline_time: now - 600 }
+    if (scenario.role !== 100) { delete pool.channel_id; pool.channel_name = '' }
+    return { status: 200, body: { success: true, data: { token_id: Number(shareMatch[1]), pools: [pool] } } }
+  }
+  const poolUsageMatch = path.match(/^\/api\/subscription-share\/pools\/(\d+)\/usage$/)
+  if (poolUsageMatch) {
+    if (scenario.role !== 100 || !scenario.channelRead || poolUsageMatch[1] !== '7' || url.search) return { violation: 'Unexpected root pool usage request' }
+    if (scenario.poolUsageMode === 'error') return { status: 503, body: { success: false, message: 'Synthetic pool usage unavailable' } }
+    return { status: 200, body: { success: true, data: poolUsageFixture(scenario) } }
+  }
   if (path === '/api/log/self/overview') {
     if (scenario.failRecent && count === 1) {
       return {
@@ -628,6 +678,20 @@ async function createSession(scenario) {
       reads
     )
     if (response.violation) audit.violations.push(response.violation)
+    if (scenario.poolUsageMode === 'hang' && /^\/api\/subscription-share\/pools\/7\/usage$/.test(path) && response.status === 200) {
+      audit.fixtureResponses.push({ method: request.method(), path, status: 'pending-until-client-timeout' })
+      await new Promise((done) => {
+        const cleanup = () => { page.off('requestfailed', cancelled); context.off('close', closed) }
+        const cancelled = (failed) => { if (failed === request) { cleanup(); done() } }
+        const closed = () => { cleanup(); done() }
+        page.on('requestfailed', cancelled)
+        context.on('close', closed)
+      })
+      // The real Axios deadline cancels this intentionally pending read. The
+      // browser may already have discarded the interception when it aborts.
+      await route.abort('timedout').catch(() => {})
+      return
+    }
     audit.fixtureResponses.push({ method: request.method(), path, status: response.status || 501 })
     return route.fulfill({
       status: response.status || 501,
@@ -661,7 +725,7 @@ async function createSession(scenario) {
     const reason = request.failure()?.errorText || ''
     audit.requestFailures.push({ method: request.method(), path: url.pathname.replace(/\/$/, ''), kind: /aborted/i.test(reason) ? 'aborted' : /blocked/i.test(reason) ? 'blocked' : 'other' })
   })
-  return { page, context, reads, audit }
+  return { page, context, reads, audit, fixture }
 }
 
 async function settled(page) {
@@ -800,6 +864,27 @@ async function selectNativeKey(page, scenario, value) {
   assert.equal(await select.inputValue(), String(value))
 }
 
+async function screenshotPoolUsage(page, scenario, suffix) {
+  await page.getByTestId('pool-usage-summary').evaluate((element) => element.scrollIntoView({ block: 'start', behavior: 'instant' }))
+  await screenshot(page, scenario, `${suffix}-pool-summary`)
+  const rows = page.getByTestId('pool-key-allocations').locator('li')
+  assert.equal(await rows.count(), 3, 'The complete pool Key list is present')
+  for (let index = 0; index < 3; index++) {
+    const row = rows.nth(index)
+    await row.evaluate((element) => element.scrollIntoView({ block: 'start', behavior: 'instant' }))
+    const bounds = await row.boundingBox()
+    const content = await page.locator('.pc-route-content').boundingBox()
+    assert(bounds && content && bounds.y >= content.y - 1 && bounds.y + bounds.height <= content.y + content.height + 1, 'Every complete Key row is reachable within the scrolling content')
+    await screenshot(page, scenario, `${suffix}-pool-key-${index + 1}`)
+  }
+  const manage = page.getByTestId('pool-key-allocations').getByText(tr('Manage Key shares', scenario.language), { exact: true })
+  await manage.scrollIntoViewIfNeeded()
+  const button = await manage.boundingBox()
+  const content = await page.locator('.pc-route-content').boundingBox()
+  assert(button && content && button.y >= content.y - 1 && button.y + button.height <= content.y + content.height + 1, 'Pool management remains reachable above the mobile navigation')
+  await screenshot(page, scenario, `${suffix}-pool-actions`)
+}
+
 async function runJourney(scenario, work) {
   const session = await createSession(scenario)
   const journey = { name: scenario.name, language: scenario.language, width: scenario.width, role: scenario.role, result: 'running' }
@@ -867,7 +952,7 @@ async function runJourney(scenario, work) {
 }
 
 async function populated(scenario) {
-  await runJourney(scenario, async ({ page, audit }) => {
+  await runJourney(scenario, async ({ page, audit, reads, fixture }) => {
     await page.getByTestId('recent-records-section').getByText('synthetic-personal-model', { exact: true }).waitFor()
     await page.getByTestId('recent-records-section').getByText(tr('Request successful', scenario.language), { exact: true }).waitFor()
     assert.equal(await page.getByTestId('recent-records-section').getByText('0 Tokens', { exact: true }).count(), 0, 'Missing usage is never zero Tokens')
@@ -890,8 +975,75 @@ async function populated(scenario) {
       assert.equal(await selectedKeyName.innerText(), safeKeys.find((key) => key.id === 23).name, 'The complete selected Key name remains visible')
       assert.equal(await page.getByRole('combobox', { name: tr('Select an API Key', scenario.language), exact: true }).getAttribute('aria-describedby'), await selectedKeyName.getAttribute('id'), 'The Key picker describes its exact selected identity')
       assert(await selectedKeyName.evaluate((element) => element.scrollWidth <= element.clientWidth + 1), 'The selected Key name wraps without horizontal clipping')
-      await page.getByText(tr('This Key allocation', scenario.language), { exact: true }).waitFor()
+      if (scenario.role === 100) {
+      await page.getByTestId('pool-key-23').waitFor({ state: 'visible' })
+      const points = (value) => tr('{{value}} percentage points', scenario.language).replace('{{value}}', new Intl.NumberFormat(browserLocales[scenario.language], { maximumFractionDigits: 6 }).format(value))
+      assert.equal(await page.getByTestId('pool-estimated-total').innerText(), points(15), 'The local estimate is the complete Key sum')
+      assert.equal(await page.getByTestId('pool-initial-baseline').innerText(), points(35), 'The immutable initial cycle observation stays separate')
+      assert.equal(await page.getByTestId('pool-unattributed-growth').innerText(), points(5), 'Growth excludes the initial baseline')
+      assert.equal(await page.getByTestId('pool-recovery-reference').innerText(), points(43), 'A later reference is not substituted for the initial cycle observation')
+      assert.deepEqual(await page.getByTestId('pool-decomposition-bar').locator('span').evaluateAll((elements) => elements.map((element) => element.style.width)), ['15%', '35%', '5%'], 'Only mutually exclusive usage components form the bar')
+      for (const key of safeKeys.slice(0, 3)) await page.getByTestId(`pool-key-${key.id}`).getByText(key.name, { exact: true }).waitFor()
+      assert.equal(await page.getByTestId('pool-key-21').getByTestId('allocation-used-within-share').innerText(), '50%', 'Estimated usage is relative to the actual allocated share')
       await screenshot(page, scenario, scenario.stale ? 'upstream-stale' : 'upstream')
+      await screenshotPoolUsage(page, scenario, 'upstream')
+      if (scenario.language === 'en' && scenario.width === 320 && scenario.theme === 'light') {
+        const poolPath = '/api/subscription-share/pools/7/usage'
+        const section = page.getByTestId('pool-usage-7')
+        const refresh = section.getByRole('button', { name: tr('Refresh', scenario.language), exact: true })
+        for (const mode of ['baseline_pending', 'baseline_unknown', 'inconsistent', 'zero-share', 'hang', 'error']) {
+          scenario.poolUsageMode = mode
+          await refresh.click()
+          if (mode === 'error' || mode === 'hang') {
+            await page.getByTestId('pool-usage-error').waitFor({ state: 'visible', timeout: 20000 })
+            assert.equal(await page.getByTestId('pool-decomposition-bar').count(), 0, 'An API failure does not retain a misleading successful chart')
+          } else if (mode === 'zero-share') {
+            await page.getByTestId('pool-key-22').getByText(tr('Deleted', scenario.language), { exact: true }).waitFor()
+            assert.equal(await page.getByTestId('pool-key-22').getByTestId('allocation-estimated-usage').innerText(), points(7), 'Deleted zero-share Keys retain prior estimates')
+            assert.equal(await page.getByTestId('pool-key-22').getByTestId('allocation-used-within-share').innerText(), tr('Unknown', scenario.language), 'Zero share never divides by zero')
+          } else {
+            const stateText = { baseline_pending: 'Waiting for a trustworthy baseline', baseline_unknown: 'The first observation for this cycle is unavailable.', inconsistent: 'The window evidence is inconsistent. Values are shown separately.' }[mode]
+            await page.getByTestId('pool-decomposition-unavailable').getByText(tr(stateText, scenario.language), { exact: true }).waitFor()
+            assert.equal(await page.getByTestId('pool-decomposition-bar').count(), 0, 'Incomplete evidence never becomes a complete decomposition')
+            if (mode !== 'baseline_unknown') assert.equal(await page.getByTestId('pool-estimated-total').innerText(), tr('Unknown', scenario.language), 'Missing usage never becomes zero')
+            if (mode === 'inconsistent') await page.getByTestId('pool-preserved-estimates').waitFor()
+          }
+          await screenshot(page, scenario, `pool-${mode}`)
+          if (mode !== 'error' && mode !== 'hang') await screenshotPoolUsage(page, scenario, `pool-${mode}`)
+          if (mode === 'hang') {
+            assert(audit.requestFailures.some((request) => request.path === poolPath && request.kind === 'aborted'), 'The client deadline aborts the pending read')
+            scenario.poolUsageMode = 'active'
+            await page.getByTestId('pool-usage-error').getByRole('button', { name: tr('Retry', scenario.language), exact: true }).click()
+            await page.getByTestId('pool-decomposition-bar').waitFor()
+            await screenshot(page, scenario, 'pool-timeout-recovered')
+          }
+        }
+        scenario.poolUsageMode = 'active'
+        await page.getByTestId('pool-usage-error').getByRole('button', { name: tr('Retry', scenario.language), exact: true }).click()
+        await page.getByTestId('pool-decomposition-bar').waitFor()
+        await screenshot(page, scenario, 'pool-recovered')
+        const picker = page.getByRole('combobox', { name: tr('Select an API Key', scenario.language), exact: true })
+        const beforeCandidate = reads.get(poolPath)
+        await picker.selectOption('24')
+        await page.getByText(tr('This Key has no share for the selected account.', scenario.language), { exact: true }).waitFor()
+        assert.equal(reads.get(poolPath), beforeCandidate, 'An unconfigured candidate never requests pool usage')
+        scenario.poolSession = true
+        await page.goto(`${origin}/upstream-accounts`, { waitUntil: 'networkidle' })
+        await page.getByTestId('native-window-card').filter({ has: page.getByText('55%', { exact: true }) }).waitFor()
+        const newPicker = page.getByRole('combobox', { name: tr('Select an API Key', scenario.language), exact: true })
+        assert.equal(await newPicker.inputValue(), '', 'A new session does not inherit a prior selected Key')
+        assert.equal(reads.get(poolPath), beforeCandidate, 'A new session reads no pool before an explicit Key selection')
+        await newPicker.selectOption('23')
+        await page.getByTestId('pool-key-21').getByText('Synthetic new session Key', { exact: true }).waitFor()
+        assert.equal(await page.getByTestId('pool-key-21').getByText(safeKeys[0].name, { exact: true }).count(), 0, 'Old session allocation names do not populate the new view')
+        await screenshot(page, scenario, 'pool-session-isolated')
+        await screenshotPoolUsage(page, scenario, 'session-isolated')
+      }
+      } else {
+        await page.getByText(tr('Root access is required to match Key shares to this account.', scenario.language), { exact: true }).waitFor()
+        assert.equal(await page.getByTestId('pool-usage-7').count(), 0, 'Native window permission does not reveal Root usage')
+        await screenshot(page, scenario, 'upstream-without-root-usage')
+      }
       await openWorkbench(page, scenario)
     } else assert.equal(audit.requests.filter((request) => request.path === '/api/channel/quota/changes').length, 0, 'No channel read without permission')
     for (const keyId of [24, 25, 26]) {
@@ -909,6 +1061,24 @@ async function populated(scenario) {
     assert.equal(audit.requests.filter((request) => request.path === '/pg/models' && request.keyId === '22').length, 0, 'No fallback to an older wider Key')
     assert.equal(audit.requests.filter((request) => request.path === '/api/log' || request.path === '/api/log/overview').length, 0, 'Personal records are always owner scoped')
     assert.equal(audit.requests.filter((request) => /^\/api\/token\/\d+\/budget$/.test(request.path)).length, 0, 'Overview does not load monetary budget forms')
+    if (scenario.role !== 100) assert.equal(audit.requests.filter((request) => /^\/api\/subscription-share\/pools\//.test(request.path)).length, 0, 'Non-Root sessions never request full pool usage')
+    if (scenario.role === 10) {
+      // This second permission state uses a new authenticated document whose
+      // API fixture grants channel.read; no application auth state is injected.
+      fixture.user.permissions.admin_permissions.channel.read = true
+      scenario.channelRead = true
+      await page.goto(`${origin}/upstream-accounts`, { waitUntil: 'networkidle' })
+      await page.getByTestId('native-window-card').filter({ has: page.getByText('55%', { exact: true }) }).waitFor()
+      const windows = page.getByTestId('native-window-card')
+      await windows.filter({ has: page.getByText('68%', { exact: true }) }).waitFor()
+      assert.equal(await windows.count(), 2, 'An authorized admin can view native account windows')
+      await page.getByRole('combobox', { name: tr('Select an API Key', scenario.language), exact: true }).selectOption('23')
+      await page.getByTestId('upstream-share-selected-key').waitFor()
+      await page.getByText(tr('Root access is required to match Key shares to this account.', scenario.language), { exact: true }).waitFor()
+      assert.equal(audit.requests.filter((request) => /^\/api\/subscription-share\/pools\//.test(request.path)).length, 0, 'channel.read never grants Root pool usage permission')
+      assert.equal(await page.getByTestId('pool-usage-7').count(), 0, 'Admin sees no Root pool chart')
+      await screenshot(page, scenario, 'admin-channel-reader')
+    }
   })
 }
 
@@ -937,7 +1107,7 @@ try {
   const matrix = Object.keys(languageCodes).flatMap((language) => [320, 1280].map((width) => ({ ...base, name: `personal-${language}-${width}`, language, width })))
   matrix.push(...[390, 1440].map((width) => ({ ...base, name: `personal-zh-${width}`, language: 'zh', width, stale: width === 390 })))
   matrix.push({ ...base, name: 'personal-zh-320-dark', language: 'zh', width: 320, theme: 'dark' }, { ...base, name: 'personal-en-1280-dark', language: 'en', width: 1280, theme: 'dark' })
-  report.coverage = { languages: Object.keys(languageCodes), widths: [320, 390, 1280, 1440], handoffCases: ['available', 'key-unavailable', 'safe-list-failed'] }
+  report.coverage = { languages: Object.keys(languageCodes), widths: [320, 390, 1280, 1440], handoffCases: ['available', 'key-unavailable', 'safe-list-failed'], poolUsageCases: ['available', 'baseline_pending', 'baseline_unknown', 'inconsistent', 'zero-share', 'timeout', 'error', 'recovered', 'candidate-not-read', 'session-isolated', 'non-root-not-read', 'admin-channel-read-without-root'] }
   for (const scenario of matrix) await populated(scenario)
   for (const role of [1, 10]) await populated({ ...base, name: `personal-permission-${role}`, role, channelRead: false, language: 'en', width: 320 })
   await blockedHandoff({ ...base, name: 'personal-handoff-key-unavailable-en-1280', role: 1, channelRead: false, language: 'en', width: 1280, handoffKeyUnavailable: true })
@@ -967,6 +1137,7 @@ try {
       assert.equal(await session.page.getByTestId('personal-workbench').count(), 0, 'Unconfirmed or commercial mode does not mount personal workspace')
       assert.equal(session.audit.requests.filter((request) => request.path === '/pg/keys').length, 0, 'Gate does not request personal Keys')
       assert.equal(session.audit.requests.filter((request) => /^\/api\/token\/\d+\/subscription-share$/.test(request.path)).length, 0, 'Gate does not request personal share pools')
+      assert.equal(session.audit.requests.filter((request) => /^\/api\/subscription-share\/pools\//.test(request.path)).length, 0, 'Gate does not request full pool usage')
       if (mode === 'unknown') assert.equal(session.audit.requests.filter((request) => ['/api/channel/quota/changes', '/api/log/self', '/api/log/self/overview', '/api/log/overview', '/api/data/self', '/api/data', '/api/perf-metrics/summary'].includes(request.path)).length, 0, 'Unknown mode starts neither dashboard data plane')
       assert.deepEqual(session.audit.mutations, [], 'Gate has no business mutation')
       assert.deepEqual(session.audit.external, [], 'Gate has no external calls')

@@ -155,7 +155,7 @@ export function SubscriptionSharePoolCard(props: {
         </div>
         <div>
           <dt className='text-muted-foreground'>
-            {t('Unattributed increase')}
+            {t('Unattributed usage (including initial baseline)')}
           </dt>
           <dd className='font-medium'>
             {props.pool.pool_id > 0 && props.pool.baseline_time > 0

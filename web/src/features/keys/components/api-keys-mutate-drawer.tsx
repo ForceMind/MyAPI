@@ -74,6 +74,7 @@ import {
   getTokenAutoGroups,
 } from '../api'
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
+import { useKeyMaintenanceSession } from '../hooks/use-key-maintenance-session'
 import {
   getApiKeyFormSchema,
   type ApiKeyFormValues,
@@ -107,6 +108,7 @@ export function ApiKeysMutateDrawer({
   currentRow,
 }: ApiKeyMutateDrawerProps) {
   const { t } = useTranslation()
+  const isCurrentSession = useKeyMaintenanceSession()
   const isUpdate = !!currentRow
   const currentRowId = currentRow?.id
   const { triggerRefresh } = useApiKeys()
@@ -340,6 +342,7 @@ export function ApiKeysMutateDrawer({
   }, [groups, form, selectedGroup])
 
   const onSubmit = async (data: ApiKeyFormValues) => {
+    if (!isCurrentSession()) return
     setIsSubmitting(true)
     try {
       const basePayload = transformFormDataToPayload(data)
@@ -388,7 +391,12 @@ export function ApiKeysMutateDrawer({
             cross_group_retry: basePayload.cross_group_retry,
           }
         }
-        const result = await updateApiKey(updatePayload)
+        const result = await updateApiKey(updatePayload, {
+          skipErrorHandler: true,
+          skipBusinessError: true,
+          skipAuthRefresh: true,
+        })
+        if (!isCurrentSession()) return
         if (result.success) {
           quotaAttemptRef.current = null
           toast.success(t(SUCCESS_MESSAGES.API_KEY_UPDATED))
@@ -403,13 +411,22 @@ export function ApiKeysMutateDrawer({
         let successCount = 0
 
         for (let i = 0; i < count; i++) {
-          const result = await createApiKey({
-            ...basePayload,
-            name:
-              i === 0 && data.name
-                ? data.name
-                : `${data.name || 'default'}-${Math.random().toString(36).slice(2, 8)}`,
-          })
+          if (!isCurrentSession()) return
+          const result = await createApiKey(
+            {
+              ...basePayload,
+              name:
+                i === 0 && data.name
+                  ? data.name
+                  : `${data.name || 'default'}-${Math.random().toString(36).slice(2, 8)}`,
+            },
+            {
+              skipErrorHandler: true,
+              skipBusinessError: true,
+              skipAuthRefresh: true,
+            }
+          )
+          if (!isCurrentSession()) return
           if (result.success) {
             successCount++
           } else {
@@ -429,9 +446,9 @@ export function ApiKeysMutateDrawer({
         }
       }
     } catch {
-      toast.error(t(ERROR_MESSAGES.UNEXPECTED))
+      if (isCurrentSession()) toast.error(t(ERROR_MESSAGES.UNEXPECTED))
     } finally {
-      setIsSubmitting(false)
+      if (isCurrentSession()) setIsSubmitting(false)
     }
   }
 

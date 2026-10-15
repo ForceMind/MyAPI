@@ -41,6 +41,26 @@ func GetSubscriptionShares(c *gin.Context) {
 	common.ApiSuccess(c, view)
 }
 
+func GetSubscriptionSharePoolUsage(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	poolID, err := strconv.ParseInt(c.Param("pool_id"), 10, 64)
+	if err != nil || poolID <= 0 || c.Request.URL.RawQuery != "" {
+		subscriptionShareError(c, model.ErrSubscriptionShareInvalid)
+		return
+	}
+	now, err := model.ReadDatabaseUnixTime(c.Request.Context(), model.DB)
+	if err != nil {
+		subscriptionShareError(c, err)
+		return
+	}
+	view, err := model.ReadSubscriptionSharePoolUsage(c.Request.Context(), model.DB, c.GetInt("id"), poolID, now)
+	if err != nil {
+		subscriptionShareError(c, err)
+		return
+	}
+	common.ApiSuccess(c, view)
+}
+
 func UpdateSubscriptionShare(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	tokenID, err := strconv.Atoi(c.Param("id"))
