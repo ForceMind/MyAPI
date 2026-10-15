@@ -1,0 +1,93 @@
+{
+  "application_source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+  "ci_checkout": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+  "tree": "853a276b15feaf734b91119ecaf5ee76d201dacd",
+  "ci": "https://github.com/ForceMind/MyAPI/actions/runs/38768659712",
+  "version": "0.2.0-beta.15",
+  "frontend": {
+    "build": "passed",
+    "typecheck": "passed",
+    "lint": "passed",
+    "unit_files": 221,
+    "unit_tests": 1387,
+    "unit_result": "passed",
+    "workbench_upstream_journeys": 27,
+    "profile_logs_journeys": 16,
+    "share_journeys": 28,
+    "personal_screenshots_produced": 220,
+    "personal_screenshots_archived": 22,
+    "contrast": {
+      "light": {
+        "samples": 56,
+        "minimum": 5.349890955134842
+      },
+      "dark": {
+        "samples": 6,
+        "minimum": 8.030593727129116
+      },
+      "required_minimum": 4.5
+    }
+  },
+  "runtime": {
+    "source": "e8376f7054a9f61629bba9260862902ee48b23d5",
+    "ci": "https://github.com/ForceMind/MyAPI/actions/runs/38761929914",
+    "legacy": "passed",
+    "authoritative": "passed",
+    "sqlite": "fresh isolated",
+    "upstream": "loopback test provider only",
+    "production_touched": false
+  },
+  "ordinary_ci_result": "success",
+  "ordinary_ci_jobs": [
+    {
+      "conclusion": "success",
+      "name": "S2-A payment and subscription database regression",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Desktop cross-platform contract",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Frontend typecheck and test",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "S2-C09 Redis limiter lifecycle regression",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "B2 ClickHouse log migration regression",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "B2 durable submission database regression",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Distribution and release contracts",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Backend vet, build, and test",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "S1 identity and options database regression",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "S2-C quota script Redis regression",
+      "status": "completed"
+    }
+  ]
+}
