@@ -70,3 +70,7 @@ shared UI执行调整为逐脚本收集全部结果并保留任一失败的非�
 真实应用38749705760：LAN安装器、LAN fresh、合成handoff通过；full/fresh两writer均在reload-check收到静态asset429，未全程通过。已产出13张/每writer遮敏实图，主实际查看桌面Keys与手机成功日志，只证明这些状态已运行。根因是Playwright route外网阻断禁用HTTP缓存，7次document冷加载共享GW默认120/180s；GW仅作用于Web资源，不是API/relay桶。仅personal+full+isolated+loopback+固定SHA的CI容器配置1120/180s，按7文档×完整160项产物目录保守估计（非逐页实测）；生产120/180s、API/认证/搜索/relay保护保持。配置拒绝越界及driver合同157/157通过，真实应用重验待新源码工作流。
 
 门控独审补P2：status失败允许非金融资料恢复时回退旧外壳，其默认通知设置曾重新露出余额阈值。现在仅明确enabled/retirement显示，unknown与disabled隐藏；保留两种已确认商业模式原行为，并调整对应状态回归。
+
+7cc23ee普通CI `38752321998`：build/type/lint通过，220文件1379项Vitest中1378通过、1失败。失败揭示真实门控循环：self完成后Settings新status observer重试失败查询，error→pending→error使useProfile反复取消/再读并卸载身份。Profile现在仅初始等待模式解析，一旦confirmed/error获准便保持至离页；独审通过，四mode原身份/通知断言保留并增加读取1次及身份持续存在检查。浏览器依赖也改为只要production build成功即执行，单元失败仍保留失败结论，但不再阻止后续截图证据。
+
+7cc23ee真实应用 `38752335168`：authoritative全程success，准确revision/Root-owner角色、14张遮敏截图、5次真实UI请求及拒绝无额外上游、精确日志/计数/刷新均完成；主已打开桌面日志和手机Keys实图。legacy首次ledger-check的LOG_MISMATCH未有字段细分，不称已确认根因。源码确认日志Count/Find分读可出现total0/items1，旧Driver已用Node稳定复现失败；现在只允许精确request/owner/Key/model/charge/Token/source/遮敏匹配的唯一行在原10秒内只读重读，最终仍必须1/1。其他错配立即失败，新固定分类/数值掩码不输出原始数据。含越界/错误/截止时间的Node合同162/162通过；真实legacy重验待新源码。LAN与合成handoff本轮均通过，仍无生产操作。

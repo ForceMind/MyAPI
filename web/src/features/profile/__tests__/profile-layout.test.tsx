@@ -117,7 +117,7 @@ describe('profile task layout', () => {
   it.each(['enabled', 'disabled', 'retirement', 'unconfirmed'] as const)(
     'opens the %s profile with preferences and only confirmed commercial check-in',
     async (mode) => {
-      vi.spyOn(api, 'get').mockImplementation(async (url) => {
+      const get = vi.spyOn(api, 'get').mockImplementation(async (url) => {
         if (url === '/api/status' && mode === 'unconfirmed') {
           throw new Error('Synthetic status unavailable')
         }
@@ -241,6 +241,15 @@ describe('profile task layout', () => {
       await user.click(screen.getByRole('button', { name: 'Webhook' }))
       expect(
         screen.getByRole('textbox', { name: 'Webhook URL' })
+      ).toBeInTheDocument()
+      expect(
+        get.mock.calls.filter(([url]) => url === '/api/user/self')
+      ).toHaveLength(1)
+      expect(
+        screen.getByRole('heading', {
+          name: 'Operations',
+          level: mode === 'disabled' ? 3 : 2,
+        })
       ).toBeInTheDocument()
     }
   )

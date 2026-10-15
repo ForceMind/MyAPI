@@ -1054,6 +1054,58 @@ test('ledger retries share a total deadline and abort a slow later body without 
   assert.equal(reads, 2)
 })
 
+test('a Count-before-insert and Find-after-insert log response is reread without replaying relay', async () => {
+  const fixture = journeyBrowser()
+  const events = []
+  let splitRead = false
+  let reads = 0
+  const fetchImpl = async (url, options) => {
+    const response = await fixture.fetchImpl(url, options)
+    if (new URL(url).pathname !== '/api/log/self') return response
+    reads++
+    if (splitRead) return response
+    splitRead = true
+    const payload = await response.json()
+    assert.equal(payload.data.items.length, 1)
+    return new Response(JSON.stringify({ ...payload, data: { ...payload.data, total: 0 } }))
+  }
+  const report = await probePersonalBrowserJourney({ ...base, ...fixture, fetchImpl, onProgress: event => events.push(event) })
+  assert.equal(report.passed, true)
+  assert.equal(reads, 6)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+  assert.deepEqual(events.filter(event => event.event === 'ledger-evidence').map(({ ledgerEvidence, total, rowCount, mismatchMask }) =>
+    ({ ledgerEvidence, total, rowCount, mismatchMask })), [{ ledgerEvidence: 'split-read', total: 0, rowCount: 1, mismatchMask: 0 }])
+})
+
+for (const [field, value, mismatchMask] of [['user_id', 999, 2], ['quota', 16, 32], ['prompt_tokens', 11, 64],
+  ['other', '{"billing_source":"private-mismatched-source"}', 256]]) {
+  test(`a split log count with incorrect ${field} fails immediately with redacted classification`, async () => {
+    const fixture = journeyBrowser()
+    const events = []
+    let reads = 0
+    const fetchImpl = async (url, options) => {
+      const response = await fixture.fetchImpl(url, options)
+      if (new URL(url).pathname !== '/api/log/self') return response
+      reads++
+      const payload = await response.json()
+      payload.data.total = 0
+      payload.data.items[0][field] = value
+      return new Response(JSON.stringify(payload))
+    }
+    await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture, fetchImpl, onProgress: event => events.push(event) }),
+      error => error.message === 'SMOKE_PERSONAL_LOG_MISMATCH' && error.stage === 'ledger-check')
+    assert.equal(reads, 1)
+    assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 1)
+    const diagnostics = events.filter(event => event.event === 'ledger-evidence')
+    assert.equal(diagnostics.length, 1)
+    assert.equal(diagnostics[0].ledgerEvidence, 'field-mismatch')
+    assert.equal(diagnostics[0].mismatchMask, mismatchMask)
+    for (const secret of [base.password, 'request-private-', 'session-private-', 'private-mismatched-source']) {
+      assert.equal(JSON.stringify(diagnostics).includes(secret), false)
+    }
+  })
+}
+
 test('personal navigation and explicit maintenance GETs preserve the forced persistence reload', async () => {
   const fixture = journeyBrowser({ reloadAlreadyCurrent: true })
   const report = await probePersonalBrowserJourney({ ...base, ...fixture })

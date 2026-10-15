@@ -23,6 +23,7 @@ const codes = new Set(['SCOPE_REJECTED', 'AUTH_UNAVAILABLE', 'BROWSER_FAILED', '
   'USAGE_MISMATCH', 'UPSTREAM_MISMATCH', 'WRITER_MISMATCH', 'SCREENSHOT_REJECTED', 'TIMEOUT'])
 const diagnosticCategories = new Set(['asset', 'auth', 'log', 'bootstrap'])
 const browserErrorClasses = new Set(['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'ChunkLoadError', 'ImportError', 'other'])
+const ledgerEvidenceKinds = new Set(['invalid-shape', 'not-ready', 'split-read', 'unexpected-count', 'field-mismatch'])
 
 function diagnosticCategory(request, origin) {
   const url = new URL(request.url())
@@ -113,6 +114,11 @@ async function withBrowser(options, withUpstream, run) {
       ...(Number.isSafeInteger(retryAfter) && retryAfter >= 0 ? { retryAfter } : {}),
       ...(diagnosticCategories.has(diagnostic.category) ? { category: diagnostic.category } : {}),
       ...(browserErrorClasses.has(diagnostic.errorClass) ? { errorClass: diagnostic.errorClass } : {}),
+      ...(ledgerEvidenceKinds.has(diagnostic.ledgerEvidence) ? { ledgerEvidence: diagnostic.ledgerEvidence } : {}),
+      ...(Number.isSafeInteger(diagnostic.total) && diagnostic.total >= 0 && diagnostic.total <= 10000 ? { total: diagnostic.total } : {}),
+      ...(Number.isSafeInteger(diagnostic.rowCount) && diagnostic.rowCount >= 0 && diagnostic.rowCount <= 100 ? { rowCount: diagnostic.rowCount } : {}),
+      ...(Number.isSafeInteger(diagnostic.attempt) && diagnostic.attempt >= 0 && diagnostic.attempt < 50 ? { attempt: diagnostic.attempt } : {}),
+      ...(Number.isSafeInteger(diagnostic.mismatchMask) && diagnostic.mismatchMask >= 0 && diagnostic.mismatchMask <= 1023 ? { mismatchMask: diagnostic.mismatchMask } : {}),
       ...(diagnostic.count === 16 ? { count: 16 } : {}) }
     // Emit only fixed classifications/numeric metadata, never raw diagnostics.
     try {
@@ -619,19 +625,45 @@ async function verifyUsage(api, session, key, before, requestId, consumed) {
     const remaining = deadline - Date.now()
     requireThat(remaining > 0, 'LOG_MISMATCH')
     logs = await api(session, `/api/log/self?type=2&request_id=${encodeURIComponent(requestId)}&p=1&page_size=100`, 'GET', undefined, false, remaining)
-    requireThat(Array.isArray(logs.items) && Number.isSafeInteger(logs.total), 'LOG_MISMATCH')
-    if (!consumed || logs.total !== 0 || logs.items.length !== 0) break
+    if (!logs || !Array.isArray(logs.items) || !Number.isSafeInteger(logs.total) || logs.total < 0) {
+      session.scope.diagnostic('ledger-evidence', { category: 'log', ledgerEvidence: 'invalid-shape', attempt })
+      throw new Error('SMOKE_PERSONAL_LOG_MISMATCH')
+    }
+    if (consumed && logs.items.length === 1) {
+      const log = logs.items[0]
+      let other = null
+      try { other = JSON.parse(log?.other || '{}') } catch { /* Invalid metadata cannot establish the billing source. */ }
+      // Fixed mask bits, in order: request, owner, Key ID, Key name, model,
+      // charge, input Tokens, output Tokens, billing source, owner redaction.
+      // Only this mask and bounded counts may enter diagnostics, never values.
+      const matches = [log?.request_id === requestId, log?.user_id === session.user.id, log?.token_id === key.id,
+        log?.token_name === key.name, log?.model_name === model, log?.quota === usage,
+        log?.prompt_tokens === 10, log?.completion_tokens === 5, other?.billing_source === 'self_use',
+        session.user.role === 100 || Boolean(other && !Object.hasOwn(other, 'admin_info'))]
+      const mismatchMask = matches.reduce((mask, matches, index) => matches ? mask : mask | (1 << index), 0)
+      if (mismatchMask !== 0) {
+        session.scope.diagnostic('ledger-evidence', { category: 'log', ledgerEvidence: 'field-mismatch',
+          attempt, total: logs.total, rowCount: 1, mismatchMask })
+        throw new Error('SMOKE_PERSONAL_LOG_MISMATCH')
+      }
+    }
+    const splitRead = consumed && logs.total === 0 && logs.items.length === 1
+    if (splitRead) {
+      // GetUserLogs runs Count then Find without a shared read transaction.
+      // A concurrent insertion can make only the count stale. Reread only the
+      // exact matching row above; the final count must still become 1/1.
+      session.scope.diagnostic('ledger-evidence', { category: 'log', ledgerEvidence: 'split-read',
+        attempt, total: 0, rowCount: 1, mismatchMask: 0 })
+    } else if (!consumed || logs.total !== 0 || logs.items.length !== 0) break
+    else if (attempt === 0) session.scope.diagnostic('ledger-evidence', { category: 'log', ledgerEvidence: 'not-ready',
+      attempt, total: 0, rowCount: 0 })
     requireThat(attempt < 49, 'LOG_MISMATCH')
     await new Promise((resolve) => setTimeout(resolve, Math.min(100, Math.max(0, deadline - Date.now()))))
   }
-  requireThat(logs.total === (consumed ? 1 : 0) && logs.items.length === (consumed ? 1 : 0), 'LOG_MISMATCH')
-  if (consumed) {
-    const log = logs.items[0]
-    const other = JSON.parse(log.other || '{}')
-    requireThat(log.request_id === requestId && log.user_id === session.user.id && log.token_id === key.id &&
-      log.token_name === key.name && log.model_name === model && log.quota === usage &&
-      log.prompt_tokens === 10 && log.completion_tokens === 5 && other.billing_source === 'self_use' &&
-      (session.user.role === 100 || !Object.hasOwn(other, 'admin_info')), 'LOG_MISMATCH')
+  if (logs.total !== (consumed ? 1 : 0) || logs.items.length !== (consumed ? 1 : 0)) {
+    session.scope.diagnostic('ledger-evidence', { category: 'log', ledgerEvidence: 'unexpected-count',
+      total: logs.total, rowCount: logs.items.length })
+    throw new Error('SMOKE_PERSONAL_LOG_MISMATCH')
   }
   const after = await snapshot(api, session, key)
   const delta = consumed ? usage : 0

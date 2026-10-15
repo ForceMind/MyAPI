@@ -550,6 +550,7 @@ jobs:
           git diff --exit-code -- "$target"
 
       - name: Build real quota UI for browser regression
+        id: frontend-build
         env:
           RAYON_NUM_THREADS: '2'
           NODE_OPTIONS: '--max-old-space-size=1536'
@@ -575,6 +576,7 @@ jobs:
 
       - name: Install isolated browser test dependencies
         id: browser-dependencies
+        if: ${{ !cancelled() && steps.frontend-build.outcome == 'success' }}
         working-directory: .
         run: |
           npm install --prefix "$RUNNER_TEMP/myapi-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1

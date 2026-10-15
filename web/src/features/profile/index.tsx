@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Link } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ErrorState } from '@/components/error-state'
@@ -53,9 +54,16 @@ import { useProfile } from './hooks'
 export function Profile() {
   const { t } = useTranslation()
   const { status, confirmed: statusConfirmed, error: statusError } = useStatus()
-  const { profile, loading, error, fetchProfile, refreshProfile } = useProfile(
+  const [profileReadEnabled, setProfileReadEnabled] = useState(
     statusConfirmed || Boolean(statusError)
   )
+  // Status observers mounted by loaded settings may retry a failed status
+  // query. That background retry must not restart an admitted profile read.
+  useEffect(() => {
+    if (statusConfirmed || statusError) setProfileReadEnabled(true)
+  }, [statusConfirmed, statusError])
+  const { profile, loading, error, fetchProfile, refreshProfile } =
+    useProfile(profileReadEnabled)
   const { commercialEnabled } = useFundingPresentation()
   const fundingMode = useConfirmedFundingMode()
   const personalMode = fundingMode === 'disabled'
