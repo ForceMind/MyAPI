@@ -105,25 +105,28 @@ beforeEach(() => {
     },
   }))
   vi.spyOn(api, 'get').mockImplementation(async (url) => {
-    if (url === '/api/status')
+    if (url === '/api/status') {
       return {
         data: {
           success: true,
           data: { default_use_auto_group: false, quota_display_type: 'TOKENS' },
         },
       }
+    }
     if (url === '/api/user/models') return { data: { success: true, data: [] } }
-    if (url === '/api/user/self/groups')
+    if (url === '/api/user/self/groups') {
       return {
         data: {
           success: true,
           data: { default: { desc: 'Standard', ratio: 1 } },
         },
       }
-    if (url === '/api/token/auto-groups')
+    }
+    if (url === '/api/token/auto-groups') {
       return {
         data: { success: true, data: { groups: ['default'], max_count: 5 } },
       }
+    }
     throw new Error(`Unexpected GET ${url}`)
   })
   vi.spyOn(api, 'post').mockResolvedValue({ data: { success: true, data: {} } })

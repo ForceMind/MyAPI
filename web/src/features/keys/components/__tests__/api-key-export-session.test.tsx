@@ -124,7 +124,7 @@ beforeEach(() => {
     },
   }))
   vi.spyOn(api, 'get').mockImplementation(async (url) => {
-    if (url === '/api/status')
+    if (url === '/api/status') {
       return {
         data: {
           success: true,
@@ -136,6 +136,7 @@ beforeEach(() => {
           },
         },
       }
+    }
     throw new Error(`Unexpected GET ${url}`)
   })
   vi.spyOn(window, 'open').mockReturnValue(null)
@@ -150,7 +151,7 @@ afterEach(() => {
   useAuthStore.setState(originalAuth)
   useSystemConfigStore.setState(originalConfig)
   localStorage.clear()
-  document.getElementById('fluent-new-api-container')?.remove()
+  document.querySelector('#fluent-new-api-container')?.remove()
   vi.restoreAllMocks()
 })
 
@@ -235,9 +236,9 @@ test.each(['network failure', 'business rejection'] as const)(
     vi.spyOn(api, 'post').mockReturnValue(pending.promise)
     await startExport()
     await act(async () => {
-      if (failure === 'network failure')
+      if (failure === 'network failure') {
         pending.reject(new Error('synthetic reveal disconnected'))
-      else pending.resolve({ data: { success: false } })
+      } else pending.resolve({ data: { success: false } })
     })
     expect(toast.error).toHaveBeenCalledOnce()
     expect(window.open).not.toHaveBeenCalled()

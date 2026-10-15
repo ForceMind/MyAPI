@@ -104,6 +104,7 @@ function BatchReveal() {
   const { resolveRealKeysBatch } = useApiKeys()
   return (
     <button
+      type='button'
       onClick={() => {
         void resolveRealKeysBatch([21])
       }}
@@ -130,7 +131,7 @@ beforeEach(() => {
     }
     if (config.method !== 'get' && config.url === target) {
       writes.push(config)
-      if (writes.length === 1)
+      if (writes.length === 1) {
         return new Promise<AxiosResponse>((_resolve, reject) => {
           rejectUnauthorized = () =>
             reject(
@@ -149,6 +150,7 @@ beforeEach(() => {
               )
             )
         })
+      }
       return Promise.resolve(
         response(config, {
           success: true,
@@ -157,7 +159,7 @@ beforeEach(() => {
       )
     }
     let data: unknown
-    if (config.url === '/api/status')
+    if (config.url === '/api/status') {
       data = {
         success: true,
         data: {
@@ -166,17 +168,20 @@ beforeEach(() => {
           chats: [],
         },
       }
-    else if (config.url === '/api/user/models')
+    } else if (config.url === '/api/user/models') {
       data = { success: true, data: [] }
-    else if (config.url === '/api/user/self/groups')
+    } else if (config.url === '/api/user/self/groups') {
       data = {
         success: true,
         data: { default: { desc: 'Standard', ratio: 1 } },
       }
-    else if (config.url === '/api/token/auto-groups')
+    } else if (config.url === '/api/token/auto-groups') {
       data = { success: true, data: { groups: ['default'], max_count: 5 } }
-    else if (config.url === '/api/token/21') data = { success: true, data: key }
-    else throw new Error(`Unexpected request ${config.method} ${config.url}`)
+    } else if (config.url === '/api/token/21') {
+      data = { success: true, data: key }
+    } else {
+      throw new Error(`Unexpected request ${config.method} ${config.url}`)
+    }
     return Promise.resolve(response(config, data))
   }
   vi.spyOn(api, 'post')
@@ -235,14 +240,15 @@ test.each(['create', 'update', 'status', 'reveal', 'batch reveal'] as const)(
         })
       }
       await user.click(save)
-    } else if (action === 'status')
+    } else if (action === 'status') {
       await user.click(screen.getByRole('button', { name: 'Disable' }))
-    else if (action === 'reveal')
+    } else if (action === 'reveal') {
       await user.click(screen.getByRole('button', { name: 'Open menu' }))
-    else
+    } else {
       await user.click(
         screen.getByRole('button', { name: 'Reveal selected Keys' })
       )
+    }
     await waitFor(() => expect(writes).toHaveLength(1))
     const method =
       action === 'update' || action === 'status' ? api.put : api.post

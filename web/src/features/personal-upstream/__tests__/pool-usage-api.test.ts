@@ -56,11 +56,13 @@ for (const corruption of [
     if (corruption === 'usage-total') pool.observed_used_micro = 56000000
     if (corruption === 'growth') pool.unattributed_growth_micro = 6000000
     if (corruption === 'baseline') pool.initial_baseline_used_micro = 45000000
-    if (corruption === 'missing-usage')
+    if (corruption === 'missing-usage') {
       pool.allocations[0].estimated_used_micro = null
+    }
     if (corruption === 'negative') pool.estimated_used_micro = -1
-    if (corruption === 'unsafe-count')
+    if (corruption === 'unsafe-count') {
       pool.pending_attempts = Number.MAX_SAFE_INTEGER + 1
+    }
     if (corruption === 'request-count') pool.pending_attempts = 0
     if (corruption === 'timestamp') pool.baseline_time = Number.MAX_SAFE_INTEGER
     vi.spyOn(api, 'get').mockResolvedValue({

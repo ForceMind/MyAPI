@@ -77,15 +77,17 @@ const poolUsageSchema = z
     if (
       new Set(pool.allocations.map((item) => item.token_id)).size !==
       pool.allocations.length
-    )
+    ) {
       invalid('Duplicate Key allocation')
+    }
     if (
       pool.allocations.reduce(
         (sum, item) => sum + BigInt(item.share_bps),
         0n
       ) !== BigInt(pool.allocated_bps)
-    )
+    ) {
       invalid('Allocation total mismatch')
+    }
     for (const field of [
       'pending_attempts',
       'unsampled_attempts',
@@ -99,8 +101,9 @@ const poolUsageSchema = z
         knownCount > BigInt(pool[field]) ||
         (pool.decomposition_state === 'available' &&
           knownCount !== BigInt(pool[field]))
-      )
+      ) {
         invalid('Request count mismatch')
+      }
     }
     if (pool.decomposition_state !== 'available') return
     if (
@@ -111,16 +114,19 @@ const poolUsageSchema = z
       pool.observed_used_micro === null ||
       pool.estimated_used_micro === null ||
       pool.unattributed_micro === null ||
-      pool.unattributed_growth_micro === null ||
-      pool.allocations.some((item) => item.estimated_used_micro === null)
+      pool.unattributed_growth_micro === null
     ) {
       invalid('Missing decomposition evidence')
       return
     }
-    const estimated = pool.allocations.reduce(
-      (sum, item) => sum + BigInt(item.estimated_used_micro!),
-      0n
-    )
+    let estimated = 0n
+    for (const item of pool.allocations) {
+      if (item.estimated_used_micro === null) {
+        invalid('Missing decomposition evidence')
+        return
+      }
+      estimated += BigInt(item.estimated_used_micro)
+    }
     if (
       estimated !== BigInt(pool.estimated_used_micro) ||
       estimated + BigInt(pool.unattributed_micro) !==
@@ -128,8 +134,9 @@ const poolUsageSchema = z
       pool.initial_baseline_used_micro > pool.unattributed_micro ||
       pool.unattributed_growth_micro !==
         pool.unattributed_micro - pool.initial_baseline_used_micro
-    )
+    ) {
       invalid('Usage decomposition mismatch')
+    }
   })
 
 export type PoolUsage = z.infer<typeof poolUsageSchema>
@@ -156,7 +163,8 @@ export async function getPoolUsage(
   const pool = z
     .object({ success: z.literal(true), data: poolUsageSchema })
     .parse(response.data).data
-  if (pool.pool_id !== poolId || pool.channel_id !== channelId)
+  if (pool.pool_id !== poolId || pool.channel_id !== channelId) {
     throw new Error('Pool usage identity mismatch')
+  }
   return pool
 }

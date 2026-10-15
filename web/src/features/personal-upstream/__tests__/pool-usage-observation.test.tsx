@@ -112,8 +112,9 @@ test('shows all Key allocations and the initial cycle baseline separately from a
       (element) => (element as HTMLElement).style.width
     )
   ).toEqual(['15%', '35%', '5%'])
-  for (const name of ['Desktop app', 'Shared device', 'Mobile app'])
+  for (const name of ['Desktop app', 'Shared device', 'Mobile app']) {
     expect(screen.getByText(name)).toBeVisible()
+  }
   expect(
     within(screen.getByTestId('pool-key-21')).getByTestId(
       'allocation-used-within-share'

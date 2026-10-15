@@ -18,19 +18,33 @@ export function PoolUsageSummary(props: { usage: PoolUsage }) {
   const { t, i18n } = useTranslation()
   const usage = props.usage
   const available = usage.decomposition_state === 'available'
-  const chartFits =
-    available && (usage.observed_used_micro ?? Infinity) <= 100000000
+  const chartData =
+    available &&
+    usage.observed_used_micro !== null &&
+    usage.observed_used_micro <= 100000000 &&
+    usage.estimated_used_micro !== null &&
+    usage.initial_baseline_used_micro !== null &&
+    usage.unattributed_growth_micro !== null
+      ? {
+          estimated: usage.estimated_used_micro,
+          initial: usage.initial_baseline_used_micro,
+          growth: usage.unattributed_growth_micro,
+        }
+      : null
   let unavailableMessage = t('Usage breakdown unavailable')
-  if (usage.decomposition_state === 'baseline_pending')
+  if (usage.decomposition_state === 'baseline_pending') {
     unavailableMessage = t('Waiting for a trustworthy baseline')
-  if (usage.decomposition_state === 'baseline_unknown')
+  }
+  if (usage.decomposition_state === 'baseline_unknown') {
     unavailableMessage = t(
       'The first observation for this cycle is unavailable.'
     )
-  if (usage.decomposition_state === 'inconsistent')
+  }
+  if (usage.decomposition_state === 'inconsistent') {
     unavailableMessage = t(
       'The window evidence is inconsistent. Values are shown separately.'
     )
+  }
   const initialTime = usage.initial_baseline_time
   const referenceTime = usage.baseline_time
   return (
@@ -41,12 +55,12 @@ export function PoolUsageSummary(props: { usage: PoolUsage }) {
         </CardTitle>
       </CardHeader>
       <CardContent className='flex min-w-0 flex-col gap-4 [overflow-wrap:anywhere]'>
-        {!available ? (
+        {!chartData ? (
           <p role='status' data-testid='pool-decomposition-unavailable'>
             {unavailableMessage}
           </p>
         ) : null}
-        {chartFits ? (
+        {chartData ? (
           <div
             className='bg-muted flex h-3 w-full overflow-hidden rounded-full'
             aria-hidden='true'
@@ -54,18 +68,18 @@ export function PoolUsageSummary(props: { usage: PoolUsage }) {
           >
             <span
               className='bg-primary'
-              style={{ width: `${usage.estimated_used_micro! / 1000000}%` }}
+              style={{ width: `${chartData.estimated / 1000000}%` }}
             />
             <span
               className='bg-primary/40'
               style={{
-                width: `${usage.initial_baseline_used_micro! / 1000000}%`,
+                width: `${chartData.initial / 1000000}%`,
               }}
             />
             <span
               className='bg-warning'
               style={{
-                width: `${usage.unattributed_growth_micro! / 1000000}%`,
+                width: `${chartData.growth / 1000000}%`,
               }}
             />
           </div>
