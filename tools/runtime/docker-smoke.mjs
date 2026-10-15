@@ -20,6 +20,19 @@ export function validateSmokeTarget(baseUrl, edition, sha) {
   return target.origin
 }
 
+export function personalSmokeWebRateLimit({ baseUrl, edition, sha, isolated, personal } = {}) {
+  if (isolated !== true || personal !== true || edition !== 'full') throw new Error('INVALID_ISOLATED_SMOKE_TARGET')
+  validateSmokeTarget(baseUrl, edition, sha)
+  // This cold-cache fixture makes 7 document loads: setup, two sign-ins,
+  // the config and persistence reloads, Users, and System Info. Its required
+  // Playwright origin guard disables HTTP caching. The 0973fbf Full bundle
+  // contains 159 non-HTML resources (including unused font formats and routes).
+  // Budgeting the entire catalog + HTML per document is a conservative bound,
+  // not a measurement of what each page loads. Production stays at 120/180s;
+  // this does not change API, authentication, search, or relay limits.
+  return 7 * 160
+}
+
 const fixture = Object.freeze({
   userName: 'smokeuser',
   userDisplayName: 'Smoke User',

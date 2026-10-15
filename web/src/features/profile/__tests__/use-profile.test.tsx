@@ -42,6 +42,26 @@ describe('profile read lifecycle', () => {
     expect(get).toHaveBeenCalledTimes(1)
   })
 
+  it('aborts a manual retry immediately on unmount while the shell decision is still pending', async () => {
+    vi.useFakeTimers()
+    let retrySignal: Pick<AbortSignal, 'aborted'> | undefined
+    vi.spyOn(api, 'get').mockImplementation((_url, config) => {
+      retrySignal = config?.signal
+      return new Promise(() => undefined)
+    })
+    const { result, unmount } = renderHook(() => useProfile(false))
+    await act(() => vi.advanceTimersByTimeAsync(15000))
+    expect(result.current.error).toBe(true)
+    let retry!: Promise<void>
+    act(() => {
+      retry = result.current.fetchProfile()
+    })
+    expect(retrySignal?.aborted).toBe(false)
+    unmount()
+    expect(retrySignal?.aborted).toBe(true)
+    await act(() => retry)
+  })
+
   it('ends a stalled read and supports a new successful attempt', async () => {
     vi.useFakeTimers()
     vi.spyOn(api, 'get')

@@ -229,7 +229,7 @@ describe('profile task layout', () => {
       await user.click(
         screen.getByRole('tab', { name: /Settings & Preferences/ })
       )
-      if (mode === 'disabled') {
+      if (mode === 'disabled' || mode === 'unconfirmed') {
         expect(
           screen.queryByRole('spinbutton', { name: 'Quota Warning Threshold' })
         ).not.toBeInTheDocument()

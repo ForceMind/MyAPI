@@ -134,7 +134,10 @@ export function useProfile(enabled = true) {
         setLoading(false)
         setError(true)
       }, 15000)
-      return () => globalThis.clearTimeout(deadline)
+      return () => {
+        globalThis.clearTimeout(deadline)
+        pendingRequest.current?.abort()
+      }
     }
     void fetchProfile()
     return () => pendingRequest.current?.abort()

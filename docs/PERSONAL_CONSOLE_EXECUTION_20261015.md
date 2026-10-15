@@ -64,3 +64,9 @@ npm真实dry-run回读：新增docs/.npmignore仅排除design/prototypes的PNG/P
 shared UI执行调整为逐脚本收集全部结果并保留任一失败的非零退出码，避免第一个失败阻止五页面专属截图。隔离真实应用工作流 `38749705760` 已手动派发，准确源码0973fbf；matrix包含full/fresh legacy、full/fresh authoritative、lan/fresh和合成旧源码handoff，另有临时安装器。全部为CI新SQLite与临时凭据，测试上游仅回环；不访问真实历史副本，不推送镜像、不发布、不部署。该运行尚未验收。
 
 资料重复读取根因已确认：初始funding状态确认后旧临时外壳切personal，Outlet重挂再次读self。现在等待status.confirmed或明确status失败再读；placeholder不算确认，等待15秒有失败终态且手动Retry独立可用。补hook超时/恢复和placeholder→确认单次读取回归，原浏览器计数保持严格。个人通知设置显式隐藏余额阈值及说明，商业默认保留，设置保存沿用原阈值以满足既有API合同。非实现者已独审usage证据逻辑及阈值传递，无新增确认缺陷；新版行为/截图仍待CI。
+
+0973fbf普通CI后端已完整通过：root/relaykit tests、独立build、386、JSON policy、三库作业与全部race检查success。c2e527d修订独审另发现状态仍pending时手动Retry后卸载未及时abort，已补取消和真实signal回归。仅前端及隔离测试配置有后继，不修改账务逻辑。
+
+真实应用38749705760：LAN安装器、LAN fresh、合成handoff通过；full/fresh两writer均在reload-check收到静态asset429，未全程通过。已产出13张/每writer遮敏实图，主实际查看桌面Keys与手机成功日志，只证明这些状态已运行。根因是Playwright route外网阻断禁用HTTP缓存，7次document冷加载共享GW默认120/180s；GW仅作用于Web资源，不是API/relay桶。仅personal+full+isolated+loopback+固定SHA的CI容器配置1120/180s，按7文档×完整160项产物目录保守估计（非逐页实测）；生产120/180s、API/认证/搜索/relay保护保持。配置拒绝越界及driver合同157/157通过，真实应用重验待新源码工作流。
+
+门控独审补P2：status失败允许非金融资料恢复时回退旧外壳，其默认通知设置曾重新露出余额阈值。现在仅明确enabled/retirement显示，unknown与disabled隐藏；保留两种已确认商业模式原行为，并调整对应状态回归。

@@ -112,6 +112,9 @@ export function Profile() {
                     profile={profile}
                     loading={loading}
                     onProfileUpdate={refreshProfile}
+                    showBalanceThreshold={
+                      fundingMode === 'enabled' || fundingMode === 'retirement'
+                    }
                   />
                   <Card>
                     <CardHeader>
