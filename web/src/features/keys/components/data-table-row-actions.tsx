@@ -56,7 +56,7 @@ import { copyToClipboard } from '@/lib/copy-to-clipboard'
 
 import { updateApiKeyStatus } from '../api'
 import { API_KEY_STATUS, ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
-import { apiKeySchema } from '../types'
+import { apiKeySchema, type ApiKey } from '../types'
 import { useApiKeys } from './api-keys-provider'
 
 function getServerAddress(): string {
@@ -72,15 +72,15 @@ function getServerAddress(): string {
   return window.location.origin
 }
 
-type DataTableRowActionsProps<TData> = {
-  row: Row<TData>
-}
+type DataTableRowActionsProps<TData> =
+  | { row: Row<TData>; apiKey?: never }
+  | { apiKey: ApiKey; row?: never }
 
-export function DataTableRowActions<TData>({
-  row,
-}: DataTableRowActionsProps<TData>) {
+export function DataTableRowActions<TData = ApiKey>(
+  props: DataTableRowActionsProps<TData>
+) {
   const { t } = useTranslation()
-  const apiKey = apiKeySchema.parse(row.original)
+  const apiKey = apiKeySchema.parse(props.apiKey ?? props.row?.original)
   const {
     setOpen,
     setCurrentRow,
@@ -191,7 +191,7 @@ export function DataTableRowActions<TData>({
   }
 
   return (
-    <div className='-ml-1.5 flex min-w-0 max-w-full flex-wrap items-center gap-1 md:min-w-min'>
+    <div className='-ml-1.5 flex max-w-full min-w-0 flex-wrap items-center gap-1 md:min-w-min'>
       <Tooltip>
         <TooltipTrigger
           render={
@@ -236,7 +236,7 @@ export function DataTableRowActions<TData>({
       <Button
         variant='outline'
         size='sm'
-        className='h-auto min-h-8 min-w-0 max-w-full px-2 whitespace-normal md:min-w-min md:flex-col md:gap-1 pointer-coarse:min-h-11'
+        className='h-auto min-h-8 max-w-full min-w-0 px-2 whitespace-normal md:min-w-min md:flex-col md:gap-1 pointer-coarse:min-h-11'
         aria-label={t('API Key usage budgets')}
         onClick={() => {
           setCurrentRow(apiKey)
@@ -244,7 +244,7 @@ export function DataTableRowActions<TData>({
         }}
       >
         <Gauge className='size-4 shrink-0' aria-hidden='true' />
-        <span className='min-w-0 max-w-full break-words whitespace-normal md:min-w-min md:break-normal'>
+        <span className='max-w-full min-w-0 break-words whitespace-normal md:min-w-min md:break-normal'>
           {t('Usage budgets')}
         </span>
       </Button>

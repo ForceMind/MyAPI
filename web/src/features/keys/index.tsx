@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
 import { usePersonalWorkbenchMode } from '@/hooks/use-personal-workbench-mode'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { ApiKeysDialogs } from './components/api-keys-dialogs'
 import { ApiKeysPrimaryButtons } from './components/api-keys-primary-buttons'
@@ -30,8 +31,11 @@ import { PersonalApiKeys } from './components/personal-api-keys'
 export function ApiKeys() {
   const { t } = useTranslation()
   const personal = usePersonalWorkbenchMode()
+  const userId = useAuthStore((state) => state.auth.user?.id)
+  const role = useAuthStore((state) => state.auth.user?.role)
+  const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   return (
-    <ApiKeysProvider>
+    <ApiKeysProvider key={`${userId}:${role}:${sessionId}`}>
       {personal ? (
         <PersonalApiKeys />
       ) : (

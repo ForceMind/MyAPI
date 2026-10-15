@@ -66,6 +66,8 @@ import { API_KEY_STATUS, API_KEY_STATUSES } from '../constants'
 import { getSubscriptionShare } from '../subscription-share-api'
 import type { ApiKey } from '../types'
 import { ApiKeysPrimaryButtons } from './api-keys-primary-buttons'
+import { useApiKeys } from './api-keys-provider'
+import { DataTableRowActions } from './data-table-row-actions'
 import { SubscriptionShareDialog } from './subscription-share-dialog'
 
 const route = getRouteApi('/_authenticated/keys/')
@@ -109,12 +111,14 @@ function PersonalApiKeysSession(props: {
   const keyword = props.filter
   const [editingKey, setEditingKey] = useState<ApiKey | null>(null)
   const client = useQueryClient()
+  const { refreshTrigger } = useApiKeys()
   const query = useQuery({
     queryKey: [
       'personal-api-keys',
       props.userId,
       props.role,
       props.sessionId,
+      refreshTrigger,
       page,
       keyword,
     ],
@@ -281,6 +285,7 @@ function PersonalApiKeyCard(props: {
   const { t } = useTranslation()
   const client = useQueryClient()
   const [copying, setCopying] = useState(false)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
   const share = useQuery({
     queryKey: [
       'subscription-share',
@@ -532,6 +537,19 @@ function PersonalApiKeyCard(props: {
             {active ? t('Pause Key') : t('Resume Key')}
           </Button>
         )}
+        <details
+          className='w-full border-t pt-3'
+          onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}
+        >
+          <summary className='cursor-pointer text-sm font-medium'>
+            {t('Advanced options')}
+          </summary>
+          {advancedOpen && (
+            <div className='mt-3 min-w-0'>
+              <DataTableRowActions apiKey={props.apiKey} />
+            </div>
+          )}
+        </details>
       </CardFooter>
     </Card>
   )

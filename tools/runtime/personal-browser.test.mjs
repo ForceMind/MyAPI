@@ -199,7 +199,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
       setDefaultTimeout() {}, on(event, handler) { this.listeners[event] = handler },
       async goto(url) {
         const path = new URL(url).pathname
-        assert(!['/usage-logs/common', '/users'].includes(path), 'existing UI navigation and filters must replace query document loads')
+        assert(path !== '/usage-logs/common', 'personal call logs use the actual console navigation')
         assert(!(path === '/keys' && new URL(url).search && this.actor?.role === 100), 'strict Key filtering must use the visible name input')
         this.current = url
         onNavigate?.(this)
@@ -212,29 +212,33 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
           request: () => ({ method: () => result.method || 'GET' }) }
       },
       submitLogSearch() {
-        const requestId = this.fields['Request ID']
-        assert(requestId, 'the Request ID input must be filled before Search')
-        const tokenName = this.fields['Token Name']
-        const log = clone(logs.get(requestId))
+        const tokenName = this.fields['API Key']
+        assert(tokenName, 'the visible API Key input must be filled before Filter')
+        assert.equal(this.logPeriod, 'all', 'the call lookup includes earlier persisted requests')
+        const stored = [...logs.values()].find(log => log.token_name === tokenName)
+        assert(stored)
+        const requestId = stored.request_id
+        const log = clone(stored)
         const listCorrupt = usageFailureRole === undefined || usageFailureRole === this.actor.role ? corrupt : undefined
         this.badUsage = Boolean(listCorrupt?.startsWith('ui-log-'))
         if (listCorrupt === 'ui-log-request') log.request_id = 'another-request'
         if (listCorrupt === 'ui-log-owner') log.user_id = 999
         if (listCorrupt === 'ui-log-key') log.token_id = 999
         if (listCorrupt === 'ui-log-model') log.model_name = 'another-model'
-        const items = listCorrupt === 'ui-log-duplicate' ? [log, log] : listCorrupt === 'ui-log-missing' ? [] : [log]
+        if (listCorrupt === 'ui-log-tokens') log.completion_tokens = 6
+        let items = listCorrupt === 'ui-log-duplicate' ? [log, log] : listCorrupt === 'ui-log-missing' ? [] : [log]
+        if (listCorrupt === 'ui-log-additional') items = [{ ...log, request_id: 'another-stored-request', id: 991 }, log]
         this.visibleLog = log
-        const search = new URLSearchParams({ token: tokenName, requestId: listCorrupt === 'ui-log-url' ? 'wrong-request' : requestId })
-        this.current = base.baseUrl + '/usage-logs/common?' + search
-        filterActions.push({ action: 'search', role: this.actor.role, tokenName, requestId })
-        this.logFiltersOpen = listCorrupt === 'ui-log-drawer-stays-open'
-        const pathname = this.actor.role === 100 ? '/api/log/' : '/api/log/self'
-        const parameters = `?token_name=${tokenName}&request_id=${requestId}&p=1&page_size=${context.viewport.width === 320 ? 20 : 100}`
+        filterActions.push({ action: 'filter', role: this.actor.role, tokenName })
+        const pathname = '/api/log/self'
+        const parameters = `?token_name=${encodeURIComponent(tokenName)}&p=1&page_size=20`
         usageReads.push({ role: this.actor.role, pathname, requestId, tokenName })
-        this.emit(response(pathname + '?request_id=wrong-request&token_name=' + tokenName, 'GET', { success: false }))
-        this.emit(response((this.actor.role === 100 ? '/api/log/self' : '/api/log/') + parameters, 'GET', { success: false }))
+        this.emit(response('/api/log/self?token_name=wrong-key&p=1&page_size=20', 'GET', { success: false }))
+        this.emit(response('/api/log/' + parameters, 'GET', { success: false }))
+        this.emit(response(pathname + parameters, 'POST', { success: false }))
         this.emit(response(pathname + parameters, 'GET', { success: true, data: { total: items.length, items } }))
       },
+
       url() { return this.current },
       async waitForURL(predicate) { assert(predicate(new URL(this.current))) },
       waitForResponse(predicate) { return new Promise(resolve => this.waiters.push({ predicate, resolve })) },
@@ -284,9 +288,16 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         dialogCloseEvents.push([mutation.title, 'escape'])
       } },
     }
-    const normalize = value => context.locale === 'zh-CN' ? reverse[value] || value : value
+    const normalize = (value, kind) => {
+      if (context.locale !== 'zh-CN') return value
+      if (value === zh['Call logs'] && kind === 'main') return 'Call logs'
+      if (value === zh['API Key'] && kind === 'textbox') return 'API Key'
+      const callPrefix = zh['View call {{id}}'].split('{{id}}')[0]
+      if (kind === 'button' && typeof value === 'string' && value.startsWith(callPrefix)) return 'View call ' + value.slice(callPrefix.length)
+      return reverse[value] || value
+    }
     const locator = (kind, value, parents = []) => {
-      value = normalize(value)
+      value = normalize(value, kind)
       const chain = [...parents, value]
       let awaitingCheckedState = false
       return {
@@ -295,22 +306,28 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         getByPlaceholder: (text) => locator('placeholder', text, chain),
         locator: (selector) => locator('selector', selector, chain),
         and() { awaitingCheckedState = true; return this },
-        filter(options) { if (options?.hasText) chain.push({ hasText: options.hasText }); return this },
+        filter(options) { if (options?.hasText) chain.push({ hasText: options.hasText }); if (options?.has) chain.push({ hasText: options.has.value }); return this },
+        value,
         first() {
           assert.notEqual(new URL(page.current).pathname, '/usage-logs/common', 'first must not conceal ambiguity in log history')
           return this
         }, last() { return this },
         async waitFor(options) {
-          if (kind === 'row') {
+          if (kind === 'row' || (kind === 'selector' && value === '[data-slot="card"]')) {
             const text = chain.find(item => item?.hasText)?.hasText
             assert((page.visibleRows || []).some(item => (item.username || item.name) === text), 'the filtered target row must actually be visible')
           }
-          if (kind === 'dialog' && value === 'Filter') assert.equal(page.logFiltersOpen, options?.state !== 'hidden')
+          if (kind === 'main' && value === 'Call logs' && (usageFailureRole === undefined || usageFailureRole === page.actor.role)) assert.notEqual(corrupt, 'ui-log-hidden-filter')
+          if (kind === 'list' && page.logDetailsOpen && context.viewport.width < 768) assert.fail('mobile details must explicitly return to the list')
           if (kind === 'text' && value === page.visibleLog?.token_name && !page.logDetailsOpen) {
             assert.notEqual(corrupt, 'ui-log-visible')
           }
           if (page.logDetailsOpen && kind === 'text') {
             if (String(value).startsWith('request-private-')) assert.notEqual(corrupt, 'ui-log-dialog-request')
+            if (value === '10' || value === '5') {
+              assert(parents.includes(value === '10' ? 'Input Tokens' : 'Output Tokens'), 'each visible Token value belongs to its exact label')
+              assert.notEqual(corrupt, 'ui-log-detail-tokens')
+            }
             if (value === page.visibleLog?.token_name) assert.notEqual(corrupt, 'ui-log-dialog-key')
           }
           if (kind === 'option' && value === 'smoke-model') assert(page.modelsCache.get(page.selected)?.includes(value), 'the actual model option must exist')
@@ -375,11 +392,12 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
           terminalScrolls.push({ assistant: page.assistants, role: page.actor.role, target, code: target === 'alert' ? page.lastErrorCode : null })
         },
         async count() {
-          if (kind === 'row') {
+          if (kind === 'row' || (kind === 'selector' && value === '[data-slot="card"]')) {
             const text = chain.find(item => item?.hasText)?.hasText
             return (page.visibleRows || []).filter(item => (item.username || item.name) === text).length
           }
-          if (new URL(page.current).pathname === '/usage-logs/common' && (kind === 'title' || kind === 'text')) return corrupt === 'ui-log-ambiguous' ? 2 : 1
+          if (kind === 'button' && typeof value === 'string' && value.startsWith('View call ')) return corrupt === 'ui-log-ambiguous' ? 2 : 1
+          if (kind === 'button' && value === 'My usage policy') return corrupt === 'policy-ui-visible' ? 1 : 0
           if (kind === 'option' && value === 'smoke-model') return corrupt === 'ambiguous-model' ? 2 : Number(page.modelsCache.get(page.selected)?.includes(value))
           if (kind === 'selector' && value === '.is-assistant') return page.assistants || 0
           if (kind === 'alert') return parents.includes('.is-assistant') ? Number(Boolean(page.lastAssistantError)) : page.historicalErrors || 0
@@ -387,16 +405,15 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         },
         async fill(text) {
           if (value === 'Key quota (internal units)') assert.equal(page.currency, 'TOKENS', 'the client must reload its USD system-config cache after the fixture PUT')
-          if (kind === 'placeholder' && ['Token Name', 'Request ID'].includes(value)) {
+          if (kind === 'textbox' && value === 'API Key') {
             assert.equal(new URL(page.current).pathname, '/usage-logs/common')
-            assert(page.logFiltersOpen, 'log inputs must be visibly expanded')
-            if (context.locale === 'zh-CN') assert(parents.includes('Filter'), 'phone filters must be scoped to the visible drawer')
-            else assert(parents.includes('Common Logs'), 'desktop filters belong to the named main')
+            assert(parents.includes('Call logs'), 'personal filters belong to their named main')
+            if (usageFailureRole === undefined || usageFailureRole === page.actor.role) assert.notEqual(corrupt, 'ui-log-hidden-filter')
             filterActions.push({ action: 'fill', role: page.actor.role, field: value })
           }
           page.fields[value] = text
-          if (kind === 'placeholder' && ['Filter by username, name or email...', 'Filter by name...'].includes(value)) {
-            const userSearch = value === 'Filter by username, name or email...'
+          if (kind === 'placeholder' && value === 'Filter by username, name or email...') {
+            const userSearch = true
             assert.equal(new URL(page.current).pathname, userSearch ? '/users' : '/keys')
             const target = clone(userSearch ? users.get(20) : [...keys.values()].find(key => key.name === text))
             assert(target)
@@ -427,8 +444,14 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         async inputValue() { return kind === 'combobox' && new URL(page.current).pathname === '/dashboard/overview' ? page.workbenchSelected : page.selected },
         async isDisabled() { return value === 'API key' && page.selected === '' },
         async selectOption(id) {
+          if (kind === 'combobox' && value === 'Time range' && new URL(page.current).pathname === '/usage-logs/common') {
+            assert.equal(id, 'all', 'persisted call lookup must not depend on crossing local midnight')
+            page.logPeriod = id
+            return
+          }
           if (kind === 'combobox' && new URL(page.current).pathname === '/dashboard/overview') {
             assert.equal(new URL(page.current).pathname, '/dashboard/overview')
+            assert.equal(page.keyTestExpanded, true, 'explicit test section must open before Key selection')
             assert([...keys.values()].some(key => key.user_id === page.actor.id && key.id === Number(id)))
             page.workbenchSelected = id
             return
@@ -477,33 +500,39 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
               'Key handoff must not send a generation request')
             return
           }
-          if (value === 'Expand' || value === 'Filter') {
+          if (value === 'Filter' && kind === 'button') {
             assert.equal(new URL(page.current).pathname, '/usage-logs/common')
-            assert(parents.includes('Common Logs'), 'log filter triggers belong to the named page main')
-            assert.equal(value, context.locale === 'zh-CN' ? 'Filter' : 'Expand')
-            page.logFiltersOpen = !(corrupt === 'ui-log-hidden-filter' && (usageFailureRole === undefined || usageFailureRole === page.actor.role))
-            filterActions.push({ action: 'open', role: page.actor.role, control: value })
-          }
-          if (value === 'Search') {
-            assert.equal(new URL(page.current).pathname, '/usage-logs/common')
-            // The actual Header has a Search button outside the named main;
-            // a page-wide desktop locator has two matches, not one.
-            const matches = parents.includes('Common Logs') || parents.includes('Filter') ? 1 : 2
-            logSearchMatches.push(matches)
-            assert.equal(matches, 1, 'strict locator: Header Search and log Search both match')
-            assert(page.logFiltersOpen)
-            if (context.locale === 'zh-CN') assert(parents.includes('Filter'), 'Search must belong to the mobile drawer')
+            assert(parents.includes('Call logs'), 'Filter must belong to the personal log page')
+            if (usageFailureRole === undefined || usageFailureRole === page.actor.role) assert.notEqual(corrupt, 'ui-log-no-submission')
+            logSearchMatches.push(1)
             page.submitLogSearch()
+          }
+          if (value === 'Search' && kind === 'button') {
+            assert.equal(new URL(page.current).pathname, '/keys')
+            assert.notEqual(corrupt, 'ui-key-search-submit')
+            const text = page.fields['Search keys']
+            assert(text)
+            const target = clone([...keys.values()].find(key => key.name === text))
+            if (corrupt === 'ui-key-id') target.id = 999
+            if (corrupt === 'ui-key-owner') target.user_id = 999
+            if (corrupt === 'ui-key-name') target.name = 'wrong-name'
+            const items = corrupt === 'ui-key-missing' ? [] : corrupt === 'ui-key-duplicate' ? [target, target] : [target]
+            page.visibleRows = corrupt === 'ui-key-stale-row' ? [] : items
+            tableSearches.push({ endpoint: '/api/token/search', keyword: text, id: target.id })
+            page.emit(response('/api/token/search?keyword=wrong-name', 'GET', { success: false }))
+            page.emit(response('/api/token/search?keyword=' + encodeURIComponent(text), 'POST', { success: false }))
+            page.emit(response('/api/token/search?keyword=' + encodeURIComponent(text), 'GET', { success: true, data: { total: items.length, items } }))
           }
           if (value === 'Open menu' && new URL(page.current).pathname === '/users') {
             assert(parents.some(item => item?.hasText === users.get(20).username), 'policy menu must belong to the exact filtered owner row')
             assert.equal(page.visibleRows.length, 1)
           }
           if (value === 'API Key usage budgets' && kind === 'button') {
+            assert.equal(page.advancedKeyOpen, true, 'strict budget controls must be explicitly expanded')
             assert(parents.some(item => item?.hasText === 'browser-root-strict-reject'), 'budget button must belong to the exact filtered Key row')
             assert.equal(page.visibleRows.length, 1)
           }
-          if (value === 'My usage policy') page.policySnapshot ||= clone(policy(page.actor))
+          if (value === 'My usage policy') assert.fail('personal policy controls were deliberately removed')
           if (value === 'Refresh' && parents.includes('User usage policy')) {
             page.policySnapshot = clone(policy(page.actor))
             if (corrupt === 'policy-refresh-owner') page.policySnapshot.user_id = 999
@@ -527,22 +556,34 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             page.emitResponse(response('/pg/keys?p=1&page_size=100', 'GET', { success: false }))
             page.emit(response('/pg/keys?p=1&page_size=100', 'GET', { success: true, data }))
           }
-          if (kind === 'title' && value === 'Click to view full details') {
+          if (kind === 'button' && typeof value === 'string' && value.startsWith('View call ')) {
+            assert(parents.includes('Call logs') && parents.includes(undefined), 'detail choice belongs to the call list')
+            assert.equal(value, 'View call ' + page.visibleLog.request_id)
             if (corrupt === 'ui-log-open') throw new Error(base.password)
             page.logDetailsOpen = true
           }
-          if (value === 'Toggle sidebar') {
-            page.sidebarOpen = !page.sidebarOpen
-            navigations.push({ kind: 'toggle', locale: context.locale })
+          if (kind === 'button' && value === 'Back to call list') {
+            assert.equal(context.viewport.width, 320)
+            assert.equal(page.logDetailsOpen, true)
+            assert.notEqual(corrupt, 'ui-log-detail-return')
+            page.logDetailsOpen = false
+            page.closedLogDetails = (page.closedLogDetails || 0) + 1
           }
-          if (kind === 'link' && parents.includes('[data-myapi-sidebar]')) {
-            assert(['Personal workbench', 'API Keys', 'Playground', 'Usage Logs', 'Users', 'System Info'].includes(value))
-            assert(!page.logDetailsOpen, 'log dialog must be dismissed before sidebar navigation')
-            if (context.locale === 'zh-CN') assert.equal(page.sidebarOpen, true, 'mobile links require the visible navigation drawer')
-            const pathname = { 'Personal workbench': '/dashboard/overview', 'API Keys': '/keys', Playground: '/playground', 'Usage Logs': '/usage-logs/common', Users: '/users', 'System Info': '/system-info' }[value]
+          if (kind === 'text' && value === 'Test with an existing Key') {
+            assert.equal(new URL(page.current).pathname, '/dashboard/overview')
+            page.keyTestExpanded = true
+          }
+          if (kind === 'text' && value === 'Advanced options') {
+            assert(parents.includes('[data-slot="card"]'))
+            page.advancedKeyOpen = true
+          }
+          if (kind === 'link' && parents.some(parent => ['Personal console navigation', 'Mobile console navigation'].includes(parent))) {
+            assert(['Overview', 'API Keys', 'Call records'].includes(value))
+            const pathname = { Overview: '/dashboard/overview', 'API Keys': '/keys', 'Call records': '/usage-logs/common' }[value]
             page.current = base.baseUrl + pathname
+            page.logDetailsOpen = false
+            page.keyTestExpanded = false
             onNavigate?.(page)
-            page.sidebarOpen = false
             navigations.push({ kind: 'link', locale: context.locale, path: pathname })
           }
           if (kind === 'switch') (deferSwitchUpdate ? page.pendingSwitches : page.switches)[value] = (page.switches[value] ?? (value === 'No ordinary quota cap' ? 'true' : 'false')) === 'true' ? 'false' : 'true'
@@ -574,13 +615,14 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             assert.equal(page.checkboxes['Use Key limits without a user wallet'], true)
             assert.equal(page.checkboxes['I confirm all running instances support this policy and I understand the supported request paths.'], true)
             const owner = users.get(20)
+            const command = { id: 'a'.repeat(64), expected_revision: corrupt === 'policy-cas' ? owner.revision - 1 : owner.revision, no_balance: true, confirmed: true }
             owner.self_use_no_balance = true
             owner.revision += 1
             if (deferDialogClose) {
               page.dialogMutation = { title: 'User usage policy', pending: true, closed: false }
               dialogCloseEvents.push([page.dialogMutation.title, 'response-pending'])
             }
-            page.emit(response('/api/user/20/usage-policy', 'PUT', { success: true, data: policy(owner) }))
+            page.emit(response('/api/user/20/usage-policy', 'PUT', { success: true, data: policy(owner) }, 200, command))
           }
           if (value === 'Save' && chain.includes('API Key usage budgets')) {
             assert.equal(page.actor.role, 100)
@@ -629,7 +671,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
               key.remain_quota -= 15; key.used_quota += 15
               page.actor.used_quota += 15; page.actor.request_count++
               const requestId = `request-private-${sequence}`
-              logs.set(requestId, { request_id: requestId, user_id: page.actor.id, token_id: key.id, token_name: key.name,
+              logs.set(requestId, { id: sequence, type: 2, created_at: Math.floor(Date.now()/1000), request_id: requestId, user_id: page.actor.id, token_id: key.id, token_name: key.name,
                 model_name: 'smoke-model', quota: 15, prompt_tokens: 10, completion_tokens: 5, other: '{"billing_source":"self_use"}' })
               if (corrupt === 'log-owner') logs.get(requestId).user_id = 999
               if (corrupt === 'usage') logs.get(requestId).completion_tokens = 6
@@ -697,7 +739,14 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
       const target = Number(parsed.pathname.split('/')[3])
       if (options.method === 'PUT') status = 403
       else if (target !== actor.id && actor.role !== 100) status = 404
-      else data = policy(users.get(target))
+      else {
+        data = policy(users.get(target))
+        if (actor.role === 1 && users.get(target).revision === 1) {
+          if (corrupt === 'policy-refresh-owner') data.user_id = 999
+          if (corrupt === 'policy-refresh-revision') data.revision--
+          policyRefreshes.push({ userId: actor.id, role: actor.role, revision: data.revision })
+        }
+      }
     }
     else if (route === 'GET /api/token/search') data = { items: [...keys.values()].filter(key => key.user_id === actor.id && key.name === parsed.searchParams.get('keyword')).map(clone) }
     else if (/^GET \/api\/token\/\d+$/.test(route)) data = clone(keys.get(Number(parsed.pathname.split('/')[3])))
@@ -751,7 +800,7 @@ for (const writer of ['legacy', 'authoritative']) {
       assert.equal(fixture.apiCalls.some(route => route.includes('/v1/') || route.includes('/pg/') || /\/key$/.test(route) || route === 'POST /api/user/login'), false)
       const serialized = JSON.stringify(report)
       for (const secret of [base.password, base.username, 'session-private-', 'secret-masked-key', 'request-private-', 'synthetic request']) assert(!serialized.includes(secret))
-      assert.equal(report.screenshots.length, 15)
+      assert.equal(report.screenshots.length, 14)
       assert.deepEqual(report.screenshots, fixture.screenshots.map(item => path.basename(item.path)))
       for (const item of fixture.screenshots) {
         assert.equal(path.dirname(item.path), artifactDir)
@@ -785,7 +834,7 @@ test('a clipped long rejection is refused at the existing safe rejection stage w
 })
 
 for (const [corrupt, code] of [['writer', 'WRITER_MISMATCH'], ['models', 'REQUEST_MISMATCH'], ['keys', 'REQUEST_MISMATCH'], ['ambiguous-model', 'REQUEST_MISMATCH'],
-  ['policy-refresh-owner', 'POLICY_MISMATCH'], ['policy-refresh-revision', 'POLICY_MISMATCH'], ['log-owner', 'LOG_MISMATCH'],
+  ['policy-cas', 'POLICY_MISMATCH'], ['policy-refresh-owner', 'POLICY_MISMATCH'], ['policy-refresh-revision', 'POLICY_MISMATCH'], ['log-owner', 'LOG_MISMATCH'],
   ['quota', 'USAGE_MISMATCH'], ['upstream', 'UPSTREAM_MISMATCH'], ['usage', 'LOG_MISMATCH'], ['replay', 'REQUEST_MISMATCH'], ['strict-reserve', 'USAGE_MISMATCH'],
   ['incomplete-text', 'BROWSER_FAILED'], ['still-generating', 'BROWSER_FAILED'], ['missing-send', 'BROWSER_FAILED'], ['latest-error', 'RELAY_MISMATCH'],
   ['visible-revision', 'BUILD_MISMATCH'], ['visible-revision-clipped', 'BUILD_MISMATCH']]) {
@@ -1005,7 +1054,7 @@ test('ledger retries share a total deadline and abort a slow later body without 
   assert.equal(reads, 2)
 })
 
-test('real sidebar contracts reduce document loads and final persistence load cannot be skipped', async () => {
+test('personal navigation and explicit maintenance GETs preserve the forced persistence reload', async () => {
   const fixture = journeyBrowser({ reloadAlreadyCurrent: true })
   const report = await probePersonalBrowserJourney({ ...base, ...fixture })
   assert.equal(report.passed, true)
@@ -1018,15 +1067,15 @@ test('real sidebar contracts reduce document loads and final persistence load ca
   assert.equal(JSON.stringify(report.frontend).includes(base.password), false)
   assert.equal(JSON.stringify(report.frontend).includes('session-private-'), false)
   assert.deepEqual(fixture.navigations.filter(item => item.kind === 'document').map(item => [item.locale, item.path]), [
-    ['en-US', '/sign-in'], ['en-US', '/keys'], ['zh-CN', '/sign-in'], ['zh-CN', '/keys'],
-  ]) // Four journey document loads, plus the separate real setup document.
-  assert.equal(fixture.navigations.filter(item => item.kind === 'link').length, 14)
+    ['en-US', '/sign-in'], ['en-US', '/keys'], ['zh-CN', '/sign-in'], ['en-US', '/users'], ['zh-CN', '/keys'], ['en-US', '/system-info'],
+  ]) // Maintenance pages have no personal primary navigation item.
+  assert.equal(fixture.navigations.filter(item => item.kind === 'link').length, 12)
   assert.deepEqual(fixture.navigations.filter(item => item.path === '/system-info'), [
-    { kind: 'link', locale: 'en-US', path: '/system-info' },
+    { kind: 'document', locale: 'en-US', path: '/system-info' },
   ])
-  assert.equal(fixture.navigations.filter(item => item.kind === 'toggle').length, 7)
+  assert.equal(fixture.navigations.filter(item => item.kind === 'toggle').length, 0)
   assert(fixture.navigations.filter(item => item.kind === 'toggle').every(item => item.locale === 'zh-CN'))
-  assert.deepEqual(fixture.contexts.map(context => context.page.closedLogDialogs), [1, 1])
+  assert.deepEqual(fixture.contexts.map(context => context.page.closedLogDetails || 0), [0, 1])
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/api/user/login').length, 2)
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
 })
@@ -1040,12 +1089,12 @@ test('frontend evidence requires the two real login sessions to report the ident
   assert.equal(fixture.closed(), 1)
 })
 
-test('fixture config reload and ordinary owner Refresh cross independent client cache boundaries', async () => {
+test('fixture config reload and fresh ordinary-owner policy reads cross client cache boundaries', async () => {
   const fixture = journeyBrowser()
   const report = await probePersonalBrowserJourney({ ...base, ...fixture })
   assert.equal(report.passed, true)
   assert.deepEqual(fixture.createdKeyDisplays, ['TOKENS', 'TOKENS', 'TOKENS', 'TOKENS'])
-  assert.deepEqual(fixture.policyRefreshes, [{ userId: 20, role: 1, revision: 1 }])
+  assert.deepEqual(fixture.policyRefreshes, [{ userId: 20, role: 1, revision: 1 }, { userId: 20, role: 1, revision: 1 }])
 })
 
 test('usage UI binds exact request and Key to the real role-specific list without first-entry selection', async () => {
@@ -1053,21 +1102,22 @@ test('usage UI binds exact request and Key to the real role-specific list withou
   const report = await probePersonalBrowserJourney({ ...base, ...fixture })
   assert.equal(report.passed, true)
   assert.deepEqual(fixture.usageReads, [
-    { role: 100, pathname: '/api/log/', requestId: 'request-private-1', tokenName: 'browser-root-finite' },
+    { role: 100, pathname: '/api/log/self', requestId: 'request-private-1', tokenName: 'browser-root-finite' },
     { role: 1, pathname: '/api/log/self', requestId: 'request-private-3', tokenName: 'browser-owner-finite' },
   ])
   // The fixture also emitted wrong-path and wrong-filter response bodies. They
   // must not be consumed, even though they arrived before the matching GET.
-  assert.deepEqual(fixture.contexts.map(context => context.page.closedLogDialogs), [1, 1])
+  assert.deepEqual(fixture.contexts.map(context => context.page.closedLogDetails || 0), [0, 1])
 })
 
 for (const [corrupt, code, stage] of [
-  ...['request', 'owner', 'key', 'model', 'duplicate', 'missing'].map(kind => [`ui-log-${kind}`, 'LOG_MISMATCH', 'usage-list']),
+  ...['request', 'owner', 'key', 'model', 'tokens', 'duplicate', 'missing'].map(kind => [`ui-log-${kind}`, 'LOG_MISMATCH', 'usage-list']),
   ['ui-log-visible', 'BROWSER_FAILED', 'usage-list-visible'],
   ['ui-log-ambiguous', 'LOG_MISMATCH', 'usage-details-open'],
   ['ui-log-open', 'BROWSER_FAILED', 'usage-details-open'],
   ['ui-log-dialog-request', 'BROWSER_FAILED', 'usage-details-request'],
   ['ui-log-dialog-key', 'BROWSER_FAILED', 'usage-details-key'],
+  ['ui-log-detail-tokens', 'BROWSER_FAILED', 'usage-details-key'],
 ]) {
   test(`${corrupt} fails at a fixed usage substage without weakening identity`, async () => {
     const fixture = journeyBrowser({ corrupt })
@@ -1411,21 +1461,18 @@ test('diagnostic caps are independent for Root and ordinary-owner sessions and l
   assert.equal(diagnosticRecords(events).filter(record => record.event === 'diagnostic-response').length, 32)
   assert.equal(diagnosticRecords(events).filter(record => record.event === 'diagnostic-limit').length, 2)
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
-  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 4, 'plus the separate setup navigation')
+  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 6, 'plus the separate setup navigation')
   assert.equal(fixture.upstreamCount(), 4)
 })
 
-test('log filters use visible desktop controls and the mobile drawer before submitting exact identity', async () => {
+test('personal log filters use the visible named main and return mobile details explicitly', async () => {
   const fixture = journeyBrowser()
   assert.equal((await probePersonalBrowserJourney({ ...base, ...fixture })).passed, true)
   assert.deepEqual(fixture.filterActions, [100, 1].flatMap(role => [
-    { action: 'open', role, control: role === 100 ? 'Expand' : 'Filter' },
-    { action: 'fill', role, field: 'Token Name' },
-    { action: 'fill', role, field: 'Request ID' },
-    { action: 'search', role, tokenName: role === 100 ? 'browser-root-finite' : 'browser-owner-finite',
-      requestId: role === 100 ? 'request-private-1' : 'request-private-3' },
+    { action: 'fill', role, field: 'API Key' },
+    { action: 'filter', role, tokenName: role === 100 ? 'browser-root-finite' : 'browser-owner-finite' },
   ]))
-  assert(fixture.contexts.every(context => !context.page.logFiltersOpen))
+  assert(fixture.contexts.every(context => !context.page.logDetailsOpen))
   assert.deepEqual(fixture.tableSearches.map(item => ({ endpoint: item.endpoint, id: item.id })), [
     { endpoint: '/api/user/search', id: 20 }, { endpoint: '/api/token/search', id: 34 },
   ])
@@ -1436,9 +1483,9 @@ test('log filters use visible desktop controls and the mobile drawer before subm
 
 for (const [corrupt, usageFailureRole] of [
   ['ui-log-hidden-filter', 100], ['ui-log-hidden-filter', 1],
-  ['ui-log-url', 100], ['ui-log-url', 1], ['ui-log-drawer-stays-open', 1],
+  ['ui-log-no-submission', 100], ['ui-log-no-submission', 1],
 ]) {
-  test(`${corrupt} role ${usageFailureRole} cannot pass without real filter visibility, submission and URL synchronization`, async () => {
+  test(`${corrupt} role ${usageFailureRole} cannot pass without personal filter visibility and submission`, async () => {
     const fixture = journeyBrowser({ corrupt, usageFailureRole })
     await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), error =>
       error.message === 'SMOKE_PERSONAL_BROWSER_FAILED' && error.stage === 'usage-filter')
@@ -1450,13 +1497,13 @@ for (const [corrupt, usageFailureRole] of [
 
 for (const [prefix, expectedCode, stage, fields] of [
   ['ui-user', 'POLICY_MISMATCH', 'policy-user-filter', ['id', 'role', 'name', 'missing', 'duplicate', 'stale-row', 'url']],
-  ['ui-key', 'KEY_MISMATCH', 'strict-key-filter', ['id', 'owner', 'name', 'missing', 'duplicate', 'stale-row', 'url']],
+  ['ui-key', 'KEY_MISMATCH', 'strict-key-filter', ['id', 'owner', 'name', 'missing', 'duplicate', 'stale-row', 'search-submit']],
 ]) {
   for (const field of fields) {
     test(`${prefix}-${field} fails before acting on an incorrect or stale table selection`, async () => {
       const fixture = journeyBrowser({ corrupt: prefix + '-' + field })
       await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), error => {
-        const code = ['stale-row', 'url'].includes(field) ? 'BROWSER_FAILED' : expectedCode
+        const code = ['stale-row', 'url', 'search-submit'].includes(field) ? 'BROWSER_FAILED' : expectedCode
         assert.equal(error.message, 'SMOKE_PERSONAL_' + code)
         assert.equal(error.stage, stage)
         return true
@@ -1470,7 +1517,7 @@ for (const [prefix, expectedCode, stage, fields] of [
   }
 }
 
-test('header Search duplicate cannot capture desktop log submission while mobile uses its portal dialog', async () => {
+test('personal Filter is scoped to its page and always reads owner-scoped logs', async () => {
   const fixture = journeyBrowser()
   const report = await probePersonalBrowserJourney({ ...base, ...fixture })
   assert.equal(report.passed, true)
@@ -1478,6 +1525,29 @@ test('header Search duplicate cannot capture desktop log submission while mobile
   assert.deepEqual(fixture.usageReads.map(({ role, requestId }) => ({ role, requestId })), [
     { role: 100, requestId: 'request-private-1' }, { role: 1, requestId: 'request-private-3' },
   ])
-  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 4)
+  assert.equal(fixture.navigations.filter(item => item.kind === 'document').length, 6)
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+})
+
+
+test('additional calls for the same Key do not replace the exact persisted request', async () => {
+  const fixture = journeyBrowser({ corrupt: 'ui-log-additional' })
+  const result = await probePersonalBrowserJourney({ ...base, ...fixture })
+  assert.equal(result.passed, true)
+  assert.deepEqual(fixture.usageReads.map(read => read.requestId), ['request-private-1', 'request-private-3'])
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+})
+
+test('a personal page exposing the removed wallet policy control fails its read-only UI contract', async () => {
+  const fixture = journeyBrowser({ corrupt: 'policy-ui-visible' })
+  await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), error =>
+    error.message === 'SMOKE_PERSONAL_POLICY_MISMATCH' && error.stage === 'policy-view')
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 0)
+})
+
+test('the mobile persisted detail must return explicitly before continuing the journey', async () => {
+  const fixture = journeyBrowser({ corrupt: 'ui-log-detail-return' })
+  await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture }), error =>
+    error.message === 'SMOKE_PERSONAL_BROWSER_FAILED' && error.stage === 'usage-details-key')
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 3)
 })

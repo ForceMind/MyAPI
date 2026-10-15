@@ -250,20 +250,16 @@ async function open(session, pathname, { forceLoad = false } = {}) {
   // Reusing a page already at this exact URL avoids needless cache-disabled
   // document reloads. The final persistence check explicitly forces a load.
   if (!forceLoad && session.page.url() === target) return
-  const sidebarLabels = { '/dashboard/overview': 'Personal workbench', '/keys': 'API Keys', '/playground': 'Playground', '/users': 'Users', '/usage-logs/common': 'Usage Logs', '/system-info': 'System Info' }
-  if (!forceLoad && session.user && Object.hasOwn(sidebarLabels, pathname)) {
+  const navigationLabels = { '/dashboard/overview': 'Overview', '/keys': 'API Keys', '/usage-logs/common': 'Call records' }
+  if (!forceLoad && session.user && Object.hasOwn(navigationLabels, pathname)) {
     const { page, label } = session
-    const mobile = session.width === 320
-    const toggle = page.getByRole('button', { name: label('Toggle sidebar'), exact: true })
-    if (mobile) {
-      await toggle.waitFor()
-      if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click()
-    }
-    await page.locator('[data-myapi-sidebar]').getByRole('link', {
-      name: label(sidebarLabels[pathname]), exact: true,
-    }).and(page.locator(`a[href="${pathname}"]`)).click()
+    const navigation = page.getByRole('navigation', {
+      name: label(session.width < 768 ? 'Mobile console navigation' : 'Personal console navigation'), exact: true,
+    })
+    await navigation.waitFor({ state: 'visible' })
+    await navigation.getByRole('link', { name: label(navigationLabels[pathname]), exact: true })
+      .and(page.locator(`a[href="${pathname}"]`)).click()
     await page.waitForURL(url => url.origin === session.origin && url.pathname === pathname)
-    if (mobile) await toggle.and(page.locator('[aria-expanded="false"]')).waitFor()
     return
   }
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -361,7 +357,7 @@ async function login(session, username, password, expectedRole, sha) {
   await session.page.waitForURL((url) => url.pathname !== '/sign-in')
   session.scope.stage = 'login-keys'
   await open(session, '/keys')
-  await session.page.getByRole('button', { name: session.label('My usage policy'), exact: true }).waitFor()
+  await session.page.getByRole('heading', { name: session.label('API Keys'), exact: true }).waitFor()
   const metadata = await bounded(session.scope, () => session.page.evaluate(() => ({
     global: window.__APP_BUILD__?.rev,
     html: document.documentElement.getAttribute('data-build-rev'),
@@ -405,27 +401,20 @@ async function capture(session, options, name, screenshots, target) {
   session.scope.stage = previousStage
 }
 
-async function policyView(session, expectedNoBalance, refreshRevision) {
-  session.scope.stage = 'policy-view'
-  const { page, label } = session
+async function policyView(session, api, expectedNoBalance, expectedRevision) {
+  session.scope.stage = expectedRevision === undefined ? 'policy-view' : 'policy-refresh'
   await open(session, '/keys')
-  await page.getByRole('button', { name: label('My usage policy'), exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: label('User usage policy'), exact: true })
-  if (refreshRevision !== undefined) {
-    session.scope.stage = 'policy-refresh'
-    const policy = await refreshReadback(session, `/api/user/${session.user.id}/usage-policy`,
-      dialog.getByRole('button', { name: label('Refresh'), exact: true }), 'POLICY_MISMATCH')
-    requireThat(policy?.user_id === session.user.id && policy.revision === refreshRevision &&
-      policy.no_balance === expectedNoBalance && policy.legacy_remaining_quota === 0, 'POLICY_MISMATCH')
+  await session.page.getByRole('heading', { name: session.label('API Keys'), exact: true }).waitFor()
+  // This policy is deliberately absent from the personal UI. Inspect genuine
+  // owner-scoped readback; only the existing Root /users flow may change it.
+  const policy = await api(session, `/api/user/${session.user.id}/usage-policy`)
+  requireThat(policy?.user_id === session.user.id && policy.no_balance === expectedNoBalance &&
+    policy.legacy_remaining_quota === 0 && Number.isSafeInteger(policy.revision) && policy.revision >= 0 &&
+    (expectedRevision === undefined || policy.revision === expectedRevision), 'POLICY_MISMATCH')
+  for (const key of ['My usage policy', 'Top Up', 'Recharge', 'Redeem']) {
+    requireThat(await session.page.getByRole('button', { name: session.label(key), exact: true }).count() === 0,
+      'POLICY_MISMATCH')
   }
-  const configuration = dialog.getByRole('region', { name: label('Current configuration'), exact: true })
-  await configuration.getByText(label('Commercial funding disabled'), { exact: true }).waitFor()
-  await configuration.getByText(label(expectedNoBalance ? 'Use Key limits without a user wallet' : 'Use the stored user allowance'), { exact: true }).waitFor()
-  if (session.user.role !== 100) {
-    await dialog.getByText(label('Only Root can change this policy.'), { exact: true }).waitFor()
-    requireThat(await dialog.locator('form, input, [role="checkbox"]').count() === 0, 'POLICY_MISMATCH')
-  }
-  return dialog
 }
 
 async function closeDialog(session, dialog) {
@@ -486,6 +475,7 @@ async function preparePlayground(session, key) {
   await open(session, '/dashboard/overview')
   requireThat(new URL(page.url()).pathname === '/dashboard/overview', 'REQUEST_MISMATCH')
   session.scope.stage = 'workbench-key-selection'
+  await page.getByText(label('Test with an existing Key'), { exact: true }).click()
   const workbenchKey = page.getByRole('combobox', { name: label('Select an API Key'), exact: true })
   await workbenchKey.selectOption(String(key.id))
   requireThat(await workbenchKey.inputValue() === String(key.id), 'REQUEST_MISMATCH')
@@ -658,49 +648,43 @@ async function showPersistedUsage(session, key, requestId, options, screenshots)
   try {
     await open(session, '/usage-logs/common')
     session.scope.stage = 'usage-filter'
-    const mobile = session.width === 320
-    // Header Search and toolbar Search share an accessible name. The named
-    // page main owns desktop filters; mobile fields live in a portal dialog.
-    const main = session.page.getByRole('main', { name: session.label('Common Logs'), exact: true })
-    await main.getByRole('button', { name: session.label(mobile ? 'Filter' : 'Expand'), exact: true }).click()
-    const filters = mobile ? session.page.getByRole('dialog', { name: session.label('Filter'), exact: true }) : main
-    await filters.getByPlaceholder(session.label('Token Name'), { exact: true }).fill(key.name)
-    await filters.getByPlaceholder(session.label('Request ID'), { exact: true }).fill(requestId)
-    // The admin client GET redirects to Gin's /api/log/ route. The ordinary
-    // owner's route is /api/log/self, without a trailing slash.
-    const pathname = session.user.role === 100 ? '/api/log/' : '/api/log/self'
+    const main = session.page.getByRole('main', { name: session.label('Call logs'), exact: true })
+    await main.getByRole('combobox', { name: session.label('Time range'), exact: true }).selectOption('all')
+    await main.getByRole('textbox', { name: session.label('API Key'), exact: true }).fill(key.name)
     const received = session.page.waitForResponse(response => {
       const url = new URL(response.url())
-      return url.origin === session.origin && url.pathname === pathname && response.request().method() === 'GET' &&
-        url.searchParams.get('request_id') === requestId && url.searchParams.get('token_name') === key.name
+      return url.origin === session.origin && url.pathname === '/api/log/self' && response.request().method() === 'GET' &&
+        url.searchParams.get('token_name') === key.name && url.searchParams.get('page_size') === '20'
     })
-    received.catch(() => {}) // A failed UI submission still owns its error.
-    await filters.getByRole('button', { name: session.label('Search'), exact: true }).click()
-    if (mobile) await filters.waitFor({ state: 'hidden' })
-    await session.page.waitForURL(url => url.origin === session.origin && url.pathname === '/usage-logs/common' &&
-      url.searchParams.get('token') === key.name && url.searchParams.get('requestId') === requestId)
+    received.catch(() => {})
+    await main.getByRole('button', { name: session.label('Filter'), exact: true }).click()
     session.scope.stage = 'usage-list'
     const data = await responseSuccess(session, await received, 'LOG_MISMATCH')
-    requireThat(data?.total === 1 && Array.isArray(data.items) && data.items.length === 1, 'LOG_MISMATCH')
-    const log = data.items[0]
+    requireThat(Number.isSafeInteger(data?.total) && Array.isArray(data.items) && data.total >= data.items.length &&
+      data.items.every(item => item.user_id === session.user.id && item.token_name === key.name), 'LOG_MISMATCH')
+    const matches = data.items.filter(item => item.request_id === requestId)
+    requireThat(matches.length === 1, 'LOG_MISMATCH')
+    const log = matches[0]
     requireThat(log.request_id === requestId && log.user_id === session.user.id && log.token_id === key.id &&
-      log.token_name === key.name && log.model_name === model, 'LOG_MISMATCH')
+      log.token_name === key.name && log.model_name === model && log.type === 2 &&
+      log.prompt_tokens === 10 && log.completion_tokens === 5, 'LOG_MISMATCH')
     session.scope.stage = 'usage-list-visible'
-    // Mobile cards reuse the actual desktop cells, but only one layout mounts.
-    // Filter visibility to exclude tooltip copies; never choose an arbitrary
-    // first history entry or suppress ambiguity among visible target entries.
-    await session.page.getByText(key.name, { exact: true }).filter({ visible: true }).waitFor()
-    await session.page.getByText(model, { exact: true }).filter({ visible: true }).waitFor()
+    const list = main.getByRole('list')
+    const details = list.getByRole('button', { name: session.label('View call {{id}}').replace('{{id}}', requestId), exact: true })
+    await details.getByText(key.name, { exact: true }).filter({ visible: true }).waitFor()
+    await details.getByText(model, { exact: true }).filter({ visible: true }).waitFor()
     session.scope.stage = 'usage-details-open'
-    const details = session.page.getByTitle(session.label('Click to view full details'), { exact: true }).filter({ visible: true })
-    await details.waitFor()
+    await details.waitFor({ state: 'visible' })
     requireThat(await details.count() === 1, 'LOG_MISMATCH')
     await details.click()
-    const dialog = session.page.getByRole('dialog')
+    const detail = main.locator(`[aria-label=${JSON.stringify(session.label('Call details'))}]`)
     session.scope.stage = 'usage-details-request'
-    await dialog.getByText(requestId, { exact: true }).waitFor()
+    await detail.getByText(requestId, { exact: true }).waitFor()
     session.scope.stage = 'usage-details-key'
-    await dialog.getByText(key.name, { exact: true }).waitFor()
+    await detail.getByText(key.name, { exact: true }).waitFor()
+    await detail.getByText(session.label('Input Tokens'), { exact: true }).locator('..').getByText('10', { exact: true }).waitFor()
+    await detail.getByText(session.label('Output Tokens'), { exact: true }).locator('..').getByText('5', { exact: true }).waitFor()
+
   } catch (error) {
     const failedStage = session.scope.stage
     try {
@@ -788,9 +772,7 @@ export async function probePersonalBrowserJourney(options = {}) {
     await open(root, '/keys', { forceLoad: true })
     const rootPolicy = await api(root, `/api/user/${root.user.id}/usage-policy`)
     requireThat(rootPolicy.no_balance === true && rootPolicy.legacy_remaining_quota === 0, 'POLICY_MISMATCH')
-    const rootDialog = await policyView(root, true)
-    await capture(root, options, 'fresh-policy', screenshots)
-    await closeDialog(root, rootDialog)
+    await policyView(root, api, true)
     const rootKey = await createKey(root, api, 'browser-root-finite', quota)
     await capture(root, options, 'fresh-key-list', screenshots)
     const rootBefore = await snapshot(api, root, rootKey)
@@ -803,7 +785,6 @@ export async function probePersonalBrowserJourney(options = {}) {
     await capture(root, options, 'fresh-success', screenshots)
     await showPersistedUsage(root, rootKey, rootRequest, options, screenshots)
     await capture(root, options, 'fresh-persisted-log', screenshots)
-    await closeDialog(root, root.page.getByRole('dialog'))
     checks.push({ name: 'real English desktop fresh Root selected-Key streaming request and persisted usage', ok: true, quota: usage, requests: 1 })
 
     // An ordinary pre-existing-style user starts with the existing stored-wallet
@@ -819,9 +800,8 @@ export async function probePersonalBrowserJourney(options = {}) {
     requireThat(owner.user.id === owners[0].id && owner.user.id !== root.user.id, 'STATE_MISMATCH')
     const oldPolicy = await api(owner, `/api/user/${owner.user.id}/usage-policy`)
     requireThat(oldPolicy.no_balance === false && oldPolicy.legacy_remaining_quota === 0 && oldPolicy.revision === 0, 'POLICY_MISMATCH')
-    const ownerDialog = await policyView(owner, false)
+    await policyView(owner, api, false)
     await capture(owner, options, 'existing-policy-before', screenshots)
-    await closeDialog(owner, ownerDialog)
     const forbidden = await api(owner, `/api/user/${owner.user.id}/usage-policy`, 'PUT', {
       id: randomBytes(32).toString('hex'), expected_revision: oldPolicy.revision, no_balance: true, confirmed: true,
     }, true)
@@ -862,15 +842,19 @@ export async function probePersonalBrowserJourney(options = {}) {
     await choice.getByRole('checkbox', { name: root.label('I confirm all running instances support this policy and I understand the supported request paths.'), exact: true }).check()
     const saved = responseFor(root, `/api/user/${owner.user.id}/usage-policy`, 'PUT')
     await choice.getByRole('button', { name: root.label('Save'), exact: true }).click()
-    const confirmed = await responseSuccess(root, await saved, 'POLICY_MISMATCH')
+    const choiceResponse = await saved
+    const choiceCommand = choiceResponse.request().postDataJSON()
+    requireThat(typeof choiceCommand?.id === 'string' && /^[a-f0-9]{64}$/.test(choiceCommand.id) &&
+      choiceCommand.expected_revision === oldPolicy.revision && choiceCommand.no_balance === true &&
+      choiceCommand.confirmed === true, 'POLICY_MISMATCH')
+    const confirmed = await responseSuccess(root, choiceResponse, 'POLICY_MISMATCH')
     requireThat(confirmed.user_id === owner.user.id && confirmed.no_balance === true &&
       confirmed.revision === oldPolicy.revision + 1 && confirmed.legacy_remaining_quota === 0, 'POLICY_MISMATCH')
     await closeDialog(root, choice)
     const afterChoice = await api(owner, `/api/user/${owner.user.id}/usage-policy`)
     requireThat(afterChoice.no_balance === true && afterChoice.revision === confirmed.revision && afterChoice.legacy_remaining_quota === 0, 'POLICY_MISMATCH')
-    const activeDialog = await policyView(owner, true, confirmed.revision)
+    await policyView(owner, api, true, confirmed.revision)
     await capture(owner, options, 'existing-policy-after', screenshots)
-    await closeDialog(owner, activeDialog)
     const ownerEnabled = await snapshot(api, owner, ownerKey)
     requireThat(ownerEnabled.user.quota === ownerBefore.user.quota && ownerEnabled.user.used_quota === ownerBefore.user.used_quota &&
       ownerEnabled.user.request_count === ownerBefore.user.request_count, 'USAGE_MISMATCH')
@@ -881,7 +865,8 @@ export async function probePersonalBrowserJourney(options = {}) {
     await capture(owner, options, 'existing-success', screenshots)
     await showPersistedUsage(owner, ownerKey, ownerRequest, options, screenshots)
     await capture(owner, options, 'existing-persisted-log', screenshots)
-    await closeDialog(owner, owner.page.getByRole('dialog'))
+    await owner.page.getByRole('button', { name: owner.label('Back to call list'), exact: true }).click()
+    await owner.page.getByRole('main', { name: owner.label('Call logs'), exact: true }).getByRole('list').waitFor({ state: 'visible' })
     checks.push({ name: 'real Chinese mobile ordinary owner rejects until explicit Root policy choice', ok: true, role: 1, policyChanges: 1, requests: 1, quota: usage })
 
     const lowKey = await createKey(owner, api, 'browser-owner-low', 1)
@@ -899,13 +884,25 @@ export async function probePersonalBrowserJourney(options = {}) {
     // or prove native-provider positives, strict settlement, or concurrency.
     const strictKey = await createKey(root, api, 'browser-root-strict-reject', quota)
     scope.stage = 'strict-key-filter'
-    const selectedKey = await searchTableRow(root, '/keys', 'Filter by name...', strictKey.name, '/api/token/search', 'KEY_MISMATCH')
+    await open(root, '/keys')
+    const keySearch = root.page.waitForResponse(response => {
+      const url = new URL(response.url())
+      return url.origin === root.origin && url.pathname === '/api/token/search' && response.request().method() === 'GET' &&
+        url.searchParams.get('keyword') === strictKey.name
+    })
+    keySearch.catch(() => {})
+    await root.page.getByRole('textbox', { name: root.label('Search keys'), exact: true }).fill(strictKey.name)
+    await root.page.getByRole('button', { name: root.label('Search'), exact: true }).click()
+    const keySearchData = await responseSuccess(root, await keySearch, 'KEY_MISMATCH')
+    requireThat(keySearchData?.total === 1 && Array.isArray(keySearchData.items) && keySearchData.items.length === 1, 'KEY_MISMATCH')
+    const selectedKey = keySearchData.items[0]
     requireThat(selectedKey.id === strictKey.id && selectedKey.user_id === root.user.id && selectedKey.name === strictKey.name, 'KEY_MISMATCH')
-    const strictRow = root.page.getByRole('row').filter({ hasText: strictKey.name })
-    await strictRow.waitFor()
-    requireThat(await strictRow.count() === 1, 'KEY_MISMATCH')
+    const strictCard = root.page.locator('[data-slot="card"]').filter({ has: root.page.getByText(strictKey.name, { exact: true }) })
+    await strictCard.waitFor({ state: 'visible' })
+    requireThat(await strictCard.count() === 1, 'KEY_MISMATCH')
     scope.stage = 'strict-budget'
-    await strictRow.getByRole('button', { name: root.label('API Key usage budgets'), exact: true }).click()
+    await strictCard.getByText(root.label('Advanced options'), { exact: true }).click()
+    await strictCard.getByRole('button', { name: root.label('API Key usage budgets'), exact: true }).click()
     const budgetDialog = root.page.getByRole('dialog', { name: root.label('API Key usage budgets'), exact: true })
     await budgetDialog.getByRole('checkbox', { name: root.label('Enable strict Token budget'), exact: true }).check()
     await budgetDialog.getByRole('textbox', { name: root.label('Token total limit'), exact: true }).fill('1000')

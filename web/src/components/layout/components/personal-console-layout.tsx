@@ -126,8 +126,12 @@ export function PersonalConsoleLayout(props: { children?: ReactNode }) {
               <Link to='/system-info'>{t('System information')}</Link>
             )}
           </details>
-          <small className='pc-build' data-testid='console-build-revision'>
-            {getBuildRevision()}
+          <small
+            className='pc-build'
+            data-testid='console-build-revision'
+            title={getBuildRevision()}
+          >
+            {import.meta.env.VITE_REACT_APP_VERSION || getBuildRevision()}
           </small>
         </div>
       </aside>

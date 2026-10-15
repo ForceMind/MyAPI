@@ -436,6 +436,9 @@ try {
   // This proves UI behavior only; the Go/database contracts own authorization
   // and real settlement/idempotency evidence.
   process.env.MYAPI_BROWSER_USAGE_REVIEW = '1'
+  // Recovery and budget administration remain in the retained commercial UI.
+  // The redesigned personal log is separately qualified without reconciliation controls.
+  process.env.MYAPI_BROWSER_FUNDING_MODE = 'enabled'
   await page.goto(`${origin}/usage-logs/common`, { waitUntil: 'networkidle' })
   const unknownRow = page.getByRole('row').filter({ has: page.getByText('fixture-unknown', { exact: true }) })
   await unknownRow.getByText(label('Usage pending review'), { exact: true }).waitFor({ state: 'visible' })
@@ -594,7 +597,9 @@ try {
   assert.equal(sourceChecks.enabled, false, 'synthetic schedule is returned to default-off')
   assert.equal(sourceChecks.attempts, 2)
   await checkTokenBudgetBrowser({ page, origin, output, label, fixture: budgetFixture })
+  process.env.MYAPI_BROWSER_FUNDING_MODE = 'disabled'
   await checkUserUsagePolicyBrowser({ page, origin, output, label, fixture: userPolicyFixture })
+  process.env.MYAPI_BROWSER_FUNDING_MODE = 'enabled'
   await checkPendingUsageReviewBrowser({ page, origin, output, label, fixture: pendingReviewFixture })
   assert.deepEqual([...unexpected], [], 'all application endpoints have explicit fixtures')
   assert.deepEqual(errors, [], 'no browser runtime errors')

@@ -7,6 +7,7 @@ import { createServer } from 'node:http'
 import { extname, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createUIFixture, FIXTURE_TIME } from './browser-fixtures.mjs'
+import { assertTextContrast } from './contrast.mjs'
 
 const repo = fileURLToPath(new URL('../../', import.meta.url))
 const root = resolve(repo, 'web/dist')
@@ -71,6 +72,13 @@ try {
       assert(await visibleNavigation.isVisible(), 'Navigation remains visible')
       const bounds = await visibleNavigation.boundingBox()
       assert(bounds && bounds.x >= 0 && bounds.x + bounds.width <= item.width, 'Navigation stays in viewport')
+      const selectedNav = visibleNavigation.locator('a[aria-current="page"] span')
+      if (await selectedNav.count()) await assertTextContrast(selectedNav, 'selected personal navigation', 'light')
+      const cards = await page.locator('[data-slot="card"]').evaluateAll(elements => elements.filter(element => element.getBoundingClientRect().width > 0).map(element => {
+        const bounds = element.getBoundingClientRect()
+        return { left: bounds.left, right: bounds.right, width: element.clientWidth, scroll: element.scrollWidth }
+      }))
+      assert(cards.every(card => card.left >= 0 && card.right <= item.width && card.scroll <= card.width + 1), 'Visible cards do not clip content horizontally')
       const file = `console-${name}-${item.language}-${item.width}.png`
       await page.screenshot({ path: resolve(output, file), animations: 'disabled' })
       report.screenshots.push({ file, language: item.language, width: item.width, state: name })

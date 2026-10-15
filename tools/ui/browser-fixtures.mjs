@@ -119,6 +119,9 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
         return { status: 200, body: ok({ user_id: user.id, no_balance: state.noBalance, revision: 1, legacy_remaining_quota: 1000000 }) }
       }
       if (personalPolicy && path === '/api/token/21' && role > 0 && !url.search) return { status: 200, body: ok(key) }
+      if (path === `/api/token/${key.id}/subscription-share` && role > 0 && method === 'GET') {
+        return { status: 200, body: ok({ token_id: key.id, pools: [] }) }
+      }
       if (personalPolicy && path === '/api/token/21/budget' && role > 0) {
         if (url.search) return { violation: 'Unexpected budget query' }
         return { status: 200, body: ok({ policy: { token_id: 21, user_id: user.id, enabled: true, account_threshold_enabled: false, account_min_remaining_bps: 1000, account_max_age_seconds: 300, fee_enabled: true, fee_limit_usd: '10.000000', fee_used_usd: '1.000000', fee_reserved_usd: '0.000000', limit: 10000, used: 1000, reserved: 0, pending_request_id: '', revision: 1 }, pending: null }) }

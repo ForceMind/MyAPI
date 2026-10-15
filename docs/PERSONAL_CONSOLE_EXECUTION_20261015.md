@@ -48,3 +48,11 @@
 第二轮Vitest实际结果：219文件中216通过、3失败；1363项中1359通过、4失败，并有一项新外壳测试缺少jsdom动画API的未处理异常。四失败均为新增测试定位（BaseUI实际button角色、预览重复百分比文本），按用户可见角色及有业务含义的dl行定向修订；动画API仅在该测试fixture补齐并恢复。未改生产行为制造通过，等待新CI。
 
 npm真实dry-run回读：新增docs/.npmignore仅排除design/prototypes的PNG/PDF，包体积33,066,970字节、审阅二进制0项，原50MiB上限保持。设计资产仍保留Git。已下载CI可运行构建；CI合并引用db37cac与e91文件树同为462a8b5，未合并main。loopback4173已启动只读合成预览（/tmp/myapi-console-preview.mjs），GET状态回读disabled；不运行Go、不触及数据库/凭据。
+
+第三轮d822001：CI `38745544439` 构建/typecheck/lint通过，219文件/1363项Vitest全部通过，分发合同通过。真实Chromium开始运行，旧quota/routing/access驱动仍按旧日志表格/Key菜单定位导致失败；另普通owner profile fixture缺新增本人subscription-share GET的允许响应。按实际失败修驱动：保留商业后台原回归，个人新页面由专属五页面journeys验收；只允许本人已有Key的share空响应，不放宽其它权限。仍未完成实际新页面截图验收。
+
+集成补查修P2：新Key创建后原provider刷新信号未作用于新卡片查询，已纳入queryKey；原高级Edit/Assigned access/budget/CC Switch/delete通过每卡折叠入口复用，保留确认与安全，不静默删除旧功能。Provider按用户/角色/session重挂，避免旧dialog/已解析Key跨会话残留。新增4项维护入口行为回归。旧真实应用Driver同步适配中，Node doubles仅为driver合同，尚未运行真实双writer应用。
+
+已实际打开d822的CI失败实图（个人日志桌面、渠道320）检查：外壳/原M/柔和蓝已按新图渲染；失败来自旧表格定位，不是页面未运行。补个人头像中性灰蓝、桌面版本简短可读并保留完整revision的title；窄屏选中导航暗色对比度及长标识符换行补强，专属浏览器加入真实颜色对比和卡片溢出检查。截图属于隔离合成API，不能证明生产。
+
+本机正常权限下，两份runtime Driver合同测试155/155通过（其中personal double128项），固定安全报告边界未放宽；受限沙箱首轮docker-smoke.test仅文件级失败的记录仍保留。真实MyAPI/Chromium双writer仍待远端工作流，Node double不是其替代。
