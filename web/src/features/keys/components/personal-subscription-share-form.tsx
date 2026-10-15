@@ -130,7 +130,6 @@ export function PersonalSubscriptionShareForm(
         className='min-h-11 flex-1 sm:min-w-40 sm:flex-none'
         disabled={props.saveDisabled}
         type='submit'
-        form='personal-share-form'
       >
         {props.saving && <Spinner data-icon='inline-start' />}
         {props.saving ? t('Saving...') : t('Save changes')}
@@ -197,16 +196,16 @@ export function PersonalSubscriptionShareForm(
         </Empty>
       )}
       {!props.loading && !props.loadError && props.pools.length > 0 && (
-        <div className='grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(260px,1fr)]'>
-          <form
-            id='personal-share-form'
-            className='min-w-0'
-            aria-label={t('Adjust window share')}
-            onSubmit={(event) => {
-              event.preventDefault()
-              if (!props.saveDisabled) props.onSave()
-            }}
-          >
+        <form
+          id='personal-share-form'
+          className='grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(260px,1fr)]'
+          aria-label={t('Adjust window share')}
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (!props.saveDisabled) props.onSave()
+          }}
+        >
+          <div className='min-w-0'>
             <Card className='min-w-0 gap-6 p-5 sm:p-7'>
               <CardContent className='space-y-6 px-0'>
                 <FieldSet>
@@ -511,7 +510,7 @@ export function PersonalSubscriptionShareForm(
                 {desktop && actions}
               </CardContent>
             </Card>
-          </form>
+          </div>
           <aside
             className='min-w-0 space-y-5'
             aria-label={t('Allocation preview')}
@@ -610,7 +609,7 @@ export function PersonalSubscriptionShareForm(
             )}
           </aside>
           {!desktop && actions}
-        </div>
+        </form>
       )}
     </main>
   )

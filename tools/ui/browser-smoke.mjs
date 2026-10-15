@@ -951,9 +951,9 @@ try {
         assert.equal(report.requests.slice(chatStart).filter(request => request.path.replace(/\/$/, '') === '/api/token' || request.path === '/pg/keys' || isKeyRevealRequest(request)).length, 0, 'missing chat never retrieves a key list or secret before recovery navigation')
         await page.locator('main#content a[href="/dashboard"]').filter({ hasText: label('Return to dashboard') }).click()
         await page.waitForURL(`${origin}/dashboard/overview`)
-        await page.getByRole('heading', { level: 1, name: label('Overview'), exact: true }).waitFor()
+        await page.getByRole('heading', { level: 1, name: label('Your API workspace'), exact: true }).waitFor()
       }
-      await open(page, '/chat/not-an-integer', { shell: 'personal', title: label('Overview'), expectedPath: '/dashboard/overview' })
+      await open(page, '/chat/not-an-integer', { shell: 'personal', title: label('Your API workspace'), expectedPath: '/dashboard/overview' })
       assert.equal(report.requests.slice(start).filter(request => isKeyRevealRequest(request) || /^\/api\/token(?:\/search|\/\d+)?\/?$/.test(request.path)).length, 0, 'recovery navigation never retrieves broad Key objects or an active key secret')
       assert.equal(report.blockedExternal.length, externalStart, 'missing/invalid chat cannot attempt external navigation')
       await context.close(); contexts.delete(context)

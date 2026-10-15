@@ -15,6 +15,7 @@ import { extname, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { createUIFixture, FIXTURE_TIME } from './browser-fixtures.mjs'
+import { assertTextContrast } from './contrast.mjs'
 
 const repo = fileURLToPath(new URL('../../', import.meta.url))
 const build = resolve(repo, 'web/dist')
@@ -306,6 +307,7 @@ const report = {
   result: 'running',
   journeys: [],
   screenshots: [],
+  contrast: [],
   diagnostics: [],
   buildRevisions: [],
   errors: [],
@@ -757,6 +759,16 @@ async function screenshot(page, scenario, suffix) {
   const file = `${scenario.name}-${suffix}.png`
   await page.screenshot({ path: resolve(output, file), fullPage: true })
   report.screenshots.push({ file, journey: scenario.name, sourceHead, buildRevision: report.buildRevisions.at(-1)?.revision, fixtureTime: new Date(FIXTURE_TIME).toISOString() })
+  for (const semantic of ['success', 'warning', 'destructive']) {
+    const candidates = page.locator(`.text-${semantic}:not(svg)`)
+    const index = await candidates.evaluateAll((elements) => elements.findIndex((element) => {
+      const box = element.getBoundingClientRect()
+      return box.width > 0 && box.height > 0 && element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && element.textContent.trim().length > 0
+    }))
+    if (index < 0) continue
+    const result = await assertTextContrast(candidates.nth(index), semantic, scenario.theme)
+    report.contrast.push({ journey: scenario.name, snapshot: suffix, ...result })
+  }
   persist()
 }
 
@@ -797,10 +809,18 @@ async function populated(scenario) {
     if (scenario.channelRead) {
       await page.goto(`${origin}/upstream-accounts`, { waitUntil: 'networkidle' })
       await page.getByTestId('personal-upstream').waitFor()
-      assert.equal(await page.getByTestId('native-window-card').count(), 2, 'Native windows stay separate')
-      await page.getByText('55%', { exact: true }).waitFor()
-      await page.getByText('68%', { exact: true }).waitFor()
+      // The page root also renders while fresh-self permission and its dependent
+      // account request are loading. Wait for both actual windows, not that root.
+      const windows = page.getByTestId('native-window-card')
+      await windows.filter({ has: page.getByText('55%', { exact: true }) }).waitFor({ state: 'visible' })
+      await windows.filter({ has: page.getByText('68%', { exact: true }) }).waitFor({ state: 'visible' })
+      assert.equal(await windows.count(), 2, 'Native windows stay separate')
       await page.getByRole('combobox', { name: tr('Select an API Key', scenario.language), exact: true }).selectOption('23')
+      const selectedKeyName = page.getByTestId('upstream-share-selected-key')
+      await selectedKeyName.waitFor({ state: 'visible' })
+      assert.equal(await selectedKeyName.innerText(), safeKeys.find((key) => key.id === 23).name, 'The complete selected Key name remains visible')
+      assert.equal(await page.getByRole('combobox', { name: tr('Select an API Key', scenario.language), exact: true }).getAttribute('aria-describedby'), await selectedKeyName.getAttribute('id'), 'The Key picker describes its exact selected identity')
+      assert(await selectedKeyName.evaluate((element) => element.scrollWidth <= element.clientWidth + 1), 'The selected Key name wraps without horizontal clipping')
       await page.getByText(tr('This Key allocation', scenario.language), { exact: true }).waitFor()
       await screenshot(page, scenario, scenario.stale ? 'upstream-stale' : 'upstream')
       await openWorkbench(page, scenario)

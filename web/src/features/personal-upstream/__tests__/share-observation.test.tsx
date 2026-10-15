@@ -119,6 +119,12 @@ test('keeps usage and unattributed growth unknown until a trustworthy baseline e
   expect(screen.getAllByText('Unknown', { exact: true })).toHaveLength(2)
   expect(screen.queryByText('0 percentage points')).not.toBeInTheDocument()
   expect(screen.getByText('20%', { exact: true })).toBeInTheDocument()
+  expect(
+    screen.getByRole('combobox', { name: 'Select an API Key' })
+  ).toHaveAccessibleDescription('Desktop app')
+  expect(screen.getByTestId('upstream-share-selected-key')).toHaveTextContent(
+    'Desktop app'
+  )
 })
 
 test('shows native percentage points after a trustworthy baseline without converting them to Tokens', async () => {

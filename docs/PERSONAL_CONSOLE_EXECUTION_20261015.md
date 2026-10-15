@@ -84,3 +84,13 @@ shared UI执行调整为逐脚本收集全部结果并保留任一失败的非�
 旧驱动3处定位/模式修正：安装末段资料heading3；Playground旧元数据详情明确commercialShell，保留完整Key/owner/request/usage断言；generic disabled历史和缺预设恢复明确personal模式及新外壳几何，继续禁止恢复过程读取宽Key对象/明文，并保留0充值和历史读取。个人console补实际点击查看Key、验证filter与返回日志流程。CI把3个个人页面脚本独立上传产物后再跑6个兼容脚本，各执行一次、任一失败仍失败，不重复构建。
 
 485af8c真实应用 `38754594246`：legacy全程success、14张遮敏图与准确revision已回读；authoritative第五次Root strict拒绝约29.6ms即时异常，非20秒超时，尚未确认是CDP正文读取还是消息定位。新增固定子分类，并按发送前数量定位本轮新增assistant，body不可读仍明确失败，不重放、不注入观察数据、不降级精确code/status/5POST/usage/CAS/预留断言。Node合同165/165通过，真实复验待下一源码。LAN/合成handoff本轮均success。0973fbf以来Go源码、go.mod/sum及VERSION无差异，完整后端结果继续有效。
+
+e8376f7054a9f61629bba9260862902ee48b23d5 已推送；普通CI `38761935273` 的merge引用81139794、文件树235a558与源码一致，人工未合并。build/type/lint通过，单元失败待完整日志；三库/Redis/分发合同通过。提前下载个人产物：profile/logs16个七语言和320/390/1280/1440旅程全过，分额28个全过，overview/upstream16个明亮旅程全过并有实图；首个暗色窗口根先渲染而数据未就绪，count即时0!=2失败。Driver改为等待55%/68%两个真实窗口可见后仍严格count=2，未扩大超时或加sleep；roles/handoff/modegate后段待新CI。
+
+主与非实现者实际查看五页面及最终01/02/03/04/05/06参考：原M/柔蓝/深侧栏/手机导航、资料vi长文、成功且Token未知、错误恢复可见范围通过。补两处P2：个人Key卡原始five_hour改既有quotaWindowLabel且区分主/次；手机上游所选Key补完整换行名字与aria描述。分额原图没包含Save，仅可证明中部，因此Driver新增七语手机动作滚动图及Save/Cancel完全位于底栏上方的严格几何断言。源码复核还发现小字状态继承全局颜色，补个人模式深浅success/warning/destructive变量与对照前景；静态颜色比5.35–10.53，最终以浏览器实际祖先背景计算4.5:1为准。新增组件回归及上述改动待新CI，不以旧图验收新色。
+
+e837真实应用 `38761929914` 全部success：legacy及authoritative两writer均14张遮敏实图、准确beta.15 revision、5POST/无额外上游/零严格预留、精确日志与刷新通过；拒绝正文读取、code/status和本轮assistant定位均通过，无诊断失败。本机已下载两报告，主打开实际桌面/手机Key页；LAN installer/LAN fresh/合成旧源码handoff亦全过。该运行使用新SQLite、临时CI凭据和回环上游，未接触真实历史账务或生产。不再重复把Node double当真实验收。
+
+新增交付记录 `PERSONAL_CONSOLE_DELIVERY_20261015.md` 整理准确路由/API与数据边界；docs/.npmignore排除证据PNG而保留Git截图。真实npm pack dry-run 31,472,733字节，小于原50MiB限值，审阅二进制0项。下一CI将单元原始输出在浏览器之前上传以便及时定位，pipefail保留原失败退出。七语同步缺失0、驱动语法和diff检查通过；两份用户已有文档及未选视觉稿保持不暂存。
+
+e837普通CI最终后端及其它9项作业均success，前端失败。已从完成job116515173096直接读原始日志（无需等待其它作业）；Vitest220文件/1382项中仅分额首个输入Enter提交回归失败，其余1381通过，外置按钮点击及未知结果焦点/reload全部通过。定位手机把唯一submit移出form后，输入隐式Enter不提交；以一个原生form包住左编辑卡、预览与手机动作恢复合同，保留Enter断言并新增未确认/保存中不能写的行为覆盖；Driver手机用真实Enter且仍严格1写，桌面保持点击。旧兼容6脚本中profile/stability/setup/personal-status/playground均通过，generic32旅程只有缺chat恢复仍等待旧Overview标题失败；改用实际Your API workspace，保持恢复过程不读宽Key/明文、不外跳的断言。新结构及定位待新CI。

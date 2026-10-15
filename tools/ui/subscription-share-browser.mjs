@@ -160,12 +160,36 @@ try {
         const poolImage = `${name}-pool.png`
         await page.screenshot({ path: resolve(output, poolImage), animations: 'disabled' })
         screenshots.push(topImage, poolImage)
+        let actionGeometry
         if (role === 100) {
-          await target.fill('25')
           const save = dialog.getByRole('button', { name: t('Save changes'), exact: true })
+          if (width === 320) {
+            const cancel = dialog.getByRole('button', { name: t('Cancel'), exact: true })
+            await save.scrollIntoViewIfNeeded()
+            await cancel.scrollIntoViewIfNeeded()
+            const navigation = page.getByRole('navigation', { name: t('Mobile console navigation'), exact: true })
+            const navigationBox = await navigation.boundingBox()
+            assert(navigationBox, `${name}: mobile navigation is visible`)
+            actionGeometry = []
+            for (const action of [save, cancel]) {
+              const box = await action.boundingBox()
+              assert(box && box.width > 0 && box.height > 0, `${name}: share action is visible`)
+              assert(box.x >= 0 && box.x + box.width <= width && box.y >= 0 && box.y + box.height <= navigationBox.y && box.y + box.height <= 900, `${name}: share action is fully visible above mobile navigation`)
+              actionGeometry.push(box)
+            }
+            const actionsImage = `${name}-pool-actions.png`
+            await page.screenshot({ path: resolve(output, actionsImage), animations: 'disabled' })
+            screenshots.push(actionsImage)
+          }
+          await target.fill('25')
           assert(await save.isDisabled(), 'Approximation confirmation is required')
+          if (width === 320) {
+            await target.press('Enter')
+            assert.equal(writes.length, 0, 'Mobile Enter cannot save without approximation confirmation')
+          }
           await dialog.getByRole('checkbox', { name: t('I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.'), exact: true }).check()
-          await save.click()
+          if (width === 320) await target.press('Enter')
+          else await save.click()
           await dialog.waitFor({ state: 'hidden' })
           const updated = await open()
           await updated.getByText('25%', { exact: true }).first().waitFor()
@@ -198,7 +222,7 @@ try {
           assert(!(await dialog.innerText()).includes('Synthetic share account'), 'Private channel notes are absent')
         }
         assert.deepEqual(unexpected, [])
-        report.journeys.push({ name, language, width, role, buildRevision: revision, writes: writes.length, closes: closes.length, existingMenuKeyReads, keyListGeometry, geometry, screenshots, passed: true })
+        report.journeys.push({ name, language, width, role, buildRevision: revision, writes: writes.length, closes: closes.length, existingMenuKeyReads, keyListGeometry, geometry, actionGeometry, screenshots, passed: true })
         await context.close()
       }
     }

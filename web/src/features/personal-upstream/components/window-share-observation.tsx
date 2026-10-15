@@ -72,6 +72,9 @@ export function WindowShareObservation(props: { channelId: number }) {
         <select
           id='upstream-share-key'
           value={keyId}
+          aria-describedby={
+            confirmedKey ? 'upstream-share-key-name' : undefined
+          }
           disabled={keysQuery.isLoading || keysQuery.isError}
           onChange={(event) => setKeyId(event.target.value)}
           className='bg-background h-10 w-full min-w-0 rounded-md border px-2'
@@ -85,6 +88,15 @@ export function WindowShareObservation(props: { channelId: number }) {
               ))
             : null}
         </select>
+        {confirmedKey ? (
+          <p
+            id='upstream-share-key-name'
+            data-testid='upstream-share-selected-key'
+            className='text-muted-foreground text-xs [overflow-wrap:anywhere]'
+          >
+            {confirmedKey.name}
+          </p>
+        ) : null}
         {keysQuery.isError ? (
           <Alert variant='destructive'>
             <AlertTitle>{t('Unable to load Keys')}</AlertTitle>

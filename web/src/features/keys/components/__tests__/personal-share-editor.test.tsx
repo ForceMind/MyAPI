@@ -148,10 +148,14 @@ test('explicitly selecting an account and window previews 20 plus 50 as 70 and s
       'Equivalent to 5 percentage points of the total window.'
     )
   ).toBeVisible()
+  await user.click(screen.getByLabelText('Share of total window'))
+  await user.keyboard('{Enter}')
+  expect(api.put).not.toHaveBeenCalled()
   await confirmApproximation(user)
   await user.click(screen.getByLabelText('Share of total window'))
   await user.keyboard('{Enter}')
   await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+  expect(api.put).toHaveBeenCalledOnce()
   expect(api.put).toHaveBeenCalledWith(
     '/api/token/21/subscription-share',
     expect.objectContaining({
@@ -351,6 +355,33 @@ test('mobile saving follows the allocation preview and submits the associated fo
   ).toBe(true)
   await confirmApproximation(user)
   await user.click(save)
+  await waitFor(() => expect(close).toHaveBeenCalledOnce())
+  expect(api.put).toHaveBeenCalledOnce()
+})
+
+test('Enter while a mobile share save is pending never submits a second write', async () => {
+  let finishSave!: (value: ReturnType<typeof response>) => void
+  vi.mocked(api.put).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishSave = resolve
+      })
+  )
+  const user = userEvent.setup()
+  const close = renderEditor()
+  await selectWindow(user)
+  await confirmApproximation(user)
+  await user.click(screen.getByLabelText('Share of total window'))
+  await user.keyboard('{Enter}')
+  expect(
+    await screen.findByRole('button', { name: 'Saving...' })
+  ).toBeDisabled()
+  expect(screen.getByLabelText('Share of total window')).toBeDisabled()
+  expect(api.put).toHaveBeenCalledOnce()
+  await user.keyboard('{Enter}{Enter}')
+  expect(api.put).toHaveBeenCalledOnce()
+  expect(close).not.toHaveBeenCalled()
+  finishSave(response())
   await waitFor(() => expect(close).toHaveBeenCalledOnce())
   expect(api.put).toHaveBeenCalledOnce()
 })

@@ -52,6 +52,7 @@ import {
   InputGroupInput,
 } from '@/components/ui/input-group'
 import { Skeleton } from '@/components/ui/skeleton'
+import { quotaWindowLabel } from '@/features/channels/lib/quota-history'
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
 import { formatTimestampToDate } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth-store'
@@ -423,12 +424,13 @@ function PersonalApiKeyCard(props: {
               <section
                 key={`${pool.pool_id}:${pool.snapshot_id}`}
                 className='bg-muted/20 rounded-lg border p-3 text-sm'
-                aria-label={`${pool.channel_name} ${pool.window_slot}`}
+                aria-label={`${pool.channel_name} ${quotaWindowLabel(pool.window_slot, t)}`}
               >
                 <div className='mb-3 flex flex-wrap justify-between gap-2'>
                   <span className='font-medium break-words'>
                     {pool.channel_name || t('Native window')} ·{' '}
-                    {pool.window_type}
+                    {quotaWindowLabel(pool.window_slot, t)} ·{' '}
+                    {quotaWindowLabel(pool.window_type, t)}
                   </span>
                   <Badge variant='outline'>
                     {paused ? t('Requests paused') : t('Approximate')}

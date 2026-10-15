@@ -19,6 +19,12 @@ body:has(.personal-console) [data-slot='sheet-content'] {
   --accent-foreground: #304799;
   --secondary: #edf0f7;
   --secondary-foreground: #304160;
+  --success: #087a55;
+  --success-foreground: #fff;
+  --warning: #8a5b00;
+  --warning-foreground: #fff;
+  --destructive: #b42318;
+  --destructive-foreground: #fff;
   color: var(--foreground);
 }
 .personal-console {
@@ -315,6 +321,12 @@ body:has(.personal-console) [data-slot='sheet-content'] {
   --accent-foreground: #c2d0ff;
   --secondary: #25334a;
   --secondary-foreground: #e6ebf5;
+  --success: #6ee7b7;
+  --success-foreground: #182338;
+  --warning: #fcd34d;
+  --warning-foreground: #182338;
+  --destructive: #fda4af;
+  --destructive-foreground: #182338;
 }
 
 .dark .pc-mobile-nav a[aria-current='page'] {

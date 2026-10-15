@@ -141,6 +141,69 @@ test('existing Keys appear as cards with no financial balance or automatic Key c
   expect(api.post).not.toHaveBeenCalled()
 })
 
+test.each([
+  ['primary', 'five_hour', 'Primary window', '5-hour window'],
+  ['primary', 'weekly', 'Primary window', 'Weekly window'],
+  ['secondary', 'weekly', 'Secondary window', 'Weekly window'],
+])(
+  'a configured %s %s window uses readable window and slot labels on the Key card',
+  async (windowSlot, windowType, slotLabel, windowLabel) => {
+    vi.mocked(api.get).mockImplementation(async (url) => {
+      if (String(url).startsWith('/api/token/?')) return listResponse()
+      if (url === '/api/token/21/subscription-share') {
+        return {
+          data: {
+            success: true,
+            data: {
+              token_id: 21,
+              pools: [
+                {
+                  pool_id: 7,
+                  snapshot_id: 70,
+                  revision: 4,
+                  channel_name: 'Subscription account A',
+                  plan_type: 'plus',
+                  window_slot: windowSlot,
+                  window_type: windowType,
+                  window_seconds: windowType === 'weekly' ? 604800 : 18000,
+                  reset_at: 1797003600,
+                  observed_at: 1797000000,
+                  max_age_seconds: 300,
+                  sample_age_seconds: 30,
+                  state: 'active',
+                  allocated_bps: 7000,
+                  share_bps: 2000,
+                  estimated_used_micro: 5000000,
+                  unattributed_micro: 1000000,
+                  pending_attempts: 0,
+                  unsampled_attempts: 0,
+                  approximate: true,
+                  baseline_time: 1796999400,
+                },
+              ],
+            },
+          },
+        }
+      }
+      throw new Error(`Unexpected URL ${url}`)
+    })
+    renderKeys()
+    expect(
+      await screen.findByRole('region', {
+        name: `Subscription account A ${slotLabel}`,
+      })
+    ).toBeVisible()
+    expect(
+      screen.getByText(`Subscription account A · ${slotLabel} · ${windowLabel}`)
+    ).toBeVisible()
+    expect(
+      screen.queryByText(windowType, { exact: true })
+    ).not.toBeInTheDocument()
+    expect(api.put).not.toHaveBeenCalled()
+    expect(api.post).not.toHaveBeenCalled()
+  }
+)
+
 test('explicit pause and resume change only the existing Key status', async () => {
   const user = userEvent.setup()
   renderKeys()

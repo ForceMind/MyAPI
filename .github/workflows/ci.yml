@@ -572,7 +572,18 @@ jobs:
         run: bun run lint
 
       - name: Test
-        run: bun run test
+        run: |
+          set -o pipefail
+          bun run test 2>&1 | tee "$RUNNER_TEMP/myapi-frontend-tests.log"
+
+      - name: Retain frontend test results before browser qualification
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-frontend-tests-${{ github.sha }}
+          path: ${{ runner.temp }}/myapi-frontend-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Install isolated browser test dependencies
         id: browser-dependencies
