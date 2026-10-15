@@ -26,24 +26,25 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import { useApiKeys } from './api-keys-provider'
 
-export function ApiKeysPrimaryButtons() {
+export function ApiKeysPrimaryButtons(props: { personal?: boolean } = {}) {
   const actor = useAuthStore((state) => state.auth.user)
   return (
     <ApiKeysPrimaryButtonSession
       key={`${actor?.id}:${actor?.role}`}
       userId={actor?.id}
+      personal={props.personal}
     />
   )
 }
 
-function ApiKeysPrimaryButtonSession(props: { userId?: number }) {
+function ApiKeysPrimaryButtonSession(props: { userId?: number; personal?: boolean }) {
   const [policyOpen, setPolicyOpen] = useState(false)
   const { t } = useTranslation()
   const { setOpen } = useApiKeys()
   return (
     <>
       <div className='flex min-w-0 flex-wrap gap-2'>
-        {props.userId && (
+        {props.userId && !props.personal && (
           <Button
             variant='outline'
             size='sm'

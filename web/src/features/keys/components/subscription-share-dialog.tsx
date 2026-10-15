@@ -68,6 +68,8 @@ import {
   type SubscriptionSharePool,
   type SubscriptionShareView,
 } from '../subscription-share-api'
+import type { ApiKey } from '../types'
+import { PersonalSubscriptionShareForm } from './personal-subscription-share-form'
 import { SubscriptionSharePoolCard } from './subscription-share-pool-card'
 
 const ROOT_ROLE = 100
@@ -100,6 +102,7 @@ function parseBasisPoints(value: string): number | null {
 
 export function SubscriptionShareDialog(props: {
   tokenId: number
+  personalKey?: ApiKey
   onClose: () => void
 }) {
   const userId = useAuthStore((state) => state.auth.user?.id)
@@ -111,6 +114,7 @@ export function SubscriptionShareDialog(props: {
     <SubscriptionShareSession
       key={`${userId}:${role}:${sessionId ?? 'local'}:${props.tokenId}`}
       tokenId={props.tokenId}
+      personalKey={props.personalKey}
       userId={userId}
       role={role}
       sessionId={sessionId}
@@ -120,6 +124,7 @@ export function SubscriptionShareDialog(props: {
 }
 
 function SubscriptionShareSession(props: {
+  personalKey?: ApiKey
   tokenId: number
   userId: number
   role: number
@@ -135,6 +140,7 @@ function SubscriptionShareSession(props: {
     props.sessionId,
     props.tokenId,
   ] as const
+  const [advancedPersonal, setAdvancedPersonal] = useState(false)
   const [selection, setSelection] = useState('')
   const [percentage, setPercentage] = useState('')
   const [confirmed, setConfirmed] = useState(false)
@@ -320,6 +326,42 @@ function SubscriptionShareSession(props: {
       )
   const busy =
     query.isFetching || mutation.isPending || closeMutation.isPending
+
+  if (props.personalKey && root && !advancedPersonal) {
+    return (
+      <PersonalSubscriptionShareForm
+        apiKey={props.personalKey}
+        pools={visiblePools}
+        selectedPool={selectedPool}
+        selection={selection}
+        percentage={percentage}
+        shareBasisPoints={shareBasisPoints}
+        inputError={inputError}
+        confirmed={confirmed}
+        windowChangeConfirmed={windowChangeConfirmed}
+        busy={busy}
+        saving={mutation.isPending}
+        loading={!query.data && !query.isError}
+        loadError={query.isError}
+        mustReload={mustReload}
+        saveDisabled={busy || mustReload || !selectedPool || shareBasisPoints === null || exceedsPool || changesRebaselineShare || !confirmed || (requiresWindowChangeConfirmation && !windowChangeConfirmed)}
+        onSelect={(value) => {
+          const pool = visiblePools.find((item) => poolSelectionValue(item) === value)
+          setSelection(value)
+          setPercentage(pool ? basisPointsInput(pool.share_bps) : '')
+          setConfirmed(false)
+          setWindowChangeConfirmed(false)
+        }}
+        onPercentageChange={setPercentage}
+        onConfirmedChange={setConfirmed}
+        onWindowChangeConfirmed={setWindowChangeConfirmed}
+        onReload={reload}
+        onSave={submit}
+        onAdvanced={() => setAdvancedPersonal(true)}
+        onCancel={props.onClose}
+      />
+    )
+  }
 
   return (
     <Dialog

@@ -33,6 +33,7 @@ const subscriptionSharePoolSchema = z.object({
   snapshot_id: positiveSafeCount,
   revision: safeCount,
   channel_name: z.string(),
+  channel_id: positiveSafeCount.optional(),
   plan_type: z.string().min(1),
   window_slot: z.string().min(1),
   window_type: z.string().min(1),

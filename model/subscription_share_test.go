@@ -114,14 +114,17 @@ func TestSubscriptionShareOwnerViewHidesPrivateChannelName(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, rootView.Pools, 1)
 	assert.Equal(t, privateName, rootView.Pools[0].ChannelName)
+	assert.Equal(t, f.channels[0].Id, rootView.Pools[0].ChannelID)
 
 	ownerView, err := ReadSubscriptionShares(context.Background(), f.db, f.owner.Id, f.tokens[0].Id, 100)
 	require.NoError(t, err)
 	require.Len(t, ownerView.Pools, 1)
 	assert.Empty(t, ownerView.Pools[0].ChannelName)
+	assert.Zero(t, ownerView.Pools[0].ChannelID)
 	encoded, err := common.Marshal(ownerView)
 	require.NoError(t, err)
 	assert.NotContains(t, string(encoded), privateName)
+	assert.NotContains(t, string(encoded), "channel_id")
 }
 
 func TestSubscriptionSharePoolClosePreservesHistoryAndRetiresBindings(t *testing.T) {

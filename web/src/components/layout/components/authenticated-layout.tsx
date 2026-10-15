@@ -23,9 +23,11 @@ import { LayoutProvider } from '@/context/layout-provider'
 import { SearchProvider } from '@/context/search-provider'
 import { getCookie } from '@/lib/cookies'
 import { cn } from '@/lib/utils'
+import { usePersonalWorkbenchMode } from '@/hooks/use-personal-workbench-mode'
 
 import { AppHeader } from './app-header'
 import { AppSidebar } from './app-sidebar'
+import { PersonalConsoleLayout } from './personal-console-layout'
 
 type AuthenticatedLayoutProps = {
   children?: React.ReactNode
@@ -33,6 +35,19 @@ type AuthenticatedLayoutProps = {
 
 export function AuthenticatedLayout(props: AuthenticatedLayoutProps) {
   const defaultOpen = getCookie('sidebar_state') !== 'false'
+  const personal = usePersonalWorkbenchMode()
+
+  if (personal) {
+    return (
+      <LayoutProvider>
+        <SearchProvider>
+          <SidebarProvider defaultOpen={defaultOpen} className='contents'>
+            <PersonalConsoleLayout>{props.children}</PersonalConsoleLayout>
+          </SidebarProvider>
+        </SearchProvider>
+      </LayoutProvider>
+    )
+  }
 
   return (
     <LayoutProvider>

@@ -19,17 +19,20 @@ For commercial licensing, please contact support@quantumnous.com
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
+import { usePersonalWorkbenchMode } from '@/hooks/use-personal-workbench-mode'
 
 import { ApiKeysDialogs } from './components/api-keys-dialogs'
 import { ApiKeysPrimaryButtons } from './components/api-keys-primary-buttons'
 import { ApiKeysProvider } from './components/api-keys-provider'
 import { ApiKeysTable } from './components/api-keys-table'
+import { PersonalApiKeys } from './components/personal-api-keys'
 
 export function ApiKeys() {
   const { t } = useTranslation()
+  const personal = usePersonalWorkbenchMode()
   return (
     <ApiKeysProvider>
-      <SectionPageLayout fixedContent>
+      {personal ? <PersonalApiKeys /> : <SectionPageLayout fixedContent>
         <SectionPageLayout.Title>{t('API Keys')}</SectionPageLayout.Title>
         <SectionPageLayout.Description>
           {t('Manage your keys, budgets and assigned model access.')}
@@ -40,7 +43,7 @@ export function ApiKeys() {
         <SectionPageLayout.Content>
           <ApiKeysTable />
         </SectionPageLayout.Content>
-      </SectionPageLayout>
+      </SectionPageLayout>}
 
       <ApiKeysDialogs />
     </ApiKeysProvider>

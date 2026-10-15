@@ -1,160 +1,81 @@
-import { render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { AnchorHTMLAttributes } from 'react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import {
-  completePlaygroundKeyHandoff,
-  readPlaygroundKeyHandoff,
-} from '@/features/playground/lib/playground-key-handoff'
+import { getPlaygroundKeys } from '@/features/playground/api'
+import { completePlaygroundKeyHandoff, readPlaygroundKeyHandoff } from '@/features/playground/lib/playground-key-handoff'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
-import { PersonalWorkbench } from '../personal-workbench'
-import { usePersonalWorkbenchData } from '../use-personal-workbench-data'
+import { OverviewKeys } from '../overview-keys'
 
 const navigate = vi.hoisted(() => vi.fn())
-
-vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }))
-vi.mock('../use-personal-workbench-data', () => ({
-  usePersonalWorkbenchData: vi.fn(),
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => navigate,
+  Link: (props: AnchorHTMLAttributes<HTMLAnchorElement> & { to?: string }) => {
+    const { to, children, ...attributes } = props
+    return <a href={to} {...attributes}>{children}</a>
+  },
 }))
-vi.mock('@/hooks/use-sidebar-config', () => ({
-  useIsSidebarModuleVisible: () => true,
-}))
-vi.mock('../request-path-section', () => ({
-  RequestPathSection: (props: {
-    onSelectKey: (keyId: number) => void
-  }) => (
-    <button type='button' onClick={() => props.onSelectKey(31)}>Select test Key</button>
-  ),
-}))
-vi.mock('../key-budget-section', () => ({
-  KeyBudgetSection: (props: { onOpenSettings: () => void }) => (
-    <button type='button' onClick={props.onOpenSettings}>Open budget settings</button>
-  ),
-}))
-vi.mock('../recent-records-section', () => ({
-  RecentRecordsSection: () => null,
-}))
-vi.mock('../account-windows-section', () => ({
-  AccountWindowsSection: () => null,
-}))
-vi.mock('../workbench-actions', () => ({
-  WorkbenchActions: (props: { onOpenPolicy: () => void }) => (
-    <button type='button' onClick={props.onOpenPolicy}>Manage usage policy</button>
-  ),
-}))
-vi.mock('@/features/keys/components/token-budget-dialog', () => ({
-  TokenBudgetDialog: () => <div data-testid='token-budget-dialog' />,
-}))
-vi.mock('@/features/users/components/user-usage-policy-dialog', () => ({
-  UserUsagePolicyDialog: () => <div data-testid='usage-policy-dialog' />,
-}))
-
-const selectedKey = {
-  id: 31,
-  name: 'chosen-key',
-  status: 1,
-  group: 'default',
-  remain_quota: 100,
-  unlimited_quota: false,
-  expired_time: -1,
-}
-const idleQuery = {
-  data: undefined,
-  isLoading: false,
-  isFetching: false,
-  isError: false,
-  isRefetchError: false,
-  refetch: vi.fn(),
-}
+vi.mock('@/features/playground/api', () => ({ getPlaygroundKeys: vi.fn() }))
+vi.mock('@/hooks/use-sidebar-config', () => ({ useIsSidebarModuleVisible: () => true }))
+const selectedKey = { id: 31, name: 'chosen-key', status: 1, group: 'default', remain_quota: 100, unlimited_quota: false, expired_time: -1 }
 
 beforeEach(() => {
   navigate.mockClear()
+  vi.mocked(getPlaygroundKeys).mockResolvedValue([selectedKey])
   useAuthStore.getState().auth.setBundle({
-    access_token: 'access-token',
-    token_type: 'Bearer',
-    access_expires_at: 4_000_000_000,
-    user: {
-      id: 7,
-      username: 'root',
-      role: ROLE.SUPER_ADMIN,
-    },
-    session: {
-      sid: 'session-a',
-      current: true,
-      login_method: 'password',
-      ip: '127.0.0.1',
-      user_agent: 'test',
-      created_at: 1,
-      last_active_at: 1,
-      expires_at: 4_000_000_000,
-    },
+    access_token: 'access-token', token_type: 'Bearer', access_expires_at: 4_000_000_000,
+    user: { id: 7, username: 'root', role: ROLE.SUPER_ADMIN },
+    session: { sid: 'session-a', current: true, login_method: 'password', ip: '127.0.0.1', user_agent: 'test', created_at: 1, last_active_at: 1, expires_at: 4_000_000_000 },
   })
-  vi.mocked(usePersonalWorkbenchData).mockImplementation((props) =>
-    ({
-      status: { status: null, confirmed: true },
-      selfQuery: idleQuery,
-      keysQuery: idleQuery,
-      confirmedKeys: [selectedKey],
-      keysError: false,
-      budgetQuery: idleQuery,
-      recentQuery: idleQuery,
-      accountsQuery: idleQuery,
-      freshUser: {
-        id: 7,
-        username: 'root',
-        role: ROLE.SUPER_ADMIN,
-        quota: 0,
-        self_use_no_balance: true,
-        usage_policy_revision: 1,
-      },
-      identityConfirmed: true,
-      identityError: false,
-      canReadChannels: true,
-      selectedKey: props.selectedKeyId === 31 ? selectedKey : undefined,
-    }) as never
-  )
 })
-
 afterEach(() => {
   const handoff = readPlaygroundKeyHandoff(7, 'session-a')
-  if (handoff.status !== 'none') {
-    completePlaygroundKeyHandoff(handoff.requestId)
-  }
+  if (handoff.status !== 'none') completePlaygroundKeyHandoff(handoff.requestId)
   useAuthStore.getState().auth.reset('idle')
 })
+function renderKeys() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={client}><OverviewKeys /></QueryClientProvider>)
+}
 
-test('creates a session-bound handoff only when the user opens Playground', async () => {
+test('creates a session-bound handoff only after an explicit Key choice and Playground action', async () => {
   const user = userEvent.setup()
-  render(<PersonalWorkbench />)
-
-  await user.click(screen.getByRole('button', { name: 'Select test Key' }))
+  renderKeys()
+  await user.click(screen.getByText('Test with an existing Key'))
+  const select = screen.getByRole('combobox', { name: 'Select an API Key' })
+  await waitFor(() => expect(select).not.toBeDisabled())
+  expect(select).toHaveValue('')
+  expect(screen.getByRole('button', { name: 'Open Playground' })).toBeDisabled()
+  await user.selectOptions(select, '31')
   expect(readPlaygroundKeyHandoff(7, 'session-a')).toEqual({ status: 'none' })
-
-  const openPlayground = screen.getByRole('button', { name: 'Open Playground' })
-  await user.click(openPlayground)
-  expect(readPlaygroundKeyHandoff(7, 'session-a')).toMatchObject({
-    status: 'accepted',
-    keyId: 31,
-  })
+  await user.click(screen.getByRole('button', { name: 'Open Playground' }))
+  expect(readPlaygroundKeyHandoff(7, 'session-a')).toMatchObject({ status: 'accepted', keyId: 31 })
   expect(navigate).toHaveBeenCalledWith({ to: '/playground' })
 })
 
-test('does not mount write-capable dialogs until the user explicitly opens them', async () => {
+test('keeps a disabled Key from opening Playground and preserves its visible identity', async () => {
+  vi.mocked(getPlaygroundKeys).mockResolvedValue([{ ...selectedKey, status: 2 }])
   const user = userEvent.setup()
-  render(<PersonalWorkbench />)
+  renderKeys()
+  await user.click(screen.getByText('Test with an existing Key'))
+  const select = screen.getByRole('combobox', { name: 'Select an API Key' })
+  await waitFor(() => expect(select).not.toBeDisabled())
+  await user.selectOptions(select, '31')
+  expect(screen.getByTestId('request-flow-selected-key')).toHaveTextContent('chosen-key')
+  expect(screen.getByRole('button', { name: 'Open Playground' })).toBeDisabled()
+  expect(readPlaygroundKeyHandoff(7, 'session-a')).toEqual({ status: 'none' })
+})
 
-  expect(screen.queryByTestId('token-budget-dialog')).not.toBeInTheDocument()
-  expect(screen.queryByTestId('usage-policy-dialog')).not.toBeInTheDocument()
-
-  await user.click(screen.getByRole('button', { name: 'Select test Key' }))
-  expect(screen.queryByTestId('token-budget-dialog')).not.toBeInTheDocument()
-  await user.click(
-    screen.getByRole('button', { name: 'Open budget settings' })
-  )
-  expect(screen.getByTestId('token-budget-dialog')).toBeInTheDocument()
-
-  await user.click(screen.getByRole('button', { name: 'Manage usage policy' }))
-  expect(screen.getByTestId('usage-policy-dialog')).toBeInTheDocument()
+test('offers a retry after a safe Key read fails without showing a fake Key count', async () => {
+  vi.mocked(getPlaygroundKeys).mockRejectedValueOnce(new Error('offline'))
+  const user = userEvent.setup()
+  renderKeys()
+  expect(await screen.findByText('Unable to load Keys')).toBeInTheDocument()
+  expect(screen.queryByText('0', { exact: true })).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Retry' }))
+  expect(await screen.findByText('Keep using your existing Keys')).toBeInTheDocument()
 })

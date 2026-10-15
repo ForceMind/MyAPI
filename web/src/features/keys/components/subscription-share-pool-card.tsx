@@ -154,13 +154,17 @@ export function SubscriptionSharePoolCard(props: {
         <div>
           <dt className='text-muted-foreground'>{t('Estimated used')}</dt>
           <dd className='font-medium'>
-            {formatWindowMicro(props.pool.estimated_used_micro)}
+            {props.pool.pool_id > 0 && props.pool.baseline_time > 0
+              ? formatWindowMicro(props.pool.estimated_used_micro)
+              : t('Unknown')}
           </dd>
         </div>
         <div>
           <dt className='text-muted-foreground'>{t('Unattributed increase')}</dt>
           <dd className='font-medium'>
-            {formatWindowMicro(props.pool.unattributed_micro)}
+            {props.pool.pool_id > 0 && props.pool.baseline_time > 0
+              ? formatWindowMicro(props.pool.unattributed_micro)
+              : t('Unknown')}
           </dd>
         </div>
         <div>
@@ -175,7 +179,7 @@ export function SubscriptionSharePoolCard(props: {
         </div>
         <div>
           <dt className='text-muted-foreground'>{t('Uncertain attempts')}</dt>
-          <dd className='font-medium'>{props.pool.uncertain_attempts ?? 0}</dd>
+          <dd className='font-medium'>{props.pool.uncertain_attempts ?? t('Unknown')}</dd>
         </div>
       </dl>
 

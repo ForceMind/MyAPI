@@ -44,7 +44,7 @@ try {
         const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: 'reduce', timezoneId: 'Asia/Shanghai', serviceWorkers: 'block' })
         const fixture = createUIFixture({ role, language: languageCode, personalPolicy: true })
         const now = FIXTURE_TIME / 1000
-        const pool = { pool_id: 7, snapshot_id: 70, revision: 2, channel_name: role === 100 ? 'Synthetic share account — international window' : '', plan_type: 'plus', window_slot: 'primary', window_type: 'five_hour', window_seconds: 18000, reset_at: now + 3600, observed_at: now - 30, sample_age_seconds: 30, max_age_seconds: 300, state: 'active', reason: 'eligible', allocated_bps: 6000, share_bps: role === 100 ? 2000 : 0, estimated_used_micro: 12_500_000, unattributed_micro: 1_000_000, pending_attempts: 2, unsampled_attempts: 1, uncertain_attempts: 1, approximate: true, baseline_time: now - 600, replacement_required: false, rebaseline_required: false }
+        const pool = { pool_id: 7, snapshot_id: 70, revision: 2, channel_name: role === 100 ? 'Synthetic share account — international window' : '', ...(role === 100 ? {channel_id: 9} : {}), plan_type: 'plus', window_slot: 'primary', window_type: 'five_hour', window_seconds: 18000, reset_at: now + 3600, observed_at: now - 30, sample_age_seconds: 30, max_age_seconds: 300, state: 'active', reason: 'eligible', allocated_bps: 6000, share_bps: role === 100 ? 2000 : 0, estimated_used_micro: 12_500_000, unattributed_micro: 1_000_000, pending_attempts: 2, unsampled_attempts: 1, uncertain_attempts: 1, approximate: true, baseline_time: now - 600, replacement_required: false, rebaseline_required: false }
         const writes = []
         const closes = []
         let existingMenuKeyReads = 0
@@ -55,9 +55,7 @@ try {
             const request = route.request()
             const url = new URL(request.url())
             if (url.origin !== origin) { unexpected.push(`external:${url.origin}`); return route.abort() }
-            // The existing Key action menu prefetches its owner's Key for the
-            // copy/client actions. Keep that prior behavior and serve only an
-            // inert synthetic value; this POST reads, it does not generate a Key.
+            // Explicit copy reads an existing Key. It never creates or rotates it.
             if (url.pathname === '/api/token/21/key') {
               assert.equal(request.method(), 'POST')
               assert.equal(request.postData(), null)
@@ -114,11 +112,17 @@ try {
         await page.clock.setFixedTime(new Date(FIXTURE_TIME))
         const open = async () => {
           await page.goto(`${origin}/keys`, { waitUntil: 'networkidle' })
-          await page.getByRole('button', { name: t('Open menu'), exact: true }).last().click()
-          await page.getByRole('menuitem', { name: t('Subscription shares'), exact: true }).click()
+          await page.getByRole('button', { name: t('Window share'), exact: true }).last().click()
+          if (role === 100) {
+            const editor = page.getByRole('main', {name: t('Adjust window share'), exact: true})
+            await editor.waitFor({state: 'visible'})
+            await editor.getByLabel(t('Subscription account'), {exact: true}).selectOption('9')
+            await editor.getByLabel(t('Choose one subscription window'), {exact: true}).selectOption('7:70')
+            return editor
+          }
           const dialog = page.getByRole('dialog', { name: t('Subscription shares'), exact: true })
           await dialog.waitFor({ state: 'visible' })
-          await dialog.getByText(role === 100 ? pool.channel_name : `${t('Native window')} 7`, { exact: true }).waitFor({ state: 'visible' })
+          await dialog.getByText(`${t('Native window')} 7`, { exact: true }).waitFor({ state: 'visible' })
           return dialog
         }
         const dialog = await open()
@@ -129,8 +133,7 @@ try {
         await notice.scrollIntoViewIfNeeded()
         const topImage = `${name}-notice.png`
         await page.screenshot({ path: resolve(output, topImage), animations: 'disabled' })
-        if (role === 100) await dialog.getByRole('radio', { name: pool.channel_name, exact: true }).click()
-        const target = role === 100 ? dialog.getByLabel(t('Share percentage'), { exact: true }) : dialog.getByRole('region', { name: t('Your subscription share') })
+        const target = role === 100 ? dialog.getByLabel(t('Share of total window'), { exact: true }) : dialog.getByRole('region', { name: t('Your subscription share') })
         await target.scrollIntoViewIfNeeded()
         const geometry = await dialog.evaluate(element => {
           const rect = element.getBoundingClientRect()
@@ -142,15 +145,17 @@ try {
         const screenshots = [topImage, poolImage]
         if (role === 100) {
           await target.fill('25')
-          const save = dialog.getByRole('button', { name: t('Save share'), exact: true })
+          const save = dialog.getByRole('button', { name: t('Save changes'), exact: true })
           assert(await save.isDisabled(), 'Approximation confirmation is required')
           await dialog.getByRole('checkbox', { name: t('I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.'), exact: true }).check()
           await save.click()
           await dialog.waitFor({ state: 'hidden' })
           const updated = await open()
-          await updated.getByText('25%', { exact: true }).waitFor()
+          await updated.getByText('25%', { exact: true }).first().waitFor()
           assert.equal(writes.length, 1, 'One explicit write only')
-          await updated.getByRole('button', { name: t('Close pool'), exact: true }).click()
+          await updated.getByRole('button', {name: t('Advanced window controls'), exact: true}).click()
+          const advanced = page.getByRole('dialog', {name: t('Subscription shares'), exact: true})
+          await advanced.getByRole('button', { name: t('Close pool'), exact: true }).click()
           const confirmation = page.getByRole('alertdialog', { name: t('Close this subscription pool?'), exact: true })
           await confirmation.waitFor({ state: 'visible' })
           const closeButton = confirmation.getByRole('button', { name: t('Close pool'), exact: true })
@@ -161,10 +166,10 @@ try {
           await confirmation.getByRole('checkbox', { name: t('I understand this pool cannot be enabled again in this version.'), exact: true }).check()
           await closeButton.click()
           await confirmation.waitFor({ state: 'hidden' })
-          await updated.getByText(t('Closed — history retained'), { exact: true }).waitFor()
+          await advanced.getByText(t('Closed — history retained'), { exact: true }).waitFor()
           assert.equal(closes.length, 1)
-          assert.equal(await updated.getByRole('radio').count(), 0, 'Closed pools cannot be configured again')
-          assert.equal(await updated.getByRole('button', { name: t('Close pool'), exact: true }).count(), 0)
+          assert.equal(await advanced.getByRole('radio').count(), 0, 'Closed pools cannot be configured again')
+          assert.equal(await advanced.getByRole('button', { name: t('Close pool'), exact: true }).count(), 0)
           const closedImage = `${name}-closed.png`
           await page.screenshot({ path: resolve(output, closedImage), animations: 'disabled' })
           screenshots.push(closedImage)

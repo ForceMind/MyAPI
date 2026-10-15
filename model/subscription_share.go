@@ -295,6 +295,7 @@ type SubscriptionSharePoolView struct {
 	PoolID              int64  `json:"pool_id"`
 	SnapshotID          int    `json:"snapshot_id"`
 	Revision            int64  `json:"revision"`
+	ChannelID           int    `json:"channel_id,omitempty"`
 	ChannelName         string `json:"channel_name"`
 	WindowSource        string `json:"window_source"`
 	WindowSlot          string `json:"window_slot"`
@@ -1524,7 +1525,7 @@ func ReadSubscriptionShares(ctx context.Context, db *gorm.DB, actorID, tokenID i
 				}
 				name, channelNames[snapshot.ChannelId] = channel.Name, channel.Name
 			}
-			candidate := SubscriptionSharePoolView{SnapshotID: snapshot.Id, ChannelName: name, WindowSource: snapshot.Source, WindowSlot: strings.TrimPrefix(snapshot.Source, "codex_wham_usage_"), WindowType: snapshot.WindowType, WindowSeconds: snapshot.WindowSeconds, PlanType: snapshot.PlanType, ResetAt: snapshot.ResetAt, ObservedAt: snapshot.ObservedAt, State: "candidate", Reason: "fresh_qualified_sample", Approximate: true, MaxAgeSeconds: SubscriptionShareDefaultMaxAge, SampleAgeSeconds: now - snapshot.ObservedAt}
+			candidate := SubscriptionSharePoolView{SnapshotID: snapshot.Id, ChannelID: snapshot.ChannelId, ChannelName: name, WindowSource: snapshot.Source, WindowSlot: strings.TrimPrefix(snapshot.Source, "codex_wham_usage_"), WindowType: snapshot.WindowType, WindowSeconds: snapshot.WindowSeconds, PlanType: snapshot.PlanType, ResetAt: snapshot.ResetAt, ObservedAt: snapshot.ObservedAt, State: "candidate", Reason: "fresh_qualified_sample", Approximate: true, MaxAgeSeconds: SubscriptionShareDefaultMaxAge, SampleAgeSeconds: now - snapshot.ObservedAt}
 			if pool, exists := byDescriptor[descriptor]; exists {
 				if !pool.Enabled {
 					continue
@@ -1558,10 +1559,12 @@ func ReadSubscriptionShares(ctx context.Context, db *gorm.DB, actorID, tokenID i
 	for _, pool := range pools {
 		allocation := allocationByPool[pool.ID]
 		channelName := pool.ChannelName
+		channelID := pool.ChannelID
 		if actor.Role != common.RoleRootUser {
 			channelName = ""
+			channelID = 0
 		}
-		item := SubscriptionSharePoolView{PoolID: pool.ID, SnapshotID: pool.SnapshotID, Revision: pool.Revision, ChannelName: channelName, WindowSource: pool.WindowSource, WindowSlot: strings.TrimPrefix(pool.WindowSource, "codex_wham_usage_"), WindowType: pool.WindowType, WindowSeconds: pool.WindowSeconds, PlanType: pool.PlanType, ShareBPS: allocation.ShareBPS, Approximate: true, State: "baseline_pending", Reason: "baseline_required", MaxAgeSeconds: pool.MaxAgeSeconds}
+		item := SubscriptionSharePoolView{PoolID: pool.ID, SnapshotID: pool.SnapshotID, Revision: pool.Revision, ChannelID: channelID, ChannelName: channelName, WindowSource: pool.WindowSource, WindowSlot: strings.TrimPrefix(pool.WindowSource, "codex_wham_usage_"), WindowType: pool.WindowType, WindowSeconds: pool.WindowSeconds, PlanType: pool.PlanType, ShareBPS: allocation.ShareBPS, Approximate: true, State: "baseline_pending", Reason: "baseline_required", MaxAgeSeconds: pool.MaxAgeSeconds}
 		if err := db.WithContext(ctx).Model(&SubscriptionShareAllocation{}).Where("pool_id = ?", pool.ID).Select("COALESCE(SUM(share_bps),0)").Scan(&item.AllocatedBPS).Error; err != nil {
 			return nil, err
 		}

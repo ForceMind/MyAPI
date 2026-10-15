@@ -25,8 +25,10 @@ import type { NavGroup } from '@/components/layout/types'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CacheStatsDialog } from '@/features/system-settings/general/channel-affinity/cache-stats-dialog'
 import { useMediaQuery } from '@/hooks'
+import { usePersonalWorkbenchMode } from '@/hooks/use-personal-workbench-mode'
 import { useSidebarConfig } from '@/hooks/use-sidebar-config'
 
+import { PersonalCallLogs } from './components/personal-call-logs'
 import { UserInfoDialog } from './components/dialogs/user-info-dialog'
 import { PendingUsageReviews } from './components/pending-usage-reviews'
 import {
@@ -199,6 +201,9 @@ function UsageLogsContent() {
 }
 
 export function UsageLogs() {
+  const personalMode = usePersonalWorkbenchMode()
+  const params = route.useParams()
+  if (personalMode && params.section === 'common') return <PersonalCallLogs />
   return (
     <UsageLogsProvider>
       <UsageLogsContent />

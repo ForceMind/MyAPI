@@ -22,7 +22,7 @@ import { useState, useCallback, useMemo, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { SectionPageLayout } from '@/components/layout'
+import { Main, SectionPageLayout } from '@/components/layout'
 import { FadeIn } from '@/components/page-transition'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -370,6 +370,10 @@ export function Dashboard() {
       </>
     ) : null
   const sectionActions = modelActions ?? flowActions
+
+  if (activeSection === 'overview' && personalWorkbench) {
+    return <Main className='overflow-auto'><OverviewDashboard /></Main>
+  }
 
   return (
     <SectionPageLayout>

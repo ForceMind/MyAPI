@@ -1,209 +1,43 @@
-import { TerminalIcon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { useNavigate } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { TokenBudgetDialog } from '@/features/keys/components/token-budget-dialog'
-import { createPlaygroundKeyHandoff } from '@/features/playground/lib/playground-key-handoff'
-import { UserUsagePolicyDialog } from '@/features/users/components/user-usage-policy-dialog'
-import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
-import { ROLE } from '@/lib/roles'
-import { useAuthStore, type AuthUser } from '@/stores/auth-store'
+import { AccountsState } from '@/features/personal-upstream/components/accounts-state'
+import { WindowCard } from '@/features/personal-upstream/components/window-card'
+import { useUpstreamAccounts } from '@/features/personal-upstream/use-upstream-accounts'
+import { quotaSeriesKey, quotaWindowLabel } from '@/features/channels/lib/quota-history'
+import { useAuthStore } from '@/stores/auth-store'
 
-import { AccountWindowsSection } from './account-windows-section'
-import { KeyBudgetSection } from './key-budget-section'
-import { RecentRecordsSection } from './recent-records-section'
-import { RequestPathSection } from './request-path-section'
-import { usePersonalWorkbenchData } from './use-personal-workbench-data'
-import { WorkbenchActions } from './workbench-actions'
-import { getPlaygroundKeyCondition } from './workbench-state'
+import { OverviewKeys } from './overview-keys'
+import { OverviewRecent } from './overview-recent'
 
-const INITIAL_KEY_COUNT = 10
-
-function PersonalWorkbenchSession(props: {
-  user: AuthUser
-  sessionId: string | null
-}) {
+function PersonalWorkbenchSession() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
-  const showPlayground = useIsSidebarModuleVisible('/playground')
-  const [selectedKeyId, setSelectedKeyId] = useState<number | null>(null)
-  const [visibleKeyCount, setVisibleKeyCount] = useState(INITIAL_KEY_COUNT)
-  const [budgetDialogOpen, setBudgetDialogOpen] = useState(false)
-  const [policyDialogOpen, setPolicyDialogOpen] = useState(false)
-  const data = usePersonalWorkbenchData({
-    user: props.user,
-    sessionId: props.sessionId,
-    selectedKeyId,
-  })
-  const budgetError =
-    data.budgetQuery.isError || data.budgetQuery.isRefetchError
-  const accountsError =
-    data.accountsQuery.isError || data.accountsQuery.isRefetchError
-  const recentError =
-    data.recentQuery.isError || data.recentQuery.isRefetchError
-  const selectedKeyAvailable = Boolean(
-    data.selectedKey &&
-      getPlaygroundKeyCondition(data.selectedKey) === 'available'
-  )
-  const budget = budgetError ? undefined : data.budgetQuery.data
-  const accounts = accountsError ? undefined : data.accountsQuery.data
-  const recent = recentError ? undefined : data.recentQuery.data
-
-  const handleOpenPlayground = () => {
-    if (!data.selectedKey) return
-
-    createPlaygroundKeyHandoff({
-      userId: props.user.id,
-      sessionId: props.sessionId,
-      keyId: data.selectedKey.id,
-    })
-    void navigate({ to: '/playground' })
-  }
-
-  return (
-    <div
-      data-testid='personal-workbench'
-      className='flex min-w-0 flex-col gap-4 pb-6'
-    >
-      <header className='from-primary/10 via-primary/5 relative overflow-hidden rounded-2xl border bg-gradient-to-br to-transparent px-4 py-5 shadow-sm sm:px-6 sm:py-6'>
-        <div className='bg-primary/10 absolute -top-20 -right-16 size-48 rounded-full blur-3xl' />
-        <div className='relative flex min-w-0 flex-col gap-5 sm:flex-row sm:items-end sm:justify-between'>
-          <div className='min-w-0 max-w-2xl'>
-            <p className='text-primary text-xs font-semibold tracking-[0.18em] uppercase'>
-              {t('Personal request workspace')}
-            </p>
-            <h2 className='mt-2 text-2xl font-semibold tracking-tight sm:text-3xl'>
-              {t('Choose a Key. Check its limits. Test when ready.')}
-            </h2>
-            <p className='text-muted-foreground mt-2 max-w-xl text-sm leading-relaxed'>
-              {t(
-                'Your Key, request limits, upstream windows, and recent records are gathered in one place.'
-              )}
-            </p>
-          </div>
-          {showPlayground && selectedKeyAvailable ? (
-            <Button size='lg' onClick={handleOpenPlayground}>
-              <HugeiconsIcon
-                icon={TerminalIcon}
-                strokeWidth={2}
-                aria-hidden='true'
-              />
-              {t('Open Playground')}
-            </Button>
-          ) : null}
-          {showPlayground && !selectedKeyAvailable ? (
-            <Button size='lg' disabled>
-              <HugeiconsIcon
-                icon={TerminalIcon}
-                strokeWidth={2}
-                aria-hidden='true'
-              />
-              {t('Open Playground')}
-            </Button>
-          ) : null}
-        </div>
-      </header>
-
-      <div
-        data-testid='personal-workbench-layout'
-        className='grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(19rem,0.75fr)]'
-      >
-        <div className='flex min-w-0 flex-col gap-4'>
-          <RequestPathSection
-            keys={data.confirmedKeys}
-            selectedKey={data.selectedKey}
-            selectedKeyId={selectedKeyId}
-            visibleCount={visibleKeyCount}
-            isLoading={data.keysQuery.isLoading}
-            isError={data.keysError}
-            isFetching={data.keysQuery.isFetching}
-            onSelectKey={(keyId) => {
-              setSelectedKeyId(keyId)
-              setBudgetDialogOpen(false)
-            }}
-            onLoadMore={() =>
-              setVisibleKeyCount((count) => count + INITIAL_KEY_COUNT)
-            }
-            onRefresh={() => void data.keysQuery.refetch()}
-          />
-          <KeyBudgetSection
-            selectedKey={data.selectedKey}
-            budget={budget}
-            isLoading={data.budgetQuery.isLoading}
-            isError={budgetError}
-            isFetching={data.budgetQuery.isFetching}
-            onRefresh={() => void data.budgetQuery.refetch()}
-            onOpenSettings={() => setBudgetDialogOpen(true)}
-          />
-          <RecentRecordsSection
-            data={recent}
-            isLoading={data.recentQuery.isLoading}
-            isError={recentError}
-            isFetching={data.recentQuery.isFetching}
-            onRefresh={() => void data.recentQuery.refetch()}
-          />
-        </div>
-
-        <aside className='flex min-w-0 flex-col gap-4'>
-          <AccountWindowsSection
-            freshUser={data.freshUser}
-            canReadChannels={data.canReadChannels}
-            data={accounts}
-            identityLoading={data.selfQuery.isLoading}
-            identityError={data.identityError}
-            isLoading={data.accountsQuery.isLoading}
-            isError={accountsError}
-            isFetching={data.accountsQuery.isFetching}
-            onRetryIdentity={() => void data.selfQuery.refetch()}
-            onRefresh={() => void data.accountsQuery.refetch()}
-          />
-          <WorkbenchActions
-            freshUser={data.freshUser}
-            identityConfirmed={data.identityConfirmed}
-            identityLoading={data.selfQuery.isLoading}
-            identityError={data.identityError}
-            canReadChannels={data.canReadChannels}
-            fundingStatus={data.status.status}
-            fundingConfirmed={data.status.confirmed}
-            selectedKeyName={data.selectedKey?.name}
-            budgetLoaded={Boolean(budget)}
-            budgetError={budgetError}
-            hasPendingBudget={Boolean(budget?.pending)}
-            onRetryIdentity={() => void data.selfQuery.refetch()}
-            onOpenPolicy={() => setPolicyDialogOpen(true)}
-          />
-        </aside>
-      </div>
-
-      {budgetDialogOpen && data.selectedKey ? (
-        <TokenBudgetDialog
-          tokenId={data.selectedKey.id}
-          onClose={() => setBudgetDialogOpen(false)}
-        />
-      ) : null}
-      {policyDialogOpen && data.freshUser?.role === ROLE.SUPER_ADMIN ? (
-        <UserUsagePolicyDialog
-          userId={data.freshUser.id}
-          onClose={() => setPolicyDialogOpen(false)}
-          onSaved={() => void data.selfQuery.refetch()}
-        />
-      ) : null}
+  const data = useUpstreamAccounts()
+  const [selectedSeries, setSelectedSeries] = useState('')
+  const items = data.canRead && !data.accountsQuery.isError ? data.accountsQuery.data?.items.filter((item) => item.metric_type === 'codex_rate_limit' && item.unit === 'percent') ?? [] : []
+  const selected = items.find((item) => quotaSeriesKey(item) === selectedSeries) ?? items[0]
+  const accountErrors = items.filter((item) => item.status === 'error')
+  return <div className='pc-page flex min-w-0 flex-col gap-5' data-testid='personal-workbench'>
+    {accountErrors.length > 0 ? <Alert><AlertTitle>{t('An upstream account needs attention')}</AlertTitle><Button size='sm' variant='ghost' nativeButton={false} render={<Link to='/upstream-accounts' />}>{t('View upstream accounts')}</Button></Alert> : null}
+    <header><h1 className='text-2xl leading-8 font-semibold tracking-tight sm:text-[32px] sm:leading-10'>{t('Your API workspace')}</h1><p className='text-muted-foreground mt-2 text-base'>{t('Connections, Keys, and calls at a glance')}</p></header>
+    <div className='grid min-w-0 gap-5 md:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]' data-testid='personal-workbench-layout'>
+      <section className='flex min-w-0 flex-col gap-3' aria-label={t('Upstream account windows')} data-testid='account-windows-section'>
+        {items.length > 1 ? <div className='flex min-w-0 flex-wrap gap-2' role='group' aria-label={t('Select account window')}>{items.map((item) => <Button key={quotaSeriesKey(item)} size='sm' variant={selected === item ? 'default' : 'outline'} aria-pressed={selected === item} onClick={() => setSelectedSeries(quotaSeriesKey(item))} className='h-auto min-w-0 whitespace-normal break-words'>{item.account_label || item.name} · {quotaWindowLabel(item.window_type, t)}</Button>)}</div> : null}
+        {selected ? <WindowCard item={selected} compact /> : <AccountsState data={data} />}
+        <Button variant='ghost' className='self-start' nativeButton={false} render={<Link to='/upstream-accounts' />}>{t('View upstream accounts')}</Button>
+      </section>
+      <OverviewKeys />
     </div>
-  )
+    <OverviewRecent />
+  </div>
 }
 
 export function PersonalWorkbench() {
   const user = useAuthStore((state) => state.auth.user)
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   if (!user) return null
-  return (
-    <PersonalWorkbenchSession
-      key={`${user.id}:${sessionId ?? 'no-session'}`}
-      user={user}
-      sessionId={sessionId}
-    />
-  )
+  return <PersonalWorkbenchSession key={`${user.id}:${sessionId ?? 'no-session'}`} />
 }

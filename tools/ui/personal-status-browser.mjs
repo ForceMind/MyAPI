@@ -23,7 +23,7 @@ const tr = (key, language) => {
   assert(typeof value === 'string' && value.trim(), `Missing ${language} translation: ${key}`)
   return value
 }
-for (const key of ['No-wallet policy active', 'Stored user allowance remains in effect', 'Policy status unknown', 'Completed · usage pending', 'Completed · settlement pending']) {
+for (const key of ['No-wallet policy active', 'Stored user allowance remains in effect', 'Policy status unknown', 'Call logs', 'Request succeeded', 'Request failed', 'Usage not provided', 'Usage reported', 'Unknown']) {
   for (const language of Object.keys(languageCodes)) tr(key, language)
 }
 
@@ -124,7 +124,7 @@ function fixtureResponse(fixture, url, method, api) {
   if (api.users && (path === '/api/user' || path === '/api/user/search')) {
     return { status: 200, body: { success: true, data: { items: api.users, total: api.users.length, page: 1, page_size: 20 } } }
   }
-  if (api.logs && path === '/api/log') {
+  if (api.logs && (path === '/api/log' || path === '/api/log/self')) {
     return { status: 200, body: { success: true, data: { items: api.logs, total: api.logs.length, page: 1, page_size: 100 } } }
   }
   if (api.logs && path.startsWith('/api/usage-review/')) {
@@ -163,7 +163,7 @@ async function session(scenario) {
     }
     audit.statusRead ||= path === '/api/status'
     audit.usersRead ||= path === '/api/user' || path === '/api/user/search'
-    audit.logsRead ||= path === '/api/log'
+    audit.logsRead ||= path === '/api/log' || path === '/api/log/self'
     if (path.startsWith('/api/usage-review/')) audit.reviewReads++
     const response = fixtureResponse(fixture, url, request.method(), scenario.api)
     if (response.violation) audit.violations.push(response.violation)
@@ -190,7 +190,7 @@ async function settled(page) {
 }
 async function open(page, path, title) {
   await page.goto(`${origin}${path}`, { waitUntil: 'networkidle' })
-  await page.locator('[data-myapi-shell="authenticated"]').waitFor()
+  await page.locator('[data-myapi-shell]').waitFor()
   await page.getByRole('heading', { level: 1, name: title, exact: true }).waitFor()
   await settled(page)
   const revision = await page.locator('html').getAttribute('data-build-rev')
@@ -210,9 +210,6 @@ async function shot(page, scenario, suffix) {
   const file = `${scenario.name}-${suffix}.png`
   await page.screenshot({ path: resolve(output, file) })
   report.screenshots.push(file); persist()
-}
-function detailsButton(page, language, requestId) {
-  return page.getByTitle(tr('Click to view full details', language), { exact: true }).filter({ hasText: requestId, visible: true }).first()
 }
 
 async function verifyUsers(page, scenario) {
@@ -245,30 +242,27 @@ async function verifyUsers(page, scenario) {
 }
 
 async function verifyLogs(page, scenario) {
-  const revision = await open(page, '/usage-logs/common', tr('Common Logs', scenario.language))
-  const entries = [
-    ['synthetic-completed-usage-pending', 'Completed · usage pending', 'The response completed, but upstream usage is unavailable. Usage and cost remain unconfirmed; existing reservations stay in place.'],
-    ['synthetic-completed-settlement-pending', 'Completed · settlement pending', 'The response completed and usage was reported, but settlement is unconfirmed. Existing reservations stay in place.'],
-    ['synthetic-real-request-error', 'Error', null],
-  ]
-  for (const [, key] of entries) await page.getByText(tr(key, scenario.language), { exact: true }).first().waitFor()
+  const revision = await open(page, '/usage-logs/common', tr('Call logs', scenario.language))
+  for (const log of logs) {
+    await page.getByRole('button', { name: tr('View call {{id}}', scenario.language).replace('{{id}}', log.request_id), exact: true }).waitFor()
+  }
   await shot(page, scenario, 'logs')
-  for (const [requestId, key, notice] of entries) {
-    await detailsButton(page, scenario.language, requestId).click()
-    const dialog = page.getByRole('dialog').filter({ visible: true }).last()
-    await dialog.getByText(tr(key, scenario.language), { exact: true }).waitFor()
-    await dialog.getByRole('region', { name: tr('Usage pending review', scenario.language), exact: true }).waitFor()
-    if (notice) {
-      await dialog.getByRole('status').filter({ hasText: tr(notice, scenario.language) }).waitFor()
-    } else {
-      for (const completedNotice of entries.slice(0, 2).map(entry => tr(entry[2], scenario.language))) {
-        assert.equal(await dialog.getByText(completedNotice, { exact: true }).count(), 0, 'True errors keep error details')
-      }
+  for (const [index, log] of logs.entries()) {
+    const completed = index < 2
+    const usageKnown = index === 1
+    await page.getByRole('button', { name: tr('View call {{id}}', scenario.language).replace('{{id}}', log.request_id), exact: true }).click()
+    const detail = page.locator(`[aria-label="${tr('Call details', scenario.language)}"]`)
+    await detail.getByRole('heading', { name: tr(completed ? 'Request succeeded' : 'Request failed', scenario.language), exact: true }).waitFor()
+    await detail.getByRole('heading', { name: tr(usageKnown ? 'Usage reported' : 'Usage not provided', scenario.language), exact: true }).waitFor()
+    const tokenValue = usageKnown ? '0' : tr('Unknown', scenario.language)
+    for (const tokenLabel of ['Input Tokens', 'Output Tokens']) {
+      const row = detail.locator('dl > div').filter({ has: page.getByText(tr(tokenLabel, scenario.language), { exact: true }) })
+      assert.equal(await row.locator('dd').innerText(), tokenValue, 'Missing usage stays unknown while explicit reported zero remains zero')
     }
-    if ((scenario.language === 'en' && key === 'Completed · usage pending') || (scenario.language === 'zh' && key === 'Completed · settlement pending')) {
-      await shot(page, scenario, 'details')
-    }
-    await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'hidden' })
+    assert.equal(await page.getByRole('region', { name: tr('Usage pending review', scenario.language), exact: true }).count(), 0, 'Personal request success is independent of accounting review')
+    assert.equal(await page.getByText(tr('Current Balance', scenario.language), { exact: true }).count(), 0, 'Personal logs hide monetary balance')
+    if (index === 0) await shot(page, scenario, 'details')
+    if (scenario.width === 320) await page.getByRole('button', { name: tr('Back to call list', scenario.language), exact: true }).click()
   }
   await noOverflow(page, scenario.name)
   return revision
@@ -280,7 +274,7 @@ async function run(scenario) {
   try {
     journey.buildRevision = await (scenario.kind === 'logs' ? verifyLogs(page, scenario) : verifyUsers(page, scenario))
     assert(audit.statusRead, 'Journey reads funding status')
-    assert(scenario.kind === 'logs' ? audit.logsRead && audit.reviewReads === 3 : audit.usersRead, 'Journey reads its bounded API')
+    assert(scenario.kind === 'logs' ? audit.logsRead && audit.reviewReads === 0 : audit.usersRead, 'Journey reads its bounded API')
     assert.deepEqual(audit.mutations, [], 'No business POST/PUT/PATCH/DELETE')
     assert.deepEqual(audit.external, [], 'No external requests')
     assert.deepEqual(audit.violations, [], 'No fixture violations')

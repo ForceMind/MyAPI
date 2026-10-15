@@ -549,6 +549,12 @@ jobs:
           cp "$saved" "$target"
           git diff --exit-code -- "$target"
 
+      - name: Build real quota UI for browser regression
+        env:
+          RAYON_NUM_THREADS: '2'
+          NODE_OPTIONS: '--max-old-space-size=1536'
+        run: VITE_REACT_APP_VERSION="$(cat ../VERSION)" VITE_BUILD_ID="$GITHUB_SHA" bun run build
+
       - name: Typecheck
         run: bun run typecheck
 
@@ -558,18 +564,21 @@ jobs:
       - name: Test
         run: bun run test
 
-      - name: Build real quota UI for browser regression
-        env:
-          RAYON_NUM_THREADS: '2'
-          NODE_OPTIONS: '--max-old-space-size=1536'
-        run: VITE_REACT_APP_VERSION="$(cat ../VERSION)" VITE_BUILD_ID="$GITHUB_SHA" bun run build
-
       - name: Install isolated browser test dependencies
         id: browser-dependencies
         working-directory: .
         run: |
           npm install --prefix "$RUNNER_TEMP/myapi-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1
           "$RUNNER_TEMP/myapi-browser/node_modules/.bin/playwright" install --with-deps chromium
+
+      - name: Retain runnable personal console build
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-console-build-${{ github.sha }}
+          path: |
+            web/dist/
+            web/src/routeTree.gen.ts
+          retention-days: 7
 
       - name: Verify real quota charts and responsive interactions
         if: ${{ !cancelled() && steps.browser-dependencies.outcome == 'success' }}
@@ -613,6 +622,7 @@ jobs:
           node tools/ui/personal-status-browser.mjs
           node tools/ui/personal-workbench-browser.mjs
           node tools/ui/subscription-share-browser.mjs
+          node tools/ui/personal-console-browser.mjs
           node tools/ui/browser-smoke.mjs
           node tools/ui/playground-browser.mjs
 

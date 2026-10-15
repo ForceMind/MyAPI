@@ -60,7 +60,7 @@ const contexts = new Set()
 async function session(options = {}) {
   const language = options.language || 'en'
   const theme = options.theme || 'light'
-  const fixture = createUIFixture({ ...options, language: languages[language] })
+  const fixture = createUIFixture({ ...options, commercialShell: options.commercialShell ?? !options.personalPolicy, language: languages[language] })
   let releaseOptions
   const optionsGate = options.deferOptions ? new Promise(done => { releaseOptions = done }) : null
   let releaseLearning
@@ -386,7 +386,7 @@ try {
         const mode = page.getByRole('combobox', { name: label('User funding mode'), exact: true })
         await mode.waitFor()
         assert.equal(await mode.evaluate(element => element.tagName), 'BUTTON', 'funding mode is read from the real form select trigger')
-        assert.equal((await mode.innerText()).trim(), label('Disabled'), 'saved disabled funding mode is not replaced by the enabled default')
+        assert.equal((await mode.innerText()).trim(), label('Enabled'), 'the commercial-shell scenario reads the saved enabled mode')
       }
       section.reached = true
       if (settings.find(candidate => candidate.family === section.family).id === section.id) {
@@ -892,7 +892,7 @@ try {
     for (const width of [320, 1280]) {
       const { page, context } = await session({ role: 1, width })
       const start = report.requests.length
-      await open(page, '/dashboard/overview', { title: label('Personal workbench'), expectedPath: '/dashboard/overview' })
+      await open(page, '/dashboard/overview', { title: label('Overview'), expectedPath: '/dashboard/overview' })
       await open(page, '/playground', { title: label('Start a playground chat'), headingLevel: 2, expectedPath: '/playground' })
       const input = page.getByPlaceholder(label('Ask anything'), { exact: true })
       await input.fill('Synthetic unsent playground draft')
@@ -921,7 +921,7 @@ try {
 
       const disabled = await session({ role: 1, width, playgroundDisabled: true })
       const disabledStart = report.requests.length
-      await open(disabled.page, '/playground', { title: label('Personal workbench'), expectedPath: '/dashboard/overview' })
+      await open(disabled.page, '/playground', { title: label('Overview'), expectedPath: '/dashboard/overview' })
       assert.equal(await disabled.page.getByRole('heading', { name: label('Start a playground chat'), exact: true }).count(), 0)
       assert.equal(report.requests.slice(disabledStart).filter(request => request.pagePath.replace(/\/$/, '') === '/playground' && ['/pg/keys', '/pg/models'].includes(request.path)).length, 0, 'disabled route never loads playground options; redirected overview keeps its own reads')
       await screenshot(disabled.page, `playground-sidebar-disabled-${width}`)
@@ -943,9 +943,9 @@ try {
         assert.equal(report.requests.slice(chatStart).filter(request => request.path.replace(/\/$/, '') === '/api/token' || request.path === '/pg/keys' || isKeyRevealRequest(request)).length, 0, 'missing chat never retrieves a key list or secret before recovery navigation')
         await page.locator('main#content a[href="/dashboard"]').filter({ hasText: label('Return to dashboard') }).click()
         await page.waitForURL(`${origin}/dashboard/overview`)
-        await page.getByRole('heading', { level: 1, name: label('Personal workbench'), exact: true }).waitFor()
+        await page.getByRole('heading', { level: 1, name: label('Overview'), exact: true }).waitFor()
       }
-      await open(page, '/chat/not-an-integer', { title: label('Personal workbench'), expectedPath: '/dashboard/overview' })
+      await open(page, '/chat/not-an-integer', { title: label('Overview'), expectedPath: '/dashboard/overview' })
       assert.equal(report.requests.slice(start).filter(request => isKeyRevealRequest(request) || /^\/api\/token(?:\/search|\/\d+)?\/?$/.test(request.path)).length, 0, 'recovery navigation never retrieves broad Key objects or an active key secret')
       assert.equal(report.blockedExternal.length, externalStart, 'missing/invalid chat cannot attempt external navigation')
       await context.close(); contexts.delete(context)
@@ -1224,8 +1224,8 @@ try {
   })
 
   for (const [language, width] of [...Object.keys(languages).map(language => [language, 320]), ['en', 1280]]) {
-    await run(`personal-policy-and-budget-clarity-${language}-${width}`, async () => {
-      const { page, context, fixture } = await session({ role: 1, language, width, personalPolicy: true, longText: true, hasTouch: width === 320 })
+    await run(`commercial-policy-and-budget-clarity-${language}-${width}`, async () => {
+      const { page, context, fixture } = await session({ role: 1, language, width, personalPolicy: true, commercialShell: true, longText: true, hasTouch: width === 320 })
       const start = report.requests.length
       for (const key of ['My usage policy', 'Saved wallet preference', 'Global funding mode', 'Usage budgets', 'Budget types and scope', 'No-wallet configuration conditions are met for supported requests.', 'Configuration could not be confirmed.']) {
         assert.equal(typeof translations[language][key], 'string', `${language}: explicit personal-policy translation`)
@@ -1238,7 +1238,7 @@ try {
       else { await entry.focus(); await page.keyboard.press('Enter') }
       const dialog = page.getByRole('dialog', { name: label('User usage policy', language), exact: true })
       const configuration = dialog.getByRole('region', { name: label('Current configuration', language), exact: true })
-      await configuration.getByText(label('No-wallet configuration conditions are met for supported requests.', language), { exact: true }).waitFor()
+      await configuration.getByText(label('The saved no-wallet preference is inactive while commercial funding is enabled or retiring.', language), { exact: true }).waitFor()
       await assertPersonalHeadingClear(dialog, `policy-title-${language}-${width}`)
       assert.equal(await dialog.locator('form, input, [role="checkbox"]').count(), 0, 'ordinary owner cannot change policy')
       await dialog.getByText(label('Only Root can change this policy.', language), { exact: true }).waitFor()
@@ -1304,14 +1304,14 @@ try {
     })
   }
 
-  await run('personal-policy-root-draft-remains-unsaved', async () => {
-    const { page, fixture } = await session({ width: 320, personalPolicy: true })
+  await run('commercial-policy-root-draft-remains-unsaved', async () => {
+    const { page, fixture } = await session({ width: 320, personalPolicy: true, commercialShell: true })
     const start = report.requests.length
     await open(page, '/keys')
     await page.getByRole('button', { name: label('My usage policy'), exact: true }).click()
     const dialog = page.getByRole('dialog', { name: label('User usage policy'), exact: true })
     const configuration = dialog.getByRole('region', { name: label('Current configuration'), exact: true })
-    await configuration.getByText(label('No-wallet configuration conditions are met for supported requests.'), { exact: true }).waitFor()
+    await configuration.getByText(label('The saved no-wallet preference is inactive while commercial funding is enabled or retiring.'), { exact: true }).waitFor()
     const preference = dialog.getByRole('checkbox', { name: label('Use Key limits without a user wallet'), exact: true })
     await preference.uncheck()
     await configuration.getByText(label('Use Key limits without a user wallet'), { exact: true }).waitFor()

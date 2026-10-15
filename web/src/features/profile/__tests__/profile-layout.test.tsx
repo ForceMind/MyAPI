@@ -121,7 +121,7 @@ describe('profile task layout', () => {
     await user.click(screen.getByRole('button', { name: 'Account menu' }))
     await user.click(await screen.findByRole('menuitem', { name: 'Profile' }))
     expect(
-      await screen.findByRole('heading', { name: 'Operations', level: 2 })
+      await screen.findByRole('heading', { name: 'Operations', level: mode === 'disabled' ? 3 : 2 })
     ).toBeInTheDocument()
     if (mode === 'enabled') {
       expect(screen.getByRole('region', { name: 'Daily Check-in' })).toBeInTheDocument()
@@ -130,6 +130,10 @@ describe('profile task layout', () => {
       expect(screen.queryByRole('region', { name: 'Daily Check-in' })).not.toBeInTheDocument()
       expect(screen.queryByText('Current Balance')).not.toBeInTheDocument()
       expect(screen.queryByText('Total Usage')).not.toBeInTheDocument()
+    }
+    if (mode === 'disabled') {
+      expect(screen.getByText('Only me')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: /Manage login methods/ }))
     }
     await user.click(
       screen.getByRole('tab', { name: /Settings & Preferences/ })

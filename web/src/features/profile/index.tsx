@@ -42,6 +42,7 @@ import { CheckinCalendarCard } from './components/checkin-calendar-card'
 import { LanguagePreferencesCard } from './components/language-preferences-card'
 import { LoginSessionsCard } from './components/login-sessions-card'
 import { PasskeyCard } from './components/passkey-card'
+import { PersonalProfile } from './components/personal-profile'
 import { ProfileHeader } from './components/profile-header'
 import { ProfileSecurityCard } from './components/profile-security-card'
 import { ProfileSettingsCard } from './components/profile-settings-card'
@@ -55,6 +56,7 @@ export function Profile() {
   const { status } = useStatus()
   const { commercialEnabled } = useFundingPresentation()
   const fundingMode = useConfirmedFundingMode()
+  const personalMode = fundingMode === 'disabled'
   const permissions = useAuthStore((s) => s.auth.user?.permissions)
 
   const showCommercialFeatures = commercialEnabled && fundingMode === 'enabled'
@@ -64,6 +66,10 @@ export function Profile() {
   )
   const turnstileSiteKey = status?.turnstile_site_key || ''
   const canConfigureSidebar = permissions?.sidebar_settings !== false
+
+  if (personalMode) {
+    return <PersonalProfile profile={profile} loading={loading} error={error} onRetry={() => void fetchProfile()} onRefresh={() => void refreshProfile()} />
+  }
 
   return (
     <SectionPageLayout>

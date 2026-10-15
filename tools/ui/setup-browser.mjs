@@ -200,13 +200,13 @@ try {
         await page.getByLabel('Password', { exact: true }).fill(credentials.password)
         await page.getByRole('button', { name: 'Sign in', exact: true }).click()
         await page.waitForURL(`${origin}/dashboard`)
-        if (width === 320) await page.getByRole('button', { name: 'Toggle sidebar', exact: true }).click()
-        await page.locator('[data-sidebar="sidebar"] a[href="/profile"]').click()
         if (width === 320) {
-          await page.locator('[data-slot="sidebar"][data-mobile="true"]').waitFor({ state: 'hidden' })
-          await page.locator('[data-slot="sheet-overlay"]').waitFor({ state: 'hidden' })
+          await page.getByRole('button', { name: 'Account menu', exact: true }).click()
+          await page.getByRole('menuitem', { name: 'Profile', exact: true }).click()
+        } else {
+          await page.locator('a[href="/profile"]').filter({ visible: true }).click()
         }
-        await page.getByRole('heading', { name: 'Synthetic UI operator', level: 2 }).waitFor()
+        await page.getByRole('heading', { name: 'Synthetic UI operator', level: 3 }).waitFor()
         assert.equal(logins, 1)
         assert.equal(submits, scenario === 'business-failure' ? 2 : 1)
         assert(profileReads > 0, 'Profile actually fetched after sidebar navigation')
