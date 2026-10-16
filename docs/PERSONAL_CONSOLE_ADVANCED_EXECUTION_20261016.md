@@ -128,3 +128,15 @@ Docker实际首次模型PUT及GET均200，第二次打开未发GET。核对main.
 非安全实现者实际像素审查发现已启用Passkey的Remove按钮淡红目标20px高，对比Disable2FA42px；AlertDialogTrigger覆盖data-slot且flex-1在column布局收缩，使个人Button44px选择器不命中。此为产品P2，功能passed不能代替视觉通过。仅该Button加min-h-11，driver真实boundingBox断言height>=44并将高度写入报告，不改全局组件。独立审查还指出手机failed-statuses原帧只见警告图标；现在失败阶段额外拍Passkey/2FA/sessions三张完整卡片原图，再恢复phase逐Retry。缓存格式/lint、nodecheck/diffcheck通过。
 
 最终第八轮CI验证按钮高度、三卡失败图和完整行为。Go/API/Key流程/runtime driver/依赖/版本与已成功Dockeracba3f4不变；新增profile按钮高度样式由最终production-build浏览器验证。Docker复用仅限其实际Go/Key旅程，不声称最终profile样式或二进制字节已由该旧运行覆盖，源码差异另列。
+
+## 最终候选运行
+
+最终源码0a1f6c4cfe4d227612791d4ad32e138f23a0ed3a已同步，完整CI38855315874，PR checkoutc88c8089660e064b31920a02e057e3df34508229，tree684782c16074ad62cda6bdb2816a9691342d4e39与源码相同。第八轮除driver外新增真实profile按钮样式修正，故再运行Docker38855486670以取得最终完整构建的准确源码证据；旧acba3f4成功仅保留历史记录，最终交付不依赖其复用。状态待最终实际结果、原图P2关闭及归档同步。
+
+## 应用资格完成与截图单独补验
+
+CI38855315874已实际完成，10项作业全部success：1498/233单元、type/lint/build、三库、71核心、54高级及六个兼容脚本，root/relaykit/386/race均通过。Docker38855486670六项全部success，两个writer各6checks/15PNG/0errors，准确source0a1f6c4；原Passkey按钮P2已实图及height44关闭。非实现者实际检查最终window/model差异图和双writer代表图，未发现产品P1/P2。
+
+TwoFA失败卡单图只绘出上段，未完整展示Retry，功能20旅程及恢复均通过但证据不完整。仅driver在截图前居中整卡，等待settled，验证整卡/Retry视口与命中；产品不改。使用已注册website-browser workflow的仅手动security_evidence模式复用上述完整通过CI构建，避免为截图驱动改动重建应用。守卫先核对CI身份/成功状态、producer与artifactcheckout树相同，compare只允许docs/securitydriver/该workflow且拒绝300文件潜在截断和越界重命名；再设显式buildHead，报告分列build/driver/workflow身份。默认网站步骤完整保留，contents/actions仅read，主CI不改。新workflow文件未采用，因为[GitHub手动事件规则](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)要求默认分支已有工作流，本批不合并main。
+
+独立maintenance_plan只读审查通过，无P1/P2；YAML/bash/node/diff检查通过。下一步：提交仅证据driver/既有workflow/记录，手动补验准确c88构建，实际看完整TwoFA失败原图，再归档和同步Draft PR。

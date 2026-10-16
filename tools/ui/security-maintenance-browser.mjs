@@ -27,6 +27,8 @@ const head = execFileSync('git', ['rev-parse', 'HEAD'], {
   cwd: repo,
   encoding: 'utf8',
 }).trim()
+const buildHead =
+  process.env.MYAPI_QUALIFIED_BUILD_SHA || process.env.GITHUB_SHA || head
 const languageCodes = {
   en: 'en',
   zh: 'zhCN',
@@ -81,6 +83,7 @@ const report = {
     'Chromium CDP virtual authenticator only. It exercises navigator.credentials and browser WebAuthn serialization but is not real hardware or biometric evidence.',
   version,
   head,
+  buildHead,
   workflowHead: process.env.GITHUB_SHA || null,
   fixtureTime: new Date(FIXTURE_TIME).toISOString(),
   result: 'running',
@@ -472,9 +475,7 @@ async function openSecurity(page, scenario) {
   await page.getByRole('heading', { name: t('Identity'), exact: true }).waitFor()
   const revision = await page.locator('html').getAttribute('data-build-rev')
   assert(
-    revision?.startsWith(
-      `rv.${version}.${process.env.GITHUB_SHA || head}.`
-    ),
+    revision?.startsWith(`rv.${version}.${buildHead}.`),
     'Visible build revision matches the qualified source'
   )
   const trigger = page.getByRole('button', {
@@ -804,7 +805,56 @@ async function verifyAndRecoverSecurityReads(page, scenario, state) {
   await screenshot(page, scenario, 'failed-statuses')
   for (const [heading, , suffix] of cards) {
     const file = `advanced-security-${scenario.name}-${suffix}.png`
-    await securityCard(page, heading).screenshot({
+    const card = securityCard(page, heading)
+    const retry = card.getByRole('button', {
+      name: t('Retry'),
+      exact: true,
+    })
+    await card.evaluate((element) =>
+      element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' })
+    )
+    await settled(page)
+    await retry.scrollIntoViewIfNeeded()
+    await settled(page)
+    const [cardBounds, retryBounds] = await Promise.all([
+      card.boundingBox(),
+      retry.boundingBox(),
+    ])
+    assert(cardBounds, `${heading}: failed card has visible bounds`)
+    assert(retryBounds, `${heading}: Retry has visible bounds`)
+    assert(
+      cardBounds.y >= 0 && cardBounds.y + cardBounds.height <= scenario.height + 1,
+      `${heading}: the full failed card is painted inside the viewport`
+    )
+    assert(
+      retryBounds.x >= cardBounds.x - 1 &&
+        retryBounds.y >= cardBounds.y - 1 &&
+        retryBounds.x + retryBounds.width <=
+          cardBounds.x + cardBounds.width + 1 &&
+        retryBounds.y + retryBounds.height <=
+          cardBounds.y + cardBounds.height + 1,
+      `${heading}: Retry remains inside its failed card`
+    )
+    assert(
+      retryBounds.x >= 0 &&
+        retryBounds.y >= 0 &&
+        retryBounds.x + retryBounds.width <= scenario.width + 1 &&
+        retryBounds.y + retryBounds.height <= scenario.height + 1,
+      `${heading}: Retry remains inside the viewport`
+    )
+    assert.equal(
+      await retry.evaluate((element) => {
+        const bounds = element.getBoundingClientRect()
+        const hit = document.elementFromPoint(
+          bounds.left + bounds.width / 2,
+          bounds.top + bounds.height / 2
+        )
+        return hit === element || element.contains(hit)
+      }),
+      true,
+      `${heading}: Retry is not covered by fixed navigation or headers`
+    )
+    await card.screenshot({
       path: resolve(output, file),
       animations: 'disabled',
     })
