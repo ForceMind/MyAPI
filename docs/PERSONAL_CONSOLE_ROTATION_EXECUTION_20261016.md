@@ -88,3 +88,12 @@
 额外收紧MySQL已支持配置的重放：clientFoundRows=true可让noop UPDATE报告matched行，因此Begin不再按OnConflict.RowsAffected判新建；同Token锁下回读持久admission，只有其AdmissionID匹配本次CSPRNG且state=open才授权发送。configured普通MySQL保留，另从安全DSN创建foundRows连接，验证旧open只回同row+PreconditionUnknown、总计一行。定向模型8.138s通过（SQLite/miniredis），真实foundRows等下一CI；无生产连接。
 
 当前资格和实际路由仍分开。第三轮继续验证全量回归，不因先前两个数据库、部分页面或本机测试通过而提前开放提交。
+
+
+### 完整回归夹具修正与第四轮资格
+
+第三轮源码3ab6dc0d4647c9fc01260371033c113fd993ad47，CI38927789650，merge checkout6b217da769f81ab4adb29f123f0ca011739c90d8。实际B2 rotation三库合同全部通过（SQLite0.24s、MySQL0.88s、PG9.6 2.92s），含迁移、同ID/CAS/重放/不可变回执和foundRows重入；Redis与新轮换合成浏览器也已通过，原图重新下载核对。完整后端尚待验证，仍不注册实际提交路由。
+
+第二轮完整后端日志另发现两项夹具问题，按业务合同修正：Realtime崩溃测试手工构造RelayInfo时遗漏从已落库Token捕获CredentialVersion；补一字段，六个legacy/authoritative崩溃与完成场景通过4.959s，原usage/账务/崩溃断言保留。版本上界测试拆分为轮换后max版本单独blocked+overflow，以及新增open登记后unknown+overflow+open两个blocker；增补前后Key/版本不变回读，完整^TestTokenCredential本机定向通过9.662s。未修改生产guard或状态优先级。
+
+第四轮将新增rotation race步骤前移至完整make test之前，以先得到本批兼容性证据；所有既有检查保留。完整后端、其它race与全部11作业必须真实通过后才进入激活阶段，先前未执行的race不记为已通过。

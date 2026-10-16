@@ -155,14 +155,25 @@ func TestTokenCredentialVersionJSONExactBoundary(t *testing.T) {
 				require.NotNil(t, view)
 				assert.Equal(t, tokenCredentialVersionMaxExactJSON, view.CredentialVersionAfter)
 				require.NoError(t, ValidateTokenCredentialVersion(context.Background(), db, fixture.token.Id, fixture.root.Id, tokenCredentialVersionMaxExactJSON))
-
-				admission, admissionErr := BeginTokenCredentialDispatchAdmission(context.Background(), db, fixture.root.Id, fixture.token.Id, tokenCredentialVersionMaxExactJSON, "request-at-json-boundary", TokenCredentialDispatchAdmissionKindLegacyTask)
-				require.NoError(t, admissionErr)
-				require.NotNil(t, admission)
 				postCommitPreview, previewErr := PreviewTokenCredentialRotation(context.Background(), db, fixture.root.Id, fixture.token.Id, fixture.now)
 				require.NoError(t, previewErr)
 				assert.Equal(t, TokenMaintenanceStatusBlocked, postCommitPreview.Status)
 				assert.True(t, tokenCredentialRotationBlocker(postCommitPreview, "credential_version_overflow"))
+				var beforeAdmission Token
+				require.NoError(t, db.First(&beforeAdmission, fixture.token.Id).Error)
+
+				admission, admissionErr := BeginTokenCredentialDispatchAdmission(context.Background(), db, fixture.root.Id, fixture.token.Id, tokenCredentialVersionMaxExactJSON, "request-at-json-boundary", TokenCredentialDispatchAdmissionKindLegacyTask)
+				require.NoError(t, admissionErr)
+				require.NotNil(t, admission)
+				postAdmissionPreview, previewErr := PreviewTokenCredentialRotation(context.Background(), db, fixture.root.Id, fixture.token.Id, fixture.now)
+				require.NoError(t, previewErr)
+				assert.Equal(t, TokenMaintenanceStatusUnknown, postAdmissionPreview.Status)
+				assert.True(t, tokenCredentialRotationBlocker(postAdmissionPreview, "credential_version_overflow"))
+				assert.True(t, tokenCredentialRotationBlocker(postAdmissionPreview, "credential_dispatch_admission_open"))
+				var afterAdmission Token
+				require.NoError(t, db.First(&afterAdmission, fixture.token.Id).Error)
+				assert.Equal(t, beforeAdmission.Key, afterAdmission.Key)
+				assert.Equal(t, beforeAdmission.CredentialVersion, afterAdmission.CredentialVersion)
 			}
 		})
 	}

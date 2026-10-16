@@ -170,6 +170,9 @@ jobs:
         working-directory: relaykit
         run: go build ./...
 
+      - name: Prove credential rotation and outbound generation compatibility
+        run: go test -race -p 1 ./model ./service ./middleware ./relay ./relay/channel ./relay/channel/openai ./controller ./router -run '^Test(TokenCredential|ValidateTokenCredential|BeginTokenCredentialDispatchAdmission|CompleteTokenCredentialDispatchAdmission|ShouldRetryTaskRelayStopsAfterCredentialDispatchAdmission|MidjourneyCredential|MidjourneyAuthoritativeAdmission|PreWssConsumeQuotaAuthoritativeSession|RealtimeCredentialRotation|WebSocketCredentialGeneration|AssignedAccessHTTPDispatchWithoutFailover|VideoProxyPrivateResponses|RelayTask_GateOn_SuccessAcceptedAndReplay)' -count=1 -timeout=180s
+
       - name: Test root and relaykit modules
         run: make test
 
@@ -203,9 +206,6 @@ jobs:
 
       - name: Verify credential migration and sampling proofs under race detector
         run: go test -race -p 1 ./model ./service ./controller ./router -run '^Test(TokenMaintenance|TokenAccountMigration|NormalizeTokenAccountMigration|SamplingTargetProof|EnsureSamplingTargetUpgradesLegacyProofState|ValidateTrustedCodexCredentialContinuity)' -count=1 -timeout=180s
-
-      - name: Prove credential rotation and outbound generation compatibility
-        run: go test -race -p 1 ./model ./service ./middleware ./relay ./relay/channel ./relay/channel/openai ./controller ./router -run '^Test(TokenCredential|ValidateTokenCredential|BeginTokenCredentialDispatchAdmission|CompleteTokenCredentialDispatchAdmission|ShouldRetryTaskRelayStopsAfterCredentialDispatchAdmission|MidjourneyCredential|MidjourneyAuthoritativeAdmission|PreWssConsumeQuotaAuthoritativeSession|RealtimeCredentialRotation|WebSocketCredentialGeneration|AssignedAccessHTTPDispatchWithoutFailover|VideoProxyPrivateResponses|RelayTask_GateOn_SuccessAcceptedAndReplay)' -count=1 -timeout=180s
 
       - name: Verify io.net and cache codec boundaries under race detector
         env:
