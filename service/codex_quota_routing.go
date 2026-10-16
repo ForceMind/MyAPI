@@ -23,6 +23,9 @@ func CodexQuotaEligibleKeys(ctx context.Context, channel *model.Channel) (map[in
 		return nil, false, ErrCodexQuotaRoutingUnavailable
 	}
 	if channel.Type != constant.ChannelTypeCodex {
+		if share, ok := common.SubscriptionShareAdmissionFromContext(ctx); ok && share.Bound {
+			return nil, false, nil
+		}
 		if _, active := common.AccountQuotaThresholdFromContext(ctx); active {
 			return nil, false, nil
 		}
@@ -76,7 +79,8 @@ func evaluateRelayRoutingCandidate(ctx context.Context, value model.ChannelRouti
 		return value
 	}
 	_, thresholdActive := common.AccountQuotaThresholdFromContext(ctx)
-	needsQuota := value.ChannelType == constant.ChannelTypeCodex || thresholdActive
+	share, _ := common.SubscriptionShareAdmissionFromContext(ctx)
+	needsQuota := value.ChannelType == constant.ChannelTypeCodex || thresholdActive || share.Bound
 	needsHealth := common.RelayFailureCooldownSeconds > 0 && (value.ChannelType == constant.ChannelTypeOpenAI || value.ChannelType == constant.ChannelTypeCodex)
 	if !needsQuota && !needsHealth && state == nil {
 		return value

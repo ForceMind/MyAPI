@@ -90,7 +90,7 @@ func textDispatchTransportFixture(t *testing.T, ctx *gin.Context) *relaycommon.R
 	pool, err := db.DB()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.AssignedAccessPolicy{}, &model.SubscriptionPlan{}, &model.UserSubscription{}, &model.LegacyUsageReservation{}, &model.AccountQuotaMutationReceipt{}, &model.AccountQuotaReservationHead{}, &model.AccountQuotaTerminalRecoveryObligation{}, &model.AccountQuotaSettlementIntent{}, &model.AccountQuotaSettlementFact{}, &model.AccountQuotaRefundFact{}, &model.QuotaWriterEpoch{}, &model.QuotaProjectionObligation{}, &model.QuotaWorkCursor{}, &model.QuotaBalanceBatchDrain{}, &model.QuotaBalanceBatchSubject{}, &model.Log{}, &model.Channel{}, &model.SystemTask{}, &model.SystemTaskLock{}))
+	require.NoError(t, db.AutoMigrate(&model.SubscriptionSharePool{}, &model.SubscriptionShareAllocation{}, &model.User{}, &model.Token{}, &model.AssignedAccessPolicy{}, &model.SubscriptionPlan{}, &model.UserSubscription{}, &model.LegacyUsageReservation{}, &model.AccountQuotaMutationReceipt{}, &model.AccountQuotaReservationHead{}, &model.AccountQuotaTerminalRecoveryObligation{}, &model.AccountQuotaSettlementIntent{}, &model.AccountQuotaSettlementFact{}, &model.AccountQuotaRefundFact{}, &model.QuotaWriterEpoch{}, &model.QuotaProjectionObligation{}, &model.QuotaWorkCursor{}, &model.QuotaBalanceBatchDrain{}, &model.QuotaBalanceBatchSubject{}, &model.Log{}, &model.Channel{}, &model.SystemTask{}, &model.SystemTaskLock{}))
 	require.True(t, model.RefreshAccountQuotaSettlementIntentSchemaCapability(db))
 	require.NoError(t, model.EnsureQuotaWriterEpochStateWithDB(db))
 	require.NoError(t, db.Model(&model.QuotaWriterEpoch{}).Where("id = ?", 1).Updates(map[string]any{"mode": string(model.QuotaWriterModeAuthoritative), "epoch": int64(31), "lock_version": gorm.Expr("lock_version + ?", 1)}).Error)
@@ -102,7 +102,7 @@ func textDispatchTransportFixture(t *testing.T, ctx *gin.Context) *relaycommon.R
 	require.NoError(t, db.Create(&user).Error)
 	token := model.Token{UserId: user.Id, Key: "synthetic-dispatch", Status: common.TokenStatusEnabled, RemainQuota: 1000, ExpiredTime: -1}
 	require.NoError(t, db.Create(&token).Error)
-	info := &relaycommon.RelayInfo{UserId: user.Id, TokenId: token.Id, TokenKey: token.Key, RequestId: "synthetic-dispatch", OriginModelName: "fixture", UserQuota: 1000, StartTime: time.Now(), ChannelMeta: &relaycommon.ChannelMeta{}, UserSetting: dto.UserSetting{BillingPreference: "wallet_only"}}
+	info := &relaycommon.RelayInfo{UserId: user.Id, TokenId: token.Id, TokenKey: token.Key, TokenCredentialVersion: token.CredentialVersion, RequestId: "synthetic-dispatch", OriginModelName: "fixture", UserQuota: 1000, StartTime: time.Now(), ChannelMeta: &relaycommon.ChannelMeta{}, UserSetting: dto.UserSetting{BillingPreference: "wallet_only"}}
 	session, apiErr := service.NewBillingSession(ctx, info, 100)
 	require.Nil(t, apiErr)
 	info.Billing = session

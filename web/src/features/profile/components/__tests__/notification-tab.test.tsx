@@ -68,3 +68,41 @@ test('saving notification settings submits owned fields and refreshes the profil
   })
   await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1))
 })
+
+test('personal notifications hide the balance threshold while preserving methods and the saved value', async () => {
+  const user = userEvent.setup()
+  render(
+    <NotificationTab
+      profile={profile}
+      onUpdate={vi.fn()}
+      showBalanceThreshold={false}
+    />
+  )
+  expect(
+    screen.queryByRole('spinbutton', { name: 'Quota Warning Threshold' })
+  ).not.toBeInTheDocument()
+  expect(
+    screen.queryByText('Get notified when balance falls below this value')
+  ).not.toBeInTheDocument()
+  expect(
+    screen.getByRole('textbox', { name: 'Notification Email' })
+  ).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Webhook' }))
+  expect(
+    screen.getByRole('textbox', { name: 'Webhook URL' })
+  ).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Save Settings' }))
+  expect(updateUserSettings).toHaveBeenCalledWith(
+    expect.objectContaining({
+      notify_type: 'webhook',
+      quota_warning_threshold: 50,
+    })
+  )
+})
+
+test('commercial notifications retain the editable balance threshold', () => {
+  render(<NotificationTab profile={profile} onUpdate={vi.fn()} />)
+  expect(
+    screen.getByRole('spinbutton', { name: 'Quota Warning Threshold' })
+  ).toHaveValue(50)
+})

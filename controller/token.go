@@ -471,6 +471,10 @@ func DeleteToken(c *gin.Context) {
 	userId := c.GetInt("id")
 	err := model.DeleteTokenById(id, userId)
 	if err != nil {
+		if errors.Is(err, model.ErrSubscriptionShareDeleteDenied) {
+			subscriptionShareError(c, err)
+			return
+		}
 		common.ApiError(c, err)
 		return
 	}
@@ -575,8 +579,12 @@ func UpdateToken(c *gin.Context) {
 			cleanToken.RemainQuota = *request.RemainQuota
 		}
 		cleanToken.UnlimitedQuota = token.UnlimitedQuota
-		cleanToken.ModelLimitsEnabled = token.ModelLimitsEnabled
-		cleanToken.ModelLimits = token.ModelLimits
+		if request.present["model_limits_enabled"] {
+			cleanToken.ModelLimitsEnabled = token.ModelLimitsEnabled
+		}
+		if request.present["model_limits"] {
+			cleanToken.ModelLimits = token.ModelLimits
+		}
 		cleanToken.AllowIps = token.AllowIps
 		if strings.TrimSpace(token.AccessProfileID) != "" {
 			cleanToken.AccessProfileID = strings.TrimSpace(token.AccessProfileID)
@@ -600,8 +608,10 @@ func UpdateToken(c *gin.Context) {
 	replayed := false
 	if quotaRequested {
 		adjustmentResult, replayed, err = cleanToken.UpdateWithQuota(adjustmentCommand)
+	} else if statusOnly != "" {
+		err = cleanToken.UpdateStatus()
 	} else {
-		err = cleanToken.Update()
+		err = cleanToken.UpdateMetadata(request.present["model_limits_enabled"], request.present["model_limits"])
 	}
 	if err != nil {
 		if errors.Is(err, model.ErrTokenQuotaVersionConflict) || errors.Is(err, model.ErrTokenQuotaAdjustmentConflict) ||
@@ -637,6 +647,10 @@ func DeleteTokenBatch(c *gin.Context) {
 	userId := c.GetInt("id")
 	count, err := model.BatchDeleteTokens(tokenBatch.Ids, userId)
 	if err != nil {
+		if errors.Is(err, model.ErrSubscriptionShareDeleteDenied) {
+			subscriptionShareError(c, err)
+			return
+		}
 		common.ApiError(c, err)
 		return
 	}

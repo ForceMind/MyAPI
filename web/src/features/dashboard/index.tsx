@@ -22,7 +22,7 @@ import { useState, useCallback, useMemo, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { SectionPageLayout } from '@/components/layout'
+import { Main, SectionPageLayout } from '@/components/layout'
 import { FadeIn } from '@/components/page-transition'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -32,8 +32,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { ROLE } from '@/lib/roles'
 import { usePersonalWorkbenchMode } from '@/hooks/use-personal-workbench-mode'
+import { ROLE } from '@/lib/roles'
 import { getRollingDateRange, type TimeGranularity } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
@@ -371,10 +371,22 @@ export function Dashboard() {
     ) : null
   const sectionActions = modelActions ?? flowActions
 
+  if (activeSection === 'overview' && personalWorkbench) {
+    return (
+      <Main className='overflow-auto'>
+        <OverviewDashboard />
+      </Main>
+    )
+  }
+
   return (
     <SectionPageLayout>
       <SectionPageLayout.Title>
-        {t(activeSection === 'overview' && personalWorkbench ? 'Personal workbench' : meta.titleKey)}
+        {t(
+          activeSection === 'overview' && personalWorkbench
+            ? 'Personal workbench'
+            : meta.titleKey
+        )}
       </SectionPageLayout.Title>
       <SectionPageLayout.Content>
         <div className='space-y-3 sm:space-y-4'>

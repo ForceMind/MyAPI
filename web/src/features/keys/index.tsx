@@ -19,28 +19,39 @@ For commercial licensing, please contact support@quantumnous.com
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
+import { usePersonalWorkbenchMode } from '@/hooks/use-personal-workbench-mode'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { ApiKeysDialogs } from './components/api-keys-dialogs'
 import { ApiKeysPrimaryButtons } from './components/api-keys-primary-buttons'
 import { ApiKeysProvider } from './components/api-keys-provider'
 import { ApiKeysTable } from './components/api-keys-table'
+import { PersonalApiKeys } from './components/personal-api-keys'
 
 export function ApiKeys() {
   const { t } = useTranslation()
+  const personal = usePersonalWorkbenchMode()
+  const userId = useAuthStore((state) => state.auth.user?.id)
+  const role = useAuthStore((state) => state.auth.user?.role)
+  const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   return (
-    <ApiKeysProvider>
-      <SectionPageLayout fixedContent>
-        <SectionPageLayout.Title>{t('API Keys')}</SectionPageLayout.Title>
-        <SectionPageLayout.Description>
-          {t('Manage your keys, budgets and assigned model access.')}
-        </SectionPageLayout.Description>
-        <SectionPageLayout.Actions>
-          <ApiKeysPrimaryButtons />
-        </SectionPageLayout.Actions>
-        <SectionPageLayout.Content>
-          <ApiKeysTable />
-        </SectionPageLayout.Content>
-      </SectionPageLayout>
+    <ApiKeysProvider key={`${userId}:${role}:${sessionId}`}>
+      {personal ? (
+        <PersonalApiKeys />
+      ) : (
+        <SectionPageLayout fixedContent>
+          <SectionPageLayout.Title>{t('API Keys')}</SectionPageLayout.Title>
+          <SectionPageLayout.Description>
+            {t('Manage your keys, budgets and assigned model access.')}
+          </SectionPageLayout.Description>
+          <SectionPageLayout.Actions>
+            <ApiKeysPrimaryButtons />
+          </SectionPageLayout.Actions>
+          <SectionPageLayout.Content>
+            <ApiKeysTable />
+          </SectionPageLayout.Content>
+        </SectionPageLayout>
+      )}
 
       <ApiKeysDialogs />
     </ApiKeysProvider>

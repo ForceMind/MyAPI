@@ -1,0 +1,77 @@
+{
+  "raw_images_unmodified": true,
+  "security_images": "security-evidence-recheck; CI original report retained separately",
+  "window_model_and_core": "full-ci",
+  "runtime_images": "real-go-runtime",
+  "runs": [
+    {
+      "scope": "full-ci",
+      "run": 38855315874,
+      "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855315874",
+      "artifacts": [
+        {
+          "digest": "sha256:3d59b31f2ff9692ba44dc9dee8e1429e75148e32d3ede902cf66c9b51b00d0c2",
+          "id": 12027871476,
+          "name": "myapi-ui-browser-c88c8089660e064b31920a02e057e3df34508229",
+          "size_in_bytes": 27942079
+        },
+        {
+          "digest": "sha256:3937a224d82df0b93637789c13674c5030f18ad4dc4a48e709409e7495dda6e4",
+          "id": 12027037130,
+          "name": "myapi-frontend-tests-c88c8089660e064b31920a02e057e3df34508229",
+          "size_in_bytes": 12793
+        },
+        {
+          "digest": "sha256:e30a42f2e5d71d698af09e9108c1454092adb029f498864d0c34ec9b7a9cd6f1",
+          "id": 12026838094,
+          "name": "myapi-personal-console-c88c8089660e064b31920a02e057e3df34508229",
+          "size_in_bytes": 31073496
+        },
+        {
+          "digest": "sha256:d13c63d09e9de6b7ff8e67001a925d12c4e5aad4543d40b1d55b1745fa3e87a7",
+          "id": 12026706999,
+          "name": "myapi-console-build-c88c8089660e064b31920a02e057e3df34508229",
+          "size_in_bytes": 5447143
+        },
+        {
+          "digest": "sha256:8ee83c86a912a3e542926bec2f85aaa8c12989f653ce6575367db354fe816b64",
+          "id": 12026399994,
+          "name": "myapi-advanced-maintenance-c88c8089660e064b31920a02e057e3df34508229",
+          "size_in_bytes": 9889319
+        }
+      ]
+    },
+    {
+      "scope": "real-go-runtime",
+      "run": 38855486670,
+      "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855486670",
+      "artifacts": [
+        {
+          "digest": "sha256:0b29ba40c16b825df68ccaddd032e3e91fe2fd840f0a60b3186df3dc1b6ffda3",
+          "id": 12027332258,
+          "name": "myapi-personal-authoritative-0a1f6c4cfe4d227612791d4ad32e138f23a0ed3a",
+          "size_in_bytes": 969411
+        },
+        {
+          "digest": "sha256:38fbd777bef7c21eeb956dfb4815cdae1f5aa9955509aaae36060acc44170389",
+          "id": 12026659161,
+          "name": "myapi-personal-legacy-0a1f6c4cfe4d227612791d4ad32e138f23a0ed3a",
+          "size_in_bytes": 975254
+        }
+      ]
+    },
+    {
+      "scope": "security-evidence-recheck",
+      "run": 38857597290,
+      "url": "https://github.com/ForceMind/MyAPI/actions/runs/38857597290",
+      "artifacts": [
+        {
+          "digest": "sha256:398459590ddd3d25060b3fc5023884b2f2d467248f3d4fe5015dee601f519965",
+          "id": 12028080360,
+          "name": "myapi-security-evidence-3820baf5a519479e99127846585cf8ff718e3134",
+          "size_in_bytes": 2012726
+        }
+      ]
+    }
+  ]
+}

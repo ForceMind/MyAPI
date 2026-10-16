@@ -1,0 +1,10 @@
+{
+  "source": "48a1d89f85d49eccbe911900254c7e6f56ec5b9c",
+  "compared_with": "83a23c9a44858dab3d1e7f4a2c8602b270750a70",
+  "yaml": "parsed",
+  "frontend_step_definitions": "identical; order only changed",
+  "other_jobs": "identical",
+  "advanced_dependencies": "production build, frontend checks and installed isolated Chromium precede advanced flows",
+  "all_suites_retained": true,
+  "unsafe_browser_flags_added": false
+}

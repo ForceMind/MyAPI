@@ -249,6 +249,10 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			newAPIError = service.TokenBudgetRelayError(c, budgetErr)
 			break
 		}
+		if credentialErr := service.ValidateTokenCredentialDispatch(c.Request.Context(), relayInfo); credentialErr != nil {
+			newAPIError = types.NewErrorWithStatusCode(errors.New(common.TranslateMessage(c, i18n.MsgInvalidParams)), types.ErrorCode("relay_eligibility_changed"), http.StatusForbidden, types.ErrOptionWithSkipRetry())
+			break
+		}
 
 		bodyStorage, bodyErr := common.GetBodyStorage(c)
 		if bodyErr != nil {
@@ -689,6 +693,11 @@ func RelayTask(c *gin.Context) {
 		if taskErr == nil {
 			break
 		}
+		if relayInfo.TokenCredentialDispatchAdmissionID != "" {
+			if admissionErr := service.MarkTokenCredentialDispatchAdmissionUnknown(c.Request.Context(), relayInfo, "provider_outcome_unknown"); admissionErr != nil {
+				common.SysError("mark task dispatch admission unknown: " + admissionErr.Error())
+			}
+		}
 
 		if !taskErr.LocalError {
 			if markerErr := processChannelError(c,
@@ -699,7 +708,7 @@ func RelayTask(c *gin.Context) {
 			}
 		}
 
-		if !shouldRetryTaskRelay(c, channel.Id, taskErr, common.RetryTimes-retryParam.GetRetry()) {
+		if !shouldRetryTaskRelay(c, channel.Id, taskErr, common.RetryTimes-retryParam.GetRetry(), relayInfo.TokenCredentialDispatchAdmissionID) {
 			break
 		}
 	}
@@ -729,10 +738,21 @@ func RelayTask(c *gin.Context) {
 		task.Action = relayInfo.Action
 		if insertErr := task.Insert(); insertErr != nil {
 			common.SysError("insert task error: " + insertErr.Error())
+			if admissionErr := service.MarkTokenCredentialDispatchAdmissionUnknown(c.Request.Context(), relayInfo, "task_persistence_failed"); admissionErr != nil {
+				common.SysError("mark task dispatch admission unknown: " + admissionErr.Error())
+			}
+		} else if admissionErr := service.CompleteTokenCredentialDispatchAdmission(c.Request.Context(), relayInfo, task.ID); admissionErr != nil {
+			common.SysError("complete task dispatch admission: " + admissionErr.Error())
+			if markErr := service.MarkTokenCredentialDispatchAdmissionUnknown(c.Request.Context(), relayInfo, "task_link_failed"); markErr != nil {
+				common.SysError("mark task dispatch admission unknown: " + markErr.Error())
+			}
 		}
 	}
 
 	if taskErr != nil {
+		if admissionErr := service.MarkTokenCredentialDispatchAdmissionUnknown(c.Request.Context(), relayInfo, "provider_outcome_unknown"); admissionErr != nil {
+			common.SysError("mark task dispatch admission unknown: " + admissionErr.Error())
+		}
 		respondTaskError(c, taskErr)
 	}
 }
@@ -756,8 +776,11 @@ func respondTaskError(c *gin.Context, taskErr *taskdto.TaskError) {
 	c.JSON(taskErr.StatusCode, taskErr)
 }
 
-func shouldRetryTaskRelay(c *gin.Context, channelId int, taskErr *taskdto.TaskError, retryTimes int) bool {
+func shouldRetryTaskRelay(c *gin.Context, channelId int, taskErr *taskdto.TaskError, retryTimes int, dispatchAdmissionID string) bool {
 	if taskErr == nil {
+		return false
+	}
+	if dispatchAdmissionID != "" {
 		return false
 	}
 	if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {

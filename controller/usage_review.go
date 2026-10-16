@@ -63,6 +63,8 @@ func usageReviewError(c *gin.Context, err error) {
 	status, code := http.StatusInternalServerError, "usage_review_unavailable"
 	message := i18n.MsgOperationFailed
 	switch {
+	case errors.Is(err, model.ErrSubscriptionShareConflict):
+		status, code, message = http.StatusConflict, "subscription_share_conflict", i18n.MsgSubscriptionShareConflict
 	case errors.Is(err, model.ErrAccountQuotaThresholdCombination):
 		status, code, message = http.StatusBadRequest, "account_threshold_mode_conflict", i18n.MsgAccountThresholdCombination
 	case errors.Is(err, model.ErrAccountQuotaThresholdInvalid):

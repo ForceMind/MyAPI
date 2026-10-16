@@ -24,6 +24,7 @@ import useDialogState from '@/hooks/use-dialog'
 
 import { fetchTokenKey, fetchTokenKeysBatch } from '../api'
 import { ERROR_MESSAGES } from '../constants'
+import { useKeyMaintenanceSession } from '../hooks/use-key-maintenance-session'
 import type { ApiKey, ApiKeysDialogType } from '../types'
 
 type ApiKeysContextType = {
@@ -47,6 +48,7 @@ const ApiKeysContext = React.createContext<ApiKeysContextType | null>(null)
 
 export function ApiKeysProvider({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation()
+  const isCurrentSession = useKeyMaintenanceSession()
   const [open, setOpen] = useDialogState<ApiKeysDialogType>(null)
   const [currentRow, setCurrentRow] = useState<ApiKey | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -75,13 +77,19 @@ export function ApiKeysProvider({ children }: { children: React.ReactNode }) {
 
   const resolveRealKey = useCallback(
     async (id: number): Promise<string | null> => {
+      if (!isCurrentSession()) return null
       if (resolvedKeys[id]) return resolvedKeys[id]
       if (id in pendingRequests.current) return pendingRequests.current[id]
 
       const request = (async () => {
         setLoadingKeys((prev) => ({ ...prev, [id]: true }))
         try {
-          const res = await fetchTokenKey(id)
+          const res = await fetchTokenKey(id, {
+            skipErrorHandler: true,
+            skipBusinessError: true,
+            skipAuthRefresh: true,
+          })
+          if (!isCurrentSession()) return null
           if (res.success && res.data?.key) {
             const fullKey = `sk-${res.data.key}`
             setResolvedKeys((prev) => ({ ...prev, [id]: fullKey }))
@@ -90,26 +98,29 @@ export function ApiKeysProvider({ children }: { children: React.ReactNode }) {
           toast.error(res.message || t(ERROR_MESSAGES.UNEXPECTED))
           return null
         } catch {
-          toast.error(t(ERROR_MESSAGES.UNEXPECTED))
+          if (isCurrentSession()) toast.error(t(ERROR_MESSAGES.UNEXPECTED))
           return null
         } finally {
           delete pendingRequests.current[id]
-          setLoadingKeys((prev) => {
-            const next = { ...prev }
-            delete next[id]
-            return next
-          })
+          if (isCurrentSession()) {
+            setLoadingKeys((prev) => {
+              const next = { ...prev }
+              delete next[id]
+              return next
+            })
+          }
         }
       })()
 
       pendingRequests.current[id] = request
       return request
     },
-    [resolvedKeys, t]
+    [isCurrentSession, resolvedKeys, t]
   )
 
   const resolveRealKeysBatch = useCallback(
     async (ids: number[]): Promise<Record<number, string>> => {
+      if (!isCurrentSession()) return {}
       const uncachedIds = ids.filter((id) => !resolvedKeys[id])
       if (uncachedIds.length === 0) {
         const result: Record<number, string> = {}
@@ -122,7 +133,12 @@ export function ApiKeysProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const res = await fetchTokenKeysBatch(uncachedIds)
+        const res = await fetchTokenKeysBatch(uncachedIds, {
+          skipErrorHandler: true,
+          skipBusinessError: true,
+          skipAuthRefresh: true,
+        })
+        if (!isCurrentSession()) return {}
         if (res.success && res.data?.keys) {
           const newKeys: Record<number, string> = {}
           for (const [idStr, key] of Object.entries(res.data.keys)) {
@@ -139,19 +155,21 @@ export function ApiKeysProvider({ children }: { children: React.ReactNode }) {
         toast.error(res.message || t(ERROR_MESSAGES.UNEXPECTED))
         return {}
       } catch {
-        toast.error(t(ERROR_MESSAGES.UNEXPECTED))
+        if (isCurrentSession()) toast.error(t(ERROR_MESSAGES.UNEXPECTED))
         return {}
       } finally {
-        for (const id of uncachedIds) {
-          setLoadingKeys((prev) => {
-            const next = { ...prev }
-            delete next[id]
-            return next
-          })
+        if (isCurrentSession()) {
+          for (const id of uncachedIds) {
+            setLoadingKeys((prev) => {
+              const next = { ...prev }
+              delete next[id]
+              return next
+            })
+          }
         }
       }
     },
-    [resolvedKeys, t]
+    [isCurrentSession, resolvedKeys, t]
   )
 
   return (

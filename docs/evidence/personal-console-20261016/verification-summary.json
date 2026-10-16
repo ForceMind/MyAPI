@@ -1,0 +1,122 @@
+{
+  "version": "0.2.0-beta.16",
+  "application_source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+  "ci_checkout": "b34cc0055cdae0150121f40ee50139e58d75006a",
+  "tree": "57e3722edfad7138a14600b5efc2823c0fce2e6b",
+  "ci": {
+    "run": 38787088937,
+    "url": "https://github.com/ForceMind/MyAPI/actions/runs/38787088937",
+    "status": "completed",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "S2-C quota script Redis regression",
+        "conclusion": "success",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38787088937/job/116602476270"
+      },
+      {
+        "name": "Desktop cross-platform contract",
+        "conclusion": "success",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38787088937/job/116602476603"
+      },
+      {
+        "name": "Distribution and release contracts",
+        "conclusion": "success",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38787088937/job/116602476665"
+      },
+      {
+        "name": "Backend vet, build, and test",
+        "conclusion": "success",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38787088937/job/116602476704"
+      },
+      {
+        "name": "B2 ClickHouse log migration regression",
+        "conclusion": "success",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38787088937/job/116602476797"
+      },
+      {
+        "name": "S1 identity and options database regression",
+        "conclusion": "success",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38787088937/job/116602476835"
+      },
+      {
+        "name": "B2 durable submission database regression",
+        "conclusion": "success",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38787088937/job/116602476976"
+      },
+      {
+        "name": "S2-C09 Redis limiter lifecycle regression",
+        "conclusion": "success",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38787088937/job/116602476989"
+      },
+      {
+        "name": "S2-A payment and subscription database regression",
+        "conclusion": "success",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38787088937/job/116602477114"
+      },
+      {
+        "name": "Frontend typecheck and test",
+        "conclusion": "success",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38787088937/job/116602477141"
+      }
+    ]
+  },
+  "frontend": {
+    "test_files": 226,
+    "tests": 1447,
+    "core_journeys": {
+      "overview_upstream": 27,
+      "profile_logs": 16,
+      "keys_shares": 28
+    },
+    "core_original_pngs": 356,
+    "archived_personal_pngs": 27,
+    "compatibility_browser_scripts": 6,
+    "old_source_expected_session_failures": 8,
+    "sampled_text_contrast": {
+      "light": {
+        "samples": 188,
+        "minimum_ratio": 5.349890955134842
+      },
+      "dark": {
+        "samples": 16,
+        "minimum_ratio": 8.030593727129116
+      }
+    }
+  },
+  "isolated_runtime": {
+    "run": 38785000844,
+    "conclusion": "success",
+    "source": "78c617b1e4469c08dbed0cb097f0e9b079a97a0e",
+    "jobs": 6,
+    "writer_checks": 10,
+    "original_pngs": 28,
+    "archived_pngs": 4,
+    "reuse_inputs_unchanged": [
+      "Go",
+      "go.mod",
+      "go.sum",
+      "relaykit",
+      "VERSION",
+      "Dockerfile",
+      "deploy",
+      "tools/runtime"
+    ],
+    "scope": "fresh isolated SQLite, real application login and limited Key writes, loopback fixture; reported usage; does not exercise missing usage or native-window share exhaustion"
+  },
+  "independent_review": {
+    "distinct_final_original_images_independently_viewed": 8,
+    "open_P1_P2": 0,
+    "recovery_evidence_P3": "closed",
+    "limits": "visible pixels only; focus then Enter is not full keyboard or assistive technology coverage"
+  },
+  "preview": {
+    "url": "http://127.0.0.1:4173/upstream-accounts",
+    "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+    "scope": "CI frontend, read-only synthetic APIs; business write 405; no Go or production database"
+  },
+  "production_changes": false,
+  "merged": false,
+  "published": false,
+  "deployed": false
+}

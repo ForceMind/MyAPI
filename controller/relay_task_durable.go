@@ -181,6 +181,13 @@ func relayTaskDurable(c *gin.Context, opKind string, originID string) {
 				ErrorMessage: err.Error(),
 			}, nil
 		}
+		if err := service.ValidateTokenCredentialDispatch(ctx, relayInfo); err != nil {
+			return &service.TaskProviderDispatchResult{
+				Status:       "rejected",
+				ErrorCode:    "relay_eligibility_changed",
+				ErrorMessage: common.TranslateMessage(c, appI18n.MsgInvalidParams),
+			}, nil
+		}
 		resp, err := adaptor.DoRequest(c, relayInfo, requestBody)
 		if err != nil {
 			return &service.TaskProviderDispatchResult{

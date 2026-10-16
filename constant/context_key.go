@@ -15,6 +15,7 @@ const (
 	ContextKeyTokenQuota             ContextKey = "token_quota"
 	ContextKeyTokenKey               ContextKey = "token_key"
 	ContextKeyTokenId                ContextKey = "token_id"
+	ContextKeyTokenCredentialVersion ContextKey = "token_credential_version"
 	ContextKeyStrictTokenBudget      ContextKey = "strict_token_budget"
 	ContextKeyTokenGroup             ContextKey = "token_group"
 	ContextKeyAccessProfileID        ContextKey = "access_profile_id"

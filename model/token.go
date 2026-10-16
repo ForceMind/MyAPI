@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -45,6 +46,7 @@ type Token struct {
 	ExpiredTime        int64   `json:"expired_time" gorm:"bigint;default:-1"` // -1 means never expired
 	RemainQuota        int64   `json:"remain_quota" gorm:"type:bigint;default:0"`
 	QuotaVersion       int64   `json:"-" gorm:"type:bigint;not null;default:0"`
+	CredentialVersion  int64   `json:"-" gorm:"type:bigint;not null;default:1"`
 	UnlimitedQuota     bool    `json:"unlimited_quota"`
 	ModelLimitsEnabled bool    `json:"model_limits_enabled"`
 	ModelLimits        string  `json:"model_limits" gorm:"type:text"`
@@ -395,14 +397,32 @@ func (token *Token) Insert() error {
 
 // Update Make sure your token's fields is completed, because this will update non-zero values
 func (token *Token) Update() (err error) {
+	return token.UpdateMetadata(true, true)
+}
+
+// UpdateMetadata preserves model-limit columns omitted by metadata clients,
+// including a newer scope committed after they read the token.
+func (token *Token) UpdateMetadata(modelLimitsEnabledPresent, modelLimitsPresent bool) error {
 	// Legacy callers may omit the additive identity; explicit profile IDs must
 	// survive updates so the domain field is not silently overwritten by group.
 	if strings.TrimSpace(token.AccessProfileID) == "" {
 		token.AccessProfileID = EffectiveAccessProfileID(token.Group)
 	}
+	fields := []string{"name", "status", "expired_time", "unlimited_quota", "allow_ips", "group", "access_profile_id", "cross_group_retry", "auto_groups"}
+	if modelLimitsEnabledPresent {
+		fields = append(fields, "model_limits_enabled")
+	}
+	if modelLimitsPresent {
+		fields = append(fields, "model_limits")
+	}
 	return mutateTokenMetadataWithCacheFence(token.Key, func(tx *gorm.DB) error {
-		return tx.Model(token).Select("name", "status", "expired_time", "unlimited_quota",
-			"model_limits_enabled", "model_limits", "allow_ips", "group", "access_profile_id", "cross_group_retry", "auto_groups").Updates(token).Error
+		return tx.Model(token).Select(fields).Updates(token).Error
+	})
+}
+
+func (token *Token) UpdateStatus() error {
+	return mutateTokenMetadataWithCacheFence(token.Key, func(tx *gorm.DB) error {
+		return tx.Model(token).Update("status", token.Status).Error
 	})
 }
 
@@ -609,9 +629,11 @@ func (token *Token) SelectUpdate() (err error) {
 }
 
 func (token *Token) Delete() (err error) {
-	return mutateTokenMetadataWithCacheFence(token.Key, func(tx *gorm.DB) error {
-		return tx.Delete(token).Error
-	})
+	if token == nil || token.Id <= 0 {
+		return gorm.ErrRecordNotFound
+	}
+	_, err = deleteTokensWithSubscriptionShareGuard([]int{token.Id}, token.UserId, true)
+	return err
 }
 
 func (token *Token) IsModelLimitsEnabled() bool {
@@ -649,12 +671,8 @@ func DeleteTokenById(id int, userId int) (err error) {
 	if id == 0 || userId == 0 {
 		return errors.New("id 或 userId 为空！")
 	}
-	token := Token{Id: id, UserId: userId}
-	err = DB.Where(token).First(&token).Error
-	if err != nil {
-		return err
-	}
-	return token.Delete()
+	_, err = deleteTokensWithSubscriptionShareGuard([]int{id}, userId, true)
+	return err
 }
 
 func IncreaseTokenQuota(tokenId int, key string, quota int) (err error) {
@@ -747,29 +765,65 @@ func BatchDeleteTokens(ids []int, userId int) (int, error) {
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空！")
 	}
+	tokens, err := deleteTokensWithSubscriptionShareGuard(ids, userId, false)
+	return len(tokens), err
+}
 
-	tx := DB.Begin()
-
+// deleteTokensWithSubscriptionShareGuard serializes deletion with share
+// configuration by locking token rows first. Historical allocation and usage
+// evidence remains after a permitted soft delete.
+func deleteTokensWithSubscriptionShareGuard(ids []int, userID int, requireMatch bool) ([]Token, error) {
+	if len(ids) == 0 || userID < 0 {
+		return nil, ErrSubscriptionShareInvalid
+	}
+	ids = append([]int(nil), ids...)
+	sort.Ints(ids)
 	var tokens []Token
-	if err := tx.Where("user_id = ? AND id IN (?)", userId, ids).Find(&tokens).Error; err != nil {
-		tx.Rollback()
-		return 0, err
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		query := lockForUpdate(tx).Where("id IN ?", ids)
+		if userID > 0 {
+			query = query.Where("user_id = ?", userID)
+		}
+		if err := query.Order("id ASC").Find(&tokens).Error; err != nil {
+			return err
+		}
+		if requireMatch && len(tokens) != 1 {
+			return gorm.ErrRecordNotFound
+		}
+		if len(tokens) == 0 {
+			return nil
+		}
+		tokenIDs := make([]int, 0, len(tokens))
+		for _, stored := range tokens {
+			tokenIDs = append(tokenIDs, stored.Id)
+		}
+		enabledPools := tx.Model(&SubscriptionSharePool{}).Select("id").Where("enabled = ?", true)
+		var allocated int64
+		if err := tx.Model(&SubscriptionShareAllocation{}).
+			Where("token_id IN ? AND share_bps > 0 AND pool_id IN (?)", tokenIDs, enabledPools).
+			Count(&allocated).Error; err != nil {
+			return err
+		}
+		if allocated != 0 {
+			return ErrSubscriptionShareDeleteDenied
+		}
+		// Start the cache fence only after the durable share guard allows this
+		// deletion. The second invalidation closes the in-transaction window.
+		if err := invalidateTokensCache(tokens); err != nil {
+			return err
+		}
+		if err := tx.Where("id IN ?", tokenIDs).Delete(&Token{}).Error; err != nil {
+			return err
+		}
+		return invalidateTokensCache(tokens)
+	})
+	if err != nil {
+		return nil, err
 	}
 	if err := invalidateTokensCache(tokens); err != nil {
-		tx.Rollback()
-		return 0, err
+		return tokens, errors.Join(ErrTokenMetadataMutationCommittedCacheFailure, err)
 	}
-
-	if err := tx.Where("user_id = ? AND id IN (?)", userId, ids).Delete(&Token{}).Error; err != nil {
-		tx.Rollback()
-		return 0, err
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		return 0, err
-	}
-
-	return len(tokens), nil
+	return tokens, nil
 }
 
 func GetTokenKeysByIds(ids []int, userId int) ([]Token, error) {

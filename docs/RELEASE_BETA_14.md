@@ -1,0 +1,169 @@
+# v0.2.0-beta.14 开发候选
+
+状态：开发候选已完成下列限定合成验收。未发布版本、未推送发行镜像、未部署，历史账务冻结。
+保留beta.13个人核心的限定合成环境成果；本批不把原证据扩展为真实上游资格。
+
+## 本批行为
+
+- 订阅账户的原生窗口作为100%总池，Root显式选择主/次窗口并给现有Key分配0–100%。
+- 采用维护者批准的近似模式：账户占用正增量按本地Key的上游发送attempt次数等权分摊。
+  页面显示估计用量、样本年龄、未归属增长和待计请求；不使用Token/USD换算。
+- 估计达到份额后阻止后续请求，0%保留绑定和历史并停止该窗口请求。
+  不预留上游份额，也不保证单次或并发请求不会超额；误差尚无可信数值上界。
+- 同一账户跨多个渠道共用池，所有选定窗口原子检查；不合格账户不阻断同渠道的健康账户。
+  最终发送核对实际账户与凭据，未知发送结果保留，只有未调用transport才能标记未发送。
+- 使用独立投影、attempt及不可变sample application，不修改历史账务或已有Key/渠道凭据。
+
+## 验证与剩余事项
+
+| 项目 | 当前状态 |
+| --- | --- |
+| model、API、发送门禁与UI | 已完成本批近似分额及恢复/关闭流程 |
+| 集成边界与模型源码独审 | 通过；当前读、批量参数上限、预算互斥等已修正，无剩余P1/P2 |
+| Go及前端编译、行为测试 | a67ff44准确CI十项全部success，含完整后端、race及relaykit独立构建 |
+| SQLite/MySQL5.7/PostgreSQL9.6 | a67ff44三库专项通过，含确定性MySQL RR交错与SQLite实际变量上限 |
+| 七语言320/1280实际渲染与交互 | 28流程/84图通过，稳定截图视觉独审通过 |
+| 两记账模式新库流程 | a67ff44隔离应用legacy/authoritative通过，各15张实图独审通过 |
+| 真实上游误差与OAuth/窗口资格 | 未验证，不访问真实账户 |
+| 发布、镜像、部署 | 未执行，不在本批批准范围 |
+
+断续样本、窗口变更和未知状态保留原因；恢复/重选/关闭需要显式确认并保留旧证据。
+源码默认镜像引用只作版本准备，当前没有可直接拉取的本批发行镜像。
+完整计量合同和实施边界见[订阅窗口分额合同](SUBSCRIPTION_KEY_SHARE_CONTRACT_20261014.md)。
+
+## 最终验收与来源
+
+候选源码为 `a67ff44b2df37409646ee6fd45bcaf41359f36c4` / beta.14，分支
+`codex/subscription-key-share-20261014`，保留[Draft PR #17](https://github.com/ForceMind/MyAPI/pull/17)。
+远端main仍为 `92fa1182e265924312d70917a0a637965aebc617`，本批没有合并、标签或部署操作。
+
+- [CI 38566579146](https://github.com/ForceMind/MyAPI/actions/runs/38566579146)十项全部success：
+  完整Go、race、relaykit独立构建、三库专项、前端类型/lint/组件和实际Chromium流程通过。
+- [Docker 38566589830](https://github.com/ForceMind/MyAPI/actions/runs/38566589830)六项全部success：
+  Full/LAN新库、LAN源码安装、两writer个人流程、旧版拒绝/备份恢复合成演练；push=false。
+- CI merge `a00809c71a02342ae5934d82ee5f157ad66a333b`与a67ff44的tree均为
+  `7ebe901760ebfefaee856bba2f891a2990f081d8`，由GitHub API回读确认。
+- 分额UI的28流程/84张稳定截图完成七语言320/1280及Root/owner独审，P1/P2均为0。
+  实图取自487a8dd的CI38563500162；其`web` tree与a67ff44均为
+  `13900de26291b5f88168e1265fb70f97cc42f4a9`，`tools/ui`、版本及CI脚本没有差异，
+  因此复用该视觉审查；a67ff44的准确CI另已重新执行并通过实际浏览器流程。
+- 两writer准确a67ff44各有qualification JSON、5项业务检查、15张截图；均为passed、
+  runtime_errors=0。全部30图独立实看通过，包含稳定手机日志及完整可见revision卡片。
+  版本图仅截公开Runtime build卡，不包含实例、任务或原始错误运维卡。
+- 轻量Node driver123项、Docker脚本合同27项通过；前者明确要求System Info由真实侧栏Link进入，
+  保持原4次文档加载。没有关闭限流、隐藏错误或自动重发生成请求。
+
+以上个人应用链使用回环`smoke-model`合成响应；分额UI使用明确标记的合成账户。
+真实provider、OAuth刷新和原生窗口的采样/归属误差未在本批实测，误差没有可信数值上界。
+历史数据库和旧合成锁测试间歇失败原因仍保持原记录，当前绿灯不表示生产问题已解决。
+最终收尾提交只更新验收文档，应用、脚本、配置与CI输入保持a67ff44；复用上述准确源码验证。
+
+本机合成证据保留在`/tmp/myapi-share-evidence-20261014`，云端截图制品保留期7天；
+清理本机证据前先确认归档，不能把它当作可重建编译缓存。
+
+## 中间验收检查点（历史状态，最终结论以上节为准）
+
+准确源码 `86bd3c2078d12eb23f211d7e6432c211b0345aa9`：
+[CI 38559743914](https://github.com/ForceMind/MyAPI/actions/runs/38559743914) 十项全部success，
+包括三库/分额专项、完整后端/race、前端类型/lint/组件及实际浏览器；
+[Docker 38559811380](https://github.com/ForceMind/MyAPI/actions/runs/38559811380) 六项全部success，
+包括Full/LAN新库、两writer个人流程、LAN源码安装和旧版拒绝/备份恢复合成演练，镜像push=false。
+两writer真实应用各14张截图/5项检查已核对；其范围是回环合成provider和普通个人Key，
+不证明真实原生窗口的消耗归属或误差。
+
+独立视觉审查保留两项P2待复验：手机日志图捕获到100ms淡入过渡帧，缺少稳定最终态截图；
+原14张图没有可见完整revision。源码核查未发现对应静态排版缺陷。本次只修截图有限动画捕获，
+并访问应用现有Root系统信息页验证完整版本可见、仅截Runtime build卡片补第15张图，
+不采集实例/任务运维卡片，不修改产品布局。轻量driver合同123项通过；
+云端新截图及其独审完成前不关闭这两项。
+
+新分额UI的合成浏览器报告有28条流程、84张图，七语言320/1280、Root编辑20%→25%并显式关闭，
+owner 0%只读全部通过；样式几何无横向溢出，稳定态文字独审通过。CI merge源码
+`7aad9b71901c3cff973e8b4e2771e6c3adfcbd11`与86bd3c2的tree均为
+`42d2392bbd4d0156842580e015f10a70f821ff55`，由GitHub git commit API回读核对。
+视觉独审另保留分额关闭确认/部分owner截图的动画帧P2，统一用禁用有限动画的新截图复验。
+
+截图补验源码 `4de66faed4dc2ecd6e8e31541e5fad03187e8a58` 的
+[CI 38562952921](https://github.com/ForceMind/MyAPI/actions/runs/38562952921) 在现有安全报告合同失败：
+新增`build-visible`阶段未同步到CLI固定白名单。已补同一固定阶段名，未放宽错误文本输出；
+`node --test tools/runtime/docker-smoke.test.mjs`27项通过。首次沙箱内运行因临时回环端口EPERM
+有3项失败，按权限流程在沙箱外执行后通过，未启动应用或Docker。
+[Docker 38562965761](https://github.com/ForceMind/MyAPI/actions/runs/38562965761)继续补验稳定截图，
+该CLI修正不改应用代码、成功路径或截图输入，暂不重复启动镜像构建。
+
+上述Docker补验attempt1在Full的`go mod download`遇到模块代理HTTP/2 INTERNAL_ERROR，
+LAN构建/安装通过；保留记录后同一run执行attempt2，依赖下载和两种镜像构建通过。
+attempt2的legacy个人流程已输出14张稳定图，但新增版本页的额外完整刷新使同源asset收到
+429/Retry-After180，缺少qualification JSON，不能记作整条应用验收通过。
+独立源码复核找到应用已有的Root `System Info`侧栏Link，driver的路径表漏登记了该项。
+最小修正仅注册该真实Link，文档加载保持原4次，不改产品限流或增加asset重试逻辑；
+轻量合同123项及源码独审通过，新的云端版本卡仍待补验。
+legacy的320px日志稳定图已实际复审，原日志重叠视觉项关闭；版本卡与分额关闭确认实图继续待验。
+安全白名单源码 `487a8dd7d45c92181aa46042cffd30c46c52927a` 的
+[CI 38563500162](https://github.com/ForceMind/MyAPI/actions/runs/38563500162)十项全部success。
+其UI merge `6faaeb8780e045075337abd8eb56fe63b73dd5d7`与head的tree均为
+`56ad59e3649ce0494b143e3d766e50b027a4a695`，已由GitHub API回读核对；稳定分额图待独审。
+4de Docker attempt2最终4项success/2项failure，两writer均在新增版本页asset429处停止。
+当前侧栏Link修正将另以准确提交补验，不将旧source结果当作修正后已通过。
+
+资源记录：一次定向Go验证误触发了本机冷编译，已终止session 52875（exit130），
+没有测试结果，未保留运行中的Go进程。既有`/tmp/myapi-go-build-cache`留下约504MiB缓存，
+未删除数据、报告或备份。后续Go/前端编译仍交GitHub Actions。
+
+
+## 历史云端失败记录（按各检查点当时范围保留）
+
+源码 `cf49b131855e004b83ee80bc6b6474abbca61ce8` 已正常推送独立分支，
+[Draft PR #17](https://github.com/ForceMind/MyAPI/pull/17) 仍为draft，base为个人核心分支。
+[CI 38552646654](https://github.com/ForceMind/MyAPI/actions/runs/38552646654) 已结束：6项success、4项failure。
+失败包括前端测试fixture类型、根package版本仍为beta.13、待归属attempt聚合扫描，以及既有三库fixture漏建新增分额表。
+前三项已修正源码，fixture已补初始化，修复仍待新提交验证。新分额三库专项在首轮前置失败之后未执行，不能写成已通过。
+Docker PR作业因draft分支条件跳过，不计Docker验收。此前beta.13准确源码证据仍按原范围有效。
+
+独审修正另外包括：相同秒的跨渠道同值样本去重、积压分页的先投影后拒绝、非零分额Key原子删除保护、
+owner响应移除内部渠道备注、恢复观测锁定原比例、池观测状态与Key暂停原因分开显示、审计before/action。
+关闭池作为显式Root操作正在补齐，保留历史且本版本不重新启用同descriptor。
+后端将新增实际回环TLS发送边界测试；浏览器新增七语言两尺寸Root编辑与owner只读流程。
+以上均是待准确source云端验证的实现，尚未完成验收。
+
+
+第二检查点源码 `060a979a5d6f5cd0389750213680033f22e3c1bf` 的
+[CI 38555336203](https://github.com/ForceMind/MyAPI/actions/runs/38555336203) 已结束：3项success、7项failure。
+类型和lint、版本分发合同已通过；Go作业因新增测试unused变量未编译，三库专项未实跑。
+前端12条Root流程测试在数据仍为Skeleton时同步查元素，已改为等待实际池视图，保留行为断言。
+浏览器和Docker仍未形成beta.14通过证据。
+
+独审继续发现并修正当前用量行缺失自动补零、MySQL REPEATABLE READ的旧快照读取、
+以及终结未知attempt时覆盖原样本覆盖时间的问题。锁内读取将统一使用当前锁定行，再计算
+池占用、分额合计、审计重放和待终结attempt；新增确定性并发反例，而不是随机压力测试。
+源码继续修正，不能用旧绿色CI替代本批验收。
+
+
+第三检查点 `b3e6b79894f8011f03cf21267e8108522f5f8a1d` 的
+[CI 38556705594](https://github.com/ForceMind/MyAPI/actions/runs/38556705594) 中，五包分额专项已通过，
+包括 legacy/authoritative 的实际回环 TLS 发送、发送前分额拒绝退款和发送后断连未知保留。
+三库专项首次实跑：SQLite通过，MySQL确定性竞态fixture先持久化变更窗口导致旧池正常拒绝，
+PostgreSQL因测试复用同一GORM配置使连接池清理冲突；均已修正测试，仍待复验。
+前端重复标签匹配失败正在改为操作实际radio/checkbox，无浏览器验收证据。
+
+独审最后补查到待归属窗口跨零增长样本积累后，单条ID更新可能超过数据库参数上限。
+更新已按500行分批，同事务保留原覆盖时间；SQLite回归从实际编译选项读取变量上限，
+使用上限加一条的合法待归属状态验证正增量和关闭处理。该回归仍待下一准确提交云端执行。
+
+
+第四检查点 `896e50211969bc3de6bc1ff9478dcc812bb42d69` 的
+[CI 38558236359](https://github.com/ForceMind/MyAPI/actions/runs/38558236359) 已通过三库专项（含真实SQLite变量上限、MySQL RR竞态、PostgreSQL独立连接），
+五包分额专项与前端类型/lint/组件测试通过，浏览器及完整后端回归仍在运行。
+第三轮完整回归在取消前另暴露旧controller/router/channel单测未初始化新守卫依赖；
+已补明确的Pool/Allocation空表与真实认证Token，保留原断言，未绕过守卫。
+
+新增反例证明预算配置事务的旧RR快照仍可漏看刚提交的分额，造成两种限制同时启用。
+新互斥守卫已改为锁内JOIN当前读，并为strict/fee分别补真实并发交错；此前源码独审通过结论在
+该新证据下撤回，修复后的独审及云端验证待完成。历史账务和生产边界保持冻结。
+
+
+后续源码独审已复核预算互斥JOIN及strict/fee确定性回归，通过；不代表对应云端运行已完成。
+第四轮浏览器在既有Key菜单的POST只读预取上停下，未形成新分额截图验收。
+该端点读取现有Key，既有菜单合同与代码明确有此行为；新driver已改为仅对此精确端点返回
+不可用的合成Key值并记录次数，其它意外写入仍失败。没有生成、替换Key，也未改菜单产品行为。
+路由fixture异常会保留错误报告，不再以未捕获回调中断丢失诊断。

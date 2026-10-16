@@ -1,0 +1,148 @@
+{
+  "schema": 1,
+  "result": "passed",
+  "verified_at": "2026-10-16T17:20:56.772984+00:00",
+  "version": "0.2.0-beta.19",
+  "source_head": "5536cf8601afe512bbefb92e86b99b038398a133",
+  "ci_checkout": "0c72690c19f1a738f61d6ec54c86c470f679f27f",
+  "tree": "ad2289bf3a13b3f3ea354d9e5705a8120456545f",
+  "ci_run": 38935299710,
+  "ci_url": "https://github.com/ForceMind/MyAPI/actions/runs/38935299710",
+  "job_count": 11,
+  "all_jobs_succeeded": true,
+  "jobs": [
+    {
+      "name": "Backend vet, build, and test",
+      "databaseId": 117089699872,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/ForceMind/MyAPI/actions/runs/38935299710/job/117089699872",
+      "startedAt": "2026-10-16T16:53:36Z",
+      "completedAt": "2026-10-16T17:19:59Z"
+    },
+    {
+      "name": "S2-C09 Redis limiter lifecycle regression",
+      "databaseId": 117089700259,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/ForceMind/MyAPI/actions/runs/38935299710/job/117089700259",
+      "startedAt": "2026-10-16T16:53:36Z",
+      "completedAt": "2026-10-16T16:54:02Z"
+    },
+    {
+      "name": "Desktop cross-platform contract",
+      "databaseId": 117089700267,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/ForceMind/MyAPI/actions/runs/38935299710/job/117089700267",
+      "startedAt": "2026-10-16T16:53:36Z",
+      "completedAt": "2026-10-16T16:53:43Z"
+    },
+    {
+      "name": "S2-C quota script Redis regression",
+      "databaseId": 117089700271,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/ForceMind/MyAPI/actions/runs/38935299710/job/117089700271",
+      "startedAt": "2026-10-16T16:53:36Z",
+      "completedAt": "2026-10-16T16:56:06Z"
+    },
+    {
+      "name": "S2-A payment and subscription database regression",
+      "databaseId": 117089700292,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/ForceMind/MyAPI/actions/runs/38935299710/job/117089700292",
+      "startedAt": "2026-10-16T16:53:36Z",
+      "completedAt": "2026-10-16T16:56:09Z"
+    },
+    {
+      "name": "B2 ClickHouse log migration regression",
+      "databaseId": 117089700322,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/ForceMind/MyAPI/actions/runs/38935299710/job/117089700322",
+      "startedAt": "2026-10-16T16:53:36Z",
+      "completedAt": "2026-10-16T16:56:14Z"
+    },
+    {
+      "name": "Isolated credential maintenance browser and real API",
+      "databaseId": 117089700365,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/ForceMind/MyAPI/actions/runs/38935299710/job/117089700365",
+      "startedAt": "2026-10-16T16:53:36Z",
+      "completedAt": "2026-10-16T16:56:33Z"
+    },
+    {
+      "name": "B2 durable submission database regression",
+      "databaseId": 117089700451,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/ForceMind/MyAPI/actions/runs/38935299710/job/117089700451",
+      "startedAt": "2026-10-16T16:53:36Z",
+      "completedAt": "2026-10-16T16:58:12Z"
+    },
+    {
+      "name": "S1 identity and options database regression",
+      "databaseId": 117089700551,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/ForceMind/MyAPI/actions/runs/38935299710/job/117089700551",
+      "startedAt": "2026-10-16T16:53:36Z",
+      "completedAt": "2026-10-16T16:55:56Z"
+    },
+    {
+      "name": "Frontend typecheck and test",
+      "databaseId": 117089700553,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/ForceMind/MyAPI/actions/runs/38935299710/job/117089700553",
+      "startedAt": "2026-10-16T16:53:36Z",
+      "completedAt": "2026-10-16T17:13:01Z"
+    },
+    {
+      "name": "Distribution and release contracts",
+      "databaseId": 117089700633,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/ForceMind/MyAPI/actions/runs/38935299710/job/117089700633",
+      "startedAt": "2026-10-16T16:53:36Z",
+      "completedAt": "2026-10-16T16:54:39Z"
+    }
+  ],
+  "frontend": {
+    "test_files": 240,
+    "tests": 1540,
+    "new_rotation_tests": 21,
+    "lint_errors": 0,
+    "lint_existing_warnings": 8,
+    "type_lint_build": "passed",
+    "browser_regressions": "all passed in the same workflow"
+  },
+  "backend": {
+    "root_vet_build_tests": "passed",
+    "relaykit_independent_vet_build_tests": "passed",
+    "linux_386_build_and_amount_contract": "passed",
+    "all_configured_race_steps": "passed",
+    "credential_rotation_and_outbound_compatibility": "passed",
+    "runtime_rotation_seconds": 6.78,
+    "runtime_migration_seconds": 6.67
+  },
+  "source_policy": "The later documentation/evidence archive changes no application or test source; it is not the CI checkout. Earlier failed/cancelled candidates are recorded separately and never counted as passed.",
+  "scope": [
+    "SQLite/MySQL5.7/PostgreSQL9.6 isolated containers/files",
+    "Separate disposable Redis7 rotation contract",
+    "Production-build Chromium with real Go maintenance/rotation APIs and synthetic credentials",
+    "Other UI reads and exception journeys explicitly synthetic",
+    "No production, real provider, real credential, merge, release or deployment"
+  ],
+  "merge_commit_metadata": {
+    "sha": "0c72690c19f1a738f61d6ec54c86c470f679f27f",
+    "tree": {
+      "sha": "ad2289bf3a13b3f3ea354d9e5705a8120456545f",
+      "url": "https://api.github.com/repos/ForceMind/MyAPI/git/trees/ad2289bf3a13b3f3ea354d9e5705a8120456545f"
+    }
+  },
+  "merge_commit_metadata_source": "https://api.github.com/repos/ForceMind/MyAPI/git/commits/0c72690c19f1a738f61d6ec54c86c470f679f27f"
+}

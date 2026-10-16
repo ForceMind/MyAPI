@@ -27,8 +27,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { regenerate2FABackupCodes } from '@/lib/api'
 
+import { regenerateTwoFABackupCodes } from '../../api'
+import { useSecurityRequestScope } from '../../hooks'
 // ============================================================================
 // Two-FA Backup Codes Dialog Component
 // ============================================================================
@@ -37,17 +38,20 @@ interface TwoFABackupDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
+  securityScopeKey: string
 }
 
 export function TwoFABackupDialog({
   open,
   onOpenChange,
   onSuccess,
+  securityScopeKey,
 }: TwoFABackupDialogProps) {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [code, setCode] = useState('')
   const [backupCodes, setBackupCodes] = useState<string[]>([])
+  const requestScope = useSecurityRequestScope(securityScopeKey)
 
   const handleRegenerate = async () => {
     if (!code) {
@@ -55,9 +59,15 @@ export function TwoFABackupDialog({
       return
     }
 
+    let requestCurrent = true
     try {
       setLoading(true)
-      const response = await regenerate2FABackupCodes(code)
+      const result = await requestScope.run((signal) =>
+        regenerateTwoFABackupCodes(code, signal)
+      )
+      requestCurrent = result.current
+      if (!result.current) return
+      const response = result.value
 
       if (response.success && response.data?.backup_codes) {
         setBackupCodes(response.data.backup_codes)
@@ -66,9 +76,13 @@ export function TwoFABackupDialog({
         toast.error(response.message || t('Failed to regenerate backup codes'))
       }
     } catch {
-      toast.error(t('Failed to regenerate backup codes'))
+      toast.error(
+        t(
+          'The result could not be confirmed. Existing backup codes may already be invalid. Regenerate again to obtain a usable set.'
+        )
+      )
     } finally {
-      setLoading(false)
+      if (requestCurrent) setLoading(false)
     }
   }
 
@@ -78,13 +92,14 @@ export function TwoFABackupDialog({
   }
 
   const handleOpenChange = (open: boolean) => {
-    if (!loading) {
-      if (!open) {
-        setCode('')
-        setBackupCodes([])
-      }
-      onOpenChange(open)
+    if (!open && loading) return
+    if (!open) {
+      requestScope.cancel()
+      setLoading(false)
+      setCode('')
+      setBackupCodes([])
     }
+    onOpenChange(open)
   }
 
   return (
@@ -105,6 +120,7 @@ export function TwoFABackupDialog({
       contentClassName='sm:max-w-md'
       titleClassName='flex items-center gap-2'
       contentHeight='auto'
+      showCloseButton={!loading}
       bodyClassName='space-y-4'
       footer={
         backupCodes.length === 0 ? (

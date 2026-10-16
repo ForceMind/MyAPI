@@ -1,0 +1,368 @@
+{
+  "version": "0.2.0-beta.17",
+  "rawImagesUnmodified": true,
+  "files": [
+    {
+      "file": "README.md",
+      "bytes": 6103,
+      "sha256": "c25ada3097f0ee476bf25f8eaa098554852b24c4e6fc587886fa072ed3bad94b"
+    },
+    {
+      "file": "advanced-model-scope-en-320-light-mobile-preserved-model.png",
+      "bytes": 90356,
+      "sha256": "2d5fb6867e6824df0e2d39c1557cc1156507e3d122e7cc63f41999e1dbf22c48",
+      "width": 320,
+      "height": 960
+    },
+    {
+      "file": "advanced-model-scope-qualification.json",
+      "bytes": 18538,
+      "sha256": "60ac7ba4d82901001e198080175c938ba0ee08cdb7349dfdb8815afc99a8ad2d"
+    },
+    {
+      "file": "advanced-model-scope-vi-320-dark-mobile-actions.png",
+      "bytes": 87910,
+      "sha256": "cccfc78f0239dcb185108b45c0ff7c867b433ba66a2140945f2106bb0ef1663e",
+      "width": 320,
+      "height": 960
+    },
+    {
+      "file": "advanced-model-scope-vi-320-dark-unknown-readback.png",
+      "bytes": 80971,
+      "sha256": "3306cd726f2e9cac9995213692d0aa0015658b33e9ca249687419ded06c6033b",
+      "width": 320,
+      "height": 960
+    },
+    {
+      "file": "advanced-model-scope-zh-1440-light-open.png",
+      "bytes": 178003,
+      "sha256": "7f8d38471f6f4383bb7155775d9df4be8a267401d4622df59e92e232bcb23cb6",
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "file": "advanced-model-scope-zh-1440-light-readback.png",
+      "bytes": 181919,
+      "sha256": "29aad4814420a8049a41fcd43c3b67ed98e85593e83243e104b399a507eddcaa",
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "file": "advanced-model-scope-zh-390-light-block-confirmation.png",
+      "bytes": 92557,
+      "sha256": "0210e549556b9d14e210708e080d4664e8e54afe269c64a5a215e849fd5f74e0",
+      "width": 390,
+      "height": 960
+    },
+    {
+      "file": "advanced-model-scope-zh-390-light-open.png",
+      "bytes": 104293,
+      "sha256": "3dadf03549ed5dd201ea4b0fd3dec275e3af06ce8a0560c1f9d87b6190dd6e2b",
+      "width": 390,
+      "height": 960
+    },
+    {
+      "file": "advanced-security-en-desktop-1280-complete-flow-access-token-redacted.png",
+      "bytes": 162175,
+      "sha256": "8e0ddf93e44851b09628b3560f629944f63570e578c7eeb0c08bcb0fda11e756",
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "advanced-security-en-desktop-1280-complete-flow-completed.png",
+      "bytes": 106589,
+      "sha256": "d47d3d0ff241d2a1dbf24aa49762cf2f8ce0d0fd9492c6a2ec3d98fd0e14dafa",
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "advanced-security-qualification-ci.json",
+      "bytes": 12438,
+      "sha256": "282397e61349af05840863ce744d877bd6b69cc5f2a070a7bf12fb1a55cfc629"
+    },
+    {
+      "file": "advanced-security-qualification.json",
+      "bytes": 12497,
+      "sha256": "69d19f1f7042594a33ff117d56806500972ba92f9ddc87e49d5b5e1a3263a6d6"
+    },
+    {
+      "file": "advanced-security-vi-mobile-320-dark-password-dialog.png",
+      "bytes": 73043,
+      "sha256": "588b2400b328d7457ae3a43657e4769c4709309c0cec9c11852e8b29ee3838f2",
+      "width": 320,
+      "height": 960
+    },
+    {
+      "file": "advanced-security-zh-desktop-1440-panel.png",
+      "bytes": 103913,
+      "sha256": "666764262077902a6203e861d303cb03f067671d6d568865eae2a2388aa96046",
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "file": "advanced-security-zh-mobile-390-error-retry-failed-statuses.png",
+      "bytes": 68135,
+      "sha256": "b4f1c5d9e92390e8d3aed148ff67b73d507a3adbef86f96a09142fcf09df013d",
+      "width": 390,
+      "height": 960
+    },
+    {
+      "file": "advanced-security-zh-mobile-390-error-retry-passkey-failed.png",
+      "bytes": 13214,
+      "sha256": "2c52d25b0c3a7c7aa9ece609c2602715542e7228ad76687bdc33ad75cbd88785",
+      "width": 358,
+      "height": 274
+    },
+    {
+      "file": "advanced-security-zh-mobile-390-error-retry-recovered.png",
+      "bytes": 67137,
+      "sha256": "5ce9985ac0185f527dd52509a1e93e6f7dfa65b7471c97654befd886e49ce2c4",
+      "width": 390,
+      "height": 960
+    },
+    {
+      "file": "advanced-security-zh-mobile-390-error-retry-sessions-failed.png",
+      "bytes": 18968,
+      "sha256": "170d1ca127f175164db2bbc4244a69f2cde55a2e55dd3152d3574718e8f4580c",
+      "width": 358,
+      "height": 329
+    },
+    {
+      "file": "advanced-security-zh-mobile-390-error-retry-two-fa-failed.png",
+      "bytes": 11497,
+      "sha256": "029b66a636aff42fa4f5ede655aa24fafe7d7466fcd5ce8ecc9b10629f15ad05",
+      "width": 358,
+      "height": 274
+    },
+    {
+      "file": "advanced-security-zh-mobile-390-panel.png",
+      "bytes": 74631,
+      "sha256": "084f215619ddcd8f02b86838c7bc83e61b62fa8996076ad8da139dfd79ce6248",
+      "width": 390,
+      "height": 960
+    },
+    {
+      "file": "advanced-security-zh-mobile-390-password-dialog.png",
+      "bytes": 77669,
+      "sha256": "4d8b7fc1e1e6e31a6c18bb2f56c25d19fb7039ae6208a4c11f890320c464384c",
+      "width": 390,
+      "height": 960
+    },
+    {
+      "file": "advanced-window-en-1280-replacement.png",
+      "bytes": 115661,
+      "sha256": "519e86640ad78359f94d152b421621c27f20b529d86fcc9f3f857117491e002f",
+      "width": 1280,
+      "height": 1000
+    },
+    {
+      "file": "advanced-window-qualification.json",
+      "bytes": 20418,
+      "sha256": "cbd99cb2a78f566150ab33c3e65296da5643ceac16da3e664d77aef635b73983"
+    },
+    {
+      "file": "advanced-window-vi-320-independent-close.png",
+      "bytes": 70653,
+      "sha256": "e8b82e2e8b3e4d0ee971b81f603d99e130c621d1eaae00bc7ffb51fbf60e4b4a",
+      "width": 320,
+      "height": 900
+    },
+    {
+      "file": "advanced-window-vi-320-unknown-result.png",
+      "bytes": 51910,
+      "sha256": "eb9fc9d17dc6f557c60095c4235895ef6cbea09eb49cb7fe4a0ffcd5010c4eb6",
+      "width": 320,
+      "height": 900
+    },
+    {
+      "file": "advanced-window-zh-1440-recovery.png",
+      "bytes": 134411,
+      "sha256": "b962de08dc5cca229399f0a35baccff13a6428f7fca440be8b3a78818d421209",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "advanced-window-zh-1440-replacement.png",
+      "bytes": 141755,
+      "sha256": "7fdd09174ba67ba4e3ce2b3cbb240dcabefbab34b348a34415438be1f7ceabb4",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "advanced-window-zh-390-recovery.png",
+      "bytes": 60914,
+      "sha256": "233eed4a323a1783940b5085c7d7514f428ecedd3440a596661520499e12e8df",
+      "width": 390,
+      "height": 900
+    },
+    {
+      "file": "advanced-window-zh-390-replacement.png",
+      "bytes": 59339,
+      "sha256": "d352986c3d5ec4f709a124db4b70f847a2a97c8682913077fbb0d851c0843a62",
+      "width": 390,
+      "height": 900
+    },
+    {
+      "file": "artifact-sources.json",
+      "bytes": 2869,
+      "sha256": "ffda143608111e0ea8dae966472261405bb2fec80118727dac101df50049acd9"
+    },
+    {
+      "file": "compatibility-browser-summary.json",
+      "bytes": 1508,
+      "sha256": "2c3c6c89079fe889163b7ddf44762111ff96b1bff04bab0364da02e322e1708a"
+    },
+    {
+      "file": "database-summary.json",
+      "bytes": 833,
+      "sha256": "88a744ab92d0f881e4ff4ee769d4b821c1e2c0ef712e365837f7954254142005"
+    },
+    {
+      "file": "fifth-candidate-failures.json",
+      "bytes": 1369,
+      "sha256": "d547dfaef671948da889d34a6c4f084b9d1ca17caa68c9b570ca79aab792b09f"
+    },
+    {
+      "file": "first-candidate-failures.json",
+      "bytes": 1209,
+      "sha256": "2c4f65efb31960ccae82b56cad86a3e2e377307e7eab342f5871191bc67f38d2"
+    },
+    {
+      "file": "fourth-candidate-failures.json",
+      "bytes": 1359,
+      "sha256": "b766b926dc8bd4df4798eab76562d75aa33096f884fdd67ff9ba0d761ff75b7d"
+    },
+    {
+      "file": "frontend-test-summary.txt",
+      "bytes": 168,
+      "sha256": "dc8e2788e3b31f6aa913a74ae79f5ed94b80c826f0d16c0cbfb1fcb8926a829d"
+    },
+    {
+      "file": "frontend-typecheck.txt",
+      "bytes": 10,
+      "sha256": "5b79a0e507fbfe3ee9fe68d86a274c3dec57408303abba3ba342ef01f4551dbe"
+    },
+    {
+      "file": "key-maintenance-baseline-red-summary.json",
+      "bytes": 382,
+      "sha256": "cf958f209044aac1c1f0d715ab8b96b295881efef4e364548c951816de6a4ac6"
+    },
+    {
+      "file": "local-checks.json",
+      "bytes": 1372,
+      "sha256": "3a2cb54d7d9424c7c68f9e573d68a92d48282716f1211fe4a685a04f4b4cff31"
+    },
+    {
+      "file": "personal-console-qualification.json",
+      "bytes": 11633,
+      "sha256": "83540ecb127c7c2593a099d557a85075b83500d6b982815373adaeb346a2adc6"
+    },
+    {
+      "file": "personal-workbench-qualification.json",
+      "bytes": 144799,
+      "sha256": "7dbe6a68c0acb48b1db617f05c876271cf61a2f420146ecc4eee344b2ba85bc4"
+    },
+    {
+      "file": "preview-checks.json",
+      "bytes": 1094,
+      "sha256": "d28f7c9f12d4dace28aefcef186e8d62a35110f5a434fd7fa532eb527031a048"
+    },
+    {
+      "file": "runtime-authoritative-existing-persisted-log-zh-320.png",
+      "bytes": 53539,
+      "sha256": "cb93ba65a7a073e0e03b87db3c72ee3f0de7ecf9f3c21f5e1a16dfa1b34b2913",
+      "width": 320,
+      "height": 900
+    },
+    {
+      "file": "runtime-authoritative-model-scope-restricted-zh-320.png",
+      "bytes": 64820,
+      "sha256": "8258afa72c780971de68c955617fad1a7d53bbfce2f9974e5302d58c4c3726a7",
+      "width": 288,
+      "height": 740
+    },
+    {
+      "file": "runtime-authoritative-qualification.json",
+      "bytes": 2430,
+      "sha256": "e760013c432d58f08ca2a43dc343270edcdf9f111703f0b02ef87a1583850b80"
+    },
+    {
+      "file": "runtime-authoritative-runtime-build-en-1280.png",
+      "bytes": 16513,
+      "sha256": "30350000dde0b729158d5c1929e262ae32c8a6d8639615a4983f94b69eb49c4b",
+      "width": 976,
+      "height": 146
+    },
+    {
+      "file": "runtime-legacy-fresh-persisted-log-en-1280.png",
+      "bytes": 104137,
+      "sha256": "5023c876fe7418f43d96afa6100f100031dc4b367e691e6deb124320a80c5dfe",
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "file": "runtime-legacy-model-scope-restricted-zh-320.png",
+      "bytes": 64820,
+      "sha256": "8258afa72c780971de68c955617fad1a7d53bbfce2f9974e5302d58c4c3726a7",
+      "width": 288,
+      "height": 740
+    },
+    {
+      "file": "runtime-legacy-qualification.json",
+      "bytes": 2423,
+      "sha256": "18f6978c0d4c581cf8cbbe8712cb50a5188daed3d05cd8cf94bd508399a807f0"
+    },
+    {
+      "file": "runtime-legacy-runtime-build-en-1280.png",
+      "bytes": 16513,
+      "sha256": "30350000dde0b729158d5c1929e262ae32c8a6d8639615a4983f94b69eb49c4b",
+      "width": 976,
+      "height": 146
+    },
+    {
+      "file": "second-candidate-failures.json",
+      "bytes": 1285,
+      "sha256": "101b6d5d8037b3676951e56797372d21d62f27458554778836401304b9092d1e"
+    },
+    {
+      "file": "security-source-identity.json",
+      "bytes": 467,
+      "sha256": "3668b03f9f2616979b2c3cb51ae7bdbb7e0ae7f46ff1e835c15efe76cc7d9df5"
+    },
+    {
+      "file": "seventh-candidate-visual-review.json",
+      "bytes": 1013,
+      "sha256": "5e1deac28cea064b11d9a4f601b903e28148d91881510a53b0a9099d320cab6c"
+    },
+    {
+      "file": "sixth-candidate-failures.json",
+      "bytes": 1228,
+      "sha256": "4794286f6127346a3edcbf934c5e948a9e288d220988a7ca98f7d24f8e049557"
+    },
+    {
+      "file": "subscription-share-qualification.json",
+      "bytes": 27857,
+      "sha256": "54859897f02084f7a280a13dbb5cdb08f8677f50c7dfbad01885da903d7e6865"
+    },
+    {
+      "file": "third-candidate-failures.json",
+      "bytes": 1706,
+      "sha256": "314b62d53c28d8d087ca78f1fa025ebf4970c66d093d792e17dff15ae5e10feb"
+    },
+    {
+      "file": "verification-summary.json",
+      "bytes": 10581,
+      "sha256": "2a3408c2a0f90d4a50d1d385a07b5f4beef2657d06886f159ce6fff1e92033cf"
+    },
+    {
+      "file": "visual-reuse-comparison.json",
+      "bytes": 3525,
+      "sha256": "c36f794fd9dbbd0c959392b4dee998ffca211b6d2fd1f03035bd709e3d0f2d45"
+    },
+    {
+      "file": "workflow-order-check.json",
+      "bytes": 424,
+      "sha256": "b3e2eaefe1ee7af4f95a1880b212257ff00381f55e68260555177621d66d5281"
+    }
+  ]
+}

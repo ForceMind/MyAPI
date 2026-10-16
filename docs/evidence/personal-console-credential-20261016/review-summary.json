@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "sourceHead": "6274bac5e0c0d8a618a4a6083c59f1cfe39d561c",
+  "checkout": "6a7c4ec18f99fabf810052e9549b64f72ba76367",
+  "independentReviewers": [
+    {
+      "name": "credential_guard",
+      "model": "gpt-5.6-sol",
+      "reasoning": "high",
+      "scope": "Cross review model/unknown recovery; final 8 real PNGs, 3 synthetic representative PNGs and all 3 browser reports; prior exact app code 13 PNGs against visual-v0.2 03/07",
+      "result": "passed; no remaining P1/P2"
+    },
+    {
+      "name": "credential_plan",
+      "model": "gpt-5.6-sol",
+      "reasoning": "ultra",
+      "scope": "Cross review controller/router/proof/UI pending operation contracts; final real API browser report and driver contracts",
+      "result": "passed; no remaining P1/P2"
+    },
+    {
+      "name": "credential_ui",
+      "model": "gpt-5.6-sol",
+      "reasoning": "high",
+      "scope": "Independent review migration model and three P1 fixes before candidate freeze",
+      "result": "passed; budget, post-lock freshness, exact credential proof findings closed"
+    }
+  ],
+  "closedFindings": [
+    "Token/budget/reservation exclusion",
+    "Clock freshness rechecked after locks",
+    "Sampling proof tied to exact credential version and native snapshot",
+    "Unknown operation preserved across unmount/reload",
+    "Pre-apply unknown 412 distinguished from true uncertain 503",
+    "Initial dialog scroll/focus preserves title and Key context",
+    "320px action label/icon fit within button"
+  ],
+  "screenshotPrivacy": "Only synthetic names, masked Key hints, truncated synthetic account identifiers and non-secret operation IDs; no raw credentials observed",
+  "limits": [
+    "No real provider OAuth/TLS or real account migration",
+    "Real browser migration uses disposable SQLite and synthetic credentials; unrelated console APIs are fixtures",
+    "320 dark/long-text unknown and read failures use synthetic APIs",
+    "sessionStorage recovery is limited to the same browser tab lifetime",
+    "Rotation remains read-only; complete legacy/async inflight compatibility is unproven"
+  ]
+}

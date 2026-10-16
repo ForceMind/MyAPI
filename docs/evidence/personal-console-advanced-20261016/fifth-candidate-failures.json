@@ -1,0 +1,46 @@
+{
+  "application_source": "acba3f40b61d95e5c44f30ab676387323c8712dc",
+  "ci_checkout": "629b07fedc30fa38dd75f1dc5daef06447e8f5f1",
+  "ci_run": 38851594816,
+  "frontend_unit": {
+    "passed": 1498,
+    "failed": 0,
+    "files": 233
+  },
+  "typecheck": "passed",
+  "lint": "passed",
+  "build": "passed",
+  "core_browser_journeys": 71,
+  "advanced_browser": {
+    "window": {
+      "passed": 17,
+      "failed": 0
+    },
+    "model": {
+      "passed": 17,
+      "failed": 0
+    },
+    "security": {
+      "passed_before_failure": 19,
+      "failure": "Password functionality passed; AccessToken Close label matches footer and icon close; only driver locator is corrected"
+    }
+  },
+  "runtime_run": 38851589638,
+  "runtime_status": "success, all6jobs",
+  "runtime_reports": {
+    "legacy": {
+      "checks_passed": 6,
+      "screenshots": 15,
+      "errors": 0
+    },
+    "authoritative": {
+      "checks_passed": 6,
+      "screenshots": 15,
+      "errors": 0
+    }
+  },
+  "fresh_scope_regression": "closed by actual second-open GET and two successful narrow writes in both writers",
+  "production_effects": false,
+  "ci_status": "superseded and canceled after actionable security driver failure; not qualification",
+  "reuse_boundary": "Product/runtime inputs unchanged in83a23c9; Docker fully passed sourceacba3f4 is retained, final source revision metadata differs"
+}

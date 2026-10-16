@@ -1,0 +1,347 @@
+{
+  "version": "0.2.0-beta.16",
+  "application_source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+  "ci_checkout": "b34cc0055cdae0150121f40ee50139e58d75006a",
+  "tree": "57e3722edfad7138a14600b5efc2823c0fce2e6b",
+  "files": [
+    {
+      "file": "README.md",
+      "bytes": 4975,
+      "sha256": "3a1001262cb9d8d7b666b99e1c8aae0f1909cc2c315a70cdd027717824a0cc12"
+    },
+    {
+      "file": "compatibility-browser-summary.json",
+      "bytes": 1868,
+      "sha256": "3535423463afbb6d9f6dfd4025daa975114f02a40c3ef83468ead41216a273a0"
+    },
+    {
+      "file": "console-profile-error-zh-390.png",
+      "bytes": 40343,
+      "sha256": "c9a91f4fd15206ef4ce21404c359cff5c98f03bf2ece4b25574f883b2c2cba08",
+      "width": 390,
+      "height": 960,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "console-profile-zh-1440.png",
+      "bytes": 83688,
+      "sha256": "96b7148a78d7a8466b047cd9bf5f7a2e3c08495f6e98532967987dcdb9f04a07",
+      "width": 1440,
+      "height": 960,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "console-profile-zh-390.png",
+      "bytes": 55865,
+      "sha256": "9487057630aca5059501f9c19c95154afa610d6f19f043d67cbceb2161659f6c",
+      "width": 390,
+      "height": 960,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "console-success-unknown-usage-zh-390.png",
+      "bytes": 66759,
+      "sha256": "390c53188240798891667f4a60aee3bdcb1ffd73eaccb05d52d68ea3e8d2fd0d",
+      "width": 390,
+      "height": 960,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "console-success-unknown-zh-1440.png",
+      "bytes": 127640,
+      "sha256": "b075880ae1c977426421929721321656ccc468830d6dd3ba110246e3767fcfdc",
+      "width": 1440,
+      "height": 960,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "frontend-test-summary.txt",
+      "bytes": 399,
+      "sha256": "7dff9513cd2c23d2fac335b21730a3325c26d5e3e1eec2b8aac60ee15dcd8dfb"
+    },
+    {
+      "file": "key-maintenance-baseline-red-summary.json",
+      "bytes": 2304,
+      "sha256": "7c4606b5210617a07552399621ea45b01f0cc0de6dd86c4b8f5dd4f9f6f792a7"
+    },
+    {
+      "file": "personal-console-qualification.json",
+      "bytes": 11633,
+      "sha256": "ee39c6fb24a69443283d15c4fba1ea529fd4e0dc71f7c6dd22860ad57ea48e8e"
+    },
+    {
+      "file": "personal-en-320-pool-baseline_unknown-pool-summary.png",
+      "bytes": 62776,
+      "sha256": "d4f6b8346b3984cb42c238c6ef5da4b337661451a174e992ca16590444fc188a",
+      "width": 320,
+      "height": 1100,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-en-320-pool-error.png",
+      "bytes": 58546,
+      "sha256": "e86fc614dba8b35cb9b4c4e754fe7bddbcd5dcdf520aecf43ff69112c73a46f6",
+      "width": 320,
+      "height": 1100,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-en-320-pool-inconsistent-pool-summary.png",
+      "bytes": 64441,
+      "sha256": "ccd6218dec167677c8bae49bb54eaca49e2824d9423c4a60880b7c6cd48da9ac",
+      "width": 320,
+      "height": 1100,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-en-320-pool-manage-keyboard.png",
+      "bytes": 65048,
+      "sha256": "ac329d2001b47bda55450918f2b9bf5b87592292260bbedce26d69ffc8ffc607",
+      "width": 320,
+      "height": 1100,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-en-320-pool-recovered-pool-summary.png",
+      "bytes": 64054,
+      "sha256": "c9fd3e46437b8a516ab08cb92760fc8c1b79fd532c744abf15bc9f239b51e9ce",
+      "width": 320,
+      "height": 1100,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-en-320-pool-timeout-recovered-pool-summary.png",
+      "bytes": 64054,
+      "sha256": "c9fd3e46437b8a516ab08cb92760fc8c1b79fd532c744abf15bc9f239b51e9ce",
+      "width": 320,
+      "height": 1100,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-en-320-pool-zero-share-pool-key-2.png",
+      "bytes": 51643,
+      "sha256": "1563617228540d930759d2e7bf4272b92026c753369b565ade67c1dec4a72a9c",
+      "width": 320,
+      "height": 1100,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-vi-320-upstream-pool-actions.png",
+      "bytes": 57343,
+      "sha256": "04d75d7143e3fb1b8f6405ff8c31504a66e552dc8dd7b84f1a1184abd7aff846",
+      "width": 320,
+      "height": 1100,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-vi-320-upstream-pool-summary.png",
+      "bytes": 66966,
+      "sha256": "a9a6830710d21e78237c20e451033ee78033f7a013699c1d5afa07f2dc843bcc",
+      "width": 320,
+      "height": 1100,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-workbench-qualification.json",
+      "bytes": 144799,
+      "sha256": "ea6c78c2eb39175a61ca065c17cc9851d6baba66747588f473993cf4eba31574"
+    },
+    {
+      "file": "personal-zh-1440-overview.png",
+      "bytes": 106225,
+      "sha256": "a41957865c9d1c57648786947bb4e3f528daf886d80e34d1b3d8c4f68c3f3cca",
+      "width": 1440,
+      "height": 900,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-zh-1440-upstream-pool-actions.png",
+      "bytes": 145110,
+      "sha256": "19de55cf37fb9e3e813119baa5f9ea40ef2e76bc606508cbcb0cfac9af5898d5",
+      "width": 1440,
+      "height": 900,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-zh-1440-upstream-pool-summary.png",
+      "bytes": 155268,
+      "sha256": "561410be1fee9066e30cfda715e685e116fbe5cf55c9719503dbcb4d3c080280",
+      "width": 1440,
+      "height": 900,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-zh-1440-upstream.png",
+      "bytes": 105506,
+      "sha256": "15cfa6719cb08a195359e5a3e55e995ed0f3622b21952eee2c14eef6476a8a35",
+      "width": 1440,
+      "height": 900,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-zh-320-dark-upstream-pool-summary.png",
+      "bytes": 81102,
+      "sha256": "07492c8b9ed6bbc59d3669c23f53356f85e6e59ea3bc6f7a385f1bd0205e6bc0",
+      "width": 320,
+      "height": 1100,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-zh-320-upstream.png",
+      "bytes": 64775,
+      "sha256": "ee4541e5375479229efd9d269f5251a0ac5120a678d27e7d5f85765c339c7c5e",
+      "width": 320,
+      "height": 1100,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-zh-390-overview.png",
+      "bytes": 66078,
+      "sha256": "ca5b9e51f691a4fb39d76ee1742eb0fd92684f1109591b524ecb2075d7413639",
+      "width": 390,
+      "height": 1100,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-zh-390-upstream-pool-actions.png",
+      "bytes": 71265,
+      "sha256": "7666de0018095529b724000ce801b8fc7662c718e7a67d0e23fd9ea0610c8ac5",
+      "width": 390,
+      "height": 1100,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-zh-390-upstream-pool-key-2.png",
+      "bytes": 71265,
+      "sha256": "7666de0018095529b724000ce801b8fc7662c718e7a67d0e23fd9ea0610c8ac5",
+      "width": 390,
+      "height": 1100,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-zh-390-upstream-pool-summary.png",
+      "bytes": 86072,
+      "sha256": "b3afaeba93f4183d908ed2bcf562016c2c97636c8cb3fc1ce669cb94edb7d924",
+      "width": 390,
+      "height": 1100,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "runtime/README.md",
+      "bytes": 4780,
+      "sha256": "05097c8d6e7fbf87fcf6728dab1dcffecf8a6619fdbd5a37a81aaeab73146ac4"
+    },
+    {
+      "file": "runtime/authoritative-existing-persisted-log-zh-320.png",
+      "bytes": 54691,
+      "sha256": "e0200e8dc358153f427d87de2f3cbc53c30868d1ee08e748743d7bd8bd36c6d0",
+      "width": 320,
+      "height": 900,
+      "source": "78c617b1e4469c08dbed0cb097f0e9b079a97a0e",
+      "evidence": "isolated real application, driver-redacted original screenshot"
+    },
+    {
+      "file": "runtime/authoritative-qualification.json",
+      "bytes": 2100,
+      "sha256": "ee0642d2cb1c113ef47e4048a6eb9636f89ca2af490b15a42740cfc270ebe7d7"
+    },
+    {
+      "file": "runtime/authoritative-unqualified-strict-rejection-en-1280.png",
+      "bytes": 98343,
+      "sha256": "2261e102afbd7e0810c7fb1a61c93828777931b229e1be0e107fd44296cdb5b8",
+      "width": 1280,
+      "height": 900,
+      "source": "78c617b1e4469c08dbed0cb097f0e9b079a97a0e",
+      "evidence": "isolated real application, driver-redacted original screenshot"
+    },
+    {
+      "file": "runtime/legacy-finite-quota-rejection-zh-320.png",
+      "bytes": 75606,
+      "sha256": "3b2beeabc48e85cc025c41d5394ade83c793498171e8e91dd858e8411197e24a",
+      "width": 320,
+      "height": 900,
+      "source": "78c617b1e4469c08dbed0cb097f0e9b079a97a0e",
+      "evidence": "isolated real application, driver-redacted original screenshot"
+    },
+    {
+      "file": "runtime/legacy-fresh-persisted-log-en-1280.png",
+      "bytes": 104983,
+      "sha256": "478d2aa3fc512a0c7e3b390cda3370f1e403db1913c5693437fab313c0ef4c6e",
+      "width": 1280,
+      "height": 900,
+      "source": "78c617b1e4469c08dbed0cb097f0e9b079a97a0e",
+      "evidence": "isolated real application, driver-redacted original screenshot"
+    },
+    {
+      "file": "runtime/legacy-qualification.json",
+      "bytes": 2093,
+      "sha256": "5c730e277c38bc7fb959e3e379c5922989b494723bae780893625b0f2f8ea4af"
+    },
+    {
+      "file": "runtime/manifest.json",
+      "bytes": 10725,
+      "sha256": "eabdbbb179de35caa2e707bc432eff7e85916b614bae6b75b19ebfd5c4445456"
+    },
+    {
+      "file": "subscription-share-qualification.json",
+      "bytes": 27857,
+      "sha256": "a0cead24c58c3f73d8610d926a94a53927501f6a2ff76464ace5707a5f8a4970"
+    },
+    {
+      "file": "subscription-share-zh-1280-root-pool.png",
+      "bytes": 141917,
+      "sha256": "c4ad2060bcfa2b0a8adac07ba4c78d31ec75f5c82034ff1d0a6687c37463738c",
+      "width": 1280,
+      "height": 900,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "subscription-share-zh-320-owner-pool.png",
+      "bytes": 101641,
+      "sha256": "b1f81c877d9f056e98a0901d9020ffad940b43c3210f55f6e3d947c3f0a94b44",
+      "width": 320,
+      "height": 900,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "subscription-share-zh-320-root-key-list.png",
+      "bytes": 66335,
+      "sha256": "b98c8bc577186e6068807809cc958a5855071fd259d2958d65a9218a0fdd171e",
+      "width": 320,
+      "height": 900,
+      "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "verification-summary.json",
+      "bytes": 4134,
+      "sha256": "e5a72dcc20108849712929d02afda32298308a446ad1bff1b2f43053aba1c9ed"
+    }
+  ]
+}

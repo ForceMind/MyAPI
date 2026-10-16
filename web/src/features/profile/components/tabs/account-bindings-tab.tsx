@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useQueryClient } from '@tanstack/react-query'
 import { Mail, Shield, Send, Link2, Unlink } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -28,10 +29,11 @@ import {
   IconWeChat,
 } from '@/assets/brand-icons'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { ErrorState } from '@/components/error-state'
 import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { createOAuthFlow } from '@/features/auth/api'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   OAUTH_BIND_CALLBACK_MESSAGE,
   OAUTH_BIND_RESULT_MESSAGE,
@@ -44,7 +46,6 @@ import {
 import type { CustomOAuthProviderInfo } from '@/features/auth/types'
 import { useDialogs } from '@/hooks/use-dialog'
 import { useStatus } from '@/hooks/use-status'
-import { api } from '@/lib/api'
 import {
   buildDiscordOAuthUrl,
   buildGitHubOAuthUrl,
@@ -54,7 +55,13 @@ import {
   type CustomOAuthBinding,
 } from '@/lib/oauth'
 
-import { getSelfOAuthBindings, unbindCustomOAuth } from '../../api'
+import {
+  completeOAuthBindFlow,
+  getSelfOAuthBindings,
+  startOAuthBindFlow,
+  unbindCustomOAuth,
+} from '../../api'
+import { useSecurityRequestScope } from '../../hooks'
 import type { UserProfile, BindingItem } from '../../types'
 import { EmailBindDialog } from '../dialogs/email-bind-dialog'
 import { TelegramBindDialog } from '../dialogs/telegram-bind-dialog'
@@ -67,6 +74,7 @@ import { WeChatBindDialog } from '../dialogs/wechat-bind-dialog'
 interface AccountBindingsTabProps {
   profile: UserProfile | null
   onUpdate: () => void
+  securityScopeKey: string
 }
 
 type DialogKey = 'email' | 'wechat' | 'telegram'
@@ -75,6 +83,7 @@ interface PendingOAuthBinding {
   provider: string
   state: string
   popup: Window
+  completing: boolean
   stopCloseWatcher: () => void
 }
 
@@ -90,16 +99,22 @@ interface OAuthBindingCallback {
 export function AccountBindingsTab({
   profile,
   onUpdate,
+  securityScopeKey,
 }: AccountBindingsTabProps) {
   const { t } = useTranslation()
   const dialogs = useDialogs<DialogKey>()
-  const { status, loading } = useStatus()
+  const queryClient = useQueryClient()
+  const { status, loading, error } = useStatus()
   const [customBindings, setCustomBindings] = useState<CustomOAuthBinding[]>([])
   const [unbindTarget, setUnbindTarget] = useState<CustomOAuthBinding | null>(
     null
   )
   const [unbinding, setUnbinding] = useState(false)
   const pendingOAuthBinding = useRef<PendingOAuthBinding | null>(null)
+  const flowScope = useSecurityRequestScope(securityScopeKey)
+  const callbackScope = useSecurityRequestScope(securityScopeKey)
+  const unbindScope = useSecurityRequestScope(securityScopeKey)
+  const bindingsReadScope = useSecurityRequestScope(securityScopeKey)
 
   const clearPendingOAuthBinding = useCallback(
     (expected?: PendingOAuthBinding) => {
@@ -122,14 +137,18 @@ export function AccountBindingsTab({
   const fetchCustomBindings = useCallback(async () => {
     if (!customProviders || customProviders.length === 0) return
     try {
-      const res = await getSelfOAuthBindings()
+      const result = await bindingsReadScope.run((signal) =>
+        getSelfOAuthBindings(signal)
+      )
+      if (!result.current) return
+      const res = result.value
       if (res.success && res.data) {
         setCustomBindings(res.data)
       }
     } catch {
       // ignore
     }
-  }, [customProviders])
+  }, [bindingsReadScope, customProviders])
 
   useEffect(() => {
     fetchCustomBindings()
@@ -138,8 +157,14 @@ export function AccountBindingsTab({
   const handleUnbindCustom = async () => {
     if (!unbindTarget) return
     setUnbinding(true)
+    let requestCurrent = true
     try {
-      const res = await unbindCustomOAuth(unbindTarget.provider_id)
+      const result = await unbindScope.run((signal) =>
+        unbindCustomOAuth(unbindTarget.provider_id, signal)
+      )
+      requestCurrent = result.current
+      if (!result.current) return
+      const res = result.value
       if (res.success) {
         toast.success(
           t('Unbound {{provider}}', {
@@ -154,8 +179,10 @@ export function AccountBindingsTab({
     } catch {
       toast.error(t('Unbind failed'))
     } finally {
-      setUnbinding(false)
-      setUnbindTarget(null)
+      if (requestCurrent) {
+        setUnbinding(false)
+        setUnbindTarget(null)
+      }
     }
   }
 
@@ -163,6 +190,7 @@ export function AccountBindingsTab({
     async (provider: string, buildUrl: (state: string) => string) => {
       const previous = pendingOAuthBinding.current
       if (previous) {
+        callbackScope.cancel()
         clearPendingOAuthBinding(previous)
         if (!previous.popup.closed) previous.popup.close()
       }
@@ -176,14 +204,21 @@ export function AccountBindingsTab({
         provider,
         state: '',
         popup,
+        completing: false,
         stopCloseWatcher: () => undefined,
       }
-      pending.stopCloseWatcher = watchOAuthPopupClosed(popup, () =>
+      pending.stopCloseWatcher = watchOAuthPopupClosed(popup, () => {
+        flowScope.cancel()
+        callbackScope.cancel()
         clearPendingOAuthBinding(pending)
-      )
+      })
       pendingOAuthBinding.current = pending
       try {
-        const state = await createOAuthFlow(provider, 'bind')
+        const result = await flowScope.run((signal) =>
+          startOAuthBindFlow(provider, signal)
+        )
+        if (!result.current) return
+        const state = result.value
         if (pendingOAuthBinding.current !== pending || popup.closed) return
         // Stamp the popup while it is still same-origin (about:blank). Tying
         // the mark to this state prevents a stale popup from claiming a later
@@ -203,7 +238,7 @@ export function AccountBindingsTab({
         if (isCurrent) toast.error(t('Failed to initialize OAuth'))
       }
     },
-    [clearPendingOAuthBinding, t]
+    [callbackScope, clearPendingOAuthBinding, flowScope, t]
   )
 
   const handleBindCustomOAuth = async (provider: CustomOAuthProviderInfo) => {
@@ -232,12 +267,13 @@ export function AccountBindingsTab({
         !pending ||
         message.provider !== pending.provider ||
         message.state !== pending.state ||
-        event.source !== pending.popup
+        event.source !== pending.popup ||
+        pending.completing
       ) {
         return
       }
+      pending.completing = true
 
-      clearPendingOAuthBinding(pending)
       let success = false
       let resultMessage = t('OAuth failed')
       try {
@@ -250,26 +286,31 @@ export function AccountBindingsTab({
         if (message.errorDescription) {
           params.error_description = message.errorDescription
         }
-        const response = await api.get(`/api/oauth/${message.provider}`, {
-          params,
-          skipBusinessError: true,
-        })
-        success = Boolean(response.data?.success)
-        resultMessage = response.data?.message || resultMessage
+        const result = await callbackScope.run((signal) =>
+          completeOAuthBindFlow(message.provider || '', params, signal)
+        )
+        if (!result.current || pendingOAuthBinding.current !== pending) return
+        success = Boolean(result.value.success)
+        resultMessage = result.value.message || resultMessage
         if (success) {
           toast.success(t('Binding successful!'))
           onUpdate()
           await fetchCustomBindings()
+          if (pendingOAuthBinding.current !== pending) return
         } else {
           toast.error(resultMessage)
         }
       } catch (error: unknown) {
+        if (pendingOAuthBinding.current !== pending) return
         resultMessage =
           (error as { response?: { data?: { message?: string } } }).response
             ?.data?.message ||
           (error instanceof Error ? error.message : resultMessage)
         toast.error(resultMessage)
       }
+
+      if (pendingOAuthBinding.current !== pending) return
+      clearPendingOAuthBinding(pending)
 
       pending.popup.postMessage(
         {
@@ -285,15 +326,31 @@ export function AccountBindingsTab({
 
     window.addEventListener('message', handleMessage)
     return () => window.removeEventListener('message', handleMessage)
-  }, [clearPendingOAuthBinding, fetchCustomBindings, onUpdate, t])
+  }, [
+    callbackScope,
+    clearPendingOAuthBinding,
+    fetchCustomBindings,
+    onUpdate,
+    t,
+  ])
 
   useEffect(
     () => () => {
       const pending = pendingOAuthBinding.current
       clearPendingOAuthBinding(pending ?? undefined)
+      flowScope.cancel()
+      callbackScope.cancel()
+      unbindScope.cancel()
+      bindingsReadScope.cancel()
       if (pending && !pending.popup.closed) pending.popup.close()
     },
-    [clearPendingOAuthBinding]
+    [
+      bindingsReadScope,
+      callbackScope,
+      clearPendingOAuthBinding,
+      flowScope,
+      unbindScope,
+    ]
   )
 
   // Memoize bindings to prevent unnecessary recalculations
@@ -419,7 +476,30 @@ export function AccountBindingsTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, status, t])
 
-  if (!profile || loading) return null
+  if (!profile) return null
+  if (loading) {
+    return (
+      <div
+        role='status'
+        aria-label={t('Loading')}
+        className='grid gap-3 sm:grid-cols-2'
+      >
+        <Skeleton className='h-16 w-full' />
+        <Skeleton className='h-16 w-full' />
+      </div>
+    )
+  }
+  if (error || !status) {
+    return (
+      <ErrorState
+        title={t('Unable to load settings')}
+        onRetry={() =>
+          void queryClient.invalidateQueries({ queryKey: ['status'] })
+        }
+        className='min-h-40 border-0'
+      />
+    )
+  }
 
   return (
     <>
@@ -443,7 +523,12 @@ export function AccountBindingsTab({
                 </div>
                 <div className='min-w-0'>
                   <div className='flex items-center gap-1.5'>
-                    <p className='text-sm font-medium'>{binding.label}</p>
+                    <p
+                      id={`binding-${binding.id}-label`}
+                      className='text-sm font-medium'
+                    >
+                      {binding.label}
+                    </p>
                     {binding.isBound && (
                       <StatusBadge
                         label={t('Bound')}
@@ -463,8 +548,9 @@ export function AccountBindingsTab({
                 className='h-7 shrink-0 px-2.5 text-xs'
                 onClick={binding.onBind}
                 disabled={binding.isBound && binding.id !== 'email'}
+                aria-labelledby={`binding-${binding.id}-action binding-${binding.id}-label`}
               >
-                {actionLabel}
+                <span id={`binding-${binding.id}-action`}>{actionLabel}</span>
               </Button>
             </div>
           )
@@ -493,7 +579,12 @@ export function AccountBindingsTab({
                     </div>
                     <div className='min-w-0'>
                       <div className='flex items-center gap-1.5'>
-                        <p className='text-sm font-medium'>{provider.name}</p>
+                        <p
+                          id={`custom-oauth-${provider.id}-label`}
+                          className='text-sm font-medium'
+                        >
+                          {provider.name}
+                        </p>
                         {isBound && (
                           <StatusBadge
                             label={t('Bound')}
@@ -515,9 +606,12 @@ export function AccountBindingsTab({
                       size='sm'
                       className='text-destructive h-7 shrink-0 px-2.5 text-xs'
                       onClick={() => setUnbindTarget(binding)}
+                      aria-labelledby={`custom-oauth-${provider.id}-unbind custom-oauth-${provider.id}-label`}
                     >
                       <Unlink className='mr-1 h-3 w-3' />
-                      {t('Unbind')}
+                      <span id={`custom-oauth-${provider.id}-unbind`}>
+                        {t('Unbind')}
+                      </span>
                     </Button>
                   ) : (
                     <Button
@@ -525,8 +619,11 @@ export function AccountBindingsTab({
                       size='sm'
                       className='h-7 shrink-0 px-2.5 text-xs'
                       onClick={() => handleBindCustomOAuth(provider)}
+                      aria-labelledby={`custom-oauth-${provider.id}-bind custom-oauth-${provider.id}-label`}
                     >
-                      {t('Bind')}
+                      <span id={`custom-oauth-${provider.id}-bind`}>
+                        {t('Bind')}
+                      </span>
                     </Button>
                   )}
                 </div>
@@ -539,7 +636,13 @@ export function AccountBindingsTab({
       {/* Custom OAuth Unbind Confirmation */}
       <ConfirmDialog
         open={!!unbindTarget}
-        onOpenChange={(open) => !open && setUnbindTarget(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            unbindScope.cancel()
+            setUnbinding(false)
+            setUnbindTarget(null)
+          }
+        }}
         title={t('Confirm Unbind')}
         desc={t(
           'Are you sure you want to unbind {{provider}}? You will no longer be able to log in via this method.',
@@ -561,6 +664,7 @@ export function AccountBindingsTab({
         }
         currentEmail={profile.email}
         onSuccess={onUpdate}
+        securityScopeKey={securityScopeKey}
       />
 
       {/* WeChat Bind Dialog */}
@@ -573,6 +677,7 @@ export function AccountBindingsTab({
           open ? dialogs.open('wechat') : dialogs.close('wechat')
         }
         onSuccess={onUpdate}
+        securityScopeKey={securityScopeKey}
       />
 
       {/* Telegram Bind Dialog */}
@@ -584,6 +689,7 @@ export function AccountBindingsTab({
           }
           botName={status.telegram_bot_name as string}
           onSuccess={onUpdate}
+          securityScopeKey={securityScopeKey}
         />
       )}
     </>

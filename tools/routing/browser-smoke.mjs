@@ -7,6 +7,9 @@ import { extname, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { quotaFixtures } from '../quota/browser-fixtures.mjs'
 
+// Retained administration forms use the commercial shell; personal pages have dedicated journeys.
+process.env.MYAPI_BROWSER_FUNDING_MODE = 'enabled'
+
 const repo = fileURLToPath(new URL('../../', import.meta.url))
 const root = resolve(repo, 'web/dist')
 const output = resolve(process.env.MYAPI_BROWSER_ARTIFACTS || `${repo}/.local-tests/routing-browser`)

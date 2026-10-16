@@ -1,0 +1,6 @@
+# Review images remain versioned in Git; the source package only needs their records.
+/design/**/*.png
+/design/**/*.pdf
+/prototypes/**/*.png
+/prototypes/**/*.pdf
+/evidence/**/*.png

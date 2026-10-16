@@ -7,7 +7,7 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -19,7 +19,11 @@ import { Profile } from '../index'
 import type { UserProfile } from '../types'
 
 vi.mock('../components/checkin-calendar-card', () => ({
-  CheckinCalendarCard: () => <section aria-label='Daily Check-in'><button type='button'>Claim reward</button></section>,
+  CheckinCalendarCard: () => (
+    <section aria-label='Daily Check-in'>
+      <button type='button'>Claim reward</button>
+    </section>
+  ),
 }))
 
 const originalAuth = useAuthStore.getState()
@@ -47,13 +51,21 @@ afterEach(() => {
 })
 
 describe('profile task layout', () => {
-  it.each(['enabled', 'disabled', 'retirement', 'unconfirmed'] as const)('opens the %s profile with preferences and only confirmed commercial check-in', async (mode) => {
-    vi.spyOn(api, 'get').mockImplementation(async (url) => {
-      if (url === '/api/status' && mode === 'unconfirmed') return new Promise(() => {})
+  it('waits for placeholder funding status confirmation before issuing one profile read', async () => {
+    const status = {
+      user_funding_mode: 'disabled',
+      user_funding_capabilities: { mode: 'disabled', epoch: 1, ready: true },
+    }
+    localStorage.setItem('status', JSON.stringify(status))
+    type ReadResponse = Awaited<ReturnType<typeof api.get>>
+    let resolveStatus!: (response: ReadResponse) => void
+    const pendingStatus = new Promise<ReadResponse>((resolve) => {
+      resolveStatus = resolve
+    })
+    const get = vi.spyOn(api, 'get').mockImplementation(async (url) => {
+      if (url === '/api/status') return pendingStatus
       if (url === '/api/user/self') {
-        return {
-          data: { success: true, data: { ...profile, setting: 'null' } },
-        }
+        return { data: { success: true, data: profile } }
       }
       if (url === '/api/user/sessions' || url === '/api/user/oauth/bindings') {
         return { data: { success: true, data: [] } }
@@ -69,76 +81,178 @@ describe('profile task layout', () => {
       if (url === '/api/user/passkey') {
         return { data: { success: true, data: { enabled: false } } }
       }
-      throw new Error(`Unexpected test request: ${url}`)
+      throw new Error(`Unexpected test API: ${url}`)
     })
     useAuthStore.setState({ auth: { ...originalAuth.auth, user: profile } })
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
     clients.push(client)
-    const status = {
-      checkin_enabled: true,
-      user_funding_mode: mode === 'unconfirmed' ? 'enabled' : mode,
-      user_funding_capabilities: {
-        mode: mode === 'unconfirmed' ? 'enabled' : mode,
-        epoch: 3, ready: true,
-        can_top_up: true, can_redeem: true,
-        can_transfer_affiliate_rewards: true,
-        can_purchase_subscription: true, can_view_funding_history: true,
-      },
-    }
-    if (mode === 'unconfirmed') localStorage.setItem('status', JSON.stringify(status))
-    else client.setQueryData(['status'], status)
-    const root = createRootRoute({
-      component: () => (
-        <>
-          <ProfileDropdown />
-          <Outlet />
-        </>
-      ),
-    })
-    const home = createRoute({
-      getParentRoute: () => root,
-      path: '/',
-      component: () => <p>Home</p>,
-    })
-    const account = createRoute({
-      getParentRoute: () => root,
-      path: '/profile',
-      component: Profile,
-    })
+    const route = createRootRoute({ component: Profile })
     const router = createRouter({
-      routeTree: root.addChildren([home, account]),
+      routeTree: route,
       history: createMemoryHistory({ initialEntries: ['/'] }),
     })
     await router.load()
-    const user = userEvent.setup()
     render(
       <QueryClientProvider client={client}>
         <RouterProvider router={router} />
       </QueryClientProvider>
     )
-    await user.click(screen.getByRole('button', { name: 'Account menu' }))
-    await user.click(await screen.findByRole('menuitem', { name: 'Profile' }))
+    await screen.findByRole('main', { name: 'Profile' })
     expect(
-      await screen.findByRole('heading', { name: 'Operations', level: 2 })
-    ).toBeInTheDocument()
-    if (mode === 'enabled') {
-      expect(screen.getByRole('region', { name: 'Daily Check-in' })).toBeInTheDocument()
-      expect(screen.getByText('Current Balance')).toBeInTheDocument()
-    } else {
-      expect(screen.queryByRole('region', { name: 'Daily Check-in' })).not.toBeInTheDocument()
-      expect(screen.queryByText('Current Balance')).not.toBeInTheDocument()
-      expect(screen.queryByText('Total Usage')).not.toBeInTheDocument()
-    }
-    await user.click(
-      screen.getByRole('tab', { name: /Settings & Preferences/ })
+      get.mock.calls.filter(([url]) => url === '/api/user/self')
+    ).toHaveLength(0)
+    await act(async () =>
+      resolveStatus({ data: { success: true, data: status } } as ReadResponse)
     )
-    await user.click(screen.getByRole('button', { name: 'Webhook' }))
     expect(
-      screen.getByRole('textbox', { name: 'Webhook URL' })
+      await screen.findByRole('heading', { name: 'Operations', level: 3 })
     ).toBeInTheDocument()
+    expect(
+      get.mock.calls.filter(([url]) => url === '/api/user/self')
+    ).toHaveLength(1)
   })
+
+  it.each(['enabled', 'disabled', 'retirement', 'unconfirmed'] as const)(
+    'opens the %s profile with preferences and only confirmed commercial check-in',
+    async (mode) => {
+      const get = vi.spyOn(api, 'get').mockImplementation(async (url) => {
+        if (url === '/api/status' && mode === 'unconfirmed') {
+          throw new Error('Synthetic status unavailable')
+        }
+        if (url === '/api/user/self') {
+          return {
+            data: { success: true, data: { ...profile, setting: 'null' } },
+          }
+        }
+        if (
+          url === '/api/user/sessions' ||
+          url === '/api/user/oauth/bindings'
+        ) {
+          return { data: { success: true, data: [] } }
+        }
+        if (url === '/api/user/2fa/status') {
+          return {
+            data: {
+              success: true,
+              data: {
+                enabled: false,
+                locked: false,
+                backup_codes_remaining: 0,
+              },
+            },
+          }
+        }
+        if (url === '/api/user/passkey') {
+          return { data: { success: true, data: { enabled: false } } }
+        }
+        throw new Error(`Unexpected test request: ${url}`)
+      })
+      useAuthStore.setState({ auth: { ...originalAuth.auth, user: profile } })
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      })
+      clients.push(client)
+      const status = {
+        checkin_enabled: true,
+        user_funding_mode: mode === 'unconfirmed' ? 'enabled' : mode,
+        user_funding_capabilities: {
+          mode: mode === 'unconfirmed' ? 'enabled' : mode,
+          epoch: 3,
+          ready: true,
+          can_top_up: true,
+          can_redeem: true,
+          can_transfer_affiliate_rewards: true,
+          can_purchase_subscription: true,
+          can_view_funding_history: true,
+        },
+      }
+      if (mode === 'unconfirmed') {
+        localStorage.setItem('status', JSON.stringify(status))
+      } else client.setQueryData(['status'], status)
+      const root = createRootRoute({
+        component: () => (
+          <>
+            <ProfileDropdown />
+            <Outlet />
+          </>
+        ),
+      })
+      const home = createRoute({
+        getParentRoute: () => root,
+        path: '/',
+        component: () => <p>Home</p>,
+      })
+      const account = createRoute({
+        getParentRoute: () => root,
+        path: '/profile',
+        component: Profile,
+      })
+      const router = createRouter({
+        routeTree: root.addChildren([home, account]),
+        history: createMemoryHistory({ initialEntries: ['/'] }),
+      })
+      await router.load()
+      const user = userEvent.setup()
+      render(
+        <QueryClientProvider client={client}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      )
+      await user.click(screen.getByRole('button', { name: 'Account menu' }))
+      await user.click(await screen.findByRole('menuitem', { name: 'Profile' }))
+      expect(
+        await screen.findByRole('heading', {
+          name: 'Operations',
+          level: mode === 'disabled' ? 3 : 2,
+        })
+      ).toBeInTheDocument()
+      if (mode === 'enabled') {
+        expect(
+          screen.getByRole('region', { name: 'Daily Check-in' })
+        ).toBeInTheDocument()
+        expect(screen.getByText('Current Balance')).toBeInTheDocument()
+      } else {
+        expect(
+          screen.queryByRole('region', { name: 'Daily Check-in' })
+        ).not.toBeInTheDocument()
+        expect(screen.queryByText('Current Balance')).not.toBeInTheDocument()
+        expect(screen.queryByText('Total Usage')).not.toBeInTheDocument()
+      }
+      if (mode === 'disabled') {
+        expect(screen.getByText('Only me')).toBeInTheDocument()
+        await user.click(
+          screen.getByRole('button', { name: /Manage login methods/ })
+        )
+      }
+      await user.click(
+        screen.getByRole('tab', { name: /Settings & Preferences/ })
+      )
+      if (mode === 'disabled' || mode === 'unconfirmed') {
+        expect(
+          screen.queryByRole('spinbutton', { name: 'Quota Warning Threshold' })
+        ).not.toBeInTheDocument()
+      } else {
+        expect(
+          screen.getByRole('spinbutton', { name: 'Quota Warning Threshold' })
+        ).toBeInTheDocument()
+      }
+      await user.click(screen.getByRole('button', { name: 'Webhook' }))
+      expect(
+        screen.getByRole('textbox', { name: 'Webhook URL' })
+      ).toBeInTheDocument()
+      expect(
+        get.mock.calls.filter(([url]) => url === '/api/user/self')
+      ).toHaveLength(1)
+      expect(
+        screen.getByRole('heading', {
+          name: 'Operations',
+          level: mode === 'disabled' ? 3 : 2,
+        })
+      ).toBeInTheDocument()
+    }
+  )
 
   it.each(['rejected', 'unsuccessful', 'missing'])(
     'offers retry after a %s profile response instead of leaving empty account controls',
@@ -160,7 +274,11 @@ describe('profile task layout', () => {
           return {
             data: {
               success: true,
-              data: { enabled: false, locked: false, backup_codes_remaining: 0 },
+              data: {
+                enabled: false,
+                locked: false,
+                backup_codes_remaining: 0,
+              },
             },
           }
         }

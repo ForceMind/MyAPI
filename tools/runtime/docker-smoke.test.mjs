@@ -2,12 +2,24 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import { appendFrontendAcceptance, hasAppliedSettlementProof, probeFrontend, probeFreshSQLite, probeRelayFixture,
-  probeSelfUseRelayFixture, preparePersonalWriterFixture, validatePersonalFrontendEvidence, validateSmokeTarget } from './docker-smoke.mjs'
+  personalSmokeWebRateLimit, probeSelfUseRelayFixture, preparePersonalWriterFixture, validatePersonalFrontendEvidence, validateSmokeTarget } from './docker-smoke.mjs'
 import { fakeOpenAIListenHost, startFakeOpenAI } from './fake-openai.mjs'
 
 const sha = 'a'.repeat(40)
 const baseUrl = 'http://127.0.0.1:18080'
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status })
+
+test('isolated personal cold-cache journey has a bounded Web request budget', () => {
+  assert.equal(personalSmokeWebRateLimit({ baseUrl, edition: 'full', sha, isolated: true, personal: true }), 1120)
+})
+
+test('personal Web budget rejects non-personal, non-isolated, LAN and external targets', () => {
+  for (const override of [{ personal: false }, { isolated: false }, { edition: 'lan' },
+    { baseUrl: 'https://production.invalid' }, { sha: 'main' }]) {
+    assert.throws(() => personalSmokeWebRateLimit({ baseUrl, edition: 'full', sha, isolated: true, personal: true, ...override }),
+      /^Error: INVALID_ISOLATED_SMOKE_TARGET$/)
+  }
+})
 
 function frontendBrowser({ timeout = false, failures = [], revision = `rv.0.0.0.${sha}.test` } = {}) {
   const listeners = {}
@@ -730,4 +742,5 @@ test('personal browser fixed stages survive the top-level safe report boundary',
   const runtime = readFileSync(new URL('./docker-smoke.mjs', import.meta.url), 'utf8')
   const values = (source, name) => [...source.match(new RegExp(`const ${name} = new Set\\(\\[([\\s\\S]*?)\\]\\)`))[1].matchAll(/'([^']+)'/g)].map(match => match[1]).sort()
   assert.deepEqual(values(runtime, 'safeStages'), values(driver, 'stages'))
+  assert.match(runtime, /personalOptions = personalEnabled \? \{[\s\S]*?advancedModelScope: true,[\s\S]*?\} : null/)
 })

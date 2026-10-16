@@ -1,0 +1,319 @@
+{
+  "evidence_recheck": {
+    "conclusion": "success",
+    "headSha": "3820baf5a519479e99127846585cf8ff718e3134",
+    "jobs": [
+      {
+        "conclusion": "success",
+        "name": "Qualified-build security evidence",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38857597290/job/116832448346"
+      },
+      {
+        "conclusion": "skipped",
+        "name": "Mobile Chromium smoke",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38857597290/job/116832450152"
+      }
+    ],
+    "run": 38857597290,
+    "status": "completed",
+    "url": "https://github.com/ForceMind/MyAPI/actions/runs/38857597290"
+  },
+  "evidence_source_identity": {
+    "build_run": 38855315874,
+    "build_checkout": "c88c8089660e064b31920a02e057e3df34508229",
+    "producer_source": "0a1f6c4cfe4d227612791d4ad32e138f23a0ed3a",
+    "qualified_tree": "684782c16074ad62cda6bdb2816a9691342d4e39",
+    "driver_source": "3820baf5a519479e99127846585cf8ff718e3134",
+    "application_source_unchanged": true,
+    "allowed_differences": [
+      "docs/**",
+      "tools/ui/security-maintenance-browser.mjs",
+      ".github/workflows/website-browser.yml"
+    ]
+  },
+  "version": "0.2.0-beta.17",
+  "application_source": "0a1f6c4cfe4d227612791d4ad32e138f23a0ed3a",
+  "ci_checkout": "c88c8089660e064b31920a02e057e3df34508229",
+  "tree": "684782c16074ad62cda6bdb2816a9691342d4e39",
+  "ci": {
+    "conclusion": "success",
+    "headSha": "0a1f6c4cfe4d227612791d4ad32e138f23a0ed3a",
+    "jobs": [
+      {
+        "conclusion": "success",
+        "name": "B2 ClickHouse log migration regression",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855315874/job/116825433236"
+      },
+      {
+        "conclusion": "success",
+        "name": "S1 identity and options database regression",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855315874/job/116825433329"
+      },
+      {
+        "conclusion": "success",
+        "name": "S2-C09 Redis limiter lifecycle regression",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855315874/job/116825433369"
+      },
+      {
+        "conclusion": "success",
+        "name": "Frontend typecheck and test",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855315874/job/116825433379"
+      },
+      {
+        "conclusion": "success",
+        "name": "Desktop cross-platform contract",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855315874/job/116825433390"
+      },
+      {
+        "conclusion": "success",
+        "name": "S2-C quota script Redis regression",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855315874/job/116825433395"
+      },
+      {
+        "conclusion": "success",
+        "name": "B2 durable submission database regression",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855315874/job/116825433447"
+      },
+      {
+        "conclusion": "success",
+        "name": "Backend vet, build, and test",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855315874/job/116825433473"
+      },
+      {
+        "conclusion": "success",
+        "name": "S2-A payment and subscription database regression",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855315874/job/116825433474"
+      },
+      {
+        "conclusion": "success",
+        "name": "Distribution and release contracts",
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855315874/job/116825433555"
+      }
+    ],
+    "run": 38855315874,
+    "status": "completed",
+    "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855315874"
+  },
+  "frontend": {
+    "test_files": 233,
+    "tests_passed": 1498,
+    "tests_failed": 0,
+    "typecheck": "pass",
+    "lint": "pass",
+    "production_build": "pass",
+    "advanced": {
+      "window": {
+        "file": "advanced-window-qualification.json",
+        "result": "passed",
+        "journeys": 17,
+        "screenshots": 7,
+        "screenshot_count_scope": "archived representative PNGs"
+      },
+      "model-scope": {
+        "file": "advanced-model-scope-qualification.json",
+        "result": "passed",
+        "journeys": 17,
+        "screenshots": 7,
+        "screenshot_count_scope": "archived representative PNGs"
+      },
+      "security": {
+        "file": "advanced-security-qualification.json",
+        "result": "passed",
+        "journeys": 20,
+        "screenshots": 11,
+        "screenshot_count_scope": "archived representative PNGs"
+      }
+    },
+    "core": [
+      {
+        "file": "personal-console-qualification.json",
+        "result": "passed",
+        "journeys": 16
+      },
+      {
+        "file": "personal-workbench-qualification.json",
+        "result": "passed",
+        "journeys": 27
+      },
+      {
+        "file": "subscription-share-qualification.json",
+        "result": "passed",
+        "journeys": 28
+      }
+    ],
+    "compatibility_reports": 6
+  },
+  "runtime": {
+    "run": {
+      "conclusion": "success",
+      "headSha": "0a1f6c4cfe4d227612791d4ad32e138f23a0ed3a",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "name": "LAN source installer and fresh SQLite",
+          "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855486670/job/116825874861"
+        },
+        {
+          "conclusion": "success",
+          "name": "Prepare immutable smoke image bundles",
+          "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855486670/job/116825875231"
+        },
+        {
+          "conclusion": "success",
+          "name": "full handoff legacy image and SQLite smoke",
+          "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855486670/job/116827101761"
+        },
+        {
+          "conclusion": "success",
+          "name": "full fresh legacy image and SQLite smoke",
+          "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855486670/job/116827101776"
+        },
+        {
+          "conclusion": "success",
+          "name": "lan fresh legacy image and SQLite smoke",
+          "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855486670/job/116827101787"
+        },
+        {
+          "conclusion": "success",
+          "name": "full fresh authoritative image and SQLite smoke",
+          "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855486670/job/116827101803"
+        }
+      ],
+      "run": 38855486670,
+      "status": "completed",
+      "url": "https://github.com/ForceMind/MyAPI/actions/runs/38855486670"
+    },
+    "source": "0a1f6c4cfe4d227612791d4ad32e138f23a0ed3a",
+    "source_identity": "Final Docker source and CI checkout have the same file tree. Revision metadata separately identifies the branch source and PR checkout; binary equality is not claimed.",
+    "reports": [
+      {
+        "writer": "legacy",
+        "checks": 6,
+        "screenshots": 15,
+        "revision": "rv.0.2.0-beta.17.0a1f6c4cfe4d227612791d4ad32e138f23a0ed3a.2k6e8r7p",
+        "runtime_errors": 0
+      },
+      {
+        "writer": "authoritative",
+        "checks": 6,
+        "screenshots": 15,
+        "revision": "rv.0.2.0-beta.17.0a1f6c4cfe4d227612791d4ad32e138f23a0ed3a.2k6e8r7p",
+        "runtime_errors": 0
+      }
+    ],
+    "database": "fresh temporary SQLite",
+    "upstream": "isolated loopback fixture",
+    "reported_usage": true,
+    "missing_usage_is_separate_test_contract": true
+  },
+  "local": {
+    "source": "0a1f6c4cfe4d227612791d4ad32e138f23a0ed3a",
+    "version": "0.2.0-beta.17",
+    "go": {
+      "packages": [
+        "model",
+        "controller"
+      ],
+      "filter": "^Test(TokenModelLimits.*|TokenMetadataPreservesWideQuota|TokenQuotaVersionIsExactAndStaleEditsWriteNothing)$",
+      "result": "pass",
+      "temporaryDatabasesOnly": true,
+      "executed_on_source": "5ba90cfee023d977a6aa8e7559576f6bd44b7c72",
+      "scope": "model/controller files unchanged through final application source; final full Go qualifications additionally required in CI"
+    },
+    "runtimeNodeContracts": {
+      "passed": 166,
+      "failed": 0,
+      "result": "pass",
+      "log": "myapi-advanced-runtime-final-contracts.log"
+    },
+    "i18n": {
+      "newKeysPerLocale": 83,
+      "locales": [
+        "en",
+        "zh",
+        "zh-TW",
+        "fr",
+        "ja",
+        "ru",
+        "vi"
+      ],
+      "sync": "pass",
+      "existingVietnameseCorrections": 3
+    },
+    "lint": {
+      "errors": 0,
+      "warnings": 4,
+      "warningScope": "existing query selector usage in api-keys-quota-edit.test.tsx"
+    },
+    "browserDriversSyntax": "pass",
+    "productionDataTouched": false,
+    "credentialsTouched": false,
+    "deployed": false,
+    "published": false,
+    "merged": false,
+    "scope": "Cached Go and runtime Node results reused because corresponding product/test inputs remain unchanged; final Actions checks separately recorded"
+  },
+  "preview": {
+    "url": "http://127.0.0.1:4174/dashboard/overview",
+    "source": "0a1f6c4cfe4d227612791d4ad32e138f23a0ed3a",
+    "ci_checkout": "c88c8089660e064b31920a02e057e3df34508229",
+    "mode": "read-only synthetic fixture serving actual Actions production build",
+    "local_browser_executed": false,
+    "production_connections": false,
+    "checks": [
+      {
+        "method": "GET",
+        "path": "/dashboard/overview",
+        "status": 200,
+        "preview": null
+      },
+      {
+        "method": "GET",
+        "path": "/dashboard/keys",
+        "status": 200,
+        "preview": null
+      },
+      {
+        "method": "GET",
+        "path": "/dashboard/profile",
+        "status": 200,
+        "preview": null
+      },
+      {
+        "method": "GET",
+        "path": "/api/token/21/model-limits",
+        "status": 200,
+        "preview": "synthetic-read-only"
+      },
+      {
+        "method": "PUT",
+        "path": "/api/token/21/model-limits",
+        "status": 405,
+        "preview": "synthetic-read-only"
+      },
+      {
+        "method": "GET",
+        "path": "/api/user/token",
+        "status": 405,
+        "preview": "synthetic-read-only"
+      }
+    ]
+  },
+  "branding": {
+    "logo_sha256": "59402599f35c05534c2269f5d279b3cb2af2adf23e5bc79215534f12347b4428",
+    "unchanged": true
+  },
+  "independent_review": {
+    "implementation_and_documents": "passed after fixes",
+    "actual_images": "passed; detailed scope in README",
+    "unresolved_P1_P2": 0
+  },
+  "boundaries": {
+    "production_data_touched": false,
+    "historical_accounting_touched": false,
+    "credentials_rotated_or_migrated": false,
+    "main_merged": false,
+    "published": false,
+    "deployed": false
+  }
+}

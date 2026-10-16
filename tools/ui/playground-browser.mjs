@@ -1,4 +1,4 @@
-// Production-build chat-client acceptance with synthetic, intercepted APIs.
+// Production-build legacy commercial-shell chat acceptance with synthetic APIs.
 // No provider calls, real credentials, billing, or deployment acceptance.
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
@@ -37,7 +37,7 @@ const invalidFiles = [
   { name: 'oversized-file', files: [{ name: 'oversized.png', mimeType: 'image/png', buffer: oversized }], error: 'Each file must be non-empty and no larger than 10 MiB' },
   { name: 'too-many-files', files: Array.from({ length: 5 }, (_, index) => ({ name: `extra-${index}.png`, mimeType: 'image/png', buffer: png })), error: 'You can attach up to 4 files' },
 ]
-const report = { schema: 3, commit: process.env.GITHUB_SHA || execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim(), result: 'running', evidence: 'Synthetic API UI qualification; no live provider or billing claim.', nativePickerLimit: 'Touch events open the native control; choosing a native OS option is driven by Playwright selectOption, not physical-device picker automation.', cancellationScope: 'Actual Stop click aborts a held streaming HTTP request before response headers; partial-stream cancellation is covered separately by lifecycle tests.', keyIdentity: [], emptyState: [], attachmentValidation: [], attachmentRemoval: [], multipleImages: [], cancellations: [], usageInspection: [], strictText: [], journeys: [], screenshots: [], chatDispatches: [], requests: [], violations: [], pageErrors: [] }
+const report = { schema: 3, commit: process.env.GITHUB_SHA || execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim(), result: 'running', evidence: 'Synthetic API UI qualification of legacy commercial-shell compatibility; no live provider or billing claim.', nativePickerLimit: 'Touch events open the native control; choosing a native OS option is driven by Playwright selectOption, not physical-device picker automation.', cancellationScope: 'Actual Stop click aborts a held streaming HTTP request before response headers; partial-stream cancellation is covered separately by lifecycle tests.', keyIdentity: [], emptyState: [], attachmentValidation: [], attachmentRemoval: [], multipleImages: [], cancellations: [], usageInspection: [], strictText: [], journeys: [], screenshots: [], chatDispatches: [], requests: [], violations: [], pageErrors: [] }
 assert(existsSync(resolve(root, 'index.html')), 'Build production assets first')
 mkdirSync(output, { recursive: true })
 const persist = () => writeFileSync(resolve(output, 'playground-qualification.json'), JSON.stringify(report, null, 2))
@@ -205,7 +205,9 @@ try {
     activeJourney = name
     activeStep = 'load composer and select key'
     const label = key => translation[language][key] || key
-    const fixture = createUIFixture({ role: 1, language: locales[language] })
+    // Keep the existing management log dialog and its metadata contract here.
+    // The personal console has a separate call-log and missing-usage journey.
+    const fixture = createUIFixture({ role: 1, language: locales[language], commercialShell: true })
     const context = await browser.newContext({ viewport: { width, height: 900 }, hasTouch: width === 320, isMobile: width === 320, reducedMotion: 'reduce', serviceWorkers: 'block' })
     await context.addInitScript(code => localStorage.setItem('i18nextLng', code), locales[language])
     const sent = []
@@ -570,6 +572,7 @@ try {
     assert.equal(usage.token_name, secondaryName)
     await page.getByText(secondaryName, { exact: true }).first().waitFor()
     await page.getByText('synthetic-text-model', { exact: true }).first().waitFor()
+    await page.locator('[data-myapi-shell="authenticated"]').waitFor({ state: 'visible' })
     await page.getByTitle(label('Click to view full details'), { exact: true }).click()
     const usageDetails = page.getByRole('dialog')
     await usageDetails.getByText(secondaryName, { exact: true }).waitFor()
@@ -578,7 +581,7 @@ try {
     assert.equal(sent.length, 6, 'inspection and navigation cannot replay a canceled or restored chat')
     const usageName = `${name}-selected-key-usage.png`
     await page.screenshot({ path: resolve(output, usageName), fullPage: true }); report.screenshots.push(usageName)
-    report.usageInspection.push({ journey: name, userId: usage.user_id, selectedKeyId: usage.token_id, displayedKeyName: secondaryName, filter: 'token_name', endpoint: '/api/log/self', syntheticOnly: true })
+    report.usageInspection.push({ journey: name, userId: usage.user_id, selectedKeyId: usage.token_id, displayedKeyName: secondaryName, filter: 'token_name', endpoint: '/api/log/self', shell: 'commercial', syntheticOnly: true })
 
     activeStep = 'prepare an ordinary key preference before explicit strict-key selection'
     await page.goto(`${origin}/playground`)

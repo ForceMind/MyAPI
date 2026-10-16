@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Link } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ErrorState } from '@/components/error-state'
@@ -33,15 +34,16 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { useStatus } from '@/hooks/use-status'
 import { useFundingPresentation } from '@/hooks/use-funding-presentation'
 import { useConfirmedFundingMode } from '@/hooks/use-personal-workbench-mode'
+import { useStatus } from '@/hooks/use-status'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { CheckinCalendarCard } from './components/checkin-calendar-card'
 import { LanguagePreferencesCard } from './components/language-preferences-card'
 import { LoginSessionsCard } from './components/login-sessions-card'
 import { PasskeyCard } from './components/passkey-card'
+import { PersonalProfile } from './components/personal-profile'
 import { ProfileHeader } from './components/profile-header'
 import { ProfileSecurityCard } from './components/profile-security-card'
 import { ProfileSettingsCard } from './components/profile-settings-card'
@@ -51,19 +53,51 @@ import { useProfile } from './hooks'
 
 export function Profile() {
   const { t } = useTranslation()
-  const { profile, loading, error, fetchProfile, refreshProfile } = useProfile()
-  const { status } = useStatus()
+  const { status, confirmed: statusConfirmed, error: statusError } = useStatus()
+  const [profileReadEnabled, setProfileReadEnabled] = useState(
+    statusConfirmed || Boolean(statusError)
+  )
+  // Status observers mounted by loaded settings may retry a failed status
+  // query. That background retry must not restart an admitted profile read.
+  useEffect(() => {
+    if (statusConfirmed || statusError) setProfileReadEnabled(true)
+  }, [statusConfirmed, statusError])
+  const authUserId = useAuthStore((s) => s.auth.user?.id)
+  const authRole = useAuthStore((s) => s.auth.user?.role)
+  const sessionSid = useAuthStore((s) => s.auth.session?.sid)
+  const profileIdentityKey = `${authUserId ?? 'anonymous'}:${authRole ?? 'no-role'}:${sessionSid ?? 'no-session'}`
+  const { profile, loading, error, fetchProfile, refreshProfile } = useProfile(
+    profileReadEnabled,
+    profileIdentityKey
+  )
   const { commercialEnabled } = useFundingPresentation()
   const fundingMode = useConfirmedFundingMode()
+  const personalMode = fundingMode === 'disabled'
   const permissions = useAuthStore((s) => s.auth.user?.permissions)
+  const securityScopeKey = `${authUserId ?? profile?.id ?? 'anonymous'}:${authRole ?? profile?.role ?? 'no-role'}:${
+    sessionSid ?? 'no-session'
+  }`
 
   const showCommercialFeatures = commercialEnabled && fundingMode === 'enabled'
-  const checkinEnabled = showCommercialFeatures && status?.checkin_enabled === true
+  const checkinEnabled =
+    showCommercialFeatures && status?.checkin_enabled === true
   const turnstileEnabled = !!(
     status?.turnstile_check && status?.turnstile_site_key
   )
   const turnstileSiteKey = status?.turnstile_site_key || ''
   const canConfigureSidebar = permissions?.sidebar_settings !== false
+
+  if (personalMode) {
+    return (
+      <PersonalProfile
+        profile={profile}
+        loading={loading}
+        error={error}
+        onRetry={() => void fetchProfile()}
+        onRefresh={() => void refreshProfile()}
+      />
+    )
+  }
 
   return (
     <SectionPageLayout>
@@ -92,9 +126,14 @@ export function Profile() {
               <div className='grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.46fr)] xl:items-start'>
                 <div className='min-w-0 space-y-4 sm:space-y-6'>
                   <ProfileSettingsCard
+                    key={`settings:${securityScopeKey}`}
                     profile={profile}
                     loading={loading}
                     onProfileUpdate={refreshProfile}
+                    securityScopeKey={securityScopeKey}
+                    showBalanceThreshold={
+                      fundingMode === 'enabled' || fundingMode === 'retirement'
+                    }
                   />
                   <Card>
                     <CardHeader>
@@ -119,8 +158,16 @@ export function Profile() {
                     profile={profile}
                     onProfileUpdate={refreshProfile}
                   />
-                  <ProfileSecurityCard profile={profile} loading={loading} />
-                  <LoginSessionsCard />
+                  <ProfileSecurityCard
+                    key={`access:${securityScopeKey}`}
+                    profile={profile}
+                    loading={loading}
+                    securityScopeKey={securityScopeKey}
+                  />
+                  <LoginSessionsCard
+                    key={`sessions:${securityScopeKey}`}
+                    securityScopeKey={securityScopeKey}
+                  />
                 </div>
 
                 <div className='min-w-0 space-y-4 sm:space-y-6'>
@@ -136,8 +183,16 @@ export function Profile() {
                       sidebarModules={profile.sidebar_modules}
                     />
                   )}
-                  <PasskeyCard loading={loading} />
-                  <TwoFACard loading={loading} />
+                  <PasskeyCard
+                    key={`passkey:${securityScopeKey}`}
+                    loading={loading}
+                    securityScopeKey={securityScopeKey}
+                  />
+                  <TwoFACard
+                    key={`two-fa:${securityScopeKey}`}
+                    loading={loading}
+                    securityScopeKey={securityScopeKey}
+                  />
                 </div>
               </div>
             </CardStaggerItem>

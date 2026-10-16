@@ -22,6 +22,7 @@ func TestUpdateChannelCredentialIfUnchanged(t *testing.T) {
 	require.NoError(t, db.AutoMigrate(&Channel{}))
 	DB = db
 	t.Cleanup(func() { DB = previousDB })
+	require.NoError(t, db.Create(&Channel{Id: 7, Type: 57, Key: "credential-a"}).Error)
 
 	channel := &Channel{Name: "fixture", Type: 57, Key: "old-secret"}
 	require.NoError(t, db.Create(channel).Error)
@@ -43,6 +44,76 @@ func TestUpdateChannelCredentialIfUnchanged(t *testing.T) {
 	assert.False(t, updated)
 	require.NoError(t, db.First(&stored, channel.Id).Error)
 	assert.Equal(t, "new-secret", stored.Key)
+}
+
+func TestLookupTrustedChannelCredentialSubjectUsesHistoricalProviderEvidence(t *testing.T) {
+	previousDB := DB
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(
+		&Channel{},
+		&ChannelQuotaIdentityKeyRegistry{}, &ChannelQuotaIdentityKeyVersion{}, &ChannelQuotaIdentityAlias{},
+		&ChannelQuotaSamplingTarget{}, &ChannelQuotaSnapshot{},
+	))
+	DB = db
+	t.Cleanup(func() { DB = previousDB })
+	keyring := quotaIdentityKeyring(t, "credential-guard", 'g')
+	require.NoError(t, EnsureChannelQuotaIdentityKeyring(t.Context(), db, keyring))
+	require.NoError(t, db.Create(&Channel{Id: 7, Type: 57, Key: "credential-a"}).Error)
+	credential, err := ResolveChannelQuotaIdentity(t.Context(), db, keyring, "channel_type_57", common.ChannelQuotaIdentityKindCredential, []byte("credential-a"))
+	require.NoError(t, err)
+	account, err := ResolveChannelQuotaIdentity(t.Context(), db, keyring, "channel_type_57", common.ChannelQuotaIdentityKindProviderAccount, []byte("account-a"))
+	require.NoError(t, err)
+	now := time.Now().Unix()
+	require.NoError(t, db.Create(&ChannelQuotaSamplingTarget{
+		ChannelID: 7, SubjectRef: credential.SubjectRef, IdentityQuality: credential.Quality,
+		ConfirmedSubjectRef: account.SubjectRef, Active: true, LastResult: "sampled", EvidenceVersion: 3, CreatedAt: now, UpdatedAt: now,
+	}).Error)
+	snapshot := &ChannelQuotaSnapshot{
+		ChannelId: 7, SubjectRef: account.SubjectRef, IdentityQuality: account.Quality,
+		CodexObservationQualified: true, ObservedAt: now - SubscriptionShareDefaultMaxAge - 1, MetricType: "codex_rate_limit", WindowType: "five_hour",
+		WindowSeconds: 18000, Source: codexQuotaWindowPrimarySource, Status: "success", Unit: "percent",
+	}
+	require.NoError(t, db.Create(snapshot).Error)
+	require.NoError(t, db.Model(&ChannelQuotaSamplingTarget{}).
+		Where("channel_id = ? AND subject_ref = ?", 7, credential.SubjectRef).
+		Update("verified_snapshot_id", snapshot.Id).Error)
+
+	trusted, err := LookupTrustedChannelCredentialSubject(t.Context(), 7, credential.SubjectRef)
+	require.NoError(t, err)
+	assert.Equal(t, account.SubjectRef, trusted)
+	require.NoError(t, db.Model(&ChannelQuotaSamplingTarget{}).Where("channel_id = ? AND subject_ref = ?", 7, credential.SubjectRef).Update("last_result", "error").Error)
+	rotated, err := ResolveChannelQuotaIdentity(t.Context(), db, keyring, "channel_type_57", common.ChannelQuotaIdentityKindCredential, []byte("credential-b"))
+	require.NoError(t, err)
+	updated, err := UpdateChannelCredentialAndSubjectIfUnchanged(
+		t.Context(), 7, 57, "credential-a", "credential-b", credential.SubjectRef, rotated.SubjectRef, account.SubjectRef,
+	)
+	require.NoError(t, err)
+	require.True(t, updated)
+	var stored Channel
+	require.NoError(t, db.First(&stored, 7).Error)
+	assert.Equal(t, "credential-b", stored.Key)
+	var movedTarget ChannelQuotaSamplingTarget
+	require.NoError(t, db.Where("channel_id = ? AND subject_ref = ?", 7, rotated.SubjectRef).Take(&movedTarget).Error)
+	assert.Equal(t, int64(4), movedTarget.EvidenceVersion)
+	assert.Zero(t, movedTarget.VerifiedSnapshotID)
+	assert.Equal(t, account.SubjectRef, movedTarget.ConfirmedSubjectRef)
+	trusted, err = LookupTrustedChannelCredentialSubject(t.Context(), 7, rotated.SubjectRef)
+	require.NoError(t, err)
+	assert.Equal(t, account.SubjectRef, trusted)
+	blocker := &ChannelQuotaSnapshot{
+		ChannelId: 7, SubjectRef: account.SubjectRef, IdentityQuality: account.Quality,
+		ObservedAt: now, MetricType: "codex_rate_limit", WindowType: "five_hour",
+		WindowSeconds: 18000, Source: codexQuotaWindowPrimarySource, Status: "error", ErrorCode: "upstream_timeout", Unit: "percent",
+	}
+	require.NoError(t, db.Create(blocker).Error)
+	trusted, err = LookupTrustedChannelCredentialSubject(t.Context(), 7, rotated.SubjectRef)
+	require.NoError(t, err)
+	assert.Equal(t, account.SubjectRef, trusted)
+
+	require.NoError(t, db.Delete(snapshot).Error)
+	_, err = LookupTrustedChannelCredentialSubject(t.Context(), 7, rotated.SubjectRef)
+	assert.ErrorIs(t, err, ErrChannelCredentialSubjectUnknown)
 }
 
 func TestUpdateChannelCredentialElementIfUnchangedPreservesOtherKeys(t *testing.T) {

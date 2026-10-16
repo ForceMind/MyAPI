@@ -111,6 +111,9 @@ func RefreshCodexChannelCredential(ctx context.Context, channelID int, opts Code
 			return err
 		}
 		if opts.ExpectedKey != nil && current.Key != *opts.ExpectedKey {
+			if err := validateTrustedCodexCredentialContinuity(gateCtx, current.Id, *opts.ExpectedKey, current.Key); err != nil {
+				return err
+			}
 			confirmed, err := model.UpdateChannelCredentialIfUnchanged(gateCtx, current.Id, constant.ChannelTypeCodex, current.Key, current.Key)
 			if err != nil {
 				return err
@@ -125,6 +128,9 @@ func RefreshCodexChannelCredential(ctx context.Context, channelID int, opts Code
 		if strings.TrimSpace(currentKey.RefreshToken) == "" {
 			return fmt.Errorf("codex channel: refresh_token is required to refresh credential")
 		}
+		if _, err := trustedCodexCredentialSubject(gateCtx, current.Id, current.Key); err != nil {
+			return ErrCodexCredentialSubjectUnknown
+		}
 
 		refreshCtx, refreshCancel := context.WithTimeout(gateCtx, 10*time.Second)
 		res, err := RefreshCodexOAuthTokenWithProxy(refreshCtx, currentKey.RefreshToken, current.GetSetting().Proxy)
@@ -132,18 +138,26 @@ func RefreshCodexChannelCredential(ctx context.Context, channelID int, opts Code
 		if err != nil {
 			return err
 		}
+		// The provider may rotate the only usable refresh token before the
+		// request context is canceled. Finish validation and persistence with a
+		// bounded context that keeps the channel gate lease.
+		persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(gateCtx), codexCredentialPersistenceTimeout)
+		defer persistCancel()
+		replacement := &CodexOAuthKey{AccessToken: res.AccessToken}
+		if err := validateCodexTLSCredentialReplacement(persistCtx, current.Id, current.Key, replacement); err != nil {
+			// A successful refresh can invalidate the submitted refresh token. Keep
+			// the existing channel binding and surface a terminal persistence error;
+			// callers must not replay or silently fall back to the old secret.
+			return &CodexCredentialPersistenceError{err: err}
+		}
 
 		currentKey.AccessToken = res.AccessToken
 		currentKey.RefreshToken = res.RefreshToken
+		currentKey.AccountID = replacement.AccountID
 		currentKey.LastRefresh = time.Now().Format(time.RFC3339)
 		currentKey.Expired = res.ExpiresAt.Format(time.RFC3339)
 		if strings.TrimSpace(currentKey.Type) == "" {
 			currentKey.Type = "codex"
-		}
-		if strings.TrimSpace(currentKey.AccountID) == "" {
-			if accountID, ok := ExtractCodexAccountIDFromJWT(currentKey.AccessToken); ok {
-				currentKey.AccountID = accountID
-			}
 		}
 		if strings.TrimSpace(currentKey.Email) == "" {
 			if email, ok := ExtractEmailFromJWT(currentKey.AccessToken); ok {
@@ -155,12 +169,13 @@ func RefreshCodexChannelCredential(ctx context.Context, channelID int, opts Code
 		if err != nil {
 			return err
 		}
-		// A successful OAuth refresh may rotate the only usable refresh token.
-		// Preserve the held gate while replacing request cancellation with a
-		// short persistence budget.
-		persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(gateCtx), codexCredentialPersistenceTimeout)
-		defer persistCancel()
-		updated, err := model.UpdateChannelCredentialIfUnchanged(persistCtx, current.Id, constant.ChannelTypeCodex, current.Key, string(encoded))
+		oldSubject, newSubject, confirmedSubject, err := codexCredentialSubjectTransition(persistCtx, current.Id, current.Key, string(encoded))
+		if err != nil {
+			return &CodexCredentialPersistenceError{err: err}
+		}
+		updated, err := model.UpdateChannelCredentialAndSubjectIfUnchanged(
+			persistCtx, current.Id, constant.ChannelTypeCodex, current.Key, string(encoded), oldSubject, newSubject, confirmedSubject,
+		)
 		if err != nil {
 			return &CodexCredentialPersistenceError{err: err}
 		}

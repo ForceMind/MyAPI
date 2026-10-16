@@ -162,7 +162,7 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 		if userQuota < int64(neededQuota) {
 			return fmt.Errorf("user quota is not enough, user quota: %s, need quota: %s", logger.FormatQuota(userQuota), logger.FormatQuota(neededQuota))
 		}
-		if !relayInfo.IsPlayground || relayInfo.Billing == nil {
+		if relayInfo.Billing == nil && !relayInfo.IsPlayground {
 			token, err := model.GetTokenByKey(strings.TrimPrefix(relayInfo.TokenKey, "sk-"), false)
 			if err != nil {
 				return err

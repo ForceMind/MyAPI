@@ -79,6 +79,8 @@ var taskRecoveryProtectedTables = []string{
 	"task_billing_log_outboxes",
 	"quota_mutation_receipts",
 	"user_quota_mutation_receipts",
+	"token_credential_rotation_receipts",
+	"token_credential_dispatch_admissions",
 }
 
 // registerTaskRecoveryGormGuards closes the normal GORM Table(...).Update
@@ -121,6 +123,14 @@ func taskRecoveryGormUpdateGuard(tx *gorm.DB) {
 	}
 	table := taskRecoveryGormStatementTable(tx)
 	switch table {
+	case "token_credential_rotation_receipts":
+		tx.AddError(ErrAccountQuotaReceiptImmutable)
+		return
+	case "token_credential_dispatch_admissions":
+		if !tokenCredentialDispatchWriteAllowed(tx) {
+			tx.AddError(ErrAccountQuotaReceiptImmutable)
+		}
+		return
 	case "task_recovery_identities":
 		tx.AddError(ErrTaskRecoveryIdentityImmutable)
 		return
@@ -161,6 +171,8 @@ func taskRecoveryGormDeleteGuard(tx *gorm.DB) {
 	}
 	table := taskRecoveryGormStatementTable(tx)
 	switch table {
+	case "token_credential_rotation_receipts", "token_credential_dispatch_admissions":
+		tx.AddError(ErrAccountQuotaReceiptImmutable)
 	case "task_recovery_identities":
 		tx.AddError(ErrTaskRecoveryIdentityImmutable)
 	case "quota_mutation_receipts":

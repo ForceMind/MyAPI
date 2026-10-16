@@ -439,6 +439,20 @@ func ConfigureTokenBudget(ctx context.Context, db *gorm.DB, actorID int, input T
 		if budget.AccountThresholdEnabled && (input.Enabled || budget.FeeEnabled) {
 			return ErrAccountQuotaThresholdCombination
 		}
+		if input.Enabled || budget.FeeEnabled {
+			// Authorization may already have opened a MySQL RR read view.
+			// The Token lock serializes configurations, but the guard also
+			// needs a current read to see a share committed while we waited.
+			allocationTable := tx.NamingStrategy.TableName("SubscriptionShareAllocation")
+			poolTable := tx.NamingStrategy.TableName("SubscriptionSharePool")
+			var bindings []SubscriptionShareAllocation
+			if err := lockForUpdate(tx).Table(allocationTable+" AS a").Select("a.id").Joins("JOIN "+poolTable+" AS p ON p.id = a.pool_id").Where("a.token_id = ? AND p.enabled = ?", input.TokenID, true).Limit(1).Find(&bindings).Error; err != nil {
+				return err
+			}
+			if len(bindings) != 0 {
+				return ErrSubscriptionShareConflict
+			}
+		}
 		previous := budget.Revision
 		budget.Enabled, budget.Limit, budget.Revision = input.Enabled, input.Limit, previous+1
 		if err := saveTokenBudget(tx, budget, previous); err != nil {

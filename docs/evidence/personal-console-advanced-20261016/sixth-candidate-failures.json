@@ -1,0 +1,34 @@
+{
+  "application_source": "83a23c9a44858dab3d1e7f4a2c8602b270750a70",
+  "ci_checkout": "36ddc128a3a806541ea5086c6fa83ef53e453d53",
+  "ci_run": 38852610224,
+  "ci_status": "superseded after actionable synthetic WebAuthn fixture failure; not qualification",
+  "frontend_unit": {
+    "passed": 1498,
+    "failed": 0,
+    "files": 233
+  },
+  "typecheck": "passed",
+  "lint": "passed",
+  "build": "passed",
+  "core_browser_journeys": 71,
+  "advanced_browser": {
+    "window": {
+      "passed": 17,
+      "failed": 0
+    },
+    "model": {
+      "passed": 17,
+      "failed": 0
+    },
+    "security": {
+      "passed_before_failure": 19,
+      "failure": "Password and AccessToken flows advanced; EnablePasskey did not reach RemovePasskey. Old report lacks request counts, exact native browser error not observed",
+      "invalid_precondition": "HTTP IP origin and RP ID instead of supported localhost domain",
+      "correction": "localhost origin and matching hostname RP ID; safe stage/count diagnostics and serialized credential checks; no product change or unsafe browser flags"
+    }
+  },
+  "runtime_run": 38851589638,
+  "runtime_reused_passed_source": "acba3f40b61d95e5c44f30ab676387323c8712dc",
+  "production_effects": false
+}

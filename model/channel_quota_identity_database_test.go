@@ -45,7 +45,7 @@ func TestChannelQuotaIdentityConfiguredDatabases(t *testing.T) {
 			t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
 
 			models := []any{
-				&Channel{}, &ChannelQuotaSnapshot{},
+				&Channel{}, &ChannelQuotaSnapshot{}, &SubscriptionSharePool{}, &SubscriptionShareGeneration{},
 				&ChannelQuotaIdentityKeyRegistry{}, &ChannelQuotaIdentityKeyVersion{},
 				&ChannelQuotaIdentityAlias{}, &ChannelQuotaSamplingTarget{},
 			}

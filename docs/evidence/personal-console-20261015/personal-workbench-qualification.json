@@ -1,0 +1,2122 @@
+{
+  "schema": 1,
+  "evidence": "Production-build Chromium with fixed, isolated API fixtures. This does not validate live providers, OAuth, 429 behavior, billing, settlement, deployment, or production.",
+  "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+  "workflowHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+  "version": "0.2.0-beta.15",
+  "fixtureTime": "2026-10-07T06:00:00.000Z",
+  "result": "passed",
+  "journeys": [
+    {
+      "name": "personal-en-320",
+      "language": "en",
+      "width": 320,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 9,
+        "/api/setup": 3,
+        "/api/user/auth/refresh": 3,
+        "/api/notice": 3,
+        "/pg/keys": 4,
+        "/api/log/self": 2,
+        "/api/user/self": 3,
+        "/api/channel/quota/changes": 3,
+        "/api/token/23/subscription-share": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-en-1280",
+      "language": "en",
+      "width": 1280,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 9,
+        "/api/setup": 3,
+        "/api/user/auth/refresh": 3,
+        "/api/notice": 3,
+        "/pg/keys": 4,
+        "/api/log/self": 2,
+        "/api/user/self": 3,
+        "/api/channel/quota/changes": 3,
+        "/api/token/23/subscription-share": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-zh-320",
+      "language": "zh",
+      "width": 320,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 9,
+        "/api/setup": 3,
+        "/api/user/auth/refresh": 3,
+        "/api/notice": 3,
+        "/pg/keys": 4,
+        "/api/log/self": 2,
+        "/api/user/self": 3,
+        "/api/channel/quota/changes": 3,
+        "/api/token/23/subscription-share": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-zh-1280",
+      "language": "zh",
+      "width": 1280,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 9,
+        "/api/setup": 3,
+        "/api/user/auth/refresh": 3,
+        "/api/notice": 3,
+        "/pg/keys": 4,
+        "/api/log/self": 2,
+        "/api/user/self": 3,
+        "/api/channel/quota/changes": 3,
+        "/api/token/23/subscription-share": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-zh-TW-320",
+      "language": "zh-TW",
+      "width": 320,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 9,
+        "/api/setup": 3,
+        "/api/user/auth/refresh": 3,
+        "/api/notice": 3,
+        "/pg/keys": 4,
+        "/api/log/self": 2,
+        "/api/user/self": 3,
+        "/api/channel/quota/changes": 4,
+        "/api/token/23/subscription-share": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-zh-TW-1280",
+      "language": "zh-TW",
+      "width": 1280,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 9,
+        "/api/setup": 3,
+        "/api/user/auth/refresh": 3,
+        "/api/notice": 3,
+        "/pg/keys": 4,
+        "/api/log/self": 2,
+        "/api/user/self": 3,
+        "/api/channel/quota/changes": 3,
+        "/api/token/23/subscription-share": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-fr-320",
+      "language": "fr",
+      "width": 320,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 9,
+        "/api/setup": 3,
+        "/api/user/auth/refresh": 3,
+        "/api/notice": 3,
+        "/pg/keys": 4,
+        "/api/log/self": 2,
+        "/api/user/self": 3,
+        "/api/channel/quota/changes": 3,
+        "/api/token/23/subscription-share": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-fr-1280",
+      "language": "fr",
+      "width": 1280,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 9,
+        "/api/setup": 3,
+        "/api/user/auth/refresh": 3,
+        "/api/notice": 3,
+        "/pg/keys": 4,
+        "/api/log/self": 2,
+        "/api/user/self": 3,
+        "/api/channel/quota/changes": 3,
+        "/api/token/23/subscription-share": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-ru-320",
+      "language": "ru",
+      "width": 320,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 9,
+        "/api/setup": 3,
+        "/api/user/auth/refresh": 3,
+        "/api/notice": 3,
+        "/pg/keys": 4,
+        "/api/log/self": 2,
+        "/api/user/self": 3,
+        "/api/channel/quota/changes": 3,
+        "/api/token/23/subscription-share": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-ru-1280",
+      "language": "ru",
+      "width": 1280,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 9,
+        "/api/setup": 3,
+        "/api/user/auth/refresh": 3,
+        "/api/notice": 3,
+        "/pg/keys": 4,
+        "/api/log/self": 2,
+        "/api/user/self": 3,
+        "/api/channel/quota/changes": 3,
+        "/api/token/23/subscription-share": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-ja-320",
+      "language": "ja",
+      "width": 320,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 9,
+        "/api/setup": 3,
+        "/api/user/auth/refresh": 3,
+        "/api/notice": 3,
+        "/pg/keys": 4,
+        "/api/log/self": 2,
+        "/api/user/self": 3,
+        "/api/channel/quota/changes": 3,
+        "/api/token/23/subscription-share": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-ja-1280",
+      "language": "ja",
+      "width": 1280,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 9,
+        "/api/setup": 3,
+        "/api/user/auth/refresh": 3,
+        "/api/notice": 3,
+        "/pg/keys": 4,
+        "/api/log/self": 2,
+        "/api/user/self": 3,
+        "/api/channel/quota/changes": 3,
+        "/api/token/23/subscription-share": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-vi-320",
+      "language": "vi",
+      "width": 320,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 9,
+        "/api/setup": 3,
+        "/api/user/auth/refresh": 3,
+        "/api/notice": 3,
+        "/pg/keys": 4,
+        "/api/log/self": 2,
+        "/api/user/self": 3,
+        "/api/channel/quota/changes": 3,
+        "/api/token/23/subscription-share": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-vi-1280",
+      "language": "vi",
+      "width": 1280,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 9,
+        "/api/setup": 3,
+        "/api/user/auth/refresh": 3,
+        "/api/notice": 3,
+        "/pg/keys": 4,
+        "/api/log/self": 2,
+        "/api/user/self": 3,
+        "/api/channel/quota/changes": 3,
+        "/api/token/23/subscription-share": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-zh-390",
+      "language": "zh",
+      "width": 390,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 9,
+        "/api/setup": 3,
+        "/api/user/auth/refresh": 3,
+        "/api/notice": 3,
+        "/pg/keys": 4,
+        "/api/log/self": 2,
+        "/api/user/self": 3,
+        "/api/channel/quota/changes": 3,
+        "/api/token/23/subscription-share": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-zh-1440",
+      "language": "zh",
+      "width": 1440,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 9,
+        "/api/setup": 3,
+        "/api/user/auth/refresh": 3,
+        "/api/notice": 3,
+        "/pg/keys": 4,
+        "/api/log/self": 2,
+        "/api/user/self": 3,
+        "/api/channel/quota/changes": 3,
+        "/api/token/23/subscription-share": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-zh-320-dark",
+      "language": "zh",
+      "width": 320,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 9,
+        "/api/setup": 3,
+        "/api/user/auth/refresh": 3,
+        "/api/notice": 3,
+        "/pg/keys": 4,
+        "/api/log/self": 2,
+        "/api/user/self": 3,
+        "/api/channel/quota/changes": 3,
+        "/api/token/23/subscription-share": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-en-1280-dark",
+      "language": "en",
+      "width": 1280,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 9,
+        "/api/setup": 3,
+        "/api/user/auth/refresh": 3,
+        "/api/notice": 3,
+        "/pg/keys": 4,
+        "/api/log/self": 2,
+        "/api/user/self": 3,
+        "/api/channel/quota/changes": 3,
+        "/api/token/23/subscription-share": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-permission-1",
+      "language": "en",
+      "width": 320,
+      "role": 1,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/pg/keys": 2,
+        "/api/log/self": 1,
+        "/api/user/self": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-permission-10",
+      "language": "en",
+      "width": 320,
+      "role": 10,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/pg/keys": 2,
+        "/api/log/self": 1,
+        "/api/user/self": 1,
+        "/pg/models": 1
+      }
+    },
+    {
+      "name": "personal-handoff-key-unavailable-en-1280",
+      "language": "en",
+      "width": 1280,
+      "role": 1,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/pg/keys": 2,
+        "/api/log/self": 1,
+        "/api/user/self": 1
+      }
+    },
+    {
+      "name": "personal-handoff-safe-list-failed-zh-320",
+      "language": "zh",
+      "width": 320,
+      "role": 1,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/pg/keys": 2,
+        "/api/log/self": 1,
+        "/api/user/self": 1
+      }
+    },
+    {
+      "name": "personal-retry-zh-320",
+      "language": "zh",
+      "width": 320,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/pg/keys": 2,
+        "/api/log/self": 2,
+        "/api/user/self": 1,
+        "/api/channel/quota/changes": 2
+      }
+    },
+    {
+      "name": "personal-empty-en-1280",
+      "language": "en",
+      "width": 1280,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/pg/keys": 1,
+        "/api/log/self": 1,
+        "/api/user/self": 1,
+        "/api/channel/quota/changes": 1
+      }
+    },
+    {
+      "name": "legacy-enabled-gate",
+      "language": "en",
+      "width": 1280,
+      "result": "passed",
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/api/data/self": 1,
+        "/api/log/self/overview": 1,
+        "/api/token": 1,
+        "/api/user/models": 1
+      }
+    },
+    {
+      "name": "legacy-retirement-gate",
+      "language": "en",
+      "width": 1280,
+      "result": "passed",
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/api/data/self": 1,
+        "/api/log/self/overview": 1,
+        "/api/token": 1,
+        "/api/user/models": 1
+      }
+    },
+    {
+      "name": "legacy-unknown-gate",
+      "language": "en",
+      "width": 1280,
+      "result": "passed",
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "personal-en-320-overview.png",
+      "journey": "personal-en-320",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-en-320-upstream.png",
+      "journey": "personal-en-320",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-en-1280-overview.png",
+      "journey": "personal-en-1280",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-en-1280-upstream.png",
+      "journey": "personal-en-1280",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-zh-320-overview.png",
+      "journey": "personal-zh-320",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-zh-320-upstream.png",
+      "journey": "personal-zh-320",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-zh-1280-overview.png",
+      "journey": "personal-zh-1280",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-zh-1280-upstream.png",
+      "journey": "personal-zh-1280",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-zh-TW-320-overview.png",
+      "journey": "personal-zh-TW-320",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-zh-TW-320-upstream.png",
+      "journey": "personal-zh-TW-320",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-zh-TW-1280-overview.png",
+      "journey": "personal-zh-TW-1280",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-zh-TW-1280-upstream.png",
+      "journey": "personal-zh-TW-1280",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-fr-320-overview.png",
+      "journey": "personal-fr-320",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-fr-320-upstream.png",
+      "journey": "personal-fr-320",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-fr-1280-overview.png",
+      "journey": "personal-fr-1280",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-fr-1280-upstream.png",
+      "journey": "personal-fr-1280",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-ru-320-overview.png",
+      "journey": "personal-ru-320",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-ru-320-upstream.png",
+      "journey": "personal-ru-320",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-ru-1280-overview.png",
+      "journey": "personal-ru-1280",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-ru-1280-upstream.png",
+      "journey": "personal-ru-1280",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-ja-320-overview.png",
+      "journey": "personal-ja-320",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-ja-320-upstream.png",
+      "journey": "personal-ja-320",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-ja-1280-overview.png",
+      "journey": "personal-ja-1280",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-ja-1280-upstream.png",
+      "journey": "personal-ja-1280",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-vi-320-overview.png",
+      "journey": "personal-vi-320",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-vi-320-upstream.png",
+      "journey": "personal-vi-320",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-vi-1280-overview.png",
+      "journey": "personal-vi-1280",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-vi-1280-upstream.png",
+      "journey": "personal-vi-1280",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-zh-390-overview.png",
+      "journey": "personal-zh-390",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-zh-390-upstream-stale.png",
+      "journey": "personal-zh-390",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-zh-1440-overview.png",
+      "journey": "personal-zh-1440",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-zh-1440-upstream.png",
+      "journey": "personal-zh-1440",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-zh-320-dark-overview.png",
+      "journey": "personal-zh-320-dark",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-zh-320-dark-upstream.png",
+      "journey": "personal-zh-320-dark",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-en-1280-dark-overview.png",
+      "journey": "personal-en-1280-dark",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-en-1280-dark-upstream.png",
+      "journey": "personal-en-1280-dark",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-permission-1-overview.png",
+      "journey": "personal-permission-1",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-permission-10-overview.png",
+      "journey": "personal-permission-10",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-retry-zh-320-errors.png",
+      "journey": "personal-retry-zh-320",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-retry-zh-320-recovered.png",
+      "journey": "personal-retry-zh-320",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "personal-empty-en-1280-empty.png",
+      "journey": "personal-empty-en-1280",
+      "sourceHead": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+      "buildRevision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    }
+  ],
+  "contrast": [
+    {
+      "journey": "personal-en-320",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-en-320",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-en-320",
+      "snapshot": "upstream",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-en-1280",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-en-1280",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-en-1280",
+      "snapshot": "upstream",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-320",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-320",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-320",
+      "snapshot": "upstream",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-1280",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-1280",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-1280",
+      "snapshot": "upstream",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-TW-320",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-TW-320",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-TW-320",
+      "snapshot": "upstream",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-TW-1280",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-TW-1280",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-TW-1280",
+      "snapshot": "upstream",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-fr-320",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-fr-320",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-fr-320",
+      "snapshot": "upstream",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-fr-1280",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-fr-1280",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-fr-1280",
+      "snapshot": "upstream",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-ru-320",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-ru-320",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-ru-320",
+      "snapshot": "upstream",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-ru-1280",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-ru-1280",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-ru-1280",
+      "snapshot": "upstream",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-ja-320",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-ja-320",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-ja-320",
+      "snapshot": "upstream",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-ja-1280",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-ja-1280",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-ja-1280",
+      "snapshot": "upstream",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-vi-320",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-vi-320",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-vi-320",
+      "snapshot": "upstream",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-vi-1280",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-vi-1280",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-vi-1280",
+      "snapshot": "upstream",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-390",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-390",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-390",
+      "snapshot": "upstream-stale",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-390",
+      "snapshot": "upstream-stale",
+      "name": "warning",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        138,
+        91,
+        0
+      ],
+      "ratio": 5.870695592150622,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-1440",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-1440",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-1440",
+      "snapshot": "upstream",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-320-dark",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "dark",
+      "background": [
+        27,
+        38,
+        57
+      ],
+      "foreground": [
+        110,
+        231,
+        183
+      ],
+      "ratio": 9.962292223795995,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-320-dark",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "dark",
+      "background": [
+        27,
+        38,
+        57
+      ],
+      "foreground": [
+        253,
+        164,
+        175
+      ],
+      "ratio": 8.030593727129116,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-zh-320-dark",
+      "snapshot": "upstream",
+      "name": "success",
+      "theme": "dark",
+      "background": [
+        27,
+        38,
+        57
+      ],
+      "foreground": [
+        110,
+        231,
+        183
+      ],
+      "ratio": 9.962292223795995,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-en-1280-dark",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "dark",
+      "background": [
+        27,
+        38,
+        57
+      ],
+      "foreground": [
+        110,
+        231,
+        183
+      ],
+      "ratio": 9.962292223795995,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-en-1280-dark",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "dark",
+      "background": [
+        27,
+        38,
+        57
+      ],
+      "foreground": [
+        253,
+        164,
+        175
+      ],
+      "ratio": 8.030593727129116,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-en-1280-dark",
+      "snapshot": "upstream",
+      "name": "success",
+      "theme": "dark",
+      "background": [
+        27,
+        38,
+        57
+      ],
+      "foreground": [
+        110,
+        231,
+        183
+      ],
+      "ratio": 9.962292223795995,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-permission-1",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-permission-1",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-permission-10",
+      "snapshot": "overview",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-permission-10",
+      "snapshot": "overview",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-retry-zh-320",
+      "snapshot": "errors",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-retry-zh-320",
+      "snapshot": "recovered",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "personal-retry-zh-320",
+      "snapshot": "recovered",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    }
+  ],
+  "diagnostics": [],
+  "buildRevisions": [
+    {
+      "journey": "personal-en-320",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-en-320",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-en-1280",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-en-1280",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-zh-320",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-zh-320",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-zh-1280",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-zh-1280",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-zh-TW-320",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-zh-TW-320",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-zh-TW-1280",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-zh-TW-1280",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-fr-320",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-fr-320",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-fr-1280",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-fr-1280",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-ru-320",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-ru-320",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-ru-1280",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-ru-1280",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-ja-320",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-ja-320",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-ja-1280",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-ja-1280",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-vi-320",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-vi-320",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-vi-1280",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-vi-1280",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-zh-390",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-zh-390",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-zh-1440",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-zh-1440",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-zh-320-dark",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-zh-320-dark",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-en-1280-dark",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-en-1280-dark",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-permission-1",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-permission-10",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-handoff-key-unavailable-en-1280",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-handoff-safe-list-failed-zh-320",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-retry-zh-320",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    },
+    {
+      "journey": "personal-empty-en-1280",
+      "revision": "rv.0.2.0-beta.15.dd3859d9cf86189072fab25d0ee840d626d86c36.2k6e8r7p"
+    }
+  ],
+  "errors": [],
+  "coverage": {
+    "languages": [
+      "en",
+      "zh",
+      "zh-TW",
+      "fr",
+      "ru",
+      "ja",
+      "vi"
+    ],
+    "widths": [
+      320,
+      390,
+      1280,
+      1440
+    ],
+    "handoffCases": [
+      "available",
+      "key-unavailable",
+      "safe-list-failed"
+    ]
+  }
+}

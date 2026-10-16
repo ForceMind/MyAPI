@@ -12,8 +12,10 @@ import (
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/logger"
 	"github.com/ForceMind/MyAPI/model"
+	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/service"
 	"github.com/ForceMind/MyAPI/setting/system_setting"
 
@@ -152,6 +154,14 @@ func VideoProxy(c *gin.Context) {
 	if err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("Failed to parse URL %s: %s", videoURL, err.Error()))
 		videoProxyError(c, http.StatusInternalServerError, "server_error", "Failed to create proxy request")
+		return
+	}
+	if err := service.ValidateTokenCredentialDispatch(c.Request.Context(), &relaycommon.RelayInfo{
+		TokenId:                common.GetContextKeyInt(c, constant.ContextKeyTokenId),
+		UserId:                 common.GetContextKeyInt(c, constant.ContextKeyUserId),
+		TokenCredentialVersion: common.GetContextKeyInt64(c, constant.ContextKeyTokenCredentialVersion),
+	}); err != nil {
+		videoProxyError(c, http.StatusForbidden, "access_denied", common.TranslateMessage(c, i18n.MsgInvalidParams))
 		return
 	}
 

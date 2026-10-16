@@ -20,6 +20,19 @@ export function validateSmokeTarget(baseUrl, edition, sha) {
   return target.origin
 }
 
+export function personalSmokeWebRateLimit({ baseUrl, edition, sha, isolated, personal } = {}) {
+  if (isolated !== true || personal !== true || edition !== 'full') throw new Error('INVALID_ISOLATED_SMOKE_TARGET')
+  validateSmokeTarget(baseUrl, edition, sha)
+  // This cold-cache fixture makes 7 document loads: setup, two sign-ins,
+  // the config and persistence reloads, Users, and System Info. Its required
+  // Playwright origin guard disables HTTP caching. The 0973fbf Full bundle
+  // contains 159 non-HTML resources (including unused font formats and routes).
+  // Budgeting the entire catalog + HTML per document is a conservative bound,
+  // not a measurement of what each page loads. Production stays at 120/180s;
+  // this does not change API, authentication, search, or relay limits.
+  return 7 * 160
+}
+
 const fixture = Object.freeze({
   userName: 'smokeuser',
   userDisplayName: 'Smoke User',
@@ -676,6 +689,7 @@ async function main() {
     const personalOptions = personalEnabled ? {
       playwrightModule: process.env.MYAPI_PLAYWRIGHT_MODULE,
       artifactDir: process.env.MYAPI_PERSONAL_ARTIFACT_DIR,
+      advancedModelScope: true,
     } : null
     const personalDriver = personalEnabled ? await import('./personal-browser.mjs') : null
     const report = await probeFreshSQLite({ baseUrl, sha, edition, isolated: true, relayFixture: true,
@@ -731,10 +745,10 @@ async function main() {
       'SMOKE_PERSONAL_REQUEST_MISMATCH', 'SMOKE_PERSONAL_RELAY_MISMATCH', 'SMOKE_PERSONAL_LOG_MISMATCH',
       'SMOKE_PERSONAL_USAGE_MISMATCH', 'SMOKE_PERSONAL_UPSTREAM_MISMATCH', 'SMOKE_PERSONAL_WRITER_MISMATCH',
       'SMOKE_PERSONAL_SCREENSHOT_REJECTED', 'SMOKE_PERSONAL_FRONTEND_EVIDENCE'])
-    const safeStages = new Set(['launch', 'browser-close', 'setup',
+    const safeStages = new Set(['launch', 'browser-close', 'build-visible', 'setup',
       'setup-session', 'setup-open', 'setup-database', 'setup-credentials', 'setup-mode', 'setup-review', 'setup-submit', 'setup-response', 'login', 'login-open', 'login-response', 'login-keys', 'document-backoff', 'writer-check', 'fixture-config', 'fixture-config-refresh', 'policy-view', 'policy-refresh', 'key-create',
       'key-create-open', 'key-create-ready', 'key-create-profile', 'key-create-cap', 'key-create-quota',
-      'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'key-selection-model', 'workbench-open', 'workbench-key-selection', 'workbench-playground-open', 'key-handoff-readback', 'playground-send', 'ledger-check', 'usage-view', 'usage-open', 'usage-filter', 'usage-list', 'usage-list-visible', 'usage-details-open', 'usage-details-request', 'usage-details-key', 'policy-user-filter', 'policy-confirm', 'playground-response', 'playground-complete', 'playground-rejection', 'strict-key-filter', 'strict-budget', 'reload-check', 'screenshot'])
+      'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'key-selection-model', 'workbench-open', 'workbench-key-selection', 'workbench-playground-open', 'key-handoff-readback', 'playground-send', 'ledger-check', 'usage-view', 'usage-open', 'usage-filter', 'usage-list', 'usage-list-visible', 'usage-details-open', 'usage-details-request', 'usage-details-key', 'policy-user-filter', 'policy-confirm', 'playground-response', 'playground-complete', 'playground-rejection', 'strict-key-filter', 'strict-budget', 'reload-check', 'model-scope-boundary', 'model-scope-catalog', 'model-scope-open', 'model-scope-restrict-mode', 'model-scope-restrict-search', 'model-scope-restrict-candidate', 'model-scope-restrict-save', 'model-scope-restore-mode', 'model-scope-restore-save', 'model-scope-restore-command', 'model-scope-restore-write-response', 'model-scope-restore-readback-response', 'model-scope-restore-close', 'model-scope-restore-final-read', 'model-scope-restore-invariant', 'screenshot'])
     const diagnostics = safeFrontendDiagnostics(error?.diagnostics)
     console.error(JSON.stringify({ command: 'docker:smoke', passed: false,
       code: safeCodes.has(error?.message) ? error.message : 'SMOKE_UNEXPECTED_FAILURE',

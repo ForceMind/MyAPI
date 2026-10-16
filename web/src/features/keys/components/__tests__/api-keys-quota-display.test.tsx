@@ -15,13 +15,14 @@ import { ApiKeysProvider } from '../api-keys-provider'
 import { ApiKeysTable } from '../api-keys-table'
 
 const originalConfig = useSystemConfigStore.getState().config
-const originalInnerWidth = Object.getOwnPropertyDescriptor(
-  window,
-  'innerWidth'
-)
+const originalInnerWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth')
 let client: QueryClient
 
-function makeKey(usedQuota: number, remainQuota: number): ApiKey {
+function makeKey(
+  usedQuota: number,
+  remainQuota: number,
+  overrides: Partial<ApiKey> = {}
+): ApiKey {
   return apiKeySchema.parse({
     id: 21,
     name: 'wide-key',
@@ -35,6 +36,7 @@ function makeKey(usedQuota: number, remainQuota: number): ApiKey {
     accessed_time: 1,
     group: 'default',
     model_limits_enabled: false,
+    ...overrides,
   })
 }
 
@@ -132,6 +134,16 @@ test.each(['desktop', 'mobile'] as const)(
     }
   }
 )
+
+test('labels an enabled empty model scope as blocking all models', async () => {
+  setViewport('desktop')
+  await renderTable(
+    makeKey(100, 100, { model_limits_enabled: true, model_limits: '' })
+  )
+
+  expect(await screen.findByText('wide-key')).toBeVisible()
+  expect(screen.getByText('Block all models')).toBeVisible()
+})
 
 test.each(['desktop', 'mobile'] as const)(
   'shows both exact components and no derived progress when the %s total exceeds the safe boundary',

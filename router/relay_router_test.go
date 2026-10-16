@@ -120,7 +120,8 @@ func setupRelayRouterTestDB(t *testing.T) {
 	model.InitColumnNamesForTest()
 	model.DB, model.LOG_DB = db, db
 	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.AssignedAccessPolicy{}, &model.Channel{}, &model.TokenBudget{}, &model.Ability{}, &model.Log{},
-		&model.AccountQuotaExecutionGate{}, &model.AccountQuotaExecutionPermit{}))
+		&model.AccountQuotaExecutionGate{}, &model.AccountQuotaExecutionPermit{},
+		&model.SubscriptionSharePool{}, &model.SubscriptionShareAllocation{}))
 	require.NoError(t, model.EnsureFreshAccountQuotaExecutionGate(context.Background(), db))
 	require.NoError(t, model.EnsureLogProjectionSchemaWithDB(db))
 }

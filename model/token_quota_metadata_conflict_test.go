@@ -379,6 +379,7 @@ func TestTokenMetadataMutationsRejectDatabaseWriteWhenCacheInvalidationFails(t *
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			_, fixture, server := openLegacyBalanceBatchTestWithRedis(t, "token-cache-fail-closed-"+test.name)
+			require.NoError(t, DB.AutoMigrate(&SubscriptionSharePool{}, &SubscriptionShareAllocation{}))
 			server.SetError("ERR synthetic token cache invalidation failure")
 			err := test.mutate(&fixture.Token)
 			server.SetError("")

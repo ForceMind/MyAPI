@@ -1,4 +1,5 @@
 name: Browser smoke test for MyAPI website
+run-name: ${{ inputs.security_evidence && 'Advanced security evidence recheck' || 'MyAPI website browser smoke' }}
 
 on:
   push:
@@ -13,9 +14,25 @@ on:
       - 'tools/website/browser-smoke.mjs'
       - '.github/workflows/website-browser.yml'
   workflow_dispatch:
+    inputs:
+      security_evidence:
+        description: 'Recheck security screenshots against an unchanged qualified application build'
+        type: boolean
+        default: false
+      build_run_id:
+        description: 'Successful CI run containing the unchanged application build'
+        required: true
+        type: string
+        default: '38855315874'
+      build_sha:
+        description: 'Exact checkout SHA in the retained console artifact name'
+        required: true
+        type: string
+        default: 'c88c8089660e064b31920a02e057e3df34508229'
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: website-browser-${{ github.workflow }}-${{ github.ref }}
@@ -23,6 +40,7 @@ concurrency:
 
 jobs:
   chromium:
+    if: github.event_name != 'workflow_dispatch' || !inputs.security_evidence
     name: Mobile Chromium smoke
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -52,5 +70,102 @@ jobs:
         with:
           name: myapi-website-mobile-${{ github.sha }}
           path: artifacts/myapi-website-mobile*.png
+          if-no-files-found: ignore
+          retention-days: 7
+
+  security-evidence:
+    if: github.event_name == 'workflow_dispatch' && inputs.security_evidence
+    name: Qualified-build security evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout current evidence driver
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+
+      - name: Verify unchanged source and retrieve qualified build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MYAPI_BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          MYAPI_BUILD_SHA: ${{ inputs.build_sha }}
+          MYAPI_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          [[ "$MYAPI_BUILD_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$MYAPI_BUILD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          gh api "repos/$MYAPI_REPOSITORY/actions/runs/$MYAPI_BUILD_RUN_ID" > "$RUNNER_TEMP/build-run.json"
+          producer_sha=$(python3 - "$RUNNER_TEMP/build-run.json" <<'PY'
+          import json, re, sys
+          run = json.load(open(sys.argv[1]))
+          assert run['name'] == 'CI' and run['path'] == '.github/workflows/ci.yml'
+          assert run['status'] == 'completed' and run['conclusion'] == 'success'
+          assert re.fullmatch('[0-9a-f]{40}', run['head_sha'])
+          print(run['head_sha'])
+          PY
+          )
+          producer_tree=$(gh api "repos/$MYAPI_REPOSITORY/git/commits/$producer_sha" --jq '.tree.sha')
+          build_tree=$(gh api "repos/$MYAPI_REPOSITORY/git/commits/$MYAPI_BUILD_SHA" --jq '.tree.sha')
+          [[ "$producer_tree" == "$build_tree" ]]
+          gh api "repos/$MYAPI_REPOSITORY/compare/$producer_sha...$GITHUB_SHA" > "$RUNNER_TEMP/source-diff.json"
+          python3 - "$RUNNER_TEMP/source-diff.json" <<'PY'
+          import json, sys
+          diff = json.load(open(sys.argv[1]))
+          assert diff['status'] in ('ahead', 'identical')
+          files = diff['files']
+          assert len(files) < 300, 'Refuse potentially truncated compare results'
+          allowed = {'tools/ui/security-maintenance-browser.mjs',
+                     '.github/workflows/website-browser.yml'}
+          for item in files:
+              assert item['filename'].startswith('docs/') or item['filename'] in allowed
+              if 'previous_filename' in item:
+                  assert item['previous_filename'].startswith('docs/') or item['previous_filename'] in allowed
+          PY
+          gh run download "$MYAPI_BUILD_RUN_ID" --repo "$MYAPI_REPOSITORY" \
+            --name "myapi-console-build-$MYAPI_BUILD_SHA" --dir "$RUNNER_TEMP/qualified-build"
+          test -f "$RUNNER_TEMP/qualified-build/dist/index.html"
+          mkdir -p web/dist "$RUNNER_TEMP/security-evidence"
+          cp -a "$RUNNER_TEMP/qualified-build/dist/." web/dist/
+          export MYAPI_PRODUCER_SHA="$producer_sha" MYAPI_PRODUCER_TREE="$producer_tree"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          record = dict(build_run=int(os.environ['MYAPI_BUILD_RUN_ID']),
+                        build_checkout=os.environ['MYAPI_BUILD_SHA'],
+                        producer_source=os.environ['MYAPI_PRODUCER_SHA'],
+                        qualified_tree=os.environ['MYAPI_PRODUCER_TREE'],
+                        driver_source=os.environ['GITHUB_SHA'],
+                        application_source_unchanged=True,
+                        allowed_differences=['docs/**', 'tools/ui/security-maintenance-browser.mjs',
+                                             '.github/workflows/website-browser.yml'])
+          (Path(os.environ['RUNNER_TEMP']) / 'security-evidence/source-identity.json').write_text(json.dumps(record, indent=2) + '\n')
+          PY
+
+      - name: Install isolated Chromium runtime
+        run: |
+          npm install --prefix "$RUNNER_TEMP/myapi-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1
+          "$RUNNER_TEMP/myapi-browser/node_modules/.bin/playwright" install --with-deps chromium
+
+      - name: Recheck real security interactions and original screenshots
+        env:
+          MYAPI_QUALIFIED_BUILD_SHA: ${{ inputs.build_sha }}
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs
+          MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/security-evidence
+          NODE_OPTIONS: '--max-old-space-size=768'
+        run: node tools/ui/security-maintenance-browser.mjs
+
+      - name: Preserve source identity, original screenshots and report
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-security-evidence-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/security-evidence/*.png
+            ${{ runner.temp }}/security-evidence/*.json
           if-no-files-found: ignore
           retention-days: 7

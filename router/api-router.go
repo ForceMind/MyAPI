@@ -16,6 +16,13 @@ import (
 func SetApiRouter(router *gin.Engine) {
 	apiRouter := router.Group("/api")
 	apiRouter.Use(func(c *gin.Context) {
+		// A global rate-limit rejection happens before the rotation route chain.
+		// Mark that boundary too, so a known pre-handler rejection cannot leave
+		// the browser waiting forever for a receipt that was never created.
+		if c.Request.Method == "POST" && strings.HasPrefix(c.Request.URL.Path, "/api/token/") &&
+			strings.HasSuffix(c.Request.URL.Path, "/credential-rotation") && strings.Count(c.Request.URL.Path, "/") == 4 {
+			c.Header("X-MyAPI-Credential-Rotation-Disposition", "not_accepted")
+		}
 		if c.Request.URL.Path == "/api/option/diagnostics" || strings.HasPrefix(c.Request.URL.Path, "/api/option/diagnostics/") {
 			c.Header("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0")
 			c.Header("Pragma", "no-cache")
@@ -207,6 +214,8 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/option/diagnostics", middleware.DisableCache(), middleware.RootAuth(), controller.GetOptionDiagnostics)
 		apiRouter.GET("/user/:id/usage-policy", middleware.DisableCache(), middleware.UserAuth(), controller.GetUserUsagePolicy)
 		apiRouter.PUT("/user/:id/usage-policy", middleware.DisableCache(), middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.UpdateUserUsagePolicy)
+		apiRouter.GET("/subscription-share/pools/:pool_id/usage", middleware.DisableCache(), middleware.RootAuth(), controller.GetSubscriptionSharePoolUsage)
+		apiRouter.POST("/subscription-share/pools/:pool_id/close", middleware.DisableCache(), middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.CloseSubscriptionSharePool)
 		apiRouter.GET("/usage-reviews/pending", middleware.DisableCache(), middleware.RootAuth(), controller.GetPendingUsageReviews)
 		apiRouter.POST("/usage-review/:request_id/recover-dispatch", middleware.DisableCache(), middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.RecoverTextDispatchUsage)
 		apiRouter.GET("/usage-review/:request_id", middleware.DisableCache(), middleware.UserAuth(), controller.GetUsageReview)
@@ -287,6 +296,7 @@ func SetApiRouter(router *gin.Engine) {
 		registerChannelRoutes(apiRouter)
 		registerAssignedAccessPolicyRoutes(apiRouter)
 		registerAuthzRoutes(apiRouter)
+		registerTokenCredentialRotationRoutes(apiRouter)
 		tokenRoute := apiRouter.Group("/token")
 		tokenRoute.Use(middleware.UserAuth())
 		{
@@ -294,7 +304,12 @@ func SetApiRouter(router *gin.Engine) {
 			tokenRoute.GET("/search", middleware.SearchRateLimit(), controller.SearchTokens)
 			tokenRoute.GET("/auto-groups", controller.GetTokenAutoGroups)
 			tokenRoute.GET("/:id", controller.GetToken)
+			registerTokenMaintenanceRoutes(tokenRoute)
+			tokenRoute.GET("/:id/model-limits", middleware.DisableCache(), controller.GetTokenModelLimits)
+			tokenRoute.PUT("/:id/model-limits", middleware.DisableCache(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.UpdateTokenModelLimits)
 			tokenRoute.GET("/:id/budget", middleware.DisableCache(), controller.GetTokenBudget)
+			tokenRoute.GET("/:id/subscription-share", middleware.DisableCache(), controller.GetSubscriptionShares)
+			tokenRoute.PUT("/:id/subscription-share", middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), middleware.DisableCache(), controller.UpdateSubscriptionShare)
 			tokenRoute.PUT("/:id/budget", middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), middleware.DisableCache(), controller.UpdateTokenBudget)
 			tokenRoute.POST("/:id/budget/recover", middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), middleware.DisableCache(), controller.RecoverTokenBudget)
 			tokenRoute.POST("/:id/key", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.GetTokenKey)

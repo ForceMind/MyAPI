@@ -28,6 +28,8 @@ import {
   Link,
   Loader2,
   Gauge,
+  ListFilter,
+  ShieldCheck,
 } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -56,7 +58,8 @@ import { copyToClipboard } from '@/lib/copy-to-clipboard'
 
 import { updateApiKeyStatus } from '../api'
 import { API_KEY_STATUS, ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
-import { apiKeySchema } from '../types'
+import { useKeyMaintenanceSession } from '../hooks/use-key-maintenance-session'
+import { apiKeySchema, type ApiKey } from '../types'
 import { useApiKeys } from './api-keys-provider'
 
 function getServerAddress(): string {
@@ -72,15 +75,24 @@ function getServerAddress(): string {
   return window.location.origin
 }
 
-type DataTableRowActionsProps<TData> = {
-  row: Row<TData>
-}
+type DataTableRowActionsProps<TData> =
+  | {
+      row: Row<TData>
+      apiKey?: never
+      onCredentialMaintenance?: () => void
+    }
+  | {
+      apiKey: ApiKey
+      row?: never
+      onCredentialMaintenance?: () => void
+    }
 
-export function DataTableRowActions<TData>({
-  row,
-}: DataTableRowActionsProps<TData>) {
+export function DataTableRowActions<TData = ApiKey>(
+  props: DataTableRowActionsProps<TData>
+) {
   const { t } = useTranslation()
-  const apiKey = apiKeySchema.parse(row.original)
+  const isCurrentSession = useKeyMaintenanceSession()
+  const apiKey = apiKeySchema.parse(props.apiKey ?? props.row?.original)
   const {
     setOpen,
     setCurrentRow,
@@ -101,24 +113,32 @@ export function DataTableRowActions<TData>({
 
   const handleMenuOpenChange = useCallback(
     (open: boolean) => {
-      if (open && !resolvedRealKey && !isRealKeyLoading) {
+      if (open && isCurrentSession() && !resolvedRealKey && !isRealKeyLoading) {
         void resolveRealKey(apiKey.id)
       }
     },
-    [apiKey.id, isRealKeyLoading, resolvedRealKey, resolveRealKey]
+    [
+      apiKey.id,
+      isCurrentSession,
+      isRealKeyLoading,
+      resolvedRealKey,
+      resolveRealKey,
+    ]
   )
 
   const getCachedRealKey = useCallback(() => {
+    if (!isCurrentSession()) return null
     if (resolvedRealKey) return resolvedRealKey
     void resolveRealKey(apiKey.id)
     toast.info(t('API key is loading, please try again in a moment'))
     return null
-  }, [apiKey.id, resolvedRealKey, resolveRealKey, t])
+  }, [apiKey.id, isCurrentSession, resolvedRealKey, resolveRealKey, t])
 
   const handleOpenChatPreset = useCallback(
     async (preset: ChatPreset) => {
+      if (!isCurrentSession()) return
       const realKey = await resolveRealKey(apiKey.id)
-      if (!realKey) return
+      if (!realKey || !isCurrentSession()) return
 
       if (preset.type === 'fluent') {
         const success = sendToFluent(realKey, serverAddress)
@@ -153,20 +173,26 @@ export function DataTableRowActions<TData>({
         window.location.href = resolvedUrl
       }
     },
-    [resolveRealKey, apiKey.id, serverAddress, t]
+    [resolveRealKey, apiKey.id, isCurrentSession, serverAddress, t]
   )
 
   const handleToggleStatus = async (
     e?: React.MouseEvent<HTMLButtonElement>
   ) => {
     e?.stopPropagation()
+    if (!isCurrentSession()) return
     const newStatus = isEnabled
       ? API_KEY_STATUS.DISABLED
       : API_KEY_STATUS.ENABLED
 
     setIsTogglingStatus(true)
     try {
-      const result = await updateApiKeyStatus(apiKey.id, newStatus)
+      const result = await updateApiKeyStatus(apiKey.id, newStatus, {
+        skipErrorHandler: true,
+        skipBusinessError: true,
+        skipAuthRefresh: true,
+      })
+      if (!isCurrentSession()) return
       if (result.success) {
         const message = isEnabled
           ? t(SUCCESS_MESSAGES.API_KEY_DISABLED)
@@ -177,9 +203,9 @@ export function DataTableRowActions<TData>({
         toast.error(result.message || t(ERROR_MESSAGES.STATUS_UPDATE_FAILED))
       }
     } catch {
-      toast.error(t(ERROR_MESSAGES.UNEXPECTED))
+      if (isCurrentSession()) toast.error(t(ERROR_MESSAGES.UNEXPECTED))
     } finally {
-      setIsTogglingStatus(false)
+      if (isCurrentSession()) setIsTogglingStatus(false)
     }
   }
 
@@ -191,7 +217,7 @@ export function DataTableRowActions<TData>({
   }
 
   return (
-    <div className='-ml-1.5 flex min-w-0 max-w-full flex-wrap items-center gap-1 md:min-w-min'>
+    <div className='-ml-1.5 flex max-w-full min-w-0 flex-wrap items-center gap-1 md:min-w-min'>
       <Tooltip>
         <TooltipTrigger
           render={
@@ -236,7 +262,7 @@ export function DataTableRowActions<TData>({
       <Button
         variant='outline'
         size='sm'
-        className='h-auto min-h-8 min-w-0 max-w-full px-2 whitespace-normal md:min-w-min md:flex-col md:gap-1 pointer-coarse:min-h-11'
+        className='h-auto min-h-8 max-w-full min-w-0 px-2 whitespace-normal md:min-w-min md:flex-col md:gap-1 pointer-coarse:min-h-11'
         aria-label={t('API Key usage budgets')}
         onClick={() => {
           setCurrentRow(apiKey)
@@ -244,7 +270,7 @@ export function DataTableRowActions<TData>({
         }}
       >
         <Gauge className='size-4 shrink-0' aria-hidden='true' />
-        <span className='min-w-0 max-w-full break-words whitespace-normal md:min-w-min md:break-normal'>
+        <span className='max-w-full min-w-0 break-words whitespace-normal md:min-w-min md:break-normal'>
           {t('Usage budgets')}
         </span>
       </Button>
@@ -264,11 +290,38 @@ export function DataTableRowActions<TData>({
           {t('Assigned access')}
         </DropdownMenuItem>
         <DropdownMenuItem
+          onClick={() => {
+            setCurrentRow(apiKey)
+            setOpen('model-scope')
+          }}
+        >
+          {t('Model scope')}
+          <DropdownMenuShortcut>
+            <ListFilter />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
+        {props.onCredentialMaintenance && (
+          <DropdownMenuItem onClick={props.onCredentialMaintenance}>
+            {t('Credential maintenance')}
+            <DropdownMenuShortcut>
+              <ShieldCheck />
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem
+          onClick={() => {
+            setCurrentRow(apiKey)
+            setOpen('subscription-share')
+          }}
+        >
+          {t('Subscription shares')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
           onClick={async () => {
             const realKey = getCachedRealKey()
             if (!realKey) return
             const ok = await copyToClipboard(realKey)
-            if (ok) toast.success(t('Copied'))
+            if (ok && isCurrentSession()) toast.success(t('Copied'))
           }}
         >
           {t('Copy Key')}
@@ -285,7 +338,7 @@ export function DataTableRowActions<TData>({
               getServerAddress()
             )
             const ok = await copyToClipboard(connStr)
-            if (ok) toast.success(t('Copied'))
+            if (ok && isCurrentSession()) toast.success(t('Copied'))
           }}
         >
           {t('Copy Connection Info')}
@@ -296,8 +349,9 @@ export function DataTableRowActions<TData>({
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={async () => {
+            if (!isCurrentSession()) return
             const realKey = await resolveRealKey(apiKey.id)
-            if (!realKey) return
+            if (!realKey || !isCurrentSession()) return
             setResolvedKey(realKey)
             setCurrentRow(apiKey)
             setOpen('cc-switch')

@@ -61,6 +61,8 @@ func setupDurableRelayTestDB(t *testing.T) *gorm.DB {
 	err = db.AutoMigrate(
 		&model.User{},
 		&model.Token{},
+		&model.SubscriptionSharePool{},
+		&model.SubscriptionShareAllocation{},
 		&model.AssignedAccessPolicy{},
 		&model.SubscriptionPlan{},
 		&model.UserSubscription{},
@@ -258,6 +260,14 @@ func TestRelayTask_GateOn_OnlyAliasIdempotencyKeyRejected(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "invalid_idempotency_key")
 }
 
+func TestShouldRetryTaskRelayStopsAfterCredentialDispatchAdmission(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	taskErr := &taskdto.TaskError{StatusCode: http.StatusBadGateway}
+
+	require.True(t, shouldRetryTaskRelay(c, 7, taskErr, 1, ""), "legacy mode keeps its existing failover behavior")
+	require.False(t, shouldRetryTaskRelay(c, 7, taskErr, 1, strings.Repeat("a", 64)), "an admitted send cannot be replayed against another provider")
+}
+
 func TestRelayTask_GateOn_SuccessAcceptedAndReplay(t *testing.T) {
 	db := setupDurableRelayTestDB(t)
 	prev := common.TaskRecoveryNewSubmissionsEnabled
@@ -317,6 +327,7 @@ func TestRelayTask_GateOn_SuccessAcceptedAndReplay(t *testing.T) {
 	c1.Request = req1
 	c1.Set("id", user.Id)
 	c1.Set("token_id", token.Id)
+	common.SetContextKey(c1, constant.ContextKeyTokenCredentialVersion, token.CredentialVersion)
 	c1.Set("token_group", "default")
 	require.Nil(t, middleware.SetupContextForSelectedChannel(c1, &channel, "kling"))
 
@@ -350,6 +361,7 @@ func TestRelayTask_GateOn_SuccessAcceptedAndReplay(t *testing.T) {
 	c2.Request = req2
 	c2.Set("id", user.Id)
 	c2.Set("token_id", token.Id)
+	common.SetContextKey(c2, constant.ContextKeyTokenCredentialVersion, token.CredentialVersion)
 	c2.Set("token_group", "default")
 	require.Nil(t, middleware.SetupContextForSelectedChannel(c2, &channel, "kling"))
 
@@ -380,6 +392,7 @@ func TestRelayTask_GateOn_SuccessAcceptedAndReplay(t *testing.T) {
 	c3.Request = req3
 	c3.Set("id", user.Id)
 	c3.Set("token_id", token.Id)
+	common.SetContextKey(c3, constant.ContextKeyTokenCredentialVersion, token.CredentialVersion)
 	c3.Set("token_group", "default")
 	require.Nil(t, middleware.SetupContextForSelectedChannel(c3, &channel, "kling"))
 
@@ -393,6 +406,32 @@ func TestRelayTask_GateOn_SuccessAcceptedAndReplay(t *testing.T) {
 	var refreshedUser3 model.User
 	require.NoError(t, db.First(&refreshedUser3, user.Id).Error)
 	assert.Equal(t, 500000-deductedQuota, refreshedUser3.Quota)
+
+	// 4. A request authenticated before credential rotation is rejected before
+	// provider dispatch, and its newly created reservation is released.
+	require.NoError(t, db.Model(&model.Token{}).Where("id = ?", token.Id).Update("credential_version", token.CredentialVersion+1).Error)
+	w4 := httptest.NewRecorder()
+	c4, _ := gin.CreateTestContext(w4)
+	req4 := httptest.NewRequest(http.MethodPost, "/v1/videos", strings.NewReader(payload))
+	req4.Header.Set("Idempotency-Key", "e2e-idempotency-key-stale-generation")
+	req4.Header.Set("Content-Type", "application/json")
+	c4.Request = req4
+	c4.Set("id", user.Id)
+	c4.Set("token_id", token.Id)
+	common.SetContextKey(c4, constant.ContextKeyTokenCredentialVersion, token.CredentialVersion)
+	c4.Set("token_group", "default")
+	require.Nil(t, middleware.SetupContextForSelectedChannel(c4, &channel, "kling"))
+
+	RelayTask(c4)
+
+	require.Equal(t, http.StatusAccepted, w4.Code, w4.Body.String())
+	var staleResponse taskdto.TaskOperationResponse
+	require.NoError(t, common.Unmarshal(w4.Body.Bytes(), &staleResponse))
+	assert.Equal(t, "rejected", staleResponse.Status)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&mockCallCount), "stale credential generation must not reach the provider")
+	var refreshedUser4 model.User
+	require.NoError(t, db.First(&refreshedUser4, user.Id).Error)
+	assert.Equal(t, refreshedUser3.Quota, refreshedUser4.Quota, "rejected dispatch must release its reservation")
 }
 
 func TestRejectDurableTaskQuotaClamp_LogDBUnavailableDoesNotFallbackOrChange400(t *testing.T) {

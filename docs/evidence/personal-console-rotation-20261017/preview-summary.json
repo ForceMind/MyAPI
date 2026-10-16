@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "checked_at": "2026-10-16T17:02:38.899Z",
+  "url": "http://127.0.0.1:4176/keys",
+  "status": 200,
+  "cache_control": "no-store",
+  "html_sha256": "a12c25d8094dc5ef28a6f7cef04c8c7ea5ed7b82ea1d2a91b7b7a47685f5ca30",
+  "metadata": {
+    "synthetic": true,
+    "real_provider": false,
+    "real_database": false,
+    "version": "0.2.0-beta.19",
+    "sourceHead": "5536cf8601afe512bbefb92e86b99b038398a133",
+    "buildHead": "0c72690c19f1a738f61d6ec54c86c470f679f27f",
+    "mutation_scope": "ephemeral synthetic in-memory rotation only"
+  },
+  "maintenance_status": 200,
+  "maintenance_rotation": "ready",
+  "scope": "Exact CI frontend with ephemeral synthetic in-memory APIs. No real Go database or provider. Only read-only checks performed on this local preview; real mutation is proved separately by CI Go/Chromium."
+}

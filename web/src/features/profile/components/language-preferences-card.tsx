@@ -21,6 +21,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { Field, FieldLabel } from '@/components/ui/field'
 import {
   Select,
   SelectContent,
@@ -43,6 +44,7 @@ import type { UserProfile } from '../types'
 type LanguagePreferencesCardProps = {
   profile: UserProfile | null
   onProfileUpdate: () => void
+  compact?: boolean
 }
 
 export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
@@ -102,6 +104,68 @@ export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
     }
   }
 
+  const languageSelect = (
+    <div className='flex max-w-full min-w-0 items-center gap-2'>
+      <Select
+        items={AVAILABLE_INTERFACE_LANGUAGE_OPTIONS.map((language) => ({
+          value: language.code,
+          label: language.label,
+        }))}
+        value={currentLanguage}
+        onValueChange={handleLanguageChange}
+        disabled={saving}
+      >
+        <SelectTrigger
+          id='profile-interface-language'
+          aria-label={t('Interface Language')}
+          className={
+            props.compact
+              ? 'w-full max-w-full min-w-0'
+              : 'w-full max-w-full min-w-0 sm:w-48'
+          }
+        >
+          <SelectValue placeholder={t('Select language')} />
+        </SelectTrigger>
+        <SelectContent alignItemWithTrigger={false}>
+          <SelectGroup>
+            {AVAILABLE_INTERFACE_LANGUAGE_OPTIONS.map((language) => (
+              <SelectItem key={language.code} value={language.code}>
+                {language.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+      {saving && (
+        <Loader2
+          aria-label={t('Saving...')}
+          className='size-4 shrink-0 animate-spin'
+        />
+      )}
+    </div>
+  )
+
+  if (props.compact) {
+    return (
+      <Field
+        orientation='horizontal'
+        className='flex-wrap justify-between gap-3 py-4'
+      >
+        <FieldLabel
+          htmlFor='profile-interface-language'
+          className='flex max-w-full min-w-0 shrink-0 items-center gap-3 whitespace-normal'
+        >
+          <Languages
+            aria-hidden='true'
+            className='text-primary size-5 shrink-0'
+          />
+          {t('Interface Language')}
+        </FieldLabel>
+        {languageSelect}
+      </Field>
+    )
+  }
+
   return (
     <TitledCard
       title={t('Language Preferences')}
@@ -119,33 +183,7 @@ export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
             )}
           </p>
         </div>
-        <div className='flex items-center gap-2 sm:min-w-48'>
-          <Select
-            items={AVAILABLE_INTERFACE_LANGUAGE_OPTIONS.map((language) => ({
-              value: language.code,
-              label: language.label,
-            }))}
-            value={currentLanguage}
-            onValueChange={handleLanguageChange}
-            disabled={saving}
-          >
-            <SelectTrigger className='w-full sm:w-48'>
-              <SelectValue placeholder={t('Select language')} />
-            </SelectTrigger>
-            <SelectContent alignItemWithTrigger={false}>
-              <SelectGroup>
-                {AVAILABLE_INTERFACE_LANGUAGE_OPTIONS.map((language) => (
-                  <SelectItem key={language.code} value={language.code}>
-                    {language.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          {saving && (
-            <Loader2 className='text-muted-foreground size-4 animate-spin' />
-          )}
-        </div>
+        {languageSelect}
       </div>
     </TitledCard>
   )

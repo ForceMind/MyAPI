@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
+import type { TFunction } from 'i18next'
 import { ChevronDown, KeyRound, Settings2, WalletCards } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm, type SubmitErrorHandler } from 'react-hook-form'
@@ -74,6 +75,7 @@ import {
   getTokenAutoGroups,
 } from '../api'
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
+import { useKeyMaintenanceSession } from '../hooks/use-key-maintenance-session'
 import {
   getApiKeyFormSchema,
   type ApiKeyFormValues,
@@ -101,12 +103,19 @@ type ApiKeyMutateDrawerProps = {
   currentRow?: ApiKey
 }
 
+function modelScopeModeLabel(enabled: boolean, models: string, t: TFunction) {
+  if (!enabled) return t('No additional model limit')
+  if (!models) return t('Block all models')
+  return t('Only selected models')
+}
+
 export function ApiKeysMutateDrawer({
   open,
   onOpenChange,
   currentRow,
 }: ApiKeyMutateDrawerProps) {
   const { t } = useTranslation()
+  const isCurrentSession = useKeyMaintenanceSession()
   const isUpdate = !!currentRow
   const currentRowId = currentRow?.id
   const { triggerRefresh } = useApiKeys()
@@ -115,6 +124,10 @@ export function ApiKeysMutateDrawer({
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const openedQuotaVersion = useRef<string | undefined>(undefined)
   const openedMetadataFingerprint = useRef<string | undefined>(undefined)
+  const openedModelScope = useRef<{
+    enabled: boolean
+    models: string
+  } | null>(null)
   const quotaAttemptRef = useRef<{
     fingerprint: string
     requestId: string
@@ -129,7 +142,7 @@ export function ApiKeysMutateDrawer({
   const { data: modelsData } = useQuery({
     queryKey: ['user-models'],
     queryFn: getUserModels,
-    enabled: open,
+    enabled: open && !isUpdate,
     staleTime: 0,
   })
 
@@ -250,6 +263,7 @@ export function ApiKeysMutateDrawer({
       setInitializedTarget(null)
       openedQuotaVersion.current = undefined
       openedMetadataFingerprint.current = undefined
+      openedModelScope.current = null
       return
     }
     if (
@@ -269,6 +283,10 @@ export function ApiKeysMutateDrawer({
       if (apiKeyData?.success && apiKeyData.data) {
         openedQuotaVersion.current = apiKeyData.data.quota_version
         openedMetadataFingerprint.current = apiKeyData.data.metadata_fingerprint
+        openedModelScope.current = {
+          enabled: apiKeyData.data.model_limits_enabled,
+          models: apiKeyData.data.model_limits ?? '',
+        }
         form.reset(
           transformApiKeyToFormDefaults(
             apiKeyData.data,
@@ -340,9 +358,17 @@ export function ApiKeysMutateDrawer({
   }, [groups, form, selectedGroup])
 
   const onSubmit = async (data: ApiKeyFormValues) => {
+    if (!isCurrentSession()) return
     setIsSubmitting(true)
     try {
-      const basePayload = transformFormDataToPayload(data)
+      let basePayload = transformFormDataToPayload(data)
+      if (isUpdate && openedModelScope.current) {
+        basePayload = {
+          ...basePayload,
+          model_limits_enabled: openedModelScope.current.enabled,
+          model_limits: openedModelScope.current.models,
+        }
+      }
 
       if (isUpdate && currentRow) {
         // Metadata edits must not write a stale balance back over consumption.
@@ -379,8 +405,6 @@ export function ApiKeysMutateDrawer({
             name: basePayload.name,
             expired_time: basePayload.expired_time,
             unlimited_quota: basePayload.unlimited_quota,
-            model_limits_enabled: basePayload.model_limits_enabled,
-            model_limits: basePayload.model_limits,
             allow_ips: basePayload.allow_ips,
             group: basePayload.group,
             access_profile_id: basePayload.access_profile_id,
@@ -388,7 +412,12 @@ export function ApiKeysMutateDrawer({
             cross_group_retry: basePayload.cross_group_retry,
           }
         }
-        const result = await updateApiKey(updatePayload)
+        const result = await updateApiKey(updatePayload, {
+          skipErrorHandler: true,
+          skipBusinessError: true,
+          skipAuthRefresh: true,
+        })
+        if (!isCurrentSession()) return
         if (result.success) {
           quotaAttemptRef.current = null
           toast.success(t(SUCCESS_MESSAGES.API_KEY_UPDATED))
@@ -403,13 +432,22 @@ export function ApiKeysMutateDrawer({
         let successCount = 0
 
         for (let i = 0; i < count; i++) {
-          const result = await createApiKey({
-            ...basePayload,
-            name:
-              i === 0 && data.name
-                ? data.name
-                : `${data.name || 'default'}-${Math.random().toString(36).slice(2, 8)}`,
-          })
+          if (!isCurrentSession()) return
+          const result = await createApiKey(
+            {
+              ...basePayload,
+              name:
+                i === 0 && data.name
+                  ? data.name
+                  : `${data.name || 'default'}-${Math.random().toString(36).slice(2, 8)}`,
+            },
+            {
+              skipErrorHandler: true,
+              skipBusinessError: true,
+              skipAuthRefresh: true,
+            }
+          )
+          if (!isCurrentSession()) return
           if (result.success) {
             successCount++
           } else {
@@ -429,9 +467,9 @@ export function ApiKeysMutateDrawer({
         }
       }
     } catch {
-      toast.error(t(ERROR_MESSAGES.UNEXPECTED))
+      if (isCurrentSession()) toast.error(t(ERROR_MESSAGES.UNEXPECTED))
     } finally {
-      setIsSubmitting(false)
+      if (isCurrentSession()) setIsSubmitting(false)
     }
   }
 
@@ -464,6 +502,16 @@ export function ApiKeysMutateDrawer({
     : t('Enter quota in {{currency}}', { currency: currencyLabel })
   const autoGroupsMode = form.watch('auto_groups_mode')
   const unlimitedQuota = form.watch('unlimited_quota')
+  const displayedModelScope = isUpdate
+    ? {
+        enabled:
+          apiKeyData?.data?.model_limits_enabled ??
+          currentRow?.model_limits_enabled ??
+          false,
+        models:
+          apiKeyData?.data?.model_limits ?? currentRow?.model_limits ?? '',
+      }
+    : null
 
   return (
     <Sheet
@@ -818,32 +866,66 @@ export function ApiKeysMutateDrawer({
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className='flex flex-col gap-4 pt-2'>
-                    <FormField
-                      control={form.control}
-                      name='model_limits'
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t('Model Limits')}</FormLabel>
-                          <FormControl>
-                            <MultiSelect
-                              options={models.map((m) => ({
-                                label: m,
-                                value: m,
-                              }))}
-                              selected={field.value}
-                              onChange={field.onChange}
-                              placeholder={t(
-                                'Select models (empty for allow all)'
+                    {isUpdate ? (
+                      <div className='border-primary/20 bg-primary/5 dark:bg-primary/10 space-y-3 rounded-lg border p-3'>
+                        <div>
+                          <p className='font-medium'>{t('Model scope')}</p>
+                          <p className='text-muted-foreground mt-1 text-sm'>
+                            {modelScopeModeLabel(
+                              displayedModelScope?.enabled ?? false,
+                              displayedModelScope?.models ?? '',
+                              t
+                            )}
+                          </p>
+                        </div>
+                        {displayedModelScope?.models ? (
+                          <div>
+                            <p className='text-muted-foreground text-xs font-medium'>
+                              {t('Stored model IDs')}
+                            </p>
+                            <div className='bg-background mt-1 max-h-32 overflow-y-auto rounded-md border px-2.5 py-2'>
+                              <p className='font-mono text-xs break-all whitespace-pre-wrap'>
+                                {displayedModelScope.models}
+                              </p>
+                            </div>
+                          </div>
+                        ) : null}
+                        <p className='text-muted-foreground text-sm'>
+                          {t(
+                            'Close this editor, then use Model scope from the Key actions to change this setting.'
+                          )}
+                        </p>
+                      </div>
+                    ) : (
+                      <FormField
+                        control={form.control}
+                        name='model_limits'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('Model Limits')}</FormLabel>
+                            <FormControl>
+                              <MultiSelect
+                                options={models.map((m) => ({
+                                  label: m,
+                                  value: m,
+                                }))}
+                                selected={field.value}
+                                onChange={field.onChange}
+                                placeholder={t(
+                                  'Select models (empty for allow all)'
+                                )}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              {t(
+                                'New Keys use no additional model limit when this list is empty.'
                               )}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            {t('Limit which models can be used with this key')}
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
 
                     <FormField
                       control={form.control}

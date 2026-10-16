@@ -1,0 +1,39 @@
+{
+  "application_source": "e01b31e75fdb4ebee8d53933c92f0b1cfef85097",
+  "ci_checkout": "b2ced646b4cf5ee8b00f3a8bfce1d222450501f4",
+  "ci_run": 38850130087,
+  "ci_status": "superseded and canceled after actionable failures; not qualification",
+  "frontend_unit": {
+    "passed": 1497,
+    "failed": 0,
+    "files": 233
+  },
+  "typecheck": "passed",
+  "lint": "passed",
+  "build": "passed",
+  "advanced_browser": {
+    "window": {
+      "passed": 17,
+      "failed": 0
+    },
+    "model": {
+      "passed": 17,
+      "failed": 0
+    },
+    "security": {
+      "passed_before_failure": 19,
+      "failure": "Password Cancel re-open matched closing dialog submit and background entry; scope entry to security card and wait detached"
+    }
+  },
+  "independent_visual_review": {
+    "result": "pass",
+    "dark_portal_P2": "closed",
+    "reviewer": "maintenance_plan",
+    "actual_raw_images": true
+  },
+  "runtime_run": 38850156599,
+  "runtime_status": "failure",
+  "runtime_failure": "First narrow PUT and readback GET both HTTP200; second opening emitted no GET because global QueryClient staleTime=10000ms. Fresh mount read now explicitly required before enabling form",
+  "correction": "staleTime0, refetchOnMount always, isFetchedAfterMount gate; deterministic production-cache regression; independent security review passed",
+  "production_effects": false
+}

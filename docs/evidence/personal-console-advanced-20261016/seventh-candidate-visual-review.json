@@ -1,0 +1,27 @@
+{
+  "application_source": "48a1d89f85d49eccbe911900254c7e6f56ec5b9c",
+  "ci_checkout": "e9ff1206029d533c29033c26795790ffa0249468",
+  "ci_run": 38854167784,
+  "ci_status": "superseded after independent visual P2; functional advanced flows all passed",
+  "frontend_unit": {
+    "passed": 1498,
+    "failed": 0,
+    "files": 233
+  },
+  "advanced_browser": {
+    "window": 17,
+    "model": 17,
+    "security": 20,
+    "all_passed": true
+  },
+  "independent_review": {
+    "P1": 0,
+    "P2": 1,
+    "issue": "Remove Passkey visible target20px compared to42px adjacent action",
+    "product_fix": "only rendered Button min-h-11",
+    "regression": "actual boundingBox height>=44 and numeric height in report"
+  },
+  "evidence_boundary": "whole-page mobile failed-statuses only showed icon; add three full failed-card original PNGs before recovery",
+  "runtime_reuse": "acba3f4 Go/Key journey remains valid; new profile button height is covered by next production browser qualification",
+  "production_effects": false
+}

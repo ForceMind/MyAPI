@@ -127,9 +127,14 @@ export interface ApiKeyFormData {
   cross_group_retry: boolean
 }
 
-type ApiKeyMetadataUpdateData = Omit<ApiKeyFormData, 'remain_quota'> & {
+type ApiKeyMetadataUpdateData = Omit<
+  ApiKeyFormData,
+  'remain_quota' | 'model_limits_enabled' | 'model_limits'
+> & {
   id: number
   remain_quota?: never
+  model_limits_enabled?: never
+  model_limits?: never
   request_id?: never
   quota_version?: never
   metadata_fingerprint?: never
@@ -142,9 +147,7 @@ type ApiKeyQuotaUpdateData = ApiKeyFormData & {
   metadata_fingerprint: string
 }
 
-export type ApiKeyUpdateData =
-  | ApiKeyMetadataUpdateData
-  | ApiKeyQuotaUpdateData
+export type ApiKeyUpdateData = ApiKeyMetadataUpdateData | ApiKeyQuotaUpdateData
 
 export interface TokenAutoGroupsConfig {
   groups: string[]
@@ -162,4 +165,6 @@ export type ApiKeysDialogType =
   | 'batch-delete'
   | 'cc-switch'
   | 'budget'
+  | 'subscription-share'
   | 'access-policy'
+  | 'model-scope'

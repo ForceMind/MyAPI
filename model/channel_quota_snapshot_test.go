@@ -335,7 +335,7 @@ func TestListChannelQuotaSnapshotsForHistoryKeepsFullRangeOrReportsIncomplete(t 
 
 func TestDeleteOldChannelQuotaSnapshotBatchHonorsCutoffAndLimit(t *testing.T) {
 	require.NotNil(t, DB)
-	require.NoError(t, DB.AutoMigrate(&ChannelQuotaSnapshot{}, &ChannelQuotaAlertEvent{}))
+	require.NoError(t, DB.AutoMigrate(&SubscriptionSharePool{}, &SubscriptionShareGeneration{}, &ChannelQuotaSnapshot{}, &ChannelQuotaAlertEvent{}))
 	require.NoError(t, DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&ChannelQuotaSnapshot{}).Error)
 	t.Cleanup(func() {
 		require.NoError(t, DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&ChannelQuotaSnapshot{}).Error)

@@ -65,6 +65,9 @@ const (
 const MsgCodexOAuthModelNameTooLong = "codex_oauth.model_name_too_long"
 const MsgCodexOAuthInvalidCreate = "codex_oauth.invalid_create"
 const MsgCodexOAuthInvalidSettings = "codex_oauth.invalid_settings"
+const MsgCodexCredentialSubjectUnknown = "codex_credential.subject_unknown"
+const MsgCodexCredentialSubjectMismatch = "codex_credential.subject_mismatch"
+const MsgCodexCredentialSafeUpdateRequired = "codex_credential.safe_update_required"
 const MsgPaymentManualCompleteQuotaUnitUnresolved = "payment.manual_complete_quota_unit_unresolved"
 const MsgPaymentPricingUnavailable = "payment.pricing_unavailable"
 
@@ -74,6 +77,7 @@ const (
 	MsgTokenQuotaNegative        = "token.quota_negative"
 	MsgTokenQuotaExceedMax       = "token.quota_exceed_max"
 	MsgTokenQuotaConflict        = "token.quota_conflict"
+	MsgTokenModelLimitsConflict  = "token.model_limits_conflict"
 	MsgTokenGenerateFailed       = "token.generate_failed"
 	MsgTokenGetInfoFailed        = "token.get_info_failed"
 	MsgTokenExpiredCannotEnable  = "token.expired_cannot_enable"
@@ -406,3 +410,13 @@ const (
 )
 
 const MsgSelfUseUnsupported = "self_use.unsupported"
+
+const (
+	MsgSubscriptionShareInvalid        = "subscription_share.invalid"
+	MsgSubscriptionShareConflict       = "subscription_share.conflict"
+	MsgSubscriptionShareDenied         = "subscription_share.denied"
+	MsgSubscriptionShareExceeded       = "subscription_share.exceeded"
+	MsgSubscriptionShareAwaitingSample = "subscription_share.awaiting_sample"
+	MsgSubscriptionShareUnavailable    = "subscription_share.unavailable"
+	MsgSubscriptionShareDeleteDenied   = "subscription_share.delete_denied"
+)

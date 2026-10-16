@@ -44,7 +44,6 @@ import {
 } from '@/components/ui/card'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { usePasskeyManagement } from '@/features/auth/passkey'
 import {
   SecureVerificationDialog,
   useSecureVerification,
@@ -53,11 +52,17 @@ import {
 } from '@/features/auth/secure-verification'
 import dayjs from '@/lib/dayjs'
 
+import { useProfilePasskey } from '../hooks'
+
 interface PasskeyCardProps {
   loading: boolean
+  securityScopeKey?: string
 }
 
-export function PasskeyCard({ loading: pageLoading }: PasskeyCardProps) {
+export function PasskeyCard({
+  loading: pageLoading,
+  securityScopeKey = 'profile-security',
+}: PasskeyCardProps) {
   const { t } = useTranslation()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [restrictedMethod, setRestrictedMethod] =
@@ -75,7 +80,7 @@ export function PasskeyCard({ loading: pageLoading }: PasskeyCardProps) {
     fetchStatus,
     register,
     remove,
-  } = usePasskeyManagement()
+  } = useProfilePasskey(securityScopeKey)
 
   const {
     open: verificationOpen,
@@ -313,12 +318,17 @@ export function PasskeyCard({ loading: pageLoading }: PasskeyCardProps) {
 
             {enabled && (
               <div className='flex flex-col gap-3 border-t pt-6 sm:flex-row xl:flex-col 2xl:flex-row'>
-                <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+                <AlertDialog
+                  open={confirmOpen}
+                  onOpenChange={(nextOpen) => {
+                    if (!removing) setConfirmOpen(nextOpen)
+                  }}
+                >
                   <AlertDialogTrigger
                     render={
                       <Button
                         variant='destructive'
-                        className='flex-1'
+                        className='min-h-11 flex-1'
                         disabled={removing}
                       />
                     }

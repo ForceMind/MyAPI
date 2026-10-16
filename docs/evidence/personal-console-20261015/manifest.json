@@ -1,0 +1,259 @@
+{
+  "version": "0.2.0-beta.15",
+  "application_source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+  "ci_checkout": "dd3859d9cf86189072fab25d0ee840d626d86c36",
+  "tree": "853a276b15feaf734b91119ecaf5ee76d201dacd",
+  "files": [
+    {
+      "file": "README.md",
+      "bytes": 4398,
+      "sha256": "834720ad5e1aa7bb0e13cb83eeb6fb10773cabfe7ec9c3a11af5241f80bbecf3"
+    },
+    {
+      "file": "console-profile-error-zh-1280.png",
+      "bytes": 61193,
+      "sha256": "e1a506629c8f24ca486a74ef7e10d78e25203267c44810e87fc6b29b153d8578",
+      "width": 1280,
+      "height": 960,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "console-profile-error-zh-320.png",
+      "bytes": 39408,
+      "sha256": "dd929bb13984ddb2f75dcf99404823eeb4ed1cce67dc43f929f11db0540ac0a6",
+      "width": 320,
+      "height": 960,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "console-profile-vi-320.png",
+      "bytes": 46743,
+      "sha256": "215c72b4688e36cd0e91859ed5e2b9b9608f7f199491012ffdc8aa12af91fda0",
+      "width": 320,
+      "height": 960,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "console-profile-zh-1280.png",
+      "bytes": 82499,
+      "sha256": "3e483af14ebd96e301bd8c80523af535f684c4efc1020a5eaacf8a0df72d00a8",
+      "width": 1280,
+      "height": 960,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "console-profile-zh-320.png",
+      "bytes": 51967,
+      "sha256": "fb4bbe45bea487f3c812b62c85c603da0ec74eb500fe4fc72a53690a53756c00",
+      "width": 320,
+      "height": 960,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "console-success-unknown-usage-zh-320.png",
+      "bytes": 60227,
+      "sha256": "8d18a80cf4ebee1d6a782e9bb3bb8b268a1b0496ebef9afd8ca24df7e9da10c6",
+      "width": 320,
+      "height": 960,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "console-success-unknown-zh-1280.png",
+      "bytes": 126183,
+      "sha256": "607d78cbd7433fc181e52c57f419ec1917d166cb8c32ecbf4e763de224883c62",
+      "width": 1280,
+      "height": 960,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "console-success-unknown-zh-320.png",
+      "bytes": 56362,
+      "sha256": "e77b7d2b41200acac092991469f9c3914236d7b5715dffe09fc9e6b49b868923",
+      "width": 320,
+      "height": 960,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-console-qualification.json",
+      "bytes": 11633,
+      "sha256": "16abab0e7a1d22f468531f14baccfba2a0f46c540c72c92f70eaf9e477bb1cf1"
+    },
+    {
+      "file": "personal-en-1280-dark-overview.png",
+      "bytes": 105609,
+      "sha256": "05e56b47d98f2972f5b984416856f2c8c6eb56d0c9e528b335fe91b50619d5c9",
+      "width": 1280,
+      "height": 900,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-en-1280-dark-upstream.png",
+      "bytes": 100451,
+      "sha256": "618c4848dc17ba22d66e098bda423a916f4a1ef7c36f730da8cdab41e647becc",
+      "width": 1280,
+      "height": 900,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-retry-zh-320-errors.png",
+      "bytes": 49972,
+      "sha256": "629597892072746e5d8cc357f34326ac52e1912dd945761eb02baf0ba331e29b",
+      "width": 320,
+      "height": 1100,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-retry-zh-320-recovered.png",
+      "bytes": 62212,
+      "sha256": "9a68d7030ac60ea904d008e164a3f9fa7c4e10407fe547be4980fb80f0575809",
+      "width": 320,
+      "height": 1100,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-workbench-qualification.json",
+      "bytes": 53084,
+      "sha256": "b14380807f7af18ff77ffcc4e60c9f3bab4c963a666ed4fd8beddde4e5073ecb"
+    },
+    {
+      "file": "personal-zh-1280-overview.png",
+      "bytes": 105098,
+      "sha256": "54c978187a075035d2c0bda05ef89eb2fd6c787153856baf7ab26f25d913c633",
+      "width": 1280,
+      "height": 900,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-zh-1280-upstream.png",
+      "bytes": 100640,
+      "sha256": "0811269c712231d229f1eafab66474b2cf513f8fd54f16d9e80ff3898ece0771",
+      "width": 1280,
+      "height": 900,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-zh-320-overview.png",
+      "bytes": 62787,
+      "sha256": "6c69ebef1cce33fd6c02c6b50687817026304f40d47e26fa5f6853197872952e",
+      "width": 320,
+      "height": 1100,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-zh-320-upstream.png",
+      "bytes": 64779,
+      "sha256": "d5cfb3c57253889180673be3b33a9cecddbb2cb12e063ccd5d15fef39adf8188",
+      "width": 320,
+      "height": 1100,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "personal-zh-390-upstream-stale.png",
+      "bytes": 66436,
+      "sha256": "489585ea2b9c8168327171f8ca378bd2f31524502ff82229c65ede1e5b3d743a",
+      "width": 390,
+      "height": 1100,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "runtime-authoritative.json",
+      "bytes": 2100,
+      "sha256": "895b0372b3c6b58e60604b70ecb1147b15d15fc849ec9e8ba180416eb3f3ad0c"
+    },
+    {
+      "file": "runtime-e837-desktop-call.png",
+      "bytes": 103997,
+      "sha256": "ac3ade06f36f20a5540d338045fe4f7fc0067fef7acea4d85ffe6cc67f58d21c",
+      "width": 1280,
+      "height": 900,
+      "source": "e8376f7054a9f61629bba9260862902ee48b23d5",
+      "evidence": "fresh isolated real application; loopback upstream; driver redaction"
+    },
+    {
+      "file": "runtime-e837-mobile-call.png",
+      "bytes": 54466,
+      "sha256": "1c51115485334d2af86f2b8a92c509ff34decc1252dce0b5300cd39f63b7a85e",
+      "width": 320,
+      "height": 900,
+      "source": "e8376f7054a9f61629bba9260862902ee48b23d5",
+      "evidence": "fresh isolated real application; loopback upstream; driver redaction"
+    },
+    {
+      "file": "runtime-legacy.json",
+      "bytes": 2093,
+      "sha256": "947ecc7e34e20cba7deceec93562e7659e08766105dcc7f8dd87a634ce631330"
+    },
+    {
+      "file": "subscription-share-qualification.json",
+      "bytes": 27857,
+      "sha256": "d16e14ad0a2237e27d5d618c3699c7ca26162d2f76ff5f4e4113153568170715"
+    },
+    {
+      "file": "subscription-share-zh-1280-root-key-list.png",
+      "bytes": 91375,
+      "sha256": "6dfc4314ea0be80e8581235f1e44e38b8e5223d5dc379f1be23cfa1852d1cdff",
+      "width": 1280,
+      "height": 900,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "subscription-share-zh-1280-root-pool.png",
+      "bytes": 141948,
+      "sha256": "211f1e730264e000025262bccedce588d5e17f858f33df3a61107f68752ca716",
+      "width": 1280,
+      "height": 900,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "subscription-share-zh-320-root-key-list.png",
+      "bytes": 66311,
+      "sha256": "2a22dfbe1bdabb860cb2cc069e392d3d06dd65f74c51773d98938c06fab00d38",
+      "width": 320,
+      "height": 900,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "subscription-share-zh-320-root-pool-actions.png",
+      "bytes": 60000,
+      "sha256": "d031d7392dfb823a9cbcd77d6f0de9e3963cb0e869fa99b198bc14f654b3169f",
+      "width": 320,
+      "height": 900,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "subscription-share-zh-320-root-pool.png",
+      "bytes": 62691,
+      "sha256": "696c76f5fb4c16ca3781ca67fce87aa4e58e6304aae3865e38fb9831803d550d",
+      "width": 320,
+      "height": 900,
+      "source": "c0e210377f1edb3ef1d892b085904c3456e970c6",
+      "evidence": "production-build Chromium with synthetic APIs; original screenshot"
+    },
+    {
+      "file": "verification-summary.json",
+      "bytes": 2507,
+      "sha256": "8c97246f0560c252746bbd451d7c6301d86edd51cc28eda497bedbea587e29f6"
+    }
+  ]
+}

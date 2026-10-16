@@ -18,8 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useState, useEffect, useCallback, useRef } from 'react'
 
-import { get2FAStatus } from '@/lib/api'
-
+import { getTwoFAStatus } from '../api'
 import type { TwoFAStatus } from '../types'
 
 // ============================================================================
@@ -75,7 +74,7 @@ export function useTwoFA(enabled = true) {
     try {
       setLoading(true)
       setError(false)
-      const response = await get2FAStatus(controller.signal)
+      const response = await getTwoFAStatus(controller.signal)
       if (controller.signal.aborted) return
 
       const nextStatus = parseTwoFAStatus(response?.data)
@@ -91,10 +90,7 @@ export function useTwoFA(enabled = true) {
       setStatus(null)
       setError(true)
     } finally {
-      if (
-        pendingRequest.current === controller &&
-        !controller.signal.aborted
-      ) {
+      if (pendingRequest.current === controller && !controller.signal.aborted) {
         setLoading(false)
       }
     }

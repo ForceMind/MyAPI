@@ -1,0 +1,27 @@
+{
+  "application_source": "5ba90cfee023d977a6aa8e7559576f6bd44b7c72",
+  "ci_checkout": "e9f82ff551c0f1de4e202b5e91ff06312e221d46",
+  "ci_run": 38847248448,
+  "ci_status": "superseded by final qualification candidate after actionable advanced failures",
+  "frontend_unit": {
+    "passed": 1496,
+    "failed": 0,
+    "files": 233
+  },
+  "typecheck": "passed",
+  "lint": "passed",
+  "build": "passed",
+  "advanced_browser_failures": {
+    "model": "mobile dialog actions entered mobile navigation region; strict geometry kept and max-height reduced",
+    "security": "fixed failure counts exhausted by concurrent status reads; persistent failure phase until explicit retry replaces count budget",
+    "window": "Base UI aria-hidden native checkbox id locator outside viewport; use named accessible checkbox without force"
+  },
+  "runtime_run": 38847256100,
+  "runtime_status": "failure",
+  "runtime_failure": "catalog passed; restrict-mode radio id click timed out; screenshot kept unlimited selected. Accessible radio locator replaces hidden input id; no force",
+  "additional_closed_review_findings": [
+    "current authenticated role determines Root deletion display despite stale profile",
+    "three existing Vietnamese binding labels corrected"
+  ],
+  "production_effects": false
+}

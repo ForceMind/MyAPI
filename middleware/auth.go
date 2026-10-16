@@ -344,6 +344,7 @@ func TokenAuthReadOnly() func(c *gin.Context) {
 		c.Set("id", token.UserId)
 		c.Set("token_id", token.Id)
 		c.Set("token_key", token.Key)
+		common.SetContextKey(c, constant.ContextKeyTokenCredentialVersion, token.CredentialVersion)
 		c.Next()
 	}
 }
@@ -495,6 +496,9 @@ func authenticateTokenIdentity(c *gin.Context, token *model.Token, parts ...stri
 	if !checkTokenBudgetAdmission(c, token) {
 		return false
 	}
+	if !checkSubscriptionShareAdmission(c, token) {
+		return false
+	}
 	return true
 }
 
@@ -505,6 +509,7 @@ func SetupContextForToken(c *gin.Context, token *model.Token, parts ...string) e
 	c.Set("id", token.UserId)
 	c.Set("token_id", token.Id)
 	c.Set("token_key", token.Key)
+	common.SetContextKey(c, constant.ContextKeyTokenCredentialVersion, token.CredentialVersion)
 	c.Set("token_name", token.Name)
 	c.Set("token_unlimited_quota", token.UnlimitedQuota)
 	if !token.UnlimitedQuota {

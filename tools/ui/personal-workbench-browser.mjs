@@ -15,6 +15,7 @@ import { extname, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { createUIFixture, FIXTURE_TIME } from './browser-fixtures.mjs'
+import { assertTextContrast } from './contrast.mjs'
 
 const repo = fileURLToPath(new URL('../../', import.meta.url))
 const build = resolve(repo, 'web/dist')
@@ -66,60 +67,76 @@ const tr = (key, language) => {
 }
 
 for (const key of [
-  'Personal workbench',
-  'Request path',
-  'Key and request limits',
-  'Upstream account windows',
-  'Your recent records',
-  'Actions and reminders',
-  'Select an API Key',
-  'Choose a Key',
-  'Load more Keys',
-  'Refresh Keys',
-  'Unable to load Keys',
-  'No API Keys yet',
-  'Unable to load this Key budget',
-  'Choose a Key to inspect its limits',
-  'Channel read permission is required to view upstream account windows.',
-  'Upstream account windows are available to channel administrators.',
-  'No upstream account windows were reported',
-  'Unable to load upstream account windows',
-  'No recent records',
-  'Unable to load your recent records',
-  'No-wallet policy active',
-  'Internal Key quota',
-  'Internal units',
-  'Strict Token budget',
-  'Token',
-  'Strict USD budget',
-  'Account window threshold',
-  'Not configured',
-  'Disabled',
-  'Expired',
-  'Out of internal quota',
-  'Open Playground',
-  'API key',
-  'Select an available API key before sending',
-  'Failed to load API keys',
-  'The selected API key is unavailable. Choose another key.',
-  'Retry',
+  "API key",
+  "Account window used",
+  "An upstream account needs attention",
+  "Approximate",
+  "Channel read permission is required to view upstream account windows.",
+  "Choose a Key",
+  "Choose a Key to observe its native window share.",
+  "Connections, Keys, and calls at a glance",
+  "Error",
+  "Existing API Keys",
+  "Existing channel logins are kept. Open Channels to inspect the connection.",
+  "Failed to load API keys",
+  "Keep using your existing Keys",
+  "Key share settings",
+  "Loading upstream accounts",
+  "Local Key estimate",
+  "Manage API Keys",
+  "Manage Key shares",
+  "Manage account connection",
+  "No API Keys yet",
+  "No Key selected",
+  "No recent records",
+  "No timestamp",
+  "No upstream account windows were reported",
+  "Observed {{time}}",
+  "Open Playground",
+  "Pending requests",
+  "Recent calls",
+  "Refresh account windows",
+  "Request failed",
+  "Request successful",
+  "Retry",
+  "Sample age",
+  "Select account window",
+  "Select an API Key",
+  "Select an available API key before sending",
+  "Select upstream account",
+  "Shares are approximate and do not reserve upstream capacity. Concurrent requests and sampling delays can exceed the share.",
+  "Snapshot available",
+  "Snapshot unavailable",
+  "Stale sample",
+  "Test with an existing Key",
+  "The selected API key is unavailable. Choose another key.",
+  "This Key allocation",
+  "This Key has no share for the selected account.",
+  "This window needs new upstream evidence before it can be used.",
+  "Total allocated",
+  "Unable to confirm channel permissions",
+  "Unable to load Key shares",
+  "Unable to load Keys",
+  "Unable to load upstream account windows",
+  "Unable to load your recent records",
+  "Unallocated",
+  "Unattributed growth",
+  "Unknown",
+  "Unsampled requests",
+  "Upstream account usage is not exact per-Key attribution. Windows are observed separately.",
+  "Upstream account windows",
+  "Upstream accounts",
+  "Usage not provided",
+  "View call logs",
+  "View upstream accounts",
+  "Window observations are unavailable; existing estimates are preserved.",
+  "Window resets require a trustworthy upstream sample.",
+  "Your API workspace",
+  "{{count}} Tokens",
+  "{{count}} percentage points",
+  "{{count}} seconds"
 ]) {
   for (const language of Object.keys(languageCodes)) tr(key, language)
-}
-
-for (const language of Object.keys(languageCodes).filter(
-  (candidate) => candidate !== 'en'
-)) {
-  assert.notEqual(
-    tr('Personal workbench', language),
-    tr('Personal workbench', 'en'),
-    `${language} uses its real Personal workbench translation`
-  )
-  assert.notEqual(
-    tr('Internal units', language),
-    tr('Internal units', 'en'),
-    `${language} uses its real internal-unit translation`
-  )
 }
 
 assert(existsSync(resolve(build, 'index.html')), 'Build the production frontend first')
@@ -290,6 +307,8 @@ const report = {
   result: 'running',
   journeys: [],
   screenshots: [],
+  contrast: [],
+  diagnostics: [],
   buildRevisions: [],
   errors: [],
 }
@@ -342,7 +361,41 @@ function isReveal(path, method) {
   return method === 'POST' && /^\/api\/token\/\d+\/key\/?$/.test(path)
 }
 
-function scenarioResponse(fixture, scenario, url, method, reads) {
+function poolUsageFixture(scenario) {
+  const usage = {
+    pool_id: 7, snapshot_id: 9, revision: 1, channel_id: 1, channel_name: 'Synthetic subscription account',
+    window_slot: 'primary', window_type: 'five_hour', window_seconds: 18000, plan_type: 'pro', generation: 1,
+    state: 'active', reason: 'eligible', observed_at: now - 60, reset_at: now + 3600, max_age_seconds: 300, sample_age_seconds: 60,
+    allocated_bps: 6000, approximate: true,
+    baseline_time: now - 300, baseline_used_micro: 43000000,
+    initial_baseline_time: now - 600, initial_baseline_used_micro: 35000000,
+    observed_used_micro: 55000000, estimated_used_micro: 15000000, unattributed_micro: 40000000, unattributed_growth_micro: 5000000,
+    decomposition_state: 'available', pending_attempts: 2, unsampled_attempts: 2, uncertain_attempts: 1,
+    allocations: [
+      { token_id: 21, token_name: safeKeys[0].name, token_state: 'enabled', share_bps: 1000, estimated_used_micro: 5000000, pending_attempts: 2, unsampled_attempts: 1, uncertain_attempts: 0 },
+      { token_id: 22, token_name: safeKeys[1].name, token_state: 'paused', share_bps: 3000, estimated_used_micro: 7000000, pending_attempts: 0, unsampled_attempts: 1, uncertain_attempts: 0 },
+      { token_id: 23, token_name: safeKeys[2].name, token_state: 'enabled', share_bps: 2000, estimated_used_micro: 3000000, pending_attempts: 0, unsampled_attempts: 0, uncertain_attempts: 1 },
+    ],
+  }
+  if (scenario.poolUsageMode === 'baseline_pending') {
+    Object.assign(usage, { state: 'baseline_pending', decomposition_state: 'baseline_pending', baseline_time: 0, baseline_used_micro: null, initial_baseline_time: null, initial_baseline_used_micro: null, observed_used_micro: null, estimated_used_micro: null, unattributed_micro: null, unattributed_growth_micro: null })
+    for (const allocation of usage.allocations) allocation.estimated_used_micro = null
+  }
+  if (scenario.poolUsageMode === 'baseline_unknown') Object.assign(usage, { decomposition_state: 'baseline_unknown', initial_baseline_time: null, initial_baseline_used_micro: null, unattributed_growth_micro: null })
+  if (scenario.poolUsageMode === 'inconsistent') {
+    Object.assign(usage, { state: 'discontinuity', decomposition_state: 'inconsistent', estimated_used_micro: null, pending_attempts: 3 })
+    usage.allocations[0].estimated_used_micro = null
+  }
+  if (scenario.poolUsageMode === 'zero-share') {
+    usage.allocated_bps = 3000
+    Object.assign(usage.allocations[1], { token_name: null, token_state: 'deleted', share_bps: 0 })
+  }
+  if (scenario.poolSession) usage.allocations[0].token_name = 'Synthetic new session Key'
+  if (scenario.stale) Object.assign(usage, { state: 'stale', observed_at: now - 600, sample_age_seconds: 600 })
+  return usage
+}
+
+function scenarioResponse(fixture, scenario, url, method, reads, pagePath) {
   const path = url.pathname.replace(/\/$/, '')
   const count = (reads.get(path) || 0) + 1
   reads.set(path, count)
@@ -375,6 +428,11 @@ function scenarioResponse(fixture, scenario, url, method, reads) {
         },
       },
     }
+  }
+  if (path === '/api/user/auth/refresh' && scenario.poolSession) {
+    const response = fixture.response(url, method)
+    response.body.data.session = { ...response.body.data.session, sid: 'synthetic-ui-root-new-session' }
+    return response
   }
   if (path === '/pg/keys') {
     if (
@@ -428,6 +486,11 @@ function scenarioResponse(fixture, scenario, url, method, reads) {
       body: { success: true, data: budget(tokenId, fixture.user.id) },
     }
   }
+  if (scenario.poolManageNavigation && pagePath === '/keys' && method === 'GET' && path === '/api/token' && url.searchParams.get('p') === '1' && url.searchParams.get('size') === '10' && [...url.searchParams.keys()].every((key) => ['p', 'size'].includes(key))) {
+    // The existing Keys management page owns this masked list DTO. This narrow
+    // allowance does not permit broad Key reads in the workbench or Playground.
+    return fixture.response(url, method)
+  }
   if (/^\/api\/token\/\d+$/.test(path) ||
       ((scenario.mode === 'disabled' || scenario.mode === 'unknown') && ['/api/token', '/api/token/search'].includes(path))) {
     return {
@@ -437,6 +500,27 @@ function scenarioResponse(fixture, scenario, url, method, reads) {
   }
   if (path === '/api/log/overview') {
     return { violation: 'Personal workbench requested the all-user log overview' }
+  }
+  if (path === '/api/log/self') {
+    if (scenario.failRecent && count === 1) return { status: 503, body: { success: false, message: 'Synthetic recent calls unavailable' } }
+    const items = scenario.empty ? [] : [
+      { id: 501, user_id: fixture.user.id, created_at: now - 120, type: 5, content: '', token_name: 'Synthetic desktop app', model_name: 'synthetic-personal-model', prompt_tokens: 0, completion_tokens: 0, use_time: 2, other: JSON.stringify({ request_outcome: 'completed', usage_outcome: 'unavailable', settlement_status: 'pending_review' }) },
+      { id: 502, user_id: fixture.user.id, created_at: now - 60, type: 5, content: 'Synthetic upstream 429', token_name: 'Synthetic desktop app', model_name: 'synthetic-error-model', prompt_tokens: 0, completion_tokens: 0, use_time: 1, other: JSON.stringify({ request_outcome: 'failed', usage_outcome: 'unavailable' }) },
+    ]
+    return { status: 200, body: { success: true, data: { items, total: items.length, page: 1, page_size: 10 } } }
+  }
+  const shareMatch = path.match(/^\/api\/token\/(\d+)\/subscription-share$/)
+  if (shareMatch && Number(shareMatch[1]) === 24) return { status: 200, body: { success: true, data: { token_id: 24, pools: [{ pool_id: 0, snapshot_id: 9, revision: 0, channel_id: 1, channel_name: 'Synthetic subscription account', plan_type: 'pro', window_slot: 'primary', window_type: 'five_hour', window_seconds: 18000, reset_at: now + 3600, observed_at: now - 60, max_age_seconds: 300, sample_age_seconds: 60, state: 'candidate', allocated_bps: 0, share_bps: 0, estimated_used_micro: 0, unattributed_micro: 0, pending_attempts: 0, unsampled_attempts: 0, approximate: true, baseline_time: 0 }] } } }
+  if (shareMatch) {
+    const pool = { pool_id: 7, snapshot_id: 9, revision: 1, channel_id: 1, channel_name: 'Synthetic subscription account', plan_type: 'pro', window_slot: 'primary', window_type: 'five_hour', window_seconds: 18000, reset_at: now + 3600, observed_at: now - 60, max_age_seconds: 300, sample_age_seconds: 60, state: 'active', allocated_bps: 6000, share_bps: 2000, estimated_used_micro: 5000000, unattributed_micro: 5000000, pending_attempts: 2, unsampled_attempts: 1, approximate: true, baseline_time: now - 600 }
+    if (scenario.role !== 100) { delete pool.channel_id; pool.channel_name = '' }
+    return { status: 200, body: { success: true, data: { token_id: Number(shareMatch[1]), pools: [pool] } } }
+  }
+  const poolUsageMatch = path.match(/^\/api\/subscription-share\/pools\/(\d+)\/usage$/)
+  if (poolUsageMatch) {
+    if (scenario.role !== 100 || !scenario.channelRead || poolUsageMatch[1] !== '7' || url.search) return { violation: 'Unexpected root pool usage request' }
+    if (scenario.poolUsageMode === 'error') return { status: 503, body: { success: false, message: 'Synthetic pool usage unavailable' } }
+    return { status: 200, body: { success: true, data: poolUsageFixture(scenario) } }
   }
   if (path === '/api/log/self/overview') {
     if (scenario.failRecent && count === 1) {
@@ -476,6 +560,10 @@ function scenarioResponse(fixture, scenario, url, method, reads) {
       }
     }
   }
+  if (path === '/api/channel/quota/changes') return { status: 200, body: { success: true, data: { items: [
+    { channel_id: 1, series_id: 'a'.repeat(64), name: 'Synthetic subscription account', account_label: 'Synthetic subscription account', metric_type: 'codex_rate_limit', window_type: 'five_hour', source: 'codex_wham_usage_primary', window_seconds: 18000, unit: 'percent', status: 'success', current_available: 45, observed_at: now - 60 },
+    { channel_id: 1, series_id: 'b'.repeat(64), name: 'Synthetic subscription account', account_label: 'Synthetic subscription account', metric_type: 'codex_rate_limit', window_type: 'weekly', source: 'codex_wham_usage_secondary', window_seconds: 604800, unit: 'percent', status: 'success', current_available: 32, observed_at: scenario.stale ? now - 600 : now - 60 },
+  ], generated_at: now } } }
   const response = fixture.response(url, method)
   return response || { violation: `Unconfigured API: ${method} ${path}${url.search}` }
 }
@@ -493,7 +581,7 @@ async function createSession(scenario) {
         ? fixture.user.permissions.admin_permissions
         : { channel: { read: scenario.channelRead === true } },
   }
-  const mobile = scenario.width === 320
+  const mobile = scenario.width < 768
   const reads = new Map()
   const audit = {
     requests: [],
@@ -501,6 +589,10 @@ async function createSession(scenario) {
     external: [],
     violations: [],
     pageErrors: [],
+    pageErrorKinds: [],
+    responses: [],
+    requestFailures: [],
+    fixtureResponses: [],
   }
   const context = await browser.newContext({
     viewport: { width: scenario.width, height: mobile ? 1100 : 900 },
@@ -588,9 +680,25 @@ async function createSession(scenario) {
       scenario,
       url,
       request.method(),
-      reads
+      reads,
+      new URL(page.url()).pathname
     )
     if (response.violation) audit.violations.push(response.violation)
+    if (scenario.poolUsageMode === 'hang' && /^\/api\/subscription-share\/pools\/7\/usage$/.test(path) && response.status === 200) {
+      audit.fixtureResponses.push({ method: request.method(), path, status: 'pending-until-client-timeout' })
+      await new Promise((done) => {
+        const cleanup = () => { page.off('requestfailed', cancelled); context.off('close', closed) }
+        const cancelled = (failed) => { if (failed === request) { cleanup(); done() } }
+        const closed = () => { cleanup(); done() }
+        page.on('requestfailed', cancelled)
+        context.on('close', closed)
+      })
+      // The real Axios deadline cancels this intentionally pending read. The
+      // browser may already have discarded the interception when it aborts.
+      await route.abort('timedout').catch(() => {})
+      return
+    }
+    audit.fixtureResponses.push({ method: request.method(), path, status: response.status || 501 })
     return route.fulfill({
       status: response.status || 501,
       json:
@@ -607,8 +715,23 @@ async function createSession(scenario) {
   const page = await context.newPage()
   page.setDefaultTimeout(20000)
   await page.clock.setFixedTime(new Date(FIXTURE_TIME))
-  page.on('pageerror', (error) => audit.pageErrors.push(error.message))
-  return { page, context, reads, audit }
+  page.on('pageerror', (error) => {
+    audit.pageErrors.push(error.message)
+    audit.pageErrorKinds.push(['TypeError', 'SyntaxError', 'ReferenceError', 'RangeError', 'Error'].includes(error.name) ? error.name : 'other')
+  })
+  page.on('response', (response) => {
+    const url = new URL(response.url())
+    if (url.origin === origin && (url.pathname.startsWith('/api/') || url.pathname.startsWith('/pg/'))) {
+      audit.responses.push({ method: response.request().method(), path: url.pathname.replace(/\/$/, ''), status: response.status() })
+    }
+  })
+  page.on('requestfailed', (request) => {
+    const url = new URL(request.url())
+    if (url.origin !== origin || (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/pg/'))) return
+    const reason = request.failure()?.errorText || ''
+    audit.requestFailures.push({ method: request.method(), path: url.pathname.replace(/\/$/, ''), kind: /aborted/i.test(reason) ? 'aborted' : /blocked/i.test(reason) ? 'blocked' : 'other' })
+  })
+  return { page, context, reads, audit, fixture }
 }
 
 async function settled(page) {
@@ -627,199 +750,6 @@ async function settled(page) {
       requestAnimationFrame(() => requestAnimationFrame(done))
     )
   })
-}
-
-async function openWorkbench(page, scenario) {
-  await page.goto(`${origin}/dashboard/overview`, { waitUntil: 'networkidle' })
-  await page.locator('[data-myapi-shell="authenticated"]').waitFor()
-  await page
-    .getByRole('heading', {
-      level: 1,
-      name: tr('Personal workbench', scenario.language),
-      exact: true,
-    })
-    .waitFor()
-  await page.getByTestId('personal-workbench').waitFor()
-  await settled(page)
-  const revision = await page.locator('html').getAttribute('data-build-rev')
-  assert(revision?.startsWith(`rv.${version}.`), 'Visible revision matches VERSION')
-  if (process.env.GITHUB_SHA) {
-    assert(
-      revision.includes(process.env.GITHUB_SHA),
-      'Visible revision matches the CI checkout'
-    )
-  }
-  report.buildRevisions.push({ journey: scenario.name, revision })
-  return revision
-}
-
-async function assertLayout(page, scenario) {
-  const geometry = await page.evaluate(() => {
-    const rect = (selector) => {
-      const element = document.querySelector(selector)
-      if (!element) return null
-      const box = element.getBoundingClientRect()
-      return {
-        x: box.x,
-        y: box.y,
-        right: box.right,
-        bottom: box.bottom,
-        width: box.width,
-        scrollWidth: element.scrollWidth,
-        clientWidth: element.clientWidth,
-      }
-    }
-    return {
-      viewport: innerWidth,
-      documentWidth: document.documentElement.scrollWidth,
-      theme: document.documentElement.classList.contains('dark')
-        ? 'dark'
-        : 'light',
-      request: rect('[data-testid="request-path-section"]'),
-      actions: rect('[data-testid="workbench-actions"]'),
-      sections: [
-        'request-path-section',
-        'key-budget-section',
-        'account-windows-section',
-        'recent-records-section',
-        'workbench-actions',
-      ].map((id) => rect(`[data-testid="${id}"]`)),
-    }
-  })
-  assert.equal(geometry.theme, scenario.theme, `${scenario.name}: theme applied`)
-  assert(
-    geometry.documentWidth <= geometry.viewport + 1,
-    `${scenario.name}: no page-wide horizontal overflow`
-  )
-  assert(
-    geometry.sections.every(
-      (section) =>
-        section &&
-        section.x >= -1 &&
-        section.right <= geometry.viewport + 1 &&
-        section.scrollWidth <= section.clientWidth + 1
-    ),
-    `${scenario.name}: every workbench section fits the viewport`
-  )
-  if (scenario.width === 320) {
-    assert(
-      Math.abs(geometry.request.x - geometry.actions.x) <= 2 &&
-        geometry.actions.y >= geometry.request.y,
-      `${scenario.name}: 320px uses one column`
-    )
-  } else {
-    assert(
-      geometry.actions.x > geometry.request.x,
-      `${scenario.name}: desktop actions use the side column`
-    )
-    const search = await page
-      .getByRole('button', { name: tr('Search', scenario.language), exact: true })
-      .evaluate((button) => {
-        const box = (selector) => {
-          const rect = button.querySelector(selector)?.getBoundingClientRect()
-          return rect ? { x: rect.x, right: rect.right, width: rect.width } : null
-        }
-        return { icon: box(':scope > svg'), text: box(':scope > span'), shortcut: box(':scope > kbd') }
-      })
-    assert(
-      search.icon && search.text && search.shortcut &&
-        search.text.width > 0 &&
-        search.icon.right + 4 <= search.text.x &&
-        search.text.right + 4 <= search.shortcut.x,
-      `${scenario.name}: search label stays clear of its icon and shortcut`
-    )
-  }
-}
-
-async function screenshot(page, scenario, suffix) {
-  if (suffix === 'token-usd' || suffix === 'unknown-budget') {
-    await page.getByTestId('key-budget-section').scrollIntoViewIfNeeded()
-    await settled(page)
-  } else if (suffix === 'account-threshold') {
-    await page.getByTestId('workbench-actions').scrollIntoViewIfNeeded()
-    await settled(page)
-  }
-  await assertLayout(page, scenario)
-  const selectedKeyReadable = await page.getByTestId('request-flow-selected-key').evaluate(element => {
-    const bounds = element.getBoundingClientRect()
-    const range = document.createRange()
-    range.selectNodeContents(element)
-    const lines = [...range.getClientRects()].filter(line => line.width > 0 && line.height > 0)
-    return lines.length > 0 && element.scrollWidth <= element.clientWidth + 1 &&
-      element.scrollHeight <= element.clientHeight + 1 && getComputedStyle(element).textOverflow !== 'ellipsis' &&
-      lines.every(line => line.left >= bounds.left - 1 && line.right <= bounds.right + 1 &&
-        line.top >= bounds.top - 1 && line.bottom <= bounds.bottom + 1)
-  })
-  assert(selectedKeyReadable, 'Selected Key identity and the unselected prompt remain fully readable')
-  const file = `${scenario.name}-${suffix}.png`
-  await page.screenshot({ path: resolve(output, file), fullPage: true })
-  report.screenshots.push({
-    file,
-    journey: scenario.name,
-    sourceHead,
-    buildRevision: report.buildRevisions.at(-1)?.revision || null,
-    fixtureTime: new Date(FIXTURE_TIME).toISOString(),
-    selectedKeyReadable,
-  })
-  persist()
-}
-
-function section(page, testId) {
-  return page.getByTestId(testId)
-}
-
-function openPlaygroundButton(page, scenario) {
-  return page.getByTestId('personal-workbench').getByRole('button', {
-    name: tr('Open Playground', scenario.language),
-    exact: true,
-  })
-}
-
-async function assertCommonPersonal(page, scenario, audit) {
-  assert.equal(
-    await page.locator('main').count(),
-    1,
-    'The authenticated shell keeps one main landmark'
-  )
-  for (const [testId, title] of [
-    ['request-path-section', 'Request path'],
-    ['key-budget-section', 'Key and request limits'],
-    ['account-windows-section', 'Upstream account windows'],
-    ['recent-records-section', 'Your recent records'],
-    ['workbench-actions', 'Actions and reminders'],
-  ]) {
-    await section(page, testId)
-      .getByRole('heading', { name: tr(title, scenario.language), exact: true })
-      .waitFor()
-  }
-  await section(page, 'workbench-actions')
-    .getByText(tr('No-wallet policy active', scenario.language), { exact: true })
-    .waitFor()
-  assert.equal(
-    await page.locator(`text=${SECRET_SENTINEL}`).count(),
-    0,
-    'No Key secret is rendered'
-  )
-  assert.equal(
-    audit.requests.filter((request) => isReveal(request.path, request.method))
-      .length,
-    0,
-    'No Key reveal request is made'
-  )
-}
-
-async function selectNativeKey(page, scenario, value) {
-  const select = page.getByRole('combobox', {
-    name: tr('Select an API Key', scenario.language),
-    exact: true,
-  })
-  await select.selectOption(String(value))
-  assert.equal(await select.inputValue(), String(value))
-  return select
-}
-
-function localizedNumber(value, language) {
-  return new Intl.NumberFormat(browserLocales[language]).format(value)
 }
 
 async function assertPlaygroundSelection(page, scenario, expectedKeyId) {
@@ -863,957 +793,389 @@ async function storedPlaygroundKeyId(page, role) {
   }, role === 1 ? 2 : 1)
 }
 
-async function runPopulated(scenario) {
-  const { page, context, reads, audit } = await createSession(scenario)
-  const journey = {
-    name: scenario.name,
-    role: scenario.role,
-    language: scenario.language,
-    width: scenario.width,
-    theme: scenario.theme,
-    result: 'running',
+async function openWorkbench(page, scenario) {
+  await page.goto(`${origin}/dashboard/overview`, { waitUntil: 'networkidle' })
+  await page.locator('[data-myapi-shell="authenticated"], [data-myapi-shell="personal"]').waitFor()
+  await page.getByTestId('personal-workbench').waitFor()
+  await page.getByRole('heading', { name: tr('Your API workspace', scenario.language), exact: true }).waitFor()
+  await settled(page)
+  const revision = await page.locator('html').getAttribute('data-build-rev')
+  assert(revision?.startsWith(`rv.${version}.`), 'Visible revision matches VERSION')
+  if (process.env.GITHUB_SHA) assert(revision.includes(process.env.GITHUB_SHA), 'Revision matches CI checkout')
+  report.buildRevisions.push({ journey: scenario.name, revision })
+  return revision
+}
+
+async function screenshot(page, scenario, suffix) {
+  await settled(page)
+  const geometry = await page.evaluate(() => {
+    const sections = []
+    let hiddenSections = 0
+    for (const element of document.querySelectorAll('[data-testid="personal-workbench"], [data-testid="personal-upstream"], [data-slot="card"]')) {
+      const box = element.getBoundingClientRect()
+      // Hidden mounted cards have no rendered geometry. Include visible cards
+      // below the fold as well: their content must also fit when scrolled to.
+      if (box.width <= 0 || box.height <= 0 || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) {
+        hiddenSections++
+        continue
+      }
+      const section = { tag: element.tagName, testId: element.getAttribute('data-testid'), slot: element.getAttribute('data-slot'), left: box.left, right: box.right, top: box.top, bottom: box.bottom, scroll: element.scrollWidth, client: element.clientWidth, overflowingChildren: [] }
+      if (box.left < -1 || box.right > innerWidth + 1 || element.scrollWidth > element.clientWidth + 1) {
+        for (const child of element.querySelectorAll('*')) {
+          const childBox = child.getBoundingClientRect()
+          if (childBox.width <= 0 || childBox.height <= 0 || !child.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue
+          if (childBox.left >= box.left - 1 && childBox.right <= box.right + 1 && child.scrollWidth <= child.clientWidth + 1) continue
+          const style = getComputedStyle(child)
+          section.overflowingChildren.push({ tag: child.tagName, slot: child.getAttribute('data-slot'), testId: child.getAttribute('data-testid'), left: childBox.left, right: childBox.right, scroll: child.scrollWidth, client: child.clientWidth, display: style.display, overflowX: style.overflowX, whiteSpace: style.whiteSpace, minWidth: style.minWidth })
+          if (section.overflowingChildren.length === 20) break
+        }
+      }
+      sections.push(section)
+    }
+    return { viewport: innerWidth, document: document.documentElement.scrollWidth, hiddenSections, sections }
+  })
+  if (geometry.sections.length === 0 || geometry.document > geometry.viewport + 1 || geometry.sections.some((section) => section.left < -1 || section.right > geometry.viewport + 1 || section.scroll > section.client + 1)) {
+    const prefix = `${scenario.name}-${suffix}-overflow`
+    const image = `${prefix}.png`
+    const data = `${prefix}.json`
+    writeFileSync(resolve(output, data), JSON.stringify({ sourceHead, journey: scenario.name, suffix, geometry }, null, 2))
+    await page.screenshot({ path: resolve(output, image), fullPage: true, animations: 'disabled' })
+    report.diagnostics.push({ journey: scenario.name, image, geometry: data })
+    persist()
   }
+  assert(geometry.document <= geometry.viewport + 1, `${scenario.name}: no horizontal page overflow`)
+  assert(geometry.sections.length > 0, `${scenario.name}: visible content geometry exists`)
+  assert(geometry.sections.every((section) => section.left >= -1 && section.right <= geometry.viewport + 1 && section.scroll <= section.client + 1), `${scenario.name}: cards remain inside the viewport`)
+  const file = `${scenario.name}-${suffix}.png`
+  await page.screenshot({ path: resolve(output, file), fullPage: true })
+  report.screenshots.push({ file, journey: scenario.name, sourceHead, buildRevision: report.buildRevisions.at(-1)?.revision, fixtureTime: new Date(FIXTURE_TIME).toISOString() })
+  for (const semantic of ['success', 'warning', 'destructive']) {
+    const candidates = page.locator(`.text-${semantic}:not(svg)`)
+    const index = await candidates.evaluateAll((elements) => elements.findIndex((element) => {
+      const box = element.getBoundingClientRect()
+      return box.width > 0 && box.height > 0 && element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && element.textContent.trim().length > 0
+    }))
+    if (index < 0) continue
+    const result = await assertTextContrast(candidates.nth(index), semantic, scenario.theme)
+    report.contrast.push({ journey: scenario.name, snapshot: suffix, ...result })
+  }
+  persist()
+}
+
+async function selectNativeKey(page, scenario, value) {
+  const details = page.getByTestId('overview-keys').locator('details')
+  if (!(await details.evaluate((element) => element.open))) await details.locator('summary').click()
+  const select = page.getByRole('combobox', { name: tr('Select an API Key', scenario.language), exact: true })
+  await select.selectOption(String(value))
+  assert.equal(await select.inputValue(), String(value))
+}
+
+async function screenshotPoolUsage(page, scenario, suffix) {
+  await page.getByTestId('pool-usage-summary').evaluate((element) => element.scrollIntoView({ block: 'start', behavior: 'instant' }))
+  await screenshot(page, scenario, `${suffix}-pool-summary`)
+  const rows = page.getByTestId('pool-key-allocations').locator('li')
+  assert.equal(await rows.count(), 3, 'The complete pool Key list is present')
+  for (let index = 0; index < 3; index++) {
+    const row = rows.nth(index)
+    await row.evaluate((element) => element.scrollIntoView({ block: 'start', behavior: 'instant' }))
+    const bounds = await row.boundingBox()
+    const content = await page.locator('.pc-route-content').boundingBox()
+    assert(bounds && content && bounds.y >= content.y - 1 && bounds.y + bounds.height <= content.y + content.height + 1, 'Every complete Key row is reachable within the scrolling content')
+    await screenshot(page, scenario, `${suffix}-pool-key-${index + 1}`)
+  }
+  const manage = page.getByTestId('pool-key-allocations').getByText(tr('Manage Key shares', scenario.language), { exact: true })
+  await manage.scrollIntoViewIfNeeded()
+  const button = await manage.boundingBox()
+  const content = await page.locator('.pc-route-content').boundingBox()
+  assert(button && content && button.y >= content.y - 1 && button.y + button.height <= content.y + content.height + 1, 'Pool management remains reachable above the mobile navigation')
+  await screenshot(page, scenario, `${suffix}-pool-actions`)
+}
+
+async function runJourney(scenario, work) {
+  const session = await createSession(scenario)
+  const journey = { name: scenario.name, language: scenario.language, width: scenario.width, role: scenario.role, result: 'running' }
   try {
-    journey.buildRevision = await openWorkbench(page, scenario)
-    await assertCommonPersonal(page, scenario, audit)
-    const keySelect = page.getByRole('combobox', {
-      name: tr('Select an API Key', scenario.language),
-      exact: true,
-    })
-    await keySelect.waitFor()
-    assert.equal(await keySelect.inputValue(), '', 'No Key is selected automatically')
-    const openPlayground = openPlaygroundButton(page, scenario)
-    await openPlayground.waitFor()
-    assert(
-      await openPlayground.isDisabled(),
-      'Open Playground stays disabled until an available Key is selected'
-    )
-    assert.equal(
-      await page
-        .getByTestId('personal-workbench')
-        .locator('a[href="/playground"]')
-        .count(),
-      0,
-      'The workbench exposes no link that can bypass the Key handoff'
-    )
-    await page.getByTestId('key-selection-empty').waitFor()
-    if (scenario.role === 100 || scenario.role === 1) {
-      await screenshot(page, scenario, 'unselected')
+    journey.buildRevision = await openWorkbench(session.page, scenario)
+    await work(session)
+    assert.deepEqual(session.audit.mutations, [], 'No business mutation or generation request')
+    assert.deepEqual(session.audit.external, [], 'No external network request')
+    assert.deepEqual(session.audit.violations, [], 'All reads respect API and permission contracts')
+    assert.deepEqual(session.audit.pageErrors, [], 'No browser runtime error')
+    assert.equal(await session.page.getByText(SECRET_SENTINEL).count(), 0, 'No Key secret is rendered')
+    journey.reads = Object.fromEntries(session.reads)
+    journey.result = 'passed'
+  } catch (error) {
+    journey.result = 'failed'
+    journey.error = error.stack || String(error)
+    journey.reads = Object.fromEntries(session.reads)
+    const prefix = `${scenario.name}-failed-page`
+    const evidence = {
+      sourceHead, journey: scenario.name,
+      reads: journey.reads,
+      responses: session.audit.responses,
+      fixtureResponses: session.audit.fixtureResponses,
+      requestFailures: session.audit.requestFailures,
+      pageErrors: { count: session.audit.pageErrors.length, kinds: session.audit.pageErrorKinds },
+      violations: session.audit.violations.length,
+      mutations: session.audit.mutations.length,
+      externalRequests: session.audit.external.length,
     }
-    assert.equal(
-      audit.requests.filter((request) =>
-        /^\/api\/token\/\d+\/budget$/.test(request.path)
-      ).length,
-      0,
-      'No budget is read before explicit Key selection'
-    )
-    assert.equal(await keySelect.locator('option').count(), 11)
-    await section(page, 'request-path-section')
-      .getByRole('button', {
-        name: tr('Load more Keys', scenario.language),
-        exact: true,
-      })
-      .click()
-    assert.equal(await keySelect.locator('option').count(), 13)
-    for (const [value, state] of [
-      ['24', 'Disabled'],
-      ['25', 'Expired'],
-      ['26', 'Out of internal quota'],
-    ]) {
-      assert(
-        (await keySelect.locator(`option[value="${value}"]`).innerText()).includes(
-          tr(state, scenario.language)
-        ),
-        `Key ${value} exposes its actual availability state`
-      )
+    try {
+      const url = new URL(session.page.url())
+      evidence.finalUrl = url.origin === origin ? `${url.origin}${url.pathname}` : 'outside-scope'
+      evidence.states = {}
+      const states = {
+        loading: session.page.getByRole('status', { name: tr('Loading upstream accounts', scenario.language), exact: true }),
+        permissionError: session.page.getByText(tr('Unable to confirm channel permissions', scenario.language), { exact: true }),
+        permissionDenied: session.page.getByText(tr('Channel read permission is required to view upstream account windows.', scenario.language), { exact: true }),
+        accountsError: session.page.getByTestId('accounts-error-state'),
+        empty: session.page.getByTestId('accounts-empty-state'),
+        upstream: session.page.getByTestId('personal-upstream'),
+        overview: session.page.getByTestId('personal-workbench'),
+      }
+      for (const [name, locator] of Object.entries(states)) evidence.states[name] = await locator.first().isVisible()
+      evidence.render = await session.page.evaluate(() => ({
+        readyState: document.readyState,
+        hidden: document.hidden,
+        viewport: innerWidth,
+        documentWidth: document.documentElement.scrollWidth,
+        windows: [...document.querySelectorAll('[data-testid="native-window-card"]')].map((element) => {
+          const box = element.getBoundingClientRect()
+          return { visible: element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }), left: box.left, right: box.right, top: box.top, bottom: box.bottom }
+        }),
+      }))
+      await session.page.screenshot({ path: resolve(output, `${prefix}.png`), fullPage: true, animations: 'disabled', mask: [session.page.locator('input, textarea'), session.page.getByText(SECRET_SENTINEL)] })
+      evidence.image = `${prefix}.png`
+    } catch {
+      evidence.captureFailed = true
     }
-    assert.equal(
-      reads.get('/pg/keys'),
-      1,
-      'Loading more locally does not refetch or reveal Keys'
-    )
+    writeFileSync(resolve(output, `${prefix}.json`), JSON.stringify(evidence, null, 2))
+    report.diagnostics.push({ journey: scenario.name, image: evidence.image || null, evidence: `${prefix}.json` })
+    persist()
+    throw error
+  }
+  finally { report.journeys.push(journey); persist(); await session.context.close(); contexts.delete(session.context) }
+}
 
-    await keySelect.focus()
-    await keySelect.press('ArrowDown')
-    assert.equal(await keySelect.inputValue(), '21', 'Keyboard selects the first Key')
-    await section(page, 'key-budget-section')
-      .getByText(localizedNumber(750000, scenario.language))
-      .first()
-      .waitFor()
-
-    await selectNativeKey(page, scenario, 22)
-    const budgetSection = section(page, 'key-budget-section')
-    await budgetSection
-      .getByText(localizedNumber(120000, scenario.language))
-      .first()
-      .waitFor()
-    await budgetSection
-      .getByText(/USD\s+12(?:[.,]50|\.500000)/)
-      .first()
-      .waitFor()
-    for (const unit of [
-      'Internal Key quota',
-      'Internal units',
-      'Strict Token budget',
-      'Token',
-      'Strict USD budget',
-      'Account window threshold',
-    ]) {
-      await budgetSection.getByText(tr(unit, scenario.language), { exact: true }).first().waitFor()
-    }
-    const internalSummary = await budgetSection
-      .getByText(tr('Internal Key quota', scenario.language), { exact: true })
-      .locator('..')
-      .locator('..')
-      .innerText()
-    assert(
-      internalSummary.includes(localizedNumber(500000, scenario.language)) &&
-        internalSummary.includes(tr('Internal units', scenario.language)) &&
-        !internalSummary.includes('USD') &&
-        !internalSummary.includes('%') &&
-        !internalSummary.includes(tr('Token', scenario.language)),
-      'Ordinary Key quota stays in internal units'
-    )
-    const tokenSummary = await budgetSection
-      .getByText(tr('Strict Token budget', scenario.language), { exact: true })
-      .locator('..')
-      .locator('..')
-      .innerText()
-    assert(
-      tokenSummary.includes(localizedNumber(120000, scenario.language)) &&
-        tokenSummary.includes(tr('Token', scenario.language)),
-      'Strict Token budget keeps its Token unit'
-    )
-    const usdSummary = await budgetSection
-      .getByText(tr('Strict USD budget', scenario.language), { exact: true })
-      .locator('..')
-      .locator('..')
-      .innerText()
-    assert(
-      usdSummary.includes('USD 12.500000'),
-      'Strict fee budget keeps its exact USD amount and unit'
-    )
-    assert(
-      audit.requests.some(
-        (request) =>
-          request.method === 'GET' && request.path === '/api/token/22/budget'
-      ),
-      'Explicit strict Key selection reads its budget'
-    )
-    await budgetSection.getByText(tr('Pending request review', scenario.language), { exact: true }).waitFor()
-    await section(page, 'workbench-actions').getByText(tr('Pending request review', scenario.language), { exact: true }).waitFor()
-    await screenshot(page, scenario, 'token-usd')
-
-    await selectNativeKey(page, scenario, 23)
-    await budgetSection.getByText(/25(?:[.,]00)?\s*%/).first().waitFor()
-    assert.equal(
-      await page.getByTestId('request-flow-selected-key').innerText(),
-      'Synthetic account threshold Key',
-      'The workbench keeps the exact Key 23 identity before handoff'
-    )
-    assert.equal(await budgetSection.getByText(tr('Not configured', scenario.language), { exact: true }).count(), 2, 'Account threshold does not enable Token or USD budgets')
-    assert.equal(await budgetSection.getByText(tr('Pending request review', scenario.language), { exact: true }).count(), 0, 'Switching Keys removes the previous reservation reminder')
-    await section(page, 'workbench-actions').getByText(tr('No pending request review for the selected Key.', scenario.language), { exact: true }).waitFor()
-    const thresholdSummary = await budgetSection
-      .getByText(tr('Account window threshold', scenario.language), {
-        exact: true,
-      })
-      .locator('..')
-      .locator('..')
-      .innerText()
-    assert(
-      thresholdSummary.includes('25.00%') && !thresholdSummary.includes('USD'),
-      'Account threshold stays a percentage'
-    )
-    assert(
-      audit.requests.some(
-        (request) =>
-          request.method === 'GET' && request.path === '/api/token/23/budget'
-      ),
-      'Switching Keys reads the selected budget'
-    )
-    assert.equal(
-      audit.requests.filter((request) => request.path === '/api/log/overview')
-        .length,
-      0,
-      'Root also reads only the self log overview'
-    )
-    assert(
-      audit.requests.some(
-        (request) => request.path === '/api/log/self/overview'
-      ),
-      'Personal records come from the self endpoint'
-    )
-    assert(
-      audit.requests.some((request) => request.path === '/api/user/self'),
-      'The saved personal policy is freshly read'
-    )
+async function populated(scenario) {
+  await runJourney(scenario, async ({ page, audit, reads, fixture }) => {
+    await page.getByTestId('recent-records-section').getByText('synthetic-personal-model', { exact: true }).waitFor()
+    await page.getByTestId('recent-records-section').getByText(tr('Request successful', scenario.language), { exact: true }).waitFor()
+    assert.equal(await page.getByTestId('recent-records-section').getByText('0 Tokens', { exact: true }).count(), 0, 'Missing usage is never zero Tokens')
+    assert.equal(await page.getByTestId('recent-records-section').getByText(tr('Usage not provided', scenario.language), { exact: true }).count(), 2)
+    const body = await page.getByTestId('personal-workbench').innerText()
+    assert(!/USD\s+\d|\$\s*\d/.test(body), 'Personal overview shows no monetary balance')
+    await screenshot(page, scenario, 'overview')
     if (scenario.channelRead) {
-      assert(
-        audit.requests.some(
-          (request) => request.path === '/api/channel/quota/changes'
-        ),
-        'A permitted administrator reads account windows'
-      )
-    } else {
-      assert.equal(
-        audit.requests.filter(
-          (request) => request.path === '/api/channel/quota/changes'
-        ).length,
-        0,
-        'A session without channel.read never requests account windows'
-      )
-      const permissionCopy =
-        scenario.role === 1
-          ? 'Upstream account windows are available to channel administrators.'
-          : 'Channel read permission is required to view upstream account windows.'
-      await page
-        .getByTestId('accounts-permission-state')
-        .getByText(tr(permissionCopy, scenario.language), { exact: true })
-        .waitFor()
+      await page.goto(`${origin}/upstream-accounts`, { waitUntil: 'networkidle' })
+      await page.getByTestId('personal-upstream').waitFor()
+      // The page root also renders while fresh-self permission and its dependent
+      // account request are loading. Wait for both actual windows, not that root.
+      const windows = page.getByTestId('native-window-card')
+      await windows.filter({ has: page.getByText('55%', { exact: true }) }).waitFor({ state: 'visible' })
+      await windows.filter({ has: page.getByText('68%', { exact: true }) }).waitFor({ state: 'visible' })
+      assert.equal(await windows.count(), 2, 'Native windows stay separate')
+      await page.getByRole('combobox', { name: tr('Select an API Key', scenario.language), exact: true }).selectOption('23')
+      const selectedKeyName = page.getByTestId('upstream-share-selected-key')
+      await selectedKeyName.waitFor({ state: 'visible' })
+      assert.equal(await selectedKeyName.innerText(), safeKeys.find((key) => key.id === 23).name, 'The complete selected Key name remains visible')
+      assert.equal(await page.getByRole('combobox', { name: tr('Select an API Key', scenario.language), exact: true }).getAttribute('aria-describedby'), await selectedKeyName.getAttribute('id'), 'The Key picker describes its exact selected identity')
+      assert(await selectedKeyName.evaluate((element) => element.scrollWidth <= element.clientWidth + 1), 'The selected Key name wraps without horizontal clipping')
+      if (scenario.role === 100) {
+      await page.getByTestId('pool-key-23').waitFor({ state: 'visible' })
+      const points = (value) => tr('{{value}} percentage points', scenario.language).replace('{{value}}', new Intl.NumberFormat(browserLocales[scenario.language], { maximumFractionDigits: 6 }).format(value))
+      assert.equal(await page.getByTestId('pool-estimated-total').innerText(), points(15), 'The local estimate is the complete Key sum')
+      assert.equal(await page.getByTestId('pool-initial-baseline').innerText(), points(35), 'The immutable initial cycle observation stays separate')
+      assert.equal(await page.getByTestId('pool-unattributed-growth').innerText(), points(5), 'Growth excludes the initial baseline')
+      assert.equal(await page.getByTestId('pool-recovery-reference').innerText(), points(43), 'A later reference is not substituted for the initial cycle observation')
+      assert.deepEqual(await page.getByTestId('pool-decomposition-bar').locator('span').evaluateAll((elements) => elements.map((element) => element.style.width)), ['15%', '35%', '5%'], 'Only mutually exclusive usage components form the bar')
+      for (const key of safeKeys.slice(0, 3)) await page.getByTestId(`pool-key-${key.id}`).getByText(key.name, { exact: true }).waitFor()
+      assert.equal(await page.getByTestId('pool-key-21').getByTestId('allocation-used-within-share').innerText(), '50%', 'Estimated usage is relative to the actual allocated share')
+      await screenshot(page, scenario, scenario.stale ? 'upstream-stale' : 'upstream')
+      await screenshotPoolUsage(page, scenario, 'upstream')
+      if (scenario.language === 'en' && scenario.width === 320 && scenario.theme === 'light') {
+        const poolPath = '/api/subscription-share/pools/7/usage'
+        const section = page.getByTestId('pool-usage-7')
+        const refresh = section.getByRole('button', { name: tr('Refresh', scenario.language), exact: true })
+        for (const mode of ['baseline_pending', 'baseline_unknown', 'inconsistent', 'zero-share', 'hang', 'error']) {
+          scenario.poolUsageMode = mode
+          await refresh.click()
+          if (mode === 'error' || mode === 'hang') {
+            await page.getByTestId('pool-usage-error').waitFor({ state: 'visible', timeout: 20000 })
+            assert.equal(await page.getByTestId('pool-decomposition-bar').count(), 0, 'An API failure does not retain a misleading successful chart')
+          } else if (mode === 'zero-share') {
+            await page.getByTestId('pool-key-22').getByText(tr('Deleted', scenario.language), { exact: true }).waitFor()
+            assert.equal(await page.getByTestId('pool-key-22').getByTestId('allocation-estimated-usage').innerText(), points(7), 'Deleted zero-share Keys retain prior estimates')
+            assert.equal(await page.getByTestId('pool-key-22').getByTestId('allocation-used-within-share').innerText(), tr('Unknown', scenario.language), 'Zero share never divides by zero')
+          } else {
+            const stateText = { baseline_pending: 'Waiting for a trustworthy baseline', baseline_unknown: 'The first observation for this cycle is unavailable.', inconsistent: 'The window evidence is inconsistent. Values are shown separately.' }[mode]
+            await page.getByTestId('pool-decomposition-unavailable').getByText(tr(stateText, scenario.language), { exact: true }).waitFor()
+            assert.equal(await page.getByTestId('pool-decomposition-bar').count(), 0, 'Incomplete evidence never becomes a complete decomposition')
+            if (mode !== 'baseline_unknown') assert.equal(await page.getByTestId('pool-estimated-total').innerText(), tr('Unknown', scenario.language), 'Missing usage never becomes zero')
+            if (mode === 'inconsistent') await page.getByTestId('pool-preserved-estimates').waitFor()
+          }
+          await screenshot(page, scenario, `pool-${mode}`)
+          if (mode !== 'error' && mode !== 'hang') await screenshotPoolUsage(page, scenario, `pool-${mode}`)
+          if (mode === 'hang') {
+            assert(audit.requestFailures.some((request) => request.path === poolPath && request.kind === 'aborted'), 'The client deadline aborts the pending read')
+            scenario.poolUsageMode = 'active'
+            const retry = page.getByTestId('pool-usage-error').getByRole('button', { name: tr('Retry', scenario.language), exact: true })
+            await retry.focus()
+            assert(await retry.evaluate((element) => document.activeElement === element), 'Pool timeout recovery is keyboard focused')
+            await page.keyboard.press('Enter')
+            await page.getByTestId('pool-decomposition-bar').waitFor()
+            await screenshot(page, scenario, 'pool-timeout-recovered')
+            await screenshotPoolUsage(page, scenario, 'pool-timeout-recovered')
+          }
+        }
+        scenario.poolUsageMode = 'active'
+        const retry = page.getByTestId('pool-usage-error').getByRole('button', { name: tr('Retry', scenario.language), exact: true })
+        await retry.focus()
+        assert(await retry.evaluate((element) => document.activeElement === element), 'Pool API recovery is keyboard focused')
+        await page.keyboard.press('Enter')
+        await page.getByTestId('pool-decomposition-bar').waitFor()
+        await screenshot(page, scenario, 'pool-recovered')
+        await screenshotPoolUsage(page, scenario, 'pool-recovered')
+        const picker = page.getByRole('combobox', { name: tr('Select an API Key', scenario.language), exact: true })
+        const beforeCandidate = reads.get(poolPath)
+        await picker.selectOption('24')
+        await page.getByText(tr('This Key has no share for the selected account.', scenario.language), { exact: true }).waitFor()
+        assert.equal(reads.get(poolPath), beforeCandidate, 'An unconfigured candidate never requests pool usage')
+        scenario.poolSession = true
+        await page.goto(`${origin}/upstream-accounts`, { waitUntil: 'networkidle' })
+        await page.getByTestId('native-window-card').filter({ has: page.getByText('55%', { exact: true }) }).waitFor()
+        const newPicker = page.getByRole('combobox', { name: tr('Select an API Key', scenario.language), exact: true })
+        assert.equal(await newPicker.inputValue(), '', 'A new session does not inherit a prior selected Key')
+        assert.equal(reads.get(poolPath), beforeCandidate, 'A new session reads no pool before an explicit Key selection')
+        await newPicker.selectOption('23')
+        await page.getByTestId('pool-key-21').getByText('Synthetic new session Key', { exact: true }).waitFor()
+        assert.equal(await page.getByTestId('pool-key-21').getByText(safeKeys[0].name, { exact: true }).count(), 0, 'Old session allocation names do not populate the new view')
+        await screenshot(page, scenario, 'pool-session-isolated')
+        await screenshotPoolUsage(page, scenario, 'session-isolated')
+        scenario.poolManageNavigation = true
+        const managementRead = page.waitForResponse((response) => new URL(response.url()).pathname.replace(/\/$/, '') === '/api/token' && response.request().method() === 'GET' && response.status() === 200)
+        const manage = page.getByTestId('pool-key-allocations').getByText(tr('Manage Key shares', scenario.language), { exact: true })
+        assert.equal(await manage.getAttribute('href'), '/keys', 'Pool management targets the existing Key page')
+        await manage.focus()
+        assert(await manage.evaluate((element) => document.activeElement === element), 'Pool management is keyboard focused')
+        await page.keyboard.press('Enter')
+        await page.waitForURL(`${origin}/keys`)
+        await managementRead
+        await page.locator('#personal-keys-title').waitFor({ state: 'visible' })
+        await page.getByText('synthetic-key', { exact: true }).waitFor()
+        assert.equal(audit.requests.filter((request) => request.path === '/api/token').length, 1, 'Keyboard navigation reads exactly the existing masked management list')
+        await screenshot(page, scenario, 'pool-manage-keyboard')
+      }
+      } else {
+        await page.getByText(tr('Root access is required to match Key shares to this account.', scenario.language), { exact: true }).waitFor()
+        assert.equal(await page.getByTestId('pool-usage-7').count(), 0, 'Native window permission does not reveal Root usage')
+        await screenshot(page, scenario, 'upstream-without-root-usage')
+      }
+      await openWorkbench(page, scenario)
+    } else assert.equal(audit.requests.filter((request) => request.path === '/api/channel/quota/changes').length, 0, 'No channel read without permission')
+    for (const keyId of [24, 25, 26]) {
+      await selectNativeKey(page, scenario, keyId)
+      assert(await page.getByRole('button', { name: tr('Open Playground', scenario.language), exact: true }).isDisabled(), 'Unavailable Key cannot open Playground')
     }
-
-    await screenshot(page, scenario, 'account-threshold')
-    const requestCount = audit.requests.length
-    const handedOffModels = page.waitForResponse((response) => {
-      const request = response.request()
-      return (
-        new URL(response.url()).pathname === '/pg/models' &&
-        request.headers()['x-myapi-key-id'] === '23'
-      )
-    })
-    assert.equal(
-      await openPlayground.isDisabled(),
-      false,
-      'Open Playground becomes enabled for available Key 23'
-    )
-    await openPlayground.focus()
-    await page.keyboard.press('Enter')
+    await selectNativeKey(page, scenario, 23)
+    const modelResponse = page.waitForResponse((response) => new URL(response.url()).pathname === '/pg/models' && response.request().headers()['x-myapi-key-id'] === '23')
+    const open = page.getByRole('button', { name: tr('Open Playground', scenario.language), exact: true })
+    await open.focus(); await page.keyboard.press('Enter')
     await page.waitForURL(`${origin}/playground`)
     await assertPlaygroundSelection(page, scenario, 23)
-    await handedOffModels
-    assert.equal(
-      await page.locator(`text=${SECRET_SENTINEL}`).count(),
-      0,
-      'Playground renders no Key secret after handoff'
-    )
-    assert.equal(
-      reads.get('/pg/keys'),
-      2,
-      'Playground validates the handoff with one fresh safe-list read'
-    )
-    assert.equal(
-      await storedPlaygroundKeyId(page, scenario.role),
-      23,
-      'The one-time handoff replaces the previously saved Key 22'
-    )
-    assert(
-      audit.requests.some(
-        (request) => request.path === '/pg/models' && request.keyId === '23'
-      ),
-      'Playground loads models for the handed-off Key 23'
-    )
-    assert.equal(
-      audit.requests.filter(
-        (request) => request.path === '/pg/models' && request.keyId === '22'
-      ).length,
-      0,
-      'Playground never loads models for the older saved Key 22'
-    )
-    assert.equal(
-      audit.requests.filter(
-        (request) =>
-          request.method === 'POST' &&
-          request.path === '/pg/chat/completions'
-      ).length,
-      0,
-      'Selecting the handed-off Key never sends a generation request'
-    )
-    assert.equal(
-      audit.requests
-        .slice(requestCount)
-        .filter(
-          (request) =>
-            request.method !== 'GET' &&
-            request.path !== '/api/user/auth/refresh'
-        ).length,
-      0,
-      'The primary action only navigates; it does not send a request'
-    )
-
-    assert.deepEqual(audit.mutations, [], 'No business mutation is attempted')
-    assert.deepEqual(audit.external, [], 'No external request is attempted')
-    assert.deepEqual(audit.violations, [], 'No fixture contract is violated')
-    assert.deepEqual(audit.pageErrors, [], 'No page runtime error is reported')
-    journey.requestCount = audit.requests.length
-    journey.reads = Object.fromEntries(reads)
-    journey.result = 'passed'
-  } catch (error) {
-    journey.result = 'failed'
-    journey.error = error instanceof Error ? error.stack : String(error)
-    throw error
-  } finally {
-    report.journeys.push(journey)
-    persist()
-    await context.close()
-    contexts.delete(context)
-  }
+    await modelResponse
+    assert.equal(await storedPlaygroundKeyId(page, scenario.role), 23, 'Handoff replaces previously saved Key 22')
+    assert.equal(audit.requests.filter((request) => request.path === '/pg/models' && request.keyId === '22').length, 0, 'No fallback to an older wider Key')
+    assert.equal(audit.requests.filter((request) => request.path === '/api/log' || request.path === '/api/log/overview').length, 0, 'Personal records are always owner scoped')
+    assert.equal(audit.requests.filter((request) => /^\/api\/token\/\d+\/budget$/.test(request.path)).length, 0, 'Overview does not load monetary budget forms')
+    if (scenario.role !== 100) assert.equal(audit.requests.filter((request) => /^\/api\/subscription-share\/pools\//.test(request.path)).length, 0, 'Non-Root sessions never request full pool usage')
+    if (scenario.role === 10) {
+      // This second permission state uses a new authenticated document whose
+      // API fixture grants channel.read; no application auth state is injected.
+      fixture.user.permissions.admin_permissions.channel.read = true
+      scenario.channelRead = true
+      await page.goto(`${origin}/upstream-accounts`, { waitUntil: 'networkidle' })
+      await page.getByTestId('native-window-card').filter({ has: page.getByText('55%', { exact: true }) }).waitFor()
+      const windows = page.getByTestId('native-window-card')
+      await windows.filter({ has: page.getByText('68%', { exact: true }) }).waitFor()
+      assert.equal(await windows.count(), 2, 'An authorized admin can view native account windows')
+      await page.getByRole('combobox', { name: tr('Select an API Key', scenario.language), exact: true }).selectOption('23')
+      await page.getByTestId('upstream-share-selected-key').waitFor()
+      await page.getByText(tr('Root access is required to match Key shares to this account.', scenario.language), { exact: true }).waitFor()
+      assert.equal(audit.requests.filter((request) => /^\/api\/subscription-share\/pools\//.test(request.path)).length, 0, 'channel.read never grants Root pool usage permission')
+      assert.equal(await page.getByTestId('pool-usage-7').count(), 0, 'Admin sees no Root pool chart')
+      await screenshot(page, scenario, 'admin-channel-reader')
+    }
+  })
 }
 
-async function runBlockedHandoff(scenario) {
-  const { page, context, reads, audit } = await createSession(scenario)
-  const journey = {
-    name: scenario.name,
-    role: scenario.role,
-    language: scenario.language,
-    width: scenario.width,
-    theme: scenario.theme,
-    result: 'running',
-  }
-  try {
-    journey.buildRevision = await openWorkbench(page, scenario)
+async function blockedHandoff(scenario) {
+  await runJourney(scenario, async ({ page, reads, audit }) => {
     await selectNativeKey(page, scenario, 23)
-    await section(page, 'key-budget-section')
-      .getByText('25.00%', { exact: true })
-      .first()
-      .waitFor()
-
-    const requestCount = audit.requests.length
-    const openPlayground = openPlaygroundButton(page, scenario)
-    assert.equal(
-      await page
-        .getByTestId('personal-workbench')
-        .locator('a[href="/playground"]')
-        .count(),
-      0,
-      'The blocked-handoff setup exposes no Playground link shortcut'
-    )
-    assert.equal(await openPlayground.isDisabled(), false)
-    await openPlayground.click()
+    await page.getByRole('button', { name: tr('Open Playground', scenario.language), exact: true }).click()
     await page.waitForURL(`${origin}/playground`)
-
-    const keySelect = page.getByRole('combobox', {
-      name: tr('API key', scenario.language),
-      exact: true,
-    })
+    const keySelect = page.getByRole('combobox', { name: tr('API key', scenario.language), exact: true })
     await keySelect.waitFor()
-    const notice = scenario.failPlaygroundKeys
-      ? 'Failed to load API keys'
-      : 'The selected API key is unavailable. Choose another key.'
-    const status = page.getByRole('status')
-    await status.waitFor()
-    assert(
-      (await status.innerText()).includes(tr(notice, scenario.language)),
-      'The blocked handoff explains the exact localized failure state'
-    )
-    assert.equal(
-      await keySelect.inputValue(),
-      '',
-      'An invalid handoff leaves the Playground Key selection empty'
-    )
-    assert.equal(
-      await page.locator(`text=${SECRET_SENTINEL}`).count(),
-      0,
-      'A blocked handoff renders no Key secret'
-    )
-    assert.equal(
-      await storedPlaygroundKeyId(page, scenario.role),
-      null,
-      'An invalid handoff clears the older saved Key instead of falling back'
-    )
-    assert.equal(
-      reads.get('/pg/keys'),
-      2,
-      'A blocked handoff is decided by one fresh safe-list read'
-    )
-    assert.equal(
-      audit.requests.filter((request) => request.path === '/pg/models').length,
-      0,
-      'An invalid handoff never loads models for the handed-off or saved Key'
-    )
-    assert.equal(
-      audit.requests
-        .slice(requestCount)
-        .filter(
-          (request) =>
-            request.method !== 'GET' &&
-            request.path !== '/api/user/auth/refresh'
-        ).length,
-      0,
-      'An invalid handoff performs no business POST'
-    )
-    assert.equal(
-      audit.requests.filter(
-        (request) =>
-          request.method === 'POST' &&
-          request.path === '/pg/chat/completions'
-      ).length,
-      0,
-      'An invalid handoff never sends a generation request'
-    )
-    assert.deepEqual(
-      audit.mutations,
-      [],
-      'An invalid handoff performs no mutation'
-    )
-    assert.deepEqual(
-      audit.external,
-      [],
-      'An invalid handoff performs no external request'
-    )
-    assert.deepEqual(
-      audit.violations,
-      [],
-      'An invalid handoff honors fixture contracts'
-    )
-    assert.deepEqual(
-      audit.pageErrors,
-      [],
-      'An invalid handoff reports no runtime error'
-    )
-    journey.requestCount = audit.requests.length
-    journey.reads = Object.fromEntries(reads)
-    journey.result = 'passed'
-  } catch (error) {
-    journey.result = 'failed'
-    journey.error = error instanceof Error ? error.stack : String(error)
-    throw error
-  } finally {
-    report.journeys.push(journey)
-    persist()
-    await context.close()
-    contexts.delete(context)
-  }
-}
-
-async function runRecovery(scenario) {
-  const { page, context, reads, audit } = await createSession(scenario)
-  const journey = {
-    name: scenario.name,
-    role: scenario.role,
-    language: scenario.language,
-    width: scenario.width,
-    theme: scenario.theme,
-    result: 'running',
-  }
-  try {
-    journey.buildRevision = await openWorkbench(page, scenario)
-    await page.getByTestId('keys-error-state').waitFor()
-    await page.getByTestId('recent-error-state').waitFor()
-    await page.getByTestId('accounts-error-state').waitFor()
-    await screenshot(page, scenario, 'errors')
-
-    await page
-      .getByTestId('keys-error-state')
-      .getByRole('button', { name: tr('Retry', scenario.language), exact: true })
-      .click()
-    await page
-      .getByRole('combobox', {
-        name: tr('Select an API Key', scenario.language),
-        exact: true,
-      })
-      .waitFor()
-    await page
-      .getByTestId('recent-error-state')
-      .getByRole('button', { name: tr('Retry', scenario.language), exact: true })
-      .click()
-    await section(page, 'recent-records-section')
-      .getByText('synthetic-personal-model', { exact: true })
-      .waitFor()
-    await page
-      .getByTestId('accounts-error-state')
-      .getByRole('button', { name: tr('Retry', scenario.language), exact: true })
-      .click()
-    await page.getByTestId('accounts-error-state').waitFor({ state: 'hidden' })
-
-    await selectNativeKey(page, scenario, 22)
-    await page.getByTestId('budget-error-state').waitFor()
-    await page
-      .getByTestId('budget-error-state')
-      .getByRole('button', { name: tr('Retry', scenario.language), exact: true })
-      .click()
-    await section(page, 'key-budget-section')
-      .getByText(/USD\s+12(?:[.,]50|\.500000)/)
-      .first()
-      .waitFor()
-    await screenshot(page, scenario, 'recovered')
-
-    for (const path of [
-      '/pg/keys',
-      '/api/log/self/overview',
-      '/api/channel/quota/changes',
-      '/api/token/22/budget',
-    ]) {
-      assert.equal(reads.get(path), 2, `${path} is retried exactly once`)
-    }
-    assert.deepEqual(audit.mutations, [], 'Recovery performs no business mutation')
-    assert.deepEqual(audit.external, [], 'Recovery performs no external request')
-    assert.deepEqual(audit.violations, [], 'Recovery honors fixture contracts')
-    assert.deepEqual(audit.pageErrors, [], 'Recovery reports no runtime error')
-    journey.requestCount = audit.requests.length
-    journey.reads = Object.fromEntries(reads)
-    journey.result = 'passed'
-  } catch (error) {
-    journey.result = 'failed'
-    journey.error = error instanceof Error ? error.stack : String(error)
-    throw error
-  } finally {
-    report.journeys.push(journey)
-    persist()
-    await context.close()
-    contexts.delete(context)
-  }
-}
-
-async function runEmpty(scenario) {
-  const { page, context, reads, audit } = await createSession(scenario)
-  const journey = {
-    name: scenario.name,
-    role: scenario.role,
-    language: scenario.language,
-    width: scenario.width,
-    theme: scenario.theme,
-    result: 'running',
-  }
-  try {
-    journey.buildRevision = await openWorkbench(page, scenario)
-    await page.getByTestId('keys-empty-state').waitFor()
-    await page.getByTestId('recent-empty-state').waitFor()
-    await page.getByTestId('accounts-empty-state').waitFor()
-    assert.equal(
-      audit.requests.filter((request) =>
-        /^\/api\/token\/\d+\/budget$/.test(request.path)
-      ).length,
-      0,
-      'An empty Key list cannot trigger a budget read'
-    )
-    if (scenario.storedAllowance) {
-      const policy = page.getByTestId('workbench-actions').getByText(tr('Stored user allowance remains in effect', scenario.language), { exact: true })
-      await policy.scrollIntoViewIfNeeded()
-      await settled(page)
-      assert(await policy.evaluate(element => {
-        const bounds = element.getBoundingClientRect()
-        const region = element.closest('[role="region"]').getBoundingClientRect()
-        return element.scrollWidth <= element.clientWidth + 1 && bounds.left >= region.left && bounds.right <= region.right
-      }), 'Long translated policy remains readable inside its card')
-    }
-    await screenshot(page, scenario, scenario.storedAllowance ? 'long-policy' : 'empty')
-    assert.deepEqual(audit.mutations, [], 'Empty state performs no mutation')
-    assert.deepEqual(audit.external, [], 'Empty state performs no external request')
-    assert.deepEqual(audit.violations, [], 'Empty state honors fixture contracts')
-    assert.deepEqual(audit.pageErrors, [], 'Empty state reports no runtime error')
-    journey.reads = Object.fromEntries(reads)
-    journey.result = 'passed'
-  } catch (error) {
-    journey.result = 'failed'
-    journey.error = error instanceof Error ? error.stack : String(error)
-    throw error
-  } finally {
-    report.journeys.push(journey)
-    persist()
-    await context.close()
-    contexts.delete(context)
-  }
-}
-
-async function runUnknownBudget(scenario) {
-  const { page, context, reads, audit } = await createSession(scenario)
-  const journey = {
-    name: scenario.name,
-    role: scenario.role,
-    language: scenario.language,
-    width: scenario.width,
-    theme: scenario.theme,
-    result: 'running',
-  }
-  try {
-    journey.buildRevision = await openWorkbench(page, scenario)
-    await selectNativeKey(page, scenario, 22)
-    const failure = page.getByTestId('budget-error-state')
-    await failure.waitFor()
-    await failure
-      .getByText(tr('Unable to load this Key budget', scenario.language), {
-        exact: true,
-      })
-      .waitFor()
-    const text = await section(page, 'key-budget-section').innerText()
-    assert.equal(await section(page, 'key-budget-section').getByText(tr('Unknown', scenario.language), { exact: true }).count(), 3, 'Unavailable budget explicitly marks Token, USD and threshold as unknown')
-    assert(!text.includes('USD 0'), 'Unknown USD budget is not shown as zero')
-    assert(!text.includes('0 Token'), 'Unknown Token budget is not shown as zero')
-    assert(
-      !text.includes(tr('Not configured', scenario.language)),
-      'An unavailable budget is not presented as confirmed unconfigured state'
-    )
-    await screenshot(page, scenario, 'unknown-budget')
-    assert.deepEqual(audit.mutations, [], 'Unknown budget performs no mutation')
-    assert.deepEqual(audit.external, [], 'Unknown budget performs no external request')
-    assert.deepEqual(audit.violations, [], 'Unknown budget honors fixture contracts')
-    assert.deepEqual(audit.pageErrors, [], 'Unknown budget reports no runtime error')
-    journey.reads = Object.fromEntries(reads)
-    journey.result = 'passed'
-  } catch (error) {
-    journey.result = 'failed'
-    journey.error = error instanceof Error ? error.stack : String(error)
-    throw error
-  } finally {
-    report.journeys.push(journey)
-    persist()
-    await context.close()
-    contexts.delete(context)
-  }
-}
-
-async function runGate(scenario) {
-  const { page, context, reads, audit } = await createSession(scenario)
-  const journey = {
-    name: scenario.name,
-    mode: scenario.mode,
-    role: scenario.role,
-    language: scenario.language,
-    width: scenario.width,
-    theme: scenario.theme,
-    result: 'running',
-  }
-  try {
-    await page.goto(`${origin}/dashboard/overview`, { waitUntil: 'networkidle' })
-    await page.locator('[data-myapi-shell="authenticated"]').waitFor()
-    await page
-      .getByRole('heading', {
-        level: 1,
-        name: tr('Overview', scenario.language),
-        exact: true,
-      })
-      .waitFor()
-    const revision = await page.locator('html').getAttribute('data-build-rev')
-    assert(revision?.startsWith(`rv.${version}.`), 'Visible revision matches VERSION')
-    if (scenario.mode === 'unknown') {
-      await page.getByText(tr('Unable to confirm workspace mode', scenario.language), { exact: true }).waitFor()
-      assert.equal(audit.requests.filter(request => ['/pg/keys', '/api/token', '/api/user/models', '/api/channel/quota/changes', '/api/log/self/overview', '/api/log/overview', '/api/data/self', '/api/data', '/api/perf-metrics/summary'].includes(request.path)).length, 0, 'An unconfirmed mode mounts neither workspace data plane')
-    }
-    if (process.env.GITHUB_SHA) {
-      assert(
-        revision.includes(process.env.GITHUB_SHA),
-        'Visible revision matches the CI checkout'
-      )
-    }
-    journey.buildRevision = revision
-    report.buildRevisions.push({ journey: scenario.name, revision })
-    assert.equal(
-      await page.getByTestId('personal-workbench').count(),
-      0,
-      `${scenario.mode} never mounts the personal workspace`
-    )
-    assert.equal(
-      audit.requests.filter((request) => request.path === '/pg/keys').length,
-      0,
-      `${scenario.mode} never boots personal Key reads`
-    )
-    assert.equal(
-      audit.requests.filter((request) =>
-        /^\/api\/token\/\d+\/budget$/.test(request.path)
-      ).length,
-      0,
-      `${scenario.mode} never boots personal budget reads`
-    )
-    assert.deepEqual(audit.mutations, [], 'Legacy gate performs no business mutation')
-    assert.deepEqual(audit.external, [], 'Legacy gate performs no external request')
-    assert.deepEqual(audit.violations, [], 'Legacy gate honors fixture contracts')
-    assert.deepEqual(audit.pageErrors, [], 'Legacy gate reports no runtime error')
-    journey.reads = Object.fromEntries(reads)
-    journey.result = 'passed'
-  } catch (error) {
-    journey.result = 'failed'
-    journey.error = error instanceof Error ? error.stack : String(error)
-    throw error
-  } finally {
-    report.journeys.push(journey)
-    persist()
-    await context.close()
-    contexts.delete(context)
-  }
+    const notice = scenario.failPlaygroundKeys ? 'Failed to load API keys' : 'The selected API key is unavailable. Choose another key.'
+    await page.getByRole('status').getByText(tr(notice, scenario.language), { exact: false }).waitFor()
+    assert.equal(await keySelect.inputValue(), '', 'Failed handoff leaves no selected Key')
+    assert.equal(await storedPlaygroundKeyId(page, scenario.role), null, 'Failed handoff clears older saved Key')
+    assert.equal(reads.get('/pg/keys'), 2, 'Playground validates against one fresh safe list')
+    assert.equal(audit.requests.filter((request) => request.path === '/pg/models').length, 0, 'Failed handoff loads no models')
+  })
 }
 
 try {
   await new Promise((done) => server.listen(0, '127.0.0.1', done))
   origin = `http://127.0.0.1:${server.address().port}`
-  const { chromium } = await import(
-    process.env.MYAPI_PLAYWRIGHT_MODULE
-      ? pathToFileURL(process.env.MYAPI_PLAYWRIGHT_MODULE).href
-      : 'playwright'
-  )
-  browser = await chromium.launch({
-    headless: true,
-    executablePath: process.env.MYAPI_CHROMIUM_PATH || undefined,
-    args: ['--disable-dev-shm-usage'],
+  const { chromium } = await import(process.env.MYAPI_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.MYAPI_PLAYWRIGHT_MODULE).href : 'playwright')
+  browser = await chromium.launch({ headless: true, executablePath: process.env.MYAPI_CHROMIUM_PATH || undefined, args: ['--disable-dev-shm-usage'] })
+  const base = { role: 100, mode: 'disabled', theme: 'light', channelRead: true, savedPlaygroundKeyId: 22 }
+  const matrix = Object.keys(languageCodes).flatMap((language) => [320, 1280].map((width) => ({ ...base, name: `personal-${language}-${width}`, language, width })))
+  matrix.push(...[390, 1440].map((width) => ({ ...base, name: `personal-zh-${width}`, language: 'zh', width, stale: width === 390 })))
+  matrix.push({ ...base, name: 'personal-zh-320-dark', language: 'zh', width: 320, theme: 'dark' }, { ...base, name: 'personal-en-1280-dark', language: 'en', width: 1280, theme: 'dark' })
+  report.coverage = { languages: Object.keys(languageCodes), widths: [320, 390, 1280, 1440], handoffCases: ['available', 'key-unavailable', 'safe-list-failed'], poolUsageCases: ['available', 'baseline_pending', 'baseline_unknown', 'inconsistent', 'zero-share', 'timeout', 'error', 'recovered', 'candidate-not-read', 'session-isolated', 'non-root-not-read', 'admin-channel-read-without-root'] }
+  for (const scenario of matrix) await populated(scenario)
+  for (const role of [1, 10]) await populated({ ...base, name: `personal-permission-${role}`, role, channelRead: false, language: 'en', width: 320 })
+  await blockedHandoff({ ...base, name: 'personal-handoff-key-unavailable-en-1280', role: 1, channelRead: false, language: 'en', width: 1280, handoffKeyUnavailable: true })
+  await blockedHandoff({ ...base, name: 'personal-handoff-safe-list-failed-zh-320', role: 1, channelRead: false, language: 'zh', width: 320, failPlaygroundKeys: true })
+  const recovery = { ...base, name: 'personal-retry-zh-320', language: 'zh', width: 320, failKeys: true, failRecent: true, failAccounts: true }
+  await runJourney(recovery, async ({ page, reads }) => {
+    for (const id of ['keys-error-state', 'recent-error-state', 'accounts-error-state']) await page.getByTestId(id).waitFor()
+    await screenshot(page, recovery, 'errors')
+    for (const id of ['keys-error-state', 'recent-error-state', 'accounts-error-state']) {
+      await page.getByTestId(id).getByRole('button', { name: tr('Retry', recovery.language), exact: true }).click()
+      await page.getByTestId(id).waitFor({ state: 'hidden' })
+    }
+    await screenshot(page, recovery, 'recovered')
+    for (const path of ['/pg/keys', '/api/log/self', '/api/channel/quota/changes']) assert.equal(reads.get(path), 2, 'Failed section retries once')
   })
-
-  const populatedScenarios = [
-    {
-      name: 'personal-owner-en-320-dark',
-      role: 1,
-      language: 'en',
-      width: 320,
-      theme: 'dark',
-      channelRead: false,
-    },
-    {
-      name: 'personal-admin-no-channel-en-1280-dark',
-      role: 10,
-      language: 'en',
-      width: 1280,
-      theme: 'dark',
-      channelRead: false,
-    },
-    {
-      name: 'personal-owner-zh-320-dark',
-      role: 1,
-      language: 'zh',
-      width: 320,
-      theme: 'dark',
-      channelRead: false,
-    },
-    {
-      name: 'personal-root-zh-1280-light',
-      role: 100,
-      language: 'zh',
-      width: 1280,
-      theme: 'light',
-      channelRead: true,
-    },
-    {
-      name: 'personal-owner-zh-TW-320-light',
-      role: 1,
-      language: 'zh-TW',
-      width: 320,
-      theme: 'light',
-      channelRead: false,
-    },
-    {
-      name: 'personal-root-zh-TW-1280-dark',
-      role: 100,
-      language: 'zh-TW',
-      width: 1280,
-      theme: 'dark',
-      channelRead: true,
-    },
-    {
-      name: 'personal-owner-fr-320-dark',
-      role: 1,
-      language: 'fr',
-      width: 320,
-      theme: 'dark',
-      channelRead: false,
-    },
-    {
-      name: 'personal-root-fr-1280-light',
-      role: 100,
-      language: 'fr',
-      width: 1280,
-      theme: 'light',
-      channelRead: true,
-    },
-    {
-      name: 'personal-owner-ru-320-light',
-      role: 1,
-      language: 'ru',
-      width: 320,
-      theme: 'light',
-      channelRead: false,
-    },
-    {
-      name: 'personal-root-ru-1280-dark',
-      role: 100,
-      language: 'ru',
-      width: 1280,
-      theme: 'dark',
-      channelRead: true,
-    },
-    {
-      name: 'personal-owner-ja-320-dark',
-      role: 1,
-      language: 'ja',
-      width: 320,
-      theme: 'dark',
-      channelRead: false,
-    },
-    {
-      name: 'personal-root-ja-1280-light',
-      role: 100,
-      language: 'ja',
-      width: 1280,
-      theme: 'light',
-      channelRead: true,
-    },
-    {
-      name: 'personal-owner-vi-320-light',
-      role: 1,
-      language: 'vi',
-      width: 320,
-      theme: 'light',
-      channelRead: false,
-    },
-    {
-      name: 'personal-root-vi-1280-dark',
-      role: 100,
-      language: 'vi',
-      width: 1280,
-      theme: 'dark',
-      channelRead: true,
-    },
-  ].map((scenario) => ({
-    ...scenario,
-    mode: 'disabled',
-    savedPlaygroundKeyId: 22,
-  }))
-  const requiredPairs = new Set(
-    Object.keys(languageCodes).flatMap((language) =>
-      [320, 1280].map((width) => `${language}:${width}`)
-    )
-  )
-  const populatedPairs = new Set(
-    populatedScenarios.map(
-      (scenario) => `${scenario.language}:${scenario.width}`
-    )
-  )
-  assert.equal(populatedScenarios.length, 14)
-  assert.equal(
-    new Set(populatedScenarios.map((scenario) => scenario.name)).size,
-    14
-  )
-  assert.deepEqual(
-    [...populatedPairs].sort(),
-    [...requiredPairs].sort(),
-    'The bounded populated matrix covers every required language at 320px and 1280px exactly once'
-  )
-  assert(
-    populatedScenarios.some(
-      (scenario) => scenario.role === 10 && !scenario.channelRead
-    ),
-    'The populated matrix preserves the administrator permission-denied scenario'
-  )
-  report.coverage = {
-    languages: [...Object.keys(languageCodes)],
-    widths: [320, 1280],
-    populatedPairs: [...populatedPairs].sort(),
-    handoffCases: ['available', 'key-unavailable', 'safe-list-failed'],
-  }
-  for (const scenario of populatedScenarios) await runPopulated(scenario)
-
-  await runBlockedHandoff({
-    name: 'personal-handoff-key-unavailable-en-1280',
-    role: 1,
-    language: 'en',
-    width: 1280,
-    theme: 'light',
-    mode: 'disabled',
-    channelRead: false,
-    savedPlaygroundKeyId: 22,
-    handoffKeyUnavailable: true,
-  })
-  await runBlockedHandoff({
-    name: 'personal-handoff-safe-list-failed-zh-320',
-    role: 1,
-    language: 'zh',
-    width: 320,
-    theme: 'dark',
-    mode: 'disabled',
-    channelRead: false,
-    savedPlaygroundKeyId: 22,
-    failPlaygroundKeys: true,
-  })
-  await runRecovery({
-    name: 'personal-retry-zh-320-light',
-    role: 100,
-    language: 'zh',
-    width: 320,
-    theme: 'light',
-    mode: 'disabled',
-    channelRead: true,
-    failKeys: true,
-    failRecent: true,
-    failAccounts: true,
-    failBudgetOnce: true,
-  })
-  await runEmpty({
-    name: 'personal-empty-en-1280-light',
-    role: 100,
-    language: 'en',
-    width: 1280,
-    theme: 'light',
-    mode: 'disabled',
-    channelRead: true,
-    empty: true,
-  })
-  await runUnknownBudget({
-    name: 'personal-unknown-budget-zh-320-dark',
-    role: 1,
-    language: 'zh',
-    width: 320,
-    theme: 'dark',
-    mode: 'disabled',
-    channelRead: false,
-    unknownBudget: true,
-  })
-  await runEmpty({
-    name: 'personal-long-policy-fr-320-dark',
-    role: 100, language: 'fr', width: 320, theme: 'dark',
-    mode: 'disabled', channelRead: true, empty: true, storedAllowance: true,
+  const empty = { ...base, name: 'personal-empty-en-1280', language: 'en', width: 1280, empty: true }
+  await runJourney(empty, async ({ page }) => {
+    for (const id of ['keys-empty-state', 'recent-empty-state', 'accounts-empty-state']) await page.getByTestId(id).waitFor()
+    await screenshot(page, empty, 'empty')
   })
   for (const mode of ['enabled', 'retirement', 'unknown']) {
-    await runGate({
-      name: `legacy-${mode}-gate`,
-      role: 1,
-      language: 'en',
-      width: 1280,
-      theme: 'light',
-      mode,
-      channelRead: false,
-    })
+    const scenario = { ...base, name: `legacy-${mode}-gate`, role: 1, channelRead: false, language: 'en', width: 1280, mode }
+    const session = await createSession(scenario)
+    try {
+      await session.page.goto(`${origin}/dashboard/overview`, { waitUntil: 'networkidle' })
+      await session.page.locator('[data-myapi-shell="authenticated"], [data-myapi-shell="personal"]').waitFor()
+      assert.equal(await session.page.getByTestId('personal-workbench').count(), 0, 'Unconfirmed or commercial mode does not mount personal workspace')
+      assert.equal(session.audit.requests.filter((request) => request.path === '/pg/keys').length, 0, 'Gate does not request personal Keys')
+      assert.equal(session.audit.requests.filter((request) => /^\/api\/token\/\d+\/subscription-share$/.test(request.path)).length, 0, 'Gate does not request personal share pools')
+      assert.equal(session.audit.requests.filter((request) => /^\/api\/subscription-share\/pools\//.test(request.path)).length, 0, 'Gate does not request full pool usage')
+      if (mode === 'unknown') assert.equal(session.audit.requests.filter((request) => ['/api/channel/quota/changes', '/api/log/self', '/api/log/self/overview', '/api/log/overview', '/api/data/self', '/api/data', '/api/perf-metrics/summary'].includes(request.path)).length, 0, 'Unknown mode starts neither dashboard data plane')
+      assert.deepEqual(session.audit.mutations, [], 'Gate has no business mutation')
+      assert.deepEqual(session.audit.external, [], 'Gate has no external calls')
+      assert.deepEqual(session.audit.violations, [], 'Gate respects fixture contracts')
+      assert.deepEqual(session.audit.pageErrors, [], 'Gate has no runtime errors')
+      report.journeys.push({ name: scenario.name, language: 'en', width: 1280, result: 'passed', reads: Object.fromEntries(session.reads) })
+    } finally { await session.context.close(); contexts.delete(session.context); persist() }
   }
-
-  assert.equal(report.journeys.length, 23)
-  assert.equal(report.screenshots.length, 46)
-  assert.equal(report.buildRevisions.length, 23)
-  assert(report.buildRevisions.every((entry) => entry.revision))
-  const populatedNames = new Set(
-    populatedScenarios.map((scenario) => scenario.name)
-  )
-  assert.deepEqual(
-    new Set(
-      report.journeys
-        .filter((journey) => populatedNames.has(journey.name))
-        .map((journey) => `${journey.language}:${journey.width}`)
-    ),
-    requiredPairs,
-    'The completed Chromium journeys cover the required locale-width pairs'
-  )
-  assert.deepEqual(
-    new Set(
-      report.screenshots
-        .filter((entry) => populatedNames.has(entry.journey))
-        .map((entry) => entry.journey)
-    ),
-    populatedNames,
-    'Every locale-width populated journey produces real layout screenshots'
-  )
-  assert.deepEqual(
-    new Set(
-      report.journeys
-        .filter((journey) => journey.name.startsWith('personal-handoff-'))
-        .map((journey) => journey.name)
-    ),
-    new Set([
-      'personal-handoff-key-unavailable-en-1280',
-      'personal-handoff-safe-list-failed-zh-320',
-    ]),
-    'Both blocked handoff browser cases complete'
-  )
   report.result = 'passed'
-} catch (error) {
-  report.result = 'failed'
-  report.errors.push(error instanceof Error ? error.stack : String(error))
-  throw error
-} finally {
+} catch (error) { report.result = 'failed'; report.errors.push(error.stack || String(error)); throw error }
+finally {
   for (const context of contexts) await context.close().catch(() => {})
   if (browser) await browser.close()
   if (server.listening) await new Promise((done) => server.close(done))

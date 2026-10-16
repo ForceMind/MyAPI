@@ -67,7 +67,7 @@ func TestRealtimeDispatchSurvivesProcessExit(t *testing.T) {
 		common.SetContextKey(ctx, constant.ContextKeyChannelId, 1)
 		common.SetContextKey(ctx, constant.ContextKeyChannelBaseUrl, os.Getenv("MYAPI_REALTIME_CRASH_UPSTREAM"))
 		common.SetContextKey(ctx, constant.ContextKeyOriginalModel, "fixture-model")
-		info := &relaycommon.RelayInfo{UserId: user.Id, TokenId: token.Id, TokenKey: token.Key, RequestId: "ws-crash-request", OriginModelName: "fixture-model", UserQuota: 1000,
+		info := &relaycommon.RelayInfo{UserId: user.Id, TokenId: token.Id, TokenKey: token.Key, TokenCredentialVersion: token.CredentialVersion, RequestId: "ws-crash-request", OriginModelName: "fixture-model", UserQuota: 1000,
 			UserSetting: dto.UserSetting{BillingPreference: "wallet_only"}, RelayMode: relayconstant.RelayModeRealtime, RelayFormat: types.RelayFormatOpenAIRealtime, RequestURLPath: "/v1/realtime?model=fixture-model", ClientWs: peer, StartTime: time.Now(),
 			PriceData: hosttypes.PriceData{ModelRatio: 1, CompletionRatio: 1, AudioRatio: 1, AudioCompletionRatio: 1, GroupRatioInfo: hosttypes.GroupRatioInfo{GroupRatio: 1}}}
 		require.NoError(t, info.PriceData.CaptureQuotaUnit(100))

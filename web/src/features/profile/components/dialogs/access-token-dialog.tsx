@@ -43,20 +43,23 @@ import { useAccessToken } from '../../hooks'
 interface AccessTokenDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  securityScopeKey: string
 }
 
 export function AccessTokenDialog({
   open,
   onOpenChange,
+  securityScopeKey,
 }: AccessTokenDialogProps) {
   const { t } = useTranslation()
-  const { token, generating, generate, clearToken } = useAccessToken()
+  const { token, generating, generate, clearToken, cancel } =
+    useAccessToken(securityScopeKey)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
   const handleOpenChange = (nextOpen: boolean) => {
-    if (generating) return
-
+    if (!nextOpen && generating) return
     if (!nextOpen) {
+      cancel()
       setConfirmOpen(false)
       clearToken()
     }
@@ -80,6 +83,7 @@ export function AccessTokenDialog({
         )}
         contentClassName='sm:max-w-md'
         contentHeight='auto'
+        showCloseButton={!generating}
         bodyClassName='space-y-4'
         footer={
           <>

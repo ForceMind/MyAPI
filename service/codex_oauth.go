@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -29,6 +30,11 @@ const (
 	maxCodexOAuthLifetimeSeconds = int64((1<<63 - 1) / time.Second)
 )
 
+var (
+	ErrCodexCredentialSubjectUnknown  = errors.New("codex credential account subject is unknown")
+	ErrCodexCredentialSubjectMismatch = errors.New("codex credential account subject does not match the channel")
+)
+
 type CodexOAuthTokenResult struct {
 	AccessToken  string
 	RefreshToken string
@@ -40,6 +46,216 @@ type CodexOAuthAuthorizationFlow struct {
 	Verifier     string
 	Challenge    string
 	AuthorizeURL string
+}
+
+// validateCodexTLSCredentialReplacement accepts the new account claim only
+// because the caller received the token from the fixed provider TLS endpoint.
+// The existing subject still requires persisted provider-confirmed evidence.
+func validateCodexTLSCredentialReplacement(ctx context.Context, channelID int, existingRaw string, replacement *CodexOAuthKey) error {
+	existingSubject, err := trustedCodexCredentialSubject(ctx, channelID, existingRaw)
+	if err != nil {
+		return ErrCodexCredentialSubjectUnknown
+	}
+	replacementAccount, ok := ExtractCodexAccountIDFromJWT(replacement.AccessToken)
+	if !ok {
+		return ErrCodexCredentialSubjectUnknown
+	}
+	if accountID := strings.TrimSpace(replacement.AccountID); accountID != "" && accountID != replacementAccount {
+		return ErrCodexCredentialSubjectMismatch
+	}
+	replacementSubject, err := lookupCodexProviderAccountSubject(ctx, replacementAccount)
+	if err != nil {
+		return ErrCodexCredentialSubjectUnknown
+	}
+	if existingSubject != replacementSubject {
+		return ErrCodexCredentialSubjectMismatch
+	}
+	replacement.AccountID = replacementAccount
+	return nil
+}
+
+// validateCodexImportedCredentialReplacement accepts a local credential only
+// when that exact credential already has independent provider-confirmed quota
+// evidence. JWT claims and account_id fields in a local file are not trusted.
+func validateCodexImportedCredentialReplacement(ctx context.Context, channelID int, existingRaw string, replacement *CodexOAuthKey) error {
+	existingSubject, err := trustedCodexCredentialSubject(ctx, channelID, existingRaw)
+	if err != nil {
+		return ErrCodexCredentialSubjectUnknown
+	}
+	encoded, err := common.Marshal(replacement)
+	if err != nil {
+		return ErrCodexCredentialSubjectUnknown
+	}
+	replacementSubject, err := trustedCodexCredentialSubject(ctx, 0, string(encoded))
+	if err != nil {
+		return ErrCodexCredentialSubjectUnknown
+	}
+	if existingSubject != replacementSubject {
+		return ErrCodexCredentialSubjectMismatch
+	}
+	return nil
+}
+
+func validateTrustedCodexCredentialContinuity(ctx context.Context, channelID int, expectedRaw, currentRaw string) error {
+	if strings.TrimSpace(expectedRaw) == "" {
+		return ErrCodexCredentialSubjectUnknown
+	}
+	expectedSubject, err := trustedCodexCredentialSubject(ctx, channelID, expectedRaw)
+	if err != nil {
+		return ErrCodexCredentialSubjectUnknown
+	}
+	currentSubject, err := trustedCodexCredentialSubject(ctx, channelID, currentRaw)
+	if err != nil {
+		return ErrCodexCredentialSubjectUnknown
+	}
+	if expectedSubject != currentSubject {
+		return ErrCodexCredentialSubjectMismatch
+	}
+	return nil
+}
+
+func ReplaceCodexChannelCredentialFromOAuth(ctx context.Context, channelID int, expectedRaw string, replacement *CodexOAuthKey) (bool, error) {
+	return replaceCodexChannelCredential(ctx, channelID, expectedRaw, replacement, true)
+}
+
+func ReplaceCodexChannelCredentialFromImport(ctx context.Context, channelID int, expectedRaw string, replacement *CodexOAuthKey) (bool, error) {
+	return replaceCodexChannelCredential(ctx, channelID, expectedRaw, replacement, false)
+}
+
+func replaceCodexChannelCredential(ctx context.Context, channelID int, expectedRaw string, replacement *CodexOAuthKey, trustedOAuthResponse bool) (bool, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if channelID <= 0 || strings.TrimSpace(expectedRaw) == "" || replacement == nil {
+		return false, errors.New("invalid Codex credential replacement")
+	}
+	var updated bool
+	err := model.WithChannelCredentialUpdateGate(ctx, channelID, func(gateCtx context.Context) error {
+		channel, err := model.GetChannelById(channelID, true)
+		if err != nil {
+			return err
+		}
+		if channel.Type != constant.ChannelTypeCodex || channel.ChannelInfo.IsMultiKey {
+			return errors.New("Codex credential replacement requires a single-key Codex channel")
+		}
+		if channel.Key != expectedRaw {
+			return nil
+		}
+		if trustedOAuthResponse {
+			err = validateCodexTLSCredentialReplacement(gateCtx, channelID, channel.Key, replacement)
+		} else {
+			err = validateCodexImportedCredentialReplacement(gateCtx, channelID, channel.Key, replacement)
+		}
+		if err != nil {
+			return err
+		}
+		encoded, err := common.Marshal(replacement)
+		if err != nil {
+			return err
+		}
+		oldSubject, newSubject, confirmedSubject, err := codexCredentialSubjectTransition(gateCtx, channelID, channel.Key, string(encoded))
+		if err != nil {
+			return err
+		}
+		updated, err = model.UpdateChannelCredentialAndSubjectIfUnchanged(
+			gateCtx, channelID, constant.ChannelTypeCodex, channel.Key, string(encoded), oldSubject, newSubject, confirmedSubject,
+		)
+		if errors.Is(err, model.ErrChannelCredentialSubjectUnknown) {
+			return ErrCodexCredentialSubjectUnknown
+		}
+		if errors.Is(err, model.ErrChannelCredentialSubjectConflict) {
+			return ErrCodexCredentialSubjectMismatch
+		}
+		return err
+	})
+	return updated, err
+}
+
+func codexCredentialSubjectTransition(ctx context.Context, channelID int, oldCredential, newCredential string) (string, string, string, error) {
+	keyring, err := common.LoadChannelQuotaIdentityKeyring()
+	if err != nil {
+		return "", "", "", err
+	}
+	provider := "channel_type_" + fmt.Sprintf("%d", constant.ChannelTypeCodex)
+	oldIdentity, found, err := model.LookupChannelQuotaIdentity(ctx, model.DB, keyring, provider, common.ChannelQuotaIdentityKindCredential, []byte(oldCredential))
+	if err != nil || !found || oldIdentity.Quality != model.ChannelQuotaIdentityQualityCredentialScoped {
+		return "", "", "", ErrCodexCredentialSubjectUnknown
+	}
+	confirmedSubject, err := model.LookupTrustedChannelCredentialSubject(ctx, channelID, oldIdentity.SubjectRef)
+	if err != nil {
+		return "", "", "", ErrCodexCredentialSubjectUnknown
+	}
+	newIdentity, err := model.ResolveChannelQuotaIdentity(ctx, model.DB, keyring, provider, common.ChannelQuotaIdentityKindCredential, []byte(newCredential))
+	if err != nil || newIdentity.Quality != model.ChannelQuotaIdentityQualityCredentialScoped {
+		return "", "", "", ErrCodexCredentialSubjectUnknown
+	}
+	return oldIdentity.SubjectRef, newIdentity.SubjectRef, confirmedSubject, nil
+}
+
+func replaceCodexCredentialElement(channelKey string, multiKey bool, expected, replacement string) (string, error) {
+	if !multiKey {
+		if channelKey != expected {
+			return "", errors.New("codex credential changed before refresh")
+		}
+		return replacement, nil
+	}
+	trimmed := strings.TrimSpace(channelKey)
+	if strings.HasPrefix(trimmed, "[") {
+		var credentials []json.RawMessage
+		if err := common.Unmarshal([]byte(trimmed), &credentials); err != nil {
+			return "", err
+		}
+		matches := 0
+		for index := range credentials {
+			if string(credentials[index]) == expected {
+				credentials[index] = json.RawMessage(replacement)
+				matches++
+			}
+		}
+		if matches != 1 {
+			return "", errors.New("codex credential target is not unique")
+		}
+		encoded, err := common.Marshal(credentials)
+		return string(encoded), err
+	}
+	credentials := strings.Split(strings.Trim(channelKey, "\n"), "\n")
+	matches := 0
+	for index := range credentials {
+		if credentials[index] == expected {
+			credentials[index] = replacement
+			matches++
+		}
+	}
+	if matches != 1 {
+		return "", errors.New("codex credential target is not unique")
+	}
+	return strings.Join(credentials, "\n"), nil
+}
+
+func trustedCodexCredentialSubject(ctx context.Context, channelID int, credential string) (string, error) {
+	keyring, err := common.LoadChannelQuotaIdentityKeyring()
+	if err != nil {
+		return "", err
+	}
+	identity, found, err := model.LookupChannelQuotaIdentity(ctx, model.DB, keyring,
+		"channel_type_"+fmt.Sprintf("%d", constant.ChannelTypeCodex), common.ChannelQuotaIdentityKindCredential, []byte(credential))
+	if err != nil || !found || identity.Quality != model.ChannelQuotaIdentityQualityCredentialScoped {
+		return "", ErrCodexCredentialSubjectUnknown
+	}
+	return model.LookupTrustedChannelCredentialSubject(ctx, channelID, identity.SubjectRef)
+}
+
+func lookupCodexProviderAccountSubject(ctx context.Context, accountID string) (string, error) {
+	keyring, err := common.LoadChannelQuotaIdentityKeyring()
+	if err != nil {
+		return "", err
+	}
+	identity, found, err := model.LookupChannelQuotaIdentity(ctx, model.DB, keyring,
+		"channel_type_"+fmt.Sprintf("%d", constant.ChannelTypeCodex), common.ChannelQuotaIdentityKindProviderAccount, []byte(accountID))
+	if err != nil || !found || identity.Quality != model.ChannelQuotaIdentityQualityProviderConfirmed {
+		return "", ErrCodexCredentialSubjectUnknown
+	}
+	return identity.SubjectRef, nil
 }
 
 func RefreshCodexOAuthToken(ctx context.Context, refreshToken string) (*CodexOAuthTokenResult, error) {
@@ -99,6 +315,9 @@ func RefreshCodexChannelCredentialElement(ctx context.Context, channelID int, ex
 		if err != nil {
 			return err
 		}
+		if _, err := trustedCodexCredentialSubject(gateCtx, channelID, expectedCredential); err != nil {
+			return ErrCodexCredentialSubjectUnknown
+		}
 		if strings.TrimSpace(key.RefreshToken) == "" {
 			return errors.New("codex channel: refresh_token is required to refresh credential")
 		}
@@ -108,16 +327,36 @@ func RefreshCodexChannelCredentialElement(ctx context.Context, channelID int, ex
 		if err != nil {
 			return err
 		}
+		// The provider may rotate the only usable refresh token before the
+		// request context is canceled. Finish validation and persistence with a
+		// bounded context that keeps the channel gate lease.
+		persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(gateCtx), codexCredentialPersistenceTimeout)
+		defer persistCancel()
+		replacement := &CodexOAuthKey{AccessToken: result.AccessToken}
+		if err := validateCodexTLSCredentialReplacement(persistCtx, channelID, expectedCredential, replacement); err != nil {
+			// The upstream may already have rotated the only usable refresh token.
+			// Do not replay it or persist a credential for another/unknown account.
+			return &CodexCredentialPersistenceError{err: err}
+		}
 		key.AccessToken, key.RefreshToken = result.AccessToken, result.RefreshToken
+		key.AccountID = replacement.AccountID
 		key.LastRefresh = time.Now().Format(time.RFC3339)
 		key.Expired = result.ExpiresAt.Format(time.RFC3339)
 		encoded, err := common.Marshal(key)
 		if err != nil {
 			return err
 		}
-		persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(gateCtx), codexCredentialPersistenceTimeout)
-		defer persistCancel()
-		updated, err := model.UpdateChannelCredentialElementIfUnchanged(persistCtx, channelID, constant.ChannelTypeCodex, expectedCredential, string(encoded))
+		newChannelKey, err := replaceCodexCredentialElement(channel.Key, channel.ChannelInfo.IsMultiKey, expectedCredential, string(encoded))
+		if err != nil {
+			return &CodexCredentialPersistenceError{err: err}
+		}
+		oldSubject, newSubject, confirmedSubject, err := codexCredentialSubjectTransition(persistCtx, channelID, expectedCredential, string(encoded))
+		if err != nil {
+			return &CodexCredentialPersistenceError{err: err}
+		}
+		updated, err := model.UpdateChannelCredentialAndSubjectIfUnchanged(
+			persistCtx, channelID, constant.ChannelTypeCodex, channel.Key, newChannelKey, oldSubject, newSubject, confirmedSubject,
+		)
 		if err != nil {
 			return &CodexCredentialPersistenceError{err: err}
 		}

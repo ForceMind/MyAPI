@@ -36,6 +36,7 @@ import {
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
 import { formatQuota } from '@/lib/format'
 
+import { modelScopeListItems } from '../lib/model-scope'
 import type { ApiKey } from '../types'
 import { useApiKeys } from './api-keys-provider'
 
@@ -179,10 +180,10 @@ export function UnlimitedQuotaBadge(props: UnlimitedQuotaBadgeProps) {
 export function ModelLimitsCell({ apiKey }: { apiKey: ApiKey }) {
   const { t } = useTranslation()
 
-  if (!apiKey.model_limits_enabled || !apiKey.model_limits) {
+  if (!apiKey.model_limits_enabled) {
     return (
       <StatusBadge
-        label={t('Unlimited')}
+        label={t('No additional model limit')}
         variant='neutral'
         copyable={false}
         className='-ml-1.5'
@@ -190,7 +191,19 @@ export function ModelLimitsCell({ apiKey }: { apiKey: ApiKey }) {
     )
   }
 
-  const models = apiKey.model_limits.split(',').filter(Boolean)
+  if (!apiKey.model_limits) {
+    return (
+      <StatusBadge
+        label={t('Block all models')}
+        variant='danger'
+        copyable={false}
+        className='-ml-1.5'
+      />
+    )
+  }
+
+  const models = apiKey.model_limits.split(',')
+  const modelItems = modelScopeListItems(models)
 
   return (
     <Tooltip>
@@ -203,9 +216,9 @@ export function ModelLimitsCell({ apiKey }: { apiKey: ApiKey }) {
       </TooltipTrigger>
       <TooltipContent side='top' className='max-w-xs'>
         <div className='max-h-[200px] space-y-0.5 overflow-y-auto text-xs'>
-          {models.map((m) => (
-            <div key={m} className='font-mono'>
-              {m}
+          {modelItems.map((item) => (
+            <div key={item.key} className='font-mono break-all'>
+              {item.model || t('Empty model ID')}
             </div>
           ))}
         </div>

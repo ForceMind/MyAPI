@@ -38,7 +38,7 @@ func TestTokenBudgetConfiguredDatabases(t *testing.T) {
 			sqlDB, err := db.DB()
 			require.NoError(t, err)
 			t.Cleanup(func() {
-				require.NoError(t, db.Migrator().DropTable(&TokenBudgetPolicyChange{}, &TokenBudgetReservation{}, &TokenBudget{}, &Token{}, &User{}, &ChannelQuotaSnapshot{}))
+				require.NoError(t, db.Migrator().DropTable(&TokenBudgetPolicyChange{}, &TokenBudgetReservation{}, &TokenBudget{}, &SubscriptionSharePool{}, &SubscriptionShareAllocation{}, &Token{}, &User{}, &ChannelQuotaSnapshot{}))
 				require.NoError(t, sqlDB.Close())
 			})
 			seedTokenBudgetDB(t, db)

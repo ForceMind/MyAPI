@@ -16,13 +16,19 @@ const stages = new Set(['launch', 'setup', 'setup-session', 'setup-open', 'setup
   'key-selection-model', 'playground-response', 'playground-complete', 'playground-rejection',
   'usage-open', 'usage-filter', 'usage-list', 'usage-list-visible', 'usage-details-open', 'usage-details-request', 'usage-details-key',
   'policy-user-filter', 'strict-key-filter',
-  'strict-budget', 'reload-check', 'screenshot', 'browser-close'])
+  'strict-budget', 'reload-check', 'model-scope-boundary', 'model-scope-catalog', 'model-scope-open',
+  'model-scope-restrict-mode', 'model-scope-restrict-search', 'model-scope-restrict-candidate', 'model-scope-restrict-save',
+  'model-scope-restore-mode', 'model-scope-restore-save', 'model-scope-restore-command',
+  'model-scope-restore-write-response', 'model-scope-restore-readback-response', 'model-scope-restore-close',
+  'model-scope-restore-final-read', 'model-scope-restore-invariant', 'build-visible', 'screenshot', 'browser-close'])
 const codes = new Set(['SCOPE_REJECTED', 'AUTH_UNAVAILABLE', 'BROWSER_FAILED', 'BROWSER_CLOSE_FAILED', 'SETUP_FAILED',
   'HTTP_FAILED', 'LOGIN_FAILED', 'RUNTIME_ERROR', 'BUILD_MISMATCH', 'API_FAILED', 'STATE_MISMATCH',
   'KEY_MISMATCH', 'POLICY_MISMATCH', 'REQUEST_MISMATCH', 'RELAY_MISMATCH', 'LOG_MISMATCH',
   'USAGE_MISMATCH', 'UPSTREAM_MISMATCH', 'WRITER_MISMATCH', 'SCREENSHOT_REJECTED', 'TIMEOUT'])
 const diagnosticCategories = new Set(['asset', 'auth', 'log', 'bootstrap'])
 const browserErrorClasses = new Set(['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'ChunkLoadError', 'ImportError', 'other'])
+const ledgerEvidenceKinds = new Set(['invalid-shape', 'not-ready', 'split-read', 'unexpected-count', 'field-mismatch'])
+const rejectionSteps = new Set(['body-read', 'body-unavailable', 'body-parse', 'invalid-json', 'protocol', 'assistant', 'alert', 'description', 'layout', 'terminal'])
 
 function diagnosticCategory(request, origin) {
   const url = new URL(request.url())
@@ -91,6 +97,7 @@ function validateOptions(options, withUpstream) {
   if (withUpstream) requireThat(upstream.origin === 'http://127.0.0.1:19090' && !upstream.username &&
     !upstream.password && upstream.pathname === '/' && !upstream.search && !upstream.hash, 'SCOPE_REJECTED')
   requireThat(typeof username === 'string' && username.length > 0 && typeof password === 'string' && password.length >= 8, 'AUTH_UNAVAILABLE')
+  requireThat(options.advancedModelScope === undefined || typeof options.advancedModelScope === 'boolean', 'SCOPE_REJECTED')
   if (artifactDir !== undefined) {
     try {
       requireThat(path.isAbsolute(artifactDir) && lstatSync(artifactDir).isDirectory() &&
@@ -113,6 +120,13 @@ async function withBrowser(options, withUpstream, run) {
       ...(Number.isSafeInteger(retryAfter) && retryAfter >= 0 ? { retryAfter } : {}),
       ...(diagnosticCategories.has(diagnostic.category) ? { category: diagnostic.category } : {}),
       ...(browserErrorClasses.has(diagnostic.errorClass) ? { errorClass: diagnostic.errorClass } : {}),
+      ...(ledgerEvidenceKinds.has(diagnostic.ledgerEvidence) ? { ledgerEvidence: diagnostic.ledgerEvidence } : {}),
+      ...(rejectionSteps.has(diagnostic.rejectionStep) ? { rejectionStep: diagnostic.rejectionStep } : {}),
+      ...(Number.isSafeInteger(diagnostic.bodyCharacters) && diagnostic.bodyCharacters >= 0 && diagnostic.bodyCharacters <= 128 * 1024 ? { bodyCharacters: diagnostic.bodyCharacters } : {}),
+      ...(Number.isSafeInteger(diagnostic.total) && diagnostic.total >= 0 && diagnostic.total <= 10000 ? { total: diagnostic.total } : {}),
+      ...(Number.isSafeInteger(diagnostic.rowCount) && diagnostic.rowCount >= 0 && diagnostic.rowCount <= 100 ? { rowCount: diagnostic.rowCount } : {}),
+      ...(Number.isSafeInteger(diagnostic.attempt) && diagnostic.attempt >= 0 && diagnostic.attempt < 50 ? { attempt: diagnostic.attempt } : {}),
+      ...(Number.isSafeInteger(diagnostic.mismatchMask) && diagnostic.mismatchMask >= 0 && diagnostic.mismatchMask <= 1023 ? { mismatchMask: diagnostic.mismatchMask } : {}),
       ...(diagnostic.count === 16 ? { count: 16 } : {}) }
     // Emit only fixed classifications/numeric metadata, never raw diagnostics.
     try {
@@ -191,7 +205,8 @@ async function newSession(browser, origin, language = 'en', width = 1280, scope 
   const page = await bounded(scope, () => context.newPage())
   page.setDefaultTimeout(20_000)
   const translations = JSON.parse(readFileSync(new URL(`../../web/src/i18n/locales/${language}.json`, import.meta.url), 'utf8')).translation
-  const session = { context, page, scope, language, width, origin, errors: 0, requests: 0, reveals: 0, secrets: [],
+  const session = { context, page, scope, language, width, origin, errors: 0, requests: 0, reveals: 0,
+    modelScopeWrites: 0, secrets: [],
     label: (key) => translations[key] || key }
   const diagnostics = new Set()
   let diagnosticLimit = false
@@ -235,6 +250,7 @@ async function newSession(browser, origin, language = 'en', width = 1280, scope 
     const pathname = url.pathname
     if (pathname === '/pg/chat/completions' && request.method() === 'POST') session.requests += 1
     if (/^\/api\/token\/\d+\/key$/.test(pathname)) session.reveals += 1
+    if (/^\/api\/token\/\d+\/model-limits$/.test(pathname) && request.method() === 'PUT') session.modelScopeWrites += 1
   })
   page.on('requestfailed', request => {
     try {
@@ -250,20 +266,16 @@ async function open(session, pathname, { forceLoad = false } = {}) {
   // Reusing a page already at this exact URL avoids needless cache-disabled
   // document reloads. The final persistence check explicitly forces a load.
   if (!forceLoad && session.page.url() === target) return
-  const sidebarLabels = { '/dashboard/overview': 'Personal workbench', '/keys': 'API Keys', '/playground': 'Playground', '/users': 'Users', '/usage-logs/common': 'Usage Logs' }
-  if (!forceLoad && session.user && Object.hasOwn(sidebarLabels, pathname)) {
+  const navigationLabels = { '/dashboard/overview': 'Overview', '/keys': 'API Keys', '/usage-logs/common': 'Call records' }
+  if (!forceLoad && session.user && Object.hasOwn(navigationLabels, pathname)) {
     const { page, label } = session
-    const mobile = session.width === 320
-    const toggle = page.getByRole('button', { name: label('Toggle sidebar'), exact: true })
-    if (mobile) {
-      await toggle.waitFor()
-      if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click()
-    }
-    await page.locator('[data-myapi-sidebar]').getByRole('link', {
-      name: label(sidebarLabels[pathname]), exact: true,
-    }).and(page.locator(`a[href="${pathname}"]`)).click()
+    const navigation = page.getByRole('navigation', {
+      name: label(session.width < 768 ? 'Mobile console navigation' : 'Personal console navigation'), exact: true,
+    })
+    await navigation.waitFor({ state: 'visible' })
+    await navigation.getByRole('link', { name: label(navigationLabels[pathname]), exact: true })
+      .and(page.locator(`a[href="${pathname}"]`)).click()
     await page.waitForURL(url => url.origin === session.origin && url.pathname === pathname)
-    if (mobile) await toggle.and(page.locator('[aria-expanded="false"]')).waitFor()
     return
   }
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -361,7 +373,7 @@ async function login(session, username, password, expectedRole, sha) {
   await session.page.waitForURL((url) => url.pathname !== '/sign-in')
   session.scope.stage = 'login-keys'
   await open(session, '/keys')
-  await session.page.getByRole('button', { name: session.label('My usage policy'), exact: true }).waitFor()
+  await session.page.getByRole('heading', { name: session.label('API Keys'), exact: true }).waitFor()
   const metadata = await bounded(session.scope, () => session.page.evaluate(() => ({
     global: window.__APP_BUILD__?.rev,
     html: document.documentElement.getAttribute('data-build-rev'),
@@ -382,7 +394,7 @@ async function login(session, username, password, expectedRole, sha) {
   }
 }
 
-async function capture(session, options, name, screenshots) {
+async function capture(session, options, name, screenshots, target) {
   if (!options.artifactDir) return
   const previousStage = session.scope.stage
   session.scope.stage = 'screenshot'
@@ -394,34 +406,31 @@ async function capture(session, options, name, screenshots) {
   }, session.secrets))
   requireThat(safe && session.reveals === 0, 'SCREENSHOT_REJECTED')
   const filename = `${name}-${session.language}-${session.width}.png`
-  await session.page.screenshot({ path: path.join(options.artifactDir, filename), fullPage: true,
+  // Finish finite CSS transitions before capturing the final UI. Waiting for
+  // text alone can capture a transparent dialog in its 100ms entrance motion.
+  const captureOptions = { path: path.join(options.artifactDir, filename), animations: 'disabled',
     mask: [session.page.locator('input'), session.page.getByText(/sk-[A-Za-z0-9*._-]+/),
-      session.page.getByText(session.username, { exact: true })] })
+      session.page.getByText(session.username, { exact: true })] }
+  if (!target) captureOptions.fullPage = true
+  await (target || session.page).screenshot(captureOptions)
   screenshots.push(filename)
   session.scope.stage = previousStage
 }
 
-async function policyView(session, expectedNoBalance, refreshRevision) {
-  session.scope.stage = 'policy-view'
-  const { page, label } = session
+async function policyView(session, api, expectedNoBalance, expectedRevision) {
+  session.scope.stage = expectedRevision === undefined ? 'policy-view' : 'policy-refresh'
   await open(session, '/keys')
-  await page.getByRole('button', { name: label('My usage policy'), exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: label('User usage policy'), exact: true })
-  if (refreshRevision !== undefined) {
-    session.scope.stage = 'policy-refresh'
-    const policy = await refreshReadback(session, `/api/user/${session.user.id}/usage-policy`,
-      dialog.getByRole('button', { name: label('Refresh'), exact: true }), 'POLICY_MISMATCH')
-    requireThat(policy?.user_id === session.user.id && policy.revision === refreshRevision &&
-      policy.no_balance === expectedNoBalance && policy.legacy_remaining_quota === 0, 'POLICY_MISMATCH')
+  await session.page.getByRole('heading', { name: session.label('API Keys'), exact: true }).waitFor()
+  // This policy is deliberately absent from the personal UI. Inspect genuine
+  // owner-scoped readback; only the existing Root /users flow may change it.
+  const policy = await api(session, `/api/user/${session.user.id}/usage-policy`)
+  requireThat(policy?.user_id === session.user.id && policy.no_balance === expectedNoBalance &&
+    policy.legacy_remaining_quota === 0 && Number.isSafeInteger(policy.revision) && policy.revision >= 0 &&
+    (expectedRevision === undefined || policy.revision === expectedRevision), 'POLICY_MISMATCH')
+  for (const key of ['My usage policy', 'Top Up', 'Recharge', 'Redeem']) {
+    requireThat(await session.page.getByRole('button', { name: session.label(key), exact: true }).count() === 0,
+      'POLICY_MISMATCH')
   }
-  const configuration = dialog.getByRole('region', { name: label('Current configuration'), exact: true })
-  await configuration.getByText(label('Commercial funding disabled'), { exact: true }).waitFor()
-  await configuration.getByText(label(expectedNoBalance ? 'Use Key limits without a user wallet' : 'Use the stored user allowance'), { exact: true }).waitFor()
-  if (session.user.role !== 100) {
-    await dialog.getByText(label('Only Root can change this policy.'), { exact: true }).waitFor()
-    requireThat(await dialog.locator('form, input, [role="checkbox"]').count() === 0, 'POLICY_MISMATCH')
-  }
-  return dialog
 }
 
 async function closeDialog(session, dialog) {
@@ -482,6 +491,7 @@ async function preparePlayground(session, key) {
   await open(session, '/dashboard/overview')
   requireThat(new URL(page.url()).pathname === '/dashboard/overview', 'REQUEST_MISMATCH')
   session.scope.stage = 'workbench-key-selection'
+  await page.getByText(label('Test with an existing Key'), { exact: true }).click()
   const workbenchKey = page.getByRole('combobox', { name: label('Select an API Key'), exact: true })
   await workbenchKey.selectOption(String(key.id))
   requireThat(await workbenchKey.inputValue() === String(key.id), 'REQUEST_MISMATCH')
@@ -552,23 +562,43 @@ async function sendPlayground(session, key, expectedCode) {
     request.headers()['x-myapi-key-id'] === String(key.id), 'REQUEST_MISMATCH')
   const requestId = response.headers()['x-oneapi-request-id']
   requireThat(typeof requestId === 'string' && /^[A-Za-z0-9._:-]{1,160}$/.test(requestId), 'REQUEST_MISMATCH')
+  // The response can arrive before React attaches its new placeholder. Anchor
+  // the current turn by its append index, never by the previous last message.
+  const currentAssistant = assistants.nth(beforeAssistants)
   let terminal
   if (expectedCode) {
     session.scope.stage = 'playground-rejection'
-    const text = await bounded(session.scope, () => response.text())
+    requireThat(response.status() === (expectedCode === 'token_budget_unsupported_request' ? 400 : 403), 'RELAY_MISMATCH')
+    session.scope.diagnostic('rejection-evidence', { rejectionStep: 'body-read', httpStatus: response.status() })
+    let text
+    try { text = await bounded(session.scope, () => response.text()) } catch (error) {
+      session.scope.diagnostic('rejection-evidence', { rejectionStep: 'body-unavailable', httpStatus: response.status(),
+        errorClass: browserErrorClass(error?.name, error?.message) })
+      throw error
+    }
     requireThat(text.length <= 128 * 1024, 'RELAY_MISMATCH')
-    const payload = JSON.parse(text)
-    requireThat(response.status() === (expectedCode === 'token_budget_unsupported_request' ? 400 : 403) &&
-      payload?.error?.code === expectedCode && typeof payload.error.message === 'string' &&
+    session.scope.diagnostic('rejection-evidence', { rejectionStep: 'body-parse', bodyCharacters: text.length })
+    let payload
+    try { payload = JSON.parse(text) } catch {
+      session.scope.diagnostic('rejection-evidence', { rejectionStep: 'invalid-json', bodyCharacters: text.length })
+      throw new Error('SMOKE_PERSONAL_RELAY_MISMATCH')
+    }
+    session.scope.diagnostic('rejection-evidence', { rejectionStep: 'protocol' })
+    requireThat(payload?.error?.code === expectedCode && typeof payload.error.message === 'string' &&
       payload.error.message.length > 0 && payload.error.message.length <= 16 * 1024, 'RELAY_MISMATCH')
     const displayError = expectedCode === 'token_budget_unsupported_request'
       ? session.label("This request does not meet the selected key's strict budget requirements. Use a compatible API client or choose another key.")
       : payload.error.message
     const presentedError = `${session.label('Request error occurred')}: ${displayError}`
-    const alert = assistants.last().getByRole('alert').filter({ hasText: session.label('Error') })
+    session.scope.diagnostic('rejection-evidence', { rejectionStep: 'assistant' })
+    await currentAssistant.waitFor({ state: 'attached' })
+    const alert = currentAssistant.getByRole('alert').filter({ hasText: session.label('Error') })
+    session.scope.diagnostic('rejection-evidence', { rejectionStep: 'alert' })
     await alert.waitFor({ state: 'visible' })
     const description = alert.getByText(presentedError, { exact: true })
+    session.scope.diagnostic('rejection-evidence', { rejectionStep: 'description' })
     await description.waitFor({ state: 'visible' })
+    session.scope.diagnostic('rejection-evidence', { rejectionStep: 'layout' })
     const fits = await bounded(session.scope, () => description.evaluate((element, expected) => {
       const card = element.closest('[role="alert"]')
       if (!card || element.textContent !== expected) return false
@@ -587,6 +617,7 @@ async function sendPlayground(session, key, expectedCode) {
           rect.right <= elementRect.right + tolerance && rect.left >= -tolerance && rect.right <= viewportWidth + tolerance)
     }, presentedError))
     requireThat(fits === true, 'RELAY_MISMATCH')
+    session.scope.diagnostic('rejection-evidence', { rejectionStep: 'terminal' })
     terminal = alert
   } else {
     session.scope.stage = 'playground-complete'
@@ -594,11 +625,12 @@ async function sendPlayground(session, key, expectedCode) {
     // The actual frontend closes its SSE source after DONE. Network body/finished
     // is not its completion contract. Require the newly added assistant's full
     // text, normal terminal controls and no current-message error instead.
-    const answer = assistants.last().getByText('synthetic fixed response', { exact: true })
+    await currentAssistant.waitFor({ state: 'attached' })
+    const answer = currentAssistant.getByText('synthetic fixed response', { exact: true })
     await answer.waitFor()
     await session.page.getByRole('button', { name: session.label('Stop'), exact: true }).waitFor({ state: 'hidden' })
     await session.page.getByRole('button', { name: session.label('Send'), exact: true }).waitFor({ state: 'visible' })
-    requireThat(await bounded(session.scope, () => assistants.last().getByRole('alert').count()) === 0, 'RELAY_MISMATCH')
+    requireThat(await bounded(session.scope, () => currentAssistant.getByRole('alert').count()) === 0, 'RELAY_MISMATCH')
     terminal = answer
   }
   requireThat(await bounded(session.scope, () => assistants.count()) === beforeAssistants + 1, 'REQUEST_MISMATCH')
@@ -617,6 +649,157 @@ async function snapshot(api, session, key) {
   return { user, token }
 }
 
+function modelScopeInvariant(snapshot) {
+  const userFields = ['id', 'role', 'quota', 'used_quota', 'request_count', 'self_use_no_balance']
+  const tokenFields = ['id', 'user_id', 'status', 'name', 'created_time', 'accessed_time', 'expired_time',
+    'remain_quota', 'quota_version', 'unlimited_quota', 'allow_ips', 'used_quota', 'group', 'access_profile_id',
+    'cross_group_retry', 'auto_groups']
+  return {
+    user: userFields.map(field => [field, snapshot.user?.[field]]),
+    token: tokenFields.map(field => [field, snapshot.token?.[field]]),
+  }
+}
+
+function sameInvariant(left, right) {
+  return JSON.stringify(modelScopeInvariant(left)) === JSON.stringify(modelScopeInvariant(right))
+}
+
+async function exerciseAdvancedModelScope(api, root, owner, key, before, options, screenshots, control) {
+  const endpoint = `/api/token/${key.id}/model-limits`
+  owner.scope.stage = 'model-scope-boundary'
+  const initial = await api(owner, endpoint)
+  requireThat(initial?.token_id === key.id && initial.token_name === key.name &&
+    initial.model_limits_enabled === false && Array.isArray(initial.models) && initial.models.length === 0 &&
+    typeof initial.revision === 'string' && /^[a-f0-9]{64}$/.test(initial.revision), 'KEY_MISMATCH')
+  const rootRead = await api(root, endpoint, 'GET', undefined, true)
+  const rootWrite = await api(root, endpoint, 'PUT', {
+    expected_revision: initial.revision, model_limits_enabled: true, models: [model],
+  }, true)
+  requireThat(rootRead.status === 404 && rootRead.payload?.success === false &&
+    rootWrite.status === 404 && rootWrite.payload?.success === false, 'KEY_MISMATCH')
+  owner.scope.stage = 'model-scope-catalog'
+  requireThat(before.token.group === 'default', 'KEY_MISMATCH')
+  const catalog = await api(owner, `/api/user/models?group=${encodeURIComponent(before.token.group)}`)
+  requireThat(Array.isArray(catalog) && catalog.includes(model), 'KEY_MISMATCH')
+
+  const openDialog = async () => {
+    owner.scope.stage = 'model-scope-open'
+    // reload-check already loaded this exact filtered URL. Reuse it so opening
+    // the dialog does not spend another critical-limit auth bootstrap request.
+    await open(owner, `/keys?filter=${encodeURIComponent(key.name)}`)
+    const card = owner.page.locator('[data-slot="card"]').filter({
+      has: owner.page.getByText(key.name, { exact: true }),
+    })
+    await card.waitFor({ state: 'visible' })
+    requireThat(await card.count() === 1, 'KEY_MISMATCH')
+    const read = responseFor(owner, endpoint, 'GET')
+    await card.getByRole('button', { name: owner.label('Model scope'), exact: true }).click()
+    const dialog = owner.page.getByRole('dialog', { name: owner.label('Model scope'), exact: true })
+    await dialog.waitFor({ state: 'visible' })
+    const scope = await responseSuccess(owner, await read, 'KEY_MISMATCH')
+    return { dialog, scope }
+  }
+  const save = async (dialog, expected, stagePrefix) => {
+    const written = responseFor(owner, endpoint, 'PUT')
+    const readback = responseFor(owner, endpoint, 'GET')
+    await dialog.getByRole('button', { name: owner.label('Save model scope'), exact: true }).click()
+    const writeResponse = await written
+    if (stagePrefix) owner.scope.stage = `${stagePrefix}-command`
+    const command = writeResponse.request().postDataJSON()
+    requireThat(Object.keys(command || {}).sort().join(',') === 'expected_revision,model_limits_enabled,models' &&
+      typeof command.expected_revision === 'string' && /^[a-f0-9]{64}$/.test(command.expected_revision) &&
+      command.model_limits_enabled === expected.enabled && Array.isArray(command.models) &&
+      JSON.stringify(command.models) === JSON.stringify(expected.models), 'KEY_MISMATCH')
+    if (stagePrefix) owner.scope.stage = `${stagePrefix}-write-response`
+    owner.scope.diagnostic('model-scope-response', { httpStatus: writeResponse.status() })
+    const writeView = await responseSuccess(owner, writeResponse, 'KEY_MISMATCH')
+    const readResponse = await readback
+    if (stagePrefix) owner.scope.stage = `${stagePrefix}-readback-response`
+    owner.scope.diagnostic('model-scope-response', { httpStatus: readResponse.status() })
+    const readView = await responseSuccess(owner, readResponse, 'KEY_MISMATCH')
+    for (const view of [writeView, readView]) {
+      requireThat(view?.token_id === key.id && view.token_name === key.name &&
+        view.model_limits_enabled === expected.enabled && Array.isArray(view.models) &&
+        JSON.stringify(view.models) === JSON.stringify(expected.models) &&
+        typeof view.revision === 'string' && /^[a-f0-9]{64}$/.test(view.revision), 'KEY_MISMATCH')
+    }
+    if (stagePrefix) owner.scope.stage = `${stagePrefix}-close`
+    await dialog.waitFor({ state: 'hidden' })
+    return readView
+  }
+
+  const upstreamBefore = await control()
+  const writesBefore = owner.modelScopeWrites
+  let activeDialog
+  try {
+    const first = await openDialog()
+    activeDialog = first.dialog
+    requireThat(first.scope.model_limits_enabled === false && first.scope.models.length === 0, 'KEY_MISMATCH')
+    owner.scope.stage = 'model-scope-restrict-mode'
+    const restricted = first.dialog.getByRole('radio', {
+      name: owner.label('Only selected models'),
+      exact: false,
+    })
+    await restricted.click()
+    requireThat(await restricted.isChecked(), 'KEY_MISMATCH')
+    owner.scope.stage = 'model-scope-restrict-search'
+    await first.dialog.getByPlaceholder(owner.label('Search current model catalog')).fill(model)
+    owner.scope.stage = 'model-scope-restrict-candidate'
+    const suggestions = first.dialog.locator(`[aria-label=${JSON.stringify(owner.label('Current model catalog suggestions'))}]`)
+    await suggestions.waitFor({ state: 'visible' })
+    const candidate = suggestions.getByRole('button').filter({ hasText: model })
+    await candidate.waitFor({ state: 'visible' })
+    requireThat(await candidate.count() === 1, 'KEY_MISMATCH')
+    await candidate.click()
+    const removeName = owner.label('Remove {{model}}').replace('{{model}}', model)
+    await first.dialog.getByRole('button', { name: removeName, exact: true }).waitFor({ state: 'visible' })
+    owner.scope.stage = 'model-scope-restrict-save'
+    await save(first.dialog, { enabled: true, models: [model] })
+    activeDialog = undefined
+
+    const second = await openDialog()
+    activeDialog = second.dialog
+    requireThat(second.scope.model_limits_enabled === true && JSON.stringify(second.scope.models) === JSON.stringify([model]), 'KEY_MISMATCH')
+    await capture(owner, options, 'model-scope-restricted', screenshots, second.dialog)
+    owner.scope.stage = 'model-scope-restore-mode'
+    const unlimited = second.dialog.getByRole('radio', {
+      name: owner.label('No additional model limit'),
+      exact: false,
+    })
+    await unlimited.click()
+    requireThat(await unlimited.isChecked(), 'KEY_MISMATCH')
+    await second.dialog.getByRole('button', { name: owner.label('Clear retained model list'), exact: true }).click()
+    owner.scope.stage = 'model-scope-restore-save'
+    await save(second.dialog, { enabled: false, models: [] }, 'model-scope-restore')
+    activeDialog = undefined
+
+    owner.scope.stage = 'model-scope-restore-final-read'
+    const restored = await api(owner, endpoint)
+    requireThat(restored?.token_id === key.id && restored.token_name === key.name &&
+      restored.model_limits_enabled === false && Array.isArray(restored.models) && restored.models.length === 0,
+    'KEY_MISMATCH')
+    const after = await snapshot(api, owner, key)
+    const writes = owner.modelScopeWrites - writesBefore
+    owner.scope.stage = 'model-scope-restore-invariant'
+    requireThat(writes === 2 && sameInvariant(before, after) && await control() === upstreamBefore, 'STATE_MISMATCH')
+    // Catalog selection proves the stored policy only. No relay request is sent
+    // here, so the report makes no claim that the selected model is available.
+    return { writes, catalogMatched: true, ownerBoundary404: true, metadataPreserved: true, additionalUpstreamRequests: 0 }
+  } catch (error) {
+    const failedStage = owner.scope.stage
+    try {
+      if (activeDialog && await activeDialog.isVisible()) {
+        await capture(owner, options, 'model-scope-failed', screenshots, activeDialog)
+      }
+    } catch {
+      // Failed/unsafe evidence must not replace the original failure.
+    } finally {
+      owner.scope.stage = failedStage
+    }
+    throw error
+  }
+}
+
 async function verifyUsage(api, session, key, before, requestId, consumed) {
   session.scope.stage = 'ledger-check'
   let logs
@@ -625,19 +808,45 @@ async function verifyUsage(api, session, key, before, requestId, consumed) {
     const remaining = deadline - Date.now()
     requireThat(remaining > 0, 'LOG_MISMATCH')
     logs = await api(session, `/api/log/self?type=2&request_id=${encodeURIComponent(requestId)}&p=1&page_size=100`, 'GET', undefined, false, remaining)
-    requireThat(Array.isArray(logs.items) && Number.isSafeInteger(logs.total), 'LOG_MISMATCH')
-    if (!consumed || logs.total !== 0 || logs.items.length !== 0) break
+    if (!logs || !Array.isArray(logs.items) || !Number.isSafeInteger(logs.total) || logs.total < 0) {
+      session.scope.diagnostic('ledger-evidence', { category: 'log', ledgerEvidence: 'invalid-shape', attempt })
+      throw new Error('SMOKE_PERSONAL_LOG_MISMATCH')
+    }
+    if (consumed && logs.items.length === 1) {
+      const log = logs.items[0]
+      let other = null
+      try { other = JSON.parse(log?.other || '{}') } catch { /* Invalid metadata cannot establish the billing source. */ }
+      // Fixed mask bits, in order: request, owner, Key ID, Key name, model,
+      // charge, input Tokens, output Tokens, billing source, owner redaction.
+      // Only this mask and bounded counts may enter diagnostics, never values.
+      const matches = [log?.request_id === requestId, log?.user_id === session.user.id, log?.token_id === key.id,
+        log?.token_name === key.name, log?.model_name === model, log?.quota === usage,
+        log?.prompt_tokens === 10, log?.completion_tokens === 5, other?.billing_source === 'self_use',
+        session.user.role === 100 || Boolean(other && !Object.hasOwn(other, 'admin_info'))]
+      const mismatchMask = matches.reduce((mask, matches, index) => matches ? mask : mask | (1 << index), 0)
+      if (mismatchMask !== 0) {
+        session.scope.diagnostic('ledger-evidence', { category: 'log', ledgerEvidence: 'field-mismatch',
+          attempt, total: logs.total, rowCount: 1, mismatchMask })
+        throw new Error('SMOKE_PERSONAL_LOG_MISMATCH')
+      }
+    }
+    const splitRead = consumed && logs.total === 0 && logs.items.length === 1
+    if (splitRead) {
+      // GetUserLogs runs Count then Find without a shared read transaction.
+      // A concurrent insertion can make only the count stale. Reread only the
+      // exact matching row above; the final count must still become 1/1.
+      session.scope.diagnostic('ledger-evidence', { category: 'log', ledgerEvidence: 'split-read',
+        attempt, total: 0, rowCount: 1, mismatchMask: 0 })
+    } else if (!consumed || logs.total !== 0 || logs.items.length !== 0) break
+    else if (attempt === 0) session.scope.diagnostic('ledger-evidence', { category: 'log', ledgerEvidence: 'not-ready',
+      attempt, total: 0, rowCount: 0 })
     requireThat(attempt < 49, 'LOG_MISMATCH')
     await new Promise((resolve) => setTimeout(resolve, Math.min(100, Math.max(0, deadline - Date.now()))))
   }
-  requireThat(logs.total === (consumed ? 1 : 0) && logs.items.length === (consumed ? 1 : 0), 'LOG_MISMATCH')
-  if (consumed) {
-    const log = logs.items[0]
-    const other = JSON.parse(log.other || '{}')
-    requireThat(log.request_id === requestId && log.user_id === session.user.id && log.token_id === key.id &&
-      log.token_name === key.name && log.model_name === model && log.quota === usage &&
-      log.prompt_tokens === 10 && log.completion_tokens === 5 && other.billing_source === 'self_use' &&
-      (session.user.role === 100 || !Object.hasOwn(other, 'admin_info')), 'LOG_MISMATCH')
+  if (logs.total !== (consumed ? 1 : 0) || logs.items.length !== (consumed ? 1 : 0)) {
+    session.scope.diagnostic('ledger-evidence', { category: 'log', ledgerEvidence: 'unexpected-count',
+      total: logs.total, rowCount: logs.items.length })
+    throw new Error('SMOKE_PERSONAL_LOG_MISMATCH')
   }
   const after = await snapshot(api, session, key)
   const delta = consumed ? usage : 0
@@ -654,49 +863,43 @@ async function showPersistedUsage(session, key, requestId, options, screenshots)
   try {
     await open(session, '/usage-logs/common')
     session.scope.stage = 'usage-filter'
-    const mobile = session.width === 320
-    // Header Search and toolbar Search share an accessible name. The named
-    // page main owns desktop filters; mobile fields live in a portal dialog.
-    const main = session.page.getByRole('main', { name: session.label('Common Logs'), exact: true })
-    await main.getByRole('button', { name: session.label(mobile ? 'Filter' : 'Expand'), exact: true }).click()
-    const filters = mobile ? session.page.getByRole('dialog', { name: session.label('Filter'), exact: true }) : main
-    await filters.getByPlaceholder(session.label('Token Name'), { exact: true }).fill(key.name)
-    await filters.getByPlaceholder(session.label('Request ID'), { exact: true }).fill(requestId)
-    // The admin client GET redirects to Gin's /api/log/ route. The ordinary
-    // owner's route is /api/log/self, without a trailing slash.
-    const pathname = session.user.role === 100 ? '/api/log/' : '/api/log/self'
+    const main = session.page.getByRole('main', { name: session.label('Call logs'), exact: true })
+    await main.getByRole('combobox', { name: session.label('Time range'), exact: true }).selectOption('all')
+    await main.getByRole('textbox', { name: session.label('API Key'), exact: true }).fill(key.name)
     const received = session.page.waitForResponse(response => {
       const url = new URL(response.url())
-      return url.origin === session.origin && url.pathname === pathname && response.request().method() === 'GET' &&
-        url.searchParams.get('request_id') === requestId && url.searchParams.get('token_name') === key.name
+      return url.origin === session.origin && url.pathname === '/api/log/self' && response.request().method() === 'GET' &&
+        url.searchParams.get('token_name') === key.name && url.searchParams.get('page_size') === '20'
     })
-    received.catch(() => {}) // A failed UI submission still owns its error.
-    await filters.getByRole('button', { name: session.label('Search'), exact: true }).click()
-    if (mobile) await filters.waitFor({ state: 'hidden' })
-    await session.page.waitForURL(url => url.origin === session.origin && url.pathname === '/usage-logs/common' &&
-      url.searchParams.get('token') === key.name && url.searchParams.get('requestId') === requestId)
+    received.catch(() => {})
+    await main.getByRole('button', { name: session.label('Filter'), exact: true }).click()
     session.scope.stage = 'usage-list'
     const data = await responseSuccess(session, await received, 'LOG_MISMATCH')
-    requireThat(data?.total === 1 && Array.isArray(data.items) && data.items.length === 1, 'LOG_MISMATCH')
-    const log = data.items[0]
+    requireThat(Number.isSafeInteger(data?.total) && Array.isArray(data.items) && data.total >= data.items.length &&
+      data.items.every(item => item.user_id === session.user.id && item.token_name === key.name), 'LOG_MISMATCH')
+    const matches = data.items.filter(item => item.request_id === requestId)
+    requireThat(matches.length === 1, 'LOG_MISMATCH')
+    const log = matches[0]
     requireThat(log.request_id === requestId && log.user_id === session.user.id && log.token_id === key.id &&
-      log.token_name === key.name && log.model_name === model, 'LOG_MISMATCH')
+      log.token_name === key.name && log.model_name === model && log.type === 2 &&
+      log.prompt_tokens === 10 && log.completion_tokens === 5, 'LOG_MISMATCH')
     session.scope.stage = 'usage-list-visible'
-    // Mobile cards reuse the actual desktop cells, but only one layout mounts.
-    // Filter visibility to exclude tooltip copies; never choose an arbitrary
-    // first history entry or suppress ambiguity among visible target entries.
-    await session.page.getByText(key.name, { exact: true }).filter({ visible: true }).waitFor()
-    await session.page.getByText(model, { exact: true }).filter({ visible: true }).waitFor()
+    const list = main.getByRole('list')
+    const details = list.getByRole('button', { name: session.label('View call {{id}}').replace('{{id}}', requestId), exact: true })
+    await details.getByText(key.name, { exact: true }).filter({ visible: true }).waitFor()
+    await details.getByText(model, { exact: true }).filter({ visible: true }).waitFor()
     session.scope.stage = 'usage-details-open'
-    const details = session.page.getByTitle(session.label('Click to view full details'), { exact: true }).filter({ visible: true })
-    await details.waitFor()
+    await details.waitFor({ state: 'visible' })
     requireThat(await details.count() === 1, 'LOG_MISMATCH')
     await details.click()
-    const dialog = session.page.getByRole('dialog')
+    const detail = main.locator(`[aria-label=${JSON.stringify(session.label('Call details'))}]`)
     session.scope.stage = 'usage-details-request'
-    await dialog.getByText(requestId, { exact: true }).waitFor()
+    await detail.getByText(requestId, { exact: true }).waitFor()
     session.scope.stage = 'usage-details-key'
-    await dialog.getByText(key.name, { exact: true }).waitFor()
+    await detail.getByText(key.name, { exact: true }).waitFor()
+    await detail.getByText(session.label('Input Tokens'), { exact: true }).locator('..').getByText('10', { exact: true }).waitFor()
+    await detail.getByText(session.label('Output Tokens'), { exact: true }).locator('..').getByText('5', { exact: true }).waitFor()
+
   } catch (error) {
     const failedStage = session.scope.stage
     try {
@@ -784,9 +987,7 @@ export async function probePersonalBrowserJourney(options = {}) {
     await open(root, '/keys', { forceLoad: true })
     const rootPolicy = await api(root, `/api/user/${root.user.id}/usage-policy`)
     requireThat(rootPolicy.no_balance === true && rootPolicy.legacy_remaining_quota === 0, 'POLICY_MISMATCH')
-    const rootDialog = await policyView(root, true)
-    await capture(root, options, 'fresh-policy', screenshots)
-    await closeDialog(root, rootDialog)
+    await policyView(root, api, true)
     const rootKey = await createKey(root, api, 'browser-root-finite', quota)
     await capture(root, options, 'fresh-key-list', screenshots)
     const rootBefore = await snapshot(api, root, rootKey)
@@ -799,7 +1000,6 @@ export async function probePersonalBrowserJourney(options = {}) {
     await capture(root, options, 'fresh-success', screenshots)
     await showPersistedUsage(root, rootKey, rootRequest, options, screenshots)
     await capture(root, options, 'fresh-persisted-log', screenshots)
-    await closeDialog(root, root.page.getByRole('dialog'))
     checks.push({ name: 'real English desktop fresh Root selected-Key streaming request and persisted usage', ok: true, quota: usage, requests: 1 })
 
     // An ordinary pre-existing-style user starts with the existing stored-wallet
@@ -815,9 +1015,8 @@ export async function probePersonalBrowserJourney(options = {}) {
     requireThat(owner.user.id === owners[0].id && owner.user.id !== root.user.id, 'STATE_MISMATCH')
     const oldPolicy = await api(owner, `/api/user/${owner.user.id}/usage-policy`)
     requireThat(oldPolicy.no_balance === false && oldPolicy.legacy_remaining_quota === 0 && oldPolicy.revision === 0, 'POLICY_MISMATCH')
-    const ownerDialog = await policyView(owner, false)
+    await policyView(owner, api, false)
     await capture(owner, options, 'existing-policy-before', screenshots)
-    await closeDialog(owner, ownerDialog)
     const forbidden = await api(owner, `/api/user/${owner.user.id}/usage-policy`, 'PUT', {
       id: randomBytes(32).toString('hex'), expected_revision: oldPolicy.revision, no_balance: true, confirmed: true,
     }, true)
@@ -858,15 +1057,19 @@ export async function probePersonalBrowserJourney(options = {}) {
     await choice.getByRole('checkbox', { name: root.label('I confirm all running instances support this policy and I understand the supported request paths.'), exact: true }).check()
     const saved = responseFor(root, `/api/user/${owner.user.id}/usage-policy`, 'PUT')
     await choice.getByRole('button', { name: root.label('Save'), exact: true }).click()
-    const confirmed = await responseSuccess(root, await saved, 'POLICY_MISMATCH')
+    const choiceResponse = await saved
+    const choiceCommand = choiceResponse.request().postDataJSON()
+    requireThat(typeof choiceCommand?.id === 'string' && /^[a-f0-9]{64}$/.test(choiceCommand.id) &&
+      choiceCommand.expected_revision === oldPolicy.revision && choiceCommand.no_balance === true &&
+      choiceCommand.confirmed === true, 'POLICY_MISMATCH')
+    const confirmed = await responseSuccess(root, choiceResponse, 'POLICY_MISMATCH')
     requireThat(confirmed.user_id === owner.user.id && confirmed.no_balance === true &&
       confirmed.revision === oldPolicy.revision + 1 && confirmed.legacy_remaining_quota === 0, 'POLICY_MISMATCH')
     await closeDialog(root, choice)
     const afterChoice = await api(owner, `/api/user/${owner.user.id}/usage-policy`)
     requireThat(afterChoice.no_balance === true && afterChoice.revision === confirmed.revision && afterChoice.legacy_remaining_quota === 0, 'POLICY_MISMATCH')
-    const activeDialog = await policyView(owner, true, confirmed.revision)
+    await policyView(owner, api, true, confirmed.revision)
     await capture(owner, options, 'existing-policy-after', screenshots)
-    await closeDialog(owner, activeDialog)
     const ownerEnabled = await snapshot(api, owner, ownerKey)
     requireThat(ownerEnabled.user.quota === ownerBefore.user.quota && ownerEnabled.user.used_quota === ownerBefore.user.used_quota &&
       ownerEnabled.user.request_count === ownerBefore.user.request_count, 'USAGE_MISMATCH')
@@ -877,7 +1080,8 @@ export async function probePersonalBrowserJourney(options = {}) {
     await capture(owner, options, 'existing-success', screenshots)
     await showPersistedUsage(owner, ownerKey, ownerRequest, options, screenshots)
     await capture(owner, options, 'existing-persisted-log', screenshots)
-    await closeDialog(owner, owner.page.getByRole('dialog'))
+    await owner.page.getByRole('button', { name: owner.label('Back to call list'), exact: true }).click()
+    await owner.page.getByRole('main', { name: owner.label('Call logs'), exact: true }).getByRole('list').waitFor({ state: 'visible' })
     checks.push({ name: 'real Chinese mobile ordinary owner rejects until explicit Root policy choice', ok: true, role: 1, policyChanges: 1, requests: 1, quota: usage })
 
     const lowKey = await createKey(owner, api, 'browser-owner-low', 1)
@@ -895,13 +1099,25 @@ export async function probePersonalBrowserJourney(options = {}) {
     // or prove native-provider positives, strict settlement, or concurrency.
     const strictKey = await createKey(root, api, 'browser-root-strict-reject', quota)
     scope.stage = 'strict-key-filter'
-    const selectedKey = await searchTableRow(root, '/keys', 'Filter by name...', strictKey.name, '/api/token/search', 'KEY_MISMATCH')
+    await open(root, '/keys')
+    const keySearch = root.page.waitForResponse(response => {
+      const url = new URL(response.url())
+      return url.origin === root.origin && url.pathname === '/api/token/search' && response.request().method() === 'GET' &&
+        url.searchParams.get('keyword') === strictKey.name
+    })
+    keySearch.catch(() => {})
+    await root.page.getByRole('textbox', { name: root.label('Search keys'), exact: true }).fill(strictKey.name)
+    await root.page.getByRole('button', { name: root.label('Search'), exact: true }).click()
+    const keySearchData = await responseSuccess(root, await keySearch, 'KEY_MISMATCH')
+    requireThat(keySearchData?.total === 1 && Array.isArray(keySearchData.items) && keySearchData.items.length === 1, 'KEY_MISMATCH')
+    const selectedKey = keySearchData.items[0]
     requireThat(selectedKey.id === strictKey.id && selectedKey.user_id === root.user.id && selectedKey.name === strictKey.name, 'KEY_MISMATCH')
-    const strictRow = root.page.getByRole('row').filter({ hasText: strictKey.name })
-    await strictRow.waitFor()
-    requireThat(await strictRow.count() === 1, 'KEY_MISMATCH')
+    const strictCard = root.page.locator('[data-slot="card"]').filter({ has: root.page.getByText(strictKey.name, { exact: true }) })
+    await strictCard.waitFor({ state: 'visible' })
+    requireThat(await strictCard.count() === 1, 'KEY_MISMATCH')
     scope.stage = 'strict-budget'
-    await strictRow.getByRole('button', { name: root.label('API Key usage budgets'), exact: true }).click()
+    await strictCard.getByText(root.label('Advanced options'), { exact: true }).click()
+    await strictCard.getByRole('button', { name: root.label('API Key usage budgets'), exact: true }).click()
     const budgetDialog = root.page.getByRole('dialog', { name: root.label('API Key usage budgets'), exact: true })
     await budgetDialog.getByRole('checkbox', { name: root.label('Enable strict Token budget'), exact: true }).check()
     await budgetDialog.getByRole('textbox', { name: root.label('Token total limit'), exact: true }).fill('1000')
@@ -933,6 +1149,11 @@ export async function probePersonalBrowserJourney(options = {}) {
     const persisted = await snapshot(api, owner, ownerKey)
     requireThat(persisted.token.remain_quota === quota - usage && persisted.token.used_quota === usage &&
       persisted.user.quota === 0 && persisted.user.role === 1 && persisted.user.used_quota === usage && persisted.user.request_count === 1, 'USAGE_MISMATCH')
+    if (options.advancedModelScope === true) {
+      const result = await exerciseAdvancedModelScope(api, root, owner, ownerKey, persisted, options, screenshots, control)
+      checks.push({ name: 'real owner model scope narrows and restores without changing Key metadata or relay usage',
+        ok: true, ...result })
+    }
     const finalWriter = await api(root, '/api/quota-writer/status')
     requireThat(finalWriter.state?.mode === writer, 'WRITER_MISMATCH')
     requireThat(root.errors === 0 && owner.errors === 0 && root.reveals === 0 && owner.reveals === 0 &&
@@ -941,6 +1162,25 @@ export async function probePersonalBrowserJourney(options = {}) {
       root.frontend.form_verified === true && owner.frontend.form_verified === true &&
       root.frontend.metadata_verified === true && owner.frontend.metadata_verified === true &&
       root.frontend.revision === owner.frontend.revision, 'BUILD_MISMATCH')
+    // Capture the application's existing, visible build identifier. Metadata
+    // equality above establishes identity but does not prove on-screen display.
+    scope.stage = 'build-visible'
+    await open(root, '/system-info')
+    await root.page.locator('[data-testid="runtime-build-revision"]').waitFor({ state: 'visible' })
+    const visibleBuild = await bounded(scope, () => root.page.evaluate(() => {
+      const element = document.querySelector('[data-testid="runtime-build-revision"]')
+      const rect = element?.getBoundingClientRect()
+      return { revision: element?.textContent?.trim(), visible: Boolean(rect && rect.width > 0 && rect.height > 0 &&
+        rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight &&
+        element.scrollWidth <= element.clientWidth) }
+    }))
+    requireThat(visibleBuild?.visible === true && visibleBuild.revision === root.frontend.revision, 'BUILD_MISMATCH')
+    requireThat(root.errors === 0 && owner.errors === 0, 'RUNTIME_ERROR')
+    // Other Root cards contain operational metadata and raw API errors. Keep
+    // the evidence confined to this existing public build card.
+    const buildCard = root.page.locator('[data-slot="card"]:has([data-testid="runtime-build-revision"])')
+    await capture(root, options, 'runtime-build', screenshots, buildCard)
+    requireThat(root.errors === 0 && owner.errors === 0, 'RUNTIME_ERROR')
     checks.push({ name: 'browser reload preserves finite Key and ordinary-owner counters without relay replay', ok: true, remainingQuota: quota - usage, usedQuota: usage })
     return { passed: true, sha: options.sha, writer, checks, screenshots, frontend: {
       revision: root.frontend.revision,

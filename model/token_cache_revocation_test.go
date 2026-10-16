@@ -165,6 +165,7 @@ func TestTokenLookupRetainsDatabaseFallbackOnCacheMissOrRedisFailure(t *testing.
 
 func TestTokenBatchDeletionRejectsSnapshotPublishedDuringSlowDelete(t *testing.T) {
 	_, fixture, server := openLegacyBalanceBatchTestWithRedis(t, "late-snapshot-batch-delete")
+	require.NoError(t, DB.AutoMigrate(&SubscriptionSharePool{}, &SubscriptionShareAllocation{}))
 	oldSnapshot := fixture.Token
 	callbackName := "fixture_publish_snapshot_before_batch_delete"
 	var publishErr error

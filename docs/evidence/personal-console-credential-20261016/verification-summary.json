@@ -1,0 +1,500 @@
+{
+  "schema": 1,
+  "status": "qualified",
+  "version": "0.2.0-beta.18",
+  "sourceHead": "6274bac5e0c0d8a618a4a6083c59f1cfe39d561c",
+  "checkout": "6a7c4ec18f99fabf810052e9549b64f72ba76367",
+  "tree": "0c9218cbf4faf2845033e61fdf46f563dd11256f",
+  "run": 38911014066,
+  "url": "https://github.com/ForceMind/MyAPI/actions/runs/38911014066",
+  "ciConclusion": "success",
+  "ciUpdatedAt": "2026-10-16T14:16:20Z",
+  "jobs": [
+    {
+      "name": "S2-A payment and subscription database regression",
+      "id": 117006748367,
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Initialize containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify payment transactions on disposable databases",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "Isolated credential maintenance browser and real API",
+      "id": 117006748662,
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Checkout qualified source",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Node",
+          "conclusion": "success"
+        },
+        {
+          "name": "Wait for this run's exact production build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Download this run's exact production build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install isolated browser tools",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify credential maintenance states on the production build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify real Go migration and proof routes on disposable SQLite",
+          "conclusion": "success"
+        },
+        {
+          "name": "Retain original credential screenshots and reports",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "B2 ClickHouse log migration regression",
+      "id": 117006748717,
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Initialize containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify ClickHouse logs migration on a disposable database",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "S1 identity and options database regression",
+      "id": 117006748772,
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Initialize containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify identity migration and option persistence on disposable databases",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "S2-C09 Redis limiter lifecycle regression",
+      "id": 117006748782,
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Initialize containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify limiter lifecycle on disposable Redis",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "B2 durable submission database regression",
+      "id": 117006748806,
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Initialize containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify durable submissions on disposable databases",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify quota identity migration and account projection on disposable databases",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "Backend vet, build, and test",
+      "id": 117006748810,
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Create frontend embed placeholder",
+          "conclusion": "success"
+        },
+        {
+          "name": "Vet root module",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify approximate subscription share boundaries",
+          "conclusion": "success"
+        },
+        {
+          "name": "Vet relaykit independently",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build root module",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build root module for linux/386",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify historical amount behavior on linux/386",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify root JSON wrapper policy",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build relaykit independently",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test root and relaykit modules",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test historical accounting audit tools",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify configuration publication ordering under race detector",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify settings, rate-limit, and request snapshots under race detector",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify model discovery and route identity under race detector",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify native Chat budgets and funding admission boundaries under race detector",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify assigned access and in-app account events under race detector",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify credential migration and sampling proofs under race detector",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify io.net and cache codec boundaries under race detector",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify task billing and logging boundaries under race detector",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify durable submission model under race detector",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "Desktop cross-platform contract",
+      "id": 117006748859,
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate macOS and Windows desktop contract",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run Electron runtime tests",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "Frontend typecheck and test",
+      "id": 117006748938,
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Bun",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install dependencies",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify pre-fix personal Key handoff regression",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Build real quota UI for browser regression",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify pre-fix Key maintenance session regressions",
+          "conclusion": "success"
+        },
+        {
+          "name": "Retain runnable personal console build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Typecheck",
+          "conclusion": "success"
+        },
+        {
+          "name": "Lint",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Retain frontend test results before browser qualification",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install isolated browser test dependencies",
+          "conclusion": "success"
+        },
+        {
+          "name": "Qualify advanced personal maintenance in Chromium",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload advanced maintenance screenshots and reports",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify real quota charts and responsive interactions",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify model discovery and routing workflow in real Chromium",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify assigned access and account events in real Chromium",
+          "conclusion": "success"
+        },
+        {
+          "name": "Qualify personal console pages and native-window shares in Chromium",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload personal console screenshots and qualification reports",
+          "conclusion": "success"
+        },
+        {
+          "name": "Qualify shared UI, roles, settings and responsive pages in Chromium",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload full UI screenshots and qualification report",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload assigned access browser screenshots",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload routing browser screenshots",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload quota browser screenshots",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "S2-C quota script Redis regression",
+      "id": 117006749017,
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Initialize containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify quota scripts on disposable Redis",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "Distribution and release contracts",
+      "id": 117006749039,
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate CLI and distribution contracts",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify Docker smoke fixture and restore contracts",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "frontend": {
+    "files": 237,
+    "tests": 1519,
+    "newMaintenanceTests": 21,
+    "build": "passed",
+    "typecheck": "passed",
+    "lint": {
+      "errors": 0,
+      "warnings": 8,
+      "scope": "Existing warnings are outside beta.18 modified frontend files; not rewritten for this batch."
+    },
+    "advancedRegressionJourneys": 54,
+    "compatibilityScripts": 6
+  },
+  "maintenanceBrowser": {
+    "syntheticJourneys": 4,
+    "syntheticScreenshots": 13,
+    "realGoScenes": 2,
+    "realGoScreenshots": 8,
+    "realGoTestSeconds": 7.102,
+    "rotationPost": 404,
+    "otherConsoleAPIs": "synthetic fixtures",
+    "realProvider": "not tested"
+  },
+  "databases": {
+    "sqlite": "passed",
+    "mysql5.7": "passed",
+    "postgres9.6": "passed",
+    "newConfiguredTests": "migration including concurrency and idempotency; exact credential sampling proof; no skips"
+  },
+  "review": "passed; no remaining P1/P2 in reviewed scope",
+  "archiveBoundary": "Non-docs diff from qualified source was checked empty before archive. Final documentation/evidence hash is distinct from the qualified application/build hash.",
+  "constraints": {
+    "productionData": "untouched",
+    "realCredentials": "untouched",
+    "historicalAccounting": "frozen",
+    "mainMerge": false,
+    "release": false,
+    "deployment": false,
+    "rotationCommitSupported": false
+  }
+}

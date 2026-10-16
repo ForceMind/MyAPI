@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net/http"
@@ -15,7 +16,6 @@ import (
 	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/middleware"
 	"github.com/ForceMind/MyAPI/model"
-	"github.com/ForceMind/MyAPI/relay/channel/codex"
 	"github.com/ForceMind/MyAPI/service"
 
 	"github.com/gin-gonic/gin"
@@ -31,8 +31,14 @@ type codexOAuthCompleteRequest struct {
 }
 
 type codexOAuthFlowPayload struct {
-	Verifier  string `json:"verifier"`
-	ChannelID int    `json:"channel_id"`
+	Verifier               string `json:"verifier"`
+	ChannelID              int    `json:"channel_id"`
+	TargetCredentialDigest string `json:"target_credential_digest,omitempty"`
+}
+
+func codexCredentialDigest(raw string) string {
+	digest := sha256.Sum256([]byte(raw))
+	return fmt.Sprintf("%x", digest[:])
 }
 
 func parseCodexAuthorizationInput(input string) (code string, state string, err error) {
@@ -83,13 +89,18 @@ func startCodexOAuthWithChannelID(c *gin.Context, channelID int) {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "dashboard session required"})
 		return
 	}
+	targetCredentialDigest := ""
 	if channelID > 0 {
 		ch, err := getCodexOAuthChannel(channelID)
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
 			return
 		}
-		_ = ch
+		if ch.ChannelInfo.IsMultiKey {
+			c.JSON(http.StatusConflict, gin.H{"success": false, "message": common.TranslateMessage(c, i18n.MsgCodexCredentialSafeUpdateRequired)})
+			return
+		}
+		targetCredentialDigest = codexCredentialDigest(ch.Key)
 	}
 
 	flow, err := service.CreateCodexOAuthAuthorizationFlow()
@@ -98,8 +109,9 @@ func startCodexOAuthWithChannelID(c *gin.Context, channelID int) {
 		return
 	}
 	payload, err := common.Marshal(codexOAuthFlowPayload{
-		Verifier:  flow.Verifier,
-		ChannelID: channelID,
+		Verifier:               flow.Verifier,
+		ChannelID:              channelID,
+		TargetCredentialDigest: targetCredentialDigest,
 	})
 	if err != nil {
 		common.ApiError(c, err)
@@ -189,6 +201,10 @@ func completeCodexOAuthWithChannelID(c *gin.Context, channelID int) {
 			return
 		}
 		targetChannel = ch
+		if ch.ChannelInfo.IsMultiKey {
+			c.JSON(http.StatusConflict, gin.H{"success": false, "message": common.TranslateMessage(c, i18n.MsgCodexCredentialSafeUpdateRequired)})
+			return
+		}
 		channelProxy = ch.GetSetting().Proxy
 	} else {
 		channelProxy = req.Create.Channel.GetSetting().Proxy
@@ -215,6 +231,10 @@ func completeCodexOAuthWithChannelID(c *gin.Context, channelID int) {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "Codex login session does not match this channel"})
 		return
 	}
+	if channelID > 0 && (flowPayload.TargetCredentialDigest == "" || flowPayload.TargetCredentialDigest != codexCredentialDigest(targetChannel.Key)) {
+		c.JSON(http.StatusConflict, gin.H{"success": false, "message": "Codex channel credential changed; start again"})
+		return
+	}
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
 	defer cancel()
 	tokenRes, err := exchangeCodexOAuthCode(ctx, code, flowPayload.Verifier, channelProxy)
@@ -234,7 +254,7 @@ func completeCodexOAuthWithChannelID(c *gin.Context, channelID int) {
 		return
 	}
 	email, _ := service.ExtractEmailFromJWT(tokenRes.AccessToken)
-	key := codex.OAuthKey{
+	key := service.CodexOAuthKey{
 		AccessToken:  tokenRes.AccessToken,
 		RefreshToken: tokenRes.RefreshToken,
 		AccountID:    accountID,
@@ -256,14 +276,29 @@ func completeCodexOAuthWithChannelID(c *gin.Context, channelID int) {
 		"last_refresh": key.LastRefresh,
 	}
 	if channelID > 0 {
-		updated, updateErr := model.UpdateChannelCredentialIfUnchanged(
+		updated, updateErr := service.ReplaceCodexChannelCredentialFromOAuth(
 			c.Request.Context(),
 			channelID,
-			constant.ChannelTypeCodex,
 			targetChannel.Key,
-			string(encoded),
+			&key,
 		)
 		if updateErr != nil {
+			if errors.Is(updateErr, service.ErrCodexCredentialSubjectUnknown) {
+				c.JSON(http.StatusConflict, gin.H{
+					"success": false,
+					"code":    "CODEX_CREDENTIAL_SUBJECT_UNKNOWN",
+					"message": common.TranslateMessage(c, i18n.MsgCodexCredentialSubjectUnknown),
+				})
+				return
+			}
+			if errors.Is(updateErr, service.ErrCodexCredentialSubjectMismatch) {
+				c.JSON(http.StatusConflict, gin.H{
+					"success": false,
+					"code":    "CODEX_CREDENTIAL_SUBJECT_CONFLICT",
+					"message": common.TranslateMessage(c, i18n.MsgCodexCredentialSubjectMismatch),
+				})
+				return
+			}
 			common.ApiError(c, updateErr)
 			return
 		}

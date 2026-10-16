@@ -1,0 +1,249 @@
+{
+  "schema": 1,
+  "sourceHead": "6274bac5e0c0d8a618a4a6083c59f1cfe39d561c",
+  "checkout": "6a7c4ec18f99fabf810052e9549b64f72ba76367",
+  "tree": "0c9218cbf4faf2845033e61fdf46f563dd11256f",
+  "run": 38911014066,
+  "originalScreenshots": 21,
+  "originalMaintenanceReports": 3,
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 5524,
+      "sha256": "5d66f25b9bbb81ab3d81d4ddb582312e7700975d0b623304358d60d2117bfad2"
+    },
+    {
+      "path": "advanced-regression-summary.json",
+      "bytes": 1040,
+      "sha256": "26105c732ef764f8b0d794a59b72c3f0eafad229880f90e6cc8fada732b4dc95"
+    },
+    {
+      "path": "artifact-sources.json",
+      "bytes": 2089,
+      "sha256": "516ee7233c69695ade4afef459905b363a02d1c11fcb0506d2ca0d3fd71c09e8"
+    },
+    {
+      "path": "database-summary.json",
+      "bytes": 2665,
+      "sha256": "6b9988b161f4d93e9cfe4b45c89299e1fd0c2a1abcce26691c4838357f357524"
+    },
+    {
+      "path": "frontend-summary.json",
+      "bytes": 770,
+      "sha256": "06e7db7f36f80846b3e081fb5cf455ae0029f1cb81d2028fee59bc644ef74456"
+    },
+    {
+      "path": "frontend-test-summary.txt",
+      "bytes": 657,
+      "sha256": "2bc1606b9e1cd70e12eff63cdcb0c8f8c28879da2ae1047f9b29af3b0dde1116"
+    },
+    {
+      "path": "frontend-typecheck.txt",
+      "bytes": 10,
+      "sha256": "5b79a0e507fbfe3ee9fe68d86a274c3dec57408303abba3ba342ef01f4551dbe"
+    },
+    {
+      "path": "local-checks.json",
+      "bytes": 2365,
+      "sha256": "d6057db9ced9a26bc78193c3e54969aaf385925ab0c1d09d959ba217ea67bcb6"
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/credential-maintenance-qualification.json",
+      "bytes": 2449,
+      "sha256": "572f164689ab6a8466c1271fb519d8e0e04f4ea1276ee0fb574b247a6c40c771"
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/desktop-blocked-guidance-blocked.png",
+      "bytes": 191116,
+      "sha256": "69ae2964bc82aba98b5dd2f6f09e01460b305b5a93c0ca008e6406879bfa9281",
+      "width": 1440,
+      "height": 960,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/desktop-success-keyboard-committed.png",
+      "bytes": 166247,
+      "sha256": "867608a8da6bec411f3eca5f996897f8715499f477a7c4c55971334e79b85a78",
+      "width": 1440,
+      "height": 960,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/desktop-success-keyboard-confirm-actions.png",
+      "bytes": 158431,
+      "sha256": "51891feabb3868493538c0c2d6e48727ca4ed557995c744b85293aacb1ddb538",
+      "width": 1440,
+      "height": 960,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/desktop-success-keyboard-loaded.png",
+      "bytes": 176054,
+      "sha256": "88961ca245cca919ed5e509b8ea15baaa1c4e38ea396eba3a6a4532ac98995c0",
+      "width": 1440,
+      "height": 960,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/mobile-read-failure-committed.png",
+      "bytes": 82665,
+      "sha256": "c9b9226d3dc10bd41b54d082acba79cb66a64c94143d213eb5271de630faeb7c",
+      "width": 390,
+      "height": 960,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/mobile-read-failure-confirm-actions.png",
+      "bytes": 77159,
+      "sha256": "981bf7464cf3ffdc47e87368e6595c30c26b5b54dcd2ac6e076bf1ede658c436",
+      "width": 390,
+      "height": 960,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/mobile-read-failure-loaded.png",
+      "bytes": 101675,
+      "sha256": "131a87a72be8a86f01ed250c94840f521e6090f4a1f19183cf6951f376d35788",
+      "width": 390,
+      "height": 960,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/mobile-read-failure-read-failure.png",
+      "bytes": 84219,
+      "sha256": "58e01494be4642238d4c1a650e80fe2073b08ecb11f1368bfd966a8afebf1d2d",
+      "width": 390,
+      "height": 960,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/narrow-dark-long-unknown-confirm-actions.png",
+      "bytes": 80593,
+      "sha256": "dfb1172e85f80b132b7e7f6c7a0e5185a63d61fb7274c42371bb3b91f789b758",
+      "width": 320,
+      "height": 960,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/narrow-dark-long-unknown-loaded.png",
+      "bytes": 88752,
+      "sha256": "fb3ec25d3abc1f7252bc64652b2a0832ad33a6a835c0fd137a969720f541bb58",
+      "width": 320,
+      "height": 960,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/narrow-dark-long-unknown-unknown-reloaded.png",
+      "bytes": 78189,
+      "sha256": "44a5f540f00bce5cf4a649fa301213fcd6a514ca5a105449d511445acfff0812",
+      "width": 320,
+      "height": 960,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/narrow-dark-long-unknown-unknown-reopened.png",
+      "bytes": 78243,
+      "sha256": "3c405ea3226f05b9cb0cf6362d8184e7528111fa9e5749634fbab4ef20d1c3aa",
+      "width": 320,
+      "height": 960,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/narrow-dark-long-unknown-unknown.png",
+      "bytes": 88465,
+      "sha256": "763a263adf06b8364500a85335253357d47a2177cc66c482cd5aedb1e878b5de",
+      "width": 320,
+      "height": 960,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime-en-1440-committed.png",
+      "bytes": 167667,
+      "sha256": "ec8535148f96ae190aea5babd2ee9a8605468f01c1146095f42ddffbdf1300a6",
+      "width": 1440,
+      "height": 960,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime-en-1440-confirmed.png",
+      "bytes": 166299,
+      "sha256": "9a39bd3c435ab3b42cd5e766332e3d635951fe139dfd986b62ceb711adafe7e8",
+      "width": 1440,
+      "height": 960,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime-en-1440-loaded.png",
+      "bytes": 176485,
+      "sha256": "e908ca806500c4e50e4f9b49d5f662c7adf41ba08ec806e79ca6ceafb08a4fa0",
+      "width": 1440,
+      "height": 960,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime-en-1440-reopened.png",
+      "bytes": 175222,
+      "sha256": "5ab5f8e61d9ff769495d846cfb230ee54f3beef58fd902eb749cf04bfa06f583",
+      "width": 1440,
+      "height": 960,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime.json",
+      "bytes": 2108,
+      "sha256": "3d680c0f0f1bf510cb3a988fc4e1aba7549c9e29f6cc0d1bdb91dfeabb1b6269"
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime-zh-390-committed.png",
+      "bytes": 76026,
+      "sha256": "21ef73b20c1e531e08407aafa6f2dd0964956bec9bd66c1ff65588461418c1f5",
+      "width": 390,
+      "height": 844,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime-zh-390-confirmed.png",
+      "bytes": 76549,
+      "sha256": "dc2c9aa39d3aeab4227ceaa42e128aa4aba195b091496c0aae18c3d8dedcfac8",
+      "width": 390,
+      "height": 844,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime-zh-390-loaded.png",
+      "bytes": 86529,
+      "sha256": "d86b7c42ee3d01a9bc9188861bba40fbd0a37eb8c373dd205dd4c11ae143bfae",
+      "width": 390,
+      "height": 844,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime-zh-390-reopened.png",
+      "bytes": 86236,
+      "sha256": "e808f105d8d6f7be01cd3ffc41b76df71e6e693684a95b0aee11040297e5ab91",
+      "width": 390,
+      "height": 844,
+      "originalBytes": true
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime.json",
+      "bytes": 2103,
+      "sha256": "c53f099d68260978ad60be3ca4037a5328e3b5d4b2b0460743fce4dd85571600"
+    },
+    {
+      "path": "preview-checks.json",
+      "bytes": 1006,
+      "sha256": "46878c04ceb5acd978a30dcea147296e84ec00bcb3d551f2e4a0819020e96aed"
+    },
+    {
+      "path": "review-summary.json",
+      "bytes": 2107,
+      "sha256": "361c066b6e52eaaeef3fe28d1e142f6eacd8e59b9c56fe5fe4f580a7c43e2730"
+    },
+    {
+      "path": "verification-summary.json",
+      "bytes": 13626,
+      "sha256": "96a68fe57de9940147133de28801381cdf22e5212ec6b41295607240f71c85c6"
+    }
+  ]
+}

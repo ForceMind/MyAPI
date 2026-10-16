@@ -1,0 +1,400 @@
+{
+  "version": "prototype-v0.1",
+  "artifact": "MyAPI-personal-console-prototype-v0.1.pdf",
+  "pages": [
+    {
+      "id": "start",
+      "title": "审阅入口",
+      "mobile": false,
+      "page": 1
+    },
+    {
+      "id": "d-home",
+      "title": "你的 API 工作空间",
+      "mobile": false,
+      "page": 2
+    },
+    {
+      "id": "d-empty",
+      "title": "开始管理你的 API",
+      "mobile": false,
+      "page": 3
+    },
+    {
+      "id": "d-accounts",
+      "title": "上游账号",
+      "mobile": false,
+      "page": 4
+    },
+    {
+      "id": "d-account",
+      "title": "订阅账号 A",
+      "mobile": false,
+      "page": 5
+    },
+    {
+      "id": "d-account-stale",
+      "title": "订阅账号 A / 数据过期",
+      "mobile": false,
+      "page": 6
+    },
+    {
+      "id": "d-account-expired",
+      "title": "订阅账号 B / 登录已过期",
+      "mobile": false,
+      "page": 7
+    },
+    {
+      "id": "d-account-recovered",
+      "title": "订阅账号 B / 恢复结果",
+      "mobile": false,
+      "page": 8
+    },
+    {
+      "id": "d-keys",
+      "title": "API Keys",
+      "mobile": false,
+      "page": 9
+    },
+    {
+      "id": "d-key",
+      "title": "桌面应用",
+      "mobile": false,
+      "page": 10
+    },
+    {
+      "id": "d-edit",
+      "title": "调整窗口分额",
+      "mobile": false,
+      "page": 11
+    },
+    {
+      "id": "d-edit-invalid",
+      "title": "调整窗口分额",
+      "mobile": false,
+      "page": 12
+    },
+    {
+      "id": "d-key-saved",
+      "title": "桌面应用",
+      "mobile": false,
+      "page": 13
+    },
+    {
+      "id": "d-key-exhausted",
+      "title": "桌面应用",
+      "mobile": false,
+      "page": 14
+    },
+    {
+      "id": "d-pause",
+      "title": "暂停桌面应用？",
+      "mobile": false,
+      "page": 15
+    },
+    {
+      "id": "d-key-paused",
+      "title": "桌面应用",
+      "mobile": false,
+      "page": 16
+    },
+    {
+      "id": "d-logs",
+      "title": "调用记录",
+      "mobile": false,
+      "page": 17
+    },
+    {
+      "id": "d-logs-key",
+      "title": "调用记录",
+      "mobile": false,
+      "page": 18
+    },
+    {
+      "id": "d-log-missing",
+      "title": "调用详情",
+      "mobile": false,
+      "page": 19
+    },
+    {
+      "id": "d-log-error",
+      "title": "调用详情",
+      "mobile": false,
+      "page": 20
+    },
+    {
+      "id": "d-log-known",
+      "title": "调用详情 / 用量已返回",
+      "mobile": false,
+      "page": 21
+    },
+    {
+      "id": "d-profile-loading",
+      "title": "设置 / 个人资料",
+      "mobile": false,
+      "page": 22
+    },
+    {
+      "id": "d-profile-error",
+      "title": "设置 / 个人资料",
+      "mobile": false,
+      "page": 23
+    },
+    {
+      "id": "d-profile",
+      "title": "设置 / 个人资料",
+      "mobile": false,
+      "page": 24
+    },
+    {
+      "id": "m-home",
+      "title": "你的 API 工作空间",
+      "mobile": true,
+      "page": 25
+    },
+    {
+      "id": "m-accounts",
+      "title": "上游账号",
+      "mobile": true,
+      "page": 26
+    },
+    {
+      "id": "m-account",
+      "title": "账号 A / 原生窗口",
+      "mobile": true,
+      "page": 27
+    },
+    {
+      "id": "m-account-expired",
+      "title": "账号 B / 登录过期",
+      "mobile": true,
+      "page": 28
+    },
+    {
+      "id": "m-account-recovered",
+      "title": "账号 B / 恢复结果",
+      "mobile": true,
+      "page": 29
+    },
+    {
+      "id": "m-keys",
+      "title": "API Keys",
+      "mobile": true,
+      "page": 30
+    },
+    {
+      "id": "m-key",
+      "title": "桌面应用",
+      "mobile": true,
+      "page": 31
+    },
+    {
+      "id": "m-edit",
+      "title": "调整窗口分额",
+      "mobile": true,
+      "page": 32
+    },
+    {
+      "id": "m-edit-invalid",
+      "title": "调整窗口分额",
+      "mobile": true,
+      "page": 33
+    },
+    {
+      "id": "m-key-saved",
+      "title": "桌面应用",
+      "mobile": true,
+      "page": 34
+    },
+    {
+      "id": "m-logs",
+      "title": "调用记录",
+      "mobile": true,
+      "page": 35
+    },
+    {
+      "id": "m-log-missing",
+      "title": "调用详情",
+      "mobile": true,
+      "page": 36
+    },
+    {
+      "id": "m-log-error",
+      "title": "调用详情 / 上游限流",
+      "mobile": true,
+      "page": 37
+    },
+    {
+      "id": "m-log-known",
+      "title": "调用详情 / 用量已返回",
+      "mobile": true,
+      "page": 38
+    },
+    {
+      "id": "m-profile",
+      "title": "我的设置 / 个人资料",
+      "mobile": true,
+      "page": 39
+    },
+    {
+      "id": "m-profile-error",
+      "title": "个人资料读取失败",
+      "mobile": true,
+      "page": 40
+    },
+    {
+      "id": "d-edit-zero",
+      "title": "确认分配 0%",
+      "mobile": false,
+      "page": 41
+    },
+    {
+      "id": "d-key-zero",
+      "title": "分额已保存：0%",
+      "mobile": false,
+      "page": 42
+    },
+    {
+      "id": "d-edit-full",
+      "title": "确认分配 50%",
+      "mobile": false,
+      "page": 43
+    },
+    {
+      "id": "d-key-full",
+      "title": "分额已保存：50%",
+      "mobile": false,
+      "page": 44
+    },
+    {
+      "id": "m-edit-zero",
+      "title": "确认分配 0%",
+      "mobile": true,
+      "page": 45
+    },
+    {
+      "id": "m-key-zero",
+      "title": "分额已保存：0%",
+      "mobile": true,
+      "page": 46
+    },
+    {
+      "id": "m-edit-full",
+      "title": "确认分配 50%",
+      "mobile": true,
+      "page": 47
+    },
+    {
+      "id": "m-key-full",
+      "title": "分额已保存：50%",
+      "mobile": true,
+      "page": 48
+    },
+    {
+      "id": "d-scenarios",
+      "title": "异常分支 / 审阅目录",
+      "mobile": false,
+      "page": 49
+    },
+    {
+      "id": "d-account-changed",
+      "title": "重新登录后账号身份变化",
+      "mobile": false,
+      "page": 50
+    },
+    {
+      "id": "d-window-changed",
+      "title": "同一账号的原生窗口变化",
+      "mobile": false,
+      "page": 51
+    },
+    {
+      "id": "d-log-blocked",
+      "title": "调用未发送上游",
+      "mobile": false,
+      "page": 52
+    },
+    {
+      "id": "m-log-blocked",
+      "title": "调用未发送上游",
+      "mobile": true,
+      "page": 53
+    },
+    {
+      "id": "m-key-exhausted",
+      "title": "桌面应用",
+      "mobile": true,
+      "page": 54
+    },
+    {
+      "id": "m-pause",
+      "title": "暂停桌面应用？",
+      "mobile": true,
+      "page": 55
+    },
+    {
+      "id": "m-key-paused",
+      "title": "桌面应用",
+      "mobile": true,
+      "page": 56
+    },
+    {
+      "id": "d-other-key",
+      "title": "共享设备",
+      "mobile": false,
+      "page": 57
+    },
+    {
+      "id": "d-phone-key",
+      "title": "手机应用",
+      "mobile": false,
+      "page": 58
+    },
+    {
+      "id": "m-other-key",
+      "title": "共享设备",
+      "mobile": true,
+      "page": 59
+    },
+    {
+      "id": "m-phone-key",
+      "title": "手机应用",
+      "mobile": true,
+      "page": 60
+    },
+    {
+      "id": "d-accounts-recovered",
+      "title": "上游账号 / 恢复后",
+      "mobile": false,
+      "page": 61
+    },
+    {
+      "id": "m-accounts-recovered",
+      "title": "上游账号 / 恢复后",
+      "mobile": true,
+      "page": 62
+    }
+  ],
+  "link_count": 639,
+  "size_bytes": 300069,
+  "sha256": "36ab9b244a7d49a2c3d342b06278906d8c3d2056b95c12f6eb30b04d6ace5293",
+  "checks": [
+    "Every hotspot resolves to an existing page",
+    "Every link rectangle lies inside its page",
+    "Every text box lies inside its page",
+    "PDF reopened and all pages rendered into contact sheets",
+    "All pages reachable from entry",
+    "Recovered-account flow reaches recovered list",
+    "Account usage attribution explained separately from allocation",
+    "Reached-limit pages have no self-loop scenario link",
+    "Identity and window changes have distinct explanations"
+  ],
+  "limitation": "Preset page transitions only; no live input, persistence, requests, OAuth, real accounts, or implementation validation.",
+  "independent_review": {
+    "agent": "prototype_flow_review_20261015",
+    "configuration_requested": "gpt-5.6-sol/ultra",
+    "result": "passed after six flow corrections",
+    "scope": "Prototype flow and representative rendered pages only; product owner approval pending",
+    "reviewed_sha256": "36ab9b244a7d49a2c3d342b06278906d8c3d2056b95c12f6eb30b04d6ace5293"
+  }
+}

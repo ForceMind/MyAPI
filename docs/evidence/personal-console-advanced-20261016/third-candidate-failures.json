@@ -1,0 +1,35 @@
+{
+  "application_source": "32eb410b028e18ac254ad568492ecbcb2cdfa2bd",
+  "ci_checkout": "eeb5c4b3545e985509eea8e73da6e3339122639e",
+  "ci_run": 38848452018,
+  "ci_status": "superseded after actionable failures",
+  "frontend_unit": {
+    "passed": 1496,
+    "failed": 1,
+    "files": 233,
+    "failure": "new Root-role regression omitted existing words and all data in accessible-name assertion; product unchanged"
+  },
+  "typecheck": "passed",
+  "lint": "passed",
+  "build": "passed",
+  "advanced_browser": {
+    "model": {
+      "passed": 17,
+      "failed": 0,
+      "independent_visual_issue": "portal remained light despite html.dark; fixed shared portal dark tokens and added actual computed-color assertions"
+    },
+    "security": {
+      "passed_before_failure": 19,
+      "failure": "non-exact New Password label also matched Confirm New Password; exact label locators retained validation/Cancel/Enter assertions"
+    },
+    "window": {
+      "passed_before_failure": 0,
+      "failure": "initial authentication bootstrap made total refresh count 1; unknown401 must compare to immediate pre-submit baseline; exact expected401 resource log excluded while JS errors remain failures"
+    }
+  },
+  "runtime_run": 38848457352,
+  "runtime_status": "failure",
+  "runtime_failure": "first narrow PUT/GET succeeded, restore-save failed. Third round had no numeric HTTP status; 429 is a static budget inference, not measured fact",
+  "runtime_correction": "reuse exact page loaded by existing reload-check; remove two redundant forceLoad auth bootstraps; retain all actual endpoint readbacks, strict writes and metadata/relay assertions; no rate-limit configuration changes",
+  "production_effects": false
+}

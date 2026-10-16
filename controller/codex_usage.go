@@ -709,9 +709,19 @@ func sampleCodexChannelUsage(ctx context.Context, ch *model.Channel) error {
 	return sampleCodexCredentialUsage(ctx, ch, ch.Key, identity, nil, nil, nil)
 }
 
-func sampleCodexCredentialUsage(ctx context.Context, ch *model.Channel, credential string, credentialIdentity model.ChannelQuotaResolvedIdentity, acceptConfirmedAccount func(string) bool, releaseConfirmedAccount func(string), resolvedCredentialIdentity *model.ChannelQuotaResolvedIdentity) error {
+func sampleCodexCredentialUsage(ctx context.Context, ch *model.Channel, credential string, credentialIdentity model.ChannelQuotaResolvedIdentity, acceptConfirmedAccount func(string) bool, releaseConfirmedAccount func(string), resolvedCredentialIdentity *model.ChannelQuotaResolvedIdentity, verifiedSampleID ...*string) error {
 	if ch == nil {
 		return fmt.Errorf("nil Codex channel")
+	}
+	if len(verifiedSampleID) > 1 {
+		return fmt.Errorf("multiple Codex sampling proof outputs")
+	}
+	var proofOutput *string
+	if len(verifiedSampleID) == 1 {
+		proofOutput = verifiedSampleID[0]
+		if proofOutput != nil {
+			*proofOutput = ""
+		}
 	}
 	if ctx == nil {
 		ctx = context.Background()
@@ -831,6 +841,16 @@ func sampleCodexCredentialUsage(ctx context.Context, ch *model.Channel, credenti
 	persistErr := persist(observationIdentity, statusCode, body)
 	if persistErr != nil && releaseConfirmedAccount != nil {
 		releaseConfirmedAccount(confirmedSubject)
+	}
+	if persistErr == nil && nativeSource && proofOutput != nil {
+		proofSnapshots := normalizeCodexUsageSnapshots(ch.Id, observedAt, statusCode, body)
+		qualifyCodexThresholdSnapshots(proofSnapshots, statusCode, body, true)
+		for _, snapshot := range proofSnapshots {
+			if snapshot.Status == "success" && snapshot.CodexObservationQualified && snapshot.CodexThresholdQualified {
+				*proofOutput = sampleID
+				break
+			}
+		}
 	}
 	return newChannelQuotaSamplingError(nil, persistErr)
 }

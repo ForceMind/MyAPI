@@ -31,40 +31,48 @@ import type {
 // Profile Hook
 // ============================================================================
 
-export function useProfile() {
+export function useProfile(enabled = true, identityKey = 'current-session') {
   const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [loadedIdentityKey, setLoadedIdentityKey] = useState<string | null>(
+    null
+  )
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [error, setError] = useState(false)
   const pendingRequest = useRef<AbortController | null>(null)
 
   // Fetch user profile (with optional silent mode)
-  const fetchProfile = useCallback(async (silent = false) => {
-    pendingRequest.current?.abort()
-    const controller = new AbortController()
-    pendingRequest.current = controller
-    try {
-      if (!silent) {
-        setLoading(true)
-      }
-      const response = await getUserProfile(controller.signal)
-      if (controller.signal.aborted) return
+  const fetchProfile = useCallback(
+    async (silent = false) => {
+      pendingRequest.current?.abort()
+      const controller = new AbortController()
+      pendingRequest.current = controller
+      try {
+        if (!silent) {
+          setLoading(true)
+          setError(false)
+        }
+        const response = await getUserProfile(controller.signal)
+        if (controller.signal.aborted) return
 
-      if (response.success && response.data) {
-        setProfile(response.data)
-        setError(false)
-      } else {
+        if (response.success && response.data) {
+          setProfile(response.data)
+          setLoadedIdentityKey(identityKey)
+          setError(false)
+        } else {
+          if (!silent) setError(true)
+        }
+      } catch {
+        if (controller.signal.aborted) return
         if (!silent) setError(true)
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false)
+        }
       }
-    } catch {
-      if (controller.signal.aborted) return
-      if (!silent) setError(true)
-    } finally {
-      if (!controller.signal.aborted) {
-        setLoading(false)
-      }
-    }
-  }, [])
+    },
+    [identityKey]
+  )
 
   // Refresh profile silently (without loading state)
   const refreshProfile = useCallback(async () => {
@@ -125,15 +133,27 @@ export function useProfile() {
     [refreshProfile]
   )
 
-  // Initial fetch
+  // The initial funding read can replace the whole page shell. Start the
+  // profile read after that decision so the temporary shell does not send an
+  // immediately cancelled duplicate. Keep the wait bounded if status stalls.
   useEffect(() => {
-    fetchProfile()
+    if (!enabled) {
+      const deadline = globalThis.setTimeout(() => {
+        setLoading(false)
+        setError(true)
+      }, 15000)
+      return () => {
+        globalThis.clearTimeout(deadline)
+        pendingRequest.current?.abort()
+      }
+    }
+    void fetchProfile()
     return () => pendingRequest.current?.abort()
-  }, [fetchProfile])
+  }, [enabled, fetchProfile, identityKey])
 
   return {
-    profile,
-    loading,
+    profile: loadedIdentityKey === identityKey ? profile : null,
+    loading: loading || (!error && loadedIdentityKey !== identityKey),
     updating,
     error,
     fetchProfile,

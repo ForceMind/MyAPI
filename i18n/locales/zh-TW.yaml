@@ -2,6 +2,9 @@ playground.image_provider_unsupported: "本版本不支援透過此提供方路�
 playground.file_provider_unsupported: "內嵌 PDF 需要相容 OpenAI 檔案輸入的路由；目前提供方路由暫不支援"
 usage_dispatch.pending: "此請求不能再次傳送，請先核對其用量結算狀態。"
 # Chinese (Traditional) translations
+codex_credential.subject_unknown: "無法確認此憑證對應的帳號，請核對帳號或重新授權；上游重新整理可能已替換其 refresh token。"
+codex_credential.subject_mismatch: "此憑證屬於其他帳號，請建立獨立目標渠道並使用帳號遷移流程。"
+codex_credential.safe_update_required: "請透過 Codex 重新授權或已驗證的本機匯入替換憑證，一般渠道編輯不能替換帳號。"
 token_budget.unsupported: "嚴格預算僅支援合格的官方 OpenAI Responses 純文字或 gpt-6.1-sol Chat 純文字，須明確輸出上限並採非免費按 Token 計價；Chat 按完整 1,050,000 Token 上下文上界預留"
 token_budget.pending: "此 Key 有尚未處理的用量預留，後續請求已暫停"
 token_budget.exceeded: "本次請求的 Token 預留上限超過可用預算"
@@ -48,6 +51,7 @@ payment.manual_complete_quota_unit_unresolved: "訂單缺少有效的額度單�
 payment.pricing_unavailable: "計價暫時無法使用，未建立付款請求。請在設定恢復後重試。"
 
 # Token messages
+token.model_limits_conflict: "此 Key 的設定已變更，請重新讀取目前模型範圍後再儲存。"
 token.name_too_long: "令牌名稱過長"
 token.quota_negative: "額度值不能為負數"
 token.quota_exceed_max: "額度值超出有效範圍，最大值為 {{.Max}}"
@@ -331,3 +335,10 @@ account_threshold.combination: "帳戶閾值目前僅支援原生 Codex 帳戶�
 account_threshold.invalid: "帳戶閾值須為 0–100%，取樣有效期須為 30–3600 秒"
 
 self_use.unsupported: "非儲值自用策略目前僅支援 Chat 與 Responses 請求。"
+subscription_share.invalid: "請選擇訂閱窗口和有效比例，並確認近似分攤後儲存。"
+subscription_share.conflict: "訂閱分額已變更或總和超過100%，請重新讀取後再儲存。"
+subscription_share.denied: "此 Key 未獲所選訂閱帳戶或請求格式的分額，請求未送出。"
+subscription_share.exceeded: "此 Key 已達到訂閱窗口的估計分額，請求未送出。"
+subscription_share.awaiting_sample: "等待新訂閱取樣覆蓋的請求過多，請求未送出，請等待取樣更新。"
+subscription_share.unavailable: "缺少新鮮一致的訂閱窗口證據，請求未送出。"
+subscription_share.delete_denied: "請先由 Root 將此 Key 的訂閱分額設為 0%，再刪除 Key；既有用量紀錄會保留。"

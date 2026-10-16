@@ -31,6 +31,7 @@ import { logout } from '@/features/auth/api'
 import { clearAuthentication } from '@/lib/api'
 
 import { deleteUserAccount } from '../../api'
+import { useSecurityRequestScope } from '../../hooks'
 
 // ============================================================================
 // Delete Account Dialog Component
@@ -40,17 +41,20 @@ interface DeleteAccountDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   username: string
+  securityScopeKey: string
 }
 
 export function DeleteAccountDialog({
   open,
   onOpenChange,
   username,
+  securityScopeKey,
 }: DeleteAccountDialogProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [confirmation, setConfirmation] = useState('')
+  const requestScope = useSecurityRequestScope(securityScopeKey)
 
   const handleDelete = async () => {
     if (confirmation !== username) {
@@ -58,9 +62,15 @@ export function DeleteAccountDialog({
       return
     }
 
+    let requestCurrent = true
     try {
       setLoading(true)
-      const response = await deleteUserAccount()
+      const result = await requestScope.run((signal) =>
+        deleteUserAccount(undefined, signal)
+      )
+      requestCurrent = result.current
+      if (!result.current) return
+      const response = result.value
 
       if (response.success) {
         toast.success(t('Account deleted successfully'))
@@ -78,19 +88,24 @@ export function DeleteAccountDialog({
         toast.error(response.message || t('Failed to delete account'))
       }
     } catch {
-      toast.error(t('Failed to delete account'))
+      toast.error(
+        t(
+          'The result could not be confirmed. Verify the current account state before trying again.'
+        )
+      )
     } finally {
-      setLoading(false)
+      if (requestCurrent) setLoading(false)
     }
   }
 
   const handleOpenChange = (open: boolean) => {
-    if (!loading) {
-      onOpenChange(open)
-      if (!open) {
-        setConfirmation('')
-      }
+    if (!open && loading) return
+    if (!open) {
+      requestScope.cancel()
+      setLoading(false)
+      setConfirmation('')
     }
+    onOpenChange(open)
   }
 
   return (
@@ -109,6 +124,7 @@ export function DeleteAccountDialog({
       contentClassName='sm:max-w-md'
       titleClassName='text-destructive flex items-center gap-2'
       contentHeight='auto'
+      showCloseButton={!loading}
       bodyClassName='space-y-4'
       footer={
         <>

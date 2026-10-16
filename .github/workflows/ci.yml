@@ -57,6 +57,9 @@ jobs:
       - name: Vet root module
         run: go vet ./...
 
+      - name: Verify approximate subscription share boundaries
+        run: go test -p 1 ./model ./service ./middleware ./controller ./relay/channel -run '^TestSubscriptionShare' -count=1 -timeout=180s
+
       - name: Vet relaykit independently
         working-directory: relaykit
         run: go vet ./...
@@ -167,6 +170,9 @@ jobs:
         working-directory: relaykit
         run: go build ./...
 
+      - name: Prove credential rotation and outbound generation compatibility
+        run: go test -race -p 1 ./model ./service ./middleware ./relay ./relay/channel ./relay/channel/openai ./controller ./router -run '^Test(TokenCredential|ValidateTokenCredential|BeginTokenCredentialDispatchAdmission|CompleteTokenCredentialDispatchAdmission|ShouldRetryTaskRelayStopsAfterCredentialDispatchAdmission|MidjourneyCredential|MidjourneyAuthoritativeAdmission|PreWssConsumeQuotaAuthoritativeSession|RealtimeCredentialRotation|WebSocketCredentialGeneration|AssignedAccessHTTPDispatchWithoutFailover|VideoProxyPrivateResponses|RelayTask_GateOn_SuccessAcceptedAndReplay)' -count=1 -timeout=180s
+
       - name: Test root and relaykit modules
         run: make test
 
@@ -197,6 +203,9 @@ jobs:
 
       - name: Verify assigned access and in-app account events under race detector
         run: go test -race -p 1 ./model ./service/accesspolicy ./service ./middleware ./controller ./router ./relay/channel -run '^Test(AssignedAccess|AssignedPolicy|AssignedModelRoute|NormalizeAssigned|EvaluateAssigned|ChannelQuotaAlert|ChannelQuotaEvents|CodexEventObservation|ListChannelQuotaAlert)' -count=1 -timeout=180s
+
+      - name: Verify credential migration and sampling proofs under race detector
+        run: go test -race -p 1 ./model ./service ./controller ./router -run '^Test(TokenMaintenance|TokenAccountMigration|NormalizeTokenAccountMigration|SamplingTargetProof|EnsureSamplingTargetUpgradesLegacyProofState|ValidateTrustedCodexCredentialContinuity)' -count=1 -timeout=180s
 
       - name: Verify io.net and cache codec boundaries under race detector
         env:
@@ -369,6 +378,11 @@ jobs:
           MYAPI_B2_MYSQL_DSN: root:b2-fixture-password@tcp(127.0.0.1:${{ job.services.mysql.ports[3306] }})/myapi_b2_test?charset=utf8mb4&parseTime=true
           MYAPI_B2_POSTGRES_DSN: host=127.0.0.1 port=${{ job.services.postgres.ports[5432] }} user=postgres password=b2-fixture-password dbname=myapi_b2_test sslmode=disable
         run: |
+          go test -p 1 ./model -run '^TestSubscriptionShareConfiguredDatabases$' -count=1 -timeout=180s -v
+          go test -p 1 ./model -run '^TestTokenModelLimitsConfiguredDatabases$' -count=1 -timeout=180s -v
+          go test -p 1 ./model -run '^TestTokenAccountMigrationConfiguredDatabases$' -count=1 -timeout=180s -v
+          go test -p 1 ./model -run '^TestSamplingTargetProofConfiguredDatabases$' -count=1 -timeout=180s -v
+          go test -p 1 ./model -run '^TestTokenCredentialRotationConfiguredDatabases$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^Test(ChannelQuotaIdentity|OfficialPriceVersion|R1UsageReview|PricePublication|TokenBudget|PlaygroundToken|RelayAccountHold|OpenAIPriceCheck|ChannelQuotaAlert)ConfiguredDatabases$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestAccountQuotaConfiguredSchema(MySQLAndPostgres|SQLite)$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestChannelModel(Discovery|Route)ConfiguredDatabases$' -count=1 -timeout=180s -v
@@ -420,6 +434,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
+      rotation-redis:
+        image: redis:7-alpine
+        ports:
+          - 6379/tcp
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s --health-timeout=5s --health-retries=12
       redis:
         image: redis:7-alpine
         ports:
@@ -448,6 +469,10 @@ jobs:
         env:
           MYAPI_S2C_REDIS_ADDR: 127.0.0.1:${{ job.services.redis.ports[6379] }}
         run: go test -p 1 ./model -run '^TestS2CQuotaConfiguredRedis$' -count=1 -timeout=120s -v
+      - name: Prove credential rotation cache fences on disposable Redis
+        env:
+          MYAPI_S2C_REDIS_ADDR: 127.0.0.1:${{ job.services.rotation-redis.ports[6379] }}
+        run: go test -p 1 ./model -run '^TestTokenCredentialRotationConfiguredRedis$' -count=1 -timeout=120s -v
 
   c09-redis-limiter:
     name: S2-C09 Redis limiter lifecycle regression
@@ -491,7 +516,9 @@ jobs:
     # Source CI 38450353211 took 15m57s before the workbench seven-language
     # phone/desktop matrix. Keep individual test deadlines and allow bounded
     # margin for the added real browser journeys and runner/install variation.
-    timeout-minutes: 25
+    # The existing compatibility matrix alone exceeded ten minutes in
+    # credential candidate 38902455293; keep all checks and their deadlines.
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: web
@@ -545,27 +572,131 @@ jobs:
           cp "$saved" "$target"
           git diff --exit-code -- "$target"
 
-      - name: Typecheck
-        run: bun run typecheck
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Test
-        run: bun run test
-
       - name: Build real quota UI for browser regression
+        id: frontend-build
         env:
           RAYON_NUM_THREADS: '2'
           NODE_OPTIONS: '--max-old-space-size=1536'
         run: VITE_REACT_APP_VERSION="$(cat ../VERSION)" VITE_BUILD_ID="$GITHUB_SHA" bun run build
 
+      - name: Verify pre-fix Key maintenance session regressions
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'codex/subscription-key-share-20261014'
+        run: |
+          set -euo pipefail
+          baseline=7166e7922daeef0b53069610e9ff766105b51d61
+          saved="$RUNNER_TEMP/key-maintenance-candidate"
+          report="$RUNNER_TEMP/myapi-ui-browser-artifacts/key-maintenance-baseline-red.json"
+          mkdir -p "$saved" "$(dirname "$report")"
+          targets=(src/features/keys/components/api-keys-mutate-drawer.tsx src/features/keys/components/api-keys-provider.tsx src/features/keys/components/data-table-row-actions.tsx)
+          for target in "${targets[@]}"; do cp "$target" "$saved/$(basename "$target")"; done
+          restore_candidate() {
+            for target in "${targets[@]}"; do cp "$saved/$(basename "$target")" "$target"; done
+          }
+          trap restore_candidate EXIT
+          git fetch --no-tags --depth=1 origin "$baseline"
+          for target in "${targets[@]}"; do git show "$baseline:web/$target" > "$target"; done
+          set +e
+          bun run test src/features/keys/components/__tests__/api-keys-mutate-session.test.tsx \
+            src/features/keys/components/__tests__/api-key-export-session.test.tsx \
+            -t 'a batch stops after its in-flight creation|a delayed Key reveal cannot open a chat' \
+            --reporter=json --outputFile="$report"
+          result=$?
+          set -e
+          [[ "$result" -ne 0 ]]
+          python3 - "$report" <<'PY'
+          import json
+          import sys
+          report = json.load(open(sys.argv[1]))
+          failures = [case for suite in report['testResults'] for case in suite['assertionResults'] if case['status'] == 'failed']
+          assert len(failures) == 8, 'Require all eight intended session-boundary regressions'
+          for case in failures:
+              assert case['title'].startswith(('a batch stops after its in-flight creation', 'a delayed Key reveal cannot open a chat'))
+              message = '\n'.join(case.get('failureMessages', []))
+              assert 'called' in message, 'Require an unexpected subsequent write or chat dispatch'
+          assert not report.get('unhandledErrors'), 'Import and initialization errors are not regression evidence'
+          PY
+          restore_candidate
+          git diff --exit-code -- "${targets[@]}"
+
+      - name: Retain runnable personal console build
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-console-build-${{ github.sha }}
+          path: |
+            web/dist/
+            web/src/routeTree.gen.ts
+          retention-days: 7
+
+      - name: Typecheck
+        run: |
+          set -o pipefail
+          bun run typecheck 2>&1 | tee "$RUNNER_TEMP/myapi-frontend-typecheck.log"
+
+      - name: Lint
+        if: ${{ !cancelled() && steps.frontend-build.outcome == 'success' }}
+        run: bun run lint
+
+      - name: Test
+        if: ${{ !cancelled() && steps.frontend-build.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          bun run test 2>&1 | tee "$RUNNER_TEMP/myapi-frontend-tests.log"
+
+      - name: Retain frontend test results before browser qualification
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-frontend-tests-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/myapi-frontend-tests.log
+            ${{ runner.temp }}/myapi-frontend-typecheck.log
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Install isolated browser test dependencies
         id: browser-dependencies
+        if: ${{ !cancelled() && steps.frontend-build.outcome == 'success' }}
         working-directory: .
         run: |
           npm install --prefix "$RUNNER_TEMP/myapi-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1
           "$RUNNER_TEMP/myapi-browser/node_modules/.bin/playwright" install --with-deps chromium
+
+      # Run the changed maintenance flows first so driver failures surface
+      # before the longer unchanged browser matrices. All suites still run.
+      - name: Qualify advanced personal maintenance in Chromium
+        if: ${{ !cancelled() && steps.browser-dependencies.outcome == 'success' }}
+        working-directory: .
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs
+          MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-advanced-maintenance-artifacts
+          NODE_OPTIONS: '--max-old-space-size=768'
+        run: |
+          scripts=(window-maintenance model-scope security-maintenance)
+          pids=()
+          for name in "${scripts[@]}"; do
+            node "tools/ui/$name-browser.mjs" > "$RUNNER_TEMP/advanced-$name.log" 2>&1 &
+            pids+=("$!")
+          done
+          failed=0
+          for index in "${!scripts[@]}"; do
+            if ! wait "${pids[$index]}"; then
+              echo "::error file=tools/ui/${scripts[$index]}-browser.mjs::Advanced maintenance qualification failed"
+              failed=1
+            fi
+            cat "$RUNNER_TEMP/advanced-${scripts[$index]}.log"
+          done
+          exit "$failed"
+
+      - name: Upload advanced maintenance screenshots and reports
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-advanced-maintenance-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/myapi-advanced-maintenance-artifacts/*.png
+            ${{ runner.temp }}/myapi-advanced-maintenance-artifacts/*.json
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Verify real quota charts and responsive interactions
         if: ${{ !cancelled() && steps.browser-dependencies.outcome == 'success' }}
@@ -594,6 +725,38 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=768'
         run: node tools/access-policy/browser-smoke.mjs
 
+      - name: Qualify personal console pages and native-window shares in Chromium
+        if: ${{ !cancelled() && steps.browser-dependencies.outcome == 'success' }}
+        working-directory: .
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs
+          MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-personal-console-artifacts
+          NODE_OPTIONS: '--max-old-space-size=768'
+        run: |
+          failed=0
+          node --test tools/ui/browser-fixtures.test.mjs || failed=1
+          for script in \
+            tools/ui/personal-workbench-browser.mjs \
+            tools/ui/subscription-share-browser.mjs \
+            tools/ui/personal-console-browser.mjs; do
+            if ! node "$script"; then
+              echo "::error file=$script::Personal console qualification failed"
+              failed=1
+            fi
+          done
+          exit "$failed"
+
+      - name: Upload personal console screenshots and qualification reports
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-personal-console-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/myapi-personal-console-artifacts/*.png
+            ${{ runner.temp }}/myapi-personal-console-artifacts/*.json
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Qualify shared UI, roles, settings and responsive pages in Chromium
         if: ${{ !cancelled() && steps.browser-dependencies.outcome == 'success' }}
         working-directory: .
@@ -602,14 +765,20 @@ jobs:
           MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-ui-browser-artifacts
           NODE_OPTIONS: '--max-old-space-size=768'
         run: |
-          node --test tools/ui/browser-fixtures.test.mjs
-          node tools/ui/profile-browser.mjs
-          node tools/ui/stability-browser.mjs
-          node tools/ui/setup-browser.mjs
-          node tools/ui/personal-status-browser.mjs
-          node tools/ui/personal-workbench-browser.mjs
-          node tools/ui/browser-smoke.mjs
-          node tools/ui/playground-browser.mjs
+          failed=0
+          for script in \
+            tools/ui/profile-browser.mjs \
+            tools/ui/stability-browser.mjs \
+            tools/ui/setup-browser.mjs \
+            tools/ui/personal-status-browser.mjs \
+            tools/ui/browser-smoke.mjs \
+            tools/ui/playground-browser.mjs; do
+            if ! node "$script"; then
+              echo "::error file=$script::Browser qualification failed"
+              failed=1
+            fi
+          done
+          exit "$failed"
 
       - name: Upload full UI screenshots and qualification report
         if: always()
@@ -702,3 +871,97 @@ jobs:
           node --test tools/runtime/docker-smoke.test.mjs
           tools/runtime/sqlite-restore-smoke.test.mjs
           tools/runtime/handoff-upgrade-smoke.test.mjs
+
+  credential-maintenance:
+    name: Isolated credential maintenance browser and real API
+    if: ${{ !cancelled() && (github.event.action != 'closed' || github.event.pull_request.merged == true) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    env:
+      GOWORK: 'off'
+      GOMAXPROCS: '2'
+      GOMEMLIMIT: '768MiB'
+      NODE_OPTIONS: '--max-old-space-size=768'
+    steps:
+      - name: Checkout qualified source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            relaykit/go.sum
+      - name: Set up Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+      - name: Wait for this run's exact production build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for credential_attempt in $(seq 1 60); do
+            credential_artifact_ready="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" --jq ".artifacts | any(.name == \"myapi-console-build-$GITHUB_SHA\" and .expired == false)")"
+            if [ "$credential_artifact_ready" = true ]; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo 'This run did not produce the expected frontend build within five minutes.' >&2
+          exit 1
+      - name: Download this run's exact production build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: myapi-console-build-${{ github.sha }}
+          path: web
+      - name: Install isolated browser tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/myapi-credential-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1
+          "$RUNNER_TEMP/myapi-credential-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Verify credential maintenance states on the production build
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-credential-browser/node_modules/playwright/index.mjs
+          MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-credential-browser-artifacts
+        run: node tools/ui/credential-maintenance-browser.mjs
+      - name: Qualify credential rotation on the production build
+        if: ${{ !cancelled() }}
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-credential-browser/node_modules/playwright/index.mjs
+          MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-credential-rotation-artifacts
+        run: node tools/ui/credential-rotation-browser.mjs
+      - name: Verify real Go migration and proof routes on disposable SQLite
+        if: ${{ !cancelled() }}
+        env:
+          MYAPI_CREDENTIAL_BROWSER_TESTS: '1'
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-credential-browser/node_modules/playwright/index.mjs
+          MYAPI_CREDENTIAL_RUNTIME_ARTIFACTS: ${{ runner.temp }}/myapi-credential-runtime-artifacts
+        run: go test -p 1 ./router -run '^TestTokenMaintenanceRuntimeBrowser$' -count=1 -timeout=240s -v
+      - name: Verify real Go rotation, proof and old/new authentication on disposable SQLite
+        if: ${{ !cancelled() }}
+        env:
+          MYAPI_CREDENTIAL_ROTATION_BROWSER_TESTS: '1'
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-credential-browser/node_modules/playwright/index.mjs
+          MYAPI_ROTATION_RUNTIME_ARTIFACTS: ${{ runner.temp }}/myapi-rotation-runtime-artifacts
+        run: go test -p 1 ./router -run '^TestTokenCredentialRotationRuntimeBrowser$' -count=1 -timeout=240s -v
+      - name: Retain original credential screenshots and reports
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-credential-maintenance-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/myapi-credential-browser-artifacts/*.png
+            ${{ runner.temp }}/myapi-credential-browser-artifacts/*.json
+            ${{ runner.temp }}/myapi-credential-rotation-artifacts/*.png
+            ${{ runner.temp }}/myapi-credential-rotation-artifacts/*.json
+            ${{ runner.temp }}/myapi-credential-runtime-artifacts/**/*.png
+            ${{ runner.temp }}/myapi-credential-runtime-artifacts/**/*.json
+            ${{ runner.temp }}/myapi-rotation-runtime-artifacts/**/*.png
+            ${{ runner.temp }}/myapi-rotation-runtime-artifacts/**/*.json
+          if-no-files-found: error
+          retention-days: 7

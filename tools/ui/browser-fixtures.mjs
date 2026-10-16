@@ -40,7 +40,7 @@ const ownerReads = new Set([
 ])
 const rootPrefixes = ['/api/option', '/api/system-info', '/api/system-task', '/api/quota-writer', '/api/ratio_sync', '/api/custom-oauth-provider', '/api/performance']
 
-export function createUIFixture({ role = 100, language = 'en', setupComplete = true, sidebar = false, longText = false, playgroundDisabled = false, pricingEnabled = false, settlementReviews = false, personalPolicy = false, unrepresentableKeyTotal = false } = {}) {
+export function createUIFixture({ role = 100, language = 'en', setupComplete = true, sidebar = false, longText = false, playgroundDisabled = false, pricingEnabled = false, settlementReviews = false, personalPolicy = false, unrepresentableKeyTotal = false, commercialShell = false } = {}) {
   // quotaFixtures accepts time through Date.now. Override only during its
   // synchronous construction and restore immediately; no timers are faked here.
   const originalNow = Date.now
@@ -59,18 +59,18 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
     },
   }
   const session = { sid: `synthetic-ui-${role}`, current: true, login_method: 'synthetic', ip: '127.0.0.1', user_agent: 'Synthetic Chromium', created_at: now - 600, last_active_at: now, expires_at: now + 3600 }
-  const funding = { mode: 'disabled', epoch: 1, ready: true, can_top_up: false, can_redeem: false, can_transfer_affiliate_rewards: false, can_purchase_subscription: false, can_view_funding_history: true }
+  const funding = { mode: commercialShell ? 'enabled' : 'disabled', epoch: 1, ready: true, can_top_up: false, can_redeem: false, can_transfer_affiliate_rewards: false, can_purchase_subscription: false, can_view_funding_history: true }
   const key = { id: 21, user_id: user.id, name: longText ? LONG_NAME : 'synthetic-key', key: 'masked', status: 1, remain_quota: unrepresentableKeyTotal ? 1 : 1000, used_quota: unrepresentableKeyTotal ? Number.MAX_SAFE_INTEGER : 0, unlimited_quota: false, expired_time: -1, created_time: now - 600, accessed_time: now, group: 'default', model_limits_enabled: false, model_limits: '', allow_ips: '' }
   const writerState = { id: 1, schema_version: 1, mode: 'legacy', epoch: 1, lock_version: 1, updated_at: now }
   const writerAudit = { can_enable: false, state: writerState, writers: [], all_writers_migrated: false, batch_queue_empty: true, projection_pending: 0, balance_drain_pending: 0, balance_drain_inflight_zero: true, maintenance_backfill_done: false, redis_epoch_consistent: false, cluster_drain_ack: false, inflight_sessions: 0, inflight_zero: true, missing_or_failed_checks: ['all_writers_migrated'] }
   const options = [
     { key: 'SystemName', value: 'MyAPI' },
     { key: 'Notice', value: '' },
-    { key: 'user_funding_setting.mode', value: 'disabled' },
+    { key: 'user_funding_setting.mode', value: commercialShell ? 'enabled' : 'disabled' },
   ]
   // Defaults preserve earlier journeys; new journeys explicitly opt into each
   // populated, confirmed-empty, or unavailable contract before navigation.
-  const state = { funding: 'disabled', policy: 'ready', noBalance: true, keys: 'populated', options: 'ready', analytics: 'empty', performance: 'empty', modelPerformance: 'empty', deploymentSettings: 'disabled', promptLearning: 'ready', pricing: 'empty' }
+  const state = { funding: commercialShell ? 'enabled' : 'disabled', policy: 'ready', noBalance: true, keys: 'populated', options: 'ready', analytics: 'empty', performance: 'empty', modelPerformance: 'empty', deploymentSettings: 'disabled', promptLearning: 'ready', pricing: 'empty' }
   const analyticsRows = [
     { id: 31, user_id: user.id, username: user.username, model_name: 'synthetic-text-model', created_at: now - 3600, token_used: 2400, count: 12, quota: 6000 },
     { id: 32, user_id: user.id, username: user.username, model_name: 'synthetic-text-model', created_at: now, token_used: 1600, count: 8, quota: 4000 },
@@ -119,6 +119,9 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
         return { status: 200, body: ok({ user_id: user.id, no_balance: state.noBalance, revision: 1, legacy_remaining_quota: 1000000 }) }
       }
       if (personalPolicy && path === '/api/token/21' && role > 0 && !url.search) return { status: 200, body: ok(key) }
+      if (path === `/api/token/${key.id}/subscription-share` && role > 0 && method === 'GET') {
+        return { status: 200, body: ok({ token_id: key.id, pools: [] }) }
+      }
       if (personalPolicy && path === '/api/token/21/budget' && role > 0) {
         if (url.search) return { violation: 'Unexpected budget query' }
         return { status: 200, body: ok({ policy: { token_id: 21, user_id: user.id, enabled: true, account_threshold_enabled: false, account_min_remaining_bps: 1000, account_max_age_seconds: 300, fee_enabled: true, fee_limit_usd: '10.000000', fee_used_usd: '1.000000', fee_reserved_usd: '0.000000', limit: 10000, used: 1000, reserved: 0, pending_request_id: '', revision: 1 }, pending: null }) }
@@ -145,7 +148,7 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
           self_use_mode_enabled: false, email_verification: false, turnstile_check: false, passkey_login: false,
           api_info_enabled: false, announcements_enabled: false, faq_enabled: false, uptime_kuma_enabled: false,
           quota_per_unit: 500000, display_in_currency: false, ...(personalPolicy ? { quota_display_type: 'TOKENS' } : {}),
-          user_funding_mode: personalPolicy ? state.funding : 'disabled', user_funding_capabilities: personalPolicy ? { ...funding, mode: state.funding } : funding,
+          user_funding_mode: personalPolicy ? state.funding : funding.mode, user_funding_capabilities: personalPolicy ? { ...funding, mode: state.funding } : funding,
           SidebarModulesAdmin: sidebar || playgroundDisabled ? JSON.stringify({ ...(sidebar ? { console: { enabled: true, log: false } } : {}), ...(playgroundDisabled ? { chat: { enabled: true, playground: false } } : {}) }) : '',
           ...(pricingEnabled ? { HeaderNavModules: JSON.stringify({ pricing: { enabled: true, requireAuth: false } }) } : {}),
         }); break

@@ -449,6 +449,20 @@ jobs:
           echo "SMOKE_DATA_DIR=$SMOKE_DATA_DIR" >> "$GITHUB_ENV"
           personal_args=()
           if [[ "$MYAPI_SMOKE_PERSONAL" == '1' ]]; then
+            # The external-origin guard disables browser cache. Bound the seven
+            # fixture document loads without changing production's 120/180s.
+            personal_web_limit="$(node --input-type=module <<'JS'
+          import { personalSmokeWebRateLimit } from './tools/runtime/docker-smoke.mjs'
+          console.log(personalSmokeWebRateLimit({
+            baseUrl: process.env.MYAPI_SMOKE_BASE_URL,
+            edition: process.env.MYAPI_SMOKE_EDITION,
+            sha: process.env.GITHUB_SHA,
+            isolated: process.env.MYAPI_ISOLATED_SMOKE === '1',
+            personal: process.env.MYAPI_SMOKE_PERSONAL === '1',
+          }))
+          JS
+            )"
+            personal_args+=(--env "GLOBAL_WEB_RATE_LIMIT=$personal_web_limit")
             if [[ "$MYAPI_SMOKE_WRITER" == 'authoritative' ]]; then
               personal_args+=(--env REDIS_CONN_STRING)
             fi

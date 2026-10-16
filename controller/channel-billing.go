@@ -2148,10 +2148,10 @@ func quotaSamplingTargetPreference(target model.ChannelQuotaSamplingTarget) int 
 	}
 }
 
-func markQuotaSamplingAttempt(channelID int, subjectRef, result, confirmedSubjectRef string) error {
+func markQuotaSamplingAttempt(channelID int, subjectRef, result, confirmedSubjectRef string, proof ...model.ChannelQuotaSamplingProof) error {
 	ctx, cancel := context.WithTimeout(context.Background(), channelQuotaPersistenceTimeout)
 	defer cancel()
-	return model.MarkChannelQuotaSamplingTargetAttempt(ctx, model.DB, channelID, subjectRef, result, confirmedSubjectRef)
+	return model.MarkChannelQuotaSamplingTargetAttempt(ctx, model.DB, channelID, subjectRef, result, confirmedSubjectRef, proof...)
 }
 
 // runChannelQuotaSnapshotSyncOnce samples enabled credential targets using
@@ -2238,6 +2238,7 @@ func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, repor
 		var persistErr error
 		duplicateAccount := false
 		confirmedSubjectForTarget := ""
+		verifiedSampleID := ""
 		credentialAttempts++
 		if channel.Type == constant.ChannelTypeCodex {
 			// Codex OAuth exposes subscription windows through the official WHAM
@@ -2261,16 +2262,17 @@ func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, repor
 				if confirmedSubjectForTarget == subjectRef {
 					confirmedSubjectForTarget = ""
 				}
-			}, &attemptIdentity)
+			}, &attemptIdentity, &verifiedSampleID)
 			if attemptIdentity.SubjectRef != candidate.identity.SubjectRef {
-				persistErr = errors.Join(persistErr, markQuotaSamplingAttempt(
-					channel.Id, candidate.identity.SubjectRef, "rotated", "",
-				))
+				// The request began under the old target lifecycle. Keep candidate.target
+				// unchanged so this response cannot attest a replacement target version;
+				// the replacement must produce its own proof on a later sampling pass.
 				persistCtx, persistCancel := context.WithTimeout(context.Background(), channelQuotaPersistenceTimeout)
-				persistErr = errors.Join(persistErr, model.EnsureChannelQuotaSamplingTarget(
+				ensureErr := model.EnsureChannelQuotaSamplingTarget(
 					persistCtx, model.DB, channel.Id,
 					model.ChannelQuotaSamplingIdentity{SubjectRef: attemptIdentity.SubjectRef, IdentityQuality: attemptIdentity.Quality},
-				))
+				)
+				persistErr = errors.Join(persistErr, ensureErr)
 				persistCancel()
 				candidate.identity = attemptIdentity
 			}
@@ -2317,7 +2319,15 @@ func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, repor
 				resultState = "unsupported"
 			}
 		}
-		if markErr := markQuotaSamplingAttempt(channel.Id, candidate.identity.SubjectRef, resultState, confirmedSubjectForTarget); markErr != nil {
+		var proof []model.ChannelQuotaSamplingProof
+		if resultState == "sampled" && verifiedSampleID != "" && confirmedSubjectForTarget != "" &&
+			candidate.target.SubjectRef == candidate.identity.SubjectRef && candidate.target.EvidenceVersion > 0 {
+			proof = append(proof, model.ChannelQuotaSamplingProof{
+				ExpectedVersion: candidate.target.EvidenceVersion,
+				SampleID:        verifiedSampleID,
+			})
+		}
+		if markErr := markQuotaSamplingAttempt(channel.Id, candidate.identity.SubjectRef, resultState, confirmedSubjectForTarget, proof...); markErr != nil {
 			persistErr = errors.Join(persistErr, markErr)
 		}
 		if duplicateAccount {

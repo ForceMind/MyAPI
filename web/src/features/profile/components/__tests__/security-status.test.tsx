@@ -1,10 +1,28 @@
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
 import { act, render, renderHook, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { usePasskeyManagement } from '@/features/auth/passkey'
 import { api } from '@/lib/api'
 
+import { useProfilePasskey } from '../../hooks/use-profile-passkey'
 import { useTwoFA } from '../../hooks/use-two-fa'
 import { PasskeyCard } from '../passkey-card'
 import { TwoFACard } from '../two-fa-card'
@@ -74,7 +92,7 @@ describe('Two-factor authentication status', () => {
       vi.spyOn(console, 'error').mockImplementation(() => undefined)
       vi.spyOn(api, 'get').mockImplementation(request)
 
-      render(<TwoFACard loading={false} />)
+      render(<TwoFACard loading={false} securityScopeKey='user-1:session-1' />)
 
       expect(await screen.findByRole('alert')).toHaveTextContent(
         'Unable to load settings'
@@ -107,7 +125,7 @@ describe('Two-factor authentication status', () => {
           },
         })
 
-      render(<TwoFACard loading={false} />)
+      render(<TwoFACard loading={false} securityScopeKey='user-1:session-1' />)
 
       await user.click(await screen.findByRole('button', { name: 'Retry' }))
 
@@ -258,7 +276,7 @@ describe('security status request lifecycle', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
     vi.spyOn(api, 'get').mockReturnValue(new Promise<never>(() => undefined))
 
-    const { result } = renderHook(() => usePasskeyManagement())
+    const { result } = renderHook(() => useProfilePasskey('user-1:session-1'))
 
     await act(() => vi.advanceTimersByTimeAsync(15000))
 
@@ -280,7 +298,7 @@ describe('security status request lifecycle', () => {
         data: { success: true, data: enabledStatus },
       })
 
-    const { result } = renderHook(() => usePasskeyManagement())
+    const { result } = renderHook(() => useProfilePasskey('user-1:session-1'))
     await act(() => result.current.fetchStatus())
 
     await act(async () => {
@@ -301,7 +319,7 @@ describe('security status request lifecycle', () => {
       resolveRead = resolve
     })
     const get = vi.spyOn(api, 'get').mockReturnValue(pendingRead)
-    const { unmount } = renderHook(() => usePasskeyManagement())
+    const { unmount } = renderHook(() => useProfilePasskey('user-1:session-1'))
 
     unmount()
 

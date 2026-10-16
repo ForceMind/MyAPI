@@ -27,22 +27,29 @@ import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 
 import { bindWeChat } from '../../api'
+import { useSecurityRequestScope } from '../../hooks'
 
 interface WeChatBindDialogProps {
   open: boolean
   qrCodeUrl: string
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
+  securityScopeKey: string
 }
 
 export function WeChatBindDialog(props: WeChatBindDialogProps) {
   const { t } = useTranslation()
   const [verificationCode, setVerificationCode] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const requestScope = useSecurityRequestScope(props.securityScopeKey)
 
   const handleOpenChange = (open: boolean) => {
-    if (submitting) return
-    if (!open) setVerificationCode('')
+    if (!open && submitting) return
+    if (!open) {
+      requestScope.cancel()
+      setSubmitting(false)
+      setVerificationCode('')
+    }
     props.onOpenChange(open)
   }
 
@@ -52,8 +59,14 @@ export function WeChatBindDialog(props: WeChatBindDialogProps) {
     if (!code || submitting) return
 
     setSubmitting(true)
+    let requestCurrent = true
     try {
-      const response = await bindWeChat(code)
+      const result = await requestScope.run((signal) =>
+        bindWeChat(code, signal)
+      )
+      requestCurrent = result.current
+      if (!result.current) return
+      const response = result.value
       if (!response.success) {
         toast.error(t('Request failed'))
         return
@@ -64,9 +77,14 @@ export function WeChatBindDialog(props: WeChatBindDialogProps) {
       props.onOpenChange(false)
       props.onSuccess()
     } catch {
-      toast.error(t('Request failed'))
+      toast.error(
+        t(
+          'The result could not be confirmed. Verify the current account state before trying again.'
+        )
+      )
+      props.onSuccess()
     } finally {
-      setSubmitting(false)
+      if (requestCurrent) setSubmitting(false)
     }
   }
 
@@ -78,6 +96,7 @@ export function WeChatBindDialog(props: WeChatBindDialogProps) {
       description={t(
         'Scan the QR code to follow the official account and reply with “验证码” to receive your verification code.'
       )}
+      showCloseButton={!submitting}
       contentClassName='max-w-sm'
       contentHeight='auto'
       bodyClassName='space-y-4'

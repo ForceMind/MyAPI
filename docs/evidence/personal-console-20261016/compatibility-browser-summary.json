@@ -1,0 +1,57 @@
+{
+  "run": 38787088937,
+  "source": "630f905b4d19758d2eab236808b6867bcbc0a37b",
+  "ci_checkout": "b34cc0055cdae0150121f40ee50139e58d75006a",
+  "artifact": "myapi-ui-browser-b34cc0055cdae0150121f40ee50139e58d75006a",
+  "scope": "Compiled frontend with isolated synthetic API fixtures; no production acceptance",
+  "reports": [
+    {
+      "file": "personal-status-qualification.json",
+      "sha256": "a82dcf874ad9f329ca714d4708c949a389c1d09c38cef094c928d8ff6d3c72dc",
+      "result": "passed",
+      "reported_journeys": 6,
+      "reported_passed_cases": null,
+      "runtime_errors": 0
+    },
+    {
+      "file": "playground-qualification.json",
+      "sha256": "744c886e4de68c30e51ae95055bb71b21476fd9087c3464c232578db30dbc078",
+      "result": "passed",
+      "reported_journeys": 8,
+      "reported_passed_cases": null,
+      "runtime_errors": 0
+    },
+    {
+      "file": "qualification.json",
+      "sha256": "d683ef6f462fa88ff1fe43e5207c54d5d3cebebf90950e20c8339a6dbeff6741",
+      "result": "passed",
+      "reported_journeys": 32,
+      "reported_passed_cases": null,
+      "runtime_errors": 0
+    },
+    {
+      "file": "result.json",
+      "sha256": "29d2db5509cea2fa76220e8d342719468bbd6bd6019ecbeb3494fc47edb8ee9e",
+      "result": "passed",
+      "reported_journeys": null,
+      "reported_passed_cases": 9,
+      "runtime_errors": 0
+    },
+    {
+      "file": "setup-result.json",
+      "sha256": "bf9837b0eeee90e5f3a0fda589de8772711cd088bb1f7ae28cd97c5780c63fdf",
+      "result": "passed",
+      "reported_journeys": null,
+      "reported_passed_cases": 25,
+      "runtime_errors": 0
+    },
+    {
+      "file": "stability-result.json",
+      "sha256": "56baec2f9bab194aa8b8076ef7c20e63a69858ec67da70623956e0b563b871ae",
+      "result": "passed",
+      "reported_journeys": null,
+      "reported_passed_cases": 10,
+      "runtime_errors": 0
+    }
+  ]
+}
