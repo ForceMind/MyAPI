@@ -96,3 +96,11 @@ unknown 跨卸载 P1 修复已由 credential_plan/credential_guard 非实现者�
 交付前另修P2：仅三处apply之前明确前置状态未知新增ErrTokenMaintenancePreconditionUnknown，wrap原Unknown供兼容；controller映射412要求新GET/preview，避免陈旧样本零迁移写但永久receipt404。数据库/commit/已提交receipt无法解析等仍503未知，不泛化清锁。锁后过期、预算CAS及腐坏已提交回执回归覆盖精确边界；model定向11.916s通过，非实现者guard已审模型边界。Root另加controller412/503状态+code及frontend分类回归。
 
 P2修复controller/router定向实际通过：0.877s/0.530s。新sentinel及412/503端到端分类由guard非实现者最终复核无P1/P2；frontend原408未知保持，412明确前置拒绝与503未知有单测，类型/RTL仍待新CI。workflow YAML与准确产物轮询shell语法已直接校验。
+
+## 首批维护实图与运行驱动修正
+
+be87673 / CI0cc / run38907154336 的237文件1519单元、类型/lint已回读通过；新增维护4类21单元全通过。合成状态4旅程、13张原图通过：桌面成功、手机读取失败恢复、320暗色长文本unknown、桌面阻断指导；unknown关闭重开和同tab刷新始终同op、1次POST/4次receipt GET。
+
+真实Go两场景维护GET各1次200且ready合同通过，driver错误的rotationCard内filter使用dialog-scoped has导致0匹配，preview/2FA/commit均未执行；修正为page-relative locator。失败报告静态“reached”文字改为configured并由metrics表达实际，只有最终全部断言成功才写reached。不能把该轮真实迁移当通过。
+
+非实现者guard实际查看13图并对照visual-v0.2 03/07；主线程也实际看代表原图。确认P2：开场footer焦点使标题与Key上文离开首屏，320蓝色主动作图标/文案越出底色。用[Base UI官方initialFocus API](https://base-ui.com/react/components/dialog)指向Popup ref，并使按钮自动高度/全宽/可换行；新driver断言scrollTop及按钮子元素边界。原guard称320关闭无文案，主线程原图复核“Đóng”清晰可见，该项不成立，未以不实问题改样式。Select选中值改显示账号label/hint和Pool前缀，保留原数据ID。静态format/lint/driver语法/diff检查通过，视觉修复待新原图复核。

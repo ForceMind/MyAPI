@@ -467,6 +467,8 @@ try {
     }
 
     await dialog.getByText(maintenance.token.name, { exact: true }).waitFor()
+    assert(await dialog.evaluate((element) => element.scrollTop <= 1),
+      `${scenario.name}: opening keeps the title and Key context at the top`)
     if (scenario.result === 'blocked') {
       await dialog.getByText(t('This Key still has an active budget mode'), { exact: true }).waitFor()
       await dialog.getByText(t('Request accounting is still unresolved'), { exact: true }).waitFor()
@@ -507,6 +509,14 @@ try {
       name: t('Verify and move account'),
     })
     await commit.scrollIntoViewIfNeeded()
+    assert(await commit.evaluate((element) => {
+      const button = element.getBoundingClientRect()
+      return [...element.querySelectorAll('svg, span')].every((child) => {
+        const box = child.getBoundingClientRect()
+        return box.left >= button.left - 1 && box.right <= button.right + 1 &&
+          box.top >= button.top - 1 && box.bottom <= button.bottom + 1
+      })
+    }), `${scenario.name}: the complete action label and icon fit inside the button`)
     if (scenario.width <= 390) {
       const navigation = await page.locator('nav.pc-mobile-nav').boundingBox()
       const action = await commit.boundingBox()

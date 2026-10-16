@@ -201,7 +201,7 @@ const report = {
   syntheticDatabase: true,
   evidence: {
     maintenance:
-      'The four credential-maintenance routes and /api/verify reached the real Go router.',
+      'Maintenance and verification routes are configured to reach real Go. Metrics record which calls actually occurred.',
     console:
       'Only unrelated console bootstrap, list and status reads used createUIFixture.',
   },
@@ -428,7 +428,7 @@ try {
   await dialog.waitFor()
   await dialog.getByText(t('Credential rotation'), { exact: true }).waitFor()
   const rotationCard = dialog.locator('[data-slot="card"]').filter({
-    has: dialog.getByText(t('Credential rotation'), { exact: true }),
+    has: page.getByText(t('Credential rotation'), { exact: true }),
   })
   requireThat((await rotationCard.count()) === 1, 'ROTATION_CARD')
   requireThat((await rotationCard.getByRole('button').count()) === 0, 'ROTATION_ACTION')
@@ -655,6 +655,8 @@ try {
     'STATUS_COUNTS'
   )
   report.result = 'passed'
+  report.evidence.maintenance =
+    'The four credential-maintenance routes and /api/verify reached the real Go router and passed their asserted contracts.'
   report.completedStage = stage
   persist()
 } catch (error) {

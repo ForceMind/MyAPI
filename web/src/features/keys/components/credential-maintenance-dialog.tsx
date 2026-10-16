@@ -138,6 +138,7 @@ function CredentialMaintenanceSession(props: {
     }
   })
   const mountId = useRef(createCredentialMigrationOperationId())
+  const dialogRef = useRef<HTMLDivElement | null>(null)
   const writeController = useRef<AbortController | null>(null)
   const operationId = useRef(pendingAtMount.operationId ?? '')
   const commitStarted = useRef(Boolean(pendingAtMount.operationId))
@@ -529,6 +530,8 @@ function CredentialMaintenanceSession(props: {
     <>
       <Dialog open onOpenChange={(open) => !open && close()}>
         <DialogContent
+          ref={dialogRef}
+          initialFocus={dialogRef}
           className='max-h-[calc(100dvh-10rem-env(safe-area-inset-bottom))] min-w-0 overflow-y-auto sm:max-h-[90dvh] sm:max-w-3xl'
           showCloseButton={phase !== 'submitting'}
         >
@@ -674,7 +677,11 @@ function CredentialMaintenanceSession(props: {
                         >
                           <SelectValue
                             placeholder={t('Select a target account')}
-                          />
+                          >
+                            {selectedCandidate
+                              ? `${selectedCandidate.channel_name} · ${redactedHint(selectedCandidate.subject_hint)}`
+                              : undefined}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           <SelectGroup>
@@ -749,7 +756,11 @@ function CredentialMaintenanceSession(props: {
                                     placeholder={t(
                                       'Select an existing target pool'
                                     )}
-                                  />
+                                  >
+                                    {targetPools[source.pool_id]
+                                      ? `${t('Pool')} #${targetPools[source.pool_id]}`
+                                      : undefined}
+                                  </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectGroup>
@@ -894,6 +905,7 @@ function CredentialMaintenanceSession(props: {
                     )}
                     <Button
                       type='button'
+                      className='h-auto min-h-9 w-full min-w-0 whitespace-normal sm:w-auto'
                       disabled={
                         !identityConfirmed ||
                         !allocationConfirmed ||
@@ -910,7 +922,9 @@ function CredentialMaintenanceSession(props: {
                           aria-hidden='true'
                         />
                       )}
-                      {t('Verify and move account')}
+                      <span className='min-w-0 break-words'>
+                        {t('Verify and move account')}
+                      </span>
                     </Button>
                   </div>
                 )}
