@@ -34,7 +34,7 @@ func TestTokenModelLimitsAPIReadWriteOwnershipAndPrivacy(t *testing.T) {
 	oldRedis := common.RedisEnabled
 	common.RedisEnabled = false
 	t.Cleanup(func() { common.RedisEnabled = oldRedis })
-	require.NoError(t, db.Model(&model.Token{}).Where("id = ?", 11).Updates(map[string]any{"name": "Keep me", "remain_quota": 1<<54 + 7, "used_quota": 1<<54 + 9, "quota_version": 5, "group": "preserved-group", "access_profile_id": "preserved-profile", "allow_ips": "127.0.0.1"}).Error)
+	require.NoError(t, db.Model(&model.Token{}).Where("id = ?", 11).Updates(map[string]any{"name": "Keep me", "remain_quota": int64(1)<<54 + 7, "used_quota": int64(1)<<54 + 9, "quota_version": 5, "group": "preserved-group", "access_profile_id": "preserved-profile", "allow_ips": "127.0.0.1"}).Error)
 	response := tokenModelLimitsRequestForTest(2, http.MethodGet, "11", "", "")
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Equal(t, "no-store", response.Header().Get("Cache-Control"))

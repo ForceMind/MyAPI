@@ -375,6 +375,18 @@ async function settled(page) {
   })
 }
 
+function exactText(value) {
+  return new RegExp(`^${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`)
+}
+
+function securityCard(page, title) {
+  const panel = page.locator('#personal-security-settings')
+  const cardTitle = page
+    .locator('[data-slot="card-title"]')
+    .filter({ hasText: exactText(title) })
+  return panel.locator('[data-slot="card"]').filter({ has: cardTitle })
+}
+
 async function assertGeometry(page, scenario, label) {
   assert.equal(
     await page.evaluate(
@@ -399,9 +411,12 @@ async function assertGeometry(page, scenario, label) {
     )
   }
   if (scenario.width < 768) {
-    const navigation = page.getByRole('navigation', {
-      name: tr('Mobile console navigation', scenario.language),
-    })
+    // A modal marks the application shell aria-hidden. Geometry still needs to
+    // cover the fixed navigation underneath it, so use its stable DOM label.
+    const navigation = page.locator(
+      `[aria-label=${JSON.stringify(tr('Mobile console navigation', scenario.language))}]`
+    )
+    assert.equal(await navigation.count(), 1)
     const bounds = await navigation.boundingBox()
     assert(
       bounds && bounds.x >= 0 && bounds.x + bounds.width <= scenario.width + 1,
@@ -447,17 +462,28 @@ async function openSecurity(page, scenario) {
   await page.keyboard.press('Enter')
   assert.equal(await trigger.getAttribute('aria-expanded'), 'true')
   await page
-    .getByText(t('Password and account access'), { exact: true })
-    .waitFor()
-  await page
-    .getByText(t('Passkey Login'), { exact: true })
-    .waitFor()
-  await page
-    .getByText(t('Two-Factor Authentication'), { exact: true })
-    .waitFor()
-  await page
-    .getByText(t('Login sessions'), { exact: true })
-    .waitFor()
+    .locator('#personal-security-settings')
+    .waitFor({ state: 'visible' })
+  const cards = [
+    securityCard(page, t('Password and account access')),
+    securityCard(page, t('Passkey Login')),
+    securityCard(page, t('Two-Factor Authentication')),
+    securityCard(page, t('Login sessions')),
+  ]
+  for (const card of cards) {
+    await card.waitFor({ state: 'visible' })
+    assert.equal(await card.count(), 1)
+  }
+  // The application scrolls its main content inside a viewport-height shell.
+  // Put the expanded security region in that real viewport before evidence.
+  await cards[0].scrollIntoViewIfNeeded()
+  const securityBounds = await cards[0].boundingBox()
+  assert(
+    securityBounds &&
+      securityBounds.y < scenario.height &&
+      securityBounds.y + securityBounds.height > 0,
+    'Expanded security controls are visible in the screenshot viewport'
+  )
   return revision
 }
 
@@ -582,11 +608,7 @@ async function verifyAccessToken(page, scenario, state) {
 
 async function verifyPasskey(page, scenario, state) {
   const t = (key) => tr(key, scenario.language)
-  const card = page
-    .locator('[data-slot="card"]')
-    .filter({
-      has: page.getByText(t('Passkey Login'), { exact: true }),
-    })
+  const card = securityCard(page, t('Passkey Login'))
   const enable = card.getByRole('button', {
     name: t('Enable Passkey'),
     exact: true,
@@ -603,11 +625,7 @@ async function verifyPasskey(page, scenario, state) {
 
 async function verifyTwoFA(page, scenario, state) {
   const t = (key) => tr(key, scenario.language)
-  const card = page
-    .locator('[data-slot="card"]')
-    .filter({
-      has: page.getByText(t('Two-Factor Authentication'), { exact: true }),
-    })
+  const card = securityCard(page, t('Two-Factor Authentication'))
   await card.getByRole('button', { name: t('Enable'), exact: true }).click()
   const setup = page.getByRole('dialog', {
     name: t('Setup Two-Factor Authentication'),
@@ -651,11 +669,7 @@ async function verifyTwoFA(page, scenario, state) {
 
 async function verifySessions(page, scenario, state) {
   const t = (key) => tr(key, scenario.language)
-  const card = page
-    .locator('[data-slot="card"]')
-    .filter({
-      has: page.getByText(t('Login sessions'), { exact: true }),
-    })
+  const card = securityCard(page, t('Login sessions'))
   const action = card.getByRole('button', {
     name: t('Sign out other sessions'),
     exact: true,
@@ -688,17 +702,23 @@ async function recoverSecurityReads(page, scenario) {
     [t('Login sessions'), t('Unable to load login sessions')],
   ]
   for (const [heading, errorTitle] of cards) {
-    const card = page
-      .locator('[data-slot="card"]')
-      .filter({ has: page.getByText(heading, { exact: true }) })
+    const card = securityCard(page, heading)
     await card.getByText(errorTitle, { exact: true }).waitFor()
     await card.getByRole('button', { name: t('Retry'), exact: true }).click()
   }
-  await page
-    .getByText(t('Passkey Authentication'), { exact: true })
+  const passkeyCard = securityCard(page, t('Passkey Login'))
+  await passkeyCard
+    .locator('p.font-medium')
+    .filter({ hasText: exactText(t('Passkey Authentication')) })
     .waitFor()
-  await page.getByText(t('Two-Step Verification'), { exact: true }).waitFor()
-  await page.getByText(t('Current'), { exact: true }).waitFor()
+  const twoFACard = securityCard(page, t('Two-Factor Authentication'))
+  await twoFACard
+    .locator('p.font-medium')
+    .filter({ hasText: exactText(t('Two-Step Verification')) })
+    .waitFor()
+  await securityCard(page, t('Login sessions'))
+    .getByText(t('Current'), { exact: true })
+    .waitFor()
 }
 
 let browser

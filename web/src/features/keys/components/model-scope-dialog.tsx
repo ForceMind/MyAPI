@@ -454,13 +454,16 @@ function ModelScopeSession(props: ModelScopeSessionProps) {
                     return (
                       <div
                         key={item.key}
-                        className='bg-card flex min-w-0 items-center justify-between gap-2 rounded-lg border p-2'
+                        className='bg-card grid min-w-0 grid-cols-1 gap-2 rounded-lg border p-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center'
                       >
-                        <span className='min-w-0 font-mono text-sm break-all'>
+                        <span className='w-full min-w-0 font-mono text-sm break-all'>
                           {modelLabel}
                         </span>
-                        <div className='flex shrink-0 items-center gap-2'>
-                          <Badge variant='outline'>
+                        <div className='grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:flex sm:shrink-0 sm:justify-start'>
+                          <Badge
+                            variant='outline'
+                            className='h-auto w-fit max-w-full text-left whitespace-normal'
+                          >
                             {catalogSet.has(item.model)
                               ? t('Current catalog')
                               : t('Preserved model ID')}

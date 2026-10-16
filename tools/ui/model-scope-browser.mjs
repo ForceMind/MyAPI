@@ -472,7 +472,25 @@ try {
       `${name}: ${item.initial} backend semantics select ${expectedInitialMode}`
     )
     if (item.initial !== 'blocked') {
-      await dialog.getByText(retainedModel, { exact: true }).waitFor()
+      const retainedModelId = dialog.getByText(retainedModel, { exact: true })
+      await retainedModelId.waitFor()
+      assert.equal(
+        await retainedModelId.textContent(),
+        retainedModel,
+        `${name}: the preserved model ID is rendered without shortening`
+      )
+      if (item.width <= 390) {
+        const retainedGeometry = await retainedModelId.evaluate((element) => {
+          const model = element.getBoundingClientRect()
+          const row = element.parentElement?.getBoundingClientRect()
+          return { modelWidth: model.width, rowWidth: row?.width ?? 0 }
+        })
+        assert(
+          retainedGeometry.rowWidth > 0 &&
+            retainedGeometry.modelWidth >= retainedGeometry.rowWidth - 24,
+          `${name}: the preserved model ID has a full-width mobile row`
+        )
+      }
       await dialog
         .getByText(t('Preserved model ID'), { exact: true })
         .first()
@@ -535,12 +553,17 @@ try {
       })
       await cancel.scrollIntoViewIfNeeded()
       await save.scrollIntoViewIfNeeded()
-      const navigation = page.getByRole('navigation', {
-        name: t('Mobile console navigation'),
-        exact: true,
-      })
+      // The modal correctly makes the application shell aria-hidden. Locate the
+      // still-rendered mobile navigation by its stable layout class so its real
+      // geometry can continue to protect the dialog actions from overlap.
+      const navigation = page.locator('nav.pc-mobile-nav')
+      assert.equal(
+        await navigation.count(),
+        1,
+        `${name}: mobile navigation layout anchor is unique`
+      )
       const navigationBox = await navigation.boundingBox()
-      assert(navigationBox, `${name}: mobile navigation is visible`)
+      assert(navigationBox, `${name}: mobile navigation has rendered geometry`)
       actionGeometry = []
       for (const action of [cancel, save]) {
         const box = await action.boundingBox()

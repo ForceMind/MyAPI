@@ -225,15 +225,24 @@ async function assertActionVisible(page, action, width, height, label, t) {
   await action.scrollIntoViewIfNeeded()
   const geometry = await action.evaluate((element) => {
     const rect = element.getBoundingClientRect()
+    const pointerEvents = getComputedStyle(element).pointerEvents
+    const inlinePointerEvents = element.style.pointerEvents
+    // Disabled buttons intentionally use pointer-events:none. Temporarily make
+    // the target hit-testable so a real overlapping element still wins while
+    // the disabled state itself does not look like an obstruction.
+    if (pointerEvents === 'none') element.style.pointerEvents = 'auto'
     const top = document.elementFromPoint(
       rect.left + rect.width / 2,
       rect.top + rect.height / 2
     )
+    element.style.pointerEvents = inlinePointerEvents
     return {
       x: rect.x,
       y: rect.y,
       width: rect.width,
       height: rect.height,
+      pointerEvents,
+      hitTarget: top?.getAttribute('data-slot') || top?.tagName || null,
       unobscured: top === element || element.contains(top),
     }
   })
@@ -245,12 +254,13 @@ async function assertActionVisible(page, action, width, height, label, t) {
       geometry.y >= 0 &&
       geometry.y + geometry.height <= height &&
       geometry.unobscured,
-    `${label}: action is visible and unobscured`
+    `${label}: action is visible and unobscured: ${JSON.stringify(geometry)}`
   )
   if (width <= 390) {
     const navigation = page.getByRole('navigation', {
       name: t('Mobile console navigation'),
       exact: true,
+      includeHidden: true,
     })
     const navigationBox = await navigation.boundingBox()
     assert(navigationBox, `${label}: mobile navigation is visible`)
@@ -552,6 +562,8 @@ try {
       exact: true,
     })
     assert(await replacementAction.isDisabled(), `${name}: replacement starts disabled`)
+    await replacementAction.scrollIntoViewIfNeeded()
+    await screenshot('replacement')
     actionGeometry.push(
       await assertActionVisible(
         page,
@@ -562,7 +574,6 @@ try {
         t
       )
     )
-    await screenshot('replacement')
 
     await selectWindow(editor, '9', '7:73')
     const recoveryReview = editor.getByRole('region', {
@@ -608,6 +619,8 @@ try {
       exact: true,
     })
     assert(await recoveryAction.isDisabled(), `${name}: recovery starts disabled`)
+    await recoveryAction.scrollIntoViewIfNeeded()
+    await screenshot('recovery')
     actionGeometry.push(
       await assertActionVisible(
         page,
@@ -618,7 +631,6 @@ try {
         t
       )
     )
-    await screenshot('recovery')
 
     if (functional) {
       await selectWindow(editor, '11', '7:71')

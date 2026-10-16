@@ -771,8 +771,11 @@ async function exerciseAdvancedModelScope(api, root, owner, key, before, options
       if (activeDialog && await activeDialog.isVisible()) {
         await capture(owner, options, 'model-scope-failed', screenshots, activeDialog)
       }
-    } catch {} // Failed/unsafe evidence must not replace the original failure.
-    owner.scope.stage = failedStage
+    } catch {
+      // Failed/unsafe evidence must not replace the original failure.
+    } finally {
+      owner.scope.stage = failedStage
+    }
     throw error
   }
 }
