@@ -18,6 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestVideoProxyPrivateResponses(t *testing.T) {
@@ -93,6 +94,10 @@ func TestVideoProxyPrivateResponses(t *testing.T) {
 	}
 	router := gin.New()
 	router.GET("/v1/videos/:task_id/content", middleware.TokenOrUserAuth(), VideoProxy)
+	router.GET("/stale/v1/videos/:task_id/content", middleware.TokenOrUserAuth(), func(c *gin.Context) {
+		require.NoError(t, db.Model(&model.Token{}).Where("id = ?", c.GetInt("token_id")).Update("credential_version", gorm.Expr("credential_version + ?", 1)).Error)
+		c.Next()
+	}, VideoProxy)
 	for _, tc := range []struct {
 		name, task, key string
 		status          int
@@ -136,6 +141,17 @@ func TestVideoProxyPrivateResponses(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("credential rotated after authentication", func(t *testing.T) {
+		before := requests.Load()
+		request := httptest.NewRequest(http.MethodGet, "/stale/v1/videos/http-video/content", nil)
+		request.Header.Set("Authorization", "Bearer sk-videoownerfixture")
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+		assert.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
+		assert.Equal(t, before, requests.Load())
+		assert.Equal(t, "private, no-store", response.Header().Get("Cache-Control"))
+	})
 
 	t.Run("ssrf protection remains active", func(t *testing.T) {
 		require.NoError(t, config.UpdateConfigFromMap(fetchSettings, map[string]string{

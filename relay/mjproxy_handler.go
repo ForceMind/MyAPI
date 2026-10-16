@@ -227,8 +227,11 @@ func RelaySwapFace(c *gin.Context, info *relaycommon.RelayInfo) *dto.MidjourneyR
 	requestURL := getMjRequestPath(c.Request.URL.String())
 	baseURL := c.GetString("base_url")
 	fullRequestURL := fmt.Sprintf("%s%s", baseURL, requestURL)
-	mjResp, _, err := service.DoMidjourneyHttpRequest(c, time.Second*60, fullRequestURL)
+	mjResp, _, err := service.DoMidjourneyHttpRequest(c, time.Second*60, fullRequestURL, info)
 	if err != nil {
+		if admissionErr := service.MarkTokenCredentialDispatchAdmissionUnknown(c.Request.Context(), info, "provider_outcome_unknown"); admissionErr != nil {
+			common.SysError("mark Midjourney dispatch admission unknown: " + admissionErr.Error())
+		}
 		return &mjResp.Response
 	}
 	midjResponse := &mjResp.Response
@@ -259,9 +262,22 @@ func RelaySwapFace(c *gin.Context, info *relaycommon.RelayInfo) *dto.MidjourneyR
 	if billingErr != nil {
 		common.SysLog("error consuming Midjourney quota: " + billingErr.Error())
 	}
+	if info.TokenCredentialDispatchAdmissionID != "" {
+		midjourneyTask.DispatchTokenID = info.TokenId
+	}
+	markDeterministicMidjourneyRejection(info, midjourneyTask)
 	err = midjourneyTask.Insert()
 	if err != nil {
+		if admissionErr := service.MarkTokenCredentialDispatchAdmissionUnknown(c.Request.Context(), info, "task_persistence_failed"); admissionErr != nil {
+			common.SysError("mark Midjourney dispatch admission unknown: " + admissionErr.Error())
+		}
 		return service.MidjourneyErrorWrapper(constant.MjRequestError, "insert_midjourney_task_failed")
+	}
+	if admissionErr := service.CompleteTokenCredentialDispatchAdmission(c.Request.Context(), info, int64(midjourneyTask.Id)); admissionErr != nil {
+		common.SysError("complete Midjourney dispatch admission: " + admissionErr.Error())
+		if markErr := service.MarkTokenCredentialDispatchAdmissionUnknown(c.Request.Context(), info, "task_link_failed"); markErr != nil {
+			common.SysError("mark Midjourney dispatch admission unknown: " + markErr.Error())
+		}
 	}
 	billingApplied, billingErr := service.SettleMidjourneyTaskBilling(info, midjourneyTask, billingPrepared)
 	if billingErr != nil {
@@ -538,8 +554,11 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 		}
 	}
 
-	midjResponseWithStatus, responseBody, err := service.DoMidjourneyHttpRequest(c, time.Second*60, fullRequestURL)
+	midjResponseWithStatus, responseBody, err := service.DoMidjourneyHttpRequest(c, time.Second*60, fullRequestURL, relayInfo)
 	if err != nil {
+		if admissionErr := service.MarkTokenCredentialDispatchAdmissionUnknown(c.Request.Context(), relayInfo, "provider_outcome_unknown"); admissionErr != nil {
+			common.SysError("mark Midjourney dispatch admission unknown: " + admissionErr.Error())
+		}
 		return &midjResponseWithStatus.Response
 	}
 	midjResponse := &midjResponseWithStatus.Response
@@ -621,11 +640,24 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 	if billingErr != nil {
 		common.SysLog("error consuming Midjourney quota: " + billingErr.Error())
 	}
+	if relayInfo.TokenCredentialDispatchAdmissionID != "" {
+		midjourneyTask.DispatchTokenID = relayInfo.TokenId
+	}
+	markDeterministicMidjourneyRejection(relayInfo, midjourneyTask)
 	err = midjourneyTask.Insert()
 	if err != nil {
+		if admissionErr := service.MarkTokenCredentialDispatchAdmissionUnknown(c.Request.Context(), relayInfo, "task_persistence_failed"); admissionErr != nil {
+			common.SysError("mark Midjourney dispatch admission unknown: " + admissionErr.Error())
+		}
 		return &dto.MidjourneyResponse{
 			Code:        4,
 			Description: "insert_midjourney_task_failed",
+		}
+	}
+	if admissionErr := service.CompleteTokenCredentialDispatchAdmission(c.Request.Context(), relayInfo, int64(midjourneyTask.Id)); admissionErr != nil {
+		common.SysError("complete Midjourney dispatch admission: " + admissionErr.Error())
+		if markErr := service.MarkTokenCredentialDispatchAdmissionUnknown(c.Request.Context(), relayInfo, "task_link_failed"); markErr != nil {
+			common.SysError("mark Midjourney dispatch admission unknown: " + markErr.Error())
 		}
 	}
 	billingApplied, billingErr := service.SettleMidjourneyTaskBilling(relayInfo, midjourneyTask, billingPrepared)
@@ -679,6 +711,15 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 		}
 	}
 	return nil
+}
+
+func markDeterministicMidjourneyRejection(info *relaycommon.RelayInfo, task *model.Midjourney) {
+	if info == nil || task == nil || info.TokenCredentialDispatchAdmissionID == "" || task.Code != 23 && task.Code != 24 {
+		return
+	}
+	task.Status = model.TaskStatusFailure
+	task.Progress = "100%"
+	task.FinishTime = time.Now().UnixMilli()
 }
 
 type taskChangeParams struct {

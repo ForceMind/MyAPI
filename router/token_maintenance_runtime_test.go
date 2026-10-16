@@ -109,6 +109,7 @@ func TestTokenMaintenanceRuntimeBrowser(t *testing.T) {
 			var beforeGenerations []model.SubscriptionShareGeneration
 			require.NoError(t, db.Order("id ASC").Find(&beforeGenerations).Error)
 			engine := gin.New()
+			engine.Use(func(c *gin.Context) { common.SetContextKey(c, constant.ContextKeyAuditLogged, true); c.Next() })
 			SetApiRouter(engine)
 			repo, err := filepath.Abs("..")
 			require.NoError(t, err)

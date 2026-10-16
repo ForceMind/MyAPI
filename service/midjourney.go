@@ -408,7 +408,7 @@ func decodeMidjourneyResponse(responseBody []byte) (dto.MidjourneyResponse, erro
 	return response, nil
 }
 
-func DoMidjourneyHttpRequest(c *gin.Context, timeout time.Duration, fullRequestURL string) (*dto.MidjourneyResponseWithStatusCode, []byte, error) {
+func DoMidjourneyHttpRequest(c *gin.Context, timeout time.Duration, fullRequestURL string, submissionInfo ...*relaycommon.RelayInfo) (*dto.MidjourneyResponseWithStatusCode, []byte, error) {
 	var nullBytes []byte
 	//var requestBody io.Reader
 	//requestBody = c.Request.Body
@@ -457,6 +457,25 @@ func DoMidjourneyHttpRequest(c *gin.Context, timeout time.Duration, fullRequestU
 		req.Header.Set("mj-api-secret", auth)
 	}
 	defer cancel()
+	dispatchInfo := &relaycommon.RelayInfo{
+		TokenId:                common.GetContextKeyInt(c, constant.ContextKeyTokenId),
+		UserId:                 common.GetContextKeyInt(c, constant.ContextKeyUserId),
+		TokenCredentialVersion: common.GetContextKeyInt64(c, constant.ContextKeyTokenCredentialVersion),
+	}
+	if len(submissionInfo) > 0 {
+		if len(submissionInfo) != 1 || submissionInfo[0] == nil {
+			return MidjourneyErrorWithStatusCodeWrapper(constant.MjErrorUnknown, "relay_eligibility_changed", http.StatusForbidden), nullBytes, model.ErrTokenMaintenanceInvalid
+		}
+		dispatchInfo = submissionInfo[0]
+	}
+	if err := ValidateTokenCredentialDispatch(c.Request.Context(), dispatchInfo); err != nil {
+		return MidjourneyErrorWithStatusCodeWrapper(constant.MjErrorUnknown, "relay_eligibility_changed", http.StatusForbidden), nullBytes, err
+	}
+	if len(submissionInfo) == 1 {
+		if err := BeginTokenCredentialDispatchAdmission(c.Request.Context(), dispatchInfo, model.TokenCredentialDispatchAdmissionKindMidjourney); err != nil {
+			return MidjourneyErrorWithStatusCodeWrapper(constant.MjErrorUnknown, "relay_eligibility_changed", http.StatusForbidden), nullBytes, err
+		}
+	}
 	resp, err := GetHttpClient().Do(req)
 	if err != nil {
 		common.SysLog("do request failed: " + err.Error())

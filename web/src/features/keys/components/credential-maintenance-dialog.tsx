@@ -164,6 +164,7 @@ function CredentialMaintenanceSession(props: {
   )
   const [commitError, setCommitError] = useState(false)
   const [receiptChecking, setReceiptChecking] = useState(false)
+  const [rotationActivity, setRotationActivity] = useState(false)
 
   useEffect(() => () => writeController.current?.abort(), [])
 
@@ -256,7 +257,9 @@ function CredentialMaintenanceSession(props: {
   }
 
   const selectCandidate = (value: string | null) => {
-    if (!value || phase !== 'idle' || persistenceBlocked) return
+    if (!value || phase !== 'idle' || persistenceBlocked || rotationActivity) {
+      return
+    }
     const channelId = Number(value)
     const candidate = data?.migration.candidates.find(
       (item) => item.channel_id === channelId
@@ -282,6 +285,7 @@ function CredentialMaintenanceSession(props: {
       previewing ||
       phase !== 'idle' ||
       persistenceBlocked ||
+      rotationActivity ||
       !isCurrentSession()
     ) {
       return
@@ -370,6 +374,7 @@ function CredentialMaintenanceSession(props: {
       !preview.preview_revision ||
       !operationId.current ||
       persistenceBlocked ||
+      rotationActivity ||
       commitStarted.current ||
       !isCurrentSession()
     ) {
@@ -461,6 +466,7 @@ function CredentialMaintenanceSession(props: {
     if (
       phase !== 'idle' ||
       persistenceBlocked ||
+      rotationActivity ||
       !identityConfirmed ||
       !allocationConfirmed ||
       preview?.status !== 'ready'
@@ -601,7 +607,27 @@ function CredentialMaintenanceSession(props: {
               </section>
 
               <CredentialMaintenanceRotation
-                blockers={data.rotation.blockers}
+                rotation={data.rotation}
+                token={{
+                  ...data.token,
+                  masked_key: redactedHint(data.token.masked_key),
+                }}
+                userId={props.userId}
+                otherWriteLocked={
+                  phase !== 'idle' || persistenceBlocked || previewing
+                }
+                onBeforeOpen={() => {
+                  setTargetChannelId(null)
+                  setTargetPools({})
+                  clearReview()
+                }}
+                onActivityChange={setRotationActivity}
+                onCommitted={() => {
+                  setTargetChannelId(null)
+                  setTargetPools({})
+                  clearReview()
+                  void maintenance.refetch()
+                }}
               />
 
               <section className='flex min-w-0 flex-col gap-4 rounded-xl border p-4'>
@@ -668,7 +694,10 @@ function CredentialMaintenanceSession(props: {
                         value={targetChannelId ? String(targetChannelId) : null}
                         onValueChange={selectCandidate}
                         disabled={
-                          phase !== 'idle' || previewing || persistenceBlocked
+                          phase !== 'idle' ||
+                          previewing ||
+                          persistenceBlocked ||
+                          rotationActivity
                         }
                       >
                         <SelectTrigger
@@ -739,14 +768,24 @@ function CredentialMaintenanceSession(props: {
                                     : null
                                 }
                                 onValueChange={(value) => {
-                                  if (!value || phase !== 'idle') return
+                                  if (
+                                    !value ||
+                                    phase !== 'idle' ||
+                                    rotationActivity
+                                  ) {
+                                    return
+                                  }
                                   setTargetPools((current) => ({
                                     ...current,
                                     [source.pool_id]: Number(value),
                                   }))
                                   clearReview()
                                 }}
-                                disabled={phase !== 'idle' || previewing}
+                                disabled={
+                                  phase !== 'idle' ||
+                                  previewing ||
+                                  rotationActivity
+                                }
                               >
                                 <SelectTrigger
                                   className='w-full'
@@ -807,7 +846,8 @@ function CredentialMaintenanceSession(props: {
                           !input ||
                           previewing ||
                           phase !== 'idle' ||
-                          persistenceBlocked
+                          persistenceBlocked ||
+                          rotationActivity
                         }
                         onClick={() => void requestPreview()}
                       >
@@ -848,7 +888,7 @@ function CredentialMaintenanceSession(props: {
                       <Checkbox
                         id={`credential-identity-${props.tokenId}`}
                         checked={identityConfirmed}
-                        disabled={phase !== 'idle'}
+                        disabled={phase !== 'idle' || rotationActivity}
                         onCheckedChange={(checked) =>
                           setIdentityConfirmed(checked === true)
                         }
@@ -865,7 +905,7 @@ function CredentialMaintenanceSession(props: {
                       <Checkbox
                         id={`credential-allocation-${props.tokenId}`}
                         checked={allocationConfirmed}
-                        disabled={phase !== 'idle'}
+                        disabled={phase !== 'idle' || rotationActivity}
                         onCheckedChange={(checked) =>
                           setAllocationConfirmed(checked === true)
                         }
@@ -910,7 +950,8 @@ function CredentialMaintenanceSession(props: {
                         !identityConfirmed ||
                         !allocationConfirmed ||
                         commitError ||
-                        phase !== 'idle'
+                        phase !== 'idle' ||
+                        rotationActivity
                       }
                       onClick={() => void beginCommit()}
                     >

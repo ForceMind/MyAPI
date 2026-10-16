@@ -253,6 +253,12 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	}
 
 	// 9. 发送请求
+	if err := service.ValidateTokenCredentialDispatch(c.Request.Context(), info); err != nil {
+		return nil, service.TaskErrorWrapperLocal(errors.New(i18n.T(c, i18n.MsgInvalidParams)), "relay_eligibility_changed", http.StatusForbidden)
+	}
+	if err := service.BeginTokenCredentialDispatchAdmission(c.Request.Context(), info, model.TokenCredentialDispatchAdmissionKindLegacyTask); err != nil {
+		return nil, service.TaskErrorWrapperLocal(errors.New(i18n.T(c, i18n.MsgInvalidParams)), "relay_eligibility_changed", http.StatusForbidden)
+	}
 	resp, err := adaptor.DoRequest(c, info, requestBody)
 	if err != nil {
 		return nil, service.TaskErrorWrapper(err, "do_request_failed", http.StatusInternalServerError)

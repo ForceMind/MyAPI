@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/logger"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/relay/helper"
@@ -19,9 +22,31 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const (
+	realtimeCredentialAmbiguousDrainTimeout      = 5 * time.Second
+	defaultRealtimeCredentialTrackedDrainTimeout = 300 * time.Second
+)
+
+type realtimeHandlerOptions struct {
+	credentialValidator func(context.Context, *relaycommon.RelayInfo) error
+	forwardMessage      func(*gin.Context, *websocket.Conn, string) error
+	targetForwarded     func(*dto.RealtimeEvent)
+	drainInspected      func(bool)
+}
+
 func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*types.NewAPIError, *dto.RealtimeUsage) {
+	return openaiRealtimeHandler(c, info, realtimeHandlerOptions{credentialValidator: service.ValidateTokenCredentialDispatch})
+}
+
+func openaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo, options realtimeHandlerOptions) (*types.NewAPIError, *dto.RealtimeUsage) {
 	if info == nil || info.ClientWs == nil || info.TargetWs == nil {
 		return types.NewError(fmt.Errorf("invalid websocket connection"), types.ErrorCodeBadResponse), nil
+	}
+	if options.credentialValidator == nil {
+		return types.NewError(fmt.Errorf("invalid realtime credential validator"), types.ErrorCodeBadResponse), nil
+	}
+	if options.forwardMessage == nil {
+		options.forwardMessage = helper.WssString
 	}
 
 	info.IsStream = true
@@ -35,10 +60,15 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*types.
 
 	clientClosed, targetClosed := make(chan struct{}), make(chan struct{})
 	errChan := make(chan error, 2)
+	credentialChanged := make(chan error, 1)
+	drainComplete := make(chan struct{}, 1)
+	var credentialDraining atomic.Bool
+	var targetForwardInFlight atomic.Int32
 	var stateMu sync.Mutex
 	var readers sync.WaitGroup
 	localUsage, sumUsage := &dto.RealtimeUsage{}, &dto.RealtimeUsage{}
 	var lifecycle realtimeResponseLifecycle
+	var drainHasTrackedResponse, drainRequiresTerminal, drainTerminalSeen bool
 
 	handleClient := func(event *dto.RealtimeEvent) error {
 		stateMu.Lock()
@@ -118,7 +148,7 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*types.
 		return nil
 	}
 
-	readSocket := func(source, destination *websocket.Conn, label string, closed chan struct{}, handle func(*dto.RealtimeEvent) error) {
+	readSocket := func(source, destination *websocket.Conn, label string, validateCredential bool, closed chan struct{}, handle func(*dto.RealtimeEvent) error) {
 		defer readers.Done()
 		defer close(closed)
 		defer func() {
@@ -139,6 +169,20 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*types.
 				}
 				return
 			}
+			if label == "target" {
+				targetForwardInFlight.Add(1)
+			}
+			if validateCredential {
+				if err := options.credentialValidator(readerContext, info); err != nil {
+					stateMu.Lock()
+					drainHasTrackedResponse = targetForwardInFlight.Load() > 0 || lifecycle.pending > 0 || len(lifecycle.active) > 0
+					drainRequiresTerminal = lifecycle.automaticAudioPossible && lifecycle.pending == 0 && len(lifecycle.active) == 0
+					credentialDraining.Store(true)
+					stateMu.Unlock()
+					credentialChanged <- fmt.Errorf("token credential changed before realtime dispatch: %w", err)
+					return
+				}
+			}
 			event := &dto.RealtimeEvent{}
 			if err := common.Unmarshal(message, event); err != nil {
 				if label == "target" {
@@ -154,25 +198,89 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*types.
 				errChan <- err
 				return
 			}
-			if err := helper.WssString(c, destination, string(message)); err != nil {
+			if err := options.forwardMessage(c, destination, string(message)); err != nil {
 				if readerContext.Err() == nil {
 					errChan <- fmt.Errorf("error forwarding from %s: %w", label, err)
 				}
 				return
 			}
+			if label == "target" {
+				if options.targetForwarded != nil {
+					options.targetForwarded(event)
+				}
+				stateMu.Lock()
+				targetForwardInFlight.Add(-1)
+				draining := credentialDraining.Load()
+				if draining && event.Type == dto.RealtimeEventTypeResponseDone {
+					drainTerminalSeen = true
+				}
+				drained := draining && targetForwardInFlight.Load() == 0 && lifecycle.pending == 0 && len(lifecycle.active) == 0 && (!drainRequiresTerminal || drainTerminalSeen)
+				stateMu.Unlock()
+				if drained {
+					select {
+					case drainComplete <- struct{}{}:
+					default:
+					}
+				}
+			}
 		}
 	}
 
 	readers.Add(2)
-	gopool.Go(func() { readSocket(clientConn, targetConn, "client", clientClosed, handleClient) })
-	gopool.Go(func() { readSocket(targetConn, clientConn, "target", targetClosed, handleTarget) })
+	gopool.Go(func() { readSocket(clientConn, targetConn, "client", true, clientClosed, handleClient) })
+	gopool.Go(func() { readSocket(targetConn, clientConn, "target", false, targetClosed, handleTarget) })
 
-	var terminalErr error
+	var terminalErr, credentialErr error
 	select {
 	case <-clientClosed:
+		select {
+		case credentialErr = <-credentialChanged:
+		default:
+		}
 	case <-targetClosed:
 	case terminalErr = <-errChan:
+	case credentialErr = <-credentialChanged:
 	case <-readerContext.Done():
+	}
+	if credentialErr != nil {
+		terminalErr = credentialErr
+		stateMu.Lock()
+		drained := targetForwardInFlight.Load() == 0 && lifecycle.pending == 0 && len(lifecycle.active) == 0 && (!drainRequiresTerminal || drainTerminalSeen)
+		stateMu.Unlock()
+		if options.drainInspected != nil {
+			options.drainInspected(drained)
+		}
+		if !drained {
+			drainTimeout := realtimeCredentialAmbiguousDrainTimeout
+			if drainHasTrackedResponse {
+				drainTimeout = time.Duration(constant.StreamingTimeout) * time.Second
+				if drainTimeout <= 0 {
+					drainTimeout = defaultRealtimeCredentialTrackedDrainTimeout
+				}
+			}
+			timer := time.NewTimer(drainTimeout)
+			select {
+			case <-drainComplete:
+			case <-targetClosed:
+			case err := <-errChan:
+				terminalErr = err
+			case <-readerContext.Done():
+			case <-timer.C:
+			}
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			stateMu.Lock()
+			drained = targetForwardInFlight.Load() == 0 && lifecycle.pending == 0 && len(lifecycle.active) == 0 && (!drainRequiresTerminal || drainTerminalSeen)
+			if !drained {
+				info.RealtimeUsageUnverified = true
+				sumUsage.UsageIncomplete = true
+			}
+			stateMu.Unlock()
+		}
 	}
 
 	// Close unblocks both network reads/writes. No reader may mutate usage or

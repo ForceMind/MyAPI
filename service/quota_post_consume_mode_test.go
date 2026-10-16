@@ -234,6 +234,26 @@ func TestPreWssConsumeQuotaDualMode(t *testing.T) {
 	}
 }
 
+func TestPreWssConsumeQuotaAuthoritativeSessionSurvivesCredentialRotation(t *testing.T) {
+	db := setupPostConsumeModeDB(t, model.QuotaWriterModeAuthoritative)
+	user, token := seedAuthoritativeBilling(t, db, "realtime-credential-rotation", 1000, 500, false)
+	info := authoritativeRelay(user, token, "realtime-credential-rotation")
+	gin.SetMode(gin.TestMode)
+	ginCtx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ginCtx.Request = httptest.NewRequest("GET", "/v1/realtime", nil)
+	session, apiErr := NewBillingSession(ginCtx, info, 1)
+	require.Nil(t, apiErr)
+	require.NotNil(t, session)
+	info.Billing = session
+	require.NoError(t, db.Model(&model.Token{}).Where("id = ?", token.Id).Update("key", "rotated-realtime-key").Error)
+
+	usage := &dto.RealtimeUsage{}
+	usage.InputTokenDetails.TextTokens = 4
+	require.NoError(t, PreWssConsumeQuota(ginCtx, info, usage), "an accepted authoritative session must extend by its stable token ID")
+	assert.Equal(t, 150, info.RealtimeQuotedQuota)
+	require.NoError(t, session.Refund(ginCtx))
+}
+
 func TestPostConsumeQuotaRealtimeQualifierReplay(t *testing.T) {
 	db := setupPostConsumeModeDB(t, model.QuotaWriterModeAuthoritative)
 	user, token := seedAuthoritativeBilling(t, db, "realtime-replay", 1000, 500, false)

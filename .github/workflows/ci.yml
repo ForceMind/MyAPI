@@ -204,6 +204,9 @@ jobs:
       - name: Verify credential migration and sampling proofs under race detector
         run: go test -race -p 1 ./model ./service ./controller ./router -run '^Test(TokenMaintenance|TokenAccountMigration|NormalizeTokenAccountMigration|SamplingTargetProof|EnsureSamplingTargetUpgradesLegacyProofState|ValidateTrustedCodexCredentialContinuity)' -count=1 -timeout=180s
 
+      - name: Prove credential rotation and outbound generation compatibility
+        run: go test -race -p 1 ./model ./service ./middleware ./relay ./relay/channel ./relay/channel/openai ./controller ./router -run '^Test(TokenCredential|ValidateTokenCredential|BeginTokenCredentialDispatchAdmission|CompleteTokenCredentialDispatchAdmission|ShouldRetryTaskRelayStopsAfterCredentialDispatchAdmission|MidjourneyCredential|MidjourneyAuthoritativeAdmission|PreWssConsumeQuotaAuthoritativeSession|RealtimeCredentialRotation|WebSocketCredentialGeneration|AssignedAccessHTTPDispatchWithoutFailover|VideoProxyPrivateResponses|RelayTask_GateOn_SuccessAcceptedAndReplay)' -count=1 -timeout=180s
+
       - name: Verify io.net and cache codec boundaries under race detector
         env:
           GOMAXPROCS: '1'
@@ -379,6 +382,7 @@ jobs:
           go test -p 1 ./model -run '^TestTokenModelLimitsConfiguredDatabases$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestTokenAccountMigrationConfiguredDatabases$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestSamplingTargetProofConfiguredDatabases$' -count=1 -timeout=180s -v
+          go test -p 1 ./model -run '^TestTokenCredentialRotationConfiguredDatabases$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^Test(ChannelQuotaIdentity|OfficialPriceVersion|R1UsageReview|PricePublication|TokenBudget|PlaygroundToken|RelayAccountHold|OpenAIPriceCheck|ChannelQuotaAlert)ConfiguredDatabases$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestAccountQuotaConfiguredSchema(MySQLAndPostgres|SQLite)$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestChannelModel(Discovery|Route)ConfiguredDatabases$' -count=1 -timeout=180s -v
@@ -430,6 +434,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
+      rotation-redis:
+        image: redis:7-alpine
+        ports:
+          - 6379/tcp
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s --health-timeout=5s --health-retries=12
       redis:
         image: redis:7-alpine
         ports:
@@ -458,6 +469,10 @@ jobs:
         env:
           MYAPI_S2C_REDIS_ADDR: 127.0.0.1:${{ job.services.redis.ports[6379] }}
         run: go test -p 1 ./model -run '^TestS2CQuotaConfiguredRedis$' -count=1 -timeout=120s -v
+      - name: Prove credential rotation cache fences on disposable Redis
+        env:
+          MYAPI_S2C_REDIS_ADDR: 127.0.0.1:${{ job.services.rotation-redis.ports[6379] }}
+        run: go test -p 1 ./model -run '^TestTokenCredentialRotationConfiguredRedis$' -count=1 -timeout=120s -v
 
   c09-redis-limiter:
     name: S2-C09 Redis limiter lifecycle regression
@@ -914,6 +929,12 @@ jobs:
           MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-credential-browser/node_modules/playwright/index.mjs
           MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-credential-browser-artifacts
         run: node tools/ui/credential-maintenance-browser.mjs
+      - name: Qualify credential rotation on the production build
+        if: ${{ !cancelled() }}
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-credential-browser/node_modules/playwright/index.mjs
+          MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-credential-rotation-artifacts
+        run: node tools/ui/credential-rotation-browser.mjs
       - name: Verify real Go migration and proof routes on disposable SQLite
         if: ${{ !cancelled() }}
         env:
@@ -929,6 +950,8 @@ jobs:
           path: |
             ${{ runner.temp }}/myapi-credential-browser-artifacts/*.png
             ${{ runner.temp }}/myapi-credential-browser-artifacts/*.json
+            ${{ runner.temp }}/myapi-credential-rotation-artifacts/*.png
+            ${{ runner.temp }}/myapi-credential-rotation-artifacts/*.json
             ${{ runner.temp }}/myapi-credential-runtime-artifacts/**/*.png
             ${{ runner.temp }}/myapi-credential-runtime-artifacts/**/*.json
           if-no-files-found: error

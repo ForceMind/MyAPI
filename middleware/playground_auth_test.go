@@ -81,6 +81,7 @@ func TestPlaygroundSelectsOwnedKeyWithoutExposingCredentialOrChangingOrigin(t *t
 		assert.Equal(t, user.Id, c.GetInt("id"))
 		assert.Equal(t, token.Id, c.GetInt("token_id"))
 		assert.Equal(t, token.Key, c.GetString("token_key"))
+		assert.Equal(t, token.CredentialVersion, common.GetContextKeyInt64(c, constant.ContextKeyTokenCredentialVersion))
 		assert.False(t, c.GetBool("token_unlimited_quota"))
 		assert.Equal(t, int64(500), common.GetContextKeyInt64(c, constant.ContextKeyTokenQuota))
 		assert.Empty(t, c.GetHeader("Authorization"), "browser session credentials are not relay credentials")
@@ -99,6 +100,7 @@ func TestPlaygroundSelectsOwnedKeyWithoutExposingCredentialOrChangingOrigin(t *t
 		assert.False(t, info.IsPlayground, "real-key playground requests must use normal token accounting")
 		assert.Equal(t, token.Id, info.TokenId)
 		assert.Equal(t, token.Key, info.TokenKey)
+		assert.Equal(t, token.CredentialVersion, info.TokenCredentialVersion)
 		c.Request.URL.Path = "/pg/chat/completions"
 		legacyAliasInfo, err := relaycommon.GenRelayInfo(c, types.RelayFormatOpenAI, nil, nil)
 		require.NoError(t, err)
@@ -241,6 +243,7 @@ func TestPlaygroundSharesAPIModelLimitsAndBudgetAdmission(t *testing.T) {
 				require.NoError(t, db.Create(test.budget).Error)
 			}
 			terminal := func(c *gin.Context) {
+				assert.Equal(t, token.CredentialVersion, common.GetContextKeyInt64(c, constant.ContextKeyTokenCredentialVersion))
 				if test.budget != nil {
 					assert.True(t, c.GetBool(string(constant.ContextKeyStrictTokenBudget)))
 				}

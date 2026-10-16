@@ -21,9 +21,10 @@ import (
 )
 
 type unmanagedSubscriptionShareDispatchFixture struct {
-	userID   int
-	tokenID  int
-	tokenKey string
+	userID                 int
+	tokenID                int
+	tokenKey               string
+	tokenCredentialVersion int64
 }
 
 func setupUnmanagedSubscriptionShareDispatchFixture(t *testing.T) unmanagedSubscriptionShareDispatchFixture {
@@ -51,15 +52,16 @@ func setupUnmanagedSubscriptionShareDispatchFixture(t *testing.T) unmanagedSubsc
 		model.DB = oldDB
 		require.NoError(t, sqlDB.Close())
 	})
-	return unmanagedSubscriptionShareDispatchFixture{userID: user.Id, tokenID: token.Id, tokenKey: token.Key}
+	return unmanagedSubscriptionShareDispatchFixture{userID: user.Id, tokenID: token.Id, tokenKey: token.Key, tokenCredentialVersion: token.CredentialVersion}
 }
 
 func (fixture unmanagedSubscriptionShareDispatchFixture) relayInfo() *relaycommon.RelayInfo {
 	return &relaycommon.RelayInfo{
-		TokenId:     fixture.tokenID,
-		TokenKey:    fixture.tokenKey,
-		UserId:      fixture.userID,
-		ChannelMeta: &relaycommon.ChannelMeta{},
+		TokenId:                fixture.tokenID,
+		TokenKey:               fixture.tokenKey,
+		TokenCredentialVersion: fixture.tokenCredentialVersion,
+		UserId:                 fixture.userID,
+		ChannelMeta:            &relaycommon.ChannelMeta{},
 	}
 }
 

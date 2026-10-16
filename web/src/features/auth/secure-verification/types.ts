@@ -20,6 +20,7 @@ export type VerificationMethod = '2fa' | 'passkey'
 
 export type SecurityProofScope =
   | 'token.account_migration'
+  | 'token.credential_rotation'
   | 'channel.key.read'
   | 'channel.codex.local_import'
   | 'passkey.register'

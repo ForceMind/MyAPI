@@ -102,7 +102,7 @@ func textDispatchTransportFixture(t *testing.T, ctx *gin.Context) *relaycommon.R
 	require.NoError(t, db.Create(&user).Error)
 	token := model.Token{UserId: user.Id, Key: "synthetic-dispatch", Status: common.TokenStatusEnabled, RemainQuota: 1000, ExpiredTime: -1}
 	require.NoError(t, db.Create(&token).Error)
-	info := &relaycommon.RelayInfo{UserId: user.Id, TokenId: token.Id, TokenKey: token.Key, RequestId: "synthetic-dispatch", OriginModelName: "fixture", UserQuota: 1000, StartTime: time.Now(), ChannelMeta: &relaycommon.ChannelMeta{}, UserSetting: dto.UserSetting{BillingPreference: "wallet_only"}}
+	info := &relaycommon.RelayInfo{UserId: user.Id, TokenId: token.Id, TokenKey: token.Key, TokenCredentialVersion: token.CredentialVersion, RequestId: "synthetic-dispatch", OriginModelName: "fixture", UserQuota: 1000, StartTime: time.Now(), ChannelMeta: &relaycommon.ChannelMeta{}, UserSetting: dto.UserSetting{BillingPreference: "wallet_only"}}
 	session, apiErr := service.NewBillingSession(ctx, info, 100)
 	require.Nil(t, apiErr)
 	info.Billing = session

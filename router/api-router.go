@@ -16,6 +16,13 @@ import (
 func SetApiRouter(router *gin.Engine) {
 	apiRouter := router.Group("/api")
 	apiRouter.Use(func(c *gin.Context) {
+		// A global rate-limit rejection happens before the rotation route chain.
+		// Mark that boundary too, so a known pre-handler rejection cannot leave
+		// the browser waiting forever for a receipt that was never created.
+		if c.Request.Method == "POST" && strings.HasPrefix(c.Request.URL.Path, "/api/token/") &&
+			strings.HasSuffix(c.Request.URL.Path, "/credential-rotation") && strings.Count(c.Request.URL.Path, "/") == 4 {
+			c.Header("X-MyAPI-Credential-Rotation-Disposition", "not_accepted")
+		}
 		if c.Request.URL.Path == "/api/option/diagnostics" || strings.HasPrefix(c.Request.URL.Path, "/api/option/diagnostics/") {
 			c.Header("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0")
 			c.Header("Pragma", "no-cache")

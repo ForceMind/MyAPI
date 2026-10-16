@@ -66,8 +66,8 @@ const maintenanceSchema = z.object({
     reason: z.string(),
   }),
   rotation: z.object({
-    commit_supported: z.literal(false),
-    status: z.literal('blocked'),
+    commit_supported: z.boolean(),
+    status,
     blockers: z.array(blockerSchema),
   }),
   migration: z.object({

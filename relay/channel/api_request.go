@@ -399,6 +399,9 @@ func DoWssRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 		targetHeader.Set(key, value)
 	}
 	targetHeader.Set("Content-Type", c.Request.Header.Get("Content-Type"))
+	if err := service.ValidateTokenCredentialDispatch(c.Request.Context(), info); err != nil {
+		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgInvalidParams)), types.ErrorCode("relay_eligibility_changed"), http.StatusForbidden, types.ErrOptionWithSkipRetry())
+	}
 	if err := service.ValidateAssignedAccessDispatch(c, nil, info); err != nil {
 		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgDistributorPolicyDenied, map[string]any{"Group": info.UsingGroup})), types.ErrorCodeAccessDenied, http.StatusForbidden, types.ErrOptionWithSkipRetry())
 	}
@@ -558,6 +561,9 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 	}
 
 	if err := service.ValidateRelayFailoverDispatch(c, info); err != nil {
+		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgInvalidParams)), types.ErrorCode("relay_eligibility_changed"), http.StatusForbidden, types.ErrOptionWithSkipRetry())
+	}
+	if err := service.ValidateTokenCredentialDispatch(c.Request.Context(), info); err != nil {
 		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgInvalidParams)), types.ErrorCode("relay_eligibility_changed"), http.StatusForbidden, types.ErrOptionWithSkipRetry())
 	}
 	if err := service.ValidateAssignedAccessDispatch(c, req, info); err != nil {

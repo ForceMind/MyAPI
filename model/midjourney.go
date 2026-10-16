@@ -25,6 +25,7 @@ type Midjourney struct {
 	Properties  string `json:"properties"`
 
 	TokenId          int `json:"-" gorm:"default:0"`
+	DispatchTokenID  int `json:"-" gorm:"not null;default:0;<-:create"`
 	BillingChannelId int `json:"-" gorm:"default:0"`
 }
 

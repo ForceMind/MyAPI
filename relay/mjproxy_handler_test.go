@@ -9,6 +9,7 @@ import (
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/dto"
 	"github.com/ForceMind/MyAPI/model"
+	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	relayconstant "github.com/ForceMind/MyAPI/relay/constant"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
@@ -86,6 +87,34 @@ func TestCoverMidjourneyTaskDtoMalformedJSONIsIgnoredIndependently(t *testing.T)
 				require.Len(t, got.VideoUrls, 1)
 				assert.Nil(t, got.Properties)
 			}
+		})
+	}
+}
+
+func TestAuthoritativeMidjourneyDeterministicRejectionIsTerminal(t *testing.T) {
+	for _, testCase := range []struct {
+		name        string
+		code        int
+		admissionID string
+		terminal    bool
+	}{
+		{name: "queue full", code: 23, admissionID: strings.Repeat("a", 64), terminal: true},
+		{name: "prompt rejected", code: 24, admissionID: strings.Repeat("b", 64), terminal: true},
+		{name: "unclassified provider error", code: 3, admissionID: strings.Repeat("c", 64)},
+		{name: "legacy rejection", code: 24},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			task := &model.Midjourney{Code: testCase.code, Progress: "0%"}
+			markDeterministicMidjourneyRejection(&relaycommon.RelayInfo{TokenCredentialDispatchAdmissionID: testCase.admissionID}, task)
+			if testCase.terminal {
+				require.Equal(t, model.TaskStatusFailure, task.Status)
+				require.Equal(t, "100%", task.Progress)
+				require.Positive(t, task.FinishTime)
+				return
+			}
+			require.Empty(t, task.Status)
+			require.Equal(t, "0%", task.Progress)
+			require.Zero(t, task.FinishTime)
 		})
 	}
 }

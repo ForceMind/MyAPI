@@ -152,7 +152,7 @@ func newSubscriptionShareSendFixture(t *testing.T, mode model.QuotaWriterMode, l
 	requestID := "share-send-" + label
 	ctx.Set(common.RequestIdKey, requestID)
 	info := &relaycommon.RelayInfo{
-		UserId: user.Id, TokenId: token.Id, TokenKey: token.Key, RequestId: requestID,
+		UserId: user.Id, TokenId: token.Id, TokenKey: token.Key, TokenCredentialVersion: token.CredentialVersion, RequestId: requestID,
 		OriginModelName: "gpt-5-codex", UserQuota: user.Quota, StartTime: time.Now(), ForcePreConsume: true,
 		UserSetting: dto.UserSetting{BillingPreference: "wallet_only"},
 		ChannelMeta: &relaycommon.ChannelMeta{ChannelId: channel.Id, ChannelType: constant.ChannelTypeCodex, ApiKey: credential},

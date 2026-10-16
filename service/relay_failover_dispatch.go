@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"net"
 	"reflect"
@@ -19,6 +20,100 @@ import (
 )
 
 var ErrRelayEligibilityChanged = errors.New("relay_eligibility_changed")
+
+// ValidateTokenCredentialDispatch rejects an outbound operation when the API
+// key generation authenticated for this request is no longer current. Requests
+// without an API token are dashboard/channel-test operations and retain their
+// existing authorization boundary.
+func ValidateTokenCredentialDispatch(ctx context.Context, info *relaycommon.RelayInfo) error {
+	if info == nil {
+		return model.ErrTokenCredentialVersionChanged
+	}
+	if info.TokenId == 0 {
+		return nil
+	}
+	if info.TokenId < 0 || info.UserId <= 0 || info.TokenCredentialVersion <= 0 {
+		return model.ErrTokenCredentialVersionChanged
+	}
+	return model.ValidateTokenCredentialVersion(ctx, model.DB, info.TokenId, info.UserId, info.TokenCredentialVersion)
+}
+
+// BeginTokenCredentialDispatchAdmission persists the authoritative-mode gap
+// between an asynchronous provider send and the resulting task row. Legacy
+// and bridge writers retain their existing path and do not create admissions.
+func BeginTokenCredentialDispatchAdmission(ctx context.Context, info *relaycommon.RelayInfo, kind model.TokenCredentialDispatchAdmissionKind) error {
+	if info == nil {
+		return model.ErrTokenMaintenanceInvalid
+	}
+	if info.TokenId == 0 {
+		return nil
+	}
+	if info.TokenCredentialDispatchAdmissionID != "" {
+		return model.ErrTokenMaintenancePreconditionUnknown
+	}
+	mode, err := postConsumeQuotaWriterMode()
+	if err != nil {
+		return err
+	}
+	if mode != model.QuotaWriterModeAuthoritative {
+		return nil
+	}
+	admission, err := model.BeginTokenCredentialDispatchAdmission(
+		ctx,
+		model.DB,
+		info.UserId,
+		info.TokenId,
+		info.TokenCredentialVersion,
+		info.RequestId,
+		kind,
+	)
+	if err != nil {
+		return err
+	}
+	if admission == nil || admission.AdmissionID == "" {
+		return model.ErrTokenMaintenanceUnknown
+	}
+	info.TokenCredentialDispatchAdmissionID = admission.AdmissionID
+	return nil
+}
+
+func CompleteTokenCredentialDispatchAdmission(ctx context.Context, info *relaycommon.RelayInfo, linkedRecordID int64) error {
+	if info == nil || info.TokenCredentialDispatchAdmissionID == "" {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	persistCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	return model.CompleteTokenCredentialDispatchAdmission(
+		persistCtx,
+		model.DB,
+		info.UserId,
+		info.TokenId,
+		info.TokenCredentialDispatchAdmissionID,
+		linkedRecordID,
+	)
+}
+
+func MarkTokenCredentialDispatchAdmissionUnknown(ctx context.Context, info *relaycommon.RelayInfo, reasonCode string) error {
+	if info == nil || info.TokenCredentialDispatchAdmissionID == "" {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	persistCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	return model.MarkTokenCredentialDispatchAdmissionUnknown(
+		persistCtx,
+		model.DB,
+		info.UserId,
+		info.TokenId,
+		info.TokenCredentialDispatchAdmissionID,
+		reasonCode,
+	)
+}
 
 // ValidateRelayFailoverDispatch re-reads admission and the selected credential
 // just before HTTP dispatch. It never rotates keys or recalculates a frozen

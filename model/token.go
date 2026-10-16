@@ -46,6 +46,7 @@ type Token struct {
 	ExpiredTime        int64   `json:"expired_time" gorm:"bigint;default:-1"` // -1 means never expired
 	RemainQuota        int64   `json:"remain_quota" gorm:"type:bigint;default:0"`
 	QuotaVersion       int64   `json:"-" gorm:"type:bigint;not null;default:0"`
+	CredentialVersion  int64   `json:"-" gorm:"type:bigint;not null;default:1"`
 	UnlimitedQuota     bool    `json:"unlimited_quota"`
 	ModelLimitsEnabled bool    `json:"model_limits_enabled"`
 	ModelLimits        string  `json:"model_limits" gorm:"type:text"`

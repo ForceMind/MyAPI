@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/middleware"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/service"
@@ -39,6 +40,9 @@ func TestTokenMaintenanceActualRoutesEnforceSessionOriginAndProof(t *testing.T) 
 	proof, _, err := service.IssueSecurityProof(identity, "2fa", []string{"token.account_migration"})
 	require.NoError(t, err)
 	engine := gin.New()
+	// This fixture owns only route authorization; background audit workers
+	// must not outlive its temporary global database (audit has separate tests).
+	engine.Use(func(c *gin.Context) { common.SetContextKey(c, constant.ContextKeyAuditLogged, true); c.Next() })
 	routes := engine.Group("/api/token", middleware.UserAuth())
 	registerTokenMaintenanceRoutes(routes)
 	request := func(method, path, accessToken, origin, securityProof string) *httptest.ResponseRecorder {

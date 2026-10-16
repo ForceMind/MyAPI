@@ -60,7 +60,7 @@ func TestAssignedAccessHTTPDispatchWithoutFailoverBlocksRevocation(t *testing.T)
 	c.Set("token_id", token.Id)
 	common.SetContextKey(c, constant.ContextKeyUsingGroup, "default")
 	c.Set("model_route", map[string]any{"upstream_model": "actual"})
-	info := &relaycommon.RelayInfo{UserId: user.Id, TokenId: token.Id, TokenKey: token.Key, OriginModelName: "alias", ChannelMeta: &relaycommon.ChannelMeta{ChannelId: channel.Id, ChannelType: channel.Type, ChannelBaseUrl: upstream.URL, ApiKey: channel.Key, UpstreamModelName: "actual"}}
+	info := &relaycommon.RelayInfo{UserId: user.Id, TokenId: token.Id, TokenKey: token.Key, TokenCredentialVersion: token.CredentialVersion, OriginModelName: "alias", ChannelMeta: &relaycommon.ChannelMeta{ChannelId: channel.Id, ChannelType: channel.Type, ChannelBaseUrl: upstream.URL, ApiKey: channel.Key, UpstreamModelName: "actual"}}
 	request, err := http.NewRequest(http.MethodPost, upstream.URL+"/v1/responses", bytes.NewBufferString(`{"model":"actual"}`))
 	require.NoError(t, err)
 	response, err := DoRequest(c, request, info)
@@ -80,6 +80,14 @@ func TestAssignedAccessHTTPDispatchWithoutFailoverBlocksRevocation(t *testing.T)
 		assert.Nil(t, rejected)
 		assert.EqualValues(t, 1, sends.Load(), "ambiguous target proof must never be sent")
 	}
+	require.NoError(t, db.Model(&model.Token{}).Where("id = ?", token.Id).Update("credential_version", token.CredentialVersion+1).Error)
+	stale, buildErr := http.NewRequest(http.MethodPost, upstream.URL+"/v1/responses", bytes.NewBufferString(`{"model":"actual"}`))
+	require.NoError(t, buildErr)
+	rejected, rejectErr := DoRequest(c, stale, info)
+	require.Error(t, rejectErr)
+	assert.Nil(t, rejected)
+	assert.EqualValues(t, 1, sends.Load(), "a request authenticated under the old generation must never be sent")
+	info.TokenCredentialVersion++
 	_, err = model.ConfigureAssignedAccessPolicy(context.Background(), db, "token", token.Id, row.Revision, `{"enabled":false,"public_models":null,"upstream_models":null,"channel_ids":null}`)
 	require.NoError(t, err)
 	request, err = http.NewRequest(http.MethodPost, upstream.URL+"/v1/responses", bytes.NewBufferString(`{"model":"actual"}`))
@@ -116,21 +124,25 @@ func TestAssignedAccessWebSocketRechecksBeforeDial(t *testing.T) {
 	prior := model.DB
 	model.DB = db
 	t.Cleanup(func() { model.DB = prior; _ = conn.Close() })
-	require.NoError(t, db.AutoMigrate(&model.AssignedAccessPolicy{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.AssignedAccessPolicy{}))
+	user := model.User{Username: "wss-policy-owner", Group: "default", Status: common.UserStatusEnabled, Role: common.RoleCommonUser}
+	require.NoError(t, db.Create(&user).Error)
+	token := model.Token{UserId: user.Id, Key: "wss-policy-token", Group: "default", Status: common.TokenStatusEnabled, ExpiredTime: -1, UnlimitedQuota: true}
+	require.NoError(t, db.Create(&token).Error)
 	var dials atomic.Int32
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { dials.Add(1); w.WriteHeader(http.StatusBadRequest) }))
 	defer upstream.Close()
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(http.MethodGet, "/v1/realtime", nil)
-	c.Set("id", 1)
-	c.Set("token_id", 1)
+	c.Set("id", user.Id)
+	c.Set("token_id", token.Id)
 	channel := &model.Channel{Id: 1, Type: constant.ChannelTypeOpenAI}
 	require.NoError(t, service.ValidateAssignedAccessSelection(c, channel, "realtime-model"), "unassigned legacy admission is unchanged")
 	adaptor := assignedPolicyWssAdaptor{url: "ws" + strings.TrimPrefix(upstream.URL, "http"), beforeHeaders: func() error {
-		_, err := model.ConfigureAssignedAccessPolicy(context.Background(), db, "token", 1, 0, `{"enabled":true,"public_models":null,"upstream_models":null,"channel_ids":null}`)
+		_, err := model.ConfigureAssignedAccessPolicy(context.Background(), db, "token", token.Id, 0, `{"enabled":true,"public_models":null,"upstream_models":null,"channel_ids":null}`)
 		return err
 	}}
-	info := &relaycommon.RelayInfo{UserId: 1, TokenId: 1, OriginModelName: "realtime-model", ChannelMeta: &relaycommon.ChannelMeta{ChannelId: 1, ChannelType: constant.ChannelTypeOpenAI}}
+	info := &relaycommon.RelayInfo{UserId: user.Id, TokenId: token.Id, TokenCredentialVersion: token.CredentialVersion, OriginModelName: "realtime-model", ChannelMeta: &relaycommon.ChannelMeta{ChannelId: 1, ChannelType: constant.ChannelTypeOpenAI}}
 	socket, err := DoWssRequest(adaptor, c, info, nil)
 	require.Error(t, err)
 	assert.Nil(t, socket)
@@ -138,4 +150,42 @@ func TestAssignedAccessWebSocketRechecksBeforeDial(t *testing.T) {
 	require.ErrorAs(t, err, &policyErr)
 	assert.Equal(t, http.StatusForbidden, policyErr.StatusCode)
 	assert.Zero(t, dials.Load(), "new assignment must deny unsupported transport before dial")
+}
+
+func TestWebSocketCredentialGenerationRecheckedBeforeDial(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	conn, err := db.DB()
+	require.NoError(t, err)
+	conn.SetMaxOpenConns(1)
+	prior := model.DB
+	model.DB = db
+	t.Cleanup(func() { model.DB = prior; _ = conn.Close() })
+	require.NoError(t, db.AutoMigrate(&model.Token{}, &model.AssignedAccessPolicy{}))
+	token := model.Token{UserId: 41, Key: "wss-generation-token", Status: common.TokenStatusEnabled, CredentialVersion: 6}
+	require.NoError(t, db.Create(&token).Error)
+
+	var dials atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		dials.Add(1)
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	t.Cleanup(upstream.Close)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/realtime", nil)
+	adaptor := assignedPolicyWssAdaptor{
+		url: "ws" + strings.TrimPrefix(upstream.URL, "http"),
+		beforeHeaders: func() error {
+			return db.Model(&model.Token{}).Where("id = ?", token.Id).Update("credential_version", 7).Error
+		},
+	}
+	info := &relaycommon.RelayInfo{UserId: token.UserId, TokenId: token.Id, TokenCredentialVersion: 6, ChannelMeta: &relaycommon.ChannelMeta{}}
+
+	socket, err := DoWssRequest(adaptor, c, info, nil)
+	require.Error(t, err)
+	assert.Nil(t, socket)
+	var relayErr *types.NewAPIError
+	require.ErrorAs(t, err, &relayErr)
+	assert.Equal(t, types.ErrorCode("relay_eligibility_changed"), relayErr.GetErrorCode())
+	assert.Zero(t, dials.Load())
 }
