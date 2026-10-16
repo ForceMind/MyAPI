@@ -26,6 +26,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { TitledCard } from '@/components/ui/titled-card'
 import { useDialogs } from '@/hooks/use-dialog'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
 
 import type { UserProfile } from '../types'
 import { AccessTokenDialog } from './dialogs/access-token-dialog'
@@ -51,6 +52,7 @@ export function ProfileSecurityCard({
 }: ProfileSecurityCardProps) {
   const { t } = useTranslation()
   const dialogs = useDialogs<DialogKey>()
+  const authRole = useAuthStore((state) => state.auth.user?.role)
 
   if (loading) {
     return (
@@ -70,7 +72,7 @@ export function ProfileSecurityCard({
 
   if (!profile) return null
 
-  const isRoot = profile.role === 100
+  const isRoot = (authRole ?? profile.role) === 100
 
   const securityActions = [
     {

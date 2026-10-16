@@ -73,4 +73,12 @@
 
 386检查发现controller新测试map内宽常量默认int溢出，改为显式int64保留数值，定向controller通过1.949s。驱动修订完整Node166/166再次通过。首轮CI已收集必要失败、三库、核心和advanced报告后取消剩余共享兼容步骤以节约资源；最终修订须完整重跑，不复用该取消状态当通过。
 
-首轮完整ts日志准确只有三项：未定义get、nullable model_limits赋给string、2FA setup unknown赋给业务类型。分别修正spy、原始null CSV映射为空串、以Zod校验真实2FA响应三字段后返回typed DTO；新增合法与错误备份码类型API合同。所有已知首轮失败修正集成，准备完整第二轮CI/隔离Docker，不把语法或本机缓存检查替代必需资格。
+首轮完整ts日志准确只有三项：未定义get、nullable model_limits赋给string、2FA setup unknown赋给业务类型。分别修正spy、原始null CSV映射为空串、逐字段校验真实2FA响应三字段后显式构造typed DTO；新增合法与错误备份码类型API合同。所有已知首轮失败修正集成，准备完整第二轮CI/隔离Docker，不把语法或本机缓存检查替代必需资格。
+
+第二轮资格源码5ba90cfee023d977a6aa8e7559576f6bd44b7c72，完整CI 38847248448、隔离Docker personal 38847256100均已启动；远端分支和Draft PR #17 head已回读一致。待实际结束，不预先填写成功。
+
+## 第二轮阶段结果与末次收口
+
+第二轮生产构建/type/lint通过，233文件/1496单元全部通过；三库作业完成，后端进入完整root/relaykit测试。实际advanced/隔离runtime仍进行中，不预判结果。
+
+独立审查发现同SID角色变Root时旧profile.role可误显示删除可用（后端始终拒绝），已使展示优先采用当前认证角色，并让资料读取identity含role；补重开安全区后禁用与Root说明回归。该新增回归尚需下一轮CI。另通过规定脚本修正vi既有Bind/Bound/Not bound三值为Liên kết/Đã liên kết/Chưa liên kết；仍83新增键，3个既有值修订，其它六语值不变。只读复核已关闭这两项；没有扩大历史assertion cast旧债清理范围。

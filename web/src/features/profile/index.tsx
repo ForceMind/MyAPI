@@ -65,7 +65,7 @@ export function Profile() {
   const authUserId = useAuthStore((s) => s.auth.user?.id)
   const authRole = useAuthStore((s) => s.auth.user?.role)
   const sessionSid = useAuthStore((s) => s.auth.session?.sid)
-  const profileIdentityKey = `${authUserId ?? 'anonymous'}:${sessionSid ?? 'no-session'}`
+  const profileIdentityKey = `${authUserId ?? 'anonymous'}:${authRole ?? 'no-role'}:${sessionSid ?? 'no-session'}`
   const { profile, loading, error, fetchProfile, refreshProfile } = useProfile(
     profileReadEnabled,
     profileIdentityKey

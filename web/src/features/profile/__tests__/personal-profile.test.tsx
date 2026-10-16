@@ -280,6 +280,74 @@ describe('personal profile', () => {
     })
   })
 
+  it('uses the current auth role when reopening deletion controls in the same session', async () => {
+    vi.spyOn(api, 'get').mockImplementation(async (url) => {
+      if (url === '/api/user/sessions' || url === '/api/user/oauth/bindings') {
+        return { data: { success: true, data: [] } }
+      }
+      if (url === '/api/user/2fa/status') {
+        return {
+          data: {
+            success: true,
+            data: { enabled: false, locked: false, backup_codes_remaining: 0 },
+          },
+        }
+      }
+      if (url === '/api/user/passkey') {
+        return { data: { success: true, data: { enabled: false } } }
+      }
+      if (url === '/api/status') return { data: { success: true, data: {} } }
+      throw new Error(`Unexpected test API: ${url}`)
+    })
+    const session = {
+      sid: 'session-one',
+      current: true,
+      login_method: 'password',
+      ip: '127.0.0.1',
+      user_agent: 'synthetic-test',
+      created_at: 1,
+      last_active_at: 1,
+      expires_at: 4_000_000_000,
+    }
+    useAuthStore.setState({
+      auth: {
+        ...originalAuth.auth,
+        user: { id: 42, username: 'owner', role: 1 },
+        session,
+      },
+    })
+    const { user } = await renderProfile({
+      profile: { ...profile, role: 1 },
+    })
+    const entry = screen.getByRole('button', {
+      name: /Manage login methods/,
+    })
+    await user.click(entry)
+    expect(
+      await screen.findByRole('button', {
+        name: /Delete Account Permanently delete your account Available/,
+      })
+    ).toBeEnabled()
+
+    act(() => {
+      useAuthStore.setState({
+        auth: {
+          ...useAuthStore.getState().auth,
+          user: { id: 42, username: 'owner', role: 100 },
+          session,
+        },
+      })
+    })
+
+    expect(entry).toHaveAttribute('aria-expanded', 'false')
+    await user.click(entry)
+    expect(
+      await screen.findByRole('button', {
+        name: /Delete Account Root accounts cannot be deleted Unavailable/,
+      })
+    ).toBeDisabled()
+  })
+
   it('reports an unknown account deletion result and retries only after another explicit submit', async () => {
     vi.spyOn(api, 'get').mockImplementation(async (url) => {
       if (url === '/api/user/sessions' || url === '/api/user/oauth/bindings') {
