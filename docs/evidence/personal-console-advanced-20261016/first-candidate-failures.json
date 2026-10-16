@@ -1,0 +1,26 @@
+{
+  "application_source": "b85779b78a4edfa319aa8c536cd0c656ce79e60e",
+  "ci_checkout": "8da042b2e9b6d3507f4becea4ddcd6b63bbd142e",
+  "ci_run": 38845560151,
+  "ci_status": "cancelled after actionable failures and advanced artifacts; remaining compatibility deliberately stopped",
+  "frontend_unit": {
+    "passed": 1490,
+    "failed": 3,
+    "total": 1493
+  },
+  "type_errors": [
+    "undefined get spy in model scope test",
+    "nullable model_limits snapshot assigned to string",
+    "unknown 2FA setup response assigned without narrowing"
+  ],
+  "backend_failure": "linux/386 test fixture map defaulted wide constants to int; explicit int64 retains boundary values",
+  "advanced_browser_failures": {
+    "model": "modal correctly hid navigation from accessibility tree; geometry locator failed",
+    "security": "translated card title and summary matched same text",
+    "window": "disabled pointer-events:none made center hit-test skip intended button; no PNG before first assert"
+  },
+  "runtime_run": 38845571447,
+  "runtime_status": "failure",
+  "runtime_failure": "model-scope-restrict timeout in legacy and authoritative; exact substep/root cause not yet established",
+  "production_effects": false
+}

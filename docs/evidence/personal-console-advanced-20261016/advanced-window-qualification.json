@@ -1,0 +1,791 @@
+{
+  "synthetic": true,
+  "liveBackend": false,
+  "scope": "Compiled frontend with synthetic API contracts; no live account, credential, provider, or production data is read or changed.",
+  "version": "0.2.0-beta.17",
+  "sourceHead": "c88c8089660e064b31920a02e057e3df34508229",
+  "fixtureTime": "2026-10-07T06:00:00.000Z",
+  "journeys": [
+    {
+      "name": "advanced-window-en-1280",
+      "language": "en",
+      "width": 1280,
+      "height": 1000,
+      "theme": "dark",
+      "emphasis": false,
+      "functional": true,
+      "buildRevision": "rv.0.2.0-beta.17.c88c8089660e064b31920a02e057e3df34508229.2k6e8r7p",
+      "phase": "closed",
+      "calls": {
+        "gets": 7,
+        "puts": [
+          {
+            "phase": "initial",
+            "outcome": "accepted",
+            "body": {
+              "id": "1f936fdebbdcb68ce442fdfa5c6c2112308bd5c8c413338a19c19eeb77fda774",
+              "pool_id": 7,
+              "snapshot_id": 71,
+              "expected_revision": 4,
+              "share_bps": 2000,
+              "confirmed_approximate": true,
+              "replace_window": true
+            }
+          },
+          {
+            "phase": "after-replacement",
+            "outcome": "accepted",
+            "body": {
+              "id": "b1840a75d29c1b23aa78bb8bb096027c6378dc0c0bfbf31ccd407e03541bff2f",
+              "pool_id": 7,
+              "snapshot_id": 74,
+              "expected_revision": 5,
+              "share_bps": 2000,
+              "confirmed_approximate": true,
+              "replace_window": true
+            }
+          },
+          {
+            "phase": "after-recovery",
+            "outcome": "unknown-401",
+            "body": {
+              "id": "14a9aa2ddd81fe3bfbcf6984f8af8768f4ff452bbebce9879fc140e1c968e04f",
+              "pool_id": 7,
+              "snapshot_id": 75,
+              "expected_revision": 6,
+              "share_bps": 2000,
+              "confirmed_approximate": true,
+              "replace_window": true
+            }
+          }
+        ],
+        "closes": [
+          {
+            "id": "e850373adaf7e87ca8e0411f49507d1502b0eb6b78751907f76367b6efc36569",
+            "expected_revision": 6,
+            "confirmed_close": true
+          }
+        ],
+        "authRefreshes": 1
+      },
+      "actionGeometry": [
+        {
+          "x": 381,
+          "y": 886.65625,
+          "width": 160,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        },
+        {
+          "x": 381,
+          "y": 886.65625,
+          "width": 164,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        }
+      ],
+      "screenshots": [
+        "advanced-window-en-1280-replacement.png",
+        "advanced-window-en-1280-recovery.png",
+        "advanced-window-en-1280-unknown-result.png",
+        "advanced-window-en-1280-independent-close.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-window-en-320",
+      "language": "en",
+      "width": 320,
+      "height": 900,
+      "theme": "light",
+      "emphasis": false,
+      "functional": false,
+      "buildRevision": "rv.0.2.0-beta.17.c88c8089660e064b31920a02e057e3df34508229.2k6e8r7p",
+      "phase": "initial",
+      "calls": {
+        "gets": 1,
+        "puts": [],
+        "closes": [],
+        "authRefreshes": 1
+      },
+      "actionGeometry": [
+        {
+          "x": 16,
+          "y": 698.75,
+          "width": 288,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        },
+        {
+          "x": 16,
+          "y": 778.75,
+          "width": 288,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        }
+      ],
+      "screenshots": [
+        "advanced-window-en-320-replacement.png",
+        "advanced-window-en-320-recovery.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-window-zh-1280",
+      "language": "zh",
+      "width": 1280,
+      "height": 1000,
+      "theme": "light",
+      "emphasis": false,
+      "functional": false,
+      "buildRevision": "rv.0.2.0-beta.17.c88c8089660e064b31920a02e057e3df34508229.2k6e8r7p",
+      "phase": "initial",
+      "calls": {
+        "gets": 1,
+        "puts": [],
+        "closes": [],
+        "authRefreshes": 1
+      },
+      "actionGeometry": [
+        {
+          "x": 363,
+          "y": 887.40625,
+          "width": 160,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        },
+        {
+          "x": 363,
+          "y": 887.40625,
+          "width": 160,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        }
+      ],
+      "screenshots": [
+        "advanced-window-zh-1280-replacement.png",
+        "advanced-window-zh-1280-recovery.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-window-zh-320",
+      "language": "zh",
+      "width": 320,
+      "height": 900,
+      "theme": "light",
+      "emphasis": false,
+      "functional": false,
+      "buildRevision": "rv.0.2.0-beta.17.c88c8089660e064b31920a02e057e3df34508229.2k6e8r7p",
+      "phase": "initial",
+      "calls": {
+        "gets": 1,
+        "puts": [],
+        "closes": [],
+        "authRefreshes": 1
+      },
+      "actionGeometry": [
+        {
+          "x": 16,
+          "y": 710.5,
+          "width": 288,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        },
+        {
+          "x": 16,
+          "y": 784.5,
+          "width": 288,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        }
+      ],
+      "screenshots": [
+        "advanced-window-zh-320-replacement.png",
+        "advanced-window-zh-320-recovery.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-window-zh-TW-1280",
+      "language": "zh-TW",
+      "width": 1280,
+      "height": 1000,
+      "theme": "light",
+      "emphasis": false,
+      "functional": false,
+      "buildRevision": "rv.0.2.0-beta.17.c88c8089660e064b31920a02e057e3df34508229.2k6e8r7p",
+      "phase": "initial",
+      "calls": {
+        "gets": 1,
+        "puts": [],
+        "closes": [],
+        "authRefreshes": 1
+      },
+      "actionGeometry": [
+        {
+          "x": 363,
+          "y": 887.40625,
+          "width": 160,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        },
+        {
+          "x": 363,
+          "y": 887.40625,
+          "width": 160,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        }
+      ],
+      "screenshots": [
+        "advanced-window-zh-TW-1280-replacement.png",
+        "advanced-window-zh-TW-1280-recovery.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-window-zh-TW-320",
+      "language": "zh-TW",
+      "width": 320,
+      "height": 900,
+      "theme": "light",
+      "emphasis": false,
+      "functional": false,
+      "buildRevision": "rv.0.2.0-beta.17.c88c8089660e064b31920a02e057e3df34508229.2k6e8r7p",
+      "phase": "initial",
+      "calls": {
+        "gets": 1,
+        "puts": [],
+        "closes": [],
+        "authRefreshes": 1
+      },
+      "actionGeometry": [
+        {
+          "x": 16,
+          "y": 710.5,
+          "width": 288,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        },
+        {
+          "x": 16,
+          "y": 784.5,
+          "width": 288,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        }
+      ],
+      "screenshots": [
+        "advanced-window-zh-TW-320-replacement.png",
+        "advanced-window-zh-TW-320-recovery.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-window-fr-1280",
+      "language": "fr",
+      "width": 1280,
+      "height": 1000,
+      "theme": "light",
+      "emphasis": false,
+      "functional": false,
+      "buildRevision": "rv.0.2.0-beta.17.c88c8089660e064b31920a02e057e3df34508229.2k6e8r7p",
+      "phase": "initial",
+      "calls": {
+        "gets": 1,
+        "puts": [],
+        "closes": [],
+        "authRefreshes": 1
+      },
+      "actionGeometry": [
+        {
+          "x": 387,
+          "y": 886.65625,
+          "width": 170,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        },
+        {
+          "x": 387,
+          "y": 886.65625,
+          "width": 187,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        }
+      ],
+      "screenshots": [
+        "advanced-window-fr-1280-replacement.png",
+        "advanced-window-fr-1280-recovery.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-window-fr-320",
+      "language": "fr",
+      "width": 320,
+      "height": 900,
+      "theme": "light",
+      "emphasis": false,
+      "functional": false,
+      "buildRevision": "rv.0.2.0-beta.17.c88c8089660e064b31920a02e057e3df34508229.2k6e8r7p",
+      "phase": "initial",
+      "calls": {
+        "gets": 1,
+        "puts": [],
+        "closes": [],
+        "authRefreshes": 1
+      },
+      "actionGeometry": [
+        {
+          "x": 16,
+          "y": 699.25,
+          "width": 288,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        },
+        {
+          "x": 16,
+          "y": 779.25,
+          "width": 288,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        }
+      ],
+      "screenshots": [
+        "advanced-window-fr-320-replacement.png",
+        "advanced-window-fr-320-recovery.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-window-ru-1280",
+      "language": "ru",
+      "width": 1280,
+      "height": 1000,
+      "theme": "light",
+      "emphasis": false,
+      "functional": false,
+      "buildRevision": "rv.0.2.0-beta.17.c88c8089660e064b31920a02e057e3df34508229.2k6e8r7p",
+      "phase": "initial",
+      "calls": {
+        "gets": 1,
+        "puts": [],
+        "closes": [],
+        "authRefreshes": 1
+      },
+      "actionGeometry": [
+        {
+          "x": 385.234375,
+          "y": 886.65625,
+          "width": 160,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        },
+        {
+          "x": 385.234375,
+          "y": 886.65625,
+          "width": 197.078125,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        }
+      ],
+      "screenshots": [
+        "advanced-window-ru-1280-replacement.png",
+        "advanced-window-ru-1280-recovery.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-window-ru-320",
+      "language": "ru",
+      "width": 320,
+      "height": 900,
+      "theme": "light",
+      "emphasis": false,
+      "functional": false,
+      "buildRevision": "rv.0.2.0-beta.17.c88c8089660e064b31920a02e057e3df34508229.2k6e8r7p",
+      "phase": "initial",
+      "calls": {
+        "gets": 1,
+        "puts": [],
+        "closes": [],
+        "authRefreshes": 1
+      },
+      "actionGeometry": [
+        {
+          "x": 16,
+          "y": 699,
+          "width": 288,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        },
+        {
+          "x": 16,
+          "y": 773.25,
+          "width": 288,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        }
+      ],
+      "screenshots": [
+        "advanced-window-ru-320-replacement.png",
+        "advanced-window-ru-320-recovery.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-window-ja-1280",
+      "language": "ja",
+      "width": 1280,
+      "height": 1000,
+      "theme": "light",
+      "emphasis": false,
+      "functional": false,
+      "buildRevision": "rv.0.2.0-beta.17.c88c8089660e064b31920a02e057e3df34508229.2k6e8r7p",
+      "phase": "initial",
+      "calls": {
+        "gets": 1,
+        "puts": [],
+        "closes": [],
+        "authRefreshes": 1
+      },
+      "actionGeometry": [
+        {
+          "x": 405,
+          "y": 886.65625,
+          "width": 184,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        },
+        {
+          "x": 405,
+          "y": 886.65625,
+          "width": 160,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        }
+      ],
+      "screenshots": [
+        "advanced-window-ja-1280-replacement.png",
+        "advanced-window-ja-1280-recovery.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-window-ja-320",
+      "language": "ja",
+      "width": 320,
+      "height": 900,
+      "theme": "light",
+      "emphasis": false,
+      "functional": false,
+      "buildRevision": "rv.0.2.0-beta.17.c88c8089660e064b31920a02e057e3df34508229.2k6e8r7p",
+      "phase": "initial",
+      "calls": {
+        "gets": 1,
+        "puts": [],
+        "closes": [],
+        "authRefreshes": 1
+      },
+      "actionGeometry": [
+        {
+          "x": 16,
+          "y": 699.25,
+          "width": 288,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        },
+        {
+          "x": 16,
+          "y": 699.25,
+          "width": 288,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        }
+      ],
+      "screenshots": [
+        "advanced-window-ja-320-replacement.png",
+        "advanced-window-ja-320-recovery.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-window-vi-1280",
+      "language": "vi",
+      "width": 1280,
+      "height": 1000,
+      "theme": "light",
+      "emphasis": false,
+      "functional": false,
+      "buildRevision": "rv.0.2.0-beta.17.c88c8089660e064b31920a02e057e3df34508229.2k6e8r7p",
+      "phase": "initial",
+      "calls": {
+        "gets": 1,
+        "puts": [],
+        "closes": [],
+        "authRefreshes": 1
+      },
+      "actionGeometry": [
+        {
+          "x": 381,
+          "y": 886.65625,
+          "width": 160,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        },
+        {
+          "x": 381,
+          "y": 886.65625,
+          "width": 160,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        }
+      ],
+      "screenshots": [
+        "advanced-window-vi-1280-replacement.png",
+        "advanced-window-vi-1280-recovery.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-window-vi-320",
+      "language": "vi",
+      "width": 320,
+      "height": 900,
+      "theme": "dark",
+      "emphasis": true,
+      "functional": true,
+      "buildRevision": "rv.0.2.0-beta.17.c88c8089660e064b31920a02e057e3df34508229.2k6e8r7p",
+      "phase": "closed",
+      "calls": {
+        "gets": 5,
+        "puts": [
+          {
+            "phase": "initial",
+            "outcome": "accepted",
+            "body": {
+              "id": "d49914a1c2b936df1deddf5db5a4a64d0659530127b2767580ae3b22bf7a85a4",
+              "pool_id": 7,
+              "snapshot_id": 71,
+              "expected_revision": 4,
+              "share_bps": 2000,
+              "confirmed_approximate": true,
+              "replace_window": true
+            }
+          },
+          {
+            "phase": "after-replacement",
+            "outcome": "accepted",
+            "body": {
+              "id": "40855710e30dcc16d169f30eadda8892bd2e3ff20f8e87c236ae6027a73c9d02",
+              "pool_id": 7,
+              "snapshot_id": 74,
+              "expected_revision": 5,
+              "share_bps": 2000,
+              "confirmed_approximate": true,
+              "replace_window": true
+            }
+          },
+          {
+            "phase": "after-recovery",
+            "outcome": "unknown-401",
+            "body": {
+              "id": "347ebd0b463e7103923f9ac030fdf8443b86cfc5a0653356586dd3891e5df7e7",
+              "pool_id": 7,
+              "snapshot_id": 75,
+              "expected_revision": 6,
+              "share_bps": 2000,
+              "confirmed_approximate": true,
+              "replace_window": true
+            }
+          }
+        ],
+        "closes": [
+          {
+            "id": "cd267d7031d5bca2d5d5c76fc5237c1603c5e6d366f32272765e1163a08ab823",
+            "expected_revision": 6,
+            "confirmed_close": true
+          }
+        ],
+        "authRefreshes": 1
+      },
+      "actionGeometry": [
+        {
+          "x": 16,
+          "y": 683,
+          "width": 288,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        },
+        {
+          "x": 16,
+          "y": 763,
+          "width": 288,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        }
+      ],
+      "screenshots": [
+        "advanced-window-vi-320-replacement.png",
+        "advanced-window-vi-320-recovery.png",
+        "advanced-window-vi-320-unknown-result.png",
+        "advanced-window-vi-320-independent-close.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-window-zh-1440",
+      "language": "zh",
+      "width": 1440,
+      "height": 1000,
+      "theme": "light",
+      "emphasis": true,
+      "functional": false,
+      "buildRevision": "rv.0.2.0-beta.17.c88c8089660e064b31920a02e057e3df34508229.2k6e8r7p",
+      "phase": "initial",
+      "calls": {
+        "gets": 1,
+        "puts": [],
+        "closes": [],
+        "authRefreshes": 1
+      },
+      "actionGeometry": [
+        {
+          "x": 363,
+          "y": 887.40625,
+          "width": 160,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        },
+        {
+          "x": 363,
+          "y": 887.40625,
+          "width": 160,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        }
+      ],
+      "screenshots": [
+        "advanced-window-zh-1440-replacement.png",
+        "advanced-window-zh-1440-recovery.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-window-zh-390",
+      "language": "zh",
+      "width": 390,
+      "height": 900,
+      "theme": "light",
+      "emphasis": true,
+      "functional": false,
+      "buildRevision": "rv.0.2.0-beta.17.c88c8089660e064b31920a02e057e3df34508229.2k6e8r7p",
+      "phase": "initial",
+      "calls": {
+        "gets": 1,
+        "puts": [],
+        "closes": [],
+        "authRefreshes": 1
+      },
+      "actionGeometry": [
+        {
+          "x": 16,
+          "y": 711,
+          "width": 358,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        },
+        {
+          "x": 16,
+          "y": 785,
+          "width": 358,
+          "height": 44,
+          "pointerEvents": "none",
+          "hitTarget": "button",
+          "unobscured": true
+        }
+      ],
+      "screenshots": [
+        "advanced-window-zh-390-replacement.png",
+        "advanced-window-zh-390-recovery.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-window-en-320-owner-read-only",
+      "language": "en",
+      "width": 320,
+      "theme": "light",
+      "role": "owner",
+      "screenshots": [
+        "advanced-window-en-320-owner-read-only.png"
+      ],
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "passed": true
+}

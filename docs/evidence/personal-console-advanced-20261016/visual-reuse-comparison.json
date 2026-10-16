@@ -1,0 +1,77 @@
+{
+  "previous_checkout": "e9ff1206029d533c29033c26795790ffa0249468",
+  "final_checkout": "c88c8089660e064b31920a02e057e3df34508229",
+  "scope": "Window/model UI product sources unchanged; prior independent actual image review applies only where original PNG bytes match",
+  "files": [
+    {
+      "file": "advanced-model-scope-en-320-light-mobile-preserved-model.png",
+      "byte_identical_to_independently_viewed_prior_build": true,
+      "final_sha256": "2d5fb6867e6824df0e2d39c1557cc1156507e3d122e7cc63f41999e1dbf22c48"
+    },
+    {
+      "file": "advanced-model-scope-vi-320-dark-mobile-actions.png",
+      "byte_identical_to_independently_viewed_prior_build": false,
+      "final_sha256": "cccfc78f0239dcb185108b45c0ff7c867b433ba66a2140945f2106bb0ef1663e"
+    },
+    {
+      "file": "advanced-model-scope-vi-320-dark-unknown-readback.png",
+      "byte_identical_to_independently_viewed_prior_build": false,
+      "final_sha256": "3306cd726f2e9cac9995213692d0aa0015658b33e9ca249687419ded06c6033b"
+    },
+    {
+      "file": "advanced-model-scope-zh-1440-light-open.png",
+      "byte_identical_to_independently_viewed_prior_build": false,
+      "final_sha256": "7f8d38471f6f4383bb7155775d9df4be8a267401d4622df59e92e232bcb23cb6"
+    },
+    {
+      "file": "advanced-model-scope-zh-1440-light-readback.png",
+      "byte_identical_to_independently_viewed_prior_build": true,
+      "final_sha256": "29aad4814420a8049a41fcd43c3b67ed98e85593e83243e104b399a507eddcaa"
+    },
+    {
+      "file": "advanced-model-scope-zh-390-light-block-confirmation.png",
+      "byte_identical_to_independently_viewed_prior_build": false,
+      "final_sha256": "0210e549556b9d14e210708e080d4664e8e54afe269c64a5a215e849fd5f74e0"
+    },
+    {
+      "file": "advanced-model-scope-zh-390-light-open.png",
+      "byte_identical_to_independently_viewed_prior_build": true,
+      "final_sha256": "3dadf03549ed5dd201ea4b0fd3dec275e3af06ce8a0560c1f9d87b6190dd6e2b"
+    },
+    {
+      "file": "advanced-window-en-1280-replacement.png",
+      "byte_identical_to_independently_viewed_prior_build": true,
+      "final_sha256": "519e86640ad78359f94d152b421621c27f20b529d86fcc9f3f857117491e002f"
+    },
+    {
+      "file": "advanced-window-vi-320-independent-close.png",
+      "byte_identical_to_independently_viewed_prior_build": true,
+      "final_sha256": "e8b82e2e8b3e4d0ee971b81f603d99e130c621d1eaae00bc7ffb51fbf60e4b4a"
+    },
+    {
+      "file": "advanced-window-vi-320-unknown-result.png",
+      "byte_identical_to_independently_viewed_prior_build": false,
+      "final_sha256": "eb9fc9d17dc6f557c60095c4235895ef6cbea09eb49cb7fe4a0ffcd5010c4eb6"
+    },
+    {
+      "file": "advanced-window-zh-1440-recovery.png",
+      "byte_identical_to_independently_viewed_prior_build": false,
+      "final_sha256": "b962de08dc5cca229399f0a35baccff13a6428f7fca440be8b3a78818d421209"
+    },
+    {
+      "file": "advanced-window-zh-1440-replacement.png",
+      "byte_identical_to_independently_viewed_prior_build": true,
+      "final_sha256": "7fdd09174ba67ba4e3ce2b3cbb240dcabefbab34b348a34415438be1f7ceabb4"
+    },
+    {
+      "file": "advanced-window-zh-390-recovery.png",
+      "byte_identical_to_independently_viewed_prior_build": false,
+      "final_sha256": "233eed4a323a1783940b5085c7d7514f428ecedd3440a596661520499e12e8df"
+    },
+    {
+      "file": "advanced-window-zh-390-replacement.png",
+      "byte_identical_to_independently_viewed_prior_build": true,
+      "final_sha256": "d352986c3d5ec4f709a124db4b70f847a2a97c8682913077fbb0d851c0843a62"
+    }
+  ]
+}

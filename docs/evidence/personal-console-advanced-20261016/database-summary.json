@@ -1,0 +1,21 @@
+{
+  "source": "0a1f6c4cfe4d227612791d4ad32e138f23a0ed3a",
+  "ci_checkout": "c88c8089660e064b31920a02e057e3df34508229",
+  "run": 38855315874,
+  "job": 116825433447,
+  "test": "TestTokenModelLimitsConfiguredDatabases",
+  "configured_flag": "MYAPI_B2_DATABASE_TESTS=1",
+  "result": "passed",
+  "dialects": [
+    "SQLite",
+    "MySQL5.7",
+    "PostgreSQL9.6"
+  ],
+  "pass_evidence": [
+    "2026-10-16T05:24:31.1180268Z --- PASS: TestTokenModelLimitsConfiguredDatabases (0.13s)",
+    "2026-10-16T05:24:31.1183727Z     --- PASS: TestTokenModelLimitsConfiguredDatabases/sqlite (0.04s)",
+    "2026-10-16T05:24:31.1184262Z     --- PASS: TestTokenModelLimitsConfiguredDatabases/mysql (0.04s)",
+    "2026-10-16T05:24:31.1184804Z     --- PASS: TestTokenModelLimitsConfiguredDatabases/postgres (0.05s)"
+  ],
+  "disposable_databases_only": true
+}

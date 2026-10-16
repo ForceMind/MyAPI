@@ -29,7 +29,7 @@
 
 ## 阶段状态
 
-待验证：三组高级维护 UI、窄字段 Go API、七语言与候选 beta.17 已实现，定向缓存 Go 测试通过。完整 Actions、实际截图和隔离运行仍待新源码执行；旧 beta.16 结果仅作基线。
+已完成：beta.17三组高级维护、窄字段API、七语言、完整CI/Docker运行及原图补验通过，最终独立复核和交付归档见文末及交付记录。旧候选失败结果保留历史，不作为验收通过证据。
 
 ## 实际派工与接口决定
 
@@ -140,3 +140,11 @@ CI38855315874已实际完成，10项作业全部success：1498/233单元、type/
 TwoFA失败卡单图只绘出上段，未完整展示Retry，功能20旅程及恢复均通过但证据不完整。仅driver在截图前居中整卡，等待settled，验证整卡/Retry视口与命中；产品不改。使用已注册website-browser workflow的仅手动security_evidence模式复用上述完整通过CI构建，避免为截图驱动改动重建应用。守卫先核对CI身份/成功状态、producer与artifactcheckout树相同，compare只允许docs/securitydriver/该workflow且拒绝300文件潜在截断和越界重命名；再设显式buildHead，报告分列build/driver/workflow身份。默认网站步骤完整保留，contents/actions仅read，主CI不改。新workflow文件未采用，因为[GitHub手动事件规则](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)要求默认分支已有工作流，本批不合并main。
 
 独立maintenance_plan只读审查通过，无P1/P2；YAML/bash/node/diff检查通过。下一步：提交仅证据driver/既有workflow/记录，手动补验准确c88构建，实际看完整TwoFA失败原图，再归档和同步Draft PR。
+
+## 最终验收与归档
+
+应用源码0a1f6c4、CI checkoutc88（树684782c1一致）通过CI38855315874全部10项和Docker38855486670全部6项；1498单元、71核心、54高级、六兼容、三库/386/root/relaykit/race均成功。证据driver3820baf在手动补验38857597290中实际通过source guard，复用同c88构建20旅程再过；居中settled后TwoFA失败卡图标、标题与Retry完整。报告分列buildHead/driverHead，完整CI原security报告另存。产品源文件从0a起保持不变，后续归档只文档与证据。
+
+已实际运行只读CI构建预览4174并核对200读取、405写入/生成Token；非实现者审查最终按钮44px、暗色/手机长文/错误恢复、窗口/模型差异图及双writer代表图，原P2关闭。凭据轮换与迁移只交付能力和四项必要决定，未实施。原M哈希、现有登录/Key、缺usage成功/Token未知与近似误差语义保持；历史账务和生产数据/凭据/备份继续冻结，无合并/标签/发布/部署。
+
+归档清单和SHA256见evidence索引；GitHub同步沿用现有功能分支/Draft PR17，归档自动CI与上述准确资格运行分别报告。用户已有计划/设计差异保留。

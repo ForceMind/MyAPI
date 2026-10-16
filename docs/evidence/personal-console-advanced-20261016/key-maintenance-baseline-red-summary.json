@@ -1,0 +1,11 @@
+{
+  "run": 38855315874,
+  "ci_checkout": "c88c8089660e064b31920a02e057e3df34508229",
+  "baseline_source": "7166e7922daeef0b53069610e9ff766105b51d61",
+  "expected_failures": 8,
+  "observed_failures": 8,
+  "unhandled_errors": 0,
+  "expected_red_proven": true,
+  "candidate_tests_passed": 1498,
+  "artifact_sha256": "a56dea13ac94671cb9fb1313928d0f4b571708dce33bad8dfea74b8bbd6e0416"
+}

@@ -1,0 +1,50 @@
+{
+  "run": 38855315874,
+  "source": "0a1f6c4cfe4d227612791d4ad32e138f23a0ed3a",
+  "ci_checkout": "c88c8089660e064b31920a02e057e3df34508229",
+  "scope": "Production frontend with isolated synthetic APIs; no production acceptance",
+  "reports": [
+    {
+      "file": "personal-status-qualification.json",
+      "sha256": "6d68f36920285d8dafb91ccdce733f7f13aeb19de0158ba654da59d93e6125d6",
+      "result": "passed",
+      "journeys": 6,
+      "passed_cases": null
+    },
+    {
+      "file": "playground-qualification.json",
+      "sha256": "3f63e7541db05f76334d7e8a205345a93fb4dc981e890d0a6d9fe8a0b49b4ee2",
+      "result": "passed",
+      "journeys": 8,
+      "passed_cases": null
+    },
+    {
+      "file": "qualification.json",
+      "sha256": "db245e7888896cfc75e2c5638147c9d821b0cc3ab934cdefcf1e422655375ff6",
+      "result": "passed",
+      "journeys": 32,
+      "passed_cases": null
+    },
+    {
+      "file": "result.json",
+      "sha256": "29d2db5509cea2fa76220e8d342719468bbd6bd6019ecbeb3494fc47edb8ee9e",
+      "result": "passed",
+      "journeys": 0,
+      "passed_cases": 9
+    },
+    {
+      "file": "setup-result.json",
+      "sha256": "0c6d2ba9a799a790d18f0d6c03b0d20680d77fd07cc2f249e69ac880311c4058",
+      "result": "passed",
+      "journeys": 0,
+      "passed_cases": 25
+    },
+    {
+      "file": "stability-result.json",
+      "sha256": "3860604f2a84e0ff0408ffc8ffee1bea988ab409bfd2ccc45af6d4681fcbe081",
+      "result": "passed",
+      "journeys": 0,
+      "passed_cases": 10
+    }
+  ]
+}

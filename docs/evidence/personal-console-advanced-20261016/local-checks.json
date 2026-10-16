@@ -1,0 +1,47 @@
+{
+  "source": "0a1f6c4cfe4d227612791d4ad32e138f23a0ed3a",
+  "version": "0.2.0-beta.17",
+  "go": {
+    "packages": [
+      "model",
+      "controller"
+    ],
+    "filter": "^Test(TokenModelLimits.*|TokenMetadataPreservesWideQuota|TokenQuotaVersionIsExactAndStaleEditsWriteNothing)$",
+    "result": "pass",
+    "temporaryDatabasesOnly": true,
+    "executed_on_source": "5ba90cfee023d977a6aa8e7559576f6bd44b7c72",
+    "scope": "model/controller files unchanged through final application source; final full Go qualifications additionally required in CI"
+  },
+  "runtimeNodeContracts": {
+    "passed": 166,
+    "failed": 0,
+    "result": "pass",
+    "log": "myapi-advanced-runtime-final-contracts.log"
+  },
+  "i18n": {
+    "newKeysPerLocale": 83,
+    "locales": [
+      "en",
+      "zh",
+      "zh-TW",
+      "fr",
+      "ja",
+      "ru",
+      "vi"
+    ],
+    "sync": "pass",
+    "existingVietnameseCorrections": 3
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 4,
+    "warningScope": "existing query selector usage in api-keys-quota-edit.test.tsx"
+  },
+  "browserDriversSyntax": "pass",
+  "productionDataTouched": false,
+  "credentialsTouched": false,
+  "deployed": false,
+  "published": false,
+  "merged": false,
+  "scope": "Cached Go and runtime Node results reused because corresponding product/test inputs remain unchanged; final Actions checks separately recorded"
+}
