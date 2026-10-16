@@ -229,14 +229,14 @@ async function openCommitVerification(
   await user.click(screen.getByRole('button', { name: 'Preview migration' }))
   await screen.findByText('Confirm migration')
   await user.click(
-    screen.getByLabelText(
-      'I understand this keeps the Key identity, secret, and request history.'
-    )
+    screen.getByRole('checkbox', {
+      name: 'I understand this keeps the Key identity, secret, and request history.',
+    })
   )
   await user.click(
-    screen.getByLabelText(
-      'I understand usage estimates remain approximate and the old pools are not closed.'
-    )
+    screen.getByRole('checkbox', {
+      name: 'I understand usage estimates remain approximate and the old pools are not closed.',
+    })
   )
   await user.click(
     screen.getByRole('button', { name: 'Verify and move account' })

@@ -860,7 +860,7 @@ jobs:
   credential-maintenance:
     name: Isolated credential maintenance browser and real API
     needs: frontend
-    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    if: ${{ !cancelled() && (github.event.action != 'closed' || github.event.pull_request.merged == true) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:

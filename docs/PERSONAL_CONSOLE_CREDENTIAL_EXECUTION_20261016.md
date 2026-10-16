@@ -77,8 +77,12 @@
 
 unknown 跨卸载 P1 修复已由 credential_plan/credential_guard 非实现者复核关闭：actor/Token 隔离非秘密 pending ID、POST 前保存并回读、恢复只 GET 原回执、duplicate callback 不复位、禁止覆盖其他 op、expected op compare-and-clear。确定 committed 或明确未受理的 deterministic commit 4xx 可清；unknown/408/499/5xx/解析失败及 receipt404 保留。sessionStorage 的边界是同一标签生命周期，不声称关闭标签/清站点数据/跨设备可恢复。
 
-首轮完整 CI38902455293 后端失败仅因 timeout fixture 的 First 读到新增旧身份样本。已精确取唯一当前 sample，保留 error/upstream_timeout 且整行验证旧 seed 不变；全部 TestCodexSampling 定向0.108s通过。前端已通过构建/类型/lint/单元，旧浏览器流程尚运行，新unknown修复未进入该轮，不作为最终资格。
+首轮完整 CI38902455293 后端失败仅因 timeout fixture 的 First 读到新增旧身份样本。已精确取唯一当前 sample，保留 error/upstream_timeout 且整行验证旧 seed 不变；全部 TestCodexSampling 定向0.108s通过。前端已通过构建/类型/lint；单元后来确认有1项选择器失败（当时仅据后续作业继续执行误判通过，现更正），旧浏览器流程尚运行，新unknown修复未进入该轮，不作为最终资格。
 
 新增持久恢复4个TS文件缓存lint通过；主线程最终格式检查发现1文件格式差异，已规范并再lint通过。两个driver语法及diff-check通过；新RTL/恢复浏览器行为待完整新CI。
 
 前端既有六脚本兼容矩阵在首候选单步骤超过10分钟，原25分钟job接近边界；最终候选将job上限调整为30分钟，保留所有检查及各测试独立超时，不缩减验证。新增pending helper本机直接执行真实函数的save/read、actor/Token隔离、不同op拒绝与compare-and-clear通过；这不替代RTL/浏览器。
+
+首轮前端日志回读：236文件中235通过、1失败；1511单元中1510通过、1失败。新dialog的 getByLabelText 同时匹配 Base UI 可见checkbox与hidden input，已改为 getByRole(checkbox, name) 精确定位可操作控件，保留确认与unknown断言，不改生产。该轮新credential job因frontend失败而skip，没有本批新维护截图。最终资格需新候选全套通过，不能用后续continue运行等同通过。
+
+新增credential job改为前端完成后即使其其他检查失败也继续取准确构建运行，收集新功能独立诊断；构建缺失会明确失败，整体CI仍必须全通过。避免新维护因无关单元/旧浏览器失败被静默跳过，不削弱验收。
