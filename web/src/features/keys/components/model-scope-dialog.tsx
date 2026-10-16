@@ -173,6 +173,10 @@ function ModelScopeSession(props: ModelScopeSessionProps) {
       return scope
     },
     retry: false,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
   const catalogQuery = useQuery({
     queryKey: [
@@ -193,20 +197,23 @@ function ModelScopeSession(props: ModelScopeSessionProps) {
     retry: false,
   })
 
+  const currentScope =
+    scopeQuery.isFetchedAfterMount && scopeQuery.isSuccess
+      ? scopeQuery.data
+      : undefined
+
   useEffect(() => {
-    if (!scopeQuery.data || scopeQuery.data.revision === loadedRevision) return
-    setDraft(modelScopeDraft(scopeQuery.data))
-    setLoadedRevision(scopeQuery.data.revision)
+    if (!currentScope || currentScope.revision === loadedRevision) return
+    setDraft(modelScopeDraft(currentScope))
+    setLoadedRevision(currentScope.revision)
     setBlockConfirmed(false)
     setNeedsReadback(false)
-  }, [loadedRevision, scopeQuery.data])
+  }, [currentScope, loadedRevision])
 
-  const originalDraft = scopeQuery.data
-    ? modelScopeDraft(scopeQuery.data)
-    : null
+  const originalDraft = currentScope ? modelScopeDraft(currentScope) : null
   const validationError =
-    draft && scopeQuery.data
-      ? validateModelScopeDraft(draft, scopeQuery.data.models)
+    draft && currentScope
+      ? validateModelScopeDraft(draft, currentScope.models)
       : null
   const dirty = Boolean(
     draft && originalDraft && !sameModelScopeDraft(draft, originalDraft)
@@ -255,8 +262,8 @@ function ModelScopeSession(props: ModelScopeSessionProps) {
   }
 
   const save = async () => {
-    if (!scopeQuery.data || !draft || !canSave || !isCurrentSession()) return
-    const command = modelScopeCommand(scopeQuery.data, draft)
+    if (!currentScope || !draft || !canSave || !isCurrentSession()) return
+    const command = modelScopeCommand(currentScope, draft)
     setSaving(true)
     setSaveError(null)
     const controller = new AbortController()
@@ -336,7 +343,7 @@ function ModelScopeSession(props: ModelScopeSessionProps) {
           </DialogDescription>
         </DialogHeader>
 
-        {scopeQuery.isPending && (
+        {!currentScope && !scopeQuery.isError && (
           <div role='status' className='flex flex-col gap-3'>
             <span className='sr-only'>{t('Loading model scope...')}</span>
             <Skeleton className='h-20 rounded-xl' />
@@ -359,14 +366,14 @@ function ModelScopeSession(props: ModelScopeSessionProps) {
           </Alert>
         )}
 
-        {scopeQuery.data && draft && (
+        {currentScope && draft && (
           <FieldGroup>
             <section className='border-primary/20 bg-primary/5 dark:bg-primary/10 min-w-0 rounded-xl border p-4'>
               <p className='font-medium break-words'>
-                {scopeQuery.data.token_name || props.apiKey.name}
+                {currentScope.token_name || props.apiKey.name}
               </p>
               <p className='text-muted-foreground mt-1 font-mono text-xs'>
-                {t('Key ID')}: {scopeQuery.data.token_id}
+                {t('Key ID')}: {currentScope.token_id}
               </p>
             </section>
 

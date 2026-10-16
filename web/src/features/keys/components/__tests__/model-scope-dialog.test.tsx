@@ -164,6 +164,82 @@ test('a failed scope read can be retried while an empty catalog preserves saved 
   expect(scopeReads).toBe(2)
 })
 
+test('reopening reads a fresh scope before exposing a cached draft', async () => {
+  client.clear()
+  client = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, staleTime: 10_000 },
+      mutations: { retry: false },
+    },
+  })
+  const user = userEvent.setup()
+  const revisionC = 'c'.repeat(64)
+  let resolveReopen!: (value: ReturnType<typeof scopeEnvelope>) => void
+  const reopenedScope = new Promise<ReturnType<typeof scopeEnvelope>>(
+    (resolve) => {
+      resolveReopen = resolve
+    }
+  )
+  let scopeReads = 0
+  let current = scopeEnvelope(false, ['cached-model'], revisionA)
+  const get = vi.spyOn(api, 'get').mockImplementation(async (url) => {
+    if (url === '/api/token/21/model-limits') {
+      scopeReads += 1
+      if (scopeReads === 2) return reopenedScope
+      return current
+    }
+    if (url === '/api/user/models') {
+      return { data: { success: true, data: [] } }
+    }
+    throw new Error(`Unexpected GET ${url}`)
+  })
+  const put = vi.spyOn(api, 'put').mockImplementation(async (_url, body) => {
+    const command = body as {
+      model_limits_enabled: boolean
+      models: string[]
+    }
+    current = scopeEnvelope(
+      command.model_limits_enabled,
+      command.models,
+      revisionC
+    )
+    return current
+  })
+
+  renderDialog()
+  expect(await screen.findByText('cached-model')).toBeVisible()
+  cleanup()
+
+  const onClose = renderDialog()
+  await waitFor(() => expect(scopeReads).toBe(2))
+  expect(screen.getByText('Loading model scope...')).toBeInTheDocument()
+  expect(screen.queryByText('cached-model')).not.toBeInTheDocument()
+  expect(screen.queryByRole('radio')).not.toBeInTheDocument()
+
+  await act(async () => {
+    resolveReopen(scopeEnvelope(true, ['server-current'], revisionB))
+  })
+  expect(await screen.findByText('server-current')).toBeVisible()
+  await user.click(
+    screen.getByRole('radio', { name: /No additional model limit/ })
+  )
+  await user.click(screen.getByRole('button', { name: 'Save model scope' }))
+
+  await waitFor(() => expect(onClose).toHaveBeenCalledOnce())
+  expect(put).toHaveBeenCalledWith(
+    '/api/token/21/model-limits',
+    {
+      expected_revision: revisionB,
+      model_limits_enabled: false,
+      models: ['server-current'],
+    },
+    expect.objectContaining({ skipAuthRefresh: true })
+  )
+  expect(
+    get.mock.calls.filter(([url]) => url === '/api/token/21/model-limits')
+  ).toHaveLength(3)
+})
+
 test('saving selected models sends only the narrow command and closes after matching readback', async () => {
   const user = userEvent.setup()
   let current = scopeEnvelope(false, ['retained-while-off'])

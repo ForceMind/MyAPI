@@ -510,7 +510,7 @@ async function verifyRootRestriction(page, scenario, state) {
 
 async function verifyMobilePasswordFooter(page, scenario) {
   const t = (key) => tr(key, scenario.language)
-  const action = page
+  const action = securityCard(page, t('Password and account access'))
     .getByRole('button')
     .filter({ has: page.getByText(t('Change Password'), { exact: true }) })
   await action.click()
@@ -561,7 +561,7 @@ async function verifyMobilePasswordFooter(page, scenario) {
 
 async function verifyPassword(page, scenario, state) {
   const t = (key) => tr(key, scenario.language)
-  const action = page
+  const action = securityCard(page, t('Password and account access'))
     .getByRole('button')
     .filter({ has: page.getByText(t('Change Password'), { exact: true }) })
   await action.click()
@@ -573,6 +573,7 @@ async function verifyPassword(page, scenario, state) {
   await page.getByText(t('Passwords do not match'), { exact: true }).waitFor()
   assert.equal(state.counts.password, 0, 'Client validation blocks the password request')
   await dialog.getByRole('button', { name: t('Cancel'), exact: true }).click()
+  await dialog.waitFor({ state: 'detached' })
 
   await action.click()
   dialog = page.getByRole('dialog', { name: t('Change Password') })
