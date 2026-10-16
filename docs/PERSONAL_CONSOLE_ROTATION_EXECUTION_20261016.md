@@ -67,3 +67,13 @@
 最终本机定向：模型非Redis7.216s、miniredis1.108s、版本JSON边界1.442s；Realtime6项0.041s；relay/service增量0.020s/1.098s；controller异步重试0.076s；最新controller/router0.026s/0.750s。Node语法、浏览器driver格式/lint、YAML与diff检查通过。MySQL5.7、PostgreSQL9.6、Redis7和完整前端/浏览器尚待Actions，不以本机SQLite/miniredis代替。
 
 采用逻辑接纳合同的独立发送路径复审通过：每次外层generation failover均重验，未发现生产provider内部新增generation retry；HTTP/2同Do透明重试、Coze已接纳任务轮询和转换上传属于原attempt。非free authoritative持有BillingSession/receipt按ID收尾；真正free的quota delta为0。成功DB版本读取至物理发送之间的窗口保留为明确限制，不承诺撤回已接纳网络工作。混合旧版本worker不属于当前隔离资格证明，未来部署须先统一兼容版本；本批不部署。
+
+
+### 第一轮Actions失败与修正
+
+资格源码c8cf0a2430dc3ecd1e797f7ce7e054e0b8ed0418，CI38924455597，merge checkout6fd9eea3c86ac7ac52a7fb07b01b7f800bfbecfb（branch tree5f062c2566345549b1669f512d366cc4e92e3bb2）。实际应用仍不注册rotation。
+
+- Redis7四合同实际通过（0.47s）：old/new fence/cache、subject lock拒绝零写、precommit cache失败零写、postcommit cache失败unknown与secret-free恢复。
+- B2新三库SQLite/MySQL通过；PG9.6在Complete回读open admission时Invalid/Unknown。可为空的LinkedIdentityHash原用CHAR(64)，PG按定长类型补空格；改VARCHAR(64)，不Trim、不放宽linked摘要。configured直接从DB回读精确空串并再次完整校验，下一CI实际PG回归才算关闭。依据：[PostgreSQL9.6 Character Types](https://www.postgresql.org/docs/9.6/datatype-character.html)。本机修复后模型定向7.751s通过，仅SQLite/miniredis，不外推PG。
+- 新轮换浏览器已完成desktop合成fresh commit，但New Key value模糊label同时匹配保存复选框而失败。两个新driver采用exact label，完整value/clear断言保留。实际原PNG还显示mask隐藏checkbox造成遮标题黑条；capture改为仅遮可见非checkbox/radio/hidden的文本/密码输入和textarea，旧PNG不编辑，CI重新拍摄。失败报告统一遮敏，成功/未知恢复断言不放宽。
+- 两新driver项目oxfmt、oxlint、node语法、diff检查通过。完整前端/其它后端回归尚在原运行中，不宣称全绿；下一资格CI继续，入口保持关闭。

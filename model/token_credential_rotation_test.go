@@ -1022,6 +1022,10 @@ func TestTokenCredentialRotationConfiguredDatabases(t *testing.T) {
 			fixture := newTokenCredentialRotationFixture(t, db, engine.name)
 			admission, err := BeginTokenCredentialDispatchAdmission(context.Background(), db, fixture.root.Id, fixture.token.Id, 1, "configured-"+engine.name, TokenCredentialDispatchAdmissionKindLegacyTask)
 			require.NoError(t, err)
+			var openAdmission TokenCredentialDispatchAdmission
+			require.NoError(t, db.Where("admission_id = ?", admission.AdmissionID).Take(&openAdmission).Error)
+			require.Empty(t, openAdmission.LinkedIdentityHash, "an open admission must round-trip its optional link identity without fixed-width padding")
+			require.NoError(t, validateTokenCredentialDispatchAdmission(openAdmission))
 			task := Task{TaskID: "configured-task-" + engine.name, UserId: fixture.root.Id, Status: TaskStatusSuccess, Progress: "100%", PrivateData: TaskPrivateData{TokenId: fixture.token.Id}}
 			require.NoError(t, db.Create(&task).Error)
 			require.NoError(t, CompleteTokenCredentialDispatchAdmission(context.Background(), db, fixture.root.Id, fixture.token.Id, admission.AdmissionID, task.ID))

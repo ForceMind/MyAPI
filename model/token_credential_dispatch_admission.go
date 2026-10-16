@@ -44,7 +44,7 @@ type TokenCredentialDispatchAdmission struct {
 	TokenID             int                                   `json:"-" gorm:"not null;uniqueIndex:uidx_token_dispatch_req,priority:1;index:idx_token_dispatch_gate,priority:1;<-:create"`
 	CredentialVersion   int64                                 `json:"credential_version" gorm:"type:bigint;not null;uniqueIndex:uidx_token_dispatch_req,priority:2;<-:create"`
 	LinkedRecordID      int64                                 `json:"-" gorm:"type:bigint;not null;default:0"`
-	LinkedIdentityHash  string                                `json:"-" gorm:"type:char(64);not null;default:''"`
+	LinkedIdentityHash  string                                `json:"-" gorm:"type:varchar(64);not null;default:''"`
 	UnknownReasonCode   string                                `json:"-" gorm:"type:varchar(64);not null;default:''"`
 	CreatedAt           int64                                 `json:"-" gorm:"type:bigint;not null;<-:create"`
 	UpdatedAt           int64                                 `json:"-" gorm:"type:bigint;not null"`

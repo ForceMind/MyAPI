@@ -16,8 +16,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createUIFixture } from '../ui/browser-fixtures.mjs'
 
 const repo = fileURLToPath(new URL('../../', import.meta.url))
+const sensitiveInputSelector =
+  'input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), textarea'
+const visibleSensitiveInputSelector =
+  'input:visible:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), textarea:visible'
 const inputMask = `
-  input, textarea {
+  ${sensitiveInputSelector} {
     -webkit-text-security: disc !important;
     color: transparent !important;
     caret-color: transparent !important;
@@ -183,9 +187,8 @@ function hasSecretField(value) {
   )
 }
 
-function safeFailure(error, secrets) {
-  let message =
-    typeof error?.message === 'string' ? error.message : 'runtime failure'
+function redactSensitiveText(value, secrets) {
+  let message = String(value)
   for (const secret of secrets) {
     if (secret) message = message.split(secret).join('[redacted]')
   }
@@ -193,7 +196,17 @@ function safeFailure(error, secrets) {
     .replace(/Bearer\s+[A-Za-z0-9._~-]+/gi, 'Bearer [redacted]')
     .replace(/sk-[A-Za-z0-9_-]{48}/g, 'sk-[redacted]')
     .replace(/\b\d{6}\b/g, '[redacted-code]')
-    .slice(0, 240)
+}
+
+function safeFailure(error, secrets) {
+  return redactSensitiveText(
+    typeof error?.stack === 'string'
+      ? error.stack
+      : typeof error?.message === 'string'
+        ? error.message
+        : 'runtime failure',
+    secrets
+  ).slice(0, 240)
 }
 
 const config = readConfig()
@@ -258,7 +271,20 @@ const reportPath = path.join(
   `credential-rotation-runtime-${config.language}-${config.width}.json`
 )
 const persist = () =>
-  writeFileSync(reportPath, JSON.stringify(report, null, 2), { mode: 0o600 })
+  writeFileSync(
+    reportPath,
+    redactSensitiveText(JSON.stringify(report, null, 2), [
+      config.access_token,
+      config.totp_secret,
+      config.synthetic_old_key,
+      config.session.sid,
+      generatedCode,
+      freshSecret,
+      capturedProof,
+      capturedCommitBody,
+    ]),
+    { mode: 0o600 }
+  )
 const screenshotName = (suffix) =>
   `credential-rotation-runtime-${config.language}-${config.width}-${suffix}.png`
 
@@ -305,7 +331,7 @@ async function capture(suffix) {
     path: path.join(config.output_dir, file),
     animations: 'disabled',
     fullPage: true,
-    mask: [page.locator('input')],
+    mask: [page.locator(visibleSensitiveInputSelector)],
     maskColor: '#111827',
   })
   report.screenshots.push(file)
@@ -683,7 +709,9 @@ try {
   await rotationDialog
     .getByText(t('Key value rotated'), { exact: true })
     .waitFor()
-  const secretInput = rotationDialog.getByLabel(t('New Key value'))
+  const secretInput = rotationDialog.getByLabel(t('New Key value'), {
+    exact: true,
+  })
   requireThat(
     (await secretInput.inputValue()) === freshSecret,
     'FRESH_REVEAL_VALUE'
@@ -785,7 +813,9 @@ try {
     .getByRole('button', { name: t('Done'), exact: true })
     .click()
   await rotationDialog.waitFor({ state: 'hidden' })
-  const clearedSecretInputs = page.getByLabel(t('New Key value'))
+  const clearedSecretInputs = page.getByLabel(t('New Key value'), {
+    exact: true,
+  })
   requireThat(
     (await clearedSecretInputs.count()) === 0 ||
       (await clearedSecretInputs.evaluateAll((elements) =>
@@ -853,7 +883,7 @@ try {
         path: path.join(config.output_dir, file),
         animations: 'disabled',
         fullPage: true,
-        mask: [page.locator('input')],
+        mask: [page.locator(visibleSensitiveInputSelector)],
         maskColor: '#111827',
       })
       report.screenshots.push(file)

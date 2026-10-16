@@ -48,6 +48,8 @@ const mime = {
   '.png': 'image/png',
   '.woff2': 'font/woff2',
 }
+const visibleSensitiveInputSelector =
+  'input:visible:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), textarea:visible'
 
 assert(
   existsSync(resolve(build, 'index.html')),
@@ -111,6 +113,12 @@ const scenarios = [
 ]
 const digest = 'a'.repeat(64)
 const syntheticSecret = `sk-${'R'.repeat(48)}`
+const redactSensitiveText = (value) =>
+  String(value)
+    .split(syntheticSecret)
+    .join('[redacted-secret]')
+    .replace(/Bearer\s+[A-Za-z0-9._~-]+/gi, 'Bearer [redacted]')
+    .replace(/sk-[A-Za-z0-9_-]{48}/g, 'sk-[redacted]')
 const report = {
   schema: 1,
   synthetic: true,
@@ -129,7 +137,7 @@ const report = {
 const persist = () =>
   writeFileSync(
     resolve(output, 'credential-rotation-qualification.json'),
-    JSON.stringify(report, null, 2)
+    redactSensitiveText(JSON.stringify(report, null, 2))
   )
 
 let browser
@@ -420,7 +428,7 @@ try {
       await page.screenshot({
         path: resolve(output, file),
         animations: 'disabled',
-        mask: [page.locator('input')],
+        mask: [page.locator(visibleSensitiveInputSelector)],
         maskColor: '#111827',
       })
       screenshots.push(file)
@@ -648,7 +656,9 @@ try {
           await rotationDialog
             .getByText(t('Key value rotated'), { exact: true })
             .waitFor()
-          const secretInput = rotationDialog.getByLabel(t('New Key value'))
+          const secretInput = rotationDialog.getByLabel(t('New Key value'), {
+            exact: true,
+          })
           assert.equal(await secretInput.getAttribute('type'), 'text')
           assert(
             (await secretInput.inputValue()) === syntheticSecret,
@@ -694,7 +704,7 @@ try {
           await done.click()
           await rotationDialog.waitFor({ state: 'hidden' })
           assert.equal(
-            await page.getByLabel(t('New Key value')).count(),
+            await page.getByLabel(t('New Key value'), { exact: true }).count(),
             0,
             'Closing removes the one-time secret from the rendered UI'
           )
@@ -711,7 +721,9 @@ try {
             })
             .waitFor()
           assert.equal(
-            await rotationDialog.getByLabel(t('New Key value')).count(),
+            await rotationDialog
+              .getByLabel(t('New Key value'), { exact: true })
+              .count(),
             0,
             'Reopening cannot restore the one-time secret'
           )
@@ -851,8 +863,10 @@ try {
   report.result = 'passed'
 } catch (error) {
   report.result = 'failed'
-  report.errors.push(error.stack || String(error))
-  throw error
+  const safeError = redactSensitiveText(error.stack || String(error))
+  report.errors.push(safeError)
+  process.exitCode = 1
+  console.error(safeError)
 } finally {
   persist()
   if (browser) await browser.close()
