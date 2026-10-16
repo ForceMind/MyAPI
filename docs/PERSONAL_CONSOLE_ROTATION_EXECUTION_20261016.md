@@ -97,3 +97,21 @@
 第二轮完整后端日志另发现两项夹具问题，按业务合同修正：Realtime崩溃测试手工构造RelayInfo时遗漏从已落库Token捕获CredentialVersion；补一字段，六个legacy/authoritative崩溃与完成场景通过4.959s，原usage/账务/崩溃断言保留。版本上界测试拆分为轮换后max版本单独blocked+overflow，以及新增open登记后unknown+overflow+open两个blocker；增补前后Key/版本不变回读，完整^TestTokenCredential本机定向通过9.662s。未修改生产guard或状态优先级。
 
 第四轮将新增rotation race步骤前移至完整make test之前，以先得到本批兼容性证据；所有既有检查保留。完整后端、其它race与全部11作业必须真实通过后才进入激活阶段，先前未执行的race不记为已通过。
+
+### 激活前独立审查
+
+credential_guard实际查看第三轮6b217da的全部9张轮换原PNG及原JSON：先前遮罩黑条和320越南语标题/X拥挤两项P2关闭，无剩余P1/P2或可见secret。1440/390/320、重试、fresh secret准确遮罩、unknown同op恢复和blocked可读。静态图不代替动画或API证明；该运行整体后来被e442b2a的新候选取代取消，仅记录已成功的分项。
+
+同角色对下一阶段/tmp草稿及已提交的真实rotation runtime代码只读复审通过：动态维护资格复用首次Token快照；仅ready启用；资格读取错误局部unknown，取消/超时/非法/拒绝/不存在继续返回；独立Root专用route chain、全局429预拒绝标记、有效proof下legacy业务409、真实Go新旧Key认证和元数据/历史不变检查均齐备。尚未应用、未运行的部分明确待验证。credential_plan另准备完整资格/legacy/bridge/缺表、查询故障隔离与控制错误透传、只读不变量的确定性测试草稿；不改写原迁移合同。
+
+第四轮CI38929109218中新增rotation race步骤于2026-10-16 16:20:46 UTC实际成功；完整Go/relaykit及其余回归仍待完成。实际路由继续关闭，未把部分成功记为整体通过。
+
+### 资格通过后的实际入口激活
+
+激活前资格源码e442b2a54b871453b88309f0a54555d378d1360a，merge checkout409f4419a40572789c38de93eb1a2a4ac8735204，[CI38929109218](https://github.com/ForceMind/MyAPI/actions/runs/38929109218)的11项作业全部success。完整Go/独立relaykit、linux/386、三库/Redis、全部race、240文件/1540前端单元、全部浏览器回归已实际执行；lint为0 errors/8条原有warning。此后才应用已独审的激活草稿。
+
+SetApiRouter接通专用Root会话route chain；ReadTokenMaintenance复用首次Token快照生成动态资格，仅ready允许提交，资格专属读取错误局部unknown，保留migration，控制错误透传。现有三库migration fixture因缺资格表精确改为rotation unknown，并保留原migration ready；新增确定性资格/故障/只读测试。全局限流401/429均证明not_accepted且零回执。
+
+旧真实migration runtime升级为完整已知legacy隔离fixture，使用有效专用rotation proof和严格body验证业务409及零轮换；writer、旧Key和历史不变。新的真实rotation runtime opt-in开启，使用当前生产前端、Root签名会话和独立2FA，核对fresh/无secret重放及回执、旧Key401/新Key200同ID和预算/策略/writer/历史不变，保留两设备原PNG/JSON。应用后实际运行仍待最终Actions证明，不能用激活前合成成功代替。
+
+激活后本机定向 `^Test(TokenMaintenance|TokenAccountMigration|TokenCredential|NormalizeTokenAccountMigration)`：model30.281s/controller0.915s/router1.162s全部通过，使用临时SQLite/miniredis/loopback，真实浏览器opt-in未在本机执行。项目格式/lint、Node语法、YAML及diff检查通过。最终三库、全量/race和实际Go/Chromium继续由现有Actions执行。

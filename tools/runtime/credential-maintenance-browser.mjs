@@ -40,7 +40,10 @@ function readConfig() {
   } catch {
     fail('CONFIG')
   }
-  requireThat(value && typeof value === 'object' && !Array.isArray(value), 'CONFIG')
+  requireThat(
+    value && typeof value === 'object' && !Array.isArray(value),
+    'CONFIG'
+  )
   let target
   try {
     target = new URL(value.origin)
@@ -61,7 +64,10 @@ function readConfig() {
   )
   requireThat(['en', 'zh'].includes(value.language), 'CONFIG')
   requireThat([1440, 390].includes(value.width), 'CONFIG')
-  requireThat(typeof value.access_token === 'string' && value.access_token.length > 20, 'AUTH')
+  requireThat(
+    typeof value.access_token === 'string' && value.access_token.length > 20,
+    'AUTH'
+  )
   requireThat(
     value.session &&
       typeof value.session.sid === 'string' &&
@@ -83,19 +89,33 @@ function readConfig() {
     'AUTH'
   )
   requireThat(
-    typeof value.totp_secret === 'string' && /^[A-Z2-7]+=*$/.test(value.totp_secret),
+    typeof value.totp_secret === 'string' &&
+      /^[A-Z2-7]+=*$/.test(value.totp_secret),
     'AUTH'
   )
-  requireThat(Number.isSafeInteger(value.token_id) && value.token_id > 0, 'CONFIG')
   requireThat(
-    Number.isSafeInteger(value.target_channel_id) && value.target_channel_id > 0,
+    typeof value.rotation_proof === 'string' &&
+      value.rotation_proof.length > 20,
+    'AUTH'
+  )
+  requireThat(
+    Number.isSafeInteger(value.token_id) && value.token_id > 0,
     'CONFIG'
   )
   requireThat(
-    typeof value.target_channel_name === 'string' && value.target_channel_name.length > 0,
+    Number.isSafeInteger(value.target_channel_id) &&
+      value.target_channel_id > 0,
     'CONFIG'
   )
-  requireThat(typeof value.version === 'string' && value.version.trim().length > 0, 'BUILD')
+  requireThat(
+    typeof value.target_channel_name === 'string' &&
+      value.target_channel_name.length > 0,
+    'CONFIG'
+  )
+  requireThat(
+    typeof value.version === 'string' && value.version.trim().length > 0,
+    'BUILD'
+  )
   requireThat(/^[0-9a-f]{40}$/.test(value.source_head || ''), 'BUILD')
   try {
     requireThat(path.isAbsolute(value.output_dir), 'OUTPUT')
@@ -132,7 +152,9 @@ function currentTOTP(secret) {
   const counter = Math.floor(Date.now() / 30_000)
   const message = Buffer.alloc(8)
   message.writeBigUInt64BE(BigInt(counter))
-  const digest = createHmac('sha1', decodeBase32(secret)).update(message).digest()
+  const digest = createHmac('sha1', decodeBase32(secret))
+    .update(message)
+    .digest()
   const offset = digest[digest.length - 1] & 0x0f
   const value =
     (((digest[offset] & 0x7f) << 24) |
@@ -144,16 +166,21 @@ function currentTOTP(secret) {
 }
 
 function successData(payload) {
-  requireThat(payload && payload.success === true && payload.data, 'API_RESPONSE')
+  requireThat(
+    payload && payload.success === true && payload.data,
+    'API_RESPONSE'
+  )
   return payload.data
 }
 
 function safeFailure(error, config, generatedCode) {
-  let message = typeof error?.message === 'string' ? error.message : 'runtime failure'
+  let message =
+    typeof error?.message === 'string' ? error.message : 'runtime failure'
   for (const secret of [
     config.access_token,
     config.totp_secret,
     config.session.sid,
+    config.rotation_proof,
     generatedCode,
   ]) {
     if (secret) message = message.split(secret).join('[redacted]')
@@ -167,10 +194,16 @@ function safeFailure(error, config, generatedCode) {
 
 const config = readConfig()
 const translations = JSON.parse(
-  readFileSync(path.join(repo, 'web', 'src', 'i18n', 'locales', `${config.language}.json`), 'utf8')
+  readFileSync(
+    path.join(repo, 'web', 'src', 'i18n', 'locales', `${config.language}.json`),
+    'utf8'
+  )
 ).translation
 const t = (key) => {
-  requireThat(typeof translations[key] === 'string' && translations[key].length > 0, 'TRANSLATION')
+  requireThat(
+    typeof translations[key] === 'string' && translations[key].length > 0,
+    'TRANSLATION'
+  )
   return translations[key]
 }
 const fixture = createUIFixture({
@@ -188,7 +221,7 @@ const metrics = {
   verification: { requests: 0, statuses: [] },
   commit: { requests: 0, statuses: [] },
   receipt: { requests: 0, statuses: [] },
-  rotationUnsupported: { requests: 0, statuses: [] },
+  rotationRejectedByQualification: { requests: 0, statuses: [] },
   syntheticConsole: { requests: 0, statuses: [] },
   externalAborted: 0,
   pageErrors: 0,
@@ -213,7 +246,8 @@ const report = {
   screenshots: [],
 }
 const reportPath = path.join(config.output_dir, reportName)
-const persist = () => writeFileSync(reportPath, JSON.stringify(report, null, 2), { mode: 0o600 })
+const persist = () =>
+  writeFileSync(reportPath, JSON.stringify(report, null, 2), { mode: 0o600 })
 const screenshotName = (suffix) =>
   `credential-maintenance-runtime-${config.language}-${config.width}-${suffix}.png`
 
@@ -225,16 +259,20 @@ let generatedCode = ''
 
 function realKind(pathname, method) {
   const base = `/api/token/${config.token_id}`
-  if (pathname === `${base}/maintenance` && method === 'GET') return 'maintenance'
-  if (pathname === `${base}/account-migration/preview` && method === 'POST') return 'preview'
-  if (pathname === `${base}/account-migration` && method === 'POST') return 'commit'
+  if (pathname === `${base}/maintenance` && method === 'GET')
+    return 'maintenance'
+  if (pathname === `${base}/account-migration/preview` && method === 'POST')
+    return 'preview'
+  if (pathname === `${base}/account-migration` && method === 'POST')
+    return 'commit'
   if (
     pathname.startsWith(`${base}/maintenance/operations/`) &&
     method === 'GET'
-  ) return 'receipt'
+  )
+    return 'receipt'
   if (pathname === '/api/verify' && method === 'POST') return 'verification'
   if (pathname === `${base}/credential-rotation` && method === 'POST') {
-    return 'rotationUnsupported'
+    return 'rotationRejectedByQualification'
   }
   return null
 }
@@ -244,8 +282,14 @@ async function capture(suffix) {
   await page.addStyleTag({ content: inputMask })
   await page.evaluate(async () => {
     await document.fonts.ready
-    await Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => {})))
-    await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+    await Promise.all(
+      document
+        .getAnimations()
+        .map((animation) => animation.finished.catch(() => {}))
+    )
+    await new Promise((done) =>
+      requestAnimationFrame(() => requestAnimationFrame(done))
+    )
   })
   const file = screenshotName(suffix)
   await page.screenshot({
@@ -262,7 +306,9 @@ try {
   stage = 'load-playwright'
   const playwrightPath = process.env.MYAPI_PLAYWRIGHT_MODULE
   const module = await import(
-    playwrightPath ? pathToFileURL(path.resolve(playwrightPath)).href : 'playwright'
+    playwrightPath
+      ? pathToFileURL(path.resolve(playwrightPath)).href
+      : 'playwright'
   )
   requireThat(typeof module?.chromium?.launch === 'function', 'BROWSER')
   browser = await module.chromium.launch({
@@ -303,10 +349,38 @@ try {
     const kind = realKind(pathname, method)
     if (kind) {
       const authorization = request.headers().authorization
-      requireThat(authorization === `Bearer ${config.access_token}`, 'REAL_AUTH')
+      requireThat(
+        authorization === `Bearer ${config.access_token}`,
+        'REAL_AUTH'
+      )
       if (kind === 'commit') {
         const proof = request.headers()['x-security-proof']
-        requireThat(typeof proof === 'string' && proof.length > 20, 'REAL_PROOF')
+        requireThat(
+          typeof proof === 'string' && proof.length > 20,
+          'REAL_PROOF'
+        )
+      }
+      if (kind === 'rotationRejectedByQualification') {
+        const headers = request.headers()
+        requireThat(headers.origin === config.origin, 'ROTATION_ORIGIN')
+        requireThat(
+          headers['x-security-proof'] === config.rotation_proof,
+          'ROTATION_PROOF'
+        )
+        requireThat(
+          headers['content-type']?.startsWith('application/json'),
+          'ROTATION_CONTENT_TYPE'
+        )
+        const body = request.postDataJSON()
+        requireThat(
+          body &&
+            Object.keys(body).sort().join(',') ===
+              'confirmed,operation_id,preview_revision' &&
+            body.operation_id === '7'.repeat(64) &&
+            body.preview_revision === '8'.repeat(64) &&
+            body.confirmed === true,
+          'ROTATION_BODY'
+        )
       }
       metrics[kind].requests += 1
       return route.continue()
@@ -380,22 +454,38 @@ try {
 
   stage = 'open-keys'
   await page.goto(`${config.origin}/keys`, { waitUntil: 'domcontentloaded' })
-  const visibleVersion = page.getByTestId(config.width < 768 ? 'console-mobile-build-version' : 'console-build-revision')
+  const visibleVersion = page.getByTestId(
+    config.width < 768
+      ? 'console-mobile-build-version'
+      : 'console-build-revision'
+  )
   await visibleVersion.waitFor({ state: 'visible' })
-  const buildRevision = await page.locator('html').getAttribute('data-build-rev')
-  requireThat(buildRevision?.startsWith(`rv.${config.version}.${config.source_head}.`), 'BUILD_REVISION')
-  requireThat((await visibleVersion.textContent())?.trim() === config.version, 'VISIBLE_VERSION')
+  const buildRevision = await page
+    .locator('html')
+    .getAttribute('data-build-rev')
+  requireThat(
+    buildRevision?.startsWith(`rv.${config.version}.${config.source_head}.`),
+    'BUILD_REVISION'
+  )
+  requireThat(
+    (await visibleVersion.textContent())?.trim() === config.version,
+    'VISIBLE_VERSION'
+  )
   report.checks.exactProductionBuild = true
   const entry = page
     .getByRole('button', { name: t('Credential maintenance'), exact: true })
     .first()
   await entry.waitFor()
   await entry.focus()
-  requireThat(await entry.evaluate((element) => document.activeElement === element), 'KEYBOARD')
+  requireThat(
+    await entry.evaluate((element) => document.activeElement === element),
+    'KEYBOARD'
+  )
   const initialMaintenanceResponse = page.waitForResponse(
     (response) =>
       response.request().method() === 'GET' &&
-      new URL(response.url()).pathname === `/api/token/${config.token_id}/maintenance`
+      new URL(response.url()).pathname ===
+        `/api/token/${config.token_id}/maintenance`
   )
   stage = 'open-maintenance'
   await page.keyboard.press('Enter')
@@ -408,7 +498,8 @@ try {
       initialMaintenance.rotation?.commit_supported === false &&
       initialMaintenance.rotation?.status === 'blocked' &&
       initialMaintenance.migration?.status === 'ready' &&
-      initialMaintenance.migration?.source?.channel_id !== config.target_channel_id,
+      initialMaintenance.migration?.source?.channel_id !==
+        config.target_channel_id,
     'MAINTENANCE_CONTRACT'
   )
   const targetCandidate = initialMaintenance.migration.candidates?.find(
@@ -418,7 +509,8 @@ try {
     targetCandidate?.channel_name === config.target_channel_name &&
       targetCandidate?.status === 'ready' &&
       Array.isArray(targetCandidate.windows) &&
-      targetCandidate.windows.length === initialMaintenance.migration.source.windows.length,
+      targetCandidate.windows.length ===
+        initialMaintenance.migration.source.windows.length,
     'TARGET_CONTRACT'
   )
   const dialog = page.getByRole('dialog', {
@@ -431,20 +523,32 @@ try {
     has: page.getByText(t('Credential rotation'), { exact: true }),
   })
   requireThat((await rotationCard.count()) === 1, 'ROTATION_CARD')
-  requireThat((await rotationCard.getByRole('button').count()) === 0, 'ROTATION_ACTION')
+  requireThat(
+    (await rotationCard.getByRole('button').count()) === 0,
+    'ROTATION_ACTION'
+  )
   report.checks.rootOwnedKey = true
   report.checks.rotationReadOnly = true
   await capture('loaded')
 
   stage = 'select-target'
-  const target = dialog.getByRole('combobox', { name: t('Target Codex account') })
+  const target = dialog.getByRole('combobox', {
+    name: t('Target Codex account'),
+  })
   await target.click()
-  const option = page.getByRole('option').filter({ hasText: config.target_channel_name })
+  const option = page
+    .getByRole('option')
+    .filter({ hasText: config.target_channel_name })
   await option.waitFor({ state: 'visible' })
   requireThat((await option.count()) === 1, 'TARGET_OPTION_UNIQUE')
   await option.click()
-  await target.filter({ hasText: config.target_channel_name }).waitFor({ state: 'visible' })
-  requireThat((await target.textContent())?.includes(config.target_channel_name), 'TARGET_LABEL')
+  await target
+    .filter({ hasText: config.target_channel_name })
+    .waitFor({ state: 'visible' })
+  requireThat(
+    (await target.textContent())?.includes(config.target_channel_name),
+    'TARGET_LABEL'
+  )
   report.checks.targetSelected = true
 
   const previewResponsePromise = page.waitForResponse(
@@ -454,7 +558,9 @@ try {
         `/api/token/${config.token_id}/account-migration/preview`
   )
   stage = 'preview'
-  const previewButton = dialog.getByRole('button', { name: t('Preview migration') })
+  const previewButton = dialog.getByRole('button', {
+    name: t('Preview migration'),
+  })
   await previewButton.focus()
   await page.keyboard.press('Enter')
   const previewResponse = await previewResponsePromise
@@ -464,7 +570,8 @@ try {
     preview.status === 'ready' &&
       /^[0-9a-f]{64}$/.test(preview.preview_revision || '') &&
       preview.changes?.policy?.target_channel_id === config.target_channel_id &&
-      preview.changes?.allocations?.length === initialMaintenance.migration.source.windows.length,
+      preview.changes?.allocations?.length ===
+        initialMaintenance.migration.source.windows.length,
     'PREVIEW_CONTRACT'
   )
   for (const source of initialMaintenance.migration.source.windows) {
@@ -499,11 +606,19 @@ try {
   await verifyAndMove.scrollIntoViewIfNeeded()
   const actionVisible = await verifyAndMove.evaluate((element) => {
     const box = element.getBoundingClientRect()
-    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
-    const nav = document.querySelector('nav.pc-mobile-nav')?.getBoundingClientRect()
-    return box.top >= 0 && box.bottom <= innerHeight &&
+    const hit = document.elementFromPoint(
+      box.x + box.width / 2,
+      box.y + box.height / 2
+    )
+    const nav = document
+      .querySelector('nav.pc-mobile-nav')
+      ?.getBoundingClientRect()
+    return (
+      box.top >= 0 &&
+      box.bottom <= innerHeight &&
       (!nav || nav.width === 0 || box.bottom <= nav.top) &&
       Boolean(hit && element.contains(hit))
+    )
   })
   requireThat(actionVisible, 'CONFIRM_ACTION_VISIBLE')
   report.checks.confirmActionVisible = true
@@ -515,7 +630,9 @@ try {
   const verificationDialog = page.getByRole('dialog', {
     name: t('Verify account migration'),
   })
-  const codeInput = verificationDialog.getByPlaceholder(t('Enter verification code'))
+  const codeInput = verificationDialog.getByPlaceholder(
+    t('Enter verification code')
+  )
   await codeInput.waitFor()
   generatedCode = currentTOTP(config.totp_secret)
   await codeInput.fill(generatedCode)
@@ -554,8 +671,12 @@ try {
     'COMMIT_CONTRACT'
   )
   requireThat(metrics.commit.requests === 1, 'DUPLICATE_COMMIT')
-  await dialog.getByText(t('Account migration committed'), { exact: true }).waitFor()
-  await dialog.getByText(t('Account migration committed'), { exact: true }).scrollIntoViewIfNeeded()
+  await dialog
+    .getByText(t('Account migration committed'), { exact: true })
+    .waitFor()
+  await dialog
+    .getByText(t('Account migration committed'), { exact: true })
+    .scrollIntoViewIfNeeded()
   report.checks.realVerification = true
   report.checks.commitOnce = true
   await capture('committed')
@@ -588,23 +709,52 @@ try {
   )
   report.checks.realReceipt = true
 
-  stage = 'rotation-unsupported'
-  const rotationStatus = await page.evaluate(
-    async ({ url, accessToken }) => {
+  requireThat(
+    metrics.rotationRejectedByQualification.requests === 0,
+    'ROTATION_UI_WRITE'
+  )
+  report.checks.rotationUIWritesZero = true
+  stage = 'rotation-rejected-by-qualification'
+  const rotationRejection = await page.evaluate(
+    async ({ url, accessToken, rotationProof }) => {
       const response = await fetch(url, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'X-Security-Proof': rotationProof,
+        },
+        body: JSON.stringify({
+          operation_id: '7'.repeat(64),
+          preview_revision: '8'.repeat(64),
+          confirmed: true,
+        }),
         cache: 'no-store',
       })
-      return response.status
+      const body = await response.json().catch(() => null)
+      return {
+        status: response.status,
+        disposition: response.headers.get(
+          'X-MyAPI-Credential-Rotation-Disposition'
+        ),
+        body,
+      }
     },
     {
       url: `${config.origin}/api/token/${config.token_id}/credential-rotation`,
       accessToken: config.access_token,
+      rotationProof: config.rotation_proof,
     }
   )
-  requireThat(rotationStatus === 404, 'ROTATION_STATUS')
-  report.checks.rotationPostMissing = true
+  requireThat(rotationRejection.status === 409, 'ROTATION_STATUS')
+  requireThat(
+    rotationRejection.disposition === 'not_accepted' &&
+      rotationRejection.body?.success === false &&
+      rotationRejection.body?.code === 'credential_rotation_blocked' &&
+      rotationRejection.body?.data?.commit_disposition === 'not_accepted',
+    'ROTATION_DISPOSITION'
+  )
+  report.checks.rotationRejectedByQualification = true
 
   stage = 'reopen'
   await dialog.getByRole('button', { name: t('Done'), exact: true }).click()
@@ -612,7 +762,8 @@ try {
   const reopenedResponsePromise = page.waitForResponse(
     (response) =>
       response.request().method() === 'GET' &&
-      new URL(response.url()).pathname === `/api/token/${config.token_id}/maintenance`
+      new URL(response.url()).pathname ===
+        `/api/token/${config.token_id}/maintenance`
   )
   await entry.click()
   const reopenedResponse = await reopenedResponsePromise
@@ -638,7 +789,10 @@ try {
   requireThat(metrics.verification.requests === 1, 'VERIFY_COUNT')
   requireThat(metrics.commit.requests === 1, 'COMMIT_COUNT')
   requireThat(metrics.receipt.requests === 1, 'RECEIPT_COUNT')
-  requireThat(metrics.rotationUnsupported.requests === 1, 'ROTATION_COUNT')
+  requireThat(
+    metrics.rotationRejectedByQualification.requests === 1,
+    'ROTATION_COUNT'
+  )
   requireThat(metrics.externalAborted === 0, 'NETWORK_GUARD')
   requireThat(metrics.pageErrors === 0, 'PAGE_ERROR')
   requireThat(
@@ -652,8 +806,8 @@ try {
       metrics.commit.statuses[0] === 200 &&
       metrics.receipt.statuses.length === 1 &&
       metrics.receipt.statuses[0] === 200 &&
-      metrics.rotationUnsupported.statuses.length === 1 &&
-      metrics.rotationUnsupported.statuses[0] === 404,
+      metrics.rotationRejectedByQualification.statuses.length === 1 &&
+      metrics.rotationRejectedByQualification.statuses[0] === 409,
     'STATUS_COUNTS'
   )
   report.result = 'passed'
@@ -681,11 +835,13 @@ try {
   }
   persist()
   process.exitCode = 1
-  console.error(JSON.stringify({
-    command: 'credential-maintenance-runtime',
-    result: 'failed',
-    stage,
-  }))
+  console.error(
+    JSON.stringify({
+      command: 'credential-maintenance-runtime',
+      result: 'failed',
+      stage,
+    })
+  )
 } finally {
   generatedCode = ''
   if (context) {

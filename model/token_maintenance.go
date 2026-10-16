@@ -928,12 +928,23 @@ func ReadTokenMaintenance(ctx context.Context, db *gorm.DB, actorID, tokenID int
 	view := &TokenMaintenanceView{
 		Token:       TokenMaintenanceTokenView{ID: token.Id, Name: token.Name, MaskedKey: token.GetMaskedKey(), OwnerUserID: token.UserId},
 		Permissions: TokenMaintenancePermissionView{CanMigrate: true, Reason: ""},
-		Rotation: TokenRotationMaintenanceView{CommitSupported: false, Status: TokenMaintenanceStatusBlocked, Blockers: []TokenMaintenanceBlocker{
-			tokenMaintenanceBlocker("rotation_commit_not_supported", TokenMaintenanceStatusBlocked),
-			tokenMaintenanceBlocker("token_secret_cache_locator_compatibility_unproven", TokenMaintenanceStatusBlocked),
-			tokenMaintenanceBlocker("global_inflight_registry_unavailable", TokenMaintenanceStatusBlocked),
+		Rotation: TokenRotationMaintenanceView{Status: TokenMaintenanceStatusUnknown, Blockers: []TokenMaintenanceBlocker{
+			tokenMaintenanceBlocker("token_credential_state_unknown", TokenMaintenanceStatusUnknown),
 		}},
 		Migration: TokenAccountMigrationMaintenanceView{Status: TokenMaintenanceStatusBlocked, Candidates: []TokenMaintenanceCandidateView{}, Blockers: []TokenMaintenanceBlocker{}},
+	}
+	// Rotation qualification is independent of migration. A failed read must
+	// close rotation without hiding the existing migration workflow.
+	rotationState, rotationErr := buildTokenCredentialRotationState(ctx, db, actorID, token, now, false)
+	if rotationErr == nil {
+		rotation := tokenCredentialRotationPreviewFromState(rotationState)
+		view.Rotation = TokenRotationMaintenanceView{
+			CommitSupported: rotation.Status == TokenMaintenanceStatusReady,
+			Status:          rotation.Status, Blockers: rotation.Blockers,
+		}
+	} else if errors.Is(rotationErr, context.Canceled) || errors.Is(rotationErr, context.DeadlineExceeded) ||
+		errors.Is(rotationErr, ErrTokenMaintenanceInvalid) || errors.Is(rotationErr, ErrTokenMaintenanceDenied) || errors.Is(rotationErr, gorm.ErrRecordNotFound) {
+		return nil, rotationErr
 	}
 	policies, err := readTokenMaintenancePolicies(ctx, db, token.UserId, token.Id, false)
 	if err != nil {

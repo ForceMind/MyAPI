@@ -13,6 +13,4 @@ func registerTokenMaintenanceRoutes(tokenRoute *gin.RouterGroup) {
 	maintenance.POST("/:id/account-migration/preview", middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.PreviewTokenAccountMigration)
 	maintenance.POST("/:id/account-migration", middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.CommitTokenAccountMigration)
 	maintenance.GET("/:id/maintenance/operations/:operation_id", controller.GetTokenMaintenanceOperation)
-	// Rotation deliberately has no write route until cache and in-flight
-	// compatibility have been proved. A disabled button alone is insufficient.
 }

@@ -86,7 +86,15 @@ func TestTokenMaintenanceActualRoutesEnforceSessionOriginAndProof(t *testing.T) 
 	}
 	full := gin.New()
 	SetApiRouter(full)
+	rotationRoutes := map[string]string{}
 	for _, route := range full.Routes() {
-		assert.False(t, strings.HasPrefix(route.Path, "/api/token/") && strings.Contains(route.Path, "rotat"), "the actual application must expose no rotation submit route")
+		if strings.HasPrefix(route.Path, "/api/token/") && strings.Contains(route.Path, "rotat") {
+			rotationRoutes[route.Path] = route.Method
+		}
 	}
+	assert.Equal(t, map[string]string{
+		"/api/token/:id/credential-rotation/preview":                  "POST",
+		"/api/token/:id/credential-rotation":                          "POST",
+		"/api/token/:id/credential-rotation/operations/:operation_id": "GET",
+	}, rotationRoutes)
 }

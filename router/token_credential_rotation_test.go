@@ -74,3 +74,27 @@ func TestTokenCredentialRotationIsolatedRoutesRejectBeforeApply(t *testing.T) {
 	require.NoError(t, db.Model(&model.TokenCredentialRotationReceipt{}).Count(&count).Error)
 	assert.Zero(t, count)
 }
+
+func TestTokenCredentialRotationGlobalLimitRejectsBeforeApply(t *testing.T) {
+	setupRelayRouterTestDB(t)
+	require.NoError(t, model.DB.AutoMigrate(&model.TokenCredentialRotationReceipt{}))
+	previousEnabled, previousNum, previousDuration := common.GlobalApiRateLimitEnable, common.GlobalApiRateLimitNum, common.GlobalApiRateLimitDuration
+	common.GlobalApiRateLimitEnable, common.GlobalApiRateLimitNum, common.GlobalApiRateLimitDuration = true, 1, 60
+	t.Cleanup(func() {
+		common.GlobalApiRateLimitEnable, common.GlobalApiRateLimitNum, common.GlobalApiRateLimitDuration = previousEnabled, previousNum, previousDuration
+	})
+	engine := gin.New()
+	engine.Use(func(c *gin.Context) { common.SetContextKey(c, constant.ContextKeyAuditLogged, true); c.Next() })
+	SetApiRouter(engine)
+	for _, status := range []int{http.StatusUnauthorized, http.StatusTooManyRequests} {
+		request := httptest.NewRequest(http.MethodPost, "http://rotation.local/api/token/21/credential-rotation", strings.NewReader(`{}`))
+		request.RemoteAddr = "203.0.113.251:12345"
+		response := httptest.NewRecorder()
+		engine.ServeHTTP(response, request)
+		assert.Equal(t, status, response.Code)
+		assert.Equal(t, "not_accepted", response.Header().Get("X-MyAPI-Credential-Rotation-Disposition"))
+	}
+	var count int64
+	require.NoError(t, model.DB.Model(&model.TokenCredentialRotationReceipt{}).Count(&count).Error)
+	assert.Zero(t, count)
+}

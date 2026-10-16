@@ -6,9 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// This registrar is not connected to SetApiRouter until the isolated
-// compatibility qualification has passed. Tests can exercise the complete
-// route chain without exposing a production submission endpoint prematurely.
+// Rotation is available only after per-Key database qualification; the
+// dedicated chain preserves Root session, Origin and security-proof checks.
 func registerTokenCredentialRotationRoutes(apiRouter *gin.RouterGroup) {
 	rotation := apiRouter.Group("/token")
 	rotation.Use(func(c *gin.Context) {

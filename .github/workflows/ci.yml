@@ -942,6 +942,13 @@ jobs:
           MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-credential-browser/node_modules/playwright/index.mjs
           MYAPI_CREDENTIAL_RUNTIME_ARTIFACTS: ${{ runner.temp }}/myapi-credential-runtime-artifacts
         run: go test -p 1 ./router -run '^TestTokenMaintenanceRuntimeBrowser$' -count=1 -timeout=240s -v
+      - name: Verify real Go rotation, proof and old/new authentication on disposable SQLite
+        if: ${{ !cancelled() }}
+        env:
+          MYAPI_CREDENTIAL_ROTATION_BROWSER_TESTS: '1'
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-credential-browser/node_modules/playwright/index.mjs
+          MYAPI_ROTATION_RUNTIME_ARTIFACTS: ${{ runner.temp }}/myapi-rotation-runtime-artifacts
+        run: go test -p 1 ./router -run '^TestTokenCredentialRotationRuntimeBrowser$' -count=1 -timeout=240s -v
       - name: Retain original credential screenshots and reports
         if: always()
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
@@ -954,5 +961,7 @@ jobs:
             ${{ runner.temp }}/myapi-credential-rotation-artifacts/*.json
             ${{ runner.temp }}/myapi-credential-runtime-artifacts/**/*.png
             ${{ runner.temp }}/myapi-credential-runtime-artifacts/**/*.json
+            ${{ runner.temp }}/myapi-rotation-runtime-artifacts/**/*.png
+            ${{ runner.temp }}/myapi-rotation-runtime-artifacts/**/*.json
           if-no-files-found: error
           retention-days: 7

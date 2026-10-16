@@ -16,6 +16,7 @@ import (
 	"github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/model"
+	"github.com/ForceMind/MyAPI/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -48,18 +49,32 @@ func TestTokenMaintenanceRuntimeBrowser(t *testing.T) {
 			t.Setenv("MYAPI_EDITION", "full")
 			entities := []any{&model.UserSession{}, &model.TwoFA{}, &model.TwoFABackupCode{}, &model.TokenAccountMigrationReceipt{},
 				&model.ChannelQuotaIdentityKeyRegistry{}, &model.ChannelQuotaIdentityKeyVersion{}, &model.ChannelQuotaIdentityAlias{},
-				&model.ChannelQuotaSamplingTarget{}, &model.ChannelQuotaSnapshot{}, &model.TokenBudgetReservation{}}
+				&model.ChannelQuotaSamplingTarget{}, &model.ChannelQuotaSnapshot{}, &model.TokenBudgetReservation{},
+				&model.QuotaWriterEpoch{}, &model.QuotaWorkCursor{},
+				&model.AccountQuotaMutationReceipt{}, &model.AccountQuotaReservationHead{},
+				&model.QuotaBalanceBatchDrain{}, &model.QuotaBalanceBatchSubject{},
+				&model.LegacyUsageReservation{}, &model.AccountQuotaSettlementIntent{}, &model.AccountQuotaSettlementFact{},
+				&model.AccountQuotaRefundFact{}, &model.QuotaProjectionObligation{},
+				&model.Task{}, &model.TaskSubmissionOperation{}, &model.Midjourney{},
+				&model.TokenCredentialDispatchAdmission{}, &model.TokenCredentialRotationReceipt{}}
 			entities = append(entities, model.SubscriptionShareModels()...)
 			require.NoError(t, db.AutoMigrate(entities...))
 			root := model.User{Id: 1, Username: "maintenance-runtime-root", AffCode: "maintenance-runtime-root", Role: common.RoleRootUser, Status: common.UserStatusEnabled, AuthVersion: 1, Group: "default", Quota: 1000, UsedQuota: 21}
 			require.NoError(t, db.Create(&root).Error)
 			require.NoError(t, db.Create(&model.TwoFA{UserId: root.Id, Secret: "JBSWY3DPEHPK3PXP", IsEnabled: true}).Error)
 			identity, accessToken := createCodexLocalRouteSession(t, &root)
+			rotationProof, _, err := service.IssueSecurityProof(identity, "2fa", []string{"token.credential_rotation"})
+			require.NoError(t, err)
 			token := model.Token{Id: 21, UserId: root.Id, Key: "synthetic-runtime-maintenance-key-never-return", Name: "synthetic-key", Status: common.TokenStatusEnabled, ExpiredTime: -1, RemainQuota: 1000, UsedQuota: 21, Group: "default"}
 			require.NoError(t, db.Create(&token).Error)
 			keyring, err := common.LoadChannelQuotaIdentityKeyring()
 			require.NoError(t, err)
 			now := time.Now().Unix()
+			writer := model.QuotaWriterEpoch{ID: 1, SchemaVersion: model.QuotaWriterEpochSchemaVersion, Mode: string(model.QuotaWriterModeLegacy), Epoch: 1, LockVersion: 1, UpdatedAt: now}
+			require.NoError(t, db.Create(&writer).Error)
+			for _, name := range []string{"account_quota_migration_v2", "quota_balance_migration_v2"} {
+				require.NoError(t, db.Create(&model.QuotaWorkCursor{Name: name, Complete: true, UpdatedAt: now}).Error)
+			}
 			poolIDs := []int64{}
 			for index, id := range []int{7, 8} {
 				name := "Synthetic source account"
@@ -144,7 +159,7 @@ func TestTokenMaintenanceRuntimeBrowser(t *testing.T) {
 			config := map[string]any{"origin": server.URL, "language": scene.language, "width": scene.width, "access_token": accessToken,
 				"session":     map[string]any{"sid": identity.SessionID, "current": true, "login_method": "password", "expires_at": now + 3600},
 				"user":        map[string]any{"id": 1, "username": root.Username, "role": common.RoleRootUser, "status": common.UserStatusEnabled, "group": "default", "auth_version": 1},
-				"totp_secret": "JBSWY3DPEHPK3PXP", "token_id": token.Id, "target_channel_id": 8, "target_channel_name": "Synthetic target account",
+				"totp_secret": "JBSWY3DPEHPK3PXP", "rotation_proof": rotationProof, "token_id": token.Id, "target_channel_id": 8, "target_channel_name": "Synthetic target account",
 				"output_dir": output, "version": strings.TrimSpace(string(version)), "source_head": os.Getenv("GITHUB_SHA")}
 			encoded, err := common.Marshal(config)
 			require.NoError(t, err)
@@ -179,6 +194,12 @@ func TestTokenMaintenanceRuntimeBrowser(t *testing.T) {
 			var receiptCount int64
 			require.NoError(t, db.Model(&model.TokenAccountMigrationReceipt{}).Count(&receiptCount).Error)
 			assert.Equal(t, int64(1), receiptCount)
+			var rotationCount int64
+			require.NoError(t, db.Model(&model.TokenCredentialRotationReceipt{}).Count(&rotationCount).Error)
+			assert.Zero(t, rotationCount, "legacy qualification rejection must not create a rotation receipt")
+			var afterWriter model.QuotaWriterEpoch
+			require.NoError(t, db.First(&afterWriter, writer.ID).Error)
+			assert.Equal(t, writer, afterWriter)
 			var afterRoot model.User
 			require.NoError(t, db.First(&afterRoot, root.Id).Error)
 			assert.Equal(t, root.Quota, afterRoot.Quota)
