@@ -27,7 +27,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, AuthRotationError } from '@/lib/api'
 import { useAuthStore, type AuthBundle } from '@/stores/auth-store'
 
-import { updateUserProfile } from '../api'
+import { setupTwoFA, updateUserProfile } from '../api'
 
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
@@ -73,6 +73,41 @@ afterEach(() => {
 })
 
 describe('profile security API authentication boundaries', () => {
+  it('validates the 2FA setup response before exposing setup secrets', async () => {
+    api.defaults.adapter = (async (config) =>
+      response(config, {
+        success: true,
+        message: 'ready',
+        data: {
+          secret: 'shared-secret',
+          qr_code_data: 'otpauth://totp/MyAPI:user',
+          backup_codes: ['backup-one', 'backup-two'],
+        },
+      })) as AxiosAdapter
+
+    await expect(setupTwoFA()).resolves.toEqual({
+      success: true,
+      message: 'ready',
+      data: {
+        secret: 'shared-secret',
+        qr_code_data: 'otpauth://totp/MyAPI:user',
+        backup_codes: ['backup-one', 'backup-two'],
+      },
+    })
+
+    api.defaults.adapter = (async (config) =>
+      response(config, {
+        success: true,
+        data: {
+          secret: 'shared-secret',
+          qr_code_data: 'otpauth://totp/MyAPI:user',
+          backup_codes: ['backup-one', 2],
+        },
+      })) as AxiosAdapter
+
+    await expect(setupTwoFA()).rejects.toThrow()
+  })
+
   it('accepts the password success rotation while preventing a 401 refresh replay', async () => {
     const writes: InternalAxiosRequestConfig[] = []
     const rotated = authBundle('current')

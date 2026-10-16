@@ -32,6 +32,7 @@ import type {
   DeleteAccountRequest,
   CheckinStatusResponse,
   CheckinResponse,
+  TwoFASetupData,
 } from './types'
 
 // ============================================================================
@@ -353,14 +354,62 @@ export async function getTwoFAStatus(
   }
 }
 
-export async function setupTwoFA(signal?: AbortSignal): Promise<ApiResponse> {
-  const res = await api.post('/api/user/2fa/setup', undefined, {
+export async function setupTwoFA(
+  signal?: AbortSignal
+): Promise<ApiResponse<TwoFASetupData>> {
+  const res = await api.post<unknown>('/api/user/2fa/setup', undefined, {
     signal,
     skipAuthRefresh: true,
     skipErrorHandler: true,
     skipBusinessError: true,
   })
-  return res.data
+  const payload = res.data
+  if (
+    typeof payload !== 'object' ||
+    payload === null ||
+    !('success' in payload) ||
+    typeof payload.success !== 'boolean'
+  ) {
+    throw new Error('Invalid 2FA setup response')
+  }
+
+  const message = 'message' in payload ? payload.message : undefined
+  if (message !== undefined && typeof message !== 'string') {
+    throw new Error('Invalid 2FA setup response')
+  }
+  if (!payload.success) {
+    return {
+      success: false,
+      ...(message === undefined ? {} : { message }),
+    }
+  }
+
+  const data = 'data' in payload ? payload.data : undefined
+  if (
+    typeof data !== 'object' ||
+    data === null ||
+    !('secret' in data) ||
+    typeof data.secret !== 'string' ||
+    !('qr_code_data' in data) ||
+    typeof data.qr_code_data !== 'string' ||
+    !('backup_codes' in data) ||
+    !Array.isArray(data.backup_codes) ||
+    !data.backup_codes.every(
+      (code: unknown): code is string => typeof code === 'string'
+    )
+  ) {
+    throw new Error('Invalid 2FA setup response')
+  }
+
+  return {
+    success: true,
+    ...(message === undefined ? {} : { message }),
+    data: {
+      secret: data.secret,
+      qr_code_data: data.qr_code_data,
+      backup_codes: data.backup_codes,
+    },
+  }
 }
 
 export async function enableTwoFA(

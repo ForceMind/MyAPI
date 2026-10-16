@@ -285,7 +285,7 @@ export function ApiKeysMutateDrawer({
         openedMetadataFingerprint.current = apiKeyData.data.metadata_fingerprint
         openedModelScope.current = {
           enabled: apiKeyData.data.model_limits_enabled,
-          models: apiKeyData.data.model_limits,
+          models: apiKeyData.data.model_limits ?? '',
         }
         form.reset(
           transformApiKeyToFormDefaults(
