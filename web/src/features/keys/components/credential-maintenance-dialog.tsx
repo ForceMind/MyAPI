@@ -541,8 +541,8 @@ function CredentialMaintenanceSession(props: {
           className='max-h-[calc(100dvh-10rem-env(safe-area-inset-bottom))] min-w-0 overflow-y-auto sm:max-h-[90dvh] sm:max-w-3xl'
           showCloseButton={phase !== 'submitting'}
         >
-          <DialogHeader>
-            <DialogTitle className='flex items-center gap-2'>
+          <DialogHeader className='min-w-0 pr-10'>
+            <DialogTitle className='flex min-w-0 items-center gap-2 break-words'>
               <KeyRound className='text-primary shrink-0' aria-hidden='true' />
               {t('Credential maintenance')}
             </DialogTitle>

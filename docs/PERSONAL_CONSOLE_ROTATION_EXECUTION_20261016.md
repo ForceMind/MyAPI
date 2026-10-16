@@ -77,3 +77,14 @@
 - B2新三库SQLite/MySQL通过；PG9.6在Complete回读open admission时Invalid/Unknown。可为空的LinkedIdentityHash原用CHAR(64)，PG按定长类型补空格；改VARCHAR(64)，不Trim、不放宽linked摘要。configured直接从DB回读精确空串并再次完整校验，下一CI实际PG回归才算关闭。依据：[PostgreSQL9.6 Character Types](https://www.postgresql.org/docs/9.6/datatype-character.html)。本机修复后模型定向7.751s通过，仅SQLite/miniredis，不外推PG。
 - 新轮换浏览器已完成desktop合成fresh commit，但New Key value模糊label同时匹配保存复选框而失败。两个新driver采用exact label，完整value/clear断言保留。实际原PNG还显示mask隐藏checkbox造成遮标题黑条；capture改为仅遮可见非checkbox/radio/hidden的文本/密码输入和textarea，旧PNG不编辑，CI重新拍摄。失败报告统一遮敏，成功/未知恢复断言不放宽。
 - 两新driver项目oxfmt、oxlint、node语法、diff检查通过。完整前端/其它后端回归尚在原运行中，不宣称全绿；下一资格CI继续，入口保持关闭。
+
+
+### 第二轮Actions结果与第三轮修正
+
+资格源码9dd92c89392c99cc58278fe29a8daa56720f3bee，CI38925857491，merge checkout7e66c8d40210b89456e255efa909653011e2b1cb。空摘要故障已由PG真实回读/Complete证明修复；PG继续执行真实commit时暴露commonKeyCol依赖全局方言，configured PG拿到反引号。两处条件改为GORM map，由连接方言引用key；Unscoped全局去重和id/user_id/旧key/version四字段CAS、RowsAffected1保持。真实PG最终合同仍等下一轮。
+
+浏览器desktop fresh/show/hide/copy/关闭清除与390读取失败重试已通过；320 unknown在刷新后共4次GET而脚本预计3。来源是remount后台恢复GET及用户首次打开恢复弹窗的显式GET，receiptInFlight禁止并发，所有原op、preview/commit各1；脚本精确改为4并解释触发，不放宽为范围值。原图P2：BaseUI透明native input仍被:visible误判，遮罩仅保留本流程新Key/2FA/password/textarea；320越南语长标题增加局部关闭按钮保留区。旧原图不改，下一CI重拍。
+
+额外收紧MySQL已支持配置的重放：clientFoundRows=true可让noop UPDATE报告matched行，因此Begin不再按OnConflict.RowsAffected判新建；同Token锁下回读持久admission，只有其AdmissionID匹配本次CSPRNG且state=open才授权发送。configured普通MySQL保留，另从安全DSN创建foundRows连接，验证旧open只回同row+PreconditionUnknown、总计一行。定向模型8.138s通过（SQLite/miniredis），真实foundRows等下一CI；无生产连接。
+
+当前资格和实际路由仍分开。第三轮继续验证全量回归，不因先前两个数据库、部分页面或本机测试通过而提前开放提交。

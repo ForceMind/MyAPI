@@ -16,6 +16,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/glebarez/sqlite"
 	"github.com/go-redis/redis/v8"
+	mysqldriver "github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -1037,6 +1038,35 @@ func TestTokenCredentialRotationConfiguredDatabases(t *testing.T) {
 
 			barrierFixture := newTokenCredentialRotationFixture(t, db, engine.name+"-barrier")
 			assertTokenCredentialRotationAdmissionAndCommitSerialize(t, barrierFixture)
+
+			if engine.name == "mysql" {
+				foundRowsConfig, err := mysqldriver.ParseDSN(strings.TrimSpace(os.Getenv(engine.env)))
+				require.NoError(t, err)
+				foundRowsConfig.ClientFoundRows = true
+				foundRowsDialector, err := b2SubmissionDatabaseDialector(engine.name, foundRowsConfig.FormatDSN())
+				require.NoError(t, err)
+				foundRowsDB, err := gorm.Open(foundRowsDialector, &gorm.Config{
+					Logger: logger.Default.LogMode(logger.Silent), NamingStrategy: schema.NamingStrategy{TablePrefix: prefix},
+				})
+				require.NoError(t, err)
+				require.NoError(t, registerTaskRecoveryGormGuards(foundRowsDB))
+				foundRowsSQLDB, err := foundRowsDB.DB()
+				require.NoError(t, err)
+				require.NoError(t, foundRowsSQLDB.Ping())
+				t.Cleanup(func() { require.NoError(t, foundRowsSQLDB.Close()) })
+
+				foundRowsFixture := newTokenCredentialRotationFixture(t, foundRowsDB, engine.name+"-found-rows")
+				first, err := BeginTokenCredentialDispatchAdmission(context.Background(), foundRowsDB, foundRowsFixture.root.Id, foundRowsFixture.token.Id, 1, "configured-mysql-found-rows", TokenCredentialDispatchAdmissionKindLegacyTask)
+				require.NoError(t, err)
+				replayed, err := BeginTokenCredentialDispatchAdmission(context.Background(), foundRowsDB, foundRowsFixture.root.Id, foundRowsFixture.token.Id, 1, "configured-mysql-found-rows", TokenCredentialDispatchAdmissionKindLegacyTask)
+				require.ErrorIs(t, err, ErrTokenMaintenancePreconditionUnknown)
+				require.NotNil(t, replayed)
+				assert.Equal(t, first.AdmissionID, replayed.AdmissionID)
+				var admissionCount int64
+				require.NoError(t, foundRowsDB.Model(&TokenCredentialDispatchAdmission{}).
+					Where("token_id = ?", foundRowsFixture.token.Id).Count(&admissionCount).Error)
+				assert.Equal(t, int64(1), admissionCount, "clientFoundRows must not authorize or persist a second send admission")
+			}
 		})
 	}
 }

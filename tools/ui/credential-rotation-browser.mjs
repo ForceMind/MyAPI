@@ -49,7 +49,7 @@ const mime = {
   '.woff2': 'font/woff2',
 }
 const visibleSensitiveInputSelector =
-  'input:visible:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), textarea:visible'
+  'input[id^="rotated-key-value-"]:visible, input[inputmode="numeric"]:visible, input[type="password"]:visible, textarea:visible'
 
 assert(
   existsSync(resolve(build, 'index.html')),
@@ -813,7 +813,10 @@ try {
             .waitFor()
           assert.equal(counts.commit, 1)
           assert.equal(counts.preview, 1)
-          assert.equal(counts.receipt, 3)
+          // Reload remounts the closed dialog and restores the pending receipt
+          // once. Opening Review rotation status is a separate explicit recovery
+          // trigger, so both reads must retain the original operation identity.
+          assert.equal(counts.receipt, 4)
           assert(
             receiptOperationIds.every(
               (operationId) => operationId === submittedOperationId
@@ -826,7 +829,7 @@ try {
             preview: 1,
             verify: 1,
             commit: 1,
-            receipt: 3,
+            receipt: 4,
           })
         }
       }
@@ -844,7 +847,7 @@ try {
       counts,
       unknownSameOperation:
         scenario.result === 'unknown'
-          ? receiptOperationIds.length === 3 &&
+          ? receiptOperationIds.length === 4 &&
             receiptOperationIds.every(
               (operationId) => operationId === submittedOperationId
             )

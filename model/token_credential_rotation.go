@@ -923,7 +923,7 @@ func newTokenCredentialRotationKey(tx *gorm.DB) (string, error) {
 			return "", err
 		}
 		var count int64
-		if err := tx.Unscoped().Model(&Token{}).Where(commonKeyCol+" = ?", candidate).Count(&count).Error; err != nil {
+		if err := tx.Unscoped().Model(&Token{}).Where(map[string]any{"key": candidate}).Count(&count).Error; err != nil {
 			return "", err
 		}
 		if count == 0 {
@@ -1073,10 +1073,9 @@ func CommitTokenCredentialRotation(ctx context.Context, db *gorm.DB, actorID, to
 		if cacheErr := invalidateTokenCredentialRotationCaches(ctx, balanceLock, oldKey, candidateKey); cacheErr != nil {
 			return errors.Join(ErrTokenMaintenancePreconditionUnknown, cacheErr)
 		}
-		updated := tx.Model(&Token{}).Where(
-			"id = ? AND user_id = ? AND "+commonKeyCol+" = ? AND credential_version = ?",
-			token.Id, token.UserId, token.Key, token.CredentialVersion,
-		).Updates(map[string]any{"key": candidateKey, "credential_version": token.CredentialVersion + 1})
+		updated := tx.Model(&Token{}).Where(map[string]any{
+			"id": token.Id, "user_id": token.UserId, "key": token.Key, "credential_version": token.CredentialVersion,
+		}).Updates(map[string]any{"key": candidateKey, "credential_version": token.CredentialVersion + 1})
 		if updated.Error != nil {
 			return updated.Error
 		}

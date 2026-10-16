@@ -230,10 +230,6 @@ func BeginTokenCredentialDispatchAdmission(ctx context.Context, db *gorm.DB, use
 		if created.Error != nil {
 			return created.Error
 		}
-		if created.RowsAffected == 1 {
-			result = candidate
-			return nil
-		}
 		if err := lockForUpdate(tx.WithContext(ctx)).Where(
 			"token_id = ? AND credential_version = ? AND kind = ? AND request_identity_hash = ?",
 			tokenID, expectedVersion, kind, requestHash,
@@ -245,6 +241,12 @@ func BeginTokenCredentialDispatchAdmission(ctx context.Context, db *gorm.DB, use
 		}
 		if result.UserID != userID || result.TokenID != tokenID || result.CredentialVersion != expectedVersion || result.Kind != kind {
 			return ErrTokenMaintenanceConflict
+		}
+		if result.AdmissionID == admissionID {
+			if result.State != TokenCredentialDispatchAdmissionStateOpen {
+				return ErrTokenMaintenanceUnknown
+			}
+			return nil
 		}
 		switch result.State {
 		case TokenCredentialDispatchAdmissionStateOpen:

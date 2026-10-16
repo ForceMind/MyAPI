@@ -17,9 +17,9 @@ import { createUIFixture } from '../ui/browser-fixtures.mjs'
 
 const repo = fileURLToPath(new URL('../../', import.meta.url))
 const sensitiveInputSelector =
-  'input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), textarea'
+  'input[id^="rotated-key-value-"], input[inputmode="numeric"], input[type="password"], textarea'
 const visibleSensitiveInputSelector =
-  'input:visible:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), textarea:visible'
+  'input[id^="rotated-key-value-"]:visible, input[inputmode="numeric"]:visible, input[type="password"]:visible, textarea:visible'
 const inputMask = `
   ${sensitiveInputSelector} {
     -webkit-text-security: disc !important;

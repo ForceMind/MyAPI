@@ -491,8 +491,8 @@ export function CredentialRotationDialog(props: {
             (phase !== 'revealed' || secretSaved)
           }
         >
-          <DialogHeader>
-            <DialogTitle className='flex items-center gap-2'>
+          <DialogHeader className='min-w-0 pr-10'>
+            <DialogTitle className='flex min-w-0 items-center gap-2 break-words'>
               <RotateCw className='text-primary shrink-0' aria-hidden='true' />
               {t('Credential rotation')}
             </DialogTitle>
