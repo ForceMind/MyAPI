@@ -1,6 +1,8 @@
 # 已批准个人控制台：开发交接
 
-> 最新续接（beta.18）：维护者已批准原Token ID单值轮换及保留Key身份逐个跨账号迁移；本批实现、准确源码、隔离真实Go/浏览器和原图见[凭据维护交付](PERSONAL_CONSOLE_CREDENTIAL_DELIVERY_20261016.md)。轮换兼容性尚未证明，提交继续关闭。完整CI状态以该交付记录为准；不要从本文旧起点或旧main重置。生产凭据/数据/历史账务仍冻结，不合并main、发布或部署。
+> 最新续接（beta.19，2026-10-17）：原Token ID单值轮换已在现有authoritative合格配置下完成隔离验收，legacy/bridge与未知证据继续阻断；保留Key身份的逐个跨账号迁移已回归通过。准确源码5536cf8、最终CI38935299710的11项作业、实际Go/浏览器、桌面/手机原图及运行页面见[轮换交付](PERSONAL_CONSOLE_ROTATION_DELIVERY_20261017.md)和[接口合同](PERSONAL_CONSOLE_ROTATION_API_20261017.md)。以下旧起点/状态为历史，不从旧main重置。生产凭据/数据/历史账务仍冻结，不合并main、标签、发布或部署。
+
+> 历史续接（beta.18）：维护者已批准原Token ID单值轮换及保留Key身份逐个跨账号迁移；本批实现、准确源码、隔离真实Go/浏览器和原图见[凭据维护交付](PERSONAL_CONSOLE_CREDENTIAL_DELIVERY_20261016.md)。轮换兼容性尚未证明，提交继续关闭。完整CI状态以该交付记录为准；不要从本文旧起点或旧main重置。生产凭据/数据/历史账务仍冻结，不合并main、发布或部署。
 
 > 2026-10-16 续接提示：以下起点与“尚未开始”描述保留为审批时历史。实际开发已完成第一批 beta.15，并推进 beta.16 剩余项；继续工作前读取 [最新交付](PERSONAL_CONSOLE_REMAINDER_DELIVERY_20261016.md) 和 [执行记录](PERSONAL_CONSOLE_REMAINDER_EXECUTION_20261016.md)，核对现分支、差异与准确源码，不从本文旧起点重置。
 

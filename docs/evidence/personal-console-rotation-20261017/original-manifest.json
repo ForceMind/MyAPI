@@ -1,0 +1,336 @@
+{
+  "schema": 1,
+  "version": "0.2.0-beta.19",
+  "source_head": "5536cf8601afe512bbefb92e86b99b038398a133",
+  "ci_checkout": "0c72690c19f1a738f61d6ec54c86c470f679f27f",
+  "ci_run": 38935299710,
+  "original_pngs": 36,
+  "original_reports": 6,
+  "policy": "Original CI bytes copied without image edits; only PNG and redacted passed JSON reports archived. No database or private runtime configuration.",
+  "files": [
+    {
+      "path": "myapi-credential-browser-artifacts/credential-maintenance-qualification.json",
+      "bytes": 2449,
+      "sha256": "3720242b497e8e0a58a527546a98e4c93e1738b533e01df35d827af44a7d4a03",
+      "original": true
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/desktop-blocked-guidance-blocked.png",
+      "bytes": 186281,
+      "sha256": "3c59708518d3389267873d283656853372feb749655c47a6583846fceda35765",
+      "original": true,
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/desktop-success-keyboard-committed.png",
+      "bytes": 167048,
+      "sha256": "a08cf05a59a9c99bebb7f280ab539ba9c80ab3a1d3d9c972974f33b03bda070d",
+      "original": true,
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/desktop-success-keyboard-confirm-actions.png",
+      "bytes": 158412,
+      "sha256": "9f2a3aa0f3c4e1b624a77415b6966d93d85b1cf09d99080d642e8c48a2743de9",
+      "original": true,
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/desktop-success-keyboard-loaded.png",
+      "bytes": 173740,
+      "sha256": "8328b0c4d8cd6b207508f0eab2807b4d4848412480b0d523e468e56edba55433",
+      "original": true,
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/mobile-read-failure-committed.png",
+      "bytes": 82858,
+      "sha256": "6d8d596b6082ee657162ae09c0428096214b79a2499be8088e60825a05fbf770",
+      "original": true,
+      "width": 390,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/mobile-read-failure-confirm-actions.png",
+      "bytes": 77152,
+      "sha256": "358c4e4253615f80e81ed947aaeeafe7f0d45b37eb20422975ad19c4a31d77ca",
+      "original": true,
+      "width": 390,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/mobile-read-failure-loaded.png",
+      "bytes": 96886,
+      "sha256": "55256310934ab00f7bf989b45299ca081eb8909dcd7f34bac00541b32fc11836",
+      "original": true,
+      "width": 390,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/mobile-read-failure-read-failure.png",
+      "bytes": 84451,
+      "sha256": "87a8b3652ece1e2a2707ea969c8d71c1d73cbedfe5343af85022a2826eca5087",
+      "original": true,
+      "width": 390,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/narrow-dark-long-unknown-confirm-actions.png",
+      "bytes": 80596,
+      "sha256": "837918f56d98ca050cd2cd504afa8672ae1acec3442d2bc7b2c054a7a1971b0b",
+      "original": true,
+      "width": 320,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/narrow-dark-long-unknown-loaded.png",
+      "bytes": 89045,
+      "sha256": "924bfa21e03ebf4ab8e33fefedd4357cce5a533a54498d0f2e68d0a19c3d6ccb",
+      "original": true,
+      "width": 320,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/narrow-dark-long-unknown-unknown-reloaded.png",
+      "bytes": 78179,
+      "sha256": "03a1f17a09a61d6f508434bce4b2c94868ffd63b336d68612b9c751be0b0d310",
+      "original": true,
+      "width": 320,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/narrow-dark-long-unknown-unknown-reopened.png",
+      "bytes": 78234,
+      "sha256": "7aa32b46a8890a08d4a8c65205e5c436964420ba15ead9896c74da1c2c234215",
+      "original": true,
+      "width": 320,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-browser-artifacts/narrow-dark-long-unknown-unknown.png",
+      "bytes": 88470,
+      "sha256": "2f010607e0bb9bef4b7b4a5691b8a0af5c836176a5bc470be9c98882425860b7",
+      "original": true,
+      "width": 320,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-rotation-artifacts/credential-rotation-qualification.json",
+      "bytes": 2950,
+      "sha256": "ca70daf534ce98bd704e5958adabbc9f052282a642f8f7bc9131ac16408b62bd",
+      "original": true
+    },
+    {
+      "path": "myapi-credential-rotation-artifacts/desktop-blocked-blocked.png",
+      "bytes": 178350,
+      "sha256": "2d437308675aaa58e05530e54de36c439a2803ea18d2cf9fbdaa336b6e978ae3",
+      "original": true,
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-rotation-artifacts/desktop-ready-fresh-secret-fresh-secret-masked.png",
+      "bytes": 161555,
+      "sha256": "e7e892fe9d41d442e6a815fb5a175de8c8693871ce4d061cdbf2bdecd8a43e98",
+      "original": true,
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-rotation-artifacts/desktop-ready-fresh-secret-review-confirmed.png",
+      "bytes": 173112,
+      "sha256": "7eec675f20b2342b6437b8c3720ee6a2cf1a76835a078be8e57c37bdcab4e2db",
+      "original": true,
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-rotation-artifacts/mobile-preview-retry-preview-failed.png",
+      "bytes": 96894,
+      "sha256": "4e89520f08232fc059df9b88b753ad747a1aac8c54dada9f28bb112e4006c64a",
+      "original": true,
+      "width": 390,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-rotation-artifacts/mobile-preview-retry-preview-retried-ready.png",
+      "bytes": 103661,
+      "sha256": "a349e49a7a13faef3901f0ec02777c775ec54e471df6743a7eceae93400a315d",
+      "original": true,
+      "width": 390,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-rotation-artifacts/narrow-dark-unknown-recovery-review-confirmed.png",
+      "bytes": 92445,
+      "sha256": "f0564f116e8de691aaaf97e7aa4a9e30722f5c76a5a5f08d6dabe3de2aefeefe",
+      "original": true,
+      "width": 320,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-rotation-artifacts/narrow-dark-unknown-recovery-unknown-receipt-missing.png",
+      "bytes": 86368,
+      "sha256": "feb1bb0a5328ce403a81ce050196bf485d79463175634e7fc2285fa0e8bdb59c",
+      "original": true,
+      "width": 320,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-rotation-artifacts/narrow-dark-unknown-recovery-unknown-reloaded.png",
+      "bytes": 84073,
+      "sha256": "d360906b042f2a5f731a894666fea31050550bca215534f1fa99b6049c85c547",
+      "original": true,
+      "width": 320,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-rotation-artifacts/narrow-dark-unknown-recovery-unknown-reopened.png",
+      "bytes": 86177,
+      "sha256": "84243acb9e7eab840db2107f0dcd51ecfa925f057c1d2b71676649387a859ad4",
+      "original": true,
+      "width": 320,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime-en-1440-committed.png",
+      "bytes": 173602,
+      "sha256": "30dfc0f48e76be231c9e866666eda240f9d3a25d4080415a2fc91682d49374fa",
+      "original": true,
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime-en-1440-confirmed.png",
+      "bytes": 167676,
+      "sha256": "5677380e2331ae33ebb875f08ccf068b63c25eab9291a54db63e133b174c5d57",
+      "original": true,
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime-en-1440-loaded.png",
+      "bytes": 161951,
+      "sha256": "3de127806a333cd24761e93e509c615849bdebe0cb5d40217f9eadb5dd254b38",
+      "original": true,
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime-en-1440-reopened.png",
+      "bytes": 160892,
+      "sha256": "d7104f620938c3b2385c6311faf7fdcced386773bb858158f53e2acc899c7d2a",
+      "original": true,
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime.json",
+      "bytes": 2218,
+      "sha256": "031309efa68d111daf31156e55746d5ade981ebb336cba6dd5267062a695f98e",
+      "original": true
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime-zh-390-committed.png",
+      "bytes": 76456,
+      "sha256": "bb6bb34e82b83f8632d4bc90b5480f7a0069cbbd0b850a94ec7cb4791db95725",
+      "original": true,
+      "width": 390,
+      "height": 844
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime-zh-390-confirmed.png",
+      "bytes": 76698,
+      "sha256": "76c8854f7ae8c3f27215ce3ec2c61e6701a076a148a0968ed8007ba87a5d5015",
+      "original": true,
+      "width": 390,
+      "height": 844
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime-zh-390-loaded.png",
+      "bytes": 86136,
+      "sha256": "bd67ecb9db7523d4b22fe2099fc96c503fad6acd372bff30d48e657863b40977",
+      "original": true,
+      "width": 390,
+      "height": 844
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime-zh-390-reopened.png",
+      "bytes": 85870,
+      "sha256": "c4b704f07c6c89fefb97ef080f462ee5c28cf586e795bf112e5a12e1549f4dae",
+      "original": true,
+      "width": 390,
+      "height": 844
+    },
+    {
+      "path": "myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime.json",
+      "bytes": 2213,
+      "sha256": "a137cf068f52ff26e9044e86960fb6beb49ebba05affa96312e4551d902e84ec",
+      "original": true
+    },
+    {
+      "path": "myapi-rotation-runtime-artifacts/en-1440/credential-rotation-runtime-en-1440-closed-secret-cleared.png",
+      "bytes": 167357,
+      "sha256": "dfb0e9b8590ac47622e1b290defe7bf5ebac446bdafca061b3d618492e1e3b2f",
+      "original": true,
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "path": "myapi-rotation-runtime-artifacts/en-1440/credential-rotation-runtime-en-1440-fresh-secret-masked.png",
+      "bytes": 160591,
+      "sha256": "7c53c7fe3bfb4cfb847e96ff141e25c390dfbe9a914f05ade74be6620e3855ff",
+      "original": true,
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "path": "myapi-rotation-runtime-artifacts/en-1440/credential-rotation-runtime-en-1440-review-confirmed.png",
+      "bytes": 172083,
+      "sha256": "0773476f38b2f0243c41f8eb1de71d8138f607e373f36ba41f4be6415b98bf58",
+      "original": true,
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "path": "myapi-rotation-runtime-artifacts/en-1440/credential-rotation-runtime-en-1440.json",
+      "bytes": 2487,
+      "sha256": "36320d6a5fce23e5724d5635e56fe163e82c1aa60c309f097b356e8a4285c360",
+      "original": true
+    },
+    {
+      "path": "myapi-rotation-runtime-artifacts/zh-390/credential-rotation-runtime-zh-390-closed-secret-cleared.png",
+      "bytes": 87404,
+      "sha256": "d543ca190c8981db43f0c31a16134541c4f96b9502beec6906278fb058e8eca9",
+      "original": true,
+      "width": 390,
+      "height": 844
+    },
+    {
+      "path": "myapi-rotation-runtime-artifacts/zh-390/credential-rotation-runtime-zh-390-fresh-secret-masked.png",
+      "bytes": 68476,
+      "sha256": "c7cb44277b7b8645ec1d6ac223c0ebbd0dd13e14a6985dfa7a4dd59f3a20dabb",
+      "original": true,
+      "width": 390,
+      "height": 844
+    },
+    {
+      "path": "myapi-rotation-runtime-artifacts/zh-390/credential-rotation-runtime-zh-390-review-confirmed.png",
+      "bytes": 82866,
+      "sha256": "97ca9b72ed87d3d55bbc477ec8649d539fcfb99b9ffa239d64f5879f31cde956",
+      "original": true,
+      "width": 390,
+      "height": 844
+    },
+    {
+      "path": "myapi-rotation-runtime-artifacts/zh-390/credential-rotation-runtime-zh-390.json",
+      "bytes": 2483,
+      "sha256": "7a09bd725afdf1e1093a500f124bfaecd74997c4edc0b9650a900a85efb58e85",
+      "original": true
+    }
+  ]
+}

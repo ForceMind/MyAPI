@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "source_head": "5536cf8601afe512bbefb92e86b99b038398a133",
+  "ci_checkout": "0c72690c19f1a738f61d6ec54c86c470f679f27f",
+  "reviewer": "credential_guard (gpt-5.6-sol/high), independent of UI and root integration implementation",
+  "result": "passed",
+  "open_p1": 0,
+  "open_p2": 0,
+  "actually_viewed_original_pngs": 23,
+  "actually_read_original_reports": 5,
+  "groups": [
+    {
+      "directory": "myapi-rotation-runtime-artifacts",
+      "pngs": 6,
+      "reports": 2,
+      "api": "real Go, disposable SQLite and synthetic Root session/2FA"
+    },
+    {
+      "directory": "myapi-credential-runtime-artifacts",
+      "pngs": 8,
+      "reports": 2,
+      "api": "real Go legacy migration and valid-proof rotation rejection"
+    },
+    {
+      "directory": "myapi-credential-rotation-artifacts",
+      "pngs": 9,
+      "reports": 1,
+      "api": "synthetic production-build journeys"
+    }
+  ],
+  "root_viewed": [
+    "myapi-rotation-runtime-artifacts/en-1440/credential-rotation-runtime-en-1440-fresh-secret-masked.png",
+    "myapi-rotation-runtime-artifacts/zh-390/credential-rotation-runtime-zh-390-review-confirmed.png",
+    "myapi-credential-rotation-artifacts/narrow-dark-unknown-recovery-unknown-reopened.png"
+  ],
+  "checks": [
+    "M and soft blue preserved",
+    "1440/390/320, light/dark and Vietnamese long copy have no horizontal clipping",
+    "No title/close overlap or mobile navigation obstruction",
+    "Secret masks cover only sensitive input; labels and controls visible",
+    "Close clears raw secret; receipt and replay secret-free",
+    "Real and synthetic evidence distinguished"
+  ],
+  "prior_findings_closed": [
+    "mask painted transparent native inputs and covered unrelated text",
+    "320 long title crowded close control",
+    "Realtime fixture missing captured credential version",
+    "version overflow test omitted open-admission unknown priority",
+    "PostgreSQL CHAR padding for optional linked identity hash",
+    "PostgreSQL key quoting depended on global dialect",
+    "MySQL clientFoundRows reentry could reauthorize send",
+    "missing rotation receipt table could qualify Ready",
+    "shared database fixture incorrectly assumed writer was missing"
+  ],
+  "minor_observation": "Two distinct uncommon blockers may display identical generic fallback guidance; status and submission safety remain correct. No P2 raised.",
+  "limits": [
+    "Old synthetic 13 PNGs not counted as newly manually reviewed; their current-run automatic regression passed",
+    "Static screenshots do not prove animation",
+    "No live provider, production or physical Passkey evidence"
+  ]
+}

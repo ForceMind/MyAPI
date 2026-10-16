@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "source_head": "5536cf8601afe512bbefb92e86b99b038398a133",
+  "ci_checkout": "0c72690c19f1a738f61d6ec54c86c470f679f27f",
+  "ci_run": 38935299710,
+  "database_job": 117089700451,
+  "redis_job": 117089700271,
+  "databases": {
+    "sqlite": "isolated temporary files",
+    "mysql": "5.7 disposable container",
+    "postgres": "9.6 disposable container"
+  },
+  "contracts": [
+    {
+      "contract": "TestTokenAccountMigrationConfiguredDatabases",
+      "engines": [
+        {
+          "engine": "sqlite",
+          "result": "passed",
+          "seconds": 0.3
+        },
+        {
+          "engine": "mysql",
+          "result": "passed",
+          "seconds": 0.99
+        },
+        {
+          "engine": "postgres",
+          "result": "passed",
+          "seconds": 2.16
+        }
+      ]
+    },
+    {
+      "contract": "TestSamplingTargetProofConfiguredDatabases",
+      "engines": [
+        {
+          "engine": "sqlite",
+          "result": "passed",
+          "seconds": 0.05
+        },
+        {
+          "engine": "mysql",
+          "result": "passed",
+          "seconds": 0.15
+        },
+        {
+          "engine": "postgres",
+          "result": "passed",
+          "seconds": 0.23
+        }
+      ]
+    },
+    {
+      "contract": "TestTokenCredentialRotationConfiguredDatabases",
+      "engines": [
+        {
+          "engine": "sqlite",
+          "result": "passed",
+          "seconds": 0.25
+        },
+        {
+          "engine": "mysql",
+          "result": "passed",
+          "seconds": 0.9
+        },
+        {
+          "engine": "postgres",
+          "result": "passed",
+          "seconds": 2.9
+        }
+      ]
+    }
+  ],
+  "redis": {
+    "version": "7 disposable separate instance",
+    "result": "passed",
+    "cases": [
+      {
+        "name": "old_and_new_credentials_are_fenced",
+        "seconds": 0.11
+      },
+      {
+        "name": "subject_lock_failure_writes_nothing",
+        "seconds": 0.18
+      },
+      {
+        "name": "pre-commit_cache_failure_writes_nothing",
+        "seconds": 0.09
+      },
+      {
+        "name": "post-commit_cache_failure_has_unknown_outcome_and_secret-free_recovery",
+        "seconds": 0.08
+      }
+    ]
+  },
+  "scope": "No production database, Redis, provider or credential used. MySQL clientFoundRows replay and repeated schema/default compatibility execute within the rotation contract."
+}

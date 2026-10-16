@@ -1,5 +1,7 @@
 # 个人控制台原 ID 单值轮换：续批执行记录
 
+> 最新状态（2026-10-17）：beta.19候选本批验收完成。最终资格源码5536cf8、merge checkout0c72690c、完整CI38935299710的11项作业全部成功；准确来源、实际运行页面和36张原图/6报告见[交付记录](PERSONAL_CONSOLE_ROTATION_DELIVERY_20261017.md)。以下实施状态按发生时记录保留。生产凭据/数据/历史账务冻结，不合并main、发布或部署。
+
 ## 批次目标与现状
 
 承接已验收 beta.18、分支 `codex/subscription-key-share-20261014`、归档 `4c21bfba5448b40d8d3a78ee7e931c5da0be2658`。维护者回复“继续”，沿用原Token ID单值轮换、接受短暂中断及证明前不开放提交的决定。原M、柔和蓝和visual-v0.2保持，不再次确认视觉。
@@ -123,3 +125,12 @@ SetApiRouter接通专用Root会话route chain；ReadTokenMaintenance复用首次
 主线程续查发现资格缺少receipt表门槛：其他资格全时，缺TokenCredentialRotationReceipt表仍可能ready，而commit最早回执查询会失败。增加3行缺表unknown资格（复用既有schema_unavailable blocker），既有合格schema成功语义不变；新增核心preview无revision/effects、强制提交零secret/Key/version不变及聚合maintenance关闭提交且migration保持的回归。本机完整TokenCredential+MaintenanceRotation定向通过19.622s，gofmt/diff通过。该修正的新候选需完整Actions并重新取得准确源码原图；既有333ec图保留为中间实跑证据，不改图冒充最终来源。
 
 三库续跑CI38934381792的B2迁移测试指出一处夹具假设：shared MySQL/PG已存在固定名legacy writer，不能统一断言quota_writer_state_unknown；实际rotation为unknown、schema_unavailable，migration保持ready。测试实体明确未建固定名Receipt表，故共同合同改为精确credential_rotation_schema_unavailable/unknown，rotation禁写与原完整迁移断言保留。非实现者核对固定表名/随机前缀边界后审查通过；本机SQLite及两种并发合同0.94s通过（package1.004s），MySQL/PG本机明确skip，不外推通过。生产代码无变化，下一CI实际三库补验。
+
+
+### 最终资格与交付归档
+
+资格源码5536cf8601afe512bbefb92e86b99b038398a133、merge checkout0c72690c19f1a738f61d6ec54c86c470f679f27f，tree均ad2289bf3a13b3f3ea354d9e5705a8120456545f。CI38935299710的11项作业全部success，完整Go/独立relaykit、linux/386、全部race、240文件/1540前端单元、三库/Redis与全部浏览器已通过。当前真实Go轮换6.78s、迁移/legacy409 6.67s；三库轮换4.06s、迁移3.45s、采样0.43s，Redis7四合同0.46s。
+
+36PNG/6原JSON按字节原样复制及记录哈希；credential_guard本轮实际查看其中23张所审UI/集成原图和5报告，无剩余P1/P2或秘密泄露；旧13合成图不重复计入人工查看数。主线程实际查看准确来源代表原图。文档交叉核对已修正HTTP200资格状态/412提交状态、对话框/标签页恢复、数据库事务/Redis更新、审查者实现范围的措辞。
+
+4176为准确CI前端的隔离合成交互预览，HTML与下载构建逐字相同并回读200/no-store；仅临时内存假Key，没有真实数据库或provider。与Actions真实Go证据分别标记。后续归档仅docs/原始证据，相对资格源码非docs差异为空，既有Draft PR同步且base不变；不将归档HEAD冒充CI源码。
