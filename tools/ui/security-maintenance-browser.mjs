@@ -531,6 +531,29 @@ async function verifyMobilePasswordFooter(page, scenario) {
       'Mobile security dialog footer action remains usable in the viewport'
     )
   }
+  if (scenario.theme === 'dark') {
+    const colors = await dialog.evaluate((element) => {
+      const parse = (value) => {
+        const channels = value.match(/[\d.]+/g)?.slice(0, 3).map(Number) || []
+        return channels.length === 3
+          ? channels.reduce((sum, channel) => sum + channel, 0) / 3
+          : Number.NaN
+      }
+      const style = getComputedStyle(element)
+      return {
+        backgroundMean: parse(style.backgroundColor),
+        foregroundMean: parse(style.color),
+      }
+    })
+    assert(
+      Number.isFinite(colors.backgroundMean) && colors.backgroundMean < 100,
+      'Dark password dialog has a dark computed background'
+    )
+    assert(
+      Number.isFinite(colors.foregroundMean) && colors.foregroundMean > 180,
+      'Dark password dialog has readable computed foreground text'
+    )
+  }
   await screenshot(page, scenario, 'password-dialog')
   await cancel.click()
   await dialog.waitFor({ state: 'detached' })
@@ -543,9 +566,9 @@ async function verifyPassword(page, scenario, state) {
     .filter({ has: page.getByText(t('Change Password'), { exact: true }) })
   await action.click()
   let dialog = page.getByRole('dialog', { name: t('Change Password') })
-  await dialog.getByLabel(t('Current Password')).fill('old-password')
-  await dialog.getByLabel(t('New Password')).fill('new-password')
-  await dialog.getByLabel(t('Confirm New Password')).fill('mismatch-password')
+  await dialog.getByLabel(t('Current Password'), { exact: true }).fill('old-password')
+  await dialog.getByLabel(t('New Password'), { exact: true }).fill('new-password')
+  await dialog.getByLabel(t('Confirm New Password'), { exact: true }).fill('mismatch-password')
   await dialog.getByRole('button', { name: t('Change Password') }).click()
   await page.getByText(t('Passwords do not match'), { exact: true }).waitFor()
   assert.equal(state.counts.password, 0, 'Client validation blocks the password request')
@@ -554,12 +577,12 @@ async function verifyPassword(page, scenario, state) {
   await action.click()
   dialog = page.getByRole('dialog', { name: t('Change Password') })
   for (const key of ['Current Password', 'New Password', 'Confirm New Password']) {
-    assert.equal(await dialog.getByLabel(t(key)).inputValue(), '')
+    assert.equal(await dialog.getByLabel(t(key), { exact: true }).inputValue(), '')
   }
-  await dialog.getByLabel(t('Current Password')).fill('old-password')
-  await dialog.getByLabel(t('New Password')).fill('new-password')
-  await dialog.getByLabel(t('Confirm New Password')).fill('new-password')
-  await dialog.getByLabel(t('Confirm New Password')).press('Enter')
+  await dialog.getByLabel(t('Current Password'), { exact: true }).fill('old-password')
+  await dialog.getByLabel(t('New Password'), { exact: true }).fill('new-password')
+  await dialog.getByLabel(t('Confirm New Password'), { exact: true }).fill('new-password')
+  await dialog.getByLabel(t('Confirm New Password'), { exact: true }).press('Enter')
   await dialog.waitFor({ state: 'detached' })
   assert.equal(state.counts.password, 1)
 }
@@ -584,7 +607,7 @@ async function verifyAccessToken(page, scenario, state) {
   await confirmation
     .getByRole('button', { name: t('Regenerate token'), exact: true })
     .click()
-  const tokenInput = dialog.getByLabel(t('Token'))
+  const tokenInput = dialog.getByLabel(t('Token'), { exact: true })
   await tokenInput.waitFor()
   assert.equal(await tokenInput.inputValue(), syntheticAccessToken)
   assert.equal(state.counts.accessToken, 1)
@@ -595,7 +618,10 @@ async function verifyAccessToken(page, scenario, state) {
   await dialog.getByRole('button', { name: t('Close'), exact: true }).click()
   await action.click()
   dialog = page.getByRole('dialog', { name: t('Access Token') })
-  assert.equal(await dialog.getByLabel(t('Token')).count(), 0)
+  assert.equal(
+    await dialog.getByLabel(t('Token'), { exact: true }).count(),
+    0
+  )
   assert.equal(state.counts.accessToken, 1, 'Reopening never regenerates')
   await dialog.getByRole('button', { name: t('Close'), exact: true }).click()
 }
@@ -627,7 +653,9 @@ async function verifyTwoFA(page, scenario, state) {
   await setup.getByRole('button', { name: t('Next'), exact: true }).waitFor()
   await setup.getByRole('button', { name: t('Next'), exact: true }).click()
   await setup.getByRole('button', { name: t('Next'), exact: true }).click()
-  await setup.getByLabel(t('Verification Code')).fill('123456')
+  await setup
+    .getByLabel(t('Verification Code'), { exact: true })
+    .fill('123456')
   await setup.getByRole('button', { name: t('Enable 2FA'), exact: true }).click()
   await setup.waitFor({ state: 'detached' })
   await card
@@ -648,7 +676,9 @@ async function verifyTwoFA(page, scenario, state) {
   const backupDialog = page.getByRole('dialog', {
     name: t('Regenerate Backup Codes'),
   })
-  await backupDialog.getByLabel(t('Verification Code')).fill('123456')
+  await backupDialog
+    .getByLabel(t('Verification Code'), { exact: true })
+    .fill('123456')
   await backupDialog
     .getByRole('button', { name: t('Generate New Codes'), exact: true })
     .click()
@@ -845,7 +875,10 @@ try {
       const revision = await openSecurity(page, scenario)
       await verifyRootRestriction(page, scenario, state)
       await screenshot(page, scenario, 'panel')
-      if (scenario.name === 'zh-mobile-390') {
+      if (
+        scenario.name === 'zh-mobile-390' ||
+        scenario.name === 'vi-mobile-320-dark'
+      ) {
         await verifyMobilePasswordFooter(page, scenario)
       }
       assert.deepEqual(state.violations, [])

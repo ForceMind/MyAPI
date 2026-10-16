@@ -325,7 +325,7 @@ describe('personal profile', () => {
     await user.click(entry)
     expect(
       await screen.findByRole('button', {
-        name: /Delete Account Permanently delete your account Available/,
+        name: /Delete Account Permanently delete your account and all data Available/,
       })
     ).toBeEnabled()
 

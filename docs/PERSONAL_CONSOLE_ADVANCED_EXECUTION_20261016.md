@@ -90,3 +90,11 @@
 - 模型/真实runtime的radio同类#id问题，改为具名真实role radio，保留checked断言；真实目录合同已通过，第二轮失败图显示仍unlimited，准确停在restrict-mode。新搜索stage进一步区分失败。
 - 安全18个布局旅程后错误恢复失败；实际failed-statuses图显示Passkey已恢复，固定失败次数被PasskeyCard与SecureVerification并发读取耗尽。fixture改明确失败phase，三卡真实错误出现并截图后才切恢复、逐个Retry，不跳过失败或恢复断言。
 - 第二轮失败用于定向修正；第三轮须完整qualify。Go生产逻辑与5ba90cf一致，后续变化仅profile角色展示/vi词义、模型弹窗几何和浏览器/运行驱动，历史账务仍冻结。
+
+## 第三轮资格与末次驱动修正
+
+第三轮type/lint/build通过；1496单元通过，新增Root角色回归1项因测试漏写现有and all data文案失败，已仅修测试完整可访问名，角色/禁用断言保持。模型17个真实浏览器旅程全部通过，含三模式、未知回读、手机长ID和严格底栏几何。
+
+独立实际审图又发现model vi320dark portal仍白色：共享CSS浅色变量直接覆盖body portal而暗色只在console子树。主线程把dark变量作用于个人dialog/sheet并补popover，模型driver增加实际computed背景/文字暗色断言；安全driver增加vi320dark密码原图与同类颜色断言。已通过的security19个布局/错误恢复之后，功能密码字段非exact标签匹配New与ConfirmNew，改全部exact并核对Token/VerificationCode同类歧义。窗口unknown401错误把初始bootstrap刷新计数1与0比较，改提交前基线不增长且PUT绝不重放；只精准排除该fixture接口已知401资源日志，仍要求JS错误/未配置请求为空。
+
+第三轮真实runtime已完成首次真实窄PUT/GET，并进入恢复保存后失败；未获得HTTPstatus，限流429不是已证事实。静态源流程9次CT、personal显式7次及硬加载5次估计共21/20，可解释最后失败；去除两次advanced open重复forceLoad后估计19/20。原reload-check真实重载与每次dialog真实GET/PUT/GET、Root越权404、两写/额度/元数据/上游不变量全部保留，不改变任何production或临时限流数。restore细分阶段并输出固定event+数字status待验证。最终Node合同166/166再次通过。

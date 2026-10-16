@@ -308,11 +308,15 @@ body:has(.personal-console) [data-slot='sheet-content'] {
     padding-right: 48px;
   }
 }
-.dark .personal-console {
+.dark .personal-console,
+.dark body:has(.personal-console) [data-slot='dialog-content'],
+.dark body:has(.personal-console) [data-slot='sheet-content'] {
   --background: #131c2b;
   --foreground: #e6ebf5;
   --card: #1b2639;
   --card-foreground: #e6ebf5;
+  --popover: #1b2639;
+  --popover-foreground: #e6ebf5;
   --border: #35435c;
   --input: #35435c;
   --muted: #25334a;

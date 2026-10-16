@@ -353,6 +353,7 @@ try {
     })
     const calls = { gets: 0, puts: [], closes: [], authRefreshes: 0 }
     const unexpected = []
+    const pageErrors = []
     let phase = 'initial'
     let failNextPut = false
     await context.addCookies([
@@ -447,9 +448,26 @@ try {
 
     const page = await context.newPage()
     page.setDefaultTimeout(15_000)
-    page.on('pageerror', (error) => report.errors.push(`${name}: ${error.message}`))
+    page.on('pageerror', (error) => {
+      const message = `${name}: ${error.message}`
+      pageErrors.push(message)
+      report.errors.push(message)
+    })
     page.on('console', (message) => {
-      if (message.type() === 'error') {
+      if (message.type() !== 'error') return
+      const locationUrl = message.location().url
+      let locationPath = ''
+      try {
+        locationPath = new URL(locationUrl).pathname
+      } catch {
+        // Keep an invalid console location in the unexpected error path below.
+      }
+      const expectedUnknownResponse =
+        message.text() ===
+          'Failed to load resource: the server responded with a status of 401 (Unauthorized)' &&
+        locationPath === '/api/token/21/subscription-share' &&
+        calls.puts.at(-1)?.outcome === 'unknown-401'
+      if (!expectedUnknownResponse) {
         report.errors.push(`${name}: ${message.text()}`)
       }
     })
@@ -672,6 +690,7 @@ try {
       )
       failNextPut = true
       const unknownPutCount = calls.puts.length
+      const authRefreshesBeforeUnknown = calls.authRefreshes
       await unknownAction.focus()
       await page.keyboard.press('Enter')
       const unknownNotice = await editor.getByRole('alert', {
@@ -687,7 +706,11 @@ try {
       assert(await unknownNotice.evaluate((element) => element === document.activeElement))
       assert.equal(calls.puts.length, unknownPutCount + 1)
       assert.equal(calls.puts.at(-1).outcome, 'unknown-401')
-      assert.equal(calls.authRefreshes, 0, 'A stale 401 cannot refresh or replay')
+      assert.equal(
+        calls.authRefreshes,
+        authRefreshesBeforeUnknown,
+        'A stale 401 cannot trigger another refresh or replay'
+      )
       await screenshot('unknown-result')
       const readsBeforeReload = calls.gets
       await page.keyboard.press('Tab')
@@ -707,7 +730,7 @@ try {
         .waitFor({ state: 'visible' })
       assert(calls.gets > readsBeforeReload, 'Unknown result requires an explicit reread')
       assert.equal(calls.puts.length, unknownPutCount + 1, 'Unknown write is never repeated')
-      assert.equal(calls.authRefreshes, 0)
+      assert.equal(calls.authRefreshes, authRefreshesBeforeUnknown)
 
       await editor
         .getByRole('button', {
@@ -760,6 +783,7 @@ try {
     }
 
     assert.deepEqual(unexpected, [])
+    assert.deepEqual(pageErrors, [])
     report.journeys.push({
       name,
       language,

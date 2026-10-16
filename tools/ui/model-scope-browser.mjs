@@ -433,6 +433,37 @@ try {
       exact: true,
     })
     await dialog.waitFor({ state: 'visible' })
+    let computedDialogColors = null
+    if (item.theme === 'dark') {
+      computedDialogColors = await dialog.evaluate((element) => {
+        const style = getComputedStyle(element)
+        const colorSummary = (value) => {
+          const channels = (value.match(/[\d.]+/g) ?? [])
+            .slice(0, 3)
+            .map(Number)
+          return {
+            value,
+            mean:
+              channels.length === 3
+                ? channels.reduce((sum, channel) => sum + channel, 0) / 3
+                : null,
+          }
+        }
+        return {
+          background: colorSummary(style.backgroundColor),
+          foreground: colorSummary(style.color),
+        }
+      })
+      assert(
+        computedDialogColors.background.mean !== null &&
+          computedDialogColors.background.mean < 100 &&
+          computedDialogColors.foreground.mean !== null &&
+          computedDialogColors.foreground.mean > 180,
+        `${name}: portal dialog uses readable dark computed colors ${JSON.stringify(
+          computedDialogColors
+        )}`
+      )
+    }
     const screenshots = []
     const capture = async (suffix) => {
       const image = `${name}-${suffix}.png`
@@ -803,6 +834,7 @@ try {
       ),
       geometry,
       actionGeometry,
+      computedDialogColors,
       screenshots,
       passed: true,
     })
