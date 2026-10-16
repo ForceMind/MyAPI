@@ -907,7 +907,7 @@ func tokenAccountMigrationContract(t *testing.T, fixture tokenAccountMigrationFi
 	require.NoError(t, err)
 	assert.False(t, maintenance.Rotation.CommitSupported)
 	assert.Equal(t, TokenMaintenanceStatusUnknown, maintenance.Rotation.Status, "missing rotation evidence must not hide the ready migration")
-	assert.Contains(t, maintenance.Rotation.Blockers, tokenMaintenanceBlocker("quota_writer_state_unknown", TokenMaintenanceStatusUnknown))
+	assert.Contains(t, maintenance.Rotation.Blockers, tokenMaintenanceBlocker("credential_rotation_schema_unavailable", TokenMaintenanceStatusUnknown))
 	assert.Equal(t, TokenMaintenanceStatusReady, maintenance.Migration.Status)
 	require.NotNil(t, maintenance.Migration.Source)
 	assert.Equal(t, fixture.sourceChannel.Id, maintenance.Migration.Source.ChannelID)
