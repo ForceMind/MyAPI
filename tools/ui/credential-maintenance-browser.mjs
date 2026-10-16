@@ -77,6 +77,13 @@ const server = createServer((request, response) => {
 
 const scenarios = [
   {
+    name: 'desktop-blocked-guidance',
+    width: 1440,
+    language: 'zh',
+    theme: 'light',
+    result: 'blocked',
+  },
+  {
     name: 'desktop-success-keyboard',
     width: 1440,
     language: 'en',
@@ -253,6 +260,14 @@ try {
     let receiptReads = 0
     let failurePending = scenario.result === 'read-failure'
     const violations = []
+    if (scenario.result === 'blocked') {
+      maintenance.migration.status = 'unknown'
+      maintenance.migration.blockers = [
+        { code: 'token_budget_conflicts_with_subscription_share', state: 'blocked' },
+        { code: 'source_usage_history_unknown', state: 'unknown' },
+        { code: 'subscription_baseline_not_ready', state: 'unknown' },
+      ]
+    }
 
     await context.route('**/*', async (route) => {
       try {
@@ -448,6 +463,24 @@ try {
     }
 
     await dialog.getByText(maintenance.token.name, { exact: true }).waitFor()
+    if (scenario.result === 'blocked') {
+      await dialog.getByText(t('This Key still has an active budget mode'), { exact: true }).waitFor()
+      await dialog.getByText(t('Request accounting is still unresolved'), { exact: true }).waitFor()
+      const baseline = dialog.getByText(t('A trusted account baseline is not ready'), { exact: true })
+      await baseline.waitFor()
+      await baseline.scrollIntoViewIfNeeded()
+      assert.equal(await dialog.getByRole('button', { name: t('Preview migration') }).count(), 0)
+      assert.equal(await dialog.getByRole('button', { name: t('Verify and move account') }).count(), 0)
+      await capture('blocked')
+      assert.equal(previewWrites, 0)
+      assert.equal(commitWrites, 0)
+      assert.equal(receiptReads, 0)
+      assert.equal(violations.length, 0, violations.join('\n'))
+      report.journeys.push({ ...scenario, maintenanceReads, previewWrites, commitWrites, receiptReads, screenshots, violations })
+      await context.close()
+      persist()
+      continue
+    }
     await capture('loaded')
     const target = dialog.getByRole('combobox', {
       name: t('Target Codex account'),

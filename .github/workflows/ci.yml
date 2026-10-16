@@ -866,9 +866,6 @@ jobs:
       GOMAXPROCS: '2'
       GOMEMLIMIT: '768MiB'
       NODE_OPTIONS: '--max-old-space-size=768'
-      MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-credential-browser/node_modules/playwright/index.mjs
-      MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-credential-browser-artifacts
-      MYAPI_CREDENTIAL_RUNTIME_ARTIFACTS: ${{ runner.temp }}/myapi-credential-runtime-artifacts
     steps:
       - name: Checkout qualified source
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -895,11 +892,16 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/myapi-credential-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1
           "$RUNNER_TEMP/myapi-credential-browser/node_modules/.bin/playwright" install --with-deps chromium
       - name: Verify credential maintenance states on the production build
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-credential-browser/node_modules/playwright/index.mjs
+          MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-credential-browser-artifacts
         run: node tools/ui/credential-maintenance-browser.mjs
       - name: Verify real Go migration and proof routes on disposable SQLite
         if: ${{ !cancelled() }}
         env:
           MYAPI_CREDENTIAL_BROWSER_TESTS: '1'
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-credential-browser/node_modules/playwright/index.mjs
+          MYAPI_CREDENTIAL_RUNTIME_ARTIFACTS: ${{ runner.temp }}/myapi-credential-runtime-artifacts
         run: go test -p 1 ./router -run '^TestTokenMaintenanceRuntimeBrowser$' -count=1 -timeout=240s -v
       - name: Retain original credential screenshots and reports
         if: always()

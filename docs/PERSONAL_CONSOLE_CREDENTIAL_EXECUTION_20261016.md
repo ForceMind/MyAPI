@@ -62,3 +62,7 @@
 
 - 首候选冻结前：最终迁移模型定向 10.689s 通过；controller/router 维护接口定向通过；proof/credential model、service refresh/continuity、controller native TLS/duplicate/rotation loopback 定向通过。新增 configured proof 三库合同，CI 已加入；本机只实际执行 SQLite。10 个修改的 TS/TSX 文件格式/lint通过，两个 driver Node 语法检查、CI/后端 locale YAML 解析通过。
 - credential_ui 独立只读复核三项模型 P1 全部关闭；credential_plan 交叉审 controller/service/router/runtime 与 proof，未见剩余 P1/P2。完整前端类型/RTL/构建/Chromium、三库和实际原图仍待 CI，当前不宣告交付完成。
+
+## 首候选 CI 配置修正
+
+`cd4432e` 已同步到既有 Draft PR；Actions `38902138126` 在工作流校验阶段失败（无任何作业/构建/截图，不计为通过）。修正新增 job 的 job-level env 中 runner.temp 表达式，改为 step-level env；额外加入阻断状态的合成 Chromium 原图和零写断言。应用源码和已通过定向结果保留，下一候选重新完整资格验证。
