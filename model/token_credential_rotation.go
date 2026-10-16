@@ -764,6 +764,9 @@ func buildTokenCredentialRotationState(ctx context.Context, db *gorm.DB, actorID
 		return state, ErrTokenMaintenanceInvalid
 	}
 	state.expiresAt = (now/tokenCredentialRotationPreviewMaxAge + 1) * tokenCredentialRotationPreviewMaxAge
+	if !tokenCredentialRotationTableReady(db, &TokenCredentialRotationReceipt{}) {
+		tokenCredentialRotationAddBlocker(&state.blockers, "credential_rotation_schema_unavailable", TokenMaintenanceStatusUnknown)
+	}
 	if token.CredentialVersion <= 0 {
 		tokenCredentialRotationAddBlocker(&state.blockers, "token_credential_version_unknown", TokenMaintenanceStatusUnknown)
 	} else if token.CredentialVersion >= tokenCredentialVersionMaxExactJSON {

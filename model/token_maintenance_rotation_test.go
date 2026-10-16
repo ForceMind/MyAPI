@@ -177,3 +177,26 @@ func TestTokenMaintenanceRotationQueryFailureIsolation(t *testing.T) {
 		})
 	}
 }
+
+func TestTokenMaintenanceRotationRequiresReceiptSchema(t *testing.T) {
+	fixture := newTokenMaintenanceRotationFixture(t, "missing receipt")
+	baseline, err := ReadTokenMaintenance(context.Background(), fixture.db, fixture.root.Id, fixture.token.Id, fixture.now)
+	require.NoError(t, err)
+	require.Equal(t, TokenMaintenanceStatusReady, baseline.Rotation.Status)
+	require.True(t, baseline.Rotation.CommitSupported)
+	require.Equal(t, TokenMaintenanceStatusReady, baseline.Migration.Status)
+	var before Token
+	require.NoError(t, fixture.db.First(&before, fixture.token.Id).Error)
+	require.NoError(t, fixture.db.Migrator().DropTable(&TokenCredentialRotationReceipt{}))
+
+	view, err := ReadTokenMaintenance(context.Background(), fixture.db, fixture.root.Id, fixture.token.Id, fixture.now)
+	require.NoError(t, err)
+	assert.Equal(t, TokenMaintenanceStatusUnknown, view.Rotation.Status)
+	assert.False(t, view.Rotation.CommitSupported)
+	assert.Contains(t, view.Rotation.Blockers, tokenMaintenanceBlocker("credential_rotation_schema_unavailable", TokenMaintenanceStatusUnknown))
+	assert.Equal(t, baseline.Migration, view.Migration)
+	var after Token
+	require.NoError(t, fixture.db.First(&after, fixture.token.Id).Error)
+	assert.Equal(t, before, after)
+	assert.False(t, fixture.db.Migrator().HasTable(&TokenCredentialRotationReceipt{}))
+}

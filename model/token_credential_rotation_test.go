@@ -284,6 +284,37 @@ func TestTokenCredentialRotationRejectsUnavailableBackfillWithoutWrite(t *testin
 	}
 }
 
+func TestTokenCredentialRotationRejectsMissingReceiptTableWithoutWrite(t *testing.T) {
+	db := newTokenCredentialRotationSQLiteDB(t)
+	fixture := newTokenCredentialRotationFixture(t, db, "missing-receipt")
+	ready, err := PreviewTokenCredentialRotation(context.Background(), db, fixture.root.Id, fixture.token.Id, fixture.now)
+	require.NoError(t, err)
+	require.Equal(t, TokenMaintenanceStatusReady, ready.Status)
+	require.NotEmpty(t, ready.PreviewRevision)
+	require.NoError(t, db.Migrator().DropTable(&TokenCredentialRotationReceipt{}))
+
+	unknown, err := PreviewTokenCredentialRotation(context.Background(), db, fixture.root.Id, fixture.token.Id, fixture.now)
+	require.NoError(t, err)
+	require.NotNil(t, unknown)
+	assert.Equal(t, TokenMaintenanceStatusUnknown, unknown.Status)
+	assert.True(t, tokenCredentialRotationBlocker(unknown, "credential_rotation_schema_unavailable"))
+	assert.Empty(t, unknown.PreviewRevision)
+	assert.Nil(t, unknown.Effects)
+
+	var before Token
+	require.NoError(t, db.First(&before, fixture.token.Id).Error)
+	_, secret, replayed, err := CommitTokenCredentialRotation(context.Background(), db, fixture.root.Id, fixture.token.Id, TokenCredentialRotationCommand{
+		OperationID: strings.Repeat("f", 64), PreviewRevision: ready.PreviewRevision, Confirmed: true,
+	}, fixture.now)
+	require.Error(t, err)
+	assert.Empty(t, secret)
+	assert.False(t, replayed)
+	var after Token
+	require.NoError(t, db.First(&after, fixture.token.Id).Error)
+	assert.Equal(t, before.Key, after.Key)
+	assert.Equal(t, before.CredentialVersion, after.CredentialVersion)
+}
+
 func TestTokenCredentialRotationRejectsNonterminalLegacyObligationsWithoutWrite(t *testing.T) {
 	tests := []struct {
 		name  string
