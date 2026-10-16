@@ -66,3 +66,19 @@
 ## 首候选 CI 配置修正
 
 `cd4432e` 已同步到既有 Draft PR；Actions `38902138126` 在工作流校验阶段失败（无任何作业/构建/截图，不计为通过）。修正新增 job 的 job-level env 中 runner.temp 表达式，改为 step-level env；额外加入阻断状态的合成 Chromium 原图和零写断言。应用源码和已通过定向结果保留，下一候选重新完整资格验证。
+
+## 交付前追加审查（未通过）
+
+独立角色 credential_guard 发现 P1：unknown 期间允许关闭并卸载 dialog，而 operation ID 仅在组件 ref 中，重开可能丢失回执标识并生成新请求。本批暂停资格交付，UI 负责改为 actor/Token 隔离的非秘密 pending operation 记录，POST 前先保存，重开/同 tab 刷新只读取原回执；unknown/404 不清理或开放新提交。将补卸载恢复与真实 Chromium 回归并由非实现者复核。现有 CI 继续收集其他问题，结果不能覆盖此已知缺陷。
+
+测试夹具另有三行修正：将固定 JWT 生成移至主测试 goroutine，避免 httptest handler 内触发 require/testing.T；定向已通过，产品代码不变。最终源码归属需区分候选与此测试变更。
+
+## 追加修复冻结与待重验
+
+unknown 跨卸载 P1 修复已由 credential_plan/credential_guard 非实现者复核关闭：actor/Token 隔离非秘密 pending ID、POST 前保存并回读、恢复只 GET 原回执、duplicate callback 不复位、禁止覆盖其他 op、expected op compare-and-clear。确定 committed 或明确未受理的 deterministic commit 4xx 可清；unknown/408/499/5xx/解析失败及 receipt404 保留。sessionStorage 的边界是同一标签生命周期，不声称关闭标签/清站点数据/跨设备可恢复。
+
+首轮完整 CI38902455293 后端失败仅因 timeout fixture 的 First 读到新增旧身份样本。已精确取唯一当前 sample，保留 error/upstream_timeout 且整行验证旧 seed 不变；全部 TestCodexSampling 定向0.108s通过。前端已通过构建/类型/lint/单元，旧浏览器流程尚运行，新unknown修复未进入该轮，不作为最终资格。
+
+新增持久恢复4个TS文件缓存lint通过；主线程最终格式检查发现1文件格式差异，已规范并再lint通过。两个driver语法及diff-check通过；新RTL/恢复浏览器行为待完整新CI。
+
+前端既有六脚本兼容矩阵在首候选单步骤超过10分钟，原25分钟job接近边界；最终候选将job上限调整为30分钟，保留所有检查及各测试独立超时，不缩减验证。新增pending helper本机直接执行真实函数的save/read、actor/Token隔离、不同op拒绝与compare-and-clear通过；这不替代RTL/浏览器。

@@ -553,6 +553,7 @@ try {
   )
   requireThat(metrics.commit.requests === 1, 'DUPLICATE_COMMIT')
   await dialog.getByText(t('Account migration committed'), { exact: true }).waitFor()
+  await dialog.getByText(t('Account migration committed'), { exact: true }).scrollIntoViewIfNeeded()
   report.checks.realVerification = true
   report.checks.commitOnce = true
   await capture('committed')

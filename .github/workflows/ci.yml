@@ -501,7 +501,9 @@ jobs:
     # Source CI 38450353211 took 15m57s before the workbench seven-language
     # phone/desktop matrix. Keep individual test deadlines and allow bounded
     # margin for the added real browser journeys and runner/install variation.
-    timeout-minutes: 25
+    # The existing compatibility matrix alone exceeded ten minutes in
+    # credential candidate 38902455293; keep all checks and their deadlines.
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: web

@@ -144,12 +144,13 @@ func TestScheduledCodexRotationRequiresNewLifecycleSampleForProof(t *testing.T) 
 	establishCodexControllerCredentialEvidence(t, channel.Id, channel.Key, "rotation-account")
 	var originalTarget model.ChannelQuotaSamplingTarget
 	require.NoError(t, db.Where("channel_id = ?", channel.Id).Take(&originalTarget).Error)
+	refreshedAccessToken := codexControllerAccountJWT(t, "rotation-account")
 
 	client := codexSamplingProofClient(t, func(w http.ResponseWriter, request *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch request.URL.Path {
 		case "/oauth/token":
-			_, _ = io.WriteString(w, `{"access_token":"`+codexControllerAccountJWT(t, "rotation-account")+`","refresh_token":"new-refresh","expires_in":3600}`)
+			_, _ = io.WriteString(w, `{"access_token":"`+refreshedAccessToken+`","refresh_token":"new-refresh","expires_in":3600}`)
 		case "/backend-api/wham/usage":
 			if request.Header.Get("Authorization") == "Bearer old-access" {
 				w.WriteHeader(http.StatusUnauthorized)

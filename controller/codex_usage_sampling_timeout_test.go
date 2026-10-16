@@ -114,12 +114,18 @@ func TestCodexSamplingHonorsShorterCallerDeadlineAndRecordsTimeout(t *testing.T)
 	}
 	require.NoError(t, db.Create(channel).Error)
 	establishCodexControllerCredentialEvidence(t, channel.Id, channel.Key, "fixture-account")
+	var seedSnapshot model.ChannelQuotaSnapshot
+	require.NoError(t, db.Where("channel_id = ? AND sample_id = ?", channel.Id, "").Take(&seedSnapshot).Error)
 	err = sampleCodexChannelUsage(ctx, channel)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
-	var snapshot model.ChannelQuotaSnapshot
-	require.NoError(t, db.Where("channel_id = ?", 43).First(&snapshot).Error)
-	require.Equal(t, "error", snapshot.Status)
-	require.Equal(t, "upstream_timeout", snapshot.ErrorCode)
+	var snapshots []model.ChannelQuotaSnapshot
+	require.NoError(t, db.Where("channel_id = ? AND sample_id <> ?", channel.Id, "").Find(&snapshots).Error)
+	require.Len(t, snapshots, 1)
+	require.Equal(t, "error", snapshots[0].Status)
+	require.Equal(t, "upstream_timeout", snapshots[0].ErrorCode)
+	var seedAfter model.ChannelQuotaSnapshot
+	require.NoError(t, db.First(&seedAfter, seedSnapshot.Id).Error)
+	require.Equal(t, seedSnapshot, seedAfter)
 }
 
 func TestCodexSamplingRefreshWriteFailureIsReportedAndSafelyRecorded(t *testing.T) {

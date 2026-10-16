@@ -258,6 +258,7 @@ try {
     let previewWrites = 0
     let commitWrites = 0
     let receiptReads = 0
+    let submittedOperationID = ''
     let failurePending = scenario.result === 'read-failure'
     const violations = []
     if (scenario.result === 'blocked') {
@@ -342,6 +343,7 @@ try {
           assert.equal(body.confirmed, true)
           assert.equal(body.preview_revision, digest)
           assert.match(body.operation_id, /^[0-9a-f]{64}$/)
+          submittedOperationID = body.operation_id
           if (scenario.result === 'unknown') {
             return route.fulfill({
               status: 503,
@@ -373,6 +375,8 @@ try {
           method === 'GET'
         ) {
           receiptReads += 1
+          assert.equal(path, `/api/token/21/maintenance/operations/${submittedOperationID}`,
+            'Recovery reads the same submitted operation')
           return route.fulfill({
             status: 404,
             json: { success: false, code: 'not_found', message: '' },
@@ -539,6 +543,33 @@ try {
       await readback
       assert.equal(commitWrites, 1, 'Unknown result never repeats commit POST')
       assert.equal(receiptReads, 2, 'Unknown result retries only receipt GET')
+      await dialog.getByRole('button', { name: t('Close'), exact: true }).click()
+      await dialog.waitFor({ state: 'hidden' })
+      const reopenedReceipt = page.waitForResponse(
+        (response) => response.request().method() === 'GET' &&
+          new URL(response.url()).pathname.startsWith('/api/token/21/maintenance/operations/')
+      )
+      await entry.click()
+      await reopenedReceipt
+      await dialog.getByText(t('Migration result is unknown')).waitFor()
+      assert.equal(commitWrites, 1, 'Reopening never repeats commit POST')
+      assert.equal(receiptReads, 3, 'Reopening checks the original receipt')
+      await dialog.getByText(t('Migration result is unknown')).scrollIntoViewIfNeeded()
+      await capture('unknown-reopened')
+
+      await page.reload({ waitUntil: 'networkidle' })
+      const reloadedReceipt = page.waitForResponse(
+        (response) => response.request().method() === 'GET' &&
+          new URL(response.url()).pathname.startsWith('/api/token/21/maintenance/operations/')
+      )
+      await entry.click()
+      await reloadedReceipt
+      await dialog.getByText(t('Migration result is unknown')).waitFor()
+      assert.equal(commitWrites, 1, 'Reloading never repeats commit POST')
+      assert.equal(receiptReads, 4, 'Reloading checks the original receipt')
+      assert.equal(previewWrites, 1, 'Recovery cannot create a new preview')
+      await dialog.getByText(t('Migration result is unknown')).scrollIntoViewIfNeeded()
+      await capture('unknown-reloaded')
     } else {
       await dialog.getByText(t('Account migration committed')).waitFor()
       await dialog.getByText(t('Account migration committed')).scrollIntoViewIfNeeded()

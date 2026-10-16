@@ -15,7 +15,7 @@ import {
   RefreshCw,
   ShieldCheck,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -66,13 +66,24 @@ import {
   type CredentialMigrationPreview,
   type CredentialMigrationReceipt,
 } from '../credential-maintenance-api'
+import {
+  clearPendingCredentialMaintenanceOperation,
+  readPendingCredentialMaintenanceOperation,
+  savePendingCredentialMaintenanceOperation,
+} from '../credential-maintenance-pending-operation'
 import { useKeyMaintenanceSession } from '../hooks/use-key-maintenance-session'
 import { CredentialMaintenanceBlockers } from './credential-maintenance-blockers'
 import { CredentialMaintenanceRotation } from './credential-maintenance-rotation'
 
 const ROOT_ROLE = 100
 
-type CommitPhase = 'idle' | 'verifying' | 'submitting' | 'unknown' | 'committed'
+type CommitPhase =
+  | 'idle'
+  | 'recovering'
+  | 'verifying'
+  | 'submitting'
+  | 'unknown'
+  | 'committed'
 
 function redactedHint(value: string): string {
   if (value.includes('…') || value.includes('...') || value.includes('•')) {
@@ -113,9 +124,24 @@ function CredentialMaintenanceSession(props: {
 }) {
   const { t } = useTranslation()
   const isCurrentSession = useKeyMaintenanceSession()
+  const [pendingAtMount] = useState(() => {
+    try {
+      return {
+        operationId: readPendingCredentialMaintenanceOperation(
+          props.userId,
+          props.tokenId
+        ),
+        storageFailed: false,
+      }
+    } catch {
+      return { operationId: null, storageFailed: true }
+    }
+  })
   const mountId = useRef(createCredentialMigrationOperationId())
   const writeController = useRef<AbortController | null>(null)
-  const operationId = useRef('')
+  const operationId = useRef(pendingAtMount.operationId ?? '')
+  const commitStarted = useRef(Boolean(pendingAtMount.operationId))
+  const recoveryStarted = useRef(false)
   const [targetChannelId, setTargetChannelId] = useState<number | null>(null)
   const [targetPools, setTargetPools] = useState<Record<number, number>>({})
   const [preview, setPreview] = useState<CredentialMigrationPreview | null>(
@@ -125,7 +151,13 @@ function CredentialMaintenanceSession(props: {
   const [previewError, setPreviewError] = useState(false)
   const [identityConfirmed, setIdentityConfirmed] = useState(false)
   const [allocationConfirmed, setAllocationConfirmed] = useState(false)
-  const [phase, setPhase] = useState<CommitPhase>('idle')
+  const [phase, setPhase] = useState<CommitPhase>(() => {
+    if (pendingAtMount.storageFailed) return 'unknown'
+    return pendingAtMount.operationId ? 'recovering' : 'idle'
+  })
+  const [persistenceBlocked, setPersistenceBlocked] = useState(
+    pendingAtMount.storageFailed
+  )
   const [receipt, setReceipt] = useState<CredentialMigrationReceipt | null>(
     null
   )
@@ -223,7 +255,7 @@ function CredentialMaintenanceSession(props: {
   }
 
   const selectCandidate = (value: string | null) => {
-    if (!value || phase !== 'idle') return
+    if (!value || phase !== 'idle' || persistenceBlocked) return
     const channelId = Number(value)
     const candidate = data?.migration.candidates.find(
       (item) => item.channel_id === channelId
@@ -244,7 +276,15 @@ function CredentialMaintenanceSession(props: {
   }
 
   const requestPreview = async () => {
-    if (!input || previewing || !isCurrentSession()) return
+    if (
+      !input ||
+      previewing ||
+      phase !== 'idle' ||
+      persistenceBlocked ||
+      !isCurrentSession()
+    ) {
+      return
+    }
     setPreviewing(true)
     setPreviewError(false)
     setCommitError(false)
@@ -267,32 +307,58 @@ function CredentialMaintenanceSession(props: {
     }
   }
 
-  const readReceipt = async (automatic: boolean) => {
-    if (!operationId.current || !isCurrentSession()) return null
-    if (!automatic) setReceiptChecking(true)
-    const controller = new AbortController()
-    writeController.current = controller
-    try {
-      const result = await getCredentialMigrationReceipt(
-        props.tokenId,
-        operationId.current,
-        controller.signal
-      )
-      if (!isCurrentSession()) return null
-      setReceipt(result)
-      setPhase('committed')
-      setCommitError(false)
-      return result
-    } catch {
-      if (isCurrentSession()) {
-        setPhase('unknown')
+  const readReceipt = useCallback(
+    async (automatic: boolean) => {
+      if (!operationId.current || !isCurrentSession()) return null
+      const expectedOperationId = operationId.current
+      if (!automatic) setReceiptChecking(true)
+      const controller = new AbortController()
+      writeController.current = controller
+      try {
+        const result = await getCredentialMigrationReceipt(
+          props.tokenId,
+          expectedOperationId,
+          controller.signal
+        )
+        if (!isCurrentSession()) return null
+        setReceipt(result)
+        setPhase('committed')
         setCommitError(false)
+        try {
+          clearPendingCredentialMaintenanceOperation(
+            props.userId,
+            props.tokenId,
+            expectedOperationId
+          )
+          setPersistenceBlocked(false)
+        } catch {
+          setPersistenceBlocked(true)
+        }
+        return result
+      } catch {
+        if (isCurrentSession()) {
+          setPhase('unknown')
+          setCommitError(false)
+        }
+        return null
+      } finally {
+        if (!automatic && isCurrentSession()) setReceiptChecking(false)
       }
-      return null
-    } finally {
-      if (!automatic && isCurrentSession()) setReceiptChecking(false)
+    },
+    [isCurrentSession, props.tokenId, props.userId]
+  )
+
+  useEffect(() => {
+    if (
+      phase !== 'recovering' ||
+      !operationId.current ||
+      recoveryStarted.current
+    ) {
+      return
     }
-  }
+    recoveryStarted.current = true
+    void readReceipt(true)
+  }, [phase, readReceipt])
 
   const commit = async (proofToken?: string) => {
     if (
@@ -302,11 +368,28 @@ function CredentialMaintenanceSession(props: {
       preview.status !== 'ready' ||
       !preview.preview_revision ||
       !operationId.current ||
+      persistenceBlocked ||
+      commitStarted.current ||
       !isCurrentSession()
     ) {
-      setPhase('idle')
       return null
     }
+    const submittedOperationId = operationId.current
+    commitStarted.current = true
+    try {
+      savePendingCredentialMaintenanceOperation(
+        props.userId,
+        props.tokenId,
+        submittedOperationId
+      )
+      setPersistenceBlocked(false)
+    } catch {
+      setPersistenceBlocked(true)
+      setPhase('idle')
+      setCommitError(true)
+      return null
+    }
+    if (!isCurrentSession()) return null
     setPhase('submitting')
     setCommitError(false)
     const controller = new AbortController()
@@ -316,7 +399,7 @@ function CredentialMaintenanceSession(props: {
         props.tokenId,
         {
           ...input,
-          operation_id: operationId.current,
+          operation_id: submittedOperationId,
           preview_revision: preview.preview_revision,
           confirmed: true,
         },
@@ -326,6 +409,16 @@ function CredentialMaintenanceSession(props: {
       if (!isCurrentSession()) return null
       setReceipt(result)
       setPhase('committed')
+      try {
+        clearPendingCredentialMaintenanceOperation(
+          props.userId,
+          props.tokenId,
+          submittedOperationId
+        )
+        setPersistenceBlocked(false)
+      } catch {
+        setPersistenceBlocked(true)
+      }
       return result
     } catch (error) {
       if (!isCurrentSession()) return null
@@ -333,7 +426,18 @@ function CredentialMaintenanceSession(props: {
         setPhase('unknown')
         await readReceipt(true)
       } else {
-        operationId.current = ''
+        try {
+          clearPendingCredentialMaintenanceOperation(
+            props.userId,
+            props.tokenId,
+            submittedOperationId
+          )
+          operationId.current = ''
+          commitStarted.current = false
+          setPersistenceBlocked(false)
+        } catch {
+          setPersistenceBlocked(true)
+        }
         setPhase('idle')
         setCommitError(true)
       }
@@ -355,6 +459,7 @@ function CredentialMaintenanceSession(props: {
   const beginCommit = async () => {
     if (
       phase !== 'idle' ||
+      persistenceBlocked ||
       !identityConfirmed ||
       !allocationConfirmed ||
       preview?.status !== 'ready'
@@ -362,6 +467,7 @@ function CredentialMaintenanceSession(props: {
       return
     }
     operationId.current = createCredentialMigrationOperationId()
+    commitStarted.current = false
     setPhase('verifying')
     try {
       const started = await startVerification(commit, {
@@ -378,8 +484,40 @@ function CredentialMaintenanceSession(props: {
     }
     if (isCurrentSession()) {
       operationId.current = ''
+      commitStarted.current = false
       setPhase('idle')
     }
+  }
+
+  const reloadCurrentState = () => {
+    try {
+      const pending = readPendingCredentialMaintenanceOperation(
+        props.userId,
+        props.tokenId
+      )
+      setPersistenceBlocked(false)
+      setCommitError(false)
+      if (pending) {
+        operationId.current = pending
+        commitStarted.current = true
+        recoveryStarted.current = false
+        setPhase('recovering')
+        return
+      }
+    } catch {
+      setPersistenceBlocked(true)
+      setCommitError(true)
+      return
+    }
+    operationId.current = ''
+    commitStarted.current = false
+    setPhase('idle')
+    setTargetChannelId(null)
+    setTargetPools({})
+    setPreview(null)
+    setIdentityConfirmed(false)
+    setAllocationConfirmed(false)
+    void maintenance.refetch()
   }
 
   const close = () => {
@@ -526,7 +664,9 @@ function CredentialMaintenanceSession(props: {
                       <Select
                         value={targetChannelId ? String(targetChannelId) : null}
                         onValueChange={selectCandidate}
-                        disabled={phase !== 'idle' || previewing}
+                        disabled={
+                          phase !== 'idle' || previewing || persistenceBlocked
+                        }
                       >
                         <SelectTrigger
                           className='w-full'
@@ -652,7 +792,12 @@ function CredentialMaintenanceSession(props: {
                       <Button
                         type='button'
                         variant='outline'
-                        disabled={!input || previewing || phase !== 'idle'}
+                        disabled={
+                          !input ||
+                          previewing ||
+                          phase !== 'idle' ||
+                          persistenceBlocked
+                        }
                         onClick={() => void requestPreview()}
                       >
                         {previewing && <Spinner data-icon='inline-start' />}
@@ -736,15 +881,7 @@ function CredentialMaintenanceSession(props: {
                           <Button
                             type='button'
                             variant='outline'
-                            onClick={() => {
-                              setTargetChannelId(null)
-                              setTargetPools({})
-                              setPreview(null)
-                              setIdentityConfirmed(false)
-                              setAllocationConfirmed(false)
-                              setCommitError(false)
-                              void maintenance.refetch()
-                            }}
+                            onClick={reloadCurrentState}
                           >
                             <RefreshCw
                               data-icon='inline-start'
@@ -778,7 +915,7 @@ function CredentialMaintenanceSession(props: {
                   </div>
                 )}
 
-                {phase === 'unknown' && (
+                {(phase === 'unknown' || phase === 'recovering') && (
                   <Alert>
                     <AlertTriangle aria-hidden='true' />
                     <AlertTitle>{t('Migration result is unknown')}</AlertTitle>
@@ -788,22 +925,37 @@ function CredentialMaintenanceSession(props: {
                           'The request may have committed. MyAPI will not submit it again. A missing receipt does not prove that no change occurred.'
                         )}
                       </span>
-                      <Button
-                        type='button'
-                        variant='outline'
-                        disabled={receiptChecking}
-                        onClick={() => void readReceipt(false)}
-                      >
-                        {receiptChecking ? (
-                          <Spinner data-icon='inline-start' />
-                        ) : (
+                      {operationId.current && phase !== 'recovering' && (
+                        <Button
+                          type='button'
+                          variant='outline'
+                          disabled={receiptChecking}
+                          onClick={() => void readReceipt(false)}
+                        >
+                          {receiptChecking ? (
+                            <Spinner data-icon='inline-start' />
+                          ) : (
+                            <RefreshCw
+                              data-icon='inline-start'
+                              aria-hidden='true'
+                            />
+                          )}
+                          {t('Check receipt again')}
+                        </Button>
+                      )}
+                      {!operationId.current && persistenceBlocked && (
+                        <Button
+                          type='button'
+                          variant='outline'
+                          onClick={reloadCurrentState}
+                        >
                           <RefreshCw
                             data-icon='inline-start'
                             aria-hidden='true'
                           />
-                        )}
-                        {t('Check receipt again')}
-                      </Button>
+                          {t('Reload current state')}
+                        </Button>
+                      )}
                     </AlertDescription>
                   </Alert>
                 )}
@@ -849,7 +1001,7 @@ function CredentialMaintenanceSession(props: {
       <SecureVerificationDialog
         open={verificationOpen}
         onOpenChange={(open) => {
-          if (!open && phase !== 'submitting') {
+          if (!open && !commitStarted.current) {
             cancelVerification()
             operationId.current = ''
             setPhase('idle')
@@ -861,6 +1013,7 @@ function CredentialMaintenanceSession(props: {
           await executeVerification(method, code)
         }}
         onCancel={() => {
+          if (commitStarted.current) return
           cancelVerification()
           operationId.current = ''
           setPhase('idle')

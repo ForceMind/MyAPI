@@ -17,7 +17,12 @@ import { useAuthStore } from '@/stores/auth-store'
 import type {
   CredentialMaintenance,
   CredentialMigrationPreview,
+  CredentialMigrationReceipt,
 } from '../../credential-maintenance-api'
+import {
+  readPendingCredentialMaintenanceOperation,
+  savePendingCredentialMaintenanceOperation,
+} from '../../credential-maintenance-pending-operation'
 import { CredentialMaintenanceDialog } from '../credential-maintenance-dialog'
 
 const apiMocks = vi.hoisted(() => ({
@@ -166,6 +171,20 @@ const preview: CredentialMigrationPreview = {
     ],
   },
 }
+const committedReceipt: CredentialMigrationReceipt = {
+  operation_id: 'b'.repeat(64),
+  state: 'committed',
+  replayed: false,
+  token_id: 21,
+  source_subject_hint: 'abcd…wxyz',
+  target_subject_hint: 'efgh…stuv',
+  source_channel_id: 7,
+  target_channel_id: 8,
+  policy_before_revision: 2,
+  policy_after_revision: 3,
+  created_at: 123,
+  changes: preview.changes,
+}
 
 let client: QueryClient
 
@@ -189,17 +208,43 @@ function setActor(id: number, role: number, sid: string) {
   }))
 }
 
-function renderDialog() {
+function renderDialog(onClose = vi.fn()) {
   return render(
     <QueryClientProvider client={client}>
       <TooltipProvider>
-        <CredentialMaintenanceDialog tokenId={21} onClose={vi.fn()} />
+        <CredentialMaintenanceDialog tokenId={21} onClose={onClose} />
       </TooltipProvider>
     </QueryClientProvider>
   )
 }
 
+async function openCommitVerification(
+  user: ReturnType<typeof userEvent.setup>
+): Promise<void> {
+  await screen.findByText('Desktop Key')
+  await user.click(
+    screen.getByRole('combobox', { name: 'Target Codex account' })
+  )
+  await user.click(screen.getByText('Target account · efgh…stuv'))
+  await user.click(screen.getByRole('button', { name: 'Preview migration' }))
+  await screen.findByText('Confirm migration')
+  await user.click(
+    screen.getByLabelText(
+      'I understand this keeps the Key identity, secret, and request history.'
+    )
+  )
+  await user.click(
+    screen.getByLabelText(
+      'I understand usage estimates remain approximate and the old pools are not closed.'
+    )
+  )
+  await user.click(
+    screen.getByRole('button', { name: 'Verify and move account' })
+  )
+}
+
 beforeEach(() => {
+  window.sessionStorage.clear()
   client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
@@ -211,6 +256,8 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  window.sessionStorage.clear()
+  vi.restoreAllMocks()
   vi.clearAllMocks()
   useAuthStore.setState(originalAuth)
 })
@@ -279,30 +326,11 @@ test('changing identity remounts the dialog and removes prior owner data', async
   expect(apiMocks.getMaintenance).toHaveBeenCalledTimes(2)
 })
 
-test('an uncertain commit reads the receipt and never repeats the POST', async () => {
+test('an uncertain commit stays locked across close and remount without repeating the POST', async () => {
   const user = userEvent.setup()
-  renderDialog()
-  await screen.findByText('Desktop Key')
-
-  await user.click(
-    screen.getByRole('combobox', { name: 'Target Codex account' })
-  )
-  await user.click(screen.getByText('Target account · efgh…stuv'))
-  await user.click(screen.getByRole('button', { name: 'Preview migration' }))
-  await screen.findByText('Confirm migration')
-  await user.click(
-    screen.getByLabelText(
-      'I understand this keeps the Key identity, secret, and request history.'
-    )
-  )
-  await user.click(
-    screen.getByLabelText(
-      'I understand usage estimates remain approximate and the old pools are not closed.'
-    )
-  )
-  await user.click(
-    screen.getByRole('button', { name: 'Verify and move account' })
-  )
+  const onClose = vi.fn()
+  const first = renderDialog(onClose)
+  await openCommitVerification(user)
   await user.click(
     screen.getByRole('button', { name: 'Complete verification' })
   )
@@ -328,8 +356,136 @@ test('an uncertain commit reads the receipt and never repeats the POST', async (
     command.operation_id,
     expect.any(AbortSignal)
   )
+  expect(readPendingCredentialMaintenanceOperation(1, 21)).toBe(
+    command.operation_id
+  )
+
+  await user.click(screen.getByRole('button', { name: 'Close' }))
+  expect(onClose).toHaveBeenCalledTimes(1)
+  first.unmount()
+  renderDialog()
+
+  expect(
+    await screen.findByText('Migration result is unknown')
+  ).toBeInTheDocument()
+  expect(apiMocks.commit).toHaveBeenCalledTimes(1)
+  expect(apiMocks.preview).toHaveBeenCalledTimes(1)
+  expect(apiMocks.receipt).toHaveBeenCalledTimes(2)
+  expect(readPendingCredentialMaintenanceOperation(1, 21)).toBe(
+    command.operation_id
+  )
 
   await user.click(screen.getByRole('button', { name: 'Check receipt again' }))
-  await waitFor(() => expect(apiMocks.receipt).toHaveBeenCalledTimes(2))
+  await waitFor(() => expect(apiMocks.receipt).toHaveBeenCalledTimes(3))
   expect(apiMocks.commit).toHaveBeenCalledTimes(1)
+})
+
+test('a storage write failure stops the commit before its POST', async () => {
+  const user = userEvent.setup()
+  renderDialog()
+  await openCommitVerification(user)
+  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+    throw new Error('Synthetic storage failure')
+  })
+
+  await user.click(
+    screen.getByRole('button', { name: 'Complete verification' })
+  )
+
+  expect(await screen.findByText('Migration was not accepted')).toBeVisible()
+  expect(apiMocks.commit).not.toHaveBeenCalled()
+  expect(apiMocks.receipt).not.toHaveBeenCalled()
+
+  await user.click(
+    screen.getByRole('button', { name: 'Complete verification' })
+  )
+  expect(apiMocks.commit).not.toHaveBeenCalled()
+})
+
+test('a duplicate verification callback cannot unlock an in-flight commit', async () => {
+  const user = userEvent.setup()
+  let rejectCommit: ((reason: Error) => void) | undefined
+  apiMocks.commit.mockImplementation(
+    () =>
+      new Promise((_, reject) => {
+        rejectCommit = reject
+      })
+  )
+  renderDialog()
+  await openCommitVerification(user)
+  const complete = screen.getByRole('button', {
+    name: 'Complete verification',
+  })
+
+  await user.click(complete)
+  await waitFor(() => expect(apiMocks.commit).toHaveBeenCalledTimes(1))
+  expect(screen.getByRole('button', { name: 'Close' })).toBeDisabled()
+
+  await user.click(complete)
+  expect(apiMocks.commit).toHaveBeenCalledTimes(1)
+  expect(screen.getByRole('button', { name: 'Close' })).toBeDisabled()
+
+  if (!rejectCommit) throw new Error('Commit request did not start')
+  rejectCommit(new Error('Synthetic network loss'))
+  expect(
+    await screen.findByText('Migration result is unknown')
+  ).toBeInTheDocument()
+})
+
+test('a recovered committed receipt clears the lock before the next reopen', async () => {
+  const user = userEvent.setup()
+  savePendingCredentialMaintenanceOperation(
+    1,
+    21,
+    committedReceipt.operation_id
+  )
+  apiMocks.receipt.mockResolvedValue(committedReceipt)
+  const onClose = vi.fn()
+  const first = renderDialog(onClose)
+
+  expect(
+    await screen.findByText('Account migration committed')
+  ).toBeInTheDocument()
+  expect(apiMocks.receipt).toHaveBeenCalledTimes(1)
+  expect(readPendingCredentialMaintenanceOperation(1, 21)).toBeNull()
+
+  await user.click(screen.getByRole('button', { name: 'Done' }))
+  expect(onClose).toHaveBeenCalledTimes(1)
+  first.unmount()
+  renderDialog()
+
+  const target = await screen.findByRole('combobox', {
+    name: 'Target Codex account',
+  })
+  expect(target).toBeEnabled()
+  await user.click(target)
+  await user.click(screen.getByText('Target account · efgh…stuv'))
+  expect(
+    screen.getByRole('button', { name: 'Preview migration' })
+  ).toBeEnabled()
+  expect(
+    screen.queryByText('Account migration committed')
+  ).not.toBeInTheDocument()
+  expect(apiMocks.receipt).toHaveBeenCalledTimes(1)
+  expect(apiMocks.commit).not.toHaveBeenCalled()
+})
+
+test('a different Root identity cannot consume another actor pending operation', async () => {
+  const pendingOperation = 'c'.repeat(64)
+  savePendingCredentialMaintenanceOperation(1, 21, pendingOperation)
+  setActor(2, 100, 'session-b')
+  apiMocks.getMaintenance.mockResolvedValue({
+    ...maintenance,
+    token: { ...maintenance.token, owner_user_id: 2 },
+  })
+  renderDialog()
+
+  await screen.findByText('Desktop Key')
+  expect(apiMocks.receipt).not.toHaveBeenCalled()
+  expect(readPendingCredentialMaintenanceOperation(1, 21)).toBe(
+    pendingOperation
+  )
+  expect(
+    screen.getByRole('combobox', { name: 'Target Codex account' })
+  ).toBeEnabled()
 })
