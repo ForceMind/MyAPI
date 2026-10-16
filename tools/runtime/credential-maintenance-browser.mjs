@@ -440,9 +440,11 @@ try {
   const target = dialog.getByRole('combobox', { name: t('Target Codex account') })
   await target.click()
   const option = page.getByRole('option').filter({ hasText: config.target_channel_name })
-  requireThat((await option.count()) === 1, 'TARGET_SELECTION')
+  await option.waitFor({ state: 'visible' })
+  requireThat((await option.count()) === 1, 'TARGET_OPTION_UNIQUE')
   await option.click()
-  requireThat((await target.textContent())?.includes(config.target_channel_name), 'TARGET_SELECTION')
+  await target.filter({ hasText: config.target_channel_name }).waitFor({ state: 'visible' })
+  requireThat((await target.textContent())?.includes(config.target_channel_name), 'TARGET_LABEL')
   report.checks.targetSelected = true
 
   const previewResponsePromise = page.waitForResponse(

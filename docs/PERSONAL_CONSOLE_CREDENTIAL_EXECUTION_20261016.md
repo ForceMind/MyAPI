@@ -104,3 +104,7 @@ be87673 / CI0cc / run38907154336 的237文件1519单元、类型/lint已回读�
 真实Go两场景维护GET各1次200且ready合同通过，driver错误的rotationCard内filter使用dialog-scoped has导致0匹配，preview/2FA/commit均未执行；修正为page-relative locator。失败报告静态“reached”文字改为configured并由metrics表达实际，只有最终全部断言成功才写reached。不能把该轮真实迁移当通过。
 
 非实现者guard实际查看13图并对照visual-v0.2 03/07；主线程也实际看代表原图。确认P2：开场footer焦点使标题与Key上文离开首屏，320蓝色主动作图标/文案越出底色。用[Base UI官方initialFocus API](https://base-ui.com/react/components/dialog)指向Popup ref，并使按钮自动高度/全宽/可换行；新driver断言scrollTop及按钮子元素边界。原guard称320关闭无文案，主线程原图复核“Đóng”清晰可见，该项不成立，未以不实问题改样式。Select选中值改显示账号label/hint和Pool前缀，保留原数据ID。静态format/lint/driver语法/diff检查通过，视觉修复待新原图复核。
+
+## 真实浏览器异步选择修正
+
+a93041e / run38909201096 的合成4旅程及13张原图再次通过，含初始滚动位置和320主动作边界断言。真实Go两场景维护GET各200，但在选目标时立即调用option.count，早于Base UI Portal挂载；只读到0后提前退出，未进行preview/verify/commit。原始失败图与计数已核对。驱动现先等待目标选项可见，再点击并等待选中label；应用业务代码不变。完整资格仍需下一候选真实迁移通过，不把本轮GET当迁移证据。
