@@ -115,7 +115,7 @@ test('an existing empty enabled scope is shown as explicit block-all state', asy
 test('a failed catalog keeps unavailable and long saved model IDs visible', async () => {
   const user = userEvent.setup()
   const longModel = `retired-${'x'.repeat(180)}`
-  vi.spyOn(api, 'get').mockImplementation(async (url) => {
+  const get = vi.spyOn(api, 'get').mockImplementation(async (url) => {
     if (url === '/api/token/21/model-limits') {
       return scopeEnvelope(true, ['', longModel])
     }
@@ -126,7 +126,7 @@ test('a failed catalog keeps unavailable and long saved model IDs visible', asyn
   const onClose = renderDialog()
   expect(await screen.findByText(longModel)).toBeVisible()
   expect(screen.getByText('Empty model ID')).toBeVisible()
-  expect(screen.getByText('Preserved model ID')).toBeVisible()
+  expect(screen.getAllByText('Preserved model ID')).toHaveLength(2)
   expect(
     screen.getByText('Could not load the current model catalog')
   ).toBeVisible()

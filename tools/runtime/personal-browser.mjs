@@ -16,8 +16,9 @@ const stages = new Set(['launch', 'setup', 'setup-session', 'setup-open', 'setup
   'key-selection-model', 'playground-response', 'playground-complete', 'playground-rejection',
   'usage-open', 'usage-filter', 'usage-list', 'usage-list-visible', 'usage-details-open', 'usage-details-request', 'usage-details-key',
   'policy-user-filter', 'strict-key-filter',
-  'strict-budget', 'reload-check', 'model-scope-boundary', 'model-scope-open', 'model-scope-restrict',
-  'model-scope-restore', 'build-visible', 'screenshot', 'browser-close'])
+  'strict-budget', 'reload-check', 'model-scope-boundary', 'model-scope-catalog', 'model-scope-open',
+  'model-scope-restrict-mode', 'model-scope-restrict-candidate', 'model-scope-restrict-save',
+  'model-scope-restore-mode', 'model-scope-restore-save', 'build-visible', 'screenshot', 'browser-close'])
 const codes = new Set(['SCOPE_REJECTED', 'AUTH_UNAVAILABLE', 'BROWSER_FAILED', 'BROWSER_CLOSE_FAILED', 'SETUP_FAILED',
   'HTTP_FAILED', 'LOGIN_FAILED', 'RUNTIME_ERROR', 'BUILD_MISMATCH', 'API_FAILED', 'STATE_MISMATCH',
   'KEY_MISMATCH', 'POLICY_MISMATCH', 'REQUEST_MISMATCH', 'RELAY_MISMATCH', 'LOG_MISMATCH',
@@ -674,6 +675,10 @@ async function exerciseAdvancedModelScope(api, root, owner, key, before, options
   }, true)
   requireThat(rootRead.status === 404 && rootRead.payload?.success === false &&
     rootWrite.status === 404 && rootWrite.payload?.success === false, 'KEY_MISMATCH')
+  owner.scope.stage = 'model-scope-catalog'
+  requireThat(before.token.group === 'default', 'KEY_MISMATCH')
+  const catalog = await api(owner, `/api/user/models?group=${encodeURIComponent(before.token.group)}`)
+  requireThat(Array.isArray(catalog) && catalog.includes(model), 'KEY_MISMATCH')
 
   const openDialog = async () => {
     owner.scope.stage = 'model-scope-open'
@@ -714,32 +719,62 @@ async function exerciseAdvancedModelScope(api, root, owner, key, before, options
 
   const upstreamBefore = await control()
   const writesBefore = owner.modelScopeWrites
-  const first = await openDialog()
-  requireThat(first.scope.model_limits_enabled === false && first.scope.models.length === 0, 'KEY_MISMATCH')
-  owner.scope.stage = 'model-scope-restrict'
-  await first.dialog.locator('#model-scope-restricted').click()
-  await first.dialog.getByPlaceholder(owner.label('Search current model catalog')).fill(model)
-  await first.dialog.getByRole('button', { name: model, exact: true }).click()
-  await save(first.dialog, { enabled: true, models: [model] })
+  let activeDialog
+  try {
+    const first = await openDialog()
+    activeDialog = first.dialog
+    requireThat(first.scope.model_limits_enabled === false && first.scope.models.length === 0, 'KEY_MISMATCH')
+    owner.scope.stage = 'model-scope-restrict-mode'
+    const restricted = first.dialog.locator('#model-scope-restricted')
+    await restricted.click()
+    requireThat(await restricted.getAttribute('aria-checked') === 'true', 'KEY_MISMATCH')
+    await first.dialog.getByPlaceholder(owner.label('Search current model catalog')).fill(model)
+    owner.scope.stage = 'model-scope-restrict-candidate'
+    const suggestions = first.dialog.locator(`[aria-label=${JSON.stringify(owner.label('Current model catalog suggestions'))}]`)
+    await suggestions.waitFor({ state: 'visible' })
+    const candidate = suggestions.getByRole('button').filter({ hasText: model })
+    await candidate.waitFor({ state: 'visible' })
+    requireThat(await candidate.count() === 1, 'KEY_MISMATCH')
+    await candidate.click()
+    const removeName = owner.label('Remove {{model}}').replace('{{model}}', model)
+    await first.dialog.getByRole('button', { name: removeName, exact: true }).waitFor({ state: 'visible' })
+    owner.scope.stage = 'model-scope-restrict-save'
+    await save(first.dialog, { enabled: true, models: [model] })
+    activeDialog = undefined
 
-  const second = await openDialog()
-  requireThat(second.scope.model_limits_enabled === true && JSON.stringify(second.scope.models) === JSON.stringify([model]), 'KEY_MISMATCH')
-  await capture(owner, options, 'model-scope-restricted', screenshots, second.dialog)
-  owner.scope.stage = 'model-scope-restore'
-  await second.dialog.locator('#model-scope-unlimited').click()
-  await second.dialog.getByRole('button', { name: owner.label('Clear retained model list'), exact: true }).click()
-  await save(second.dialog, { enabled: false, models: [] })
+    const second = await openDialog()
+    activeDialog = second.dialog
+    requireThat(second.scope.model_limits_enabled === true && JSON.stringify(second.scope.models) === JSON.stringify([model]), 'KEY_MISMATCH')
+    await capture(owner, options, 'model-scope-restricted', screenshots, second.dialog)
+    owner.scope.stage = 'model-scope-restore-mode'
+    const unlimited = second.dialog.locator('#model-scope-unlimited')
+    await unlimited.click()
+    requireThat(await unlimited.getAttribute('aria-checked') === 'true', 'KEY_MISMATCH')
+    await second.dialog.getByRole('button', { name: owner.label('Clear retained model list'), exact: true }).click()
+    owner.scope.stage = 'model-scope-restore-save'
+    await save(second.dialog, { enabled: false, models: [] })
+    activeDialog = undefined
 
-  const restored = await api(owner, endpoint)
-  requireThat(restored?.token_id === key.id && restored.token_name === key.name &&
-    restored.model_limits_enabled === false && Array.isArray(restored.models) && restored.models.length === 0,
-  'KEY_MISMATCH')
-  const after = await snapshot(api, owner, key)
-  const writes = owner.modelScopeWrites - writesBefore
-  requireThat(writes === 2 && sameInvariant(before, after) && await control() === upstreamBefore, 'STATE_MISMATCH')
-  // Catalog selection proves the stored policy only. No relay request is sent
-  // here, so the report makes no claim that the selected model is available.
-  return { writes, ownerBoundary404: true, metadataPreserved: true, additionalUpstreamRequests: 0 }
+    const restored = await api(owner, endpoint)
+    requireThat(restored?.token_id === key.id && restored.token_name === key.name &&
+      restored.model_limits_enabled === false && Array.isArray(restored.models) && restored.models.length === 0,
+    'KEY_MISMATCH')
+    const after = await snapshot(api, owner, key)
+    const writes = owner.modelScopeWrites - writesBefore
+    requireThat(writes === 2 && sameInvariant(before, after) && await control() === upstreamBefore, 'STATE_MISMATCH')
+    // Catalog selection proves the stored policy only. No relay request is sent
+    // here, so the report makes no claim that the selected model is available.
+    return { writes, catalogMatched: true, ownerBoundary404: true, metadataPreserved: true, additionalUpstreamRequests: 0 }
+  } catch (error) {
+    const failedStage = owner.scope.stage
+    try {
+      if (activeDialog && await activeDialog.isVisible()) {
+        await capture(owner, options, 'model-scope-failed', screenshots, activeDialog)
+      }
+    } catch {} // Failed/unsafe evidence must not replace the original failure.
+    owner.scope.stage = failedStage
+    throw error
+  }
 }
 
 async function verifyUsage(api, session, key, before, requestId, consumed) {

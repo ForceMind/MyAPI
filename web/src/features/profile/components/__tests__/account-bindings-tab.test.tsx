@@ -129,9 +129,19 @@ test('a replaced OAuth callback cannot publish feedback or refresh profile state
     </QueryClientProvider>
   )
 
-  const bindButtons = await screen.findAllByRole('button', { name: 'Bind' })
-  await user.click(bindButtons[0])
+  const githubBind = await screen.findByRole('button', {
+    name: 'Bind GitHub',
+  })
+  const discordBind = await screen.findByRole('button', {
+    name: 'Bind Discord',
+  })
+  await user.click(githubBind)
   await waitFor(() => expect(popups[0].location.replace).toHaveBeenCalledOnce())
+  expect(startOAuthBindFlow).toHaveBeenNthCalledWith(
+    1,
+    'github',
+    expect.any(AbortSignal)
+  )
   await act(async () => {
     window.dispatchEvent(
       new MessageEvent('message', {
@@ -147,9 +157,19 @@ test('a replaced OAuth callback cannot publish feedback or refresh profile state
     )
   })
   await waitFor(() => expect(completeOAuthBindFlow).toHaveBeenCalledOnce())
+  expect(completeOAuthBindFlow).toHaveBeenCalledWith(
+    'github',
+    { state: 'github-state', code: 'old-code' },
+    expect.any(AbortSignal)
+  )
 
-  await user.click(bindButtons[1])
+  await user.click(discordBind)
   await waitFor(() => expect(popups[1].location.replace).toHaveBeenCalledOnce())
+  expect(startOAuthBindFlow).toHaveBeenNthCalledWith(
+    2,
+    'discord',
+    expect.any(AbortSignal)
+  )
   await act(async () => {
     resolveOldCallback({ success: true })
   })

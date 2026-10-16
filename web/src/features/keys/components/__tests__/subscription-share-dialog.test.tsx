@@ -548,7 +548,7 @@ test('Root explicitly confirms closing an existing pool and refreshes the view',
     name: 'Subscription shares',
   })
 
-  const closeSection = within(dialog).getByRole('region', {
+  const closeSection = await within(dialog).findByRole('region', {
     name: 'Close managed pool',
   })
   expect(

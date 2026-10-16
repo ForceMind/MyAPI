@@ -523,7 +523,12 @@ export function AccountBindingsTab({
                 </div>
                 <div className='min-w-0'>
                   <div className='flex items-center gap-1.5'>
-                    <p className='text-sm font-medium'>{binding.label}</p>
+                    <p
+                      id={`binding-${binding.id}-label`}
+                      className='text-sm font-medium'
+                    >
+                      {binding.label}
+                    </p>
                     {binding.isBound && (
                       <StatusBadge
                         label={t('Bound')}
@@ -543,8 +548,9 @@ export function AccountBindingsTab({
                 className='h-7 shrink-0 px-2.5 text-xs'
                 onClick={binding.onBind}
                 disabled={binding.isBound && binding.id !== 'email'}
+                aria-labelledby={`binding-${binding.id}-action binding-${binding.id}-label`}
               >
-                {actionLabel}
+                <span id={`binding-${binding.id}-action`}>{actionLabel}</span>
               </Button>
             </div>
           )
@@ -573,7 +579,12 @@ export function AccountBindingsTab({
                     </div>
                     <div className='min-w-0'>
                       <div className='flex items-center gap-1.5'>
-                        <p className='text-sm font-medium'>{provider.name}</p>
+                        <p
+                          id={`custom-oauth-${provider.id}-label`}
+                          className='text-sm font-medium'
+                        >
+                          {provider.name}
+                        </p>
                         {isBound && (
                           <StatusBadge
                             label={t('Bound')}
@@ -595,9 +606,12 @@ export function AccountBindingsTab({
                       size='sm'
                       className='text-destructive h-7 shrink-0 px-2.5 text-xs'
                       onClick={() => setUnbindTarget(binding)}
+                      aria-labelledby={`custom-oauth-${provider.id}-unbind custom-oauth-${provider.id}-label`}
                     >
                       <Unlink className='mr-1 h-3 w-3' />
-                      {t('Unbind')}
+                      <span id={`custom-oauth-${provider.id}-unbind`}>
+                        {t('Unbind')}
+                      </span>
                     </Button>
                   ) : (
                     <Button
@@ -605,8 +619,11 @@ export function AccountBindingsTab({
                       size='sm'
                       className='h-7 shrink-0 px-2.5 text-xs'
                       onClick={() => handleBindCustomOAuth(provider)}
+                      aria-labelledby={`custom-oauth-${provider.id}-bind custom-oauth-${provider.id}-label`}
                     >
-                      {t('Bind')}
+                      <span id={`custom-oauth-${provider.id}-bind`}>
+                        {t('Bind')}
+                      </span>
                     </Button>
                   )}
                 </div>
