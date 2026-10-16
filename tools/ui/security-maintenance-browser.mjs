@@ -616,7 +616,11 @@ async function verifyAccessToken(page, scenario, state) {
     element.type = 'password'
   })
   await screenshot(page, scenario, 'access-token-redacted')
-  await dialog.getByRole('button', { name: t('Close'), exact: true }).click()
+  const footerClose = dialog
+    .locator('button:not([data-slot="dialog-close"])')
+    .filter({ has: page.getByText(t('Close'), { exact: true }) })
+  await footerClose.click()
+  await dialog.waitFor({ state: 'detached' })
   await action.click()
   dialog = page.getByRole('dialog', { name: t('Access Token') })
   assert.equal(
@@ -624,7 +628,11 @@ async function verifyAccessToken(page, scenario, state) {
     0
   )
   assert.equal(state.counts.accessToken, 1, 'Reopening never regenerates')
-  await dialog.getByRole('button', { name: t('Close'), exact: true }).click()
+  await dialog
+    .locator('button:not([data-slot="dialog-close"])')
+    .filter({ has: page.getByText(t('Close'), { exact: true }) })
+    .click()
+  await dialog.waitFor({ state: 'detached' })
 }
 
 async function verifyPasskey(page, scenario, state) {

@@ -104,3 +104,11 @@
 源码e01b31e的1497项单元全部通过，type/lint/build通过；窗口17、模型17个浏览器旅程通过，实际暗色portal背景/文字和手机底栏几何符合断言。安全19个布局及错误恢复通过后，密码Cancel重开与关闭动画中的同名submit冲突；仅将入口限定安全卡并等待弹窗detached，保留清空和Enter提交断言。
 
 Docker实际首次模型PUT及GET均200，第二次打开未发GET。核对main.tsx发现全局staleTime=10000ms：弹窗重开采用新鲜缓存，不能满足每次打开读取当前CAS的合同。现显式staleTime=0/refetchOnMount=always，并仅接受isFetchedAfterMount的成功结果作为表单和命令基准；待新GET时不展示旧可编辑内容，失败可手动Retry。新增生产staleTime下同QueryClient重开、延迟响应、最新revision提交的确定性测试；安全代理独立复核通过。焦点/重连不自动回读，未知写锁和身份隔离保持。最终完整资格待第五轮，不将第四轮失败候选归为完成。
+
+## 第五轮产品资格与安全驱动收口
+
+源码acba3f4在production构建/type/lint、233文件1498单元、71核心浏览器、窗口17与模型17旅程通过。ConfiguredDatabases在SQLite/MySQL5.7/PostgreSQL9.6实际通过。Docker38851589638六项作业全部成功，legacy/authoritative各6检查/15原图、运行错误0，实际模型范围两次PUT及GET均200、每次重开GET、其它元数据/额度/上游计数保持。新鲜读取缺陷已由真实Go运行关闭。
+
+安全19布局/错误恢复通过，密码验证、Cancel清空与Enter/authrotation已继续通过；AccessToken显示/遮敏后，Close同时匹配footer与X使driver严格模式失败。仅排除data-slot=dialog-close并匹配精确文本，关闭后等待detached再重开；保留零自动生成、双确认、一次性显示与清理断言。其余Passkey/2FA/备份码/会话locator逐项对照实际组件核对。产品实现与acba3f4无变化，最终CI仍须完整通过；已通过Docker按准确不变输入复用，不为仅tools/ui脚本和文档变化重复构建镜像。
+
+独立文档复核指出密码/删号未知不能承诺安全状态回读，已改为先人工核验、显式决定重试；该P2已由非作者回读关闭。Dockerreported usage与专属缺usage语义测试边界也明确区分。
