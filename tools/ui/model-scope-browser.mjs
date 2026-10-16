@@ -460,9 +460,18 @@ try {
     }
 
     const radios = {
-      unlimited: dialog.locator('#model-scope-unlimited'),
-      restricted: dialog.locator('#model-scope-restricted'),
-      blocked: dialog.locator('#model-scope-blocked'),
+      unlimited: dialog.getByRole('radio', {
+        name: t('No additional model limit'),
+        exact: false,
+      }),
+      restricted: dialog.getByRole('radio', {
+        name: t('Only selected models'),
+        exact: false,
+      }),
+      blocked: dialog.getByRole('radio', {
+        name: t('Block all models'),
+        exact: false,
+      }),
     }
     const expectedInitialMode = modeByInitialScope[item.initial]
     assert(expectedInitialMode, `${name}: initial scope maps to a UI mode`)
@@ -540,6 +549,12 @@ try {
     )
 
     await capture('open')
+    if (item.width <= 390 && item.initial !== 'blocked') {
+      await dialog
+        .getByText(retainedModel, { exact: true })
+        .scrollIntoViewIfNeeded()
+      await capture('mobile-preserved-model')
+    }
 
     let actionGeometry = null
     if (item.width <= 390) {
@@ -577,7 +592,13 @@ try {
             box.y >= 0 &&
             box.y + box.height <= navigationBox.y &&
             box.y + box.height <= 960,
-          `${name}: action remains fully visible above mobile navigation`
+          `${name}: action remains fully visible above mobile navigation ${JSON.stringify(
+            {
+              action: box,
+              navigation: navigationBox,
+              viewport: { width: item.width, height: 960 },
+            }
+          )}`
         )
         actionGeometry.push(box)
       }

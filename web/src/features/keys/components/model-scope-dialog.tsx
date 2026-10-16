@@ -324,7 +324,7 @@ function ModelScopeSession(props: ModelScopeSessionProps) {
       }}
     >
       <DialogContent
-        className='max-h-[90dvh] min-w-0 overflow-y-auto sm:max-w-2xl'
+        className='max-h-[calc(100dvh-10rem-env(safe-area-inset-bottom))] min-w-0 overflow-y-auto sm:max-h-[90dvh] sm:max-w-2xl'
         showCloseButton={false}
       >
         <DialogHeader>

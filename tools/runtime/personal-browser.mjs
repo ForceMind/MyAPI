@@ -17,7 +17,7 @@ const stages = new Set(['launch', 'setup', 'setup-session', 'setup-open', 'setup
   'usage-open', 'usage-filter', 'usage-list', 'usage-list-visible', 'usage-details-open', 'usage-details-request', 'usage-details-key',
   'policy-user-filter', 'strict-key-filter',
   'strict-budget', 'reload-check', 'model-scope-boundary', 'model-scope-catalog', 'model-scope-open',
-  'model-scope-restrict-mode', 'model-scope-restrict-candidate', 'model-scope-restrict-save',
+  'model-scope-restrict-mode', 'model-scope-restrict-search', 'model-scope-restrict-candidate', 'model-scope-restrict-save',
   'model-scope-restore-mode', 'model-scope-restore-save', 'build-visible', 'screenshot', 'browser-close'])
 const codes = new Set(['SCOPE_REJECTED', 'AUTH_UNAVAILABLE', 'BROWSER_FAILED', 'BROWSER_CLOSE_FAILED', 'SETUP_FAILED',
   'HTTP_FAILED', 'LOGIN_FAILED', 'RUNTIME_ERROR', 'BUILD_MISMATCH', 'API_FAILED', 'STATE_MISMATCH',
@@ -725,9 +725,13 @@ async function exerciseAdvancedModelScope(api, root, owner, key, before, options
     activeDialog = first.dialog
     requireThat(first.scope.model_limits_enabled === false && first.scope.models.length === 0, 'KEY_MISMATCH')
     owner.scope.stage = 'model-scope-restrict-mode'
-    const restricted = first.dialog.locator('#model-scope-restricted')
+    const restricted = first.dialog.getByRole('radio', {
+      name: owner.label('Only selected models'),
+      exact: false,
+    })
     await restricted.click()
-    requireThat(await restricted.getAttribute('aria-checked') === 'true', 'KEY_MISMATCH')
+    requireThat(await restricted.isChecked(), 'KEY_MISMATCH')
+    owner.scope.stage = 'model-scope-restrict-search'
     await first.dialog.getByPlaceholder(owner.label('Search current model catalog')).fill(model)
     owner.scope.stage = 'model-scope-restrict-candidate'
     const suggestions = first.dialog.locator(`[aria-label=${JSON.stringify(owner.label('Current model catalog suggestions'))}]`)
@@ -747,9 +751,12 @@ async function exerciseAdvancedModelScope(api, root, owner, key, before, options
     requireThat(second.scope.model_limits_enabled === true && JSON.stringify(second.scope.models) === JSON.stringify([model]), 'KEY_MISMATCH')
     await capture(owner, options, 'model-scope-restricted', screenshots, second.dialog)
     owner.scope.stage = 'model-scope-restore-mode'
-    const unlimited = second.dialog.locator('#model-scope-unlimited')
+    const unlimited = second.dialog.getByRole('radio', {
+      name: owner.label('No additional model limit'),
+      exact: false,
+    })
     await unlimited.click()
-    requireThat(await unlimited.getAttribute('aria-checked') === 'true', 'KEY_MISMATCH')
+    requireThat(await unlimited.isChecked(), 'KEY_MISMATCH')
     await second.dialog.getByRole('button', { name: owner.label('Clear retained model list'), exact: true }).click()
     owner.scope.stage = 'model-scope-restore-save'
     await save(second.dialog, { enabled: false, models: [] })

@@ -173,13 +173,10 @@ function securityState(fixture, scenario, origin) {
         last_active_at: auth.session.last_active_at - 300,
       },
     ],
-    failures: {
-      // PasskeyCard also probes both methods for secure verification. Fail both
-      // initial reads so the status cards deterministically expose Retry.
-      passkey: scenario.failSecurityReads ? 2 : 0,
-      twoFA: scenario.failSecurityReads ? 2 : 0,
-      sessions: scenario.failSecurityReads ? 1 : 0,
-    },
+    // Keep the initial read phase unavailable until every status card has
+    // rendered its own error. Several security components probe the same
+    // endpoints concurrently, so a fixed request budget is not deterministic.
+    failSecurityReads: scenario.failSecurityReads === true,
     counts: {
       accessToken: 0,
       password: 0,
@@ -224,8 +221,7 @@ async function responseFor(request, fixture, state) {
     return ok(syntheticAccessToken)
   }
   if (method === 'GET' && path === '/api/user/2fa/status') {
-    if (state.failures.twoFA > 0) {
-      state.failures.twoFA -= 1
+    if (state.failSecurityReads) {
       return {
         status: 503,
         body: { success: false, message: 'Synthetic 2FA status unavailable' },
@@ -238,8 +234,7 @@ async function responseFor(request, fixture, state) {
     })
   }
   if (method === 'GET' && path === '/api/user/passkey') {
-    if (state.failures.passkey > 0) {
-      state.failures.passkey -= 1
+    if (state.failSecurityReads) {
       return {
         status: 503,
         body: { success: false, message: 'Synthetic Passkey status unavailable' },
@@ -255,8 +250,7 @@ async function responseFor(request, fixture, state) {
     })
   }
   if (method === 'GET' && path === '/api/user/sessions') {
-    if (state.failures.sessions > 0) {
-      state.failures.sessions -= 1
+    if (state.failSecurityReads) {
       return {
         status: 503,
         body: { success: false, message: 'Synthetic sessions unavailable' },
@@ -694,7 +688,7 @@ async function verifySessions(page, scenario, state) {
   )
 }
 
-async function recoverSecurityReads(page, scenario) {
+async function verifyAndRecoverSecurityReads(page, scenario, state) {
   const t = (key) => tr(key, scenario.language)
   const cards = [
     [t('Passkey Login'), t('Failed to load Passkey status')],
@@ -704,6 +698,11 @@ async function recoverSecurityReads(page, scenario) {
   for (const [heading, errorTitle] of cards) {
     const card = securityCard(page, heading)
     await card.getByText(errorTitle, { exact: true }).waitFor()
+  }
+  await screenshot(page, scenario, 'failed-statuses')
+  state.failSecurityReads = false
+  for (const [heading] of cards) {
+    const card = securityCard(page, heading)
     await card.getByRole('button', { name: t('Retry'), exact: true }).click()
   }
   const passkeyCard = securityCard(page, t('Passkey Login'))
@@ -913,8 +912,7 @@ try {
     page.on('pageerror', (error) => state.pageErrors.push(error.message))
     try {
       const revision = await openSecurity(page, errorScenario)
-      await screenshot(page, errorScenario, 'failed-statuses')
-      await recoverSecurityReads(page, errorScenario)
+      await verifyAndRecoverSecurityReads(page, errorScenario, state)
       await screenshot(page, errorScenario, 'recovered')
       assert.deepEqual(state.violations, [])
       assert.deepEqual(state.pageErrors, [])

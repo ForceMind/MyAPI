@@ -487,12 +487,17 @@ try {
         name: actionName,
         exact: true,
       })
-      const windowConfirmation = editor.locator(
-        '#personal-share-window-confirmation'
-      )
-      const approximationConfirmation = editor.locator(
-        '#personal-share-confirmation'
-      )
+      const windowConfirmation = editor.getByRole('checkbox', {
+        name:
+          actionName === t('Resume observation')
+            ? t('I understand this recovery affects every Key in the pool.')
+            : t('I understand this replacement affects every Key in the pool.'),
+      })
+      const approximationConfirmation = editor.getByRole('checkbox', {
+        name: t(
+          'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.'
+        ),
+      })
       assert(await action.isDisabled(), `${name}: both confirmations start required`)
       await windowConfirmation.click()
       assert(

@@ -82,3 +82,11 @@
 第二轮生产构建/type/lint通过，233文件/1496单元全部通过；三库作业完成，后端进入完整root/relaykit测试。实际advanced/隔离runtime仍进行中，不预判结果。
 
 独立审查发现同SID角色变Root时旧profile.role可误显示删除可用（后端始终拒绝），已使展示优先采用当前认证角色，并让资料读取identity含role；补重开安全区后禁用与Root说明回归。该新增回归尚需下一轮CI。另通过规定脚本修正vi既有Bind/Bound/Not bound三值为Liên kết/Đã liên kết/Chưa liên kết；仍83新增键，3个既有值修订，其它六语值不变。只读复核已关闭这两项；没有扩大历史assertion cast旧债清理范围。
+
+## 第二轮高级流程结果与修正
+
+- 第二轮所有1496单元、type/lint/build通过。advanced仍失败：模型320动作进入底栏区域（实际原图确认），现将mobilemaxheight收紧为calc(100dvh - 10rem - env(safe-area-inset-bottom))，桌面90dvh和内部滚动保持，严格动作在底栏上方断言不放宽。
+- 窗口确认#id解析为aria-hidden的Base UI原生checkbox，Playwright报outsideviewport；改用可访问checkbox名称，保持真实点击/双确认/Enter，无force。第二轮窗口replacement/recovery桌面dark原图已由主线程与非实现者实际查看，确认控件在viewport且无遮挡。
+- 模型/真实runtime的radio同类#id问题，改为具名真实role radio，保留checked断言；真实目录合同已通过，第二轮失败图显示仍unlimited，准确停在restrict-mode。新搜索stage进一步区分失败。
+- 安全18个布局旅程后错误恢复失败；实际failed-statuses图显示Passkey已恢复，固定失败次数被PasskeyCard与SecureVerification并发读取耗尽。fixture改明确失败phase，三卡真实错误出现并截图后才切恢复、逐个Retry，不跳过失败或恢复断言。
+- 第二轮失败用于定向修正；第三轮须完整qualify。Go生产逻辑与5ba90cf一致，后续变化仅profile角色展示/vi词义、模型弹窗几何和浏览器/运行驱动，历史账务仍冻结。
