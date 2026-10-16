@@ -28,6 +28,8 @@ func tokenMaintenanceError(c *gin.Context, err error) {
 		status, code, message = http.StatusBadRequest, "token_maintenance_invalid", i18n.MsgInvalidParams
 	case errors.Is(err, model.ErrTokenMaintenanceDenied):
 		status, code, message = http.StatusForbidden, "token_maintenance_denied", i18n.MsgForbidden
+	case errors.Is(err, model.ErrTokenMaintenancePreconditionUnknown):
+		status, code = http.StatusPreconditionFailed, "token_maintenance_precondition_unknown"
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		status, code, message = http.StatusNotFound, "token_maintenance_not_found", i18n.MsgNotFound
 	case errors.Is(err, model.ErrTokenMaintenanceConflict):

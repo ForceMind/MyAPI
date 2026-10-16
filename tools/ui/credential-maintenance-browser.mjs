@@ -543,7 +543,7 @@ try {
       await readback
       assert.equal(commitWrites, 1, 'Unknown result never repeats commit POST')
       assert.equal(receiptReads, 2, 'Unknown result retries only receipt GET')
-      await dialog.getByRole('button', { name: t('Close'), exact: true }).click()
+      await dialog.getByRole('button', { name: t('Close'), exact: true }).first().click()
       await dialog.waitFor({ state: 'hidden' })
       const reopenedReceipt = page.waitForResponse(
         (response) => response.request().method() === 'GET' &&

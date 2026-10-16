@@ -507,7 +507,7 @@ func CommitTokenAccountMigration(ctx context.Context, db *gorm.DB, actorID, toke
 			return err
 		}
 		if preliminary.source.subjectRef == "" || preliminary.target.subjectRef == "" {
-			return ErrTokenMaintenanceUnknown
+			return ErrTokenMaintenancePreconditionUnknown
 		}
 		subjects := []string{preliminary.source.subjectRef, preliminary.target.subjectRef}
 		sort.Strings(subjects)
@@ -538,14 +538,14 @@ func CommitTokenAccountMigration(ctx context.Context, db *gorm.DB, actorID, toke
 			return ErrTokenMaintenanceConflict
 		}
 		if state.previewRevision == "" {
-			return ErrTokenMaintenanceUnknown
+			return ErrTokenMaintenancePreconditionUnknown
 		}
 		if state.previewRevision != command.PreviewRevision {
 			return ErrTokenMaintenanceConflict
 		}
 		switch tokenMaintenanceStatus(state.issues) {
 		case TokenMaintenanceStatusUnknown:
-			return ErrTokenMaintenanceUnknown
+			return ErrTokenMaintenancePreconditionUnknown
 		case TokenMaintenanceStatusBlocked:
 			return ErrTokenMaintenanceBlocked
 		}

@@ -23,11 +23,12 @@ const (
 )
 
 var (
-	ErrTokenMaintenanceInvalid  = errors.New("invalid token maintenance input")
-	ErrTokenMaintenanceDenied   = errors.New("token maintenance access denied")
-	ErrTokenMaintenanceConflict = errors.New("token maintenance state conflict")
-	ErrTokenMaintenanceBlocked  = errors.New("token maintenance operation is blocked")
-	ErrTokenMaintenanceUnknown  = errors.New("token maintenance state is unknown")
+	ErrTokenMaintenanceInvalid             = errors.New("invalid token maintenance input")
+	ErrTokenMaintenanceDenied              = errors.New("token maintenance access denied")
+	ErrTokenMaintenanceConflict            = errors.New("token maintenance state conflict")
+	ErrTokenMaintenanceBlocked             = errors.New("token maintenance operation is blocked")
+	ErrTokenMaintenanceUnknown             = errors.New("token maintenance state is unknown")
+	ErrTokenMaintenancePreconditionUnknown = fmt.Errorf("token maintenance precondition is unknown: %w", ErrTokenMaintenanceUnknown)
 )
 
 type TokenMaintenanceBlocker struct {

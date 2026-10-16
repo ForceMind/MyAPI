@@ -7,12 +7,39 @@ import (
 	"testing"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestTokenMaintenanceDistinguishesRejectedPreconditionFromUnknownCommit(t *testing.T) {
+	require.NoError(t, i18n.Init())
+	for _, test := range []struct {
+		name   string
+		err    error
+		status int
+		code   string
+	}{
+		{"precondition rejected before migration", model.ErrTokenMaintenancePreconditionUnknown, http.StatusPreconditionFailed, "token_maintenance_precondition_unknown"},
+		{"commit result remains unknown", model.ErrTokenMaintenanceUnknown, http.StatusServiceUnavailable, "token_maintenance_unknown"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			c, recorder := tokenMaintenanceContext(t, 1, "11", "")
+			tokenMaintenanceError(c, test.err)
+			assert.Equal(t, test.status, recorder.Code)
+			var response struct {
+				Success bool   `json:"success"`
+				Code    string `json:"code"`
+			}
+			require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+			assert.False(t, response.Success)
+			assert.Equal(t, test.code, response.Code)
+		})
+	}
+}
 
 func tokenMaintenanceContext(t *testing.T, actor int, pathID, body string) (*gin.Context, *httptest.ResponseRecorder) {
 	t.Helper()

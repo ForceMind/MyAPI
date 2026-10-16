@@ -664,12 +664,63 @@ func TestTokenAccountMigrationRevalidatesDatabaseTimeAfterLocks(t *testing.T) {
 	_, _, err = CommitTokenAccountMigration(context.Background(), db, fixture.root.Id, fixture.token.Id, TokenAccountMigrationCommand{
 		TokenAccountMigrationPreviewInput: input, OperationID: strings.Repeat("7", 64), PreviewRevision: preview.PreviewRevision, Confirmed: true,
 	}, previewNow)
+	require.ErrorIs(t, err, ErrTokenMaintenancePreconditionUnknown)
 	require.ErrorIs(t, err, ErrTokenMaintenanceUnknown)
 	var source, target SubscriptionShareAllocation
 	require.NoError(t, db.First(&source, fixture.sourceAllocation.ID).Error)
 	require.NoError(t, db.First(&target, fixture.targetAllocation.ID).Error)
 	assert.Equal(t, fixture.sourceAllocation.ShareBPS, source.ShareBPS)
 	assert.Zero(t, target.ShareBPS)
+	var sourcePool, targetPool SubscriptionSharePool
+	require.NoError(t, db.First(&sourcePool, fixture.sourcePool.ID).Error)
+	require.NoError(t, db.First(&targetPool, fixture.targetPool.ID).Error)
+	assert.Equal(t, fixture.sourcePool.Revision, sourcePool.Revision)
+	assert.Equal(t, fixture.targetPool.Revision, targetPool.Revision)
+	policy, err := ReadAssignedAccessPolicy(context.Background(), db, "token", fixture.token.Id)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), policy.Revision)
+	var receipts int64
+	require.NoError(t, db.Model(&TokenAccountMigrationReceipt{}).Count(&receipts).Error)
+	assert.Zero(t, receipts)
+}
+
+func TestTokenAccountMigrationRejectsPendingBudgetAfterPreviewWithoutWrites(t *testing.T) {
+	db := newTokenAccountMigrationSQLiteDB(t)
+	fixture := newTokenAccountMigrationFixture(t, db, "budget-pending-after-preview")
+	input := TokenAccountMigrationPreviewInput{TargetChannelID: fixture.targetChannel.Id, TargetShares: []TokenAccountMigrationTargetShare{{
+		SourcePoolID: fixture.sourcePool.ID, TargetPoolID: fixture.targetPool.ID, ShareBPS: fixture.sourceAllocation.ShareBPS,
+	}}}
+	preview, err := PreviewTokenAccountMigration(context.Background(), db, fixture.root.Id, fixture.token.Id, input, fixture.now)
+	require.NoError(t, err)
+	require.Equal(t, TokenMaintenanceStatusReady, preview.Status)
+	require.NoError(t, db.Create(&TokenBudgetReservation{
+		RequestID: "pending-after-preview", TokenID: fixture.token.Id, UserID: fixture.root.Id,
+		ChannelID: fixture.sourceChannel.Id, ModelName: "fixture", PayloadSHA256: strings.Repeat("9", 64),
+		BoundSource: TokenBudgetBoundOpenAIResponses, InputTokens: 1, MaxOutputTokens: 1,
+		Reserved: 2, State: TokenBudgetSent, FeeReservedUSD: "0", CreatedAt: fixture.now, UpdatedAt: fixture.now,
+	}).Error)
+
+	_, _, err = CommitTokenAccountMigration(context.Background(), db, fixture.root.Id, fixture.token.Id, TokenAccountMigrationCommand{
+		TokenAccountMigrationPreviewInput: input, OperationID: strings.Repeat("9", 64), PreviewRevision: preview.PreviewRevision, Confirmed: true,
+	}, fixture.now)
+	require.ErrorIs(t, err, ErrTokenMaintenanceConflict)
+	assert.False(t, errors.Is(err, ErrTokenMaintenancePreconditionUnknown))
+	var source, target SubscriptionShareAllocation
+	require.NoError(t, db.First(&source, fixture.sourceAllocation.ID).Error)
+	require.NoError(t, db.First(&target, fixture.targetAllocation.ID).Error)
+	assert.Equal(t, fixture.sourceAllocation.ShareBPS, source.ShareBPS)
+	assert.Equal(t, fixture.targetAllocation.ShareBPS, target.ShareBPS)
+	var sourcePool, targetPool SubscriptionSharePool
+	require.NoError(t, db.First(&sourcePool, fixture.sourcePool.ID).Error)
+	require.NoError(t, db.First(&targetPool, fixture.targetPool.ID).Error)
+	assert.Equal(t, fixture.sourcePool.Revision, sourcePool.Revision)
+	assert.Equal(t, fixture.targetPool.Revision, targetPool.Revision)
+	policy, err := ReadAssignedAccessPolicy(context.Background(), db, "token", fixture.token.Id)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), policy.Revision)
+	var receipts int64
+	require.NoError(t, db.Model(&TokenAccountMigrationReceipt{}).Count(&receipts).Error)
+	assert.Zero(t, receipts)
 }
 
 func TestTokenAccountMigrationRequiresCredentialBoundSnapshotProof(t *testing.T) {
@@ -801,6 +852,36 @@ func TestTokenAccountMigrationReceiptFailureRollsBackEverything(t *testing.T) {
 	var receipts int64
 	require.NoError(t, db.Model(&TokenAccountMigrationReceipt{}).Count(&receipts).Error)
 	assert.Zero(t, receipts)
+}
+
+func TestTokenAccountMigrationCommittedReceiptDecodeFailureRemainsResultUnknown(t *testing.T) {
+	db := newTokenAccountMigrationSQLiteDB(t)
+	fixture := newTokenAccountMigrationFixture(t, db, "corrupt-committed-receipt")
+	input := TokenAccountMigrationPreviewInput{TargetChannelID: fixture.targetChannel.Id, TargetShares: []TokenAccountMigrationTargetShare{{
+		SourcePoolID: fixture.sourcePool.ID, TargetPoolID: fixture.targetPool.ID, ShareBPS: fixture.sourceAllocation.ShareBPS,
+	}}}
+	preview, err := PreviewTokenAccountMigration(context.Background(), db, fixture.root.Id, fixture.token.Id, input, fixture.now)
+	require.NoError(t, err)
+	require.Equal(t, TokenMaintenanceStatusReady, preview.Status)
+	command := TokenAccountMigrationCommand{
+		TokenAccountMigrationPreviewInput: input, OperationID: strings.Repeat("a", 64), PreviewRevision: preview.PreviewRevision, Confirmed: true,
+	}
+	_, replayed, err := CommitTokenAccountMigration(context.Background(), db, fixture.root.Id, fixture.token.Id, command, fixture.now)
+	require.NoError(t, err)
+	assert.False(t, replayed)
+	require.NoError(t, db.Exec("UPDATE token_account_migration_receipts SET changes_json = ? WHERE operation_id = ?", "{", command.OperationID).Error)
+
+	_, _, err = CommitTokenAccountMigration(context.Background(), db, fixture.root.Id, fixture.token.Id, command, fixture.now)
+	require.ErrorIs(t, err, ErrTokenMaintenanceUnknown)
+	assert.False(t, errors.Is(err, ErrTokenMaintenancePreconditionUnknown))
+	_, err = ReadTokenMaintenanceOperation(context.Background(), db, fixture.root.Id, fixture.token.Id, command.OperationID)
+	require.ErrorIs(t, err, ErrTokenMaintenanceUnknown)
+	assert.False(t, errors.Is(err, ErrTokenMaintenancePreconditionUnknown))
+	var source, target SubscriptionShareAllocation
+	require.NoError(t, db.First(&source, fixture.sourceAllocation.ID).Error)
+	require.NoError(t, db.First(&target, fixture.targetAllocation.ID).Error)
+	assert.Zero(t, source.ShareBPS)
+	assert.Equal(t, fixture.sourceAllocation.ShareBPS, target.ShareBPS)
 }
 
 func tokenAccountMigrationContract(t *testing.T, fixture tokenAccountMigrationFixture) {

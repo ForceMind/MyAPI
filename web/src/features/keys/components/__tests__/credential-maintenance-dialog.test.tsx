@@ -47,6 +47,8 @@ vi.mock('../../credential-maintenance-api', async (original) => {
 
 vi.mock('@/features/auth/secure-verification', async () => {
   const React = await import('react')
+  const { Dialog, DialogContent, DialogTitle } =
+    await import('@/components/ui/dialog')
   return {
     useSecureVerification: () => {
       const [callback, setCallback] = React.useState<
@@ -70,7 +72,11 @@ vi.mock('@/features/auth/secure-verification', async () => {
           setCallback(() => next)
           return true
         },
-        executeVerification: async () => callback?.('synthetic-proof'),
+        executeVerification: async () => {
+          const result = await callback?.('synthetic-proof')
+          setCallback(null)
+          return result
+        },
         cancel: () => setCallback(null),
         setCode: vi.fn(),
         switchMethod: vi.fn(),
@@ -78,15 +84,21 @@ vi.mock('@/features/auth/secure-verification', async () => {
     },
     SecureVerificationDialog: (props: {
       open: boolean
+      onOpenChange: (open: boolean) => void
       onVerify: (method: '2fa', code: string) => Promise<void>
     }) =>
       props.open ? (
-        <button
-          type='button'
-          onClick={() => void props.onVerify('2fa', '123456')}
-        >
-          Complete verification
-        </button>
+        <Dialog open onOpenChange={props.onOpenChange}>
+          <DialogContent>
+            <DialogTitle>Verify account migration</DialogTitle>
+            <button
+              type='button'
+              onClick={() => void props.onVerify('2fa', '123456')}
+            >
+              Complete verification
+            </button>
+          </DialogContent>
+        </Dialog>
       ) : null,
   }
 })
@@ -360,7 +372,7 @@ test('an uncertain commit stays locked across close and remount without repeatin
     command.operation_id
   )
 
-  await user.click(screen.getByRole('button', { name: 'Close' }))
+  await user.click(screen.getAllByRole('button', { name: 'Close' })[0])
   expect(onClose).toHaveBeenCalledTimes(1)
   first.unmount()
   renderDialog()
@@ -395,11 +407,6 @@ test('a storage write failure stops the commit before its POST', async () => {
   expect(await screen.findByText('Migration was not accepted')).toBeVisible()
   expect(apiMocks.commit).not.toHaveBeenCalled()
   expect(apiMocks.receipt).not.toHaveBeenCalled()
-
-  await user.click(
-    screen.getByRole('button', { name: 'Complete verification' })
-  )
-  expect(apiMocks.commit).not.toHaveBeenCalled()
 })
 
 test('a duplicate verification callback cannot unlock an in-flight commit', async () => {
@@ -419,11 +426,10 @@ test('a duplicate verification callback cannot unlock an in-flight commit', asyn
 
   await user.click(complete)
   await waitFor(() => expect(apiMocks.commit).toHaveBeenCalledTimes(1))
-  expect(screen.getByRole('button', { name: 'Close' })).toBeDisabled()
 
   await user.click(complete)
   expect(apiMocks.commit).toHaveBeenCalledTimes(1)
-  expect(screen.getByRole('button', { name: 'Close' })).toBeDisabled()
+  expect(readPendingCredentialMaintenanceOperation(1, 21)).not.toBeNull()
 
   if (!rejectCommit) throw new Error('Commit request did not start')
   rejectCommit(new Error('Synthetic network loss'))

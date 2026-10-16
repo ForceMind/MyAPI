@@ -33,7 +33,7 @@ POST 两路有真实会话 Origin guard 和限流；提交额外要求 `X-Securi
 
 同 operation ID、同规范请求摘要返回已提交结果并 `replayed:true`；异请求 409。提交与 GET 回执的 `data` 均为脱敏回执字段及 `replayed`，不嵌套秘密值。回执由 actor、Token 和 operation 共同限定。
 
-错误使用 400 invalid、401 session required、403 denied/proof、404 not found、409 conflict/blocked、503 unknown。未知提交不能自动重发 POST；客户端仅回读回执，失败保持写锁。pending operation ID 在 POST 前写入并回读 sessionStorage，按 actor/Token 隔离；关闭重开或同一标签页刷新先 GET 原回执，不生成新的提交。unknown/404 保留记录；确认 committed 或明确未受理的 deterministic commit 4xx 才 compare-and-clear。存储失败不能发送 POST。sessionStorage 不覆盖关闭标签或清除站点数据，不能声称跨设备恢复。404 回执不证明请求未提交。HTTP 408、499、5xx、网络失败或响应无法解码均按未知处理。没有自动回滚或旧凭据恢复承诺。
+错误使用 400 invalid、401 session required、403 denied/proof、404 not found、409 conflict/blocked、412 precondition unknown（事务在迁移写入前明确拒绝）、503 commit unknown。412要求重新读取并预检；DB/事务提交结果或已提交回执无法确认时仍503。未知提交不能自动重发 POST；客户端仅回读回执，失败保持写锁。pending operation ID 在 POST 前写入并回读 sessionStorage，按 actor/Token 隔离；关闭重开或同一标签页刷新先 GET 原回执，不生成新的提交。unknown/404 保留记录；确认 committed 或明确未受理的 deterministic commit 4xx 才 compare-and-clear。存储失败不能发送 POST。sessionStorage 不覆盖关闭标签或清除站点数据，不能声称跨设备恢复。404 回执不证明请求未提交。HTTP 408、499、5xx、网络失败或响应无法解码均按未知处理。没有自动回滚或旧凭据恢复承诺。
 
 ## 轮换资格与验证边界
 

@@ -1,4 +1,3 @@
-import { AxiosError, AxiosHeaders } from 'axios'
 /*
 Copyright (C) 2026 ForceMind
 
@@ -7,6 +6,7 @@ it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
+import { AxiosError, AxiosHeaders } from 'axios'
 import { afterEach, expect, test, vi } from 'vitest'
 
 import { api } from '@/lib/api'
@@ -54,6 +54,24 @@ test('an HTTP request timeout cannot establish that migration did not commit', (
   }
   expect(isUncertainCredentialCommit(error)).toBe(true)
 })
+
+test.each([
+  { status: 412, uncertain: false },
+  { status: 503, uncertain: true },
+])(
+  'migration response $status preserves the server outcome distinction',
+  ({ status, uncertain }) => {
+    const error = new AxiosError('Migration response')
+    error.response = {
+      status,
+      statusText: 'Migration response',
+      headers: {},
+      config: { headers: new AxiosHeaders() },
+      data: { success: false },
+    }
+    expect(isUncertainCredentialCommit(error)).toBe(uncertain)
+  }
+)
 
 afterEach(() => vi.restoreAllMocks())
 

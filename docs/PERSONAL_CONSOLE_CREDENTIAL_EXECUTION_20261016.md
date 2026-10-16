@@ -86,3 +86,13 @@ unknown 跨卸载 P1 修复已由 credential_plan/credential_guard 非实现者�
 首轮前端日志回读：236文件中235通过、1失败；1511单元中1510通过、1失败。新dialog的 getByLabelText 同时匹配 Base UI 可见checkbox与hidden input，已改为 getByRole(checkbox, name) 精确定位可操作控件，保留确认与unknown断言，不改生产。该轮新credential job因frontend失败而skip，没有本批新维护截图。最终资格需新候选全套通过，不能用后续continue运行等同通过。
 
 新增credential job改为前端完成后即使其其他检查失败也继续取准确构建运行，收集新功能独立诊断；构建缺失会明确失败，整体CI仍必须全通过。避免新维护因无关单元/旧浏览器失败被静默跳过，不削弱验收。
+
+## 验证调度修正
+
+两轮前端测试夹具失败导致新维护真实浏览器作业迟至约25分钟后才运行/跳过，诊断反馈太晚。将独立credential job改为与完整前端并行，只轮询同一次run、同一SHA的准确production build（最多5分钟），下载原产物后测试；仅增加作业内actions:read，缺构建明确失败。完整CI仍要求所有作业通过，不复用其他run或旧build。
+
+93eec75单元日志实际为1514通过/3失败，均因测试stub验证button不在真实nested Portal而被Base UI inert；按真实Dialog/Portal及autoReset修夹具，保留duplicate/unknown/storage断言，关闭按钮精确选择可操作项。不把这些失败说成生产问题或通过结果。
+
+交付前另修P2：仅三处apply之前明确前置状态未知新增ErrTokenMaintenancePreconditionUnknown，wrap原Unknown供兼容；controller映射412要求新GET/preview，避免陈旧样本零迁移写但永久receipt404。数据库/commit/已提交receipt无法解析等仍503未知，不泛化清锁。锁后过期、预算CAS及腐坏已提交回执回归覆盖精确边界；model定向11.916s通过，非实现者guard已审模型边界。Root另加controller412/503状态+code及frontend分类回归。
+
+P2修复controller/router定向实际通过：0.877s/0.530s。新sentinel及412/503端到端分类由guard非实现者最终复核无P1/P2；frontend原408未知保持，412明确前置拒绝与503未知有单测，类型/RTL仍待新CI。workflow YAML与准确产物轮询shell语法已直接校验。
