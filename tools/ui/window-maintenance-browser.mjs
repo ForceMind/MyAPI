@@ -288,23 +288,50 @@ try {
   })
 
   const viewports = Object.keys(languages).flatMap((language) => [
-    { language, width: 1280, height: 1000, emphasis: false },
-    { language, width: 320, height: 900, emphasis: language === 'vi' },
+    {
+      language,
+      width: 1280,
+      height: 1000,
+      theme: language === 'en' ? 'dark' : 'light',
+      emphasis: false,
+    },
+    {
+      language,
+      width: 320,
+      height: 900,
+      theme: language === 'vi' ? 'dark' : 'light',
+      emphasis: language === 'vi',
+    },
   ])
   viewports.push(
-    { language: 'zh', width: 1440, height: 1000, emphasis: true },
-    { language: 'zh', width: 390, height: 900, emphasis: true }
+    {
+      language: 'zh',
+      width: 1440,
+      height: 1000,
+      theme: 'light',
+      emphasis: true,
+    },
+    {
+      language: 'zh',
+      width: 390,
+      height: 900,
+      theme: 'light',
+      emphasis: true,
+    }
   )
 
   for (const scenario of viewports) {
-    const { language, width, height } = scenario
+    const { language, width, height, theme } = scenario
     const languageCode = languages[language]
     const t = translation(language)
     const name = `advanced-window-${language}-${width}`
-    const functional = language === 'en' && width === 1280
+    const functional =
+      (language === 'en' && width === 1280) ||
+      (language === 'vi' && width === 320)
     const context = await browser.newContext({
       viewport: { width, height },
       reducedMotion: 'reduce',
+      colorScheme: theme,
       timezoneId: 'Asia/Shanghai',
       serviceWorkers: 'block',
     })
@@ -318,9 +345,11 @@ try {
     const unexpected = []
     let phase = 'initial'
     let failNextPut = false
+    await context.addCookies([
+      { name: 'vite-ui-theme', value: theme, url: origin },
+    ])
     await context.addInitScript((code) => {
       localStorage.setItem('i18nextLng', code)
-      localStorage.setItem('theme', 'light')
     }, languageCode)
     await context.route('**/*', async (route) => {
       try {
@@ -480,6 +509,14 @@ try {
     if (process.env.GITHUB_SHA) {
       assert(revision.includes(process.env.GITHUB_SHA), 'Actual build matches CI checkout')
     }
+    const resolvedTheme = await page.locator('html').evaluate((element) =>
+      element.classList.contains('dark') ? 'dark' : 'light'
+    )
+    assert.equal(
+      resolvedTheme,
+      theme,
+      `${name}: stored ${theme} theme is applied to the document root`
+    )
 
     await selectWindow(editor, '11', '7:71')
     const replacementReview = editor.getByRole('region', {
@@ -711,6 +748,7 @@ try {
       language,
       width,
       height,
+      theme: resolvedTheme,
       emphasis: scenario.emphasis,
       functional,
       buildRevision: revision,
@@ -730,6 +768,7 @@ try {
   const ownerContext = await browser.newContext({
     viewport: { width: 320, height: 900 },
     reducedMotion: 'reduce',
+    colorScheme: 'light',
     timezoneId: 'Asia/Shanghai',
     serviceWorkers: 'block',
   })
@@ -740,9 +779,11 @@ try {
     longText: true,
   })
   const ownerUnexpected = []
+  await ownerContext.addCookies([
+    { name: 'vite-ui-theme', value: 'light', url: origin },
+  ])
   await ownerContext.addInitScript((code) => {
     localStorage.setItem('i18nextLng', code)
-    localStorage.setItem('theme', 'light')
   }, ownerCode)
   await ownerContext.route('**/*', async (route) => {
     try {
@@ -799,6 +840,10 @@ try {
   })
   await ownerPage.clock.setFixedTime(new Date(FIXTURE_TIME))
   await ownerPage.goto(`${origin}/keys`, { waitUntil: 'networkidle' })
+  const ownerTheme = await ownerPage.locator('html').evaluate((element) =>
+    element.classList.contains('dark') ? 'dark' : 'light'
+  )
+  assert.equal(ownerTheme, 'light', `${ownerName}: stored light theme is applied`)
   await ownerPage
     .getByRole('button', { name: ownerT('Window share'), exact: true })
     .last()
@@ -829,6 +874,7 @@ try {
     name: ownerName,
     language: ownerLanguage,
     width: 320,
+    theme: ownerTheme,
     role: 'owner',
     screenshots: [ownerScreenshot],
     passed: true,

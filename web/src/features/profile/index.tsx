@@ -63,6 +63,7 @@ export function Profile() {
     if (statusConfirmed || statusError) setProfileReadEnabled(true)
   }, [statusConfirmed, statusError])
   const authUserId = useAuthStore((s) => s.auth.user?.id)
+  const authRole = useAuthStore((s) => s.auth.user?.role)
   const sessionSid = useAuthStore((s) => s.auth.session?.sid)
   const profileIdentityKey = `${authUserId ?? 'anonymous'}:${sessionSid ?? 'no-session'}`
   const { profile, loading, error, fetchProfile, refreshProfile } = useProfile(
@@ -73,7 +74,9 @@ export function Profile() {
   const fundingMode = useConfirmedFundingMode()
   const personalMode = fundingMode === 'disabled'
   const permissions = useAuthStore((s) => s.auth.user?.permissions)
-  const securityScopeKey = `${authUserId ?? profile?.id ?? 'anonymous'}:${sessionSid ?? 'no-session'}`
+  const securityScopeKey = `${authUserId ?? profile?.id ?? 'anonymous'}:${authRole ?? profile?.role ?? 'no-role'}:${
+    sessionSid ?? 'no-session'
+  }`
 
   const showCommercialFeatures = commercialEnabled && fundingMode === 'enabled'
   const checkinEnabled =

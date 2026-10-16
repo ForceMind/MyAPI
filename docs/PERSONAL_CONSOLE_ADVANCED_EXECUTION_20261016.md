@@ -51,3 +51,9 @@
 - 真实 Docker personal 旅程新增 opt-in advancedModelScope：通过真实 UI 和 Go 窄端点限制后恢复模型范围，核对 Root 跨 owner 404、元数据/用量/上游调用不变；结果待 CI，不以脚本检查冒充运行通过。
 
 首次集成缓存格式/lint通过（通用额度编辑测试中原有 query-selector warnings 保留，0 error）；三个新浏览器驱动 node --check 通过。完整隔离驱动 Node 合同 166/166 通过；首次受限回环失败后仅在批准环境重跑。窗口、模型、profile owned 文件已冻结准备新源码 CI。
+
+## 首轮候选补充修正
+
+源码 b85779b 已同步并触发 CI 38845560151、隔离 Docker 38845571447；CI 类型检查观察到失败，日志须等前端作业结束读取，尚不能称通过。独立审查补齐两个范围内问题：security subtree key 纳入 role，避免角色切换后旧请求留下 loading；窗口脚本保留16矩阵和owner场景，en1280/vi320改为dark并实测根主题，vi320增加完整恢复/未知回读功能流。密码/删号未知反馈、显式重试和关闭清理补确定性RTL；没有引入新的凭据恢复协议。
+
+主线程反例检查补拒绝 models 数组 null 元素：Go JSON默认会将它转换为空字符串，不能冒充保留的旧空CSV段。新增回归同时验证 null拒绝不写入、原样旧空字符串可保留。最终定向model/controller再次通过（1.002s/2.069s）。

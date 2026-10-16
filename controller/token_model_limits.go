@@ -35,6 +35,20 @@ func (request *tokenModelLimitsRequest) UnmarshalJSON(data []byte) error {
 			return model.ErrTokenModelLimitsInvalid
 		}
 	}
+	// encoding/json otherwise converts null string elements into empty IDs,
+	// which could accidentally match an empty segment in a legacy allowlist.
+	if raw, exists := fields["models"]; exists {
+		var names []*string
+		if err := common.Unmarshal(raw, &names); err != nil {
+			return err
+		}
+		for _, name := range names {
+			if name == nil {
+				return model.ErrTokenModelLimitsInvalid
+			}
+		}
+	}
+
 	type requestAlias tokenModelLimitsRequest
 	var decoded requestAlias
 	if err := common.Unmarshal(data, &decoded); err != nil {

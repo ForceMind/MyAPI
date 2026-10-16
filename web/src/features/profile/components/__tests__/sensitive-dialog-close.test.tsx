@@ -9,6 +9,7 @@ version.
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import { Button } from '@/components/ui/button'
@@ -16,6 +17,7 @@ import { api } from '@/lib/api'
 import { useAuthStore, type AuthBundle } from '@/stores/auth-store'
 
 import { AccessTokenDialog } from '../dialogs/access-token-dialog'
+import { ChangePasswordDialog } from '../dialogs/change-password-dialog'
 import { TwoFABackupDialog } from '../dialogs/two-fa-backup-dialog'
 
 vi.mock('sonner', () => ({
@@ -165,4 +167,60 @@ test('backup-code regeneration cannot be dismissed before the replacement codes 
     within(screen.getByRole('dialog')).getByLabelText('Verification Code')
   ).toHaveValue('')
   expect(post).toHaveBeenCalledOnce()
+})
+
+test('an unknown password result requires an explicit retry and closing clears every password', async () => {
+  const put = vi
+    .spyOn(api, 'put')
+    .mockRejectedValue(new Error('unknown network result'))
+  function Fixture() {
+    const [open, setOpen] = useState(true)
+    return (
+      <>
+        <Button onClick={() => setOpen(true)}>Open password</Button>
+        <ChangePasswordDialog
+          open={open}
+          onOpenChange={setOpen}
+          username='owner'
+          securityScopeKey='42:1:session-1'
+        />
+      </>
+    )
+  }
+  const user = userEvent.setup()
+  render(<Fixture />)
+  const dialog = screen.getByRole('dialog', { name: 'Change Password' })
+  await user.type(
+    within(dialog).getByLabelText('Current Password'),
+    'old-password'
+  )
+  await user.type(within(dialog).getByLabelText('New Password'), 'new-password')
+  await user.type(
+    within(dialog).getByLabelText('Confirm New Password'),
+    'new-password'
+  )
+  const submit = within(dialog).getByRole('button', {
+    name: 'Change Password',
+  })
+  await user.click(submit)
+  await waitFor(() => expect(put).toHaveBeenCalledOnce())
+  expect(toast.error).toHaveBeenCalledWith(
+    'The result could not be confirmed. Verify the current account state before trying again.'
+  )
+  expect(dialog).toBeVisible()
+  await Promise.resolve()
+  expect(put).toHaveBeenCalledOnce()
+
+  await waitFor(() => expect(submit).toBeEnabled())
+  await user.click(submit)
+  await waitFor(() => expect(put).toHaveBeenCalledTimes(2))
+  await waitFor(() => expect(submit).toBeEnabled())
+  await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+  await user.click(screen.getByRole('button', { name: 'Open password' }))
+  const reopened = screen.getByRole('dialog', { name: 'Change Password' })
+  expect(within(reopened).getByLabelText('Current Password')).toHaveValue('')
+  expect(within(reopened).getByLabelText('New Password')).toHaveValue('')
+  expect(within(reopened).getByLabelText('Confirm New Password')).toHaveValue(
+    ''
+  )
 })

@@ -188,3 +188,24 @@ func TestTokenModelLimitsConcurrentChangeSurvivesLegacyPartialUpdates(t *testing
 		})
 	}
 }
+
+func TestTokenModelLimitsRejectsNullLegacyIdentifier(t *testing.T) {
+	db := subscriptionShareControllerFixture(t)
+	oldRedis := common.RedisEnabled
+	common.RedisEnabled = false
+	t.Cleanup(func() { common.RedisEnabled = oldRedis })
+	require.NoError(t, db.Model(&model.Token{}).Where("id = ?", 11).Updates(map[string]any{"model_limits_enabled": true, "model_limits": "Known,,Retired"}).Error)
+	var before model.Token
+	require.NoError(t, db.First(&before, 11).Error)
+	revision, err := before.QuotaMetadataFingerprint()
+	require.NoError(t, err)
+	body := fmt.Sprintf(`{"expected_revision":%q,"model_limits_enabled":true,"models":["Known",null,"Retired"]}`, revision)
+	response := tokenModelLimitsRequestForTest(2, http.MethodPut, "11", "", body)
+	require.Equal(t, http.StatusBadRequest, response.Code)
+	var after model.Token
+	require.NoError(t, db.First(&after, 11).Error)
+	assert.Equal(t, before, after)
+	body = fmt.Sprintf(`{"expected_revision":%q,"model_limits_enabled":true,"models":["Known","","Retired"]}`, revision)
+	response = tokenModelLimitsRequestForTest(2, http.MethodPut, "11", "", body)
+	require.Equal(t, http.StatusOK, response.Code)
+}

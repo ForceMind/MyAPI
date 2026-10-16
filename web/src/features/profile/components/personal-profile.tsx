@@ -38,8 +38,11 @@ type PersonalProfileProps = {
 export function PersonalProfile(props: PersonalProfileProps) {
   const { t } = useTranslation()
   const authUserId = useAuthStore((state) => state.auth.user?.id)
+  const authRole = useAuthStore((state) => state.auth.user?.role)
   const sessionSid = useAuthStore((state) => state.auth.session?.sid)
-  const securityScopeKey = `${authUserId ?? props.profile?.id ?? 'anonymous'}:${sessionSid ?? 'no-session'}`
+  const securityScopeKey = `${authUserId ?? props.profile?.id ?? 'anonymous'}:${authRole ?? props.profile?.role ?? 'no-role'}:${
+    sessionSid ?? 'no-session'
+  }`
   const [openSecurityScope, setOpenSecurityScope] = useState<string | null>(
     null
   )

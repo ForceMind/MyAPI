@@ -17,6 +17,7 @@ import {
 } from '@tanstack/react-router'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { toast } from 'sonner'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { api } from '@/lib/api'
@@ -24,6 +25,10 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import { PersonalProfile } from '../components/personal-profile'
 import type { UserProfile } from '../types'
+
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
+}))
 
 const clients: QueryClient[] = []
 const originalAuth = useAuthStore.getState()
@@ -172,7 +177,7 @@ describe('personal profile', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('clears a pending password form and aborts its request when the signed-in session changes', async () => {
+  it('clears a pending password form and aborts its request when the role changes in the same session', async () => {
     vi.spyOn(api, 'get').mockImplementation(async (url) => {
       if (url === '/api/user/sessions' || url === '/api/user/oauth/bindings') {
         return { data: { success: true, data: [] } }
@@ -247,15 +252,15 @@ describe('personal profile', () => {
       useAuthStore.setState({
         auth: {
           ...useAuthStore.getState().auth,
-          user: { id: 84, username: 'replacement', role: 100 },
+          user: { id: 42, username: 'owner', role: 1 },
           session: {
-            sid: 'session-two',
+            sid: 'session-one',
             current: true,
             login_method: 'password',
             ip: '127.0.0.1',
             user_agent: 'synthetic-test',
-            created_at: 2,
-            last_active_at: 2,
+            created_at: 1,
+            last_active_at: 1,
             expires_at: 4_000_000_000,
           },
         },
@@ -273,5 +278,92 @@ describe('personal profile', () => {
       resolveUpdate({ data: { success: true } } as UpdateResponse)
       await pendingUpdate
     })
+  })
+
+  it('reports an unknown account deletion result and retries only after another explicit submit', async () => {
+    vi.spyOn(api, 'get').mockImplementation(async (url) => {
+      if (url === '/api/user/sessions' || url === '/api/user/oauth/bindings') {
+        return { data: { success: true, data: [] } }
+      }
+      if (url === '/api/user/2fa/status') {
+        return {
+          data: {
+            success: true,
+            data: { enabled: false, locked: false, backup_codes_remaining: 0 },
+          },
+        }
+      }
+      if (url === '/api/user/passkey') {
+        return { data: { success: true, data: { enabled: false } } }
+      }
+      if (url === '/api/status') {
+        return { data: { success: true, data: {} } }
+      }
+      throw new Error(`Unexpected test API: ${url}`)
+    })
+    const remove = vi
+      .spyOn(api, 'delete')
+      .mockRejectedValue(new Error('unknown network result'))
+    useAuthStore.setState({
+      auth: {
+        ...originalAuth.auth,
+        user: { id: 42, username: 'owner', role: 1 },
+        session: {
+          sid: 'session-one',
+          current: true,
+          login_method: 'password',
+          ip: '127.0.0.1',
+          user_agent: 'synthetic-test',
+          created_at: 1,
+          last_active_at: 1,
+          expires_at: 4_000_000_000,
+        },
+      },
+    })
+    const { user } = await renderProfile({
+      profile: { ...profile, role: 1 },
+    })
+    await user.click(
+      screen.getByRole('button', { name: /Manage login methods/ })
+    )
+    await user.click(
+      await screen.findByRole('button', {
+        name: /Delete Account Permanently delete your account/,
+      })
+    )
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Delete Account',
+    })
+    const confirmation = within(dialog).getByLabelText(
+      /Type.*owner.*to confirm/
+    )
+    await user.type(confirmation, 'owner')
+    const submit = within(dialog).getByRole('button', {
+      name: 'Delete Account',
+    })
+    await user.click(submit)
+    await waitFor(() => expect(remove).toHaveBeenCalledOnce())
+    expect(toast.error).toHaveBeenCalledWith(
+      'The result could not be confirmed. Verify the current account state before trying again.'
+    )
+    expect(dialog).toBeVisible()
+    await Promise.resolve()
+    expect(remove).toHaveBeenCalledOnce()
+
+    await waitFor(() => expect(submit).toBeEnabled())
+    await user.click(submit)
+    await waitFor(() => expect(remove).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(submit).toBeEnabled())
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await user.click(
+      screen.getByRole('button', {
+        name: /Delete Account Permanently delete your account/,
+      })
+    )
+    expect(
+      within(
+        screen.getByRole('dialog', { name: 'Delete Account' })
+      ).getByLabelText(/Type.*owner.*to confirm/)
+    ).toHaveValue('')
   })
 })
