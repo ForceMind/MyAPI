@@ -157,6 +157,8 @@ function securityState(fixture, scenario, origin) {
   )
   return {
     auth,
+    rpID: new URL(origin).hostname,
+    stage: 'initialized',
     twoFAEnabled: false,
     backupCodesRemaining: 0,
     passkeyEnabled: false,
@@ -192,6 +194,9 @@ function securityState(fixture, scenario, origin) {
     pageErrors: [],
     external: [],
     rotatedAuthorizationSeen: false,
+    passkeyRotationSeen: false,
+    twoFARotationSeen: false,
+    backupCodeRotationSeen: false,
   }
 }
 
@@ -214,6 +219,12 @@ async function responseFor(request, fixture, state) {
   const authorization = request.headers().authorization
   if (authorization === 'Bearer synthetic-password-rotation') {
     state.rotatedAuthorizationSeen = true
+  } else if (authorization === 'Bearer synthetic-passkey-rotation') {
+    state.passkeyRotationSeen = true
+  } else if (authorization === 'Bearer synthetic-two-fa-rotation') {
+    state.twoFARotationSeen = true
+  } else if (authorization === 'Bearer synthetic-backup-code-rotation') {
+    state.backupCodeRotationSeen = true
   }
 
   if (method === 'GET' && path === '/api/user/token') {
@@ -239,6 +250,9 @@ async function responseFor(request, fixture, state) {
         status: 503,
         body: { success: false, message: 'Synthetic Passkey status unavailable' },
       }
+    }
+    if (state.passkeyEnabled && state.stage.startsWith('passkey')) {
+      state.stage = 'passkey-status-enabled'
     }
     return ok({
       enabled: state.passkeyEnabled,
@@ -273,13 +287,14 @@ async function responseFor(request, fixture, state) {
   }
   if (method === 'POST' && path === '/api/user/passkey/register/begin') {
     state.counts.passkeyBegin += 1
+    state.stage = 'passkey-credential-create'
     state.mutations.push('POST /api/user/passkey/register/begin')
     return ok({
       flow_token: 'synthetic-passkey-flow',
       options: {
         publicKey: {
           challenge: 'AQIDBAUGBwgJCgsMDQ4PEA',
-          rp: { id: '127.0.0.1', name: 'MyAPI synthetic fixture' },
+          rp: { id: state.rpID, name: 'MyAPI synthetic fixture' },
           user: {
             id: 'c3ludGhldGljLXVzZXItMQ',
             name: state.auth.user.username,
@@ -301,11 +316,20 @@ async function responseFor(request, fixture, state) {
     })
   }
   if (method === 'POST' && path === '/api/user/passkey/register/finish') {
+    state.stage = 'passkey-finish'
     const body = request.postDataJSON()
+    const credential = body?.credential
     if (
       body?.flow_token !== 'synthetic-passkey-flow' ||
-      typeof body?.credential?.id !== 'string' ||
-      !body.credential.id
+      typeof credential?.id !== 'string' ||
+      !credential.id ||
+      typeof credential.rawId !== 'string' ||
+      !credential.rawId ||
+      credential.type !== 'public-key' ||
+      typeof credential.response?.attestationObject !== 'string' ||
+      !credential.response.attestationObject ||
+      typeof credential.response?.clientDataJSON !== 'string' ||
+      !credential.response.clientDataJSON
     ) {
       return { violation: 'Virtual WebAuthn credential was not serialized' }
     }
@@ -316,6 +340,7 @@ async function responseFor(request, fixture, state) {
   }
   if (method === 'POST' && path === '/api/user/2fa/setup') {
     state.counts.twoFASetup += 1
+    state.stage = 'two-fa-setup-response'
     state.mutations.push('POST /api/user/2fa/setup')
     return ok({
       secret: syntheticTwoFASecret,
@@ -326,6 +351,7 @@ async function responseFor(request, fixture, state) {
   if (method === 'POST' && path === '/api/user/2fa/enable') {
     assert.equal(request.postDataJSON()?.code, '123456')
     state.counts.twoFAEnable += 1
+    state.stage = 'two-fa-enable-response'
     state.twoFAEnabled = true
     state.backupCodesRemaining = syntheticBackupCodes.length
     state.mutations.push('POST /api/user/2fa/enable')
@@ -334,6 +360,7 @@ async function responseFor(request, fixture, state) {
   if (method === 'POST' && path === '/api/user/2fa/backup_codes') {
     assert.equal(request.postDataJSON()?.code, '123456')
     state.counts.backupCodes += 1
+    state.stage = 'two-fa-backup-response'
     state.mutations.push('POST /api/user/2fa/backup_codes')
     return ok({
       ...authRotation(state, 'synthetic-backup-code-rotation'),
@@ -342,6 +369,7 @@ async function responseFor(request, fixture, state) {
   }
   if (method === 'POST' && path === '/api/user/sessions/revoke-others') {
     state.counts.sessionRevokeOthers += 1
+    state.stage = 'sessions-revoke-response'
     state.sessions = state.sessions.filter((session) => session.current)
     state.mutations.push('POST /api/user/sessions/revoke-others')
     return ok(null)
@@ -637,6 +665,7 @@ async function verifyAccessToken(page, scenario, state) {
 
 async function verifyPasskey(page, scenario, state) {
   const t = (key) => tr(key, scenario.language)
+  state.stage = 'passkey-start'
   const card = securityCard(page, t('Passkey Login'))
   const enable = card.getByRole('button', {
     name: t('Enable Passkey'),
@@ -644,16 +673,24 @@ async function verifyPasskey(page, scenario, state) {
   })
   await enable.waitFor()
   assert.equal(await enable.isEnabled(), true, 'Virtual authenticator is detected')
+  state.stage = 'passkey-register'
   await enable.click()
   await card
     .getByRole('button', { name: t('Remove Passkey'), exact: true })
     .waitFor()
   assert.equal(state.counts.passkeyBegin, 1)
   assert.equal(state.counts.passkeyFinish, 1)
+  assert.equal(
+    state.passkeyRotationSeen,
+    true,
+    'The Passkey status read uses the rotated bearer token'
+  )
+  state.stage = 'passkey-complete'
 }
 
 async function verifyTwoFA(page, scenario, state) {
   const t = (key) => tr(key, scenario.language)
+  state.stage = 'two-fa-setup'
   const card = securityCard(page, t('Two-Factor Authentication'))
   await card.getByRole('button', { name: t('Enable'), exact: true }).click()
   const setup = page.getByRole('dialog', {
@@ -675,7 +712,13 @@ async function verifyTwoFA(page, scenario, state) {
     .waitFor()
   assert.equal(state.counts.twoFASetup, 1)
   assert.equal(state.counts.twoFAEnable, 1)
+  assert.equal(
+    state.twoFARotationSeen,
+    true,
+    'The 2FA status read uses the rotated bearer token'
+  )
 
+  state.stage = 'two-fa-backup-codes'
   await card
     .getByRole('button', {
       name: t('Regenerate Backup Codes'),
@@ -698,10 +741,12 @@ async function verifyTwoFA(page, scenario, state) {
   for (const code of syntheticBackupCodes) {
     assert.equal(await page.getByText(`${code}-NEW`, { exact: true }).count(), 0)
   }
+  state.stage = 'two-fa-complete'
 }
 
 async function verifySessions(page, scenario, state) {
   const t = (key) => tr(key, scenario.language)
+  state.stage = 'sessions-revoke-others'
   const card = securityCard(page, t('Login sessions'))
   const action = card.getByRole('button', {
     name: t('Sign out other sessions'),
@@ -725,6 +770,12 @@ async function verifySessions(page, scenario, state) {
     },
     t('Sign out other sessions')
   )
+  assert.equal(
+    state.backupCodeRotationSeen,
+    true,
+    'The session request uses the bearer token rotated with backup codes'
+  )
+  state.stage = 'sessions-complete'
 }
 
 async function verifyAndRecoverSecurityReads(page, scenario, state) {
@@ -763,7 +814,7 @@ let browser
 let origin
 try {
   await new Promise((done) => server.listen(0, '127.0.0.1', done))
-  origin = `http://127.0.0.1:${server.address().port}`
+  origin = `http://localhost:${server.address().port}`
   const { chromium } = await import(
     process.env.MYAPI_PLAYWRIGHT_MODULE
       ? pathToFileURL(process.env.MYAPI_PLAYWRIGHT_MODULE).href
@@ -1043,8 +1094,11 @@ try {
     )
     try {
       const revision = await openSecurity(page, flowScenario)
+      state.stage = 'root-restriction'
       await verifyRootRestriction(page, flowScenario, state)
+      state.stage = 'password'
       await verifyPassword(page, flowScenario, state)
+      state.stage = 'access-token'
       await verifyAccessToken(page, flowScenario, state)
       await verifyPasskey(page, flowScenario, state)
       await verifyTwoFA(page, flowScenario, state)
@@ -1054,6 +1108,7 @@ try {
         true,
         'A request after password rotation uses the rotated bearer token'
       )
+      state.stage = 'complete'
       await screenshot(page, flowScenario, 'completed')
       assert.deepEqual(state.violations, [])
       assert.deepEqual(state.pageErrors, [])
@@ -1061,6 +1116,7 @@ try {
       report.journeys.push({
         name: flowScenario.name,
         result: 'passed',
+        stage: state.stage,
         role: state.auth.user.role,
         sid: state.auth.session.sid,
         revision,
@@ -1076,16 +1132,63 @@ try {
           boundary: 'Chromium CDP virtual authenticator; not real hardware',
           beginCalls: state.counts.passkeyBegin,
           finishCalls: state.counts.passkeyFinish,
+          authRotationObservedOnStatusRead: state.passkeyRotationSeen,
         },
         twoFA: {
           setupCalls: state.counts.twoFASetup,
           enableCalls: state.counts.twoFAEnable,
           backupCodeCalls: state.counts.backupCodes,
+          enableAuthRotationObserved: state.twoFARotationSeen,
+          backupAuthRotationObserved: state.backupCodeRotationSeen,
           secretsAbsentAfterClose: true,
         },
         sessionRevokeOtherCalls: state.counts.sessionRevokeOthers,
         mutations: state.mutations,
       })
+    } catch (error) {
+      if (state.stage.startsWith('passkey')) {
+        try {
+          const card = securityCard(
+            page,
+            tr('Passkey Login', flowScenario.language)
+          )
+          if ((await card.count()) === 1 && (await card.isVisible())) {
+            const file = `advanced-security-${flowScenario.name}-passkey-failed.png`
+            await card.screenshot({
+              path: resolve(output, file),
+              animations: 'disabled',
+            })
+            report.screenshots.push({
+              file,
+              language: flowScenario.language,
+              width: flowScenario.width,
+              theme: flowScenario.theme,
+              state: 'passkey-failed',
+            })
+          }
+        } catch {
+          // Preserve the original journey failure when evidence capture fails.
+        }
+      }
+      report.journeys.push({
+        name: flowScenario.name,
+        result: 'failed',
+        stage: state.stage,
+        passkey: {
+          beginCalls: state.counts.passkeyBegin,
+          finishCalls: state.counts.passkeyFinish,
+          authRotationObserved: state.passkeyRotationSeen,
+        },
+        twoFA: {
+          setupCalls: state.counts.twoFASetup,
+          enableCalls: state.counts.twoFAEnable,
+          backupCodeCalls: state.counts.backupCodes,
+          enableAuthRotationObserved: state.twoFARotationSeen,
+          backupAuthRotationObserved: state.backupCodeRotationSeen,
+        },
+        sessionRevokeOtherCalls: state.counts.sessionRevokeOthers,
+      })
+      throw error
     } finally {
       await cdp.send('WebAuthn.removeVirtualAuthenticator', {
         authenticatorId: virtualAuthenticator.authenticatorId,

@@ -112,3 +112,11 @@ Docker实际首次模型PUT及GET均200，第二次打开未发GET。核对main.
 安全19布局/错误恢复通过，密码验证、Cancel清空与Enter/authrotation已继续通过；AccessToken显示/遮敏后，Close同时匹配footer与X使driver严格模式失败。仅排除data-slot=dialog-close并匹配精确文本，关闭后等待detached再重开；保留零自动生成、双确认、一次性显示与清理断言。其余Passkey/2FA/备份码/会话locator逐项对照实际组件核对。产品实现与acba3f4无变化，最终CI仍须完整通过；已通过Docker按准确不变输入复用，不为仅tools/ui脚本和文档变化重复构建镜像。
 
 独立文档复核指出密码/删号未知不能承诺安全状态回读，已改为先人工核验、显式决定重试；该P2已由非作者回读关闭。Dockerreported usage与专属缺usage语义测试边界也明确区分。
+
+## 第六轮安全WebAuthn夹具前提修正
+
+源码83a23c9的1498单元、三库、71核心旅程、窗口17与模型17继续通过。安全密码及AccessToken完整流程已越过旧定位问题；随后Enable Passkey后等待Remove Passkey超时。旧报告没有begin/finish计数，无法确认具体浏览器错误，不能将推断写成已测根因。
+
+实际代码合同核对：2FA=false时无SecureVerification前置，options.publicKey与helper一致，finish/authrotation/status形状匹配；明确发现HTTP127.0.0.1 origin及RP ID不符合WebAuthn域名要求。[Chromium origins规则](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/content/browser/webauth/origins.md)与[W3C WebAuthn3](https://www.w3.org/TR/2026/REC-webauthn-3-20260825/)要求有效域名RP。现仅将合成driver改为localhost origin/RP ID，服务仍只bind127回环，不启用安全绕过flag。新增固定stage、安全数值计数、合法authrotation布尔、Passkey卡失败原图及真实WebAuthn序列化字段检查；不记录secret/header/原始token。剩余2FA/backup/sessions前置及响应也逐项对照实际API。
+
+主线程把CI既有advanced执行与上传block前移至browser-dependencies成功之后，较长旧矩阵之前先取得本批功能反馈；全部其它套件、条件、超时和断言保留，YAML解析及依赖顺序通过。产品/runtime输入仍与acba3f4一致，完整第七轮CI和实际Chromium结果待核对。

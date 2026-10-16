@@ -639,6 +639,43 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/myapi-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1
           "$RUNNER_TEMP/myapi-browser/node_modules/.bin/playwright" install --with-deps chromium
 
+      # Run the changed maintenance flows first so driver failures surface
+      # before the longer unchanged browser matrices. All suites still run.
+      - name: Qualify advanced personal maintenance in Chromium
+        if: ${{ !cancelled() && steps.browser-dependencies.outcome == 'success' }}
+        working-directory: .
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs
+          MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-advanced-maintenance-artifacts
+          NODE_OPTIONS: '--max-old-space-size=768'
+        run: |
+          scripts=(window-maintenance model-scope security-maintenance)
+          pids=()
+          for name in "${scripts[@]}"; do
+            node "tools/ui/$name-browser.mjs" > "$RUNNER_TEMP/advanced-$name.log" 2>&1 &
+            pids+=("$!")
+          done
+          failed=0
+          for index in "${!scripts[@]}"; do
+            if ! wait "${pids[$index]}"; then
+              echo "::error file=tools/ui/${scripts[$index]}-browser.mjs::Advanced maintenance qualification failed"
+              failed=1
+            fi
+            cat "$RUNNER_TEMP/advanced-${scripts[$index]}.log"
+          done
+          exit "$failed"
+
+      - name: Upload advanced maintenance screenshots and reports
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-advanced-maintenance-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/myapi-advanced-maintenance-artifacts/*.png
+            ${{ runner.temp }}/myapi-advanced-maintenance-artifacts/*.json
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Verify real quota charts and responsive interactions
         if: ${{ !cancelled() && steps.browser-dependencies.outcome == 'success' }}
         working-directory: .
@@ -695,41 +732,6 @@ jobs:
           path: |
             ${{ runner.temp }}/myapi-personal-console-artifacts/*.png
             ${{ runner.temp }}/myapi-personal-console-artifacts/*.json
-          if-no-files-found: ignore
-          retention-days: 7
-
-      - name: Qualify advanced personal maintenance in Chromium
-        if: ${{ !cancelled() && steps.browser-dependencies.outcome == 'success' }}
-        working-directory: .
-        env:
-          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs
-          MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-advanced-maintenance-artifacts
-          NODE_OPTIONS: '--max-old-space-size=768'
-        run: |
-          scripts=(window-maintenance model-scope security-maintenance)
-          pids=()
-          for name in "${scripts[@]}"; do
-            node "tools/ui/$name-browser.mjs" > "$RUNNER_TEMP/advanced-$name.log" 2>&1 &
-            pids+=("$!")
-          done
-          failed=0
-          for index in "${!scripts[@]}"; do
-            if ! wait "${pids[$index]}"; then
-              echo "::error file=tools/ui/${scripts[$index]}-browser.mjs::Advanced maintenance qualification failed"
-              failed=1
-            fi
-            cat "$RUNNER_TEMP/advanced-${scripts[$index]}.log"
-          done
-          exit "$failed"
-
-      - name: Upload advanced maintenance screenshots and reports
-        if: always()
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
-        with:
-          name: myapi-advanced-maintenance-${{ github.sha }}
-          path: |
-            ${{ runner.temp }}/myapi-advanced-maintenance-artifacts/*.png
-            ${{ runner.temp }}/myapi-advanced-maintenance-artifacts/*.json
           if-no-files-found: ignore
           retention-days: 7
 
