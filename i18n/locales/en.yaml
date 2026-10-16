@@ -2,6 +2,9 @@ playground.image_provider_unsupported: "This provider route does not support ima
 playground.file_provider_unsupported: "Inline PDF requires an OpenAI-compatible file-input route; the selected provider route is not supported"
 usage_dispatch.pending: "This request cannot be sent again. Check its usage settlement status first."
 # English translations
+codex_credential.subject_unknown: "The credential account could not be verified. Check the account or reauthorize it. An upstream refresh may already have replaced its refresh token."
+codex_credential.subject_mismatch: "This credential belongs to a different account. Create a separate target channel and use account migration."
+codex_credential.safe_update_required: "Use Codex reauthorization or verified local import to replace this credential. General channel editing cannot replace its account."
 token_budget.unsupported: "This strict budget requires qualified official OpenAI Responses text or gpt-6.1-sol Chat text with an explicit output limit and non-free per-token pricing; Chat reserves its full 1,050,000-token context bound"
 token_budget.pending: "This key has an unresolved usage reservation. Further requests are paused"
 token_budget.exceeded: "The reserved Token upper bound exceeds the available budget"

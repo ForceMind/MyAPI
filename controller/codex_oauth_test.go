@@ -6,11 +6,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/service"
 	"github.com/gin-gonic/gin"
@@ -235,4 +237,88 @@ func TestCompleteCodexOAuthInvalidCreatePreservesAuthorizationCode(t *testing.T)
 			require.NoError(t, err, "invalid fields must not consume the one-time flow")
 		})
 	}
+}
+
+func TestCompleteCodexOAuthForChannelRejectsDifferentAccount(t *testing.T) {
+	setupAuthFlowControllerTest(t)
+	require.NoError(t, model.DB.AutoMigrate(&model.Channel{}))
+	previousMemoryCache := common.MemoryCacheEnabled
+	common.MemoryCacheEnabled = false
+	t.Cleanup(func() { common.MemoryCacheEnabled = previousMemoryCache })
+	channel := &model.Channel{Type: constant.ChannelTypeCodex, Name: "Existing Codex", Key: `{"access_token":"old","refresh_token":"old-refresh","account_id":"account-original"}`}
+	require.NoError(t, model.DB.Create(channel).Error)
+	establishCodexControllerCredentialEvidence(t, channel.Id, channel.Key, "account-original")
+	establishCodexControllerCredentialEvidence(t, channel.Id+1000, "known-different-account-credential", "account-different")
+	claims, err := common.Marshal(map[string]any{
+		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": "account-different"},
+	})
+	require.NoError(t, err)
+	previousExchange := exchangeCodexOAuthCode
+	exchangeCodexOAuthCode = func(context.Context, string, string, string) (*service.CodexOAuthTokenResult, error) {
+		return &service.CodexOAuthTokenResult{
+			AccessToken:  "fixture." + base64.RawURLEncoding.EncodeToString(claims) + ".signature",
+			RefreshToken: "different-refresh",
+			ExpiresAt:    time.Now().Add(time.Hour),
+		}, nil
+	}
+	t.Cleanup(func() { exchangeCodexOAuthCode = previousExchange })
+	payload, err := common.Marshal(codexOAuthFlowPayload{Verifier: "synthetic-verifier", ChannelID: channel.Id, TargetCredentialDigest: codexCredentialDigest(channel.Key)})
+	require.NoError(t, err)
+	state, _, err := model.CreateAuthFlow(model.AuthFlowCreate{
+		Purpose: model.AuthFlowPurposeCodexOAuth, Provider: "openai", UserId: 42,
+		SessionId: "session-42", Payload: string(payload), ExpiresAt: time.Now().Add(time.Minute),
+	})
+	require.NoError(t, err)
+	body, err := common.Marshal(gin.H{"input": "code=fixture&state=" + state})
+	require.NoError(t, err)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/channel/codex/oauth/complete", strings.NewReader(string(body)))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Params = gin.Params{{Key: "id", Value: strconv.Itoa(channel.Id)}}
+	c.Set("id", 42)
+	c.Set("session_id", "session-42")
+	c.Set("auth_version", int64(1))
+	c.Set("session_version", int64(1))
+
+	CompleteCodexOAuthForChannel(c)
+
+	assert.Equal(t, http.StatusConflict, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), `"code":"CODEX_CREDENTIAL_SUBJECT_CONFLICT"`)
+	assert.NotContains(t, recorder.Body.String(), "different-refresh")
+	var stored model.Channel
+	require.NoError(t, model.DB.First(&stored, channel.Id).Error)
+	assert.Equal(t, channel.Key, stored.Key)
+}
+
+func establishCodexControllerCredentialEvidence(t *testing.T, channelID int, credential, accountID string) {
+	t.Helper()
+	setupChannelQuotaIdentityFixture(t, model.DB)
+	require.NoError(t, model.DB.AutoMigrate(&model.ChannelQuotaSnapshot{}))
+	keyring, err := common.LoadChannelQuotaIdentityKeyring()
+	require.NoError(t, err)
+	provider := "channel_type_" + strconv.Itoa(constant.ChannelTypeCodex)
+	credentialIdentity, err := model.ResolveChannelQuotaIdentity(t.Context(), model.DB, keyring, provider, common.ChannelQuotaIdentityKindCredential, []byte(credential))
+	require.NoError(t, err)
+	accountIdentity, err := model.ResolveChannelQuotaIdentity(t.Context(), model.DB, keyring, provider, common.ChannelQuotaIdentityKindProviderAccount, []byte(accountID))
+	require.NoError(t, err)
+	now := time.Now().Unix()
+	require.NoError(t, model.DB.Create(&model.ChannelQuotaSamplingTarget{
+		ChannelID: channelID, SubjectRef: credentialIdentity.SubjectRef, IdentityQuality: credentialIdentity.Quality,
+		ConfirmedSubjectRef: accountIdentity.SubjectRef, Active: true, LastResult: "sampled", CreatedAt: now, UpdatedAt: now,
+	}).Error)
+	require.NoError(t, model.DB.Create(&model.ChannelQuotaSnapshot{
+		ChannelId: channelID, SubjectRef: accountIdentity.SubjectRef, IdentityQuality: accountIdentity.Quality,
+		CodexObservationQualified: true, ObservedAt: now, MetricType: "codex_rate_limit", WindowType: "five_hour",
+		WindowSeconds: 18000, ResetAt: now + 18000, Source: "codex_wham_usage_primary", Status: "success", Unit: "percent",
+	}).Error)
+}
+
+func codexControllerAccountJWT(t *testing.T, accountID string) string {
+	t.Helper()
+	claims, err := common.Marshal(map[string]any{
+		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
+	})
+	require.NoError(t, err)
+	return "fixture." + base64.RawURLEncoding.EncodeToString(claims) + ".signature"
 }

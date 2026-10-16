@@ -65,6 +65,9 @@ const (
 const MsgCodexOAuthModelNameTooLong = "codex_oauth.model_name_too_long"
 const MsgCodexOAuthInvalidCreate = "codex_oauth.invalid_create"
 const MsgCodexOAuthInvalidSettings = "codex_oauth.invalid_settings"
+const MsgCodexCredentialSubjectUnknown = "codex_credential.subject_unknown"
+const MsgCodexCredentialSubjectMismatch = "codex_credential.subject_mismatch"
+const MsgCodexCredentialSafeUpdateRequired = "codex_credential.safe_update_required"
 const MsgPaymentManualCompleteQuotaUnitUnresolved = "payment.manual_complete_quota_unit_unresolved"
 const MsgPaymentPricingUnavailable = "payment.pricing_unavailable"
 

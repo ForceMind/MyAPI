@@ -8,6 +8,7 @@ import (
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/middleware"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/service"
@@ -103,20 +104,29 @@ func ImportCodexLocalAuthForChannel(c *gin.Context) {
 	if !writeCodexLocalAuthUnavailable(c, inspection, key) {
 		return
 	}
-	encoded, err := common.Marshal(key)
-	if err != nil {
-		common.ApiError(c, errors.New("failed to prepare Codex credential"))
-		return
-	}
-	newKey := string(encoded)
-	updated, updateErr := model.UpdateChannelCredentialIfUnchanged(
+	updated, updateErr := service.ReplaceCodexChannelCredentialFromImport(
 		c.Request.Context(),
 		channel.Id,
-		constant.ChannelTypeCodex,
 		channel.Key,
-		newKey,
+		key,
 	)
 	if updateErr != nil {
+		if errors.Is(updateErr, service.ErrCodexCredentialSubjectUnknown) {
+			c.JSON(http.StatusConflict, gin.H{
+				"success": false,
+				"code":    "CODEX_CREDENTIAL_SUBJECT_UNKNOWN",
+				"message": common.TranslateMessage(c, i18n.MsgCodexCredentialSubjectUnknown),
+			})
+			return
+		}
+		if errors.Is(updateErr, service.ErrCodexCredentialSubjectMismatch) {
+			c.JSON(http.StatusConflict, gin.H{
+				"success": false,
+				"code":    "CODEX_CREDENTIAL_SUBJECT_CONFLICT",
+				"message": common.TranslateMessage(c, i18n.MsgCodexCredentialSubjectMismatch),
+			})
+			return
+		}
 		common.ApiError(c, updateErr)
 		return
 	}

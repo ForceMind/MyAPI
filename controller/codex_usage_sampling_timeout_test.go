@@ -48,6 +48,7 @@ func TestCodexSamplingSharesOneDeadlineAcrossUsageRefreshAndRetry(t *testing.T) 
 		Key: `{"access_token":"fixture-access","refresh_token":"fixture-refresh","account_id":"fixture-account"}`,
 	}
 	require.NoError(t, db.Create(channel).Error)
+	establishCodexControllerCredentialEvidence(t, channel.Id, channel.Key, "fixture-account")
 	client, err := service.GetHttpClientWithProxy("")
 	require.NoError(t, err)
 	previousTransport := client.Transport
@@ -66,7 +67,7 @@ func TestCodexSamplingSharesOneDeadlineAcrossUsageRefreshAndRetry(t *testing.T) 
 			status = http.StatusUnauthorized
 			body = `{}`
 		} else if request.URL.Path == "/oauth/token" {
-			body = `{"access_token":"fixture-replacement","refresh_token":"fixture-refresh-replacement","expires_in":3600}`
+			body = `{"access_token":"` + codexControllerAccountJWT(t, "fixture-account") + `","refresh_token":"fixture-refresh-replacement","expires_in":3600}`
 		}
 		return &http.Response{StatusCode: status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body)), Request: request}, nil
 	})
@@ -80,7 +81,7 @@ func TestCodexSamplingSharesOneDeadlineAcrossUsageRefreshAndRetry(t *testing.T) 
 	require.Equal(t, deadlines[0], deadlines[2], "retry must not restart the sample budget")
 	require.False(t, deadlines[1].After(deadlines[0]), "credential refresh must fit inside the same budget")
 	var snapshots []model.ChannelQuotaSnapshot
-	require.NoError(t, db.Where("channel_id = ?", channel.Id).Find(&snapshots).Error)
+	require.NoError(t, db.Where("channel_id = ? AND sample_id <> ?", channel.Id, "").Find(&snapshots).Error)
 	require.Len(t, snapshots, 1)
 	require.Equal(t, "success", snapshots[0].Status)
 }
@@ -112,6 +113,7 @@ func TestCodexSamplingHonorsShorterCallerDeadlineAndRecordsTimeout(t *testing.T)
 		Key: `{"access_token":"fixture-access","account_id":"fixture-account"}`,
 	}
 	require.NoError(t, db.Create(channel).Error)
+	establishCodexControllerCredentialEvidence(t, channel.Id, channel.Key, "fixture-account")
 	err = sampleCodexChannelUsage(ctx, channel)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	var snapshot model.ChannelQuotaSnapshot
@@ -132,6 +134,7 @@ func TestCodexSamplingRefreshWriteFailureIsReportedAndSafelyRecorded(t *testing.
 	channel := &model.Channel{Id: 44, Type: constant.ChannelTypeCodex, BaseURL: &baseURL,
 		Key: `{"access_token":"fixture-access","refresh_token":"fixture-refresh","account_id":"fixture-account"}`}
 	require.NoError(t, db.Create(channel).Error)
+	establishCodexControllerCredentialEvidence(t, channel.Id, channel.Key, "fixture-account")
 	require.NoError(t, db.Callback().Update().Before("gorm:update").Register("fixture_reject_credential_update", func(tx *gorm.DB) {
 		if tx.Statement.Schema != nil && tx.Statement.Schema.Table == "channels" && tx.Statement.Changed("Key") {
 			tx.AddError(errors.New("fixture credential write unavailable"))
@@ -146,7 +149,7 @@ func TestCodexSamplingRefreshWriteFailureIsReportedAndSafelyRecorded(t *testing.
 		requests++
 		status, body := http.StatusUnauthorized, `{}`
 		if request.URL.Path == "/oauth/token" {
-			status, body = http.StatusOK, `{"access_token":"fixture-replacement","refresh_token":"fixture-rotated","expires_in":3600}`
+			status, body = http.StatusOK, `{"access_token":"`+codexControllerAccountJWT(t, "fixture-account")+`","refresh_token":"fixture-rotated","expires_in":3600}`
 		}
 		return &http.Response{StatusCode: status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body)), Request: request}, nil
 	})
@@ -158,7 +161,7 @@ func TestCodexSamplingRefreshWriteFailureIsReportedAndSafelyRecorded(t *testing.
 	require.Equal(t, 2, requests, "do not report a successful retry while rotating credentials were lost")
 	require.NotContains(t, sampleErr.Error(), "fixture-rotated")
 	var snapshot model.ChannelQuotaSnapshot
-	require.NoError(t, db.First(&snapshot).Error)
+	require.NoError(t, db.Where("channel_id = ? AND error_code = ?", channel.Id, "credential_persist_failed").First(&snapshot).Error)
 	require.Equal(t, "error", snapshot.Status)
 	require.Equal(t, "credential_persist_failed", snapshot.ErrorCode)
 }
@@ -175,6 +178,7 @@ func TestManualCodexUsageFailsAndRecordsCredentialPersistenceError(t *testing.T)
 	channel := &model.Channel{Id: 46, Type: constant.ChannelTypeCodex, BaseURL: &baseURL,
 		Key: `{"access_token":"fixture-access","refresh_token":"fixture-refresh","account_id":"fixture-account"}`}
 	require.NoError(t, db.Create(channel).Error)
+	establishCodexControllerCredentialEvidence(t, channel.Id, channel.Key, "fixture-account")
 	require.NoError(t, db.Callback().Update().Before("gorm:update").Register("fixture_reject_manual_credential_update", func(tx *gorm.DB) {
 		if tx.Statement.Schema != nil && tx.Statement.Schema.Table == "channels" && tx.Statement.Changed("Key") {
 			tx.AddError(errors.New("fixture credential write unavailable"))
@@ -188,7 +192,7 @@ func TestManualCodexUsageFailsAndRecordsCredentialPersistenceError(t *testing.T)
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Header:     make(http.Header),
-			Body:       io.NopCloser(strings.NewReader(`{"access_token":"fixture-replacement","refresh_token":"fixture-rotated","expires_in":3600}`)),
+			Body:       io.NopCloser(strings.NewReader(`{"access_token":"` + codexControllerAccountJWT(t, "fixture-account") + `","refresh_token":"fixture-rotated","expires_in":3600}`)),
 			Request:    request,
 		}, nil
 	})
@@ -212,7 +216,7 @@ func TestManualCodexUsageFailsAndRecordsCredentialPersistenceError(t *testing.T)
 	assert.NotContains(t, recorder.Body.String(), "fixture-rotated")
 	assert.Equal(t, 1, fetchCalls, "a persistence failure must stop before retrying usage")
 	var snapshot model.ChannelQuotaSnapshot
-	require.NoError(t, db.Where("channel_id = ?", channel.Id).First(&snapshot).Error)
+	require.NoError(t, db.Where("channel_id = ? AND error_code = ?", channel.Id, "credential_persist_failed").First(&snapshot).Error)
 	assert.Equal(t, "credential_persist_failed", snapshot.ErrorCode)
 	var lockCount int64
 	require.NoError(t, db.Model(&model.SystemTaskLock{}).Count(&lockCount).Error)
@@ -232,6 +236,7 @@ func TestCodexSamplingSavesRotatedCredentialsAfterRequestCancellation(t *testing
 		Key: `{"access_token":"fixture-access","refresh_token":"fixture-refresh","account_id":"fixture-account"}`}
 	oldCredential := channel.Key
 	require.NoError(t, db.Create(channel).Error)
+	establishCodexControllerCredentialEvidence(t, channel.Id, channel.Key, "fixture-account")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	writes := 0
@@ -257,7 +262,7 @@ func TestCodexSamplingSavesRotatedCredentialsAfterRequestCancellation(t *testing
 		status, body := http.StatusUnauthorized, `{}`
 		if request.URL.Path == "/oauth/token" {
 			cancel()
-			status, body = http.StatusOK, `{"access_token":"fixture-replacement","refresh_token":"fixture-rotated","expires_in":3600}`
+			status, body = http.StatusOK, `{"access_token":"`+codexControllerAccountJWT(t, "fixture-account")+`","refresh_token":"fixture-rotated","expires_in":3600}`
 		}
 		return &http.Response{StatusCode: status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body)), Request: request}, nil
 	})
@@ -270,7 +275,7 @@ func TestCodexSamplingSavesRotatedCredentialsAfterRequestCancellation(t *testing
 	require.NoError(t, err)
 	require.Equal(t, "fixture-rotated", storedKey.RefreshToken)
 	var snapshot model.ChannelQuotaSnapshot
-	require.NoError(t, db.First(&snapshot).Error)
+	require.NoError(t, db.Where("channel_id = ? AND error_code = ?", channel.Id, "sampling_canceled").First(&snapshot).Error)
 	require.Equal(t, "sampling_canceled", snapshot.ErrorCode)
 	keyring, err := common.LoadChannelQuotaIdentityKeyring()
 	require.NoError(t, err)

@@ -748,6 +748,22 @@ func RefreshCodexChannelCredential(c *gin.Context) {
 	oauthKey, ch, err := service.RefreshCodexChannelCredential(ctx, channelId, service.CodexCredentialRefreshOptions{ResetCaches: true})
 	if err != nil {
 		common.SysError("failed to refresh codex channel credential: " + err.Error())
+		if errors.Is(err, service.ErrCodexCredentialSubjectUnknown) {
+			c.JSON(http.StatusConflict, gin.H{
+				"success": false,
+				"code":    "CODEX_CREDENTIAL_SUBJECT_UNKNOWN",
+				"message": common.TranslateMessage(c, i18n.MsgCodexCredentialSubjectUnknown),
+			})
+			return
+		}
+		if errors.Is(err, service.ErrCodexCredentialSubjectMismatch) {
+			c.JSON(http.StatusConflict, gin.H{
+				"success": false,
+				"code":    "CODEX_CREDENTIAL_SUBJECT_CONFLICT",
+				"message": common.TranslateMessage(c, i18n.MsgCodexCredentialSubjectMismatch),
+			})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "刷新凭证失败，请稍后重试"})
 		return
 	}
@@ -1199,6 +1215,26 @@ func UpdateChannel(c *gin.Context) {
 
 	// Always copy the original ChannelInfo so that fields like IsMultiKey and MultiKeySize are retained.
 	channel.ChannelInfo = originChannel.ChannelInfo
+	requestedType := originChannel.Type
+	if _, provided := requestData["type"]; provided {
+		requestedType = channel.Type
+	}
+	if requestedType != originChannel.Type && (requestedType == constant.ChannelTypeCodex || originChannel.Type == constant.ChannelTypeCodex) {
+		c.JSON(http.StatusConflict, gin.H{
+			"success": false,
+			"code":    "CODEX_CREDENTIAL_UPDATE_REQUIRES_SECURE_FLOW",
+			"message": common.TranslateMessage(c, i18n.MsgCodexCredentialSafeUpdateRequired),
+		})
+		return
+	}
+	if _, keyProvided := requestData["key"]; originChannel.Type == constant.ChannelTypeCodex && keyProvided && channel.Key != "" && channel.Key != originChannel.Key {
+		c.JSON(http.StatusConflict, gin.H{
+			"success": false,
+			"code":    "CODEX_CREDENTIAL_UPDATE_REQUIRES_SECURE_FLOW",
+			"message": common.TranslateMessage(c, i18n.MsgCodexCredentialSafeUpdateRequired),
+		})
+		return
+	}
 
 	if channelHasSensitiveChanges(&channel, originChannel, requestData) &&
 		!authz.Can(c.GetInt("id"), c.GetInt("role"), authz.ChannelSensitiveWrite) {

@@ -2,6 +2,9 @@ playground.image_provider_unsupported: "本版本不支持通过此提供方路�
 playground.file_provider_unsupported: "内嵌 PDF 需要兼容 OpenAI 文件输入的路由；当前提供方路由暂不支持"
 usage_dispatch.pending: "该请求不能再次发送，请先核对其用量结算状态。"
 # Chinese (Simplified) translations
+codex_credential.subject_unknown: "无法确认此凭据对应的账号，请核对账号或重新授权；上游刷新可能已替换其 refresh token。"
+codex_credential.subject_mismatch: "此凭据属于其他账号，请建立独立目标渠道并使用账号迁移流程。"
+codex_credential.safe_update_required: "请通过 Codex 重新授权或已验证的本地导入替换凭据，普通渠道编辑不能替换账号。"
 token_budget.unsupported: "严格预算仅支持合格的官方 OpenAI Responses 纯文本或 gpt-6.1-sol Chat 纯文本，须明确输出上限并采用非免费按 Token 计价；Chat 按完整 1,050,000 Token 上下文上界预留"
 token_budget.pending: "此 Key 有尚未处理的用量预留，后续请求已暂停"
 token_budget.exceeded: "本次请求的 Token 预留上限超过可用预算"

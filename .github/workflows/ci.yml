@@ -201,6 +201,9 @@ jobs:
       - name: Verify assigned access and in-app account events under race detector
         run: go test -race -p 1 ./model ./service/accesspolicy ./service ./middleware ./controller ./router ./relay/channel -run '^Test(AssignedAccess|AssignedPolicy|AssignedModelRoute|NormalizeAssigned|EvaluateAssigned|ChannelQuotaAlert|ChannelQuotaEvents|CodexEventObservation|ListChannelQuotaAlert)' -count=1 -timeout=180s
 
+      - name: Verify credential migration and sampling proofs under race detector
+        run: go test -race -p 1 ./model ./service ./controller ./router -run '^Test(TokenMaintenance|TokenAccountMigration|NormalizeTokenAccountMigration|SamplingTargetProof|EnsureSamplingTargetUpgradesLegacyProofState|ValidateTrustedCodexCredentialContinuity)' -count=1 -timeout=180s
+
       - name: Verify io.net and cache codec boundaries under race detector
         env:
           GOMAXPROCS: '1'
@@ -374,6 +377,8 @@ jobs:
         run: |
           go test -p 1 ./model -run '^TestSubscriptionShareConfiguredDatabases$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestTokenModelLimitsConfiguredDatabases$' -count=1 -timeout=180s -v
+          go test -p 1 ./model -run '^TestTokenAccountMigrationConfiguredDatabases$' -count=1 -timeout=180s -v
+          go test -p 1 ./model -run '^TestSamplingTargetProofConfiguredDatabases$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^Test(ChannelQuotaIdentity|OfficialPriceVersion|R1UsageReview|PricePublication|TokenBudget|PlaygroundToken|RelayAccountHold|OpenAIPriceCheck|ChannelQuotaAlert)ConfiguredDatabases$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestAccountQuotaConfiguredSchema(MySQLAndPostgres|SQLite)$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestChannelModel(Discovery|Route)ConfiguredDatabases$' -count=1 -timeout=180s -v
@@ -849,3 +854,62 @@ jobs:
           node --test tools/runtime/docker-smoke.test.mjs
           tools/runtime/sqlite-restore-smoke.test.mjs
           tools/runtime/handoff-upgrade-smoke.test.mjs
+
+  credential-maintenance:
+    name: Isolated credential maintenance browser and real API
+    needs: frontend
+    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOWORK: 'off'
+      GOMAXPROCS: '2'
+      GOMEMLIMIT: '768MiB'
+      NODE_OPTIONS: '--max-old-space-size=768'
+      MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-credential-browser/node_modules/playwright/index.mjs
+      MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-credential-browser-artifacts
+      MYAPI_CREDENTIAL_RUNTIME_ARTIFACTS: ${{ runner.temp }}/myapi-credential-runtime-artifacts
+    steps:
+      - name: Checkout qualified source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            relaykit/go.sum
+      - name: Set up Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+      - name: Download this run's exact production build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: myapi-console-build-${{ github.sha }}
+          path: web
+      - name: Install isolated browser tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/myapi-credential-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1
+          "$RUNNER_TEMP/myapi-credential-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Verify credential maintenance states on the production build
+        run: node tools/ui/credential-maintenance-browser.mjs
+      - name: Verify real Go migration and proof routes on disposable SQLite
+        if: ${{ !cancelled() }}
+        env:
+          MYAPI_CREDENTIAL_BROWSER_TESTS: '1'
+        run: go test -p 1 ./router -run '^TestTokenMaintenanceRuntimeBrowser$' -count=1 -timeout=240s -v
+      - name: Retain original credential screenshots and reports
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-credential-maintenance-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/myapi-credential-browser-artifacts/*.png
+            ${{ runner.temp }}/myapi-credential-browser-artifacts/*.json
+            ${{ runner.temp }}/myapi-credential-runtime-artifacts/**/*.png
+            ${{ runner.temp }}/myapi-credential-runtime-artifacts/**/*.json
+          if-no-files-found: error
+          retention-days: 7

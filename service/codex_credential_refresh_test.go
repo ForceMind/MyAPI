@@ -26,7 +26,7 @@ func (transport codexCredentialRefreshRoundTripper) RoundTrip(request *http.Requ
 	return transport(request)
 }
 
-func TestRefreshCodexChannelCredentialSerializesConcurrentRotationAndReusesWinner(t *testing.T) {
+func TestRefreshCodexChannelCredentialSerializesConcurrentRotationAndBlocksUnprovenStaleCaller(t *testing.T) {
 	previousDB := model.DB
 	previousMemoryCacheEnabled := common.MemoryCacheEnabled
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
@@ -46,6 +46,7 @@ func TestRefreshCodexChannelCredentialSerializesConcurrentRotationAndReusesWinne
 	}
 	require.NoError(t, db.Create(channel).Error)
 	expectedKey := channel.Key
+	establishCodexCredentialSubjectEvidence(t, db, channel.Id, channel.Key, "account-123456")
 
 	client, err := GetHttpClientWithProxy("")
 	require.NoError(t, err)
@@ -66,10 +67,11 @@ func TestRefreshCodexChannelCredentialSerializesConcurrentRotationAndReusesWinne
 			close(firstRequestStarted)
 			<-releaseFirstRequest
 		}
+		accessToken := codexCredentialTestJWT(t, "account-123456")
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Header:     make(http.Header),
-			Body:       io.NopCloser(strings.NewReader(`{"access_token":"winner-access","refresh_token":"winner-refresh","expires_in":3600}`)),
+			Body:       io.NopCloser(strings.NewReader(`{"access_token":"` + accessToken + `","refresh_token":"winner-refresh","expires_in":3600}`)),
 			Request:    request,
 		}, nil
 	})
@@ -88,13 +90,23 @@ func TestRefreshCodexChannelCredentialSerializesConcurrentRotationAndReusesWinne
 	go refresh()
 	close(releaseFirstRequest)
 
+	successes := 0
+	unknowns := 0
 	for range 2 {
 		result := <-results
-		require.NoError(t, result.err)
+		if result.err != nil {
+			assert.ErrorIs(t, result.err, ErrCodexCredentialSubjectUnknown)
+			assert.Nil(t, result.key)
+			unknowns++
+			continue
+		}
 		require.NotNil(t, result.key)
-		assert.Equal(t, "winner-access", result.key.AccessToken)
+		assert.Equal(t, "account-123456", result.key.AccountID)
 		assert.Equal(t, "winner-refresh", result.key.RefreshToken)
+		successes++
 	}
+	assert.Equal(t, 1, successes)
+	assert.Equal(t, 1, unknowns)
 	assert.Equal(t, int32(1), requestCount.Load(), "only the gate winner may rotate the upstream refresh token")
 	assert.True(t, leaseVisible.Load(), "the distributed lease must exist before the upstream refresh starts")
 	assert.GreaterOrEqual(t, leaseUntil.Load(), time.Now().Add(15*time.Second).Unix())
@@ -106,6 +118,23 @@ func TestRefreshCodexChannelCredentialSerializesConcurrentRotationAndReusesWinne
 	var lockCount int64
 	require.NoError(t, db.Model(&model.SystemTaskLock{}).Count(&lockCount).Error)
 	assert.Zero(t, lockCount)
+}
+
+func TestValidateTrustedCodexCredentialContinuityRequiresSameSubject(t *testing.T) {
+	previousDB := model.DB
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Channel{}))
+	model.DB = db
+	t.Cleanup(func() { model.DB = previousDB })
+
+	channel := &model.Channel{Type: constant.ChannelTypeCodex, Key: "current"}
+	require.NoError(t, db.Create(channel).Error)
+	establishCodexCredentialSubjectEvidence(t, db, channel.Id, "expected", "account-a")
+	establishCodexCredentialSubjectEvidence(t, db, channel.Id, "current", "account-b")
+
+	err = validateTrustedCodexCredentialContinuity(t.Context(), channel.Id, "expected", "current")
+	assert.ErrorIs(t, err, ErrCodexCredentialSubjectMismatch)
 }
 
 func TestRefreshCodexChannelCredentialPersistsRotatedTokenAfterRequestCancellation(t *testing.T) {
@@ -127,6 +156,7 @@ func TestRefreshCodexChannelCredentialPersistsRotatedTokenAfterRequestCancellati
 		Key:  `{"access_token":"old-access","refresh_token":"old-refresh","account_id":"account-123456"}`,
 	}
 	require.NoError(t, db.Create(channel).Error)
+	establishCodexCredentialSubjectEvidence(t, db, channel.Id, channel.Key, "account-123456")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	require.NoError(t, db.Callback().Update().Before("gorm:update").Register("test:inspect_codex_persistence_context", func(tx *gorm.DB) {
@@ -143,10 +173,11 @@ func TestRefreshCodexChannelCredentialPersistsRotatedTokenAfterRequestCancellati
 	t.Cleanup(func() { client.Transport = previousTransport })
 	client.Transport = codexCredentialRefreshRoundTripper(func(request *http.Request) (*http.Response, error) {
 		cancel()
+		accessToken := codexCredentialTestJWT(t, "account-123456")
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Header:     make(http.Header),
-			Body:       io.NopCloser(strings.NewReader(`{"access_token":"new-access","refresh_token":"new-refresh","expires_in":3600}`)),
+			Body:       io.NopCloser(strings.NewReader(`{"access_token":"` + accessToken + `","refresh_token":"new-refresh","expires_in":3600}`)),
 			Request:    request,
 		}, nil
 	})
@@ -160,7 +191,7 @@ func TestRefreshCodexChannelCredentialPersistsRotatedTokenAfterRequestCancellati
 	require.NoError(t, db.First(&stored, channel.Id).Error)
 	storedCredential, err := parseCodexOAuthKey(stored.Key)
 	require.NoError(t, err)
-	assert.Equal(t, "new-access", storedCredential.AccessToken)
+	assert.Equal(t, "account-123456", storedCredential.AccountID)
 	assert.Equal(t, "new-refresh", storedCredential.RefreshToken)
 	var lockCount int64
 	require.NoError(t, db.Model(&model.SystemTaskLock{}).Count(&lockCount).Error)

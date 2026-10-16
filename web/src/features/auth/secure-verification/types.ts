@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 export type VerificationMethod = '2fa' | 'passkey'
 
 export type SecurityProofScope =
+  | 'token.account_migration'
   | 'channel.key.read'
   | 'channel.codex.local_import'
   | 'passkey.register'

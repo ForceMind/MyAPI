@@ -20,6 +20,8 @@ type ChannelQuotaSamplingTarget struct {
 	Active              bool   `json:"-" gorm:"not null;index:idx_channel_quota_sampling_ready,priority:1"`
 	LastAttemptAt       int64  `json:"-" gorm:"type:bigint;not null;default:0;index:idx_channel_quota_sampling_ready,priority:3"`
 	LastResult          string `json:"-" gorm:"type:varchar(24);not null;default:''"`
+	EvidenceVersion     int64  `json:"-" gorm:"type:bigint;not null;default:0"`
+	VerifiedSnapshotID  int    `json:"-" gorm:"not null;default:0"`
 	CreatedAt           int64  `json:"-" gorm:"type:bigint;not null"`
 	UpdatedAt           int64  `json:"-" gorm:"type:bigint;not null"`
 }
@@ -33,6 +35,14 @@ type ChannelQuotaSamplingExpansion struct {
 	ExpectedCursor int64
 	NextCursor     int64
 }
+
+type ChannelQuotaSamplingProof struct {
+	ExpectedVersion int64
+	SampleID        string
+}
+
+var ErrChannelQuotaSamplingProofInvalid = errors.New("channel quota sampling proof is invalid")
+var ErrChannelQuotaSamplingProofStale = errors.New("channel quota sampling proof version is stale")
 
 func (ChannelQuotaSamplingTarget) TableName() string { return "channel_quota_sampling_targets" }
 
@@ -48,16 +58,43 @@ func EnsureChannelQuotaSamplingTarget(ctx context.Context, db *gorm.DB, channelI
 	if err != nil {
 		return err
 	}
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return activateChannelQuotaSamplingTarget(tx, channelID, identity, now)
+	})
+}
+
+func activateChannelQuotaSamplingTarget(tx *gorm.DB, channelID int, identity ChannelQuotaSamplingIdentity, now int64) error {
 	candidate := ChannelQuotaSamplingTarget{
 		ChannelID: channelID, SubjectRef: identity.SubjectRef, IdentityQuality: identity.IdentityQuality,
-		Active: true, CreatedAt: now, UpdatedAt: now,
+		Active: true, EvidenceVersion: 1, VerifiedSnapshotID: 0, CreatedAt: now, UpdatedAt: now,
 	}
-	return db.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "channel_id"}, {Name: "subject_ref"}},
-		DoUpdates: clause.Assignments(map[string]any{
-			"identity_quality": identity.IdentityQuality, "active": true, "updated_at": now,
-		}),
-	}).Create(&candidate).Error
+	if err := tx.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "channel_id"}, {Name: "subject_ref"}},
+		DoNothing: true,
+	}).Create(&candidate).Error; err != nil {
+		return err
+	}
+	var target ChannelQuotaSamplingTarget
+	if err := lockForUpdate(tx).Where("channel_id = ? AND subject_ref = ?", channelID, identity.SubjectRef).First(&target).Error; err != nil {
+		return err
+	}
+	updates := map[string]any{
+		"identity_quality": identity.IdentityQuality,
+		"active":           true,
+		"updated_at":       now,
+	}
+	if !target.Active || target.EvidenceVersion <= 0 || target.IdentityQuality != identity.IdentityQuality {
+		nextVersion := target.EvidenceVersion + 1
+		if target.EvidenceVersion <= 0 {
+			nextVersion = 1
+		}
+		if nextVersion <= 0 {
+			return errors.New("channel quota sampling evidence version exhausted")
+		}
+		updates["evidence_version"] = nextVersion
+		updates["verified_snapshot_id"] = 0
+	}
+	return tx.Model(&ChannelQuotaSamplingTarget{}).Where("id = ?", target.ID).Updates(updates).Error
 }
 
 func SyncChannelQuotaSamplingTargets(ctx context.Context, db *gorm.DB, channelID int, expectedChannelKey string, complete bool, identities []ChannelQuotaSamplingIdentity, expansion ...ChannelQuotaSamplingExpansion) ([]ChannelQuotaSamplingTarget, error) {
@@ -116,11 +153,7 @@ func SyncChannelQuotaSamplingTargets(ctx context.Context, db *gorm.DB, channelID
 		}
 		for _, ref := range refs {
 			identity := seen[ref]
-			candidate := ChannelQuotaSamplingTarget{ChannelID: channelID, SubjectRef: ref, IdentityQuality: identity.IdentityQuality, Active: true, CreatedAt: now, UpdatedAt: now}
-			if err := tx.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "channel_id"}, {Name: "subject_ref"}},
-				DoUpdates: clause.Assignments(map[string]any{"identity_quality": identity.IdentityQuality, "active": true, "updated_at": now}),
-			}).Create(&candidate).Error; err != nil {
+			if err := activateChannelQuotaSamplingTarget(tx, channelID, identity, now); err != nil {
 				return err
 			}
 		}
@@ -157,7 +190,7 @@ func SyncChannelQuotaSamplingTargets(ctx context.Context, db *gorm.DB, channelID
 	return targets, err
 }
 
-func MarkChannelQuotaSamplingTargetAttempt(ctx context.Context, db *gorm.DB, channelID int, subjectRef, result, confirmedSubjectRef string) error {
+func MarkChannelQuotaSamplingTargetAttempt(ctx context.Context, db *gorm.DB, channelID int, subjectRef, result, confirmedSubjectRef string, proofs ...ChannelQuotaSamplingProof) error {
 	if db == nil || channelID <= 0 || !canonicalChannelQuotaIdentitySubject(subjectRef) {
 		return gorm.ErrInvalidDB
 	}
@@ -166,15 +199,24 @@ func MarkChannelQuotaSamplingTargetAttempt(ctx context.Context, db *gorm.DB, cha
 	}
 	result = strings.TrimSpace(result)
 	confirmedSubjectRef = strings.TrimSpace(confirmedSubjectRef)
-	if result == "" || len(result) > 24 || confirmedSubjectRef != "" && !canonicalChannelQuotaIdentitySubject(confirmedSubjectRef) {
+	if result == "" || len(result) > 24 || confirmedSubjectRef != "" && !canonicalChannelQuotaIdentitySubject(confirmedSubjectRef) || len(proofs) > 1 {
 		return errors.New("invalid quota sampling target result")
+	}
+	var proof *ChannelQuotaSamplingProof
+	if len(proofs) == 1 {
+		candidate := proofs[0]
+		candidate.SampleID = strings.TrimSpace(candidate.SampleID)
+		if result != "sampled" || candidate.ExpectedVersion <= 0 || candidate.SampleID == "" || len(candidate.SampleID) > 36 {
+			return ErrChannelQuotaSamplingProofInvalid
+		}
+		proof = &candidate
 	}
 	operation := func(tx *gorm.DB) error {
 		if err := lockChannelQuotaSnapshotBatch(tx, channelID); err != nil {
 			return err
 		}
 		var target ChannelQuotaSamplingTarget
-		if err := tx.Select("id", "confirmed_subject_ref").
+		if err := tx.Select("id", "identity_quality", "confirmed_subject_ref", "evidence_version", "verified_snapshot_id").
 			Where("channel_id = ? AND subject_ref = ? AND active = ?", channelID, subjectRef, true).
 			First(&target).Error; err != nil {
 			return err
@@ -188,11 +230,34 @@ func MarkChannelQuotaSamplingTargetAttempt(ctx context.Context, db *gorm.DB, cha
 			groupSubjectRef = target.ConfirmedSubjectRef
 		}
 		updates := map[string]any{"last_attempt_at": databaseNow, "last_result": result, "updated_at": databaseNow}
+		if result != "sampled" && result != "duplicate" {
+			updates["verified_snapshot_id"] = 0
+		}
 		if confirmedSubjectRef != "" {
 			updates["confirmed_subject_ref"] = confirmedSubjectRef
 		}
+		if proof != nil {
+			if target.EvidenceVersion != proof.ExpectedVersion {
+				return ErrChannelQuotaSamplingProofStale
+			}
+			if target.IdentityQuality != ChannelQuotaIdentityQualityCredentialScoped || groupSubjectRef == "" {
+				return ErrChannelQuotaSamplingProofInvalid
+			}
+			var snapshot ChannelQuotaSnapshot
+			if err := tx.Select("id").
+				Where("channel_id = ? AND subject_ref = ? AND identity_quality = ? AND sample_id = ?", channelID, groupSubjectRef, ChannelQuotaIdentityQualityProviderConfirmed, proof.SampleID).
+				Where("codex_observation_qualified = ? AND codex_threshold_qualified = ? AND status = ?", true, true, "success").
+				Where("metric_type = ? AND source IN ?", "codex_rate_limit", []string{codexQuotaWindowPrimarySource, codexQuotaWindowSecondarySource}).
+				Order("id ASC").First(&snapshot).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return ErrChannelQuotaSamplingProofInvalid
+				}
+				return err
+			}
+			updates["verified_snapshot_id"] = snapshot.Id
+		}
 		updated := tx.Model(&ChannelQuotaSamplingTarget{}).
-			Where("id = ? AND active = ?", target.ID, true).
+			Where("id = ? AND active = ? AND evidence_version = ?", target.ID, true, target.EvidenceVersion).
 			Updates(updates)
 		if updated.Error != nil {
 			return updated.Error

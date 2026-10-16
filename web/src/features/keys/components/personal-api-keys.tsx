@@ -24,6 +24,7 @@ import {
   Pause,
   Play,
   Search,
+  ShieldCheck,
   SlidersHorizontal,
   ListFilter,
 } from 'lucide-react'
@@ -69,6 +70,7 @@ import { getSubscriptionShare } from '../subscription-share-api'
 import type { ApiKey } from '../types'
 import { ApiKeysPrimaryButtons } from './api-keys-primary-buttons'
 import { useApiKeys } from './api-keys-provider'
+import { CredentialMaintenanceDialog } from './credential-maintenance-dialog'
 import { DataTableRowActions } from './data-table-row-actions'
 import { SubscriptionShareDialog } from './subscription-share-dialog'
 
@@ -112,6 +114,7 @@ function PersonalApiKeysSession(props: {
   const [searchInput, setSearchInput] = useState(props.filter)
   const keyword = props.filter
   const [editingKey, setEditingKey] = useState<ApiKey | null>(null)
+  const [maintenanceKey, setMaintenanceKey] = useState<ApiKey | null>(null)
   const client = useQueryClient()
   const { refreshTrigger } = useApiKeys()
   const query = useQuery({
@@ -245,6 +248,7 @@ function PersonalApiKeysSession(props: {
               role={props.role}
               sessionId={props.sessionId}
               onEdit={() => setEditingKey(item)}
+              onMaintain={() => setMaintenanceKey(item)}
             />
           ))}
         </div>
@@ -273,6 +277,12 @@ function PersonalApiKeysSession(props: {
           </Button>
         </nav>
       )}
+      {maintenanceKey && (
+        <CredentialMaintenanceDialog
+          tokenId={maintenanceKey.id}
+          onClose={() => setMaintenanceKey(null)}
+        />
+      )}
     </main>
   )
 }
@@ -283,6 +293,7 @@ function PersonalApiKeyCard(props: {
   role?: number
   sessionId: string | null
   onEdit: () => void
+  onMaintain: () => void
 }) {
   const { t } = useTranslation()
   const { setCurrentRow, setOpen } = useApiKeys()
@@ -527,6 +538,16 @@ function PersonalApiKeyCard(props: {
           <ListFilter aria-hidden='true' />
           {t('Model scope')}
         </Button>
+        {props.role === 100 && (
+          <Button
+            className='h-auto min-h-10 whitespace-normal'
+            variant='outline'
+            onClick={props.onMaintain}
+          >
+            <ShieldCheck data-icon='inline-start' aria-hidden='true' />
+            {t('Credential maintenance')}
+          </Button>
+        )}
         <Button
           className='h-auto min-h-10 whitespace-normal'
           variant='ghost'
@@ -561,7 +582,12 @@ function PersonalApiKeyCard(props: {
           </summary>
           {advancedOpen && (
             <div className='mt-3 min-w-0'>
-              <DataTableRowActions apiKey={props.apiKey} />
+              <DataTableRowActions
+                apiKey={props.apiKey}
+                onCredentialMaintenance={
+                  props.role === 100 ? props.onMaintain : undefined
+                }
+              />
             </div>
           )}
         </details>

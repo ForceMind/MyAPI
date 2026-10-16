@@ -84,25 +84,30 @@ func TestImportCodexLocalAuthForChannelUsesConditionalCredentialUpdate(t *testin
 	setupCodexLocalAuthControllerDB(t)
 	afterInspection := false
 	queriesAfterInspection := 0
+	newCredential := &service.CodexOAuthKey{
+		IDToken:      "new-identity-secret",
+		AccessToken:  "new-access-secret",
+		RefreshToken: "new-refresh-secret",
+		AccountID:    "account-123456",
+		Type:         "codex",
+	}
 	original := inspectCodexLocalAuth
 	inspectCodexLocalAuth = func(bool) (service.CodexLocalAuthInspection, *service.CodexOAuthKey) {
 		afterInspection = true
-		return readyCodexLocalAuthInspection(), &service.CodexOAuthKey{
-			IDToken:      "new-identity-secret",
-			AccessToken:  "new-access-secret",
-			RefreshToken: "new-refresh-secret",
-			AccountID:    "account-123456",
-			Type:         "codex",
-		}
+		return readyCodexLocalAuthInspection(), newCredential
 	}
 	t.Cleanup(func() { inspectCodexLocalAuth = original })
 	require.NoError(t, model.DB.Callback().Query().Before("gorm:query").Register("test:detect_full_cache_reload", func(tx *gorm.DB) {
-		if afterInspection && (tx.Statement.Table == "channels" || tx.Statement.Table == "abilities") {
+		if afterInspection && (tx.Statement.Table == "abilities" || strings.Contains(tx.Statement.SQL.String(), "JOIN abilities")) {
 			queriesAfterInspection++
 		}
 	}))
-	channel := &model.Channel{Type: constant.ChannelTypeCodex, Name: "Existing Codex", Key: `{"access_token":"old"}`, Models: "gpt-5-codex", Group: "default", Status: 1}
+	channel := &model.Channel{Type: constant.ChannelTypeCodex, Name: "Existing Codex", Key: `{"access_token":"old","account_id":"account-123456"}`, Models: "gpt-5-codex", Group: "default", Status: 1}
 	require.NoError(t, model.InsertChannelWithAbilities(t.Context(), channel))
+	establishCodexControllerCredentialEvidence(t, channel.Id, channel.Key, "account-123456")
+	encodedNewCredential, err := common.Marshal(newCredential)
+	require.NoError(t, err)
+	establishCodexControllerCredentialEvidence(t, channel.Id+1000, string(encodedNewCredential), "account-123456")
 	recorder, context := codexLocalAuthTestContext(t, http.MethodPost, "/api/channel/1/codex/local-auth/import", "")
 	context.Params = gin.Params{{Key: "id", Value: strconv.Itoa(channel.Id)}}
 
@@ -118,6 +123,52 @@ func TestImportCodexLocalAuthForChannelUsesConditionalCredentialUpdate(t *testin
 	var stored model.Channel
 	require.NoError(t, model.DB.First(&stored, channel.Id).Error)
 	assert.Contains(t, stored.Key, "new-access-secret")
+}
+
+func TestImportCodexLocalAuthForChannelRejectsDifferentAccount(t *testing.T) {
+	setupCodexLocalAuthControllerDB(t)
+	channel := &model.Channel{Type: constant.ChannelTypeCodex, Name: "Existing Codex", Key: `{"access_token":"old","account_id":"account-original"}`, Models: "gpt-5-codex", Group: "default", Status: 1}
+	require.NoError(t, model.InsertChannelWithAbilities(t.Context(), channel))
+	establishCodexControllerCredentialEvidence(t, channel.Id, channel.Key, "account-original")
+	replacement := &service.CodexOAuthKey{
+		AccessToken:  "replacement-access",
+		RefreshToken: "replacement-refresh",
+		AccountID:    "account-different",
+		Type:         "codex",
+	}
+	stubCodexLocalAuthInspection(t, readyCodexLocalAuthInspection(), replacement)
+	encodedReplacement, err := common.Marshal(replacement)
+	require.NoError(t, err)
+	establishCodexControllerCredentialEvidence(t, channel.Id+1000, string(encodedReplacement), "account-different")
+	recorder, context := codexLocalAuthTestContext(t, http.MethodPost, "/api/channel/1/codex/local-auth/import", "")
+	context.Params = gin.Params{{Key: "id", Value: strconv.Itoa(channel.Id)}}
+
+	ImportCodexLocalAuthForChannel(context)
+
+	assert.Equal(t, http.StatusConflict, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), `"code":"CODEX_CREDENTIAL_SUBJECT_CONFLICT"`)
+	assert.NotContains(t, recorder.Body.String(), "replacement-access")
+	var stored model.Channel
+	require.NoError(t, model.DB.First(&stored, channel.Id).Error)
+	assert.Equal(t, channel.Key, stored.Key)
+}
+
+func TestImportCodexLocalAuthForChannelRejectsUnknownSubject(t *testing.T) {
+	setupCodexLocalAuthControllerDB(t)
+	channel := &model.Channel{Type: constant.ChannelTypeCodex, Name: "Existing Codex", Key: `{"access_token":"old","account_id":"account-original"}`, Models: "gpt-5-codex", Group: "default", Status: 1}
+	require.NoError(t, model.InsertChannelWithAbilities(t.Context(), channel))
+	establishCodexControllerCredentialEvidence(t, channel.Id, channel.Key, "account-original")
+	stubCodexLocalAuthInspection(t, readyCodexLocalAuthInspection(), &service.CodexOAuthKey{
+		AccessToken: "unknown-access", RefreshToken: "unknown-refresh", AccountID: "unknown-account", Type: "codex",
+	})
+	recorder, context := codexLocalAuthTestContext(t, http.MethodPost, "/api/channel/1/codex/local-auth/import", "")
+	context.Params = gin.Params{{Key: "id", Value: strconv.Itoa(channel.Id)}}
+
+	ImportCodexLocalAuthForChannel(context)
+
+	assert.Equal(t, http.StatusConflict, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), `"code":"CODEX_CREDENTIAL_SUBJECT_UNKNOWN"`)
+	assert.NotContains(t, recorder.Body.String(), "unknown-access")
 }
 
 func TestImportCodexLocalAuthForChannelDoesNotOverwriteConcurrentCredential(t *testing.T) {
@@ -136,6 +187,11 @@ func TestImportCodexLocalAuthForChannelDoesNotOverwriteConcurrentCredential(t *t
 		}
 	}
 	t.Cleanup(func() { inspectCodexLocalAuth = original })
+	establishCodexControllerCredentialEvidence(t, channel.Id, channel.Key, "account-123456")
+	localCredential := &service.CodexOAuthKey{AccessToken: "local-access-secret", RefreshToken: "local-refresh-secret", AccountID: "account-123456", Type: "codex"}
+	encodedLocalCredential, err := common.Marshal(localCredential)
+	require.NoError(t, err)
+	establishCodexControllerCredentialEvidence(t, channel.Id+1000, string(encodedLocalCredential), "account-123456")
 	recorder, context := codexLocalAuthTestContext(t, http.MethodPost, "/api/channel/1/codex/local-auth/import", "")
 	context.Params = gin.Params{{Key: "id", Value: strconv.Itoa(channel.Id)}}
 
@@ -168,6 +224,7 @@ func TestImportCodexLocalAuthSameTargetStillDetectsConcurrentK0ToK1(t *testing.T
 		return readyCodexLocalAuthInspection(), localCredential
 	}
 	t.Cleanup(func() { inspectCodexLocalAuth = original })
+	establishCodexControllerCredentialEvidence(t, channel.Id, channel.Key, "account-123456")
 	recorder, context := codexLocalAuthTestContext(t, http.MethodPost, "/api/channel/1/codex/local-auth/import", "")
 	context.Params = gin.Params{{Key: "id", Value: strconv.Itoa(channel.Id)}}
 

@@ -29,6 +29,7 @@ import {
   Loader2,
   Gauge,
   ListFilter,
+  ShieldCheck,
 } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -75,8 +76,16 @@ function getServerAddress(): string {
 }
 
 type DataTableRowActionsProps<TData> =
-  | { row: Row<TData>; apiKey?: never }
-  | { apiKey: ApiKey; row?: never }
+  | {
+      row: Row<TData>
+      apiKey?: never
+      onCredentialMaintenance?: () => void
+    }
+  | {
+      apiKey: ApiKey
+      row?: never
+      onCredentialMaintenance?: () => void
+    }
 
 export function DataTableRowActions<TData = ApiKey>(
   props: DataTableRowActionsProps<TData>
@@ -291,6 +300,14 @@ export function DataTableRowActions<TData = ApiKey>(
             <ListFilter />
           </DropdownMenuShortcut>
         </DropdownMenuItem>
+        {props.onCredentialMaintenance && (
+          <DropdownMenuItem onClick={props.onCredentialMaintenance}>
+            {t('Credential maintenance')}
+            <DropdownMenuShortcut>
+              <ShieldCheck />
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem
           onClick={() => {
             setCurrentRow(apiKey)
