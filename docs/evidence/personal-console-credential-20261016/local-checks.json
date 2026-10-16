@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "scope": "Local cached targeted verification performed during beta.18 implementation; full build/type/Vitest/Chromium and configured databases were executed in Actions",
+  "checks": [
+    {
+      "area": "Final migration model incl pre-apply unknown regression",
+      "result": "passed",
+      "durationSeconds": 11.916,
+      "verification": "go test -p 1 ./model (targeted TokenMaintenance/TokenAccountMigration/SamplingTarget cases)"
+    },
+    {
+      "area": "Maintenance API and router 412/503 contract",
+      "result": "passed",
+      "packageSeconds": {
+        "controller": 0.877,
+        "router": 0.53
+      },
+      "verification": "go test -p 1 ./controller ./router (targeted maintenance cases)"
+    },
+    {
+      "area": "Codex native sampling timeout fixture",
+      "result": "passed",
+      "durationSeconds": 0.108,
+      "verification": "go test -p 1 ./controller -run TestCodexSampling"
+    },
+    {
+      "area": "Credential proof / refresh continuity / sampling",
+      "result": "passed",
+      "scope": "Cached targeted model/service/controller tests; isolated TLS loopback when required"
+    },
+    {
+      "area": "New user copy",
+      "result": "passed",
+      "scope": "78 new English-source keys in seven locales via controlled add-missing-keys script; i18n sync and placeholder check"
+    },
+    {
+      "area": "Modified frontend source",
+      "result": "passed",
+      "scope": "Cached oxfmt/oxlint; no local node_modules or browser install"
+    },
+    {
+      "area": "Driver and workflow syntax",
+      "result": "passed",
+      "scope": "node --check for both credential drivers; YAML and artifact-poll shell syntax; git diff --check"
+    },
+    {
+      "area": "Non-secret pending operation helper",
+      "result": "passed",
+      "scope": "Direct real-function manual contract: save/read, actor/Token isolation, conflict and expected-operation compare-and-clear; not a replacement for RTL"
+    },
+    {
+      "area": "Actual read-only preview",
+      "result": "passed",
+      "scope": "Exact CI frontend /keys and maintenance GET200; both mutation POSTs405; see preview-checks.json"
+    }
+  ],
+  "environment": "Disposable data and /tmp Go cache; no real credentials or production database",
+  "limits": "Only relevant targeted tests were run locally; complete CI evidence is recorded separately."
+}

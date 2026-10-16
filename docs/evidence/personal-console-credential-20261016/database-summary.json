@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "sourceHead": "6274bac5e0c0d8a618a4a6083c59f1cfe39d561c",
+  "checkout": "6a7c4ec18f99fabf810052e9549b64f72ba76367",
+  "run": 38911014066,
+  "job": 117006748806,
+  "environment": "Disposable SQLite, MySQL 5.7 and PostgreSQL 9.6 in existing Actions B2 job",
+  "newContracts": {
+    "TestTokenAccountMigrationConfiguredDatabases": {
+      "sqlite": "passed; executed, not skipped",
+      "mysql": "passed; executed, not skipped",
+      "postgres": "passed; executed, not skipped"
+    },
+    "TestSamplingTargetProofConfiguredDatabases": {
+      "sqlite": "passed; executed, not skipped",
+      "mysql": "passed; executed, not skipped",
+      "postgres": "passed; executed, not skipped"
+    }
+  },
+  "selectedPassLines": [
+    "2026-10-16T13:54:59.2089656Z --- PASS: TestTokenAccountMigrationConfiguredDatabases (3.06s)",
+    "2026-10-16T13:54:59.2095710Z     --- PASS: TestTokenAccountMigrationConfiguredDatabases/sqlite (0.23s)",
+    "2026-10-16T13:54:59.2096966Z         --- PASS: TestTokenAccountMigrationConfiguredDatabases/sqlite/concurrent_different_operations_have_one_winner (0.03s)",
+    "2026-10-16T13:54:59.2098118Z         --- PASS: TestTokenAccountMigrationConfiguredDatabases/sqlite/concurrent_identical_operation_replays (0.03s)",
+    "2026-10-16T13:54:59.2098878Z     --- PASS: TestTokenAccountMigrationConfiguredDatabases/mysql (0.79s)",
+    "2026-10-16T13:54:59.2099817Z         --- PASS: TestTokenAccountMigrationConfiguredDatabases/mysql/concurrent_different_operations_have_one_winner (0.17s)",
+    "2026-10-16T13:54:59.2101376Z         --- PASS: TestTokenAccountMigrationConfiguredDatabases/mysql/concurrent_identical_operation_replays (0.13s)",
+    "2026-10-16T13:54:59.2102154Z     --- PASS: TestTokenAccountMigrationConfiguredDatabases/postgres (2.04s)",
+    "2026-10-16T13:54:59.2103165Z         --- PASS: TestTokenAccountMigrationConfiguredDatabases/postgres/concurrent_different_operations_have_one_winner (0.13s)",
+    "2026-10-16T13:54:59.2104591Z         --- PASS: TestTokenAccountMigrationConfiguredDatabases/postgres/concurrent_identical_operation_replays (0.10s)",
+    "2026-10-16T13:55:02.5058208Z --- PASS: TestSamplingTargetProofConfiguredDatabases (0.36s)",
+    "2026-10-16T13:55:02.5059154Z     --- PASS: TestSamplingTargetProofConfiguredDatabases/sqlite (0.04s)",
+    "2026-10-16T13:55:02.5060240Z     --- PASS: TestSamplingTargetProofConfiguredDatabases/mysql (0.12s)",
+    "2026-10-16T13:55:02.5061176Z     --- PASS: TestSamplingTargetProofConfiguredDatabases/postgres (0.21s)"
+  ],
+  "boundary": "No production database or credentials; this file is a derived redacted summary, not the raw workflow log."
+}

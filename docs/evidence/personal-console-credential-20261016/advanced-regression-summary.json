@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "run": 38911014066,
+  "job": 117006748938,
+  "artifact": 12049819284,
+  "checkout": "6a7c4ec18f99fabf810052e9549b64f72ba76367",
+  "reports": [
+    {
+      "report": "advanced-window-qualification.json",
+      "journeys": 17,
+      "result": "passed",
+      "errors": 0,
+      "source": "6a7c4ec18f99fabf810052e9549b64f72ba76367"
+    },
+    {
+      "report": "advanced-model-scope-qualification.json",
+      "journeys": 17,
+      "result": "passed",
+      "errors": 0,
+      "source": "6a7c4ec18f99fabf810052e9549b64f72ba76367"
+    },
+    {
+      "report": "advanced-security-qualification.json",
+      "journeys": 20,
+      "result": "passed",
+      "errors": 0,
+      "source": "6a7c4ec18f99fabf810052e9549b64f72ba76367"
+    }
+  ],
+  "totalJourneys": 54,
+  "boundary": "Derived summary of current production-build synthetic advanced-maintenance regression. Passkey uses a Chromium virtual authenticator. Original reports and PNGs remain in this Actions artifact; prior beta.17 visual evidence is retained separately."
+}

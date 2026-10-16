@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "applicationSourceHead": "6274bac5e0c0d8a618a4a6083c59f1cfe39d561c",
+  "applicationTree": "0c9218cbf4faf2845033e61fdf46f563dd11256f",
+  "ciCheckout": "6a7c4ec18f99fabf810052e9549b64f72ba76367",
+  "ciCheckoutTree": "0c9218cbf4faf2845033e61fdf46f563dd11256f",
+  "run": 38911014066,
+  "jobs": {
+    "maintenance": 117006748662,
+    "databases": 117006748806,
+    "frontend": 117006748938,
+    "backend": 117006748810
+  },
+  "artifacts": [
+    {
+      "id": 12049869105,
+      "name": "myapi-console-build-6a7c4ec18f99fabf810052e9549b64f72ba76367",
+      "use": "Production frontend and routeTree; original download is under /tmp, not a deployment"
+    },
+    {
+      "id": 12050048188,
+      "name": "myapi-credential-maintenance-6a7c4ec18f99fabf810052e9549b64f72ba76367",
+      "use": "21 original PNGs and 3 original reports archived byte-for-byte"
+    }
+  ],
+  "version": "0.2.0-beta.18",
+  "indexSha256": "37dfed715745bb37df331628eb8332b08562b04b7af5421c8d91dca9c4a32801",
+  "originalLogoSha256": "59402599f35c05534c2269f5d279b3cb2af2adf23e5bc79215534f12347b4428",
+  "identityBoundary": "Branch SHA and PR checkout SHA differ; trees are equal. Do not describe distinct build IDs or binary bytes as identical.",
+  "additionalRegressionArtifacts": [
+    {
+      "id": 12052140542,
+      "name": "myapi-ui-browser-6a7c4ec18f99fabf810052e9549b64f72ba76367"
+    },
+    {
+      "id": 12052001126,
+      "name": "myapi-access-browser-6a7c4ec18f99fabf810052e9549b64f72ba76367"
+    },
+    {
+      "id": 12051686802,
+      "name": "myapi-routing-browser-6a7c4ec18f99fabf810052e9549b64f72ba76367"
+    },
+    {
+      "id": 12051570092,
+      "name": "myapi-personal-console-6a7c4ec18f99fabf810052e9549b64f72ba76367"
+    },
+    {
+      "id": 12051257842,
+      "name": "myapi-quota-browser-6a7c4ec18f99fabf810052e9549b64f72ba76367"
+    },
+    {
+      "id": 12051125300,
+      "name": "myapi-frontend-tests-6a7c4ec18f99fabf810052e9549b64f72ba76367"
+    },
+    {
+      "id": 12049819284,
+      "name": "myapi-advanced-maintenance-6a7c4ec18f99fabf810052e9549b64f72ba76367"
+    }
+  ]
+}
