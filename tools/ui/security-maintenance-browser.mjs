@@ -675,9 +675,16 @@ async function verifyPasskey(page, scenario, state) {
   assert.equal(await enable.isEnabled(), true, 'Virtual authenticator is detected')
   state.stage = 'passkey-register'
   await enable.click()
-  await card
-    .getByRole('button', { name: t('Remove Passkey'), exact: true })
-    .waitFor()
+  const remove = card.getByRole('button', {
+    name: t('Remove Passkey'),
+    exact: true,
+  })
+  await remove.waitFor()
+  const removeBounds = await remove.boundingBox()
+  assert(
+    removeBounds && removeBounds.height >= 44,
+    'Remove Passkey keeps a full-height touch target'
+  )
   assert.equal(state.counts.passkeyBegin, 1)
   assert.equal(state.counts.passkeyFinish, 1)
   assert.equal(
@@ -686,6 +693,7 @@ async function verifyPasskey(page, scenario, state) {
     'The Passkey status read uses the rotated bearer token'
   )
   state.stage = 'passkey-complete'
+  return removeBounds.height
 }
 
 async function verifyTwoFA(page, scenario, state) {
@@ -781,15 +789,34 @@ async function verifySessions(page, scenario, state) {
 async function verifyAndRecoverSecurityReads(page, scenario, state) {
   const t = (key) => tr(key, scenario.language)
   const cards = [
-    [t('Passkey Login'), t('Failed to load Passkey status')],
-    [t('Two-Factor Authentication'), t('Unable to load settings')],
-    [t('Login sessions'), t('Unable to load login sessions')],
+    [t('Passkey Login'), t('Failed to load Passkey status'), 'passkey-failed'],
+    [
+      t('Two-Factor Authentication'),
+      t('Unable to load settings'),
+      'two-fa-failed',
+    ],
+    [t('Login sessions'), t('Unable to load login sessions'), 'sessions-failed'],
   ]
   for (const [heading, errorTitle] of cards) {
     const card = securityCard(page, heading)
     await card.getByText(errorTitle, { exact: true }).waitFor()
   }
   await screenshot(page, scenario, 'failed-statuses')
+  for (const [heading, , suffix] of cards) {
+    const file = `advanced-security-${scenario.name}-${suffix}.png`
+    await securityCard(page, heading).screenshot({
+      path: resolve(output, file),
+      animations: 'disabled',
+    })
+    report.screenshots.push({
+      file,
+      language: scenario.language,
+      width: scenario.width,
+      theme: scenario.theme,
+      state: `error-retry-${suffix}`,
+    })
+  }
+  persist()
   state.failSecurityReads = false
   for (const [heading] of cards) {
     const card = securityCard(page, heading)
@@ -1100,7 +1127,7 @@ try {
       await verifyPassword(page, flowScenario, state)
       state.stage = 'access-token'
       await verifyAccessToken(page, flowScenario, state)
-      await verifyPasskey(page, flowScenario, state)
+      const passkeyRemoveHeight = await verifyPasskey(page, flowScenario, state)
       await verifyTwoFA(page, flowScenario, state)
       await verifySessions(page, flowScenario, state)
       assert.equal(
@@ -1132,6 +1159,7 @@ try {
           boundary: 'Chromium CDP virtual authenticator; not real hardware',
           beginCalls: state.counts.passkeyBegin,
           finishCalls: state.counts.passkeyFinish,
+          removeTargetHeight: passkeyRemoveHeight,
           authRotationObservedOnStatusRead: state.passkeyRotationSeen,
         },
         twoFA: {

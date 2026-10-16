@@ -120,3 +120,11 @@ Docker实际首次模型PUT及GET均200，第二次打开未发GET。核对main.
 实际代码合同核对：2FA=false时无SecureVerification前置，options.publicKey与helper一致，finish/authrotation/status形状匹配；明确发现HTTP127.0.0.1 origin及RP ID不符合WebAuthn域名要求。[Chromium origins规则](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/content/browser/webauth/origins.md)与[W3C WebAuthn3](https://www.w3.org/TR/2026/REC-webauthn-3-20260825/)要求有效域名RP。现仅将合成driver改为localhost origin/RP ID，服务仍只bind127回环，不启用安全绕过flag。新增固定stage、安全数值计数、合法authrotation布尔、Passkey卡失败原图及真实WebAuthn序列化字段检查；不记录secret/header/原始token。剩余2FA/backup/sessions前置及响应也逐项对照实际API。
 
 主线程把CI既有advanced执行与上传block前移至browser-dependencies成功之后，较长旧矩阵之前先取得本批功能反馈；全部其它套件、条件、超时和断言保留，YAML解析及依赖顺序通过。产品/runtime输入仍与acba3f4一致，完整第七轮CI和实际Chromium结果待核对。
+
+## 第七轮功能通过后的实图P2修正
+
+48a1d89的1498单元/三库继续通过，高级窗口17/模型17/安全20全部通过。安全实际完成密码、Token、CDP Passkey、2FA、备份码、会话撤销，认证轮换及秘密关闭清理断言通过；有效localhost夹具已在真实Chromium中完成注册。
+
+非安全实现者实际像素审查发现已启用Passkey的Remove按钮淡红目标20px高，对比Disable2FA42px；AlertDialogTrigger覆盖data-slot且flex-1在column布局收缩，使个人Button44px选择器不命中。此为产品P2，功能passed不能代替视觉通过。仅该Button加min-h-11，driver真实boundingBox断言height>=44并将高度写入报告，不改全局组件。独立审查还指出手机failed-statuses原帧只见警告图标；现在失败阶段额外拍Passkey/2FA/sessions三张完整卡片原图，再恢复phase逐Retry。缓存格式/lint、nodecheck/diffcheck通过。
+
+最终第八轮CI验证按钮高度、三卡失败图和完整行为。Go/API/Key流程/runtime driver/依赖/版本与已成功Dockeracba3f4不变；新增profile按钮高度样式由最终production-build浏览器验证。Docker复用仅限其实际Go/Key旅程，不声称最终profile样式或二进制字节已由该旧运行覆盖，源码差异另列。

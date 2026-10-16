@@ -328,7 +328,7 @@ export function PasskeyCard({
                     render={
                       <Button
                         variant='destructive'
-                        className='flex-1'
+                        className='min-h-11 flex-1'
                         disabled={removing}
                       />
                     }
